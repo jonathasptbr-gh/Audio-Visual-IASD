@@ -6,45 +6,82 @@ class AVReceiver {
       displayImage: document.getElementById('display-image'),
       overlay: document.getElementById('transition-overlay'),
       connIndicator: document.getElementById('conn-indicator'),
+      connLabel: document.getElementById('conn-label'),
     };
 
     this.init();
   }
 
   async init() {
-    if (!navigator.presentation || !navigator.presentation.receiver) {
-      // Running standalone — show dev message
-      this.els.waitingScreen.querySelector('.waiting-subtitle').textContent =
-        'Abra via Presentation API a partir do controlador';
-      return;
-    }
+    this.initWebSocket();
 
+    if (navigator.presentation?.receiver) {
+      this.initPresentationReceiver();
+    }
+  }
+
+  // --- WebSocket transport (always active as fallback) ---
+
+  initWebSocket() {
+    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${proto}//${window.location.host}`;
+
+    const connect = () => {
+      try {
+        const ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          ws.send(JSON.stringify({ type: 'hello', role: 'receiver' }));
+          this.showConnectionIndicator('via rede local');
+        };
+
+        ws.onmessage = (e) => {
+          try {
+            const msg = JSON.parse(e.data);
+            this.handleMessage(msg);
+          } catch {}
+        };
+
+        ws.onclose = () => setTimeout(connect, 3000);
+      } catch {}
+    };
+
+    connect();
+  }
+
+  // --- Presentation API transport ---
+
+  async initPresentationReceiver() {
     try {
       const connectionList = await navigator.presentation.receiver.connectionList;
-      connectionList.connections.forEach((c) => this.handleConnection(c));
+      connectionList.connections.forEach((c) => this.handlePresentationConnection(c));
       connectionList.addEventListener('connectionavailable', (e) => {
-        this.handleConnection(e.connection);
+        this.handlePresentationConnection(e.connection);
       });
     } catch (err) {
       console.error('Receiver init error:', err);
     }
   }
 
-  handleConnection(connection) {
-    this.showConnectionIndicator();
+  handlePresentationConnection(connection) {
+    this.showConnectionIndicator('via Presentation API');
 
     connection.addEventListener('message', (e) => {
       try {
         const msg = JSON.parse(e.data);
         this.handleMessage(msg);
-      } catch (err) {
-        console.error('Message parse error:', err);
-      }
+      } catch {}
     });
 
-    connection.addEventListener('close', () => this.onDisconnect());
-    connection.addEventListener('terminate', () => this.onDisconnect());
+    connection.addEventListener('close', () => this.onPresentationDisconnect());
+    connection.addEventListener('terminate', () => this.onPresentationDisconnect());
   }
+
+  onPresentationDisconnect() {
+    // WebSocket still active, don't hide indicator
+  }
+
+  // --- Shared message handler ---
 
   handleMessage(msg) {
     if (msg.type === 'image') {
@@ -53,7 +90,6 @@ class AVReceiver {
   }
 
   showImage(src) {
-    // Fade to black, swap image, fade back in
     this.els.overlay.classList.add('active');
 
     setTimeout(() => {
@@ -66,17 +102,13 @@ class AVReceiver {
     }, 250);
   }
 
-  showConnectionIndicator() {
+  showConnectionIndicator(label) {
+    if (this.els.connLabel) this.els.connLabel.textContent = label;
     this.els.connIndicator.style.display = 'flex';
-    // Fade out after a few seconds
     clearTimeout(this._fadeTimer);
     this._fadeTimer = setTimeout(() => {
       this.els.connIndicator.classList.add('fade');
-    }, 3000);
-  }
-
-  onDisconnect() {
-    this.els.connIndicator.style.display = 'none';
+    }, 4000);
   }
 }
 
