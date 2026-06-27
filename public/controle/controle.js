@@ -94,7 +94,7 @@ AVDB.onCommand((cmd) => {
 });
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/controle/sw.js');
+  navigator.serviceWorker.register('sw.js');
 }
 
 render();

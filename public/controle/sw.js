@@ -1,13 +1,13 @@
 const CACHE = 'controle-v1';
 const ASSETS = [
-  '/controle/',
-  '/controle/index.html',
-  '/controle/controle.css',
-  '/controle/controle.js',
-  '/controle/manifest.json',
-  '/controle/icons/icon-192.svg',
-  '/controle/icons/icon-512.svg',
-  '/shared/db.js',
+  './',
+  './index.html',
+  './controle.css',
+  './controle.js',
+  './manifest.json',
+  './icons/icon-192.svg',
+  './icons/icon-512.svg',
+  '../shared/db.js',
 ];
 
 self.addEventListener('install', (e) => {

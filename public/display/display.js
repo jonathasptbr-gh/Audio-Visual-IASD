@@ -42,7 +42,7 @@ async function restore() {
 }
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/display/sw.js');
+  navigator.serviceWorker.register('sw.js');
 }
 
 restore();

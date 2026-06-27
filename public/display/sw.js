@@ -1,13 +1,13 @@
 const CACHE = 'display-v1';
 const ASSETS = [
-  '/display/',
-  '/display/index.html',
-  '/display/display.css',
-  '/display/display.js',
-  '/display/manifest.json',
-  '/display/icons/icon-192.svg',
-  '/display/icons/icon-512.svg',
-  '/shared/db.js',
+  './',
+  './index.html',
+  './display.css',
+  './display.js',
+  './manifest.json',
+  './icons/icon-192.svg',
+  './icons/icon-512.svg',
+  '../shared/db.js',
 ];
 
 self.addEventListener('install', (e) => {

@@ -41,6 +41,16 @@ public/
 server.js               # servidor estático mínimo (Node, sem dependências)
 ```
 
+## Testar online (GitHub Pages)
+
+A cada push na branch `main`, o GitHub Pages publica automaticamente a pasta
+`public/` (workflow em `.github/workflows/deploy.yml`):
+
+> https://jonathasptbr-gh.github.io/Audio-Visual-IASD/
+
+Como o site fica em uma subpasta, **todos os caminhos do projeto são relativos**
+(funcionam tanto em `localhost` quanto no Pages).
+
 ## Rodar localmente
 
 ```bash
@@ -48,7 +58,7 @@ npm start
 ```
 
 Acesse `http://localhost:3000`. Service workers funcionam em `localhost`; em
-produção é necessário **HTTPS**.
+produção é necessário **HTTPS** (o GitHub Pages já fornece).
 
 ### Instalar no Android
 
