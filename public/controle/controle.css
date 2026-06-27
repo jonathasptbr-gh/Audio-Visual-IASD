@@ -84,26 +84,30 @@ body {
 }
 #seek:disabled { opacity: .4; }
 
-.modes { display: flex; gap: .4rem; }
+.controls-row { display: flex; gap: .4rem; }
 
-.mode-btn {
+.ctl-btn {
   flex: 1;
-  padding: .5rem .2rem;
+  padding: .55rem .4rem;
   border: 2px solid transparent;
   border-radius: 10px;
   background: rgba(0, 0, 0, .22);
   color: #fff;
-  font-size: .72rem;
+  font-size: .82rem;
   font-weight: 600;
   cursor: pointer;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: .15rem;
+  justify-content: center;
+  gap: .4rem;
   -webkit-tap-highlight-color: transparent;
 }
-.mode-btn .msym { font-size: 22px; }
-.mode-btn.active { border-color: var(--accent); background: rgba(251, 192, 45, .18); }
+.ctl-btn .msym { font-size: 22px; }
+.ctl-btn:active { transform: scale(.97); }
+/* Toggle de visibilidade: destacado quando a mídia está na tela */
+#viewToggle.active { border-color: var(--accent); background: rgba(251, 192, 45, .18); }
+/* Botão de volume: vermelho quando mudo */
+#muteToggle.muted { border-color: #e53935; background: rgba(229, 57, 53, .18); color: #ffcdd2; }
 
 /* ---------- Conteúdo ---------- */
 

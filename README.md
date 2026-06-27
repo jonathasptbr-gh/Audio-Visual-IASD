@@ -35,14 +35,12 @@ Tudo funciona **100% offline** depois da primeira carga (service workers).
 - ⏮ Anterior · ▶/⏸ Play/Pause · ⏹ Parar · ⏭ Seguinte.
 - Barra de progresso com tempo (seek), sincronizada com o Display.
 
-### Modos de exibição (toggle)
-Controlam o que é apresentado da mídia atual. O comportamento se adapta ao tipo:
-
-| Modo | Imagem | Vídeo | Áudio |
-|------|--------|-------|-------|
-| 🖼️ **Wallpaper** | só wallpaper | só wallpaper | só wallpaper |
-| 🎬 **Visual** | imagem na tela | vídeo + áudio visível | wallpaper + áudio |
-| 🔊 **Wallpaper + Áudio** | só wallpaper | áudio do vídeo + wallpaper | áudio + wallpaper |
+### Visibilidade e áudio (independentes)
+- **Toggle Visual ↔ Wallpaper**: mostra a mídia na tela ou só o wallpaper. O
+  vídeo/áudio continua tocando mesmo com o wallpaper na tela — então "wallpaper
+  com o áudio do vídeo" é só: Wallpaper + não-mudo.
+- **Botão de volume/mudo**: mostra a porcentagem do volume e um ícone de
+  mudo/som; tocar liga/desliga o mudo. Para apresentar sem áudio, basta mutar.
 
 > Na primeira vez, toque uma vez no Display para liberar o áudio (política de
 > autoplay dos navegadores).

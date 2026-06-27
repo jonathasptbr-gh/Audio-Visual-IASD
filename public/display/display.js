@@ -3,15 +3,18 @@ const imgEl = document.getElementById('img');
 const videoEl = document.getElementById('video');
 const unlockEl = document.getElementById('unlock');
 
-let current = null;   // registro da mídia atual
-let mode = 'visual';
+let current = null;     // registro da mídia atual
+let view = 'visual';    // 'visual' (mídia na tela) | 'wallpaper' (só wallpaper)
+let muted = false;      // áudio no mudo
 let mediaUrl = null;
 let unlocked = false;
 
 // ---------- carregar / aplicar ----------
 
-async function loadMedia(id, newMode) {
-  if (newMode) mode = newMode;
+async function loadMedia(id, newView, newMuted) {
+  if (newView !== undefined) view = newView;
+  if (newMuted !== undefined) muted = newMuted;
+
   const record = await AVDB.getMedia(id);
   if (!record) { clearMedia(); return; }
   current = record;
@@ -19,7 +22,6 @@ async function loadMedia(id, newMode) {
   if (mediaUrl) URL.revokeObjectURL(mediaUrl);
   mediaUrl = URL.createObjectURL(record.blob);
 
-  // Reseta elementos
   imgEl.hidden = true;
   imgEl.removeAttribute('src');
   videoEl.pause();
@@ -31,11 +33,11 @@ async function loadMedia(id, newMode) {
   } else {
     // vídeo e áudio usam o mesmo elemento <video>
     videoEl.src = mediaUrl;
-    // toca automaticamente ao carregar (a menos que esteja em modo wallpaper)
-    if (mode !== 'wallpaper') tryPlay();
+    videoEl.muted = muted;
+    tryPlay();
   }
 
-  applyMode();
+  applyView();
 }
 
 function clearMedia() {
@@ -46,44 +48,33 @@ function clearMedia() {
   videoEl.removeAttribute('src');
   videoEl.load();
   if (mediaUrl) { URL.revokeObjectURL(mediaUrl); mediaUrl = null; }
-  applyMode();
+  applyView();
   sendStatus();
 }
 
-// Define o que aparece e o que toca, conforme o modo + tipo de mídia.
-function applyMode() {
+// Define apenas O QUE APARECE (wallpaper x mídia). O áudio é independente.
+function applyView() {
   const kind = current ? current.kind : null;
+  const visible = !!current && view === 'visual' && (kind === 'image' || kind === 'video');
 
-  // A mídia é VISÍVEL quando estamos no modo "visual" e ela tem imagem.
-  const visible = !!current && mode === 'visual' && (kind === 'image' || kind === 'video');
-  // O áudio TOCA nos modos "visual" e "wallaudio" (apenas vídeo/áudio).
-  const audible = !!current && mode !== 'wallpaper' && (kind === 'video' || kind === 'audio');
-
-  // Camada de imagem
   imgEl.hidden = !(visible && kind === 'image');
-  // Camada de vídeo (só visível como vídeo no modo visual)
   videoEl.hidden = !(visible && kind === 'video');
-
-  // Wallpaper fica visível sempre que a mídia não está ocupando a tela.
   wallpaperEl.style.display = visible ? 'none' : 'flex';
 
-  // Reprodução de vídeo/áudio
-  if (kind === 'video' || kind === 'audio') {
-    videoEl.muted = !audible;
-    if (mode === 'wallpaper') {
-      videoEl.pause();
-    }
-  }
+  // O vídeo/áudio continua tocando mesmo quando se mostra o wallpaper;
+  // só o mudo controla se há som.
+  videoEl.muted = muted;
 }
 
 // ---------- reprodução ----------
 
 function tryPlay() {
+  if (!current || (current.kind !== 'video' && current.kind !== 'audio')) return;
   const p = videoEl.play();
   if (p && p.catch) {
     p.catch(() => {
-      // Autoplay bloqueado -> pede toque para ativar.
-      if (!unlocked) unlockEl.classList.add('show');
+      // Autoplay com som bloqueado -> pede um toque para liberar.
+      if (!unlocked && !videoEl.muted) unlockEl.classList.add('show');
     });
   }
 }
@@ -91,18 +82,20 @@ function tryPlay() {
 function applyCommand(cmd) {
   switch (cmd.type) {
     case 'load':
-      loadMedia(cmd.mediaId, cmd.mode);
+      loadMedia(cmd.mediaId, cmd.view, cmd.muted);
       break;
-    case 'mode':
-      mode = cmd.mode;
-      applyMode();
-      if (current && (current.kind === 'video' || current.kind === 'audio')) {
-        if (mode === 'wallpaper') videoEl.pause();
-      }
+    case 'view':
+      view = cmd.view;
+      applyView();
+      sendStatus();
+      break;
+    case 'mute':
+      muted = cmd.muted;
+      videoEl.muted = muted;
       sendStatus();
       break;
     case 'play':
-      if (current && (current.kind === 'video' || current.kind === 'audio')) tryPlay();
+      tryPlay();
       break;
     case 'pause':
       videoEl.pause();
@@ -128,7 +121,9 @@ function sendStatus() {
     type: 'display-status',
     mediaId: current ? current.id : null,
     kind: current ? current.kind : null,
-    mode,
+    view,
+    muted: videoEl.muted,
+    volume: videoEl.volume,
     playing: isVideoLike ? !videoEl.paused : false,
     currentTime: isVideoLike ? videoEl.currentTime : 0,
     duration: isVideoLike ? videoEl.duration : 0,
@@ -139,6 +134,7 @@ videoEl.addEventListener('play', sendStatus);
 videoEl.addEventListener('pause', sendStatus);
 videoEl.addEventListener('timeupdate', sendStatus);
 videoEl.addEventListener('loadedmetadata', sendStatus);
+videoEl.addEventListener('volumechange', sendStatus);
 videoEl.addEventListener('ended', sendStatus);
 
 // ---------- desbloqueio de autoplay ----------
@@ -146,9 +142,7 @@ videoEl.addEventListener('ended', sendStatus);
 unlockEl.addEventListener('click', () => {
   unlocked = true;
   unlockEl.classList.remove('show');
-  if (current && (current.kind === 'video' || current.kind === 'audio') && mode !== 'wallpaper') {
-    tryPlay();
-  }
+  tryPlay();
 });
 
 // ---------- inicialização ----------
@@ -157,11 +151,12 @@ AVDB.onCommand((cmd) => { if (cmd) applyCommand(cmd); });
 
 async function restore() {
   const state = await AVDB.getState('current');
-  mode = (state && state.mode) || 'visual';
+  view = (state && state.view) || 'visual';
+  muted = !!(state && state.muted);
   if (state && state.mediaId) {
-    await loadMedia(state.mediaId, mode);
+    await loadMedia(state.mediaId, view, muted);
   } else {
-    applyMode();
+    applyView();
   }
   AVDB.sendCommand({ type: 'display-ready' });
 }

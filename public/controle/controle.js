@@ -11,23 +11,32 @@ const npNameEl = document.getElementById('npName');
 const seekEl = document.getElementById('seek');
 const curTimeEl = document.getElementById('curTime');
 const durTimeEl = document.getElementById('durTime');
-const modesEl = document.getElementById('modes');
+
+const viewToggleEl = document.getElementById('viewToggle');
+const viewLabelEl = document.getElementById('viewLabel');
+const muteToggleEl = document.getElementById('muteToggle');
+const volLabelEl = document.getElementById('volLabel');
 
 // Codepoints do subconjunto Material Symbols (ver material-symbols.css).
 const ICON = {
-  play: '\ue037',    // play_arrow
-  pause: '\ue034',   // pause
-  up: '\ue316',      // keyboard_arrow_up
-  down: '\ue313',    // keyboard_arrow_down
-  del: '\ue872',     // delete
-  music: '\ue3a1',   // music_note
-  broken: '\ue3ad',  // broken_image
+  play: '\ue037',      // play_arrow
+  pause: '\ue034',     // pause
+  up: '\ue316',        // keyboard_arrow_up
+  down: '\ue313',      // keyboard_arrow_down
+  del: '\ue872',       // delete
+  music: '\ue3a1',     // music_note
+  broken: '\ue3ad',    // broken_image
+  wallpaper: '\ue1bc', // wallpaper
+  visual: '\ue251',    // image
+  volOn: '\ue050',     // volume_up
+  volOff: '\ue04f',    // volume_off
 };
-const MODES = ['wallpaper', 'visual', 'wallaudio'];
 
 let items = [];           // playlist ordenada (mídias)
 let currentId = null;
-let mode = 'visual';
+let view = 'visual';      // 'visual' (mídia na tela) | 'wallpaper' (só wallpaper)
+let muted = false;        // áudio do display no mudo
+let volume = 1;           // 0..1 (informativo, vindo do display)
 let playing = false;
 let thumbUrls = [];       // object URLs de miniaturas a revogar entre renders
 
@@ -49,6 +58,10 @@ function msym(code) {
   s.className = 'msym';
   s.textContent = code;
   return s;
+}
+
+function persistCurrent() {
+  return AVDB.setState('current', { mediaId: currentId, view, muted, at: Date.now() });
 }
 
 // ---------- miniaturas ----------
@@ -122,16 +135,23 @@ async function load() {
   items = await AVDB.getPlaylist();
   const cur = await AVDB.getState('current');
   currentId = cur && cur.mediaId ? cur.mediaId : null;
-  mode = (cur && cur.mode) || 'visual';
-  renderModes();
+  view = (cur && cur.view) || 'visual';
+  muted = !!(cur && cur.muted);
+  renderControls();
   renderPlaylist();
   renderNowPlaying();
 }
 
-function renderModes() {
-  modesEl.querySelectorAll('.mode-btn').forEach((b) => {
-    b.classList.toggle('active', b.dataset.mode === mode);
-  });
+function renderControls() {
+  // Toggle de visibilidade (Visual <-> Wallpaper)
+  viewToggleEl.querySelector('.msym').textContent = view === 'visual' ? ICON.visual : ICON.wallpaper;
+  viewLabelEl.textContent = view === 'visual' ? 'Visual' : 'Wallpaper';
+  viewToggleEl.classList.toggle('active', view === 'visual');
+
+  // Botão de volume/mudo
+  muteToggleEl.querySelector('.msym').textContent = muted ? ICON.volOff : ICON.volOn;
+  volLabelEl.textContent = Math.round(volume * 100) + '%';
+  muteToggleEl.classList.toggle('muted', muted);
 }
 
 function renderPlaylist() {
@@ -209,17 +229,24 @@ function renderNowPlaying() {
 
 async function send(id) {
   currentId = id;
-  await AVDB.setState('current', { mediaId: id, mode, at: Date.now() });
-  AVDB.sendCommand({ type: 'load', mediaId: id, mode });
+  await persistCurrent();
+  AVDB.sendCommand({ type: 'load', mediaId: id, view, muted });
   renderPlaylist();
   renderNowPlaying();
 }
 
-async function setMode(newMode) {
-  mode = newMode;
-  await AVDB.setState('current', { mediaId: currentId, mode, at: Date.now() });
-  AVDB.sendCommand({ type: 'mode', mode });
-  renderModes();
+async function setView(v) {
+  view = v;
+  await persistCurrent();
+  AVDB.sendCommand({ type: 'view', view });
+  renderControls();
+}
+
+async function toggleMute() {
+  muted = !muted;
+  await persistCurrent();
+  AVDB.sendCommand({ type: 'mute', muted });
+  renderControls();
 }
 
 async function move(index, delta) {
@@ -236,7 +263,7 @@ async function remove(id) {
   if (id === currentId) {
     currentId = null;
     AVDB.sendCommand({ type: 'clear' });
-    await AVDB.setState('current', { mediaId: null, mode, at: Date.now() });
+    await persistCurrent();
   }
   load();
 }
@@ -264,7 +291,7 @@ fileEl.addEventListener('change', async () => {
 hideEl.addEventListener('click', async () => {
   currentId = null;
   AVDB.sendCommand({ type: 'clear' });
-  await AVDB.setState('current', { mediaId: null, mode, at: Date.now() });
+  await persistCurrent();
   load();
 });
 
@@ -282,10 +309,8 @@ seekEl.addEventListener('change', () => {
   AVDB.sendCommand({ type: 'seek', time: parseFloat(seekEl.value) });
 });
 
-modesEl.addEventListener('click', (e) => {
-  const btn = e.target.closest('.mode-btn');
-  if (btn) setMode(btn.dataset.mode);
-});
+viewToggleEl.addEventListener('click', () => setView(view === 'visual' ? 'wallpaper' : 'visual'));
+muteToggleEl.addEventListener('click', toggleMute);
 
 let seeking = false;
 seekEl.addEventListener('pointerdown', () => { seeking = true; });
@@ -300,15 +325,18 @@ AVDB.onCommand((cmd) => {
       currentId = cmd.mediaId;
       renderPlaylist();
     }
+    if (typeof cmd.volume === 'number') volume = cmd.volume;
+    if (typeof cmd.muted === 'boolean') muted = cmd.muted;
     durTimeEl.textContent = fmtTime(cmd.duration);
     if (!seeking) {
       seekEl.max = isFinite(cmd.duration) && cmd.duration > 0 ? cmd.duration : 0;
       seekEl.value = cmd.currentTime || 0;
       curTimeEl.textContent = fmtTime(cmd.currentTime);
     }
+    renderControls();
     renderNowPlaying();
   } else if (cmd.type === 'display-ready') {
-    if (currentId) AVDB.sendCommand({ type: 'load', mediaId: currentId, mode });
+    if (currentId) AVDB.sendCommand({ type: 'load', mediaId: currentId, view, muted });
   }
 });
 
