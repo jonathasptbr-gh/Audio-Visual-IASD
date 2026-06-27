@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IASD AV — Receptor</title>
+  <link rel="stylesheet" href="/css/receiver.css">
+</head>
+<body>
+
+  <!-- Waiting for connection -->
+  <div class="waiting-screen" id="waiting-screen">
+    <div class="waiting-logo">
+      <svg width="72" height="72" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="6" y="14" width="60" height="38" rx="5" stroke="#1f6feb" stroke-width="3"/>
+        <line x1="24" y1="52" x2="24" y2="62" stroke="#1f6feb" stroke-width="3" stroke-linecap="round"/>
+        <line x1="48" y1="52" x2="48" y2="62" stroke="#1f6feb" stroke-width="3" stroke-linecap="round"/>
+        <line x1="18" y1="62" x2="54" y2="62" stroke="#1f6feb" stroke-width="3" stroke-linecap="round"/>
+        <polygon points="28,24 28,44 48,34" fill="#1f6feb"/>
+      </svg>
+    </div>
+    <div class="waiting-title">IASD AV — Projeção</div>
+    <div class="waiting-subtitle">Aguardando conexão do controlador...</div>
+    <div class="waiting-dots">
+      <div class="waiting-dot"></div>
+      <div class="waiting-dot"></div>
+      <div class="waiting-dot"></div>
+    </div>
+  </div>
+
+  <!-- Image display -->
+  <div class="display-screen" id="display-screen">
+    <img class="display-image" id="display-image" alt="">
+  </div>
+
+  <!-- Black transition overlay -->
+  <div class="transition-overlay" id="transition-overlay"></div>
+
+  <!-- Connection indicator (fades after a few seconds) -->
+  <div class="connection-indicator" id="conn-indicator" style="display:none;">
+    <div class="conn-dot"></div>
+    Controlador conectado
+  </div>
+
+  <script src="/js/receiver.js"></script>
+</body>
+</html>
