@@ -11,9 +11,18 @@
   <link rel="stylesheet" href="display.css">
 </head>
 <body>
-  <div id="stage" class="stage">
-    <p id="placeholder" class="placeholder">Display pronto — aguardando o controle…</p>
-    <img id="image" class="image" alt="" hidden>
+  <div id="wallpaper" class="wallpaper">
+    <div class="wallpaper-brand">Audio Visual <span>IASD</span></div>
+  </div>
+
+  <img id="img" class="layer" alt="" hidden>
+  <video id="video" class="layer" playsinline hidden></video>
+
+  <div id="unlock" class="unlock">
+    <div class="unlock-box">
+      <div class="unlock-icon">▶</div>
+      <p>Toque para ativar o display</p>
+    </div>
   </div>
 
   <script src="../shared/db.js"></script>
