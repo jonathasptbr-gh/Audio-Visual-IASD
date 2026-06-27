@@ -71,6 +71,7 @@
     const record = {
       id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
       blob,
+      thumb: (meta && meta.thumb) || null,
       type: blob.type,
       kind: kindFromType(blob.type),
       name: (meta && meta.name) || 'sem-nome',
