@@ -29,10 +29,13 @@
       </div>
     </div>
 
-    <div class="modes" id="modes">
-      <button class="mode-btn" data-mode="wallpaper"><span class="msym">&#xe1bc;</span> Wallpaper</button>
-      <button class="mode-btn" data-mode="visual"><span class="msym">&#xe251;</span> Visual</button>
-      <button class="mode-btn" data-mode="wallaudio"><span class="msym">&#xe050;</span> Wallpaper + Áudio</button>
+    <div class="controls-row">
+      <button id="viewToggle" class="ctl-btn" title="Mostrar/ocultar mídia">
+        <span class="msym">&#xe251;</span><span id="viewLabel">Visual</span>
+      </button>
+      <button id="muteToggle" class="ctl-btn" title="Mudo (liga/desliga)">
+        <span class="msym">&#xe050;</span><span id="volLabel">100%</span>
+      </button>
     </div>
   </header>
 
