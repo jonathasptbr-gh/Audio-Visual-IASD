@@ -23,12 +23,29 @@ instala e trata como **dois apps distintos** — permitindo espelhar só o Displ
 
 Tudo funciona **100% offline** depois da primeira carga (service workers).
 
-## MVP atual
+## Funcionalidades
 
-- Adicionar imagens pelo Controle (ficam salvas offline no IndexedDB).
-- Tocar numa imagem no Controle → ela aparece no Display.
-- Botão "Ocultar no display" → limpa a tela do Display.
-- O Display restaura o último estado ao reabrir.
+### Playlist
+- Importar **imagens, vídeos e áudios** (vários de uma vez) pelo Controle.
+- Ficam salvos offline no IndexedDB, numa lista ordenável.
+- Reordenar (▲▼), renomear (editar o nome inline) e remover.
+- Tocar num item → envia para o Display.
+
+### Controle de mídia (barra fixa no topo)
+- ⏮ Anterior · ▶/⏸ Play/Pause · ⏹ Parar · ⏭ Seguinte.
+- Barra de progresso com tempo (seek), sincronizada com o Display.
+
+### Modos de exibição (toggle)
+Controlam o que é apresentado da mídia atual. O comportamento se adapta ao tipo:
+
+| Modo | Imagem | Vídeo | Áudio |
+|------|--------|-------|-------|
+| 🖼️ **Wallpaper** | só wallpaper | só wallpaper | só wallpaper |
+| 🎬 **Visual** | imagem na tela | vídeo + áudio visível | wallpaper + áudio |
+| 🔊 **Wallpaper + Áudio** | só wallpaper | áudio do vídeo + wallpaper | áudio + wallpaper |
+
+> Na primeira vez, toque uma vez no Display para liberar o áudio (política de
+> autoplay dos navegadores).
 
 ## Estrutura
 

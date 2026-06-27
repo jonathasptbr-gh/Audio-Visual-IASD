@@ -1,7 +1,7 @@
 // Camada de dados compartilhada entre os dois PWAs (Controle e Display).
-// Como ambos estão no MESMO domínio/origin, eles compartilham:
-//   - o mesmo IndexedDB  -> armazena as mídias (imagens) offline
-//   - o mesmo BroadcastChannel -> envia comandos em tempo real entre os apps
+// Mesmo domínio/origin => compartilham:
+//   - IndexedDB        -> mídias (imagens, vídeos, áudios) + ordem da playlist
+//   - BroadcastChannel -> comandos em tempo real entre os apps
 //
 // Exposto globalmente como `window.AVDB`.
 
@@ -46,38 +46,14 @@
     });
   }
 
-  // ---- Mídias -------------------------------------------------------------
-
-  async function addMedia(blob, meta) {
-    const record = {
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
-      blob,
-      type: blob.type,
-      name: (meta && meta.name) || 'sem-nome',
-      createdAt: Date.now(),
-    };
-    const s = await store(STORE_MEDIA, 'readwrite');
-    await asPromise(s.add(record));
-    return record;
+  function kindFromType(type) {
+    if (type.startsWith('image/')) return 'image';
+    if (type.startsWith('video/')) return 'video';
+    if (type.startsWith('audio/')) return 'audio';
+    return 'other';
   }
 
-  async function getMedia(id) {
-    const s = await store(STORE_MEDIA, 'readonly');
-    return asPromise(s.get(id));
-  }
-
-  async function getAllMedia() {
-    const s = await store(STORE_MEDIA, 'readonly');
-    const all = await asPromise(s.getAll());
-    return all.sort((a, b) => a.createdAt - b.createdAt);
-  }
-
-  async function deleteMedia(id) {
-    const s = await store(STORE_MEDIA, 'readwrite');
-    return asPromise(s.delete(id));
-  }
-
-  // ---- Estado atual (o que o display deve mostrar) ------------------------
+  // ---- Estado (chave/valor) ----------------------------------------------
 
   async function setState(key, value) {
     const s = await store(STORE_STATE, 'readwrite');
@@ -87,6 +63,66 @@
   async function getState(key) {
     const s = await store(STORE_STATE, 'readonly');
     return asPromise(s.get(key));
+  }
+
+  // ---- Mídias + playlist --------------------------------------------------
+
+  async function addMedia(blob, meta) {
+    const record = {
+      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
+      blob,
+      type: blob.type,
+      kind: kindFromType(blob.type),
+      name: (meta && meta.name) || 'sem-nome',
+      createdAt: Date.now(),
+    };
+    const s = await store(STORE_MEDIA, 'readwrite');
+    await asPromise(s.add(record));
+
+    const order = (await getState('order')) || [];
+    order.push(record.id);
+    await setState('order', order);
+
+    return record;
+  }
+
+  async function getMedia(id) {
+    const s = await store(STORE_MEDIA, 'readonly');
+    return asPromise(s.get(id));
+  }
+
+  async function renameMedia(id, name) {
+    const s = await store(STORE_MEDIA, 'readwrite');
+    const record = await asPromise(s.get(id));
+    if (!record) return;
+    record.name = name;
+    return asPromise(s.put(record));
+  }
+
+  async function deleteMedia(id) {
+    const s = await store(STORE_MEDIA, 'readwrite');
+    await asPromise(s.delete(id));
+    const order = (await getState('order')) || [];
+    await setState('order', order.filter((x) => x !== id));
+  }
+
+  // Retorna as mídias já na ordem da playlist.
+  async function getPlaylist() {
+    const s = await store(STORE_MEDIA, 'readonly');
+    const all = await asPromise(s.getAll());
+    const byId = new Map(all.map((m) => [m.id, m]));
+
+    let order = (await getState('order')) || [];
+    // Mantém só ids existentes...
+    order = order.filter((id) => byId.has(id));
+    // ...e acrescenta qualquer mídia que tenha ficado de fora (segurança).
+    for (const m of all) if (!order.includes(m.id)) order.push(m.id);
+
+    return order.map((id) => byId.get(id));
+  }
+
+  async function setOrder(ids) {
+    return setState('order', ids);
   }
 
   // ---- Canal de comandos em tempo real ------------------------------------
@@ -103,12 +139,15 @@
 
   global.AVDB = {
     openDB,
-    addMedia,
-    getMedia,
-    getAllMedia,
-    deleteMedia,
     setState,
     getState,
+    addMedia,
+    getMedia,
+    renameMedia,
+    deleteMedia,
+    getPlaylist,
+    setOrder,
+    kindFromType,
     sendCommand,
     onCommand,
   };
