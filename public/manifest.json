@@ -1,12 +1,12 @@
 {
   "name": "IASD AV - Projeção",
-  "short_name": "AV Controle",
-  "description": "Controlador de projeção audiovisual para segunda tela",
+  "short_name": "IASD AV",
+  "description": "Projeção de imagens em tela cheia para espelhamento em segunda tela",
   "start_url": "./",
-  "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#0d1117",
-  "theme_color": "#1f6feb",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "categories": ["productivity", "utilities"],
   "icons": [
     {

@@ -3,110 +3,85 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#0d1117">
+  <meta name="theme-color" content="#000000">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="AV Controle">
-  <title>IASD AV — Controlador</title>
+  <meta name="apple-mobile-web-app-title" content="IASD AV">
+  <title>IASD AV — Projeção</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="css/controller.css">
+  <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
 
-  <header class="app-header">
-    <div class="app-logo">
-      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="2" y="5" width="24" height="14" rx="2" stroke="#1f6feb" stroke-width="2"/>
-        <line x1="10" y1="19" x2="10" y2="23" stroke="#1f6feb" stroke-width="2" stroke-linecap="round"/>
-        <line x1="18" y1="19" x2="18" y2="23" stroke="#1f6feb" stroke-width="2" stroke-linecap="round"/>
-        <line x1="7" y1="23" x2="21" y2="23" stroke="#1f6feb" stroke-width="2" stroke-linecap="round"/>
-        <polygon points="11,9 11,15 17,12" fill="#1f6feb"/>
+  <!-- Stage: the surface that gets mirrored to the TV -->
+  <div class="stage">
+    <img class="stage-image" id="stage-image" alt="">
+  </div>
+
+  <!-- Black-out overlay -->
+  <div class="blackout" id="blackout"></div>
+
+  <!-- Empty / start state -->
+  <div class="empty-state" id="empty-state">
+    <div class="empty-logo">
+      <svg width="72" height="72" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="6" y="14" width="60" height="38" rx="5" stroke="#1f6feb" stroke-width="3"/>
+        <line x1="24" y1="52" x2="24" y2="62" stroke="#1f6feb" stroke-width="3" stroke-linecap="round"/>
+        <line x1="48" y1="52" x2="48" y2="62" stroke="#1f6feb" stroke-width="3" stroke-linecap="round"/>
+        <line x1="18" y1="62" x2="54" y2="62" stroke="#1f6feb" stroke-width="3" stroke-linecap="round"/>
+        <polygon points="28,24 28,44 48,34" fill="#1f6feb"/>
       </svg>
-      IASD AV
     </div>
-    <div class="status-badge" id="status-badge">
-      <div class="status-dot"></div>
-      <span id="status-text">Desconectado</span>
+    <div class="empty-title">IASD AV — Projeção</div>
+    <div class="empty-subtitle">
+      Espelhe esta tela na TV (SmartView) e selecione uma imagem.
+      Toque na tela para mostrar os controles.
     </div>
-  </header>
-
-  <main class="main">
-
-    <div class="not-supported" id="not-supported">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="10"/>
-        <line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+    <button class="btn btn-primary" id="btn-pick">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="18" height="18" rx="2"/>
+        <circle cx="8.5" cy="8.5" r="1.5"/>
+        <polyline points="21,15 16,10 5,21"/>
       </svg>
-      <span>Presentation API não suportada. Use o Google Chrome para projetar em segunda tela.</span>
-    </div>
+      Selecionar Imagem
+    </button>
+  </div>
 
-    <div class="card">
-      <div class="section-title">Segunda Tela</div>
-      <div class="connection-info">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="2" y="3" width="20" height="14" rx="2"/>
-          <line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+  <!-- Auto-hiding control bar -->
+  <div class="controls" id="controls">
+    <div class="counter" id="counter"></div>
+    <div class="controls-row">
+      <button class="ctrl-btn" id="btn-prev" title="Anterior" disabled>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <polyline points="15,18 9,12 15,6"/>
         </svg>
-        <span>Ative o espelhamento no Android, abra no Chrome e toque em Iniciar.</span>
-      </div>
-      <div class="btn-row">
-        <button class="btn btn-primary" id="btn-start">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <polygon points="5,3 19,12 5,21"/>
-          </svg>
-          Iniciar Projeção
-        </button>
-        <button class="btn btn-danger" id="btn-stop" disabled>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <rect x="3" y="3" width="18" height="18" rx="2"/>
-          </svg>
-          Parar
-        </button>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="section-title">Imagem</div>
-
-      <div class="drop-zone" id="drop-zone" role="button" tabindex="0" aria-label="Selecionar imagem">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <rect x="3" y="3" width="18" height="18" rx="2"/>
-          <circle cx="8.5" cy="8.5" r="1.5"/>
-          <polyline points="21,15 16,10 5,21"/>
+        <span class="ctrl-label">Anterior</span>
+      </button>
+      <button class="ctrl-btn" id="btn-next" title="Próxima" disabled>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <polyline points="9,6 15,12 9,18"/>
         </svg>
-        <span class="drop-zone-title">Selecionar Imagem</span>
-        <span class="drop-zone-hint">Toque ou arraste uma imagem aqui<br>JPG, PNG, WebP, SVG (máx. 10MB)</span>
-        <input type="file" id="file-input" accept="image/*">
-      </div>
-
-      <div class="preview-container" id="preview-container">
-        <div class="preview-header">
-          <span class="preview-name" id="preview-name"></span>
-          <button class="btn-clear" id="btn-clear" title="Remover imagem">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
-        </div>
-        <img class="preview-image" id="preview-image" alt="Pré-visualização">
-      </div>
-
-      <button class="btn btn-send" id="btn-send" disabled style="margin-top: 14px;">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <rect x="2" y="3" width="20" height="14" rx="2"/>
-          <line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
-          <polyline points="8,10 12,7 16,10"/>
+        <span class="ctrl-label">Próxima</span>
+      </button>
+      <button class="ctrl-btn danger" id="btn-black" title="Tela preta">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <circle cx="12" cy="12" r="9"/><line x1="5.6" y1="5.6" x2="18.4" y2="18.4"/>
         </svg>
-        Enviar para a Tela
+        <span class="ctrl-label">Tela Preta</span>
+      </button>
+      <button class="ctrl-btn" id="btn-add" title="Adicionar imagens">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        <span class="ctrl-label">Adicionar</span>
       </button>
     </div>
+  </div>
 
-  </main>
+  <div class="tap-hint" id="tap-hint">Toque na tela para abrir os controles</div>
 
-  <footer class="app-footer">
-    IASD AV · Projeção em Segunda Tela
-  </footer>
+  <input type="file" id="file-input" accept="image/*" multiple>
 
-  <script src="js/controller.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>

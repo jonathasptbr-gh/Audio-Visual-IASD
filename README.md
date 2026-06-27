@@ -1,52 +1,62 @@
-# IASD AV — Projeção em Segunda Tela
+# IASD AV — Projeção
 
-PWA para projeção de imagens (e futuramente áudio/vídeo) em telas secundárias, usando o smartphone como controlador.
-
-## Tecnologia
-
-Usa a [Presentation API](https://developer.mozilla.org/en-US/docs/Web/API/Presentation_API) nativa do browser, que é o padrão W3C para projeção em segunda tela.
+PWA de projeção de imagens em tela cheia, pensado para ser **espelhado** em uma
+segunda tela (TV) via espelhamento de tela do sistema (Samsung SmartView,
+Miracast, Chromecast mirror, etc.).
 
 ## Como funciona
 
 ```
-[Smartphone — Controlador]  ──Presentation API──►  [TV/Monitor — Receptor]
-        index.html                                    receiver.html
+[Smartphone]  ──espelhamento de tela (SmartView/Miracast)──►  [TV]
+   index.html (tela cheia)                                     mesma imagem
 ```
 
-1. O controlador (smartphone/PC) abre `index.html`
-2. O usuário seleciona uma imagem e clica **Iniciar Projeção**
-3. O browser abre `receiver.html` na tela secundária conectada
-4. A imagem é enviada via `PresentationConnection.send()` (base64)
-5. O receptor exibe a imagem em tela cheia
+A própria tela do app **é** a tela de exibição. Você espelha o celular na TV
+pelo sistema, abre o app, e a imagem aparece em tela cheia na TV. Os controles
+(anterior / próxima / tela preta / adicionar) ficam numa barra que **aparece ao
+toque e some sozinha**, para não poluir a projeção.
 
-## Requisitos
+### Por que não usa a Presentation API?
 
-- **Navegador:** Chrome 47+ ou Edge (desktop) — a Presentation API tem suporte limitado
-- **HTTPS** em produção (funciona em `localhost` sem HTTPS)
-- Monitor/TV secundário conectado ao computador que exibe o controlador
+A Presentation API do Chrome no Android **só funciona com dispositivos Google
+Cast (Chromecast)** — não com espelhamento Miracast/SmartView. E o
+Document Picture-in-Picture (janela flutuante com botões) **não é suportado no
+Android**. Por isso a abordagem é o espelhamento de tela única, que funciona em
+qualquer combinação de celular + TV.
+
+## Funcionalidades
+
+- Seleção de uma ou várias imagens (vira uma lista de reprodução)
+- Navegação anterior / próxima
+- **Tela preta** (para esconder a projeção entre os momentos)
+- Tela cheia automática (Fullscreen API)
+- Mantém a tela ligada durante o uso (Screen Wake Lock API)
+- Controles por teclado quando há teclado pareado (setas, espaço, `B`)
+- Funciona offline (Service Worker / PWA instalável)
+
+## Uso
+
+1. Espelhe o celular na TV (SmartView / Transmitir tela)
+2. Abra o app: **https://jonathasptbr-gh.github.io/Audio-Visual-IASD/**
+3. Selecione as imagens
+4. Toque na tela para mostrar os controles
 
 ## Desenvolvimento local
 
 ```bash
 npm install
-npm run dev
-# Abre http://localhost:3000
+npm run dev      # http://localhost:3000
 ```
 
 ## Estrutura
 
 ```
 public/
-├── index.html       # Controlador (smartphone)
-├── receiver.html    # Receptor (segunda tela)
-├── manifest.json    # PWA manifest
-├── sw.js            # Service Worker (cache offline)
-├── css/
-│   ├── controller.css
-│   └── receiver.css
-├── js/
-│   ├── controller.js
-│   └── receiver.js
+├── index.html        # App de projeção (tela cheia)
+├── manifest.json     # PWA manifest
+├── sw.js             # Service Worker (cache offline)
+├── css/app.css
+├── js/app.js
 └── icons/
     ├── icon-192.svg
     └── icon-512.svg
@@ -54,8 +64,8 @@ public/
 
 ## Roadmap
 
-- [x] Projeção de imagens
+- [x] Projeção de imagens em tela cheia + lista de reprodução
+- [x] Tela preta / navegação / tela cheia / wake lock
 - [ ] Projeção de vídeo
 - [ ] Controle de áudio
-- [ ] Múltiplas mídias / lista de reprodução
-- [ ] Modo apresentação (slides)
+- [ ] Transições entre imagens (fade configurável)

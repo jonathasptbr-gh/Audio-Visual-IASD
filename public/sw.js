@@ -1,13 +1,10 @@
-const CACHE_NAME = 'iasd-av-v1';
+const CACHE_NAME = 'iasd-av-v2';
 const STATIC_ASSETS = [
   './',
   'index.html',
-  'receiver.html',
   'manifest.json',
-  'css/controller.css',
-  'css/receiver.css',
-  'js/controller.js',
-  'js/receiver.js',
+  'css/app.css',
+  'js/app.js',
   'icons/icon-192.svg',
   'icons/icon-512.svg'
 ];
