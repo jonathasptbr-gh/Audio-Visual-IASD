@@ -1,4 +1,4 @@
-const CACHE = 'display-v1';
+const CACHE = 'display-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -21,8 +21,10 @@ self.addEventListener('activate', (e) => {
     caches.keys()
       .then((keys) =>
         Promise.all(
+          // Apaga qualquer cache deste app (inclusive os antigos "iasd-display-*")
+          // sem tocar nos caches do Controle.
           keys
-            .filter((k) => k.startsWith('display-') && k !== CACHE)
+            .filter((k) => k.includes('display') && k !== CACHE)
             .map((k) => caches.delete(k))
         )
       )
@@ -32,7 +34,11 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
+  // Busca SOMENTE no cache próprio deste app, evitando servir conteúdo
+  // velho que tenha sobrado em caches de versões antigas.
   e.respondWith(
-    caches.match(e.request).then((cached) => cached || fetch(e.request))
+    caches.open(CACHE).then((cache) =>
+      cache.match(e.request).then((cached) => cached || fetch(e.request))
+    )
   );
 });
