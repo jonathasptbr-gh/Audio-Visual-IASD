@@ -1,16 +1,16 @@
 {
-  "name": "IASD AV — Controle",
-  "short_name": "AV Controle",
-  "description": "Controle remoto de mídia para o display de projeção",
-  "id": "./",
-  "start_url": "./index.html",
+  "name": "Controle AV — IASD",
+  "short_name": "Controle",
+  "description": "Controla as mídias exibidas no Display.",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#0d1117",
-  "theme_color": "#1f6feb",
+  "orientation": "any",
+  "background_color": "#0f1f12",
+  "theme_color": "#1b5e20",
   "icons": [
-    { "src": "icons/icon-192.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any maskable" },
-    { "src": "icons/icon-512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable" }
+    { "src": "icons/icon-192.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icons/icon-512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icons/icon-512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "maskable" }
   ]
 }

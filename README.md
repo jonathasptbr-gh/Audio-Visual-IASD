@@ -1,90 +1,69 @@
-# IASD AV — Projeção
+# Audio Visual IASD
 
-Sistema de **dois PWAs** independentes, na mesma origem, que se comunicam
-**100% offline** dentro do mesmo celular:
+Sistema para **transmitir e controlar multimídia** usando uma arquitetura
+**dual-PWA** (dois aplicativos web progressivos no mesmo domínio).
 
-- **Display** (`/display/`) — tela limpa de exibição (vídeo/imagem em tela cheia)
-- **Controle** (`/controle/`) — controle remoto (play, pause, progresso, volume)
+## A ideia
 
-A ideia: o **Display** fica na tela que é espelhada/transmitida para a TV; o
-**Controle** fica no seu celular. Os dois conversam por `BroadcastChannel` e
-compartilham as mídias por `IndexedDB` — sem servidor, sem internet.
+O Android consegue espelhar via **Miracast** um único app selecionado. Aproveitamos
+isso dividindo o sistema em dois PWAs:
 
-## Arquitetura
+- **Display** (`/display/`) — a tela que aparece no projetor/TV. É este app que o
+  Android espelha.
+- **Controle** (`/controle/`) — fica no celular do operador, sempre disponível.
+  Comanda o que aparece no Display.
 
-```
-┌─────────────── mesmo celular, mesma origem ───────────────┐
-│                                                            │
-│   /controle/  ── BroadcastChannel('tv_cast_channel') ──►   │
-│   (botões)    ◄── estado (currentTime, play/pause) ──────  │   /display/
-│       │                                                    │   (vídeo cheio)
-│       └────────► IndexedDB 'iasd-av' ◄─────────────────────┘
-│                  (Blobs de vídeo, lidos pelos dois)
-└────────────────────────────────────────────────────────────┘
-                                                  │
-                          Remote Playback API (video.remote.prompt)
-                                                  ▼
-                                       📺 TV (Miracast/DLNA/Cast)
-```
+Como os dois PWAs estão no **mesmo domínio (origin)**, eles compartilham:
 
-### Comunicação (BroadcastChannel)
-- Controle → Display: `load`, `toggle`, `play`, `pause`, `seek`, `volume`, `blackout`, `request-state`
-- Display → Controle: `state` (id, currentTime, duração, play/pause, volume) — enviado a cada `timeupdate`, para a barra de progresso
+- **IndexedDB** → as imagens ficam guardadas offline, acessíveis pelos dois.
+- **BroadcastChannel** → o Controle envia comandos em tempo real para o Display.
 
-### Mídia (IndexedDB compartilhado)
-- O **Controle** grava os vídeos/imagens como `Blob` no IndexedDB `iasd-av`
-- O **Display** lê o mesmo registro pelo `id` — sem duplicar armazenamento
-- `db.js` (idêntico nas duas pastas) expõe `window.MediaDB`
+Cada PWA tem `manifest.id`, `scope` e `start_url` **próprios**, então o Android os
+instala e trata como **dois apps distintos** — permitindo espelhar só o Display.
 
-### Transmitir para a TV (Remote Playback API)
-O Display usa `video.remote.prompt()` (Remote Playback API) para enviar **só o
-vídeo** para a TV. No Android, essa API suporta **Miracast, DLNA e Chromecast** —
-não exige espelhar a tela. Aparece um botão "Transmitir" quando há um
-dispositivo disponível na rede. *(Não funciona com vídeo MSE/streaming; Blobs
-locais funcionam.)*
+Tudo funciona **100% offline** depois da primeira carga (service workers).
 
-> **Por que não Presentation API ou Document PiP?** A Presentation API do Chrome
-> no Android só fala com Chromecast; o Document PiP (janela flutuante com botões)
-> não existe no Android. A Remote Playback API é o caminho web correto para
-> Miracast/DLNA no Android.
+## MVP atual
 
-## Service Workers
-Cada app tem o seu (`/controle/sw.js` e `/display/sw.js`), com escopo próprio,
-fazendo cache agressivo da sua interface — abrem instantaneamente, mesmo em
-modo avião.
-
-## Uso
-
-1. Abra **https://jonathasptbr-gh.github.io/Audio-Visual-IASD/**
-2. Instale **Display** e **Controle** (Adicionar à tela inicial) — viram 2 ícones
-3. Espelhe o celular na TV (SmartView) e abra o **Display**, OU use o botão
-   **Transmitir** do Display (Remote Playback)
-4. No **Controle**, adicione as mídias e comande a reprodução
-
-## Desenvolvimento local
-
-```bash
-npm install
-npm run dev      # http://localhost:3000
-```
+- Adicionar imagens pelo Controle (ficam salvas offline no IndexedDB).
+- Tocar numa imagem no Controle → ela aparece no Display.
+- Botão "Ocultar no display" → limpa a tela do Display.
+- O Display restaura o último estado ao reabrir.
 
 ## Estrutura
 
 ```
 public/
-├── index.html              # launcher (links para os dois apps)
-├── controle/
-│   ├── index.html · controle.css · controle.js · db.js · manifest.json · sw.js
-│   └── icons/
-└── display/
-    ├── index.html · display.css · display.js · db.js · manifest.json · sw.js
-    └── icons/
+├── index.html          # página inicial com links para os dois apps
+├── shared/db.js        # camada comum: IndexedDB + BroadcastChannel
+├── controle/           # PWA Controle (manifest, sw, ui)
+└── display/            # PWA Display  (manifest, sw, ui)
+server.js               # servidor estático mínimo (Node, sem dependências)
 ```
 
-## Roadmap
+## Testar online (GitHub Pages)
 
-- [x] Dual PWA + BroadcastChannel + IndexedDB compartilhado
-- [x] Vídeo (play/pause/seek/volume) e imagem, com progresso sincronizado
-- [x] Remote Playback API (transmitir vídeo para a TV)
-- [ ] Transições / fade entre mídias
-- [ ] Lista de reprodução com ordem salva
+A cada push na branch `main`, o GitHub Pages publica automaticamente a pasta
+`public/` (workflow em `.github/workflows/deploy.yml`):
+
+> https://jonathasptbr-gh.github.io/Audio-Visual-IASD/
+
+Como o site fica em uma subpasta, **todos os caminhos do projeto são relativos**
+(funcionam tanto em `localhost` quanto no Pages).
+
+## Rodar localmente
+
+```bash
+npm start
+```
+
+Acesse `http://localhost:3000`. Service workers funcionam em `localhost`; em
+produção é necessário **HTTPS** (o GitHub Pages já fornece).
+
+### Instalar no Android
+
+1. Abra o site no Chrome do celular.
+2. Entre em **Abrir Display** e instale (menu → "Adicionar à tela inicial").
+3. Volte e entre em **Abrir Controle** e instale também.
+4. Os dois aparecerão como apps separados. Espelhe o **Display** via Miracast e
+   opere pelo **Controle**.

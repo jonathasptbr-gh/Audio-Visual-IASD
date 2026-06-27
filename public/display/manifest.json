@@ -1,16 +1,16 @@
 {
-  "name": "IASD AV — Display",
-  "short_name": "AV Display",
-  "description": "Tela de exibição de vídeo/imagem para projeção na TV",
-  "id": "./",
-  "start_url": "./index.html",
+  "name": "Display AV — IASD",
+  "short_name": "Display",
+  "description": "Tela de exibição, espelhada via Miracast.",
+  "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
   "orientation": "landscape",
   "background_color": "#000000",
   "theme_color": "#000000",
   "icons": [
-    { "src": "icons/icon-192.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any maskable" },
-    { "src": "icons/icon-512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable" }
+    { "src": "icons/icon-192.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icons/icon-512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icons/icon-512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "maskable" }
   ]
 }
