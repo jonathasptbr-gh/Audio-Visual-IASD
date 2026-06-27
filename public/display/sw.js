@@ -1,4 +1,4 @@
-const CACHE = 'display-v3';
+const CACHE = 'display-v4';
 const ASSETS = [
   './',
   './index.html',
@@ -8,6 +8,8 @@ const ASSETS = [
   './icons/icon-192.svg',
   './icons/icon-512.svg',
   '../shared/db.js',
+  '../shared/material-symbols.css',
+  '../shared/fonts/material-symbols.woff2',
 ];
 
 self.addEventListener('install', (e) => {

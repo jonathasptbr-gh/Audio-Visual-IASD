@@ -13,13 +13,23 @@ const curTimeEl = document.getElementById('curTime');
 const durTimeEl = document.getElementById('durTime');
 const modesEl = document.getElementById('modes');
 
-const KIND_ICON = { image: '🖼️', video: '🎬', audio: '🎵', other: '📄' };
+// Codepoints do subconjunto Material Symbols (ver material-symbols.css).
+const ICON = {
+  play: '\ue037',    // play_arrow
+  pause: '\ue034',   // pause
+  up: '\ue316',      // keyboard_arrow_up
+  down: '\ue313',    // keyboard_arrow_down
+  del: '\ue872',     // delete
+  music: '\ue3a1',   // music_note
+  broken: '\ue3ad',  // broken_image
+};
 const MODES = ['wallpaper', 'visual', 'wallaudio'];
 
 let items = [];           // playlist ordenada (mídias)
 let currentId = null;
 let mode = 'visual';
 let playing = false;
+let thumbUrls = [];       // object URLs de miniaturas a revogar entre renders
 
 // ---------- util ----------
 
@@ -32,6 +42,78 @@ function fmtTime(s) {
 
 function indexOfCurrent() {
   return items.findIndex((m) => m.id === currentId);
+}
+
+function msym(code) {
+  const s = document.createElement('span');
+  s.className = 'msym';
+  s.textContent = code;
+  return s;
+}
+
+// ---------- miniaturas ----------
+
+function drawThumb(srcEl, w, h) {
+  return new Promise((resolve) => {
+    const size = 160;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const scale = Math.max(size / w, size / h);
+    const dw = w * scale;
+    const dh = h * scale;
+    ctx.drawImage(srcEl, (size - dw) / 2, (size - dh) / 2, dw, dh);
+    canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.72);
+  });
+}
+
+function thumbFromImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = async () => {
+      const b = await drawThumb(img, img.naturalWidth, img.naturalHeight);
+      URL.revokeObjectURL(url);
+      resolve(b);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(); };
+    img.src = url;
+  });
+}
+
+function thumbFromVideo(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const v = document.createElement('video');
+    v.muted = true;
+    v.preload = 'auto';
+    v.playsInline = true;
+    v.onloadeddata = () => {
+      try { v.currentTime = Math.min(0.5, (v.duration || 1) / 3); } catch (e) { /* */ }
+    };
+    v.onseeked = async () => {
+      const b = await drawThumb(v, v.videoWidth || 160, v.videoHeight || 160);
+      URL.revokeObjectURL(url);
+      resolve(b);
+    };
+    v.onerror = () => { URL.revokeObjectURL(url); reject(); };
+    v.src = url;
+  });
+}
+
+async function makeThumb(file, kind) {
+  const gen = kind === 'image' ? thumbFromImage(file)
+    : kind === 'video' ? thumbFromVideo(file)
+      : null;
+  if (!gen) return null;
+  // Timeout de segurança para não travar a importação.
+  const timeout = new Promise((res) => setTimeout(() => res(null), 4000));
+  try {
+    return await Promise.race([gen, timeout]);
+  } catch (e) {
+    return null;
+  }
 }
 
 // ---------- render ----------
@@ -53,6 +135,8 @@ function renderModes() {
 }
 
 function renderPlaylist() {
+  thumbUrls.forEach((u) => URL.revokeObjectURL(u));
+  thumbUrls = [];
   playlistEl.innerHTML = '';
 
   if (items.length === 0) {
@@ -65,9 +149,20 @@ function renderPlaylist() {
     const li = document.createElement('li');
     li.className = 'track' + (item.id === currentId ? ' active' : '');
 
-    const icon = document.createElement('span');
-    icon.className = 'track-icon';
-    icon.textContent = KIND_ICON[item.kind] || KIND_ICON.other;
+    // Miniatura (imagem/vídeo) ou ícone (áudio/sem thumb)
+    const thumb = document.createElement('div');
+    thumb.className = 'track-thumb';
+    if (item.thumb) {
+      const url = URL.createObjectURL(item.thumb);
+      thumbUrls.push(url);
+      const im = document.createElement('img');
+      im.src = url;
+      im.alt = '';
+      thumb.appendChild(im);
+    } else {
+      thumb.appendChild(msym(item.kind === 'audio' ? ICON.music : ICON.broken));
+      thumb.classList.add('track-thumb--icon');
+    }
 
     const name = document.createElement('input');
     name.className = 'track-name';
@@ -77,26 +172,25 @@ function renderPlaylist() {
 
     const actions = document.createElement('div');
     actions.className = 'track-actions';
-
-    const up = mkBtn('▲', 'Subir', (e) => { e.stopPropagation(); move(i, -1); });
-    const down = mkBtn('▼', 'Descer', (e) => { e.stopPropagation(); move(i, 1); });
-    const play = mkBtn('▶', 'Exibir', (e) => { e.stopPropagation(); send(item.id); });
-    const del = mkBtn('🗑', 'Remover', (e) => { e.stopPropagation(); remove(item.id); });
+    const up = mkBtn(ICON.up, 'Subir', (e) => { e.stopPropagation(); move(i, -1); });
+    const down = mkBtn(ICON.down, 'Descer', (e) => { e.stopPropagation(); move(i, 1); });
+    const play = mkBtn(ICON.play, 'Exibir', (e) => { e.stopPropagation(); send(item.id); });
+    const del = mkBtn(ICON.del, 'Remover', (e) => { e.stopPropagation(); remove(item.id); });
     up.disabled = i === 0;
     down.disabled = i === items.length - 1;
-
     actions.append(up, down, play, del);
-    li.append(icon, name, actions);
+
+    li.append(thumb, name, actions);
     li.addEventListener('click', () => send(item.id));
     playlistEl.appendChild(li);
   });
 }
 
-function mkBtn(label, title, onClick) {
+function mkBtn(code, title, onClick) {
   const b = document.createElement('button');
   b.className = 'track-btn';
-  b.textContent = label;
   b.title = title;
+  b.appendChild(msym(code));
   b.addEventListener('click', onClick);
   return b;
 }
@@ -104,7 +198,7 @@ function mkBtn(label, title, onClick) {
 function renderNowPlaying() {
   const cur = items.find((m) => m.id === currentId);
   npNameEl.textContent = cur ? cur.name : 'Nada em exibição';
-  playPauseEl.textContent = playing ? '⏸' : '▶';
+  playPauseEl.querySelector('.msym').textContent = playing ? ICON.pause : ICON.play;
   const isTimed = cur && (cur.kind === 'video' || cur.kind === 'audio');
   seekEl.disabled = !isTimed;
   prevEl.disabled = indexOfCurrent() <= 0;
@@ -159,7 +253,9 @@ function step(delta) {
 fileEl.addEventListener('change', async () => {
   const files = Array.from(fileEl.files || []);
   for (const file of files) {
-    await AVDB.addMedia(file, { name: file.name.replace(/\.[^.]+$/, '') });
+    const kind = AVDB.kindFromType(file.type);
+    const thumb = await makeThumb(file, kind);
+    await AVDB.addMedia(file, { name: file.name.replace(/\.[^.]+$/, ''), thumb });
   }
   fileEl.value = '';
   load();
@@ -191,7 +287,6 @@ modesEl.addEventListener('click', (e) => {
   if (btn) setMode(btn.dataset.mode);
 });
 
-// Status vindo do display (estado de reprodução + tempo).
 let seeking = false;
 seekEl.addEventListener('pointerdown', () => { seeking = true; });
 seekEl.addEventListener('pointerup', () => { seeking = false; });
@@ -200,7 +295,7 @@ AVDB.onCommand((cmd) => {
   if (!cmd) return;
   if (cmd.type === 'display-status') {
     playing = !!cmd.playing;
-    playPauseEl.textContent = playing ? '⏸' : '▶';
+    playPauseEl.querySelector('.msym').textContent = playing ? ICON.pause : ICON.play;
     if (cmd.mediaId && cmd.mediaId !== currentId) {
       currentId = cmd.mediaId;
       renderPlaylist();
@@ -213,7 +308,6 @@ AVDB.onCommand((cmd) => {
     }
     renderNowPlaying();
   } else if (cmd.type === 'display-ready') {
-    // Reenvia o estado atual para o display que acabou de abrir.
     if (currentId) AVDB.sendCommand({ type: 'load', mediaId: currentId, mode });
   }
 });

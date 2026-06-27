@@ -8,15 +8,16 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="icons/icon-192.svg">
   <link rel="apple-touch-icon" href="icons/icon-192.svg">
+  <link rel="stylesheet" href="../shared/material-symbols.css">
   <link rel="stylesheet" href="controle.css">
 </head>
 <body>
   <header class="topbar">
     <div class="transport">
-      <button id="prev" class="t-btn" title="Anterior">⏮</button>
-      <button id="playpause" class="t-btn t-main" title="Play/Pause">▶</button>
-      <button id="stop" class="t-btn" title="Parar">⏹</button>
-      <button id="next" class="t-btn" title="Seguinte">⏭</button>
+      <button id="prev" class="t-btn" title="Anterior"><span class="msym">&#xe045;</span></button>
+      <button id="playpause" class="t-btn t-main" title="Play/Pause"><span class="msym">&#xe037;</span></button>
+      <button id="stop" class="t-btn" title="Parar"><span class="msym">&#xe047;</span></button>
+      <button id="next" class="t-btn" title="Seguinte"><span class="msym">&#xe044;</span></button>
     </div>
 
     <div class="nowplaying">
@@ -29,19 +30,19 @@
     </div>
 
     <div class="modes" id="modes">
-      <button class="mode-btn" data-mode="wallpaper">🖼️ Wallpaper</button>
-      <button class="mode-btn" data-mode="visual">🎬 Visual</button>
-      <button class="mode-btn" data-mode="wallaudio">🔊 Wallpaper + Áudio</button>
+      <button class="mode-btn" data-mode="wallpaper"><span class="msym">&#xe1bc;</span> Wallpaper</button>
+      <button class="mode-btn" data-mode="visual"><span class="msym">&#xe251;</span> Visual</button>
+      <button class="mode-btn" data-mode="wallaudio"><span class="msym">&#xe050;</span> Wallpaper + Áudio</button>
     </div>
   </header>
 
   <main>
     <section class="toolbar">
       <label class="btn">
-        + Importar mídia
+        <span class="msym">&#xe43e;</span> Importar mídia
         <input id="file" type="file" accept="image/*,video/*,audio/*" multiple hidden>
       </label>
-      <button id="hide" class="btn btn-secondary">Limpar display</button>
+      <button id="hide" class="btn btn-secondary"><span class="msym">&#xe8f5;</span> Limpar display</button>
     </section>
 
     <ul id="playlist" class="playlist"></ul>
