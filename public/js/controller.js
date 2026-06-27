@@ -49,8 +49,10 @@ class AVController {
   initWebSocket() {
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${proto}//${window.location.host}`;
+    const MAX_ATTEMPTS = 5;
 
-    const connect = () => {
+    const connect = (attempt = 0) => {
+      if (attempt >= MAX_ATTEMPTS) return; // servidor sem WS (ex: GitHub Pages)
       try {
         this.wsConn = new WebSocket(wsUrl);
 
@@ -72,12 +74,20 @@ class AVController {
           } catch {}
         };
 
+        this.wsConn.onopen = (orig => function () {
+          orig.call(this);
+          // reset attempt counter on successful open
+        })(this.wsConn.onopen);
+
         this.wsConn.onclose = () => {
+          const wasConnected = this.wsConnected;
           this.wsConnected = false;
           this.wsReceiverCount = 0;
           this.updateStatus();
           this.updateSendButton();
-          setTimeout(connect, 3000);
+          // Reconectar com backoff exponencial só se já tinha conectado antes
+          const delay = wasConnected ? 3000 : Math.min(30000, 1000 * 2 ** attempt);
+          setTimeout(() => connect(wasConnected ? 0 : attempt + 1), delay);
         };
       } catch {}
     };
@@ -103,7 +113,7 @@ class AVController {
   // --- Presentation API transport ---
 
   initPresentation() {
-    const receiverUrl = new URL('/receiver.html', window.location.href).href;
+    const receiverUrl = new URL('./receiver.html', window.location.href).href;
     this.presentationRequest = new PresentationRequest([receiverUrl]);
 
     this.presentationRequest.getAvailability().then((avail) => {
@@ -302,7 +312,7 @@ class AVController {
 
   registerSW() {
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
+      navigator.serviceWorker.register('sw.js').catch(() => {});
     }
   }
 }

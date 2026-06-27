@@ -1,15 +1,15 @@
 const CACHE_NAME = 'iasd-av-v1';
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/receiver.html',
-  '/manifest.json',
-  '/css/controller.css',
-  '/css/receiver.css',
-  '/js/controller.js',
-  '/js/receiver.js',
-  '/icons/icon-192.svg',
-  '/icons/icon-512.svg'
+  './',
+  'index.html',
+  'receiver.html',
+  'manifest.json',
+  'css/controller.css',
+  'css/receiver.css',
+  'js/controller.js',
+  'js/receiver.js',
+  'icons/icon-192.svg',
+  'icons/icon-512.svg'
 ];
 
 self.addEventListener('install', (event) => {

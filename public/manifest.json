@@ -2,7 +2,7 @@
   "name": "IASD AV - Projeção",
   "short_name": "AV Controle",
   "description": "Controlador de projeção audiovisual para segunda tela",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0d1117",
