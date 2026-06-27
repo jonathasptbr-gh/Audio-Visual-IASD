@@ -8,7 +8,6 @@
 </head>
 <body>
 
-  <!-- Waiting for connection -->
   <div class="waiting-screen" id="waiting-screen">
     <div class="waiting-logo">
       <svg width="72" height="72" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -28,18 +27,15 @@
     </div>
   </div>
 
-  <!-- Image display -->
   <div class="display-screen" id="display-screen">
     <img class="display-image" id="display-image" alt="">
   </div>
 
-  <!-- Black transition overlay -->
   <div class="transition-overlay" id="transition-overlay"></div>
 
-  <!-- Connection indicator (fades after a few seconds) -->
   <div class="connection-indicator" id="conn-indicator" style="display:none;">
     <div class="conn-dot"></div>
-    <span id="conn-label">Controlador conectado</span>
+    Controlador conectado
   </div>
 
   <script src="js/receiver.js"></script>

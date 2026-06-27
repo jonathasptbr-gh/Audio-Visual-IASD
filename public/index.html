@@ -13,7 +13,6 @@
 </head>
 <body>
 
-  <!-- Header -->
   <header class="app-header">
     <div class="app-logo">
       <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -31,21 +30,18 @@
     </div>
   </header>
 
-  <!-- Main -->
   <main class="main">
 
-    <!-- Aviso: Presentation API indisponível (mas WebSocket ainda funciona) -->
     <div class="not-supported" id="not-supported">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="12" cy="12" r="10"/>
         <line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
       </svg>
-      <span>Projeção automática indisponível neste navegador. Use o modo Manual abaixo — funciona em qualquer dispositivo.</span>
+      <span>Presentation API não suportada. Use o Google Chrome para projetar em segunda tela.</span>
     </div>
 
-    <!-- Projeção automática (Presentation API) -->
-    <div class="card" id="card-presentation">
-      <div class="section-title">Projeção Automática</div>
+    <div class="card">
+      <div class="section-title">Segunda Tela</div>
       <div class="connection-info">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="2" y="3" width="20" height="14" rx="2"/>
@@ -69,23 +65,6 @@
       </div>
     </div>
 
-    <!-- Modo Manual (WebSocket) — sempre disponível -->
-    <div class="card">
-      <div class="section-title">Modo Manual (via Rede)</div>
-      <p class="hint-text">Abra o endereço abaixo no browser da TV, Smart TV, laptop ou qualquer dispositivo conectado ao projetor:</p>
-      <div class="receiver-url-box">
-        <a id="receiver-url" class="receiver-url" href="#" target="_blank"
-           onclick="return false">carregando...</a>
-        <button class="btn-copy" id="btn-copy-url" title="Copiar endereço">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
-          </svg>
-        </button>
-      </div>
-      <p class="hint-text hint-small">Os dois dispositivos precisam estar na mesma rede Wi-Fi.</p>
-    </div>
-
-    <!-- Imagem -->
     <div class="card">
       <div class="section-title">Imagem</div>
 
@@ -129,16 +108,5 @@
   </footer>
 
   <script src="js/controller.js"></script>
-  <script>
-    // Copy receiver URL button
-    document.getElementById('btn-copy-url').addEventListener('click', () => {
-      const url = document.getElementById('receiver-url').textContent;
-      navigator.clipboard?.writeText(url).then(() => {
-        const btn = document.getElementById('btn-copy-url');
-        btn.style.color = '#2ea043';
-        setTimeout(() => btn.style.color = '', 1500);
-      });
-    });
-  </script>
 </body>
 </html>

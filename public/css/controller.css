@@ -361,53 +361,6 @@ body {
   display: flex;
 }
 
-/* Receiver URL box */
-.hint-text {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin-bottom: 10px;
-  line-height: 1.5;
-}
-
-.hint-small {
-  margin-top: 8px;
-  margin-bottom: 0;
-}
-
-.receiver-url-box {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px 12px;
-}
-
-.receiver-url {
-  flex: 1;
-  font-size: 13px;
-  font-family: 'SF Mono', 'Fira Code', monospace;
-  color: var(--accent-hover);
-  text-decoration: none;
-  word-break: break-all;
-}
-
-.btn-copy {
-  flex-shrink: 0;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text-muted);
-  padding: 4px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  transition: color 0.2s;
-}
-
-.btn-copy:hover { color: var(--text); }
-
 /* Footer */
 .app-footer {
   padding: 12px 16px;

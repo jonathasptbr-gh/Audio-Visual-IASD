@@ -2,9 +2,6 @@ class AVController {
   constructor() {
     this.presentationConn = null;
     this.presentationRequest = null;
-    this.wsConn = null;
-    this.wsConnected = false;
-    this.wsReceiverCount = 0;
     this.currentImageData = null;
     this.currentFileName = null;
 
@@ -21,20 +18,15 @@ class AVController {
       btnSend: document.getElementById('btn-send'),
       btnClear: document.getElementById('btn-clear'),
       notSupported: document.getElementById('not-supported'),
-      receiverUrl: document.getElementById('receiver-url'),
     };
 
     this.init();
   }
 
   init() {
-    this.initWebSocket();
-    this.loadReceiverUrl();
-
     if ('presentation' in navigator) {
       this.initPresentation();
     } else {
-      // Presentation API not available — WebSocket-only mode still works
       this.els.notSupported.classList.add('visible');
       this.els.btnStart.disabled = true;
       this.els.btnStop.disabled = true;
@@ -43,74 +35,6 @@ class AVController {
     this.bindEvents();
     this.registerSW();
   }
-
-  // --- WebSocket transport (always active) ---
-
-  initWebSocket() {
-    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${proto}//${window.location.host}`;
-    const MAX_ATTEMPTS = 5;
-
-    const connect = (attempt = 0) => {
-      if (attempt >= MAX_ATTEMPTS) return; // servidor sem WS (ex: GitHub Pages)
-      try {
-        this.wsConn = new WebSocket(wsUrl);
-
-        this.wsConn.onopen = () => {
-          this.wsConnected = true;
-          this.wsConn.send(JSON.stringify({ type: 'hello', role: 'controller' }));
-          this.updateStatus();
-          this.updateSendButton();
-        };
-
-        this.wsConn.onmessage = (e) => {
-          try {
-            const msg = JSON.parse(e.data);
-            if (msg.type === 'receivers') {
-              this.wsReceiverCount = msg.count;
-              this.updateStatus();
-              this.updateSendButton();
-            }
-          } catch {}
-        };
-
-        this.wsConn.onopen = (orig => function () {
-          orig.call(this);
-          // reset attempt counter on successful open
-        })(this.wsConn.onopen);
-
-        this.wsConn.onclose = () => {
-          const wasConnected = this.wsConnected;
-          this.wsConnected = false;
-          this.wsReceiverCount = 0;
-          this.updateStatus();
-          this.updateSendButton();
-          // Reconectar com backoff exponencial só se já tinha conectado antes
-          const delay = wasConnected ? 3000 : Math.min(30000, 1000 * 2 ** attempt);
-          setTimeout(() => connect(wasConnected ? 0 : attempt + 1), delay);
-        };
-      } catch {}
-    };
-
-    connect();
-  }
-
-  async loadReceiverUrl() {
-    if (!this.els.receiverUrl) return;
-    try {
-      const res = await fetch('/api/info');
-      const { ip, port } = await res.json();
-      const url = `http://${ip}:${port}/receiver.html`;
-      this.els.receiverUrl.textContent = url;
-      this.els.receiverUrl.href = url;
-    } catch {
-      const url = `${window.location.origin}/receiver.html`;
-      this.els.receiverUrl.textContent = url;
-      this.els.receiverUrl.href = url;
-    }
-  }
-
-  // --- Presentation API transport ---
 
   initPresentation() {
     const receiverUrl = new URL('./receiver.html', window.location.href).href;
@@ -169,8 +93,6 @@ class AVController {
 
     if (conn.state === 'connected') onConnected();
   }
-
-  // --- Shared ---
 
   bindEvents() {
     this.els.btnStart.addEventListener('click', () => this.startPresentation());
@@ -240,53 +162,31 @@ class AVController {
   }
 
   sendCurrentImage() {
-    if (!this.currentImageData) return;
+    if (!this.currentImageData || this.presentationConn?.state !== 'connected') {
+      this.showToast('Nenhuma tela conectada.', 'error');
+      return;
+    }
 
-    const message = JSON.stringify({
+    this.presentationConn.send(JSON.stringify({
       type: 'image',
       data: this.currentImageData,
       name: this.currentFileName,
-    });
+    }));
 
-    let sent = false;
-
-    if (this.presentationConn?.state === 'connected') {
-      this.presentationConn.send(message);
-      sent = true;
-    }
-
-    if (this.wsConnected && this.wsConn?.readyState === WebSocket.OPEN) {
-      this.wsConn.send(message);
-      sent = true;
-    }
-
-    if (sent) this.showToast('Imagem enviada para a tela!', 'success');
-    else this.showToast('Nenhuma tela conectada.', 'error');
+    this.showToast('Imagem enviada para a tela!', 'success');
   }
 
   updateSendButton() {
-    const presentationReady = this.presentationConn?.state === 'connected';
-    // WebSocket: enabled when connected to server (receiver.html pode estar aberta na TV)
-    const wsReady = this.wsConnected;
-    this.els.btnSend.disabled = !this.currentImageData || (!presentationReady && !wsReady);
+    this.els.btnSend.disabled =
+      !this.currentImageData || this.presentationConn?.state !== 'connected';
   }
 
   updateStatus() {
-    const presentationReady = this.presentationConn?.state === 'connected';
-
-    if (presentationReady) {
+    if (this.presentationConn?.state === 'connected') {
       this.setStatus('connected', 'Tela conectada');
-      return;
+    } else {
+      this.setStatus('idle', 'Desconectado');
     }
-    if (this.wsReceiverCount > 0) {
-      this.setStatus('connected', `${this.wsReceiverCount} receptor${this.wsReceiverCount > 1 ? 'es' : ''} via rede`);
-      return;
-    }
-    if (this.wsConnected) {
-      this.setStatus('idle', 'Servidor ativo');
-      return;
-    }
-    this.setStatus('idle', 'Desconectado');
   }
 
   setStatus(state, label) {
