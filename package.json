@@ -1,0 +1,9 @@
+{
+  "name": "audio-visual-iasd",
+  "version": "0.1.0",
+  "description": "Sistema dual-PWA (Controle + Display) para transmitir e controlar multimidia offline, espelhavel via Miracast.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "license": "MIT"
+}

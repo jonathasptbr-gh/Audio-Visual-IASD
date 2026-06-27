@@ -1,0 +1,59 @@
+# Audio Visual IASD
+
+Sistema para **transmitir e controlar multimídia** usando uma arquitetura
+**dual-PWA** (dois aplicativos web progressivos no mesmo domínio).
+
+## A ideia
+
+O Android consegue espelhar via **Miracast** um único app selecionado. Aproveitamos
+isso dividindo o sistema em dois PWAs:
+
+- **Display** (`/display/`) — a tela que aparece no projetor/TV. É este app que o
+  Android espelha.
+- **Controle** (`/controle/`) — fica no celular do operador, sempre disponível.
+  Comanda o que aparece no Display.
+
+Como os dois PWAs estão no **mesmo domínio (origin)**, eles compartilham:
+
+- **IndexedDB** → as imagens ficam guardadas offline, acessíveis pelos dois.
+- **BroadcastChannel** → o Controle envia comandos em tempo real para o Display.
+
+Cada PWA tem `manifest.id`, `scope` e `start_url` **próprios**, então o Android os
+instala e trata como **dois apps distintos** — permitindo espelhar só o Display.
+
+Tudo funciona **100% offline** depois da primeira carga (service workers).
+
+## MVP atual
+
+- Adicionar imagens pelo Controle (ficam salvas offline no IndexedDB).
+- Tocar numa imagem no Controle → ela aparece no Display.
+- Botão "Ocultar no display" → limpa a tela do Display.
+- O Display restaura o último estado ao reabrir.
+
+## Estrutura
+
+```
+public/
+├── index.html          # página inicial com links para os dois apps
+├── shared/db.js        # camada comum: IndexedDB + BroadcastChannel
+├── controle/           # PWA Controle (manifest, sw, ui)
+└── display/            # PWA Display  (manifest, sw, ui)
+server.js               # servidor estático mínimo (Node, sem dependências)
+```
+
+## Rodar localmente
+
+```bash
+npm start
+```
+
+Acesse `http://localhost:3000`. Service workers funcionam em `localhost`; em
+produção é necessário **HTTPS**.
+
+### Instalar no Android
+
+1. Abra o site no Chrome do celular.
+2. Entre em **Abrir Display** e instale (menu → "Adicionar à tela inicial").
+3. Volte e entre em **Abrir Controle** e instale também.
+4. Os dois aparecerão como apps separados. Espelhe o **Display** via Miracast e
+   opere pelo **Controle**.
