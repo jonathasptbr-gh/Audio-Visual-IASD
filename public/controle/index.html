@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1b5e20">
+  <title>Controle AV</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon-192.svg">
+  <link rel="apple-touch-icon" href="icons/icon-192.svg">
+  <link rel="stylesheet" href="controle.css">
+</head>
+<body>
+  <header>
+    <h1>Controle</h1>
+    <span id="status" class="status">pronto</span>
+  </header>
+
+  <main>
+    <section class="toolbar">
+      <label class="btn">
+        + Adicionar imagem
+        <input id="file" type="file" accept="image/*" hidden>
+      </label>
+      <button id="hide" class="btn btn-secondary">Ocultar no display</button>
+    </section>
+
+    <section id="gallery" class="gallery"></section>
+  </main>
+
+  <script src="../shared/db.js"></script>
+  <script src="controle.js"></script>
+</body>
+</html>

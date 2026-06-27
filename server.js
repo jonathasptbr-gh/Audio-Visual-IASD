@@ -1,87 +1,49 @@
 const http = require('http');
-const express = require('express');
-const WebSocket = require('ws');
-const os = require('os');
+const fs = require('fs');
 const path = require('path');
 
-const app = express();
 const PORT = process.env.PORT || 3000;
+const ROOT = path.join(__dirname, 'public');
 
-app.use(express.static(path.join(__dirname, 'public')));
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
+};
 
-app.get('/receiver', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'receiver.html'));
-});
+const server = http.createServer((req, res) => {
+  const urlPath = decodeURIComponent(req.url.split('?')[0]);
+  let filePath = path.join(ROOT, urlPath);
 
-app.get('/api/info', (req, res) => {
-  res.json({ ip: getLocalIP(), port: PORT });
-});
+  // Sem extensão => trata como diretório e serve o index.html dele.
+  if (!path.extname(filePath)) filePath = path.join(filePath, 'index.html');
 
-const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
-
-// Map: ws -> { role: 'controller' | 'receiver' | 'unknown' }
-const clients = new Map();
-
-function broadcastReceiverCount() {
-  const count = Array.from(clients.values()).filter((c) => c.role === 'receiver').length;
-  clients.forEach((info, client) => {
-    if (info.role === 'controller' && client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify({ type: 'receivers', count }));
-    }
-  });
-}
-
-wss.on('connection', (ws) => {
-  clients.set(ws, { role: 'unknown' });
-
-  ws.on('message', (data) => {
-    try {
-      const msg = JSON.parse(data.toString());
-
-      if (msg.type === 'hello') {
-        clients.get(ws).role = msg.role;
-        if (msg.role === 'receiver') broadcastReceiverCount();
-        return;
-      }
-
-      // Controller sends image → broadcast to all receivers
-      if (msg.type === 'image' && clients.get(ws).role === 'controller') {
-        const raw = data.toString();
-        clients.forEach((info, client) => {
-          if (info.role === 'receiver' && client.readyState === WebSocket.OPEN) {
-            client.send(raw);
-          }
-        });
-      }
-    } catch {
-      // ignore malformed messages
-    }
-  });
-
-  ws.on('close', () => {
-    const wasReceiver = clients.get(ws)?.role === 'receiver';
-    clients.delete(ws);
-    if (wasReceiver) broadcastReceiverCount();
-  });
-});
-
-function getLocalIP() {
-  for (const ifaces of Object.values(os.networkInterfaces())) {
-    for (const iface of ifaces) {
-      if (iface.family === 'IPv4' && !iface.internal) return iface.address;
-    }
+  // Bloqueia path traversal.
+  if (!filePath.startsWith(ROOT)) {
+    res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Proibido');
+    return;
   }
-  return 'localhost';
-}
 
-server.listen(PORT, '0.0.0.0', () => {
-  const ip = getLocalIP();
-  console.log('\n=== IASD AV — Projeção ===');
-  console.log(`Local:          http://localhost:${PORT}`);
-  console.log(`Rede local:     http://${ip}:${PORT}`);
-  console.log(`Receptor (TV):  http://${ip}:${PORT}/receiver.html`);
-  console.log('');
-  console.log('Abra o controlador no celular pelo IP da rede local acima.');
-  console.log('');
+  fs.readFile(filePath, (err, data) => {
+    if (err) {
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('Nao encontrado');
+      return;
+    }
+    const ext = path.extname(filePath).toLowerCase();
+    const headers = { 'Content-Type': MIME[ext] || 'application/octet-stream' };
+    // Service workers nao devem ficar presos em cache do navegador.
+    if (filePath.endsWith('sw.js')) headers['Cache-Control'] = 'no-cache';
+    res.writeHead(200, headers);
+    res.end(data);
+  });
+});
+
+server.listen(PORT, () => {
+  console.log(`Servidor rodando em http://localhost:${PORT}`);
 });
