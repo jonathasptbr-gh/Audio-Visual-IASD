@@ -28,6 +28,7 @@ const libraryEl = document.getElementById('library');
 
 const topbarEl = document.getElementById('topbar');
 const deckEl = document.getElementById('deck');
+const deckWrapEl = document.getElementById('deckWrap');
 const collapseBtnEl = document.getElementById('collapseBtn');
 const topCollapsedEl = document.getElementById('topCollapsed');
 const ccNameEl = document.getElementById('ccName');
@@ -44,8 +45,8 @@ const ICON = {
   pause: '', // pause
   stop: '', // stop
   next: '', // skip_next
-  viewOn: '',  // power_settings_new (visual ativo)
-  viewOff: '', // power_settings_new (wallpaper/off)
+  viewOn: '',  // image (visual ativo)
+  viewOff: '', // image_not_supported (wallpaper/off)
   volOn: '', // volume_up
   volOff: '', // volume_off
   music: '', // music_note
@@ -406,7 +407,8 @@ async function toggleTop() {
   renderTop();
 }
 function renderTop() {
-  deckEl.hidden = topCollapsed;
+  deckWrapEl.classList.toggle('collapsed', topCollapsed);
+  collapseBtnEl.classList.toggle('is-collapsed', topCollapsed);
   topCollapsedEl.hidden = !topCollapsed;
   const cur = [...plItems, ...libItems].find((m) => m.id === currentId);
   ccNameEl.textContent = cur ? cur.name : 'Controles';
