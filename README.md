@@ -18,7 +18,7 @@ isso dividindo o sistema em dois PWAs:
 Como os dois PWAs estão no **mesmo origin**, eles compartilham:
 
 - **IndexedDB** — blobs de mídia armazenados offline, acessíveis pelos dois apps.
-- **BroadcastChannel** (`av-channel`) — o Controle envia comandos em tempo real para o Display.
+- **BroadcastChannel** (`av-iasd`) — o Controle envia comandos em tempo real para o Display.
 
 Cada PWA tem `manifest.json`, `scope` e `start_url` próprios, então o Android os
 instala e trata como **dois apps distintos** — permitindo espelhar só o Display.
@@ -57,14 +57,23 @@ server.js                       # Servidor estático mínimo (Node puro, sem dep
 
 ## Modelo de dados (`shared/db.js`)
 
-### IndexedDB — banco `av-db` v1
+### IndexedDB — banco `av-iasd` v1
 
 | Object Store | Chave | Conteúdo |
 |---|---|---|
-| `blobs` | `id` (UUID) | `{ id, blob, mime, name, thumb? }` |
-| `lists` | `name` | `{ name, items: [id, ...] }` |
+| `media` | `id` (UUID) | `{ id, blob, thumb, type, kind, name, createdAt }` |
+| `state` | chave string | valor arbitrário (listas, estado atual, modo de repetição…) |
 
-**Três listas nomeadas:** `imports`, `favorites`, `playlist`.
+**Três listas nomeadas** (arrays de IDs guardados em `state`): `imports`, `favorites`, `playlist`.
+
+O campo `kind` é derivado do `blob.type`:
+
+| `type` começa com | `kind` |
+|---|---|
+| `image/` | `'image'` |
+| `video/` | `'video'` |
+| `audio/` | `'audio'` |
+| outro | `'other'` |
 
 #### Garbage collection de blobs
 
@@ -73,61 +82,100 @@ que um item favoritado continua existindo mesmo que o usuário limpe os importad
 e que a playlist nunca aponta para um blob que sumiu.
 
 ```
-deleteFromList(id, listName)
+listRemove(listName, id)
   → se id não aparece em nenhuma outra lista → deleteBlob(id)
 ```
 
-### BroadcastChannel — canal `av-channel`
+### BroadcastChannel — canal `av-iasd`
 
-Todos os comandos são objetos JSON com um campo `cmd`:
+Todos os comandos são objetos com um campo `type`. O Controle envia para o Display;
+o Display envia de volta notificações de estado.
 
-| `cmd` | Campos extras | Descrição |
+#### Controle → Display
+
+| `type` | Campos extras | Descrição |
 |---|---|---|
-| `load` | `id, view, muted, vol` | Carrega mídia no Display |
+| `load` | `mediaId, view, muted, volume` | Carrega e exibe uma mídia |
 | `play` | — | Inicia reprodução |
 | `pause` | — | Pausa |
-| `stop` | — | Para e volta ao wallpaper |
-| `seek` | `time` | Pula para o instante (segundos) |
-| `vol` | `value` (0–1) | Altera volume |
-| `mute` | `value` (bool) | Liga/desliga mudo |
-| `view` | `value` (`'visual'`\|`'wall'`) | Alterna visual/wallpaper |
-| `media-ended` | — | Display notifica o Controle que o vídeo acabou |
+| `stop` | — | Para e volta ao wallpaper (sem limpar `currentId`) |
+| `seek` | `time` (segundos) | Pula para o instante indicado |
+| `volume` | `volume` (0.0–1.0) | Altera o volume |
+| `mute` | `muted` (bool) | Liga/desliga mudo |
+| `view` | `view` (`'visual'`\|`'wallpaper'`) | Alterna entre exibir a mídia ou o wallpaper |
+| `clear` | — | Limpa o Display (volta ao wallpaper, zera `currentId`) |
+
+#### Display → Controle / outros
+
+| `type` | Campos extras | Descrição |
+|---|---|---|
+| `display-ready` | — | Display notifica que está pronto; Controle reenvia o estado atual |
+| `display-status` | `mediaId, view, muted, volume, playing, currentTime, duration` | Estado do Display a cada evento de tempo/estado |
+| `media-ended` | `mediaId` | Display notifica que o vídeo chegou ao fim |
 
 ---
 
 ## Motor de renderização (`shared/stage.js`)
 
 `createStage(opts)` retorna um objeto com a API de reprodução. É usado tanto pelo
-Display (na tela real) quanto pelo Controle (mini-preview no topo).
-
-### Estado interno
-
-```
-current   → item carregado atualmente (null = nada)
-ended     → flag: vídeo chegou ao fim (permite replay sem recarregar)
-view      → 'visual' | 'wall'
-muted     → bool
-vol       → 0.0 – 1.0
-```
-
-### Comportamento ao fim do vídeo
-
-Quando o vídeo termina (`video.ended`), a flag `ended = true` é ativada e
-`applyView()` esconde o vídeo e mostra o wallpaper — **sem chamar `clear()`**.
-Isso preserva `current` para que um `play()` subsequente reaproveitamento o mesmo
-item (redefine `ended = false` e re-exibe o vídeo desde o início).
+Display (na tela real) quanto pelo Controle (mini-preview no topo, sempre mudo).
 
 ### Opções de criação
 
 ```js
 createStage({
-  wallEl,      // elemento do wallpaper
-  imgEl,       // elemento <img>
-  videoEl,     // elemento <video>
-  onEnded,     // callback chamado quando o vídeo termina
-  onTimeUpdate // callback(currentTime, duration) para seek bar
+  wallpaper,    // elemento do wallpaper
+  img,          // elemento <img>
+  video,        // elemento <video>
+  forceMuted,   // bool — se true, mantém o vídeo sempre mudo (usado na preview do Controle)
+  onEnded,      // callback chamado quando o vídeo termina
+  onTime,       // callback chamado em timeupdate / loadedmetadata / play / pause / ended / volumechange
+  onBlocked,    // callback chamado quando o autoplay é bloqueado pelo browser
 })
 ```
+
+### Estado interno
+
+```
+current   → registro da mídia carregada (null = nada)
+ended     → flag: vídeo chegou ao fim (permite replay sem recarregar)
+view      → 'visual' | 'wallpaper'
+muted     → bool (intenção do operador; independe de forceMuted)
+volume    → 0.0 – 1.0
+loadSeq   → contador de sequência para descartar loads concorrentes obsoletos
+```
+
+### API exposta
+
+```js
+stage.handle(cmd)        // Processa qualquer comando do protocolo acima
+stage.load(id, view, muted, volume)
+stage.clear()
+stage.play() / pause() / stop()
+stage.seek(seconds)
+stage.setView(v) / setMute(m) / setVolume(vol)
+stage.getCurrent()       // → registro atual ou null
+stage.getView()          // → 'visual' | 'wallpaper'
+stage.isPlaying()        // → bool
+stage.isTimed()          // → bool (true para vídeo/áudio)
+stage.getTime()          // → currentTime em segundos
+stage.getDuration()      // → duração em segundos
+stage.getMuted()         // → bool
+stage.getVolume()        // → 0.0 – 1.0
+```
+
+### Comportamento ao fim do vídeo
+
+Quando o vídeo termina, a flag `ended = true` é ativada e `applyView()` esconde
+o vídeo e mostra o wallpaper — **sem chamar `clear()`**. Isso preserva `current`
+para que um `play()` subsequente reuse o mesmo item (redefine `ended = false`).
+
+### Concorrência de carregamento
+
+`load()` é assíncrona (busca o blob no IndexedDB). Um contador interno `loadSeq`
+garante que apenas o **último** `load()` iniciado aplica seu resultado — chamadas
+anteriores que ainda não terminaram são silenciosamente descartadas, evitando
+race conditions entre cliques rápidos.
 
 ---
 
@@ -148,7 +196,10 @@ createStage({
 **Mixer (coluna direita):**
 - Slider vertical de volume (0–100%)
 - Botão mudo (vermelho quando ativo)
-- Botão visual on/off (alterna `image` ↔ `image_not_supported`)
+- Botão visual on/off (alterna `'visual'` ↔ `'wallpaper'`)
+
+A preview é um `createStage` com `forceMuted: true` que recebe exatamente os
+mesmos comandos enviados ao Display — garantindo que ambos mostrem o mesmo conteúdo.
 
 ### Abas e biblioteca
 
@@ -161,6 +212,9 @@ createStage({
 - **Favoritos** — itens marcados como favorito; persistem entre sessões.
 - **Importar** — `<input type="file" multiple accept="image/*,video/*,audio/*">`.
 
+Miniaturas (160×160 px, JPEG 72%) são geradas no momento da importação via Canvas
+e gravadas no blob do registro. Vídeos têm thumbnail extraído do frame a ~⅓ da duração.
+
 ### Gestos nos itens da biblioteca
 
 | Gesto | Ação |
@@ -168,7 +222,7 @@ createStage({
 | Toque simples | Carrega e exibe no Display |
 | Deslize à esquerda | Adiciona à playlist |
 | Deslize à direita | Adiciona/remove dos favoritos |
-| Segurar e arrastar (⠿) | Reordena o item |
+| Segurar e arrastar (⠿) | Reordena o item na lista |
 | Pressionar e segurar | Entra no modo de seleção múltipla |
 
 **Modo de seleção múltipla:** barra no topo mostra contagem; botões de renomear e excluir.
@@ -177,7 +231,7 @@ createStage({
 
 Abre ao tocar no botão de playlist (esquerda das abas). Exibe badge com contagem.
 
-- Lista completa com drag-to-reorder e remoção por swipe.
+- Lista completa com drag-to-reorder e remoção por botão.
 - Fechar: botão X ou tocar fora do sheet.
 
 ### Modos de repetição
@@ -190,10 +244,10 @@ off → repeat-all (🔁) → repeat-one (🔁¹) → shuffle (🔀) → off
 
 | Modo | Comportamento ao fim do item |
 |---|---|
-| `off` | Playlist termina; `currentId` permanece para replay |
-| `repeat-all` | Avança para o próximo; ao fim da lista volta ao início |
-| `repeat-one` | Recarrega e reproduz o mesmo item |
-| `shuffle` | Avança para um item aleatório da playlist |
+| `off` | Playlist para; `currentId` permanece para replay manual |
+| `all` | Avança para o próximo; ao fim da lista volta ao início |
+| `one` | Recarrega e reproduz o mesmo item |
+| `shuffle` | Avança para um item aleatório da playlist (nunca repete o atual) |
 
 ---
 
@@ -205,9 +259,23 @@ Na primeira abertura exibe uma tela de **unlock** (overlay com botão de play),
 necessária para contornar a política de autoplay dos navegadores — que exige um
 gesto do usuário antes de qualquer reprodução com áudio.
 
-Após o unlock, o Display escuta o BroadcastChannel e executa todos os comandos
-recebidos. Ao fim de um vídeo, envia `{ cmd: 'media-ended' }` de volta para que
-o Controle possa avançar a playlist automaticamente.
+Após o unlock, o Display escuta o BroadcastChannel e repassa todos os comandos
+recebidos para `stage.handle()`. Ao inicializar, envia `display-ready` para que
+o Controle reenvie o estado atual caso já haja algo em exibição.
+
+---
+
+## Servidor (`server.js`)
+
+Servidor HTTP estático mínimo em Node.js puro (sem dependências):
+
+- Serve a pasta `public/` com tipos MIME corretos.
+- Diretórios sem extensão são resolvidos para `index.html`.
+- **Proteção contra path traversal:** verifica que o caminho resolvido começa
+  com `ROOT + path.sep`, bloqueando tanto `../` quanto match acidental em
+  diretórios com nomes prefixados por `public`.
+- URLs com percent-encoding inválido retornam HTTP 400 (sem derrubar o processo).
+- Service workers recebem `Cache-Control: no-cache` para garantir atualizações.
 
 ---
 
@@ -220,9 +288,9 @@ controle/sw.js → const CACHE = 'controle-vN'
 display/sw.js  → const CACHE = 'display-vN'
 ```
 
-**Estratégia:** cache-first. Na ativação, o SW apaga todos os caches antigos
-que contenham a palavra-chave (`controle` ou `display`) exceto a versão atual,
-sem tocar nos caches do outro app.
+**Estratégia:** cache-first com fallback para rede. Na ativação, o SW apaga todos
+os caches antigos que contenham a palavra-chave (`controle` ou `display`) exceto
+a versão atual, sem tocar nos caches do outro app.
 
 > **Ao fazer qualquer mudança nos assets estáticos, incremente N em ambos os SWs.**
 
@@ -231,7 +299,7 @@ sem tocar nos caches do outro app.
 ## Fonte de ícones (Material Symbols)
 
 A fonte original (Material Symbols Rounded) tem ~3.8 MB. O projeto usa uma versão
-**instantiada e subconjuntada**:
+**instanciada e subconjuntada**:
 
 - Peso fixado em 400 com `fontTools varLib.instancer`
 - Apenas os 27 glifos usados na UI, subconjuntados por codepoint Unicode
