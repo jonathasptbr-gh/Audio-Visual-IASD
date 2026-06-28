@@ -14,6 +14,10 @@ const viewToggleEl = document.getElementById('viewToggle');
 const muteToggleEl = document.getElementById('muteToggle');
 const volSliderEl = document.getElementById('volSlider');
 
+const pvWallEl = document.getElementById('pvWall');
+const pvImgEl = document.getElementById('pvImg');
+const pvVideoEl = document.getElementById('pvVideo');
+
 const plToggleEl = document.getElementById('plToggle');
 const plCountEl = document.getElementById('plCount');
 const playlistEl = document.getElementById('playlist');
@@ -58,7 +62,7 @@ const ICON = {
   check: '\ue86c', // check_circle
 };
 
-const REPEATS = ['all', 'one', 'shuffle'];
+const REPEATS = ['off', 'all', 'one', 'shuffle'];
 
 // ===== estado =====
 let plItems = [];          // mídias da playlist (ordenadas)
@@ -76,6 +80,31 @@ let collapsed = true;
 let selectionMode = false;
 const selected = new Set();
 let thumbUrls = [];
+
+// ===== preview (espelho do display) =====
+// Mostra exatamente o que o display mostra; sempre mudo. Recebe os MESMOS
+// comandos enviados ao display e ainda comanda a barra de progresso/avanço.
+const preview = createStage({
+  wallpaper: pvWallEl, img: pvImgEl, video: pvVideoEl, forceMuted: true,
+  onTime: previewTick,
+  onEnded: () => autoAdvance(),
+});
+
+// Envia o comando ao display E aplica na preview (espelho).
+function cmd(obj) { AVDB.sendCommand(obj); preview.handle(obj); }
+
+function previewTick() {
+  playing = preview.isPlaying();
+  playPauseEl.querySelector('.msym').textContent = playing ? ICON.pause : ICON.play;
+  const dur = preview.getDuration();
+  durTimeEl.textContent = fmtTime(dur);
+  seekEl.disabled = !preview.isTimed();
+  if (!seeking) {
+    seekEl.max = isFinite(dur) && dur > 0 ? dur : 0;
+    seekEl.value = preview.getTime() || 0;
+    curTimeEl.textContent = fmtTime(preview.getTime());
+  }
+}
 
 // ===== util =====
 function fmtTime(s) {
@@ -141,7 +170,7 @@ async function load() {
   view = (cur && cur.view) || 'visual';
   muted = !!(cur && cur.muted);
   volume = (cur && typeof cur.volume === 'number') ? cur.volume : 1;
-  repeat = (await AVDB.getState('repeat')) || 'all';
+  repeat = (await AVDB.getState('repeat')) || 'off';
   const col = await AVDB.getState('plCollapsed');
   collapsed = col === undefined ? true : !!col;
 
@@ -157,6 +186,9 @@ async function load() {
   renderPlaylist();
   renderLibrary();
   renderSelbar();
+
+  // mantém a preview alinhada (sem recarregar a mídia)
+  preview.setView(view); preview.setMute(muted); preview.setVolume(volume);
 }
 
 function renderControls() {
@@ -169,10 +201,11 @@ function renderControls() {
 
 function renderRepeat() {
   const icon = repeat === 'one' ? ICON.repeatOne : repeat === 'shuffle' ? ICON.shuffle : ICON.repeatAll;
-  const label = repeat === 'one' ? 'Repetir 1' : repeat === 'shuffle' ? 'Aleatório' : 'Repetir tudo';
+  const label = repeat === 'off' ? 'Repetição desativada'
+    : repeat === 'one' ? 'Repetir 1' : repeat === 'shuffle' ? 'Aleatório' : 'Repetir tudo';
   repeatEl.querySelector('.msym').textContent = icon;
   repeatEl.title = label;
-  repeatEl.classList.add('active'); // sempre um modo ativo
+  repeatEl.classList.toggle('active', repeat !== 'off');
 }
 
 function renderNowPlaying() {
@@ -231,7 +264,7 @@ function renderPlaylist() {
     const handle = document.createElement('button'); handle.className = 'row-handle'; handle.title = 'Arraste para reordenar';
     handle.appendChild(msym(ICON.drag));
 
-    row.append(thumbEl(item), name, rm, handle);
+    row.append(name, rm, handle); // playlist: só nome, excluir e reordenar
     li.appendChild(row);
     row.addEventListener('click', (e) => { if (!e.target.closest('.row-btn,.row-handle')) send(item.id); });
     attachHandle(handle, item.id, 'playlist');
@@ -293,7 +326,7 @@ function renderSelbar() {
 async function send(id) {
   currentId = id;
   await persistCurrent();
-  AVDB.sendCommand({ type: 'load', mediaId: id, view, muted, volume });
+  cmd({ type: 'load', mediaId: id, view, muted, volume });
   // re-render leve de estados ativos
   document.querySelectorAll('.lib-item,.row-item').forEach((el) => el.classList.toggle('active', el.dataset.id === id));
   renderNowPlaying();
@@ -307,6 +340,7 @@ function step(delta) {
 }
 
 function autoAdvance() {
+  if (repeat === 'off') return;            // deixa a playlist terminar normalmente
   if (repeat === 'one') { if (currentId) send(currentId); return; }
   if (plItems.length === 0) return;
   if (repeat === 'shuffle') {
@@ -329,12 +363,12 @@ async function cycleRepeat() {
 
 async function setView(v) {
   view = v; await persistCurrent();
-  AVDB.sendCommand({ type: 'view', view });
+  cmd({ type: 'view', view });
   renderControls();
 }
 async function toggleMute() {
   muted = !muted; await persistCurrent();
-  AVDB.sendCommand({ type: 'mute', muted });
+  cmd({ type: 'mute', muted });
   renderControls();
 }
 
@@ -493,19 +527,19 @@ fileEl.addEventListener('change', async () => {
 
 hideEl.addEventListener('click', async () => {
   currentId = null;
-  AVDB.sendCommand({ type: 'clear' });
+  cmd({ type: 'clear' });
   await persistCurrent();
   load();
 });
 
-playPauseEl.addEventListener('click', () => AVDB.sendCommand({ type: playing ? 'pause' : 'play' }));
-stopEl.addEventListener('click', () => AVDB.sendCommand({ type: 'stop' }));
+playPauseEl.addEventListener('click', () => cmd({ type: playing ? 'pause' : 'play' }));
+stopEl.addEventListener('click', () => cmd({ type: 'stop' }));
 prevEl.addEventListener('click', () => step(-1));
 nextEl.addEventListener('click', () => step(1));
 repeatEl.addEventListener('click', cycleRepeat);
 
 seekEl.addEventListener('input', () => { curTimeEl.textContent = fmtTime(parseFloat(seekEl.value)); });
-seekEl.addEventListener('change', () => AVDB.sendCommand({ type: 'seek', time: parseFloat(seekEl.value) }));
+seekEl.addEventListener('change', () => cmd({ type: 'seek', time: parseFloat(seekEl.value) }));
 
 viewToggleEl.addEventListener('click', () => setView(view === 'visual' ? 'wallpaper' : 'visual'));
 muteToggleEl.addEventListener('click', toggleMute);
@@ -515,8 +549,8 @@ volSliderEl.addEventListener('pointerdown', () => { volSeeking = true; });
 volSliderEl.addEventListener('pointerup', () => { volSeeking = false; });
 volSliderEl.addEventListener('input', () => {
   volume = parseInt(volSliderEl.value, 10) / 100;
-  if (volume > 0 && muted) { muted = false; AVDB.sendCommand({ type: 'mute', muted }); }
-  AVDB.sendCommand({ type: 'volume', volume });
+  if (volume > 0 && muted) { muted = false; cmd({ type: 'mute', muted }); }
+  cmd({ type: 'volume', volume });
   renderControls();
 });
 volSliderEl.addEventListener('change', () => { volSeeking = false; persistCurrent(); });
@@ -543,29 +577,19 @@ let seeking = false;
 seekEl.addEventListener('pointerdown', () => { seeking = true; });
 seekEl.addEventListener('pointerup', () => { seeking = false; });
 
-AVDB.onCommand((cmd) => {
-  if (!cmd) return;
-  if (cmd.type === 'display-status') {
-    playing = !!cmd.playing;
-    playPauseEl.querySelector('.msym').textContent = playing ? ICON.pause : ICON.play;
-    if (cmd.mediaId && cmd.mediaId !== currentId) { currentId = cmd.mediaId; document.querySelectorAll('.lib-item,.row-item').forEach((el) => el.classList.toggle('active', el.dataset.id === currentId)); }
-    if (typeof cmd.volume === 'number') volume = cmd.volume;
-    if (typeof cmd.muted === 'boolean') muted = cmd.muted;
-    durTimeEl.textContent = fmtTime(cmd.duration);
-    if (!seeking) {
-      seekEl.max = isFinite(cmd.duration) && cmd.duration > 0 ? cmd.duration : 0;
-      seekEl.value = cmd.currentTime || 0;
-      curTimeEl.textContent = fmtTime(cmd.currentTime);
-    }
-    renderControls();
-    renderNowPlaying();
-  } else if (cmd.type === 'media-ended') {
-    autoAdvance();
-  } else if (cmd.type === 'display-ready') {
-    if (currentId) AVDB.sendCommand({ type: 'load', mediaId: currentId, view, muted, volume });
+// A preview (local) comanda a barra de progresso e o avanço automático.
+// Aqui só tratamos a (re)sincronização de um display recém-aberto.
+AVDB.onCommand((msg) => {
+  if (!msg) return;
+  if (msg.type === 'display-ready' && currentId) {
+    AVDB.sendCommand({ type: 'load', mediaId: currentId, view, muted, volume });
   }
 });
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 
-load();
+(async function init() {
+  await load();
+  // carrega a mídia atual na preview (uma vez, na abertura)
+  if (currentId) preview.load(currentId, view, muted, volume);
+})();
