@@ -33,12 +33,14 @@
       <button id="viewToggle" class="ctl-btn" title="Mostrar/ocultar mídia">
         <span class="msym">&#xe251;</span><span id="viewLabel">Visual</span>
       </button>
-      <button id="muteToggle" class="ctl-btn" title="Mudo (liga/desliga)">
-        <span class="msym">&#xe050;</span><span id="volLabel">100%</span>
-      </button>
-    </div>
-    <div class="vol-row">
-      <input type="range" id="volSlider" min="0" max="100" value="100" aria-label="Volume da mídia">
+      <div class="mixer">
+        <div class="fader-wrap">
+          <input type="range" id="volSlider" class="fader" min="0" max="100" value="100" aria-label="Volume da mídia">
+        </div>
+        <button id="muteToggle" class="ctl-btn mute-btn" title="Mudo (liga/desliga)">
+          <span class="msym">&#xe050;</span>
+        </button>
+      </div>
     </div>
   </header>
 

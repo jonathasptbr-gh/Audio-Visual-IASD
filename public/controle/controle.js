@@ -15,7 +15,6 @@ const durTimeEl = document.getElementById('durTime');
 const viewToggleEl = document.getElementById('viewToggle');
 const viewLabelEl = document.getElementById('viewLabel');
 const muteToggleEl = document.getElementById('muteToggle');
-const volLabelEl = document.getElementById('volLabel');
 const volSliderEl = document.getElementById('volSlider');
 
 // Codepoints do subconjunto Material Symbols (ver material-symbols.css).
@@ -150,9 +149,8 @@ function renderControls() {
   viewLabelEl.textContent = view === 'visual' ? 'Visual' : 'Wallpaper';
   viewToggleEl.classList.toggle('active', view === 'visual');
 
-  // Botão de volume/mudo + slider
+  // Botão de mudo (só ícone) + fader
   muteToggleEl.querySelector('.msym').textContent = muted ? ICON.volOff : ICON.volOn;
-  volLabelEl.textContent = muted ? 'Mudo' : Math.round(volume * 100) + '%';
   muteToggleEl.classList.toggle('muted', muted);
   if (!volSeeking) volSliderEl.value = Math.round(volume * 100);
 }
