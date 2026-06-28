@@ -215,7 +215,7 @@ async function load() {
 
 function renderControls() {
   viewToggleEl.querySelector('.msym').textContent = view === 'visual' ? ICON.viewOn : ICON.viewOff;
-  viewToggleEl.classList.toggle('active', view === 'visual');
+  viewToggleEl.classList.toggle('view-blocked', view === 'wallpaper');
   muteToggleEl.querySelector('.msym').textContent = muted ? ICON.volOff : ICON.volOn;
   muteToggleEl.classList.toggle('muted', muted);
   if (!volSeeking) volSliderEl.value = Math.round(volume * 100);

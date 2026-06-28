@@ -115,7 +115,7 @@ body {
 .ctl-btn .msym { font-size: 21px; }
 .ctl-btn:active { transform: scale(.97); }
 .mixer .ctl-btn { width: 100%; padding: .4rem 0; }
-.view-btn.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.view-btn.view-blocked { border-color: var(--danger); background: rgba(229, 57, 53, .22); color: #ffcdd2; }
 .mute-btn.muted { border-color: var(--danger); background: rgba(229, 57, 53, .22); color: #ffcdd2; }
 
 /* ---------- Conteúdo principal ---------- */
