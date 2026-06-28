@@ -106,15 +106,70 @@ body {
 .ctl-btn:active { transform: scale(.97); }
 /* Toggle de visibilidade: destacado quando a mídia está na tela */
 #viewToggle.active { border-color: var(--accent); background: rgba(251, 192, 45, .18); }
-/* Botão de volume: vermelho quando mudo */
-#muteToggle.muted { border-color: #e53935; background: rgba(229, 57, 53, .18); color: #ffcdd2; }
+/* Linha de controles: toggle de visibilidade + canal do mixer (fader + mudo) */
+.controls-row { align-items: stretch; }
+#viewToggle { flex-direction: column; gap: .2rem; }
 
-.vol-row { display: flex; align-items: center; padding: 0 .2rem; }
-#volSlider {
-  flex: 1;
-  accent-color: var(--accent);
-  height: 4px;
+.mixer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .45rem;
+  padding: .35rem .5rem;
+  background: rgba(0, 0, 0, .22);
+  border-radius: 10px;
 }
+
+/* Fader vertical (slider horizontal rotacionado -90deg) */
+.fader-wrap {
+  height: 120px;
+  width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fader {
+  width: 120px;            /* vira o comprimento vertical após girar */
+  transform: rotate(-90deg);
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+.fader::-webkit-slider-runnable-track {
+  height: 6px;
+  background: #0a160d;
+  border-radius: 3px;
+  box-shadow: inset 0 0 4px rgba(0, 0, 0, .9);
+}
+.fader::-moz-range-track {
+  height: 6px;
+  background: #0a160d;
+  border-radius: 3px;
+  box-shadow: inset 0 0 4px rgba(0, 0, 0, .9);
+}
+.fader::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;             /* espessura do cap (vertical após girar) */
+  height: 34px;            /* largura do cap (horizontal após girar) */
+  margin-top: -5px;
+  border-radius: 4px;
+  border: 1px solid #6b6b6b;
+  background: linear-gradient(180deg, #fafafa 0%, #cfcfcf 48%, #9e9e9e 52%, #e0e0e0 100%);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .6);
+}
+.fader::-moz-range-thumb {
+  width: 16px;
+  height: 34px;
+  border-radius: 4px;
+  border: 1px solid #6b6b6b;
+  background: linear-gradient(180deg, #fafafa 0%, #cfcfcf 48%, #9e9e9e 52%, #e0e0e0 100%);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .6);
+}
+
+/* Botão de mudo: só ícone, compacto */
+.mute-btn { flex: none; width: 44px; padding: .45rem 0; }
+.mute-btn.muted { border-color: #e53935; background: rgba(229, 57, 53, .25); color: #ffcdd2; }
 
 /* ---------- Conteúdo ---------- */
 
