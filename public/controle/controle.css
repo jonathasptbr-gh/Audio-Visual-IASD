@@ -106,9 +106,10 @@ body {
 .ctl-btn:active { transform: scale(.97); }
 /* Toggle de visibilidade: destacado quando a mídia está na tela */
 #viewToggle.active { border-color: var(--accent); background: rgba(251, 192, 45, .18); }
-/* Linha de controles: toggle de visibilidade + canal do mixer (fader + mudo) */
-.controls-row { align-items: stretch; }
-#viewToggle { flex-direction: column; gap: .2rem; }
+/* Linha de controles: toggle de visibilidade (ícone) + canal do mixer (fader + mudo) */
+.controls-row { align-items: center; justify-content: space-between; }
+.view-btn { flex: none; width: 44px; padding: .45rem 0; }
+.view-btn.active { border-color: var(--accent); background: rgba(251, 192, 45, .18); }
 
 .mixer {
   display: flex;
