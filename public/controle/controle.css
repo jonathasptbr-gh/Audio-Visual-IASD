@@ -163,7 +163,7 @@ main {
 }
 .empty { color: var(--muted); text-align: center; padding: 1.6rem 0; line-height: 1.6; font-size: .9rem; }
 
-.row-item, .lib-item { position: relative; border-radius: 10px; background: var(--panel); border: 2px solid transparent; overflow: hidden; }
+.row-item, .lib-item { position: relative; border-radius: 10px; background: var(--panel); border: 2px solid transparent; overflow: hidden; flex-shrink: 0; }
 .row-item.active, .lib-item.active { border-color: var(--accent); }
 .lib-item.selected { border-color: var(--accent); background: var(--panel-2); }
 .dragging { z-index: 5; opacity: .92; box-shadow: 0 6px 18px rgba(0,0,0,.6); }
@@ -244,6 +244,7 @@ main {
   list-style: none; padding: .5rem .7rem .8rem;
   display: flex; flex-direction: column; gap: .35rem;
 }
+.popup-list > li { flex-shrink: 0; }
 
 /* ---------- toast ---------- */
 .toast { position: fixed; left: 50%; bottom: calc(1.2rem + env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(20px); background: #222; color: #fff; padding: .55rem 1rem; border-radius: 999px; font-size: .85rem; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 50; border: 1px solid #333; }
