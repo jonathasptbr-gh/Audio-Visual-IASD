@@ -109,6 +109,13 @@ body {
 /* Botão de volume: vermelho quando mudo */
 #muteToggle.muted { border-color: #e53935; background: rgba(229, 57, 53, .18); color: #ffcdd2; }
 
+.vol-row { display: flex; align-items: center; padding: 0 .2rem; }
+#volSlider {
+  flex: 1;
+  accent-color: var(--accent);
+  height: 4px;
+}
+
 /* ---------- Conteúdo ---------- */
 
 main { flex: 1; padding: 1rem .8rem; display: flex; flex-direction: column; gap: 1rem; }
