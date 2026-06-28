@@ -19,7 +19,7 @@
       <span id="ccName" class="cc-name">Controles</span>
     </button>
 
-    <!-- seção animada: deck (controles + mixer) + playlist -->
+    <!-- seção animada: deck (controles + mixer) -->
     <div class="deck-wrap" id="deckWrap">
       <div class="deck-wrap-inner">
         <div class="deck" id="deck">
@@ -55,17 +55,6 @@
             <button id="viewToggle" class="ctl-btn view-btn" title="Alternar Visual / Wallpaper"><span class="msym">&#xe251;</span></button>
           </div>
         </div>
-
-        <!-- Playlist abaixo do deck, largura total -->
-        <div class="pl-panel">
-          <button id="plToggle" class="pl-head" aria-expanded="false">
-            <span class="msym">&#xe03d;</span>
-            <span class="pl-title">Playlist</span>
-            <span id="plCount" class="pl-count">0</span>
-            <span class="msym pl-caret">&#xe5cf;</span>
-          </button>
-          <ul id="playlist" class="seq-list" hidden></ul>
-        </div>
       </div>
     </div>
 
@@ -77,8 +66,14 @@
 
   <main>
     <div class="tabs">
-      <button class="tab active" data-tab="imports">Importados</button>
-      <button class="tab" data-tab="favorites"><span class="msym">&#xe838;</span> Favoritos</button>
+      <!-- botão de playlist (abre popup) -->
+      <button class="tab-pl" id="plBtn" title="Playlist">
+        <span class="msym">&#xe03d;</span>
+        <span id="plCount" class="pl-badge"></span>
+      </button>
+      <div class="tabs-divider"></div>
+      <button class="tab active" data-tab="imports" title="Importados"><span class="msym">&#xe413;</span></button>
+      <button class="tab" data-tab="favorites" title="Favoritos"><span class="msym">&#xe838;</span></button>
       <label class="tab-add" title="Importar mídia">
         <span class="msym">&#xe2c8;</span>
         <input id="file" type="file" accept="image/*,video/*,audio/*" multiple hidden>
@@ -95,6 +90,19 @@
 
     <ul id="library" class="lib-list"></ul>
   </main>
+
+  <!-- popup de playlist (bottom sheet) -->
+  <div id="plPopup" class="popup-backdrop">
+    <div class="popup-sheet">
+      <div class="popup-header">
+        <span class="msym popup-header-icon">&#xe03d;</span>
+        <span class="popup-title">Playlist</span>
+        <span id="plPopupCount" class="popup-count">0</span>
+        <button id="plPopupClose" class="popup-close" title="Fechar"><span class="msym">&#xe14c;</span></button>
+      </div>
+      <ul id="playlist" class="seq-list popup-list"></ul>
+    </div>
+  </div>
 
   <script src="../shared/db.js"></script>
   <script src="../shared/stage.js"></script>

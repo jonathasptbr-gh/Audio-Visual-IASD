@@ -1,4 +1,4 @@
-const CACHE = 'display-v14';
+const CACHE = 'display-v15';
 const ASSETS = [
   './',
   './index.html',
