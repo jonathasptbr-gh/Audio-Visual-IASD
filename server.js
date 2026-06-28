@@ -16,15 +16,24 @@ const MIME = {
   '.woff2': 'font/woff2',
 };
 
+const ROOT_PREFIX = ROOT + path.sep;
+
 const server = http.createServer((req, res) => {
-  const urlPath = decodeURIComponent(req.url.split('?')[0]);
+  let urlPath;
+  try {
+    urlPath = decodeURIComponent(req.url.split('?')[0]);
+  } catch (e) {
+    res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('URL inválida');
+    return;
+  }
   let filePath = path.join(ROOT, urlPath);
 
   // Sem extensão => trata como diretório e serve o index.html dele.
   if (!path.extname(filePath)) filePath = path.join(filePath, 'index.html');
 
-  // Bloqueia path traversal.
-  if (!filePath.startsWith(ROOT)) {
+  // Bloqueia path traversal (inclui separador para evitar match em diretório irmão tipo "public-x").
+  if (!filePath.startsWith(ROOT_PREFIX)) {
     res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
     res.end('Proibido');
     return;

@@ -71,6 +71,7 @@ const REPEATS = ['off', 'all', 'one', 'shuffle'];
 // ===== estado =====
 let plItems = [];          // mídias da playlist (ordenadas)
 let libItems = [];         // mídias da aba ativa
+let currentItem = null;    // registro da mídia atual (mesmo que não esteja na aba visível)
 let favSet = new Set();
 let plSet = new Set();
 let currentId = null;
@@ -140,30 +141,47 @@ function drawThumb(srcEl, w, h) {
   });
 }
 function thumbFromImage(file) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
-    img.onload = async () => { const b = await drawThumb(img, img.naturalWidth, img.naturalHeight); URL.revokeObjectURL(url); resolve(b); };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(); };
+    img.onload = async () => {
+      try { resolve(await drawThumb(img, img.naturalWidth, img.naturalHeight)); }
+      catch (e) { resolve(null); }
+      finally { URL.revokeObjectURL(url); }
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
     img.src = url;
   });
 }
 function thumbFromVideo(file) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const url = URL.createObjectURL(file);
     const v = document.createElement('video');
+    let settled = false;
+    function finish(blob) {
+      if (settled) return;
+      settled = true;
+      URL.revokeObjectURL(url);
+      resolve(blob);
+    }
     v.muted = true; v.preload = 'auto'; v.playsInline = true;
-    v.onloadeddata = () => { try { v.currentTime = Math.min(0.5, (v.duration || 1) / 3); } catch (e) { /* */ } };
-    v.onseeked = async () => { const b = await drawThumb(v, v.videoWidth || 160, v.videoHeight || 160); URL.revokeObjectURL(url); resolve(b); };
-    v.onerror = () => { URL.revokeObjectURL(url); reject(); };
+    v.onloadeddata = () => {
+      try { v.currentTime = Math.min(0.5, (v.duration || 1) / 3); }
+      catch (e) { finish(null); }
+    };
+    v.onseeked = async () => {
+      try { finish(await drawThumb(v, v.videoWidth || 160, v.videoHeight || 160)); }
+      catch (e) { finish(null); }
+    };
+    v.onerror = () => finish(null);
     v.src = url;
+    // Garante limpeza caso onseeked nunca dispare (ex: vídeo com duração=0).
+    setTimeout(() => finish(null), 3500);
   });
 }
 async function makeThumb(file, kind) {
-  const gen = kind === 'image' ? thumbFromImage(file) : kind === 'video' ? thumbFromVideo(file) : null;
-  if (!gen) return null;
-  const timeout = new Promise((res) => setTimeout(() => res(null), 4000));
-  try { return await Promise.race([gen, timeout]); } catch (e) { return null; }
+  if (kind !== 'image' && kind !== 'video') return null;
+  return kind === 'image' ? thumbFromImage(file) : thumbFromVideo(file);
 }
 
 // ===== carregar + render =====
@@ -179,6 +197,9 @@ async function load() {
   plSet = new Set(plItems.map((m) => m.id));
   favSet = new Set(await AVDB.listIds('favorites'));
   libItems = await AVDB.listItems(activeTab);
+
+  // Cache do item atual para renderNowPlaying mesmo quando não está na aba visível.
+  currentItem = currentId ? (await AVDB.getMedia(currentId)) || null : null;
 
   renderControls();
   renderNowPlaying();
@@ -210,7 +231,9 @@ function renderRepeat() {
 }
 
 function renderNowPlaying() {
-  const cur = [...plItems, ...libItems].find((m) => m.id === currentId);
+  // Prioriza plItems/libItems (já carregados); usa currentItem como fallback
+  // para o caso de o item estar somente em outra aba (ex: apenas em favoritos).
+  const cur = [...plItems, ...libItems].find((m) => m.id === currentId) || currentItem;
   npNameEl.textContent = cur ? cur.name : 'Nada em exibição';
   playPauseEl.querySelector('.msym').textContent = playing ? ICON.pause : ICON.play;
   const isTimed = cur && (cur.kind === 'video' || cur.kind === 'audio');
@@ -324,6 +347,8 @@ function renderSelbar() {
 // ===== ações de reprodução / sequência =====
 async function send(id) {
   currentId = id;
+  // Atualiza cache do item atual para renderNowPlaying funcionar mesmo fora da aba ativa.
+  currentItem = [...plItems, ...libItems].find((m) => m.id === id) || currentItem;
   await persistCurrent();
   cmd({ type: 'load', mediaId: id, view, muted, volume });
   // re-render leve de estados ativos
@@ -595,7 +620,7 @@ let volSeeking = false;
 volSliderEl.addEventListener('pointerdown', () => { volSeeking = true; });
 volSliderEl.addEventListener('pointerup', () => { volSeeking = false; });
 volSliderEl.addEventListener('input', () => {
-  volume = parseInt(volSliderEl.value, 10) / 100;
+  volume = parseFloat(volSliderEl.value) / 100;
   if (volume > 0 && muted) { muted = false; cmd({ type: 'mute', muted }); }
   cmd({ type: 'volume', volume });
   renderControls();
