@@ -14,11 +14,18 @@
 }
 
 html, body { height: 100%; overflow: hidden; }
+/* svh = small viewport height: desconta barras do browser no modo não-PWA.
+   Garante que o layout sempre caiba na área visível, evitando que o rodapé
+   fique sob a barra de navegação do Chrome. */
+html { height: 100svh; }
 body {
   background: var(--bg);
   color: var(--text);
   font-family: system-ui, -apple-system, sans-serif;
-  display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+  display: flex; flex-direction: column;
+  height: 100vh;    /* fallback para browsers mais antigos */
+  height: 100svh;   /* usa a menor viewport possível (chrome visível) */
+  overflow: hidden;
 }
 
 /* ---------- Cabeçalho do app ---------- */
