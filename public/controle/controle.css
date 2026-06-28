@@ -124,6 +124,10 @@ main {
   padding: .8rem; display: flex; flex-direction: column; gap: .7rem;
 }
 
+/* ---------- Título da lista ativa ---------- */
+.list-header { flex-shrink: 0; }
+.list-title { font-size: .72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+
 /* ---------- Abas (ícones) + botão playlist ---------- */
 .tabs { display: flex; gap: .3rem; align-items: center; flex-shrink: 0; }
 

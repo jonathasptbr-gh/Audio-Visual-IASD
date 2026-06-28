@@ -28,6 +28,7 @@ const plPopupCloseEl = document.getElementById('plPopupClose');
 const fileEl = document.getElementById('file');
 const tabsEl = document.querySelector('.tabs');
 const libraryEl = document.getElementById('library');
+const listTitleEl = document.getElementById('listTitle');
 
 const deckEl = document.getElementById('deck');
 
@@ -205,6 +206,7 @@ async function load() {
   renderNowPlaying();
   renderRepeat();
   renderTabs();
+  renderListTitle();
   renderPlaylist();
   renderLibrary();
   renderSelbar();
@@ -242,6 +244,11 @@ function renderNowPlaying() {
 
 function renderTabs() {
   tabsEl.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === activeTab));
+}
+
+function renderListTitle() {
+  const titles = { imports: 'Importados', favorites: 'Favoritos' };
+  listTitleEl.textContent = titles[activeTab] || '';
 }
 
 // ---- thumb element ----
@@ -339,6 +346,7 @@ function renderLibrary() {
 
 function renderSelbar() {
   selbarEl.hidden = !selectionMode;
+  tabsEl.hidden = selectionMode;
   if (!selectionMode) return;
   selCountEl.textContent = String(selected.size);
   selRenameEl.disabled = selected.size !== 1;
@@ -461,9 +469,15 @@ function attachRowGestures(row, item) {
   row.addEventListener('pointercancel', () => { clearTimeout(lp); row.style.transform = ''; li.classList.remove('show-left', 'show-right'); pid = null; mode = null; });
 }
 
-function onTap(item) {
-  if (selectionMode) toggleSelect(item.id);
-  else send(item.id);
+async function onTap(item) {
+  if (selectionMode) { toggleSelect(item.id); return; }
+  // Toque direto na biblioteca: define a playlist como este item apenas.
+  // Swipe para esquerda continua ADICIONANDO à playlist.
+  await AVDB.listSet('playlist', [item.id]);
+  plItems = [item];
+  plSet = new Set([item.id]);
+  renderPlaylist();
+  send(item.id);
 }
 
 async function addTo(listName, item) {
