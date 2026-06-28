@@ -19,10 +19,11 @@
     let muted = false;
     let volume = 1;
     let url = null;
+    let ended = false;
 
     function applyView() {
       const kind = current ? current.kind : null;
-      const visible = !!current && view === 'visual' && (kind === 'image' || kind === 'video');
+      const visible = !!current && !ended && view === 'visual' && (kind === 'image' || kind === 'video');
       img.hidden = !(visible && kind === 'image');
       video.hidden = !(visible && kind === 'video');
       wallpaper.style.display = visible ? 'none' : 'flex';
@@ -32,6 +33,8 @@
 
     function play() {
       if (!current || (current.kind !== 'video' && current.kind !== 'audio')) return;
+      ended = false;
+      applyView();
       const p = video.play();
       if (p && p.catch) p.catch(() => { if (opts.onBlocked && !video.muted) opts.onBlocked(); });
     }
@@ -46,6 +49,7 @@
       if (v !== undefined) view = v;
       if (m !== undefined) muted = m;
       if (typeof vol === 'number') volume = vol;
+      ended = false;
 
       const rec = await AVDB.getMedia(id);
       if (!rec) { clear(); return; }
@@ -70,6 +74,7 @@
 
     function clear() {
       current = null;
+      ended = false;
       img.hidden = true; img.removeAttribute('src');
       video.pause(); video.removeAttribute('src'); video.load();
       if (url) { URL.revokeObjectURL(url); url = null; }
@@ -89,6 +94,13 @@
         case 'clear': clear(); break;
       }
     }
+
+    // Reset to wallpaper on end; opts.onEnded fires after so it can decide what to play next.
+    video.addEventListener('ended', () => {
+      ended = true;
+      video.currentTime = 0;
+      applyView();
+    });
 
     if (opts.onEnded) video.addEventListener('ended', opts.onEnded);
     if (opts.onTime) {
