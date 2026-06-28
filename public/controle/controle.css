@@ -13,17 +13,17 @@
   --danger: #e53935;
 }
 
-html, body { height: 100%; }
+html, body { height: 100%; overflow: hidden; }
 body {
   background: var(--bg);
   color: var(--text);
   font-family: system-ui, -apple-system, sans-serif;
-  display: flex; flex-direction: column; min-height: 100vh;
+  display: flex; flex-direction: column; height: 100vh; overflow: hidden;
 }
 
 /* ---------- Barra superior ---------- */
 .topbar {
-  position: sticky; top: 0; z-index: 10;
+  position: sticky; top: 0; z-index: 10; flex-shrink: 0;
   background: var(--bar);
   padding: .5rem .7rem;
   padding-top: calc(.5rem + env(safe-area-inset-top));
@@ -55,6 +55,13 @@ body {
 .pv-brand b { color: #fbc02d; }
 .pv-layer { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
 
+.nowplaying { display: flex; flex-direction: column; gap: .25rem; }
+.np-name { font-size: .85rem; font-weight: 600; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.np-seek { display: flex; align-items: center; gap: .5rem; }
+.np-time { font-size: .7rem; color: var(--muted); min-width: 32px; text-align: center; }
+#seek { flex: 1; accent-color: var(--accent); height: 4px; }
+#seek:disabled { opacity: .4; }
+
 .transport { display: flex; gap: .35rem; }
 .t-btn {
   flex: 1; padding: .45rem 0; border: none; border-radius: 9px;
@@ -68,14 +75,22 @@ body {
 .t-main .msym { font-size: 27px; }
 #repeat.active { color: var(--accent); }
 
-.nowplaying { display: flex; flex-direction: column; gap: .25rem; }
-.np-name { font-size: .85rem; font-weight: 600; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.np-seek { display: flex; align-items: center; gap: .5rem; }
-.np-time { font-size: .7rem; color: var(--muted); min-width: 32px; text-align: center; }
-#seek { flex: 1; accent-color: var(--accent); height: 4px; }
-#seek:disabled { opacity: .4; }
+/* ---------- Playlist dentro do deck ---------- */
+.pl-panel { border-radius: 8px; overflow: hidden; background: rgba(255,255,255,.03); }
+.pl-head {
+  width: 100%; display: flex; align-items: center; gap: .5rem; padding: .4rem .7rem;
+  background: transparent; color: var(--text); border: none; cursor: pointer;
+  font-size: .82rem; font-weight: 600; -webkit-tap-highlight-color: transparent;
+}
+.pl-head .msym { font-size: 18px; }
+.pl-count { background: var(--accent); color: #fff; font-size: .7rem; font-weight: 700; border-radius: 999px; padding: 0 .4rem; min-width: 18px; text-align: center; }
+.pl-caret { margin-left: auto; transition: transform .2s; color: var(--muted); }
+.seq-list {
+  list-style: none; padding: .3rem .5rem .5rem; display: flex; flex-direction: column; gap: .3rem;
+  background: #0d0d0d; max-height: 35vh; overflow-y: auto;
+}
 
-/* Caixa de volume (mixer): recolher + fader + visual + mudo */
+/* Caixa de volume (mixer): recolher + fader + mudo + visual */
 .mixer {
   display: flex; flex-direction: column; align-items: center; gap: .35rem;
   width: 56px; padding: .35rem; background: rgba(255, 255, 255, .04); border-radius: 10px;
@@ -85,13 +100,13 @@ body {
   background: rgba(255, 255, 255, .06); color: var(--muted); cursor: pointer;
   display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent;
 }
-.mixer-btn .msym { font-size: 20px; transform: rotate(180deg); } /* chevron pra cima = recolher */
+.mixer-btn .msym { font-size: 20px; transform: rotate(180deg); }
 .fader-wrap { flex: 1; min-height: 90px; position: relative; }
 .fader {
   position: absolute; top: 6px; bottom: 6px; left: 50%; transform: translateX(-50%);
   writing-mode: vertical-lr; direction: rtl;
   width: 24px; height: auto; margin: 0;
-  accent-color: var(--accent);   /* parte ativa do trilho fica azul */
+  accent-color: var(--accent);
   touch-action: none; cursor: pointer;
 }
 .ctl-btn {
@@ -102,26 +117,17 @@ body {
 .ctl-btn .msym { font-size: 21px; }
 .ctl-btn:active { transform: scale(.97); }
 .mixer .ctl-btn { width: 100%; padding: .4rem 0; }
-.view-btn.active { border-color: var(--accent); background: var(--accent-soft); }
+.view-btn.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 .mute-btn.muted { border-color: var(--danger); background: rgba(229, 57, 53, .22); color: #ffcdd2; }
 
-/* ---------- Painel playlist (colapsável) ---------- */
-.panel { border-bottom: 1px solid #1c1c1c; }
-.panel-head {
-  width: 100%; display: flex; align-items: center; gap: .5rem; padding: .6rem .9rem;
-  background: var(--panel); color: var(--text); border: none; cursor: pointer;
-  font-size: .9rem; font-weight: 600; -webkit-tap-highlight-color: transparent;
+/* ---------- Conteúdo principal (scrollável apenas internamente) ---------- */
+main {
+  flex: 1; min-height: 0; overflow: hidden;
+  padding: .8rem; display: flex; flex-direction: column; gap: .7rem;
 }
-.panel-head .msym { font-size: 20px; }
-.panel-count { background: var(--accent); color: #fff; font-size: .72rem; font-weight: 700; border-radius: 999px; padding: 0 .45rem; min-width: 20px; text-align: center; }
-.panel-caret { margin-left: auto; transition: transform .2s; color: var(--muted); }
-.seq-list { position: relative; list-style: none; padding: .4rem .6rem .6rem; display: flex; flex-direction: column; gap: .35rem; background: #0d0d0d; }
-
-/* ---------- Conteúdo ---------- */
-main { flex: 1; padding: .8rem; display: flex; flex-direction: column; gap: .7rem; }
 
 /* abas + botão importar */
-.tabs { display: flex; gap: .4rem; align-items: center; }
+.tabs { display: flex; gap: .4rem; align-items: center; flex-shrink: 0; }
 .tab {
   flex: 1; padding: .55rem; border: none; border-bottom: 2px solid transparent;
   background: transparent; color: var(--muted); font-size: .9rem; font-weight: 600; cursor: pointer;
@@ -137,7 +143,7 @@ main { flex: 1; padding: .8rem; display: flex; flex-direction: column; gap: .7re
 .tab-add:active { transform: scale(.96); }
 
 /* barra de seleção */
-.selbar { display: flex; align-items: center; gap: .6rem; background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 10px; padding: .35rem .6rem; }
+.selbar { flex-shrink: 0; display: flex; align-items: center; gap: .6rem; background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 10px; padding: .35rem .6rem; }
 .sel-count { font-weight: 700; }
 .sel-spacer { flex: 1; }
 .sel-btn { width: 36px; height: 36px; border: none; border-radius: 8px; background: rgba(255, 255, 255, .08); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; }
@@ -146,7 +152,10 @@ main { flex: 1; padding: .8rem; display: flex; flex-direction: column; gap: .7re
 .sel-btn .msym { font-size: 20px; }
 
 /* ---------- Itens (playlist e biblioteca) ---------- */
-.lib-list { position: relative; list-style: none; display: flex; flex-direction: column; gap: .4rem; }
+.lib-list {
+  flex: 1; min-height: 0; overflow-y: auto;
+  position: relative; list-style: none; display: flex; flex-direction: column; gap: .4rem;
+}
 .empty { color: var(--muted); text-align: center; padding: 1.6rem 0; line-height: 1.6; font-size: .9rem; }
 
 .row-item, .lib-item { position: relative; border-radius: 10px; background: var(--panel); border: 2px solid transparent; overflow: hidden; }

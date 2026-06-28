@@ -39,32 +39,32 @@ const selRenameEl = document.getElementById('selRename');
 const selDeleteEl = document.getElementById('selDelete');
 
 const ICON = {
-  prev: '\ue045', // skip_previous
-  play: '\ue037', // play_arrow
-  pause: '\ue034', // pause
-  stop: '\ue047', // stop
-  next: '\ue044', // skip_next
-  wallpaper: '\ue1bc', // wallpaper
-  visual: '\ue251', // image
-  volOn: '\ue050', // volume_up
-  volOff: '\ue04f', // volume_off
-  music: '\ue3a1', // music_note
-  broken: '\ue3ad', // broken_image
-  del: '\ue872', // delete
-  import: '\ue43e', // add_photo_alternate
-  clear: '\ue8f5', // visibility_off
-  repeatAll: '\ue040', // repeat
-  repeatOne: '\ue041', // repeat_one
-  shuffle: '\ue043', // shuffle
-  drag: '\ue945', // drag_indicator
-  expand: '\ue5cf', // expand_more
-  edit: '\ue150', // edit
-  close: '\ue14c', // close
-  star: '\ue838', // star
-  plAdd: '\ue03b', // playlist_add
-  plRemove: '\ueb80', // playlist_remove
-  queue: '\ue03d', // queue_music
-  check: '\ue86c', // check_circle
+  prev: '', // skip_previous
+  play: '', // play_arrow
+  pause: '', // pause
+  stop: '', // stop
+  next: '', // skip_next
+  viewOn: '',  // power_settings_new (visual ativo)
+  viewOff: '', // power_settings_new (wallpaper/off)
+  volOn: '', // volume_up
+  volOff: '', // volume_off
+  music: '', // music_note
+  broken: '', // broken_image
+  del: '', // delete
+  import: '', // folder_open
+  clear: '', // visibility_off
+  repeatAll: '', // repeat
+  repeatOne: '', // repeat_one
+  shuffle: '', // shuffle
+  drag: '', // drag_indicator
+  expand: '', // expand_more
+  edit: '', // edit
+  close: '', // close
+  star: '', // star
+  plAdd: '', // playlist_add
+  plRemove: '', // playlist_remove
+  queue: '', // queue_music
+  check: '', // check_circle
 };
 
 const REPEATS = ['off', 'all', 'one', 'shuffle'];
@@ -200,7 +200,7 @@ async function load() {
 }
 
 function renderControls() {
-  viewToggleEl.querySelector('.msym').textContent = view === 'visual' ? ICON.visual : ICON.wallpaper;
+  viewToggleEl.querySelector('.msym').textContent = view === 'visual' ? ICON.viewOn : ICON.viewOff;
   viewToggleEl.classList.toggle('active', view === 'visual');
   muteToggleEl.querySelector('.msym').textContent = muted ? ICON.volOff : ICON.volOn;
   muteToggleEl.classList.toggle('muted', muted);
@@ -249,8 +249,8 @@ function thumbEl(item) {
 function renderPlaylist() {
   plCountEl.textContent = String(plItems.length);
   plToggleEl.setAttribute('aria-expanded', String(!collapsed));
-  plToggleEl.querySelector('.panel-caret').textContent = ICON.expand;
-  plToggleEl.querySelector('.panel-caret').style.transform = collapsed ? '' : 'rotate(180deg)';
+  plToggleEl.querySelector('.pl-caret').textContent = ICON.expand;
+  plToggleEl.querySelector('.pl-caret').style.transform = collapsed ? '' : 'rotate(180deg)';
   playlistEl.hidden = collapsed;
   if (collapsed) return;
 
@@ -348,8 +348,19 @@ function step(delta) {
   send(plItems[target].id);
 }
 
+function resetAfterEnd() {
+  // stage.js já voltou ao wallpaper internamente (ended flag);
+  // apenas atualiza a UI sem limpar currentId (replay possível com play)
+  playing = false;
+  playPauseEl.querySelector('.msym').textContent = ICON.play;
+  seekEl.value = 0;
+  curTimeEl.textContent = '0:00';
+  seekEl.disabled = false;
+  durTimeEl.textContent = fmtTime(preview.getDuration());
+}
+
 function autoAdvance() {
-  if (repeat === 'off') return;            // deixa a playlist terminar normalmente
+  if (repeat === 'off') { resetAfterEnd(); return; }
   if (repeat === 'one') { if (currentId) send(currentId); return; }
   if (plItems.length === 0) return;
   if (repeat === 'shuffle') {
