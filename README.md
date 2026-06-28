@@ -39,10 +39,12 @@ Tudo funciona **100% offline** depois da primeira carga (service workers).
 - Um blob de mídia só é apagado quando não está em nenhuma lista.
 
 ### Controle de mídia (barra fixa no topo)
+- **Pré-visualização**: uma tela espelha exatamente o que está no Display
+  (mesma lógica de palco compartilhada — `shared/stage.js`), sempre muda.
 - ⏮ Anterior · ▶/⏸ Play/Pause · ⏹ Parar · ⏭ Seguinte · 🔁 Repetição.
-- **Repetição** cicla entre: repetir tudo, repetir 1 e aleatório; faz o
-  **avanço automático** na playlist quando o vídeo/áudio termina.
-- Barra de progresso (seek) sincronizada com o Display.
+- **Repetição** cicla: desativada → repetir tudo → repetir 1 → aleatório.
+  Em "desativada" a playlist apenas termina; nos demais há **avanço automático**.
+- Barra de progresso (seek) e estado de play vêm da própria pré-visualização.
 - O bloco de controle fica à esquerda; a **barra de volume vertical** à direita.
 
 ### Visibilidade e áudio (independentes)

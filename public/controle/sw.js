@@ -1,4 +1,4 @@
-const CACHE = 'controle-v10';
+const CACHE = 'controle-v11';
 const ASSETS = [
   './',
   './index.html',
@@ -8,6 +8,7 @@ const ASSETS = [
   './icons/icon-192.svg',
   './icons/icon-512.svg',
   '../shared/db.js',
+  '../shared/stage.js',
   '../shared/material-symbols.css',
   '../shared/fonts/material-symbols.woff2',
 ];
