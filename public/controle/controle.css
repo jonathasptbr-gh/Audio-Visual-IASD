@@ -1,4 +1,4 @@
-* { margin: 0; padding: 0; box-sizing: border-box; }
+* { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
 [hidden] { display: none !important; }
 
 :root {
@@ -160,6 +160,7 @@ main {
 .lib-list {
   flex: 1; min-height: 0; overflow-y: auto;
   position: relative; list-style: none; display: flex; flex-direction: column; gap: .4rem;
+  padding-bottom: calc(.6rem + env(safe-area-inset-bottom));
 }
 .empty { color: var(--muted); text-align: center; padding: 1.6rem 0; line-height: 1.6; font-size: .9rem; }
 
