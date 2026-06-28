@@ -29,12 +29,7 @@ const fileEl = document.getElementById('file');
 const tabsEl = document.querySelector('.tabs');
 const libraryEl = document.getElementById('library');
 
-const topbarEl = document.getElementById('topbar');
 const deckEl = document.getElementById('deck');
-const deckWrapEl = document.getElementById('deckWrap');
-const collapseBtnEl = document.getElementById('collapseBtn');
-const topCollapsedEl = document.getElementById('topCollapsed');
-const ccNameEl = document.getElementById('ccName');
 
 const selbarEl = document.getElementById('selbar');
 const selCountEl = document.getElementById('selCount');
@@ -85,7 +80,6 @@ let volume = 1;
 let playing = false;
 let repeat = 'all';
 let activeTab = 'imports';
-let topCollapsed = false;
 let selectionMode = false;
 const selected = new Set();
 let thumbUrls = [];
@@ -180,7 +174,6 @@ async function load() {
   muted = !!(cur && cur.muted);
   volume = (cur && typeof cur.volume === 'number') ? cur.volume : 1;
   repeat = (await AVDB.getState('repeat')) || 'off';
-  topCollapsed = !!(await AVDB.getState('topCollapsed'));
 
   plItems = await AVDB.listItems('playlist');
   plSet = new Set(plItems.map((m) => m.id));
@@ -194,7 +187,6 @@ async function load() {
   renderPlaylist();
   renderLibrary();
   renderSelbar();
-  renderTop();
 
   // mantém a preview alinhada (sem recarregar a mídia)
   preview.setView(view); preview.setMute(muted); preview.setVolume(volume);
@@ -220,7 +212,6 @@ function renderRepeat() {
 function renderNowPlaying() {
   const cur = [...plItems, ...libItems].find((m) => m.id === currentId);
   npNameEl.textContent = cur ? cur.name : 'Nada em exibição';
-  ccNameEl.textContent = cur ? cur.name : 'Controles';
   playPauseEl.querySelector('.msym').textContent = playing ? ICON.pause : ICON.play;
   const isTimed = cur && (cur.kind === 'video' || cur.kind === 'audio');
   seekEl.disabled = !isTimed;
@@ -399,18 +390,7 @@ async function stopClear() {
   load();
 }
 
-async function toggleTop() {
-  topCollapsed = !topCollapsed;
-  await AVDB.setState('topCollapsed', topCollapsed);
-  renderTop();
-}
-function renderTop() {
-  deckWrapEl.classList.toggle('collapsed', topCollapsed);
-  collapseBtnEl.classList.toggle('is-collapsed', topCollapsed);
-  topCollapsedEl.hidden = !topCollapsed;
-  const cur = [...plItems, ...libItems].find((m) => m.id === currentId);
-  ccNameEl.textContent = cur ? cur.name : 'Controles';
-}
+
 
 // ===== gestos da biblioteca =====
 const SWIPE = 72, MOVE = 10, LONGPRESS = 450;
@@ -604,8 +584,6 @@ prevEl.addEventListener('click', () => step(-1));
 nextEl.addEventListener('click', () => step(1));
 repeatEl.addEventListener('click', cycleRepeat);
 
-collapseBtnEl.addEventListener('click', toggleTop);
-topCollapsedEl.addEventListener('click', toggleTop);
 
 seekEl.addEventListener('input', () => { curTimeEl.textContent = fmtTime(parseFloat(seekEl.value)); });
 seekEl.addEventListener('change', () => cmd({ type: 'seek', time: parseFloat(seekEl.value) }));

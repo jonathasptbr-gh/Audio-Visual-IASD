@@ -25,32 +25,10 @@ body {
 .topbar {
   position: sticky; top: 0; z-index: 10; flex-shrink: 0;
   background: var(--bar);
-  padding: .5rem .7rem 0;
+  padding: .5rem .7rem .5rem;
   padding-top: calc(.5rem + env(safe-area-inset-top));
   border-bottom: 1px solid #222;
   box-shadow: 0 2px 12px rgba(0, 0, 0, .6);
-  overflow: visible;
-}
-
-.top-collapsed {
-  width: 100%; display: flex; align-items: center; gap: .5rem;
-  padding: .35rem .4rem .5rem; background: transparent; border: none; color: var(--text);
-  font-size: .9rem; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent;
-}
-.top-collapsed .msym { font-size: 22px; color: var(--muted); }
-.cc-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-/* ---------- Seção animada (deck) ---------- */
-.deck-wrap {
-  display: grid;
-  grid-template-rows: 1fr;
-  transition: grid-template-rows .35s ease;
-}
-.deck-wrap.collapsed { grid-template-rows: 0fr; }
-.deck-wrap-inner {
-  overflow: hidden;
-  display: flex; flex-direction: column;
-  padding-bottom: .5rem;
 }
 
 /* ---------- Deck: controles + mixer ---------- */
@@ -115,24 +93,6 @@ body {
 .mixer .ctl-btn { width: 100%; padding: .4rem 0; }
 .view-btn.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 .mute-btn.muted { border-color: var(--danger); background: rgba(229, 57, 53, .22); color: #ffcdd2; }
-
-/* ---------- Seta flutuante de colapsar ---------- */
-.collapse-arrow {
-  display: flex; align-items: center; justify-content: center;
-  width: 56px; height: 20px; margin: 0 auto;
-  background: var(--bar);
-  border: 1px solid #333; border-top: none;
-  border-radius: 0 0 20px 20px;
-  cursor: pointer; position: relative; z-index: 1;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, .55);
-  -webkit-tap-highlight-color: transparent;
-}
-.collapse-arrow .msym {
-  font-size: 18px; color: var(--muted);
-  transition: transform .35s ease;
-  transform: rotate(180deg);
-}
-.collapse-arrow.is-collapsed .msym { transform: rotate(0deg); }
 
 /* ---------- Conteúdo principal ---------- */
 main {
