@@ -23,9 +23,14 @@ const plCountEl = document.getElementById('plCount');
 const playlistEl = document.getElementById('playlist');
 
 const fileEl = document.getElementById('file');
-const hideEl = document.getElementById('hide');
 const tabsEl = document.querySelector('.tabs');
 const libraryEl = document.getElementById('library');
+
+const topbarEl = document.getElementById('topbar');
+const deckEl = document.getElementById('deck');
+const collapseBtnEl = document.getElementById('collapseBtn');
+const topCollapsedEl = document.getElementById('topCollapsed');
+const ccNameEl = document.getElementById('ccName');
 
 const selbarEl = document.getElementById('selbar');
 const selCountEl = document.getElementById('selCount');
@@ -77,6 +82,7 @@ let playing = false;
 let repeat = 'all';
 let activeTab = 'imports';
 let collapsed = true;
+let topCollapsed = false;
 let selectionMode = false;
 const selected = new Set();
 let thumbUrls = [];
@@ -173,6 +179,7 @@ async function load() {
   repeat = (await AVDB.getState('repeat')) || 'off';
   const col = await AVDB.getState('plCollapsed');
   collapsed = col === undefined ? true : !!col;
+  topCollapsed = !!(await AVDB.getState('topCollapsed'));
 
   plItems = await AVDB.listItems('playlist');
   plSet = new Set(plItems.map((m) => m.id));
@@ -186,6 +193,7 @@ async function load() {
   renderPlaylist();
   renderLibrary();
   renderSelbar();
+  renderTop();
 
   // mantém a preview alinhada (sem recarregar a mídia)
   preview.setView(view); preview.setMute(muted); preview.setVolume(volume);
@@ -211,6 +219,7 @@ function renderRepeat() {
 function renderNowPlaying() {
   const cur = [...plItems, ...libItems].find((m) => m.id === currentId);
   npNameEl.textContent = cur ? cur.name : 'Nada em exibição';
+  ccNameEl.textContent = cur ? cur.name : 'Controles';
   playPauseEl.querySelector('.msym').textContent = playing ? ICON.pause : ICON.play;
   const isTimed = cur && (cur.kind === 'video' || cur.kind === 'audio');
   seekEl.disabled = !isTimed;
@@ -372,6 +381,26 @@ async function toggleMute() {
   renderControls();
 }
 
+// Parar = limpar o display (volta ao wallpaper) e zera o atual.
+async function stopClear() {
+  currentId = null;
+  cmd({ type: 'clear' });
+  await persistCurrent();
+  load();
+}
+
+async function toggleTop() {
+  topCollapsed = !topCollapsed;
+  await AVDB.setState('topCollapsed', topCollapsed);
+  renderTop();
+}
+function renderTop() {
+  deckEl.hidden = topCollapsed;
+  topCollapsedEl.hidden = !topCollapsed;
+  const cur = [...plItems, ...libItems].find((m) => m.id === currentId);
+  ccNameEl.textContent = cur ? cur.name : 'Controles';
+}
+
 // ===== gestos da biblioteca =====
 const SWIPE = 72, MOVE = 10, LONGPRESS = 450;
 
@@ -440,17 +469,19 @@ function attachHandle(handle, id, listName) {
   handle.addEventListener('pointermove', (e) => {
     if (pid === null) return;
     li.style.transform = `translateY(${e.clientY - startY}px)`;
+    showDropLine(li.parentElement, li, e.clientY);
   });
   async function drop(e) {
     if (pid === null) return;
     const ul = li.parentElement;
     const target = dropIndex(ul, li, e.clientY);
     li.style.transform = ''; li.classList.remove('dragging');
+    hideDropLine(ul);
     pid = null;
     await reorder(listName, id, target);
   }
   handle.addEventListener('pointerup', drop);
-  handle.addEventListener('pointercancel', () => { if (li) { li.style.transform = ''; li.classList.remove('dragging'); } pid = null; });
+  handle.addEventListener('pointercancel', () => { if (li) { li.style.transform = ''; li.classList.remove('dragging'); hideDropLine(li.parentElement); } pid = null; });
 }
 
 function dropIndex(ul, draggedLi, y) {
@@ -461,6 +492,28 @@ function dropIndex(ul, draggedLi, y) {
     if (y < r.top + r.height / 2) { idx = i; break; }
   }
   return idx;
+}
+
+// linha-guia azul mostrando onde o item vai cair
+function showDropLine(ul, draggedLi, y) {
+  let line = ul.querySelector('.drop-line');
+  if (!line) { line = document.createElement('div'); line.className = 'drop-line'; ul.appendChild(line); }
+  const lis = [...ul.querySelectorAll('li')].filter((l) => l !== draggedLi);
+  const ulTop = ul.getBoundingClientRect().top;
+  let top;
+  let before = null;
+  for (const el of lis) {
+    const r = el.getBoundingClientRect();
+    if (y < r.top + r.height / 2) { before = el; break; }
+  }
+  if (before) top = before.getBoundingClientRect().top - ulTop;
+  else if (lis.length) { const r = lis[lis.length - 1].getBoundingClientRect(); top = r.bottom - ulTop; }
+  else top = 0;
+  line.style.top = (top + ul.scrollTop) + 'px';
+}
+function hideDropLine(ul) {
+  const line = ul && ul.querySelector('.drop-line');
+  if (line) line.remove();
 }
 
 async function reorder(listName, id, toIndex) {
@@ -525,18 +578,14 @@ fileEl.addEventListener('change', async () => {
   load();
 });
 
-hideEl.addEventListener('click', async () => {
-  currentId = null;
-  cmd({ type: 'clear' });
-  await persistCurrent();
-  load();
-});
-
 playPauseEl.addEventListener('click', () => cmd({ type: playing ? 'pause' : 'play' }));
-stopEl.addEventListener('click', () => cmd({ type: 'stop' }));
+stopEl.addEventListener('click', stopClear);
 prevEl.addEventListener('click', () => step(-1));
 nextEl.addEventListener('click', () => step(1));
 repeatEl.addEventListener('click', cycleRepeat);
+
+collapseBtnEl.addEventListener('click', toggleTop);
+topCollapsedEl.addEventListener('click', toggleTop);
 
 seekEl.addEventListener('input', () => { curTimeEl.textContent = fmtTime(parseFloat(seekEl.value)); });
 seekEl.addEventListener('change', () => cmd({ type: 'seek', time: parseFloat(seekEl.value) }));

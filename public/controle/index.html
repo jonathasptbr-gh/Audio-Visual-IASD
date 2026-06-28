@@ -12,9 +12,14 @@
   <link rel="stylesheet" href="controle.css">
 </head>
 <body>
-  <header class="topbar">
-    <div class="deck">
-      <!-- Bloco de controle da mídia atual (esquerda) -->
+  <header class="topbar" id="topbar">
+    <!-- barra compacta mostrada quando recolhido -->
+    <button class="top-collapsed" id="topCollapsed" hidden>
+      <span class="msym">&#xe5cf;</span>
+      <span id="ccName" class="cc-name">Controles</span>
+    </button>
+
+    <div class="deck" id="deck">
       <div class="deck-main">
         <div class="preview" id="preview">
           <div class="pv-wall" id="pvWall"><span class="pv-brand">Audio Visual <b>IASD</b></span></div>
@@ -24,7 +29,7 @@
         <div class="transport">
           <button id="prev" class="t-btn" title="Anterior"><span class="msym">&#xe045;</span></button>
           <button id="playpause" class="t-btn t-main" title="Play/Pause"><span class="msym">&#xe037;</span></button>
-          <button id="stop" class="t-btn" title="Parar"><span class="msym">&#xe047;</span></button>
+          <button id="stop" class="t-btn" title="Parar e limpar"><span class="msym">&#xe047;</span></button>
           <button id="next" class="t-btn" title="Seguinte"><span class="msym">&#xe044;</span></button>
           <button id="repeat" class="t-btn" title="Repetição"><span class="msym">&#xe040;</span></button>
         </div>
@@ -36,21 +41,16 @@
             <span id="durTime" class="np-time">0:00</span>
           </div>
         </div>
-        <div class="deck-extra">
-          <button id="viewToggle" class="ctl-btn view-btn" title="Alternar Visual / Wallpaper">
-            <span class="msym">&#xe251;</span>
-          </button>
-        </div>
       </div>
 
-      <!-- Barra de volume vertical (direita) -->
+      <!-- caixa de volume: recolher + fader + visual + mudo -->
       <div class="mixer">
+        <button id="collapseBtn" class="mixer-btn" title="Recolher controles"><span class="msym">&#xe5cf;</span></button>
         <div class="fader-wrap">
           <input type="range" id="volSlider" class="fader" min="0" max="100" value="100" aria-label="Volume da mídia">
         </div>
-        <button id="muteToggle" class="ctl-btn mute-btn" title="Mudo (liga/desliga)">
-          <span class="msym">&#xe050;</span>
-        </button>
+        <button id="viewToggle" class="ctl-btn view-btn" title="Alternar Visual / Wallpaper"><span class="msym">&#xe251;</span></button>
+        <button id="muteToggle" class="ctl-btn mute-btn" title="Mudo (liga/desliga)"><span class="msym">&#xe050;</span></button>
       </div>
     </div>
   </header>
@@ -67,17 +67,13 @@
   </section>
 
   <main>
-    <section class="toolbar">
-      <label class="btn">
-        <span class="msym">&#xe43e;</span> Importar mídia
-        <input id="file" type="file" accept="image/*,video/*,audio/*" multiple hidden>
-      </label>
-      <button id="hide" class="btn btn-secondary"><span class="msym">&#xe8f5;</span> Limpar display</button>
-    </section>
-
     <div class="tabs">
       <button class="tab active" data-tab="imports">Importados</button>
       <button class="tab" data-tab="favorites"><span class="msym">&#xe838;</span> Favoritos</button>
+      <label class="tab-add" title="Importar mídia">
+        <span class="msym">&#xe43e;</span>
+        <input id="file" type="file" accept="image/*,video/*,audio/*" multiple hidden>
+      </label>
     </div>
 
     <div id="selbar" class="selbar" hidden>
