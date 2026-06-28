@@ -38,6 +38,13 @@
   function store(name, mode) {
     return openDB().then((db) => db.transaction(name, mode).objectStore(name));
   }
+  // Retorna [objectStore, transaction] para operações que precisam de atomicidade (get+put).
+  function storeTx(name, mode) {
+    return openDB().then((db) => {
+      const tx = db.transaction(name, mode);
+      return [tx.objectStore(name), tx];
+    });
+  }
   function asPromise(request) {
     return new Promise((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
@@ -82,7 +89,8 @@
     return asPromise(s.get(id));
   }
   async function renameMedia(id, name) {
-    const s = await store(STORE_MEDIA, 'readwrite');
+    // get + put na mesma transação para garantir atomicidade.
+    const [s] = await storeTx(STORE_MEDIA, 'readwrite');
     const record = await asPromise(s.get(id));
     if (!record) return;
     record.name = name;
@@ -101,12 +109,11 @@
   }
   async function listItems(name) {
     const ids = await listIds(name);
-    const out = [];
-    for (const id of ids) {
-      const m = await getMedia(id);
-      if (m) out.push(m);
-    }
-    return out;
+    if (ids.length === 0) return [];
+    // Busca todos os registros em paralelo (uma transação por get, mas sem sequencialização desnecessária).
+    const records = await Promise.all(ids.map((id) => getMedia(id)));
+    // Preserva a ordem da lista e descarta ids que não têm mais registro.
+    return records.filter(Boolean);
   }
   async function listHas(name, id) {
     return (await listIds(name)).includes(id);
@@ -116,15 +123,18 @@
     if (!ids.includes(id)) { ids.push(id); await listSet(name, ids); }
   }
   async function listRemove(name, id) {
-    const ids = (await listIds(name)).filter((x) => x !== id);
-    await listSet(name, ids);
+    const before = await listIds(name);
+    const after = before.filter((x) => x !== id);
+    // Só grava e chama gc se o id estava de fato na lista.
+    if (after.length === before.length) return;
+    await listSet(name, after);
     await gc(id);
   }
   // Apaga o blob se não estiver referenciado por nenhuma lista.
   async function gc(id) {
-    for (const l of LISTS) {
-      if ((await listIds(l)).includes(id)) return;
-    }
+    // Lê todas as listas em paralelo para reduzir latência.
+    const all = await Promise.all(LISTS.map((l) => listIds(l)));
+    if (all.some((ids) => ids.includes(id))) return;
     const s = await store(STORE_MEDIA, 'readwrite');
     await asPromise(s.delete(id));
   }

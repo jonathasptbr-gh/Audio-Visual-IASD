@@ -20,6 +20,7 @@
     let volume = 1;
     let url = null;
     let ended = false;
+    let loadSeq = 0;
 
     function applyView() {
       const kind = current ? current.kind : null;
@@ -36,7 +37,9 @@
       ended = false;
       applyView();
       const p = video.play();
-      if (p && p.catch) p.catch(() => { if (opts.onBlocked && !video.muted) opts.onBlocked(); });
+      // Usa `muted` (intenção interna) e não video.muted: o browser pode forçar
+      // video.muted=true antes de rejeitar, ocultando o motivo real do bloqueio.
+      if (p && p.catch) p.catch(() => { if (opts.onBlocked && !muted) opts.onBlocked(); });
     }
     function pause() { video.pause(); }
     function stop() { video.pause(); video.currentTime = 0; }
@@ -51,7 +54,11 @@
       if (typeof vol === 'number') volume = vol;
       ended = false;
 
+      // Guarda sequencial: se outra chamada load() começar antes desta terminar
+      // o getMedia(), descartamos esta para evitar race de URL/current.
+      const seq = ++loadSeq;
       const rec = await AVDB.getMedia(id);
+      if (seq !== loadSeq) return;
       if (!rec) { clear(); return; }
       current = rec;
 
