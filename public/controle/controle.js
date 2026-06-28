@@ -18,9 +18,12 @@ const pvWallEl = document.getElementById('pvWall');
 const pvImgEl = document.getElementById('pvImg');
 const pvVideoEl = document.getElementById('pvVideo');
 
-const plToggleEl = document.getElementById('plToggle');
+const plBtnEl = document.getElementById('plBtn');
 const plCountEl = document.getElementById('plCount');
 const playlistEl = document.getElementById('playlist');
+const plPopupEl = document.getElementById('plPopup');
+const plPopupCountEl = document.getElementById('plPopupCount');
+const plPopupCloseEl = document.getElementById('plPopupClose');
 
 const fileEl = document.getElementById('file');
 const tabsEl = document.querySelector('.tabs');
@@ -82,7 +85,6 @@ let volume = 1;
 let playing = false;
 let repeat = 'all';
 let activeTab = 'imports';
-let collapsed = true;
 let topCollapsed = false;
 let selectionMode = false;
 const selected = new Set();
@@ -178,8 +180,6 @@ async function load() {
   muted = !!(cur && cur.muted);
   volume = (cur && typeof cur.volume === 'number') ? cur.volume : 1;
   repeat = (await AVDB.getState('repeat')) || 'off';
-  const col = await AVDB.getState('plCollapsed');
-  collapsed = col === undefined ? true : !!col;
   topCollapsed = !!(await AVDB.getState('topCollapsed'));
 
   plItems = await AVDB.listItems('playlist');
@@ -248,15 +248,13 @@ function thumbEl(item) {
 
 // ---- Playlist (sequência) ----
 function renderPlaylist() {
-  plCountEl.textContent = String(plItems.length);
-  plToggleEl.setAttribute('aria-expanded', String(!collapsed));
-  plToggleEl.querySelector('.pl-caret').textContent = ICON.expand;
-  plToggleEl.querySelector('.pl-caret').style.transform = collapsed ? '' : 'rotate(180deg)';
-  playlistEl.hidden = collapsed;
-  if (collapsed) return;
+  const count = plItems.length;
+  plCountEl.textContent = count > 0 ? String(count) : '';
+  plPopupCountEl.textContent = String(count);
+  plBtnEl.classList.toggle('has-items', count > 0);
 
   playlistEl.innerHTML = '';
-  if (plItems.length === 0) {
+  if (count === 0) {
     playlistEl.innerHTML = '<li class="empty">Playlist vazia.<br>Deslize um item para a esquerda para adicionar.</li>';
     return;
   }
@@ -274,7 +272,7 @@ function renderPlaylist() {
     const handle = document.createElement('button'); handle.className = 'row-handle'; handle.title = 'Arraste para reordenar';
     handle.appendChild(msym(ICON.drag));
 
-    row.append(name, rm, handle); // playlist: só nome, excluir e reordenar
+    row.append(name, rm, handle);
     li.appendChild(row);
     row.addEventListener('click', (e) => { if (!e.target.closest('.row-btn,.row-handle')) send(item.id); });
     attachHandle(handle, item.id, 'playlist');
@@ -578,6 +576,15 @@ function flash(text) {
   flashTimer = setTimeout(() => el.classList.remove('show'), 1300);
 }
 
+// ===== popup de playlist =====
+function openPlPopup() {
+  renderPlaylist();
+  plPopupEl.classList.add('open');
+}
+function closePlPopup() {
+  plPopupEl.classList.remove('open');
+}
+
 // ===== eventos =====
 fileEl.addEventListener('change', async () => {
   const files = Array.from(fileEl.files || []);
@@ -617,11 +624,9 @@ volSliderEl.addEventListener('input', () => {
 });
 volSliderEl.addEventListener('change', () => { volSeeking = false; persistCurrent(); });
 
-plToggleEl.addEventListener('click', async () => {
-  collapsed = !collapsed;
-  await AVDB.setState('plCollapsed', collapsed);
-  renderPlaylist();
-});
+plBtnEl.addEventListener('click', openPlPopup);
+plPopupCloseEl.addEventListener('click', closePlPopup);
+plPopupEl.addEventListener('click', (e) => { if (e.target === plPopupEl) closePlPopup(); });
 
 tabsEl.addEventListener('click', (e) => {
   const tab = e.target.closest('.tab');

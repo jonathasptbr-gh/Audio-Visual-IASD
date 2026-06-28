@@ -40,22 +40,20 @@ body {
 .top-collapsed .msym { font-size: 22px; color: var(--muted); }
 .cc-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* ---------- Seção animada (deck + playlist) ---------- */
+/* ---------- Seção animada (deck) ---------- */
 .deck-wrap {
   display: grid;
   grid-template-rows: 1fr;
   transition: grid-template-rows .35s ease;
 }
-.deck-wrap.collapsed {
-  grid-template-rows: 0fr;
-}
+.deck-wrap.collapsed { grid-template-rows: 0fr; }
 .deck-wrap-inner {
   overflow: hidden;
-  display: flex; flex-direction: column; gap: .5rem;
+  display: flex; flex-direction: column;
   padding-bottom: .5rem;
 }
 
-/* ---------- Deck: controles + mixer lado a lado ---------- */
+/* ---------- Deck: controles + mixer ---------- */
 .deck { display: flex; gap: .6rem; align-items: stretch; }
 .deck-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .45rem; }
 
@@ -94,7 +92,7 @@ body {
 .t-main .msym { font-size: 27px; }
 #repeat.active { color: var(--accent); }
 
-/* ---------- Mixer: fader + mudo + visual ---------- */
+/* ---------- Mixer ---------- */
 .mixer {
   display: flex; flex-direction: column; align-items: center; gap: .35rem;
   width: 56px; padding: .35rem; background: rgba(255, 255, 255, .04); border-radius: 10px;
@@ -118,43 +116,23 @@ body {
 .view-btn.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 .mute-btn.muted { border-color: var(--danger); background: rgba(229, 57, 53, .22); color: #ffcdd2; }
 
-/* ---------- Playlist abaixo do deck ---------- */
-.pl-panel { border-radius: 8px; overflow: hidden; background: rgba(255,255,255,.03); }
-.pl-head {
-  width: 100%; display: flex; align-items: center; gap: .5rem; padding: .4rem .7rem;
-  background: transparent; color: var(--text); border: none; cursor: pointer;
-  font-size: .82rem; font-weight: 600; -webkit-tap-highlight-color: transparent;
-}
-.pl-head .msym { font-size: 18px; }
-.pl-count { background: var(--accent); color: #fff; font-size: .7rem; font-weight: 700; border-radius: 999px; padding: 0 .4rem; min-width: 18px; text-align: center; }
-.pl-caret { margin-left: auto; transition: transform .2s; color: var(--muted); }
-.seq-list {
-  list-style: none; padding: .3rem .5rem .5rem; display: flex; flex-direction: column; gap: .3rem;
-  background: #0d0d0d; max-height: 35vh; overflow-y: auto;
-}
-
 /* ---------- Seta flutuante de colapsar ---------- */
 .collapse-arrow {
   display: flex; align-items: center; justify-content: center;
-  width: 56px; height: 20px;
-  margin: 0 auto;
+  width: 56px; height: 20px; margin: 0 auto;
   background: var(--bar);
   border: 1px solid #333; border-top: none;
   border-radius: 0 0 20px 20px;
-  cursor: pointer;
-  position: relative;
-  z-index: 1;
+  cursor: pointer; position: relative; z-index: 1;
   box-shadow: 0 4px 10px rgba(0, 0, 0, .55);
   -webkit-tap-highlight-color: transparent;
 }
 .collapse-arrow .msym {
   font-size: 18px; color: var(--muted);
   transition: transform .35s ease;
-  transform: rotate(180deg); /* aponta pra cima = recolher */
+  transform: rotate(180deg);
 }
-.collapse-arrow.is-collapsed .msym {
-  transform: rotate(0deg); /* aponta pra baixo = expandir */
-}
+.collapse-arrow.is-collapsed .msym { transform: rotate(0deg); }
 
 /* ---------- Conteúdo principal ---------- */
 main {
@@ -162,17 +140,48 @@ main {
   padding: .8rem; display: flex; flex-direction: column; gap: .7rem;
 }
 
-/* abas + botão importar */
-.tabs { display: flex; gap: .4rem; align-items: center; flex-shrink: 0; }
-.tab {
-  flex: 1; padding: .55rem; border: none; border-bottom: 2px solid transparent;
-  background: transparent; color: var(--muted); font-size: .9rem; font-weight: 600; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; gap: .35rem; -webkit-tap-highlight-color: transparent;
+/* ---------- Abas (ícones) + botão playlist ---------- */
+.tabs { display: flex; gap: .3rem; align-items: center; flex-shrink: 0; }
+
+.tab-pl {
+  position: relative;
+  width: 46px; height: 42px; flex-shrink: 0;
+  border: none; border-radius: 10px;
+  background: rgba(255, 255, 255, .06);
+  color: var(--muted); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
 }
-.tab .msym { font-size: 18px; }
+.tab-pl .msym { font-size: 22px; }
+.tab-pl:active { transform: scale(.95); }
+.tab-pl.has-items { color: var(--accent); }
+
+.pl-badge {
+  position: absolute; top: 5px; right: 5px;
+  background: var(--accent); color: #fff;
+  font-size: .58rem; font-weight: 700;
+  border-radius: 999px; padding: 1px .3rem;
+  min-width: 14px; text-align: center; line-height: 1.4;
+  pointer-events: none;
+}
+.pl-badge:empty { display: none; }
+
+.tabs-divider {
+  width: 1px; height: 28px; flex-shrink: 0;
+  background: #2a2a2a; margin: 0 .1rem;
+}
+
+.tab {
+  flex: 1; height: 42px; border: none; border-bottom: 2px solid transparent;
+  background: transparent; color: var(--muted); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+.tab .msym { font-size: 22px; }
 .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+
 .tab-add {
-  flex: none; width: 44px; height: 38px; border-radius: 9px; background: var(--accent); color: #fff;
+  flex: none; width: 44px; height: 42px; border-radius: 9px; background: var(--accent); color: #fff;
   display: flex; align-items: center; justify-content: center; cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
 .tab-add .msym { font-size: 22px; }
@@ -187,7 +196,7 @@ main {
 .sel-btn.danger { color: #ffb4b1; }
 .sel-btn .msym { font-size: 20px; }
 
-/* ---------- Itens (playlist e biblioteca) ---------- */
+/* ---------- Itens (biblioteca) ---------- */
 .lib-list {
   flex: 1; min-height: 0; overflow-y: auto;
   position: relative; list-style: none; display: flex; flex-direction: column; gap: .4rem;
@@ -226,6 +235,55 @@ main {
 
 /* linha-guia azul de reordenação */
 .drop-line { position: absolute; left: 6px; right: 6px; height: 3px; margin-top: -1.5px; background: var(--accent); border-radius: 2px; box-shadow: 0 0 6px var(--accent); pointer-events: none; z-index: 6; }
+
+/* ---------- Popup de playlist (bottom sheet) ---------- */
+.popup-backdrop {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0, 0, 0, .6);
+  display: flex; align-items: flex-end;
+  opacity: 0; pointer-events: none;
+  transition: opacity .25s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.popup-backdrop.open {
+  opacity: 1; pointer-events: auto;
+}
+.popup-sheet {
+  width: 100%; max-height: 80vh;
+  background: var(--panel);
+  border-radius: 18px 18px 0 0;
+  display: flex; flex-direction: column;
+  transform: translateY(100%);
+  transition: transform .3s ease;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.popup-backdrop.open .popup-sheet { transform: translateY(0); }
+
+.popup-header {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .8rem 1rem .6rem;
+  border-bottom: 1px solid #1e1e1e; flex-shrink: 0;
+}
+.popup-header-icon { font-size: 20px; color: var(--accent); }
+.popup-title { font-size: .95rem; font-weight: 700; flex: 1; }
+.popup-count {
+  background: var(--accent); color: #fff;
+  font-size: .72rem; font-weight: 700;
+  border-radius: 999px; padding: 0 .45rem; min-width: 20px; text-align: center;
+}
+.popup-close {
+  width: 34px; height: 34px; border: none; border-radius: 8px;
+  background: rgba(255,255,255,.07); color: var(--muted);
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.popup-close .msym { font-size: 20px; }
+
+.popup-list {
+  flex: 1; overflow-y: auto;
+  list-style: none; padding: .5rem .7rem .8rem;
+  display: flex; flex-direction: column; gap: .35rem;
+}
 
 /* ---------- toast ---------- */
 .toast { position: fixed; left: 50%; bottom: calc(1.2rem + env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(20px); background: #222; color: #fff; padding: .55rem 1rem; border-radius: 999px; font-size: .85rem; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 50; border: 1px solid #333; }
