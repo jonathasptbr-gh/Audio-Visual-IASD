@@ -13,7 +13,6 @@ const curTimeEl = document.getElementById('curTime');
 const durTimeEl = document.getElementById('durTime');
 
 const viewToggleEl = document.getElementById('viewToggle');
-const viewLabelEl = document.getElementById('viewLabel');
 const muteToggleEl = document.getElementById('muteToggle');
 const volSliderEl = document.getElementById('volSlider');
 
@@ -144,9 +143,9 @@ async function load() {
 }
 
 function renderControls() {
-  // Toggle de visibilidade (Visual <-> Wallpaper)
+  // Toggle de visibilidade (Visual <-> Wallpaper) — só ícone
   viewToggleEl.querySelector('.msym').textContent = view === 'visual' ? ICON.visual : ICON.wallpaper;
-  viewLabelEl.textContent = view === 'visual' ? 'Visual' : 'Wallpaper';
+  viewToggleEl.title = view === 'visual' ? 'Mostrando: Visual (toque p/ Wallpaper)' : 'Mostrando: Wallpaper (toque p/ Visual)';
   viewToggleEl.classList.toggle('active', view === 'visual');
 
   // Botão de mudo (só ícone) + fader
