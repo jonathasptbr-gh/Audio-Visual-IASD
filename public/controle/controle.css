@@ -21,14 +21,31 @@ body {
   display: flex; flex-direction: column; height: 100vh; overflow: hidden;
 }
 
-/* ---------- Barra superior ---------- */
-.topbar {
-  position: sticky; top: 0; z-index: 10; flex-shrink: 0;
+/* ---------- Cabeçalho do app ---------- */
+.appbar {
+  flex-shrink: 0;
   background: var(--bar);
-  padding: .5rem .7rem .5rem;
-  padding-top: calc(.5rem + env(safe-area-inset-top));
-  border-bottom: 1px solid #222;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, .6);
+  padding: .45rem .9rem;
+  padding-top: calc(.45rem + env(safe-area-inset-top));
+  border-bottom: 1px solid #1e1e1e;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.app-name { font-size: .95rem; font-weight: 700; letter-spacing: .03em; }
+.app-name b { color: #fbc02d; }
+.app-version {
+  font-size: .7rem; color: var(--muted);
+  background: rgba(255, 255, 255, .07); border-radius: 999px; padding: 2px .55rem;
+}
+
+/* ---------- Barra de controles (base) ---------- */
+.bottombar {
+  flex-shrink: 0;
+  background: var(--bar);
+  padding: .5rem .7rem;
+  /* margem extra na base para não conflitar com navegação por gestos */
+  padding-bottom: calc(.6rem + max(env(safe-area-inset-bottom), 12px));
+  border-top: 1px solid #222;
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, .6);
 }
 
 /* ---------- Deck: controles + mixer ---------- */
@@ -160,7 +177,7 @@ main {
 .lib-list {
   flex: 1; min-height: 0; overflow-y: auto;
   position: relative; list-style: none; display: flex; flex-direction: column; gap: .4rem;
-  padding-bottom: calc(.6rem + env(safe-area-inset-bottom));
+  padding-bottom: .6rem;
 }
 .empty { color: var(--muted); text-align: center; padding: 1.6rem 0; line-height: 1.6; font-size: .9rem; }
 
@@ -248,5 +265,5 @@ main {
 .popup-list > li { flex-shrink: 0; }
 
 /* ---------- toast ---------- */
-.toast { position: fixed; left: 50%; bottom: calc(1.2rem + env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(20px); background: #222; color: #fff; padding: .55rem 1rem; border-radius: 999px; font-size: .85rem; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 50; border: 1px solid #333; }
+.toast { position: fixed; left: 50%; top: calc(1.2rem + env(safe-area-inset-top)); transform: translateX(-50%) translateY(-20px); background: #222; color: #fff; padding: .55rem 1rem; border-radius: 999px; font-size: .85rem; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 50; border: 1px solid #333; }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }

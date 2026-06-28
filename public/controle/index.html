@@ -12,7 +12,39 @@
   <link rel="stylesheet" href="controle.css">
 </head>
 <body>
-  <header class="topbar">
+  <header class="appbar">
+    <span class="app-name">Audio Visual <b>IASD</b></span>
+    <span class="app-version">Controle v1.0</span>
+  </header>
+
+  <main>
+    <div class="tabs">
+      <button class="tab-pl" id="plBtn" title="Playlist">
+        <span class="msym">&#xe03d;</span>
+        <span id="plCount" class="pl-badge"></span>
+      </button>
+      <div class="tabs-divider"></div>
+      <button class="tab active" data-tab="imports" title="Importados"><span class="msym">&#xe413;</span></button>
+      <button class="tab" data-tab="favorites" title="Favoritos"><span class="msym">&#xe838;</span></button>
+      <label class="tab-add" title="Importar mídia">
+        <span class="msym">&#xe2c8;</span>
+        <input id="file" type="file" accept="image/*,video/*,audio/*" multiple hidden>
+      </label>
+    </div>
+
+    <div id="selbar" class="selbar" hidden>
+      <button id="selCancel" class="sel-btn" title="Cancelar"><span class="msym">&#xe14c;</span></button>
+      <span id="selCount" class="sel-count">0</span>
+      <span class="sel-spacer"></span>
+      <button id="selRename" class="sel-btn" title="Renomear"><span class="msym">&#xe150;</span></button>
+      <button id="selDelete" class="sel-btn danger" title="Excluir"><span class="msym">&#xe872;</span></button>
+    </div>
+
+    <ul id="library" class="lib-list"></ul>
+  </main>
+
+  <!-- controles multimídia fixados na base -->
+  <footer class="bottombar">
     <div class="deck">
       <div class="deck-main">
         <div class="preview" id="preview">
@@ -46,33 +78,7 @@
         <button id="viewToggle" class="ctl-btn view-btn" title="Alternar Visual / Wallpaper"><span class="msym">&#xe251;</span></button>
       </div>
     </div>
-  </header>
-
-  <main>
-    <div class="tabs">
-      <button class="tab-pl" id="plBtn" title="Playlist">
-        <span class="msym">&#xe03d;</span>
-        <span id="plCount" class="pl-badge"></span>
-      </button>
-      <div class="tabs-divider"></div>
-      <button class="tab active" data-tab="imports" title="Importados"><span class="msym">&#xe413;</span></button>
-      <button class="tab" data-tab="favorites" title="Favoritos"><span class="msym">&#xe838;</span></button>
-      <label class="tab-add" title="Importar mídia">
-        <span class="msym">&#xe2c8;</span>
-        <input id="file" type="file" accept="image/*,video/*,audio/*" multiple hidden>
-      </label>
-    </div>
-
-    <div id="selbar" class="selbar" hidden>
-      <button id="selCancel" class="sel-btn" title="Cancelar"><span class="msym">&#xe14c;</span></button>
-      <span id="selCount" class="sel-count">0</span>
-      <span class="sel-spacer"></span>
-      <button id="selRename" class="sel-btn" title="Renomear"><span class="msym">&#xe150;</span></button>
-      <button id="selDelete" class="sel-btn danger" title="Excluir"><span class="msym">&#xe872;</span></button>
-    </div>
-
-    <ul id="library" class="lib-list"></ul>
-  </main>
+  </footer>
 
   <!-- popup de playlist (bottom sheet) -->
   <div id="plPopup" class="popup-backdrop">
