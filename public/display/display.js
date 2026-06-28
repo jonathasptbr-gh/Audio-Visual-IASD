@@ -6,14 +6,16 @@ const unlockEl = document.getElementById('unlock');
 let current = null;     // registro da mídia atual
 let view = 'visual';    // 'visual' (mídia na tela) | 'wallpaper' (só wallpaper)
 let muted = false;      // áudio no mudo
+let volume = 1;         // 0..1, volume da mídia
 let mediaUrl = null;
 let unlocked = false;
 
 // ---------- carregar / aplicar ----------
 
-async function loadMedia(id, newView, newMuted) {
+async function loadMedia(id, newView, newMuted, newVolume) {
   if (newView !== undefined) view = newView;
   if (newMuted !== undefined) muted = newMuted;
+  if (typeof newVolume === 'number') volume = newVolume;
 
   const record = await AVDB.getMedia(id);
   if (!record) { clearMedia(); return; }
@@ -34,6 +36,7 @@ async function loadMedia(id, newView, newMuted) {
     // vídeo e áudio usam o mesmo elemento <video>
     videoEl.src = mediaUrl;
     videoEl.muted = muted;
+    videoEl.volume = volume;
     tryPlay();
   }
 
@@ -82,7 +85,7 @@ function tryPlay() {
 function applyCommand(cmd) {
   switch (cmd.type) {
     case 'load':
-      loadMedia(cmd.mediaId, cmd.view, cmd.muted);
+      loadMedia(cmd.mediaId, cmd.view, cmd.muted, cmd.volume);
       break;
     case 'view':
       view = cmd.view;
@@ -92,6 +95,13 @@ function applyCommand(cmd) {
     case 'mute':
       muted = cmd.muted;
       videoEl.muted = muted;
+      sendStatus();
+      break;
+    case 'volume':
+      if (typeof cmd.volume === 'number') {
+        volume = Math.max(0, Math.min(1, cmd.volume));
+        videoEl.volume = volume;
+      }
       sendStatus();
       break;
     case 'play':
@@ -153,8 +163,9 @@ async function restore() {
   const state = await AVDB.getState('current');
   view = (state && state.view) || 'visual';
   muted = !!(state && state.muted);
+  volume = (state && typeof state.volume === 'number') ? state.volume : 1;
   if (state && state.mediaId) {
-    await loadMedia(state.mediaId, view, muted);
+    await loadMedia(state.mediaId, view, muted, volume);
   } else {
     applyView();
   }

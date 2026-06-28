@@ -16,6 +16,7 @@ const viewToggleEl = document.getElementById('viewToggle');
 const viewLabelEl = document.getElementById('viewLabel');
 const muteToggleEl = document.getElementById('muteToggle');
 const volLabelEl = document.getElementById('volLabel');
+const volSliderEl = document.getElementById('volSlider');
 
 // Codepoints do subconjunto Material Symbols (ver material-symbols.css).
 const ICON = {
@@ -61,7 +62,7 @@ function msym(code) {
 }
 
 function persistCurrent() {
-  return AVDB.setState('current', { mediaId: currentId, view, muted, at: Date.now() });
+  return AVDB.setState('current', { mediaId: currentId, view, muted, volume, at: Date.now() });
 }
 
 // ---------- miniaturas ----------
@@ -137,6 +138,7 @@ async function load() {
   currentId = cur && cur.mediaId ? cur.mediaId : null;
   view = (cur && cur.view) || 'visual';
   muted = !!(cur && cur.muted);
+  volume = (cur && typeof cur.volume === 'number') ? cur.volume : 1;
   renderControls();
   renderPlaylist();
   renderNowPlaying();
@@ -148,10 +150,11 @@ function renderControls() {
   viewLabelEl.textContent = view === 'visual' ? 'Visual' : 'Wallpaper';
   viewToggleEl.classList.toggle('active', view === 'visual');
 
-  // Botão de volume/mudo
+  // Botão de volume/mudo + slider
   muteToggleEl.querySelector('.msym').textContent = muted ? ICON.volOff : ICON.volOn;
-  volLabelEl.textContent = Math.round(volume * 100) + '%';
+  volLabelEl.textContent = muted ? 'Mudo' : Math.round(volume * 100) + '%';
   muteToggleEl.classList.toggle('muted', muted);
+  if (!volSeeking) volSliderEl.value = Math.round(volume * 100);
 }
 
 function renderPlaylist() {
@@ -249,6 +252,7 @@ async function toggleMute() {
   renderControls();
 }
 
+
 async function move(index, delta) {
   const target = index + delta;
   if (target < 0 || target >= items.length) return;
@@ -311,6 +315,18 @@ seekEl.addEventListener('change', () => {
 
 viewToggleEl.addEventListener('click', () => setView(view === 'visual' ? 'wallpaper' : 'visual'));
 muteToggleEl.addEventListener('click', toggleMute);
+
+let volSeeking = false;
+volSliderEl.addEventListener('pointerdown', () => { volSeeking = true; });
+volSliderEl.addEventListener('pointerup', () => { volSeeking = false; });
+volSliderEl.addEventListener('input', () => {
+  volume = parseInt(volSliderEl.value, 10) / 100;
+  // Mexer no volume tira o mudo (a menos que zere o volume).
+  if (volume > 0 && muted) { muted = false; AVDB.sendCommand({ type: 'mute', muted }); }
+  AVDB.sendCommand({ type: 'volume', volume });   // ao vivo (barato, local)
+  renderControls();
+});
+volSliderEl.addEventListener('change', () => { volSeeking = false; persistCurrent(); }); // persiste ao soltar
 
 let seeking = false;
 seekEl.addEventListener('pointerdown', () => { seeking = true; });

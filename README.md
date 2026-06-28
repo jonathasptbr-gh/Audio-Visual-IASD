@@ -39,8 +39,10 @@ Tudo funciona **100% offline** depois da primeira carga (service workers).
 - **Toggle Visual ↔ Wallpaper**: mostra a mídia na tela ou só o wallpaper. O
   vídeo/áudio continua tocando mesmo com o wallpaper na tela — então "wallpaper
   com o áudio do vídeo" é só: Wallpaper + não-mudo.
-- **Botão de volume/mudo**: mostra a porcentagem do volume e um ícone de
-  mudo/som; tocar liga/desliga o mudo. Para apresentar sem áudio, basta mutar.
+- **Volume + mudo**: um slider ajusta o volume real da mídia no Display (0–100%)
+  e a porcentagem reflete isso; o botão liga/desliga o mudo (mexer no volume
+  tira o mudo). Obs.: o volume do *sistema* não é acessível por navegadores —
+  este é o volume do elemento de mídia, que se multiplica com o do aparelho.
 
 > Na primeira vez, toque uma vez no Display para liberar o áudio (política de
 > autoplay dos navegadores).
