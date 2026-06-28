@@ -19,30 +19,44 @@
       <span id="ccName" class="cc-name">Controles</span>
     </button>
 
-    <div class="deck" id="deck">
-      <div class="deck-main">
-        <div class="preview" id="preview">
-          <div class="pv-wall" id="pvWall"><span class="pv-brand">Audio Visual <b>IASD</b></span></div>
-          <img id="pvImg" class="pv-layer" alt="" hidden>
-          <video id="pvVideo" class="pv-layer" playsinline muted hidden></video>
-        </div>
-        <div class="nowplaying">
-          <div class="np-name" id="npName">Nada em exibição</div>
-          <div class="np-seek">
-            <span id="curTime" class="np-time">0:00</span>
-            <input type="range" id="seek" min="0" max="0" value="0" step="0.1" disabled>
-            <span id="durTime" class="np-time">0:00</span>
+    <!-- seção animada: deck (controles + mixer) + playlist -->
+    <div class="deck-wrap" id="deckWrap">
+      <div class="deck-wrap-inner">
+        <div class="deck" id="deck">
+          <div class="deck-main">
+            <div class="preview" id="preview">
+              <div class="pv-wall" id="pvWall"><span class="pv-brand">Audio Visual <b>IASD</b></span></div>
+              <img id="pvImg" class="pv-layer" alt="" hidden>
+              <video id="pvVideo" class="pv-layer" playsinline muted hidden></video>
+            </div>
+            <div class="nowplaying">
+              <div class="np-name" id="npName">Nada em exibição</div>
+              <div class="np-seek">
+                <span id="curTime" class="np-time">0:00</span>
+                <input type="range" id="seek" min="0" max="0" value="0" step="0.1" disabled>
+                <span id="durTime" class="np-time">0:00</span>
+              </div>
+            </div>
+            <div class="transport">
+              <button id="prev" class="t-btn" title="Anterior"><span class="msym">&#xe045;</span></button>
+              <button id="playpause" class="t-btn t-main" title="Play/Pause"><span class="msym">&#xe037;</span></button>
+              <button id="stop" class="t-btn" title="Parar e limpar"><span class="msym">&#xe047;</span></button>
+              <button id="next" class="t-btn" title="Seguinte"><span class="msym">&#xe044;</span></button>
+              <button id="repeat" class="t-btn" title="Repetição"><span class="msym">&#xe040;</span></button>
+            </div>
+          </div>
+
+          <!-- mixer: fader vertical + mudo + visual -->
+          <div class="mixer">
+            <div class="fader-wrap">
+              <input type="range" id="volSlider" class="fader" min="0" max="100" value="100" aria-label="Volume da mídia">
+            </div>
+            <button id="muteToggle" class="ctl-btn mute-btn" title="Mudo (liga/desliga)"><span class="msym">&#xe050;</span></button>
+            <button id="viewToggle" class="ctl-btn view-btn" title="Alternar Visual / Wallpaper"><span class="msym">&#xe251;</span></button>
           </div>
         </div>
-        <div class="transport">
-          <button id="prev" class="t-btn" title="Anterior"><span class="msym">&#xe045;</span></button>
-          <button id="playpause" class="t-btn t-main" title="Play/Pause"><span class="msym">&#xe037;</span></button>
-          <button id="stop" class="t-btn" title="Parar e limpar"><span class="msym">&#xe047;</span></button>
-          <button id="next" class="t-btn" title="Seguinte"><span class="msym">&#xe044;</span></button>
-          <button id="repeat" class="t-btn" title="Repetição"><span class="msym">&#xe040;</span></button>
-        </div>
 
-        <!-- Playlist (colapsável) dentro do deck -->
+        <!-- Playlist abaixo do deck, largura total -->
         <div class="pl-panel">
           <button id="plToggle" class="pl-head" aria-expanded="false">
             <span class="msym">&#xe03d;</span>
@@ -53,17 +67,12 @@
           <ul id="playlist" class="seq-list" hidden></ul>
         </div>
       </div>
-
-      <!-- caixa de volume: recolher + fader + mudo + visual -->
-      <div class="mixer">
-        <button id="collapseBtn" class="mixer-btn" title="Recolher controles"><span class="msym">&#xe5cf;</span></button>
-        <div class="fader-wrap">
-          <input type="range" id="volSlider" class="fader" min="0" max="100" value="100" aria-label="Volume da mídia">
-        </div>
-        <button id="muteToggle" class="ctl-btn mute-btn" title="Mudo (liga/desliga)"><span class="msym">&#xe050;</span></button>
-        <button id="viewToggle" class="ctl-btn view-btn" title="Alternar Visual / Wallpaper"><span class="msym">&#xe8ac;</span></button>
-      </div>
     </div>
+
+    <!-- seta flutuante de colapsar/expandir -->
+    <button id="collapseBtn" class="collapse-arrow" title="Recolher / Expandir controles">
+      <span class="msym">&#xe5cf;</span>
+    </button>
   </header>
 
   <main>
