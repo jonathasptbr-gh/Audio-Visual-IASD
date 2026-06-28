@@ -25,15 +25,25 @@ Tudo funciona **100% offline** depois da primeira carga (service workers).
 
 ## Funcionalidades
 
-### Playlist
-- Importar **imagens, vídeos e áudios** (vários de uma vez) pelo Controle.
-- Ficam salvos offline no IndexedDB, numa lista ordenável.
-- Reordenar (▲▼), renomear (editar o nome inline) e remover.
-- Tocar num item → envia para o Display.
+### Bibliotecas e Playlist
+- Importar **imagens, vídeos e áudios** (vários de uma vez), salvos offline.
+- Duas abas: **Importados** (atalhos rápidos, renováveis) e **Favoritos**
+  (persistentes — continuam funcionando mesmo se o item sair dos importados).
+- **Playlist** própria (colapsável) logo abaixo do controle = a sequência de
+  reprodução; é nela que Anterior/Seguinte e a repetição operam.
+- Gestos nos itens da biblioteca:
+  - **Deslizar à esquerda** → adiciona à playlist.
+  - **Deslizar à direita** → favorita (não remove dos importados).
+  - **Segurar o ícone ⠿ à direita e arrastar** → reordena.
+  - **Pressionar e segurar** → seleção (1 ou vários) para excluir/renomear.
+- Um blob de mídia só é apagado quando não está em nenhuma lista.
 
 ### Controle de mídia (barra fixa no topo)
-- ⏮ Anterior · ▶/⏸ Play/Pause · ⏹ Parar · ⏭ Seguinte.
-- Barra de progresso com tempo (seek), sincronizada com o Display.
+- ⏮ Anterior · ▶/⏸ Play/Pause · ⏹ Parar · ⏭ Seguinte · 🔁 Repetição.
+- **Repetição** cicla entre: repetir tudo, repetir 1 e aleatório; faz o
+  **avanço automático** na playlist quando o vídeo/áudio termina.
+- Barra de progresso (seek) sincronizada com o Display.
+- O bloco de controle fica à esquerda; a **barra de volume vertical** à direita.
 
 ### Visibilidade e áudio (independentes)
 - **Toggle Visual ↔ Wallpaper**: mostra a mídia na tela ou só o wallpaper. O

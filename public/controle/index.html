@@ -13,26 +13,32 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="transport">
-      <button id="prev" class="t-btn" title="Anterior"><span class="msym">&#xe045;</span></button>
-      <button id="playpause" class="t-btn t-main" title="Play/Pause"><span class="msym">&#xe037;</span></button>
-      <button id="stop" class="t-btn" title="Parar"><span class="msym">&#xe047;</span></button>
-      <button id="next" class="t-btn" title="Seguinte"><span class="msym">&#xe044;</span></button>
-    </div>
-
-    <div class="nowplaying">
-      <div class="np-name" id="npName">Nada em exibição</div>
-      <div class="np-seek">
-        <span id="curTime" class="np-time">0:00</span>
-        <input type="range" id="seek" min="0" max="0" value="0" step="0.1" disabled>
-        <span id="durTime" class="np-time">0:00</span>
+    <div class="deck">
+      <!-- Bloco de controle da mídia atual (esquerda) -->
+      <div class="deck-main">
+        <div class="transport">
+          <button id="prev" class="t-btn" title="Anterior"><span class="msym">&#xe045;</span></button>
+          <button id="playpause" class="t-btn t-main" title="Play/Pause"><span class="msym">&#xe037;</span></button>
+          <button id="stop" class="t-btn" title="Parar"><span class="msym">&#xe047;</span></button>
+          <button id="next" class="t-btn" title="Seguinte"><span class="msym">&#xe044;</span></button>
+          <button id="repeat" class="t-btn" title="Repetição"><span class="msym">&#xe040;</span></button>
+        </div>
+        <div class="nowplaying">
+          <div class="np-name" id="npName">Nada em exibição</div>
+          <div class="np-seek">
+            <span id="curTime" class="np-time">0:00</span>
+            <input type="range" id="seek" min="0" max="0" value="0" step="0.1" disabled>
+            <span id="durTime" class="np-time">0:00</span>
+          </div>
+        </div>
+        <div class="deck-extra">
+          <button id="viewToggle" class="ctl-btn view-btn" title="Alternar Visual / Wallpaper">
+            <span class="msym">&#xe251;</span>
+          </button>
+        </div>
       </div>
-    </div>
 
-    <div class="controls-row">
-      <button id="viewToggle" class="ctl-btn view-btn" title="Alternar Visual / Wallpaper">
-        <span class="msym">&#xe251;</span>
-      </button>
+      <!-- Barra de volume vertical (direita) -->
       <div class="mixer">
         <div class="fader-wrap">
           <input type="range" id="volSlider" class="fader" min="0" max="100" value="100" aria-label="Volume da mídia">
@@ -44,6 +50,17 @@
     </div>
   </header>
 
+  <!-- Playlist (colapsável) -->
+  <section class="panel">
+    <button id="plToggle" class="panel-head" aria-expanded="false">
+      <span class="msym">&#xe03d;</span>
+      <span class="panel-title">Playlist</span>
+      <span id="plCount" class="panel-count">0</span>
+      <span class="msym panel-caret">&#xe5cf;</span>
+    </button>
+    <ul id="playlist" class="seq-list" hidden></ul>
+  </section>
+
   <main>
     <section class="toolbar">
       <label class="btn">
@@ -53,7 +70,20 @@
       <button id="hide" class="btn btn-secondary"><span class="msym">&#xe8f5;</span> Limpar display</button>
     </section>
 
-    <ul id="playlist" class="playlist"></ul>
+    <div class="tabs">
+      <button class="tab active" data-tab="imports">Importados</button>
+      <button class="tab" data-tab="favorites"><span class="msym">&#xe838;</span> Favoritos</button>
+    </div>
+
+    <div id="selbar" class="selbar" hidden>
+      <button id="selCancel" class="sel-btn" title="Cancelar"><span class="msym">&#xe14c;</span></button>
+      <span id="selCount" class="sel-count">0</span>
+      <span class="sel-spacer"></span>
+      <button id="selRename" class="sel-btn" title="Renomear"><span class="msym">&#xe150;</span></button>
+      <button id="selDelete" class="sel-btn danger" title="Excluir"><span class="msym">&#xe872;</span></button>
+    </div>
+
+    <ul id="library" class="lib-list"></ul>
   </main>
 
   <script src="../shared/db.js"></script>

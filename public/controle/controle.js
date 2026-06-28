@@ -1,11 +1,9 @@
-const playlistEl = document.getElementById('playlist');
-const fileEl = document.getElementById('file');
-const hideEl = document.getElementById('hide');
-
+// ===== refs =====
 const prevEl = document.getElementById('prev');
 const playPauseEl = document.getElementById('playpause');
 const stopEl = document.getElementById('stop');
 const nextEl = document.getElementById('next');
+const repeatEl = document.getElementById('repeat');
 
 const npNameEl = document.getElementById('npName');
 const seekEl = document.getElementById('seek');
@@ -16,268 +14,471 @@ const viewToggleEl = document.getElementById('viewToggle');
 const muteToggleEl = document.getElementById('muteToggle');
 const volSliderEl = document.getElementById('volSlider');
 
-// Codepoints do subconjunto Material Symbols (ver material-symbols.css).
+const plToggleEl = document.getElementById('plToggle');
+const plCountEl = document.getElementById('plCount');
+const playlistEl = document.getElementById('playlist');
+
+const fileEl = document.getElementById('file');
+const hideEl = document.getElementById('hide');
+const tabsEl = document.querySelector('.tabs');
+const libraryEl = document.getElementById('library');
+
+const selbarEl = document.getElementById('selbar');
+const selCountEl = document.getElementById('selCount');
+const selCancelEl = document.getElementById('selCancel');
+const selRenameEl = document.getElementById('selRename');
+const selDeleteEl = document.getElementById('selDelete');
+
 const ICON = {
-  play: '\ue037',      // play_arrow
-  pause: '\ue034',     // pause
-  up: '\ue316',        // keyboard_arrow_up
-  down: '\ue313',      // keyboard_arrow_down
-  del: '\ue872',       // delete
-  music: '\ue3a1',     // music_note
-  broken: '\ue3ad',    // broken_image
+  prev: '\ue045', // skip_previous
+  play: '\ue037', // play_arrow
+  pause: '\ue034', // pause
+  stop: '\ue047', // stop
+  next: '\ue044', // skip_next
   wallpaper: '\ue1bc', // wallpaper
-  visual: '\ue251',    // image
-  volOn: '\ue050',     // volume_up
-  volOff: '\ue04f',    // volume_off
+  visual: '\ue251', // image
+  volOn: '\ue050', // volume_up
+  volOff: '\ue04f', // volume_off
+  music: '\ue3a1', // music_note
+  broken: '\ue3ad', // broken_image
+  del: '\ue872', // delete
+  import: '\ue43e', // add_photo_alternate
+  clear: '\ue8f5', // visibility_off
+  repeatAll: '\ue040', // repeat
+  repeatOne: '\ue041', // repeat_one
+  shuffle: '\ue043', // shuffle
+  drag: '\ue945', // drag_indicator
+  expand: '\ue5cf', // expand_more
+  edit: '\ue150', // edit
+  close: '\ue14c', // close
+  star: '\ue838', // star
+  plAdd: '\ue03b', // playlist_add
+  plRemove: '\ueb80', // playlist_remove
+  queue: '\ue03d', // queue_music
+  check: '\ue86c', // check_circle
 };
 
-let items = [];           // playlist ordenada (mídias)
+const REPEATS = ['all', 'one', 'shuffle'];
+
+// ===== estado =====
+let plItems = [];          // mídias da playlist (ordenadas)
+let libItems = [];         // mídias da aba ativa
+let favSet = new Set();
+let plSet = new Set();
 let currentId = null;
-let view = 'visual';      // 'visual' (mídia na tela) | 'wallpaper' (só wallpaper)
-let muted = false;        // áudio do display no mudo
-let volume = 1;           // 0..1 (informativo, vindo do display)
+let view = 'visual';
+let muted = false;
+let volume = 1;
 let playing = false;
-let thumbUrls = [];       // object URLs de miniaturas a revogar entre renders
+let repeat = 'all';
+let activeTab = 'imports';
+let collapsed = true;
+let selectionMode = false;
+const selected = new Set();
+let thumbUrls = [];
 
-// ---------- util ----------
-
+// ===== util =====
 function fmtTime(s) {
   if (!s || !isFinite(s)) return '0:00';
   const m = Math.floor(s / 60);
   const sec = Math.floor(s % 60);
   return m + ':' + String(sec).padStart(2, '0');
 }
-
-function indexOfCurrent() {
-  return items.findIndex((m) => m.id === currentId);
-}
-
 function msym(code) {
   const s = document.createElement('span');
   s.className = 'msym';
   s.textContent = code;
   return s;
 }
-
 function persistCurrent() {
   return AVDB.setState('current', { mediaId: currentId, view, muted, volume, at: Date.now() });
 }
 
-// ---------- miniaturas ----------
-
+// ===== miniaturas =====
 function drawThumb(srcEl, w, h) {
   return new Promise((resolve) => {
     const size = 160;
     const canvas = document.createElement('canvas');
-    canvas.width = size;
-    canvas.height = size;
+    canvas.width = size; canvas.height = size;
     const ctx = canvas.getContext('2d');
     const scale = Math.max(size / w, size / h);
-    const dw = w * scale;
-    const dh = h * scale;
+    const dw = w * scale, dh = h * scale;
     ctx.drawImage(srcEl, (size - dw) / 2, (size - dh) / 2, dw, dh);
     canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.72);
   });
 }
-
 function thumbFromImage(file) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
-    img.onload = async () => {
-      const b = await drawThumb(img, img.naturalWidth, img.naturalHeight);
-      URL.revokeObjectURL(url);
-      resolve(b);
-    };
+    img.onload = async () => { const b = await drawThumb(img, img.naturalWidth, img.naturalHeight); URL.revokeObjectURL(url); resolve(b); };
     img.onerror = () => { URL.revokeObjectURL(url); reject(); };
     img.src = url;
   });
 }
-
 function thumbFromVideo(file) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const v = document.createElement('video');
-    v.muted = true;
-    v.preload = 'auto';
-    v.playsInline = true;
-    v.onloadeddata = () => {
-      try { v.currentTime = Math.min(0.5, (v.duration || 1) / 3); } catch (e) { /* */ }
-    };
-    v.onseeked = async () => {
-      const b = await drawThumb(v, v.videoWidth || 160, v.videoHeight || 160);
-      URL.revokeObjectURL(url);
-      resolve(b);
-    };
+    v.muted = true; v.preload = 'auto'; v.playsInline = true;
+    v.onloadeddata = () => { try { v.currentTime = Math.min(0.5, (v.duration || 1) / 3); } catch (e) { /* */ } };
+    v.onseeked = async () => { const b = await drawThumb(v, v.videoWidth || 160, v.videoHeight || 160); URL.revokeObjectURL(url); resolve(b); };
     v.onerror = () => { URL.revokeObjectURL(url); reject(); };
     v.src = url;
   });
 }
-
 async function makeThumb(file, kind) {
-  const gen = kind === 'image' ? thumbFromImage(file)
-    : kind === 'video' ? thumbFromVideo(file)
-      : null;
+  const gen = kind === 'image' ? thumbFromImage(file) : kind === 'video' ? thumbFromVideo(file) : null;
   if (!gen) return null;
-  // Timeout de segurança para não travar a importação.
   const timeout = new Promise((res) => setTimeout(() => res(null), 4000));
-  try {
-    return await Promise.race([gen, timeout]);
-  } catch (e) {
-    return null;
-  }
+  try { return await Promise.race([gen, timeout]); } catch (e) { return null; }
 }
 
-// ---------- render ----------
-
+// ===== carregar + render =====
 async function load() {
-  items = await AVDB.getPlaylist();
   const cur = await AVDB.getState('current');
   currentId = cur && cur.mediaId ? cur.mediaId : null;
   view = (cur && cur.view) || 'visual';
   muted = !!(cur && cur.muted);
   volume = (cur && typeof cur.volume === 'number') ? cur.volume : 1;
+  repeat = (await AVDB.getState('repeat')) || 'all';
+  const col = await AVDB.getState('plCollapsed');
+  collapsed = col === undefined ? true : !!col;
+
+  plItems = await AVDB.listItems('playlist');
+  plSet = new Set(plItems.map((m) => m.id));
+  favSet = new Set(await AVDB.listIds('favorites'));
+  libItems = await AVDB.listItems(activeTab);
+
   renderControls();
-  renderPlaylist();
   renderNowPlaying();
+  renderRepeat();
+  renderTabs();
+  renderPlaylist();
+  renderLibrary();
+  renderSelbar();
 }
 
 function renderControls() {
-  // Toggle de visibilidade (Visual <-> Wallpaper) — só ícone
   viewToggleEl.querySelector('.msym').textContent = view === 'visual' ? ICON.visual : ICON.wallpaper;
-  viewToggleEl.title = view === 'visual' ? 'Mostrando: Visual (toque p/ Wallpaper)' : 'Mostrando: Wallpaper (toque p/ Visual)';
   viewToggleEl.classList.toggle('active', view === 'visual');
-
-  // Botão de mudo (só ícone) + fader
   muteToggleEl.querySelector('.msym').textContent = muted ? ICON.volOff : ICON.volOn;
   muteToggleEl.classList.toggle('muted', muted);
   if (!volSeeking) volSliderEl.value = Math.round(volume * 100);
 }
 
-function renderPlaylist() {
-  thumbUrls.forEach((u) => URL.revokeObjectURL(u));
-  thumbUrls = [];
-  playlistEl.innerHTML = '';
-
-  if (items.length === 0) {
-    playlistEl.innerHTML =
-      '<li class="empty">Nenhuma mídia ainda.<br>Toque em “Importar mídia”.</li>';
-    return;
-  }
-
-  items.forEach((item, i) => {
-    const li = document.createElement('li');
-    li.className = 'track' + (item.id === currentId ? ' active' : '');
-
-    // Miniatura (imagem/vídeo) ou ícone (áudio/sem thumb)
-    const thumb = document.createElement('div');
-    thumb.className = 'track-thumb';
-    if (item.thumb) {
-      const url = URL.createObjectURL(item.thumb);
-      thumbUrls.push(url);
-      const im = document.createElement('img');
-      im.src = url;
-      im.alt = '';
-      thumb.appendChild(im);
-    } else {
-      thumb.appendChild(msym(item.kind === 'audio' ? ICON.music : ICON.broken));
-      thumb.classList.add('track-thumb--icon');
-    }
-
-    const name = document.createElement('input');
-    name.className = 'track-name';
-    name.value = item.name;
-    name.addEventListener('click', (e) => e.stopPropagation());
-    name.addEventListener('change', () => AVDB.renameMedia(item.id, name.value.trim() || 'sem-nome'));
-
-    const actions = document.createElement('div');
-    actions.className = 'track-actions';
-    const up = mkBtn(ICON.up, 'Subir', (e) => { e.stopPropagation(); move(i, -1); });
-    const down = mkBtn(ICON.down, 'Descer', (e) => { e.stopPropagation(); move(i, 1); });
-    const play = mkBtn(ICON.play, 'Exibir', (e) => { e.stopPropagation(); send(item.id); });
-    const del = mkBtn(ICON.del, 'Remover', (e) => { e.stopPropagation(); remove(item.id); });
-    up.disabled = i === 0;
-    down.disabled = i === items.length - 1;
-    actions.append(up, down, play, del);
-
-    li.append(thumb, name, actions);
-    li.addEventListener('click', () => send(item.id));
-    playlistEl.appendChild(li);
-  });
-}
-
-function mkBtn(code, title, onClick) {
-  const b = document.createElement('button');
-  b.className = 'track-btn';
-  b.title = title;
-  b.appendChild(msym(code));
-  b.addEventListener('click', onClick);
-  return b;
+function renderRepeat() {
+  const icon = repeat === 'one' ? ICON.repeatOne : repeat === 'shuffle' ? ICON.shuffle : ICON.repeatAll;
+  const label = repeat === 'one' ? 'Repetir 1' : repeat === 'shuffle' ? 'Aleatório' : 'Repetir tudo';
+  repeatEl.querySelector('.msym').textContent = icon;
+  repeatEl.title = label;
+  repeatEl.classList.add('active'); // sempre um modo ativo
 }
 
 function renderNowPlaying() {
-  const cur = items.find((m) => m.id === currentId);
+  const cur = [...plItems, ...libItems].find((m) => m.id === currentId);
   npNameEl.textContent = cur ? cur.name : 'Nada em exibição';
   playPauseEl.querySelector('.msym').textContent = playing ? ICON.pause : ICON.play;
   const isTimed = cur && (cur.kind === 'video' || cur.kind === 'audio');
   seekEl.disabled = !isTimed;
-  prevEl.disabled = indexOfCurrent() <= 0;
-  nextEl.disabled = indexOfCurrent() === -1 || indexOfCurrent() >= items.length - 1;
 }
 
-// ---------- ações ----------
+function renderTabs() {
+  tabsEl.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === activeTab));
+}
 
+// ---- thumb element ----
+function thumbEl(item) {
+  const t = document.createElement('div');
+  t.className = 'thumb';
+  if (item.thumb) {
+    const url = URL.createObjectURL(item.thumb);
+    thumbUrls.push(url);
+    const im = document.createElement('img'); im.src = url; im.alt = '';
+    t.appendChild(im);
+  } else {
+    t.appendChild(msym(item.kind === 'audio' ? ICON.music : ICON.broken));
+    t.classList.add('thumb--icon');
+  }
+  return t;
+}
+
+// ---- Playlist (sequência) ----
+function renderPlaylist() {
+  plCountEl.textContent = String(plItems.length);
+  plToggleEl.setAttribute('aria-expanded', String(!collapsed));
+  plToggleEl.querySelector('.panel-caret').textContent = ICON.expand;
+  plToggleEl.querySelector('.panel-caret').style.transform = collapsed ? '' : 'rotate(180deg)';
+  playlistEl.hidden = collapsed;
+  if (collapsed) return;
+
+  playlistEl.innerHTML = '';
+  if (plItems.length === 0) {
+    playlistEl.innerHTML = '<li class="empty">Playlist vazia.<br>Deslize um item para a esquerda para adicionar.</li>';
+    return;
+  }
+  plItems.forEach((item) => {
+    const li = document.createElement('li');
+    li.className = 'row-item' + (item.id === currentId ? ' active' : '');
+    li.dataset.id = item.id;
+
+    const row = document.createElement('div');
+    row.className = 'row';
+    const name = document.createElement('span'); name.className = 'row-name'; name.textContent = item.name;
+    const rm = document.createElement('button'); rm.className = 'row-btn'; rm.title = 'Tirar da playlist';
+    rm.appendChild(msym(ICON.plRemove));
+    rm.addEventListener('click', async (e) => { e.stopPropagation(); await AVDB.listRemove('playlist', item.id); load(); });
+    const handle = document.createElement('button'); handle.className = 'row-handle'; handle.title = 'Arraste para reordenar';
+    handle.appendChild(msym(ICON.drag));
+
+    row.append(thumbEl(item), name, rm, handle);
+    li.appendChild(row);
+    row.addEventListener('click', (e) => { if (!e.target.closest('.row-btn,.row-handle')) send(item.id); });
+    attachHandle(handle, item.id, 'playlist');
+    playlistEl.appendChild(li);
+  });
+}
+
+// ---- Biblioteca (Importados / Favoritos) ----
+function renderLibrary() {
+  thumbUrls.forEach((u) => URL.revokeObjectURL(u));
+  thumbUrls = [];
+  libraryEl.innerHTML = '';
+
+  if (libItems.length === 0) {
+    libraryEl.innerHTML = activeTab === 'favorites'
+      ? '<li class="empty">Sem favoritos.<br>Deslize um item para a direita para favoritar.</li>'
+      : '<li class="empty">Nenhuma mídia.<br>Toque em “Importar mídia”.</li>';
+    return;
+  }
+
+  libItems.forEach((item) => {
+    const li = document.createElement('li');
+    li.className = 'lib-item' + (item.id === currentId ? ' active' : '') + (selected.has(item.id) ? ' selected' : '');
+    li.dataset.id = item.id;
+
+    // fundo de ação do swipe
+    const bg = document.createElement('div'); bg.className = 'swipe-bg';
+    const left = document.createElement('div'); left.className = 'swipe-hint left'; left.appendChild(msym(ICON.star));   // deslizar p/ direita -> favoritos
+    const right = document.createElement('div'); right.className = 'swipe-hint right'; right.appendChild(msym(ICON.plAdd)); // deslizar p/ esquerda -> playlist
+    bg.append(left, right);
+
+    const row = document.createElement('div'); row.className = 'row';
+
+    // marca de seleção / estrela de favorito
+    const mark = document.createElement('span'); mark.className = 'row-mark';
+    if (selectionMode) mark.appendChild(msym(ICON.check));
+    else if (activeTab === 'imports' && favSet.has(item.id)) { mark.appendChild(msym(ICON.star)); mark.classList.add('is-fav'); }
+
+    const name = document.createElement('span'); name.className = 'row-name'; name.textContent = item.name;
+    const handle = document.createElement('button'); handle.className = 'row-handle'; handle.title = 'Arraste para reordenar';
+    handle.appendChild(msym(ICON.drag));
+
+    row.append(mark, thumbEl(item), name, handle);
+    li.append(bg, row);
+    attachRowGestures(row, item);
+    attachHandle(handle, item.id, activeTab);
+    libraryEl.appendChild(li);
+  });
+}
+
+function renderSelbar() {
+  selbarEl.hidden = !selectionMode;
+  if (!selectionMode) return;
+  selCountEl.textContent = String(selected.size);
+  selRenameEl.disabled = selected.size !== 1;
+}
+
+// ===== ações de reprodução / sequência =====
 async function send(id) {
   currentId = id;
   await persistCurrent();
-  AVDB.sendCommand({ type: 'load', mediaId: id, view, muted });
-  renderPlaylist();
+  AVDB.sendCommand({ type: 'load', mediaId: id, view, muted, volume });
+  // re-render leve de estados ativos
+  document.querySelectorAll('.lib-item,.row-item').forEach((el) => el.classList.toggle('active', el.dataset.id === id));
   renderNowPlaying();
 }
 
+function step(delta) {
+  if (plItems.length === 0) return;
+  const idx = plItems.findIndex((m) => m.id === currentId);
+  const target = idx === -1 ? 0 : (idx + delta + plItems.length) % plItems.length;
+  send(plItems[target].id);
+}
+
+function autoAdvance() {
+  if (repeat === 'one') { if (currentId) send(currentId); return; }
+  if (plItems.length === 0) return;
+  if (repeat === 'shuffle') {
+    if (plItems.length === 1) { send(plItems[0].id); return; }
+    let i; do { i = Math.floor(Math.random() * plItems.length); } while (plItems[i].id === currentId);
+    send(plItems[i].id);
+    return;
+  }
+  // all
+  const idx = plItems.findIndex((m) => m.id === currentId);
+  const target = idx === -1 ? 0 : (idx + 1) % plItems.length;
+  send(plItems[target].id);
+}
+
+async function cycleRepeat() {
+  repeat = REPEATS[(REPEATS.indexOf(repeat) + 1) % REPEATS.length];
+  await AVDB.setState('repeat', repeat);
+  renderRepeat();
+}
+
 async function setView(v) {
-  view = v;
-  await persistCurrent();
+  view = v; await persistCurrent();
   AVDB.sendCommand({ type: 'view', view });
   renderControls();
 }
-
 async function toggleMute() {
-  muted = !muted;
-  await persistCurrent();
+  muted = !muted; await persistCurrent();
   AVDB.sendCommand({ type: 'mute', muted });
   renderControls();
 }
 
+// ===== gestos da biblioteca =====
+const SWIPE = 72, MOVE = 10, LONGPRESS = 450;
 
-async function move(index, delta) {
-  const target = index + delta;
-  if (target < 0 || target >= items.length) return;
-  const ids = items.map((m) => m.id);
-  [ids[index], ids[target]] = [ids[target], ids[index]];
-  await AVDB.setOrder(ids);
-  load();
-}
+function attachRowGestures(row, item) {
+  let startX = 0, startY = 0, startT = 0, dx = 0, mode = null, lp = null, pid = null;
+  const li = row.closest('li') || row.parentElement;
 
-async function remove(id) {
-  await AVDB.deleteMedia(id);
-  if (id === currentId) {
-    currentId = null;
-    AVDB.sendCommand({ type: 'clear' });
-    await persistCurrent();
+  row.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('.row-handle')) return;
+    pid = e.pointerId; startX = e.clientX; startY = e.clientY; startT = Date.now(); dx = 0; mode = null;
+    lp = setTimeout(() => { mode = 'long'; enterSelection(item.id); }, LONGPRESS);
+  });
+  row.addEventListener('pointermove', (e) => {
+    if (pid === null) return;
+    const ddx = e.clientX - startX, ddy = e.clientY - startY;
+    if (mode === null) {
+      if (Math.abs(ddx) > MOVE && Math.abs(ddx) > Math.abs(ddy)) { mode = 'swipe'; clearTimeout(lp); try { row.setPointerCapture(pid); } catch (_) {} }
+      else if (Math.abs(ddy) > MOVE) { clearTimeout(lp); pid = null; return; }
+    }
+    if (mode === 'swipe') {
+      dx = ddx; row.style.transform = `translateX(${dx}px)`;
+      li.classList.toggle('show-left', dx < 0);
+      li.classList.toggle('show-right', dx > 0);
+    }
+  });
+  function finish(e) {
+    if (pid === null) return;
+    clearTimeout(lp);
+    const dt = Date.now() - startT;
+    if (mode === 'swipe') {
+      row.style.transform = '';
+      li.classList.remove('show-left', 'show-right');
+      if (dx <= -SWIPE) addTo('playlist', item);
+      else if (dx >= SWIPE) addTo('favorites', item);
+    } else if (mode !== 'long') {
+      const moved = Math.abs((e.clientX || startX) - startX) > MOVE || Math.abs((e.clientY || startY) - startY) > MOVE;
+      if (!moved && dt < LONGPRESS) onTap(item);
+    }
+    pid = null; mode = null;
   }
+  row.addEventListener('pointerup', finish);
+  row.addEventListener('pointercancel', () => { clearTimeout(lp); row.style.transform = ''; li.classList.remove('show-left', 'show-right'); pid = null; mode = null; });
+}
+
+function onTap(item) {
+  if (selectionMode) toggleSelect(item.id);
+  else send(item.id);
+}
+
+async function addTo(listName, item) {
+  const had = await AVDB.listHas(listName, item.id);
+  await AVDB.listAdd(listName, item.id);
+  flash(listName === 'playlist' ? (had ? 'Já na playlist' : 'Adicionado à playlist') : (had ? 'Já nos favoritos' : 'Favoritado'));
   load();
 }
 
-function step(delta) {
-  const i = indexOfCurrent();
-  const target = i === -1 ? (delta > 0 ? 0 : items.length - 1) : i + delta;
-  if (target < 0 || target >= items.length) return;
-  send(items[target].id);
+// ===== arrastar para reordenar =====
+function attachHandle(handle, id, listName) {
+  let pid = null, startY = 0, li = null;
+  handle.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    pid = e.pointerId; startY = e.clientY; li = handle.closest('li');
+    li.classList.add('dragging');
+    try { handle.setPointerCapture(pid); } catch (_) {}
+  });
+  handle.addEventListener('pointermove', (e) => {
+    if (pid === null) return;
+    li.style.transform = `translateY(${e.clientY - startY}px)`;
+  });
+  async function drop(e) {
+    if (pid === null) return;
+    const ul = li.parentElement;
+    const target = dropIndex(ul, li, e.clientY);
+    li.style.transform = ''; li.classList.remove('dragging');
+    pid = null;
+    await reorder(listName, id, target);
+  }
+  handle.addEventListener('pointerup', drop);
+  handle.addEventListener('pointercancel', () => { if (li) { li.style.transform = ''; li.classList.remove('dragging'); } pid = null; });
 }
 
-// ---------- eventos ----------
+function dropIndex(ul, draggedLi, y) {
+  const lis = [...ul.querySelectorAll('li')].filter((l) => l !== draggedLi);
+  let idx = lis.length;
+  for (let i = 0; i < lis.length; i++) {
+    const r = lis[i].getBoundingClientRect();
+    if (y < r.top + r.height / 2) { idx = i; break; }
+  }
+  return idx;
+}
 
+async function reorder(listName, id, toIndex) {
+  const ids = await AVDB.listIds(listName);
+  const from = ids.indexOf(id);
+  if (from === -1) return;
+  ids.splice(from, 1);
+  ids.splice(toIndex, 0, id);
+  await AVDB.listSet(listName, ids);
+  load();
+}
+
+// ===== seleção múltipla =====
+function enterSelection(id) {
+  selectionMode = true;
+  selected.clear();
+  selected.add(id);
+  renderLibrary(); renderSelbar();
+}
+function toggleSelect(id) {
+  if (selected.has(id)) selected.delete(id); else selected.add(id);
+  if (selected.size === 0) exitSelection();
+  else { renderLibrary(); renderSelbar(); }
+}
+function exitSelection() {
+  selectionMode = false; selected.clear();
+  renderLibrary(); renderSelbar();
+}
+async function deleteSelected() {
+  for (const id of selected) await AVDB.listRemove(activeTab, id);
+  exitSelection(); load();
+}
+async function renameSelected() {
+  if (selected.size !== 1) return;
+  const id = [...selected][0];
+  const item = libItems.find((m) => m.id === id);
+  const name = prompt('Novo nome:', item ? item.name : '');
+  if (name && name.trim()) await AVDB.renameMedia(id, name.trim());
+  exitSelection(); load();
+}
+
+// ===== feedback rápido =====
+let flashTimer = null;
+function flash(text) {
+  let el = document.getElementById('toast');
+  if (!el) { el = document.createElement('div'); el.id = 'toast'; el.className = 'toast'; document.body.appendChild(el); }
+  el.textContent = text; el.classList.add('show');
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => el.classList.remove('show'), 1300);
+}
+
+// ===== eventos =====
 fileEl.addEventListener('change', async () => {
   const files = Array.from(fileEl.files || []);
   for (const file of files) {
@@ -286,6 +487,7 @@ fileEl.addEventListener('change', async () => {
     await AVDB.addMedia(file, { name: file.name.replace(/\.[^.]+$/, ''), thumb });
   }
   fileEl.value = '';
+  if (activeTab !== 'imports') activeTab = 'imports';
   load();
 });
 
@@ -296,19 +498,14 @@ hideEl.addEventListener('click', async () => {
   load();
 });
 
-playPauseEl.addEventListener('click', () => {
-  AVDB.sendCommand({ type: playing ? 'pause' : 'play' });
-});
+playPauseEl.addEventListener('click', () => AVDB.sendCommand({ type: playing ? 'pause' : 'play' }));
 stopEl.addEventListener('click', () => AVDB.sendCommand({ type: 'stop' }));
 prevEl.addEventListener('click', () => step(-1));
 nextEl.addEventListener('click', () => step(1));
+repeatEl.addEventListener('click', cycleRepeat);
 
-seekEl.addEventListener('input', () => {
-  curTimeEl.textContent = fmtTime(parseFloat(seekEl.value));
-});
-seekEl.addEventListener('change', () => {
-  AVDB.sendCommand({ type: 'seek', time: parseFloat(seekEl.value) });
-});
+seekEl.addEventListener('input', () => { curTimeEl.textContent = fmtTime(parseFloat(seekEl.value)); });
+seekEl.addEventListener('change', () => AVDB.sendCommand({ type: 'seek', time: parseFloat(seekEl.value) }));
 
 viewToggleEl.addEventListener('click', () => setView(view === 'visual' ? 'wallpaper' : 'visual'));
 muteToggleEl.addEventListener('click', toggleMute);
@@ -318,12 +515,29 @@ volSliderEl.addEventListener('pointerdown', () => { volSeeking = true; });
 volSliderEl.addEventListener('pointerup', () => { volSeeking = false; });
 volSliderEl.addEventListener('input', () => {
   volume = parseInt(volSliderEl.value, 10) / 100;
-  // Mexer no volume tira o mudo (a menos que zere o volume).
   if (volume > 0 && muted) { muted = false; AVDB.sendCommand({ type: 'mute', muted }); }
-  AVDB.sendCommand({ type: 'volume', volume });   // ao vivo (barato, local)
+  AVDB.sendCommand({ type: 'volume', volume });
   renderControls();
 });
-volSliderEl.addEventListener('change', () => { volSeeking = false; persistCurrent(); }); // persiste ao soltar
+volSliderEl.addEventListener('change', () => { volSeeking = false; persistCurrent(); });
+
+plToggleEl.addEventListener('click', async () => {
+  collapsed = !collapsed;
+  await AVDB.setState('plCollapsed', collapsed);
+  renderPlaylist();
+});
+
+tabsEl.addEventListener('click', (e) => {
+  const tab = e.target.closest('.tab');
+  if (!tab || tab.dataset.tab === activeTab) return;
+  activeTab = tab.dataset.tab;
+  if (selectionMode) exitSelection();
+  load();
+});
+
+selCancelEl.addEventListener('click', exitSelection);
+selDeleteEl.addEventListener('click', deleteSelected);
+selRenameEl.addEventListener('click', renameSelected);
 
 let seeking = false;
 seekEl.addEventListener('pointerdown', () => { seeking = true; });
@@ -334,10 +548,7 @@ AVDB.onCommand((cmd) => {
   if (cmd.type === 'display-status') {
     playing = !!cmd.playing;
     playPauseEl.querySelector('.msym').textContent = playing ? ICON.pause : ICON.play;
-    if (cmd.mediaId && cmd.mediaId !== currentId) {
-      currentId = cmd.mediaId;
-      renderPlaylist();
-    }
+    if (cmd.mediaId && cmd.mediaId !== currentId) { currentId = cmd.mediaId; document.querySelectorAll('.lib-item,.row-item').forEach((el) => el.classList.toggle('active', el.dataset.id === currentId)); }
     if (typeof cmd.volume === 'number') volume = cmd.volume;
     if (typeof cmd.muted === 'boolean') muted = cmd.muted;
     durTimeEl.textContent = fmtTime(cmd.duration);
@@ -348,13 +559,13 @@ AVDB.onCommand((cmd) => {
     }
     renderControls();
     renderNowPlaying();
+  } else if (cmd.type === 'media-ended') {
+    autoAdvance();
   } else if (cmd.type === 'display-ready') {
-    if (currentId) AVDB.sendCommand({ type: 'load', mediaId: currentId, view, muted });
+    if (currentId) AVDB.sendCommand({ type: 'load', mediaId: currentId, view, muted, volume });
   }
 });
 
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js');
-}
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 
 load();

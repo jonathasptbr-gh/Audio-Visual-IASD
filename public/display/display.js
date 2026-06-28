@@ -145,7 +145,10 @@ videoEl.addEventListener('pause', sendStatus);
 videoEl.addEventListener('timeupdate', sendStatus);
 videoEl.addEventListener('loadedmetadata', sendStatus);
 videoEl.addEventListener('volumechange', sendStatus);
-videoEl.addEventListener('ended', sendStatus);
+videoEl.addEventListener('ended', () => {
+  sendStatus();
+  AVDB.sendCommand({ type: 'media-ended', mediaId: current ? current.id : null });
+});
 
 // ---------- desbloqueio de autoplay ----------
 
