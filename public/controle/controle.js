@@ -283,7 +283,7 @@ function renderListTitle() {
   const inFolder = activeTab === 'folders' && currentFolder !== null;
   backBtnEl.hidden = !inFolder;
   addDirBtnEl.hidden = !(activeTab === 'folders' && !inFolder);
-  const titles = { imports: 'Importados', folders: 'Pastas' };
+  const titles = { imports: 'Cronograma', folders: 'Pastas' };
   listTitleEl.textContent = inFolder ? currentFolder.name : (titles[activeTab] || '');
 }
 
@@ -341,7 +341,7 @@ function renderPlaylist() {
   });
 }
 
-// ---- Biblioteca (Importados / Pastas) ----
+// ---- Biblioteca (Cronograma / Pastas) ----
 function renderLibrary() {
   thumbUrls.forEach((u) => URL.revokeObjectURL(u));
   thumbUrls = [];
@@ -355,7 +355,7 @@ function renderLibrary() {
   if (libItems.length === 0) {
     libraryEl.innerHTML = activeTab === 'folders'
       ? '<li class="empty">Pasta vazia.</li>'
-      : '<li class="empty">Nenhuma mídia.<br>Toque em \'Importar mídia\'.</li>';
+      : '<li class="empty">Cronograma vazio.<br>Importe arquivos ou vincule uma pasta.</li>';
     return;
   }
 
@@ -365,9 +365,14 @@ function renderLibrary() {
       li.className = 'lib-item' + (item._fullName === activeLinkedName ? ' active' : '');
       li.dataset.linkedId = item._fullName;
       const row = document.createElement('div'); row.className = 'row';
-      row.append(thumbEl(item), Object.assign(document.createElement('span'), { className: 'row-name', textContent: item.name }));
+      const importBtn = document.createElement('button');
+      importBtn.className = 'row-btn';
+      importBtn.title = 'Adicionar ao Cronograma';
+      importBtn.appendChild(msym(ICON.plAdd));
+      importBtn.addEventListener('click', (e) => { e.stopPropagation(); importLinkedFile(item); });
+      row.append(thumbEl(item), Object.assign(document.createElement('span'), { className: 'row-name', textContent: item.name }), importBtn);
       li.appendChild(row);
-      row.addEventListener('click', () => onTap(item));
+      row.addEventListener('click', (e) => { if (!e.target.closest('.row-btn')) onTap(item); });
       libraryEl.appendChild(li);
       return;
     }
@@ -846,6 +851,19 @@ function guessMediaType(filename) {
     flac: 'audio/flac', m4a: 'audio/mp4', opus: 'audio/opus',
   };
   return map[ext] || 'application/octet-stream';
+}
+
+async function importLinkedFile(item) {
+  let file;
+  try {
+    file = await item.fileHandle.getFile();
+  } catch (_) {
+    flash('Erro ao abrir arquivo');
+    return;
+  }
+  const thumb = await makeThumb(file, item.kind);
+  await AVDB.addMedia(file, { name: item.name, thumb });
+  flash('Adicionado ao Cronograma');
 }
 
 async function playLinkedFile(item) {
