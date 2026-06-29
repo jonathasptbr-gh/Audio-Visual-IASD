@@ -121,6 +121,11 @@ const preview = createStage({
   wallpaper: pvWallEl, img: pvImgEl, video: pvVideoEl, forceMuted: true,
   onTime: previewTick,
   onEnded: () => autoAdvance(),
+  onError: (e) => {
+    const code = e.target.error ? e.target.error.code : '?';
+    const src = e.target.src ? e.target.src.slice(-60) : '(sem src)';
+    flash('Erro ' + code + ': …' + src);
+  },
 });
 
 // Envia o comando ao display E aplica na preview (espelho).
