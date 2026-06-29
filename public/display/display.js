@@ -36,7 +36,7 @@ const stage = createStage({
 });
 
 function clearYoutube() {
-  youtubeEl.src = '';
+  youtubeEl.removeAttribute('src');
   youtubeEl.hidden = true;
   youtubeActive = false;
 }

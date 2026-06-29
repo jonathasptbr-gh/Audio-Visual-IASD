@@ -1,4 +1,4 @@
-const CACHE = 'controle-v23';
+const CACHE = 'controle-v24';
 const ASSETS = [
   './',
   './index.html',
@@ -58,8 +58,10 @@ async function handleShare(request) {
     const sharedText = formData.get('text') || '';
     const sharedTitle = formData.get('title') || '';
 
-    // Prioridade: arquivos > URL no campo url > URL no campo text
-    const urlToProcess = sharedUrl || (sharedText.startsWith('http') ? sharedText : '');
+    // Extrai a primeira URL do campo text (suporta texto antes/depois da URL)
+    const textUrl = (sharedText.match(/https?:\/\/\S+/) || [])[0] || '';
+    // Prioridade: campo url > URL extraída de text
+    const urlToProcess = sharedUrl || textUrl;
 
     await storePendingShare({
       files: files.filter((f) => f && f.size > 0),

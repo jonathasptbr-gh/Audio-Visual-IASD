@@ -730,10 +730,16 @@ function renderFolderPicker() {
 
 // ===== URL / compartilhamento =====
 function extractYouTubeId(url) {
+  // Extrai apenas a parte http://... sem espaços ou texto extra
+  const cleanUrl = (url || '').match(/https?:\/\/\S+/);
+  if (!cleanUrl) return null;
   try {
-    const u = new URL(url);
-    if (u.hostname === 'youtu.be') return u.pathname.slice(1).split('?')[0] || null;
-    if (u.hostname.includes('youtube.com')) return u.searchParams.get('v') || null;
+    const u = new URL(cleanUrl[0]);
+    let id = null;
+    if (u.hostname === 'youtu.be') id = decodeURIComponent(u.pathname.slice(1)).split(/[?& ]/)[0];
+    else if (u.hostname.includes('youtube.com')) id = u.searchParams.get('v');
+    // Valida formato de ID do YouTube: exatamente 11 chars [A-Za-z0-9_-]
+    return (id && /^[A-Za-z0-9_-]{11}$/.test(id)) ? id : null;
   } catch (_) {}
   return null;
 }
