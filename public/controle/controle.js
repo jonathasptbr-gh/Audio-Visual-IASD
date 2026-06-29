@@ -1091,7 +1091,7 @@ seekEl.addEventListener('pointerup', () => { seeking = false; });
 // Aqui só tratamos a (re)sincronização de um display recém-aberto.
 AVDB.onCommand((msg) => {
   if (!msg) return;
-  if (msg.type === 'display-ready' && currentId) {
+  if (msg.type === 'display-ready' && currentId && playing) {
     AVDB.sendCommand({ type: 'load', mediaId: currentId, view, muted, volume });
   }
 });
@@ -1100,8 +1100,6 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 
 (async function init() {
   await load();
-  // carrega a mídia atual na preview (uma vez, na abertura)
-  if (currentId) preview.load(currentId, view, muted, volume);
   // processa share pendente (Web Share Target via SW)
   await checkPendingShare();
 })();
