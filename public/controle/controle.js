@@ -1017,7 +1017,13 @@ async function playHymn(item) {
   if (hymnDownloading) { flash('Carregando…'); return; }
   hymnDownloading = true;
   try {
-    const audioUrl = encodeURI(LOUVORJA_BASE + '/file/musics/pt/Hinário Adventista 2022/' + item.name + '.mp3');
+    // Em localhost usa proxy server-side (add token, sem CORS); em produção usa
+    // URL direta com SW intercept (re-fetch sem Referer no service worker).
+    const filePath = encodeURI('/file/musics/pt/Hinário Adventista 2022/' + item.name + '.mp3');
+    const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    const audioUrl = isLocal
+      ? location.origin + '/louvorja-proxy' + filePath
+      : LOUVORJA_BASE + filePath;
     if (linkedTempId) { await AVDB.deleteMedia(linkedTempId); linkedTempId = null; }
     const record = await AVDB.storeUrlTemp(audioUrl, { name: item.name, kind: 'audio' });
     linkedTempId = record.id;

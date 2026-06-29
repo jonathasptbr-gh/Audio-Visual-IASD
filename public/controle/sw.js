@@ -1,4 +1,4 @@
-const CACHE = 'controle-v2.2';
+const CACHE = 'controle-v2.3';
 const ASSETS = [
   './',
   './index.html',
@@ -83,6 +83,11 @@ self.addEventListener('fetch', (e) => {
     return;
   }
   if (e.request.method !== 'GET') return;
+  // Áudio do hinário LouvorJA: re-faz sem Referer para evitar bloqueio por origem.
+  if (e.request.url.startsWith('https://api.louvorja.com.br/file/')) {
+    e.respondWith(fetch(e.request.url, { mode: 'no-cors', referrerPolicy: 'no-referrer' }));
+    return;
+  }
   // Busca SOMENTE no cache próprio deste app, evitando servir conteúdo
   // velho que tenha sobrado em caches de versões antigas.
   e.respondWith(
