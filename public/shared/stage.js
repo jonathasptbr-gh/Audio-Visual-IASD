@@ -142,6 +142,7 @@
       ['timeupdate', 'loadedmetadata', 'play', 'pause', 'ended', 'volumechange'].forEach((ev) =>
         video.addEventListener(ev, opts.onTime));
     }
+    if (opts.onError) video.addEventListener('error', opts.onError);
 
     return {
       handle, load, clear, play, pause, stop, seek, setView, setMute, setVolume,
