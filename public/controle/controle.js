@@ -1023,11 +1023,14 @@ async function playHymn(item) {
     if (!detailRes) { hymnDownloading = false; return; }
     const detail = await detailRes.json();
     const urlPath = detail.url_music;
-    if (!urlPath) { flash('Arquivo não encontrado'); hymnDownloading = false; return; }
+    if (!urlPath) { flash('url_music ausente'); hymnDownloading = false; return; }
 
+    // url_music pode ou não iniciar com '/'; normaliza para garantir
+    const normalizedPath = urlPath.startsWith('/') ? urlPath : '/' + urlPath;
+    const audioUrl = LOUVORJA_BASE + '/file' + normalizedPath;
     const token = await getLouvorjaToken();
-    const audioRes = await fetch(LOUVORJA_BASE + '/file' + urlPath, { headers: { 'Api-Token': token } });
-    if (!audioRes.ok) { flash('Erro ao baixar áudio'); hymnDownloading = false; return; }
+    const audioRes = await fetch(audioUrl, { headers: { 'Api-Token': token } });
+    if (!audioRes.ok) { flash('Áudio: HTTP ' + audioRes.status + ' — ' + normalizedPath.slice(0, 40)); hymnDownloading = false; return; }
     const blob = await audioRes.blob();
 
     // limpa temp anterior (vinculado ou hino)
