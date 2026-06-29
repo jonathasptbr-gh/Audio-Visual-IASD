@@ -121,12 +121,6 @@ const preview = createStage({
   wallpaper: pvWallEl, img: pvImgEl, video: pvVideoEl, forceMuted: true,
   onTime: previewTick,
   onEnded: () => autoAdvance(),
-  onError: (e) => {
-    const v = e.target;
-    const code = v.error ? v.error.code : '?';
-    const src = v.src ? v.src.slice(0, 60) : '(sem src)';
-    flash('Erro mídia ' + code + ': ' + src);
-  },
 });
 
 // Envia o comando ao display E aplica na preview (espelho).
@@ -1017,25 +1011,9 @@ function renderHymnal() {
 async function playHymn(item) {
   if (hymnDownloading) { flash('Carregando…'); return; }
   hymnDownloading = true;
-  flash('Carregando…');
   try {
-    const detailRes = await louvorjaFetch('/json_db/music_' + item.id_music);
-    if (!detailRes) { hymnDownloading = false; flash(''); return; }
-    const detail = await detailRes.json();
-    const urlPath = detail.url_music;
-    if (!urlPath) { flash('Arquivo não encontrado'); hymnDownloading = false; return; }
-
-    // DEBUG temporário — mostra os primeiros 80 chars do url_music
-    flash('url_music: ' + String(urlPath).slice(0, 80));
-    await new Promise(r => setTimeout(r, 3000));
-
-    // Constrói URL do áudio; o <video> busca diretamente (sem header, sem preflight CORS)
-    const normalizedPath = urlPath.startsWith('/') ? urlPath : '/' + urlPath;
-    const audioUrl = encodeURI(LOUVORJA_BASE + '/file' + normalizedPath);
-
-    // limpa temp anterior (vinculado ou hino)
+    const audioUrl = encodeURI(LOUVORJA_BASE + '/file/musics/pt/Hinário Adventista 2022/' + item.name + '.mp3');
     if (linkedTempId) { await AVDB.deleteMedia(linkedTempId); linkedTempId = null; }
-
     const record = await AVDB.storeUrlTemp(audioUrl, { name: item.name, kind: 'audio' });
     linkedTempId = record.id;
     hymnalActiveId = item.id_music;
@@ -1047,7 +1025,6 @@ async function playHymn(item) {
       el.classList.toggle('active', el.dataset.hymnId == item.id_music)
     );
     renderNowPlaying();
-    flash('');
   } catch (e) {
     flash('Erro: ' + e.message);
   }
