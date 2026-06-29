@@ -833,6 +833,31 @@ async function openLinkedFolder(lf) {
   libItems = linkedItems;
   renderListTitle();
   renderLibrary();
+  generateLinkedThumbs(linkedItems);
+}
+
+async function generateLinkedThumbs(items) {
+  for (const item of items) {
+    if (item.kind !== 'image' && item.kind !== 'video') continue;
+    if (!currentFolder || !currentFolder._linked) break; // pasta foi fechada
+    try {
+      const file = await item.fileHandle.getFile();
+      const thumb = await makeThumb(file, item.kind);
+      if (!thumb) continue;
+      item.thumb = thumb;
+      const li = document.querySelector('[data-linked-id="' + CSS.escape(item._fullName) + '"]');
+      if (!li) continue;
+      const thumbDiv = li.querySelector('.thumb');
+      if (!thumbDiv) continue;
+      const url = URL.createObjectURL(thumb);
+      thumbUrls.push(url);
+      thumbDiv.innerHTML = '';
+      thumbDiv.classList.remove('thumb--icon');
+      const img = document.createElement('img');
+      img.src = url; img.alt = '';
+      thumbDiv.appendChild(img);
+    } catch (_) {}
+  }
 }
 
 async function removeLinkedFolder(id) {
