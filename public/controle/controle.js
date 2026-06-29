@@ -939,13 +939,7 @@ async function playLinkedFile(item) {
 // ===== Hinário online (LouvorJA API) =====
 async function getLouvorjaToken() {
   if (louvorjaToken) return louvorjaToken;
-  louvorjaToken = await AVDB.getState('louvorja-token');
-  if (!louvorjaToken) {
-    const t = prompt('Token da API LouvorJA (Api-Token):');
-    if (!t || !t.trim()) return null;
-    louvorjaToken = t.trim();
-    await AVDB.setState('louvorja-token', louvorjaToken);
-  }
+  louvorjaToken = (await AVDB.getState('louvorja-token')) || '02@v2nFB2Dc';
   return louvorjaToken;
 }
 
@@ -1015,25 +1009,24 @@ function renderHymnal() {
 }
 
 async function playHymn(item) {
-  if (hymnDownloading) { flash('Aguarde o download atual…'); return; }
+  if (hymnDownloading) { flash('Carregando…'); return; }
   hymnDownloading = true;
-  flash('Baixando hino…');
+  flash('Carregando…');
   try {
     const detailRes = await louvorjaFetch('/json_db/music_' + item.id_music);
-    if (!detailRes) { hymnDownloading = false; return; }
+    if (!detailRes) { hymnDownloading = false; flash(''); return; }
     const detail = await detailRes.json();
     const urlPath = detail.url_music;
     if (!urlPath) { flash('Arquivo não encontrado'); hymnDownloading = false; return; }
 
-    const token = await getLouvorjaToken();
-    const audioRes = await fetch(LOUVORJA_BASE + '/file' + urlPath, { headers: { 'Api-Token': token } });
-    if (!audioRes.ok) { flash('Erro ao baixar áudio'); hymnDownloading = false; return; }
-    const blob = await audioRes.blob();
+    // Constrói URL do áudio; o <video> busca diretamente (sem header, sem preflight CORS)
+    const normalizedPath = urlPath.startsWith('/') ? urlPath : '/' + urlPath;
+    const audioUrl = encodeURI(LOUVORJA_BASE + '/file' + normalizedPath);
 
     // limpa temp anterior (vinculado ou hino)
     if (linkedTempId) { await AVDB.deleteMedia(linkedTempId); linkedTempId = null; }
 
-    const record = await AVDB.storeMediaTemp(blob, { name: item.name, kind: 'audio' });
+    const record = await AVDB.storeUrlTemp(audioUrl, { name: item.name, kind: 'audio' });
     linkedTempId = record.id;
     hymnalActiveId = item.id_music;
     currentId = record.id;

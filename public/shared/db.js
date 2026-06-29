@@ -108,6 +108,23 @@
     const s = await store(STORE_MEDIA, 'readonly');
     return asPromise(s.get(id));
   }
+  // Armazena um registro de URL temporário sem blob e sem adicioná-lo a nenhuma lista.
+  async function storeUrlTemp(urlStr, meta) {
+    const record = {
+      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
+      blob: null,
+      url: urlStr,
+      thumb: (meta && meta.thumb) || null,
+      type: (meta && meta.type) || 'audio/mpeg',
+      kind: (meta && meta.kind) || 'audio',
+      name: (meta && meta.name) || 'sem-nome',
+      youtubeId: null,
+      createdAt: Date.now(),
+    };
+    const s = await store(STORE_MEDIA, 'readwrite');
+    await asPromise(s.add(record));
+    return record;
+  }
   // Armazena um blob temporário sem adicioná-lo a nenhuma lista (para pastas vinculadas).
   async function storeMediaTemp(blob, meta) {
     const record = {
@@ -188,7 +205,7 @@
 
   global.AVDB = {
     openDB, setState, getState,
-    addMedia, addUrlMedia, getMedia, storeMediaTemp, deleteMedia, renameMedia,
+    addMedia, addUrlMedia, getMedia, storeUrlTemp, storeMediaTemp, deleteMedia, renameMedia,
     listIds, listSet, listItems, listHas, listAdd, listRemove, gc,
     kindFromType, sendCommand, onCommand,
   };
