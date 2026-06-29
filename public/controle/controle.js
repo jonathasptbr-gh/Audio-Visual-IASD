@@ -830,6 +830,7 @@ async function openLinkedFolder(lf) {
     return;
   }
   currentFolder = { id: lf.id, name: lf.name, _linked: true };
+  libItems = linkedItems;
   renderListTitle();
   renderLibrary();
 }
