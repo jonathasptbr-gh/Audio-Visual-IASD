@@ -4,6 +4,7 @@
 //
 // Uso: const stage = createStage({ wallpaper, img, video, forceMuted, onEnded, onTime, onBlocked });
 // e depois stage.handle(cmd) para cada comando.
+// Suporta itens de URL direta (blob=null, url=string) e itens youtube (kind='youtube').
 
 (function (global) {
   'use strict';
@@ -19,14 +20,16 @@
     let muted = false;
     let volume = 1;
     let url = null;
+    let isBlobUrl = false;
     let ended = false;
     let loadSeq = 0;
 
     function applyView() {
       const kind = current ? current.kind : null;
-      const visible = !!current && !ended && view === 'visual' && (kind === 'image' || kind === 'video');
+      // youtube kind is handled externally (display.js); stage only manages image/video/audio
+      const visible = !!current && !ended && view === 'visual' && (kind === 'image' || kind === 'video' || kind === 'audio');
       img.hidden = !(visible && kind === 'image');
-      video.hidden = !(visible && kind === 'video');
+      video.hidden = !(visible && (kind === 'video' || kind === 'audio'));
       wallpaper.style.display = visible ? 'none' : 'flex';
       video.muted = forceMuted ? true : muted;
       if (!forceMuted) video.volume = volume;
@@ -48,6 +51,12 @@
     function setMute(m) { muted = m; video.muted = forceMuted ? true : muted; }
     function setVolume(vol) { volume = vol; if (!forceMuted) video.volume = vol; }
 
+    function _revokeUrl() {
+      if (url && isBlobUrl) { URL.revokeObjectURL(url); }
+      url = null;
+      isBlobUrl = false;
+    }
+
     async function load(id, v, m, vol) {
       if (v !== undefined) view = v;
       if (m !== undefined) muted = m;
@@ -62,11 +71,30 @@
       if (!rec) { clear(); return; }
       current = rec;
 
-      if (url) URL.revokeObjectURL(url);
-      url = URL.createObjectURL(rec.blob);
+      _revokeUrl();
 
       img.hidden = true; img.removeAttribute('src');
       video.pause(); video.removeAttribute('src'); video.load();
+
+      if (rec.kind === 'youtube') {
+        // YouTube is handled externally; stage shows thumbnail in img if available
+        if (rec.thumb) {
+          img.src = rec.thumb;
+          img.hidden = false;
+        }
+        wallpaper.style.display = rec.thumb ? 'none' : 'flex';
+        return;
+      }
+
+      if (rec.blob) {
+        url = URL.createObjectURL(rec.blob);
+        isBlobUrl = true;
+      } else if (rec.url) {
+        url = rec.url;
+        isBlobUrl = false;
+      } else {
+        clear(); return;
+      }
 
       if (rec.kind === 'image') {
         img.src = url;
@@ -84,7 +112,7 @@
       ended = false;
       img.hidden = true; img.removeAttribute('src');
       video.pause(); video.removeAttribute('src'); video.load();
-      if (url) { URL.revokeObjectURL(url); url = null; }
+      _revokeUrl();
       applyView();
     }
 

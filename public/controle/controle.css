@@ -215,6 +215,9 @@ main {
 .row-mark .msym { font-size: 19px; color: var(--accent); }
 .row-mark .is-fav, .row-mark.is-fav .msym { color: #ffca28; }
 
+.url-badge { flex-shrink: 0; font-size: .6rem; font-weight: 700; letter-spacing: .04em; padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,.12); color: var(--muted); }
+.yt-badge { background: rgba(255, 0, 0, .18); color: #ff5252; }
+
 .row-btn, .row-handle { width: 34px; height: 34px; flex-shrink: 0; border: none; border-radius: 8px; background: rgba(255, 255, 255, .06); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .row-btn .msym, .row-handle .msym { font-size: 19px; }
 .row-handle { background: transparent; color: var(--muted); touch-action: none; cursor: grab; }
