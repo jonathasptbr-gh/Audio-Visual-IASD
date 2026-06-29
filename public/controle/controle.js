@@ -41,6 +41,7 @@ const selDeleteEl = document.getElementById('selDelete');
 
 const backBtnEl = document.getElementById('backBtn');
 const addDirBtnEl = document.getElementById('addDirBtn');
+const hymnSearchEl = document.getElementById('hymnSearch');
 const folderPopupEl = document.getElementById('folderPopup');
 const folderPickerListEl = document.getElementById('folderPickerList');
 const folderPopupCloseEl = document.getElementById('folderPopupClose');
@@ -101,8 +102,17 @@ let folders = [];          // [{id, name}, ...]
 let folderCounts = {};     // {folderId: count}
 let linkedFolders = [];    // [{id, name, handle}] — pastas vinculadas (File System Access API)
 let linkedItems = [];      // [{_linked:true, fileHandle, kind, name, _fullName}]
-let linkedTempId = null;   // ID do registro temp no IDB para o arquivo da pasta vinculada
+let linkedTempId = null;   // ID do registro temp no IDB para arquivo vinculado ou hino
 let activeLinkedName = null; // _fullName do arquivo vinculado em reprodução
+
+// ---- hinário online ----
+const LOUVORJA_BASE = 'https://api.louvorja.com.br';
+let louvorjaToken = null;
+let hymnalData = null;     // [{id_music, track, name, duration, has_instrumental_music}]
+let hymnalQuery = '';
+let hymnalLoading = false;
+let hymnalActiveId = null; // id_music do hino em reprodução
+let hymnDownloading = false;
 
 // ===== preview (espelho do display) =====
 // Mostra exatamente o que o display mostra; sempre mudo. Recebe os MESMOS
@@ -222,7 +232,9 @@ async function load() {
     folderCounts[f.id] = ids.length;
   }
   await loadLinkedFolders();
-  if (activeTab === 'folders') {
+  if (activeTab === 'hymnal') {
+    loadHymnal(); // fire-and-forget; renderHymnal() é chamado quando completa
+  } else if (activeTab === 'folders') {
     if (currentFolder && currentFolder._linked) {
       libItems = linkedItems;
     } else {
@@ -283,7 +295,9 @@ function renderListTitle() {
   const inFolder = activeTab === 'folders' && currentFolder !== null;
   backBtnEl.hidden = !inFolder;
   addDirBtnEl.hidden = !(activeTab === 'folders' && !inFolder);
-  const titles = { imports: 'Cronograma', folders: 'Pastas' };
+  hymnSearchEl.hidden = activeTab !== 'hymnal';
+  listTitleEl.hidden = activeTab === 'hymnal';
+  const titles = { imports: 'Cronograma', folders: 'Pastas', hymnal: 'Hinário' };
   listTitleEl.textContent = inFolder ? currentFolder.name : (titles[activeTab] || '');
 }
 
@@ -341,11 +355,16 @@ function renderPlaylist() {
   });
 }
 
-// ---- Biblioteca (Cronograma / Pastas) ----
+// ---- Biblioteca (Cronograma / Pastas / Hinário) ----
 function renderLibrary() {
   thumbUrls.forEach((u) => URL.revokeObjectURL(u));
   thumbUrls = [];
   libraryEl.innerHTML = '';
+
+  if (activeTab === 'hymnal') {
+    renderHymnal();
+    return;
+  }
 
   if (activeTab === 'folders' && !currentFolder) {
     renderFolderList();
@@ -917,6 +936,121 @@ async function playLinkedFile(item) {
   renderNowPlaying();
 }
 
+// ===== Hinário online (LouvorJA API) =====
+async function getLouvorjaToken() {
+  if (louvorjaToken) return louvorjaToken;
+  louvorjaToken = await AVDB.getState('louvorja-token');
+  if (!louvorjaToken) {
+    const t = prompt('Token da API LouvorJA (Api-Token):');
+    if (!t || !t.trim()) return null;
+    louvorjaToken = t.trim();
+    await AVDB.setState('louvorja-token', louvorjaToken);
+  }
+  return louvorjaToken;
+}
+
+async function louvorjaFetch(path) {
+  const token = await getLouvorjaToken();
+  if (!token) return null;
+  const res = await fetch(LOUVORJA_BASE + path, { headers: { 'Api-Token': token } });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res;
+}
+
+function loadHymnal() {
+  if (hymnalData || hymnalLoading) return;
+  (async () => {
+    // verificar cache no IDB (válido por 7 dias)
+    const cached = await AVDB.getState('louvorja-hymnal');
+    if (cached && cached.data && Array.isArray(cached.data) && Date.now() - (cached.ts || 0) < 7 * 86400000) {
+      hymnalData = cached.data;
+      if (activeTab === 'hymnal') renderHymnal();
+      return;
+    }
+    hymnalLoading = true;
+    if (activeTab === 'hymnal') renderHymnal(); // mostra "carregando"
+    try {
+      const res = await louvorjaFetch('/json_db/pt_hymnal');
+      if (!res) { hymnalLoading = false; if (activeTab === 'hymnal') renderHymnal(); return; }
+      hymnalData = await res.json();
+      await AVDB.setState('louvorja-hymnal', { data: hymnalData, ts: Date.now() });
+    } catch (_) {
+      flash('Erro ao carregar hinário');
+    }
+    hymnalLoading = false;
+    if (activeTab === 'hymnal') renderHymnal();
+  })();
+}
+
+function renderHymnal() {
+  libraryEl.innerHTML = '';
+  if (hymnalLoading) {
+    libraryEl.innerHTML = '<li class="empty">Carregando hinário…</li>';
+    return;
+  }
+  if (!hymnalData) {
+    libraryEl.innerHTML = '<li class="empty">Hinário não disponível.<br>Verifique a conexão e o token.</li>';
+    return;
+  }
+  const q = hymnalQuery.toLowerCase().trim();
+  const items = q
+    ? hymnalData.filter((h) => h.name.toLowerCase().includes(q) || String(h.track).startsWith(q))
+    : hymnalData;
+  if (items.length === 0) {
+    libraryEl.innerHTML = '<li class="empty">Nenhum hino encontrado.</li>';
+    return;
+  }
+  items.forEach((item) => {
+    const li = document.createElement('li');
+    li.className = 'hymn-item' + (String(item.id_music) === String(hymnalActiveId) ? ' active' : '');
+    li.dataset.hymnId = item.id_music;
+    const track = document.createElement('span'); track.className = 'hymn-track'; track.textContent = item.track;
+    const name = document.createElement('span'); name.className = 'row-name'; name.textContent = item.name;
+    const dur = document.createElement('span'); dur.className = 'hymn-dur';
+    if (item.duration) dur.textContent = fmtTime(item.duration);
+    li.append(track, name, dur);
+    li.addEventListener('click', () => playHymn(item));
+    libraryEl.appendChild(li);
+  });
+}
+
+async function playHymn(item) {
+  if (hymnDownloading) { flash('Aguarde o download atual…'); return; }
+  hymnDownloading = true;
+  flash('Baixando hino…');
+  try {
+    const detailRes = await louvorjaFetch('/json_db/music_' + item.id_music);
+    if (!detailRes) { hymnDownloading = false; return; }
+    const detail = await detailRes.json();
+    const urlPath = detail.url_music;
+    if (!urlPath) { flash('Arquivo não encontrado'); hymnDownloading = false; return; }
+
+    const token = await getLouvorjaToken();
+    const audioRes = await fetch(LOUVORJA_BASE + '/file' + urlPath, { headers: { 'Api-Token': token } });
+    if (!audioRes.ok) { flash('Erro ao baixar áudio'); hymnDownloading = false; return; }
+    const blob = await audioRes.blob();
+
+    // limpa temp anterior (vinculado ou hino)
+    if (linkedTempId) { await AVDB.deleteMedia(linkedTempId); linkedTempId = null; }
+
+    const record = await AVDB.storeMediaTemp(blob, { name: item.name, kind: 'audio' });
+    linkedTempId = record.id;
+    hymnalActiveId = item.id_music;
+    currentId = record.id;
+    currentItem = record;
+    await persistCurrent();
+    cmd({ type: 'load', mediaId: record.id, view, muted, volume });
+    document.querySelectorAll('.hymn-item').forEach((el) =>
+      el.classList.toggle('active', el.dataset.hymnId == item.id_music)
+    );
+    renderNowPlaying();
+    flash('');
+  } catch (e) {
+    flash('Erro: ' + e.message);
+  }
+  hymnDownloading = false;
+}
+
 // ===== URL / compartilhamento =====
 function extractYouTubeId(url) {
   // Extrai apenas a parte http://... sem espaços ou texto extra
@@ -1062,6 +1196,8 @@ tabsEl.addEventListener('click', (e) => {
   if (!tab || tab.dataset.tab === activeTab) return;
   activeTab = tab.dataset.tab;
   currentFolder = null;
+  hymnalQuery = '';
+  hymnSearchEl.value = '';
   if (selectionMode) exitSelection();
   load();
 });
@@ -1073,6 +1209,7 @@ selRenameEl.addEventListener('click', renameSelected);
 
 backBtnEl.addEventListener('click', navigateBack);
 addDirBtnEl.addEventListener('click', addLinkedFolder);
+hymnSearchEl.addEventListener('input', () => { hymnalQuery = hymnSearchEl.value; renderHymnal(); });
 
 
 folderPopupCloseEl.addEventListener('click', closeFolderPicker);
