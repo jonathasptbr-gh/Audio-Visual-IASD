@@ -125,8 +125,13 @@ main {
 }
 
 /* ---------- Título da lista ativa ---------- */
-.list-header { flex-shrink: 0; }
+.list-header { flex-shrink: 0; display: flex; align-items: center; gap: .3rem; }
 .list-title { font-size: .72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.back-btn {
+  background: none; border: none; color: var(--accent); cursor: pointer; padding: 0 .2rem 0 0;
+  display: flex; align-items: center; -webkit-tap-highlight-color: transparent;
+}
+.back-btn .msym { font-size: 20px; }
 
 /* ---------- Abas (ícones) + botão playlist ---------- */
 .tabs { display: flex; gap: .3rem; align-items: center; flex-shrink: 0; }
@@ -183,6 +188,7 @@ main {
 .sel-btn:disabled { opacity: .35; }
 .sel-btn.danger { color: #ffb4b1; }
 .sel-btn .msym { font-size: 20px; }
+.sel-btn.is-fav .msym { color: #ffca28; }
 
 /* ---------- Itens (biblioteca) ---------- */
 .lib-list {
@@ -220,7 +226,6 @@ main {
 .swipe-hint.left { color: #ffca28; }
 .swipe-hint.right { color: var(--accent); }
 .lib-item.show-left .swipe-hint.right { opacity: 1; }
-.lib-item.show-right .swipe-hint.left { opacity: 1; }
 
 /* linha-guia azul de reordenação */
 .drop-line { position: absolute; left: 6px; right: 6px; height: 3px; margin-top: -1.5px; background: var(--accent); border-radius: 2px; box-shadow: 0 0 6px var(--accent); pointer-events: none; z-index: 6; }
@@ -274,6 +279,40 @@ main {
   display: flex; flex-direction: column; gap: .35rem;
 }
 .popup-list > li { flex-shrink: 0; }
+
+/* ---------- Contador de itens de pasta ---------- */
+.folder-count {
+  font-size: .75rem; color: var(--muted);
+  background: rgba(255,255,255,.07); border-radius: 999px;
+  padding: 2px .5rem; flex-shrink: 0;
+}
+
+/* ---------- Rodapé do popup (Nova pasta) ---------- */
+.popup-footer {
+  padding: .6rem .7rem;
+  border-top: 1px solid #1e1e1e;
+  flex-shrink: 0;
+}
+.new-folder-btn {
+  width: 100%; padding: .6rem;
+  background: rgba(47, 129, 247, .12); border: 1px solid rgba(47, 129, 247, .4);
+  border-radius: 10px; color: var(--accent); font-size: .9rem;
+  display: flex; align-items: center; justify-content: center; gap: .4rem;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.new-folder-btn .msym { font-size: 20px; }
+.new-folder-btn:active { transform: scale(.98); }
+
+/* ---------- Botão de pasta no picker ---------- */
+.folder-pick-btn {
+  width: 100%; padding: .55rem .6rem;
+  background: rgba(255,255,255,.04); border: none; border-radius: 10px;
+  color: var(--text); font-size: .9rem;
+  display: flex; align-items: center; gap: .55rem;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.folder-pick-btn .msym { font-size: 22px; color: var(--accent); }
+.folder-pick-btn:active { transform: scale(.98); }
 
 /* ---------- toast ---------- */
 .toast { position: fixed; left: 50%; top: calc(1.2rem + env(safe-area-inset-top)); transform: translateX(-50%) translateY(-20px); background: #222; color: #fff; padding: .55rem 1rem; border-radius: 999px; font-size: .85rem; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 50; border: 1px solid #333; }

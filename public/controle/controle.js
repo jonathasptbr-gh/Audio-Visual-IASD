@@ -35,8 +35,18 @@ const deckEl = document.getElementById('deck');
 const selbarEl = document.getElementById('selbar');
 const selCountEl = document.getElementById('selCount');
 const selCancelEl = document.getElementById('selCancel');
+const selFavToggleEl = document.getElementById('selFavToggle');
+const selFolderEl = document.getElementById('selFolder');
 const selRenameEl = document.getElementById('selRename');
 const selDeleteEl = document.getElementById('selDelete');
+
+const backBtnEl = document.getElementById('backBtn');
+const tabImportEl = document.getElementById('tabImport');
+const tabNewFolderEl = document.getElementById('tabNewFolder');
+const folderPopupEl = document.getElementById('folderPopup');
+const folderPickerListEl = document.getElementById('folderPickerList');
+const folderPopupCloseEl = document.getElementById('folderPopupClose');
+const newFolderInPickerBtnEl = document.getElementById('newFolderInPickerBtn');
 
 const ICON = {
   prev: '', // skip_previous
@@ -65,6 +75,9 @@ const ICON = {
   plRemove: '', // playlist_remove
   queue: '', // queue_music
   check: '', // check_circle
+  folder: '',    // folder
+  folderNew: '', // create_new_folder
+  back: '',      // arrow_back
 };
 
 const REPEATS = ['off', 'all', 'one', 'shuffle'];
@@ -85,6 +98,9 @@ let activeTab = 'imports';
 let selectionMode = false;
 const selected = new Set();
 let thumbUrls = [];
+let currentFolder = null; // null | {id, name} — pasta aberta
+let folders = [];          // [{id, name}, ...]
+let folderCounts = {};     // {folderId: count}
 
 // ===== preview (espelho do display) =====
 // Mostra exatamente o que o display mostra; sempre mudo. Recebe os MESMOS
@@ -197,7 +213,17 @@ async function load() {
   plItems = await AVDB.listItems('playlist');
   plSet = new Set(plItems.map((m) => m.id));
   favSet = new Set(await AVDB.listIds('favorites'));
-  libItems = await AVDB.listItems(activeTab);
+  folders = (await AVDB.getState('folders')) || [];
+  folderCounts = {};
+  for (const f of folders) {
+    const ids = (await AVDB.getState('folder_' + f.id)) || [];
+    folderCounts[f.id] = ids.length;
+  }
+  if (activeTab === 'folders') {
+    libItems = currentFolder ? await loadFolderMediaItems(currentFolder.id) : [];
+  } else {
+    libItems = await AVDB.listItems(activeTab);
+  }
 
   // Cache do item atual para renderNowPlaying mesmo quando não está na aba visível.
   currentItem = currentId ? (await AVDB.getMedia(currentId)) || null : null;
@@ -244,11 +270,15 @@ function renderNowPlaying() {
 
 function renderTabs() {
   tabsEl.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === activeTab));
+  tabImportEl.hidden = activeTab !== 'imports';
+  tabNewFolderEl.hidden = activeTab !== 'folders';
 }
 
 function renderListTitle() {
-  const titles = { imports: 'Importados', favorites: 'Favoritos' };
-  listTitleEl.textContent = titles[activeTab] || '';
+  const inFolder = activeTab === 'folders' && currentFolder !== null;
+  backBtnEl.hidden = !inFolder;
+  const titles = { imports: 'Importados', folders: 'Pastas' };
+  listTitleEl.textContent = inFolder ? currentFolder.name : (titles[activeTab] || '');
 }
 
 // ---- thumb element ----
@@ -301,45 +331,79 @@ function renderPlaylist() {
   });
 }
 
-// ---- Biblioteca (Importados / Favoritos) ----
+// ---- Biblioteca (Importados / Pastas) ----
 function renderLibrary() {
   thumbUrls.forEach((u) => URL.revokeObjectURL(u));
   thumbUrls = [];
   libraryEl.innerHTML = '';
 
+  if (activeTab === 'folders' && !currentFolder) {
+    renderFolderList();
+    return;
+  }
+
   if (libItems.length === 0) {
-    libraryEl.innerHTML = activeTab === 'favorites'
-      ? '<li class="empty">Sem favoritos.<br>Deslize um item para a direita para favoritar.</li>'
-      : '<li class="empty">Nenhuma mídia.<br>Toque em “Importar mídia”.</li>';
+    libraryEl.innerHTML = activeTab === 'folders'
+      ? '<li class="empty">Pasta vazia.</li>'
+      : '<li class="empty">Nenhuma mídia.<br>Toque em \'Importar mídia\'.</li>';
     return;
   }
 
   libItems.forEach((item) => {
     const li = document.createElement('li');
-    li.className = 'lib-item' + (item.id === currentId ? ' active' : '') + (selected.has(item.id) ? ' selected' : '');
+    // Bug fix: active highlight only when not in selection mode
+    const isActive = !selectionMode && item.id === currentId;
+    li.className = 'lib-item' + (isActive ? ' active' : '') + (selected.has(item.id) ? ' selected' : '');
     li.dataset.id = item.id;
 
-    // fundo de ação do swipe
-    const bg = document.createElement('div'); bg.className = 'swipe-bg';
-    const left = document.createElement('div'); left.className = 'swipe-hint left'; left.appendChild(msym(ICON.star));   // deslizar p/ direita -> favoritos
-    const right = document.createElement('div'); right.className = 'swipe-hint right'; right.appendChild(msym(ICON.plAdd)); // deslizar p/ esquerda -> playlist
-    bg.append(left, right);
+    if (activeTab !== 'folders') {
+      const bg = document.createElement('div'); bg.className = 'swipe-bg';
+      const right = document.createElement('div'); right.className = 'swipe-hint right'; right.appendChild(msym(ICON.plAdd));
+      bg.appendChild(right);
+      li.appendChild(bg);
+    }
 
     const row = document.createElement('div'); row.className = 'row';
 
-    // marca de seleção / estrela de favorito
     const mark = document.createElement('span'); mark.className = 'row-mark';
-    if (selectionMode) mark.appendChild(msym(ICON.check));
-    else if (activeTab === 'imports' && favSet.has(item.id)) { mark.appendChild(msym(ICON.star)); mark.classList.add('is-fav'); }
+    // Bug fix: check icon only on actually-selected items
+    if (selectionMode && selected.has(item.id)) mark.appendChild(msym(ICON.check));
+    else if (!selectionMode && activeTab === 'imports' && favSet.has(item.id)) { mark.appendChild(msym(ICON.star)); mark.classList.add('is-fav'); }
 
     const name = document.createElement('span'); name.className = 'row-name'; name.textContent = item.name;
     const handle = document.createElement('button'); handle.className = 'row-handle'; handle.title = 'Arraste para reordenar';
     handle.appendChild(msym(ICON.drag));
 
     row.append(mark, thumbEl(item), name, handle);
-    li.append(bg, row);
+    li.appendChild(row);
     attachRowGestures(row, item);
-    attachHandle(handle, item.id, activeTab);
+    if (activeTab !== 'folders') attachHandle(handle, item.id, activeTab);
+    libraryEl.appendChild(li);
+  });
+}
+
+function renderFolderList() {
+  if (folders.length === 0) {
+    libraryEl.innerHTML = '<li class="empty">Nenhuma pasta.<br>Toque em "+" para criar.</li>';
+    return;
+  }
+  folders.forEach((folder) => {
+    const count = folderCounts[folder.id] || 0;
+    const li = document.createElement('li');
+    li.className = 'lib-item';
+
+    const row = document.createElement('div'); row.className = 'row';
+    const icon = document.createElement('div'); icon.className = 'thumb thumb--icon';
+    icon.appendChild(msym(ICON.folder));
+    const nameEl = document.createElement('span'); nameEl.className = 'row-name'; nameEl.textContent = folder.name;
+    const countEl = document.createElement('span'); countEl.className = 'folder-count'; countEl.textContent = String(count);
+    const rmBtn = document.createElement('button'); rmBtn.className = 'row-btn'; rmBtn.title = 'Excluir pasta';
+    rmBtn.appendChild(msym(ICON.del));
+    rmBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteFolder(folder.id); });
+
+    row.append(icon, nameEl, countEl, rmBtn);
+    li.appendChild(row);
+    li.addEventListener('click', () => openFolder(folder));
     libraryEl.appendChild(li);
   });
 }
@@ -350,6 +414,8 @@ function renderSelbar() {
   if (!selectionMode) return;
   selCountEl.textContent = String(selected.size);
   selRenameEl.disabled = selected.size !== 1;
+  const allFav = selected.size > 0 && [...selected].every((id) => favSet.has(id));
+  selFavToggleEl.classList.toggle('is-fav', allFav);
 }
 
 // ===== ações de reprodução / sequência =====
@@ -447,7 +513,6 @@ function attachRowGestures(row, item) {
     if (mode === 'swipe') {
       dx = ddx; row.style.transform = `translateX(${dx}px)`;
       li.classList.toggle('show-left', dx < 0);
-      li.classList.toggle('show-right', dx > 0);
     }
   });
   function finish(e) {
@@ -458,7 +523,6 @@ function attachRowGestures(row, item) {
       row.style.transform = '';
       li.classList.remove('show-left', 'show-right');
       if (dx <= -SWIPE) addTo('playlist', item);
-      else if (dx >= SWIPE) addTo('favorites', item);
     } else if (mode !== 'long') {
       const moved = Math.abs((e.clientX || startX) - startX) > MOVE || Math.abs((e.clientY || startY) - startY) > MOVE;
       if (!moved && dt < LONGPRESS) onTap(item);
@@ -573,7 +637,12 @@ function exitSelection() {
   renderLibrary(); renderSelbar();
 }
 async function deleteSelected() {
-  for (const id of selected) await AVDB.listRemove(activeTab, id);
+  if (activeTab === 'folders' && currentFolder) {
+    const ids = (await AVDB.getState('folder_' + currentFolder.id)) || [];
+    await AVDB.setState('folder_' + currentFolder.id, ids.filter((id) => !selected.has(id)));
+  } else {
+    for (const id of selected) await AVDB.listRemove(activeTab, id);
+  }
   exitSelection(); load();
 }
 async function renameSelected() {
@@ -583,6 +652,84 @@ async function renameSelected() {
   const name = prompt('Novo nome:', item ? item.name : '');
   if (name && name.trim()) await AVDB.renameMedia(id, name.trim());
   exitSelection(); load();
+}
+
+// ===== pastas =====
+async function loadFolderMediaItems(folderId) {
+  const ids = (await AVDB.getState('folder_' + folderId)) || [];
+  const items = await Promise.all(ids.map((id) => AVDB.getMedia(id)));
+  return items.filter(Boolean);
+}
+
+function openFolder(folder) {
+  currentFolder = folder;
+  load();
+}
+
+function navigateBack() {
+  currentFolder = null;
+  load();
+}
+
+async function createFolder(name) {
+  const id = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()));
+  folders.push({ id, name });
+  await AVDB.setState('folders', folders);
+  load();
+}
+
+async function deleteFolder(folderId) {
+  folders = folders.filter((f) => f.id !== folderId);
+  await AVDB.setState('folders', folders);
+  await AVDB.setState('folder_' + folderId, []);
+  if (currentFolder && currentFolder.id === folderId) currentFolder = null;
+  load();
+}
+
+async function addToFolder(folderId, ids) {
+  const existing = (await AVDB.getState('folder_' + folderId)) || [];
+  await AVDB.setState('folder_' + folderId, [...new Set([...existing, ...ids])]);
+  flash('Salvo na pasta');
+  exitSelection();
+  load();
+}
+
+function openFolderPicker() {
+  renderFolderPicker();
+  folderPopupEl.classList.add('open');
+}
+
+function closeFolderPicker() {
+  folderPopupEl.classList.remove('open');
+}
+
+function renderFolderPicker() {
+  folderPickerListEl.innerHTML = '';
+  if (folders.length === 0) {
+    folderPickerListEl.innerHTML = '<li class="empty">Nenhuma pasta ainda.<br>Crie uma abaixo.</li>';
+    return;
+  }
+  const selectedIds = [...selected];
+  folders.forEach((folder) => {
+    const li = document.createElement('li');
+    const btn = document.createElement('button'); btn.className = 'folder-pick-btn';
+    btn.append(msym(ICON.folder), Object.assign(document.createElement('span'), { textContent: folder.name }));
+    btn.addEventListener('click', () => { closeFolderPicker(); addToFolder(folder.id, selectedIds); });
+    li.appendChild(btn);
+    folderPickerListEl.appendChild(li);
+  });
+}
+
+async function toggleFavSelected() {
+  const allFav = [...selected].every((id) => favSet.has(id));
+  for (const id of selected) {
+    if (allFav) await AVDB.listRemove('favorites', id);
+    else await AVDB.listAdd('favorites', id);
+  }
+  favSet = new Set(await AVDB.listIds('favorites'));
+  flash(allFav ? 'Removido dos favoritos' : 'Adicionado aos favoritos');
+  renderSelbar();
+  renderLibrary();
 }
 
 // ===== feedback rápido =====
@@ -649,13 +796,31 @@ tabsEl.addEventListener('click', (e) => {
   const tab = e.target.closest('.tab');
   if (!tab || tab.dataset.tab === activeTab) return;
   activeTab = tab.dataset.tab;
+  currentFolder = null;
   if (selectionMode) exitSelection();
   load();
 });
 
 selCancelEl.addEventListener('click', exitSelection);
+selFavToggleEl.addEventListener('click', toggleFavSelected);
+selFolderEl.addEventListener('click', openFolderPicker);
 selDeleteEl.addEventListener('click', deleteSelected);
 selRenameEl.addEventListener('click', renameSelected);
+
+backBtnEl.addEventListener('click', navigateBack);
+
+tabNewFolderEl.addEventListener('click', async () => {
+  const name = prompt('Nome da nova pasta:');
+  if (name && name.trim()) await createFolder(name.trim());
+});
+
+folderPopupCloseEl.addEventListener('click', closeFolderPicker);
+folderPopupEl.addEventListener('click', (e) => { if (e.target === folderPopupEl) closeFolderPicker(); });
+
+newFolderInPickerBtnEl.addEventListener('click', async () => {
+  const name = prompt('Nome da nova pasta:');
+  if (name && name.trim()) { await createFolder(name.trim()); renderFolderPicker(); }
+});
 
 let seeking = false;
 seekEl.addEventListener('pointerdown', () => { seeking = true; });
