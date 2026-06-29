@@ -1,4 +1,5 @@
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
@@ -18,7 +19,39 @@ const MIME = {
 
 const ROOT_PREFIX = ROOT + path.sep;
 
+// Proxy para arquivos de áudio do hinário LouvorJA.
+// Adiciona Api-Token server-side para evitar CORS preflight no browser.
+function proxyLouvorja(req, res, remotePath) {
+  const options = {
+    hostname: 'api.louvorja.com.br',
+    path: remotePath,
+    method: 'GET',
+    headers: {
+      'Api-Token': '02@v2nFB2Dc',
+      'User-Agent': 'Mozilla/5.0',
+      'Accept': '*/*',
+    },
+  };
+  if (req.headers['range']) options.headers['Range'] = req.headers['range'];
+  const proxyReq = https.request(options, (proxyRes) => {
+    const fwd = { 'Access-Control-Allow-Origin': '*' };
+    ['content-type', 'content-length', 'content-range', 'accept-ranges'].forEach(
+      (h) => { if (proxyRes.headers[h]) fwd[h] = proxyRes.headers[h]; }
+    );
+    res.writeHead(proxyRes.statusCode, fwd);
+    proxyRes.pipe(res);
+  });
+  proxyReq.on('error', () => { res.writeHead(502); res.end('Proxy error'); });
+  proxyReq.end();
+}
+
 const server = http.createServer((req, res) => {
+  // Proxy para áudio do hinário (apenas localhost; produção usa GitHub Pages sem server)
+  if (req.method === 'GET' && req.url.startsWith('/louvorja-proxy/')) {
+    proxyLouvorja(req, res, req.url.slice('/louvorja-proxy'.length));
+    return;
+  }
+
   let urlPath;
   try {
     urlPath = decodeURIComponent(req.url.split('?')[0]);
