@@ -22,7 +22,7 @@ git push origin main
 ## Regras de desenvolvimento
 
 - Nunca perder funcionalidades existentes ao refatorar.
-- Ao alterar assets estáticos, incrementar `N` nos dois `sw.js`.
+- Ao alterar assets estáticos, incrementar a versão nos dois `sw.js` **usando o mesmo número da versão visual** (ex: `controle-v1.5`, `display-v1.5`).
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente.
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
@@ -68,13 +68,13 @@ public/
 │   ├── controle.css            # Estilos do Controle
 │   ├── controle.js             # Lógica do Controle
 │   ├── manifest.json           # PWA manifest (orientation: portrait)
-│   └── sw.js                   # Service worker (cache: controle-vN)
+│   └── sw.js                   # Service worker (cache: controle-vX.Y)
 └── display/
     ├── index.html              # UI do Display
     ├── display.css             # Estilos do Display
     ├── display.js              # Lógica do Display
     ├── manifest.json           # PWA manifest (orientation: landscape, fullscreen)
-    └── sw.js                   # Service worker (cache: display-vN)
+    └── sw.js                   # Service worker (cache: display-vX.Y)
 server.js                       # Servidor estático mínimo (Node puro, sem deps)
 ```
 
@@ -295,14 +295,15 @@ repassa todos os comandos para `stage.handle()`. Ao inicializar, envia
 ## Service Workers e cache
 
 ```
-controle/sw.js → const CACHE = 'controle-vN'
-display/sw.js  → const CACHE = 'display-vN'
+controle/sw.js → const CACHE = 'controle-vX.Y'
+display/sw.js  → const CACHE = 'display-vX.Y'
 ```
 
 Estratégia: cache-first com fallback para rede. Na ativação apaga caches antigos
 da mesma palavra-chave sem tocar nos caches do outro app.
 
-**Ao alterar qualquer asset estático, incrementar N nos dois sw.js.**
+**Ao alterar qualquer asset estático, usar o mesmo número da versão visual do Controle nos dois sw.js.**
+Ex: se a versão visual é `v1.6`, os caches ficam `controle-v1.6` e `display-v1.6`.
 
 ---
 
