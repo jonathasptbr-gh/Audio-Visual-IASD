@@ -37,6 +37,8 @@ html, body {
   z-index: 1;
 }
 
+.yt-frame { border: none; }
+
 /* Overlay de desbloqueio de áudio (autoplay) */
 .unlock {
   position: fixed;

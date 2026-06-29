@@ -73,10 +73,30 @@
     const record = {
       id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
       blob,
+      url: null,
       thumb: (meta && meta.thumb) || null,
       type: blob.type,
       kind: kindFromType(blob.type),
       name: (meta && meta.name) || 'sem-nome',
+      youtubeId: null,
+      createdAt: Date.now(),
+    };
+    const s = await store(STORE_MEDIA, 'readwrite');
+    await asPromise(s.add(record));
+    await listAdd('imports', record.id);
+    return record;
+  }
+  // Item de URL externa (sem blob local); kind pode ser 'image','video','audio','youtube'.
+  async function addUrlMedia(url, meta) {
+    const record = {
+      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
+      blob: null,
+      url,
+      thumb: (meta && meta.thumb) || null,
+      type: (meta && meta.type) || 'url/unknown',
+      kind: (meta && meta.kind) || 'url',
+      name: (meta && meta.name) || url,
+      youtubeId: (meta && meta.youtubeId) || null,
       createdAt: Date.now(),
     };
     const s = await store(STORE_MEDIA, 'readwrite');
@@ -146,7 +166,7 @@
 
   global.AVDB = {
     openDB, setState, getState,
-    addMedia, getMedia, renameMedia,
+    addMedia, addUrlMedia, getMedia, renameMedia,
     listIds, listSet, listItems, listHas, listAdd, listRemove, gc,
     kindFromType, sendCommand, onCommand,
   };

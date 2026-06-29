@@ -1,12 +1,14 @@
 const wallpaperEl = document.getElementById('wallpaper');
 const imgEl = document.getElementById('img');
 const videoEl = document.getElementById('video');
+const youtubeEl = document.getElementById('youtube');
 const unlockEl = document.getElementById('unlock');
 
 let unlocked = false;
+let youtubeActive = false;
 
 function sendStatus() {
-  const cur = stage.getCurrent();
+  const cur = youtubeActive ? null : stage.getCurrent();
   AVDB.sendCommand({
     type: 'display-status',
     mediaId: cur ? cur.id : null,
@@ -33,7 +35,42 @@ const stage = createStage({
   },
 });
 
-AVDB.onCommand((cmd) => { if (cmd) stage.handle(cmd); });
+function clearYoutube() {
+  youtubeEl.src = '';
+  youtubeEl.hidden = true;
+  youtubeActive = false;
+}
+
+AVDB.onCommand(async (cmd) => {
+  if (!cmd) return;
+
+  if (cmd.type === 'load') {
+    const rec = await AVDB.getMedia(cmd.mediaId);
+    if (rec && rec.kind === 'youtube') {
+      clearYoutube();
+      stage.clear();
+      youtubeEl.src = `https://www.youtube-nocookie.com/embed/${rec.youtubeId}?autoplay=1&rel=0&modestbranding=1`;
+      youtubeEl.hidden = false;
+      youtubeActive = true;
+      return;
+    }
+    // Non-youtube: ensure iframe is hidden
+    clearYoutube();
+    stage.handle(cmd);
+    return;
+  }
+
+  if (cmd.type === 'stop' || cmd.type === 'clear') {
+    clearYoutube();
+    stage.handle(cmd);
+    return;
+  }
+
+  // Ignore transport/volume commands while YouTube is active (can't bridge into iframe)
+  if (youtubeActive) return;
+
+  stage.handle(cmd);
+});
 
 unlockEl.addEventListener('click', () => {
   unlocked = true;
@@ -47,7 +84,14 @@ async function restore() {
   const muted = !!(state && state.muted);
   const volume = (state && typeof state.volume === 'number') ? state.volume : 1;
   if (state && state.mediaId) {
-    await stage.load(state.mediaId, view, muted, volume);
+    const rec = await AVDB.getMedia(state.mediaId);
+    if (rec && rec.kind === 'youtube') {
+      youtubeEl.src = `https://www.youtube-nocookie.com/embed/${rec.youtubeId}?autoplay=1&rel=0&modestbranding=1`;
+      youtubeEl.hidden = false;
+      youtubeActive = true;
+    } else {
+      await stage.load(state.mediaId, view, muted, volume);
+    }
   } else {
     stage.setView(view);
   }

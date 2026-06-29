@@ -280,7 +280,11 @@ function renderListTitle() {
 function thumbEl(item) {
   const t = document.createElement('div');
   t.className = 'thumb';
-  if (item.thumb) {
+  if (item.thumb && typeof item.thumb === 'string') {
+    // URL string thumb (e.g. YouTube hqdefault)
+    const im = document.createElement('img'); im.src = item.thumb; im.alt = '';
+    t.appendChild(im);
+  } else if (item.thumb) {
     const url = URL.createObjectURL(item.thumb);
     thumbUrls.push(url);
     const im = document.createElement('img'); im.src = url; im.alt = '';
@@ -366,10 +370,18 @@ function renderLibrary() {
     else if (!selectionMode && activeTab === 'imports' && favSet.has(item.id)) { mark.appendChild(msym(ICON.star)); mark.classList.add('is-fav'); }
 
     const name = document.createElement('span'); name.className = 'row-name'; name.textContent = item.name;
+    // Badge for URL-based items
+    let badge = null;
+    if (item.kind === 'youtube') {
+      badge = document.createElement('span'); badge.className = 'url-badge yt-badge'; badge.textContent = 'YT';
+    } else if (!item.blob && item.url) {
+      badge = document.createElement('span'); badge.className = 'url-badge'; badge.textContent = 'URL';
+    }
     const handle = document.createElement('button'); handle.className = 'row-handle'; handle.title = 'Arraste para reordenar';
     handle.appendChild(msym(ICON.drag));
 
-    row.append(mark, thumbEl(item), name, handle);
+    if (badge) row.append(mark, thumbEl(item), name, badge, handle);
+    else row.append(mark, thumbEl(item), name, handle);
     li.appendChild(row);
     attachRowGestures(row, item);
     if (activeTab !== 'folders') attachHandle(handle, item.id, activeTab);
@@ -474,9 +486,8 @@ async function toggleMute() {
   renderControls();
 }
 
-// Parar = limpar o display (volta ao wallpaper) e zera o atual.
+// Parar = limpar o display (volta ao wallpaper); mantém currentId para replay com play.
 async function stopClear() {
-  // Mantém currentId para que play reinicie a mídia do início
   cmd({ type: 'clear' });
   playing = false;
   playPauseEl.querySelector('.msym').textContent = ICON.play;
@@ -717,6 +728,76 @@ function renderFolderPicker() {
 }
 
 
+// ===== URL / compartilhamento =====
+function extractYouTubeId(url) {
+  try {
+    const u = new URL(url);
+    if (u.hostname === 'youtu.be') return u.pathname.slice(1).split('?')[0] || null;
+    if (u.hostname.includes('youtube.com')) return u.searchParams.get('v') || null;
+  } catch (_) {}
+  return null;
+}
+
+function detectUrlKind(url) {
+  if (extractYouTubeId(url)) return 'youtube';
+  const lower = url.toLowerCase().split('?')[0];
+  if (/\.(mp4|webm|ogv|mov|m4v|mkv)$/.test(lower)) return 'video';
+  if (/\.(mp3|wav|ogg|aac|flac|m4a|opus)$/.test(lower)) return 'audio';
+  if (/\.(jpg|jpeg|png|gif|webp|svg|avif|bmp)$/.test(lower)) return 'image';
+  return 'url';
+}
+
+async function handleSharedUrl(url, title) {
+  if (!url) return;
+  const ytId = extractYouTubeId(url);
+  if (ytId) {
+    await AVDB.addUrlMedia(url, {
+      kind: 'youtube',
+      type: 'video/youtube',
+      name: title || ('YouTube: ' + ytId),
+      thumb: 'https://img.youtube.com/vi/' + ytId + '/hqdefault.jpg',
+      youtubeId: ytId,
+    });
+    flash('YouTube adicionado');
+  } else {
+    const kind = detectUrlKind(url);
+    const fallbackName = url.split('/').pop().split('?')[0] || url;
+    await AVDB.addUrlMedia(url, {
+      kind,
+      type: kind + '/url',
+      name: title || fallbackName,
+      thumb: null,
+    });
+    flash('Link adicionado');
+  }
+}
+
+async function checkPendingShare() {
+  const pending = await AVDB.getState('pending-share');
+  if (!pending) return;
+  await AVDB.setState('pending-share', null);
+
+  let added = false;
+  if (pending.files && pending.files.length > 0) {
+    for (const file of pending.files) {
+      if (!(file instanceof File)) continue;
+      const kind = AVDB.kindFromType(file.type);
+      const thumb = await makeThumb(file, kind);
+      await AVDB.addMedia(file, { name: file.name.replace(/\.[^.]+$/, ''), thumb });
+    }
+    flash(pending.files.length + ' arquivo(s) adicionado(s)');
+    added = true;
+  }
+  if (pending.url) {
+    await handleSharedUrl(pending.url, pending.title);
+    added = true;
+  }
+  if (added) {
+    if (activeTab !== 'imports') activeTab = 'imports';
+    load();
+  }
+}
+
 // ===== feedback rápido =====
 let flashTimer = null;
 function flash(text) {
@@ -825,4 +906,6 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
   await load();
   // carrega a mídia atual na preview (uma vez, na abertura)
   if (currentId) preview.load(currentId, view, muted, volume);
+  // processa share pendente (Web Share Target via SW)
+  await checkPendingShare();
 })();

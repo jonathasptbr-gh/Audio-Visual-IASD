@@ -1,4 +1,4 @@
-const CACHE = 'controle-v22';
+const CACHE = 'controle-v23';
 const ASSETS = [
   './',
   './index.html',
@@ -35,7 +35,51 @@ self.addEventListener('activate', (e) => {
   );
 });
 
+// Armazena os dados de share em IDB (state['pending-share']) para o app principal processar.
+function storePendingShare(data) {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('av-iasd', 1);
+    req.onsuccess = () => {
+      const db = req.result;
+      const tx = db.transaction('state', 'readwrite');
+      tx.objectStore('state').put(data, 'pending-share');
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function handleShare(request) {
+  try {
+    const formData = await request.formData();
+    const files = formData.getAll('media');
+    const sharedUrl = formData.get('url') || '';
+    const sharedText = formData.get('text') || '';
+    const sharedTitle = formData.get('title') || '';
+
+    // Prioridade: arquivos > URL no campo url > URL no campo text
+    const urlToProcess = sharedUrl || (sharedText.startsWith('http') ? sharedText : '');
+
+    await storePendingShare({
+      files: files.filter((f) => f && f.size > 0),
+      url: urlToProcess,
+      title: sharedTitle || sharedText,
+      ts: Date.now(),
+    });
+  } catch (err) {
+    // Se falhar ao processar, ignora e redireciona mesmo assim
+  }
+  // Redireciona para o app (abre/foca o Controle)
+  return Response.redirect('./', 303);
+}
+
 self.addEventListener('fetch', (e) => {
+  // Intercepta o POST do Web Share Target
+  if (e.request.method === 'POST' && new URL(e.request.url).pathname.endsWith('/share-target')) {
+    e.respondWith(handleShare(e.request));
+    return;
+  }
   if (e.request.method !== 'GET') return;
   // Busca SOMENTE no cache próprio deste app, evitando servir conteúdo
   // velho que tenha sobrado em caches de versões antigas.
