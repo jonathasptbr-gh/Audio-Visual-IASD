@@ -108,6 +108,28 @@
     const s = await store(STORE_MEDIA, 'readonly');
     return asPromise(s.get(id));
   }
+  // Armazena um blob temporário sem adicioná-lo a nenhuma lista (para pastas vinculadas).
+  async function storeMediaTemp(blob, meta) {
+    const record = {
+      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
+      blob,
+      url: null,
+      thumb: (meta && meta.thumb) || null,
+      type: blob.type,
+      kind: (meta && meta.kind) || kindFromType(blob.type),
+      name: (meta && meta.name) || 'sem-nome',
+      youtubeId: null,
+      createdAt: Date.now(),
+    };
+    const s = await store(STORE_MEDIA, 'readwrite');
+    await asPromise(s.add(record));
+    return record;
+  }
+  // Exclui diretamente um registro de mídia pelo ID (usado para limpar temp de pastas vinculadas).
+  async function deleteMedia(id) {
+    const s = await store(STORE_MEDIA, 'readwrite');
+    return asPromise(s.delete(id));
+  }
   async function renameMedia(id, name) {
     // get + put na mesma transação para garantir atomicidade.
     const [s] = await storeTx(STORE_MEDIA, 'readwrite');
@@ -166,7 +188,7 @@
 
   global.AVDB = {
     openDB, setState, getState,
-    addMedia, addUrlMedia, getMedia, renameMedia,
+    addMedia, addUrlMedia, getMedia, storeMediaTemp, deleteMedia, renameMedia,
     listIds, listSet, listItems, listHas, listAdd, listRemove, gc,
     kindFromType, sendCommand, onCommand,
   };
