@@ -1025,6 +1025,10 @@ async function playHymn(item) {
     const urlPath = detail.url_music;
     if (!urlPath) { flash('Arquivo não encontrado'); hymnDownloading = false; return; }
 
+    // DEBUG temporário — mostra os primeiros 80 chars do url_music
+    flash('url_music: ' + String(urlPath).slice(0, 80));
+    await new Promise(r => setTimeout(r, 3000));
+
     // Constrói URL do áudio; o <video> busca diretamente (sem header, sem preflight CORS)
     const normalizedPath = urlPath.startsWith('/') ? urlPath : '/' + urlPath;
     const audioUrl = encodeURI(LOUVORJA_BASE + '/file' + normalizedPath);
