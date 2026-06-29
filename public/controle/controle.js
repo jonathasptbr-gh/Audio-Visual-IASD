@@ -40,6 +40,7 @@ const selRenameEl = document.getElementById('selRename');
 const selDeleteEl = document.getElementById('selDelete');
 
 const backBtnEl = document.getElementById('backBtn');
+const addDirBtnEl = document.getElementById('addDirBtn');
 const folderPopupEl = document.getElementById('folderPopup');
 const folderPickerListEl = document.getElementById('folderPickerList');
 const folderPopupCloseEl = document.getElementById('folderPopupClose');
@@ -95,9 +96,13 @@ let activeTab = 'imports';
 let selectionMode = false;
 const selected = new Set();
 let thumbUrls = [];
-let currentFolder = null; // null | {id, name} — pasta aberta
+let currentFolder = null; // null | {id, name, _linked?} — pasta aberta
 let folders = [];          // [{id, name}, ...]
 let folderCounts = {};     // {folderId: count}
+let linkedFolders = [];    // [{id, name, handle}] — pastas vinculadas (File System Access API)
+let linkedItems = [];      // [{_linked:true, fileHandle, kind, name, _fullName}]
+let linkedTempId = null;   // ID do registro temp no IDB para o arquivo da pasta vinculada
+let activeLinkedName = null; // _fullName do arquivo vinculado em reprodução
 
 // ===== preview (espelho do display) =====
 // Mostra exatamente o que o display mostra; sempre mudo. Recebe os MESMOS
@@ -216,8 +221,13 @@ async function load() {
     const ids = (await AVDB.getState('folder_' + f.id)) || [];
     folderCounts[f.id] = ids.length;
   }
+  await loadLinkedFolders();
   if (activeTab === 'folders') {
-    libItems = currentFolder ? await loadFolderMediaItems(currentFolder.id) : [];
+    if (currentFolder && currentFolder._linked) {
+      libItems = linkedItems;
+    } else {
+      libItems = currentFolder ? await loadFolderMediaItems(currentFolder.id) : [];
+    }
   } else {
     libItems = await AVDB.listItems(activeTab);
   }
@@ -272,6 +282,7 @@ function renderTabs() {
 function renderListTitle() {
   const inFolder = activeTab === 'folders' && currentFolder !== null;
   backBtnEl.hidden = !inFolder;
+  addDirBtnEl.hidden = !(activeTab === 'folders' && !inFolder);
   const titles = { imports: 'Importados', folders: 'Pastas' };
   listTitleEl.textContent = inFolder ? currentFolder.name : (titles[activeTab] || '');
 }
@@ -349,6 +360,18 @@ function renderLibrary() {
   }
 
   libItems.forEach((item) => {
+    if (item._linked) {
+      const li = document.createElement('li');
+      li.className = 'lib-item' + (item._fullName === activeLinkedName ? ' active' : '');
+      li.dataset.linkedId = item._fullName;
+      const row = document.createElement('div'); row.className = 'row';
+      row.append(thumbEl(item), Object.assign(document.createElement('span'), { className: 'row-name', textContent: item.name }));
+      li.appendChild(row);
+      row.addEventListener('click', () => onTap(item));
+      libraryEl.appendChild(li);
+      return;
+    }
+
     const li = document.createElement('li');
     // Bug fix: active highlight only when not in selection mode
     const isActive = !selectionMode && item.id === currentId;
@@ -390,10 +413,25 @@ function renderLibrary() {
 }
 
 function renderFolderList() {
-  if (folders.length === 0) {
-    libraryEl.innerHTML = '<li class="empty">Nenhuma pasta.<br>Toque em "+" para criar.</li>';
+  if (linkedFolders.length === 0 && folders.length === 0) {
+    libraryEl.innerHTML = '<li class="empty">Nenhuma pasta.<br>Toque em "+" para criar ou no ícone acima para vincular uma pasta do dispositivo.</li>';
     return;
   }
+  linkedFolders.forEach((lf) => {
+    const li = document.createElement('li');
+    li.className = 'lib-item folder-linked';
+    const row = document.createElement('div'); row.className = 'row';
+    const icon = document.createElement('div'); icon.className = 'thumb thumb--icon';
+    icon.appendChild(msym(ICON.import));
+    const nameEl = document.createElement('span'); nameEl.className = 'row-name'; nameEl.textContent = lf.name;
+    const rmBtn = document.createElement('button'); rmBtn.className = 'row-btn'; rmBtn.title = 'Desvincular pasta';
+    rmBtn.appendChild(msym(ICON.del));
+    rmBtn.addEventListener('click', (e) => { e.stopPropagation(); removeLinkedFolder(lf.id); });
+    row.append(icon, nameEl, rmBtn);
+    li.appendChild(row);
+    li.addEventListener('click', () => openLinkedFolder(lf));
+    libraryEl.appendChild(li);
+  });
   folders.forEach((folder) => {
     const count = folderCounts[folder.id] || 0;
     const li = document.createElement('li');
@@ -541,6 +579,7 @@ function attachRowGestures(row, item) {
 }
 
 async function onTap(item) {
+  if (item._linked) { await playLinkedFile(item); return; }
   if (selectionMode) { toggleSelect(item.id); return; }
   // Toque direto na biblioteca: define a playlist como este item apenas.
   // Swipe para esquerda continua ADICIONANDO à playlist.
@@ -675,6 +714,8 @@ function openFolder(folder) {
 
 function navigateBack() {
   currentFolder = null;
+  linkedItems = [];
+  activeLinkedName = null;
   load();
 }
 
@@ -727,6 +768,110 @@ function renderFolderPicker() {
   });
 }
 
+
+// ===== pastas vinculadas (File System Access API) =====
+async function loadLinkedFolders() {
+  const stored = await AVDB.getState('linked-folders');
+  linkedFolders = Array.isArray(stored) ? stored : [];
+}
+
+async function addLinkedFolder() {
+  if (!('showDirectoryPicker' in window)) {
+    flash('Navegador não suporta acesso a diretórios');
+    return;
+  }
+  let handle;
+  try {
+    handle = await window.showDirectoryPicker({ mode: 'read' });
+  } catch (_) {
+    return; // usuário cancelou
+  }
+  for (const lf of linkedFolders) {
+    try {
+      if (lf.handle && await lf.handle.isSameEntry(handle)) { flash('Pasta já vinculada'); return; }
+    } catch (_) {}
+  }
+  const lf = { id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), name: handle.name, handle };
+  linkedFolders.push(lf);
+  await AVDB.setState('linked-folders', linkedFolders);
+  flash('Pasta vinculada: ' + handle.name);
+  renderLibrary();
+}
+
+async function openLinkedFolder(lf) {
+  if (!lf.handle) { flash('Pasta inválida'); return; }
+  try {
+    const perm = await lf.handle.queryPermission({ mode: 'read' });
+    if (perm !== 'granted') {
+      const req = await lf.handle.requestPermission({ mode: 'read' });
+      if (req !== 'granted') { flash('Permissão negada'); return; }
+    }
+  } catch (_) {
+    flash('Erro ao acessar pasta');
+    return;
+  }
+  linkedItems = [];
+  try {
+    for await (const [name, entry] of lf.handle.entries()) {
+      if (entry.kind !== 'file') continue;
+      const type = guessMediaType(name);
+      const kind = AVDB.kindFromType(type);
+      if (kind === 'other') continue;
+      linkedItems.push({ _linked: true, fileHandle: entry, kind, name: name.replace(/\.[^.]+$/, ''), type, _fullName: name });
+    }
+    linkedItems.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+  } catch (_) {
+    flash('Erro ao ler pasta');
+    return;
+  }
+  currentFolder = { id: lf.id, name: lf.name, _linked: true };
+  renderListTitle();
+  renderLibrary();
+}
+
+async function removeLinkedFolder(id) {
+  linkedFolders = linkedFolders.filter((lf) => lf.id !== id);
+  await AVDB.setState('linked-folders', linkedFolders);
+  load();
+}
+
+function guessMediaType(filename) {
+  const ext = (filename.split('.').pop() || '').toLowerCase();
+  const map = {
+    jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif',
+    webp: 'image/webp', svg: 'image/svg+xml', avif: 'image/avif', bmp: 'image/bmp',
+    mp4: 'video/mp4', webm: 'video/webm', ogv: 'video/ogg', mov: 'video/mp4',
+    m4v: 'video/mp4', mkv: 'video/x-matroska',
+    mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', aac: 'audio/aac',
+    flac: 'audio/flac', m4a: 'audio/mp4', opus: 'audio/opus',
+  };
+  return map[ext] || 'application/octet-stream';
+}
+
+async function playLinkedFile(item) {
+  if (linkedTempId) {
+    await AVDB.deleteMedia(linkedTempId);
+    linkedTempId = null;
+  }
+  let file;
+  try {
+    file = await item.fileHandle.getFile();
+  } catch (_) {
+    flash('Erro ao abrir arquivo');
+    return;
+  }
+  const record = await AVDB.storeMediaTemp(file, { name: item.name, kind: item.kind });
+  linkedTempId = record.id;
+  activeLinkedName = item._fullName;
+  currentId = record.id;
+  currentItem = record;
+  await persistCurrent();
+  cmd({ type: 'load', mediaId: record.id, view, muted, volume });
+  document.querySelectorAll('.lib-item[data-linked-id]').forEach((el) =>
+    el.classList.toggle('active', el.dataset.linkedId === item._fullName)
+  );
+  renderNowPlaying();
+}
 
 // ===== URL / compartilhamento =====
 function extractYouTubeId(url) {
@@ -883,6 +1028,7 @@ selDeleteEl.addEventListener('click', deleteSelected);
 selRenameEl.addEventListener('click', renameSelected);
 
 backBtnEl.addEventListener('click', navigateBack);
+addDirBtnEl.addEventListener('click', addLinkedFolder);
 
 
 folderPopupCloseEl.addEventListener('click', closeFolderPicker);

@@ -126,7 +126,9 @@ main {
 
 /* ---------- Título da lista ativa ---------- */
 .list-header { flex-shrink: 0; display: flex; align-items: center; gap: .3rem; }
-.list-title { font-size: .72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.list-title { flex: 1; font-size: .72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.add-dir-btn { flex-shrink: 0; width: 30px; height: 30px; border: none; border-radius: 8px; background: var(--accent-soft); color: var(--accent); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.add-dir-btn .msym { font-size: 20px; }
 .back-btn {
   background: none; border: none; color: var(--accent); cursor: pointer; padding: 0 .2rem 0 0;
   display: flex; align-items: center; -webkit-tap-highlight-color: transparent;
@@ -221,6 +223,10 @@ main {
 .row-btn, .row-handle { width: 34px; height: 34px; flex-shrink: 0; border: none; border-radius: 8px; background: rgba(255, 255, 255, .06); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .row-btn .msym, .row-handle .msym { font-size: 19px; }
 .row-handle { background: transparent; color: var(--muted); touch-action: none; cursor: grab; }
+
+/* pastas vinculadas */
+.folder-linked .msym { color: var(--accent); }
+.folder-linked .folder-count { color: var(--accent); opacity: .7; }
 
 /* fundo de ação do swipe */
 .swipe-bg { position: absolute; inset: 0; z-index: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; }
