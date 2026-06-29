@@ -35,14 +35,11 @@ const deckEl = document.getElementById('deck');
 const selbarEl = document.getElementById('selbar');
 const selCountEl = document.getElementById('selCount');
 const selCancelEl = document.getElementById('selCancel');
-const selFavToggleEl = document.getElementById('selFavToggle');
 const selFolderEl = document.getElementById('selFolder');
 const selRenameEl = document.getElementById('selRename');
 const selDeleteEl = document.getElementById('selDelete');
 
 const backBtnEl = document.getElementById('backBtn');
-const tabImportEl = document.getElementById('tabImport');
-const tabNewFolderEl = document.getElementById('tabNewFolder');
 const folderPopupEl = document.getElementById('folderPopup');
 const folderPickerListEl = document.getElementById('folderPickerList');
 const folderPopupCloseEl = document.getElementById('folderPopupClose');
@@ -270,8 +267,6 @@ function renderNowPlaying() {
 
 function renderTabs() {
   tabsEl.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === activeTab));
-  tabImportEl.hidden = activeTab !== 'imports';
-  tabNewFolderEl.hidden = activeTab !== 'folders';
 }
 
 function renderListTitle() {
@@ -414,8 +409,6 @@ function renderSelbar() {
   if (!selectionMode) return;
   selCountEl.textContent = String(selected.size);
   selRenameEl.disabled = selected.size !== 1;
-  const allFav = selected.size > 0 && [...selected].every((id) => favSet.has(id));
-  selFavToggleEl.classList.toggle('is-fav', allFav);
 }
 
 // ===== ações de reprodução / sequência =====
@@ -483,10 +476,13 @@ async function toggleMute() {
 
 // Parar = limpar o display (volta ao wallpaper) e zera o atual.
 async function stopClear() {
-  currentId = null;
+  // Mantém currentId para que play reinicie a mídia do início
   cmd({ type: 'clear' });
+  playing = false;
+  playPauseEl.querySelector('.msym').textContent = ICON.play;
+  seekEl.value = 0; seekEl.disabled = true;
+  curTimeEl.textContent = '0:00';
   await persistCurrent();
-  load();
 }
 
 
@@ -720,17 +716,6 @@ function renderFolderPicker() {
   });
 }
 
-async function toggleFavSelected() {
-  const allFav = [...selected].every((id) => favSet.has(id));
-  for (const id of selected) {
-    if (allFav) await AVDB.listRemove('favorites', id);
-    else await AVDB.listAdd('favorites', id);
-  }
-  favSet = new Set(await AVDB.listIds('favorites'));
-  flash(allFav ? 'Removido dos favoritos' : 'Adicionado aos favoritos');
-  renderSelbar();
-  renderLibrary();
-}
 
 // ===== feedback rápido =====
 let flashTimer = null;
@@ -764,7 +749,11 @@ fileEl.addEventListener('change', async () => {
   load();
 });
 
-playPauseEl.addEventListener('click', () => cmd({ type: playing ? 'pause' : 'play' }));
+playPauseEl.addEventListener('click', () => {
+  if (playing) { cmd({ type: 'pause' }); }
+  else if (preview.getCurrent()) { cmd({ type: 'play' }); }
+  else if (currentId) { send(currentId); } // após stop: recarrega e inicia do início
+});
 stopEl.addEventListener('click', stopClear);
 prevEl.addEventListener('click', () => step(-1));
 nextEl.addEventListener('click', () => step(1));
@@ -802,17 +791,12 @@ tabsEl.addEventListener('click', (e) => {
 });
 
 selCancelEl.addEventListener('click', exitSelection);
-selFavToggleEl.addEventListener('click', toggleFavSelected);
 selFolderEl.addEventListener('click', openFolderPicker);
 selDeleteEl.addEventListener('click', deleteSelected);
 selRenameEl.addEventListener('click', renameSelected);
 
 backBtnEl.addEventListener('click', navigateBack);
 
-tabNewFolderEl.addEventListener('click', async () => {
-  const name = prompt('Nome da nova pasta:');
-  if (name && name.trim()) await createFolder(name.trim());
-});
 
 folderPopupCloseEl.addEventListener('click', closeFolderPicker);
 folderPopupEl.addEventListener('click', (e) => { if (e.target === folderPopupEl) closeFolderPicker(); });

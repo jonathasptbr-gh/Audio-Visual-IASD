@@ -34,13 +34,10 @@
       <div class="tabs-divider"></div>
       <button class="tab active" data-tab="imports" title="Importados"><span class="msym">&#xe413;</span></button>
       <button class="tab" data-tab="folders" title="Pastas"><span class="msym">&#xe2c7;</span></button>
-      <label class="tab-add" id="tabImport" title="Importar mídia">
+      <label class="tab-add" title="Importar mídia">
         <span class="msym">&#xe2c8;</span>
         <input id="file" type="file" accept="image/*,video/*,audio/*" multiple hidden>
       </label>
-      <button class="tab-add" id="tabNewFolder" title="Nova pasta" hidden>
-        <span class="msym">&#xe2cc;</span>
-      </button>
     </div>
 
     <!-- selbar substitui as abas durante a seleção múltipla -->
@@ -48,7 +45,6 @@
       <button id="selCancel" class="sel-btn" title="Cancelar"><span class="msym">&#xe14c;</span></button>
       <span id="selCount" class="sel-count">0</span>
       <span class="sel-spacer"></span>
-      <button id="selFavToggle" class="sel-btn" title="Favoritar / Desfavoritar"><span class="msym">&#xe838;</span></button>
       <button id="selFolder" class="sel-btn" title="Salvar em pasta"><span class="msym">&#xe2c7;</span></button>
       <button id="selRename" class="sel-btn" title="Renomear"><span class="msym">&#xe150;</span></button>
       <button id="selDelete" class="sel-btn danger" title="Excluir"><span class="msym">&#xe872;</span></button>
