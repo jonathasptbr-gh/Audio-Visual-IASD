@@ -22,11 +22,11 @@ git push origin main
 ## Regras de desenvolvimento
 
 - Nunca perder funcionalidades existentes ao refatorar.
-- Ao alterar assets estáticos, incrementar a versão nos dois `sw.js` **usando o mesmo número da versão visual** (ex: `controle-v2.3`, `display-v2.3`).
+- Ao alterar assets estáticos, incrementar a versão nos dois `sw.js` **usando o mesmo número da versão visual** (ex: `controle-v2.4`, `display-v2.4`).
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente.
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.3, 2.4, 2.5…). **Versão atual: v2.3.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.4, 2.5, 2.6…). **Versão atual: v2.4.**
 
 ---
 
@@ -42,7 +42,9 @@ isso dividindo o sistema em dois PWAs:
 
 Como os dois PWAs estão no **mesmo origin**, eles compartilham:
 
-- **IndexedDB** — blobs de mídia armazenados offline, acessíveis pelos dois apps.
+- **IndexedDB** — metadados, listas e blobs importados, acessíveis pelos dois apps.
+- **OPFS** (Origin Private File System) — bytes dos arquivos sincronizados de
+  pastas do dispositivo; acesso permanente sem prompts de permissão.
 - **BroadcastChannel** (`av-iasd`) — o Controle envia comandos em tempo real para o Display.
 
 Cada PWA tem `manifest.json`, `scope` e `start_url` próprios, então o Android os
@@ -60,7 +62,7 @@ cache-first) — exceto recursos que dependem de rede por natureza: hinário onl
 public/
 ├── index.html                  # Página inicial com links para os dois PWAs
 ├── shared/
-│   ├── db.js                   # Camada comum: IndexedDB + BroadcastChannel
+│   ├── db.js                   # Camada comum: IndexedDB + OPFS + BroadcastChannel
 │   ├── stage.js                # Motor de renderização compartilhado
 │   ├── material-symbols.css    # Font-face da fonte de ícones (subset offline)
 │   └── fonts/
@@ -86,17 +88,41 @@ server.js                       # Servidor estático + proxy do hinário (Node p
 
 ## Modelo de dados (`shared/db.js`)
 
-### IndexedDB — banco `av-iasd` v1
+### IndexedDB — banco `av-iasd` v2
 
 | Object Store | Chave | Conteúdo |
 |---|---|---|
 | `media` | `id` (UUID) | `{ id, blob, url, thumb, type, kind, name, youtubeId, createdAt }` |
+| `files` | `id` (UUID), índice `folder` | catálogo OPFS: `{ id, folder, opfsPath, srcName, name, type, kind, size, mtime, thumb, addedAt }` |
 | `state` | chave string | valor arbitrário (listas, estado atual, pastas, cache do hinário…) |
 
-Um registro de mídia tem **`blob` OU `url`** (nunca os dois): blobs locais
-importados vs. itens de URL externa (link direto, YouTube, hino online).
-`thumb` pode ser um `Blob` (miniatura gerada via Canvas) ou uma **string URL**
-(ex: thumbnail `hqdefault.jpg` do YouTube).
+Um registro de mídia tem **`blob`, `url` OU `opfsPath`** (nunca mais de um):
+blobs locais importados, itens de URL externa (link direto, YouTube, hino
+online) ou arquivos sincronizados no OPFS. `thumb` pode ser um `Blob`
+(miniatura gerada via Canvas) ou uma **string URL** (ex: thumbnail
+`hqdefault.jpg` do YouTube).
+
+> **Atenção:** qualquer código que abra o banco fora de `db.js` (ex:
+> `storePendingShare` no SW do Controle) deve usar `indexedDB.open('av-iasd')`
+> **sem número de versão**, para não quebrar com `VersionError` quando o schema
+> for atualizado.
+
+### OPFS + catálogo (`files`)
+
+Os **bytes** dos arquivos de pastas sincronizadas moram no **OPFS**
+(`navigator.storage.getDirectory()`), em `folders/<folderId>/<arquivo>`. O
+store `files` do IDB guarda apenas **metadados + thumbnail** — por isso listar
+e buscar centenas de arquivos é instantâneo (nunca toca o disco); o arquivo só
+é aberto na hora de reproduzir (`opfsGetFile` → `URL.createObjectURL`).
+
+- OPFS pertence ao origin: **nenhuma permissão é pedida** para ler — nem no
+  Controle, nem no Display (mesmo origin ⇒ mesmo OPFS).
+- `getMedia(id)` procura em `media` e cai para `files` — assim IDs do catálogo
+  entram em `playlist`/`imports`/pastas virtuais **sem copiar bytes**.
+- O `gc()` das listas só apaga do store `media`; registros de `files`
+  pertencem à sua pasta OPFS e só são removidos pela exclusão na pasta.
+- `renameMedia` cobre os dois stores (no catálogo, renomeia só a exibição;
+  o `opfsPath` não muda).
 
 **Três listas nomeadas** (arrays de IDs guardados em `state`): `imports`, `favorites`, `playlist`.
 Migração: `imports` herda o antigo state `order` se `imports` ainda não existir.
@@ -121,11 +147,12 @@ O campo `kind` é derivado do `type` (ou definido pelo chamador para itens de UR
 | `repeat` | `'off'` \| `'all'` \| `'one'` \| `'shuffle'` |
 | `folders` | `[{ id, name }]` — pastas virtuais |
 | `folder_<id>` | array de IDs de mídia da pasta |
-| `linked-folders` | `[{ id, name, handle }]` — pastas do dispositivo (File System Access API) |
+| `opfs-folders` | `[{ id, name, count, syncedAt, handle? }]` — pastas sincronizadas no OPFS (`handle` acelera re-sync) |
 | `louvorja-token` | Api-Token customizado do LouvorJA (opcional; há default no código) |
 | `louvorja-hymnal` | `{ data, ts }` — cache da lista de hinos (válido por 7 dias) |
 | `pending-share` | `{ files, url, title, ts }` — share recebido pelo SW aguardando processamento |
 | `order` | legado — lido apenas como fallback de `imports` |
+| `linked-folders` | legado (pastas vinculadas por handle) — substituído por `opfs-folders`; ignorado |
 
 ### API exposta (`window.AVDB`)
 
@@ -137,6 +164,9 @@ storeUrlTemp(url, meta)       // registro temporário de URL, fora de qualquer l
 storeMediaTemp(blob, meta)    // blob temporário fora de listas (pastas vinculadas)
 getMedia(id), deleteMedia(id), renameMedia(id, name)
 listIds, listSet, listItems, listHas, listAdd, listRemove, gc
+fileAdd, fileGet, fileDelete, filesByFolder, filesAll   // catálogo OPFS
+opfsSupported, opfsGetFile, opfsWriteFile,              // Origin Private
+opfsDeleteFile, opfsDeleteDir                           // File System
 kindFromType, sendCommand, onCommand
 ```
 
@@ -151,7 +181,8 @@ listRemove(listName, id)
 
 Registros **temporários** (`storeUrlTemp` / `storeMediaTemp`) não pertencem a
 lista alguma — quem cria é responsável por excluí-los com `deleteMedia()`
-(o Controle guarda o último em `linkedTempId` e apaga antes de criar o próximo).
+(o Controle guarda o último em `tempMediaId` e apaga antes de criar o próximo;
+hoje só o hinário online usa esse mecanismo).
 
 ### BroadcastChannel — canal `av-iasd`
 
@@ -184,10 +215,12 @@ Todos os comandos são objetos com um campo `type`.
 ## Motor de renderização (`shared/stage.js`)
 
 `createStage(opts)` retorna um objeto com a API de reprodução. Usado pelo Display
-(tela real) e pelo Controle (mini-preview sempre mudo). Suporta blobs locais e
-itens de URL direta (`blob=null, url=string`). Itens `kind='youtube'` **não são
-reproduzidos pelo stage** — ele apenas mostra a thumbnail no `<img>`; a
-reprodução real é feita externamente (iframe no `display.js`).
+(tela real) e pelo Controle (mini-preview sempre mudo). Suporta blobs locais,
+arquivos do OPFS (`opfsPath` — resolvidos via `AVDB.opfsGetFile`, com re-checagem
+de `loadSeq` após o await) e itens de URL direta (`blob=null, url=string`).
+Itens `kind='youtube'` **não são reproduzidos pelo stage** — ele apenas mostra
+a thumbnail no `<img>`; a reprodução real é feita externamente (iframe no
+`display.js`).
 
 ### Opções de criação
 
@@ -249,7 +282,7 @@ iniciado aplica seu resultado — chamadas anteriores obsoletas são descartadas
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  Audio Visual IASD                       Controle v2.3  │  ← .appbar (topo fixo)
+│  Audio Visual IASD                       Controle v2.4  │  ← .appbar (topo fixo)
 ├─────────────────────────────────────────────────────────┤
 │  [←] Título da lista        [busca hino]  [vincular 📁] │  ← .list-header
 │  ┌───────────────────────────────────────────────────┐  │
@@ -273,8 +306,8 @@ iniciado aplica seu resultado — chamadas anteriores obsoletas são descartadas
 A versão visual deve ser incrementada a cada atualização de código.
 
 **Cabeçalho da lista (`.list-header`):** botão voltar (dentro de pasta), título da
-aba/pasta, campo de busca (só na aba Hinário) e botão de vincular pasta do
-dispositivo (só na raiz da aba Pastas).
+aba/pasta, campo de busca (aba Hinário e dentro de pasta OPFS) e botão de
+sincronizar pasta do dispositivo (só na raiz da aba Pastas).
 
 **Controles (`.bottombar`):** fixados na base da tela. O padding inferior usa
 `max(env(safe-area-inset-bottom), 12px)` para garantir margem segura contra
@@ -298,8 +331,8 @@ As abas ficam na **base da seção de listas** (ícones):
 - **Cronograma** (`imports`) — itens importados; ficam até serem excluídos.
   Itens favoritados exibem estrela (não há mais aba Favoritos; a lista `favorites`
   persiste na camada de dados).
-- **Pastas** (`folders`) — pastas virtuais (agrupam mídias já importadas) e pastas
-  vinculadas do dispositivo.
+- **Pastas** (`folders`) — pastas sincronizadas no OPFS e pastas virtuais
+  (agrupam mídias já importadas).
 - **Hinário** (`hymnal`) — Hinário Adventista 2022 online via API LouvorJA, com busca
   por número ou nome.
 - **Importar** — `<input type="file" multiple accept="image/*,video/*,audio/*">`.
@@ -323,14 +356,30 @@ remove da pasta; nas demais abas usa `listRemove` (com gc).
 
 ### Pastas
 
+- **Pastas sincronizadas (OPFS)** — o fluxo principal para bibliotecas grandes.
+  `window.showDirectoryPicker()` pede permissão **uma única vez**, na
+  sincronização: os arquivos de mídia são **copiados em streaming para o OPFS**
+  (`folders/<folderId>/<arquivo>`) e catalogados no store `files` (metadados +
+  thumbnail gerada na hora). Depois disso, abrir o app, listar, buscar e
+  reproduzir **nunca pede permissão** — o catálogo responde na hora e o stage
+  resolve os bytes do OPFS sob demanda.
+  - **Re-sync** (botão na linha da pasta): tenta reutilizar o handle salvo em
+    `opfs-folders` (browsers que persistem permissão nem mostram prompt) e cai
+    no picker se necessário. Arquivos com mesmo nome+tamanho+data são pulados;
+    novos/alterados são copiados. A sincronização é **aditiva** — nada é
+    excluído automaticamente.
+    - Toast de progresso `Sincronizando N/T…` via `flash(texto, sticky=true)`.
+  - `navigator.storage.persist()` é solicitado na sincronização para proteger
+    os arquivos contra descarte do browser; o rodapé da aba mostra o uso via
+    `navigator.storage.estimate()`.
+  - Itens da pasta têm botão ➕ que adiciona o **id do catálogo** ao Cronograma
+    (zero-cópia — `getMedia` resolve pelo fallback). Seleção múltipla permite
+    renomear e excluir (exclui do OPFS + catálogo + remove das listas).
+  - Excluir a pasta (com `confirm()`) apaga o diretório OPFS inteiro, os
+    registros do catálogo e as referências em listas.
 - **Pastas virtuais** — criadas pelo usuário (state `folders` + `folder_<id>`);
-  recebem itens pelo botão "salvar em pasta" da seleção múltipla. Excluir a pasta
-  não exclui as mídias.
-- **Pastas vinculadas** — `window.showDirectoryPicker()` (File System Access API,
-  requer suporte do navegador; handle persistido em `linked-folders`, permissão
-  re-solicitada ao abrir). Arquivos são listados sem importar; tocar num arquivo
-  o reproduz via registro temporário (`storeMediaTemp`), e o botão ➕ importa
-  definitivamente para o Cronograma. Thumbnails são geradas sob demanda.
+  recebem itens pelo botão "salvar em pasta" da seleção múltipla (funciona
+  também com IDs do catálogo OPFS). Excluir a pasta não exclui as mídias.
 
 ### Hinário online (LouvorJA)
 
@@ -344,8 +393,8 @@ remove da pasta; nas demais abas usa `listRemove` (com gc).
   - **Em produção (GitHub Pages, sem servidor):** URL direta da API; os service
     workers interceptam `https://api.louvorja.com.br/file/` e refazem o fetch com
     `mode: 'no-cors'` + `referrerPolicy: 'no-referrer'` para evitar bloqueio por origem.
-- Tocar um hino cria registro temporário via `storeUrlTemp` (mesmo mecanismo
-  `linkedTempId` das pastas vinculadas).
+- Tocar um hino cria registro temporário via `storeUrlTemp` (controlado por
+  `tempMediaId`, apagado antes do próximo).
 
 ### Compartilhamento (Web Share Target)
 
@@ -421,7 +470,7 @@ Além do cache, os SWs tratam:
   redireciona `303 ./` (Web Share Target).
 
 **Ao alterar qualquer asset estático, usar o mesmo número da versão visual do Controle nos dois sw.js.**
-Ex: se a versão visual é `v2.3`, os caches ficam `controle-v2.3` e `display-v2.3`.
+Ex: se a versão visual é `v2.4`, os caches ficam `controle-v2.4` e `display-v2.4`.
 
 ---
 

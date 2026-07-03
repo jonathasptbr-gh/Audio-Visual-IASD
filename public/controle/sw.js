@@ -1,4 +1,4 @@
-const CACHE = 'controle-v2.3';
+const CACHE = 'controle-v2.4';
 const ASSETS = [
   './',
   './index.html',
@@ -38,7 +38,9 @@ self.addEventListener('activate', (e) => {
 // Armazena os dados de share em IDB (state['pending-share']) para o app principal processar.
 function storePendingShare(data) {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open('av-iasd', 1);
+    // Sem número de versão: abre a versão atual do banco (evita VersionError
+    // quando o schema é atualizado em shared/db.js).
+    const req = indexedDB.open('av-iasd');
     req.onsuccess = () => {
       const db = req.result;
       const tx = db.transaction('state', 'readwrite');

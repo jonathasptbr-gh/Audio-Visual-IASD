@@ -224,9 +224,10 @@ main {
 .row-btn .msym, .row-handle .msym { font-size: 19px; }
 .row-handle { background: transparent; color: var(--muted); touch-action: none; cursor: grab; }
 
-/* pastas vinculadas */
-.folder-linked .msym { color: var(--accent); }
-.folder-linked .folder-count { color: var(--accent); opacity: .7; }
+/* pastas sincronizadas (OPFS) */
+.folder-opfs .msym { color: var(--accent); }
+.folder-opfs .folder-count { color: var(--accent); opacity: .7; }
+.storage-usage { font-size: .72rem; opacity: .7; padding: 10px 0; }
 
 /* fundo de ação do swipe */
 .swipe-bg { position: absolute; inset: 0; z-index: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; }
