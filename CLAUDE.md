@@ -22,11 +22,11 @@ git push origin main
 ## Regras de desenvolvimento
 
 - Nunca perder funcionalidades existentes ao refatorar.
-- Ao alterar assets estáticos, incrementar a versão nos dois `sw.js` **usando o mesmo número da versão visual** (ex: `controle-v2.5`, `display-v2.5`).
+- Ao alterar assets estáticos, incrementar a versão nos dois `sw.js` **usando o mesmo número da versão visual** (ex: `controle-v2.6`, `display-v2.6`).
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente.
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.5, 2.6, 2.7…). **Versão atual: v2.5.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v2.6.**
 
 ---
 
@@ -254,15 +254,24 @@ fadeIn/fadeOut/fadeTime → transições (definidas via comando 'fade')
 
 ### Transições (fade)
 
-Quando ativas, aplicam-se a **entrada, saída e troca** de mídia:
+Quando ativas, aplicam-se a **entrada, saída e troca** de mídia
+(`runFadeOut(toWallpaper)` distingue os dois destinos):
 
-- **Fade out** (`load` com mídia visível, `stop`, `clear`, `view→wallpaper`):
-  a mídia atual esmaece até o wallpaper (que aparece por trás durante a
-  transição) via CSS `opacity`; vídeo/áudio também tem **rampa de volume** até
-  zero. Só depois a ação prossegue. Guardado por `loadSeq`: um comando mais
+- **Troca de mídia** (`load` com mídia visível): a atual esmaece **até o preto**
+  (o wallpaper permanece oculto — `runFadeOut(false)`); a próxima entra em
+  seguida com fade-in a partir do preto. As camadas esmaecidas são escondidas
+  antes de restaurar a opacidade, para a mídia antiga não reaparecer durante o
+  `getMedia`.
+- **Saída** (`stop`, `clear`, `view→wallpaper` — `runFadeOut(true)`): a mídia
+  esmaece revelando o **wallpaper** por trás durante a transição.
+- Em ambos, vídeo/áudio tem **rampa de volume** até zero junto com o fade
+  visual. Só depois a ação prossegue. Guardado por `loadSeq`: um comando mais
   novo durante o fade descarta o anterior.
 - **Fade in** (`load`, `view→visual`): a nova mídia entra de opacity 0 → 1;
   vídeo/áudio com rampa de volume 0 → volume alvo (exceto preview `forceMuted`).
+  O timer de limpeza pós fade-in (`fadeCleanupTimer`) é cancelado por qualquer
+  fade-out/fade-in posterior — senão ele restauraria a opacidade no meio da
+  transição seguinte.
 - Fim natural do vídeo (`ended`) e `pause`/`play` de retomada são instantâneos.
 - `setVolume` do operador cancela rampa em curso; `play`/`stop` restauram o
   volume alvo (evita ficar preso em volume 0 pós fade-out).
@@ -300,7 +309,7 @@ iniciado aplica seu resultado — chamadas anteriores obsoletas são descartadas
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  Audio Visual IASD                       Controle v2.5  │  ← .appbar (topo fixo)
+│  Audio Visual IASD                       Controle v2.6  │  ← .appbar (topo fixo)
 ├─────────────────────────────────────────────────────────┤
 │  [←] Título da lista     [busca na pasta]  [sincronizar]│  ← .list-header
 │  ┌───────────────────────────────────────────────────┐  │
@@ -475,7 +484,7 @@ Além do cache, o SW do **Controle** trata o POST em `share-target` → grava
 `pending-share` no IDB e redireciona `303 ./` (Web Share Target).
 
 **Ao alterar qualquer asset estático, usar o mesmo número da versão visual do Controle nos dois sw.js.**
-Ex: se a versão visual é `v2.5`, os caches ficam `controle-v2.5` e `display-v2.5`.
+Ex: se a versão visual é `v2.6`, os caches ficam `controle-v2.6` e `display-v2.6`.
 
 ---
 
