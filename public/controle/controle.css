@@ -324,34 +324,29 @@ main {
 .folder-pick-btn .msym { font-size: 22px; color: var(--accent); }
 .folder-pick-btn:active { transform: scale(.98); }
 
-/* ---------- Hinário online ---------- */
-.hymn-search {
+/* ---------- Busca na pasta ---------- */
+.lib-search {
   flex: 1; min-width: 0;
   border: none; outline: none;
   background: rgba(255,255,255,.07); color: var(--text);
   border-radius: 8px; padding: 6px 10px;
   font-size: .85rem; font-family: inherit;
 }
-.hymn-search::placeholder { color: var(--muted); }
+.lib-search::placeholder { color: var(--muted); }
 
-.hymn-item {
-  display: flex; align-items: center;
-  padding: .55rem .75rem; gap: .6rem;
-  cursor: pointer; border-radius: 10px;
-  background: var(--panel); border: 2px solid transparent;
-  flex-shrink: 0;
+/* ---------- popup de transições (fade) ---------- */
+.fade-opts { display: flex; flex-direction: column; gap: .4rem; padding: .3rem .9rem 1rem; }
+.fade-row {
+  display: flex; align-items: center; justify-content: space-between; gap: .8rem;
+  background: var(--panel); border-radius: 10px; padding: .65rem .8rem;
+  font-size: .9rem; cursor: pointer;
 }
-.hymn-item.active { border-color: var(--accent); }
-.hymn-item:active { opacity: .75; }
-
-.hymn-track {
-  flex-shrink: 0; width: 28px; text-align: right;
-  font-size: .78rem; font-weight: 700; color: var(--muted);
-}
-.hymn-item .row-name { font-size: .88rem; }
-.hymn-dur {
-  flex-shrink: 0; font-size: .72rem; color: var(--muted);
-}
+.fade-row small { color: var(--muted); font-size: .75rem; }
+.fade-row b { color: var(--accent); }
+.fade-chk { width: 22px; height: 22px; accent-color: var(--accent); flex-shrink: 0; }
+.fade-row--slider { flex-direction: column; align-items: stretch; gap: .5rem; cursor: default; }
+.fade-row--slider span { display: flex; justify-content: space-between; }
+.fade-row--slider input[type="range"] { width: 100%; accent-color: var(--accent); }
 
 /* ---------- toast ---------- */
 .toast { position: fixed; left: 50%; top: calc(1.2rem + env(safe-area-inset-top)); transform: translateX(-50%) translateY(-20px); background: #222; color: #fff; padding: .55rem 1rem; border-radius: 999px; font-size: .85rem; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 50; border: 1px solid #333; }

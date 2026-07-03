@@ -79,6 +79,9 @@ unlockEl.addEventListener('click', () => {
 });
 
 async function restore() {
+  // Config de transições (fade) definida no Controle.
+  const fade = await AVDB.getState('fade');
+  if (fade) stage.setFade({ fadeIn: !!fade.in, fadeOut: !!fade.out, time: fade.time || 1 });
   const state = await AVDB.getState('current');
   const view = (state && state.view) || 'visual';
   const muted = !!(state && state.muted);
