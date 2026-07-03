@@ -97,13 +97,13 @@ let activeTab = 'imports';
 let selectionMode = false;
 const selected = new Set();
 let thumbUrls = [];
-let currentFolder = null; // null | {id, name, _linked?} — pasta aberta
-let folders = [];          // [{id, name}, ...]
+let currentFolder = null; // null | {id, name, _opfs?} — pasta aberta
+let folders = [];          // [{id, name}, ...] — pastas virtuais
 let folderCounts = {};     // {folderId: count}
-let linkedFolders = [];    // [{id, name, handle}] — pastas vinculadas (File System Access API)
-let linkedItems = [];      // [{_linked:true, fileHandle, kind, name, _fullName}]
-let linkedTempId = null;   // ID do registro temp no IDB para arquivo vinculado ou hino
-let activeLinkedName = null; // _fullName do arquivo vinculado em reprodução
+let opfsFolders = [];      // [{id, name, count, syncedAt, handle?}] — pastas sincronizadas no OPFS
+let folderQuery = '';      // filtro de busca dentro de pasta OPFS
+let syncBusy = false;      // sincronização em andamento
+let tempMediaId = null;    // ID do registro temp no IDB (hino online)
 
 // ---- hinário online ----
 const LOUVORJA_BASE = 'https://api.louvorja.com.br';
@@ -236,12 +236,13 @@ async function load() {
     const ids = (await AVDB.getState('folder_' + f.id)) || [];
     folderCounts[f.id] = ids.length;
   }
-  await loadLinkedFolders();
+  opfsFolders = (await AVDB.getState('opfs-folders')) || [];
   if (activeTab === 'hymnal') {
     loadHymnal(); // fire-and-forget; renderHymnal() é chamado quando completa
   } else if (activeTab === 'folders') {
-    if (currentFolder && currentFolder._linked) {
-      libItems = linkedItems;
+    if (currentFolder && currentFolder._opfs) {
+      libItems = (await AVDB.filesByFolder(currentFolder.id))
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
     } else {
       libItems = currentFolder ? await loadFolderMediaItems(currentFolder.id) : [];
     }
@@ -298,10 +299,12 @@ function renderTabs() {
 
 function renderListTitle() {
   const inFolder = activeTab === 'folders' && currentFolder !== null;
+  const inOpfs = inFolder && currentFolder._opfs;
   backBtnEl.hidden = !inFolder;
   addDirBtnEl.hidden = !(activeTab === 'folders' && !inFolder);
-  hymnSearchEl.hidden = activeTab !== 'hymnal';
-  listTitleEl.hidden = activeTab === 'hymnal';
+  hymnSearchEl.hidden = !(activeTab === 'hymnal' || inOpfs);
+  hymnSearchEl.placeholder = inOpfs ? 'Buscar na pasta…' : 'Buscar hino…';
+  listTitleEl.hidden = activeTab === 'hymnal' || inOpfs;
   const titles = { imports: 'Cronograma', folders: 'Pastas', hymnal: 'Hinário' };
   listTitleEl.textContent = inFolder ? currentFolder.name : (titles[activeTab] || '');
 }
@@ -376,31 +379,21 @@ function renderLibrary() {
     return;
   }
 
-  if (libItems.length === 0) {
+  // Filtro de busca dentro de pasta OPFS (catálogo em memória — instantâneo).
+  let items = libItems;
+  const fq = folderQuery.toLowerCase().trim();
+  if (fq && activeTab === 'folders' && currentFolder && currentFolder._opfs) {
+    items = libItems.filter((m) => m.name.toLowerCase().includes(fq));
+  }
+
+  if (items.length === 0) {
     libraryEl.innerHTML = activeTab === 'folders'
-      ? '<li class="empty">Pasta vazia.</li>'
-      : '<li class="empty">Cronograma vazio.<br>Importe arquivos ou vincule uma pasta.</li>';
+      ? (fq ? '<li class="empty">Nenhum arquivo encontrado.</li>' : '<li class="empty">Pasta vazia.</li>')
+      : '<li class="empty">Cronograma vazio.<br>Importe arquivos ou sincronize uma pasta.</li>';
     return;
   }
 
-  libItems.forEach((item) => {
-    if (item._linked) {
-      const li = document.createElement('li');
-      li.className = 'lib-item' + (item._fullName === activeLinkedName ? ' active' : '');
-      li.dataset.linkedId = item._fullName;
-      const row = document.createElement('div'); row.className = 'row';
-      const importBtn = document.createElement('button');
-      importBtn.className = 'row-btn';
-      importBtn.title = 'Adicionar ao Cronograma';
-      importBtn.appendChild(msym(ICON.plAdd));
-      importBtn.addEventListener('click', (e) => { e.stopPropagation(); importLinkedFile(item); });
-      row.append(thumbEl(item), Object.assign(document.createElement('span'), { className: 'row-name', textContent: item.name }), importBtn);
-      li.appendChild(row);
-      row.addEventListener('click', (e) => { if (!e.target.closest('.row-btn')) onTap(item); });
-      libraryEl.appendChild(li);
-      return;
-    }
-
+  items.forEach((item) => {
     const li = document.createElement('li');
     // Bug fix: active highlight only when not in selection mode
     const isActive = !selectionMode && item.id === currentId;
@@ -432,8 +425,25 @@ function renderLibrary() {
     const handle = document.createElement('button'); handle.className = 'row-handle'; handle.title = 'Arraste para reordenar';
     handle.appendChild(msym(ICON.drag));
 
-    if (badge) row.append(mark, thumbEl(item), name, badge, handle);
-    else row.append(mark, thumbEl(item), name, handle);
+    // Arquivo OPFS dentro de pasta: botão para entrar no Cronograma sem cópia
+    // (mesmo id nas listas; os bytes continuam só no OPFS).
+    let addBtn = null;
+    if (activeTab === 'folders' && item.opfsPath) {
+      addBtn = document.createElement('button'); addBtn.className = 'row-btn'; addBtn.title = 'Adicionar ao Cronograma';
+      addBtn.appendChild(msym(ICON.plAdd));
+      addBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const had = await AVDB.listHas('imports', item.id);
+        await AVDB.listAdd('imports', item.id);
+        flash(had ? 'Já no Cronograma' : 'Adicionado ao Cronograma');
+      });
+    }
+
+    const parts = [mark, thumbEl(item), name];
+    if (badge) parts.push(badge);
+    if (addBtn) parts.push(addBtn);
+    if (activeTab !== 'folders') parts.push(handle);
+    row.append(...parts);
     li.appendChild(row);
     attachRowGestures(row, item);
     if (activeTab !== 'folders') attachHandle(handle, item.id, activeTab);
@@ -442,23 +452,28 @@ function renderLibrary() {
 }
 
 function renderFolderList() {
-  if (linkedFolders.length === 0 && folders.length === 0) {
-    libraryEl.innerHTML = '<li class="empty">Nenhuma pasta.<br>Toque em "+" para criar ou no ícone acima para vincular uma pasta do dispositivo.</li>';
+  if (opfsFolders.length === 0 && folders.length === 0) {
+    libraryEl.innerHTML = '<li class="empty">Nenhuma pasta.<br>Toque no ícone acima para sincronizar uma pasta do dispositivo (a permissão é pedida uma única vez) ou crie uma pasta virtual pela seleção múltipla.</li>';
+    renderStorageUsage();
     return;
   }
-  linkedFolders.forEach((lf) => {
+  opfsFolders.forEach((f) => {
     const li = document.createElement('li');
-    li.className = 'lib-item folder-linked';
+    li.className = 'lib-item folder-opfs';
     const row = document.createElement('div'); row.className = 'row';
     const icon = document.createElement('div'); icon.className = 'thumb thumb--icon';
     icon.appendChild(msym(ICON.import));
-    const nameEl = document.createElement('span'); nameEl.className = 'row-name'; nameEl.textContent = lf.name;
-    const rmBtn = document.createElement('button'); rmBtn.className = 'row-btn'; rmBtn.title = 'Desvincular pasta';
+    const nameEl = document.createElement('span'); nameEl.className = 'row-name'; nameEl.textContent = f.name;
+    const countEl = document.createElement('span'); countEl.className = 'folder-count'; countEl.textContent = String(f.count || 0);
+    const syncBtn = document.createElement('button'); syncBtn.className = 'row-btn'; syncBtn.title = 'Re-sincronizar com a pasta do dispositivo';
+    syncBtn.appendChild(msym(ICON.import));
+    syncBtn.addEventListener('click', (e) => { e.stopPropagation(); syncDeviceFolder(f); });
+    const rmBtn = document.createElement('button'); rmBtn.className = 'row-btn'; rmBtn.title = 'Excluir pasta e arquivos sincronizados';
     rmBtn.appendChild(msym(ICON.del));
-    rmBtn.addEventListener('click', (e) => { e.stopPropagation(); removeLinkedFolder(lf.id); });
-    row.append(icon, nameEl, rmBtn);
+    rmBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteOpfsFolder(f); });
+    row.append(icon, nameEl, countEl, syncBtn, rmBtn);
     li.appendChild(row);
-    li.addEventListener('click', () => openLinkedFolder(lf));
+    li.addEventListener('click', () => openOpfsFolder(f));
     libraryEl.appendChild(li);
   });
   folders.forEach((folder) => {
@@ -480,6 +495,26 @@ function renderFolderList() {
     li.addEventListener('click', () => openFolder(folder));
     libraryEl.appendChild(li);
   });
+  renderStorageUsage();
+}
+
+// Rodapé com o uso de armazenamento do origin (OPFS + IDB).
+function renderStorageUsage() {
+  if (!(navigator.storage && navigator.storage.estimate)) return;
+  navigator.storage.estimate().then(({ usage, quota }) => {
+    if (activeTab !== 'folders' || currentFolder) return; // aba mudou enquanto aguardava
+    const li = document.createElement('li');
+    li.className = 'empty storage-usage';
+    li.textContent = fmtBytes(usage || 0) + ' usados de ' + fmtBytes(quota || 0) + ' disponíveis';
+    libraryEl.appendChild(li);
+  }).catch(() => {});
+}
+
+function fmtBytes(n) {
+  if (n >= 1073741824) return (n / 1073741824).toFixed(1) + ' GB';
+  if (n >= 1048576) return (n / 1048576).toFixed(1) + ' MB';
+  if (n >= 1024) return Math.round(n / 1024) + ' KB';
+  return n + ' B';
 }
 
 function renderSelbar() {
@@ -573,7 +608,7 @@ function attachRowGestures(row, item) {
   const li = row.closest('li') || row.parentElement;
 
   row.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('.row-handle')) return;
+    if (e.target.closest('.row-handle') || e.target.closest('.row-btn')) return;
     pid = e.pointerId; startX = e.clientX; startY = e.clientY; startT = Date.now(); dx = 0; mode = null;
     lp = setTimeout(() => { mode = 'long'; enterSelection(item.id); }, LONGPRESS);
   });
@@ -608,7 +643,6 @@ function attachRowGestures(row, item) {
 }
 
 async function onTap(item) {
-  if (item._linked) { await playLinkedFile(item); return; }
   if (selectionMode) { toggleSelect(item.id); return; }
   // Toque direto na biblioteca: define a playlist como este item apenas.
   // Swipe para esquerda continua ADICIONANDO à playlist.
@@ -712,7 +746,17 @@ function exitSelection() {
   renderLibrary(); renderSelbar();
 }
 async function deleteSelected() {
-  if (activeTab === 'folders' && currentFolder) {
+  if (activeTab === 'folders' && currentFolder && currentFolder._opfs) {
+    // Pasta OPFS: apaga o arquivo físico, o registro do catálogo e as
+    // referências que sobraram em listas.
+    for (const id of selected) {
+      const rec = await AVDB.fileGet(id);
+      if (rec && rec.opfsPath) await AVDB.opfsDeleteFile(rec.opfsPath);
+      await AVDB.fileDelete(id);
+      for (const l of ['imports', 'favorites', 'playlist']) await AVDB.listRemove(l, id);
+    }
+    await refreshOpfsFolderCount(currentFolder.id);
+  } else if (activeTab === 'folders' && currentFolder) {
     const ids = (await AVDB.getState('folder_' + currentFolder.id)) || [];
     await AVDB.setState('folder_' + currentFolder.id, ids.filter((id) => !selected.has(id)));
   } else {
@@ -743,8 +787,8 @@ function openFolder(folder) {
 
 function navigateBack() {
   currentFolder = null;
-  linkedItems = [];
-  activeLinkedName = null;
+  folderQuery = '';
+  hymnSearchEl.value = '';
   load();
 }
 
@@ -798,95 +842,127 @@ function renderFolderPicker() {
 }
 
 
-// ===== pastas vinculadas (File System Access API) =====
-async function loadLinkedFolders() {
-  const stored = await AVDB.getState('linked-folders');
-  linkedFolders = Array.isArray(stored) ? stored : [];
+// ===== pastas sincronizadas (OPFS) =====
+// A pasta do dispositivo é copiada para o Origin Private File System em uma
+// única operação com permissão (showDirectoryPicker). Depois disso o acesso é
+// permanente: nenhuma permissão é pedida para listar, buscar ou reproduzir —
+// o catálogo (metadados + thumbnails) fica no IDB e os bytes no OPFS.
+
+function uid() {
+  return crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random());
 }
 
-async function addLinkedFolder() {
-  if (!('showDirectoryPicker' in window)) {
-    flash('Navegador não suporta acesso a diretórios');
-    return;
-  }
-  let handle;
-  try {
-    handle = await window.showDirectoryPicker({ mode: 'read' });
-  } catch (_) {
-    return; // usuário cancelou
-  }
-  for (const lf of linkedFolders) {
+async function refreshOpfsFolderCount(folderId) {
+  const f = opfsFolders.find((x) => x.id === folderId);
+  if (!f) return;
+  f.count = (await AVDB.filesByFolder(folderId)).length;
+  await AVDB.setState('opfs-folders', opfsFolders);
+}
+
+// Sincroniza (ou re-sincroniza) uma pasta do dispositivo para o OPFS.
+// `existing` = registro de opfsFolders para re-sync; undefined para nova pasta.
+async function syncDeviceFolder(existing) {
+  if (!('showDirectoryPicker' in window)) { flash('Navegador não suporta seleção de pastas'); return; }
+  if (!AVDB.opfsSupported()) { flash('Navegador não suporta armazenamento OPFS'); return; }
+  if (syncBusy) { flash('Sincronização em andamento…'); return; }
+
+  // Re-sync: tenta reutilizar o handle salvo (browsers que persistem a
+  // permissão nem mostram prompt); senão cai no picker.
+  let handle = existing && existing.handle;
+  if (handle) {
     try {
-      if (lf.handle && await lf.handle.isSameEntry(handle)) { flash('Pasta já vinculada'); return; }
-    } catch (_) {}
+      let perm = await handle.queryPermission({ mode: 'read' });
+      if (perm !== 'granted') perm = await handle.requestPermission({ mode: 'read' });
+      if (perm !== 'granted') handle = null;
+    } catch (_) { handle = null; }
   }
-  const lf = { id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), name: handle.name, handle };
-  linkedFolders.push(lf);
-  await AVDB.setState('linked-folders', linkedFolders);
-  flash('Pasta vinculada: ' + handle.name);
-  renderLibrary();
-}
+  if (!handle) {
+    try { handle = await window.showDirectoryPicker({ mode: 'read' }); }
+    catch (_) { return; } // usuário cancelou
+  }
 
-async function openLinkedFolder(lf) {
-  if (!lf.handle) { flash('Pasta inválida'); return; }
+  syncBusy = true;
   try {
-    const perm = await lf.handle.queryPermission({ mode: 'read' });
-    if (perm !== 'granted') {
-      const req = await lf.handle.requestPermission({ mode: 'read' });
-      if (req !== 'granted') { flash('Permissão negada'); return; }
+    // Pede armazenamento persistente para o browser não descartar os arquivos.
+    if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+
+    let folder = existing || opfsFolders.find((f) => f.name === handle.name);
+    if (!folder) {
+      folder = { id: uid(), name: handle.name, count: 0, syncedAt: 0 };
+      opfsFolders.push(folder);
     }
-  } catch (_) {
-    flash('Erro ao acessar pasta');
-    return;
-  }
-  linkedItems = [];
-  try {
-    for await (const [name, entry] of lf.handle.entries()) {
+    folder.handle = handle;
+
+    const existingRecs = await AVDB.filesByFolder(folder.id);
+    const bySrcName = new Map(existingRecs.map((r) => [r.srcName, r]));
+
+    const entries = [];
+    for await (const [name, entry] of handle.entries()) {
       if (entry.kind !== 'file') continue;
       const type = guessMediaType(name);
-      const kind = AVDB.kindFromType(type);
-      if (kind === 'other') continue;
-      linkedItems.push({ _linked: true, fileHandle: entry, kind, name: name.replace(/\.[^.]+$/, ''), type, _fullName: name });
+      if (AVDB.kindFromType(type) === 'other') continue;
+      entries.push([name, entry, type]);
     }
-    linkedItems.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
+    let done = 0, added = 0;
+    for (const [name, entry, type] of entries) {
+      done++;
+      flash('Sincronizando ' + done + '/' + entries.length + '…', true);
+      let file;
+      try { file = await entry.getFile(); } catch (_) { continue; }
+      const prev = bySrcName.get(name);
+      // Já sincronizado e inalterado (mesmo tamanho e data) → pula.
+      if (prev && prev.size === file.size && prev.mtime === file.lastModified) continue;
+      const kind = AVDB.kindFromType(type);
+      const path = 'folders/' + folder.id + '/' + name;
+      try { await AVDB.opfsWriteFile(path, file); } catch (_) { continue; }
+      const thumb = await makeThumb(file, kind);
+      await AVDB.fileAdd({
+        id: prev ? prev.id : uid(),
+        folder: folder.id,
+        opfsPath: path,
+        srcName: name,
+        name: name.replace(/\.[^.]+$/, ''),
+        type, kind,
+        size: file.size,
+        mtime: file.lastModified,
+        thumb,
+        blob: null, url: null,
+        addedAt: prev ? prev.addedAt : Date.now(),
+      });
+      added++;
+    }
+
+    folder.count = (await AVDB.filesByFolder(folder.id)).length;
+    folder.syncedAt = Date.now();
+    await AVDB.setState('opfs-folders', opfsFolders);
+    flash(added > 0 ? added + ' arquivo(s) sincronizado(s)' : 'Pasta já em dia');
   } catch (_) {
-    flash('Erro ao ler pasta');
-    return;
+    flash('Erro na sincronização');
+  } finally {
+    syncBusy = false;
   }
-  currentFolder = { id: lf.id, name: lf.name, _linked: true };
-  libItems = linkedItems;
-  renderListTitle();
-  renderLibrary();
-  generateLinkedThumbs(linkedItems);
+  load();
 }
 
-async function generateLinkedThumbs(items) {
-  for (const item of items) {
-    if (item.kind !== 'image' && item.kind !== 'video') continue;
-    if (!currentFolder || !currentFolder._linked) break; // pasta foi fechada
-    try {
-      const file = await item.fileHandle.getFile();
-      const thumb = await makeThumb(file, item.kind);
-      if (!thumb) continue;
-      item.thumb = thumb;
-      const li = document.querySelector('[data-linked-id="' + CSS.escape(item._fullName) + '"]');
-      if (!li) continue;
-      const thumbDiv = li.querySelector('.thumb');
-      if (!thumbDiv) continue;
-      const url = URL.createObjectURL(thumb);
-      thumbUrls.push(url);
-      thumbDiv.innerHTML = '';
-      thumbDiv.classList.remove('thumb--icon');
-      const img = document.createElement('img');
-      img.src = url; img.alt = '';
-      thumbDiv.appendChild(img);
-    } catch (_) {}
-  }
+function openOpfsFolder(f) {
+  currentFolder = { id: f.id, name: f.name, _opfs: true };
+  folderQuery = '';
+  hymnSearchEl.value = '';
+  load();
 }
 
-async function removeLinkedFolder(id) {
-  linkedFolders = linkedFolders.filter((lf) => lf.id !== id);
-  await AVDB.setState('linked-folders', linkedFolders);
+async function deleteOpfsFolder(f) {
+  if (!confirm('Excluir a pasta "' + f.name + '" e todos os arquivos sincronizados?')) return;
+  const recs = await AVDB.filesByFolder(f.id);
+  for (const r of recs) {
+    await AVDB.fileDelete(r.id);
+    for (const l of ['imports', 'favorites', 'playlist']) await AVDB.listRemove(l, r.id);
+  }
+  await AVDB.opfsDeleteDir('folders/' + f.id);
+  opfsFolders = opfsFolders.filter((x) => x.id !== f.id);
+  await AVDB.setState('opfs-folders', opfsFolders);
+  if (currentFolder && currentFolder.id === f.id) currentFolder = null;
   load();
 }
 
@@ -901,44 +977,6 @@ function guessMediaType(filename) {
     flac: 'audio/flac', m4a: 'audio/mp4', opus: 'audio/opus',
   };
   return map[ext] || 'application/octet-stream';
-}
-
-async function importLinkedFile(item) {
-  let file;
-  try {
-    file = await item.fileHandle.getFile();
-  } catch (_) {
-    flash('Erro ao abrir arquivo');
-    return;
-  }
-  const thumb = await makeThumb(file, item.kind);
-  await AVDB.addMedia(file, { name: item.name, thumb });
-  flash('Adicionado ao Cronograma');
-}
-
-async function playLinkedFile(item) {
-  if (linkedTempId) {
-    await AVDB.deleteMedia(linkedTempId);
-    linkedTempId = null;
-  }
-  let file;
-  try {
-    file = await item.fileHandle.getFile();
-  } catch (_) {
-    flash('Erro ao abrir arquivo');
-    return;
-  }
-  const record = await AVDB.storeMediaTemp(file, { name: item.name, kind: item.kind });
-  linkedTempId = record.id;
-  activeLinkedName = item._fullName;
-  currentId = record.id;
-  currentItem = record;
-  await persistCurrent();
-  cmd({ type: 'load', mediaId: record.id, view, muted, volume });
-  document.querySelectorAll('.lib-item[data-linked-id]').forEach((el) =>
-    el.classList.toggle('active', el.dataset.linkedId === item._fullName)
-  );
-  renderNowPlaying();
 }
 
 // ===== Hinário online (LouvorJA API) =====
@@ -1024,9 +1062,9 @@ async function playHymn(item) {
     const audioUrl = isLocal
       ? location.origin + '/louvorja-proxy' + filePath
       : LOUVORJA_BASE + filePath;
-    if (linkedTempId) { await AVDB.deleteMedia(linkedTempId); linkedTempId = null; }
+    if (tempMediaId) { await AVDB.deleteMedia(tempMediaId); tempMediaId = null; }
     const record = await AVDB.storeUrlTemp(audioUrl, { name: item.name, kind: 'audio' });
-    linkedTempId = record.id;
+    tempMediaId = record.id;
     hymnalActiveId = item.id_music;
     currentId = record.id;
     currentItem = record;
@@ -1120,12 +1158,14 @@ async function checkPendingShare() {
 
 // ===== feedback rápido =====
 let flashTimer = null;
-function flash(text) {
+// sticky=true mantém o toast na tela (progresso de sync); a próxima chamada
+// normal volta a esconder sozinha.
+function flash(text, sticky) {
   let el = document.getElementById('toast');
   if (!el) { el = document.createElement('div'); el.id = 'toast'; el.className = 'toast'; document.body.appendChild(el); }
   el.textContent = text; el.classList.add('show');
   clearTimeout(flashTimer);
-  flashTimer = setTimeout(() => el.classList.remove('show'), 1300);
+  if (!sticky) flashTimer = setTimeout(() => el.classList.remove('show'), 1300);
 }
 
 // ===== popup de playlist =====
@@ -1188,6 +1228,7 @@ tabsEl.addEventListener('click', (e) => {
   activeTab = tab.dataset.tab;
   currentFolder = null;
   hymnalQuery = '';
+  folderQuery = '';
   hymnSearchEl.value = '';
   if (selectionMode) exitSelection();
   load();
@@ -1199,8 +1240,11 @@ selDeleteEl.addEventListener('click', deleteSelected);
 selRenameEl.addEventListener('click', renameSelected);
 
 backBtnEl.addEventListener('click', navigateBack);
-addDirBtnEl.addEventListener('click', addLinkedFolder);
-hymnSearchEl.addEventListener('input', () => { hymnalQuery = hymnSearchEl.value; renderHymnal(); });
+addDirBtnEl.addEventListener('click', () => syncDeviceFolder());
+hymnSearchEl.addEventListener('input', () => {
+  if (activeTab === 'hymnal') { hymnalQuery = hymnSearchEl.value; renderHymnal(); }
+  else { folderQuery = hymnSearchEl.value; renderLibrary(); }
+});
 
 
 folderPopupCloseEl.addEventListener('click', closeFolderPicker);

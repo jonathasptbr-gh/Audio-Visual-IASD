@@ -1,10 +1,13 @@
 // Camada de dados compartilhada entre os dois PWAs (Controle e Display).
-// Mesmo domínio/origin => compartilham IndexedDB e BroadcastChannel.
+// Mesmo domínio/origin => compartilham IndexedDB, OPFS e BroadcastChannel.
 //
 // Modelo:
-//   - store "media": todos os blobs (imagens/vídeos/áudios).
+//   - store "media": blobs importados (imagens/vídeos/áudios) e itens de URL.
+//   - store "files": catálogo dos arquivos guardados no OPFS (só metadados +
+//     thumbnail; os bytes ficam no Origin Private File System).
 //   - listas (em "state"): "imports", "favorites", "playlist" = arrays de ids.
-//   - um blob só é apagado quando não está em NENHUMA das três listas (gc).
+//   - um blob de "media" só é apagado quando não está em NENHUMA lista (gc);
+//     registros de "files" pertencem à sua pasta OPFS e não passam pelo gc.
 //
 // Exposto como window.AVDB.
 
@@ -12,9 +15,10 @@
   'use strict';
 
   const DB_NAME = 'av-iasd';
-  const DB_VERSION = 1;
+  const DB_VERSION = 2;
   const STORE_MEDIA = 'media';
   const STORE_STATE = 'state';
+  const STORE_FILES = 'files';
   const CHANNEL_NAME = 'av-iasd';
   const LISTS = ['imports', 'favorites', 'playlist'];
 
@@ -28,6 +32,10 @@
         const db = req.result;
         if (!db.objectStoreNames.contains(STORE_MEDIA)) db.createObjectStore(STORE_MEDIA, { keyPath: 'id' });
         if (!db.objectStoreNames.contains(STORE_STATE)) db.createObjectStore(STORE_STATE);
+        if (!db.objectStoreNames.contains(STORE_FILES)) {
+          const fs = db.createObjectStore(STORE_FILES, { keyPath: 'id' });
+          fs.createIndex('folder', 'folder');
+        }
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
@@ -104,9 +112,14 @@
     await listAdd('imports', record.id);
     return record;
   }
+  // Busca em "media" e, se não achar, no catálogo OPFS "files" — assim um id
+  // de arquivo sincronizado pode entrar em listas/pastas e tocar no Display
+  // sem cópia temporária.
   async function getMedia(id) {
     const s = await store(STORE_MEDIA, 'readonly');
-    return asPromise(s.get(id));
+    const rec = await asPromise(s.get(id));
+    if (rec) return rec;
+    return fileGet(id);
   }
   // Armazena um registro de URL temporário sem blob e sem adicioná-lo a nenhuma lista.
   async function storeUrlTemp(urlStr, meta) {
@@ -151,9 +164,85 @@
     // get + put na mesma transação para garantir atomicidade.
     const [s] = await storeTx(STORE_MEDIA, 'readwrite');
     const record = await asPromise(s.get(id));
-    if (!record) return;
-    record.name = name;
+    if (record) {
+      record.name = name;
+      return asPromise(s.put(record));
+    }
+    // Registro do catálogo OPFS: renomeia só o nome de exibição (o path fica).
+    const [fs] = await storeTx(STORE_FILES, 'readwrite');
+    const f = await asPromise(fs.get(id));
+    if (!f) return;
+    f.name = name;
+    return asPromise(fs.put(f));
+  }
+
+  // ---- catálogo OPFS (store "files") ----
+  async function fileAdd(record) {
+    const s = await store(STORE_FILES, 'readwrite');
     return asPromise(s.put(record));
+  }
+  async function fileGet(id) {
+    const s = await store(STORE_FILES, 'readonly');
+    return asPromise(s.get(id));
+  }
+  async function fileDelete(id) {
+    const s = await store(STORE_FILES, 'readwrite');
+    return asPromise(s.delete(id));
+  }
+  async function filesByFolder(folder) {
+    const s = await store(STORE_FILES, 'readonly');
+    return asPromise(s.index('folder').getAll(folder));
+  }
+  async function filesAll() {
+    const s = await store(STORE_FILES, 'readonly');
+    return asPromise(s.getAll());
+  }
+
+  // ---- OPFS (Origin Private File System) ----
+  // Os bytes dos arquivos sincronizados moram aqui; nunca pedem permissão e
+  // são visíveis para os dois PWAs (mesmo origin). Paths no formato "a/b/c.mp4".
+  function opfsSupported() {
+    return !!(navigator.storage && navigator.storage.getDirectory);
+  }
+  function splitPath(path) {
+    return String(path).split('/').filter(Boolean);
+  }
+  async function opfsDir(parts, create) {
+    let dir = await navigator.storage.getDirectory();
+    for (const part of parts) dir = await dir.getDirectoryHandle(part, { create: !!create });
+    return dir;
+  }
+  async function opfsGetFile(path) {
+    const parts = splitPath(path);
+    const name = parts.pop();
+    const dir = await opfsDir(parts, false);
+    const fh = await dir.getFileHandle(name);
+    return fh.getFile();
+  }
+  async function opfsWriteFile(path, blob) {
+    const parts = splitPath(path);
+    const name = parts.pop();
+    const dir = await opfsDir(parts, true);
+    const fh = await dir.getFileHandle(name, { create: true });
+    const w = await fh.createWritable();
+    await w.write(blob);
+    await w.close();
+  }
+  async function opfsDeleteFile(path) {
+    const parts = splitPath(path);
+    const name = parts.pop();
+    try {
+      const dir = await opfsDir(parts, false);
+      await dir.removeEntry(name);
+    } catch (_) {}
+  }
+  async function opfsDeleteDir(path) {
+    const parts = splitPath(path);
+    const name = parts.pop();
+    try {
+      const dir = await opfsDir(parts, false);
+      await dir.removeEntry(name, { recursive: true });
+    } catch (_) {}
   }
 
   // ---- listas ----
@@ -207,6 +296,8 @@
     openDB, setState, getState,
     addMedia, addUrlMedia, getMedia, storeUrlTemp, storeMediaTemp, deleteMedia, renameMedia,
     listIds, listSet, listItems, listHas, listAdd, listRemove, gc,
+    fileAdd, fileGet, fileDelete, filesByFolder, filesAll,
+    opfsSupported, opfsGetFile, opfsWriteFile, opfsDeleteFile, opfsDeleteDir,
     kindFromType, sendCommand, onCommand,
   };
 })(this);

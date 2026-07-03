@@ -4,7 +4,8 @@
 //
 // Uso: const stage = createStage({ wallpaper, img, video, forceMuted, onEnded, onTime, onBlocked });
 // e depois stage.handle(cmd) para cada comando.
-// Suporta itens de URL direta (blob=null, url=string) e itens youtube (kind='youtube').
+// Suporta blobs locais, arquivos do OPFS (opfsPath), itens de URL direta
+// (blob=null, url=string) e itens youtube (kind='youtube').
 
 (function (global) {
   'use strict';
@@ -88,6 +89,15 @@
 
       if (rec.blob) {
         url = URL.createObjectURL(rec.blob);
+        isBlobUrl = true;
+      } else if (rec.opfsPath) {
+        // Arquivo sincronizado no OPFS: resolve o File direto do origin,
+        // sem permissão e sem cópia para o IDB.
+        let file = null;
+        try { file = await AVDB.opfsGetFile(rec.opfsPath); } catch (_) {}
+        if (seq !== loadSeq) return;
+        if (!file) { clear(); return; }
+        url = URL.createObjectURL(file);
         isBlobUrl = true;
       } else if (rec.url) {
         url = rec.url;
