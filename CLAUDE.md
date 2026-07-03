@@ -22,11 +22,11 @@ git push origin main
 ## Regras de desenvolvimento
 
 - Nunca perder funcionalidades existentes ao refatorar.
-- Ao alterar assets estáticos, incrementar a versão nos dois `sw.js` **usando o mesmo número da versão visual** (ex: `controle-v1.5`, `display-v1.5`).
+- Ao alterar assets estáticos, incrementar a versão nos dois `sw.js` **usando o mesmo número da versão visual** (ex: `controle-v2.3`, `display-v2.3`).
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente.
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (1.0, 1.1, 1.2…).
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.3, 2.4, 2.5…). **Versão atual: v2.3.**
 
 ---
 
@@ -48,7 +48,9 @@ Como os dois PWAs estão no **mesmo origin**, eles compartilham:
 Cada PWA tem `manifest.json`, `scope` e `start_url` próprios, então o Android os
 instala e trata como **dois apps distintos** — permitindo espelhar só o Display.
 
-Tudo funciona **100% offline** depois da primeira carga (service workers com cache-first).
+Tudo funciona **100% offline** depois da primeira carga (service workers com
+cache-first) — exceto recursos que dependem de rede por natureza: hinário online
+(LouvorJA), vídeos do YouTube e itens de URL externa.
 
 ---
 
@@ -62,20 +64,22 @@ public/
 │   ├── stage.js                # Motor de renderização compartilhado
 │   ├── material-symbols.css    # Font-face da fonte de ícones (subset offline)
 │   └── fonts/
-│       └── material-symbols.woff2  # ~2.2 KB — apenas 27 glifos
+│       └── material-symbols.woff2  # ~3.2 KB — 30 glifos
 ├── controle/
 │   ├── index.html              # UI do operador
 │   ├── controle.css            # Estilos do Controle
 │   ├── controle.js             # Lógica do Controle
-│   ├── manifest.json           # PWA manifest (orientation: portrait)
+│   ├── icons/                  # icon-192.svg, icon-512.svg
+│   ├── manifest.json           # PWA manifest (portrait + share_target)
 │   └── sw.js                   # Service worker (cache: controle-vX.Y)
 └── display/
-    ├── index.html              # UI do Display
+    ├── index.html              # UI do Display (inclui iframe #youtube)
     ├── display.css             # Estilos do Display
     ├── display.js              # Lógica do Display
-    ├── manifest.json           # PWA manifest (orientation: landscape, fullscreen)
+    ├── icons/                  # icon-192.svg, icon-512.svg
+    ├── manifest.json           # PWA manifest (landscape, fullscreen)
     └── sw.js                   # Service worker (cache: display-vX.Y)
-server.js                       # Servidor estático mínimo (Node puro, sem deps)
+server.js                       # Servidor estático + proxy do hinário (Node puro, sem deps)
 ```
 
 ---
@@ -86,28 +90,68 @@ server.js                       # Servidor estático mínimo (Node puro, sem dep
 
 | Object Store | Chave | Conteúdo |
 |---|---|---|
-| `media` | `id` (UUID) | `{ id, blob, thumb, type, kind, name, createdAt }` |
-| `state` | chave string | valor arbitrário (listas, estado atual, modo de repetição…) |
+| `media` | `id` (UUID) | `{ id, blob, url, thumb, type, kind, name, youtubeId, createdAt }` |
+| `state` | chave string | valor arbitrário (listas, estado atual, pastas, cache do hinário…) |
+
+Um registro de mídia tem **`blob` OU `url`** (nunca os dois): blobs locais
+importados vs. itens de URL externa (link direto, YouTube, hino online).
+`thumb` pode ser um `Blob` (miniatura gerada via Canvas) ou uma **string URL**
+(ex: thumbnail `hqdefault.jpg` do YouTube).
 
 **Três listas nomeadas** (arrays de IDs guardados em `state`): `imports`, `favorites`, `playlist`.
+Migração: `imports` herda o antigo state `order` se `imports` ainda não existir.
 
-O campo `kind` é derivado do `blob.type`:
+O campo `kind` é derivado do `type` (ou definido pelo chamador para itens de URL):
 
-| `type` começa com | `kind` |
+| Origem | `kind` |
 |---|---|
-| `image/` | `'image'` |
-| `video/` | `'video'` |
-| `audio/` | `'audio'` |
+| `type` começa com `image/` | `'image'` |
+| `type` começa com `video/` | `'video'` |
+| `type` começa com `audio/` | `'audio'` |
+| link do YouTube | `'youtube'` |
+| URL sem extensão reconhecida | `'url'` |
 | outro | `'other'` |
+
+### Chaves de `state` em uso
+
+| Chave | Conteúdo |
+|---|---|
+| `imports` / `favorites` / `playlist` | arrays de IDs de mídia |
+| `current` | `{ mediaId, view, muted, volume, at }` — estado de exibição atual |
+| `repeat` | `'off'` \| `'all'` \| `'one'` \| `'shuffle'` |
+| `folders` | `[{ id, name }]` — pastas virtuais |
+| `folder_<id>` | array de IDs de mídia da pasta |
+| `linked-folders` | `[{ id, name, handle }]` — pastas do dispositivo (File System Access API) |
+| `louvorja-token` | Api-Token customizado do LouvorJA (opcional; há default no código) |
+| `louvorja-hymnal` | `{ data, ts }` — cache da lista de hinos (válido por 7 dias) |
+| `pending-share` | `{ files, url, title, ts }` — share recebido pelo SW aguardando processamento |
+| `order` | legado — lido apenas como fallback de `imports` |
+
+### API exposta (`window.AVDB`)
+
+```js
+openDB, setState, getState
+addMedia(blob, meta)          // cria registro + adiciona a 'imports'
+addUrlMedia(url, meta)        // item de URL externa (blob=null) + adiciona a 'imports'
+storeUrlTemp(url, meta)       // registro temporário de URL, fora de qualquer lista (hinos)
+storeMediaTemp(blob, meta)    // blob temporário fora de listas (pastas vinculadas)
+getMedia(id), deleteMedia(id), renameMedia(id, name)
+listIds, listSet, listItems, listHas, listAdd, listRemove, gc
+kindFromType, sendCommand, onCommand
+```
 
 #### Garbage collection de blobs
 
-Um blob só é excluído quando **não está em nenhuma das três listas**.
+Um registro só é excluído automaticamente quando **não está em nenhuma das três listas**:
 
 ```
 listRemove(listName, id)
-  → se id não aparece em nenhuma outra lista → deleteBlob(id)
+  → se id não aparece em nenhuma outra lista → delete no store media (gc)
 ```
+
+Registros **temporários** (`storeUrlTemp` / `storeMediaTemp`) não pertencem a
+lista alguma — quem cria é responsável por excluí-los com `deleteMedia()`
+(o Controle guarda o último em `linkedTempId` e apaga antes de criar o próximo).
 
 ### BroadcastChannel — canal `av-iasd`
 
@@ -131,16 +175,19 @@ Todos os comandos são objetos com um campo `type`.
 
 | `type` | Campos extras | Descrição |
 |---|---|---|
-| `display-ready` | — | Display pronto; Controle reenvia o estado atual |
+| `display-ready` | — | Display pronto; Controle reenvia o estado atual (se estiver tocando) |
 | `display-status` | `mediaId, view, muted, volume, playing, currentTime, duration` | Estado do Display a cada evento de tempo/estado |
-| `media-ended` | `mediaId` | Vídeo chegou ao fim |
+| `media-ended` | `mediaId` | Vídeo/áudio chegou ao fim |
 
 ---
 
 ## Motor de renderização (`shared/stage.js`)
 
 `createStage(opts)` retorna um objeto com a API de reprodução. Usado pelo Display
-(tela real) e pelo Controle (mini-preview sempre mudo).
+(tela real) e pelo Controle (mini-preview sempre mudo). Suporta blobs locais e
+itens de URL direta (`blob=null, url=string`). Itens `kind='youtube'` **não são
+reproduzidos pelo stage** — ele apenas mostra a thumbnail no `<img>`; a
+reprodução real é feita externamente (iframe no `display.js`).
 
 ### Opções de criação
 
@@ -153,18 +200,21 @@ createStage({
   onEnded,      // callback quando o vídeo termina
   onTime,       // callback em timeupdate / loadedmetadata / play / pause / ended / volumechange
   onBlocked,    // callback quando autoplay é bloqueado pelo browser
+  onError,      // callback no evento 'error' do <video>
 })
 ```
 
 ### Estado interno
 
 ```
-current   → registro da mídia carregada (null = nada)
-ended     → flag: vídeo chegou ao fim (permite replay sem recarregar)
-view      → 'visual' | 'wallpaper'
-muted     → bool (intenção do operador; independe de forceMuted)
-volume    → 0.0 – 1.0
-loadSeq   → contador para descartar loads concorrentes obsoletos
+current    → registro da mídia carregada (null = nada)
+ended      → flag: vídeo chegou ao fim (permite replay sem recarregar)
+view       → 'visual' | 'wallpaper'
+muted      → bool (intenção do operador; independe de forceMuted)
+volume     → 0.0 – 1.0
+url        → object URL do blob OU URL externa em uso
+isBlobUrl  → bool — se true, revoga com URL.revokeObjectURL ao trocar/limpar
+loadSeq    → contador para descartar loads concorrentes obsoletos
 ```
 
 ### API exposta
@@ -199,15 +249,14 @@ iniciado aplica seu resultado — chamadas anteriores obsoletas são descartadas
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  Audio Visual IASD                       Controle v1.0  │  ← .appbar (topo fixo)
+│  Audio Visual IASD                       Controle v2.3  │  ← .appbar (topo fixo)
 ├─────────────────────────────────────────────────────────┤
-│  [Playlist]  │  [Importados]  [Favoritos]  [+ Importar] │  ← .tabs
-│                                                         │
+│  [←] Título da lista        [busca hino]  [vincular 📁] │  ← .list-header
 │  ┌───────────────────────────────────────────────────┐  │
 │  │  item 1                                           │  │  ← .lib-list
 │  │  item 2                                           │  │     (área scrollável)
-│  │  ...                                              │  │
 │  └───────────────────────────────────────────────────┘  │
+│  [Playlist] │ [Cronograma] [Pastas] [Hinário] [+ Import]│  ← .tabs (base da seção)
 ├─────────────────────────────────────────────────────────┤
 │  ┌─────────────────────────────────────┬──────┐         │  ← .bottombar (base fixa)
 │  │  Preview 16:9                       │      │         │
@@ -223,44 +272,95 @@ iniciado aplica seu resultado — chamadas anteriores obsoletas são descartadas
 **Cabeçalho (`.appbar`):** nome do app à esquerda, versão visual à direita.
 A versão visual deve ser incrementada a cada atualização de código.
 
+**Cabeçalho da lista (`.list-header`):** botão voltar (dentro de pasta), título da
+aba/pasta, campo de busca (só na aba Hinário) e botão de vincular pasta do
+dispositivo (só na raiz da aba Pastas).
+
 **Controles (`.bottombar`):** fixados na base da tela. O padding inferior usa
 `max(env(safe-area-inset-bottom), 12px)` para garantir margem segura contra
 acionamentos acidentais pela navegação por gestos do Android/iOS.
 
 **Mixer (coluna direita):** slider vertical de volume, botão mudo, botão visual on/off.
+Mexer no volume com mudo ativo desliga o mudo automaticamente.
 
 A preview é um `createStage` com `forceMuted: true` que recebe os mesmos comandos
-enviados ao Display — garantindo que ambos mostrem o mesmo conteúdo.
+enviados ao Display (função `cmd()` envia ao canal E aplica na preview). A preview
+local comanda a barra de progresso e o avanço automático da playlist.
+
+**Botão ⏹ ("Parar e limpar"):** envia `clear` (volta ao wallpaper) mas mantém
+`currentId` — o ▶ recarrega e reproduz do início.
 
 ### Abas e biblioteca
 
-```
-[Playlist]  |  [Importados]  [Favoritos]  [+ Importar]
-```
+As abas ficam na **base da seção de listas** (ícones):
 
-- **Playlist** — bottom-sheet com a lista de reprodução.
-- **Importados** — itens carregados (ficam até serem excluídos).
-- **Favoritos** — itens favoritados; persistem entre sessões.
+- **Playlist** (botão com badge de contagem) — abre bottom-sheet com a fila de reprodução.
+- **Cronograma** (`imports`) — itens importados; ficam até serem excluídos.
+  Itens favoritados exibem estrela (não há mais aba Favoritos; a lista `favorites`
+  persiste na camada de dados).
+- **Pastas** (`folders`) — pastas virtuais (agrupam mídias já importadas) e pastas
+  vinculadas do dispositivo.
+- **Hinário** (`hymnal`) — Hinário Adventista 2022 online via API LouvorJA, com busca
+  por número ou nome.
 - **Importar** — `<input type="file" multiple accept="image/*,video/*,audio/*">`.
 
 Miniaturas (160×160 px, JPEG 72%) geradas via Canvas no momento da importação.
-Vídeos têm thumbnail extraído do frame a ~⅓ da duração.
+Vídeos têm thumbnail extraído do frame a ~⅓ da duração (timeout de 3,5 s).
+Itens sem blob local exibem badge `URL` ou `YT`.
 
 ### Gestos nos itens da biblioteca
 
 | Gesto | Ação |
 |---|---|
-| Toque simples | Carrega e exibe no Display |
-| Deslize à esquerda | Adiciona à playlist |
-| Deslize à direita | Adiciona/remove dos favoritos |
+| Toque simples | **Substitui a playlist por este item** e o exibe no Display |
+| Deslize à esquerda | **Adiciona** à playlist (sem substituir) |
 | Segurar e arrastar (⠿) | Reordena o item na lista |
 | Pressionar e segurar | Entra no modo de seleção múltipla |
 
-**Modo de seleção múltipla:** barra no topo com contagem; botões de renomear e excluir.
+**Modo de seleção múltipla:** barra substitui as abas, com contagem e botões de
+salvar em pasta, renomear (1 item) e excluir. Excluir dentro de pasta virtual só
+remove da pasta; nas demais abas usa `listRemove` (com gc).
+
+### Pastas
+
+- **Pastas virtuais** — criadas pelo usuário (state `folders` + `folder_<id>`);
+  recebem itens pelo botão "salvar em pasta" da seleção múltipla. Excluir a pasta
+  não exclui as mídias.
+- **Pastas vinculadas** — `window.showDirectoryPicker()` (File System Access API,
+  requer suporte do navegador; handle persistido em `linked-folders`, permissão
+  re-solicitada ao abrir). Arquivos são listados sem importar; tocar num arquivo
+  o reproduz via registro temporário (`storeMediaTemp`), e o botão ➕ importa
+  definitivamente para o Cronograma. Thumbnails são geradas sob demanda.
+
+### Hinário online (LouvorJA)
+
+- API: `https://api.louvorja.com.br`, header `Api-Token` (default no código;
+  pode ser sobrescrito via state `louvorja-token`).
+- Lista de hinos: `GET /json_db/pt_hymnal` → cache no IDB por 7 dias
+  (`louvorja-hymnal`).
+- Áudio: `/file/musics/pt/Hinário Adventista 2022/<nome>.mp3`.
+  - **Em localhost:** via proxy do `server.js` (`/louvorja-proxy/...`), que injeta
+    o token server-side e evita CORS preflight.
+  - **Em produção (GitHub Pages, sem servidor):** URL direta da API; os service
+    workers interceptam `https://api.louvorja.com.br/file/` e refazem o fetch com
+    `mode: 'no-cors'` + `referrerPolicy: 'no-referrer'` para evitar bloqueio por origem.
+- Tocar um hino cria registro temporário via `storeUrlTemp` (mesmo mecanismo
+  `linkedTempId` das pastas vinculadas).
+
+### Compartilhamento (Web Share Target)
+
+O manifest do Controle declara `share_target` (POST multipart em `share-target`,
+arquivos no campo `media`). O SW intercepta o POST, grava `pending-share` no IDB
+e redireciona para o app; `checkPendingShare()` processa no init:
+
+- **Arquivos** → importados como `addMedia` (com thumbnail).
+- **URL do YouTube** (youtu.be / youtube.com, ID de 11 chars validado) →
+  `addUrlMedia` com `kind:'youtube'`, `youtubeId` e thumb `hqdefault.jpg`.
+- **Outras URLs** → `kind` detectado pela extensão (`video`/`audio`/`image`/`url`).
 
 ### Modos de repetição
 
-Ciclo ao tocar no botão 🔁: `off → all → one → shuffle → off`
+Ciclo ao tocar no botão 🔁: `off → all → one → shuffle → off` (persistido em `repeat`).
 
 | Modo | Comportamento ao fim do item |
 |---|---|
@@ -273,12 +373,18 @@ Ciclo ao tocar no botão 🔁: `off → all → one → shuffle → off`
 
 ## PWA Display
 
-Interface mínima: wallpaper + layer de imagem + layer de vídeo.
+Interface mínima: wallpaper + layer de imagem + layer de vídeo + iframe do YouTube.
 
 Na primeira abertura exibe overlay de **unlock** — necessário para contornar a
 política de autoplay dos navegadores. Após o unlock, escuta o BroadcastChannel e
-repassa todos os comandos para `stage.handle()`. Ao inicializar, envia
-`display-ready` para que o Controle reenvie o estado atual.
+repassa os comandos para `stage.handle()`. Ao inicializar, restaura o estado
+salvo (`current`) e envia `display-ready` para que o Controle reenvie o estado atual.
+
+**YouTube:** ao receber `load` de um item `kind='youtube'`, o Display limpa o stage
+e carrega `https://www.youtube-nocookie.com/embed/<id>?autoplay=1&rel=0&modestbranding=1`
+no iframe `#youtube`. Enquanto o YouTube está ativo, comandos de transporte/volume
+são **ignorados** (não há ponte para dentro do iframe); apenas `load`, `stop` e
+`clear` funcionam (os dois últimos removem o iframe).
 
 ---
 
@@ -289,6 +395,10 @@ repassa todos os comandos para `stage.handle()`. Ao inicializar, envia
 - Proteção contra path traversal: verifica `filePath.startsWith(ROOT + path.sep)`.
 - URLs com percent-encoding inválido retornam HTTP 400.
 - Service workers recebem `Cache-Control: no-cache`.
+- **Proxy do hinário:** `GET /louvorja-proxy/<path>` repassa para
+  `api.louvorja.com.br` adicionando o header `Api-Token` server-side (suporta
+  `Range` para seek de áudio; responde 502 em erro). Usado apenas em localhost —
+  produção (GitHub Pages) não tem servidor.
 
 ---
 
@@ -299,23 +409,32 @@ controle/sw.js → const CACHE = 'controle-vX.Y'
 display/sw.js  → const CACHE = 'display-vX.Y'
 ```
 
-Estratégia: cache-first com fallback para rede. Na ativação apaga caches antigos
-da mesma palavra-chave sem tocar nos caches do outro app.
+Estratégia: cache-first (somente no cache próprio do app) com fallback para rede.
+Na ativação apaga caches antigos da mesma palavra-chave sem tocar nos caches do
+outro app.
+
+Além do cache, os SWs tratam:
+
+- **Ambos:** intercept de `https://api.louvorja.com.br/file/` → re-fetch com
+  `no-cors` + `no-referrer` (áudio do hinário em produção).
+- **Só o Controle:** POST em `share-target` → grava `pending-share` no IDB e
+  redireciona `303 ./` (Web Share Target).
 
 **Ao alterar qualquer asset estático, usar o mesmo número da versão visual do Controle nos dois sw.js.**
-Ex: se a versão visual é `v1.6`, os caches ficam `controle-v1.6` e `display-v1.6`.
+Ex: se a versão visual é `v2.3`, os caches ficam `controle-v2.3` e `display-v2.3`.
 
 ---
 
 ## Fonte de ícones (Material Symbols)
 
-Versão subconjuntada (~2.2 KB woff2): peso 400, apenas 27 glifos usados na UI.
+Versão subconjuntada (~3.2 KB woff2): peso 400, 30 glifos usados na UI
+(referenciados por codepoint — ver mapa `ICON` em `controle.js`).
 
 **Codepoints ativos:**
 ```
 E034 E037 E03B E03D E040 E041 E043 E044 E045 E047
-E04F E050 E14C E150 E251 E2C8 E3A1 E3AD E413 E5CF
-E838 E86C E872 E8F5 E945 EB80 F116
+E04F E050 E14C E150 E251 E2C7 E2C8 E2CC E3A1 E3AD
+E413 E5C4 E5CF E838 E86C E872 E8F5 E945 EB80 F116
 ```
 
 Para adicionar ícone: obter codepoint em `fonts.google.com/icons?icon.style=Rounded`
@@ -325,7 +444,8 @@ e gerar novo subset com `fontTools`.
 
 ## Deploy e CI
 
-Push em `main` → GitHub Actions publica `public/` no GitHub Pages.
+Push em `main` → GitHub Actions (`.github/workflows/deploy.yml`) publica `public/`
+no GitHub Pages.
 
 **URL de produção:** `https://jonathasptbr-gh.github.io/Audio-Visual-IASD/`
 
@@ -338,6 +458,7 @@ npm start   # http://localhost:3000
 ```
 
 Service workers funcionam em `localhost`. Em produção é necessário HTTPS.
+O proxy do hinário (`/louvorja-proxy/`) só existe rodando localmente.
 
 ---
 
