@@ -29,6 +29,7 @@
     let fadeOut = false;
     let fadeTime = 1; // segundos
     let rampTimer = null;
+    let fadeCleanupTimer = null; // limpeza pós fade-in (cancelável por um fade-out)
 
     function setFade(cfg) {
       if (typeof cfg.fadeIn === 'boolean') fadeIn = cfg.fadeIn;
@@ -63,13 +64,16 @@
       }, (dur * 1000) / steps);
     }
 
-    // Esmaece a mídia visível até o wallpaper; resolve ao terminar
-    // (imediatamente se fade-out desligado ou nada visível).
-    function runFadeOut() {
+    // Esmaece a mídia visível; resolve ao terminar (imediatamente se fade-out
+    // desligado ou nada visível). toWallpaper=true revela o wallpaper por trás
+    // (saída: stop/clear/view); false esmaece até o preto (troca de mídia).
+    function runFadeOut(toWallpaper) {
       return new Promise((resolve) => {
         const el = fadeOut ? visibleEl() : null;
         if (!el) { resolve(); return; }
-        wallpaper.style.display = 'flex'; // aparece por trás durante o fade
+        // um fade-in recém-terminado não pode limpar os estilos no meio deste fade-out
+        clearTimeout(fadeCleanupTimer);
+        if (toWallpaper) wallpaper.style.display = 'flex';
         el.style.transition = 'opacity ' + fadeTime + 's ease';
         el.style.opacity = '0';
         if (el === video && !video.muted) rampVolume(video.volume, 0, fadeTime);
@@ -79,13 +83,14 @@
 
     // Revela `el` com fade (deve ser chamado depois de applyView deixá-lo visível).
     function applyFadeIn(el) {
+      clearTimeout(fadeCleanupTimer);
       if (!fadeIn) { clearFadeStyle(el); return; }
       el.style.transition = 'none';
       el.style.opacity = '0';
       void el.offsetWidth; // força reflow para a transição valer
       el.style.transition = 'opacity ' + fadeTime + 's ease';
       el.style.opacity = '1';
-      setTimeout(() => clearFadeStyle(el), fadeTime * 1000 + 60);
+      fadeCleanupTimer = setTimeout(() => clearFadeStyle(el), fadeTime * 1000 + 60);
     }
 
     function applyView() {
@@ -115,7 +120,7 @@
     // stop com fade-out; descartado se um load/clear mais novo chegar durante o fade.
     async function stopFaded() {
       const seq = ++loadSeq;
-      await runFadeOut();
+      await runFadeOut(true);
       if (seq !== loadSeq) return;
       stop();
       clearFadeStyle(video); clearFadeStyle(img);
@@ -129,7 +134,7 @@
       if (v === view) return;
       if (v === 'wallpaper') {
         const seq = ++loadSeq;
-        await runFadeOut();
+        await runFadeOut(true);
         if (seq !== loadSeq) return;
         view = v;
         clearFadeStyle(video); clearFadeStyle(img);
@@ -169,11 +174,20 @@
       // Guarda sequencial: se outra chamada load() começar antes desta terminar
       // o fade/getMedia(), descartamos esta para evitar race de URL/current.
       const seq = ++loadSeq;
-      // Troca de mídia: esmaece a atual antes de carregar a próxima.
-      await runFadeOut();
+      // Troca de mídia: esmaece a atual até o PRETO (wallpaper continua oculto);
+      // a próxima entra em seguida com fade-in a partir do preto.
+      const willFade = fadeOut && !!visibleEl();
+      await runFadeOut(false);
       if (seq !== loadSeq) return;
       ended = false;
-      clearFadeStyle(video); clearFadeStyle(img);
+      if (willFade) {
+        // Esconde as camadas ainda esmaecidas ANTES de restaurar a opacidade
+        // (evita a mídia antiga reaparecer durante o getMedia); o wallpaper
+        // permanece oculto, então o intervalo até a nova mídia fica preto.
+        img.hidden = true; img.removeAttribute('src');
+        video.pause(); video.removeAttribute('src'); video.load();
+        clearFadeStyle(video); clearFadeStyle(img);
+      }
       const rec = await AVDB.getMedia(id);
       if (seq !== loadSeq) return;
       if (!rec) { clear(); return; }
@@ -241,10 +255,11 @@
       applyView();
     }
 
-    // clear com fade-out; descartado se um load mais novo chegar durante o fade.
+    // clear com fade-out (até o wallpaper); descartado se um load mais novo
+    // chegar durante o fade.
     async function clearFaded() {
       const seq = ++loadSeq;
-      await runFadeOut();
+      await runFadeOut(true);
       if (seq !== loadSeq) return;
       clear();
     }
