@@ -41,7 +41,13 @@ const selDeleteEl = document.getElementById('selDelete');
 
 const backBtnEl = document.getElementById('backBtn');
 const addDirBtnEl = document.getElementById('addDirBtn');
-const hymnSearchEl = document.getElementById('hymnSearch');
+const libSearchEl = document.getElementById('libSearch');
+const fadePopupEl = document.getElementById('fadePopup');
+const fadePopupCloseEl = document.getElementById('fadePopupClose');
+const fadeInChkEl = document.getElementById('fadeInChk');
+const fadeOutChkEl = document.getElementById('fadeOutChk');
+const fadeTimeEl = document.getElementById('fadeTime');
+const fadeTimeValEl = document.getElementById('fadeTimeVal');
 const folderPopupEl = document.getElementById('folderPopup');
 const folderPickerListEl = document.getElementById('folderPickerList');
 const folderPopupCloseEl = document.getElementById('folderPopupClose');
@@ -97,22 +103,14 @@ let activeTab = 'imports';
 let selectionMode = false;
 const selected = new Set();
 let thumbUrls = [];
-let currentFolder = null; // null | {id, name, _opfs?} — pasta aberta
+let currentFolder = null; // null | {id, name, _opfs?} — pasta aberta (persiste entre trocas de aba)
 let folders = [];          // [{id, name}, ...] — pastas virtuais
 let folderCounts = {};     // {folderId: count}
 let opfsFolders = [];      // [{id, name, count, syncedAt, handle?}] — pastas sincronizadas no OPFS
 let folderQuery = '';      // filtro de busca dentro de pasta OPFS
 let syncBusy = false;      // sincronização em andamento
-let tempMediaId = null;    // ID do registro temp no IDB (hino online)
-
-// ---- hinário online ----
-const LOUVORJA_BASE = 'https://api.louvorja.com.br';
-let louvorjaToken = null;
-let hymnalData = null;     // [{id_music, track, name, duration, has_instrumental_music}]
-let hymnalQuery = '';
-let hymnalLoading = false;
-let hymnalActiveId = null; // id_music do hino em reprodução
-let hymnDownloading = false;
+let fadeCfg = { in: false, out: false, time: 1 }; // transições (persistido em state 'fade')
+const scrollPos = {};      // posição de scroll por aba/pasta (sessão)
 
 // ===== preview (espelho do display) =====
 // Mostra exatamente o que o display mostra; sempre mudo. Recebe os MESMOS
@@ -237,9 +235,9 @@ async function load() {
     folderCounts[f.id] = ids.length;
   }
   opfsFolders = (await AVDB.getState('opfs-folders')) || [];
-  if (activeTab === 'hymnal') {
-    loadHymnal(); // fire-and-forget; renderHymnal() é chamado quando completa
-  } else if (activeTab === 'folders') {
+  const storedFade = await AVDB.getState('fade');
+  if (storedFade) fadeCfg = { in: !!storedFade.in, out: !!storedFade.out, time: storedFade.time || 1 };
+  if (activeTab === 'folders') {
     if (currentFolder && currentFolder._opfs) {
       libItems = (await AVDB.filesByFolder(currentFolder.id))
         .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
@@ -264,6 +262,18 @@ async function load() {
 
   // mantém a preview alinhada (sem recarregar a mídia)
   preview.setView(view); preview.setMute(muted); preview.setVolume(volume);
+  preview.setFade({ fadeIn: fadeCfg.in, fadeOut: fadeCfg.out, time: fadeCfg.time });
+
+  // restaura a posição de scroll da aba/pasta atual
+  libraryEl.scrollTop = scrollPos[scrollKey()] || 0;
+}
+
+// chave de posição de scroll: aba (+ pasta aberta, se houver)
+function scrollKey() {
+  return activeTab + (currentFolder ? '/' + currentFolder.id : '');
+}
+function rememberScroll() {
+  scrollPos[scrollKey()] = libraryEl.scrollTop;
 }
 
 function renderControls() {
@@ -302,10 +312,10 @@ function renderListTitle() {
   const inOpfs = inFolder && currentFolder._opfs;
   backBtnEl.hidden = !inFolder;
   addDirBtnEl.hidden = !(activeTab === 'folders' && !inFolder);
-  hymnSearchEl.hidden = !(activeTab === 'hymnal' || inOpfs);
-  hymnSearchEl.placeholder = inOpfs ? 'Buscar na pasta…' : 'Buscar hino…';
-  listTitleEl.hidden = activeTab === 'hymnal' || inOpfs;
-  const titles = { imports: 'Cronograma', folders: 'Pastas', hymnal: 'Hinário' };
+  libSearchEl.hidden = !inOpfs;
+  libSearchEl.value = inOpfs ? folderQuery : '';
+  listTitleEl.hidden = inOpfs;
+  const titles = { imports: 'Cronograma', folders: 'Pastas' };
   listTitleEl.textContent = inFolder ? currentFolder.name : (titles[activeTab] || '');
 }
 
@@ -363,16 +373,11 @@ function renderPlaylist() {
   });
 }
 
-// ---- Biblioteca (Cronograma / Pastas / Hinário) ----
+// ---- Biblioteca (Cronograma / Pastas) ----
 function renderLibrary() {
   thumbUrls.forEach((u) => URL.revokeObjectURL(u));
   thumbUrls = [];
   libraryEl.innerHTML = '';
-
-  if (activeTab === 'hymnal') {
-    renderHymnal();
-    return;
-  }
 
   if (activeTab === 'folders' && !currentFolder) {
     renderFolderList();
@@ -781,14 +786,16 @@ async function loadFolderMediaItems(folderId) {
 }
 
 function openFolder(folder) {
+  rememberScroll();
   currentFolder = folder;
   load();
 }
 
 function navigateBack() {
+  rememberScroll();
   currentFolder = null;
   folderQuery = '';
-  hymnSearchEl.value = '';
+  libSearchEl.value = '';
   load();
 }
 
@@ -946,9 +953,10 @@ async function syncDeviceFolder(existing) {
 }
 
 function openOpfsFolder(f) {
+  rememberScroll();
   currentFolder = { id: f.id, name: f.name, _opfs: true };
   folderQuery = '';
-  hymnSearchEl.value = '';
+  libSearchEl.value = '';
   load();
 }
 
@@ -979,105 +987,27 @@ function guessMediaType(filename) {
   return map[ext] || 'application/octet-stream';
 }
 
-// ===== Hinário online (LouvorJA API) =====
-async function getLouvorjaToken() {
-  if (louvorjaToken) return louvorjaToken;
-  louvorjaToken = (await AVDB.getState('louvorja-token')) || '02@v2nFB2Dc';
-  return louvorjaToken;
+// ===== transições (fade in/out) =====
+function openFadePopup() {
+  fadeInChkEl.checked = fadeCfg.in;
+  fadeOutChkEl.checked = fadeCfg.out;
+  fadeTimeEl.value = fadeCfg.time;
+  fadeTimeValEl.textContent = fadeCfg.time.toFixed(1) + 's';
+  fadePopupEl.classList.add('open');
 }
-
-async function louvorjaFetch(path) {
-  const token = await getLouvorjaToken();
-  if (!token) return null;
-  const res = await fetch(LOUVORJA_BASE + path, { headers: { 'Api-Token': token } });
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  return res;
+function closeFadePopup() {
+  fadePopupEl.classList.remove('open');
 }
-
-function loadHymnal() {
-  if (hymnalData || hymnalLoading) return;
-  (async () => {
-    // verificar cache no IDB (válido por 7 dias)
-    const cached = await AVDB.getState('louvorja-hymnal');
-    if (cached && cached.data && Array.isArray(cached.data) && Date.now() - (cached.ts || 0) < 7 * 86400000) {
-      hymnalData = cached.data;
-      if (activeTab === 'hymnal') renderHymnal();
-      return;
-    }
-    hymnalLoading = true;
-    if (activeTab === 'hymnal') renderHymnal(); // mostra "carregando"
-    try {
-      const res = await louvorjaFetch('/json_db/pt_hymnal');
-      if (!res) { hymnalLoading = false; if (activeTab === 'hymnal') renderHymnal(); return; }
-      hymnalData = await res.json();
-      await AVDB.setState('louvorja-hymnal', { data: hymnalData, ts: Date.now() });
-    } catch (_) {
-      flash('Erro ao carregar hinário');
-    }
-    hymnalLoading = false;
-    if (activeTab === 'hymnal') renderHymnal();
-  })();
-}
-
-function renderHymnal() {
-  libraryEl.innerHTML = '';
-  if (hymnalLoading) {
-    libraryEl.innerHTML = '<li class="empty">Carregando hinário…</li>';
-    return;
-  }
-  if (!hymnalData) {
-    libraryEl.innerHTML = '<li class="empty">Hinário não disponível.<br>Verifique a conexão e o token.</li>';
-    return;
-  }
-  const q = hymnalQuery.toLowerCase().trim();
-  const items = q
-    ? hymnalData.filter((h) => h.name.toLowerCase().includes(q) || String(h.track).startsWith(q))
-    : hymnalData;
-  if (items.length === 0) {
-    libraryEl.innerHTML = '<li class="empty">Nenhum hino encontrado.</li>';
-    return;
-  }
-  items.forEach((item) => {
-    const li = document.createElement('li');
-    li.className = 'hymn-item' + (String(item.id_music) === String(hymnalActiveId) ? ' active' : '');
-    li.dataset.hymnId = item.id_music;
-    const track = document.createElement('span'); track.className = 'hymn-track'; track.textContent = item.track;
-    const name = document.createElement('span'); name.className = 'row-name'; name.textContent = item.name;
-    const dur = document.createElement('span'); dur.className = 'hymn-dur';
-    if (item.duration) dur.textContent = fmtTime(item.duration);
-    li.append(track, name, dur);
-    li.addEventListener('click', () => playHymn(item));
-    libraryEl.appendChild(li);
-  });
-}
-
-async function playHymn(item) {
-  if (hymnDownloading) { flash('Carregando…'); return; }
-  hymnDownloading = true;
-  try {
-    // Em localhost usa proxy server-side (add token, sem CORS); em produção usa
-    // URL direta com SW intercept (re-fetch sem Referer no service worker).
-    const filePath = encodeURI('/file/musics/pt/Hinário Adventista 2022/' + item.name + '.mp3');
-    const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-    const audioUrl = isLocal
-      ? location.origin + '/louvorja-proxy' + filePath
-      : LOUVORJA_BASE + filePath;
-    if (tempMediaId) { await AVDB.deleteMedia(tempMediaId); tempMediaId = null; }
-    const record = await AVDB.storeUrlTemp(audioUrl, { name: item.name, kind: 'audio' });
-    tempMediaId = record.id;
-    hymnalActiveId = item.id_music;
-    currentId = record.id;
-    currentItem = record;
-    await persistCurrent();
-    cmd({ type: 'load', mediaId: record.id, view, muted, volume });
-    document.querySelectorAll('.hymn-item').forEach((el) =>
-      el.classList.toggle('active', el.dataset.hymnId == item.id_music)
-    );
-    renderNowPlaying();
-  } catch (e) {
-    flash('Erro: ' + e.message);
-  }
-  hymnDownloading = false;
+async function applyFadeCfg() {
+  fadeCfg = {
+    in: fadeInChkEl.checked,
+    out: fadeOutChkEl.checked,
+    time: parseFloat(fadeTimeEl.value) || 1,
+  };
+  fadeTimeValEl.textContent = fadeCfg.time.toFixed(1) + 's';
+  await AVDB.setState('fade', fadeCfg);
+  // aplica ao vivo no Display e na preview
+  cmd({ type: 'fade', fadeIn: fadeCfg.in, fadeOut: fadeCfg.out, time: fadeCfg.time });
 }
 
 // ===== URL / compartilhamento =====
@@ -1225,11 +1155,10 @@ plPopupEl.addEventListener('click', (e) => { if (e.target === plPopupEl) closePl
 tabsEl.addEventListener('click', (e) => {
   const tab = e.target.closest('.tab');
   if (!tab || tab.dataset.tab === activeTab) return;
+  // Mantém a posição: guarda o scroll da aba atual e NÃO reseta a pasta
+  // aberta — voltar para Pastas retorna exatamente onde estava.
+  rememberScroll();
   activeTab = tab.dataset.tab;
-  currentFolder = null;
-  hymnalQuery = '';
-  folderQuery = '';
-  hymnSearchEl.value = '';
   if (selectionMode) exitSelection();
   load();
 });
@@ -1241,10 +1170,16 @@ selRenameEl.addEventListener('click', renameSelected);
 
 backBtnEl.addEventListener('click', navigateBack);
 addDirBtnEl.addEventListener('click', () => syncDeviceFolder());
-hymnSearchEl.addEventListener('input', () => {
-  if (activeTab === 'hymnal') { hymnalQuery = hymnSearchEl.value; renderHymnal(); }
-  else { folderQuery = hymnSearchEl.value; renderLibrary(); }
-});
+libSearchEl.addEventListener('input', () => { folderQuery = libSearchEl.value; renderLibrary(); });
+
+// Toque na preview abre as configurações rápidas de transição (fade).
+document.getElementById('preview').addEventListener('click', openFadePopup);
+fadePopupCloseEl.addEventListener('click', closeFadePopup);
+fadePopupEl.addEventListener('click', (e) => { if (e.target === fadePopupEl) closeFadePopup(); });
+fadeInChkEl.addEventListener('change', applyFadeCfg);
+fadeOutChkEl.addEventListener('change', applyFadeCfg);
+fadeTimeEl.addEventListener('input', () => { fadeTimeValEl.textContent = (parseFloat(fadeTimeEl.value) || 1).toFixed(1) + 's'; });
+fadeTimeEl.addEventListener('change', applyFadeCfg);
 
 
 folderPopupCloseEl.addEventListener('click', closeFolderPicker);

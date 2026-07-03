@@ -22,11 +22,11 @@ git push origin main
 ## Regras de desenvolvimento
 
 - Nunca perder funcionalidades existentes ao refatorar.
-- Ao alterar assets estáticos, incrementar a versão nos dois `sw.js` **usando o mesmo número da versão visual** (ex: `controle-v2.4`, `display-v2.4`).
+- Ao alterar assets estáticos, incrementar a versão nos dois `sw.js` **usando o mesmo número da versão visual** (ex: `controle-v2.5`, `display-v2.5`).
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente.
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.4, 2.5, 2.6…). **Versão atual: v2.4.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.5, 2.6, 2.7…). **Versão atual: v2.5.**
 
 ---
 
@@ -51,8 +51,8 @@ Cada PWA tem `manifest.json`, `scope` e `start_url` próprios, então o Android 
 instala e trata como **dois apps distintos** — permitindo espelhar só o Display.
 
 Tudo funciona **100% offline** depois da primeira carga (service workers com
-cache-first) — exceto recursos que dependem de rede por natureza: hinário online
-(LouvorJA), vídeos do YouTube e itens de URL externa.
+cache-first) — exceto recursos que dependem de rede por natureza: vídeos do
+YouTube e itens de URL externa.
 
 ---
 
@@ -81,7 +81,7 @@ public/
     ├── icons/                  # icon-192.svg, icon-512.svg
     ├── manifest.json           # PWA manifest (landscape, fullscreen)
     └── sw.js                   # Service worker (cache: display-vX.Y)
-server.js                       # Servidor estático + proxy do hinário (Node puro, sem deps)
+server.js                       # Servidor estático mínimo (Node puro, sem deps)
 ```
 
 ---
@@ -94,11 +94,11 @@ server.js                       # Servidor estático + proxy do hinário (Node p
 |---|---|---|
 | `media` | `id` (UUID) | `{ id, blob, url, thumb, type, kind, name, youtubeId, createdAt }` |
 | `files` | `id` (UUID), índice `folder` | catálogo OPFS: `{ id, folder, opfsPath, srcName, name, type, kind, size, mtime, thumb, addedAt }` |
-| `state` | chave string | valor arbitrário (listas, estado atual, pastas, cache do hinário…) |
+| `state` | chave string | valor arbitrário (listas, estado atual, pastas, transições…) |
 
 Um registro de mídia tem **`blob`, `url` OU `opfsPath`** (nunca mais de um):
-blobs locais importados, itens de URL externa (link direto, YouTube, hino
-online) ou arquivos sincronizados no OPFS. `thumb` pode ser um `Blob`
+blobs locais importados, itens de URL externa (link direto, YouTube) ou
+arquivos sincronizados no OPFS. `thumb` pode ser um `Blob`
 (miniatura gerada via Canvas) ou uma **string URL** (ex: thumbnail
 `hqdefault.jpg` do YouTube).
 
@@ -145,14 +145,14 @@ O campo `kind` é derivado do `type` (ou definido pelo chamador para itens de UR
 | `imports` / `favorites` / `playlist` | arrays de IDs de mídia |
 | `current` | `{ mediaId, view, muted, volume, at }` — estado de exibição atual |
 | `repeat` | `'off'` \| `'all'` \| `'one'` \| `'shuffle'` |
+| `fade` | `{ in: bool, out: bool, time: segundos }` — transições de mídia (fade in/out) |
 | `folders` | `[{ id, name }]` — pastas virtuais |
 | `folder_<id>` | array de IDs de mídia da pasta |
 | `opfs-folders` | `[{ id, name, count, syncedAt, handle? }]` — pastas sincronizadas no OPFS (`handle` acelera re-sync) |
-| `louvorja-token` | Api-Token customizado do LouvorJA (opcional; há default no código) |
-| `louvorja-hymnal` | `{ data, ts }` — cache da lista de hinos (válido por 7 dias) |
 | `pending-share` | `{ files, url, title, ts }` — share recebido pelo SW aguardando processamento |
 | `order` | legado — lido apenas como fallback de `imports` |
 | `linked-folders` | legado (pastas vinculadas por handle) — substituído por `opfs-folders`; ignorado |
+| `louvorja-token` / `louvorja-hymnal` | legado (hinário online removido na v2.5); ignorados |
 
 ### API exposta (`window.AVDB`)
 
@@ -160,7 +160,7 @@ O campo `kind` é derivado do `type` (ou definido pelo chamador para itens de UR
 openDB, setState, getState
 addMedia(blob, meta)          // cria registro + adiciona a 'imports'
 addUrlMedia(url, meta)        // item de URL externa (blob=null) + adiciona a 'imports'
-storeUrlTemp(url, meta)       // registro temporário de URL, fora de qualquer lista (hinos)
+storeUrlTemp(url, meta)       // registro temporário de URL, fora de qualquer lista
 storeMediaTemp(blob, meta)    // blob temporário fora de listas (pastas vinculadas)
 getMedia(id), deleteMedia(id), renameMedia(id, name)
 listIds, listSet, listItems, listHas, listAdd, listRemove, gc
@@ -180,9 +180,9 @@ listRemove(listName, id)
 ```
 
 Registros **temporários** (`storeUrlTemp` / `storeMediaTemp`) não pertencem a
-lista alguma — quem cria é responsável por excluí-los com `deleteMedia()`
-(o Controle guarda o último em `tempMediaId` e apaga antes de criar o próximo;
-hoje só o hinário online usa esse mecanismo).
+lista alguma — quem cria é responsável por excluí-los com `deleteMedia()`.
+Sem consumidores atuais (o hinário, que usava o mecanismo, foi removido na
+v2.5); a API permanece disponível.
 
 ### BroadcastChannel — canal `av-iasd`
 
@@ -199,8 +199,9 @@ Todos os comandos são objetos com um campo `type`.
 | `seek` | `time` (segundos) | Pula para o instante indicado |
 | `volume` | `volume` (0.0–1.0) | Altera o volume |
 | `mute` | `muted` (bool) | Liga/desliga mudo |
-| `view` | `view` (`'visual'`\|`'wallpaper'`) | Alterna entre exibir a mídia ou o wallpaper |
-| `clear` | — | Limpa o Display (volta ao wallpaper, zera `currentId`) |
+| `view` | `view` (`'visual'`\|`'wallpaper'`) | Alterna entre exibir a mídia ou o wallpaper (com fade, se ativo) |
+| `clear` | — | Limpa o Display (volta ao wallpaper, zera `currentId`; com fade-out, se ativo) |
+| `fade` | `fadeIn, fadeOut, time` | Atualiza ao vivo a configuração de transições do stage |
 
 #### Display → Controle
 
@@ -247,8 +248,24 @@ muted      → bool (intenção do operador; independe de forceMuted)
 volume     → 0.0 – 1.0
 url        → object URL do blob OU URL externa em uso
 isBlobUrl  → bool — se true, revoga com URL.revokeObjectURL ao trocar/limpar
-loadSeq    → contador para descartar loads concorrentes obsoletos
+loadSeq    → contador para descartar loads/fades concorrentes obsoletos
+fadeIn/fadeOut/fadeTime → transições (definidas via comando 'fade')
 ```
+
+### Transições (fade)
+
+Quando ativas, aplicam-se a **entrada, saída e troca** de mídia:
+
+- **Fade out** (`load` com mídia visível, `stop`, `clear`, `view→wallpaper`):
+  a mídia atual esmaece até o wallpaper (que aparece por trás durante a
+  transição) via CSS `opacity`; vídeo/áudio também tem **rampa de volume** até
+  zero. Só depois a ação prossegue. Guardado por `loadSeq`: um comando mais
+  novo durante o fade descarta o anterior.
+- **Fade in** (`load`, `view→visual`): a nova mídia entra de opacity 0 → 1;
+  vídeo/áudio com rampa de volume 0 → volume alvo (exceto preview `forceMuted`).
+- Fim natural do vídeo (`ended`) e `pause`/`play` de retomada são instantâneos.
+- `setVolume` do operador cancela rampa em curso; `play`/`stop` restauram o
+  volume alvo (evita ficar preso em volume 0 pós fade-out).
 
 ### API exposta
 
@@ -259,6 +276,7 @@ stage.clear()
 stage.play() / pause() / stop()
 stage.seek(seconds)
 stage.setView(v) / setMute(m) / setVolume(vol)
+stage.setFade({ fadeIn, fadeOut, time })
 stage.getCurrent()     // → registro atual ou null
 stage.getView()        // → 'visual' | 'wallpaper'
 stage.isPlaying()      // → bool
@@ -282,14 +300,14 @@ iniciado aplica seu resultado — chamadas anteriores obsoletas são descartadas
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  Audio Visual IASD                       Controle v2.4  │  ← .appbar (topo fixo)
+│  Audio Visual IASD                       Controle v2.5  │  ← .appbar (topo fixo)
 ├─────────────────────────────────────────────────────────┤
-│  [←] Título da lista        [busca hino]  [vincular 📁] │  ← .list-header
+│  [←] Título da lista     [busca na pasta]  [sincronizar]│  ← .list-header
 │  ┌───────────────────────────────────────────────────┐  │
 │  │  item 1                                           │  │  ← .lib-list
 │  │  item 2                                           │  │     (área scrollável)
 │  └───────────────────────────────────────────────────┘  │
-│  [Playlist] │ [Cronograma] [Pastas] [Hinário] [+ Import]│  ← .tabs (base da seção)
+│  [Playlist] │ [Cronograma] [Pastas]  [+ Importar]       │  ← .tabs (base da seção)
 ├─────────────────────────────────────────────────────────┤
 │  ┌─────────────────────────────────────┬──────┐         │  ← .bottombar (base fixa)
 │  │  Preview 16:9                       │      │         │
@@ -306,8 +324,8 @@ iniciado aplica seu resultado — chamadas anteriores obsoletas são descartadas
 A versão visual deve ser incrementada a cada atualização de código.
 
 **Cabeçalho da lista (`.list-header`):** botão voltar (dentro de pasta), título da
-aba/pasta, campo de busca (aba Hinário e dentro de pasta OPFS) e botão de
-sincronizar pasta do dispositivo (só na raiz da aba Pastas).
+aba/pasta, campo de busca (dentro de pasta OPFS) e botão de sincronizar pasta
+do dispositivo (só na raiz da aba Pastas).
 
 **Controles (`.bottombar`):** fixados na base da tela. O padding inferior usa
 `max(env(safe-area-inset-bottom), 12px)` para garantir margem segura contra
@@ -319,6 +337,12 @@ Mexer no volume com mudo ativo desliga o mudo automaticamente.
 A preview é um `createStage` com `forceMuted: true` que recebe os mesmos comandos
 enviados ao Display (função `cmd()` envia ao canal E aplica na preview). A preview
 local comanda a barra de progresso e o avanço automático da playlist.
+
+**Tocar na preview** abre o popup de **configurações rápidas de transições**
+(bottom-sheet `#fadePopup`): toggles de fade in (entrada) e fade out
+(saída/troca) + slider de duração (0.2–5 s). A config é persistida em `state`
+`fade` e aplicada ao vivo via comando `fade` (Display + preview); o Display
+também a lê do state ao inicializar.
 
 **Botão ⏹ ("Parar e limpar"):** envia `clear` (volta ao wallpaper) mas mantém
 `currentId` — o ▶ recarrega e reproduz do início.
@@ -333,9 +357,13 @@ As abas ficam na **base da seção de listas** (ícones):
   persiste na camada de dados).
 - **Pastas** (`folders`) — pastas sincronizadas no OPFS e pastas virtuais
   (agrupam mídias já importadas).
-- **Hinário** (`hymnal`) — Hinário Adventista 2022 online via API LouvorJA, com busca
-  por número ou nome.
 - **Importar** — `<input type="file" multiple accept="image/*,video/*,audio/*">`.
+
+**Navegação persistente:** trocar de aba **não** reseta a pasta aberta nem a
+busca — voltar para Pastas retorna exatamente onde estava. A posição de scroll
+é guardada por aba/pasta (`scrollPos`, chave `scrollKey()` = aba + id da pasta)
+e restaurada ao fim de cada `load()`; `rememberScroll()` é chamado antes de
+trocar de aba, abrir pasta ou voltar. (Memória por sessão, em RAM.)
 
 Miniaturas (160×160 px, JPEG 72%) geradas via Canvas no momento da importação.
 Vídeos têm thumbnail extraído do frame a ~⅓ da duração (timeout de 3,5 s).
@@ -380,21 +408,6 @@ remove da pasta; nas demais abas usa `listRemove` (com gc).
 - **Pastas virtuais** — criadas pelo usuário (state `folders` + `folder_<id>`);
   recebem itens pelo botão "salvar em pasta" da seleção múltipla (funciona
   também com IDs do catálogo OPFS). Excluir a pasta não exclui as mídias.
-
-### Hinário online (LouvorJA)
-
-- API: `https://api.louvorja.com.br`, header `Api-Token` (default no código;
-  pode ser sobrescrito via state `louvorja-token`).
-- Lista de hinos: `GET /json_db/pt_hymnal` → cache no IDB por 7 dias
-  (`louvorja-hymnal`).
-- Áudio: `/file/musics/pt/Hinário Adventista 2022/<nome>.mp3`.
-  - **Em localhost:** via proxy do `server.js` (`/louvorja-proxy/...`), que injeta
-    o token server-side e evita CORS preflight.
-  - **Em produção (GitHub Pages, sem servidor):** URL direta da API; os service
-    workers interceptam `https://api.louvorja.com.br/file/` e refazem o fetch com
-    `mode: 'no-cors'` + `referrerPolicy: 'no-referrer'` para evitar bloqueio por origem.
-- Tocar um hino cria registro temporário via `storeUrlTemp` (controlado por
-  `tempMediaId`, apagado antes do próximo).
 
 ### Compartilhamento (Web Share Target)
 
@@ -444,10 +457,6 @@ são **ignorados** (não há ponte para dentro do iframe); apenas `load`, `stop`
 - Proteção contra path traversal: verifica `filePath.startsWith(ROOT + path.sep)`.
 - URLs com percent-encoding inválido retornam HTTP 400.
 - Service workers recebem `Cache-Control: no-cache`.
-- **Proxy do hinário:** `GET /louvorja-proxy/<path>` repassa para
-  `api.louvorja.com.br` adicionando o header `Api-Token` server-side (suporta
-  `Range` para seek de áudio; responde 502 em erro). Usado apenas em localhost —
-  produção (GitHub Pages) não tem servidor.
 
 ---
 
@@ -462,15 +471,11 @@ Estratégia: cache-first (somente no cache próprio do app) com fallback para re
 Na ativação apaga caches antigos da mesma palavra-chave sem tocar nos caches do
 outro app.
 
-Além do cache, os SWs tratam:
-
-- **Ambos:** intercept de `https://api.louvorja.com.br/file/` → re-fetch com
-  `no-cors` + `no-referrer` (áudio do hinário em produção).
-- **Só o Controle:** POST em `share-target` → grava `pending-share` no IDB e
-  redireciona `303 ./` (Web Share Target).
+Além do cache, o SW do **Controle** trata o POST em `share-target` → grava
+`pending-share` no IDB e redireciona `303 ./` (Web Share Target).
 
 **Ao alterar qualquer asset estático, usar o mesmo número da versão visual do Controle nos dois sw.js.**
-Ex: se a versão visual é `v2.4`, os caches ficam `controle-v2.4` e `display-v2.4`.
+Ex: se a versão visual é `v2.5`, os caches ficam `controle-v2.5` e `display-v2.5`.
 
 ---
 
@@ -507,7 +512,6 @@ npm start   # http://localhost:3000
 ```
 
 Service workers funcionam em `localhost`. Em produção é necessário HTTPS.
-O proxy do hinário (`/louvorja-proxy/`) só existe rodando localmente.
 
 ---
 
