@@ -111,6 +111,7 @@ let folderQuery = '';      // filtro de busca dentro de pasta OPFS
 let syncBusy = false;      // sincronização em andamento
 let fadeCfg = { in: false, out: false, time: 1 }; // transições (persistido em state 'fade')
 let ytEnded = false;       // item YouTube chegou ao fim (Display derruba o player: ▶ recarrega)
+let displayAudioBlocked = false; // Display reportou áudio bloqueado pelo navegador
 const scrollPos = {};      // posição de scroll por aba/pasta (sessão)
 
 // ===== preview (espelho do display) =====
@@ -1225,6 +1226,15 @@ AVDB.onCommand((msg) => {
   if (msg.type === 'display-ready' && currentId && playing) {
     AVDB.sendCommand({ type: 'load', mediaId: currentId, view, muted, volume });
     return;
+  }
+  // Áudio bloqueado no Display (política de autoplay): avisa o OPERADOR —
+  // nada é exibido no telão; a recuperação automática roda no Display.
+  if (msg.type === 'display-status' && typeof msg.audioBlocked === 'boolean'
+      && msg.audioBlocked !== displayAudioBlocked) {
+    displayAudioBlocked = msg.audioBlocked;
+    flash(displayAudioBlocked
+      ? 'Display sem áudio (navegador) — recuperando automaticamente…'
+      : 'Áudio do Display ativo');
   }
   if (!currentItem || currentItem.kind !== 'youtube' || msg.mediaId !== currentId) return;
   if (msg.type === 'display-status') {

@@ -26,7 +26,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente.
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v3.0.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v3.1.**
 
 ---
 
@@ -208,7 +208,7 @@ Todos os comandos são objetos com um campo `type`.
 | `type` | Campos extras | Descrição |
 |---|---|---|
 | `display-ready` | — | Display pronto; Controle reenvia o estado atual (se estiver tocando) |
-| `display-status` | `mediaId, view, muted, volume, playing, currentTime, duration` | Estado do Display a cada evento de tempo/estado |
+| `display-status` | `mediaId, view, muted, volume, playing, currentTime, duration, audioBlocked` | Estado do Display a cada evento de tempo/estado (`audioBlocked`: navegador bloqueou som sem gesto; o Controle avisa o operador) |
 | `media-ended` | `mediaId` | Vídeo/áudio chegou ao fim |
 
 ---
@@ -471,8 +471,9 @@ vídeo **começa mudo** (sempre permitido — o conteúdo aparece no telão sem
 toque) e a recuperação automática religa o áudio em retentativas (a cada ~5 s;
 para o stage testa `setMute(false)` e detecta se o navegador pausou; para o
 YouTube confere `infoMuted`/estado). Num **PWA instalado** o navegador costuma
-liberar autoplay com som — a primeira retentativa resolve. Enquanto bloqueado,
-um aviso discreto (`#audioHint`, pill na base da tela) fica visível; qualquer
+liberar autoplay com som — a primeira retentativa resolve. **Nada é exibido no
+telão**: o estado vai no campo `audioBlocked` do `display-status` e o
+**Controle** avisa o operador via toast (bloqueio e recuperação). Qualquer
 gesto real no Display (toque/tecla — `pointerdown`/`keydown` no documento)
 religa o áudio na hora. O comando `mute` do operador encerra a recuperação.
 
@@ -498,17 +499,18 @@ https://www.youtube.com/embed/<id>?autoplay=1&enablejsapi=1&playsinline=1
   `load` de avanço automático chegar em ~400 ms, o Display **derruba o player**
   antes da tela final de "vídeos relacionados" aparecer (o escudo cobre o
   intervalo); o Controle marca `ytEnded` e o ▶ recarrega o item (novo `load`).
-- **Reveal só reproduzindo + escudo anti-UI**: o iframe fica **oculto**
-  (wallpaper em cena) até o primeiro estado 1 — os estados de carregamento/
-  cued do embed mostram título e botão grande, que nunca chegam ao telão
-  (safety: revela às cegas em 5 s apenas se o handshake não entregou nenhum
-  evento). O `#ytShield` (camada preta acima do iframe) cobre o player em
-  qualquer estado sem reprodução: ligado **preventivamente** nos comandos
-  `pause`/`seek` (instantâneo, para vencer a UI de pausa/spinner do YouTube)
-  e desligado no estado 1 (fade curto de 0,25 s). `stop`/`clear`/troca **não
-  pausam** o player antes do fade (pausa desenharia UI): o fade-out visual
-  corre com **rampa de volume** via `setVolume` (`ytRampVolume`) e o player é
-  derrubado ao final.
+- **Reveal só reproduzindo**: o iframe fica **oculto** (wallpaper em cena) até
+  o primeiro estado 1 — os estados de carregamento/cued do embed mostram
+  título e botão grande, que nunca chegam ao telão (safety: revela às cegas em
+  5 s apenas se o handshake não entregou nenhum evento).
+- **Pausa e seek seguem o padrão de player normal**: quadro congelado no
+  telão; a UI que o YouTube desenhar nesses estados é aceita (sem tela preta).
+  O `#ytShield` (camada preta acima do iframe) é usado **apenas no fim do
+  vídeo** (estado 0): entra instantâneo para cobrir a tela de "vídeos
+  relacionados" e esmaece junto com o player no fade de saída.
+  `stop`/`clear`/troca **não pausam** o player antes do fade (pausa desenharia
+  UI): o fade-out visual corre com **rampa de volume** via `setVolume`
+  (`ytRampVolume`) e o player é derrubado ao final.
 - **Ponte postMessage (API de widget)**: o Display faz o handshake
   (`{event:'listening', channel:'widget'}` até a primeira resposta) e então:
   - **Comandos → player**: `play`/`pause` → `playVideo`/`pauseVideo`, `seek` →

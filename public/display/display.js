@@ -3,7 +3,6 @@ const imgEl = document.getElementById('img');
 const videoEl = document.getElementById('video');
 const youtubeEl = document.getElementById('youtube');
 const ytShieldEl = document.getElementById('ytShield');
-const audioHintEl = document.getElementById('audioHint');
 
 // Config de transições espelhada localmente (o stage guarda a dele própria)
 // para animar o player do YouTube, que vive fora do stage.
@@ -21,6 +20,7 @@ function sendStatus() {
     playing: stage.isPlaying(),
     currentTime: stage.isTimed() ? stage.getTime() : 0,
     duration: stage.isTimed() ? stage.getDuration() : 0,
+    audioBlocked,
   });
 }
 
@@ -48,22 +48,26 @@ const stage = createStage({
 // A política de autoplay dos navegadores pode bloquear som sem gesto do
 // usuário. Em vez de exigir um toque no telão, o vídeo começa mudo e o áudio
 // é religado sozinho em retentativas (num PWA instalado costuma liberar na
-// primeira). Um aviso discreto fica na base da tela enquanto isso; qualquer
-// toque/tecla no Display (se acontecer) resolve na hora.
+// primeira). NADA é exibido no telão: o estado vai no campo `audioBlocked`
+// do display-status e o Controle avisa o operador. Um toque/tecla no Display
+// (se acontecer) resolve na hora.
 let audioBlocked = false;
 let audioRetryTimer = null;
+
+function pushStatus() { if (yt) ytStatus(); else sendStatus(); }
 
 function beginAudioRecovery() {
   if (audioBlocked) return;
   audioBlocked = true;
-  audioHintEl.hidden = false;
+  pushStatus();
   scheduleAudioRetry(1500);
 }
 
 function endAudioRecovery() {
-  audioBlocked = false;
   clearTimeout(audioRetryTimer);
-  audioHintEl.hidden = true;
+  if (!audioBlocked) return;
+  audioBlocked = false;
+  pushStatus();
 }
 
 function scheduleAudioRetry(ms) {
@@ -168,6 +172,7 @@ function ytStatus() {
     playing: i.playerState === 1 || i.playerState === 3, // playing | buffering
     currentTime: i.currentTime || 0,
     duration: i.duration || 0,
+    audioBlocked,
   });
 }
 
@@ -176,11 +181,13 @@ function ytClearFadeStyle() {
   youtubeEl.style.opacity = '';
 }
 
-// Escudo anti-UI: cobre o player sempre que ele NÃO está reproduzindo —
-// estados unstarted/cued/paused/ended desenham chrome do YouTube (título,
-// botão grande, telas de pausa/fim) que não deve aparecer no telão.
+// Escudo anti-UI: usado APENAS no fim do vídeo, para a tela final de
+// "vídeos relacionados" nunca chegar ao telão enquanto o player é derrubado.
+// Pausa e seek seguem o padrão (quadro congelado + UI nativa do YouTube,
+// como um player normal) — sem tela preta.
 function ytShield(on) {
   ytShieldEl.classList.toggle('on', !!on);
+  if (!on) { ytShieldEl.style.transition = ''; ytShieldEl.style.opacity = ''; }
 }
 
 // Rampa de volume do player (fade sonoro) via setVolume, como no stage.
@@ -245,6 +252,11 @@ function ytFadeOutPlayer() {
     ytRampVolume(yt.volume, 0, fadeCfg.time);
     youtubeEl.style.transition = 'opacity ' + fadeCfg.time + 's ease';
     youtubeEl.style.opacity = '0';
+    if (ytShieldEl.classList.contains('on')) {
+      // escudo do fim de vídeo esmaece junto, revelando o wallpaper
+      ytShieldEl.style.transition = 'opacity ' + fadeCfg.time + 's ease';
+      ytShieldEl.style.opacity = '0';
+    }
     setTimeout(resolve, fadeCfg.time * 1000);
   });
 }
@@ -334,20 +346,18 @@ function ytReady() {
 function ytState(st) {
   if (!yt) return;
   yt.info.playerState = st;
-  if (st === 1) { // reproduzindo: player limpo — revela e tira o escudo
+  if (st === 1) { // reproduzindo: revela (1ª vez) e libera replays de 'ended'
     ytShow();
     ytShield(false);
     yt.endedSent = false;
-  } else if (st === -1 || st === 0 || st === 2 || st === 5) {
-    // sem reprodução: o embed desenha UI (título/botão/telas de pausa e fim)
-    ytShield(true);
   }
   if (st === 0 && !yt.endedSent) { // fim do vídeo → avanço de playlist no Controle
     yt.endedSent = true;
+    // cobre a tela final de "vídeos relacionados" enquanto o player cai
+    ytShield(true);
     AVDB.sendCommand({ type: 'media-ended', mediaId: yt.mediaId });
     // Sem 'load' de avanço automático em seguida (repeat off / Controle
-    // fechado), derruba o player — a tela final de "vídeos relacionados"
-    // nunca chega ao telão (o escudo cobre o intervalo).
+    // fechado), derruba o player — fim natural volta ao wallpaper.
     const cur = yt;
     cur.endTimer = setTimeout(() => {
       if (yt === cur && yt.info.playerState === 0) stopYoutube();
@@ -389,19 +399,15 @@ window.addEventListener('message', (e) => {
 function ytHandle(cmd) {
   switch (cmd.type) {
     case 'play':
-      ytPost('playVideo'); // escudo sai quando o estado 1 chegar
+      ytPost('playVideo');
       break;
     case 'pause':
-      // escudo ANTES do pause: a UI de pausa do YouTube nunca aparece
-      ytShield(true);
+      // padrão de player normal: quadro congelado (a UI nativa que o
+      // YouTube desenhar na pausa é aceita — sem tela preta)
       ytPost('pauseVideo');
       break;
     case 'seek':
-      if (isFinite(cmd.time)) {
-        // escudo durante o buffering do seek (spinner/possível chrome)
-        ytShield(true);
-        ytPost('seekTo', [cmd.time, true]);
-      }
+      if (isFinite(cmd.time)) ytPost('seekTo', [cmd.time, true]);
       break;
     case 'volume':
       if (typeof cmd.volume === 'number') {
@@ -439,7 +445,6 @@ async function ytSetView(v) {
     ytClearFadeStyle();
   } else if (cur.shown) {
     youtubeEl.hidden = false;
-    ytShield(cur.info.playerState !== 1 && cur.info.playerState !== 3);
     if (fadeCfg.in) {
       youtubeEl.style.transition = 'none';
       youtubeEl.style.opacity = '0';
