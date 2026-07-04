@@ -42,30 +42,32 @@ html, body {
    (título, controles) — todo o transporte vem do Controle via postMessage. */
 .yt-frame { border: none; background: #000; pointer-events: none; }
 
-/* Overlay de desbloqueio de áudio (autoplay) */
-.unlock {
-  position: fixed;
-  inset: 0;
-  z-index: 10;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, .8);
-  cursor: pointer;
+/* Escudo anti-UI do YouTube: cobre o player quando ele não está reproduzindo
+   (pausa/fim/carregamento desenham título, botão grande e telas do YouTube).
+   Entra INSTANTÂNEO (para vencer a UI) e sai com um fade curto. */
+.yt-shield {
+  background: #000;
+  object-fit: unset;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s ease;
 }
-.unlock.show { display: flex; }
+.yt-shield.on { opacity: 1; transition: none; }
 
-.unlock-box { text-align: center; color: #fff; font-family: system-ui, sans-serif; }
-.unlock-icon {
-  width: 88px;
-  height: 88px;
-  margin: 0 auto 1rem;
-  border-radius: 50%;
-  background: #fbc02d;
-  color: #1a1a1a;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+/* Aviso discreto de áudio bloqueado (a recuperação automática cuida do resto) */
+.audio-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  z-index: 10;
+  padding: .5rem 1rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, .65);
+  color: rgba(255, 255, 255, .92);
+  font-family: system-ui, sans-serif;
+  font-size: .95rem;
+  pointer-events: none;
+  white-space: nowrap;
 }
-.unlock-icon .msym { font-size: 48px; }
-.unlock-box p { font-size: 1.1rem; opacity: .9; }
+.audio-hint[hidden] { display: none; }

@@ -26,7 +26,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente.
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v2.9.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v3.0.**
 
 ---
 
@@ -461,10 +461,20 @@ Ciclo ao tocar no botão 🔁: `off → all → one → shuffle → off` (persis
 
 Interface mínima: wallpaper + layer de imagem + layer de vídeo + iframe do YouTube.
 
-Na primeira abertura exibe overlay de **unlock** — necessário para contornar a
-política de autoplay dos navegadores. Após o unlock, escuta o BroadcastChannel e
-repassa os comandos para `stage.handle()`. Ao inicializar, restaura o estado
-salvo (`current`) e envia `display-ready` para que o Controle reenvie o estado atual.
+Escuta o BroadcastChannel e repassa os comandos para `stage.handle()` (ou para
+a ponte do YouTube). Ao inicializar, restaura o estado salvo (`current`) e envia
+`display-ready` para que o Controle reenvie o estado atual.
+
+**Áudio sem toque (recuperação automática):** não há mais overlay de unlock
+bloqueante. Se a política de autoplay do navegador bloquear som sem gesto, o
+vídeo **começa mudo** (sempre permitido — o conteúdo aparece no telão sem
+toque) e a recuperação automática religa o áudio em retentativas (a cada ~5 s;
+para o stage testa `setMute(false)` e detecta se o navegador pausou; para o
+YouTube confere `infoMuted`/estado). Num **PWA instalado** o navegador costuma
+liberar autoplay com som — a primeira retentativa resolve. Enquanto bloqueado,
+um aviso discreto (`#audioHint`, pill na base da tela) fica visível; qualquer
+gesto real no Display (toque/tecla — `pointerdown`/`keydown` no documento)
+religa o áudio na hora. O comando `mute` do operador encerra a recuperação.
 
 ### YouTube (player oficial integrado)
 
@@ -486,8 +496,19 @@ https://www.youtube.com/embed/<id>?autoplay=1&enablejsapi=1&playsinline=1
   `pointer-events: none` (CSS) — toque/hover no telão nunca invoca overlays;
   todo o transporte vem do Controle. Ao **fim do vídeo** (estado 0), se nenhum
   `load` de avanço automático chegar em ~400 ms, o Display **derruba o player**
-  (fade até o wallpaper) antes da tela final de "vídeos relacionados" aparecer;
-  o Controle marca `ytEnded` e o ▶ recarrega o item (novo `load`).
+  antes da tela final de "vídeos relacionados" aparecer (o escudo cobre o
+  intervalo); o Controle marca `ytEnded` e o ▶ recarrega o item (novo `load`).
+- **Reveal só reproduzindo + escudo anti-UI**: o iframe fica **oculto**
+  (wallpaper em cena) até o primeiro estado 1 — os estados de carregamento/
+  cued do embed mostram título e botão grande, que nunca chegam ao telão
+  (safety: revela às cegas em 5 s apenas se o handshake não entregou nenhum
+  evento). O `#ytShield` (camada preta acima do iframe) cobre o player em
+  qualquer estado sem reprodução: ligado **preventivamente** nos comandos
+  `pause`/`seek` (instantâneo, para vencer a UI de pausa/spinner do YouTube)
+  e desligado no estado 1 (fade curto de 0,25 s). `stop`/`clear`/troca **não
+  pausam** o player antes do fade (pausa desenharia UI): o fade-out visual
+  corre com **rampa de volume** via `setVolume` (`ytRampVolume`) e o player é
+  derrubado ao final.
 - **Ponte postMessage (API de widget)**: o Display faz o handshake
   (`{event:'listening', channel:'widget'}` até a primeira resposta) e então:
   - **Comandos → player**: `play`/`pause` → `playVideo`/`pauseVideo`, `seek` →
@@ -498,16 +519,17 @@ https://www.youtube.com/embed/<id>?autoplay=1&enablejsapi=1&playsinline=1
     `display-status` (tempo, duração, playing, volume/mudo — inclusive mudanças
     feitas na UI nativa do player) e `media-ended` no estado 0 (fim), habilitando
     o **avanço automático de playlist** com itens YouTube.
-- **Transições**: com fade ativo, o player entra invisível e faz crossfade sobre
-  o wallpaper no `onReady` (timeout de segurança de 4 s se o handshake falhar);
-  `stop`/`clear`/troca esmaecem o player antes de derrubá-lo. `ytSeq` guarda
-  operações assíncronas obsoletas (equivalente ao `loadSeq` do stage).
+- **Transições**: com fade ativo, o reveal no estado 1 faz crossfade sobre o
+  wallpaper; `stop`/`clear`/troca esmaecem o player antes de derrubá-lo.
+  `ytSeq` guarda operações assíncronas obsoletas (equivalente ao `loadSeq`
+  do stage).
 - **Autoplay bloqueado**: se ~2,5 s após o `onReady` o player continua em
   unstarted/cued, o Display inicia **mudo** (`mutedFallback` — autoplay mudo é
-  sempre permitido, o vídeo aparece no telão) e exibe o overlay de unlock; o
-  toque envia `unMute`+`setVolume`+`playVideo`. O comando `mute` do operador
-  cancela o fallback. A primeira entrega de info também dispara `ytReady()`
-  (caso o evento `onReady` se perca no handshake).
+  sempre permitido, o vídeo aparece no telão sem toque) e entra na recuperação
+  automática de áudio (ver seção do Display). `yt.muted` guarda a intenção do
+  operador; `yt.infoMuted` reflete o estado real reportado pelo player. A
+  primeira entrega de info também dispara `ytReady()` (caso o evento `onReady`
+  se perca no handshake).
 - **No Controle**, a preview mostra apenas a **thumbnail** (nunca um segundo
   player); barra de progresso, ícone de play e avanço automático de itens
   YouTube são dirigidos pelo `display-status`/`media-ended` remotos
@@ -588,5 +610,7 @@ Service workers funcionam em `localhost`. Em produção é necessário HTTPS.
 3. Acessar **Controle** → instalar da mesma forma.
 4. Espelhar o **Display** via Miracast; operar pelo **Controle**.
 
-> O primeiro toque no Display libera o autoplay de áudio — fazer isso antes de
-> começar a operar pelo Controle.
+> Instalar o Display como PWA também libera o autoplay **com som** na maioria
+> dos casos (política de mídia do Chrome para apps instalados) — sem precisar
+> tocar na tela. Se o navegador ainda bloquear, o vídeo começa mudo e o áudio
+> é religado automaticamente (aviso discreto na base da tela enquanto isso).
