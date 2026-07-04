@@ -130,6 +130,9 @@ const preview = createStage({
 function cmd(obj) { AVDB.sendCommand(obj); preview.handle(obj); }
 
 function previewTick() {
+  // Itens YouTube tocam só no Display (player real): a UI de transporte é
+  // dirigida pelo display-status remoto, não pela preview local.
+  if (currentItem && currentItem.kind === 'youtube') return;
   playing = preview.isPlaying();
   playPauseEl.querySelector('.msym').textContent = playing ? ICON.pause : ICON.play;
   const dur = preview.getDuration();
@@ -540,6 +543,11 @@ async function send(id) {
   // re-render leve de estados ativos
   document.querySelectorAll('.lib-item,.row-item').forEach((el) => el.classList.toggle('active', el.dataset.id === id));
   renderNowPlaying();
+  if (currentItem && currentItem.kind === 'youtube') {
+    // Zera a UI de transporte; o display-status remoto assume em seguida.
+    seekEl.value = 0; seekEl.max = 0; seekEl.disabled = true;
+    curTimeEl.textContent = '0:00'; durTimeEl.textContent = '0:00';
+  }
 }
 
 function step(delta) {
@@ -1018,8 +1026,17 @@ function extractYouTubeId(url) {
   try {
     const u = new URL(cleanUrl[0]);
     let id = null;
-    if (u.hostname === 'youtu.be') id = decodeURIComponent(u.pathname.slice(1)).split(/[?& ]/)[0];
-    else if (u.hostname.includes('youtube.com')) id = u.searchParams.get('v');
+    if (u.hostname === 'youtu.be') {
+      id = u.pathname.slice(1).split('/')[0];
+    } else if (u.hostname.includes('youtube.com')) {
+      // watch?v=ID e também /shorts/ID, /live/ID, /embed/ID, /v/ID
+      id = u.searchParams.get('v');
+      if (!id) {
+        const m = u.pathname.match(/^\/(?:shorts|live|embed|v)\/([^/?#]+)/);
+        if (m) id = m[1];
+      }
+    }
+    if (id) id = decodeURIComponent(id);
     // Valida formato de ID do YouTube: exatamente 11 chars [A-Za-z0-9_-]
     return (id && /^[A-Za-z0-9_-]{11}$/.test(id)) ? id : null;
   } catch (_) {}
@@ -1194,12 +1211,31 @@ let seeking = false;
 seekEl.addEventListener('pointerdown', () => { seeking = true; });
 seekEl.addEventListener('pointerup', () => { seeking = false; });
 
-// A preview (local) comanda a barra de progresso e o avanço automático.
-// Aqui só tratamos a (re)sincronização de um display recém-aberto.
+// A preview (local) comanda a barra de progresso e o avanço automático das
+// mídias comuns. Itens YouTube tocam apenas no Display (player real): para
+// eles a UI de transporte e o avanço automático são dirigidos pelo status
+// remoto (display-status / media-ended). Também trata a (re)sincronização
+// de um display recém-aberto.
 AVDB.onCommand((msg) => {
   if (!msg) return;
   if (msg.type === 'display-ready' && currentId && playing) {
     AVDB.sendCommand({ type: 'load', mediaId: currentId, view, muted, volume });
+    return;
+  }
+  if (!currentItem || currentItem.kind !== 'youtube' || msg.mediaId !== currentId) return;
+  if (msg.type === 'display-status') {
+    playing = !!msg.playing;
+    playPauseEl.querySelector('.msym').textContent = playing ? ICON.pause : ICON.play;
+    const dur = (typeof msg.duration === 'number' && isFinite(msg.duration)) ? msg.duration : 0;
+    seekEl.disabled = !(dur > 0);
+    durTimeEl.textContent = fmtTime(dur);
+    if (!seeking) {
+      seekEl.max = dur > 0 ? dur : 0;
+      seekEl.value = msg.currentTime || 0;
+      curTimeEl.textContent = fmtTime(msg.currentTime);
+    }
+  } else if (msg.type === 'media-ended') {
+    autoAdvance();
   }
 });
 
