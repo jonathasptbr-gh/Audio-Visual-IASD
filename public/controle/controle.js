@@ -110,6 +110,7 @@ let opfsFolders = [];      // [{id, name, count, syncedAt, handle?}] — pastas 
 let folderQuery = '';      // filtro de busca dentro de pasta OPFS
 let syncBusy = false;      // sincronização em andamento
 let fadeCfg = { in: false, out: false, time: 1 }; // transições (persistido em state 'fade')
+let ytEnded = false;       // item YouTube chegou ao fim (Display derruba o player: ▶ recarrega)
 const scrollPos = {};      // posição de scroll por aba/pasta (sessão)
 
 // ===== preview (espelho do display) =====
@@ -539,6 +540,7 @@ async function send(id) {
   // Atualiza cache do item atual para renderNowPlaying funcionar mesmo fora da aba ativa.
   currentItem = [...plItems, ...libItems].find((m) => m.id === id) || currentItem;
   await persistCurrent();
+  ytEnded = false;
   cmd({ type: 'load', mediaId: id, view, muted, volume });
   // re-render leve de estados ativos
   document.querySelectorAll('.lib-item,.row-item').forEach((el) => el.classList.toggle('active', el.dataset.id === id));
@@ -1139,6 +1141,8 @@ fileEl.addEventListener('change', async () => {
 
 playPauseEl.addEventListener('click', () => {
   if (playing) { cmd({ type: 'pause' }); }
+  // YouTube que chegou ao fim: o Display já derrubou o player → recarrega
+  else if (ytEnded && currentItem && currentItem.kind === 'youtube' && currentId) { send(currentId); }
   else if (preview.getCurrent()) { cmd({ type: 'play' }); }
   else if (currentId) { send(currentId); } // após stop: recarrega e inicia do início
 });
@@ -1225,6 +1229,7 @@ AVDB.onCommand((msg) => {
   if (!currentItem || currentItem.kind !== 'youtube' || msg.mediaId !== currentId) return;
   if (msg.type === 'display-status') {
     playing = !!msg.playing;
+    if (playing) ytEnded = false;
     playPauseEl.querySelector('.msym').textContent = playing ? ICON.pause : ICON.play;
     const dur = (typeof msg.duration === 'number' && isFinite(msg.duration)) ? msg.duration : 0;
     seekEl.disabled = !(dur > 0);
@@ -1235,6 +1240,10 @@ AVDB.onCommand((msg) => {
       curTimeEl.textContent = fmtTime(msg.currentTime);
     }
   } else if (msg.type === 'media-ended') {
+    // O Display derruba o player ao fim (evita a tela de "vídeos
+    // relacionados" no telão); replay manual precisa de um novo load.
+    ytEnded = true;
+    playing = false;
     autoAdvance();
   }
 });

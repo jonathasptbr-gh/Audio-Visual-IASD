@@ -26,7 +26,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente.
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v2.8.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v2.9.**
 
 ---
 
@@ -473,13 +473,21 @@ fade do próprio stage — o wallpaper cobre o carregamento, que depende de rede
 e carrega o **embed padrão do youtube.com** no iframe `#youtube`:
 
 ```
-https://www.youtube.com/embed/<id>?autoplay=1&enablejsapi=1&playsinline=1&rel=0&origin=<origin>
+https://www.youtube.com/embed/<id>?autoplay=1&enablejsapi=1&playsinline=1
+  &controls=0&disablekb=1&fs=0&iv_load_policy=3&rel=0&origin=<origin>
 ```
 
 - Usa `www.youtube.com` (e **não** `youtube-nocookie.com`) de propósito: o embed
   padrão compartilha a sessão logada do navegador — conta **Premium** é detectada
   automaticamente (sem anúncios). O iframe tem
   `allow="autoplay; fullscreen; encrypted-media; picture-in-picture"`.
+- **Vídeo puro no telão**: `controls=0` + `disablekb=1` + `fs=0` +
+  `iv_load_policy=3` removem a UI do player, e o iframe tem
+  `pointer-events: none` (CSS) — toque/hover no telão nunca invoca overlays;
+  todo o transporte vem do Controle. Ao **fim do vídeo** (estado 0), se nenhum
+  `load` de avanço automático chegar em ~400 ms, o Display **derruba o player**
+  (fade até o wallpaper) antes da tela final de "vídeos relacionados" aparecer;
+  o Controle marca `ytEnded` e o ▶ recarrega o item (novo `load`).
 - **Ponte postMessage (API de widget)**: o Display faz o handshake
   (`{event:'listening', channel:'widget'}` até a primeira resposta) e então:
   - **Comandos → player**: `play`/`pause` → `playVideo`/`pauseVideo`, `seek` →
@@ -494,9 +502,12 @@ https://www.youtube.com/embed/<id>?autoplay=1&enablejsapi=1&playsinline=1&rel=0&
   o wallpaper no `onReady` (timeout de segurança de 4 s se o handshake falhar);
   `stop`/`clear`/troca esmaecem o player antes de derrubá-lo. `ytSeq` guarda
   operações assíncronas obsoletas (equivalente ao `loadSeq` do stage).
-- **Autoplay bloqueado**: se segundos após o `onReady` o player continua em
-  unstarted/cued, o overlay de unlock é exibido; o toque envia
-  `unMute`+`playVideo`.
+- **Autoplay bloqueado**: se ~2,5 s após o `onReady` o player continua em
+  unstarted/cued, o Display inicia **mudo** (`mutedFallback` — autoplay mudo é
+  sempre permitido, o vídeo aparece no telão) e exibe o overlay de unlock; o
+  toque envia `unMute`+`setVolume`+`playVideo`. O comando `mute` do operador
+  cancela o fallback. A primeira entrega de info também dispara `ytReady()`
+  (caso o evento `onReady` se perca no handshake).
 - **No Controle**, a preview mostra apenas a **thumbnail** (nunca um segundo
   player); barra de progresso, ícone de play e avanço automático de itens
   YouTube são dirigidos pelo `display-status`/`media-ended` remotos
