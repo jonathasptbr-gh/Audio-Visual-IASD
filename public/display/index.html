@@ -20,13 +20,11 @@
   <video id="video" class="layer" playsinline hidden></video>
   <iframe id="youtube" class="layer yt-frame" hidden
           allow="autoplay; fullscreen; encrypted-media; picture-in-picture"></iframe>
+  <!-- escudo anti-UI: cobre o player do YouTube quando ele não está reproduzindo -->
+  <div id="ytShield" class="layer yt-shield"></div>
 
-  <div id="unlock" class="unlock">
-    <div class="unlock-box">
-      <div class="unlock-icon"><span class="msym">&#xe037;</span></div>
-      <p>Toque para ativar o display</p>
-    </div>
-  </div>
+  <!-- aviso discreto quando o navegador bloqueia áudio sem gesto -->
+  <div id="audioHint" class="audio-hint" hidden>🔇 Sem áudio — toque na tela para liberar</div>
 
   <script src="../shared/db.js"></script>
   <script src="../shared/stage.js"></script>

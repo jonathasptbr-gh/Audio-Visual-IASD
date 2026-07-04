@@ -2,9 +2,8 @@ const wallpaperEl = document.getElementById('wallpaper');
 const imgEl = document.getElementById('img');
 const videoEl = document.getElementById('video');
 const youtubeEl = document.getElementById('youtube');
-const unlockEl = document.getElementById('unlock');
-
-let unlocked = false;
+const ytShieldEl = document.getElementById('ytShield');
+const audioHintEl = document.getElementById('audioHint');
 
 // Config de transições espelhada localmente (o stage guarda a dele própria)
 // para animar o player do YouTube, que vive fora do stage.
@@ -31,13 +30,105 @@ const stage = createStage({
   video: videoEl,
   forceMuted: false,
   onTime: sendStatus,
-  onBlocked: () => { if (!unlocked) unlockEl.classList.add('show'); },
+  onBlocked: () => {
+    // Autoplay com som bloqueado: segue tocando MUDO (sempre permitido — o
+    // vídeo aparece no telão sem toque) e a recuperação religa o áudio.
+    stage.setMute(true);
+    stage.play();
+    beginAudioRecovery();
+  },
   onEnded: () => {
     sendStatus();
     const cur = stage.getCurrent();
     AVDB.sendCommand({ type: 'media-ended', mediaId: cur ? cur.id : null });
   },
 });
+
+// ===== Áudio sem toque: recuperação automática =====
+// A política de autoplay dos navegadores pode bloquear som sem gesto do
+// usuário. Em vez de exigir um toque no telão, o vídeo começa mudo e o áudio
+// é religado sozinho em retentativas (num PWA instalado costuma liberar na
+// primeira). Um aviso discreto fica na base da tela enquanto isso; qualquer
+// toque/tecla no Display (se acontecer) resolve na hora.
+let audioBlocked = false;
+let audioRetryTimer = null;
+
+function beginAudioRecovery() {
+  if (audioBlocked) return;
+  audioBlocked = true;
+  audioHintEl.hidden = false;
+  scheduleAudioRetry(1500);
+}
+
+function endAudioRecovery() {
+  audioBlocked = false;
+  clearTimeout(audioRetryTimer);
+  audioHintEl.hidden = true;
+}
+
+function scheduleAudioRetry(ms) {
+  clearTimeout(audioRetryTimer);
+  audioRetryTimer = setTimeout(tryRestoreAudio, ms);
+}
+
+function tryRestoreAudio() {
+  if (!audioBlocked) return;
+  if (yt) {
+    if (yt.muted) { endAudioRecovery(); return; } // operador deixou mudo
+    ytPost('unMute');
+    ytPost('setVolume', [Math.round(yt.volume * 100)]);
+    ytPost('playVideo');
+    setTimeout(() => {
+      if (!audioBlocked) return;
+      if (yt && yt.info.playerState === 1 && yt.infoMuted === false) {
+        yt.mutedFallback = false;
+        endAudioRecovery();
+      } else {
+        if (yt && yt.info.playerState !== 1 && yt.info.playerState !== 3) {
+          ytPost('mute'); ytPost('playVideo'); // volta ao modo mudo tocando
+        }
+        scheduleAudioRetry(5000);
+      }
+    }, 900);
+  } else {
+    const cur = stage.getCurrent();
+    if (!cur || (cur.kind !== 'video' && cur.kind !== 'audio')) { endAudioRecovery(); return; }
+    if (videoEl.paused) { scheduleAudioRetry(5000); return; } // não está tocando agora
+    stage.setMute(false);
+    setTimeout(() => {
+      if (!audioBlocked) return;
+      if (videoEl.paused) {
+        // o navegador pausou ao desmutar: ainda bloqueado — segue mudo
+        stage.setMute(true);
+        stage.play();
+        scheduleAudioRetry(5000);
+      } else if (!videoEl.muted) {
+        endAudioRecovery();
+      } else {
+        scheduleAudioRetry(5000);
+      }
+    }, 350);
+  }
+}
+
+// Qualquer gesto real no Display (toque, tecla de um controle remoto) concede
+// a ativação do navegador — religa o áudio na hora.
+function onUserGesture() {
+  if (yt) {
+    if (yt.mutedFallback || (!yt.muted && yt.infoMuted)) {
+      yt.mutedFallback = false;
+      ytPost('unMute');
+      ytPost('setVolume', [Math.round(yt.volume * 100)]);
+      ytPost('playVideo');
+    }
+  } else if (audioBlocked) {
+    stage.setMute(false);
+    stage.play();
+  }
+  endAudioRecovery();
+}
+document.addEventListener('pointerdown', onUserGesture);
+document.addEventListener('keydown', onUserGesture);
 
 // ===== YouTube: player oficial (youtube.com/embed) com ponte postMessage =====
 // O embed padrão do youtube.com compartilha a sessão logada do navegador
@@ -85,17 +176,44 @@ function ytClearFadeStyle() {
   youtubeEl.style.opacity = '';
 }
 
-// Revela o player com fade-in (crossfade sobre o wallpaper), uma única vez.
+// Escudo anti-UI: cobre o player sempre que ele NÃO está reproduzindo —
+// estados unstarted/cued/paused/ended desenham chrome do YouTube (título,
+// botão grande, telas de pausa/fim) que não deve aparecer no telão.
+function ytShield(on) {
+  ytShieldEl.classList.toggle('on', !!on);
+}
+
+// Rampa de volume do player (fade sonoro) via setVolume, como no stage.
+function ytRampVolume(from, to, dur) {
+  if (!yt) return;
+  clearInterval(yt.rampTimer);
+  const steps = Math.max(2, Math.round(dur * 20));
+  let i = 0;
+  yt.rampTimer = setInterval(() => {
+    i++;
+    const v = Math.min(1, Math.max(0, from + (to - from) * (i / steps)));
+    ytPost('setVolume', [Math.round(v * 100)]);
+    if (i >= steps) clearInterval(yt.rampTimer);
+  }, (dur * 1000) / steps);
+}
+
+// Revela o player (crossfade sobre o wallpaper). Só é chamado quando o vídeo
+// está de fato REPRODUZINDO (estado 1) — antes disso o embed mostra título/
+// botão grande, que nunca devem aparecer no telão.
 function ytShow() {
   if (!yt || yt.shown || yt.view !== 'visual') return;
   yt.shown = true;
   clearTimeout(yt.showTimer);
-  youtubeEl.hidden = false;
   if (fadeCfg.in) {
+    youtubeEl.style.transition = 'none';
+    youtubeEl.style.opacity = '0';
+    youtubeEl.hidden = false;
+    void youtubeEl.offsetWidth;
     youtubeEl.style.transition = 'opacity ' + fadeCfg.time + 's ease';
     youtubeEl.style.opacity = '1';
     yt.fadeTimer = setTimeout(ytClearFadeStyle, fadeCfg.time * 1000 + 60);
   } else {
+    youtubeEl.hidden = false;
     ytClearFadeStyle();
   }
 }
@@ -104,23 +222,27 @@ function ytShow() {
 function ytDrop() {
   if (yt) {
     clearInterval(yt.listenTimer);
+    clearInterval(yt.rampTimer);
     clearTimeout(yt.showTimer);
     clearTimeout(yt.fadeTimer);
     clearTimeout(yt.blockTimer);
     clearTimeout(yt.endTimer);
     yt = null;
   }
+  ytShield(false);
   youtubeEl.hidden = true;
   youtubeEl.removeAttribute('src');
   ytClearFadeStyle();
 }
 
-// Esmaece o player visível (fade-out ativo); quem chama decide o que vem depois.
+// Esmaece o player visível (fade-out ativo) com rampa de volume; quem chama
+// decide o que vem depois. O vídeo NÃO é pausado (pausa desenharia a UI do
+// YouTube no meio do fade) — o destino é sempre derrubar o player.
 function ytFadeOutPlayer() {
   return new Promise((resolve) => {
-    if (!yt || !fadeCfg.out || youtubeEl.hidden) { resolve(); return; }
-    ytPost('pauseVideo');
+    if (!yt || !fadeCfg.out || youtubeEl.hidden || !yt.shown) { resolve(); return; }
     clearTimeout(yt.fadeTimer);
+    ytRampVolume(yt.volume, 0, fadeCfg.time);
     youtubeEl.style.transition = 'opacity ' + fadeCfg.time + 's ease';
     youtubeEl.style.opacity = '0';
     setTimeout(resolve, fadeCfg.time * 1000);
@@ -145,14 +267,16 @@ async function loadYoutube(rec, v, m, vol) {
     muted: !!m,
     volume: typeof vol === 'number' ? vol : 1,
     ready: false, shown: false, endedSent: false, mutedFallback: false,
+    infoMuted: undefined,
     info: { playerState: -1, currentTime: 0, duration: 0 },
-    listenTimer: null, showTimer: null, fadeTimer: null, blockTimer: null, endTimer: null,
+    listenTimer: null, showTimer: null, fadeTimer: null,
+    blockTimer: null, endTimer: null, rampTimer: null,
   };
   // Player "limpo": sem barra de controles (controls=0), sem anotações
   // (iv_load_policy=3), sem teclado (disablekb=1) e sem botão de fullscreen
   // (fs=0) — todo o transporte vem do Controle via ponte postMessage. Junto
-  // com pointer-events:none no iframe (CSS), nenhum overlay de UI aparece
-  // durante a reprodução: só o vídeo.
+  // com pointer-events:none no iframe (CSS) e o escudo anti-UI, nenhum
+  // overlay do YouTube aparece no telão: só o vídeo.
   const params = new URLSearchParams({
     autoplay: '1',
     enablejsapi: '1',
@@ -164,22 +288,16 @@ async function loadYoutube(rec, v, m, vol) {
     rel: '0',
     origin: location.origin,
   });
-  if (yt.view === 'visual') {
-    youtubeEl.hidden = false;
-    if (fadeCfg.in) {
-      // invisível até o onReady (ytShow faz o crossfade sobre o wallpaper)
-      youtubeEl.style.transition = 'none';
-      youtubeEl.style.opacity = '0';
-      yt.shown = false;
-    } else {
-      yt.shown = true; // sem fade: o player aparece assim que carregar
-    }
-    // segurança: revela mesmo se o handshake do widget falhar
-    yt.showTimer = setTimeout(() => { if (yt) { yt.shown = false; ytShow(); } }, 4000);
-  } else {
-    youtubeEl.hidden = true;
-    yt.shown = true;
-  }
+  // O iframe fica oculto (wallpaper em cena) até o vídeo REPRODUZIR — os
+  // estados de carregamento/cued do embed mostram título e botão grande.
+  youtubeEl.hidden = true;
+  ytClearFadeStyle();
+  // Segurança: se o handshake do widget falhar (nenhum evento chegou),
+  // revela mesmo assim — melhor player com UI do que telão vazio. Com o
+  // handshake vivo, quem revela é o estado 1 (reproduzindo).
+  yt.showTimer = setTimeout(() => {
+    if (yt && !yt.ready && yt.info.playerState === -1) ytShow();
+  }, 5000);
   youtubeEl.src = YT_ORIGIN + '/embed/' + encodeURIComponent(rec.youtubeId) + '?' + params.toString();
   yt.listenTimer = setInterval(ytListen, 350);
 }
@@ -198,10 +316,9 @@ function ytReady() {
   ytPost(yt.muted ? 'mute' : 'unMute');
   ytPost('setVolume', [Math.round(yt.volume * 100)]);
   ytPost('playVideo');
-  if (fadeCfg.in) ytShow();
   // Autoplay com som bloqueado pelo browser? (segundos após o ready ainda em
-  // unstarted/cued) → inicia MUDO (sempre permitido) para o vídeo aparecer no
-  // telão, e mostra o overlay de unlock; o toque libera o áudio.
+  // unstarted/cued) → inicia MUDO (sempre permitido: o vídeo aparece no
+  // telão sem toque) e deixa a recuperação automática religar o áudio.
   yt.blockTimer = setTimeout(() => {
     if (!yt) return;
     const st = yt.info.playerState;
@@ -209,7 +326,7 @@ function ytReady() {
       yt.mutedFallback = true;
       ytPost('mute');
       ytPost('playVideo');
-      if (!yt.muted) unlockEl.classList.add('show');
+      if (!yt.muted) beginAudioRecovery();
     }
   }, 2500);
 }
@@ -217,18 +334,20 @@ function ytReady() {
 function ytState(st) {
   if (!yt) return;
   yt.info.playerState = st;
-  if (st === 1) { // tocando: garante o reveal e libera replays de 'ended'
+  if (st === 1) { // reproduzindo: player limpo — revela e tira o escudo
     ytShow();
-    // com fallback mudo o overlay permanece — o toque é que libera o áudio
-    if (!yt.mutedFallback) unlockEl.classList.remove('show');
+    ytShield(false);
     yt.endedSent = false;
+  } else if (st === -1 || st === 0 || st === 2 || st === 5) {
+    // sem reprodução: o embed desenha UI (título/botão/telas de pausa e fim)
+    ytShield(true);
   }
   if (st === 0 && !yt.endedSent) { // fim do vídeo → avanço de playlist no Controle
     yt.endedSent = true;
     AVDB.sendCommand({ type: 'media-ended', mediaId: yt.mediaId });
     // Sem 'load' de avanço automático em seguida (repeat off / Controle
-    // fechado), derruba o player antes da tela final de "vídeos relacionados"
-    // aparecer no telão — fim natural volta ao wallpaper, como no stage.
+    // fechado), derruba o player — a tela final de "vídeos relacionados"
+    // nunca chega ao telão (o escudo cobre o intervalo).
     const cur = yt;
     cur.endTimer = setTimeout(() => {
       if (yt === cur && yt.info.playerState === 0) stopYoutube();
@@ -255,10 +374,10 @@ window.addEventListener('message', (e) => {
     const info = data.info || {};
     if (typeof info.currentTime === 'number') yt.info.currentTime = info.currentTime;
     if (typeof info.duration === 'number') yt.info.duration = info.duration;
-    if (typeof info.muted === 'boolean') yt.muted = info.muted;
+    if (typeof info.muted === 'boolean') yt.infoMuted = info.muted;
     if (typeof info.volume === 'number') yt.volume = info.volume / 100;
     if (typeof info.playerState === 'number') ytState(info.playerState);
-    if (!yt) return; // ytState pode ter derrubado o player num caso extremo
+    if (!yt) return;
     ytStatus();
   } else if (data.event === 'onStateChange') {
     ytState(typeof data.info === 'number' ? data.info : -1);
@@ -269,21 +388,32 @@ window.addEventListener('message', (e) => {
 // Transporte/volume/view com YouTube ativo, via ponte postMessage.
 function ytHandle(cmd) {
   switch (cmd.type) {
-    case 'play': ytPost('playVideo'); break;
-    case 'pause': ytPost('pauseVideo'); break;
+    case 'play':
+      ytPost('playVideo'); // escudo sai quando o estado 1 chegar
+      break;
+    case 'pause':
+      // escudo ANTES do pause: a UI de pausa do YouTube nunca aparece
+      ytShield(true);
+      ytPost('pauseVideo');
+      break;
     case 'seek':
-      if (isFinite(cmd.time)) ytPost('seekTo', [cmd.time, true]);
+      if (isFinite(cmd.time)) {
+        // escudo durante o buffering do seek (spinner/possível chrome)
+        ytShield(true);
+        ytPost('seekTo', [cmd.time, true]);
+      }
       break;
     case 'volume':
       if (typeof cmd.volume === 'number') {
         yt.volume = cmd.volume;
+        clearInterval(yt.rampTimer); // operador manda: cancela rampa em curso
         ytPost('setVolume', [Math.round(cmd.volume * 100)]);
       }
       break;
     case 'mute':
       yt.muted = !!cmd.muted;
       yt.mutedFallback = false; // operador assumiu o controle do mudo
-      unlockEl.classList.remove('show');
+      if (yt.muted) endAudioRecovery();
       ytPost(yt.muted ? 'mute' : 'unMute');
       break;
     case 'view': ytSetView(cmd.view === 'wallpaper' ? 'wallpaper' : 'visual'); break;
@@ -305,9 +435,11 @@ async function ytSetView(v) {
       if (yt !== cur || yt.view !== 'wallpaper') return;
     }
     youtubeEl.hidden = true;
+    ytShield(false); // o escudo não pode cobrir o wallpaper
     ytClearFadeStyle();
-  } else {
+  } else if (cur.shown) {
     youtubeEl.hidden = false;
+    ytShield(cur.info.playerState !== 1 && cur.info.playerState !== 3);
     if (fadeCfg.in) {
       youtubeEl.style.transition = 'none';
       youtubeEl.style.opacity = '0';
@@ -317,6 +449,7 @@ async function ytSetView(v) {
       yt.fadeTimer = setTimeout(ytClearFadeStyle, fadeCfg.time * 1000 + 60);
     }
   }
+  // se o player ainda não foi revelado (nunca tocou), ytShow cuida depois
   ytStatus();
 }
 
@@ -358,22 +491,6 @@ AVDB.onCommand(async (cmd) => {
   if (yt) { ytHandle(cmd); return; }
 
   stage.handle(cmd);
-});
-
-unlockEl.addEventListener('click', () => {
-  unlocked = true;
-  unlockEl.classList.remove('show');
-  if (yt) {
-    // libera o áudio do fallback mudo (a menos que o operador tenha mutado)
-    if (yt.mutedFallback || !yt.muted) {
-      yt.mutedFallback = false;
-      ytPost('unMute');
-      ytPost('setVolume', [Math.round(yt.volume * 100)]);
-    }
-    ytPost('playVideo');
-  } else {
-    stage.play();
-  }
 });
 
 async function restore() {
