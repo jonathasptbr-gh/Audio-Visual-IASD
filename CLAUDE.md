@@ -26,7 +26,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente.
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v2.7.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v2.8.**
 
 ---
 
@@ -438,8 +438,10 @@ arquivos no campo `media`). O SW intercepta o POST, grava `pending-share` no IDB
 e redireciona para o app; `checkPendingShare()` processa no init:
 
 - **Arquivos** → importados como `addMedia` (com thumbnail).
-- **URL do YouTube** (youtu.be / youtube.com, ID de 11 chars validado) →
-  `addUrlMedia` com `kind:'youtube'`, `youtubeId` e thumb `hqdefault.jpg`.
+- **URL do YouTube** (youtu.be, youtube.com — `watch?v=`, `/shorts/`, `/live/`,
+  `/embed/`, `/v/`; ID de 11 chars validado) → `addUrlMedia` com
+  `kind:'youtube'`, `youtubeId` e thumb `hqdefault.jpg` — cai direto no
+  **Cronograma** (`imports`), pronto para tocar.
 - **Outras URLs** → `kind` detectado pela extensão (`video`/`audio`/`image`/`url`).
 
 ### Modos de repetição
@@ -464,11 +466,42 @@ política de autoplay dos navegadores. Após o unlock, escuta o BroadcastChannel
 repassa os comandos para `stage.handle()`. Ao inicializar, restaura o estado
 salvo (`current`) e envia `display-ready` para que o Controle reenvie o estado atual.
 
-**YouTube:** ao receber `load` de um item `kind='youtube'`, o Display limpa o stage
-e carrega `https://www.youtube-nocookie.com/embed/<id>?autoplay=1&rel=0&modestbranding=1`
-no iframe `#youtube`. Enquanto o YouTube está ativo, comandos de transporte/volume
-são **ignorados** (não há ponte para dentro do iframe); apenas `load`, `stop` e
-`clear` funcionam (os dois últimos removem o iframe).
+### YouTube (player oficial integrado)
+
+Ao receber `load` de um item `kind='youtube'`, o Display limpa o stage (com o
+fade do próprio stage — o wallpaper cobre o carregamento, que depende de rede)
+e carrega o **embed padrão do youtube.com** no iframe `#youtube`:
+
+```
+https://www.youtube.com/embed/<id>?autoplay=1&enablejsapi=1&playsinline=1&rel=0&origin=<origin>
+```
+
+- Usa `www.youtube.com` (e **não** `youtube-nocookie.com`) de propósito: o embed
+  padrão compartilha a sessão logada do navegador — conta **Premium** é detectada
+  automaticamente (sem anúncios). O iframe tem
+  `allow="autoplay; fullscreen; encrypted-media; picture-in-picture"`.
+- **Ponte postMessage (API de widget)**: o Display faz o handshake
+  (`{event:'listening', channel:'widget'}` até a primeira resposta) e então:
+  - **Comandos → player**: `play`/`pause` → `playVideo`/`pauseVideo`, `seek` →
+    `seekTo`, `volume` → `setVolume(0–100)`, `mute` → `mute`/`unMute`, `view` →
+    esconde/revela o iframe com fade (o iframe permanece carregado: áudio
+    continua com o visual desligado).
+  - **Player → sistema**: `infoDelivery`/`onStateChange` alimentam
+    `display-status` (tempo, duração, playing, volume/mudo — inclusive mudanças
+    feitas na UI nativa do player) e `media-ended` no estado 0 (fim), habilitando
+    o **avanço automático de playlist** com itens YouTube.
+- **Transições**: com fade ativo, o player entra invisível e faz crossfade sobre
+  o wallpaper no `onReady` (timeout de segurança de 4 s se o handshake falhar);
+  `stop`/`clear`/troca esmaecem o player antes de derrubá-lo. `ytSeq` guarda
+  operações assíncronas obsoletas (equivalente ao `loadSeq` do stage).
+- **Autoplay bloqueado**: se segundos após o `onReady` o player continua em
+  unstarted/cued, o overlay de unlock é exibido; o toque envia
+  `unMute`+`playVideo`.
+- **No Controle**, a preview mostra apenas a **thumbnail** (nunca um segundo
+  player); barra de progresso, ícone de play e avanço automático de itens
+  YouTube são dirigidos pelo `display-status`/`media-ended` remotos
+  (`previewTick` ignora itens youtube). YouTube só toca com o Display aberto
+  e com rede.
 
 ---
 

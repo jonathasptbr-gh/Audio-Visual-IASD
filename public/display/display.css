@@ -37,7 +37,8 @@ html, body {
   z-index: 1;
 }
 
-.yt-frame { border: none; }
+/* Fundo preto evita flash branco enquanto o player do YouTube carrega */
+.yt-frame { border: none; background: #000; }
 
 /* Overlay de desbloqueio de áudio (autoplay) */
 .unlock {
