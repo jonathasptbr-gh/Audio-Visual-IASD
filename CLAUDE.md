@@ -21,12 +21,17 @@ git push origin main
 
 ## Regras de desenvolvimento
 
+- **Contexto de execução fixo: os dois apps SEMPRE rodam como PWA instalado,
+  sem exceções, e sempre em dispositivos móveis (Android).** Não projetar nem
+  otimizar para uso em aba de navegador ou desktop; decisões de UX/autoplay/
+  layout assumem PWA mobile instalado (Display espelhado via Miracast,
+  Controle no celular do operador).
 - Nunca perder funcionalidades existentes ao refatorar.
 - Ao alterar assets estáticos, incrementar a versão nos dois `sw.js` **usando o mesmo número da versão visual** (ex: `controle-v2.6`, `display-v2.6`).
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente.
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v3.1.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v3.2.**
 
 ---
 
@@ -202,6 +207,7 @@ Todos os comandos são objetos com um campo `type`.
 | `view` | `view` (`'visual'`\|`'wallpaper'`) | Alterna entre exibir a mídia ou o wallpaper (com fade, se ativo) |
 | `clear` | — | Limpa o Display (volta ao wallpaper, zera `currentId`; com fade-out, se ativo) |
 | `fade` | `fadeIn, fadeOut, time` | Atualiza ao vivo a configuração de transições do stage |
+| `audio-retry` | — | Retentativa imediata de liberar o áudio bloqueado (botão de mudo do Controle no estado "sem áudio") |
 
 #### Display → Controle
 
@@ -472,10 +478,13 @@ toque) e a recuperação automática religa o áudio em retentativas (a cada ~5 
 para o stage testa `setMute(false)` e detecta se o navegador pausou; para o
 YouTube confere `infoMuted`/estado). Num **PWA instalado** o navegador costuma
 liberar autoplay com som — a primeira retentativa resolve. **Nada é exibido no
-telão**: o estado vai no campo `audioBlocked` do `display-status` e o
-**Controle** avisa o operador via toast (bloqueio e recuperação). Qualquer
-gesto real no Display (toque/tecla — `pointerdown`/`keydown` no documento)
-religa o áudio na hora. O comando `mute` do operador encerra a recuperação.
+telão**: o estado vai no campo `audioBlocked` do `display-status`; no
+**Controle**, além do toast, o **botão de mudo do mixer** vira indicador
+(estado `.blocked`, âmbar pulsante, ícone de volume off) e **atalho**: o
+clique envia `audio-retry` (retentativa imediata) em vez de alternar o mudo.
+Qualquer gesto real no Display (toque/tecla — `pointerdown`/`keydown` no
+documento) religa o áudio na hora. O comando `mute` do operador encerra a
+recuperação.
 
 ### YouTube (player oficial integrado)
 

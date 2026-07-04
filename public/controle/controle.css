@@ -117,6 +117,16 @@ body {
 .mixer .ctl-btn { width: 100%; padding: .4rem 0; }
 .view-btn.view-blocked { border-color: var(--danger); background: rgba(229, 57, 53, .22); color: #ffcdd2; }
 .mute-btn.muted { border-color: var(--danger); background: rgba(229, 57, 53, .22); color: #ffcdd2; }
+/* Sem áudio no Display (bloqueio do navegador): indicador âmbar pulsante;
+   o clique pede a liberação do som (comando audio-retry). */
+.mute-btn.blocked {
+  border-color: #fbc02d; background: rgba(251, 192, 45, .18); color: #ffe082;
+  animation: mute-blocked-pulse 1.2s ease-in-out infinite;
+}
+@keyframes mute-blocked-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .45; }
+}
 
 /* ---------- Conteúdo principal ---------- */
 main {

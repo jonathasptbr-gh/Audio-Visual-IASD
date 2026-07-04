@@ -493,6 +493,12 @@ AVDB.onCommand(async (cmd) => {
     return;
   }
 
+  // Operador pediu (botão de mudo do mixer): retentativa imediata de áudio.
+  if (cmd.type === 'audio-retry') {
+    if (audioBlocked) tryRestoreAudio();
+    return;
+  }
+
   if (yt) { ytHandle(cmd); return; }
 
   stage.handle(cmd);
