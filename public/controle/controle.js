@@ -284,8 +284,15 @@ function rememberScroll() {
 function renderControls() {
   viewToggleEl.querySelector('.msym').textContent = view === 'visual' ? ICON.viewOn : ICON.viewOff;
   viewToggleEl.classList.toggle('view-blocked', view === 'wallpaper');
-  muteToggleEl.querySelector('.msym').textContent = muted ? ICON.volOff : ICON.volOn;
+  // 3 estados do botão de mudo: normal | mudo (operador) | sem áudio no
+  // Display (navegador bloqueou — tocando mudo; clique tenta liberar).
+  const blocked = displayAudioBlocked && !muted;
+  muteToggleEl.querySelector('.msym').textContent = (muted || blocked) ? ICON.volOff : ICON.volOn;
   muteToggleEl.classList.toggle('muted', muted);
+  muteToggleEl.classList.toggle('blocked', blocked);
+  muteToggleEl.title = blocked
+    ? 'Sem áudio no Display — toque para tentar liberar'
+    : 'Mudo (liga/desliga)';
   if (!volSeeking) volSliderEl.value = Math.round(volume * 100);
 }
 
@@ -599,6 +606,13 @@ async function setView(v) {
   renderControls();
 }
 async function toggleMute() {
+  // Sem áudio no Display (bloqueio do navegador, não é mudo do operador):
+  // o clique vira "liberar o som" — pede uma retentativa imediata.
+  if (displayAudioBlocked && !muted) {
+    AVDB.sendCommand({ type: 'audio-retry' });
+    flash('Tentando liberar o áudio no Display…');
+    return;
+  }
   muted = !muted; await persistCurrent();
   cmd({ type: 'mute', muted });
   renderControls();
@@ -1228,13 +1242,15 @@ AVDB.onCommand((msg) => {
     return;
   }
   // Áudio bloqueado no Display (política de autoplay): avisa o OPERADOR —
-  // nada é exibido no telão; a recuperação automática roda no Display.
+  // nada é exibido no telão; a recuperação automática roda no Display e o
+  // botão de mudo do mixer vira indicador/atalho para liberar.
   if (msg.type === 'display-status' && typeof msg.audioBlocked === 'boolean'
       && msg.audioBlocked !== displayAudioBlocked) {
     displayAudioBlocked = msg.audioBlocked;
     flash(displayAudioBlocked
       ? 'Display sem áudio (navegador) — recuperando automaticamente…'
       : 'Áudio do Display ativo');
+    renderControls();
   }
   if (!currentItem || currentItem.kind !== 'youtube' || msg.mediaId !== currentId) return;
   if (msg.type === 'display-status') {
