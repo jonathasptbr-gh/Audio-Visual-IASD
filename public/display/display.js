@@ -107,6 +107,7 @@ function ytDrop() {
     clearTimeout(yt.showTimer);
     clearTimeout(yt.fadeTimer);
     clearTimeout(yt.blockTimer);
+    clearTimeout(yt.endTimer);
     yt = null;
   }
   youtubeEl.hidden = true;
@@ -143,14 +144,23 @@ async function loadYoutube(rec, v, m, vol) {
     view: v === 'wallpaper' ? 'wallpaper' : 'visual',
     muted: !!m,
     volume: typeof vol === 'number' ? vol : 1,
-    ready: false, shown: false, endedSent: false,
+    ready: false, shown: false, endedSent: false, mutedFallback: false,
     info: { playerState: -1, currentTime: 0, duration: 0 },
-    listenTimer: null, showTimer: null, fadeTimer: null, blockTimer: null,
+    listenTimer: null, showTimer: null, fadeTimer: null, blockTimer: null, endTimer: null,
   };
+  // Player "limpo": sem barra de controles (controls=0), sem anotações
+  // (iv_load_policy=3), sem teclado (disablekb=1) e sem botão de fullscreen
+  // (fs=0) — todo o transporte vem do Controle via ponte postMessage. Junto
+  // com pointer-events:none no iframe (CSS), nenhum overlay de UI aparece
+  // durante a reprodução: só o vídeo.
   const params = new URLSearchParams({
     autoplay: '1',
     enablejsapi: '1',
     playsinline: '1',
+    controls: '0',
+    disablekb: '1',
+    fs: '0',
+    iv_load_policy: '3',
     rel: '0',
     origin: location.origin,
   });
@@ -189,13 +199,19 @@ function ytReady() {
   ytPost('setVolume', [Math.round(yt.volume * 100)]);
   ytPost('playVideo');
   if (fadeCfg.in) ytShow();
-  // Autoplay bloqueado pelo browser? (não começou a tocar segundos após o
-  // ready) → overlay de unlock, como no stage.
+  // Autoplay com som bloqueado pelo browser? (segundos após o ready ainda em
+  // unstarted/cued) → inicia MUDO (sempre permitido) para o vídeo aparecer no
+  // telão, e mostra o overlay de unlock; o toque libera o áudio.
   yt.blockTimer = setTimeout(() => {
-    if (yt && !unlocked && (yt.info.playerState === -1 || yt.info.playerState === 5)) {
-      unlockEl.classList.add('show');
+    if (!yt) return;
+    const st = yt.info.playerState;
+    if (st === -1 || st === 5) {
+      yt.mutedFallback = true;
+      ytPost('mute');
+      ytPost('playVideo');
+      if (!yt.muted) unlockEl.classList.add('show');
     }
-  }, 3000);
+  }, 2500);
 }
 
 function ytState(st) {
@@ -203,12 +219,20 @@ function ytState(st) {
   yt.info.playerState = st;
   if (st === 1) { // tocando: garante o reveal e libera replays de 'ended'
     ytShow();
-    unlockEl.classList.remove('show');
+    // com fallback mudo o overlay permanece — o toque é que libera o áudio
+    if (!yt.mutedFallback) unlockEl.classList.remove('show');
     yt.endedSent = false;
   }
   if (st === 0 && !yt.endedSent) { // fim do vídeo → avanço de playlist no Controle
     yt.endedSent = true;
     AVDB.sendCommand({ type: 'media-ended', mediaId: yt.mediaId });
+    // Sem 'load' de avanço automático em seguida (repeat off / Controle
+    // fechado), derruba o player antes da tela final de "vídeos relacionados"
+    // aparecer no telão — fim natural volta ao wallpaper, como no stage.
+    const cur = yt;
+    cur.endTimer = setTimeout(() => {
+      if (yt === cur && yt.info.playerState === 0) stopYoutube();
+    }, 400);
   }
 }
 
@@ -224,6 +248,10 @@ window.addEventListener('message', (e) => {
   if (data.event === 'onReady') {
     ytReady();
   } else if (data.event === 'initialDelivery' || data.event === 'infoDelivery') {
+    // Se o onReady se perdeu (handshake tardio), a primeira entrega de info
+    // também confirma o player pronto — garante o playVideo do autoplay.
+    ytReady();
+    if (!yt) return;
     const info = data.info || {};
     if (typeof info.currentTime === 'number') yt.info.currentTime = info.currentTime;
     if (typeof info.duration === 'number') yt.info.duration = info.duration;
@@ -254,6 +282,8 @@ function ytHandle(cmd) {
       break;
     case 'mute':
       yt.muted = !!cmd.muted;
+      yt.mutedFallback = false; // operador assumiu o controle do mudo
+      unlockEl.classList.remove('show');
       ytPost(yt.muted ? 'mute' : 'unMute');
       break;
     case 'view': ytSetView(cmd.view === 'wallpaper' ? 'wallpaper' : 'visual'); break;
@@ -334,7 +364,12 @@ unlockEl.addEventListener('click', () => {
   unlocked = true;
   unlockEl.classList.remove('show');
   if (yt) {
-    if (!yt.muted) ytPost('unMute');
+    // libera o áudio do fallback mudo (a menos que o operador tenha mutado)
+    if (yt.mutedFallback || !yt.muted) {
+      yt.mutedFallback = false;
+      ytPost('unMute');
+      ytPost('setVolume', [Math.round(yt.volume * 100)]);
+    }
     ytPost('playVideo');
   } else {
     stage.play();

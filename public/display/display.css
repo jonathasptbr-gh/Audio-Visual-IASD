@@ -37,8 +37,10 @@ html, body {
   z-index: 1;
 }
 
-/* Fundo preto evita flash branco enquanto o player do YouTube carrega */
-.yt-frame { border: none; background: #000; }
+/* Fundo preto evita flash branco enquanto o player do YouTube carrega.
+   pointer-events:none: toques/hover no telão nunca invocam a UI do player
+   (título, controles) — todo o transporte vem do Controle via postMessage. */
+.yt-frame { border: none; background: #000; pointer-events: none; }
 
 /* Overlay de desbloqueio de áudio (autoplay) */
 .unlock {
