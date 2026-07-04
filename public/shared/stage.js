@@ -66,31 +66,60 @@
 
     // Esmaece a mídia visível; resolve ao terminar (imediatamente se fade-out
     // desligado ou nada visível). toWallpaper=true revela o wallpaper por trás
-    // (saída: stop/clear/view); false esmaece até o preto (troca de mídia).
-    function runFadeOut(toWallpaper) {
+    // (saída: stop/clear/view/ended); false esmaece até o preto (troca de mídia).
+    // rampAudio=false mantém o áudio intocado (view→wallpaper: só o visual sai).
+    function runFadeOut(toWallpaper, rampAudio) {
       return new Promise((resolve) => {
         const el = fadeOut ? visibleEl() : null;
         if (!el) { resolve(); return; }
         // um fade-in recém-terminado não pode limpar os estilos no meio deste fade-out
         clearTimeout(fadeCleanupTimer);
-        if (toWallpaper) wallpaper.style.display = 'flex';
+        // Fixa o fundo correto atrás da mídia que esmaece — inclusive se um
+        // crossfade de entrada interrompido deixou o wallpaper à mostra, a
+        // troca de mídia esmaece até o preto, nunca até o wallpaper.
+        wallpaper.style.display = toWallpaper ? 'flex' : 'none';
         el.style.transition = 'opacity ' + fadeTime + 's ease';
         el.style.opacity = '0';
-        if (el === video && !video.muted) rampVolume(video.volume, 0, fadeTime);
+        if (rampAudio !== false && el === video && !video.muted) rampVolume(video.volume, 0, fadeTime);
         setTimeout(resolve, fadeTime * 1000);
       });
     }
 
-    // Revela `el` com fade (deve ser chamado depois de applyView deixá-lo visível).
-    function applyFadeIn(el) {
+    // Fade-in em duas fases: prepFadeIn fixa a mídia invisível (antes de
+    // esperar decode/primeiro frame); startFadeIn dispara a transição.
+    function prepFadeIn(el) {
       clearTimeout(fadeCleanupTimer);
-      if (!fadeIn) { clearFadeStyle(el); return; }
       el.style.transition = 'none';
       el.style.opacity = '0';
       void el.offsetWidth; // força reflow para a transição valer
+    }
+    function startFadeIn(el) {
       el.style.transition = 'opacity ' + fadeTime + 's ease';
       el.style.opacity = '1';
-      fadeCleanupTimer = setTimeout(() => clearFadeStyle(el), fadeTime * 1000 + 60);
+      // pós-fade: limpa estilos e re-esconde o wallpaper (fim do crossfade)
+      fadeCleanupTimer = setTimeout(() => { clearFadeStyle(el); applyView(); }, fadeTime * 1000 + 60);
+    }
+
+    // Resolve quando o elemento tem conteúdo pronto para pintar (imagem
+    // decodificada / primeiro frame do vídeo). Sem isso o fade-in corre sobre
+    // a camada preta e o conteúdo "pipoca" no meio da transição. Timeout de
+    // segurança para mídia que demora/falha em carregar.
+    function mediaReady(el) {
+      return new Promise((resolve) => {
+        let done = false;
+        let t = null;
+        const finish = () => { if (!done) { done = true; clearTimeout(t); resolve(); } };
+        t = setTimeout(finish, 2500);
+        if (el === img) {
+          if (img.complete && img.naturalWidth) finish();
+          else if (img.decode) img.decode().then(finish, finish);
+          else img.addEventListener('load', finish, { once: true });
+        } else if (video.readyState >= 2) {
+          finish();
+        } else {
+          video.addEventListener('loadeddata', finish, { once: true });
+        }
+      });
     }
 
     function applyView() {
@@ -123,6 +152,9 @@
       await runFadeOut(true);
       if (seq !== loadSeq) return;
       stop();
+      // 'stop' volta ao wallpaper (protocolo): ended tira a mídia de cena
+      // mantendo current — play() recarrega a visão e reproduz do início.
+      ended = true;
       clearFadeStyle(video); clearFadeStyle(img);
       if (!forceMuted) video.volume = volume;
       applyView();
@@ -130,23 +162,27 @@
     function seek(t) { if (isFinite(t)) video.currentTime = t; }
     function setView(v) { view = v; applyView(); }
     // Troca de view com transição: visual→wallpaper esmaece; wallpaper→visual revela.
+    // Só o VISUAL transiciona — o áudio (que continua tocando com o visual
+    // desligado) fica intocado, sem rampa que terminaria num salto de volume.
     async function setViewFaded(v) {
       if (v === view) return;
       if (v === 'wallpaper') {
         const seq = ++loadSeq;
-        await runFadeOut(true);
+        await runFadeOut(true, false);
         if (seq !== loadSeq) return;
         view = v;
         clearFadeStyle(video); clearFadeStyle(img);
-        if (!forceMuted) video.volume = volume;
         applyView();
       } else {
         view = v;
         applyView();
         const el = visibleEl();
-        if (el) {
-          applyFadeIn(el);
-          if (el === video && !video.muted && isPlayingNow()) rampVolume(0, volume, fadeTime);
+        if (el && fadeIn) {
+          // Crossfade: o wallpaper permanece por baixo enquanto a mídia entra;
+          // o cleanup pós fade-in o esconde (applyView).
+          prepFadeIn(el);
+          wallpaper.style.display = 'flex';
+          startFadeIn(el);
         }
       }
     }
@@ -177,6 +213,9 @@
       // Troca de mídia: esmaece a atual até o PRETO (wallpaper continua oculto);
       // a próxima entra em seguida com fade-in a partir do preto.
       const willFade = fadeOut && !!visibleEl();
+      // Entrada a partir do wallpaper (nada em cena): o fade-in vira um
+      // crossfade — o wallpaper fica por baixo até a mídia cobrir a tela.
+      const fromWallpaper = wallpaper.style.display !== 'none' && !willFade;
       await runFadeOut(false);
       if (seq !== loadSeq) return;
       ended = false;
@@ -197,6 +236,9 @@
 
       img.hidden = true; img.removeAttribute('src');
       video.pause(); video.removeAttribute('src'); video.load();
+      // Nenhum estilo de fade anterior pode sobrar na mídia que vai entrar
+      // (ex: opacity 0 de um fade-in descartado com a config já alterada).
+      clearFadeStyle(video); clearFadeStyle(img);
 
       if (rec.kind === 'youtube') {
         // YouTube is handled externally; stage shows thumbnail in img if available
@@ -239,7 +281,14 @@
       // Fade de entrada da nova mídia (visual + volume quando aplicável).
       const shown = visibleEl();
       if (shown && fadeIn) {
-        applyFadeIn(shown);
+        prepFadeIn(shown);
+        // Saída do wallpaper com fade: ele permanece visível por baixo durante
+        // o crossfade; o cleanup pós fade-in o esconde (applyView).
+        if (fromWallpaper) wallpaper.style.display = 'flex';
+        // Só inicia a transição com a mídia pronta para pintar.
+        await mediaReady(shown);
+        if (seq !== loadSeq) return;
+        startFadeIn(shown);
         if (shown === video && !video.muted) rampVolume(0, volume, fadeTime);
       }
     }
@@ -248,6 +297,7 @@
       current = null;
       ended = false;
       clearInterval(rampTimer);
+      clearTimeout(fadeCleanupTimer);
       img.hidden = true; img.removeAttribute('src');
       clearFadeStyle(video); clearFadeStyle(img);
       video.pause(); video.removeAttribute('src'); video.load();
@@ -279,11 +329,24 @@
       }
     }
 
-    // Reset to wallpaper on end; opts.onEnded fires after so it can decide what to play next.
-    video.addEventListener('ended', () => {
-      ended = true;
-      video.currentTime = 0;
-      applyView();
+    // Fim natural → wallpaper. Com fade-out ativo, esmaece até o wallpaper;
+    // o 'load' do avanço automático da playlist (disparado por onEnded, logo
+    // abaixo) interrompe o fade via loadSeq e assume a transição — assim o
+    // wallpaper NÃO pisca entre os itens da playlist.
+    video.addEventListener('ended', async () => {
+      if (fadeOut && visibleEl() === video) {
+        const seq = ++loadSeq;
+        await runFadeOut(true, false);
+        if (seq !== loadSeq) return;
+        ended = true;
+        video.currentTime = 0;
+        clearFadeStyle(video);
+        applyView();
+      } else {
+        ended = true;
+        video.currentTime = 0;
+        applyView();
+      }
     });
 
     if (opts.onEnded) video.addEventListener('ended', opts.onEnded);

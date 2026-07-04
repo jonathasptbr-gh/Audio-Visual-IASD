@@ -26,7 +26,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente.
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v2.6.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v2.7.**
 
 ---
 
@@ -255,26 +255,39 @@ fadeIn/fadeOut/fadeTime → transições (definidas via comando 'fade')
 ### Transições (fade)
 
 Quando ativas, aplicam-se a **entrada, saída e troca** de mídia
-(`runFadeOut(toWallpaper)` distingue os dois destinos):
+(`runFadeOut(toWallpaper, rampAudio)` distingue destino e tratamento do áudio):
 
 - **Troca de mídia** (`load` com mídia visível): a atual esmaece **até o preto**
-  (o wallpaper permanece oculto — `runFadeOut(false)`); a próxima entra em
-  seguida com fade-in a partir do preto. As camadas esmaecidas são escondidas
-  antes de restaurar a opacidade, para a mídia antiga não reaparecer durante o
-  `getMedia`.
-- **Saída** (`stop`, `clear`, `view→wallpaper` — `runFadeOut(true)`): a mídia
-  esmaece revelando o **wallpaper** por trás durante a transição.
-- Em ambos, vídeo/áudio tem **rampa de volume** até zero junto com o fade
-  visual. Só depois a ação prossegue. Guardado por `loadSeq`: um comando mais
-  novo durante o fade descarta o anterior.
-- **Fade in** (`load`, `view→visual`): a nova mídia entra de opacity 0 → 1;
-  vídeo/áudio com rampa de volume 0 → volume alvo (exceto preview `forceMuted`).
-  O timer de limpeza pós fade-in (`fadeCleanupTimer`) é cancelado por qualquer
-  fade-out/fade-in posterior — senão ele restauraria a opacidade no meio da
-  transição seguinte.
-- Fim natural do vídeo (`ended`) e `pause`/`play` de retomada são instantâneos.
-- `setVolume` do operador cancela rampa em curso; `play`/`stop` restauram o
-  volume alvo (evita ficar preso em volume 0 pós fade-out).
+  (`runFadeOut(false)` força o wallpaper oculto — inclusive se um crossfade de
+  entrada interrompido o tinha deixado à mostra); a próxima entra em seguida
+  com fade-in a partir do preto. As camadas esmaecidas são escondidas antes de
+  restaurar a opacidade, para a mídia antiga não reaparecer durante o `getMedia`.
+- **Saída para o wallpaper** (`stop`, `clear`, `view→wallpaper`, `ended` —
+  `runFadeOut(true)`): a mídia esmaece revelando o **wallpaper** por trás
+  (fade-in visual do wallpaper por crossfade).
+- **Entrada a partir do wallpaper** (`load` sem mídia em cena, `view→visual`):
+  crossfade — o wallpaper **permanece visível por baixo** enquanto a nova mídia
+  entra de opacity 0 → 1 (saída de fade do wallpaper); o cleanup pós fade-in
+  (`fadeCleanupTimer` → `applyView`) o esconde ao final.
+- **Fade-in em duas fases** (`prepFadeIn`/`startFadeIn`): a mídia é fixada em
+  opacity 0 e a transição só dispara quando ela está **pronta para pintar**
+  (`mediaReady`: `img.decode()` / `loadeddata` do vídeo, timeout de 2,5 s) —
+  sem isso o conteúdo "pipoca" no meio do fade. Vídeo/áudio entra com rampa de
+  volume 0 → alvo (exceto preview `forceMuted`). O `fadeCleanupTimer` é
+  cancelado por qualquer fade-out/fade-in posterior.
+- **`ended` (fim natural)**: com fade-out ativo, esmaece até o wallpaper; o
+  `load` do avanço automático da playlist interrompe o fade (`loadSeq`) e
+  assume a transição — o wallpaper **não pisca entre itens da playlist**.
+  Sem fade-out, instantâneo (como `pause`/`play` de retomada, sempre
+  instantâneos).
+- **`view` (visual on/off)**: transição **apenas visual** — o áudio continua
+  tocando e não sofre rampa (`rampAudio=false`), nos dois sentidos.
+- **`stop`**: após o fade marca `ended=true` — volta de fato ao wallpaper,
+  mantendo `current` para replay via `play()`.
+- Rampas de volume acompanham o fade visual nas trocas/saídas que encerram o
+  áudio; guardado por `loadSeq`: um comando mais novo durante o fade descarta
+  o anterior. `setVolume` do operador cancela rampa em curso; `play`/`stop`
+  restauram o volume alvo (evita ficar preso em volume 0 pós fade-out).
 
 ### API exposta
 
