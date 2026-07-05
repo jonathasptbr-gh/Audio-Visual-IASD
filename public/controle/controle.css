@@ -105,7 +105,24 @@ body {
 
 /* Nome + barra de progresso */
 .nowplaying { display: flex; flex-direction: column; gap: .25rem; }
-.np-name { font-size: .85rem; font-weight: 600; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.np-name { font-size: .85rem; font-weight: 600; text-align: center; overflow: hidden; }
+.np-name-inner {
+  display: inline-block; max-width: 100%; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; vertical-align: middle;
+}
+/* Título longo: rola de um lado ao outro (ping-pong) para poder ser lido
+   inteiro. A distância (--np-shift) e a duração (--np-dur) vêm do JS
+   (medição do overflow em applyTitleMarquee); a classe só é ligada quando o
+   texto não cabe na largura disponível. */
+.np-name.scrolling { text-align: left; }
+.np-name.scrolling .np-name-inner {
+  max-width: none; overflow: visible; text-overflow: clip;
+  animation: np-marquee var(--np-dur, 8s) linear infinite alternate;
+}
+@keyframes np-marquee {
+  0%, 12% { transform: translateX(0); }
+  88%, 100% { transform: translateX(var(--np-shift, 0)); }
+}
 .np-seek { display: flex; align-items: center; gap: .5rem; }
 .np-time { font-size: .7rem; color: var(--muted); min-width: 32px; text-align: center; }
 #seek { flex: 1; accent-color: var(--accent); height: 4px; }
@@ -127,9 +144,23 @@ body {
 
 /* ---------- Mixer ---------- */
 .mixer {
-  display: flex; flex-direction: column; align-items: center; gap: .35rem;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .35rem;
   width: 56px; padding: .35rem; background: rgba(255, 255, 255, .04); border-radius: 10px;
 }
+/* Volume recolhível: por padrão a lateral mostra os botões (volume/mudo/
+   visual/mesa de som); o botão de volume abre o fader no lugar deles, com um
+   botão para recolher de volta. */
+.mixer .fader-wrap, .mixer .vol-close { display: none; }
+.mixer.vol-open .vol-btn,
+.mixer.vol-open .mute-btn,
+.mixer.vol-open .view-btn,
+.mixer.vol-open .standalone-btn { display: none; }
+.mixer.vol-open .fader-wrap { display: block; }
+.mixer.vol-open .vol-close { display: flex; }
+/* Botão de volume destacado (accent) — distingue-o do botão de mudo, que usa
+   o mesmo ícone de alto-falante mas em estado normal (branco). Seletor com a
+   `.mixer` para ganhar de `.ctl-btn` (mesma especificidade, definido depois). */
+.mixer .vol-btn { background: var(--accent-soft); color: var(--accent); }
 .fader-wrap { flex: 1; min-height: 90px; position: relative; }
 .fader {
   position: absolute; top: 6px; bottom: 6px; left: 50%; transform: translateX(-50%);

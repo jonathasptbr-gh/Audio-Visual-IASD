@@ -6,6 +6,7 @@ const nextEl = document.getElementById('next');
 const repeatEl = document.getElementById('repeat');
 
 const npNameEl = document.getElementById('npName');
+const npNameInnerEl = document.getElementById('npNameInner');
 const seekEl = document.getElementById('seek');
 const curTimeEl = document.getElementById('curTime');
 const durTimeEl = document.getElementById('durTime');
@@ -13,6 +14,9 @@ const durTimeEl = document.getElementById('durTime');
 const viewToggleEl = document.getElementById('viewToggle');
 const muteToggleEl = document.getElementById('muteToggle');
 const volSliderEl = document.getElementById('volSlider');
+const mixerEl = document.getElementById('mixer');
+const volToggleEl = document.getElementById('volToggle');
+const volCloseEl = document.getElementById('volClose');
 const standaloneToggleEl = document.getElementById('standaloneToggle');
 const openDisplayBtnEl = document.getElementById('openDisplayBtn');
 
@@ -481,10 +485,30 @@ function renderNowPlaying() {
   // Prioriza plItems/libItems (já carregados); usa currentItem como fallback
   // para o caso de o item estar somente em outra aba (ex: apenas em favoritos).
   const cur = [...plItems, ...libItems].find((m) => m.id === currentId) || currentItem;
-  npNameEl.textContent = cur ? cur.name : 'Nada em exibição';
+  npNameInnerEl.textContent = cur ? cur.name : 'Nada em exibição';
+  applyTitleMarquee();
   playPauseEl.querySelector('.msym').textContent = playing ? ICON.pause : ICON.play;
   const isTimed = cur && (cur.kind === 'video' || cur.kind === 'audio');
   seekEl.disabled = !isTimed;
+}
+
+// Título rolante: se o nome da mídia não couber na largura disponível, liga a
+// animação de rolagem (ping-pong) para que o operador possa lê-lo inteiro.
+// Mede no estado estático (a leitura de scrollWidth força o reflow, que também
+// reinicia a animação ao religar a classe). A distância e a duração (velocidade
+// ~constante) vão para o CSS via variáveis.
+function applyTitleMarquee() {
+  npNameEl.classList.remove('scrolling');
+  npNameInnerEl.style.removeProperty('--np-shift');
+  npNameInnerEl.style.removeProperty('--np-dur');
+  const overflow = npNameInnerEl.scrollWidth - npNameEl.clientWidth;
+  if (overflow > 4) {
+    const shift = overflow + 12; // +margem para o fim do texto sair da borda
+    const dur = Math.max(5, shift / 32 + 2);
+    npNameInnerEl.style.setProperty('--np-shift', (-shift) + 'px');
+    npNameInnerEl.style.setProperty('--np-dur', dur.toFixed(1) + 's');
+    npNameEl.classList.add('scrolling');
+  }
 }
 
 function renderTabs() {
@@ -1371,6 +1395,17 @@ seekEl.addEventListener('change', () => cmd({ type: 'seek', time: parseFloat(see
 viewToggleEl.addEventListener('click', () => setView(view === 'visual' ? 'wallpaper' : 'visual'));
 muteToggleEl.addEventListener('click', toggleMute);
 standaloneToggleEl.addEventListener('click', () => setStandalone(!standalone));
+// Volume recolhível: abre o fader no lugar dos botões da lateral; o botão de
+// ocultar volta ao conjunto de botões. Estado só de UI, não persistido.
+volToggleEl.addEventListener('click', () => mixerEl.classList.add('vol-open'));
+volCloseEl.addEventListener('click', () => mixerEl.classList.remove('vol-open'));
+
+// Se a largura mudar (ex: rotação), remede o título rolante.
+let titleResizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(titleResizeTimer);
+  titleResizeTimer = setTimeout(applyTitleMarquee, 150);
+});
 
 let volSeeking = false;
 volSliderEl.addEventListener('pointerdown', () => { volSeeking = true; });
