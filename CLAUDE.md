@@ -31,7 +31,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: o Display carrega a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v3.7.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v3.8.**
 
 ---
 
@@ -524,7 +524,15 @@ protocolo (versão anterior) sofria.
 - **Reveal só reproduzindo**: o wrapper fica **oculto** (wallpaper em cena)
   até o primeiro estado `PLAYING` (1) — os estados de carregamento/cued
   mostram título e botão grande, que nunca chegam ao telão (safety: revela às
-  cegas em 5 s se nenhum evento tiver chegado ainda).
+  cegas em 5 s se nenhum evento tiver chegado ainda). `yt.presentable` e
+  `yt.shown` são flags separadas: `presentable` vira `true` assim que o vídeo
+  atinge um estado apresentável (`PLAYING` ou o timeout de segurança), mesmo
+  com a view em `wallpaper` — nesse caso `ytShow()` só marca a flag, sem
+  revelar o wrapper. `shown` vira `true` só quando o wrapper de fato aparece
+  na tela. Sem essa separação, um vídeo que começasse com wallpaper ativo
+  nunca setava `shown`, e `ytSetView('visual')` (que checava só `shown`) não
+  tinha como saber que o player já podia ser revelado — o áudio tocava
+  normalmente, mas o vídeo nunca aparecia ao desligar o wallpaper.
 - **Fim do vídeo** (estado `ENDED`, 0): se nenhum `load` de avanço automático
   chegar em ~400 ms, o Display **derruba o player** (`destroy()`) antes da
   tela final de "vídeos relacionados" aparecer (o `#ytShield` cobre o

@@ -214,13 +214,11 @@ function ytRampVolume(from, to, dur) {
   }, (dur * 1000) / steps);
 }
 
-// Revela o player (crossfade sobre o wallpaper). Só é chamado quando o vídeo
-// está de fato REPRODUZINDO (estado 1) — antes disso o embed mostra título/
-// botão grande, que nunca devem aparecer no telão.
-function ytShow() {
-  if (!yt || yt.shown || yt.view !== 'visual') return;
-  yt.shown = true;
-  clearTimeout(yt.showTimer);
+// Reaparece de fato na tela (DOM + fade-in), sem mexer em `shown`/`presentable`
+// — usado tanto na primeira revelação quanto ao voltar de wallpaper para um
+// player que já tinha sido mostrado antes (ver ytShow() e ytSetView()).
+function ytRevealDom() {
+  clearTimeout(yt.fadeTimer);
   if (fadeCfg.in) {
     youtubeEl.style.transition = 'none';
     youtubeEl.style.opacity = '0';
@@ -233,6 +231,21 @@ function ytShow() {
     youtubeEl.hidden = false;
     ytClearFadeStyle();
   }
+}
+
+// Revela o player (crossfade sobre o wallpaper). Chamado quando o vídeo está
+// de fato REPRODUZINDO (estado 1) ou quando o timeout de segurança expira —
+// antes disso o embed mostra título/botão grande, que nunca devem aparecer no
+// telão. Se a view atual for 'wallpaper', só marca `presentable` (o vídeo já
+// pode ser mostrado) sem revelar de fato — ytSetView('visual') revela depois,
+// quando o operador desligar o wallpaper.
+function ytShow() {
+  if (!yt) return;
+  yt.presentable = true;
+  if (yt.shown || yt.view !== 'visual') return;
+  yt.shown = true;
+  clearTimeout(yt.showTimer);
+  ytRevealDom();
 }
 
 // Derruba o player imediatamente (sem transição).
@@ -302,7 +315,7 @@ async function loadYoutube(rec, v, m, vol) {
     muted: !!m,
     volume: typeof vol === 'number' ? vol : 1,
     player: null,
-    ready: false, shown: false, endedSent: false,
+    ready: false, shown: false, presentable: false, endedSent: false,
     showTimer: null, fadeTimer: null, endTimer: null, rampTimer: null,
     startTimer: null, timeLoop: null,
   };
@@ -312,8 +325,10 @@ async function loadYoutube(rec, v, m, vol) {
   youtubeEl.hidden = true;
   ytClearFadeStyle();
   // Segurança: se por algum motivo o player nunca revelar sozinho (nenhum
-  // onReady/onStateChange chegou), revela mesmo assim — melhor player com UI
-  // do que telão vazio.
+  // onReady/onStateChange chegou), marca como pronto e revela mesmo assim —
+  // melhor player com UI do que telão vazio (se a view estiver em wallpaper,
+  // ytShow() só marca `presentable`; a revelação de fato acontece quando o
+  // operador ligar a view visual, ver ytSetView).
   cur.showTimer = setTimeout(() => { if (yt === cur && !cur.shown) ytShow(); }, 5000);
 
   const host = createYtHost();
@@ -465,17 +480,16 @@ async function ytSetView(v) {
     ytShield(false); // o escudo não pode cobrir o wallpaper
     ytClearFadeStyle();
   } else if (cur.shown) {
-    youtubeEl.hidden = false;
-    if (fadeCfg.in) {
-      youtubeEl.style.transition = 'none';
-      youtubeEl.style.opacity = '0';
-      void youtubeEl.offsetWidth;
-      youtubeEl.style.transition = 'opacity ' + fadeCfg.time + 's ease';
-      youtubeEl.style.opacity = '1';
-      yt.fadeTimer = setTimeout(ytClearFadeStyle, fadeCfg.time * 1000 + 60);
-    }
+    // já tinha sido mostrado antes de ir para wallpaper: só reaparece.
+    ytRevealDom();
+  } else if (cur.presentable) {
+    // primeira vez ficando visível: o vídeo começou (ou já estava tocando)
+    // com wallpaper ativo, então nunca tinha sido revelado de fato — ytShow()
+    // agora passa no teste de view (já setada para 'visual' acima) e revela.
+    ytShow();
   }
-  // se o player ainda não foi revelado (nunca tocou), ytShow cuida depois
+  // se o player ainda não está pronto (nem playing, nem timeout de segurança
+  // passou), ytShow() cuida disso assim que um dos dois acontecer.
   ytStatus();
 }
 
