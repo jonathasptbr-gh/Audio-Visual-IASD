@@ -31,7 +31,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente.
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v3.2.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v3.3.**
 
 ---
 
@@ -380,6 +380,9 @@ também a lê do state ao inicializar.
 As abas ficam na **base da seção de listas** (ícones):
 
 - **Playlist** (botão com badge de contagem) — abre bottom-sheet com a fila de reprodução.
+  O badge só aparece a partir do **2º item** (mostra `count - 1`): com apenas a
+  mídia atual em fila, a playlist é só a reprodução avulsa e não deve chamar
+  atenção com um "1" enganoso.
 - **Cronograma** (`imports`) — itens importados; ficam até serem excluídos.
   Itens favoritados exibem estrela (não há mais aba Favoritos; a lista `favorites`
   persiste na camada de dados).

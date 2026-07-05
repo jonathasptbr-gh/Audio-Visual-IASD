@@ -354,7 +354,9 @@ function thumbEl(item) {
 // ---- Playlist (sequência) ----
 function renderPlaylist() {
   const count = plItems.length;
-  plCountEl.textContent = count > 0 ? String(count) : '';
+  // O badge não deve chamar atenção quando a playlist é só a mídia atual (1 item);
+  // conta apenas os itens além do primeiro (2 itens → "1", 3 → "2"...).
+  plCountEl.textContent = count > 1 ? String(count - 1) : '';
   plPopupCountEl.textContent = String(count);
   plBtnEl.classList.toggle('has-items', count > 0);
 
