@@ -142,7 +142,14 @@
       const p = video.play();
       // Usa `muted` (intenção interna) e não video.muted: o browser pode forçar
       // video.muted=true antes de rejeitar, ocultando o motivo real do bloqueio.
-      if (p && p.catch) p.catch(() => { if (opts.onBlocked && !muted) opts.onBlocked(); });
+      // Só é bloqueio de autoplay de fato quando o erro é NotAllowedError — um
+      // play() interrompido por um pause()/load() seguinte (AbortError, comum
+      // em toda troca normal de mídia) não é bloqueio e não deve disparar a
+      // recuperação de áudio (isso travava a fluidez, mutando/tentando religar
+      // o som a cada troca de mídia sem motivo real).
+      if (p && p.catch) p.catch((err) => {
+        if (opts.onBlocked && !muted && err && err.name === 'NotAllowedError') opts.onBlocked();
+      });
     }
     function pause() { video.pause(); }
     function stop() { video.pause(); video.currentTime = 0; }
