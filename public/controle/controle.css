@@ -64,13 +64,16 @@ body {
   position: relative; width: 100%; aspect-ratio: 16 / 9; max-height: 132px;
   background: #000; border-radius: 10px; overflow: hidden; border: 1px solid #242424;
 }
+/* Mesmo modelo do Display: mídia toca por baixo (z-index menor); o wallpaper
+   é a cortina que cobre por cima, ligada/desligada independente da mídia. */
 .pv-wall {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   background: radial-gradient(circle at 50% 35%, #14331f 0%, #0a1a10 55%, #050b07 100%);
+  z-index: 2;
 }
 .pv-brand { font-size: clamp(.7rem, 3.5vw, 1.05rem); font-weight: 700; letter-spacing: .03em; color: rgba(255,255,255,.9); }
 .pv-brand b { color: #fbc02d; }
-.pv-layer { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
+.pv-layer { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; z-index: 1; }
 
 /* Nome + barra de progresso */
 .nowplaying { display: flex; flex-direction: column; gap: .25rem; }

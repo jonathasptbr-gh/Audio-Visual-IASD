@@ -6,6 +6,15 @@
 // e depois stage.handle(cmd) para cada comando.
 // Suporta blobs locais, arquivos do OPFS (opfsPath), itens de URL direta
 // (blob=null, url=string) e itens youtube (kind='youtube').
+//
+// Modelo de camadas: o wallpaper é uma cortina que fica POR CIMA de toda
+// mídia (CSS z-index) — img/video (e, no Display, o iframe do YouTube,
+// gerenciado externamente) tocam/trocam de conteúdo livremente por baixo,
+// sem precisar saber se estão "visíveis"; o wallpaper só liga/desliga essa
+// cortina, com fade quando configurado. Isso evita a classe de bug em que
+// uma mídia carregada com o wallpaper ligado nunca aprendia a se revelar
+// depois — agora revelar é sempre só "esconder a cortina", nunca depende de
+// em que estado a mídia foi carregada.
 
 (function (global) {
   'use strict';
@@ -29,7 +38,11 @@
     let fadeOut = false;
     let fadeTime = 1; // segundos
     let rampTimer = null;
-    let fadeCleanupTimer = null; // limpeza pós fade-in (cancelável por um fade-out)
+
+    // Cortina do wallpaper: única fonte de verdade sobre se ela está cobrindo
+    // a mídia agora. Começa cobrindo (nada carregado ainda).
+    let coveredNow = true;
+    let coverSeq = 0; // descarta fades de cortina obsoletos (interrompidos por outro)
 
     function setFade(cfg) {
       if (typeof cfg.fadeIn === 'boolean') fadeIn = cfg.fadeIn;
@@ -37,11 +50,74 @@
       if (typeof cfg.time === 'number' && cfg.time > 0) fadeTime = cfg.time;
     }
 
-    // Elemento de mídia atualmente visível (alvo do fade-out), ou null.
+    // Cortina (wallpaper) — instantânea ou com fade. Não mexe em current/
+    // ended/view: quem decide QUANDO cobrir/revelar é o chamador (stage ou,
+    // no Display, o código do YouTube, que só reaproveita esta cortina
+    // compartilhada). rampAudio de coverIn() só se aplica ao <video> do
+    // próprio stage — o YouTube nunca deve passar rampAudio=true aqui (sua
+    // própria rampa de áudio é feita externamente, no player do YouTube).
+    function instantCover(show) {
+      coverSeq++;
+      coveredNow = show;
+      wallpaper.style.transition = '';
+      wallpaper.style.opacity = '';
+      wallpaper.style.display = show ? 'flex' : 'none';
+    }
+
+    function coverIn(rampAudio) {
+      if (coveredNow) return Promise.resolve();
+      const seq = ++coverSeq;
+      return new Promise((resolve) => {
+        if (!fadeOut) { instantCover(true); resolve(); return; }
+        wallpaper.style.transition = 'none';
+        wallpaper.style.display = 'flex';
+        wallpaper.style.opacity = '0';
+        void wallpaper.offsetWidth; // força reflow para a transição valer
+        wallpaper.style.transition = 'opacity ' + fadeTime + 's ease';
+        wallpaper.style.opacity = '1';
+        if (rampAudio && !forceMuted && current
+            && (current.kind === 'video' || current.kind === 'audio') && !video.muted) {
+          rampVolume(video.volume, 0, fadeTime);
+        }
+        setTimeout(() => {
+          if (seq !== coverSeq) { resolve(); return; }
+          coveredNow = true;
+          wallpaper.style.transition = '';
+          wallpaper.style.opacity = '';
+          resolve();
+        }, fadeTime * 1000);
+      });
+    }
+
+    function coverOut() {
+      if (!coveredNow) return Promise.resolve();
+      const seq = ++coverSeq;
+      return new Promise((resolve) => {
+        if (!fadeIn) { instantCover(false); resolve(); return; }
+        wallpaper.style.transition = 'opacity ' + fadeTime + 's ease';
+        wallpaper.style.opacity = '0';
+        setTimeout(() => {
+          if (seq !== coverSeq) { resolve(); return; }
+          coveredNow = false;
+          wallpaper.style.transition = '';
+          wallpaper.style.opacity = '';
+          wallpaper.style.display = 'none';
+          resolve();
+        }, fadeTime * 1000);
+      });
+    }
+
+    // A cortina deve cobrir sempre que não há mídia, ela "terminou" (ended:
+    // aguardando replay) ou o operador pediu view='wallpaper'.
+    function computeCover() { return !current || ended || view === 'wallpaper'; }
+
+    // Elemento de mídia atualmente visível (alvo do fade de CONTEÚDO, ao
+    // trocar de item) — só existe quando a cortina não está cobrindo; se
+    // estiver cobrindo, ninguém vê nada, então não há o que esmaecer.
     function visibleEl() {
-      if (!current || ended || view !== 'visual') return null;
-      if (current.kind === 'image' && !img.hidden) return img;
-      if ((current.kind === 'video' || current.kind === 'audio') && !video.hidden) return video;
+      if (!current || coveredNow) return null;
+      if (current.kind === 'image') return img;
+      if (current.kind === 'video' || current.kind === 'audio') return video;
       return null;
     }
 
@@ -50,7 +126,8 @@
       el.style.opacity = '';
     }
 
-    // Rampa de volume (fade sonoro) para vídeo/áudio.
+    // Rampa de volume (fade sonoro) do <video> do próprio stage — usada tanto
+    // no fade de CONTEÚDO (troca de item) quanto por coverIn() (parar/limpar).
     function rampVolume(from, to, dur) {
       clearInterval(rampTimer);
       if (forceMuted) return;
@@ -64,40 +141,18 @@
       }, (dur * 1000) / steps);
     }
 
-    // Esmaece a mídia visível; resolve ao terminar (imediatamente se fade-out
-    // desligado ou nada visível). toWallpaper=true revela o wallpaper por trás
-    // (saída: stop/clear/view/ended); false esmaece até o preto (troca de mídia).
-    // rampAudio=false mantém o áudio intocado (view→wallpaper: só o visual sai).
-    function runFadeOut(toWallpaper, rampAudio) {
+    // Esmaece a mídia de CONTEÚDO visível até o preto (troca de item, nada a
+    // ver com a cortina do wallpaper); resolve imediatamente se fade-out
+    // desligado ou nada visível agora.
+    function runFadeOut(rampAudio) {
       return new Promise((resolve) => {
         const el = fadeOut ? visibleEl() : null;
         if (!el) { resolve(); return; }
-        // um fade-in recém-terminado não pode limpar os estilos no meio deste fade-out
-        clearTimeout(fadeCleanupTimer);
-        // Fixa o fundo correto atrás da mídia que esmaece — inclusive se um
-        // crossfade de entrada interrompido deixou o wallpaper à mostra, a
-        // troca de mídia esmaece até o preto, nunca até o wallpaper.
-        wallpaper.style.display = toWallpaper ? 'flex' : 'none';
         el.style.transition = 'opacity ' + fadeTime + 's ease';
         el.style.opacity = '0';
         if (rampAudio !== false && el === video && !video.muted) rampVolume(video.volume, 0, fadeTime);
         setTimeout(resolve, fadeTime * 1000);
       });
-    }
-
-    // Fade-in em duas fases: prepFadeIn fixa a mídia invisível (antes de
-    // esperar decode/primeiro frame); startFadeIn dispara a transição.
-    function prepFadeIn(el) {
-      clearTimeout(fadeCleanupTimer);
-      el.style.transition = 'none';
-      el.style.opacity = '0';
-      void el.offsetWidth; // força reflow para a transição valer
-    }
-    function startFadeIn(el) {
-      el.style.transition = 'opacity ' + fadeTime + 's ease';
-      el.style.opacity = '1';
-      // pós-fade: limpa estilos e re-esconde o wallpaper (fim do crossfade)
-      fadeCleanupTimer = setTimeout(() => { clearFadeStyle(el); applyView(); }, fadeTime * 1000 + 60);
     }
 
     // Resolve quando o elemento tem conteúdo pronto para pintar (imagem
@@ -122,13 +177,12 @@
       });
     }
 
-    function applyView() {
+    // Qual elemento de mídia está ativo (independe da cortina — a mídia toca
+    // por baixo normalmente; quem esconde é só o wallpaper por cima).
+    function applyMedia() {
       const kind = current ? current.kind : null;
-      // youtube kind is handled externally (display.js); stage only manages image/video/audio
-      const visible = !!current && !ended && view === 'visual' && (kind === 'image' || kind === 'video' || kind === 'audio');
-      img.hidden = !(visible && kind === 'image');
-      video.hidden = !(visible && (kind === 'video' || kind === 'audio'));
-      wallpaper.style.display = visible ? 'none' : 'flex';
+      img.hidden = !(kind === 'image');
+      video.hidden = !(kind === 'video' || kind === 'audio');
       video.muted = forceMuted ? true : muted;
       if (!forceMuted) video.volume = volume;
     }
@@ -138,7 +192,8 @@
       ended = false;
       clearInterval(rampTimer);
       if (!forceMuted) video.volume = volume; // restaura pós fade-out
-      applyView();
+      applyMedia();
+      instantCover(computeCover());
       const p = video.play();
       // Usa `muted` (intenção interna) e não video.muted: o browser pode forçar
       // video.muted=true antes de rejeitar, ocultando o motivo real do bloqueio.
@@ -153,45 +208,36 @@
     }
     function pause() { video.pause(); }
     function stop() { video.pause(); video.currentTime = 0; }
-    // stop com fade-out; descartado se um load/clear mais novo chegar durante o fade.
+    // stop com fade-out (cobre com a cortina); descartado se um load/clear
+    // mais novo chegar durante o fade.
     async function stopFaded() {
       const seq = ++loadSeq;
-      await runFadeOut(true);
+      await coverIn(true);
       if (seq !== loadSeq) return;
       stop();
       // 'stop' volta ao wallpaper (protocolo): ended tira a mídia de cena
       // mantendo current — play() recarrega a visão e reproduz do início.
       ended = true;
-      clearFadeStyle(video); clearFadeStyle(img);
       if (!forceMuted) video.volume = volume;
-      applyView();
+      applyMedia();
     }
     function seek(t) { if (isFinite(t)) video.currentTime = t; }
-    function setView(v) { view = v; applyView(); }
-    // Troca de view com transição: visual→wallpaper esmaece; wallpaper→visual revela.
-    // Só o VISUAL transiciona — o áudio (que continua tocando com o visual
-    // desligado) fica intocado, sem rampa que terminaria num salto de volume.
+    function setView(v) { view = v; instantCover(computeCover()); applyMedia(); }
+    // Troca de view com transição: visual→wallpaper cobre; wallpaper→visual
+    // revela. Só a CORTINA transiciona — o áudio (que continua tocando com o
+    // visual desligado) fica intocado, sem rampa que terminaria num salto de
+    // volume.
     async function setViewFaded(v) {
       if (v === view) return;
+      const seq = ++loadSeq;
+      view = v;
       if (v === 'wallpaper') {
-        const seq = ++loadSeq;
-        await runFadeOut(true, false);
-        if (seq !== loadSeq) return;
-        view = v;
-        clearFadeStyle(video); clearFadeStyle(img);
-        applyView();
+        await coverIn(false);
       } else {
-        view = v;
-        applyView();
-        const el = visibleEl();
-        if (el && fadeIn) {
-          // Crossfade: o wallpaper permanece por baixo enquanto a mídia entra;
-          // o cleanup pós fade-in o esconde (applyView).
-          prepFadeIn(el);
-          wallpaper.style.display = 'flex';
-          startFadeIn(el);
-        }
+        await coverOut();
       }
+      if (seq !== loadSeq) return;
+      instantCover(computeCover());
     }
     function isPlayingNow() {
       return !!current && (current.kind === 'video' || current.kind === 'audio') && !video.paused;
@@ -217,19 +263,17 @@
       // Guarda sequencial: se outra chamada load() começar antes desta terminar
       // o fade/getMedia(), descartamos esta para evitar race de URL/current.
       const seq = ++loadSeq;
-      // Troca de mídia: esmaece a atual até o PRETO (wallpaper continua oculto);
-      // a próxima entra em seguida com fade-in a partir do preto.
+      // Troca de CONTEÚDO (item já visível dando lugar a outro): esmaece o
+      // atual até o preto: sem relação com a cortina do wallpaper, que já
+      // está fora de cena nesse caso (visibleEl() só retorna algo se não
+      // estiver coberto).
       const willFade = fadeOut && !!visibleEl();
-      // Entrada a partir do wallpaper (nada em cena): o fade-in vira um
-      // crossfade — o wallpaper fica por baixo até a mídia cobrir a tela.
-      const fromWallpaper = wallpaper.style.display !== 'none' && !willFade;
-      await runFadeOut(false);
+      await runFadeOut(true);
       if (seq !== loadSeq) return;
       ended = false;
       if (willFade) {
         // Esconde as camadas ainda esmaecidas ANTES de restaurar a opacidade
-        // (evita a mídia antiga reaparecer durante o getMedia); o wallpaper
-        // permanece oculto, então o intervalo até a nova mídia fica preto.
+        // (evita a mídia antiga reaparecer durante o getMedia).
         img.hidden = true; img.removeAttribute('src');
         video.pause(); video.removeAttribute('src'); video.load();
         clearFadeStyle(video); clearFadeStyle(img);
@@ -253,7 +297,6 @@
           img.src = rec.thumb;
           img.hidden = false;
         }
-        wallpaper.style.display = rec.thumb ? 'none' : 'flex';
         return;
       }
 
@@ -284,19 +327,19 @@
         if (!forceMuted) video.volume = volume;
         play();
       }
-      applyView();
-      // Fade de entrada da nova mídia (visual + volume quando aplicável).
-      const shown = visibleEl();
-      if (shown && fadeIn) {
-        prepFadeIn(shown);
-        // Saída do wallpaper com fade: ele permanece visível por baixo durante
-        // o crossfade; o cleanup pós fade-in o esconde (applyView).
-        if (fromWallpaper) wallpaper.style.display = 'flex';
-        // Só inicia a transição com a mídia pronta para pintar.
-        await mediaReady(shown);
+      applyMedia();
+      // Revela (esconde a cortina) se a view pedir e ainda estiver coberto —
+      // primeiro conteúdo depois do wallpaper, ou depois de ended/stop/clear.
+      // Se nada estava cobrindo (já em cena, só trocando de item), coverOut()
+      // não faz nada — quem cuidou da troca visual foi o fade de CONTEÚDO
+      // acima.
+      if (view === 'visual' && coveredNow) {
+        if (fadeIn) {
+          const el = rec.kind === 'image' ? img : (rec.kind === 'video' || rec.kind === 'audio' ? video : null);
+          if (el) { await mediaReady(el); if (seq !== loadSeq) return; }
+        }
+        await coverOut();
         if (seq !== loadSeq) return;
-        startFadeIn(shown);
-        if (shown === video && !video.muted) rampVolume(0, volume, fadeTime);
       }
     }
 
@@ -304,19 +347,19 @@
       current = null;
       ended = false;
       clearInterval(rampTimer);
-      clearTimeout(fadeCleanupTimer);
       img.hidden = true; img.removeAttribute('src');
       clearFadeStyle(video); clearFadeStyle(img);
       video.pause(); video.removeAttribute('src'); video.load();
       _revokeUrl();
-      applyView();
+      instantCover(true); // current=null: cobre sempre, independente da view
+      applyMedia();
     }
 
-    // clear com fade-out (até o wallpaper); descartado se um load mais novo
-    // chegar durante o fade.
+    // clear com fade-out (cobre com a cortina); descartado se um load mais
+    // novo chegar durante o fade.
     async function clearFaded() {
       const seq = ++loadSeq;
-      await runFadeOut(true);
+      await coverIn(true);
       if (seq !== loadSeq) return;
       clear();
     }
@@ -336,23 +379,24 @@
       }
     }
 
-    // Fim natural → wallpaper. Com fade-out ativo, esmaece até o wallpaper;
-    // o 'load' do avanço automático da playlist (disparado por onEnded, logo
-    // abaixo) interrompe o fade via loadSeq e assume a transição — assim o
-    // wallpaper NÃO pisca entre os itens da playlist.
+    // Fim natural → cobre com a cortina. Com fade-out ativo, cobre com fade
+    // (sem rampa: o vídeo já parou sozinho, não há áudio a segurar); o 'load'
+    // do avanço automático da playlist (disparado por onEnded, logo abaixo)
+    // interrompe via loadSeq e assume a transição — a cortina NÃO pisca entre
+    // os itens da playlist.
     video.addEventListener('ended', async () => {
       if (fadeOut && visibleEl() === video) {
         const seq = ++loadSeq;
-        await runFadeOut(true, false);
+        await coverIn(false);
         if (seq !== loadSeq) return;
         ended = true;
         video.currentTime = 0;
-        clearFadeStyle(video);
-        applyView();
+        applyMedia();
       } else {
         ended = true;
         video.currentTime = 0;
-        applyView();
+        instantCover(true);
+        applyMedia();
       }
     });
 
@@ -365,6 +409,7 @@
 
     return {
       handle, load, clear, play, pause, stop, seek, setView, setMute, setVolume, setFade,
+      coverIn, coverOut, instantCover,
       getCurrent: () => current,
       getView: () => view,
       isPlaying: isPlayingNow,

@@ -6,7 +6,20 @@ html, body {
   overflow: hidden;
 }
 
-/* Camada base: wallpaper */
+/* Mídia (imagem / vídeo / iframe do YouTube) toca por baixo, sempre — quem
+   decide se aparece é só o wallpaper por cima (z-index maior). */
+.layer {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+  z-index: 1;
+}
+
+/* Wallpaper: cortina que cobre TODA a mídia quando visível — liga/desliga
+   (com fade, se configurado) independente do que estiver tocando por baixo. */
 .wallpaper {
   position: fixed;
   inset: 0;
@@ -14,7 +27,7 @@ html, body {
   align-items: center;
   justify-content: center;
   background: radial-gradient(circle at 50% 35%, #14331f 0%, #0a1a10 55%, #050b07 100%);
-  z-index: 0;
+  z-index: 2;
 }
 
 .wallpaper-brand {
@@ -26,17 +39,6 @@ html, body {
 }
 .wallpaper-brand span { color: #fbc02d; }
 
-/* Camadas de mídia (imagem / vídeo) por cima do wallpaper */
-.layer {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  background: #000;
-  z-index: 1;
-}
-
 /* Fundo preto evita flash branco enquanto o player do YouTube carrega.
    pointer-events:none: toques/hover no telão nunca invocam a UI do player
    (título, controles) — todo o transporte vem do Controle via IFrame Player
@@ -46,12 +48,14 @@ html, body {
 .yt-frame iframe { display: block; width: 100%; height: 100%; border: none; }
 
 /* Escudo anti-UI do YouTube: usado só no FIM do vídeo — cobre a tela de
-   "vídeos relacionados" enquanto o player é derrubado. Entra instantâneo
-   (para vencer a UI) e esmaece junto com o player no fade de saída. */
+   "vídeos relacionados" enquanto o player é derrubado. Fica ACIMA do
+   wallpaper (z-index maior): entra instantâneo (para vencer a UI) já com o
+   wallpaper pronto por baixo, e esmaece revelando o wallpaper graciosamente. */
 .yt-shield {
   background: #000;
   object-fit: unset;
   opacity: 0;
   pointer-events: none;
+  z-index: 3;
 }
 .yt-shield.on { opacity: 1; }
