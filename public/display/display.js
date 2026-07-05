@@ -577,13 +577,16 @@ async function restore() {
 // convergiriam sozinhos em até alguns segundos.
 const startBtnEl = document.getElementById('startBtn');
 startBtnEl.addEventListener('click', () => {
-  startBtnEl.hidden = true;
   if (yt && yt.player) {
     const p = yt.player;
     ytSafeCall(() => { if (yt.muted) p.mute(); else p.unMute(); });
     ytSafeCall(() => p.setVolume(Math.round(yt.volume * 100)));
     ytSafeCall(() => p.playVideo());
   }
+  // Feedback de toque (pill "confirma" antes de sumir) — sem isso o overlay
+  // desaparece no mesmo instante do clique e o toque parece não ter feito nada.
+  startBtnEl.classList.add('confirming');
+  setTimeout(() => { startBtnEl.hidden = true; }, 300);
 }, { once: true });
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');

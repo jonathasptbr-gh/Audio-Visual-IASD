@@ -97,3 +97,18 @@ html, body {
   transition: transform .12s ease;
 }
 .start-overlay:active .start-pill { transform: scale(.95); }
+
+/* Feedback de confirmação: toque registrado, aguardando o overlay sumir
+   (display.js atrasa o hide até o fim desta animação — sem isso o overlay
+   some no mesmo instante do clique e o toque parece não ter feito nada). */
+.start-overlay.confirming { pointer-events: none; animation: startOverlayFade .3s ease forwards; }
+.start-overlay.confirming .start-pill { animation: startPillConfirm .3s ease forwards; }
+@keyframes startPillConfirm {
+  0% { transform: scale(.95); }
+  40% { transform: scale(1.08); }
+  100% { transform: scale(1.08); opacity: 0; }
+}
+@keyframes startOverlayFade {
+  0% { background: #000; }
+  100% { background: rgba(0, 0, 0, 0); }
+}
