@@ -31,7 +31,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente.
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v3.3.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v3.4.**
 
 ---
 
@@ -474,20 +474,20 @@ Escuta o BroadcastChannel e repassa os comandos para `stage.handle()` (ou para
 a ponte do YouTube). Ao inicializar, restaura o estado salvo (`current`) e envia
 `display-ready` para que o Controle reenvie o estado atual.
 
-**Áudio sem toque (recuperação automática):** não há mais overlay de unlock
-bloqueante. Se a política de autoplay do navegador bloquear som sem gesto, o
-vídeo **começa mudo** (sempre permitido — o conteúdo aparece no telão sem
-toque) e a recuperação automática religa o áudio em retentativas (a cada ~5 s;
-para o stage testa `setMute(false)` e detecta se o navegador pausou; para o
-YouTube confere `infoMuted`/estado). Num **PWA instalado** o navegador costuma
-liberar autoplay com som — a primeira retentativa resolve. **Nada é exibido no
-telão**: o estado vai no campo `audioBlocked` do `display-status`; no
-**Controle**, além do toast, o **botão de mudo do mixer** vira indicador
-(estado `.blocked`, âmbar pulsante, ícone de volume off) e **atalho**: o
-clique envia `audio-retry` (retentativa imediata) em vez de alternar o mudo.
-Qualquer gesto real no Display (toque/tecla — `pointerdown`/`keydown` no
-documento) religa o áudio na hora. O comando `mute` do operador encerra a
-recuperação.
+**Áudio sem toque (recuperação automática — só mídia local do stage):** não há
+overlay de unlock bloqueante. Se a política de autoplay do navegador bloquear
+som sem gesto num vídeo/áudio local, ele **começa mudo** (sempre permitido — o
+conteúdo aparece no telão sem toque) e a recuperação automática religa o áudio
+em retentativas de ~5 s (`setMute(false)`, detectando se o navegador pausou).
+Num **PWA instalado** o navegador costuma liberar autoplay com som — a
+primeira retentativa resolve. **Nada é exibido no telão**: o estado vai no
+campo `audioBlocked` do `display-status`; no **Controle**, além do toast, o
+**botão de mudo do mixer** vira indicador (estado `.blocked`, âmbar pulsante,
+ícone de volume off) e **atalho**: o clique envia `audio-retry` (retentativa
+imediata) em vez de alternar o mudo. Qualquer gesto real no Display
+(toque/tecla — `pointerdown`/`keydown` no documento) religa o áudio na hora. O
+comando `mute` do operador encerra a recuperação. **Este mecanismo não se
+aplica ao YouTube** — ver seção abaixo.
 
 ### YouTube (player oficial integrado)
 
@@ -537,13 +537,15 @@ https://www.youtube.com/embed/<id>?autoplay=1&enablejsapi=1&playsinline=1
   wallpaper; `stop`/`clear`/troca esmaecem o player antes de derrubá-lo.
   `ytSeq` guarda operações assíncronas obsoletas (equivalente ao `loadSeq`
   do stage).
-- **Autoplay bloqueado**: se ~2,5 s após o `onReady` o player continua em
-  unstarted/cued, o Display inicia **mudo** (`mutedFallback` — autoplay mudo é
-  sempre permitido, o vídeo aparece no telão sem toque) e entra na recuperação
-  automática de áudio (ver seção do Display). `yt.muted` guarda a intenção do
-  operador; `yt.infoMuted` reflete o estado real reportado pelo player. A
-  primeira entrega de info também dispara `ytReady()` (caso o evento `onReady`
-  se perca no handshake).
+- **Sem detecção de autoplay bloqueado**: ao contrário do stage, o YouTube
+  **não** tenta detectar/recuperar som bloqueado — `ytReady()` só chama
+  `mute`/`unMute` + `setVolume` + `playVideo` uma vez, conforme `yt.muted`
+  (intenção do operador). A tentativa antiga (mutar após ~2,5 s em
+  unstarted/cued e ficar religando o áudio em retentativas) foi removida: num
+  **PWA instalado** o autoplay com som já é liberado normalmente, e a detecção
+  gerava falsos positivos com vídeos que só estavam bufferizando, fazendo o
+  player mutar/desmutar e reiniciar em loop. A primeira entrega de info
+  também dispara `ytReady()` (caso o evento `onReady` se perca no handshake).
 - **No Controle**, a preview mostra apenas a **thumbnail** (nunca um segundo
   player); barra de progresso, ícone de play e avanço automático de itens
   YouTube são dirigidos pelo `display-status`/`media-ended` remotos
