@@ -33,8 +33,6 @@ const tabsEl = document.querySelector('.tabs');
 const libraryEl = document.getElementById('library');
 const listTitleEl = document.getElementById('listTitle');
 
-const deckEl = document.getElementById('deck');
-
 const selbarEl = document.getElementById('selbar');
 const selCountEl = document.getElementById('selCount');
 const selCancelEl = document.getElementById('selCancel');
@@ -71,12 +69,10 @@ const ICON = {
   broken: '', // broken_image
   del: '', // delete
   import: '', // folder_open
-  clear: '', // visibility_off
   repeatAll: '', // repeat
   repeatOne: '', // repeat_one
   shuffle: '', // shuffle
   drag: '', // drag_indicator
-  expand: '', // expand_more
   edit: '', // edit
   close: '', // close
   star: '', // star
@@ -846,8 +842,8 @@ function attachRowGestures(row, item) {
     const dt = Date.now() - startT;
     if (mode === 'swipe') {
       row.style.transform = '';
-      li.classList.remove('show-left', 'show-right');
-      if (dx <= -SWIPE) addTo('playlist', item);
+      li.classList.remove('show-left');
+      if (dx <= -SWIPE) addToPlaylist(item);
     } else if (mode !== 'long') {
       const moved = Math.abs((e.clientX || startX) - startX) > MOVE || Math.abs((e.clientY || startY) - startY) > MOVE;
       if (!moved && dt < LONGPRESS) onTap(item);
@@ -855,7 +851,7 @@ function attachRowGestures(row, item) {
     pid = null; mode = null;
   }
   row.addEventListener('pointerup', finish);
-  row.addEventListener('pointercancel', () => { clearTimeout(lp); row.style.transform = ''; li.classList.remove('show-left', 'show-right'); pid = null; mode = null; });
+  row.addEventListener('pointercancel', () => { clearTimeout(lp); row.style.transform = ''; li.classList.remove('show-left'); pid = null; mode = null; });
 }
 
 async function onTap(item) {
@@ -869,10 +865,13 @@ async function onTap(item) {
   send(item.id);
 }
 
-async function addTo(listName, item) {
-  const had = await AVDB.listHas(listName, item.id);
-  await AVDB.listAdd(listName, item.id);
-  flash(listName === 'playlist' ? (had ? 'Já na playlist' : 'Adicionado à playlist') : (had ? 'Já nos favoritos' : 'Favoritado'));
+// Deslize à esquerda: adiciona (sem substituir) à playlist. A lista
+// "favorites" só é lida/limpa (estrela vestigial) — não há mais UI para
+// favoritar, então nenhum outro destino aqui.
+async function addToPlaylist(item) {
+  const had = await AVDB.listHas('playlist', item.id);
+  await AVDB.listAdd('playlist', item.id);
+  flash(had ? 'Já na playlist' : 'Adicionado à playlist');
   load();
 }
 
