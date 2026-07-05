@@ -178,11 +178,15 @@
     }
 
     // Qual elemento de mídia está ativo (independe da cortina — a mídia toca
-    // por baixo normalmente; quem esconde é só o wallpaper por cima).
+    // por baixo normalmente; quem esconde é só o wallpaper por cima). Vídeo
+    // também fica oculto quando `ended`: sem isso, o `currentTime=0` do fim
+    // natural (preparando o replay) mostraria um salto pro primeiro frame
+    // antes da cortina (se for o caso) cobrir — preto é sempre mais correto
+    // que esse salto.
     function applyMedia() {
       const kind = current ? current.kind : null;
       img.hidden = !(kind === 'image');
-      video.hidden = !(kind === 'video' || kind === 'audio');
+      video.hidden = !(kind === 'video' || kind === 'audio') || ended;
       video.muted = forceMuted ? true : muted;
       if (!forceMuted) video.volume = volume;
     }
@@ -253,6 +257,16 @@
       if (url && isBlobUrl) { URL.revokeObjectURL(url); }
       url = null;
       isBlobUrl = false;
+    }
+
+    // Reset comum de DOM (sem mexer em current/ended/cortina) — usado por
+    // clear() e fadeOutToBlack().
+    function resetMediaDom() {
+      clearInterval(rampTimer);
+      img.hidden = true; img.removeAttribute('src');
+      clearFadeStyle(video); clearFadeStyle(img);
+      video.pause(); video.removeAttribute('src'); video.load();
+      _revokeUrl();
     }
 
     async function load(id, v, m, vol) {
@@ -346,22 +360,37 @@
     function clear() {
       current = null;
       ended = false;
-      clearInterval(rampTimer);
-      img.hidden = true; img.removeAttribute('src');
-      clearFadeStyle(video); clearFadeStyle(img);
-      video.pause(); video.removeAttribute('src'); video.load();
-      _revokeUrl();
+      resetMediaDom();
       instantCover(true); // current=null: cobre sempre, independente da view
       applyMedia();
     }
 
     // clear com fade-out (cobre com a cortina); descartado se um load mais
-    // novo chegar durante o fade.
+    // novo chegar durante o fade. Usado pelo comando 'clear' do operador —
+    // aqui o wallpaper É o destino certo (ponto final explícito).
     async function clearFaded() {
       const seq = ++loadSeq;
       await coverIn(true);
       if (seq !== loadSeq) return;
       clear();
+    }
+
+    // Esmaece o conteúdo até o PRETO e reseta o stage (current=null), sem
+    // tocar na cortina do wallpaper — usado só na troca de TIPO de conteúdo
+    // (mídia local ↔ YouTube, que vive fora do stage), nunca pelo comando
+    // 'stop'/'clear' do operador (que quer mesmo o wallpaper, ver
+    // clearFaded() acima). Se o conteúdo já esmaeceu sozinho (fim natural,
+    // `ended`), pula o fade redundante.
+    async function fadeOutToBlack() {
+      const seq = ++loadSeq;
+      if (!ended) {
+        await runFadeOut(true);
+        if (seq !== loadSeq) return;
+      }
+      current = null;
+      ended = false;
+      resetMediaDom();
+      applyMedia();
     }
 
     // Retorna a promise das sub-chamadas assíncronas — a maioria dos
@@ -382,25 +411,24 @@
       }
     }
 
-    // Fim natural → cobre com a cortina. Com fade-out ativo, cobre com fade
-    // (sem rampa: o vídeo já parou sozinho, não há áudio a segurar); o 'load'
-    // do avanço automático da playlist (disparado por onEnded, logo abaixo)
-    // interrompe via loadSeq e assume a transição — a cortina NÃO pisca entre
-    // os itens da playlist.
+    // Fim natural → esmaece até o PRETO (nunca a cortina do wallpaper aqui:
+    // ainda não se sabe se um próximo item está a caminho). Só cobre com o
+    // wallpaper de fato depois de confirmar que ninguém assumiu a cena num
+    // instante — evita a marca aparecer brevemente durante o avanço
+    // automático de playlist. O 'load' do avanço automático (disparado por
+    // onEnded, logo abaixo) chega quase junto e assume via loadSeq antes
+    // desse prazo — a cortina não pisca entre os itens da playlist.
     video.addEventListener('ended', async () => {
-      if (fadeOut && visibleEl() === video) {
-        const seq = ++loadSeq;
-        await coverIn(false);
-        if (seq !== loadSeq) return;
-        ended = true;
-        video.currentTime = 0;
-        applyMedia();
-      } else {
-        ended = true;
-        video.currentTime = 0;
-        instantCover(true);
-        applyMedia();
-      }
+      const seq = ++loadSeq;
+      await runFadeOut(false);
+      if (seq !== loadSeq) return;
+      ended = true;
+      video.currentTime = 0;
+      clearFadeStyle(video);
+      applyMedia();
+      setTimeout(() => {
+        if (seq === loadSeq && ended) instantCover(true);
+      }, 400);
     });
 
     if (opts.onEnded) video.addEventListener('ended', opts.onEnded);
@@ -412,7 +440,7 @@
 
     return {
       handle, load, clear, play, pause, stop, seek, setView, setMute, setVolume, setFade,
-      coverIn, coverOut, instantCover,
+      coverIn, coverOut, instantCover, fadeOutToBlack,
       getCurrent: () => current,
       getView: () => view,
       isPlaying: isPlayingNow,
