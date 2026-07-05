@@ -1,7 +1,7 @@
 const wallpaperEl = document.getElementById('wallpaper');
 const imgEl = document.getElementById('img');
 const videoEl = document.getElementById('video');
-let youtubeEl = document.getElementById('youtube');
+const youtubeEl = document.getElementById('youtube'); // wrapper; a API cria o iframe real dentro dele
 const ytShieldEl = document.getElementById('ytShield');
 
 // Config de transições espelhada localmente (o stage guarda a dele própria)
@@ -112,46 +112,77 @@ function onUserGesture() {
 document.addEventListener('pointerdown', onUserGesture);
 document.addEventListener('keydown', onUserGesture);
 
-// ===== YouTube: player oficial (youtube.com/embed) com ponte postMessage =====
-// O embed padrão do youtube.com compartilha a sessão logada do navegador
-// (conta Premium ⇒ sem anúncios) e expõe a API de widget: comandos via
-// postMessage e status via infoDelivery — transporte, volume, seek, view e
-// fim de vídeo ficam integrados ao protocolo do sistema.
-const YT_ORIGIN = 'https://www.youtube.com';
+// ===== YouTube: IFrame Player API oficial =====
+// Antes disso o Display falava diretamente com o protocolo interno (não
+// documentado) do embed via postMessage cru — reimplementar esse protocolo à
+// mão é frágil (timing de handshake, mensagens do vídeo anterior confundidas
+// com o novo). A API oficial (`https://www.youtube.com/iframe_api`) expõe um
+// objeto `YT.Player` de verdade: eventos garantidos (onReady/onStateChange),
+// métodos reais (playVideo/pauseVideo/seekTo/setVolume/mute/unMute) e
+// destroy() para descartar uma instância sem ambiguidade. O embed continua
+// usando a sessão logada do navegador (conta Premium ⇒ sem anúncios).
 let yt = null;   // estado do player ativo (null = sem YouTube em cena)
 let ytSeq = 0;   // guarda sequencial: descarta fades/loads assíncronos obsoletos
 
-function ytPost(func, args) {
-  if (!youtubeEl.contentWindow) return;
-  try {
-    youtubeEl.contentWindow.postMessage(
-      JSON.stringify({ event: 'command', func, args: args || [] }), YT_ORIGIN);
-  } catch (_) {}
+// Carrega a API oficial uma única vez (é só um <script>, não uma dependência
+// de build — o projeto já depende de rede/youtube.com para tocar o vídeo).
+let ytApiPromise = null;
+function loadYtApi() {
+  if (window.YT && window.YT.Player) return Promise.resolve();
+  if (ytApiPromise) return ytApiPromise;
+  ytApiPromise = new Promise((resolve) => {
+    const prevCb = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => { if (prevCb) prevCb(); resolve(); };
+    const tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    document.head.appendChild(tag);
+  });
+  return ytApiPromise;
 }
 
-// Handshake da API de widget: pede o fluxo de eventos até a primeira resposta.
-function ytListen() {
-  if (!youtubeEl.contentWindow) return;
-  try {
-    youtubeEl.contentWindow.postMessage(
-      JSON.stringify({ event: 'listening', id: 'av-display', channel: 'widget' }), YT_ORIGIN);
-  } catch (_) {}
+// Chama um método do player "com segurança": ignora se o player ainda não
+// aceita comandos ou já foi destruído (evita exceções não tratadas).
+function ytSafeCall(fn) { try { fn(); } catch (_) {} }
+
+// A API substitui este elemento host pelo <iframe> real que ela cria e
+// gerencia — um host novo a cada vídeo garante um iframe/contentWindow novo,
+// então nunca há confusão entre eventos de um player e o próximo.
+let ytHostSeq = 0;
+function createYtHost() {
+  const host = document.createElement('div');
+  host.id = 'yt-host-' + (++ytHostSeq);
+  youtubeEl.appendChild(host);
+  return host;
 }
 
 function ytStatus() {
-  if (!yt) return;
-  const i = yt.info;
+  if (!yt || !yt.player) return;
+  let state = -1, currentTime = 0, duration = 0;
+  try {
+    state = yt.player.getPlayerState();
+    currentTime = yt.player.getCurrentTime() || 0;
+    duration = yt.player.getDuration() || 0;
+  } catch (_) { return; }
   AVDB.sendCommand({
     type: 'display-status',
     mediaId: yt.mediaId,
     view: yt.view,
     muted: yt.muted,
     volume: yt.volume,
-    playing: i.playerState === 1 || i.playerState === 3, // playing | buffering
-    currentTime: i.currentTime || 0,
-    duration: i.duration || 0,
+    playing: state === 1 || state === 3, // playing | buffering
+    currentTime,
+    duration,
     audioBlocked,
   });
+}
+
+// A API oficial não empurra tempo continuamente (só eventos discretos de
+// estado) — para a barra de progresso do Controle, fazemos um polling leve
+// enquanto este player existir.
+function ytStartTimeLoop() {
+  const cur = yt;
+  clearInterval(cur.timeLoop);
+  cur.timeLoop = setInterval(() => { if (yt === cur) ytStatus(); }, 500);
 }
 
 function ytClearFadeStyle() {
@@ -170,14 +201,15 @@ function ytShield(on) {
 
 // Rampa de volume do player (fade sonoro) via setVolume, como no stage.
 function ytRampVolume(from, to, dur) {
-  if (!yt) return;
+  if (!yt || !yt.player) return;
+  const p = yt.player;
   clearInterval(yt.rampTimer);
   const steps = Math.max(2, Math.round(dur * 20));
   let i = 0;
   yt.rampTimer = setInterval(() => {
     i++;
     const v = Math.min(1, Math.max(0, from + (to - from) * (i / steps)));
-    ytPost('setVolume', [Math.round(v * 100)]);
+    ytSafeCall(() => p.setVolume(Math.round(v * 100)));
     if (i >= steps) clearInterval(yt.rampTimer);
   }, (dur * 1000) / steps);
 }
@@ -206,26 +238,22 @@ function ytShow() {
 // Derruba o player imediatamente (sem transição).
 function ytDrop() {
   if (yt) {
-    clearInterval(yt.listenTimer);
     clearInterval(yt.rampTimer);
+    clearInterval(yt.timeLoop);
     clearTimeout(yt.showTimer);
     clearTimeout(yt.fadeTimer);
     clearTimeout(yt.endTimer);
     clearTimeout(yt.startTimer);
+    if (yt.player) ytSafeCall(() => yt.player.destroy());
     yt = null;
   }
   ytShield(false);
-  // Substitui o iframe por um clone limpo (mesmos atributos, contentWindow
-  // novo): qualquer mensagem do player anterior ainda em trânsito (postMessage
-  // já enviado pela página antiga antes da troca) deixa de bater no filtro
-  // `e.source === youtubeEl.contentWindow` do listener — nunca é aplicada por
-  // engano ao estado do próximo vídeo (causa de reinícios/travamentos
-  // esporádicos quando a troca de vídeo era rápida).
-  const fresh = youtubeEl.cloneNode(false);
-  fresh.hidden = true;
-  fresh.removeAttribute('src');
-  youtubeEl.replaceWith(fresh);
-  youtubeEl = fresh;
+  youtubeEl.hidden = true;
+  // destroy() já remove o iframe que a API criou; innerHTML='' garante que
+  // nenhum host residual sobre — o próximo load cria um host (e portanto um
+  // iframe/contentWindow) inteiramente novo, então uma mensagem atrasada do
+  // player anterior nunca pode ser confundida com o estado do próximo vídeo.
+  youtubeEl.innerHTML = '';
   ytClearFadeStyle();
 }
 
@@ -255,7 +283,7 @@ async function loadYoutube(rec, v, m, vol) {
   endAudioRecovery();
   const seq = ++ytSeq;
   if (yt) {
-    // YouTube → YouTube: esmaece o player atual antes de trocar o src.
+    // YouTube → YouTube: esmaece o player atual antes de trocar.
     await ytFadeOutPlayer();
     if (seq !== ytSeq) return;
     ytDrop();
@@ -264,44 +292,61 @@ async function loadYoutube(rec, v, m, vol) {
     // que cobre o tempo de carregamento do player — depende de rede).
     stage.handle({ type: 'clear' });
   }
+
+  await loadYtApi();
+  if (seq !== ytSeq) return; // um load mais novo chegou enquanto a API carregava
+
   yt = {
     mediaId: rec.id,
     view: v === 'wallpaper' ? 'wallpaper' : 'visual',
     muted: !!m,
     volume: typeof vol === 'number' ? vol : 1,
+    player: null,
     ready: false, shown: false, endedSent: false,
-    info: { playerState: -1, currentTime: 0, duration: 0 },
-    listenTimer: null, showTimer: null, fadeTimer: null,
-    endTimer: null, rampTimer: null, startTimer: null,
+    showTimer: null, fadeTimer: null, endTimer: null, rampTimer: null,
+    startTimer: null, timeLoop: null,
   };
-  // Player "limpo": sem barra de controles (controls=0), sem anotações
-  // (iv_load_policy=3), sem teclado (disablekb=1) e sem botão de fullscreen
-  // (fs=0) — todo o transporte vem do Controle via ponte postMessage. Junto
-  // com pointer-events:none no iframe (CSS) e o escudo anti-UI, nenhum
-  // overlay do YouTube aparece no telão: só o vídeo.
-  const params = new URLSearchParams({
-    autoplay: '1',
-    enablejsapi: '1',
-    playsinline: '1',
-    controls: '0',
-    disablekb: '1',
-    fs: '0',
-    iv_load_policy: '3',
-    rel: '0',
-    origin: location.origin,
-  });
+  const cur = yt;
   // O iframe fica oculto (wallpaper em cena) até o vídeo REPRODUZIR — os
-  // estados de carregamento/cued do embed mostram título e botão grande.
+  // estados de carregamento/cued do player mostram título e botão grande.
   youtubeEl.hidden = true;
   ytClearFadeStyle();
-  // Segurança: se o handshake do widget falhar (nenhum evento chegou),
-  // revela mesmo assim — melhor player com UI do que telão vazio. Com o
-  // handshake vivo, quem revela é o estado 1 (reproduzindo).
-  yt.showTimer = setTimeout(() => {
-    if (yt && !yt.ready && yt.info.playerState === -1) ytShow();
-  }, 5000);
-  youtubeEl.src = YT_ORIGIN + '/embed/' + encodeURIComponent(rec.youtubeId) + '?' + params.toString();
-  yt.listenTimer = setInterval(ytListen, 350);
+  // Segurança: se por algum motivo o player nunca revelar sozinho (nenhum
+  // onReady/onStateChange chegou), revela mesmo assim — melhor player com UI
+  // do que telão vazio.
+  cur.showTimer = setTimeout(() => { if (yt === cur && !cur.shown) ytShow(); }, 5000);
+
+  const host = createYtHost();
+  // Player "limpo": sem barra de controles (controls=0), sem anotações
+  // (iv_load_policy=3), sem teclado (disablekb=1) e sem botão de fullscreen
+  // (fs=0) — todo o transporte vem do Controle via a API. Junto com
+  // pointer-events:none no wrapper (CSS) e o escudo anti-UI, nenhum overlay
+  // do YouTube aparece no telão: só o vídeo.
+  const player = new YT.Player(host, {
+    videoId: rec.youtubeId,
+    playerVars: {
+      autoplay: 1,
+      playsinline: 1,
+      controls: 0,
+      disablekb: 1,
+      fs: 0,
+      iv_load_policy: 3,
+      rel: 0,
+      origin: location.origin,
+    },
+    events: {
+      onReady: (e) => { if (yt === cur) onPlayerReady(e); },
+      onStateChange: (e) => { if (yt === cur) onPlayerStateChange(e); },
+    },
+  });
+  cur.player = player;
+  // allow precisa estar no iframe real (criado pela API) para autoplay com
+  // som/fullscreen/PiP funcionarem — garantido aqui em vez de depender do
+  // default da API.
+  ytSafeCall(() => {
+    const frame = player.getIframe();
+    if (frame) frame.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture');
+  });
 }
 
 // stop/clear com YouTube ativo: esmaece e derruba o player (volta ao wallpaper).
@@ -312,12 +357,18 @@ async function stopYoutube() {
   ytDrop();
 }
 
-function ytReady() {
+function onPlayerReady(e) {
   if (!yt || yt.ready) return;
   yt.ready = true;
-  ytPost(yt.muted ? 'mute' : 'unMute');
-  ytPost('setVolume', [Math.round(yt.volume * 100)]);
-  ytPost('playVideo');
+  const p = yt.player;
+  ytSafeCall(() => {
+    const frame = p.getIframe();
+    if (frame) frame.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture');
+  });
+  ytSafeCall(() => { if (yt.muted) p.mute(); else p.unMute(); });
+  ytSafeCall(() => p.setVolume(Math.round(yt.volume * 100)));
+  ytSafeCall(() => p.playVideo());
+  ytStartTimeLoop();
   ytWatchStart(0);
 }
 
@@ -325,23 +376,24 @@ function ytReady() {
 // antes do player interno estar pronto para aceitá-lo — sem retentativa, o
 // vídeo fica parado/cued indefinidamente). NUNCA mexe no mudo aqui: isso não
 // é detecção de bloqueio de áudio, só um empurrão para o play pegar. Desiste
-// sozinho assim que o vídeo entra em reprodução/buffering/pausa, ou após
+// sozinho assim que o vídeo entra em reprodução/pausa/buffering, ou após
 // algumas tentativas.
 function ytWatchStart(attempt) {
   const cur = yt;
   cur.startTimer = setTimeout(() => {
-    if (yt !== cur) return; // trocou de vídeo nesse meio tempo
-    const st = yt.info.playerState;
+    if (yt !== cur || !cur.player) return;
+    let st;
+    try { st = cur.player.getPlayerState(); } catch (_) { return; }
     if (st === 1 || st === 2 || st === 3) return; // playing/paused/buffering: já saiu do zero
     if (attempt >= 4) return;
-    ytPost('playVideo');
+    ytSafeCall(() => cur.player.playVideo());
     ytWatchStart(attempt + 1);
   }, 2000);
 }
 
-function ytState(st) {
+function onPlayerStateChange(e) {
   if (!yt) return;
-  yt.info.playerState = st;
+  const st = e.data;
   if (st === 1) { // reproduzindo: revela (1ª vez) e libera replays de 'ended'
     ytShow();
     ytShield(false);
@@ -356,64 +408,40 @@ function ytState(st) {
     // fechado), derruba o player — fim natural volta ao wallpaper.
     const cur = yt;
     cur.endTimer = setTimeout(() => {
-      if (yt === cur && yt.info.playerState === 0) stopYoutube();
+      let curSt;
+      try { curSt = cur.player && cur.player.getPlayerState(); } catch (_) { curSt = null; }
+      if (yt === cur && curSt === 0) stopYoutube();
     }, 400);
   }
+  ytStatus();
 }
 
-window.addEventListener('message', (e) => {
-  if (e.origin !== YT_ORIGIN || !yt || e.source !== youtubeEl.contentWindow) return;
-  let data = null;
-  try { data = JSON.parse(e.data); } catch (_) { return; }
-  if (!data || typeof data !== 'object') return;
-
-  // primeira resposta do widget: handshake concluído
-  if (yt.listenTimer) { clearInterval(yt.listenTimer); yt.listenTimer = null; }
-
-  if (data.event === 'onReady') {
-    ytReady();
-  } else if (data.event === 'initialDelivery' || data.event === 'infoDelivery') {
-    // Se o onReady se perdeu (handshake tardio), a primeira entrega de info
-    // também confirma o player pronto — garante o playVideo do autoplay.
-    ytReady();
-    if (!yt) return;
-    const info = data.info || {};
-    if (typeof info.currentTime === 'number') yt.info.currentTime = info.currentTime;
-    if (typeof info.duration === 'number') yt.info.duration = info.duration;
-    if (typeof info.volume === 'number') yt.volume = info.volume / 100;
-    if (typeof info.playerState === 'number') ytState(info.playerState);
-    if (!yt) return;
-    ytStatus();
-  } else if (data.event === 'onStateChange') {
-    ytState(typeof data.info === 'number' ? data.info : -1);
-    if (yt) ytStatus();
-  }
-});
-
-// Transporte/volume/view com YouTube ativo, via ponte postMessage.
+// Transporte/volume/view com YouTube ativo, via métodos do YT.Player.
 function ytHandle(cmd) {
+  if (!yt.player) return;
+  const p = yt.player;
   switch (cmd.type) {
     case 'play':
-      ytPost('playVideo');
+      ytSafeCall(() => p.playVideo());
       break;
     case 'pause':
       // padrão de player normal: quadro congelado (a UI nativa que o
       // YouTube desenhar na pausa é aceita — sem tela preta)
-      ytPost('pauseVideo');
+      ytSafeCall(() => p.pauseVideo());
       break;
     case 'seek':
-      if (isFinite(cmd.time)) ytPost('seekTo', [cmd.time, true]);
+      if (isFinite(cmd.time)) ytSafeCall(() => p.seekTo(cmd.time, true));
       break;
     case 'volume':
       if (typeof cmd.volume === 'number') {
         yt.volume = cmd.volume;
         clearInterval(yt.rampTimer); // operador manda: cancela rampa em curso
-        ytPost('setVolume', [Math.round(cmd.volume * 100)]);
+        ytSafeCall(() => p.setVolume(Math.round(cmd.volume * 100)));
       }
       break;
     case 'mute':
       yt.muted = !!cmd.muted;
-      ytPost(yt.muted ? 'mute' : 'unMute');
+      ytSafeCall(() => { if (yt.muted) p.mute(); else p.unMute(); });
       break;
     case 'view': ytSetView(cmd.view === 'wallpaper' ? 'wallpaper' : 'visual'); break;
   }

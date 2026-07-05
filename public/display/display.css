@@ -39,8 +39,11 @@ html, body {
 
 /* Fundo preto evita flash branco enquanto o player do YouTube carrega.
    pointer-events:none: toques/hover no telão nunca invocam a UI do player
-   (título, controles) — todo o transporte vem do Controle via postMessage. */
+   (título, controles) — todo o transporte vem do Controle via IFrame Player
+   API. #youtube é só um wrapper; o iframe real é criado pela API oficial
+   dentro dele (display.js), por isso o tamanho é herdado via seletor filho. */
 .yt-frame { border: none; background: #000; pointer-events: none; }
+.yt-frame iframe { display: block; width: 100%; height: 100%; border: none; }
 
 /* Escudo anti-UI do YouTube: usado só no FIM do vídeo — cobre a tela de
    "vídeos relacionados" enquanto o player é derrubado. Entra instantâneo
