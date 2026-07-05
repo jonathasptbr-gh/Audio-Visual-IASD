@@ -5,7 +5,7 @@
 //   - store "media": blobs importados (imagens/vídeos/áudios) e itens de URL.
 //   - store "files": catálogo dos arquivos guardados no OPFS (só metadados +
 //     thumbnail; os bytes ficam no Origin Private File System).
-//   - listas (em "state"): "imports", "favorites", "playlist" = arrays de ids.
+//   - listas (em "state"): "imports", "playlist" = arrays de ids.
 //   - um blob de "media" só é apagado quando não está em NENHUMA lista (gc);
 //     registros de "files" pertencem à sua pasta OPFS e não passam pelo gc.
 //
@@ -20,7 +20,7 @@
   const STORE_STATE = 'state';
   const STORE_FILES = 'files';
   const CHANNEL_NAME = 'av-iasd';
-  const LISTS = ['imports', 'favorites', 'playlist'];
+  const LISTS = ['imports', 'playlist'];
 
   let dbPromise = null;
 
