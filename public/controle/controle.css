@@ -74,6 +74,11 @@ body {
 .pv-brand { font-size: clamp(.7rem, 3.5vw, 1.05rem); font-weight: 700; letter-spacing: .03em; color: rgba(255,255,255,.9); }
 .pv-brand b { color: #fbc02d; }
 .pv-layer { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; z-index: 1; }
+/* Preview do YouTube: a API cria o <iframe> dentro deste wrapper (mesmo
+   padrão do Display). pointer-events:none evita que um toque na preview
+   abra os controles/overlays do próprio YouTube. */
+.pv-yt-frame { pointer-events: none; }
+.pv-yt-frame iframe { width: 100%; height: 100%; display: block; border: 0; }
 
 /* Nome + barra de progresso */
 .nowplaying { display: flex; flex-direction: column; gap: .25rem; }
