@@ -17,6 +17,7 @@ const volSliderEl = document.getElementById('volSlider');
 const pvWallEl = document.getElementById('pvWall');
 const pvImgEl = document.getElementById('pvImg');
 const pvVideoEl = document.getElementById('pvVideo');
+const pvYoutubeEl = document.getElementById('pvYoutube');
 
 const plBtnEl = document.getElementById('plBtn');
 const plCountEl = document.getElementById('plCount');
@@ -129,8 +130,118 @@ const preview = createStage({
   },
 });
 
-// Envia o comando ao display E aplica na preview (espelho).
-function cmd(obj) { AVDB.sendCommand(obj); preview.handle(obj); }
+// ===== preview do YouTube (player real, mudo, minúsculo) =====
+// stage.js não toca YouTube (só mostra a thumbnail) — para ter uma preview
+// de verdade aqui, criamos nosso próprio YT.Player, sempre mudo, dirigido
+// pelos mesmos comandos que vão para o Display (mesmo padrão do
+// display.js, bem simplificado: sem cortina/fade próprios do vídeo, sem
+// avanço automático — isso continua vindo do display-status remoto).
+let ytPreviewApiPromise = null;
+function loadYtPreviewApi() {
+  if (window.YT && window.YT.Player) return Promise.resolve();
+  if (ytPreviewApiPromise) return ytPreviewApiPromise;
+  ytPreviewApiPromise = new Promise((resolve) => {
+    const prevCb = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => { if (prevCb) prevCb(); resolve(); };
+    const tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    document.head.appendChild(tag);
+  });
+  return ytPreviewApiPromise;
+}
+
+let ytPreview = null; // { mediaId, player }
+let ytPreviewSeq = 0;
+
+function dropYtPreview() {
+  if (ytPreview && ytPreview.player) { try { ytPreview.player.destroy(); } catch (_) {} }
+  ytPreview = null;
+  pvYoutubeEl.hidden = true;
+  pvYoutubeEl.innerHTML = '';
+}
+
+// Pede a menor qualidade disponível: a preview já é minúscula (~130px de
+// altura), então isso só reforça o que o YouTube tende a escolher sozinho
+// pelo tamanho do player — evita puxar HD à toa num player que ninguém
+// vê em tamanho real.
+function ytPreviewForceLowQuality(player) {
+  try { if (player.getPlaybackQuality() !== 'tiny') player.setPlaybackQuality('tiny'); } catch (_) {}
+}
+
+async function loadYtPreview(rec, v) {
+  dropYtPreview();
+  const seq = ++ytPreviewSeq;
+  // stage.js retorna cedo para kind='youtube' (só marca a thumbnail) e por
+  // isso nunca chega na revelação da cortina no fim de load() — cobre aqui
+  // à parte, igual o display.js faz para o player real. A thumbnail (posta
+  // por preview.handle() em paralelo) fica como placeholder até o player
+  // real assumir por cima (mesmo z-index, depois no DOM).
+  preview.instantCover(v === 'wallpaper');
+  await loadYtPreviewApi();
+  if (seq !== ytPreviewSeq) return;
+  const host = document.createElement('div');
+  pvYoutubeEl.appendChild(host);
+  pvYoutubeEl.hidden = false;
+  const cur = { mediaId: rec.id, player: null };
+  ytPreview = cur;
+  cur.player = new YT.Player(host, {
+    videoId: rec.youtubeId,
+    playerVars: {
+      autoplay: 1, mute: 1, controls: 0, disablekb: 1, fs: 0,
+      iv_load_policy: 3, rel: 0, playsinline: 1,
+    },
+    events: {
+      onReady: (e) => {
+        if (ytPreview !== cur) return;
+        try { e.target.mute(); } catch (_) {}
+        ytPreviewForceLowQuality(e.target);
+        try { e.target.playVideo(); } catch (_) {}
+      },
+      onPlaybackQualityChange: (e) => { if (ytPreview === cur) ytPreviewForceLowQuality(e.target); },
+    },
+  });
+}
+
+// Transporte do player da preview: só play/pause/seek — mudo sempre (nunca
+// recebe mute/volume) e a cortina (view/fade) é tratada à parte, sempre via
+// preview.handle() (ver cmd()), pois é a mesma cortina compartilhada usada
+// pela mídia local.
+function ytPreviewHandle(obj) {
+  if (!ytPreview || !ytPreview.player) return;
+  const p = ytPreview.player;
+  switch (obj.type) {
+    case 'play': try { p.playVideo(); } catch (_) {} break;
+    case 'pause': try { p.pauseVideo(); } catch (_) {} break;
+    case 'seek': if (typeof obj.time === 'number') { try { p.seekTo(obj.time, true); } catch (_) {} } break;
+  }
+}
+
+// Envia o comando ao display E aplica na preview (espelho) — YouTube usa seu
+// próprio player pequeno (acima); mídia comum continua no stage.js.
+function cmd(obj) {
+  AVDB.sendCommand(obj);
+  const nowYoutube = !!(currentItem && currentItem.kind === 'youtube');
+  if (obj.type === 'load') {
+    // preview.handle() sempre roda primeiro: mantém preview.getCurrent()/
+    // fallback de thumbnail em dia (stage.js já sabe lidar com kind=youtube,
+    // só não toca o vídeo) — mesmo quando o player real assume por cima.
+    preview.handle(obj);
+    if (nowYoutube) loadYtPreview(currentItem, obj.view);
+    else if (ytPreview) dropYtPreview();
+    return;
+  }
+  if (obj.type === 'stop' || obj.type === 'clear') {
+    if (ytPreview) dropYtPreview();
+    preview.handle(obj);
+    return;
+  }
+  if (obj.type === 'fade' || obj.type === 'view') {
+    preview.handle(obj); // cortina/config compartilhada — sempre, independe do youtube
+    return;
+  }
+  if (nowYoutube && ytPreview) { ytPreviewHandle(obj); return; }
+  preview.handle(obj);
+}
 
 function previewTick() {
   // Itens YouTube tocam só no Display (player real): a UI de transporte é

@@ -29,9 +29,9 @@ git push origin main
 - Nunca perder funcionalidades existentes ao refatorar.
 - Ao alterar assets estáticos, incrementar a versão nos dois `sw.js` **usando o mesmo número da versão visual** (ex: `controle-v2.6`, `display-v2.6`).
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
-- Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: o Display carrega a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API.)
+- Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.6.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.7.**
 
 ---
 
@@ -425,7 +425,9 @@ Mexer no volume com mudo ativo desliga o mudo automaticamente.
 
 A preview é um `createStage` com `forceMuted: true` que recebe os mesmos comandos
 enviados ao Display (função `cmd()` envia ao canal E aplica na preview). A preview
-local comanda a barra de progresso e o avanço automático da playlist.
+local comanda a barra de progresso e o avanço automático da playlist. Para itens
+YouTube, `cmd()` também dirige um segundo `YT.Player` próprio da preview (mudo,
+qualidade mínima) — ver seção do YouTube no Display para os detalhes.
 
 **Tocar na preview** abre o popup de **configurações rápidas de transições**
 (bottom-sheet `#fadePopup`): toggles de fade in (entrada) e fade out
@@ -747,11 +749,56 @@ anterior) sofria.
   derrubá-lo. `ytSeq` guarda operações assíncronas obsoletas (equivalente ao
   `loadSeq` do stage) — inclusive o carregamento assíncrono da própria API
   (`loadYtApi()`) na primeira vez.
-- **No Controle**, a preview mostra apenas a **thumbnail** (nunca um segundo
-  player); barra de progresso, ícone de play e avanço automático de itens
-  YouTube são dirigidos pelo `display-status`/`media-ended` remotos
-  (`previewTick` ignora itens youtube). YouTube só toca com o Display aberto
-  e com rede.
+- **No Controle, a preview do YouTube é um SEGUNDO `YT.Player` independente**
+  (`controle.js`: `loadYtPreview()`/`ytPreviewHandle()`/`dropYtPreview()`),
+  não uma captura do que está no Display — inevitável, já que o iframe do
+  YouTube é cross-origin e não pode ser espelhado por `captureStream()`/canvas
+  (bloqueado pela mesma-origin policy), e a Screen Capture API
+  (`getDisplayMedia()`) não é confiável no Chrome Android, que é onde o
+  Display sempre roda. O player da preview:
+  - Vive dentro de `#pvYoutube` (wrapper `.pv-layer` no `#preview`, mesmo
+    padrão do `#youtube` do Display: a API cria o `<iframe>` real dentro
+    dele). `stage.js` continua tratando `kind='youtube'` só como thumbnail
+    (`img.src = rec.thumb`) — `preview.handle()` roda normalmente em paralelo
+    (mantém `preview.getCurrent()` em dia, usado pela lógica de play/pause do
+    botão de transporte) e serve de placeholder visual até o player real
+    assumir por cima (mesmo z-index, depois no DOM).
+  - **Sempre mudo** (`mute:1` no `playerVars` + `player.mute()` em
+    `onReady`) e pede a **menor qualidade disponível**
+    (`setPlaybackQuality('tiny')`, reforçado a cada
+    `onPlaybackQualityChange` — o YouTube pode ignorar o pedido inicial):
+    a preview tem ~130px de altura, então HD ali é desperdício de rede/CPU
+    sem ganho visual nenhum; o próprio tamanho minúsculo do iframe já tende a
+    fazer o YouTube escolher uma resolução baixa sozinho, e o pedido explícito
+    só reforça isso.
+  - **Independente do player do Display** (não é o mesmo vídeo "espelhado"
+    frame a frame): os dois recebem os mesmos comandos (`cmd()` despacha para
+    `AVDB.sendCommand` E para a preview) e por isso tocam/pausam/buscam em
+    paralelo, mas cada um busca o stream por conta própria — pequenas
+    diferenças de buffering entre os dois são esperadas e não indicam
+    problema real no Display.
+  - **Custo consciente**: dois players do YouTube tocando ao mesmo tempo (um
+    no aparelho do Display, outro no celular do operador) dobram o consumo de
+    rede/bateria do celular durante toda a sessão — troca deliberada para
+    ganhar a preview de verdade; a qualidade "tiny" existe justamente para
+    reduzir esse custo o quanto der.
+  - `dropYtPreview()` (`player.destroy()` + limpa `#pvYoutube`) roda em
+    `stop`/`clear` e ao trocar para outro item (YouTube ou mídia comum) —
+    mesmo padrão de "host novo a cada troca" do Display (`ytDrop()`), evita
+    que uma mensagem do player anterior seja confundida com a do novo.
+  - Comandos `play`/`pause`/`seek` vão para o player real
+    (`ytPreviewHandle()`); `mute`/`volume` nunca chegam até ele (a preview é
+    sempre muda, como já era pra mídia local); `fade`/`view` continuam
+    indo para `preview.handle()` sempre — é a mesma cortina do wallpaper
+    compartilhada com a mídia local, e `stage.js` só pula a revelação
+    automática no fim de `load()` para `kind='youtube'` (retorna cedo, só
+    marca a thumbnail) — por isso `cmd()` chama
+    `preview.instantCover(view === 'wallpaper')` à parte em `loadYtPreview()`,
+    igual o Display faz para o player real.
+  - Barra de progresso, ícone de play e avanço automático de itens YouTube
+    continuam dirigidos pelo `display-status`/`media-ended` remotos
+    (`previewTick` ignora itens youtube) — o player da preview não alimenta
+    esse estado, é só visual.
 
 ---
 
