@@ -364,17 +364,20 @@
       clear();
     }
 
+    // Retorna a promise das sub-chamadas assíncronas — a maioria dos
+    // chamadores dispara e esquece, mas display.js precisa aguardar o clear()
+    // (YouTube) antes de decidir o que mostrar enquanto o vídeo carrega.
     function handle(cmd) {
       switch (cmd.type) {
-        case 'load': load(cmd.mediaId, cmd.view, cmd.muted, cmd.volume); break;
-        case 'view': setViewFaded(cmd.view); break;
+        case 'load': return load(cmd.mediaId, cmd.view, cmd.muted, cmd.volume);
+        case 'view': return setViewFaded(cmd.view);
         case 'mute': setMute(cmd.muted); break;
         case 'volume': if (typeof cmd.volume === 'number') setVolume(cmd.volume); break;
         case 'play': play(); break;
         case 'pause': pause(); break;
-        case 'stop': stopFaded(); break;
+        case 'stop': return stopFaded();
         case 'seek': seek(cmd.time); break;
-        case 'clear': clearFaded(); break;
+        case 'clear': return clearFaded();
         case 'fade': setFade(cmd); break;
       }
     }

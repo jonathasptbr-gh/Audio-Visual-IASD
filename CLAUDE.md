@@ -31,7 +31,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: o Display carrega a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.0.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.1.**
 
 ---
 
@@ -514,19 +514,22 @@ Escuta o BroadcastChannel e repassa os comandos para `stage.handle()` (ou para
 a ponte do YouTube). Ao inicializar, restaura o estado salvo (`current`) e envia
 `display-ready` para que o Controle reenvie o estado atual.
 
-**Toque único ao abrir (`#startBtn`, "Ligar Display"):** cobre a tela inteira
-(z-index acima de tudo, inclusive do wallpaper e do escudo do YouTube) e some
-para sempre no primeiro toque. Existe porque autoplay com som em conteúdo de
+**Toque único ao abrir (`#startBtn`, "Ligar Display"):** a área de toque
+cobre a tela inteira (z-index acima de tudo, inclusive do wallpaper e do
+escudo do YouTube — qualquer toque na tela serve) e some para sempre no
+primeiro toque; um `.start-pill` central (fundo amarelo, cantos arredondados,
+sombra) é só a pista visual de "isto é clicável" — sem ele o texto flutuando
+no preto não parecia um botão. Existe porque autoplay com som em conteúdo de
 **terceiros** (o iframe do YouTube) exige um **gesto real do usuário** na
 página — diferente da mídia local do stage (mesma origem), que autoplay com
 som é liberado automaticamente num PWA instalado (ver abaixo). Esse gesto **não
 pode ser simulado via JS** (é assim que o navegador garante que é uma ação
 real da pessoa) — por isso o botão, em vez de tentar automatizar. O toque é um
 `pointerdown` normal, que já borbulha para o listener de recuperação de áudio
-do stage; se um YouTube já tiver sido restaurado (`restore()`) e seu primeiro
-`playVideo()` tiver sido ignorado por falta de gesto, o clique do botão dá um
-empurrão extra nele (`ytWatchStart()` também tentaria sozinho, mas não custa
-adiantar).
+do stage; se um YouTube já tiver sido restaurado (`restore()`) antes do
+toque, o clique reaplica mute/volume/play nele imediatamente — mesmo sem
+isso, `ytWatchStart()` e a resincronização de mudo em `ytStartTimeLoop()` (ver
+seção do YouTube) convergiriam sozinhos em poucos segundos.
 
 **Áudio sem toque (recuperação automática — só mídia local do stage):** ao
 contrário do `#startBtn` acima (que existe só por causa do YouTube), mídia
@@ -548,8 +551,8 @@ aplica ao YouTube** — ver seção abaixo.
 ### YouTube (IFrame Player API oficial)
 
 Ao receber `load` de um item `kind='youtube'`, o Display limpa o stage (com o
-fade do próprio stage — o wallpaper cobre o carregamento, que depende de rede)
-e cria um player usando a **IFrame Player API oficial do YouTube**
+fade do próprio stage, se configurado) e cria um player usando a **IFrame
+Player API oficial do YouTube**
 (`https://www.youtube.com/iframe_api`, carregada uma única vez por
 `loadYtApi()`) em vez de falar diretamente com o protocolo interno do embed
 via `postMessage` cru. A API expõe um objeto `YT.Player` de verdade — eventos
@@ -610,15 +613,35 @@ protocolo (versão anterior) sofria.
   (a cada 500 ms, via `getCurrentTime()`/`getDuration()`/`getPlayerState()`)
   enquanto o player existir, alimentando `display-status` para a barra de
   progresso do Controle.
-- **Sem detecção de autoplay bloqueado**: igual à versão anterior, o YouTube
-  **não** tenta detectar/recuperar som bloqueado — `onPlayerReady()` chama
-  `mute`/`unMute` + `setVolume` + `playVideo` uma vez, conforme `yt.muted`
-  (intenção do operador), e nunca muta o vídeo por conta própria (num **PWA
-  instalado** o autoplay com som já é liberado normalmente). `loadYoutube()`
-  encerra qualquer recuperação de áudio do **stage** que tenha ficado presa
-  (`endAudioRecovery()`) — sem isso, um bloqueio de um vídeo local anterior
-  ficava "grudado" e o indicador de mudo do mixer aparecia aceso durante o
-  YouTube sem motivo real.
+- **Recuperação de mudo via fato real, não heurística de tempo**: autoplay com
+  som em conteúdo de terceiros exige um gesto do usuário na página (ver
+  `#startBtn` acima) — antes desse gesto, o player pode ignorar o `unMute()`
+  inicial e ficar mudo mesmo com `yt.muted===false` (intenção do operador é
+  som). Diferente da antiga tentativa (removida por gerar falsos positivos:
+  media unstarted/cued por tempo demais **não prova** bloqueio, só pode ser
+  buffering lento), `ytStartTimeLoop()` (a cada 500 ms) chama
+  `player.isMuted()` — um **fato real** relatado pelo player agora, não uma
+  suposição — e só reage (reenvia `unMute()` + `setVolume()`) quando isso
+  realmente diverge da intenção. Converge assim que a página tiver um gesto
+  real: o toque em `#startBtn` (se ainda visível) resolve na hora; sem ele,
+  o próprio polling resolve em até ~500 ms depois do primeiro gesto (toque,
+  tecla) em qualquer lugar do Display. `onPlayerReady()` ainda faz a
+  tentativa inicial de `mute`/`unMute` + `setVolume` + `playVideo` uma vez,
+  conforme `yt.muted`, e nunca muta o vídeo por conta própria (fora dessa
+  resincronização). `loadYoutube()` encerra qualquer recuperação de áudio do
+  **stage** que tenha ficado presa (`endAudioRecovery()`) — sem isso, um
+  bloqueio de um vídeo local anterior ficava "grudado" e o indicador de mudo
+  do mixer aparecia aceso durante o YouTube sem motivo real.
+- **Preto (não wallpaper) enquanto o vídeo carrega**: `loadYoutube()` calcula
+  a view desejada (`desiredView`) antes de decidir a cortina —
+  `stage.instantCover(desiredView === 'wallpaper')`. Carregar um vídeo do
+  YouTube depende de rede e é bem mais lento que mídia local; cobrir com o
+  wallpaper **de propósito** (`view='wallpaper'`) continua correto, mas usar
+  o wallpaper só porque o vídeo ainda não carregou (`view='visual'`) fazia a
+  marca aparecer por vários segundos a cada troca, parecendo que o sistema
+  tinha parado em vez de só carregando — por isso, nesse caso, a cortina fica
+  fora (preto simples, nada cobrindo) até o vídeo entrar em `PLAYING` e
+  `ytShow()`/`stage.coverOut()` revelarem-no.
 - **Início garantido sem mexer no mudo**: o primeiro `playVideo()` (em
   `onPlayerReady()`) pode chegar antes do player interno aceitar o comando e
   o vídeo fica parado em unstarted/cued. `ytWatchStart()` reenvia
