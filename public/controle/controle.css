@@ -314,14 +314,14 @@ main {
 .row { position: relative; z-index: 1; display: flex; align-items: center; gap: .5rem; padding: .35rem .5rem; background: var(--panel); touch-action: pan-y; }
 .lib-item.selected .row, .lib-item.active .row, .row-item.active .row { background: var(--panel-2); }
 
-.thumb { width: 40px; height: 40px; flex-shrink: 0; border-radius: 7px; overflow: hidden; background: #060606; display: flex; align-items: center; justify-content: center; }
+.thumb { position: relative; width: 40px; height: 40px; flex-shrink: 0; border-radius: 7px; overflow: hidden; background: #060606; display: flex; align-items: center; justify-content: center; }
 .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .thumb--icon .msym { font-size: 24px; color: var(--muted); }
+/* Estrela de favorito sobreposta no canto da miniatura (antes ficava numa
+   coluna .row-mark à esquerda, que empurrava a miniatura para dentro). */
+.thumb .thumb-fav { position: absolute; top: 1px; left: 2px; font-size: 13px; line-height: 1; color: #ffca28; text-shadow: 0 0 3px rgba(0, 0, 0, .95); pointer-events: none; }
 
 .row-name { flex: 1; min-width: 0; font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.row-mark { width: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.row-mark .msym { font-size: 19px; color: var(--accent); }
-.row-mark .is-fav, .row-mark.is-fav .msym { color: #ffca28; }
 
 .url-badge { flex-shrink: 0; font-size: .6rem; font-weight: 700; letter-spacing: .04em; padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,.12); color: var(--muted); }
 .yt-badge { background: rgba(255, 0, 0, .18); color: #ff5252; }
