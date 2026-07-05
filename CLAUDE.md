@@ -31,7 +31,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: o Display carrega a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.4.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.5.**
 
 ---
 
@@ -543,10 +543,15 @@ persistido pelo próprio Display).
 
 **Toque único ao abrir (`#startBtn`, "Ligar Display"):** a área de toque
 cobre a tela inteira (z-index acima de tudo, inclusive do wallpaper e do
-escudo do YouTube — qualquer toque na tela serve) e some para sempre no
+escudo do YouTube — qualquer toque na tela serve) e some para sempre após o
 primeiro toque; um `.start-pill` central (fundo amarelo, cantos arredondados,
 sombra) é só a pista visual de "isto é clicável" — sem ele o texto flutuando
-no preto não parecia um botão. Existe porque autoplay com som em conteúdo de
+no preto não parecia um botão. Ao tocar, a classe `.confirming` dispara uma
+animação rápida (~0,3s: pill cresce levemente e esmaece, fundo vai a
+transparente) antes do elemento sumir de fato (`hidden = true` só depois do
+`setTimeout` correspondente) — sem esse feedback, o overlay sumia no mesmo
+instante do toque e a ação parecia não ter surtido efeito nenhum. Existe
+porque autoplay com som em conteúdo de
 **terceiros** (o iframe do YouTube) exige um **gesto real do usuário** na
 página — diferente da mídia local do stage (mesma origem), que autoplay com
 som é liberado automaticamente num PWA instalado (ver abaixo). Esse gesto **não
