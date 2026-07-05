@@ -75,60 +75,38 @@ function scheduleAudioRetry(ms) {
   audioRetryTimer = setTimeout(tryRestoreAudio, ms);
 }
 
+// Este mecanismo de recuperação é exclusivo do stage (vídeo/áudio locais).
+// O YouTube não usa detecção de bloqueio de autoplay: num PWA instalado o
+// autoplay com som é liberado normalmente, e a antiga tentativa de detecção
+// gerava falsos positivos (buffering demorado confundido com bloqueio),
+// deixando o vídeo mutando/desmutando e reiniciando em loop.
 function tryRestoreAudio() {
-  if (!audioBlocked) return;
-  if (yt) {
-    if (yt.muted) { endAudioRecovery(); return; } // operador deixou mudo
-    ytPost('unMute');
-    ytPost('setVolume', [Math.round(yt.volume * 100)]);
-    ytPost('playVideo');
-    setTimeout(() => {
-      if (!audioBlocked) return;
-      if (yt && yt.info.playerState === 1 && yt.infoMuted === false) {
-        yt.mutedFallback = false;
-        endAudioRecovery();
-      } else {
-        if (yt && yt.info.playerState !== 1 && yt.info.playerState !== 3) {
-          ytPost('mute'); ytPost('playVideo'); // volta ao modo mudo tocando
-        }
-        scheduleAudioRetry(5000);
-      }
-    }, 900);
-  } else {
-    const cur = stage.getCurrent();
-    if (!cur || (cur.kind !== 'video' && cur.kind !== 'audio')) { endAudioRecovery(); return; }
-    if (videoEl.paused) { scheduleAudioRetry(5000); return; } // não está tocando agora
-    stage.setMute(false);
-    setTimeout(() => {
-      if (!audioBlocked) return;
-      if (videoEl.paused) {
-        // o navegador pausou ao desmutar: ainda bloqueado — segue mudo
-        stage.setMute(true);
-        stage.play();
-        scheduleAudioRetry(5000);
-      } else if (!videoEl.muted) {
-        endAudioRecovery();
-      } else {
-        scheduleAudioRetry(5000);
-      }
-    }, 350);
-  }
+  if (!audioBlocked || yt) return;
+  const cur = stage.getCurrent();
+  if (!cur || (cur.kind !== 'video' && cur.kind !== 'audio')) { endAudioRecovery(); return; }
+  if (videoEl.paused) { scheduleAudioRetry(5000); return; } // não está tocando agora
+  stage.setMute(false);
+  setTimeout(() => {
+    if (!audioBlocked) return;
+    if (videoEl.paused) {
+      // o navegador pausou ao desmutar: ainda bloqueado — segue mudo
+      stage.setMute(true);
+      stage.play();
+      scheduleAudioRetry(5000);
+    } else if (!videoEl.muted) {
+      endAudioRecovery();
+    } else {
+      scheduleAudioRetry(5000);
+    }
+  }, 350);
 }
 
 // Qualquer gesto real no Display (toque, tecla de um controle remoto) concede
-// a ativação do navegador — religa o áudio na hora.
+// a ativação do navegador — religa o áudio na hora (só se aplica ao stage).
 function onUserGesture() {
-  if (yt) {
-    if (yt.mutedFallback || (!yt.muted && yt.infoMuted)) {
-      yt.mutedFallback = false;
-      ytPost('unMute');
-      ytPost('setVolume', [Math.round(yt.volume * 100)]);
-      ytPost('playVideo');
-    }
-  } else if (audioBlocked) {
-    stage.setMute(false);
-    stage.play();
-  }
+  if (!audioBlocked || yt) return;
+  stage.setMute(false);
+  stage.play();
   endAudioRecovery();
 }
 document.addEventListener('pointerdown', onUserGesture);
@@ -232,7 +210,6 @@ function ytDrop() {
     clearInterval(yt.rampTimer);
     clearTimeout(yt.showTimer);
     clearTimeout(yt.fadeTimer);
-    clearTimeout(yt.blockTimer);
     clearTimeout(yt.endTimer);
     yt = null;
   }
@@ -278,11 +255,10 @@ async function loadYoutube(rec, v, m, vol) {
     view: v === 'wallpaper' ? 'wallpaper' : 'visual',
     muted: !!m,
     volume: typeof vol === 'number' ? vol : 1,
-    ready: false, shown: false, endedSent: false, mutedFallback: false,
-    infoMuted: undefined,
+    ready: false, shown: false, endedSent: false,
     info: { playerState: -1, currentTime: 0, duration: 0 },
     listenTimer: null, showTimer: null, fadeTimer: null,
-    blockTimer: null, endTimer: null, rampTimer: null,
+    endTimer: null, rampTimer: null,
   };
   // Player "limpo": sem barra de controles (controls=0), sem anotações
   // (iv_load_policy=3), sem teclado (disablekb=1) e sem botão de fullscreen
@@ -328,19 +304,6 @@ function ytReady() {
   ytPost(yt.muted ? 'mute' : 'unMute');
   ytPost('setVolume', [Math.round(yt.volume * 100)]);
   ytPost('playVideo');
-  // Autoplay com som bloqueado pelo browser? (segundos após o ready ainda em
-  // unstarted/cued) → inicia MUDO (sempre permitido: o vídeo aparece no
-  // telão sem toque) e deixa a recuperação automática religar o áudio.
-  yt.blockTimer = setTimeout(() => {
-    if (!yt) return;
-    const st = yt.info.playerState;
-    if (st === -1 || st === 5) {
-      yt.mutedFallback = true;
-      ytPost('mute');
-      ytPost('playVideo');
-      if (!yt.muted) beginAudioRecovery();
-    }
-  }, 2500);
 }
 
 function ytState(st) {
@@ -384,7 +347,6 @@ window.addEventListener('message', (e) => {
     const info = data.info || {};
     if (typeof info.currentTime === 'number') yt.info.currentTime = info.currentTime;
     if (typeof info.duration === 'number') yt.info.duration = info.duration;
-    if (typeof info.muted === 'boolean') yt.infoMuted = info.muted;
     if (typeof info.volume === 'number') yt.volume = info.volume / 100;
     if (typeof info.playerState === 'number') ytState(info.playerState);
     if (!yt) return;
@@ -418,8 +380,6 @@ function ytHandle(cmd) {
       break;
     case 'mute':
       yt.muted = !!cmd.muted;
-      yt.mutedFallback = false; // operador assumiu o controle do mudo
-      if (yt.muted) endAudioRecovery();
       ytPost(yt.muted ? 'mute' : 'unMute');
       break;
     case 'view': ytSetView(cmd.view === 'wallpaper' ? 'wallpaper' : 'visual'); break;
