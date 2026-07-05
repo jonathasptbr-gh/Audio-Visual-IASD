@@ -31,7 +31,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente.
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v3.5.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v3.6.**
 
 ---
 
@@ -541,14 +541,33 @@ https://www.youtube.com/embed/<id>?autoplay=1&enablejsapi=1&playsinline=1
   `ytSeq` guarda operações assíncronas obsoletas (equivalente ao `loadSeq`
   do stage).
 - **Sem detecção de autoplay bloqueado**: ao contrário do stage, o YouTube
-  **não** tenta detectar/recuperar som bloqueado — `ytReady()` só chama
+  **não** tenta detectar/recuperar som bloqueado — `ytReady()` chama
   `mute`/`unMute` + `setVolume` + `playVideo` uma vez, conforme `yt.muted`
-  (intenção do operador). A tentativa antiga (mutar após ~2,5 s em
-  unstarted/cued e ficar religando o áudio em retentativas) foi removida: num
-  **PWA instalado** o autoplay com som já é liberado normalmente, e a detecção
-  gerava falsos positivos com vídeos que só estavam bufferizando, fazendo o
-  player mutar/desmutar e reiniciar em loop. A primeira entrega de info
-  também dispara `ytReady()` (caso o evento `onReady` se perca no handshake).
+  (intenção do operador), e nunca muta o vídeo por conta própria. A tentativa
+  antiga (mutar após ~2,5 s em unstarted/cued e ficar religando o áudio em
+  retentativas) foi removida: num **PWA instalado** o autoplay com som já é
+  liberado normalmente, e a detecção gerava falsos positivos com vídeos que só
+  estavam bufferizando, fazendo o player mutar/desmutar e reiniciar em loop. A
+  primeira entrega de info também dispara `ytReady()` (caso o evento `onReady`
+  se perca no handshake). `loadYoutube()` encerra qualquer recuperação de
+  áudio do **stage** que tenha ficado presa (`endAudioRecovery()`) — sem isso,
+  um bloqueio de um vídeo local anterior ficava "grudado" e o indicador de
+  mudo do mixer aparecia aceso durante o YouTube sem motivo real.
+- **Início garantido sem mexer no mudo**: o primeiro `playVideo()` (em
+  `ytReady()`) pode chegar antes do player interno aceitar o comando e o
+  vídeo fica parado em unstarted/cued. `ytWatchStart()` reenvia `playVideo()`
+  a cada ~2 s (até 4 tentativas) enquanto o estado não avança para
+  playing/paused/buffering — sem tocar em mute/volume, só um empurrão para o
+  play pegar.
+- **Iframe recriado a cada troca (`ytDrop()`)**: em vez de só trocar o `src`,
+  o iframe `#youtube` é substituído por um clone limpo (mesmos atributos,
+  `contentWindow` novo) sempre que o player anterior é derrubado. Isso existe
+  porque uma mensagem do player anterior ainda em trânsito (postMessage já
+  enviado pela página antiga antes da troca de vídeo) passava despercebida
+  pelo filtro `e.source === youtubeEl.contentWindow` do listener — já que o
+  `contentWindow` de um iframe não muda só por trocar o `src` — e era aplicada
+  por engano ao estado do vídeo novo (causa de reinícios/travamentos
+  esporádicos ao trocar de vídeo rapidamente).
 - **No Controle**, a preview mostra apenas a **thumbnail** (nunca um segundo
   player); barra de progresso, ícone de play e avanço automático de itens
   YouTube são dirigidos pelo `display-status`/`media-ended` remotos
