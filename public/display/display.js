@@ -1,7 +1,7 @@
 const wallpaperEl = document.getElementById('wallpaper');
 const imgEl = document.getElementById('img');
 const videoEl = document.getElementById('video');
-const youtubeEl = document.getElementById('youtube');
+let youtubeEl = document.getElementById('youtube');
 const ytShieldEl = document.getElementById('ytShield');
 
 // Config de transições espelhada localmente (o stage guarda a dele própria)
@@ -211,11 +211,21 @@ function ytDrop() {
     clearTimeout(yt.showTimer);
     clearTimeout(yt.fadeTimer);
     clearTimeout(yt.endTimer);
+    clearTimeout(yt.startTimer);
     yt = null;
   }
   ytShield(false);
-  youtubeEl.hidden = true;
-  youtubeEl.removeAttribute('src');
+  // Substitui o iframe por um clone limpo (mesmos atributos, contentWindow
+  // novo): qualquer mensagem do player anterior ainda em trânsito (postMessage
+  // já enviado pela página antiga antes da troca) deixa de bater no filtro
+  // `e.source === youtubeEl.contentWindow` do listener — nunca é aplicada por
+  // engano ao estado do próximo vídeo (causa de reinícios/travamentos
+  // esporádicos quando a troca de vídeo era rápida).
+  const fresh = youtubeEl.cloneNode(false);
+  fresh.hidden = true;
+  fresh.removeAttribute('src');
+  youtubeEl.replaceWith(fresh);
+  youtubeEl = fresh;
   ytClearFadeStyle();
 }
 
@@ -239,6 +249,10 @@ function ytFadeOutPlayer() {
 }
 
 async function loadYoutube(rec, v, m, vol) {
+  // O YouTube não usa a recuperação de áudio do stage (ver tryRestoreAudio) —
+  // se ela ficou presa em "bloqueado" por causa de um vídeo local anterior,
+  // isso não pode vazar para o indicador do mixer durante o YouTube.
+  endAudioRecovery();
   const seq = ++ytSeq;
   if (yt) {
     // YouTube → YouTube: esmaece o player atual antes de trocar o src.
@@ -258,7 +272,7 @@ async function loadYoutube(rec, v, m, vol) {
     ready: false, shown: false, endedSent: false,
     info: { playerState: -1, currentTime: 0, duration: 0 },
     listenTimer: null, showTimer: null, fadeTimer: null,
-    endTimer: null, rampTimer: null,
+    endTimer: null, rampTimer: null, startTimer: null,
   };
   // Player "limpo": sem barra de controles (controls=0), sem anotações
   // (iv_load_policy=3), sem teclado (disablekb=1) e sem botão de fullscreen
@@ -304,6 +318,25 @@ function ytReady() {
   ytPost(yt.muted ? 'mute' : 'unMute');
   ytPost('setVolume', [Math.round(yt.volume * 100)]);
   ytPost('playVideo');
+  ytWatchStart(0);
+}
+
+// Garante que o vídeo realmente comece (o primeiro playVideo() pode chegar
+// antes do player interno estar pronto para aceitá-lo — sem retentativa, o
+// vídeo fica parado/cued indefinidamente). NUNCA mexe no mudo aqui: isso não
+// é detecção de bloqueio de áudio, só um empurrão para o play pegar. Desiste
+// sozinho assim que o vídeo entra em reprodução/buffering/pausa, ou após
+// algumas tentativas.
+function ytWatchStart(attempt) {
+  const cur = yt;
+  cur.startTimer = setTimeout(() => {
+    if (yt !== cur) return; // trocou de vídeo nesse meio tempo
+    const st = yt.info.playerState;
+    if (st === 1 || st === 2 || st === 3) return; // playing/paused/buffering: já saiu do zero
+    if (attempt >= 4) return;
+    ytPost('playVideo');
+    ytWatchStart(attempt + 1);
+  }, 2000);
 }
 
 function ytState(st) {
