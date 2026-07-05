@@ -37,7 +37,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.14.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.15.**
 
 ---
 
@@ -465,12 +465,28 @@ do dispositivo (só na raiz da aba Pastas).
 `max(env(safe-area-inset-bottom), 12px)` para garantir margem segura contra
 acionamentos acidentais pela navegação por gestos do Android/iOS.
 
-**Mixer (coluna direita):** slider vertical de volume (fader), botão mudo, botão visual on/off.
-Mexer no volume com mudo ativo desliga o mudo automaticamente. O fader tem um
-"botão" (thumb) de 34px (`::-webkit-slider-thumb`), maior que o padrão do
-navegador, para facilitar tocar e arrastar num controle tão estreito.
-Mutar/desmutar não corta o volume na hora — faz uma rampa curta (ver
-`setMute` em `stage.js`).
+**Mixer (coluna direita):** o fader de volume é **recolhível**. Por padrão a
+coluna mostra quatro botões: **volume** (destacado em accent — `#volToggle`),
+**mudo**, **visual on/off** e **mesa de som**. Tocar no botão de volume liga a
+classe `.vol-open` no `#mixer`, que **troca todos esses botões pelo fader
+vertical + um botão de ocultar** (`#volClose`, ícone ✕) — o fader ganha toda a
+altura da lateral (alvo bem maior). É só estado de UI (não persistido; cada
+abertura começa recolhida). O botão de volume usa o mesmo ícone de
+alto-falante do mudo, por isso recebe fundo/ícone em accent (`.mixer .vol-btn`)
+para não se confundir com ele. Mexer no volume com mudo ativo desliga o mudo
+automaticamente. O fader tem um "botão" (thumb) de 34px
+(`::-webkit-slider-thumb`), maior que o padrão do navegador, para facilitar
+tocar e arrastar. Mutar/desmutar não corta o volume na hora — faz uma rampa
+curta (ver `setMute` em `stage.js`).
+
+**Título rolante (now-playing):** o nome da mídia em exibição (`#npName`) tem
+um span interno (`#npNameInner`); quando o texto não cabe na largura
+disponível, `applyTitleMarquee()` liga a classe `.scrolling` e uma animação
+ping-pong (`@keyframes np-marquee`) que rola o título de um lado ao outro para
+poder ser lido inteiro (distância e duração calculadas pela medição do
+overflow e passadas via `--np-shift`/`--np-dur`). Quando cabe, fica estático e
+centralizado (com reticências como fallback). Remedido em cada
+`renderNowPlaying()` e no `resize` (debounce).
 
 A preview é um `createStage` com `forceMuted: true` que recebe os mesmos comandos
 enviados ao Display (função `cmd()` envia ao canal E aplica na preview). A preview
