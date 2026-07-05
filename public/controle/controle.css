@@ -287,7 +287,6 @@ main {
 .swipe-bg { position: absolute; inset: 0; z-index: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; }
 .swipe-hint { opacity: .22; }
 .swipe-hint .msym { font-size: 24px; }
-.swipe-hint.left { color: #ffca28; }
 .swipe-hint.right { color: var(--accent); }
 .lib-item.show-left .swipe-hint.right { opacity: 1; }
 

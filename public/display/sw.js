@@ -1,4 +1,6 @@
-const CACHE = 'display-v4.13';
+const CACHE = 'display-v4.14';
+// O Display não usa a fonte de ícones (Material Symbols) — só o Controle a
+// carrega/cacheia; aqui a UI é apenas wallpaper + mídia.
 const ASSETS = [
   './',
   './index.html',
@@ -11,8 +13,6 @@ const ASSETS = [
   './icons/icon-512.png',
   '../shared/db.js',
   '../shared/stage.js',
-  '../shared/material-symbols.css',
-  '../shared/fonts/material-symbols.woff2',
 ];
 
 self.addEventListener('install', (e) => {

@@ -37,7 +37,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.13.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.14.**
 
 ---
 
@@ -75,7 +75,7 @@ public/
 ├── shared/
 │   ├── db.js                   # Camada comum: IndexedDB + OPFS + BroadcastChannel
 │   ├── stage.js                # Motor de renderização compartilhado
-│   ├── material-symbols.css    # Font-face da fonte de ícones (subset offline)
+│   ├── material-symbols.css    # Font-face da fonte de ícones (subset offline; só o Controle usa)
 │   └── fonts/
 │       └── material-symbols.woff2  # ~3.2 KB — 30 glifos
 ├── controle/
@@ -552,7 +552,9 @@ e restaurada ao fim de cada `load()`; `rememberScroll()` é chamado antes de
 trocar de aba, abrir pasta ou voltar. (Memória por sessão, em RAM.)
 
 Miniaturas (160×160 px, JPEG 72%) geradas via Canvas no momento da importação.
-Vídeos têm thumbnail extraído do frame a ~⅓ da duração (timeout de 3,5 s).
+Vídeos têm thumbnail extraído de um frame perto do início — `min(0,5 s,
+duração/3)`, ou seja, 0,5 s para qualquer vídeo acima de ~1,5 s (evita seek
+longo/lento; timeout de 3,5 s).
 Itens sem blob local exibem badge `URL` ou `YT`.
 
 ### Gestos nos itens da biblioteca
@@ -946,15 +948,22 @@ Ex: se a versão visual é `v2.6`, os caches ficam `controle-v2.6` e `display-v2
 
 ## Fonte de ícones (Material Symbols)
 
-Versão subconjuntada (~3.2 KB woff2): peso 400, 30 glifos usados na UI
-(referenciados por codepoint — ver mapa `ICON` em `controle.js`).
+Versão subconjuntada (~3.2 KB woff2): peso 400, 30 glifos no subset (28
+efetivamente usados na UI — referenciados por codepoint via o mapa `ICON` em
+`controle.js` **ou** direto como entidade HTML `&#x…;` no `controle/index.html`).
+**Só o Controle carrega a fonte** — o Display é só wallpaper + mídia, sem
+nenhum glifo (por isso `display/index.html` e `display/sw.js` não incluem
+`material-symbols.css`/`.woff2`).
 
-**Codepoints ativos:**
+**Codepoints no subset:**
 ```
 E034 E037 E03B E03D E040 E041 E043 E044 E045 E047
 E04F E050 E14C E150 E251 E2C7 E2C8 E2CC E3A1 E3AD
 E413 E5C4 E5CF E838 E86C E872 E8F5 E945 EB80 F116
 ```
+
+`E5CF` (expand_more) e `E8F5` (visibility_off) continuam no woff2 mas não têm
+mais referência (glifos reservados) — podem sair num próximo re-subset.
 
 Para adicionar ícone: obter codepoint em `fonts.google.com/icons?icon.style=Rounded`
 e gerar novo subset com `fontTools`.
