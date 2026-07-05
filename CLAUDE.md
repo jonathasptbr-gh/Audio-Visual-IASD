@@ -37,7 +37,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.15.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.16.**
 
 ---
 
@@ -465,19 +465,24 @@ do dispositivo (só na raiz da aba Pastas).
 `max(env(safe-area-inset-bottom), 12px)` para garantir margem segura contra
 acionamentos acidentais pela navegação por gestos do Android/iOS.
 
-**Mixer (coluna direita):** o fader de volume é **recolhível**. Por padrão a
-coluna mostra quatro botões: **volume** (destacado em accent — `#volToggle`),
-**mudo**, **visual on/off** e **mesa de som**. Tocar no botão de volume liga a
-classe `.vol-open` no `#mixer`, que **troca todos esses botões pelo fader
-vertical + um botão de ocultar** (`#volClose`, ícone ✕) — o fader ganha toda a
-altura da lateral (alvo bem maior). É só estado de UI (não persistido; cada
-abertura começa recolhida). O botão de volume usa o mesmo ícone de
-alto-falante do mudo, por isso recebe fundo/ícone em accent (`.mixer .vol-btn`)
-para não se confundir com ele. Mexer no volume com mudo ativo desliga o mudo
-automaticamente. O fader tem um "botão" (thumb) de 34px
-(`::-webkit-slider-thumb`), maior que o padrão do navegador, para facilitar
-tocar e arrastar. Mutar/desmutar não corta o volume na hora — faz uma rampa
-curta (ver `setMute` em `stage.js`).
+**Mixer (coluna direita):** o fader de volume é **recolhível**. A coluna é
+preenchida por inteiro: um **botão reservado** no topo (`#fillTop` — placeholder
+sem função por enquanto, ícone ⋮), depois **mudo**, **visual on/off** e **mesa
+de som** (todos `.fill-btn`, que crescem com `flex:1` para ocupar a coluna), e
+na **base** o botão de **volume** (`#volToggle`). Tocar no botão de volume liga
+a classe `.vol-open` no `#mixer`, que **troca todos os `.fill-btn` + o botão de
+volume pelo fader vertical + um botão de ocultar** (`#volClose`, ícone ✕) — o
+fader ganha toda a altura da lateral (alvo bem maior). O botão de ocultar fica
+na **mesma base**, na exata posição do botão de volume, porque ambos têm altura
+natural e são o último item visível da coluna em cada estado (o fader, como os
+`.fill-btn`, é `flex:1` e ocupa todo o espaço acima). É só estado de UI (não
+persistido; cada abertura começa recolhida). O botão de volume é **preenchido
+de azul (accent) com o ícone de mixer/faders em branco** (SVG inline — o ícone
+não existe no subset da fonte; ver seção da fonte), visualmente distinto do
+mudo. Mexer no volume com mudo ativo desliga o mudo automaticamente. O fader tem
+um "botão" (thumb) de 34px (`::-webkit-slider-thumb`), maior que o padrão do
+navegador, para facilitar tocar e arrastar. Mutar/desmutar não corta o volume na
+hora — faz uma rampa curta (ver `setMute` em `stage.js`).
 
 **Título rolante (now-playing):** o nome da mídia em exibição (`#npName`) tem
 um span interno (`#npNameInner`); quando o texto não cabe na largura
@@ -983,6 +988,12 @@ mais referência (glifos reservados) — podem sair num próximo re-subset.
 
 Para adicionar ícone: obter codepoint em `fonts.google.com/icons?icon.style=Rounded`
 e gerar novo subset com `fontTools`.
+
+**Ícones fora do subset → SVG inline.** Quando um ícone necessário não está no
+subset e re-gerar o woff2 não vale a pena (ou o ambiente não tem `fontTools`),
+usa-se um `<svg>` inline direto no HTML, com `fill/stroke: currentColor` (herda
+a cor do botão). Hoje: o botão de **volume** do mixer (`#volToggle`, ícone de
+faders/mixer) e o botão **reservado** do topo do mixer (`#fillTop`, ícone ⋮).
 
 ---
 
