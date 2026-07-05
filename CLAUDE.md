@@ -29,9 +29,9 @@ git push origin main
 - Nunca perder funcionalidades existentes ao refatorar.
 - Ao alterar assets estáticos, incrementar a versão nos dois `sw.js` **usando o mesmo número da versão visual** (ex: `controle-v2.6`, `display-v2.6`).
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
-- Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente.
+- Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: o Display carrega a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v3.6.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v3.7.**
 
 ---
 
@@ -492,82 +492,83 @@ imediata) em vez de alternar o mudo. Qualquer gesto real no Display
 comando `mute` do operador encerra a recuperação. **Este mecanismo não se
 aplica ao YouTube** — ver seção abaixo.
 
-### YouTube (player oficial integrado)
+### YouTube (IFrame Player API oficial)
 
 Ao receber `load` de um item `kind='youtube'`, o Display limpa o stage (com o
 fade do próprio stage — o wallpaper cobre o carregamento, que depende de rede)
-e carrega o **embed padrão do youtube.com** no iframe `#youtube`:
+e cria um player usando a **IFrame Player API oficial do YouTube**
+(`https://www.youtube.com/iframe_api`, carregada uma única vez por
+`loadYtApi()`) em vez de falar diretamente com o protocolo interno do embed
+via `postMessage` cru. A API expõe um objeto `YT.Player` de verdade — eventos
+garantidos (`onReady`/`onStateChange`) e métodos reais (`playVideo`,
+`pauseVideo`, `seekTo`, `setVolume`, `mute`/`unMute`, `destroy`) — eliminando
+uma classe inteira de bugs de timing que a reimplementação manual do
+protocolo (versão anterior) sofria.
 
-```
-https://www.youtube.com/embed/<id>?autoplay=1&enablejsapi=1&playsinline=1
-  &controls=0&disablekb=1&fs=0&iv_load_policy=3&rel=0&origin=<origin>
-```
-
-- Usa `www.youtube.com` (e **não** `youtube-nocookie.com`) de propósito: o embed
-  padrão compartilha a sessão logada do navegador — conta **Premium** é detectada
-  automaticamente (sem anúncios). O iframe tem
-  `allow="autoplay; fullscreen; encrypted-media; picture-in-picture"`.
-- **Vídeo puro no telão**: `controls=0` + `disablekb=1` + `fs=0` +
-  `iv_load_policy=3` removem a UI do player, e o iframe tem
-  `pointer-events: none` (CSS) — toque/hover no telão nunca invoca overlays;
-  todo o transporte vem do Controle. Ao **fim do vídeo** (estado 0), se nenhum
-  `load` de avanço automático chegar em ~400 ms, o Display **derruba o player**
-  antes da tela final de "vídeos relacionados" aparecer (o escudo cobre o
+- **`#youtube` é só um wrapper** (`<div class="layer yt-frame" hidden>`); a
+  API cria o `<iframe>` real **dentro** dele a cada vídeo, via um elemento
+  host descartável (`createYtHost()` — id incremental `yt-host-N`). O CSS
+  (`.yt-frame iframe { width/height:100% }`) estiliza qualquer iframe filho,
+  então o wrapper nunca precisa conhecer detalhes do iframe da API.
+- **UI mínima**: `playerVars` pede `controls:0`, `disablekb:1`, `fs:0`,
+  `iv_load_policy:3`, `rel:0` — sem barra de controles, teclado, fullscreen,
+  anotações ou vídeos relacionados ao final. O wrapper tem
+  `pointer-events:none` (CSS) — toque/hover no telão nunca invoca overlays;
+  todo o transporte vem do Controle. `allow="autoplay; fullscreen;
+  encrypted-media; picture-in-picture"` é aplicado programaticamente no
+  iframe (`getIframe().setAttribute('allow', …)`, logo após criar o player e
+  de novo em `onPlayerReady`), já que a API não garante esse atributo por
+  conta própria. Usa a sessão logada do navegador (mesmo domínio
+  `youtube.com`) — conta **Premium** é detectada automaticamente (sem
+  anúncios).
+- **Reveal só reproduzindo**: o wrapper fica **oculto** (wallpaper em cena)
+  até o primeiro estado `PLAYING` (1) — os estados de carregamento/cued
+  mostram título e botão grande, que nunca chegam ao telão (safety: revela às
+  cegas em 5 s se nenhum evento tiver chegado ainda).
+- **Fim do vídeo** (estado `ENDED`, 0): se nenhum `load` de avanço automático
+  chegar em ~400 ms, o Display **derruba o player** (`destroy()`) antes da
+  tela final de "vídeos relacionados" aparecer (o `#ytShield` cobre o
   intervalo); o Controle marca `ytEnded` e o ▶ recarrega o item (novo `load`).
-- **Reveal só reproduzindo**: o iframe fica **oculto** (wallpaper em cena) até
-  o primeiro estado 1 — os estados de carregamento/cued do embed mostram
-  título e botão grande, que nunca chegam ao telão (safety: revela às cegas em
-  5 s apenas se o handshake não entregou nenhum evento).
 - **Pausa e seek seguem o padrão de player normal**: quadro congelado no
   telão; a UI que o YouTube desenhar nesses estados é aceita (sem tela preta).
-  O `#ytShield` (camada preta acima do iframe) é usado **apenas no fim do
-  vídeo** (estado 0): entra instantâneo para cobrir a tela de "vídeos
-  relacionados" e esmaece junto com o player no fade de saída.
   `stop`/`clear`/troca **não pausam** o player antes do fade (pausa desenharia
   UI): o fade-out visual corre com **rampa de volume** via `setVolume`
   (`ytRampVolume`) e o player é derrubado ao final.
-- **Ponte postMessage (API de widget)**: o Display faz o handshake
-  (`{event:'listening', channel:'widget'}` até a primeira resposta) e então:
-  - **Comandos → player**: `play`/`pause` → `playVideo`/`pauseVideo`, `seek` →
-    `seekTo`, `volume` → `setVolume(0–100)`, `mute` → `mute`/`unMute`, `view` →
-    esconde/revela o iframe com fade (o iframe permanece carregado: áudio
-    continua com o visual desligado).
-  - **Player → sistema**: `infoDelivery`/`onStateChange` alimentam
-    `display-status` (tempo, duração, playing, volume/mudo — inclusive mudanças
-    feitas na UI nativa do player) e `media-ended` no estado 0 (fim), habilitando
-    o **avanço automático de playlist** com itens YouTube.
-- **Transições**: com fade ativo, o reveal no estado 1 faz crossfade sobre o
-  wallpaper; `stop`/`clear`/troca esmaecem o player antes de derrubá-lo.
-  `ytSeq` guarda operações assíncronas obsoletas (equivalente ao `loadSeq`
-  do stage).
-- **Sem detecção de autoplay bloqueado**: ao contrário do stage, o YouTube
-  **não** tenta detectar/recuperar som bloqueado — `ytReady()` chama
+- **Status e progresso**: ao contrário do protocolo antigo (que empurrava
+  `infoDelivery` continuamente), a API oficial só notifica em transições
+  discretas de estado — por isso `ytStartTimeLoop()` faz um polling leve
+  (a cada 500 ms, via `getCurrentTime()`/`getDuration()`/`getPlayerState()`)
+  enquanto o player existir, alimentando `display-status` para a barra de
+  progresso do Controle.
+- **Sem detecção de autoplay bloqueado**: igual à versão anterior, o YouTube
+  **não** tenta detectar/recuperar som bloqueado — `onPlayerReady()` chama
   `mute`/`unMute` + `setVolume` + `playVideo` uma vez, conforme `yt.muted`
-  (intenção do operador), e nunca muta o vídeo por conta própria. A tentativa
-  antiga (mutar após ~2,5 s em unstarted/cued e ficar religando o áudio em
-  retentativas) foi removida: num **PWA instalado** o autoplay com som já é
-  liberado normalmente, e a detecção gerava falsos positivos com vídeos que só
-  estavam bufferizando, fazendo o player mutar/desmutar e reiniciar em loop. A
-  primeira entrega de info também dispara `ytReady()` (caso o evento `onReady`
-  se perca no handshake). `loadYoutube()` encerra qualquer recuperação de
-  áudio do **stage** que tenha ficado presa (`endAudioRecovery()`) — sem isso,
-  um bloqueio de um vídeo local anterior ficava "grudado" e o indicador de
-  mudo do mixer aparecia aceso durante o YouTube sem motivo real.
+  (intenção do operador), e nunca muta o vídeo por conta própria (num **PWA
+  instalado** o autoplay com som já é liberado normalmente). `loadYoutube()`
+  encerra qualquer recuperação de áudio do **stage** que tenha ficado presa
+  (`endAudioRecovery()`) — sem isso, um bloqueio de um vídeo local anterior
+  ficava "grudado" e o indicador de mudo do mixer aparecia aceso durante o
+  YouTube sem motivo real.
 - **Início garantido sem mexer no mudo**: o primeiro `playVideo()` (em
-  `ytReady()`) pode chegar antes do player interno aceitar o comando e o
-  vídeo fica parado em unstarted/cued. `ytWatchStart()` reenvia `playVideo()`
-  a cada ~2 s (até 4 tentativas) enquanto o estado não avança para
-  playing/paused/buffering — sem tocar em mute/volume, só um empurrão para o
-  play pegar.
-- **Iframe recriado a cada troca (`ytDrop()`)**: em vez de só trocar o `src`,
-  o iframe `#youtube` é substituído por um clone limpo (mesmos atributos,
-  `contentWindow` novo) sempre que o player anterior é derrubado. Isso existe
-  porque uma mensagem do player anterior ainda em trânsito (postMessage já
-  enviado pela página antiga antes da troca de vídeo) passava despercebida
-  pelo filtro `e.source === youtubeEl.contentWindow` do listener — já que o
-  `contentWindow` de um iframe não muda só por trocar o `src` — e era aplicada
-  por engano ao estado do vídeo novo (causa de reinícios/travamentos
-  esporádicos ao trocar de vídeo rapidamente).
+  `onPlayerReady()`) pode chegar antes do player interno aceitar o comando e
+  o vídeo fica parado em unstarted/cued. `ytWatchStart()` reenvia
+  `playVideo()` a cada ~2 s (até 4 tentativas) enquanto o estado não avança
+  para playing/paused/buffering — sem tocar em mute/volume, só um empurrão
+  para o play pegar.
+- **Host novo a cada troca (`ytDrop()`)**: em vez de só trocar o `src` de um
+  iframe fixo (abordagem antiga, que mantinha o mesmo `contentWindow` entre
+  vídeos), cada `loadYoutube()` cria um elemento host novo e a API instancia
+  um `<iframe>` novo dentro dele; `ytDrop()` chama `player.destroy()` e limpa
+  o wrapper (`innerHTML = ''`). Isso garante que uma mensagem do player
+  anterior ainda em trânsito nunca seja confundida com o estado do vídeo
+  novo (causa de reinícios/travamentos esporádicos na versão com
+  `postMessage` manual) — cada instância de `YT.Player` só entrega eventos
+  para os callbacks fechados sobre ela mesma (`if (yt === cur) …`).
+- **Transições**: com fade ativo, o reveal no estado `PLAYING` faz crossfade
+  sobre o wallpaper; `stop`/`clear`/troca esmaecem o player antes de
+  derrubá-lo. `ytSeq` guarda operações assíncronas obsoletas (equivalente ao
+  `loadSeq` do stage) — inclusive o carregamento assíncrono da própria API
+  (`loadYtApi()`) na primeira vez.
 - **No Controle**, a preview mostra apenas a **thumbnail** (nunca um segundo
   player); barra de progresso, ícone de play e avanço automático de itens
   YouTube são dirigidos pelo `display-status`/`media-ended` remotos
