@@ -144,23 +144,26 @@ body {
 
 /* ---------- Mixer ---------- */
 .mixer {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .35rem;
+  display: flex; flex-direction: column; align-items: center; gap: .35rem;
   width: 56px; padding: .35rem; background: rgba(255, 255, 255, .04); border-radius: 10px;
 }
-/* Volume recolhível: por padrão a lateral mostra os botões (volume/mudo/
-   visual/mesa de som); o botão de volume abre o fader no lugar deles, com um
-   botão para recolher de volta. */
+/* Preenchimento total da coluna: os botões do topo/meio crescem (.fill-btn) e
+   o botão de volume/ocultar fica na BASE com altura natural — nas duas telas
+   (recolhida e aberta) a base tem o mesmo botão, na mesma posição. */
+.mixer .fill-btn { flex: 1; }
+.mixer .ctl-btn svg { display: block; }
+/* Volume recolhível: por padrão a lateral mostra os botões (reservado/mudo/
+   visual/mesa de som) + o botão de volume na base; abrir troca todos eles pelo
+   fader (que ocupa o lugar dos .fill-btn) + o botão de ocultar na mesma base. */
 .mixer .fader-wrap, .mixer .vol-close { display: none; }
-.mixer.vol-open .vol-btn,
-.mixer.vol-open .mute-btn,
-.mixer.vol-open .view-btn,
-.mixer.vol-open .standalone-btn { display: none; }
+.mixer.vol-open .fill-btn,
+.mixer.vol-open .vol-btn { display: none; }
 .mixer.vol-open .fader-wrap { display: block; }
 .mixer.vol-open .vol-close { display: flex; }
-/* Botão de volume destacado (accent) — distingue-o do botão de mudo, que usa
-   o mesmo ícone de alto-falante mas em estado normal (branco). Seletor com a
-   `.mixer` para ganhar de `.ctl-btn` (mesma especificidade, definido depois). */
-.mixer .vol-btn { background: var(--accent-soft); color: var(--accent); }
+/* Botão de volume: preenchido de azul (accent) com o ícone de mixer em branco
+   — visualmente distinto e prominente na base da coluna. Seletor com `.mixer`
+   para ganhar de `.ctl-btn` (mesma especificidade, definido depois). */
+.mixer .vol-btn { background: var(--accent); color: #fff; }
 .fader-wrap { flex: 1; min-height: 90px; position: relative; }
 .fader {
   position: absolute; top: 6px; bottom: 6px; left: 50%; transform: translateX(-50%);
