@@ -23,6 +23,11 @@
   <!-- escudo anti-UI: cobre a tela final do YouTube enquanto o player cai -->
   <div id="ytShield" class="layer yt-shield"></div>
 
+  <!-- Toque único ao abrir: navegadores exigem um gesto real do usuário para
+       liberar autoplay com som em conteúdo de terceiros (iframe do YouTube).
+       Cobre a tela inteira — some ao primeiro toque. -->
+  <button id="startBtn" class="start-overlay">Ligar Display</button>
+
   <script src="../shared/db.js"></script>
   <script src="../shared/stage.js"></script>
   <script src="display.js"></script>

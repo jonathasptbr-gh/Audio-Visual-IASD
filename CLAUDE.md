@@ -31,7 +31,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: o Display carrega a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v3.9.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.0.**
 
 ---
 
@@ -514,8 +514,24 @@ Escuta o BroadcastChannel e repassa os comandos para `stage.handle()` (ou para
 a ponte do YouTube). Ao inicializar, restaura o estado salvo (`current`) e envia
 `display-ready` para que o Controle reenvie o estado atual.
 
-**Áudio sem toque (recuperação automática — só mídia local do stage):** não há
-overlay de unlock bloqueante. Se a política de autoplay do navegador bloquear
+**Toque único ao abrir (`#startBtn`, "Ligar Display"):** cobre a tela inteira
+(z-index acima de tudo, inclusive do wallpaper e do escudo do YouTube) e some
+para sempre no primeiro toque. Existe porque autoplay com som em conteúdo de
+**terceiros** (o iframe do YouTube) exige um **gesto real do usuário** na
+página — diferente da mídia local do stage (mesma origem), que autoplay com
+som é liberado automaticamente num PWA instalado (ver abaixo). Esse gesto **não
+pode ser simulado via JS** (é assim que o navegador garante que é uma ação
+real da pessoa) — por isso o botão, em vez de tentar automatizar. O toque é um
+`pointerdown` normal, que já borbulha para o listener de recuperação de áudio
+do stage; se um YouTube já tiver sido restaurado (`restore()`) e seu primeiro
+`playVideo()` tiver sido ignorado por falta de gesto, o clique do botão dá um
+empurrão extra nele (`ytWatchStart()` também tentaria sozinho, mas não custa
+adiantar).
+
+**Áudio sem toque (recuperação automática — só mídia local do stage):** ao
+contrário do `#startBtn` acima (que existe só por causa do YouTube), mídia
+local **não precisa de nenhum toque prévio** — não há overlay de unlock
+bloqueante para ela. Se a política de autoplay do navegador bloquear
 som sem gesto num vídeo/áudio local, ele **começa mudo** (sempre permitido — o
 conteúdo aparece no telão sem toque) e a recuperação automática religa o áudio
 em retentativas de ~5 s (`setMute(false)`, detectando se o navegador pausou).
