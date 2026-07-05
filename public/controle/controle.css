@@ -77,8 +77,8 @@ body {
 /* Preview do YouTube: a API cria o <iframe> dentro deste wrapper (mesmo
    padrão do Display). pointer-events:none evita que um toque na preview
    abra os controles/overlays do próprio YouTube.
-   O iframe é renderizado a 200% do wrapper e encolhido de volta com
-   transform:scale(.5): a UI própria do YouTube (logo, botão de play do
+   O iframe é renderizado a 400% do wrapper e encolhido de volta com
+   transform:scale(.25): a UI própria do YouTube (logo, botão de play do
    estado "cued", spinner) tem um piso de
    tamanho que não acompanha um player minúsculo — abaixo dele ela fica
    desproporcionalmente grande. Renderizando "grande" primeiro (dentro da
@@ -89,8 +89,8 @@ body {
 .pv-yt-frame { pointer-events: none; overflow: hidden; }
 .pv-yt-frame iframe {
   position: absolute; top: 50%; left: 50%;
-  width: 200%; height: 200%; border: 0;
-  transform: translate(-50%, -50%) scale(.5);
+  width: 400%; height: 400%; border: 0;
+  transform: translate(-50%, -50%) scale(.25);
   transform-origin: center center;
 }
 
