@@ -157,6 +157,8 @@ body {
 .mixer .ctl-btn { width: 100%; padding: .4rem 0; }
 .view-btn.view-blocked { border-color: var(--danger); background: rgba(229, 57, 53, .22); color: #ffcdd2; }
 .mute-btn.muted { border-color: var(--danger); background: rgba(229, 57, 53, .22); color: #ffcdd2; }
+/* Modo "mesa de som" ativo: áudio real sai pelo Controle, independente do Display. */
+.standalone-btn.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 /* Sem áudio no Display (bloqueio do navegador): indicador âmbar pulsante;
    o clique pede a liberação do som (comando audio-retry). */
 .mute-btn.blocked {

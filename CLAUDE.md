@@ -37,7 +37,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.11.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.12.**
 
 ---
 
@@ -372,6 +372,8 @@ stage.seek(seconds)
 stage.setView(v) / setMute(m) / setVolume(vol)
 stage.setFade({ fadeIn, fadeOut, time })
 stage.setFit(v)        // 'contain' (ajustar) | 'cover' (preencher) | 'fill' (esticar)
+stage.setForceMuted(v) // alterna em tempo real se o stage é forçado a ficar sempre mudo
+                        // (preview normal) ou toca áudio de verdade (modo "mesa de som")
 stage.coverIn(rampAudio) / coverOut() / instantCover(show)  // cortina do wallpaper (ver acima)
 stage.fadeOutToBlack()  // esmaece até o preto e reseta (current=null) sem tocar a cortina —
                         // usado só na troca de TIPO de conteúdo (mídia local ↔ YouTube)
@@ -384,6 +386,7 @@ stage.getDuration()    // → duração em segundos
 stage.getMuted()       // → bool
 stage.getVolume()      // → 0.0 – 1.0
 stage.getFit()         // → 'contain' | 'cover' | 'fill'
+stage.isForceMuted()   // → bool
 ```
 
 ### Preenchimento da mídia (`setFit`)
@@ -486,6 +489,50 @@ Display).
 
 **Botão ⏹ ("Parar e limpar"):** envia `clear` (volta ao wallpaper) mas mantém
 `currentId` — o ▶ recarrega e reproduz do início.
+
+### Modo "mesa de som" (áudio independente do Display)
+
+Botão `#standaloneToggle` no mixer (reaproveita o ícone de nota musical —
+`ICON.music`, já usado noutro contexto): liga um modo em que o **Controle
+toca o áudio de verdade pelo próprio aparelho**, totalmente desacoplado do
+Display — para quando não há intenção de exibir vídeo, só tocar música
+(ex: o celular do operador ligado direto na mesa de som/caixa de som da
+igreja, sem depender do Miracast do Display).
+
+- `setStandalone(v)` alterna o estado:
+  - **Ligar**: envia **um único** `clear` ao Display (volta ao wallpaper) e
+    então `preview.setForceMuted(false)` — a preview deixa de ser sempre muda
+    e passa a tocar o volume/mudo real que o operador já tiver ajustado. Se
+    o item atual for YouTube, o player da preview (`ytPreview`) também é
+    desmutado/ajustado direto (`unMute`/`setVolume`).
+  - **Desligar**: `preview.setForceMuted(true)` (volta a ser sempre muda,
+    espelhando o Display de novo) e o player do YouTube da preview é mutado.
+- **Enquanto ligado, `cmd()` para de repassar comandos ao Display**
+  (`AVDB.sendCommand`) — só aplica na preview local. Os dois player viram
+  independentes de fato: o Display fica parado no wallpaper (do `clear`
+  inicial) e não recebe mais nada até o modo ser desligado.
+- `stage.js` ganhou `setForceMuted(v)`/`isForceMuted()`: `forceMuted` deixou
+  de ser fixado na criação do stage (`const`) e virou alternável em tempo
+  real (`let`) — `setForceMuted` reaplica `video.muted`/`volume` na hora
+  (`applyMedia()`), sem esperar o próximo load/play.
+- **Não é persistido** — cada abertura do app começa em modo normal
+  (espelhando o Display), evitando confusão tipo "por que o Display não
+  responde" numa sessão nova.
+- **Limitação conhecida**: para itens YouTube em modo standalone, a barra de
+  progresso/ícone de play continuam dirigidos pelo `display-status` remoto
+  (que não chega mais, já que nada é mais enviado ao Display) — o áudio toca
+  normalmente, mas o transporte visual da UI pode não atualizar. O caso de
+  uso principal (`apenas música`) é mídia local, não YouTube.
+
+### Abrir o Display a partir do Controle
+
+Botão "Abrir Display" no popup de Exibição (`#openDisplayBtn`): chama
+`window.open('../display/', '_blank')`. **Não há garantia** de que isso abra
+o Display como app instalado separado — não existe API web para "lançar
+outro PWA instalado" de forma confiável; depende do Android reconhecer a
+URL como pertencente ao escopo do WebAPK do Display e oferecer abrir nele em
+vez de numa aba do Chrome (varia por versão do Android/Chrome — pode só
+abrir uma aba comum como fallback).
 
 ### Abas e biblioteca
 
