@@ -43,9 +43,23 @@ html, body {
    pointer-events:none: toques/hover no telão nunca invocam a UI do player
    (título, controles) — todo o transporte vem do Controle via IFrame Player
    API. #youtube é só um wrapper; o iframe real é criado pela API oficial
-   dentro dele (display.js), por isso o tamanho é herdado via seletor filho. */
-.yt-frame { border: none; background: #000; pointer-events: none; }
-.yt-frame iframe { display: block; width: 100%; height: 100%; border: none; }
+   dentro dele (display.js), por isso o tamanho é herdado via seletor filho.
+   O iframe é renderizado a 200% do wrapper e encolhido de volta com
+   transform:scale(.5) — mesmo truque da preview do Controle (ver
+   controle.css): a UI própria do YouTube (logo, botão de play do estado
+   "cued", spinner) tem um piso de tamanho próprio; renderizando "grande"
+   primeiro e só depois encolhendo o resultado já composto (via transform,
+   que não re-dispara o layout responsivo interno do iframe), essa UI sai
+   ainda mais discreta em relação ao vídeo — mesmo já sendo o telão
+   inteiro, o objetivo aqui é minimizar ao máximo a marca do YouTube na
+   apresentação, não só corrigir desproporção. */
+.yt-frame { border: none; background: #000; pointer-events: none; overflow: hidden; }
+.yt-frame iframe {
+  position: absolute; top: 50%; left: 50%;
+  width: 200%; height: 200%; border: none;
+  transform: translate(-50%, -50%) scale(.5);
+  transform-origin: center center;
+}
 
 /* Escudo anti-UI do YouTube: usado só no FIM do vídeo — cobre a tela de
    "vídeos relacionados" enquanto o player é derrubado. Fica ACIMA do
