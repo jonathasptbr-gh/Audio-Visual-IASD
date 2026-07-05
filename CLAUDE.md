@@ -37,7 +37,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.12.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.13.**
 
 ---
 
@@ -490,39 +490,34 @@ Display).
 **Botão ⏹ ("Parar e limpar"):** envia `clear` (volta ao wallpaper) mas mantém
 `currentId` — o ▶ recarrega e reproduz do início.
 
-### Modo "mesa de som" (áudio independente do Display)
+### Modo "mesa de som" (saída de áudio local)
 
 Botão `#standaloneToggle` no mixer (reaproveita o ícone de nota musical —
-`ICON.music`, já usado noutro contexto): liga um modo em que o **Controle
-toca o áudio de verdade pelo próprio aparelho**, totalmente desacoplado do
-Display — para quando não há intenção de exibir vídeo, só tocar música
+`ICON.music`, já usado noutro contexto): liga um modo em que a **preview do
+Controle passa a tocar o áudio de verdade pelo próprio aparelho**, em vez de
+sempre muda — para quando não há intenção de exibir vídeo, só tocar música
 (ex: o celular do operador ligado direto na mesa de som/caixa de som da
-igreja, sem depender do Miracast do Display).
+igreja, sem precisar nem abrir o Display).
 
-- `setStandalone(v)` alterna o estado:
-  - **Ligar**: envia **um único** `clear` ao Display (volta ao wallpaper) e
-    então `preview.setForceMuted(false)` — a preview deixa de ser sempre muda
-    e passa a tocar o volume/mudo real que o operador já tiver ajustado. Se
-    o item atual for YouTube, o player da preview (`ytPreview`) também é
+- **Não mexe em nada da comunicação com o Display** — `cmd()` continua
+  enviando todos os comandos normalmente (`AVDB.sendCommand`), exatamente
+  como no modo normal. Se o Display estiver aberto, ele continua recebendo e
+  reagindo aos comandos como sempre; se não estiver aberto, os comandos
+  simplesmente não têm quem escute — o Controle não trata esse caso de forma
+  especial, nem precisa saber se o Display está ou não em uso.
+- `setStandalone(v)` só alterna a saída de áudio da preview:
+  - **Ligar**: `preview.setForceMuted(false)` — a preview deixa de ser sempre
+    muda e passa a tocar o volume/mudo real que o operador já tiver ajustado.
+    Se o item atual for YouTube, o player da preview (`ytPreview`) também é
     desmutado/ajustado direto (`unMute`/`setVolume`).
-  - **Desligar**: `preview.setForceMuted(true)` (volta a ser sempre muda,
-    espelhando o Display de novo) e o player do YouTube da preview é mutado.
-- **Enquanto ligado, `cmd()` para de repassar comandos ao Display**
-  (`AVDB.sendCommand`) — só aplica na preview local. Os dois player viram
-  independentes de fato: o Display fica parado no wallpaper (do `clear`
-  inicial) e não recebe mais nada até o modo ser desligado.
+  - **Desligar**: `preview.setForceMuted(true)` (volta a ser sempre muda) e o
+    player do YouTube da preview é mutado.
 - `stage.js` ganhou `setForceMuted(v)`/`isForceMuted()`: `forceMuted` deixou
   de ser fixado na criação do stage (`const`) e virou alternável em tempo
   real (`let`) — `setForceMuted` reaplica `video.muted`/`volume` na hora
   (`applyMedia()`), sem esperar o próximo load/play.
-- **Não é persistido** — cada abertura do app começa em modo normal
-  (espelhando o Display), evitando confusão tipo "por que o Display não
-  responde" numa sessão nova.
-- **Limitação conhecida**: para itens YouTube em modo standalone, a barra de
-  progresso/ícone de play continuam dirigidos pelo `display-status` remoto
-  (que não chega mais, já que nada é mais enviado ao Display) — o áudio toca
-  normalmente, mas o transporte visual da UI pode não atualizar. O caso de
-  uso principal (`apenas música`) é mídia local, não YouTube.
+- **Não é persistido** — cada abertura do app começa em modo normal (preview
+  muda), evitando som inesperado saindo do celular numa sessão nova.
 
 ### Abrir o Display a partir do Controle
 
