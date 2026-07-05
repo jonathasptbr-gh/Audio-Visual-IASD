@@ -1395,10 +1395,29 @@ seekEl.addEventListener('change', () => cmd({ type: 'seek', time: parseFloat(see
 viewToggleEl.addEventListener('click', () => setView(view === 'visual' ? 'wallpaper' : 'visual'));
 muteToggleEl.addEventListener('click', toggleMute);
 standaloneToggleEl.addEventListener('click', () => setStandalone(!standalone));
-// Volume recolhível: abre o fader no lugar dos botões da lateral; o botão de
-// ocultar volta ao conjunto de botões. Estado só de UI, não persistido.
-volToggleEl.addEventListener('click', () => mixerEl.classList.add('vol-open'));
-volCloseEl.addEventListener('click', () => mixerEl.classList.remove('vol-open'));
+// Volume recolhível (estado só de UI, não persistido): abrir troca os botões
+// da lateral pelo fader com animação de entrada; fechar anima a saída do fader
+// antes de trazer os botões de volta (também animados). Ver as classes
+// vol-open/vol-closing/vol-revealing em controle.css.
+const VOL_ANIM = 190; // ms — casa com as durações das animações no CSS
+let volAnimTimer = null;
+function openVolume() {
+  clearTimeout(volAnimTimer);
+  mixerEl.classList.remove('vol-closing', 'vol-revealing');
+  mixerEl.classList.add('vol-open');
+}
+function closeVolume() {
+  if (!mixerEl.classList.contains('vol-open')) return;
+  clearTimeout(volAnimTimer);
+  mixerEl.classList.add('vol-closing');
+  volAnimTimer = setTimeout(() => {
+    mixerEl.classList.remove('vol-open', 'vol-closing');
+    mixerEl.classList.add('vol-revealing');
+    volAnimTimer = setTimeout(() => mixerEl.classList.remove('vol-revealing'), VOL_ANIM);
+  }, VOL_ANIM);
+}
+volToggleEl.addEventListener('click', openVolume);
+volCloseEl.addEventListener('click', closeVolume);
 
 // Se a largura mudar (ex: rotação), remede o título rolante.
 let titleResizeTimer = null;
