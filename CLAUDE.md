@@ -37,7 +37,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.16.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.17.**
 
 ---
 
@@ -476,7 +476,12 @@ fader ganha toda a altura da lateral (alvo bem maior). O botão de ocultar fica
 na **mesma base**, na exata posição do botão de volume, porque ambos têm altura
 natural e são o último item visível da coluna em cada estado (o fader, como os
 `.fill-btn`, é `flex:1` e ocupa todo o espaço acima). É só estado de UI (não
-persistido; cada abertura começa recolhida). O botão de volume é **preenchido
+persistido; cada abertura começa recolhida). **Abrir/fechar é animado**
+(`openVolume`/`closeVolume` em `controle.js` + `@keyframes vol-slide-in/out`):
+abrir faz o fader entrar (fade + leve deslize); fechar mantém a classe
+`.vol-closing` durante a saída do fader e só então remove `.vol-open` e liga
+`.vol-revealing` para os botões voltarem também animados (as durações no JS
+casam com as do CSS). O botão de volume é **preenchido
 de azul (accent) com o ícone de mixer/faders em branco** (SVG inline — o ícone
 não existe no subset da fonte; ver seção da fonte), visualmente distinto do
 mudo. Mexer no volume com mudo ativo desliga o mudo automaticamente. O fader tem

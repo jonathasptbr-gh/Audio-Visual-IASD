@@ -138,8 +138,6 @@ body {
 .t-btn .msym { font-size: 23px; }
 .t-btn:active { transform: scale(.95); }
 .t-btn:disabled { opacity: .35; }
-.t-main { background: var(--accent); color: #fff; }
-.t-main .msym { font-size: 27px; }
 #repeat.active { color: var(--accent); }
 
 /* ---------- Mixer ---------- */
@@ -160,6 +158,18 @@ body {
 .mixer.vol-open .vol-btn { display: none; }
 .mixer.vol-open .fader-wrap { display: block; }
 .mixer.vol-open .vol-close { display: flex; }
+/* Animação de abrir/fechar o slide de volume. Abrir: o fader + o botão de
+   ocultar entram (fade + leve deslize). Fechar (.vol-closing, mantido pelo JS
+   durante a saída): eles saem antes de os botões voltarem — que por sua vez
+   entram animados (.vol-revealing). Ver openVolume/closeVolume em controle.js. */
+.mixer.vol-open:not(.vol-closing) .fader-wrap,
+.mixer.vol-open:not(.vol-closing) .vol-close { animation: vol-slide-in .2s ease both; }
+.mixer.vol-closing .fader-wrap,
+.mixer.vol-closing .vol-close { animation: vol-slide-out .18s ease both; }
+.mixer.vol-revealing .fill-btn,
+.mixer.vol-revealing .vol-btn { animation: vol-slide-in .2s ease both; }
+@keyframes vol-slide-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes vol-slide-out { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(10px); } }
 /* Botão de volume: preenchido de azul (accent) com o ícone de mixer em branco
    — visualmente distinto e prominente na base da coluna. Seletor com `.mixer`
    para ganhar de `.ctl-btn` (mesma especificidade, definido depois). */
