@@ -115,11 +115,12 @@ let folderQuery = '';      // filtro de busca dentro de pasta OPFS
 let syncBusy = false;      // sincronização em andamento
 let fadeCfg = { in: false, out: false, time: 1 }; // transições (persistido em state 'fade')
 let mediaFit = 'contain'; // preenchimento da mídia (persistido em state 'fit')
-// Modo "mesa de som": Controle vira independente do Display — o áudio sai
-// pelo próprio aparelho (preview deixa de ser forçosamente muda) e nada mais
-// é enviado ao Display enquanto o modo estiver ativo. Não é persistido: cada
-// abertura do app começa em modo normal (espelhando o Display), evitando
-// susto de "por que o Display não responde" numa sessão nova.
+// Modo "mesa de som": saída de áudio local — a preview deixa de ser
+// forçosamente muda e passa a tocar o som de verdade pelo próprio aparelho.
+// Não mexe na comunicação com o Display (comandos continuam normais); se o
+// Display nem estiver aberto, ele só não escuta, sem tratamento especial
+// disso aqui. Não é persistido: cada abertura do app começa em modo normal
+// (preview muda), evitando som inesperado saindo do celular numa sessão nova.
 let standalone = false;
 let ytEnded = false;       // YouTube sem player vivo no Display (fim natural ou stop manual): ▶ recarrega
 let ytStopping = false;    // stop manual do YouTube em andamento: ignora display-status atrasado/em trânsito
@@ -254,17 +255,16 @@ function ytPreviewHandle(obj) {
   }
 }
 
-// Liga/desliga o modo "mesa de som": a preview passa a tocar áudio de
-// verdade pelo próprio aparelho (em vez de sempre muda, espelhando o
-// Display) e o Controle para de mandar comandos pro Display enquanto durar
-// — os dois viram players totalmente independentes. Ao ligar, um único
-// 'clear' é enviado ao Display (volta ao wallpaper) — nada mais chega até
-// lá depois disso, então não faz sentido deixá-lo tocando o que quer que
-// fosse antes por conta própria.
+// Liga/desliga o modo "mesa de som": é só uma SAÍDA DE ÁUDIO LOCAL — a
+// preview passa a tocar o som de verdade pelo próprio aparelho, em vez de
+// sempre muda. Não mexe em nada da comunicação com o Display: os comandos
+// continuam sendo enviados normalmente (cmd() não muda de comportamento);
+// na prática, se o Display nem estiver aberto, ninguém escuta esses
+// comandos e é como se ele não existisse — mas o Controle não precisa saber
+// disso nem tratar esse caso de forma especial.
 async function setStandalone(v) {
   if (standalone === v) return;
   standalone = v;
-  if (standalone) AVDB.sendCommand({ type: 'clear' });
   preview.setForceMuted(!standalone);
   if (ytPreview && ytPreview.player) {
     try {
@@ -275,11 +275,12 @@ async function setStandalone(v) {
   standaloneToggleEl.classList.toggle('active', standalone);
 }
 
-// Envia o comando ao display (a menos que o modo "mesa de som" esteja ativo)
-// E aplica na preview (espelho) — YouTube usa seu próprio player pequeno
-// (acima); mídia comum continua no stage.js.
+// Envia o comando ao display E aplica na preview (espelho) — YouTube usa seu
+// próprio player pequeno (acima); mídia comum continua no stage.js. O modo
+// "mesa de som" não altera nada aqui (ver setStandalone) — só a saída de
+// áudio da preview muda, a comunicação com o Display permanece normal.
 function cmd(obj) {
-  if (!standalone) AVDB.sendCommand(obj);
+  AVDB.sendCommand(obj);
   const nowYoutube = !!(currentItem && currentItem.kind === 'youtube');
   if (obj.type === 'load') {
     // preview.handle() sempre roda primeiro: mantém preview.getCurrent()/
