@@ -79,7 +79,6 @@ const ICON = {
   drag: '', // drag_indicator
   edit: '', // edit
   close: '', // close
-  star: '', // star
   plAdd: '', // playlist_add
   plRemove: '', // playlist_remove
   queue: '', // queue_music
@@ -94,7 +93,6 @@ const REPEATS = ['off', 'all', 'one', 'shuffle'];
 let plItems = [];          // mídias da playlist (ordenadas)
 let libItems = [];         // mídias da aba ativa
 let currentItem = null;    // registro da mídia atual (mesmo que não esteja na aba visível)
-let favSet = new Set();
 let plSet = new Set();
 let currentId = null;
 let view = 'visual';
@@ -404,7 +402,6 @@ async function load() {
 
   plItems = await AVDB.listItems('playlist');
   plSet = new Set(plItems.map((m) => m.id));
-  favSet = new Set(await AVDB.listIds('favorites'));
   folders = (await AVDB.getState('folders')) || [];
   folderCounts = {};
   for (const f of folders) {
@@ -482,7 +479,7 @@ function renderRepeat() {
 
 function renderNowPlaying() {
   // Prioriza plItems/libItems (já carregados); usa currentItem como fallback
-  // para o caso de o item estar somente em outra aba (ex: apenas em favoritos).
+  // para o caso de o item estar somente em outra aba (ex: dentro de uma pasta).
   const cur = [...plItems, ...libItems].find((m) => m.id === currentId) || currentItem;
   npNameInnerEl.textContent = cur ? cur.name : 'Nada em exibição';
   applyTitleMarquee();
@@ -626,14 +623,8 @@ function renderLibrary() {
     const row = document.createElement('div'); row.className = 'row';
 
     // A miniatura é o primeiro elemento (flush à esquerda). A seleção múltipla
-    // é indicada só pelo highlight azul (.lib-item.selected) — sem ícone de
-    // check. O favorito (estrela) fica sobreposto no canto da miniatura, sem
-    // exigir uma coluna à esquerda.
+    // é indicada só pelo highlight azul (.lib-item.selected) — sem ícone de check.
     const thumb = thumbEl(item);
-    if (!selectionMode && activeTab === 'imports' && favSet.has(item.id)) {
-      const fav = msym(ICON.star); fav.className = 'msym thumb-fav';
-      thumb.appendChild(fav);
-    }
 
     const name = document.createElement('span'); name.className = 'row-name'; name.textContent = item.name;
     // Badge for URL-based items
@@ -893,9 +884,7 @@ async function onTap(item) {
   send(item.id);
 }
 
-// Deslize à esquerda: adiciona (sem substituir) à playlist. A lista
-// "favorites" só é lida/limpa (estrela vestigial) — não há mais UI para
-// favoritar, então nenhum outro destino aqui.
+// Deslize à esquerda: adiciona (sem substituir) à playlist.
 async function addToPlaylist(item) {
   const had = await AVDB.listHas('playlist', item.id);
   await AVDB.listAdd('playlist', item.id);
@@ -996,7 +985,7 @@ async function deleteSelected() {
       const rec = await AVDB.fileGet(id);
       if (rec && rec.opfsPath) await AVDB.opfsDeleteFile(rec.opfsPath);
       await AVDB.fileDelete(id);
-      for (const l of ['imports', 'favorites', 'playlist']) await AVDB.listRemove(l, id);
+      for (const l of ['imports', 'playlist']) await AVDB.listRemove(l, id);
     }
     await refreshOpfsFolderCount(currentFolder.id);
   } else if (activeTab === 'folders' && currentFolder) {
@@ -1203,7 +1192,7 @@ async function deleteOpfsFolder(f) {
   const recs = await AVDB.filesByFolder(f.id);
   for (const r of recs) {
     await AVDB.fileDelete(r.id);
-    for (const l of ['imports', 'favorites', 'playlist']) await AVDB.listRemove(l, r.id);
+    for (const l of ['imports', 'playlist']) await AVDB.listRemove(l, r.id);
   }
   await AVDB.opfsDeleteDir('folders/' + f.id);
   opfsFolders = opfsFolders.filter((x) => x.id !== f.id);
