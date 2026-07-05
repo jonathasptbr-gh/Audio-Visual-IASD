@@ -83,7 +83,6 @@ const ICON = {
   plAdd: '', // playlist_add
   plRemove: '', // playlist_remove
   queue: '', // queue_music
-  check: '', // check_circle
   folder: '',    // folder
   folderNew: '', // create_new_folder
   back: '',      // arrow_back
@@ -626,10 +625,15 @@ function renderLibrary() {
 
     const row = document.createElement('div'); row.className = 'row';
 
-    const mark = document.createElement('span'); mark.className = 'row-mark';
-    // Bug fix: check icon only on actually-selected items
-    if (selectionMode && selected.has(item.id)) mark.appendChild(msym(ICON.check));
-    else if (!selectionMode && activeTab === 'imports' && favSet.has(item.id)) { mark.appendChild(msym(ICON.star)); mark.classList.add('is-fav'); }
+    // A miniatura é o primeiro elemento (flush à esquerda). A seleção múltipla
+    // é indicada só pelo highlight azul (.lib-item.selected) — sem ícone de
+    // check. O favorito (estrela) fica sobreposto no canto da miniatura, sem
+    // exigir uma coluna à esquerda.
+    const thumb = thumbEl(item);
+    if (!selectionMode && activeTab === 'imports' && favSet.has(item.id)) {
+      const fav = msym(ICON.star); fav.className = 'msym thumb-fav';
+      thumb.appendChild(fav);
+    }
 
     const name = document.createElement('span'); name.className = 'row-name'; name.textContent = item.name;
     // Badge for URL-based items
@@ -656,7 +660,7 @@ function renderLibrary() {
       });
     }
 
-    const parts = [mark, thumbEl(item), name];
+    const parts = [thumb, name];
     if (badge) parts.push(badge);
     if (addBtn) parts.push(addBtn);
     if (activeTab !== 'folders') parts.push(handle);

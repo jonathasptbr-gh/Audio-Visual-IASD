@@ -37,7 +37,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.19.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.20.**
 
 ---
 
@@ -571,8 +571,10 @@ As abas ficam na **base da seção de listas** (ícones):
   atual em fila, a playlist é só a reprodução avulsa e não deve chamar atenção
   nem com um "1" enganoso nem com o ícone colorido — fica neutro (branco).
 - **Cronograma** (`imports`) — itens importados; ficam até serem excluídos.
-  Itens favoritados exibem estrela (não há mais aba Favoritos; a lista `favorites`
-  persiste na camada de dados).
+  Itens favoritados exibem uma estrela **sobreposta no canto da miniatura**
+  (`.thumb-fav`; não há mais aba Favoritos nem forma de favoritar pela UI atual,
+  mas a lista `favorites` persiste na camada de dados e a estrela ainda aparece
+  para itens já favoritados).
 - **Pastas** (`folders`) — pastas sincronizadas no OPFS e pastas virtuais
   (agrupam mídias já importadas).
 - **Importar** — `<input type="file" multiple accept="image/*,video/*,audio/*">`.
@@ -599,8 +601,11 @@ Itens sem blob local exibem badge `URL` ou `YT`.
 | Pressionar e segurar | Entra no modo de seleção múltipla |
 
 **Modo de seleção múltipla:** barra substitui as abas, com contagem e botões de
-salvar em pasta, renomear (1 item) e excluir. Excluir dentro de pasta virtual só
-remove da pasta; nas demais abas usa `listRemove` (com gc).
+salvar em pasta, renomear (1 item) e excluir. Os itens selecionados são
+indicados **só pelo highlight azul** (`.lib-item.selected` — borda accent), sem
+ícone de check; a miniatura fica sempre encostada à esquerda (não há coluna
+reservada). Excluir dentro de pasta virtual só remove da pasta; nas demais abas
+usa `listRemove` (com gc).
 
 ### Pastas
 
@@ -980,7 +985,7 @@ Ex: se a versão visual é `v2.6`, os caches ficam `controle-v2.6` e `display-v2
 
 ## Fonte de ícones (Material Symbols)
 
-Versão subconjuntada (~3.2 KB woff2): peso 400, 30 glifos no subset (28
+Versão subconjuntada (~3.2 KB woff2): peso 400, 30 glifos no subset (27
 efetivamente usados na UI — referenciados por codepoint via o mapa `ICON` em
 `controle.js` **ou** direto como entidade HTML `&#x…;` no `controle/index.html`).
 **Só o Controle carrega a fonte** — o Display é só wallpaper + mídia, sem
@@ -994,8 +999,9 @@ E04F E050 E14C E150 E251 E2C7 E2C8 E2CC E3A1 E3AD
 E413 E5C4 E5CF E838 E86C E872 E8F5 E945 EB80 F116
 ```
 
-`E5CF` (expand_more) e `E8F5` (visibility_off) continuam no woff2 mas não têm
-mais referência (glifos reservados) — podem sair num próximo re-subset.
+`E5CF` (expand_more), `E8F5` (visibility_off) e `E86C` (check_circle — antigo
+ícone de seleção múltipla, agora só highlight azul) continuam no woff2 mas não
+têm mais referência (glifos reservados) — podem sair num próximo re-subset.
 
 Para adicionar ícone: obter codepoint em `fonts.google.com/icons?icon.style=Rounded`
 e gerar novo subset com `fontTools`.
