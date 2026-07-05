@@ -111,6 +111,7 @@ let folderQuery = '';      // filtro de busca dentro de pasta OPFS
 let syncBusy = false;      // sincronização em andamento
 let fadeCfg = { in: false, out: false, time: 1 }; // transições (persistido em state 'fade')
 let ytEnded = false;       // YouTube sem player vivo no Display (fim natural ou stop manual): ▶ recarrega
+let ytStopping = false;    // stop manual do YouTube em andamento: ignora display-status atrasado/em trânsito
 let displayAudioBlocked = false; // Display reportou áudio bloqueado pelo navegador
 const scrollPos = {};      // posição de scroll por aba/pasta (sessão)
 
@@ -551,6 +552,7 @@ async function send(id) {
   currentItem = [...plItems, ...libItems].find((m) => m.id === id) || currentItem;
   await persistCurrent();
   ytEnded = false;
+  ytStopping = false;
   cmd({ type: 'load', mediaId: id, view, muted, volume });
   // re-render leve de estados ativos
   document.querySelectorAll('.lib-item,.row-item').forEach((el) => el.classList.toggle('active', el.dataset.id === id));
@@ -625,8 +627,10 @@ async function stopClear() {
   cmd({ type: 'clear' });
   playing = false;
   // YouTube: 'clear' derruba o player no Display (mesmo caminho do fim natural)
-  // → o próximo ▶ precisa recarregar (send), não só reenviar 'play'.
-  if (currentItem && currentItem.kind === 'youtube') ytEnded = true;
+  // → o próximo ▶ precisa recarregar (send), não só reenviar 'play'. ytStopping
+  // ignora qualquer display-status que já estivesse em trânsito nesse instante
+  // (reportando o player antigo ainda tocando) até o próximo load real.
+  if (currentItem && currentItem.kind === 'youtube') { ytEnded = true; ytStopping = true; }
   playPauseEl.querySelector('.msym').textContent = ICON.play;
   seekEl.value = 0; seekEl.disabled = true;
   curTimeEl.textContent = '0:00';
@@ -1259,8 +1263,10 @@ AVDB.onCommand((msg) => {
   }
   if (!currentItem || currentItem.kind !== 'youtube' || msg.mediaId !== currentId) return;
   if (msg.type === 'display-status') {
+    // Ignora status atrasado/em trânsito de antes do stop concluir no Display
+    // (o player antigo ainda podia estar tocando quando essa mensagem saiu).
+    if (ytStopping) return;
     playing = !!msg.playing;
-    if (playing) ytEnded = false;
     playPauseEl.querySelector('.msym').textContent = playing ? ICON.pause : ICON.play;
     const dur = (typeof msg.duration === 'number' && isFinite(msg.duration)) ? msg.duration : 0;
     seekEl.disabled = !(dur > 0);

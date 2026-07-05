@@ -31,7 +31,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: o Display carrega a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.3.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.4.**
 
 ---
 
@@ -650,6 +650,23 @@ protocolo (versão anterior) sofria.
   dois casos), garantindo que o próximo ▶ chame `send(currentId)` (recarga
   completa) em vez do `cmd({type:'play'})` genérico, que é um no-op quando
   não há player nem `stage.current` vivos no Display.
+  - **Corrida residual (`ytStopping` no Controle):** mesmo com o Display
+    parando de enviar `display-status` novo assim que processa o `stop`
+    (acima), uma mensagem que **já estava em trânsito** no BroadcastChannel
+    no instante exato do clique (enviada pelo polling um instante antes,
+    reportando o player ainda tocando) podia chegar ao Controle **depois**
+    do `stopClear()` local já ter aplicado `ytEnded=true`/ícone de play — e o
+    handler de `display-status` fazia `if (playing) ytEnded = false`, desfazendo
+    a correção acima e prendendo o ▶ de volta no `cmd({type:'play'})` (no-op).
+    Sintoma: o operador precisava apertar **stop duas vezes** — na primeira, o
+    status atrasado desfazia o `ytEnded`; na segunda, não havia mais nada em
+    trânsito e o stop "pegava" de verdade. Corrigido com uma flag local
+    `ytStopping` (Controle): `stopClear()` a liga junto com `ytEnded=true`; o
+    handler de `display-status` ignora qualquer atualização enquanto ela
+    estiver ativa; e `send()` (recarga completa) é o único lugar que a
+    desliga — a linha `if (playing) ytEnded = false` foi removida do handler
+    de status por ser redundante nos casos legítimos (pause→play não passa
+    por `ytEnded`) e ser exatamente a fonte da corrida nos ilegítimos.
 - **Status e progresso**: ao contrário do protocolo antigo (que empurrava
   `infoDelivery` continuamente), a API oficial só notifica em transições
   discretas de estado — por isso `ytStartTimeLoop()` faz um polling leve
