@@ -32,5 +32,44 @@ jobs:
         with:
           path: public
 
-      - uses: actions/deploy-pages@v4
+      # O backend do GitHub Pages falha de forma intermitente com
+      # "Deployment failed, try again later" (ver actions/deploy-pages#406,
+      # #418) — não é um erro do nosso workflow nem tem retentativa própria
+      # pra esse tipo de falha (error_count só cobre erros transitórios de
+      # rede durante o polling de status, não um status "failed" definitivo).
+      # Repetimos a mesma action oficial até 3 vezes em vez de depender de
+      # redisparo manual.
+      - name: Deploy to GitHub Pages (tentativa 1)
+        id: deploy1
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+
+      - name: Aguardar antes da tentativa 2
+        if: steps.deploy1.outcome == 'failure'
+        run: sleep 15
+
+      - name: Deploy to GitHub Pages (tentativa 2)
+        id: deploy2
+        if: steps.deploy1.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+
+      - name: Aguardar antes da tentativa 3
+        if: steps.deploy1.outcome == 'failure' && steps.deploy2.outcome == 'failure'
+        run: sleep 15
+
+      - name: Deploy to GitHub Pages (tentativa 3)
+        id: deploy3
+        if: steps.deploy1.outcome == 'failure' && steps.deploy2.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+
+      - name: Consolidar resultado do deploy
         id: deployment
+        run: |
+          if [ "${{ steps.deploy1.outcome }}" = "success" ]; then
+            echo "page_url=${{ steps.deploy1.outputs.page_url }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ steps.deploy2.outcome }}" = "success" ]; then
+            echo "page_url=${{ steps.deploy2.outputs.page_url }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "page_url=${{ steps.deploy3.outputs.page_url }}" >> "$GITHUB_OUTPUT"
+          fi

@@ -725,6 +725,18 @@ no GitHub Pages.
 
 **URL de produção:** `https://jonathasptbr-gh.github.io/Audio-Visual-IASD/`
 
+**Retentativa automática do deploy:** o backend do GitHub Pages falha de forma
+intermitente com "Deployment failed, try again later" (problema conhecido e
+em aberto do lado do GitHub — ver [actions/deploy-pages#406](https://github.com/actions/deploy-pages/issues/406)
+e [#418](https://github.com/actions/deploy-pages/issues/418) — não é causado
+pelo nosso workflow nem pelo aviso de depreciação do Node 20→24 que aparece em
+toda run, sucesso ou falha). `deploy-pages@v4` não tem retentativa própria
+para esse status "failed" definitivo (`error_count` só cobre erros
+transitórios de rede durante o polling de status). O workflow repete a mesma
+action oficial até **3 vezes** (com um `sleep 15` entre tentativas) antes de
+desistir de vez — sem isso, cada falha exigia redisparo manual
+(`workflow_dispatch`).
+
 ---
 
 ## Rodar localmente
