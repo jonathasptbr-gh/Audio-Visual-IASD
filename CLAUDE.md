@@ -31,7 +31,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: o Display carrega a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.2.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.3.**
 
 ---
 
@@ -635,6 +635,21 @@ protocolo (versão anterior) sofria.
   `stop`/`clear`/troca **não pausam** o player antes do fade (pausa desenharia
   UI): o fade-out visual corre com **rampa de volume** via `setVolume`
   (`ytRampVolume`) e o player é derrubado ao final.
+- **Stop/clear manual com fade out ativo não deixa o ▶ do Controle preso em
+  "pause"**: como o player continua tocando (estado `PLAYING`) durante toda a
+  rampa de volume do fade-out, `ytStartTimeLoop()` (polling de 500 ms)
+  reportaria `display-status` com `playing:true` nesse meio tempo,
+  sobrescrevendo o ícone de play que o Controle acabou de aplicar ao
+  `stopClear()` — e depois que o player é derrubado, nenhum status novo
+  chega para corrigir o ícone preso em pause. `stopYoutube()` por isso marca
+  `yt.stopping=true` e já limpa `yt.timeLoop` **antes** de aguardar o fade;
+  `ytStatus()` (chamada tanto pelo polling quanto por `onPlayerStateChange`)
+  também checa esse flag e não envia nada enquanto ele estiver ativo. No
+  Controle, `stopClear()` marca `ytEnded=true` para itens `kind==='youtube'`
+  (mesmo caminho já usado pelo fim natural — o Display derruba o player nos
+  dois casos), garantindo que o próximo ▶ chame `send(currentId)` (recarga
+  completa) em vez do `cmd({type:'play'})` genérico, que é um no-op quando
+  não há player nem `stage.current` vivos no Display.
 - **Status e progresso**: ao contrário do protocolo antigo (que empurrava
   `infoDelivery` continuamente), a API oficial só notifica em transições
   discretas de estado — por isso `ytStartTimeLoop()` faz um polling leve
