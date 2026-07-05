@@ -552,6 +552,13 @@ AVDB.onCommand(async (cmd) => {
 });
 
 async function restore() {
+  // Adianta o fetch do script da IFrame Player API do YouTube (~1x por sessão)
+  // já na abertura do Display, em vez de esperar o primeiro vídeo do YouTube
+  // ser carregado. O Cronograma é, na prática, sempre usado na sessão em
+  // curso — então esse custo de rede vai ser pago de qualquer forma; só não
+  // faz sentido esperar o meio do culto pra pagá-lo. Fire-and-forget: não
+  // atrasa nada, loadYoutube() já teria que esperar essa mesma promise.
+  loadYtApi();
   // Config de transições (fade) definida no Controle — preferência visual,
   // não é "tocar" nada.
   const fade = await AVDB.getState('fade');

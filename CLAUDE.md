@@ -31,7 +31,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: o Display carrega a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.5.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.6.**
 
 ---
 
@@ -586,13 +586,31 @@ Ao receber `load` de um item `kind='youtube'` vindo de mídia comum, o Display
 esmaece o stage até o **preto** (`stage.fadeOutToBlack()` — nunca a cortina do
 wallpaper: é troca de conteúdo, não um stop/clear do operador) e cria um
 player usando a **IFrame Player API oficial do YouTube**
-(`https://www.youtube.com/iframe_api`, carregada uma única vez por
-`loadYtApi()`) em vez de falar diretamente com o protocolo interno do embed
-via `postMessage` cru. A API expõe um objeto `YT.Player` de verdade — eventos
-garantidos (`onReady`/`onStateChange`) e métodos reais (`playVideo`,
-`pauseVideo`, `seekTo`, `setVolume`, `mute`/`unMute`, `destroy`) — eliminando
-uma classe inteira de bugs de timing que a reimplementação manual do
-protocolo (versão anterior) sofria.
+(`https://www.youtube.com/iframe_api`, carregada por `loadYtApi()`) em vez de
+falar diretamente com o protocolo interno do embed via `postMessage` cru. A
+API expõe um objeto `YT.Player` de verdade — eventos garantidos
+(`onReady`/`onStateChange`) e métodos reais (`playVideo`, `pauseVideo`,
+`seekTo`, `setVolume`, `mute`/`unMute`, `destroy`) — eliminando uma classe
+inteira de bugs de timing que a reimplementação manual do protocolo (versão
+anterior) sofria.
+
+- **Fetch do script adiantado para a abertura do Display** (`restore()` chama
+  `loadYtApi()` sem esperar, antes de enviar `display-ready`): o Cronograma é,
+  na prática, sempre usado na sessão em curso, então esse fetch de rede vai
+  acontecer de qualquer forma — adiantá-lo tira essa etapa do caminho crítico
+  do primeiro vídeo do YouTube tocado (que antes só disparava o fetch no
+  próprio `loadYoutube()`). `loadYtApi()` é idempotente e cacheia a promise
+  (`ytApiPromise`), então chamadas seguintes em `loadYoutube()` reaproveitam
+  o mesmo carregamento sem custo extra. **Não cria nenhum player** — só busca
+  o script; não viola a regra de "nenhuma mídia inicia sozinha ao abrir".
+  - **Pré-carregar os próprios vídeos (criar players com antecedência) foi
+    descartado**: o Cronograma não é a fila de reprodução real (isso é a
+    `playlist`, cuja ordem só é previsível em `repeat='all'`/`'one'` — em
+    `'shuffle'` ou uso ad-hoc não há "próximo" confiável), e manter múltiplos
+    `YT.Player` vivos ao mesmo tempo consome memória/CPU/rede em paralelo no
+    mesmo aparelho que já faz o Miracast — risco maior que o ganho, já que o
+    `cueVideoById()` tende a só buscar metadados (não bufferizar vídeo de
+    verdade) antes do play de qualquer forma.
 
 - **`#youtube` é só um wrapper** (`<div class="layer yt-frame" hidden>`); a
   API cria o `<iframe>` real **dentro** dele a cada vídeo, via um elemento
