@@ -31,7 +31,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.8.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.9.**
 
 ---
 
@@ -635,11 +635,11 @@ anterior) sofria.
     seção da preview): o que sobra de UI própria do YouTube (logo, botão de
     play do estado "cued", spinner de buffering) tem um piso de tamanho que
     não é exposto por `playerVars` — não escala pra baixo conforme o iframe
-    encolhe. O iframe é renderizado a **200% do wrapper**
-    (`width/height:200%`, centralizado) e depois encolhido de volta com
-    `transform: scale(.5)`: como o CSS transform só afeta a composição
+    encolhe. O iframe é renderizado a **400% do wrapper**
+    (`width/height:400%`, centralizado) e depois encolhido de volta com
+    `transform: scale(.25)`: como o CSS transform só afeta a composição
     final (não o layout interno que o iframe usa pra decidir o tamanho da
-    própria UI), o iframe "pensa" que está no dobro do tamanho — dentro da
+    própria UI), o iframe "pensa" que está com 4x o tamanho — bem dentro da
     faixa onde essa UI fica proporcional ao vídeo — e só depois a imagem já
     pronta (vídeo + UI) é encolhida de volta pra caber no wrapper. Aplicado
     tanto no Display (já em tela cheia — aqui o objetivo é minimizar ainda
@@ -787,9 +787,9 @@ anterior) sofria.
     inicial) e um **polling a cada 1,5s** enquanto o player existir
     (`ytPreviewForceLowQuality`, limpo por `dropYtPreview()`). O polling
     existe especificamente por causa do truque de escala da UI (acima): como
-    o iframe agora é renderizado a 200% do wrapper — bem maior do que o
+    o iframe agora é renderizado a 400% do wrapper — bem maior do que o
     tamanho visual de ~130px de altura —, o YouTube decide a qualidade
-    padrão pelo tamanho QUE ELE enxerga (200%), então sem reforço contínuo
+    padrão pelo tamanho QUE ELE enxerga (400%), então sem reforço contínuo
     esse truque puramente visual poderia silenciosamente puxar uma
     qualidade mais alta (e mais consumo de rede) do que antes dele existir.
   - **Independente do player do Display** (não é o mesmo vídeo "espelhado"
