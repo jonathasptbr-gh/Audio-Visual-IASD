@@ -23,7 +23,10 @@
     const wallpaper = opts.wallpaper;
     const img = opts.img;
     const video = opts.video;
-    const forceMuted = !!opts.forceMuted;
+    // Não é const: o Controle alterna isso em tempo real no modo "mesa de
+    // som" (preview normalmente sempre muda vira independente, com áudio de
+    // verdade saindo pelo próprio aparelho) — ver setForceMuted().
+    let forceMuted = !!opts.forceMuted;
 
     let current = null;
     let view = 'visual';
@@ -288,6 +291,18 @@
       img.style.objectFit = fit;
       video.style.objectFit = fit;
     }
+    // Alterna se este stage é forçado a ficar sempre mudo (uso normal da
+    // preview do Controle, espelhando o Display em silêncio) ou se passa a
+    // tocar áudio de verdade pelo próprio aparelho ("mesa de som", modo
+    // independente do Display). Reaplica na hora (applyMedia), sem esperar
+    // o próximo load/play — senão o áudio só mudaria na próxima troca de mídia.
+    function setForceMuted(v) {
+      forceMuted = !!v;
+      clearInterval(rampTimer);
+      clearTimeout(muteApplyTimer);
+      applyMedia();
+      if (!forceMuted) video.volume = volume;
+    }
 
     function _revokeUrl() {
       if (url && isBlobUrl) { URL.revokeObjectURL(url); }
@@ -480,6 +495,7 @@
 
     return {
       handle, load, clear, play, pause, stop, seek, setView, setMute, setVolume, setFade, setFit,
+      setForceMuted,
       coverIn, coverOut, instantCover, fadeOutToBlack,
       getCurrent: () => current,
       getView: () => view,
@@ -490,6 +506,7 @@
       getMuted: () => (forceMuted ? muted : video.muted),
       getVolume: () => volume,
       getFit: () => fit,
+      isForceMuted: () => forceMuted,
     };
   }
 

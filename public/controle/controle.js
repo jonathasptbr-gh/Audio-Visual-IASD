@@ -13,6 +13,8 @@ const durTimeEl = document.getElementById('durTime');
 const viewToggleEl = document.getElementById('viewToggle');
 const muteToggleEl = document.getElementById('muteToggle');
 const volSliderEl = document.getElementById('volSlider');
+const standaloneToggleEl = document.getElementById('standaloneToggle');
+const openDisplayBtnEl = document.getElementById('openDisplayBtn');
 
 const pvWallEl = document.getElementById('pvWall');
 const pvImgEl = document.getElementById('pvImg');
@@ -113,6 +115,12 @@ let folderQuery = '';      // filtro de busca dentro de pasta OPFS
 let syncBusy = false;      // sincronização em andamento
 let fadeCfg = { in: false, out: false, time: 1 }; // transições (persistido em state 'fade')
 let mediaFit = 'contain'; // preenchimento da mídia (persistido em state 'fit')
+// Modo "mesa de som": Controle vira independente do Display — o áudio sai
+// pelo próprio aparelho (preview deixa de ser forçosamente muda) e nada mais
+// é enviado ao Display enquanto o modo estiver ativo. Não é persistido: cada
+// abertura do app começa em modo normal (espelhando o Display), evitando
+// susto de "por que o Display não responde" numa sessão nova.
+let standalone = false;
 let ytEnded = false;       // YouTube sem player vivo no Display (fim natural ou stop manual): ▶ recarrega
 let ytStopping = false;    // stop manual do YouTube em andamento: ignora display-status atrasado/em trânsito
 let displayAudioBlocked = false; // Display reportou áudio bloqueado pelo navegador
@@ -204,7 +212,14 @@ async function loadYtPreview(rec, v) {
     events: {
       onReady: (e) => {
         if (ytPreview !== cur) return;
-        try { e.target.mute(); } catch (_) {}
+        // Normalmente a preview é sempre muda (espelha o Display); no modo
+        // "mesa de som" ela é quem toca o áudio de verdade, com o volume/mudo
+        // que o operador já tiver definido.
+        if (standalone) {
+          try { if (!muted) e.target.unMute(); e.target.setVolume(Math.round(volume * 100)); } catch (_) {}
+        } else {
+          try { e.target.mute(); } catch (_) {}
+        }
         ytPreviewForceLowQuality(e.target);
         try { e.target.playVideo(); } catch (_) {}
         clearInterval(cur.qualityTimer);
@@ -218,10 +233,11 @@ async function loadYtPreview(rec, v) {
   });
 }
 
-// Transporte do player da preview: só play/pause/seek — mudo sempre (nunca
-// recebe mute/volume) e a cortina (view/fade) é tratada à parte, sempre via
-// preview.handle() (ver cmd()), pois é a mesma cortina compartilhada usada
-// pela mídia local.
+// Transporte do player da preview: play/pause/seek sempre; mute/volume só
+// importam no modo "mesa de som" (fora dele a preview do YouTube é sempre
+// muda, como a mídia local). A cortina (view/fade) é tratada à parte, sempre
+// via preview.handle() (ver cmd()), pois é a mesma cortina compartilhada
+// usada pela mídia local.
 function ytPreviewHandle(obj) {
   if (!ytPreview || !ytPreview.player) return;
   const p = ytPreview.player;
@@ -229,13 +245,41 @@ function ytPreviewHandle(obj) {
     case 'play': try { p.playVideo(); } catch (_) {} break;
     case 'pause': try { p.pauseVideo(); } catch (_) {} break;
     case 'seek': if (typeof obj.time === 'number') { try { p.seekTo(obj.time, true); } catch (_) {} } break;
+    case 'mute':
+      if (standalone) { try { if (obj.muted) p.mute(); else p.unMute(); } catch (_) {} }
+      break;
+    case 'volume':
+      if (standalone && typeof obj.volume === 'number') { try { p.setVolume(Math.round(obj.volume * 100)); } catch (_) {} }
+      break;
   }
 }
 
-// Envia o comando ao display E aplica na preview (espelho) — YouTube usa seu
-// próprio player pequeno (acima); mídia comum continua no stage.js.
+// Liga/desliga o modo "mesa de som": a preview passa a tocar áudio de
+// verdade pelo próprio aparelho (em vez de sempre muda, espelhando o
+// Display) e o Controle para de mandar comandos pro Display enquanto durar
+// — os dois viram players totalmente independentes. Ao ligar, um único
+// 'clear' é enviado ao Display (volta ao wallpaper) — nada mais chega até
+// lá depois disso, então não faz sentido deixá-lo tocando o que quer que
+// fosse antes por conta própria.
+async function setStandalone(v) {
+  if (standalone === v) return;
+  standalone = v;
+  if (standalone) AVDB.sendCommand({ type: 'clear' });
+  preview.setForceMuted(!standalone);
+  if (ytPreview && ytPreview.player) {
+    try {
+      if (standalone) { if (!muted) ytPreview.player.unMute(); ytPreview.player.setVolume(Math.round(volume * 100)); }
+      else { ytPreview.player.mute(); }
+    } catch (_) {}
+  }
+  standaloneToggleEl.classList.toggle('active', standalone);
+}
+
+// Envia o comando ao display (a menos que o modo "mesa de som" esteja ativo)
+// E aplica na preview (espelho) — YouTube usa seu próprio player pequeno
+// (acima); mídia comum continua no stage.js.
 function cmd(obj) {
-  AVDB.sendCommand(obj);
+  if (!standalone) AVDB.sendCommand(obj);
   const nowYoutube = !!(currentItem && currentItem.kind === 'youtube');
   if (obj.type === 'load') {
     // preview.handle() sempre roda primeiro: mantém preview.getCurrent()/
@@ -1326,6 +1370,7 @@ seekEl.addEventListener('change', () => cmd({ type: 'seek', time: parseFloat(see
 
 viewToggleEl.addEventListener('click', () => setView(view === 'visual' ? 'wallpaper' : 'visual'));
 muteToggleEl.addEventListener('click', toggleMute);
+standaloneToggleEl.addEventListener('click', () => setStandalone(!standalone));
 
 let volSeeking = false;
 volSliderEl.addEventListener('pointerdown', () => { volSeeking = true; });
@@ -1374,6 +1419,12 @@ fitSegEl.addEventListener('click', (e) => {
   const btn = e.target.closest('.fit-opt');
   if (btn) applyFit(btn.dataset.fit);
 });
+// Tenta abrir o PWA do Display instalado. Não há API web pra "lançar outro
+// app instalado" de forma garantida — isso depende do Android reconhecer a
+// URL como pertencente ao escopo do WebAPK do Display e oferecer abrir nele
+// em vez de uma aba do Chrome (comportamento varia por versão do Android/
+// Chrome; pode abrir uma aba comum como fallback).
+openDisplayBtnEl.addEventListener('click', () => window.open('../display/', '_blank'));
 
 
 folderPopupCloseEl.addEventListener('click', closeFolderPicker);
