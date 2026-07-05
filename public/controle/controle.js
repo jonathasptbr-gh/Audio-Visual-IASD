@@ -154,7 +154,10 @@ let ytPreview = null; // { mediaId, player }
 let ytPreviewSeq = 0;
 
 function dropYtPreview() {
-  if (ytPreview && ytPreview.player) { try { ytPreview.player.destroy(); } catch (_) {} }
+  if (ytPreview) {
+    clearInterval(ytPreview.qualityTimer);
+    if (ytPreview.player) { try { ytPreview.player.destroy(); } catch (_) {} }
+  }
   ytPreview = null;
   pvYoutubeEl.hidden = true;
   pvYoutubeEl.innerHTML = '';
@@ -162,8 +165,14 @@ function dropYtPreview() {
 
 // Pede a menor qualidade disponível: a preview já é minúscula (~130px de
 // altura), então isso só reforça o que o YouTube tende a escolher sozinho
-// pelo tamanho do player — evita puxar HD à toa num player que ninguém
-// vê em tamanho real.
+// pelo tamanho do player — evita puxar HD à toa num player que ninguém vê em
+// tamanho real. Reforçado também por polling (abaixo, não só onReady/
+// onPlaybackQualityChange): o iframe agora é renderizado a 200% do wrapper
+// e encolhido de volta via CSS (ver controle.css, truque pra deixar a UI do
+// YouTube proporcionalmente menor) — o YouTube decide a qualidade padrão
+// pelo tamanho do iframe QUE ELE PRÓPRIO enxerga (200%, não o tamanho visual
+// já encolhido), então sem reforço contínuo esse truque de UI poderia
+// silenciosamente puxar uma qualidade mais alta do que antes.
 function ytPreviewForceLowQuality(player) {
   try { if (player.getPlaybackQuality() !== 'tiny') player.setPlaybackQuality('tiny'); } catch (_) {}
 }
@@ -182,7 +191,7 @@ async function loadYtPreview(rec, v) {
   const host = document.createElement('div');
   pvYoutubeEl.appendChild(host);
   pvYoutubeEl.hidden = false;
-  const cur = { mediaId: rec.id, player: null };
+  const cur = { mediaId: rec.id, player: null, qualityTimer: null };
   ytPreview = cur;
   cur.player = new YT.Player(host, {
     videoId: rec.youtubeId,
@@ -196,6 +205,11 @@ async function loadYtPreview(rec, v) {
         try { e.target.mute(); } catch (_) {}
         ytPreviewForceLowQuality(e.target);
         try { e.target.playVideo(); } catch (_) {}
+        clearInterval(cur.qualityTimer);
+        cur.qualityTimer = setInterval(() => {
+          if (ytPreview !== cur || !cur.player) return;
+          ytPreviewForceLowQuality(cur.player);
+        }, 1500);
       },
       onPlaybackQualityChange: (e) => { if (ytPreview === cur) ytPreviewForceLowQuality(e.target); },
     },

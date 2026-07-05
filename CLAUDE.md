@@ -31,7 +31,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.7.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.8.**
 
 ---
 
@@ -630,6 +630,23 @@ anterior) sofria.
   conta própria. Usa a sessão logada do navegador (mesmo domínio
   `youtube.com`) — conta **Premium** é detectada automaticamente (sem
   anúncios).
+  - **Truque de escala para minimizar a marca do YouTube** (`.yt-frame
+    iframe` em `display.css`, mesmo em `.pv-yt-frame` do Controle — ver
+    seção da preview): o que sobra de UI própria do YouTube (logo, botão de
+    play do estado "cued", spinner de buffering) tem um piso de tamanho que
+    não é exposto por `playerVars` — não escala pra baixo conforme o iframe
+    encolhe. O iframe é renderizado a **200% do wrapper**
+    (`width/height:200%`, centralizado) e depois encolhido de volta com
+    `transform: scale(.5)`: como o CSS transform só afeta a composição
+    final (não o layout interno que o iframe usa pra decidir o tamanho da
+    própria UI), o iframe "pensa" que está no dobro do tamanho — dentro da
+    faixa onde essa UI fica proporcional ao vídeo — e só depois a imagem já
+    pronta (vídeo + UI) é encolhida de volta pra caber no wrapper. Aplicado
+    tanto no Display (já em tela cheia — aqui o objetivo é minimizar ainda
+    mais a marca, não corrigir desproporção) quanto na preview do Controle
+    (onde a caixa é bem menor que o mínimo recomendado pelo YouTube — 480×270
+    pra 16:9 — e por isso a UI ficava visivelmente grande demais antes desse
+    truque).
 - **Reveal do wrapper independe da view**: o wrapper (`ytShow()`) fica oculto
   só até o primeiro estado `PLAYING` (1) — os estados de carregamento/cued
   mostram título e botão grande, que nunca chegam ao telão (safety: revela às
@@ -765,12 +782,16 @@ anterior) sofria.
     assumir por cima (mesmo z-index, depois no DOM).
   - **Sempre mudo** (`mute:1` no `playerVars` + `player.mute()` em
     `onReady`) e pede a **menor qualidade disponível**
-    (`setPlaybackQuality('tiny')`, reforçado a cada
-    `onPlaybackQualityChange` — o YouTube pode ignorar o pedido inicial):
-    a preview tem ~130px de altura, então HD ali é desperdício de rede/CPU
-    sem ganho visual nenhum; o próprio tamanho minúsculo do iframe já tende a
-    fazer o YouTube escolher uma resolução baixa sozinho, e o pedido explícito
-    só reforça isso.
+    (`setPlaybackQuality('tiny')`) — reforçada em três pontos:
+    `onReady`, `onPlaybackQualityChange` (o YouTube pode ignorar o pedido
+    inicial) e um **polling a cada 1,5s** enquanto o player existir
+    (`ytPreviewForceLowQuality`, limpo por `dropYtPreview()`). O polling
+    existe especificamente por causa do truque de escala da UI (acima): como
+    o iframe agora é renderizado a 200% do wrapper — bem maior do que o
+    tamanho visual de ~130px de altura —, o YouTube decide a qualidade
+    padrão pelo tamanho QUE ELE enxerga (200%), então sem reforço contínuo
+    esse truque puramente visual poderia silenciosamente puxar uma
+    qualidade mais alta (e mais consumo de rede) do que antes dele existir.
   - **Independente do player do Display** (não é o mesmo vídeo "espelhado"
     frame a frame): os dois recebem os mesmos comandos (`cmd()` despacha para
     `AVDB.sendCommand` E para a preview) e por isso tocam/pausam/buscam em
