@@ -310,9 +310,9 @@ async function loadYoutube(rec, v, m, vol) {
     if (seq !== ytSeq) return;
     ytDrop();
   } else {
-    // Mídia comum sai com a transição do próprio stage (fade até o
-    // wallpaper, se configurado, e limpa).
-    await stage.handle({ type: 'clear' });
+    // Mídia comum sai esmaecendo até o PRETO (nunca a cortina do wallpaper
+    // aqui — é troca de conteúdo, não um stop/clear do operador).
+    await stage.fadeOutToBlack();
     if (seq !== ytSeq) return;
   }
 
@@ -546,26 +546,19 @@ AVDB.onCommand(async (cmd) => {
 });
 
 async function restore() {
-  // Config de transições (fade) definida no Controle.
+  // Config de transições (fade) definida no Controle — preferência visual,
+  // não é "tocar" nada.
   const fade = await AVDB.getState('fade');
   if (fade) {
     fadeCfg = { in: !!fade.in, out: !!fade.out, time: fade.time > 0 ? fade.time : 1 };
     stage.setFade({ fadeIn: fadeCfg.in, fadeOut: fadeCfg.out, time: fadeCfg.time });
   }
-  const state = await AVDB.getState('current');
-  const view = (state && state.view) || 'visual';
-  const muted = !!(state && state.muted);
-  const volume = (state && typeof state.volume === 'number') ? state.volume : 1;
-  if (state && state.mediaId) {
-    const rec = await AVDB.getMedia(state.mediaId);
-    if (rec && rec.kind === 'youtube') {
-      loadYoutube(rec, view, muted, volume);
-    } else {
-      await stage.load(state.mediaId, view, muted, volume);
-    }
-  } else {
-    stage.setView(view);
-  }
+  // NÃO recarrega nem toca a última mídia sozinho: abrir o Display nunca
+  // deve iniciar reprodução por conta própria — fica no wallpaper (ponto
+  // inicial) até um comando explícito chegar. O Controle, ao receber
+  // 'display-ready', decide (baseado no que ELE sabe que estava tocando,
+  // não em algo persistido pelo próprio Display) se reenvia um 'load' para
+  // retomar.
   AVDB.sendCommand({ type: 'display-ready' });
 }
 

@@ -31,7 +31,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: o Display carrega a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.1.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.2.**
 
 ---
 
@@ -304,31 +304,50 @@ fadeIn/fadeOut/fadeTime → transições (definidas via comando 'fade')
 
 ### Transições (fade)
 
+**Regra geral: transição entre mídias é sempre PRETO; o wallpaper só aparece
+como ponto final (resting state confirmado), inicial (nada carregado ainda)
+ou manipulado explicitamente pelo operador (`view` toggle).** Nunca como parte
+de uma troca de conteúdo em andamento — inclusive quando a troca depende de
+rede (YouTube) ou é ambígua no momento (fim natural, antes de saber se um
+próximo item vem em seguida).
+
 Duas transições **independentes** quando fade está ativo:
 
 - **Fade de CONTEÚDO** (`runFadeOut(rampAudio)` + `mediaReady`/fade-in): troca
-  de item enquanto já visível (ex: vídeo A → vídeo B com a cortina já aberta).
-  A mídia atual esmaece até o **preto** (não até o wallpaper — a cortina não
-  participa dessa transição); a próxima entra com fade-in a partir do preto,
-  só depois de pronta pra pintar (`mediaReady`: `img.decode()` / `loadeddata`
-  do vídeo, timeout de 2,5 s) — sem isso o conteúdo "pipoca" no meio do fade.
-  Vídeo/áudio ramp 0 → alvo junto (exceto preview `forceMuted`).
+  de item enquanto já visível (ex: vídeo A → vídeo B com a cortina já aberta),
+  fim natural (`ended`) e troca de TIPO de conteúdo (mídia local ↔ YouTube via
+  `fadeOutToBlack()`, ver seção do Display). A mídia atual esmaece até o
+  **preto** (não até o wallpaper — a cortina não participa dessa transição);
+  a próxima entra com fade-in a partir do preto, só depois de pronta pra
+  pintar (`mediaReady`: `img.decode()` / `loadeddata` do vídeo, timeout de
+  2,5 s) — sem isso o conteúdo "pipoca" no meio do fade. Vídeo/áudio ramp
+  0 → alvo junto (exceto preview `forceMuted`).
 - **Fade da CORTINA** (`coverIn`/`coverOut`): cobrir ou revelar a mídia
-  (independente de qual mídia é ou de qual tipo). Usado em:
-  - **Saída** (`stop`, `clear`, `view→wallpaper`, `ended`): `coverIn()` — a
-    cortina sobe revelando... nada, ela é opaca; a mídia continua tocando
-    (des)coberta por baixo.
+  (independente de qual mídia é ou de qual tipo) — reservado para os três
+  contextos legítimos do wallpaper (ponto final/inicial/manual), nunca para
+  uma troca de conteúdo em si. Usado em:
+  - **Saída** (`stop`, `clear`, `view→wallpaper`): `coverIn()` — a cortina
+    sobe revelando... nada, ela é opaca; a mídia continua tocando
+    (des)coberta por baixo. `stop`/`clear` cobrem **com rampa de áudio**
+    (`coverIn(true)` — corta a reprodução abruptamente, então o volume desce
+    suave); `view` toggle é **sem rampa** nos dois sentidos (só o visual
+    muda, o áudio não é afetado).
   - **Entrada** (`load` que revela conteúdo coberto, `view→visual`):
     `coverOut()` — a cortina desce, revelando a mídia que já estava tocando
     por baixo (sem precisar esperar nada dela).
-  - `ended`: cobre **sem rampa de áudio** (`coverIn(false)` — o vídeo já parou
-    sozinho); `stop`/`clear`: cobre **com rampa** (`coverIn(true)` — corta a
-    reprodução abruptamente, então o volume desce suave); `view` toggle: sem
-    rampa nos dois sentidos (só o visual muda, o áudio não é afetado).
-  - `ended` com avanço automático de playlist: o `load` do próximo item
-    (disparado por `onEnded`) chega quase junto e assume via `loadSeq` —
-    `coverIn()` some antes de "vencer" (seu `coverSeq` fica obsoleto) e a
-    cortina **não pisca** entre itens da playlist.
+- **`ended` (fim natural)**: esmaece até o **PRETO** (`runFadeOut(false)` —
+  sem rampa, o vídeo já parou sozinho), nunca a cortina — ainda não se sabe
+  se um próximo item vem em seguida. Só cobre com o wallpaper de fato
+  (`instantCover(true)`) **~400 ms depois**, e só se `ended` continuar
+  verdadeiro e nenhum `loadSeq` mais novo tiver assumido a cena nesse meio
+  tempo — ou seja, só quando fica confirmado que é o ponto final de verdade
+  (`repeat='off'` ou Controle fechado). Com avanço automático de playlist, o
+  `load` do próximo item (disparado por `onEnded`) chega quase junto e
+  assume via `loadSeq` bem antes desse prazo — a marca nunca chega a
+  aparecer entre os itens da playlist. `video.hidden` também passa a
+  considerar `ended` (além do `kind`): sem isso, o `currentTime=0` do fim
+  natural (preparando o replay) mostraria um salto pro primeiro frame antes
+  do preto/cortina cobrir.
 - `setVolume` do operador cancela qualquer rampa em curso (de conteúdo ou de
   cortina — ambas usam o mesmo `rampTimer` do `<video>`, mutuamente exclusivas
   no tempo); `play`/`stop` restauram o volume alvo (evita ficar preso em
@@ -345,6 +364,8 @@ stage.seek(seconds)
 stage.setView(v) / setMute(m) / setVolume(vol)
 stage.setFade({ fadeIn, fadeOut, time })
 stage.coverIn(rampAudio) / coverOut() / instantCover(show)  // cortina do wallpaper (ver acima)
+stage.fadeOutToBlack()  // esmaece até o preto e reseta (current=null) sem tocar a cortina —
+                        // usado só na troca de TIPO de conteúdo (mídia local ↔ YouTube)
 stage.getCurrent()     // → registro atual ou null
 stage.getView()        // → 'visual' | 'wallpaper'
 stage.isPlaying()      // → bool
@@ -511,8 +532,14 @@ Ciclo ao tocar no botão 🔁: `off → all → one → shuffle → off` (persis
 Interface mínima: wallpaper + layer de imagem + layer de vídeo + iframe do YouTube.
 
 Escuta o BroadcastChannel e repassa os comandos para `stage.handle()` (ou para
-a ponte do YouTube). Ao inicializar, restaura o estado salvo (`current`) e envia
-`display-ready` para que o Controle reenvie o estado atual.
+a ponte do YouTube). Ao inicializar, **não** recarrega nem toca a última mídia
+sozinho — `restore()` só restaura a config de fade (preferência visual) e
+envia `display-ready`; o Display abre sempre no wallpaper (ponto inicial),
+esperando um comando explícito. A inicialização do sistema precisa ser
+**controlada** (nenhuma mídia deve começar a tocar sozinha ao abrir o app) —
+quem decide se retoma o que estava tocando é o **Controle**, ao receber
+`display-ready` (com base no que ELE sabe que estava tocando, não em algo
+persistido pelo próprio Display).
 
 **Toque único ao abrir (`#startBtn`, "Ligar Display"):** a área de toque
 cobre a tela inteira (z-index acima de tudo, inclusive do wallpaper e do
@@ -550,9 +577,10 @@ aplica ao YouTube** — ver seção abaixo.
 
 ### YouTube (IFrame Player API oficial)
 
-Ao receber `load` de um item `kind='youtube'`, o Display limpa o stage (com o
-fade do próprio stage, se configurado) e cria um player usando a **IFrame
-Player API oficial do YouTube**
+Ao receber `load` de um item `kind='youtube'` vindo de mídia comum, o Display
+esmaece o stage até o **preto** (`stage.fadeOutToBlack()` — nunca a cortina do
+wallpaper: é troca de conteúdo, não um stop/clear do operador) e cria um
+player usando a **IFrame Player API oficial do YouTube**
 (`https://www.youtube.com/iframe_api`, carregada uma única vez por
 `loadYtApi()`) em vez de falar diretamente com o protocolo interno do embed
 via `postMessage` cru. A API expõe um objeto `YT.Player` de verdade — eventos
