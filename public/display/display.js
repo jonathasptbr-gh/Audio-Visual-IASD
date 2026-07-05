@@ -178,11 +178,28 @@ function ytStatus() {
 
 // A API oficial não empurra tempo continuamente (só eventos discretos de
 // estado) — para a barra de progresso do Controle, fazemos um polling leve
-// enquanto este player existir.
+// enquanto este player existir. Também resincroniza o mudo: se autoplay com
+// som foi bloqueado (comum antes do toque em #startBtn — ver mais abaixo), o
+// player pode ter ficado mudo mesmo com o operador querendo som.
+// `player.isMuted()` é um FATO real relatado pelo player agora — ao contrário
+// da antiga detecção por tempo decorrido (removida por gerar falsos positivos
+// com buffering), aqui não há suposição: só reage quando o mudo realmente
+// diverge da intenção, convergindo assim que a página tiver um gesto real.
 function ytStartTimeLoop() {
   const cur = yt;
   clearInterval(cur.timeLoop);
-  cur.timeLoop = setInterval(() => { if (yt === cur) ytStatus(); }, 500);
+  cur.timeLoop = setInterval(() => {
+    if (yt !== cur || !cur.player) return;
+    if (!cur.muted) {
+      let stillMuted = false;
+      try { stillMuted = cur.player.isMuted(); } catch (_) {}
+      if (stillMuted) {
+        ytSafeCall(() => cur.player.unMute());
+        ytSafeCall(() => cur.player.setVolume(Math.round(cur.volume * 100)));
+      }
+    }
+    ytStatus();
+  }, 500);
 }
 
 function ytClearFadeStyle() {
@@ -286,29 +303,33 @@ async function loadYoutube(rec, v, m, vol) {
   // isso não pode vazar para o indicador do mixer durante o YouTube.
   endAudioRecovery();
   const seq = ++ytSeq;
+  const desiredView = v === 'wallpaper' ? 'wallpaper' : 'visual';
   if (yt) {
     // YouTube → YouTube: esmaece o player atual antes de trocar.
     await ytFadeOutPlayer();
     if (seq !== ytSeq) return;
     ytDrop();
   } else {
-    // Mídia comum sai com a transição do próprio stage (fade até o wallpaper,
-    // que cobre o tempo de carregamento do player — depende de rede).
-    stage.handle({ type: 'clear' });
+    // Mídia comum sai com a transição do próprio stage (fade até o
+    // wallpaper, se configurado, e limpa).
+    await stage.handle({ type: 'clear' });
+    if (seq !== ytSeq) return;
   }
+
+  // Enquanto o vídeo carrega (mais lento que mídia local — depende de rede),
+  // mostra PRETO em vez do wallpaper se a intenção é ver o conteúdo: o
+  // wallpaper é reservado para quando é de fato a escolha do operador
+  // (view='wallpaper'), não para uma espera de carregamento — sem isso, o
+  // wallpaper ficava exposto por vários segundos a cada troca para YouTube,
+  // parecendo que o sistema tinha parado em vez de só carregando.
+  stage.instantCover(desiredView === 'wallpaper');
 
   await loadYtApi();
   if (seq !== ytSeq) return; // um load mais novo chegou enquanto a API carregava
 
-  // Cobre com a cortina do wallpaper enquanto o vídeo carrega — o clear()
-  // acima já faz isso ao trocar de mídia comum para YouTube (current=null);
-  // numa troca YouTube → YouTube garantimos aqui, já que esse caminho não
-  // passa pelo clear() do stage.
-  stage.instantCover(true);
-
   yt = {
     mediaId: rec.id,
-    view: v === 'wallpaper' ? 'wallpaper' : 'visual',
+    view: desiredView,
     muted: !!m,
     volume: typeof vol === 'number' ? vol : 1,
     player: null,
@@ -552,13 +573,18 @@ async function restore() {
 // listener de recuperação de áudio do stage) libera autoplay com som em
 // conteúdo de terceiros (iframe do YouTube) pelo resto da sessão. Some para
 // sempre no primeiro toque — se um YouTube já tiver sido restaurado (restore()
-// abaixo) e seu primeiro playVideo() tiver sido ignorado por falta de gesto,
-// este toque dá o empurrão final (ytWatchStart() também tentaria sozinho,
-// mas não custa adiantar).
+// abaixo) antes do toque, o clique dá um empurrão imediato (play + som);
+// mesmo sem isso, ytWatchStart() e o resync de mudo em ytStartTimeLoop()
+// convergiriam sozinhos em até alguns segundos.
 const startBtnEl = document.getElementById('startBtn');
 startBtnEl.addEventListener('click', () => {
   startBtnEl.hidden = true;
-  if (yt && yt.player) ytSafeCall(() => yt.player.playVideo());
+  if (yt && yt.player) {
+    const p = yt.player;
+    ytSafeCall(() => { if (yt.muted) p.mute(); else p.unMute(); });
+    ytSafeCall(() => p.setVolume(Math.round(yt.volume * 100)));
+    ytSafeCall(() => p.playVideo());
+  }
 }, { once: true });
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
