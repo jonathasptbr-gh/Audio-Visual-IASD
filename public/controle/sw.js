@@ -1,4 +1,4 @@
-const CACHE = 'controle-v4.21';
+const CACHE = 'controle-v4.22';
 const ASSETS = [
   './',
   './index.html',

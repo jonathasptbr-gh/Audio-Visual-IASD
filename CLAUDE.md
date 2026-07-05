@@ -37,7 +37,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.21.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.22.**
 
 ---
 
@@ -973,7 +973,24 @@ display/sw.js  → const CACHE = 'display-vX.Y'
 
 Estratégia: cache-first (somente no cache próprio do app) com fallback para rede.
 Na ativação apaga caches antigos da mesma palavra-chave sem tocar nos caches do
-outro app.
+outro app. Os dois SWs chamam `skipWaiting()` na instalação e `clients.claim()`
+na ativação — o SW novo assume na hora.
+
+### Auto-atualização (recarrega para a versão nova)
+
+Como os apps rodam sempre como PWA instalado (o operador costuma **retomar** do
+segundo plano em vez de relançar), cada página busca versões novas por conta
+própria: ao carregar e em cada `visibilitychange` visível, chama
+`registration.update()`. Quando um SW novo assume o controle (evento
+`controllerchange`), a página **recarrega** para exibir a versão nova (guarda
+`hadController` evita recarregar na primeira instalação; flag `refreshing` evita
+loop). No **Controle** o reload é imediato (não afeta a projeção — o Display é
+outro app). No **Display** o reload é **adiado enquanto há mídia em cena**
+(`!yt && !stage.isPlaying() && !stage.getCurrent()`) para nunca piscar/
+interromper a projeção ao vivo — recarrega só quando volta ao wallpaper (idle),
+reavaliando a cada 3 s. Observação: como o auto-atualizador vive no JS da
+página (cacheado pelo SW), a **primeira** vez que ele passa a existir exige um
+relançamento manual; a partir daí as atualizações chegam sozinhas.
 
 Além do cache, o SW do **Controle** trata o POST em `share-target` → grava
 `pending-share` no IDB e redireciona `303 ./` (Web Share Target).
