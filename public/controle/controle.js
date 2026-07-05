@@ -1532,7 +1532,26 @@ AVDB.onCommand((msg) => {
   }
 });
 
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+// Auto-atualização: ao abrir e ao retomar do segundo plano, checa se há uma
+// versão nova publicada; quando o novo service worker assume o controle,
+// recarrega para exibir a versão nova. Recarregar o Controle não afeta a
+// projeção (o Display é um app à parte, que segue tocando).
+if ('serviceWorker' in navigator) {
+  // Só recarrega numa ATUALIZAÇÃO (já havia um controller); a primeira
+  // instalação reivindica a página sem precisar recarregar.
+  const hadController = !!navigator.serviceWorker.controller;
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshing || !hadController) return;
+    refreshing = true;
+    location.reload();
+  });
+  navigator.serviceWorker.register('sw.js').then((reg) => {
+    const check = () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); };
+    check();
+    document.addEventListener('visibilitychange', check);
+  }).catch(() => {});
+}
 
 (async function init() {
   await load();

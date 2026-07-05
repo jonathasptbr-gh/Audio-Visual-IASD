@@ -631,6 +631,30 @@ startBtnEl.addEventListener('click', () => {
   setTimeout(() => { startBtnEl.hidden = true; }, 300);
 }, { once: true });
 
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+// Auto-atualização: checa por versão nova ao abrir/retomar e recarrega quando
+// um novo service worker assume — MAS nunca recarrega com mídia em cena (evita
+// piscar/interromper a projeção ao vivo): adia até o Display voltar ao
+// wallpaper (idle = sem YouTube e sem mídia local carregada).
+if ('serviceWorker' in navigator) {
+  const hadController = !!navigator.serviceWorker.controller;
+  let refreshing = false;
+  const idle = () => !yt && !stage.isPlaying() && !stage.getCurrent();
+  const reloadWhenIdle = () => {
+    if (refreshing || !idle()) return;
+    refreshing = true;
+    location.reload();
+  };
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshing || !hadController) return;
+    reloadWhenIdle();
+    // Ainda com mídia em cena: reavalia periodicamente até ficar idle.
+    if (!refreshing) setInterval(reloadWhenIdle, 3000);
+  });
+  navigator.serviceWorker.register('sw.js').then((reg) => {
+    const check = () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); };
+    check();
+    document.addEventListener('visibilitychange', check);
+  }).catch(() => {});
+}
 
 restore();
