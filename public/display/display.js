@@ -156,7 +156,7 @@ function createYtHost() {
 }
 
 function ytStatus() {
-  if (!yt || !yt.player) return;
+  if (!yt || !yt.player || yt.stopping) return;
   let state = -1, currentTime = 0, duration = 0;
   try {
     state = yt.player.getPlayerState();
@@ -333,7 +333,7 @@ async function loadYoutube(rec, v, m, vol) {
     muted: !!m,
     volume: typeof vol === 'number' ? vol : 1,
     player: null,
-    ready: false, shown: false, endedSent: false,
+    ready: false, shown: false, endedSent: false, stopping: false,
     showTimer: null, fadeTimer: null, endTimer: null, rampTimer: null,
     startTimer: null, timeLoop: null,
   };
@@ -384,6 +384,12 @@ async function loadYoutube(rec, v, m, vol) {
 // stop/clear com YouTube ativo: esmaece e derruba o player (volta ao wallpaper).
 async function stopYoutube() {
   const seq = ++ytSeq;
+  // Marca 'stopping' já aqui: o vídeo continua tocando durante o fade
+  // (rampa de volume, sem pausar — pausar desenharia UI), então sem isso o
+  // Controle receberia display-status com playing:true durante todo o
+  // fade-out (via polling OU via onPlayerStateChange) e sobrescreveria o
+  // ícone de play que o stop acabou de aplicar.
+  if (yt) { yt.stopping = true; clearInterval(yt.timeLoop); }
   await ytFadeOutPlayer();
   if (seq !== ytSeq) return;
   ytDrop();

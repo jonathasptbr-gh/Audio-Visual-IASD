@@ -110,7 +110,7 @@ let opfsFolders = [];      // [{id, name, count, syncedAt, handle?}] — pastas 
 let folderQuery = '';      // filtro de busca dentro de pasta OPFS
 let syncBusy = false;      // sincronização em andamento
 let fadeCfg = { in: false, out: false, time: 1 }; // transições (persistido em state 'fade')
-let ytEnded = false;       // item YouTube chegou ao fim (Display derruba o player: ▶ recarrega)
+let ytEnded = false;       // YouTube sem player vivo no Display (fim natural ou stop manual): ▶ recarrega
 let displayAudioBlocked = false; // Display reportou áudio bloqueado pelo navegador
 const scrollPos = {};      // posição de scroll por aba/pasta (sessão)
 
@@ -624,6 +624,9 @@ async function toggleMute() {
 async function stopClear() {
   cmd({ type: 'clear' });
   playing = false;
+  // YouTube: 'clear' derruba o player no Display (mesmo caminho do fim natural)
+  // → o próximo ▶ precisa recarregar (send), não só reenviar 'play'.
+  if (currentItem && currentItem.kind === 'youtube') ytEnded = true;
   playPauseEl.querySelector('.msym').textContent = ICON.play;
   seekEl.value = 0; seekEl.disabled = true;
   curTimeEl.textContent = '0:00';
@@ -1158,7 +1161,7 @@ fileEl.addEventListener('change', async () => {
 
 playPauseEl.addEventListener('click', () => {
   if (playing) { cmd({ type: 'pause' }); }
-  // YouTube que chegou ao fim: o Display já derrubou o player → recarrega
+  // YouTube sem player vivo no Display (fim natural ou stop manual) → recarrega
   else if (ytEnded && currentItem && currentItem.kind === 'youtube' && currentId) { send(currentId); }
   else if (preview.getCurrent()) { cmd({ type: 'play' }); }
   else if (currentId) { send(currentId); } // após stop: recarrega e inicia do início
