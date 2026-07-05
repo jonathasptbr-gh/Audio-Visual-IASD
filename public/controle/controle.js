@@ -167,10 +167,10 @@ function dropYtPreview() {
 // altura), então isso só reforça o que o YouTube tende a escolher sozinho
 // pelo tamanho do player — evita puxar HD à toa num player que ninguém vê em
 // tamanho real. Reforçado também por polling (abaixo, não só onReady/
-// onPlaybackQualityChange): o iframe agora é renderizado a 200% do wrapper
+// onPlaybackQualityChange): o iframe agora é renderizado a 400% do wrapper
 // e encolhido de volta via CSS (ver controle.css, truque pra deixar a UI do
 // YouTube proporcionalmente menor) — o YouTube decide a qualidade padrão
-// pelo tamanho do iframe QUE ELE PRÓPRIO enxerga (200%, não o tamanho visual
+// pelo tamanho do iframe QUE ELE PRÓPRIO enxerga (400%, não o tamanho visual
 // já encolhido), então sem reforço contínuo esse truque de UI poderia
 // silenciosamente puxar uma qualidade mais alta do que antes.
 function ytPreviewForceLowQuality(player) {
