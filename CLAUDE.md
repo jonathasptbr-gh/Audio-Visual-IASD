@@ -27,11 +27,17 @@ git push origin main
   layout assumem PWA mobile instalado (Display espelhado via Miracast,
   Controle no celular do operador).
 - Nunca perder funcionalidades existentes ao refatorar.
+- **Seleção de texto desligada globalmente nos dois apps** (`user-select: none`
+  + `-webkit-touch-callout: none` + `-webkit-tap-highlight-color: transparent`
+  no seletor `*`, em `controle.css`/`display.css`) — nenhum dos dois é um
+  documento de texto; um toque comprido em botão/linha/telão não deve abrir
+  menu de seleção/copiar. Única exceção: `input, textarea` no Controle (o
+  campo de busca `#libSearch` precisa continuar editável/selecionável).
 - Ao alterar assets estáticos, incrementar a versão nos dois `sw.js` **usando o mesmo número da versão visual** (ex: `controle-v2.6`, `display-v2.6`).
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.10.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.11.**
 
 ---
 
@@ -76,14 +82,14 @@ public/
 │   ├── index.html              # UI do operador
 │   ├── controle.css            # Estilos do Controle
 │   ├── controle.js             # Lógica do Controle
-│   ├── icons/                  # icon-192.svg, icon-512.svg
+│   ├── icons/                  # icon-{192,512}.svg + .png (PNG obrigatório p/ WebAPK — ver "Instalar no Android")
 │   ├── manifest.json           # PWA manifest (portrait + share_target)
 │   └── sw.js                   # Service worker (cache: controle-vX.Y)
 └── display/
     ├── index.html              # UI do Display (inclui iframe #youtube)
     ├── display.css             # Estilos do Display
     ├── display.js              # Lógica do Display
-    ├── icons/                  # icon-192.svg, icon-512.svg
+    ├── icons/                  # icon-{192,512}.svg + .png (PNG obrigatório p/ WebAPK — ver "Instalar no Android")
     ├── manifest.json           # PWA manifest (landscape, fullscreen)
     └── sw.js                   # Service worker (cache: display-vX.Y)
 server.js                       # Servidor estático mínimo (Node puro, sem deps)
@@ -151,6 +157,7 @@ O campo `kind` é derivado do `type` (ou definido pelo chamador para itens de UR
 | `current` | `{ mediaId, view, muted, volume, at }` — estado de exibição atual |
 | `repeat` | `'off'` \| `'all'` \| `'one'` \| `'shuffle'` |
 | `fade` | `{ in: bool, out: bool, time: segundos }` — transições de mídia (fade in/out) |
+| `fit` | `'contain'` \| `'cover'` \| `'fill'` — preenchimento da mídia (ajustar/preencher/esticar) no Display e na preview |
 | `folders` | `[{ id, name }]` — pastas virtuais |
 | `folder_<id>` | array de IDs de mídia da pasta |
 | `opfs-folders` | `[{ id, name, count, syncedAt, handle? }]` — pastas sincronizadas no OPFS (`handle` acelera re-sync) |
@@ -207,6 +214,7 @@ Todos os comandos são objetos com um campo `type`.
 | `view` | `view` (`'visual'`\|`'wallpaper'`) | Alterna entre exibir a mídia ou o wallpaper (com fade, se ativo) |
 | `clear` | — | Limpa o Display (volta ao wallpaper, zera `currentId`; com fade-out, se ativo) |
 | `fade` | `fadeIn, fadeOut, time` | Atualiza ao vivo a configuração de transições do stage |
+| `fit` | `fit` (`'contain'`\|`'cover'`\|`'fill'`) | Atualiza ao vivo o preenchimento da mídia (ajustar/preencher/esticar) |
 | `audio-retry` | — | Retentativa imediata de liberar o áudio bloqueado (botão de mudo do Controle no estado "sem áudio") |
 
 #### Display → Controle
@@ -363,6 +371,7 @@ stage.play() / pause() / stop()
 stage.seek(seconds)
 stage.setView(v) / setMute(m) / setVolume(vol)
 stage.setFade({ fadeIn, fadeOut, time })
+stage.setFit(v)        // 'contain' (ajustar) | 'cover' (preencher) | 'fill' (esticar)
 stage.coverIn(rampAudio) / coverOut() / instantCover(show)  // cortina do wallpaper (ver acima)
 stage.fadeOutToBlack()  // esmaece até o preto e reseta (current=null) sem tocar a cortina —
                         // usado só na troca de TIPO de conteúdo (mídia local ↔ YouTube)
@@ -374,7 +383,40 @@ stage.getTime()        // → currentTime em segundos
 stage.getDuration()    // → duração em segundos
 stage.getMuted()       // → bool
 stage.getVolume()      // → 0.0 – 1.0
+stage.getFit()         // → 'contain' | 'cover' | 'fill'
 ```
+
+### Preenchimento da mídia (`setFit`)
+
+`setFit(v)` aplica `object-fit` direto via `style` no `<img>` e no `<video>`
+do stage (`'contain'` por padrão, aceita `'cover'`/`'fill'`; qualquer outro
+valor cai em `'contain'`) — sobrepõe o `object-fit: contain` fixo do CSS.
+Só afeta mídia local (imagem/vídeo do próprio stage); o iframe do YouTube não
+usa isso (é conteúdo cross-origin, fora do stage). Persistido em `state.fit`
+e propagado pelo comando `fit` — que, tanto no Display quanto no Controle, é
+despachado direto para o stage **mesmo com um vídeo do YouTube tocando no
+momento** (o roteamento normal de comandos cairia no ramo do YouTube, que
+ignora `fit`, e o stage só pegaria o valor novo na próxima mídia local, com
+atraso).
+
+### Rampa de mudo (`setMute`)
+
+Mutar/desmutar não corta o áudio na hora — faz uma rampa curta de volume
+(`MUTE_RAMP_TIME`, 0,25 s) usando o mesmo `rampTimer` das outras transições
+(mutuamente exclusivas no tempo, a mais recente cancela a anterior). Ao
+mutar, a rampa desce até 0 e só então `video.muted` é de fato marcado como
+`true` (evita o "pop" de um corte abrupto); ao desmutar, `video.muted` volta
+a `false` já na hora (senão volume 0 não seria ouvido) e a rampa sobe de 0
+até o volume alvo. Um `setTimeout` (`muteApplyTimer`) aplica o `muted` real
+ao final da rampa de descida, mas confere `muted` de novo nesse instante —
+um `setMute()`/`load()` mais recente pode ter mudado a intenção enquanto a
+rampa corria, e a aplicação atrasada não deve "ressuscitar" um mudo já
+desfeito. `setVolume()` (o operador arrastando o fader) cancela qualquer
+rampa de mudo em andamento, senão o volume ajustado manualmente seria
+sobrescrito pelo `muteApplyTimer` pendente. O YouTube no Display usa a mesma
+lógica, em paralelo (`MUTE_RAMP_TIME` duplicada em `display.js`): rampa via
+`player.setVolume()` (`ytRampVolume`) e só chama `player.mute()`/`unMute()`
+no início/fim da rampa, pelos mesmos motivos.
 
 ### Concorrência de carregamento
 
@@ -420,8 +462,12 @@ do dispositivo (só na raiz da aba Pastas).
 `max(env(safe-area-inset-bottom), 12px)` para garantir margem segura contra
 acionamentos acidentais pela navegação por gestos do Android/iOS.
 
-**Mixer (coluna direita):** slider vertical de volume, botão mudo, botão visual on/off.
-Mexer no volume com mudo ativo desliga o mudo automaticamente.
+**Mixer (coluna direita):** slider vertical de volume (fader), botão mudo, botão visual on/off.
+Mexer no volume com mudo ativo desliga o mudo automaticamente. O fader tem um
+"botão" (thumb) de 34px (`::-webkit-slider-thumb`), maior que o padrão do
+navegador, para facilitar tocar e arrastar num controle tão estreito.
+Mutar/desmutar não corta o volume na hora — faz uma rampa curta (ver
+`setMute` em `stage.js`).
 
 A preview é um `createStage` com `forceMuted: true` que recebe os mesmos comandos
 enviados ao Display (função `cmd()` envia ao canal E aplica na preview). A preview
@@ -429,11 +475,14 @@ local comanda a barra de progresso e o avanço automático da playlist. Para ite
 YouTube, `cmd()` também dirige um segundo `YT.Player` próprio da preview (mudo,
 qualidade mínima) — ver seção do YouTube no Display para os detalhes.
 
-**Tocar na preview** abre o popup de **configurações rápidas de transições**
-(bottom-sheet `#fadePopup`): toggles de fade in (entrada) e fade out
-(saída/troca) + slider de duração (0.2–5 s). A config é persistida em `state`
-`fade` e aplicada ao vivo via comando `fade` (Display + preview); o Display
-também a lê do state ao inicializar.
+**Tocar na preview** abre o popup de **configurações rápidas de exibição**
+(bottom-sheet `#fadePopup`, título "Exibição"): toggles de fade in (entrada) e
+fade out (saída/troca) + slider de duração (0.2–5 s), e um seletor de
+**preenchimento da mídia** (`#fitSeg` — Ajustar/Preencher/Esticar, ver
+`stage.setFit()`). A config de fade é persistida em `state.fade` e a de
+preenchimento em `state.fit`; ambas aplicadas ao vivo via comando (`fade`/
+`fit`, Display + preview) e recarregadas do state ao inicializar (Controle e
+Display).
 
 **Botão ⏹ ("Parar e limpar"):** envia `clear` (volta ao wallpaper) mas mantém
 `currentId` — o ▶ recarrega e reproduz do início.
@@ -443,9 +492,10 @@ também a lê do state ao inicializar.
 As abas ficam na **base da seção de listas** (ícones):
 
 - **Playlist** (botão com badge de contagem) — abre bottom-sheet com a fila de reprodução.
-  O badge só aparece a partir do **2º item** (mostra `count - 1`): com apenas a
-  mídia atual em fila, a playlist é só a reprodução avulsa e não deve chamar
-  atenção com um "1" enganoso.
+  O badge só aparece a partir do **2º item** (mostra `count - 1`), e o ícone só
+  fica destacado em azul (`.has-items`) nesse mesmo caso: com apenas a mídia
+  atual em fila, a playlist é só a reprodução avulsa e não deve chamar atenção
+  nem com um "1" enganoso nem com o ícone colorido — fica neutro (branco).
 - **Cronograma** (`imports`) — itens importados; ficam até serem excluídos.
   Itens favoritados exibem estrela (não há mais aba Favoritos; a lista `favorites`
   persiste na camada de dados).
@@ -911,3 +961,15 @@ Service workers funcionam em `localhost`. Em produção é necessário HTTPS.
 > dos casos (política de mídia do Chrome para apps instalados) — sem precisar
 > tocar na tela. Se o navegador ainda bloquear, o vídeo começa mudo e o áudio
 > é religado automaticamente (aviso discreto na base da tela enquanto isso).
+
+**Ícones em PNG são obrigatórios para o Android reconhecer o app como
+instalado de verdade** (WebAPK) — com ícones só em SVG, o gerador de WebAPK do
+Chrome falha silenciosamente em alguns casos e o Android volta ao modo
+"atalho" (o app abre dentro do Chrome de fato, e por isso aparece com o ícone
+do Chrome — não o próprio — na tela dividida e na lista de apps recentes; era
+esse o sintoma do Display antes desta correção). Por isso `manifest.json` dos
+dois apps lista os ícones **PNG primeiro** (`icon-192.png`/`icon-512.png`,
+`purpose: "any"` e `"maskable"`) e as versões SVG depois, como opção extra —
+os PNGs foram gerados a partir dos SVGs existentes (mesmo desenho, só
+rasterizado) e também precisam ser adicionados à lista `ASSETS` do `sw.js`
+correspondente para entrarem no cache offline.

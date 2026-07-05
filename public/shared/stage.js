@@ -29,6 +29,7 @@
     let view = 'visual';
     let muted = false;
     let volume = 1;
+    let fit = 'contain'; // object-fit: 'contain' (ajustar) | 'cover' (preencher) | 'fill' (esticar)
     let url = null;
     let isBlobUrl = false;
     let ended = false;
@@ -38,6 +39,8 @@
     let fadeOut = false;
     let fadeTime = 1; // segundos
     let rampTimer = null;
+    let muteApplyTimer = null;
+    const MUTE_RAMP_TIME = 0.25; // rampa curta ao mutar/desmutar (evita corte abrupto de áudio)
 
     // Cortina do wallpaper: única fonte de verdade sobre se ela está cobrindo
     // a mídia agora. Começa cobrindo (nada carregado ainda).
@@ -195,6 +198,7 @@
       if (!current || (current.kind !== 'video' && current.kind !== 'audio')) return;
       ended = false;
       clearInterval(rampTimer);
+      clearTimeout(muteApplyTimer);
       if (!forceMuted) video.volume = volume; // restaura pós fade-out
       applyMedia();
       instantCover(computeCover());
@@ -246,11 +250,43 @@
     function isPlayingNow() {
       return !!current && (current.kind === 'video' || current.kind === 'audio') && !video.paused;
     }
-    function setMute(m) { muted = m; video.muted = forceMuted ? true : muted; }
+    // Mutar/desmutar faz uma rampa curta de volume (MUTE_RAMP_TIME) em vez de
+    // cortar o áudio na hora — evita o "pop" de um corte abrupto. Ao mutar,
+    // a rampa desce até 0 e só então a mídia é de fato marcada como muda
+    // (video.muted=true); ao desmutar, desmuta já (senão volume=0 não seria
+    // ouvido) e a rampa sobe de 0 até o volume alvo. Usa o mesmo rampTimer
+    // compartilhado das outras rampas (fade de conteúdo/cortina) — mutuamente
+    // exclusivas no tempo, a mais recente sempre cancela a anterior.
+    function setMute(m) {
+      muted = m;
+      if (forceMuted) { video.muted = true; return; } // preview: sempre muda, sem rampa
+      clearTimeout(muteApplyTimer);
+      const playingNow = !!current && (current.kind === 'video' || current.kind === 'audio') && !video.paused;
+      if (!playingNow) { clearInterval(rampTimer); video.muted = muted; return; }
+      if (muted) {
+        rampVolume(video.muted ? 0 : video.volume, 0, MUTE_RAMP_TIME);
+        // Confere `muted` de novo ao aplicar: um load()/setMute() mais recente
+        // pode ter mudado a intenção enquanto a rampa corria.
+        muteApplyTimer = setTimeout(() => { if (muted) video.muted = true; }, MUTE_RAMP_TIME * 1000);
+      } else {
+        video.muted = false;
+        rampVolume(0, volume, MUTE_RAMP_TIME);
+      }
+    }
     function setVolume(vol) {
       volume = vol;
       clearInterval(rampTimer); // operador manda: cancela rampa de fade em curso
+      clearTimeout(muteApplyTimer); // evita mutar sozinho depois, com o volume já ajustado
       if (!forceMuted) video.volume = vol;
+    }
+    // Preenchimento da mídia: 'contain' (ajustar, mostra tudo, pode ter barras),
+    // 'cover' (preenche o quadro, corta o excesso) ou 'fill' (estica, distorce
+    // a proporção). Aplicado direto via style (sobrepõe o object-fit do CSS)
+    // — mesmo valor pros dois elementos, já que só um está visível por vez.
+    function setFit(v) {
+      fit = (v === 'cover' || v === 'fill') ? v : 'contain';
+      img.style.objectFit = fit;
+      video.style.objectFit = fit;
     }
 
     function _revokeUrl() {
@@ -263,6 +299,7 @@
     // clear() e fadeOutToBlack().
     function resetMediaDom() {
       clearInterval(rampTimer);
+      clearTimeout(muteApplyTimer);
       img.hidden = true; img.removeAttribute('src');
       clearFadeStyle(video); clearFadeStyle(img);
       video.pause(); video.removeAttribute('src'); video.load();
@@ -408,6 +445,7 @@
         case 'seek': seek(cmd.time); break;
         case 'clear': return clearFaded();
         case 'fade': setFade(cmd); break;
+        case 'fit': setFit(cmd.fit); break;
       }
     }
 
@@ -438,8 +476,10 @@
     }
     if (opts.onError) video.addEventListener('error', opts.onError);
 
+    setFit(fit); // aplica o valor inicial (default 'contain') via style, já na criação
+
     return {
-      handle, load, clear, play, pause, stop, seek, setView, setMute, setVolume, setFade,
+      handle, load, clear, play, pause, stop, seek, setView, setMute, setVolume, setFade, setFit,
       coverIn, coverOut, instantCover, fadeOutToBlack,
       getCurrent: () => current,
       getView: () => view,
@@ -449,6 +489,7 @@
       getDuration: () => video.duration,
       getMuted: () => (forceMuted ? muted : video.muted),
       getVolume: () => volume,
+      getFit: () => fit,
     };
   }
 

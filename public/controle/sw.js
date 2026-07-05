@@ -1,4 +1,4 @@
-const CACHE = 'controle-v4.10';
+const CACHE = 'controle-v4.11';
 const ASSETS = [
   './',
   './index.html',
@@ -7,6 +7,8 @@ const ASSETS = [
   './manifest.json',
   './icons/icon-192.svg',
   './icons/icon-512.svg',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
   '../shared/db.js',
   '../shared/stage.js',
   '../shared/material-symbols.css',
