@@ -14,7 +14,7 @@
 <body>
   <header class="appbar">
     <span class="app-name">Audio Visual <b>IASD</b></span>
-    <span class="app-version">Controle v4.17</span>
+    <span class="app-version">Controle v4.18</span>
   </header>
 
   <main>
@@ -80,34 +80,38 @@
         </div>
       </div>
 
-      <!-- mixer: coluna de botões (volume recolhido) que vira fader ao abrir -->
+      <!-- mixer: coluna de botões (volume recolhido) que vira fader ao abrir.
+           O conteúdo mora em .mixer-inner (absoluto) para o bloco ter tamanho
+           fixo — ver controle.css. -->
       <div class="mixer" id="mixer">
-        <!-- botão artificial (placeholder, sem função por enquanto) — preenche
-             o topo da coluna e balanceia o botão de volume na base -->
-        <button id="fillTop" class="ctl-btn fill-btn" aria-label="Reservado" tabindex="-1">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
-            <circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/>
-          </svg>
-        </button>
-        <!-- estado recolhido: mudo + visual + mesa de som (preenchem a coluna) -->
-        <button id="muteToggle" class="ctl-btn mute-btn fill-btn" title="Mudo (liga/desliga)"><span class="msym">&#xe050;</span></button>
-        <button id="viewToggle" class="ctl-btn view-btn fill-btn" title="Alternar Visual / Wallpaper"><span class="msym">&#xe251;</span></button>
-        <button id="standaloneToggle" class="ctl-btn standalone-btn fill-btn" title="Mesa de som (áudio independente do Display)"><span class="msym">&#xe3a1;</span></button>
-        <!-- estado aberto: fader ocupa o lugar dos botões acima -->
-        <div class="fader-wrap">
-          <input type="range" id="volSlider" class="fader" min="0" max="100" value="100" aria-label="Volume da mídia">
+        <div class="mixer-inner">
+          <!-- botão artificial (placeholder, sem função por enquanto) — preenche
+               o topo da coluna e balanceia o botão de volume na base -->
+          <button id="fillTop" class="ctl-btn fill-btn" aria-label="Reservado" tabindex="-1">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+              <circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/>
+            </svg>
+          </button>
+          <!-- estado recolhido: mudo + visual + mesa de som (preenchem a coluna) -->
+          <button id="muteToggle" class="ctl-btn mute-btn fill-btn" title="Mudo (liga/desliga)"><span class="msym">&#xe050;</span></button>
+          <button id="viewToggle" class="ctl-btn view-btn fill-btn" title="Alternar Visual / Wallpaper"><span class="msym">&#xe251;</span></button>
+          <button id="standaloneToggle" class="ctl-btn standalone-btn fill-btn" title="Mesa de som (áudio independente do Display)"><span class="msym">&#xe3a1;</span></button>
+          <!-- estado aberto: fader ocupa o lugar dos botões acima -->
+          <div class="fader-wrap">
+            <input type="range" id="volSlider" class="fader" min="0" max="100" value="100" aria-label="Volume da mídia">
+          </div>
+          <!-- base da coluna: abrir o volume (ícone de mixer). Fica na MESMA
+               posição do botão de ocultar (✕), que aparece aqui no estado aberto -->
+          <button id="volToggle" class="ctl-btn vol-btn" title="Volume (mixer)">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <line x1="6" y1="4" x2="6" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="18" y1="4" x2="18" y2="20"/>
+              <rect x="3.5" y="7" width="5" height="3" rx="1.5" fill="currentColor" stroke="none"/>
+              <rect x="9.5" y="13" width="5" height="3" rx="1.5" fill="currentColor" stroke="none"/>
+              <rect x="15.5" y="9" width="5" height="3" rx="1.5" fill="currentColor" stroke="none"/>
+            </svg>
+          </button>
+          <button id="volClose" class="ctl-btn vol-close" title="Ocultar volume"><span class="msym">&#xe14c;</span></button>
         </div>
-        <!-- base da coluna: abrir o volume (ícone de mixer). Fica na MESMA
-             posição do botão de ocultar (✕), que aparece aqui no estado aberto -->
-        <button id="volToggle" class="ctl-btn vol-btn" title="Volume (mixer)">
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-            <line x1="6" y1="4" x2="6" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="18" y1="4" x2="18" y2="20"/>
-            <rect x="3.5" y="7" width="5" height="3" rx="1.5" fill="currentColor" stroke="none"/>
-            <rect x="9.5" y="13" width="5" height="3" rx="1.5" fill="currentColor" stroke="none"/>
-            <rect x="15.5" y="9" width="5" height="3" rx="1.5" fill="currentColor" stroke="none"/>
-          </svg>
-        </button>
-        <button id="volClose" class="ctl-btn vol-close" title="Ocultar volume"><span class="msym">&#xe14c;</span></button>
       </div>
     </div>
   </footer>

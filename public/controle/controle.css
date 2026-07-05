@@ -141,14 +141,23 @@ body {
 #repeat.active { color: var(--accent); }
 
 /* ---------- Mixer ---------- */
+/* O bloco tem tamanho FIXO: a altura vem do .deck-main (align-items:stretch no
+   .deck). O conteúdo mora num wrapper absoluto (.mixer-inner, inset:0) para que
+   a altura intrínseca do mixer seja 0 — assim o layout recolhido (naturalmente
+   mais alto que o aberto) não empurra o deck e não desloca preview/transport ao
+   abrir/fechar o volume. overflow:hidden mantém a animação contida no bloco. */
 .mixer {
-  display: flex; flex-direction: column; align-items: center; gap: .35rem;
-  width: 56px; padding: .35rem; background: rgba(255, 255, 255, .04); border-radius: 10px;
+  position: relative; width: 56px; overflow: hidden;
+  background: rgba(255, 255, 255, .04); border-radius: 10px;
+}
+.mixer-inner {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; gap: .35rem; padding: .35rem;
 }
 /* Preenchimento total da coluna: os botões do topo/meio crescem (.fill-btn) e
    o botão de volume/ocultar fica na BASE com altura natural — nas duas telas
    (recolhida e aberta) a base tem o mesmo botão, na mesma posição. */
-.mixer .fill-btn { flex: 1; }
+.mixer .fill-btn { flex: 1; min-height: 0; }
 .mixer .ctl-btn svg { display: block; }
 /* Volume recolhível: por padrão a lateral mostra os botões (reservado/mudo/
    visual/mesa de som) + o botão de volume na base; abrir troca todos eles pelo
