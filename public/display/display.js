@@ -548,6 +548,19 @@ async function restore() {
   AVDB.sendCommand({ type: 'display-ready' });
 }
 
+// Toque único ao abrir: o gesto real (pointerdown, que já borbulha para o
+// listener de recuperação de áudio do stage) libera autoplay com som em
+// conteúdo de terceiros (iframe do YouTube) pelo resto da sessão. Some para
+// sempre no primeiro toque — se um YouTube já tiver sido restaurado (restore()
+// abaixo) e seu primeiro playVideo() tiver sido ignorado por falta de gesto,
+// este toque dá o empurrão final (ytWatchStart() também tentaria sozinho,
+// mas não custa adiantar).
+const startBtnEl = document.getElementById('startBtn');
+startBtnEl.addEventListener('click', () => {
+  startBtnEl.hidden = true;
+  if (yt && yt.player) ytSafeCall(() => yt.player.playVideo());
+}, { once: true });
+
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 
 restore();
