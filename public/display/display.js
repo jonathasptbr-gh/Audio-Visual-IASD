@@ -216,6 +216,10 @@ function ytShield(on) {
   if (!on) { ytShieldEl.style.transition = ''; ytShieldEl.style.opacity = ''; }
 }
 
+// Rampa curta ao mutar/desmutar (mesmo valor do stage.js) — evita corte
+// abrupto de áudio no toggle de mudo do mixer.
+const MUTE_RAMP_TIME = 0.25;
+
 // Rampa de volume do player (fade sonoro) via setVolume, como no stage.
 function ytRampVolume(from, to, dur) {
   if (!yt || !yt.player) return;
@@ -265,6 +269,7 @@ function ytDrop() {
     clearTimeout(yt.fadeTimer);
     clearTimeout(yt.endTimer);
     clearTimeout(yt.startTimer);
+    clearTimeout(yt.muteApplyTimer);
     if (yt.player) ytSafeCall(() => yt.player.destroy());
     yt = null;
   }
@@ -335,7 +340,7 @@ async function loadYoutube(rec, v, m, vol) {
     player: null,
     ready: false, shown: false, endedSent: false, stopping: false,
     showTimer: null, fadeTimer: null, endTimer: null, rampTimer: null,
-    startTimer: null, timeLoop: null,
+    startTimer: null, timeLoop: null, muteApplyTimer: null,
   };
   const cur = yt;
   // O wrapper fica oculto (cortina do wallpaper em cena) até o vídeo
@@ -481,13 +486,30 @@ function ytHandle(cmd) {
       if (typeof cmd.volume === 'number') {
         yt.volume = cmd.volume;
         clearInterval(yt.rampTimer); // operador manda: cancela rampa em curso
+        clearTimeout(yt.muteApplyTimer);
         ytSafeCall(() => p.setVolume(Math.round(cmd.volume * 100)));
       }
       break;
-    case 'mute':
+    case 'mute': {
+      // Mesma rampa curta do stage.js (mídia local): ao mutar, desce o volume
+      // até 0 e só então muta de fato (evita corte abrupto); ao desmutar,
+      // desmuta já (senão volume=0 não seria ouvido) e sobe a rampa.
       yt.muted = !!cmd.muted;
-      ytSafeCall(() => { if (yt.muted) p.mute(); else p.unMute(); });
+      clearTimeout(yt.muteApplyTimer);
+      const cur = yt;
+      if (cur.muted) {
+        let alreadyMuted = false;
+        try { alreadyMuted = p.isMuted(); } catch (_) {}
+        ytRampVolume(alreadyMuted ? 0 : cur.volume, 0, MUTE_RAMP_TIME);
+        cur.muteApplyTimer = setTimeout(() => {
+          if (yt === cur && cur.muted) ytSafeCall(() => cur.player.mute());
+        }, MUTE_RAMP_TIME * 1000);
+      } else {
+        ytSafeCall(() => p.unMute());
+        ytRampVolume(0, cur.volume, MUTE_RAMP_TIME);
+      }
       break;
+    }
     case 'view': ytSetView(cmd.view === 'wallpaper' ? 'wallpaper' : 'visual'); break;
   }
 }
@@ -515,6 +537,15 @@ AVDB.onCommand(async (cmd) => {
       time: (typeof cmd.time === 'number' && cmd.time > 0) ? cmd.time : fadeCfg.time,
     };
     stage.handle(cmd);
+    return;
+  }
+
+  // Preenchimento (object-fit): sempre vai pro stage, mesmo com YouTube ativo
+  // (o iframe não usa isso) — sem esse desvio explícito, cairia em ytHandle()
+  // (que ignora 'fit') enquanto um vídeo do YouTube estiver tocando, e o
+  // stage só pegaria o valor novo na próxima mídia local, com atraso.
+  if (cmd.type === 'fit') {
+    stage.setFit(cmd.fit);
     return;
   }
 
@@ -566,6 +597,10 @@ async function restore() {
     fadeCfg = { in: !!fade.in, out: !!fade.out, time: fade.time > 0 ? fade.time : 1 };
     stage.setFade({ fadeIn: fadeCfg.in, fadeOut: fadeCfg.out, time: fadeCfg.time });
   }
+  // Preenchimento da mídia (ajustar/preencher/esticar) — preferência visual,
+  // igual ao fade acima.
+  const fit = await AVDB.getState('fit');
+  if (fit) stage.setFit(fit);
   // NÃO recarrega nem toca a última mídia sozinho: abrir o Display nunca
   // deve iniciar reprodução por conta própria — fica no wallpaper (ponto
   // inicial) até um comando explícito chegar. O Controle, ao receber

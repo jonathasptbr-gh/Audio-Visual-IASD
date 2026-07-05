@@ -14,7 +14,7 @@
 <body>
   <header class="appbar">
     <span class="app-name">Audio Visual <b>IASD</b></span>
-    <span class="app-version">Controle v4.10</span>
+    <span class="app-version">Controle v4.11</span>
   </header>
 
   <main>
@@ -104,12 +104,12 @@
     </div>
   </div>
 
-  <!-- popup de configurações rápidas de transição (bottom sheet) -->
+  <!-- popup de configurações rápidas de exibição (bottom sheet) -->
   <div id="fadePopup" class="popup-backdrop">
     <div class="popup-sheet">
       <div class="popup-header">
         <span class="msym popup-header-icon">&#xe251;</span>
-        <span class="popup-title">Transições</span>
+        <span class="popup-title">Exibição</span>
         <button id="fadePopupClose" class="popup-close" title="Fechar"><span class="msym">&#xe14c;</span></button>
       </div>
       <div class="fade-opts">
@@ -124,6 +124,14 @@
         <div class="fade-row fade-row--slider">
           <span>Duração <b id="fadeTimeVal">1.0s</b></span>
           <input type="range" id="fadeTime" min="0.2" max="5" step="0.1" value="1">
+        </div>
+        <div class="fade-row fade-row--fit">
+          <span>Preenchimento da mídia</span>
+          <div class="fit-seg" id="fitSeg">
+            <button type="button" class="fit-opt" data-fit="contain">Ajustar</button>
+            <button type="button" class="fit-opt" data-fit="cover">Preencher</button>
+            <button type="button" class="fit-opt" data-fit="fill">Esticar</button>
+          </div>
         </div>
       </div>
     </div>

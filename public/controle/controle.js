@@ -49,6 +49,7 @@ const fadeInChkEl = document.getElementById('fadeInChk');
 const fadeOutChkEl = document.getElementById('fadeOutChk');
 const fadeTimeEl = document.getElementById('fadeTime');
 const fadeTimeValEl = document.getElementById('fadeTimeVal');
+const fitSegEl = document.getElementById('fitSeg');
 const folderPopupEl = document.getElementById('folderPopup');
 const folderPickerListEl = document.getElementById('folderPickerList');
 const folderPopupCloseEl = document.getElementById('folderPopupClose');
@@ -111,6 +112,7 @@ let opfsFolders = [];      // [{id, name, count, syncedAt, handle?}] — pastas 
 let folderQuery = '';      // filtro de busca dentro de pasta OPFS
 let syncBusy = false;      // sincronização em andamento
 let fadeCfg = { in: false, out: false, time: 1 }; // transições (persistido em state 'fade')
+let mediaFit = 'contain'; // preenchimento da mídia (persistido em state 'fit')
 let ytEnded = false;       // YouTube sem player vivo no Display (fim natural ou stop manual): ▶ recarrega
 let ytStopping = false;    // stop manual do YouTube em andamento: ignora display-status atrasado/em trânsito
 let displayAudioBlocked = false; // Display reportou áudio bloqueado pelo navegador
@@ -249,7 +251,7 @@ function cmd(obj) {
     preview.handle(obj);
     return;
   }
-  if (obj.type === 'fade' || obj.type === 'view') {
+  if (obj.type === 'fade' || obj.type === 'view' || obj.type === 'fit') {
     preview.handle(obj); // cortina/config compartilhada — sempre, independe do youtube
     return;
   }
@@ -368,6 +370,8 @@ async function load() {
   opfsFolders = (await AVDB.getState('opfs-folders')) || [];
   const storedFade = await AVDB.getState('fade');
   if (storedFade) fadeCfg = { in: !!storedFade.in, out: !!storedFade.out, time: storedFade.time || 1 };
+  const storedFit = await AVDB.getState('fit');
+  if (storedFit) mediaFit = storedFit;
   if (activeTab === 'folders') {
     if (currentFolder && currentFolder._opfs) {
       libItems = (await AVDB.filesByFolder(currentFolder.id))
@@ -394,6 +398,7 @@ async function load() {
   // mantém a preview alinhada (sem recarregar a mídia)
   preview.setView(view); preview.setMute(muted); preview.setVolume(volume);
   preview.setFade({ fadeIn: fadeCfg.in, fadeOut: fadeCfg.out, time: fadeCfg.time });
+  preview.setFit(mediaFit);
 
   // restaura a posição de scroll da aba/pasta atual
   libraryEl.scrollTop = scrollPos[scrollKey()] || 0;
@@ -480,11 +485,13 @@ function thumbEl(item) {
 // ---- Playlist (sequência) ----
 function renderPlaylist() {
   const count = plItems.length;
-  // O badge não deve chamar atenção quando a playlist é só a mídia atual (1 item);
-  // conta apenas os itens além do primeiro (2 itens → "1", 3 → "2"...).
+  // O badge (e a cor do ícone) não devem chamar atenção quando a playlist é só
+  // a mídia atual (1 item); conta apenas os itens além do primeiro (2 itens →
+  // "1", 3 → "2"...) — mesmo critério pros dois, o ícone só fica destacado
+  // quando existe de fato uma fila além do item em exibição.
   plCountEl.textContent = count > 1 ? String(count - 1) : '';
   plPopupCountEl.textContent = String(count);
-  plBtnEl.classList.toggle('has-items', count > 0);
+  plBtnEl.classList.toggle('has-items', count > 1);
 
   playlistEl.innerHTML = '';
   if (count === 0) {
@@ -1152,6 +1159,7 @@ function openFadePopup() {
   fadeOutChkEl.checked = fadeCfg.out;
   fadeTimeEl.value = fadeCfg.time;
   fadeTimeValEl.textContent = fadeCfg.time.toFixed(1) + 's';
+  renderFitSeg();
   fadePopupEl.classList.add('open');
 }
 function closeFadePopup() {
@@ -1167,6 +1175,18 @@ async function applyFadeCfg() {
   await AVDB.setState('fade', fadeCfg);
   // aplica ao vivo no Display e na preview
   cmd({ type: 'fade', fadeIn: fadeCfg.in, fadeOut: fadeCfg.out, time: fadeCfg.time });
+}
+
+function renderFitSeg() {
+  fitSegEl.querySelectorAll('.fit-opt').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.fit === mediaFit);
+  });
+}
+async function applyFit(mode) {
+  mediaFit = mode;
+  renderFitSeg();
+  await AVDB.setState('fit', mediaFit);
+  cmd({ type: 'fit', fit: mediaFit });
 }
 
 // ===== URL / compartilhamento =====
@@ -1350,6 +1370,10 @@ fadeInChkEl.addEventListener('change', applyFadeCfg);
 fadeOutChkEl.addEventListener('change', applyFadeCfg);
 fadeTimeEl.addEventListener('input', () => { fadeTimeValEl.textContent = (parseFloat(fadeTimeEl.value) || 1).toFixed(1) + 's'; });
 fadeTimeEl.addEventListener('change', applyFadeCfg);
+fitSegEl.addEventListener('click', (e) => {
+  const btn = e.target.closest('.fit-opt');
+  if (btn) applyFit(btn.dataset.fit);
+});
 
 
 folderPopupCloseEl.addEventListener('click', closeFolderPicker);
