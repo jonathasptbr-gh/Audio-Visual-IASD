@@ -31,7 +31,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: o Display carrega a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v3.8.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v3.9.**
 
 ---
 
@@ -227,13 +227,52 @@ arquivos do OPFS (`opfsPath` — resolvidos via `AVDB.opfsGetFile`, com re-checa
 de `loadSeq` após o await) e itens de URL direta (`blob=null, url=string`).
 Itens `kind='youtube'` **não são reproduzidos pelo stage** — ele apenas mostra
 a thumbnail no `<img>`; a reprodução real é feita externamente (iframe no
-`display.js`).
+`display.js`, que também **reaproveita a cortina do wallpaper deste mesmo
+stage** — ver "Modelo de camadas" abaixo).
+
+### Modelo de camadas: wallpaper é uma cortina por cima de tudo
+
+O wallpaper fica **acima** (z-index maior) de toda mídia — img/video no stage,
+e o iframe do YouTube no Display. A mídia toca/troca de conteúdo **livremente
+por baixo**, sem nunca precisar saber se está "visível"; o wallpaper só
+liga/desliga essa cortina por cima, com fade quando configurado.
+
+Isso existe porque o modelo antigo (mídia por cima, escondida/revelada
+conforme a view) exigia que cada tipo de mídia rastreasse "já posso me
+revelar?" — para o YouTube isso significava só revelar o iframe quando
+`view==='visual'` **e** o vídeo já estivesse tocando; se o vídeo começasse com
+o wallpaper ligado, essa condição nunca era satisfeita e o vídeo ficava preso
+atrás do wallpaper para sempre, mesmo depois de desligar o wallpaper (o áudio
+tocava normalmente, só o vídeo nunca aparecia). Com o wallpaper como cortina
+por cima, revelar é sempre só "esconder a cortina" — não depende mais de em
+que estado (view) a mídia foi carregada.
+
+- **`coveredNow`** (privado) é a única fonte de verdade sobre se a cortina
+  está cobrindo agora. Começa `true` (nada carregado).
+- **`computeCover()`**: `!current || ended || view === 'wallpaper'` — a
+  cortina deve cobrir sempre que não há mídia, ela "terminou" (`ended`,
+  aguardando replay) ou o operador pediu `view='wallpaper'`.
+- **`instantCover(show)`** / **`coverIn(rampAudio)`** / **`coverOut()`**: as
+  três únicas funções que tocam o elemento do wallpaper. `coverIn`/`coverOut`
+  fazem fade (conforme `fadeOut`/`fadeIn` e `fadeTime`) e usam `coverSeq` para
+  descartar fades de cortina obsoletos (um pedido mais novo cancela o
+  anterior); `instantCover` é imediato (sem fade) e sempre vence.
+- `img.hidden`/`video.hidden` (**`applyMedia()`**) passam a depender **só do
+  `kind`** da mídia atual — nunca de `view`/`ended`. A mídia continua
+  renderizando/tocando por baixo mesmo com a cortina fechada (é assim que o
+  áudio do YouTube ou de um vídeo local continua audível com "wallpaper on").
+- **`stage.coverIn`/`coverOut`/`instantCover` são expostos publicamente** —
+  o Display os chama diretamente para a cortina do YouTube (`ytSetView()`,
+  `onPlayerStateChange()`), já que é o **mesmo elemento físico** de wallpaper
+  compartilhado. `coverIn(rampAudio=true)` mexe no volume do `<video>` do
+  próprio stage — o YouTube **nunca** deve chamá-lo com `rampAudio=true` (sua
+  própria rampa de áudio é feita externamente, via `setVolume` do player).
 
 ### Opções de criação
 
 ```js
 createStage({
-  wallpaper,    // elemento do wallpaper
+  wallpaper,    // elemento do wallpaper (cortina, por cima de tudo)
   img,          // elemento <img>
   video,        // elemento <video>
   forceMuted,   // bool — mantém vídeo sempre mudo (preview do Controle)
@@ -250,53 +289,50 @@ createStage({
 ### Estado interno
 
 ```
-current    → registro da mídia carregada (null = nada)
-ended      → flag: vídeo chegou ao fim (permite replay sem recarregar)
-view       → 'visual' | 'wallpaper'
-muted      → bool (intenção do operador; independe de forceMuted)
-volume     → 0.0 – 1.0
-url        → object URL do blob OU URL externa em uso
-isBlobUrl  → bool — se true, revoga com URL.revokeObjectURL ao trocar/limpar
-loadSeq    → contador para descartar loads/fades concorrentes obsoletos
+current     → registro da mídia carregada (null = nada)
+ended       → flag: vídeo chegou ao fim (permite replay sem recarregar)
+view        → 'visual' | 'wallpaper'
+muted       → bool (intenção do operador; independe de forceMuted)
+volume      → 0.0 – 1.0
+url         → object URL do blob OU URL externa em uso
+isBlobUrl   → bool — se true, revoga com URL.revokeObjectURL ao trocar/limpar
+loadSeq     → contador para descartar loads/fades concorrentes obsoletos
+coveredNow  → bool — a cortina do wallpaper está cobrindo agora?
+coverSeq    → contador para descartar fades de cortina obsoletos
 fadeIn/fadeOut/fadeTime → transições (definidas via comando 'fade')
 ```
 
 ### Transições (fade)
 
-Quando ativas, aplicam-se a **entrada, saída e troca** de mídia
-(`runFadeOut(toWallpaper, rampAudio)` distingue destino e tratamento do áudio):
+Duas transições **independentes** quando fade está ativo:
 
-- **Troca de mídia** (`load` com mídia visível): a atual esmaece **até o preto**
-  (`runFadeOut(false)` força o wallpaper oculto — inclusive se um crossfade de
-  entrada interrompido o tinha deixado à mostra); a próxima entra em seguida
-  com fade-in a partir do preto. As camadas esmaecidas são escondidas antes de
-  restaurar a opacidade, para a mídia antiga não reaparecer durante o `getMedia`.
-- **Saída para o wallpaper** (`stop`, `clear`, `view→wallpaper`, `ended` —
-  `runFadeOut(true)`): a mídia esmaece revelando o **wallpaper** por trás
-  (fade-in visual do wallpaper por crossfade).
-- **Entrada a partir do wallpaper** (`load` sem mídia em cena, `view→visual`):
-  crossfade — o wallpaper **permanece visível por baixo** enquanto a nova mídia
-  entra de opacity 0 → 1 (saída de fade do wallpaper); o cleanup pós fade-in
-  (`fadeCleanupTimer` → `applyView`) o esconde ao final.
-- **Fade-in em duas fases** (`prepFadeIn`/`startFadeIn`): a mídia é fixada em
-  opacity 0 e a transição só dispara quando ela está **pronta para pintar**
-  (`mediaReady`: `img.decode()` / `loadeddata` do vídeo, timeout de 2,5 s) —
-  sem isso o conteúdo "pipoca" no meio do fade. Vídeo/áudio entra com rampa de
-  volume 0 → alvo (exceto preview `forceMuted`). O `fadeCleanupTimer` é
-  cancelado por qualquer fade-out/fade-in posterior.
-- **`ended` (fim natural)**: com fade-out ativo, esmaece até o wallpaper; o
-  `load` do avanço automático da playlist interrompe o fade (`loadSeq`) e
-  assume a transição — o wallpaper **não pisca entre itens da playlist**.
-  Sem fade-out, instantâneo (como `pause`/`play` de retomada, sempre
-  instantâneos).
-- **`view` (visual on/off)**: transição **apenas visual** — o áudio continua
-  tocando e não sofre rampa (`rampAudio=false`), nos dois sentidos.
-- **`stop`**: após o fade marca `ended=true` — volta de fato ao wallpaper,
-  mantendo `current` para replay via `play()`.
-- Rampas de volume acompanham o fade visual nas trocas/saídas que encerram o
-  áudio; guardado por `loadSeq`: um comando mais novo durante o fade descarta
-  o anterior. `setVolume` do operador cancela rampa em curso; `play`/`stop`
-  restauram o volume alvo (evita ficar preso em volume 0 pós fade-out).
+- **Fade de CONTEÚDO** (`runFadeOut(rampAudio)` + `mediaReady`/fade-in): troca
+  de item enquanto já visível (ex: vídeo A → vídeo B com a cortina já aberta).
+  A mídia atual esmaece até o **preto** (não até o wallpaper — a cortina não
+  participa dessa transição); a próxima entra com fade-in a partir do preto,
+  só depois de pronta pra pintar (`mediaReady`: `img.decode()` / `loadeddata`
+  do vídeo, timeout de 2,5 s) — sem isso o conteúdo "pipoca" no meio do fade.
+  Vídeo/áudio ramp 0 → alvo junto (exceto preview `forceMuted`).
+- **Fade da CORTINA** (`coverIn`/`coverOut`): cobrir ou revelar a mídia
+  (independente de qual mídia é ou de qual tipo). Usado em:
+  - **Saída** (`stop`, `clear`, `view→wallpaper`, `ended`): `coverIn()` — a
+    cortina sobe revelando... nada, ela é opaca; a mídia continua tocando
+    (des)coberta por baixo.
+  - **Entrada** (`load` que revela conteúdo coberto, `view→visual`):
+    `coverOut()` — a cortina desce, revelando a mídia que já estava tocando
+    por baixo (sem precisar esperar nada dela).
+  - `ended`: cobre **sem rampa de áudio** (`coverIn(false)` — o vídeo já parou
+    sozinho); `stop`/`clear`: cobre **com rampa** (`coverIn(true)` — corta a
+    reprodução abruptamente, então o volume desce suave); `view` toggle: sem
+    rampa nos dois sentidos (só o visual muda, o áudio não é afetado).
+  - `ended` com avanço automático de playlist: o `load` do próximo item
+    (disparado por `onEnded`) chega quase junto e assume via `loadSeq` —
+    `coverIn()` some antes de "vencer" (seu `coverSeq` fica obsoleto) e a
+    cortina **não pisca** entre itens da playlist.
+- `setVolume` do operador cancela qualquer rampa em curso (de conteúdo ou de
+  cortina — ambas usam o mesmo `rampTimer` do `<video>`, mutuamente exclusivas
+  no tempo); `play`/`stop` restauram o volume alvo (evita ficar preso em
+  volume 0 pós fade).
 
 ### API exposta
 
@@ -308,6 +344,7 @@ stage.play() / pause() / stop()
 stage.seek(seconds)
 stage.setView(v) / setMute(m) / setVolume(vol)
 stage.setFade({ fadeIn, fadeOut, time })
+stage.coverIn(rampAudio) / coverOut() / instantCover(show)  // cortina do wallpaper (ver acima)
 stage.getCurrent()     // → registro atual ou null
 stage.getView()        // → 'visual' | 'wallpaper'
 stage.isPlaying()      // → bool
@@ -521,22 +558,31 @@ protocolo (versão anterior) sofria.
   conta própria. Usa a sessão logada do navegador (mesmo domínio
   `youtube.com`) — conta **Premium** é detectada automaticamente (sem
   anúncios).
-- **Reveal só reproduzindo**: o wrapper fica **oculto** (wallpaper em cena)
-  até o primeiro estado `PLAYING` (1) — os estados de carregamento/cued
+- **Reveal do wrapper independe da view**: o wrapper (`ytShow()`) fica oculto
+  só até o primeiro estado `PLAYING` (1) — os estados de carregamento/cued
   mostram título e botão grande, que nunca chegam ao telão (safety: revela às
-  cegas em 5 s se nenhum evento tiver chegado ainda). `yt.presentable` e
-  `yt.shown` são flags separadas: `presentable` vira `true` assim que o vídeo
-  atinge um estado apresentável (`PLAYING` ou o timeout de segurança), mesmo
-  com a view em `wallpaper` — nesse caso `ytShow()` só marca a flag, sem
-  revelar o wrapper. `shown` vira `true` só quando o wrapper de fato aparece
-  na tela. Sem essa separação, um vídeo que começasse com wallpaper ativo
-  nunca setava `shown`, e `ytSetView('visual')` (que checava só `shown`) não
-  tinha como saber que o player já podia ser revelado — o áudio tocava
-  normalmente, mas o vídeo nunca aparecia ao desligar o wallpaper.
-- **Fim do vídeo** (estado `ENDED`, 0): se nenhum `load` de avanço automático
-  chegar em ~400 ms, o Display **derruba o player** (`destroy()`) antes da
-  tela final de "vídeos relacionados" aparecer (o `#ytShield` cobre o
-  intervalo); o Controle marca `ytEnded` e o ▶ recarrega o item (novo `load`).
+  cegas em 5 s se nenhum evento tiver chegado ainda). Quem decide se isso
+  aparece de fato na tela é a **cortina compartilhada do wallpaper**
+  (`stage.coverIn()`/`coverOut()` — ver "Modelo de camadas" na seção do
+  motor de renderização), não o wrapper: ao entrar no estado `PLAYING`,
+  `onPlayerStateChange()` chama `stage.coverOut()` **só se** `yt.view` for
+  `'visual'`; se for `'wallpaper'`, o wrapper já revelado continua tocando
+  (com áudio) por baixo da cortina, e `ytSetView('visual')` (chamado depois,
+  quando o operador desligar o wallpaper) só precisa abrir a cortina — o vídeo
+  já está pronto e visível por baixo. Antes dessa separação, o wrapper só se
+  revelava se `view==='visual'` no momento do `PLAYING`; um vídeo que
+  começasse com o wallpaper ligado nunca satisfazia essa condição e ficava
+  preso atrás do wallpaper para sempre (o áudio tocava normalmente, só o
+  vídeo nunca aparecia ao desligar o wallpaper depois).
+- **Fim do vídeo** (estado `ENDED`, 0): `ytShield(true)` cobre instantaneamente
+  a tela final de "vídeos relacionados" e `stage.instantCover(true)` garante
+  o wallpaper já pronto (opaco) por baixo do escudo. Se nenhum `load` de
+  avanço automático chegar em ~400 ms, o Display **derruba o player**
+  (`destroy()`) e o escudo esmaece (`ytFadeOutPlayer()`), revelando o
+  wallpaper já coberto — sem o escudo, o wallpaper (agora por cima de tudo)
+  ficaria escondido atrás da tela de "vídeos relacionados" em vez de cobri-la;
+  o `#ytShield` por isso tem z-index **acima** do wallpaper. O Controle marca
+  `ytEnded` e o ▶ recarrega o item (novo `load`).
 - **Pausa e seek seguem o padrão de player normal**: quadro congelado no
   telão; a UI que o YouTube desenhar nesses estados é aceita (sem tela preta).
   `stop`/`clear`/troca **não pausam** o player antes do fade (pausa desenharia
@@ -572,8 +618,10 @@ protocolo (versão anterior) sofria.
   novo (causa de reinícios/travamentos esporádicos na versão com
   `postMessage` manual) — cada instância de `YT.Player` só entrega eventos
   para os callbacks fechados sobre ela mesma (`if (yt === cur) …`).
-- **Transições**: com fade ativo, o reveal no estado `PLAYING` faz crossfade
-  sobre o wallpaper; `stop`/`clear`/troca esmaecem o player antes de
+- **Transições**: com fade ativo, o reveal do **wrapper** no estado `PLAYING`
+  usa fade próprio (opacidade do wrapper); a cortina do wallpaper (se
+  aplicável) usa sua própria transição via `stage.coverOut()`/`coverIn()` —
+  as duas são independentes. `stop`/`clear`/troca esmaecem o player antes de
   derrubá-lo. `ytSeq` guarda operações assíncronas obsoletas (equivalente ao
   `loadSeq` do stage) — inclusive o carregamento assíncrono da própria API
   (`loadYtApi()`) na primeira vez.

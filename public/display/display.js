@@ -214,11 +214,17 @@ function ytRampVolume(from, to, dur) {
   }, (dur * 1000) / steps);
 }
 
-// Reaparece de fato na tela (DOM + fade-in), sem mexer em `shown`/`presentable`
-// — usado tanto na primeira revelação quanto ao voltar de wallpaper para um
-// player que já tinha sido mostrado antes (ver ytShow() e ytSetView()).
-function ytRevealDom() {
-  clearTimeout(yt.fadeTimer);
+// Revela o wrapper do YouTube (DOM + fade-in). Chamado quando o vídeo está de
+// fato REPRODUZINDO (estado 1) ou quando o timeout de segurança expira —
+// antes disso o player mostra título/botão grande, que nunca devem aparecer
+// no telão. Independe da view: quem cobre/revela conforme o wallpaper
+// ligado/desligado é a cortina compartilhada do stage (ver stage.coverIn/
+// coverOut em ytSetView e onPlayerStateChange) — o wrapper em si só cuida de
+// "o vídeo já tem conteúdo pronto pra mostrar", sempre.
+function ytShow() {
+  if (!yt || yt.shown) return;
+  yt.shown = true;
+  clearTimeout(yt.showTimer);
   if (fadeCfg.in) {
     youtubeEl.style.transition = 'none';
     youtubeEl.style.opacity = '0';
@@ -231,21 +237,6 @@ function ytRevealDom() {
     youtubeEl.hidden = false;
     ytClearFadeStyle();
   }
-}
-
-// Revela o player (crossfade sobre o wallpaper). Chamado quando o vídeo está
-// de fato REPRODUZINDO (estado 1) ou quando o timeout de segurança expira —
-// antes disso o embed mostra título/botão grande, que nunca devem aparecer no
-// telão. Se a view atual for 'wallpaper', só marca `presentable` (o vídeo já
-// pode ser mostrado) sem revelar de fato — ytSetView('visual') revela depois,
-// quando o operador desligar o wallpaper.
-function ytShow() {
-  if (!yt) return;
-  yt.presentable = true;
-  if (yt.shown || yt.view !== 'visual') return;
-  yt.shown = true;
-  clearTimeout(yt.showTimer);
-  ytRevealDom();
 }
 
 // Derruba o player imediatamente (sem transição).
@@ -309,26 +300,31 @@ async function loadYoutube(rec, v, m, vol) {
   await loadYtApi();
   if (seq !== ytSeq) return; // um load mais novo chegou enquanto a API carregava
 
+  // Cobre com a cortina do wallpaper enquanto o vídeo carrega — o clear()
+  // acima já faz isso ao trocar de mídia comum para YouTube (current=null);
+  // numa troca YouTube → YouTube garantimos aqui, já que esse caminho não
+  // passa pelo clear() do stage.
+  stage.instantCover(true);
+
   yt = {
     mediaId: rec.id,
     view: v === 'wallpaper' ? 'wallpaper' : 'visual',
     muted: !!m,
     volume: typeof vol === 'number' ? vol : 1,
     player: null,
-    ready: false, shown: false, presentable: false, endedSent: false,
+    ready: false, shown: false, endedSent: false,
     showTimer: null, fadeTimer: null, endTimer: null, rampTimer: null,
     startTimer: null, timeLoop: null,
   };
   const cur = yt;
-  // O iframe fica oculto (wallpaper em cena) até o vídeo REPRODUZIR — os
-  // estados de carregamento/cued do player mostram título e botão grande.
+  // O wrapper fica oculto (cortina do wallpaper em cena) até o vídeo
+  // REPRODUZIR — os estados de carregamento/cued do player mostram título e
+  // botão grande.
   youtubeEl.hidden = true;
   ytClearFadeStyle();
   // Segurança: se por algum motivo o player nunca revelar sozinho (nenhum
-  // onReady/onStateChange chegou), marca como pronto e revela mesmo assim —
-  // melhor player com UI do que telão vazio (se a view estiver em wallpaper,
-  // ytShow() só marca `presentable`; a revelação de fato acontece quando o
-  // operador ligar a view visual, ver ytSetView).
+  // onReady/onStateChange chegou), revela mesmo assim — melhor player com UI
+  // do que telão vazio.
   cur.showTimer = setTimeout(() => { if (yt === cur && !cur.shown) ytShow(); }, 5000);
 
   const host = createYtHost();
@@ -413,11 +409,18 @@ function onPlayerStateChange(e) {
     ytShow();
     ytShield(false);
     yt.endedSent = false;
+    // Se a view atual pedir visual, esconde a cortina (a reprodução em si
+    // não espera por isso — só a exibição). Se a view for wallpaper, fica
+    // tocando por baixo da cortina; ytSetView('visual') revela depois.
+    if (yt.view === 'visual') stage.coverOut();
   }
   if (st === 0 && !yt.endedSent) { // fim do vídeo → avanço de playlist no Controle
     yt.endedSent = true;
-    // cobre a tela final de "vídeos relacionados" enquanto o player cai
+    // cobre a tela final de "vídeos relacionados" enquanto o player cai —
+    // instantâneo, e já deixa a cortina do wallpaper pronta por baixo do
+    // escudo (revelada com fade quando o escudo sumir em ytFadeOutPlayer()).
     ytShield(true);
+    stage.instantCover(true);
     AVDB.sendCommand({ type: 'media-ended', mediaId: yt.mediaId });
     // Sem 'load' de avanço automático em seguida (repeat off / Controle
     // fechado), derruba o player — fim natural volta ao wallpaper.
@@ -462,34 +465,16 @@ function ytHandle(cmd) {
   }
 }
 
-// Visual on/off para YouTube: esconde/revela o player com fade; o iframe
-// permanece carregado, então o áudio continua com o visual desligado.
-async function ytSetView(v) {
+// Visual on/off para YouTube: liga/desliga a cortina COMPARTILHADA do
+// wallpaper (mesma usada pelo stage) — o wrapper do YouTube em si nunca
+// esconde/revela por causa da view; ele só cuida de ter conteúdo pronto (ver
+// ytShow()). O vídeo continua tocando (áudio incluído) por baixo da cortina
+// quando ela está cobrindo.
+function ytSetView(v) {
   if (!yt || yt.view === v) return;
   yt.view = v;
-  const cur = yt;
-  if (v === 'wallpaper') {
-    if (fadeCfg.out && !youtubeEl.hidden) {
-      clearTimeout(yt.fadeTimer);
-      youtubeEl.style.transition = 'opacity ' + fadeCfg.time + 's ease';
-      youtubeEl.style.opacity = '0';
-      await new Promise((r) => setTimeout(r, fadeCfg.time * 1000));
-      if (yt !== cur || yt.view !== 'wallpaper') return;
-    }
-    youtubeEl.hidden = true;
-    ytShield(false); // o escudo não pode cobrir o wallpaper
-    ytClearFadeStyle();
-  } else if (cur.shown) {
-    // já tinha sido mostrado antes de ir para wallpaper: só reaparece.
-    ytRevealDom();
-  } else if (cur.presentable) {
-    // primeira vez ficando visível: o vídeo começou (ou já estava tocando)
-    // com wallpaper ativo, então nunca tinha sido revelado de fato — ytShow()
-    // agora passa no teste de view (já setada para 'visual' acima) e revela.
-    ytShow();
-  }
-  // se o player ainda não está pronto (nem playing, nem timeout de segurança
-  // passou), ytShow() cuida disso assim que um dos dois acontecer.
+  if (v === 'wallpaper') stage.coverIn(false); // sem rampa: só o visual muda
+  else stage.coverOut();
   ytStatus();
 }
 
