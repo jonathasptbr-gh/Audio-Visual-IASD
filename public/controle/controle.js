@@ -266,7 +266,36 @@ function startYtPreviewTick(cur) {
     ytPreviewTick();
   }, 500);
 }
+// Sincronização do YouTube: o player do DISPLAY (a projeção real) é a fonte de
+// verdade quando está enviando status; se ele não existir / estiver
+// estrangulado ou fechado (nenhum display-status recente), a PREVIEW local
+// assume. `ytDisplayStatusAt` guarda o instante do último display-status do
+// item atual; `ytDisplayActive()` = recebeu algo há menos de YT_DISPLAY_TIMEOUT.
+let ytDisplayStatusAt = 0;
+const YT_DISPLAY_TIMEOUT = 2500; // sem status do Display por mais que isso → preview assume
+const YT_SYNC_DRIFT = 1.6;       // só re-sincroniza a preview se o drift passar disso (s)
+function ytDisplayActive() {
+  return !!(currentItem && currentItem.kind === 'youtube') && (Date.now() - ytDisplayStatusAt) < YT_DISPLAY_TIMEOUT;
+}
+// Re-alinha a preview à projeção real do Display (fonte de verdade): casa o
+// play/pause e, se o tempo divergir muito (ex: preview estrangulada enquanto o
+// Controle esteve minimizado), busca o instante do Display. Não busca em "mesa
+// de som" (evita salto audível); só casa play/pause.
+function ytResyncPreviewToDisplay(isPlaying, currentTime) {
+  const p = ytPreview && ytPreview.player;
+  if (!p) return;
+  try {
+    if (!standalone && typeof currentTime === 'number' && isFinite(currentTime)) {
+      const pt = p.getCurrentTime() || 0;
+      if (Math.abs(pt - currentTime) > YT_SYNC_DRIFT) p.seekTo(currentTime, true);
+    }
+    const st = p.getPlayerState();
+    if (isPlaying && st !== 1 && st !== 3) p.playVideo();
+    else if (!isPlaying && st === 1) p.pauseVideo();
+  } catch (_) {}
+}
 function ytPreviewTick() {
+  if (ytDisplayActive()) return; // Display presente é a fonte — a preview só assume na ausência dele
   const p = ytPreview && ytPreview.player;
   if (!p) return;
   let st = -1, t = 0, dur = 0;
@@ -282,8 +311,9 @@ function ytPreviewTick() {
   }
 }
 function onYtPreviewState(e) {
+  if (ytDisplayActive()) return; // Display presente é a fonte — ignora eventos locais
   const st = e.data; // 1 playing, 2 paused, 3 buffering, 0 ended, 5 cued
-  if (st === 0) { // fim natural → avança a playlist (só aqui; o remoto não avança mais)
+  if (st === 0) { // fim natural → avança a playlist (só quando a preview é a fonte)
     playing = false;
     playPauseEl.querySelector('.msym').textContent = ICON.play;
     ytEnded = true;
@@ -820,6 +850,7 @@ async function send(id) {
   currentItem = [...plItems, ...libItems].find((m) => m.id === id) || currentItem;
   await persistCurrent();
   ytEnded = false;
+  ytDisplayStatusAt = 0; // até o Display confirmar o novo item, a preview dirige
   cmd({ type: 'load', mediaId: id, view, muted, volume });
   // re-render leve de estados ativos
   document.querySelectorAll('.lib-item,.row-item').forEach((el) => el.classList.toggle('active', el.dataset.id === id));
@@ -1581,11 +1612,38 @@ AVDB.onCommand((msg) => {
       : 'Áudio do Display ativo');
     renderControls();
   }
-  // A UI de transporte (play/pause), a barra de progresso e o avanço automático
-  // dos itens YouTube são dirigidos pela PREVIEW local (ytPreviewTick/
-  // onYtPreviewState), não mais pelo display-status/media-ended remotos — assim
-  // o ▶/⏸ funciona mesmo com o Display em segundo plano (onde o polling do
-  // Display fica estrangulado e o status chega atrasado ou nem chega).
+  // YouTube: o Display (projeção real) é a FONTE DE SINCRONIZAÇÃO enquanto
+  // envia status — dirige o play/pause, a barra de progresso e o avanço, e
+  // re-alinha a preview a ele. Se ele não existir/estiver estrangulado
+  // (nenhum status recente → ytDisplayActive() falso), a preview local assume
+  // (ytPreviewTick/onYtPreviewState). Isso cobre os dois casos: Controle em
+  // primeiro plano com Display em segundo (preview manda) e Controle
+  // minimizado com o Display tocando (Display manda, e a preview se re-alinha
+  // a ele ao voltar).
+  if (!currentItem || currentItem.kind !== 'youtube' || msg.mediaId !== currentId) return;
+  if (msg.type === 'display-status') {
+    // Player morto/parado (fim natural ou stop manual): ignora qualquer
+    // display-status ainda em trânsito reportando o player antigo tocando —
+    // senão o ícone voltaria a "pause" e o ▶ (que deve recarregar) quebraria.
+    if (ytEnded) return;
+    ytDisplayStatusAt = Date.now();
+    playing = !!msg.playing;
+    playPauseEl.querySelector('.msym').textContent = playing ? ICON.pause : ICON.play;
+    const dur = (typeof msg.duration === 'number' && isFinite(msg.duration)) ? msg.duration : 0;
+    seekEl.disabled = !(dur > 0);
+    durTimeEl.textContent = fmtTime(dur);
+    if (!seeking) {
+      seekEl.max = dur > 0 ? dur : 0;
+      seekEl.value = msg.currentTime || 0;
+      curTimeEl.textContent = fmtTime(msg.currentTime);
+    }
+    ytResyncPreviewToDisplay(playing, msg.currentTime);
+  } else if (msg.type === 'media-ended') {
+    ytDisplayStatusAt = Date.now();
+    ytEnded = true;
+    playing = false;
+    autoAdvance();
+  }
 });
 
 // Auto-atualização: ao abrir e ao retomar do segundo plano, checa se há uma
