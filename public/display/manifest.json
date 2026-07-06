@@ -4,7 +4,7 @@
   "description": "Tela de exibição, espelhada via Miracast.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
+  "display": "standalone",
   "orientation": "landscape",
   "background_color": "#000000",
   "theme_color": "#000000",
