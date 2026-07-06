@@ -119,8 +119,7 @@ let mediaFit = 'contain'; // preenchimento da mídia (persistido em state 'fit')
 // disso aqui. Não é persistido: cada abertura do app começa em modo normal
 // (preview muda), evitando som inesperado saindo do celular numa sessão nova.
 let standalone = false;
-let ytEnded = false;       // YouTube sem player vivo no Display (fim natural ou stop manual): ▶ recarrega
-let ytStopping = false;    // stop manual do YouTube em andamento: ignora display-status atrasado/em trânsito
+let ytEnded = false;       // YouTube terminou/parou sem player tocando: ▶ recarrega
 let displayAudioBlocked = false; // Display reportou áudio bloqueado pelo navegador
 const scrollPos = {};      // posição de scroll por aba/pasta (sessão)
 
@@ -183,6 +182,7 @@ function ytPreviewRampVolume(from, to, dur) {
 function dropYtPreview() {
   if (ytPreview) {
     clearInterval(ytPreview.qualityTimer);
+    clearInterval(ytPreview.tickTimer);
     if (ytPreview.player) { try { ytPreview.player.destroy(); } catch (_) {} }
   }
   clearInterval(ytPreviewRampTimer);
@@ -219,7 +219,7 @@ async function loadYtPreview(rec, v) {
   const host = document.createElement('div');
   pvYoutubeEl.appendChild(host);
   pvYoutubeEl.hidden = false;
-  const cur = { mediaId: rec.id, player: null, qualityTimer: null };
+  const cur = { mediaId: rec.id, player: null, qualityTimer: null, tickTimer: null };
   ytPreview = cur;
   cur.player = new YT.Player(host, {
     videoId: rec.youtubeId,
@@ -245,10 +245,55 @@ async function loadYtPreview(rec, v) {
           if (ytPreview !== cur || !cur.player) return;
           ytPreviewForceLowQuality(cur.player);
         }, 1500);
+        startYtPreviewTick(cur);
       },
+      onStateChange: (e) => { if (ytPreview === cur) onYtPreviewState(e); },
       onPlaybackQualityChange: (e) => { if (ytPreview === cur) ytPreviewForceLowQuality(e.target); },
     },
   });
+}
+
+// A preview do YouTube (player real na tela do operador) é a FONTE DE VERDADE
+// do play/pause, da barra de progresso e do avanço automático dos itens YouTube
+// — como a preview local (`previewTick`) faz para mídia comum. Antes isso
+// dependia só do `display-status` remoto do Display, que pode chegar atrasado
+// ou nem chegar (Display em segundo plano/fechado), deixando o ▶/⏸ preso e sem
+// pausar. Agora o player local dirige a UI, sempre responsivo.
+function startYtPreviewTick(cur) {
+  clearInterval(cur.tickTimer);
+  cur.tickTimer = setInterval(() => {
+    if (ytPreview !== cur || !cur.player) return;
+    ytPreviewTick();
+  }, 500);
+}
+function ytPreviewTick() {
+  const p = ytPreview && ytPreview.player;
+  if (!p) return;
+  let st = -1, t = 0, dur = 0;
+  try { st = p.getPlayerState(); t = p.getCurrentTime() || 0; dur = p.getDuration() || 0; } catch (_) { return; }
+  playing = (st === 1 || st === 3); // playing | buffering
+  playPauseEl.querySelector('.msym').textContent = playing ? ICON.pause : ICON.play;
+  durTimeEl.textContent = fmtTime(dur);
+  seekEl.disabled = !(dur > 0);
+  if (!seeking) {
+    seekEl.max = dur > 0 ? dur : 0;
+    seekEl.value = t;
+    curTimeEl.textContent = fmtTime(t);
+  }
+}
+function onYtPreviewState(e) {
+  const st = e.data; // 1 playing, 2 paused, 3 buffering, 0 ended, 5 cued
+  if (st === 0) { // fim natural → avança a playlist (só aqui; o remoto não avança mais)
+    playing = false;
+    playPauseEl.querySelector('.msym').textContent = ICON.play;
+    ytEnded = true;
+    autoAdvance();
+    return;
+  }
+  if (st === 1 || st === 2 || st === 3) {
+    ytEnded = false;
+    ytPreviewTick();
+  }
 }
 
 // Transporte do player da preview: play/pause/seek sempre; mute/volume só
@@ -775,7 +820,6 @@ async function send(id) {
   currentItem = [...plItems, ...libItems].find((m) => m.id === id) || currentItem;
   await persistCurrent();
   ytEnded = false;
-  ytStopping = false;
   cmd({ type: 'load', mediaId: id, view, muted, volume });
   // re-render leve de estados ativos
   document.querySelectorAll('.lib-item,.row-item').forEach((el) => el.classList.toggle('active', el.dataset.id === id));
@@ -849,11 +893,9 @@ async function toggleMute() {
 async function stopClear() {
   cmd({ type: 'clear' });
   playing = false;
-  // YouTube: 'clear' derruba o player no Display (mesmo caminho do fim natural)
-  // → o próximo ▶ precisa recarregar (send), não só reenviar 'play'. ytStopping
-  // ignora qualquer display-status que já estivesse em trânsito nesse instante
-  // (reportando o player antigo ainda tocando) até o próximo load real.
-  if (currentItem && currentItem.kind === 'youtube') { ytEnded = true; ytStopping = true; }
+  // YouTube: 'clear' derruba o player da preview (dropYtPreview via cmd) e o do
+  // Display → o próximo ▶ precisa recarregar (send), não só reenviar 'play'.
+  if (currentItem && currentItem.kind === 'youtube') ytEnded = true;
   playPauseEl.querySelector('.msym').textContent = ICON.play;
   seekEl.value = 0; seekEl.disabled = true;
   curTimeEl.textContent = '0:00';
@@ -1539,28 +1581,11 @@ AVDB.onCommand((msg) => {
       : 'Áudio do Display ativo');
     renderControls();
   }
-  if (!currentItem || currentItem.kind !== 'youtube' || msg.mediaId !== currentId) return;
-  if (msg.type === 'display-status') {
-    // Ignora status atrasado/em trânsito de antes do stop concluir no Display
-    // (o player antigo ainda podia estar tocando quando essa mensagem saiu).
-    if (ytStopping) return;
-    playing = !!msg.playing;
-    playPauseEl.querySelector('.msym').textContent = playing ? ICON.pause : ICON.play;
-    const dur = (typeof msg.duration === 'number' && isFinite(msg.duration)) ? msg.duration : 0;
-    seekEl.disabled = !(dur > 0);
-    durTimeEl.textContent = fmtTime(dur);
-    if (!seeking) {
-      seekEl.max = dur > 0 ? dur : 0;
-      seekEl.value = msg.currentTime || 0;
-      curTimeEl.textContent = fmtTime(msg.currentTime);
-    }
-  } else if (msg.type === 'media-ended') {
-    // O Display derruba o player ao fim (evita a tela de "vídeos
-    // relacionados" no telão); replay manual precisa de um novo load.
-    ytEnded = true;
-    playing = false;
-    autoAdvance();
-  }
+  // A UI de transporte (play/pause), a barra de progresso e o avanço automático
+  // dos itens YouTube são dirigidos pela PREVIEW local (ytPreviewTick/
+  // onYtPreviewState), não mais pelo display-status/media-ended remotos — assim
+  // o ▶/⏸ funciona mesmo com o Display em segundo plano (onde o polling do
+  // Display fica estrangulado e o status chega atrasado ou nem chega).
 });
 
 // Auto-atualização: ao abrir e ao retomar do segundo plano, checa se há uma
