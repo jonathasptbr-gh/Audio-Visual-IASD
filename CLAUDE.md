@@ -37,7 +37,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.30.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.31.**
 
 ---
 
@@ -695,14 +695,20 @@ Controle instalado** (em vez de abrir uma aba interna), o Display usa
 `display: standalone` no manifest — **não** `fullscreen`: um contexto em
 fullscreen prende popups numa Custom Tab dentro do próprio app (por isso o
 "Abrir Display" do Controle, que é standalone, já funcionava, mas o inverso
-não). O `window.open` vem **primeiro** no handler (prioridade: garantir o
-lançamento do Controle gasta a ativação do toque); logo depois, um
-`requestFullscreen()` **best-effort** deixa o telão imersivo mesmo em
-standalone (esconde a barra de status do Android) — se a ativação já tiver
-sido consumida, falha em silêncio e o standalone segue funcionando, só com a
-barra de status visível. (Ressalva geral: não há API web garantida para lançar
-outro PWA instalado — dependendo da versão do Android/Chrome pode cair numa
-aba comum como fallback.) Ao tocar, a classe `.confirming` dispara uma
+não). O `requestFullscreen()` vem **primeiro** no handler — não por
+prioridade, mas por causa de como o navegador contabiliza a **ativação
+transitória** do toque: `Element.requestFullscreen()` é uma API "gating" (só
+**exige** a ativação, sem gastá-la — várias chamadas gating cabem no mesmo
+gesto), enquanto `window.open()` é uma API "consuming" (**gasta** a ativação a
+cada chamada, para impedir múltiplos popups por gesto). Chamar `window.open()`
+antes deixaria qualquer `requestFullscreen()` seguinte sem ativação
+nenhuma — falha silenciosa e o Display nunca chegava a entrar em tela cheia de
+fato (era o bug antes desta correção). Nesta ordem (fullscreen → `lockLandscape()`
+encadeado na resolução da promise → `window.open()`), o fullscreen não gasta
+nada e o `window.open()` ainda encontra a ativação intacta — os dois
+funcionam no mesmo gesto. (Ressalva geral: não há API web garantida para
+lançar outro PWA instalado — dependendo da versão do Android/Chrome pode cair
+numa aba comum como fallback.) Ao tocar, a classe `.confirming` dispara uma
 animação rápida (~0,3s: pill cresce levemente e esmaece, fundo vai a
 transparente) antes do elemento sumir de fato (`hidden = true` só depois do
 `setTimeout` correspondente) — sem esse feedback, o overlay sumia no mesmo
