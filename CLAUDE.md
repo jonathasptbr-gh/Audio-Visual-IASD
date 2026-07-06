@@ -37,7 +37,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.24.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.25.**
 
 ---
 
@@ -823,11 +823,13 @@ anterior) sofria.
   evita reportar `playing:true` no meio do stop. No Controle, `stopClear()` marca
   `ytEnded=true` para itens `kind==='youtube'`, garantindo que o próximo ▶ chame
   `send(currentId)` (recarga completa) em vez do `cmd({type:'play'})` genérico
-  (no-op sem player vivo). O ▶/⏸ do Controle é dirigido pela **preview local**
-  (ver seção da preview do YouTube), não mais por status remoto — então a antiga
-  corrida do `ytStopping` (um `display-status` atrasado em trânsito desfazendo o
-  `ytEnded` e exigindo apertar stop duas vezes) deixou de existir, e a flag
-  `ytStopping` foi removida.
+  (no-op sem player vivo). A antiga corrida do `ytStopping` (um `display-status`
+  atrasado em trânsito reportando `playing:true` e desfazendo o `ytEnded`,
+  exigindo apertar stop duas vezes) foi resolvida de outra forma: o
+  `display-status` só zera `ytEnded` junto com um `playing` fresco do item atual
+  e o `stopClear()` não é mais desfeito por status em trânsito da mesma forma —
+  a flag `ytStopping` foi removida (ver a seção de sincronização da preview do
+  YouTube para o modelo Display-como-fonte/preview-fallback).
 - **Status e progresso**: ao contrário do protocolo antigo (que empurrava
   `infoDelivery` continuamente), a API oficial só notifica em transições
   discretas de estado — por isso `ytStartTimeLoop()` faz um polling leve
@@ -935,18 +937,29 @@ anterior) sofria.
     marca a thumbnail) — por isso `cmd()` chama
     `preview.instantCover(view === 'wallpaper')` à parte em `loadYtPreview()`,
     igual o Display faz para o player real.
-  - **A preview é a FONTE DE VERDADE do play/pause, da barra de progresso e do
-    avanço automático dos itens YouTube** — como a preview local faz para mídia
-    comum. O player expõe `onStateChange` (atualiza ▶/⏸ na hora) e um polling de
-    500 ms (`ytPreviewTick` via `startYtPreviewTick`) que alimenta a barra de
-    progresso; o fim natural (estado `ENDED`) dispara `autoAdvance()`. Antes isso
-    dependia só do `display-status`/`media-ended` **remotos** do Display, que
-    podem chegar atrasados ou nem chegar quando o Display está em segundo plano
-    (polling estrangulado) ou fechado — o ▶/⏸ ficava preso, sem pausar. Como a
-    preview roda na tela do operador (nunca em segundo plano), agora responde
-    sempre. O handler de comandos do Controle ignora `display-status`/
-    `media-ended` para YouTube (só usa `display-ready` e `audioBlocked`).
-    `previewTick` (mídia comum) continua retornando cedo para itens youtube.
+  - **Sincronização do play/pause, progresso e avanço dos itens YouTube: o
+    DISPLAY é a fonte de verdade quando presente; a preview é o fallback.** O
+    player do Display (a projeção real) manda enquanto envia `display-status`;
+    se ele não existir / estiver estrangulado ou fechado (nenhum status há mais
+    de `YT_DISPLAY_TIMEOUT`=2,5 s → `ytDisplayActive()` falso), a preview local
+    assume. Isso resolve os dois casos opostos:
+    - **Controle em 1º plano, Display em 2º** (Display espelhado/estrangulado):
+      o status remoto rareia → `ytDisplayActive()` falso → a preview (na tela
+      do operador, nunca estrangulada) dirige o ▶/⏸ e o progresso.
+    - **Controle minimizado, Display tocando**: a preview é que fica
+      estrangulada; o Display segue enviando status → dirige a UI e, via
+      `ytResyncPreviewToDisplay()`, **re-alinha a preview** (casa play/pause e,
+      se o tempo divergir mais que `YT_SYNC_DRIFT`=1,6 s, busca o instante do
+      Display) — sem isso a preview voltava dessincronizada da projeção.
+    Mecanismo: `ytDisplayStatusAt` marca o último status do item atual
+    (`send()` zera para a preview dirigir até o Display confirmar o item novo);
+    o player da preview expõe `onStateChange` (▶/⏸ na hora) e um polling de
+    500 ms (`ytPreviewTick`) para o progresso — **ambos retornam cedo quando
+    `ytDisplayActive()`** (só agem na ausência do Display); o fim natural
+    (`ENDED`) dispara `autoAdvance()` só quando a preview é a fonte, senão é o
+    `media-ended` remoto que avança. `ytResyncPreviewToDisplay()` não busca em
+    "mesa de som" (evita salto audível), só casa play/pause. `previewTick`
+    (mídia comum) continua retornando cedo para itens youtube.
 
 ---
 
