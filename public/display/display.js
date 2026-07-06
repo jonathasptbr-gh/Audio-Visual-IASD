@@ -629,8 +629,21 @@ startBtnEl.addEventListener('click', () => {
     ytSafeCall(() => p.playVideo());
   }
   // Abre o Controle no mesmo gesto (chamado dentro do handler de clique para
-  // não ser bloqueado como popup).
+  // não ser bloqueado como popup). PRIMEIRO, para garantir que a ativação do
+  // toque seja gasta aqui (prioridade: lançar o Controle instalado). O Display
+  // é `display: standalone` (não `fullscreen`) justamente para este
+  // window.open poder lançar o WebAPK do Controle em vez de abrir uma aba
+  // interna — em fullscreen, o navegador prende popups numa Custom Tab.
   try { window.open('../controle/', '_blank'); } catch (_) {}
+  // Depois, pede tela cheia via Fullscreen API (best-effort) para o telão
+  // ficar imersivo mesmo em standalone (esconde a barra de status do Android).
+  // Se a ativação já tiver sido consumida pelo window.open, apenas falha em
+  // silêncio — o standalone ainda funciona, só com a barra de status visível.
+  try {
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (req) { const r = req.call(el); if (r && r.catch) r.catch(() => {}); }
+  } catch (_) {}
   // Feedback de toque (pill "confirma" antes de sumir) — sem isso o overlay
   // desaparece no mesmo instante do clique e o toque parece não ter feito nada.
   startBtnEl.classList.add('confirming');
