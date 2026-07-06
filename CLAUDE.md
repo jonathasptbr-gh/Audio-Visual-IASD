@@ -37,7 +37,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.23.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.24.**
 
 ---
 
@@ -816,38 +816,18 @@ anterior) sofria.
   `stop`/`clear`/troca **não pausam** o player antes do fade (pausa desenharia
   UI): o fade-out visual corre com **rampa de volume** via `setVolume`
   (`ytRampVolume`) e o player é derrubado ao final.
-- **Stop/clear manual com fade out ativo não deixa o ▶ do Controle preso em
-  "pause"**: como o player continua tocando (estado `PLAYING`) durante toda a
-  rampa de volume do fade-out, `ytStartTimeLoop()` (polling de 500 ms)
-  reportaria `display-status` com `playing:true` nesse meio tempo,
-  sobrescrevendo o ícone de play que o Controle acabou de aplicar ao
-  `stopClear()` — e depois que o player é derrubado, nenhum status novo
-  chega para corrigir o ícone preso em pause. `stopYoutube()` por isso marca
-  `yt.stopping=true` e já limpa `yt.timeLoop` **antes** de aguardar o fade;
-  `ytStatus()` (chamada tanto pelo polling quanto por `onPlayerStateChange`)
-  também checa esse flag e não envia nada enquanto ele estiver ativo. No
-  Controle, `stopClear()` marca `ytEnded=true` para itens `kind==='youtube'`
-  (mesmo caminho já usado pelo fim natural — o Display derruba o player nos
-  dois casos), garantindo que o próximo ▶ chame `send(currentId)` (recarga
-  completa) em vez do `cmd({type:'play'})` genérico, que é um no-op quando
-  não há player nem `stage.current` vivos no Display.
-  - **Corrida residual (`ytStopping` no Controle):** mesmo com o Display
-    parando de enviar `display-status` novo assim que processa o `stop`
-    (acima), uma mensagem que **já estava em trânsito** no BroadcastChannel
-    no instante exato do clique (enviada pelo polling um instante antes,
-    reportando o player ainda tocando) podia chegar ao Controle **depois**
-    do `stopClear()` local já ter aplicado `ytEnded=true`/ícone de play — e o
-    handler de `display-status` fazia `if (playing) ytEnded = false`, desfazendo
-    a correção acima e prendendo o ▶ de volta no `cmd({type:'play'})` (no-op).
-    Sintoma: o operador precisava apertar **stop duas vezes** — na primeira, o
-    status atrasado desfazia o `ytEnded`; na segunda, não havia mais nada em
-    trânsito e o stop "pegava" de verdade. Corrigido com uma flag local
-    `ytStopping` (Controle): `stopClear()` a liga junto com `ytEnded=true`; o
-    handler de `display-status` ignora qualquer atualização enquanto ela
-    estiver ativa; e `send()` (recarga completa) é o único lugar que a
-    desliga — a linha `if (playing) ytEnded = false` foi removida do handler
-    de status por ser redundante nos casos legítimos (pause→play não passa
-    por `ytEnded`) e ser exatamente a fonte da corrida nos ilegítimos.
+- **Stop/clear manual com fade out ativo**: o player do Display continua tocando
+  (estado `PLAYING`) durante toda a rampa de volume do fade-out. `stopYoutube()`
+  marca `yt.stopping=true` e limpa `yt.timeLoop` **antes** de aguardar o fade, e
+  `ytStatus()` não envia `display-status` enquanto esse flag estiver ativo —
+  evita reportar `playing:true` no meio do stop. No Controle, `stopClear()` marca
+  `ytEnded=true` para itens `kind==='youtube'`, garantindo que o próximo ▶ chame
+  `send(currentId)` (recarga completa) em vez do `cmd({type:'play'})` genérico
+  (no-op sem player vivo). O ▶/⏸ do Controle é dirigido pela **preview local**
+  (ver seção da preview do YouTube), não mais por status remoto — então a antiga
+  corrida do `ytStopping` (um `display-status` atrasado em trânsito desfazendo o
+  `ytEnded` e exigindo apertar stop duas vezes) deixou de existir, e a flag
+  `ytStopping` foi removida.
 - **Status e progresso**: ao contrário do protocolo antigo (que empurrava
   `infoDelivery` continuamente), a API oficial só notifica em transições
   discretas de estado — por isso `ytStartTimeLoop()` faz um polling leve
@@ -955,10 +935,18 @@ anterior) sofria.
     marca a thumbnail) — por isso `cmd()` chama
     `preview.instantCover(view === 'wallpaper')` à parte em `loadYtPreview()`,
     igual o Display faz para o player real.
-  - Barra de progresso, ícone de play e avanço automático de itens YouTube
-    continuam dirigidos pelo `display-status`/`media-ended` remotos
-    (`previewTick` ignora itens youtube) — o player da preview não alimenta
-    esse estado, é só visual.
+  - **A preview é a FONTE DE VERDADE do play/pause, da barra de progresso e do
+    avanço automático dos itens YouTube** — como a preview local faz para mídia
+    comum. O player expõe `onStateChange` (atualiza ▶/⏸ na hora) e um polling de
+    500 ms (`ytPreviewTick` via `startYtPreviewTick`) que alimenta a barra de
+    progresso; o fim natural (estado `ENDED`) dispara `autoAdvance()`. Antes isso
+    dependia só do `display-status`/`media-ended` **remotos** do Display, que
+    podem chegar atrasados ou nem chegar quando o Display está em segundo plano
+    (polling estrangulado) ou fechado — o ▶/⏸ ficava preso, sem pausar. Como a
+    preview roda na tela do operador (nunca em segundo plano), agora responde
+    sempre. O handler de comandos do Controle ignora `display-status`/
+    `media-ended` para YouTube (só usa `display-ready` e `audioBlocked`).
+    `previewTick` (mídia comum) continua retornando cedo para itens youtube.
 
 ---
 
