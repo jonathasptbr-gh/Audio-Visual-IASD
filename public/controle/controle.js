@@ -161,11 +161,31 @@ function loadYtPreviewApi() {
 let ytPreview = null; // { mediaId, player }
 let ytPreviewSeq = 0;
 
+// Rampa curta de volume do player da preview do YouTube (mesmo valor do stage),
+// usada ao ligar/desligar a "mesa de som" — evita o corte abrupto de áudio.
+const MUTE_RAMP_TIME = 0.25;
+let ytPreviewRampTimer = null;
+function ytPreviewRampVolume(from, to, dur) {
+  clearInterval(ytPreviewRampTimer);
+  const p = ytPreview && ytPreview.player;
+  if (!p) return;
+  const steps = Math.max(2, Math.round(dur * 20));
+  let i = 0;
+  try { p.setVolume(Math.round(Math.min(1, Math.max(0, from)) * 100)); } catch (_) {}
+  ytPreviewRampTimer = setInterval(() => {
+    i++;
+    const v = Math.min(1, Math.max(0, from + (to - from) * (i / steps)));
+    try { if (ytPreview && ytPreview.player) ytPreview.player.setVolume(Math.round(v * 100)); } catch (_) {}
+    if (i >= steps) clearInterval(ytPreviewRampTimer);
+  }, (dur * 1000) / steps);
+}
+
 function dropYtPreview() {
   if (ytPreview) {
     clearInterval(ytPreview.qualityTimer);
     if (ytPreview.player) { try { ytPreview.player.destroy(); } catch (_) {} }
   }
+  clearInterval(ytPreviewRampTimer);
   ytPreview = null;
   pvYoutubeEl.hidden = true;
   pvYoutubeEl.innerHTML = '';
@@ -262,12 +282,23 @@ function ytPreviewHandle(obj) {
 async function setStandalone(v) {
   if (standalone === v) return;
   standalone = v;
+  // Mídia local: a rampa vive no stage (setForceMuted). YouTube da preview:
+  // rampa aqui, em paralelo, com a mesma duração — ligar desmuta e sobe de 0
+  // ao volume alvo (respeitando o mudo do operador); desligar desce até 0 e só
+  // então muta.
   preview.setForceMuted(!standalone);
   if (ytPreview && ytPreview.player) {
-    try {
-      if (standalone) { if (!muted) ytPreview.player.unMute(); ytPreview.player.setVolume(Math.round(volume * 100)); }
-      else { ytPreview.player.mute(); }
-    } catch (_) {}
+    const p = ytPreview.player;
+    clearInterval(ytPreviewRampTimer);
+    if (standalone) {
+      if (!muted) { try { p.unMute(); } catch (_) {} ytPreviewRampVolume(0, volume, MUTE_RAMP_TIME); }
+      else { try { p.setVolume(Math.round(volume * 100)); } catch (_) {} }
+    } else {
+      ytPreviewRampVolume(volume, 0, MUTE_RAMP_TIME);
+      setTimeout(() => {
+        if (!standalone && ytPreview && ytPreview.player) { try { ytPreview.player.mute(); } catch (_) {} }
+      }, MUTE_RAMP_TIME * 1000);
+    }
   }
   standaloneToggleEl.classList.toggle('active', standalone);
 }

@@ -37,7 +37,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.22.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.23.**
 
 ---
 
@@ -375,7 +375,8 @@ stage.setView(v) / setMute(m) / setVolume(vol)
 stage.setFade({ fadeIn, fadeOut, time })
 stage.setFit(v)        // 'contain' (ajustar) | 'cover' (preencher) | 'fill' (esticar)
 stage.setForceMuted(v) // alterna em tempo real se o stage é forçado a ficar sempre mudo
-                        // (preview normal) ou toca áudio de verdade (modo "mesa de som")
+                        // (preview normal) ou toca áudio de verdade (modo "mesa de som"),
+                        // com rampa curta de volume (MUTE_RAMP_TIME)
 stage.coverIn(rampAudio) / coverOut() / instantCover(show)  // cortina do wallpaper (ver acima)
 stage.fadeOutToBlack()  // esmaece até o preto e reseta (current=null) sem tocar a cortina —
                         // usado só na troca de TIPO de conteúdo (mídia local ↔ YouTube)
@@ -539,17 +540,24 @@ igreja, sem precisar nem abrir o Display).
   reagindo aos comandos como sempre; se não estiver aberto, os comandos
   simplesmente não têm quem escute — o Controle não trata esse caso de forma
   especial, nem precisa saber se o Display está ou não em uso.
-- `setStandalone(v)` só alterna a saída de áudio da preview:
+- `setStandalone(v)` só alterna a saída de áudio da preview, **com rampa curta**
+  (a mesma `MUTE_RAMP_TIME` do mudo, 0,25 s) — ligar/desligar não corta o áudio
+  na hora:
   - **Ligar**: `preview.setForceMuted(false)` — a preview deixa de ser sempre
-    muda e passa a tocar o volume/mudo real que o operador já tiver ajustado.
-    Se o item atual for YouTube, o player da preview (`ytPreview`) também é
-    desmutado/ajustado direto (`unMute`/`setVolume`).
-  - **Desligar**: `preview.setForceMuted(true)` (volta a ser sempre muda) e o
-    player do YouTube da preview é mutado.
+    muda e passa a tocar o volume/mudo real que o operador já tiver ajustado; o
+    áudio **sobe em rampa de 0 até o alvo**. Se o item atual for YouTube, o
+    player da preview (`ytPreview`) é desmutado e sobe pela mesma rampa
+    (`ytPreviewRampVolume`, em paralelo).
+  - **Desligar**: o áudio **desce em rampa até 0 e só então muta**
+    (`preview.setForceMuted(true)`; para o YouTube, `ytPreviewRampVolume` +
+    `player.mute()` ao fim da rampa).
 - `stage.js` ganhou `setForceMuted(v)`/`isForceMuted()`: `forceMuted` deixou
   de ser fixado na criação do stage (`const`) e virou alternável em tempo
-  real (`let`) — `setForceMuted` reaplica `video.muted`/`volume` na hora
-  (`applyMedia()`), sem esperar o próximo load/play.
+  real (`let`). A troca faz a mesma rampa do `setMute` (`rampVolume` +
+  `MUTE_RAMP_TIME`): ao **desativar**, `forceMuted` só liga no **fim** da rampa
+  (senão `rampVolume` abortaria de imediato, pois ignora pedidos com
+  `forceMuted` já ligado); ao **ativar**, respeita o mudo do operador. Sem mídia
+  tocando, aplica na hora (sem rampa, nada a esmaecer).
 - **Não é persistido** — cada abertura do app começa em modo normal (preview
   muda), evitando som inesperado saindo do celular numa sessão nova.
 
