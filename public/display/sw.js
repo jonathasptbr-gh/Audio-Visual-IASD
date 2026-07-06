@@ -1,4 +1,4 @@
-const CACHE = 'display-v4.27';
+const CACHE = 'display-v4.28';
 // O Display não usa a fonte de ícones (Material Symbols) — só o Controle a
 // carrega/cacheia; aqui a UI é apenas wallpaper + mídia.
 const ASSETS = [
@@ -11,6 +11,8 @@ const ASSETS = [
   './icons/icon-512.svg',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  './icons/icon-maskable-192.png',
+  './icons/icon-maskable-512.png',
   '../shared/db.js',
   '../shared/stage.js',
 ];

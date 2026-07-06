@@ -37,7 +37,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.27.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.28.**
 
 ---
 
@@ -82,14 +82,14 @@ public/
 │   ├── index.html              # UI do operador
 │   ├── controle.css            # Estilos do Controle
 │   ├── controle.js             # Lógica do Controle
-│   ├── icons/                  # icon-{192,512}.svg + .png (PNG obrigatório p/ WebAPK — ver "Instalar no Android")
+│   ├── icons/                  # icon-{192,512}.svg + .png (PNG obrigatório p/ WebAPK) + icon-maskable-{192,512}.png (ver "Instalar no Android")
 │   ├── manifest.json           # PWA manifest (portrait + share_target)
 │   └── sw.js                   # Service worker (cache: controle-vX.Y)
 └── display/
     ├── index.html              # UI do Display (inclui iframe #youtube)
     ├── display.css             # Estilos do Display
     ├── display.js              # Lógica do Display
-    ├── icons/                  # icon-{192,512}.svg + .png (PNG obrigatório p/ WebAPK — ver "Instalar no Android")
+    ├── icons/                  # icon-{192,512}.svg + .png (PNG obrigatório p/ WebAPK) + icon-maskable-{192,512}.png (ver "Instalar no Android")
     ├── manifest.json           # PWA manifest (landscape, standalone)
     └── sw.js                   # Service worker (cache: display-vX.Y)
 server.js                       # Servidor estático mínimo (Node puro, sem deps)
@@ -1106,7 +1106,39 @@ Chrome falha silenciosamente em alguns casos e o Android volta ao modo
 do Chrome — não o próprio — na tela dividida e na lista de apps recentes; era
 esse o sintoma do Display antes desta correção). Por isso `manifest.json` dos
 dois apps lista os ícones **PNG primeiro** (`icon-192.png`/`icon-512.png`,
-`purpose: "any"` e `"maskable"`) e as versões SVG depois, como opção extra —
-os PNGs foram gerados a partir dos SVGs existentes (mesmo desenho, só
-rasterizado) e também precisam ser adicionados à lista `ASSETS` do `sw.js`
-correspondente para entrarem no cache offline.
+`purpose: "any"`) e as versões SVG depois, como opção extra — os PNGs foram
+gerados a partir dos SVGs existentes (mesmo desenho, só rasterizado) e também
+precisam ser adicionados à lista `ASSETS` do `sw.js` correspondente para
+entrarem no cache offline.
+
+**Ícones `maskable` com margem de segurança** (`icon-maskable-192.png`/
+`icon-maskable-512.png`, `purpose: "maskable"`): o Android pode recortar um
+ícone maskable em formatos adaptativos (círculo, esquadria…), então o conteúdo
+importante precisa caber dentro de uma "safe zone" central (~66% do canvas) —
+usar o mesmo desenho de `icon-512.svg`/`icon-192.svg` sem essa margem faz o
+conteúdo ficar cortado nas bordas em alguns launchers. Os arquivos
+`icon-maskable-*` reaproveitam o mesmo desenho, mas com um `<g transform="…
+scale(0.72)…">` encolhendo o conteúdo em torno do centro e um fundo liso sem
+cantos arredondados próprios (a máscara do SO já aplica a forma) — gerados a
+partir de `icon-maskable-*.svg` (fonte) via rasterização.
+
+**Se `Display → Controle` abrir só uma aba interna (não o app instalado)
+mesmo com os dois PWAs instalados corretamente:** verificar se o Display está
+com `display: standalone` no manifest (não `fullscreen` — um contexto
+fullscreen prende `window.open` numa Custom Tab dentro do próprio app, mesmo
+que o alvo esteja instalado corretamente; ver `#startBtn` na seção do
+Display). Trocar o modo de exibição no manifest **não** atualiza um WebAPK já
+instalado — é necessário **desinstalar e reinstalar** os dois PWAs (não só
+revisitar a URL) para o Android regerar o pacote com o modo novo. Para
+diagnosticar sem depender de tentativa e erro, o Chrome tem uma página interna
+— `chrome://webapks` — que lista os WebAPKs conhecidos do aparelho com
+`Package name`, `Display Mode` e `Update Status` de cada um; abrir/recarregar
+essa página também **dispara uma verificação de atualização na hora** (o
+próprio campo indica isso: "Update Status (Reload page to get new status)").
+Um ícone do Chrome nos apps recentes que **persiste mesmo após reinstalação
+completa e reboots**, com o `chrome://webapks` mostrando um `Package name`
+próprio e `Update Status: Succeeded`, não é mais o sintoma de "atalho" acima —
+é mais provável que seja uma particularidade de exibição do launcher/versão do
+Android para WebAPKs "unbound" (o cartão da tarefa em Recentes mostra o ícone
+do navegador hospedeiro mesmo com o app corretamente instalado); não há
+alavanca conhecida do lado do manifest/PWA para forçar esse ícone específico.
