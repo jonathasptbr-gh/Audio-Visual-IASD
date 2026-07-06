@@ -37,7 +37,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.29.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.30.**
 
 ---
 
@@ -90,7 +90,7 @@ public/
     ├── display.css             # Estilos do Display
     ├── display.js              # Lógica do Display
     ├── icons/                  # icon-{192,512}.svg + .png (PNG obrigatório p/ WebAPK) + icon-maskable-{192,512}.png (ver "Instalar no Android")
-    ├── manifest.json           # PWA manifest (landscape, standalone)
+    ├── manifest.json           # PWA manifest (standalone; sem orientation fixo — ver "Instalar no Android")
     └── sw.js                   # Service worker (cache: display-vX.Y)
 server.js                       # Servidor estático mínimo (Node puro, sem deps)
 ```
@@ -1156,3 +1156,29 @@ identidade que o Chrome já deduzia implicitamente do `start_url`. O
 `chrome://webapks` (ver acima) confirma que os dois têm `Package name`,
 `Manifest Id` e `Update Status` **distintos e saudáveis** — não há colisão de
 identidade entre os dois PWAs nesse domínio.
+
+**Teste de elegibilidade a multi-janela (App Pair / painel Edge da Samsung):**
+um teste decisivo (adicionar cada PWA a um App Pair) mostrou que **só o
+Display falha** (tratado como sessão de navegador), enquanto o **Controle
+funciona normalmente** — isso descarta de vez a hipótese de colisão de
+domínio (afetaria os dois igualmente) e aponta para algo assimétrico entre os
+dois manifests. A única diferença funcional relevante entre eles era
+`orientation`: `"portrait"` (Controle) vs `"landscape"` (Display). O Android
+não redimensiona apps de orientação travada em modo multi-janela — e o
+App Pair/painel Edge organiza os painéis em layout retrato, então um app
+travado em paisagem entra em conflito direto com esse layout (ao contrário
+de um travado em portrait, que se encaixa sem atrito). Isso bate exatamente
+com o padrão observado.
+
+**Por isso o Display não declara `orientation` fixo no manifest** — removido
+como experimento para o Android considerar a atividade redimensionável
+(elegível a multi-janela). A tela projetada continua em paisagem **na
+prática** via uma trava em tempo de execução (Screen Orientation API,
+`lockLandscape()` em `display.js`): uma tentativa best-effort roda no boot
+(antes do toque, provavelmente falha em silêncio — a API costuma exigir
+gesto/tela cheia) e a tentativa séria roda encadeada ao `requestFullscreen()`
+do toque em `#startBtn`, nos dois casos (sucesso ou falha do fullscreen).
+Sem suporte da API (ou se o usuário girar o aparelho fisicamente), nada
+impede o Display de renderizar em retrato — é o trade-off aceito deste
+experimento; o CSS já usa dimensões relativas (`inset:0`, 100%) e não
+quebra nesse caso, só deixa de compor como paisagem.
