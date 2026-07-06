@@ -645,17 +645,15 @@ startBtnEl.addEventListener('click', () => {
     ytSafeCall(() => p.setVolume(Math.round(yt.volume * 100)));
     ytSafeCall(() => p.playVideo());
   }
-  // Abre o Controle no mesmo gesto (chamado dentro do handler de clique para
-  // não ser bloqueado como popup). PRIMEIRO, para garantir que a ativação do
-  // toque seja gasta aqui (prioridade: lançar o Controle instalado). O Display
-  // é `display: standalone` (não `fullscreen`) justamente para este
-  // window.open poder lançar o WebAPK do Controle em vez de abrir uma aba
-  // interna — em fullscreen, o navegador prende popups numa Custom Tab.
-  try { window.open('../controle/', '_blank'); } catch (_) {}
-  // Depois, pede tela cheia via Fullscreen API (best-effort) para o telão
-  // ficar imersivo mesmo em standalone (esconde a barra de status do Android).
-  // Se a ativação já tiver sido consumida pelo window.open, apenas falha em
-  // silêncio — o standalone ainda funciona, só com a barra de status visível.
+  // Pede tela cheia PRIMEIRO (best-effort): Fullscreen é uma API "gating" —
+  // exige ativação transitória do toque mas NÃO a consome (várias chamadas
+  // gating cabem no mesmo gesto). `window.open()`, ao contrário, é
+  // "consuming" — gasta essa ativação a cada chamada. Chamar window.open()
+  // antes deixaria o requestFullscreen() seguinte sem ativação nenhuma,
+  // falhando sempre em silêncio (era o que acontecia antes desta correção —
+  // o Display nunca chegava a entrar em tela cheia de fato). Nesta ordem, o
+  // fullscreen não gasta nada e o window.open() abaixo ainda encontra a
+  // ativação intacta.
   try {
     const el = document.documentElement;
     const req = el.requestFullscreen || el.webkitRequestFullscreen;
@@ -665,6 +663,13 @@ startBtnEl.addEventListener('click', () => {
       else lockLandscape();
     } else lockLandscape();
   } catch (_) { lockLandscape(); }
+  // Abre o Controle DEPOIS (chamado dentro do handler de clique para não ser
+  // bloqueado como popup): window.open() é a API "consuming" — precisa vir
+  // por último para não gastar a ativação antes do fullscreen acima rodar. O
+  // Display é `display: standalone` (não `fullscreen`) justamente para este
+  // window.open poder lançar o WebAPK do Controle em vez de abrir uma aba
+  // interna — em fullscreen, o navegador prende popups numa Custom Tab.
+  try { window.open('../controle/', '_blank'); } catch (_) {}
   // Feedback de toque (pill "confirma" antes de sumir) — sem isso o overlay
   // desaparece no mesmo instante do clique e o toque parece não ter feito nada.
   startBtnEl.classList.add('confirming');
