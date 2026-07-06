@@ -582,6 +582,23 @@ AVDB.onCommand(async (cmd) => {
   stage.handle(cmd);
 });
 
+// Trava de orientação em tempo de execução (Screen Orientation API), não mais
+// via manifest: o manifest ficou sem `orientation` fixo de propósito, como
+// experimento para o Android considerar o Display uma atividade redimensionável
+// (elegível a multi-janela/App Pair do Samsung — um app com orientação travada
+// no manifest costuma ser excluído desses recursos). A tela projetada continua
+// em paisagem na prática por esta trava em JS. A API costuma exigir um gesto
+// do usuário e/ou tela cheia para funcionar — por isso a tentativa séria roda
+// junto do toque em #startBtn (que já pede fullscreen); esta aqui, no boot, é
+// só best-effort (provavelmente falha em silêncio antes do toque, sem problema).
+function lockLandscape() {
+  try {
+    const so = screen.orientation;
+    if (so && so.lock) { const p = so.lock('landscape'); if (p && p.catch) p.catch(() => {}); }
+  } catch (_) {}
+}
+lockLandscape();
+
 async function restore() {
   // Adianta o fetch do script da IFrame Player API do YouTube (~1x por sessão)
   // já na abertura do Display, em vez de esperar o primeiro vídeo do YouTube
@@ -642,8 +659,12 @@ startBtnEl.addEventListener('click', () => {
   try {
     const el = document.documentElement;
     const req = el.requestFullscreen || el.webkitRequestFullscreen;
-    if (req) { const r = req.call(el); if (r && r.catch) r.catch(() => {}); }
-  } catch (_) {}
+    if (req) {
+      const r = req.call(el);
+      if (r && r.then) r.then(lockLandscape, lockLandscape);
+      else lockLandscape();
+    } else lockLandscape();
+  } catch (_) { lockLandscape(); }
   // Feedback de toque (pill "confirma" antes de sumir) — sem isso o overlay
   // desaparece no mesmo instante do clique e o toque parece não ter feito nada.
   startBtnEl.classList.add('confirming');
