@@ -37,7 +37,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.28.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.29.**
 
 ---
 
@@ -1142,3 +1142,17 @@ próprio e `Update Status: Succeeded`, não é mais o sintoma de "atalho" acima 
 Android para WebAPKs "unbound" (o cartão da tarefa em Recentes mostra o ícone
 do navegador hospedeiro mesmo com o app corretamente instalado); não há
 alavanca conhecida do lado do manifest/PWA para forçar esse ícone específico.
+
+**Os dois PWAs vivem no mesmo domínio, em subpastas próprias** (`/controle/`
+e `/display/`) — cada um com seu `manifest.json`, `scope: "./"` e
+`start_url: "./"` resolvendo para a própria subpasta (escopos não
+sobrepostos: nem um é prefixo do outro) e o service worker registrado sem
+`scope` explícito (`register('sw.js')` a partir de cada `index.html` já
+recebe, por padrão, o escopo = pasta do próprio script). Ambos declaram
+também `id: "./"` — resolvido relativo ao `manifest.json` de cada um (não à
+raiz do domínio), então vira um identificador **distinto por app**
+(`.../controle/` vs `.../display/`), reforçando de forma explícita a
+identidade que o Chrome já deduzia implicitamente do `start_url`. O
+`chrome://webapks` (ver acima) confirma que os dois têm `Package name`,
+`Manifest Id` e `Update Status` **distintos e saudáveis** — não há colisão de
+identidade entre os dois PWAs nesse domínio.

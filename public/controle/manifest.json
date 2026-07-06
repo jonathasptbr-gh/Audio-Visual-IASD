@@ -2,6 +2,7 @@
   "name": "Controle AV — IASD",
   "short_name": "Controle",
   "description": "Controla as mídias exibidas no Display.",
+  "id": "./",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
