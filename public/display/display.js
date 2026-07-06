@@ -582,23 +582,6 @@ AVDB.onCommand(async (cmd) => {
   stage.handle(cmd);
 });
 
-// Trava de orientação em tempo de execução (Screen Orientation API), não mais
-// via manifest: o manifest ficou sem `orientation` fixo de propósito, como
-// experimento para o Android considerar o Display uma atividade redimensionável
-// (elegível a multi-janela/App Pair do Samsung — um app com orientação travada
-// no manifest costuma ser excluído desses recursos). A tela projetada continua
-// em paisagem na prática por esta trava em JS. A API costuma exigir um gesto
-// do usuário e/ou tela cheia para funcionar — por isso a tentativa séria roda
-// junto do toque em #startBtn (que já pede fullscreen); esta aqui, no boot, é
-// só best-effort (provavelmente falha em silêncio antes do toque, sem problema).
-function lockLandscape() {
-  try {
-    const so = screen.orientation;
-    if (so && so.lock) { const p = so.lock('landscape'); if (p && p.catch) p.catch(() => {}); }
-  } catch (_) {}
-}
-lockLandscape();
-
 async function restore() {
   // Adianta o fetch do script da IFrame Player API do YouTube (~1x por sessão)
   // já na abertura do Display, em vez de esperar o primeiro vídeo do YouTube
@@ -645,30 +628,11 @@ startBtnEl.addEventListener('click', () => {
     ytSafeCall(() => p.setVolume(Math.round(yt.volume * 100)));
     ytSafeCall(() => p.playVideo());
   }
-  // Pede tela cheia PRIMEIRO (best-effort): Fullscreen é uma API "gating" —
-  // exige ativação transitória do toque mas NÃO a consome (várias chamadas
-  // gating cabem no mesmo gesto). `window.open()`, ao contrário, é
-  // "consuming" — gasta essa ativação a cada chamada. Chamar window.open()
-  // antes deixaria o requestFullscreen() seguinte sem ativação nenhuma,
-  // falhando sempre em silêncio (era o que acontecia antes desta correção —
-  // o Display nunca chegava a entrar em tela cheia de fato). Nesta ordem, o
-  // fullscreen não gasta nada e o window.open() abaixo ainda encontra a
-  // ativação intacta.
-  try {
-    const el = document.documentElement;
-    const req = el.requestFullscreen || el.webkitRequestFullscreen;
-    if (req) {
-      const r = req.call(el);
-      if (r && r.then) r.then(lockLandscape, lockLandscape);
-      else lockLandscape();
-    } else lockLandscape();
-  } catch (_) { lockLandscape(); }
-  // Abre o Controle DEPOIS (chamado dentro do handler de clique para não ser
-  // bloqueado como popup): window.open() é a API "consuming" — precisa vir
-  // por último para não gastar a ativação antes do fullscreen acima rodar. O
-  // Display é `display: standalone` (não `fullscreen`) justamente para este
-  // window.open poder lançar o WebAPK do Controle em vez de abrir uma aba
-  // interna — em fullscreen, o navegador prende popups numa Custom Tab.
+  // Abre o Controle no mesmo gesto (chamado dentro do handler de clique para
+  // não ser bloqueado como popup). O Display é `display: standalone` (não
+  // `fullscreen`) justamente para este window.open poder lançar o WebAPK do
+  // Controle em vez de abrir uma aba interna — em fullscreen, o navegador
+  // prende popups numa Custom Tab dentro do próprio app.
   try { window.open('../controle/', '_blank'); } catch (_) {}
   // Feedback de toque (pill "confirma" antes de sumir) — sem isso o overlay
   // desaparece no mesmo instante do clique e o toque parece não ter feito nada.
