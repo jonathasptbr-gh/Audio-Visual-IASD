@@ -610,13 +610,16 @@ async function restore() {
   AVDB.sendCommand({ type: 'display-ready' });
 }
 
-// Toque único ao abrir: o gesto real (pointerdown, que já borbulha para o
-// listener de recuperação de áudio do stage) libera autoplay com som em
-// conteúdo de terceiros (iframe do YouTube) pelo resto da sessão. Some para
-// sempre no primeiro toque — se um YouTube já tiver sido restaurado (restore()
-// abaixo) antes do toque, o clique dá um empurrão imediato (play + som);
-// mesmo sem isso, ytWatchStart() e o resync de mudo em ytStartTimeLoop()
-// convergiriam sozinhos em até alguns segundos.
+// Toque único ao abrir ("Ligar Sistema"): o gesto real (pointerdown, que já
+// borbulha para o listener de recuperação de áudio do stage) libera autoplay
+// com som em conteúdo de terceiros (iframe do YouTube) pelo resto da sessão.
+// Some para sempre no primeiro toque — se um YouTube já tiver sido restaurado
+// (restore() abaixo) antes do toque, o clique dá um empurrão imediato
+// (play + som); mesmo sem isso, ytWatchStart() e o resync de mudo em
+// ytStartTimeLoop() convergiriam sozinhos em até alguns segundos. Além de
+// ativar o Display, o mesmo gesto abre o Controle (mesma ressalva do botão
+// "Abrir Display" do Controle: sem API web garantida para lançar outro PWA
+// instalado, pode cair numa aba comum do Chrome como fallback).
 const startBtnEl = document.getElementById('startBtn');
 startBtnEl.addEventListener('click', () => {
   if (yt && yt.player) {
@@ -625,6 +628,9 @@ startBtnEl.addEventListener('click', () => {
     ytSafeCall(() => p.setVolume(Math.round(yt.volume * 100)));
     ytSafeCall(() => p.playVideo());
   }
+  // Abre o Controle no mesmo gesto (chamado dentro do handler de clique para
+  // não ser bloqueado como popup).
+  try { window.open('../controle/', '_blank'); } catch (_) {}
   // Feedback de toque (pill "confirma" antes de sumir) — sem isso o overlay
   // desaparece no mesmo instante do clique e o toque parece não ter feito nada.
   startBtnEl.classList.add('confirming');
