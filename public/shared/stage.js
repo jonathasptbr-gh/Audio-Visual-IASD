@@ -294,14 +294,37 @@
     // Alterna se este stage é forçado a ficar sempre mudo (uso normal da
     // preview do Controle, espelhando o Display em silêncio) ou se passa a
     // tocar áudio de verdade pelo próprio aparelho ("mesa de som", modo
-    // independente do Display). Reaplica na hora (applyMedia), sem esperar
-    // o próximo load/play — senão o áudio só mudaria na próxima troca de mídia.
+    // independente do Display). A troca não corta o áudio na hora — faz a mesma
+    // rampa curta do setMute (MUTE_RAMP_TIME): ao ATIVAR, respeita o mudo do
+    // operador e sobe o volume de 0 até o alvo; ao DESATIVAR, desce até 0 e só
+    // então muta. Na desativação, `forceMuted` só liga no fim da rampa — senão
+    // rampVolume abortaria de imediato (ele ignora pedidos com forceMuted já
+    // ligado). Sem mídia tocando, aplica na hora (sem rampa, nada a esmaecer).
     function setForceMuted(v) {
-      forceMuted = !!v;
+      const target = !!v;
       clearInterval(rampTimer);
       clearTimeout(muteApplyTimer);
-      applyMedia();
-      if (!forceMuted) video.volume = volume;
+      const playingNow = !!current && (current.kind === 'video' || current.kind === 'audio') && !video.paused;
+      if (!playingNow) {
+        forceMuted = target;
+        applyMedia();
+        if (!forceMuted) video.volume = volume;
+        return;
+      }
+      if (target) {
+        // Desativar mesa de som: rampa até 0, depois muta (forceMuted no fim).
+        if (video.muted) { forceMuted = true; return; }
+        rampVolume(video.volume, 0, MUTE_RAMP_TIME);
+        muteApplyTimer = setTimeout(() => {
+          forceMuted = true; video.muted = true; video.volume = volume;
+        }, MUTE_RAMP_TIME * 1000);
+      } else {
+        // Ativar mesa de som: som já liberado; respeita o mudo do operador.
+        forceMuted = false;
+        video.muted = muted;
+        if (muted) video.volume = volume;
+        else rampVolume(0, volume, MUTE_RAMP_TIME);
+      }
     }
 
     function _revokeUrl() {
