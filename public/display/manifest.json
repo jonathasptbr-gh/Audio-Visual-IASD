@@ -2,6 +2,7 @@
   "name": "Display AV — IASD",
   "short_name": "Display",
   "description": "Tela de exibição, espelhada via Miracast.",
+  "id": "./",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
