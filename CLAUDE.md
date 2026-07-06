@@ -37,7 +37,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.31.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.32.**
 
 ---
 
@@ -695,20 +695,13 @@ Controle instalado** (em vez de abrir uma aba interna), o Display usa
 `display: standalone` no manifest — **não** `fullscreen`: um contexto em
 fullscreen prende popups numa Custom Tab dentro do próprio app (por isso o
 "Abrir Display" do Controle, que é standalone, já funcionava, mas o inverso
-não). O `requestFullscreen()` vem **primeiro** no handler — não por
-prioridade, mas por causa de como o navegador contabiliza a **ativação
-transitória** do toque: `Element.requestFullscreen()` é uma API "gating" (só
-**exige** a ativação, sem gastá-la — várias chamadas gating cabem no mesmo
-gesto), enquanto `window.open()` é uma API "consuming" (**gasta** a ativação a
-cada chamada, para impedir múltiplos popups por gesto). Chamar `window.open()`
-antes deixaria qualquer `requestFullscreen()` seguinte sem ativação
-nenhuma — falha silenciosa e o Display nunca chegava a entrar em tela cheia de
-fato (era o bug antes desta correção). Nesta ordem (fullscreen → `lockLandscape()`
-encadeado na resolução da promise → `window.open()`), o fullscreen não gasta
-nada e o `window.open()` ainda encontra a ativação intacta — os dois
-funcionam no mesmo gesto. (Ressalva geral: não há API web garantida para
-lançar outro PWA instalado — dependendo da versão do Android/Chrome pode cair
-numa aba comum como fallback.) Ao tocar, a classe `.confirming` dispara uma
+não). (Chegou a existir aqui uma chamada a `requestFullscreen()` + uma trava
+de orientação via Screen Orientation API — removida: na prática regrediu o
+lançamento do Controle e a tela cheia nunca chegou a engajar de verdade;
+ver "Instalar no Android" para o racional completo do que foi tentado e
+revertido.) (Ressalva geral: não há API web garantida para lançar outro PWA
+instalado — dependendo da versão do Android/Chrome pode cair numa aba comum
+como fallback.) Ao tocar, a classe `.confirming` dispara uma
 animação rápida (~0,3s: pill cresce levemente e esmaece, fundo vai a
 transparente) antes do elemento sumir de fato (`hidden = true` só depois do
 `setTimeout` correspondente) — sem esse feedback, o overlay sumia no mesmo
@@ -1177,14 +1170,22 @@ de um travado em portrait, que se encaixa sem atrito). Isso bate exatamente
 com o padrão observado.
 
 **Por isso o Display não declara `orientation` fixo no manifest** — removido
-como experimento para o Android considerar a atividade redimensionável
-(elegível a multi-janela). A tela projetada continua em paisagem **na
-prática** via uma trava em tempo de execução (Screen Orientation API,
-`lockLandscape()` em `display.js`): uma tentativa best-effort roda no boot
-(antes do toque, provavelmente falha em silêncio — a API costuma exigir
-gesto/tela cheia) e a tentativa séria roda encadeada ao `requestFullscreen()`
-do toque em `#startBtn`, nos dois casos (sucesso ou falha do fullscreen).
-Sem suporte da API (ou se o usuário girar o aparelho fisicamente), nada
-impede o Display de renderizar em retrato — é o trade-off aceito deste
-experimento; o CSS já usa dimensões relativas (`inset:0`, 100%) e não
-quebra nesse caso, só deixa de compor como paisagem.
+para o Android considerar a atividade redimensionável (elegível a
+multi-janela). Duas tentativas de compensar isso foram testadas em aparelho
+real e **descartadas** por não funcionarem na prática, então o Display hoje
+**gira livremente** (sem travar paisagem nem por manifest nem por JS):
+- `requestFullscreen()` no toque em `#startBtn`, para esconder a barra de
+  status: **regrediu** o lançamento do Controle (a prioridade do projeto) —
+  `window.open()` é uma API "consuming" (gasta a ativação transitória do
+  toque) e `requestFullscreen()` é "gating" (só exige, sem gastar); inverter a
+  ordem para proteger o fullscreen fez o `window.open()` seguinte falhar (o
+  Controle voltou a abrir só numa aba interna do Display). Removido.
+- Trava de orientação via Screen Orientation API (`screen.orientation.lock`)
+  no boot + no toque: nunca chegou a engajar de fato no aparelho testado.
+  Removido.
+
+O CSS já usa dimensões relativas (`inset:0`, 100%) e não quebra com o
+Display em retrato — só deixa de compor como paisagem larga. É o trade-off
+aceito: preferir o lançamento correto do Controle e a elegibilidade a
+multi-janela a uma trava de orientação que não estava funcionando de qualquer
+forma.
