@@ -7,7 +7,6 @@ const repeatEl = document.getElementById('repeat');
 
 const npNameEl = document.getElementById('npName');
 const npNameInnerEl = document.getElementById('npNameInner');
-const npLyricEl = document.getElementById('npLyric');
 const seekEl = document.getElementById('seek');
 const curTimeEl = document.getElementById('curTime');
 const durTimeEl = document.getElementById('durTime');
@@ -503,7 +502,6 @@ function previewTick() {
     seekEl.value = preview.getTime() || 0;
     curTimeEl.textContent = fmtTime(preview.getTime());
   }
-  updateLyricCaption();
   updatePvLyricSlide(preview.getTime() || 0);
   renderSlideNav();
 }
@@ -518,26 +516,11 @@ function findSlideIndex(lyrics, time) {
   return idx < 0 ? 0 : idx;
 }
 
-// Legenda leve de uma linha (texto da estrofe atual), só pra o operador
-// confirmar o que está sendo exibido no telão — não é um mockup visual do
-// slide, só um texto.
-function updateLyricCaption() {
-  const lyrics = currentItem && Array.isArray(currentItem.lyrics) ? currentItem.lyrics : null;
-  if (!lyrics) { npLyricEl.hidden = true; return; }
-  const idx = findSlideIndex(lyrics, preview.getTime() || 0);
-  const slide = lyrics[idx];
-  const text = slide && !slide.cover ? (slide.text || '') : '';
-  npLyricEl.textContent = text;
-  npLyricEl.hidden = !text;
-}
-
 // ===== Letra sincronizada na preview — mesma visualização do Display =====
 // A preview já espelha o Display para imagem/vídeo (stage.js) e YouTube
 // (segundo player, ver loadYtPreview) — letra sincronizada segue o mesmo
 // princípio universal do sistema: o operador vê no celular exatamente o que
-// está sendo exibido no telão, não só um texto de confirmação (ver
-// updateLyricCaption acima, que continua existindo à parte — mais fácil de
-// ler numa fonte pequena do que a miniatura visual).
+// está sendo exibido no telão.
 let pvLyrics = null;
 let pvLyricsMeta = null; // { hymnName, hymnTrack } do item atual, pro slide de capa
 let pvLyricSlideIdx = -1;
@@ -552,6 +535,8 @@ function hidePvLyrics() {
   pvLyricsEl.hidden = true;
   if (pvLyricImgUrl) { URL.revokeObjectURL(pvLyricImgUrl); pvLyricImgUrl = null; }
   pvLyricImgKey = null;
+  pvLyricsImgEl.hidden = true;
+  pvLyricsImgEl.removeAttribute('src');
 }
 
 function showPvLyrics(rec) {
@@ -594,6 +579,11 @@ function applyPvLyricsImage(slide) {
   if (!key) {
     pvLyricImgKey = null;
     if (pvLyricImgUrl) { URL.revokeObjectURL(pvLyricImgUrl); pvLyricImgUrl = null; }
+    // Oculta a <img> (não só limpa o src) — mesmo motivo do Display: sem
+    // isso, alguns navegadores mostram o ícone/borda padrão de "imagem
+    // quebrada" mesmo sem `src`, aparecendo como uma linha branca de
+    // margem sobre o preto de .pv-lyrics-bg.
+    pvLyricsImgEl.hidden = true;
     pvLyricsImgEl.removeAttribute('src');
     return;
   }
@@ -604,6 +594,7 @@ function applyPvLyricsImage(slide) {
     pvLyricImgUrl = url;
     pvLyricImgKey = key;
     pvLyricsImgEl.src = url;
+    pvLyricsImgEl.hidden = false;
     if (prevUrl) URL.revokeObjectURL(prevUrl);
   }).catch(() => {});
 }
@@ -742,7 +733,6 @@ async function load() {
   renderLibrary();
   renderSelbar();
   renderSlideNav();
-  updateLyricCaption();
 
   // mantém a preview alinhada (sem recarregar a mídia)
   preview.setView(view); preview.setMute(muted); preview.setVolume(volume);

@@ -87,6 +87,8 @@ function hideLyrics() {
   lyricsEl.hidden = true;
   if (lyricImgUrl) { URL.revokeObjectURL(lyricImgUrl); lyricImgUrl = null; }
   lyricImgKey = null;
+  lyricsImgEl.hidden = true;
+  lyricsImgEl.removeAttribute('src');
 }
 
 function showLyrics(rec) {
@@ -132,6 +134,11 @@ function applyLyricsImage(slide) {
   if (!key) {
     lyricImgKey = null;
     if (lyricImgUrl) { URL.revokeObjectURL(lyricImgUrl); lyricImgUrl = null; }
+    // Oculta a <img> (não só limpa o src): sem isso, alguns navegadores
+    // renderam o ícone/borda padrão de "imagem quebrada" mesmo sem `src`,
+    // aparecendo como uma linha branca de margem sobre o preto de
+    // `.lyrics-bg`. Escondida, o preto do próprio `.lyrics-bg` fica exposto.
+    lyricsImgEl.hidden = true;
     lyricsImgEl.removeAttribute('src');
     return;
   }
@@ -142,6 +149,7 @@ function applyLyricsImage(slide) {
     lyricImgUrl = url;
     lyricImgKey = key;
     lyricsImgEl.src = url;
+    lyricsImgEl.hidden = false;
     if (prevUrl) URL.revokeObjectURL(prevUrl);
   }).catch(() => {
     // falha ao resolver: mantém a imagem anterior em tela (nada pior que

@@ -37,7 +37,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.40.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.41.**
 
 ---
 
@@ -455,7 +455,7 @@ iniciado aplica seu resultado — chamadas anteriores obsoletas são descartadas
 │  │─────────────────────────────────────│ Ltr  │         │
 │  │  ⏮ Preview 16:9 ⏭                  │ Mesa │         │
 │  │─────────────────────────────────────│ Mudo │         │
-│  │  ⏮  ▶/⏸  ⏹  ⏭  🔁  [Playlist]    │ Vol  │         │
+│  │  🔁  ⏮  ▶/⏸  ⏹  ⏭  [Playlist]    │ Vol  │         │
 │  └─────────────────────────────────────┴──────┘         │
 │  [margem segura para navegação por gestos]              │
 └─────────────────────────────────────────────────────────┘
@@ -472,51 +472,68 @@ do dispositivo (só na raiz da aba Pastas).
 `max(env(safe-area-inset-bottom), 12px)` para garantir margem segura contra
 acionamentos acidentais pela navegação por gestos do Android/iOS.
 
-**Mixer (coluna direita):** o fader de volume é **recolhível**. A coluna é
-preenchida por inteiro, de cima para baixo: **visual on/off** (`#viewToggle`),
-**fundo da letra** (`#lyricsBgToggle` — preto/imagens dos slides, ver seção do
-Hinário 2022), **mesa de som** (`#standaloneToggle`) e **mudo**
-(`#muteToggle`) — todos `.fill-btn`, que crescem com `flex:1` para ocupar a
-coluna —, e na **base** o botão de **volume** (`#volToggle`). Essa ordem
-(wallpaper no topo, depois fundo da letra, mesa de som, mudo, volume na base)
-agrupa os dois controles de **áudio** (mesa de som + mudo) perto do volume,
-na base, e os dois de **visual** (fundo da letra + wallpaper) no topo, perto
-um do outro. Tocar no botão de volume liga
-a classe `.vol-open` no `#mixer`, que **troca todos os `.fill-btn` + o botão de
-volume pelo fader vertical + um botão de ocultar** (`#volClose`, ícone ✕) — o
-fader ganha toda a altura da lateral (alvo bem maior). O botão de ocultar fica
-na **mesma base**, na exata posição do botão de volume, porque ambos têm altura
-natural e são o último item visível da coluna em cada estado (o fader, como os
-`.fill-btn`, é `flex:1` e ocupa todo o espaço acima). O bloco tem **tamanho
-fixo**: o conteúdo mora num wrapper absoluto (`.mixer-inner`, `inset:0`), então
-a altura intrínseca do `#mixer` é 0 e quem manda na altura é o `.deck-main`
-(via `align-items:stretch` no `.deck`) — sem isso, o layout recolhido (mais
-alto que o aberto) empurraria o deck e deslocaria preview/transport ao abrir/
-fechar; `overflow:hidden` mantém a animação contida no bloco. É só estado de UI
-(não persistido; cada abertura começa recolhida). **Abrir/fechar é animado**
-(`openVolume`/`closeVolume` em `controle.js` + `@keyframes vol-slide-in/out`):
-o **botão da base** (volume/ocultar) **não é animado** — fica no mesmo lugar e
-só troca de característica (ícone/cor) na hora; anima-se apenas o que está
-**acima** dele: o fader entra ao abrir (fade + leve deslize), sai ao fechar
-(`.vol-closing` mantém a classe durante a saída) e, ao voltar, os `.fill-btn`
-entram animados (`.vol-revealing`). As durações no JS casam com as do CSS. O botão de volume é **preenchido
-de azul (accent) com o ícone de mixer/faders em branco** (SVG inline — o ícone
-não existe no subset da fonte; ver seção da fonte), visualmente distinto do
-mudo. Mexer no volume com mudo ativo desliga o mudo automaticamente. O fader tem
-um "botão" (thumb) de 34px (`::-webkit-slider-thumb`), maior que o padrão do
-navegador, para facilitar tocar e arrastar. Mutar/desmutar não corta o volume na
-hora — faz uma rampa curta (ver `setMute` em `stage.js`).
+**Grade real (CSS Grid), não flex aproximado:** `.deck` é um `display:grid` de
+2 colunas (`1fr` / `56px` do mixer) × 3 linhas (`auto` / `130px` do preview /
+`auto`), com `.nowplaying`, `.preview-row` e `.transport` como itens diretos
+da grade (não há mais um `.deck-main` intermediário). O `#mixer` ocupa as 3
+linhas (`grid-row: 1 / 4`) e usa `grid-template-rows: subgrid` para **herdar
+exatamente essas mesmas 3 faixas de altura** — garante alinhamento pixel a
+pixel entre a coluna do mixer e nowplaying/preview/transport, em vez de
+depender de flex-basis calculado à parte (a fonte de um desalinhamento
+antigo entre as duas colunas). `padding` do `#mixer` é **só horizontal** (`0
+.35rem`): padding vertical deslocaria as linhas herdadas do subgrid,
+reintroduzindo o desalinhamento.
 
-**Alinhamento com a linha de transporte:** `.mixer-inner` usa **padding só
-horizontal** (`0 .35rem`) — sem padding vertical, o topo do primeiro botão
-(`#viewToggle`) cai exatamente na mesma altura do topo de `.nowplaying`, e a
-base do último (`#volToggle`) cai exatamente na mesma altura da base de
-`.transport` (a coluna do mixer é, na prática, a régua de alinhamento
-vertical para o resto do deck). `.preview-row` tem `height: 130px` (não
-132px/116px de versões anteriores) — o valor foi calibrado para que os
-botões do mixer (que preenchem toda a altura de `.deck-main`, incluindo
-nowplaying + preview + transport) fiquem com altura próxima da dos botões de
-`.transport`, em vez de ficarem "achatados".
+**Sem "card" de fundo:** os botões do mixer ficam **livres** (cada um só com
+o próprio fundo via `.ctl-btn`) — `#mixer` não tem `background`/`border-radius`
+próprios, só posiciona pela grade.
+
+O mixer é dividido em 3 "fatias" (`.mixer-slot`), uma por linha da grade:
+
+| Fatia | Linha da grade | Conteúdo |
+|---|---|---|
+| `.mixer-top` | 1 (mesma de `.nowplaying`) | **visual on/off** (`#viewToggle`) |
+| `.mixer-mid` | 2 (mesma de `.preview-row`, 130px) | **fundo da letra** (`#lyricsBgToggle`), **mesa de som** (`#standaloneToggle`), **mudo** (`#muteToggle`) — empilhados, cada um com `flex:1` |
+| `.mixer-bottom` | 3 (mesma de `.transport`) | **volume** (`#volToggle`/`#volClose`, recolhível) |
+
+Essa ordem (wallpaper no topo, depois fundo da letra/mesa de som/mudo no
+meio, volume na base) agrupa os controles de **áudio** (mesa de som + mudo)
+perto do volume, na base, e o de **visual** (fundo da letra) perto do
+wallpaper, no topo. Cada botão tem `flex:1` dentro da própria fatia — top
+(1 botão) e bottom (1 de cada vez) preenchem a fatia inteira; mid (3
+botões) a divide em partes iguais.
+
+Tocar no botão de volume liga a classe `.vol-open` no `#mixer`, que troca
+**top + mid** (os 4 botões: visual/fundo da letra/mesa de som/mudo) pelo
+**fader vertical** (`.fader-wrap`, posicionado via `grid-row: 1 / 3` — ocupa
+exatamente o mesmo espaço de top+mid combinados) **+ um botão de ocultar**
+(`#volClose`, ícone ✕) que aparece na mesma fatia `.mixer-bottom`, no lugar
+de `#volToggle`. O botão da base (volume/ocultar) **não muda de lugar** entre
+os dois estados — só troca de característica (ícone/cor) instantaneamente;
+quem anima é o que está **acima** dele: o fader entra ao abrir (fade + leve
+deslize) e sai ao fechar (`.vol-closing` mantém a classe durante a saída),
+e ao voltar os botões de top/mid entram animados (`.vol-revealing`). É só
+estado de UI (não persistido; cada abertura começa recolhida). As durações
+no JS (`openVolume`/`closeVolume` em `controle.js`) casam com as do CSS
+(`@keyframes vol-slide-in/out`). O botão de volume é **preenchido de azul
+(accent) com o ícone de mixer/faders em branco** (SVG inline — o ícone não
+existe no subset da fonte; ver seção da fonte), visualmente distinto do
+mudo. Mexer no volume com mudo ativo desliga o mudo automaticamente. O fader
+tem um "botão" (thumb) de 34px (`::-webkit-slider-thumb`), maior que o
+padrão do navegador, para facilitar tocar e arrastar. Mutar/desmutar não
+corta o volume na hora — faz uma rampa curta (ver `setMute` em `stage.js`).
+
+**Grade também alinha a preview e o transporte:** os dois botões de
+navegação de estrofe (`#slidePrevBtn`/`#slideNextBtn`, ver "Letra
+sincronizada" abaixo) flanqueiam a preview dentro de `.preview-row` — como
+essa linha inteira compartilha a mesma faixa de 130px da grade que
+`.mixer-mid`, os três (slide-nav esquerdo, os 3 botões do meio do mixer,
+slide-nav direito) ficam com o topo/base exatamente alinhados. O botão de
+**repetir** (`#repeat`) é o **primeiro** botão de `.transport` (à esquerda de
+⏮ ▶/⏸ ⏹ ⏭, com o de playlist por último à direita) — sendo o primeiro
+elemento da linha, seu início (borda esquerda) cai exatamente sob
+`#slidePrevBtn` da linha de cima, já que ambas as linhas (`.preview-row` e
+`.transport`) começam na mesma coluna da grade.
 
 **Título rolante (now-playing):** o nome da mídia em exibição (`#npName`) tem
 um span interno (`#npNameInner`); quando o texto não cabe na largura
@@ -873,20 +890,40 @@ duplicação já usado pela preview do YouTube). `showPvLyrics`/`hidePvLyrics`/
 `renderPvLyricSlide`/`updatePvLyricSlide` espelham exatamente as funções do
 Display, chamadas nos mesmos pontos: `cmd()` (`load`/`stop`/`clear`, em vez
 do tratamento de comando do Display) e `previewTick()` (em vez do
-`sendStatus()`). A legenda leve de texto (`#npLyric`, ver acima) continua
-existindo à parte — mais fácil de ler numa fonte pequena do que a miniatura
-visual, que serve pra conferir a composição (fundo + posição do texto), não
-pra ler a letra propriamente.
+`sendStatus()`). Não existe mais uma legenda de texto solta na
+`.nowplaying` (`#npLyric`, removida) — a miniatura visual da preview já
+mostra a composição real (fundo + posição do texto), tornando a legenda
+redundante.
 
 **Controle**: dois botões de navegação manual de estrofe (`#slidePrevBtn`/
 `#slideNextBtn`) flanqueiam a preview (`.preview-row`, preview mantida em
-16:9, botões ocupam o espaço horizontal que sobra). `stepSlide(delta)`
-reaproveita o **comando `seek` já existente** (sem novo tipo no protocolo) —
-pula pro `time` do slide vizinho, e tanto o Display quanto a própria preview
-sincronizam a letra sozinhos ao reagir ao novo tempo. Uma legenda leve
-(`#npLyric`, atualizada em `previewTick()`) mostra o texto da estrofe atual
-só como confirmação pro operador — não é um mockup visual do slide
-projetado.
+16:9, botões ocupam o espaço horizontal que sobra — e, por compartilharem a
+mesma faixa de 130px da grade do `.deck`, ficam com a mesma altura da fatia
+`.mixer-mid`, ver seção do Mixer). `stepSlide(delta)` reaproveita o
+**comando `seek` já existente** (sem novo tipo no protocolo) — pula pro
+`time` do slide vizinho, e tanto o Display quanto a própria preview
+sincronizam a letra sozinhos ao reagir ao novo tempo.
+
+**Moldura de tamanho FIXO** (`.lyrics-box`/`.pv-lyrics-box`): a caixa não
+cresce/encolhe conforme o texto do slide muda — `width`/`height` fixos (não
+`max-width` + altura intrínseca) calculados para caber o pior caso (3 linhas
+de `.lyrics-line` no tamanho máximo do `clamp()` + 2 de `.lyrics-aux` + gap +
+padding, tudo na mesma unidade `vh` de propósito — misturar `vh` de altura
+com `vw` de largura na fonte foi o que causava o texto vazando/sobrepondo o
+bloco de baixo em telas com proporção diferente da testada). `overflow:hidden`
+no `.lyrics-box`/`.pv-lyrics-box` junto do `-webkit-line-clamp` em
+`.lyrics-line`/`.lyrics-aux` (`.pv-lyrics-line`/`.pv-lyrics-aux` na preview)
+são a garantia final: qualquer letra maior que o clamp é cortada com
+reticências, nunca estoura a moldura.
+
+**Fundo preto sem linha branca de margem**: no modo preto (padrão), a
+`<img>` de fundo (`#lyricsImg`/`#pvLyricsImg`) fica **`hidden`** de
+propósito, em vez de só sem `src` — uma `<img>` sem `src` ainda assim
+renderiza, em alguns navegadores, o ícone/borda padrão de "imagem quebrada",
+que aparecia como uma linha branca de margem sobre o preto. `.lyrics-bg`/
+`.pv-lyrics-bg` têm `background:#000` próprio (preto de verdade,
+independente da `<img>`); `applyLyricsImage`/`applyPvLyricsImage` alternam
+`hidden` junto com `src` a cada troca de modo/slide.
 
 ### Compartilhamento (Web Share Target)
 
