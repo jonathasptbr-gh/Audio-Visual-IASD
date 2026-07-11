@@ -147,14 +147,16 @@ body {
    letra caiba sem vazar da moldura. Altura reduzida (56px, não mais 74px) —
    mesmo motivo do Display: as letras nunca passam de 2 linhas por estrofe,
    então a moldura não precisa da folga de uma 3ª linha que nunca aparece. */
+/* Mesmo padrão "vídeo de louvor" do Display: cantos retos, borda fina e
+   nítida, sem sombra — ver .lyrics-box em display.css. */
 .pv-lyrics-box {
   width: 92%;
   height: 56px;
   box-sizing: border-box;
   padding: 5px 9px;
-  border-radius: 8px;
-  background: rgba(0, 0, 0, .62);
-  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 0;
+  background: rgba(0, 0, 0, .4);
+  border: 1px solid rgba(255, 255, 255, .85);
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
   text-align: center; overflow: hidden;
 }
