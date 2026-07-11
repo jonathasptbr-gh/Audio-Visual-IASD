@@ -582,7 +582,17 @@ function showPvLyrics(rec) {
   pvLyricsMeta = { hymnName: rec.hymnName, hymnTrack: rec.hymnTrack };
   pvLyricSlideIdx = -1;
   pvLyricsEl.hidden = false;
+  applyPvLyricsBgClass();
   renderPvLyricSlide(0);
+}
+
+// A moldura (borda + fundo semitransparente) só faz sentido cobrindo uma
+// imagem de fundo de verdade — mesmo motivo do Display (ver
+// applyLyricsBgClass em display.js). `.imgbg` liga a moldura só quando
+// lyricsBg==='image' (ver .pv-lyrics-box/.pv-lyrics-content.imgbg em
+// controle.css).
+function applyPvLyricsBgClass() {
+  pvLyricsContentEl.classList.toggle('imgbg', lyricsBg === 'image');
 }
 
 function renderPvLyricSlide(idx) {
@@ -646,6 +656,7 @@ function updatePvLyricSlide(t) {
 // de estrofe — chamado quando o operador alterna o botão de fundo da letra.
 function applyPvLyricsBg() {
   if (!pvLyrics || pvLyricSlideIdx < 0) return;
+  applyPvLyricsBgClass();
   applyPvLyricsImage(pvLyrics[pvLyricSlideIdx]);
 }
 

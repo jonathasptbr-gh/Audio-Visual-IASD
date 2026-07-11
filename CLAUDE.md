@@ -37,7 +37,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.45.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.46.**
 
 ---
 
@@ -890,6 +890,19 @@ vivo pelo comando `lyricsbg` — mesmo padrão de `fade`/`fit`, mas tratado à
 parte de `stage.handle()` (letra é camada paralela, não um comando do
 stage). A preview aplica o mesmo modo em si mesma via `applyPvLyricsBg()`
 (chamado direto em `cmd()`, sem esperar o Display confirmar nada).
+
+**Moldura só no modo imagem**: a borda + fundo semitransparente da caixa
+(`.lyrics-box`/`.pv-lyrics-box`) só existem para dar contraste/legibilidade
+contra uma imagem de fundo de verdade — no modo preto puro seriam só uma
+zona escura flutuando à toa sobre uma tela já preta, sem função nenhuma.
+`applyLyricsBgClass()` (Display) / `applyPvLyricsBgClass()` (Controle)
+ligam a classe `.imgbg` em `.lyrics-content`/`.pv-lyrics-content` só quando
+o modo é `'image'` — `border`/`background` de `.lyrics-box`/`.pv-lyrics-box`
+ficam `transparent` por padrão e só ganham cor via
+`.lyrics-content.imgbg .lyrics-box`/`.pv-lyrics-content.imgbg .pv-lyrics-box`.
+Chamado em `setLyricsBgMode()`/`restore()` (Display) e em
+`showPvLyrics()`/`applyPvLyricsBg()` (Controle) — cobre tanto a troca ao
+vivo do botão quanto o estado inicial ao abrir um item já com o modo salvo.
 
 **Preview do Controle (mesma visualização, em miniatura)**: a preview
 **sempre espelha o telão** — já vale pra imagem/vídeo (via `stage.js`

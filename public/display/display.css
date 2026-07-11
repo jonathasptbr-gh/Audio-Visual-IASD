@@ -106,18 +106,29 @@ html, body {
    referência (moldura ~76-80% da largura da tela / ~27-36% da altura;
    fonte da letra com cap-height ~8,3% da altura da tela). */
 /* Moldura no padrão "vídeo de louvor" (cantos retos, borda fina e nítida,
-   sem sombra) — retângulo, não cartão arredondado. */
+   sem sombra) — retângulo, não cartão arredondado. Borda + fundo
+   semitransparente só fazem sentido cobrindo uma imagem de fundo de
+   verdade (dão contraste/legibilidade contra ela); no modo preto puro
+   (padrão) seriam só uma zona escura flutuando sobre uma tela já preta,
+   sem função nenhuma — por isso ficam condicionados a `.imgbg` (ligado só
+   quando `lyricsBgMode==='image'`, ver `applyLyricsBgClass()`). Sem essa
+   classe, `background`/`border` ficam `transparent`, e é como se a letra
+   estivesse "solta" direto sobre o preto. */
 .lyrics-box {
   width: 80cqw;
   height: 36cqh;
   box-sizing: border-box;
   padding: 3cqh 4cqw;
   border-radius: 0;
-  background: rgba(0, 0, 0, .4);
-  border: 1.5px solid rgba(255, 255, 255, .85);
+  background: transparent;
+  border: 1.5px solid transparent;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 1.5cqh;
   text-align: center; overflow: hidden;
+}
+.lyrics-content.imgbg .lyrics-box {
+  background: rgba(0, 0, 0, .4);
+  border-color: rgba(255, 255, 255, .85);
 }
 /* white-space:pre-line respeita as quebras de linha reais que já vêm no
    texto (ver normalizeLyricText em controle.js — a API embute `<br>` nas

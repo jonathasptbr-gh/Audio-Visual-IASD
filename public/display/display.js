@@ -161,7 +161,17 @@ function applyLyricsImage(slide) {
 // slide atual, sem precisar de uma troca de estrofe pra isso surtir efeito.
 function setLyricsBgMode(mode) {
   lyricsBgMode = mode === 'image' ? 'image' : 'black';
+  applyLyricsBgClass();
   if (currentLyrics && lyricSlideIdx >= 0) applyLyricsImage(currentLyrics[lyricSlideIdx]);
+}
+
+// A moldura (borda + fundo semitransparente) só faz sentido cobrindo uma
+// imagem de fundo de verdade — no modo preto puro ela é uma zona escura
+// flutuando sobre uma tela já preta, sem função nenhuma. `.imgbg` liga a
+// moldura só quando o modo é 'image' (ver .lyrics-box/.lyrics-content.imgbg
+// em display.css).
+function applyLyricsBgClass() {
+  lyricsContentEl.classList.toggle('imgbg', lyricsBgMode === 'image');
 }
 
 // Chamado a cada tick de tempo (sendStatus/onTime) — sem timer novo.
@@ -741,6 +751,7 @@ async function restore() {
   // visual, igual ao fade/fit.
   const lyricsBg = await AVDB.getState('lyricsBg');
   lyricsBgMode = lyricsBg === 'image' ? 'image' : 'black';
+  applyLyricsBgClass();
   // Preenchimento da mídia (ajustar/preencher/esticar) — preferência visual,
   // igual ao fade acima.
   const fit = await AVDB.getState('fit');
