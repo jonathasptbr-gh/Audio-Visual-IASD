@@ -37,7 +37,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.35.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.36.**
 
 ---
 
@@ -91,7 +91,7 @@ public/
     ├── display.css             # Estilos do Display
     ├── display.js              # Lógica do Display
     ├── icons/                  # icon-{192,512}.svg + .png (PNG obrigatório p/ WebAPK) + icon-maskable-{192,512}.png (ver "Instalar no Android")
-    ├── manifest.json           # PWA manifest (standalone; sem orientation fixo — ver "Instalar no Android")
+    ├── manifest.json           # PWA manifest (standalone; orientation:"landscape" — ver "Instalar no Android")
     └── sw.js                   # Service worker (cache: display-vX.Y)
 server.js                       # Servidor estático mínimo (Node puro, sem deps)
 ```
@@ -1330,23 +1330,33 @@ travado em paisagem entra em conflito direto com esse layout (ao contrário
 de um travado em portrait, que se encaixa sem atrito). Isso bate exatamente
 com o padrão observado.
 
-**Por isso o Display não declara `orientation` fixo no manifest** — removido
-para o Android considerar a atividade redimensionável (elegível a
-multi-janela). Duas tentativas de compensar isso foram testadas em aparelho
-real e **descartadas** por não funcionarem na prática, então o Display hoje
-**gira livremente** (sem travar paisagem nem por manifest nem por JS):
+**Por isso, por um tempo, o Display deixou de declarar `orientation` fixo no
+manifest** — para o Android considerar a atividade redimensionável (elegível
+a multi-janela). Duas tentativas de compensar isso via JS foram testadas em
+aparelho real e **descartadas** por não funcionarem na prática:
 - `requestFullscreen()` no toque em `#startBtn`, para esconder a barra de
-  status: **regrediu** o lançamento do Controle (a prioridade do projeto) —
-  `window.open()` é uma API "consuming" (gasta a ativação transitória do
-  toque) e `requestFullscreen()` é "gating" (só exige, sem gastar); inverter a
-  ordem para proteger o fullscreen fez o `window.open()` seguinte falhar (o
-  Controle voltou a abrir só numa aba interna do Display). Removido.
+  status: **regrediu** o lançamento do Controle (a prioridade do projeto na
+  época) — `window.open()` é uma API "consuming" (gasta a ativação
+  transitória do toque) e `requestFullscreen()` é "gating" (só exige, sem
+  gastar); inverter a ordem para proteger o fullscreen fez o `window.open()`
+  seguinte falhar (o Controle voltou a abrir só numa aba interna do
+  Display). Removido.
 - Trava de orientação via Screen Orientation API (`screen.orientation.lock`)
   no boot + no toque: nunca chegou a engajar de fato no aparelho testado.
   Removido.
 
-O CSS já usa dimensões relativas (`inset:0`, 100%) e não quebra com o
-Display em retrato — só deixa de compor como paisagem larga. É o trade-off
-aceito: preferir o lançamento correto do Controle e a elegibilidade a
-multi-janela a uma trava de orientação que não estava funcionando de qualquer
-forma.
+**Decisão revertida**: `orientation: "landscape"` foi **restaurado** no
+manifest do Display — trocando a prioridade de volta para nunca deixar a
+tela de projeção virar sem querer (ex: um esbarrão no aparelho durante o
+culto), aceitando de propósito que isso **reintroduz a falha de elegibilidade
+a multi-janela** descrita acima (o Display volta a não funcionar num App
+Pair/painel Edge — o Controle continua funcionando normalmente, já que
+sempre foi `"portrait"`). Como qualquer mudança de `orientation` no
+manifest, **não** atualiza um WebAPK já instalado por si só — é necessário
+desinstalar e reinstalar o Display (não só revisitar a URL) para o Android
+regerar o pacote com a orientação travada; ver `chrome://webapks` para
+confirmar o `Display Mode` depois.
+
+O CSS já usa dimensões relativas (`inset:0`, 100%), então mesmo que o
+Android insista em abrir em retrato antes do WebAPK atualizar, o layout não
+quebra — só deixa de compor como paisagem larga até a reinstalação.
