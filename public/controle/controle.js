@@ -1490,6 +1490,54 @@ function guessMediaType(filename) {
 //     catálogo das pastas sincronizadas do dispositivo (`files` + `folders/`).
 // Sincronização é aditiva e resumível: interromper e tocar de novo continua
 // de onde parou, sem duplicar o que já foi baixado.
+// Busca só a lista LEVE do Hinário 2022 (id/número/nome/duração/tem-playback
+// — sem áudio nenhum) e atualiza `hymnal2022.songs`, preservando
+// fileIdFull/fileIdPlayback/lyrics já conhecidos de cada hino. É a fase
+// "índice" reaproveitada tanto pela sincronização completa (abaixo) quanto
+// pela atualização automática silenciosa (ver autoRefreshHymnalIndex) — como
+// é só metadados (nunca os arquivos pesados), é leve o bastante pra rodar
+// sozinha toda vez que o app abre, sem depender do operador apertar
+// "sincronizar". Lança em caso de falha (sem rede, resposta inválida); quem
+// chama decide se avisa o operador ou ignora silenciosamente.
+async function fetchHymnalIndex() {
+  const list = await Louvorja.fetchList(Louvorja.HYMNAL_2022_FILE);
+  if (!Array.isArray(list)) throw new Error('Resposta inválida do servidor do Hinário');
+
+  const bySongId = new Map(hymnal2022.songs.map((s) => [s.id_music, s]));
+  const songs = list.map((row) => {
+    const prev = bySongId.get(row.id_music);
+    return {
+      id_music: row.id_music,
+      track: row.track,
+      name: row.name,
+      duration: row.duration,
+      has_instrumental_music: !!row.has_instrumental_music,
+      fileIdFull: (prev && prev.fileIdFull) || null,
+      fileIdPlayback: (prev && prev.fileIdPlayback) || null,
+    };
+  });
+  hymnal2022 = { indexSyncedAt: Date.now(), songs };
+  await AVDB.setState('hymnal2022', hymnal2022);
+  refreshHymnalRowIfVisible();
+  // Popup de busca aberto durante a atualização: re-renderiza pra refletir a
+  // lista nova na hora (sem esperar o operador reabrir o popup).
+  if (hymnSearchPopupEl.classList.contains('open')) renderHymnResults(hymnSearchInputEl.value);
+}
+
+// Atualização automática e silenciosa do índice — ao abrir o app e ao
+// retomar do 2º plano (ver wiring perto do check do service worker), sem
+// nenhum aviso de erro: é uma checagem em segundo plano, não uma ação
+// pedida pelo operador, então uma falha (ex: sem rede no momento) só mantém
+// o índice já em cache da última vez, sem interromper nada.
+let hymnalIndexRefreshing = false;
+async function autoRefreshHymnalIndex() {
+  if (hymnalIndexRefreshing) return;
+  hymnalIndexRefreshing = true;
+  try { await fetchHymnalIndex(); }
+  catch (_) { /* silencioso — sem rede agora, tenta de novo na próxima abertura */ }
+  finally { hymnalIndexRefreshing = false; }
+}
+
 async function syncHymnal2022() {
   if (hymnalSyncBusy) { flash('Sincronização do Hinário 2022 já em andamento…'); return; }
   if (!AVDB.opfsSupported()) { flash('Navegador não suporta armazenamento OPFS'); return; }
@@ -1499,27 +1547,9 @@ async function syncHymnal2022() {
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 
     flash('Atualizando lista do Hinário 2022…', true);
-    let list;
-    try { list = await Louvorja.fetchList(Louvorja.HYMNAL_2022_FILE); }
+    try { await fetchHymnalIndex(); }
     catch (_) { flash('Falha ao buscar a lista do Hinário (sem internet?)'); return; }
-    if (!Array.isArray(list)) { flash('Resposta inválida do servidor do Hinário'); return; }
-
-    const bySongId = new Map(hymnal2022.songs.map((s) => [s.id_music, s]));
-    const songs = list.map((row) => {
-      const prev = bySongId.get(row.id_music);
-      return {
-        id_music: row.id_music,
-        track: row.track,
-        name: row.name,
-        duration: row.duration,
-        has_instrumental_music: !!row.has_instrumental_music,
-        fileIdFull: (prev && prev.fileIdFull) || null,
-        fileIdPlayback: (prev && prev.fileIdPlayback) || null,
-      };
-    });
-    hymnal2022 = { indexSyncedAt: Date.now(), songs };
-    await AVDB.setState('hymnal2022', hymnal2022);
-    refreshHymnalRowIfVisible();
+    const songs = hymnal2022.songs;
 
     // Fase 2: entra na fila quem ainda não tem os arquivos de fato no
     // catálogo (re-verifica via fileGet — cobre "nunca baixado" e
@@ -2254,8 +2284,21 @@ if ('serviceWorker' in navigator) {
   }).catch(() => {});
 }
 
+// Índice do Hinário 2022 sempre em dia: mesma cadência do check de versão do
+// service worker acima (ao abrir e ao retomar do 2º plano) — como é só a
+// lista leve (sem áudio), não tem custo pra rodar sozinho toda vez, e deixa
+// o botão de busca sempre com acesso ao catálogo completo (baixado ou não),
+// pronto pra tocar por demanda individual ou entrar numa sincronização
+// completa depois.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') autoRefreshHymnalIndex();
+});
+
 (async function init() {
   await load();
   // processa share pendente (Web Share Target via SW)
   await checkPendingShare();
+  // Índice do Hinário 2022 em segundo plano (fire-and-forget): não atrasa a
+  // abertura do app, só deixa a busca pronta assim que a resposta chegar.
+  autoRefreshHymnalIndex();
 })();

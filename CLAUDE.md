@@ -37,7 +37,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.36.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.37.**
 
 ---
 
@@ -690,18 +690,37 @@ o que falta (`fileGet` reconfirma que o arquivo catalogado ainda existe de
 fato antes de pular — cobre até exclusões manuais feitas por dentro da
 pasta via seleção múltipla).
 
+**Índice sempre em dia, automaticamente** (`fetchHymnalIndex` /
+`autoRefreshHymnalIndex`): a lista leve do Hinário 2022 (id/número/nome/
+duração/tem-playback — **sem** áudio nenhum) é buscada sozinha, sem esperar
+o operador apertar "sincronizar": ao abrir o app (`init()`) e toda vez que o
+Controle volta de segundo plano (`visibilitychange`, mesma cadência do check
+de versão do service worker) — como é só metadados, é barato o bastante pra
+rodar em toda abertura. `autoRefreshHymnalIndex` é **silenciosa**: se não
+houver rede no momento, só mantém o índice já em cache da última vez, sem
+mostrar erro nenhum ao operador (diferente do botão de sincronizar, que
+avisa se falhar). `fetchHymnalIndex` faz o merge preservando
+`fileIdFull`/`fileIdPlayback`/`lyrics` já conhecidos de cada hino — usada
+tanto por essa atualização automática quanto pela fase 1 da sincronização
+completa (`syncHymnal2022`, que só entra na fase pesada depois de chamar a
+mesma função). Isso garante que o botão de busca já tenha acesso à lista
+**inteira** do que existe no LouvorJA (baixado ou não) assim que o popup é
+aberto, independente de já ter sido feita alguma sincronização pesada.
+
 **Botão de busca** (`#hymnSearchBtn`, ícone de lupa — SVG inline, não existe
 no subset da fonte — ao lado do "+ Importar" nas abas): abre um popup
 (`#hymnSearchPopup`, mesmo padrão bottom-sheet dos outros popups) com campo
-de busca (por nome ou número do hino) e resultados **só do índice já
-sincronizado offline** (`hymnal2022.songs`, filtro em memória,
-`normalizeForSearch` ignora acentuação) — funciona sem rede, mas só mostra o
-que já foi indexado por uma sincronização anterior; a atualização "de tempos
-em tempos" é manual, pelo botão de sincronizar da aba Pastas (sem polling
-automático). Cada resultado tem dois pares de botão — **▶ Cantado** / **➕**
-e **▶ Playback** / **➕** (o segundo só aparece se `has_instrumental_music`)
-— tocar substitui a playlist e exibe (mesmo comportamento de toque simples
-da biblioteca), adicionar entra no Cronograma (`AVDB.listAdd('imports', id)`).
+de busca (por nome ou número do hino) e resultados do índice já em memória
+(`hymnal2022.songs`, filtro em memória, `normalizeForSearch` ignora
+acentuação) — funciona sem rede assim que o índice já tiver sido buscado
+pelo menos uma vez (ver acima); se o popup estiver aberto no momento em que
+o índice atualiza sozinho, a lista de resultados se re-renderiza na hora.
+Cada resultado tem dois pares de botão — **▶ Cantado** / **➕** e
+**▶ Playback** / **➕** (o segundo só aparece se `has_instrumental_music`) —
+tocar substitui a playlist e exibe (mesmo comportamento de toque simples da
+biblioteca; baixa o hino na hora se ainda não estiver offline, ver
+"Resolução do id de mídia por variante" acima), adicionar entra no
+Cronograma (`AVDB.listAdd('imports', id)`).
 
 **Resolução do id de mídia por variante** (`resolveHymnMediaId`) é
 **offline-first com download sob demanda**: se a variante já foi baixada
