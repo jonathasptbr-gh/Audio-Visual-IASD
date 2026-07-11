@@ -56,6 +56,11 @@ const stage = createStage({
 // #lyrics vive no mesmo z-index dos demais layers de mídia, então a cortina
 // do wallpaper (z-index maior, já existente) cobre/revela-o de graça.
 let currentLyrics = null; // array de slides do item atual, ou null (sem letra)
+let currentLyricsMeta = null; // { hymnName, hymnTrack } do item atual — persistido à parte
+                               // (não só passado ao showLyrics) pra o slide de capa mostrar o
+                               // título certo mesmo quando renderizado de novo pelo tick de
+                               // tempo (ex: operador volta pra estrofe 0 depois de já ter
+                               // avançado), não só na primeira exibição.
 let lyricSlideIdx = -1;
 let lyricLoadSeq = 0;     // descarta resoluções de imagem obsoletas (mesmo padrão do loadSeq do stage)
 let lyricImgKey = null;   // imageOpfsPath já renderizado agora (evita recriar a object URL à toa)
@@ -73,6 +78,7 @@ function findSlideIndex(lyrics, time) {
 
 function hideLyrics() {
   currentLyrics = null;
+  currentLyricsMeta = null;
   lyricSlideIdx = -1;
   lyricsEl.hidden = true;
   if (lyricImgUrl) { URL.revokeObjectURL(lyricImgUrl); lyricImgUrl = null; }
@@ -81,16 +87,14 @@ function hideLyrics() {
 
 function showLyrics(rec) {
   currentLyrics = rec.lyrics;
+  currentLyricsMeta = { hymnName: rec.hymnName, hymnTrack: rec.hymnTrack };
   lyricSlideIdx = -1;
   lyricsEl.hidden = false;
-  renderLyricSlide(0, rec);
+  renderLyricSlide(0);
 }
 
-// Só mexe no DOM quando o índice realmente muda (chamado a cada tick de
-// tempo). `rec` só é passado explicitamente pelo showLyrics() inicial (pra
-// pegar hymnName/hymnTrack do slide de capa); nas trocas seguintes usa o
-// próprio texto do slide.
-function renderLyricSlide(idx, rec) {
+// Só mexe no DOM quando o índice realmente muda (chamado a cada tick de tempo).
+function renderLyricSlide(idx) {
   if (idx === lyricSlideIdx) return;
   lyricSlideIdx = idx;
   const slide = currentLyrics[idx];
@@ -98,7 +102,8 @@ function renderLyricSlide(idx, rec) {
 
   lyricsContentEl.classList.toggle('cover', !!slide.cover);
   if (slide.cover) {
-    const title = (rec && rec.hymnTrack ? rec.hymnTrack + '. ' : '') + ((rec && rec.hymnName) || '');
+    const meta = currentLyricsMeta || {};
+    const title = (meta.hymnTrack ? meta.hymnTrack + '. ' : '') + (meta.hymnName || '');
     lyricsLineEl.textContent = title;
     lyricsAuxEl.hidden = true;
   } else {
