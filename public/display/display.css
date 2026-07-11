@@ -70,47 +70,53 @@ html, body {
    line-clamp de .lyrics-line/.lyrics-aux abaixo são a garantia final contra
    vazamento: textos grandes demais são cortados com reticências, nunca
    estouram a caixa.
-   Altura calibrada pro caso real: as letras do Hinário 2022 nunca passam de
-   2 linhas por estrofe (-webkit-line-clamp:2, não mais 3) — a caixa não
-   precisa da folga de uma 3ª linha que nunca aparece. padding/gap usam
-   clamp() com teto em px (não só vh puro): sem isso, em telas muito altas
-   padding/gap cresceriam sem limite e poderiam estourar até o teto fixo da
-   caixa (440px→300px) — com o teto, o pior caso (2 linhas de .lyrics-line
-   no tamanho máximo + 2 de .lyrics-aux + gap + padding, todos no teto) soma
-   ~226px, contra 300px da caixa: margem confortável sempre, em qualquer
-   proporção de tela. Fonte usa a mesma unidade (vh) da altura da caixa de
-   propósito — misturar vh (altura) com vw (largura) no tamanho da fonte foi
-   o que causava o texto vazando por cima do bloco de baixo (aux) em telas
-   mais largas que altas. */
+   Proporções calibradas por medição em pixel de um vídeo de louvor de
+   referência (moldura ~76% da largura / ~27% da altura da tela; fonte da
+   letra com cap-height ~8,3% da altura da tela; entrelinha ~1,2×) — a versão
+   anterior usava uma fonte proporcionalmente pequena demais (~3,4vh, quase
+   metade do necessário), o que deixava a letra "perdida" dentro da moldura.
+   padding/gap usam clamp() com teto em px (não só vh puro): sem isso, em
+   telas muito altas padding/gap cresceriam sem limite. Fonte usa a mesma
+   unidade (vh) da altura da caixa de propósito — misturar vh (altura) com vw
+   (largura) no tamanho da fonte foi o que causava o texto vazando por cima
+   do bloco de baixo (aux) em telas mais largas que altas. */
 /* Moldura no padrão "vídeo de louvor" (cantos retos, borda fina e nítida,
    sem sombra) — retângulo, não cartão arredondado. */
 .lyrics-box {
-  width: min(82vw, 1100px);
-  height: min(30vh, 300px);
+  width: min(80vw, 1150px);
+  height: min(36vh, 380px);
   box-sizing: border-box;
-  padding: clamp(14px, 2.2vh, 26px) 4vw;
+  padding: clamp(16px, 3vh, 32px) 4vw;
   border-radius: 0;
   background: rgba(0, 0, 0, .4);
   border: 1.5px solid rgba(255, 255, 255, .85);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: clamp(6px, 1vh, 14px);
+  gap: clamp(8px, 1.5vh, 18px);
   text-align: center; overflow: hidden;
 }
+/* white-space:pre-line respeita as quebras de linha reais que já vêm no
+   texto (ver normalizeLyricText em controle.js — a API embute `<br>` nas
+   letras, convertido pra `\n`), além de continuar quebrando normalmente por
+   largura quando uma linha não tiver quebra explícita. */
 .lyrics-line {
   color: #fff; font-weight: 700; text-transform: uppercase;
-  font-size: clamp(1.2rem, 3.4vh, 2.8rem); line-height: 1.2;
+  font-size: clamp(1.6rem, 8vh, 4.2rem); line-height: 1.2;
+  white-space: pre-line;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
 }
+/* aux_lyric é um rótulo curto de seção (ex: "Refrão") — 1 linha só, não 2:
+   isso também mantém a caixa mais enxuta (linha principal domina o espaço). */
 .lyrics-aux {
   color: rgba(255, 255, 255, .72); font-weight: 600;
-  font-size: clamp(.85rem, 1.9vh, 1.3rem); line-height: 1.25;
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  font-size: clamp(1rem, 4.2vh, 2.1rem); line-height: 1.25;
+  white-space: pre-line;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden;
 }
 /* Slide de capa (título do hino): maior e na cor de destaque do app — mesma
    caixa de tamanho fixo, só a fonte/cor mudam (aux fica escondido no slide
    de capa, então as 2 linhas do clamp têm a caixa toda pra si). */
 .lyrics-content.cover .lyrics-line {
-  color: #fbc02d; font-size: clamp(1.8rem, 6vh, 4rem);
+  color: #fbc02d; font-size: clamp(2rem, 9.5vh, 5rem);
 }
 
 /* Fundo preto evita flash branco enquanto o player do YouTube carrega.

@@ -1859,6 +1859,17 @@ function parseTimeToSeconds(str) {
 // utilizável no campo ativo são ignoradas. Retorna `null` se não sobrar
 // nenhuma linha real (só a capa) — sinaliza "sem letra utilizável", pra não
 // tentar de novo a cada sincronização (ver ensureHymnVariant).
+// A API do LouvorJA embute quebras de linha manuais como tags `<br>` literais
+// dentro do texto (confirmado no app-ja: ele usa `v-html` pra renderizar
+// essas tags como quebra real) — sem isso, a letra ficaria como um único
+// parágrafo e o navegador quebraria a linha sozinho, de forma diferente da
+// quebra original pretendida pelo hino. Convertemos pra `\n` real (não
+// `innerHTML`/`v-html` — mais seguro, sem risco de injeção) e `white-space:
+// pre-line` no CSS (`.lyrics-line`/`.lyrics-aux`) respeita essas quebras.
+function normalizeLyricText(str) {
+  return (str || '').replace(/<br\s*\/?>/gi, '\n').trim();
+}
+
 async function buildLyricSlides(meta, timeField, resolveImage) {
   let prevImage = meta.url_image ? await resolveImage(meta.url_image) : null;
   let prevImagePosition = meta.image_position;
@@ -1883,8 +1894,8 @@ async function buildLyricSlides(meta, timeField, resolveImage) {
     }
     slides.push({
       time,
-      text: line.lyric || '',
-      auxText: line.aux_lyric || null,
+      text: normalizeLyricText(line.lyric),
+      auxText: line.aux_lyric ? normalizeLyricText(line.aux_lyric) : null,
       cover: false,
       imageOpfsPath: prevImage ? prevImage.opfsPath : null,
       imagePosition: prevImagePosition,
