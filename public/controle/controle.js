@@ -21,6 +21,7 @@ const mixerEl = document.getElementById('mixer');
 const volToggleEl = document.getElementById('volToggle');
 const volCloseEl = document.getElementById('volClose');
 const standaloneToggleEl = document.getElementById('standaloneToggle');
+const lyricsBgToggleEl = document.getElementById('lyricsBgToggle');
 const openDisplayBtnEl = document.getElementById('openDisplayBtn');
 
 const pvWallEl = document.getElementById('pvWall');
@@ -425,6 +426,28 @@ async function setStandalone(v) {
   standaloneToggleEl.classList.toggle('active', standalone);
 }
 
+// Fundo da letra sincronizada (Hinário 2022): 'black' (padrão) ignora as
+// imagens dos slides e mantém o fundo preto atrás do texto; 'image' usa as
+// imagens de verdade. Persistido em state.lyricsBg, aplicado ao vivo (igual
+// fade/fit) via comando — tanto no Display quanto na própria preview, que
+// segue o mesmo conceito universal de espelhar o telão.
+let lyricsBg = 'black';
+async function setLyricsBg(mode) {
+  mode = mode === 'image' ? 'image' : 'black';
+  if (lyricsBg === mode) return;
+  lyricsBg = mode;
+  await AVDB.setState('lyricsBg', lyricsBg);
+  renderLyricsBgBtn();
+  cmd({ type: 'lyricsbg', mode: lyricsBg });
+}
+function renderLyricsBgBtn() {
+  const active = lyricsBg === 'image';
+  lyricsBgToggleEl.classList.toggle('active', active);
+  lyricsBgToggleEl.title = active
+    ? 'Imagens dos slides atrás da letra (toque para usar fundo preto)'
+    : 'Fundo preto atrás da letra (toque para usar as imagens dos slides)';
+}
+
 // Envia o comando ao display E aplica na preview (espelho) — YouTube usa seu
 // próprio player pequeno (acima); mídia comum continua no stage.js. O modo
 // "mesa de som" não altera nada aqui (ver setStandalone) — só a saída de
@@ -450,6 +473,12 @@ function cmd(obj) {
     hidePvLyrics();
     if (ytPreview) dropYtPreview();
     preview.handle(obj);
+    return;
+  }
+  if (obj.type === 'lyricsbg') {
+    // Não é um comando do stage.js (letra é camada paralela) — aplica direto
+    // na preview, se ela estiver mostrando letra sincronizada agora.
+    applyPvLyricsBg();
     return;
   }
   if (obj.type === 'fade' || obj.type === 'view' || obj.type === 'fit') {
@@ -550,10 +579,16 @@ function renderPvLyricSlide(idx) {
     pvLyricsAuxEl.hidden = !slide.auxText;
   }
 
-  // Mesma lógica do Display: só resolve/troca a imagem de fundo se o
-  // imageOpfsPath realmente mudou (linhas seguidas costumam compartilhar a
-  // mesma imagem), com guarda de sequência pra descartar resoluções obsoletas.
-  const key = slide.imageOpfsPath || null;
+  applyPvLyricsImage(slide);
+}
+
+// Resolve (ou limpa) a imagem de fundo do slide atual, respeitando o modo
+// preto/imagens (`lyricsBg`, ver setLyricsBg) — só troca de fato se a chave
+// efetiva mudou (linhas seguidas costumam compartilhar a mesma imagem), com
+// guarda de sequência pra descartar resoluções obsoletas.
+function applyPvLyricsImage(slide) {
+  if (!slide) return;
+  const key = (lyricsBg === 'image' && slide.imageOpfsPath) ? slide.imageOpfsPath : null;
   if (key === pvLyricImgKey) return;
   const seq = ++pvLyricLoadSeq;
   if (!key) {
@@ -576,6 +611,13 @@ function renderPvLyricSlide(idx) {
 function updatePvLyricSlide(t) {
   if (!pvLyrics) return;
   renderPvLyricSlide(findSlideIndex(pvLyrics, t));
+}
+
+// Reaplica o fundo (preto/imagens) no slide atual sem precisar de uma troca
+// de estrofe — chamado quando o operador alterna o botão de fundo da letra.
+function applyPvLyricsBg() {
+  if (!pvLyrics || pvLyricSlideIdx < 0) return;
+  applyPvLyricsImage(pvLyrics[pvLyricSlideIdx]);
 }
 
 // ===== util =====
@@ -675,6 +717,8 @@ async function load() {
   if (storedFade) fadeCfg = { in: !!storedFade.in, out: !!storedFade.out, time: storedFade.time || 1 };
   const storedFit = await AVDB.getState('fit');
   if (storedFit) mediaFit = storedFit;
+  lyricsBg = (await AVDB.getState('lyricsBg')) === 'image' ? 'image' : 'black';
+  renderLyricsBgBtn();
   if (activeTab === 'folders') {
     if (currentFolder && currentFolder._opfs) {
       libItems = (await AVDB.filesByFolder(currentFolder.id))
@@ -2185,6 +2229,7 @@ seekEl.addEventListener('change', () => cmd({ type: 'seek', time: parseFloat(see
 viewToggleEl.addEventListener('click', () => setView(view === 'visual' ? 'wallpaper' : 'visual'));
 muteToggleEl.addEventListener('click', toggleMute);
 standaloneToggleEl.addEventListener('click', () => setStandalone(!standalone));
+lyricsBgToggleEl.addEventListener('click', () => setLyricsBg(lyricsBg === 'image' ? 'black' : 'image'));
 // Volume recolhível (estado só de UI, não persistido): abrir troca os botões
 // da lateral pelo fader com animação de entrada; fechar anima a saída do fader
 // antes de trazer os botões de volta (também animados). Ver as classes

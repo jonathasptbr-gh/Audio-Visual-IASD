@@ -37,7 +37,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.38.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.39.**
 
 ---
 
@@ -160,6 +160,7 @@ O campo `kind` é derivado do `type` (ou definido pelo chamador para itens de UR
 | `repeat` | `'off'` \| `'all'` \| `'one'` \| `'shuffle'` |
 | `fade` | `{ in: bool, out: bool, time: segundos }` — transições de mídia (fade in/out) |
 | `fit` | `'contain'` \| `'cover'` \| `'fill'` — preenchimento da mídia (ajustar/preencher/esticar) no Display e na preview |
+| `lyricsBg` | `'black'` (padrão) \| `'image'` — fundo atrás da letra sincronizada: preto ou as imagens dos slides |
 | `folders` | `[{ id, name }]` — pastas virtuais |
 | `folder_<id>` | array de IDs de mídia da pasta |
 | `opfs-folders` | `[{ id, name, count, syncedAt, handle? }]` — pastas sincronizadas no OPFS (`handle` acelera re-sync) |
@@ -219,6 +220,7 @@ Todos os comandos são objetos com um campo `type`.
 | `clear` | — | Limpa o Display (volta ao wallpaper, zera `currentId`; com fade-out, se ativo) |
 | `fade` | `fadeIn, fadeOut, time` | Atualiza ao vivo a configuração de transições do stage |
 | `fit` | `fit` (`'contain'`\|`'cover'`\|`'fill'`) | Atualiza ao vivo o preenchimento da mídia (ajustar/preencher/esticar) |
+| `lyricsbg` | `mode` (`'black'`\|`'image'`) | Atualiza ao vivo o fundo atrás da letra sincronizada (preto ou imagens dos slides) |
 | `audio-retry` | — | Retentativa imediata de liberar o áudio bloqueado (botão de mudo do Controle no estado "sem áudio") |
 
 #### Display → Controle
@@ -471,10 +473,15 @@ do dispositivo (só na raiz da aba Pastas).
 acionamentos acidentais pela navegação por gestos do Android/iOS.
 
 **Mixer (coluna direita):** o fader de volume é **recolhível**. A coluna é
-preenchida por inteiro: um **botão reservado** no topo (`#fillTop` — placeholder
-sem função por enquanto, ícone ⋮), depois **mudo**, **visual on/off** e **mesa
-de som** (todos `.fill-btn`, que crescem com `flex:1` para ocupar a coluna), e
-na **base** o botão de **volume** (`#volToggle`). Tocar no botão de volume liga
+preenchida por inteiro, de cima para baixo: **visual on/off** (`#viewToggle`),
+**fundo da letra** (`#lyricsBgToggle` — preto/imagens dos slides, ver seção do
+Hinário 2022), **mesa de som** (`#standaloneToggle`) e **mudo**
+(`#muteToggle`) — todos `.fill-btn`, que crescem com `flex:1` para ocupar a
+coluna —, e na **base** o botão de **volume** (`#volToggle`). Essa ordem
+(wallpaper no topo, depois fundo da letra, mesa de som, mudo, volume na base)
+agrupa os dois controles de **áudio** (mesa de som + mudo) perto do volume,
+na base, e os dois de **visual** (fundo da letra + wallpaper) no topo, perto
+um do outro. Tocar no botão de volume liga
 a classe `.vol-open` no `#mixer`, que **troca todos os `.fill-btn` + o botão de
 volume pelo fader vertical + um botão de ocultar** (`#volClose`, ícone ✕) — o
 fader ganha toda a altura da lateral (alvo bem maior). O botão de ocultar fica
@@ -819,6 +826,22 @@ mexe no DOM quando o índice muda; a imagem de fundo só é re-resolvida (via
 só passados como parâmetro do `showLyrics` inicial) — sem isso, o slide de
 capa perderia o título ao ser re-renderizado pelo tick de tempo (ex:
 operador volta pra estrofe 0 depois de já ter avançado).
+
+**Fundo preto vs. imagens dos slides** (`lyricsBgMode`, state `lyricsBg`,
+comando `lyricsbg`): **preto é o padrão** — a imagem de cada slide (baixada
+durante a sincronização, ver acima) só é de fato usada como fundo se o
+operador ligar o botão `#lyricsBgToggle` no mixer do Controle (ver seção do
+Mixer). `applyLyricsImage(slide)` centraliza a decisão: calcula a "chave
+efetiva" da imagem (`slide.imageOpfsPath` só se `lyricsBgMode==='image'`,
+senão `null`) antes de decidir se resolve/revoga a `object URL` — o resto da
+lógica (cache por chave, guarda de sequência) não muda. `setLyricsBgMode(m)`
+troca o modo ao vivo e reaplica no slide atual (`applyLyricsImage`) sem
+precisar esperar uma troca de estrofe. Persistido em `state.lyricsBg`
+(lido no `restore()` do Display e no `load()` do Controle) e propagado ao
+vivo pelo comando `lyricsbg` — mesmo padrão de `fade`/`fit`, mas tratado à
+parte de `stage.handle()` (letra é camada paralela, não um comando do
+stage). A preview aplica o mesmo modo em si mesma via `applyPvLyricsBg()`
+(chamado direto em `cmd()`, sem esperar o Display confirmar nada).
 
 **Preview do Controle (mesma visualização, em miniatura)**: a preview
 **sempre espelha o telão** — já vale pra imagem/vídeo (via `stage.js`

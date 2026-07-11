@@ -65,6 +65,10 @@ let lyricSlideIdx = -1;
 let lyricLoadSeq = 0;     // descarta resoluções de imagem obsoletas (mesmo padrão do loadSeq do stage)
 let lyricImgKey = null;   // imageOpfsPath já renderizado agora (evita recriar a object URL à toa)
 let lyricImgUrl = null;   // object URL em uso, para revogar quando trocar de fato
+// 'black' (padrão) ignora as imagens dos slides e mantém o fundo preto atrás
+// do texto; 'image' usa as imagens de verdade. Persistido em state.lyricsBg
+// pelo Controle, aplicado ao vivo via comando (ver setLyricsBgMode).
+let lyricsBgMode = 'black';
 
 // Último índice de slide cujo `time` já passou — mesmo algoritmo usado no
 // Controle (previewTick) para manter os dois em sincronia.
@@ -112,9 +116,17 @@ function renderLyricSlide(idx) {
     lyricsAuxEl.hidden = !slide.auxText;
   }
 
-  // Imagem de fundo: só resolve/troca se realmente mudou (linhas seguidas
-  // costumam compartilhar a mesma imagem — fallback "grudento" do sync).
-  const key = slide.imageOpfsPath || null;
+  applyLyricsImage(slide);
+}
+
+// Resolve (ou limpa) a imagem de fundo do slide dado, respeitando o modo
+// preto/imagens (`lyricsBgMode`) — só troca de fato se a chave efetiva
+// mudou (linhas seguidas costumam compartilhar a mesma imagem — fallback
+// "grudento" do sync), com guarda de sequência pra descartar resoluções
+// obsoletas (mesmo padrão do `loadSeq` do stage).
+function applyLyricsImage(slide) {
+  if (!slide) return;
+  const key = (lyricsBgMode === 'image' && slide.imageOpfsPath) ? slide.imageOpfsPath : null;
   if (key === lyricImgKey) return;
   const seq = ++lyricLoadSeq;
   if (!key) {
@@ -135,6 +147,13 @@ function renderLyricSlide(idx) {
     // falha ao resolver: mantém a imagem anterior em tela (nada pior que
     // ficar sem fundo nenhum por causa de uma falha pontual de leitura)
   });
+}
+
+// Troca o modo preto/imagens ao vivo (comando do Controle) e reaplica no
+// slide atual, sem precisar de uma troca de estrofe pra isso surtir efeito.
+function setLyricsBgMode(mode) {
+  lyricsBgMode = mode === 'image' ? 'image' : 'black';
+  if (currentLyrics && lyricSlideIdx >= 0) applyLyricsImage(currentLyrics[lyricSlideIdx]);
 }
 
 // Chamado a cada tick de tempo (sendStatus/onTime) — sem timer novo.
@@ -648,6 +667,13 @@ AVDB.onCommand(async (cmd) => {
     return;
   }
 
+  // Fundo da letra sincronizada (preto/imagens dos slides) — não é um
+  // comando do stage.js, letra é camada paralela (ver setLyricsBgMode).
+  if (cmd.type === 'lyricsbg') {
+    setLyricsBgMode(cmd.mode);
+    return;
+  }
+
   if (cmd.type === 'load') {
     // Esconde a letra incondicionalmente ANTES de qualquer coisa (mesmo
     // padrão do loadSeq do stage.js): sem isso, trocar de um hino direto pra
@@ -703,6 +729,10 @@ async function restore() {
     fadeCfg = { in: !!fade.in, out: !!fade.out, time: fade.time > 0 ? fade.time : 1 };
     stage.setFade({ fadeIn: fadeCfg.in, fadeOut: fadeCfg.out, time: fadeCfg.time });
   }
+  // Fundo da letra sincronizada (preto/imagens dos slides) — preferência
+  // visual, igual ao fade/fit.
+  const lyricsBg = await AVDB.getState('lyricsBg');
+  lyricsBgMode = lyricsBg === 'image' ? 'image' : 'black';
   // Preenchimento da mídia (ajustar/preencher/esticar) — preferência visual,
   // igual ao fade acima.
   const fit = await AVDB.getState('fit');
