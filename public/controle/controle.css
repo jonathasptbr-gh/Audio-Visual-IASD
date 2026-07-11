@@ -68,9 +68,23 @@ body {
 .deck { display: flex; gap: .6rem; align-items: stretch; }
 .deck-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .45rem; }
 
+/* Linha da preview + navegação manual de estrofe (letra sincronizada): os
+   botões flanqueiam a preview (mantida em 16:9) e crescem para ocupar o
+   espaço horizontal que sobra na linha. */
+.preview-row { display: flex; align-items: stretch; gap: .4rem; height: 116px; }
+.slide-nav-btn {
+  flex: 1; min-width: 0; border: none; border-radius: 9px;
+  background: rgba(255, 255, 255, .06); color: #fff; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+.slide-nav-btn .msym { font-size: 22px; }
+.slide-nav-btn:active { transform: scale(.95); }
+.slide-nav-btn:disabled { opacity: .3; }
+
 /* Preview */
 .preview {
-  position: relative; width: 100%; aspect-ratio: 16 / 9; max-height: 132px;
+  position: relative; height: 100%; aspect-ratio: 16 / 9; flex: 0 0 auto;
   background: #000; border-radius: 10px; overflow: hidden; border: 1px solid #242424;
 }
 /* Mesmo modelo do Display: mídia toca por baixo (z-index menor); o wallpaper
@@ -122,6 +136,12 @@ body {
 @keyframes np-marquee {
   0%, 12% { transform: translateX(0); }
   88%, 100% { transform: translateX(var(--np-shift, 0)); }
+}
+/* Legenda leve com a estrofe atual (letra sincronizada) — só um texto de
+   confirmação para o operador, não um mockup do slide projetado. */
+.np-lyric {
+  font-size: .75rem; color: var(--muted); text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .np-seek { display: flex; align-items: center; gap: .5rem; }
 .np-time { font-size: .7rem; color: var(--muted); min-width: 32px; text-align: center; }
@@ -329,6 +349,12 @@ main {
 /* pastas sincronizadas (OPFS) */
 .folder-opfs .msym { color: var(--accent); }
 .folder-opfs .folder-count { color: var(--accent); opacity: .7; }
+
+/* Indicador de Wi-Fi/dados móveis na linha do Hinário 2022 (ver
+   isConfirmedWifi em controle.js) — verde/neutro quando Wi-Fi confirmado,
+   âmbar quando não (sincronização em massa desativada por padrão). */
+.net-badge { flex-shrink: 0; display: flex; align-items: center; color: var(--accent); opacity: .8; }
+.net-badge--warn { color: #fbc02d; opacity: 1; }
 .storage-usage { font-size: .72rem; opacity: .7; padding: 10px 0; }
 
 /* fundo de ação do swipe */
