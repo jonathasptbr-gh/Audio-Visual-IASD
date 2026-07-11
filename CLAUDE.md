@@ -37,7 +37,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.37.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.38.**
 
 ---
 
@@ -796,21 +796,47 @@ sem Wi-Fi o hinário vai sendo baixado aos poucos, só com o que de fato for
 usado em cada culto, em vez de baixar tudo de uma vez usando dados móveis.
 
 **Display** (`public/display/`): novo layer `#lyrics` (imagem de fundo
-`object-fit:cover` + scrim escuro + texto), inserido no DOM entre `#video` e
-`#youtube`, mesmo `z-index:1` dos demais layers de mídia — a cortina do
-wallpaper (`z-index:2`, já existente) cobre/revela esse layer de graça, **sem
-nenhuma mudança em `stage.js`** (letra é tratada como camada paralela, mesmo
-padrão já usado pela ponte do YouTube). `hideLyrics()` é chamado
-incondicionalmente no início do tratamento de `load` (antes do atalho de
-YouTube) e em `stop`/`clear` — sem isso, trocar de um hino pra um vídeo do
-YouTube não escondia a letra de verdade, só ficava mascarado por sorte de
-ordem de pintura no DOM. Depois de `AVDB.getMedia(cmd.mediaId)` (já existia),
-se `rec.kind==='audio' && rec.lyrics?.length` → `showLyrics(rec)`. O avanço de
-slide reaproveita o `onTime`/`sendStatus()` já existente (sem timer novo):
-`updateLyricSlide(t)` acha o último slide cujo `time <= t` e só mexe no DOM
-quando o índice muda; a imagem de fundo só é re-resolvida (via
+`object-fit:cover` + um retângulo central com moldura — `.lyrics-box`: fundo
+semitransparente, borda sutil e cantos arredondados, `max-width:82%` e
+margens (`.lyrics-content`, padding em vh/vw) — a legibilidade do texto vem
+da própria moldura, não de um gradiente cobrindo a tela inteira, então
+funciona igual independente da imagem por trás), inserido no DOM entre
+`#video` e `#youtube`, mesmo `z-index:1` dos demais layers de mídia — a
+cortina do wallpaper (`z-index:2`, já existente) cobre/revela esse layer de
+graça, **sem nenhuma mudança em `stage.js`** (letra é tratada como camada
+paralela, mesmo padrão já usado pela ponte do YouTube). `hideLyrics()` é
+chamado incondicionalmente no início do tratamento de `load` (antes do
+atalho de YouTube) e em `stop`/`clear` — sem isso, trocar de um hino pra um
+vídeo do YouTube não escondia a letra de verdade, só ficava mascarado por
+sorte de ordem de pintura no DOM. Depois de `AVDB.getMedia(cmd.mediaId)` (já
+existia), se `rec.kind==='audio' && rec.lyrics?.length` → `showLyrics(rec)`.
+O avanço de slide reaproveita o `onTime`/`sendStatus()` já existente (sem
+timer novo): `updateLyricSlide(t)` acha o último slide cujo `time <= t` e só
+mexe no DOM quando o índice muda; a imagem de fundo só é re-resolvida (via
 `AVDB.opfsGetFile` + object URL, com guarda de sequência tipo `loadSeq`) se o
-`imageOpfsPath` realmente mudou entre um slide e o seguinte.
+`imageOpfsPath` realmente mudou entre um slide e o seguinte. `hymnName`/
+`hymnTrack` do item atual ficam guardados à parte (`currentLyricsMeta`, não
+só passados como parâmetro do `showLyrics` inicial) — sem isso, o slide de
+capa perderia o título ao ser re-renderizado pelo tick de tempo (ex:
+operador volta pra estrofe 0 depois de já ter avançado).
+
+**Preview do Controle (mesma visualização, em miniatura)**: a preview
+**sempre espelha o telão** — já vale pra imagem/vídeo (via `stage.js`
+compartilhado) e pra YouTube (segundo player, ver seção própria); letra
+sincronizada segue o mesmo princípio universal do sistema. `#pvLyrics`
+dentro de `#preview` reproduz a mesma estrutura visual do Display (fundo +
+retângulo com moldura), só que com tamanhos **fixos em px** (não vw/vh, que
+aqui seriam relativos à tela toda do celular, não à caixinha pequena da
+preview — por isso não dá pra reaproveitar a mesma folha de estilo, embora a
+estrutura e a lógica JS sejam praticamente idênticas, no mesmo padrão de
+duplicação já usado pela preview do YouTube). `showPvLyrics`/`hidePvLyrics`/
+`renderPvLyricSlide`/`updatePvLyricSlide` espelham exatamente as funções do
+Display, chamadas nos mesmos pontos: `cmd()` (`load`/`stop`/`clear`, em vez
+do tratamento de comando do Display) e `previewTick()` (em vez do
+`sendStatus()`). A legenda leve de texto (`#npLyric`, ver acima) continua
+existindo à parte — mais fácil de ler numa fonte pequena do que a miniatura
+visual, que serve pra conferir a composição (fundo + posição do texto), não
+pra ler a letra propriamente.
 
 **Controle**: dois botões de navegação manual de estrofe (`#slidePrevBtn`/
 `#slideNextBtn`) flanqueiam a preview (`.preview-row`, preview mantida em

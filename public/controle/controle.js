@@ -27,6 +27,11 @@ const pvWallEl = document.getElementById('pvWall');
 const pvImgEl = document.getElementById('pvImg');
 const pvVideoEl = document.getElementById('pvVideo');
 const pvYoutubeEl = document.getElementById('pvYoutube');
+const pvLyricsEl = document.getElementById('pvLyrics');
+const pvLyricsImgEl = document.getElementById('pvLyricsImg');
+const pvLyricsContentEl = document.getElementById('pvLyricsContent');
+const pvLyricsLineEl = document.getElementById('pvLyricsLine');
+const pvLyricsAuxEl = document.getElementById('pvLyricsAux');
 
 const plBtnEl = document.getElementById('plBtn');
 const plCountEl = document.getElementById('plCount');
@@ -428,15 +433,21 @@ function cmd(obj) {
   AVDB.sendCommand(obj);
   const nowYoutube = !!(currentItem && currentItem.kind === 'youtube');
   if (obj.type === 'load') {
+    // Esconde a letra incondicionalmente ANTES de qualquer coisa — mesmo
+    // padrão do Display (hideLyrics), evita a letra ficar presa na tela ao
+    // trocar pra um item sem letra ou pra um vídeo do YouTube.
+    hidePvLyrics();
     // preview.handle() sempre roda primeiro: mantém preview.getCurrent()/
     // fallback de thumbnail em dia (stage.js já sabe lidar com kind=youtube,
     // só não toca o vídeo) — mesmo quando o player real assume por cima.
     preview.handle(obj);
     if (nowYoutube) loadYtPreview(currentItem, obj.view);
     else if (ytPreview) dropYtPreview();
+    if (currentItem && currentItem.kind === 'audio' && Array.isArray(currentItem.lyrics) && currentItem.lyrics.length) showPvLyrics(currentItem);
     return;
   }
   if (obj.type === 'stop' || obj.type === 'clear') {
+    hidePvLyrics();
     if (ytPreview) dropYtPreview();
     preview.handle(obj);
     return;
@@ -464,6 +475,7 @@ function previewTick() {
     curTimeEl.textContent = fmtTime(preview.getTime());
   }
   updateLyricCaption();
+  updatePvLyricSlide(preview.getTime() || 0);
   renderSlideNav();
 }
 
@@ -488,6 +500,82 @@ function updateLyricCaption() {
   const text = slide && !slide.cover ? (slide.text || '') : '';
   npLyricEl.textContent = text;
   npLyricEl.hidden = !text;
+}
+
+// ===== Letra sincronizada na preview — mesma visualização do Display =====
+// A preview já espelha o Display para imagem/vídeo (stage.js) e YouTube
+// (segundo player, ver loadYtPreview) — letra sincronizada segue o mesmo
+// princípio universal do sistema: o operador vê no celular exatamente o que
+// está sendo exibido no telão, não só um texto de confirmação (ver
+// updateLyricCaption acima, que continua existindo à parte — mais fácil de
+// ler numa fonte pequena do que a miniatura visual).
+let pvLyrics = null;
+let pvLyricsMeta = null; // { hymnName, hymnTrack } do item atual, pro slide de capa
+let pvLyricSlideIdx = -1;
+let pvLyricLoadSeq = 0;
+let pvLyricImgKey = null;
+let pvLyricImgUrl = null;
+
+function hidePvLyrics() {
+  pvLyrics = null;
+  pvLyricsMeta = null;
+  pvLyricSlideIdx = -1;
+  pvLyricsEl.hidden = true;
+  if (pvLyricImgUrl) { URL.revokeObjectURL(pvLyricImgUrl); pvLyricImgUrl = null; }
+  pvLyricImgKey = null;
+}
+
+function showPvLyrics(rec) {
+  pvLyrics = rec.lyrics;
+  pvLyricsMeta = { hymnName: rec.hymnName, hymnTrack: rec.hymnTrack };
+  pvLyricSlideIdx = -1;
+  pvLyricsEl.hidden = false;
+  renderPvLyricSlide(0);
+}
+
+function renderPvLyricSlide(idx) {
+  if (idx === pvLyricSlideIdx) return;
+  pvLyricSlideIdx = idx;
+  const slide = pvLyrics[idx];
+  if (!slide) return;
+
+  pvLyricsContentEl.classList.toggle('cover', !!slide.cover);
+  if (slide.cover) {
+    const meta = pvLyricsMeta || {};
+    pvLyricsLineEl.textContent = (meta.hymnTrack ? meta.hymnTrack + '. ' : '') + (meta.hymnName || '');
+    pvLyricsAuxEl.hidden = true;
+  } else {
+    pvLyricsLineEl.textContent = slide.text || '';
+    pvLyricsAuxEl.textContent = slide.auxText || '';
+    pvLyricsAuxEl.hidden = !slide.auxText;
+  }
+
+  // Mesma lógica do Display: só resolve/troca a imagem de fundo se o
+  // imageOpfsPath realmente mudou (linhas seguidas costumam compartilhar a
+  // mesma imagem), com guarda de sequência pra descartar resoluções obsoletas.
+  const key = slide.imageOpfsPath || null;
+  if (key === pvLyricImgKey) return;
+  const seq = ++pvLyricLoadSeq;
+  if (!key) {
+    pvLyricImgKey = null;
+    if (pvLyricImgUrl) { URL.revokeObjectURL(pvLyricImgUrl); pvLyricImgUrl = null; }
+    pvLyricsImgEl.removeAttribute('src');
+    return;
+  }
+  AVDB.opfsGetFile(key).then((file) => {
+    if (seq !== pvLyricLoadSeq) return;
+    const url = URL.createObjectURL(file);
+    const prevUrl = pvLyricImgUrl;
+    pvLyricImgUrl = url;
+    pvLyricImgKey = key;
+    pvLyricsImgEl.src = url;
+    if (prevUrl) URL.revokeObjectURL(prevUrl);
+  }).catch(() => {});
+}
+
+function updatePvLyricSlide(t) {
+  if (!pvLyrics) return;
+  renderPvLyricSlide(findSlideIndex(pvLyrics, t));
 }
 
 // ===== util =====
