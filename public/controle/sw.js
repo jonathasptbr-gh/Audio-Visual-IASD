@@ -1,9 +1,10 @@
-const CACHE = 'controle-v4.32';
+const CACHE = 'controle-v4.33';
 const ASSETS = [
   './',
   './index.html',
   './controle.css',
   './controle.js',
+  './louvorja.js',
   './manifest.json',
   './icons/icon-192.svg',
   './icons/icon-512.svg',

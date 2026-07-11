@@ -59,6 +59,13 @@ const folderPickerListEl = document.getElementById('folderPickerList');
 const folderPopupCloseEl = document.getElementById('folderPopupClose');
 const newFolderInPickerBtnEl = document.getElementById('newFolderInPickerBtn');
 
+const hymnSearchBtnEl = document.getElementById('hymnSearchBtn');
+const hymnSearchPopupEl = document.getElementById('hymnSearchPopup');
+const hymnSearchCloseEl = document.getElementById('hymnSearchClose');
+const hymnSearchInputEl = document.getElementById('hymnSearchInput');
+const hymnResultsEl = document.getElementById('hymnResults');
+const hymnSearchCountEl = document.getElementById('hymnSearchCount');
+
 const ICON = {
   prev: '', // skip_previous
   play: '', // play_arrow
@@ -111,6 +118,19 @@ let opfsFolders = [];      // [{id, name, count, syncedAt, handle?}] — pastas 
 let folderQuery = '';      // filtro de busca dentro de pasta OPFS
 let syncBusy = false;      // sincronização em andamento
 let fadeCfg = { in: false, out: false, time: 1 }; // transições (persistido em state 'fade')
+// Catálogo offline do Hinário Adventista 2022 (LouvorJA) — ver seção
+// "Hinário Adventista 2022 (LouvorJA)" no CLAUDE.md. `songs[]`: metadados
+// leves (sempre offline, uma vez sincronizados) + os ids do catálogo OPFS
+// (`files`) de cada variante já baixada (null enquanto não baixada).
+const HYMNAL_FOLDER_ID = 'hymnal-2022';
+const HYMNAL_FOLDER_NAME = 'Hinário Adventista 2022';
+let hymnal2022 = { indexSyncedAt: 0, songs: [] }; // persistido em state 'hymnal2022'
+let hymnalSyncBusy = false;
+// Cache em memória (sessão) dos registros temporários de streaming ao vivo
+// usados como fallback quando uma música ainda não foi baixada — evita criar
+// um novo registro de mídia a cada tentativa de tocar/adicionar a mesma
+// variante antes do download completo terminar.
+const hymnStreamCache = new Map(); // "<id_music>:<variant>" -> media id
 let mediaFit = 'contain'; // preenchimento da mídia (persistido em state 'fit')
 // Modo "mesa de som": saída de áudio local — a preview deixa de ser
 // forçosamente muda e passa a tocar o som de verdade pelo próprio aparelho.
@@ -515,6 +535,7 @@ async function load() {
     folderCounts[f.id] = ids.length;
   }
   opfsFolders = (await AVDB.getState('opfs-folders')) || [];
+  hymnal2022 = (await AVDB.getState('hymnal2022')) || { indexSyncedAt: 0, songs: [] };
   const storedFade = await AVDB.getState('fade');
   if (storedFade) fadeCfg = { in: !!storedFade.in, out: !!storedFade.out, time: storedFade.time || 1 };
   const storedFit = await AVDB.getState('fit');
@@ -769,9 +790,52 @@ function renderLibrary() {
   });
 }
 
+function countHymnalDownloaded() {
+  return hymnal2022.songs.filter((s) => s.fileIdFull).length;
+}
+
+// Linha fixa do Hinário Adventista 2022 no topo da aba Pastas — mesmo padrão
+// visual das pastas sincronizadas do OPFS, mas a fonte é remota (API do
+// LouvorJA), não um `showDirectoryPicker()` do dispositivo. Sempre visível
+// (mesmo antes da 1ª sincronização) para o operador saber que a opção existe.
+function renderHymnalRow() {
+  const li = document.createElement('li');
+  li.className = 'lib-item folder-opfs';
+  const row = document.createElement('div'); row.className = 'row';
+  const icon = document.createElement('div'); icon.className = 'thumb thumb--icon';
+  icon.appendChild(msym(ICON.music));
+  const nameEl = document.createElement('span'); nameEl.className = 'row-name'; nameEl.textContent = HYMNAL_FOLDER_NAME;
+  const total = hymnal2022.songs.length;
+  const countEl = document.createElement('span'); countEl.className = 'folder-count';
+  countEl.textContent = hymnalSyncBusy ? '…' : (total ? countHymnalDownloaded() + '/' + total : '0');
+  const syncBtn = document.createElement('button'); syncBtn.className = 'row-btn'; syncBtn.title = 'Atualizar/baixar o Hinário 2022';
+  syncBtn.appendChild(msym(ICON.import));
+  syncBtn.addEventListener('click', (e) => { e.stopPropagation(); syncHymnal2022(); });
+  row.append(icon, nameEl, countEl, syncBtn);
+  if (total > 0) {
+    const rmBtn = document.createElement('button'); rmBtn.className = 'row-btn'; rmBtn.title = 'Excluir hinário baixado';
+    rmBtn.appendChild(msym(ICON.del));
+    rmBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteHymnal2022(); });
+    row.appendChild(rmBtn);
+  }
+  li.appendChild(row);
+  if (total > 0) li.addEventListener('click', () => openOpfsFolder({ id: HYMNAL_FOLDER_ID, name: HYMNAL_FOLDER_NAME }));
+  libraryEl.appendChild(li);
+}
+
+// Só re-renderiza a lista de pastas se ela estiver de fato visível — evita
+// custo de DOM à toa enquanto o operador está em outra aba durante o download.
+function refreshHymnalRowIfVisible() {
+  if (activeTab === 'folders' && !currentFolder) renderLibrary();
+}
+
 function renderFolderList() {
+  renderHymnalRow();
   if (opfsFolders.length === 0 && folders.length === 0) {
-    libraryEl.innerHTML = '<li class="empty">Nenhuma pasta.<br>Toque no ícone acima para sincronizar uma pasta do dispositivo (a permissão é pedida uma única vez) ou crie uma pasta virtual pela seleção múltipla.</li>';
+    const empty = document.createElement('li');
+    empty.className = 'empty';
+    empty.innerHTML = 'Nenhuma pasta do dispositivo.<br>Toque no ícone acima para sincronizar uma pasta do dispositivo (a permissão é pedida uma única vez) ou crie uma pasta virtual pela seleção múltipla.';
+    libraryEl.appendChild(empty);
     renderStorageUsage();
     return;
   }
@@ -1318,6 +1382,299 @@ function guessMediaType(filename) {
   return map[ext] || 'application/octet-stream';
 }
 
+// ===== Hinário Adventista 2022 (LouvorJA) =====
+// Sincroniza (ou re-sincroniza) o catálogo do Hinário 2022 da API do LouvorJA
+// (window.Louvorja, ver louvorja.js) para uso 100% offline. Duas fases:
+//  1. Índice (leve): busca a lista completa de hinos (pt_hymnal) — nomes,
+//     números e duração ficam offline mesmo antes do download pesado
+//     terminar (a busca no popup usa só isso).
+//  2. Download (pesado): para cada hino ainda não baixado (ou cujo arquivo
+//     catalogado tenha sido apagado por fora, ex: seleção múltipla dentro da
+//     pasta), busca music_{id} para pegar as URLs reais e baixa áudio
+//     Cantado + Playback (se houver) + capa para o OPFS — mesmo padrão de
+//     catálogo das pastas sincronizadas do dispositivo (`files` + `folders/`).
+// Sincronização é aditiva e resumível: interromper e tocar de novo continua
+// de onde parou, sem duplicar o que já foi baixado.
+async function syncHymnal2022() {
+  if (hymnalSyncBusy) { flash('Sincronização do Hinário 2022 já em andamento…'); return; }
+  if (!AVDB.opfsSupported()) { flash('Navegador não suporta armazenamento OPFS'); return; }
+  hymnalSyncBusy = true;
+  refreshHymnalRowIfVisible();
+  try {
+    if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+
+    flash('Atualizando lista do Hinário 2022…', true);
+    let list;
+    try { list = await Louvorja.fetchList(Louvorja.HYMNAL_2022_FILE); }
+    catch (_) { flash('Falha ao buscar a lista do Hinário (sem internet?)'); return; }
+    if (!Array.isArray(list)) { flash('Resposta inválida do servidor do Hinário'); return; }
+
+    const bySongId = new Map(hymnal2022.songs.map((s) => [s.id_music, s]));
+    const songs = list.map((row) => {
+      const prev = bySongId.get(row.id_music);
+      return {
+        id_music: row.id_music,
+        track: row.track,
+        name: row.name,
+        duration: row.duration,
+        has_instrumental_music: !!row.has_instrumental_music,
+        fileIdFull: (prev && prev.fileIdFull) || null,
+        fileIdPlayback: (prev && prev.fileIdPlayback) || null,
+      };
+    });
+    hymnal2022 = { indexSyncedAt: Date.now(), songs };
+    await AVDB.setState('hymnal2022', hymnal2022);
+    refreshHymnalRowIfVisible();
+
+    // Fase 2: só entra na fila quem ainda não tem os arquivos de fato no
+    // catálogo (re-verifica via fileGet — cobre tanto "nunca baixado" quanto
+    // "catalogado mas apagado por fora", ex: exclusão manual dentro da pasta).
+    const pending = [];
+    for (const s of songs) {
+      const okFull = s.fileIdFull && (await AVDB.fileGet(s.fileIdFull));
+      const okPlayback = !s.has_instrumental_music || (s.fileIdPlayback && (await AVDB.fileGet(s.fileIdPlayback)));
+      if (!okFull || !okPlayback) pending.push(s);
+    }
+    if (pending.length === 0) { flash('Hinário 2022 já está completo offline'); return; }
+
+    let done = 0;
+    const CONCURRENCY = 3;
+    let next = 0;
+    async function worker() {
+      while (next < pending.length) {
+        const s = pending[next++];
+        await downloadHymnalSong(s);
+        done++;
+        flash('Baixando Hinário 2022: ' + done + '/' + pending.length + '…', true);
+        await AVDB.setState('hymnal2022', hymnal2022);
+        refreshHymnalRowIfVisible();
+      }
+    }
+    await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+    flash('Hinário Adventista 2022 atualizado (' + done + ' baixado(s))');
+  } catch (_) {
+    flash('Erro ao sincronizar o Hinário 2022');
+  } finally {
+    hymnalSyncBusy = false;
+    refreshHymnalRowIfVisible();
+  }
+}
+
+// Baixa (ou completa) um hino: busca os metadados individuais (URLs reais) e
+// grava áudio Cantado + Playback (se houver) + capa no OPFS/catálogo. `s` é
+// mutado in-place (fileIdFull/fileIdPlayback), refletido no `hymnal2022.songs`
+// compartilhado.
+async function downloadHymnalSong(s) {
+  let meta;
+  try { meta = await Louvorja.fetchList('music_' + s.id_music); }
+  catch (_) { return; } // sem rede agora; a próxima sincronização tenta de novo
+
+  let thumb = null;
+  if (!s.fileIdFull && meta.url_image) {
+    thumb = await fetchImageThumb(Louvorja.fileUrl(meta.url_image));
+  } else if (s.fileIdFull) {
+    const prevRec = await AVDB.fileGet(s.fileIdFull);
+    if (prevRec) thumb = prevRec.thumb;
+  }
+
+  if (!s.fileIdFull || !(await AVDB.fileGet(s.fileIdFull))) {
+    const id = await downloadHymnalFile(meta.url_music, s, 'Cantado', thumb);
+    if (id) s.fileIdFull = id;
+  }
+  if (s.has_instrumental_music && (!s.fileIdPlayback || !(await AVDB.fileGet(s.fileIdPlayback)))) {
+    const id = await downloadHymnalFile(meta.url_instrumental_music, s, 'Playback', thumb);
+    if (id) s.fileIdPlayback = id;
+  }
+}
+
+async function downloadHymnalFile(urlPath, s, variantLabel, thumb) {
+  if (!urlPath) return null;
+  let blob;
+  try {
+    const res = await fetch(Louvorja.fileUrl(urlPath));
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    blob = await res.blob();
+  } catch (_) { return null; }
+  const ext = (urlPath.split('.').pop() || 'mp3').toLowerCase().split('?')[0];
+  const id = uid();
+  const path = 'folders/' + HYMNAL_FOLDER_ID + '/' + s.id_music + '-' + variantLabel.toLowerCase() + '.' + ext;
+  try { await AVDB.opfsWriteFile(path, blob); } catch (_) { return null; }
+  await AVDB.fileAdd({
+    id, folder: HYMNAL_FOLDER_ID, opfsPath: path,
+    srcName: s.id_music + '-' + variantLabel,
+    name: (s.track ? String(s.track).padStart(3, '0') + '. ' : '') + s.name + ' (' + variantLabel + ')',
+    type: blob.type || 'audio/mpeg', kind: 'audio',
+    size: blob.size, mtime: Date.now(), thumb,
+    blob: null, url: null, addedAt: Date.now(),
+  });
+  return id;
+}
+
+async function fetchImageThumb(url) {
+  let objUrl = null;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    objUrl = URL.createObjectURL(blob);
+    const img = await new Promise((resolve, reject) => {
+      const im = new Image();
+      im.onload = () => resolve(im);
+      im.onerror = reject;
+      im.src = objUrl;
+    });
+    return await drawThumb(img, img.naturalWidth, img.naturalHeight);
+  } catch (_) {
+    return null;
+  } finally {
+    if (objUrl) URL.revokeObjectURL(objUrl);
+  }
+}
+
+async function deleteHymnal2022() {
+  if (!confirm('Excluir o Hinário Adventista 2022 baixado (áudios e capas)?')) return;
+  const recs = await AVDB.filesByFolder(HYMNAL_FOLDER_ID);
+  for (const r of recs) {
+    await AVDB.fileDelete(r.id);
+    for (const l of ['imports', 'playlist']) await AVDB.listRemove(l, r.id);
+  }
+  await AVDB.opfsDeleteDir('folders/' + HYMNAL_FOLDER_ID);
+  hymnal2022 = { indexSyncedAt: 0, songs: [] };
+  await AVDB.setState('hymnal2022', hymnal2022);
+  if (currentFolder && currentFolder.id === HYMNAL_FOLDER_ID) currentFolder = null;
+  load();
+}
+
+// ---- popup de busca ----
+const DIACRITICS_RE = new RegExp('[' + String.fromCharCode(0x0300) + '-' + String.fromCharCode(0x036f) + ']', 'g');
+function normalizeForSearch(s) {
+  return String(s || '').normalize('NFD').replace(DIACRITICS_RE, '').toLowerCase();
+}
+
+function openHymnSearch() {
+  hymnSearchInputEl.value = '';
+  renderHymnResults('');
+  hymnSearchPopupEl.classList.add('open');
+  setTimeout(() => hymnSearchInputEl.focus(), 50);
+}
+function closeHymnSearch() {
+  hymnSearchPopupEl.classList.remove('open');
+}
+
+function renderHymnResults(query) {
+  const q = normalizeForSearch(query).trim();
+  const all = hymnal2022.songs;
+  const filtered = q === '' ? all : all.filter((s) =>
+    normalizeForSearch(s.name).includes(q) || String(s.track) === q);
+  hymnSearchCountEl.textContent = String(filtered.length);
+  hymnResultsEl.innerHTML = '';
+  if (all.length === 0) {
+    hymnResultsEl.innerHTML = '<li class="empty">Hinário 2022 ainda não sincronizado.<br>Vá em Pastas e toque em sincronizar para baixar.</li>';
+    return;
+  }
+  if (filtered.length === 0) {
+    hymnResultsEl.innerHTML = '<li class="empty">Nenhum hino encontrado.</li>';
+    return;
+  }
+  const LIMIT = 60;
+  filtered.slice(0, LIMIT).forEach((s) => hymnResultsEl.appendChild(hymnResultRow(s)));
+  if (filtered.length > LIMIT) {
+    const li = document.createElement('li'); li.className = 'empty';
+    li.textContent = '+' + (filtered.length - LIMIT) + ' resultado(s). Refine a busca.';
+    hymnResultsEl.appendChild(li);
+  }
+}
+
+function hymnResultRow(s) {
+  const li = document.createElement('li');
+  li.className = 'lib-item hymn-result';
+
+  const row = document.createElement('div'); row.className = 'row hymn-row';
+  const thumb = document.createElement('div'); thumb.className = 'thumb thumb--icon';
+  thumb.appendChild(msym(ICON.music));
+  const info = document.createElement('div'); info.className = 'hymn-info';
+  const name = document.createElement('span'); name.className = 'row-name';
+  name.textContent = (s.track ? s.track + '. ' : '') + s.name;
+  const sub = document.createElement('span'); sub.className = 'hymn-sub';
+  sub.textContent = s.duration || '';
+  info.append(name, sub);
+  row.append(thumb, info);
+  li.appendChild(row);
+
+  const variants = document.createElement('div'); variants.className = 'hymn-variants';
+  variants.appendChild(hymnVariantEl(s, 'full', 'Cantado'));
+  if (s.has_instrumental_music) variants.appendChild(hymnVariantEl(s, 'playback', 'Playback'));
+  li.appendChild(variants);
+  return li;
+}
+
+function hymnVariantEl(s, variant, label) {
+  const wrap = document.createElement('div'); wrap.className = 'hymn-variant'; wrap.dataset.variant = variant;
+  const playBtn = document.createElement('button'); playBtn.className = 'hymn-play'; playBtn.title = 'Tocar ' + label;
+  playBtn.append(msym(ICON.play), document.createTextNode(' ' + label));
+  playBtn.addEventListener('click', () => playHymnVariant(s, variant));
+  const addBtn = document.createElement('button'); addBtn.className = 'hymn-add row-btn'; addBtn.title = 'Adicionar ' + label + ' ao Cronograma';
+  addBtn.appendChild(msym(ICON.plAdd));
+  addBtn.addEventListener('click', () => addHymnVariant(s, variant));
+  wrap.append(playBtn, addBtn);
+  return wrap;
+}
+
+// Resolve o id de mídia tocável de uma variante (Cantado/Playback): usa o
+// arquivo já baixado no OPFS quando existe; senão cai para streaming ao vivo
+// (registro temporário de URL, ver storeUrlTemp) — só tenta a rede quando o
+// offline de fato não está disponível, nunca o contrário.
+async function resolveHymnMediaId(s, variant) {
+  const fileId = variant === 'full' ? s.fileIdFull : s.fileIdPlayback;
+  if (fileId) {
+    const rec = await AVDB.fileGet(fileId);
+    if (rec) return fileId;
+  }
+  const cacheKey = s.id_music + ':' + variant;
+  if (hymnStreamCache.has(cacheKey)) {
+    const cachedId = hymnStreamCache.get(cacheKey);
+    const rec = await AVDB.getMedia(cachedId);
+    if (rec) return cachedId;
+    hymnStreamCache.delete(cacheKey);
+  }
+  let meta;
+  try { meta = await Louvorja.fetchList('music_' + s.id_music); }
+  catch (_) { return null; }
+  if (!meta) return null;
+  const path = variant === 'full' ? meta.url_music : meta.url_instrumental_music;
+  if (!path) return null;
+  const label = variant === 'full' ? 'Cantado' : 'Playback';
+  const rec = await AVDB.storeUrlTemp(Louvorja.fileUrl(path), {
+    kind: 'audio', type: 'audio/mpeg',
+    name: (s.track ? s.track + '. ' : '') + s.name + ' (' + label + ')',
+    thumb: meta.url_image ? Louvorja.fileUrl(meta.url_image) : null,
+  });
+  hymnStreamCache.set(cacheKey, rec.id);
+  return rec.id;
+}
+
+async function playHymnVariant(s, variant) {
+  const id = await resolveHymnMediaId(s, variant);
+  if (!id) { flash('Não foi possível tocar (sem internet e ainda não baixado)'); return; }
+  const rec = await AVDB.getMedia(id);
+  if (!rec) { flash('Erro ao carregar mídia'); return; }
+  await AVDB.listSet('playlist', [id]);
+  plItems = [rec];
+  plSet = new Set([id]);
+  renderPlaylist();
+  closeHymnSearch();
+  send(id);
+}
+
+async function addHymnVariant(s, variant) {
+  const id = await resolveHymnMediaId(s, variant);
+  if (!id) { flash('Não foi possível adicionar (sem internet e ainda não baixado)'); return; }
+  const had = await AVDB.listHas('imports', id);
+  await AVDB.listAdd('imports', id);
+  flash(had ? 'Já no Cronograma' : 'Adicionado ao Cronograma');
+  if (activeTab === 'imports' && !currentFolder) load();
+}
+
 // ===== transições (fade in/out) =====
 function openFadePopup() {
   fadeInChkEl.checked = fadeCfg.in;
@@ -1557,6 +1914,11 @@ selRenameEl.addEventListener('click', renameSelected);
 backBtnEl.addEventListener('click', navigateBack);
 addDirBtnEl.addEventListener('click', () => syncDeviceFolder());
 libSearchEl.addEventListener('input', () => { folderQuery = libSearchEl.value; renderLibrary(); });
+
+hymnSearchBtnEl.addEventListener('click', openHymnSearch);
+hymnSearchCloseEl.addEventListener('click', closeHymnSearch);
+hymnSearchPopupEl.addEventListener('click', (e) => { if (e.target === hymnSearchPopupEl) closeHymnSearch(); });
+hymnSearchInputEl.addEventListener('input', () => renderHymnResults(hymnSearchInputEl.value));
 
 // Toque na preview abre as configurações rápidas de transição (fade).
 document.getElementById('preview').addEventListener('click', openFadePopup);
