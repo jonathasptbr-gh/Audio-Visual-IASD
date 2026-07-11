@@ -70,30 +70,35 @@ html, body {
    line-clamp de .lyrics-line/.lyrics-aux abaixo são a garantia final contra
    vazamento: textos grandes demais são cortados com reticências, nunca
    estouram a caixa.
-   Fonte e altura usam a MESMA unidade (vh) de propósito — no pior caso
-   (3 linhas de .lyrics-line no tamanho máximo do clamp + 2 de .lyrics-aux +
-   gap + padding) o total soma ~23vh, contra os 40vh da caixa: margem
-   confortável em qualquer proporção de tela. Misturar vh (altura) com vw
-   (largura) no tamanho da fonte foi o que causava o texto vazando por cima
-   do próprio bloco de baixo (aux) em telas mais largas que altas — a fonte
-   crescia com a largura, mas a caixa com a altura, e as duas paravam de
-   bater. */
+   Altura calibrada pro caso real: as letras do Hinário 2022 nunca passam de
+   2 linhas por estrofe (-webkit-line-clamp:2, não mais 3) — a caixa não
+   precisa da folga de uma 3ª linha que nunca aparece. padding/gap usam
+   clamp() com teto em px (não só vh puro): sem isso, em telas muito altas
+   padding/gap cresceriam sem limite e poderiam estourar até o teto fixo da
+   caixa (440px→300px) — com o teto, o pior caso (2 linhas de .lyrics-line
+   no tamanho máximo + 2 de .lyrics-aux + gap + padding, todos no teto) soma
+   ~226px, contra 300px da caixa: margem confortável sempre, em qualquer
+   proporção de tela. Fonte usa a mesma unidade (vh) da altura da caixa de
+   propósito — misturar vh (altura) com vw (largura) no tamanho da fonte foi
+   o que causava o texto vazando por cima do bloco de baixo (aux) em telas
+   mais largas que altas. */
 .lyrics-box {
   width: min(82vw, 1100px);
-  height: min(40vh, 440px);
+  height: min(30vh, 300px);
   box-sizing: border-box;
-  padding: 2.4vh 4vw;
+  padding: clamp(14px, 2.2vh, 26px) 4vw;
   border-radius: 22px;
   background: rgba(0, 0, 0, .62);
   border: 1px solid rgba(255, 255, 255, .18);
   box-shadow: 0 8px 32px rgba(0, 0, 0, .35);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1vh;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: clamp(6px, 1vh, 14px);
   text-align: center; overflow: hidden;
 }
 .lyrics-line {
   color: #fff; font-weight: 700; text-transform: uppercase;
   font-size: clamp(1.2rem, 3.4vh, 2.8rem); line-height: 1.2;
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
 }
 .lyrics-aux {
   color: rgba(255, 255, 255, .72); font-weight: 600;
@@ -102,7 +107,7 @@ html, body {
 }
 /* Slide de capa (título do hino): maior e na cor de destaque do app — mesma
    caixa de tamanho fixo, só a fonte/cor mudam (aux fica escondido no slide
-   de capa, então as 3 linhas do clamp têm a caixa toda pra si). */
+   de capa, então as 2 linhas do clamp têm a caixa toda pra si). */
 .lyrics-content.cover .lyrics-line {
   color: #fbc02d; font-size: clamp(1.8rem, 6vh, 4rem);
 }

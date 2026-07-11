@@ -37,7 +37,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.41.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.42.**
 
 ---
 
@@ -906,15 +906,22 @@ sincronizam a letra sozinhos ao reagir ao novo tempo.
 
 **Moldura de tamanho FIXO** (`.lyrics-box`/`.pv-lyrics-box`): a caixa não
 cresce/encolhe conforme o texto do slide muda — `width`/`height` fixos (não
-`max-width` + altura intrínseca) calculados para caber o pior caso (3 linhas
-de `.lyrics-line` no tamanho máximo do `clamp()` + 2 de `.lyrics-aux` + gap +
-padding, tudo na mesma unidade `vh` de propósito — misturar `vh` de altura
-com `vw` de largura na fonte foi o que causava o texto vazando/sobrepondo o
-bloco de baixo em telas com proporção diferente da testada). `overflow:hidden`
-no `.lyrics-box`/`.pv-lyrics-box` junto do `-webkit-line-clamp` em
-`.lyrics-line`/`.lyrics-aux` (`.pv-lyrics-line`/`.pv-lyrics-aux` na preview)
-são a garantia final: qualquer letra maior que o clamp é cortada com
-reticências, nunca estoura a moldura.
+`max-width` + altura intrínseca) calculados para caber o pior caso real: as
+letras do Hinário 2022 nunca passam de **2 linhas** por estrofe
+(`-webkit-line-clamp: 2` em `.lyrics-line`/`.pv-lyrics-line`, tanto no slide
+normal quanto no de capa — não há folga reservada para uma 3ª linha que
+nunca aparece na prática). `height: min(30vh, 300px)` no Display (era
+`40vh`/`440px` quando ainda reservava espaço pra 3 linhas) e `56px` fixos na
+preview (era `74px`). Fonte, padding e gap usam a mesma unidade `vh` da
+altura da caixa de propósito (com teto em `px` via `clamp()` no padding/gap
+do Display, pra não crescerem sem limite em telas muito altas) — misturar
+`vh` de altura com `vw` de largura na fonte foi o que causava o texto
+vazando/sobrepondo o bloco de baixo em telas com proporção diferente da
+testada. `overflow:hidden` no `.lyrics-box`/`.pv-lyrics-box` junto do
+`-webkit-line-clamp` em `.lyrics-line`/`.lyrics-aux`
+(`.pv-lyrics-line`/`.pv-lyrics-aux` na preview) são a garantia final:
+qualquer letra maior que o clamp é cortada com reticências, nunca estoura a
+moldura.
 
 **Fundo preto sem linha branca de margem**: no modo preto (padrão), a
 `<img>` de fundo (`#lyricsImg`/`#pvLyricsImg`) fica **`hidden`** de
