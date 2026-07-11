@@ -1,4 +1,4 @@
-const CACHE = 'display-v4.38';
+const CACHE = 'display-v4.39';
 // O Display não usa a fonte de ícones (Material Symbols) — só o Controle a
 // carrega/cacheia; aqui a UI é apenas wallpaper + mídia.
 const ASSETS = [
