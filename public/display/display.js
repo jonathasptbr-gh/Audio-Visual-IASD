@@ -3,6 +3,11 @@ const imgEl = document.getElementById('img');
 const videoEl = document.getElementById('video');
 const youtubeEl = document.getElementById('youtube'); // wrapper; a API cria o iframe real dentro dele
 const ytShieldEl = document.getElementById('ytShield');
+const lyricsEl = document.getElementById('lyrics');
+const lyricsImgEl = document.getElementById('lyricsImg');
+const lyricsContentEl = document.getElementById('lyricsContent');
+const lyricsLineEl = document.getElementById('lyricsLine');
+const lyricsAuxEl = document.getElementById('lyricsAux');
 
 // Config de transições espelhada localmente (o stage guarda a dele própria)
 // para animar o player do YouTube, que vive fora do stage.
@@ -10,6 +15,7 @@ let fadeCfg = { in: false, out: false, time: 1 };
 
 function sendStatus() {
   if (yt) return; // com YouTube ativo o status tem fluxo próprio (ytStatus)
+  updateLyricSlide(stage.isTimed() ? stage.getTime() : 0);
   const cur = stage.getCurrent();
   AVDB.sendCommand({
     type: 'display-status',
@@ -43,6 +49,94 @@ const stage = createStage({
     AVDB.sendCommand({ type: 'media-ended', mediaId: cur ? cur.id : null });
   },
 });
+
+// ===== Letra sincronizada (Hinário 2022 — ver CLAUDE.md) =====
+// Camada paralela ao stage.js (mesmo padrão da ponte do YouTube): stage.js
+// não sabe nada sobre texto/letra, só gerencia wallpaper/img/video. O layer
+// #lyrics vive no mesmo z-index dos demais layers de mídia, então a cortina
+// do wallpaper (z-index maior, já existente) cobre/revela-o de graça.
+let currentLyrics = null; // array de slides do item atual, ou null (sem letra)
+let lyricSlideIdx = -1;
+let lyricLoadSeq = 0;     // descarta resoluções de imagem obsoletas (mesmo padrão do loadSeq do stage)
+let lyricImgKey = null;   // imageOpfsPath já renderizado agora (evita recriar a object URL à toa)
+let lyricImgUrl = null;   // object URL em uso, para revogar quando trocar de fato
+
+// Último índice de slide cujo `time` já passou — mesmo algoritmo usado no
+// Controle (previewTick) para manter os dois em sincronia.
+function findSlideIndex(lyrics, time) {
+  let idx = -1;
+  for (let i = 0; i < lyrics.length; i++) {
+    if (lyrics[i].time <= time) idx = i; else break;
+  }
+  return idx < 0 ? 0 : idx;
+}
+
+function hideLyrics() {
+  currentLyrics = null;
+  lyricSlideIdx = -1;
+  lyricsEl.hidden = true;
+  if (lyricImgUrl) { URL.revokeObjectURL(lyricImgUrl); lyricImgUrl = null; }
+  lyricImgKey = null;
+}
+
+function showLyrics(rec) {
+  currentLyrics = rec.lyrics;
+  lyricSlideIdx = -1;
+  lyricsEl.hidden = false;
+  renderLyricSlide(0, rec);
+}
+
+// Só mexe no DOM quando o índice realmente muda (chamado a cada tick de
+// tempo). `rec` só é passado explicitamente pelo showLyrics() inicial (pra
+// pegar hymnName/hymnTrack do slide de capa); nas trocas seguintes usa o
+// próprio texto do slide.
+function renderLyricSlide(idx, rec) {
+  if (idx === lyricSlideIdx) return;
+  lyricSlideIdx = idx;
+  const slide = currentLyrics[idx];
+  if (!slide) return;
+
+  lyricsContentEl.classList.toggle('cover', !!slide.cover);
+  if (slide.cover) {
+    const title = (rec && rec.hymnTrack ? rec.hymnTrack + '. ' : '') + ((rec && rec.hymnName) || '');
+    lyricsLineEl.textContent = title;
+    lyricsAuxEl.hidden = true;
+  } else {
+    lyricsLineEl.textContent = slide.text || '';
+    lyricsAuxEl.textContent = slide.auxText || '';
+    lyricsAuxEl.hidden = !slide.auxText;
+  }
+
+  // Imagem de fundo: só resolve/troca se realmente mudou (linhas seguidas
+  // costumam compartilhar a mesma imagem — fallback "grudento" do sync).
+  const key = slide.imageOpfsPath || null;
+  if (key === lyricImgKey) return;
+  const seq = ++lyricLoadSeq;
+  if (!key) {
+    lyricImgKey = null;
+    if (lyricImgUrl) { URL.revokeObjectURL(lyricImgUrl); lyricImgUrl = null; }
+    lyricsImgEl.removeAttribute('src');
+    return;
+  }
+  AVDB.opfsGetFile(key).then((file) => {
+    if (seq !== lyricLoadSeq) return; // um slide mais novo já assumiu enquanto isso resolvia
+    const url = URL.createObjectURL(file);
+    const prevUrl = lyricImgUrl;
+    lyricImgUrl = url;
+    lyricImgKey = key;
+    lyricsImgEl.src = url;
+    if (prevUrl) URL.revokeObjectURL(prevUrl);
+  }).catch(() => {
+    // falha ao resolver: mantém a imagem anterior em tela (nada pior que
+    // ficar sem fundo nenhum por causa de uma falha pontual de leitura)
+  });
+}
+
+// Chamado a cada tick de tempo (sendStatus/onTime) — sem timer novo.
+function updateLyricSlide(t) {
+  if (!currentLyrics) return;
+  renderLyricSlide(findSlideIndex(currentLyrics, t));
+}
 
 // ===== Áudio sem toque: recuperação automática =====
 // A política de autoplay dos navegadores pode bloquear som sem gesto do
@@ -550,6 +644,11 @@ AVDB.onCommand(async (cmd) => {
   }
 
   if (cmd.type === 'load') {
+    // Esconde a letra incondicionalmente ANTES de qualquer coisa (mesmo
+    // padrão do loadSeq do stage.js): sem isso, trocar de um hino direto pra
+    // um vídeo do YouTube nunca escondia o layer de letra de verdade — só
+    // ficava mascarado por sorte de ordem de pintura no DOM.
+    hideLyrics();
     const rec = await AVDB.getMedia(cmd.mediaId);
     if (rec && rec.kind === 'youtube') {
       loadYoutube(rec, cmd.view, cmd.muted, cmd.volume);
@@ -561,11 +660,13 @@ AVDB.onCommand(async (cmd) => {
       if (fadeCfg.out && !youtubeEl.hidden) stopYoutube();
       else { ++ytSeq; ytDrop(); }
     }
+    if (rec && rec.kind === 'audio' && Array.isArray(rec.lyrics) && rec.lyrics.length) showLyrics(rec);
     stage.handle(cmd);
     return;
   }
 
   if (cmd.type === 'stop' || cmd.type === 'clear') {
+    hideLyrics();
     if (yt) stopYoutube();
     stage.handle(cmd);
     return;

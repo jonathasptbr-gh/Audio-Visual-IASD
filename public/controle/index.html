@@ -14,7 +14,7 @@
 <body>
   <header class="appbar">
     <span class="app-name">Audio Visual <b>IASD</b></span>
-    <span class="app-version">Controle v4.33</span>
+    <span class="app-version">Controle v4.34</span>
   </header>
 
   <main>
@@ -63,14 +63,19 @@
   <footer class="bottombar">
     <div class="deck">
       <div class="deck-main">
-        <div class="preview" id="preview">
-          <div class="pv-wall" id="pvWall"><span class="pv-brand">Audio Visual <b>IASD</b></span></div>
-          <img id="pvImg" class="pv-layer" alt="" hidden>
-          <video id="pvVideo" class="pv-layer" playsinline muted hidden></video>
-          <div id="pvYoutube" class="pv-layer pv-yt-frame" hidden></div>
+        <div class="preview-row">
+          <button id="slidePrevBtn" class="slide-nav-btn" title="Estrofe anterior" disabled><span class="msym">&#xe045;</span></button>
+          <div class="preview" id="preview">
+            <div class="pv-wall" id="pvWall"><span class="pv-brand">Audio Visual <b>IASD</b></span></div>
+            <img id="pvImg" class="pv-layer" alt="" hidden>
+            <video id="pvVideo" class="pv-layer" playsinline muted hidden></video>
+            <div id="pvYoutube" class="pv-layer pv-yt-frame" hidden></div>
+          </div>
+          <button id="slideNextBtn" class="slide-nav-btn" title="Próxima estrofe" disabled><span class="msym">&#xe044;</span></button>
         </div>
         <div class="nowplaying">
           <div class="np-name" id="npName"><span class="np-name-inner" id="npNameInner">Nada em exibição</span></div>
+          <div class="np-lyric" id="npLyric" hidden></div>
           <div class="np-seek">
             <span id="curTime" class="np-time">0:00</span>
             <input type="range" id="seek" min="0" max="0" value="0" step="0.1" disabled>

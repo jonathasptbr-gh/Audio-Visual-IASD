@@ -7,9 +7,12 @@ const repeatEl = document.getElementById('repeat');
 
 const npNameEl = document.getElementById('npName');
 const npNameInnerEl = document.getElementById('npNameInner');
+const npLyricEl = document.getElementById('npLyric');
 const seekEl = document.getElementById('seek');
 const curTimeEl = document.getElementById('curTime');
 const durTimeEl = document.getElementById('durTime');
+const slidePrevBtnEl = document.getElementById('slidePrevBtn');
+const slideNextBtnEl = document.getElementById('slideNextBtn');
 
 const viewToggleEl = document.getElementById('viewToggle');
 const muteToggleEl = document.getElementById('muteToggle');
@@ -441,6 +444,31 @@ function previewTick() {
     seekEl.value = preview.getTime() || 0;
     curTimeEl.textContent = fmtTime(preview.getTime());
   }
+  updateLyricCaption();
+  renderSlideNav();
+}
+
+// Último índice de slide cujo `time` já passou (letra sincronizada por
+// tempo) — mesmo algoritmo usado pelo Display para trocar de estrofe.
+function findSlideIndex(lyrics, time) {
+  let idx = -1;
+  for (let i = 0; i < lyrics.length; i++) {
+    if (lyrics[i].time <= time) idx = i; else break;
+  }
+  return idx < 0 ? 0 : idx;
+}
+
+// Legenda leve de uma linha (texto da estrofe atual), só pra o operador
+// confirmar o que está sendo exibido no telão — não é um mockup visual do
+// slide, só um texto.
+function updateLyricCaption() {
+  const lyrics = currentItem && Array.isArray(currentItem.lyrics) ? currentItem.lyrics : null;
+  if (!lyrics) { npLyricEl.hidden = true; return; }
+  const idx = findSlideIndex(lyrics, preview.getTime() || 0);
+  const slide = lyrics[idx];
+  const text = slide && !slide.cover ? (slide.text || '') : '';
+  npLyricEl.textContent = text;
+  npLyricEl.hidden = !text;
 }
 
 // ===== util =====
@@ -562,6 +590,8 @@ async function load() {
   renderPlaylist();
   renderLibrary();
   renderSelbar();
+  renderSlideNav();
+  updateLyricCaption();
 
   // mantém a preview alinhada (sem recarregar a mídia)
   preview.setView(view); preview.setMute(muted); preview.setVolume(volume);
@@ -931,6 +961,33 @@ function step(delta) {
   const idx = plItems.findIndex((m) => m.id === currentId);
   const target = idx === -1 ? 0 : (idx + delta + plItems.length) % plItems.length;
   send(plItems[target].id);
+}
+
+// Navegação manual de estrofe (independente da posição do áudio): pula pro
+// tempo do slide vizinho reaproveitando o comando `seek` já existente — o
+// Display (e a própria preview) sincronizam a letra sozinhos ao reagir ao
+// novo tempo, sem precisar de um comando novo no protocolo.
+function stepSlide(delta) {
+  const lyrics = currentItem && Array.isArray(currentItem.lyrics) ? currentItem.lyrics : null;
+  if (!lyrics || lyrics.length === 0) return;
+  const idx = findSlideIndex(lyrics, preview.getTime() || 0);
+  const target = Math.min(Math.max(idx + delta, 0), lyrics.length - 1);
+  if (target === idx) return;
+  cmd({ type: 'seek', time: lyrics[target].time });
+}
+
+// Habilita/desabilita os botões de estrofe conforme o item atual tem letra
+// sincronizada e a posição dentro dela (desabilita no primeiro/último slide).
+function renderSlideNav() {
+  const lyrics = currentItem && Array.isArray(currentItem.lyrics) ? currentItem.lyrics : null;
+  if (!lyrics || lyrics.length === 0) {
+    slidePrevBtnEl.disabled = true;
+    slideNextBtnEl.disabled = true;
+    return;
+  }
+  const idx = findSlideIndex(lyrics, preview.getTime() || 0);
+  slidePrevBtnEl.disabled = idx <= 0;
+  slideNextBtnEl.disabled = idx >= lyrics.length - 1;
 }
 
 function resetAfterEnd() {
@@ -1426,14 +1483,19 @@ async function syncHymnal2022() {
     await AVDB.setState('hymnal2022', hymnal2022);
     refreshHymnalRowIfVisible();
 
-    // Fase 2: só entra na fila quem ainda não tem os arquivos de fato no
-    // catálogo (re-verifica via fileGet — cobre tanto "nunca baixado" quanto
-    // "catalogado mas apagado por fora", ex: exclusão manual dentro da pasta).
+    // Fase 2: entra na fila quem ainda não tem os arquivos de fato no
+    // catálogo (re-verifica via fileGet — cobre "nunca baixado" e
+    // "catalogado mas apagado por fora", ex: exclusão manual dentro da
+    // pasta) OU cujo arquivo já existe mas ainda não tem a letra sincronizada
+    // (`lyrics === undefined`) — cobre o backfill de hinos baixados antes da
+    // letra sincronizada existir, sem rebaixar o áudio (ver ensureHymnVariant).
     const pending = [];
     for (const s of songs) {
-      const okFull = s.fileIdFull && (await AVDB.fileGet(s.fileIdFull));
-      const okPlayback = !s.has_instrumental_music || (s.fileIdPlayback && (await AVDB.fileGet(s.fileIdPlayback)));
-      if (!okFull || !okPlayback) pending.push(s);
+      const fullRec = s.fileIdFull ? await AVDB.fileGet(s.fileIdFull) : null;
+      const playbackRec = s.fileIdPlayback ? await AVDB.fileGet(s.fileIdPlayback) : null;
+      const needsFull = !fullRec || fullRec.lyrics === undefined;
+      const needsPlayback = s.has_instrumental_music && (!playbackRec || playbackRec.lyrics === undefined);
+      if (needsFull || needsPlayback) pending.push(s);
     }
     if (pending.length === 0) { flash('Hinário 2022 já está completo offline'); return; }
 
@@ -1461,33 +1523,60 @@ async function syncHymnal2022() {
 }
 
 // Baixa (ou completa) um hino: busca os metadados individuais (URLs reais) e
-// grava áudio Cantado + Playback (se houver) + capa no OPFS/catálogo. `s` é
-// mutado in-place (fileIdFull/fileIdPlayback), refletido no `hymnal2022.songs`
-// compartilhado.
+// grava áudio Cantado + Playback (se houver) + capa/letra sincronizada no
+// OPFS/catálogo. `s` é mutado in-place (fileIdFull/fileIdPlayback), refletido
+// no `hymnal2022.songs` compartilhado.
 async function downloadHymnalSong(s) {
   let meta;
   try { meta = await Louvorja.fetchList('music_' + s.id_music); }
   catch (_) { return; } // sem rede agora; a próxima sincronização tenta de novo
 
-  let thumb = null;
-  if (!s.fileIdFull && meta.url_image) {
-    thumb = await fetchImageThumb(Louvorja.fileUrl(meta.url_image));
-  } else if (s.fileIdFull) {
-    const prevRec = await AVDB.fileGet(s.fileIdFull);
-    if (prevRec) thumb = prevRec.thumb;
+  // Cache de imagens por URL, compartilhado entre as duas variantes (Cantado
+  // e Playback quase sempre usam as mesmas imagens da letra) — evita baixar a
+  // mesma imagem mais de uma vez.
+  const imgCache = new Map();
+  async function resolveImage(url) {
+    if (!url) return null;
+    if (imgCache.has(url)) return imgCache.get(url);
+    const result = await downloadHymnalImage(url, s.id_music, imgCache.size);
+    imgCache.set(url, result);
+    return result;
   }
 
-  if (!s.fileIdFull || !(await AVDB.fileGet(s.fileIdFull))) {
-    const id = await downloadHymnalFile(meta.url_music, s, 'Cantado', thumb);
-    if (id) s.fileIdFull = id;
-  }
-  if (s.has_instrumental_music && (!s.fileIdPlayback || !(await AVDB.fileGet(s.fileIdPlayback)))) {
-    const id = await downloadHymnalFile(meta.url_instrumental_music, s, 'Playback', thumb);
-    if (id) s.fileIdPlayback = id;
+  const coverImage = meta.url_image ? await resolveImage(meta.url_image) : null;
+  const thumb = coverImage ? coverImage.thumbBlob : null;
+
+  await ensureHymnVariant(s, 'fileIdFull', meta.url_music, 'Cantado', meta, 'time', thumb, resolveImage);
+  if (s.has_instrumental_music) {
+    await ensureHymnVariant(s, 'fileIdPlayback', meta.url_instrumental_music, 'Playback', meta, 'instrumental_time', thumb, resolveImage);
   }
 }
 
-async function downloadHymnalFile(urlPath, s, variantLabel, thumb) {
+// Garante que uma variante (Cantado/Playback) tenha áudio E letra
+// sincronizada. Cobre 3 casos: nunca baixado (baixa tudo); áudio já baixado
+// mas ainda sem `lyrics` (só recalcula e grava a letra no registro existente,
+// SEM rebaixar o áudio — é o backfill dos hinos sincronizados antes da letra
+// existir); já completo (não faz nada).
+async function ensureHymnVariant(s, fileKey, urlPath, variantLabel, meta, timeField, thumb, resolveImage) {
+  const existingId = s[fileKey];
+  const existingRec = existingId ? await AVDB.fileGet(existingId) : null;
+  if (existingRec && existingRec.lyrics !== undefined) return; // já completo
+
+  const lyrics = await buildLyricSlides(meta, timeField, resolveImage);
+
+  if (existingRec) {
+    existingRec.lyrics = lyrics;
+    existingRec.hymnName = s.name;
+    existingRec.hymnTrack = s.track;
+    await AVDB.fileAdd(existingRec);
+    return;
+  }
+  if (!urlPath) return;
+  const id = await downloadHymnalFile(urlPath, s, variantLabel, thumb, lyrics);
+  if (id) s[fileKey] = id;
+}
+
+async function downloadHymnalFile(urlPath, s, variantLabel, thumb, lyrics) {
   if (!urlPath) return null;
   let blob;
   try {
@@ -1503,19 +1592,31 @@ async function downloadHymnalFile(urlPath, s, variantLabel, thumb) {
     id, folder: HYMNAL_FOLDER_ID, opfsPath: path,
     srcName: s.id_music + '-' + variantLabel,
     name: (s.track ? String(s.track).padStart(3, '0') + '. ' : '') + s.name + ' (' + variantLabel + ')',
+    hymnName: s.name, hymnTrack: s.track,
     type: blob.type || 'audio/mpeg', kind: 'audio',
-    size: blob.size, mtime: Date.now(), thumb,
+    size: blob.size, mtime: Date.now(), thumb, lyrics,
     blob: null, url: null, addedAt: Date.now(),
   });
   return id;
 }
 
-async function fetchImageThumb(url) {
+// Baixa uma imagem em resolução real pro OPFS (fundo dos slides de letra) e
+// gera a miniatura do catálogo (mesmo `drawThumb`) a partir do MESMO blob —
+// evita baixar a capa duas vezes (uma pro fundo, outra só pra miniatura).
+async function downloadHymnalImage(url, songId, index) {
+  let blob;
+  try {
+    const res = await fetch(Louvorja.fileUrl(url));
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    blob = await res.blob();
+  } catch (_) { return null; }
+  const ext = (url.split('.').pop() || 'jpg').toLowerCase().split('?')[0];
+  const path = 'folders/' + HYMNAL_FOLDER_ID + '/' + songId + '-img-' + index + '.' + ext;
+  try { await AVDB.opfsWriteFile(path, blob); } catch (_) { return null; }
+
+  let thumbBlob = null;
   let objUrl = null;
   try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const blob = await res.blob();
     objUrl = URL.createObjectURL(blob);
     const img = await new Promise((resolve, reject) => {
       const im = new Image();
@@ -1523,12 +1624,70 @@ async function fetchImageThumb(url) {
       im.onerror = reject;
       im.src = objUrl;
     });
-    return await drawThumb(img, img.naturalWidth, img.naturalHeight);
+    thumbBlob = await drawThumb(img, img.naturalWidth, img.naturalHeight);
   } catch (_) {
-    return null;
+    // sem miniatura, mas a imagem de fundo já foi gravada — segue normalmente
   } finally {
     if (objUrl) URL.revokeObjectURL(objUrl);
   }
+  return { opfsPath: path, thumbBlob };
+}
+
+// "HH:MM:SS" (ou variações com menos partes) → segundos. `null` se
+// vazio/inválido — nunca 0, pra não colidir com o tempo fixo do slide de capa.
+function parseTimeToSeconds(str) {
+  if (!str) return null;
+  const parts = String(str).split(':').map(Number);
+  if (parts.some((n) => isNaN(n))) return null;
+  while (parts.length < 3) parts.unshift(0);
+  const [h, m, sec] = parts;
+  return h * 3600 + m * 60 + sec;
+}
+
+// Monta os slides de letra sincronizada de uma variante (Cantado usa `time`,
+// Playback usa `instrumental_time`): slide de capa (tempo 0, sem texto,
+// imagem da música) + uma entrada por linha de `meta.lyric` marcada como
+// `show_slide`, ordenadas por tempo. Uma linha sem imagem própria herda a da
+// anterior (fallback "grudento", igual ao app original); linhas sem tempo
+// utilizável no campo ativo são ignoradas. Retorna `null` se não sobrar
+// nenhuma linha real (só a capa) — sinaliza "sem letra utilizável", pra não
+// tentar de novo a cada sincronização (ver ensureHymnVariant).
+async function buildLyricSlides(meta, timeField, resolveImage) {
+  let prevImage = meta.url_image ? await resolveImage(meta.url_image) : null;
+  let prevImagePosition = meta.image_position;
+
+  const cover = {
+    time: 0, text: null, auxText: null, cover: true,
+    imageOpfsPath: prevImage ? prevImage.opfsPath : null,
+    imagePosition: prevImagePosition,
+  };
+
+  const lines = Object.values(meta.lyric || {})
+    .filter((l) => l.show_slide === 1)
+    .sort((a, b) => a.order - b.order);
+
+  const slides = [cover];
+  for (const line of lines) {
+    const time = parseTimeToSeconds(line[timeField]);
+    if (time === null) continue;
+    if (line.url_image) {
+      const resolved = await resolveImage(line.url_image);
+      if (resolved) { prevImage = resolved; prevImagePosition = line.image_position; }
+    }
+    slides.push({
+      time,
+      text: line.lyric || '',
+      auxText: line.aux_lyric || null,
+      cover: false,
+      imageOpfsPath: prevImage ? prevImage.opfsPath : null,
+      imagePosition: prevImagePosition,
+    });
+  }
+
+  if (slides.length <= 1) return null; // só a capa — nada de real pra sincronizar
+
+  slides.sort((a, b) => a.time - b.time);
+  return slides;
 }
 
 async function deleteHymnal2022() {
@@ -1840,6 +1999,8 @@ playPauseEl.addEventListener('click', () => {
 stopEl.addEventListener('click', stopClear);
 prevEl.addEventListener('click', () => step(-1));
 nextEl.addEventListener('click', () => step(1));
+slidePrevBtnEl.addEventListener('click', () => stepSlide(-1));
+slideNextBtnEl.addEventListener('click', () => stepSlide(1));
 repeatEl.addEventListener('click', cycleRepeat);
 
 
