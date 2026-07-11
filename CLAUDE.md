@@ -37,7 +37,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.32.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.33.**
 
 ---
 
@@ -82,6 +82,7 @@ public/
 │   ├── index.html              # UI do operador
 │   ├── controle.css            # Estilos do Controle
 │   ├── controle.js             # Lógica do Controle
+│   ├── louvorja.js             # Cliente da API pública do LouvorJA (Hinário 2022 — ver seção própria)
 │   ├── icons/                  # icon-{192,512}.svg + .png (PNG obrigatório p/ WebAPK) + icon-maskable-{192,512}.png (ver "Instalar no Android")
 │   ├── manifest.json           # PWA manifest (portrait + share_target)
 │   └── sw.js                   # Service worker (cache: controle-vX.Y)
@@ -162,6 +163,7 @@ O campo `kind` é derivado do `type` (ou definido pelo chamador para itens de UR
 | `folders` | `[{ id, name }]` — pastas virtuais |
 | `folder_<id>` | array de IDs de mídia da pasta |
 | `opfs-folders` | `[{ id, name, count, syncedAt, handle? }]` — pastas sincronizadas no OPFS (`handle` acelera re-sync) |
+| `hymnal2022` | `{ indexSyncedAt, songs: [{ id_music, track, name, duration, has_instrumental_music, fileIdFull, fileIdPlayback }] }` — catálogo offline do Hinário Adventista 2022 (LouvorJA) — ver seção própria |
 | `pending-share` | `{ files, url, title, ts }` — share recebido pelo SW aguardando processamento |
 | `order` | legado — lido apenas como fallback de `imports` |
 | `favorites` | legado (recurso de favoritos removido) — array de IDs; não é mais lido nem gravado, ignorado |
@@ -641,6 +643,83 @@ usa `listRemove` (com gc).
 - **Pastas virtuais** — criadas pelo usuário (state `folders` + `folder_<id>`);
   recebem itens pelo botão "salvar em pasta" da seleção múltipla (funciona
   também com IDs do catálogo OPFS). Excluir a pasta não exclui as mídias.
+
+### Hinário Adventista 2022 (LouvorJA)
+
+Integração com o catálogo público do app **LouvorJA** (`api.louvorja.com.br`,
+mesmo backend usado pelo app `app-ja`), para trazer o Hinário Adventista 2022
+(módulo `hymnal` do LouvorJA — o de 1996 é `hymnal_1996`, não integrado)
+como fonte de mídia offline, sem copiar nenhum código do app-ja (Vue/Vuex) —
+só o **protocolo HTTP** dele é reaproveitado, via um cliente próprio e mínimo:
+`controle/louvorja.js` (`window.Louvorja`, JS puro, sem dependências).
+
+- **`Louvorja.fetchList(file)`** — `GET {url-base}/{file}?{YYYYMMDD}` com
+  header `Api-Token`, mesmo formato do `Database.js` do app-ja (URL de
+  produção + token embutidos no arquivo — já públicos no bundle do app-ja,
+  não é um segredo protegido).
+- **`Louvorja.fileUrl(path)`** — resolve um campo de URL do banco (ex:
+  `url_music`) para a URL completa de download do arquivo.
+- Dois tipos de arquivo consumidos: `pt_hymnal` (lista completa e leve dos
+  ~600 hinos: `id_music, track, name, duration, has_instrumental_music` — sem
+  URLs de mídia) e `music_{id_music}` (registro individual, com
+  `url_music`, `url_instrumental_music`, `url_image`).
+
+**Duas camadas, independentes** (`state.hymnal2022`, ver tabela acima):
+
+1. **Índice** (leve, só metadados) — permanece offline assim que sincronizado
+   uma vez; é o que alimenta a busca (item 2 abaixo) mesmo antes do download
+   pesado terminar.
+2. **Download** (pesado) — para cada hino do índice, baixa o áudio Cantado
+   (`url_music`) sempre e o Playback/instrumental (`url_instrumental_music`)
+   quando existir, mais a capa (`url_image`, convertida em thumbnail via
+   Canvas — `fetchImageThumb`, mesmo `drawThumb` das pastas OPFS) — grava tudo
+   no **mesmo catálogo OPFS das pastas sincronizadas** (`AVDB.fileAdd` +
+   `AVDB.opfsWriteFile`, pasta fixa `folders/hymnal-2022/`), então listar,
+   buscar, tocar e excluir dentro dele funciona **sem nenhum código novo** —
+   é só mais uma pasta OPFS (ver "Pastas" acima), só que a fonte da
+   sincronização é uma API remota em vez de `showDirectoryPicker()`.
+
+**UI**: uma linha fixa "Hinário Adventista 2022" sempre aparece no topo da
+aba **Pastas** (`renderHymnalRow()`, mesmo visual `.folder-opfs` das pastas
+de dispositivo, ícone de nota musical), mesmo antes da 1ª sincronização —
+com um botão de sincronizar (`syncHymnal2022()`) e, uma vez que já haja algo
+baixado, um botão de excluir tudo (`deleteHymnal2022()`) e a própria linha
+vira clicável (abre como uma pasta OPFS normal, via `openOpfsFolder`).
+Sincronização é **aditiva e resumível**: interromper e tocar de novo só baixa
+o que falta (`fileGet` reconfirma que o arquivo catalogado ainda existe de
+fato antes de pular — cobre até exclusões manuais feitas por dentro da
+pasta via seleção múltipla).
+
+**Botão de busca** (`#hymnSearchBtn`, ícone de lupa — SVG inline, não existe
+no subset da fonte — ao lado do "+ Importar" nas abas): abre um popup
+(`#hymnSearchPopup`, mesmo padrão bottom-sheet dos outros popups) com campo
+de busca (por nome ou número do hino) e resultados **só do índice já
+sincronizado offline** (`hymnal2022.songs`, filtro em memória,
+`normalizeForSearch` ignora acentuação) — funciona sem rede, mas só mostra o
+que já foi indexado por uma sincronização anterior; a atualização "de tempos
+em tempos" é manual, pelo botão de sincronizar da aba Pastas (sem polling
+automático). Cada resultado tem dois pares de botão — **▶ Cantado** / **➕**
+e **▶ Playback** / **➕** (o segundo só aparece se `has_instrumental_music`)
+— tocar substitui a playlist e exibe (mesmo comportamento de toque simples
+da biblioteca), adicionar entra no Cronograma (`AVDB.listAdd('imports', id)`).
+
+**Resolução do id de mídia por variante** (`resolveHymnMediaId`) é
+**offline-first com fallback online automático**: se a variante já foi
+baixada (fase 2 acima), usa o id do catálogo OPFS direto (zero-cópia, mesmo
+padrão do botão ➕ das pastas); senão, busca `music_{id}` na hora e cria um
+registro temporário de **streaming ao vivo** (`AVDB.storeUrlTemp`, com a URL
+remota real) — só tenta rede quando o offline de fato não existe, nunca ao
+contrário. Um cache em memória (`hymnStreamCache`, por sessão) evita recriar
+esse registro temporário a cada tentativa da mesma música/variante antes do
+download completo terminar; assim que a fase 2 baixa o arquivo de verdade, a
+próxima resolução já usa o catálogo OPFS normalmente.
+
+> **Nota de rede**: a API de produção precisa aceitar CORS para a origin do
+> Audio Visual IASD (`https://jonathasptbr-gh.github.io`) — não verificado
+> em produção no momento desta implementação (rede da sessão de
+> desenvolvimento não tinha acesso a `api.louvorja.com.br` para testar). Se o
+> `fetch` falhar por CORS, a sincronização e a busca ao vivo (mas não a busca
+> no índice já baixado) param de funcionar.
 
 ### Compartilhamento (Web Share Target)
 

@@ -435,6 +435,25 @@ main {
 }
 .lib-search::placeholder { color: var(--muted); }
 
+/* ---------- popup de busca no Hinário 2022 ---------- */
+.hymn-search-bar { padding: .3rem .9rem .5rem; flex-shrink: 0; }
+.hymn-result { padding-bottom: .4rem; }
+.hymn-row { align-items: center; }
+.hymn-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.hymn-sub { font-size: .7rem; color: var(--muted); }
+.hymn-variants { display: flex; gap: .4rem; padding: 0 .5rem .5rem; }
+.hymn-variant { flex: 1; display: flex; gap: .3rem; min-width: 0; }
+.hymn-play {
+  flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: .3rem;
+  height: 34px; border: none; border-radius: 8px; background: rgba(255, 255, 255, .06);
+  color: var(--text); font-size: .78rem; font-weight: 600; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.hymn-play .msym { font-size: 17px; }
+.hymn-play:active, .hymn-add:active { transform: scale(.96); }
+/* Playback (instrumental) fica em tom accent para diferenciar do Cantado. */
+.hymn-variant[data-variant="playback"] .hymn-play { background: var(--accent-soft); color: var(--accent); }
+
 /* ---------- popup de transições (fade) ---------- */
 .fade-opts { display: flex; flex-direction: column; gap: .4rem; padding: .3rem .9rem 1rem; }
 .fade-row {
