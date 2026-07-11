@@ -37,7 +37,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.39.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.40.**
 
 ---
 
@@ -448,14 +448,14 @@ iniciado aplica seu resultado — chamadas anteriores obsoletas são descartadas
 │  │  item 1                                           │  │  ← .lib-list
 │  │  item 2                                           │  │     (área scrollável)
 │  └───────────────────────────────────────────────────┘  │
-│  [Playlist] │ [Cronograma] [Pastas]  [+ Importar]       │  ← .tabs (base da seção)
+│  [Cronograma] [Pastas]  [🔍 Hinário] [+ Importar]        │  ← .tabs (base da seção)
 ├─────────────────────────────────────────────────────────┤
 │  ┌─────────────────────────────────────┬──────┐         │  ← .bottombar (base fixa)
-│  │  Preview 16:9                       │      │         │
-│  │─────────────────────────────────────│ Mix  │         │
-│  │  Nome da mídia atual  [seek bar]    │  er  │         │
-│  │─────────────────────────────────────│      │         │
-│  │  ⏮  ▶/⏸  ⏹  ⏭  🔁               │      │         │
+│  │  Nome da mídia atual  [seek bar]    │ Wall │         │
+│  │─────────────────────────────────────│ Ltr  │         │
+│  │  ⏮ Preview 16:9 ⏭                  │ Mesa │         │
+│  │─────────────────────────────────────│ Mudo │         │
+│  │  ⏮  ▶/⏸  ⏹  ⏭  🔁  [Playlist]    │ Vol  │         │
 │  └─────────────────────────────────────┴──────┘         │
 │  [margem segura para navegação por gestos]              │
 └─────────────────────────────────────────────────────────┘
@@ -507,6 +507,17 @@ um "botão" (thumb) de 34px (`::-webkit-slider-thumb`), maior que o padrão do
 navegador, para facilitar tocar e arrastar. Mutar/desmutar não corta o volume na
 hora — faz uma rampa curta (ver `setMute` em `stage.js`).
 
+**Alinhamento com a linha de transporte:** `.mixer-inner` usa **padding só
+horizontal** (`0 .35rem`) — sem padding vertical, o topo do primeiro botão
+(`#viewToggle`) cai exatamente na mesma altura do topo de `.nowplaying`, e a
+base do último (`#volToggle`) cai exatamente na mesma altura da base de
+`.transport` (a coluna do mixer é, na prática, a régua de alinhamento
+vertical para o resto do deck). `.preview-row` tem `height: 130px` (não
+132px/116px de versões anteriores) — o valor foi calibrado para que os
+botões do mixer (que preenchem toda a altura de `.deck-main`, incluindo
+nowplaying + preview + transport) fiquem com altura próxima da dos botões de
+`.transport`, em vez de ficarem "achatados".
+
 **Título rolante (now-playing):** o nome da mídia em exibição (`#npName`) tem
 um span interno (`#npNameInner`); quando o texto não cabe na largura
 disponível, `applyTitleMarquee()` liga a classe `.scrolling` e uma animação
@@ -533,6 +544,17 @@ Display).
 
 **Botão ⏹ ("Parar e limpar"):** envia `clear` (volta ao wallpaper) mas mantém
 `currentId` — o ▶ recarrega e reproduz do início.
+
+**Botão de playlist (`#plBtn`):** mora na própria linha de transporte
+(`.transport`), à direita do botão de repetição — não é mais uma aba
+separada (`.tabs`); abre o mesmo bottom-sheet com a fila de reprodução de
+sempre. Reaproveita o tamanho/estilo de `.t-btn` (a linha de transporte
+cresceu de 5 para 6 botões, cada um um pouco mais estreito). O badge de
+contagem (`#plCount`) só aparece a partir do **2º item** (mostra
+`count - 1`), e o ícone só fica destacado em azul (`.has-items`) nesse mesmo
+caso: com apenas a mídia atual em fila, a playlist é só a reprodução avulsa
+e não deve chamar atenção nem com um "1" enganoso nem com o ícone colorido —
+fica neutro (branco).
 
 ### Modo "mesa de som" (saída de áudio local)
 
@@ -584,11 +606,6 @@ abrir uma aba comum como fallback).
 
 As abas ficam na **base da seção de listas** (ícones):
 
-- **Playlist** (botão com badge de contagem) — abre bottom-sheet com a fila de reprodução.
-  O badge só aparece a partir do **2º item** (mostra `count - 1`), e o ícone só
-  fica destacado em azul (`.has-items`) nesse mesmo caso: com apenas a mídia
-  atual em fila, a playlist é só a reprodução avulsa e não deve chamar atenção
-  nem com um "1" enganoso nem com o ícone colorido — fica neutro (branco).
 - **Cronograma** (`imports`) — itens importados; ficam até serem excluídos.
   (O recurso de favoritos foi removido — para agrupar mídias, use pastas
   virtuais via "salvar em pasta" na seleção múltipla.)
