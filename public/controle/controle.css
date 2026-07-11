@@ -65,13 +65,29 @@ body {
 }
 
 /* ---------- Deck: controles + mixer ---------- */
-.deck { display: flex; gap: .6rem; align-items: stretch; }
-.deck-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .45rem; }
+/* Grade real (CSS Grid), não flex aproximado: 2 colunas (conteúdo / mixer,
+   56px) x 3 linhas (nowplaying / preview / transport, a mesma faixa de
+   130px do preview). O `.mixer` usa grid-template-rows:subgrid pra herdar
+   exatamente essas 3 faixas — garante que o topo/base de cada botão lateral
+   caia na mesma altura do início/fim da linha correspondente à esquerda,
+   sem depender de flex-basis calculado à parte (fonte do desalinhamento
+   antigo entre a coluna do mixer e nowplaying/preview/transport). */
+.deck {
+  display: grid;
+  grid-template-columns: 1fr 56px;
+  grid-template-rows: auto 130px auto;
+  column-gap: .6rem;
+  row-gap: .45rem;
+}
+.nowplaying  { grid-column: 1; grid-row: 1; }
+.preview-row { grid-column: 1; grid-row: 2; }
+.transport   { grid-column: 1; grid-row: 3; }
 
 /* Linha da preview + navegação manual de estrofe (letra sincronizada): os
    botões flanqueiam a preview (mantida em 16:9) e crescem para ocupar o
-   espaço horizontal que sobra na linha. */
-.preview-row { display: flex; align-items: stretch; gap: .4rem; height: 130px; }
+   espaço horizontal que sobra na linha. A altura vem da grade (.deck,
+   `grid-template-rows: auto 130px auto`), não mais de um `height` próprio. */
+.preview-row { display: flex; align-items: stretch; gap: .4rem; }
 .slide-nav-btn {
   flex: 1; min-width: 0; border: none; border-radius: 9px;
   background: rgba(255, 255, 255, .06); color: #fff; cursor: pointer;
@@ -114,21 +130,31 @@ body {
    preview sempre espelha o telão, e isso vale pra letra igual já vale pra
    imagem/vídeo/YouTube. Tamanhos fixos (não vw/vh, que aqui seriam relativos
    à tela toda do celular, não à caixinha da preview). */
-.pv-lyrics-bg { position: absolute; inset: 0; }
+/* `background:#000` no próprio .pv-lyrics-bg é o preto de verdade (mesmo
+   motivo do Display): no modo preto a <img> fica `hidden` de propósito, em
+   vez de só sem `src` — evita o ícone/borda padrão de "imagem quebrada" que
+   alguns navegadores mostram mesmo sem `src` (aparecia como linha branca de
+   margem). */
+.pv-lyrics-bg { position: absolute; inset: 0; background: #000; }
 .pv-lyrics-bg img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .pv-lyrics-content {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
   padding: 6% 8%; box-sizing: border-box;
 }
+/* Tamanho FIXO (não cresce/encolhe com o texto do slide) — mesmo princípio
+   do Display: overflow:hidden + line-clamp abaixo garantem que qualquer
+   letra caiba sem vazar da moldura. */
 .pv-lyrics-box {
-  max-width: 92%;
+  width: 92%;
+  height: 74px;
+  box-sizing: border-box;
   padding: 5px 9px;
   border-radius: 8px;
   background: rgba(0, 0, 0, .62);
   border: 1px solid rgba(255, 255, 255, .18);
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
-  text-align: center;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  text-align: center; overflow: hidden;
 }
 .pv-lyrics-line {
   color: #fff; font-weight: 700; text-transform: uppercase;
@@ -137,6 +163,7 @@ body {
 }
 .pv-lyrics-aux {
   color: rgba(255, 255, 255, .72); font-weight: 600; font-size: 7px;
+  display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
 }
 .pv-lyrics-content.cover .pv-lyrics-line {
   color: #fbc02d; font-size: 10px; -webkit-line-clamp: 3;
@@ -194,53 +221,57 @@ body {
 #repeat.active { color: var(--accent); }
 
 /* ---------- Mixer ---------- */
-/* O bloco tem tamanho FIXO: a altura vem do .deck-main (align-items:stretch no
-   .deck). O conteúdo mora num wrapper absoluto (.mixer-inner, inset:0) para que
-   a altura intrínseca do mixer seja 0 — assim o layout recolhido (naturalmente
-   mais alto que o aberto) não empurra o deck e não desloca preview/transport ao
-   abrir/fechar o volume. overflow:hidden mantém a animação contida no bloco. */
+/* Sem "card" de fundo: os botões ficam livres (cada um com o próprio fundo
+   via .ctl-btn), só alinhados pela grade. .mixer é um item do grid do .deck
+   que ocupa as 3 linhas (grid-row:1/4) e usa grid-template-rows:subgrid para
+   HERDAR exatamente essas mesmas 3 faixas de altura (nowplaying / 130px do
+   preview / transport) — top/mid/bottom caem pixel a pixel nas mesmas
+   alturas de .nowplaying/.preview-row/.transport, em vez de flex-basis
+   aproximado (fonte do desalinhamento antigo). Padding só horizontal (0 no
+   eixo vertical): padding vertical deslocaria as linhas herdadas do subgrid
+   pra dentro, reintroduzindo o desalinhamento. */
 .mixer {
-  position: relative; width: 56px; overflow: hidden;
-  background: rgba(255, 255, 255, .04); border-radius: 10px;
+  grid-column: 2; grid-row: 1 / 4;
+  display: grid; grid-template-rows: subgrid;
+  row-gap: .45rem; padding: 0 .35rem;
+  position: relative;
 }
-/* Sem padding vertical: o primeiro botão (topo) e o último (base, volToggle)
-   ficam exatamente à mesma altura do início de .nowplaying e do fim de
-   .transport, respectivamente — a coluna do mixer é a base de alinhamento
-   visual para toda a linha de transporte (play/pause/etc). Padding só
-   horizontal, para centralizar os botões na largura dos 56px do mixer. */
-.mixer-inner {
-  position: absolute; inset: 0;
-  display: flex; flex-direction: column; align-items: center; gap: .35rem; padding: 0 .35rem;
-}
-/* Preenchimento total da coluna: os botões do topo/meio crescem (.fill-btn) e
-   o botão de volume/ocultar fica na BASE com altura natural — nas duas telas
-   (recolhida e aberta) a base tem o mesmo botão, na mesma posição. */
-.mixer .fill-btn { flex: 1; min-height: 0; }
+.mixer-slot { display: flex; flex-direction: column; gap: .35rem; min-height: 0; }
+.mixer-top    { grid-row: 1; }
+.mixer-mid    { grid-row: 2; }
+.mixer-bottom { grid-row: 3; }
+/* Botões preenchem por inteiro a própria fatia da grade — top (1 botão), mid
+   (3 botões) e bottom (volume/ocultar, só um visível por vez) ficam com a
+   altura cheia da linha correspondente, sem sobrar nem faltar espaço. */
+.mixer-slot .ctl-btn { flex: 1; min-height: 0; }
 .mixer .ctl-btn svg { display: block; }
-/* Volume recolhível: por padrão a lateral mostra os botões (reservado/mudo/
-   visual/mesa de som) + o botão de volume na base; abrir troca todos eles pelo
-   fader (que ocupa o lugar dos .fill-btn) + o botão de ocultar na mesma base. */
-.mixer .fader-wrap, .mixer .vol-close { display: none; }
-.mixer.vol-open .fill-btn,
-.mixer.vol-open .vol-btn { display: none; }
+/* Volume recolhível: por padrão a lateral mostra os 4 botões (visual/fundo da
+   letra/mesa de som/mudo, em top+mid) + o botão de volume na base (bottom);
+   abrir troca top+mid pelo fader vertical (que ocupa exatamente o mesmo
+   espaço das duas linhas, 1+2) + o botão de ocultar na mesma base. */
+.fader-wrap { display: none; grid-row: 1 / 3; min-height: 90px; position: relative; }
+.mixer .vol-close { display: none; }
+.mixer.vol-open .mixer-top,
+.mixer.vol-open .mixer-mid { display: none; }
 .mixer.vol-open .fader-wrap { display: block; }
+.mixer.vol-open .vol-btn { display: none; }
 .mixer.vol-open .vol-close { display: flex; }
 /* Animação de abrir/fechar o slide de volume. O botão da BASE (volume/ocultar)
    NÃO é animado: ele fica no mesmo lugar e só troca de característica (ícone/
    cor) instantaneamente. Anima-se apenas o que está ACIMA dele — o fader
-   (abrir/fechar) e os .fill-btn (ao voltar, .vol-revealing). Fechar mantém a
-   classe .vol-closing durante a saída do fader. Ver openVolume/closeVolume em
-   controle.js. */
+   (abrir/fechar) e os botões de top+mid (ao voltar, .vol-revealing). Fechar
+   mantém a classe .vol-closing durante a saída do fader. Ver openVolume/
+   closeVolume em controle.js. */
 .mixer.vol-open:not(.vol-closing) .fader-wrap { animation: vol-slide-in .2s ease both; }
 .mixer.vol-closing .fader-wrap { animation: vol-slide-out .18s ease both; }
-.mixer.vol-revealing .fill-btn { animation: vol-slide-in .2s ease both; }
+.mixer.vol-revealing .mixer-top,
+.mixer.vol-revealing .mixer-mid { animation: vol-slide-in .2s ease both; }
 @keyframes vol-slide-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes vol-slide-out { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(10px); } }
 /* Botão de volume: preenchido de azul (accent) com o ícone de mixer em branco
    — visualmente distinto e prominente na base da coluna. Seletor com `.mixer`
    para ganhar de `.ctl-btn` (mesma especificidade, definido depois). */
 .mixer .vol-btn { background: var(--accent); color: #fff; }
-.fader-wrap { flex: 1; min-height: 90px; position: relative; }
 .fader {
   position: absolute; top: 6px; bottom: 6px; left: 50%; transform: translateX(-50%);
   writing-mode: vertical-lr; direction: rtl;
