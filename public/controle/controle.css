@@ -162,17 +162,24 @@ body {
    no Display (~60% da altura da caixinha para a moldura, fonte com
    cap-height proporcional), só reexpressas em `cq*` da preview. */
 /* Mesmo padrão "vídeo de louvor" do Display: cantos retos, borda fina e
-   nítida, sem sombra — ver .lyrics-box em display.css. */
+   nítida, sem sombra — ver .lyrics-box em display.css. Borda + fundo
+   semitransparente só com `.imgbg` (fundo em imagens dos slides) — no modo
+   preto puro seriam uma zona escura flutuando à toa sobre a tela já preta,
+   mesmo motivo do Display (ver applyPvLyricsBgClass em controle.js). */
 .pv-lyrics-box {
   width: 92cqw;
   height: 60cqh;
   box-sizing: border-box;
   padding: 4.5cqh 4cqw;
   border-radius: 0;
-  background: rgba(0, 0, 0, .4);
-  border: 1px solid rgba(255, 255, 255, .85);
+  background: transparent;
+  border: 1px solid transparent;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2.3cqh;
   text-align: center; overflow: hidden;
+}
+.pv-lyrics-content.imgbg .pv-lyrics-box {
+  background: rgba(0, 0, 0, .4);
+  border-color: rgba(255, 255, 255, .85);
 }
 /* white-space:pre-line respeita as quebras reais já embutidas no texto (ver
    normalizeLyricText em controle.js). */
