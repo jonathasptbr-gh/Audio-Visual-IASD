@@ -37,7 +37,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.34.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.35.**
 
 ---
 
@@ -704,15 +704,16 @@ e **▶ Playback** / **➕** (o segundo só aparece se `has_instrumental_music`)
 da biblioteca), adicionar entra no Cronograma (`AVDB.listAdd('imports', id)`).
 
 **Resolução do id de mídia por variante** (`resolveHymnMediaId`) é
-**offline-first com fallback online automático**: se a variante já foi
-baixada (fase 2 acima), usa o id do catálogo OPFS direto (zero-cópia, mesmo
-padrão do botão ➕ das pastas); senão, busca `music_{id}` na hora e cria um
-registro temporário de **streaming ao vivo** (`AVDB.storeUrlTemp`, com a URL
-remota real) — só tenta rede quando o offline de fato não existe, nunca ao
-contrário. Um cache em memória (`hymnStreamCache`, por sessão) evita recriar
-esse registro temporário a cada tentativa da mesma música/variante antes do
-download completo terminar; assim que a fase 2 baixa o arquivo de verdade, a
-próxima resolução já usa o catálogo OPFS normalmente.
+**offline-first com download sob demanda**: se a variante já foi baixada
+(fase 2 acima), usa o id do catálogo OPFS direto (zero-cópia, mesmo padrão do
+botão ➕ das pastas); senão, `ensureHymnDownloaded` baixa o hino **de
+verdade** ali mesmo (mesma `downloadHymnalSong` da sincronização em massa —
+áudio + capa + letra, pronto pra tocar 100% offline dali em diante), não um
+registro temporário/streaming. `hymnDownloadInFlight` (Map por `id_music`,
+sessão) evita disparar dois downloads do mesmo hino em paralelo se o
+operador tocar/adicionar duas vezes rápido antes do primeiro terminar. Ver
+"Wi-Fi vs dados móveis" abaixo para a política de quando cada tipo de
+download é permitido.
 
 > **Nota de rede**: a API de produção precisa aceitar CORS para a origin do
 > Audio Visual IASD (`https://jonathasptbr-gh.github.io`) — não verificado
@@ -749,10 +750,31 @@ remota direta, preserva o offline. Uma linha sem imagem própria **herda a da
 anterior** (fallback "grudento", igual ao app original); imagens iguais
 entre linhas/variantes são baixadas uma única vez (`resolveImage`, cache por
 URL compartilhado entre Cantado e Playback do mesmo hino, já que costumam
-usar as mesmas imagens). O **streaming ao vivo** de um hino ainda não
-sincronizado (`resolveHymnMediaId`) **não ganha letra** — toca só o áudio
-até que `syncHymnal2022` processe aquele hino ao menos uma vez (corte de
-escopo deliberado, evita estender `shared/db.js`).
+usar as mesmas imagens). Um hino tocado/adicionado antes de qualquer
+sincronização em massa passa pelo mesmo `downloadHymnalSong` sob demanda
+(ver "Resolução do id de mídia por variante" acima) — já sai dali com letra
+sincronizada, igual a um hino baixado em massa.
+
+#### Wi-Fi vs dados móveis
+
+A sincronização em **massa** (`syncHymnal2022`, baixar todos os hinos
+pendentes de uma vez) é **gated por Wi-Fi confirmado** (`isConfirmedWifi`,
+Network Information API — `navigator.connection.type === 'wifi' || 'ethernet'`;
+sem suporte no navegador cai em `'unknown'`, tratado como Wi-Fi **não**
+confirmado, postura conservadora). Sem Wi-Fi confirmado, o botão de
+sincronizar ainda atualiza a lista leve (metadados, sempre barato), mas
+**pula o download pesado** por padrão — um `confirm()` deixa o operador
+forçar mesmo assim se quiser gastar dados móveis de propósito. Um indicador
+(`.net-badge`, ícone de Wi-Fi inline — fora do subset da fonte) aparece do
+lado do botão de sincronizar na linha do Hinário 2022, atualizado ao vivo
+(`connection.addEventListener('change', ...)`).
+
+Isso **não afeta** o download individual disparado por tocar/adicionar um
+hino específico (`ensureHymnDownloaded`) — esse é sempre permitido,
+independente do tipo de rede: é exatamente o hino que o operador pediu pra
+usar naquele momento, não um download em massa não solicitado. Na prática,
+sem Wi-Fi o hinário vai sendo baixado aos poucos, só com o que de fato for
+usado em cada culto, em vez de baixar tudo de uma vez usando dados móveis.
 
 **Display** (`public/display/`): novo layer `#lyrics` (imagem de fundo
 `object-fit:cover` + scrim escuro + texto), inserido no DOM entre `#video` e

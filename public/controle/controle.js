@@ -129,11 +129,30 @@ const HYMNAL_FOLDER_ID = 'hymnal-2022';
 const HYMNAL_FOLDER_NAME = 'Hinário Adventista 2022';
 let hymnal2022 = { indexSyncedAt: 0, songs: [] }; // persistido em state 'hymnal2022'
 let hymnalSyncBusy = false;
-// Cache em memória (sessão) dos registros temporários de streaming ao vivo
-// usados como fallback quando uma música ainda não foi baixada — evita criar
-// um novo registro de mídia a cada tentativa de tocar/adicionar a mesma
-// variante antes do download completo terminar.
-const hymnStreamCache = new Map(); // "<id_music>:<variant>" -> media id
+// Downloads de hino em andamento (id_music -> Promise) — evita disparar dois
+// downloads do mesmo hino em paralelo se o operador tocar duas vezes rápido.
+const hymnDownloadInFlight = new Map();
+
+// ===== Detecção de rede (Wi-Fi vs dados móveis) =====
+// Só afeta a sincronização em MASSA do Hinário 2022 (baixar tudo de uma vez)
+// — nunca o download individual disparado por tocar/adicionar um hino
+// específico, que é sempre permitido (é exatamente o uso que gera o gasto de
+// dados, não um download em massa não solicitado). Network Information API
+// (Chrome/Android, onde os dois apps sempre rodam); sem suporte no navegador
+// cai em 'unknown', tratado como "Wi-Fi não confirmado" — mais conservador
+// (evita presumir Wi-Fi e gastar dados móveis à toa) do que assumir Wi-Fi por
+// falta de informação.
+function networkConnection() {
+  return navigator.connection || navigator.mozConnection || navigator.webkitConnection || null;
+}
+function networkType() {
+  const conn = networkConnection();
+  return (conn && typeof conn.type === 'string') ? conn.type : 'unknown';
+}
+function isConfirmedWifi() {
+  const t = networkType();
+  return t === 'wifi' || t === 'ethernet';
+}
 let mediaFit = 'contain'; // preenchimento da mídia (persistido em state 'fit')
 // Modo "mesa de som": saída de áudio local — a preview deixa de ser
 // forçosamente muda e passa a tocar o som de verdade pelo próprio aparelho.
@@ -828,6 +847,18 @@ function countHymnalDownloaded() {
 // visual das pastas sincronizadas do OPFS, mas a fonte é remota (API do
 // LouvorJA), não um `showDirectoryPicker()` do dispositivo. Sempre visível
 // (mesmo antes da 1ª sincronização) para o operador saber que a opção existe.
+// SVG inline (ícone fora do subset da fonte, mesma convenção do botão de
+// volume/mixer): antena de Wi-Fi. `.net-badge--warn` (via CSS) recolore para
+// indicar "sem Wi-Fi confirmado" — a sincronização em massa fica desativada
+// por padrão nesse estado (ver isConfirmedWifi/syncHymnal2022).
+function wifiIconEl() {
+  const span = document.createElement('span');
+  span.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    + '<path d="M2 8.5a17 17 0 0 1 20 0"/><path d="M5.5 12.5a11.5 11.5 0 0 1 13 0"/><path d="M9 16.3a6 6 0 0 1 6 0"/><circle cx="12" cy="19.5" r="1.2" fill="currentColor" stroke="none"/>'
+    + '</svg>';
+  return span.firstElementChild;
+}
+
 function renderHymnalRow() {
   const li = document.createElement('li');
   li.className = 'lib-item folder-opfs';
@@ -838,10 +869,17 @@ function renderHymnalRow() {
   const total = hymnal2022.songs.length;
   const countEl = document.createElement('span'); countEl.className = 'folder-count';
   countEl.textContent = hymnalSyncBusy ? '…' : (total ? countHymnalDownloaded() + '/' + total : '0');
+  const wifiOk = isConfirmedWifi();
+  const netEl = document.createElement('span');
+  netEl.className = 'net-badge' + (wifiOk ? '' : ' net-badge--warn');
+  netEl.title = wifiOk
+    ? 'Wi-Fi confirmado — sincronização completa liberada'
+    : 'Sem Wi-Fi confirmado — sincronizar baixa só a lista; hinos são baixados individualmente ao usar (ou force pelo botão)';
+  netEl.appendChild(wifiIconEl());
   const syncBtn = document.createElement('button'); syncBtn.className = 'row-btn'; syncBtn.title = 'Atualizar/baixar o Hinário 2022';
   syncBtn.appendChild(msym(ICON.import));
   syncBtn.addEventListener('click', (e) => { e.stopPropagation(); syncHymnal2022(); });
-  row.append(icon, nameEl, countEl, syncBtn);
+  row.append(icon, nameEl, countEl, netEl, syncBtn);
   if (total > 0) {
     const rmBtn = document.createElement('button'); rmBtn.className = 'row-btn'; rmBtn.title = 'Excluir hinário baixado';
     rmBtn.appendChild(msym(ICON.del));
@@ -1499,6 +1537,23 @@ async function syncHymnal2022() {
     }
     if (pending.length === 0) { flash('Hinário 2022 já está completo offline'); return; }
 
+    // Sem Wi-Fi confirmado: não baixa tudo sem avisar (evita estourar dados
+    // móveis) — a lista já foi atualizada acima, e cada hino ainda pode ser
+    // baixado individualmente ao ser tocado/adicionado (ver
+    // ensureHymnDownloaded). O operador pode forçar a sincronização completa
+    // mesmo assim, se quiser.
+    if (!isConfirmedWifi()) {
+      const proceed = confirm(
+        'Sem Wi-Fi confirmado. Baixar agora ' + pending.length + ' hino(s) pendente(s) vai usar dados móveis (pode ser bastante). ' +
+        'Sem confirmar, a lista já foi atualizada — cada hino ainda é baixado sozinho quando for tocado ou adicionado. ' +
+        'Baixar tudo mesmo assim, usando dados móveis?'
+      );
+      if (!proceed) {
+        flash('Lista atualizada. Hinos serão baixados individualmente conforme forem usados.');
+        return;
+      }
+    }
+
     let done = 0;
     const CONCURRENCY = 3;
     let next = 0;
@@ -1780,41 +1835,43 @@ function hymnVariantEl(s, variant, label) {
 }
 
 // Resolve o id de mídia tocável de uma variante (Cantado/Playback): usa o
-// arquivo já baixado no OPFS quando existe; senão cai para streaming ao vivo
-// (registro temporário de URL, ver storeUrlTemp) — só tenta a rede quando o
-// offline de fato não está disponível, nunca o contrário.
+// arquivo já baixado no OPFS quando existe; senão baixa o hino de verdade
+// agora, sob demanda ("conforme o uso") — diferente da sincronização em
+// massa (gated por Wi-Fi), um download disparado por tocar/adicionar é
+// sempre permitido, mesmo em dados móveis: é exatamente o hino que o
+// operador pediu pra usar, nunca o catálogo inteiro de uma vez. Reaproveita
+// downloadHymnalSong (mesma função da sincronização em massa) — o hino sai
+// desse fluxo já com áudio, capa e letra, igual a um hino sincronizado em
+// massa, pronto pra tocar 100% offline nas próximas vezes.
+async function ensureHymnDownloaded(s) {
+  const fullRec = s.fileIdFull ? await AVDB.fileGet(s.fileIdFull) : null;
+  const playbackRec = s.fileIdPlayback ? await AVDB.fileGet(s.fileIdPlayback) : null;
+  const needsFull = !fullRec || fullRec.lyrics === undefined;
+  const needsPlayback = s.has_instrumental_music && (!playbackRec || playbackRec.lyrics === undefined);
+  if (!needsFull && !needsPlayback) return;
+
+  if (hymnDownloadInFlight.has(s.id_music)) { await hymnDownloadInFlight.get(s.id_music); return; }
+  const p = (async () => {
+    flash('Baixando "' + s.name + '"…', true);
+    await downloadHymnalSong(s);
+    await AVDB.setState('hymnal2022', hymnal2022);
+    refreshHymnalRowIfVisible();
+  })();
+  hymnDownloadInFlight.set(s.id_music, p);
+  try { await p; } finally { hymnDownloadInFlight.delete(s.id_music); }
+}
+
 async function resolveHymnMediaId(s, variant) {
+  await ensureHymnDownloaded(s);
   const fileId = variant === 'full' ? s.fileIdFull : s.fileIdPlayback;
-  if (fileId) {
-    const rec = await AVDB.fileGet(fileId);
-    if (rec) return fileId;
-  }
-  const cacheKey = s.id_music + ':' + variant;
-  if (hymnStreamCache.has(cacheKey)) {
-    const cachedId = hymnStreamCache.get(cacheKey);
-    const rec = await AVDB.getMedia(cachedId);
-    if (rec) return cachedId;
-    hymnStreamCache.delete(cacheKey);
-  }
-  let meta;
-  try { meta = await Louvorja.fetchList('music_' + s.id_music); }
-  catch (_) { return null; }
-  if (!meta) return null;
-  const path = variant === 'full' ? meta.url_music : meta.url_instrumental_music;
-  if (!path) return null;
-  const label = variant === 'full' ? 'Cantado' : 'Playback';
-  const rec = await AVDB.storeUrlTemp(Louvorja.fileUrl(path), {
-    kind: 'audio', type: 'audio/mpeg',
-    name: (s.track ? s.track + '. ' : '') + s.name + ' (' + label + ')',
-    thumb: meta.url_image ? Louvorja.fileUrl(meta.url_image) : null,
-  });
-  hymnStreamCache.set(cacheKey, rec.id);
-  return rec.id;
+  if (!fileId) return null;
+  const rec = await AVDB.fileGet(fileId);
+  return rec ? fileId : null;
 }
 
 async function playHymnVariant(s, variant) {
   const id = await resolveHymnMediaId(s, variant);
-  if (!id) { flash('Não foi possível tocar (sem internet e ainda não baixado)'); return; }
+  if (!id) { flash('Não foi possível tocar (sem internet para baixar este hino)'); return; }
   const rec = await AVDB.getMedia(id);
   if (!rec) { flash('Erro ao carregar mídia'); return; }
   await AVDB.listSet('playlist', [id]);
@@ -1827,7 +1884,7 @@ async function playHymnVariant(s, variant) {
 
 async function addHymnVariant(s, variant) {
   const id = await resolveHymnMediaId(s, variant);
-  if (!id) { flash('Não foi possível adicionar (sem internet e ainda não baixado)'); return; }
+  if (!id) { flash('Não foi possível adicionar (sem internet para baixar este hino)'); return; }
   const had = await AVDB.listHas('imports', id);
   await AVDB.listAdd('imports', id);
   flash(had ? 'Já no Cronograma' : 'Adicionado ao Cronograma');
@@ -2080,6 +2137,13 @@ hymnSearchBtnEl.addEventListener('click', openHymnSearch);
 hymnSearchCloseEl.addEventListener('click', closeHymnSearch);
 hymnSearchPopupEl.addEventListener('click', (e) => { if (e.target === hymnSearchPopupEl) closeHymnSearch(); });
 hymnSearchInputEl.addEventListener('input', () => renderHymnResults(hymnSearchInputEl.value));
+
+// Mantém o indicador de Wi-Fi/dados móveis da linha do Hinário atualizado
+// em tempo real (o navegador dispara 'change' quando o tipo de conexão muda).
+(function () {
+  const conn = networkConnection();
+  if (conn && conn.addEventListener) conn.addEventListener('change', refreshHymnalRowIfVisible);
+})();
 
 // Toque na preview abre as configurações rápidas de transição (fade).
 document.getElementById('preview').addEventListener('click', openFadePopup);

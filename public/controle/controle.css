@@ -349,6 +349,12 @@ main {
 /* pastas sincronizadas (OPFS) */
 .folder-opfs .msym { color: var(--accent); }
 .folder-opfs .folder-count { color: var(--accent); opacity: .7; }
+
+/* Indicador de Wi-Fi/dados móveis na linha do Hinário 2022 (ver
+   isConfirmedWifi em controle.js) — verde/neutro quando Wi-Fi confirmado,
+   âmbar quando não (sincronização em massa desativada por padrão). */
+.net-badge { flex-shrink: 0; display: flex; align-items: center; color: var(--accent); opacity: .8; }
+.net-badge--warn { color: #fbc02d; opacity: 1; }
 .storage-usage { font-size: .72rem; opacity: .7; padding: 10px 0; }
 
 /* fundo de ação do swipe */
