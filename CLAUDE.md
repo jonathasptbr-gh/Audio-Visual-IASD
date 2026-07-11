@@ -37,7 +37,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.42.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.43.**
 
 ---
 
@@ -837,10 +837,12 @@ sem Wi-Fi o hinário vai sendo baixado aos poucos, só com o que de fato for
 usado em cada culto, em vez de baixar tudo de uma vez usando dados móveis.
 
 **Display** (`public/display/`): novo layer `#lyrics` (imagem de fundo
-`object-fit:cover` + um retângulo central com moldura — `.lyrics-box`: fundo
-semitransparente, borda sutil e cantos arredondados, `max-width:82%` e
-margens (`.lyrics-content`, padding em vh/vw) — a legibilidade do texto vem
-da própria moldura, não de um gradiente cobrindo a tela inteira, então
+`object-fit:cover` + um retângulo central com moldura — `.lyrics-box`: no
+padrão visual de "vídeo de louvor" (cantos **retos**, não arredondados;
+borda fina e **nítida**, `rgba(255,255,255,.85)`; fundo semitransparente
+`rgba(0,0,0,.4)`; sem `box-shadow`), `width`/`height` fixos e margens
+(`.lyrics-content`, padding em vh/vw) — a legibilidade do texto vem da
+própria moldura, não de um gradiente cobrindo a tela inteira, então
 funciona igual independente da imagem por trás), inserido no DOM entre
 `#video` e `#youtube`, mesmo `z-index:1` dos demais layers de mídia — a
 cortina do wallpaper (`z-index:2`, já existente) cobre/revela esse layer de

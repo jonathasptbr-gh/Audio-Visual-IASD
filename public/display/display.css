@@ -82,15 +82,16 @@ html, body {
    propósito — misturar vh (altura) com vw (largura) no tamanho da fonte foi
    o que causava o texto vazando por cima do bloco de baixo (aux) em telas
    mais largas que altas. */
+/* Moldura no padrão "vídeo de louvor" (cantos retos, borda fina e nítida,
+   sem sombra) — retângulo, não cartão arredondado. */
 .lyrics-box {
   width: min(82vw, 1100px);
   height: min(30vh, 300px);
   box-sizing: border-box;
   padding: clamp(14px, 2.2vh, 26px) 4vw;
-  border-radius: 22px;
-  background: rgba(0, 0, 0, .62);
-  border: 1px solid rgba(255, 255, 255, .18);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, .35);
+  border-radius: 0;
+  background: rgba(0, 0, 0, .4);
+  border: 1.5px solid rgba(255, 255, 255, .85);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: clamp(6px, 1vh, 14px);
   text-align: center; overflow: hidden;
