@@ -37,7 +37,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.44.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.45.**
 
 ---
 
@@ -927,30 +927,64 @@ normal quanto no de capa; `.lyrics-aux`/`.pv-lyrics-aux` — rótulo curto de
 seção, ex: "Refrão" — fica em **1 linha só**, não 2, o que também mantém a
 caixa mais enxuta).
 
+**Redimensionamento por Container Queries (`cq*`), não `vh`/`vw`**:
+`.lyrics-content` (Display) e `.pv-lyrics-content` (preview) são
+`container-type: size` — tudo dentro deles (moldura, fonte, padding, gap)
+usa unidades `cqw`/`cqh`/`cqmin` (relativas ao TAMANHO DO PRÓPRIO
+CONTAINER, não ao viewport). Isso resolve dois problemas que a versão
+anterior (`vh`/`vw` + pisos/tetos em `rem`/`px`) tinha:
+- **Descompasso em telas pequenas**: um piso de fonte em `rem` fixo parava
+  de encolher enquanto a caixa (só em `vh`) continuava encolhendo — a fonte
+  acabava maior que a caixa, cortando/bugando o texto. Unidades `cq*` puras
+  não têm piso/teto absoluto — tudo escala junto, sempre, em qualquer
+  tamanho de tela.
+- **Fonte grande demais em proporção estreita**: a fonte usa `cqmin` (o
+  menor entre a largura e a altura do container — análogo ao `vmin`, mas
+  relativo ao container), não `cqh` puro. Só `cqh` cresce com a altura
+  mesmo quando a largura é o fator mais apertado (ex: janela redimensionada
+  em modo retrato) — a própria linha de texto (não a quebra intencional)
+  deixava de caber, consumindo sozinha as 2 linhas do clamp e cortando fora
+  a segunda linha (autorizada) inteira. `cqmin` encolhe a fonte junto com a
+  dimensão mais apertada, sempre.
+- **Padding do container NÃO é percentual**: `.lyrics-content`/
+  `.pv-lyrics-content` não têm padding em `cq*` (só
+  `padding-bottom: env(safe-area-inset-bottom)` no Display, pela margem de
+  gestos) — `.lyrics-box` já é dimensionado como fração desse mesmo
+  container (`80cqw`/`36cqh` no Display, `92cqw`/`60cqh` na preview) e o
+  espaço que sobra vira margem sozinho via `align-items`/
+  `justify-content: center`. Um padding em `cq*` no container encolheria o
+  content-box, e a caixa (também em `cq*`, mas relativa a esse content-box
+  já menor) ficaria menor que o pretendido — um "encolhimento em dobro"
+  (~19% mais estreita que a calibração original) que foi a causa real de um
+  regressão só percebida ao testar em tamanhos de tela variados.
+
 **Proporções calibradas por medição em pixel** de um vídeo de louvor de
 referência (moldura ~76-80% da largura da tela / ~27-36% da altura; fonte da
-letra com cap-height ~8,3% da altura da tela) — a versão anterior usava uma
-fonte proporcionalmente **pequena demais** (~3,4vh de tamanho preferido,
-menos da metade do necessário), o que deixava a letra "perdida" dentro da
-moldura mesmo com o texto certo. Valores atuais: `.lyrics-line` em
-`clamp(1.6rem, 8vh, 4.2rem)`, `.lyrics-aux` em `clamp(1rem, 4.2vh, 2.1rem)`,
-caixa em `height: min(36vh, 380px)` no Display e `78px` fixos na preview
-(fonte de `15px`/`17px` capa). Fonte, padding e gap usam a mesma unidade
-`vh` da altura da caixa de propósito (com teto em `px` via `clamp()` no
-padding/gap do Display, pra não crescerem sem limite em telas muito altas)
-— misturar `vh` de altura com `vw` de largura na fonte foi o que causava o
-texto vazando/sobrepondo o bloco de baixo em telas com proporção diferente
-da testada. `overflow:hidden` no `.lyrics-box`/`.pv-lyrics-box` junto do
-`-webkit-line-clamp` em `.lyrics-line`/`.lyrics-aux`
-(`.pv-lyrics-line`/`.pv-lyrics-aux` na preview) são a garantia final:
-qualquer letra maior que o clamp é cortada com reticências, nunca estoura a
-moldura.
+letra com cap-height ~8,3% da altura da tela). Valores atuais: `.lyrics-line`
+em `8cqmin`, `.lyrics-aux` em `4.2cqmin`, capa em `9.5cqmin`, caixa em
+`80cqw`/`36cqh` no Display; na preview (calibrada à parte — sua caixa é
+proporcionalmente mais larga, `92cqw`, então a fonte precisa de uma razão
+menor pra caber) `.pv-lyrics-line` em `9.3cqmin`, `.pv-lyrics-aux` em
+`4.9cqmin`, capa em `10.5cqmin`, caixa em `92cqw`/`60cqh`. `overflow:hidden`
+no `.lyrics-box`/`.pv-lyrics-box` junto do `-webkit-line-clamp` em
+`.lyrics-line`/`.lyrics-aux` (`.pv-lyrics-line`/`.pv-lyrics-aux` na preview)
+são a garantia final: qualquer letra maior que o clamp é cortada com
+reticências, nunca estoura a moldura (isso ainda pode acontecer em
+proporções extremas, tipo uma janela de teste em modo retrato — o Display é
+sempre landscape em produção e a preview é sempre `aspect-ratio:16/9`
+travada pela grade, então essa situação não ocorre no uso real).
 
-**Fundo preto sem linha branca de margem**: no modo preto (padrão), a
+**Fundo preto sem ícone de "imagem quebrada"**: no modo preto (padrão), a
 `<img>` de fundo (`#lyricsImg`/`#pvLyricsImg`) fica **`hidden`** de
-propósito, em vez de só sem `src` — uma `<img>` sem `src` ainda assim
-renderiza, em alguns navegadores, o ícone/borda padrão de "imagem quebrada",
-que aparecia como uma linha branca de margem sobre o preto. `.lyrics-bg`/
+propósito, em vez de só sem `src`. Isso sozinho **não bastava**: o seletor
+`.lyrics-bg img`/`.pv-lyrics-bg img` (uma classe + um tipo, mais específico
+que a regra `[hidden] { display:none }` da folha de estilo padrão do
+navegador) vencia e mantinha `display:block` mesmo com o atributo `hidden`
+ligado pelo JS — a `<img>` sem `src` continuava renderizando o ícone/borda
+padrão de "imagem quebrada" (aparecia como uma linha branca de margem sobre
+o preto), no Display e às vezes na preview. A correção precisa de uma regra
+própria com especificidade suficiente: `.lyrics-bg img[hidden] { display:
+none; }` / `.pv-lyrics-bg img[hidden] { display: none; }`. `.lyrics-bg`/
 `.pv-lyrics-bg` têm `background:#000` próprio (preto de verdade,
 independente da `<img>`); `applyLyricsImage`/`applyPvLyricsImage` alternam
 `hidden` junto com `src` a cada troca de modo/slide.
@@ -1268,7 +1302,7 @@ anterior) sofria.
     DISPLAY é a fonte de verdade quando presente; a preview é o fallback.** O
     player do Display (a projeção real) manda enquanto envia `display-status`;
     se ele não existir / estiver estrangulado ou fechado (nenhum status há mais
-    de `YT_DISPLAY_TIMEOUT`=2,5 s → `ytDisplayActive()` falso), a preview local
+    de `DISPLAY_TIMEOUT`=2,5 s → `ytDisplayActive()` falso), a preview local
     assume. Isso resolve os dois casos opostos:
     - **Controle em 1º plano, Display em 2º** (Display espelhado/estrangulado):
       o status remoto rareia → `ytDisplayActive()` falso → a preview (na tela
@@ -1276,17 +1310,39 @@ anterior) sofria.
     - **Controle minimizado, Display tocando**: a preview é que fica
       estrangulada; o Display segue enviando status → dirige a UI e, via
       `ytResyncPreviewToDisplay()`, **re-alinha a preview** (casa play/pause e,
-      se o tempo divergir mais que `YT_SYNC_DRIFT`=1,6 s, busca o instante do
+      se o tempo divergir mais que `SYNC_DRIFT`=1,6 s, busca o instante do
       Display) — sem isso a preview voltava dessincronizada da projeção.
-    Mecanismo: `ytDisplayStatusAt` marca o último status do item atual
+    Mecanismo: `displayStatusAt` marca o último status do item atual
     (`send()` zera para a preview dirigir até o Display confirmar o item novo);
     o player da preview expõe `onStateChange` (▶/⏸ na hora) e um polling de
     500 ms (`ytPreviewTick`) para o progresso — **ambos retornam cedo quando
     `ytDisplayActive()`** (só agem na ausência do Display); o fim natural
     (`ENDED`) dispara `autoAdvance()` só quando a preview é a fonte, senão é o
     `media-ended` remoto que avança. `ytResyncPreviewToDisplay()` não busca em
-    "mesa de som" (evita salto audível), só casa play/pause. `previewTick`
-    (mídia comum) continua retornando cedo para itens youtube.
+    "mesa de som" (evita salto audível), só casa play/pause.
+
+**O mesmo princípio vale para mídia comum (áudio/vídeo do `stage.js`), não só
+YouTube** — `displayStatusAt`/`DISPLAY_TIMEOUT`/`SYNC_DRIFT` são
+compartilhados entre os dois casos (`displayActive()` genérico, sem checar o
+`kind`); o que muda é só qual player é re-alinhado: `resyncPreviewToDisplay()`
+faz o equivalente de `ytResyncPreviewToDisplay()` pro stage local (`preview`)
+— casa play/pause e corrige o tempo via `preview.seek()` se o drift passar de
+`SYNC_DRIFT`, também sem buscar em "mesa de som". Isso existe porque o
+Display e a preview são **dois decodificadores de áudio/vídeo independentes**
+(dois elementos `<audio>`/`<video>` distintos, um em cada app) — mesmo
+recebendo o mesmo comando `load` no mesmo instante, cada um tem sua própria
+latência de buffering, e o `currentTime` dos dois diverge aos poucos; sem
+essa correção periódica, a letra sincronizada (baseada em fronteiras de
+tempo) acaba trocando de slide em momentos ligeiramente diferentes no
+Display e na preview. `previewTick()` (o `onTime` local do stage da preview)
+retorna cedo sempre que `displayActive()` — nesse caso é o handler de
+`display-status` em `AVDB.onCommand` que atualiza a UI/letra a partir do
+tempo reportado pelo Display (`lastDisplayTime`). `stepSlide()`/
+`renderSlideNav()` (navegação manual de estrofe) usam `authoritativeTime()` —
+não `preview.getTime()` direto — para calcular o slide atual a partir da
+posição "oficial" (a do Display quando ele for a fonte, senão a da própria
+preview); sem isso, "estrofe anterior/próxima" calcularia a partir de um
+tempo local já desatualizado em relação ao que está de fato no telão.
 
 ---
 

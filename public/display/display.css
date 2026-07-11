@@ -55,52 +55,84 @@ html, body {
    no modo preto (padrão) a <img> fica `hidden` de propósito — um <img> sem
    `src` ainda assim tem retângulo/ícone de "imagem quebrada" com borda em
    alguns navegadores, o que aparecia como uma linha branca de margem; ficar
-   oculta (em vez de só sem `src`) evita esse render por completo. */
+   oculta (em vez de só sem `src`) evita esse render por completo.
+   `.lyrics-bg img[hidden] { display:none }` é NECESSÁRIO além do atributo
+   `hidden` em si: o seletor `.lyrics-bg img` abaixo (uma classe + um tipo)
+   tem especificidade MAIOR que a regra `[hidden] { display:none }` da folha
+   de estilo padrão do navegador, então sem essa regra própria o `display:
+   block` daqui vencia e a <img> continuava visível (sem `src`) mesmo com o
+   atributo `hidden` ligado pelo JS — essa era a causa real do ícone de
+   "imagem quebrada" com borda que aparecia mesmo depois de esconder a
+   imagem via JS. */
 .lyrics-bg { position: absolute; inset: 0; background: #000; }
 .lyrics-bg img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.lyrics-bg img[hidden] { display: none; }
+/* Container de tamanho (`container-type:size`): tudo dentro de
+   `.lyrics-content` (moldura, fonte, padding, gap) usa unidades `cq*`
+   (cqw/cqh — relativas ao TAMANHO DESTE CONTAINER, não ao viewport) em vez
+   de `vh`/`vw`. Isso é o que garante o redimensionamento correto em
+   qualquer proporção/tamanho de tela: como a fonte, o padding, o gap e a
+   altura da caixa são todos frações do MESMO container, a razão entre eles
+   nunca muda — nem numa janela pequena, nem numa tela ultra-larga, nem
+   entre o Display (container = tela cheia) e a preview do Controle
+   (`.pv-lyrics-content`, container = caixinha da preview — mesmo princípio,
+   valores próprios calibrados pro tamanho dela). A versão anterior usava
+   `vh`/`vw` combinado com pisos/tetos em `rem`/`px` fixos — em telas
+   pequenas o piso fixo parava de encolher enquanto a caixa (só em vh)
+   continuava encolhendo, e a fonte acabava maior que a caixa (cortando/
+   bugando o texto); unidades `cq*` puras não têm esse descompasso: tudo
+   escala junto, sempre.
+   SEM padding percentual aqui (só a margem de segurança de gestos, em px):
+   `.lyrics-box` já é dimensionado como fração deste mesmo container
+   (80cqw/36cqh) e o espaço que sobra vira margem automaticamente via
+   `align-items`/`justify-content: center`. Um padding em cq* aqui além
+   disso encolheria o content-box do container, e `.lyrics-box` (também em
+   cq*, mas relativo a esse content-box já encolhido) ficaria menor que o
+   pretendido — um "encolhimento em dobro" que deixava a caixa ~19% mais
+   estreita que a calibração original. */
 .lyrics-content {
+  container-type: size;
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
-  padding: 6vh 8vw calc(6vh + env(safe-area-inset-bottom)) 8vw;
+  padding-bottom: env(safe-area-inset-bottom);
   box-sizing: border-box; font-family: system-ui, sans-serif;
 }
-/* Tamanho FIXO (width/height, não max-width + altura intrínseca): a moldura
-   não pode crescer/encolher conforme o texto do slide muda — precisa caber
-   a letra mais longa de qualquer slide sem vazar. overflow:hidden + o
+/* Tamanho FIXO (não cresce/encolhe com o texto do slide) — precisa caber a
+   letra mais longa de qualquer slide sem vazar. overflow:hidden + o
    line-clamp de .lyrics-line/.lyrics-aux abaixo são a garantia final contra
    vazamento: textos grandes demais são cortados com reticências, nunca
    estouram a caixa.
    Proporções calibradas por medição em pixel de um vídeo de louvor de
-   referência (moldura ~76% da largura / ~27% da altura da tela; fonte da
-   letra com cap-height ~8,3% da altura da tela; entrelinha ~1,2×) — a versão
-   anterior usava uma fonte proporcionalmente pequena demais (~3,4vh, quase
-   metade do necessário), o que deixava a letra "perdida" dentro da moldura.
-   padding/gap usam clamp() com teto em px (não só vh puro): sem isso, em
-   telas muito altas padding/gap cresceriam sem limite. Fonte usa a mesma
-   unidade (vh) da altura da caixa de propósito — misturar vh (altura) com vw
-   (largura) no tamanho da fonte foi o que causava o texto vazando por cima
-   do bloco de baixo (aux) em telas mais largas que altas. */
+   referência (moldura ~76-80% da largura da tela / ~27-36% da altura;
+   fonte da letra com cap-height ~8,3% da altura da tela). */
 /* Moldura no padrão "vídeo de louvor" (cantos retos, borda fina e nítida,
    sem sombra) — retângulo, não cartão arredondado. */
 .lyrics-box {
-  width: min(80vw, 1150px);
-  height: min(36vh, 380px);
+  width: 80cqw;
+  height: 36cqh;
   box-sizing: border-box;
-  padding: clamp(16px, 3vh, 32px) 4vw;
+  padding: 3cqh 4cqw;
   border-radius: 0;
   background: rgba(0, 0, 0, .4);
   border: 1.5px solid rgba(255, 255, 255, .85);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: clamp(8px, 1.5vh, 18px);
+  gap: 1.5cqh;
   text-align: center; overflow: hidden;
 }
 /* white-space:pre-line respeita as quebras de linha reais que já vêm no
    texto (ver normalizeLyricText em controle.js — a API embute `<br>` nas
    letras, convertido pra `\n`), além de continuar quebrando normalmente por
-   largura quando uma linha não tiver quebra explícita. */
+   largura quando uma linha não tiver quebra explícita.
+   Fonte em `cqmin` (o menor entre a largura e a altura do container), não
+   `cqh` puro: numa proporção estreita/alta (janela redimensionada em modo
+   retrato, por exemplo), uma fonte só relativa à altura cresce mais rápido
+   do que a largura disponível permite, e a própria linha de texto (não o
+   `\n` intencional) já não cabe — sobrando só 1 linha de verdade pro
+   `-webkit-line-clamp:2` e cortando a segunda linha (autorizada) inteira.
+   `cqmin` faz a fonte encolher junto com a dimensão mais apertada, sempre. */
 .lyrics-line {
   color: #fff; font-weight: 700; text-transform: uppercase;
-  font-size: clamp(1.6rem, 8vh, 4.2rem); line-height: 1.2;
+  font-size: 8cqmin; line-height: 1.2;
   white-space: pre-line;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
 }
@@ -108,7 +140,7 @@ html, body {
    isso também mantém a caixa mais enxuta (linha principal domina o espaço). */
 .lyrics-aux {
   color: rgba(255, 255, 255, .72); font-weight: 600;
-  font-size: clamp(1rem, 4.2vh, 2.1rem); line-height: 1.25;
+  font-size: 4.2cqmin; line-height: 1.25;
   white-space: pre-line;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden;
 }
@@ -116,7 +148,7 @@ html, body {
    caixa de tamanho fixo, só a fonte/cor mudam (aux fica escondido no slide
    de capa, então as 2 linhas do clamp têm a caixa toda pra si). */
 .lyrics-content.cover .lyrics-line {
-  color: #fbc02d; font-size: clamp(2rem, 9.5vh, 5rem);
+  color: #fbc02d; font-size: 9.5cqmin;
 }
 
 /* Fundo preto evita flash branco enquanto o player do YouTube carrega.
