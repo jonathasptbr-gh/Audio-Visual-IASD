@@ -37,7 +37,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.43.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.44.**
 
 ---
 
@@ -804,6 +804,18 @@ ganha campos extras, sem exigir bump de `DB_VERSION` (o `files`/`media` do
   sem o prefixo/sufixo que `name` carrega pra exibição na lista) — usados
   pelo Display no slide de capa.
 
+**Quebras de linha vêm da própria API, como `<br>` literal** dentro de
+`lyric`/`aux_lyric` (confirmado no app-ja: ele usa `v-html` pra deixar o
+navegador interpretar essas tags como quebra real). `buildLyricSlides`
+passa `text`/`auxText` por `normalizeLyricText()`, que troca `<br>` (e
+variações `<br/>`/`<br />`) por `\n` real — **não** por `innerHTML`/`v-html`
+(sem risco de injeção: é só uma troca de string, o resto do texto continua
+literal). O CSS (`.lyrics-line`/`.lyrics-aux` no Display,
+`.pv-lyrics-line`/`.pv-lyrics-aux` na preview) usa `white-space: pre-line`
+para respeitar esse `\n` — sem isso, a quebra pretendida pelo hino se perde
+e o navegador quebra a linha sozinho, do jeito errado (ou mostra o `<br>`
+literal na tela, já que `textContent` não interpreta HTML).
+
 Imagens por estrofe (`imageOpfsPath`) são baixadas de verdade pro OPFS
 (mesma pasta `folders/hymnal-2022/`, `downloadHymnalImage`) — nunca URL
 remota direta, preserva o offline. Uma linha sem imagem própria **herda a da
@@ -911,15 +923,24 @@ cresce/encolhe conforme o texto do slide muda — `width`/`height` fixos (não
 `max-width` + altura intrínseca) calculados para caber o pior caso real: as
 letras do Hinário 2022 nunca passam de **2 linhas** por estrofe
 (`-webkit-line-clamp: 2` em `.lyrics-line`/`.pv-lyrics-line`, tanto no slide
-normal quanto no de capa — não há folga reservada para uma 3ª linha que
-nunca aparece na prática). `height: min(30vh, 300px)` no Display (era
-`40vh`/`440px` quando ainda reservava espaço pra 3 linhas) e `56px` fixos na
-preview (era `74px`). Fonte, padding e gap usam a mesma unidade `vh` da
-altura da caixa de propósito (com teto em `px` via `clamp()` no padding/gap
-do Display, pra não crescerem sem limite em telas muito altas) — misturar
-`vh` de altura com `vw` de largura na fonte foi o que causava o texto
-vazando/sobrepondo o bloco de baixo em telas com proporção diferente da
-testada. `overflow:hidden` no `.lyrics-box`/`.pv-lyrics-box` junto do
+normal quanto no de capa; `.lyrics-aux`/`.pv-lyrics-aux` — rótulo curto de
+seção, ex: "Refrão" — fica em **1 linha só**, não 2, o que também mantém a
+caixa mais enxuta).
+
+**Proporções calibradas por medição em pixel** de um vídeo de louvor de
+referência (moldura ~76-80% da largura da tela / ~27-36% da altura; fonte da
+letra com cap-height ~8,3% da altura da tela) — a versão anterior usava uma
+fonte proporcionalmente **pequena demais** (~3,4vh de tamanho preferido,
+menos da metade do necessário), o que deixava a letra "perdida" dentro da
+moldura mesmo com o texto certo. Valores atuais: `.lyrics-line` em
+`clamp(1.6rem, 8vh, 4.2rem)`, `.lyrics-aux` em `clamp(1rem, 4.2vh, 2.1rem)`,
+caixa em `height: min(36vh, 380px)` no Display e `78px` fixos na preview
+(fonte de `15px`/`17px` capa). Fonte, padding e gap usam a mesma unidade
+`vh` da altura da caixa de propósito (com teto em `px` via `clamp()` no
+padding/gap do Display, pra não crescerem sem limite em telas muito altas)
+— misturar `vh` de altura com `vw` de largura na fonte foi o que causava o
+texto vazando/sobrepondo o bloco de baixo em telas com proporção diferente
+da testada. `overflow:hidden` no `.lyrics-box`/`.pv-lyrics-box` junto do
 `-webkit-line-clamp` em `.lyrics-line`/`.lyrics-aux`
 (`.pv-lyrics-line`/`.pv-lyrics-aux` na preview) são a garantia final:
 qualquer letra maior que o clamp é cortada com reticências, nunca estoura a
