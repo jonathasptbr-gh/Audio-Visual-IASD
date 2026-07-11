@@ -144,10 +144,12 @@ body {
 }
 /* Tamanho FIXO (não cresce/encolhe com o texto do slide) — mesmo princípio
    do Display: overflow:hidden + line-clamp abaixo garantem que qualquer
-   letra caiba sem vazar da moldura. */
+   letra caiba sem vazar da moldura. Altura reduzida (56px, não mais 74px) —
+   mesmo motivo do Display: as letras nunca passam de 2 linhas por estrofe,
+   então a moldura não precisa da folga de uma 3ª linha que nunca aparece. */
 .pv-lyrics-box {
   width: 92%;
-  height: 74px;
+  height: 56px;
   box-sizing: border-box;
   padding: 5px 9px;
   border-radius: 8px;
@@ -166,7 +168,7 @@ body {
   display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
 }
 .pv-lyrics-content.cover .pv-lyrics-line {
-  color: #fbc02d; font-size: 10px; -webkit-line-clamp: 3;
+  color: #fbc02d; font-size: 10px; -webkit-line-clamp: 2;
 }
 
 .pv-yt-frame { pointer-events: none; overflow: hidden; }
