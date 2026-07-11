@@ -128,53 +128,68 @@ body {
 /* Letra sincronizada na preview: mesmo conceito visual do Display (retângulo
    com moldura, cantos arredondados, centralizado), só que em miniatura — a
    preview sempre espelha o telão, e isso vale pra letra igual já vale pra
-   imagem/vídeo/YouTube. Tamanhos fixos (não vw/vh, que aqui seriam relativos
-   à tela toda do celular, não à caixinha da preview). */
+   imagem/vídeo/YouTube. */
 /* `background:#000` no próprio .pv-lyrics-bg é o preto de verdade (mesmo
    motivo do Display): no modo preto a <img> fica `hidden` de propósito, em
    vez de só sem `src` — evita o ícone/borda padrão de "imagem quebrada" que
    alguns navegadores mostram mesmo sem `src` (aparecia como linha branca de
-   margem). */
+   margem). `.pv-lyrics-bg img[hidden]{display:none}` é necessário além do
+   atributo em si — mesmo motivo do Display (ver `.lyrics-bg img[hidden]` em
+   display.css): sem essa regra própria, `.pv-lyrics-bg img{display:block}`
+   (mais específica que a regra `[hidden]` padrão do navegador) vencia e a
+   <img> continuava visível mesmo com `hidden` ligado pelo JS. */
 .pv-lyrics-bg { position: absolute; inset: 0; background: #000; }
 .pv-lyrics-bg img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pv-lyrics-bg img[hidden] { display: none; }
+/* Container de tamanho — mesmo princípio do Display (`.lyrics-content` em
+   display.css): tudo dentro de `.pv-lyrics-content` usa unidades `cq*`
+   (relativas ao tamanho DESTA caixinha da preview, não à tela toda do
+   celular) para que a razão entre fonte/padding/gap/caixa nunca mude,
+   qualquer que seja o tamanho real da preview. SEM padding percentual aqui
+   (mesmo motivo do Display) — `.pv-lyrics-box` já é fração deste mesmo
+   container (92cqw/60cqh) e a margem sobra automaticamente via
+   align-items/justify-content:center; um padding em cq* aqui encolheria o
+   content-box e dobraria o encolhimento da caixa. */
 .pv-lyrics-content {
+  container-type: size;
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
-  padding: 6% 8%; box-sizing: border-box;
+  box-sizing: border-box;
 }
 /* Tamanho FIXO (não cresce/encolhe com o texto do slide) — mesmo princípio
    do Display: overflow:hidden + line-clamp abaixo garantem que qualquer
-   letra caiba sem vazar da moldura. Altura e fonte recalibradas junto com o
-   Display (a fonte estava desproporcionalmente pequena pra moldura — ver
-   .lyrics-line em display.css) — por isso a caixa volta a crescer um pouco
-   (78px), não é uma reversão do pedido de reduzir a altura, é consequência
-   de a fonte certa precisar de mais espaço. */
+   letra caiba sem vazar da moldura. Proporções equivalentes às calibradas
+   no Display (~60% da altura da caixinha para a moldura, fonte com
+   cap-height proporcional), só reexpressas em `cq*` da preview. */
 /* Mesmo padrão "vídeo de louvor" do Display: cantos retos, borda fina e
    nítida, sem sombra — ver .lyrics-box em display.css. */
 .pv-lyrics-box {
-  width: 92%;
-  height: 78px;
+  width: 92cqw;
+  height: 60cqh;
   box-sizing: border-box;
-  padding: 6px 9px;
+  padding: 4.5cqh 4cqw;
   border-radius: 0;
   background: rgba(0, 0, 0, .4);
   border: 1px solid rgba(255, 255, 255, .85);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2.3cqh;
   text-align: center; overflow: hidden;
 }
 /* white-space:pre-line respeita as quebras reais já embutidas no texto (ver
    normalizeLyricText em controle.js). */
+/* Fonte em cqmin (mesmo motivo do Display — ver .lyrics-line em display.css):
+   encolhe junto com a dimensão mais apertada da caixinha da preview, nunca
+   só com a altura. */
 .pv-lyrics-line {
   color: #fff; font-weight: 700; text-transform: uppercase;
-  font-size: 15px; line-height: 1.2; white-space: pre-line;
+  font-size: 9.3cqmin; line-height: 1.2; white-space: pre-line;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .pv-lyrics-aux {
-  color: rgba(255, 255, 255, .72); font-weight: 600; font-size: 8px; white-space: pre-line;
+  color: rgba(255, 255, 255, .72); font-weight: 600; font-size: 4.9cqmin; white-space: pre-line;
   display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
 }
 .pv-lyrics-content.cover .pv-lyrics-line {
-  color: #fbc02d; font-size: 17px; -webkit-line-clamp: 2;
+  color: #fbc02d; font-size: 10.5cqmin; -webkit-line-clamp: 2;
 }
 
 .pv-yt-frame { pointer-events: none; overflow: hidden; }
