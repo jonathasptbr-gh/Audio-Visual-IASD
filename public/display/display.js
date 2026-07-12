@@ -13,12 +13,18 @@ const lyricsAuxEl = document.getElementById('lyricsAux');
 // para animar o player do YouTube, que vive fora do stage.
 let fadeCfg = { in: false, out: false, time: 1 };
 
+// Fonte única do payload display-status: sendStatus (stage) e ytStatus
+// (YouTube) só preenchem os valores; o `type` e o `audioBlocked` ficam num
+// lugar só, evitando que os dois campos saiam inconsistentes para o Controle.
+function sendDisplayStatus(fields) {
+  AVDB.sendCommand(Object.assign({ type: 'display-status', audioBlocked }, fields));
+}
+
 function sendStatus() {
   if (yt) return; // com YouTube ativo o status tem fluxo próprio (ytStatus)
   updateLyricSlide(stage.isTimed() ? stage.getTime() : 0);
   const cur = stage.getCurrent();
-  AVDB.sendCommand({
-    type: 'display-status',
+  sendDisplayStatus({
     mediaId: cur ? cur.id : null,
     view: stage.getView(),
     muted: stage.getMuted(),
@@ -26,7 +32,6 @@ function sendStatus() {
     playing: stage.isPlaying(),
     currentTime: stage.isTimed() ? stage.getTime() : 0,
     duration: stage.isTimed() ? stage.getDuration() : 0,
-    audioBlocked,
   });
 }
 
@@ -266,11 +271,16 @@ let ytApiPromise = null;
 function loadYtApi() {
   if (window.YT && window.YT.Player) return Promise.resolve();
   if (ytApiPromise) return ytApiPromise;
-  ytApiPromise = new Promise((resolve) => {
+  ytApiPromise = new Promise((resolve, reject) => {
     const prevCb = window.onYouTubeIframeAPIReady;
     window.onYouTubeIframeAPIReady = () => { if (prevCb) prevCb(); resolve(); };
     const tag = document.createElement('script');
     tag.src = 'https://www.youtube.com/iframe_api';
+    // Sem onerror, uma falha de rede deixaria a promise pendente para sempre
+    // (e cacheada), travando o `await loadYtApi()` de todo vídeo do YouTube
+    // desta sessão. Rejeitar + limpar o cache deixa a próxima tentativa
+    // refazer o fetch.
+    tag.onerror = () => { ytApiPromise = null; reject(new Error('YT API load failed')); };
     document.head.appendChild(tag);
   });
   return ytApiPromise;
@@ -299,8 +309,7 @@ function ytStatus() {
     currentTime = yt.player.getCurrentTime() || 0;
     duration = yt.player.getDuration() || 0;
   } catch (_) { return; }
-  AVDB.sendCommand({
-    type: 'display-status',
+  sendDisplayStatus({
     mediaId: yt.mediaId,
     view: yt.view,
     muted: yt.muted,
@@ -308,7 +317,6 @@ function ytStatus() {
     playing: state === 1 || state === 3, // playing | buffering
     currentTime,
     duration,
-    audioBlocked,
   });
 }
 
@@ -352,23 +360,16 @@ function ytShield(on) {
   if (!on) { ytShieldEl.style.transition = ''; ytShieldEl.style.opacity = ''; }
 }
 
-// Rampa curta ao mutar/desmutar (mesmo valor do stage.js) — evita corte
-// abrupto de áudio no toggle de mudo do mixer.
-const MUTE_RAMP_TIME = 0.25;
+// Fonte única (compartilhada com o stage.js) da duração da rampa de mudo.
+const MUTE_RAMP_TIME = createStage.MUTE_RAMP_TIME;
 
-// Rampa de volume do player (fade sonoro) via setVolume, como no stage.
+// Rampa de volume do player (fade sonoro) via setVolume, reusando o mesmo
+// passo-a-passo do stage (createStage.rampSteps) — mesma curva/duração.
 function ytRampVolume(from, to, dur) {
   if (!yt || !yt.player) return;
   const p = yt.player;
   clearInterval(yt.rampTimer);
-  const steps = Math.max(2, Math.round(dur * 20));
-  let i = 0;
-  yt.rampTimer = setInterval(() => {
-    i++;
-    const v = Math.min(1, Math.max(0, from + (to - from) * (i / steps)));
-    ytSafeCall(() => p.setVolume(Math.round(v * 100)));
-    if (i >= steps) clearInterval(yt.rampTimer);
-  }, (dur * 1000) / steps);
+  yt.rampTimer = createStage.rampSteps(from, to, dur, (v) => ytSafeCall(() => p.setVolume(Math.round(v * 100))));
 }
 
 // Revela o wrapper do YouTube (DOM + fade-in). Chamado quando o vídeo está de
@@ -465,7 +466,8 @@ async function loadYoutube(rec, v, m, vol) {
   // parecendo que o sistema tinha parado em vez de só carregando.
   stage.instantCover(desiredView === 'wallpaper');
 
-  await loadYtApi();
+  try { await loadYtApi(); }
+  catch (_) { return; }   // API não carregou (rede) — aborta o load do vídeo
   if (seq !== ytSeq) return; // um load mais novo chegou enquanto a API carregava
 
   yt = {
@@ -703,11 +705,17 @@ AVDB.onCommand(async (cmd) => {
       loadYoutube(rec, cmd.view, cmd.muted, cmd.volume);
       return;
     }
-    if (yt) {
-      // YouTube → mídia comum: o player esmaece por cima enquanto a nova
-      // mídia entra por baixo (crossfade); sem fade, derruba na hora.
-      if (fadeCfg.out && !youtubeEl.hidden) stopYoutube();
-      else { ++ytSeq; ytDrop(); }
+    // YouTube → mídia comum: o player esmaece por cima enquanto a nova mídia
+    // entra por baixo (crossfade); sem fade, derruba na hora. O `++ytSeq`
+    // também CANCELA um loadYoutube possivelmente em curso entre os awaits
+    // (yt ainda null): sem isto, esse player nasceria por cima desta mídia
+    // comum alguns segundos depois (o fadeOutToBlack/loadYtApi ainda corria
+    // quando este load chegou).
+    if (yt && fadeCfg.out && !youtubeEl.hidden) {
+      stopYoutube();
+    } else {
+      ++ytSeq;
+      ytDrop();
     }
     if (rec && rec.kind === 'audio' && Array.isArray(rec.lyrics) && rec.lyrics.length) showLyrics(rec);
     stage.handle(cmd);
@@ -716,7 +724,11 @@ AVDB.onCommand(async (cmd) => {
 
   if (cmd.type === 'stop' || cmd.type === 'clear') {
     hideLyrics();
+    // `++ytSeq` (via stopYoutube quando há player, ou direto) cancela também um
+    // loadYoutube em curso entre os awaits (yt ainda null) — sem isto, o vídeo
+    // começaria a tocar depois de o operador já ter parado.
     if (yt) stopYoutube();
+    else ++ytSeq;
     stage.handle(cmd);
     return;
   }
@@ -739,7 +751,7 @@ async function restore() {
   // curso — então esse custo de rede vai ser pago de qualquer forma; só não
   // faz sentido esperar o meio do culto pra pagá-lo. Fire-and-forget: não
   // atrasa nada, loadYoutube() já teria que esperar essa mesma promise.
-  loadYtApi();
+  loadYtApi().catch(() => {});   // prefetch: uma falha de rede aqui é retentada no 1º loadYoutube()
   // Config de transições (fade) definida no Controle — preferência visual,
   // não é "tocar" nada.
   const fade = await AVDB.getState('fade');

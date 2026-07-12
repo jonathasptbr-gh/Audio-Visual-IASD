@@ -10,16 +10,55 @@
 input, textarea { user-select: text; -webkit-user-select: text; }
 [hidden] { display: none !important; }
 
+/* ---------- Tokens de design (padrões visuais) ----------
+   Fonte única de verdade para cores, superfícies, raios e a curva de toque.
+   NÃO usar valores literais soltos na folha: sempre referenciar um token.
+   Alguns tokens de marca (--gold e o gradiente do wallpaper) precisam ficar
+   IDÊNTICOS aos de display.css — os dois apps são folhas separadas (não há
+   CSS compartilhado), então a sincronização é manual. Ver seção "Design
+   System" no CLAUDE.md. */
 :root {
+  /* superfícies / fundo */
   --bg: #0a0a0a;
   --panel: #161616;
   --panel-2: #202020;
   --bar: #111111;
+  --line: #1e1e1e;                       /* separadores/bordas escuras */
+  --surface: rgba(255, 255, 255, .06);   /* fundo padrão de botão/controle */
+  --surface-2: rgba(255, 255, 255, .07); /* chip/campo/badge levemente mais claro */
+
+  /* texto */
   --text: #eaeaea;
   --muted: #777777;
+
+  /* marca primária (azul) */
   --accent: #2f81f7;
   --accent-soft: rgba(47, 129, 247, .18);
+
+  /* marca secundária (dourado "IASD") — manter em sync com display.css */
+  --gold: #fbc02d;
+  --gold-soft: rgba(251, 192, 45, .18);
+  --gold-text: #ffe082;
+
+  /* perigo / estados de alerta */
   --danger: #e53935;
+  --danger-soft: rgba(229, 57, 53, .22);
+  --danger-text: #ffcdd2;
+
+  /* raios: botões/controles vs. cartões/painéis */
+  --radius-btn: 8px;
+  --radius-card: 10px;
+  --radius-pill: 999px;
+
+  /* wallpaper (cortina) — manter em sync com display.css */
+  --wallpaper: radial-gradient(circle at 50% 35%, #14331f 0%, #0a1a10 55%, #050b07 100%);
+
+  /* moldura da letra sincronizada (modo imagem) — manter em sync com display.css */
+  --lyrics-frame-bg: rgba(0, 0, 0, .4);
+  --lyrics-frame-border: rgba(255, 255, 255, .85);
+
+  /* feedback de toque padrão (:active) */
+  --press: scale(.96);
 }
 
 html, body { height: 100%; overflow: hidden; }
@@ -43,14 +82,14 @@ body {
   background: var(--bar);
   padding: .45rem .9rem;
   padding-top: calc(.45rem + env(safe-area-inset-top));
-  border-bottom: 1px solid #1e1e1e;
+  border-bottom: 1px solid var(--line);
   display: flex; align-items: center; justify-content: space-between;
 }
 .app-name { font-size: .95rem; font-weight: 700; letter-spacing: .03em; }
-.app-name b { color: #fbc02d; }
+.app-name b { color: var(--gold); }
 .app-version {
   font-size: .7rem; color: var(--muted);
-  background: rgba(255, 255, 255, .07); border-radius: 999px; padding: 2px .55rem;
+  background: var(--surface-2); border-radius: var(--radius-pill); padding: 2px .55rem;
 }
 
 /* ---------- Barra de controles (base) ---------- */
@@ -60,7 +99,7 @@ body {
   padding: .5rem .7rem;
   /* margem extra na base para não conflitar com navegação por gestos */
   padding-bottom: calc(.6rem + max(env(safe-area-inset-bottom), 12px));
-  border-top: 1px solid #222;
+  border-top: 1px solid var(--line);
   box-shadow: 0 -2px 12px rgba(0, 0, 0, .6);
 }
 
@@ -89,29 +128,28 @@ body {
    `grid-template-rows: auto 130px auto`), não mais de um `height` próprio. */
 .preview-row { display: flex; align-items: stretch; gap: .4rem; }
 .slide-nav-btn {
-  flex: 1; min-width: 0; border: none; border-radius: 9px;
-  background: rgba(255, 255, 255, .06); color: #fff; cursor: pointer;
+  flex: 1; min-width: 0; border: none; border-radius: var(--radius-btn);
+  background: var(--surface); color: #fff; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  -webkit-tap-highlight-color: transparent;
 }
 .slide-nav-btn .msym { font-size: 22px; }
-.slide-nav-btn:active { transform: scale(.95); }
+.slide-nav-btn:active { transform: var(--press); }
 .slide-nav-btn:disabled { opacity: .3; }
 
 /* Preview */
 .preview {
   position: relative; height: 100%; aspect-ratio: 16 / 9; flex: 0 0 auto;
-  background: #000; border-radius: 10px; overflow: hidden; border: 1px solid #242424;
+  background: #000; border-radius: var(--radius-card); overflow: hidden; border: 1px solid var(--line);
 }
 /* Mesmo modelo do Display: mídia toca por baixo (z-index menor); o wallpaper
    é a cortina que cobre por cima, ligada/desligada independente da mídia. */
 .pv-wall {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  background: radial-gradient(circle at 50% 35%, #14331f 0%, #0a1a10 55%, #050b07 100%);
+  background: var(--wallpaper);
   z-index: 2;
 }
 .pv-brand { font-size: clamp(.7rem, 3.5vw, 1.05rem); font-weight: 700; letter-spacing: .03em; color: rgba(255,255,255,.9); }
-.pv-brand b { color: #fbc02d; }
+.pv-brand b { color: var(--gold); }
 .pv-layer { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; z-index: 1; }
 /* Preview do YouTube: a API cria o <iframe> dentro deste wrapper (mesmo
    padrão do Display). pointer-events:none evita que um toque na preview
@@ -178,8 +216,8 @@ body {
   text-align: center; overflow: hidden;
 }
 .pv-lyrics-content.imgbg .pv-lyrics-box {
-  background: rgba(0, 0, 0, .4);
-  border-color: rgba(255, 255, 255, .85);
+  background: var(--lyrics-frame-bg);
+  border-color: var(--lyrics-frame-border);
 }
 /* white-space:pre-line respeita as quebras reais já embutidas no texto (ver
    normalizeLyricText em controle.js). */
@@ -196,7 +234,7 @@ body {
   display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
 }
 .pv-lyrics-content.cover .pv-lyrics-line {
-  color: #fbc02d; font-size: 10.5cqmin; -webkit-line-clamp: 2;
+  color: var(--gold); font-size: 10.5cqmin; -webkit-line-clamp: 2;
 }
 
 .pv-yt-frame { pointer-events: none; overflow: hidden; }
@@ -241,12 +279,12 @@ body {
 /* Botões de transporte */
 .transport { display: flex; gap: .35rem; }
 .t-btn {
-  flex: 1; padding: .45rem 0; border: none; border-radius: 9px;
-  background: rgba(255, 255, 255, .06); color: #fff; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent;
+  flex: 1; padding: .45rem 0; border: none; border-radius: var(--radius-btn);
+  background: var(--surface); color: #fff; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
 }
 .t-btn .msym { font-size: 23px; }
-.t-btn:active { transform: scale(.95); }
+.t-btn:active { transform: var(--press); }
 .t-btn:disabled { opacity: .35; }
 #repeat.active { color: var(--accent); }
 
@@ -319,15 +357,14 @@ body {
   cursor: pointer;
 }
 .ctl-btn {
-  border: 2px solid transparent; border-radius: 9px; background: rgba(255, 255, 255, .06);
+  border: 2px solid transparent; border-radius: var(--radius-btn); background: var(--surface);
   color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center;
-  -webkit-tap-highlight-color: transparent;
 }
 .ctl-btn .msym { font-size: 21px; }
-.ctl-btn:active { transform: scale(.97); }
+.ctl-btn:active { transform: var(--press); }
 .mixer .ctl-btn { width: 100%; padding: .4rem 0; }
-.view-btn.view-blocked { border-color: var(--danger); background: rgba(229, 57, 53, .22); color: #ffcdd2; }
-.mute-btn.muted { border-color: var(--danger); background: rgba(229, 57, 53, .22); color: #ffcdd2; }
+.view-btn.view-blocked { border-color: var(--danger); background: var(--danger-soft); color: var(--danger-text); }
+.mute-btn.muted { border-color: var(--danger); background: var(--danger-soft); color: var(--danger-text); }
 /* Modo "mesa de som" ativo: áudio real sai pelo Controle, independente do Display. */
 .standalone-btn.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 /* Fundo da letra sincronizada: preto é o padrão (botão neutro); ativo = usa
@@ -336,7 +373,7 @@ body {
 /* Sem áudio no Display (bloqueio do navegador): indicador âmbar pulsante;
    o clique pede a liberação do som (comando audio-retry). */
 .mute-btn.blocked {
-  border-color: #fbc02d; background: rgba(251, 192, 45, .18); color: #ffe082;
+  border-color: var(--gold); background: var(--gold-soft); color: var(--gold-text);
   animation: mute-blocked-pulse 1.2s ease-in-out infinite;
 }
 @keyframes mute-blocked-pulse {
@@ -353,11 +390,11 @@ main {
 /* ---------- Título da lista ativa ---------- */
 .list-header { flex-shrink: 0; display: flex; align-items: center; gap: .3rem; }
 .list-title { flex: 1; font-size: .72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
-.add-dir-btn { flex-shrink: 0; width: 30px; height: 30px; border: none; border-radius: 8px; background: var(--accent-soft); color: var(--accent); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.add-dir-btn { flex-shrink: 0; width: 30px; height: 30px; border: none; border-radius: var(--radius-btn); background: var(--accent-soft); color: var(--accent); display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .add-dir-btn .msym { font-size: 20px; }
 .back-btn {
   background: none; border: none; color: var(--accent); cursor: pointer; padding: 0 .2rem 0 0;
-  display: flex; align-items: center; -webkit-tap-highlight-color: transparent;
+  display: flex; align-items: center;
 }
 .back-btn .msym { font-size: 20px; }
 
@@ -376,7 +413,7 @@ main {
   position: absolute; top: 2px; right: 2px;
   background: var(--accent); color: #fff;
   font-size: .58rem; font-weight: 700;
-  border-radius: 999px; padding: 1px .3rem;
+  border-radius: var(--radius-pill); padding: 1px .3rem;
   min-width: 14px; text-align: center; line-height: 1.4;
   pointer-events: none;
 }
@@ -386,25 +423,24 @@ main {
   flex: 1; height: 42px; border: none; border-bottom: 2px solid transparent;
   background: transparent; color: var(--muted); cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  -webkit-tap-highlight-color: transparent;
 }
 .tab .msym { font-size: 22px; }
 .tab.active { color: var(--text); border-bottom-color: var(--accent); }
 
 .tab-add {
-  flex: none; width: 44px; height: 42px; border-radius: 9px; background: var(--accent); color: #fff;
-  display: flex; align-items: center; justify-content: center; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  flex: none; width: 44px; height: 42px; border-radius: var(--radius-btn); background: var(--accent); color: #fff;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
 }
 .tab-add .msym { font-size: 22px; }
-.tab-add:active { transform: scale(.96); }
+.tab-add:active { transform: var(--press); }
 
 /* barra de seleção */
-.selbar { flex-shrink: 0; display: flex; align-items: center; gap: .6rem; background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 10px; padding: .35rem .6rem; }
+.selbar { flex-shrink: 0; display: flex; align-items: center; gap: .6rem; background: var(--accent-soft); border: 1px solid var(--accent); border-radius: var(--radius-card); padding: .35rem .6rem; }
 .sel-count { font-weight: 700; }
 .sel-spacer { flex: 1; }
-.sel-btn { width: 36px; height: 36px; border: none; border-radius: 8px; background: rgba(255, 255, 255, .08); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.sel-btn { width: 36px; height: 36px; border: none; border-radius: var(--radius-btn); background: var(--surface-2); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .sel-btn:disabled { opacity: .35; }
-.sel-btn.danger { color: #ffb4b1; }
+.sel-btn.danger { color: var(--danger-text); }
 .sel-btn .msym { font-size: 20px; }
 
 /* ---------- Itens (biblioteca) ---------- */
@@ -415,7 +451,7 @@ main {
 }
 .empty { color: var(--muted); text-align: center; padding: 1.6rem 0; line-height: 1.6; font-size: .9rem; }
 
-.row-item, .lib-item { position: relative; border-radius: 10px; background: var(--panel); border: 2px solid transparent; overflow: hidden; flex-shrink: 0; }
+.row-item, .lib-item { position: relative; border-radius: var(--radius-card); background: var(--panel); border: 2px solid transparent; overflow: hidden; flex-shrink: 0; }
 .row-item.active, .lib-item.active { border-color: var(--accent); }
 .lib-item.selected { border-color: var(--accent); background: var(--panel-2); }
 .dragging { z-index: 5; opacity: .92; box-shadow: 0 6px 18px rgba(0,0,0,.6); }
@@ -423,7 +459,7 @@ main {
 .row { position: relative; z-index: 1; display: flex; align-items: center; gap: .5rem; padding: .35rem .5rem; background: var(--panel); touch-action: pan-y; }
 .lib-item.selected .row, .lib-item.active .row, .row-item.active .row { background: var(--panel-2); }
 
-.thumb { width: 40px; height: 40px; flex-shrink: 0; border-radius: 7px; overflow: hidden; background: #060606; display: flex; align-items: center; justify-content: center; }
+.thumb { width: 40px; height: 40px; flex-shrink: 0; border-radius: var(--radius-btn); overflow: hidden; background: #060606; display: flex; align-items: center; justify-content: center; }
 .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .thumb--icon .msym { font-size: 24px; color: var(--muted); }
 
@@ -432,7 +468,7 @@ main {
 .url-badge { flex-shrink: 0; font-size: .6rem; font-weight: 700; letter-spacing: .04em; padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,.12); color: var(--muted); }
 .yt-badge { background: rgba(255, 0, 0, .18); color: #ff5252; }
 
-.row-btn, .row-handle { width: 34px; height: 34px; flex-shrink: 0; border: none; border-radius: 8px; background: rgba(255, 255, 255, .06); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.row-btn, .row-handle { width: 34px; height: 34px; flex-shrink: 0; border: none; border-radius: var(--radius-btn); background: var(--surface); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .row-btn .msym, .row-handle .msym { font-size: 19px; }
 .row-handle { background: transparent; color: var(--muted); touch-action: none; cursor: grab; }
 
@@ -444,7 +480,7 @@ main {
    isConfirmedWifi em controle.js) — verde/neutro quando Wi-Fi confirmado,
    âmbar quando não (sincronização em massa desativada por padrão). */
 .net-badge { flex-shrink: 0; display: flex; align-items: center; color: var(--accent); opacity: .8; }
-.net-badge--warn { color: #fbc02d; opacity: 1; }
+.net-badge--warn { color: var(--gold); opacity: 1; }
 .storage-usage { font-size: .72rem; opacity: .7; padding: 10px 0; }
 
 /* fundo de ação do swipe */
@@ -464,7 +500,6 @@ main {
   display: flex; align-items: flex-end;
   opacity: 0; pointer-events: none;
   transition: opacity .25s ease;
-  -webkit-tap-highlight-color: transparent;
 }
 .popup-backdrop.open {
   opacity: 1; pointer-events: auto;
@@ -483,20 +518,19 @@ main {
 .popup-header {
   display: flex; align-items: center; gap: .5rem;
   padding: .8rem 1rem .6rem;
-  border-bottom: 1px solid #1e1e1e; flex-shrink: 0;
+  border-bottom: 1px solid var(--line); flex-shrink: 0;
 }
 .popup-header-icon { font-size: 20px; color: var(--accent); }
 .popup-title { font-size: .95rem; font-weight: 700; flex: 1; }
 .popup-count {
   background: var(--accent); color: #fff;
   font-size: .72rem; font-weight: 700;
-  border-radius: 999px; padding: 0 .45rem; min-width: 20px; text-align: center;
+  border-radius: var(--radius-pill); padding: 0 .45rem; min-width: 20px; text-align: center;
 }
 .popup-close {
-  width: 34px; height: 34px; border: none; border-radius: 8px;
-  background: rgba(255,255,255,.07); color: var(--muted);
+  width: 34px; height: 34px; border: none; border-radius: var(--radius-btn);
+  background: var(--surface-2); color: var(--muted);
   display: flex; align-items: center; justify-content: center; cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
 }
 .popup-close .msym { font-size: 20px; }
 
@@ -510,43 +544,43 @@ main {
 /* ---------- Contador de itens de pasta ---------- */
 .folder-count {
   font-size: .75rem; color: var(--muted);
-  background: rgba(255,255,255,.07); border-radius: 999px;
+  background: var(--surface-2); border-radius: var(--radius-pill);
   padding: 2px .5rem; flex-shrink: 0;
 }
 
 /* ---------- Rodapé do popup (Nova pasta) ---------- */
 .popup-footer {
   padding: .6rem .7rem;
-  border-top: 1px solid #1e1e1e;
+  border-top: 1px solid var(--line);
   flex-shrink: 0;
 }
 .new-folder-btn {
   width: 100%; padding: .6rem;
   background: rgba(47, 129, 247, .12); border: 1px solid rgba(47, 129, 247, .4);
-  border-radius: 10px; color: var(--accent); font-size: .9rem;
+  border-radius: var(--radius-card); color: var(--accent); font-size: .9rem;
   display: flex; align-items: center; justify-content: center; gap: .4rem;
-  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
 }
 .new-folder-btn .msym { font-size: 20px; }
-.new-folder-btn:active { transform: scale(.98); }
+.new-folder-btn:active { transform: var(--press); }
 
 /* ---------- Botão de pasta no picker ---------- */
 .folder-pick-btn {
   width: 100%; padding: .55rem .6rem;
-  background: rgba(255,255,255,.04); border: none; border-radius: 10px;
+  background: rgba(255,255,255,.04); border: none; border-radius: var(--radius-card);
   color: var(--text); font-size: .9rem;
   display: flex; align-items: center; gap: .55rem;
-  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
 }
 .folder-pick-btn .msym { font-size: 22px; color: var(--accent); }
-.folder-pick-btn:active { transform: scale(.98); }
+.folder-pick-btn:active { transform: var(--press); }
 
 /* ---------- Busca na pasta ---------- */
 .lib-search {
   flex: 1; min-width: 0;
   border: none; outline: none;
-  background: rgba(255,255,255,.07); color: var(--text);
-  border-radius: 8px; padding: 6px 10px;
+  background: var(--surface-2); color: var(--text);
+  border-radius: var(--radius-btn); padding: 6px 10px;
   font-size: .85rem; font-family: inherit;
 }
 .lib-search::placeholder { color: var(--muted); }
@@ -561,12 +595,11 @@ main {
 .hymn-variant { flex: 1; display: flex; gap: .3rem; min-width: 0; }
 .hymn-play {
   flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: .3rem;
-  height: 34px; border: none; border-radius: 8px; background: rgba(255, 255, 255, .06);
+  height: 34px; border: none; border-radius: var(--radius-btn); background: var(--surface);
   color: var(--text); font-size: .78rem; font-weight: 600; cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
 }
 .hymn-play .msym { font-size: 17px; }
-.hymn-play:active, .hymn-add:active { transform: scale(.96); }
+.hymn-play:active, .hymn-add:active { transform: var(--press); }
 /* Playback (instrumental) fica em tom accent para diferenciar do Cantado. */
 .hymn-variant[data-variant="playback"] .hymn-play { background: var(--accent-soft); color: var(--accent); }
 
@@ -574,7 +607,7 @@ main {
 .fade-opts { display: flex; flex-direction: column; gap: .4rem; padding: .3rem .9rem 1rem; }
 .fade-row {
   display: flex; align-items: center; justify-content: space-between; gap: .8rem;
-  background: var(--panel); border-radius: 10px; padding: .65rem .8rem;
+  background: var(--panel); border-radius: var(--radius-card); padding: .65rem .8rem;
   font-size: .9rem; cursor: pointer;
 }
 .fade-row small { color: var(--muted); font-size: .75rem; }
@@ -586,13 +619,12 @@ main {
 .fade-row--fit { flex-direction: column; align-items: stretch; gap: .5rem; cursor: default; }
 .fit-seg { display: flex; gap: .35rem; }
 .fit-opt {
-  flex: 1; border: none; border-radius: 8px; padding: .5rem .4rem;
-  background: rgba(255, 255, 255, .06); color: var(--muted);
+  flex: 1; border: none; border-radius: var(--radius-btn); padding: .5rem .4rem;
+  background: var(--surface); color: var(--muted);
   font-size: .82rem; font-weight: 600; cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
 }
 .fit-opt.active { background: var(--accent); color: #fff; }
 
 /* ---------- toast ---------- */
-.toast { position: fixed; left: 50%; top: calc(1.2rem + env(safe-area-inset-top)); transform: translateX(-50%) translateY(-20px); background: #222; color: #fff; padding: .55rem 1rem; border-radius: 999px; font-size: .85rem; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 50; border: 1px solid #333; }
+.toast { position: fixed; left: 50%; top: calc(1.2rem + env(safe-area-inset-top)); transform: translateX(-50%) translateY(-20px); background: #222; color: #fff; padding: .55rem 1rem; border-radius: var(--radius-pill); font-size: .85rem; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 50; border: 1px solid var(--line); }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }

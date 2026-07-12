@@ -1,5 +1,30 @@
 # Claude Code — Audio Visual IASD
 
+Sistema de projeção de mídia para culto (IASD), dividido em dois PWAs no mesmo
+origin — **Controle** (celular do operador) e **Display** (telão via Miracast) —
+em JavaScript puro, sem frameworks nem dependências de build. Funciona 100%
+offline após a primeira carga.
+
+## Índice
+
+1. [Regra obrigatória após qualquer alteração](#regra-obrigatória-após-qualquer-alteração) — fluxo de git/merge
+2. [Regras de desenvolvimento](#regras-de-desenvolvimento) — invariantes do projeto
+3. [A ideia](#a-ideia) — por que dois PWAs
+4. [Estrutura de arquivos](#estrutura-de-arquivos)
+5. [Modelo de dados (`shared/db.js`)](#modelo-de-dados-shareddbjs) — IDB, OPFS, BroadcastChannel
+6. [Motor de renderização (`shared/stage.js`)](#motor-de-renderização-sharedstagejs) — cortina, fades, concorrência
+7. [PWA Controle](#pwa-controle) — layout, mixer, biblioteca, Hinário 2022, letra sincronizada
+8. [PWA Display](#pwa-display) — wallpaper, YouTube, recuperação de áudio
+9. [Design System (padrões visuais / CSS)](#design-system-padrões-visuais--css) — **tokens de cor/medida/método**
+10. [Servidor (`server.js`)](#servidor-serverjs)
+11. [Service Workers e cache](#service-workers-e-cache)
+12. [Fonte de ícones (Material Symbols)](#fonte-de-ícones-material-symbols)
+13. [Deploy e CI](#deploy-e-ci)
+14. [Rodar localmente](#rodar-localmente)
+15. [Instalar no Android](#instalar-no-android)
+
+---
+
 ## Regra obrigatória após qualquer alteração
 
 **Sempre fazer merge com `main` ao finalizar qualquer atualização nos arquivos.**
@@ -37,7 +62,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.46.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.48.**
 
 ---
 
@@ -117,7 +142,13 @@ arquivos sincronizados no OPFS. `thumb` pode ser um `Blob`
 > **Atenção:** qualquer código que abra o banco fora de `db.js` (ex:
 > `storePendingShare` no SW do Controle) deve usar `indexedDB.open('av-iasd')`
 > **sem número de versão**, para não quebrar com `VersionError` quando o schema
-> for atualizado.
+> for atualizado. **Porém** esse open sem versão precisa de um
+> `onupgradeneeded` que crie ao menos o store `state`: numa **instalação
+> nova** (share recebido ANTES da 1ª abertura do app) o banco ainda não
+> existe e nasceria sem nenhum object store, fazendo o `transaction('state')`
+> lançar `NotFoundError` e perder o share silenciosamente. O `db.js` completa
+> o schema (media/files) no upgrade 1→2 seguinte, que checa
+> `if (!contains(...))` — sem conflito com o store criado pelo SW.
 
 ### OPFS + catálogo (`files`)
 
@@ -195,6 +226,22 @@ Um registro só é excluído automaticamente quando **não está em nenhuma das 
 listRemove(listName, id)
   → se id não aparece em nenhuma outra lista → delete no store media (gc)
 ```
+
+**Atomicidade (transação única):** `listAdd`, `listRemove` (com o gc embutido)
+e `addMedia`/`addUrlMedia` (registro + entrada na lista) fazem o
+read-modify-write dentro de **uma só transação IDB** — não em transações
+separadas. Sem isso havia dois defeitos: (a) *lost update* — duas escritas
+concorrentes (ex: share sendo processado + reordenação) liam o mesmo array e
+a segunda gravação sobrescrevia a primeira, perdendo um id; (b) *registro
+órfão* — se o `add` em `media` completasse mas o `listAdd` falhasse, sobrava
+um blob em `media` fora de qualquer lista, que o gc nunca coletaria (vaza
+espaço). O gc de `listRemove` também roda na mesma transação da remoção
+(state + media): checa as outras listas e só então apaga o blob, fechando o
+TOCTOU em que um `listAdd` concorrente re-referenciaria o id no intervalo.
+(`readListIn` lê a lista a partir de um objectStore já aberto, para reuso
+dentro dessas transações; `txDone(tx)` confirma o commit.) A regra do projeto
+("operação IDB multi-passo atômica usa transação única") agora é honrada por
+essas funções — antes elas a violavam.
 
 Registros **temporários** (`storeUrlTemp` / `storeMediaTemp`) não pertencem a
 lista alguma — quem cria é responsável por excluí-los com `deleteMedia()`.
@@ -424,9 +471,20 @@ rampa corria, e a aplicação atrasada não deve "ressuscitar" um mudo já
 desfeito. `setVolume()` (o operador arrastando o fader) cancela qualquer
 rampa de mudo em andamento, senão o volume ajustado manualmente seria
 sobrescrito pelo `muteApplyTimer` pendente. O YouTube no Display usa a mesma
-lógica, em paralelo (`MUTE_RAMP_TIME` duplicada em `display.js`): rampa via
-`player.setVolume()` (`ytRampVolume`) e só chama `player.mute()`/`unMute()`
-no início/fim da rampa, pelos mesmos motivos.
+lógica, em paralelo: rampa via `player.setVolume()` (`ytRampVolume`) e só
+chama `player.mute()`/`unMute()` no início/fim da rampa, pelos mesmos motivos.
+
+**Fonte única da rampa de volume** (`createStage.rampSteps` /
+`createStage.MUTE_RAMP_TIME`): o passo-a-passo do fade sonoro
+(`steps = max(2, round(dur*20))`, clamp 0–1) e a duração da rampa de mudo
+(0,25 s) ficam definidos **uma vez** no `stage.js` e expostos como
+propriedades de `createStage`. Os três "sinks" de áudio do sistema — o
+`<video>` do stage (`rampVolume`), o player do YouTube no Display
+(`ytRampVolume`) e o da preview no Controle (`ytPreviewRampVolume`) — reusam
+esse mesmo `rampSteps`, cada um passando só o seu `apply(v)` (o "onde escrever
+o volume"). Antes a matemática e a constante estavam duplicadas nos três
+arquivos e podiam divergir. A *orquestração* do mudo (quando mutar de fato,
+`muteApplyTimer`) continua por player, pois depende do estado de cada um.
 
 ### Concorrência de carregamento
 
@@ -635,6 +693,14 @@ busca — voltar para Pastas retorna exatamente onde estava. A posição de scro
 é guardada por aba/pasta (`scrollPos`, chave `scrollKey()` = aba + id da pasta)
 e restaurada ao fim de cada `load()`; `rememberScroll()` é chamado antes de
 trocar de aba, abrir pasta ou voltar. (Memória por sessão, em RAM.)
+
+**`load()` tem guarda de sequência** (`loadSeqCtl`, como o `loadSeq` do
+stage): é async e disparada fire-and-forget por dezenas de handlers, então
+duas chamadas concorrentes poderiam terminar fora de ordem e a mais antiga
+sobrescreveria o estado/render da mais nova. `load()` lê tudo do IDB em locais
+(as contagens das pastas em `Promise.all`, não mais um `await` sequencial por
+pasta a cada micro-mudança) e só aplica ao estado do módulo + renderiza se
+`myseq === loadSeqCtl` — senão descarta.
 
 Miniaturas (160×160 px, JPEG 72%) geradas via Canvas no momento da importação.
 Vídeos têm thumbnail extraído de um frame perto do início — `min(0,5 s,
@@ -1261,6 +1327,16 @@ anterior) sofria.
   derrubá-lo. `ytSeq` guarda operações assíncronas obsoletas (equivalente ao
   `loadSeq` do stage) — inclusive o carregamento assíncrono da própria API
   (`loadYtApi()`) na primeira vez.
+  - **Cancelar um `loadYoutube` em curso quando `yt` ainda é `null`:**
+    `loadYoutube()` fica entre `await`s (o `fadeOutToBlack`, que pode durar
+    `fadeTime` até 5 s, e o `loadYtApi()`) antes de atribuir `yt`. Um
+    `stop`/`clear`/`load` de mídia comum que chegue nessa janela **bumpa
+    `ytSeq`** mesmo com `yt` nulo (`if (yt) stopYoutube(); else ++ytSeq;` no
+    stop/clear; o `else { ++ytSeq; ytDrop(); }` no load comum) — assim o
+    `if (seq !== ytSeq) return` do `loadYoutube` em curso o descarta. Sem isso,
+    o player nasceria por cima do novo estado (vídeo tocando depois de um stop,
+    ou por cima da mídia comum que entrou) alguns segundos depois. Se falhar o
+    `loadYtApi()` (rede), o `try/catch` aborta o load em vez de pendurar.
 - **No Controle, a preview do YouTube é um SEGUNDO `YT.Player` independente**
   (`controle.js`: `loadYtPreview()`/`ytPreviewHandle()`/`dropYtPreview()`),
   não uma captura do que está no Display — inevitável, já que o iframe do
@@ -1357,6 +1433,14 @@ posição "oficial" (a do Display quando ele for a fonte, senão a da própria
 preview); sem isso, "estrofe anterior/próxima" calcularia a partir de um
 tempo local já desatualizado em relação ao que está de fato no telão.
 
+O **avanço automático de fim de faixa** segue o mesmo princípio: o `onEnded`
+do stage da preview também **retorna cedo quando `displayActive()`** — quando
+o Display está presente, quem avança é só o `media-ended` remoto (com guarda
+de `mediaId`). Sem esse early-return, se o Display chegasse ao fim antes da
+preview (drift até `SYNC_DRIFT`), os dois disparariam `autoAdvance()` e uma
+faixa seria pulada. É o mesmo padrão de `previewTick`/`ytPreviewTick` aplicado
+ao fim natural.
+
 ---
 
 ## Servidor (`server.js`)
@@ -1402,6 +1486,82 @@ Além do cache, o SW do **Controle** trata o POST em `share-target` → grava
 
 **Ao alterar qualquer asset estático, usar o mesmo número da versão visual do Controle nos dois sw.js.**
 Ex: se a versão visual é `v2.6`, os caches ficam `controle-v2.6` e `display-v2.6`.
+
+---
+
+## Design System (padrões visuais / CSS)
+
+Toda a UI segue um conjunto fixo de **tokens** (variáveis CSS em `:root`) — a
+fonte única de verdade para cor, superfície, raio e feedback de toque. **Regra:
+não usar valor literal solto na folha; sempre referenciar um token.** Isso
+existe porque o projeto acumulou muitas alterações estéticas pontuais (cores e
+medidas repetidas à mão), que foram consolidadas nestes padrões.
+
+### Onde ficam os tokens
+
+- **`controle/controle.css`** — `:root` completo (o Controle tem toda a UI rica).
+- **`display/display.css`** — `:root` **mínimo**, só com os tokens de **marca**
+  compartilhados (o Display é só wallpaper + mídia, sem componentes de UI).
+
+> ⚠️ **Não há CSS compartilhado entre os dois apps** (nenhuma folha comum). Os
+> tokens de marca abaixo estão **duplicados** nas duas folhas e precisam ser
+> mantidos **idênticos manualmente**. Ao mudar um deles, mudar nos dois
+> arquivos: `--gold`, `--wallpaper`, `--lyrics-frame-bg`, `--lyrics-frame-border`.
+
+### Tokens
+
+| Token | Valor | Uso |
+|---|---|---|
+| `--bg` | `#0a0a0a` | fundo do app |
+| `--panel` / `--panel-2` | `#161616` / `#202020` | painéis / item ativo/selecionado |
+| `--bar` | `#111111` | appbar / bottombar |
+| `--line` | `#1e1e1e` | **todas** as bordas/separadores escuros (unifica os antigos `#1e1e1e/#222/#242424/#333`) |
+| `--surface` | `rgba(255,255,255,.06)` | fundo padrão de botão/controle |
+| `--surface-2` | `rgba(255,255,255,.07)` | chip/campo/badge levemente mais claro |
+| `--text` / `--muted` | `#eaeaea` / `#777777` | texto / texto secundário |
+| `--accent` | `#2f81f7` | **marca primária** (azul): ativo, foco, destaque |
+| `--accent-soft` | `rgba(47,129,247,.18)` | fundo suave de estado ativo (accent) |
+| `--gold` 🔁 | `#fbc02d` | **marca secundária** (dourado "IASD"): logo, capa da letra, pill "Ligar Sistema" |
+| `--gold-soft` | `rgba(251,192,45,.18)` | fundo do estado "áudio bloqueado" (âmbar) |
+| `--gold-text` | `#ffe082` | texto do estado "áudio bloqueado" |
+| `--danger` | `#e53935` | perigo (excluir, mudo, view bloqueada) |
+| `--danger-soft` | `rgba(229,57,53,.22)` | fundo suave de perigo |
+| `--danger-text` | `#ffcdd2` | texto sobre fundo de perigo |
+| `--radius-btn` | `8px` | raio de **botões/controles** (unifica os antigos 7/8/9px) |
+| `--radius-card` | `10px` | raio de **cartões/painéis** (preview, itens de lista, popups internos, folhas) |
+| `--radius-pill` | `999px` | badges, chips, pills |
+| `--wallpaper` 🔁 | `radial-gradient(circle at 50% 35%, #14331f, #0a1a10, #050b07)` | cortina do wallpaper (Display + preview) |
+| `--lyrics-frame-bg` 🔁 | `rgba(0,0,0,.4)` | fundo da moldura da letra (modo imagem) |
+| `--lyrics-frame-border` 🔁 | `rgba(255,255,255,.85)` | borda da moldura da letra (modo imagem) |
+| `--press` | `scale(.96)` | **feedback de toque padrão**: todo `:active` usa `transform: var(--press)` |
+
+🔁 = token de marca, duplicado em `display.css` — manter em sync.
+
+### Métodos/convenções visuais padronizados
+
+- **Feedback de toque:** todo elemento interativo usa
+  `:active { transform: var(--press); }` (antes havia `scale(.95/.96/.97/.98)`
+  misturados — unificados em `.96`).
+- **Realce de toque:** `-webkit-tap-highlight-color: transparent` e
+  `user-select: none` ficam **só no seletor `*`** (topo da folha) — **não
+  repetir** por elemento (era redundante em ~12 regras, removido).
+- **Exceção de seleção de texto:** só `input, textarea` no Controle (o campo de
+  busca precisa ser editável) — ver "Regras de desenvolvimento".
+- **Cantos:** botões/controles = `--radius-btn`; contêineres = `--radius-card`;
+  pills/badges = `--radius-pill`. Casos especiais fora do sistema (intencionais):
+  `border-radius:0` da moldura da letra ("vídeo de louvor", cantos retos), `50%`
+  do thumb do fader, `18px 18px 0 0` das bottom-sheets, `4px` do `.url-badge`.
+- **Cores fora do sistema (intencionais):** `#fff` puro em texto de botão, `#000`
+  em fundos de mídia/preview e o `box-shadow` dourado do `.start-pill`
+  (`rgba(251,192,45,.35)`, alfa próprio) — são one-offs deliberados, não
+  candidatos a token.
+
+### Ao adicionar/alterar estilo
+
+1. Existe token pro valor? Use-o. Não existe e o valor se repete? **Crie um token**.
+2. Cor/medida de marca nova → adicionar **nos dois** `:root` (Controle + Display) e marcar 🔁 nesta tabela.
+3. Botão novo → `:active { transform: var(--press); }` e nada de tap-highlight próprio.
+4. Atualizar esta tabela e bumpar a versão visual + caches dos SW.
 
 ---
 

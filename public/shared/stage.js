@@ -19,6 +19,25 @@
 (function (global) {
   'use strict';
 
+  // Rampa curta ao mutar/desmutar (evita corte abrupto de áudio). Fonte única
+  // compartilhada com display.js e controle.js (via createStage.MUTE_RAMP_TIME).
+  const MUTE_RAMP_TIME = 0.25;
+  // Passo-a-passo genérico de volume: from→to (0..1) ao longo de `dur` s,
+  // chamando apply(v) a cada passo (v já clampado em 0..1). Retorna o id do
+  // interval — o chamador guarda para poder cancelar. Compartilhado pelos três
+  // "sinks" de áudio do sistema: o <video> do stage, o player do YouTube no
+  // Display e o da preview no Controle (todos com a mesma curva/duração).
+  function rampSteps(from, to, dur, apply) {
+    const steps = Math.max(2, Math.round(dur * 20));
+    let i = 0, id;
+    id = setInterval(() => {
+      i++;
+      apply(Math.min(1, Math.max(0, from + (to - from) * (i / steps))));
+      if (i >= steps) clearInterval(id);
+    }, (dur * 1000) / steps);
+    return id;
+  }
+
   function createStage(opts) {
     const wallpaper = opts.wallpaper;
     const img = opts.img;
@@ -43,7 +62,6 @@
     let fadeTime = 1; // segundos
     let rampTimer = null;
     let muteApplyTimer = null;
-    const MUTE_RAMP_TIME = 0.25; // rampa curta ao mutar/desmutar (evita corte abrupto de áudio)
 
     // Cortina do wallpaper: única fonte de verdade sobre se ela está cobrindo
     // a mídia agora. Começa cobrindo (nada carregado ainda).
@@ -137,14 +155,8 @@
     function rampVolume(from, to, dur) {
       clearInterval(rampTimer);
       if (forceMuted) return;
-      const steps = Math.max(2, Math.round(dur * 20));
-      let i = 0;
       video.volume = Math.min(1, Math.max(0, from));
-      rampTimer = setInterval(() => {
-        i++;
-        video.volume = Math.min(1, Math.max(0, from + (to - from) * (i / steps)));
-        if (i >= steps) clearInterval(rampTimer);
-      }, (dur * 1000) / steps);
+      rampTimer = rampSteps(from, to, dur, (v) => { video.volume = v; });
     }
 
     // Esmaece a mídia de CONTEÚDO visível até o preto (troca de item, nada a
@@ -534,4 +546,8 @@
   }
 
   global.createStage = createStage;
+  // Utilidades de áudio expostas para reuso (Display e Controle carregam este
+  // arquivo antes dos seus): fonte única da rampa de volume e da sua duração.
+  createStage.rampSteps = rampSteps;
+  createStage.MUTE_RAMP_TIME = MUTE_RAMP_TIME;
 })(this);
