@@ -1,4 +1,4 @@
-const CACHE = 'controle-v4.47';
+const CACHE = 'controle-v4.48';
 const ASSETS = [
   './',
   './index.html',
@@ -46,6 +46,16 @@ function storePendingShare(data) {
     // Sem número de versão: abre a versão atual do banco (evita VersionError
     // quando o schema é atualizado em shared/db.js).
     const req = indexedDB.open('av-iasd');
+    // Instalação nova: se o share chega ANTES da 1ª abertura do app, o banco
+    // ainda não existe e é criado aqui na versão 1 — sem este handler ele
+    // nasceria sem nenhum object store e o `transaction('state')` abaixo
+    // lançaria NotFoundError, perdendo o share silenciosamente. Criamos ao
+    // menos o "state"; o shared/db.js completa o schema (media/files) no
+    // upgrade 1→2 seguinte (que checa `if (!contains(...))`, sem conflito).
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains('state')) db.createObjectStore('state');
+    };
     req.onsuccess = () => {
       const db = req.result;
       const tx = db.transaction('state', 'readwrite');

@@ -62,7 +62,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.47.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.48.**
 
 ---
 
@@ -142,7 +142,13 @@ arquivos sincronizados no OPFS. `thumb` pode ser um `Blob`
 > **Atenção:** qualquer código que abra o banco fora de `db.js` (ex:
 > `storePendingShare` no SW do Controle) deve usar `indexedDB.open('av-iasd')`
 > **sem número de versão**, para não quebrar com `VersionError` quando o schema
-> for atualizado.
+> for atualizado. **Porém** esse open sem versão precisa de um
+> `onupgradeneeded` que crie ao menos o store `state`: numa **instalação
+> nova** (share recebido ANTES da 1ª abertura do app) o banco ainda não
+> existe e nasceria sem nenhum object store, fazendo o `transaction('state')`
+> lançar `NotFoundError` e perder o share silenciosamente. O `db.js` completa
+> o schema (media/files) no upgrade 1→2 seguinte, que checa
+> `if (!contains(...))` — sem conflito com o store criado pelo SW.
 
 ### OPFS + catálogo (`files`)
 
@@ -220,6 +226,22 @@ Um registro só é excluído automaticamente quando **não está em nenhuma das 
 listRemove(listName, id)
   → se id não aparece em nenhuma outra lista → delete no store media (gc)
 ```
+
+**Atomicidade (transação única):** `listAdd`, `listRemove` (com o gc embutido)
+e `addMedia`/`addUrlMedia` (registro + entrada na lista) fazem o
+read-modify-write dentro de **uma só transação IDB** — não em transações
+separadas. Sem isso havia dois defeitos: (a) *lost update* — duas escritas
+concorrentes (ex: share sendo processado + reordenação) liam o mesmo array e
+a segunda gravação sobrescrevia a primeira, perdendo um id; (b) *registro
+órfão* — se o `add` em `media` completasse mas o `listAdd` falhasse, sobrava
+um blob em `media` fora de qualquer lista, que o gc nunca coletaria (vaza
+espaço). O gc de `listRemove` também roda na mesma transação da remoção
+(state + media): checa as outras listas e só então apaga o blob, fechando o
+TOCTOU em que um `listAdd` concorrente re-referenciaria o id no intervalo.
+(`readListIn` lê a lista a partir de um objectStore já aberto, para reuso
+dentro dessas transações; `txDone(tx)` confirma o commit.) A regra do projeto
+("operação IDB multi-passo atômica usa transação única") agora é honrada por
+essas funções — antes elas a violavam.
 
 Registros **temporários** (`storeUrlTemp` / `storeMediaTemp`) não pertencem a
 lista alguma — quem cria é responsável por excluí-los com `deleteMedia()`.
@@ -449,9 +471,20 @@ rampa corria, e a aplicação atrasada não deve "ressuscitar" um mudo já
 desfeito. `setVolume()` (o operador arrastando o fader) cancela qualquer
 rampa de mudo em andamento, senão o volume ajustado manualmente seria
 sobrescrito pelo `muteApplyTimer` pendente. O YouTube no Display usa a mesma
-lógica, em paralelo (`MUTE_RAMP_TIME` duplicada em `display.js`): rampa via
-`player.setVolume()` (`ytRampVolume`) e só chama `player.mute()`/`unMute()`
-no início/fim da rampa, pelos mesmos motivos.
+lógica, em paralelo: rampa via `player.setVolume()` (`ytRampVolume`) e só
+chama `player.mute()`/`unMute()` no início/fim da rampa, pelos mesmos motivos.
+
+**Fonte única da rampa de volume** (`createStage.rampSteps` /
+`createStage.MUTE_RAMP_TIME`): o passo-a-passo do fade sonoro
+(`steps = max(2, round(dur*20))`, clamp 0–1) e a duração da rampa de mudo
+(0,25 s) ficam definidos **uma vez** no `stage.js` e expostos como
+propriedades de `createStage`. Os três "sinks" de áudio do sistema — o
+`<video>` do stage (`rampVolume`), o player do YouTube no Display
+(`ytRampVolume`) e o da preview no Controle (`ytPreviewRampVolume`) — reusam
+esse mesmo `rampSteps`, cada um passando só o seu `apply(v)` (o "onde escrever
+o volume"). Antes a matemática e a constante estavam duplicadas nos três
+arquivos e podiam divergir. A *orquestração* do mudo (quando mutar de fato,
+`muteApplyTimer`) continua por player, pois depende do estado de cada um.
 
 ### Concorrência de carregamento
 
@@ -660,6 +693,14 @@ busca — voltar para Pastas retorna exatamente onde estava. A posição de scro
 é guardada por aba/pasta (`scrollPos`, chave `scrollKey()` = aba + id da pasta)
 e restaurada ao fim de cada `load()`; `rememberScroll()` é chamado antes de
 trocar de aba, abrir pasta ou voltar. (Memória por sessão, em RAM.)
+
+**`load()` tem guarda de sequência** (`loadSeqCtl`, como o `loadSeq` do
+stage): é async e disparada fire-and-forget por dezenas de handlers, então
+duas chamadas concorrentes poderiam terminar fora de ordem e a mais antiga
+sobrescreveria o estado/render da mais nova. `load()` lê tudo do IDB em locais
+(as contagens das pastas em `Promise.all`, não mais um `await` sequencial por
+pasta a cada micro-mudança) e só aplica ao estado do módulo + renderiza se
+`myseq === loadSeqCtl` — senão descarta.
 
 Miniaturas (160×160 px, JPEG 72%) geradas via Canvas no momento da importação.
 Vídeos têm thumbnail extraído de um frame perto do início — `min(0,5 s,
@@ -1286,6 +1327,16 @@ anterior) sofria.
   derrubá-lo. `ytSeq` guarda operações assíncronas obsoletas (equivalente ao
   `loadSeq` do stage) — inclusive o carregamento assíncrono da própria API
   (`loadYtApi()`) na primeira vez.
+  - **Cancelar um `loadYoutube` em curso quando `yt` ainda é `null`:**
+    `loadYoutube()` fica entre `await`s (o `fadeOutToBlack`, que pode durar
+    `fadeTime` até 5 s, e o `loadYtApi()`) antes de atribuir `yt`. Um
+    `stop`/`clear`/`load` de mídia comum que chegue nessa janela **bumpa
+    `ytSeq`** mesmo com `yt` nulo (`if (yt) stopYoutube(); else ++ytSeq;` no
+    stop/clear; o `else { ++ytSeq; ytDrop(); }` no load comum) — assim o
+    `if (seq !== ytSeq) return` do `loadYoutube` em curso o descarta. Sem isso,
+    o player nasceria por cima do novo estado (vídeo tocando depois de um stop,
+    ou por cima da mídia comum que entrou) alguns segundos depois. Se falhar o
+    `loadYtApi()` (rede), o `try/catch` aborta o load em vez de pendurar.
 - **No Controle, a preview do YouTube é um SEGUNDO `YT.Player` independente**
   (`controle.js`: `loadYtPreview()`/`ytPreviewHandle()`/`dropYtPreview()`),
   não uma captura do que está no Display — inevitável, já que o iframe do

@@ -59,6 +59,41 @@
       request.onerror = () => reject(request.error);
     });
   }
+  // Resolve quando a transação inteira commita — usado nas operações
+  // multi-passo (read-modify-write) que precisam confirmar a atomicidade.
+  function txDone(tx) {
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error || new Error('transação abortada'));
+    });
+  }
+  function uid() {
+    return crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random());
+  }
+  // Constrói um registro de "media" a partir de campos padrão + overrides do
+  // chamador (evita repetir a mesma estrutura em addMedia/addUrlMedia/temp).
+  function makeMediaRecord(fields) {
+    return Object.assign({
+      id: uid(),
+      blob: null,
+      url: null,
+      thumb: null,
+      type: 'url/unknown',
+      kind: 'other',
+      name: 'sem-nome',
+      youtubeId: null,
+      createdAt: Date.now(),
+    }, fields);
+  }
+  // Lê o array de ids de uma lista a partir de um objectStore de "state" já
+  // aberto (para uso DENTRO de uma transação existente, sem abrir outra).
+  // Cobre a migração "imports" ← "order".
+  async function readListIn(stateStore, name) {
+    let ids = await asPromise(stateStore.get(name));
+    if (ids == null && name === 'imports') ids = await asPromise(stateStore.get('order'));
+    return Array.isArray(ids) ? ids.slice() : [];
+  }
   function kindFromType(type) {
     if (type.startsWith('image/')) return 'image';
     if (type.startsWith('video/')) return 'video';
@@ -77,40 +112,41 @@
   }
 
   // ---- media ----
+  // Insere o registro em "media" E o adiciona à lista numa ÚNICA transação
+  // (media + state) — sem isso, uma falha entre o add e o listAdd deixaria um
+  // registro órfão em "media" que o gc() nunca coleta (nunca esteve numa
+  // lista) e que vaza espaço no IDB indefinidamente.
+  async function addMediaToList(record, listName) {
+    const db = await openDB();
+    const tx = db.transaction([STORE_MEDIA, STORE_STATE], 'readwrite');
+    await asPromise(tx.objectStore(STORE_MEDIA).add(record));
+    const st = tx.objectStore(STORE_STATE);
+    const ids = await readListIn(st, listName);
+    if (!ids.includes(record.id)) { ids.push(record.id); await asPromise(st.put(ids, listName)); }
+    await txDone(tx);
+    return record;
+  }
   async function addMedia(blob, meta) {
-    const record = {
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
+    const record = makeMediaRecord({
       blob,
-      url: null,
-      thumb: (meta && meta.thumb) || null,
       type: blob.type,
       kind: kindFromType(blob.type),
+      thumb: (meta && meta.thumb) || null,
       name: (meta && meta.name) || 'sem-nome',
-      youtubeId: null,
-      createdAt: Date.now(),
-    };
-    const s = await store(STORE_MEDIA, 'readwrite');
-    await asPromise(s.add(record));
-    await listAdd('imports', record.id);
-    return record;
+    });
+    return addMediaToList(record, 'imports');
   }
   // Item de URL externa (sem blob local); kind pode ser 'image','video','audio','youtube'.
   async function addUrlMedia(url, meta) {
-    const record = {
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
-      blob: null,
+    const record = makeMediaRecord({
       url,
       thumb: (meta && meta.thumb) || null,
       type: (meta && meta.type) || 'url/unknown',
       kind: (meta && meta.kind) || 'url',
       name: (meta && meta.name) || url,
       youtubeId: (meta && meta.youtubeId) || null,
-      createdAt: Date.now(),
-    };
-    const s = await store(STORE_MEDIA, 'readwrite');
-    await asPromise(s.add(record));
-    await listAdd('imports', record.id);
-    return record;
+    });
+    return addMediaToList(record, 'imports');
   }
   // Busca em "media" e, se não achar, no catálogo OPFS "files" — assim um id
   // de arquivo sincronizado pode entrar em listas/pastas e tocar no Display
@@ -123,34 +159,26 @@
   }
   // Armazena um registro de URL temporário sem blob e sem adicioná-lo a nenhuma lista.
   async function storeUrlTemp(urlStr, meta) {
-    const record = {
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
-      blob: null,
+    const record = makeMediaRecord({
       url: urlStr,
       thumb: (meta && meta.thumb) || null,
       type: (meta && meta.type) || 'audio/mpeg',
       kind: (meta && meta.kind) || 'audio',
       name: (meta && meta.name) || 'sem-nome',
-      youtubeId: null,
-      createdAt: Date.now(),
-    };
+    });
     const s = await store(STORE_MEDIA, 'readwrite');
     await asPromise(s.add(record));
     return record;
   }
   // Armazena um blob temporário sem adicioná-lo a nenhuma lista (para pastas vinculadas).
   async function storeMediaTemp(blob, meta) {
-    const record = {
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
+    const record = makeMediaRecord({
       blob,
-      url: null,
-      thumb: (meta && meta.thumb) || null,
       type: blob.type,
       kind: (meta && meta.kind) || kindFromType(blob.type),
+      thumb: (meta && meta.thumb) || null,
       name: (meta && meta.name) || 'sem-nome',
-      youtubeId: null,
-      createdAt: Date.now(),
-    };
+    });
     const s = await store(STORE_MEDIA, 'readwrite');
     await asPromise(s.add(record));
     return record;
@@ -161,19 +189,22 @@
     return asPromise(s.delete(id));
   }
   async function renameMedia(id, name) {
-    // get + put na mesma transação para garantir atomicidade.
-    const [s] = await storeTx(STORE_MEDIA, 'readwrite');
+    // get + put na mesma transação para garantir atomicidade (o await entre os
+    // dois mantém a transação viva pois ambos são requests IDB encadeados).
+    const [s, tx] = await storeTx(STORE_MEDIA, 'readwrite');
     const record = await asPromise(s.get(id));
     if (record) {
       record.name = name;
-      return asPromise(s.put(record));
+      await asPromise(s.put(record));
+      return txDone(tx);
     }
     // Registro do catálogo OPFS: renomeia só o nome de exibição (o path fica).
-    const [fs] = await storeTx(STORE_FILES, 'readwrite');
+    const [fs, ftx] = await storeTx(STORE_FILES, 'readwrite');
     const f = await asPromise(fs.get(id));
     if (!f) return;
     f.name = name;
-    return asPromise(fs.put(f));
+    await asPromise(fs.put(f));
+    return txDone(ftx);
   }
 
   // ---- catálogo OPFS (store "files") ----
@@ -266,25 +297,50 @@
   async function listHas(name, id) {
     return (await listIds(name)).includes(id);
   }
+  // Read-modify-write atômico: lê a lista, grava a versão modificada e só
+  // então commita, tudo numa transação de "state" — evita o lost update de
+  // duas escritas concorrentes (ex: share sendo processado + reordenação).
   async function listAdd(name, id) {
-    const ids = await listIds(name);
-    if (!ids.includes(id)) { ids.push(id); await listSet(name, ids); }
+    const [s, tx] = await storeTx(STORE_STATE, 'readwrite');
+    const ids = await readListIn(s, name);
+    if (ids.includes(id)) return;
+    ids.push(id);
+    await asPromise(s.put(ids, name));
+    await txDone(tx);
   }
+  // Remoção + gc na MESMA transação (state + media): sem isso, um listAdd
+  // concorrente entre a remoção e a checagem do gc poderia re-referenciar o
+  // id e o gc apagaria o blob mesmo assim (TOCTOU).
   async function listRemove(name, id) {
-    const before = await listIds(name);
+    const db = await openDB();
+    const tx = db.transaction([STORE_STATE, STORE_MEDIA], 'readwrite');
+    const st = tx.objectStore(STORE_STATE);
+    const before = await readListIn(st, name);
     const after = before.filter((x) => x !== id);
-    // Só grava e chama gc se o id estava de fato na lista.
-    if (after.length === before.length) return;
-    await listSet(name, after);
-    await gc(id);
+    if (after.length === before.length) return; // não estava na lista
+    await asPromise(st.put(after, name));
+    // gc: o id ainda está referenciado por ALGUMA outra lista?
+    let referenced = false;
+    for (const l of LISTS) {
+      if (l === name) continue; // acabou de sair desta
+      const other = await readListIn(st, l);
+      if (other.includes(id)) { referenced = true; break; }
+    }
+    if (!referenced) await asPromise(tx.objectStore(STORE_MEDIA).delete(id));
+    await txDone(tx);
   }
-  // Apaga o blob se não estiver referenciado por nenhuma lista.
+  // Apaga o blob se não estiver referenciado por nenhuma lista. Mantido para
+  // uso avulso; a remoção normal (listRemove) já coleta na própria transação.
   async function gc(id) {
-    // Lê todas as listas em paralelo para reduzir latência.
-    const all = await Promise.all(LISTS.map((l) => listIds(l)));
-    if (all.some((ids) => ids.includes(id))) return;
-    const s = await store(STORE_MEDIA, 'readwrite');
-    await asPromise(s.delete(id));
+    const db = await openDB();
+    const tx = db.transaction([STORE_STATE, STORE_MEDIA], 'readwrite');
+    const st = tx.objectStore(STORE_STATE);
+    for (const l of LISTS) {
+      const ids = await readListIn(st, l);
+      if (ids.includes(id)) return; // referenciado — não apaga
+    }
+    await asPromise(tx.objectStore(STORE_MEDIA).delete(id));
+    await txDone(tx);
   }
 
   // ---- canal de comandos ----

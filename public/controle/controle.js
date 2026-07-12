@@ -108,7 +108,6 @@ const REPEATS = ['off', 'all', 'one', 'shuffle'];
 let plItems = [];          // mídias da playlist (ordenadas)
 let libItems = [];         // mídias da aba ativa
 let currentItem = null;    // registro da mídia atual (mesmo que não esteja na aba visível)
-let plSet = new Set();
 let currentId = null;
 let view = 'visual';
 let muted = false;
@@ -217,23 +216,20 @@ function loadYtPreviewApi() {
 let ytPreview = null; // { mediaId, player }
 let ytPreviewSeq = 0;
 
-// Rampa curta de volume do player da preview do YouTube (mesmo valor do stage),
-// usada ao ligar/desligar a "mesa de som" — evita o corte abrupto de áudio.
-const MUTE_RAMP_TIME = 0.25;
+// Rampa curta de volume do player da preview do YouTube, usada ao ligar/
+// desligar a "mesa de som" — evita o corte abrupto de áudio. Reusa o mesmo
+// passo-a-passo/duração do stage.js (createStage.rampSteps/MUTE_RAMP_TIME),
+// fonte única compartilhada pelos três sinks de áudio do sistema.
+const MUTE_RAMP_TIME = createStage.MUTE_RAMP_TIME;
 let ytPreviewRampTimer = null;
 function ytPreviewRampVolume(from, to, dur) {
   clearInterval(ytPreviewRampTimer);
   const p = ytPreview && ytPreview.player;
   if (!p) return;
-  const steps = Math.max(2, Math.round(dur * 20));
-  let i = 0;
   try { p.setVolume(Math.round(Math.min(1, Math.max(0, from)) * 100)); } catch (_) {}
-  ytPreviewRampTimer = setInterval(() => {
-    i++;
-    const v = Math.min(1, Math.max(0, from + (to - from) * (i / steps)));
+  ytPreviewRampTimer = createStage.rampSteps(from, to, dur, (v) => {
     try { if (ytPreview && ytPreview.player) ytPreview.player.setVolume(Math.round(v * 100)); } catch (_) {}
-    if (i >= steps) clearInterval(ytPreviewRampTimer);
-  }, (dur * 1000) / steps);
+  });
 }
 
 function dropYtPreview() {
@@ -746,44 +742,64 @@ async function makeThumb(file, kind) {
 }
 
 // ===== carregar + render =====
+// Guarda de sequência: load() é async e disparada fire-and-forget por dezenas
+// de handlers. Sem isto, duas chamadas concorrentes poderiam terminar fora de
+// ordem e a mais antiga sobrescreveria o estado/render da mais nova. Só o
+// último load() aplica seu resultado (mesmo padrão do loadSeq do stage.js).
+let loadSeqCtl = 0;
 async function load() {
+  const myseq = ++loadSeqCtl;
+
+  // ---- FASE 1: só leituras do IDB, em locais (nada de estado/DOM ainda) ----
   const cur = await AVDB.getState('current');
-  currentId = cur && cur.mediaId ? cur.mediaId : null;
+  const repeatV = (await AVDB.getState('repeat')) || 'off';
+  const plItemsV = await AVDB.listItems('playlist');
+  const foldersV = (await AVDB.getState('folders')) || [];
+  // Contagens das pastas em paralelo (antes era um await sequencial por pasta
+  // a cada micro-mudança — ex: uma simples adição à playlist relia tudo).
+  const folderIdArrays = await Promise.all(foldersV.map((f) => AVDB.getState('folder_' + f.id)));
+  const folderCountsV = {};
+  foldersV.forEach((f, i) => { folderCountsV[f.id] = (folderIdArrays[i] || []).length; });
+  const opfsFoldersV = (await AVDB.getState('opfs-folders')) || [];
+  const hymnalV = (await AVDB.getState('hymnal2022')) || { indexSyncedAt: 0, songs: [] };
+  const storedFade = await AVDB.getState('fade');
+  const storedFit = await AVDB.getState('fit');
+  const lyricsBgV = (await AVDB.getState('lyricsBg')) === 'image' ? 'image' : 'black';
+  let libItemsV;
+  if (activeTab === 'folders') {
+    if (currentFolder && currentFolder._opfs) {
+      libItemsV = (await AVDB.filesByFolder(currentFolder.id))
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+    } else {
+      libItemsV = currentFolder ? await loadFolderMediaItems(currentFolder.id) : [];
+    }
+  } else {
+    libItemsV = await AVDB.listItems(activeTab);
+  }
+  const curMediaId = cur && cur.mediaId ? cur.mediaId : null;
+  const currentItemV = curMediaId ? (await AVDB.getMedia(curMediaId)) || null : null;
+
+  // Um load() mais novo assumiu enquanto este lia o IDB — descarta este.
+  if (myseq !== loadSeqCtl) return;
+
+  // ---- FASE 2: aplica ao estado do módulo + render (síncrono, atômico) ----
+  currentId = curMediaId;
   view = (cur && cur.view) || 'visual';
   muted = !!(cur && cur.muted);
   volume = (cur && typeof cur.volume === 'number') ? cur.volume : 1;
-  repeat = (await AVDB.getState('repeat')) || 'off';
-
-  plItems = await AVDB.listItems('playlist');
-  plSet = new Set(plItems.map((m) => m.id));
-  folders = (await AVDB.getState('folders')) || [];
-  folderCounts = {};
-  for (const f of folders) {
-    const ids = (await AVDB.getState('folder_' + f.id)) || [];
-    folderCounts[f.id] = ids.length;
-  }
-  opfsFolders = (await AVDB.getState('opfs-folders')) || [];
-  hymnal2022 = (await AVDB.getState('hymnal2022')) || { indexSyncedAt: 0, songs: [] };
-  const storedFade = await AVDB.getState('fade');
+  repeat = repeatV;
+  plItems = plItemsV;
+  folders = foldersV;
+  folderCounts = folderCountsV;
+  opfsFolders = opfsFoldersV;
+  hymnal2022 = hymnalV;
   if (storedFade) fadeCfg = { in: !!storedFade.in, out: !!storedFade.out, time: storedFade.time || 1 };
-  const storedFit = await AVDB.getState('fit');
   if (storedFit) mediaFit = storedFit;
-  lyricsBg = (await AVDB.getState('lyricsBg')) === 'image' ? 'image' : 'black';
+  lyricsBg = lyricsBgV;
+  libItems = libItemsV;
+  currentItem = currentItemV;
+
   renderLyricsBgBtn();
-  if (activeTab === 'folders') {
-    if (currentFolder && currentFolder._opfs) {
-      libItems = (await AVDB.filesByFolder(currentFolder.id))
-        .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
-    } else {
-      libItems = currentFolder ? await loadFolderMediaItems(currentFolder.id) : [];
-    }
-  } else {
-    libItems = await AVDB.listItems(activeTab);
-  }
-
-  // Cache do item atual para renderNowPlaying mesmo quando não está na aba visível.
-  currentItem = currentId ? (await AVDB.getMedia(currentId)) || null : null;
-
   renderControls();
   renderNowPlaying();
   renderRepeat();
@@ -1135,6 +1151,11 @@ function renderStorageUsage() {
   if (!(navigator.storage && navigator.storage.estimate)) return;
   navigator.storage.estimate().then(({ usage, quota }) => {
     if (activeTab !== 'folders' || currentFolder) return; // aba mudou enquanto aguardava
+    // Remove uma linha anterior antes de anexar: sem isto, dois estimate()
+    // pendentes (renderFolderList chamado em sequência) empilhariam duas
+    // linhas de uso na mesma lista.
+    const old = libraryEl.querySelector('.storage-usage');
+    if (old) old.remove();
     const li = document.createElement('li');
     li.className = 'empty storage-usage';
     li.textContent = fmtBytes(usage || 0) + ' usados de ' + fmtBytes(quota || 0) + ' disponíveis';
@@ -1325,7 +1346,6 @@ async function onTap(item) {
   // Swipe para esquerda continua ADICIONANDO à playlist.
   await AVDB.listSet('playlist', [item.id]);
   plItems = [item];
-  plSet = new Set([item.id]);
   renderPlaylist();
   send(item.id);
 }
@@ -1473,7 +1493,7 @@ function navigateBack() {
 }
 
 async function createFolder(name) {
-  const id = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()));
+  const id = uid();
   folders.push({ id, name });
   await AVDB.setState('folders', folders);
   load();
@@ -1633,13 +1653,21 @@ function openOpfsFolder(f) {
   load();
 }
 
-async function deleteOpfsFolder(f) {
-  if (!confirm('Excluir a pasta "' + f.name + '" e todos os arquivos sincronizados?')) return;
-  const recs = await AVDB.filesByFolder(f.id);
+// Remove uma leva de registros do catálogo OPFS (store "files") e limpa as
+// referências que tenham sobrado nas listas. Usado ao excluir uma pasta OPFS
+// ou o Hinário inteiro — os bytes já são apagados em bloco por opfsDeleteDir,
+// então aqui não é preciso opfsDeleteFile por registro.
+async function purgeCatalogRecords(recs) {
   for (const r of recs) {
     await AVDB.fileDelete(r.id);
     for (const l of ['imports', 'playlist']) await AVDB.listRemove(l, r.id);
   }
+}
+
+async function deleteOpfsFolder(f) {
+  if (!confirm('Excluir a pasta "' + f.name + '" e todos os arquivos sincronizados?')) return;
+  const recs = await AVDB.filesByFolder(f.id);
+  await purgeCatalogRecords(recs);
   await AVDB.opfsDeleteDir('folders/' + f.id);
   opfsFolders = opfsFolders.filter((x) => x.id !== f.id);
   await AVDB.setState('opfs-folders', opfsFolders);
@@ -1647,17 +1675,20 @@ async function deleteOpfsFolder(f) {
   load();
 }
 
+// Fonte única extensão→MIME. Usada por guessMediaType (arquivos OPFS) e, via
+// AVDB.kindFromType, por detectUrlKind (URLs) — antes as duas mantinham listas
+// de extensões separadas que podiam divergir.
+const MEDIA_MIME = {
+  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif',
+  webp: 'image/webp', svg: 'image/svg+xml', avif: 'image/avif', bmp: 'image/bmp',
+  mp4: 'video/mp4', webm: 'video/webm', ogv: 'video/ogg', mov: 'video/mp4',
+  m4v: 'video/mp4', mkv: 'video/x-matroska',
+  mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', aac: 'audio/aac',
+  flac: 'audio/flac', m4a: 'audio/mp4', opus: 'audio/opus',
+};
 function guessMediaType(filename) {
   const ext = (filename.split('.').pop() || '').toLowerCase();
-  const map = {
-    jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif',
-    webp: 'image/webp', svg: 'image/svg+xml', avif: 'image/avif', bmp: 'image/bmp',
-    mp4: 'video/mp4', webm: 'video/webm', ogv: 'video/ogg', mov: 'video/mp4',
-    m4v: 'video/mp4', mkv: 'video/x-matroska',
-    mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', aac: 'audio/aac',
-    flac: 'audio/flac', m4a: 'audio/mp4', opus: 'audio/opus',
-  };
-  return map[ext] || 'application/octet-stream';
+  return MEDIA_MIME[ext] || 'application/octet-stream';
 }
 
 // ===== Hinário Adventista 2022 (LouvorJA) =====
@@ -1742,10 +1773,7 @@ async function syncHymnal2022() {
     // letra sincronizada existir, sem rebaixar o áudio (ver ensureHymnVariant).
     const pending = [];
     for (const s of songs) {
-      const fullRec = s.fileIdFull ? await AVDB.fileGet(s.fileIdFull) : null;
-      const playbackRec = s.fileIdPlayback ? await AVDB.fileGet(s.fileIdPlayback) : null;
-      const needsFull = !fullRec || fullRec.lyrics === undefined;
-      const needsPlayback = s.has_instrumental_music && (!playbackRec || playbackRec.lyrics === undefined);
+      const { needsFull, needsPlayback } = await hymnVariantsNeeded(s);
       if (needsFull || needsPlayback) pending.push(s);
     }
     if (pending.length === 0) { flash('Hinário 2022 já está completo offline'); return; }
@@ -1972,10 +2000,7 @@ async function buildLyricSlides(meta, timeField, resolveImage) {
 async function deleteHymnal2022() {
   if (!confirm('Excluir o Hinário Adventista 2022 baixado (áudios e capas)?')) return;
   const recs = await AVDB.filesByFolder(HYMNAL_FOLDER_ID);
-  for (const r of recs) {
-    await AVDB.fileDelete(r.id);
-    for (const l of ['imports', 'playlist']) await AVDB.listRemove(l, r.id);
-  }
+  await purgeCatalogRecords(recs);
   await AVDB.opfsDeleteDir('folders/' + HYMNAL_FOLDER_ID);
   hymnal2022 = { indexSyncedAt: 0, songs: [] };
   await AVDB.setState('hymnal2022', hymnal2022);
@@ -2067,11 +2092,22 @@ function hymnVariantEl(s, variant, label) {
 // downloadHymnalSong (mesma função da sincronização em massa) — o hino sai
 // desse fluxo já com áudio, capa e letra, igual a um hino sincronizado em
 // massa, pronto pra tocar 100% offline nas próximas vezes.
-async function ensureHymnDownloaded(s) {
+// Verifica quais variantes de um hino ainda precisam ser baixadas: o arquivo
+// não existe no catálogo (nunca baixado ou apagado por fora) OU existe mas
+// ainda não tem a letra sincronizada (`lyrics === undefined` → backfill sem
+// rebaixar o áudio). Regra única usada pela sincronização em massa e pelo
+// download sob demanda (antes duplicada nos dois).
+async function hymnVariantsNeeded(s) {
   const fullRec = s.fileIdFull ? await AVDB.fileGet(s.fileIdFull) : null;
   const playbackRec = s.fileIdPlayback ? await AVDB.fileGet(s.fileIdPlayback) : null;
-  const needsFull = !fullRec || fullRec.lyrics === undefined;
-  const needsPlayback = s.has_instrumental_music && (!playbackRec || playbackRec.lyrics === undefined);
+  return {
+    needsFull: !fullRec || fullRec.lyrics === undefined,
+    needsPlayback: !!(s.has_instrumental_music && (!playbackRec || playbackRec.lyrics === undefined)),
+  };
+}
+
+async function ensureHymnDownloaded(s) {
+  const { needsFull, needsPlayback } = await hymnVariantsNeeded(s);
   if (!needsFull && !needsPlayback) return;
 
   if (hymnDownloadInFlight.has(s.id_music)) { await hymnDownloadInFlight.get(s.id_music); return; }
@@ -2100,7 +2136,6 @@ async function playHymnVariant(s, variant) {
   if (!rec) { flash('Erro ao carregar mídia'); return; }
   await AVDB.listSet('playlist', [id]);
   plItems = [rec];
-  plSet = new Set([id]);
   renderPlaylist();
   closeHymnSearch();
   dismissFlash();   // fecha o toast "Baixando…" sticky que ensureHymnDownloaded pode ter deixado
@@ -2180,10 +2215,11 @@ function extractYouTubeId(url) {
 function detectUrlKind(url) {
   if (extractYouTubeId(url)) return 'youtube';
   const lower = url.toLowerCase().split('?')[0];
-  if (/\.(mp4|webm|ogv|mov|m4v|mkv)$/.test(lower)) return 'video';
-  if (/\.(mp3|wav|ogg|aac|flac|m4a|opus)$/.test(lower)) return 'audio';
-  if (/\.(jpg|jpeg|png|gif|webp|svg|avif|bmp)$/.test(lower)) return 'image';
-  return 'url';
+  const ext = (lower.split('.').pop() || '');
+  const mime = MEDIA_MIME[ext];
+  // MEDIA_MIME só contém extensões de image/video/audio → kindFromType nunca
+  // devolve 'other' aqui; extensão desconhecida (sem mime) vira 'url'.
+  return mime ? AVDB.kindFromType(mime) : 'url';
 }
 
 async function handleSharedUrl(url, title) {
@@ -2481,6 +2517,7 @@ AVDB.onCommand((msg) => {
 // versão nova publicada; quando o novo service worker assume o controle,
 // recarrega para exibir a versão nova. Recarregar o Controle não afeta a
 // projeção (o Display é um app à parte, que segue tocando).
+let swReg = null;
 if ('serviceWorker' in navigator) {
   // Só recarrega numa ATUALIZAÇÃO (já havia um controller); a primeira
   // instalação reivindica a página sem precisar recarregar.
@@ -2492,20 +2529,19 @@ if ('serviceWorker' in navigator) {
     location.reload();
   });
   navigator.serviceWorker.register('sw.js').then((reg) => {
-    const check = () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); };
-    check();
-    document.addEventListener('visibilitychange', check);
+    swReg = reg;
+    if (document.visibilityState === 'visible') reg.update().catch(() => {});
   }).catch(() => {});
 }
 
-// Índice do Hinário 2022 sempre em dia: mesma cadência do check de versão do
-// service worker acima (ao abrir e ao retomar do 2º plano) — como é só a
-// lista leve (sem áudio), não tem custo pra rodar sozinho toda vez, e deixa
-// o botão de busca sempre com acesso ao catálogo completo (baixado ou não),
-// pronto pra tocar por demanda individual ou entrar numa sincronização
-// completa depois.
+// Um ÚNICO handler ao retomar do 2º plano (antes eram dois listeners
+// separados): busca a versão nova do service worker E atualiza o índice leve
+// do Hinário 2022 (só metadados, sem áudio — barato pra rodar a cada retomada,
+// mantém o botão de busca sempre com o catálogo completo, baixado ou não).
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') autoRefreshHymnalIndex();
+  if (document.visibilityState !== 'visible') return;
+  if (swReg) swReg.update().catch(() => {});
+  autoRefreshHymnalIndex();
 });
 
 (async function init() {
