@@ -176,7 +176,12 @@ const scrollPos = {};      // posição de scroll por aba/pasta (sessão)
 const preview = createStage({
   wallpaper: pvWallEl, img: pvImgEl, video: pvVideoEl, forceMuted: true,
   onTime: previewTick,
-  onEnded: () => autoAdvance(),
+  // Display presente é a fonte de verdade do avanço automático: quando ele
+  // está ativo, quem avança é o `media-ended` remoto (com guarda de mediaId).
+  // Sem este early-return, se o Display chegar ao fim antes da preview (drift
+  // até SYNC_DRIFT), os dois disparariam autoAdvance() e pulariam uma faixa.
+  // Mesmo princípio de previewTick/ytPreviewTick.
+  onEnded: () => { if (displayActive()) return; autoAdvance(); },
   onError: (e) => {
     const code = e.target.error ? e.target.error.code : '?';
     const src = e.target.src ? e.target.src.slice(-60) : '(sem src)';
@@ -194,11 +199,16 @@ let ytPreviewApiPromise = null;
 function loadYtPreviewApi() {
   if (window.YT && window.YT.Player) return Promise.resolve();
   if (ytPreviewApiPromise) return ytPreviewApiPromise;
-  ytPreviewApiPromise = new Promise((resolve) => {
+  ytPreviewApiPromise = new Promise((resolve, reject) => {
     const prevCb = window.onYouTubeIframeAPIReady;
     window.onYouTubeIframeAPIReady = () => { if (prevCb) prevCb(); resolve(); };
     const tag = document.createElement('script');
     tag.src = 'https://www.youtube.com/iframe_api';
+    // Sem onerror, uma falha de rede no fetch do script deixaria a promise
+    // pendente para sempre — e como ela é cacheada, TODA preview YouTube
+    // futura travaria. Rejeitar + limpar o cache deixa a próxima tentativa
+    // refazer o fetch.
+    tag.onerror = () => { ytPreviewApiPromise = null; reject(new Error('YT API load failed')); };
     document.head.appendChild(tag);
   });
   return ytPreviewApiPromise;
@@ -261,7 +271,8 @@ async function loadYtPreview(rec, v) {
   // por preview.handle() em paralelo) fica como placeholder até o player
   // real assumir por cima (mesmo z-index, depois no DOM).
   preview.instantCover(v === 'wallpaper');
-  await loadYtPreviewApi();
+  try { await loadYtPreviewApi(); }
+  catch (_) { return; }   // API não carregou (rede) — mantém só a thumbnail
   if (seq !== ytPreviewSeq) return;
   const host = document.createElement('div');
   pvYoutubeEl.appendChild(host);
@@ -2092,6 +2103,7 @@ async function playHymnVariant(s, variant) {
   plSet = new Set([id]);
   renderPlaylist();
   closeHymnSearch();
+  dismissFlash();   // fecha o toast "Baixando…" sticky que ensureHymnDownloaded pode ter deixado
   send(id);
 }
 
@@ -2235,6 +2247,15 @@ function flash(text, sticky) {
   el.textContent = text; el.classList.add('show');
   clearTimeout(flashTimer);
   if (!sticky) flashTimer = setTimeout(() => el.classList.remove('show'), 1300);
+}
+// Oculta um toast (inclusive um sticky) imediatamente. Necessário porque um
+// flash(…, true) só some quando outro flash o substitui — no caminho de
+// sucesso que não dispara nenhum flash novo (ex: playHymnVariant → send),
+// sem isto o "Baixando…" ficaria preso na tela.
+function dismissFlash() {
+  const el = document.getElementById('toast');
+  if (el) el.classList.remove('show');
+  clearTimeout(flashTimer);
 }
 
 // ===== popup de playlist =====

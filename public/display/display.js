@@ -266,11 +266,16 @@ let ytApiPromise = null;
 function loadYtApi() {
   if (window.YT && window.YT.Player) return Promise.resolve();
   if (ytApiPromise) return ytApiPromise;
-  ytApiPromise = new Promise((resolve) => {
+  ytApiPromise = new Promise((resolve, reject) => {
     const prevCb = window.onYouTubeIframeAPIReady;
     window.onYouTubeIframeAPIReady = () => { if (prevCb) prevCb(); resolve(); };
     const tag = document.createElement('script');
     tag.src = 'https://www.youtube.com/iframe_api';
+    // Sem onerror, uma falha de rede deixaria a promise pendente para sempre
+    // (e cacheada), travando o `await loadYtApi()` de todo vídeo do YouTube
+    // desta sessão. Rejeitar + limpar o cache deixa a próxima tentativa
+    // refazer o fetch.
+    tag.onerror = () => { ytApiPromise = null; reject(new Error('YT API load failed')); };
     document.head.appendChild(tag);
   });
   return ytApiPromise;
@@ -465,7 +470,8 @@ async function loadYoutube(rec, v, m, vol) {
   // parecendo que o sistema tinha parado em vez de só carregando.
   stage.instantCover(desiredView === 'wallpaper');
 
-  await loadYtApi();
+  try { await loadYtApi(); }
+  catch (_) { return; }   // API não carregou (rede) — aborta o load do vídeo
   if (seq !== ytSeq) return; // um load mais novo chegou enquanto a API carregava
 
   yt = {
@@ -739,7 +745,7 @@ async function restore() {
   // curso — então esse custo de rede vai ser pago de qualquer forma; só não
   // faz sentido esperar o meio do culto pra pagá-lo. Fire-and-forget: não
   // atrasa nada, loadYoutube() já teria que esperar essa mesma promise.
-  loadYtApi();
+  loadYtApi().catch(() => {});   // prefetch: uma falha de rede aqui é retentada no 1º loadYoutube()
   // Config de transições (fade) definida no Controle — preferência visual,
   // não é "tocar" nada.
   const fade = await AVDB.getState('fade');
