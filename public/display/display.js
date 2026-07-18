@@ -788,11 +788,10 @@ async function restore() {
 // "Abrir Display" do Controle: sem API web garantida para lançar outro PWA
 // instalado, pode cair numa aba comum do Chrome como fallback).
 const startBtnEl = document.getElementById('startBtn');
-// Depois de ativado, um toque na tela do Display volta para o Controle (ver
-// listener abaixo). displayActivated é ligado com uma pequena guarda temporal
-// para o PRÓPRIO toque de ativação não disparar a volta (o click borbulha pro
-// document no mesmo gesto).
-let displayActivated = false;
+// "Ligar Display" APENAS ativa o Display (destrava o áudio de terceiros/YouTube
+// com o gesto real). O Display é INDEPENDENTE — não abre o Controle nem
+// redireciona pra lugar nenhum. `display: standalone` no manifest continua
+// (não `fullscreen`), mas aqui não há mais nenhum window.open.
 startBtnEl.addEventListener('click', () => {
   if (yt && yt.player) {
     const p = yt.player;
@@ -800,25 +799,11 @@ startBtnEl.addEventListener('click', () => {
     ytSafeCall(() => p.setVolume(Math.round(yt.volume * 100)));
     ytSafeCall(() => p.playVideo());
   }
-  // "Ligar Display" agora APENAS ativa (destrava áudio de terceiros/YouTube com
-  // o gesto real) — não abre mais o Controle. A volta pro Controle é por toque
-  // na tela depois de ativado (ver abaixo). Continua `display: standalone` (não
-  // `fullscreen`) para o window.open da volta poder lançar o WebAPK do Controle.
   // Feedback de toque (pill "confirma" antes de sumir) — sem isso o overlay
   // desaparece no mesmo instante do clique e o toque parece não ter feito nada.
   startBtnEl.classList.add('confirming');
   setTimeout(() => { startBtnEl.hidden = true; }, 300);
-  setTimeout(() => { displayActivated = true; }, 350);
 }, { once: true });
-
-// Tocar na tela do Display (depois de ativado) volta para o Controle. Usa
-// `click` (não pointerdown) para não conflitar com o onUserGesture de
-// recuperação de áudio nem disparar em deslizes; a guarda displayActivated
-// impede que o toque de ativação (mesmo gesto) já navegue de volta.
-document.addEventListener('click', () => {
-  if (!displayActivated) return;
-  try { window.open('../controle/', '_blank'); } catch (_) {}
-});
 
 // Auto-atualização: checa por versão nova ao abrir/retomar e recarrega quando
 // um novo service worker assume — MAS nunca recarrega com mídia em cena (evita

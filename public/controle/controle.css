@@ -162,6 +162,13 @@ body {
   position: relative; height: 100%; aspect-ratio: 16 / 9; flex: 0 0 auto;
   background: #000; border-radius: var(--radius-card); overflow: hidden; border: 1px solid var(--line);
 }
+/* Preview em tela cheia (projeção direta pelo Controle): preenche a tela,
+   cantos retos e sem borda; as camadas internas (pv-layers, wallpaper) já são
+   inset:0 e a mídia usa object-fit, então preenchem/letterboxam sozinhas. */
+.preview:fullscreen, .preview:-webkit-full-screen {
+  width: 100%; height: 100%; aspect-ratio: auto;
+  border: none; border-radius: 0; background: #000;
+}
 /* Mesmo modelo do Display: mídia toca por baixo (z-index menor); o wallpaper
    é a cortina que cobre por cima, ligada/desligada independente da mídia. */
 .pv-wall {
