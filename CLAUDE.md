@@ -119,6 +119,8 @@ public/
     ├── manifest.json           # PWA manifest (standalone; orientation:"landscape" — ver "Instalar no Android")
     └── sw.js                   # Service worker (cache: display-vX.Y)
 server.js                       # Servidor estático mínimo (Node puro, sem deps)
+docs/
+└── FONTE-DE-DADOS-LOUVORJA.md  # Referência técnica do banco compartilhado (app-ja/LouvorJA)
 ```
 
 ---
@@ -785,6 +787,14 @@ mesmo backend usado pelo app `app-ja`), para trazer o Hinário Adventista 2022
 como fonte de mídia offline, sem copiar nenhum código do app-ja (Vue/Vuex) —
 só o **protocolo HTTP** dele é reaproveitado, via um cliente próprio e mínimo:
 `controle/louvorja.js` (`window.Louvorja`, JS puro, sem dependências).
+
+> 📄 **Referência completa da fonte de dados:**
+> [`docs/FONTE-DE-DADOS-LOUVORJA.md`](docs/FONTE-DE-DADOS-LOUVORJA.md) documenta
+> **toda** a estrutura técnica classificatória do banco compartilhado (endpoints,
+> token, convenção de nomes dos arquivos `json_db` e o schema de cada tipo —
+> `music_{id}`, `album_{id}`, listas de músicas/hinários/coletâneas/bíblia,
+> `config`, servidor de arquivos). Consulte-o para pedir **qualquer** arquivo do
+> sistema sem precisar abrir o repositório do `app-ja`.
 
 - **`Louvorja.fetchList(file)`** — `GET {url-base}/{file}?{YYYYMMDD}` com
   header `Api-Token`, mesmo formato do `Database.js` do app-ja (URL de
