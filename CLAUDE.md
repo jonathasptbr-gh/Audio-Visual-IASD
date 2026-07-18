@@ -62,7 +62,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.49.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.50.**
 
 ---
 
@@ -822,12 +822,22 @@ só o **protocolo HTTP** dele é reaproveitado, via um cliente próprio e mínim
    "Pastas" acima), só que a fonte da sincronização é uma API remota em vez
    de `showDirectoryPicker()`.
 
-**UI**: uma linha fixa "Hinário Adventista 2022" sempre aparece no topo da
-aba **Pastas** (`renderHymnalRow()`, mesmo visual `.folder-opfs` das pastas
-de dispositivo, ícone de nota musical), mesmo antes da 1ª sincronização —
-com um botão de sincronizar (`syncHymnal2022()`) e, uma vez que já haja algo
-baixado, um botão de excluir tudo (`deleteHymnal2022()`) e a própria linha
-vira clicável (abre como uma pasta OPFS normal, via `openOpfsFolder`).
+**UI — cartão informativo, NÃO uma pasta** (`renderHymnalRow()` + `.hymnal-card`
+no CSS): no topo da aba **Pastas** aparece um **cartão de "check do sistema"**
+do Hinário 2022 (não uma linha de pasta), sempre visível mesmo antes da 1ª
+sincronização. Ele **não abre como pasta ao tocar** (o operador acessa/toca os
+hinos pela **busca do Hinário**, botão de lupa) — é deliberadamente um painel de
+status, não algo navegável como pasta. O cartão mostra: símbolo do hinário
+(nota musical, `ICON.music`), título, **linha de status** (progresso de
+sincronização via `setHymnalStatus`, ou "✓ Completo offline" em verde quando
+`downloaded === total`, ou "Parcial…"/"Não sincronizado"), botão de
+**sincronizar** (`syncHymnal2022()`, ícone de setas circulares SVG inline; gira
+com `.busy` enquanto sincroniza) e, se já houver algo baixado, botão de
+**excluir tudo** (`deleteHymnal2022()`). Abaixo, uma faixa de **estatísticas**
+(chips `.hymnal-stat`): **Sincronizados** (`downloaded/total`), **Peso**
+(`fmtBytes(hymnalBytes)` — somatório dos `size` do catálogo OPFS via
+`updateHymnalBytes`, recalculado sob demanda e cacheado) e **Rede** (Wi-Fi
+confirmado × "Aguardando", ícone de Wi-Fi SVG inline — ver `isConfirmedWifi`).
 Sincronização é **aditiva e resumível**: interromper e tocar de novo só baixa
 o que falta (`fileGet` reconfirma que o arquivo catalogado ainda existe de
 fato antes de pular — cobre até exclusões manuais feitas por dentro da
@@ -1570,6 +1580,8 @@ medidas repetidas à mão), que foram consolidadas nestes padrões.
 | `--danger` | `#e53935` | perigo (excluir, mudo, view bloqueada) |
 | `--danger-soft` | `rgba(229,57,53,.22)` | fundo suave de perigo |
 | `--danger-text` | `#ffcdd2` | texto sobre fundo de perigo |
+| `--success` | `#66bb6a` | sucesso / "check do sistema" (cartão do Hinário completo offline) |
+| `--success-soft` | `rgba(102,187,106,.18)` | fundo suave de sucesso |
 | `--radius-btn` | `8px` | raio de **botões/controles** (unifica os antigos 7/8/9px) |
 | `--radius-card` | `10px` | raio de **cartões/painéis** (preview, itens de lista, popups internos, folhas) |
 | `--radius-pill` | `999px` | badges, chips, pills |
@@ -1640,7 +1652,15 @@ faders/mixer), a **lupa** da busca do Hinário (`#hymnSearchBtn`), a antena de
 **Wi-Fi** da linha do Hinário (`wifiIconEl`), o **fone de ouvido** da mesa de
 som (`#standaloneToggle`), a **flor** do fundo da letra (`#lyricsBgToggle`) e o
 ícone **"arquivos+"** (documento com `+`) do botão de importar da aba
-(`.tab-add` do `#file`), que diferencia importar ARQUIVOS de sincronizar PASTA.
+(`.tab-add` do `#file`), que diferencia importar ARQUIVOS de sincronizar PASTA,
+e no **cartão do Hinário 2022** as **setas circulares** de sincronizar
+(`syncIconSvg`) e o **check** verde de "completo offline" (`checkIconSvg`).
+
+> **Borda nativa dos `<button>`**: `.tab-add` (e os botões do cartão do Hinário)
+> zeram `border`/`appearance` explicitamente — sem isso, um `<button>` (ex.:
+> `#hymnSearchBtn`) herda a **borda 3D bicolor (bevel)** do sistema, fora do
+> padrão do app. O mesmo motivo do `appearance:none` no `.lib-search`
+> (`type="search"`).
 
 ---
 

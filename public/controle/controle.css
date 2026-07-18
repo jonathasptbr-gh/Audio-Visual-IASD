@@ -45,6 +45,11 @@ input, textarea { user-select: text; -webkit-user-select: text; }
   --danger-soft: rgba(229, 57, 53, .22);
   --danger-text: #ffcdd2;
 
+  /* sucesso / "check do sistema" (verde) — usado no cartão do Hinário 2022
+     quando o catálogo está completo offline */
+  --success: #66bb6a;
+  --success-soft: rgba(102, 187, 106, .18);
+
   /* raios: botões/controles vs. cartões/painéis */
   --radius-btn: 8px;
   --radius-card: 10px;
@@ -438,8 +443,14 @@ main {
 .tab .msym { font-size: 22px; }
 .tab.active { color: var(--text); border-bottom-color: var(--accent); }
 
+/* border:none + appearance:none matam a borda 3D bicolor (bevel nativo) que o
+   <button> ganha do sistema — o #hymnSearchBtn é um <button> (o de importar é
+   um <label>, que não tinha o problema), então sem isto ele saía com a borda
+   diagonal clara/escura do sistema, fora do padrão do app. */
 .tab-add {
-  flex: none; width: 44px; height: 42px; border-radius: var(--radius-btn); background: var(--accent); color: #fff;
+  flex: none; width: 44px; height: 42px; border: none;
+  appearance: none; -webkit-appearance: none;
+  border-radius: var(--radius-btn); background: var(--accent); color: #fff;
   display: flex; align-items: center; justify-content: center; cursor: pointer;
 }
 .tab-add .msym { font-size: 22px; }
@@ -493,6 +504,60 @@ main {
 .net-badge { flex-shrink: 0; display: flex; align-items: center; color: var(--accent); opacity: .8; }
 .net-badge--warn { color: var(--gold); opacity: 1; }
 .storage-usage { font-size: .72rem; opacity: .7; padding: 10px 0; }
+
+/* ---------- Cartão informativo do Hinário 2022 ---------- */
+/* NÃO é uma pasta: é um "check do sistema" — símbolo do hinário, status de
+   sincronização, e estatísticas (sincronizados, peso, Wi-Fi) + ações. Card
+   vertical, mais volumoso que uma linha de pasta, para caber tudo. */
+.hymnal-card {
+  flex-shrink: 0;
+  border-radius: var(--radius-card);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: .7rem .8rem;
+  display: flex; flex-direction: column; gap: .6rem;
+}
+.hymnal-card-head { display: flex; align-items: center; gap: .6rem; }
+.hymnal-card-icon {
+  width: 44px; height: 44px; flex-shrink: 0;
+  border-radius: var(--radius-btn);
+  background: var(--accent-soft); color: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+}
+.hymnal-card-icon .msym { font-size: 27px; }
+.hymnal-card-titles { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.hymnal-card-title { font-size: .95rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hymnal-card-status { font-size: .72rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: .25rem; }
+.hymnal-card-status.sync { color: var(--accent); }
+.hymnal-card-status.done { color: var(--success); }
+.hymnal-card-actions { display: flex; gap: .35rem; flex-shrink: 0; }
+.hymnal-card-btn {
+  width: 38px; height: 38px; border: none; appearance: none; -webkit-appearance: none;
+  border-radius: var(--radius-btn); background: var(--surface); color: var(--text);
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.hymnal-card-btn:active { transform: var(--press); }
+.hymnal-card-btn .msym { font-size: 20px; }
+.hymnal-card-btn svg { display: block; }
+.hymnal-card-btn.sync-btn { background: var(--accent); color: #fff; }
+.hymnal-card-btn.danger { color: var(--danger-text); }
+.hymnal-card-btn.busy { opacity: .55; }
+.hymnal-card-btn.busy svg { animation: hymnal-spin 1s linear infinite; }
+@keyframes hymnal-spin { to { transform: rotate(360deg); } }
+
+/* faixa de estatísticas (chips): sincronizados / peso / Wi-Fi */
+.hymnal-card-stats { display: flex; flex-wrap: wrap; gap: .4rem; }
+.hymnal-stat {
+  display: flex; flex-direction: column; gap: 1px;
+  background: var(--surface-2); border-radius: var(--radius-btn);
+  padding: .32rem .55rem; min-width: 0;
+}
+.hymnal-stat label { font-size: .56rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.hymnal-stat b { font-size: .82rem; font-weight: 700; color: var(--text); }
+.hymnal-stat.done b { color: var(--success); }
+.hymnal-stat.net b { display: flex; align-items: center; gap: .3rem; }
+.hymnal-stat.net.ok b { color: var(--accent); }
+.hymnal-stat.net.warn b { color: var(--gold); }
 
 /* fundo de ação do swipe */
 .swipe-bg { position: absolute; inset: 0; z-index: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; }
@@ -620,7 +685,11 @@ main {
 }
 #hymnSearchPopup.open .popup-sheet { transform: translateY(0); }
 
-.hymn-search-bar { padding: .3rem .9rem .5rem; flex-shrink: 0; }
+/* Barra de busca do Hinário ocupando toda a largura da bandeja: display:flex faz
+   o input (.lib-search, flex:1) esticar de lado a lado (sem isso o input ficava
+   no tamanho nativo, pequeno). Campo mais alto/legível que o de busca da pasta. */
+.hymn-search-bar { display: flex; padding: .5rem .9rem .6rem; flex-shrink: 0; }
+#hymnSearchInput { width: 100%; padding: 11px 14px; font-size: .95rem; }
 .hymn-result { padding-bottom: .4rem; }
 .hymn-row { align-items: center; }
 .hymn-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
