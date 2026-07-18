@@ -147,6 +147,18 @@ function setHymnalStatus(text, autoClearMs) {
   }
   refreshHymnalRowIfVisible();
 }
+// Peso (bytes) dos arquivos já baixados do Hinário 2022 — somatório dos `size`
+// do catálogo OPFS da pasta fixa. Exibido no cartão do Hinário (ver
+// renderHymnalRow). Cacheado e recalculado sob demanda (updateHymnalBytes) para
+// o render ser síncrono; só re-renderiza quando o total muda de fato.
+let hymnalBytes = 0;
+async function updateHymnalBytes() {
+  try {
+    const recs = await AVDB.filesByFolder(HYMNAL_FOLDER_ID);
+    const total = recs.reduce((sum, r) => sum + (r.size || 0), 0);
+    if (total !== hymnalBytes) { hymnalBytes = total; refreshHymnalRowIfVisible(); }
+  } catch (_) { /* sem catálogo ainda — peso fica 0 */ }
+}
 // Downloads de hino em andamento (id_music -> Promise) — evita disparar dois
 // downloads do mesmo hino em paralelo se o operador tocar duas vezes rápido.
 const hymnDownloadInFlight = new Map();
@@ -1071,44 +1083,103 @@ function wifiIconEl() {
   return span.firstElementChild;
 }
 
+// SVG inline (fora do subset da fonte): setas circulares de "sincronizar".
+function syncIconSvg() {
+  return '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    + '<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>'
+    + '<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>'
+    + '</svg>';
+}
+// SVG inline de "check" (verde), usado no status "Completo offline".
+function checkIconSvg() {
+  return '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
+}
+
+// Cartão informativo do Hinário Adventista 2022 no topo da aba Pastas — NÃO é
+// uma pasta: é um "check do sistema" (símbolo do hinário, status, e as
+// estatísticas sincronizados/peso/Wi-Fi + ações de sincronizar/excluir). Não
+// abre como pasta ao tocar (o operador acessa/toca hinos pela busca do
+// Hinário, botão de lupa). Sempre visível, mesmo antes da 1ª sincronização.
 function renderHymnalRow() {
-  const li = document.createElement('li');
-  li.className = 'lib-item folder-opfs';
-  const row = document.createElement('div'); row.className = 'row';
-  const icon = document.createElement('div'); icon.className = 'thumb thumb--icon';
-  icon.appendChild(msym(ICON.music));
-  // Nome + (quando houver) subtítulo de status de sincronização. O subtítulo é
-  // o indicador que substitui o toast flutuante (ver setHymnalStatus).
-  const info = document.createElement('div'); info.className = 'hymn-info';
-  const nameEl = document.createElement('span'); nameEl.className = 'row-name'; nameEl.textContent = HYMNAL_FOLDER_NAME;
-  info.appendChild(nameEl);
-  if (hymnalSyncStatus) {
-    const sub = document.createElement('span'); sub.className = 'hymn-sub'; sub.textContent = hymnalSyncStatus;
-    info.appendChild(sub);
-  }
   const total = hymnal2022.songs.length;
-  const countEl = document.createElement('span'); countEl.className = 'folder-count';
-  countEl.textContent = hymnalSyncBusy ? '…' : (total ? countHymnalDownloaded() + '/' + total : '0');
+  const downloaded = countHymnalDownloaded();
+  const complete = total > 0 && downloaded >= total;
   const wifiOk = isConfirmedWifi();
-  const netEl = document.createElement('span');
-  netEl.className = 'net-badge' + (wifiOk ? '' : ' net-badge--warn');
-  netEl.title = wifiOk
-    ? 'Wi-Fi confirmado — sincronização completa liberada'
-    : 'Sem Wi-Fi confirmado — sincronizar baixa só a lista; hinos são baixados individualmente ao usar (ou force pelo botão)';
-  netEl.appendChild(wifiIconEl());
-  const syncBtn = document.createElement('button'); syncBtn.className = 'row-btn'; syncBtn.title = 'Atualizar/baixar o Hinário 2022';
-  syncBtn.appendChild(msym(ICON.import));
+
+  // dispara (fire-and-forget) o recálculo do peso; só re-renderiza se mudar
+  updateHymnalBytes();
+
+  const li = document.createElement('li');
+  li.className = 'hymnal-card';
+
+  // ---- cabeçalho: ícone + títulos + ações ----
+  const head = document.createElement('div'); head.className = 'hymnal-card-head';
+  const icon = document.createElement('div'); icon.className = 'hymnal-card-icon';
+  icon.appendChild(msym(ICON.music));
+
+  const titles = document.createElement('div'); titles.className = 'hymnal-card-titles';
+  const title = document.createElement('span'); title.className = 'hymnal-card-title'; title.textContent = HYMNAL_FOLDER_NAME;
+  const status = document.createElement('span'); status.className = 'hymnal-card-status';
+  if (hymnalSyncStatus) {
+    status.classList.add('sync');
+    status.textContent = hymnalSyncStatus;
+  } else if (complete) {
+    status.classList.add('done');
+    status.innerHTML = checkIconSvg();
+    status.appendChild(document.createTextNode(' Completo offline'));
+  } else if (total > 0) {
+    status.textContent = 'Parcial — sincronize para completar';
+  } else {
+    status.textContent = 'Não sincronizado';
+  }
+  titles.append(title, status);
+
+  const actions = document.createElement('div'); actions.className = 'hymnal-card-actions';
+  const syncBtn = document.createElement('button');
+  syncBtn.className = 'hymnal-card-btn sync-btn' + (hymnalSyncBusy ? ' busy' : '');
+  syncBtn.title = 'Atualizar/baixar o Hinário 2022';
+  syncBtn.innerHTML = syncIconSvg();
   syncBtn.addEventListener('click', (e) => { e.stopPropagation(); syncHymnal2022(); });
-  row.append(icon, info, countEl, netEl, syncBtn);
-  if (total > 0) {
-    const rmBtn = document.createElement('button'); rmBtn.className = 'row-btn'; rmBtn.title = 'Excluir hinário baixado';
+  actions.appendChild(syncBtn);
+  if (downloaded > 0) {
+    const rmBtn = document.createElement('button');
+    rmBtn.className = 'hymnal-card-btn danger';
+    rmBtn.title = 'Excluir hinário baixado';
     rmBtn.appendChild(msym(ICON.del));
     rmBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteHymnal2022(); });
-    row.appendChild(rmBtn);
+    actions.appendChild(rmBtn);
   }
-  li.appendChild(row);
-  if (total > 0) li.addEventListener('click', () => openOpfsFolder({ id: HYMNAL_FOLDER_ID, name: HYMNAL_FOLDER_NAME }));
+  head.append(icon, titles, actions);
+
+  // ---- faixa de estatísticas ----
+  const stats = document.createElement('div'); stats.className = 'hymnal-card-stats';
+  stats.appendChild(hymnalStat('Sincronizados', total ? downloaded + '/' + total : '—', complete ? 'done' : ''));
+  stats.appendChild(hymnalStat('Peso', hymnalBytes ? fmtBytes(hymnalBytes) : '—'));
+
+  const net = document.createElement('div');
+  net.className = 'hymnal-stat net ' + (wifiOk ? 'ok' : 'warn');
+  net.title = wifiOk
+    ? 'Wi-Fi confirmado — sincronização completa liberada'
+    : 'Sem Wi-Fi confirmado — sincronizar baixa só a lista; hinos são baixados individualmente ao usar (ou force pelo botão)';
+  const netLabel = document.createElement('label'); netLabel.textContent = 'Rede';
+  const netVal = document.createElement('b');
+  netVal.appendChild(wifiIconEl());
+  netVal.appendChild(document.createTextNode(wifiOk ? 'Wi-Fi' : 'Aguardando'));
+  net.append(netLabel, netVal);
+  stats.appendChild(net);
+
+  li.append(head, stats);
   libraryEl.appendChild(li);
+}
+
+// Monta um "chip" de estatística (rótulo em cima, valor embaixo).
+function hymnalStat(label, value, extraClass) {
+  const el = document.createElement('div');
+  el.className = 'hymnal-stat' + (extraClass ? ' ' + extraClass : '');
+  const l = document.createElement('label'); l.textContent = label;
+  const v = document.createElement('b'); v.textContent = value;
+  el.append(l, v);
+  return el;
 }
 
 // Só re-renderiza a lista de pastas se ela estiver de fato visível — evita
