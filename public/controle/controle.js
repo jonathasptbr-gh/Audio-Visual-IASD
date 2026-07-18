@@ -2580,18 +2580,27 @@ hymnSearchInputEl.addEventListener('input', () => renderHymnResults(hymnSearchIn
   if (conn && conn.addEventListener) conn.addEventListener('change', refreshHymnalRowIfVisible);
 })();
 
-// Preview: TOQUE simples coloca a PRÓPRIA preview em tela cheia (landscape) —
-// não abre o Display; a preview vira a projeção e o operador espelha a tela
-// cheia do celular (funciona em qualquer aparelho, sem depender do Miracast de
-// app isolado). Tocar de novo em tela cheia SAI do fullscreen. PRESSIONAR LONGO
-// (~500 ms, só fora do fullscreen) abre as configurações de Exibição (fade/fit).
-// A trava de paisagem via Screen Orientation API só é permitida COM o elemento
-// já em fullscreen (padrão de player de vídeo) — por isso é feita logo após o
-// requestFullscreen resolver; é destravada ao sair.
+// Preview: FORA do fullscreen — toque simples coloca a PRÓPRIA preview em tela
+// cheia (landscape); pressionar longo (~500 ms) abre as configurações de
+// Exibição (fade/fit). A preview em tela cheia é a projeção direta pelo Controle
+// (espelha a tela cheia do celular, sem depender do Miracast de app isolado).
+//
+// DENTRO do fullscreen — a tela inteira vira uma superfície de CONTROLE POR
+// GESTOS INVISÍVEIS (nada é desenhado no telão), mapeados para as ações que já
+// existem. Mapa (posição + tipo de movimento distinguem cada gesto):
+//   • Volume        → ARRASTAR na vertical no terço DIREITO (cima = +, baixo = −)
+//   • Play/Pause    → TOQUE no terço central
+//   • Estrofe ± 1   → TOQUE no terço esquerdo (anterior) / direito (próxima)
+//   • Mídia ± 1     → DESLIZE horizontal: ← próxima, → anterior
+//   • Wallpaper on/off → DESLIZE para CIMA (terço esq/central)
+//   • Sair da tela cheia → DESLIZE para BAIXO (terço esq/central) — ou o gesto
+//                          de voltar do Android
+// A trava de paisagem (Screen Orientation API) só é permitida COM o elemento já
+// em fullscreen (padrão de player de vídeo); é destravada ao sair.
 (function setupPreviewGestures() {
   const previewEl = document.getElementById('preview');
-  let lpTimer = null;
-  let lpFired = false;
+  const isFs = () => document.fullscreenElement === previewEl;
+  let lpTimer = null, lpFired = false;
   const clearLp = () => { clearTimeout(lpTimer); lpTimer = null; };
 
   async function enterFullscreen() {
@@ -2601,32 +2610,76 @@ hymnSearchInputEl.addEventListener('input', () => renderHymnResults(hymnSearchIn
       try { await (screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape')); } catch (_) {}
     } catch (_) {}
   }
-  function exitFullscreen() {
-    try { if (document.exitFullscreen) document.exitFullscreen(); } catch (_) {}
-  }
-  // Ao sair do fullscreen (toque, gesto de voltar do Android, etc.), destrava a
-  // orientação para o Controle voltar ao seu retrato normal.
+  function exitFullscreen() { try { if (document.exitFullscreen) document.exitFullscreen(); } catch (_) {} }
   document.addEventListener('fullscreenchange', () => {
     if (!document.fullscreenElement) { try { screen.orientation && screen.orientation.unlock && screen.orientation.unlock(); } catch (_) {} }
   });
 
-  previewEl.addEventListener('pointerdown', () => {
-    lpFired = false;
-    clearLp();
-    // long-press só faz sentido fora do fullscreen (abrir Exibição)
-    lpTimer = setTimeout(() => {
-      if (!document.fullscreenElement) { lpFired = true; openFadePopup(); }
-    }, 500);
+  // volume (mesma lógica do fader #volSlider), reusável pelo gesto
+  function gSetVolume(v) {
+    volume = Math.max(0, Math.min(1, v));
+    if (volume > 0 && muted) { muted = false; cmd({ type: 'mute', muted }); }
+    cmd({ type: 'volume', volume });
+    volSliderEl.value = Math.round(volume * 100);
+    renderControls();
+  }
+
+  // ---- reconhecedor de gestos (só em fullscreen) ----
+  const TAP_MOVE = 14, SWIPE_MIN = 45, VOL_MIN = 12;
+  let sx = 0, sy = 0, third = 'center', volActive = false, volStart = 1;
+  function zoneOf(clientX) {
+    const r = previewEl.getBoundingClientRect();
+    const x = clientX - r.left, w = r.width || 1;
+    if (x < w / 3) return 'left';
+    if (x > 2 * w / 3) return 'right';
+    return 'center';
+  }
+
+  previewEl.addEventListener('pointerdown', (e) => {
+    if (isFs()) {
+      sx = e.clientX; sy = e.clientY; third = zoneOf(e.clientX);
+      volActive = false; volStart = volume;
+      try { previewEl.setPointerCapture(e.pointerId); } catch (_) {}
+      return;
+    }
+    lpFired = false; clearLp();
+    lpTimer = setTimeout(() => { if (!document.fullscreenElement) { lpFired = true; openFadePopup(); } }, 500);
   });
-  previewEl.addEventListener('pointerup', () => {
-    clearLp();
-    if (lpFired) return;
-    // toque simples → alterna a tela cheia da própria preview
-    if (document.fullscreenElement) exitFullscreen();
-    else enterFullscreen();
+
+  previewEl.addEventListener('pointermove', (e) => {
+    if (!isFs()) { clearLp(); return; }
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    // volume: arrasto vertical no terço direito
+    if (third === 'right' && Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > VOL_MIN) {
+      volActive = true;
+      const h = previewEl.getBoundingClientRect().height || 1;
+      gSetVolume(volStart + (-dy / (h * 0.6))); // arrastar pra cima aumenta
+    }
   });
-  previewEl.addEventListener('pointermove', clearLp);
-  previewEl.addEventListener('pointercancel', clearLp);
+
+  previewEl.addEventListener('pointerup', (e) => {
+    if (isFs()) {
+      if (volActive) { persistCurrent(); return; }
+      const dx = e.clientX - sx, dy = e.clientY - sy;
+      const adx = Math.abs(dx), ady = Math.abs(dy);
+      // Ações acionam os BOTÕES existentes (.click()): reaproveitam os handlers
+      // e respeitam o `disabled` (ex.: estrofe ± vira no-op quando não há letra).
+      if (Math.max(adx, ady) < TAP_MOVE) {                        // TOQUE
+        if (third === 'left') slidePrevBtnEl.click();             // estrofe anterior
+        else if (third === 'right') slideNextBtnEl.click();       // próxima estrofe
+        else playPauseEl.click();                                 // centro → play/pause
+      } else if (adx > ady && adx > SWIPE_MIN) {                  // DESLIZE horizontal → mídia
+        if (dx < 0) nextEl.click(); else prevEl.click();          // ← próxima, → anterior
+      } else if (ady > adx && ady > SWIPE_MIN && third !== 'right') { // DESLIZE vertical (esq/centro)
+        if (dy < 0) viewToggleEl.click(); else exitFullscreen();  // ↑ wallpaper · ↓ sair
+      }
+      return;
+    }
+    clearLp();
+    if (!lpFired) enterFullscreen(); // fora do fullscreen: toque entra em tela cheia
+  });
+
+  previewEl.addEventListener('pointercancel', () => { clearLp(); volActive = false; });
   previewEl.addEventListener('pointerleave', clearLp);
 })();
 fadePopupCloseEl.addEventListener('click', closeFadePopup);

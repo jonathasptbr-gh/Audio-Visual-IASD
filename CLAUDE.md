@@ -66,7 +66,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.54.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.55.**
 
 ---
 
@@ -620,18 +620,40 @@ paisagem** (`screen.orientation.lock('landscape')`, só permitido já em
 fullscreen — padrão de player de vídeo; destravada ao sair, no
 `fullscreenchange`). A preview vira a **projeção direta pelo Controle**: o
 operador espelha a tela cheia do celular (funciona em qualquer aparelho, sem
-depender do Miracast de app isolado). Tocar de novo em tela cheia **sai** do
-fullscreen (o gesto de voltar do Android também). **NÃO abre o app Display** —
-os dois ficam independentes. **Pressionar longo (~500 ms, só fora do fullscreen)**
-abre o popup de **configurações rápidas de exibição** (bottom-sheet `#fadePopup`,
-título "Exibição"): toggles de fade in/out + slider de duração (0.2–5 s) e o
-seletor de **preenchimento da mídia** (`#fitSeg` — Ajustar/Preencher/Esticar, ver
-`stage.setFit()`). Discriminador via pointer + timer (deslize/cancelamento aborta
-o long-press). CSS: `.preview:fullscreen` preenche a tela (cantos retos, sem
-borda; as camadas internas já são `inset:0` + `object-fit`). A config de fade é
-persistida em `state.fade` e a de preenchimento em `state.fit`; ambas aplicadas
-ao vivo via comando (`fade`/`fit`, Display + preview) e recarregadas do state ao
-inicializar (Controle e Display).
+depender do Miracast de app isolado). **NÃO abre o app Display** — os dois ficam
+independentes. **Pressionar longo (~500 ms, só fora do fullscreen)** abre o popup
+de **configurações rápidas de exibição** (bottom-sheet `#fadePopup`, título
+"Exibição"): toggles de fade in/out + slider de duração (0.2–5 s) e o seletor de
+**preenchimento da mídia** (`#fitSeg` — Ajustar/Preencher/Esticar, ver
+`stage.setFit()`). CSS: `.preview:fullscreen` preenche a tela (cantos retos, sem
+borda, `touch-action:none`; as camadas internas já são `inset:0` + `object-fit`).
+
+**Controle por gestos invisíveis DENTRO do fullscreen:** a tela inteira vira uma
+superfície de controle **sem desenhar nada no telão** (o operador espelha a tela
+cheia). O reconhecedor distingue cada gesto por **posição (terço esq/central/
+dir) + tipo de movimento** e aciona os **botões já existentes** (`.click()`, que
+reaproveita os handlers e respeita `disabled` — ex.: estrofe ± vira no-op sem
+letra):
+
+| Gesto | Ação | Botão/rota |
+|---|---|---|
+| Toque terço **central** | Play/Pause | `playPauseEl` |
+| Toque terço **esquerdo** | Estrofe anterior | `slidePrevBtnEl` |
+| Toque terço **direito** | Próxima estrofe | `slideNextBtnEl` |
+| Deslize **←** (horizontal) | Próxima mídia | `nextEl` |
+| Deslize **→** (horizontal) | Mídia anterior | `prevEl` |
+| Deslize **↑** (esq/central) | Wallpaper on/off | `viewToggleEl` |
+| Deslize **↓** (esq/central) | Sair da tela cheia | `document.exitFullscreen()` |
+| **Arrastar na vertical** no terço **direito** | Volume (cima=+, baixo=−) | `gSetVolume` (mesma lógica do fader `#volSlider`) |
+
+Limiares: toque `<14px`, deslize `>45px`, volume vertical `>12px` (relativo,
+`-dy/(altura*0.6)`). `setPointerCapture` no `pointerdown` garante o rastreio do
+arrasto. O terço direito faz **tap = próxima estrofe**, **arrasto vertical =
+volume** e **deslize horizontal = mídia** (distintos por eixo/movimento); deslize
+vertical no terço direito nunca vira sair/wallpaper (é sempre volume). A config
+de fade é persistida em `state.fade` e a de preenchimento em `state.fit`; ambas
+aplicadas ao vivo via comando (`fade`/`fit`, Display + preview) e recarregadas do
+state ao inicializar (Controle e Display).
 
 **Botão ⏹ ("Parar e limpar"):** envia `clear` (volta ao wallpaper) mas mantém
 `currentId` — o ▶ recarrega e reproduz do início.

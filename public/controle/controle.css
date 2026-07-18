@@ -168,6 +168,9 @@ body {
 .preview:fullscreen, .preview:-webkit-full-screen {
   width: 100%; height: 100%; aspect-ratio: auto;
   border: none; border-radius: 0; background: #000;
+  /* superfície de gestos invisíveis: captura toques/deslizes sem o navegador
+     interpretar como rolagem/zoom (ver setupPreviewGestures em controle.js) */
+  touch-action: none;
 }
 /* Mesmo modelo do Display: mídia toca por baixo (z-index menor); o wallpaper
    é a cortina que cobre por cima, ligada/desligada independente da mídia. */
