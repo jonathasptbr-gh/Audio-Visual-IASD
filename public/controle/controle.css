@@ -59,6 +59,12 @@ input, textarea { user-select: text; -webkit-user-select: text; }
 
   /* feedback de toque padrão (:active) */
   --press: scale(.96);
+
+  /* altura do teclado virtual (deslocamento com teclado) — atualizado pelo JS
+     via VisualViewport quando o navegador NÃO redimensiona o layout sozinho
+     (fallback ao interactive-widget=resizes-content do meta viewport). 0 quando
+     o teclado está fechado ou o layout já foi redimensionado. */
+  --kb: 0px;
 }
 
 html, body { height: 100%; overflow: hidden; }
@@ -72,7 +78,12 @@ body {
   font-family: system-ui, -apple-system, sans-serif;
   display: flex; flex-direction: column;
   height: 100vh;    /* fallback para browsers mais antigos */
-  height: 100svh;   /* usa a menor viewport possível (chrome visível) */
+  /* Desconta a altura do teclado virtual (--kb, ver :root e o handler de
+     VisualViewport em controle.js): assim o app encolhe pra cima e nenhuma
+     lista/preview fica escondida atrás do teclado, mesmo onde o navegador não
+     redimensiona o layout sozinho. --kb é 0 no caso normal (teclado fechado ou
+     layout já redimensionado pelo interactive-widget), então não muda nada. */
+  height: calc(100svh - var(--kb, 0px));
   overflow: hidden;
 }
 
@@ -575,17 +586,40 @@ main {
 .folder-pick-btn .msym { font-size: 22px; color: var(--accent); }
 .folder-pick-btn:active { transform: var(--press); }
 
-/* ---------- Busca na pasta ---------- */
+/* ---------- Busca (pasta e Hinário) ---------- */
+/* appearance:none mata o visual NATIVO do sistema que o `type="search"` ganha
+   em WebKit/Chrome (cantos/altura próprios, botão de limpar embutido) — sem
+   isto o campo saía "despadronizado", diferente dos demais controles do app.
+   As pseudo-partes de busca do WebKit também são removidas para o campo ficar
+   idêntico a um input comum estilizado pelo design do app. */
 .lib-search {
   flex: 1; min-width: 0;
+  appearance: none; -webkit-appearance: none;
   border: none; outline: none;
   background: var(--surface-2); color: var(--text);
   border-radius: var(--radius-btn); padding: 6px 10px;
   font-size: .85rem; font-family: inherit;
 }
 .lib-search::placeholder { color: var(--muted); }
+.lib-search::-webkit-search-decoration,
+.lib-search::-webkit-search-cancel-button,
+.lib-search::-webkit-search-results-button,
+.lib-search::-webkit-search-results-decoration { -webkit-appearance: none; appearance: none; display: none; }
 
 /* ---------- popup de busca no Hinário 2022 ---------- */
+/* Bandeja da busca do Hinário: desliza a partir do TOPO (não da base como os
+   demais bottom-sheets). Além de ser o pedido de UX, casa melhor com o teclado
+   — a bandeja fica no topo e os resultados abaixo, sem serem cobertos pelo
+   teclado que sobe da base. */
+#hymnSearchPopup { align-items: flex-start; }
+#hymnSearchPopup .popup-sheet {
+  border-radius: 0 0 18px 18px;
+  transform: translateY(-100%);
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: 0;
+}
+#hymnSearchPopup.open .popup-sheet { transform: translateY(0); }
+
 .hymn-search-bar { padding: .3rem .9rem .5rem; flex-shrink: 0; }
 .hymn-result { padding-bottom: .4rem; }
 .hymn-row { align-items: center; }
@@ -625,6 +659,11 @@ main {
 }
 .fit-opt.active { background: var(--accent); color: #fff; }
 
-/* ---------- toast ---------- */
-.toast { position: fixed; left: 50%; top: calc(1.2rem + env(safe-area-inset-top)); transform: translateX(-50%) translateY(-20px); background: #222; color: #fff; padding: .55rem 1rem; border-radius: var(--radius-pill); font-size: .85rem; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 50; border: 1px solid var(--line); }
-.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+/* Nota: o antigo "toast" flutuante foi removido — as informações agora são
+   transmitidas pela própria interface (ver flash() em controle.js, hoje um
+   no-op, e o indicador de sincronização no texto da linha do Hinário 2022). */
+
+/* Subtítulo de status na linha do Hinário 2022 (indicador de sincronização —
+   substitui o toast flutuante). Reaproveita .hymn-info/.hymn-sub, já usados
+   nos resultados de busca. */
+.hymn-info .hymn-sub { color: var(--accent); }

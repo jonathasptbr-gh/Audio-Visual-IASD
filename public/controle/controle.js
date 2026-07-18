@@ -133,6 +133,20 @@ const HYMNAL_FOLDER_ID = 'hymnal-2022';
 const HYMNAL_FOLDER_NAME = 'Hinário Adventista 2022';
 let hymnal2022 = { indexSyncedAt: 0, songs: [] }; // persistido em state 'hymnal2022'
 let hymnalSyncBusy = false;
+// Indicador de sincronização do Hinário 2022 — substitui o antigo toast
+// flutuante (ver flash()). É exibido como subtítulo na linha do Hinário 2022
+// (renderHymnalRow). autoClearMs limpa sozinho depois de um tempo (mensagens
+// finais/erro); durante o progresso fica sem auto-clear até a próxima chamada.
+let hymnalSyncStatus = '';
+let hymnalStatusTimer = null;
+function setHymnalStatus(text, autoClearMs) {
+  hymnalSyncStatus = text || '';
+  clearTimeout(hymnalStatusTimer);
+  if (autoClearMs) {
+    hymnalStatusTimer = setTimeout(() => { hymnalSyncStatus = ''; refreshHymnalRowIfVisible(); }, autoClearMs);
+  }
+  refreshHymnalRowIfVisible();
+}
 // Downloads de hino em andamento (id_music -> Promise) — evita disparar dois
 // downloads do mesmo hino em paralelo se o operador tocar duas vezes rápido.
 const hymnDownloadInFlight = new Map();
@@ -1063,7 +1077,15 @@ function renderHymnalRow() {
   const row = document.createElement('div'); row.className = 'row';
   const icon = document.createElement('div'); icon.className = 'thumb thumb--icon';
   icon.appendChild(msym(ICON.music));
+  // Nome + (quando houver) subtítulo de status de sincronização. O subtítulo é
+  // o indicador que substitui o toast flutuante (ver setHymnalStatus).
+  const info = document.createElement('div'); info.className = 'hymn-info';
   const nameEl = document.createElement('span'); nameEl.className = 'row-name'; nameEl.textContent = HYMNAL_FOLDER_NAME;
+  info.appendChild(nameEl);
+  if (hymnalSyncStatus) {
+    const sub = document.createElement('span'); sub.className = 'hymn-sub'; sub.textContent = hymnalSyncStatus;
+    info.appendChild(sub);
+  }
   const total = hymnal2022.songs.length;
   const countEl = document.createElement('span'); countEl.className = 'folder-count';
   countEl.textContent = hymnalSyncBusy ? '…' : (total ? countHymnalDownloaded() + '/' + total : '0');
@@ -1077,7 +1099,7 @@ function renderHymnalRow() {
   const syncBtn = document.createElement('button'); syncBtn.className = 'row-btn'; syncBtn.title = 'Atualizar/baixar o Hinário 2022';
   syncBtn.appendChild(msym(ICON.import));
   syncBtn.addEventListener('click', (e) => { e.stopPropagation(); syncHymnal2022(); });
-  row.append(icon, nameEl, countEl, netEl, syncBtn);
+  row.append(icon, info, countEl, netEl, syncBtn);
   if (total > 0) {
     const rmBtn = document.createElement('button'); rmBtn.className = 'row-btn'; rmBtn.title = 'Excluir hinário baixado';
     rmBtn.appendChild(msym(ICON.del));
@@ -1100,7 +1122,7 @@ function renderFolderList() {
   if (opfsFolders.length === 0 && folders.length === 0) {
     const empty = document.createElement('li');
     empty.className = 'empty';
-    empty.innerHTML = 'Nenhuma pasta do dispositivo.<br>Toque no ícone acima para sincronizar uma pasta do dispositivo (a permissão é pedida uma única vez) ou crie uma pasta virtual pela seleção múltipla.';
+    empty.textContent = 'Nenhuma pasta.';
     libraryEl.appendChild(empty);
     renderStorageUsage();
     return;
@@ -1753,16 +1775,15 @@ async function autoRefreshHymnalIndex() {
 }
 
 async function syncHymnal2022() {
-  if (hymnalSyncBusy) { flash('Sincronização do Hinário 2022 já em andamento…'); return; }
-  if (!AVDB.opfsSupported()) { flash('Navegador não suporta armazenamento OPFS'); return; }
+  if (hymnalSyncBusy) return; // já em andamento — o status na linha já indica
+  if (!AVDB.opfsSupported()) { setHymnalStatus('Armazenamento OPFS indisponível', 5000); return; }
   hymnalSyncBusy = true;
-  refreshHymnalRowIfVisible();
+  setHymnalStatus('Atualizando lista…');
   try {
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 
-    flash('Atualizando lista do Hinário 2022…', true);
     try { await fetchHymnalIndex(); }
-    catch (_) { flash('Falha ao buscar a lista do Hinário (sem internet?)'); return; }
+    catch (_) { setHymnalStatus('Sem internet — falha ao atualizar', 5000); return; }
     const songs = hymnal2022.songs;
 
     // Fase 2: entra na fila quem ainda não tem os arquivos de fato no
@@ -1776,7 +1797,7 @@ async function syncHymnal2022() {
       const { needsFull, needsPlayback } = await hymnVariantsNeeded(s);
       if (needsFull || needsPlayback) pending.push(s);
     }
-    if (pending.length === 0) { flash('Hinário 2022 já está completo offline'); return; }
+    if (pending.length === 0) { setHymnalStatus('Já completo offline', 4000); return; }
 
     // Sem Wi-Fi confirmado: não baixa tudo sem avisar (evita estourar dados
     // móveis) — a lista já foi atualizada acima, e cada hino ainda pode ser
@@ -1790,7 +1811,7 @@ async function syncHymnal2022() {
         'Baixar tudo mesmo assim, usando dados móveis?'
       );
       if (!proceed) {
-        flash('Lista atualizada. Hinos serão baixados individualmente conforme forem usados.');
+        setHymnalStatus('Lista atualizada (baixa por hino ao usar)', 5000);
         return;
       }
     }
@@ -1803,15 +1824,14 @@ async function syncHymnal2022() {
         const s = pending[next++];
         await downloadHymnalSong(s);
         done++;
-        flash('Baixando Hinário 2022: ' + done + '/' + pending.length + '…', true);
+        setHymnalStatus('Baixando ' + done + '/' + pending.length + '…');
         await AVDB.setState('hymnal2022', hymnal2022);
-        refreshHymnalRowIfVisible();
       }
     }
     await Promise.all(Array.from({ length: CONCURRENCY }, worker));
-    flash('Hinário Adventista 2022 atualizado (' + done + ' baixado(s))');
+    setHymnalStatus('Atualizado (' + done + ' baixado(s))', 4000);
   } catch (_) {
-    flash('Erro ao sincronizar o Hinário 2022');
+    setHymnalStatus('Erro na sincronização', 5000);
   } finally {
     hymnalSyncBusy = false;
     refreshHymnalRowIfVisible();
@@ -2274,25 +2294,16 @@ async function checkPendingShare() {
 }
 
 // ===== feedback rápido =====
-let flashTimer = null;
-// sticky=true mantém o toast na tela (progresso de sync); a próxima chamada
-// normal volta a esconder sozinha.
-function flash(text, sticky) {
-  let el = document.getElementById('toast');
-  if (!el) { el = document.createElement('div'); el.id = 'toast'; el.className = 'toast'; document.body.appendChild(el); }
-  el.textContent = text; el.classList.add('show');
-  clearTimeout(flashTimer);
-  if (!sticky) flashTimer = setTimeout(() => el.classList.remove('show'), 1300);
-}
-// Oculta um toast (inclusive um sticky) imediatamente. Necessário porque um
-// flash(…, true) só some quando outro flash o substitui — no caminho de
-// sucesso que não dispara nenhum flash novo (ex: playHymnVariant → send),
-// sem isto o "Baixando…" ficaria preso na tela.
-function dismissFlash() {
-  const el = document.getElementById('toast');
-  if (el) el.classList.remove('show');
-  clearTimeout(flashTimer);
-}
+// O sistema de alerta FLUTUANTE (toast) foi removido: as informações agora são
+// transmitidas pela própria interface de design (estados dos botões, contadores,
+// listas e — para a sincronização — o texto da linha do Hinário 2022, ver
+// setHymnalStatus/renderHymnalRow). flash()/dismissFlash() viraram no-ops para
+// não precisar mexer em cada um dos ~25 pontos de chamada espalhados pelo
+// arquivo; qualquer mensagem que antes ia pro toast simplesmente não aparece
+// mais. Feedback relevante que precisa continuar visível foi migrado para a
+// própria UI no ponto de origem (ex: a sincronização do Hinário, abaixo).
+function flash() { /* no-op: alerta flutuante removido (ver comentário acima) */ }
+function dismissFlash() { /* no-op: alerta flutuante removido */ }
 
 // ===== popup de playlist =====
 function openPlPopup() {
@@ -2368,6 +2379,32 @@ window.addEventListener('resize', () => {
   clearTimeout(titleResizeTimer);
   titleResizeTimer = setTimeout(applyTitleMarquee, 150);
 });
+
+// ===== Deslocamento com o teclado virtual =====
+// O meta viewport pede `interactive-widget=resizes-content` (index.html), o que
+// já faz o navegador encolher o layout quando o teclado abre — o app sobe
+// sozinho e nada fica escondido. Este handler é o FALLBACK para navegadores que
+// não honram esse hint: usa a VisualViewport API pra medir quanto o teclado
+// cobriu e escreve isso em `--kb` (usado por `body { height: calc(100svh - var(--kb)) }`
+// em controle.css). Quando o layout já é redimensionado pelo navegador (ou o
+// teclado está fechado), a conta dá ~0 e nada muda — os dois mecanismos convivem
+// sem brigar. Como o Controle roda sempre como PWA instalado no Android, a
+// VisualViewport API está disponível.
+(function keyboardShift() {
+  const vv = window.visualViewport;
+  if (!vv) return;
+  let raf = 0;
+  const apply = () => {
+    raf = 0;
+    // Altura coberta pelo teclado = o que sobra abaixo da viewport visual.
+    const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+    document.documentElement.style.setProperty('--kb', kb + 'px');
+  };
+  const schedule = () => { if (!raf) raf = requestAnimationFrame(apply); };
+  vv.addEventListener('resize', schedule);
+  vv.addEventListener('scroll', schedule);
+  apply();
+})();
 
 let volSeeking = false;
 volSliderEl.addEventListener('pointerdown', () => { volSeeking = true; });
