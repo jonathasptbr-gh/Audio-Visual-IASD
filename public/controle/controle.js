@@ -2580,8 +2580,29 @@ hymnSearchInputEl.addEventListener('input', () => renderHymnResults(hymnSearchIn
   if (conn && conn.addEventListener) conn.addEventListener('change', refreshHymnalRowIfVisible);
 })();
 
-// Toque na preview abre as configurações rápidas de transição (fade).
-document.getElementById('preview').addEventListener('click', openFadePopup);
+// Preview: TOQUE simples abre o Display em tela cheia (mesmo window.open do
+// botão "Abrir Display"); PRESSIONAR LONGO (~500 ms) abre as configurações de
+// Exibição (fade/fit) — que antes abriam no toque simples. Discriminador via
+// pointer + timer; deslize/cancelamento aborta o long-press (o #preview não
+// rola, então o caso é simples).
+(function setupPreviewGestures() {
+  const previewEl = document.getElementById('preview');
+  let lpTimer = null;
+  let lpFired = false;
+  const clearLp = () => { clearTimeout(lpTimer); lpTimer = null; };
+  previewEl.addEventListener('pointerdown', () => {
+    lpFired = false;
+    clearLp();
+    lpTimer = setTimeout(() => { lpFired = true; openFadePopup(); }, 500);
+  });
+  previewEl.addEventListener('pointerup', () => {
+    clearLp();
+    if (!lpFired) window.open('../display/', '_blank'); // toque simples → abre o Display
+  });
+  previewEl.addEventListener('pointermove', clearLp);
+  previewEl.addEventListener('pointercancel', clearLp);
+  previewEl.addEventListener('pointerleave', clearLp);
+})();
 fadePopupCloseEl.addEventListener('click', closeFadePopup);
 fadePopupEl.addEventListener('click', (e) => { if (e.target === fadePopupEl) closeFadePopup(); });
 fadeInChkEl.addEventListener('change', applyFadeCfg);

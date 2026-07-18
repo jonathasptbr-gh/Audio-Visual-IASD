@@ -66,7 +66,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.52.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.53.**
 
 ---
 
@@ -614,11 +614,16 @@ local comanda a barra de progresso e o avanço automático da playlist. Para ite
 YouTube, `cmd()` também dirige um segundo `YT.Player` próprio da preview (mudo,
 qualidade mínima) — ver seção do YouTube no Display para os detalhes.
 
-**Tocar na preview** abre o popup de **configurações rápidas de exibição**
-(bottom-sheet `#fadePopup`, título "Exibição"): toggles de fade in (entrada) e
+**Gestos na preview** (`setupPreviewGestures`): **toque simples** abre o
+**Display** (`window.open('../display/', '_blank')` — mesmo alvo do botão "Abrir
+Display"; o Display já é landscape/standalone no manifest, então vira a projeção
+em tela cheia direto pela preview). **Pressionar longo (~500 ms)** abre o popup
+de **configurações rápidas de exibição** (bottom-sheet `#fadePopup`, título
+"Exibição") — que antes abriam no toque simples: toggles de fade in (entrada) e
 fade out (saída/troca) + slider de duração (0.2–5 s), e um seletor de
 **preenchimento da mídia** (`#fitSeg` — Ajustar/Preencher/Esticar, ver
-`stage.setFit()`). A config de fade é persistida em `state.fade` e a de
+`stage.setFit()`). Discriminador via pointer + timer (deslize/cancelamento
+aborta o long-press). A config de fade é persistida em `state.fade` e a de
 preenchimento em `state.fit`; ambas aplicadas ao vivo via comando (`fade`/
 `fit`, Display + preview) e recarregadas do state ao inicializar (Controle e
 Display).
@@ -714,13 +719,16 @@ igreja, sem precisar nem abrir o Display).
 
 ### Abrir o Display a partir do Controle
 
-Botão "Abrir Display" no popup de Exibição (`#openDisplayBtn`): chama
-`window.open('../display/', '_blank')`. **Não há garantia** de que isso abra
-o Display como app instalado separado — não existe API web para "lançar
-outro PWA instalado" de forma confiável; depende do Android reconhecer a
+Duas formas, ambas `window.open('../display/', '_blank')`: o **toque simples na
+preview** (ver "Gestos na preview") e o botão "Abrir Display" no popup de
+Exibição (`#openDisplayBtn`, mantido como atalho redundante). **Não há garantia**
+de que isso abra o Display como app instalado separado — não existe API web para
+"lançar outro PWA instalado" de forma confiável; depende do Android reconhecer a
 URL como pertencente ao escopo do WebAPK do Display e oferecer abrir nele em
 vez de numa aba do Chrome (varia por versão do Android/Chrome — pode só
-abrir uma aba comum como fallback).
+abrir uma aba comum como fallback). Junto com a volta por toque no Display (ver
+`#startBtn`), isso forma um **flip por toque** Controle ⇄ Display, para o fluxo
+de projeção em tela cheia sem depender do Miracast de app isolado.
 
 ### Abas e biblioteca
 
@@ -1188,21 +1196,26 @@ cobre a tela inteira (z-index acima de tudo, inclusive do wallpaper e do
 escudo do YouTube — qualquer toque na tela serve) e some para sempre após o
 primeiro toque; um `.start-pill` central (fundo amarelo, cantos arredondados,
 sombra) é só a pista visual de "isto é clicável" — sem ele o texto flutuando
-no preto não parecia um botão. **Além de ativar o Display, o mesmo gesto abre
-o Controle** (`window.open('../controle/', '_blank')` dentro do handler de
-clique, para não ser bloqueado como popup) — a contrapartida do botão "Abrir
-Display" do Controle. Para o `window.open` conseguir **lançar o WebAPK do
-Controle instalado** (em vez de abrir uma aba interna), o Display usa
-`display: standalone` no manifest — **não** `fullscreen`: um contexto em
-fullscreen prende popups numa Custom Tab dentro do próprio app (por isso o
-"Abrir Display" do Controle, que é standalone, já funcionava, mas o inverso
-não). (Chegou a existir aqui uma chamada a `requestFullscreen()` + uma trava
-de orientação via Screen Orientation API — removida: na prática regrediu o
-lançamento do Controle e a tela cheia nunca chegou a engajar de verdade;
-ver "Instalar no Android" para o racional completo do que foi tentado e
-revertido.) (Ressalva geral: não há API web garantida para lançar outro PWA
-instalado — dependendo da versão do Android/Chrome pode cair numa aba comum
-como fallback.) Ao tocar, a classe `.confirming` dispara uma
+no preto não parecia um botão. **O `#startBtn` APENAS ativa o Display** (destrava
+o áudio de terceiros/YouTube com o gesto real) — **não abre mais o Controle**.
+A volta pro Controle passou a ser por **toque na tela depois de ativado**: um
+listener de `click` no documento chama `window.open('../controle/', '_blank')`,
+guardado por um flag `displayActivated` que só liga ~350 ms após a ativação (para
+o próprio toque de ativação, que borbulha o `click` pro documento no mesmo gesto,
+não disparar a volta). Isso, junto com o **toque simples na preview do Controle**
+(que abre o Display), forma o **flip por toque** Controle ⇄ Display. Para o
+`window.open` conseguir **lançar o WebAPK do Controle instalado** (em vez de abrir
+uma aba interna), o Display usa `display: standalone` no manifest — **não**
+`fullscreen`: um contexto em fullscreen prende popups numa Custom Tab dentro do
+próprio app. Pelo mesmo motivo **não** se usa a Fullscreen API (immersive) aqui:
+ela prenderia o `window.open` da volta — a "tela cheia landscape" vem do próprio
+manifest standalone+landscape. (Chegou a existir aqui uma chamada a
+`requestFullscreen()` + uma trava de orientação via Screen Orientation API —
+removida: na prática regrediu o lançamento do Controle e a tela cheia nunca
+chegou a engajar de verdade; ver "Instalar no Android" para o racional completo
+do que foi tentado e revertido.) (Ressalva geral: não há API web garantida para
+lançar outro PWA instalado — dependendo da versão do Android/Chrome pode cair
+numa aba comum como fallback.) Ao tocar, a classe `.confirming` dispara uma
 animação rápida (~0,3s: pill cresce levemente e esmaece, fundo vai a
 transparente) antes do elemento sumir de fato (`hidden = true` só depois do
 `setTimeout` correspondente) — sem esse feedback, o overlay sumia no mesmo
