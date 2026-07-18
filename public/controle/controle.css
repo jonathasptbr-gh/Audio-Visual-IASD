@@ -2,12 +2,17 @@
   margin: 0; padding: 0; box-sizing: border-box; touch-action: manipulation;
   /* Sem seleção de texto/callout/realce de toque em lugar nenhum — é um
      controle remoto, não um documento; um toque comprido em qualquer botão
-     ou linha da lista não deve abrir menu de seleção/copiar. */
-  user-select: none; -webkit-user-select: none;
+     ou linha da lista não deve abrir menu de seleção/copiar. `!important`
+     garante que nenhuma regra do sistema (UA stylesheet, que tem
+     especificidade maior que `*`) reative a seleção por acidente em algum
+     elemento no aparelho. */
+  user-select: none !important; -webkit-user-select: none !important;
   -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
 }
-/* Exceção: o campo de busca é o único texto que faz sentido selecionar/editar. */
-input, textarea { user-select: text; -webkit-user-select: text; }
+/* Exceção: os campos de busca são o único texto que faz sentido editar/
+   selecionar (o `!important` + a maior especificidade de `input,textarea`
+   vencem o `*` acima). */
+input, textarea { user-select: text !important; -webkit-user-select: text !important; }
 [hidden] { display: none !important; }
 
 /* ---------- Tokens de design (padrões visuais) ----------
@@ -539,19 +544,29 @@ main {
 .hymnal-card-btn:active { transform: var(--press); }
 .hymnal-card-btn .msym { font-size: 20px; }
 .hymnal-card-btn svg { display: block; }
+/* Sincronizar e excluir são ambos AZUIS: sincronizar é o primário (preenchido
+   de accent), excluir é azul sobre superfície (ícone accent) — distintos entre
+   si, mas os dois na cor da marca. */
 .hymnal-card-btn.sync-btn { background: var(--accent); color: #fff; }
-.hymnal-card-btn.danger { color: var(--danger-text); }
+.hymnal-card-btn.del-btn { color: var(--accent); }
 .hymnal-card-btn.busy { opacity: .55; }
 .hymnal-card-btn.busy svg { animation: hymnal-spin 1s linear infinite; }
 @keyframes hymnal-spin { to { transform: rotate(360deg); } }
 
 /* faixa de estatísticas (chips): sincronizados / peso / Wi-Fi */
-.hymnal-card-stats { display: flex; flex-wrap: wrap; gap: .4rem; }
+.hymnal-card-stats { display: flex; gap: .4rem; }
+/* flex:1 1 auto → cada chip parte do seu conteúdo e recebe uma fatia igual do
+   espaço livre, preenchendo a linha inteira (sem sobrar à direita da "Rede")
+   mas sem forçar largura idêntica — assim a "Rede", que tem o texto mais
+   longo, não fica apertada a ponto de espremer o ícone de Wi-Fi. */
 .hymnal-stat {
+  flex: 1 1 auto; min-width: 0;
   display: flex; flex-direction: column; gap: 1px;
   background: var(--surface-2); border-radius: var(--radius-btn);
-  padding: .32rem .55rem; min-width: 0;
+  padding: .32rem .55rem;
 }
+.hymnal-stat label, .hymnal-stat b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hymnal-stat.net b svg { flex-shrink: 0; }  /* o ícone de Wi-Fi nunca encolhe */
 .hymnal-stat label { font-size: .56rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
 .hymnal-stat b { font-size: .82rem; font-weight: 700; color: var(--text); }
 .hymnal-stat.done b { color: var(--success); }
@@ -736,3 +751,37 @@ main {
    substitui o toast flutuante). Reaproveita .hymn-info/.hymn-sub, já usados
    nos resultados de busca. */
 .hymn-info .hymn-sub { color: var(--accent); }
+
+/* ---------- Diálogo padrão do app (confirmações / prompts) ---------- */
+/* Substitui os confirm()/prompt() nativos por um modal no tema do app —
+   centralizado, para toda interação do tipo (excluir, renomear, avisos). Ver
+   openAppDialog/appConfirm/appPrompt em controle.js. */
+.dialog-backdrop {
+  position: fixed; inset: 0; z-index: 300;
+  background: rgba(0, 0, 0, .6);
+  display: flex; align-items: center; justify-content: center;
+  padding: 1.2rem;
+  opacity: 0; pointer-events: none; transition: opacity .2s ease;
+}
+.dialog-backdrop.open { opacity: 1; pointer-events: auto; }
+.dialog-card {
+  width: 100%; max-width: 360px;
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  padding: 1rem 1rem .8rem;
+  display: flex; flex-direction: column; gap: .7rem;
+  transform: translateY(8px) scale(.98); transition: transform .2s ease;
+}
+.dialog-backdrop.open .dialog-card { transform: none; }
+.dialog-title { font-size: 1rem; font-weight: 700; color: var(--text); }
+.dialog-msg { font-size: .88rem; color: var(--muted); line-height: 1.45; }
+.dialog-input { width: 100%; padding: 10px 12px; font-size: .95rem; }
+.dialog-actions { display: flex; gap: .5rem; justify-content: flex-end; margin-top: .1rem; }
+.dialog-btn {
+  border: none; appearance: none; -webkit-appearance: none;
+  border-radius: var(--radius-btn); padding: .55rem 1.1rem;
+  background: var(--surface-2); color: var(--text);
+  font-size: .9rem; font-weight: 600; cursor: pointer; font-family: inherit;
+}
+.dialog-btn:active { transform: var(--press); }
+.dialog-btn.primary { background: var(--accent); color: #fff; }

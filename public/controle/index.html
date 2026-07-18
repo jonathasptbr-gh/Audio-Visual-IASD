@@ -14,7 +14,7 @@
 <body>
   <header class="appbar">
     <span class="app-name">Audio Visual <b>IASD</b></span>
-    <span class="app-version">Controle v4.50</span>
+    <span class="app-version">Controle v4.51</span>
   </header>
 
   <main>
@@ -246,6 +246,20 @@
         <button id="newFolderInPickerBtn" class="new-folder-btn">
           <span class="msym">&#xe2cc;</span> Nova pasta
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- diálogo padrão do app (confirmações e prompts) — no tema do app, substitui
+       os confirm()/prompt() nativos em todas as interações do tipo (excluir etc.) -->
+  <div id="appDialog" class="dialog-backdrop">
+    <div class="dialog-card" role="dialog" aria-modal="true">
+      <div class="dialog-title" id="appDialogTitle"></div>
+      <div class="dialog-msg" id="appDialogMsg"></div>
+      <input id="appDialogInput" class="lib-search dialog-input" type="text" hidden>
+      <div class="dialog-actions">
+        <button id="appDialogCancel" class="dialog-btn" type="button">Cancelar</button>
+        <button id="appDialogOk" class="dialog-btn primary" type="button">OK</button>
       </div>
     </div>
   </div>

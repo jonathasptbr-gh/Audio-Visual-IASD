@@ -52,17 +52,21 @@ git push origin main
   layout assumem PWA mobile instalado (Display espelhado via Miracast,
   Controle no celular do operador).
 - Nunca perder funcionalidades existentes ao refatorar.
-- **Seleção de texto desligada globalmente nos dois apps** (`user-select: none`
-  + `-webkit-touch-callout: none` + `-webkit-tap-highlight-color: transparent`
-  no seletor `*`, em `controle.css`/`display.css`) — nenhum dos dois é um
-  documento de texto; um toque comprido em botão/linha/telão não deve abrir
-  menu de seleção/copiar. Única exceção: `input, textarea` no Controle (o
-  campo de busca `#libSearch` precisa continuar editável/selecionável).
+- **Seleção de texto desligada globalmente nos dois apps** (`user-select:
+  none !important` + `-webkit-touch-callout: none` +
+  `-webkit-tap-highlight-color: transparent` no seletor `*`, em
+  `controle.css`/`display.css`) — nenhum dos dois é um documento de texto; um
+  toque comprido em botão/linha/telão não deve abrir menu de seleção/copiar. O
+  `!important` é necessário porque a UA stylesheet do navegador tem
+  especificidade maior que `*` e podia reativar a seleção em algum elemento no
+  aparelho. Única exceção: `input, textarea` no Controle (`user-select: text
+  !important`, que vence o `*` pela maior especificidade) — os campos de busca
+  (`#libSearch`/`#hymnSearchInput`) precisam continuar editáveis/selecionáveis.
 - Ao alterar assets estáticos, incrementar a versão nos dois `sw.js` **usando o mesmo número da versão visual** (ex: `controle-v2.6`, `display-v2.6`).
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.50.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.51.**
 
 ---
 
@@ -646,6 +650,20 @@ na linha do Hinário (`renderHymnalRow`) — "Atualizando lista…", "Baixando N
 limpa mensagens finais/erro sozinho; o progresso fica até a próxima chamada. O
 `.toast` do CSS foi removido.
 
+### Diálogo padrão do app (confirmações / prompts)
+
+`confirm()`/`prompt()` **nativos foram substituídos** por um **modal no tema do
+app** (`#appDialog`/`.dialog-*` no CSS + `openAppDialog`/`appConfirm`/`appPrompt`
+em `controle.js`) — centralizado, com botão primário azul (accent) e cancelar
+neutro. É **assíncrono** (retorna uma Promise): `appConfirm({title, message,
+okText, cancelText})` → `true`/`false`; `appPrompt({title, message, value,
+placeholder, okText})` → string (OK) ou `null` (cancelar/fora/Esc). Um só
+diálogo reutilizável (o DOM é estático no `index.html`); abrir um novo enquanto
+outro está aberto resolve o anterior como cancelado. **Toda interação do tipo
+usa isto**: excluir pasta sincronizada/virtual/Hinário, renomear, nova pasta e o
+aviso de "sem Wi-Fi" da sincronização em massa. (A exclusão de **pasta virtual**,
+que antes não confirmava nada, agora também passa por este diálogo.)
+
 ### Deslocamento com o teclado virtual
 
 Para o teclado não cobrir listas/preview: o meta viewport declara
@@ -833,8 +851,12 @@ sincronização via `setHymnalStatus`, ou "✓ Completo offline" em verde quando
 `downloaded === total`, ou "Parcial…"/"Não sincronizado"), botão de
 **sincronizar** (`syncHymnal2022()`, ícone de setas circulares SVG inline; gira
 com `.busy` enquanto sincroniza) e, se já houver algo baixado, botão de
-**excluir tudo** (`deleteHymnal2022()`). Abaixo, uma faixa de **estatísticas**
-(chips `.hymnal-stat`): **Sincronizados** (`downloaded/total`), **Peso**
+**excluir tudo** (`deleteHymnal2022()`). **Os dois botões são azuis** (na cor da
+marca): sincronizar é o primário (preenchido de accent, `.sync-btn`) e excluir é
+azul sobre superfície (ícone accent, `.del-btn`) — distintos entre si, mas ambos
+na cor do app. Abaixo, uma faixa de **estatísticas** (chips `.hymnal-stat`, cada
+um `flex:1 1 auto` para dividir toda a largura da linha sem sobrar espaço à
+direita): **Sincronizados** (`downloaded/total`), **Peso**
 (`fmtBytes(hymnalBytes)` — somatório dos `size` do catálogo OPFS via
 `updateHymnalBytes`, recalculado sob demanda e cacheado) e **Rede** (Wi-Fi
 confirmado × "Aguardando", ícone de Wi-Fi SVG inline — ver `isConfirmedWifi`).

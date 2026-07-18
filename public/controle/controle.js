@@ -1143,7 +1143,7 @@ function renderHymnalRow() {
   actions.appendChild(syncBtn);
   if (downloaded > 0) {
     const rmBtn = document.createElement('button');
-    rmBtn.className = 'hymnal-card-btn danger';
+    rmBtn.className = 'hymnal-card-btn del-btn';
     rmBtn.title = 'Excluir hinário baixado';
     rmBtn.appendChild(msym(ICON.del));
     rmBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteHymnal2022(); });
@@ -1559,7 +1559,7 @@ async function renameSelected() {
   if (selected.size !== 1) return;
   const id = [...selected][0];
   const item = libItems.find((m) => m.id === id);
-  const name = prompt('Novo nome:', item ? item.name : '');
+  const name = await appPrompt({ title: 'Renomear', message: 'Novo nome:', value: item ? item.name : '', okText: 'Renomear' });
   if (name && name.trim()) await AVDB.renameMedia(id, name.trim());
   exitSelection(); load();
 }
@@ -1593,6 +1593,8 @@ async function createFolder(name) {
 }
 
 async function deleteFolder(folderId) {
+  const folder = folders.find((f) => f.id === folderId);
+  if (!(await appConfirm({ title: 'Excluir pasta', message: 'Excluir a pasta "' + (folder ? folder.name : '') + '"? As mídias não são apagadas.', okText: 'Excluir' }))) return;
   folders = folders.filter((f) => f.id !== folderId);
   await AVDB.setState('folders', folders);
   await AVDB.setState('folder_' + folderId, []);
@@ -1758,7 +1760,7 @@ async function purgeCatalogRecords(recs) {
 }
 
 async function deleteOpfsFolder(f) {
-  if (!confirm('Excluir a pasta "' + f.name + '" e todos os arquivos sincronizados?')) return;
+  if (!(await appConfirm({ title: 'Excluir pasta', message: 'Excluir a pasta "' + f.name + '" e todos os arquivos sincronizados?', okText: 'Excluir' }))) return;
   const recs = await AVDB.filesByFolder(f.id);
   await purgeCatalogRecords(recs);
   await AVDB.opfsDeleteDir('folders/' + f.id);
@@ -1876,11 +1878,12 @@ async function syncHymnal2022() {
     // ensureHymnDownloaded). O operador pode forçar a sincronização completa
     // mesmo assim, se quiser.
     if (!isConfirmedWifi()) {
-      const proceed = confirm(
-        'Sem Wi-Fi confirmado. Baixar agora ' + pending.length + ' hino(s) pendente(s) vai usar dados móveis (pode ser bastante). ' +
-        'Sem confirmar, a lista já foi atualizada — cada hino ainda é baixado sozinho quando for tocado ou adicionado. ' +
-        'Baixar tudo mesmo assim, usando dados móveis?'
-      );
+      const proceed = await appConfirm({
+        title: 'Sem Wi-Fi confirmado',
+        message: 'Baixar agora ' + pending.length + ' hino(s) pendente(s) vai usar dados móveis (pode ser bastante). '
+          + 'Sem confirmar, a lista já foi atualizada — cada hino ainda é baixado sozinho quando for tocado ou adicionado.',
+        okText: 'Baixar mesmo assim', cancelText: 'Agora não',
+      });
       if (!proceed) {
         setHymnalStatus('Lista atualizada (baixa por hino ao usar)', 5000);
         return;
@@ -2089,7 +2092,7 @@ async function buildLyricSlides(meta, timeField, resolveImage) {
 }
 
 async function deleteHymnal2022() {
-  if (!confirm('Excluir o Hinário Adventista 2022 baixado (áudios e capas)?')) return;
+  if (!(await appConfirm({ title: 'Excluir Hinário 2022', message: 'Excluir o Hinário Adventista 2022 baixado (áudios e capas)?', okText: 'Excluir' }))) return;
   const recs = await AVDB.filesByFolder(HYMNAL_FOLDER_ID);
   await purgeCatalogRecords(recs);
   await AVDB.opfsDeleteDir('folders/' + HYMNAL_FOLDER_ID);
@@ -2376,6 +2379,59 @@ async function checkPendingShare() {
 function flash() { /* no-op: alerta flutuante removido (ver comentário acima) */ }
 function dismissFlash() { /* no-op: alerta flutuante removido */ }
 
+// ===== Diálogo padrão do app (confirmações / prompts) =====
+// Modal no tema do app que substitui os confirm()/prompt() nativos em TODA
+// interação do tipo (excluir, renomear, avisos). Assíncrono: retorna uma
+// Promise — confirm → true/false; prompt → string (OK) ou null (cancelar).
+const appDialogEl = document.getElementById('appDialog');
+const appDialogTitleEl = document.getElementById('appDialogTitle');
+const appDialogMsgEl = document.getElementById('appDialogMsg');
+const appDialogInputEl = document.getElementById('appDialogInput');
+const appDialogOkEl = document.getElementById('appDialogOk');
+const appDialogCancelEl = document.getElementById('appDialogCancel');
+let appDialogResolve = null;
+
+function closeAppDialog(result) {
+  appDialogEl.classList.remove('open');
+  const r = appDialogResolve; appDialogResolve = null;
+  if (r) r(result);
+}
+function openAppDialog(opts) {
+  const { title, message, okText, cancelText, input, value, placeholder } = opts || {};
+  return new Promise((resolve) => {
+    // Se já houver um diálogo aberto, resolve o anterior como cancelado.
+    if (appDialogResolve) closeAppDialog(input ? null : false);
+    appDialogResolve = resolve;
+    appDialogTitleEl.textContent = title || '';
+    appDialogTitleEl.hidden = !title;
+    appDialogMsgEl.textContent = message || '';
+    appDialogMsgEl.hidden = !message;
+    appDialogOkEl.textContent = okText || 'OK';
+    appDialogCancelEl.textContent = cancelText || 'Cancelar';
+    if (input) {
+      appDialogInputEl.hidden = false;
+      appDialogInputEl.value = value || '';
+      appDialogInputEl.placeholder = placeholder || '';
+    } else {
+      appDialogInputEl.hidden = true;
+    }
+    appDialogEl.classList.add('open');
+    if (input) setTimeout(() => { appDialogInputEl.focus(); appDialogInputEl.select(); }, 60);
+  });
+}
+// confirm → resolve true (OK) / false (cancelar/fora/Esc)
+function appConfirm(opts) { return openAppDialog({ okText: 'Confirmar', cancelText: 'Cancelar', ...opts, input: false }); }
+// prompt → resolve o texto (OK) / null (cancelar/fora/Esc)
+function appPrompt(opts) { return openAppDialog({ okText: 'OK', cancelText: 'Cancelar', ...opts, input: true }); }
+
+appDialogOkEl.addEventListener('click', () => closeAppDialog(appDialogInputEl.hidden ? true : appDialogInputEl.value));
+appDialogCancelEl.addEventListener('click', () => closeAppDialog(appDialogInputEl.hidden ? false : null));
+appDialogEl.addEventListener('click', (e) => { if (e.target === appDialogEl) closeAppDialog(appDialogInputEl.hidden ? false : null); });
+appDialogInputEl.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); closeAppDialog(appDialogInputEl.value); }
+  else if (e.key === 'Escape') closeAppDialog(null);
+});
+
 // ===== popup de playlist =====
 function openPlPopup() {
   renderPlaylist();
@@ -2548,7 +2604,7 @@ folderPopupCloseEl.addEventListener('click', closeFolderPicker);
 folderPopupEl.addEventListener('click', (e) => { if (e.target === folderPopupEl) closeFolderPicker(); });
 
 newFolderInPickerBtnEl.addEventListener('click', async () => {
-  const name = prompt('Nome da nova pasta:');
+  const name = await appPrompt({ title: 'Nova pasta', message: 'Nome da nova pasta:', okText: 'Criar', placeholder: 'Ex.: Louvores especiais' });
   if (name && name.trim()) { await createFolder(name.trim()); renderFolderPicker(); }
 });
 
