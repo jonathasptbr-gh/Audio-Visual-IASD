@@ -2,8 +2,9 @@
   margin: 0; padding: 0; box-sizing: border-box;
   /* Sem seleção de texto/callout: é uma tela de exibição, não um documento —
      um toque comprido acidental na TV/telão não deve mostrar alça de seleção
-     nem o menu de "copiar" do navegador. */
-  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+     nem o menu de "copiar" do navegador. `!important` vence qualquer regra do
+     sistema (UA stylesheet) que reative seleção num elemento específico. */
+  user-select: none !important; -webkit-user-select: none !important; -webkit-touch-callout: none;
 }
 
 /* ---------- Tokens de design (padrões visuais) ----------
