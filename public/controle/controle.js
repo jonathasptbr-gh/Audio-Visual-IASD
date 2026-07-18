@@ -2580,24 +2580,50 @@ hymnSearchInputEl.addEventListener('input', () => renderHymnResults(hymnSearchIn
   if (conn && conn.addEventListener) conn.addEventListener('change', refreshHymnalRowIfVisible);
 })();
 
-// Preview: TOQUE simples abre o Display em tela cheia (mesmo window.open do
-// botão "Abrir Display"); PRESSIONAR LONGO (~500 ms) abre as configurações de
-// Exibição (fade/fit) — que antes abriam no toque simples. Discriminador via
-// pointer + timer; deslize/cancelamento aborta o long-press (o #preview não
-// rola, então o caso é simples).
+// Preview: TOQUE simples coloca a PRÓPRIA preview em tela cheia (landscape) —
+// não abre o Display; a preview vira a projeção e o operador espelha a tela
+// cheia do celular (funciona em qualquer aparelho, sem depender do Miracast de
+// app isolado). Tocar de novo em tela cheia SAI do fullscreen. PRESSIONAR LONGO
+// (~500 ms, só fora do fullscreen) abre as configurações de Exibição (fade/fit).
+// A trava de paisagem via Screen Orientation API só é permitida COM o elemento
+// já em fullscreen (padrão de player de vídeo) — por isso é feita logo após o
+// requestFullscreen resolver; é destravada ao sair.
 (function setupPreviewGestures() {
   const previewEl = document.getElementById('preview');
   let lpTimer = null;
   let lpFired = false;
   const clearLp = () => { clearTimeout(lpTimer); lpTimer = null; };
+
+  async function enterFullscreen() {
+    try {
+      if (previewEl.requestFullscreen) await previewEl.requestFullscreen();
+      else if (previewEl.webkitRequestFullscreen) previewEl.webkitRequestFullscreen();
+      try { await (screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape')); } catch (_) {}
+    } catch (_) {}
+  }
+  function exitFullscreen() {
+    try { if (document.exitFullscreen) document.exitFullscreen(); } catch (_) {}
+  }
+  // Ao sair do fullscreen (toque, gesto de voltar do Android, etc.), destrava a
+  // orientação para o Controle voltar ao seu retrato normal.
+  document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement) { try { screen.orientation && screen.orientation.unlock && screen.orientation.unlock(); } catch (_) {} }
+  });
+
   previewEl.addEventListener('pointerdown', () => {
     lpFired = false;
     clearLp();
-    lpTimer = setTimeout(() => { lpFired = true; openFadePopup(); }, 500);
+    // long-press só faz sentido fora do fullscreen (abrir Exibição)
+    lpTimer = setTimeout(() => {
+      if (!document.fullscreenElement) { lpFired = true; openFadePopup(); }
+    }, 500);
   });
   previewEl.addEventListener('pointerup', () => {
     clearLp();
-    if (!lpFired) window.open('../display/', '_blank'); // toque simples → abre o Display
+    if (lpFired) return;
+    // toque simples → alterna a tela cheia da própria preview
+    if (document.fullscreenElement) exitFullscreen();
+    else enterFullscreen();
   });
   previewEl.addEventListener('pointermove', clearLp);
   previewEl.addEventListener('pointercancel', clearLp);
