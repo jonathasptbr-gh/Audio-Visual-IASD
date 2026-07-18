@@ -62,7 +62,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.48.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.49.**
 
 ---
 
@@ -551,7 +551,7 @@ O mixer é dividido em 3 "fatias" (`.mixer-slot`), uma por linha da grade:
 | Fatia | Linha da grade | Conteúdo |
 |---|---|---|
 | `.mixer-top` | 1 (mesma de `.nowplaying`) | **visual on/off** (`#viewToggle`) |
-| `.mixer-mid` | 2 (mesma de `.preview-row`, 130px) | **fundo da letra** (`#lyricsBgToggle`), **mesa de som** (`#standaloneToggle`), **mudo** (`#muteToggle`) — empilhados, cada um com `flex:1` |
+| `.mixer-mid` | 2 (mesma de `.preview-row`, 130px) | **fundo da letra** (`#lyricsBgToggle`, ícone de **flor** — SVG inline), **mesa de som** (`#standaloneToggle`, ícone de **fone de ouvido** — SVG inline), **mudo** (`#muteToggle`) — empilhados, cada um com `flex:1` |
 | `.mixer-bottom` | 3 (mesma de `.transport`) | **volume** (`#volToggle`/`#volClose`, recolhível) |
 
 Essa ordem (wallpaper no topo, depois fundo da letra/mesa de som/mudo no
@@ -631,12 +631,37 @@ caso: com apenas a mídia atual em fila, a playlist é só a reprodução avulsa
 e não deve chamar atenção nem com um "1" enganoso nem com o ícone colorido —
 fica neutro (branco).
 
+### Feedback (sem alerta flutuante)
+
+Não há mais **toast flutuante**. As informações são transmitidas pela própria
+interface (estados de botão, contadores, listas). `flash()`/`dismissFlash()` em
+`controle.js` viraram **no-ops** — mantidos só para não mexer nos ~25 pontos de
+chamada; qualquer mensagem que antes ia pro toast simplesmente não aparece mais.
+O único feedback migrado explicitamente para a UI é a **sincronização do Hinário
+2022**: `setHymnalStatus(text, autoClearMs?)` grava um subtítulo (`.hymn-sub`)
+na linha do Hinário (`renderHymnalRow`) — "Atualizando lista…", "Baixando N/T…",
+"Já completo offline", "Sem internet — falha ao atualizar" etc. `autoClearMs`
+limpa mensagens finais/erro sozinho; o progresso fica até a próxima chamada. O
+`.toast` do CSS foi removido.
+
+### Deslocamento com o teclado virtual
+
+Para o teclado não cobrir listas/preview: o meta viewport declara
+`interactive-widget=resizes-content` (o navegador encolhe o layout ao abrir o
+teclado). Como fallback (navegadores que não honram o hint), um handler de
+**VisualViewport** (`keyboardShift()` em `controle.js`) mede a altura coberta
+pelo teclado (`innerHeight - vv.height - vv.offsetTop`) e escreve em `--kb`, que
+`body { height: calc(100svh - var(--kb)) }` (controle.css) usa para encolher o
+app pra cima. Quando o layout já é redimensionado pelo navegador (ou o teclado
+está fechado), a conta dá ~0 e nada muda — os dois mecanismos convivem.
+
 ### Modo "mesa de som" (saída de áudio local)
 
-Botão `#standaloneToggle` no mixer (reaproveita o ícone de nota musical —
-`ICON.music`, já usado noutro contexto): liga um modo em que a **preview do
-Controle passa a tocar o áudio de verdade pelo próprio aparelho**, em vez de
-sempre muda — para quando não há intenção de exibir vídeo, só tocar música
+Botão `#standaloneToggle` no mixer (ícone de **fone de ouvido** — SVG inline,
+fora do subset da fonte — reforçando "ouvir o áudio aqui"): liga um modo em que
+a **preview do Controle passa a tocar o áudio de verdade pelo próprio
+aparelho**, em vez de sempre muda — para quando não há intenção de exibir vídeo,
+só tocar música
 (ex: o celular do operador ligado direto na mesa de som/caixa de som da
 igreja, sem precisar nem abrir o Display).
 
@@ -737,8 +762,9 @@ usa `listRemove` (com gc).
     `opfs-folders` (browsers que persistem permissão nem mostram prompt) e cai
     no picker se necessário. Arquivos com mesmo nome+tamanho+data são pulados;
     novos/alterados são copiados. A sincronização é **aditiva** — nada é
-    excluído automaticamente.
-    - Toast de progresso `Sincronizando N/T…` via `flash(texto, sticky=true)`.
+    excluído automaticamente. Sem indicador flutuante de progresso (o toast foi
+    removido — ver "Feedback / sem alerta flutuante" abaixo); ao terminar, a
+    contagem da linha da pasta é re-renderizada com o total atualizado.
   - `navigator.storage.persist()` é solicitado na sincronização para proteger
     os arquivos contra descarte do browser; o rodapé da aba mostra o uso via
     `navigator.storage.estimate()`.
@@ -816,8 +842,15 @@ aberto, independente de já ter sido feita alguma sincronização pesada.
 
 **Botão de busca** (`#hymnSearchBtn`, ícone de lupa — SVG inline, não existe
 no subset da fonte — ao lado do "+ Importar" nas abas): abre um popup
-(`#hymnSearchPopup`, mesmo padrão bottom-sheet dos outros popups) com campo
-de busca (por nome ou número do hino) e resultados do índice já em memória
+(`#hymnSearchPopup`) com campo de busca (por nome ou número do hino) e
+resultados do índice já em memória. Diferente dos demais popups (bottom-sheets),
+a bandeja da busca do Hinário **desliza a partir do TOPO** (CSS: `#hymnSearchPopup`
+com `align-items:flex-start`, `.popup-sheet` com `translateY(-100%)` e cantos
+arredondados embaixo) — além de ser o pedido de UX, casa com o teclado, que sobe
+da base sem cobrir os resultados. O campo de busca usa `.lib-search`, hoje com
+`appearance:none` + supressão das pseudo-partes `::-webkit-search-*` (mata o
+visual nativo do `type="search"`, que saía despadronizado dos demais controles).
+Resultados vêm do índice já em memória
 (`hymnal2022.songs`, filtro em memória, `normalizeForSearch` ignora
 acentuação) — funciona sem rede assim que o índice já tiver sido buscado
 pelo menos uma vez (ver acima); se o popup estiver aberto no momento em que
@@ -1593,7 +1626,11 @@ e gerar novo subset com `fontTools`.
 subset e re-gerar o woff2 não vale a pena (ou o ambiente não tem `fontTools`),
 usa-se um `<svg>` inline direto no HTML, com `fill/stroke: currentColor` (herda
 a cor do botão). Hoje: o botão de **volume** do mixer (`#volToggle`, ícone de
-faders/mixer) e o botão **reservado** do topo do mixer (`#fillTop`, ícone ⋮).
+faders/mixer), a **lupa** da busca do Hinário (`#hymnSearchBtn`), a antena de
+**Wi-Fi** da linha do Hinário (`wifiIconEl`), o **fone de ouvido** da mesa de
+som (`#standaloneToggle`), a **flor** do fundo da letra (`#lyricsBgToggle`) e o
+ícone **"arquivos+"** (documento com `+`) do botão de importar da aba
+(`.tab-add` do `#file`), que diferencia importar ARQUIVOS de sincronizar PASTA.
 
 ---
 
