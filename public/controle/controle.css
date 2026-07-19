@@ -746,8 +746,13 @@ main {
 .hymn-search-bar { display: flex; padding: .5rem .9rem .6rem; flex-shrink: 0; }
 #hymnSearchInput { width: 100%; padding: 11px 14px; font-size: .95rem; }
 /* Resultado: thumb à ESQUERDA + coluna à direita com duas linhas (info em
-   cima, ações embaixo). */
+   cima, ações embaixo). A thumb é um quadrado maior (64px, ~a altura da coluna
+   info+ações à direita) em vez dos 40px fixos — proporcional ao conteúdo ao
+   lado. Fixa (não aspect-ratio+stretch, que não deriva a largura em flex item
+   de largura baseada em conteúdo). */
 .hymn-row { align-items: center; gap: .5rem; }
+.hymn-result .thumb { width: 64px; height: 64px; flex-shrink: 0; }
+.hymn-result .thumb--icon .msym { font-size: 32px; }
 .hymn-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .35rem; }
 .hymn-info { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .hymn-sub { font-size: .7rem; color: var(--muted); }
