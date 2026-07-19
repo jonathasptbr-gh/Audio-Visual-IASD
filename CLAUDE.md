@@ -66,7 +66,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.63.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.64.**
 
 ---
 
@@ -201,8 +201,8 @@ O campo `kind` é derivado do `type` (ou definido pelo chamador para itens de UR
 | `folders` | `[{ id, name }]` — pastas virtuais |
 | `folder_<id>` | array de IDs de mídia da pasta |
 | `opfs-folders` | `[{ id, name, count, syncedAt, handle? }]` — pastas sincronizadas no OPFS (`handle` acelera re-sync) |
-| `coll:<id>` | `{ indexSyncedAt, songs: [{ id_music, track, name, duration, has_instrumental_music, fileIdFull, fileIdPlayback }], categories? }` — índice offline de UMA coleção do LouvorJA (`coll:hymnal-2022`, `coll:hymnal-1996`, `coll:album-<id>`); `categories` (só álbuns) = tags de `album_{id}` usadas na classificação Jovens/JA — ver "Coleções de mídia (LouvorJA)" |
-| `albumCatalog` | `[{ id_album, name, category }]` — catálogo de álbuns descobertos em `pt_categories` (um card por álbum na aba Álbuns); `category` = nome da categoria, usado na classificação Jovens/JA |
+| `coll:<id>` | `{ indexSyncedAt, songs: [{ id_music, track, name, duration, has_instrumental_music, fileIdFull, fileIdPlayback }] }` — índice offline de UMA coleção do LouvorJA (`coll:hymnal-2022`, `coll:hymnal-1996`, `coll:album-<id>`) — ver "Coleções de mídia (LouvorJA)" |
+| `albumCatalog` | `[{ id_album, name }]` — catálogo de álbuns descobertos em `pt_categories` (um card por álbum na aba Álbuns) |
 | `hymnal2022` | legado — migrado para `coll:hymnal-2022` no `loadCollections()` (a chave antiga permanece, ignorada) |
 | `pending-share` | `{ files, url, title, ts }` — share recebido pelo SW aguardando processamento |
 | `order` | legado — lido apenas como fallback de `imports` |
@@ -900,21 +900,10 @@ fonte de verdade em memória (`collState`, carregada uma vez no `init` por
 continuam válidos). UI transitória (sync em andamento, status, peso) fica em
 `collUI` (não persistida).
 
-**Aba Álbuns** (`data-tab="albums"`): no topo, uma linha de **3 pílulas de
-filtro** (`.album-pill`, via `renderAlbumFilters`) — **Hinários** / **JA** /
-**Outros**, que ligam/desligam cada categoria (`albumFilters`, em memória, todas
-ligadas por padrão). A categoria de cada coleção vem de `collCategory(coll)`:
-hinários → `hymnal`; os demais são classificados **pelos metadados de categoria**
-(não pelo nome do álbum) — o nome da categoria em `pt_categories` à qual o álbum
-pertence (`coll.category`, capturado em `fetchAlbumCatalog`) **e** as tags
-`categories` do próprio `album_{id}` (guardadas em `collState[id].categories`
-quando o índice do álbum é buscado): casa por palavra-chave
-(`jovens?`/`juvenil`/`ja`) → `ja`; o resto → `outros`. Isso porque as coletâneas
-Jovens/JA saem todo ano com o mesmo gênero e ficam sob a mesma categoria no
-banco — classificar pelo nome do álbum (ex: ano) não é confiável. Abaixo das
-pílulas, `renderCollectionsList` renderiza um card por coleção que passe no
-filtro (`renderCollectionCard`). O card do Hinário **saiu da aba Pastas** (que
-voltou a ser só pastas do dispositivo/virtuais).
+**Aba Álbuns** (`data-tab="albums"`): `renderCollectionsList` renderiza um card
+por coleção (`renderCollectionCard`) — os dois hinários + um por álbum do
+catálogo. O card do Hinário **saiu da aba Pastas** (que voltou a ser só pastas
+do dispositivo/virtuais).
 
 Os mecanismos abaixo (sincronização/download/letra/Wi-Fi/busca) valem **por
 coleção**, exatamente como antes valiam só pro Hinário 2022.
@@ -1010,18 +999,21 @@ ignora acentuação; o subtítulo do resultado mostra a coleção de origem) —
 funciona sem rede assim que os índices já tiverem sido buscados pelo menos uma
 vez (hinários e álbuns entram sozinhos via `autoRefreshCollections`); se o popup
 estiver aberto quando um índice atualiza, a lista se re-renderiza na hora.
-Cada resultado tem **duas linhas**: em cima a info (`.hymn-row` — thumb + nome +
-subtítulo) e embaixo a **linha de ações** (`.hymn-actions`, filha direta do
-`li`, indentada sob o nome), só ícones, sem texto. As ações são agrupadas por
-variante (`.hymn-variant`): **Cantado** e **Playback** (a 2ª só se
+Cada resultado tem a **thumb à esquerda** e, à direita, uma **coluna**
+(`.hymn-main`) com duas linhas: em cima a info (`.hymn-info` — nome +
+subtítulo) e embaixo a **linha de ações** (`.hymn-actions`), só ícones, sem
+texto. As ações são agrupadas por variante (`.hymn-variant`, cada grupo
+`flex:1`); dentro do grupo, tocar/+Cronograma/+Playlist **crescem** (`flex:1`)
+pra preencher a largura disponível. Os grupos são: **Cantado** e **Playback**
+(a 2ª só se
 `has_instrumental_music`), cada grupo com **três ações** — **tocar**
 (`playSongVariant`, ícone de **voz/microfone** pro Cantado, **nota musical** pro
 Playback — `voiceIconSvg`/`noteIconSvg`; substitui a playlist e exibe, igual ao
 toque simples da biblioteca), **➕ Cronograma** (`addSongVariant` →
 `AVDB.listAdd('imports', id)`) e **➕ Playlist** (`addSongToPlaylist` →
-`AVDB.listAdd('playlist', id)` + `renderPlaylist`). A linha de ações usa
-`flex-wrap` (protege telas muito estreitas). Todas baixam a música na hora se
-ainda não estiver offline (ver "Resolução do id de mídia por variante" abaixo).
+`AVDB.listAdd('playlist', id)` + `renderPlaylist`). Todas baixam a música na
+hora se ainda não estiver offline (ver "Resolução do id de mídia por variante"
+abaixo).
 
 **Resolução do id de mídia por variante** (`resolveSongMediaId`) é
 **offline-first com download sob demanda**: se a variante já foi baixada
