@@ -142,8 +142,10 @@ let fadeCfg = { in: false, out: false, time: 1 }; // transições (persistido em
 //    já é o índice completo de hinos. Sempre visíveis; o índice leve é
 //    atualizado sozinho (autoRefreshCollections).
 //  - 'album' (dinâmicas): descobertas em pt_categories (um card por álbum do
-//    banco). O índice de cada álbum vem de album_{id}.musics e é buscado ao
-//    sincronizar o card (não a cada abertura — seriam N requisições).
+//    banco). O índice de cada álbum vem de album_{id}.musics e é buscado
+//    automaticamente (autoRefreshCollections, fase 2 — só metadados), com
+//    concorrência limitada e TTL (ALBUM_INDEX_TTL), pra a busca cobrir todo o
+//    acervo mesmo sem nada baixado.
 //
 // O himnário em espanhol e demais idiomas ficam de fora naturalmente: só
 // consumimos arquivos 'pt_*' (ver COLLECTION_LOCALE).
