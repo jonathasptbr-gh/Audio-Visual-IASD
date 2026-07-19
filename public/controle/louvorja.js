@@ -1,6 +1,6 @@
 // Cliente mínimo da API pública do LouvorJA (app-ja), usado só pelo Controle
-// para sincronizar o catálogo do Hinário Adventista 2022 (ver seção
-// "Hinário Adventista 2022 (LouvorJA)" no CLAUDE.md). Mesmas credenciais já
+// para sincronizar as coleções de mídia — hinários e álbuns (ver seção
+// "Coleções de mídia (LouvorJA)" no CLAUDE.md). Mesmas credenciais já
 // públicas no bundle do app-ja (VITE_URL_DATABASE/VITE_URL_FILES/VITE_API_TOKEN
 // de produção) — não é um segredo protegido, só reaproveitado aqui.
 //
