@@ -14,7 +14,7 @@
 <body>
   <header class="appbar">
     <span class="app-name">Audio Visual <b>IASD</b></span>
-    <span class="app-version">Controle v4.55</span>
+    <span class="app-version">Controle v4.56</span>
   </header>
 
   <main>
@@ -31,7 +31,8 @@
     <div class="tabs">
       <button class="tab active" data-tab="imports" title="Cronograma"><span class="msym">&#xe413;</span></button>
       <button class="tab" data-tab="folders" title="Pastas"><span class="msym">&#xe2c7;</span></button>
-      <button class="tab-add" id="hymnSearchBtn" title="Buscar no Hinário 2022">
+      <button class="tab" data-tab="albums" title="Álbuns"><span class="msym">&#xe03d;</span></button>
+      <button class="tab-add" id="hymnSearchBtn" title="Buscar no acervo">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="11" cy="11" r="7"/>
           <line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -219,17 +220,17 @@
     </div>
   </div>
 
-  <!-- popup de busca no Hinário Adventista 2022 (bottom sheet) -->
+  <!-- popup de busca GLOBAL no acervo (hinários + álbuns) — desliza do topo -->
   <div id="hymnSearchPopup" class="popup-backdrop">
     <div class="popup-sheet">
       <div class="popup-header">
         <span class="msym popup-header-icon">&#xe3a1;</span>
-        <span class="popup-title">Hinário Adventista 2022</span>
+        <span class="popup-title">Buscar no acervo</span>
         <span id="hymnSearchCount" class="popup-count">0</span>
         <button id="hymnSearchClose" class="popup-close" title="Fechar"><span class="msym">&#xe14c;</span></button>
       </div>
       <div class="hymn-search-bar">
-        <input id="hymnSearchInput" class="lib-search" type="search" placeholder="Buscar hino por nome ou número…">
+        <input id="hymnSearchInput" class="lib-search" type="search" placeholder="Buscar por nome ou número…">
       </div>
       <ul id="hymnResults" class="popup-list"></ul>
     </div>

@@ -263,7 +263,8 @@ em `controle.js` lê exatamente estes campos, ✅):
 | `has_instrumental_music` | `0\|1` | tem Playback? |
 
 - `pt_hymnal` = **Hinário Adventista 2022** (é o `Louvorja.HYMNAL_2022_FILE`).
-- `pt_hymnal_1996` = **Hinário 1996** (mesma estrutura; não integrado hoje).
+- `pt_hymnal_1996` = **Hinário 1996** (mesma estrutura; integrado como coleção
+  `hymnal-1996` — ver "Coleções de mídia (LouvorJA)" no CLAUDE.md).
 - Cada item é um `music_{id_music}` "resumido" — a mídia real (áudio, letra,
   imagens) vem de `music_{id_music}` (§5.1).
 
