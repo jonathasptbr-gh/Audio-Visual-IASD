@@ -73,6 +73,10 @@ const hymnSearchCloseEl = document.getElementById('hymnSearchClose');
 const hymnSearchInputEl = document.getElementById('hymnSearchInput');
 const hymnResultsEl = document.getElementById('hymnResults');
 const hymnSearchCountEl = document.getElementById('hymnSearchCount');
+const hymnSearchTitleEl = document.getElementById('hymnSearchTitle');
+// Escopo da busca/lista: null = busca global no acervo (botão de lupa);
+// coll.id = lista de músicas de UMA coleção (botão "Ver músicas" do card).
+let searchScope = null;
 
 const ICON = {
   prev: '', // skip_previous
@@ -1141,6 +1145,11 @@ function checkIconSvg() {
 function chevronSvg() {
   return '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>';
 }
+// SVG inline de "lista" — botão "Ver músicas" (abre a lista de músicas da
+// coleção no popup de busca, escopado à coleção).
+function listIconSvg() {
+  return '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>';
+}
 
 // Lista de cards da aba Álbuns: hinários (fixos) + um card por álbum do
 // catálogo. Cada card é um "check do sistema" (não abre como pasta): símbolo,
@@ -1223,6 +1232,16 @@ function renderCollectionCard(coll) {
   }
 
   const actions = document.createElement('div'); actions.className = 'hymnal-card-actions';
+  // "Ver músicas": abre a lista de músicas desta coleção (só faz sentido com
+  // índice já carregado). Tocar num resultado baixa sob demanda e toca.
+  if (total > 0) {
+    const listBtn = document.createElement('button');
+    listBtn.className = 'hymnal-card-btn list-btn';
+    listBtn.title = 'Ver músicas';
+    listBtn.innerHTML = listIconSvg();
+    listBtn.addEventListener('click', (e) => { e.stopPropagation(); openCollectionSongs(coll); });
+    actions.appendChild(listBtn);
+  }
   const syncBtn = document.createElement('button');
   syncBtn.className = 'hymnal-card-btn sync-btn' + (u.syncBusy ? ' busy' : '');
   syncBtn.title = 'Atualizar/baixar';
@@ -2261,23 +2280,40 @@ function normalizeForSearch(s) {
   return String(s || '').normalize('NFD').replace(DIACRITICS_RE, '').toLowerCase();
 }
 
+// Busca GLOBAL (botão de lupa): escopo null = varre todas as coleções.
 function openHymnSearch() {
+  searchScope = null;
+  hymnSearchTitleEl.textContent = 'Buscar no acervo';
+  hymnSearchInputEl.placeholder = 'Buscar por nome ou número…';
   hymnSearchInputEl.value = '';
   renderSearchResults('');
   hymnSearchPopupEl.classList.add('open');
   setTimeout(() => hymnSearchInputEl.focus(), 50);
 }
+// Lista de músicas de UMA coleção (botão "Ver músicas" do card): reaproveita o
+// mesmo popup/rows da busca, escopado a essa coleção (mostra tudo por padrão,
+// e o campo filtra dentro dela). Não auto-foca o campo (o operador está
+// navegando a lista, não necessariamente digitando — evita abrir o teclado
+// cobrindo os resultados).
+function openCollectionSongs(coll) {
+  searchScope = coll.id;
+  hymnSearchTitleEl.textContent = coll.name;
+  hymnSearchInputEl.placeholder = 'Filtrar músicas…';
+  hymnSearchInputEl.value = '';
+  renderSearchResults('');
+  hymnSearchPopupEl.classList.add('open');
+}
 function closeHymnSearch() {
   hymnSearchPopupEl.classList.remove('open');
+  searchScope = null;
 }
 
-// Busca GLOBAL no acervo offline: varre TODAS as coleções (hinários + álbuns
-// já sincronizados). Cada resultado carrega sua coleção pra tocar/adicionar/
-// baixar. Álbuns só entram na busca depois de sincronizados (o índice deles é
-// buscado ao sincronizar o card, não a cada abertura).
+// Renderiza os resultados: escopo null = TODAS as coleções (busca global);
+// escopo = uma coleção (lista de músicas dela). Cada resultado carrega sua
+// coleção pra tocar/adicionar/baixar sob demanda.
 function renderSearchResults(query) {
   const q = normalizeForSearch(query).trim();
-  const cols = allCollections();
+  const cols = searchScope ? allCollections().filter((c) => c.id === searchScope) : allCollections();
   const matches = []; // { coll, song }
   let totalIndexed = 0;
   for (const coll of cols) {
@@ -2292,7 +2328,9 @@ function renderSearchResults(query) {
   hymnSearchCountEl.textContent = String(matches.length);
   hymnResultsEl.innerHTML = '';
   if (totalIndexed === 0) {
-    hymnResultsEl.innerHTML = '<li class="empty">Índice do acervo ainda não carregado.<br>Abra o app com internet uma vez para baixar a lista completa.</li>';
+    hymnResultsEl.innerHTML = searchScope
+      ? '<li class="empty">Lista ainda não carregada.<br>Abra o app com internet ou sincronize esta coleção.</li>'
+      : '<li class="empty">Índice do acervo ainda não carregado.<br>Abra o app com internet uma vez para baixar a lista completa.</li>';
     return;
   }
   if (matches.length === 0) {
@@ -2318,9 +2356,10 @@ function hymnResultRow(coll, s) {
   const info = document.createElement('div'); info.className = 'hymn-info';
   const name = document.createElement('span'); name.className = 'row-name';
   name.textContent = (s.track ? s.track + '. ' : '') + s.name;
-  // Subtítulo identifica a coleção de origem (+ duração), já que a busca é global.
+  // Subtítulo: na busca global mostra a coleção de origem (+ duração); escopado
+  // a uma coleção o título já identifica, então mostra só a duração.
   const sub = document.createElement('span'); sub.className = 'hymn-sub';
-  sub.textContent = coll.name + (s.duration ? ' · ' + s.duration : '');
+  sub.textContent = (searchScope ? '' : coll.name + (s.duration ? ' · ' : '')) + (s.duration || '');
   info.append(name, sub);
   row.append(thumb, info);
   li.appendChild(row);
@@ -2340,7 +2379,10 @@ function hymnVariantEl(coll, s, variant, label) {
   const addBtn = document.createElement('button'); addBtn.className = 'hymn-add row-btn'; addBtn.title = 'Adicionar ' + label + ' ao Cronograma';
   addBtn.appendChild(msym(ICON.plAdd));
   addBtn.addEventListener('click', () => addSongVariant(coll, s, variant));
-  wrap.append(playBtn, addBtn);
+  const plBtn = document.createElement('button'); plBtn.className = 'hymn-add row-btn'; plBtn.title = 'Adicionar ' + label + ' à playlist';
+  plBtn.appendChild(msym(ICON.queue));
+  plBtn.addEventListener('click', () => addSongToPlaylist(coll, s, variant));
+  wrap.append(playBtn, addBtn, plBtn);
   return wrap;
 }
 
@@ -2408,6 +2450,16 @@ async function addSongVariant(coll, s, variant) {
   await AVDB.listAdd('imports', id);
   flash(had ? 'Já no Cronograma' : 'Adicionado ao Cronograma');
   if (activeTab === 'imports' && !currentFolder) load();
+}
+
+async function addSongToPlaylist(coll, s, variant) {
+  const id = await resolveSongMediaId(coll, s, variant);
+  if (!id) { flash('Não foi possível adicionar (sem internet para baixar)'); return; }
+  const had = await AVDB.listHas('playlist', id);
+  await AVDB.listAdd('playlist', id);
+  plItems = await AVDB.listItems('playlist');
+  renderPlaylist();
+  flash(had ? 'Já na playlist' : 'Adicionado à playlist');
 }
 
 // ===== transições (fade in/out) =====

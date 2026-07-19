@@ -532,8 +532,11 @@ main {
   padding: .7rem .8rem;
   display: flex; flex-direction: column; gap: .6rem;
 }
-/* Colapsado (padrão): compacto, só a barra de uma linha. */
-.hymnal-card.collapsed { padding: .45rem .6rem; }
+/* Colapsado (padrão): só a barra de uma linha. O padding é o MESMO do card
+   expandido de propósito — a barra (ícone + título + chevron) é o elemento
+   persistente entre os dois estados, então precisa ficar exatamente na mesma
+   posição ao expandir/colapsar (mudar o padding a deslocaria). A compactação
+   vem de só a barra aparecer colapsada, não de padding menor. */
 
 /* Barra compacta do card de coleção (sempre visível; clicável p/ expandir).
    Colapsada mostra só nome + resumo de sincronização; o resto (status/ações/
@@ -744,8 +747,10 @@ main {
 .hymn-row { align-items: center; }
 .hymn-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .hymn-sub { font-size: .7rem; color: var(--muted); }
-.hymn-variants { display: flex; gap: .4rem; padding: 0 .5rem .5rem; }
-.hymn-variant { flex: 1; display: flex; gap: .3rem; min-width: 0; }
+/* Variantes empilhadas (uma linha por variante) — dá espaço pras 3 ações
+   (tocar / + Cronograma / + Playlist) sem apertar em telas estreitas. */
+.hymn-variants { display: flex; flex-direction: column; gap: .35rem; padding: 0 .5rem .5rem; }
+.hymn-variant { display: flex; gap: .3rem; min-width: 0; }
 .hymn-play {
   flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: .3rem;
   height: 34px; border: none; border-radius: var(--radius-btn); background: var(--surface);

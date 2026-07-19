@@ -66,7 +66,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.58.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.59.**
 
 ---
 
@@ -931,15 +931,21 @@ painel de status. **Colapsado por padrão** (deixa a lista compacta): mostra só
 uma barra `.coll-bar` de uma linha — símbolo + nome + **resumo de sincronização**
 (`baixados/total`, ou o progresso ao vivo enquanto sincroniza) + chevron. Tocar
 na barra **expande** o card (estado transitório em `ui(coll.id).expanded`, não
-persistido — cada abertura começa colapsada) revelando o detalhe completo:
-símbolo (`ICON[coll.iconKey]` — nota musical
+persistido — cada abertura começa colapsada) revelando o detalhe completo. A
+barra (símbolo + nome + chevron) é o **elemento persistente** entre os dois
+estados — por isso `.hymnal-card.collapsed` usa o **mesmo padding** do card
+expandido de propósito (mudar o padding deslocaria o ícone/título ao
+expandir/colapsar; a compactação vem de só a barra aparecer colapsada). O
+detalhe expandido mostra: símbolo (`ICON[coll.iconKey]` — nota musical
 pros hinários, fila de músicas pros álbuns), título (`coll.name`), **linha de
 status** (progresso via `setCollStatus`, ou "✓ Completo offline" em verde quando
-`downloaded === total`, ou "Parcial…"/"Não sincronizado"), botão de
+`downloaded === total`, ou "Parcial…"/"Não sincronizado"), botão **Ver músicas**
+(`openCollectionSongs(coll)`, ícone de lista SVG inline — só aparece com índice
+carregado; abre a lista de músicas da coleção, ver "Busca/lista" abaixo), botão de
 **sincronizar** (`syncCollection(coll)`, ícone de setas circulares SVG inline;
 gira com `.busy` enquanto sincroniza) e, se já houver algo baixado/indexado,
-botão de **excluir** (`deleteCollection(coll)`). **Os dois botões são azuis** (na
-cor da marca): sincronizar é o primário (preenchido de accent, `.sync-btn`) e
+botão de **excluir** (`deleteCollection(coll)`). Sincronizar é o primário
+(preenchido de accent, `.sync-btn`), Ver músicas é neutro (`.list-btn`) e
 excluir é azul sobre superfície (ícone accent, `.del-btn`). Abaixo, uma faixa de
 **estatísticas** (chips `.hymnal-stat`, cada um `flex:1 1 auto`):
 **Sincronizados** (`downloaded/total`), **Peso** (`fmtBytes(ui(coll.id).bytes)` —
@@ -966,11 +972,17 @@ pouco, mas sempre busca os novos/vazios). `autoRefreshCollections` é
 fase 1 de `syncCollection`. Assim **todo o acervo** (hinários + todas as músicas
 de todos os álbuns) entra na busca sozinho, baixado ou não.
 
-**Botão de busca GLOBAL** (`#hymnSearchBtn`, ícone de lupa — SVG inline, não
-existe no subset da fonte — ao lado do "+ Importar" nas abas): abre um popup
-(`#hymnSearchPopup`) com campo de busca (por nome ou número) e resultados
-varridos de **todas as coleções** já indexadas (`renderSearchResults` itera
-`allCollections()`; cada resultado carrega sua `coll` pra tocar/adicionar).
+**Busca/lista — popup único com dois escopos** (`searchScope`): o mesmo popup
+(`#hymnSearchPopup`) serve tanto pra **busca global** quanto pra **lista de uma
+coleção**. O **botão de lupa** (`#hymnSearchBtn`, SVG inline, ao lado do "+
+Importar" nas abas) abre com `searchScope=null` (título "Buscar no acervo") e
+varre **todas as coleções** indexadas; o botão **Ver músicas** do card
+(`openCollectionSongs(coll)`) abre com `searchScope=coll.id` (título = nome da
+coleção) e mostra só as músicas daquela coleção (o campo então **filtra dentro
+dela**; sem auto-focar o campo, pra não abrir o teclado sobre a lista).
+`renderSearchResults` escolhe as coleções conforme o escopo; cada resultado
+carrega sua `coll` pra tocar/adicionar/baixar sob demanda. No escopo global o
+subtítulo do resultado mostra a coleção de origem; escopado, só a duração.
 Diferente dos demais popups (bottom-sheets), a bandeja **desliza a partir do
 TOPO** (CSS: `#hymnSearchPopup` com `align-items:flex-start`, `.popup-sheet` com
 `translateY(-100%)` e cantos arredondados embaixo) — além de ser o pedido de UX,
@@ -982,12 +994,15 @@ ignora acentuação; o subtítulo do resultado mostra a coleção de origem) —
 funciona sem rede assim que os índices já tiverem sido buscados pelo menos uma
 vez (hinários e álbuns entram sozinhos via `autoRefreshCollections`); se o popup
 estiver aberto quando um índice atualiza, a lista se re-renderiza na hora.
-Cada resultado tem dois pares de botão — **▶ Cantado** / **➕** e
-**▶ Playback** / **➕** (o segundo só aparece se `has_instrumental_music`) —
-tocar substitui a playlist e exibe (mesmo comportamento de toque simples da
-biblioteca; baixa a música na hora se ainda não estiver offline, ver
-"Resolução do id de mídia por variante" acima), adicionar entra no
-Cronograma (`AVDB.listAdd('imports', id)`).
+Cada resultado tem uma linha por variante (empilhadas — `.hymn-variants` em
+coluna, pra caber as 3 ações sem apertar): **▶ Cantado** e **▶ Playback** (a
+2ª só se `has_instrumental_music`), cada uma com **três ações** —
+**tocar** (`playSongVariant` — substitui a playlist e exibe, igual ao toque
+simples da biblioteca), **➕ Cronograma** (`addSongVariant` →
+`AVDB.listAdd('imports', id)`) e **➕ Playlist** (`addSongToPlaylist` →
+`AVDB.listAdd('playlist', id)` + `renderPlaylist`). Todas baixam a música na
+hora se ainda não estiver offline (ver "Resolução do id de mídia por variante"
+abaixo).
 
 **Resolução do id de mídia por variante** (`resolveSongMediaId`) é
 **offline-first com download sob demanda**: se a variante já foi baixada
@@ -1759,7 +1774,9 @@ som (`#standaloneToggle`), a **flor** do fundo da letra (`#lyricsBgToggle`) e o
 ícone **"arquivos+"** (documento com `+`) do botão de importar da aba
 (`.tab-add` do `#file`), que diferencia importar ARQUIVOS de sincronizar PASTA,
 e nos **cards de coleção** as **setas circulares** de sincronizar
-(`syncIconSvg`) e o **check** verde de "completo offline" (`checkIconSvg`).
+(`syncIconSvg`), o **check** verde de "completo offline" (`checkIconSvg`), o
+**chevron** de expandir/colapsar (`chevronSvg`, gira 180° via CSS quando
+`.expanded`) e o ícone de **lista** do botão "Ver músicas" (`listIconSvg`).
 
 > **Borda nativa dos `<button>`**: `.tab-add` (e os botões do cartão do Hinário)
 > zeram `border`/`appearance` explicitamente — sem isso, um `<button>` (ex.:
