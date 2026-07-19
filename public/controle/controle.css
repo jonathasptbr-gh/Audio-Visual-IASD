@@ -430,7 +430,13 @@ main {
 .back-btn .msym { font-size: 20px; }
 
 /* ---------- Abas (ícones) ---------- */
-.tabs { display: flex; gap: .3rem; align-items: center; flex-shrink: 0; }
+/* Seção das abas com fundo próprio (mais claro que o app, --panel-2), virando
+   uma "barra" contida com cantos arredondados. O botão de importar fica à
+   ESQUERDA (1º filho no HTML) e o de busca à direita; as 3 abas (flex:1) no meio. */
+.tabs {
+  display: flex; gap: .3rem; align-items: center; flex-shrink: 0;
+  background: var(--panel-2); border-radius: var(--radius-card); padding: .25rem;
+}
 
 /* Botão de playlist: mora na linha de transporte (.transport), à direita dos
    demais — reaproveita o tamanho/estilo de .t-btn, só ganha posição relativa
