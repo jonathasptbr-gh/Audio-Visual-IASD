@@ -2777,15 +2777,40 @@ plBtnEl.addEventListener('click', openPlPopup);
 plPopupCloseEl.addEventListener('click', closePlPopup);
 plPopupEl.addEventListener('click', (e) => { if (e.target === plPopupEl) closePlPopup(); });
 
+// Ordem das abas (esquerda→direita) — define a DIREÇÃO do deslize na animação
+// de troca de aba (ir pra uma aba à direita desliza a lista entrando pela
+// direita, e vice-versa).
+const TAB_ORDER = ['imports', 'folders', 'albums'];
+const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// Anima a entrada da lista ao trocar de aba: leve deslize direcional + fade.
+// Usa a Web Animations API na PRÓPRIA `#library` — como o `load()` reconstrói o
+// conteúdo em poucos ms (leituras IDB em memória), animar já a partir de
+// opacity:0 esconde a troca e revela o conteúdo novo entrando. Sai cedo se o
+// usuário prefere menos movimento.
+function animateTabSwitch(dir) {
+  if (prefersReducedMotion || !libraryEl.animate) return;
+  libraryEl.animate(
+    [
+      { opacity: 0, transform: 'translateX(' + (dir * 22) + 'px)' },
+      { opacity: 1, transform: 'translateX(0)' },
+    ],
+    { duration: 220, easing: 'cubic-bezier(.22,.61,.36,1)' },
+  );
+}
+
 tabsEl.addEventListener('click', (e) => {
   const tab = e.target.closest('.tab');
   if (!tab || tab.dataset.tab === activeTab) return;
+  // Direção do deslize: +1 se a aba nova está à direita da atual, -1 se à esquerda.
+  const dir = TAB_ORDER.indexOf(tab.dataset.tab) > TAB_ORDER.indexOf(activeTab) ? 1 : -1;
   // Mantém a posição: guarda o scroll da aba atual e NÃO reseta a pasta
   // aberta — voltar para Pastas retorna exatamente onde estava.
   rememberScroll();
   activeTab = tab.dataset.tab;
   if (selectionMode) exitSelection();
   load();
+  animateTabSwitch(dir);
 });
 
 selCancelEl.addEventListener('click', exitSelection);

@@ -66,7 +66,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.65.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.66.**
 
 ---
 
@@ -782,6 +782,15 @@ busca — voltar para Pastas retorna exatamente onde estava. A posição de scro
 é guardada por aba/pasta (`scrollPos`, chave `scrollKey()` = aba + id da pasta)
 e restaurada ao fim de cada `load()`; `rememberScroll()` é chamado antes de
 trocar de aba, abrir pasta ou voltar. (Memória por sessão, em RAM.)
+
+**Animação de troca de aba** (`animateTabSwitch`): ao trocar de aba, a lista
+`#library` entra com um leve **deslize direcional + fade** (Web Animations API
+na própria lista, ~220 ms). A direção vem da ordem das abas (`TAB_ORDER =
+['imports','folders','albums']`): ir pra uma aba à **direita** desliza entrando
+da direita (`translateX(22px)→0`), à esquerda o contrário. Como o `load()`
+reconstrói o conteúdo em poucos ms, animar já a partir de `opacity:0` esconde a
+troca e revela o conteúdo novo entrando; o `overflow:hidden` do `main` clipa o
+deslize (não vaza horizontalmente). Respeita `prefers-reduced-motion` (sai cedo).
 
 **`load()` tem guarda de sequência** (`loadSeqCtl`, como o `loadSeq` do
 stage): é async e disparada fire-and-forget por dezenas de handlers, então
