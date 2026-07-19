@@ -158,8 +158,10 @@ const FIXED_COLLECTIONS = [
 // fileIdFull, fileIdPlayback }] }. Fonte de verdade em memória (carregada no
 // init por loadCollections); persistida em state 'coll:<id>'.
 let collState = {};
-// Catálogo de álbuns descobertos (state 'albumCatalog') — [{ id_album, name }].
-// Alimenta os cards de álbum; persistido pra os cards aparecerem offline.
+// Catálogo de álbuns descobertos (state 'albumCatalog') — [{ id_album, name,
+// category }]. `category` = nome da categoria do álbum em pt_categories, usado
+// pra classificar Jovens/JA (ver collCategory). Persistido pra os cards
+// aparecerem offline.
 let albumCatalog = [];
 
 // Registro completo de coleções: hinários fixos + um card por álbum do catálogo.
@@ -167,7 +169,8 @@ function allCollections() {
   const cols = FIXED_COLLECTIONS.slice();
   for (const a of albumCatalog) {
     cols.push({ id: 'album-' + a.id_album, name: a.name, kind: 'album',
-      source: 'album_' + a.id_album, albumId: a.id_album, iconKey: 'queue' });
+      source: 'album_' + a.id_album, albumId: a.id_album, iconKey: 'queue',
+      category: a.category || '' });
   }
   return cols;
 }
@@ -1156,12 +1159,20 @@ function noteIconSvg() {
 
 // Categoria de uma coleção, pros filtros da aba Álbuns:
 //  - 'hymnal': os hinários (kind hymnal);
-//  - 'ja': álbuns cujo nome COMEÇA COM UM ANO (ex: "2015 …") — os acampori/
-//    congressos JA são nomeados assim;
-//  - 'outros': o que sobra (demais álbuns).
+//  - 'ja': coletâneas Jovens/JA — classificadas pela CATEGORIA nos metadados,
+//    não pelo nome do álbum. O sinal principal é o nome da categoria em
+//    `pt_categories` (`coll.category`), à qual o álbum pertence; como reforço,
+//    também as tags `categories` do próprio `album_{id}` (guardadas em
+//    `collState[id].categories` quando o índice do álbum é buscado). Casa por
+//    palavra-chave (jovens/jovem/juvenil/JA) — os álbuns JA saem todo ano com o
+//    mesmo gênero e ficam sob a mesma categoria no banco.
+//  - 'outros': o que sobra.
 function collCategory(coll) {
   if (coll.kind === 'hymnal') return 'hymnal';
-  return /^\s*(19|20)\d{2}(?!\d)/.test(coll.name || '') ? 'ja' : 'outros';
+  const tags = (collState[coll.id] && collState[coll.id].categories) || [];
+  const hay = normalizeForSearch((coll.category || '') + ' ' + tags.join(' '));
+  // casa "jovem"/"jovens"/"juvenil"/"ja" (texto já sem acento, minúsculo)
+  return /\bjovem\b|\bjovens\b|juvenil|\bja\b/.test(hay) ? 'ja' : 'outros';
 }
 // Filtros ativos (pílulas no topo da aba Álbuns) — em memória, começam todos
 // ligados (mostra tudo). Não persistido.
@@ -1240,12 +1251,20 @@ function renderCollectionCard(coll) {
     }
     bar.appendChild(summary);
   }
-  // Botão de sincronizar direto na barra (no lugar do antigo chevron) — fica na
-  // MESMA posição colapsado e expandido (é sempre o último item da barra, que é
-  // idêntica nos dois estados). Tocar nele sincroniza (stopPropagation); tocar
-  // no resto da barra expande/colapsa.
+  // Botões da barra (sempre visíveis, mesmo colapsado): "Ver músicas" (só com
+  // índice carregado) + sincronizar. Ficam à direita, com stopPropagation
+  // (tocar neles não expande/colapsa); o sincronizar é sempre o ÚLTIMO item,
+  // então fica na MESMA posição colapsado e expandido.
+  if (total > 0) {
+    const barList = document.createElement('button');
+    barList.className = 'hymnal-card-btn list-btn coll-bar-btn';
+    barList.title = 'Ver músicas';
+    barList.innerHTML = listIconSvg();
+    barList.addEventListener('click', (e) => { e.stopPropagation(); openCollectionSongs(coll); });
+    bar.appendChild(barList);
+  }
   const barSync = document.createElement('button');
-  barSync.className = 'hymnal-card-btn sync-btn coll-bar-sync-btn' + (u.syncBusy ? ' busy' : '');
+  barSync.className = 'hymnal-card-btn sync-btn coll-bar-btn' + (u.syncBusy ? ' busy' : '');
   barSync.title = 'Atualizar/baixar';
   barSync.innerHTML = syncIconSvg();
   barSync.addEventListener('click', (e) => { e.stopPropagation(); syncCollection(coll); });
@@ -1272,17 +1291,7 @@ function renderCollectionCard(coll) {
   }
 
   const actions = document.createElement('div'); actions.className = 'hymnal-card-actions';
-  // "Ver músicas": abre a lista de músicas desta coleção (só faz sentido com
-  // índice já carregado). Tocar num resultado baixa sob demanda e toca.
-  if (total > 0) {
-    const listBtn = document.createElement('button');
-    listBtn.className = 'hymnal-card-btn list-btn';
-    listBtn.title = 'Ver músicas';
-    listBtn.innerHTML = listIconSvg();
-    listBtn.addEventListener('click', (e) => { e.stopPropagation(); openCollectionSongs(coll); });
-    actions.appendChild(listBtn);
-  }
-  // (sincronizar mora na barra — ver acima)
+  // (Ver músicas e sincronizar moram na barra — ver acima)
   if (downloaded > 0 || total > 0) {
     const rmBtn = document.createElement('button');
     rmBtn.className = 'hymnal-card-btn del-btn';
@@ -1960,7 +1969,9 @@ async function fetchAlbumCatalog() {
       if (!a || a.id_album == null || seen.has(a.id_album)) continue;
       if (/hin[aá]rio/i.test(a.name || '')) continue; // hinário tem card próprio
       seen.add(a.id_album);
-      albums.push({ id_album: a.id_album, name: a.name || ('Álbum ' + a.id_album) });
+      // Guarda o nome da categoria (pt_categories) — sinal pra classificar
+      // Jovens/JA nos filtros da aba Álbuns (ver collCategory).
+      albums.push({ id_album: a.id_album, name: a.name || ('Álbum ' + a.id_album), category: (cat && cat.name) || '' });
     }
   }
   albumCatalog = albums;
@@ -1998,6 +2009,11 @@ async function fetchCollectionIndex(coll) {
     };
   });
   collState[coll.id] = { indexSyncedAt: Date.now(), songs };
+  // Tags de categoria do próprio álbum (album_{id}.categories) — reforço pra
+  // classificar Jovens/JA nos filtros da aba Álbuns (ver collCategory).
+  if (coll.kind === 'album' && raw && Array.isArray(raw.categories)) {
+    collState[coll.id].categories = raw.categories;
+  }
   await AVDB.setState('coll:' + coll.id, collState[coll.id]);
   refreshCollectionsIfVisible();
   // Popup de busca aberto durante a atualização: re-renderiza pra refletir a
