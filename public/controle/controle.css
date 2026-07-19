@@ -533,10 +533,21 @@ main {
   display: flex; flex-direction: column; gap: .6rem;
 }
 /* Colapsado (padrão): só a barra de uma linha. O padding é o MESMO do card
-   expandido de propósito — a barra (ícone + título + chevron) é o elemento
-   persistente entre os dois estados, então precisa ficar exatamente na mesma
-   posição ao expandir/colapsar (mudar o padding a deslocaria). A compactação
-   vem de só a barra aparecer colapsada, não de padding menor. */
+   expandido de propósito — a barra (ícone + título + botão de sincronizar) é o
+   elemento persistente entre os dois estados, então precisa ficar exatamente na
+   mesma posição ao expandir/colapsar (mudar o padding a deslocaria). A
+   compactação vem de só a barra aparecer colapsada, não de padding menor. */
+
+/* Pílulas de filtro no topo da aba Álbuns (Hinários / JA / Outros) — ligam/
+   desligam cada categoria de coleção. */
+.album-filters { display: flex; gap: .4rem; }
+.album-pill {
+  flex: 1; border: 1px solid var(--line); border-radius: var(--radius-pill);
+  background: var(--surface); color: var(--muted);
+  padding: .45rem .5rem; font-size: .82rem; font-weight: 600; cursor: pointer;
+}
+.album-pill.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.album-pill:active { transform: var(--press); }
 
 /* Barra compacta do card de coleção (sempre visível; clicável p/ expandir).
    Colapsada mostra só nome + resumo de sincronização; o resto (status/ações/
@@ -553,9 +564,10 @@ main {
 .coll-bar-name { flex: 1; min-width: 0; font-size: .9rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .coll-bar-sync { flex-shrink: 0; font-size: .78rem; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
 .coll-bar-sync.done { color: var(--success); }
-.coll-bar-sync.busy { color: var(--accent); font-weight: 600; font-size: .7rem; max-width: 48%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.coll-bar-chevron { flex-shrink: 0; color: var(--muted); display: flex; transition: transform .18s ease; }
-.hymnal-card.expanded .coll-bar-chevron { transform: rotate(180deg); }
+.coll-bar-sync.busy { color: var(--accent); font-weight: 600; font-size: .7rem; max-width: 42%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Botão de sincronizar na barra (no lugar do antigo chevron) — mesma posição
+   colapsado/expandido; um pouco menor que os botões do detalhe pra caber bem. */
+.coll-bar-sync-btn { width: 34px; height: 34px; flex-shrink: 0; }
 
 .hymnal-card-head { display: flex; align-items: center; gap: .6rem; }
 /* No card expandido o status é filho direto da head (o nome/ícone já estão na

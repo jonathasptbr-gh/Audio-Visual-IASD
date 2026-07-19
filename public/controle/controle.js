@@ -1140,11 +1140,6 @@ function syncIconSvg() {
 function checkIconSvg() {
   return '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
 }
-// SVG inline de chevron (seta pra baixo) — indica que o card de coleção
-// expande ao tocar; gira 180° via CSS quando expandido (`.expanded`).
-function chevronSvg() {
-  return '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>';
-}
 // SVG inline de "lista" — botão "Ver músicas" (abre a lista de músicas da
 // coleção no popup de busca, escopado à coleção).
 function listIconSvg() {
@@ -1159,15 +1154,44 @@ function noteIconSvg() {
   return '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l10-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg>';
 }
 
-// Lista de cards da aba Álbuns: hinários (fixos) + um card por álbum do
-// catálogo. Cada card é um "check do sistema" (não abre como pasta): símbolo,
-// status, estatísticas (sincronizados/peso/rede) e ações sincronizar/excluir.
+// Categoria de uma coleção, pros filtros da aba Álbuns:
+//  - 'hymnal': os hinários (kind hymnal);
+//  - 'ja': álbuns cujo nome COMEÇA COM UM ANO (ex: "2015 …") — os acampori/
+//    congressos JA são nomeados assim;
+//  - 'outros': o que sobra (demais álbuns).
+function collCategory(coll) {
+  if (coll.kind === 'hymnal') return 'hymnal';
+  return /^\s*(19|20)\d{2}(?!\d)/.test(coll.name || '') ? 'ja' : 'outros';
+}
+// Filtros ativos (pílulas no topo da aba Álbuns) — em memória, começam todos
+// ligados (mostra tudo). Não persistido.
+const albumFilters = { hymnal: true, ja: true, outros: true };
+
+// Linha de pílulas de filtro no topo da aba Álbuns (Hinários / JA / Outros);
+// cada uma liga/desliga a categoria correspondente.
+function renderAlbumFilters() {
+  const li = document.createElement('li'); li.className = 'album-filters';
+  const defs = [['hymnal', 'Hinários'], ['ja', 'JA'], ['outros', 'Outros']];
+  for (const [key, label] of defs) {
+    const b = document.createElement('button');
+    b.className = 'album-pill' + (albumFilters[key] ? ' on' : '');
+    b.textContent = label;
+    b.addEventListener('click', () => { albumFilters[key] = !albumFilters[key]; renderLibrary(); });
+    li.appendChild(b);
+  }
+  return li;
+}
+
+// Lista de cards da aba Álbuns: pílulas de filtro + hinários (fixos) + um card
+// por álbum do catálogo (respeitando os filtros ativos). Cada card é um "check
+// do sistema" (não abre como pasta): símbolo, status, estatísticas e ações.
 function renderCollectionsList() {
-  const cols = allCollections();
+  libraryEl.appendChild(renderAlbumFilters());
+  const cols = allCollections().filter((c) => albumFilters[collCategory(c)]);
   cols.forEach((coll) => libraryEl.appendChild(renderCollectionCard(coll)));
   if (cols.length === 0) {
     const empty = document.createElement('li'); empty.className = 'empty';
-    empty.textContent = 'Nenhuma coleção disponível.';
+    empty.textContent = 'Nenhuma coleção neste filtro.';
     libraryEl.appendChild(empty);
   }
 }
@@ -1216,8 +1240,16 @@ function renderCollectionCard(coll) {
     }
     bar.appendChild(summary);
   }
-  const chev = document.createElement('span'); chev.className = 'coll-bar-chevron'; chev.innerHTML = chevronSvg();
-  bar.appendChild(chev);
+  // Botão de sincronizar direto na barra (no lugar do antigo chevron) — fica na
+  // MESMA posição colapsado e expandido (é sempre o último item da barra, que é
+  // idêntica nos dois estados). Tocar nele sincroniza (stopPropagation); tocar
+  // no resto da barra expande/colapsa.
+  const barSync = document.createElement('button');
+  barSync.className = 'hymnal-card-btn sync-btn coll-bar-sync-btn' + (u.syncBusy ? ' busy' : '');
+  barSync.title = 'Atualizar/baixar';
+  barSync.innerHTML = syncIconSvg();
+  barSync.addEventListener('click', (e) => { e.stopPropagation(); syncCollection(coll); });
+  bar.appendChild(barSync);
   bar.addEventListener('click', () => { u.expanded = !u.expanded; refreshCollectionsIfVisible(); });
   li.appendChild(bar);
 
@@ -1250,12 +1282,7 @@ function renderCollectionCard(coll) {
     listBtn.addEventListener('click', (e) => { e.stopPropagation(); openCollectionSongs(coll); });
     actions.appendChild(listBtn);
   }
-  const syncBtn = document.createElement('button');
-  syncBtn.className = 'hymnal-card-btn sync-btn' + (u.syncBusy ? ' busy' : '');
-  syncBtn.title = 'Atualizar/baixar';
-  syncBtn.innerHTML = syncIconSvg();
-  syncBtn.addEventListener('click', (e) => { e.stopPropagation(); syncCollection(coll); });
-  actions.appendChild(syncBtn);
+  // (sincronizar mora na barra — ver acima)
   if (downloaded > 0 || total > 0) {
     const rmBtn = document.createElement('button');
     rmBtn.className = 'hymnal-card-btn del-btn';
