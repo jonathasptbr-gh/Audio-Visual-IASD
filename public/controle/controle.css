@@ -532,7 +532,32 @@ main {
   padding: .7rem .8rem;
   display: flex; flex-direction: column; gap: .6rem;
 }
+/* Colapsado (padrão): compacto, só a barra de uma linha. */
+.hymnal-card.collapsed { padding: .45rem .6rem; }
+
+/* Barra compacta do card de coleção (sempre visível; clicável p/ expandir).
+   Colapsada mostra só nome + resumo de sincronização; o resto (status/ações/
+   estatísticas) só aparece expandido. */
+.coll-bar { display: flex; align-items: center; gap: .55rem; cursor: pointer; }
+.coll-bar:active { transform: var(--press); }
+.coll-bar-icon {
+  width: 32px; height: 32px; flex-shrink: 0;
+  border-radius: var(--radius-btn);
+  background: var(--accent-soft); color: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+}
+.coll-bar-icon .msym { font-size: 20px; }
+.coll-bar-name { flex: 1; min-width: 0; font-size: .9rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.coll-bar-sync { flex-shrink: 0; font-size: .78rem; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.coll-bar-sync.done { color: var(--success); }
+.coll-bar-sync.busy { color: var(--accent); font-weight: 600; font-size: .7rem; max-width: 48%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.coll-bar-chevron { flex-shrink: 0; color: var(--muted); display: flex; transition: transform .18s ease; }
+.hymnal-card.expanded .coll-bar-chevron { transform: rotate(180deg); }
+
 .hymnal-card-head { display: flex; align-items: center; gap: .6rem; }
+/* No card expandido o status é filho direto da head (o nome/ícone já estão na
+   barra), então precisa crescer pra empurrar as ações pra direita. */
+.hymnal-card-head > .hymnal-card-status { flex: 1; min-width: 0; }
 .hymnal-card-icon {
   width: 44px; height: 44px; flex-shrink: 0;
   border-radius: var(--radius-btn);
