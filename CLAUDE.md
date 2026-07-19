@@ -66,7 +66,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.60.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.61.**
 
 ---
 
@@ -994,19 +994,18 @@ ignora acentuação; o subtítulo do resultado mostra a coleção de origem) —
 funciona sem rede assim que os índices já tiverem sido buscados pelo menos uma
 vez (hinários e álbuns entram sozinhos via `autoRefreshCollections`); se o popup
 estiver aberto quando um índice atualiza, a lista se re-renderiza na hora.
-Cada resultado é **uma linha compacta** (`.hymn-row`): info à esquerda (nome +
-subtítulo) e **todas as ações à direita** (`.hymn-actions`), só ícones, sem
-texto — deixa a lista densa verticalmente. As ações são agrupadas por variante
-(`.hymn-variant`): **Cantado** e **Playback** (a 2ª só se
+Cada resultado tem **duas linhas**: em cima a info (`.hymn-row` — thumb + nome +
+subtítulo) e embaixo a **linha de ações** (`.hymn-actions`, filha direta do
+`li`, indentada sob o nome), só ícones, sem texto. As ações são agrupadas por
+variante (`.hymn-variant`): **Cantado** e **Playback** (a 2ª só se
 `has_instrumental_music`), cada grupo com **três ações** — **tocar**
 (`playSongVariant`, ícone de **voz/microfone** pro Cantado, **nota musical** pro
 Playback — `voiceIconSvg`/`noteIconSvg`; substitui a playlist e exibe, igual ao
 toque simples da biblioteca), **➕ Cronograma** (`addSongVariant` →
 `AVDB.listAdd('imports', id)`) e **➕ Playlist** (`addSongToPlaylist` →
-`AVDB.listAdd('playlist', id)` + `renderPlaylist`). Botões de 30px pra os grupos
-caberem numa linha só sem overflow em telas estreitas. Todas baixam a música na
-hora se ainda não estiver offline (ver "Resolução do id de mídia por variante"
-abaixo).
+`AVDB.listAdd('playlist', id)` + `renderPlaylist`). A linha de ações usa
+`flex-wrap` (protege telas muito estreitas). Todas baixam a música na hora se
+ainda não estiver offline (ver "Resolução do id de mídia por variante" abaixo).
 
 **Resolução do id de mídia por variante** (`resolveSongMediaId`) é
 **offline-first com download sob demanda**: se a variante já foi baixada

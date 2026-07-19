@@ -2354,9 +2354,9 @@ function renderSearchResults(query) {
   }
 }
 
-// Uma linha compacta por música: info à esquerda, todas as ações à direita
-// (ícones, sem texto). Cada variante (Cantado/Playback) é um grupo
-// [tocar][+ Cronograma][+ Playlist]; o botão de tocar usa ícone de voz
+// Duas linhas por música: em cima a info (thumb + nome + subtítulo); embaixo
+// a linha de ações (só ícones, sem texto). Cada variante (Cantado/Playback) é
+// um grupo [tocar][+ Cronograma][+ Playlist]; o botão de tocar usa ícone de voz
 // (Cantado) ou de nota musical (Playback). Playback só aparece se houver.
 function hymnResultRow(coll, s) {
   const li = document.createElement('li');
@@ -2373,13 +2373,13 @@ function hymnResultRow(coll, s) {
   const sub = document.createElement('span'); sub.className = 'hymn-sub';
   sub.textContent = (searchScope ? '' : coll.name + (s.duration ? ' · ' : '')) + (s.duration || '');
   info.append(name, sub);
+  row.append(thumb, info);
 
   const actions = document.createElement('div'); actions.className = 'hymn-actions';
   actions.appendChild(hymnVariantEl(coll, s, 'full', 'Cantado'));
   if (s.has_instrumental_music) actions.appendChild(hymnVariantEl(coll, s, 'playback', 'Playback'));
 
-  row.append(thumb, info, actions);
-  li.appendChild(row);
+  li.append(row, actions); // info em cima, botões embaixo
   return li;
 }
 
