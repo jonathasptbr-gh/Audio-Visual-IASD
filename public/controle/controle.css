@@ -565,9 +565,10 @@ main {
 .coll-bar-sync { flex-shrink: 0; font-size: .78rem; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
 .coll-bar-sync.done { color: var(--success); }
 .coll-bar-sync.busy { color: var(--accent); font-weight: 600; font-size: .7rem; max-width: 42%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* Botão de sincronizar na barra (no lugar do antigo chevron) — mesma posição
-   colapsado/expandido; um pouco menor que os botões do detalhe pra caber bem. */
-.coll-bar-sync-btn { width: 34px; height: 34px; flex-shrink: 0; }
+/* Botões na barra (Ver músicas + sincronizar), no lugar do antigo chevron —
+   sincronizar é o último, na mesma posição colapsado/expandido; um pouco
+   menores que os botões do detalhe pra caber bem na linha. */
+.coll-bar-btn { width: 34px; height: 34px; flex-shrink: 0; }
 
 .hymnal-card-head { display: flex; align-items: center; gap: .6rem; }
 /* No card expandido o status é filho direto da head (o nome/ícone já estão na
