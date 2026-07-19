@@ -66,7 +66,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.61.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.62.**
 
 ---
 
@@ -900,9 +900,15 @@ fonte de verdade em memória (`collState`, carregada uma vez no `init` por
 continuam válidos). UI transitória (sync em andamento, status, peso) fica em
 `collUI` (não persistida).
 
-**Aba Álbuns** (`data-tab="albums"`): renderiza um card por coleção
-(`renderCollectionsList` → `renderCollectionCard`). O card do Hinário **saiu da
-aba Pastas** (que voltou a ser só pastas do dispositivo/virtuais).
+**Aba Álbuns** (`data-tab="albums"`): no topo, uma linha de **3 pílulas de
+filtro** (`.album-pill`, via `renderAlbumFilters`) — **Hinários** / **JA** /
+**Outros**, que ligam/desligam cada categoria (`albumFilters`, em memória, todas
+ligadas por padrão). A categoria de cada coleção vem de `collCategory(coll)`:
+hinários → `hymnal`; álbuns cujo **nome começa com um ano** (`/^\s*(19|20)\d{2}/`,
+ex: "2015 Acampori JA") → `ja`; o resto → `outros`. Abaixo das pílulas,
+`renderCollectionsList` renderiza um card por coleção que passe no filtro
+(`renderCollectionCard`). O card do Hinário **saiu da aba Pastas** (que voltou a
+ser só pastas do dispositivo/virtuais).
 
 Os mecanismos abaixo (sincronização/download/letra/Wi-Fi/busca) valem **por
 coleção**, exatamente como antes valiam só pro Hinário 2022.
@@ -929,24 +935,27 @@ sistema"** por coleção (não uma linha de pasta), sempre visível mesmo antes 
 as músicas pela **busca do acervo**, botão de lupa) — é deliberadamente um
 painel de status. **Colapsado por padrão** (deixa a lista compacta): mostra só
 uma barra `.coll-bar` de uma linha — símbolo + nome + **resumo de sincronização**
-(`baixados/total`, ou o progresso ao vivo enquanto sincroniza) + chevron. Tocar
-na barra **expande** o card (estado transitório em `ui(coll.id).expanded`, não
+(`baixados/total`, ou o progresso ao vivo enquanto sincroniza) + **botão de
+sincronizar** (`.coll-bar-sync-btn`; no lugar do antigo chevron). Tocar no botão
+de sincronizar dispara a sincronização (`stopPropagation`); tocar no **resto da
+barra** **expande** o card (estado transitório em `ui(coll.id).expanded`, não
 persistido — cada abertura começa colapsada) revelando o detalhe completo. A
-barra (símbolo + nome + chevron) é o **elemento persistente** entre os dois
-estados — por isso `.hymnal-card.collapsed` usa o **mesmo padding** do card
-expandido de propósito (mudar o padding deslocaria o ícone/título ao
-expandir/colapsar; a compactação vem de só a barra aparecer colapsada). O
-detalhe expandido mostra: símbolo (`ICON[coll.iconKey]` — nota musical
-pros hinários, fila de músicas pros álbuns), título (`coll.name`), **linha de
-status** (progresso via `setCollStatus`, ou "✓ Completo offline" em verde quando
-`downloaded === total`, ou "Parcial…"/"Não sincronizado"), botão **Ver músicas**
-(`openCollectionSongs(coll)`, ícone de lista SVG inline — só aparece com índice
-carregado; abre a lista de músicas da coleção, ver "Busca/lista" abaixo), botão de
-**sincronizar** (`syncCollection(coll)`, ícone de setas circulares SVG inline;
-gira com `.busy` enquanto sincroniza) e, se já houver algo baixado/indexado,
-botão de **excluir** (`deleteCollection(coll)`). Sincronizar é o primário
-(preenchido de accent, `.sync-btn`), Ver músicas é neutro (`.list-btn`) e
-excluir é azul sobre superfície (ícone accent, `.del-btn`). Abaixo, uma faixa de
+barra (símbolo + nome + botão de sincronizar) é o **elemento persistente** entre
+os dois estados — o botão de sincronizar é sempre o último item da barra, então
+fica na **mesma posição** colapsado e expandido; e `.hymnal-card.collapsed` usa
+o **mesmo padding** do card expandido de propósito (mudar o padding deslocaria o
+ícone/título; a compactação vem de só a barra aparecer colapsada). O símbolo
+(`ICON[coll.iconKey]` — nota musical pros hinários, fila de músicas pros álbuns),
+o título (`coll.name`) e o botão de **sincronizar** (`syncCollection(coll)`, ícone
+de setas circulares SVG inline, preenchido de accent `.sync-btn`, gira com
+`.busy`) ficam na **barra** (sempre visíveis). O detalhe expandido acrescenta:
+**linha de status** (progresso via `setCollStatus`, ou "✓ Completo offline" em
+verde quando `downloaded === total`, ou "Parcial…"/"Não sincronizado"), botão
+**Ver músicas** (`openCollectionSongs(coll)`, ícone de lista SVG inline, neutro
+`.list-btn` — só aparece com índice carregado; abre a lista de músicas da
+coleção, ver "Busca/lista" abaixo) e, se já houver algo baixado/indexado, botão
+de **excluir** (`deleteCollection(coll)`, azul sobre superfície `.del-btn`).
+Abaixo, uma faixa de
 **estatísticas** (chips `.hymnal-stat`, cada um `flex:1 1 auto`):
 **Sincronizados** (`downloaded/total`), **Peso** (`fmtBytes(ui(coll.id).bytes)` —
 somatório dos `size` do catálogo OPFS via `updateCollBytes`, recalculado sob
@@ -1777,9 +1786,8 @@ som (`#standaloneToggle`), a **flor** do fundo da letra (`#lyricsBgToggle`) e o
 ícone **"arquivos+"** (documento com `+`) do botão de importar da aba
 (`.tab-add` do `#file`), que diferencia importar ARQUIVOS de sincronizar PASTA,
 e nos **cards de coleção** as **setas circulares** de sincronizar
-(`syncIconSvg`), o **check** verde de "completo offline" (`checkIconSvg`), o
-**chevron** de expandir/colapsar (`chevronSvg`, gira 180° via CSS quando
-`.expanded`) e o ícone de **lista** do botão "Ver músicas" (`listIconSvg`); e nos
+(`syncIconSvg`), o **check** verde de "completo offline" (`checkIconSvg`) e o
+ícone de **lista** do botão "Ver músicas" (`listIconSvg`); e nos
 resultados da busca os botões de tocar **voz/microfone** (Cantado, `voiceIconSvg`)
 e **nota musical** (Playback, `noteIconSvg`).
 
