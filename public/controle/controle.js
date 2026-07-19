@@ -158,10 +158,8 @@ const FIXED_COLLECTIONS = [
 // fileIdFull, fileIdPlayback }] }. Fonte de verdade em memória (carregada no
 // init por loadCollections); persistida em state 'coll:<id>'.
 let collState = {};
-// Catálogo de álbuns descobertos (state 'albumCatalog') — [{ id_album, name,
-// category }]. `category` = nome da categoria do álbum em pt_categories, usado
-// pra classificar Jovens/JA (ver collCategory). Persistido pra os cards
-// aparecerem offline.
+// Catálogo de álbuns descobertos (state 'albumCatalog') — [{ id_album, name }].
+// Alimenta os cards de álbum; persistido pra os cards aparecerem offline.
 let albumCatalog = [];
 
 // Registro completo de coleções: hinários fixos + um card por álbum do catálogo.
@@ -169,8 +167,7 @@ function allCollections() {
   const cols = FIXED_COLLECTIONS.slice();
   for (const a of albumCatalog) {
     cols.push({ id: 'album-' + a.id_album, name: a.name, kind: 'album',
-      source: 'album_' + a.id_album, albumId: a.id_album, iconKey: 'queue',
-      category: a.category || '' });
+      source: 'album_' + a.id_album, albumId: a.id_album, iconKey: 'queue' });
   }
   return cols;
 }
@@ -1157,52 +1154,15 @@ function noteIconSvg() {
   return '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l10-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg>';
 }
 
-// Categoria de uma coleção, pros filtros da aba Álbuns:
-//  - 'hymnal': os hinários (kind hymnal);
-//  - 'ja': coletâneas Jovens/JA — classificadas pela CATEGORIA nos metadados,
-//    não pelo nome do álbum. O sinal principal é o nome da categoria em
-//    `pt_categories` (`coll.category`), à qual o álbum pertence; como reforço,
-//    também as tags `categories` do próprio `album_{id}` (guardadas em
-//    `collState[id].categories` quando o índice do álbum é buscado). Casa por
-//    palavra-chave (jovens/jovem/juvenil/JA) — os álbuns JA saem todo ano com o
-//    mesmo gênero e ficam sob a mesma categoria no banco.
-//  - 'outros': o que sobra.
-function collCategory(coll) {
-  if (coll.kind === 'hymnal') return 'hymnal';
-  const tags = (collState[coll.id] && collState[coll.id].categories) || [];
-  const hay = normalizeForSearch((coll.category || '') + ' ' + tags.join(' '));
-  // casa "jovem"/"jovens"/"juvenil"/"ja" (texto já sem acento, minúsculo)
-  return /\bjovem\b|\bjovens\b|juvenil|\bja\b/.test(hay) ? 'ja' : 'outros';
-}
-// Filtros ativos (pílulas no topo da aba Álbuns) — em memória, começam todos
-// ligados (mostra tudo). Não persistido.
-const albumFilters = { hymnal: true, ja: true, outros: true };
-
-// Linha de pílulas de filtro no topo da aba Álbuns (Hinários / JA / Outros);
-// cada uma liga/desliga a categoria correspondente.
-function renderAlbumFilters() {
-  const li = document.createElement('li'); li.className = 'album-filters';
-  const defs = [['hymnal', 'Hinários'], ['ja', 'JA'], ['outros', 'Outros']];
-  for (const [key, label] of defs) {
-    const b = document.createElement('button');
-    b.className = 'album-pill' + (albumFilters[key] ? ' on' : '');
-    b.textContent = label;
-    b.addEventListener('click', () => { albumFilters[key] = !albumFilters[key]; renderLibrary(); });
-    li.appendChild(b);
-  }
-  return li;
-}
-
-// Lista de cards da aba Álbuns: pílulas de filtro + hinários (fixos) + um card
-// por álbum do catálogo (respeitando os filtros ativos). Cada card é um "check
-// do sistema" (não abre como pasta): símbolo, status, estatísticas e ações.
+// Lista de cards da aba Álbuns: hinários (fixos) + um card por álbum do
+// catálogo. Cada card é um "check do sistema" (não abre como pasta): símbolo,
+// status, estatísticas e ações.
 function renderCollectionsList() {
-  libraryEl.appendChild(renderAlbumFilters());
-  const cols = allCollections().filter((c) => albumFilters[collCategory(c)]);
+  const cols = allCollections();
   cols.forEach((coll) => libraryEl.appendChild(renderCollectionCard(coll)));
   if (cols.length === 0) {
     const empty = document.createElement('li'); empty.className = 'empty';
-    empty.textContent = 'Nenhuma coleção neste filtro.';
+    empty.textContent = 'Nenhuma coleção disponível.';
     libraryEl.appendChild(empty);
   }
 }
@@ -1969,9 +1929,7 @@ async function fetchAlbumCatalog() {
       if (!a || a.id_album == null || seen.has(a.id_album)) continue;
       if (/hin[aá]rio/i.test(a.name || '')) continue; // hinário tem card próprio
       seen.add(a.id_album);
-      // Guarda o nome da categoria (pt_categories) — sinal pra classificar
-      // Jovens/JA nos filtros da aba Álbuns (ver collCategory).
-      albums.push({ id_album: a.id_album, name: a.name || ('Álbum ' + a.id_album), category: (cat && cat.name) || '' });
+      albums.push({ id_album: a.id_album, name: a.name || ('Álbum ' + a.id_album) });
     }
   }
   albumCatalog = albums;
@@ -2009,11 +1967,6 @@ async function fetchCollectionIndex(coll) {
     };
   });
   collState[coll.id] = { indexSyncedAt: Date.now(), songs };
-  // Tags de categoria do próprio álbum (album_{id}.categories) — reforço pra
-  // classificar Jovens/JA nos filtros da aba Álbuns (ver collCategory).
-  if (coll.kind === 'album' && raw && Array.isArray(raw.categories)) {
-    collState[coll.id].categories = raw.categories;
-  }
   await AVDB.setState('coll:' + coll.id, collState[coll.id]);
   refreshCollectionsIfVisible();
   // Popup de busca aberto durante a atualização: re-renderiza pra refletir a
@@ -2397,10 +2350,11 @@ function renderSearchResults(query) {
   }
 }
 
-// Duas linhas por música: em cima a info (thumb + nome + subtítulo); embaixo
-// a linha de ações (só ícones, sem texto). Cada variante (Cantado/Playback) é
-// um grupo [tocar][+ Cronograma][+ Playlist]; o botão de tocar usa ícone de voz
-// (Cantado) ou de nota musical (Playback). Playback só aparece se houver.
+// Thumb à ESQUERDA; à direita uma coluna com duas linhas — em cima a info
+// (nome + subtítulo), embaixo a linha de ações (só ícones). Cada variante
+// (Cantado/Playback) é um grupo [tocar][+ Cronograma][+ Playlist]; o botão de
+// tocar usa ícone de voz (Cantado) ou nota musical (Playback). Os botões
+// crescem (flex) pra preencher a largura disponível. Playback só se houver.
 function hymnResultRow(coll, s) {
   const li = document.createElement('li');
   li.className = 'lib-item hymn-result';
@@ -2408,6 +2362,8 @@ function hymnResultRow(coll, s) {
   const row = document.createElement('div'); row.className = 'row hymn-row';
   const thumb = document.createElement('div'); thumb.className = 'thumb thumb--icon';
   thumb.appendChild(msym(ICON[coll.iconKey] || ICON.music));
+
+  const main = document.createElement('div'); main.className = 'hymn-main';
   const info = document.createElement('div'); info.className = 'hymn-info';
   const name = document.createElement('span'); name.className = 'row-name';
   name.textContent = (s.track ? s.track + '. ' : '') + s.name;
@@ -2416,13 +2372,14 @@ function hymnResultRow(coll, s) {
   const sub = document.createElement('span'); sub.className = 'hymn-sub';
   sub.textContent = (searchScope ? '' : coll.name + (s.duration ? ' · ' : '')) + (s.duration || '');
   info.append(name, sub);
-  row.append(thumb, info);
 
   const actions = document.createElement('div'); actions.className = 'hymn-actions';
   actions.appendChild(hymnVariantEl(coll, s, 'full', 'Cantado'));
   if (s.has_instrumental_music) actions.appendChild(hymnVariantEl(coll, s, 'playback', 'Playback'));
 
-  li.append(row, actions); // info em cima, botões embaixo
+  main.append(info, actions);
+  row.append(thumb, main);
+  li.appendChild(row);
   return li;
 }
 

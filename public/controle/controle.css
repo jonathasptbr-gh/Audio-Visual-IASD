@@ -538,17 +538,6 @@ main {
    mesma posição ao expandir/colapsar (mudar o padding a deslocaria). A
    compactação vem de só a barra aparecer colapsada, não de padding menor. */
 
-/* Pílulas de filtro no topo da aba Álbuns (Hinários / JA / Outros) — ligam/
-   desligam cada categoria de coleção. */
-.album-filters { display: flex; gap: .4rem; }
-.album-pill {
-  flex: 1; border: 1px solid var(--line); border-radius: var(--radius-pill);
-  background: var(--surface); color: var(--muted);
-  padding: .45rem .5rem; font-size: .82rem; font-weight: 600; cursor: pointer;
-}
-.album-pill.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
-.album-pill:active { transform: var(--press); }
-
 /* Barra compacta do card de coleção (sempre visível; clicável p/ expandir).
    Colapsada mostra só nome + resumo de sincronização; o resto (status/ações/
    estatísticas) só aparece expandido. */
@@ -756,20 +745,21 @@ main {
    no tamanho nativo, pequeno). Campo mais alto/legível que o de busca da pasta. */
 .hymn-search-bar { display: flex; padding: .5rem .9rem .6rem; flex-shrink: 0; }
 #hymnSearchInput { width: 100%; padding: 11px 14px; font-size: .95rem; }
+/* Resultado: thumb à ESQUERDA + coluna à direita com duas linhas (info em
+   cima, ações embaixo). */
 .hymn-row { align-items: center; gap: .5rem; }
-.hymn-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.hymn-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .35rem; }
+.hymn-info { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .hymn-sub { font-size: .7rem; color: var(--muted); }
-/* Ações numa SEGUNDA linha (info em cima, botões embaixo), só ícones (sem
-   texto) — grupos por variante (Cantado/Playback). Alinhadas sob o nome
-   (indentadas além da thumb: padding-left = .5rem do .row + 40px da thumb +
-   .5rem do gap). flex-wrap protege telas muito estreitas. */
-.hymn-actions {
-  display: flex; align-items: center; flex-wrap: wrap; gap: .45rem;
-  padding: .05rem .5rem .5rem calc(1rem + 40px);
+/* Linha de ações (só ícones): grupos por variante (Cantado/Playback) dividindo
+   a largura igualmente; dentro do grupo, tocar/+Cronograma/+Playlist crescem
+   (flex) pra preencher o espaço disponível. */
+.hymn-actions { display: flex; gap: .35rem; }
+.hymn-variant { flex: 1; display: flex; gap: .25rem; min-width: 0; }
+.hymn-play, .hymn-actions .hymn-add {
+  flex: 1; min-width: 0; width: auto; height: 34px;
 }
-.hymn-variant { display: flex; align-items: center; gap: .2rem; }
 .hymn-play {
-  width: 34px; height: 34px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
   border: none; border-radius: var(--radius-btn); background: var(--surface);
   color: var(--text); cursor: pointer;
