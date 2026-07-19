@@ -743,20 +743,22 @@ main {
    no tamanho nativo, pequeno). Campo mais alto/legível que o de busca da pasta. */
 .hymn-search-bar { display: flex; padding: .5rem .9rem .6rem; flex-shrink: 0; }
 #hymnSearchInput { width: 100%; padding: 11px 14px; font-size: .95rem; }
-.hymn-result { padding-bottom: .4rem; }
-.hymn-row { align-items: center; }
+.hymn-row { align-items: center; gap: .5rem; }
 .hymn-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .hymn-sub { font-size: .7rem; color: var(--muted); }
-/* Variantes empilhadas (uma linha por variante) — dá espaço pras 3 ações
-   (tocar / + Cronograma / + Playlist) sem apertar em telas estreitas. */
-.hymn-variants { display: flex; flex-direction: column; gap: .35rem; padding: 0 .5rem .5rem; }
-.hymn-variant { display: flex; gap: .3rem; min-width: 0; }
+/* Ações à DIREITA da info, só ícones (sem texto) — grupos por variante
+   (Cantado/Playback), tudo numa linha só → lista bem mais densa
+   verticalmente (um resultado por linha). */
+.hymn-actions { display: flex; align-items: center; gap: .4rem; flex-shrink: 0; }
+.hymn-variant { display: flex; align-items: center; gap: .18rem; }
+.hymn-play, .hymn-actions .row-btn { width: 30px; height: 30px; }
 .hymn-play {
-  flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: .3rem;
-  height: 34px; border: none; border-radius: var(--radius-btn); background: var(--surface);
-  color: var(--text); font-size: .78rem; font-weight: 600; cursor: pointer;
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  border: none; border-radius: var(--radius-btn); background: var(--surface);
+  color: var(--text); cursor: pointer;
 }
-.hymn-play .msym { font-size: 17px; }
+.hymn-play svg { display: block; }
+.hymn-actions .row-btn .msym { font-size: 17px; }
 .hymn-play:active, .hymn-add:active { transform: var(--press); }
 /* Playback (instrumental) fica em tom accent para diferenciar do Cantado. */
 .hymn-variant[data-variant="playback"] .hymn-play { background: var(--accent-soft); color: var(--accent); }

@@ -1150,6 +1150,14 @@ function chevronSvg() {
 function listIconSvg() {
   return '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>';
 }
+// SVG inline de "voz" (microfone) — botão de tocar a variante CANTADO (vocal).
+function voiceIconSvg() {
+  return '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg>';
+}
+// SVG inline de "nota musical" — botão de tocar a variante PLAYBACK (instrumental).
+function noteIconSvg() {
+  return '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l10-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg>';
+}
 
 // Lista de cards da aba Álbuns: hinários (fixos) + um card por álbum do
 // catálogo. Cada card é um "check do sistema" (não abre como pasta): símbolo,
@@ -2346,6 +2354,10 @@ function renderSearchResults(query) {
   }
 }
 
+// Uma linha compacta por música: info à esquerda, todas as ações à direita
+// (ícones, sem texto). Cada variante (Cantado/Playback) é um grupo
+// [tocar][+ Cronograma][+ Playlist]; o botão de tocar usa ícone de voz
+// (Cantado) ou de nota musical (Playback). Playback só aparece se houver.
 function hymnResultRow(coll, s) {
   const li = document.createElement('li');
   li.className = 'lib-item hymn-result';
@@ -2361,20 +2373,20 @@ function hymnResultRow(coll, s) {
   const sub = document.createElement('span'); sub.className = 'hymn-sub';
   sub.textContent = (searchScope ? '' : coll.name + (s.duration ? ' · ' : '')) + (s.duration || '');
   info.append(name, sub);
-  row.append(thumb, info);
-  li.appendChild(row);
 
-  const variants = document.createElement('div'); variants.className = 'hymn-variants';
-  variants.appendChild(hymnVariantEl(coll, s, 'full', 'Cantado'));
-  if (s.has_instrumental_music) variants.appendChild(hymnVariantEl(coll, s, 'playback', 'Playback'));
-  li.appendChild(variants);
+  const actions = document.createElement('div'); actions.className = 'hymn-actions';
+  actions.appendChild(hymnVariantEl(coll, s, 'full', 'Cantado'));
+  if (s.has_instrumental_music) actions.appendChild(hymnVariantEl(coll, s, 'playback', 'Playback'));
+
+  row.append(thumb, info, actions);
+  li.appendChild(row);
   return li;
 }
 
 function hymnVariantEl(coll, s, variant, label) {
   const wrap = document.createElement('div'); wrap.className = 'hymn-variant'; wrap.dataset.variant = variant;
   const playBtn = document.createElement('button'); playBtn.className = 'hymn-play'; playBtn.title = 'Tocar ' + label;
-  playBtn.append(msym(ICON.play), document.createTextNode(' ' + label));
+  playBtn.innerHTML = variant === 'playback' ? noteIconSvg() : voiceIconSvg();
   playBtn.addEventListener('click', () => playSongVariant(coll, s, variant));
   const addBtn = document.createElement('button'); addBtn.className = 'hymn-add row-btn'; addBtn.title = 'Adicionar ' + label + ' ao Cronograma';
   addBtn.appendChild(msym(ICON.plAdd));
