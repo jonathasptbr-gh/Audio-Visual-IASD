@@ -1951,21 +1951,49 @@ async function fetchCollectionIndex(coll) {
   if (hymnSearchPopupEl.classList.contains('open')) renderSearchResults(hymnSearchInputEl.value);
 }
 
+// Executa `fn` sobre `items` com concorrência limitada (no máximo `limit` em
+// voo ao mesmo tempo). Usado pra buscar o índice de dezenas de álbuns sem
+// disparar todas as requisições de uma vez.
+async function runLimited(items, limit, fn) {
+  let i = 0;
+  async function worker() {
+    while (i < items.length) { const idx = i++; await fn(items[idx], idx); }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+}
+
+// Índices de álbum são considerados "frescos" por este tempo — dentro dele,
+// uma retomada do app não refaz a requisição (evita N requisições a cada
+// visibilitychange). Álbuns novos ou ainda sem índice são sempre buscados.
+const ALBUM_INDEX_TTL = 12 * 60 * 60 * 1000; // 12 h
+
 // Atualização automática e silenciosa — ao abrir o app e ao retomar do 2º
 // plano (ver wiring perto do check do service worker), sem aviso de erro:
-// índices leves dos HINÁRIOS (fixos) + catálogo de ÁLBUNS (só os nomes dos
-// cards). NÃO busca o índice de cada álbum (seriam N requisições) — isso
-// acontece ao sincronizar o card do álbum. Uma falha (ex: sem rede) só mantém
-// o que já está em cache.
+//  1. índices leves dos HINÁRIOS (fixos) + catálogo de ÁLBUNS (nomes dos cards);
+//  2. índice leve (só metadados — album_{id}.musics, SEM áudio) de CADA álbum,
+//     pra a busca do acervo cobrir TODAS as músicas de TODOS os álbuns mesmo
+//     sem nada baixado (tocar num resultado baixa sob demanda — igual ao
+//     hinário). Concorrência limitada + TTL (pula álbuns indexados há pouco,
+//     mas sempre busca os novos/vazios). Uma falha (ex: sem rede) só mantém o
+//     que já está em cache.
 let collectionsRefreshing = false;
 async function autoRefreshCollections() {
   if (collectionsRefreshing) return;
   collectionsRefreshing = true;
   try {
+    // Fase 1: hinários + catálogo de álbuns (barato).
     await Promise.all([
       ...FIXED_COLLECTIONS.map((c) => fetchCollectionIndex(c).catch(() => {})),
       fetchAlbumCatalog().catch(() => {}),
     ]);
+    // Fase 2: índice de cada álbum (só os que estão vazios ou vencidos pelo TTL).
+    const now = Date.now();
+    const stale = allCollections().filter((c) => {
+      if (c.kind !== 'album') return false;
+      const st = collState[c.id];
+      return !st || !st.songs.length || (now - (st.indexSyncedAt || 0)) > ALBUM_INDEX_TTL;
+    });
+    await runLimited(stale, 5, (c) => fetchCollectionIndex(c).catch(() => {}));
   } finally { collectionsRefreshing = false; }
 }
 
@@ -2264,7 +2292,7 @@ function renderSearchResults(query) {
   hymnSearchCountEl.textContent = String(matches.length);
   hymnResultsEl.innerHTML = '';
   if (totalIndexed === 0) {
-    hymnResultsEl.innerHTML = '<li class="empty">Acervo ainda não sincronizado.<br>Vá em Álbuns e toque em sincronizar em uma coleção.</li>';
+    hymnResultsEl.innerHTML = '<li class="empty">Índice do acervo ainda não carregado.<br>Abra o app com internet uma vez para baixar a lista completa.</li>';
     return;
   }
   if (matches.length === 0) {
