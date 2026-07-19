@@ -66,7 +66,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.57.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.58.**
 
 ---
 
@@ -882,9 +882,13 @@ Dois tipos:
   índice leve é atualizado sozinho (`autoRefreshCollections`).
 - **`album`** (dinâmicas): descobertas em `pt_categories`
   (`fetchAlbumCatalog` → `state.albumCatalog`, um card por álbum). O índice de
-  cada álbum vem de `album_{id}.musics` e é buscado **ao sincronizar o card**
-  (não a cada abertura — seriam N requisições). Álbuns cujo nome parece de
-  hinário são pulados (já têm card dedicado).
+  cada álbum vem de `album_{id}.musics` e é buscado **automaticamente**
+  (`autoRefreshCollections`, fase 2 — só metadados, sem áudio), com
+  concorrência limitada e um TTL (`ALBUM_INDEX_TTL`, 12 h) pra não refazer N
+  requisições a cada retomada; álbuns novos/vazios são sempre buscados. Assim a
+  busca do acervo cobre **todas** as músicas de **todos** os álbuns mesmo sem
+  nada baixado (tocar num resultado baixa sob demanda — igual ao hinário).
+  Álbuns cujo nome parece de hinário são pulados (já têm card dedicado).
 
 O himnário em espanhol e demais idiomas ficam de fora naturalmente — só
 consumimos arquivos `pt_*`.
@@ -950,15 +954,17 @@ manuais feitas por dentro da pasta via seleção múltipla).
 `autoRefreshCollections`): sem esperar o operador apertar "sincronizar", ao
 abrir o app (`init()`) e toda vez que o Controle volta de segundo plano
 (`visibilitychange`, mesma cadência do check de versão do service worker),
-buscam-se os **índices leves dos hinários** (id/número/nome/duração/tem-playback
-— **sem** áudio nenhum) + o **catálogo de álbuns** (só os nomes dos cards, via
-`fetchAlbumCatalog`). **Não** busca o índice de cada álbum (seriam N requisições)
-— isso acontece ao sincronizar o card do álbum. `autoRefreshCollections` é
+buscam-se (fase 1) os **índices leves dos hinários** (id/número/nome/duração/
+tem-playback — **sem** áudio nenhum) + o **catálogo de álbuns** (nomes dos
+cards, via `fetchAlbumCatalog`); e (fase 2) o **índice leve de CADA álbum**
+(`album_{id}.musics`, também só metadados), com concorrência limitada
+(`runLimited`, 5) e TTL (`ALBUM_INDEX_TTL`, 12 h — pula álbuns indexados há
+pouco, mas sempre busca os novos/vazios). `autoRefreshCollections` é
 **silenciosa**: sem rede, só mantém o que já está em cache, sem erro visível.
 `fetchCollectionIndex` faz o merge preservando `fileIdFull`/`fileIdPlayback`/
 `lyrics` já conhecidos — usada tanto por essa atualização automática quanto pela
-fase 1 de `syncCollection`. Assim os hinários já entram na busca sozinhos; os
-álbuns entram depois de sincronizados.
+fase 1 de `syncCollection`. Assim **todo o acervo** (hinários + todas as músicas
+de todos os álbuns) entra na busca sozinho, baixado ou não.
 
 **Botão de busca GLOBAL** (`#hymnSearchBtn`, ícone de lupa — SVG inline, não
 existe no subset da fonte — ao lado do "+ Importar" nas abas): abre um popup
@@ -974,7 +980,7 @@ usa `.lib-search`, hoje com `appearance:none` + supressão das pseudo-partes
 dos índices já em memória (`collState`, filtro em memória, `normalizeForSearch`
 ignora acentuação; o subtítulo do resultado mostra a coleção de origem) —
 funciona sem rede assim que os índices já tiverem sido buscados pelo menos uma
-vez (hinários entram sozinhos; álbuns depois de sincronizados); se o popup
+vez (hinários e álbuns entram sozinhos via `autoRefreshCollections`); se o popup
 estiver aberto quando um índice atualiza, a lista se re-renderiza na hora.
 Cada resultado tem dois pares de botão — **▶ Cantado** / **➕** e
 **▶ Playback** / **➕** (o segundo só aparece se `has_instrumental_music`) —
