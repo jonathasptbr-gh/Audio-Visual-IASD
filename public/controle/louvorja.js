@@ -13,9 +13,14 @@
   const FILE_URL = 'https://api.louvorja.com.br/file';
   const TOKEN = '02@v2nFB2Dc';
 
-  // Nome do arquivo de lista do Hinário 2022 (módulo "hymnal", sem sufixo de
-  // ano — o hinário de 1996 é "hymnal_1996"; ver CLAUDE.md).
-  const HYMNAL_2022_FILE = 'pt_hymnal';
+  // Nomes de arquivos de lista usados pelo sistema de coleções (ver seção
+  // "Coleções de mídia (LouvorJA)" no CLAUDE.md e docs/FONTE-DE-DADOS-LOUVORJA.md).
+  // Os hinários são módulos "hymnal"/"hymnal_1996"; os álbuns são descobertos
+  // via "pt_categories". fetchList aceita qualquer nome — estas constantes são
+  // só conveniência/documentação.
+  const HYMNAL_2022_FILE = 'pt_hymnal';       // Hinário Adventista 2022
+  const HYMNAL_1996_FILE = 'pt_hymnal_1996';  // Hinário Adventista 1996
+  const CATEGORIES_FILE = 'pt_categories';    // catálogo de coletâneas → álbuns
 
   // Busca um arquivo do "banco" do LouvorJA (lista ou registro individual,
   // ex: "pt_hymnal" ou "music_123"). Mesmo formato do Database.js do app-ja:
@@ -35,5 +40,5 @@
     return FILE_URL + path;
   }
 
-  global.Louvorja = { fetchList, fileUrl, HYMNAL_2022_FILE };
+  global.Louvorja = { fetchList, fileUrl, HYMNAL_2022_FILE, HYMNAL_1996_FILE, CATEGORIES_FILE };
 })(this);

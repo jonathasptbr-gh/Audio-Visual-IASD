@@ -13,7 +13,7 @@ offline após a primeira carga.
 4. [Estrutura de arquivos](#estrutura-de-arquivos)
 5. [Modelo de dados (`shared/db.js`)](#modelo-de-dados-shareddbjs) — IDB, OPFS, BroadcastChannel
 6. [Motor de renderização (`shared/stage.js`)](#motor-de-renderização-sharedstagejs) — cortina, fades, concorrência
-7. [PWA Controle](#pwa-controle) — layout, mixer, biblioteca, Hinário 2022, letra sincronizada
+7. [PWA Controle](#pwa-controle) — layout, mixer, biblioteca, coleções (LouvorJA), letra sincronizada
 8. [PWA Display](#pwa-display) — wallpaper, YouTube, recuperação de áudio
 9. [Design System (padrões visuais / CSS)](#design-system-padrões-visuais--css) — **tokens de cor/medida/método**
 10. [Servidor (`server.js`)](#servidor-serverjs)
@@ -66,7 +66,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.55.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.56.**
 
 ---
 
@@ -111,7 +111,7 @@ public/
 │   ├── index.html              # UI do operador
 │   ├── controle.css            # Estilos do Controle
 │   ├── controle.js             # Lógica do Controle
-│   ├── louvorja.js             # Cliente da API pública do LouvorJA (Hinário 2022 — ver seção própria)
+│   ├── louvorja.js             # Cliente da API pública do LouvorJA (Coleções de mídia — ver seção própria)
 │   ├── icons/                  # icon-{192,512}.svg + .png (PNG obrigatório p/ WebAPK) + icon-maskable-{192,512}.png (ver "Instalar no Android")
 │   ├── manifest.json           # PWA manifest (portrait + share_target)
 │   └── sw.js                   # Service worker (cache: controle-vX.Y)
@@ -201,7 +201,9 @@ O campo `kind` é derivado do `type` (ou definido pelo chamador para itens de UR
 | `folders` | `[{ id, name }]` — pastas virtuais |
 | `folder_<id>` | array de IDs de mídia da pasta |
 | `opfs-folders` | `[{ id, name, count, syncedAt, handle? }]` — pastas sincronizadas no OPFS (`handle` acelera re-sync) |
-| `hymnal2022` | `{ indexSyncedAt, songs: [{ id_music, track, name, duration, has_instrumental_music, fileIdFull, fileIdPlayback }] }` — catálogo offline do Hinário Adventista 2022 (LouvorJA) — ver seção própria |
+| `coll:<id>` | `{ indexSyncedAt, songs: [{ id_music, track, name, duration, has_instrumental_music, fileIdFull, fileIdPlayback }] }` — índice offline de UMA coleção do LouvorJA (`coll:hymnal-2022`, `coll:hymnal-1996`, `coll:album-<id>`) — ver "Coleções de mídia (LouvorJA)" |
+| `albumCatalog` | `[{ id_album, name }]` — catálogo de álbuns descobertos em `pt_categories` (um card por álbum na aba Álbuns) |
+| `hymnal2022` | legado — migrado para `coll:hymnal-2022` no `loadCollections()` (a chave antiga permanece, ignorada) |
 | `pending-share` | `{ files, url, title, ts }` — share recebido pelo SW aguardando processamento |
 | `order` | legado — lido apenas como fallback de `imports` |
 | `favorites` | legado (recurso de favoritos removido) — array de IDs; não é mais lido nem gravado, ignorado |
@@ -675,9 +677,9 @@ Não há mais **toast flutuante**. As informações são transmitidas pela próp
 interface (estados de botão, contadores, listas). `flash()`/`dismissFlash()` em
 `controle.js` viraram **no-ops** — mantidos só para não mexer nos ~25 pontos de
 chamada; qualquer mensagem que antes ia pro toast simplesmente não aparece mais.
-O único feedback migrado explicitamente para a UI é a **sincronização do Hinário
-2022**: `setHymnalStatus(text, autoClearMs?)` grava um subtítulo (`.hymn-sub`)
-na linha do Hinário (`renderHymnalRow`) — "Atualizando lista…", "Baixando N/T…",
+O único feedback migrado explicitamente para a UI é a **sincronização das
+coleções**: `setCollStatus(id, text, autoClearMs?)` grava um subtítulo
+no card da coleção (`renderCollectionCard`) — "Atualizando lista…", "Baixando N/T…",
 "Já completo offline", "Sem internet — falha ao atualizar" etc. `autoClearMs`
 limpa mensagens finais/erro sozinho; o progresso fica até a próxima chamada. O
 `.toast` do CSS foi removido.
@@ -768,6 +770,11 @@ As abas ficam na **base da seção de listas** (ícones):
   virtuais via "salvar em pasta" na seleção múltipla.)
 - **Pastas** (`folders`) — pastas sincronizadas no OPFS e pastas virtuais
   (agrupam mídias já importadas).
+- **Álbuns** (`albums`) — o acervo do LouvorJA: um **card por coleção** (os dois
+  hinários + um card por álbum do banco). Não é uma lista de mídia navegável, e
+  sim cards de "check do sistema" (sincronizar/atualizar/excluir); o acesso às
+  músicas é pela **busca do acervo** (botão de lupa). Ver "Coleções de mídia
+  (LouvorJA)".
 - **Importar** — `<input type="file" multiple accept="image/*,video/*,audio/*">`.
 
 **Navegação persistente:** trocar de aba **não** reseta a pasta aberta nem a
@@ -834,13 +841,12 @@ usa `listRemove` (com gc).
   recebem itens pelo botão "salvar em pasta" da seleção múltipla (funciona
   também com IDs do catálogo OPFS). Excluir a pasta não exclui as mídias.
 
-### Hinário Adventista 2022 (LouvorJA)
+### Coleções de mídia (LouvorJA)
 
 Integração com o catálogo público do app **LouvorJA** (`api.louvorja.com.br`,
-mesmo backend usado pelo app `app-ja`), para trazer o Hinário Adventista 2022
-(módulo `hymnal` do LouvorJA — o de 1996 é `hymnal_1996`, não integrado)
-como fonte de mídia offline, sem copiar nenhum código do app-ja (Vue/Vuex) —
-só o **protocolo HTTP** dele é reaproveitado, via um cliente próprio e mínimo:
+mesmo backend usado pelo app `app-ja`), para trazer **todo o acervo** como fonte
+de mídia offline, sem copiar nenhum código do app-ja (Vue/Vuex) — só o
+**protocolo HTTP** dele é reaproveitado, via um cliente próprio e mínimo:
 `controle/louvorja.js` (`window.Louvorja`, JS puro, sem dependências).
 
 > 📄 **Referência completa da fonte de dados:**
@@ -857,12 +863,47 @@ só o **protocolo HTTP** dele é reaproveitado, via um cliente próprio e mínim
   não é um segredo protegido).
 - **`Louvorja.fileUrl(path)`** — resolve um campo de URL do banco (ex:
   `url_music`) para a URL completa de download do arquivo.
-- Dois tipos de arquivo consumidos: `pt_hymnal` (lista completa e leve dos
-  ~600 hinos: `id_music, track, name, duration, has_instrumental_music` — sem
-  URLs de mídia) e `music_{id_music}` (registro individual, com
-  `url_music`, `url_instrumental_music`, `url_image`).
+- Arquivos consumidos: as **listas** `pt_hymnal`/`pt_hymnal_1996` (hinários) e
+  `pt_categories` (catálogo de álbuns → `album_{id}`); o **registro individual**
+  `music_{id_music}` (com `url_music`, `url_instrumental_music`, `url_image`,
+  letra). Constantes de conveniência: `Louvorja.HYMNAL_2022_FILE`,
+  `HYMNAL_1996_FILE`, `CATEGORIES_FILE`.
 
-**Duas camadas, independentes** (`state.hymnal2022`, ver tabela acima):
+#### Sistema de coleções (genérico)
+
+O que antes era exclusivo do Hinário 2022 virou um **sistema genérico de
+coleções**, todo parametrizado por uma `coll = { id, name, kind, source, iconKey }`
+(ver `allCollections()`/`FIXED_COLLECTIONS` em `controle.js`). Cada coleção tem
+**uma pasta OPFS própria** (`folders/<coll.id>/`) e um **card** na aba Álbuns.
+Dois tipos:
+
+- **`hymnal`** (fixas): a `source` é um arquivo de **lista** (`pt_hymnal`,
+  `pt_hymnal_1996`) que já é o índice completo de hinos. Sempre visíveis; o
+  índice leve é atualizado sozinho (`autoRefreshCollections`).
+- **`album`** (dinâmicas): descobertas em `pt_categories`
+  (`fetchAlbumCatalog` → `state.albumCatalog`, um card por álbum). O índice de
+  cada álbum vem de `album_{id}.musics` e é buscado **ao sincronizar o card**
+  (não a cada abertura — seriam N requisições). Álbuns cujo nome parece de
+  hinário são pulados (já têm card dedicado).
+
+O himnário em espanhol e demais idiomas ficam de fora naturalmente — só
+consumimos arquivos `pt_*`.
+
+**Estado por coleção**: `state['coll:<id>'] = { indexSyncedAt, songs:[…] }`;
+fonte de verdade em memória (`collState`, carregada uma vez no `init` por
+`loadCollections()`). **Migração**: o antigo `state.hymnal2022` é copiado para
+`coll:hymnal-2022` (mesma pasta OPFS `hymnal-2022` — downloads já feitos
+continuam válidos). UI transitória (sync em andamento, status, peso) fica em
+`collUI` (não persistida).
+
+**Aba Álbuns** (`data-tab="albums"`): renderiza um card por coleção
+(`renderCollectionsList` → `renderCollectionCard`). O card do Hinário **saiu da
+aba Pastas** (que voltou a ser só pastas do dispositivo/virtuais).
+
+Os mecanismos abaixo (sincronização/download/letra/Wi-Fi/busca) valem **por
+coleção**, exatamente como antes valiam só pro Hinário 2022.
+
+**Duas camadas, independentes** (`state['coll:<id>']`, ver tabela acima):
 
 1. **Índice** (leve, só metadados) — permanece offline assim que sincronizado
    uma vez; é o que alimenta a busca (item 2 abaixo) mesmo antes do download
@@ -871,85 +912,82 @@ só o **protocolo HTTP** dele é reaproveitado, via um cliente próprio e mínim
    (`url_music`) sempre e o Playback/instrumental (`url_instrumental_music`)
    quando existir, mais a capa e as imagens por estrofe (ver "Letra
    sincronizada" abaixo) — grava tudo no **mesmo catálogo OPFS das pastas
-   sincronizadas** (`AVDB.fileAdd` + `AVDB.opfsWriteFile`, pasta fixa
-   `folders/hymnal-2022/`), então listar, buscar, tocar e excluir dentro dele
+   sincronizadas** (`AVDB.fileAdd` + `AVDB.opfsWriteFile`, pasta da coleção
+   `folders/<coll.id>/`), então listar, buscar, tocar e excluir dentro dele
    funciona **sem nenhum código novo** — é só mais uma pasta OPFS (ver
    "Pastas" acima), só que a fonte da sincronização é uma API remota em vez
    de `showDirectoryPicker()`.
 
-**UI — cartão informativo, NÃO uma pasta** (`renderHymnalRow()` + `.hymnal-card`
-no CSS): no topo da aba **Pastas** aparece um **cartão de "check do sistema"**
-do Hinário 2022 (não uma linha de pasta), sempre visível mesmo antes da 1ª
-sincronização. Ele **não abre como pasta ao tocar** (o operador acessa/toca os
-hinos pela **busca do Hinário**, botão de lupa) — é deliberadamente um painel de
-status, não algo navegável como pasta. O cartão mostra: símbolo do hinário
-(nota musical, `ICON.music`), título, **linha de status** (progresso de
-sincronização via `setHymnalStatus`, ou "✓ Completo offline" em verde quando
+**UI — cartão informativo, NÃO uma pasta** (`renderCollectionCard()` +
+`.hymnal-card` no CSS): na aba **Álbuns** aparece um **cartão de "check do
+sistema"** por coleção (não uma linha de pasta), sempre visível mesmo antes da
+1ª sincronização. Ele **não abre como pasta ao tocar** (o operador acessa/toca
+as músicas pela **busca do acervo**, botão de lupa) — é deliberadamente um
+painel de status. O cartão mostra: símbolo (`ICON[coll.iconKey]` — nota musical
+pros hinários, fila de músicas pros álbuns), título (`coll.name`), **linha de
+status** (progresso via `setCollStatus`, ou "✓ Completo offline" em verde quando
 `downloaded === total`, ou "Parcial…"/"Não sincronizado"), botão de
-**sincronizar** (`syncHymnal2022()`, ícone de setas circulares SVG inline; gira
-com `.busy` enquanto sincroniza) e, se já houver algo baixado, botão de
-**excluir tudo** (`deleteHymnal2022()`). **Os dois botões são azuis** (na cor da
-marca): sincronizar é o primário (preenchido de accent, `.sync-btn`) e excluir é
-azul sobre superfície (ícone accent, `.del-btn`) — distintos entre si, mas ambos
-na cor do app. Abaixo, uma faixa de **estatísticas** (chips `.hymnal-stat`, cada
-um `flex:1 1 auto` para dividir toda a largura da linha sem sobrar espaço à
-direita): **Sincronizados** (`downloaded/total`), **Peso**
-(`fmtBytes(hymnalBytes)` — somatório dos `size` do catálogo OPFS via
-`updateHymnalBytes`, recalculado sob demanda e cacheado) e **Rede** (Wi-Fi
-confirmado × "Aguardando", ícone de Wi-Fi SVG inline — ver `isConfirmedWifi`).
-Sincronização é **aditiva e resumível**: interromper e tocar de novo só baixa
-o que falta (`fileGet` reconfirma que o arquivo catalogado ainda existe de
-fato antes de pular — cobre até exclusões manuais feitas por dentro da
-pasta via seleção múltipla).
+**sincronizar** (`syncCollection(coll)`, ícone de setas circulares SVG inline;
+gira com `.busy` enquanto sincroniza) e, se já houver algo baixado/indexado,
+botão de **excluir** (`deleteCollection(coll)`). **Os dois botões são azuis** (na
+cor da marca): sincronizar é o primário (preenchido de accent, `.sync-btn`) e
+excluir é azul sobre superfície (ícone accent, `.del-btn`). Abaixo, uma faixa de
+**estatísticas** (chips `.hymnal-stat`, cada um `flex:1 1 auto`):
+**Sincronizados** (`downloaded/total`), **Peso** (`fmtBytes(ui(coll.id).bytes)` —
+somatório dos `size` do catálogo OPFS via `updateCollBytes`, recalculado sob
+demanda e cacheado) e **Rede** (Wi-Fi confirmado × "Aguardando", ícone de Wi-Fi
+SVG inline — ver `isConfirmedWifi`). Sincronização é **aditiva e resumível**:
+interromper e sincronizar de novo só baixa o que falta (`fileGet` reconfirma que
+o arquivo catalogado ainda existe de fato antes de pular — cobre até exclusões
+manuais feitas por dentro da pasta via seleção múltipla).
 
-**Índice sempre em dia, automaticamente** (`fetchHymnalIndex` /
-`autoRefreshHymnalIndex`): a lista leve do Hinário 2022 (id/número/nome/
-duração/tem-playback — **sem** áudio nenhum) é buscada sozinha, sem esperar
-o operador apertar "sincronizar": ao abrir o app (`init()`) e toda vez que o
-Controle volta de segundo plano (`visibilitychange`, mesma cadência do check
-de versão do service worker) — como é só metadados, é barato o bastante pra
-rodar em toda abertura. `autoRefreshHymnalIndex` é **silenciosa**: se não
-houver rede no momento, só mantém o índice já em cache da última vez, sem
-mostrar erro nenhum ao operador (diferente do botão de sincronizar, que
-avisa se falhar). `fetchHymnalIndex` faz o merge preservando
-`fileIdFull`/`fileIdPlayback`/`lyrics` já conhecidos de cada hino — usada
-tanto por essa atualização automática quanto pela fase 1 da sincronização
-completa (`syncHymnal2022`, que só entra na fase pesada depois de chamar a
-mesma função). Isso garante que o botão de busca já tenha acesso à lista
-**inteira** do que existe no LouvorJA (baixado ou não) assim que o popup é
-aberto, independente de já ter sido feita alguma sincronização pesada.
+**Índices sempre em dia, automaticamente** (`fetchCollectionIndex` /
+`autoRefreshCollections`): sem esperar o operador apertar "sincronizar", ao
+abrir o app (`init()`) e toda vez que o Controle volta de segundo plano
+(`visibilitychange`, mesma cadência do check de versão do service worker),
+buscam-se os **índices leves dos hinários** (id/número/nome/duração/tem-playback
+— **sem** áudio nenhum) + o **catálogo de álbuns** (só os nomes dos cards, via
+`fetchAlbumCatalog`). **Não** busca o índice de cada álbum (seriam N requisições)
+— isso acontece ao sincronizar o card do álbum. `autoRefreshCollections` é
+**silenciosa**: sem rede, só mantém o que já está em cache, sem erro visível.
+`fetchCollectionIndex` faz o merge preservando `fileIdFull`/`fileIdPlayback`/
+`lyrics` já conhecidos — usada tanto por essa atualização automática quanto pela
+fase 1 de `syncCollection`. Assim os hinários já entram na busca sozinhos; os
+álbuns entram depois de sincronizados.
 
-**Botão de busca** (`#hymnSearchBtn`, ícone de lupa — SVG inline, não existe
-no subset da fonte — ao lado do "+ Importar" nas abas): abre um popup
-(`#hymnSearchPopup`) com campo de busca (por nome ou número do hino) e
-resultados do índice já em memória. Diferente dos demais popups (bottom-sheets),
-a bandeja da busca do Hinário **desliza a partir do TOPO** (CSS: `#hymnSearchPopup`
-com `align-items:flex-start`, `.popup-sheet` com `translateY(-100%)` e cantos
-arredondados embaixo) — além de ser o pedido de UX, casa com o teclado, que sobe
-da base sem cobrir os resultados. O campo de busca usa `.lib-search`, hoje com
-`appearance:none` + supressão das pseudo-partes `::-webkit-search-*` (mata o
-visual nativo do `type="search"`, que saía despadronizado dos demais controles).
-Resultados vêm do índice já em memória
-(`hymnal2022.songs`, filtro em memória, `normalizeForSearch` ignora
-acentuação) — funciona sem rede assim que o índice já tiver sido buscado
-pelo menos uma vez (ver acima); se o popup estiver aberto no momento em que
-o índice atualiza sozinho, a lista de resultados se re-renderiza na hora.
+**Botão de busca GLOBAL** (`#hymnSearchBtn`, ícone de lupa — SVG inline, não
+existe no subset da fonte — ao lado do "+ Importar" nas abas): abre um popup
+(`#hymnSearchPopup`) com campo de busca (por nome ou número) e resultados
+varridos de **todas as coleções** já indexadas (`renderSearchResults` itera
+`allCollections()`; cada resultado carrega sua `coll` pra tocar/adicionar).
+Diferente dos demais popups (bottom-sheets), a bandeja **desliza a partir do
+TOPO** (CSS: `#hymnSearchPopup` com `align-items:flex-start`, `.popup-sheet` com
+`translateY(-100%)` e cantos arredondados embaixo) — além de ser o pedido de UX,
+casa com o teclado, que sobe da base sem cobrir os resultados. O campo de busca
+usa `.lib-search`, hoje com `appearance:none` + supressão das pseudo-partes
+`::-webkit-search-*` (mata o visual nativo do `type="search"`). Resultados vêm
+dos índices já em memória (`collState`, filtro em memória, `normalizeForSearch`
+ignora acentuação; o subtítulo do resultado mostra a coleção de origem) —
+funciona sem rede assim que os índices já tiverem sido buscados pelo menos uma
+vez (hinários entram sozinhos; álbuns depois de sincronizados); se o popup
+estiver aberto quando um índice atualiza, a lista se re-renderiza na hora.
 Cada resultado tem dois pares de botão — **▶ Cantado** / **➕** e
 **▶ Playback** / **➕** (o segundo só aparece se `has_instrumental_music`) —
 tocar substitui a playlist e exibe (mesmo comportamento de toque simples da
-biblioteca; baixa o hino na hora se ainda não estiver offline, ver
+biblioteca; baixa a música na hora se ainda não estiver offline, ver
 "Resolução do id de mídia por variante" acima), adicionar entra no
 Cronograma (`AVDB.listAdd('imports', id)`).
 
-**Resolução do id de mídia por variante** (`resolveHymnMediaId`) é
+**Resolução do id de mídia por variante** (`resolveSongMediaId`) é
 **offline-first com download sob demanda**: se a variante já foi baixada
 (fase 2 acima), usa o id do catálogo OPFS direto (zero-cópia, mesmo padrão do
-botão ➕ das pastas); senão, `ensureHymnDownloaded` baixa o hino **de
-verdade** ali mesmo (mesma `downloadHymnalSong` da sincronização em massa —
+botão ➕ das pastas); senão, `ensureSongDownloaded` baixa a música **de
+verdade** ali mesmo (mesma `downloadCollectionSong` da sincronização em massa —
 áudio + capa + letra, pronto pra tocar 100% offline dali em diante), não um
-registro temporário/streaming. `hymnDownloadInFlight` (Map por `id_music`,
-sessão) evita disparar dois downloads do mesmo hino em paralelo se o
-operador tocar/adicionar duas vezes rápido antes do primeiro terminar. Ver
+registro temporário/streaming. `songDownloadInFlight` (Map por
+`<coll.id>:<id_music>`, sessão) evita disparar dois downloads da mesma música em
+paralelo se o operador tocar/adicionar duas vezes rápido antes do primeiro
+terminar. Ver
 "Wi-Fi vs dados móveis" abaixo para a política de quando cada tipo de
 download é permitido.
 
@@ -962,7 +1000,7 @@ download é permitido.
 
 #### Letra sincronizada (slides + temporizador)
 
-Cada variante baixada (registro em `files`, criado por `downloadHymnalFile`)
+Cada variante baixada (registro em `files`, criado por `downloadCollectionFile`)
 ganha campos extras, sem exigir bump de `DB_VERSION` (o `files`/`media` do
 `shared/db.js` guarda objetos livres de schema):
 
@@ -970,7 +1008,7 @@ ganha campos extras, sem exigir bump de `DB_VERSION` (o `files`/`media` do
   — sentinela de 3 estados: `undefined` = nunca processado (dispara
   reprocessamento na próxima sincronização, mesmo que o áudio já esteja
   baixado — é o que dá **backfill** aos hinos sincronizados antes desta
-  funcionalidade existir, sem rebaixar áudio: `ensureHymnVariant` só
+  funcionalidade existir, sem rebaixar áudio: `ensureSongVariant` só
   recalcula e regrava a letra no registro já existente); `null` = já
   processado, mas o hino não tem estrofes com tempo utilizável (não tenta de
   novo à toa); array = primeiro item é sempre o slide de capa (`cover:true`,
@@ -995,20 +1033,20 @@ e o navegador quebra a linha sozinho, do jeito errado (ou mostra o `<br>`
 literal na tela, já que `textContent` não interpreta HTML).
 
 Imagens por estrofe (`imageOpfsPath`) são baixadas de verdade pro OPFS
-(mesma pasta `folders/hymnal-2022/`, `downloadHymnalImage`) — nunca URL
+(mesma pasta `folders/<coll.id>/`, `downloadCollectionImage`) — nunca URL
 remota direta, preserva o offline. Uma linha sem imagem própria **herda a da
 anterior** (fallback "grudento", igual ao app original); imagens iguais
 entre linhas/variantes são baixadas uma única vez (`resolveImage`, cache por
 URL compartilhado entre Cantado e Playback do mesmo hino, já que costumam
 usar as mesmas imagens). Um hino tocado/adicionado antes de qualquer
-sincronização em massa passa pelo mesmo `downloadHymnalSong` sob demanda
+sincronização em massa passa pelo mesmo `downloadCollectionSong` sob demanda
 (ver "Resolução do id de mídia por variante" acima) — já sai dali com letra
 sincronizada, igual a um hino baixado em massa.
 
 #### Wi-Fi vs dados móveis
 
-A sincronização em **massa** (`syncHymnal2022`, baixar todos os hinos
-pendentes de uma vez) é **gated por Wi-Fi confirmado** (`isConfirmedWifi`,
+A sincronização em **massa** (`syncCollection`, baixar todas as músicas
+pendentes de uma coleção de uma vez) é **gated por Wi-Fi confirmado** (`isConfirmedWifi`,
 Network Information API — `navigator.connection.type === 'wifi' || 'ethernet'`;
 sem suporte no navegador cai em `'unknown'`, tratado como Wi-Fi **não**
 confirmado, postura conservadora). Sem Wi-Fi confirmado, o botão de
@@ -1016,11 +1054,11 @@ sincronizar ainda atualiza a lista leve (metadados, sempre barato), mas
 **pula o download pesado** por padrão — um `confirm()` deixa o operador
 forçar mesmo assim se quiser gastar dados móveis de propósito. Um indicador
 (`.net-badge`, ícone de Wi-Fi inline — fora do subset da fonte) aparece do
-lado do botão de sincronizar na linha do Hinário 2022, atualizado ao vivo
+lado do botão de sincronizar em cada card de coleção, atualizado ao vivo
 (`connection.addEventListener('change', ...)`).
 
-Isso **não afeta** o download individual disparado por tocar/adicionar um
-hino específico (`ensureHymnDownloaded`) — esse é sempre permitido,
+Isso **não afeta** o download individual disparado por tocar/adicionar uma
+música específica (`ensureSongDownloaded`) — esse é sempre permitido,
 independente do tipo de rede: é exatamente o hino que o operador pediu pra
 usar naquele momento, não um download em massa não solicitado. Na prática,
 sem Wi-Fi o hinário vai sendo baixado aos poucos, só com o que de fato for
@@ -1704,12 +1742,12 @@ e gerar novo subset com `fontTools`.
 subset e re-gerar o woff2 não vale a pena (ou o ambiente não tem `fontTools`),
 usa-se um `<svg>` inline direto no HTML, com `fill/stroke: currentColor` (herda
 a cor do botão). Hoje: o botão de **volume** do mixer (`#volToggle`, ícone de
-faders/mixer), a **lupa** da busca do Hinário (`#hymnSearchBtn`), a antena de
-**Wi-Fi** da linha do Hinário (`wifiIconEl`), o **fone de ouvido** da mesa de
+faders/mixer), a **lupa** da busca do acervo (`#hymnSearchBtn`), a antena de
+**Wi-Fi** dos cards de coleção (`wifiIconEl`), o **fone de ouvido** da mesa de
 som (`#standaloneToggle`), a **flor** do fundo da letra (`#lyricsBgToggle`) e o
 ícone **"arquivos+"** (documento com `+`) do botão de importar da aba
 (`.tab-add` do `#file`), que diferencia importar ARQUIVOS de sincronizar PASTA,
-e no **cartão do Hinário 2022** as **setas circulares** de sincronizar
+e nos **cards de coleção** as **setas circulares** de sincronizar
 (`syncIconSvg`) e o **check** verde de "completo offline" (`checkIconSvg`).
 
 > **Borda nativa dos `<button>`**: `.tab-add` (e os botões do cartão do Hinário)

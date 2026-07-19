@@ -125,43 +125,81 @@ let opfsFolders = [];      // [{id, name, count, syncedAt, handle?}] — pastas 
 let folderQuery = '';      // filtro de busca dentro de pasta OPFS
 let syncBusy = false;      // sincronização em andamento
 let fadeCfg = { in: false, out: false, time: 1 }; // transições (persistido em state 'fade')
-// Catálogo offline do Hinário Adventista 2022 (LouvorJA) — ver seção
-// "Hinário Adventista 2022 (LouvorJA)" no CLAUDE.md. `songs[]`: metadados
-// leves (sempre offline, uma vez sincronizados) + os ids do catálogo OPFS
-// (`files`) de cada variante já baixada (null enquanto não baixada).
-const HYMNAL_FOLDER_ID = 'hymnal-2022';
-const HYMNAL_FOLDER_NAME = 'Hinário Adventista 2022';
-let hymnal2022 = { indexSyncedAt: 0, songs: [] }; // persistido em state 'hymnal2022'
-let hymnalSyncBusy = false;
-// Indicador de sincronização do Hinário 2022 — substitui o antigo toast
-// flutuante (ver flash()). É exibido como subtítulo na linha do Hinário 2022
-// (renderHymnalRow). autoClearMs limpa sozinho depois de um tempo (mensagens
-// finais/erro); durante o progresso fica sem auto-clear até a próxima chamada.
-let hymnalSyncStatus = '';
-let hymnalStatusTimer = null;
-function setHymnalStatus(text, autoClearMs) {
-  hymnalSyncStatus = text || '';
-  clearTimeout(hymnalStatusTimer);
-  if (autoClearMs) {
-    hymnalStatusTimer = setTimeout(() => { hymnalSyncStatus = ''; refreshHymnalRowIfVisible(); }, autoClearMs);
+// ===== Coleções de mídia do LouvorJA (acervo offline) =====
+// Sistema genérico que cobre TODAS as coleções do banco público do LouvorJA
+// (ver docs/FONTE-DE-DADOS-LOUVORJA.md e a seção "Coleções de mídia (LouvorJA)"
+// no CLAUDE.md). Cada coleção vira um card na aba Álbuns e uma pasta OPFS
+// própria (folders/<coll.id>/), com sincronizar/atualizar/excluir e busca — o
+// mesmo mecanismo que antes era exclusivo do Hinário 2022, agora parametrizado
+// por coleção.
+//
+// Dois tipos de coleção:
+//  - 'hymnal' (fixas): um arquivo de LISTA do banco (pt_hymnal / pt_hymnal_1996)
+//    já é o índice completo de hinos. Sempre visíveis; o índice leve é
+//    atualizado sozinho (autoRefreshCollections).
+//  - 'album' (dinâmicas): descobertas em pt_categories (um card por álbum do
+//    banco). O índice de cada álbum vem de album_{id}.musics e é buscado ao
+//    sincronizar o card (não a cada abertura — seriam N requisições).
+//
+// O himnário em espanhol e demais idiomas ficam de fora naturalmente: só
+// consumimos arquivos 'pt_*' (ver COLLECTION_LOCALE).
+const COLLECTION_LOCALE = 'pt';
+const HYMNAL_2022_ID = 'hymnal-2022'; // == pasta OPFS legada; preserva downloads já feitos
+const FIXED_COLLECTIONS = [
+  { id: HYMNAL_2022_ID, name: 'Hinário Adventista 2022', kind: 'hymnal', source: Louvorja.HYMNAL_2022_FILE, iconKey: 'music' },
+  { id: 'hymnal-1996',  name: 'Hinário Adventista 1996', kind: 'hymnal', source: Louvorja.HYMNAL_1996_FILE, iconKey: 'music' },
+];
+// Índice (metadados leves) de cada coleção, por coll.id → { indexSyncedAt,
+// songs:[{ id_music, track, name, duration, has_instrumental_music,
+// fileIdFull, fileIdPlayback }] }. Fonte de verdade em memória (carregada no
+// init por loadCollections); persistida em state 'coll:<id>'.
+let collState = {};
+// Catálogo de álbuns descobertos (state 'albumCatalog') — [{ id_album, name }].
+// Alimenta os cards de álbum; persistido pra os cards aparecerem offline.
+let albumCatalog = [];
+
+// Registro completo de coleções: hinários fixos + um card por álbum do catálogo.
+function allCollections() {
+  const cols = FIXED_COLLECTIONS.slice();
+  for (const a of albumCatalog) {
+    cols.push({ id: 'album-' + a.id_album, name: a.name, kind: 'album',
+      source: 'album_' + a.id_album, albumId: a.id_album, iconKey: 'queue' });
   }
-  refreshHymnalRowIfVisible();
+  return cols;
 }
-// Peso (bytes) dos arquivos já baixados do Hinário 2022 — somatório dos `size`
-// do catálogo OPFS da pasta fixa. Exibido no cartão do Hinário (ver
-// renderHymnalRow). Cacheado e recalculado sob demanda (updateHymnalBytes) para
-// o render ser síncrono; só re-renderiza quando o total muda de fato.
-let hymnalBytes = 0;
-async function updateHymnalBytes() {
+function collSongs(id) { return (collState[id] && collState[id].songs) || []; }
+
+// Estado transitório de UI por coleção (não persistido): sincronização em
+// andamento, mensagem de status e peso (bytes) já baixado.
+const collUI = {};
+function ui(id) { return collUI[id] || (collUI[id] = { syncBusy: false, status: '', statusTimer: null, bytes: 0 }); }
+
+// Indicador de sincronização de uma coleção — subtítulo no card
+// (renderCollectionCard). autoClearMs limpa sozinho (mensagens finais/erro);
+// durante o progresso fica até a próxima chamada. Substitui o toast flutuante.
+function setCollStatus(id, text, autoClearMs) {
+  const u = ui(id);
+  u.status = text || '';
+  clearTimeout(u.statusTimer);
+  if (autoClearMs) {
+    u.statusTimer = setTimeout(() => { u.status = ''; refreshCollectionsIfVisible(); }, autoClearMs);
+  }
+  refreshCollectionsIfVisible();
+}
+// Peso (bytes) dos arquivos já baixados de uma coleção — somatório dos `size`
+// do catálogo OPFS da pasta da coleção. Cacheado e recalculado sob demanda
+// (render síncrono); só re-renderiza quando o total muda.
+async function updateCollBytes(id) {
   try {
-    const recs = await AVDB.filesByFolder(HYMNAL_FOLDER_ID);
+    const recs = await AVDB.filesByFolder(id);
     const total = recs.reduce((sum, r) => sum + (r.size || 0), 0);
-    if (total !== hymnalBytes) { hymnalBytes = total; refreshHymnalRowIfVisible(); }
+    const u = ui(id);
+    if (total !== u.bytes) { u.bytes = total; refreshCollectionsIfVisible(); }
   } catch (_) { /* sem catálogo ainda — peso fica 0 */ }
 }
-// Downloads de hino em andamento (id_music -> Promise) — evita disparar dois
-// downloads do mesmo hino em paralelo se o operador tocar duas vezes rápido.
-const hymnDownloadInFlight = new Map();
+// Downloads de música em andamento ("<coll.id>:<id_music>" -> Promise) — evita
+// disparar dois downloads da mesma música em paralelo (tocar duas vezes rápido).
+const songDownloadInFlight = new Map();
 
 // ===== Detecção de rede (Wi-Fi vs dados móveis) =====
 // Só afeta a sincronização em MASSA do Hinário 2022 (baixar tudo de uma vez)
@@ -787,7 +825,6 @@ async function load() {
   const folderCountsV = {};
   foldersV.forEach((f, i) => { folderCountsV[f.id] = (folderIdArrays[i] || []).length; });
   const opfsFoldersV = (await AVDB.getState('opfs-folders')) || [];
-  const hymnalV = (await AVDB.getState('hymnal2022')) || { indexSyncedAt: 0, songs: [] };
   const storedFade = await AVDB.getState('fade');
   const storedFit = await AVDB.getState('fit');
   const lyricsBgV = (await AVDB.getState('lyricsBg')) === 'image' ? 'image' : 'black';
@@ -818,7 +855,6 @@ async function load() {
   folders = foldersV;
   folderCounts = folderCountsV;
   opfsFolders = opfsFoldersV;
-  hymnal2022 = hymnalV;
   if (storedFade) fadeCfg = { in: !!storedFade.in, out: !!storedFade.out, time: storedFade.time || 1 };
   if (storedFit) mediaFit = storedFit;
   lyricsBg = lyricsBgV;
@@ -919,7 +955,7 @@ function renderListTitle() {
   libSearchEl.hidden = !inOpfs;
   libSearchEl.value = inOpfs ? folderQuery : '';
   listTitleEl.hidden = inOpfs;
-  const titles = { imports: 'Cronograma', folders: 'Pastas' };
+  const titles = { imports: 'Cronograma', folders: 'Pastas', albums: 'Álbuns' };
   listTitleEl.textContent = inFolder ? currentFolder.name : (titles[activeTab] || '');
 }
 
@@ -986,6 +1022,12 @@ function renderLibrary() {
   thumbUrls.forEach((u) => URL.revokeObjectURL(u));
   thumbUrls = [];
   libraryEl.innerHTML = '';
+
+  if (activeTab === 'albums') {
+    renderCollectionsList();
+    renderStorageUsage();
+    return;
+  }
 
   if (activeTab === 'folders' && !currentFolder) {
     renderFolderList();
@@ -1063,8 +1105,8 @@ function renderLibrary() {
   });
 }
 
-function countHymnalDownloaded() {
-  return hymnal2022.songs.filter((s) => s.fileIdFull).length;
+function countDownloaded(id) {
+  return collSongs(id).filter((s) => s.fileIdFull).length;
 }
 
 // Linha fixa do Hinário Adventista 2022 no topo da aba Pastas — mesmo padrão
@@ -1074,7 +1116,7 @@ function countHymnalDownloaded() {
 // SVG inline (ícone fora do subset da fonte, mesma convenção do botão de
 // volume/mixer): antena de Wi-Fi. `.net-badge--warn` (via CSS) recolore para
 // indicar "sem Wi-Fi confirmado" — a sincronização em massa fica desativada
-// por padrão nesse estado (ver isConfirmedWifi/syncHymnal2022).
+// por padrão nesse estado (ver isConfirmedWifi/syncCollection).
 function wifiIconEl() {
   const span = document.createElement('span');
   span.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
@@ -1095,19 +1137,33 @@ function checkIconSvg() {
   return '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
 }
 
-// Cartão informativo do Hinário Adventista 2022 no topo da aba Pastas — NÃO é
-// uma pasta: é um "check do sistema" (símbolo do hinário, status, e as
-// estatísticas sincronizados/peso/Wi-Fi + ações de sincronizar/excluir). Não
-// abre como pasta ao tocar (o operador acessa/toca hinos pela busca do
-// Hinário, botão de lupa). Sempre visível, mesmo antes da 1ª sincronização.
-function renderHymnalRow() {
-  const total = hymnal2022.songs.length;
-  const downloaded = countHymnalDownloaded();
+// Lista de cards da aba Álbuns: hinários (fixos) + um card por álbum do
+// catálogo. Cada card é um "check do sistema" (não abre como pasta): símbolo,
+// status, estatísticas (sincronizados/peso/rede) e ações sincronizar/excluir.
+function renderCollectionsList() {
+  const cols = allCollections();
+  cols.forEach((coll) => libraryEl.appendChild(renderCollectionCard(coll)));
+  if (cols.length === 0) {
+    const empty = document.createElement('li'); empty.className = 'empty';
+    empty.textContent = 'Nenhuma coleção disponível.';
+    libraryEl.appendChild(empty);
+  }
+}
+
+// Cartão informativo de UMA coleção (hinário ou álbum) — NÃO é uma pasta: é um
+// "check do sistema" (símbolo, status, estatísticas sincronizados/peso/rede +
+// ações sincronizar/excluir). Não abre como pasta ao tocar (o operador
+// acessa/toca as músicas pela busca do acervo, botão de lupa). Sempre visível,
+// mesmo antes da 1ª sincronização. Retorna o <li> (não anexa).
+function renderCollectionCard(coll) {
+  const total = collSongs(coll.id).length;
+  const downloaded = countDownloaded(coll.id);
   const complete = total > 0 && downloaded >= total;
   const wifiOk = isConfirmedWifi();
+  const u = ui(coll.id);
 
   // dispara (fire-and-forget) o recálculo do peso; só re-renderiza se mudar
-  updateHymnalBytes();
+  updateCollBytes(coll.id);
 
   const li = document.createElement('li');
   li.className = 'hymnal-card';
@@ -1115,14 +1171,14 @@ function renderHymnalRow() {
   // ---- cabeçalho: ícone + títulos + ações ----
   const head = document.createElement('div'); head.className = 'hymnal-card-head';
   const icon = document.createElement('div'); icon.className = 'hymnal-card-icon';
-  icon.appendChild(msym(ICON.music));
+  icon.appendChild(msym(ICON[coll.iconKey] || ICON.music));
 
   const titles = document.createElement('div'); titles.className = 'hymnal-card-titles';
-  const title = document.createElement('span'); title.className = 'hymnal-card-title'; title.textContent = HYMNAL_FOLDER_NAME;
+  const title = document.createElement('span'); title.className = 'hymnal-card-title'; title.textContent = coll.name;
   const status = document.createElement('span'); status.className = 'hymnal-card-status';
-  if (hymnalSyncStatus) {
+  if (u.status) {
     status.classList.add('sync');
-    status.textContent = hymnalSyncStatus;
+    status.textContent = u.status;
   } else if (complete) {
     status.classList.add('done');
     status.innerHTML = checkIconSvg();
@@ -1130,23 +1186,23 @@ function renderHymnalRow() {
   } else if (total > 0) {
     status.textContent = 'Parcial — sincronize para completar';
   } else {
-    status.textContent = 'Não sincronizado';
+    status.textContent = coll.kind === 'album' ? 'Toque em sincronizar para baixar a lista' : 'Não sincronizado';
   }
   titles.append(title, status);
 
   const actions = document.createElement('div'); actions.className = 'hymnal-card-actions';
   const syncBtn = document.createElement('button');
-  syncBtn.className = 'hymnal-card-btn sync-btn' + (hymnalSyncBusy ? ' busy' : '');
-  syncBtn.title = 'Atualizar/baixar o Hinário 2022';
+  syncBtn.className = 'hymnal-card-btn sync-btn' + (u.syncBusy ? ' busy' : '');
+  syncBtn.title = 'Atualizar/baixar';
   syncBtn.innerHTML = syncIconSvg();
-  syncBtn.addEventListener('click', (e) => { e.stopPropagation(); syncHymnal2022(); });
+  syncBtn.addEventListener('click', (e) => { e.stopPropagation(); syncCollection(coll); });
   actions.appendChild(syncBtn);
-  if (downloaded > 0) {
+  if (downloaded > 0 || total > 0) {
     const rmBtn = document.createElement('button');
     rmBtn.className = 'hymnal-card-btn del-btn';
-    rmBtn.title = 'Excluir hinário baixado';
+    rmBtn.title = 'Excluir baixado';
     rmBtn.appendChild(msym(ICON.del));
-    rmBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteHymnal2022(); });
+    rmBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteCollection(coll); });
     actions.appendChild(rmBtn);
   }
   head.append(icon, titles, actions);
@@ -1154,13 +1210,13 @@ function renderHymnalRow() {
   // ---- faixa de estatísticas ----
   const stats = document.createElement('div'); stats.className = 'hymnal-card-stats';
   stats.appendChild(hymnalStat('Sincronizados', total ? downloaded + '/' + total : '—', complete ? 'done' : ''));
-  stats.appendChild(hymnalStat('Peso', hymnalBytes ? fmtBytes(hymnalBytes) : '—'));
+  stats.appendChild(hymnalStat('Peso', u.bytes ? fmtBytes(u.bytes) : '—'));
 
   const net = document.createElement('div');
   net.className = 'hymnal-stat net ' + (wifiOk ? 'ok' : 'warn');
   net.title = wifiOk
     ? 'Wi-Fi confirmado — sincronização completa liberada'
-    : 'Sem Wi-Fi confirmado — sincronizar baixa só a lista; hinos são baixados individualmente ao usar (ou force pelo botão)';
+    : 'Sem Wi-Fi confirmado — sincronizar baixa só a lista; músicas são baixadas individualmente ao usar (ou force pelo botão)';
   const netLabel = document.createElement('label'); netLabel.textContent = 'Rede';
   const netVal = document.createElement('b');
   netVal.appendChild(wifiIconEl());
@@ -1169,7 +1225,7 @@ function renderHymnalRow() {
   stats.appendChild(net);
 
   li.append(head, stats);
-  libraryEl.appendChild(li);
+  return li;
 }
 
 // Monta um "chip" de estatística (rótulo em cima, valor embaixo).
@@ -1182,14 +1238,13 @@ function hymnalStat(label, value, extraClass) {
   return el;
 }
 
-// Só re-renderiza a lista de pastas se ela estiver de fato visível — evita
-// custo de DOM à toa enquanto o operador está em outra aba durante o download.
-function refreshHymnalRowIfVisible() {
-  if (activeTab === 'folders' && !currentFolder) renderLibrary();
+// Só re-renderiza os cards de coleção se a aba Álbuns estiver de fato visível —
+// evita custo de DOM à toa enquanto o operador está em outra aba durante o download.
+function refreshCollectionsIfVisible() {
+  if (activeTab === 'albums') renderLibrary();
 }
 
 function renderFolderList() {
-  renderHymnalRow();
   if (opfsFolders.length === 0 && folders.length === 0) {
     const empty = document.createElement('li');
     empty.className = 'empty';
@@ -1243,7 +1298,7 @@ function renderFolderList() {
 function renderStorageUsage() {
   if (!(navigator.storage && navigator.storage.estimate)) return;
   navigator.storage.estimate().then(({ usage, quota }) => {
-    if (activeTab !== 'folders' || currentFolder) return; // aba mudou enquanto aguardava
+    if ((activeTab !== 'folders' && activeTab !== 'albums') || currentFolder) return; // aba mudou enquanto aguardava
     // Remove uma linha anterior antes de anexar: sem isto, dois estimate()
     // pendentes (renderFolderList chamado em sequência) empilhariam duas
     // linhas de uso na mesma lista.
@@ -1786,35 +1841,66 @@ function guessMediaType(filename) {
   return MEDIA_MIME[ext] || 'application/octet-stream';
 }
 
-// ===== Hinário Adventista 2022 (LouvorJA) =====
-// Sincroniza (ou re-sincroniza) o catálogo do Hinário 2022 da API do LouvorJA
-// (window.Louvorja, ver louvorja.js) para uso 100% offline. Duas fases:
-//  1. Índice (leve): busca a lista completa de hinos (pt_hymnal) — nomes,
-//     números e duração ficam offline mesmo antes do download pesado
-//     terminar (a busca no popup usa só isso).
-//  2. Download (pesado): para cada hino ainda não baixado (ou cujo arquivo
-//     catalogado tenha sido apagado por fora, ex: seleção múltipla dentro da
-//     pasta), busca music_{id} para pegar as URLs reais e baixa áudio
-//     Cantado + Playback (se houver) + capa para o OPFS — mesmo padrão de
-//     catálogo das pastas sincronizadas do dispositivo (`files` + `folders/`).
-// Sincronização é aditiva e resumível: interromper e tocar de novo continua
-// de onde parou, sem duplicar o que já foi baixado.
-// Busca só a lista LEVE do Hinário 2022 (id/número/nome/duração/tem-playback
-// — sem áudio nenhum) e atualiza `hymnal2022.songs`, preservando
-// fileIdFull/fileIdPlayback/lyrics já conhecidos de cada hino. É a fase
-// "índice" reaproveitada tanto pela sincronização completa (abaixo) quanto
-// pela atualização automática silenciosa (ver autoRefreshHymnalIndex) — como
-// é só metadados (nunca os arquivos pesados), é leve o bastante pra rodar
-// sozinha toda vez que o app abre, sem depender do operador apertar
-// "sincronizar". Lança em caso de falha (sem rede, resposta inválida); quem
-// chama decide se avisa o operador ou ignora silenciosamente.
-async function fetchHymnalIndex() {
-  const list = await Louvorja.fetchList(Louvorja.HYMNAL_2022_FILE);
-  if (!Array.isArray(list)) throw new Error('Resposta inválida do servidor do Hinário');
+// ===== Coleções de mídia (LouvorJA) — sincronização e download =====
+// Carrega em memória o estado de todas as coleções (índices por coll.id) + o
+// catálogo de álbuns, aplicando a migração do estado legado 'hymnal2022' →
+// 'coll:hymnal-2022' (mesma pasta OPFS 'hymnal-2022', então os downloads já
+// feitos continuam válidos). Chamado uma vez no init, antes do primeiro load().
+async function loadCollections() {
+  const legacy = await AVDB.getState('hymnal2022');
+  const has2022 = await AVDB.getState('coll:' + HYMNAL_2022_ID);
+  if (legacy && !has2022) await AVDB.setState('coll:' + HYMNAL_2022_ID, legacy);
 
-  const bySongId = new Map(hymnal2022.songs.map((s) => [s.id_music, s]));
+  albumCatalog = (await AVDB.getState('albumCatalog')) || [];
+  const cols = allCollections();
+  const states = await Promise.all(cols.map((c) => AVDB.getState('coll:' + c.id)));
+  collState = {};
+  cols.forEach((c, i) => { collState[c.id] = states[i] || { indexSyncedAt: 0, songs: [] }; });
+}
+
+// Descobre os álbuns disponíveis no banco (pt_categories → álbuns de cada
+// categoria) e persiste um catálogo leve [{id_album, name}] — alimenta os
+// cards de álbum da aba Álbuns (um por álbum), visíveis offline. Álbuns cujo
+// nome parece de hinário são pulados: já têm card dedicado (evita duplicar).
+// Lança em falha (sem rede/resposta inválida).
+async function fetchAlbumCatalog() {
+  const cats = await Louvorja.fetchList(Louvorja.CATEGORIES_FILE);
+  if (!Array.isArray(cats)) throw new Error('Resposta inválida (categorias)');
+  const seen = new Set();
+  const albums = [];
+  for (const cat of cats) {
+    const catAlbums = Array.isArray(cat && cat.albums) ? cat.albums : [];
+    for (const a of catAlbums) {
+      if (!a || a.id_album == null || seen.has(a.id_album)) continue;
+      if (/hin[aá]rio/i.test(a.name || '')) continue; // hinário tem card próprio
+      seen.add(a.id_album);
+      albums.push({ id_album: a.id_album, name: a.name || ('Álbum ' + a.id_album) });
+    }
+  }
+  albumCatalog = albums;
+  await AVDB.setState('albumCatalog', albumCatalog);
+  // Garante entrada em collState pros álbuns novos (índice vazio até sincronizar).
+  for (const coll of allCollections()) {
+    if (!collState[coll.id]) collState[coll.id] = { indexSyncedAt: 0, songs: [] };
+  }
+  refreshCollectionsIfVisible();
+}
+
+// Busca o índice (metadados leves) de UMA coleção e atualiza collState[coll.id],
+// preservando fileIdFull/fileIdPlayback já conhecidos de cada música. Para
+// hinários, o arquivo de lista (coll.source) já é o índice; para álbuns, o
+// índice vem de album_{id}.musics. Lança em caso de falha (sem rede/resposta
+// inválida); quem chama decide se avisa o operador ou ignora silenciosamente.
+async function fetchCollectionIndex(coll) {
+  const raw = await Louvorja.fetchList(coll.source);
+  const list = coll.kind === 'album'
+    ? (raw && Array.isArray(raw.musics) ? raw.musics : null)
+    : (Array.isArray(raw) ? raw : null);
+  if (!list) throw new Error('Resposta inválida do servidor (' + coll.source + ')');
+
+  const byId = new Map(collSongs(coll.id).map((s) => [s.id_music, s]));
   const songs = list.map((row) => {
-    const prev = bySongId.get(row.id_music);
+    const prev = byId.get(row.id_music);
     return {
       id_music: row.id_music,
       track: row.track,
@@ -1825,67 +1911,73 @@ async function fetchHymnalIndex() {
       fileIdPlayback: (prev && prev.fileIdPlayback) || null,
     };
   });
-  hymnal2022 = { indexSyncedAt: Date.now(), songs };
-  await AVDB.setState('hymnal2022', hymnal2022);
-  refreshHymnalRowIfVisible();
+  collState[coll.id] = { indexSyncedAt: Date.now(), songs };
+  await AVDB.setState('coll:' + coll.id, collState[coll.id]);
+  refreshCollectionsIfVisible();
   // Popup de busca aberto durante a atualização: re-renderiza pra refletir a
   // lista nova na hora (sem esperar o operador reabrir o popup).
-  if (hymnSearchPopupEl.classList.contains('open')) renderHymnResults(hymnSearchInputEl.value);
+  if (hymnSearchPopupEl.classList.contains('open')) renderSearchResults(hymnSearchInputEl.value);
 }
 
-// Atualização automática e silenciosa do índice — ao abrir o app e ao
-// retomar do 2º plano (ver wiring perto do check do service worker), sem
-// nenhum aviso de erro: é uma checagem em segundo plano, não uma ação
-// pedida pelo operador, então uma falha (ex: sem rede no momento) só mantém
-// o índice já em cache da última vez, sem interromper nada.
-let hymnalIndexRefreshing = false;
-async function autoRefreshHymnalIndex() {
-  if (hymnalIndexRefreshing) return;
-  hymnalIndexRefreshing = true;
-  try { await fetchHymnalIndex(); }
-  catch (_) { /* silencioso — sem rede agora, tenta de novo na próxima abertura */ }
-  finally { hymnalIndexRefreshing = false; }
+// Atualização automática e silenciosa — ao abrir o app e ao retomar do 2º
+// plano (ver wiring perto do check do service worker), sem aviso de erro:
+// índices leves dos HINÁRIOS (fixos) + catálogo de ÁLBUNS (só os nomes dos
+// cards). NÃO busca o índice de cada álbum (seriam N requisições) — isso
+// acontece ao sincronizar o card do álbum. Uma falha (ex: sem rede) só mantém
+// o que já está em cache.
+let collectionsRefreshing = false;
+async function autoRefreshCollections() {
+  if (collectionsRefreshing) return;
+  collectionsRefreshing = true;
+  try {
+    await Promise.all([
+      ...FIXED_COLLECTIONS.map((c) => fetchCollectionIndex(c).catch(() => {})),
+      fetchAlbumCatalog().catch(() => {}),
+    ]);
+  } finally { collectionsRefreshing = false; }
 }
 
-async function syncHymnal2022() {
-  if (hymnalSyncBusy) return; // já em andamento — o status na linha já indica
-  if (!AVDB.opfsSupported()) { setHymnalStatus('Armazenamento OPFS indisponível', 5000); return; }
-  hymnalSyncBusy = true;
-  setHymnalStatus('Atualizando lista…');
+// Sincroniza (ou re-sincroniza) UMA coleção da API do LouvorJA para uso 100%
+// offline. Duas fases: (1) Índice leve (nomes/números/duração) — a busca usa
+// só isso; (2) Download pesado: para cada música ainda não baixada (ou cujo
+// arquivo catalogado tenha sido apagado por fora, ou que ainda não tenha a
+// letra sincronizada — backfill sem rebaixar o áudio), busca music_{id} e
+// grava áudio Cantado + Playback (se houver) + capa/letra no OPFS/catálogo
+// (mesma pasta `folders/<coll.id>/`). Aditiva e resumível: interromper e
+// sincronizar de novo continua de onde parou, sem duplicar.
+async function syncCollection(coll) {
+  const u = ui(coll.id);
+  if (u.syncBusy) return; // já em andamento — o status no card já indica
+  if (!AVDB.opfsSupported()) { setCollStatus(coll.id, 'Armazenamento OPFS indisponível', 5000); return; }
+  u.syncBusy = true;
+  setCollStatus(coll.id, 'Atualizando lista…');
   try {
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 
-    try { await fetchHymnalIndex(); }
-    catch (_) { setHymnalStatus('Sem internet — falha ao atualizar', 5000); return; }
-    const songs = hymnal2022.songs;
+    try { await fetchCollectionIndex(coll); }
+    catch (_) { setCollStatus(coll.id, 'Sem internet — falha ao atualizar', 5000); return; }
+    const songs = collSongs(coll.id);
 
-    // Fase 2: entra na fila quem ainda não tem os arquivos de fato no
-    // catálogo (re-verifica via fileGet — cobre "nunca baixado" e
-    // "catalogado mas apagado por fora", ex: exclusão manual dentro da
-    // pasta) OU cujo arquivo já existe mas ainda não tem a letra sincronizada
-    // (`lyrics === undefined`) — cobre o backfill de hinos baixados antes da
-    // letra sincronizada existir, sem rebaixar o áudio (ver ensureHymnVariant).
     const pending = [];
     for (const s of songs) {
-      const { needsFull, needsPlayback } = await hymnVariantsNeeded(s);
+      const { needsFull, needsPlayback } = await songVariantsNeeded(coll, s);
       if (needsFull || needsPlayback) pending.push(s);
     }
-    if (pending.length === 0) { setHymnalStatus('Já completo offline', 4000); return; }
+    if (pending.length === 0) { setCollStatus(coll.id, 'Já completo offline', 4000); return; }
 
     // Sem Wi-Fi confirmado: não baixa tudo sem avisar (evita estourar dados
-    // móveis) — a lista já foi atualizada acima, e cada hino ainda pode ser
-    // baixado individualmente ao ser tocado/adicionado (ver
-    // ensureHymnDownloaded). O operador pode forçar a sincronização completa
-    // mesmo assim, se quiser.
+    // móveis) — a lista já foi atualizada acima, e cada música ainda pode ser
+    // baixada individualmente ao ser tocada/adicionada. O operador pode forçar
+    // a sincronização completa mesmo assim, se quiser.
     if (!isConfirmedWifi()) {
       const proceed = await appConfirm({
         title: 'Sem Wi-Fi confirmado',
-        message: 'Baixar agora ' + pending.length + ' hino(s) pendente(s) vai usar dados móveis (pode ser bastante). '
-          + 'Sem confirmar, a lista já foi atualizada — cada hino ainda é baixado sozinho quando for tocado ou adicionado.',
+        message: 'Baixar agora ' + pending.length + ' música(s) pendente(s) vai usar dados móveis (pode ser bastante). '
+          + 'Sem confirmar, a lista já foi atualizada — cada música ainda é baixada sozinha quando for tocada ou adicionada.',
         okText: 'Baixar mesmo assim', cancelText: 'Agora não',
       });
       if (!proceed) {
-        setHymnalStatus('Lista atualizada (baixa por hino ao usar)', 5000);
+        setCollStatus(coll.id, 'Lista atualizada (baixa por música ao usar)', 5000);
         return;
       }
     }
@@ -1896,27 +1988,27 @@ async function syncHymnal2022() {
     async function worker() {
       while (next < pending.length) {
         const s = pending[next++];
-        await downloadHymnalSong(s);
+        await downloadCollectionSong(coll, s);
         done++;
-        setHymnalStatus('Baixando ' + done + '/' + pending.length + '…');
-        await AVDB.setState('hymnal2022', hymnal2022);
+        setCollStatus(coll.id, 'Baixando ' + done + '/' + pending.length + '…');
+        await AVDB.setState('coll:' + coll.id, collState[coll.id]);
       }
     }
     await Promise.all(Array.from({ length: CONCURRENCY }, worker));
-    setHymnalStatus('Atualizado (' + done + ' baixado(s))', 4000);
+    setCollStatus(coll.id, 'Atualizado (' + done + ' baixado(s))', 4000);
   } catch (_) {
-    setHymnalStatus('Erro na sincronização', 5000);
+    setCollStatus(coll.id, 'Erro na sincronização', 5000);
   } finally {
-    hymnalSyncBusy = false;
-    refreshHymnalRowIfVisible();
+    u.syncBusy = false;
+    refreshCollectionsIfVisible();
   }
 }
 
-// Baixa (ou completa) um hino: busca os metadados individuais (URLs reais) e
+// Baixa (ou completa) uma música: busca os metadados individuais (URLs reais) e
 // grava áudio Cantado + Playback (se houver) + capa/letra sincronizada no
 // OPFS/catálogo. `s` é mutado in-place (fileIdFull/fileIdPlayback), refletido
-// no `hymnal2022.songs` compartilhado.
-async function downloadHymnalSong(s) {
+// no collState[coll.id] compartilhado.
+async function downloadCollectionSong(coll, s) {
   let meta;
   try { meta = await Louvorja.fetchList('music_' + s.id_music); }
   catch (_) { return; } // sem rede agora; a próxima sincronização tenta de novo
@@ -1928,7 +2020,7 @@ async function downloadHymnalSong(s) {
   async function resolveImage(url) {
     if (!url) return null;
     if (imgCache.has(url)) return imgCache.get(url);
-    const result = await downloadHymnalImage(url, s.id_music, imgCache.size);
+    const result = await downloadCollectionImage(coll.id, url, s.id_music, imgCache.size);
     imgCache.set(url, result);
     return result;
   }
@@ -1936,18 +2028,18 @@ async function downloadHymnalSong(s) {
   const coverImage = meta.url_image ? await resolveImage(meta.url_image) : null;
   const thumb = coverImage ? coverImage.thumbBlob : null;
 
-  await ensureHymnVariant(s, 'fileIdFull', meta.url_music, 'Cantado', meta, 'time', thumb, resolveImage);
+  await ensureSongVariant(coll, s, 'fileIdFull', meta.url_music, 'Cantado', meta, 'time', thumb, resolveImage);
   if (s.has_instrumental_music) {
-    await ensureHymnVariant(s, 'fileIdPlayback', meta.url_instrumental_music, 'Playback', meta, 'instrumental_time', thumb, resolveImage);
+    await ensureSongVariant(coll, s, 'fileIdPlayback', meta.url_instrumental_music, 'Playback', meta, 'instrumental_time', thumb, resolveImage);
   }
 }
 
 // Garante que uma variante (Cantado/Playback) tenha áudio E letra
 // sincronizada. Cobre 3 casos: nunca baixado (baixa tudo); áudio já baixado
 // mas ainda sem `lyrics` (só recalcula e grava a letra no registro existente,
-// SEM rebaixar o áudio — é o backfill dos hinos sincronizados antes da letra
-// existir); já completo (não faz nada).
-async function ensureHymnVariant(s, fileKey, urlPath, variantLabel, meta, timeField, thumb, resolveImage) {
+// SEM rebaixar o áudio — backfill dos itens baixados antes da letra existir);
+// já completo (não faz nada).
+async function ensureSongVariant(coll, s, fileKey, urlPath, variantLabel, meta, timeField, thumb, resolveImage) {
   const existingId = s[fileKey];
   const existingRec = existingId ? await AVDB.fileGet(existingId) : null;
   if (existingRec && existingRec.lyrics !== undefined) return; // já completo
@@ -1962,11 +2054,11 @@ async function ensureHymnVariant(s, fileKey, urlPath, variantLabel, meta, timeFi
     return;
   }
   if (!urlPath) return;
-  const id = await downloadHymnalFile(urlPath, s, variantLabel, thumb, lyrics);
+  const id = await downloadCollectionFile(coll, s, urlPath, variantLabel, thumb, lyrics);
   if (id) s[fileKey] = id;
 }
 
-async function downloadHymnalFile(urlPath, s, variantLabel, thumb, lyrics) {
+async function downloadCollectionFile(coll, s, urlPath, variantLabel, thumb, lyrics) {
   if (!urlPath) return null;
   let blob;
   try {
@@ -1976,10 +2068,10 @@ async function downloadHymnalFile(urlPath, s, variantLabel, thumb, lyrics) {
   } catch (_) { return null; }
   const ext = (urlPath.split('.').pop() || 'mp3').toLowerCase().split('?')[0];
   const id = uid();
-  const path = 'folders/' + HYMNAL_FOLDER_ID + '/' + s.id_music + '-' + variantLabel.toLowerCase() + '.' + ext;
+  const path = 'folders/' + coll.id + '/' + s.id_music + '-' + variantLabel.toLowerCase() + '.' + ext;
   try { await AVDB.opfsWriteFile(path, blob); } catch (_) { return null; }
   await AVDB.fileAdd({
-    id, folder: HYMNAL_FOLDER_ID, opfsPath: path,
+    id, folder: coll.id, opfsPath: path,
     srcName: s.id_music + '-' + variantLabel,
     name: (s.track ? String(s.track).padStart(3, '0') + '. ' : '') + s.name + ' (' + variantLabel + ')',
     hymnName: s.name, hymnTrack: s.track,
@@ -1993,7 +2085,7 @@ async function downloadHymnalFile(urlPath, s, variantLabel, thumb, lyrics) {
 // Baixa uma imagem em resolução real pro OPFS (fundo dos slides de letra) e
 // gera a miniatura do catálogo (mesmo `drawThumb`) a partir do MESMO blob —
 // evita baixar a capa duas vezes (uma pro fundo, outra só pra miniatura).
-async function downloadHymnalImage(url, songId, index) {
+async function downloadCollectionImage(folderId, url, songId, index) {
   let blob;
   try {
     const res = await fetch(Louvorja.fileUrl(url));
@@ -2001,7 +2093,7 @@ async function downloadHymnalImage(url, songId, index) {
     blob = await res.blob();
   } catch (_) { return null; }
   const ext = (url.split('.').pop() || 'jpg').toLowerCase().split('?')[0];
-  const path = 'folders/' + HYMNAL_FOLDER_ID + '/' + songId + '-img-' + index + '.' + ext;
+  const path = 'folders/' + folderId + '/' + songId + '-img-' + index + '.' + ext;
   try { await AVDB.opfsWriteFile(path, blob); } catch (_) { return null; }
 
   let thumbBlob = null;
@@ -2041,7 +2133,7 @@ function parseTimeToSeconds(str) {
 // anterior (fallback "grudento", igual ao app original); linhas sem tempo
 // utilizável no campo ativo são ignoradas. Retorna `null` se não sobrar
 // nenhuma linha real (só a capa) — sinaliza "sem letra utilizável", pra não
-// tentar de novo a cada sincronização (ver ensureHymnVariant).
+// tentar de novo a cada sincronização (ver ensureSongVariant).
 // A API do LouvorJA embute quebras de linha manuais como tags `<br>` literais
 // dentro do texto (confirmado no app-ja: ele usa `v-html` pra renderizar
 // essas tags como quebra real) — sem isso, a letra ficaria como um único
@@ -2091,14 +2183,15 @@ async function buildLyricSlides(meta, timeField, resolveImage) {
   return slides;
 }
 
-async function deleteHymnal2022() {
-  if (!(await appConfirm({ title: 'Excluir Hinário 2022', message: 'Excluir o Hinário Adventista 2022 baixado (áudios e capas)?', okText: 'Excluir' }))) return;
-  const recs = await AVDB.filesByFolder(HYMNAL_FOLDER_ID);
+async function deleteCollection(coll) {
+  if (!(await appConfirm({ title: 'Excluir ' + coll.name, message: 'Excluir o que foi baixado de "' + coll.name + '" (áudios e capas) e a lista offline?', okText: 'Excluir' }))) return;
+  const recs = await AVDB.filesByFolder(coll.id);
   await purgeCatalogRecords(recs);
-  await AVDB.opfsDeleteDir('folders/' + HYMNAL_FOLDER_ID);
-  hymnal2022 = { indexSyncedAt: 0, songs: [] };
-  await AVDB.setState('hymnal2022', hymnal2022);
-  if (currentFolder && currentFolder.id === HYMNAL_FOLDER_ID) currentFolder = null;
+  await AVDB.opfsDeleteDir('folders/' + coll.id);
+  collState[coll.id] = { indexSyncedAt: 0, songs: [] };
+  await AVDB.setState('coll:' + coll.id, collState[coll.id]);
+  const u = ui(coll.id); u.bytes = 0;
+  if (currentFolder && currentFolder.id === coll.id) currentFolder = null;
   load();
 }
 
@@ -2110,7 +2203,7 @@ function normalizeForSearch(s) {
 
 function openHymnSearch() {
   hymnSearchInputEl.value = '';
-  renderHymnResults('');
+  renderSearchResults('');
   hymnSearchPopupEl.classList.add('open');
   setTimeout(() => hymnSearchInputEl.focus(), 50);
 }
@@ -2118,80 +2211,85 @@ function closeHymnSearch() {
   hymnSearchPopupEl.classList.remove('open');
 }
 
-function renderHymnResults(query) {
+// Busca GLOBAL no acervo offline: varre TODAS as coleções (hinários + álbuns
+// já sincronizados). Cada resultado carrega sua coleção pra tocar/adicionar/
+// baixar. Álbuns só entram na busca depois de sincronizados (o índice deles é
+// buscado ao sincronizar o card, não a cada abertura).
+function renderSearchResults(query) {
   const q = normalizeForSearch(query).trim();
-  const all = hymnal2022.songs;
-  const filtered = q === '' ? all : all.filter((s) =>
-    normalizeForSearch(s.name).includes(q) || String(s.track) === q);
-  hymnSearchCountEl.textContent = String(filtered.length);
+  const cols = allCollections();
+  const matches = []; // { coll, song }
+  let totalIndexed = 0;
+  for (const coll of cols) {
+    const songs = collSongs(coll.id);
+    totalIndexed += songs.length;
+    for (const s of songs) {
+      if (q === '' || normalizeForSearch(s.name).includes(q) || String(s.track) === q) {
+        matches.push({ coll, song: s });
+      }
+    }
+  }
+  hymnSearchCountEl.textContent = String(matches.length);
   hymnResultsEl.innerHTML = '';
-  if (all.length === 0) {
-    hymnResultsEl.innerHTML = '<li class="empty">Hinário 2022 ainda não sincronizado.<br>Vá em Pastas e toque em sincronizar para baixar.</li>';
+  if (totalIndexed === 0) {
+    hymnResultsEl.innerHTML = '<li class="empty">Acervo ainda não sincronizado.<br>Vá em Álbuns e toque em sincronizar em uma coleção.</li>';
     return;
   }
-  if (filtered.length === 0) {
-    hymnResultsEl.innerHTML = '<li class="empty">Nenhum hino encontrado.</li>';
+  if (matches.length === 0) {
+    hymnResultsEl.innerHTML = '<li class="empty">Nenhuma música encontrada.</li>';
     return;
   }
   const LIMIT = 60;
-  filtered.slice(0, LIMIT).forEach((s) => hymnResultsEl.appendChild(hymnResultRow(s)));
-  if (filtered.length > LIMIT) {
+  matches.slice(0, LIMIT).forEach((m) => hymnResultsEl.appendChild(hymnResultRow(m.coll, m.song)));
+  if (matches.length > LIMIT) {
     const li = document.createElement('li'); li.className = 'empty';
-    li.textContent = '+' + (filtered.length - LIMIT) + ' resultado(s). Refine a busca.';
+    li.textContent = '+' + (matches.length - LIMIT) + ' resultado(s). Refine a busca.';
     hymnResultsEl.appendChild(li);
   }
 }
 
-function hymnResultRow(s) {
+function hymnResultRow(coll, s) {
   const li = document.createElement('li');
   li.className = 'lib-item hymn-result';
 
   const row = document.createElement('div'); row.className = 'row hymn-row';
   const thumb = document.createElement('div'); thumb.className = 'thumb thumb--icon';
-  thumb.appendChild(msym(ICON.music));
+  thumb.appendChild(msym(ICON[coll.iconKey] || ICON.music));
   const info = document.createElement('div'); info.className = 'hymn-info';
   const name = document.createElement('span'); name.className = 'row-name';
   name.textContent = (s.track ? s.track + '. ' : '') + s.name;
+  // Subtítulo identifica a coleção de origem (+ duração), já que a busca é global.
   const sub = document.createElement('span'); sub.className = 'hymn-sub';
-  sub.textContent = s.duration || '';
+  sub.textContent = coll.name + (s.duration ? ' · ' + s.duration : '');
   info.append(name, sub);
   row.append(thumb, info);
   li.appendChild(row);
 
   const variants = document.createElement('div'); variants.className = 'hymn-variants';
-  variants.appendChild(hymnVariantEl(s, 'full', 'Cantado'));
-  if (s.has_instrumental_music) variants.appendChild(hymnVariantEl(s, 'playback', 'Playback'));
+  variants.appendChild(hymnVariantEl(coll, s, 'full', 'Cantado'));
+  if (s.has_instrumental_music) variants.appendChild(hymnVariantEl(coll, s, 'playback', 'Playback'));
   li.appendChild(variants);
   return li;
 }
 
-function hymnVariantEl(s, variant, label) {
+function hymnVariantEl(coll, s, variant, label) {
   const wrap = document.createElement('div'); wrap.className = 'hymn-variant'; wrap.dataset.variant = variant;
   const playBtn = document.createElement('button'); playBtn.className = 'hymn-play'; playBtn.title = 'Tocar ' + label;
   playBtn.append(msym(ICON.play), document.createTextNode(' ' + label));
-  playBtn.addEventListener('click', () => playHymnVariant(s, variant));
+  playBtn.addEventListener('click', () => playSongVariant(coll, s, variant));
   const addBtn = document.createElement('button'); addBtn.className = 'hymn-add row-btn'; addBtn.title = 'Adicionar ' + label + ' ao Cronograma';
   addBtn.appendChild(msym(ICON.plAdd));
-  addBtn.addEventListener('click', () => addHymnVariant(s, variant));
+  addBtn.addEventListener('click', () => addSongVariant(coll, s, variant));
   wrap.append(playBtn, addBtn);
   return wrap;
 }
 
-// Resolve o id de mídia tocável de uma variante (Cantado/Playback): usa o
-// arquivo já baixado no OPFS quando existe; senão baixa o hino de verdade
-// agora, sob demanda ("conforme o uso") — diferente da sincronização em
-// massa (gated por Wi-Fi), um download disparado por tocar/adicionar é
-// sempre permitido, mesmo em dados móveis: é exatamente o hino que o
-// operador pediu pra usar, nunca o catálogo inteiro de uma vez. Reaproveita
-// downloadHymnalSong (mesma função da sincronização em massa) — o hino sai
-// desse fluxo já com áudio, capa e letra, igual a um hino sincronizado em
-// massa, pronto pra tocar 100% offline nas próximas vezes.
-// Verifica quais variantes de um hino ainda precisam ser baixadas: o arquivo
-// não existe no catálogo (nunca baixado ou apagado por fora) OU existe mas
-// ainda não tem a letra sincronizada (`lyrics === undefined` → backfill sem
+// Verifica quais variantes de uma música ainda precisam ser baixadas: o
+// arquivo não existe no catálogo (nunca baixado ou apagado por fora) OU existe
+// mas ainda não tem a letra sincronizada (`lyrics === undefined` → backfill sem
 // rebaixar o áudio). Regra única usada pela sincronização em massa e pelo
-// download sob demanda (antes duplicada nos dois).
-async function hymnVariantsNeeded(s) {
+// download sob demanda.
+async function songVariantsNeeded(coll, s) {
   const fullRec = s.fileIdFull ? await AVDB.fileGet(s.fileIdFull) : null;
   const playbackRec = s.fileIdPlayback ? await AVDB.fileGet(s.fileIdPlayback) : null;
   return {
@@ -2200,45 +2298,52 @@ async function hymnVariantsNeeded(s) {
   };
 }
 
-async function ensureHymnDownloaded(s) {
-  const { needsFull, needsPlayback } = await hymnVariantsNeeded(s);
+// Baixa uma música sob demanda ("conforme o uso") — diferente da sincronização
+// em massa (gated por Wi-Fi), um download disparado por tocar/adicionar é
+// sempre permitido, mesmo em dados móveis: é exatamente a música que o operador
+// pediu pra usar, nunca o acervo inteiro de uma vez. Reaproveita
+// downloadCollectionSong — a música sai já com áudio, capa e letra, pronta pra
+// tocar 100% offline nas próximas vezes.
+async function ensureSongDownloaded(coll, s) {
+  const { needsFull, needsPlayback } = await songVariantsNeeded(coll, s);
   if (!needsFull && !needsPlayback) return;
 
-  if (hymnDownloadInFlight.has(s.id_music)) { await hymnDownloadInFlight.get(s.id_music); return; }
+  const key = coll.id + ':' + s.id_music;
+  if (songDownloadInFlight.has(key)) { await songDownloadInFlight.get(key); return; }
   const p = (async () => {
     flash('Baixando "' + s.name + '"…', true);
-    await downloadHymnalSong(s);
-    await AVDB.setState('hymnal2022', hymnal2022);
-    refreshHymnalRowIfVisible();
+    await downloadCollectionSong(coll, s);
+    await AVDB.setState('coll:' + coll.id, collState[coll.id]);
+    refreshCollectionsIfVisible();
   })();
-  hymnDownloadInFlight.set(s.id_music, p);
-  try { await p; } finally { hymnDownloadInFlight.delete(s.id_music); }
+  songDownloadInFlight.set(key, p);
+  try { await p; } finally { songDownloadInFlight.delete(key); }
 }
 
-async function resolveHymnMediaId(s, variant) {
-  await ensureHymnDownloaded(s);
+async function resolveSongMediaId(coll, s, variant) {
+  await ensureSongDownloaded(coll, s);
   const fileId = variant === 'full' ? s.fileIdFull : s.fileIdPlayback;
   if (!fileId) return null;
   const rec = await AVDB.fileGet(fileId);
   return rec ? fileId : null;
 }
 
-async function playHymnVariant(s, variant) {
-  const id = await resolveHymnMediaId(s, variant);
-  if (!id) { flash('Não foi possível tocar (sem internet para baixar este hino)'); return; }
+async function playSongVariant(coll, s, variant) {
+  const id = await resolveSongMediaId(coll, s, variant);
+  if (!id) { flash('Não foi possível tocar (sem internet para baixar)'); return; }
   const rec = await AVDB.getMedia(id);
   if (!rec) { flash('Erro ao carregar mídia'); return; }
   await AVDB.listSet('playlist', [id]);
   plItems = [rec];
   renderPlaylist();
   closeHymnSearch();
-  dismissFlash();   // fecha o toast "Baixando…" sticky que ensureHymnDownloaded pode ter deixado
+  dismissFlash();   // fecha o toast "Baixando…" sticky que ensureSongDownloaded pode ter deixado
   send(id);
 }
 
-async function addHymnVariant(s, variant) {
-  const id = await resolveHymnMediaId(s, variant);
-  if (!id) { flash('Não foi possível adicionar (sem internet para baixar este hino)'); return; }
+async function addSongVariant(coll, s, variant) {
+  const id = await resolveSongMediaId(coll, s, variant);
+  if (!id) { flash('Não foi possível adicionar (sem internet para baixar)'); return; }
   const had = await AVDB.listHas('imports', id);
   await AVDB.listAdd('imports', id);
   flash(had ? 'Já no Cronograma' : 'Adicionado ao Cronograma');
@@ -2370,8 +2475,8 @@ async function checkPendingShare() {
 // ===== feedback rápido =====
 // O sistema de alerta FLUTUANTE (toast) foi removido: as informações agora são
 // transmitidas pela própria interface de design (estados dos botões, contadores,
-// listas e — para a sincronização — o texto da linha do Hinário 2022, ver
-// setHymnalStatus/renderHymnalRow). flash()/dismissFlash() viraram no-ops para
+// listas e — para a sincronização — o texto no card da coleção, ver
+// setCollStatus/renderCollectionCard). flash()/dismissFlash() viraram no-ops para
 // não precisar mexer em cada um dos ~25 pontos de chamada espalhados pelo
 // arquivo; qualquer mensagem que antes ia pro toast simplesmente não aparece
 // mais. Feedback relevante que precisa continuar visível foi migrado para a
@@ -2571,13 +2676,13 @@ libSearchEl.addEventListener('input', () => { folderQuery = libSearchEl.value; r
 hymnSearchBtnEl.addEventListener('click', openHymnSearch);
 hymnSearchCloseEl.addEventListener('click', closeHymnSearch);
 hymnSearchPopupEl.addEventListener('click', (e) => { if (e.target === hymnSearchPopupEl) closeHymnSearch(); });
-hymnSearchInputEl.addEventListener('input', () => renderHymnResults(hymnSearchInputEl.value));
+hymnSearchInputEl.addEventListener('input', () => renderSearchResults(hymnSearchInputEl.value));
 
-// Mantém o indicador de Wi-Fi/dados móveis da linha do Hinário atualizado
+// Mantém o indicador de Wi-Fi/dados móveis dos cards de coleção atualizado
 // em tempo real (o navegador dispara 'change' quando o tipo de conexão muda).
 (function () {
   const conn = networkConnection();
-  if (conn && conn.addEventListener) conn.addEventListener('change', refreshHymnalRowIfVisible);
+  if (conn && conn.addEventListener) conn.addEventListener('change', refreshCollectionsIfVisible);
 })();
 
 // Preview: FORA do fullscreen — toque simples coloca a PRÓPRIA preview em tela
@@ -2799,20 +2904,22 @@ if ('serviceWorker' in navigator) {
 }
 
 // Um ÚNICO handler ao retomar do 2º plano (antes eram dois listeners
-// separados): busca a versão nova do service worker E atualiza o índice leve
-// do Hinário 2022 (só metadados, sem áudio — barato pra rodar a cada retomada,
-// mantém o botão de busca sempre com o catálogo completo, baixado ou não).
+// separados): busca a versão nova do service worker E atualiza os índices
+// leves das coleções (índices dos hinários + catálogo de álbuns — só
+// metadados, sem áudio — barato pra rodar a cada retomada, mantém a busca e os
+// cards em dia).
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
   if (swReg) swReg.update().catch(() => {});
-  autoRefreshHymnalIndex();
+  autoRefreshCollections();
 });
 
 (async function init() {
+  await loadCollections();
   await load();
   // processa share pendente (Web Share Target via SW)
   await checkPendingShare();
-  // Índice do Hinário 2022 em segundo plano (fire-and-forget): não atrasa a
-  // abertura do app, só deixa a busca pronta assim que a resposta chegar.
-  autoRefreshHymnalIndex();
+  // Índices das coleções em segundo plano (fire-and-forget): não atrasa a
+  // abertura do app, só deixa a busca/os cards prontos assim que a resposta chegar.
+  autoRefreshCollections();
 })();
