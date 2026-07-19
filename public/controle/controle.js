@@ -1136,6 +1136,11 @@ function syncIconSvg() {
 function checkIconSvg() {
   return '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
 }
+// SVG inline de chevron (seta pra baixo) — indica que o card de coleção
+// expande ao tocar; gira 180° via CSS quando expandido (`.expanded`).
+function chevronSvg() {
+  return '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>';
+}
 
 // Lista de cards da aba Álbuns: hinários (fixos) + um card por álbum do
 // catálogo. Cada card é um "check do sistema" (não abre como pasta): símbolo,
@@ -1155,6 +1160,12 @@ function renderCollectionsList() {
 // ações sincronizar/excluir). Não abre como pasta ao tocar (o operador
 // acessa/toca as músicas pela busca do acervo, botão de lupa). Sempre visível,
 // mesmo antes da 1ª sincronização. Retorna o <li> (não anexa).
+//
+// COLAPSADO POR PADRÃO (deixa a lista compacta): mostra só uma barra com nome +
+// resumo de sincronização (baixados/total). Tocar na barra EXPANDE o card com o
+// detalhe completo (status, ações, estatísticas). O estado (expandido) é
+// transitório em `ui(coll.id).expanded` (não persistido) — cada abertura do app
+// começa colapsada.
 function renderCollectionCard(coll) {
   const total = collSongs(coll.id).length;
   const downloaded = countDownloaded(coll.id);
@@ -1166,15 +1177,37 @@ function renderCollectionCard(coll) {
   updateCollBytes(coll.id);
 
   const li = document.createElement('li');
-  li.className = 'hymnal-card';
+  li.className = 'hymnal-card ' + (u.expanded ? 'expanded' : 'collapsed');
 
-  // ---- cabeçalho: ícone + títulos + ações ----
+  // ---- barra compacta (sempre visível; clicável p/ expandir/colapsar) ----
+  const bar = document.createElement('div'); bar.className = 'coll-bar';
+  const barIcon = document.createElement('div'); barIcon.className = 'coll-bar-icon';
+  barIcon.appendChild(msym(ICON[coll.iconKey] || ICON.music));
+  const barName = document.createElement('span'); barName.className = 'coll-bar-name'; barName.textContent = coll.name;
+  bar.append(barIcon, barName);
+  if (!u.expanded) {
+    // Resumo de sincronização (só no estado colapsado — no expandido o detalhe
+    // já mostra tudo): progresso ao vivo se sincronizando, senão baixados/total.
+    const summary = document.createElement('span'); summary.className = 'coll-bar-sync';
+    if (u.syncBusy && u.status) {
+      summary.classList.add('busy'); summary.textContent = u.status;
+    } else if (total > 0) {
+      if (complete) summary.classList.add('done');
+      summary.textContent = downloaded + '/' + total;
+    } else {
+      summary.textContent = coll.kind === 'album' ? 'não sincron.' : '—';
+    }
+    bar.appendChild(summary);
+  }
+  const chev = document.createElement('span'); chev.className = 'coll-bar-chevron'; chev.innerHTML = chevronSvg();
+  bar.appendChild(chev);
+  bar.addEventListener('click', () => { u.expanded = !u.expanded; refreshCollectionsIfVisible(); });
+  li.appendChild(bar);
+
+  if (!u.expanded) return li; // colapsado: só a barra
+
+  // ---- detalhe (só expandido): status + ações + estatísticas ----
   const head = document.createElement('div'); head.className = 'hymnal-card-head';
-  const icon = document.createElement('div'); icon.className = 'hymnal-card-icon';
-  icon.appendChild(msym(ICON[coll.iconKey] || ICON.music));
-
-  const titles = document.createElement('div'); titles.className = 'hymnal-card-titles';
-  const title = document.createElement('span'); title.className = 'hymnal-card-title'; title.textContent = coll.name;
   const status = document.createElement('span'); status.className = 'hymnal-card-status';
   if (u.status) {
     status.classList.add('sync');
@@ -1188,7 +1221,6 @@ function renderCollectionCard(coll) {
   } else {
     status.textContent = coll.kind === 'album' ? 'Toque em sincronizar para baixar a lista' : 'Não sincronizado';
   }
-  titles.append(title, status);
 
   const actions = document.createElement('div'); actions.className = 'hymnal-card-actions';
   const syncBtn = document.createElement('button');
@@ -1205,7 +1237,7 @@ function renderCollectionCard(coll) {
     rmBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteCollection(coll); });
     actions.appendChild(rmBtn);
   }
-  head.append(icon, titles, actions);
+  head.append(status, actions);
 
   // ---- faixa de estatísticas ----
   const stats = document.createElement('div'); stats.className = 'hymnal-card-stats';
