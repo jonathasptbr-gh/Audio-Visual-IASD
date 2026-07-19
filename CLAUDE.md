@@ -66,7 +66,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.66.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.67.**
 
 ---
 
@@ -514,7 +514,7 @@ iniciado aplica seu resultado — chamadas anteriores obsoletas são descartadas
 │  │  item 1                                           │  │  ← .lib-list
 │  │  item 2                                           │  │     (área scrollável)
 │  └───────────────────────────────────────────────────┘  │
-│  [Cronograma] [Pastas]  [🔍 Hinário] [+ Importar]        │  ← .tabs (base da seção)
+│  [+ Importar] [Cronograma] [Pastas] [Álbuns]      [🔍]   │  ← .tabs (barra c/ fundo próprio)
 ├─────────────────────────────────────────────────────────┤
 │  ┌─────────────────────────────────────┬──────┐         │  ← .bottombar (base fixa)
 │  │  Nome da mídia atual  [seek bar]    │ Wall │         │
@@ -763,7 +763,11 @@ automático entre os dois apps** — a projeção acontece no próprio Controle
 
 ### Abas e biblioteca
 
-As abas ficam na **base da seção de listas** (ícones):
+As abas ficam na **base da seção de listas** (ícones), numa **barra com fundo
+próprio mais claro** (`.tabs` com `background: var(--panel-2)` + cantos
+arredondados). Da esquerda pra direita: **Importar** (`.tab-add`, o `<label>`
+do `#file`) · **Cronograma** · **Pastas** · **Álbuns** (as 3 `.tab`, `flex:1`) ·
+**buscar no acervo** (`#hymnSearchBtn`, `.tab-add`, à direita):
 
 - **Cronograma** (`imports`) — itens importados; ficam até serem excluídos.
   (O recurso de favoritos foi removido — para agrupar mídias, use pastas
@@ -988,8 +992,8 @@ de todos os álbuns) entra na busca sozinho, baixado ou não.
 
 **Busca/lista — popup único com dois escopos** (`searchScope`): o mesmo popup
 (`#hymnSearchPopup`) serve tanto pra **busca global** quanto pra **lista de uma
-coleção**. O **botão de lupa** (`#hymnSearchBtn`, SVG inline, ao lado do "+
-Importar" nas abas) abre com `searchScope=null` (título "Buscar no acervo") e
+coleção**. O **botão de lupa** (`#hymnSearchBtn`, SVG inline, no canto direito
+das abas) abre com `searchScope=null` (título "Buscar no acervo") e
 varre **todas as coleções** indexadas; o botão **Ver músicas** do card
 (`openCollectionSongs(coll)`) abre com `searchScope=coll.id` (título = nome da
 coleção) e mostra só as músicas daquela coleção (o campo então **filtra dentro
