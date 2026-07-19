@@ -746,19 +746,22 @@ main {
 .hymn-row { align-items: center; gap: .5rem; }
 .hymn-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .hymn-sub { font-size: .7rem; color: var(--muted); }
-/* Ações à DIREITA da info, só ícones (sem texto) — grupos por variante
-   (Cantado/Playback), tudo numa linha só → lista bem mais densa
-   verticalmente (um resultado por linha). */
-.hymn-actions { display: flex; align-items: center; gap: .4rem; flex-shrink: 0; }
-.hymn-variant { display: flex; align-items: center; gap: .18rem; }
-.hymn-play, .hymn-actions .row-btn { width: 30px; height: 30px; }
+/* Ações numa SEGUNDA linha (info em cima, botões embaixo), só ícones (sem
+   texto) — grupos por variante (Cantado/Playback). Alinhadas sob o nome
+   (indentadas além da thumb: padding-left = .5rem do .row + 40px da thumb +
+   .5rem do gap). flex-wrap protege telas muito estreitas. */
+.hymn-actions {
+  display: flex; align-items: center; flex-wrap: wrap; gap: .45rem;
+  padding: .05rem .5rem .5rem calc(1rem + 40px);
+}
+.hymn-variant { display: flex; align-items: center; gap: .2rem; }
 .hymn-play {
-  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
   border: none; border-radius: var(--radius-btn); background: var(--surface);
   color: var(--text); cursor: pointer;
 }
 .hymn-play svg { display: block; }
-.hymn-actions .row-btn .msym { font-size: 17px; }
 .hymn-play:active, .hymn-add:active { transform: var(--press); }
 /* Playback (instrumental) fica em tom accent para diferenciar do Cantado. */
 .hymn-variant[data-variant="playback"] .hymn-play { background: var(--accent-soft); color: var(--accent); }
