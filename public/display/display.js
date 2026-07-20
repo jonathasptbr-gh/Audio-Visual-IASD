@@ -8,6 +8,9 @@ const lyricsImgEl = document.getElementById('lyricsImg');
 const lyricsContentEl = document.getElementById('lyricsContent');
 const lyricsLineEl = document.getElementById('lyricsLine');
 const lyricsAuxEl = document.getElementById('lyricsAux');
+const bibleEl = document.getElementById('bible');
+const bibleRefEl = document.getElementById('bibleRef');
+const bibleTextEl = document.getElementById('bibleText');
 
 // Config de transições espelhada localmente (o stage guarda a dele própria)
 // para animar o player do YouTube, que vive fora do stage.
@@ -183,6 +186,46 @@ function applyLyricsBgClass() {
 function updateLyricSlide(t) {
   if (!currentLyrics) return;
   renderLyricSlide(findSlideIndex(currentLyrics, t));
+}
+
+// ===== Texto bíblico (ver seção "Bíblia" no CLAUDE.md) =====
+// Camada paralela ao stage.js (mesmo modelo do YouTube): o stage não sabe nada
+// sobre texto bíblico. O layer #bible vive no mesmo z-index dos demais layers
+// de mídia, então a cortina do wallpaper (z-index maior) cobre/revela-o de
+// graça. Enquanto o texto está em cena, os comandos de transporte/áudio não
+// têm efeito e 'view' só liga/desliga a cortina compartilhada (ver AVDB.onCommand).
+let bibleActive = false;
+let bibleView = 'visual';
+
+function showBible(cmd) {
+  const wallpaper = cmd.view === 'wallpaper';
+  bibleRefEl.textContent = cmd.ref || '';
+  bibleTextEl.textContent = cmd.text || '';
+  bibleView = wallpaper ? 'wallpaper' : 'visual';
+  if (bibleActive) {
+    // Já em cena (troca de versículo): só reajusta a cortina, sem piscar.
+    stage.instantCover(wallpaper);
+    return;
+  }
+  // Encerra outras camadas: cancela/derruba YouTube (o ++ytSeq também cancela um
+  // loadYoutube em curso entre awaits, com yt ainda null), esconde a letra e
+  // limpa o stage (para/oculta mídia local e cobre a cortina).
+  ++ytSeq;
+  ytDrop();
+  hideLyrics();
+  stage.clear();
+  bibleActive = true;
+  bibleEl.hidden = false;
+  // Revela conforme a view (wallpaper mantém a cortina por cima).
+  if (wallpaper) stage.instantCover(true); else stage.coverOut();
+}
+
+function hideBible() {
+  if (!bibleActive) return;
+  bibleActive = false;
+  bibleEl.hidden = true;
+  bibleRefEl.textContent = '';
+  bibleTextEl.textContent = '';
 }
 
 // ===== Áudio sem toque: recuperação automática =====
@@ -692,6 +735,26 @@ AVDB.onCommand(async (cmd) => {
   if (cmd.type === 'lyricsbg') {
     setLyricsBgMode(cmd.mode);
     return;
+  }
+
+  // Texto bíblico: camada paralela (ver showBible). Um novo 'bible' mostra/
+  // atualiza o versículo em cena.
+  if (cmd.type === 'bible') {
+    showBible(cmd);
+    return;
+  }
+  // Enquanto o texto bíblico está em cena: 'view' só liga/desliga a cortina
+  // compartilhada (não passa pelo stage, que recobriria — sem mídia carregada
+  // computeCover() é sempre true); qualquer outro comando que NÃO seja
+  // load/stop/clear (que encerram o modo, tratados abaixo) não tem efeito.
+  if (bibleActive) {
+    if (cmd.type === 'view') {
+      bibleView = cmd.view === 'wallpaper' ? 'wallpaper' : 'visual';
+      if (bibleView === 'wallpaper') stage.coverIn(false); else stage.coverOut();
+      return;
+    }
+    if (cmd.type !== 'load' && cmd.type !== 'stop' && cmd.type !== 'clear') return;
+    hideBible();
   }
 
   if (cmd.type === 'load') {
