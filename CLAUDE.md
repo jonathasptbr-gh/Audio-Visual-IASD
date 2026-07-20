@@ -66,7 +66,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.72.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.73.**
 
 ---
 
@@ -196,7 +196,7 @@ O campo `kind` é derivado do `type` (ou definido pelo chamador para itens de UR
 | `imports` / `playlist` | arrays de IDs de mídia |
 | `current` | `{ mediaId, view, muted, volume, at }` — estado de exibição atual |
 | `repeat` | `'off'` \| `'all'` \| `'one'` \| `'shuffle'` |
-| `fade` | `{ in: bool, out: bool, time: segundos }` — transições de mídia (fade in/out) |
+| `fade` | `{ in: bool, out: bool, time: segundos }` — transições visuais (fade in/out). **Ligado por padrão** (`{in:true, out:true, time:0.6}` quando não há valor salvo): toda troca visual é animada — mídia, cortina do wallpaper (view toggle), letra e texto bíblico. O operador ainda pode desligar/ajustar em "Exibição" |
 | `fit` | `'contain'` \| `'cover'` \| `'fill'` — preenchimento da mídia (ajustar/preencher/esticar) no Display e na preview |
 | `lyricsBg` | `'black'` (padrão) \| `'image'` — fundo atrás da letra sincronizada: preto ou as imagens dos slides |
 | `folders` | `[{ id, name }]` — pastas virtuais |
@@ -1373,10 +1373,16 @@ capítulo/versículo). Os **blocos de livro são preenchidos por inteiro com a c
 do grupo/divisão canônica** (campo `g` em `bible.js` → classe `.bg-<g>`: `lei`,
 `historicos`, `poeticos`, `pmaiores`, `pmenores`, `evangelhos`, `atos`,
 `paulinas`, `gerais`, `apocalipse` — os mesmos agrupamentos da tabela de
-referência, cores próprias) — **sem** número de índice. Capítulos/versículos
-(`.bible-cell--num`) ficam neutros. Fluxo: **livros → capítulos → versículos →
-leitura**; o botão voltar (`#backBtn`) recua uma tela (`navigateBack` é
-`bible`-aware, `gotoBibleScreen`), e `#listTitle` mostra o contexto.
+referência, cores próprias) — **sem** número de índice. A grade de livros
+(`.bible-grid--books`, no wrap `.bible-wrap--fit`) **preenche a altura
+disponível** (11 linhas em `1fr`, células retangulares compactas) pra caber
+**sem scroll**; as demais telas rolam se precisarem. Capítulos e versículos
+(`.bible-cell--num`) ganham **tons distintos** pra separar bem os dois níveis:
+capítulos em tom frio/azulado (`.bible-grid--chapters`), versículos em tom
+quente/dourado (`.bible-grid--verses`). Fluxo: **livros → capítulos →
+versículos → leitura**; o botão voltar (`#backBtn`) recua uma tela
+(`navigateBack` é `bible`-aware, `gotoBibleScreen`), e `#listTitle` mostra o
+contexto.
 
 Tocar num **capítulo** dispara `loadBibleChapter()`, que lê o cache ou **baixa o
 capítulo na hora** (`Bible.fetchChapter`, gravado em `state`) — com estados de
@@ -1409,7 +1415,11 @@ próximo LIVRO se preciso** (`nextChapterRef`/`prevChapterRef` +
 `bibleGotoChapter`, que baixa o capítulo vizinho sob demanda e faz a seleção
 acompanhar); os botões só desabilitam no começo (Gn 1:1) e no fim (Ap, último
 versículo) da Bíblia. Cada troca reenvia um novo comando `bible` (não `seek` —
-não há áudio/tempo). O `#npName` mostra a referência atual; `play`/`pause` viram
+não há áudio/tempo) e o **texto entra com fade** (`animateFadeIn`/`pvFadeIn`,
+respeitando `fadeCfg.in` — ligado por padrão, ver o state `fade`); mostrar/
+esconder a camada e o toggle de wallpaper usam a cortina com fade
+(`coverIn`/`coverOut`). O mesmo fade curto entra nas trocas de estrofe da letra
+sincronizada. O `#npName` mostra a referência atual; `play`/`pause` viram
 no-op (sem mídia com tempo). Uma **mídia comum** assumindo a cena (`send`) ou o
 **stop** (`stopClear`) encerram a leitura (`clearBibleSession` + o Display/preview
 escondem a camada). O `viewToggle` (`setView`, `bible`-aware) liga/desliga a

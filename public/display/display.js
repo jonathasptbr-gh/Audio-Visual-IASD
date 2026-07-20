@@ -13,8 +13,10 @@ const bibleRefEl = document.getElementById('bibleRef');
 const bibleTextEl = document.getElementById('bibleText');
 
 // Config de transições espelhada localmente (o stage guarda a dele própria)
-// para animar o player do YouTube, que vive fora do stage.
-let fadeCfg = { in: false, out: false, time: 1 };
+// para animar o player do YouTube, que vive fora do stage. LIGADA por padrão —
+// toda troca visual é animada com fade (ver restore()); o operador pode
+// desligar/ajustar em "Exibição" (persistido em state 'fade').
+let fadeCfg = { in: true, out: true, time: 0.6 };
 
 // Fonte única do payload display-status: sendStatus (stage) e ytStatus
 // (YouTube) só preenchem os valores; o `type` e o `audioBlocked` ficam num
@@ -88,6 +90,15 @@ function findSlideIndex(lyrics, time) {
   return idx < 0 ? 0 : idx;
 }
 
+// Fade-in curto de um elemento (troca de slide/versículo) — respeita a config
+// de transições (fadeCfg.in). Anima só o conteúdo de texto, não a moldura
+// (evita a moldura "piscar"). Cancela uma animação anterior em curso.
+function animateFadeIn(el) {
+  if (!el || !el.animate || !fadeCfg.in) return;
+  try { el.getAnimations().forEach((a) => a.cancel()); } catch (_) {}
+  el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: 'ease' });
+}
+
 function hideLyrics() {
   currentLyrics = null;
   currentLyricsMeta = null;
@@ -125,6 +136,8 @@ function renderLyricSlide(idx) {
     lyricsAuxEl.textContent = slide.auxText || '';
     lyricsAuxEl.hidden = !slide.auxText;
   }
+  animateFadeIn(lyricsLineEl);
+  if (!lyricsAuxEl.hidden) animateFadeIn(lyricsAuxEl);
 
   applyLyricsImage(slide);
 }
@@ -203,7 +216,8 @@ function showBible(cmd) {
   bibleTextEl.textContent = cmd.text || '';
   bibleView = wallpaper ? 'wallpaper' : 'visual';
   if (bibleActive) {
-    // Já em cena (troca de versículo): só reajusta a cortina, sem piscar.
+    // Já em cena (troca de versículo): fade-in do texto, sem mexer na moldura.
+    animateFadeIn(bibleTextEl); animateFadeIn(bibleRefEl);
     stage.instantCover(wallpaper);
     return;
   }
@@ -817,11 +831,11 @@ async function restore() {
   loadYtApi().catch(() => {});   // prefetch: uma falha de rede aqui é retentada no 1º loadYoutube()
   // Config de transições (fade) definida no Controle — preferência visual,
   // não é "tocar" nada.
+  // Transições ligadas por padrão (fadeCfg acima): aplica ao stage mesmo quando
+  // não há config salva, pra o Display já abrir com fade em toda troca visual.
   const fade = await AVDB.getState('fade');
-  if (fade) {
-    fadeCfg = { in: !!fade.in, out: !!fade.out, time: fade.time > 0 ? fade.time : 1 };
-    stage.setFade({ fadeIn: fadeCfg.in, fadeOut: fadeCfg.out, time: fadeCfg.time });
-  }
+  if (fade) fadeCfg = { in: !!fade.in, out: !!fade.out, time: fade.time > 0 ? fade.time : 0.6 };
+  stage.setFade({ fadeIn: fadeCfg.in, fadeOut: fadeCfg.out, time: fadeCfg.time });
   // Fundo da letra sincronizada (preto/imagens dos slides) — preferência
   // visual, igual ao fade/fit.
   const lyricsBg = await AVDB.getState('lyricsBg');
