@@ -13,9 +13,9 @@ const bibleRefEl = document.getElementById('bibleRef');
 const bibleTextEl = document.getElementById('bibleText');
 
 // Config de transições espelhada localmente (o stage guarda a dele própria)
-// para animar o player do YouTube, que vive fora do stage. LIGADA por padrão —
-// toda troca visual é animada com fade (ver restore()); o operador pode
-// desligar/ajustar em "Exibição" (persistido em state 'fade').
+// para animar o player do YouTube, que vive fora do stage. INERENTE ao sistema:
+// toda troca visual é animada com fade, sempre — não há opção de desligar nem
+// ajustar (ver restore()).
 let fadeCfg = { in: true, out: true, time: 0.6 };
 
 // Fonte única do payload display-status: sendStatus (stage) e ytStatus
@@ -831,10 +831,8 @@ async function restore() {
   loadYtApi().catch(() => {});   // prefetch: uma falha de rede aqui é retentada no 1º loadYoutube()
   // Config de transições (fade) definida no Controle — preferência visual,
   // não é "tocar" nada.
-  // Transições ligadas por padrão (fadeCfg acima): aplica ao stage mesmo quando
-  // não há config salva, pra o Display já abrir com fade em toda troca visual.
-  const fade = await AVDB.getState('fade');
-  if (fade) fadeCfg = { in: !!fade.in, out: !!fade.out, time: fade.time > 0 ? fade.time : 0.6 };
+  // Transições são INERENTES ao sistema (sempre ligadas, duração fixa — ver
+  // fadeCfg acima): não há mais config salva nem ajustável; aplica o valor fixo.
   stage.setFade({ fadeIn: fadeCfg.in, fadeOut: fadeCfg.out, time: fadeCfg.time });
   // Fundo da letra sincronizada (preto/imagens dos slides) — preferência
   // visual, igual ao fade/fit.

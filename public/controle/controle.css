@@ -911,19 +911,16 @@ main {
 /* Playback (instrumental) fica em tom accent para diferenciar do Cantado. */
 .hymn-variant[data-variant="playback"] .hymn-play { background: var(--accent-soft); color: var(--accent); }
 
-/* ---------- popup de transições (fade) ---------- */
+/* ---------- popup de Exibição (preenchimento da mídia) ---------- */
+/* As transições (fade) são inerentes ao sistema — não há mais controles delas
+   aqui; o popup guarda só o seletor de preenchimento (ajustar/preencher/esticar)
+   e o atalho "Abrir Display". */
 .fade-opts { display: flex; flex-direction: column; gap: .4rem; padding: .3rem .9rem 1rem; }
 .fade-row {
   display: flex; align-items: center; justify-content: space-between; gap: .8rem;
   background: var(--panel); border-radius: var(--radius-card); padding: .65rem .8rem;
   font-size: .9rem; cursor: pointer;
 }
-.fade-row small { color: var(--muted); font-size: .75rem; }
-.fade-row b { color: var(--accent); }
-.fade-chk { width: 22px; height: 22px; accent-color: var(--accent); flex-shrink: 0; }
-.fade-row--slider { flex-direction: column; align-items: stretch; gap: .5rem; cursor: default; }
-.fade-row--slider span { display: flex; justify-content: space-between; }
-.fade-row--slider input[type="range"] { width: 100%; accent-color: var(--accent); }
 .fade-row--fit { flex-direction: column; align-items: stretch; gap: .5rem; cursor: default; }
 .fit-seg { display: flex; gap: .35rem; }
 .fit-opt {
