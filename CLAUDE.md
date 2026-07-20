@@ -66,7 +66,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.74.**
+- **A cada atualização de código, incrementar a versão visual do Controle** (`<span id="appVersion" class="app-version">Controle vX.Y</span>` em `controle/index.html`, no cabeçalho da lista — só aparece ao lado do título da aba Cronograma). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.75.**
 
 ---
 
@@ -514,14 +514,12 @@ iniciado aplica seu resultado — chamadas anteriores obsoletas são descartadas
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  Audio Visual IASD                       Controle v2.6  │  ← .appbar (topo fixo)
-├─────────────────────────────────────────────────────────┤
-│  [←] Título da lista     [busca na pasta]  [sincronizar]│  ← .list-header
+│  [←] Cronograma            Controle v4.75  [busca][sync] │  ← .list-header (topo; sem appbar)
 │  ┌───────────────────────────────────────────────────┐  │
 │  │  item 1                                           │  │  ← .lib-list
 │  │  item 2                                           │  │     (área scrollável)
 │  └───────────────────────────────────────────────────┘  │
-│  [+ Importar] [Cronograma] [Pastas] [Álbuns]      [🔍]   │  ← .tabs (barra c/ fundo próprio)
+│  [+ Importar]  Cronograma  Pastas  Álbuns  Bíblia   🔍   │  ← .tabs (mescladas ao fundo)
 ├─────────────────────────────────────────────────────────┤
 │  ┌─────────────────────────────────────┬──────┐         │  ← .bottombar (base fixa)
 │  │  Nome da mídia atual  [seek bar]    │ Wall │         │
@@ -534,12 +532,15 @@ iniciado aplica seu resultado — chamadas anteriores obsoletas são descartadas
 └─────────────────────────────────────────────────────────┘
 ```
 
-**Cabeçalho (`.appbar`):** nome do app à esquerda, versão visual à direita.
-A versão visual deve ser incrementada a cada atualização de código.
+**Sem barra de topo (`.appbar` removida):** o app começa direto no cabeçalho da
+lista. `main` ganhou `padding-top` com `env(safe-area-inset-top)` (a antiga
+appbar cuidava do notch/status bar).
 
 **Cabeçalho da lista (`.list-header`):** botão voltar (dentro de pasta), título da
-aba/pasta, campo de busca (dentro de pasta OPFS) e botão de sincronizar pasta
-do dispositivo (só na raiz da aba Pastas).
+aba/pasta, o **indicador de versão** (`#appVersion` — só aparece ao lado do
+título da aba **Cronograma**, `activeTab==='imports'`), campo de busca (dentro de
+pasta OPFS) e botão de sincronizar pasta do dispositivo (só na raiz da aba
+Pastas). Na aba Bíblia o título fica oculto (libera espaço — ver "Bíblia").
 
 **Controles (`.bottombar`):** fixados na base da tela. O padding inferior usa
 `max(env(safe-area-inset-bottom), 12px)` para garantir margem segura contra
@@ -771,9 +772,9 @@ automático entre os dois apps** — a projeção acontece no próprio Controle
 
 ### Abas e biblioteca
 
-As abas ficam na **base da seção de listas** (ícones), numa **barra com fundo
-próprio mais claro** (`.tabs` com `background: var(--panel-2)` + cantos
-arredondados). Da esquerda pra direita: **Importar** (`.tab-add`, o `<label>`
+As abas ficam na **base da seção de listas** (ícones), **mescladas ao fundo
+normal do app** (`.tabs` sem fundo/card próprio — não é mais uma seção isolada
+visualmente). Da esquerda pra direita: **Importar** (`.tab-add`, o `<label>`
 do `#file`) · **Cronograma** · **Pastas** · **Álbuns** · **Bíblia** (as 4
 `.tab`, `flex:1`) · **buscar no acervo** (`#hymnSearchBtn`, `.tab-add`, à
 direita):
@@ -1361,8 +1362,10 @@ já baixou — a reabertura pula o que está em cache e continua de onde parou.
 por nome — "revista e atualizada"/"RA"/"ARA"; senão a 1ª disponível). A troca de
 versão fica num **botão seletor** (`.bible-ver-btn`, com a versão atual) que abre
 o **popup** `#bibleVerPopup` com a lista — a lista não fica mais toda exposta em
-chips. Persistido em `state.bibleVersion`; trocar dispara o download da nova
-versão inteira.
+chips. **O seletor mora na tela de LEITURA** (não na de livros — dá mais espaço
+pra grade). Persistido em `state.bibleVersion`; trocar (`changeBibleVersion`)
+recarrega o capítulo atual na nova versão (mantendo o versículo) e dispara o
+download da nova versão inteira.
 
 ### Seleção em "tabela periódica" (quatro telas)
 
@@ -1394,12 +1397,27 @@ obsoletos numa troca rápida.
 ### Tela de leitura + projeção e navegação por slide
 
 Tocar num **versículo** (`startBibleReading`) inicia uma **sessão de leitura**
-(`bibleSession = { versionId, bookIdx, bookId, bookName, chapter, verses, idx }`),
-abre a tela `'reading'` e projeta o versículo (`projectBibleVerse`). A tela de
-leitura (`renderBibleReading`, `.bible-read`) mostra **três seções empilhadas** —
-versículo **anterior / atual / próximo** (`.bible-vsec`, o atual destacado; tocar
-no anterior/próximo pula pra ele) — e, embaixo, a **referência atual num botão**
-(`.bible-read-ref`) que **volta direto para a seleção de livros** (`gotoBibleScreen('books')`).
+(`bibleSession = { versionId, bookIdx, bookId, bookName, chapter, verses, idx,
+projecting }`) e abre a tela `'reading'` — **mas NÃO projeta nada ainda**
+(`projecting:false`). A tela de leitura (`renderBibleReading`, `.bible-read`)
+mostra o **seletor de versão** no topo, **três seções empilhadas** — versículo
+**anterior / atual / próximo** (`.bible-vsec`) — e, embaixo, a **referência atual
+num botão** (`.bible-read-ref`) que **volta direto para a seleção de livros**.
+
+**Gate de ativação (`projecting`)** — o texto só vai pro telão depois de um
+toque no versículo CENTRAL:
+- Tocar no **anterior/próximo** (`.bible-vsec.adj`) → `bibleSetIdx` move aquele
+  versículo pro central. Enquanto `projecting` é `false`, **só move** (nada é
+  exibido; aparece a dica `.bible-read-hint`).
+- Tocar no **central** (`.bible-vsec.cur`) → `activateBibleVerse` liga
+  `projecting` e **exibe** o versículo (o central ganha o rótulo verde "● No ar",
+  classe `.live`).
+- Já **ativado**, tocar no anterior/próximo (ou usar os botões de slide) **exibe
+  automaticamente** o novo versículo (`bibleSetIdx` chama `projectBibleVerse`).
+
+`projectBibleVerse` sempre marca `projecting:true` (é o ato de exibir);
+`renderNowPlaying` só mostra a referência quando `projecting` (antes disso o
+telão ainda não tem a Bíblia, então o now-playing segue a mídia normal).
 
 A projeção é uma **camada paralela** (mesmo modelo do YouTube/letra): o comando
 `bible` (`{ ref, text, version, view }`) mostra o **texto do versículo com a
