@@ -134,7 +134,10 @@ let folderCounts = {};     // {folderId: count}
 let opfsFolders = [];      // [{id, name, count, syncedAt, handle?}] — pastas sincronizadas no OPFS
 let folderQuery = '';      // filtro de busca dentro de pasta OPFS
 let syncBusy = false;      // sincronização em andamento
-let fadeCfg = { in: false, out: false, time: 1 }; // transições (persistido em state 'fade')
+// Transições visuais LIGADAS por padrão (fade in/out em toda troca visual —
+// mídia, cortina do wallpaper, letra e texto bíblico). Persistido em
+// state 'fade'; o operador ainda pode desligar/ajustar em "Exibição".
+let fadeCfg = { in: true, out: true, time: 0.6 };
 // ===== Coleções de mídia do LouvorJA (acervo offline) =====
 // Sistema genérico que cobre TODAS as coleções do banco público do LouvorJA
 // (ver docs/FONTE-DE-DADOS-LOUVORJA.md e a seção "Coleções de mídia (LouvorJA)"
@@ -677,6 +680,15 @@ function findSlideIndex(lyrics, time) {
   return idx < 0 ? 0 : idx;
 }
 
+// Fade-in curto de um elemento (troca de slide/versículo) — respeita a config
+// de transições (fadeCfg.in). Anima só o conteúdo de texto, não a moldura
+// (evita a moldura "piscar" a cada troca). Cancela uma animação anterior.
+function pvFadeIn(el) {
+  if (!el || !el.animate || !fadeCfg.in) return;
+  try { el.getAnimations().forEach((a) => a.cancel()); } catch (_) {}
+  el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: 'ease' });
+}
+
 // ===== Letra sincronizada na preview — mesma visualização do Display =====
 // A preview já espelha o Display para imagem/vídeo (stage.js) e YouTube
 // (segundo player, ver loadYtPreview) — letra sincronizada segue o mesmo
@@ -734,6 +746,8 @@ function renderPvLyricSlide(idx) {
     pvLyricsAuxEl.textContent = slide.auxText || '';
     pvLyricsAuxEl.hidden = !slide.auxText;
   }
+  pvFadeIn(pvLyricsLineEl);
+  if (!pvLyricsAuxEl.hidden) pvFadeIn(pvLyricsAuxEl);
 
   applyPvLyricsImage(slide);
 }
@@ -801,7 +815,8 @@ function showPvBible(ref, text, viewMode) {
   pvBibleTextEl.textContent = text || '';
   const wallpaper = viewMode === 'wallpaper';
   if (pvBibleActive) {
-    // Já em cena (troca de versículo): só reajusta a cortina, sem piscar.
+    // Já em cena (troca de versículo): fade-in do texto, sem mexer na moldura.
+    pvFadeIn(pvBibleTextEl); pvFadeIn(pvBibleRefEl);
     preview.instantCover(wallpaper);
     return;
   }
@@ -1299,7 +1314,9 @@ function gotoBibleScreen(screen) {
 
 function renderBible() {
   const wrap = document.createElement('div');
-  wrap.className = 'bible-wrap';
+  // A tela de livros preenche a altura disponível (grade compacta, sem scroll);
+  // as demais rolam normalmente se precisarem (ex.: Salmos, 150 capítulos).
+  wrap.className = 'bible-wrap' + (bibleScreen === 'books' ? ' bible-wrap--fit' : '');
   if (bibleScreen === 'chapters') renderBibleChapters(wrap);
   else if (bibleScreen === 'verses') renderBibleVerses(wrap);
   else if (bibleScreen === 'reading') renderBibleReading(wrap);
@@ -1347,7 +1364,7 @@ function renderBibleBooks(wrap) {
     }
     wrap.appendChild(note);
   }
-  const grid = document.createElement('div'); grid.className = 'bible-grid';
+  const grid = document.createElement('div'); grid.className = 'bible-grid bible-grid--books';
   Bible.BOOKS.forEach((b, i) => {
     const cell = bibleCell(b.abbr, { name: b.name, cls: 'bg-' + b.g });
     cell.title = b.name;
@@ -1360,7 +1377,7 @@ function renderBibleBooks(wrap) {
 function renderBibleChapters(wrap) {
   const book = Bible.BOOKS[bibleSel.bookIdx];
   if (!book) { gotoBibleScreen('books'); return; }
-  const grid = document.createElement('div'); grid.className = 'bible-grid bible-grid--num';
+  const grid = document.createElement('div'); grid.className = 'bible-grid bible-grid--num bible-grid--chapters';
   for (let c = 1; c <= book.chapters; c++) {
     const cell = bibleCell(String(c), { cls: 'bible-cell--num' });
     cell.addEventListener('click', () => { bibleSel.chapter = c; gotoBibleScreen('verses'); loadBibleChapter(); });
@@ -1386,7 +1403,7 @@ function renderBibleVerses(wrap) {
     wrap.appendChild(n); return;
   }
   const onThisChapter = bibleSession && bibleSession.bookIdx === bibleSel.bookIdx && bibleSession.chapter === bibleSel.chapter;
-  const grid = document.createElement('div'); grid.className = 'bible-grid bible-grid--num';
+  const grid = document.createElement('div'); grid.className = 'bible-grid bible-grid--num bible-grid--verses';
   verses.forEach((v, i) => {
     const cell = bibleCell(String(v.n), { cls: 'bible-cell--num', active: onThisChapter && bibleSession.idx === i });
     cell.addEventListener('click', () => startBibleReading(i));
@@ -2066,7 +2083,8 @@ async function setView(v) {
   // já que não há mídia carregada no stage da preview).
   if (bibleSession) {
     AVDB.sendCommand({ type: 'view', view });
-    preview.instantCover(v === 'wallpaper');
+    // Cortina com fade (coverIn/coverOut respeitam a config de transições).
+    if (v === 'wallpaper') preview.coverIn(false); else preview.coverOut();
     renderControls();
     return;
   }

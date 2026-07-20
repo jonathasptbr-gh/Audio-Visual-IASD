@@ -627,6 +627,9 @@ main {
    número atômico). Renderizadas dentro de #library (ver renderBible em
    controle.js). */
 .bible-wrap { display: flex; flex-direction: column; gap: .6rem; padding-bottom: .6rem; }
+/* Tela de livros: preenche a altura disponível pra caber sem scroll (ver
+   .bible-grid--books). As demais telas mantêm altura automática (rolam). */
+.bible-wrap--fit { flex: 1; min-height: 0; padding-bottom: 0; }
 
 /* Seletor de versão: um botão com a versão atual que abre o popup de versões
    (a lista não fica mais toda exposta em chips). */
@@ -654,6 +657,12 @@ main {
 .bible-grid { display: grid; gap: 6px; grid-template-columns: repeat(6, 1fr); }
 /* capítulos/versículos: células menores (só números), mais colunas. */
 .bible-grid--num { grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); }
+/* Livros: 66 células em 6×11; as 11 linhas dividem a altura disponível (1fr)
+   pra caber TUDO sem scroll. Células retangulares (sem aspect-ratio), compactas. */
+.bible-grid--books { flex: 1; min-height: 0; gap: 4px; grid-template-rows: repeat(11, 1fr); }
+.bible-grid--books .bible-cell { aspect-ratio: auto; padding: 1px; }
+.bible-grid--books .bible-cell-sym { font-size: .82rem; }
+.bible-grid--books .bible-cell-name { font-size: .4rem; margin-top: 1px; }
 
 /* Bloco de livro: preenchido POR INTEIRO com a cor do grupo/divisão canônica
    (ver .bg-<g> abaixo e o campo `g` em bible.js) — sem número de índice.
@@ -666,8 +675,13 @@ main {
   color: #fff;
 }
 .bible-cell:active { transform: var(--press); }
-/* célula de número (capítulo/versículo): superfície neutra */
+/* célula de número (capítulo/versículo): superfície neutra por padrão, com
+   TONS DISTINTOS por tela pra separar bem "capítulo" de "versículo"
+   (percepção da hierarquia): capítulos em tom frio (azulado), versículos em
+   tom quente (dourado/amarronzado). */
 .bible-cell--num { background: var(--panel-2); color: var(--text); }
+.bible-grid--chapters .bible-cell--num { background: #2f3d54; color: #dbe6f5; }
+.bible-grid--verses .bible-cell--num { background: #4a3f24; color: #f3e6c8; }
 /* célula em foco/seleção atual (versículo projetado agora) */
 .bible-cell.active { outline: 2px solid #fff; outline-offset: -2px; }
 .bible-cell--num.active { background: var(--accent); color: #fff; outline: none; }
