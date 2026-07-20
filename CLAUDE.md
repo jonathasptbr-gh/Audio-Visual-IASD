@@ -66,7 +66,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual do Controle** (`<span id="appVersion" class="app-version">Controle vX.Y</span>` em `controle/index.html`, no cabeçalho da lista — só aparece ao lado do título da aba Cronograma). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.76.**
+- **A cada atualização de código, incrementar a versão visual do Controle** (`<span id="appVersion" class="app-version">Controle vX.Y</span>` em `controle/index.html`, no cabeçalho da lista — só aparece ao lado do título da aba Cronograma). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.77.**
 
 ---
 
@@ -1336,13 +1336,12 @@ de baixar só o capítulo tocado, ao usar a Bíblia pela primeira vez o app baix
 **todos os 1189 capítulos** da versão selecionada em segundo plano — resumível
 (pula o que já está em cache), concorrência limitada (`runLimited`, 5). O texto
 é leve (só versículos, sem mídia), então o volume total é modesto. O progresso
-(`bibleDl`, memória) aparece na **tela de leitura** (`.bible-dl` no
-`.bible-read-head`, ao lado do seletor de versão — "Baixando a Bíblia (ARA)…
-N/1189" / "✓ completa offline") e **resumido na lista de seleção de versão**
-(`.bible-ver-status` por versão: "Completa offline" / "Baixando N/T…" / "Baixa
-ao usar"); ao terminar sem falhas marca `state['bibleComplete:<v>']` pra não
-refazer (cacheado em memória em `bibleCompleteVersions`, populado pra **todas**
-as versões no `ensureBibleMeta`). O download **NÃO** é disparado no `init` (só quando o
+(`bibleDl`, memória) aparece **só dentro do popup de seleção de versão**
+(`.bible-ver-status` por versão: "✓ Completa offline" / "Baixando N/1189…" /
+"Baixa ao usar" — `refreshBibleDl` re-renderiza a lista enquanto o popup está
+aberto), **sem disputar espaço com a leitura**; ao terminar sem falhas marca
+`state['bibleComplete:<v>']` pra não refazer (cacheado em memória em
+`bibleCompleteVersions`, populado pra **todas** as versões no `ensureBibleMeta`). O download **NÃO** é disparado no `init` (só quando o
 operador de fato abre a aba Bíblia), e a leitura por capítulo
 (`loadBibleChapter`) continua baixando sob demanda como fallback se o operador
 abrir um capítulo antes de o download em massa chegar nele.
@@ -1404,10 +1403,11 @@ Tocar num **versículo** (`startBibleReading`) inicia uma **sessão de leitura**
 (`bibleSession = { versionId, bookIdx, bookId, bookName, chapter, verses, idx,
 projecting }`) e abre a tela `'reading'` — **mas NÃO projeta nada ainda**
 (`projecting:false`). A tela de leitura (`renderBibleReading`, `.bible-read`)
-mostra o **seletor de versão + status offline** no topo (`.bible-read-head`),
-**três seções empilhadas** — versículo **anterior / atual / próximo**
-(`.bible-vsec`) — e, embaixo, a **referência atual num botão** (`.bible-read-ref`)
-que **volta direto para a seleção de livros**. Nos **limites de capítulo/livro**,
+mostra **três seções empilhadas** — versículo **anterior / atual / próximo**
+(`.bible-vsec`) — e, embaixo, um **rodapé** (`.bible-read-foot`) com o **seletor
+de versão** ao lado da **referência atual num botão** (`.bible-read-ref`, que
+**volta direto para a seleção de livros**). O status offline **não** fica aqui
+(só no popup de versões — ver acima). Nos **limites de capítulo/livro**,
 as seções anterior/próximo mostram o versículo do **capítulo vizinho** (cruzando
 pro livro seguinte/anterior), com um **badge indicador** (`.bible-vsec-cross`,
 borda tracejada — ex.: "◂ Livro anterior: Amós 9") **antes** de selecioná-lo; o
@@ -1454,6 +1454,14 @@ no-op (sem mídia com tempo). Uma **mídia comum** assumindo a cena (`send`) ou 
 escondem a camada). O `viewToggle` (`setView`, `bible`-aware) liga/desliga a
 **cortina compartilhada** do wallpaper por cima do texto, sem passar por
 `preview.handle` (que recobriria — não há mídia carregada no stage).
+
+A projeção bíblica é **independente da navegação de abas** (como qualquer outra
+mídia): o `load()` (disparado a cada troca de aba) **não chama
+`preview.setView` enquanto `pvBibleActive`** — sem essa guarda, como o stage da
+preview está sem `current` (a Bíblia é camada paralela), `setView` cairia em
+`computeCover()===true` e recobriria a cortina, fazendo o texto sumir da preview
+ao sair da aba Bíblia. O Display nunca é afetado por troca de aba (só encerra a
+Bíblia com `load`/`stop`/`clear` explícitos).
 
 ### No Display
 

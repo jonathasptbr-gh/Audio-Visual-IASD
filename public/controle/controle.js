@@ -964,8 +964,13 @@ async function load() {
   renderSelbar();
   renderSlideNav();
 
-  // mantém a preview alinhada (sem recarregar a mídia)
-  preview.setView(view); preview.setMute(muted); preview.setVolume(volume);
+  // mantém a preview alinhada (sem recarregar a mídia). NÃO mexe na cortina
+  // (setView) enquanto um texto bíblico está em cena: a Bíblia é uma camada
+  // paralela e o stage da preview está sem `current` (=null), então setView
+  // recobriria a cortina e o texto sumiria da preview ao trocar de aba — a
+  // projeção deve ser independente da navegação, como qualquer outra mídia.
+  if (!pvBibleActive) preview.setView(view);
+  preview.setMute(muted); preview.setVolume(volume);
   preview.setFade({ fadeIn: fadeCfg.in, fadeOut: fadeCfg.out, time: fadeCfg.time });
   preview.setFit(mediaFit);
 
@@ -1274,30 +1279,15 @@ async function ensureBibleVersionDownloaded(versionId) {
   if (bibleDl && bibleDl.versionId === versionId) {
     bibleDl.running = false;
     if (failed === 0) { await AVDB.setState('bibleComplete:' + versionId, true); bibleCompleteVersions.add(versionId); }
-    refreshBibleDl(true);
+    refreshBibleDl();
   }
 }
 
-function bibleDlText(versionId, running, done, total) {
-  const name = bibleVersionName(versionId);
-  const suffix = name ? ' (' + name + ')' : '';
-  if (running) return 'Baixando a Bíblia' + suffix + '… ' + done + '/' + total;
-  if (done >= total) return '✓ Bíblia' + suffix + ' completa offline';
-  return 'Bíblia' + suffix + ' parcial (' + done + '/' + total + ') — reabra a aba para continuar';
-}
-
-// Atualiza o texto do progresso sem re-renderizar a grade inteira a cada
-// capítulo (barato): mexe só no #bibleDlNote se ele estiver na tela. `finalize`
-// re-renderiza uma vez (aparece/some o estado final) quando estiver na tela.
-function refreshBibleDl(finalize) {
-  const note = document.getElementById('bibleDlNote');
-  if (note && bibleDl && bibleDl.versionId === bibleVersionId) {
-    note.textContent = bibleDlText(bibleDl.versionId, bibleDl.running, bibleDl.done, bibleDl.total);
-    note.classList.toggle('done', !bibleDl.running && bibleDl.done >= bibleDl.total);
-    if (!finalize) return;
-  }
-  // O status mora na tela de LEITURA agora — re-renderiza lá ao finalizar.
-  if (finalize && activeTab === 'bible' && bibleScreen === 'reading') renderLibrary();
+// O status offline/progresso do download aparece SÓ dentro do popup de seleção
+// de versão (`.bible-ver-status` por versão) — não disputa espaço com a leitura.
+// Enquanto o download roda, re-renderiza a lista se o popup estiver aberto.
+function refreshBibleDl() {
+  if (bibleVerPopupEl.classList.contains('open')) renderBibleVerList();
 }
 
 // Ordem das telas da Bíblia (pra direção do slide de transição).
@@ -1604,24 +1594,6 @@ async function bibleStep(delta) {
   }
 }
 
-// Nó de status do download da versão inteira (progresso ao vivo / "completa
-// offline") — mora na tela de leitura, ao lado do seletor de versão. null se
-// não há nada a mostrar.
-function makeBibleDlNote() {
-  const dlRunningHere = bibleDl && bibleDl.versionId === bibleVersionId;
-  if (!dlRunningHere && !bibleCompleteVersions.has(bibleVersionId)) return null;
-  const note = document.createElement('div');
-  note.className = 'bible-note bible-dl'; note.id = 'bibleDlNote';
-  if (dlRunningHere) {
-    note.textContent = bibleDlText(bibleDl.versionId, bibleDl.running, bibleDl.done, bibleDl.total);
-    if (!bibleDl.running && bibleDl.done >= bibleDl.total) note.classList.add('done');
-  } else {
-    note.classList.add('done');
-    note.textContent = bibleDlText(bibleVersionId, false, 1, 1);
-  }
-  return note;
-}
-
 // Cache dos capítulos VIZINHOS (só pra preview do anterior/próximo que cruza o
 // limite do capítulo/livro), por `<versao>_<livroIdx>_<capitulo>`. Limpo ao
 // trocar de versão / encerrar a leitura.
@@ -1677,22 +1649,6 @@ function renderBibleReading(wrap) {
   if (!s) { gotoBibleScreen('books'); return; }
   const read = document.createElement('div'); read.className = 'bible-read';
 
-  // Cabeçalho: seletor de versão + status "completa offline"/progresso.
-  const head = document.createElement('div'); head.className = 'bible-read-head';
-  if (bibleVersions.length) {
-    const verBtn = document.createElement('button'); verBtn.type = 'button'; verBtn.className = 'bible-ver-btn';
-    const label = document.createElement('span'); label.className = 'bible-ver-label';
-    label.textContent = bibleVersionName(bibleVersionId) || 'Versão';
-    const caret = document.createElement('span'); caret.className = 'bible-ver-caret';
-    caret.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
-    verBtn.append(label, caret);
-    verBtn.addEventListener('click', openBibleVerPopup);
-    head.appendChild(verBtn);
-  }
-  const dlNote = makeBibleDlNote();
-  if (dlNote) head.appendChild(dlNote);
-  read.appendChild(head);
-
   // delta: -1 (anterior) | 0 (atual) | +1 (próximo)
   const mkSection = (delta, role) => {
     const sec = document.createElement('div');
@@ -1741,11 +1697,25 @@ function renderBibleReading(wrap) {
     read.appendChild(hint);
   }
 
+  // Rodapé: seletor de versão + referência atual (lado a lado). O status
+  // offline/progresso NÃO fica mais aqui — só dentro do popup de versões.
+  const foot = document.createElement('div'); foot.className = 'bible-read-foot';
+  if (bibleVersions.length) {
+    const verBtn = document.createElement('button'); verBtn.type = 'button'; verBtn.className = 'bible-ver-btn';
+    const label = document.createElement('span'); label.className = 'bible-ver-label';
+    label.textContent = bibleVersionName(bibleVersionId) || 'Versão';
+    const caret = document.createElement('span'); caret.className = 'bible-ver-caret';
+    caret.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+    verBtn.append(label, caret);
+    verBtn.addEventListener('click', openBibleVerPopup);
+    foot.appendChild(verBtn);
+  }
   const v = s.verses[s.idx];
   const refBtn = document.createElement('button'); refBtn.type = 'button'; refBtn.className = 'bible-read-ref';
   refBtn.textContent = s.bookName + ' ' + s.chapter + ':' + v.n;
   refBtn.addEventListener('click', () => gotoBibleScreen('books'));
-  read.appendChild(refBtn);
+  foot.appendChild(refBtn);
+  read.appendChild(foot);
   wrap.appendChild(read);
 }
 

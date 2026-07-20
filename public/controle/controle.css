@@ -647,9 +647,6 @@ main {
 /* Aviso/estado (baixando versículos, sem rede etc.) */
 .bible-note { color: var(--muted); font-size: .82rem; line-height: 1.5; text-align: center; padding: .8rem .4rem; }
 .bible-note.err { color: var(--gold-text); }
-/* status do download da versão inteira (progresso ao vivo / completa) */
-.bible-dl { padding: .2rem .4rem .5rem; font-size: .74rem; font-weight: 600; color: var(--accent); }
-.bible-dl.done { color: var(--success); }
 
 .bible-grid { display: grid; gap: 6px; grid-template-columns: repeat(6, 1fr); }
 /* capítulos/versículos: células menores (só números), mais colunas. */
@@ -701,9 +698,9 @@ main {
 
 /* ---------- Bíblia: tela de leitura (versículo anterior/atual/próximo) ---------- */
 .bible-read { display: flex; flex-direction: column; gap: .5rem; padding-bottom: .6rem; }
-/* cabeçalho: seletor de versão + status offline lado a lado */
-.bible-read-head { display: flex; align-items: center; gap: .5rem .8rem; flex-wrap: wrap; }
-.bible-read-head .bible-dl { padding: 0; }
+/* rodapé: seletor de versão + referência atual lado a lado */
+.bible-read-foot { display: flex; align-items: center; justify-content: center; gap: .5rem; flex-wrap: wrap; margin-top: .3rem; }
+.bible-read-foot .bible-ver-btn { align-self: auto; }
 /* indicador de salto pro capítulo/livro vizinho (preview anterior/próximo) */
 .bible-vsec.cross { border-style: dashed; }
 .bible-vsec-cross { font-size: .6rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--gold); }
