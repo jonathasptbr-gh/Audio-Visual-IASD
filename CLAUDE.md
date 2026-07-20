@@ -66,7 +66,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.69.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.71.**
 
 ---
 
@@ -1341,6 +1341,15 @@ Bíblia (ARA)… N/1189" / "✓ completa offline"); ao terminar sem falhas marca
 operador de fato abre a aba Bíblia), e a leitura por capítulo
 (`loadBibleChapter`) continua baixando sob demanda como fallback se o operador
 abrir um capítulo antes de o download em massa chegar nele.
+
+**Persistência offline (não some entre sessões)**: os capítulos ficam no
+IndexedDB (`state`, durável por natureza — sobrevive a fechar/reabrir o app e a
+atualizações de service worker, que só trocam o cache de assets estáticos). Além
+disso, `enterBibleTab()` pede `navigator.storage.persist()` — **a mesma
+proteção do sync de músicas/pastas** — para o browser não descartar a origin sob
+pressão de espaço (é origin-wide e idempotente). O download é **resumível**:
+cada capítulo é gravado assim que chega, então uma interrupção não perde o que
+já baixou — a reabertura pula o que está em cache e continua de onde parou.
 
 > O texto de cada versículo pode conter marcação HTML (o app original renderiza
 > com `v-html`); aqui `Bible.stripHtml()` extrai **texto puro** (troca de string,
