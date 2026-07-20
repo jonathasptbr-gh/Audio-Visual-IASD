@@ -66,7 +66,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.71.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.72.**
 
 ---
 
@@ -1241,7 +1241,7 @@ anterior (`vh`/`vw` + pisos/tetos em `rem`/`px`) tinha:
   `.pv-lyrics-content` não têm padding em `cq*` (só
   `padding-bottom: env(safe-area-inset-bottom)` no Display, pela margem de
   gestos) — `.lyrics-box` já é dimensionado como fração desse mesmo
-  container (`80cqw`/`36cqh` no Display, `92cqw`/`60cqh` na preview) e o
+  container (`76cqw`/`32cqh` no Display, `92cqw`/`60cqh` na preview) e o
   espaço que sobra vira margem sozinho via `align-items`/
   `justify-content: center`. Um padding em `cq*` no container encolheria o
   content-box, e a caixa (também em `cq*`, mas relativa a esse content-box
@@ -1252,8 +1252,8 @@ anterior (`vh`/`vw` + pisos/tetos em `rem`/`px`) tinha:
 **Proporções calibradas por medição em pixel** de um vídeo de louvor de
 referência (moldura ~76-80% da largura da tela / ~27-36% da altura; fonte da
 letra com cap-height ~8,3% da altura da tela). Valores atuais: `.lyrics-line`
-em `8cqmin`, `.lyrics-aux` em `4.2cqmin`, capa em `9.5cqmin`, caixa em
-`80cqw`/`36cqh` no Display; na preview (calibrada à parte — sua caixa é
+em `8cqmin`, `.lyrics-aux` em `4.2cqmin`, capa em `9.5cqmin`, caixa **fixa e
+compacta** em `76cqw`/`32cqh` no Display; na preview (calibrada à parte — sua caixa é
 proporcionalmente mais larga, `92cqw`, então a fonte precisa de uma razão
 menor pra caber) `.pv-lyrics-line` em `9.3cqmin`, `.pv-lyrics-aux` em
 `4.9cqmin`, capa em `10.5cqmin`, caixa em `92cqw`/`60cqh`. `overflow:hidden`
@@ -1356,19 +1356,27 @@ já baixou — a reabertura pula o que está em cache e continua de onde parou.
 > **sem** `innerHTML` — `<br>`→espaço, tags removidas, entidades comuns
 > decodificadas), no mesmo espírito do `normalizeLyricText` da letra.
 
-### Seleção em "tabela periódica" (três telas)
+**Versão padrão: Almeida Revista e Atualizada** (`pickDefaultBibleVersion` casa
+por nome — "revista e atualizada"/"RA"/"ARA"; senão a 1ª disponível). A troca de
+versão fica num **botão seletor** (`.bible-ver-btn`, com a versão atual) que abre
+o **popup** `#bibleVerPopup` com a lista — a lista não fica mais toda exposta em
+chips. Persistido em `state.bibleVersion`; trocar dispara o download da nova
+versão inteira.
 
-`renderBible()` despacha por `bibleScreen` (`'books'`|`'chapters'`|`'verses'`),
-renderizando dentro de `#library` uma **grade de células no estilo de uma tabela
-periódica** (`.bible-grid` + `.bible-cell`): cada célula é um "símbolo" (a
-abreviação do livro, ou o número do capítulo/versículo), com um índice pequeno no
-canto (como o número atômico) e uma faixa de cor de "categoria" à esquerda
-(dourado = Antigo Testamento, azul = Novo). Fluxo: **livros → capítulos →
-versículos**, uma tela para cada; o botão voltar (`#backBtn`) recua uma tela
-(`navigateBack` é `bible`-aware, `gotoBibleScreen`), e `#listTitle` mostra o
-contexto ("Bíblia — Livros", "João — Capítulos", "João 3 — Versículos"). Se há
-mais de uma versão baixada, uma barra de chips (`.bible-versions`) no topo da
-tela de livros permite trocar (persistido em `state.bibleVersion`).
+### Seleção em "tabela periódica" (quatro telas)
+
+`renderBible()` despacha por `bibleScreen`
+(`'books'`|`'chapters'`|`'verses'`|`'reading'`), renderizando dentro de `#library`
+uma **grade de células no estilo de uma tabela periódica** (`.bible-grid` +
+`.bible-cell`): cada célula é um "símbolo" (a abreviação do livro, ou o número do
+capítulo/versículo). Os **blocos de livro são preenchidos por inteiro com a cor
+do grupo/divisão canônica** (campo `g` em `bible.js` → classe `.bg-<g>`: `lei`,
+`historicos`, `poeticos`, `pmaiores`, `pmenores`, `evangelhos`, `atos`,
+`paulinas`, `gerais`, `apocalipse` — os mesmos agrupamentos da tabela de
+referência, cores próprias) — **sem** número de índice. Capítulos/versículos
+(`.bible-cell--num`) ficam neutros. Fluxo: **livros → capítulos → versículos →
+leitura**; o botão voltar (`#backBtn`) recua uma tela (`navigateBack` é
+`bible`-aware, `gotoBibleScreen`), e `#listTitle` mostra o contexto.
 
 Tocar num **capítulo** dispara `loadBibleChapter()`, que lê o cache ou **baixa o
 capítulo na hora** (`Bible.fetchChapter`, gravado em `state`) — com estados de
@@ -1376,21 +1384,31 @@ capítulo na hora** (`Bible.fetchChapter`, gravado em `state`) — com estados d
 (`.bible-note`). Guarda de sequência (`bibleLoadSeq`) descarta downloads
 obsoletos numa troca rápida.
 
-### Projeção e navegação por slide
+### Tela de leitura + projeção e navegação por slide
 
 Tocar num **versículo** (`startBibleReading`) inicia uma **sessão de leitura**
-(`bibleSession = { versionId, bookIdx, bookId, bookName, chapter, verses, idx }`)
-e projeta o versículo (`projectBibleVerse`). A projeção é uma **camada paralela**
-(mesmo modelo do YouTube/letra): o comando `bible` (`{ ref, text, version,
-view }`) mostra a referência (dourada) + o texto do versículo num cartão central,
-tanto no **Display** (`#bible` layer, ver abaixo) quanto na **preview** do
-Controle (`#pvBible`, `showPvBible`) — a preview sempre espelha o telão.
+(`bibleSession = { versionId, bookIdx, bookId, bookName, chapter, verses, idx }`),
+abre a tela `'reading'` e projeta o versículo (`projectBibleVerse`). A tela de
+leitura (`renderBibleReading`, `.bible-read`) mostra **três seções empilhadas** —
+versículo **anterior / atual / próximo** (`.bible-vsec`, o atual destacado; tocar
+no anterior/próximo pula pra ele) — e, embaixo, a **referência atual num botão**
+(`.bible-read-ref`) que **volta direto para a seleção de livros** (`gotoBibleScreen('books')`).
+
+A projeção é uma **camada paralela** (mesmo modelo do YouTube/letra): o comando
+`bible` (`{ ref, text, version, view }`) mostra o **texto do versículo com a
+referência (dourada) ABAIXO dele** num cartão central de **tamanho fixo**, tanto
+no **Display** (`#bible` layer, ver abaixo) quanto na **preview** do Controle
+(`#pvBible`, `showPvBible`) — a preview sempre espelha o telão.
 
 Os **controles de slide** (`#slidePrevBtn`/`#slideNextBtn`, e os gestos
 invisíveis da preview em tela cheia) **passam/voltam versículos** quando há
-sessão ativa: `stepSlide` e `renderSlideNav` checam `bibleSession` antes da
-letra sincronizada, chamando `bibleStep` (fica dentro do capítulo; nos extremos
-os botões desabilitam). Cada troca reenvia um novo comando `bible` (não `seek` —
+sessão ativa: `stepSlide` e `renderSlideNav` checam `bibleSession` antes da letra
+sincronizada, chamando `bibleStep`. **No fim do último versículo do capítulo,
+`bibleStep` pula para o 1º versículo do capítulo seguinte — cruzando para o
+próximo LIVRO se preciso** (`nextChapterRef`/`prevChapterRef` +
+`bibleGotoChapter`, que baixa o capítulo vizinho sob demanda e faz a seleção
+acompanhar); os botões só desabilitam no começo (Gn 1:1) e no fim (Ap, último
+versículo) da Bíblia. Cada troca reenvia um novo comando `bible` (não `seek` —
 não há áudio/tempo). O `#npName` mostra a referência atual; `play`/`pause` viram
 no-op (sem mídia com tempo). Uma **mídia comum** assumindo a cena (`send`) ou o
 **stop** (`stopClear`) encerram a leitura (`clearBibleSession` + o Display/preview
@@ -1411,8 +1429,12 @@ mídia), inserido entre `#lyrics` e `#youtube` — a cortina do wallpaper
 `load`/`stop`/`clear` chamam `hideBible()` e seguem o fluxo normal; os demais
 comandos não têm efeito. O cartão (`.bible-box`) usa o mesmo redimensionamento
 por Container Queries da letra (`container-type:size` + `cq*`), mas em prosa
-(caixa-baixa, `-webkit-line-clamp:9`), com a moldura sempre visível (o texto é
-sempre projetado sobre o preto).
+(caixa-baixa), com a moldura sempre visível (o texto é sempre projetado sobre o
+preto). É de **tamanho FIXO** (`width`/`height` fixos, não `max-*` — não
+cresce/encolhe com o versículo) e o menor razoável, pra ocupar pouco da tela/
+imagem de fundo; a **referência fica ABAIXO do texto** (ordem no DOM) e
+versículos muito longos são cortados com reticências (`-webkit-line-clamp` +
+`overflow:hidden`) — o operador vê o texto inteiro na tela de leitura do Controle.
 
 ---
 

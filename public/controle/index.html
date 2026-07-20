@@ -14,7 +14,7 @@
 <body>
   <header class="appbar">
     <span class="app-name">Audio Visual <b>IASD</b></span>
-    <span class="app-version">Controle v4.71</span>
+    <span class="app-version">Controle v4.72</span>
   </header>
 
   <main>
@@ -116,8 +116,8 @@
           <div id="pvBible" class="pv-layer pv-bible" hidden>
             <div class="pv-bible-content" id="pvBibleContent">
               <div class="pv-bible-box">
-                <div class="pv-bible-ref" id="pvBibleRef"></div>
                 <div class="pv-bible-text" id="pvBibleText"></div>
+                <div class="pv-bible-ref" id="pvBibleRef"></div>
               </div>
             </div>
           </div>
@@ -254,6 +254,17 @@
         <input id="hymnSearchInput" class="lib-search" type="search" placeholder="Buscar por nome ou número…">
       </div>
       <ul id="hymnResults" class="popup-list"></ul>
+    </div>
+  </div>
+
+  <!-- popup de seleção da versão da Bíblia (bottom sheet) -->
+  <div id="bibleVerPopup" class="popup-backdrop">
+    <div class="popup-sheet">
+      <div class="popup-header">
+        <span class="popup-title">Versão da Bíblia</span>
+        <button id="bibleVerClose" class="popup-close" title="Fechar"><span class="msym">&#xe14c;</span></button>
+      </div>
+      <ul id="bibleVerList" class="popup-list"></ul>
     </div>
   </div>
 

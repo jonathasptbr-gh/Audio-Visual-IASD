@@ -77,6 +77,9 @@ const hymnSearchInputEl = document.getElementById('hymnSearchInput');
 const hymnResultsEl = document.getElementById('hymnResults');
 const hymnSearchCountEl = document.getElementById('hymnSearchCount');
 const hymnSearchTitleEl = document.getElementById('hymnSearchTitle');
+const bibleVerPopupEl = document.getElementById('bibleVerPopup');
+const bibleVerListEl = document.getElementById('bibleVerList');
+const bibleVerCloseEl = document.getElementById('bibleVerClose');
 // Escopo da busca/lista: null = busca global no acervo (botão de lupa);
 // coll.id = lista de músicas de UMA coleção (botão "Ver músicas" do card).
 let searchScope = null;
@@ -1042,11 +1045,14 @@ function renderListTitle() {
     libSearchEl.hidden = true; libSearchEl.value = '';
     listTitleEl.hidden = false;
     const book = bibleSel.bookIdx >= 0 ? Bible.BOOKS[bibleSel.bookIdx] : null;
+    const bn = book ? book.name : '';
     listTitleEl.textContent = bibleScreen === 'chapters'
-      ? (book ? book.name : '') + ' — Capítulos'
+      ? bn + ' — Capítulos'
       : bibleScreen === 'verses'
-        ? (book ? book.name : '') + ' ' + bibleSel.chapter + ' — Versículos'
-        : 'Bíblia — Livros';
+        ? bn + ' ' + bibleSel.chapter + ' — Versículos'
+        : bibleScreen === 'reading'
+          ? bn + ' ' + bibleSel.chapter + ' — Leitura'
+          : 'Bíblia — Livros';
     return;
   }
   const inFolder = activeTab === 'folders' && currentFolder !== null;
@@ -1136,11 +1142,12 @@ async function ensureBibleMeta(force) {
       if (fetched.length) { bibleVersions = fetched; await AVDB.setState('bibleVersions', fetched); }
     } catch (_) {}
   }
-  // versão selecionada (padrão: a primeira)
+  // versão selecionada (padrão: Almeida Revista e Atualizada — ver
+  // pickDefaultBibleVersion; senão a 1ª disponível)
   if (bibleVersionId == null) {
     const saved = await AVDB.getState('bibleVersion');
     bibleVersionId = (saved != null && bibleVersions.some((v) => v.id === saved))
-      ? saved : (bibleVersions[0] ? bibleVersions[0].id : null);
+      ? saved : pickDefaultBibleVersion(bibleVersions);
   }
   // livros (ids reais)
   if (!bibleBooksOnline) bibleBooksOnline = (await AVDB.getState('bibleBooks')) || null;
@@ -1154,6 +1161,42 @@ async function ensureBibleMeta(force) {
     bibleCompleteVersions.add(bibleVersionId);
   }
   if (activeTab === 'bible') renderLibrary();
+}
+
+// Versão padrão: Almeida Revista e Atualizada (RA/ARA) quando existir no banco,
+// senão a primeira disponível.
+function pickDefaultBibleVersion(versions) {
+  if (!versions.length) return null;
+  const ra = versions.find((v) => /revista\s+e\s+atualizada|\bara\b|(^|\s)ra(\s|$)/i.test(v.name || ''));
+  return (ra || versions[0]).id;
+}
+
+// Popup de seleção de versão (bottom-sheet) — a lista não fica mais toda
+// exposta em chips; um botão com a versão atual abre esta lista.
+function openBibleVerPopup() {
+  renderBibleVerList();
+  bibleVerPopupEl.classList.add('open');
+}
+function closeBibleVerPopup() { bibleVerPopupEl.classList.remove('open'); }
+function renderBibleVerList() {
+  bibleVerListEl.innerHTML = '';
+  bibleVersions.forEach((v) => {
+    const li = document.createElement('li');
+    const row = document.createElement('div');
+    row.className = 'row bible-ver-row' + (v.id === bibleVersionId ? ' selected' : '');
+    const name = document.createElement('span'); name.className = 'row-name'; name.textContent = v.name;
+    row.appendChild(name);
+    if (v.id === bibleVersionId) { const chk = document.createElement('span'); chk.textContent = '✓'; chk.className = 'bible-ver-check'; row.appendChild(chk); }
+    row.addEventListener('click', () => {
+      closeBibleVerPopup();
+      if (bibleVersionId === v.id) return;
+      bibleVersionId = v.id; AVDB.setState('bibleVersion', v.id);
+      renderLibrary();
+      ensureBibleVersionDownloaded(v.id); // baixa a versão inteira na 1ª vez
+    });
+    li.appendChild(row);
+    bibleVerListEl.appendChild(li);
+  });
 }
 
 // Entrada na aba Bíblia: garante os metadados e dispara o download da versão
@@ -1259,6 +1302,7 @@ function renderBible() {
   wrap.className = 'bible-wrap';
   if (bibleScreen === 'chapters') renderBibleChapters(wrap);
   else if (bibleScreen === 'verses') renderBibleVerses(wrap);
+  else if (bibleScreen === 'reading') renderBibleReading(wrap);
   else renderBibleBooks(wrap);
   libraryEl.appendChild(wrap);
 }
@@ -1267,10 +1311,6 @@ function bibleCell(sym, opts) {
   const cell = document.createElement('button');
   cell.type = 'button';
   cell.className = 'bible-cell' + (opts && opts.cls ? ' ' + opts.cls : '') + (opts && opts.active ? ' active' : '');
-  if (opts && opts.num != null) {
-    const n = document.createElement('span'); n.className = 'bible-cell-num'; n.textContent = opts.num;
-    cell.appendChild(n);
-  }
   const s = document.createElement('span'); s.className = 'bible-cell-sym'; s.textContent = sym;
   cell.appendChild(s);
   if (opts && opts.name) {
@@ -1281,21 +1321,17 @@ function bibleCell(sym, opts) {
 }
 
 function renderBibleBooks(wrap) {
-  // barra de versões (só se houver mais de uma baixada)
-  if (bibleVersions.length > 1) {
-    const vb = document.createElement('div'); vb.className = 'bible-versions';
-    bibleVersions.forEach((v) => {
-      const chip = document.createElement('button'); chip.type = 'button';
-      chip.className = 'bible-ver-chip' + (v.id === bibleVersionId ? ' active' : '');
-      chip.textContent = v.name;
-      chip.addEventListener('click', () => {
-        if (bibleVersionId === v.id) return;
-        bibleVersionId = v.id; AVDB.setState('bibleVersion', v.id); renderLibrary();
-        ensureBibleVersionDownloaded(v.id); // baixa a versão inteira na 1ª vez
-      });
-      vb.appendChild(chip);
-    });
-    wrap.appendChild(vb);
+  // Seletor de versão: um botão com a versão atual que abre o popup (a lista
+  // não fica mais toda exposta). Só aparece se houver ao menos uma versão.
+  if (bibleVersions.length) {
+    const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'bible-ver-btn';
+    const label = document.createElement('span'); label.className = 'bible-ver-label';
+    label.textContent = bibleVersionName(bibleVersionId) || 'Versão';
+    const caret = document.createElement('span'); caret.className = 'bible-ver-caret';
+    caret.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+    btn.append(label, caret);
+    btn.addEventListener('click', openBibleVerPopup);
+    wrap.appendChild(btn);
   }
   // Status do download da versão inteira (progresso ao vivo ou "completa").
   const dlRunningHere = bibleDl && bibleDl.versionId === bibleVersionId;
@@ -1313,7 +1349,7 @@ function renderBibleBooks(wrap) {
   }
   const grid = document.createElement('div'); grid.className = 'bible-grid';
   Bible.BOOKS.forEach((b, i) => {
-    const cell = bibleCell(b.abbr, { num: i + 1, name: b.name, cls: b.t });
+    const cell = bibleCell(b.abbr, { name: b.name, cls: 'bg-' + b.g });
     cell.title = b.name;
     cell.addEventListener('click', () => { bibleSel = { bookIdx: i, chapter: 0 }; gotoBibleScreen('chapters'); });
     grid.appendChild(cell);
@@ -1400,7 +1436,7 @@ async function loadBibleChapter() {
 }
 
 // Inicia a leitura a partir do versículo `i` (índice na lista do capítulo):
-// define a sessão e projeta o versículo.
+// define a sessão, abre a tela de leitura e projeta o versículo.
 function startBibleReading(i) {
   if (!bibleChapterData || !bibleChapterData.verses.length) return;
   const book = Bible.BOOKS[bibleSel.bookIdx];
@@ -1413,6 +1449,8 @@ function startBibleReading(i) {
     verses: bibleChapterData.verses,
     idx: i,
   };
+  bibleScreen = 'reading';
+  renderListTitle();
   projectBibleVerse(i);
 }
 
@@ -1430,9 +1468,9 @@ function projectBibleVerse(idx) {
   renderControls();
   renderNowPlaying();
   renderSlideNav();
-  // Re-render pra atualizar o destaque do versículo atual, preservando o scroll
-  // (capítulos longos — ex.: Salmo 119 — não devem saltar pro topo a cada troca).
-  if (activeTab === 'bible' && bibleScreen === 'verses') {
+  // Re-render pra atualizar a tela de leitura / o destaque do versículo,
+  // preservando o scroll (capítulos longos não saltam pro topo a cada troca).
+  if (activeTab === 'bible' && (bibleScreen === 'reading' || bibleScreen === 'verses')) {
     const sp = libraryEl.scrollTop;
     renderLibrary();
     libraryEl.scrollTop = sp;
@@ -1444,22 +1482,116 @@ function bibleVersionName(id) {
   return v ? v.name : '';
 }
 
-// Passa/volta um versículo (reusa os botões de slide). Fica dentro do capítulo
-// (nos extremos os botões ficam desabilitados — ver renderSlideNav).
-function bibleStep(delta) {
-  if (!bibleSession) return;
-  const t = Math.min(Math.max(bibleSession.idx + delta, 0), bibleSession.verses.length - 1);
-  if (t === bibleSession.idx) return;
-  projectBibleVerse(t);
+// Referência do capítulo vizinho (cruza para o próximo/anterior LIVRO nos
+// extremos). null = fim/início da Bíblia.
+function nextChapterRef(bookIdx, chapter) {
+  const b = Bible.BOOKS[bookIdx];
+  if (chapter < b.chapters) return { bookIdx, chapter: chapter + 1 };
+  if (bookIdx < Bible.BOOKS.length - 1) return { bookIdx: bookIdx + 1, chapter: 1 };
+  return null;
+}
+function prevChapterRef(bookIdx, chapter) {
+  if (chapter > 1) return { bookIdx, chapter: chapter - 1 };
+  if (bookIdx > 0) return { bookIdx: bookIdx - 1, chapter: Bible.BOOKS[bookIdx - 1].chapters };
+  return null;
+}
+
+// Lê (do cache) ou baixa o texto de um capítulo — [{ n, text }]. Lança se não
+// houver cache nem rede.
+async function fetchBibleChapterCached(versionId, bookIdx, chapter) {
+  const bId = bibleBookId(bookIdx);
+  const key = 'bible:' + versionId + '_' + bId + '_' + chapter;
+  let cached = await AVDB.getState(key);
+  if (!cached || !cached.verses || !cached.verses.length) {
+    const vs = await Bible.fetchChapter(versionId, bId, chapter);
+    if (!vs.length) throw new Error('vazio');
+    cached = { verses: vs, syncedAt: Date.now() };
+    await AVDB.setState(key, cached);
+  }
+  return cached.verses;
+}
+
+// Move a sessão de leitura para outro capítulo (cruza livro nos extremos),
+// baixando o texto se necessário. want: 'first' | 'last'.
+async function bibleGotoChapter(bookIdx, chapter, want) {
+  const s = bibleSession;
+  if (!s) return;
+  let verses;
+  try { verses = await fetchBibleChapterCached(s.versionId, bookIdx, chapter); }
+  catch (_) { return; } // sem cache e sem rede: fica onde está
+  if (!bibleSession || bibleSession !== s) return; // a sessão trocou durante o await
+  const book = Bible.BOOKS[bookIdx];
+  bibleSession = {
+    versionId: s.versionId, bookIdx, bookId: bibleBookId(bookIdx),
+    bookName: book.name, chapter, verses, idx: want === 'last' ? verses.length - 1 : 0,
+  };
+  // A seleção acompanha a leitura (grid de versículos e título seguem o capítulo).
+  bibleSel = { bookIdx, chapter };
+  bibleChapterData = { verses };
+  renderListTitle();
+  projectBibleVerse(bibleSession.idx);
+}
+
+// Passa/volta um versículo (reusa os botões de slide). No fim do último
+// versículo do capítulo, pula para o 1º do capítulo seguinte (indo para o
+// próximo LIVRO, se preciso); no início, volta para o último do anterior.
+async function bibleStep(delta) {
+  const s = bibleSession;
+  if (!s) return;
+  const t = s.idx + delta;
+  if (t >= 0 && t < s.verses.length) { projectBibleVerse(t); return; }
+  if (delta > 0) {
+    const nx = nextChapterRef(s.bookIdx, s.chapter);
+    if (nx) await bibleGotoChapter(nx.bookIdx, nx.chapter, 'first');
+  } else {
+    const pv = prevChapterRef(s.bookIdx, s.chapter);
+    if (pv) await bibleGotoChapter(pv.bookIdx, pv.chapter, 'last');
+  }
+}
+
+// Tela de LEITURA: versículo anterior / atual / próximo empilhados, e a
+// referência atual num botão que volta para a seleção de livros.
+function renderBibleReading(wrap) {
+  const s = bibleSession;
+  if (!s) { gotoBibleScreen('books'); return; }
+  const read = document.createElement('div'); read.className = 'bible-read';
+  const mkSection = (i, role) => {
+    const sec = document.createElement('div');
+    const v = s.verses[i];
+    if (!v) {
+      sec.className = 'bible-vsec ' + role + ' empty';
+      const t = document.createElement('div'); t.className = 'bible-vsec-text'; t.textContent = '—';
+      sec.appendChild(t);
+      return sec;
+    }
+    sec.className = 'bible-vsec ' + role;
+    const ref = document.createElement('div'); ref.className = 'bible-vsec-ref';
+    ref.textContent = s.bookName + ' ' + s.chapter + ':' + v.n;
+    const txt = document.createElement('div'); txt.className = 'bible-vsec-text'; txt.textContent = v.text;
+    sec.append(ref, txt);
+    if (role === 'adj') sec.addEventListener('click', () => projectBibleVerse(i));
+    return sec;
+  };
+  read.appendChild(mkSection(s.idx - 1, 'adj'));
+  read.appendChild(mkSection(s.idx, 'cur'));
+  read.appendChild(mkSection(s.idx + 1, 'adj'));
+  const v = s.verses[s.idx];
+  const refBtn = document.createElement('button'); refBtn.type = 'button'; refBtn.className = 'bible-read-ref';
+  refBtn.textContent = s.bookName + ' ' + s.chapter + ':' + v.n;
+  refBtn.addEventListener('click', () => gotoBibleScreen('books'));
+  read.appendChild(refBtn);
+  wrap.appendChild(read);
 }
 
 // Encerra o modo de leitura bíblica (quando uma mídia comum assume, ou stop).
 function clearBibleSession() {
   if (!bibleSession) return;
   bibleSession = null;
+  // A tela de leitura depende da sessão: sem ela, volta pra seleção de versículos.
+  if (bibleScreen === 'reading') bibleScreen = 'verses';
   renderSlideNav();
   renderNowPlaying();
-  if (activeTab === 'bible') renderLibrary();
+  if (activeTab === 'bible') { renderLibrary(); renderListTitle(); }
 }
 
 function renderLibrary() {
@@ -1873,10 +2005,14 @@ function stepSlide(delta) {
 // Habilita/desabilita os botões de estrofe conforme o item atual tem letra
 // sincronizada e a posição dentro dela (desabilita no primeiro/último slide).
 function renderSlideNav() {
-  // Leitura bíblica: habilita conforme a posição do versículo no capítulo.
+  // Leitura bíblica: só desabilita no começo (Gn 1:1) e no fim (Ap, último
+  // versículo) da Bíblia — nos limites de capítulo cruza para o vizinho.
   if (bibleSession) {
-    slidePrevBtnEl.disabled = bibleSession.idx <= 0;
-    slideNextBtnEl.disabled = bibleSession.idx >= bibleSession.verses.length - 1;
+    const s = bibleSession;
+    const lastBook = Bible.BOOKS.length - 1;
+    slidePrevBtnEl.disabled = (s.bookIdx === 0 && s.chapter === 1 && s.idx === 0);
+    slideNextBtnEl.disabled = (s.bookIdx === lastBook
+      && s.chapter === Bible.BOOKS[lastBook].chapters && s.idx === s.verses.length - 1);
     return;
   }
   const lyrics = currentItem && Array.isArray(currentItem.lyrics) ? currentItem.lyrics : null;
@@ -2154,7 +2290,8 @@ function openFolder(folder) {
 
 function navigateBack() {
   if (activeTab === 'bible') {
-    if (bibleScreen === 'verses') gotoBibleScreen('chapters');
+    if (bibleScreen === 'reading') gotoBibleScreen('verses');
+    else if (bibleScreen === 'verses') gotoBibleScreen('chapters');
     else if (bibleScreen === 'chapters') gotoBibleScreen('books');
     return;
   }
@@ -3300,6 +3437,8 @@ libSearchEl.addEventListener('input', () => { folderQuery = libSearchEl.value; r
 
 hymnSearchBtnEl.addEventListener('click', openHymnSearch);
 hymnSearchCloseEl.addEventListener('click', closeHymnSearch);
+bibleVerCloseEl.addEventListener('click', closeBibleVerPopup);
+bibleVerPopupEl.addEventListener('click', (e) => { if (e.target === bibleVerPopupEl) closeBibleVerPopup(); });
 hymnSearchPopupEl.addEventListener('click', (e) => { if (e.target === hymnSearchPopupEl) closeHymnSearch(); });
 hymnSearchInputEl.addEventListener('input', () => renderSearchResults(hymnSearchInputEl.value));
 
