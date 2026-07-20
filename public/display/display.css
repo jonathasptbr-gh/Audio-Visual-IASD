@@ -132,10 +132,10 @@ html, body {
    classe, `background`/`border` ficam `transparent`, e é como se a letra
    estivesse "solta" direto sobre o preto. */
 .lyrics-box {
-  width: 80cqw;
-  height: 36cqh;
+  width: 76cqw;
+  height: 32cqh;
   box-sizing: border-box;
-  padding: 3cqh 4cqw;
+  padding: 2.5cqh 4cqw;
   border-radius: 0;
   background: transparent;
   border: 1.5px solid transparent;
@@ -197,33 +197,37 @@ html, body {
   padding-bottom: max(6cqh, env(safe-area-inset-bottom));
   box-sizing: border-box; font-family: system-ui, sans-serif;
 }
+/* Tamanho FIXO (não cresce/encolhe com o texto do versículo) e o menor
+   razoável — pra ocupar pouco da tela/imagem de fundo. A referência fica
+   ABAIXO do texto (ordem no DOM). overflow:hidden + o line-clamp são a
+   garantia contra vazamento (versículos muito longos são cortados com
+   reticências — o operador vê o texto inteiro no Controle). */
 .bible-box {
-  max-width: 88cqw;
-  max-height: 82cqh;
+  width: 80cqw;
+  height: 46cqh;
   box-sizing: border-box;
-  padding: 4cqh 5cqw;
+  padding: 3cqh 4.5cqw;
   border-radius: 0;
   background: var(--lyrics-frame-bg);
   border: 1.5px solid var(--lyrics-frame-border);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 2.4cqh;
+  gap: 1.6cqh;
   text-align: center; overflow: hidden;
-}
-/* Referência (ex: "João 3:16") — dourado, destaque, sempre 1 linha. */
-.bible-ref {
-  color: var(--gold); font-weight: 700;
-  font-size: 5.4cqmin; line-height: 1.2; letter-spacing: .02em;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
 }
 /* Texto do versículo — prosa legível. cqmin (não cqh puro) pela mesma razão
    da letra: em proporção estreita a fonte não pode crescer com a altura além
-   do que a largura permite. Clamp generoso pra caber versículos longos sem
-   estourar; overflow:hidden é a garantia final contra vazamento. */
+   do que a largura permite. */
 .bible-text {
   color: #fff; font-weight: 500;
-  font-size: 5.4cqmin; line-height: 1.36;
+  font-size: 4.8cqmin; line-height: 1.32;
   white-space: pre-line;
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 9; overflow: hidden;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 5; overflow: hidden;
+}
+/* Referência (ex: "João 3:16") — dourado, ABAIXO do texto, sempre 1 linha. */
+.bible-ref {
+  color: var(--gold); font-weight: 700;
+  font-size: 4.2cqmin; line-height: 1.2; letter-spacing: .02em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
 }
 
 /* Fundo preto evita flash branco enquanto o player do YouTube carrega.
