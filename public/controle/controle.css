@@ -97,18 +97,11 @@ body {
   overflow: hidden;
 }
 
-/* ---------- Cabeçalho do app ---------- */
-.appbar {
-  flex-shrink: 0;
-  background: var(--bar);
-  padding: .45rem .9rem;
-  padding-top: calc(.45rem + env(safe-area-inset-top));
-  border-bottom: 1px solid var(--line);
-  display: flex; align-items: center; justify-content: space-between;
-}
-.app-name { font-size: .95rem; font-weight: 700; letter-spacing: .03em; }
-.app-name b { color: var(--gold); }
+/* ---------- Indicador de versão (no cabeçalho da lista) ----------
+   A barra de topo do app foi removida; a versão aparece só ao lado do título
+   da aba Cronograma (ver renderListTitle / #appVersion). */
 .app-version {
+  flex-shrink: 0;
   font-size: .7rem; color: var(--muted);
   background: var(--surface-2); border-radius: var(--radius-pill); padding: 2px .55rem;
 }
@@ -415,7 +408,9 @@ body {
 /* ---------- Conteúdo principal ---------- */
 main {
   flex: 1; min-height: 0; overflow: hidden;
-  padding: .8rem; display: flex; flex-direction: column; gap: .7rem;
+  /* padding-top inclui a safe-area (notch/status bar) já que não há mais appbar */
+  padding: calc(.6rem + env(safe-area-inset-top)) .8rem .8rem;
+  display: flex; flex-direction: column; gap: .7rem;
 }
 
 /* ---------- Título da lista ativa ---------- */
@@ -430,12 +425,11 @@ main {
 .back-btn .msym { font-size: 20px; }
 
 /* ---------- Abas (ícones) ---------- */
-/* Seção das abas com fundo próprio (mais claro que o app, --panel-2), virando
-   uma "barra" contida com cantos arredondados. O botão de importar fica à
-   ESQUERDA (1º filho no HTML) e o de busca à direita; as 3 abas (flex:1) no meio. */
+/* As abas ficam MESCLADAS ao fundo normal do app (sem card/seção isolada) — o
+   botão de importar fica à ESQUERDA (1º filho no HTML) e o de busca à direita;
+   as abas (flex:1) no meio. */
 .tabs {
   display: flex; gap: .3rem; align-items: center; flex-shrink: 0;
-  background: var(--panel-2); border-radius: var(--radius-card); padding: .25rem;
 }
 
 /* Botão de playlist: mora na linha de transporte (.transport), à direita dos
@@ -711,9 +705,14 @@ main {
 .bible-vsec:active { transform: var(--press); }
 .bible-vsec.adj { opacity: .6; }             /* anterior / próximo (contexto) */
 .bible-vsec.cur { border-color: var(--accent); background: var(--panel-2); opacity: 1; }
+/* central EM EXIBIÇÃO ("no ar") — destaque verde */
+.bible-vsec.cur.live { border-color: var(--success); }
+.bible-vsec.cur.live .bible-vsec-ref { color: var(--success); }
 .bible-vsec.empty { opacity: .4; cursor: default; font-style: italic; }
 .bible-vsec-ref { font-size: .64rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
 .bible-vsec.cur .bible-vsec-ref { color: var(--accent); }
+/* dica enquanto a exibição não foi ativada */
+.bible-read-hint { text-align: center; font-size: .74rem; color: var(--muted); padding: .1rem 0 .2rem; }
 .bible-vsec-text { font-size: .9rem; line-height: 1.4; color: var(--text); }
 .bible-vsec.adj .bible-vsec-text { font-size: .82rem; }
 /* botão com a referência atual — volta pra seleção de livros ao tocar */
