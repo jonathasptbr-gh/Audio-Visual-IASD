@@ -1159,6 +1159,11 @@ async function ensureBibleMeta(force) {
 // Entrada na aba Bíblia: garante os metadados e dispara o download da versão
 // INTEIRA na 1ª vez (em segundo plano) — ver ensureBibleVersionDownloaded.
 async function enterBibleTab() {
+  // Armazenamento persistente (mesma proteção do sync de músicas/pastas): pede
+  // ao browser para NÃO descartar a origin sob pressão de espaço — garante que
+  // a Bíblia baixada (cache IDB em 'bible:<v>_<b>_<c>') sobreviva entre sessões.
+  // persist() é da origin inteira (não por store) e idempotente.
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
   await ensureBibleMeta(false);
   if (bibleVersionId != null) ensureBibleVersionDownloaded(bibleVersionId);
 }
