@@ -641,6 +641,9 @@ main {
 /* Aviso/estado (baixando versículos, sem rede etc.) */
 .bible-note { color: var(--muted); font-size: .82rem; line-height: 1.5; text-align: center; padding: .8rem .4rem; }
 .bible-note.err { color: var(--gold-text); }
+/* status do download da versão inteira (progresso ao vivo / completa) */
+.bible-dl { padding: .2rem .4rem .5rem; font-size: .74rem; font-weight: 600; color: var(--accent); }
+.bible-dl.done { color: var(--success); }
 
 .bible-grid { display: grid; gap: 6px; grid-template-columns: repeat(6, 1fr); }
 /* capítulos/versículos: células menores (só números), mais colunas. */

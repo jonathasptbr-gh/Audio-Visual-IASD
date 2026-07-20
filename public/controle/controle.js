@@ -196,6 +196,12 @@ let bibleLoadSeq = 0;            // descarta downloads de capítulo obsoletos (t
 // Sessão de leitura ativa (texto projetado): { versionId, bookIdx, bookId,
 // bookName, chapter, verses, idx }. null = nenhum texto bíblico em cena.
 let bibleSession = null;
+// Download da versão INTEIRA (todos os capítulos) — progresso em memória:
+// { versionId, total, done, running }. null = nenhum download em andamento.
+let bibleDl = null;
+// Versões já totalmente baixadas (offline) — cache em memória de
+// state['bibleComplete:<v>'], pra a tela de livros mostrar "completa" sem async.
+const bibleCompleteVersions = new Set();
 // id_bible_book real do livro no índice `idx` de Bible.BOOKS: usa o id da lista
 // online (mesma ordem canônica) quando baixada; senão cai no índice+1.
 function bibleBookId(idx) {
@@ -1144,7 +1150,94 @@ async function ensureBibleMeta(force) {
       if (fetched.length) { bibleBooksOnline = fetched; await AVDB.setState('bibleBooks', fetched); }
     } catch (_) {}
   }
+  if (bibleVersionId != null && (await AVDB.getState('bibleComplete:' + bibleVersionId))) {
+    bibleCompleteVersions.add(bibleVersionId);
+  }
   if (activeTab === 'bible') renderLibrary();
+}
+
+// Entrada na aba Bíblia: garante os metadados e dispara o download da versão
+// INTEIRA na 1ª vez (em segundo plano) — ver ensureBibleVersionDownloaded.
+async function enterBibleTab() {
+  await ensureBibleMeta(false);
+  if (bibleVersionId != null) ensureBibleVersionDownloaded(bibleVersionId);
+}
+
+// Total de capítulos do cânon (Σ dos capítulos dos 66 livros = 1189).
+function bibleTotalChapters() {
+  return Bible.BOOKS.reduce((s, b) => s + b.chapters, 0);
+}
+
+// Baixa a versão INTEIRA da Bíblia (todos os capítulos de todos os livros) na
+// 1ª vez que ela é usada — em segundo plano, resumível (pula o que já está em
+// cache), concorrência limitada (runLimited, 5). O texto de cada capítulo é
+// leve (só versículos, sem mídia), então o volume total é modesto. O progresso
+// (bibleDl) aparece na tela de livros; ao terminar sem falhas, marca
+// state['bibleComplete:<v>'] pra não refazer. A leitura por capítulo
+// (loadBibleChapter) continua funcionando sob demanda se o operador abrir um
+// capítulo antes de o download em massa chegar nele.
+async function ensureBibleVersionDownloaded(versionId) {
+  if (versionId == null) return;
+  // Já baixando esta versão, ou já completa: nada a fazer.
+  if (bibleDl && bibleDl.running && bibleDl.versionId === versionId) return;
+  if (bibleCompleteVersions.has(versionId)) return;
+  if (await AVDB.getState('bibleComplete:' + versionId)) { bibleCompleteVersions.add(versionId); return; }
+  await ensureBibleMeta(false); // garante os ids reais dos livros
+
+  // Lista de todos os capítulos (livro × capítulo).
+  const items = [];
+  Bible.BOOKS.forEach((b, i) => {
+    const bId = bibleBookId(i);
+    for (let c = 1; c <= b.chapters; c++) items.push({ bId, chapter: c });
+  });
+  const total = items.length;
+  let done = 0, failed = 0;
+  // Reatribuir bibleDl para a nova versão faz workers de um download anterior
+  // (de outra versão) pararem sozinhos (checam versionId).
+  bibleDl = { versionId, total, done: 0, running: true };
+  refreshBibleDl();
+
+  await runLimited(items, 5, async (it) => {
+    if (!bibleDl || !bibleDl.running || bibleDl.versionId !== versionId) return; // superado/cancelado
+    const key = 'bible:' + versionId + '_' + it.bId + '_' + it.chapter;
+    try {
+      const existing = await AVDB.getState(key);
+      if (!existing || !existing.verses || !existing.verses.length) {
+        const vs = await Bible.fetchChapter(versionId, it.bId, it.chapter);
+        if (vs.length) await AVDB.setState(key, { verses: vs, syncedAt: Date.now() });
+        else failed++;
+      }
+    } catch (_) { failed++; }
+    done++;
+    if (bibleDl && bibleDl.versionId === versionId) { bibleDl.done = done; refreshBibleDl(); }
+  });
+
+  if (bibleDl && bibleDl.versionId === versionId) {
+    bibleDl.running = false;
+    if (failed === 0) { await AVDB.setState('bibleComplete:' + versionId, true); bibleCompleteVersions.add(versionId); }
+    refreshBibleDl(true);
+  }
+}
+
+function bibleDlText(versionId, running, done, total) {
+  const name = bibleVersionName(versionId);
+  const suffix = name ? ' (' + name + ')' : '';
+  if (running) return 'Baixando a Bíblia' + suffix + '… ' + done + '/' + total;
+  if (done >= total) return '✓ Bíblia' + suffix + ' completa offline';
+  return 'Bíblia' + suffix + ' parcial (' + done + '/' + total + ') — reabra a aba para continuar';
+}
+
+// Atualiza o texto do progresso sem re-renderizar a grade inteira a cada
+// capítulo (barato): mexe só no #bibleDlNote se ele estiver na tela. `finalize`
+// re-renderiza uma vez (aparece/some o estado final) quando estiver na tela.
+function refreshBibleDl(finalize) {
+  const note = document.getElementById('bibleDlNote');
+  if (note && bibleDl && bibleDl.versionId === bibleVersionId) {
+    note.textContent = bibleDlText(bibleDl.versionId, bibleDl.running, bibleDl.done, bibleDl.total);
+    note.classList.toggle('done', !bibleDl.running && bibleDl.done >= bibleDl.total);
+    if (!finalize) return;
+  }
+  if (finalize && activeTab === 'bible' && bibleScreen === 'books') renderLibrary();
 }
 
 // Navega entre as três telas da Bíblia sem recarregar o IDB inteiro (só
@@ -1193,10 +1286,25 @@ function renderBibleBooks(wrap) {
       chip.addEventListener('click', () => {
         if (bibleVersionId === v.id) return;
         bibleVersionId = v.id; AVDB.setState('bibleVersion', v.id); renderLibrary();
+        ensureBibleVersionDownloaded(v.id); // baixa a versão inteira na 1ª vez
       });
       vb.appendChild(chip);
     });
     wrap.appendChild(vb);
+  }
+  // Status do download da versão inteira (progresso ao vivo ou "completa").
+  const dlRunningHere = bibleDl && bibleDl.versionId === bibleVersionId;
+  if (dlRunningHere || bibleCompleteVersions.has(bibleVersionId)) {
+    const note = document.createElement('div');
+    note.className = 'bible-note bible-dl'; note.id = 'bibleDlNote';
+    if (dlRunningHere) {
+      note.textContent = bibleDlText(bibleDl.versionId, bibleDl.running, bibleDl.done, bibleDl.total);
+      if (!bibleDl.running && bibleDl.done >= bibleDl.total) note.classList.add('done');
+    } else {
+      note.classList.add('done');
+      note.textContent = bibleDlText(bibleVersionId, false, 1, 1);
+    }
+    wrap.appendChild(note);
   }
   const grid = document.createElement('div'); grid.className = 'bible-grid';
   Bible.BOOKS.forEach((b, i) => {
@@ -3171,8 +3279,9 @@ tabsEl.addEventListener('click', (e) => {
   if (selectionMode) exitSelection();
   load();
   animateTabSwitch(dir);
-  // Ao entrar na Bíblia, garante versões/livros (baixados na 1ª vez). Silencioso.
-  if (activeTab === 'bible') ensureBibleMeta(false);
+  // Ao entrar na Bíblia: garante versões/livros e baixa a versão INTEIRA na
+  // 1ª vez (em segundo plano — ver ensureBibleVersionDownloaded).
+  if (activeTab === 'bible') enterBibleTab();
 });
 
 selCancelEl.addEventListener('click', exitSelection);
