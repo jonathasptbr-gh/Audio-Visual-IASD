@@ -66,7 +66,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual do Controle** (`<span id="appVersion" class="app-version">Controle vX.Y</span>` em `controle/index.html`, no cabeçalho da lista — só aparece ao lado do título da aba Cronograma). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.75.**
+- **A cada atualização de código, incrementar a versão visual do Controle** (`<span id="appVersion" class="app-version">Controle vX.Y</span>` em `controle/index.html`, no cabeçalho da lista — só aparece ao lado do título da aba Cronograma). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.76.**
 
 ---
 
@@ -1336,10 +1336,13 @@ de baixar só o capítulo tocado, ao usar a Bíblia pela primeira vez o app baix
 **todos os 1189 capítulos** da versão selecionada em segundo plano — resumível
 (pula o que já está em cache), concorrência limitada (`runLimited`, 5). O texto
 é leve (só versículos, sem mídia), então o volume total é modesto. O progresso
-(`bibleDl`, memória) aparece na tela de livros (`.bible-dl` — "Baixando a
-Bíblia (ARA)… N/1189" / "✓ completa offline"); ao terminar sem falhas marca
-`state['bibleComplete:<v>']` pra não refazer (cacheado em memória em
-`bibleCompleteVersions`). O download **NÃO** é disparado no `init` (só quando o
+(`bibleDl`, memória) aparece na **tela de leitura** (`.bible-dl` no
+`.bible-read-head`, ao lado do seletor de versão — "Baixando a Bíblia (ARA)…
+N/1189" / "✓ completa offline") e **resumido na lista de seleção de versão**
+(`.bible-ver-status` por versão: "Completa offline" / "Baixando N/T…" / "Baixa
+ao usar"); ao terminar sem falhas marca `state['bibleComplete:<v>']` pra não
+refazer (cacheado em memória em `bibleCompleteVersions`, populado pra **todas**
+as versões no `ensureBibleMeta`). O download **NÃO** é disparado no `init` (só quando o
 operador de fato abre a aba Bíblia), e a leitura por capítulo
 (`loadBibleChapter`) continua baixando sob demanda como fallback se o operador
 abrir um capítulo antes de o download em massa chegar nele.
@@ -1377,16 +1380,17 @@ capítulo/versículo). Os **blocos de livro são preenchidos por inteiro com a c
 do grupo/divisão canônica** (campo `g` em `bible.js` → classe `.bg-<g>`: `lei`,
 `historicos`, `poeticos`, `pmaiores`, `pmenores`, `evangelhos`, `atos`,
 `paulinas`, `gerais`, `apocalipse` — os mesmos agrupamentos da tabela de
-referência, cores próprias) — **sem** número de índice. A grade de livros
-(`.bible-grid--books`, no wrap `.bible-wrap--fit`) **preenche a altura
-disponível** (11 linhas em `1fr`, células retangulares compactas) pra caber
-**sem scroll**; as demais telas rolam se precisarem. Capítulos e versículos
-(`.bible-cell--num`) ganham **tons distintos** pra separar bem os dois níveis:
-capítulos em tom frio/azulado (`.bible-grid--chapters`), versículos em tom
-quente/dourado (`.bible-grid--verses`). Fluxo: **livros → capítulos →
-versículos → leitura**; o botão voltar (`#backBtn`) recua uma tela
-(`navigateBack` é `bible`-aware, `gotoBibleScreen`), e `#listTitle` mostra o
-contexto.
+referência, cores próprias) — **sem** número de índice e **só a abreviação**
+(sem o nome completo, fonte maior). A grade de livros (`.bible-grid--books`, no
+wrap `.bible-wrap--fit`) **preenche a altura disponível** (11 linhas em `1fr`,
+células retangulares compactas) pra caber **sem scroll**; as demais telas rolam
+se precisarem. Capítulos e versículos (`.bible-cell--num`) ganham **tons
+distintos** pra separar bem os dois níveis: capítulos em tom frio/azulado
+(`.bible-grid--chapters`), versículos em tom quente/dourado
+(`.bible-grid--verses`). Fluxo: **livros → capítulos → versículos → leitura**; o
+botão voltar (`#backBtn`) recua uma tela (`navigateBack` é `bible`-aware,
+`gotoBibleScreen`), e cada troca de tela faz um **leve slide direcional**
+(`animateTabSwitch` reaproveitado; `BIBLE_SCREENS` dá a direção).
 
 Tocar num **capítulo** dispara `loadBibleChapter()`, que lê o cache ou **baixa o
 capítulo na hora** (`Bible.fetchChapter`, gravado em `state`) — com estados de
@@ -1400,9 +1404,15 @@ Tocar num **versículo** (`startBibleReading`) inicia uma **sessão de leitura**
 (`bibleSession = { versionId, bookIdx, bookId, bookName, chapter, verses, idx,
 projecting }`) e abre a tela `'reading'` — **mas NÃO projeta nada ainda**
 (`projecting:false`). A tela de leitura (`renderBibleReading`, `.bible-read`)
-mostra o **seletor de versão** no topo, **três seções empilhadas** — versículo
-**anterior / atual / próximo** (`.bible-vsec`) — e, embaixo, a **referência atual
-num botão** (`.bible-read-ref`) que **volta direto para a seleção de livros**.
+mostra o **seletor de versão + status offline** no topo (`.bible-read-head`),
+**três seções empilhadas** — versículo **anterior / atual / próximo**
+(`.bible-vsec`) — e, embaixo, a **referência atual num botão** (`.bible-read-ref`)
+que **volta direto para a seleção de livros**. Nos **limites de capítulo/livro**,
+as seções anterior/próximo mostram o versículo do **capítulo vizinho** (cruzando
+pro livro seguinte/anterior), com um **badge indicador** (`.bible-vsec-cross`,
+borda tracejada — ex.: "◂ Livro anterior: Amós 9") **antes** de selecioná-lo; o
+texto do vizinho é lido sob demanda (`bibleAdjacentVerse`/`ensureAdjLoaded`,
+cache `bibleAdjCache`). Início/fim da Bíblia mostram "Início/Fim da Bíblia".
 
 **Gate de ativação (`projecting`)** — o texto só vai pro telão depois de um
 toque no versículo CENTRAL:

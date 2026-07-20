@@ -638,8 +638,11 @@ main {
 .bible-ver-btn .bible-ver-caret { color: var(--muted); flex-shrink: 0; display: flex; }
 /* linha de uma versão no popup */
 .bible-ver-row.selected { color: var(--accent); }
+.bible-ver-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .bible-ver-row .row-name { font-weight: 600; }
-.bible-ver-check { color: var(--accent); font-weight: 700; }
+.bible-ver-status { font-size: .68rem; color: var(--muted); }
+.bible-ver-status.done { color: var(--success); }
+.bible-ver-check { color: var(--accent); font-weight: 700; flex-shrink: 0; }
 
 /* Aviso/estado (baixando versículos, sem rede etc.) */
 .bible-note { color: var(--muted); font-size: .82rem; line-height: 1.5; text-align: center; padding: .8rem .4rem; }
@@ -655,8 +658,8 @@ main {
    pra caber TUDO sem scroll. Células retangulares (sem aspect-ratio), compactas. */
 .bible-grid--books { flex: 1; min-height: 0; gap: 4px; grid-template-rows: repeat(11, 1fr); }
 .bible-grid--books .bible-cell { aspect-ratio: auto; padding: 1px; }
-.bible-grid--books .bible-cell-sym { font-size: .82rem; }
-.bible-grid--books .bible-cell-name { font-size: .4rem; margin-top: 1px; }
+/* Só a abreviação (sem nome completo) — fonte maior, centralizada. */
+.bible-grid--books .bible-cell-sym { font-size: 1.25rem; }
 
 /* Bloco de livro: preenchido POR INTEIRO com a cor do grupo/divisão canônica
    (ver .bg-<g> abaixo e o campo `g` em bible.js) — sem número de índice.
@@ -698,6 +701,12 @@ main {
 
 /* ---------- Bíblia: tela de leitura (versículo anterior/atual/próximo) ---------- */
 .bible-read { display: flex; flex-direction: column; gap: .5rem; padding-bottom: .6rem; }
+/* cabeçalho: seletor de versão + status offline lado a lado */
+.bible-read-head { display: flex; align-items: center; gap: .5rem .8rem; flex-wrap: wrap; }
+.bible-read-head .bible-dl { padding: 0; }
+/* indicador de salto pro capítulo/livro vizinho (preview anterior/próximo) */
+.bible-vsec.cross { border-style: dashed; }
+.bible-vsec-cross { font-size: .6rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--gold); }
 .bible-vsec {
   border: 1px solid var(--line); border-radius: var(--radius-card); background: var(--panel);
   padding: .6rem .7rem; cursor: pointer; display: flex; flex-direction: column; gap: .2rem;
