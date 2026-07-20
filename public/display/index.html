@@ -32,6 +32,18 @@
       </div>
     </div>
   </div>
+  <!-- Texto bíblico projetado (ver seção "Bíblia" no CLAUDE.md): mesmo z-index
+       dos demais layers de mídia, então a cortina do wallpaper (z-index maior)
+       cobre/revela este layer de graça — camada paralela ao stage.js, mesmo
+       padrão da letra sincronizada e da ponte do YouTube. -->
+  <div id="bible" class="layer bible-layer" hidden>
+    <div class="bible-content" id="bibleContent">
+      <div class="bible-box">
+        <div class="bible-ref" id="bibleRef"></div>
+        <div class="bible-text" id="bibleText"></div>
+      </div>
+    </div>
+  </div>
   <!-- Substituído pelo iframe oficial do YouTube IFrame Player API em runtime -->
   <div id="youtube" class="layer yt-frame" hidden></div>
   <!-- escudo anti-UI: cobre a tela final do YouTube enquanto o player cai -->

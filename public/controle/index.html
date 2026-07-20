@@ -14,7 +14,7 @@
 <body>
   <header class="appbar">
     <span class="app-name">Audio Visual <b>IASD</b></span>
-    <span class="app-version">Controle v4.68</span>
+    <span class="app-version">Controle v4.69</span>
   </header>
 
   <main>
@@ -46,6 +46,16 @@
       <button class="tab active" data-tab="imports" title="Cronograma"><span class="msym">&#xe413;</span></button>
       <button class="tab" data-tab="folders" title="Pastas"><span class="msym">&#xe2c7;</span></button>
       <button class="tab" data-tab="albums" title="Álbuns"><span class="msym">&#xe03d;</span></button>
+      <button class="tab" data-tab="bible" title="Bíblia">
+        <!-- Ícone de Bíblia (SVG inline, fora do subset da fonte): livro aberto
+             com uma cruz — distingue a aba de textos bíblicos das demais. -->
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H19v15H5.5A1.5 1.5 0 0 0 4 19.5z"/>
+          <path d="M4 19.5A1.5 1.5 0 0 0 5.5 21H19"/>
+          <line x1="11.5" y1="6.4" x2="11.5" y2="11.6"/>
+          <line x1="9.2" y1="8.4" x2="13.8" y2="8.4"/>
+        </svg>
+      </button>
       <button class="tab-add" id="hymnSearchBtn" title="Buscar no acervo">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="11" cy="11" r="7"/>
@@ -97,6 +107,17 @@
               <div class="pv-lyrics-box">
                 <div class="pv-lyrics-line" id="pvLyricsLine"></div>
                 <div class="pv-lyrics-aux" id="pvLyricsAux" hidden></div>
+              </div>
+            </div>
+          </div>
+          <!-- Texto bíblico projetado: mesma visualização do Display, em
+               miniatura (mesmo princípio universal da letra sincronizada — a
+               preview sempre espelha o telão). Camada paralela sob a cortina. -->
+          <div id="pvBible" class="pv-layer pv-bible" hidden>
+            <div class="pv-bible-content" id="pvBibleContent">
+              <div class="pv-bible-box">
+                <div class="pv-bible-ref" id="pvBibleRef"></div>
+                <div class="pv-bible-text" id="pvBibleText"></div>
               </div>
             </div>
           </div>
@@ -270,6 +291,7 @@
   <script src="../shared/db.js"></script>
   <script src="../shared/stage.js"></script>
   <script src="louvorja.js"></script>
+  <script src="bible.js"></script>
   <script src="controle.js"></script>
 </body>
 </html>

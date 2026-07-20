@@ -620,6 +620,75 @@ main {
 .hymnal-stat.net.ok b { color: var(--accent); }
 .hymnal-stat.net.warn b { color: var(--gold); }
 
+/* ---------- Bíblia: seleção em "tabela periódica" ---------- */
+/* Três telas de seleção (livros → capítulos → versículos), cada uma uma grade
+   de células no estilo de uma tabela periódica: cada célula é um "símbolo"
+   (abreviação do livro ou número), com um índice pequeno no canto (como o
+   número atômico). Renderizadas dentro de #library (ver renderBible em
+   controle.js). */
+.bible-wrap { display: flex; flex-direction: column; gap: .6rem; padding-bottom: .6rem; }
+
+/* Barra de versões (chips) — só aparece quando há mais de uma versão baixada. */
+.bible-versions { display: flex; flex-wrap: wrap; gap: .35rem; }
+.bible-ver-chip {
+  border: 1px solid var(--line); background: var(--surface); color: var(--muted);
+  border-radius: var(--radius-pill); padding: .25rem .7rem; font-size: .75rem; font-weight: 600;
+  cursor: pointer; appearance: none; -webkit-appearance: none;
+}
+.bible-ver-chip.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.bible-ver-chip:active { transform: var(--press); }
+
+/* Aviso/estado (baixando versículos, sem rede etc.) */
+.bible-note { color: var(--muted); font-size: .82rem; line-height: 1.5; text-align: center; padding: .8rem .4rem; }
+.bible-note.err { color: var(--gold-text); }
+
+.bible-grid { display: grid; gap: 6px; grid-template-columns: repeat(6, 1fr); }
+/* capítulos/versículos: células menores (só números), mais colunas. */
+.bible-grid--num { grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); }
+
+.bible-cell {
+  position: relative; aspect-ratio: 1; min-width: 0;
+  border: 1px solid var(--line); border-radius: var(--radius-btn); background: var(--panel);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  cursor: pointer; overflow: hidden; padding: 2px; text-align: center;
+}
+.bible-cell:active { transform: var(--press); }
+/* célula em foco/seleção atual (livro escolhido, versículo projetado agora) */
+.bible-cell.active { border-color: var(--accent); background: var(--panel-2); }
+/* faixa de "categoria" (testamento) à esquerda, evocando a cor de grupo da
+   tabela periódica: dourado = Antigo Testamento, azul = Novo. */
+.bible-cell.ot { border-left: 3px solid var(--gold); }
+.bible-cell.nt { border-left: 3px solid var(--accent); }
+.bible-cell-num { position: absolute; top: 2px; left: 4px; font-size: .5rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.bible-cell-sym { font-size: 1rem; font-weight: 700; color: var(--text); line-height: 1; }
+.bible-cell--num .bible-cell-sym { font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.bible-cell-name { font-size: .5rem; color: var(--muted); margin-top: 3px; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bible-cell.active .bible-cell-sym { color: var(--accent); }
+
+/* ---------- Bíblia: camada de texto na preview (espelha o Display) ---------- */
+/* Mesma estrutura do Display (.bible-content/.bible-box), tamanhos próprios em
+   px calibrados pra caixinha da preview — não dá pra reaproveitar a folha do
+   Display (cq* aqui seriam relativos à preview, então os valores diferem;
+   mesmo padrão de duplicação já usado por pv-lyrics/pv-yt). */
+.pv-bible-content {
+  container-type: size;
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  padding: 5cqh 5cqw; box-sizing: border-box; font-family: system-ui, sans-serif;
+}
+.pv-bible-box {
+  max-width: 90cqw; max-height: 86cqh; box-sizing: border-box;
+  padding: 5cqh 5cqw;
+  background: var(--lyrics-frame-bg); border: 1px solid var(--lyrics-frame-border);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3cqh; text-align: center; overflow: hidden;
+}
+.pv-bible-ref { color: var(--gold); font-weight: 700; font-size: 7cqmin; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.pv-bible-text {
+  color: #fff; font-weight: 500; font-size: 6.6cqmin; line-height: 1.32; white-space: pre-line;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; overflow: hidden;
+}
+
 /* fundo de ação do swipe */
 .swipe-bg { position: absolute; inset: 0; z-index: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; }
 .swipe-hint { opacity: .22; }
