@@ -207,7 +207,8 @@ O campo `kind` é derivado do `type` (ou definido pelo chamador para itens de UR
 | `bibleVersions` | `[{ id, name }]` — versões/traduções da Bíblia (de `pt_bible_version`), baixadas na 1ª vez — ver "Bíblia" |
 | `bibleBooks` | `[{ id, name }]` — livros da Bíblia (de `pt_bible_book`) para casar o `id_bible_book` real; a estrutura de exibição (abreviações/nº de capítulos) é offline em `bible.js` |
 | `bibleVersion` | id da versão da Bíblia selecionada pelo operador |
-| `bible:<v>_<b>_<c>` | `{ verses: [{ n, text }], syncedAt }` — texto de UM capítulo (`bible_{v}_{b}_{c}`), baixado na 1ª vez que for usado |
+| `bible:<v>_<b>_<c>` | `{ verses: [{ n, text }], syncedAt }` — texto de UM capítulo (`bible_{v}_{b}_{c}`); a versão inteira é baixada na 1ª vez que a aba é usada (e cada capítulo também sob demanda como fallback) |
+| `bibleComplete:<v>` | `true` quando a versão `<v>` foi baixada por completo (todos os capítulos) — evita refazer o download em massa |
 | `hymnal2022` | legado — migrado para `coll:hymnal-2022` no `loadCollections()` (a chave antiga permanece, ignorada) |
 | `pending-share` | `{ files, url, title, ts }` — share recebido pelo SW aguardando processamento |
 | `order` | legado — lido apenas como fallback de `imports` |
@@ -1321,11 +1322,25 @@ o transporte de `louvorja.js` (`Louvorja.fetchList`) — sem novas credenciais.
 - **Online (baixada na 1ª vez que for usada)**: a lista de **versões**
   (`pt_bible_version` → `state.bibleVersions`), a lista de **livros** com o
   `id_bible_book` real (`pt_bible_book` → `state.bibleBooks`, só pra casar os ids
-  — a exibição vem de `Bible.BOOKS`) e o **texto de cada capítulo**
+  — a exibição vem de `Bible.BOOKS`) e o **texto dos capítulos**
   (`bible_{v}_{b}_{c}` → cache `state['bible:<v>_<b>_<c>']`). `ensureBibleMeta()`
   busca versões+livros em segundo plano (no `init` e ao entrar na aba); é
   silenciosa (sem rede, mantém o cache). `bibleBookId(idx)` usa o id online
   quando há, senão cai em `idx+1` (ordem canônica).
+
+**Download da versão INTEIRA na 1ª vez** (`ensureBibleVersionDownloaded`,
+disparado por `enterBibleTab()` ao entrar na aba e ao trocar de versão): em vez
+de baixar só o capítulo tocado, ao usar a Bíblia pela primeira vez o app baixa
+**todos os 1189 capítulos** da versão selecionada em segundo plano — resumível
+(pula o que já está em cache), concorrência limitada (`runLimited`, 5). O texto
+é leve (só versículos, sem mídia), então o volume total é modesto. O progresso
+(`bibleDl`, memória) aparece na tela de livros (`.bible-dl` — "Baixando a
+Bíblia (ARA)… N/1189" / "✓ completa offline"); ao terminar sem falhas marca
+`state['bibleComplete:<v>']` pra não refazer (cacheado em memória em
+`bibleCompleteVersions`). O download **NÃO** é disparado no `init` (só quando o
+operador de fato abre a aba Bíblia), e a leitura por capítulo
+(`loadBibleChapter`) continua baixando sob demanda como fallback se o operador
+abrir um capítulo antes de o download em massa chegar nele.
 
 > O texto de cada versículo pode conter marcação HTML (o app original renderiza
 > com `v-html`); aqui `Bible.stripHtml()` extrai **texto puro** (troca de string,
