@@ -66,7 +66,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.73.**
+- **A cada atualização de código, incrementar a versão visual exibida no cabeçalho do Controle** (`<span class="app-version">Controle vX.Y</span>` em `controle/index.html`). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.74.**
 
 ---
 
@@ -196,7 +196,7 @@ O campo `kind` é derivado do `type` (ou definido pelo chamador para itens de UR
 | `imports` / `playlist` | arrays de IDs de mídia |
 | `current` | `{ mediaId, view, muted, volume, at }` — estado de exibição atual |
 | `repeat` | `'off'` \| `'all'` \| `'one'` \| `'shuffle'` |
-| `fade` | `{ in: bool, out: bool, time: segundos }` — transições visuais (fade in/out). **Ligado por padrão** (`{in:true, out:true, time:0.6}` quando não há valor salvo): toda troca visual é animada — mídia, cortina do wallpaper (view toggle), letra e texto bíblico. O operador ainda pode desligar/ajustar em "Exibição" |
+| `fade` | legado — as transições visuais (fade in/out) viraram **inerentes ao sistema** (`fadeCfg` fixo `{in:true, out:true, time:0.6}` nos dois apps, não configurável); esta chave **não é mais lida nem gravada** (fica ignorada se existir de versões antigas). Fade em toda troca visual: mídia, cortina do wallpaper (view toggle), letra e texto bíblico |
 | `fit` | `'contain'` \| `'cover'` \| `'fill'` — preenchimento da mídia (ajustar/preencher/esticar) no Display e na preview |
 | `lyricsBg` | `'black'` (padrão) \| `'image'` — fundo atrás da letra sincronizada: preto ou as imagens dos slides |
 | `folders` | `[{ id, name }]` — pastas virtuais |
@@ -632,9 +632,10 @@ operador espelha a tela cheia do celular (funciona em qualquer aparelho, sem
 depender do Miracast de app isolado). **NÃO abre o app Display** — os dois ficam
 independentes. **Pressionar longo (~500 ms, só fora do fullscreen)** abre o popup
 de **configurações rápidas de exibição** (bottom-sheet `#fadePopup`, título
-"Exibição"): toggles de fade in/out + slider de duração (0.2–5 s) e o seletor de
-**preenchimento da mídia** (`#fitSeg` — Ajustar/Preencher/Esticar, ver
-`stage.setFit()`). CSS: `.preview:fullscreen` preenche a tela (cantos retos, sem
+"Exibição"): o seletor de **preenchimento da mídia** (`#fitSeg` —
+Ajustar/Preencher/Esticar, ver `stage.setFit()`) e o atalho "Abrir Display". As
+transições (fade) **não têm mais controle aqui** — são inerentes ao sistema
+(sempre ligadas, ver o state `fade`). CSS: `.preview:fullscreen` preenche a tela (cantos retos, sem
 borda, `touch-action:none`; as camadas internas já são `inset:0` + `object-fit`).
 
 **Controle por gestos invisíveis DENTRO do fullscreen:** a tela inteira vira uma
@@ -1415,8 +1416,8 @@ próximo LIVRO se preciso** (`nextChapterRef`/`prevChapterRef` +
 `bibleGotoChapter`, que baixa o capítulo vizinho sob demanda e faz a seleção
 acompanhar); os botões só desabilitam no começo (Gn 1:1) e no fim (Ap, último
 versículo) da Bíblia. Cada troca reenvia um novo comando `bible` (não `seek` —
-não há áudio/tempo) e o **texto entra com fade** (`animateFadeIn`/`pvFadeIn`,
-respeitando `fadeCfg.in` — ligado por padrão, ver o state `fade`); mostrar/
+não há áudio/tempo) e o **texto entra com fade** (`animateFadeIn`/`pvFadeIn` —
+transições são inerentes ao sistema, ver o state `fade`); mostrar/
 esconder a camada e o toggle de wallpaper usam a cortina com fade
 (`coverIn`/`coverOut`). O mesmo fade curto entra nas trocas de estrofe da letra
 sincronizada. O `#npName` mostra a referência atual; `play`/`pause` viram

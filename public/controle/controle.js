@@ -60,10 +60,6 @@ const addDirBtnEl = document.getElementById('addDirBtn');
 const libSearchEl = document.getElementById('libSearch');
 const fadePopupEl = document.getElementById('fadePopup');
 const fadePopupCloseEl = document.getElementById('fadePopupClose');
-const fadeInChkEl = document.getElementById('fadeInChk');
-const fadeOutChkEl = document.getElementById('fadeOutChk');
-const fadeTimeEl = document.getElementById('fadeTime');
-const fadeTimeValEl = document.getElementById('fadeTimeVal');
 const fitSegEl = document.getElementById('fitSeg');
 const folderPopupEl = document.getElementById('folderPopup');
 const folderPickerListEl = document.getElementById('folderPickerList');
@@ -134,10 +130,10 @@ let folderCounts = {};     // {folderId: count}
 let opfsFolders = [];      // [{id, name, count, syncedAt, handle?}] — pastas sincronizadas no OPFS
 let folderQuery = '';      // filtro de busca dentro de pasta OPFS
 let syncBusy = false;      // sincronização em andamento
-// Transições visuais LIGADAS por padrão (fade in/out em toda troca visual —
-// mídia, cortina do wallpaper, letra e texto bíblico). Persistido em
-// state 'fade'; o operador ainda pode desligar/ajustar em "Exibição".
-let fadeCfg = { in: true, out: true, time: 0.6 };
+// Transições visuais são INERENTES ao sistema (sempre ligadas, duração fixa) —
+// não há opção de desligar nem ajustar. Fade in/out em toda troca visual:
+// mídia, cortina do wallpaper (view toggle), letra e texto bíblico.
+const fadeCfg = { in: true, out: true, time: 0.6 };
 // ===== Coleções de mídia do LouvorJA (acervo offline) =====
 // Sistema genérico que cobre TODAS as coleções do banco público do LouvorJA
 // (ver docs/FONTE-DE-DADOS-LOUVORJA.md e a seção "Coleções de mídia (LouvorJA)"
@@ -922,7 +918,6 @@ async function load() {
   const folderCountsV = {};
   foldersV.forEach((f, i) => { folderCountsV[f.id] = (folderIdArrays[i] || []).length; });
   const opfsFoldersV = (await AVDB.getState('opfs-folders')) || [];
-  const storedFade = await AVDB.getState('fade');
   const storedFit = await AVDB.getState('fit');
   const lyricsBgV = (await AVDB.getState('lyricsBg')) === 'image' ? 'image' : 'black';
   let libItemsV;
@@ -952,7 +947,6 @@ async function load() {
   folders = foldersV;
   folderCounts = folderCountsV;
   opfsFolders = opfsFoldersV;
-  if (storedFade) fadeCfg = { in: !!storedFade.in, out: !!storedFade.out, time: storedFade.time || 1 };
   if (storedFit) mediaFit = storedFit;
   lyricsBg = lyricsBgV;
   libItems = libItemsV;
@@ -3101,26 +3095,11 @@ async function addSongToPlaylist(coll, s, variant) {
 
 // ===== transições (fade in/out) =====
 function openFadePopup() {
-  fadeInChkEl.checked = fadeCfg.in;
-  fadeOutChkEl.checked = fadeCfg.out;
-  fadeTimeEl.value = fadeCfg.time;
-  fadeTimeValEl.textContent = fadeCfg.time.toFixed(1) + 's';
   renderFitSeg();
   fadePopupEl.classList.add('open');
 }
 function closeFadePopup() {
   fadePopupEl.classList.remove('open');
-}
-async function applyFadeCfg() {
-  fadeCfg = {
-    in: fadeInChkEl.checked,
-    out: fadeOutChkEl.checked,
-    time: parseFloat(fadeTimeEl.value) || 1,
-  };
-  fadeTimeValEl.textContent = fadeCfg.time.toFixed(1) + 's';
-  await AVDB.setState('fade', fadeCfg);
-  // aplica ao vivo no Display e na preview
-  cmd({ type: 'fade', fadeIn: fadeCfg.in, fadeOut: fadeCfg.out, time: fadeCfg.time });
 }
 
 function renderFitSeg() {
@@ -3571,10 +3550,6 @@ hymnSearchInputEl.addEventListener('input', () => renderSearchResults(hymnSearch
 })();
 fadePopupCloseEl.addEventListener('click', closeFadePopup);
 fadePopupEl.addEventListener('click', (e) => { if (e.target === fadePopupEl) closeFadePopup(); });
-fadeInChkEl.addEventListener('change', applyFadeCfg);
-fadeOutChkEl.addEventListener('change', applyFadeCfg);
-fadeTimeEl.addEventListener('input', () => { fadeTimeValEl.textContent = (parseFloat(fadeTimeEl.value) || 1).toFixed(1) + 's'; });
-fadeTimeEl.addEventListener('change', applyFadeCfg);
 fitSegEl.addEventListener('click', (e) => {
   const btn = e.target.closest('.fit-opt');
   if (btn) applyFit(btn.dataset.fit);
