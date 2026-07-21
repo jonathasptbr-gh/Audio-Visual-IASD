@@ -16,7 +16,7 @@
     <div class="list-header">
       <button id="backBtn" class="back-btn" hidden><span class="msym">&#xe5c4;</span></button>
       <span class="list-title" id="listTitle">Cronograma</span>
-      <span id="appVersion" class="app-version">Controle v4.77</span>
+      <span id="appVersion" class="app-version">Controle v4.78</span>
       <input id="libSearch" class="lib-search" type="search" placeholder="Buscar na pasta…" hidden>
       <button id="addDirBtn" class="add-dir-btn" hidden title="Sincronizar pasta do dispositivo"><span class="msym">&#xe2c8;</span></button>
     </div>
@@ -50,6 +50,14 @@
           <path d="M4 19.5A1.5 1.5 0 0 0 5.5 21H19"/>
           <line x1="11.5" y1="6.4" x2="11.5" y2="11.6"/>
           <line x1="9.2" y1="8.4" x2="13.8" y2="8.4"/>
+        </svg>
+      </button>
+      <button class="tab" data-tab="messages" title="Mensagens">
+        <!-- Ícone de mensagem (SVG inline): balão de texto — mensagens/avisos. -->
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9A1.5 1.5 0 0 1 18.5 16H9l-4 4z"/>
+          <line x1="8" y1="9" x2="16" y2="9"/>
+          <line x1="8" y1="12.5" x2="13" y2="12.5"/>
         </svg>
       </button>
       <button class="tab-add" id="hymnSearchBtn" title="Buscar no acervo">
@@ -106,14 +114,14 @@
               </div>
             </div>
           </div>
-          <!-- Texto bíblico projetado: mesma visualização do Display, em
-               miniatura (mesmo princípio universal da letra sincronizada — a
-               preview sempre espelha o telão). Camada paralela sob a cortina. -->
-          <div id="pvBible" class="pv-layer pv-bible" hidden>
-            <div class="pv-bible-content" id="pvBibleContent">
-              <div class="pv-bible-box">
-                <div class="pv-bible-text" id="pvBibleText"></div>
-                <div class="pv-bible-ref" id="pvBibleRef"></div>
+          <!-- Camada de TEXTO manual (Bíblia/Mensagem) projetada: mesma
+               visualização do Display, em miniatura (a preview sempre espelha o
+               telão). Camada paralela sob a cortina. mode-verse | mode-message. -->
+          <div id="pvText" class="pv-layer pv-text" hidden>
+            <div class="pv-text-content" id="pvTextContent">
+              <div class="pv-text-box">
+                <div class="pv-text-main" id="pvTextMain"></div>
+                <div class="pv-text-sub" id="pvTextSub"></div>
               </div>
             </div>
           </div>

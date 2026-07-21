@@ -66,7 +66,7 @@ git push origin main
 - Toda operação IDB multi-passo que precise de atomicidade deve usar `storeTx()`.
 - Não introduzir dependências externas — o projeto usa Node puro no servidor e JavaScript puro no cliente. (Exceção já existente: Display **e** Controle carregam a IFrame Player API oficial do YouTube via `<script src="https://www.youtube.com/iframe_api">` em runtime — não é dependência de build/npm, e o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem essa API. O Controle usa isso para a preview de vídeos do YouTube — ver seção do YouTube.)
 - Ao atualizar o código, atualizar este CLAUDE.md se a mudança afetar arquitetura, protocolo de comandos ou API pública.
-- **A cada atualização de código, incrementar a versão visual do Controle** (`<span id="appVersion" class="app-version">Controle vX.Y</span>` em `controle/index.html`, no cabeçalho da lista — só aparece ao lado do título da aba Cronograma). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.77.**
+- **A cada atualização de código, incrementar a versão visual do Controle** (`<span id="appVersion" class="app-version">Controle vX.Y</span>` em `controle/index.html`, no cabeçalho da lista — só aparece ao lado do título da aba Cronograma). Usar versionamento incremental simples (2.6, 2.7, 2.8…). **Versão atual: v4.78.**
 
 ---
 
@@ -201,6 +201,7 @@ O campo `kind` é derivado do `type` (ou definido pelo chamador para itens de UR
 | `lyricsBg` | `'black'` (padrão) \| `'image'` — fundo atrás da letra sincronizada: preto ou as imagens dos slides |
 | `folders` | `[{ id, name }]` — pastas virtuais |
 | `folder_<id>` | array de IDs de mídia da pasta |
+| `messages` | `[{ id, text }]` — mensagens de texto puro da aba Mensagens (ver "Camada de Texto") |
 | `opfs-folders` | `[{ id, name, count, syncedAt, handle? }]` — pastas sincronizadas no OPFS (`handle` acelera re-sync) |
 | `coll:<id>` | `{ indexSyncedAt, songs: [{ id_music, track, name, duration, has_instrumental_music, fileIdFull, fileIdPlayback }] }` — índice offline de UMA coleção do LouvorJA (`coll:hymnal-2022`, `coll:hymnal-1996`, `coll:album-<id>`) — ver "Coleções de mídia (LouvorJA)" |
 | `albumCatalog` | `[{ id_album, name }]` — catálogo de álbuns descobertos em `pt_categories` (um card por álbum na aba Álbuns) |
@@ -282,7 +283,8 @@ Todos os comandos são objetos com um campo `type`.
 | `fade` | `fadeIn, fadeOut, time` | Atualiza ao vivo a configuração de transições do stage |
 | `fit` | `fit` (`'contain'`\|`'cover'`\|`'fill'`) | Atualiza ao vivo o preenchimento da mídia (ajustar/preencher/esticar) |
 | `lyricsbg` | `mode` (`'black'`\|`'image'`) | Atualiza ao vivo o fundo atrás da letra sincronizada (preto ou imagens dos slides) |
-| `bible` | `ref, text, version, view` | Projeta/atualiza um versículo (camada paralela, ver seção "Bíblia"). Um novo `bible` troca o versículo em cena; `view` só liga/desliga a cortina compartilhada |
+| `text` | `main, sub, mode, view` | Projeta/atualiza a **Camada de Texto** manual (Bíblia OU Mensagem — ver "Camada de Texto"). `main`=texto principal, `sub`=referência (dourada, abaixo; vazio nas mensagens), `mode`=`'verse'`\|`'message'`. Um novo `text` troca o conteúdo em cena; `view` só liga/desliga a cortina compartilhada. **Independente do áudio**: um `text` NÃO para a mídia do stage — o áudio segue tocando por baixo |
+| `text-hide` | — | Encerra a Camada de Texto (Bíblia/Mensagem) sem tocar na mídia de fundo |
 | `audio-retry` | — | Retentativa imediata de liberar o áudio bloqueado (botão de mudo do Controle no estado "sem áudio") |
 
 #### Display → Controle
@@ -775,9 +777,9 @@ automático entre os dois apps** — a projeção acontece no próprio Controle
 As abas ficam na **base da seção de listas** (ícones), **mescladas ao fundo
 normal do app** (`.tabs` sem fundo/card próprio — não é mais uma seção isolada
 visualmente). Da esquerda pra direita: **Importar** (`.tab-add`, o `<label>`
-do `#file`) · **Cronograma** · **Pastas** · **Álbuns** · **Bíblia** (as 4
-`.tab`, `flex:1`) · **buscar no acervo** (`#hymnSearchBtn`, `.tab-add`, à
-direita):
+do `#file`) · **Cronograma** · **Pastas** · **Álbuns** · **Bíblia** ·
+**Mensagens** (as 5 `.tab`, `flex:1`) · **buscar no acervo** (`#hymnSearchBtn`,
+`.tab-add`, à direita):
 
 - **Cronograma** (`imports`) — itens importados; ficam até serem excluídos.
   (O recurso de favoritos foi removido — para agrupar mídias, use pastas
@@ -792,6 +794,9 @@ direita):
 - **Bíblia** (`bible`) — seleção e projeção de textos bíblicos numa "tabela
   periódica" (livros → capítulos → versículos). Não é uma lista de mídia; ver
   a seção **"Bíblia"** abaixo.
+- **Mensagens** (`messages`) — lista de mensagens de **texto puro** (avisos,
+  boas-vindas etc.) criadas pelo operador (`appPrompt`), projetadas pela mesma
+  **Camada de Texto** da Bíblia. Não é uma lista de mídia; ver "Camada de Texto".
 - **Importar** — `<input type="file" multiple accept="image/*,video/*,audio/*">`.
 
 **Navegação persistente:** trocar de aba **não** reseta a pasta aberta nem a
@@ -803,7 +808,7 @@ trocar de aba, abrir pasta ou voltar. (Memória por sessão, em RAM.)
 **Animação de troca de aba** (`animateTabSwitch`): ao trocar de aba, a lista
 `#library` entra com um leve **deslize direcional + fade** (Web Animations API
 na própria lista, ~220 ms). A direção vem da ordem das abas (`TAB_ORDER =
-['imports','folders','albums','bible']`): ir pra uma aba à **direita** desliza entrando
+['imports','folders','albums','bible','messages']`): ir pra uma aba à **direita** desliza entrando
 da direita (`translateX(22px)→0`), à esquerda o contrário. Como o `load()`
 reconstrói o conteúdo em poucos ms, animar já a partir de `opacity:0` esconde a
 troca e revela o conteúdo novo entrando; o `overflow:hidden` do `main` clipa o
@@ -1308,6 +1313,52 @@ Ciclo ao tocar no botão 🔁: `off → all → one → shuffle → off` (persis
 
 ---
 
+## Camada de Texto (Bíblia · Mensagens · Letra)
+
+O sistema serve **texto no telão** por três provedores que compartilham um
+**modelo padronizado** de camada paralela (mesmo padrão do YouTube: um layer
+`z-index:1` que a **cortina do wallpaper** — `z-index:2`, sempre por cima de
+tudo — cobre/revela "de graça", sem tocar em `stage.js`). Os três são:
+
+| Provedor | Driver | Origem do texto | Camada física |
+|---|---|---|---|
+| **Bíblia** | manual (operador avança versículo) | banco LouvorJA | `#text` / `#pvText` |
+| **Mensagens** | manual (operador avança mensagem) | `state.messages` (texto puro) | `#text` / `#pvText` |
+| **Letra sincronizada** | **temporizado** (segue o `currentTime` do áudio) | música do LouvorJA | `#lyrics` / `#pvLyrics` |
+
+**Bíblia e Mensagens são literalmente o MESMO cartão** (`#text` no Display,
+`#pvText` na preview) — mesmo comando `text`/`text-hide`, só o campo `mode`
+distingue (`'verse'` mostra a referência dourada abaixo do texto; `'message'`
+usa fonte maior/mais linhas e sem referência). A **Letra** é o **provedor
+temporizado** da mesma família — fica no seu layer dedicado `#lyrics` porque
+carrega recursos que o cartão de texto puro não representa (imagem de fundo por
+estrofe, slide de capa, texto auxiliar); mesclá-la ao `#text` arriscaria a
+sincronização de tempo (o recurso principal), então ela permanece separada,
+mas segue o mesmo modelo de cortina/fades.
+
+**Independência do áudio** (o ponto-chave do modelo unificado): a Camada de
+Texto é **desacoplada do ciclo de vida da mídia do stage** — `showText`/
+`showPvText` **não** chamam `stage.clear()`/`preview.clear()`. Assim é possível
+**projetar um versículo (ou mensagem) enquanto um áudio toca em segundo plano**:
+
+- Um comando `text`/`text-hide` nunca para a mídia do stage.
+- Com a Camada de Texto ativa, o **transporte** (`play`/`pause`/`seek`/`volume`/
+  `mute`) continua indo pro stage — controla o **áudio de fundo** (o texto não é
+  afetado); o `view` liga/desliga a cortina por cima do texto.
+- Um `load` de **áudio** troca o som de fundo **mantendo** o texto; um `load` de
+  **visual** (imagem/vídeo/YouTube), `stop` ou `clear` **encerram** o texto e
+  seguem o fluxo normal (o Display checa o `kind` do registro em `load` pra
+  decidir; o Controle usa `keepText = pvTextActive && currentItem.kind ==='audio'`).
+- A **letra sincronizada não coexiste** com a Camada de Texto manual:
+  `showLyrics`/`showPvLyrics` retornam cedo se um texto manual estiver em cena
+  (a letra pertence a UMA música tocando; um versículo/mensagem manual tem
+  precedência sobre a letra do áudio de fundo).
+
+O restante desta seção detalha o provedor **Bíblia**; as **Mensagens** são um
+provedor mínimo (CRUD de texto puro em `state.messages` + `projectMessage`/
+`msgStep`, análogos a `startBibleReading`/`bibleStep`), e a **Letra** tem sua
+própria seção ("Letra sincronizada").
+
 ## Bíblia (aba `bible`)
 
 Aba própria para **selecionar e projetar textos bíblicos**, com os dados vindos
@@ -1429,11 +1480,12 @@ toque no versículo CENTRAL:
 `renderNowPlaying` só mostra a referência quando `projecting` (antes disso o
 telão ainda não tem a Bíblia, então o now-playing segue a mídia normal).
 
-A projeção é uma **camada paralela** (mesmo modelo do YouTube/letra): o comando
-`bible` (`{ ref, text, version, view }`) mostra o **texto do versículo com a
-referência (dourada) ABAIXO dele** num cartão central de **tamanho fixo**, tanto
-no **Display** (`#bible` layer, ver abaixo) quanto na **preview** do Controle
-(`#pvBible`, `showPvBible`) — a preview sempre espelha o telão.
+A projeção usa a **Camada de Texto** unificada (ver seção "Camada de Texto"): o
+comando `text` (`{ main, sub, mode:'verse', view }`) mostra o **texto do
+versículo com a referência (dourada, em `sub`) ABAIXO dele** num cartão central
+de **tamanho fixo**, tanto no **Display** (`#text` layer, ver abaixo) quanto na
+**preview** do Controle (`#pvText`, `showPvText`) — a preview sempre espelha o
+telão. `projectBibleVerse` monta esse comando via `cmd()`.
 
 Os **controles de slide** (`#slidePrevBtn`/`#slideNextBtn`, e os gestos
 invisíveis da preview em tela cheia) **passam/voltam versículos** quando há
@@ -1443,45 +1495,54 @@ sincronizada, chamando `bibleStep`. **No fim do último versículo do capítulo,
 próximo LIVRO se preciso** (`nextChapterRef`/`prevChapterRef` +
 `bibleGotoChapter`, que baixa o capítulo vizinho sob demanda e faz a seleção
 acompanhar); os botões só desabilitam no começo (Gn 1:1) e no fim (Ap, último
-versículo) da Bíblia. Cada troca reenvia um novo comando `bible` (não `seek` —
+versículo) da Bíblia. Cada troca reenvia um novo comando `text` (não `seek` —
 não há áudio/tempo) e o **texto entra com fade** (`animateFadeIn`/`pvFadeIn` —
 transições são inerentes ao sistema, ver o state `fade`); mostrar/
 esconder a camada e o toggle de wallpaper usam a cortina com fade
 (`coverIn`/`coverOut`). O mesmo fade curto entra nas trocas de estrofe da letra
-sincronizada. O `#npName` mostra a referência atual; `play`/`pause` viram
-no-op (sem mídia com tempo). Uma **mídia comum** assumindo a cena (`send`) ou o
-**stop** (`stopClear`) encerram a leitura (`clearBibleSession` + o Display/preview
-escondem a camada). O `viewToggle` (`setView`, `bible`-aware) liga/desliga a
-**cortina compartilhada** do wallpaper por cima do texto, sem passar por
-`preview.handle` (que recobriria — não há mídia carregada no stage).
+sincronizada. O `#npName` mostra a referência atual; `play`/`pause` **NÃO** são
+mais no-op — controlam o **áudio de fundo** quando há um tocando (ver
+"Independência do áudio" na seção Camada de Texto); só viram no-op sem áudio de
+fundo (`playPause` checa `!preview.getCurrent()`). Uma **mídia comum** (visual)
+assumindo a cena (`send`) ou o **stop** (`stopClear`) encerram a leitura
+(`clearManualText` = `clearBibleSession` + `clearMsgSession` + o Display/preview
+escondem a camada). Um `send` de **áudio** com sessão de texto ativa **mantém** a
+sessão (não chama `clearManualText`) — é o áudio de fundo. O `viewToggle`
+(`setView`, ciente da sessão de texto) liga/desliga a **cortina compartilhada**
+do wallpaper por cima do texto, sem passar por `preview.handle` (que recobriria —
+não há mídia carregada no stage, a menos que seja o áudio de fundo).
 
-A projeção bíblica é **independente da navegação de abas** (como qualquer outra
+A projeção de texto é **independente da navegação de abas** (como qualquer outra
 mídia): o `load()` (disparado a cada troca de aba) **não chama
-`preview.setView` enquanto `pvBibleActive`** — sem essa guarda, como o stage da
-preview está sem `current` (a Bíblia é camada paralela), `setView` cairia em
+`preview.setView` enquanto `pvTextActive`** — sem essa guarda, como o stage da
+preview está sem `current` (a Camada de Texto é paralela), `setView` cairia em
 `computeCover()===true` e recobriria a cortina, fazendo o texto sumir da preview
-ao sair da aba Bíblia. O Display nunca é afetado por troca de aba (só encerra a
-Bíblia com `load`/`stop`/`clear` explícitos).
+ao sair da aba. O Display nunca é afetado por troca de aba (só encerra o texto
+com `load` visual/`stop`/`clear` explícitos).
 
 ### No Display
 
-Novo layer `#bible` (`.bible-layer`, `z-index:1` como os demais layers de
+Layer `#text` (`.text-layer`, `z-index:1` como os demais layers de
 mídia), inserido entre `#lyrics` e `#youtube` — a cortina do wallpaper
 (`z-index:2`) o cobre/revela **de graça**, sem tocar em `stage.js`.
-`showBible(cmd)` encerra as outras camadas (`ytDrop()` + `++ytSeq`,
-`hideLyrics()`, `stage.clear()`), pinta referência+texto e revela conforme a
-`view`; um novo `bible` já em cena só troca o texto (sem piscar). Enquanto
-`bibleActive`, o roteamento de comandos trata a Bíblia como camada paralela
-(igual ao YouTube): `view` só liga/desliga a cortina (`stage.coverIn/coverOut`);
-`load`/`stop`/`clear` chamam `hideBible()` e seguem o fluxo normal; os demais
-comandos não têm efeito. O cartão (`.bible-box`) usa o mesmo redimensionamento
-por Container Queries da letra (`container-type:size` + `cq*`), mas em prosa
-(caixa-baixa), com a moldura sempre visível (o texto é sempre projetado sobre o
-preto). É de **tamanho FIXO** (`width`/`height` fixos, não `max-*` — não
-cresce/encolhe com o versículo) e o menor razoável, pra ocupar pouco da tela/
-imagem de fundo; a **referência fica ABAIXO do texto** (ordem no DOM) e
-versículos muito longos são cortados com reticências (`-webkit-line-clamp` +
-`overflow:hidden`) — o operador vê o texto inteiro na tela de leitura do Controle.
+`showText(cmd)` encerra as outras camadas **visuais concorrentes** (`ytDrop()` +
+`++ytSeq`, `hideLyrics()`) — **mas NÃO chama `stage.clear()`** (o áudio de fundo
+segue tocando, ver "Independência do áudio"); pinta `main`/`sub`, aplica a classe
+`.mode-message` conforme o `mode` e revela conforme a `view`; um novo `text` já
+em cena só troca o texto (sem piscar). Enquanto `textActive`, o roteamento de
+comandos trata a Camada de Texto como paralela (igual ao YouTube): `view` só
+liga/desliga a cortina (`stage.coverIn/coverOut`); `load` de **áudio** mantém o
+texto (troca o som de fundo), `load` de **visual**/`stop`/`clear` chamam
+`hideText()` e seguem o fluxo; **transporte** (play/pause/seek/volume/mute) cai
+no fluxo do stage (áudio de fundo). O cartão (`.text-box`) usa o mesmo
+redimensionamento por Container Queries da letra (`container-type:size` + `cq*`),
+mas em prosa (caixa-baixa), com a moldura sempre visível (o texto é sempre
+projetado sobre o preto). É de **tamanho FIXO** (`width`/`height` fixos, não
+`max-*`) e o menor razoável, pra ocupar pouco da tela/imagem de fundo; no modo
+`verse` a **referência (`#textSub`) fica ABAIXO do texto** (ordem no DOM,
+`hidden` quando vazia — mensagens não têm referência) e conteúdos muito longos
+são cortados com reticências (`-webkit-line-clamp` + `overflow:hidden`); o modo
+`message` (`.text-content.mode-message`) usa fonte maior e mais linhas.
 
 ---
 

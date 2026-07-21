@@ -8,9 +8,10 @@ const lyricsImgEl = document.getElementById('lyricsImg');
 const lyricsContentEl = document.getElementById('lyricsContent');
 const lyricsLineEl = document.getElementById('lyricsLine');
 const lyricsAuxEl = document.getElementById('lyricsAux');
-const bibleEl = document.getElementById('bible');
-const bibleRefEl = document.getElementById('bibleRef');
-const bibleTextEl = document.getElementById('bibleText');
+const textEl = document.getElementById('text');
+const textContentEl = document.getElementById('textContent');
+const textMainEl = document.getElementById('textMain');
+const textSubEl = document.getElementById('textSub');
 
 // Config de transições espelhada localmente (o stage guarda a dele própria)
 // para animar o player do YouTube, que vive fora do stage. INERENTE ao sistema:
@@ -111,6 +112,9 @@ function hideLyrics() {
 }
 
 function showLyrics(rec) {
+  // Um texto manual (Bíblia/mensagem) em cena tem precedência: a música toca de
+  // fundo, mas a letra dela não substitui o texto projetado pelo operador.
+  if (textActive) return;
   currentLyrics = rec.lyrics;
   currentLyricsMeta = { hymnName: rec.hymnName, hymnTrack: rec.hymnTrack };
   lyricSlideIdx = -1;
@@ -201,45 +205,47 @@ function updateLyricSlide(t) {
   renderLyricSlide(findSlideIndex(currentLyrics, t));
 }
 
-// ===== Texto bíblico (ver seção "Bíblia" no CLAUDE.md) =====
-// Camada paralela ao stage.js (mesmo modelo do YouTube): o stage não sabe nada
-// sobre texto bíblico. O layer #bible vive no mesmo z-index dos demais layers
-// de mídia, então a cortina do wallpaper (z-index maior) cobre/revela-o de
-// graça. Enquanto o texto está em cena, os comandos de transporte/áudio não
-// têm efeito e 'view' só liga/desliga a cortina compartilhada (ver AVDB.onCommand).
-let bibleActive = false;
-let bibleView = 'visual';
+// ===== Camada de TEXTO manual (Bíblia + Mensagens — ver "Camada de Texto") =====
+// Camada paralela ao stage.js: um cartão de texto por baixo da cortina do
+// wallpaper (que fica por cima de TUDO — nada é colocado sobre o wallpaper).
+// É INDEPENDENTE do áudio: um som pode seguir tocando por baixo (o <video> do
+// stage renderiza preto no áudio-só) e o transporte continua controlando esse
+// áudio de fundo. `mode`: 'verse' (referência dourada embaixo) | 'message'.
+let textActive = false;
+let textView = 'visual';
+let textMode = 'verse';
 
-function showBible(cmd) {
+function showText(cmd) {
   const wallpaper = cmd.view === 'wallpaper';
-  bibleRefEl.textContent = cmd.ref || '';
-  bibleTextEl.textContent = cmd.text || '';
-  bibleView = wallpaper ? 'wallpaper' : 'visual';
-  if (bibleActive) {
-    // Já em cena (troca de versículo): fade-in do texto, sem mexer na moldura.
-    animateFadeIn(bibleTextEl); animateFadeIn(bibleRefEl);
+  textMode = cmd.mode === 'message' ? 'message' : 'verse';
+  textContentEl.classList.toggle('mode-message', textMode === 'message');
+  textMainEl.textContent = cmd.main || '';
+  textSubEl.textContent = cmd.sub || '';
+  textSubEl.hidden = !cmd.sub;
+  textView = wallpaper ? 'wallpaper' : 'visual';
+  if (textActive) {
+    // Já em cena (troca de versículo/mensagem): fade-in do texto, sem mexer na moldura.
+    animateFadeIn(textMainEl); if (!textSubEl.hidden) animateFadeIn(textSubEl);
     stage.instantCover(wallpaper);
     return;
   }
-  // Encerra outras camadas: cancela/derruba YouTube (o ++ytSeq também cancela um
-  // loadYoutube em curso entre awaits, com yt ainda null), esconde a letra e
-  // limpa o stage (para/oculta mídia local e cobre a cortina).
+  // Some com o YouTube (visual concorrente) e com a letra sincronizada (texto da
+  // mídia), mas NÃO para o áudio do stage — ele segue tocando por baixo.
   ++ytSeq;
   ytDrop();
   hideLyrics();
-  stage.clear();
-  bibleActive = true;
-  bibleEl.hidden = false;
+  textActive = true;
+  textEl.hidden = false;
   // Revela conforme a view (wallpaper mantém a cortina por cima).
   if (wallpaper) stage.instantCover(true); else stage.coverOut();
 }
 
-function hideBible() {
-  if (!bibleActive) return;
-  bibleActive = false;
-  bibleEl.hidden = true;
-  bibleRefEl.textContent = '';
-  bibleTextEl.textContent = '';
+function hideText() {
+  if (!textActive) return;
+  textActive = false;
+  textEl.hidden = true;
+  textMainEl.textContent = '';
+  textSubEl.textContent = '';
 }
 
 // ===== Áudio sem toque: recuperação automática =====
@@ -751,24 +757,29 @@ AVDB.onCommand(async (cmd) => {
     return;
   }
 
-  // Texto bíblico: camada paralela (ver showBible). Um novo 'bible' mostra/
-  // atualiza o versículo em cena.
-  if (cmd.type === 'bible') {
-    showBible(cmd);
-    return;
-  }
-  // Enquanto o texto bíblico está em cena: 'view' só liga/desliga a cortina
-  // compartilhada (não passa pelo stage, que recobriria — sem mídia carregada
-  // computeCover() é sempre true); qualquer outro comando que NÃO seja
-  // load/stop/clear (que encerram o modo, tratados abaixo) não tem efeito.
-  if (bibleActive) {
+  // Texto manual (Bíblia/Mensagem): camada paralela (ver showText). Um novo
+  // 'text' mostra/atualiza o cartão; 'text-hide' encerra sem tocar na mídia.
+  if (cmd.type === 'text') { showText(cmd); return; }
+  if (cmd.type === 'text-hide') { hideText(); return; }
+  // Enquanto o texto manual está em cena, ele é um OVERLAY independente:
+  //  - 'view' liga/desliga a cortina do wallpaper por cima do texto;
+  //  - transporte (play/pause/seek/volume/mute) segue pro stage — controla o
+  //    ÁUDIO DE FUNDO (o texto não é afetado);
+  //  - 'load' de ÁUDIO troca o som de fundo mantendo o texto; 'load' de VISUAL
+  //    (vídeo/imagem/YouTube), 'stop' e 'clear' encerram o texto e seguem o fluxo.
+  if (textActive) {
     if (cmd.type === 'view') {
-      bibleView = cmd.view === 'wallpaper' ? 'wallpaper' : 'visual';
-      if (bibleView === 'wallpaper') stage.coverIn(false); else stage.coverOut();
+      textView = cmd.view === 'wallpaper' ? 'wallpaper' : 'visual';
+      if (textView === 'wallpaper') stage.coverIn(false); else stage.coverOut();
       return;
     }
-    if (cmd.type !== 'load' && cmd.type !== 'stop' && cmd.type !== 'clear') return;
-    hideBible();
+    if (cmd.type === 'load') {
+      const rec = await AVDB.getMedia(cmd.mediaId);
+      if (!rec || rec.kind !== 'audio') hideText(); // visual encerra; áudio mantém
+    } else if (cmd.type === 'stop' || cmd.type === 'clear') {
+      hideText();
+    }
+    // demais comandos (play/pause/seek/volume/mute) caem no fluxo normal abaixo.
   }
 
   if (cmd.type === 'load') {

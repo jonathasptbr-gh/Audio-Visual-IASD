@@ -179,17 +179,14 @@ html, body {
   color: var(--gold); font-size: 9.5cqmin;
 }
 
-/* Texto bíblico projetado (ver seção "Bíblia" no CLAUDE.md): fundo preto (do
-   .layer) + um cartão central com a referência (dourado) em cima e o texto do
-   versículo embaixo. Mesmo modelo de redimensionamento por Container Queries
-   da letra sincronizada (`container-type:size` + unidades `cq*`) — tudo escala
-   junto em qualquer proporção/tamanho de tela, sem pisos/tetos que
-   descompassem. Ao contrário da letra (estrofe curta, MAIÚSCULA, 2 linhas), o
-   versículo é prosa: caixa-baixa, alinhado à esquerda, várias linhas.
-   A moldura (borda + fundo semitransparente) fica SEMPRE visível aqui (não é
-   condicionada como na letra): o texto bíblico é sempre projetado sobre o
-   preto, e o cartão é a própria identidade visual de "texto da Escritura". */
-.bible-content {
+/* ---------- Camada de TEXTO manual (Bíblia + Mensagens) ----------
+   Cartão central com o texto e uma linha secundária embaixo (a referência,
+   dourada, no modo versículo; oculta no modo mensagem). Mesmo modelo de
+   redimensionamento por Container Queries da letra (`container-type:size` +
+   `cq*`). É prosa (caixa-baixa, várias linhas). A moldura (borda + fundo
+   semitransparente) fica SEMPRE visível — é a identidade visual do "cartão de
+   texto", sempre projetado sobre o preto (ou sobre a mídia/áudio de fundo). */
+.text-content {
   container-type: size;
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
@@ -197,12 +194,10 @@ html, body {
   padding-bottom: max(6cqh, env(safe-area-inset-bottom));
   box-sizing: border-box; font-family: system-ui, sans-serif;
 }
-/* Tamanho FIXO (não cresce/encolhe com o texto do versículo) e o menor
-   razoável — pra ocupar pouco da tela/imagem de fundo. A referência fica
-   ABAIXO do texto (ordem no DOM). overflow:hidden + o line-clamp são a
-   garantia contra vazamento (versículos muito longos são cortados com
-   reticências — o operador vê o texto inteiro no Controle). */
-.bible-box {
+/* Tamanho FIXO (não cresce/encolhe com o texto) e o menor razoável — pra ocupar
+   pouco da tela/imagem de fundo. overflow:hidden + line-clamp cortam texto longo
+   demais com reticências (o operador vê o texto inteiro no Controle). */
+.text-box {
   width: 80cqw;
   height: 46cqh;
   box-sizing: border-box;
@@ -214,21 +209,24 @@ html, body {
   gap: 1.6cqh;
   text-align: center; overflow: hidden;
 }
-/* Texto do versículo — prosa legível. cqmin (não cqh puro) pela mesma razão
-   da letra: em proporção estreita a fonte não pode crescer com a altura além
-   do que a largura permite. */
-.bible-text {
+/* Texto principal (versículo / mensagem) — prosa legível. cqmin (não cqh puro):
+   em proporção estreita a fonte não pode crescer com a altura além do que a
+   largura permite. */
+.text-main {
   color: #fff; font-weight: 500;
   font-size: 4.8cqmin; line-height: 1.32;
   white-space: pre-line;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 5; overflow: hidden;
 }
-/* Referência (ex: "João 3:16") — dourado, ABAIXO do texto, sempre 1 linha. */
-.bible-ref {
+/* Linha secundária ABAIXO do texto — a referência (ex: "João 3:16") no modo
+   versículo, dourada, 1 linha. Oculta no modo mensagem. */
+.text-sub {
   color: var(--gold); font-weight: 700;
   font-size: 4.2cqmin; line-height: 1.2; letter-spacing: .02em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
 }
+/* Modo mensagem: texto um pouco maior, mais linhas, sem sublinha. */
+.text-content.mode-message .text-main { font-size: 5.4cqmin; -webkit-line-clamp: 7; font-weight: 600; }
 
 /* Fundo preto evita flash branco enquanto o player do YouTube carrega.
    pointer-events:none: toques/hover no telão nunca invocam a UI do player
