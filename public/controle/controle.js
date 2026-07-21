@@ -32,9 +32,10 @@ const pvLyricsImgEl = document.getElementById('pvLyricsImg');
 const pvLyricsContentEl = document.getElementById('pvLyricsContent');
 const pvLyricsLineEl = document.getElementById('pvLyricsLine');
 const pvLyricsAuxEl = document.getElementById('pvLyricsAux');
-const pvBibleEl = document.getElementById('pvBible');
-const pvBibleRefEl = document.getElementById('pvBibleRef');
-const pvBibleTextEl = document.getElementById('pvBibleText');
+const pvTextEl = document.getElementById('pvText');
+const pvTextContentEl = document.getElementById('pvTextContent');
+const pvTextMainEl = document.getElementById('pvTextMain');
+const pvTextSubEl = document.getElementById('pvTextSub');
 
 const plBtnEl = document.getElementById('plBtn');
 const plCountEl = document.getElementById('plCount');
@@ -205,6 +206,14 @@ let bibleDl = null;
 // Versões já totalmente baixadas (offline) — cache em memória de
 // state['bibleComplete:<v>'], pra a tela de livros mostrar "completa" sem async.
 const bibleCompleteVersions = new Set();
+
+// ===== Mensagens (texto puro personalizado) =====
+// Fonte "mensagem" da Camada de Texto: textos curtos que o operador salva e
+// projeta (avisos, versículos avulsos, etc.). Cada mensagem é um slide.
+// Persistido em state 'messages'. msgSession espelha bibleSession (idx dentro
+// da lista + projecting) — passa/volta com os mesmos botões de slide.
+let messages = [];       // [{ id, text }]
+let msgSession = null;   // { idx, projecting } | null
 // id_bible_book real do livro no índice `idx` de Bible.BOOKS: usa o id da lista
 // online (mesma ordem canônica) quando baixada; senão cai no índice+1.
 function bibleBookId(idx) {
@@ -601,30 +610,30 @@ function renderLyricsBgBtn() {
 // áudio da preview muda, a comunicação com o Display permanece normal.
 function cmd(obj) {
   AVDB.sendCommand(obj);
-  // Texto bíblico: camada paralela (como a letra/YouTube) — espelha na preview.
-  if (obj.type === 'bible') {
-    showPvBible(obj.ref, obj.text, obj.view);
-    return;
-  }
+  // Texto manual (Bíblia/Mensagem): overlay independente — espelha na preview.
+  if (obj.type === 'text') { showPvText(obj); return; }
+  if (obj.type === 'text-hide') { hidePvText(); return; }
   const nowYoutube = !!(currentItem && currentItem.kind === 'youtube');
   if (obj.type === 'load') {
-    // Esconde a letra incondicionalmente ANTES de qualquer coisa — mesmo
-    // padrão do Display (hideLyrics), evita a letra ficar presa na tela ao
-    // trocar pra um item sem letra ou pra um vídeo do YouTube.
+    // Esconde a letra incondicionalmente (como o Display). O texto manual é um
+    // overlay independente: só some ao carregar VISUAL; ÁUDIO toca por baixo e
+    // mantém o texto (independência áudio × texto).
     hidePvLyrics();
-    hidePvBible();
+    const keepText = pvTextActive && currentItem && currentItem.kind === 'audio';
+    if (!keepText) hidePvText();
     // preview.handle() sempre roda primeiro: mantém preview.getCurrent()/
     // fallback de thumbnail em dia (stage.js já sabe lidar com kind=youtube,
     // só não toca o vídeo) — mesmo quando o player real assume por cima.
     preview.handle(obj);
     if (nowYoutube) loadYtPreview(currentItem, obj.view);
     else if (ytPreview) dropYtPreview();
-    if (currentItem && currentItem.kind === 'audio' && Array.isArray(currentItem.lyrics) && currentItem.lyrics.length) showPvLyrics(currentItem);
+    // Só mostra a letra do áudio se NÃO houver texto manual em cena (precedência).
+    if (!keepText && currentItem && currentItem.kind === 'audio' && Array.isArray(currentItem.lyrics) && currentItem.lyrics.length) showPvLyrics(currentItem);
     return;
   }
   if (obj.type === 'stop' || obj.type === 'clear') {
     hidePvLyrics();
-    hidePvBible();
+    hidePvText();
     if (ytPreview) dropYtPreview();
     preview.handle(obj);
     return;
@@ -644,8 +653,9 @@ function cmd(obj) {
 }
 
 function previewTick() {
-  // Leitura bíblica em cena: não há mídia/tempo a sincronizar.
-  if (bibleSession) return;
+  // Texto manual em cena sem áudio de fundo: nada de mídia/tempo a sincronizar.
+  // (Com áudio de fundo, o texto é overlay e a preview segue o áudio normalmente.)
+  if ((bibleSession || msgSession) && !preview.getCurrent()) return;
   // Itens YouTube tocam só no Display (player real): a UI de transporte é
   // dirigida pelo display-status remoto, não pela preview local.
   if (currentItem && currentItem.kind === 'youtube') return;
@@ -794,34 +804,37 @@ function applyPvLyricsBg() {
   applyPvLyricsImage(pvLyrics[pvLyricSlideIdx]);
 }
 
-// ===== Texto bíblico na preview — espelha o Display =====
-// Camada paralela (mesmo padrão da letra/YouTube): mostra referência + texto
-// do versículo sob a cortina do wallpaper da preview.
-let pvBibleActive = false;
+// ===== Camada de TEXTO manual na preview (Bíblia/Mensagem) — espelha o Display =====
+// Overlay independente do áudio: um som pode seguir tocando por baixo (preview
+// muda), como no Display. `mode`: 'verse' (sublinha = referência) | 'message'.
+let pvTextActive = false;
 
-function hidePvBible() {
-  if (!pvBibleActive && pvBibleEl.hidden) return;
-  pvBibleActive = false;
-  pvBibleEl.hidden = true;
-  pvBibleRefEl.textContent = '';
-  pvBibleTextEl.textContent = '';
+function hidePvText() {
+  if (!pvTextActive && pvTextEl.hidden) return;
+  pvTextActive = false;
+  pvTextEl.hidden = true;
+  pvTextMainEl.textContent = '';
+  pvTextSubEl.textContent = '';
 }
 
-function showPvBible(ref, text, viewMode) {
-  pvBibleRefEl.textContent = ref || '';
-  pvBibleTextEl.textContent = text || '';
-  const wallpaper = viewMode === 'wallpaper';
-  if (pvBibleActive) {
-    // Já em cena (troca de versículo): fade-in do texto, sem mexer na moldura.
-    pvFadeIn(pvBibleTextEl); pvFadeIn(pvBibleRefEl);
+function showPvText(obj) {
+  const wallpaper = obj.view === 'wallpaper';
+  const isMsg = obj.mode === 'message';
+  pvTextContentEl.classList.toggle('mode-message', isMsg);
+  pvTextMainEl.textContent = obj.main || '';
+  pvTextSubEl.textContent = obj.sub || '';
+  if (pvTextActive) {
+    // Já em cena (troca de versículo/mensagem): fade-in do texto.
+    pvFadeIn(pvTextMainEl); if (obj.sub) pvFadeIn(pvTextSubEl);
     preview.instantCover(wallpaper);
     return;
   }
   hidePvLyrics();
   if (ytPreview) dropYtPreview();
-  preview.clear();          // para a mídia local e cobre a cortina da preview
-  pvBibleActive = true;
-  pvBibleEl.hidden = false;
+  // NÃO para o áudio de fundo da preview (independência) — só some com o visual
+  // concorrente (YouTube/letra); o stage da preview segue tocando por baixo.
+  pvTextActive = true;
+  pvTextEl.hidden = false;
   if (wallpaper) preview.instantCover(true); else preview.coverOut();
 }
 
@@ -919,6 +932,7 @@ async function load() {
   const folderCountsV = {};
   foldersV.forEach((f, i) => { folderCountsV[f.id] = (folderIdArrays[i] || []).length; });
   const opfsFoldersV = (await AVDB.getState('opfs-folders')) || [];
+  const messagesV = (await AVDB.getState('messages')) || [];
   const storedFit = await AVDB.getState('fit');
   const lyricsBgV = (await AVDB.getState('lyricsBg')) === 'image' ? 'image' : 'black';
   let libItemsV;
@@ -929,8 +943,14 @@ async function load() {
     } else {
       libItemsV = currentFolder ? await loadFolderMediaItems(currentFolder.id) : [];
     }
-  } else {
+  } else if (activeTab === 'imports' || activeTab === 'playlist') {
+    // Só as abas que são de fato listas de IDs de mídia. As abas 'albums',
+    // 'bible' e 'messages' NÃO são listas de mídia — e 'messages' guarda
+    // objetos {id,text} no mesmo state key, então passar isso por listItems
+    // (getMedia por id) lançaria DataError e quebraria o load() inteiro.
     libItemsV = await AVDB.listItems(activeTab);
+  } else {
+    libItemsV = [];
   }
   const curMediaId = cur && cur.mediaId ? cur.mediaId : null;
   const currentItemV = curMediaId ? (await AVDB.getMedia(curMediaId)) || null : null;
@@ -948,6 +968,7 @@ async function load() {
   folders = foldersV;
   folderCounts = folderCountsV;
   opfsFolders = opfsFoldersV;
+  messages = messagesV;
   if (storedFit) mediaFit = storedFit;
   lyricsBg = lyricsBgV;
   libItems = libItemsV;
@@ -969,7 +990,7 @@ async function load() {
   // paralela e o stage da preview está sem `current` (=null), então setView
   // recobriria a cortina e o texto sumiria da preview ao trocar de aba — a
   // projeção deve ser independente da navegação, como qualquer outra mídia.
-  if (!pvBibleActive) preview.setView(view);
+  if (!pvTextActive) preview.setView(view);
   preview.setMute(muted); preview.setVolume(volume);
   preview.setFade({ fadeIn: fadeCfg.in, fadeOut: fadeCfg.out, time: fadeCfg.time });
   preview.setFit(mediaFit);
@@ -1011,6 +1032,13 @@ function renderRepeat() {
 }
 
 function renderNowPlaying() {
+  // Mensagem EM EXIBIÇÃO: mostra "Mensagem" no now-playing.
+  if (msgSession && msgSession.projecting) {
+    npNameInnerEl.textContent = 'Mensagem ' + (msgSession.idx + 1);
+    applyTitleMarquee();
+    playPauseEl.querySelector('.msym').textContent = playing ? ICON.pause : ICON.play;
+    return;
+  }
   // Texto bíblico EM EXIBIÇÃO: mostra a referência (livro cap:versículo). Antes
   // de ativar a exibição (só selecionado), o telão ainda não mostra a Bíblia,
   // então o now-playing segue a mídia/estado normal.
@@ -1058,6 +1086,11 @@ function renderTabs() {
 function renderListTitle() {
   // Indicador de versão: só ao lado do título da aba Cronograma.
   appVersionEl.hidden = activeTab !== 'imports';
+  if (activeTab === 'messages') {
+    backBtnEl.hidden = true; addDirBtnEl.hidden = true; libSearchEl.hidden = true; libSearchEl.value = '';
+    listTitleEl.hidden = false; listTitleEl.textContent = 'Mensagens';
+    return;
+  }
   if (activeTab === 'bible') {
     backBtnEl.hidden = bibleScreen === 'books';
     addDirBtnEl.hidden = true;
@@ -1428,6 +1461,7 @@ async function loadBibleChapter() {
 // renderBibleReading / activateBibleVerse).
 function startBibleReading(i) {
   if (!bibleChapterData || !bibleChapterData.verses.length) return;
+  clearMsgSession(); // só um texto manual por vez (Bíblia × Mensagem)
   const book = Bible.BOOKS[bibleSel.bookIdx];
   bibleSession = {
     versionId: bibleVersionId,
@@ -1474,10 +1508,10 @@ function projectBibleVerse(idx) {
   s.projecting = true;
   const v = s.verses[idx];
   const ref = s.bookName + ' ' + s.chapter + ':' + v.n;
-  const verName = bibleVersionName(s.versionId);
   view = 'visual';   // projetar a Escritura sempre revela (desliga o wallpaper)
   persistCurrent();
-  cmd({ type: 'bible', ref, text: v.text, version: verName, view: 'visual' });
+  // Camada de texto unificada: modo 'verse' (sublinha = referência dourada).
+  cmd({ type: 'text', mode: 'verse', main: v.text, sub: ref, view: 'visual' });
   renderControls();
   renderNowPlaying();
   renderSlideNav();
@@ -1731,6 +1765,84 @@ function clearBibleSession() {
   if (activeTab === 'bible') { renderLibrary(); renderListTitle(); }
 }
 
+// ===== Mensagens: lista, projeção e navegação =====
+function clearMsgSession() {
+  if (!msgSession) return;
+  msgSession = null;
+  renderSlideNav();
+  renderNowPlaying();
+  if (activeTab === 'messages') renderLibrary();
+}
+// Encerra QUALQUER texto manual em cena (Bíblia ou Mensagem) — só um por vez.
+function clearManualText() { clearBibleSession(); clearMsgSession(); }
+
+// Projeta a mensagem de índice `idx` (Display + preview). Encerra a Bíblia (só
+// um texto manual por vez).
+function projectMessage(idx) {
+  if (idx < 0 || idx >= messages.length) return;
+  clearBibleSession();
+  msgSession = { idx, projecting: true };
+  view = 'visual';
+  persistCurrent();
+  cmd({ type: 'text', mode: 'message', main: messages[idx].text, sub: '', view: 'visual' });
+  renderControls();
+  renderNowPlaying();
+  renderSlideNav();
+  if (activeTab === 'messages') { const sp = libraryEl.scrollTop; renderLibrary(); libraryEl.scrollTop = sp; }
+}
+
+// Passa/volta entre mensagens salvas (reusa os botões de slide).
+function msgStep(delta) {
+  if (!msgSession) return;
+  const t = Math.min(Math.max(msgSession.idx + delta, 0), messages.length - 1);
+  if (t === msgSession.idx) return;
+  projectMessage(t);
+}
+
+async function saveMessages() { await AVDB.setState('messages', messages); }
+
+async function addMessage() {
+  const text = await appPrompt({ title: 'Nova mensagem', message: 'Texto da mensagem:', okText: 'Salvar', placeholder: 'Ex.: Bem-vindos ao culto!' });
+  if (!text || !text.trim()) return;
+  messages.push({ id: uid(), text: text.trim() });
+  await saveMessages();
+  renderLibrary();
+}
+
+async function deleteMessage(id) {
+  const i = messages.findIndex((m) => m.id === id);
+  if (i < 0) return;
+  if (msgSession && msgSession.idx === i) clearManualText();
+  messages.splice(i, 1);
+  await saveMessages();
+  renderLibrary();
+}
+
+function renderMessages() {
+  const wrap = document.createElement('div'); wrap.className = 'msg-wrap';
+  const addBtn = document.createElement('button'); addBtn.type = 'button'; addBtn.className = 'msg-add-btn';
+  addBtn.textContent = '+ Nova mensagem';
+  addBtn.addEventListener('click', addMessage);
+  wrap.appendChild(addBtn);
+  if (!messages.length) {
+    const empty = document.createElement('div'); empty.className = 'empty';
+    empty.textContent = 'Nenhuma mensagem. Toque em "Nova mensagem" para criar.';
+    wrap.appendChild(empty);
+  }
+  messages.forEach((m, i) => {
+    const active = msgSession && msgSession.projecting && msgSession.idx === i;
+    const row = document.createElement('div'); row.className = 'msg-item' + (active ? ' active' : '');
+    const txt = document.createElement('div'); txt.className = 'msg-text'; txt.textContent = m.text;
+    txt.addEventListener('click', () => projectMessage(i));
+    const del = document.createElement('button'); del.type = 'button'; del.className = 'row-btn';
+    del.appendChild(msym(ICON.del));
+    del.addEventListener('click', (e) => { e.stopPropagation(); deleteMessage(m.id); });
+    row.append(txt, del);
+    wrap.appendChild(row);
+  });
+  libraryEl.appendChild(wrap);
+}
+
 function renderLibrary() {
   thumbUrls.forEach((u) => URL.revokeObjectURL(u));
   thumbUrls = [];
@@ -1744,6 +1856,11 @@ function renderLibrary() {
 
   if (activeTab === 'bible') {
     renderBible();
+    return;
+  }
+
+  if (activeTab === 'messages') {
+    renderMessages();
     return;
   }
 
@@ -2097,11 +2214,12 @@ function renderSelbar() {
 
 // ===== ações de reprodução / sequência =====
 async function send(id) {
-  // Uma mídia comum assumindo a cena encerra a leitura bíblica.
-  clearBibleSession();
   currentId = id;
   // Atualiza cache do item atual para renderNowPlaying funcionar mesmo fora da aba ativa.
   currentItem = [...plItems, ...libItems].find((m) => m.id === id) || currentItem;
+  // Independência áudio × texto: um ÁUDIO (música de fundo) NÃO encerra o texto
+  // manual em cena (Bíblia/Mensagem); qualquer VISUAL (vídeo/imagem/YouTube) encerra.
+  if (!((bibleSession || msgSession) && currentItem && currentItem.kind === 'audio')) clearManualText();
   await persistCurrent();
   ytEnded = false;
   displayStatusAt = 0; // até o Display confirmar o novo item, a preview dirige
@@ -2129,7 +2247,8 @@ function step(delta) {
 // Display (e a própria preview) sincronizam a letra sozinhos ao reagir ao
 // novo tempo, sem precisar de um comando novo no protocolo.
 function stepSlide(delta) {
-  // Leitura bíblica em cena: os botões de slide passam/voltam versículos.
+  // Texto manual em cena: os botões de slide passam/voltam versículos/mensagens.
+  if (msgSession) { msgStep(delta); return; }
   if (bibleSession) { bibleStep(delta); return; }
   const lyrics = currentItem && Array.isArray(currentItem.lyrics) ? currentItem.lyrics : null;
   if (!lyrics || lyrics.length === 0) return;
@@ -2142,6 +2261,12 @@ function stepSlide(delta) {
 // Habilita/desabilita os botões de estrofe conforme o item atual tem letra
 // sincronizada e a posição dentro dela (desabilita no primeiro/último slide).
 function renderSlideNav() {
+  // Mensagens: passa/volta entre as mensagens salvas (nos extremos desabilita).
+  if (msgSession) {
+    slidePrevBtnEl.disabled = msgSession.idx <= 0;
+    slideNextBtnEl.disabled = msgSession.idx >= messages.length - 1;
+    return;
+  }
   // Leitura bíblica: só desabilita no começo (Gn 1:1) e no fim (Ap, último
   // versículo) da Bíblia — nos limites de capítulo cruza para o vizinho.
   if (bibleSession) {
@@ -2227,7 +2352,7 @@ async function toggleMute() {
 // Parar = limpar o display (volta ao wallpaper); mantém currentId para replay com play.
 async function stopClear() {
   cmd({ type: 'clear' });
-  clearBibleSession();
+  clearManualText();
   playing = false;
   // YouTube: 'clear' derruba o player da preview (dropYtPreview via cmd) e o do
   // Display → o próximo ▶ precisa recarregar (send), não só reenviar 'play'.
@@ -3414,9 +3539,10 @@ fileEl.addEventListener('change', async () => {
 });
 
 playPauseEl.addEventListener('click', () => {
-  // Leitura bíblica: sem mídia com tempo — play/pause não faz nada (a navegação
-  // é pelos botões de slide, que passam/voltam versículos).
-  if (bibleSession) return;
+  // Texto manual em cena SEM áudio de fundo: play/pause não faz nada (navega-se
+  // pelos botões de slide). Com um áudio de fundo tocando (preview.getCurrent),
+  // o play/pause controla esse áudio — a projeção do texto é independente.
+  if (bibleSession && !preview.getCurrent()) return;
   if (playing) { cmd({ type: 'pause' }); }
   // YouTube sem player vivo no Display (fim natural ou stop manual) → recarrega
   else if (ytEnded && currentItem && currentItem.kind === 'youtube' && currentId) { send(currentId); }
@@ -3513,7 +3639,7 @@ plPopupEl.addEventListener('click', (e) => { if (e.target === plPopupEl) closePl
 // Ordem das abas (esquerda→direita) — define a DIREÇÃO do deslize na animação
 // de troca de aba (ir pra uma aba à direita desliza a lista entrando pela
 // direita, e vice-versa).
-const TAB_ORDER = ['imports', 'folders', 'albums', 'bible'];
+const TAB_ORDER = ['imports', 'folders', 'albums', 'bible', 'messages'];
 const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // Anima a entrada da lista ao trocar de aba: leve deslize direcional + fade.

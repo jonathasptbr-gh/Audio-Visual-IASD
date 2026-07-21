@@ -32,15 +32,16 @@
       </div>
     </div>
   </div>
-  <!-- Texto bíblico projetado (ver seção "Bíblia" no CLAUDE.md): mesmo z-index
-       dos demais layers de mídia, então a cortina do wallpaper (z-index maior)
-       cobre/revela este layer de graça — camada paralela ao stage.js, mesmo
-       padrão da letra sincronizada e da ponte do YouTube. -->
-  <div id="bible" class="layer bible-layer" hidden>
-    <div class="bible-content" id="bibleContent">
-      <div class="bible-box">
-        <div class="bible-text" id="bibleText"></div>
-        <div class="bible-ref" id="bibleRef"></div>
+  <!-- Camada de TEXTO manual (Bíblia + Mensagens) — ver "Camada de Texto" no
+       CLAUDE.md. Genérica: `mode-verse` (versículo, com referência embaixo) ou
+       `mode-message` (mensagem/texto puro). Camada paralela ao stage.js (mesmo
+       z-index dos layers de mídia); a cortina do wallpaper (z-index maior) a
+       cobre/revela de graça. Independente do áudio: um som pode tocar por baixo. -->
+  <div id="text" class="layer text-layer" hidden>
+    <div class="text-content" id="textContent">
+      <div class="text-box">
+        <div class="text-main" id="textMain"></div>
+        <div class="text-sub" id="textSub" hidden></div>
       </div>
     </div>
   </div>
