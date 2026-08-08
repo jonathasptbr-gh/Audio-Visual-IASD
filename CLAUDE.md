@@ -1422,6 +1422,23 @@ app também fecha, pelo mesmo motivo pelo qual o push-to-talk fecha.
   passou a anunciar o som, a folha do operador passou a dizer a regra, e o
   `espelho-cliente.test.mjs` trava a porta nos dois modos — no de vídeo o gesto
   PEDE o AAC, no de imagem ele deliberadamente não pede.
+- **O PRAZO do `csd` de áudio é ABSOLUTO, e atravessa reconexões** (v5.153).
+  Ele era um `setTimeout` que o `conectar()` limpava no topo de cada conexão —
+  certo para o `csd` retido (ele morre com a conexão que o trouxe) e **fatal
+  para o prazo**: numa tela que reconecta a cada dois segundos, um prazo de
+  2,5 s nunca chega a vencer. O cliente esperava um `csd` de áudio para sempre,
+  a `MediaSource` nunca nascia, e **nem o vídeo aparecia** — com o Registro
+  dizendo, com todas as letras, `som: pedido, esperando o csd`. Foi a
+  instrumentação da v5.150 que o nomeou: sem ela, o sintoma era "travando e
+  dessincronizando". Agora o instante é marcado em `Date.now()` (um instante
+  sobrevive a qualquer número de reconexões; um timer não) e o timer fica só
+  para o caso da conexão estável.
+- **E a tela conta COMO a conexão terminou** (v5.153), no mesmo relato: `fim do
+  fluxo do servidor` × `rede: <nome>` × `nós abortamos`. As duas perguntas do
+  espelho hoje são "por que esta tela está muda?" e "por que ela reconecta?", e
+  a segunda não tinha resposta nenhuma — uma tela trocando de rótulo a cada dois
+  segundos com `0 descarte(s)` é um fato do lado de lá, e o Registro mostrava só
+  a troca.
 - **E O RAMO do som viaja junto, sempre** (v5.150). `som: PEDIDO e a faixa não
   nasceu` responde ONDE o defeito está — deste lado —, não QUAL é: entre o
   pedido e a faixa há **sete** desfechos (o `csd` não chegou, chegou ilegível,
@@ -2211,7 +2228,7 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.152** (base web) · `SHELL_VERSION` **34**, e o bundle segue com
+**Versão atual: v5.153** (base web) · `SHELL_VERSION` **34**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.

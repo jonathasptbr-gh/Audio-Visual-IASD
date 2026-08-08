@@ -177,6 +177,12 @@
   let audioQuerido = false;
   let initVideoRetido = null;             // o `csd` de vídeo à espera do de áudio
   let esperaAudio = null;
+  // O PRAZO ABSOLUTO do `csd` de áudio (ms de época), que ATRAVESSA reconexões.
+  // Zero = não estamos esperando. Ver a retenção em `receber`: é ele que impede
+  // uma tela que reconecta a cada dois segundos de esperar para sempre por um
+  // `csd` que nunca vem — o defeito que deixou o Registro dizendo
+  // `som: pedido, esperando o csd` indefinidamente, com a tela sem projetar.
+  let esperaAudioAte = 0;
   let audioDesde = 0;                     // quando a faixa de som abriu (vigia do mudo)
   let audioUltimoMs = 0;                  // e quando chegou o último quadro AAC
   let rebuilds = 0;
@@ -615,6 +621,7 @@
           audioDesde = Date.now();
           audioUltimoMs = 0;
           porqueSemSom = 'faixa aberta, esperando o primeiro AAC';
+          esperaAudioAte = 0;
         } catch (e) {
           // O SOM CAI SOZINHO, e a imagem segue. É a falha segura inteira numa
           // linha: nada aqui derruba a `MediaSource` que já tem vídeo.
@@ -674,6 +681,10 @@
   // segundos na frente de quem está assistindo.
   let recusasSeguidas = 0;
   let quadrosDesdeRecusa = 0;
+  // Como terminou a ÚLTIMA conexão. Vai no relato junto com o ramo do som: as
+  // duas perguntas do espelho hoje são "por que esta tela está muda?" e "por
+  // que ela reconecta?", e a segunda não tinha resposta nenhuma.
+  let ultimoFim = '';
   // ~13 s a 9 fps. É "esta tela está de fato projetando", não "chegou um
   // quadro".
   const QUADROS_SAUDAVEL = 120;
@@ -1023,7 +1034,7 @@
     // porque o Kotlin já o saneia e já o mostra (`diz:`) — um campo novo
     // exigiria APK, e isto precisa chegar por OTA.
     const tela = (el.aviso ? el.aviso.textContent || '' : '').trim();
-    const nota = '«som: ' + porqueSemSom + '»';
+    const nota = '«som: ' + porqueSemSom + (ultimoFim ? ' · fim: ' + ultimoFim : '') + '»';
     return {
       do: 'alive',
       telaAcesaMin: minutosAcesa(),
@@ -1048,7 +1059,7 @@
   function relatar() {
     if (!vivo || !token) return;
     const chave = (el.aviso ? el.aviso.textContent || '' : '')
-      + '|' + (sbA ? '1' : '0') + '|' + porqueSemSom;
+      + '|' + (sbA ? '1' : '0') + '|' + porqueSemSom + '|' + ultimoFim;
     if (chave === ultimoRelato) return;
     ultimoRelato = chave;
     postar('/r', corpoDoAlive(), true).catch(() => {});
@@ -1107,6 +1118,26 @@
     }
   }
 
+  /**
+   * O prazo do `csd` de áudio venceu numa conexão ESTÁVEL: abre só com imagem.
+   *
+   * Ele é o irmão do teste absoluto em [receber] — este cobre "a conexão está
+   * de pé e nada mais chega", aquele cobre "a conexão cai antes do prazo". Sem
+   * os dois, um dos dois casos fica sem ninguém para decidir.
+   */
+  function desistirDoAudio() {
+    esperaAudio = null;
+    const retido = initVideoRetido;
+    initVideoRetido = null;
+    if (!retido || ms) return;
+    // O som não veio: o grafo do celular não subiu (§3.9 — o handshake que
+    // libera o `forceMuted` nunca chegou). Abre-se só com imagem, e se diz
+    // isso: mudo é um estado, não um defeito escondido.
+    porqueSemSom = 'o csd de áudio não chegou em ' + ESPERA_CSD_AUDIO_MS + ' ms';
+    semSom('Esta tela está sem som — o celular não está enviando áudio.');
+    abrirMidia(retido, null);
+  }
+
   function receber(q, carga) {
     conta.bytes += carga.length + CAB;
     if (q.tipo === T_CSD_VIDEO) {
@@ -1116,20 +1147,34 @@
       // então as duas faixas têm de nascer juntas — e o `csd` de áudio vem logo
       // atrás, assim que o `POST /r` desta conexão der a volta. Segurar aqui
       // custa milissegundos; abrir só com vídeo custaria uma remontagem.
-      if (!ms && audioQuerido && !esperaAudio) {
-        initVideoRetido = info;
-        esperaAudio = setTimeout(function () {
-          esperaAudio = null;
-          const retido = initVideoRetido;
-          initVideoRetido = null;
-          if (!retido || ms) return;
-          // O som não veio: o grafo do celular não subiu (§3.9 — o handshake
-          // que libera o `forceMuted` nunca chegou). Abre-se só com imagem, e
-          // se diz isso: mudo é um estado, não um defeito escondido.
-          porqueSemSom = 'o csd de áudio não chegou em ' + ESPERA_CSD_AUDIO_MS + ' ms';
-          semSom('Esta tela está sem som — o celular não está enviando áudio.');
-          abrirMidia(retido, null);
-        }, ESPERA_CSD_AUDIO_MS);
+      if (!ms && audioQuerido) {
+        // O PRAZO É ABSOLUTO E ATRAVESSA RECONEXÕES, e essa é a correção
+        // inteira. Ele era um `setTimeout` que o `conectar()` limpava no topo
+        // de CADA conexão — o que é certo para o `csd` retido (ele morre com a
+        // conexão que o trouxe) e é fatal para o PRAZO: numa tela que
+        // reconecta a cada dois segundos, um prazo de 2,5 s nunca chega a
+        // vencer. O cliente ficava esperando um `csd` de áudio para sempre, a
+        // `MediaSource` nunca nascia, e nem o VÍDEO aparecia — com o Registro
+        // dizendo, com todas as letras, `som: pedido, esperando o csd`.
+        //
+        // Marcado em `Date.now()` e não num timer: um instante sobrevive a
+        // qualquer número de reconexões, um `setTimeout` não.
+        if (!esperaAudioAte) esperaAudioAte = Date.now() + ESPERA_CSD_AUDIO_MS;
+        if (Date.now() < esperaAudioAte) {
+          initVideoRetido = info;
+          // O timer continua existindo para o caso NORMAL — uma conexão
+          // estável em que nada mais chega —, porque sem ele nada acordaria a
+          // decisão até o próximo quadro.
+          if (!esperaAudio) {
+            esperaAudio = setTimeout(desistirDoAudio, ESPERA_CSD_AUDIO_MS);
+          }
+          return;
+        }
+        // Prazo vencido: abre com o que há. A imagem vem primeiro — uma tela
+        // muda projeta, uma tela sem `MediaSource` não projeta nada.
+        porqueSemSom = 'o csd de áudio não chegou em ' + ESPERA_CSD_AUDIO_MS + ' ms';
+        semSom('Esta tela está sem som — o celular não está enviando áudio.');
+        abrirMidia(info, null);
         return;
       }
       abrirMidia(info, null);
@@ -1293,7 +1338,14 @@
     const leitor = r.body.getReader();
     for (;;) {
       const passo = await leitor.read();
-      if (passo.done) return;             // o servidor fechou: quem reconecta é o laço
+      if (passo.done) {
+        // O SERVIDOR FECHOU, e isso vira relato: uma tela que reconecta a cada
+        // dois segundos com `0 descarte(s)` é um fato do lado de LÁ, e sem
+        // nomeá-lo o Registro mostra só a troca de rótulos. `fim do fluxo` é o
+        // servidor tendo encerrado; um `throw` daqui é rede.
+        ultimoFim = 'fim do fluxo do servidor';
+        return;                             // quem reconecta é o laço
+      }
       if (!vivo) { try { leitor.cancel(); } catch (_) {} return; }
       pedacos.push(passo.value);
       disponivel += passo.value.length;
@@ -1313,8 +1365,11 @@
         await conectar();
       } catch (e) {
         if (!vivo) return;
-        if (e && e.name === 'AbortError') nosso = true;
-        else avisar('Sem sinal — ' + ((e && e.message) || 'a conexão caiu') + '.', true);
+        if (e && e.name === 'AbortError') { nosso = true; ultimoFim = 'nós abortamos'; }
+        else {
+          ultimoFim = 'rede: ' + ((e && e.name) || '?');
+          avisar('Sem sinal — ' + ((e && e.message) || 'a conexão caiu') + '.', true);
+        }
       }
       if (!vivo) return;
       // A ESCADA VALE TAMBÉM PARA A RECUSA QUE SE REPETE. `recomecar` zera o
@@ -1454,6 +1509,8 @@
     // está olhando para a tela porque acabou de tocar nela.
     audioQuerido = true;
     porqueSemSom = 'pedido, esperando o csd';
+    // Tentativa NOVA, prazo novo: o toque do visitante é um pedido explícito.
+    esperaAudioAte = 0;
     try {
       el.v.muted = false;
       pedirAudio();
