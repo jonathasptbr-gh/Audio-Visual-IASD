@@ -637,6 +637,35 @@ checar(true, 'aprovada, a MESMA página troca para o player (sem navegar)');
     JSON.stringify(alives.map((a) => a.aviso).slice(0, 3)));
 }
 
+// A DESPEDIDA (`0x30 {"m":"adeus"}`) — o operador desligou o espelho.
+//
+// Ela existia nos DOIS lados e não era emitida por ninguém: o `cliente.js`
+// tratava o ramo desde a primeira versão e o `EspelhoServidor` tinha o `avisar`
+// pronto, sem um único chamador. O efeito é o que este caso trava: sem a
+// despedida, desligar o espelho é indistinguível de uma queda de rede, e até
+// três navegadores ficam batendo numa porta fechada a cada 8 s pelo resto do
+// culto — no rádio de um AP de igreja, durante o culto.
+//
+// Este bloco fica ANTES do percurso do QR de propósito: `fluxo` é o da aba
+// principal, e o `GET /v` da aba nova o substitui.
+{
+  const antesGets = visto.gets;
+  fluxo.write(quadro(0x30, 1, 5000000, Buffer.from('{"m":"adeus"}')));
+  await espera(300);
+  fluxo.end();
+  fluxo = null;
+  // Bem mais que o primeiro degrau da escada de reconexão (500 ms): se o
+  // cliente fosse voltar, ele já teria voltado.
+  await espera(2500);
+  const e = await pg.evaluate(() => window.__espelho.estado());
+  checar(!e.vivo, 'depois do adeus o cliente PARA — nada de martelar uma porta fechada',
+    JSON.stringify({ vivo: e.vivo, reconexoes: e.reconexoes }));
+  checar(visto.gets === antesGets, 'e nenhum GET /v novo é aberto',
+    antesGets + ' → ' + visto.gets);
+  checar(/desligado no celular/i.test(e.aviso || ''),
+    'e a tela DIZ que foi o operador, em vez de "sem sinal"', e.aviso);
+}
+
 // ---------------------------------------------------------------------------
 // E O PERCURSO INTEIRO DO QR, numa aba limpa: abrir o endereço, o operador ler
 // o código, e a tela entrar — SEM NINGUÉM DIGITAR NADA. É a promessa do

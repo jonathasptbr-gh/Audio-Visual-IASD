@@ -561,6 +561,8 @@
         if (audioQuerido && !sbA && !modoImagem) {
           if (rebuilds < REBUILDS_AUDIO) {
             rebuilds++;
+            // PRAZO NOVO PARA UMA TENTATIVA NOVA — ver `tentarSom`.
+            esperaAudioAte = 0;
             porqueSemSom = 'remontando na reconexão (' + rebuilds + '/' + REBUILDS_AUDIO + ')';
             recomecar('Ligando o som', true);
             return;
@@ -870,8 +872,19 @@
     // Arredondado a 50 ms: a borda dos dois buffers se mexe a cada append, e
     // um número trocando a cada 250 ms encheria o Registro de relatos que só
     // dizem "mudou o último dígito" — o `relatar` deduplica pela frase.
-    const ms = Math.round(desvio * 1000 / 50) * 50;
-    porqueSemSom = 'ok (vídeo à frente do som em ' + ms + ' ms)';
+    //
+    // O NOME NÃO PODE SER `ms`, e isto não é estilo. `ms` é a `MediaSource`
+    // deste arquivo, lida na PRIMEIRA linha desta função; um `const ms` aqui
+    // embaixo declara a variável para o BLOCO INTEIRO (zona morta temporal), e
+    // aquela leitura passa a lançar `ReferenceError: Cannot access 'ms' before
+    // initialization` — a cada 500 ms, em TODA tela que tenha ligado o som.
+    // O laço de `borda()` morria junto: sem poda (a cota do MSE estoura e a
+    // tela recomeça), sem perseguição de borda (o atraso cresce sem teto), sem
+    // `setLiveSeekableRange` e sem `relatar` — que é exatamente o quadro de
+    // "travando e dessincronizando" que a v5.152 introduziu ao dar nome ao
+    // desvio A/V.
+    const desvioMs = Math.round(desvio * 1000 / 50) * 50;
+    porqueSemSom = 'ok (vídeo à frente do som em ' + desvioMs + ' ms)';
   }
 
   // Solta a faixa de som SEM tocar na de imagem. `removeSourceBuffer` numa
@@ -891,7 +904,22 @@
     if (emVoo && emVoo.a) emVoo = null;
     if (muxer) muxer.descartarAudio();
     porqueSemSom = 'faixa solta: ' + porque;
-    try { ms.removeSourceBuffer(morto); } catch (_) { /* já saiu com a MediaSource */ }
+    // `removeSourceBuffer` LANÇA numa faixa com operação em voo
+    // (`InvalidStateError`), e engolir essa exceção era desfazer a função
+    // inteira: a faixa de som continuaria na `MediaSource`, sem receber mais
+    // nada — e a MSE só toca com dado em TODAS as faixas, então a IMAGEM
+    // congelaria justamente no caminho que existe para salvá-la. O `abort()`
+    // cancela o que estiver em voo e é operação normal da spec numa
+    // `MediaSource` aberta.
+    try { if (morto.updating) morto.abort(); } catch (_) { /* já parada */ }
+    try {
+      ms.removeSourceBuffer(morto);
+    } catch (_) {
+      // Última linha de defesa: sem soltar a faixa, sem imagem. Recomeçar
+      // limpo custa um piscar e devolve a projeção.
+      recomecar('não deu para soltar a faixa de som');
+      return;
+    }
     semSom('Esta tela ficou sem som (' + porque + ') — a imagem continua.');
     aplicar();
   }
@@ -1405,6 +1433,25 @@
   function recomecar(porque, suave) {
     conta.recomecos++;
     fila.length = 0;
+    // E O QUE AINDA ESTÁ NO FIO TAMBÉM VAI FORA — sem isto o recomeço não
+    // recomeça nada, e o defeito é o pior tipo: silencioso e circular.
+    //
+    // `recomecar` é chamado de DENTRO de `processar()` (o caminho é
+    // receber → enfileirar/aplicar → recomecar), e ao voltar aquele laço
+    // continua desmontando os bytes que já estavam no buffer da conexão morta.
+    // Esses quadros viravam fragmento e entravam numa `fila` recém-esvaziada —
+    // ou seja, ficavam NA FRENTE do segmento de inicialização que a conexão
+    // seguinte vai enfileirar de dentro do `sourceopen`. O primeiro
+    // `appendBuffer` da `MediaSource` nova era então um fragmento de mídia sem
+    // init: o Chromium recusa, dispara `error`, e o cliente recomeça de novo.
+    // É o laço de "o decodificador recusou os dados" a cada poucos segundos.
+    //
+    // Zerar o buffer de desmontagem faz o `processar()` em curso devolver o
+    // controle na próxima volta (`disponivel < CAB`) e nada mais é muxado desta
+    // conexão.
+    pedacos.length = 0;
+    disponivel = 0;
+    cabecalho = null;
     // A CONEXÃO CAI JUNTO, e sem isto o recomeço não recomeça nada: o `csd`
     // (`0x01`) e o IDR só chegam na ABERTURA de uma conexão (§5.3). Uma
     // `MediaSource` nova sem um `csd` novo ficaria esperando para sempre, com
@@ -1539,6 +1586,17 @@
     if (!audioQuerido || sbA || modoImagem || !ms) return;
     if (rebuilds >= REBUILDS_AUDIO) return;
     rebuilds++;
+    // O PRAZO DO `csd` DE ÁUDIO NASCE DE NOVO A CADA TENTATIVA, e sem esta
+    // linha a v5.153 condenava a tela ao silêncio permanente. Aquele prazo é
+    // ABSOLUTO e atravessa reconexões de propósito (senão uma tela que
+    // reconecta a cada dois segundos espera para sempre) — só que, uma vez
+    // VENCIDO, ele nunca mais deixava a retenção acontecer: toda conexão
+    // seguinte abria a `MediaSource` só com imagem no primeiro `csd` de vídeo,
+    // o `csd` de áudio chegava "tarde", e as três remontagens do teto se
+    // gastavam sem nenhuma delas ter chegado a esperar. Uma tentativa NOVA —
+    // o toque do visitante, ou uma remontagem — merece um prazo novo, e o teto
+    // de [REBUILDS_AUDIO] continua limitando quantas existem.
+    esperaAudioAte = 0;
     recomecar('Ligando o som', true);
   }
 

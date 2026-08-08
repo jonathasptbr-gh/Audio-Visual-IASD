@@ -1621,6 +1621,35 @@ Esta seção existe para ninguém redescobrir nada daqui a seis meses.
 
 ---
 
+## 10-A. A AUDITORIA DE 5.154 — o que estava quebrado, e por quê
+
+> Escrito depois de uma revisão linha a linha do recurso inteiro, com o relato do operador de que
+> "tecnicamente conecta, mas está estruturalmente quebrado". **Os seis achados abaixo estão
+> corrigidos.** Eles ficam aqui porque quatro deles são de uma mesma família — *código que o
+> compilador aprova, que a especificação descreve, e que nunca roda* — e é essa família que este
+> documento precisa ensinar a procurar.
+
+| # | Onde | O que era | Por que ninguém viu |
+|---|---|---|---|
+| **A1** | `espelho/cliente.js`, `vigiarAudio()` | Um `const ms` no fim da função **sombreava a `MediaSource` do módulo**, lida na primeira linha da mesma função. Zona morta temporal ⇒ `ReferenceError` a cada 500 ms, **em toda tela que tivesse ligado o som** | `node --check` aprova. E a guarda de cima começa por `!sbA`, então o erro só existia depois do gesto do visitante — o sintoma chegou como *"travando e dessincronizando"*, nunca como exceção |
+| **A2** | idem, `recomecar()` | O recomeço não esvaziava o **buffer do fio**. `recomecar` é chamado de dentro de `processar()`, e ao voltar aquele laço seguia muxando os bytes da conexão MORTA para dentro de uma `fila` recém-limpa — ou seja, na frente do segmento de inicialização da conexão seguinte. O primeiro `appendBuffer` da `MediaSource` nova era um fragmento sem init | O sintoma é o laço de *"o decodificador recusou os dados"* de três em três segundos, que a v5.147 tratou como **cadência** (a escada de reconexão) sem chegar à causa |
+| **A3** | idem, `soltarAudio()` | `removeSourceBuffer` numa faixa com operação em voo **lança**, e a exceção era engolida. A faixa de som ficava na `MediaSource` sem receber mais nada — e a MSE só toca com dado em todas as faixas ⇒ **a imagem congelava**, exatamente no caminho que existe para salvá-la | Só acontece quando a faixa é solta com um append em curso, isto é, sob carga |
+| **A4** | idem, prazo do `csd` de áudio | O prazo absoluto da v5.153 nunca era rearmado. **Vencido uma vez, vencido para sempre**: toda conexão seguinte abria a `MediaSource` só com imagem, o `csd` de áudio chegava "tarde", e as três remontagens do teto se gastavam sem nenhuma delas ter chegado a esperar ⇒ tela muda pelo resto da sessão | O teto de remontagens é a defesa contra um laço, e ele mascarava a causa |
+| **A5** | `EspelhoServidor.kt` | O quadro de **despedida** (`0x30 {"m":"adeus"}`) estava implementado nas DUAS pontas e **não era emitido por ninguém**. Desligar o espelho era, do lado do navegador, indistinguível de uma queda de rede: até três telas batendo numa porta fechada a cada 8 s pelo resto do culto | `avisar()` existia, com KDoc; faltava o chamador. Código morto simétrico não aparece em nenhuma leitura de um lado só |
+| **A6** | `EspelhoServidor.kt` | Duas janelas de corrida na **ordem do fio**: o `csd` de vídeo era enfileirado *depois* de a tela entrar no fan-out, e a torneira de áudio era aberta *antes* de o `csd` de áudio entrar na fila. Nos dois casos o cliente recebia um quadro antes dos parâmetros que o explicam, e o descartava | Autocurável em segundos — e "em segundos" num telão parado quer dizer até o próximo IDR |
+
+**A regra que sai daí, e ela vale para o repositório inteiro:** um `let`/`const` dentro de uma
+função que repete um nome do módulo é a mesma família de defeito do `setInteger` numa chave `long`
+(§3.3, C1), do `bytes` esquecido no `bgProgress` e do `slideLabel` no `nowPlaying` — **falha sem
+exceção, sem log e sem sintoma no lugar da causa**. O oráculo é `tools/sombra.test.mjs`: Node puro,
+sem `continue-on-error`, e ele varre a base web inteira.
+
+E a segunda regra: **teste que exercita só o caminho feliz não é rede de segurança**. O
+`espelho-cliente.test.mjs` cobria o percurso do PIN, o do QR e o modo imagem, e passava verde com
+A1, A2, A3 e A5 no lugar. Ele ganhou o caso da despedida; A1 é pego pelo oráculo de sombra.
+
+---
+
 ## 11. A FRASE PARA O OPERADOR
 
 > Dá para pôr o telão inteiro — inclusive vídeo, fades e cortina — em até três navegadores da rede da

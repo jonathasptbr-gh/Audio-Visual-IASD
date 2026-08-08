@@ -118,6 +118,16 @@ jobs:
           # que o codificador produziu (formato com BCH, máscara, zigue-zague,
           # síndromes de Reed-Solomon), em vez de conferir propriedades.
           node tools/qr.test.mjs
+          # A SOMBRA: nenhuma função redeclara um nome de módulo da base web.
+          # `node --check` aprova `const ms = …` dentro de uma função que LÊ a
+          # `ms` do módulo na primeira linha — e o resultado é
+          # `ReferenceError: Cannot access 'ms' before initialization` (zona
+          # morta temporal), a cada 500 ms, só nas telas do espelho que tinham
+          # ligado o som. Foi assim que a v5.152 matou o laço de borda do
+          # cliente (sem poda, sem perseguição, sem relato) e o sintoma chegou
+          # como "travando e dessincronizando", nunca como uma exceção.
+          # Determinístico, sem navegador: entra aqui, sem `continue-on-error`.
+          node tools/sombra.test.mjs
 
       # FUMAÇA DO CONTROLE, num Chromium de verdade. O passo acima prova que os
       # arquivos são PARSEÁVEIS; este prova que o app SOBE e responde ao toque.
