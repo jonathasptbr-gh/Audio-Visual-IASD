@@ -11,7 +11,14 @@
         existe no caminho do download. Nada ali precisa sobreviver à troca de
         aparelho: o APK já traz a base web embutida e o `check()` seguinte
         rebaixa o bundle de novo.
-     2. `app_webview/` é IndexedDB/OPFS — a biblioteca do app (Cronograma,
+     2. `files/espelho-tls/` e `shared_prefs/espelho-tls.xml` são a CHAVE
+        PRIVADA do certificado do espelho e a senha com que ela foi reescrita.
+        Uma chave privada restaurada de um backup adulterado é um servidor
+        falando com a identidade da igreja — e, ao contrário do bundle OTA, ela
+        não tem como ser reconstruída sozinha. Perdê-la ao trocar de aparelho
+        custa reemitir e reimportar, que é exatamente o custo certo: ela sai dos
+        DOIS destinos, inclusive da transferência direta.
+     3. `app_webview/` é IndexedDB/OPFS — a biblioteca do app (Cronograma,
         pastas sincronizadas, hinos do LouvorJA, Bíblia baixada), que passa
         facilmente de gigabytes.
 
@@ -26,10 +33,14 @@
     <cloud-backup>
         <exclude domain="file" path="web-ota" />
         <exclude domain="sharedpref" path="web-ota.xml" />
+        <exclude domain="file" path="espelho-tls" />
+        <exclude domain="sharedpref" path="espelho-tls.xml" />
         <exclude domain="root" path="app_webview" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="file" path="web-ota" />
         <exclude domain="sharedpref" path="web-ota.xml" />
+        <exclude domain="file" path="espelho-tls" />
+        <exclude domain="sharedpref" path="espelho-tls.xml" />
     </device-transfer>
 </data-extraction-rules>

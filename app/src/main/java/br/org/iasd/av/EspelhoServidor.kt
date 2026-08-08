@@ -165,7 +165,22 @@ class EspelhoServidor(
      *   quando o socket não sobe. **Nunca falha em silêncio**: a mensagem é a
      *   frase que o operador lê.
      */
-    fun ligar(porta: Int, ipv4: InetAddress, tls: KeyStore?, senha: CharArray?): String {
+    fun ligar(
+        porta: Int,
+        ipv4: InetAddress,
+        tls: KeyStore?,
+        senha: CharArray?,
+        /**
+         * O nome do certificado, quando há TLS. Ele entra na allowlist de
+         * `Host` e vira o endereço que o operador divulga — **sem ele o TLS
+         * seria inútil**: o navegador conecta pelo NOME (é para ele que o
+         * certificado vale), o `Host` chega como o nome, e uma allowlist que só
+         * conhece o IP devolveria o 404 idêntico a toda requisição. O sintoma
+         * seria "com certificado o espelho para de funcionar", sem nada no
+         * Registro que o explicasse.
+         */
+        hostTls: String = "",
+    ): String {
         // SÓ desliga se havia um servidor de pé (religar sem desligar duplicaria
         // as threads). A guarda não é economia: [desligar] ZERA O PAREAMENTO, e
         // quem liga o espelho acabou de sortear o PIN — chamá-lo aqui sempre
@@ -193,13 +208,27 @@ class EspelhoServidor(
         desligando.set(false)
         ipServido = ipv4.hostAddress ?: ""
         portaServida = ss.localPort
-        endereco = (if (comTls) "https://" else "http://") + ipServido + ":" + portaServida
+        // COM TLS O ENDEREÇO É O NOME, não o IP: o certificado vale para o nome,
+        // e um `https://192.168.x.y` daria a tela vermelha que a §2.4 diz que
+        // este recurso existe para evitar.
+        val comNome = comTls && hostTls.isNotEmpty()
+        endereco = if (comNome) "https://$hostTls:$portaServida"
+        else (if (comTls) "https://" else "http://") + ipServido + ":" + portaServida
         // ALLOWLIST EXATA DE `Host` — é a defesa contra DNS rebinding: uma
         // página qualquer da internet, aberta por um visitante na rede da
         // igreja, pode fazer `evil.com` resolver para o nosso IP e passar a ser
         // same-origin com este servidor. Quem confere é o [EspelhoHttp]; quem
         // monta a lista, em runtime, é este ponto.
-        hostsAceitos = setOf("$ipServido:$portaServida", ipServido)
+        // Com nome, ele entra na lista — e o IP FICA, porque ele continua sendo
+        // o que responde a quem digitar o endereço numérico. A allowlist não
+        // afrouxa nada por ter duas entradas: ela segue EXATA, e o que ela
+        // barra (DNS rebinding: `evil.com` resolvendo para o nosso IP) continua
+        // barrado, porque `evil.com` não é nenhuma das duas.
+        hostsAceitos = if (comNome) {
+            setOf("$hostTls:$portaServida", hostTls, "$ipServido:$portaServida", ipServido)
+        } else {
+            setOf("$ipServido:$portaServida", ipServido)
+        }
         ligadoEm = SystemClock.elapsedRealtime()
         conexoesTotais.set(0)
         proximoRotulo.set(0)

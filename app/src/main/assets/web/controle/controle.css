@@ -3400,6 +3400,21 @@ body.mode-simple .hymn-add-btn { display: none; }
   pointer-events: none;
 }
 
+/* O CERTIFICADO. Texto primeiro, ações depois — a linha é sobretudo uma
+   FRASE de estado ("HTTP claro: quem estiver na rede consegue ver"), e o botão
+   é a consequência dela, não o assunto. */
+.mirror-cert {
+  display: flex; flex-direction: column; gap: .45rem;
+  background: var(--surface); border-radius: var(--radius-btn);
+  padding: .6rem .65rem;
+}
+.mirror-cert-txt { font-size: .78rem; line-height: 1.45; color: var(--muted); }
+/* Verde é "concluído/conectado" no resto do app, e aqui quer dizer o mesmo:
+   a parede está fechada. Nunca o vermelho preenchido — esse é do que está no
+   ar agora, e um certificado não está no ar, ele está em vigor. */
+.mirror-cert-txt.ok { color: var(--ok); }
+.mirror-cert-acts { display: flex; gap: .4rem; }
+
 /* A linha do modo reusa a anatomia da lista de preferências (é a mesma
    decisão, no mesmo formato), só sem o fundo de cartão: aqui ela já está
    dentro de uma folha. */

@@ -112,6 +112,15 @@ interface BridgeHost {
      * `id` vazio ou `"*"` é a chave da aprovação automática desta sessão.
      */
     fun approveMirrorScreen(id: String, approve: Boolean, onResult: (Boolean) -> Unit)
+
+    /** Importa o `.p12` do espelho. `onResult("")` = deu certo; senão, a frase. */
+    fun mirrorCertImport(origem: String, senha: String, onResult: (String) -> Unit)
+
+    /** `{ temCert, host, ate, nome }` — o que a folha do espelho desenha. */
+    fun mirrorCertState(onResult: (JSONObject) -> Unit)
+
+    /** Apaga o certificado: o espelho volta a HTTP claro no próximo ligar. */
+    fun mirrorCertRemove(onResult: () -> Unit)
 }
 
 /**
@@ -138,6 +147,12 @@ class NativeBridge(
          * exijam mais do que o shell instalado oferece (ver [WebUpdater]).
          * Subir SEMPRE que a superfície da ponte mudar.
          *
+         * 34 (v5.152) — os três métodos do CERTIFICADO do espelho
+         * (`espelhoCertImportar`, `espelhoCertEstado`, `espelhoCertApagar`).
+         * Abaixo disto a linha do certificado não é desenhada e o espelho segue
+         * em HTTP claro, que é o que ele sempre foi: o TLS é um degrau
+         * opcional, não um requisito (ver `docs/ESPELHO-DE-PIXELS.md` §2.4).
+         *
          * 33 (v5.145) — `requestCam`, a permissão de CÂMERA para o Controle ler
          * o QR que a tela do espelho mostra. Ela é indispensável e não tem
          * degradação possível: sem ela o `getUserMedia` do WebView é negado **em
@@ -152,7 +167,7 @@ class NativeBridge(
          * novo NÃO chega por OTA, e um botão que não faz nada no meio de um
          * culto é pior que botão nenhum (a mesma regra do `appendYoutubeSearch`).
          */
-        const val SHELL_VERSION = 33
+        const val SHELL_VERSION = 34
 
         /**
          * Fila de IO da ponte, **compartilhada por todas as instâncias**.
@@ -575,6 +590,43 @@ class NativeBridge(
         val h = host
         if (h == null) { resolve(callId, "false"); return }
         h.approveMirrorScreen(id, aprovar) { ok -> resolve(callId, if (ok) "true" else "false") }
+    }
+
+    /**
+     * O CERTIFICADO DO ESPELHO — importar, consultar, apagar.
+     *
+     * Três métodos e não um: importar precisa de dois argumentos e devolve uma
+     * FRASE de erro, consultar é chamado a cada abertura da folha, e apagar é
+     * destrutivo. Espremê-los num só com um verbo em string produziria
+     * exatamente o tipo de API que o próprio `espelhoAprovar` evita ter — lá o
+     * `"*"` cabe porque é o MESMO ato do operador; aqui são três atos.
+     *
+     * **Privilégio do Controle** (`host != null`), como os cinco irmãos: o
+     * telão e o espelho carregam código de terceiro por design, e importar uma
+     * chave privada é a última coisa que eles deveriam poder pedir.
+     *
+     * A senha vai por argumento e **não é guardada**: o [EspelhoCert] reescreve
+     * o `.p12` com uma senha nossa e descarta a do operador (ver o KDoc de lá).
+     */
+    @JavascriptInterface
+    fun espelhoCertImportar(callId: String, origem: String, senha: String) {
+        val h = host
+        if (h == null) { resolve(callId, "\"sem host\"") ; return }
+        h.mirrorCertImport(origem, senha) { erro -> resolve(callId, JSONObject.quote(erro)) }
+    }
+
+    @JavascriptInterface
+    fun espelhoCertEstado(callId: String) {
+        val h = host
+        if (h == null) { resolve(callId, "null"); return }
+        h.mirrorCertState { json -> resolve(callId, json.toString()) }
+    }
+
+    @JavascriptInterface
+    fun espelhoCertApagar(callId: String) {
+        val h = host
+        if (h == null) { resolve(callId, "false"); return }
+        h.mirrorCertRemove { resolve(callId, "true") }
     }
 
     // ---------- vídeo do YouTube como ARQUIVO ----------
