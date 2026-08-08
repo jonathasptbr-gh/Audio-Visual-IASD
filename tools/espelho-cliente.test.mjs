@@ -632,9 +632,58 @@ checar(true, 'aprovada, a MESMA página troca para o player (sem navegar)');
   // ele o Registro dizia só ONDE o defeito estava (deste lado), nunca QUAL era.
   // Ir SEMPRE é o que torna a AUSÊNCIA do `diz:` no Registro uma leitura por si
   // só: o canal de relato quebrou.
-  checar(alives.every((a) => /«som: /.test(a.aviso || '')),
-    'e TODO relato carrega o ramo do som («som: …»), mesmo sem frase na tela',
+  checar(alives.every((a) => /\[som: /.test(a.aviso || '')),
+    'e TODO relato carrega o ramo do som ([som: …]), mesmo sem frase na tela',
     JSON.stringify(alives.map((a) => a.aviso).slice(0, 3)));
+
+  // E ELE CHEGA EM ASCII, porque o `sanear` do Kotlin APAGA tudo fora de
+  // `[\x20-\x7E]` (invariante 9, com JUnit) em vez de recusar. Em aparelho o
+  // Registro do operador mostrou `"som: ok (vdeo  frente do som em 500 ms)
+  // fim: ns abortamos"` — sem acento, sem as aspas angulares, sem o separador.
+  // Um diagnóstico mutilado não fica melhor por ser seguro, e o conserto é do
+  // lado que ESCREVE: a tela segue em português com acento, o fio leva a
+  // transliteração.
+  const forasteiro = alives
+    .map((a) => a.aviso || '')
+    .find((s) => /[^\x20-\x7E]/.test(s));
+  checar(forasteiro === undefined,
+    'e o relato viaja em ASCII — o saneamento do Kotlin não tem o que apagar',
+    forasteiro);
+}
+
+// A BORDA AO VIVO É A DA FAIXA MAIS ATRASADA — o micro-travamento com som.
+//
+// A MSE só toca com dado em TODAS as faixas, e as duas bordas não andam juntas:
+// medido em aparelho (S24 Ultra, Android 16), o som sai ~500 ms atrás da
+// imagem, porque o caminho dele é worklet → blocos de 40 ms → `postMessage` →
+// fila → `MediaCodec` AAC, e nada disso existe do lado do vídeo.
+//
+// Perseguindo a borda do VÍDEO, a regra mantinha o cursor entre 0,35 s e 0,85 s
+// atrás dela — e a ponta rápida fica 150 ms À FRENTE do fim do som. O `<video>`
+// engasgava toda vez que a perseguição chegava lá, com o buffer de vídeo cheio
+// e nenhum erro em lugar nenhum.
+//
+// Provar isso com uma faixa de som de verdade exigiria AAC, que o Chromium do
+// CI não traz. A regra é aritmética: duas faixas de mentira bastam, e é por
+// isso que ela mora numa função pura exposta em `__espelho`.
+{
+  const r = await pg.evaluate(() => {
+    const f = (fim) => ({ length: 1, end: () => fim });
+    return {
+      soVideo: window.__espelho.bordaViva(f(10), null),
+      vazia: window.__espelho.bordaViva(f(10), { length: 0, end: () => 0 }),
+      somAtras: window.__espelho.bordaViva(f(10), f(9.5)),
+      somNaFrente: window.__espelho.bordaViva(f(10), f(10.5)),
+    };
+  });
+  checar(r.soVideo === 10, 'sem faixa de som, a borda é a da imagem — nada muda', r.soVideo);
+  checar(r.vazia === 10, 'faixa de som ainda vazia: idem, a imagem não espera', r.vazia);
+  checar(r.somAtras === 9.5,
+    'com o som 500 ms atrás, a borda ao vivo é a DELE — é o que dá folga real ao cursor',
+    r.somAtras);
+  checar(r.somNaFrente === 10,
+    'e com o som à frente a borda volta a ser a da imagem: é o MÍNIMO, não a do som',
+    r.somNaFrente);
 }
 
 // A DESPEDIDA (`0x30 {"m":"adeus"}`) — o operador desligou o espelho.

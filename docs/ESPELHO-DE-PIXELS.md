@@ -1638,6 +1638,28 @@ Esta seção existe para ninguém redescobrir nada daqui a seis meses.
 | **A5** | `EspelhoServidor.kt` | O quadro de **despedida** (`0x30 {"m":"adeus"}`) estava implementado nas DUAS pontas e **não era emitido por ninguém**. Desligar o espelho era, do lado do navegador, indistinguível de uma queda de rede: até três telas batendo numa porta fechada a cada 8 s pelo resto do culto | `avisar()` existia, com KDoc; faltava o chamador. Código morto simétrico não aparece em nenhuma leitura de um lado só |
 | **A6** | `EspelhoServidor.kt` | Duas janelas de corrida na **ordem do fio**: o `csd` de vídeo era enfileirado *depois* de a tela entrar no fan-out, e a torneira de áudio era aberta *antes* de o `csd` de áudio entrar na fila. Nos dois casos o cliente recebia um quadro antes dos parâmetros que o explicam, e o descartava | Autocurável em segundos — e "em segundos" num telão parado quer dizer até o próximo IDR |
 
+### 10-A.1 — o que a PRIMEIRA rodada em aparelho depois da correção mostrou (5.155)
+
+O Registro do S24 Ultra, com o espelho no ar e uma tela recebendo, trouxe duas linhas que só
+existem porque a v5.154 devolveu o canal de relato. As duas viraram correção:
+
+| # | A linha | O que ela quer dizer |
+|---|---|---|
+| **A7** | `som: ok (vídeo à frente do som em 500 ms)` | **A borda ao vivo estava sendo lida da faixa errada.** A perseguição usava o fim do buffer de VÍDEO, mantendo o cursor entre 0,35 s e 0,85 s atrás dele — e a ponta rápida desse intervalo fica **150 ms à frente do fim do som**. A MSE só toca com dado em TODAS as faixas, então o `<video>` engasgava toda vez que a perseguição chegava lá: micro-travamentos **com o buffer de vídeo cheio**, sem um único erro. Os 500 ms não são desvio de sincronia (os carimbos são absolutos e do mesmo relógio) — são o caminho do som (worklet → blocos de 40 ms → `postMessage` → fila → `MediaCodec` AAC) produzindo meio segundo atrás do vídeo. A borda ao vivo de um fluxo de N faixas é o **mínimo** das bordas, e agora é isso que `bordaViva()` devolve. O custo é a imagem atrasar pelo atraso do som; é o preço certo, porque meio segundo a mais é invisível e um engasgo não é. |
+| **A8** | `diz: "som: ok (vdeo  frente do som em 500 ms)  fim: ns abortamos"` | **O diagnóstico chegava mutilado.** `EspelhoPares.sanear` deixa passar só `[\x20-\x7E]` — invariante 9, com JUnit, e ela está certa: um `\n` vindo da rede injetaria linhas falsas no artefato que este projeto manda copiar e repassar. Só que ela **apaga** o que não passa, e as frases do cliente são em português: sumiram os acentos, as aspas angulares e o separador. O conserto é do lado que ESCREVE, nunca do que saneia — a tela segue em português com acento, e o que viaja é a transliteração (`semAcento`, mais os delimitadores trocados para `[`/`\|`). |
+
+A7 tem oráculo: a regra é aritmética, então ela mora numa função pura exposta em `__espelho` e o
+`espelho-cliente.test.mjs` a afirma com duas faixas de mentira — provar isso com uma faixa de som
+de verdade exigiria um AAC que o Chromium do CI não tem. A8 tem o par negativo: o teste exige que
+**nenhum** `alive` carregue byte fora de `[\x20-\x7E]`, isto é, que o saneamento do Kotlin não
+tenha o que apagar.
+
+**E o que a mesma rodada CONFIRMOU**, para não se perder: `readback: OK — o vídeo aparece`
+(`#F934FF` medido onde se esperava magenta), `flags=4 · privada: SIM`, viewport 961,5 px CSS contra
+o alvo de 960, `c2.qti.avc.encoder` com 16 instâncias, `atraso relativo 0 ms`, `0 descarte(s)` e
+`24 blocos de PCM/s`. O R1 da §1.2 está respondido em produção: **a camada de vídeo entra na
+composição de um `VirtualDisplay` privado neste aparelho.**
+
 **A regra que sai daí, e ela vale para o repositório inteiro:** um `let`/`const` dentro de uma
 função que repete um nome do módulo é a mesma família de defeito do `setInteger` numa chave `long`
 (§3.3, C1), do `bytes` esquecido no `bgProgress` e do `slideLabel` no `nowPlaying` — **falha sem
