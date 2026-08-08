@@ -3279,7 +3279,27 @@ body.mode-simple .hymn-add-btn { display: none; }
    justamente esse acaso que já cobriu um popup por inteiro aqui (o toque
    parecia não fazer nada). O degrau é o mesmo de `#songMenuPopup`, que abre de
    dentro do acervo pela mesma razão — as duas nunca coexistem. */
+/* A folha de CONECTAR UMA TELA abre da tela principal (o botão de cast), então
+   ela fica no 200 padrão — e a folha do espelho, que abre DE DENTRO dela,
+   continua no 210. O degrau é o mesmo que o leitor de QR já exigia, e
+   `tools/smoke.mjs` o afirma. */
+#castPopup { z-index: 200; }
 #mirrorPopup { z-index: 210; }
+
+/* As duas escolhas da folha de conexão: alvo grande, título e a linha que diz
+   o que cada uma faz de diferente — é ela que evita a pergunta "qual dos
+   dois?" no meio de um culto. */
+.cast-choice {
+  display: flex; align-items: center; gap: .75rem; width: 100%;
+  margin-bottom: .6rem; padding: .85rem .9rem;
+  text-align: left; color: var(--text);
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius-md); cursor: pointer;
+}
+.cast-choice:active { background: var(--surface-2); }
+.cast-choice .msym { font-size: 1.6rem; color: var(--accent); }
+.cast-choice-txt { display: flex; flex-direction: column; gap: .15rem; }
+.cast-choice-txt small { color: var(--muted); font-size: .8rem; line-height: 1.3; }
 
 /* E O LEITOR DE QR É O TERCEIRO DEGRAU: ele abre de dentro da folha do espelho,
    que abre de dentro de Configurações. Ele nasceu no 200 padrão — um degrau

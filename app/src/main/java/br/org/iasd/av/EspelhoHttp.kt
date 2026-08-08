@@ -102,6 +102,30 @@ object EspelhoHttp {
     const val TETO_CORPO = 256
 
     /**
+     * O teto do corpo do canal de VOLTA (`POST /r`), que é **autenticado**.
+     *
+     * Ele é maior que o [TETO_CORPO] por uma razão de diagnóstico, e a
+     * diferença entre os dois é a razão de existirem dois. O `POST /par` é
+     * ANÔNIMO — qualquer um na rede o alcança — e 256 B são de sobra para um
+     * PIN e um relato de capacidades; apertá-lo é o que garante que ninguém nos
+     * faça alocar memória pedindo. O `POST /r` só existe depois de o operador
+     * ter aprovado aquela tela, e é por ele que chega **a única informação que
+     * o servidor não tem como obter sozinho**: se a imagem está de fato
+     * andando do outro lado.
+     *
+     * Até aqui cabia uma frase de 110 caracteres, e o resultado foi que o
+     * Registro respondia "quantos bytes eu escrevi" enquanto a pergunta do
+     * operador era "por que a tela está travando". Quadros perdidos pelo
+     * decodificador, a folga real do cursor, o tamanho da fila de append e o
+     * codec negociado não cabiam — e nenhum deles existe do lado de cá.
+     *
+     * 4 KiB continua sendo um teto de PROTOCOLO e não de conveniência: um
+     * relato completo mede ~500 B, e o resto é folga para campos futuros sem
+     * mexer nisto de novo.
+     */
+    const val TETO_CORPO_RETORNO = 4 * 1024
+
+    /**
      * Uma requisição já validada.
      *
      * [caminho] chega **decodificado** (percent-decoding aplicado) e provado
@@ -211,9 +235,24 @@ object EspelhoHttp {
      * [Erro.Truncado]: do ponto de vista do parser, "o socket morreu" e "a
      * mensagem não chegou inteira" são a mesma coisa e têm a mesma resposta.
      */
-    fun lerRequisicao(entrada: InputStream, hostsAceitos: Set<String>): Result<Req> =
+    fun lerRequisicao(
+        entrada: InputStream,
+        hostsAceitos: Set<String>,
+        /**
+         * O teto do corpo, **decidido por quem conhece as rotas** — que não é
+         * este arquivo (ver o KDoc do objeto: "nada aqui sabe o que é uma rota
+         * do espelho"). O `EspelhoServidor` passa [TETO_CORPO_RETORNO] para o
+         * `/r` autenticado e [TETO_CORPO] para todo o resto; o padrão mantém a
+         * assinatura antiga válida e a postura fechada para quem não decidir.
+         *
+         * Ele é consultado com o caminho JÁ decodificado e provado, e ANTES de
+         * um único byte de corpo ser lido: quem anuncia 4 MB continua não nos
+         * fazendo alocar 4 MB.
+         */
+        tetoCorpo: (String) -> Int = { TETO_CORPO },
+    ): Result<Req> =
         try {
-            Result.success(analisar(Fonte(entrada), hostsAceitos))
+            Result.success(analisar(Fonte(entrada), hostsAceitos, tetoCorpo))
         } catch (e: Erro) {
             Result.failure(e)
         } catch (_: IOException) {
@@ -321,7 +360,11 @@ object EspelhoHttp {
 
     // ---------------------------------------------------------------- interno
 
-    private fun analisar(f: Fonte, hostsAceitos: Set<String>): Req {
+    private fun analisar(
+        f: Fonte,
+        hostsAceitos: Set<String>,
+        tetoCorpo: (String) -> Int,
+    ): Req {
         // RFC 7230 §3.5 manda tolerar UMA linha em branco antes da requisição
         // (clientes antigos emitem um CRLF sobrando depois de um corpo). Uma, e
         // não um laço: um laço é um cliente mudo prendendo a thread de graça.
@@ -404,7 +447,7 @@ object EspelhoHttp {
             val n = tamanho ?: throw Erro.Malformado
             if (n < 0) throw Erro.Malformado
             // ANTES de ler: quem anuncia 4 MB não nos faz alocar 4 MB.
-            if (n > TETO_CORPO) throw Erro.CorpoLongo
+            if (n > tetoCorpo(caminho)) throw Erro.CorpoLongo
             corpo = f.exato(n)
         } else {
             // GET com corpo: legal na letra do RFC, sem sentido aqui, e ler (ou

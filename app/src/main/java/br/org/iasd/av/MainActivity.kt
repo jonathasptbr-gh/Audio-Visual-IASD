@@ -1233,15 +1233,21 @@ class MainActivity : ComponentActivity(), BridgeHost {
             }
 
             // 3. A TELA VIRTUAL E O ENCODER.
-            val alvo = if (modo.equals("video", ignoreCase = true)) Modo.VIDEO else Modo.IMAGEM
-            val r = EspelhoDisplay.ligar(this@MainActivity, alvo) { q -> srv.difundir(q) }
+            //
+            // [modo] é IGNORADO desde a v5.156, e a assinatura fica: o modo
+            // IMAGEM saiu (ele não tinha áudio e não tinha como ter — ver o
+            // cabeçalho do `EspelhoDisplay`), e um bundle antigo que ainda peça
+            // `"imagem"` recebe vídeo, que é o que ele deveria ter pedido. Tirar
+            // o parâmetro da ponte obrigaria a subir o `SHELL_VERSION` para não
+            // ganhar nada: quem chama já não escolhe.
+            val r = EspelhoDisplay.ligar(this@MainActivity) { q -> srv.difundir(q) }
             if (r is Resultado.Recusado) {
                 srv.desligar()
                 onResult(mirrorJson(erro = r.motivo))
                 return@runOnUiThread
             }
             espelhoSrv = srv
-            espelhoModo = if (alvo == Modo.VIDEO) "video" else "imagem"
+            espelhoModo = "video"
 
             // 4. O PAREAMENTO nasce do zero — é isto que faz nenhum token
             //    sobreviver ao culto anterior — e o SERVIÇO sobe por último,
@@ -1592,7 +1598,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
         private var espelhoSrv: EspelhoServidor? = null
 
         @Volatile
-        private var espelhoModo = "imagem"
+        private var espelhoModo = ""
 
         /**
          * Cache de [castCandidates] — no companion porque a informação é do

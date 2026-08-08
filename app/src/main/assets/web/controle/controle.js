@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.155';
+const WEB_VERSION = '5.156';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -248,6 +248,13 @@ const wallResetEl = document.getElementById('wallReset');
 const diagBoxEl = document.getElementById('diagBox');
 const diagCopyEl = document.getElementById('diagCopy');
 // Espelho de pixels: a LINHA em Configurações e a FOLHA que ela abre.
+const castPopupEl = document.getElementById('castPopup');
+const castCloseEl = document.getElementById('castClose');
+const castMirrorBtnEl = document.getElementById('castMirrorBtn');
+const castMirrorSubEl = document.getElementById('castMirrorSub');
+const castNetBtnEl = document.getElementById('castNetBtn');
+const castNetSubEl = document.getElementById('castNetSub');
+const castMsgEl = document.getElementById('castMsg');
 const mirrorRowEl = document.getElementById('mirrorRow');
 const mirrorRowHintEl = document.getElementById('mirrorRowHint');
 const mirrorOpenBtnEl = document.getElementById('mirrorOpenBtn');
@@ -257,7 +264,6 @@ const mirrorLeadEl = document.getElementById('mirrorLead');
 const mirrorAddrEl = document.getElementById('mirrorAddr');
 const mirrorUrlEl = document.getElementById('mirrorUrl');
 const mirrorPinEl = document.getElementById('mirrorPin');
-const mirrorModeSegEl = document.getElementById('mirrorModeSeg');
 const mirrorAutoEl = document.getElementById('mirrorAuto');
 const mirrorListEl = document.getElementById('mirrorList');
 const mirrorToggleEl = document.getElementById('mirrorToggle');
@@ -10615,6 +10621,71 @@ function somDaTela(c) {
   return 'som: tocando';
 }
 
+// O `readyState` de um `<video>` em palavra. Os números são da spec e ninguém
+// os decora; e a diferença entre 2 e 4 é exatamente a diferença entre "sem
+// dado" e "tocando com folga", que é a pergunta.
+const MIRROR_RS = ['SEM DADO', 'so metadados', 'SEM DADO ADIANTE', 'tem o proximo', 'tem folga'];
+
+/**
+ * O QUE A TELA MEDIU DE SI, em duas ou três linhas.
+ *
+ * Cada número aqui separa dois desfechos com correções DIFERENTES — é a mesma
+ * régua do resto do bloco —, e nenhum deles existe do lado do servidor:
+ *
+ *  · `folga` NEGATIVA em qualquer faixa é o cursor fora do buffer, isto é, a
+ *    MSE sem dado para tocar: a tela congela **sem erro nenhum**. Foi este o
+ *    defeito da v5.155, e este é o número que o teria mostrado no primeiro
+ *    minuto em vez de na terceira rodada.
+ *  · `perdidos` (quadros descartados pelo decodificador) é o único número que
+ *    diz "este aparelho não dá conta" em vez de "a rede está ruim" — rede ruim
+ *    atrasa, não descarta quadro já decodificado.
+ *  · `estado` baixo com imagem parada é fonte; alto com imagem parada é
+ *    decodificador.
+ *  · `vel` colada em 108% o tempo todo é uma tela que nunca alcança a borda.
+ *
+ * Toda linha é opcional, como o resto: uma tela com bundle antigo não manda
+ * `vivo`, e a resposta certa é não desenhar — nunca "undefined" num log que vai
+ * ser copiado e repassado.
+ */
+function linhasDaTela(v) {
+  if (!v || typeof v !== 'object') {
+    return ['(esta tela ainda nao relatou medidas — bundle antigo, ou o primeiro `alive` nao chegou)'];
+  }
+  const out = [];
+  const sinal = (n) => ((n | 0) >= 0 ? '+' : '') + (n | 0) + ' ms';
+  const folgaV = v.vfim === -99999 ? 'sem faixa' : sinal(v.vfim);
+  const folgaA = v.afim === -99999 ? 'sem faixa' : sinal(v.afim);
+  // O ALARME VEM PRIMEIRO, e ele é o motivo desta função existir.
+  const seco = (v.vfim !== -99999 && (v.vfim | 0) < 0) || (v.afim !== -99999 && (v.afim | 0) < 0);
+  out.push('folga do cursor: video ' + folgaV + ' · som ' + folgaA
+    + ' · janela ' + Math.round((v.jan | 0) / 100) / 10 + ' s'
+    + (seco ? '  ← CURSOR FORA DO BUFFER: a tela congela sem erro' : ''));
+  const perdidos = (v.dq | 0) >= 0 && (v.tq | 0) > 0
+    ? (v.dq | 0) + '/' + (v.tq | 0)
+      + ' (' + Math.round((v.dq | 0) * 1000 / (v.tq | 0)) / 10 + '%)'
+    : 'nao informado';
+  out.push('decodificador: ' + perdidos + ' perdido(s)'
+    + ' · estado ' + (MIRROR_RS[v.rs | 0] || v.rs)
+    + ' · vel ' + (v.rate | 0) + '%'
+    + ' · fila de append ' + (v.fila | 0));
+  out.push('recebeu: ' + (v.q | 0) + ' quadro(s), ' + (v.qa | 0) + ' de som'
+    + ' · ' + Math.round((v.kb | 0) / 102.4) / 10 + ' MB'
+    + ' · ' + (v.rec | 0) + ' reconexao(oes)'
+    // Os três tetos internos do cliente. Batido qualquer um, ele desiste de
+    // algo em silêncio — e agora o Registro diz qual.
+    + (v.reb ? ' · ' + v.reb + ' remontagem(ns) de som' : '')
+    + (v.cota ? ' · ' + v.cota + ' estouro(s) de cota' : '')
+    + (v.rr ? ' · ' + v.rr + ' recusa(s) seguida(s) do decodificador' : ''));
+  if (v.cod || v.vid) {
+    out.push('codec: ' + (v.cod || '?')
+      + ' · video ' + (v.vid || '?') + ' numa tela de ' + (v.tela || '?'));
+  }
+  // O `MediaError` do elemento, que é onde mora a frase do demuxer do Chromium
+  // — e que ninguém leria, porque ninguém abre console numa TV.
+  if (v.err) out.push('erro de midia: ' + v.err);
+  return out;
+}
+
 function blocoEspelho(d) {
   if (!d || typeof d !== 'object') return '';
   const l = ['Espelho de pixels'];
@@ -10651,6 +10722,21 @@ function blocoEspelho(d) {
       + ' (alvo: ' + vp.alvo + ' — a TV desenha assim)');
   }
   if (d.modo) l.push('modo: ' + (d.modo === 'video' ? 'vídeo (H.264)' : 'imagem (JPEG)'));
+  // A JANELA DO ESPELHO, perguntada em vez de deduzida. O §7.5 fazia isso pelo
+  // BITRATE cruzado com a cena — inferência que erra nos dois sentidos: uma
+  // cena legitimamente escura passa por janela morta, e uma janela morta sobre
+  // um wallpaper claro passa por cena. Aqui é leitura direta, e é o estado que
+  // produz "H.264 impecável de um retângulo preto".
+  const jan = d.janela;
+  if (jan) {
+    const viva = jan.existe && jan.mostrando && jan.web;
+    l.push('janela do espelho: ' + (viva ? 'de pé' : 'MORTA — o encoder está codificando um retângulo preto')
+      + ' (existe:' + (jan.existe ? 'sim' : 'nao')
+      + ' mostrando:' + (jan.mostrando ? 'sim' : 'nao')
+      + ' webview:' + (jan.web ? 'sim' : 'nao')
+      + ' activity:' + (jan.dono ? 'sim' : 'nao') + ')'
+      + (jan.mortesDoRenderer ? ' · ' + jan.mortesDoRenderer + ' morte(s) de renderer' : ''));
+  }
   const r = d.readback;
   if (r) {
     // O RGB MEDIDO SEMPRE, nunca só o veredito: há aparelho conhecido que
@@ -10665,8 +10751,16 @@ function blocoEspelho(d) {
   }
   const enc = d.encoder;
   if (enc) {
+    // PERFIL E NÍVEL são do FORNECEDOR — nada os pede (armadilha 6 do
+    // `EspelhoCodec`) —, e é por isso que eles precisam ser LIDOS: "esta TV não
+    // decodifica o fluxo" e "esta TV não decodifica ESTE PERFIL" são a mesma
+    // tela preta, e só este número as separa. Cruzam com o `codec:` que a tela
+    // relata, que diz a mesma coisa pelo outro lado do fio.
     l.push('encoder: ' + (enc.nome || '?')
       + (enc.maxInstancias ? ' · instâncias máx: ' + enc.maxInstancias : '')
+      + (enc.perfil ? ' · perfil ' + enc.perfil + '/nível ' + (enc.nivel | 0) : '')
+      + (enc.bitrateAlvo ? ' · alvo ' + Math.round(enc.bitrateAlvo / 1000) + ' kbps' : '')
+      + (enc.fpsMedido != null ? ' · ' + enc.fpsMedido + ' fps na saída' : '')
       + ' · reclaims: ' + (enc.reclaims | 0));
   }
   const ritmo = d.ritmo;
@@ -10755,6 +10849,15 @@ function blocoEspelho(d) {
         + (au.descartados ? ' · ' + au.descartados + ' descartado(s)' : ''));
     }
   }
+  const proc = d.processo;
+  if (proc && proc.heapTetoMb) {
+    // A CAUSA DE FUNDO do `ERROR_RECLAIMED` e da morte do renderer: os dois
+    // aparecem no Registro como CONSEQUÊNCIA ("encoder tomado 2x", "renderer
+    // remontado") e nunca como causa. Um heap colado no teto é a causa.
+    const pct = Math.round((proc.heapMb | 0) * 100 / proc.heapTetoMb);
+    l.push('memória do app: ' + (proc.heapMb | 0) + ' de ' + proc.heapTetoMb + ' MB (' + pct + '%)'
+      + (pct >= 85 ? '  ← perto do teto: é daqui que sai o encoder tomado e o renderer morto' : ''));
+  }
   if (svc.termico != null) {
     l.push('térmica: ' + (MIRROR_TERMICA[svc.termico] || svc.termico)
       + ' (máx na sessão: ' + (MIRROR_TERMICA[svc.termicoMax] || svc.termicoMax) + ')'
@@ -10763,8 +10866,46 @@ function blocoEspelho(d) {
   const telas = Array.isArray(srv.telas) ? srv.telas : [];
   const pend = Array.isArray(srv.pendentes) ? srv.pendentes : [];
   if (srv.ligado) {
+    // A BANDA QUE A REDE DIZ TER — estimativa do Android, não medição nossa, e
+    // vale por isso mesmo: ela responde ANTES do culto a pergunta que sustenta
+    // o recurso ("cabem 3 Mbps × 3 telas neste AP?"), em vez de o operador
+    // descobrir durante. Sem `iface` de Wi-Fi é a confirmação estrutural de
+    // que o socket está onde deveria.
+    const en = srv.enlace;
+    if (en && (en.upKbps || en.iface)) {
+      const alvo = Math.round(((d.encoder && d.encoder.bitrateAlvo) || 3000000) / 1000);
+      const cabem = en.upKbps > 0 ? Math.floor(en.upKbps / alvo) : -1;
+      l.push('enlace: ' + (en.iface || '?')
+        + (en.upKbps > 0 ? ' · subida ' + en.upKbps + ' kbps' : '')
+        + (en.downKbps > 0 ? ' · descida ' + en.downKbps + ' kbps' : '')
+        + (en.validada === false ? ' · SEM SAÍDA PARA A INTERNET (não impede o espelho)' : '')
+        + (cabem >= 0 ? ' — cabem ~' + cabem + ' tela(s) a ' + alvo + ' kbps' : ''));
+    }
     l.push('telas: ' + telas.length + ' conectada(s) de ' + (srv.teto || 3)
-      + ' · ' + pend.length + ' pendente(s)');
+      + ' · ' + pend.length + ' pendente(s)'
+      + ' · ' + (srv.conexoesTotais | 0) + ' conexão(ões) desde que ligou');
+    // O FREIO DE IDR trabalhava em silêncio, e um pedido engolido é uma tela
+    // PRETA até o quadro-chave espontâneo — 5 s no pior caso. "A tela demorou
+    // a aparecer" não tinha como ser ligado à causa; agora tem número.
+    const idr = srv.idr;
+    if (idr && idr.pedidos) {
+      l.push('quadro-chave: ' + (idr.pedidos | 0) + ' pedido(s) · '
+        + (idr.atendidos | 0) + ' atendido(s) · ' + (idr.engolidos | 0) + ' engolido(s) pelo freio'
+        + ((idr.engolidos | 0) > (idr.atendidos | 0)
+          ? '  ← o freio está barrando mais do que deixa passar' : ''));
+    }
+    // QUEM BATEU NA PORTA E FOI RECUSADO. Todas respondem o mesmo 404 no fio
+    // (não vazar existência), e é só aqui que elas se distinguem: `host` é
+    // tentativa de DNS rebinding contra este aparelho, `malformada` em
+    // quantidade é um scanner varrendo a rede da igreja.
+    const rec = srv.recusadas;
+    if (rec && typeof rec === 'object') {
+      const partes = Object.keys(rec).filter((k) => rec[k]).map((k) => k + ':' + rec[k]);
+      if (partes.length) {
+        l.push('recusadas: ' + partes.join(' · ')
+          + (rec.host ? '  ← `host` é tentativa de DNS rebinding contra este aparelho' : ''));
+      }
+    }
     telas.forEach((c) => {
       l.push('  tela ' + (c.rotulo || '?') + '  ' + (c.ua || '?')
         + '  MSE:' + (c.mse ? 'sim' : 'nao')
@@ -10778,6 +10919,20 @@ function blocoEspelho(d) {
         // O SOM EM UMA FRASE, e não em dois "nao" para o operador interpretar.
         + ' · ' + somDaTela(c)
         + ' · ' + (c.recomecos | 0) + ' recomeco(s)');
+      // O QUE O SERVIDOR VÊ DESTA CONEXÃO, e que antes não saía do JSON.
+      //
+      // `conectada ha` separa uma tela estável de uma que reconecta em laço — o
+      // rótulo trocando não dizia isso, porque ele reinicia junto. `fila` cheia
+      // é este cliente não escoando, vazia com imagem parada é o contrário.
+      // `ESPERANDO IDR` é a tela estando PRETA agora, por construção.
+      l.push('          conectada ha ' + mirrorDur(c.conectadaMs)
+        + ' · fila ' + (c.fila | 0) + '/' + (c.filaTeto || 24)
+        + ' · ' + (c.enviados | 0) + ' quadro(s) enviado(s)'
+        + (c.esperandoIdr ? ' · ESPERANDO QUADRO-CHAVE (a tela esta preta)' : ''));
+      // E O QUE SÓ A TELA SABE — a metade do diagnóstico que o servidor não tem
+      // como produzir. Ver `medidasDaTela` no `cliente.js`: daqui se enxerga
+      // quantos bytes saíram, e não se a imagem andou.
+      linhasDaTela(c.vivo).forEach((x) => l.push('          ' + x));
       // E A FRASE QUE ESTÁ ESCRITA NAQUELA TELA, quando há uma. É onde o
       // cliente já dizia a causa — só que para uma sala em que ninguém está.
       if (c.aviso) l.push('          diz: "' + c.aviso + '"');
@@ -10815,7 +10970,12 @@ function blocoEspelho(d) {
   const linhas = Array.isArray(d.linhas) ? d.linhas : [];
   if (linhas.length) {
     const hora = (t2) => new Date(t2).toLocaleTimeString('pt-BR', { hour12: false });
-    linhas.slice(-12).forEach((x) => l.push('  ' + hora(x.em) + '  ' + x.txt));
+    // O ANEL GUARDA 60 e mostrava 12. Num culto de duas horas isso é a última
+    // meia dúzia de eventos — e a pergunta que o diário responde ("o que
+    // aconteceu ANTES de a tela cair?") mora justamente no que estava sendo
+    // descartado. Mostrar tudo o que existe é de graça: o teto é do anel, não
+    // desta linha, e a caixa do Registro rola.
+    linhas.forEach((x) => l.push('  ' + hora(x.em) + '  ' + x.txt));
   }
   return l.join('\n');
 }
@@ -13328,8 +13488,7 @@ holdRepeat(simpleVolDownEl, () => simpleVolStep(-1));
   ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => simpleCastBtnEl.addEventListener(ev, stop));
   simpleCastBtnEl.addEventListener('click', () => {
     if (holdFired) { holdFired = false; return; }
-    if (window.__NATIVE__) AVNative.openCast();
-    else openWebDisplay();
+    abrirCast();
   });
 })();
 // Fecha o ciclo com o HTML: as classes já vêm do documento (e, no modo
@@ -13768,8 +13927,7 @@ hymnSearchInputEl.addEventListener('input', debounce(() => renderSearchResults(h
     // e o botão que hospedava aquele gesto some justamente quando a liberação
     // fica ativa, porque a preview toma o lugar dele.
     if (castTestUnlocked) { castTestUnlocked = false; renderSimpleCast(); return; }
-    if (window.__NATIVE__) AVNative.openCast();
-    else openWebDisplay();
+    abrirCast();
   });
 
   async function enterFullscreen() {
@@ -13892,6 +14050,13 @@ if (window.__NATIVE__) {
   // Samsung, "Wireless display" no AOSP) sem API documentada — então o app
   // mostra o que encontrou em vez de deixar isso invisível.
   AVNative.castTarget().then((label) => {
+    // E TAMBÉM NA FOLHA DE CONEXÃO, que é onde o operador decide. Os alvos de
+    // espelhamento variam por fabricante e não são API documentada: ver ANTES
+    // de tocar é a diferença entre "abriu a tela errada" e "eu sabia que ia
+    // abrir essa". A linha de Configurações fica, porque o Registro a copia.
+    if (label && castMirrorSubEl) {
+      castMirrorSubEl.textContent = 'Abre: ' + label;
+    }
     if (!label) return;
     castTargetLineEl.hidden = false;
     castTargetLineEl.textContent = 'Espelhar abre: ' + label;
@@ -13942,9 +14107,6 @@ function espelhoDisponivel() {
 // O último estado lido da ponte (`null` = nunca perguntamos). Formato em
 // `AVNative.espelhoEstado`.
 let mirrorEstado = null;
-// O modo do PRÓXIMO ligar. Ele não é uma preferência lembrada entre aberturas
-// de propósito: a Entrega 1 é o modo imagem e a escolha é do dia, não do app.
-let mirrorModo = 'imagem';
 let mirrorTimer = null;
 let mirrorOcupado = false;
 // A confirmação de ligar COM A TV NO AR, lembrada pela SESSÃO: perguntar de
@@ -13964,13 +14126,6 @@ async function lerEspelho() {
   let e = null;
   try { e = await AVNative.espelhoEstado(); } catch (_) { e = null; }
   mirrorEstado = e || null;
-  // O MODO SÓ É ADOTADO COM O ESPELHO NO AR. Desligado, o shell continua
-  // devolvendo o modo da última sessão — e adotá-lo desfazia a escolha que o
-  // operador acabara de fazer no seletor: tocar em "Vídeo" com o espelho
-  // parado marcava Vídeo e, na leitura seguinte (2,5 s), o botão voltava
-  // sozinho para "Imagem". O `escolherModoEspelho` também passa por aqui no
-  // meio do desliga-liga, e era ali que a troca de modo se desfazia na tela.
-  if (mirrorEstado && mirrorEstado.ligado && mirrorEstado.modo) mirrorModo = mirrorEstado.modo;
   renderEspelho();
   return mirrorEstado;
 }
@@ -14037,9 +14192,6 @@ function renderEspelho() {
   mirrorScanEl.querySelector('span:last-child').textContent = emCartaz
     ? 'Ler o código da tela (' + emCartaz + ' esperando)'
     : 'Ler o código da tela';
-  mirrorModeSegEl.querySelectorAll('.fit-opt').forEach((btn) => {
-    btn.classList.toggle('active', btn.dataset.mirrormode === mirrorModo);
-  });
   mirrorAutoEl.checked = !!e.autoAprovar;
   mirrorToggleEl.textContent = mirrorOcupado
     ? 'Um instante…'
@@ -14471,23 +14623,27 @@ async function confirmarEspelhoComTv() {
   return ok;
 }
 
-async function ligarEspelho(modo) {
-  if (mirrorOcupado) return;
-  if (!(await confirmarEspelhoComTv())) return;
+// O ESPELHO É SÓ VÍDEO desde a v5.156 — o modo imagem saiu por não ter áudio
+// (ver `docs/ESPELHO-DE-PIXELS.md`). O `'video'` continua indo à ponte porque
+// a assinatura dela não mudou: tirar o parâmetro obrigaria a subir o
+// `SHELL_VERSION` sem ganhar nada, já que quem chama não escolhe mais.
+async function ligarEspelho() {
+  if (mirrorOcupado) return false;
+  if (!(await confirmarEspelhoComTv())) return false;
   mirrorOcupado = true;
   renderEspelho();
   let r = null;
-  try { r = await AVNative.espelhoLigar(modo || mirrorModo); } catch (_) { r = null; }
+  try { r = await AVNative.espelhoLigar('video'); } catch (_) { r = null; }
   mirrorOcupado = false;
   mirrorEstado = r || null;
-  if (r && r.modo) mirrorModo = r.modo;
   renderEspelho();
   // A falha é NOMEADA, sempre: "sem encoder livre agora", "só liga em Wi-Fi",
   // a classe da exceção do `show()`. Um espelho que não liga em silêncio é
   // indistinguível de um botão quebrado.
-  if (!r) avisar('O espelho não respondeu.', 'erro');
-  else if (r.erro) avisar(r.erro, 'erro');
-  else avisar('Espelho ligado.');
+  if (!r) { avisar('O espelho não respondeu.', 'erro'); return false; }
+  if (r.erro) { avisar(r.erro, 'erro'); return false; }
+  avisar('Espelho ligado.');
+  return true;
 }
 
 async function desligarEspelho() {
@@ -14506,24 +14662,68 @@ async function desligarEspelho() {
   avisar('Espelho desligado.');
 }
 
-// TROCAR DE MODO É DESLIGAR E LIGAR DE NOVO, e a folha diz isso em vez de fingir
-// que é um interruptor. O motivo é da plataforma: trocar a Surface de um
-// VirtualDisplay ao vivo tem, nas palavras do AOSP, "efeito parecido com
-// desligar a tela" — o consumidor novo não recebe nada até a janela redesenhar,
-// o que numa cena parada pode ser um segundo inteiro de preto na rede.
-async function escolherModoEspelho(modo) {
-  if (!modo || modo === mirrorModo) return;
-  if (!espelhoLigado()) { mirrorModo = modo; renderEspelho(); return; }
-  const ok = await appConfirm({
-    title: 'Trocar o modo',
-    message: 'Trocar entre imagem e vídeo desliga e liga o espelho de novo (leva '
-      + 'cerca de um segundo). As telas já aprovadas voltam sozinhas. Trocar agora?',
-    okText: 'Trocar',
-  });
-  if (!ok) return;
-  mirrorModo = modo;
-  await desligarEspelho();
-  await ligarEspelho(modo);
+// ============================================================================
+// A FOLHA DE CONECTAR UMA TELA — as duas formas, num lugar só
+// ============================================================================
+//
+// O botão de cast sempre significou "pôr isto noutra tela". Até a v5.156 ele
+// abria direto o espelhamento do fabricante, e o espelho na rede — que responde
+// exatamente a mesma intenção — vivia numa linha de Configurações que só quem
+// já sabia da existência dele iria procurar. São dois caminhos técnicos para
+// uma decisão só do operador, e quem escolhe entre eles tem de ser ele.
+//
+// A folha mostra os dois com a diferença DITA, porque ela é real: o
+// espelhamento manda a TELA INTEIRA do celular (e é o caminho da TV da igreja);
+// o espelho na rede manda SÓ O TELÃO, para navegadores, sem instalar nada.
+
+function abrirCast() {
+  if (!castPopupEl) { if (window.__NATIVE__) AVNative.openCast(); else openWebDisplay(); return; }
+  castPopupEl.classList.add('open');
+  texto2(castMsgEl, '');
+  // O espelho na rede só existe no app, e só num shell que tenha os métodos.
+  // No navegador a folha degrada para uma escolha só, que é a honesta.
+  castNetBtnEl.hidden = !espelhoDisponivel();
+  renderCast();
+  if (espelhoDisponivel()) {
+    lerEspelho();
+    sondarLeituraQr().then(renderCast);
+    clearInterval(mirrorTimer);
+    mirrorTimer = setInterval(lerEspelho, MIRROR_POLL_MS);
+  }
+}
+
+function fecharCast() {
+  castPopupEl.classList.remove('open');
+  // O relógio só continua se a folha do espelho tiver assumido — senão ele
+  // ficaria enquetando a ponte com nada na tela.
+  if (!mirrorPopupEl.classList.contains('open')) {
+    clearInterval(mirrorTimer);
+    mirrorTimer = null;
+  }
+}
+
+// Um `textContent` que aceita elemento nulo — a folha existe só no bundle novo.
+function texto2(el, s) { if (el) el.textContent = s; }
+
+function renderCast() {
+  if (!castPopupEl || !castPopupEl.classList.contains('open')) return;
+  const ligado = espelhoLigado();
+  const e = mirrorEstado || {};
+  const telas = Array.isArray(e.telas) ? e.telas : [];
+  // O SUBTÍTULO CONTA O ESTADO, e não repete a promessa: com o espelho no ar o
+  // que o operador precisa saber é quantas telas estão recebendo e que o toque
+  // agora só abre a câmera.
+  if (castNetSubEl) {
+    castNetSubEl.textContent = !ligado
+      ? 'Liga o espelho e abre a câmera para ler o código da tela'
+      : (telas.length + ' tela(s) recebendo · toque para ler o código de mais uma');
+  }
+  // Sem leitor de QR o caminho continua existindo — pelos seis dígitos, na
+  // folha de ajustes. Dizer isso é melhor que oferecer uma câmera que não abre.
+  if (castNetSubEl && ligado && qrSuportado === false) {
+    castNetSubEl.textContent = telas.length + ' tela(s) recebendo · este aparelho não lê QR: '
+      + 'use o número em Ajustes';
+  }
 }
 
 function openMirror() {
@@ -14542,8 +14742,12 @@ function openMirror() {
 }
 function closeMirror() {
   mirrorPopupEl.classList.remove('open');
-  clearInterval(mirrorTimer);
-  mirrorTimer = null;
+  // O relógio continua se a folha do CAST ainda estiver aberta por baixo — foi
+  // dela que esta veio, e ela também mostra estado ao vivo.
+  if (!castPopupEl || !castPopupEl.classList.contains('open')) {
+    clearInterval(mirrorTimer);
+    mirrorTimer = null;
+  }
   // A folha fechando leva a câmera junto: o leitor foi aberto DE DENTRO dela, e
   // um popup filho que sobrevive ao pai é uma câmera ligada sem tela que a
   // explique.
@@ -14552,10 +14756,6 @@ function closeMirror() {
 
 if (mirrorRowEl) {
   mirrorOpenBtnEl.addEventListener('click', openMirror);
-  mirrorModeSegEl.addEventListener('click', (ev) => {
-    const btn = ev.target.closest('.fit-opt');
-    if (btn) escolherModoEspelho(btn.dataset.mirrormode);
-  });
   mirrorAutoEl.addEventListener('change', async () => {
     // O `'*'` é a chave da aprovação automática desta sessão — ver o KDoc de
     // `espelhoAprovar` na ponte para por que é um id reservado e não um sexto
@@ -14567,6 +14767,46 @@ if (mirrorRowEl) {
     if (espelhoLigado()) desligarEspelho(); else ligarEspelho();
   });
   mirrorScanEl.addEventListener('click', abrirLeitorQr);
+  // ESPELHAR: o caminho de sempre, agora atrás de uma escolha.
+  castMirrorBtnEl.addEventListener('click', () => {
+    if (window.__NATIVE__) AVNative.openCast();
+    else openWebDisplay();
+  });
+  // MOSTRAR NUMA TELA DA REDE: um toque, as duas coisas.
+  //
+  // Ligar o espelho e ler o código eram dois passos porque é assim que o
+  // recurso é CONSTRUÍDO — primeiro sobe o servidor, depois a tela mostra o
+  // QR —, e não porque o operador tenha duas decisões a tomar. Ele tem uma:
+  // "quero aquela tela mostrando o culto". A ordem é problema nosso.
+  castNetBtnEl.addEventListener('click', async () => {
+    if (!espelhoDisponivel()) return;
+    if (!espelhoLigado()) {
+      texto2(castMsgEl, 'Ligando o espelho…');
+      const ok = await ligarEspelho();
+      if (!ok) {
+        // A frase da falha já saiu pelo `avisar` (ela vem pronta do Kotlin:
+        // "só liga em Wi-Fi", "sem encoder livre agora"). Aqui fica a saída.
+        texto2(castMsgEl, 'Não deu para ligar o espelho — veja o aviso acima. '
+          + 'Os ajustes ficam no botão abaixo.');
+        return;
+      }
+      // A TELA PRECISA DE UM INSTANTE PARA APARECER: quem desenha o QR é o
+      // navegador do outro lado, e ele só o pede depois de carregar a página.
+      // Abrir a câmera antes disso mostraria um visor apontado para uma tela
+      // que ainda não tem código — indistinguível de "a leitura não funciona".
+      texto2(castMsgEl, 'Espelho ligado. Abra o endereço na tela e aponte a câmera.');
+    }
+    renderCast();
+    if (qrSuportado === null) await sondarLeituraQr();
+    if (qrSuportado !== true) {
+      // Sem câmera ou sem leitor, o caminho continua existindo — pelos seis
+      // dígitos. Dizer isso é melhor que abrir um visor que nunca vai ler.
+      texto2(castMsgEl, 'Este aparelho não lê códigos QR. Abra os ajustes: '
+        + 'o número de seis dígitos continua valendo.');
+      return;
+    }
+    abrirLeitorQr();
+  });
   mirrorCertAddEl.addEventListener('click', importarCertEspelho);
   mirrorCertDelEl.addEventListener('click', removerCertEspelho);
   renderEspelho();
@@ -14599,7 +14839,11 @@ const POPUPS = [
   [hymnSearchPopupEl, hymnSearchCloseEl, closeHymnSearch],
   [bibleVerPopupEl, bibleVerCloseEl, closeBibleVerPopup],
   [fadePopupEl, fadePopupCloseEl, closeFadePopup],
-  // A folha do espelho abre DE DENTRO de Configurações, então vem depois dela:
+  // A folha de CONECTAR UMA TELA abre da tela principal (o botão de cast), e
+  // vem antes das duas que nascem dela — o voltar percorre esta tabela de trás
+  // para a frente.
+  [castPopupEl, castCloseEl, fecharCast],
+  // A folha do espelho abre DE DENTRO da folha de conexão, então vem depois:
   // o voltar percorre esta tabela de trás para a frente e precisa fechar a de
   // cima primeiro. Uma linha aqui já a liga aos três caminhos de fechamento
   // (✕, toque no fundo, botão do aparelho) — é para isso que a tabela existe.

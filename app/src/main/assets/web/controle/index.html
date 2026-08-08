@@ -685,24 +685,7 @@
             <button type="button" class="fit-opt" id="wallReset">Padrão</button>
           </div>
         </div>
-        <!-- ESPELHO DE PIXELS: o telão inteiro em até três navegadores da rede
-             local, sem instalar nada nas telas e sem depender de internet (ver
-             docs/ESPELHO-DE-PIXELS.md). A LINHA fica aqui, entre as
-             preferências, porque é uma decisão que se toma uma vez ao montar o
-             culto; o que ela abre é uma FOLHA, porque endereço, PIN e a fila de
-             telas esperando aprovação não cabem — nem devem caber — numa linha.
-             `hidden` por padrão: ela só é desenhada num shell que tenha os
-             métodos (>= 32). Um método novo não chega por OTA, e um botão que
-             não faz nada no meio de um culto é pior que botão nenhum — ele
-             aparece sozinho quando o APK novo for instalado. -->
-        <div class="fade-row fade-row--fit" id="mirrorRow" hidden>
-          <span>Espelho na rede local</span>
-          <span class="mirror-hint" id="mirrorRowHint">Desligado</span>
-          <div class="fit-seg">
-            <button type="button" class="fit-opt" id="mirrorOpenBtn">Abrir</button>
-          </div>
-        </div>
-        <!-- O REGISTRO, e é UM só (v5.121). Ele nasceu como a caixa-preta do
+                <!-- O REGISTRO, e é UM só (v5.121). Ele nasceu como a caixa-preta do
              telão: três versões seguidas tentaram consertar "o vídeo para
              quando o app é minimizado" por hipótese e as três erraram, porque
              ninguém vê o que acontece com a projeção enquanto o celular está
@@ -746,7 +729,58 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.155</span>
+        <span id="appVersion" class="app-version">Controle v5.156</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONECTAR UMA TELA — as DUAS formas, no lugar em que se procura por elas.
+       O botão de cast sempre significou "pôr isto noutra tela", e até a v5.156
+       ele abria direto o espelhamento do fabricante enquanto o espelho na rede
+       vivia escondido em Configurações. São a mesma intenção do operador com
+       dois caminhos técnicos, e quem escolhe entre eles é ele — não a memória
+       dele de onde cada um mora.
+
+       A diferença entre os dois, dita em uma linha cada, porque ela é real: o
+       espelhamento manda a TELA INTEIRA do celular (e é o caminho da TV da
+       igreja); o espelho na rede manda SÓ O TELÃO, para navegadores, sem
+       instalar nada. -->
+  <div id="castPopup" class="popup-backdrop">
+    <div class="popup-sheet">
+      <div class="popup-header">
+        <span class="msym popup-header-icon" aria-hidden="true">&#xe307;</span>
+        <span class="popup-title">Conectar uma tela</span>
+        <button id="castClose" class="popup-close" title="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
+      </div>
+      <div class="mirror-body">
+        <button type="button" id="castMirrorBtn" class="cast-choice">
+          <span class="msym" aria-hidden="true">&#xe8ad;</span>
+          <span class="cast-choice-txt">
+            <b>Espelhar a tela na TV</b>
+            <small id="castMirrorSub">Smart View, MiraScreen ou cabo — manda a tela inteira do celular</small>
+          </span>
+        </button>
+        <!-- O CAMINHO CURTO, e ele faz as DUAS coisas num toque: liga o espelho
+             (se ainda não estiver) e abre o leitor de QR. Separá-los era pedir
+             ao operador que soubesse que existe uma ordem — e a ordem só existe
+             por causa de como o recurso é construído, não por causa dele. -->
+        <button type="button" id="castNetBtn" class="cast-choice" hidden>
+          <span class="msym" aria-hidden="true">&#xe1b0;</span>
+          <span class="cast-choice-txt">
+            <b>Mostrar numa tela da rede</b>
+            <small id="castNetSub">Liga o espelho e abre a câmera para ler o código da tela</small>
+          </span>
+        </button>
+        <p class="mirror-lead" id="castMsg" role="status" aria-live="polite"></p>
+        <!-- Os ajustes do espelho (endereço, PIN, telas, certificado) continuam
+             existindo — só deixaram de ser a porta de entrada. -->
+        <div class="fade-row fade-row--fit" id="mirrorRow" hidden>
+          <span>Espelho na rede local</span>
+          <span class="mirror-hint" id="mirrorRowHint">Desligado</span>
+          <div class="fit-seg">
+            <button type="button" class="fit-opt" id="mirrorOpenBtn">Ajustes</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -801,13 +835,6 @@
           <div class="mirror-cert-acts">
             <button type="button" class="mirror-act" id="mirrorCertAdd">Importar .p12</button>
             <button type="button" class="mirror-act mirror-act--no" id="mirrorCertDel" hidden>Remover</button>
-          </div>
-        </div>
-        <div class="fade-row fade-row--fit mirror-mode" id="mirrorModeRow">
-          <span>Modo</span>
-          <div class="fit-seg" id="mirrorModeSeg">
-            <button type="button" class="fit-opt" data-mirrormode="imagem">Imagem</button>
-            <button type="button" class="fit-opt" data-mirrormode="video">Vídeo</button>
           </div>
         </div>
         <!-- O OPERADOR NO LAÇO (§3.5): acertar o PIN põe a tela na fila; quem a

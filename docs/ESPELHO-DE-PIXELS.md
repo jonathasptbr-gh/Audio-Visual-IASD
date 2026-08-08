@@ -1660,6 +1660,65 @@ o alvo de 960, `c2.qti.avc.encoder` com 16 instâncias, `atraso relativo 0 ms`, 
 `24 blocos de PCM/s`. O R1 da §1.2 está respondido em produção: **a camada de vídeo entra na
 composição de um `VirtualDisplay` privado neste aparelho.**
 
+### 10-A.2 — o Registro deixa de ser meia resposta, e o modo IMAGEM sai (5.156)
+
+**O que o Registro não respondia.** A rodada anterior fechou dois defeitos usando exatamente uma
+linha do relato da tela (`som: ok (vídeo à frente do som em 500 ms)`), e isso expôs a forma do
+buraco: **o servidor enxerga bytes escritos; quem sabe se a imagem ANDA é a tela** — e o único canal
+dela era uma frase de 110 caracteres, espremida no `aviso` porque o corpo inteiro do `POST /r` tinha
+de caber nos 256 B do parser.
+
+O teto do `/r` passou a ser próprio (`TETO_CORPO_RETORNO`, 4 KiB), e a assimetria é o ponto: o
+`POST /par` é **anônimo** e continua em 256 B — é isso que impede um desconhecido de nos fazer
+alocar. O `/r` só existe depois de o operador ter aprovado aquela tela. Com ele cabem as medidas:
+
+| O que passou a viajar | A pergunta que ele responde, e que nada antes respondia |
+|---|---|
+| `vfim`/`afim` — folga do cursor até o fim de cada faixa | **negativo é o cursor fora do buffer**, isto é, a MSE sem dado: a tela congela sem erro. É o defeito da v5.155, e este número o teria mostrado no primeiro minuto |
+| `dq`/`tq` — quadros descartados pelo decodificador | "este aparelho não dá conta" × "a rede está ruim". Rede ruim atrasa; ela não descarta quadro já decodificado |
+| `rs` — `readyState` do `<video>` | congelado com `rs` alto é decodificador; com `rs` baixo é fonte |
+| `fila`, `cota`, `reb`, `rr` | os quatro tetos internos do cliente. Batido qualquer um, ele desiste de algo **em silêncio** |
+| `cod`, `vid`, `tela`, `err` | o codec que o navegador aceitou, o tamanho que ele desenha, e o `MediaError` do elemento — a frase do demuxer que ninguém leria, porque ninguém abre console numa TV |
+
+E o que só o **servidor** sabia e não publicava: fila por tela e seu teto, `esperandoIdr` (a tela
+está PRETA agora, por construção), há quanto tempo aquela conexão existe, quadros enviados,
+`conexoesTotais`, o freio de IDR em três números (**pedidos / atendidos / engolidos** — um pedido
+engolido é tela preta até o IDR espontâneo, e o freio trabalhava em silêncio), as recusas por motivo
+(`host` é tentativa de **DNS rebinding** contra o aparelho; `malformada` em quantidade é um scanner),
+e a **banda que o enlace declara** — que responde antes do culto a pergunta que sustenta o recurso:
+*cabem 3 Mbps × 3 telas neste AP?*
+
+Mais três fatos do lado nativo: a **janela do espelho perguntada em vez de deduzida** (o §7.5
+inferia "retângulo preto" pelo bitrate cruzado com a cena, e a inferência erra nos dois sentidos), as
+**mortes de renderer** (a recuperação é automática e silenciosa, e por isso sumia do diagnóstico), o
+**perfil/nível que o encoder escolheu** (*"esta TV não decodifica o fluxo"* × *"não decodifica ESTE
+perfil"* são a mesma tela preta) e a **memória do processo** — que é a CAUSA de que
+`ERROR_RECLAIMED` e a morte do renderer são consequência. O anel do diário passou a ser mostrado
+inteiro: ele guarda 60 linhas e a tela imprimia 12, jogando fora justamente o que veio ANTES da
+queda.
+
+**A guarda que isto exigiu, e ela é a regra de sempre:** o bundle chega por OTA e o APK não. Num
+shell anterior o `/r` ainda tem teto de 256 B e devolve **413** — o canal de relato morreria no
+commit que existe para ampliá-lo. O cliente vê o 413 uma vez, desiste das medidas pelo resto da
+sessão e reenvia o relato curto. Degrada, não quebra.
+
+**E o modo IMAGEM saiu.** Ele era o degrau de baixo (JPEG a ~10 fps, sem `MediaSource`), e o que o
+derrubou não foi desempenho: **ele não tem áudio e não tem como ter** — o som do espelho é uma
+segunda `SourceBuffer` da mesma `MediaSource` (§3.9), e um `<canvas>` não é `HTMLMediaElement`. Um
+telão de igreja mudo não é um degrau, é outro produto. Com ele saíram a segunda Surface, o
+`ImageReader`, a `HandlerThread` que comprimia JPEG de 720p na CPU do aparelho que está projetando,
+e um segundo caminho em toda decisão do `EspelhoDisplay` e do cliente. O byte `0x20` fica
+**aposentado e não reciclado**: um número de protocolo reusado é um cliente antigo decodificando a
+coisa errada, em silêncio.
+
+**A porta de entrada mudou de lugar.** O botão de cast sempre significou "pôr isto noutra tela", e
+ele abria direto o espelhamento do fabricante enquanto o espelho na rede vivia numa linha de
+Configurações que só quem já sabia dele iria procurar. São dois caminhos técnicos para **uma**
+decisão do operador. Agora o cast abre uma folha com os dois, com a diferença dita (*a tela inteira
+do celular* × *só o telão, para navegadores*), e "Mostrar numa tela da rede" **liga o espelho e abre
+o leitor de QR num toque** — a ordem entre as duas coisas existe por causa de como o recurso é
+construído, não por causa de quem o usa.
+
 **A regra que sai daí, e ela vale para o repositório inteiro:** um `let`/`const` dentro de uma
 função que repete um nome do módulo é a mesma família de defeito do `setInteger` numa chave `long`
 (§3.3, C1), do `bytes` esquecido no `bgProgress` e do `slideLabel` no `nowPlaying` — **falha sem
