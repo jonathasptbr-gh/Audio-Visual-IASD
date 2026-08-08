@@ -64,11 +64,18 @@ class EspelhoHttpTest {
         texto: String,
         aceitos: Set<String> = hosts,
         porRead: Int = Int.MAX_VALUE,
+        // O TETO POR ROTA, como o `EspelhoServidor` o passa. O padrão do teste é
+        // o do servidor de verdade, e não o padrão da função: um teste que use
+        // uma política diferente da produção prova outra coisa.
+        tetoCorpo: (String) -> Int = { c ->
+            if (c == "/r") EspelhoHttp.TETO_CORPO_RETORNO else EspelhoHttp.TETO_CORPO
+        },
     ): Result<EspelhoHttp.Req> = EspelhoHttp.lerRequisicao(
         // ISO-8859-1 para que cada caractere do teste seja exatamente um byte no
         // fio, inclusive os de controle que os casos negativos injetam.
         Gotejante(texto.toByteArray(Charsets.ISO_8859_1), porRead),
         aceitos,
+        tetoCorpo,
     )
 
     private fun passa(texto: String, aceitos: Set<String> = hosts): EspelhoHttp.Req =
@@ -207,6 +214,66 @@ class EspelhoHttpTest {
             )
         )
         assertEquals(EspelhoHttp.TETO_CORPO, r.corpo.size)
+    }
+
+    /**
+     * O TETO É POR ROTA, e a assimetria é o ponto.
+     *
+     * O `POST /par` é ANÔNIMO — qualquer um na rede o alcança — e continua em
+     * 256 B: é isso que impede um desconhecido de nos fazer alocar. O `POST /r`
+     * só existe depois de o operador ter aprovado aquela tela, e é por ele que
+     * chega a única informação que o servidor não tem como obter sozinho: se a
+     * imagem está andando do outro lado.
+     *
+     * O par NEGATIVO é o que dá sentido ao positivo: sem ele, alguém "limparia"
+     * isto para um teto só e o `/par` ganharia 4 KiB sem que nada reprovasse.
+     */
+    @Test
+    fun retornoAceitaCorpoMaiorQueOPareamento() {
+        val corpo = "b".repeat(EspelhoHttp.TETO_CORPO + 1)
+        val r = passa(
+            cru(
+                linha = "POST /r HTTP/1.1",
+                cabecalhos = listOf("Host: 192.168.0.42:8787", "Content-Length: ${corpo.length}"),
+                corpo = corpo,
+            )
+        )
+        assertEquals(corpo.length, r.corpo.size)
+    }
+
+    @Test
+    fun pareamentoContinuaNoTetoApertado() {
+        val corpo = "b".repeat(EspelhoHttp.TETO_CORPO + 1)
+        assertSame(
+            EspelhoHttp.Erro.CorpoLongo,
+            falha(
+                cru(
+                    linha = "POST /par HTTP/1.1",
+                    cabecalhos = listOf(
+                        "Host: 192.168.0.42:8787",
+                        "Content-Length: ${corpo.length}",
+                    ),
+                    corpo = corpo,
+                )
+            ),
+        )
+    }
+
+    /** E o teto do `/r` também é um teto: acima dele, recusa. */
+    @Test
+    fun retornoAcimaDoTetoRecusa() {
+        assertSame(
+            EspelhoHttp.Erro.CorpoLongo,
+            falha(
+                cru(
+                    linha = "POST /r HTTP/1.1",
+                    cabecalhos = listOf(
+                        "Host: 192.168.0.42:8787",
+                        "Content-Length: ${EspelhoHttp.TETO_CORPO_RETORNO + 1}",
+                    ),
+                )
+            ),
+        )
     }
 
     /**

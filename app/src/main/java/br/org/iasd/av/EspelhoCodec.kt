@@ -409,11 +409,47 @@ class EspelhoCodec(private val onQuadro: (Quadro) -> Unit) {
         return true
     }
 
+    /**
+     * O PERFIL E O NÍVEL que o encoder de fato escolheu.
+     *
+     * Nada aqui os PEDE — `KEY_PROFILE` fica de fora de propósito (armadilha 6)
+     * —, então o que sai é decisão do fornecedor, e ela varia por aparelho. Isso
+     * importa do outro lado do fio: "esta TV não decodifica o fluxo" e "esta TV
+     * não decodifica ESTE PERFIL" são a mesma tela preta, e só este número
+     * separa as duas. O `codecs=` que o cliente relata é derivado do SPS e diz a
+     * mesma coisa por outro caminho; tê-los dos dois lados é o que permite
+     * cruzar.
+     *
+     * Só diagnóstico, e por isso tudo é `optional`: um encoder que não publique
+     * as chaves deixa o campo em zero em vez de derrubar coisa nenhuma.
+     */
+    @Volatile
+    var perfil: Int = 0
+        private set
+
+    @Volatile
+    var nivel: Int = 0
+        private set
+
+    @Volatile
+    var formatoSaida: String = ""
+        private set
+
     /** Lê `csd-0`/`csd-1` do formato de saída e emite o quadro `0x01`. */
     private fun lerCsd(c: MediaCodec) {
         val f = try { c.outputFormat } catch (e: Exception) {
             Log.w(TAG, "formato de saída indisponível", e)
             return
+        }
+        // O formato de SAÍDA é o único lugar em que o que o encoder decidiu
+        // aparece — e ele só existe depois do `INFO_OUTPUT_FORMAT_CHANGED`, que
+        // é exatamente aqui.
+        try {
+            perfil = if (f.containsKey(MediaFormat.KEY_PROFILE)) f.getInteger(MediaFormat.KEY_PROFILE) else 0
+            nivel = if (f.containsKey(MediaFormat.KEY_LEVEL)) f.getInteger(MediaFormat.KEY_LEVEL) else 0
+            formatoSaida = f.getString(MediaFormat.KEY_MIME) ?: ""
+        } catch (e: Exception) {
+            Log.w(TAG, "perfil/nível do encoder indisponíveis", e)
         }
         // `duplicate()`: o ByteBuffer é do formato, e consumi-lo aqui deixaria
         // o próximo leitor com um buffer no fim.
@@ -573,6 +609,16 @@ class EspelhoCodec(private val onQuadro: (Quadro) -> Unit) {
         const val TIPO_VIDEO: Byte = 0x02
         const val TIPO_CSD_AUDIO: Byte = 0x10
         const val TIPO_AUDIO: Byte = 0x11
+        /**
+         * **APOSENTADO na v5.156, e NÃO RECICLADO.**
+         *
+         * Era o quadro do modo IMAGEM, que saiu por não ter áudio (ver o
+         * cabeçalho do [EspelhoDisplay]). A constante fica porque um número de
+         * protocolo reusado é a pior classe de defeito deste fio: um cliente
+         * antigo decodificaria a coisa errada, em silêncio, sem um erro em
+         * lugar nenhum. Ninguém produz nem consome `0x20` hoje — ele existe
+         * para que o próximo tipo do protocolo seja `0x21`, e não este.
+         */
         const val TIPO_JPEG: Byte = 0x20
 
         /**

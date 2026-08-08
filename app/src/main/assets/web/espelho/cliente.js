@@ -54,7 +54,6 @@
   const T_VIDEO = 0x02;
   const T_CSD_AUDIO = 0x10;
   const T_AUDIO = 0x11;
-  const T_JPEG = 0x20;
   const T_CONTROLE = 0x30;
   const F_CHAVE = 1;
 
@@ -109,7 +108,21 @@
   // que é exatamente o que o muxer trabalha para evitar), é recomeçar limpo.
   const FILA_MAX = 60;
 
-  const ALIVE_MS = 5 * 60 * 1000;
+  // O BATIMENTO DO RELATO: 10 s, e não os 5 min de antes.
+  //
+  // Ele nasceu como sinal de vida ("esta tela ainda está aí"), e para isso 5
+  // min bastavam. Ele deixou de ser isso: desde que o `POST /r` carrega as
+  // MEDIDAS da tela (ver `medidasDaTela`), este é o único canal por onde o
+  // operador enxerga se a imagem está andando — e um número de cinco minutos
+  // atrás responde a pergunta errada, porque quem está olhando o Registro está
+  // olhando para o travamento que acontece AGORA.
+  //
+  // O custo é desprezível e vale escrito, para ninguém "otimizar" isto de
+  // volta: ~600 B de corpo mais cabeçalhos, seis vezes por minuto, por tela —
+  // uns 6 kB/min contra os 3 Mbps do vídeo, isto é, três centésimos de por
+  // cento. O `relatar` continua deduplicando por ESTADO, então uma mudança de
+  // frase não espera este relógio.
+  const ALIVE_MS = 10 * 1000;
   const CHAVE_MS = 2000;                  // freio do pedido de IDR (§3.6, invariante 9)
 
   // ---- O SOM (§3.9). Três números, e cada um existe por um modo de falhar ----
@@ -205,8 +218,6 @@
   // relato está quebrado", que é uma leitura que hoje não existe.
   let porqueSemSom = 'não pedido';
 
-  let modoImagem = false;
-  let ctx2d = null;
   let ultimaChave = 0;
   let gestoFeito = false;
 
@@ -558,7 +569,7 @@
         //
         // O teto de [REBUILDS_AUDIO] é o mesmo do gesto, e pelo mesmo motivo:
         // a projeção nunca pisca mais que isso por causa do som.
-        if (audioQuerido && !sbA && !modoImagem) {
+        if (audioQuerido && !sbA) {
           if (rebuilds < REBUILDS_AUDIO) {
             rebuilds++;
             // PRAZO NOVO PARA UMA TENTATIVA NOVA — ver `tentarSom`.
@@ -1011,49 +1022,6 @@
   }
 
   // --------------------------------------------------------------------------
-  // MODO IMAGEM (Entrega 1) — o MESMO transporte, quadros 0x20
-  // --------------------------------------------------------------------------
-
-  function aoModoImagem() {
-    if (modoImagem) return;
-    modoImagem = true;
-    el.v.hidden = true;
-    el.foto.hidden = false;
-    ctx2d = el.foto.getContext('2d');
-    // A RESSALVA DITA NA PRÓPRIA PÁGINA (§3.10, P25): um `<canvas>` não é
-    // `HTMLMediaElement`, e o wake lock de vídeo do navegador não vale para ele.
-    // Sem esta frase, a primeira coisa que chega ao operador é "não funciona".
-    avisar('Modo imagem — nesta modalidade a tela deste aparelho pode apagar sozinha.');
-  }
-
-  function desenhar(bitmap) {
-    if (!ctx2d) return;
-    if (el.foto.width !== bitmap.width || el.foto.height !== bitmap.height) {
-      el.foto.width = bitmap.width;
-      el.foto.height = bitmap.height;
-    }
-    ctx2d.drawImage(bitmap, 0, 0);
-    if (bitmap.close) bitmap.close();
-  }
-
-  function jpeg(carga) {
-    aoModoImagem();
-    const blob = new Blob([carga], { type: 'image/jpeg' });
-    // `createImageBitmap` não é de contexto seguro e existe desde sempre no
-    // Chromium; o piso do `<img>` cobre a TV velha, que é justamente o aparelho
-    // para o qual o modo imagem existe.
-    if (typeof global.createImageBitmap === 'function') {
-      global.createImageBitmap(blob).then(desenhar).catch(() => {});
-      return;
-    }
-    const url = URL.createObjectURL(blob);
-    const img = new Image();
-    img.onload = function () { desenhar(img); URL.revokeObjectURL(url); };
-    img.onerror = function () { URL.revokeObjectURL(url); };
-    img.src = url;
-  }
-
-  // --------------------------------------------------------------------------
   // A VOLTA (§5.1, `POST /r`) — três palavras, e nenhuma delas entra no
   // barramento de comandos do app
   // --------------------------------------------------------------------------
@@ -1069,10 +1037,6 @@
   // do espelho sobe com o espelho (§3.9); o que isto abre é a torneira desta
   // tela, e o servidor responde empurrando o `csd` de áudio guardado.
   function pedirAudio() {
-    // No MODO IMAGEM não há `MediaSource` nem faixa de som — pedir AAC seria
-    // pedir bytes para jogar fora. (Do outro lado o canal de áudio nem chega a
-    // ser instalado naquele modo, então isto é cinto e suspensório.)
-    if (modoImagem) return;
     postar('/r', { do: 'audio', on: true }, true).catch(() => {});
   }
 
@@ -1091,7 +1055,13 @@
   // Três campos, e só três: a frase que está na tela (que é onde o cliente já
   // escreve a causa), se a faixa de som existe, e quantos recomeços ele já deu.
   // O texto é cortado aqui e SANEADO no Kotlin, como todo texto vindo da rede.
-  const AVISO_MAX = 110;
+  // A frase cabia em 110 caracteres porque o corpo INTEIRO tinha de caber nos
+  // 256 B do `POST /par`. Com o teto do `/r` autenticado em 4 KiB (ver
+  // `EspelhoHttp.TETO_CORPO_RETORNO`) ela cabe inteira — e o que se perdia no
+  // corte era sempre o FIM, que é justamente onde a frase da tela diz a causa.
+  const AVISO_MAX = 220;
+  // O que cabia no teto de 256 B do shell anterior. Ver `relatoCurto`.
+  const AVISO_CURTO = 110;
 
   // O QUE VAI PARA O FIO É ASCII, e isso não é preferência: o `sanear` do
   // `EspelhoPares` deixa passar só `[\x20-\x7E]` — invariante 9, com JUnit,
@@ -1123,6 +1093,86 @@
     } catch (_) { return trocado; }
   }
 
+  /**
+   * O QUE SÓ ESTA TELA SABE — e que o servidor não tem como descobrir.
+   *
+   * Do lado de lá o Registro respondia "escrevi 17,9 MB, 0 descartes, último
+   * write há 0 s". Nada disso distingue **imagem andando** de **imagem
+   * congelada com o buffer cheio**: os bytes saem do celular do mesmo jeito nos
+   * dois casos. A pergunta do operador ("por que está travando?") mora inteira
+   * deste lado, e até aqui cabia numa frase de 110 caracteres.
+   *
+   * Cada campo abaixo existe porque separa dois desfechos com correções
+   * DIFERENTES — é a mesma régua do resto do Registro:
+   *
+   *  - `dq`/`tq` (quadros DESCARTADOS pelo decodificador × total): é o único
+   *    número que diz "esta tela não dá conta do fluxo" em vez de "a rede está
+   *    ruim". Rede ruim não descarta quadro decodificado, atrasa.
+   *  - `vfim`/`afim` (folga do cursor até o fim de cada faixa): NEGATIVO em
+   *    qualquer uma delas é o cursor tendo passado do buffer — a MSE não toca,
+   *    e a tela congela sem erro. É o defeito que a v5.155 corrigiu, e este é o
+   *    número que o teria mostrado no primeiro minuto.
+   *  - `rs` (`readyState` do `<video>`): 4 é "tocando com folga", 2 é
+   *    "esperando dado". Congelado com `rs` alto é decodificador; congelado com
+   *    `rs` baixo é fonte.
+   *  - `fila` (append pendente): cheia é este aparelho não escoando; vazia com
+   *    imagem parada é o contrário — não está chegando nada.
+   *  - `cod`: o que o navegador de fato aceitou. "Não decodifica" e "decodifica
+   *    e engasga" são a mesma tela preta.
+   *  - `rate`: a perseguição de borda em ação. Colada em 108 o tempo todo é uma
+   *    tela que nunca alcança.
+   *  - `reb`/`cota`/`rr`: os três tetos internos. Batido qualquer um deles, a
+   *    tela desiste de algo em silêncio — e o Registro passa a dizer qual.
+   */
+  function medidasDaTela() {
+    const v = el.v || {};
+    const bv = faixaDe(sbV);
+    const ba = faixaDe(sbA);
+    const agora = v.currentTime || 0;
+    // `emMs`, e NUNCA `ms`: `ms` é a `MediaSource` deste arquivo, e um
+    // `const ms` aqui a poria na zona morta temporal do bloco inteiro. É a
+    // mesma linha que a v5.152 escreveu e que custou a auditoria da v5.154;
+    // `tools/sombra.test.mjs` a reprovou de novo enquanto isto era escrito.
+    const emMs = (s) => Math.round(s * 1000);
+    let dq = -1;
+    let tq = -1;
+    try {
+      if (typeof v.getVideoPlaybackQuality === 'function') {
+        const q = v.getVideoPlaybackQuality();
+        dq = q.droppedVideoFrames | 0;
+        tq = q.totalVideoFrames | 0;
+      }
+    } catch (_) { /* nem todo navegador traz */ }
+    return {
+      q: conta.quadros,
+      qa: conta.quadrosAudio,
+      rec: conta.reconexoes,
+      kb: Math.round(conta.bytes / 1024),
+      fila: fila.length,
+      // Folga do cursor até o fim de cada faixa. `-99999` = não há faixa; um
+      // NEGATIVO é o cursor fora do buffer, que é o congelamento.
+      vfim: bv ? emMs(bv.end(bv.length - 1) - agora) : -99999,
+      afim: ba ? emMs(ba.end(ba.length - 1) - agora) : -99999,
+      // A janela viva inteira (passado bufferizado), que é o que a poda governa.
+      jan: bv ? emMs(bv.end(bv.length - 1) - bv.start(0)) : 0,
+      rate: Math.round((v.playbackRate || 0) * 100),
+      rs: v.readyState | 0,
+      ns: v.networkState | 0,
+      dq: dq,
+      tq: tq,
+      reb: rebuilds,
+      cota: cotaSeguidas,
+      rr: recusasSeguidas,
+      // O que o navegador aceitou, e o tamanho que ele está desenhando: uma
+      // tela esticando 1280x720 num painel de 3840 é uma leitura, não um erro.
+      cod: semAcento(((mime || '?') + (mimeA ? '+' + mimeA : ''))
+        .replace(/[a-z]+\/mp4; codecs="/g, '').replace(/"/g, '')),
+      vid: (v.videoWidth | 0) + 'x' + (v.videoHeight | 0),
+      tela: (global.innerWidth | 0) + 'x' + (global.innerHeight | 0),
+      err: semAcento(ultimoErroMidia || '').slice(0, 80),
+    };
+  }
+
   function corpoDoAlive() {
     // O RAMO DO SOM VAI SEMPRE, e vem primeiro quando não há frase na tela: ele
     // é o dado que decide, e a frase é o contexto. Os dois no mesmo campo
@@ -1134,18 +1184,61 @@
     // tela sem nada separando as duas.
     const tela = (el.aviso ? el.aviso.textContent || '' : '').trim();
     const nota = '[som: ' + porqueSemSom + (ultimoFim ? ' | fim: ' + ultimoFim : '') + ']';
-    return {
+    const corpo = {
       do: 'alive',
       telaAcesaMin: minutosAcesa(),
-      aviso: semAcento((tela ? nota + ' ' + tela : nota)).slice(0, AVISO_MAX),
+      // A FRASE cresceu junto com o teto do `POST /r`: ela era cortada em 110
+      // caracteres porque o corpo inteiro tinha de caber em 256 B, e o que se
+      // perdia era sempre o fim — que é onde a frase da tela dizia a causa.
+      // O CORTE DEPENDE DO TETO QUE O OUTRO LADO TEM. Com 220 caracteres o
+      // corpo passa de 256 B mesmo SEM as medidas — ou seja, a degradação para
+      // shell antigo teria sido recusada pelo mesmo 413 que a disparou, e o
+      // canal morreria de qualquer forma. É o velho AVISO_CURTO ali.
+      aviso: semAcento((tela ? nota + ' ' + tela : nota))
+        .slice(0, relatoCurto ? AVISO_CURTO : AVISO_MAX),
       som: !!sbA,
       recomecos: conta.recomecos,
     };
+    // As medidas vão no MESMO objeto, achatadas: um nível a menos de indireção
+    // é uma leitura a menos que pode errar o caminho em silêncio do lado do
+    // Kotlin — a mesma razão pela qual os fatos do `EspelhoDiag` moram na raiz.
+    // Num shell antigo elas não cabem, e o 413 já nos ensinou isso — ver
+    // `relatoCurto`. O relato volta a ser o de antes, que aquele shell entende
+    // inteiro, em vez de ser recusado por completo.
+    if (relatoCurto) return corpo;
+    const m = medidasDaTela();
+    for (const k in m) if (Object.prototype.hasOwnProperty.call(m, k)) corpo[k] = m[k];
+    return corpo;
+  }
+
+  // O SHELL ANTIGO RECUSA O RELATO GRANDE, e o bundle chega antes do APK.
+  //
+  // As medidas da tela só cabem porque o `POST /r` passou a aceitar 4 KiB
+  // (`EspelhoHttp.TETO_CORPO_RETORNO`) — e isso é Kotlin, isto é, chega
+  // INSTALANDO. O OTA, não: ele chega sozinho, e num aparelho ainda no shell
+  // anterior o corpo de ~600 B estoura o teto de 256 B e volta **413**. Sem
+  // esta guarda o resultado seria o pior desfecho possível: o canal de relato
+  // morrendo no exato commit que existe para ampliá-lo, e em silêncio.
+  //
+  // Um 413 é definitivo (o teto é uma constante do shell, não um estado), então
+  // basta vê-lo uma vez para desistir das medidas pelo resto da sessão. O que
+  // sobra é o relato de antes, que aquele shell entende inteiro.
+  let relatoCurto = false;
+
+  async function enviarRelato() {
+    if (!vivo || !token) return;
+    let r;
+    try { r = await postar('/r', corpoDoAlive(), true); } catch (_) { return; }
+    if (r && r.status === 413 && !relatoCurto) {
+      relatoCurto = true;
+      // E o que foi recusado precisa ser REENVIADO na forma curta: senão esta
+      // batida se perde, e numa tela que caia logo em seguida ela era a única.
+      try { await postar('/r', corpoDoAlive(), true); } catch (_) { /* rede */ }
+    }
   }
 
   function bater() {
-    if (!vivo || !token) return;
-    postar('/r', corpoDoAlive(), true).catch(() => {});
+    enviarRelato();
   }
 
   // E ele é enviado também A CADA CONEXÃO e a cada troca da frase, não só de
@@ -1161,7 +1254,7 @@
       + '|' + (sbA ? '1' : '0') + '|' + porqueSemSom + '|' + ultimoFim;
     if (chave === ultimoRelato) return;
     ultimoRelato = chave;
-    postar('/r', corpoDoAlive(), true).catch(() => {});
+    enviarRelato();
   }
 
   // --------------------------------------------------------------------------
@@ -1301,12 +1394,6 @@
       if (conta.quadros === 1) limparAviso();
       return;
     }
-    if (q.tipo === T_JPEG) {
-      conta.quadros++;
-      tentativa = 0;
-      jpeg(carga);
-      return;
-    }
     // O ÁUDIO (§3.9): uma SEGUNDA `SourceBuffer` da MESMA `MediaSource`, com o
     // AAC vindo pronto do `MediaCodec` do celular. A sincronia A/V é do
     // NAVEGADOR — uma `MediaSource`, uma linha do tempo —, e é por isso que
@@ -1368,10 +1455,6 @@
     if (!j || !j.m) return;
     if (j.m === 'sem-audio') {
       avisar('Esta cena vai sem som' + (j.por ? ' (' + String(j.por).slice(0, 24) + ')' : '') + '.');
-      return;
-    }
-    if (j.m === 'modo') {
-      if (j.v === 'imagem') aoModoImagem();
       return;
     }
     if (j.m === 'adeus') {
@@ -1590,7 +1673,7 @@
     muxer = global.AVFmp4.criar();
     ultimoAlive = Date.now();
     compasso = setInterval(function () {
-      if (!modoImagem) borda();
+      borda();
       // O RELATO SEGUE O COMPASSO, e não cada ponto de decisão: os ramos do som
       // são sete e nem todos passam por `avisar`. `relatar` deduplica pela
       // chave, então isto não gera tráfego nenhum enquanto nada muda — e
@@ -1654,7 +1737,7 @@
   // por causa do som. É também o caminho de VOLTA depois de o vigia ter soltado
   // a faixa: o visitante toca de novo e o som retorna.
   function tentarSom() {
-    if (!audioQuerido || sbA || modoImagem || !ms) return;
+    if (!audioQuerido || sbA || !ms) return;
     if (rebuilds >= REBUILDS_AUDIO) return;
     rebuilds++;
     // O PRAZO DO `csd` DE ÁUDIO NASCE DE NOVO A CADA TENTATIVA, e sem esta
@@ -1686,7 +1769,7 @@
   }
 
   function iniciar() {
-    ['par', 'pin', 'pinBox', 'parBtn', 'parMsg', 'qrBox', 'qr', 'play', 'v', 'foto', 'gesto', 'aviso'].forEach(function (id) {
+    ['par', 'pin', 'pinBox', 'parBtn', 'parMsg', 'qrBox', 'qr', 'play', 'v', 'gesto', 'aviso'].forEach(function (id) {
       el[id] = doc.getElementById(id);
     });
     if (!el.par || !el.play) return;      // não é a página do espelho
@@ -1728,7 +1811,7 @@
   global.__espelho = {
     estado: function () {
       return {
-        pareado: !!token, vivo: vivo, modoImagem: modoImagem,
+        pareado: !!token, vivo: vivo,
         // O QR em cartaz: `qr` é o desenho na tela, `qrId` diz se há espera
         // criada. Os dois juntos separam "o servidor não deu id" de "deu e o
         // desenho falhou" — que na tela são o mesmo espaço vazio.

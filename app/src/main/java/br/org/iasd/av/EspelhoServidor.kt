@@ -149,6 +149,32 @@ class EspelhoServidor(
     @Volatile private var ultimoIdrGlobalMs = 0L
     @Volatile private var ultimaSaida: JSONObject? = null
 
+    /**
+     * O que o FREIO de IDR fez, em três números.
+     *
+     * Um pedido engolido é uma tela preta até o próximo quadro-chave
+     * espontâneo — 5 s, no pior caso, no meio de um culto. O freio existe e
+     * está certo (sem ele um cliente pede IDR em laço), mas até aqui ele
+     * trabalhava em silêncio: "a tela demorou a aparecer" não tinha como ser
+     * ligado à sua causa, e a resposta seria um palpite sobre a rede.
+     */
+    private val idrPedidos = AtomicInteger(0)
+    private val idrAtendidos = AtomicInteger(0)
+    private val idrEngolidos = AtomicInteger(0)
+
+    /**
+     * Requisições RECUSADAS, por motivo — ver [EspelhoHttp.Erro].
+     *
+     * A resposta no fio é o mesmo 404 para todas (invariante 5: não vazar
+     * existência), e é justamente por isso que o Registro precisa separá-las:
+     * `Host` fora da allowlist é uma tentativa de **DNS rebinding** contra o
+     * aparelho do operador; `malformada` em quantidade é um scanner varrendo a
+     * rede; e nenhuma das duas se parece com a outra na hora de decidir o que
+     * fazer. Um contador por motivo é a diferença entre "alguém está tentando"
+     * e o silêncio de sempre.
+     */
+    private val recusadas = ConcurrentHashMap<String, AtomicInteger>()
+
     private var cm: ConnectivityManager? = null
     private var callbackRede: ConnectivityManager.NetworkCallback? = null
 
@@ -363,6 +389,7 @@ class EspelhoServidor(
     private fun entregar(t: Tela, q: Quadro, bytes: ByteArray) {
         val ehVideo = q.tipo == EspelhoCodec.TIPO_VIDEO
         if (t.fila.offer(bytes)) {
+            if (ehVideo) t.enviados++
             if (ehVideo && q.chave) t.esperandoIdr = false
             return
         }
@@ -419,12 +446,27 @@ class EspelhoServidor(
      */
     private fun pedirIdrComFreio(t: Tela?) {
         val agora = SystemClock.elapsedRealtime()
+        idrPedidos.incrementAndGet()
         if (t != null) {
-            if (agora - t.ultimoIdrMs < IDR_POR_TELA_MS) return
+            // ENGOLIDO PELO FREIO, e este contador é o que torna isso visível.
+            // O KDoc do `EspelhoCodec` descreve exatamente este buraco: duas
+            // telas abrindo juntas, ou uma fila que estourou no mesmo segundo
+            // em que outra já pediu, e o pedido some — a tela fica PRETA até o
+            // IDR espontâneo, que a 5 s de intervalo é uma eternidade no meio
+            // de um culto. Sem o número, "a tela demorou a aparecer" não tinha
+            // como ser ligado à sua causa.
+            if (agora - t.ultimoIdrMs < IDR_POR_TELA_MS) {
+                idrEngolidos.incrementAndGet()
+                return
+            }
             t.ultimoIdrMs = agora
         }
-        if (agora - ultimoIdrGlobalMs < IDR_GLOBAL_MS) return
+        if (agora - ultimoIdrGlobalMs < IDR_GLOBAL_MS) {
+            idrEngolidos.incrementAndGet()
+            return
+        }
         ultimoIdrGlobalMs = agora
+        idrAtendidos.incrementAndGet()
         try {
             pedirIdr()
         } catch (e: Exception) {
@@ -482,7 +524,14 @@ class EspelhoServidor(
         // companhia — e este fluxo é feito de quadros pequenos.
         cru.tcpNoDelay = true
         val (socket, entrada) = envelopar(cru)
-        val r = EspelhoHttp.lerRequisicao(entrada, hostsAceitos)
+        // O TETO DO CORPO É DECIDIDO AQUI, porque é aqui que se sabe o que é
+        // uma rota. O `/r` é autenticado e carrega o relato da tela — a única
+        // informação que este servidor não tem como obter sozinho —, e ele
+        // ficou grande demais para 256 B. O `/par` é ANÔNIMO e continua onde
+        // estava: apertá-lo é o que impede um desconhecido de nos fazer alocar.
+        val r = EspelhoHttp.lerRequisicao(entrada, hostsAceitos) { caminho ->
+            if (caminho == "/r") EspelhoHttp.TETO_CORPO_RETORNO else EspelhoHttp.TETO_CORPO
+        }
         val req = r.getOrNull()
         if (req == null) {
             // A RESPOSTA é do [EspelhoHttp] (`HostRecusado` e `OrigemEstranha`
@@ -491,6 +540,11 @@ class EspelhoServidor(
             // tentou rebinding contra o aparelho dele.
             val erro = r.exceptionOrNull()
             Log.i(TAG, "requisição recusada: ${erro?.message ?: "malformada"}")
+            // O CONTADOR VEM ANTES DA RESPOSTA, e ele conta TODAS — inclusive
+            // as que não viram linha no Registro. Ver [recusadas].
+            recusadas
+                .computeIfAbsent(rotuloDoErro(erro)) { AtomicInteger(0) }
+                .incrementAndGet()
             if (erro is EspelhoHttp.Erro) {
                 if (erro is EspelhoHttp.Erro.HostRecusado || erro is EspelhoHttp.Erro.OrigemEstranha) {
                     registrar("recusada: ${erro.message}")
@@ -666,9 +720,21 @@ class EspelhoServidor(
             "key" -> pedirIdrComFreio(tela)
             "alive" -> if (tela != null) {
                 tela.telaAcesaMin = corpo.optInt("telaAcesaMin", 0).coerceIn(0, 24 * 60)
-                tela.aviso = EspelhoPares.sanear(corpo.optString("aviso"))
+                tela.aviso = EspelhoPares.sanear(corpo.optString("aviso"), TETO_AVISO)
                 tela.som = corpo.optBoolean("som", false)
                 tela.recomecos = corpo.optInt("recomecos", 0).coerceIn(0, 99_999)
+                // AS MEDIDAS DA TELA, repassadas e não reinterpretadas.
+                //
+                // Elas são a metade do diagnóstico que este servidor NÃO tem
+                // como produzir: daqui se enxerga quantos bytes saíram, e não
+                // se a imagem andou. Ver `medidasDaTela` no `cliente.js` para o
+                // que cada campo separa.
+                //
+                // O saneamento é o de sempre — números domados por `coerceIn`,
+                // texto pelo `sanear` —, e ele acontece AQUI porque tudo isto
+                // veio da rede e termina no Registro, que é o artefato que este
+                // projeto manda copiar e repassar.
+                tela.vivo = medidasDe(corpo)
             }
             "audio" -> if (tela != null) {
                 val quer = corpo.optBoolean("on", false)
@@ -971,6 +1037,28 @@ class EspelhoServidor(
                     .put("bytes", t.bytes)
                     .put("descartes", t.descartes)
                     .put("ultimaEscritaMs", agora - t.ultimaEscritaMs)
+                    // HÁ QUANTO TEMPO ESTA CONEXÃO EXISTE. O rótulo trocando
+                    // (`tela A` → `tela B`) já dizia que houve reconexão, mas
+                    // não a que ritmo — e "reconecta a cada 2 s" e "está de pé
+                    // desde o começo do culto" são o mesmo rótulo numa foto.
+                    .put("conectadaMs", agora - t.desdeMs)
+                    // A FILA AGORA. Cheia é este cliente não escoando (e o
+                    // `descartes` sobe atrás); vazia com a imagem parada é o
+                    // contrário — não está chegando nada para mandar. Os dois
+                    // são a mesma tela congelada do lado de lá.
+                    .put("fila", t.fila.size)
+                    .put("filaTeto", FILA_QUADROS)
+                    // ESPERANDO QUADRO-CHAVE = esta tela está PRETA agora, por
+                    // construção: enquanto isto for verdade o servidor só lhe
+                    // entrega chaves, e um delta viraria lixo verde.
+                    .put("esperandoIdr", t.esperandoIdr)
+                    // Cruzado com o `q` que a tela relata, mede a perda no
+                    // CAMINHO: iguais é rede boa; o dela muito menor é a rede
+                    // comendo o que este servidor já tinha mandado.
+                    .put("enviados", t.enviados)
+                    // O que a TELA mediu de si — ver `medidasDe`. `null` até o
+                    // primeiro `alive` dela.
+                    .put("vivo", t.vivo ?: JSONObject.NULL)
                     // O LADO DE LÁ, pelas palavras dele. `audio` acima é o que o
                     // SERVIDOR abriu para esta tela; `som` é o que o CLIENTE de
                     // fato montou. Os dois discordando é a leitura que faltava:
@@ -1010,6 +1098,61 @@ class EspelhoServidor(
             .put("conexoesTotais", conexoesTotais.get())
             .put("semConexaoMs", if (conexoesTotais.get() == 0 && ligadoEm != 0L) agora - ligadoEm else 0L)
             .put("ultimaSaida", ultimaSaida ?: JSONObject.NULL)
+            // O FREIO DE IDR, em três números — ver [idrPedidos]. Um
+            // `engolidos` alto explica telas que demoram a aparecer sem que a
+            // rede tenha nada a ver com isso.
+            .put(
+                "idr",
+                JSONObject()
+                    .put("pedidos", idrPedidos.get())
+                    .put("atendidos", idrAtendidos.get())
+                    .put("engolidos", idrEngolidos.get()),
+            )
+            // QUEM BATEU NA PORTA E FOI RECUSADO, por motivo. Todas respondem o
+            // mesmo 404 no fio (invariante 5), e é por isso que só aqui elas se
+            // distinguem: `host` é tentativa de DNS rebinding contra este
+            // aparelho, `malformada` em quantidade é um scanner na rede.
+            .put("recusadas", JSONObject().also { o -> for ((k, v) in recusadas) o.put(k, v.get()) })
+            // A BANDA QUE A REDE DIZ TER. Não é medição nossa — é o que o
+            // Android reporta do enlace —, e ela responde de uma vez a pergunta
+            // que sustenta o recurso inteiro: **cabem 3 Mbps × 3 telas neste
+            // AP?**. Um `upKbps` de 6000 com três telas pedidas é o operador
+            // descobrindo a causa antes do culto, e não durante.
+            .put("enlace", enlaceJson())
+    }
+
+    /**
+     * O que o Android sabe do enlace, sem pedir permissão nenhuma.
+     *
+     * `getLinkUpstreamBandwidthKbps` é uma ESTIMATIVA do sistema, não uma
+     * medição — e vale exatamente por isso: ela vem de graça e responde antes
+     * do culto a pergunta que decide o recurso ("cabem 3 Mbps × 3 telas neste
+     * AP?"). O nome da interface entra junto porque é a confirmação estrutural
+     * de que o socket está mesmo na Wi-Fi (`wlan0`) e não noutro caminho.
+     *
+     * **Nada aqui pede localização.** SSID, RSSI e `TransportInfo` exigem
+     * `ACCESS_FINE_LOCATION` desde a API 29, e um app de projeção pedindo
+     * localização para desenhar uma linha de diagnóstico é o tipo de troca que
+     * este projeto não faz.
+     */
+    private fun enlaceJson(): JSONObject {
+        val o = JSONObject()
+        try {
+            val gerente = cm ?: app.getSystemService(ConnectivityManager::class.java)
+            val net = gerente?.activeNetwork ?: return o
+            gerente.getNetworkCapabilities(net)?.let { c ->
+                o.put("upKbps", c.linkUpstreamBandwidthKbps)
+                o.put("downKbps", c.linkDownstreamBandwidthKbps)
+                o.put("wifi", c.hasTransport(NetworkCapabilities.TRANSPORT_WIFI))
+                o.put("validada", c.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED))
+            }
+            gerente.getLinkProperties(net)?.let { lp ->
+                o.put("iface", lp.interfaceName ?: "?")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "estado do enlace indisponível", e)
+        }
+        return o
     }
 
     // ---------- PONTE COM O EspelhoPares ----------
@@ -1084,6 +1227,44 @@ class EspelhoServidor(
         telaAcesaMin = json.optInt("telaAcesaMin", 0).coerceIn(0, 24 * 60),
     )
 
+    /**
+     * As medidas que a TELA mandou, domadas campo a campo.
+     *
+     * **Lista fixa, e nunca "copie o JSON que veio".** Repassar o objeto inteiro
+     * poria texto arbitrário de um desconhecido no Registro — que tem botão de
+     * copiar e existe para ser repassado —, e um campo novo do lado web
+     * entraria aqui sem passar por saneamento nenhum. Aqui, o que não está
+     * nomeado não existe.
+     *
+     * Os tetos são generosos de propósito: eles não protegem contra número
+     * grande, protegem contra número ABSURDO, que é o que faz o operador
+     * duvidar da linha inteira (a mesma razão do `coerceIn` no `Relato`).
+     */
+    private fun medidasDe(o: JSONObject): JSONObject = JSONObject()
+        .put("q", o.optInt("q", 0).coerceIn(0, 100_000_000))
+        .put("qa", o.optInt("qa", 0).coerceIn(0, 100_000_000))
+        .put("rec", o.optInt("rec", 0).coerceIn(0, 999_999))
+        .put("kb", o.optLong("kb", 0L).coerceIn(0L, 100_000_000L))
+        .put("fila", o.optInt("fila", 0).coerceIn(0, 100_000))
+        // Milissegundos de FOLGA, e eles podem ser negativos de propósito: um
+        // negativo é o cursor tendo passado do fim daquela faixa, que é o
+        // congelamento sem erro. Domá-los para zero apagaria a leitura.
+        .put("vfim", o.optInt("vfim", 0).coerceIn(-3_600_000, 3_600_000))
+        .put("afim", o.optInt("afim", 0).coerceIn(-3_600_000, 3_600_000))
+        .put("jan", o.optInt("jan", 0).coerceIn(0, 3_600_000))
+        .put("rate", o.optInt("rate", 0).coerceIn(0, 1_000))
+        .put("rs", o.optInt("rs", -1).coerceIn(-1, 4))
+        .put("ns", o.optInt("ns", -1).coerceIn(-1, 4))
+        .put("dq", o.optInt("dq", -1).coerceIn(-1, 100_000_000))
+        .put("tq", o.optInt("tq", -1).coerceIn(-1, 100_000_000))
+        .put("reb", o.optInt("reb", 0).coerceIn(0, 999))
+        .put("cota", o.optInt("cota", 0).coerceIn(0, 999))
+        .put("rr", o.optInt("rr", 0).coerceIn(0, 999))
+        .put("cod", EspelhoPares.sanear(o.optString("cod"), 80))
+        .put("vid", EspelhoPares.sanear(o.optString("vid"), 20))
+        .put("tela", EspelhoPares.sanear(o.optString("tela"), 20))
+        .put("err", EspelhoPares.sanear(o.optString("err"), 100))
+
     private fun pendentes(): List<EspelhoPares.Pendente> = EspelhoPares.pendentes()
 
     private fun limparPares() = EspelhoPares.limpar(agoraMs())
@@ -1156,6 +1337,24 @@ class EspelhoServidor(
         return if (n < 26) ('A' + n).toString() else "T$n"
     }
 
+    /**
+     * O nome curto de um motivo de recusa, para o mapa de [recusadas].
+     *
+     * Nomes NOSSOS, e não `e.javaClass.simpleName`: o segundo mudaria de valor
+     * numa renomeação de classe e levaria junto a continuidade do diagnóstico,
+     * que é a única coisa que um contador histórico tem a oferecer.
+     */
+    private fun rotuloDoErro(e: Throwable?): String = when (e) {
+        is EspelhoHttp.Erro.HostRecusado -> "host"
+        is EspelhoHttp.Erro.OrigemEstranha -> "origem"
+        is EspelhoHttp.Erro.CorpoLongo -> "corpo"
+        is EspelhoHttp.Erro.LinhaLonga, is EspelhoHttp.Erro.CabecalhoLongo,
+        is EspelhoHttp.Erro.CabecalhosDemais,
+        -> "grande"
+        is EspelhoHttp.Erro.Truncado -> "truncada"
+        else -> "malformada"
+    }
+
     private fun enderecoDe(s: Socket): String =
         (s.inetAddress?.hostAddress ?: "?")
 
@@ -1210,6 +1409,20 @@ class EspelhoServidor(
 
         @Volatile var recomecos = 0
 
+        /** As medidas do último `alive` — ver [medidasDe]. `null` até o
+         *  primeiro relato daquela tela. */
+        @Volatile var vivo: JSONObject? = null
+
+        /** Quando esta conexão começou (`elapsedRealtime`). "Conectada há N" é
+         *  o que separa uma tela estável de uma que reconecta em laço — e o
+         *  rótulo trocando já não diz isso, porque ele reinicia junto. */
+        val desdeMs: Long = SystemClock.elapsedRealtime()
+
+        /** Quadros de VÍDEO de fato enfileirados para esta tela. Cruzado com o
+         *  `q` que a tela relata, ele mede a perda no CAMINHO: iguais é rede
+         *  boa, muito diferentes é a rede comendo o que o servidor mandou. */
+        @Volatile var enviados = 0L
+
         @Volatile var ultimaEscritaMs = SystemClock.elapsedRealtime()
 
         /** Quando a escrita ATUAL começou; 0 quando não há escrita em curso.
@@ -1242,6 +1455,18 @@ class EspelhoServidor(
         private const val TETO_EM_VOO = 8
 
         private const val FILA_QUADROS = 24
+
+        /**
+         * O corte da frase que a tela manda.
+         *
+         * O `EspelhoPares.TETO_TEXTO` (120) é o padrão e vale para o `ua` do
+         * pareamento, que é anônimo. Este campo é do canal AUTENTICADO e cresceu
+         * junto com ele: cortado em 120, o que se perdia era sempre o FIM — que
+         * é onde a frase da tela diz a causa ("...não está conseguindo
+         * decodificar o fluxo (5 recusas seguidas)"). O saneamento é o mesmo, e
+         * é ele que continua garantindo que não entre `\n` no Registro.
+         */
+        private const val TETO_AVISO = 240
         private const val PRAZO_LINHA_MS = 2_000
         private const val TETO_ESCRITA_MS = 20_000L
         private const val IDR_POR_TELA_MS = 2_000L

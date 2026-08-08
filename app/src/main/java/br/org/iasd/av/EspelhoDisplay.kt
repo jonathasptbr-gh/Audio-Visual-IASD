@@ -21,7 +21,6 @@ import android.webkit.WebView
 import org.json.JSONArray
 import org.json.JSONObject
 import org.json.JSONTokener
-import java.io.ByteArrayOutputStream
 import java.lang.ref.WeakReference
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -29,24 +28,24 @@ import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.thread
 
 /**
- * Como os pixels do espelho são produzidos.
+ * O ESPELHO PRODUZ H.264, E SÓ ISSO — o modo IMAGEM foi retirado na v5.156.
  *
- * **VÍDEO** é o modo de produção (H.264 pelo `MediaCodec`, cliente com
- * `MediaSource`); **IMAGEM** é o degrau de baixo — JPEG a ~10 fps, que cobre
- * letra, versículo, mensagem e cronômetro (90% de um culto) e cujo modo de
- * falha é binário e visível.
+ * Ele existia como degrau de baixo: JPEG a ~10 fps, sem `MediaSource`, para
+ * cobrir letra, versículo e cronômetro num navegador que não desse conta do
+ * vídeo. O que o derrubou não foi desempenho: **ele não tem áudio, e não tem
+ * como ter.** O som do espelho é uma segunda `SourceBuffer` da mesma
+ * `MediaSource` (§3.9), e um `<canvas>` não é `HTMLMediaElement` — não há onde
+ * tocar AAC nele. Um telão de igreja mudo não é um degrau, é outro produto.
  *
- * **O modo é escolhido em [EspelhoDisplay.ligar] e não muda durante a sessão.**
- * Isso é consequência direta de `VirtualDisplay.setSurface` estar proibido em
- * todo o desenho: *"Detaching the surface that backs a virtual display has a
- * similar effect to **turning off the screen**"*, e o consumidor novo não
- * recebe nada até a janela redesenhar — o que numa cena estática pode ser um
- * segundo inteiro de tela preta na frente da congregação. Trocar de modo é
- * `desligar()` + `ligar(outroModo)`: um rebuild de ~1 s, iniciado pelo
- * operador, anunciado na folha. Simples, honesto, e apaga a classe de bug
- * inteira.
+ * E ele custava caro para o que entregava: uma segunda Surface, um
+ * `ImageReader`, uma `HandlerThread` comprimindo JPEG de 720p na CPU do
+ * aparelho que está projetando o culto, um segundo tipo no fio, e um segundo
+ * caminho em toda decisão deste arquivo e do cliente. Tudo isso sem som.
+ *
+ * O byte `0x20` do protocolo fica **aposentado e não reciclado** (ver
+ * `EspelhoCodec.TIPO_JPEG`): um número de protocolo reusado é um cliente antigo
+ * decodificando a coisa errada, em silêncio.
  */
-enum class Modo { VIDEO, IMAGEM }
 
 /** O desfecho de [EspelhoDisplay.ligar]. */
 sealed class Resultado {
@@ -54,7 +53,6 @@ sealed class Resultado {
         val displayId: Int,
         val dpi: Int,
         val alvoCss: Int,
-        val modo: Modo,
     ) : Resultado()
 
     /**
@@ -178,7 +176,8 @@ data class Sonda(
  * Degrade por bitrate (ver `EspelhoCodec.ajustarBitrate`).
  *
  * **4. `VirtualDisplay.setSurface` não é usado em lugar nenhum** — ver o KDoc
- * de [Modo] e o da [sonda].
+ * da [sonda]. (Ele era também o que tornava o antigo modo IMAGEM uma escolha de
+ * `ligar()` e não um interruptor; o modo saiu na v5.156, a proibição fica.)
  *
  * **5. A janela renasce com a Activity.** O `AndroidManifest.xml` não inclui
  * `fontScale` nem `locale` em `android:configChanges`, e este repositório já
@@ -230,15 +229,6 @@ object EspelhoDisplay {
     private const val RECLAIM_JANELA_MS = 5 * 60_000L
     private const val RECLAIM_ESPERA_MS = 1_500L
 
-    /**
-     * Modo imagem: ~10 fps. A especificação promete 8–12, e o número exato não
-     * importa — o que importa é que o teto exista, porque uma cena com vídeo
-     * produziria 30 comprimindo JPEG de 720p na CPU do aparelho que está
-     * projetando o culto.
-     */
-    private const val INTERVALO_JPEG_MS = 100L
-    private const val QUALIDADE_JPEG = 60
-
     /** O anel de diagnóstico. Devolve JSON; quem monta a frase é o web. */
     val diag = EspelhoDiag()
 
@@ -283,26 +273,17 @@ object EspelhoDisplay {
 
     private var vd: VirtualDisplay? = null
     private var janela: MirrorPresentation? = null
-    private var leitor: ImageReader? = null
-    private var leitorThread: HandlerThread? = null
     private var dreno: Thread? = null
     private var dono: WeakReference<Activity>? = null
 
     /**
-     * `@Volatile` porque quem o LÊ é a thread de dreno (ou a do JPEG) e quem o
+     * `@Volatile` porque quem o LÊ é a thread de dreno e quem o
      * ESCREVE é a main. Sem isso, o dreno pode continuar enxergando o
      * `onQuadro` da sessão anterior por tempo indeterminado depois de um
      * `desligar()` — entregando quadros a um servidor que já saiu do ar.
      */
     @Volatile
     private var onQuadro: ((Quadro) -> Unit)? = null
-
-    @Volatile
-    private var modo = Modo.VIDEO
-
-    /** Escrito na thread do JPEG, zerado na main em [ligar]. */
-    @Volatile
-    private var ultimoJpegEm = 0L
 
     /**
      * Token de geração, no molde do que a `MainActivity` já usa para o trabalho
@@ -311,6 +292,16 @@ object EspelhoDisplay {
      * pode agir sobre a sessão seguinte.
      */
     private var geracao = 0
+
+    /**
+     * Quantas vezes o renderer do WebView do espelho morreu (OOM é evento
+     * conhecido neste processo: dois WebViews, um vídeo grande e o player do
+     * YouTube dividem-no). Ele se remonta sozinho e recarrega `/display/` — e é
+     * justamente por isso que o número precisa existir: sem ele, "o espelho
+     * piscou e voltou" não tem como ser distinguido de "não aconteceu nada".
+     */
+    @Volatile
+    private var mortesDoRenderer = 0
 
     private var reclaimsTotal = 0
     private var reclaimsNaJanela = 0
@@ -381,7 +372,7 @@ object EspelhoDisplay {
      * pararia o encoder do aparelho que está projetando o culto por causa de um
      * tablet no fundo do salão.
      */
-    fun ligar(act: Activity, modo: Modo, onQuadro: (Quadro) -> Unit): Resultado {
+    fun ligar(act: Activity, onQuadro: (Quadro) -> Unit): Resultado {
         if (!naMain()) {
             // Nunca lançar: uma exceção subindo por um `@JavascriptInterface`
             // vira crash do app na mão do operador. Falhar com frase é o
@@ -392,7 +383,6 @@ object EspelhoDisplay {
         if (ligado) {
             return Resultado.Recusado("o espelho já está ligado")
         }
-        this.modo = modo
         this.onQuadro = onQuadro
         this.dono = WeakReference(act)
         // O relógio da SESSÃO nasce aqui, e só aqui: uma remontagem por
@@ -410,7 +400,6 @@ object EspelhoDisplay {
         diag.novaSessao()
         reclaimsNaJanela = 0
         ultimoReclaimEm = 0L
-        ultimoJpegEm = 0L
 
         val r = montar(act)
         if (r is Resultado.Recusado) {
@@ -420,7 +409,7 @@ object EspelhoDisplay {
             return r
         }
         ligado = true
-        diag.registrar("espelho ligado em ${if (modo == Modo.VIDEO) "vídeo" else "imagem"}")
+        diag.registrar("espelho ligado (H.264)")
         return r
     }
 
@@ -434,8 +423,8 @@ object EspelhoDisplay {
      * estiver ocupada; o lado web já fala em Promise, então o assíncrono é o
      * formato natural.
      */
-    fun ligarAsync(act: Activity, modo: Modo, onQuadro: (Quadro) -> Unit, aoTerminar: (Resultado) -> Unit) {
-        main.post { aoTerminar(ligar(act, modo, onQuadro)) }
+    fun ligarAsync(act: Activity, onQuadro: (Quadro) -> Unit, aoTerminar: (Resultado) -> Unit) {
+        main.post { aoTerminar(ligar(act, onQuadro)) }
     }
 
     /**
@@ -526,19 +515,14 @@ object EspelhoDisplay {
         var vdNovo: VirtualDisplay? = null
         var codecNovo: EspelhoCodec? = null
         try {
-            if (modo == Modo.VIDEO) {
-                val c = EspelhoCodec { q -> quadroSaiu(q) }
-                // `iniciar` chama de volta com a input surface entre o
-                // `configure` e o `start` — é a única janela em que a API
-                // permite criar o consumidor.
-                c.iniciar { surface ->
-                    vdNovo = criarTelaVirtual(dm, dpi, surface)
-                }
-                codecNovo = c
-            } else {
-                val surface = abrirLeitor()
+            val c = EspelhoCodec { q -> quadroSaiu(q) }
+            // `iniciar` chama de volta com a input surface entre o `configure` e
+            // o `start` — é a única janela em que a API permite criar o
+            // consumidor.
+            c.iniciar { surface ->
                 vdNovo = criarTelaVirtual(dm, dpi, surface)
             }
+            codecNovo = c
         } catch (e: MediaCodec.CodecException) {
             limparParcial(vdNovo, codecNovo)
             Log.w(TAG, "encoder recusou", e)
@@ -573,7 +557,7 @@ object EspelhoDisplay {
 
         publicarFatos(vdd, dpi, alvo, codecNovo)
         if (codecNovo != null) abrirDreno(codecNovo, ger)
-        return Resultado.Ok(vdd.display.displayId, dpi, alvo, modo)
+        return Resultado.Ok(vdd.display.displayId, dpi, alvo)
     }
 
     /**
@@ -588,16 +572,19 @@ object EspelhoDisplay {
     /** Cria e exibe a janela. `false` = recusada (a frase já foi registrada). */
     private fun criarJanela(act: Activity, vdd: VirtualDisplay): Boolean {
         // O CANAL DE ÁUDIO ENTRA AQUI, e a cada vez que o WebView renascer —
-        // ver o `@param aoMontarWeb` da [MirrorPresentation]. **Só no modo
-        // vídeo**: no modo imagem o cliente recebe JPEG, não tem `MediaSource`
-        // e não teria onde tocar AAC nenhum; instalar o canal ali seria manter
-        // um encoder AAC e ~25 mensagens por segundo na main thread do processo
-        // que está projetando o culto, para ninguém.
-        val comSom = modo == Modo.VIDEO
+        // ver o `@param aoMontarWeb` da [MirrorPresentation]. Ele é
+        // incondicional desde que o modo imagem saiu: era ELE a única razão de
+        // esta linha já ter tido um `if`, e era a falta de som naquele modo que
+        // o condenou.
         val p = MirrorPresentation(
             act,
             vdd.display,
-            aoMontarWeb = if (comSom) ({ w: WebView -> instalarAudio(w) }) else null,
+            aoMontarWeb = { w: WebView -> instalarAudio(w) },
+            aoRendererMorto = {
+                mortesDoRenderer++
+                diag.registrar("renderer do espelho morreu — remontando (${mortesDoRenderer}x)")
+                publicarJanela()
+            },
         )
         p.setOnDismissListener {
             // Dismiss ESPONTÂNEO: só anular a referência deixaria o WebView do
@@ -660,6 +647,56 @@ object EspelhoDisplay {
         diag.fato("audio", audio.paraJson().put("canal", audioCanal))
     }
 
+    /** Mesmo freio de um segundo do [publicarAudio], e pela mesma razão: isto
+     *  é chamado de dentro da drenagem do encoder. */
+    @Volatile
+    private var janelaPublicadaEm = 0L
+
+    private fun publicarJanela() {
+        val t = SystemClock.elapsedRealtime()
+        if (t - janelaPublicadaEm < 1_000L) return
+        janelaPublicadaEm = t
+        diag.fato("janela", janelaJson())
+        diag.fato("processo", processoJson())
+        // O PERFIL/NÍVEL do encoder só existem depois do primeiro
+        // `INFO_OUTPUT_FORMAT_CHANGED`, que acontece DEPOIS do `publicarFatos`
+        // da montagem — publicá-los só lá deixaria o campo vazio para sempre.
+        val c = codec ?: return
+        if (c.perfil == 0 && c.nivel == 0) return
+        diag.fato(
+            "encoder",
+            JSONObject()
+                .put("nome", c.nome)
+                .put("maxInstancias", c.maxInstancias)
+                .put("reclaims", reclaimsTotal)
+                .put("bitrateAlvo", EspelhoCodec.BITRATE_PADRAO)
+                // O que o FORNECEDOR escolheu — nada aqui pede perfil (ver a
+                // armadilha 6 do `EspelhoCodec`). "Esta TV não decodifica o
+                // fluxo" e "esta TV não decodifica ESTE PERFIL" são a mesma tela
+                // preta, e só este número as separa.
+                .put("perfil", c.perfil)
+                .put("nivel", c.nivel)
+                .put("fpsMedido", Math.round(c.fpsMedido * 10f) / 10.0),
+        )
+    }
+
+    /**
+     * O PROCESSO, e ele responde a pergunta de fundo do `ERROR_RECLAIMED`.
+     *
+     * O reclaim é o sistema tomando o encoder sob pressão de memória, e a morte
+     * do renderer é a mesma pressão por outra porta. Os dois aparecem no
+     * Registro como consequência — "encoder tomado 2x", "renderer remontado" —
+     * e nunca como causa. Um heap colado no teto é a causa, e ela custa dois
+     * getters.
+     */
+    private fun processoJson(): JSONObject {
+        val rt = Runtime.getRuntime()
+        val mb = 1024L * 1024L
+        return JSONObject()
+            .put("heapMb", (rt.totalMemory() - rt.freeMemory()) / mb)
+            .put("heapTetoMb", rt.maxMemory() / mb)
+    }
+
     private fun derrubarJanela() {
         val p = janela
         janela = null
@@ -700,13 +737,6 @@ object EspelhoDisplay {
             try { t.join(500) } catch (_: InterruptedException) { Thread.currentThread().interrupt() }
         }
         c?.soltar()
-
-        val r = leitor
-        leitor = null
-        try { r?.close() } catch (_: Exception) { }
-        val ht = leitorThread
-        leitorThread = null
-        ht?.quitSafely()
     }
 
     /** Desmontagem completa. Idempotente. Main thread. */
@@ -729,19 +759,14 @@ object EspelhoDisplay {
         diag.fato("telaVirtual", null)
         diag.fato("viewport", null)
         diag.fato("encoder", null)
-        diag.fato("modo", null)
+        diag.fato("janela", null)
+        diag.fato("processo", null)
         diag.registrar("espelho desligado")
     }
 
     private fun limparParcial(vdd: VirtualDisplay?, c: EspelhoCodec?) {
         try { vdd?.release() } catch (_: Exception) { }
         c?.soltar()
-        val r = leitor
-        leitor = null
-        try { r?.close() } catch (_: Exception) { }
-        val ht = leitorThread
-        leitorThread = null
-        ht?.quitSafely()
     }
 
     // ---------- a drenagem e o que fazer quando ela acaba ----------
@@ -845,7 +870,7 @@ object EspelhoDisplay {
      * `KEY_I_FRAME_INTERVAL`.
      */
     private fun quadroSaiu(q: Quadro) {
-        val ehImagem = q.tipo == EspelhoCodec.TIPO_VIDEO || q.tipo == EspelhoCodec.TIPO_JPEG
+        val ehImagem = q.tipo == EspelhoCodec.TIPO_VIDEO
         val ehSom = q.tipo == EspelhoCodec.TIPO_AUDIO || q.tipo == EspelhoCodec.TIPO_CSD_AUDIO
         // O ÁUDIO FICA FORA DO `ritmo`, e isso é decisão, não esquecimento.
         // Aquela linha responde uma pergunta só — "a IMAGEM está se movendo?" —
@@ -861,108 +886,13 @@ object EspelhoDisplay {
         // `destination`. Se ele só se atualizasse com quadro de áudio, a leitura
         // do defeito dependeria do defeito não existir.
         publicarAudio(false)
+        // A JANELA TAMBÉM ANDA JUNTO, e pelo mesmo motivo do áudio: publicada
+        // só na montagem, ela diria "mostrando" para sempre — inclusive depois
+        // de a `Presentation` ter sido derrubada, que é exatamente o estado que
+        // este fato existe para denunciar. Um detector que só se atualiza
+        // quando o defeito não existe não é um detector.
+        publicarJanela()
         onQuadro?.invoke(q)
-    }
-
-    // ---------- modo imagem ----------
-
-    /**
-     * Abre o `ImageReader` do modo imagem e devolve a Surface que a tela
-     * virtual vai desenhar.
-     *
-     * `maxImages = 3`, **nunca 1**: `createVirtualDisplay` rejeita uma Surface
-     * *single-buffered*. O consumo roda numa `HandlerThread` própria pelo mesmo
-     * motivo do dreno do encoder — comprimir JPEG de 720p na main thread
-     * competiria com a `Presentation` que está na TV.
-     */
-    private fun abrirLeitor(): Surface {
-        val r = ImageReader.newInstance(LARG, ALT, PixelFormat.RGBA_8888, 3)
-        val ht = HandlerThread("av-espelho-jpeg").apply { start() }
-        val h = Handler(ht.looper)
-        r.setOnImageAvailableListener({ origem ->
-            val img = try {
-                origem.acquireLatestImage()
-            } catch (e: Exception) {
-                Log.w(TAG, "imagem não adquirida", e)
-                null
-            }
-            // Sem `return@` rotulado: o fluxo é uma condição, e o `finally` que
-            // FECHA a imagem é obrigatório — um `Image` não fechado esgota o
-            // `maxImages` do leitor em três quadros e a tela virtual para de
-            // produzir, calada.
-            if (img != null) {
-                try {
-                    val agora = SystemClock.elapsedRealtime()
-                    if (agora - ultimoJpegEm >= INTERVALO_JPEG_MS) {
-                        ultimoJpegEm = agora
-                        comprimir(img)?.let { bytes ->
-                            quadroSaiu(
-                                Quadro(
-                                    tipo = EspelhoCodec.TIPO_JPEG,
-                                    // Todo JPEG é completo: no modo imagem não
-                                    // existe "quadro que depende do anterior".
-                                    chave = true,
-                                    descontinuidade = false,
-                                    ptsUs = EspelhoCodec.carimbar(img.timestamp / 1000L),
-                                    bytes = bytes,
-                                ),
-                            )
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.w(TAG, "quadro JPEG descartado", e)
-                } finally {
-                    img.close()
-                }
-            }
-        }, h)
-        leitor = r
-        leitorThread = ht
-        return r.surface
-    }
-
-    private fun comprimir(img: Image): ByteArray? {
-        val bmp = paraBitmap(img) ?: return null
-        return try {
-            val saida = ByteArrayOutputStream(64 * 1024)
-            bmp.compress(Bitmap.CompressFormat.JPEG, QUALIDADE_JPEG, saida)
-            saida.toByteArray()
-        } catch (e: Exception) {
-            Log.w(TAG, "JPEG não comprimiu", e)
-            null
-        } finally {
-            bmp.recycle()
-        }
-    }
-
-    /**
-     * `Image` RGBA_8888 → `Bitmap`.
-     *
-     * O `rowStride` de um `ImageReader` **quase nunca** é `largura ×
-     * pixelStride`: o driver alinha as linhas. Copiar o buffer direto num
-     * bitmap da largura pedida produz a imagem enviesada em diagonal — o
-     * defeito clássico, e um que passa despercebido em resoluções onde o
-     * alinhamento por acaso bate. Daí o bitmap intermediário mais largo e o
-     * recorte.
-     */
-    private fun paraBitmap(img: Image): Bitmap? = try {
-        val plano = img.planes[0]
-        val buffer = plano.buffer
-        buffer.rewind()
-        val pixelStride = if (plano.pixelStride > 0) plano.pixelStride else 4
-        val largComPadding = plano.rowStride / pixelStride
-        val cheio = Bitmap.createBitmap(largComPadding, img.height, Bitmap.Config.ARGB_8888)
-        cheio.copyPixelsFromBuffer(buffer)
-        if (largComPadding > img.width) {
-            val cortado = Bitmap.createBitmap(cheio, 0, 0, img.width, img.height)
-            cheio.recycle()
-            cortado
-        } else {
-            cheio
-        }
-    } catch (e: Exception) {
-        Log.w(TAG, "bitmap não saiu da imagem", e)
-        null
     }
 
     // ---------- a densidade ----------
@@ -1005,6 +935,31 @@ object EspelhoDisplay {
         }
     }
 
+    /**
+     * A JANELA DO ESPELHO, perguntada em vez de deduzida.
+     *
+     * O §7.5 diz que o único detector de "a `MirrorPresentation` morreu e o
+     * encoder continuou" — H.264 impecável de um retângulo preto, com todos os
+     * contadores subindo — é o BITRATE, cruzado com a cena que o `nowPlaying`
+     * declarou. Isso é inferência, e ela erra nos dois sentidos: uma cena
+     * legitimamente escura passa por janela morta, e uma janela morta sobre um
+     * wallpaper claro passa por cena.
+     *
+     * Este fato é a leitura DIRETA, e ele custa três getters: a janela existe,
+     * está exibindo, e o WebView dela está vivo. Com ele, o alarme do ritmo
+     * deixa de ser a única resposta e passa a ser a confirmação.
+     *
+     * `mortesDoRenderer` fica junto porque responde a mesma família de
+     * pergunta: um espelho que "sozinho parou de mostrar a cena" depois de um
+     * OOM se explica por este número, e por nenhum outro.
+     */
+    private fun janelaJson(): JSONObject = JSONObject()
+        .put("existe", janela != null)
+        .put("mostrando", janela?.isShowing == true)
+        .put("web", janela?.web != null)
+        .put("mortesDoRenderer", mortesDoRenderer)
+        .put("dono", dono?.get() != null)
+
     private fun publicarFatos(vdd: VirtualDisplay, dpi: Int, alvo: Int, c: EspelhoCodec?) {
         val d = vdd.display
         diag.fato(
@@ -1029,14 +984,15 @@ object EspelhoDisplay {
                 .put("cssExato", Math.round(LARG * 1600.0 / dpi) / 10.0)
                 .put("alvo", alvo),
         )
-        diag.fato("modo", if (modo == Modo.VIDEO) "video" else "imagem")
+        diag.fato("janela", janelaJson())
         if (c != null) {
             diag.fato(
                 "encoder",
                 JSONObject()
                     .put("nome", c.nome)
                     .put("maxInstancias", c.maxInstancias)
-                    .put("reclaims", reclaimsTotal),
+                    .put("reclaims", reclaimsTotal)
+                    .put("bitrateAlvo", EspelhoCodec.BITRATE_PADRAO),
             )
         }
     }
@@ -1057,7 +1013,7 @@ object EspelhoDisplay {
      * ## Três decisões, e as três são o que a torna útil
      *
      *  1. **Ela roda num `VirtualDisplay` SEPARADO E DESCARTÁVEL**, jamais no de
-     *     produção. Não é economia: `setSurface` está proibido (ver [Modo]), e
+     *     produção. Não é economia: `setSurface` está proibido (invariante 4), e
      *     medir no display que está no ar exigiria justamente isso.
      *  2. **Comparação com TOLERÂNCIA, e os RGB medidos SEMPRE impressos** —
      *     nunca só o veredito. Num aparelho com a imagem escurecida, uma

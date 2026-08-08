@@ -94,6 +94,14 @@ class MirrorPresentation(
     display: Display,
     private val url: String = WebViewFactory.URL_DISPLAY,
     private val aoMontarWeb: ((WebView) -> Unit)? = null,
+    /**
+     * O renderer desta janela morreu (e ela já está se remontando).
+     *
+     * Existe só para o Registro: a recuperação é automática e silenciosa, e por
+     * isso ela desaparecia do diagnóstico — "o espelho piscou e voltou" ficava
+     * indistinguível de "não aconteceu nada". Quem conta é o [EspelhoDisplay].
+     */
+    private val aoRendererMorto: (() -> Unit)? = null,
 ) : Presentation(outerContext, display, R.style.Theme_AvIasd_Presentation) {
 
     var web: WebView? = null
@@ -169,6 +177,12 @@ class MirrorPresentation(
         }
         val w = WebViewFactory.create(context, loader, keepVisible = true) {
             web = null
+            // O DONO PRECISA SABER, e não só remontar. A remontagem se conserta
+            // sozinha (recarrega `/display/`, dispara `display-ready`, o
+            // Controle reenvia a cena) — e é exatamente por ser silenciosa que
+            // ela some do diagnóstico: "o espelho piscou e voltou" fica
+            // indistinguível de "não aconteceu nada". O número é a diferença.
+            try { aoRendererMorto?.invoke() } catch (_: Exception) { }
             root.post { buildWebView(root) }
         }
         // SEM `MicChromeClient` — ver o KDoc da classe. E sem qualquer outro

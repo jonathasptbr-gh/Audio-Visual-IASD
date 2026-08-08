@@ -161,7 +161,7 @@ h1 { font-size: 20px; font-weight: 600; letter-spacing: .01em; }
 
 /* O PRETO DO PALCO, não o do app: aqui o fundo é a moldura de uma projeção, e
    um `#131211` em volta de um telão preto aparece como uma borda cinza. */
-#v, #foto {
+#v {
   position: absolute; inset: 0;
   width: 100%; height: 100%;
   background: var(--stage-bg);

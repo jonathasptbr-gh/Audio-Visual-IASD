@@ -428,19 +428,20 @@ checar(!ruim.erro && !cobre,
 // ===========================================================================
 console.log('\n— o cliente, do PIN ao primeiro quadro ———————————————————————————');
 
-// Um JPEG DE VERDADE, produzido pelo próprio navegador: um `Buffer` inventado
-// à mão passaria pelo transporte e morreria no decodificador, e o teste diria
-// "modo imagem não funciona" por um defeito do teste.
-const JPEG = Buffer.from(await pg.evaluate(async () => {
-  const c = document.createElement('canvas');
-  c.width = 64; c.height = 36;
-  const g = c.getContext('2d');
-  g.fillStyle = '#dba849';
-  g.fillRect(0, 0, 64, 36);
-  const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.8));
-  return Array.from(new Uint8Array(await blob.arrayBuffer()));
-}));
-checar(JPEG.length > 100 && JPEG[0] === 0xff && JPEG[1] === 0xd8, 'o JPEG de teste é um JPEG');
+// UM QUADRO DE VÍDEO qualquer. Ele não precisa DECODIFICAR para exercitar o
+// que este trecho mede — o transporte, a contagem e a reconexão —, e nem
+// poderia: o Chromium do CI é o build aberto, sem H.264 (ver o cabeçalho). O
+// cliente conta o quadro em `receber` antes de qualquer coisa chegar ao
+// decodificador, que é exatamente o ponto de medida deste bloco.
+//
+// (Até a v5.156 este papel era de um JPEG de verdade, porque havia um MODO
+// IMAGEM. Ele saiu: não tinha áudio e não tinha como ter — o som do espelho é
+// uma segunda `SourceBuffer` da mesma `MediaSource`, e um `<canvas>` não é
+// `HTMLMediaElement`.)
+const NALU = Buffer.concat([
+  Buffer.from([0, 0, 0, 1, 0x65]),          // IDR, para o cliente aceitar o primeiro
+  Buffer.alloc(64, 0x42),
+]);
 
 pendencias = 2;
 await pg.goto(base + '/', { waitUntil: 'domcontentloaded' });
@@ -527,24 +528,22 @@ checar(true, 'aprovada, a MESMA página troca para o player (sem navegar)');
     'e sobe em Authorization: Bearer', JSON.stringify(visto.autorizacoes.slice(0, 3)));
 }
 
-// O FLUXO: modo imagem (Entrega 1), pelo MESMO transporte.
+// O FLUXO: os quadros atravessam o transporte e são CONTADOS.
+//
+// O `esperandoChave` do cliente é a regra que este bloco também prova: o
+// primeiro quadro precisa ser CHAVE, senão ele é descartado — mandar bytes
+// antes do IDR produz lixo verde, e o cliente confere de novo o que o servidor
+// já segurou.
 {
   const r = await aguardarFluxo();
-  r.write(quadro(0x20, 0, 1000000, JPEG));
-  r.write(quadro(0x20, 0, 2000000, JPEG));
+  r.write(quadro(0x02, 0, 500000, NALU));            // delta ANTES da chave: descartado
+  r.write(quadro(0x02, 1, 1000000, NALU));           // a chave
+  r.write(quadro(0x02, 0, 2000000, NALU));
   await pg.waitForFunction(() => window.__espelho.estado().quadros >= 2, null, { timeout: 10000 });
   const e = await pg.evaluate(() => window.__espelho.estado());
-  checar(e.modoImagem, 'um quadro 0x20 liga o MODO IMAGEM sozinho, no mesmo fluxo /v');
-  checar(/apagar sozinha/.test(e.aviso),
-    'e a página DIZ que neste modo a tela do aparelho pode apagar (§3.10, P25)', e.aviso);
-  const pintou = await pg.$eval('#foto', (c) => {
-    const g = c.getContext('2d');
-    const d = g.getImageData(c.width >> 1, c.height >> 1, 1, 1).data;
-    return [d[0], d[1], d[2]];
-  });
-  checar(pintou[0] > 180 && pintou[1] > 120 && pintou[2] < 120,
-    'o JPEG foi realmente desenhado no canvas (o pixel do meio é o âmbar)',
-    JSON.stringify(pintou));
+  checar(e.quadros === 2,
+    'o delta ANTES do quadro-chave é descartado, e só os dois seguintes contam',
+    e.quadros);
 }
 
 // A RECONEXÃO: o servidor fecha, o cliente volta sozinho.
@@ -556,9 +555,9 @@ checar(true, 'aprovada, a MESMA página troca para o player (sem navegar)');
   const r = await aguardarFluxo();
   checar(visto.gets > antes, 'o fluxo caiu e o cliente abriu um GET /v novo, sozinho',
     antes + ' → ' + visto.gets);
-  r.write(quadro(0x20, 0, 3000000, JPEG));
+  r.write(quadro(0x02, 1, 3000000, NALU));
   await pg.waitForFunction(() => window.__espelho.estado().quadros >= 3, null, { timeout: 10000 });
-  checar(true, 'e volta a desenhar depois da reconexão');
+  checar(true, 'e volta a receber quadros depois da reconexão');
 }
 
 // O CSD DE VÍDEO num navegador sem H.264: o cliente NOMEIA o formato em vez de
@@ -589,22 +588,12 @@ checar(true, 'aprovada, a MESMA página troca para o player (sem navegar)');
 // leitura na sala foi "o celular não está enviando som", porque o botão dizia
 // só "ver em tela cheia". O rótulo mudou; este caso é o que impede a porta de
 // ser fechada de novo por um refactor.
-// (O toque em si é exercitado na aba limpa, no fim: esta página já entrou em
-// MODO IMAGEM, e ali o gesto NÃO pede áudio de propósito — pedir AAC para uma
-// tela que não tem `MediaSource` seria pedir bytes para jogar fora.)
+// (O percurso completo do toque é exercitado na aba limpa, no fim.)
 {
   const rotulo = await pg.$eval('#gesto', (e) => e.textContent || '');
   checar(/ouvir|som/i.test(rotulo),
     'o botão do gesto ANUNCIA o som — ele é a única porta para o áudio da tela',
     rotulo);
-
-  const antes = visto.volta.filter((x) => x && x.do === 'audio').length;
-  await pg.click('#gesto');
-  await espera(600);
-  const depois = visto.volta.filter((x) => x && x.do === 'audio').length;
-  checar(depois === antes,
-    'e no MODO IMAGEM ele não pede AAC — não há faixa de som para receber',
-    antes + ' → ' + depois);
 }
 
 // A VOLTA (§5.1): três palavras, e nada que venha da rede entra no barramento.
@@ -622,7 +611,10 @@ checar(true, 'aprovada, a MESMA página troca para o player (sem navegar)');
   const alives = visto.volta.filter((x) => x && x.do === 'alive');
   checar(alives.length > 0, 'o cliente relata o próprio estado por `alive`', alives.length);
   const maior = Math.max(0, ...alives.map((a) => Buffer.byteLength(JSON.stringify(a))));
-  checar(maior <= 256, 'e o relato cabe nos 256 B do POST /r', maior);
+  // 4 KiB é o teto do `/r`, que é AUTENTICADO — o `/par`, anônimo, segue em 256
+  // B. A asserção de tamanho do relato completo está mais abaixo; esta ficou
+  // como a garantia de que ele não explodiu de ordem de grandeza.
+  checar(maior <= 4096, 'e o relato cabe no teto do POST /r', maior);
   checar(alives.some((a) => 'aviso' in a && 'som' in a && 'recomecos' in a),
     'com a frase da tela, o estado do som e os recomeços',
     JSON.stringify(alives[0]));
@@ -649,6 +641,32 @@ checar(true, 'aprovada, a MESMA página troca para o player (sem navegar)');
   checar(forasteiro === undefined,
     'e o relato viaja em ASCII — o saneamento do Kotlin não tem o que apagar',
     forasteiro);
+
+  // AS MEDIDAS DA TELA, que são a metade do diagnóstico que o servidor não tem
+  // como produzir. Daquele lado se enxerga "escrevi 17,9 MB, 0 descartes" — e
+  // isso não distingue imagem ANDANDO de imagem CONGELADA com o buffer cheio.
+  //
+  // O caso exige os campos que decidem, um a um, porque o modo de falhar deste
+  // canal é o de sempre nesta casa: o objeto é remontado à mão dos dois lados,
+  // um campo esquecido some em silêncio, e o `optInt` do Kotlin lê ausente como
+  // zero — que é um valor legítimo. É o mesmo defeito do `bytes` no
+  // `bgProgress` e do `slideLabel` no `nowPlaying`.
+  const ultimo = alives[alives.length - 1];
+  const exigidos = ['q', 'qa', 'rec', 'kb', 'fila', 'vfim', 'afim', 'jan', 'rate',
+    'rs', 'ns', 'dq', 'tq', 'reb', 'cota', 'rr', 'cod', 'vid', 'tela', 'err'];
+  const faltando = exigidos.filter((k) => !(k in ultimo));
+  checar(faltando.length === 0,
+    'e ele carrega as MEDIDAS da tela — o que só ela sabe (' + exigidos.length + ' campos)',
+    'faltando: ' + faltando.join(', '));
+
+  // E TUDO ISSO PRECISA CABER no teto do `POST /r`. Ele é maior que o do
+  // pareamento de propósito (`TETO_CORPO_RETORNO`, 4 KiB, e o `/par` anônimo
+  // segue em 256 B) — mas continua sendo um teto: acima dele o servidor fecha a
+  // conexão seca, e do lado de cá isso vira "não foi possível falar com o
+  // celular", uma falha sem causa visível no canal que existe para dar causa às
+  // falhas.
+  const maiorAlive = Math.max(0, ...alives.map((a) => Buffer.byteLength(JSON.stringify(a))));
+  checar(maiorAlive <= 4096, 'e o relato inteiro cabe nos 4 KiB do POST /r', maiorAlive);
 }
 
 // A BORDA AO VIVO É A DA FAIXA MAIS ATRASADA — o micro-travamento com som.
@@ -744,8 +762,8 @@ checar(true, 'aprovada, a MESMA página troca para o player (sem navegar)');
 
   // E O GESTO, NO MODO VÍDEO — a única porta do som.
   //
-  // Esta aba nunca recebeu um quadro `0x20`, então ela está no caminho de
-  // vídeo, que é onde o pedido de áudio faz sentido. As telas nascem MUDAS por
+  // O espelho é só vídeo desde a v5.156, e é aqui que o pedido de áudio se
+  // exercita ponta a ponta. As telas nascem MUDAS por
   // decisão (§3.11, invariante 10) e nada mais no cliente liga `audioQuerido`:
   // no primeiro culto de teste o Registro mostrou `som torneira:nao` — "esta
   // tela nunca pediu" — e a leitura na sala foi "o celular não está enviando

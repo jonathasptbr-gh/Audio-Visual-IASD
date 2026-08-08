@@ -1422,6 +1422,44 @@ app também fecha, pelo mesmo motivo pelo qual o push-to-talk fecha.
   passou a anunciar o som, a folha do operador passou a dizer a regra, e o
   `espelho-cliente.test.mjs` trava a porta nos dois modos — no de vídeo o gesto
   PEDE o AAC, no de imagem ele deliberadamente não pede.
+- **O ESPELHO É SÓ VÍDEO — o modo IMAGEM saiu** (v5.156). Ele era o degrau de
+  baixo (JPEG a ~10 fps, sem `MediaSource`), e o que o derrubou não foi
+  desempenho: **ele não tem áudio e não tem como ter** — o som do espelho é uma
+  segunda `SourceBuffer` da mesma `MediaSource`, e um `<canvas>` não é
+  `HTMLMediaElement`. Um telão de igreja mudo não é um degrau, é outro produto.
+  Com ele saíram a segunda Surface, o `ImageReader`, a `HandlerThread` que
+  comprimia JPEG de 720p na CPU do aparelho que está projetando, o seletor de
+  modo da folha e um segundo caminho em toda decisão do `EspelhoDisplay` e do
+  cliente. O byte `0x20` do fio fica **aposentado e não reciclado**: um número
+  de protocolo reusado é um cliente antigo decodificando a coisa errada, em
+  silêncio. `espelhoLigar(modo)` mantém a assinatura e IGNORA o argumento —
+  tirá-lo obrigaria a subir o `SHELL_VERSION` sem ganhar nada.
+- **O BOTÃO DE CAST É A PORTA DAS DUAS FORMAS DE CONECTAR** (v5.156). Ele sempre
+  significou "pôr isto noutra tela", e abria direto o espelhamento do fabricante
+  enquanto o espelho na rede vivia numa linha de Configurações que só quem já
+  sabia dele iria procurar. São dois caminhos técnicos para UMA decisão do
+  operador. Agora ele abre uma folha (`castPopup`, z-index 200) com os dois e a
+  diferença dita — *a tela inteira do celular* × *só o telão, para navegadores*
+  —, e **"Mostrar numa tela da rede" liga o espelho e abre o leitor de QR num
+  toque**: a ordem entre as duas coisas existe por causa de como o recurso é
+  construído, não por causa de quem o usa. A folha do espelho (endereço, PIN,
+  telas, certificado) continua existindo como **Ajustes**, agora aberta de
+  dentro dela — e por isso o par `castPopup`/`mirrorPopup` entrou na asserção de
+  empilhamento do `tools/smoke.mjs`.
+- **O REGISTRO DO ESPELHO GANHOU A METADE QUE FALTAVA** (v5.156). Ele respondia
+  "quantos bytes eu escrevi"; a pergunta do operador é "por que a tela está
+  travando", e ela mora inteira do lado da TELA. O `POST /r` — que é
+  **autenticado** — ganhou teto próprio (`TETO_CORPO_RETORNO`, 4 KiB) enquanto o
+  `POST /par` **anônimo** segue em 256 B, e é essa assimetria que permite o
+  relato: folga do cursor em cada faixa (negativa = cursor fora do buffer, a
+  tela congela sem erro), quadros descartados pelo decodificador, `readyState`,
+  fila de append, codec aceito, `MediaError` e os quatro tetos internos do
+  cliente. Do lado nativo entraram a fila por tela, `esperandoIdr`, o freio de
+  IDR em três números, as recusas por motivo, a banda do enlace, a **janela do
+  espelho perguntada em vez de deduzida**, as mortes de renderer, o perfil/nível
+  do encoder e a memória do processo. **A guarda de compatibilidade é a regra de
+  sempre:** o bundle chega por OTA e o APK não, então um shell antigo devolve
+  413 ao relato grande — o cliente vê isso uma vez e volta ao relato curto.
 - **A BORDA AO VIVO É A DA FAIXA MAIS ATRASADA, e não a da imagem** (v5.155).
   A perseguição de borda do cliente lia só o fim do buffer de VÍDEO e mantinha o
   cursor entre 0,35 s e 0,85 s atrás dele — e o som sai ~500 ms atrás da imagem
@@ -2303,7 +2341,7 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.155** (base web) · `SHELL_VERSION` **34**, e o bundle segue com
+**Versão atual: v5.156** (base web) · `SHELL_VERSION` **34**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
@@ -2322,6 +2360,14 @@ controles), que **só chegam instalando o APK novo**, não pelo OTA.
 > correções dela (a borda ao vivo lida da faixa mais atrasada e a transliteração
 > do que viaja ao Registro) vivem inteiras no `cliente.js` e chegam sozinhas ao
 > aparelho que já tem o APK v1.70.
+>
+> **A v5.156 é METADE OTA e METADE APK, de novo.** O modo imagem saindo, a folha
+> do botão de cast e o relato da tela chegam por OTA. O teto de 4 KiB do
+> `POST /r`, os contadores do servidor, a janela perguntada, o perfil do encoder
+> e a memória são Kotlin — **só com o APK novo**. E o bundle degrada sozinho no
+> shell antigo: o 413 do relato grande faz o cliente voltar ao curto, e um
+> `espelhoLigar('video')` num shell que ainda conhece `'imagem'` recebe vídeo,
+> que é o que ele deveria ter pedido. `SHELL_VERSION` continua **34**.
 
 > **O ESPELHO DE PIXELS exige o APK novo, e o CLAUDE.md precisa dizer isso em
 > vez de deixar deduzir:** os cinco métodos da ponte são shell 32, e a linha em

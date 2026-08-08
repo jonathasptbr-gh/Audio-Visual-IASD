@@ -138,7 +138,7 @@ try {
   // que o abre. Por isso a regra virou asserção — ela custa três linhas e
   // pega uma classe inteira de defeito que só aparece em aparelho.
   const ANINHADOS = [
-    ['fadePopup', 'mirrorPopup'],   // a folha do espelho abre de Configurações
+    ['castPopup', 'mirrorPopup'],   // os ajustes do espelho abrem da folha de conexão
     ['mirrorPopup', 'qrPopup'],     // e o leitor de QR abre da folha do espelho
     ['songMenuPopup', 'folderPopup'], // o seletor de pastas abre da folha da música
   ];
