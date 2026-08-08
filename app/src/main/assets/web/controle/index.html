@@ -746,7 +746,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.151</span>
+        <span id="appVersion" class="app-version">Controle v5.152</span>
       </div>
     </div>
   </div>
@@ -790,6 +790,19 @@
           <span class="msym" aria-hidden="true">&#xe3b0;</span>
           <span>Ler o código da tela</span>
         </button>
+        <!-- O DEGRAU DE TLS. Ele é opcional por construção (ver
+             docs/ESPELHO-DE-PIXELS.md §2.4): certificado público para IP
+             privado não existe, autoassinado é uma tela vermelha em cada
+             culto, e o que funciona é um NOME que o operador controla. Sem
+             certificado o espelho segue em HTTP claro, que é o que ele sempre
+             foi — a linha diz isso em vez de esconder. -->
+        <div class="mirror-cert" id="mirrorCertRow" hidden>
+          <span class="mirror-cert-txt" id="mirrorCertTxt"></span>
+          <div class="mirror-cert-acts">
+            <button type="button" class="mirror-act" id="mirrorCertAdd">Importar .p12</button>
+            <button type="button" class="mirror-act mirror-act--no" id="mirrorCertDel" hidden>Remover</button>
+          </div>
+        </div>
         <div class="fade-row fade-row--fit mirror-mode" id="mirrorModeRow">
           <span>Modo</span>
           <div class="fit-seg" id="mirrorModeSeg">

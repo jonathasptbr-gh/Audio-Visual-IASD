@@ -11,5 +11,7 @@
 <full-backup-content>
     <exclude domain="file" path="web-ota" />
     <exclude domain="sharedpref" path="web-ota.xml" />
+    <exclude domain="file" path="espelho-tls" />
+    <exclude domain="sharedpref" path="espelho-tls.xml" />
     <exclude domain="root" path="app_webview" />
 </full-backup-content>

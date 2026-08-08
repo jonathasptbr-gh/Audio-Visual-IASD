@@ -26,6 +26,7 @@ import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
 import androidx.activity.addCallback
 import androidx.activity.result.contract.ActivityResultContracts
+import kotlin.concurrent.thread
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -1213,8 +1214,18 @@ class MainActivity : ComponentActivity(), BridgeHost {
                 pedirIdr = { EspelhoDisplay.pedirIdr() },
                 aoPerderRede = { stopMirror() },
             )
+            // O CERTIFICADO, quando o operador importou um. Ausente, vencido ou
+            // ilegível ⇒ `null`, e o espelho sobe em HTTP claro com o aviso na
+            // folha: degradar é melhor que quebrar, e a alternativa (subir com
+            // um certificado vencido) é a tela vermelha que o TLS existe para
+            // evitar. Ver o KDoc de [EspelhoCert.material].
+            val cert = EspelhoCert.material(this)
+            val hostTls = if (cert != null) EspelhoCert.estado(this).host else ""
             val endereco = try {
-                srv.ligar(EspelhoServidor.PORTA_PADRAO, rede.ip, null, null)
+                srv.ligar(
+                    EspelhoServidor.PORTA_PADRAO, rede.ip,
+                    cert?.first, cert?.second, hostTls,
+                )
             } catch (e: Exception) {
                 srv.desligar()
                 onResult(mirrorJson(erro = e.message ?: "o servidor do espelho não subiu"))
@@ -1361,6 +1372,54 @@ class MainActivity : ComponentActivity(), BridgeHost {
                 EspelhoPares.recusar(id)
                 onResult(true)
             }
+        }
+    }
+
+    // ---------- certificado do espelho (o degrau de TLS) ----------
+    //
+    // Os três saem da main thread — ler um `.p12` do SAF, abrir um PKCS12 e
+    // reescrevê-lo é disco e cripto —, e saem numa THREAD PRÓPRIA e não na fila
+    // de IO da ponte. A fila é de uma thread só e é onde roda o download do
+    // YouTube: importar um certificado no meio de um download ficaria preso por
+    // minutos e a Promise venceria pelo prazo de 60 s do `native.js`,
+    // resolvendo `null` — um "erro" sem causa. É a mesma razão pela qual os
+    // cinco métodos do espelho ficam fora dela.
+
+    override fun mirrorCertImport(origem: String, senha: String, onResult: (String) -> Unit) {
+        thread(name = "av-cert", isDaemon = true) {
+            val erro = try {
+                EspelhoCert.importar(this, origem, senha)
+            } catch (e: Exception) {
+                Log.w(TAG, "importação do certificado falhou", e)
+                "não foi possível importar (${e.javaClass.simpleName})"
+            }
+            runOnUiThread { onResult(erro) }
+        }
+    }
+
+    override fun mirrorCertState(onResult: (JSONObject) -> Unit) {
+        thread(name = "av-cert", isDaemon = true) {
+            val e = EspelhoCert.estado(this)
+            val json = JSONObject()
+                .put("temCert", e.temCert)
+                .put("host", e.host)
+                .put("ate", e.ate)
+                .put("nome", e.nome)
+                // O ESTADO NO AR é diferente do estado GUARDADO, e a folha
+                // precisa dos dois: importar um certificado com o espelho já
+                // ligado não o promove a TLS — o socket já está de pé. Sem esta
+                // distinção o operador leria "certificado válido" olhando para
+                // um endereço `http://`.
+                .put("noAr", espelhoSrv?.ligado == true && EspelhoDisplay.estaLigado)
+                .put("servindoTls", (espelhoSrv?.estado()?.optBoolean("tls", false)) == true)
+            runOnUiThread { onResult(json) }
+        }
+    }
+
+    override fun mirrorCertRemove(onResult: () -> Unit) {
+        thread(name = "av-cert", isDaemon = true) {
+            EspelhoCert.apagar(this)
+            runOnUiThread { onResult() }
         }
     }
 

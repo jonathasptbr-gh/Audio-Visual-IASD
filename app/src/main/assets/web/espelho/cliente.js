@@ -842,9 +842,25 @@
       return;
     }
     const bv = faixaDe(sbV);
-    if (bv && bv.end(bv.length - 1) - ba.end(ba.length - 1) > ATRASO_AUDIO_S) {
+    if (!bv) return;
+    const desvio = bv.end(bv.length - 1) - ba.end(ba.length - 1);
+    if (desvio > ATRASO_AUDIO_S) {
       soltarAudio('o som ficou para trás');
+      return;
     }
+    // O DESVIO A/V VIRA NÚMERO, e é o único jeito de "dessincronizando" deixar
+    // de ser adjetivo. Os dois relógios são independentes por construção: o
+    // vídeo anda pelo carimbo da Surface (relógio do sistema) e o áudio por
+    // CONTAGEM DE AMOSTRAS do hardware de som, que tem taxa própria — e não há
+    // reancoragem de propósito, porque um `tfdt` que salta abre buraco no
+    // `buffered` e navegador PARA em buraco. Então eles divergem devagar, e a
+    // pergunta que este número responde é quanto, e se cresce.
+    //
+    // Arredondado a 50 ms: a borda dos dois buffers se mexe a cada append, e
+    // um número trocando a cada 250 ms encheria o Registro de relatos que só
+    // dizem "mudou o último dígito" — o `relatar` deduplica pela frase.
+    const ms = Math.round(desvio * 1000 / 50) * 50;
+    porqueSemSom = 'ok (vídeo à frente do som em ' + ms + ' ms)';
   }
 
   // Solta a faixa de som SEM tocar na de imagem. `removeSourceBuffer` numa
@@ -1187,7 +1203,10 @@
       if (!sbA) return;
       audioUltimoMs = Date.now();
       conta.quadrosAudio++;
-      porqueSemSom = 'ok';
+      // 'ok' é o piso; o `vigiarAudio` o substitui pelo desvio A/V medido assim
+      // que houver as duas bordas. Manter os dois é o que faz "chegou AAC" e
+      // "as duas faixas estão alinhadas" serem afirmações diferentes.
+      if (porqueSemSom.slice(0, 2) !== 'ok') porqueSemSom = 'ok';
       // O som chegou: a frase pegajosa que dizia o contrário sai de cena.
       if (avisoSom) semSom('');
       const frag = muxer.quadroAudio({ ptsUs: q.pts, dados: carga });

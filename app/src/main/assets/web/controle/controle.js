@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.151';
+const WEB_VERSION = '5.152';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -262,6 +262,10 @@ const mirrorAutoEl = document.getElementById('mirrorAuto');
 const mirrorListEl = document.getElementById('mirrorList');
 const mirrorToggleEl = document.getElementById('mirrorToggle');
 const mirrorScanEl = document.getElementById('mirrorScan');
+const mirrorCertRowEl = document.getElementById('mirrorCertRow');
+const mirrorCertTxtEl = document.getElementById('mirrorCertTxt');
+const mirrorCertAddEl = document.getElementById('mirrorCertAdd');
+const mirrorCertDelEl = document.getElementById('mirrorCertDel');
 const qrPopupEl = document.getElementById('qrPopup');
 const qrCloseEl = document.getElementById('qrClose');
 const qrVideoEl = document.getElementById('qrVideo');
@@ -14094,6 +14098,124 @@ function renderEspelhoLista(pendentes, telas) {
   }
 }
 
+// ============================================================================
+// O CERTIFICADO DO ESPELHO — o degrau de TLS (shell 34)
+// ============================================================================
+//
+// O espelho serve em HTTP CLARO, e isso está escrito como inversão deliberada
+// na especificação: com ele o aparelho passa a ter a imagem contínua de tudo
+// que a igreja projeta, e o pareamento é uma fechadura numa parede de vidro.
+// Só o TLS fecha a parede.
+//
+// E TLS aqui não é "ligar um interruptor". Certificado público para IP privado
+// NÃO EXISTE — a CA/Browser Forum proibiu em 2015 —, e autoassinado está
+// descartado: o Chrome do Android exige Certificate Transparency e o navegador
+// de uma smart TV não tem UI para instalar CA. Trocaria uma limitação
+// silenciosa e previsível por uma tela vermelha em cada culto.
+//
+// O que funciona é o modelo do Plex: um NOME que o operador controla, com
+// registro `A` apontando para o IP privado e certificado emitido por DNS-01.
+// **As três condições são dele, não do app** — um subdomínio com wildcard por
+// DNS-01, uma entrada estática de DNS no roteador da igreja (sem ela o nome só
+// resolve com internet, e a proteção contra DNS rebinding do roteador o quebra
+// em silêncio) e renovação automática. O app não adivinha nenhuma: ele guarda
+// o `.p12` que o operador trouxe pronto, diz até quando vale, e recusa o que
+// não serve.
+const CERT_SHELL = 34;
+let mirrorCert = null;
+
+function certDisponivel() {
+  return !!window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= CERT_SHELL;
+}
+
+async function lerCertEspelho() {
+  if (!certDisponivel()) return null;
+  try { mirrorCert = await AVNative.espelhoCertEstado(); } catch (_) { mirrorCert = null; }
+  renderCertEspelho();
+  return mirrorCert;
+}
+
+function renderCertEspelho() {
+  if (!mirrorCertRowEl) return;
+  mirrorCertRowEl.hidden = !certDisponivel();
+  if (mirrorCertRowEl.hidden) return;
+  const c = mirrorCert || {};
+  if (!c.temCert) {
+    // A frase diz o ESTADO e a consequência, não só "sem certificado": quem lê
+    // isto precisa saber que o espelho funciona assim mesmo, e o que muda.
+    mirrorCertTxtEl.textContent = 'Sem certificado — o espelho serve em HTTP claro. '
+      + 'Quem estiver na rede consegue ver o que a igreja projeta.';
+    mirrorCertTxtEl.classList.remove('ok');
+    mirrorCertDelEl.hidden = true;
+    mirrorCertAddEl.textContent = 'Importar .p12';
+    return;
+  }
+  const dias = c.ate ? Math.floor((c.ate - Date.now()) / 86400000) : 0;
+  // O PRAZO EM DIAS, e não a data: o teto de validade já é de 200 dias e cai
+  // para 47 em 2029, então "vence em 12 dias" é a leitura que faz alguém agir —
+  // uma data no futuro não é.
+  const prazo = !c.ate ? 'sem prazo declarado'
+    : dias < 0 ? 'VENCIDO — o espelho volta a HTTP claro'
+      : dias === 0 ? 'vence hoje'
+        : 'vence em ' + dias + ' dia(s)';
+  // E O ESTADO NO AR é diferente do estado GUARDADO: importar com o espelho já
+  // ligado não promove o socket que já está de pé. Sem dizer isso, o operador
+  // leria "certificado válido" olhando para um endereço `http://`.
+  const noAr = c.noAr && !c.servindoTls
+    ? ' · desligue e ligue o espelho para ele passar a valer'
+    : '';
+  mirrorCertTxtEl.textContent = (c.host || 'certificado') + ' · ' + prazo + noAr;
+  mirrorCertTxtEl.classList.toggle('ok', dias >= 0 && !noAr);
+  mirrorCertDelEl.hidden = false;
+  mirrorCertAddEl.textContent = 'Trocar';
+}
+
+async function importarCertEspelho() {
+  if (!certDisponivel()) return;
+  let escolhidos = [];
+  try {
+    // O seletor do SISTEMA, como toda importação do app. `application/x-pkcs12`
+    // é o tipo registrado; muitos aparelhos não o conhecem e devolvem o arquivo
+    // como `octet-stream`, então os dois entram — quem de fato valida é o
+    // Kotlin, ao abrir o PKCS12.
+    escolhidos = await AVNative.pickDoc(['application/x-pkcs12', 'application/octet-stream']);
+  } catch (_) { escolhidos = []; }
+  const arq = escolhidos && escolhidos[0];
+  if (!arq || !arq.url) return;
+  // A SENHA É DIGITADA À MÃO, sempre. Ela nunca viaja junto com o arquivo: um
+  // segredo que anda com o que ele protege não protege nada — o mesmo
+  // raciocínio que o `WebUpdater` já escreve sobre o `sha256`.
+  const senha = await appPrompt({
+    title: 'Senha do certificado',
+    message: 'Digite a senha do arquivo ' + (arq.name || '.p12') + '.\n\n'
+      + 'Ela não fica guardada: o app reescreve o arquivo com uma senha própria '
+      + 'e esquece a sua.',
+    okText: 'Importar',
+    placeholder: 'Senha do .p12',
+  });
+  if (senha === null || senha === undefined) return;
+  const erro = await AVNative.espelhoCertImportar(arq.url, senha);
+  if (erro) { avisar(erro, 'erro'); return; }
+  await lerCertEspelho();
+  avisar(espelhoLigado()
+    ? 'Certificado importado — desligue e ligue o espelho para ele valer.'
+    : 'Certificado importado.');
+}
+
+async function removerCertEspelho() {
+  const ok = await appConfirm({
+    title: 'Remover o certificado?',
+    message: 'O espelho volta a servir em HTTP claro na próxima vez que for '
+      + 'ligado. A chave privada é apagada do aparelho e só volta reimportando '
+      + 'o arquivo.',
+    okText: 'Remover',
+  });
+  if (!ok) return;
+  try { await AVNative.espelhoCertApagar(); } catch (_) { /* ponte */ }
+  await lerCertEspelho();
+  avisar('Certificado removido.');
+}
+
 async function decidirEspelho(id, aprovar) {
   if (!id) return;
   try { await AVNative.espelhoAprovar(id, aprovar); } catch (_) { /* ponte */ }
@@ -14384,6 +14506,9 @@ function openMirror() {
   // síncrono, então perguntar de dentro dele deixaria o botão aparecendo um
   // ciclo depois. Ao voltar, um `renderEspelho` acerta o botão.
   sondarLeituraQr().then(() => renderEspelho());
+  // O certificado é lido ao ABRIR, como o resto: ele muda por ação do
+  // operador (importar/remover), nunca sozinho.
+  lerCertEspelho();
   clearInterval(mirrorTimer);
   mirrorTimer = setInterval(lerEspelho, MIRROR_POLL_MS);
 }
@@ -14414,7 +14539,10 @@ if (mirrorRowEl) {
     if (espelhoLigado()) desligarEspelho(); else ligarEspelho();
   });
   mirrorScanEl.addEventListener('click', abrirLeitorQr);
+  mirrorCertAddEl.addEventListener('click', importarCertEspelho);
+  mirrorCertDelEl.addEventListener('click', removerCertEspelho);
   renderEspelho();
+  renderCertEspelho();
 }
 
 newFolderInPickerBtnEl.addEventListener('click', async () => {

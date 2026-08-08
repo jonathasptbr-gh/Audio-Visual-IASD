@@ -586,6 +586,23 @@
       (id) => B.espelhoAprovar(id, String(idPendente || ''), !!sim), CALL_TIMEOUT_MS,
     ).then((r) => r === true),
 
+    // O CERTIFICADO do espelho (shell 34) — o degrau opcional de TLS. Ver
+    // `docs/ESPELHO-DE-PIXELS.md` §2.4 para por que autoassinado está
+    // descartado e por que o caminho é um NOME que o operador controla.
+    //
+    // `espelhoCertImportar` devolve a FRASE do erro, e `''` quando deu certo —
+    // não um booleano: as causas são todas acionáveis e diferentes ("a senha
+    // não abriu o arquivo" manda tentar de novo, "já venceu" manda renovar), e
+    // um `false` as igualaria. Num shell antigo o `call` resolve null e o
+    // `.then` vira a frase de shell velho, em vez de um sucesso silencioso.
+    espelhoCertImportar: (origem, senha) => call(
+      (id) => B.espelhoCertImportar(id, String(origem || ''), String(senha || '')),
+      CALL_TIMEOUT_MS,
+    ).then((r) => (typeof r === 'string' ? r : 'este aparelho ainda não sabe importar certificados')),
+    espelhoCertEstado: () => call((id) => B.espelhoCertEstado(id), CALL_TIMEOUT_MS),
+    espelhoCertApagar: () => call((id) => B.espelhoCertApagar(id), CALL_TIMEOUT_MS)
+      .then((r) => r === true),
+
     // Botões físicos de volume: pede que a Activity os intercepte e os entregue
     // em `window.__avVolumeKey(±1)` — sem isso eles mexem na saída do sistema
     // (e, com espelhamento ativo, no volume da TV) em vez do fader do app.

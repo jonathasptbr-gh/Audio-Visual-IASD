@@ -338,10 +338,13 @@ window.AVNative = {
                        //   É TAMBÉM o que a LEITURA DO QR chama: ler o código é
                        //   aprovar aquele id, e por isso o pareamento por QR
                        //   não acrescentou método nenhum aqui
+  espelhoCertImportar(url, senha), // → '' ou a FRASE do erro: o .p12 do TLS
+  espelhoCertEstado(), // → { temCert, host, ate, nome, noAr, servindoTls }
+  espelhoCertApagar(), // a chave privada sai do aparelho
 }
 ```
 
-São **trinta e seis métodos**, e essa é a superfície inteira que o resto do
+São **trinta e nove métodos**, e essa é a superfície inteira que o resto do
 lado web tem direito de usar: fora do `native.js`, tocar em `__AVBridge` direto é
 acoplamento indevido. O próprio `native.js` chama mais oito coisas no
 `__AVBridge`, e nenhuma delas é API para o app — duas são
@@ -414,7 +417,11 @@ esperam uma **pessoa** e ficam sem prazo, porque um timeout ali resolveria null
 com o operador ainda escolhendo a pasta.
 
 `NativeBridge.SHELL_VERSION` identifica a versão da casca — **subir sempre que
-a superfície da ponte mudar**. Hoje vale **33** — a v5.145 acrescentou
+a superfície da ponte mudar**. Hoje vale **34** — a v5.152 acrescentou os três
+métodos do CERTIFICADO do espelho (`espelhoCertImportar`, `espelhoCertEstado`,
+`espelhoCertApagar`), o degrau opcional de TLS. Abaixo do 34 a linha do
+certificado não é desenhada e o espelho segue em HTTP claro, que é o que ele
+sempre foi. A v5.145 acrescentou
 `requestCam`, a permissão de CÂMERA para o Controle LER O QR que a tela do
 espelho mostra (ver "O pareamento é por QR", na seção do recurso). Ele é o único
 método do lote: aprovar a tela lida é o `espelhoAprovar` que já existia, porque é
@@ -1317,6 +1324,7 @@ mesmo?"), lembrada pela sessão.
 | `EspelhoServidor.kt` | sockets, rotas, fan-out. **Bind explícito ao IPv4 da Wi-Fi**, e recusa em celular/VPN: um `ServerSocket(porta)` liga em `0.0.0.0` — inclusive `rmnet`, e operadoras brasileiras entregam IPv6 globalmente roteável ao aparelho. Seria o culto em H.264 numa porta alcançável do mundo |
 | `EspelhoService.kt` | foreground service **`connectedDevice`** (sem cota, ao contrário do `dataSync` que o app já gasta). Exige `CHANGE_WIFI_MULTICAST_STATE` no manifest — sem ela `startForeground` **lança** |
 | `EspelhoAudio.kt` | o PCM que o `AudioWorklet` do WebView do espelho entrega, virando AAC no mesmo fio. **O `AudioWorklet` existe ali porque aquele WebView É contexto seguro** (invariante 1) mesmo com o cliente em `http://` — o princípio geral: *tudo que precisa de contexto seguro pode ir para DENTRO do WebView* |
+| `EspelhoCert.kt` | o `.p12` do degrau de TLS: guarda, diz até quando vale, e **recusa o vencido** (subir com ele é a tela vermelha que o TLS existe para evitar). A senha do operador NÃO fica: o arquivo é reescrito com uma senha nossa de 128 bits |
 | `EspelhoDiag.kt` | o anel. **Devolve JSON, não texto** — quem monta a frase é o `controle.js`. Ele vive num `object` e SOBREVIVE a desligar e ligar o espelho, então a âncora do atraso precisa ser zerada por `novaSessao()` — a guarda de "o carimbo andou para trás" não pega o caso em que a base do codec não rebobina, e o tempo de espelho DESLIGADO era impresso como fila de encoder (v5.146) |
 | `assets/web/espelho/` | a página do cliente (uma página, dois estados), o muxer fMP4 em JS e o **codificador de QR** (`qr.js`, nível M versões 1–6, ~330 linhas sem dependência — o oráculo que o valida DECODIFICA o símbolo, em `tools/qr.test.mjs`) |
 
@@ -1480,6 +1488,49 @@ numa janela que o operador não vê. O predicado é **estrutural**, nunca um nom
 nem um id adivinhado; e o risco **não é uma janela de corrida**: no Android 14+
 a ordenação de `getDisplays` por tipo foi removida (hoje é ordem de `displayId`)
 enquanto o javadoc continua prometendo "sorted by order of preference".
+
+### O TLS é um DEGRAU, e as três condições são do operador
+
+O espelho serve em **HTTP claro** por padrão, e a primeira inversão abaixo diz o
+que isso custa. Desde a v5.152 há um degrau: um `.p12` que o operador importa
+(`EspelhoCert.kt`, três métodos da ponte, shell 34).
+
+**Por que não é um interruptor.** Certificado público para IP privado **não
+existe e nunca vai existir** — a CA/Browser Forum proibiu *Reserved IP
+Addresses* em 2015 e mandou revogar os remanescentes em 2016. E autoassinado
+está **descartado**: desde o Android 7 apps com `targetSdk ≥ 24` não confiam em
+CA de usuário, o Chrome exige Certificate Transparency, e o navegador de uma
+smart TV não tem UI para instalar CA. Trocaria uma limitação silenciosa e
+previsível por **uma tela vermelha em cada culto, em cada aparelho**.
+
+O que funciona é o modelo do Plex e do Tailscale: **um NOME que o operador
+controla**, com registro `A` apontando para o IP privado e certificado emitido
+por **DNS-01**. Daí as três condições, e as três são dele: um subdomínio com
+wildcard por DNS-01; **uma entrada estática de DNS no roteador da igreja** (sem
+ela o nome só resolve com internet, e a proteção contra DNS rebinding do
+roteador o quebra em silêncio); e renovação automática.
+
+Três coisas que o código faz e que não são detalhe:
+
+- **O nome do certificado entra na allowlist de `Host`** e vira o endereço
+  divulgado. Sem isso o TLS seria inútil: o navegador conecta pelo NOME, o
+  `Host` chega como o nome, e uma allowlist que só conhece o IP devolveria o
+  404 IDÊNTICO a toda requisição — "com certificado o espelho para de
+  funcionar", sem nada no Registro que o explicasse. O IP continua na lista; ela
+  segue EXATA, e `evil.com` resolvendo para o nosso IP continua barrado.
+- **Um certificado vencido não é servido.** O espelho sobe em HTTP claro, com o
+  aviso na folha. Degradar é melhor que quebrar, e a alternativa é justamente a
+  tela vermelha.
+- **A senha do operador não fica guardada.** O `.p12` é reescrito com uma senha
+  aleatória nossa; a dele morre no fim do método. E a chave privada sai dos
+  **dois** destinos de backup — inclusive da transferência direta, ao contrário
+  da biblioteca: perdê-la ao trocar de aparelho custa reemitir, que é o custo
+  certo.
+
+Um wildcard é **recusado** como nome (a allowlist é exata), e a derivação do
+nome lê o **SAN primeiro** — o `CN` só como último recurso, porque navegadores
+o ignoram para verificação desde o Chrome 58. As duas funções são puras e têm
+JUnit (`EspelhoCertNomeTest`).
 
 ### As inversões que precisam estar ditas
 
@@ -2160,7 +2211,7 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.151** (base web) · `SHELL_VERSION` **33**, e o bundle segue com
+**Versão atual: v5.152** (base web) · `SHELL_VERSION` **34**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
