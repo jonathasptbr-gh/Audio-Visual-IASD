@@ -1422,7 +1422,38 @@ app também fecha, pelo mesmo motivo pelo qual o push-to-talk fecha.
   passou a anunciar o som, a folha do operador passou a dizer a regra, e o
   `espelho-cliente.test.mjs` trava a porta nos dois modos — no de vídeo o gesto
   PEDE o AAC, no de imagem ele deliberadamente não pede.
-- **O PRAZO do `csd` de áudio é ABSOLUTO, e atravessa reconexões** (v5.153).
+- **A AUDITORIA DA v5.154, e ela é o item mais importante desta seção.** O
+  operador relatou o espelho "tecnicamente conectando, mas estruturalmente
+  quebrado", e a revisão linha a linha achou **seis** defeitos — quatro deles da
+  mesma família: *código que o compilador aprova, que a especificação descreve, e
+  que nunca roda*. A tabela inteira, com o porquê de cada um ter atravessado a
+  CI verde, está em `docs/ESPELHO-DE-PIXELS.md` §10-A. Os dois que precisam
+  estar ditos aqui:
+  - **Uma variável local sombreando a `MediaSource` matava o laço de 500 ms do
+    cliente.** Um `const ms` no fim de `vigiarAudio()` põe a variável na zona
+    morta temporal do bloco inteiro, e a leitura da `ms` do módulo na PRIMEIRA
+    linha da mesma função passa a lançar `ReferenceError`. Como a guarda começa
+    por `!sbA`, isso só acontecia **depois do gesto do visitante** — e o que
+    morria junto era poda, perseguição de borda, `setLiveSeekableRange` e o
+    relato. É a mesma família do `setInteger` numa chave `long`, do `bytes` no
+    `bgProgress` e do `slideLabel` no `nowPlaying`: falha sem exceção, sem log e
+    sem sintoma no lugar da causa. **`tools/sombra.test.mjs`** varre a base web
+    inteira e trava a regra — nenhuma função redeclara um nome de módulo.
+  - **O quadro de despedida existia nas duas pontas e não era emitido por
+    ninguém.** `EspelhoServidor.avisar()` tinha KDoc e nenhum chamador; o
+    `controle(j)` do cliente tratava o ramo `'adeus'` desde sempre. Sem ele,
+    desligar o espelho era, do lado do navegador, indistinguível de uma queda de
+    rede: até três telas martelando uma porta fechada a cada 8 s pelo resto do
+    culto. Código morto **simétrico** não aparece em nenhuma leitura de um lado
+    só; agora há um caso no `espelho-cliente.test.mjs`.
+- **O PRAZO do `csd` de áudio é ABSOLUTO, e atravessa reconexões** (v5.153) —
+  **mas ele é REARMADO a cada tentativa nova** (v5.154). Vencido uma vez, ele
+  ficava vencido para sempre: toda conexão seguinte abria a `MediaSource` só com
+  imagem, o `csd` de áudio chegava "tarde", e as três remontagens do teto se
+  gastavam sem nenhuma delas ter chegado a esperar — a tela ficava muda pelo
+  resto da sessão, com o teto de remontagens mascarando a causa. Quem o rearma é
+  `tentarSom()` (o toque do visitante) e a remontagem da reconexão; o teto
+  continua sendo o que limita quantas tentativas existem.
   Ele era um `setTimeout` que o `conectar()` limpava no topo de cada conexão —
   certo para o `csd` retido (ele morre com a conexão que o trouxe) e **fatal
   para o prazo**: numa tela que reconecta a cada dois segundos, um prazo de
@@ -2000,6 +2031,19 @@ funciona" e de "o roteador está isolando os aparelhos". O `espelho-cliente`
 ganhou o percurso inteiro do pareamento por QR, numa aba limpa, terminando na
 asserção que é a promessa do recurso: *a tela entra sem ninguém digitar nada*.
 
+A v5.154 acrescentou o **oráculo da SOMBRA** (`tools/sombra.test.mjs`, Node puro,
+**sem `continue-on-error`**): nenhuma função da base web pode redeclarar um nome
+de módulo. Ele existe porque `node --check` **aprova** um `const ms = …` dentro
+de uma função que lê a `ms` do módulo na primeira linha, e o que sai disso é um
+`ReferenceError` por zona morta temporal — no espelho, a cada 500 ms, só nas
+telas que tinham ligado o som (ver a auditoria na seção do recurso). A varredura
+é por indentação, o que este código consegue por ser uniformemente formatado, e
+a medição diz que ela não é ruidosa: nos onze arquivos da base, com o defeito no
+lugar, o único achado era ele. O `espelho-cliente.test.mjs` ganhou junto o caso
+da **despedida**: recebido o `0x30 {"m":"adeus"}`, o cliente **para** — nada de
+martelar uma porta fechada — e a tela diz que foi o operador, em vez de "sem
+sinal".
+
 O `ponte.test.mjs` ganhou
 o caso do **papel espelho** (o dreno deixa passar só `display-ready`, o
 `BroadcastChannel.postMessage` é no-op — **e o par negativo com `role:'display'`**,
@@ -2228,10 +2272,20 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.153** (base web) · `SHELL_VERSION` **34**, e o bundle segue com
+**Versão atual: v5.154** (base web) · `SHELL_VERSION` **34**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.154 é METADE OTA e METADE APK, e a divisão importa para quem for testar
+> em aparelho.** Os quatro defeitos do cliente do espelho (a sombra que matava o
+> laço de borda, o buffer do fio que sobrevivia ao recomeço, a faixa de som que
+> não soltava e o prazo do `csd` que nunca rearmava) vivem em
+> `assets/web/espelho/cliente.js` e chegam **por OTA, sem instalar nada**. Os
+> dois do servidor — a despedida que ninguém emitia e a ordem do `csd` no fio —
+> são Kotlin e **só chegam com o APK novo**. A ponte não mudou, então
+> `SHELL_VERSION` continua 34 e nada é recusado por versão: num shell antigo o
+> espelho segue funcionando com as correções do lado web, e sem a despedida.
 
 > **O ESPELHO DE PIXELS exige o APK novo, e o CLAUDE.md precisa dizer isso em
 > vez de deixar deduzir:** os cinco métodos da ponte são shell 32, e a linha em

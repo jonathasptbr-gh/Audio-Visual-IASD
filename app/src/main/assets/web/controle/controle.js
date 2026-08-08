@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.153';
+const WEB_VERSION = '5.154';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -10791,6 +10791,21 @@ function blocoEspelho(d) {
       l.push('nenhuma conexão desde que ligou (há ' + mirrorDur(srv.semConexaoMs) + ') — '
         + 'se alguém abriu o endereço, o roteador está isolando os clientes');
     }
+    // ALGUÉM ESTÁ TENTANDO. Os dois números vinham do `EspelhoPares` desde a
+    // primeira versão (`recusas`, `origensBloqueadas`) e não eram impressos em
+    // lugar nenhum — o único sinal de PINs sendo martelados na rede da igreja
+    // ficava no JSON, sem leitor. Zero recusas não vira linha: um Registro que
+    // repete "0" a cada leitura ensina a pular a linha.
+    if (srv.recusas) {
+      l.push('pareamento: ' + (srv.recusas | 0) + ' PIN(s) recusado(s)'
+        + ' · ' + (srv.origensBloqueadas | 0) + ' origem(ns) de castigo agora');
+    }
+    if (srv.qrEsperando) {
+      // A OUTRA METADE DA FOLHA VAZIA: a espera de QR não entra na lista de
+      // pendentes de propósito, então "nenhuma tela" e "uma tela com o código
+      // em cartaz esperando a câmera" são a mesma tela vazia sem esta linha.
+      l.push('QR: ' + (srv.qrEsperando | 0) + ' tela(s) com o código em cartaz esperando a leitura');
+    }
     const saida = srv.ultimaSaida;
     if (saida && typeof saida === 'object') {
       l.push('ultima desconexao: tela ' + (saida.rotulo || '?')
@@ -13949,7 +13964,13 @@ async function lerEspelho() {
   let e = null;
   try { e = await AVNative.espelhoEstado(); } catch (_) { e = null; }
   mirrorEstado = e || null;
-  if (mirrorEstado && mirrorEstado.modo) mirrorModo = mirrorEstado.modo;
+  // O MODO SÓ É ADOTADO COM O ESPELHO NO AR. Desligado, o shell continua
+  // devolvendo o modo da última sessão — e adotá-lo desfazia a escolha que o
+  // operador acabara de fazer no seletor: tocar em "Vídeo" com o espelho
+  // parado marcava Vídeo e, na leitura seguinte (2,5 s), o botão voltava
+  // sozinho para "Imagem". O `escolherModoEspelho` também passa por aqui no
+  // meio do desliga-liga, e era ali que a troca de modo se desfazia na tela.
+  if (mirrorEstado && mirrorEstado.ligado && mirrorEstado.modo) mirrorModo = mirrorEstado.modo;
   renderEspelho();
   return mirrorEstado;
 }
@@ -14047,7 +14068,14 @@ function renderEspelhoLista(pendentes, telas) {
     nome.textContent = p.ua || 'Tela desconhecida';
     const sub = document.createElement('span');
     sub.className = 'mirror-item-sub';
-    sub.textContent = 'quer entrar' + (p.desdeMs ? ' · esperando há ' + mirrorDur(p.desdeMs) : '');
+    // O CAMPO É `desde`, e é um instante de PAREDE — não uma duração. A linha
+    // pedia `p.desdeMs`, que o Kotlin nunca mandou (`EspelhoServidor.estado`
+    // põe `desde`), então "esperando há…" nunca apareceu uma vez sequer: o
+    // `undefined` é falso e o operando inteiro sumia em silêncio. É a mesma
+    // família do `bytes` no `bgProgress` (v5.137) — campo remontado à mão, nome
+    // que não bate, nada quebra.
+    const espera = p.desde ? Math.max(0, Date.now() - p.desde) : 0;
+    sub.textContent = 'quer entrar' + (espera ? ' · esperando há ' + mirrorDur(espera) : '');
     main.append(nome, sub);
     const sim = document.createElement('button');
     sim.type = 'button';

@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import javax.net.ssl.KeyManagerFactory
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
+import kotlin.concurrent.thread
 
 /**
  * O SERVIDOR DO ESPELHO — sockets, threads, roteamento e fan-out.
@@ -249,11 +250,36 @@ class EspelhoServidor(
             return
         }
         if (!desligando.compareAndSet(false, true)) return
+        // A DESPEDIDA, e ela é a diferença entre uma página quieta e três telas
+        // martelando o AP da igreja pelo resto do culto.
+        //
+        // O quadro `0x30 {"m":"adeus"}` estava escrito nos dois lados desde a
+        // primeira versão — [avisar] aqui, `controle(j)` no `cliente.js` — e
+        // **ninguém o emitia**: era código morto nas duas pontas. Sem ele o
+        // operador desligar o espelho é, do lado do navegador, indistinguível
+        // de uma queda de rede; o cliente entra na escada de reconexão e fica
+        // batendo numa porta fechada a cada 8 s, para sempre, em até três
+        // aparelhos ao mesmo tempo.
+        //
+        // Ele é enquadrado e ENFILEIRADO ANTES de `servidor` virar nulo, e a
+        // ordem não é cosmética: o laço de [escrever] desiste quando a fila
+        // esvazia **e** o servidor já saiu do ar, então uma despedida
+        // enfileirada depois disso poderia chegar à escritora já encerrada.
+        // Quem a entrega é [fechar], que a põe na frente do sentinela de fim.
+        val adeus = if (telas.isEmpty()) null else enquadrar(
+            Quadro(
+                tipo = EspelhoCodec.TIPO_CONTROLE,
+                chave = true,
+                descontinuidade = false,
+                ptsUs = EspelhoCodec.ultimoCarimbo(),
+                bytes = ADEUS,
+            ),
+        )
+        for (t in telas.values) fechar(t, "espelho desligado", adeus)
         val ss = servidor
         servidor = null
         pararDeObservarRede()
         fecharQuieto(ss)
-        for (t in telas.values) fechar(t, "espelho desligado")
         telas.clear()
         csdVideo = null
         csdAudio = null
@@ -646,8 +672,13 @@ class EspelhoServidor(
             }
             "audio" -> if (tela != null) {
                 val quer = corpo.optBoolean("on", false)
-                tela.audio = quer
+                // O `csd` ANTES DA TORNEIRA, pela mesma razão do §5.3 no
+                // [servirFluxo]: com `audio = true` escrito primeiro, a thread
+                // do encoder AAC pode enfileirar um quadro `0x11` no intervalo
+                // entre as duas linhas — e o cliente, que só monta a faixa a
+                // partir do `0x10`, o joga fora.
                 if (quer) csdAudio?.let { tela.fila.offer(it) }
+                tela.audio = quer
             }
         }
         responder(saida, EspelhoHttp.resposta(200, "application/json", OK_CURTO))
@@ -669,6 +700,18 @@ class EspelhoServidor(
         sessao: EspelhoPares.Sessao,
     ) {
         val tela = Tela(rotuloNovo(), cru, sessao)
+        // O `csd` ENTRA NA FILA ANTES DE A TELA EXISTIR PARA O FAN-OUT, e a
+        // ordem é o contrato do §5.3: parâmetros primeiro, quadro depois.
+        //
+        // Ele era enfileirado adiante, DEPOIS de `telas[token] = tela` — e no
+        // meio dos dois cabe a thread de drenagem do encoder, que já enxerga a
+        // tela nova e pode lhe entregar um quadro-chave (o único tipo que passa
+        // por `esperandoIdr`). O cliente recebia então um IDR antes dos SPS/PPS:
+        // ele o descarta e segue, mas o primeiro fragmento da sessão vai embora
+        // com ele — e num telão parado o próximo IDR pode estar a cinco
+        // segundos. Enfileirar antes fecha a janela por construção, e custa
+        // mover uma linha.
+        csdVideo?.let { tela.fila.offer(it) }
         var anterior: Tela? = null
         var lotado = false
         // A ADMISSÃO é a única decisão deste arquivo que precisa ser atômica:
@@ -706,10 +749,9 @@ class EspelhoServidor(
         try {
             saida.write(EspelhoHttp.cabecalhoChunked(200, "application/octet-stream"))
             saida.flush()
-            // A ABERTURA DE TODA CONEXÃO (§5.3): csd, depois nada até o próximo
-            // IDR. O `csd` guardado é o que faz um cliente que chegou numa cena
-            // parada não esperar o próximo `INFO_OUTPUT_FORMAT_CHANGED`.
-            csdVideo?.let { tela.fila.offer(it) }
+            // A ABERTURA DE TODA CONEXÃO (§5.3): csd — já enfileirado lá em
+            // cima, antes de esta tela existir para o fan-out —, depois nada
+            // até o próximo IDR, que é pedido aqui.
             pedirIdrComFreio(tela)
             escrever(tela, saida)
         } catch (e: IOException) {
@@ -723,8 +765,19 @@ class EspelhoServidor(
     }
 
     private fun escrever(tela: Tela, saida: OutputStream) {
-        while (tela.viva && servidor != null) {
-            val q = tela.fila.poll(1, TimeUnit.SECONDS) ?: continue
+        while (true) {
+            val q = tela.fila.poll(1, TimeUnit.SECONDS)
+            if (q == null) {
+                // Nada na fila. Continuar só faz sentido enquanto a tela e o
+                // servidor existirem — e a ORDEM importa: a condição de parada
+                // é conferida **depois** de a fila esvaziar, e não antes de
+                // esperar. Era o contrário, e por isso o quadro de despedida de
+                // [desligar] nunca teria como sair: `viva` já é falso quando
+                // ele entra na fila. Quem termina o laço no caminho normal é o
+                // sentinela [FIM], que [fechar] põe atrás do que houver.
+                if (tela.viva && servidor != null) continue
+                break
+            }
             if (q === FIM) break
             tela.escritaIniciadaMs = SystemClock.elapsedRealtime()
             try {
@@ -789,13 +842,33 @@ class EspelhoServidor(
      * dele: `SSLSocket.close()` tenta emitir `close_notify`, isto é, tenta
      * ESCREVER — exatamente o que já está travado. Fechar o cru derruba os dois.
      */
-    private fun fechar(t: Tela, motivo: String) {
+    private fun fechar(t: Tela, motivo: String, despedida: ByteArray? = null) {
         if (!t.viva) return
-        t.viva = false
         t.motivoDaSaida = motivo
         t.fila.clear()
+        // A DESPEDIDA VAI NA FRENTE DO SENTINELA, e por isso ela precisa entrar
+        // antes de `viva` cair: a ordem da fila é o contrato.
+        if (despedida != null) t.fila.offer(despedida)
         t.fila.offer(FIM)
-        fecharQuieto(t.cru)
+        t.viva = false
+        if (despedida == null) {
+            fecharQuieto(t.cru)
+        } else {
+            // COM DESPEDIDA o socket NÃO é arrancado na hora — arrancá-lo é
+            // matar a escrita que se quer entregar. O fecho de fora continua
+            // existindo, com um instante de folga: uma escritora presa não pode
+            // sobreviver ao desligamento só porque houve uma cortesia a
+            // entregar. `TETO_TELAS` é 3, então são no máximo três threads de
+            // vida curtíssima.
+            thread(name = "av-espelho-adeus", isDaemon = true) {
+                try {
+                    Thread.sleep(GRACA_ADEUS_MS)
+                } catch (e: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                }
+                fecharQuieto(t.cru)
+            }
+        }
         Log.i(TAG, "tela ${t.rotulo} fechada: $motivo")
     }
 
@@ -1174,6 +1247,18 @@ class EspelhoServidor(
         private const val IDR_POR_TELA_MS = 2_000L
         private const val IDR_GLOBAL_MS = 1_000L
         private const val CABECALHO = 16
+
+        /** Folga para a escritora entregar o adeus antes do fecho de fora. */
+        private const val GRACA_ADEUS_MS = 400L
+
+        /**
+         * O corpo do quadro `0x30` de despedida — ver [desligar].
+         *
+         * O `cliente.js` já o trata desde a primeira versão (`controle(j)`,
+         * ramo `'adeus'`): ele para o laço de reconexão e escreve "o espelho
+         * foi desligado no celular". A forma tem de bater com a de lá.
+         */
+        private val ADEUS = "{\"m\":\"adeus\"}".toByteArray(Charsets.US_ASCII)
 
         // OS TIPOS DO FIO (§5.2) MORAM NO [EspelhoCodec], e este arquivo os lê
         // de lá. Uma segunda cópia dos mesmos seis números seria a forma mais
