@@ -924,6 +924,23 @@
     aplicar();
   }
 
+  /**
+   * A BORDA AO VIVO DE UM FLUXO DE DUAS FAIXAS: a da faixa mais atrasada.
+   *
+   * Pura e separada de [borda] por um motivo só — ela é a regra que o
+   * `tools/espelho-cliente.test.mjs` afirma. Provar isto num navegador de
+   * verdade exigiria uma faixa de áudio real, e o Chromium do CI não traz AAC;
+   * a regra, essa, é aritmética e se prova com duas faixas de mentira.
+   *
+   * [ba] nulo (a maioria das telas, que ficam mudas por decisão) devolve a
+   * borda da imagem, que é o comportamento de sempre.
+   */
+  function bordaViva(bv, ba) {
+    const fimV = bv.end(bv.length - 1);
+    if (!ba || !ba.length) return fimV;
+    return Math.min(fimV, ba.end(ba.length - 1));
+  }
+
   function tocar() {
     const p = el.v.play();
     // O cliente nasce MUDO e tocando: "muted autoplay is always allowed". Se
@@ -945,7 +962,27 @@
     posicionar();
     const b = faixaDe(sbV);
     if (!b) return;
-    const fim = b.end(b.length - 1);
+    // A BORDA AO VIVO É A DA FAIXA MAIS ATRASADA, e não a da imagem.
+    //
+    // A MSE só toca com dado em TODAS as faixas: o cursor que passa do fim do
+    // som PARA O VÍDEO, mesmo com imagem bufferizada de sobra. E as duas bordas
+    // NÃO andam juntas — medido em aparelho, o som sai ~500 ms atrás da imagem
+    // (o caminho dele é worklet → blocos de 40 ms → `postMessage` → fila →
+    // `MediaCodec` AAC, e nada disso existe do lado do vídeo).
+    //
+    // Perseguindo a borda do VÍDEO, a regra mantinha o cursor entre 0,35 s e
+    // 0,85 s atrás dela — e a ponta rápida desse intervalo fica 150 ms **à
+    // frente** do fim do som. O `<video>` engasgava toda vez que a perseguição
+    // chegava lá: micro-travamentos com som ligado, imagem parada, nenhum erro
+    // em lugar nenhum e o buffer de vídeo cheio. Era o que sobrava do
+    // "travando" depois da v5.154.
+    //
+    // Com o mínimo das duas, `ALVO_S` volta a ser o que ele diz ser: folga real
+    // nas duas faixas. O preço é a latência da imagem crescer pelo atraso do
+    // som — e ele é o preço certo, porque uma projeção 0,5 s mais atrasada é
+    // invisível e uma projeção que engasga não é. Sem faixa de som (o caso da
+    // maioria das telas) nada muda: o mínimo de um só é ele mesmo.
+    const fim = bordaViva(b, sbA ? faixaDe(sbA) : null);
     const atraso = fim - el.v.currentTime;
 
     if (el.v.paused && posicionado) tocar();
@@ -1056,17 +1093,51 @@
   // O texto é cortado aqui e SANEADO no Kotlin, como todo texto vindo da rede.
   const AVISO_MAX = 110;
 
+  // O QUE VAI PARA O FIO É ASCII, e isso não é preferência: o `sanear` do
+  // `EspelhoPares` deixa passar só `[\x20-\x7E]` — invariante 9, com JUnit,
+  // porque um `\n` vindo da rede injetaria linhas falsas no Registro, que é o
+  // artefato que este projeto manda COPIAR e repassar.
+  //
+  // Só que ele APAGA o que não passa, em vez de recusar: as frases deste
+  // arquivo são em português, e em aparelho o Registro do operador mostrou
+  // `"som: ok (vdeo  frente do som em 500 ms)  fim: ns abortamos"` — sem os
+  // acentos, sem as aspas angulares e sem o separador. Um diagnóstico
+  // mutilado não é um diagnóstico melhor por ser seguro.
+  //
+  // A correção é do lado que produz o texto, não do que o sanea: a TELA
+  // continua em português com acento (é ela que o visitante lê), e o que
+  // viaja é a transliteração. `normalize` não é de contexto seguro, mas um
+  // navegador de TV velho pode não trazê-la — daí o `try`, que degrada para o
+  // comportamento de antes em vez de derrubar o relato.
+  // A PONTUAÇÃO TAMBÉM, e ela não sai pelo `NFD`: travessão, reticências e
+  // aspas tipográficas não são letra com acento, são caracteres próprios — e
+  // as frases deste arquivo estão cheias delas ("Sem sinal — a conexão caiu").
+  // Sem esta troca, o travessão simplesmente evaporava e a frase chegava ao
+  // Registro com dois espaços no lugar dele.
+  const ASCII = { '—': '-', '–': '-', '…': '...', '“': '"', '”': '"', '‘': "'", '’': "'", '«': '<', '»': '>', '·': '|', ' ': ' ' };
+
+  function semAcento(s) {
+    const trocado = s.replace(/[—–…“”‘’«»· ]/g, (c) => ASCII[c] || ' ');
+    try {
+      return trocado.normalize('NFD').replace(/[̀-ͯ]/g, '');
+    } catch (_) { return trocado; }
+  }
+
   function corpoDoAlive() {
     // O RAMO DO SOM VAI SEMPRE, e vem primeiro quando não há frase na tela: ele
     // é o dado que decide, e a frase é o contexto. Os dois no mesmo campo
     // porque o Kotlin já o saneia e já o mostra (`diz:`) — um campo novo
     // exigiria APK, e isto precisa chegar por OTA.
+    //
+    // Os delimitadores são `[` e `|`, e não `«` e `·`: os três antigos eram
+    // não-ASCII e sumiam no saneamento, deixando a nota colada na frase da
+    // tela sem nada separando as duas.
     const tela = (el.aviso ? el.aviso.textContent || '' : '').trim();
-    const nota = '«som: ' + porqueSemSom + (ultimoFim ? ' · fim: ' + ultimoFim : '') + '»';
+    const nota = '[som: ' + porqueSemSom + (ultimoFim ? ' | fim: ' + ultimoFim : '') + ']';
     return {
       do: 'alive',
       telaAcesaMin: minutosAcesa(),
-      aviso: (tela ? nota + ' ' + tela : nota).slice(0, AVISO_MAX),
+      aviso: semAcento((tela ? nota + ' ' + tela : nota)).slice(0, AVISO_MAX),
       som: !!sbA,
       recomecos: conta.recomecos,
     };
@@ -1673,6 +1744,12 @@
       };
     },
     relato: relato,
+    // A REGRA DA BORDA AO VIVO, exposta para ser AFIRMADA e não para ser usada.
+    // Ver o KDoc de `bordaViva`: ela é o que impede o cursor de passar do fim
+    // da faixa de som — o micro-travamento com o som ligado —, e é aritmética
+    // pura, então o teste a prova sem precisar de um AAC que o Chromium do CI
+    // não tem.
+    bordaViva: bordaViva,
   };
 
   if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', iniciar);

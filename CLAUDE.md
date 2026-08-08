@@ -1422,6 +1422,28 @@ app também fecha, pelo mesmo motivo pelo qual o push-to-talk fecha.
   passou a anunciar o som, a folha do operador passou a dizer a regra, e o
   `espelho-cliente.test.mjs` trava a porta nos dois modos — no de vídeo o gesto
   PEDE o AAC, no de imagem ele deliberadamente não pede.
+- **A BORDA AO VIVO É A DA FAIXA MAIS ATRASADA, e não a da imagem** (v5.155).
+  A perseguição de borda do cliente lia só o fim do buffer de VÍDEO e mantinha o
+  cursor entre 0,35 s e 0,85 s atrás dele — e o som sai ~500 ms atrás da imagem
+  (medido em aparelho: o caminho dele é worklet → blocos de 40 ms →
+  `postMessage` → fila → `MediaCodec` AAC, e nada disso existe do lado do
+  vídeo). A ponta rápida daquele intervalo fica, portanto, **150 ms à frente do
+  fim do som** — e a MSE só toca com dado em TODAS as faixas. O `<video>`
+  engasgava toda vez que a perseguição chegava lá: micro-travamentos **com o
+  buffer de vídeo cheio** e nenhum erro em lugar nenhum. A borda ao vivo de um
+  fluxo de N faixas é o **mínimo** das bordas. O preço é a imagem atrasar pelo
+  atraso do som, e ele é o preço certo: meio segundo a mais é invisível, um
+  engasgo não. Sem faixa de som — a maioria das telas — nada muda.
+- **O QUE VAI PARA O FIO É ASCII** (v5.155). `EspelhoPares.sanear` deixa passar
+  só `[\x20-\x7E]` (invariante 9, com JUnit) e ela está certa — um `\n` vindo da
+  rede injetaria linhas falsas no Registro, que é o artefato que este projeto
+  manda copiar e repassar. Só que ela **apaga** em vez de recusar, e as frases
+  do cliente são em português: o primeiro Registro de aparelho trouxe
+  `diz: "som: ok (vdeo  frente do som em 500 ms)  fim: ns abortamos"`. O
+  conserto é do lado que ESCREVE, nunca do que saneia: a tela segue com acento,
+  o fio leva a transliteração. **Texto novo que viaje ao Kotlin passa por
+  `semAcento`**, e o `espelho-cliente.test.mjs` exige que nenhum `alive`
+  carregue byte fora da faixa.
 - **A AUDITORIA DA v5.154, e ela é o item mais importante desta seção.** O
   operador relatou o espelho "tecnicamente conectando, mas estruturalmente
   quebrado", e a revisão linha a linha achou **seis** defeitos — quatro deles da
@@ -2044,6 +2066,15 @@ da **despedida**: recebido o `0x30 {"m":"adeus"}`, o cliente **para** — nada d
 martelar uma porta fechada — e a tela diz que foi o operador, em vez de "sem
 sinal".
 
+A v5.155 acrescentou dois casos ao mesmo arquivo, e os dois vieram da PRIMEIRA
+rodada em aparelho depois da auditoria — que só produziu leitura porque a
+v5.154 devolveu o canal de relato. O primeiro afirma que a **borda ao vivo é o
+MÍNIMO das bordas** das duas faixas: a regra é aritmética e mora numa função
+pura exposta em `__espelho`, porque prová-la com uma faixa de som de verdade
+exigiria um AAC que o Chromium do CI não tem. O segundo é o par negativo do
+saneamento: **nenhum `alive` pode carregar byte fora de `[\x20-\x7E]`**, isto
+é, o `sanear` do Kotlin não pode ter o que apagar.
+
 O `ponte.test.mjs` ganhou
 o caso do **papel espelho** (o dreno deixa passar só `display-ready`, o
 `BroadcastChannel.postMessage` é no-op — **e o par negativo com `role:'display'`**,
@@ -2272,7 +2303,7 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.154** (base web) · `SHELL_VERSION` **34**, e o bundle segue com
+**Versão atual: v5.155** (base web) · `SHELL_VERSION` **34**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
@@ -2286,6 +2317,11 @@ controles), que **só chegam instalando o APK novo**, não pelo OTA.
 > são Kotlin e **só chegam com o APK novo**. A ponte não mudou, então
 > `SHELL_VERSION` continua 34 e nada é recusado por versão: num shell antigo o
 > espelho segue funcionando com as correções do lado web, e sem a despedida.
+>
+> **A v5.155 é OTA PURO** — nenhuma linha de Kotlin, nenhuma Release. As duas
+> correções dela (a borda ao vivo lida da faixa mais atrasada e a transliteração
+> do que viaja ao Registro) vivem inteiras no `cliente.js` e chegam sozinhas ao
+> aparelho que já tem o APK v1.70.
 
 > **O ESPELHO DE PIXELS exige o APK novo, e o CLAUDE.md precisa dizer isso em
 > vez de deixar deduzir:** os cinco métodos da ponte são shell 32, e a linha em
