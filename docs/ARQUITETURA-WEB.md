@@ -3867,6 +3867,45 @@ dentro da coluna (`.row-text > .row-name { flex: none }`) — num pai em coluna,
 crescer significaria esticar na VERTICAL e descolar o nome do subtítulo. É a
 mesma nota que `.hymn-name` já carregava.
 
+#### A LINHA NO AR: `.active` × `.no-ar`, e os botões que trocam (v5.174 / v5.177)
+
+**"Atual" e "no ar" eram a mesma marca**, e não são a mesma coisa. `.active` é o
+item ATUAL — o que o ▶ repete, e que sobrevive de propósito ao Parar; `.no-ar` é
+o que está sendo PROJETADO agora. Depois de um Parar a linha continuava marcada
+com o telão vazio, e com uma cena de roteiro sobre um louvor de fundo (duas
+camadas no ar ao mesmo tempo) só uma das duas aparecia — ou seja, a marca não
+respondia "o que está sendo projetado?", que é justamente a pergunta que o
+segundo toque (v5.165: tocar de novo no que está no ar = tirar do ar) exige
+responder antes de ser tocado. Quem responde são `linhaAtiva` e `linhaNoAr`, e
+esta última lê `midiaNoArId` **e** `cueNoArId` — as duas camadas, separadas.
+
+O desenho de `.no-ar` é o **mesmo "no ar" do resto do app** (`--live-strong`
+sobre `--live-soft`, o raciocínio de `.msg-item.active` e `.bible-vsec.cur.live`)
+e vem com **texto**: o selo `● No ar` prefixado ao subtítulo, exatamente como a
+referência do versículo central da Bíblia. Uma cor a mais numa tela que já tem
+várias não ensina o que o segundo toque faz; a palavra ensina.
+
+**E os botões da direita trocam junto** (v5.177). No ar, a única decisão que
+aquela linha oferece é tirá-la do ar — mas a direita seguia oferecendo
+arrastar-para-reordenar e favoritar, que são as duas coisas que ninguém quer
+fazer com o item que está na frente da congregação, a milímetros do gesto que o
+operador está mirando. O `.row-stop` (herdando `.row-btn`, em `--danger-text`
+contornado, nunca preenchido — preenchido é "está no ar", e é o que a linha já
+diz em volta dele) toma o lugar dos dois, **por classe CSS**:
+
+```css
+.row-stop { display: none; }
+.lib-item.no-ar .row-stop { display: flex; }
+.lib-item.no-ar .row-handle, .lib-item.no-ar .fav-btn { display: none; }
+```
+
+Por CSS, e não remontando a linha, porque **quem liga e desliga o estado é o
+`marcarNoAr`**, que roda a cada `display-status` (~4 Hz) e só troca classes —
+fazer cirurgia de DOM nesse ritmo recriaria botões e perderia listeners quatro
+vezes por segundo. O botão é construído em toda linha e fica escondido; o teste
+mede o RENDERIZADO (`offsetParent`), não a presença do nó, porque uma regra que
+deixe de casar não apaga botão nenhum: ela só para de escondê-lo, em silêncio.
+
 #### O rodapé fixo da caixa da lista (`#listFoot`, v5.107)
 
 `<main>` é uma coluna de três faixas: o cabeçalho, o `<ul id="library">` que
