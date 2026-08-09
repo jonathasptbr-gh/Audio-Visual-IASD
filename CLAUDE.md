@@ -104,6 +104,8 @@ app/src/main/
 │   ├── EspelhoServidor.kt       # sockets, rotas, fan-out
 │   ├── EspelhoService.kt        # foreground service `connectedDevice`
 │   ├── EspelhoAudio.kt          # PCM do WebView do espelho → AAC no mesmo fio
+│   ├── EspelhoMdnsPacote.kt     # o fio do mDNS — PURO, com JUnit
+│   ├── EspelhoMdns.kt           # `av.local`: socket 5353, sondagem, despedida
 │   └── EspelhoDiag.kt           # o anel de diagnóstico — devolve JSON, não frase
 └── res/
     ├── drawable/                # ic_image{,_off} — a cortina, na notificação
@@ -1323,6 +1325,7 @@ mesmo?"), lembrada pela sessão.
 | `EspelhoHttp.kt` · `EspelhoPares.kt` | **PUROS, zero import de Android.** É o primeiro código do projeto que aceita entrada de um desconhecido, e o único em que um erro vira controle de acesso quebrado em vez de pixel errado — daí serem funções puras, com JUnit |
 | `EspelhoServidor.kt` | sockets, rotas, fan-out. **Bind explícito ao IPv4 da Wi-Fi**, e recusa em celular/VPN: um `ServerSocket(porta)` liga em `0.0.0.0` — inclusive `rmnet`, e operadoras brasileiras entregam IPv6 globalmente roteável ao aparelho. Seria o culto em H.264 numa porta alcançável do mundo |
 | `EspelhoService.kt` | foreground service **`connectedDevice`** (sem cota, ao contrário do `dataSync` que o app já gasta). Exige `CHANGE_WIFI_MULTICAST_STATE` no manifest — sem ela `startForeground` **lança** |
+| `EspelhoMdnsPacote.kt` · `EspelhoMdns.kt` | **`av.local`.** O primeiro é **puro, com JUnit**, pela mesma regra do `EspelhoHttp` — e aqui um erro de parser vira **laço infinito**, porque ponteiro de compressão de DNS é um grafo que pode apontar para trás. O segundo é o socket 5353 com `MulticastLock` (sem ele o Android **não entrega o pacote**: o socket abre, o `joinGroup` funciona, e o `receive` nunca volta), a sondagem que impede roubar um nome alheio, e a despedida com TTL 0. **`NsdManager` não serviria**: ele publica um SERVIÇO, e serviço não vira nome que se digita numa TV. **A porta FICA na URL** (portas < 1024 são privilegiadas no Linux; nenhum app Android as reivindica) e **o IP continua divulgado ao lado**, porque `.local` não resolve no Chrome do Android nem na maioria das Smart TVs |
 | `EspelhoAudio.kt` | o PCM que o `AudioWorklet` do WebView do espelho entrega, virando AAC no mesmo fio. **O `AudioWorklet` existe ali porque aquele WebView É contexto seguro** (invariante 1) mesmo com o cliente em `http://` — o princípio geral: *tudo que precisa de contexto seguro pode ir para DENTRO do WebView* |
 | `EspelhoCert.kt` | o `.p12` do degrau de TLS: guarda, diz até quando vale, e **recusa o vencido** (subir com ele é a tela vermelha que o TLS existe para evitar). A senha do operador NÃO fica: o arquivo é reescrito com uma senha nossa de 128 bits |
 | `EspelhoDiag.kt` | o anel. **Devolve JSON, não texto** — quem monta a frase é o `controle.js`. Ele vive num `object` e SOBREVIVE a desligar e ligar o espelho, então a âncora do atraso precisa ser zerada por `novaSessao()` — a guarda de "o carimbo andou para trás" não pega o caso em que a base do codec não rebobina, e o tempo de espelho DESLIGADO era impresso como fila de encoder (v5.146) |
@@ -2341,11 +2344,27 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.163** (base web) · `SHELL_VERSION` **34**, e o bundle segue com
+**Versão atual: v5.164** (base web) · `SHELL_VERSION` **34**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
+> **A v5.164 dá um NOME ao espelho: `av.local`.** Dois arquivos novos —
+> `EspelhoMdnsPacote.kt` (**puro**, com JUnit, porque é o segundo ponto do
+> projeto que aceita bytes de um desconhecido, e aqui um erro vira **laço
+> infinito**: ponteiro de compressão de DNS é um grafo) e `EspelhoMdns.kt` (o
+> socket 5353, o `MulticastLock` sem o qual o Android nunca entrega o pacote, a
+> sondagem que impede roubar um nome alheio, e a despedida com TTL 0). **O nome
+> entra na allowlist de `Host`** — sem isso `av.local:8787` receberia o 404
+> idêntico, que é o modo de falhar mais mudo deste servidor; é a mesma armadilha
+> do nome do certificado TLS, agora valendo duas vezes. **Duas coisas que ele
+> NÃO conserta, e estão ditas na folha:** a porta fica na URL (portas < 1024 são
+> privilegiadas no Linux e nenhum app Android as reivindica — não existe
+> permissão), e `.local` **não** resolve no Chrome do Android nem na maioria das
+> Smart TVs, então **o IP continua divulgado ao lado do nome**, nunca no lugar
+> dele. `NsdManager` não serviria: ele publica um SERVIÇO, e serviço não vira
+> nome que se digita. **Exige o APK.**
+>
 > **A v5.163 acha por que o SOM MORRE, e a causa estava no descarte do
 > servidor.** Quando a fila de uma tela enche, `entregar()` fazia `fila.clear()`
 > — varrendo o **áudio** junto com o vídeo. O cliente solta a faixa de som depois

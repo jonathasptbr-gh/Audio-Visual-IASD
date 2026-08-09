@@ -3392,6 +3392,19 @@ body.mode-simple .hymn-add-btn { display: none; }
   font-size: .95rem; font-weight: 700; color: var(--text);
   overflow-wrap: anywhere; text-align: center;
 }
+/* O ENDEREÇO NUMÉRICO, quando há nome curto acima dele. Menor e em `--muted`
+   porque ele é a ALTERNATIVA, não o principal — mas presente, porque em boa
+   parte das telas ele é o único que resolve (ver `EspelhoMdns.kt`). */
+.mirror-url2 {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .8rem; color: var(--muted);
+  overflow-wrap: anywhere; text-align: center;
+}
+/* A ressalva do `.local`, dita na folha em vez de descoberta no domingo. */
+.mirror-nome-hint {
+  margin: -2px 0 0; font-size: .78rem; line-height: 1.35;
+  color: var(--muted); text-align: center;
+}
 .mirror-pin {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 1.35rem; font-weight: 700; letter-spacing: .18em;

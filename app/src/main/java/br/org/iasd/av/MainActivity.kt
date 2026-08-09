@@ -1221,6 +1221,12 @@ class MainActivity : ComponentActivity(), BridgeHost {
             // evitar. Ver o KDoc de [EspelhoCert.material].
             val cert = EspelhoCert.material(this)
             val hostTls = if (cert != null) EspelhoCert.estado(this).host else ""
+            // O NOME mDNS SOBE ANTES DO SERVIDOR, e a ordem é o contrato: quem
+            // monta a allowlist de `Host` é o `ligar` abaixo, e ele pergunta ao
+            // [EspelhoMdns] se o nome está no ar. Subir depois deixaria a lista
+            // sem o nome — e `av.local:8787` receberia o 404 idêntico de sempre,
+            // que é o modo de falhar mais mudo deste servidor.
+            EspelhoMdns.ligar(applicationContext, rede.ip)
             val endereco = try {
                 srv.ligar(
                     EspelhoServidor.PORTA_PADRAO, rede.ip,
@@ -1291,6 +1297,10 @@ class MainActivity : ComponentActivity(), BridgeHost {
     private fun desmontarEspelho() {
         espelhoSrv?.desligar()
         espelhoSrv = null
+        // O nome sai da rede com uma despedida (TTL 0) — ver [EspelhoMdns]:
+        // sumir sem avisar deixa as telas apontadas para um IP que não atende
+        // mais, pelos dois minutos do TTL.
+        EspelhoMdns.desligar()
         EspelhoPares.desligar()
         try { EspelhoService.desligar(this) } catch (e: Exception) {
             Log.w(TAG, "serviço do espelho não parou", e)
@@ -1327,6 +1337,13 @@ class MainActivity : ComponentActivity(), BridgeHost {
             .put("pin", if (ligado) EspelhoPares.pin() else "")
             .put("autoAprovar", EspelhoPares.autoAprovando())
             .put("erro", erro)
+            // O NOME CURTO, quando ele subiu — e o `endereco` acima FICA, com o
+            // IP. Não é redundância: `.local` não resolve no Chrome do Android
+            // nem na maioria das Smart TVs (ver [EspelhoMdns]), então o IP é o
+            // que funciona em metade das telas. Trocar um pelo outro seria uma
+            // regressão com cara de melhoria.
+            .put("nomeLocal", if (ligado) EspelhoMdns.endereco(EspelhoServidor.PORTA_PADRAO) else "")
+            .put("nomeErro", if (ligado) EspelhoMdns.erro else "")
             .put("telas", srv?.optJSONArray("telas") ?: JSONArray())
             .put("pendentes", srv?.optJSONArray("pendentes") ?: JSONArray())
             // Quantas telas estão com um QR em cartaz. A folha usa este número
