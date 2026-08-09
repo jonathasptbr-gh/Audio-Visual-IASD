@@ -2344,11 +2344,23 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.170** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
+**Versão atual: v5.171** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
+> **A v5.171: a folha de conectar vira UM DEGRAU.** Eram três (cast → espelho →
+> QR) para ler uma linha de texto. Agora **abrir a folha já liga o servidor**
+> (ninguém abre "Conectar uma tela" para não conectar, e a ordem "primeiro
+> ligue, depois leia o endereço" existia por causa de como o recurso é
+> construído, não por causa de quem o usa), o **endereço é o maior elemento da
+> tela** (é o único que alguém copia com os olhos para digitar num controle
+> remoto) e **a lista de quem está vendo sobe para a folha principal, com o
+> botão de derrubar** — com a porta aberta ela deixou de ser fila de aprovação e
+> virou o controle de verdade, porque o dano de um curioso é ocupar uma das três
+> vagas, não ver o que a congregação já vê. O PIN, o certificado e o interruptor
+> da porta continuam existindo atrás de um link discreto de "Ajustes avançados".
+>
 > **A v5.170: A PORTA NASCE ABERTA.** Quem abrir o endereço do espelho entra —
 > sem PIN, sem QR e sem o toque do operador. A decisão é sobre o CONTEÚDO: o
 > espelho transmite a imagem do que está sendo projetado **para a congregação
