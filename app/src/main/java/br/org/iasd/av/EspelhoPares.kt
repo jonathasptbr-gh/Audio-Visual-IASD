@@ -34,7 +34,10 @@ import java.util.Base64
  *    token que sobreviva ao culto. O prazo é FIXO a partir da aprovação
  *    ([PRAZO_SESSAO_MS]) e **não é renovado pelo uso**: uma janela deslizante
  *    nunca expira enquanto alguém a usar, o que é precisamente o caso do token
- *    vazado sendo usado por outro.
+ *    vazado sendo usado por outro. O uso é CARIMBADO ([Sessao.ultimoUsoMs]) e
+ *    isso não é uma janela deslizante disfarçada: o carimbo só faz uma sessão
+ *    morrer MAIS CEDO — ele é o que permite a [liberarVagaOciosa] tomar a vaga
+ *    de quem já foi embora, e nunca estende o prazo de ninguém.
  * 4. **Comparação em tempo constante** (`MessageDigest.isEqual`) para PIN, token
  *    e id de espera. E, pelo mesmo motivo, as sessões vivem numa LISTA percorrida
  *    inteira: um `HashMap[token]` compara por hash e sai na primeira diferença —
@@ -116,11 +119,50 @@ object EspelhoPares {
      */
     const val PRAZO_ESPERA_MS = 5L * 60 * 1000
 
+    /**
+     * Quanto tempo uma sessão pode ficar SEM SER USADA antes de a vaga dela
+     * poder ser tomada por uma tela nova — e **só** nesse caso (ver
+     * [liberarVagaOciosa]). Ela **não** encurta o prazo de ninguém sozinha: uma
+     * sessão ociosa continua válida enquanto houver vaga sobrando.
+     *
+     * ## Por que isto existe, e por que ele não é uma janela deslizante
+     *
+     * A invariante 3 diz que o prazo é FIXO a partir da aprovação e **não é
+     * renovado pelo uso** — e continua sendo: [PRAZO_SESSAO_MS] é absoluto e
+     * nada aqui o estende. O que este número governa é o oposto: fazer uma
+     * sessão morrer **antes** do prazo dela quando ela já não serve a ninguém.
+     * Encurtar nunca afrouxa um controle de acesso.
+     *
+     * E ele conserta uma falha real, que a porta aberta da v5.170 tornou
+     * frequente: uma sessão só saía de [vivas] por [encerrar], [recusar] ou o
+     * prazo de SEIS HORAS. Uma tela que recarrega a página numa aba nova (a TV
+     * que foi desligada e religada, o navegador que perdeu o `sessionStorage`)
+     * pede um token novo e o antigo fica ocupando vaga. **Três recomeços
+     * esgotavam o teto de [MAX_SESSOES] e o espelho passava a recusar todo mundo
+     * pelo resto do culto**, sem uma linha em lugar nenhum que o explicasse.
+     *
+     * Quatro minutos porque uma tela viva é revalidada de segundo em segundo
+     * (o vigia do `EspelhoServidor` confere o token de cada conexão aberta) e
+     * uma tela que tenta reconectar bate no `GET /v` a cada 8 s no pior degrau
+     * da escada. Quatro minutos sem NENHUMA das duas coisas é uma tela que foi
+     * embora.
+     */
+    const val PRAZO_OCIOSA_MS = 4L * 60 * 1000
+
     /** Erros de PIN da MESMA origem antes do bloqueio. */
     const val ERROS_ATE_BLOQUEIO = 5
 
     /** Duração do bloqueio de uma origem. */
     const val BLOQUEIO_MS = 60_000L
+
+    /**
+     * Duração do castigo de uma tela DERRUBADA pelo operador — ver [derrubar].
+     *
+     * Mais longo que o [BLOQUEIO_MS] (que existe para frear marteladas de PIN) e
+     * muito mais curto que o culto: derrubar precisa DURAR alguma coisa com a
+     * porta aberta, e enganar-se de tela não pode custar o domingo.
+     */
+    const val BLOQUEIO_DERRUBADA_MS = 2L * 60 * 1000
 
     /** Teto de sessões vivas (invariante 8). */
     const val MAX_SESSOES = 3
@@ -194,6 +236,22 @@ object EspelhoPares {
      * for escrever `"...${sessao.token}..."` à mão.
      */
     data class Sessao(val token: String, val relato: Relato, val expiraEm: Long) {
+        /**
+         * Quando esta sessão foi USADA pela última vez (o relógio de fora, o
+         * mesmo `agora` de todo este arquivo).
+         *
+         * Mora no CORPO da classe, e não no construtor, de propósito: propriedade
+         * de corpo fica fora de `equals`/`hashCode`/`copy`/`toString`, então uma
+         * sessão continua igual a si mesma depois de ser usada — e os testes que
+         * comparam `Sessao` por valor seguem valendo.
+         *
+         * Ele **não estende prazo nenhum** (invariante 3). Serve a uma coisa só:
+         * [liberarVagaOciosa], que é o que impede o teto de [MAX_SESSOES] de ser
+         * consumido por telas que já foram embora.
+         */
+        @Volatile
+        var ultimoUsoMs: Long = 0L
+
         override fun toString(): String =
             "Sessao(token=<oculto>, ua=${relato.ua}, expiraEm=$expiraEm)"
     }
@@ -444,6 +502,68 @@ object EspelhoPares {
     }
 
     /**
+     * A PORTA ABERTA (v5.170), agora com uma porta de verdade atrás dela.
+     *
+     * A v5.170 declarou que "quem abrir o endereço entra" e a v5.171 construiu a
+     * folha em volta disso — mas o caminho **não existia**: o `cliente.js`
+     * mandava um `POST /par` com o relato e mais nada, e o `when` do
+     * `EspelhoServidor.parear` não tinha ramo para um corpo assim. Caía no
+     * `else -> 403`. Toda tela continuava precisando de QR ou dos seis dígitos,
+     * e o pior sintoma era o de recuperação: a cada queda de rede, a cada
+     * religada do espelho e a cada expiração de token, as telas voltavam à
+     * página de pareamento e **ficavam lá**, mostrando um QR que ninguém ia ler.
+     * Era isto, e não a rede, a maior parte de "conecta mas não é confiável".
+     *
+     * O que ela faz, e o que ela deliberadamente NÃO faz:
+     *
+     *  - **não cria [Pendencia] nenhuma.** O caminho do PIN cria uma porque o
+     *    operador pode ter de decidir; aqui não há decisão a tomar, e uma espera
+     *    por entrada encheria o [MAX_ESPERAS] em minutos numa tela que reconecta
+     *    — trancando o PIN, que é o plano B;
+     *  - **respeita o bloqueio por origem** (invariante 6) e o teto de
+     *    [MAX_SESSOES], que continua sendo o dano real de um curioso na rede;
+     *  - **não conta erro nenhum** quando a porta está fechada: não houve
+     *    segredo tentado. Contá-lo faria uma tela que só perguntou "posso
+     *    entrar?" gastar a cota de tentativas do visitante que está digitando o
+     *    PIN ao lado.
+     */
+    @Synchronized
+    fun entrarAberto(origem: String, relato: Relato, agora: Long): Veredito {
+        limpar(agora)
+        if (!noAr) return Veredito.Desligado
+        if (!autoOn) return Veredito.Recusada
+
+        val chave = sanear(origem, 64)
+        val t = erros[chave]
+        if (t != null && t.bloqueadoAte > agora) return Veredito.Bloqueada(t.bloqueadoAte - agora)
+
+        val s = novaSessao(relato, agora) ?: return Veredito.Lotada
+        return Veredito.Aprovada(s)
+    }
+
+    /**
+     * O operador tirou ESTA tela do ar (o botão "Desconectar" da folha).
+     *
+     * Encerrar a sessão não basta com a porta aberta: a tela derrubada perde o
+     * token, volta ao pareamento e **entra de novo em dois segundos** — o botão
+     * reportaria sucesso e não faria nada visível. Por isso derrubar também põe
+     * a origem de castigo, pelo mesmo mecanismo do PIN errado e por um prazo
+     * curto: [BLOQUEIO_DERRUBADA_MS].
+     *
+     * Curto de propósito. Derrubar a tela errada é um toque; ficar sem poder
+     * readmiti-la pelo resto do culto seria o preço errado para isso.
+     */
+    @Synchronized
+    fun derrubar(token: String, origem: String, agora: Long) {
+        encerrar(token)
+        val chave = sanear(origem, 64)
+        if (chave.isEmpty()) return
+        val t = erros.getOrPut(chave) { Tentativas() }
+        t.visto = agora
+        t.bloqueadoAte = agora + BLOQUEIO_DERRUBADA_MS
+    }
+
+    /**
      * A espera do QR: **sem PIN, e por isso invisível para o operador até ele
      * apontar a câmera** (invariante 5b).
      *
@@ -603,7 +723,15 @@ object EspelhoPares {
             cru
         }
         if (token.isEmpty() || token.contains(' ')) return null
-        for (s in vivas) if (igual(token, s.token)) return s
+        for (s in vivas) {
+            if (!igual(token, s.token)) continue
+            // MARCA O USO — e isto NÃO estende o prazo (invariante 3): o
+            // `expiraEm` é absoluto e ninguém o toca. O carimbo serve só a
+            // [liberarVagaOciosa], isto é, a saber qual das três vagas já não
+            // tem ninguém do outro lado.
+            s.ultimoUsoMs = agora
+            return s
+        }
         return null
     }
 
@@ -704,12 +832,51 @@ object EspelhoPares {
     private fun aprovarPendencia(e: Pendencia, agora: Long): Sessao? {
         if (e.estado == Estado.RECUSADA) return null
         e.sessao?.let { return it }
-        if (vivas.size >= MAX_SESSOES) return null
-        val s = Sessao(novoToken(), e.relato, agora + PRAZO_SESSAO_MS)
-        vivas.add(s)
+        val s = novaSessao(e.relato, agora) ?: return null
         e.estado = Estado.APROVADA
         e.sessao = s
         return s
+    }
+
+    /**
+     * Cunha uma sessão, ou `null` quando o teto de [MAX_SESSOES] está cheio **e
+     * nenhuma das vagas está ociosa**.
+     *
+     * O relato já vem saneado de [tentar]/[esperaQr] no caminho da pendência; no
+     * caminho da porta aberta ele chega cru, e por isso passa pelo funil aqui.
+     * Sanear duas vezes é idempotente — `[\x20-\x7E]` já filtrado continua
+     * filtrado —, e a alternativa (confiar em quem chama) é a forma de um
+     * caminho novo entrar sem saneamento nenhum.
+     */
+    private fun novaSessao(relato: Relato, agora: Long): Sessao? {
+        if (vivas.size >= MAX_SESSOES && !liberarVagaOciosa(agora)) return null
+        val s = Sessao(novoToken(), sanear(relato), agora + PRAZO_SESSAO_MS)
+        s.ultimoUsoMs = agora
+        vivas.add(s)
+        return s
+    }
+
+    /**
+     * Abre UMA vaga tomando a sessão mais ociosa, quando ela estiver parada há
+     * mais de [PRAZO_OCIOSA_MS]. `false` = todas as três estão em uso.
+     *
+     * É o conserto do teto consumido por fantasmas: até aqui uma sessão só saía
+     * por [encerrar], por [recusar] ou pelas seis horas do prazo, e uma tela que
+     * recomeça numa aba nova deixa a anterior ocupando vaga. Com a porta aberta
+     * isso deixou de ser hipótese — três recomeços e o espelho passava a recusar
+     * todo mundo pelo resto do culto.
+     *
+     * **A mais ociosa, e nunca a mais velha**: a mais velha pode ser justamente
+     * a TV do templo, ligada desde o começo e usada a cada segundo. O que
+     * qualifica uma vaga como livre é ninguém estar do outro lado dela.
+     */
+    private fun liberarVagaOciosa(agora: Long): Boolean {
+        val alvo = vivas
+            .filter { agora - it.ultimoUsoMs > PRAZO_OCIOSA_MS }
+            .maxByOrNull { agora - it.ultimoUsoMs }
+            ?: return false
+        encerrar(alvo.token)
+        return true
     }
 
     private fun acharPendencia(id: String): Pendencia? {

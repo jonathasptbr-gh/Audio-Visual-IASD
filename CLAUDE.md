@@ -2344,11 +2344,46 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.171** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
+**Versão atual: v5.172** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
+> **A v5.172: A PORTA ABERTA NUNCA ABRIU — e mais sete.** O operador relatou o
+> espelho "funcionando, mas sem estabilidade nem confiabilidade na conexão", e a
+> revisão linha a linha achou **oito** defeitos. O primeiro explica sozinho a
+> maior parte da queixa: o `cliente.js` pedia a entrada assim que a página
+> abria — um `POST /par` com o relato e mais nada —, e o `when` do
+> `EspelhoServidor.parear` **não tinha ramo para esse corpo**. Caía no
+> `else -> 403`. A porta que a v5.170 anunciou e em volta da qual a v5.171
+> construiu a folha inteira nunca chegou a existir; e o custo maior não era o
+> atrito da estreia, era a RECUPERAÇÃO — toda queda de rede, toda religada do
+> espelho e toda expiração de token devolvem a tela ao pareamento, onde ela
+> ficava mostrando um QR que ninguém ia ler até alguém atravessar o salão.
+> Os outros sete, com o porquê de cada um, estão em
+> `docs/ESPELHO-DE-PIXELS.md` §10-A.10; os que mudam decisões deste documento:
+> **três recomeços trancavam o espelho por seis horas** (uma sessão só saía de
+> `vivas` por `encerrar`, `recusar` ou o prazo, e uma aba nova pede token novo —
+> agora a vaga OCIOSA é reaproveitada, o que só faz sessão morrer mais cedo e
+> deixa a invariante 3 intacta); **"Desconectar" era um botão que não fazia
+> nada** (a folha manda o RÓTULO da tela e ele ia parar num `recusar` que
+> procura id de espera — nunca casava, e um rótulo vazio ainda fechava a porta);
+> **o teto de conexões em voo contava os FLUXOS** (três telas ocupavam três dos
+> oito slots para sempre, e um navegador abre até seis conexões paralelas só
+> para carregar a página — a segunda tela a abrir o endereço já era recusada);
+> **nenhum dos dois lados detectava um TCP meio-aberto** (o `fetch` de `/v` fica
+> pendurado para sempre — nem `done`, nem erro —, e do lado do servidor a
+> escrita não trava enquanto o buffer do kernel couber); **uma oscilação da rede
+> PADRÃO derrubava o espelho inteiro** (`registerDefaultNetworkCallback` fala da
+> rede padrão, que pisca para a móvel numa revalidação da Wi-Fi — agora suspeita
+> não é veredito: o vigia confirma 6 s depois); e **o adeus era uma sentença**
+> (a página ficava morta até alguém recarregá-la à mão; agora ela volta a
+> oferecer entrada sozinha em 20 s). **Metade é APK e metade é OTA**, e as duas
+> degradam sozinhas: um bundle novo num shell antigo volta ao QR, e um bundle
+> antigo num shell novo entra pela porta assim mesmo, porque o corpo nu vale
+> como pedido. `SHELL_VERSION` **não sobe** — nenhum método da ponte nasceu nem
+> mudou de assinatura.
+>
 > **A v5.171: a folha de conectar vira UM DEGRAU.** Eram três (cast → espelho →
 > QR) para ler uma linha de texto. Agora **abrir a folha já liga o servidor**
 > (ninguém abre "Conectar uma tela" para não conectar, e a ordem "primeiro
