@@ -585,6 +585,15 @@ Três regras completam o desenho:
   só serve para empilhar comandos numa fila cujos `setTimeout` o Android
   estrangula. Escondida, ela aplica na hora — e é dessa posição que o
   realinhamento da retomada parte.
+- **E escondida ela também não é TOCADA** (`preverPodeMexer`, v5.177). O
+  Chromium pausa um `<video>` de página oculta: o `play()` do resync sai, o
+  navegador pausa de volta, e o status seguinte recomeça — um laço a ~4 Hz que a
+  linha do tempo do Registro mostrou par a par, com a marca `[oculto]`. Não é só
+  inútil: **os três WebViews dividem UM processo**, e essa rotatividade de
+  decodificador rouba o fio que alimenta o `AudioWorklet` do espelho, o que do
+  lado da tela da rede aparece como "o som parou de chegar" com a imagem
+  seguindo. A janela de `forcarResyncAte` só é CONSUMIDA quando há como agir,
+  senão a retomada seguinte partiria de um crédito já gasto.
 
 ### O `load` carrega o ponto e o estado da mídia
 
@@ -2409,11 +2418,58 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.176** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
+**Versão atual: v5.177** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
+> **A v5.177: A PREVIEW ESCONDIDA ESTAVA ROUBANDO O SOM DO ESPELHO.** O
+> operador relatou a tela da rede ficando muda com a imagem seguindo, e o
+> Registro trazia a causa na própria linha do tempo: pares
+> `📱 play [oculto]` / `📱 PAUSA ESPONTÂNEA [oculto]` a ~4 Hz. Aqueles `📱` são
+> a **preview do Controle**, não o telão. A v5.173 passou a escutar o
+> `espelho-status` — que é o certo, porque sem TV o espelho É a projeção — e com
+> isso `resyncPreviewToDisplay` começou a chamar `preview.play()` numa página
+> oculta; o Chromium pausa um `<video>` de página escondida, o status seguinte
+> chega 250 ms depois e recomeça. **Os três WebViews dividem UM processo**, e
+> essa rotatividade de decodificador rouba justamente o fio que alimenta o
+> `AudioWorklet` do espelho: do lado da tela da rede isso vence o
+> `AUDIO_MUDO_MS` e a faixa de som é solta. A regra que faltava é a outra metade
+> da que a v5.173 já escreveu para o atraso — **com a página escondida não se
+> toca no transporte da preview** (`preverPodeMexer`): um `play()` que o
+> navegador desfaz no quadro seguinte não é sincronização, é ruído, e quem
+> realinha é a retomada, que já é EXATA. Junto veio a metade que faltava do
+> outro lado: **`soltarAudio` era uma porta de mão única** — a tela ficava muda
+> até alguém atravessar o salão para tocar nela. Agora, com o AAC voltando a
+> chegar por 2 s seguidos, o cliente **remonta sozinho** (`voltouOSom`), preso
+> ao mesmo teto de `REBUILDS_AUDIO`, que só se renova depois de a remontagem ter
+> dado certo.
+>
+> **E a tela receptora ganhou DOIS ícones no lugar do botão único.** "Ver em
+> tela cheia e ouvir" juntava duas decisões que não são a mesma: a tela do
+> saguão quer imagem cheia e SILÊNCIO (a PA está a 200 ms dali), a da sala anexa
+> quer som — e quem descobria o eco não tinha como desfazer sem recarregar a
+> página. Agora são um alto-falante e uma moldura, na mesma anatomia dos
+> `.pv-fab` da preview (traço, sem moldura, contorno por `drop-shadow`), e eles
+> **se recolhem sozinhos** depois de 4 s, voltam com um toque e somem com o
+> toque seguinte — o player de sempre, com uma carência de 400 ms porque num
+> notebook o ponteiro se mexe ANTES do clique. **O que NÃO dá para tirar, e está
+> dito em vez de escondido: o PRIMEIRO toque.** `requestFullscreen()` e sair do
+> `muted` exigem ativação transitória do usuário. O que muda é que o toque passa
+> a ser NAQUILO que se quer — e, do segundo em diante, o ícone do som é um mudo
+> de verdade (`muted` no elemento, sem remontar nada e sem falar com o
+> servidor). O som segue **opt-in** (invariante 10): o ícone nasce riscado.
+>
+> **E no Cronograma o Parar toma o lugar de mover e favoritar.** O segundo toque
+> já tirava do ar desde a v5.165 e o selo "● No ar" já dizia o estado, mas a
+> direita da linha seguia oferecendo arrastar-para-reordenar e favoritar — as
+> duas coisas que ninguém quer fazer com o item que está na frente da
+> congregação, a milímetros do gesto que o operador está mirando. Trocá-los é o
+> que faz QUALQUER toque naquela linha significar a mesma coisa. A troca é por
+> **classe CSS** (`.lib-item.no-ar`), nunca remontando a linha: quem liga e
+> desliga o estado é o `marcarNoAr`, que roda a cada `display-status`. **OTA
+> puro** — nenhuma linha de Kotlin em todo o lote.
+>
 > **A v5.176: O CARTÃO DO ESPELHO SAIU DA BARRA DE STATUS, e quem passou a
 > avisar é o ÍCONE.** Pedido do operador, e ele tem uma parte que **não dá para
 > atender**: a notificação do `EspelhoService` não pode ser removida. Um serviço

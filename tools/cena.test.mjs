@@ -231,7 +231,43 @@ try {
   checar(!!daMusica && daMusica.noAr && /No ar/.test(daMusica.texto),
     'e a música de fundo TAMBÉM — as duas camadas estão no telão', JSON.stringify(daMusica));
 
+  // ---- E OS BOTÕES DA LINHA TROCAM (v5.177) ----
+  //
+  // No ar, a única decisão que aquela linha oferece é tirá-la do ar — o toque
+  // no corpo já faz isso desde a v5.165. Mas a direita seguia oferecendo
+  // arrastar-para-reordenar e favoritar, a milímetros do gesto que o operador
+  // está mirando, e são justamente as duas coisas que ninguém quer fazer com o
+  // item que está na frente da congregação.
+  //
+  // A troca é por CSS, e é por isso que este caso mede o RENDERIZADO
+  // (`offsetParent`) e não a presença do nó: uma regra que deixe de casar não
+  // apaga botão nenhum do DOM, ela só para de escondê-lo — em silêncio, que é a
+  // mesma família do `var(--radius-md)` que nunca existiu.
+  const botoes = async (id) => pg.evaluate((x) => {
+    const el = document.querySelector('.lib-item[data-id="' + x + '"]');
+    if (!el) return null;
+    const vis = (s) => { const b = el.querySelector(s); return !!(b && b.offsetParent !== null); };
+    return { stop: vis('.row-stop'), estrela: vis('.fav-btn'), arrasta: vis('.row-handle') };
+  }, id);
+
+  const noAr = await botoes(audioId);
+  checar(!!noAr && noAr.stop, 'a linha no ar mostra o botão de PARAR', JSON.stringify(noAr));
+  checar(!!noAr && !noAr.estrela && !noAr.arrasta,
+    'e ele TOMA O LUGAR de favoritar e de arrastar — qualquer toque na linha é o mesmo',
+    JSON.stringify(noAr));
+  // E o botão faz o que diz: é o mesmo `retirarDoAr` do segundo toque.
+  await pg.evaluate((x) => document.querySelector('.lib-item[data-id="' + x + '"] .row-stop').click(), audioId);
+  await pg.waitForFunction(() => !midiaNoAr, null, { timeout: 3000 })
+    .then(() => checar(true, 'e tocá-lo tira do ar'))
+    .catch(() => checar(false, 'e tocá-lo tira do ar'));
+  const fora = await botoes(audioId);
+  checar(!!fora && !fora.stop && fora.estrela,
+    'fora do ar a linha volta ao normal — a estrela e o arrastar de sempre',
+    JSON.stringify(fora));
+
   // O PARAR limpa as duas, e o "atual" SOBREVIVE — é ele que o ▶ repete.
+  await pg.evaluate(async (ids) => { await send(ids[0]); await send(ids[1]); },
+    [cenaId, audioId]);
   await pg.evaluate(() => stopClear());
   const depoisDoStop = await selo(audioId);
   checar(!!depoisDoStop && !depoisDoStop.noAr && !depoisDoStop.texto,
@@ -242,6 +278,54 @@ try {
     JSON.stringify(depoisDoStop));
   await pg.evaluate(() => stopClear());
   await pg.evaluate(async (id) => { await send(id); }, id);
+
+  // ---- A PREVIEW ESCONDIDA NÃO É TOCADA (v5.177) ----
+  //
+  // Este caso nasceu de um Registro de aparelho. Com o app minimizado, a linha
+  // do tempo trazia pares `play [oculto]` / `PAUSA ESPONTÂNEA [oculto]` a ~4 Hz:
+  // a v5.173 passou a escutar o `espelho-status` (que é o certo — sem TV o
+  // espelho É a projeção), e com isso `resyncPreviewToDisplay` começou a chamar
+  // `preview.play()` numa página oculta. O Chromium pausa um `<video>` de
+  // página escondida, o status seguinte chega 250 ms depois e recomeça.
+  //
+  // O estrago não fica na preview: os três WebViews dividem UM processo, e essa
+  // rotatividade de decodificador rouba o fio que alimenta o `AudioWorklet` do
+  // espelho — do lado da tela da rede isso aparece como "o som parou de chegar"
+  // com a imagem seguindo, que foi a queixa que abriu a rodada.
+  //
+  // Um `play()` que o navegador desfaz no quadro seguinte não é sincronização,
+  // é ruído. Quem realinha é a retomada, e ela é EXATA.
+  {
+    const espiar = async (visivel, playing) => pg.evaluate((arg) => {
+      Object.defineProperty(document, 'visibilityState',
+        { configurable: true, get: () => (arg.visivel ? 'visible' : 'hidden') });
+      const conta = { play: 0, pause: 0, seek: 0 };
+      const oPlay = preview.play, oPause = preview.pause, oSeek = preview.seek;
+      const oTimed = preview.isTimed, oPlaying = preview.isPlaying, oTime = preview.getTime;
+      preview.play = () => { conta.play++; };
+      preview.pause = () => { conta.pause++; };
+      preview.seek = () => { conta.seek++; };
+      preview.isTimed = () => true;
+      preview.isPlaying = () => false;
+      preview.getTime = () => 0;
+      try { resyncPreviewToDisplay(arg.playing, 120, 0.15); } finally {
+        preview.play = oPlay; preview.pause = oPause; preview.seek = oSeek;
+        preview.isTimed = oTimed; preview.isPlaying = oPlaying; preview.getTime = oTime;
+        Object.defineProperty(document, 'visibilityState',
+          { configurable: true, get: () => 'visible' });
+      }
+      return conta;
+    }, { visivel, playing });
+
+    const oculta = await espiar(false, true);
+    checar(oculta.play === 0 && oculta.pause === 0 && oculta.seek === 0,
+      'com a página ESCONDIDA o resync não toca no transporte da preview',
+      JSON.stringify(oculta));
+    const visivel = await espiar(true, true);
+    checar(visivel.play === 1 && visivel.seek === 1,
+      'e com ela visível ele age normalmente — a guarda é de visibilidade, não um desligar',
+      JSON.stringify(visivel));
+  }
 
   // ---- GIRAR ----
   // O giro é preferência de EXIBIÇÃO: ele precisa chegar ao telão que reconecta

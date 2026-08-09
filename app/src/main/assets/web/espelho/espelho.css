@@ -171,18 +171,72 @@ h1 { font-size: 20px; font-weight: 600; letter-spacing: .01em; }
   object-fit: contain;
 }
 
-.gesto {
-  position: absolute; left: 50%; bottom: 12%;
+/* ---------- a barra de controles ----------
+   Mesma anatomia dos `.pv-fab` do Controle (ícone a traço, sem moldura, com o
+   contorno feito de `drop-shadow`) e pelo mesmo motivo: ela fica sobre o que
+   estiver projetado — um wallpaper claro, um slide branco, um vídeo — e
+   branco-sobre-branco não tem contraste nenhum. As duas primeiras sombras,
+   coladas e quase opacas, empilham-se num contorno escuro em volta do traço; a
+   terceira, larga e difusa, descola o ícone de uma textura movimentada.
+
+   O QUE MUDA EM RELAÇÃO À PREVIEW É O TAMANHO. Lá o alvo é um dedo a 30 cm num
+   retângulo de 90 px de altura; aqui é uma TV do outro lado da sala, tocada por
+   um controle remoto ou por um mouse — e o ícone é o único elemento de UI que
+   esta página tem. */
+.ctrl {
+  position: absolute; left: 50%; bottom: 9%;
   transform: translateX(-50%);
-  padding: 14px 22px;
-  font: 600 16px/1 inherit;
-  color: var(--on-accent);
-  background: var(--accent-fill);
-  border: 0; border-radius: 999px;
-  /* Acima do aviso e do vídeo: é o único elemento clicável desta tela. */
+  display: flex; gap: 10px;
+  /* Acima do aviso e do vídeo: são os únicos elementos clicáveis desta tela. */
   z-index: 3;
+}
+.ctrl-btn {
+  width: 64px; height: 64px; flex: none; padding: 0;
+  border: 0; background: none; color: var(--text);
+  display: flex; align-items: center; justify-content: center;
+  appearance: none; -webkit-appearance: none;
   cursor: pointer;
 }
+.ctrl-btn svg {
+  display: block; width: 40px; height: 40px;
+  filter:
+    drop-shadow(0 0 1px rgba(0, 0, 0, .95))
+    drop-shadow(0 0 2px rgba(0, 0, 0, .9))
+    drop-shadow(0 1px 6px rgba(0, 0, 0, .65));
+}
+/* O SOM NASCE RISCADO, porque é assim que ele nasce (§3.11, invariante 10). O
+   ícone mostra o ESTADO, e é a mesma convenção da cortina na notificação de
+   mídia: o riscado é o corte. */
+.ctrl-btn .som-on { display: none; }
+.ctrl.com-som .som-on { display: inline; }
+.ctrl.com-som .som-off { display: none; }
+/* E a moldura de tela cheia se INVERTE quando já se está nela: as setas
+   apontam para dentro para entrar, para fora para sair. */
+.ctrl-btn .full-out { display: none; }
+.ctrl.cheia .full-in { display: none; }
+.ctrl.cheia .full-out { display: inline; }
+
+/* A DICA DESAPARECE COM A BARRA, e some de vez no primeiro toque num ícone:
+   dali em diante ela é ruído sobre a projeção. */
+.dica {
+  position: absolute; left: 0; right: 0; bottom: 4%;
+  margin: 0; padding: 0 18px;
+  text-align: center;
+  font-size: 15px; color: var(--muted);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .95);
+  z-index: 3;
+  pointer-events: none;
+}
+
+/* O RECOLHIMENTO — o comportamento de player de sempre.
+   `visibility` junto com `opacity`, e não só a opacidade: um botão a zero de
+   opacidade continua clicável, e um toque destinado a "trazer os controles de
+   volta" cairia no ícone que está lá, invisível, disparando a ação errada. */
+.ctrl.some, .dica.some {
+  opacity: 0; visibility: hidden;
+  transition: opacity .35s, visibility 0s .35s;
+}
+.ctrl, .dica { transition: opacity .2s; }
 
 .aviso {
   position: absolute; left: 0; right: 0; top: 0;
@@ -199,9 +253,10 @@ h1 { font-size: 20px; font-weight: 600; letter-spacing: .01em; }
 .aviso:empty { display: none; }
 .aviso.ruim { color: var(--danger-text); }
 
-/* O CURSOR SOME DEPOIS DO GESTO, e só depois dele: num notebook ligado à
-   parede, a setinha parada no meio da projeção fica lá o culto inteiro. Antes
-   do gesto ela precisa existir — há um botão para acertar. */
-body.projetando { cursor: none; }
+/* O CURSOR SOME COM OS CONTROLES, e só com eles: num notebook ligado à parede,
+   a setinha parada no meio da projeção fica lá o culto inteiro. Enquanto a
+   barra estiver na tela ela precisa existir — há dois ícones para acertar, e
+   `cursor: none` sobre um botão é um alvo que não se enxerga mirar. */
+body.projetando.sem-cursor { cursor: none; }
 body.projetando .aviso { transition: opacity .4s; }
 body.projetando .aviso.some { opacity: 0; }

@@ -81,20 +81,52 @@
        `disableremoteplayback` sai no JS (não há atributo em todo navegador). -->
   <video id="v" muted playsinline autoplay></video>
 
-  <!-- UM GESTO, QUATRO EFEITOS (§3.11, invariante 9). `requestFullscreen()`
-       exige ativação transitória do usuário e não há truque: um botão grande,
-       uma vez, e daí em diante a ativação é *sticky* pela sessão. É o mesmo
-       padrão do `#startBtn` do `/display/`.
+  <!-- DOIS ÍCONES, DUAS DECISÕES — e ela ainda é UMA barra de player comum.
+       Até aqui havia um botão só ("Ver em tela cheia e ouvir"), e ele juntava
+       duas coisas que não são a mesma: a tela do saguão quer imagem cheia e
+       silêncio (a PA está a 200 ms dali), a da sala anexa quer som. Com um
+       botão só, quem queria tela cheia levava o som junto — e quem descobria o
+       eco não tinha como desfazer sem recarregar a página.
 
-       E O RÓTULO PRECISA DIZER O SOM. Este botão é a ÚNICA porta para o áudio
-       desta tela — as telas nascem mudas por decisão (§3.11, invariante 10:
-       três telas desmutadas dentro da igreja são três alto-falantes com eco), e
-       nada mais no cliente liga `audioQuerido`. Dizendo só "ver em tela cheia",
-       ele fazia o operador procurar um defeito onde havia um botão não tocado:
-       no primeiro culto de teste o Registro mostrou `som torneira:nao`, que é
-       "esta tela nunca pediu som" — e a leitura na sala foi "o celular não está
-       enviando som". -->
-  <button id="gesto" class="gesto">Ver em tela cheia e ouvir</button>
+       O QUE NÃO DÁ PARA TIRAR, e está dito em vez de escondido: o PRIMEIRO
+       toque. `requestFullscreen()` e sair do `muted` exigem ativação transitória
+       do usuário, e não há truque — o que este desenho muda é que agora o toque
+       é NAQUILO que se quer, e não num pacote.
+
+       O SOM CONTINUA SENDO OPT-IN (§3.11, invariante 10): o ícone nasce riscado
+       e nada mais no cliente liga `audioQuerido`. É por isso que ele vem
+       PRIMEIRO na barra, e é por isso que a dica abaixo o nomeia — quando o
+       rótulo não anunciava o som, o Registro do primeiro culto de teste mostrou
+       `som torneira:nao` ("esta tela nunca pediu") e a leitura na sala foi "o
+       celular não está enviando som".
+
+       `type="button"`: sem `<form>` em volta o padrão já seria esse, mas um
+       botão que some e volta é exatamente o lugar em que um `submit` acidental
+       recarregaria a página e derrubaria a sessão. -->
+  <div id="ctrl" class="ctrl">
+    <button id="btnSom" class="ctrl-btn" type="button" title="Ligar o som" aria-label="Ligar o som">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4 9.5h3.2L12 5.4v13.2L7.2 14.5H4z"/>
+        <path class="som-on" d="M16 9.2a4 4 0 0 1 0 5.6"/>
+        <path class="som-on" d="M18.6 6.6a7.6 7.6 0 0 1 0 10.8"/>
+        <path class="som-off" d="M16.5 10l5 4"/>
+        <path class="som-off" d="M21.5 10l-5 4"/>
+      </svg>
+    </button>
+    <button id="btnFull" class="ctrl-btn" type="button" title="Tela cheia" aria-label="Tela cheia">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path class="full-in" d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9"/>
+        <path class="full-in" d="M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9"/>
+        <path class="full-in" d="M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15"/>
+        <path class="full-in" d="M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15"/>
+        <path class="full-out" d="M9 4v3.5A1.5 1.5 0 0 1 7.5 9H4"/>
+        <path class="full-out" d="M20 9h-3.5A1.5 1.5 0 0 1 15 7.5V4"/>
+        <path class="full-out" d="M15 20v-3.5a1.5 1.5 0 0 1 1.5-1.5H20"/>
+        <path class="full-out" d="M4 15h3.5A1.5 1.5 0 0 1 9 16.5V20"/>
+      </svg>
+    </button>
+  </div>
+  <p id="dica" class="dica">Toque no alto-falante para ouvir · na moldura para tela cheia</p>
 
   <!-- O ESTADO, DESENHADO. Com o app do outro lado do salão, esta linha é a
        única coisa que responde "por que a tela está preta?". -->

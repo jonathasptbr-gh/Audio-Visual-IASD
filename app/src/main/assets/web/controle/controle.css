@@ -1423,6 +1423,32 @@ main {
 .lib-item.selected.no-ar { border-color: var(--accent); }
 .lib-item.selected.no-ar .row { background: var(--panel-2); }
 
+/* ---------- e os BOTÕES DA LINHA trocam junto (v5.177) ----------
+   No ar, a única decisão que aquela linha oferece é tirá-la do ar: o toque no
+   corpo já faz isso desde a v5.165 e o selo já diz o estado — mas a direita
+   seguia oferecendo arrastar-para-reordenar e favoritar, que são as duas coisas
+   que ninguém quer fazer com o item que está na frente da congregação. Pior,
+   elas ficavam a milímetros do gesto que o operador está mirando.
+
+   Trocar os dois pelo Parar é o que faz QUALQUER toque naquela linha significar
+   a mesma coisa. A troca é por classe porque quem liga e desliga o estado é o
+   `marcarNoAr`, que roda a cada `display-status` (~4 Hz) e só mexe em classes —
+   remontar botões nesse ritmo perderia listeners e trabalho à toa.
+
+   `.row-stop` herda `.row-btn` (o quadrado de ação das listas) e só troca a
+   cor: aqui ele é a AÇÃO destrutiva da linha, e a convenção do app para isso é
+   contornado em `--danger-text`, nunca preenchido — preenchido é "está no ar",
+   e é o que a própria linha já está dizendo em volta dele. */
+.row-stop { display: none; }
+.lib-item.no-ar .row-stop { display: flex; }
+.lib-item.no-ar .row-handle,
+.lib-item.no-ar .fav-btn { display: none; }
+.row-stop { color: var(--danger-text); }
+/* Na seleção múltipla nada disso vale: o alvo é o conjunto, e a linha volta a
+   ser uma caixa de escolha. (O JS já não põe `.no-ar` ali — cinto e
+   suspensório, como a regra de cima.) */
+.lib-item.selected .row-stop { display: none; }
+
 /* A caixa da miniatura é o FUNDO DO APP dentro do cartão: um buraco na
    elevação, que é o que faz a capa (quando existe) parecer colada por cima.
    Era #060606 literal — mais escuro que o próprio fundo do app e fora de
