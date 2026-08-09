@@ -2066,6 +2066,109 @@ passou a caber na janela (§10-A.5), a poda quase não precisa pedir nada.
 
 ---
 
+### 10-A.10 — a PORTA ABERTA nunca abriu, e era ela a metade que faltava (5.172)
+
+O operador relatou o espelho "funcionando, mas sem estabilidade nem confiabilidade na conexão". A
+revisão achou **oito** defeitos, e o primeiro explica sozinho a maior parte da queixa. Os oito têm
+uma família em comum com o resto deste apêndice: nenhum deles dá erro em lugar nenhum.
+
+**1. `tentarPortaAberta` mandava um corpo que o servidor recusava.** A v5.170 declarou que "quem
+abrir o endereço entra"; a v5.171 construiu a folha inteira em volta disso. O `cliente.js` pedia a
+entrada assim que a página abria — um `POST /par` com o relato e mais nada — e o `when` do
+`EspelhoServidor.parear` tinha ramo para `pin`, para `qr` e para `espera`. Um corpo sem nenhum dos
+três caía no `else -> 403`. **O recurso anunciado nunca chegou a existir.**
+
+O atrito da estreia era o menor custo. O grande é a **recuperação**: toda queda de rede, toda
+religada do espelho, toda expiração de token e todo `EspelhoPares.zerar()` devolvem a tela ao
+pareamento — e sem esse ramo ela ficava lá, mostrando um QR que ninguém ia ler, no meio do culto,
+até alguém atravessar o salão. É essa a diferença entre "conecta" e "é confiável".
+
+O ramo passou a existir nos dois lados. O corpo **nu** também vale como pedido de entrada, de
+propósito: é o que os bundles já instalados mandam, e o APK precisa consertá-los sem depender de o
+OTA chegar antes. Quem decide é o `EspelhoPares.entrarAberto`, que **não cria espera nenhuma** (uma
+por entrada encheria o `MAX_ESPERAS` na primeira tela que reconectasse em laço — trancando o PIN,
+que é o plano B), respeita o bloqueio por origem e o teto de sessões, e **não conta erro** com a
+porta fechada: não houve segredo tentado, e contá-lo faria uma TV que perguntou "posso entrar?"
+gastar a cota do visitante que está digitando o PIN ao lado.
+
+**2. Três recomeços trancavam o espelho pelo resto do culto.** Uma sessão só saía de `vivas` por
+`encerrar`, por `recusar` ou pelas **seis horas** do prazo. Uma tela que recomeça numa aba nova (a
+TV desligada e religada, o navegador que perdeu o `sessionStorage`) pede um token novo e deixa o
+antigo ocupando vaga — e o teto é **três**. Com a porta aberta isso deixaria de ser hipótese para
+ser rotina. `liberarVagaOciosa` toma a vaga **mais ociosa** quando ela está parada há mais de
+`PRAZO_OCIOSA_MS` (4 min), e só quando uma tela nova precisa dela. A mais ociosa, e nunca a mais
+velha: a mais velha pode ser justamente a TV do templo, ligada desde o começo. A invariante 3 sai
+ilesa — o carimbo de uso só faz uma sessão morrer **mais cedo**, nunca estende o prazo absoluto.
+
+**3. "Desconectar" era um botão que não fazia nada.** A folha manda o **rótulo** da tela ("B") ao
+`espelhoAprovar(id, false)`, e o `approveMirrorScreen` o entregava ao `EspelhoPares.recusar`, que
+procura um `id` de espera (base64url de 128 bits). Nunca casava, saía em silêncio e devolvia `true`.
+Pior: um rótulo vazio cairia no id reservado da aprovação automática e **fecharia a porta** em vez
+de derrubar alguém. E o botão não é um detalhe — ele é a resposta inteira do desenho ao curioso na
+rede, já que a porta nasce aberta e o dano real dele é ocupar uma das três vagas. Agora o rótulo é
+resolvido para a sessão, o socket é fechado de fora, e a origem fica de castigo por
+`BLOQUEIO_DERRUBADA_MS` (2 min) — senão, com a porta aberta, a tela derrubada volta em dois segundos
+e o botão continuaria não fazendo nada visível.
+
+**4. O teto de conexões em voo contava os FLUXOS.** `servirFluxo` não volta enquanto a tela estiver
+conectada, então cada telão vivo segurava um dos oito slots pelo culto inteiro. Com três telas
+restavam cinco — e um navegador abre até **seis** conexões paralelas por host só para carregar a
+página (`/`, `/e.css`, `/e.js`, `/f.js`, `/q.js`). A segunda tela a abrir o endereço já esbarrava no
+teto e recebia conexões recusadas, que na tela viram *"não foi possível falar com o celular"*, sem
+nada no Registro que ligasse uma coisa à outra. O teto passou a excluir os fluxos (que já têm teto
+próprio, `TETO_TELAS`) e subiu para 16.
+
+**5. O cliente não tinha detector para o FIO MUDO.** Toda a recuperação dele age sobre a
+*reprodução* — o salto, o encalhe, a poda, a remontagem — e todas supõem que os bytes continuam
+chegando. Um TCP meio-aberto (a Wi-Fi que trocou de ponto de acesso, o celular que mudou de IP, o AP
+que limpou a tabela) deixa o `fetch` de `/v` pendurado para sempre: nem `done`, nem erro, nem
+evento. A tela congela e o laço de reconexão, que consertaria isso, nunca roda porque a conexão
+anterior nunca terminou. `vigiarFio` aborta depois de `SEM_BYTES_MS` (20 s) e o motivo viaja no
+`alive` (`fim: sem bytes por 20 s`) — senão a única leitura possível seria "a tela reconectou
+sozinha, não se sabe por quê".
+
+**6. E o servidor não tinha o detector simétrico.** Do lado de cá, um socket meio-aberto não trava
+escrita nenhuma enquanto o buffer de envio do kernel couber — numa cena parada (156 kbps) isso são
+minutos segurando uma das três vagas. Qualquer `POST /r` passou a valer como sinal de vida, e o
+vigia fecha a tela que emudeceu por `TETO_SEM_RELATO_MS` (60 s, contra os 10 s de batida do
+cliente). `SO_KEEPALIVE` entrou junto, de graça, e o `PRAZO_LINHA_MS` subiu de 2 s para os 10 s que
+o KDoc do `EspelhoHttp` já anunciava — 2 s é o que uma Wi-Fi congestionada leva para entregar um
+corpo de 4 KiB, e com o detector novo um relato atrasado deixaria de ser um relato perdido para
+virar uma tela derrubada por causa de um timer apertado.
+
+**7. Uma oscilação da rede padrão derrubava o espelho inteiro.**
+`registerDefaultNetworkCallback` fala da rede **padrão**, não da nossa: no instante em que o Android
+reavalia a Wi-Fi (revalidação, roaming entre APs, um `onCapabilitiesChanged` durante o handover) o
+padrão pisca para a rede móvel e volta em segundos. O caminho antigo lia isso como "a rede sumiu" e
+derrubava servidor, tela virtual e encoder no meio do culto. Suspeita deixou de ser veredito: o
+motivo fica anotado, o vigia confirma `GRACA_REDE_MS` (6 s) depois perguntando o que de fato
+importa — *o IP em que este socket está ligado ainda é um endereço deste aparelho numa Wi-Fi?* — e
+só então a queda acontece.
+
+**8. E o adeus era uma sentença.** Recebido o `0x30 {"m":"adeus"}` o cliente parava e ficava morto
+até alguém recarregar a página à mão. Desligar e ligar o espelho é coisa que o operador faz várias
+vezes numa tarde de testes, e cada vez custava uma caminhada até cada televisor. Parar de martelar
+continua certo; desistir, não. Passados 20 s a página volta a oferecer entrada, e com a porta aberta
+isso é automático e silencioso.
+
+Duas correções menores vieram no mesmo lote: a fila por tela passou de 24 quadros (~1 s, curto
+demais para atravessar um soluço de AP) para **64 quadros com teto de 1,5 MB** — os dois juntos
+dizem "até N quadros, e nunca mais que M bytes", que é o que o teto de quadros sozinho não dizia; e
+um pedido de IDR **engolido pelo freio deixou de ser um pedido perdido** (ele fica pendente e o
+vigia o repete no giro seguinte, o que troca "preta até o próximo IDR espontâneo" por "preta por até
+um segundo"). O `csd` de áudio do `POST /r {do:audio}` passou a ir pelo caminho normal de entrega —
+com a fila cheia, o `offer` solto falhava em silêncio e a tela ficava em `som: pedido, esperando o
+csd` para sempre, o único dos sete desfechos do som cuja causa estava deste lado.
+
+**A divisão do lote**, que importa para quem for testar em aparelho: os itens 1 (metade), 2, 3, 4,
+6, 7 e as duas menores são **Kotlin — só chegam instalando o APK**. Os itens 1 (a outra metade), 5 e
+8 vivem no `cliente.js` e chegam **por OTA**. `SHELL_VERSION` **não sobe**: nenhum método da ponte
+nasceu nem mudou de assinatura. E as duas metades degradam sozinhas — um bundle novo num shell
+antigo recebe 403 no pedido de entrada e volta ao QR (o comportamento de hoje), e um bundle antigo
+num shell novo entra pela porta aberta assim mesmo, porque o corpo nu vale como pedido.
+
+---
+
 ## 11. A FRASE PARA O OPERADOR
 
 > Dá para pôr o telão inteiro — inclusive vídeo, fades e cortina — em até três navegadores da rede da

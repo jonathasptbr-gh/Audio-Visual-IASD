@@ -87,6 +87,13 @@ let qrLiberado = true;       // o servidor aceita criar espera de QR?
 let qrAprovado = false;      // e o "operador" já leu o código?
 let pendencias = 0;          // quantos polls de `espera` ainda respondem "pendente"
 let aprovar = true;
+// A PORTA (v5.170). Nasce FECHADA aqui pelo mesmo motivo pelo qual o
+// `EspelhoParesTest` a fecha: com ela aberta a tela entra na primeira chamada e
+// todo o percurso de pareamento — QR, PIN, espera, aprovação — passaria por
+// vacuidade, que é a pior forma de um teste de acesso passar. O caso que a
+// exercita a abre de propósito, no fim.
+let portaAberta = false;
+const visto2 = { aberto: [] };   // os pedidos de entrada pela porta aberta
 let fluxo = null;            // a resposta de /v em curso
 let aoAbrirFluxo = null;
 
@@ -159,6 +166,19 @@ const servidor = http.createServer(async (req, res) => {
       if (!aprovar) { json(res, 403, { estado: 'recusada' }); return; }
       if (pendencias > 0) { pendencias--; json(res, 202, { estado: 'pendente' }); return; }
       json(res, 200, { t: TOKEN });
+      return;
+    }
+    // A PORTA ABERTA (v5.170) — o corpo sem `pin`, sem `qr` e sem `espera`.
+    //
+    // O `EspelhoServidor` aprova na MESMA chamada e devolve o token: não há
+    // espera a criar, porque não há decisão a tomar. Este ramo não existia nem
+    // aqui nem no servidor de verdade, e por isso o recurso inteiro nunca
+    // chegou a funcionar — o cliente pedia, o servidor respondia 403/404, e
+    // toda tela continuava dependendo de alguém apontar uma câmera.
+    if (c) {
+      visto2.aberto.push(c);
+      if (portaAberta) { json(res, 200, { t: TOKEN }); return; }
+      json(res, 403, { estado: 'recusada' });
       return;
     }
     json(res, 404, {});
@@ -814,6 +834,56 @@ checar(true, 'aprovada, a MESMA página troca para o player (sem navegar)');
     antesGets + ' → ' + visto.gets);
   checar(/desligado no celular/i.test(e.aviso || ''),
     'e a tela DIZ que foi o operador, em vez de "sem sinal"', e.aviso);
+
+  // ...E PARAR NÃO É DESISTIR. O adeus era TERMINAL: a página ficava morta até
+  // alguém recarregá-la à mão, e desligar/ligar o espelho é coisa que o
+  // operador faz várias vezes (trocar certificado, remontar o encoder, testar).
+  // Numa igreja isso significa uma caminhada até cada televisor. Passado o
+  // silêncio combinado, a tela volta a oferecer entrada sozinha — e com a porta
+  // aberta ela entra sem ninguém tocar em nada.
+  portaAberta = true;
+  const antesVolta = visto.gets;
+  await pg.waitForFunction(() => window.__espelho.estado().vivo,
+    null, { timeout: 40000 });
+  checar(visto.gets > antesVolta,
+    'e passado o silêncio ela VOLTA sozinha — o adeus não é uma sentença',
+    antesVolta + ' → ' + visto.gets);
+  portaAberta = false;
+}
+
+// ---------------------------------------------------------------------------
+// A PORTA ABERTA (v5.170), numa aba limpa: abrir o endereço e já estar
+// projetando. Sem código, sem dígito, sem ninguém tocar no celular.
+//
+// Este é o caso que não existia — nem aqui nem no servidor. O `cliente.js`
+// mandava o pedido de entrada desde a v5.170 e o `when` do `EspelhoServidor`
+// não tinha ramo para ele: caía no `else -> 403`. O recurso anunciado nunca
+// aconteceu, e o preço maior não era o atrito da estreia — era a RECUPERAÇÃO,
+// porque toda queda de rede, toda religada e toda expiração de token devolvem a
+// tela ao pareamento, onde ela ficava mostrando um QR que ninguém ia ler.
+// ---------------------------------------------------------------------------
+{
+  portaAberta = true;
+  const antes = visto2.aberto.length;
+  const ctx3 = await navegador.newContext();
+  const pg3 = await ctx3.newPage();
+  await pg3.goto(base + '/', { waitUntil: 'domcontentloaded' });
+  await pg3.waitForFunction(() => !document.getElementById('play').hidden,
+    null, { timeout: 15000 });
+  const e3 = await pg3.evaluate(() => window.__espelho.estado());
+  checar(e3.pareado, 'com a porta aberta a tela entra sozinha ao abrir o endereço');
+  checar(!e3.qr, 'e nenhum QR chega a ser desenhado — não havia o que aprovar');
+  const pedidos = visto2.aberto.slice(antes);
+  checar(pedidos.length > 0, 'o pedido de entrada chega ao servidor', pedidos.length);
+  // ELE É ANÔNIMO E NÃO CARREGA SEGREDO NENHUM (§3.5, invariante 7): a página
+  // de pareamento não sabe o PIN, e um pedido de entrada que o carregasse
+  // reporia na rede justamente o que a porta aberta existe para não exigir.
+  checar(pedidos.every((c) => c.pin === undefined && c.espera === undefined),
+    'e ele não leva PIN nem id de espera — é um pedido, não uma prova');
+  checar(pedidos.every((c) => c.aberto === true),
+    'e se NOMEIA (aberto:true), em vez de depender de um corpo sem chave nenhuma');
+  await ctx3.close();
+  portaAberta = false;
 }
 
 // ---------------------------------------------------------------------------

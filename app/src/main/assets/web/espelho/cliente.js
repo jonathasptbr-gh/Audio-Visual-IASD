@@ -207,6 +207,31 @@
   const ALIVE_MS = 10 * 1000;
   const CHAVE_MS = 2000;                  // freio do pedido de IDR (§3.6, invariante 9)
 
+  // O FIO MUDO — e ele é a única falha deste cliente que NÃO tinha detector.
+  //
+  // Todo o resto da recuperação daqui age sobre a REPRODUÇÃO (o salto, o
+  // encalhe, a poda, a remontagem): elas supõem que os bytes continuam
+  // chegando. Quando não chegam, ninguém percebe. Um TCP meio-aberto — a Wi-Fi
+  // que trocou de ponto de acesso, o celular que mudou de IP, o AP que limpou a
+  // tabela de conexões — deixa o `fetch` de `/v` pendurado para SEMPRE: nem
+  // `done`, nem erro, nem evento. A tela congela e o laço de reconexão, que é o
+  // que consertaria isso, nunca chega a rodar porque a conexão anterior nunca
+  // terminou.
+  //
+  // Vinte segundos, e o número tem os dois lados escritos. Piso: o batimento do
+  // papel espelho entrega quadros mesmo com a cena parada, e o
+  // `KEY_REPEAT_PREVIOUS_FRAME_AFTER` do encoder cobre o intervalo em que o
+  // WebView do celular for estrangulado — mas ele repete no máximo dez vezes,
+  // então um silêncio LEGÍTIMO de vários segundos existe e não pode virar
+  // reconexão. Teto: o servidor derruba uma escrita travada em 20 s
+  // (`TETO_ESCRITA_MS`), então passar disso é esperar por um lado que já
+  // desistiu do outro.
+  const SEM_BYTES_MS = 20000;
+
+  // Depois do adeus do operador, quanto se espera antes de voltar a oferecer
+  // entrada. Ver `controle(j)`: parar de martelar não é o mesmo que desistir.
+  const ADEUS_VOLTA_MS = 20000;
+
   // ---- O SOM (§3.9). Três números, e cada um existe por um modo de falhar ----
   //
   // 1. O quanto se SEGURA o `csd` de vídeo esperando o de áudio numa conexão em
@@ -307,6 +332,15 @@
 
   let ultimaChave = 0;
   let gestoFeito = false;
+
+  // Quando o último byte do fio chegou — a âncora do vigia de [SEM_BYTES_MS].
+  // Zero = não há conexão em curso, e aí não há o que vigiar.
+  let ultimoByteMs = 0;
+  // O aborto que o `vigiarFio` pediu, para o `laco` não sobrescrever a causa
+  // com o genérico "nós abortamos" — que é verdade e não é diagnóstico.
+  let fioMudo = false;
+  // O tempo de espera de um `adeus`, para não empilhar dois.
+  let voltarDepois = null;
 
   // O PIOR CASO, e não o instantâneo — porque o relato chega DEPOIS do defeito.
   //
@@ -680,9 +714,16 @@
   // E a espera entre tentativas quando o pedido falha (espelho ainda subindo,
   // rede associando). Curta: é a primeira coisa que acontece na tela.
   const QR_RETENTA_MS = 4000;
+  // ...e o teto dela, porque a falha que DURA é o espelho desligado, e insistir
+  // de quatro em quatro segundos por horas é gastar rádio de um AP de igreja
+  // por algo que só volta quando o operador tocar no celular.
+  const QR_RETENTA_MAX = 20000;
 
   let qrVivo = false;
   let qrId = '';
+  // O espelho já está com as três telas? Vale uma frase, não um silêncio: "não
+  // foi liberada" e "não há vaga" pedem coisas opostas de quem está olhando.
+  let cheio = false;
 
   function mostrarQr(id) {
     qrId = id || '';
@@ -724,12 +765,26 @@
    */
   async function tentarPortaAberta() {
     let r;
-    try { r = await postar('/par', relato(), false); } catch (_) { return false; }
+    // `aberto: true` é EXPLÍCITO de propósito, mesmo o servidor aceitando o
+    // corpo nu: um pedido que se nomeia é um pedido que não depende de o outro
+    // lado adivinhar o que um corpo sem chave nenhuma quer dizer.
+    const corpo = relato();
+    corpo.aberto = true;
+    try { r = await postar('/par', corpo, false); } catch (_) { return false; }
+    cheio = !!(r.corpo && r.corpo.estado === 'lotado');
+    // O CAMINHO NORMAL: com a porta aberta o servidor aprova na mesma chamada e
+    // devolve o token. Não há espera a criar, e não haver espera é o ponto — uma
+    // por entrada encheria a fila do operador numa tela que reconecta.
+    if (r.status === 200 && r.corpo && r.corpo.t) {
+      token = String(r.corpo.t);
+      guardado(token);
+      return true;
+    }
+    // E o caminho do shell que ainda cria uma espera para este corpo. Uma
+    // consulta basta: o token não volta no 202, e pedi-lo é o que separa "há uma
+    // vaga" de "a vaga é minha".
     if (!(r.status === 202 && r.corpo && r.corpo.espera)) return false;
     const id = String(r.corpo.espera);
-    // Com a porta aberta a aprovação sai na MESMA chamada do lado do servidor,
-    // então uma consulta basta — mas ela precisa existir: o token não volta no
-    // 202, e pedi-lo é o que separa "há uma vaga" de "a vaga é minha".
     let p;
     try { p = await postar('/par', { espera: id }, false); } catch (_) { return false; }
     if (!(p.status === 200 && p.corpo && p.corpo.t)) return false;
@@ -740,11 +795,19 @@
 
   async function cicloQr() {
     if (qrVivo || !el.qrBox) return;
-    // A PORTA PRIMEIRO. Desenhar um QR para depois descobrir que ninguém
-    // precisava dele é o atrito que a v5.170 removeu.
-    if (await tentarPortaAberta()) { aoPlayer(); return; }
     qrVivo = true;
+    // Falhas SEGUIDAS ao pedir um código. Ver a espera crescente abaixo.
+    let qrFalhas = 0;
     while (qrVivo) {
+      // A PORTA PRIMEIRO, E A CADA VOLTA. Desenhar um QR para depois descobrir
+      // que ninguém precisava dele é o atrito que a v5.170 removeu — e tentar
+      // só UMA vez, na abertura da página, deixava de fora o caso que mais
+      // importa: a tela que caiu (espelho religado, token vencido, rede que
+      // voltou) e que ninguém vai atender. Ela precisa entrar sozinha assim que
+      // o celular estiver de pé, e não esperar alguém apontar a câmera.
+      if (await tentarPortaAberta()) { pararQr(); aoPlayer(); return; }
+      if (!qrVivo) return;
+
       let r;
       try {
         const corpo = relato();
@@ -758,18 +821,42 @@
         // espaço vazio onde deveria haver um código não explica nada.
         mostrarQr('');
         if (el.pinBox) el.pinBox.open = true;
-        texto('parMsg', 'O código não pôde ser gerado agora. Use os seis dígitos abaixo.');
-        await dormir(QR_RETENTA_MS);
+        // TRÊS CAUSAS, TRÊS FRASES. "O código não pôde ser gerado" era a única,
+        // e ela é a menos provável das três: o caso comum é o celular não estar
+        // atendendo (espelho desligado, ainda subindo, ou fora da rede), e nesse
+        // caso pedir os seis dígitos manda o visitante para um caminho que
+        // também não vai funcionar.
+        texto('parMsg', r.status === 0
+          ? 'Sem contato com o celular. Esta tela entra sozinha assim que o espelho voltar.'
+          : cheio
+            ? 'O espelho já está com o número máximo de telas. Feche uma das outras.'
+            : 'O código não pôde ser gerado agora. Use os seis dígitos abaixo.');
+        // ESPERA CRESCENTE. O caso comum desta falha é o espelho estar
+        // DESLIGADO — o operador ainda não ligou, ou acabou de desligar —, e um
+        // pedido fixo a cada quatro segundos, vezes três telas, é uma martelada
+        // no AP da igreja pelo resto do culto por algo que ninguém está
+        // esperando. Ela volta ao piso na primeira resposta boa.
+        qrFalhas++;
+        await dormir(Math.min(QR_RETENTA_MS * qrFalhas, QR_RETENTA_MAX));
         continue;
       }
+      qrFalhas = 0;
 
       const id = String(r.corpo.espera);
       mostrarQr(id);
       texto('parMsg', 'Esperando a leitura no celular…');
       const ate = Date.now() + QR_RENOVA_MS;
       let entrou = false;
+      let giros = 0;
       while (qrVivo && Date.now() < ate) {
         await dormir(POLL_MS);
+        if (!qrVivo) return;
+        // E A PORTA CONTINUA SENDO TENTADA COM O CÓDIGO EM CARTAZ, de tantos em
+        // tantos giros: o operador pode abrir a porta (ou ligar o espelho)
+        // enquanto esta tela espera a câmera, e nesse instante a espera deixou
+        // de ter razão de ser. Um em cada cinco giros são ~6 s — resposta rápida
+        // sem dobrar o tráfego do poll.
+        if (++giros % 5 === 0 && await tentarPortaAberta()) { entrou = true; break; }
         if (!qrVivo) return;
         let p;
         try { p = await postar('/par', { espera: id }, false); } catch (_) { p = { status: 0 }; }
@@ -814,6 +901,14 @@
     }
     if (r.status === 202 && r.corpo && r.corpo.espera) {
       await aguardar(String(r.corpo.espera));
+      return;
+    }
+    // LOTADO NÃO É PIN ERRADO, e mandar conferir o número é mandar repetir uma
+    // coisa que não vai funcionar nenhuma das vezes. O corpo distingue os dois;
+    // o status, de propósito, não.
+    if (r.corpo && r.corpo.estado === 'lotado') {
+      texto('parMsg', 'O espelho já está com o número máximo de telas. Feche uma das outras.', true);
+      el.parBtn.disabled = false;
       return;
     }
     // O servidor responde 403 tanto para PIN errado quanto para origem
@@ -866,6 +961,10 @@
   }
 
   function aoPlayer() {
+    // Se a tela voltou por outro caminho (o operador religou e o QR foi lido),
+    // a volta agendada pelo adeus deixou de fazer sentido — e ela apagaria o
+    // token que acabou de valer.
+    if (voltarDepois) { clearTimeout(voltarDepois); voltarDepois = null; }
     el.par.hidden = true;
     el.play.hidden = false;
     avisar('Conectando…');
@@ -2033,12 +2132,30 @@
       return;
     }
     if (j.m === 'adeus') {
-      // Despedida do servidor: NÃO reconectar. Insistir contra um espelho que o
-      // operador desligou é a diferença entre uma página quieta e três telas
-      // martelando um AP de igreja durante o resto do culto.
+      // Despedida do servidor: NÃO reconectar AGORA. Insistir contra um espelho
+      // que o operador desligou é a diferença entre uma página quieta e três
+      // telas martelando um AP de igreja durante o resto do culto.
       vivo = false;
       parar();
-      avisar('O espelho foi desligado no celular.', true);
+      avisar('O espelho foi desligado no celular. Esta tela volta sozinha quando ele voltar.', true);
+      // ...MAS PARAR NÃO É DESISTIR, e essa distinção é a diferença entre um
+      // recurso e uma visita a cada televisor.
+      //
+      // Até aqui o adeus era terminal: a página ficava morta até alguém
+      // recarregá-la à mão. E desligar e ligar o espelho é coisa que o operador
+      // faz — trocar de modo, mudar o certificado, uma remontagem do encoder —,
+      // de modo que uma sessão de testes deixava três telas mortas espalhadas
+      // pelo salão. O token morreu com o desligamento (o pareamento é zerado),
+      // então voltar é voltar ao pareamento: com a porta aberta, isso é
+      // automático e silencioso; com ela fechada, o QR reaparece, que é o
+      // comportamento certo nos dois casos.
+      if (voltarDepois) clearTimeout(voltarDepois);
+      voltarDepois = setTimeout(function () {
+        voltarDepois = null;
+        token = '';
+        guardado('');
+        aoPareamento('');
+      }, ADEUS_VOLTA_MS);
     }
   }
 
@@ -2059,6 +2176,11 @@
     initVideoRetido = null;
 
     abortar = typeof global.AbortController === 'function' ? new global.AbortController() : null;
+    // A ÂNCORA DO VIGIA NASCE AQUI, e não no primeiro byte: assim ela cobre
+    // também o `fetch` que nunca responde — o servidor que aceitou o TCP e não
+    // escreveu o cabeçalho —, que é o mesmo travamento por outra porta e que de
+    // outro modo não teria prazo nenhum.
+    ultimoByteMs = Date.now();
     const r = await fetch('/v', {
       headers: { Authorization: 'Bearer ' + token },
       cache: 'no-store',
@@ -2104,10 +2226,31 @@
         return;                             // quem reconecta é o laço
       }
       if (!vivo) { try { leitor.cancel(); } catch (_) {} return; }
+      ultimoByteMs = Date.now();
       pedacos.push(passo.value);
       disponivel += passo.value.length;
       processar();
     }
+  }
+
+  /**
+   * O FIO EMUDECEU: derruba a conexão para que o laço a refaça.
+   *
+   * `abort()` faz o `leitor.read()` pendurado lançar `AbortError`, que o [laco]
+   * já sabe tratar — é o mesmo caminho do `recomecar`. O que muda é a FRASE:
+   * este aborto não foi um recomeço pedido, foi um diagnóstico, e ele precisa
+   * chegar ao Registro do operador (`ultimoFim` viaja no `alive`) senão a única
+   * leitura possível seria "a tela reconectou sozinha, não se sabe por quê".
+   */
+  function vigiarFio() {
+    if (!vivo || !abortar || !ultimoByteMs) return;
+    const parado = Date.now() - ultimoByteMs;
+    if (parado < SEM_BYTES_MS) return;
+    ultimoByteMs = 0;
+    fioMudo = true;
+    ultimoFim = 'sem bytes por ' + Math.round(parado / 1000) + ' s';
+    avisar('Sem sinal do celular — reconectando.', true);
+    try { abortar.abort(); } catch (_) {}
   }
 
   async function laco() {
@@ -2122,8 +2265,11 @@
         await conectar();
       } catch (e) {
         if (!vivo) return;
-        if (e && e.name === 'AbortError') { nosso = true; ultimoFim = 'nós abortamos'; }
-        else {
+        if (e && e.name === 'AbortError') {
+          nosso = true;
+          if (!fioMudo) ultimoFim = 'nós abortamos';
+          fioMudo = false;
+        } else {
           ultimoFim = 'rede: ' + ((e && e.name) || '?');
           avisar('Sem sinal — ' + ((e && e.message) || 'a conexão caiu') + '.', true);
         }
@@ -2240,6 +2386,8 @@
 
   function parar() {
     vivo = false;
+    ultimoByteMs = 0;
+    fioMudo = false;
     // Solta a corrente de quadros: ela pode estar pendurada num quadro que
     // nunca vem (o congelamento), e ali `vivo` sozinho não a alcança.
     geracaoVfc++;
@@ -2282,6 +2430,10 @@
     zerarPiores();
     armarQuadros();
     compasso = setInterval(function () {
+      // O VIGIA DO FIO VEM ANTES DE TUDO: sem bytes não há borda a perseguir,
+      // e as recuperações de reprodução (salto, encalhe) trabalhariam sobre um
+      // buffer que ninguém mais está alimentando.
+      vigiarFio();
       borda();
       // O RELATO SEGUE O COMPASSO, e não cada ponto de decisão: os ramos do som
       // são sete e nem todos passam por `avisar`. `relatar` deduplica pela
