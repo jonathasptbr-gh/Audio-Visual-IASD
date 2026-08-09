@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.175';
+const WEB_VERSION = '5.176';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -1139,6 +1139,19 @@ let midiaNoArId = '';
 let cueNoArId = '';
 // Texto de roteiro projetado SEM sessão — ver `cenaDeRoteiroNoAr`.
 let textoAvulsoNoAr = false;
+
+// O último estado lido da ponte sobre o espelho (`null` = nunca perguntamos).
+// Formato em `AVNative.espelhoEstado`.
+//
+// ELE MORA AQUI, e não junto do resto do bloco do espelho, por uma razão de
+// ORDEM: desde a v5.176 o ícone de conectar lê este estado (`espelhoRecebendo`),
+// e `renderCastBtn` roda na inicialização — muito antes da linha onde o bloco do
+// espelho começa. Um `let` lido antes da sua declaração lança
+// `ReferenceError: Cannot access 'mirrorEstado' before initialization` (zona
+// morta temporal), e o `smoke.mjs` pegou exatamente isso: a página inteira
+// morria na carga. É a prima do defeito que o `tools/sombra.test.mjs` trava —
+// mesma zona morta, por outra porta.
+let mirrorEstado = null;
 let displayAudioBlocked = false; // Display reportou áudio bloqueado pelo navegador
 const scrollPos = {};      // posição de scroll por aba/pasta (sessão)
 
@@ -13944,16 +13957,50 @@ function holdRepeat(btn, fn) {
 // "conectado" que o simplificado deixou aceso ficava para sempre — o operador
 // trocava de modo, a tela caía, e o ícone seguia dizendo que havia telão. O
 // estado da tela não é uma decoração de um dos modos; é o mesmo fato nos dois.
+/**
+ * Quantas telas da REDE estão recebendo agora — 0 com o espelho desligado.
+ *
+ * Deliberadamente separado do `simpleDisplay()`: aquele responde "há um TELÃO?"
+ * e governa coisas de peso (a cortina do modo simplificado, o atraso da preview,
+ * quem é a referência de tempo). Aqui a pergunta é só "há alguém recebendo?",
+ * que é o que o ícone de conectar tem a dizer.
+ */
+function espelhoRecebendo() {
+  const e = mirrorEstado;
+  if (!e || !e.ligado || !Array.isArray(e.telas)) return 0;
+  return e.telas.length;
+}
+
 function renderCastBtn() {
   const tv = simpleDisplay();
+  // AS TELAS DA REDE CONTAM COMO CONEXÃO — e é o ÍCONE que passa a dizer isso
+  // (v5.176), no lugar do cartão na barra de notificações.
+  //
+  // A notificação do `EspelhoService` não pode sumir (um serviço em primeiro
+  // plano é obrigado a ter uma, e é ele que mantém o espelho no ar com o app
+  // minimizado), mas ela também não era o lugar certo para essa informação: o
+  // operador olha para o app, e o app já tem um ícone cujo trabalho é
+  // exatamente esse. O cartão foi para `IMPORTANCE_MIN` — sai da barra de
+  // status — e o fato subiu para cá.
+  //
+  // Mesma classe, mesma cor, mesmo efeito do telão: `.connected` quer dizer "há
+  // uma tela recebendo", e três navegadores da rede são três telas recebendo.
+  // Inventar um segundo estado visual para o mesmo fato seria pedir ao operador
+  // que aprendesse duas convenções para uma coisa só.
+  const naRede = espelhoRecebendo();
   // `.connected` marca "há uma tela recebendo"; a liberação de teste NUNCA o
   // veste (ver `castTestUnlocked`) — ela é aviso, não conexão.
-  pvCastBtnEl.classList.toggle('connected', !!tv && !castTestUnlocked);
+  pvCastBtnEl.classList.toggle('connected', (!!tv || naRede > 0) && !castTestUnlocked);
   pvCastBtnEl.classList.toggle('testing', castTestUnlocked);
+  const naRedeTxt = naRede === 1 ? '1 tela na rede' : naRede + ' telas na rede';
   pvCastBtnEl.title = castTestUnlocked
     ? 'Liberação de teste ativa — toque para trancar'
-    : (tv ? 'Conectado: ' + (tv.name || 'TV') + ' — toque para trocar ou desconectar'
-          : 'Espelhar na TV');
+    : tv
+      ? 'Conectado: ' + (tv.name || 'TV') + (naRede ? ' · ' + naRedeTxt : '')
+        + ' — toque para trocar ou desconectar'
+      : naRede
+        ? naRedeTxt + ' recebendo — toque para ver quem está conectado'
+        : 'Espelhar na TV';
 }
 
 function renderSimpleCast() {
@@ -14776,9 +14823,8 @@ function espelhoDisponivel() {
   return !!window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= MIRROR_SHELL;
 }
 
-// O último estado lido da ponte (`null` = nunca perguntamos). Formato em
-// `AVNative.espelhoEstado`.
-let mirrorEstado = null;
+// (`mirrorEstado` é declarado lá em cima, junto do resto do estado de cena —
+// ver o comentário de lá para o porquê.)
 let mirrorTimer = null;
 let mirrorOcupado = false;
 // A confirmação de ligar COM A TV NO AR, lembrada pela SESSÃO: perguntar de
@@ -14800,18 +14846,28 @@ async function lerEspelho() {
   mirrorEstado = e || null;
   recalcularAtrasoPreview();
   renderEspelho();
+  // O ÍCONE DE CONECTAR ACOMPANHA — ele é quem diz "há tela recebendo" desde
+  // que a notificação do espelho saiu da barra de status (v5.176). Sem esta
+  // linha ele só seria repintado quando o TELÃO mudasse, e uma tela da rede
+  // entrando não acenderia nada até a próxima troca de aba.
+  renderCastBtn();
   return mirrorEstado;
 }
 
 // A ENQUETE DE FUNDO, e ela é de propósito bem mais lenta que a da folha.
 //
 // A folha enqueta a 2,5 s porque ali o operador está OLHANDO a fila de telas.
-// Fora dela, a única coisa que ainda precisa de leitura é o atraso da preview
-// (ver `cmd`) — e ele muda devagar, porque a folga do cliente do espelho
-// encolhe de 100 em 100 ms a cada oito segundos. Um pedido a cada dez segundos
-// enquanto o espelho está no ar é ruído nenhum, e é o que faz a preview
-// acompanhar uma tela que entrou no meio do culto sem ninguém abrir nada.
-const MIRROR_FUNDO_MS = 10000;
+// Fora dela havia um consumidor só, e lento: o atraso da preview (ver `cmd`),
+// que muda de 100 em 100 ms a cada oito segundos e por isso vivia bem com dez
+// segundos de enquete.
+//
+// Desde a v5.176 há um SEGUNDO consumidor, e ele é um indicador de estado: o
+// ícone de conectar, que passou a dizer "há tela recebendo" no lugar do cartão
+// na barra de notificações. Aquele cartão se atualizava a cada tela que entrava
+// ou saía; um ícone que levasse dez segundos para acender seria uma troca ruim.
+// Quatro segundos é a resposta que o operador lê como imediata, e o custo é uma
+// chamada de ponte com um JSON pequeno — só enquanto o espelho está no ar.
+const MIRROR_FUNDO_MS = 4000;
 let mirrorFundoTimer = null;
 
 function acertarEnqueteDeFundo() {

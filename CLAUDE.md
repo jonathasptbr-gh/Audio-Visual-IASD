@@ -2409,11 +2409,30 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.175** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
+**Versão atual: v5.176** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
+> **A v5.176: O CARTÃO DO ESPELHO SAIU DA BARRA DE STATUS, e quem passou a
+> avisar é o ÍCONE.** Pedido do operador, e ele tem uma parte que **não dá para
+> atender**: a notificação do `EspelhoService` não pode ser removida. Um serviço
+> em primeiro plano é obrigado a publicar uma (`startForeground` sem ela derruba
+> o app inteiro), e é justamente esse serviço que impede o Android de congelar o
+> processo com o app minimizado — isto é, o que mantém o espelho no ar durante o
+> culto. O que dá para fazer é tirá-la da frente: o canal foi para
+> **`IMPORTANCE_MIN`**, o degrau em que o Android não desenha ícone na barra de
+> status e recolhe a entrada para o bloco silencioso da gaveta, mais
+> `FOREGROUND_SERVICE_DEFERRED` (o sistema segura o cartão por ~10 s, então
+> ligar e desligar para testar não pisca nada). **O canal é um id NOVO
+> (`espelho2`), e tem de ser**: a importância pertence ao usuário depois de
+> criada, e `createNotificationChannel` sobre um canal existente ignora a
+> mudança em silêncio — sem trocar o id, a correção não chegaria a ninguém que
+> já tivesse usado o recurso. O fato subiu para onde o operador olha: o ícone de
+> conectar veste `.connected` — **a mesma classe, a mesma cor e o mesmo efeito
+> do telão** — quando há telas da rede recebendo, e a dica diz quantas. Uma
+> convenção só para um fato só. Metade APK (o canal), metade OTA (o ícone).
+>
 > **A v5.175: A SEÇÃO DE CONEXÃO FORA DO PADRÃO — e o token que não existia.**
 > Os DOIS botões principais da folha "Conectar uma tela" pediam
 > `var(--radius-md)`, um token que **nunca existiu nesta base**. Um `var()`
