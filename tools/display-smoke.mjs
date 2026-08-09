@@ -234,6 +234,46 @@ await telao.waitForFunction(
 const todos = await telao.evaluate(() => document.getElementById('textMain').textContent);
 checar(todos === 'PARA TODOS', 'comando SEM endereço vale para todos (é o caso de sempre)', JSON.stringify(todos));
 
+// 5-A. O `media-clear` NÃO DERRUBA A CAMADA DE TEXTO (v5.178).
+//
+//    É o lado do TELÃO da mesma regra que o `cena.test.mjs` afirma do lado do
+//    Controle, e ele precisa de um caso próprio porque a decisão mora AQUI: o
+//    Display é quem sabe se há texto ativo, e o ramo do comando tem de vir antes
+//    do bloco de `textActive` — lá dentro, `clear` é justamente o que chama
+//    `hideText`. Cair no fluxo comum não daria erro nenhum: o comando
+//    atravessaria até um `stage.handle` que não o conhece, e o cronômetro sairia
+//    do ar sem uma linha em lugar nenhum que o explicasse.
+//
+//    A mensagem "PARA TODOS" do passo anterior continua em cena.
+await espiao.evaluate(() => window.__mandar({ type: 'media-clear' }));
+await telao.waitForTimeout(500);
+const textoDepois = await telao.evaluate(() => ({
+  txt: document.getElementById('textMain').textContent,
+  visivel: !document.getElementById('text').hidden,
+}));
+checar(textoDepois.txt === 'PARA TODOS' && textoDepois.visivel,
+  'o `media-clear` tira a mídia e DEIXA a Camada de Texto no ar',
+  JSON.stringify(textoDepois));
+
+//    E o `clear` continua sendo o ponto final: ele leva as duas.
+await espiao.evaluate(() => window.__mandar({ type: 'clear' }));
+await telao.waitForFunction(
+  () => document.getElementById('text').hidden, null, { timeout: 4000 },
+).catch(() => {});
+const depoisDoClear = await telao.evaluate(() => document.getElementById('text').hidden);
+checar(depoisDoClear, 'e o `clear` segue encerrando a CENA INTEIRA — ele não virou por camada');
+
+//    A mensagem volta para os passos de medida abaixo (é a única forma de o
+//    `#textMain` ter tamanho).
+await espiao.evaluate(() => window.__mandar({
+  type: 'text', mode: 'message', main: 'PARA TODOS', sub: '', view: 'visual',
+}));
+await telao.waitForFunction(
+  () => document.getElementById('textMain').textContent === 'PARA TODOS'
+    && !document.getElementById('text').hidden,
+  null, { timeout: 4000 },
+).catch(() => {});
+
 // 6. O VIEWPORT DO ESPELHO — a decisão de densidade, medida.
 //
 //    Com a mensagem de cima ainda em cena (é a única forma de o `#textMain`

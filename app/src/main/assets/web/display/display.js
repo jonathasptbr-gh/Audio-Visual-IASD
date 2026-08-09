@@ -1433,6 +1433,30 @@ AVDB.onCommand(async (cmd) => {
   // Microfone ao vivo: camada de ÁUDIO independente — não toca na mídia, no
   // texto nem na cortina. Convive com qualquer coisa em cena.
   if (cmd.type === 'mic') { setMic(cmd.on); return; }
+
+  // PARAR SÓ A MÍDIA — a outra metade da independência áudio × texto (v5.178).
+  //
+  // O `clear` é o Parar do transporte: ele encerra a CENA INTEIRA, e está certo
+  // que encerre. Faltava o desligamento POR CAMADA na direção oposta à do
+  // `text-hide`: com um louvor de fundo sob a contagem regressiva de abertura,
+  // tirar a música do ar levava o cronômetro junto, e a única saída era parar
+  // tudo e reprojetar a cena de roteiro na frente da congregação.
+  //
+  // O ramo tem de vir ANTES do bloco de `textActive`: lá dentro o `clear` é
+  // justamente o que chama `hideText`, e cair no fluxo comum faria o comando
+  // atravessar até um `stage.handle` que não o conhece — nada aconteceria, sem
+  // erro nenhum, que é a forma de falhar que este repositório persegue.
+  //
+  // Quem decide entre as duas saídas é o DISPLAY, e não o Controle: `textActive`
+  // é estado dele, e duplicar a leitura do outro lado é garantir que os dois
+  // divirjam num domingo.
+  if (cmd.type === 'media-clear') {
+    hideLyrics(true);
+    if (yt) stopYoutube();
+    else ++ytSeq;
+    stage.handle({ type: textActive ? 'clear-media' : 'clear' });
+    return;
+  }
   // Enquanto o texto manual está em cena, ele é um OVERLAY independente:
   //  - 'view' liga/desliga a cortina do wallpaper por cima do texto;
   //  - transporte (play/pause/seek/volume/mute) segue pro stage — controla o

@@ -2418,11 +2418,40 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.177** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
+**Versão atual: v5.178** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
+> **A v5.178: O STOP VIRA POR CAMADA, e agora as duas portas existem.** O botão
+> de Parar da linha no ar (v5.177) chamava `stopClear()` para uma mídia — que é
+> o **Parar do transporte**, e ele encerra a CENA INTEIRA. Com um louvor de
+> fundo sob a contagem regressiva de abertura (o uso normal, e o que a
+> independência áudio × texto existe para permitir), tirar a música do ar levava
+> o cronômetro junto, e a única saída era parar tudo e reprojetar a cena na
+> frente da congregação. Faltava o simétrico exato do `text-hide` que a v5.173
+> acrescentou: **`media-clear`**. Cada linha do Cronograma fala da **camada
+> daquela linha** — a da cena sai pela Camada de Texto e não toca na mídia, a da
+> mídia sai sozinha e não toca no texto —, e o Parar do transporte segue sendo o
+> ponto final que leva as duas.
+>
+> **Quem decide entre as duas saídas do palco é o DISPLAY, não o Controle.**
+> `textActive` é estado dele; duplicar a leitura do outro lado é garantir que os
+> dois divirjam num domingo. Recebido o `media-clear`, ele escolhe entre
+> `clear-media` (o `fadeOutToBlack` do `stage.js`, exposto agora: esmaece o
+> conteúdo **sem tocar na cortina**) e o `clear` de sempre. A distinção não é
+> estética: o cartão de texto vive **por baixo** da cortina do stage — é a mesma
+> razão do `instantCover(false)` do ramo de `view` —, então um `clearFaded` com
+> texto em cena fecharia o wallpaper por cima do versículo que continua no ar.
+>
+> E o ramo do `media-clear` vem **antes** do bloco de `textActive` em
+> `display.js`. Lá dentro, `clear` é justamente o que chama `hideText`; cair no
+> fluxo comum faria o comando atravessar até um `stage.handle` que não o
+> conhece — sem erro, sem log, com o cronômetro saindo do ar e nada em lugar
+> nenhum que o explicasse. **OTA puro.** `tools/cena.test.mjs` trava o lado do
+> Controle e `tools/display-smoke.mjs` o do telão, que é o que roda na frente da
+> congregação.
+>
 > **A v5.177: A PREVIEW ESCONDIDA ESTAVA ROUBANDO O SOM DO ESPELHO.** O
 > operador relatou a tela da rede ficando muda com a imagem seguindo, e o
 > Registro trazia a causa na própria linha do tempo: pares
