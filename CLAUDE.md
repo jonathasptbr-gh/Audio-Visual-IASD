@@ -501,7 +501,7 @@ roda SEMPRE em paralelo**: cada comando sai pelos dois caminhos
 `sendCommand`/`onCommand` mantêm exatamente a mesma assinatura. O custo é
 desprezível: os comandos são objetos JSON pequenos.
 
-### O DRENO do papel `espelho` — uma lista de PERMISSÃO de um item
+### O DRENO do papel `espelho` — uma lista de PERMISSÃO de dois itens
 
 O espelho de pixels hospeda uma **segunda cópia de `/web/display/`**, no mesmo
 origin e no mesmo barramento. É o mesmo arquivo — e é justamente por ser
@@ -516,6 +516,16 @@ respondido por dois faz o Registro mostrar o diário de um deles sem dizer qual.
 
 O dreno mora em `shared/native.js` e tem duas metades:
 
+- **`display-status` sai RENOMEADO para `espelho-status`** (v5.173), e essa é a
+  correção de "minimizei o app e a preview voltou completamente
+  dessincronizada". Calá-lo estava certo enquanto se supunha um telão; **sem TV
+  o espelho É a projeção**, e calá-lo deixava o Controle sem referência de tempo
+  nenhuma — sobrava a preview, que é justamente o que o Android estrangula
+  quando o app sai da frente. A régua era a coisa que se deformava. Com um nome
+  PRÓPRIO nada que espera "o telão" recebe o espelho por engano: o `controle.js`
+  o descarta enquanto houver `display-status` recente e o
+  `NativeBridge.snoopDisplayStatus` faz a mesma conta para a notificação de
+  mídia. Ver "A referência da preview", abaixo.
 - **`__AVBus.post` deixa passar exatamente `display-ready`, e mais nada.** A
   tentação é calar tudo, e **isso quebra o recurso**: é esse anúncio que faz o
   Controle reenviar a cena (`resendSceneToDisplay`). Drenado por inteiro, o
@@ -531,6 +541,50 @@ O dreno mora em `shared/native.js` e tem duas metades:
   redundância dos dois caminhos é decisão escrita deste projeto. O que morre é
   só o `postMessage`, por uma subclasse do construtor real — e a troca precisa
   acontecer **antes de `db.js`**, que captura o construtor na carga.
+
+### A referência da preview — ela ILUSTRA, nunca mede
+
+A preview do Controle é uma **ilustração** do que está no telão, e nunca a fonte
+de verdade. Ela roda no WebView do Controle, que é o único dos três que o
+Android estrangula quando o app sai da frente: com o app minimizado o `<video>`
+dela é pausado ou desacelerado enquanto a projeção segue andando, e ao voltar a
+distância entre os dois é arbitrária. **Enquanto ela for a régua, não há como
+corrigir isso — o erro está na régua.**
+
+A projeção é uma destas três, nesta ordem:
+
+1. **o TELÃO** (`display-status`), quando há TV conectada;
+2. **o ESPELHO** (`espelho-status`, v5.173), quando não há TV: as telas da rede
+   são o que a congregação vê, e quem as alimenta é o `/display/` da
+   `MirrorPresentation` — um `<video>` de verdade, numa `Presentation` que o
+   sistema não estrangula;
+3. **ninguém** — sem TV e sem espelho a projeção É a preview em tela cheia, que
+   exige o app na frente. Aí ela é a própria referência, e o caso não existe.
+
+Daí duas funções com nomes distintos, e a distinção é o modelo inteiro:
+`authoritativeTime()` responde **"o que está no ar agora?"** (decisões: qual
+estrofe vem a seguir, o que a barra marca, o que a `MediaSession` publica) e
+`tempoDaPreview()` responde **"o que a ilustração deve estar desenhando?"** (o
+`<video>` da preview e a letra desenhada dentro dela). Sem as duas, o atraso
+deliberado da preview vira defeito nos dois sentidos: quem desenha a letra pelo
+tempo da projeção troca a estrofe antes da imagem a que ela pertence, e quem
+realinha o `<video>` pelo tempo da projeção **desfaz o atraso** a cada status.
+
+Três regras completam o desenho:
+
+- **O realinhamento mira `projeção − atraso`**, nunca a projeção. Com
+  `PREV_ATRASO_MAX` (2,5 s) maior que a tolerância antiga (1,6 s), mirar a
+  projeção faria cada `display-status` puxar a preview para a frente — o resync
+  brigando com o atraso, a 4 Hz.
+- **A tolerância é de meio segundo, não de 1,6 s.** A preview **não tem som**
+  fora do modo "mesa de som", e ali o resync nem acontece; sem som um seek custa
+  um quadro e não estala nada. Ao **retomar do segundo plano** ela cai para
+  `RESYNC_EXATO` (0,15 s): ali não há ruído a poupar, há um desvio conhecido.
+- **Com a página escondida a preview não atrasa nada.** O atraso existe para o
+  operador não ver a preview responder antes das telas da rede; sem plateia ele
+  só serve para empilhar comandos numa fila cujos `setTimeout` o Android
+  estrangula. Escondida, ela aplica na hora — e é dessa posição que o
+  realinhamento da retomada parte.
 
 ### O `load` carrega o ponto e o estado da mídia
 
@@ -2344,11 +2398,46 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.172** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
+**Versão atual: v5.173** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
+> **A v5.173: A PREVIEW ERA A RÉGUA, e a régua era a coisa que se deformava.**
+> O operador relatou a preview voltando "completamente dessincronizada" depois
+> de minimizar e reabrir o app. A causa não estava na preview: estava em não
+> haver mais nada. **Sem TV conectada, o único emissor de `display-status` é o
+> `/display/` do espelho — e o dreno do papel `espelho` o calava.** Restava a
+> preview como fonte de tempo, e ela é o único dos três WebViews que o Android
+> estrangula quando o app sai da frente. O status do espelho passou a sair
+> RENOMEADO (`espelho-status`, para nada que espera "o telão" recebê-lo por
+> engano), o telão tem precedência sobre ele nos dois consumidores, e a preview
+> voltou a ser o que ela é: uma ILUSTRAÇÃO. Ver "A referência da preview". Junto
+> vieram as três regras do atraso — mirar `projeção − atraso` em vez da projeção
+> (senão o resync desfaz o atraso a 4 Hz), tolerância de 0,5 s em vez de 1,6 s
+> (a preview não tem som, um seek não estala nada) e **0,15 s ao retomar**, e a
+> fila da preview deixou de atrasar com a página escondida. **É OTA puro** para
+> a sincronização — o `MessageBus` relaia qualquer tipo, então o bundle novo
+> conserta a preview num shell antigo; só a **notificação de mídia** (que também
+> congelava, e pelo mesmo motivo) precisa do APK.
+>
+> **E o SEGUNDO TOQUE do Cronograma passou a existir de verdade.** A v5.165
+> anunciou "tocar de novo no que está no ar = tirar do ar" e ele não funcionava,
+> por **três** motivos empilhados, todos silenciosos: (1) `retirarDoAr` chamava
+> só `clearManualText()`, que é BOOKKEEPING — ele zera a sessão e **não manda um
+> único comando ao telão**; o versículo continuava projetado. Faltava o
+> `text-hide`, que é o mesmo "tirar do ar" da Bíblia e da Mensagem e é
+> justamente o que o `clear` não é (o louvor de fundo segue tocando). (2) A
+> pergunta "está no ar?" era `item.id === currentId`, e `currentId` é o ÚLTIMO
+> item enviado: no instante em que o operador põe uma música por baixo do
+> versículo — o caso que justifica o recurso —, ele deixa de apontar para a
+> cena. Agora quem responde é `cueNoArId`. (3) `projetarMensagemCue` projetava o
+> texto guardado **sem sessão nenhuma** quando a mensagem original tinha sido
+> apagada, e uma cena sem sessão é invisível para todo o resto do app. O realce
+> da lista passou a marcar as DUAS camadas que podem estar no ar ao mesmo tempo,
+> porque marcar uma só escondia justamente a linha em que o toque tem efeito.
+> OTA puro.
+>
 > **A v5.172: A PORTA ABERTA NUNCA ABRIU — e mais sete.** O operador relatou o
 > espelho "funcionando, mas sem estabilidade nem confiabilidade na conexão", e a
 > revisão linha a linha achou **oito** defeitos. O primeiro explica sozinho a

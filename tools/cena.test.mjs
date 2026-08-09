@@ -141,6 +141,73 @@ try {
   checar(!tipos.includes('load'),
     'e reconectar depois do fim não traz a faixa de volta (a "primeira tela/thumbnail" do relato)');
 
+  // ---- O SEGUNDO TOQUE, COM ÁUDIO DE FUNDO (v5.173) ----
+  //
+  // A v5.165 fez "tocar de novo no que está no ar = tirar do ar" e perguntava
+  // `item.id === currentId`. Só que uma cena de roteiro convive com uma mídia
+  // por baixo — é para isso que a independência áudio × texto existe —, e
+  // `currentId` é o ÚLTIMO item enviado: no instante em que o louvor de fundo
+  // entra, ele deixa de ser o versículo. O segundo toque parava de funcionar
+  // EXATAMENTE no caso que justificava o recurso, e a única saída voltava a ser
+  // o Parar, que leva a música junto. Foi o relato do operador.
+  //
+  // Este bloco é o cenário dele, inteiro: cena projetada, música por baixo, e o
+  // toque que tira só a cena.
+  const cenaId = await pg.evaluate(async () => {
+    const rec = await AVDB.addCue('message', { text: 'Aviso do teste' }, { name: 'Aviso', list: 'imports' });
+    await load();
+    return rec.id;
+  });
+  const audioId = await pg.evaluate(async () => {
+    const rec = await AVDB.addMedia(new Blob([new Uint8Array(64)], { type: 'audio/mp4' }), {
+      name: 'Fundo de teste', type: 'audio/mp4', kind: 'audio', list: 'imports',
+    });
+    await load();
+    return rec.id;
+  });
+
+  await pg.evaluate(async (id) => { await send(id); }, cenaId);
+  checar(await pg.evaluate(() => cenaDeRoteiroNoAr()), 'a cena de roteiro entra no ar');
+  checar(await pg.evaluate((id) => noArAgora({ id, kind: 'cue', cue: 'message' }), cenaId),
+    'e o segundo toque nela é reconhecido como "tirar do ar"');
+
+  // A MÚSICA POR BAIXO — o passo que quebrava tudo.
+  await pg.evaluate(async (id) => { await send(id); }, audioId);
+  checar(await pg.evaluate(() => cenaDeRoteiroNoAr()),
+    'o áudio de fundo NÃO derruba a cena (independência áudio × texto)');
+  checar(await pg.evaluate(() => currentId) === audioId,
+    'e `currentId` passa a ser a MÚSICA — era isto que escondia a cena do segundo toque');
+  checar(await pg.evaluate((id) => noArAgora({ id, kind: 'cue', cue: 'message' }), cenaId),
+    'e a cena CONTINUA reconhecida como no ar — a régua agora é `cueNoArId`, não `currentId`');
+  checar(await pg.evaluate((id) => linhaAtiva(id), cenaId),
+    'a linha dela segue realçada: duas camadas no ar, dois realces');
+  checar(await pg.evaluate((id) => linhaAtiva(id), audioId),
+    'e a da música também');
+
+  // E O TOQUE TIRA SÓ A CENA. `clear` aqui seria o Parar — e levaria o louvor.
+  const soACena = await pg.evaluate(async (id) => {
+    window.__espiao.length = 0;
+    await onTap({ id, kind: 'cue', cue: 'message' });
+    await new Promise((r) => setTimeout(r, 200));
+    return window.__espiao.map((m) => m.type);
+  }, cenaId);
+  checar(!(await pg.evaluate(() => cenaDeRoteiroNoAr())), 'o segundo toque tira a cena do ar');
+  checar(await pg.evaluate(() => midiaNoAr),
+    'e a MÚSICA DE FUNDO continua no ar — era este o risco de usar o Parar');
+  // E O COMANDO CERTO SAI. `clearManualText` é bookkeeping — ele zera a sessão
+  // e não manda nada ao telão. Sem o `text-hide`, o segundo toque apagava o
+  // estado do Controle e deixava o versículo PROJETADO: é literalmente o "tocar
+  // novamente não remove no player" do relato.
+  checar(soACena.includes('text-hide'),
+    'e o `text-hide` SAI — é ele que tira da tela, não o `clearManualText`',
+    JSON.stringify(soACena));
+  checar(!soACena.includes('clear'),
+    'nenhum `clear` é enviado: o desligamento é POR CAMADA', JSON.stringify(soACena));
+  checar(!(await pg.evaluate((id) => linhaAtiva(id), cenaId)),
+    'e o realce da cena sai, enquanto o da música fica');
+  await pg.evaluate(() => stopClear());
+  await pg.evaluate(async (id) => { await send(id); }, id);
+
   // ---- GIRAR ----
   // O giro é preferência de EXIBIÇÃO: ele precisa chegar ao telão que reconecta
   // antes do conteúdo, senão a mídia aparece deitada e endireita na frente de

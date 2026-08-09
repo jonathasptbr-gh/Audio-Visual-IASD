@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.172';
+const WEB_VERSION = '5.173';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -1114,6 +1114,28 @@ let ytEnded = false;       // YouTube terminou/parou sem player tocando: ▶ rec
 //
 // Uma variável, três defeitos: o estado que faltava era esse.
 let midiaNoAr = false;
+
+// QUAL cena de roteiro está no ar — e por que isto NÃO pode ser o `currentId`.
+//
+// A Camada de Texto (versículo, mensagem, letra, cronômetro, sorteio) é uma
+// camada PARALELA à mídia: um louvor de fundo sob um versículo é o uso normal, e
+// a independência áudio × texto existe justamente para permitir isso. Mas
+// `currentId` é o ÚLTIMO item enviado, seja ele cena ou mídia — então, no
+// instante em que o operador põe uma música para tocar por baixo do versículo,
+// `currentId` passa a ser a música e o versículo deixa de ser reconhecível.
+//
+// Era esse o buraco do segundo toque (v5.165): ele perguntava
+// `item.id === currentId`, e no caso mais comum de todos — cena de roteiro COM
+// áudio de fundo, que é exatamente o caso em que o Parar é perigoso — a resposta
+// era `false`. O toque então re-projetava a mesma cena em vez de retirá-la, e a
+// única saída voltava a ser o Parar, que leva a música junto. O recurso existia
+// e não alcançava o caso que o justificava.
+//
+// Este campo responde a pergunta certa: **qual item pôs no ar a Camada de Texto
+// que está no ar agora?**
+let cueNoArId = '';
+// Texto de roteiro projetado SEM sessão — ver `cenaDeRoteiroNoAr`.
+let textoAvulsoNoAr = false;
 let displayAudioBlocked = false; // Display reportou áudio bloqueado pelo navegador
 const scrollPos = {};      // posição de scroll por aba/pasta (sessão)
 
@@ -1354,12 +1376,67 @@ function recalcularAtrasoPreview() {
   if (!alvo) drenarPreview(true);
 }
 
+// ===== A REFERÊNCIA: quem é a PROJEÇÃO, e por que nunca é a preview =====
+//
+// A preview é uma ILUSTRAÇÃO do que está na tela — nunca a fonte de verdade.
+// Ela roda no WebView do Controle, que é justamente o que o Android estrangula
+// quando o app sai da frente: com o app minimizado o `<video>` dela é pausado
+// ou desacelerado, e ao voltar ela está arbitrariamente longe do que está sendo
+// projetado. Enquanto ela for a referência, nada consegue corrigir isso —
+// porque o erro está na própria régua.
+//
+// A projeção é uma destas três, NESTA ordem:
+//
+//   1. **o TELÃO** (`display-status`), quando há TV conectada;
+//   2. **o ESPELHO** (`espelho-status`, v5.173), quando não há TV: as telas da
+//      rede são o que a congregação vê, e quem as alimenta é o `/display/` da
+//      `MirrorPresentation` — um `<video>` de verdade, numa `Presentation` que
+//      o sistema NÃO estrangula. Ele era mudo no barramento até a v5.172 (ver o
+//      dreno em `shared/native.js`), e era essa a causa de "minimizei e a
+//      preview voltou completamente dessincronizada": não havia referência
+//      nenhuma, então não havia o que corrigir;
+//   3. **ninguém** — sem TV e sem espelho, a projeção É a preview em tela
+//      cheia, que exige o app na frente. Aí ela é a própria referência, e o
+//      caso não existe.
+//
+// `displayStatusAt`/`lastDisplayTime` guardam o último status de QUEM estiver
+// valendo; `telaoStatusAt` é só do telão, porque a precedência dele precisa de
+// um relógio próprio (com os dois no ar, o espelho é ruído).
 let displayStatusAt = 0;
 let lastDisplayTime = 0;
-const DISPLAY_TIMEOUT = 2500; // sem status do Display por mais que isso → preview assume
-const SYNC_DRIFT = 1.6;       // só re-sincroniza a preview se o drift passar disso (s)
+let telaoStatusAt = 0;
+let refFonte = '';            // 'telao' | 'espelho' | '' — só diagnóstico
+const DISPLAY_TIMEOUT = 2500; // sem status da projeção por mais que isso → preview assume
+
+// A TOLERÂNCIA DO RE-ALINHAMENTO, e ela era grande demais.
+//
+// 1,6 s foi escolhido quando o resync existia para não estalar o áudio da
+// preview. Só que a preview **não tem som** fora do modo "mesa de som" — e ali
+// o resync nem acontece (ver a guarda de `standalone` nas duas funções). Sem
+// som, um seek é invisível: o que se paga é um quadro, e o que se ganha é a
+// ilustração parar de mentir. Meio segundo é folga de sobra para o jitter do
+// status (que chega a ~4 Hz) e apertado o bastante para um desvio de verdade
+// nunca chegar a ser percebido.
+const SYNC_DRIFT = 0.5;
+
+// E AO VOLTAR DO SEGUNDO PLANO O ALINHAMENTO É EXATO, não tolerante.
+//
+// A tolerância existe para não corrigir ruído; ao retomar não há ruído a
+// poupar, há um desvio conhecido e possivelmente enorme. `RESYNC_EXATO` é só a
+// margem que evita um seek inútil quando por sorte já estava alinhado.
+const RESYNC_EXATO = 0.15;
+// Por quanto tempo depois de retomar o próximo status vale como reposicionamento
+// forçado. Ele precisa sobreviver ao intervalo entre a retomada e o status
+// seguinte — que, num telão parado, é o compasso do `display-status`.
+const RESYNC_JANELA_MS = 4000;
+let forcarResyncAte = 0;
+
 function displayActive() {
   return (Date.now() - displayStatusAt) < DISPLAY_TIMEOUT;
+}
+/** Só o TELÃO de verdade — é ele que tira o espelho da jogada. */
+function telaoAtivo() {
+  return (Date.now() - telaoStatusAt) < DISPLAY_TIMEOUT;
 }
 function ytDisplayActive() {
   return !!(currentItem && currentItem.kind === 'youtube') && displayActive();
@@ -1381,17 +1458,37 @@ function authoritativeTime() {
   // preview existe para curar.
   return (preview.getTime() || 0) + previewAtrasoMs() / 1000;
 }
+
+/**
+ * O tempo que a PREVIEW deve estar mostrando — a projeção menos o atraso.
+ *
+ * É o par de [authoritativeTime], e a distinção entre os dois é o modelo
+ * inteiro: um responde "o que está NO AR agora?" (decisões — qual estrofe vem a
+ * seguir, o que a barra marca, o que a `MediaSession` publica) e o outro
+ * responde "o que a ILUSTRAÇÃO deve estar desenhando?" (o `<video>` da preview,
+ * a letra desenhada dentro dela).
+ *
+ * Sem os dois, o atraso deliberado da preview (ver `cmd`) vira defeito: quem
+ * desenha a letra pelo tempo da projeção a troca `previewAtrasoMs` ANTES da
+ * imagem correspondente, e quem re-alinha o `<video>` pelo tempo da projeção
+ * DESFAZ o atraso a cada status — os dois em silêncio.
+ */
+function tempoDaPreview() {
+  return Math.max(0, authoritativeTime() - previewAtrasoMs() / 1000);
+}
 // Re-alinha a preview à projeção real do Display (fonte de verdade): casa o
 // play/pause e, se o tempo divergir muito (ex: preview estrangulada enquanto o
 // Controle esteve minimizado), busca o instante do Display. Não busca em "mesa
 // de som" (evita salto audível); só casa play/pause.
-function ytResyncPreviewToDisplay(isPlaying, currentTime) {
+function ytResyncPreviewToDisplay(isPlaying, currentTime, tolerancia) {
   const p = ytPreview && ytPreview.player;
   if (!p) return;
+  const tol = typeof tolerancia === 'number' ? tolerancia : SYNC_DRIFT;
   try {
     if (!standalone && typeof currentTime === 'number' && isFinite(currentTime)) {
+      const alvo = alvoDaPreview(currentTime);
       const pt = p.getCurrentTime() || 0;
-      if (Math.abs(pt - currentTime) > SYNC_DRIFT) p.seekTo(currentTime, true);
+      if (Math.abs(pt - alvo) > tol) p.seekTo(alvo, true);
     }
     const st = p.getPlayerState();
     if (isPlaying && st !== 1 && st !== 3) p.playVideo();
@@ -1404,16 +1501,49 @@ function ytResyncPreviewToDisplay(isPlaying, currentTime) {
 // de áudio independentes (Display e preview) divergem aos poucos e a letra
 // sincronizada acaba trocando de slide em momentos diferentes nos dois
 // lados. Também não busca em "mesa de som" (evita salto audível).
-function resyncPreviewToDisplay(isPlaying, currentTime) {
+function resyncPreviewToDisplay(isPlaying, currentTime, tolerancia) {
   if (!preview.isTimed()) return;
+  const tol = typeof tolerancia === 'number' ? tolerancia : SYNC_DRIFT;
   try {
     if (!standalone && typeof currentTime === 'number' && isFinite(currentTime)) {
+      const alvo = alvoDaPreview(currentTime);
       const pt = preview.getTime() || 0;
-      if (Math.abs(pt - currentTime) > SYNC_DRIFT) preview.seek(currentTime);
+      if (Math.abs(pt - alvo) > tol) preview.seek(alvo);
     }
     if (isPlaying && !preview.isPlaying()) preview.play();
     else if (!isPlaying && preview.isPlaying()) preview.pause();
   } catch (_) {}
+}
+
+/**
+ * Onde a preview deveria estar, dado um instante da PROJEÇÃO.
+ *
+ * O atraso entra aqui com o sinal certo, e ele é a razão de esta linha existir:
+ * mirar o instante da projeção faria cada `display-status` (a ~4 Hz) puxar a
+ * preview para a frente, desfazendo o deslocamento que ela tem de propósito
+ * para casar com as telas da rede (ver `cmd`). Com o telão conectado o atraso é
+ * zero e isto é a identidade.
+ */
+function alvoDaPreview(tempoDaProjecao) {
+  return Math.max(0, tempoDaProjecao - previewAtrasoMs() / 1000);
+}
+
+/**
+ * Realinha a preview AGORA, pela última posição conhecida da projeção.
+ *
+ * Chamado ao retomar do segundo plano, antes de qualquer status novo chegar: se
+ * a referência ainda estiver fresca, a correção acontece no ato; se não, o
+ * `forcarResyncAte` faz o próximo status valer como reposicionamento forçado.
+ * Sem os dois caminhos, a correção dependeria de o telão estar emitindo naquele
+ * exato instante — e uma cena PARADA (imagem, versículo) não emite nada.
+ */
+function ressincronizarPreview() {
+  if (!displayActive()) return;
+  if (currentItem && currentItem.kind === 'youtube') {
+    ytResyncPreviewToDisplay(playing, lastDisplayTime, RESYNC_EXATO);
+  } else {
+    resyncPreviewToDisplay(playing, lastDisplayTime, RESYNC_EXATO);
+  }
 }
 function ytPreviewTick() {
   if (ytDisplayActive()) return; // Display presente é a fonte — a preview só assume na ausência dele
@@ -1680,8 +1810,17 @@ const FILA_PREVIEW_MAX = 24;
 
 function cmd(obj) {
   AVDB.sendCommand(obj);
-  const atraso = previewAtrasoMs();
-  if (atraso <= 0 && !filaPreview.length) { aplicarNaPreview(obj); return; }
+  // COM A PÁGINA ESCONDIDA A ILUSTRAÇÃO NÃO TEM PLATEIA — e atrasá-la ali é o
+  // pior dos dois mundos. O atraso existe para o operador não ver a preview
+  // responder antes das telas da rede; com o app fora da frente ninguém está
+  // comparando nada, e os `setTimeout` que fariam a fila escoar são justamente
+  // os que o Android estrangula. O resultado era a preview voltando do segundo
+  // plano com uma cena velha na mão, esperando um relógio que não corria.
+  //
+  // Escondida, a preview aplica na hora: é a posição mais próxima da verdade
+  // que ela pode ocupar, e é dela que o realinhamento da retomada parte.
+  const atraso = document.visibilityState === 'visible' ? previewAtrasoMs() : 0;
+  if (atraso <= 0) { drenarPreview(true); aplicarNaPreview(obj); return; }
   filaPreview.push({ obj: obj, em: Date.now() + atraso });
   if (filaPreview.length > FILA_PREVIEW_MAX) { drenarPreview(true); return; }
   if (!filaPreviewTimer) drenarPreview(false);
@@ -1738,8 +1877,7 @@ function previewTick() {
   // O conjunto é o MESMO de `clearManualText` — as cinco sessões, incluindo
   // cronômetro e sorteio; listar só três deixava o tick rodando sobre uma
   // preview sem mídia durante uma contagem regressiva.
-  if ((bibleSession || msgSession || lyricSession || chronoSession || drawSession)
-    && !preview.getCurrent()) return;
+  if (cenaDeRoteiroNoAr() && !preview.getCurrent()) return;
   // Itens YouTube tocam só no Display (player real): a UI de transporte é
   // dirigida pelo display-status remoto, não pela preview local.
   if (currentItem && currentItem.kind === 'youtube') return;
@@ -1961,7 +2099,8 @@ function restorePvSceneAfterText() {
   if (!cur || preview.hasEnded()) { preview.coverIn(false); return; }
   if (cur.kind !== 'audio' || !Array.isArray(cur.lyrics) || !cur.lyrics.length) return;
   showPvLyrics(cur);
-  updatePvLyricSlide(authoritativeTime());
+  // O tempo da ILUSTRAÇÃO, não o da projeção — ver `tempoDaPreview`.
+  updatePvLyricSlide(tempoDaPreview());
 }
 
 // Texto VIVO na preview (cronômetro e sorteio): mesmo desenho do Display (ver
@@ -2757,7 +2896,7 @@ function renderPlaylist() {
   }
   plItems.forEach((item) => {
     const li = document.createElement('li');
-    li.className = 'row-item' + (item.id === currentId ? ' active' : '');
+    li.className = 'row-item' + (linhaAtiva(item.id) ? ' active' : '');
     li.dataset.id = item.id;
 
     const row = document.createElement('div');
@@ -3966,6 +4105,10 @@ function projetarMensagemCue(d) {
   const texto = String(d.text || '').trim();
   if (!texto) { avisar('A mensagem deste item foi excluída', 'erro'); return; }
   clearManualText();
+  // SEM SESSÃO DE NAVEGAÇÃO, MAS NÃO SEM ESTADO: sem esta linha o texto ficava
+  // projetado e invisível para o resto do app — o segundo toque não o
+  // reconhecia como no ar, e só o Parar o tirava. Ver `cenaDeRoteiroNoAr`.
+  textoAvulsoNoAr = true;
   view = 'visual';
   persistCurrent();
   cmd({ type: 'text', mode: 'message', main: texto, sub: '', view: 'visual' });
@@ -4101,6 +4244,27 @@ function lyricStep(delta) {
 function clearManualText() {
   clearBibleSession(); clearMsgSession(); clearLyricSession();
   clearChronoSession(); clearDrawSession();
+  textoAvulsoNoAr = false;
+  // A Camada de Texto saiu: nenhuma cena de roteiro está mais no ar, venha ela
+  // de onde vier. Ver `cueNoArId`.
+  cueNoArId = '';
+}
+
+/**
+ * Há uma Camada de Texto no ar? As cinco sessões — mais o texto AVULSO.
+ *
+ * O avulso é a mensagem de roteiro cuja mensagem original foi apagada da lista:
+ * `projetarMensagemCue` projeta o texto guardado e, de propósito, **sem sessão
+ * de navegação** (não há lista para percorrer, e os botões voltam a ser de
+ * mídia). Só que "sem sessão de navegação" virou "sem sessão nenhuma", e sem
+ * sessão nenhuma esta função respondia `false` sobre uma coisa que estava
+ * projetada: o segundo toque não a reconhecia, e a única saída voltava a ser o
+ * Parar — que leva o louvor de fundo junto. É o mesmo defeito da regra do
+ * `currentId`, por outra porta.
+ */
+function cenaDeRoteiroNoAr() {
+  return !!(bibleSession || msgSession || lyricSession || chronoSession
+    || drawSession || textoAvulsoNoAr);
 }
 
 // Projeta a mensagem de índice `idx` (Display + preview). Encerra a Bíblia (só
@@ -5291,7 +5455,7 @@ function renderLibrary() {
   items.forEach((item) => {
     const li = document.createElement('li');
     // Bug fix: active highlight only when not in selection mode
-    const isActive = !selectionMode && item.id === currentId;
+    const isActive = !selectionMode && linhaAtiva(item.id);
     li.className = 'lib-item' + (isActive ? ' active' : '') + (selected.has(item.id) ? ' selected' : '');
     li.dataset.id = item.id;
 
@@ -6423,7 +6587,7 @@ function favGrupo(item) {
 // se quer de um favorito, sem entrar em pasta nenhuma.
 function favItemRow(item) {
   const li = document.createElement('li');
-  li.className = 'lib-item' + (item.id === currentId ? ' active' : '');
+  li.className = 'lib-item' + (linhaAtiva(item.id) ? ' active' : '');
   li.dataset.id = item.id;
   const row = document.createElement('div'); row.className = 'row';
   // A MESMA coluna nome+subtítulo da biblioteca, e de propósito: uma segunda
@@ -6669,8 +6833,14 @@ async function send(id) {
     currentItem = alvo;
     currentId = id;
     await persistCurrent();
-    document.querySelectorAll('.lib-item,.row-item').forEach((el) => el.classList.toggle('active', el.dataset.id === id));
     await playCue(alvo);
+    // DEPOIS do `playCue`, e não antes: um pacote (`group`) não põe nada no ar,
+    // e um versículo pode falhar (capítulo ausente e sem internet). Quem
+    // responde "esta cena está no ar?" são as sessões, não a intenção — e
+    // marcar antes deixaria o realce e o segundo toque apontando para uma cena
+    // que nunca chegou ao telão.
+    cueNoArId = cenaDeRoteiroNoAr() ? id : '';
+    marcarNoAr();
     return;
   }
   currentId = id;
@@ -6683,7 +6853,7 @@ async function send(id) {
   // manual em cena (Bíblia/Mensagem/cronômetro); qualquer VISUAL (vídeo/imagem/
   // YouTube) encerra. Um louvor de fundo sob a contagem regressiva de abertura
   // é justamente o uso normal.
-  if (!((bibleSession || msgSession || lyricSession || chronoSession || drawSession) && currentItem && currentItem.kind === 'audio')) clearManualText();
+  if (!(cenaDeRoteiroNoAr() && currentItem && currentItem.kind === 'audio')) clearManualText();
   await persistCurrent();
   ytEnded = false;
   displayStatusAt = 0; // até o Display confirmar o novo item, a preview dirige
@@ -6697,7 +6867,7 @@ async function send(id) {
   // que o ▶ pode retomar em vez de recarregar (ver `midiaNoAr`).
   midiaNoAr = true;
   // re-render leve de estados ativos
-  document.querySelectorAll('.lib-item,.row-item').forEach((el) => el.classList.toggle('active', el.dataset.id === id));
+  marcarNoAr();
   renderNowPlaying();
   // E o EIXO DOS BOTÕES, que muda com o item (v5.101). Sem esta linha, trocar
   // de mídia deixava ⏮/⏭ com o estado da mídia ANTERIOR — e para uma
@@ -7228,6 +7398,11 @@ async function stopClear() {
   playPauseEl.querySelector('.msym').textContent = ICON.play;
   seekEl.value = 0; seekEl.disabled = true;
   curTimeEl.textContent = '0:00';
+  // A cena de roteiro caiu junto (o `clearManualText` acima), e o realce dela
+  // precisa cair com ela: ele vem do `cueNoArId`, que nenhuma re-renderização
+  // da lista está agendada para reler. Sem isto, uma linha continuaria marcada
+  // como "no ar" sobre um telão vazio até a próxima troca de aba.
+  marcarNoAr();
   await persistCurrent();
 }
 
@@ -7315,22 +7490,74 @@ async function replacePlaylistWith(rec) {
  */
 async function retirarDoAr(item) {
   if (isCue(item)) {
+    // O `text-hide` É O QUE TIRA DA TELA — e ele faltava.
+    //
+    // `clearManualText()` é BOOKKEEPING: as cinco `clear*Session` zeram o
+    // estado do Controle, re-renderizam a navegação e não mandam um único
+    // comando ao telão. Nos outros chamadores isso está certo, porque logo
+    // atrás vem um `load` (que esconde o texto no Display) ou um `clear`. Aqui
+    // não vem nada — e o resultado era o defeito que o operador relatou com
+    // todas as letras: o segundo toque "não remove no player". Ele removia a
+    // SESSÃO, e o versículo continuava projetado na frente da congregação, sem
+    // nenhuma linha na tela do operador que o dissesse.
+    //
+    // `text-hide` encerra só a Camada de Texto — é o mesmo comando do "tirar do
+    // ar" da Bíblia e da Mensagem, e é justamente o que o `clear` NÃO é: o
+    // áudio de fundo segue tocando.
+    cmd({ type: 'text-hide' });
     clearManualText();
-    // A linha perde o realce, mas o item continua sendo o "atual" para o ▶.
-    document.querySelectorAll('.lib-item,.row-item').forEach((el) => el.classList.remove('active'));
+    // O realce sai da CENA e fica na MÍDIA, se houver — era isto que o
+    // `remove('active')` cego apagava junto. Tirar o versículo do ar não tira o
+    // louvor que continua tocando por baixo dele, e a lista precisa continuar
+    // dizendo isso.
+    marcarNoAr();
     renderNowPlaying();
     return;
   }
   await stopClear();
 }
 
-/** Está no ar AGORA? É o que decide entre projetar e retirar. */
+/**
+ * O REALCE DA LISTA marca as DUAS coisas que podem estar no ar ao mesmo tempo.
+ *
+ * Ele era uma linha só (`el.dataset.id === id`), e por isso um louvor de fundo
+ * apagava o realce do versículo que continuava projetado: o operador perdia de
+ * vista a única linha em que o segundo toque tinha efeito. Duas camadas, dois
+ * realces — é o mesmo modelo que a independência áudio × texto já descreve.
+ */
+function marcarNoAr() {
+  document.querySelectorAll('.lib-item,.row-item').forEach((el) => {
+    el.classList.toggle('active', linhaAtiva(el.dataset.id));
+  });
+}
+
+/**
+ * Esta linha deve estar realçada?
+ *
+ * `currentId` continua valendo — ele é "o item atual", o que o ▶ repete — e o
+ * que se ACRESCENTA é a cena de roteiro no ar, que pode ser outra: com um louvor
+ * de fundo sob um versículo, `currentId` é a música e a cena é o versículo.
+ * Marcar só um dos dois é esconder metade do que está no telão.
+ */
+function linhaAtiva(id) {
+  if (!id) return false;
+  if (id === currentId) return true;
+  return !!cueNoArId && id === cueNoArId && cenaDeRoteiroNoAr();
+}
+
+/**
+ * Está no ar AGORA? É o que decide entre projetar e retirar.
+ *
+ * As duas camadas respondem por caminhos diferentes de propósito: a MÍDIA é o
+ * `currentId` (ela é a cena), e a CENA DE ROTEIRO é o `cueNoArId` — porque ela
+ * convive com uma mídia de fundo, e nesse caso `currentId` é da música. Ver
+ * `cueNoArId`: era essa confusão que fazia o segundo toque não funcionar
+ * exatamente no caso em que ele mais importa.
+ */
 function noArAgora(item) {
-  if (!item || item.id !== currentId) return false;
-  if (isCue(item)) {
-    return !!(bibleSession || msgSession || lyricSession || chronoSession || drawSession);
-  }
-  return midiaNoAr;
+  if (!item) return false;
+  if (isCue(item)) return !!cueNoArId && item.id === cueNoArId && cenaDeRoteiroNoAr();
+  return item.id === currentId && midiaNoAr;
 }
 
 async function onTap(item) {
@@ -15556,13 +15783,24 @@ AVDB.onCommand((msg) => {
   const isYoutube = currentItem.kind === 'youtube';
   const isTimedLocal = currentItem.kind === 'audio' || currentItem.kind === 'video';
   if (!isYoutube && !isTimedLocal) return; // imagem/etc: sem noção de tempo, nada a sincronizar
-  if (msg.type === 'display-status') {
+  if (msg.type === 'display-status' || msg.type === 'espelho-status') {
     // Player morto/parado (fim natural ou stop manual): ignora qualquer
     // display-status ainda em trânsito reportando o player antigo tocando —
     // senão o ícone voltaria a "pause" e o ▶ (que deve recarregar) quebraria.
     if (isYoutube && ytEnded) return;
+    // O TELÃO TEM PRECEDÊNCIA — ver "A REFERÊNCIA". Com os dois no ar, o que a
+    // congregação vê é a TV, e o espelho vira ruído a ~4 Hz numa barra que
+    // andaria para a frente e para trás.
+    const doTelao = msg.type === 'display-status';
+    if (!doTelao && telaoAtivo()) return;
+    if (doTelao) telaoStatusAt = Date.now();
+    refFonte = doTelao ? 'telao' : 'espelho';
     displayStatusAt = Date.now();
     lastDisplayTime = msg.currentTime || 0;
+    // AO RETOMAR DO SEGUNDO PLANO o primeiro status vale como reposicionamento
+    // exato: ali não há ruído a poupar, há um desvio conhecido e grande.
+    const tol = Date.now() < forcarResyncAte ? RESYNC_EXATO : undefined;
+    if (tol !== undefined) forcarResyncAte = 0;
     setPlaying(!!msg.playing);
     const dur = (typeof msg.duration === 'number' && isFinite(msg.duration)) ? msg.duration : 0;
     seekEl.disabled = !(dur > 0);
@@ -15574,11 +15812,16 @@ AVDB.onCommand((msg) => {
     }
     if (isYoutube) {
       renderSimpleTime();   // idem: o ramo do YouTube não chama renderSlideNav
-      ytResyncPreviewToDisplay(playing, msg.currentTime);
+      ytResyncPreviewToDisplay(playing, msg.currentTime, tol);
     } else {
-      updatePvLyricSlide(lastDisplayTime);
+      // A LETRA DESENHADA DENTRO DA PREVIEW segue o tempo DA PREVIEW, não o da
+      // projeção: com o atraso em jogo (ver `cmd`), alimentá-la com
+      // `lastDisplayTime` trocaria a estrofe ~1 s antes da imagem a que ela
+      // pertence — dentro do mesmo retângulo. Quem usa o tempo da PROJEÇÃO é a
+      // barra e a navegação de estrofe, logo abaixo.
+      updatePvLyricSlide(tempoDaPreview());
       renderSlideNav();
-      resyncPreviewToDisplay(playing, msg.currentTime);
+      resyncPreviewToDisplay(playing, msg.currentTime, tol);
     }
   } else if (msg.type === 'media-ended') {
     // A GUARDA DE mediaId que o comentário da preview (`onEnded`) sempre
@@ -15631,6 +15874,23 @@ document.addEventListener('visibilitychange', () => {
   // lista ao voltar para a frente é o piso que impede o ícone de cast de ficar
   // aceso sobre uma TV que não está mais lá (v5.142).
   reconferirTelas();
+  // A PREVIEW VOLTA DO ESCURO, e ela volta ERRADA — é o defeito que a v5.173
+  // existe para fechar. Enquanto o app esteve fora da frente o `<video>` dela
+  // foi pausado ou desacelerado pelo Chromium, enquanto a projeção (o telão ou
+  // o `/display/` do espelho, que rodam numa `Presentation` e não são
+  // estrangulados) seguiu andando. A distância entre os dois é arbitrária e não
+  // se corrige sozinha: nada no ciclo normal compara os dois relógios com força
+  // suficiente.
+  //
+  // São dois passos, e nenhum basta sozinho: a fila escoa (os comandos que
+  // ficaram presos num timer estrangulado valem AGORA), e o realinhamento
+  // acontece contra a última posição conhecida da projeção. Se ela já estiver
+  // velha, `forcarResyncAte` faz o próximo status valer como reposicionamento
+  // exato — que é o caminho normal numa cena parada, onde o status é o único
+  // sinal que ainda chega.
+  drenarPreview(true);
+  forcarResyncAte = Date.now() + RESYNC_JANELA_MS;
+  ressincronizarPreview();
 });
 
 (async function init() {
