@@ -113,17 +113,34 @@ class EspelhoMdnsPacoteTest {
         assertEquals(35, r[r.size - 1].toInt() and 0xFF)
         // CLASSE com o bit de cache-flush: sem ele, uma tela que viu o app num
         // IP anterior continuaria indo ao endereço velho até o TTL vencer.
-        val classe = ((r[r.size - 11].toInt() and 0xFF) shl 8) or (r[r.size - 10].toInt() and 0xFF)
+        //
+        // Os offsets são contados DO FIM, e a conta é esta — a cauda do registro
+        // tem tamanho fixo (10 bytes de TYPE/CLASS/TTL/RDLENGTH + 4 de RDATA),
+        // enquanto o nome no começo não tem:
+        //   RDATA     size-4 .. size-1
+        //   RDLENGTH  size-6 .. size-5
+        //   TTL       size-10 .. size-7
+        //   CLASS     size-12 .. size-11
+        //   TYPE      size-14 .. size-13
+        val classe = ((r[r.size - 12].toInt() and 0xFF) shl 8) or (r[r.size - 11].toInt() and 0xFF)
         assertEquals(0x8001, classe)
+        val tipo = ((r[r.size - 14].toInt() and 0xFF) shl 8) or (r[r.size - 13].toInt() and 0xFF)
+        assertEquals(EspelhoMdnsPacote.TIPO_A, tipo)
     }
 
     /** A despedida é a mesma resposta com TTL zero — ver o `adeus` do espelho. */
     @Test
     fun despedidaTemTtlZero() {
-        val r = EspelhoMdnsPacote.resposta("av.local", ByteArray(4), 0)
-        val ttl = (0 until 4).fold(0) { a, i -> (a shl 8) or (r[r.size - 9 + i].toInt() and 0xFF) }
-        assertEquals(0, ttl)
+        val vivo = EspelhoMdnsPacote.resposta("av.local", ByteArray(4), 120)
+        // O caso positivo primeiro: sem ele, um offset errado faria o teste da
+        // despedida passar sobre bytes que são zero por acaso (o RDLENGTH alto,
+        // por exemplo) — que foi exatamente o que aconteceu ao escrevê-lo.
+        assertEquals(120, ttlDe(vivo))
+        assertEquals(0, ttlDe(EspelhoMdnsPacote.resposta("av.local", ByteArray(4), 0)))
     }
+
+    private fun ttlDe(r: ByteArray): Int =
+        (0 until 4).fold(0) { a, i -> (a shl 8) or (r[r.size - 10 + i].toInt() and 0xFF) }
 
     /**
      * A SONDAGEM lê a resposta de OUTRO aparelho — e é ela que impede o app de
