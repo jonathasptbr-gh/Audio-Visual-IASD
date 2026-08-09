@@ -2161,6 +2161,17 @@ da **despedida**: recebido o `0x30 {"m":"adeus"}`, o cliente **para** — nada d
 martelar uma porta fechada — e a tela diz que foi o operador, em vez de "sem
 sinal".
 
+A v5.175 acrescentou o **oráculo dos TOKENS** (`tools/tokens.test.mjs`, Node
+puro, **sem `continue-on-error`**): nenhum `var(--x)` **sem fallback** pode
+apontar para um token que não existe. Ele é o irmão do oráculo da sombra, e pela
+mesma razão — um `var()` inválido sem fallback não é erro em lugar nenhum: a
+declaração inteira computa para o valor INICIAL da propriedade, sem aviso no
+console e sem sintoma no lugar da causa. Na v5.171 isso deixou os DOIS botões
+principais da folha "Conectar uma tela" com `border-radius: 0`, os únicos cantos
+retos de um app inteiro arredondado, e foi preciso um par de olhos no aparelho
+para vê-lo. `var(--x, fallback)` **não** é reprovado: é o idioma legítimo dos
+valores que o JS entrega em tempo de execução (`--vol`, `--ch`, `--tab-w`).
+
 A v5.155 acrescentou dois casos ao mesmo arquivo, e os dois vieram da PRIMEIRA
 rodada em aparelho depois da auditoria — que só produziu leitura porque a
 v5.154 devolveu o canal de relato. O primeiro afirma que a **borda ao vivo é o
@@ -2398,11 +2409,36 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.174** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
+**Versão atual: v5.175** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
+> **A v5.175: A SEÇÃO DE CONEXÃO FORA DO PADRÃO — e o token que não existia.**
+> Os DOIS botões principais da folha "Conectar uma tela" pediam
+> `var(--radius-md)`, um token que **nunca existiu nesta base**. Um `var()`
+> inválido sem fallback computa para o valor INICIAL da propriedade: eram os
+> únicos cantos retos de um app inteiro arredondado, na primeira tela do recurso
+> mais novo, e nada reclamou em lugar nenhum — mesma família do `setInteger`
+> numa chave `long` e do `bytes` esquecido no `bgProgress`. Agora há um oráculo
+> (`tools/tokens.test.mjs`, Node puro, **sem `continue-on-error`**) que varre a
+> base inteira, mais a asserção RENDERIZADA no `smoke.mjs`.
+>
+> **E a simplificação da v5.156→v5.171 tinha deixado sobras.** O que a revisão
+> achou, e o que ficou: `.mirror-mode` (o seletor imagem × vídeo, morto desde que
+> o modo imagem saiu) e `.mirror-hint` eram CSS órfão; `#mirrorRow` era um
+> `<span hidden>` — a antiga linha de Configurações — que o `renderEspelho`
+> ainda alimentava a cada leitura com uma frase de estado que ninguém via, e que
+> ainda servia de SENTINELA de existência para a folha inteira (um elemento de UI
+> morto como guarda é a pior forma de guarda: parece intencional e some no
+> primeiro `hidden` que alguém mexer); o ENDEREÇO tinha duas anatomias
+> (`.cast-addr`/`.cast-url` e `.mirror-addr`/`.mirror-url`, raios, tamanhos e
+> paddings diferentes) e aparecia nas DUAS folhas; e as telas conectadas eram
+> listadas duas vezes, também com anatomias diferentes. Agora: a folha de
+> conectar tem o endereço e quem está vendo; a de Ajustes tem o PIN, o
+> certificado, a porta e **só a fila de aprovação**. Mais os literais que viraram
+> token (`999px` → `--radius-pill`, `4px`/`2px` → rem). OTA puro.
+>
 > **A v5.174: "ATUAL" E "NO AR" ERAM A MESMA MARCA, e não são a mesma coisa.**
 > A lista tinha um contorno em accent só, e ele significava `currentId` — o item
 > ATUAL, aquele que o ▶ repete e que sobrevive de propósito ao Parar. Depois de
