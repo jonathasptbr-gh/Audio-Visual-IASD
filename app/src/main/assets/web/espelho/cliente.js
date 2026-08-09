@@ -169,11 +169,21 @@
   // contem — teto de ~1 s de tela congelada, contra os ~7 s do `SALTO_S`.
   const ENCALHE_MS = 400;
 
-  // O PEDIDO DE CHAVE QUANDO A PODA ESTÁ FAMINTA. Freio próprio, e longo: um
-  // IDR de 720p custa dezenas de kB (ver a armadilha 4 do `EspelhoCodec.kt`), e
-  // pedir um a cada giro do compasso torraria a banda que o recurso inteiro
-  // existe para caber.
-  const CHAVE_PODA_MS = 8000;
+  // O PEDIDO DE CHAVE QUANDO A PODA ESTÁ FAMINTA. Freio próprio, e MUITO longo.
+  //
+  // Um IDR de 720p custa dezenas de kB (ver a armadilha 4 do `EspelhoCodec.kt`),
+  // mas o custo que decidiu este número não é banda: é que o freio de IDR do
+  // servidor é COMPARTILHADO (1 por tela a cada 2 s e um piso global de 1 s), e
+  // ele não sabe distinguir um pedido de FAXINA de um pedido de ESTREIA. Em
+  // aparelho o Registro mostrou `17 pedido(s) · 8 atendido(s) · 9 engolido(s)`,
+  // e um engolido na hora errada é uma tela nova esperando a próxima chave para
+  // ver a primeira imagem.
+  //
+  // Desde que o GOP passou a caber na janela (v5.159), a poda praticamente não
+  // precisa pedir nada: o caso que resta é o transitório logo depois de um
+  // recomeço. Trinta segundos cobrem isso e devolvem o freio a quem precisa
+  // dele.
+  const CHAVE_PODA_MS = 30000;
 
   // Fila de append longa demais = este aparelho não dá conta do fluxo. Ver
   // `recomecar()`: a resposta NÃO é descartar fragmentos (isso abriria buraco,
@@ -217,6 +227,9 @@
   // em que algo insista, porque um laço de remontagem seria a projeção piscando
   // sem parar por causa do recurso auxiliar.
   const REBUILDS_AUDIO = 3;
+  // ...E ELE SE RENOVA depois deste tanto de som chegando sem falha. Ver
+  // `vigiarAudio`: o teto é para um EPISÓDIO, não para o culto inteiro.
+  const AUDIO_SAUDAVEL_MS = 45000;
 
   // O relato cabe no corpo de 256 B que o `POST /par` aceita (§5.1), e a conta
   // é apertada de propósito — passar do teto não dá erro de validação, dá um
@@ -271,6 +284,8 @@
   let audioDesde = 0;                     // quando a faixa de som abriu (vigia do mudo)
   let audioUltimoMs = 0;                  // e quando chegou o último quadro AAC
   let rebuilds = 0;
+  // Desde quando o som chega sem interrupção — a âncora do teto acima.
+  let audioSaudavelDesde = 0;
 
   // POR QUE ESTA TELA ESTÁ MUDA — o ramo exato, em texto curto, e sempre.
   //
@@ -309,6 +324,13 @@
   let piorQuadro = -1;                    // maior intervalo entre quadros APRESENTADOS
   let parouQuadro = 0;                    // quantos passaram de PARADA_MS
   let piorCursor = 0;                     // maior intervalo com `currentTime` parado
+  // A MENOR FOLGA JÁ VISTA é da SESSÃO, e só `comecar()` a zera.
+  //
+  // Ela vivia junto com o resto do pior caso, zerada em cada descontinuidade —
+  // e a descontinuidade principal é o SALTO, que é exatamente a consequência do
+  // que ela existe para mostrar. Em aparelho isso deu `11 salto(s)` ao lado de
+  // `menor folga: +1614 ms`: um número tranquilizador medido só na janela
+  // DEPOIS do último salto, sobre uma sessão que saltou onze vezes.
   let piorVfim = 99999;                   // menor folga vista até o fim do vídeo
   let piorAfim = 99999;                   // idem, do som
   let ultimoQuadroMs = 0;                 // quando o último quadro foi apresentado
@@ -393,8 +415,9 @@
     piorQuadro = -1;
     parouQuadro = 0;
     piorCursor = 0;
-    piorVfim = 99999;
-    piorAfim = 99999;
+    // `piorVfim`/`piorAfim` NÃO entram aqui — ver a declaração deles. O evento
+    // que zera o resto é o salto, e o salto é a consequência do que a folga
+    // mínima existe para mostrar.
     ultimoQuadroMs = Date.now();
     abertoContado = false;
     ultimoCT = -1;
@@ -1255,6 +1278,21 @@
       soltarAudio('o som parou de chegar');
       return;
     }
+    // O TETO DE REMONTAGENS SE RENOVA depois de um trecho longo com som
+    // chegando — mesma regra do `recusasSeguidas` do decodificador, e pelo
+    // mesmo motivo.
+    //
+    // Ele existe para a projeção nunca piscar mais que três vezes por causa do
+    // som, e isso continua valendo DENTRO de um episódio. Mas ele era um teto
+    // de SESSÃO: três reconexões espalhadas ao longo de um culto — e em
+    // aparelho foram cinco em quatro minutos — gastavam o crédito, e a tela
+    // ficava muda pelo resto do domingo por causa de uma turbulência de rede
+    // que já tinha passado. Um teto que não se renova não é um freio, é uma
+    // sentença.
+    if (rebuilds && agora - audioSaudavelDesde > AUDIO_SAUDAVEL_MS) {
+      rebuilds = 0;
+      audioSaudavelDesde = agora;
+    }
     const bv = faixaDe(sbV);
     if (!bv) return;
     const desvio = bv.end(bv.length - 1) - ba.end(ba.length - 1);
@@ -1932,6 +1970,9 @@
     }
     if (q.tipo === T_AUDIO) {
       if (!sbA) return;
+      // A âncora do teto de remontagens nasce no PRIMEIRO quadro AAC desta
+      // faixa: é dele em diante que "o som está chegando" começa a contar.
+      if (!audioUltimoMs) audioSaudavelDesde = Date.now();
       audioUltimoMs = Date.now();
       conta.quadrosAudio++;
       // 'ok' é o piso; o `vigiarAudio` o substitui pelo desvio A/V medido assim
@@ -2201,6 +2242,8 @@
     chaves.length = 0;
     travouVisto = 0;
     houveQuadro = false;
+    piorVfim = 99999;
+    piorAfim = 99999;
     recuarAlvo();
     zerarPiores();
     armarQuadros();

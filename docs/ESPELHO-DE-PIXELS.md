@@ -2019,6 +2019,51 @@ esquecido seria um botão mudo sem ninguém notar. Botão desabilitado não emit
 nunca promete uma ação que não aconteceu. `tools/smoke.mjs` trava as duas metades — que ele apareça,
 e que o ícone continue visível.
 
+### 10-A.9 — o descarte do servidor matava o SOM (5.163)
+
+Log com o som interrompido mais de uma vez e a tela terminando **muda**: `12 descarte(s)`,
+`3 remontagem(ns) de som`, `som: PEDIDO e a faixa não nasceu`, `codec: avc1.64001F` (sem `mp4a`), e
+`diz: "faixa solta: o som parou de chegar"`.
+
+**A causa é uma linha em `entregar()`.** Quando a fila de uma tela enche — o cliente não escoa, a
+rede engasgou — o servidor fazia `t.fila.clear()`. Isso varre o **áudio** junto com o vídeo. E o
+cliente tem um vigia que solta a faixa de som depois de `AUDIO_MUDO_MS` (3 s) sem um quadro AAC,
+porque a MSE não toca sem dado em **todas** as faixas e uma faixa de som parada congelaria a IMAGEM
+(§3.9). Alguns estouros seguidos varrem os 3 s, a faixa é solta, o cliente remonta, e ao terceiro
+desiste — muda pelo resto do culto.
+
+A conta que decide: o AAC são **96 kbps** contra ~3 Mbps de vídeo, isto é **3% dos bytes**.
+Descartá-lo não alivia backpressure nenhuma e custa a faixa inteira. O sacrifício certo é o vídeo,
+que se recupera sozinho no próximo quadro-chave — que é justamente o que as duas linhas seguintes do
+método já preparavam (`esperandoIdr = true` + `pedirIdrComFreio`).
+
+A fila carregava `ByteArray` puro, e por isso o estouro só sabia `clear()`; ela passou a carregar um
+`Pedaco(bytes, audio)` e o descarte virou `removeAll { !it.audio }` — atômico num
+`ArrayBlockingQueue`, e preservando a ordem do que fica, que é o contrato do fio (§5.3). **Exige o
+APK.**
+
+Três correções de leitura vieram junto, todas OTA, e as três são da mesma família de tudo neste
+apêndice — **o número que mente custa mais que o número ausente**:
+
+- **O teto de remontagens de som se RENOVA** depois de 45 s de som chegando sem falha, como o
+  `recusasSeguidas` do decodificador. Ele existe para a projeção nunca piscar mais que três vezes
+  *num episódio*; era um teto de **sessão**, e cinco reconexões espalhadas por um culto o gastavam —
+  a tela ficava muda pelo resto do domingo por causa de uma turbulência que já tinha passado. Um
+  teto que não se renova não é um freio, é uma sentença.
+- **`menor folga já vista` passou a ser da SESSÃO.** Ela vivia junto com o resto do pior caso,
+  zerada em cada descontinuidade — e a descontinuidade principal é o **salto**, que é exatamente a
+  consequência do que ela existe para mostrar. Daí `11 salto(s)` ao lado de um tranquilizador
+  `+1614 ms`, medido só na janela depois do último salto.
+- **`-99999` é ausência de faixa, não folga negativa.** Sem a ressalva, toda tela muda — a maioria
+  delas, e toda tela que perdeu o som — saía do Registro com `← chegou a secar`. Alarme falso em
+  cima do log que existe justamente para separar alarme de ruído.
+
+E o freio de IDR ganhou fôlego: `CHAVE_PODA_MS` foi de 8 s para **30 s**. O freio do servidor é
+compartilhado (1 por tela a cada 2 s, mais um piso global de 1 s) e não distingue um pedido de
+**faxina** de um de **estreia** — `17 pedido(s) · 8 atendido(s) · 9 engolido(s)`, e um engolido na
+hora errada é uma tela nova esperando a próxima chave para ver a primeira imagem. Desde que o GOP
+passou a caber na janela (§10-A.5), a poda quase não precisa pedir nada.
+
 ---
 
 ## 11. A FRASE PARA O OPERADOR

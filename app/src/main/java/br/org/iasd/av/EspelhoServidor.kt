@@ -388,19 +388,37 @@ class EspelhoServidor(
 
     private fun entregar(t: Tela, q: Quadro, bytes: ByteArray) {
         val ehVideo = q.tipo == EspelhoCodec.TIPO_VIDEO
-        if (t.fila.offer(bytes)) {
+        val ehAudio = q.tipo == EspelhoCodec.TIPO_AUDIO || q.tipo == EspelhoCodec.TIPO_CSD_AUDIO
+        if (t.fila.offer(Pedaco(bytes, ehAudio))) {
             if (ehVideo) t.enviados++
             if (ehVideo && q.chave) t.esperandoIdr = false
             return
         }
-        // A FILA ENCHEU: o cliente não escoa. Esvazia tudo, conta o descarte e
-        // recomeça do próximo quadro-chave — que também é pedido aqui, porque
-        // numa cena parada o próximo IDR natural pode estar a dez segundos.
-        t.fila.clear()
+        // A FILA ENCHEU: o cliente não escoa. O que se joga fora é VÍDEO, e
+        // nunca o som.
+        //
+        // Era `fila.clear()`, e em aparelho isso muda de "a imagem engasgou"
+        // para "esta tela ficou MUDA pelo resto do culto". O caminho: o cliente
+        // solta a faixa de som depois de `AUDIO_MUDO_MS` (3 s) sem um quadro
+        // AAC — porque a MSE não toca sem dado em TODAS as faixas, e uma faixa
+        // de som parada congelaria a IMAGEM. Alguns estouros seguidos varrem os
+        // 3 s de áudio, o cliente solta a faixa, remonta, e ao terceiro
+        // desiste. Medido: `12 descarte(s)`, `3 remontagem(ns)`, `som: PEDIDO e
+        // a faixa não nasceu`.
+        //
+        // E a conta é gritante: o AAC são 96 kbps contra ~3 Mbps de vídeo, isto
+        // é, **3% dos bytes**. Descartá-lo não alivia backpressure nenhuma e
+        // custa a faixa inteira. O sacrifício certo é o vídeo, que se recupera
+        // sozinho no próximo quadro-chave — que é justamente o que as duas
+        // linhas seguintes preparam.
+        //
+        // `removeAll` num `ArrayBlockingQueue` é atômico e preserva a ordem do
+        // que fica, que é o contrato do fio (§5.3).
+        t.fila.removeAll { !it.audio }
         t.descartes++
         t.esperandoIdr = true
         val recomeco = !ehVideo || q.chave
-        if (recomeco && t.fila.offer(bytes) && ehVideo && q.chave) {
+        if (recomeco && t.fila.offer(Pedaco(bytes, ehAudio)) && ehVideo && q.chave) {
             t.esperandoIdr = false
         }
         pedirIdrComFreio(t)
@@ -743,7 +761,7 @@ class EspelhoServidor(
                 // do encoder AAC pode enfileirar um quadro `0x11` no intervalo
                 // entre as duas linhas — e o cliente, que só monta a faixa a
                 // partir do `0x10`, o joga fora.
-                if (quer) csdAudio?.let { tela.fila.offer(it) }
+                if (quer) csdAudio?.let { tela.fila.offer(Pedaco(it, true)) }
                 tela.audio = quer
             }
         }
@@ -777,7 +795,7 @@ class EspelhoServidor(
         // com ele — e num telão parado o próximo IDR pode estar a cinco
         // segundos. Enfileirar antes fecha a janela por construção, e custa
         // mover uma linha.
-        csdVideo?.let { tela.fila.offer(it) }
+        csdVideo?.let { tela.fila.offer(Pedaco(it, false)) }
         var anterior: Tela? = null
         var lotado = false
         // A ADMISSÃO é a única decisão deste arquivo que precisa ser atômica:
@@ -845,14 +863,15 @@ class EspelhoServidor(
                 break
             }
             if (q === FIM) break
+            val bytes = q.bytes
             tela.escritaIniciadaMs = SystemClock.elapsedRealtime()
             try {
-                saida.write(EspelhoHttp.chunk(q, 0, q.size))
+                saida.write(EspelhoHttp.chunk(bytes, 0, bytes.size))
                 saida.flush()
             } finally {
                 tela.escritaIniciadaMs = 0
             }
-            tela.bytes += q.size
+            tela.bytes += bytes.size
             tela.ultimaEscritaMs = SystemClock.elapsedRealtime()
             // PROGRESSO REAL — é ele, e não um tique de relógio, que renova o
             // wake lock do serviço: um espelho morto não pode segurar o lock
@@ -914,7 +933,7 @@ class EspelhoServidor(
         t.fila.clear()
         // A DESPEDIDA VAI NA FRENTE DO SENTINELA, e por isso ela precisa entrar
         // antes de `viva` cair: a ordem da fila é o contrato.
-        if (despedida != null) t.fila.offer(despedida)
+        if (despedida != null) t.fila.offer(Pedaco(despedida, false))
         t.fila.offer(FIM)
         t.viva = false
         if (despedida == null) {
@@ -1407,6 +1426,16 @@ class EspelhoServidor(
      * tamanho que separa "a rede engasgou por um instante" de "este cliente não
      * escoa", e o segundo caso tem tratamento próprio em [entregar].
      */
+    /**
+     * Um item da fila de uma tela, com a única coisa que o descarte precisa
+     * saber: **isto é som?**
+     *
+     * A fila carregava `ByteArray` puro, e por isso o estouro só sabia
+     * `clear()` — varrendo o áudio junto com o vídeo. Ver [entregar]: são 3%
+     * dos bytes, e perdê-los custa a faixa de som da tela pelo resto do culto.
+     */
+    private class Pedaco(val bytes: ByteArray, val audio: Boolean)
+
     private class Tela(
         val rotulo: String,
         /** O socket **CRU**, e não o `SSLSocket` que possa estar por cima — ver
@@ -1414,7 +1443,7 @@ class EspelhoServidor(
         val cru: Socket,
         val sessao: EspelhoPares.Sessao,
     ) {
-        val fila = ArrayBlockingQueue<ByteArray>(FILA_QUADROS)
+        val fila = ArrayBlockingQueue<Pedaco>(FILA_QUADROS)
 
         @Volatile var esperandoIdr = true
 
@@ -1549,7 +1578,7 @@ class EspelhoServidor(
 
         /** Sentinela de fim de fila: é `===` que o distingue, então ele não pode
          *  ser confundido com um quadro vazio de verdade. */
-        private val FIM = ByteArray(0)
+        private val FIM = Pedaco(ByteArray(0), false)
 
         /**
          * O IPv4 da Wi-Fi, ou uma [Recusa] com a frase pronta.

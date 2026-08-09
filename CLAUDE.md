@@ -2341,11 +2341,29 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.162** (base web) · `SHELL_VERSION` **34**, e o bundle segue com
+**Versão atual: v5.163** (base web) · `SHELL_VERSION` **34**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
+> **A v5.163 acha por que o SOM MORRE, e a causa estava no descarte do
+> servidor.** Quando a fila de uma tela enche, `entregar()` fazia `fila.clear()`
+> — varrendo o **áudio** junto com o vídeo. O cliente solta a faixa de som depois
+> de 3 s sem um quadro AAC (a MSE não toca sem dado em todas as faixas, e uma
+> faixa parada congelaria a IMAGEM), remonta, e ao terceiro desiste: **muda pelo
+> resto do culto**. Medido em aparelho: `12 descarte(s)`, `3 remontagem(ns)`,
+> `som: PEDIDO e a faixa não nasceu`. E a conta é gritante — o AAC são 96 kbps
+> contra ~3 Mbps de vídeo, isto é **3% dos bytes**: descartá-lo não alivia
+> backpressure nenhuma. Agora o estouro joga fora **só vídeo**, que se recupera
+> sozinho no quadro-chave seguinte. **Exige o APK.** Por OTA vão mais três: o
+> teto de remontagens de som **se renova** depois de 45 s de som limpo (era um
+> teto de sessão — cinco reconexões num culto o gastavam e a tela ficava muda por
+> uma turbulência que já tinha passado); `menor folga já vista` passou a ser da
+> SESSÃO (ela zerava no salto, que é justamente a consequência que ela existe
+> para explicar — daí `11 salto(s)` ao lado de um tranquilizador `+1614 ms`); e o
+> `-99999` de "sem faixa" deixou de ser lido como folga negativa, que fazia toda
+> tela muda sair do Registro com um "← chegou a secar" falso.
+>
 > **A v5.162 ataca a SENSAÇÃO, não o número — e a leitura do operador estava
 > certa.** O que estraga não é o atraso em si: é a preview mudar no ato enquanto
 > a tela da rede muda um segundo depois, e é o botão ficar esse segundo sem
