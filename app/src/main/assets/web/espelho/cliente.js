@@ -255,6 +255,10 @@
   // ...E ELE SE RENOVA depois deste tanto de som chegando sem falha. Ver
   // `vigiarAudio`: o teto é para um EPISÓDIO, não para o culto inteiro.
   const AUDIO_SAUDAVEL_MS = 45000;
+  // POR QUANTO TEMPO O AAC PRECISA VOLTAR A CHEGAR para a faixa ser remontada
+  // sozinha. Ver `voltouOSom`: soltar a faixa é a metade fácil — a que faltava
+  // era ela VOLTAR sem ninguém tocar na tela.
+  const AUDIO_VOLTA_MS = 2000;
 
   // O relato cabe no corpo de 256 B que o `POST /par` aceita (§5.1), e a conta
   // é apertada de propósito — passar do teto não dá erro de validação, dá um
@@ -311,6 +315,10 @@
   let rebuilds = 0;
   // Desde quando o som chega sem interrupção — a âncora do teto acima.
   let audioSaudavelDesde = 0;
+  // E, com a faixa JÁ SOLTA, desde quando o AAC voltou a chegar pelo fio (e
+  // quando foi o último). Ver `voltouOSom`.
+  let voltaDesde = 0;
+  let voltaUltimoMs = 0;
 
   // POR QUE ESTA TELA ESTÁ MUDA — o ramo exato, em texto curto, e sempre.
   //
@@ -950,6 +958,8 @@
     el.play.hidden = true;
     el.par.hidden = false;
     doc.body.classList.remove('projetando');
+    doc.body.classList.remove('sem-cursor');
+    if (ctrlTimer) { clearTimeout(ctrlTimer); ctrlTimer = null; }
     el.parBtn.disabled = false;
     el.pin.value = '';
     if (motivo) texto('parMsg', motivo, true);
@@ -967,6 +977,10 @@
     if (voltarDepois) { clearTimeout(voltarDepois); voltarDepois = null; }
     el.par.hidden = true;
     el.play.hidden = false;
+    // A barra aparece com o player e se recolhe sozinha: numa TV ninguém vai
+    // procurar um controle que nasceu escondido, e ninguém quer um ícone
+    // parado sobre a projeção pelo resto do culto.
+    mostrarControles();
     avisar('Conectando…');
     comecar();
   }
@@ -1493,7 +1507,44 @@
       return;
     }
     semSom('Esta tela ficou sem som (' + porque + ') — a imagem continua.');
+    voltaDesde = 0;
+    voltaUltimoMs = 0;
     aplicar();
+  }
+
+  /**
+   * O SOM VOLTOU A CHEGAR PELO FIO, COM A FAIXA JÁ SOLTA — remonta sozinho.
+   *
+   * `soltarAudio` era uma porta de mão única. Ele existe para salvar a IMAGEM
+   * (a MSE não toca sem dado em todas as faixas), e nisso ele acerta — mas o
+   * que sobrava depois era uma tela muda pelo resto do culto, esperando alguém
+   * atravessar o salão para tocar nela. E a causa mais comum é passageira: o
+   * grafo de áudio do celular engasga por alguns segundos e volta. Foi o que o
+   * Registro de aparelho mostrou — `24 blocos de PCM/s` e `7424 quadros` de AAC
+   * sendo produzidos, `0 descarte(s)` no servidor, e a tela dizendo
+   * `som: PEDIDO e a faixa não nasceu`: o som estava chegando, e não havia
+   * faixa para recebê-lo.
+   *
+   * A condição é o AAC voltar a chegar por [AUDIO_VOLTA_MS] SEGUIDOS, e a
+   * janela reinicia a cada intervalo maior que [AUDIO_MUDO_MS]. Um quadro
+   * perdido no meio de uma turbulência não conta como recuperação — remontar em
+   * cima dela seria trocar uma tela muda por uma projeção piscando.
+   *
+   * O freio é o de sempre, e é ele que impede o laço: `tentarSom` não passa de
+   * [REBUILDS_AUDIO], e esse teto só se renova depois de [AUDIO_SAUDAVEL_MS] de
+   * som limpo (`vigiarAudio`) — isto é, depois de a remontagem ter DADO CERTO.
+   */
+  function voltouOSom() {
+    if (!audioQuerido || sbA || !ms || ms.readyState !== 'open') return;
+    if (rebuilds >= REBUILDS_AUDIO) return;
+    const agora = Date.now();
+    if (!voltaDesde || agora - voltaUltimoMs > AUDIO_MUDO_MS) voltaDesde = agora;
+    voltaUltimoMs = agora;
+    if (agora - voltaDesde < AUDIO_VOLTA_MS) return;
+    voltaDesde = 0;
+    voltaUltimoMs = 0;
+    porqueSemSom = 'o som voltou ao fio — remontando (' + (rebuilds + 1) + '/' + REBUILDS_AUDIO + ')';
+    tentarSom();
   }
 
   /**
@@ -2102,7 +2153,7 @@
       return;
     }
     if (q.tipo === T_AUDIO) {
-      if (!sbA) return;
+      if (!sbA) { voltouOSom(); return; }
       // A âncora do teto de remontagens nasce no PRIMEIRO quadro AAC desta
       // faixa: é dele em diante que "o som está chegando" começa a contar.
       if (!audioUltimoMs) audioSaudavelDesde = Date.now();
@@ -2447,28 +2498,103 @@
   }
 
   // --------------------------------------------------------------------------
-  // O GESTO — um toque, quatro efeitos (§3.11, invariante 9)
+  // OS CONTROLES — dois ícones que se recolhem, como em qualquer player
   // --------------------------------------------------------------------------
 
-  async function gesto() {
+  // Quanto tempo a barra fica na tela sem ninguém tocar nela. Quatro segundos é
+  // o suficiente para achar o ícone do outro lado da sala e curto o bastante
+  // para a projeção ficar limpa no resto do culto.
+  const CTRL_SOME_MS = 4000;
+  // E QUANTO TEMPO ELA PRECISA ESTAR NA TELA PARA UM TOQUE PODER RECOLHÊ-LA.
+  //
+  // Num notebook o ponteiro se mexe ANTES do clique — e é esse movimento que
+  // traz a barra de volta. Sem esta carência, o clique que veio logo atrás a
+  // recolheria no mesmo gesto: o operador move o mouse, vê os ícones
+  // aparecerem, clica no fundo e eles somem — como se o toque não tivesse
+  // funcionado. Recolher só vale para uma barra que já estava lá.
+  const CTRL_CARENCIA_MS = 400;
+  let ctrlTimer = null;
+  let ctrlVisivel = true;
+  let ctrlDesde = 0;
+
+  /** Mostra a barra e rearma o recolhimento. Todo toque passa por aqui. */
+  function mostrarControles() {
+    if (!el.ctrl) return;
+    if (!ctrlVisivel) ctrlDesde = Date.now();
+    ctrlVisivel = true;
+    el.ctrl.classList.remove('some');
+    if (el.dica && !gestoFeito) el.dica.classList.remove('some');
+    doc.body.classList.remove('sem-cursor');
+    if (ctrlTimer) clearTimeout(ctrlTimer);
+    ctrlTimer = setTimeout(esconderControles, CTRL_SOME_MS);
+  }
+
+  /** Recolhe a barra. O cursor vai junto — ver a folha. */
+  function esconderControles() {
+    if (!el.ctrl) return;
+    ctrlVisivel = false;
+    if (ctrlTimer) { clearTimeout(ctrlTimer); ctrlTimer = null; }
+    el.ctrl.classList.add('some');
+    if (el.dica) el.dica.classList.add('some');
+    if (gestoFeito) doc.body.classList.add('sem-cursor');
+  }
+
+  /**
+   * O TOQUE FORA DOS ÍCONES — o comportamento de player de sempre.
+   *
+   * Com a barra na tela ele a recolhe (é o pedido literal: "ou tocando fora
+   * deles"); com ela recolhida, a traz de volta. Um toque só, os dois sentidos.
+   *
+   * E ELE NÃO TENTA MAIS O SOM. Até aqui um toque em qualquer lugar chamava
+   * `tentarSom()`, que REMONTA a `MediaSource` — a projeção piscava porque
+   * alguém encostou na tela. Agora quem pede som é o ícone que diz som, e a
+   * recuperação automática (`voltouOSom`) cobre o caso que aquele toque
+   * existia para cobrir.
+   */
+  function tocarNaTela() {
+    if (ctrlVisivel && Date.now() - ctrlDesde >= CTRL_CARENCIA_MS) esconderControles();
+    else mostrarControles();
+  }
+
+  /** Marca a primeira interação: some a dica e liga a transição do aviso. */
+  function primeiroToque() {
+    if (gestoFeito) return;
     gestoFeito = true;
-    el.gesto.hidden = true;
     doc.body.classList.add('projetando');
+    if (el.dica) el.dica.classList.add('some');
+  }
 
-    try { if (el.play.requestFullscreen) await el.play.requestFullscreen(); } catch (_) {}
-
-    // AS TELAS NASCEM MUDAS POR DECISÃO, não só por política (§3.11, inv. 10):
-    // elas estão dentro da igreja, a 100–300 ms da PA, e três telas
-    // desmutadas são três alto-falantes com eco. Quem está em outra sala é quem
-    // aperta — e é este toque.
-    //
-    // E É AQUI, E SÓ AQUI, QUE A `MediaSource` É REMONTADA PARA GANHAR SOM. O
-    // Chromium recusa `addSourceBuffer` depois que ela inicializou (ver o
-    // cabeçalho da seção da mídia), então a faixa de áudio não pode ser
-    // acrescentada a uma projeção em curso: ou ela nasce junto, ou tudo nasce de
-    // novo. Amarrar a remontagem ao GESTO — e não à chegada do `csd` de áudio —
-    // é o que garante que ela aconteça UMA vez, num instante em que o visitante
-    // está olhando para a tela porque acabou de tocar nela.
+  /**
+   * O SOM — e é ele que carrega a única remontagem desta página.
+   *
+   * As telas nascem mudas por decisão, não só por política (§3.11, inv. 10):
+   * elas estão dentro da igreja, a 100–300 ms da PA, e três telas desmutadas
+   * são três alto-falantes com eco. Quem está em outra sala é quem aperta.
+   *
+   * O PRIMEIRO toque é o que a `MediaSource` custa: o Chromium recusa
+   * `addSourceBuffer` depois que ela inicializou (ver o cabeçalho da seção da
+   * mídia), então a faixa de áudio não pode ser acrescentada a uma projeção em
+   * curso — ou ela nasce junto, ou tudo nasce de novo. Do segundo toque em
+   * diante isto é um MUDO de verdade: `muted` no elemento, sem remontar nada e
+   * sem piscar. Era a metade que faltava — com o botão único de antes, quem
+   * descobria o eco não tinha como desfazer sem recarregar a página.
+   */
+  async function alternarSom() {
+    primeiroToque();
+    mostrarControles();
+    if (audioQuerido) {
+      const mudo = !el.v.muted;
+      try { el.v.muted = mudo; } catch (_) {}
+      pintarControles();
+      // O relato do operador precisa distinguir "esta tela não pediu som" de
+      // "esta tela pediu e está no mudo" — do lado do servidor as duas são a
+      // mesma torneira aberta.
+      if (mudo) porqueSemSom = 'no mudo pelo visitante';
+      else if (porqueSemSom.slice(0, 7) === 'no mudo') porqueSemSom = sbA ? 'ok' : 'pedido, esperando o csd';
+      try { relatar(); } catch (_) {}
+      if (!mudo) tocar();
+      return;
+    }
     audioQuerido = true;
     porqueSemSom = 'pedido, esperando o csd';
     // Tentativa NOVA, prazo novo: o toque do visitante é um pedido explícito.
@@ -2477,6 +2603,7 @@
       el.v.muted = false;
       pedirAudio();
     } catch (_) {}
+    pintarControles();
     tentarSom();
     tocar();
 
@@ -2485,6 +2612,54 @@
     // contexto seguro nenhum. Este só existe quando houver TLS.
     if (global.isSecureContext && global.navigator.wakeLock) {
       try { await global.navigator.wakeLock.request('screen'); } catch (_) {}
+    }
+  }
+
+  /**
+   * A TELA CHEIA, sozinha — e ela precisa ser separável do som.
+   *
+   * A tela do saguão quer imagem cheia e silêncio; a da sala anexa quer as
+   * duas. Um botão só obrigava a levar o pacote inteiro.
+   *
+   * `requestFullscreen()` exige ativação transitória do usuário e não há
+   * truque — o que este desenho muda é que o toque acontece NAQUILO que se
+   * quer. O `webkit*` fica: TVs com WebKit antigo são exatamente o público
+   * desta página.
+   */
+  async function alternarCheia() {
+    primeiroToque();
+    mostrarControles();
+    try {
+      if (naCheia()) {
+        if (doc.exitFullscreen) await doc.exitFullscreen();
+        else if (doc.webkitExitFullscreen) doc.webkitExitFullscreen();
+      } else if (el.play.requestFullscreen) {
+        await el.play.requestFullscreen();
+      } else if (el.play.webkitRequestFullscreen) {
+        el.play.webkitRequestFullscreen();
+      }
+    } catch (_) {}
+    pintarControles();
+    tocar();
+  }
+
+  function naCheia() {
+    return !!(doc.fullscreenElement || doc.webkitFullscreenElement);
+  }
+
+  /** Os dois ícones mostram ESTADO, não ação — ver a folha. */
+  function pintarControles() {
+    if (!el.ctrl) return;
+    const comSom = audioQuerido && el.v && !el.v.muted;
+    el.ctrl.classList.toggle('com-som', !!comSom);
+    el.ctrl.classList.toggle('cheia', naCheia());
+    if (el.btnSom) {
+      el.btnSom.title = comSom ? 'Mudo' : 'Ligar o som';
+      el.btnSom.setAttribute('aria-label', el.btnSom.title);
+    }
+    if (el.btnFull) {
+      el.btnFull.title = naCheia() ? 'Sair da tela cheia' : 'Tela cheia';
+      el.btnFull.setAttribute('aria-label', el.btnFull.title);
     }
   }
 
@@ -2530,19 +2705,29 @@
   }
 
   function iniciar() {
-    ['par', 'pin', 'pinBox', 'parBtn', 'parMsg', 'qrBox', 'qr', 'play', 'v', 'gesto', 'aviso'].forEach(function (id) {
+    ['par', 'pin', 'pinBox', 'parBtn', 'parMsg', 'qrBox', 'qr', 'play', 'v',
+      'ctrl', 'btnSom', 'btnFull', 'dica', 'aviso'].forEach(function (id) {
       el[id] = doc.getElementById(id);
     });
     if (!el.par || !el.play) return;      // não é a página do espelho
 
     el.parBtn.addEventListener('click', parear);
     el.pin.addEventListener('keydown', function (e) { if (e.key === 'Enter') parear(); });
-    el.gesto.addEventListener('click', gesto);
-    // Um toque em qualquer lugar da projeção vale como o gesto: um visitante
-    // que não viu o botão ainda assim consegue a tela cheia. E, depois do
-    // primeiro, um toque vale como "tenta o som de novo" — é a saída da tela
-    // que ficou sem áudio, dita por ela mesma no aviso.
-    el.play.addEventListener('click', function () { if (gestoFeito) tentarSom(); else gesto(); });
+    if (el.btnSom) el.btnSom.addEventListener('click', alternarSom);
+    if (el.btnFull) el.btnFull.addEventListener('click', alternarCheia);
+    // O toque fora dos ícones alterna a barra, como em qualquer player. Ele
+    // NÃO chega aqui a partir dos botões: os dois chamam `mostrarControles`, e
+    // deixar o clique subir recolheria a barra no mesmo toque que a usou.
+    el.play.addEventListener('click', function (e) {
+      if (el.ctrl && el.ctrl.contains(e.target)) return;
+      tocarNaTela();
+    });
+    // Num notebook, mexer o mouse traz os controles de volta sem clicar — é o
+    // que todo player faz, e é o que devolve o cursor que o `sem-cursor` some.
+    el.play.addEventListener('mousemove', function () { if (!ctrlVisivel) mostrarControles(); });
+    // Sair da tela cheia pelo Esc (ou pelo botão do próprio navegador) não passa
+    // pelo nosso botão — sem isto o ícone ficaria mostrando o estado errado.
+    doc.addEventListener('fullscreenchange', function () { pintarControles(); mostrarControles(); });
     // O MOTIVO DE VERDADE mora aqui, e não no `SourceBuffer`: é o `MediaError`
     // do elemento que traz a frase do demuxer do Chromium. Se a mensagem do
     // recomeço já saiu sem detalhe (a ordem dos dois eventos não é garantida),
@@ -2560,6 +2745,7 @@
     // É uma TV: ninguém vai clicar em "gerar código". O campo do PIN não recebe
     // foco por isso mesmo: um teclado virtual abrindo sozinho numa smart TV
     // cobriria justamente o código que ela precisa mostrar.
+    pintarControles();
     if (token) aoPlayer();
     else cicloQr();
   }

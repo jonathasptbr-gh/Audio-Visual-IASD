@@ -600,20 +600,55 @@ checar(true, 'aprovada, a MESMA página troca para o player (sem navegar)');
   }
 }
 
-// O GESTO É A ÚNICA PORTA DO SOM, e é por isso que ele precisa de um caso.
+// O ÍCONE DO SOM É A ÚNICA PORTA DO SOM, e é por isso que ele precisa de um
+// caso.
 //
 // As telas nascem MUDAS por decisão (§3.11, invariante 10), e nada no cliente
 // liga `audioQuerido` além deste toque. No primeiro culto de teste o Registro
 // mostrou `som torneira:nao` — que quer dizer "esta tela nunca pediu" — e a
 // leitura na sala foi "o celular não está enviando som", porque o botão dizia
-// só "ver em tela cheia". O rótulo mudou; este caso é o que impede a porta de
-// ser fechada de novo por um refactor.
+// só "ver em tela cheia". Desde a v5.177 são DOIS ícones, e o que trocou o
+// rótulo por um desenho tem de continuar dizendo som em algum lugar: o
+// `aria-label`/`title` é esse lugar, e é o que um leitor de tela anuncia.
 // (O percurso completo do toque é exercitado na aba limpa, no fim.)
 {
-  const rotulo = await pg.$eval('#gesto', (e) => e.textContent || '');
-  checar(/ouvir|som/i.test(rotulo),
-    'o botão do gesto ANUNCIA o som — ele é a única porta para o áudio da tela',
-    rotulo);
+  const rot = await pg.$eval('#btnSom', (e) => (e.getAttribute('aria-label') || '') + '|' + (e.title || ''));
+  checar(/som|ouvir|mudo/i.test(rot),
+    'o ícone do som ANUNCIA o som — ele é a única porta para o áudio da tela', rot);
+  const dica = await pg.$eval('#dica', (e) => e.textContent || '');
+  checar(/som|ouvir|alto-falante/i.test(dica),
+    'e a dica da estreia também o nomeia (o som é opt-in e ninguém adivinha)', dica);
+  // A TELA CHEIA É SEPARÁVEL DO SOM, e este é o caso que impede alguém de
+  // juntar os dois de novo: a tela do saguão quer imagem cheia e SILÊNCIO.
+  const cheia = await pg.$eval('#btnFull', (e) => (e.getAttribute('aria-label') || '') + '|' + (e.title || ''));
+  checar(/tela cheia/i.test(cheia) && !/som|ouvir|mudo/i.test(cheia),
+    'e o ícone de tela cheia é SÓ tela cheia — as duas decisões não voltam a ser uma', cheia);
+}
+
+// OS CONTROLES SE RECOLHEM, e voltam com um toque — o player de sempre.
+//
+// Sem o recolhimento, dois ícones ficam parados sobre a projeção pelo resto do
+// culto; sem a volta, uma tela que se calou não teria como pedir som de novo
+// sem recarregar a página.
+{
+  await pg.waitForFunction(() => {
+    const c = document.getElementById('ctrl');
+    return c && c.classList.contains('some');
+  }, null, { timeout: 8000 }).then(() => checar(true, 'a barra de controles se recolhe sozinha'))
+    .catch(() => checar(false, 'a barra de controles se recolhe sozinha'));
+
+  await pg.click('#play', { position: { x: 5, y: 5 } });
+  const voltou = await pg.$eval('#ctrl', (e) => !e.classList.contains('some'));
+  checar(voltou, 'e um toque fora dos ícones a traz de volta');
+
+  // A CARÊNCIA, e ela precisa de um caso: num notebook o ponteiro se mexe antes
+  // do clique, e é esse movimento que traz a barra. Sem a carência o clique de
+  // trás a recolheria no mesmo gesto — o operador veria os ícones aparecerem e
+  // sumirem, como se o toque não tivesse funcionado.
+  await espera(600);
+  await pg.click('#play', { position: { x: 5, y: 5 } });
+  const foi = await pg.$eval('#ctrl', (e) => e.classList.contains('some'));
+  checar(foi, 'e o toque seguinte a recolhe — "ou tocando fora deles"');
 }
 
 // A VOLTA (§5.1): três palavras, e nada que venha da rede entra no barramento.
@@ -922,14 +957,26 @@ checar(true, 'aprovada, a MESMA página troca para o player (sem navegar)');
   // tela nunca pediu" — e a leitura na sala foi "o celular não está enviando
   // som", porque o botão dizia só "ver em tela cheia".
   const audioAntes = visto.volta.filter((x) => x && x.do === 'audio').length;
-  await pg2.click('#gesto');
+  await pg2.click('#btnSom');
   await espera(800);
   const pedidos = visto.volta.filter((x) => x && x.do === 'audio');
   checar(pedidos.length > audioAntes,
-    'e o gesto PEDE o áudio ao servidor (POST /r {do:audio,on:true})',
+    'e o ícone do som PEDE o áudio ao servidor (POST /r {do:audio,on:true})',
     audioAntes + ' → ' + pedidos.length);
   checar(pedidos.every((x) => x.on === true),
     'sempre para LIGAR — o cliente nunca desliga o som de si mesmo');
+
+  // E O SEGUNDO TOQUE É UM MUDO DE VERDADE: `muted` no elemento, sem remontar
+  // nada e sem pedir nada ao servidor. Era a metade que faltava — com o botão
+  // único de antes, quem descobria o eco na sala não tinha como desfazer sem
+  // recarregar a página.
+  const antesDoMudo = visto.volta.filter((x) => x && x.do === 'audio').length;
+  await pg2.click('#btnSom');
+  await espera(300);
+  const mudo = await pg2.$eval('#v', (e) => e.muted);
+  checar(mudo, 'e o toque seguinte MUTA a tela (sem remontar a MediaSource)');
+  checar(visto.volta.filter((x) => x && x.do === 'audio').length === antesDoMudo,
+    'e ele não fala com o servidor: o mudo é local, a torneira segue como estava');
   await ctx2.close();
 }
 

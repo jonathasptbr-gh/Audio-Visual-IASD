@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.176';
+const WEB_VERSION = '5.177';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -1447,6 +1447,33 @@ const RESYNC_EXATO = 0.15;
 const RESYNC_JANELA_MS = 4000;
 let forcarResyncAte = 0;
 
+/**
+ * COM A PÁGINA ESCONDIDA NÃO SE TOCA NO TRANSPORTE DA PREVIEW.
+ *
+ * Esta guarda é a metade que faltava da v5.173. Ao passar a escutar o
+ * `espelho-status`, o Controle ganhou uma referência de tempo justamente no
+ * caso em que ele não tinha nenhuma (sem TV, app minimizado) — e junto ganhou
+ * uma consequência que não estava prevista: `resyncPreviewToDisplay` passou a
+ * chamar `preview.play()` a ~4 Hz numa página oculta.
+ *
+ * O Chromium PAUSA um `<video>` de página escondida. O `play()` sai, o
+ * navegador pausa de volta, o status seguinte chega 250 ms depois e recomeça —
+ * um laço de `play`/`PAUSA ESPONTÂNEA` que a própria linha do tempo do Registro
+ * mostrou, par a par, com a marca `[oculto]`. O estrago não fica na preview: os
+ * três WebViews dividem UM processo, e essa rotatividade de decodificador rouba
+ * justamente o fio que alimenta o `AudioWorklet` do espelho. Do lado da tela da
+ * rede isso aparece como `AUDIO_MUDO_MS` vencido — "o som parou de chegar" com
+ * a imagem seguindo — que é a queixa que abriu esta rodada.
+ *
+ * Não há nada a preservar: um `play()` que o navegador desfaz no quadro
+ * seguinte não é sincronização, é ruído. Escondida, a preview fica onde está; o
+ * realinhamento EXATO da retomada (`forcarResyncAte` + `ressincronizarPreview`)
+ * é o que a traz de volta ao lugar, e ele já existe desde a v5.173.
+ */
+function preverPodeMexer() {
+  return typeof document === 'undefined' || document.visibilityState === 'visible';
+}
+
 function displayActive() {
   return (Date.now() - displayStatusAt) < DISPLAY_TIMEOUT;
 }
@@ -1499,6 +1526,7 @@ function tempoDaPreview() {
 function ytResyncPreviewToDisplay(isPlaying, currentTime, tolerancia) {
   const p = ytPreview && ytPreview.player;
   if (!p) return;
+  if (!preverPodeMexer()) return;   // ver `preverPodeMexer`
   const tol = typeof tolerancia === 'number' ? tolerancia : SYNC_DRIFT;
   try {
     if (!standalone && typeof currentTime === 'number' && isFinite(currentTime)) {
@@ -1519,6 +1547,7 @@ function ytResyncPreviewToDisplay(isPlaying, currentTime, tolerancia) {
 // lados. Também não busca em "mesa de som" (evita salto audível).
 function resyncPreviewToDisplay(isPlaying, currentTime, tolerancia) {
   if (!preview.isTimed()) return;
+  if (!preverPodeMexer()) return;   // ver `preverPodeMexer`
   const tol = typeof tolerancia === 'number' ? tolerancia : SYNC_DRIFT;
   try {
     if (!standalone && typeof currentTime === 'number' && isFinite(currentTime)) {
@@ -5564,6 +5593,34 @@ function renderLibrary() {
     // fora da seleção múltipla porque ali o alvo é o conjunto, não a linha.
     const star = selectionMode ? null : favBtn(item.id, item.name);
 
+    // O PARAR TOMA O LUGAR DE MOVER E FAVORITAR ENQUANTO A LINHA ESTIVER NO AR.
+    //
+    // O segundo toque no corpo da linha já tira do ar desde a v5.165, e o selo
+    // "● No ar" já diz que ela está — mas os dois botões da direita seguiam
+    // oferecendo outra coisa (arrastar para reordenar, favoritar) na única
+    // linha em que a decisão do operador é uma só. Trocá-los é o que faz
+    // QUALQUER toque naquela linha significar a mesma coisa, que é o pedido:
+    // não há mais como mirar o ✕ e acertar a estrela.
+    //
+    // A troca é por CSS (`.lib-item.no-ar`), e não por remontar a linha: quem
+    // liga e desliga o estado é `marcarNoAr`, que só troca classes — e é ele
+    // que roda a cada `display-status`. Fazer cirurgia de DOM ali seria
+    // recriar botões (e perder listeners) quatro vezes por segundo.
+    let stopBtn = null;
+    if (!selectionMode) {
+      stopBtn = document.createElement('button');
+      stopBtn.className = 'row-btn row-stop';
+      stopBtn.title = 'Tirar do ar';
+      // O MESMO glifo do Parar do transporte (`&#xe047;` no `index.html`),
+      // escrito por escape: é o único do app que nasce fora do mapa `ICON`,
+      // porque ele não é um símbolo NOVO — é o de lá, na linha.
+      stopBtn.appendChild(msym(''));
+      stopBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        retirarDoAr(item);
+      });
+    }
+
     // Item que JÁ existe e está sendo baixado (converter um link em arquivo):
     // o aviso vai nele mesmo, não na preview.
     const dl = libBaixando.get(item.id);
@@ -5585,6 +5642,10 @@ function renderLibrary() {
     // continuar desenhando "baixar" ao lado de um anel girando é oferecer a
     // ação que está justamente em curso.
     if (ytDl && !dl) parts.push(ytDl);
+    // O Parar entra ANTES da estrela e do arrastar, no lugar que eles ocupam: é
+    // ele que aparece quando os dois somem (ver `.lib-item.no-ar` na folha), e
+    // a mão do operador não pode ter de mudar de destino conforme o estado.
+    if (stopBtn) parts.push(stopBtn);
     if (star) parts.push(star);
     if (addBtn) parts.push(addBtn);
     if (activeTab !== 'folders') parts.push(handle);
@@ -15883,7 +15944,10 @@ AVDB.onCommand((msg) => {
     lastDisplayTime = msg.currentTime || 0;
     // AO RETOMAR DO SEGUNDO PLANO o primeiro status vale como reposicionamento
     // exato: ali não há ruído a poupar, há um desvio conhecido e grande.
-    const tol = Date.now() < forcarResyncAte ? RESYNC_EXATO : undefined;
+    // E ele só é CONSUMIDO se houver como agir: com a página escondida o
+    // realinhamento não acontece (ver `preverPodeMexer`), e gastar a janela ali
+    // deixaria a preview desalinhada justamente na retomada seguinte.
+    const tol = (Date.now() < forcarResyncAte && preverPodeMexer()) ? RESYNC_EXATO : undefined;
     if (tol !== undefined) forcarResyncAte = 0;
     setPlaying(!!msg.playing);
     const dur = (typeof msg.duration === 'number' && isFinite(msg.duration)) ? msg.duration : 0;
