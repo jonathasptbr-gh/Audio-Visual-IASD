@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.166';
+const WEB_VERSION = '5.167';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -183,6 +183,73 @@ function renderVersionLabel() {
 }
 
 renderVersionLabel();
+
+// ===== O APK SE ATUALIZA SOZINHO (v5.167 · shell 35) =====
+//
+// A assimetria era o atrito: um ajuste de JS chegava por OTA e qualquer
+// mudança de Kotlin obrigava o operador a abrir o navegador, achar a Release no
+// GitHub e caçar o `.apk`. Numa semana de seis publicações, seis vezes.
+//
+// A linha só aparece quando HÁ versão nova — um "está em dia" permanente seria
+// ruído no rodapé de uma tela de diagnóstico —, e o botão só age quando a hora
+// é boa: instalar derruba o app inteiro, com a projeção junto, então aqui o
+// `horaRuimParaAtualizar()` vale POR INTEIRO (cena, download e espelho), ao
+// contrário do OTA da base web, cujo custo é um piscar.
+const apkRowEl = document.getElementById('apkRow');
+let apkNovo = null;
+let apkBaixando = false;
+
+function renderApkRow() {
+  if (!apkRowEl) return;
+  if (!apkNovo) { apkRowEl.hidden = true; return; }
+  apkRowEl.hidden = false;
+  if (apkBaixando) {
+    apkRowEl.disabled = true;
+    return;
+  }
+  const ruim = horaRuimParaAtualizar();
+  apkRowEl.disabled = ruim;
+  const mb = apkNovo.bytes ? ' · ' + Math.round(apkNovo.bytes / 104857.6) / 10 + ' MB' : '';
+  apkRowEl.textContent = ruim
+    ? 'Shell ' + apkNovo.versao + ' disponivel — espere a cena/download/espelho'
+    : 'Instalar o shell ' + apkNovo.versao + mb;
+}
+
+async function procurarApk() {
+  if (!window.__NATIVE__ || (window.__SHELL_VERSION__ | 0) < 35) return;
+  let r = null;
+  try { r = await AVNative.apkProcurar(); } catch (_) { return; }
+  apkNovo = (r && r.versao) ? r : null;
+  renderApkRow();
+}
+
+// O PROGRESSO VEM POR EMPURRÃO do shell — o download roda na fila de IO dele e
+// daqui não há o que perguntar. Ver `NativeBridge.apkInstalar`.
+window.__avApk = (pct) => {
+  if (!apkRowEl || !apkBaixando) return;
+  apkRowEl.textContent = 'Baixando o shell ' + (apkNovo ? apkNovo.versao : '') + '… ' + (pct | 0) + '%';
+};
+
+if (apkRowEl) {
+  apkRowEl.addEventListener('click', async () => {
+    if (!apkNovo || apkBaixando) return;
+    apkBaixando = true;
+    renderApkRow();
+    apkRowEl.textContent = 'Baixando o shell ' + apkNovo.versao + '… 0%';
+    let erro = '';
+    try { erro = await AVNative.apkInstalar(); } catch (_) { erro = 'falha ao baixar'; }
+    apkBaixando = false;
+    if (erro) { avisar('Não deu para atualizar: ' + erro, 'erro'); renderApkRow(); return; }
+    // Deu certo: o diálogo do sistema está na frente. A linha vira o convite a
+    // confirmar, porque o operador pode ter recusado o diálogo sem querer.
+    apkRowEl.textContent = 'Confirme a instalação na tela do sistema';
+  });
+  // Uma procura na abertura e outra a cada meia hora. Devagar de propósito: uma
+  // Release nova é evento de dias, não de minutos, e a linha só existe para o
+  // operador não precisar ir ao navegador — não para avisá-lo no segundo.
+  setTimeout(procurarApk, 4000);
+  setInterval(procurarApk, 30 * 60 * 1000);
+}
 
 // TOCAR NA VERSÃO PROCURA ATUALIZAÇÃO (v5.136 · shell 31). Não é um botão novo:
 // é o mesmo rótulo que já responde "que versão estou usando?" respondendo
@@ -15655,6 +15722,21 @@ async function ofertarAtualizacao() {
   // shell recusa (sem o index do Controle, por exemplo) faria a enquete pedir a
   // aplicação a cada minuto, para sempre.
   if (otaRecusadas.has(versao)) return;
+  // A ATUALIZAÇÃO ESPERA O DOWNLOAD TERMINAR — e só ele.
+  //
+  // Aplicar um bundle RECARREGA as duas páginas, e um laço de sincronização em
+  // curso (hinário, Bíblia, pasta) morre com o documento: ele não é um `fetch`
+  // que o shell retoma, é um `for` na página. O operador relatou exatamente
+  // isso — o hinário parando em 300 de 600 numa tarde em que várias versões
+  // foram publicadas.
+  //
+  // Só o download segura, e isso é deliberado: a v5.151 tirou as travas de
+  // "cena no ar" e "espelho ligado" porque elas eram permanentes num culto e
+  // faziam a atualização NUNCA chegar — que é o defeito oposto e igualmente
+  // ruim. Um download é limitado: ele acaba, e a enquete de 20 s aplica logo em
+  // seguida. `horaRuimParaAtualizar()` continua sendo o que o Registro mostra,
+  // com os três motivos; aqui vale só um.
+  if (bgWorkCount > 0) return;
   otaPerguntando = true;
   // AVISAR, e não perguntar. A frase existe porque um piscar sem explicação no
   // meio de um culto é pior que o piscar — e ela sai ANTES da recarga, que é o

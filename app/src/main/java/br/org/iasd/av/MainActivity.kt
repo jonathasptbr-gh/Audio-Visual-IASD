@@ -297,9 +297,23 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // continuava na versão velha. Ver o KDoc de `WebUpdater.aplicarSozinho`
         // para a corrente inteira e para o que esta troca custa.
         WebUpdater.aplicarSozinho = { versao ->
-            applyWebUpdate { aplicada ->
-                Log.i(TAG, if (aplicada != null) "base web $versao aplicada sozinha"
-                else "base web $versao não pôde ser aplicada agora")
+            // ...MAS NÃO COM DOWNLOAD EM CURSO. Aplicar recarrega as duas
+            // páginas, e um laço de sincronização (hinário, Bíblia, pasta) morre
+            // com o documento — ele não é um `fetch` que o shell retoma, é um
+            // `for` na página. Foi o que parou o hinário em 300 de 600 numa
+            // tarde de várias publicações.
+            //
+            // Só o download segura, e é deliberado: a v5.151 tirou as travas de
+            // cena e espelho porque elas eram permanentes num culto e faziam a
+            // atualização nunca chegar. Um download acaba — e o empurrão volta
+            // pela ronda de um minuto, ou pela enquete do lado web.
+            if (backgroundWork) {
+                Log.i(TAG, "base web $versao esperando o download terminar")
+            } else {
+                applyWebUpdate { aplicada ->
+                    Log.i(TAG, if (aplicada != null) "base web $versao aplicada sozinha"
+                    else "base web $versao não pôde ser aplicada agora")
+                }
             }
         }
 

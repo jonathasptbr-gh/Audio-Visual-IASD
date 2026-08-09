@@ -146,6 +146,12 @@
   // de segurança, não deadline de UX: generoso de propósito, porque varrer
   // uma pasta enorme do SAF leva segundos.
   const CALL_TIMEOUT_MS = 60000;
+  // O PRAZO DO DOWNLOAD DO APK. Ele é outro por natureza: as chamadas de
+  // máquina têm 60 s porque nenhuma delas deveria demorar mais que isso, e um
+  // download de dezenas de MB numa rede de igreja pode levar minutos. Um prazo
+  // curto aqui resolveria `null` sobre um trabalho que continua — e o
+  // instalador abriria sozinho depois de a tela já ter dito que falhou.
+  const APK_TIMEOUT_MS = 15 * 60 * 1000;
 
   global.__avResolve = function (id, value) {
     const entry = pending.get(id);
@@ -480,6 +486,32 @@
     // megabytes daria um botão travado. Num shell antigo o `try` engole e a
     // procura segue sendo a da abertura.
     otaCheck(forcar) { try { B.otaCheck(!!forcar); } catch (_) { /* shell antigo */ } },
+
+    // ---- O APK SE ATUALIZA SOZINHO (shell 35) ----
+    //
+    // `apkProcurar` devolve `{}` quando não há nada, `{versao, bytes, notas}`
+    // quando há, e `{erro}` quando a pergunta falhou — os três são leituras
+    // diferentes, e por isso o vazio não carrega mensagem.
+    //
+    // Num shell antigo os dois resolvem o desfecho INOFENSIVO em vez de lançar:
+    // quem chama é uma linha de Configurações, e um `throw` ali deixaria a tela
+    // sem a versão web também. Mesma regra do `requestCam`.
+    apkProcurar: () => call((id) => B.apkProcurar(id), CALL_TIMEOUT_MS).catch(() => ({})),
+
+    // BAIXA e abre o instalador do sistema. `''` = deu certo; qualquer outra
+    // coisa é a FRASE do erro, pronta para a tela.
+    //
+    // O prazo é o LONGO, e não o de 60 s das outras: são dezenas de MB numa
+    // rede de igreja, e um timeout no meio resolveria `null` sobre um download
+    // que continua — o pior desfecho possível, porque a tela diria "falhou"
+    // enquanto o instalador abre sozinho minutos depois.
+    apkInstalar: () => call((id) => B.apkInstalar(id), APK_TIMEOUT_MS)
+      .catch(() => 'este aparelho ainda nao sabe atualizar sozinho'),
+
+    // O PROGRESSO chega por empurrão (`window.__avApk`), não por enquete: o
+    // download roda na fila de IO do shell e o lado web não tem o que
+    // perguntar.
+
 
     // O ESTADO DA PROCURA, em uma linha, para o Registro: quando foi a última,
     // o que ela deu e quantas falhas seguidas. Vazio num shell antigo.

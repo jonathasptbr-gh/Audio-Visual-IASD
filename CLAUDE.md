@@ -2344,11 +2344,45 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.166** (base web) · `SHELL_VERSION` **34**, e o bundle segue com
+**Versão atual: v5.167** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
+> **O APP ESTÁ EM ALFA FECHADO.** Um operador, um aparelho, e o APK sai por
+> Release do GitHub. Isso muda o peso da retrocompatibilidade: **não é preciso
+> sustentar shell antigo indefinidamente**. Um método novo da ponte pode
+> pressupor o APK mais recente, `minShell` pode subir quando fizer sentido, e um
+> caminho de degradação que só existe para uma versão que ninguém roda é código
+> morto — apague-o. O que NÃO muda: `SHELL_VERSION` continua subindo a cada
+> mudança de superfície (é ela que impede um bundle novo de rodar num shell que
+> não o entende), e a janela entre o OTA e o APK continua existindo **dentro de
+> um mesmo lote**, porque o bundle chega em minutos e o APK depende de o
+> operador instalar. Degradar por algumas horas, sim; sustentar versões antigas,
+> não.
+>
+> **A v5.167: o APK se atualiza DE DENTRO DO APP** (`ShellUpdater.kt`, shell 35).
+> A assimetria era o atrito — um ajuste de JS chegava sozinho e qualquer
+> mudança de Kotlin obrigava a abrir o navegador, achar a Release e caçar o
+> `.apk`. A linha só aparece com versão nova, ao lado do rótulo de versão (é a
+> mesma conversa), e o botão só age quando a hora é boa: aqui o
+> `horaRuimParaAtualizar()` vale POR INTEIRO — cena, download **e** espelho —,
+> ao contrário do OTA da base web, cujo custo é um piscar. **A garantia de
+> segurança é mais forte que a do OTA e é de graça:** o Android recusa instalar
+> por cima um pacote de outra keystore, então um binário adulterado não instala
+> — é por isso que o `ShellUpdater` não replica o `sha256`. Host travado e
+> `https` continuam, porque impedem um campo alterado de apontar o download para
+> outro servidor. **Ele não instala sozinho**: o diálogo do sistema é
+> obrigatório e está certo que seja.
+>
+> **E o OTA da base web passou a ESPERAR o download terminar.** Aplicar recarrega
+> as duas páginas, e um laço de sincronização (hinário, Bíblia, pasta) morre com
+> o documento — ele não é um `fetch` que o shell retoma, é um `for` na página.
+> Foi o que parou o hinário em 300 de 600 numa tarde de várias publicações. **Só
+> o download segura**, e é deliberado: a v5.151 tirou as travas de cena e espelho
+> porque elas eram permanentes num culto e faziam a atualização nunca chegar. Um
+> download acaba.
+>
 > **A v5.166: a pasta era persistida DEPOIS do laço, e por isso uma
 > sincronização interrompida "não salvava progresso nenhum".** Cada arquivo já
 > ia para o OPFS e para a store `files` na hora, com `folder: <id>` — mas o

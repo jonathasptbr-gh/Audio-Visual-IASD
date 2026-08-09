@@ -167,7 +167,7 @@ class NativeBridge(
          * novo NÃO chega por OTA, e um botão que não faz nada no meio de um
          * culto é pior que botão nenhum (a mesma regra do `appendYoutubeSearch`).
          */
-        const val SHELL_VERSION = 34
+        const val SHELL_VERSION = 35
 
         /**
          * Fila de IO da ponte, **compartilhada por todas as instâncias**.
@@ -292,6 +292,54 @@ class NativeBridge(
     fun otaDiag(callId: String) {
         io.execute {
             resolve(callId, JSONObject.quote(if (host == null) "" else WebUpdater.diag(ctx)))
+        }
+    }
+
+    // ---------- atualização do PRÓPRIO APK (shell 35) ----------
+
+    /**
+     * Há APK novo publicado? → `{}` (nada), `{versao, bytes, notas}` ou
+     * `{erro}`.
+     *
+     * `{}` e `{erro}` são leituras DIFERENTES, e é por isso que o vazio não
+     * carrega mensagem: "não há versão nova" é o caso normal, "não deu para
+     * perguntar" é a rede. Confundi-los foi o que a linha "Procura:" do
+     * Registro existe para não deixar acontecer com o OTA da base web.
+     *
+     * **Privilégio do Controle** (invariante 9). O telão hospeda código de
+     * terceiro por design, e um método que baixa e instala um pacote é o mais
+     * poderoso da ponte inteira — ele não pode existir naquele documento.
+     */
+    @JavascriptInterface
+    fun apkProcurar(callId: String) {
+        val h = host
+        if (h == null) { resolve(callId, "null"); return }
+        io.execute { resolve(callId, ShellUpdater.procurar(ctx).toString()) }
+    }
+
+    /**
+     * Baixa o APK e ABRE O INSTALADOR do sistema. `''` = deu certo, senão a
+     * FRASE do erro — o mesmo contrato do `espelhoCertImportar`.
+     *
+     * Ele **não instala**: quem instala é o diálogo do Android, e está certo
+     * que seja. Instalar derruba o app inteiro, com a projeção junto, e a hora
+     * é decisão do operador. Quem nem oferece o botão na hora errada é o
+     * `controle.js`, pelo `horaRuimParaAtualizar()`.
+     *
+     * O progresso vai por `window.__avApk(pct)` — um download de dezenas de MB
+     * numa rede de igreja é minutos, e uma tela parada sem número é
+     * indistinguível de travamento.
+     */
+    @JavascriptInterface
+    fun apkInstalar(callId: String) {
+        val h = host
+        if (h == null) { resolve(callId, JSONObject.quote("indisponivel")); return }
+        io.execute {
+            val erro = ShellUpdater.baixarEInstalar(ctx) { pct ->
+                val w = webRef()
+                w?.post { w.evaluateJavascript("window.__avApk && window.__avApk($pct);", null) }
+            }
+            resolve(callId, JSONObject.quote(erro))
         }
     }
 
