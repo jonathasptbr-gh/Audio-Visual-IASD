@@ -707,8 +707,42 @@
    * criam esperas independentes, e a primeira que for aprovada ganha. Quem
    * cancela o outro é o `qrVivo`, conferido depois de cada `await`.
    */
+  /**
+   * A PORTA ABERTA (v5.170): tenta entrar SEM PIN e sem esperar ninguém.
+   *
+   * O espelho transmite a imagem do que está sendo projetado para a
+   * congregação — conteúdo público por construção —, e desde a v5.170 o
+   * servidor nasce com o acesso aberto. Então a primeira coisa que uma tela faz
+   * ao abrir o endereço é pedir a entrada: se ela vier, a TV já está
+   * projetando, sem código, sem dígito e sem ninguém tocar no celular.
+   *
+   * A recusa NÃO é erro: é o operador tendo fechado a porta nesta sessão. Aí a
+   * página segue para o caminho de sempre (QR + PIN), que continua inteiro —
+   * ele é o plano B, não o passado.
+   *
+   * `true` = entrou.
+   */
+  async function tentarPortaAberta() {
+    let r;
+    try { r = await postar('/par', relato(), false); } catch (_) { return false; }
+    if (!(r.status === 202 && r.corpo && r.corpo.espera)) return false;
+    const id = String(r.corpo.espera);
+    // Com a porta aberta a aprovação sai na MESMA chamada do lado do servidor,
+    // então uma consulta basta — mas ela precisa existir: o token não volta no
+    // 202, e pedi-lo é o que separa "há uma vaga" de "a vaga é minha".
+    let p;
+    try { p = await postar('/par', { espera: id }, false); } catch (_) { return false; }
+    if (!(p.status === 200 && p.corpo && p.corpo.t)) return false;
+    token = String(p.corpo.t);
+    guardado(token);
+    return true;
+  }
+
   async function cicloQr() {
     if (qrVivo || !el.qrBox) return;
+    // A PORTA PRIMEIRO. Desenhar um QR para depois descobrir que ninguém
+    // precisava dele é o atrito que a v5.170 removeu.
+    if (await tentarPortaAberta()) { aoPlayer(); return; }
     qrVivo = true;
     while (qrVivo) {
       let r;

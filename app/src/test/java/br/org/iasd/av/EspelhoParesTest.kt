@@ -89,6 +89,8 @@ class EspelhoParesTest {
      */
     @Test
     fun pinNaoRotacionaComTentativaErrada() {
+        // O PIN é o plano B desde a v5.170: fecha a porta para exercitá-lo.
+        EspelhoPares.definirAutoAprovar(false)
         repeat(ERRADAS) { EspelhoPares.tentar(pinErrado(), origem, relato(), t0) }
         assertEquals(pin, EspelhoPares.pin())
     }
@@ -112,6 +114,8 @@ class EspelhoParesTest {
     /** Acertar o PIN dá vaga na fila do operador, não acesso (invariante 5). */
     @Test
     fun pinCertoEntraNaFilaDoOperador() {
+        // O PIN é o plano B desde a v5.170: fecha a porta para exercitá-lo.
+        EspelhoPares.definirAutoAprovar(false)
         val v = EspelhoPares.tentar(pin, origem, relato(), t0)
         assertTrue(v is EspelhoPares.Veredito.Espera)
         val id = (v as EspelhoPares.Veredito.Espera).id
@@ -122,6 +126,8 @@ class EspelhoParesTest {
 
     @Test
     fun aprovarEntregaOTokenAoDonoDaEspera() {
+        // O PIN é o plano B desde a v5.170: fecha a porta para exercitá-lo.
+        EspelhoPares.definirAutoAprovar(false)
         val v = EspelhoPares.tentar(pin, origem, relato(), t0)
         val id = (v as EspelhoPares.Veredito.Espera).id
         val s = EspelhoPares.aprovar(id, t0)
@@ -177,13 +183,62 @@ class EspelhoParesTest {
         assertTrue(EspelhoPares.consultar(id, t0) is EspelhoPares.Veredito.Aprovada)
     }
 
+    /**
+     * O ACESSO NASCE ABERTO (v5.170) — e volta a nascer aberto depois de o
+     * operador o ter fechado e o espelho ter sido religado.
+     *
+     * O sentido é o oposto do que este caso afirmava até aqui, e a inversão é
+     * deliberada: o espelho transmite a imagem do que está sendo projetado
+     * PARA A CONGREGAÇÃO, isto é, conteúdo público — e três degraus de tela
+     * mais seis dígitos em cartaz durante o culto custavam mais do que rendiam.
+     * O que sustenta a decisão continua no lugar: o microfone nunca sai na
+     * rede, o token nunca viaja numa URL, a allowlist de `Host` segue exata e o
+     * teto de três sessões segue valendo.
+     *
+     * O que se AFIRMA aqui, e é o que uma refatoração poderia perder sem que
+     * nada mais reclamasse: `ligar` devolve o PADRÃO, e não o último valor que
+     * o operador escolheu. Fechar a porta é decisão de uma sessão.
+     */
+    /** Folga suficiente para estourar a fila em qualquer configuração. */
+    private val MAX_SESSOES_FOLGA = 6
+
     @Test
-    fun aprovarAutomaticamenteNasceDesligadoEMorreComODesligar() {
+    fun acessoNasceAbertoEVoltaAoPadraoAoReligar() {
+        assertTrue(EspelhoPares.autoAprovando())
+        EspelhoPares.definirAutoAprovar(false)
         assertFalse(EspelhoPares.autoAprovando())
-        EspelhoPares.definirAutoAprovar(true)
         EspelhoPares.desligar()
         EspelhoPares.ligar(t0)
-        assertFalse(EspelhoPares.autoAprovando())
+        assertTrue(EspelhoPares.autoAprovando())
+    }
+
+    /** Com o acesso aberto, o PIN não é perguntado — entrar é abrir o endereço. */
+    @Test
+    fun comAcessoAbertoQualquerPinEntra() {
+        val v = EspelhoPares.tentar("", origem, relato(), t0)
+        assertTrue(v is EspelhoPares.Veredito.Espera)
+        val id = (v as EspelhoPares.Veredito.Espera).id
+        assertTrue(EspelhoPares.consultar(id, t0) is EspelhoPares.Veredito.Aprovada)
+    }
+
+    /**
+     * E A FILA CONTINUA TENDO TETO com a porta aberta.
+     *
+     * Abrir o acesso não abre a torneira: a aprovação automática só sai
+     * enquanto houver vaga, e o excesso vira [Veredito.Lotada] — que é uma
+     * frase para o visitante, não um travamento. Sem esta afirmação, uma
+     * refatoração poderia deixar o "aberto" passar por cima do teto de sessões,
+     * que é o dano REAL de um curioso na rede (ele toma a vaga da TV do
+     * templo), e não o sigilo.
+     */
+    @Test
+    fun oTetoContinuaValendoComAcessoAberto() {
+        var lotou = false
+        repeat(EspelhoPares.MAX_ESPERAS + MAX_SESSOES_FOLGA) {
+            val v = EspelhoPares.tentar("", origem + it, relato(), t0)
+            if (v is EspelhoPares.Veredito.Lotada) lotou = true
+        }
+        assertTrue("a fila precisa recusar em algum ponto", lotou)
     }
 
     @Test
