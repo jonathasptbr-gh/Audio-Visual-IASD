@@ -2803,7 +2803,21 @@ main {
 /* As transições (fade) são inerentes ao sistema — não há mais controles delas
    aqui; o popup guarda só o seletor de preenchimento (ajustar/preencher/esticar)
    e o atalho "Abrir Display". */
-.fade-opts { display: flex; flex-direction: column; gap: .4rem; padding: .3rem .9rem 1rem; }
+/* O CORPO DE CONFIGURAÇÕES ROLA, e é o que faltava: a folha tem `max-height:
+   80vh` e é um flex em coluna, mas este item não tinha `overflow` nem
+   `min-height: 0` — e sem os dois um filho de flex não encolhe abaixo do
+   próprio conteúdo, então o excesso simplesmente saía pela base recortado. O
+   sintoma era o Registro (o item mais alto da lista) aparecendo cortado no pé,
+   que é justamente onde está o desfecho de um log.
+   O `padding-bottom` soma a área segura do aparelho: sem ela a última linha
+   fica sob a barra de gestos. */
+.fade-opts {
+  display: flex; flex-direction: column; gap: .4rem;
+  padding: .3rem .9rem calc(1rem + env(safe-area-inset-bottom));
+  overflow-y: auto; min-height: 0;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
 .fade-row {
   display: flex; align-items: center; justify-content: space-between; gap: .8rem;
   background: var(--panel); border-radius: var(--radius-card); padding: .65rem .8rem;
@@ -3539,3 +3553,10 @@ body.mode-simple .hymn-add-btn { display: none; }
   cursor: pointer;
 }
 .apk-row:disabled { border-color: var(--line); color: var(--muted); cursor: default; }
+
+/* Preenchimento + giro na mesma linha (v5.169). O seletor toma o espaço que
+   sobrar e o botão de girar mantém o tamanho do conteúdo: são duas coisas de
+   pesos diferentes — uma escolha de dois estados e uma ação que avança. */
+.fit-linha { display: flex; align-items: center; gap: .45rem; }
+.fit-linha .fit-seg { flex: 1 1 auto; }
+.fit-linha .fit-opt--rot { flex: 0 0 auto; }
