@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.159';
+const WEB_VERSION = '5.160';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -10730,7 +10730,9 @@ function linhasDaTela(v) {
       }
       if (v.enc | 0) bits.push((v.enc | 0) + ' encalhe(s) do cursor');
       if (v.sal | 0) bits.push((v.sal | 0) + ' salto(s) de recuperacao');
-      if (v.pod | 0) bits.push((v.pod | 0) + ' poda(s) sem quadro-chave');
+      // SEGUIDAS: zera no primeiro corte bem-sucedido. O número acumulado
+      // marcava 46 numa sessão saudável só pelo transitório de partida.
+      if (v.pod | 0) bits.push((v.pod | 0) + ' poda(s) seguidas sem quadro-chave');
       out.push('total: ' + bits.join(' · '));
     }
   }

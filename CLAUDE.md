@@ -2341,11 +2341,24 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.159** (base web) · `SHELL_VERSION` **34**, e o bundle segue com
+**Versão atual: v5.160** (base web) · `SHELL_VERSION` **34**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
+> **A v5.160 é OTA PURO e ataca o ATRASO, que virou a queixa depois que o
+> travamento saiu.** A folga do cliente é seguro contra soluço do produtor, e
+> seguro custa atraso: o operador toca um botão e a projeção responde `ALVO_S`
+> depois — mais o desvio A/V, porque a borda ao vivo é a da faixa mais atrasada
+> e o som sai ~500 ms atrás da imagem. Somados, os 2 s que o operador mediu no
+> dedo. Um valor fixo obriga a escolher entre travar e demorar; agora ele
+> **encolhe um degrau de 100 ms a cada 8 s limpos (1,5 s → 0,7 s) e volta ao
+> teto de uma vez no primeiro incidente** — a mesma assimetria da suavização da
+> ETA do download, com o sinal invertido. Cada tela converge para o menor atraso
+> que ELA aguenta, e uma rede ruim recebe sozinha a folga que uma rede boa não
+> paga. A leitura é a linha `folga do cursor: video` do Registro, que é
+> literalmente esse atraso.
+>
 > **A v5.159 fechou o que a v5.158 deixou de pé, e o achado é do MESMO tipo:
 > `KEY_I_FRAME_INTERVAL` não é segundos de parede, é CONTAGEM DE QUADROS.** O
 > framework o multiplica por `KEY_FRAME_RATE` (declarado 30), então `5` são 150

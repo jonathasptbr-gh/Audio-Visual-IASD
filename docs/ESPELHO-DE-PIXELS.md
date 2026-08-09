@@ -1900,6 +1900,38 @@ introduziu) e a janela cresce sem parar. Três correções:
   descartado. Foi o que levou os 1,6% a 13,7%. Um giro inteiro sem andar (`ENCALHE_MS`, 400 ms,
   abaixo do compasso de propósito) mantém o teto de tela congelada em ~1 s.
 
+### 10-A.6 — o atraso, que só virou a queixa depois que o travamento saiu (5.160)
+
+Terceiro log de aparelho: `1 parada(s) na sessao, 1.5 s no total` em quatro minutos, **zero
+encalhes**, `2 chave(s) = 139 kbps` (o GOP voltou a caber na janela), quadros perdidos de 13,7% para
+8,6%. O operador: *"está começando a ficar bom… uma ressalva ainda é um delay entre a ação no
+controle e na exibição, que pode chegar a 2 s ou mais."*
+
+**Esses 2 s estão no próprio log, e são nossos por decisão:** `folga do cursor: video +2092 ms`. A
+conta é `ALVO_S` (1,5 s) + o desvio A/V (~500 ms), porque `bordaViva` é o **mínimo** das duas bordas
+(§10-A.1) e o som sai atrás da imagem. A linha `folga do cursor: video` **é** o atraso da projeção,
+e é assim que ele se mede daqui em diante — não no dedo.
+
+A folga é seguro contra soluço do produtor, e seguro custa atraso. **Um valor fixo obriga a escolher
+entre travar e demorar.** Um valor que encolhe não obriga:
+
+- desce **um degrau de 100 ms a cada 8 s sem incidente**, de 1,5 s até um piso de **0,7 s**;
+- volta ao **teto de uma vez** em qualquer incidente — encalhe, salto, ou parada contada;
+- só encolhe com `readyState ≥ 3` e já posicionado, para o transitório de partida não contar como
+  trecho limpo.
+
+A assimetria é a mesma da suavização da ETA do download (cai rápido, sobe devagar), com o sinal
+invertido porque aqui o número que dói é o outro: **subir devagar depois de um travamento seria
+travar de novo** enquanto a folga se reconstrói. O efeito é que cada tela converge para o menor
+atraso que **ela** aguenta — uma rede ruim recebe sozinha a folga que uma rede boa não paga —, e
+~64 s de culto limpo levam a projeção de ~2,0 s para ~1,2 s de atraso.
+
+**Nenhum campo novo:** `vfim` já é o número, e não gastar um campo aqui é o que mantém este lote em
+**OTA puro**, sem Release. Junto veio uma correção de leitura: `pod` passou a contar podas
+**seguidas** (zera no primeiro corte bem-sucedido) — acumulado, ele marcava 46 numa sessão saudável
+só pelo transitório de partida, que a ~2 podas por segundo enche em ~17 s. Um número grande que não
+queria dizer nada é pior que nenhum.
+
 ---
 
 ## 11. A FRASE PARA O OPERADOR

@@ -117,7 +117,31 @@
   // dobro do pior bloqueio plausível. `TOL_S` NÃO acompanha: alargá-la para 0,5
   // poria o cursor a 100 ms de uma borda que o próprio encoder deixa 150 ms sem
   // andar, reabrindo o engasgo que a v5.155 fechou.
-  const ALVO_S = 1.5;
+  // ...E ELE ENCOLHE SOZINHO, porque 1,5 s é o preço de uma tela que ainda não
+  // provou nada.
+  //
+  // A folga é seguro contra soluço do produtor, e seguro custa ATRASO: o
+  // operador toca um botão e a projeção responde `ALVO_S` depois — mais o
+  // desvio A/V, porque a borda ao vivo é a da faixa mais atrasada e o som sai
+  // ~500 ms atrás da imagem (ver `bordaViva`). Em aparelho isso deu os 2 s que
+  // o operador mediu no dedo: `folga do cursor: video +2092 ms` no Registro é
+  // literalmente esse atraso, e é assim que ele se mede daqui em diante.
+  //
+  // Um valor fixo obriga a escolher entre travar e demorar. Um valor que
+  // ENCOLHE em silêncio a cada trecho limpo e VOLTA AO TETO no primeiro
+  // incidente não obriga: a tela converge para o menor atraso que ELA aguenta,
+  // e uma rede ruim recebe automaticamente a folga que uma rede boa não paga.
+  // A assimetria (desce um degrau por vez, sobe de uma vez) é a mesma da
+  // suavização da ETA do download — subir devagar depois de um travamento seria
+  // travar de novo.
+  const ALVO_MAX = 1.5;
+  const ALVO_MIN = 0.7;
+  const ALVO_PASSO = 0.1;
+  const ALVO_CALMA_MS = 8000;
+  let alvoS = ALVO_MAX;
+  let calmaDesde = 0;
+  let travouVisto = 0;
+
   const TOL_S = 0.25;
   const RAPIDO = 1.08;                    // acima disto o áudio ficaria audivelmente rápido
   const LENTO = 0.97;
@@ -464,6 +488,20 @@
    * aparelho isso deu dez saltos por minuto e 13,7% de quadros perdidos, onde a
    * v5.157 tinha 1,6%.
    */
+  /**
+   * O incidente devolve a folga ao teto, de uma vez.
+   *
+   * Assimétrico de propósito: descer é um degrau de 100 ms a cada trecho limpo
+   * de oito segundos, subir é imediato. Subir devagar depois de um travamento
+   * seria travar de novo enquanto a folga se reconstrói — a mesma razão pela
+   * qual a ETA do download cai rápido e sobe devagar, com o sinal invertido
+   * porque aqui o número que dói é o outro.
+   */
+  function recuarAlvo() {
+    alvoS = ALVO_MAX;
+    calmaDesde = Date.now();
+  }
+
   function cursorParadoMs() {
     if (!posicionado || el.v.paused) return 0;
     return el.v.currentTime === ultimoCT ? Date.now() - ultimoCTem : 0;
@@ -1124,6 +1162,13 @@
       try {
         emVoo = { tipo: 'remove', a: alvo === sbA };
         alvo.remove(0, limite);
+        // SEGUIDAS, e não acumuladas. Um cliente que acabou de nascer (ou de
+        // recomeçar) passa ~17 s sem chave conhecida antes do ponto de corte,
+        // e a ~2 podas por segundo isso sozinho marcava 46 no Registro de uma
+        // sessão inteiramente saudável — um número grande que não queria dizer
+        // nada. Zerado no primeiro corte bem-sucedido, ele volta a significar
+        // "a poda está ENCALHADA agora".
+        podaSemChave = 0;
         return true;
       } catch (_) { emVoo = null; }
     }
@@ -1350,7 +1395,8 @@
       // disso, e o encalhe recomeçaria em meio segundo.
       let seguro = b.start(b.length - 1);
       if (ba && ba.length) seguro = Math.max(seguro, ba.start(ba.length - 1));
-      const alvo = Math.max(seguro, Math.min(fim - ALVO_S, fim - TOCA_S));
+      const alvo = Math.max(seguro, Math.min(fim - alvoS, fim - TOCA_S));
+      recuarAlvo();
       encalhes++;
       encalhesSeguidos++;
       dobrarAberto();
@@ -1368,7 +1414,8 @@
     if (atraso > SALTO_S) {
       // A recuperação, não a perseguição — ver o comentário de `SALTO_S`.
       saltos++;
-      try { el.v.currentTime = fim - ALVO_S; } catch (_) {}
+      recuarAlvo();
+      try { el.v.currentTime = fim - alvoS; } catch (_) {}
       el.v.playbackRate = 1;
       // O salto é NOSSO, e por isso apaga o pior caso: ele é a recuperação
       // funcionando, não o travamento que o operador viu. `zerarPiores` FECHA a
@@ -1380,12 +1427,24 @@
       // nada e deixa 1,08 grudado — e foi assim que o log de aparelho chegou,
       // com `vel 108%` sobre uma tela parada. Perseguir exige estar andando.
       el.v.playbackRate = 1;
-    } else if (atraso > ALVO_S + TOL_S) {
+    } else if (atraso > alvoS + TOL_S) {
       el.v.playbackRate = RAPIDO;
-    } else if (atraso < ALVO_S - TOL_S) {
+    } else if (atraso < alvoS - TOL_S) {
       el.v.playbackRate = LENTO;
     } else {
       el.v.playbackRate = 1;
+    }
+
+    // O TRECHO LIMPO PAGA O ATRASO DE VOLTA. Nada de incidente por
+    // `ALVO_CALMA_MS` seguidos e a folga desce um degrau — a tela vai
+    // encontrando sozinha o menor atraso que ela aguenta. Quem faz a conta subir
+    // de novo é `recuarAlvo`, chamado nos dois socorros e em qualquer parada
+    // contada.
+    if (travouN !== travouVisto) { travouVisto = travouN; recuarAlvo(); }
+    else if (posicionado && el.v.readyState >= 3 && alvoS > ALVO_MIN
+             && Date.now() - calmaDesde > ALVO_CALMA_MS) {
+      alvoS = Math.max(ALVO_MIN, Math.round((alvoS - ALVO_PASSO) * 100) / 100);
+      calmaDesde = Date.now();
     }
 
     // A JANELA NAVEGÁVEL sai daqui, e NÃO de `ms.duration`: ao vivo não se
@@ -2011,6 +2070,7 @@
     // faria a poda mirar um ponto que não está mais no buffer.
     chaves.length = 0;
     encalhesSeguidos = 0;
+    recuarAlvo();
     fila.length = 0;
     // E O QUE AINDA ESTÁ NO FIO TAMBÉM VAI FORA — sem isto o recomeço não
     // recomeça nada, e o defeito é o pior tipo: silencioso e circular.
@@ -2110,6 +2170,8 @@
     encalhesSeguidos = 0;
     podaSemChave = 0;
     chaves.length = 0;
+    travouVisto = 0;
+    recuarAlvo();
     zerarPiores();
     armarQuadros();
     compasso = setInterval(function () {
