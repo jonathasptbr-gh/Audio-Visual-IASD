@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.173';
+const WEB_VERSION = '5.174';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -1114,6 +1114,14 @@ let ytEnded = false;       // YouTube terminou/parou sem player tocando: ▶ rec
 //
 // Uma variável, três defeitos: o estado que faltava era esse.
 let midiaNoAr = false;
+// QUAL mídia está no telão — o par de `cueNoArId`, e pelo mesmo motivo.
+//
+// `midiaNoAr` responde "há mídia no ar?" e `currentId` responde "qual é o item
+// atual", e nenhum dos dois responde "QUAL mídia está no ar": no instante em que
+// uma cena de roteiro é projetada por cima de um louvor de fundo, `currentId`
+// passa a ser a cena e a música continua tocando sem que nada aponte para ela.
+// Sem este campo, o realce de "no ar" mudaria de linha sozinho.
+let midiaNoArId = '';
 
 // QUAL cena de roteiro está no ar — e por que isto NÃO pode ser o `currentId`.
 //
@@ -2896,7 +2904,8 @@ function renderPlaylist() {
   }
   plItems.forEach((item) => {
     const li = document.createElement('li');
-    li.className = 'row-item' + (linhaAtiva(item.id) ? ' active' : '');
+    li.className = 'row-item' + (linhaAtiva(item.id) ? ' active' : '')
+      + (linhaNoAr(item.id) ? ' no-ar' : '');
     li.dataset.id = item.id;
 
     const row = document.createElement('div');
@@ -5456,7 +5465,11 @@ function renderLibrary() {
     const li = document.createElement('li');
     // Bug fix: active highlight only when not in selection mode
     const isActive = !selectionMode && linhaAtiva(item.id);
-    li.className = 'lib-item' + (isActive ? ' active' : '') + (selected.has(item.id) ? ' selected' : '');
+    // NO AR é outra coisa que "atual" — ver `linhaNoAr`. Na seleção múltipla ele
+    // some junto com o realce: ali a tela fala de escolha, não de projeção.
+    const noAr = !selectionMode && linhaNoAr(item.id);
+    li.className = 'lib-item' + (isActive ? ' active' : '') + (noAr ? ' no-ar' : '')
+      + (selected.has(item.id) ? ' selected' : '');
     li.dataset.id = item.id;
 
     const row = document.createElement('div'); row.className = 'row';
@@ -5472,6 +5485,7 @@ function renderLibrary() {
     const name = document.createElement('span'); name.className = 'row-name'; name.textContent = item.name;
     const sub = document.createElement('span'); sub.className = 'row-sub';
     sub.textContent = subtituloItem(item);
+    pintarSubNoAr(sub, noAr);
     textWrap.append(name, sub);
     // Item de player do YouTube num shell que sabe baixar: o botão converte o
     // link num arquivo local. Quem diz que ele DEPENDE DO YOUTUBE agora é o
@@ -6587,7 +6601,8 @@ function favGrupo(item) {
 // se quer de um favorito, sem entrar em pasta nenhuma.
 function favItemRow(item) {
   const li = document.createElement('li');
-  li.className = 'lib-item' + (linhaAtiva(item.id) ? ' active' : '');
+  li.className = 'lib-item' + (linhaAtiva(item.id) ? ' active' : '')
+    + (linhaNoAr(item.id) ? ' no-ar' : '');
   li.dataset.id = item.id;
   const row = document.createElement('div'); row.className = 'row';
   // A MESMA coluna nome+subtítulo da biblioteca, e de propósito: uma segunda
@@ -6866,6 +6881,7 @@ async function send(id) {
   // A partir daqui há mídia no telão — é o que a reconexão precisa reenviar e o
   // que o ▶ pode retomar em vez de recarregar (ver `midiaNoAr`).
   midiaNoAr = true;
+  midiaNoArId = id;
   // re-render leve de estados ativos
   marcarNoAr();
   renderNowPlaying();
@@ -7318,6 +7334,7 @@ function resetAfterEnd() {
   // que caísse depois do fim de um louvor trazia a faixa de volta à TV — que é
   // o "ele tenta exibir a primeira tela/thumbnail" do relato.
   midiaNoAr = false;
+  midiaNoArId = '';
   setPlaying(false);
   seekEl.value = 0;
   curTimeEl.textContent = '0:00';
@@ -7391,6 +7408,7 @@ async function stopClear() {
   // terminar: quem pergunta a `preview.getCurrent()` recebe "ainda tem mídia"
   // durante todo o esmaecimento do `clearFaded` (ver `midiaNoAr`).
   midiaNoAr = false;
+  midiaNoArId = '';
   setPlaying(false);
   // YouTube: 'clear' derruba o player da preview (dropYtPreview via cmd) e o do
   // Display → o próximo ▶ precisa recarregar (send), não só reenviar 'play'.
@@ -7527,8 +7545,59 @@ async function retirarDoAr(item) {
  */
 function marcarNoAr() {
   document.querySelectorAll('.lib-item,.row-item').forEach((el) => {
-    el.classList.toggle('active', linhaAtiva(el.dataset.id));
+    const id = el.dataset.id;
+    el.classList.toggle('active', linhaAtiva(id));
+    const noAr = linhaNoAr(id);
+    el.classList.toggle('no-ar', noAr);
+    // O SELO acompanha a classe: ele é a metade que se LÊ, e sem ele o estado
+    // volta a ser só uma cor a mais numa tela que já tem várias.
+    const sub = el.querySelector('.row-sub');
+    if (sub) pintarSubNoAr(sub, noAr);
   });
+}
+
+/**
+ * ESTA LINHA ESTÁ NO TELÃO AGORA?
+ *
+ * Diferente de [linhaAtiva], que também marca "o item atual" — aquele que o ▶
+ * repete e que sobrevive de propósito ao Parar. Um item selecionado depois de um
+ * Parar continua sendo o atual e **não** está no ar; dizer "No ar" sobre ele
+ * seria mentir na única linha da tela que existe para não mentir.
+ *
+ * As duas camadas respondem separadas porque elas coexistem: um louvor de fundo
+ * sob um versículo põe DUAS linhas no ar ao mesmo tempo.
+ */
+function linhaNoAr(id) {
+  if (!id) return false;
+  if (midiaNoAr && id === midiaNoArId) return true;
+  return !!cueNoArId && id === cueNoArId && cenaDeRoteiroNoAr();
+}
+
+/**
+ * O SELO "● No ar" na segunda linha da linha — o MESMO desenho da Bíblia
+ * (`renderBibleReading`), onde ele é prefixado à referência do versículo
+ * central em `--live-strong`.
+ *
+ * Ele mora no subtítulo, e não numa faixa própria, porque essa linha já existe e
+ * já é onde o operador procura o que o item É. Um selo em elemento novo
+ * empurraria a altura de toda a lista para dizer algo que só vale em uma linha
+ * de cada vez.
+ */
+function pintarSubNoAr(sub, noAr) {
+  const antigo = sub.querySelector('.row-live');
+  if (noAr === !!antigo) return;
+  if (!noAr) {
+    // O separador vai junto com o selo — ele é um nó de texto solto criado ao
+    // lado dele, e deixá-lo para trás daria " · Áudio · 3:14".
+    if (antigo && antigo.nextSibling && antigo.nextSibling.nodeType === 3) antigo.nextSibling.remove();
+    if (antigo) antigo.remove();
+    return;
+  }
+  const selo = document.createElement('span');
+  selo.className = 'row-live';
+  selo.textContent = '● No ar';
+  sub.prepend(selo);
+  if (sub.textContent.replace('● No ar', '').trim()) selo.after(' · ');
 }
 
 /**

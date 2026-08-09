@@ -1392,6 +1392,37 @@ main {
 .row { position: relative; z-index: 1; display: flex; align-items: center; gap: .5rem; padding: .35rem .5rem; background: var(--panel); touch-action: pan-y; }
 .lib-item.selected .row, .lib-item.active .row, .row-item.active .row { background: var(--panel-2); }
 
+/* ---------- NO AR: a linha que está no telão AGORA ---------- */
+/* `.active` e `.no-ar` são coisas diferentes, e confundi-las é o defeito que
+   esta regra existe para desfazer. `.active` é O ITEM ATUAL — o que o ▶ repete,
+   e que sobrevive de propósito ao Parar; `.no-ar` é o que está sendo PROJETADO.
+   Depois de um Parar o item continua atual e não está no ar, e dizer "No ar"
+   sobre ele seria mentir na única linha da tela que existe para não mentir.
+   Ver `linhaAtiva`/`linhaNoAr` em `controle.js`.
+
+   O desenho é o MESMO "no ar" do resto do app — a família do vermelho, com o
+   fundo suave da própria família por baixo do saturado (o mesmo raciocínio de
+   `.msg-item.active` e `.bible-vsec.cur.live`: `--live` é escuro por construção
+   e como contorno sobre fundo escuro sumiria; `--live-soft` dá ao `--live-strong`
+   a base que ele precisa, 4,68:1).
+
+   E ele vem com TEXTO, não só com cor: duas camadas podem estar no ar ao mesmo
+   tempo (um louvor de fundo sob um versículo), e é justamente nessas linhas que
+   o segundo toque retira do ar. Uma cor a mais numa tela que já tem várias não
+   ensina isso; "● No ar" ensina. */
+.row-item.no-ar, .lib-item.no-ar { border-color: var(--live-strong); }
+.lib-item.no-ar .row, .row-item.no-ar .row { background: var(--live-soft); }
+/* O selo mora na linha do subtítulo, prefixado — exatamente como a referência
+   do versículo central da Bíblia (`● No ar · Salmo 23:1`). */
+.row-live { color: var(--live-strong); font-weight: 800; letter-spacing: .03em; }
+.lib-item.no-ar .row-sub { color: var(--live-strong); }
+/* A seleção múltipla tem precedência VISUAL: ali a tela fala de escolha, não de
+   projeção, e o contorno de seleção é o que o operador está usando naquele
+   instante. (O JS já não põe `.no-ar` durante a seleção; esta linha é o
+   cinto e suspensório de quem reordenar as classes um dia.) */
+.lib-item.selected.no-ar { border-color: var(--accent); }
+.lib-item.selected.no-ar .row { background: var(--panel-2); }
+
 /* A caixa da miniatura é o FUNDO DO APP dentro do cartão: um buraco na
    elevação, que é o que faz a capa (quando existe) parecer colada por cima.
    Era #060606 literal — mais escuro que o próprio fundo do app e fora de

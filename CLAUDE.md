@@ -2398,11 +2398,25 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.173** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
+**Versão atual: v5.174** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
+> **A v5.174: "ATUAL" E "NO AR" ERAM A MESMA MARCA, e não são a mesma coisa.**
+> A lista tinha um contorno em accent só, e ele significava `currentId` — o item
+> ATUAL, aquele que o ▶ repete e que sobrevive de propósito ao Parar. Depois de
+> um Parar a linha continuava marcada com o telão vazio; e com uma cena de
+> roteiro sobre um louvor de fundo (duas camadas no ar ao mesmo tempo) só uma das
+> duas aparecia. Ou seja: a marca não respondia "o que está sendo projetado?",
+> que é justamente a pergunta que o segundo toque exige responder antes de ser
+> tocado. Agora são duas — `.active` (atual) e `.no-ar` (projetando) —, e a
+> segunda usa **o mesmo desenho de "no ar" do resto do app**, com o selo
+> **"● No ar"** prefixado ao subtítulo, exatamente como a referência do versículo
+> central da Bíblia. O par `midiaNoArId`/`cueNoArId` é o que torna isso possível:
+> `midiaNoAr` dizia que HAVIA mídia no ar e `currentId` dizia qual era o item
+> atual, e nenhum dos dois dizia QUAL mídia estava no telão. OTA puro.
+>
 > **A v5.173: A PREVIEW ERA A RÉGUA, e a régua era a coisa que se deformava.**
 > O operador relatou a preview voltando "completamente dessincronizada" depois
 > de minimizar e reabrir o app. A causa não estava na preview: estava em não
