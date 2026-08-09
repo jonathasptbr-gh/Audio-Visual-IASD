@@ -733,7 +733,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.170</span>
+        <span id="appVersion" class="app-version">Controle v5.171</span>
         <!-- O APK NOVO, quando existir. Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso. `hidden`
@@ -782,15 +782,26 @@
           </span>
         </button>
         <p class="mirror-lead" id="castMsg" role="status" aria-live="polite"></p>
-        <!-- Os ajustes do espelho (endereço, PIN, telas, certificado) continuam
-             existindo — só deixaram de ser a porta de entrada. -->
-        <div class="fade-row fade-row--fit" id="mirrorRow" hidden>
-          <span>Espelho na rede local</span>
-          <span class="mirror-hint" id="mirrorRowHint">Desligado</span>
-          <div class="fit-seg">
-            <button type="button" class="fit-opt" id="mirrorOpenBtn">Ajustes</button>
+
+        <!-- O ENDEREÇO E QUEM ESTÁ VENDO, aqui mesmo (v5.171).
+             Eram dois degraus de folha para ler uma linha de texto. Desde que a
+             porta nasce aberta (v5.170) não há mais nada a decidir no meio do
+             caminho: o operador precisa do endereço para digitar na TV e da
+             lista para saber quem entrou — e as duas coisas cabem nesta folha. -->
+        <div id="castLive" hidden>
+          <div class="cast-addr">
+            <span class="cast-url" id="castUrl"></span>
+            <span class="cast-url2" id="castUrl2" hidden></span>
           </div>
+          <p class="cast-hint" id="castHint"></p>
+          <ul class="cast-telas" id="castTelas"></ul>
         </div>
+
+        <!-- Os ajustes que sobraram (PIN como plano B, certificado, o
+             interruptor da porta) continuam existindo numa folha própria — só
+             deixaram de estar no caminho de quem só quer conectar uma tela. -->
+        <button type="button" class="cast-link" id="mirrorOpenBtn" hidden>Ajustes avançados</button>
+        <span id="mirrorRow" hidden><span id="mirrorRowHint"></span></span>
       </div>
     </div>
   </div>

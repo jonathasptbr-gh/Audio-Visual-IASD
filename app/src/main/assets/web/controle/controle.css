@@ -3560,3 +3560,50 @@ body.mode-simple .hymn-add-btn { display: none; }
 .fit-linha { display: flex; align-items: center; gap: .45rem; }
 .fit-linha .fit-seg { flex: 1 1 auto; }
 .fit-linha .fit-opt--rot { flex: 0 0 auto; }
+
+/* ---------- A folha de conectar, num degrau só (v5.171) ----------
+   O endereço é o maior elemento da folha porque é o ÚNICO que alguém precisa
+   copiar com os olhos para digitar no controle remoto de uma TV. */
+.cast-addr {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  margin: .5rem 0 .2rem; padding: .7rem .6rem;
+  background: var(--surface); border-radius: var(--radius-card);
+}
+.cast-url {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.05rem; font-weight: 700; color: var(--text);
+  overflow-wrap: anywhere; text-align: center;
+  -webkit-user-select: text; user-select: text;
+}
+.cast-url2 {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .78rem; color: var(--muted);
+  overflow-wrap: anywhere; text-align: center;
+  -webkit-user-select: text; user-select: text;
+}
+.cast-hint { margin: .1rem 0 .5rem; font-size: .78rem; color: var(--muted); text-align: center; }
+/* Quem está vendo. Uma linha por tela, com a ação à direita — o padrão de
+   lista do resto do app, não um cartão novo. */
+.cast-telas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.cast-tela {
+  display: flex; align-items: center; justify-content: space-between; gap: .6rem;
+  padding: .5rem .6rem; border-radius: var(--radius-card);
+  background: var(--surface); font-size: .82rem;
+}
+.cast-tela--vazia { color: var(--muted); justify-content: center; }
+.cast-tela-nome { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Contornado, nunca preenchido: é ação destrutiva, e o preenchido em vermelho
+   é "está no ar agora" neste app (ver a paleta). */
+.cast-tela-fora {
+  flex: 0 0 auto; padding: .3rem .6rem; font-size: .75rem;
+  background: transparent; color: var(--danger-text);
+  border: 1px solid var(--danger-text); border-radius: 999px; cursor: pointer;
+}
+.cast-tela-fora:disabled { opacity: .5; cursor: default; }
+/* O acesso aos ajustes que sobraram — um link, não um cartão: ele não é o
+   caminho de ninguém que só quer conectar uma tela. */
+.cast-link {
+  display: block; width: 100%; margin-top: .5rem; padding: .4rem;
+  background: transparent; border: 0; color: var(--muted);
+  font-size: .78rem; text-decoration: underline; cursor: pointer;
+}

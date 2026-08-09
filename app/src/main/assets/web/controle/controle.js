@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.170';
+const WEB_VERSION = '5.171';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -330,6 +330,11 @@ const mirrorCloseEl = document.getElementById('mirrorClose');
 const mirrorLeadEl = document.getElementById('mirrorLead');
 const mirrorAddrEl = document.getElementById('mirrorAddr');
 const mirrorUrlEl = document.getElementById('mirrorUrl');
+const castLiveEl = document.getElementById('castLive');
+const castUrlEl = document.getElementById('castUrl');
+const castUrl2El = document.getElementById('castUrl2');
+const castHintEl = document.getElementById('castHint');
+const castTelasEl = document.getElementById('castTelas');
 const mirrorUrl2El = document.getElementById('mirrorUrl2');
 const mirrorNomeHintEl = document.getElementById('mirrorNomeHint');
 const mirrorPinEl = document.getElementById('mirrorPin');
@@ -15106,7 +15111,16 @@ function abrirCast() {
   castNetBtnEl.hidden = !espelhoDisponivel();
   renderCast();
   if (espelhoDisponivel()) {
-    lerEspelho();
+    // ABRIR A FOLHA JÁ LIGA O SERVIDOR (v5.171). Ninguém abre "Conectar uma
+    // tela" para não conectar — e a ordem "primeiro ligue, depois leia o
+    // endereço" existia por causa de como o recurso é construído, não por causa
+    // de quem o usa. Com a porta aberta (v5.170) não sobrou nada a decidir no
+    // meio: o endereço aparece pronto para ser digitado na TV.
+    //
+    // `ligarEspelho()` já pergunta antes quando há telão conectado (o custo
+    // dobrado que a especificação manda confirmar), e é ele que continua
+    // decidindo isso — aqui não há atalho por cima da pergunta.
+    lerEspelho().then(() => { if (!espelhoLigado()) ligarEspelho(); });
     sondarLeituraQr().then(renderCast);
     clearInterval(mirrorTimer);
     mirrorTimer = setInterval(lerEspelho, MIRROR_POLL_MS);
@@ -15145,6 +15159,66 @@ function renderCast() {
     castNetSubEl.textContent = telas.length + ' tela(s) recebendo · este aparelho não lê QR: '
       + 'use o número em Ajustes';
   }
+
+  // O ENDEREÇO E QUEM ESTÁ VENDO, nesta mesma folha. Eram dois degraus para
+  // ler uma linha de texto.
+  if (castLiveEl) castLiveEl.hidden = !ligado;
+  if (mirrorOpenBtnEl) mirrorOpenBtnEl.hidden = !ligado;
+  if (!ligado) return;
+  const nome = e.nomeLocal || '';
+  texto2(castUrlEl, nome || e.endereco || '');
+  if (castUrl2El) {
+    castUrl2El.hidden = !nome;
+    castUrl2El.textContent = nome ? 'ou ' + (e.endereco || '') : '';
+  }
+  // UMA linha de instrução, e ela é a única que sobrou: digite isto na TV.
+  // As três ressalvas que a folha antiga trazia (isolamento de clientes,
+  // carregador, som parcial) continuam no Registro e nos Ajustes — repeti-las
+  // aqui era o texto que o operador pediu para tirar.
+  texto2(castHintEl, telas.length
+    ? 'Digite este endereço no navegador de outra tela para acrescentá-la.'
+    : 'Digite este endereço no navegador da TV — ela entra sozinha.');
+  renderCastTelas(telas);
+}
+
+// QUEM ESTÁ VENDO, com o botão de derrubar ao lado.
+//
+// Com a porta aberta, esta lista deixou de ser uma FILA de aprovação e virou o
+// controle de verdade: o dano de um curioso na rede não é ele ver o que a
+// congregação já vê, é ele ocupar uma das três vagas. Ver e poder derrubar é a
+// resposta a isso — e é por isso que a lista subiu para a folha principal.
+function renderCastTelas(telas) {
+  if (!castTelasEl) return;
+  castTelasEl.innerHTML = '';
+  if (!telas.length) {
+    const li = document.createElement('li');
+    li.className = 'cast-tela cast-tela--vazia';
+    li.textContent = 'Nenhuma tela conectada ainda.';
+    castTelasEl.appendChild(li);
+    return;
+  }
+  telas.forEach((t) => {
+    const li = document.createElement('li');
+    li.className = 'cast-tela';
+    const nome = document.createElement('span');
+    // O RÓTULO é o do servidor ("tela B"), e não o User-Agent: numa lista de
+    // três, o que o operador precisa é distinguir uma da outra, e um UA de 120
+    // caracteres não distingue nada. O detalhe fica no Registro.
+    nome.className = 'cast-tela-nome';
+    nome.textContent = (t.rotulo || 'tela')
+      + (t.conectadaMs ? ' · ' + mirrorDur(t.conectadaMs) : '');
+    const fora = document.createElement('button');
+    fora.type = 'button';
+    fora.className = 'cast-tela-fora';
+    fora.textContent = 'Desconectar';
+    fora.addEventListener('click', async () => {
+      fora.disabled = true;
+      try { await AVNative.espelhoAprovar(t.rotulo || '', false); } catch (_) { /* ponte */ }
+      lerEspelho();
+    });
+    li.append(nome, fora);
+    castTelasEl.appendChild(li);
+  });
 }
 
 function openMirror() {
