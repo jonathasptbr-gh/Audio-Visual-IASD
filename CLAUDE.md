@@ -1319,7 +1319,7 @@ mesmo?"), lembrada pela sessão.
 |---|---|
 | `MirrorPresentation.kt` | a 2ª `Presentation`. **Cópia do molde da `StagePresentation`, não parametrização dela** — misturar as duas faria uma mudança no espelho poder derrubar a projeção. Sem `FLAG_KEEP_SCREEN_ON` (é wake lock do APARELHO; o `FLAG_NEVER_BLANK` do display privado já resolve) e sem `MicChromeClient` (dois `getUserMedia` no mesmo processo = realimentação pública) |
 | `EspelhoDisplay.kt` | dono do `VirtualDisplay`, da densidade e da sonda de readback. **`flags = 0`**: nunca `PUBLIC` (implica `AUTO_MIRROR`, exige permissão e **remove `FLAG_NEVER_BLANK`**), nunca `FLAG_PRESENTATION` (é a causa do problema que o filtro de telas depois teria de consertar). `setSurface` **não é usado em lugar nenhum** |
-| `EspelhoCodec.kt` | H.264 sobre a input surface. `KEY_REPEAT_PREVIOUS_FRAME_AFTER` é **`setLong`** — a chave é `long` e um int32 simplesmente não é encontrado, sem exceção e sem log —, e ela **repete UMA vez**: não é piso de fps. Quem mantém o fluxo é um batimento de **8 Hz** no JS do papel espelho — e a cadência dele é o TETO da defasagem do áudio, que ancora no último carimbo de vídeo (v5.144: a 1 Hz isso dava até um segundo de desvio permanente) |
+| `EspelhoCodec.kt` | H.264 sobre a input surface. `KEY_REPEAT_PREVIOUS_FRAME_AFTER` é **`setLong`** — a chave é `long` e um int32 simplesmente não é encontrado, sem exceção e sem log —, e ela **repete no máximo 10 vezes** (`kRepeatLastFrameCount` do `GraphicBufferSource` do AOSP, rearmado a cada quadro real): não é piso de fps, é uma rede de segurança finita. Quem mantém o fluxo é um batimento de **8 Hz** no JS do papel espelho — e a cadência dele é o TETO da defasagem do áudio, que ancora no último carimbo de vídeo (v5.144: a 1 Hz isso dava até um segundo de desvio permanente). **Desde a v5.157 esse batimento CEDE A VEZ ao conteúdo**: com o `<video>` apresentando quadros ele não pulsa, porque oito batidas por segundo em fase aleatória contra 30 fps é jitter que o cliente mede como quadro descartado (ver §10-A.3 do doc do espelho) |
 | `EspelhoHttp.kt` · `EspelhoPares.kt` | **PUROS, zero import de Android.** É o primeiro código do projeto que aceita entrada de um desconhecido, e o único em que um erro vira controle de acesso quebrado em vez de pixel errado — daí serem funções puras, com JUnit |
 | `EspelhoServidor.kt` | sockets, rotas, fan-out. **Bind explícito ao IPv4 da Wi-Fi**, e recusa em celular/VPN: um `ServerSocket(porta)` liga em `0.0.0.0` — inclusive `rmnet`, e operadoras brasileiras entregam IPv6 globalmente roteável ao aparelho. Seria o culto em H.264 numa porta alcançável do mundo |
 | `EspelhoService.kt` | foreground service **`connectedDevice`** (sem cota, ao contrário do `dataSync` que o app já gasta). Exige `CHANGE_WIFI_MULTICAST_STATE` no manifest — sem ela `startForeground` **lança** |
@@ -2341,10 +2341,19 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.156** (base web) · `SHELL_VERSION` **34**, e o bundle segue com
+**Versão atual: v5.157** (base web) · `SHELL_VERSION` **34**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.157 mede o travamento, e a metade que MEDE é APK.** O batimento que cede
+> a vez ao conteúdo (P3, `display.js`) é OTA puro e vale sozinho. Já os cinco
+> números do pior caso (`pq`/`nq`/`pc`/`pv`/`pa`) atravessam a **lista fixa** do
+> `EspelhoServidor.medidasDe` — num shell anterior eles são descartados em
+> silêncio e a linha simplesmente não é desenhada no Registro, que é a degradação
+> certa e também o motivo de a Release ser obrigatória: sem ela o operador
+> continua vendo um log saudável de uma tela que trava. `SHELL_VERSION` **não**
+> sobe: nenhum método da ponte nasceu ou mudou de assinatura.
 
 > **A v5.154 é METADE OTA e METADE APK, e a divisão importa para quem for testar
 > em aparelho.** Os quatro defeitos do cliente do espelho (a sombra que matava o

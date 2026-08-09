@@ -221,6 +221,94 @@
   let ultimaChave = 0;
   let gestoFeito = false;
 
+  // O PIOR CASO, e não o instantâneo — porque o relato chega DEPOIS do defeito.
+  //
+  // As medidas da v5.156 são uma FOTOGRAFIA do instante em que o relato saiu, e
+  // isso não responde a pergunta que o operador fez: "trava a cada 7 segundos".
+  // Um travamento de dois segundos não deixa rastro nenhum numa amostra tirada
+  // meio minuto depois — as bordas já se recompuseram, `rate` voltou a 100, a
+  // fila esvaziou. Foi exatamente o que aconteceu com o log do primeiro culto:
+  // ele é um cliente SAUDÁVEL, e não podia ser outra coisa, porque quem o
+  // enviou não estava travando naquele milissegundo.
+  //
+  // Os cinco números abaixo acumulam entre relatos e sobrevivem à leitura: eles
+  // transformam "trava" em "doze paradas, a pior de 2,4 s".
+  const PARADA_MS = 1000;                 // o que já se lê como travamento
+  let piorQuadro = -1;                    // maior intervalo entre quadros APRESENTADOS
+  let parouQuadro = 0;                    // quantos passaram de PARADA_MS
+  let piorCursor = 0;                     // maior intervalo com `currentTime` parado
+  let piorVfim = 99999;                   // menor folga vista até o fim do vídeo
+  let piorAfim = 99999;                   // idem, do som
+  let ultimoQuadroMs = 0;                 // quando o último quadro foi apresentado
+  let ultimoCT = -1;
+  let ultimoCTem = 0;
+  let vfcArmado = false;
+  let geracaoVfc = 0;
+
+  // ZERAR É PARTE DA MEDIDA. Toda descontinuidade abaixo é NOSSA — o salto de
+  // recuperação, a remontagem, a reconexão —, e contá-la como travamento faria
+  // o número dizer "a tela parou 8 s" toda vez que ela se recuperou depressa.
+  // O que sobra depois disso é só o que o operador de fato viu.
+  function zerarPiores() {
+    piorQuadro = -1;
+    parouQuadro = 0;
+    piorCursor = 0;
+    piorVfim = 99999;
+    piorAfim = 99999;
+    ultimoQuadroMs = Date.now();
+    ultimoCT = -1;
+    ultimoCTem = Date.now();
+  }
+
+  // O QUE MEDE O CONGELAMENTO É O QUADRO APRESENTADO, não o `currentTime`.
+  //
+  // `requestVideoFrameCallback` dispara uma vez por quadro que o compositor de
+  // fato pintou: é a única medida que corresponde ao que a congregação vê. O
+  // `currentTime` mente nos dois sentidos — ele anda com o elemento decodificando
+  // e não apresentando, e para durante um seek que ninguém percebeu.
+  //
+  // Ele não existe em todo navegador (uma smart TV velha é o caso normal aqui),
+  // e por isso `pq` vai `-1` em vez de zero: ausência de medida e medida zero
+  // são leituras opostas. O `pc`, amostrado no compasso de 500 ms, continua
+  // valendo nesse caso — mais grosso, e melhor que nada.
+  // A GERAÇÃO existe pelo mesmo motivo da época das Promises da ponte: um
+  // `requestVideoFrameCallback` pendente NÃO é cancelável de fato quando não
+  // chegam quadros (é justamente o caso do congelamento), então um `parar()`
+  // seguido de `comecar()` deixaria a corrente velha viva ao lado da nova —
+  // duas correntes contando o mesmo intervalo duas vezes, e `nq` dobrado.
+  function armarQuadros() {
+    if (vfcArmado || !el.v || typeof el.v.requestVideoFrameCallback !== 'function') return;
+    vfcArmado = true;
+    geracaoVfc++;
+    const minha = geracaoVfc;
+    ultimoQuadroMs = Date.now();
+    const passo = function () {
+      if (minha !== geracaoVfc) return;
+      const agora = Date.now();
+      const gap = agora - ultimoQuadroMs;
+      ultimoQuadroMs = agora;
+      if (gap > piorQuadro) piorQuadro = gap;
+      if (gap > PARADA_MS) parouQuadro++;
+      if (!vivo) { vfcArmado = false; return; }
+      try { el.v.requestVideoFrameCallback(passo); } catch (_) { vfcArmado = false; }
+    };
+    try { el.v.requestVideoFrameCallback(passo); } catch (_) { vfcArmado = false; }
+  }
+
+  function amostrarPiores(vfimMs, afimMs) {
+    if (vfimMs < piorVfim) piorVfim = vfimMs;
+    if (afimMs !== null && afimMs < piorAfim) piorAfim = afimMs;
+    // O CURSOR PARADO só conta com o elemento TOCANDO: pausado (antes do
+    // posicionamento, ou com o gesto pendente) ele fica parado de direito, e
+    // contá-lo aqui encheria a medida de travamentos que ninguém viu.
+    const agora = Date.now();
+    const t = el.v.currentTime;
+    if (el.v.paused || !posicionado) { ultimoCT = t; ultimoCTem = agora; return; }
+    if (t !== ultimoCT) { ultimoCT = t; ultimoCTem = agora; return; }
+    const parado = agora - ultimoCTem;
+    if (parado > piorCursor) piorCursor = parado;
+  }
+
   const conta = { quadros: 0, bytes: 0, recomecos: 0, reconexoes: 0, quadrosAudio: 0 };
   let acesaDesde = Date.now();
   let acesaMs = 0;
@@ -993,8 +1081,14 @@
     // som — e ele é o preço certo, porque uma projeção 0,5 s mais atrasada é
     // invisível e uma projeção que engasga não é. Sem faixa de som (o caso da
     // maioria das telas) nada muda: o mínimo de um só é ele mesmo.
-    const fim = bordaViva(b, sbA ? faixaDe(sbA) : null);
+    const ba = sbA ? faixaDe(sbA) : null;
+    const fim = bordaViva(b, ba);
     const atraso = fim - el.v.currentTime;
+
+    amostrarPiores(
+      Math.round((b.end(b.length - 1) - el.v.currentTime) * 1000),
+      ba && ba.length ? Math.round((ba.end(ba.length - 1) - el.v.currentTime) * 1000) : null
+    );
 
     if (el.v.paused && posicionado) tocar();
 
@@ -1002,6 +1096,9 @@
       // A recuperação, não a perseguição — ver o comentário de `SALTO_S`.
       try { el.v.currentTime = fim - ALVO_S; } catch (_) {}
       el.v.playbackRate = 1;
+      // O salto é NOSSO, e por isso apaga o pior caso: ele é a recuperação
+      // funcionando, não o travamento que o operador viu.
+      zerarPiores();
     } else if (atraso > ALVO_S + TOL_S) {
       el.v.playbackRate = RAPIDO;
     } else if (atraso < ALVO_S - TOL_S) {
@@ -1170,6 +1267,15 @@
       vid: (v.videoWidth | 0) + 'x' + (v.videoHeight | 0),
       tela: (global.innerWidth | 0) + 'x' + (global.innerHeight | 0),
       err: semAcento(ultimoErroMidia || '').slice(0, 80),
+      // O PIOR CASO desde a última descontinuidade nossa — ver `zerarPiores`.
+      // Estes cinco NÃO são zerados pelo envio: o relato sai a cada 10 s e a
+      // cada troca de frase, então zerar aqui faria o pior caso depender da
+      // cadência do relato, e um travamento cairia na janela de alguém.
+      pq: piorQuadro,
+      nq: parouQuadro,
+      pc: piorCursor,
+      pv: piorVfim === 99999 ? -99999 : piorVfim,
+      pa: piorAfim === 99999 ? -99999 : piorAfim,
     };
   }
 
@@ -1586,6 +1692,12 @@
   // e volta certo.
   function recomecar(porque, suave) {
     conta.recomecos++;
+    // A reconexão já tem número próprio (`rec`/`recomecos`) e deixa rastro no
+    // Registro. Contá-la também como travamento afogaria o pior caso: cada
+    // recomeço injetaria vários segundos em `pq`, e o número que existe para
+    // achar a parada silenciosa passaria a medir a parada barulhenta.
+    zerarPiores();
+    armarQuadros();
     fila.length = 0;
     // E O QUE AINDA ESTÁ NO FIO TAMBÉM VAI FORA — sem isto o recomeço não
     // recomeça nada, e o defeito é o pior tipo: silencioso e circular.
@@ -1651,6 +1763,10 @@
 
   function parar() {
     vivo = false;
+    // Solta a corrente de quadros: ela pode estar pendurada num quadro que
+    // nunca vem (o congelamento), e ali `vivo` sozinho não a alcança.
+    geracaoVfc++;
+    vfcArmado = false;
     if (abortar) { try { abortar.abort(); } catch (_) {} abortar = null; }
     if (compasso) { clearInterval(compasso); compasso = null; }
     // O `csd` de vídeo retido morre com a conexão: soltá-lo depois abriria uma
@@ -1672,6 +1788,8 @@
     vivo = true;
     muxer = global.AVFmp4.criar();
     ultimoAlive = Date.now();
+    zerarPiores();
+    armarQuadros();
     compasso = setInterval(function () {
       borda();
       // O RELATO SEGUE O COMPASSO, e não cada ponto de decisão: os ramos do som
