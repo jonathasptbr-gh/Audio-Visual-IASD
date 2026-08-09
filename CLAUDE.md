@@ -2344,11 +2344,26 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.169** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
+**Versão atual: v5.170** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
+> **A v5.170: A PORTA NASCE ABERTA.** Quem abrir o endereço do espelho entra —
+> sem PIN, sem QR e sem o toque do operador. A decisão é sobre o CONTEÚDO: o
+> espelho transmite a imagem do que está sendo projetado **para a congregação
+> inteira**, e uma fechadura sobre conteúdo público custava três degraus de tela
+> e seis dígitos em cartaz durante todo o culto. O que sustenta a inversão
+> continua no lugar: **o microfone ao vivo nunca sai na rede**, o token nunca
+> viaja numa URL, a allowlist de `Host` segue exata (DNS rebinding) e o teto de
+> três sessões segue valendo — e é ele, não o sigilo, o dano real de um curioso
+> na rede, porque ele toma a vaga da TV do templo. A resposta a isso é o
+> operador VER quem está conectado e poder derrubar. São **duas metades**: o
+> `EspelhoPares` nasce aberto e dispensa o PIN nesse modo (APK), e o
+> `cliente.js` tenta entrar sozinho ao abrir a página (OTA) — sem as duas, nada
+> muda. QR e PIN continuam inteiros como **plano B**, para quando o operador
+> fechar a porta.
+>
 > **A v5.168 DESFAZ metade da v5.157, e a lição é sobre PISOS.** O batimento de
 > 8 Hz do papel espelho passou a "ceder a vez ao conteúdo", e o ganho era real
 > (quadros descartados de 7% para 1,6%) — mas transformou um **piso** numa

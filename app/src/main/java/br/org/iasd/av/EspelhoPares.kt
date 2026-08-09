@@ -269,7 +269,24 @@ object EspelhoPares {
 
     private var noAr = false
     private var pinAtual = ""
-    private var autoOn = false
+    /**
+     * ACESSO ABERTO — quem abrir o endereço entra, sem PIN e sem o toque do
+     * operador. **Nasce LIGADO** (v5.170).
+     *
+     * A decisão é sobre o que o espelho transmite: a imagem do que está sendo
+     * projetado **para a congregação inteira**. É público por construção, e uma
+     * fechadura sobre conteúdo público custa mais do que rende — foram três
+     * degraus de tela e um número de seis dígitos em cartaz durante todo o
+     * culto para proteger o que qualquer um na sala já está vendo.
+     *
+     * O que NÃO ficou aberto, e é o que sustenta a decisão: o microfone ao vivo
+     * nunca sai na rede (§3.9), o token continua fora de qualquer URL, a
+     * allowlist de `Host` continua exata (DNS rebinding), e o teto de três
+     * sessões continua valendo. É esse teto, e não o sigilo, o dano real de um
+     * curioso na rede — e a resposta a ele é o operador VER quem está
+     * conectado e poder derrubar, que continua na folha.
+     */
+    private var autoOn = true
     private var rnd: SecureRandom = SecureRandom()
     private var recusados = 0
 
@@ -318,7 +335,10 @@ object EspelhoPares {
     fun zerar() {
         noAr = false
         pinAtual = ""
-        autoOn = false
+        // Volta ao PADRÃO, que é ABERTO — e não a `false`. Zerar precisa
+        // devolver o estado de fábrica, senão desligar e ligar o espelho
+        // trancaria a porta que nasce aberta, sem ninguém ter pedido.
+        autoOn = true
         recusados = 0
         esperas.clear()
         vivas.clear()
@@ -397,7 +417,16 @@ object EspelhoPares {
             t.erros = 0
         }
 
-        if (!igual(pin, pinAtual)) {
+        // COM ACESSO ABERTO O PIN NÃO É PERGUNTADO. Ele continua existindo e
+        // continua sendo aceito — é o plano B de quem desligar a abertura —,
+        // mas exigi-lo aqui manteria o atrito inteiro que a v5.170 removeu: o
+        // cliente teria de digitar seis dígitos para receber uma aprovação que
+        // sai automaticamente na linha seguinte.
+        //
+        // O bloqueio por origem acima continua rodando: ele protege contra
+        // marteladas, e martelada não deixa de existir por a porta estar
+        // aberta.
+        if (!autoOn && !igual(pin, pinAtual)) {
             t.erros++
             recusados++
             if (t.erros >= ERROS_ATE_BLOQUEIO) t.bloqueadoAte = agora + BLOQUEIO_MS
