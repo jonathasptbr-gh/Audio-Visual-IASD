@@ -129,6 +129,17 @@ jobs:
           # Determinístico, sem navegador: entra aqui, sem `continue-on-error`.
           node tools/sombra.test.mjs
 
+      - name: Tokens de CSS que não existem (Node puro)
+        run: |
+          # Um `var(--nao-existe)` SEM fallback computa para o valor INICIAL da
+          # propriedade — sem aviso no console, sem erro, sem sintoma no lugar
+          # da causa. Na v5.171 isso deixou os DOIS botões principais da folha
+          # "Conectar uma tela" com `border-radius: 0`, os únicos cantos retos
+          # de um app inteiro arredondado, e nenhuma ferramenta reclamou.
+          # Mesma família do `setInteger` numa chave `long` e do `bytes`
+          # esquecido no `bgProgress`. Determinístico: sem `continue-on-error`.
+          node tools/tokens.test.mjs
+
       # FUMAÇA DO CONTROLE, num Chromium de verdade. O passo acima prova que os
       # arquivos são PARSEÁVEIS; este prova que o app SOBE e responde ao toque.
       # A distinção não é acadêmica: a v5.121 saiu com o botão de copiar o

@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.174';
+const WEB_VERSION = '5.175';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -322,21 +322,16 @@ const castMirrorSubEl = document.getElementById('castMirrorSub');
 const castNetBtnEl = document.getElementById('castNetBtn');
 const castNetSubEl = document.getElementById('castNetSub');
 const castMsgEl = document.getElementById('castMsg');
-const mirrorRowEl = document.getElementById('mirrorRow');
-const mirrorRowHintEl = document.getElementById('mirrorRowHint');
 const mirrorOpenBtnEl = document.getElementById('mirrorOpenBtn');
 const mirrorPopupEl = document.getElementById('mirrorPopup');
 const mirrorCloseEl = document.getElementById('mirrorClose');
 const mirrorLeadEl = document.getElementById('mirrorLead');
 const mirrorAddrEl = document.getElementById('mirrorAddr');
-const mirrorUrlEl = document.getElementById('mirrorUrl');
 const castLiveEl = document.getElementById('castLive');
 const castUrlEl = document.getElementById('castUrl');
 const castUrl2El = document.getElementById('castUrl2');
 const castHintEl = document.getElementById('castHint');
 const castTelasEl = document.getElementById('castTelas');
-const mirrorUrl2El = document.getElementById('mirrorUrl2');
-const mirrorNomeHintEl = document.getElementById('mirrorNomeHint');
 const mirrorPinEl = document.getElementById('mirrorPin');
 const mirrorAutoEl = document.getElementById('mirrorAuto');
 const mirrorListEl = document.getElementById('mirrorList');
@@ -14856,51 +14851,25 @@ const MIRROR_TEXTO_ON =
 
 function renderEspelho() {
   acertarEnqueteDeFundo();
-  if (!mirrorRowEl) return;
-  // A LINHA de Configurações. `hidden` até o shell ter os métodos.
-  mirrorRowEl.hidden = !espelhoDisponivel();
-  if (mirrorRowEl.hidden) return;
+  // A GUARDA É SOBRE A FOLHA, e não sobre uma linha de Configurações que não
+  // existe mais (v5.175). Ela existia como `#mirrorRow` — a linha da lista de
+  // preferências de onde o espelho era ligado até a v5.156 —, e o que sobrou
+  // dela era um `<span hidden>` alimentado a cada leitura com uma frase de
+  // estado que ninguém via, mais duas regras de CSS órfãs. Um elemento de UI
+  // morto usado como sentinela de existência é a pior forma de guarda: ele
+  // parece intencional e some no primeiro `hidden` que alguém mexer.
+  if (!mirrorLeadEl || !espelhoDisponivel()) return;
   const e = mirrorEstado || {};
   const ligado = !!e.ligado;
-  const telas = Array.isArray(e.telas) ? e.telas : [];
   const pendentes = Array.isArray(e.pendentes) ? e.pendentes : [];
-  mirrorRowHintEl.textContent = ligado
-    ? (e.endereco || 'Ligado') + ' · ' + telas.length + ' tela(s)'
-      + (pendentes.length ? ' · ' + pendentes.length + ' esperando' : '')
-    : (e.erro || 'Desligado');
-  // Verde é "há uma tela recebendo" no resto do app, e aqui quer dizer o mesmo.
-  // Nunca o vermelho preenchido de "no ar": esse é do telão, e o espelho é
-  // auxiliar — dois significados para a mesma cor na mesma tela é o erro que
-  // este projeto já documenta ter cometido com o ícone da cortina.
-  mirrorRowHintEl.classList.toggle('on', ligado);
 
-  // A FOLHA.
   mirrorLeadEl.textContent = e.erro
     ? e.erro + '\n\n' + MIRROR_TEXTO_OFF
     : (ligado ? MIRROR_TEXTO_ON : MIRROR_TEXTO_OFF);
+  // O ENDEREÇO NÃO SE REPETE AQUI. Esta folha só se alcança de dentro da folha
+  // de conectar, que já o mostra em corpo grande — e o `.local` e o IP com ele.
+  // O que sobra é o PIN, que é o plano B de quando a câmera não serve.
   mirrorAddrEl.hidden = !ligado;
-  // O NOME CURTO VEM PRIMEIRO, e o IP FICA LOGO ABAIXO — nunca no lugar dele.
-  //
-  // `av.local` é mais fácil de digitar num controle remoto e sobrevive à troca
-  // de IP do DHCP, mas ele depende de a TELA resolver `.local`: Windows, macOS,
-  // iOS e Linux com avahi sim; o Chrome do Android e a maioria das Smart TVs,
-  // NÃO. Mostrar só o nome trocaria o endereço que funciona em toda tela pelo
-  // que funciona em algumas — uma regressão com cara de melhoria. Os dois
-  // juntos, com a ordem dizendo qual tentar primeiro.
-  const nomeLocal = e.nomeLocal || '';
-  mirrorUrlEl.textContent = nomeLocal || e.endereco || '';
-  if (mirrorUrl2El) {
-    mirrorUrl2El.hidden = !nomeLocal;
-    mirrorUrl2El.textContent = nomeLocal ? 'ou ' + (e.endereco || '') : '';
-  }
-  if (mirrorNomeHintEl) {
-    mirrorNomeHintEl.hidden = !ligado;
-    mirrorNomeHintEl.textContent = nomeLocal
-      ? 'Se a tela não abrir pelo nome, use o endereço numérico — nem toda TV entende ".local".'
-      : (e.nomeErro
-        ? 'Nome curto indisponível: ' + e.nomeErro
-        : '');
-  }
   mirrorPinEl.textContent = e.pin || '';
   // O botão de ler o QR só existe com o espelho no ar: sem servidor não há
   // tela mostrando código nenhum, e apontar a câmera para o nada não é um
@@ -14920,13 +14889,17 @@ function renderEspelho() {
     : (ligado ? 'Desligar o espelho' : 'Ligar o espelho');
   mirrorToggleEl.disabled = mirrorOcupado;
   mirrorToggleEl.classList.toggle('on', ligado);
-  renderEspelhoLista(pendentes, telas);
+  renderEspelhoLista(pendentes);
 }
 
-// A fila de aprovação em cima, as telas já conectadas embaixo. Uma lista só,
-// porque são a mesma pergunta em dois estados ("quem está olhando?") e duas
-// listas fariam a de baixo parecer ação pendente quando não é.
-function renderEspelhoLista(pendentes, telas) {
+// SÓ A FILA DE APROVAÇÃO — quem já está vendo mora na folha de conectar.
+//
+// Até a v5.174 esta lista trazia as duas coisas, e desde a v5.171 as telas
+// conectadas também apareciam na folha principal: a MESMA informação em duas
+// telas, com duas anatomias diferentes (`.cast-tela` e `.mirror-item`, raios,
+// fontes e gaps distintos). Aqui ficou o que é assunto DESTA folha — o plano B
+// do PIN, que é o único caminho que ainda produz uma tela "esperando".
+function renderEspelhoLista(pendentes) {
   mirrorListEl.innerHTML = '';
   pendentes.forEach((p) => {
     const li = document.createElement('li');
@@ -14964,21 +14937,6 @@ function renderEspelhoLista(pendentes, telas) {
     li.append(main, sim, nao);
     mirrorListEl.appendChild(li);
   });
-  telas.forEach((t) => {
-    const li = document.createElement('li');
-    li.className = 'mirror-item';
-    const main = document.createElement('div');
-    main.className = 'mirror-item-main';
-    const nome = document.createElement('span');
-    nome.className = 'mirror-item-name';
-    nome.textContent = t.ua || 'Tela';
-    const sub = document.createElement('span');
-    sub.className = 'mirror-item-sub';
-    sub.textContent = 'recebendo' + (t.rotulo ? ' · tela ' + t.rotulo : '');
-    main.append(nome, sub);
-    li.append(main);
-    mirrorListEl.appendChild(li);
-  });
   if (!mirrorListEl.children.length && espelhoLigado()) {
     const li = document.createElement('li');
     li.className = 'mirror-item';
@@ -14986,14 +14944,12 @@ function renderEspelhoLista(pendentes, telas) {
     main.className = 'mirror-item-main';
     const nome = document.createElement('span');
     nome.className = 'mirror-item-name';
-    nome.textContent = 'Nenhuma tela ainda';
+    nome.textContent = 'Ninguém esperando aprovação';
     const sub = document.createElement('span');
     sub.className = 'mirror-item-sub';
-    // A frase que dá a saída, e não só o fato: "ninguém conectou" e "o roteador
-    // está isolando os clientes" são a MESMA tela vazia, e o operador não tem
-    // como distinguir sem que alguém diga. O veredito com hora está no
-    // Registro; aqui fica a leitura curta.
-    sub.textContent = 'se alguém já abriu o endereço, o roteador pode estar isolando os aparelhos';
+    // A frase diz o que esta lista É — e onde está a outra. Com a porta aberta
+    // (v5.170) a fila fica vazia quase sempre: quem entra não passa por aqui.
+    sub.textContent = 'quem já está vendo aparece na folha de conectar';
     main.append(nome, sub);
     li.append(main);
     mirrorListEl.appendChild(li);
@@ -15545,7 +15501,10 @@ function closeMirror() {
   fecharLeitorQr();
 }
 
-if (mirrorRowEl) {
+// Os ouvintes da seção de conexão. A guarda é o botão que ABRE a folha de
+// ajustes — um elemento que de fato existe na tela —, e não mais o `#mirrorRow`
+// escondido que sobrou da linha de Configurações (v5.175).
+if (mirrorOpenBtnEl) {
   mirrorOpenBtnEl.addEventListener('click', openMirror);
   mirrorAutoEl.addEventListener('change', async () => {
     // O `'*'` é a chave da aprovação automática desta sessão — ver o KDoc de
