@@ -653,11 +653,25 @@ checar(true, 'aprovada, a MESMA página troca para o player (sem navegar)');
   // `bgProgress` e do `slideLabel` no `nowPlaying`.
   const ultimo = alives[alives.length - 1];
   const exigidos = ['q', 'qa', 'rec', 'kb', 'fila', 'vfim', 'afim', 'jan', 'rate',
-    'rs', 'ns', 'dq', 'tq', 'reb', 'cota', 'rr', 'cod', 'vid', 'tela', 'err'];
+    'rs', 'ns', 'dq', 'tq', 'reb', 'cota', 'rr', 'cod', 'vid', 'tela', 'err',
+    // O PIOR CASO acumulado, que é a única parte destas medidas que não é uma
+    // fotografia do instante do envio — e por isso a única que responde "trava
+    // a cada 7 segundos". Sem eles o relato volta a chegar sempre saudável,
+    // porque quem o manda não está travando naquele milissegundo.
+    'pq', 'nq', 'pc', 'pv', 'pa'];
   const faltando = exigidos.filter((k) => !(k in ultimo));
   checar(faltando.length === 0,
     'e ele carrega as MEDIDAS da tela — o que só ela sabe (' + exigidos.length + ' campos)',
     'faltando: ' + faltando.join(', '));
+
+  // E O PIOR CASO NÃO É ZERADO PELO ENVIO. Zerar aqui seria o defeito sutil: o
+  // relato sai a cada 10 s e a cada troca de frase, então o pior caso passaria
+  // a depender da cadência do relato — e um travamento cairia inteiro dentro da
+  // janela de alguém, sumindo. Ele só zera numa descontinuidade do cliente.
+  const piores = alives.filter((a) => 'pq' in a).map((a) => a.pc | 0);
+  checar(piores.every((p, i) => i === 0 || p >= piores[i - 1]),
+    'e o pior caso ACUMULA entre relatos (não é zerado pelo envio)',
+    JSON.stringify(piores));
 
   // E TUDO ISSO PRECISA CABER no teto do `POST /r`. Ele é maior que o do
   // pareamento de propósito (`TETO_CORPO_RETORNO`, 4 KiB, e o `/par` anônimo

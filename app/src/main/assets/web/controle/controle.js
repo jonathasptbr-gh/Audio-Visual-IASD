@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.156';
+const WEB_VERSION = '5.157';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -10679,6 +10679,39 @@ function linhasDaTela(v) {
   if (v.cod || v.vid) {
     out.push('codec: ' + (v.cod || '?')
       + ' · video ' + (v.vid || '?') + ' numa tela de ' + (v.tela || '?'));
+  }
+  // O PIOR CASO — e é a única linha aqui que não é uma fotografia.
+  //
+  // Tudo acima vale para o instante em que o relato saiu, e essa é justamente a
+  // razão de o primeiro log de culto ter chegado SAUDÁVEL: quem o mandou não
+  // estava travando naquele milissegundo. Estas medidas acumulam entre relatos
+  // e só zeram numa descontinuidade do próprio cliente (o salto de recuperação
+  // e a reconexão), então o que sobra nelas é o que o operador de fato viu.
+  //
+  // `pq` é o intervalo entre quadros APRESENTADOS, que é a definição exata de
+  // "congelou". `pc` é o cursor parado — mais grosso (amostra de 500 ms), e o
+  // que sobra num navegador sem `requestVideoFrameCallback`.
+  const temPior = v.pq != null || v.pc != null;
+  if (temPior) {
+    const pq = v.pq == null ? -1 : v.pq | 0;
+    const pc = v.pc | 0;
+    const nq = v.nq | 0;
+    const seg = (n) => Math.round(n / 100) / 10 + ' s';
+    const partes = [];
+    partes.push(pq < 0
+      ? 'maior parada de imagem: nao medida (este navegador nao traz o relogio de quadro)'
+      : 'maior parada de imagem: ' + seg(pq));
+    if (nq) partes.push(nq + ' parada(s) acima de 1 s');
+    if (pc) partes.push('cursor parado por ate ' + seg(pc));
+    out.push(partes.join(' · ')
+      + (pq >= 2000 || pc >= 2000 ? '  ← TRAVAMENTO CONFIRMADO deste lado' : ''));
+    // E a menor folga já vista, que é o que ANTECEDE o congelamento: `vfim`
+    // acima pode estar confortável agora e ter chegado a zero há dez segundos.
+    if (v.pv != null && (v.pv | 0) !== -99999) {
+      out.push('menor folga ja vista: video ' + sinal(v.pv)
+        + ((v.pa != null && (v.pa | 0) !== -99999) ? ' · som ' + sinal(v.pa) : '')
+        + (((v.pv | 0) < 0 || (v.pa | 0) < 0) ? '  ← chegou a secar' : ''));
+    }
   }
   // O `MediaError` do elemento, que é onde mora a frase do demuxer do Chromium
   // — e que ninguém leria, porque ninguém abre console numa TV.

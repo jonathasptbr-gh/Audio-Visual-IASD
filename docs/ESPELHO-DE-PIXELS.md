@@ -1729,6 +1729,56 @@ E a segunda regra: **teste que exercita só o caminho feliz não é rede de segu
 `espelho-cliente.test.mjs` cobria o percurso do PIN, o do QR e o modo imagem, e passava verde com
 A1, A2, A3 e A5 no lugar. Ele ganhou o caso da despedida; A1 é pego pelo oráculo de sombra.
 
+### 10-A.3 — o relato deixa de ser uma FOTOGRAFIA, e o batimento cede a vez (5.157)
+
+O primeiro Registro trazido do culto depois da §10-A.2 mostrou uma tela **saudável**: folga de
+741 ms (dentro da banda de `ALVO_S ± TOL_S`), `rate` em 100%, fila vazia, `rs` 4. E o relato do
+operador, no mesmo culto, foi *"trava a cada 7 segundos, e trava mais quando eu mexo"*.
+
+Os dois são verdade ao mesmo tempo, e essa é a leitura: **as vinte medidas da §10-A.2 são um
+instantâneo do milissegundo em que o relato saiu**. Um travamento de dois segundos não deixa rastro
+nenhum numa amostra tirada depois — as bordas se recompuseram, `rate` voltou a 1, a fila escoou.
+Quem manda o relato, por construção, não está travando naquele instante.
+
+**P2 — cinco números que ACUMULAM.** `pq` é o maior intervalo entre quadros que o compositor de fato
+apresentou (`requestVideoFrameCallback`, que é a definição exata de "congelou" — o `currentTime`
+mente nos dois sentidos: anda com o elemento decodificando sem apresentar, e para durante um seek
+que ninguém percebeu); `nq` conta quantas dessas paradas passaram de 1 s; `pc` é o cursor parado,
+amostrado no compasso de 500 ms, que é o que sobra num navegador sem `rVFC`; `pv`/`pa` são a **menor
+folga já vista** em cada faixa — o que antecede o congelamento, e que o valor instantâneo esconde.
+
+Duas decisões que parecem detalhe e não são:
+
+- **Eles não zeram no envio.** O relato sai a cada 10 s e a cada troca de frase; zerar ali faria o
+  pior caso depender da cadência do relato, e um travamento inteiro caberia dentro da janela de
+  alguém. Zeram só numa descontinuidade **nossa**: o salto de recuperação (`SALTO_S`) e a
+  reconexão — que já têm número próprio e deixam rastro. Contá-las como travamento faria o número
+  que existe para achar a parada **silenciosa** passar a medir a barulhenta.
+- **A corrente de `rVFC` tem GERAÇÃO**, pela mesma razão da época das Promises da ponte: um callback
+  pendente não é cancelável quando não chegam quadros — que é justamente o caso do congelamento —,
+  então `parar()` seguido de `comecar()` deixaria duas correntes contando o mesmo intervalo.
+
+`pq` vai `-1` sem `rVFC`: ausência de medida e medida zero são leituras opostas.
+
+**P3 — o batimento cede a vez ao conteúdo.** O batimento de 8 Hz (§3.3) nasceu **incondicional**, e
+num vídeo de verdade ele passou a competir: oito batidas por segundo em **fase aleatória** contra
+trinta quadros por segundo, cada uma forçando uma recomposição fora do ritmo do `<video>`. O encoder
+recebe quadros em intervalos irregulares, o carimbo dos fragmentos herda o jitter, e do outro lado
+o cliente o mede como quadro descartado — os **7%** que o Registro mostrou.
+
+A pergunta certa não é "está tocando?" (um vídeo pausado mostra quadro congelado e **precisa** do
+batimento; um item de áudio com wallpaper também) — é *"alguém já pintou um quadro há pouco?"*. É
+`rVFC` de novo, no documento do telão, e ele se corrige sozinho: no instante em que o conteúdo para,
+o batimento volta na batida seguinte. Sem `rVFC`, a aproximação honesta (tocando, com imagem e com
+dado), que erra só para o lado de bater a mais.
+
+**O que isto NÃO é.** Não é a correção do travamento — é o que o transforma em número. A hipótese
+principal continua sendo que, numa cena parada de letra, o único produtor de quadros é um
+`setInterval` na **main thread do Blink**, compartilhada com o Controle e com o telão: a interação
+do operador a disputa, o batimento atrasa, e a folga de 741 ms do cliente acaba. `ALVO_S` de 0,6 s
+para 1,5 s é a resposta óbvia e está **retida de propósito** — aplicá-la agora mascararia a medida
+que acabou de nascer. Primeiro o número, depois a folga.
+
 ---
 
 ## 11. A FRASE PARA O OPERADOR

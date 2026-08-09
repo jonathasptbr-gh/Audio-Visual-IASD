@@ -1264,6 +1264,17 @@ class EspelhoServidor(
         .put("vid", EspelhoPares.sanear(o.optString("vid"), 20))
         .put("tela", EspelhoPares.sanear(o.optString("tela"), 20))
         .put("err", EspelhoPares.sanear(o.optString("err"), 100))
+        // O PIOR CASO desde a última descontinuidade do cliente. Tudo acima é
+        // o INSTANTE em que o relato saiu, e um travamento de dois segundos não
+        // deixa rastro nenhum numa fotografia tirada depois — as bordas já se
+        // recompuseram. Estes cinco são o que transforma "trava a cada 7
+        // segundos" em número. `pq`/`pv`/`pa` aceitam negativo pelo mesmo
+        // motivo do `vfim`: `-1`/`-99999` é ausência de medida, não zero.
+        .put("pq", o.optInt("pq", -1).coerceIn(-1, 3_600_000))
+        .put("nq", o.optInt("nq", 0).coerceIn(0, 1_000_000))
+        .put("pc", o.optInt("pc", 0).coerceIn(0, 3_600_000))
+        .put("pv", o.optInt("pv", 0).coerceIn(-3_600_000, 3_600_000))
+        .put("pa", o.optInt("pa", 0).coerceIn(-3_600_000, 3_600_000))
 
     private fun pendentes(): List<EspelhoPares.Pendente> = EspelhoPares.pendentes()
 

@@ -2007,7 +2007,43 @@ if (ESPELHO) {
     + 'z-index:2147483647;pointer-events:none;background:#000';
   document.body.appendChild(pulso);
   let claro = false;
+
+  // O BATIMENTO CEDE A VEZ AO CONTEÚDO — e isso é uma correção, não economia.
+  //
+  // Ele nasceu incondicional, e num vídeo de verdade passou a competir com o
+  // conteúdo: 8 batidas por segundo em FASE ALEATÓRIA contra 30 quadros por
+  // segundo, cada batida forçando uma recomposição do SurfaceFlinger fora do
+  // ritmo do `<video>`. O encoder passa a receber quadros em intervalos
+  // irregulares, o carimbo de tempo dos fragmentos herda esse jitter, e do
+  // outro lado da rede o cliente o mede como quadro descartado — os 7% que o
+  // Registro do primeiro culto mostrou.
+  //
+  // A pergunta certa não é "está tocando?" (um vídeo pausado mostra um quadro
+  // congelado e PRECISA do batimento; um `<video>` de áudio com wallpaper
+  // também) — é "alguém já pintou um quadro há pouco?". `requestVideoFrameCallback`
+  // dispara uma vez por quadro que o compositor de fato apresentou, que é
+  // exatamente a medida procurada, e ele se corrige sozinho: o instante em que o
+  // conteúdo para, o batimento volta na batida seguinte.
+  //
+  // Sem `rVFC` (navegador antigo) a pergunta vira a aproximação honesta —
+  // tocando, com imagem e com dado —, que erra só para o lado de bater a mais.
+  let ultimoQuadroConteudo = 0;
+  const temRvfc = videoEl && typeof videoEl.requestVideoFrameCallback === 'function';
+  if (temRvfc) {
+    const marcar = () => {
+      ultimoQuadroConteudo = Date.now();
+      try { videoEl.requestVideoFrameCallback(marcar); } catch (_) {}
+    };
+    try { videoEl.requestVideoFrameCallback(marcar); } catch (_) {}
+  }
+  const conteudoAnda = () => {
+    if (temRvfc) return Date.now() - ultimoQuadroConteudo < ESPELHO_BATIMENTO_MS;
+    return !!videoEl && !videoEl.paused && !videoEl.ended
+      && (videoEl.videoWidth | 0) > 0 && (videoEl.readyState | 0) >= 2;
+  };
+
   setInterval(() => {
+    if (conteudoAnda()) return;
     claro = !claro;
     pulso.style.background = claro ? '#010101' : '#000000';
   }, ESPELHO_BATIMENTO_MS);
