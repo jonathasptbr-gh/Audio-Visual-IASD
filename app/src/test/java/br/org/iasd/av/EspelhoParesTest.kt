@@ -30,9 +30,25 @@ class EspelhoParesTest {
     private val origem = "192.168.0.77"
     private lateinit var pin: String
 
+    /**
+     * A FIXTURE FECHA A PORTA, e o modo aberto tem casos próprios.
+     *
+     * Desde a v5.170 o acesso nasce ABERTO — quem abre o endereço entra, sem
+     * PIN. Isso é o produto, e está afirmado em
+     * [acessoNasceAbertoEVoltaAoPadraoAoReligar] e
+     * [comAcessoAbertoQualquerPinEntra].
+     *
+     * Mas a maior parte desta suíte existe para provar o CONTROLE DE ACESSO —
+     * bloqueio por origem, PIN que não rotaciona, contador de recusas, o
+     * segredo que não vaza no `toString`. Com a porta aberta, nada disso chega
+     * a ser exercitado: os casos passariam por vacuidade, que é a pior forma de
+     * um teste de segurança passar. Fechá-la aqui mantém cada um deles medindo
+     * o que sempre mediu.
+     */
     @Before
     fun ligar() {
         pin = EspelhoPares.ligar(t0)
+        EspelhoPares.definirAutoAprovar(false)
     }
 
     /**
@@ -89,8 +105,6 @@ class EspelhoParesTest {
      */
     @Test
     fun pinNaoRotacionaComTentativaErrada() {
-        // O PIN é o plano B desde a v5.170: fecha a porta para exercitá-lo.
-        EspelhoPares.definirAutoAprovar(false)
         repeat(ERRADAS) { EspelhoPares.tentar(pinErrado(), origem, relato(), t0) }
         assertEquals(pin, EspelhoPares.pin())
     }
@@ -114,8 +128,6 @@ class EspelhoParesTest {
     /** Acertar o PIN dá vaga na fila do operador, não acesso (invariante 5). */
     @Test
     fun pinCertoEntraNaFilaDoOperador() {
-        // O PIN é o plano B desde a v5.170: fecha a porta para exercitá-lo.
-        EspelhoPares.definirAutoAprovar(false)
         val v = EspelhoPares.tentar(pin, origem, relato(), t0)
         assertTrue(v is EspelhoPares.Veredito.Espera)
         val id = (v as EspelhoPares.Veredito.Espera).id
@@ -126,8 +138,6 @@ class EspelhoParesTest {
 
     @Test
     fun aprovarEntregaOTokenAoDonoDaEspera() {
-        // O PIN é o plano B desde a v5.170: fecha a porta para exercitá-lo.
-        EspelhoPares.definirAutoAprovar(false)
         val v = EspelhoPares.tentar(pin, origem, relato(), t0)
         val id = (v as EspelhoPares.Veredito.Espera).id
         val s = EspelhoPares.aprovar(id, t0)
@@ -204,6 +214,10 @@ class EspelhoParesTest {
 
     @Test
     fun acessoNasceAbertoEVoltaAoPadraoAoReligar() {
+        // A fixture fechou a porta de propósito (ver [ligar]); aqui o assunto é
+        // justamente o PADRÃO, então religar é parte do caso.
+        EspelhoPares.desligar()
+        EspelhoPares.ligar(t0)
         assertTrue(EspelhoPares.autoAprovando())
         EspelhoPares.definirAutoAprovar(false)
         assertFalse(EspelhoPares.autoAprovando())
@@ -215,6 +229,7 @@ class EspelhoParesTest {
     /** Com o acesso aberto, o PIN não é perguntado — entrar é abrir o endereço. */
     @Test
     fun comAcessoAbertoQualquerPinEntra() {
+        EspelhoPares.definirAutoAprovar(true)
         val v = EspelhoPares.tentar("", origem, relato(), t0)
         assertTrue(v is EspelhoPares.Veredito.Espera)
         val id = (v as EspelhoPares.Veredito.Espera).id
@@ -233,6 +248,7 @@ class EspelhoParesTest {
      */
     @Test
     fun oTetoContinuaValendoComAcessoAberto() {
+        EspelhoPares.definirAutoAprovar(true)
         var lotou = false
         repeat(EspelhoPares.MAX_ESPERAS + MAX_SESSOES_FOLGA) {
             val v = EspelhoPares.tentar("", origem + it, relato(), t0)
