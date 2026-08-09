@@ -988,7 +988,7 @@ página do cliente em modo imagem, ou a primeira coisa que chega ao operador vai
 | `index.html` | ~70 | **uma página, dois estados**: pareamento (PIN) e player. Não há navegação entre eles — é o que permite o token nunca entrar numa URL |
 | `fmp4.js` | ~330 | o muxer: `ftyp`+`moov` (com `avcC` **construído a partir do Annex-B**) + `mvex/trex`, e por fragmento `moof(mfhd,traf(tfhd,tfdt,trun)) + mdat`. Faixa de áudio (`mp4a/esds`) na Entrega 3: +35 |
 | `cliente.js` | ~280 | transporte, fila de append serializada, poda do passado, perseguição da borda, reconexão com espera crescente, o relato de capacidades, modo imagem |
-| `espelho.css` | ~130 | preto, `object-fit: contain`, `cursor:none` depois do gesto |
+| `espelho.css` | ~130 | preto, `object-fit: contain`, a barra de dois ícones e o `cursor:none` que some com ela |
 | `sonda.html` + `sonda.mp4` | ~60 + ~40 kB | a sonda de readback (§7.4) |
 
 **O caminho implementado:**
@@ -1033,11 +1033,24 @@ fetch('/v', { headers: { Authorization: 'Bearer ' + t } }) → response.body.get
    `MediaSource`** **(MDN BCD; a mesma detecção que o go2rtc faz — prática)**.
 8. **O cliente nasce MUDO e tocando.** *"Muted autoplay is always allowed"* **(doc — política de
    autoplay do Chrome)**. `playsinline` obrigatório.
-9. **Um gesto, quatro efeitos.** `requestFullscreen()` exige ativação transitória e não há truque.
-   Então: **um botão grande na montagem da tela** que faz `requestFullscreen()` + `video.muted = false`
-   (se for a tela com som) + `audioCtx.resume()` + `wakeLock.request()` (se existir). Depois disso a
-   ativação é *sticky* pela sessão. É o mesmo padrão do `#startBtn` do `/display/`
+9. **Um gesto — e, desde a v5.177, DOIS ÍCONES em vez de um botão.** `requestFullscreen()` e sair do
+   `muted` exigem ativação transitória e não há truque: o primeiro toque é obrigatório e continua
+   sendo. O que mudou é o que ele decide. Um botão único ("Ver em tela cheia e ouvir") juntava duas
+   coisas que não são a mesma — a tela do saguão quer imagem cheia e **silêncio** (a PA está a
+   200 ms dali), a da sala anexa quer som —, e quem descobria o eco não tinha como desfazer sem
+   recarregar a página. Agora são **um alto-falante e uma moldura**, na anatomia dos `.pv-fab` do
+   Controle (traço, sem moldura, contorno por `drop-shadow`, porque eles ficam sobre um slide que
+   pode ser branco). O do som carrega os quatro efeitos de antes (`video.muted = false` +
+   `audioCtx.resume()` + o pedido de áudio ao servidor + `wakeLock.request()`, se existir) e a
+   ÚNICA remontagem da `MediaSource`; do segundo toque em diante ele é um **mudo local** — `muted`
+   no elemento, sem remontar nada e sem falar com o servidor. Depois do primeiro toque a ativação é
+   *sticky* pela sessão. É o mesmo padrão do `#startBtn` do `/display/`
    (`display/display.js:1514-1536` — código).
+9-A. **E eles se recolhem, como em qualquer player.** Quatro segundos sem toque e a barra some (com
+   o cursor junto: `body.projetando.sem-cursor`); um toque fora dela a traz de volta, o seguinte a
+   recolhe. A carência de 400 ms existe porque **num notebook o ponteiro se mexe ANTES do clique** —
+   sem ela, o movimento traria a barra e o clique de trás a recolheria no mesmo gesto, que se lê
+   como "o toque não funcionou".
 10. **As telas nascem mudas por decisão, não só por política.** Elas estão dentro da igreja, a
     100–300 ms da PA: três telas desmutadas são três alto-falantes com eco. Quem está em outra sala
     aperta o botão.
@@ -2166,6 +2179,48 @@ csd` para sempre, o único dos sete desfechos do som cuja causa estava deste lad
 nasceu nem mudou de assinatura. E as duas metades degradam sozinhas — um bundle novo num shell
 antigo recebe 403 no pedido de entrada e volta ao QR (o comportamento de hoje), e um bundle antigo
 num shell novo entra pela porta aberta assim mesmo, porque o corpo nu vale como pedido.
+
+### 10-A.11 — o som morria FORA do espelho, e a porta de volta não existia (5.177)
+
+O operador relatou a tela da rede ficando **muda com a imagem seguindo**, e desta vez o Registro
+trazia a resposta inteira — mas não no lado em que se estava procurando.
+
+Do lado do servidor tudo estava certo: `24 blocos de PCM/s`, `7424` quadros AAC produzidos,
+`0 descarte(s)`, `fila 0/64`, enlace a 98 Mbps. A tela dizia ter recebido `5731 de som`. Ou seja: o
+som **estava sendo produzido e estava chegando**, e mesmo assim a faixa não existia
+(`som: PEDIDO e a faixa não nasceu`, `2 remontagem(ns)`).
+
+**A causa estava na LINHA DO TEMPO, e ela nem é do espelho.** Pares repetidos de
+`📱 play [oculto]` / `📱 PAUSA ESPONTÂNEA [oculto]`, a ~4 Hz. Aqueles `📱` são o `diagC` do
+`controle.js` (`onde: 'celular'`), isto é **a preview do Controle** — não o telão. A v5.173 fez o
+Controle passar a escutar o `espelho-status`, o que está certo (sem TV o espelho É a projeção), e
+com isso o `resyncPreviewToDisplay` passou a rodar com o app minimizado: ele chama `preview.play()`,
+o Chromium **pausa um `<video>` de página oculta**, o status seguinte chega 250 ms depois e
+recomeça. Os três WebViews dividem UM processo — essa rotatividade de decodificador é o que faz o
+`AudioWorklet` do espelho engasgar, o cliente vencer o `AUDIO_MUDO_MS` e soltar a faixa.
+
+É a família de sempre deste apêndice: **nenhum dos dois lados dá erro**. O `play()` é aceito, a
+pausa que vem atrás é comportamento documentado do navegador, e do lado do cliente soltar a faixa é
+exatamente o que ele deve fazer para salvar a imagem.
+
+Duas correções, e nenhuma sozinha bastaria:
+
+1. **`preverPodeMexer`** (`controle.js`): com a página escondida não se toca no transporte da
+   preview. Um `play()` que o navegador desfaz no quadro seguinte não é sincronização, é ruído — e
+   quem realinha é a retomada, que já é EXATA desde a v5.173. A janela de `forcarResyncAte` só é
+   CONSUMIDA quando há como agir.
+2. **`voltouOSom`** (`cliente.js`): `soltarAudio` era uma **porta de mão única**. Ele acerta ao
+   soltar (a MSE não toca sem dado em todas as faixas, e a imagem morreria pelo som), mas o que
+   sobrava era uma tela muda pelo resto do culto, esperando alguém atravessar o salão para tocar
+   nela — e a causa mais comum é passageira. Agora, com o AAC voltando a chegar por 2 s **seguidos**
+   (a janela reinicia a cada intervalo maior que `AUDIO_MUDO_MS`, para um quadro perdido no meio de
+   uma turbulência não contar como recuperação), o cliente remonta sozinho. O freio é o de sempre:
+   `REBUILDS_AUDIO`, que só se renova depois de `AUDIO_SAUDAVEL_MS` de som limpo — isto é, depois de
+   a remontagem ter dado certo.
+
+**O lote inteiro é OTA** — nenhuma linha de Kotlin. É a primeira entrada deste apêndice em que a
+causa raiz morava **fora** do espelho, e é a razão de ela estar escrita aqui assim mesmo: quem for
+diagnosticar "a tela ficou muda" vai começar por este documento.
 
 ---
 
