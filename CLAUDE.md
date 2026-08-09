@@ -2341,11 +2341,27 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.161** (base web) · `SHELL_VERSION` **34**, e o bundle segue com
+**Versão atual: v5.162** (base web) · `SHELL_VERSION` **34**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
+> **A v5.162 ataca a SENSAÇÃO, não o número — e a leitura do operador estava
+> certa.** O que estraga não é o atraso em si: é a preview mudar no ato enquanto
+> a tela da rede muda um segundo depois, e é o botão ficar esse segundo sem
+> responder (que se lê como "não funcionou", e o operador toca de novo). Duas
+> correções, as duas OTA: **(1) a preview atrasa junto** — `cmd()` já era o funil
+> único onde o comando vai ao telão *e* à preview, então a metade da preview
+> entra numa FILA que escoa `previewAtrasoMs` depois, e ela vira um espelho fiel
+> e deslocado no tempo (letra, fades, cortina, tudo desliza junto). O atraso é
+> MEDIDO (a mediana do `vivo.vfim` das telas conectadas), vale **só sem telão
+> conectado** (com TV, a projeção é ela e chega no ato), e `authoritativeTime()`
+> soma-o de volta — senão "próxima estrofe", tocado logo depois de a estrofe
+> virar, devolveria a estrofe que já está no ar. **(2) o ECO**: um anel curto em
+> accent, delegado por seletor no transporte e nos três do meio do mixer, que
+> NÃO troca o conteúdo do botão — o `.btn-pulso` esconde o filho para pôr um ✓, e
+> fazer isso com o ▶ apagaria o ícone que carrega o estado.
+>
 > **A v5.161 tira o TRANSITÓRIO DE PARTIDA da conta, e ele estava impedindo a
 > convergência da v5.160.** Duas contagens falsas: (1) `posicionar()` entrava no
 > ponto MAIS ANTIGO que as duas faixas tinham, então o `borda()` seguinte via

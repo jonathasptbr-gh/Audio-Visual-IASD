@@ -3269,6 +3269,44 @@ body.mode-simple .hymn-add-btn { display: none; }
 .btn-pulso--erro { background: var(--danger-soft); color: var(--danger-text); }
 .btn-pulso--erro::after { content: '\e14c'; }   /* close */
 
+/* ---------- O ECO: "o comando saiu" (v5.162) ----------
+   A outra metade do par do `.btn-pulso`. O pulso ESCONDE o conteúdo para pôr um
+   ✓ no lugar, e isso é certo para salvar/copiar — ações cujo resultado não
+   aparece em canto nenhum. É errado para o transporte: o ▶ virando ✓ e voltando
+   esconde justamente o ícone que carrega o estado.
+   Aqui o conteúdo fica. O que acontece é um anel em accent que nasce colado no
+   botão e se abre desaparecendo — o mesmo vocabulário de "recebido" do resto do
+   app, sem tirar nada da tela.
+   Ele existe porque a resposta de verdade destes botões pode estar a ~1 s de
+   distância quando a projeção são as telas da rede (ver `cmd` em controle.js), e
+   um botão que fica um segundo sem responder é lido como botão que não
+   funcionou: o operador toca de novo, e o comando vai duas vezes.
+   `::before`, e não `::after`: o `.t-btn` do transporte já usa o `::after` para
+   o contorno do eixo (⏮/⏭ anunciando se passam estrofe ou mídia), e disputar o
+   mesmo pseudo-elemento apagaria essa leitura em cada toque.
+   `pointer-events: none` porque ele cobre o botão inteiro durante a animação e
+   engolir o segundo toque seria o oposto do que ele existe para fazer. */
+.btn-eco { position: relative; }
+.btn-eco::before {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  border: 2px solid var(--accent);
+  pointer-events: none;
+  animation: eco-anel .42s ease-out forwards;
+}
+@keyframes eco-anel {
+  from { opacity: .9; transform: scale(1); }
+  to   { opacity: 0;  transform: scale(1.35); }
+}
+/* Movimento é enfeite para quem o pediu de menos; o SINAL não pode ser. Sem
+   animação o eco vira um piscar de contorno, que continua respondendo "recebi"
+   — a mesma regra que o resto do app segue para os pulsos. */
+@media (prefers-reduced-motion: reduce) {
+  .btn-eco::before { animation: eco-piscar .42s steps(1) forwards; }
+  @keyframes eco-piscar { from { opacity: .9; } to { opacity: 0; } }
+}
+
 /* ---------- Espelho de pixels (v5.141) ---------- */
 /* O telão inteiro em até três navegadores da rede local. Uma LINHA em
    Configurações e uma FOLHA — ver o comentário no HTML para por que são as

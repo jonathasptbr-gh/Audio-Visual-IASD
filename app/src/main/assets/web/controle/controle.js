@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.161';
+const WEB_VERSION = '5.162';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -1227,6 +1227,59 @@ function startYtPreviewTick(cur) {
 // último `currentTime` reportado — usado por quem precisa da posição
 // "oficial" fora do fluxo de tick (`stepSlide`/`renderSlideNav`, ver
 // `authoritativeTime()`).
+// ===== O atraso da preview (ver `cmd`) =====
+//
+// Ele NÃO é chutado: cada tela da rede relata a própria folga do cursor
+// (`vivo.vfim`, em ms — ver `linhasDaTela`), que é literalmente o quanto ela
+// está atrás da projeção. A mediana das telas conectadas é o número que o
+// operador vê na sala.
+//
+// Os limites existem porque este valor vira uma espera na tela do operador: um
+// relato absurdo (tela reconectando, medida ainda não formada) não pode
+// congelar a preview por dez segundos. Sem relato nenhum vale o PADRÃO, que é
+// a soma típica da folga adaptativa com o desvio A/V.
+const PREV_ATRASO_MIN = 300;
+const PREV_ATRASO_MAX = 2500;
+const PREV_ATRASO_PADRAO = 1200;
+// O valor só é recalculado quando muda de verdade: a folga do cliente encolhe
+// de 100 em 100 ms, e mexer no atraso a cada degrau reordenaria a fila por
+// nada. Ele é lido a cada comando, então precisa ser barato — daí o cache.
+const PREV_ATRASO_PASSO = 250;
+let prevAtrasoMs = 0;
+
+/**
+ * Quanto a preview fica atrás — 0 quando não há por que atrasar.
+ *
+ * A condição é a mesma frase de `docs/ESPELHO-DE-PIXELS.md`: **sem telão, as
+ * telas da rede SÃO o que a congregação vê**. Com um telão conectado ele é a
+ * projeção, chega no ato, e atrasar a preview seria dessincronizá-la do que
+ * importa. Sem tela nenhuma conectada não há nada para casar.
+ */
+function previewAtrasoMs() { return prevAtrasoMs; }
+
+function recalcularAtrasoPreview() {
+  let alvo = 0;
+  const e = mirrorEstado;
+  const telas = (e && e.ligado && Array.isArray(e.telas)) ? e.telas : [];
+  if (telas.length && !telaoConectado()) {
+    const folgas = telas
+      .map((t) => (t && t.vivo && typeof t.vivo.vfim === 'number') ? t.vivo.vfim : null)
+      .filter((v) => v !== null && v > 0)
+      .sort((a, b) => a - b);
+    alvo = folgas.length ? folgas[Math.floor(folgas.length / 2)] : PREV_ATRASO_PADRAO;
+    alvo = Math.min(PREV_ATRASO_MAX, Math.max(PREV_ATRASO_MIN, alvo));
+  }
+  // Ligar e desligar o atraso é sempre uma mudança de regime, por menor que
+  // seja o número: é a diferença entre a preview espelhar a rede e espelhar o
+  // telão. Dentro do mesmo regime, só um degrau de verdade conta.
+  const mesmoRegime = (alvo === 0) === (prevAtrasoMs === 0);
+  if (mesmoRegime && Math.abs(alvo - prevAtrasoMs) < PREV_ATRASO_PASSO) return;
+  prevAtrasoMs = alvo;
+  // Caindo a zero, o que estiver na fila vale AGORA: segurar a preview por um
+  // atraso que não existe mais é o defeito ao contrário.
+  if (!alvo) drenarPreview(true);
+}
+
 let displayStatusAt = 0;
 let lastDisplayTime = 0;
 const DISPLAY_TIMEOUT = 2500; // sem status do Display por mais que isso → preview assume
@@ -1244,7 +1297,15 @@ function ytDisplayActive() {
 // desatualizado em relação ao que está de fato no telão.
 function authoritativeTime() {
   if (currentItem && currentItem.kind !== 'youtube' && displayActive()) return lastDisplayTime;
-  return preview.getTime() || 0;
+  // E O ATRASO DA PREVIEW VOLTA AQUI. Com a preview deslocada no tempo (ver
+  // `cmd`), `preview.getTime()` está exatamente `previewAtrasoMs` atrás da
+  // projeção — porque o `load` dela aconteceu esse tanto depois. Quem pergunta
+  // esta função quer a posição REAL: é ela que decide qual estrofe vem a
+  // seguir, e usar o tempo deslocado faria "próxima estrofe", tocado logo
+  // depois de a estrofe virar na tela, devolver a estrofe que já está no ar —
+  // isto é, o botão pareceria não funcionar, que é o defeito que o atraso da
+  // preview existe para curar.
+  return (preview.getTime() || 0) + previewAtrasoMs() / 1000;
 }
 // Re-alinha a preview à projeção real do Display (fonte de verdade): casa o
 // play/pause e, se o tempo divergir muito (ex: preview estrangulada enquanto o
@@ -1495,8 +1556,64 @@ function renderLyricsBgSeg() {
 // próprio player pequeno (acima); mídia comum continua no stage.js. O modo
 // "mesa de som" não altera nada aqui (ver setStandalone) — só a saída de
 // áudio da preview muda, a comunicação com o Display permanece normal.
+// A PREVIEW ATRASA JUNTO COM AS TELAS DA REDE, e o ponto de corte é aqui.
+//
+// Sem telão, as telas da rede SÃO o que a congregação vê — e elas chegam ~1 s
+// depois do comando (a folga do cliente do espelho, ver `docs/ESPELHO-DE-
+// PIXELS.md` §10-A.6). A preview, essa, muda no ato. O operador então compara
+// duas coisas que nunca vão bater, e o que ele sente não é "está atrasado" e
+// sim "o botão não funcionou" — porque a resposta que ele conhece (a preview)
+// já aconteceu e a que importa ainda não.
+//
+// A correção é atrasar A CÓPIA, não o original: `AVDB.sendCommand` sai na hora,
+// e a metade da preview entra numa fila que escoa `previewAtrasoMs` depois. A
+// preview vira um espelho FIEL e deslocado no tempo — letra, fades, cortina,
+// carregamento, tudo desliza junto, porque tudo já passava por aqui.
+//
+// Foi por isso que esta função virou duas em vez de o relógio da preview ser
+// mexido: um deslocamento de `currentTime` teria de ser desfeito em cada
+// consumidor (barra, navegação de estrofe, `MediaSession`), e cada um deles é
+// uma chance de errar o sinal. Aqui o que atrasa é a ORDEM, e ela é uma só.
+//
+// FILA, e não um `setTimeout` por comando: o atraso muda de valor conforme as
+// telas entram e saem, e dois `setTimeout` com atrasos diferentes podem
+// INVERTER a ordem — um `play` chegando antes do `load` a que ele pertence. A
+// fila preserva a ordem por construção e drena de uma vez quando o atraso cai a
+// zero (telão conectado, espelho desligado).
+const filaPreview = [];
+let filaPreviewTimer = null;
+
+function drenarPreview(tudo) {
+  const agora = Date.now();
+  while (filaPreview.length && (tudo || filaPreview[0].em <= agora)) {
+    aplicarNaPreview(filaPreview.shift().obj);
+  }
+  clearTimeout(filaPreviewTimer);
+  filaPreviewTimer = null;
+  if (filaPreview.length) {
+    filaPreviewTimer = setTimeout(() => drenarPreview(false),
+      Math.max(15, filaPreview[0].em - Date.now()));
+  }
+}
+
+// A FILA NUNCA PODE VIRAR UM BURACO NEGRO. O telão recebe pelo `sendCommand`
+// acima, aconteça o que acontecer; a preview é a cópia — e uma cópia que
+// congelasse deixaria o operador voando cego, com a projeção funcionando. Se a
+// fila passar deste tamanho (a aba estrangulada em segundo plano é o caso real:
+// os timers atrasam e os comandos empilham), ela escoa inteira na hora. Perder
+// o deslocamento é um arranhão; perder a preview, não.
+const FILA_PREVIEW_MAX = 24;
+
 function cmd(obj) {
   AVDB.sendCommand(obj);
+  const atraso = previewAtrasoMs();
+  if (atraso <= 0 && !filaPreview.length) { aplicarNaPreview(obj); return; }
+  filaPreview.push({ obj: obj, em: Date.now() + atraso });
+  if (filaPreview.length > FILA_PREVIEW_MAX) { drenarPreview(true); return; }
+  if (!filaPreviewTimer) drenarPreview(false);
+}
+
+function aplicarNaPreview(obj) {
   // O tempo volta a correr: destrava a letra congelada pelo fim natural.
   if (obj.type === 'load' || obj.type === 'play' || obj.type === 'seek') pvLyricsEnded = false;
   // Texto manual (Bíblia/Mensagem): overlay independente — espelha na preview.
@@ -1560,10 +1677,17 @@ function previewTick() {
   const dur = preview.getDuration();
   durTimeEl.textContent = fmtTime(dur);
   seekEl.disabled = !preview.isTimed();
+  // A BARRA MOSTRA A PROJEÇÃO, a letra da preview mostra a PREVIEW. Com a
+  // preview deslocada (ver `cmd`), os dois números diferem pelo atraso: a barra
+  // existe para ser ARRASTADA, e um seek precisa ser absoluto e verdadeiro; a
+  // letra é desenhada dentro da preview e tem de casar com a imagem que está
+  // ali. Um deslocamento contínuo na barra é invisível; uma estrofe fora de
+  // hora, não.
+  const real = authoritativeTime();
   if (!seeking) {
     seekEl.max = isFinite(dur) && dur > 0 ? dur : 0;
-    seekEl.value = preview.getTime() || 0;
-    curTimeEl.textContent = fmtTime(preview.getTime());
+    seekEl.value = real;
+    curTimeEl.textContent = fmtTime(real);
   }
   updatePvLyricSlide(preview.getTime() || 0);
   renderSlideNav();
@@ -12276,6 +12400,43 @@ function responder(btn, tipo, texto) {
   if (texto) avisar(texto, tipo);
 }
 
+// ===== O ECO: "o comando saiu" =====
+//
+// O `pulsar` acima TROCA o conteúdo do botão por um ✓, e isso é certo para
+// salvar/copiar — ações cujo resultado não aparece em lugar nenhum. É errado
+// para o transporte: o ▶ virando ✓ e voltando esconde justamente o ícone que
+// diz o estado.
+//
+// O eco é a outra metade do par: um anel curto em accent que NÃO mexe no
+// conteúdo. Ele existe porque a resposta de verdade destes botões está a ~1 s
+// de distância quando a projeção são as telas da rede (ver `cmd`), e um botão
+// que não responde por um segundo é lido como botão que não funcionou — o
+// operador toca de novo, e aí o comando vai duas vezes.
+//
+// DELEGADO, e não um `eco()` em cada handler: os handlers do transporte são
+// vários (toque curto × toque longo, cortina, estrofe, playlist) e um esquecido
+// seria um botão mudo sem ninguém notar. Aqui a regra é o SELETOR, e ela vale
+// para tudo que já existe e para o que vier. Botão desabilitado não emite
+// `click`, então o eco nunca promete uma ação que não aconteceu.
+const ECO_MS = 420;
+// O transporte e os três do meio do mixer (cortina, letra, mudo) — os botões
+// cujo resultado mora no telão. `.slide-nav` não entra porque não existe: desde
+// a v5.49 quem passa estrofe é o próprio par ⏮/⏭ do transporte.
+const ECO_SELETOR = '.transport .t-btn, .mixer-mid button';
+
+document.addEventListener('click', (ev) => {
+  const alvo = ev.target && ev.target.closest ? ev.target.closest(ECO_SELETOR) : null;
+  if (!alvo || alvo.disabled) return;
+  clearTimeout(alvo._ecoTimer);
+  alvo.classList.remove('btn-eco');
+  // Reinicia a animação quando o mesmo botão é tocado duas vezes seguidas —
+  // sem o reflow o segundo toque não se distingue do primeiro ainda em cena, e
+  // é exatamente no toque repetido que o eco precisa aparecer.
+  void alvo.offsetWidth;
+  alvo.classList.add('btn-eco');
+  alvo._ecoTimer = setTimeout(() => { alvo.classList.remove('btn-eco'); }, ECO_MS);
+}, true);
+
 function avisar(texto, tipo) {
   if (!saveHintEl || !texto) return;
   clearTimeout(avisoTimer);
@@ -14081,6 +14242,9 @@ if (window.__NATIVE__) {
   const renderDisplayStatus = (list) => {
     const tv = (list && list[0]) || null;
     lastDisplays = list || [];
+    // Conectar (ou perder) o telão MUDA O REGIME da preview: com TV a projeção
+    // é ela, chega no ato, e a preview volta a andar junto. Ver `cmd`.
+    recalcularAtrasoPreview();
     renderSimpleCast();
     openDisplayBtnEl.disabled = true;
     openDisplayBtnEl.classList.toggle('connected', !!tv);
@@ -14182,8 +14346,31 @@ async function lerEspelho() {
   let e = null;
   try { e = await AVNative.espelhoEstado(); } catch (_) { e = null; }
   mirrorEstado = e || null;
+  recalcularAtrasoPreview();
   renderEspelho();
   return mirrorEstado;
+}
+
+// A ENQUETE DE FUNDO, e ela é de propósito bem mais lenta que a da folha.
+//
+// A folha enqueta a 2,5 s porque ali o operador está OLHANDO a fila de telas.
+// Fora dela, a única coisa que ainda precisa de leitura é o atraso da preview
+// (ver `cmd`) — e ele muda devagar, porque a folga do cliente do espelho
+// encolhe de 100 em 100 ms a cada oito segundos. Um pedido a cada dez segundos
+// enquanto o espelho está no ar é ruído nenhum, e é o que faz a preview
+// acompanhar uma tela que entrou no meio do culto sem ninguém abrir nada.
+const MIRROR_FUNDO_MS = 10000;
+let mirrorFundoTimer = null;
+
+function acertarEnqueteDeFundo() {
+  const precisa = espelhoDisponivel() && espelhoLigado();
+  if (precisa && !mirrorFundoTimer) {
+    mirrorFundoTimer = setInterval(() => { if (!mirrorTimer) lerEspelho(); }, MIRROR_FUNDO_MS);
+  } else if (!precisa && mirrorFundoTimer) {
+    clearInterval(mirrorFundoTimer);
+    mirrorFundoTimer = null;
+    recalcularAtrasoPreview();
+  }
 }
 
 // As três ressalvas que o operador precisa ouvir ANTES, e não num domingo: o
@@ -14211,6 +14398,7 @@ const MIRROR_TEXTO_ON =
   + 'para ver em tela cheia e ouvir.';
 
 function renderEspelho() {
+  acertarEnqueteDeFundo();
   if (!mirrorRowEl) return;
   // A LINHA de Configurações. `hidden` até o shell ter os métodos.
   mirrorRowEl.hidden = !espelhoDisponivel();
