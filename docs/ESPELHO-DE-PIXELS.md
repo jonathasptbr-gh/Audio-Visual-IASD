@@ -1960,6 +1960,65 @@ Um número para vigiar, sem ação por enquanto: `ritmo 4107 kbps` contra `alvo 
 fazendo o que VBR faz numa cena de movimento, e o enlace medido comporta; com **três** telas isso
 seriam ~12 Mbps no AP da igreja, e é aí que o número deixa de ser acadêmico.
 
+### 10-A.8 — o que estraga não é o atraso, é a DESSINCRONIA (5.162)
+
+O operador, depois de quatro rodadas de números: *"talvez o que mais estrague a sensação não é o
+delay em si, mas a visualização dessíncrona com o preview, e a sensação dos botões não terem
+funcionado."*
+
+A leitura está certa, e reformula o problema. O atraso absoluto de ~1 s numa projeção é invisível —
+**ninguém interage com um telão**. O que dói são duas coisas derivadas dele:
+
+1. **A preview muda no ato e a tela da rede muda um segundo depois.** O operador compara duas coisas
+   que nunca vão bater, e o que ele sente não é "está atrasado" e sim "o botão não funcionou" —
+   porque a resposta que ele conhece já aconteceu e a que importa ainda não.
+2. **O botão fica esse segundo sem responder.** E aí ele toca de novo, e o comando vai duas vezes.
+
+**A preview atrasa junto.** `cmd(obj)` já era o funil único: `AVDB.sendCommand(obj)` na primeira
+linha, e todo o resto da função é a metade da preview. Basta a metade da preview entrar numa **fila**
+que escoa `previewAtrasoMs` depois — e a preview vira um espelho **fiel e deslocado no tempo**:
+letra, fades, cortina, carregamento, tudo desliza junto, porque tudo já passava por ali.
+
+Foi por isso que a função virou duas, em vez de o **relógio** da preview ser mexido. Deslocar
+`currentTime` obrigaria a desfazer o deslocamento em cada consumidor — barra, navegação de estrofe,
+`MediaSession` — e cada um deles é uma chance de errar o sinal. Aqui o que atrasa é a **ordem**, e
+ela é uma só.
+
+Quatro decisões que não são detalhe:
+
+- **Fila, e não um `setTimeout` por comando.** O atraso muda de valor conforme as telas entram e
+  saem, e dois `setTimeout` com atrasos diferentes podem **inverter a ordem** — um `play` chegando
+  antes do `load` a que ele pertence. A fila preserva a ordem por construção, e drena inteira quando
+  o atraso cai a zero.
+- **O atraso é MEDIDO.** Cada tela relata a própria folga do cursor (`vivo.vfim`), que é literalmente
+  o quanto ela está atrás da projeção; o valor é a **mediana** das conectadas, limitada a
+  [300, 2500] ms, com 1200 ms de piso quando nenhuma relatou ainda. Fora da folha, uma enquete de
+  fundo de 10 s mantém isso vivo — a folga do cliente encolhe de 100 em 100 ms a cada 8 s, então não
+  há por que perguntar mais rápido.
+- **Só sem telão conectado.** É a mesma frase do §1: *sem telão, as telas da rede SÃO o que a
+  congregação vê*. Com uma TV ligada ela é a projeção, chega no ato, e atrasar a preview seria
+  dessincronizá-la do que importa.
+- **`authoritativeTime()` soma o atraso de volta.** Ela decide qual estrofe vem a seguir, e com o
+  tempo deslocado "próxima estrofe", tocado logo depois de a estrofe virar na tela, devolveria a
+  estrofe que **já está no ar** — isto é, o botão pareceria não funcionar, que é exatamente o
+  defeito que este lote existe para curar. A barra de posição segue a mesma regra (ela existe para
+  ser arrastada, e um seek precisa ser absoluto); a letra desenhada dentro da preview segue o tempo
+  **deslocado**, porque ela tem de casar com a imagem que está ali.
+
+E a fila tem um teto (`FILA_PREVIEW_MAX`): o telão recebe pelo `sendCommand` aconteça o que
+acontecer, mas uma preview congelada deixaria o operador voando cego com a projeção funcionando. Aba
+estrangulada em segundo plano é o caso real — os timers atrasam e os comandos empilham. Perder o
+deslocamento é um arranhão; perder a preview, não.
+
+**O eco.** Um anel curto em accent no botão tocado, que **não troca o conteúdo**. O `.btn-pulso` que
+o app já tinha esconde o filho para pôr um ✓ no lugar — certo para salvar e copiar, cujo resultado
+não aparece em canto nenhum, e errado para o transporte: o ▶ virando ✓ e voltando esconde justamente
+o ícone que carrega o estado. Ele é **delegado por seletor**, e não um `eco()` em cada handler: os
+handlers do transporte são vários (toque curto × toque longo, cortina, estrofe, playlist) e um
+esquecido seria um botão mudo sem ninguém notar. Botão desabilitado não emite `click`, então o eco
+nunca promete uma ação que não aconteceu. `tools/smoke.mjs` trava as duas metades — que ele apareça,
+e que o ícone continue visível.
+
 ---
 
 ## 11. A FRASE PARA O OPERADOR

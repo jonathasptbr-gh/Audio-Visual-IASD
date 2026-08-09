@@ -154,6 +154,35 @@ try {
       'o popup `' + p.filho + '` fica ACIMA do `' + p.pai + '`, de onde ele abre'
       + ' (' + p.zFilho + ' > ' + p.zPai + ')');
   });
+
+  // ---- O ECO DO TRANSPORTE (v5.162) --------------------------------------
+  //
+  // Quando a projeção são as telas da rede, a resposta de verdade de um botão
+  // do transporte está a ~1 s de distância — e um botão que fica um segundo sem
+  // responder é lido como botão que não funcionou: o operador toca de novo, e o
+  // comando vai duas vezes. O eco é o "recebi" imediato.
+  //
+  // O caso trava as duas metades da decisão. A primeira é que ele APAREÇA; a
+  // segunda, e é a que se perde numa refatoração, é que ele NÃO troque o
+  // conteúdo do botão — o `.btn-pulso`, que é o outro sinal do app, esconde o
+  // filho para pôr um ✓ no lugar, e fazer isso com o ▶ apagaria justamente o
+  // ícone que carrega o estado do transporte.
+  const eco = await pg.evaluate(async () => {
+    const b = document.getElementById('playpause');
+    if (!b) return { achou: false };
+    b.click();
+    const glifo = b.querySelector('.msym');
+    const visivel = glifo ? getComputedStyle(glifo).visibility : 'sem glifo';
+    const tem = b.classList.contains('btn-eco');
+    const anel = tem ? getComputedStyle(b, '::before').borderTopWidth : '';
+    await new Promise((r) => setTimeout(r, 700));
+    return { achou: true, tem, visivel, anel, sumiu: !b.classList.contains('btn-eco') };
+  });
+  checar(eco.achou && eco.tem, 'um toque no transporte responde na hora (classe `btn-eco`)');
+  checar(eco.visivel === 'visible',
+    'e o eco NÃO esconde o ícone do botão — ele é anel, não ✓', eco.visivel);
+  checar(!!eco.anel && eco.anel !== '0px', 'o anel do eco é de fato desenhado', eco.anel);
+  checar(eco.sumiu, 'e ele sai sozinho, sem deixar o botão marcado');
 } catch (e) {
   checar(false, 'o percurso terminou sem exceção (' + (e && e.message) + ')');
 }
