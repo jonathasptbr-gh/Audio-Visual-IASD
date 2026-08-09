@@ -205,6 +205,41 @@ try {
     'nenhum `clear` é enviado: o desligamento é POR CAMADA', JSON.stringify(soACena));
   checar(!(await pg.evaluate((id) => linhaAtiva(id), cenaId)),
     'e o realce da cena sai, enquanto o da música fica');
+
+  // ---- O SELO "● No ar" (v5.174) ----
+  //
+  // "Atual" e "no ar" eram a MESMA marca — um contorno em accent —, e depois de
+  // um Parar o item continuava marcado sem estar no telão. Sem separar os dois,
+  // a linha em que o segundo toque tem efeito não é reconhecível, e o recurso
+  // depende de o operador lembrar em que estado ele deixou a tela.
+  const selo = async (id) => pg.evaluate((x) => {
+    const el = document.querySelector('.lib-item[data-id="' + x + '"]');
+    if (!el) return null;
+    return {
+      noAr: el.classList.contains('no-ar'),
+      ativo: el.classList.contains('active'),
+      texto: (el.querySelector('.row-live') || {}).textContent || '',
+    };
+  }, id);
+
+  await pg.evaluate(async (ids) => { await send(ids[0]); await send(ids[1]); },
+    [cenaId, audioId]);
+  const daCena = await selo(cenaId);
+  const daMusica = await selo(audioId);
+  checar(!!daCena && daCena.noAr && /No ar/.test(daCena.texto),
+    'a cena no ar mostra o selo "● No ar" na própria linha', JSON.stringify(daCena));
+  checar(!!daMusica && daMusica.noAr && /No ar/.test(daMusica.texto),
+    'e a música de fundo TAMBÉM — as duas camadas estão no telão', JSON.stringify(daMusica));
+
+  // O PARAR limpa as duas, e o "atual" SOBREVIVE — é ele que o ▶ repete.
+  await pg.evaluate(() => stopClear());
+  const depoisDoStop = await selo(audioId);
+  checar(!!depoisDoStop && !depoisDoStop.noAr && !depoisDoStop.texto,
+    'depois do Parar nenhuma linha diz "No ar" — o telão está vazio',
+    JSON.stringify(depoisDoStop));
+  checar(!!depoisDoStop && depoisDoStop.ativo,
+    'mas o item continua ATUAL (contorno em accent), que é o que o ▶ repete',
+    JSON.stringify(depoisDoStop));
   await pg.evaluate(() => stopClear());
   await pg.evaluate(async (id) => { await send(id); }, id);
 
