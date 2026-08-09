@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.165';
+const WEB_VERSION = '5.166';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -7819,6 +7819,9 @@ async function openFolderSource(existing) {
 
 // Sincroniza (ou re-sincroniza) uma pasta do dispositivo para o OPFS.
 // `existing` = registro de opfsFolders para re-sync; undefined para nova pasta.
+// A cada quantos arquivos o índice de pastas é regravado. Ver `syncDeviceFolder`.
+const CHECKPOINT_PASTA = 25;
+
 async function syncDeviceFolder(existing) {
   if (!AVDB.opfsSupported()) { avisar('Navegador não suporta armazenamento OPFS', 'erro'); return; }
   if (syncBusy) { avisar('Sincronização em andamento…', 'dup'); return; }
@@ -7844,6 +7847,22 @@ async function syncDeviceFolder(existing) {
     // re-sync sem pedir a pasta de novo.
     if (source.handle) folder.handle = source.handle;
     if (source.uri) folder.uri = source.uri;
+    // A PASTA É PERSISTIDA ANTES DO PRIMEIRO ARQUIVO, e isto é uma correção.
+    //
+    // Cada arquivo já era gravado de imediato (OPFS + um registro na store
+    // `files`, com `folder: folder.id`), mas o ÍNDICE DE PASTAS só ia para o
+    // banco depois do laço. Uma pasta de 600 vídeos interrompida na metade
+    // deixava 300 arquivos escritos e **nenhuma pasta que os apontasse**: eles
+    // ficavam órfãos, invisíveis na tela, ocupando gigabytes — e o coletor de
+    // lixo, que existe justamente para recolher registro sem dono, os apagava.
+    // Do lado de fora isso se lê como "não salvou progresso nenhum", que foi
+    // exatamente o relato.
+    //
+    // Gravar aqui custa uma escrita e transforma a interrupção em RETOMADA: o
+    // laço abaixo já pula o que está em dia (mesmo tamanho e mesma data), então
+    // rodar a sincronização de novo continua de onde parou. O mecanismo de
+    // retomada sempre existiu; o que faltava era ele ter o que retomar.
+    await AVDB.setState('opfs-folders', opfsFolders);
 
     const existingRecs = await AVDB.filesByFolder(folder.id);
     const bySrcName = new Map(existingRecs.map((r) => [r.srcName, r]));
@@ -7891,6 +7910,16 @@ async function syncDeviceFolder(existing) {
         addedAt: prev ? prev.addedAt : Date.now(),
       });
       added++;
+      // E O PONTO DE CONTROLE, a cada CHECKPOINT_PASTA arquivos: sem ele, a
+      // contagem da pasta ficaria em zero até o fim e uma interrupção deixaria
+      // a linha dizendo "0 arquivos" sobre uma pasta com centenas dentro. É
+      // barato (uma escrita a cada 25) e é o que faz a tela contar a verdade
+      // enquanto a cópia anda.
+      if (added % CHECKPOINT_PASTA === 0) {
+        folder.count = (await AVDB.filesByFolder(folder.id)).length;
+        folder.syncedAt = Date.now();
+        try { await AVDB.setState('opfs-folders', opfsFolders); } catch (_) { /* segue */ }
+      }
     }
 
     folder.count = (await AVDB.filesByFolder(folder.id)).length;
@@ -7900,8 +7929,11 @@ async function syncDeviceFolder(existing) {
     // que evita re-sincronizar à toa, e ela precisa se distinguir de "entrou".
     if (added > 0) avisar(added + ' arquivo(s) sincronizado(s)');
     else avisar('Pasta já em dia', 'dup');
-  } catch (_) {
-    avisar('Erro na sincronização', 'erro');
+  } catch (e) {
+    // A CAUSA VAI JUNTO. "Erro na sincronização" sozinho não distingue disco
+    // cheio de permissão revogada de arquivo ilegível, e as três têm saídas
+    // diferentes — a primeira é a provável numa pasta de 600 vídeos.
+    avisar('Erro na sincronização: ' + ((e && e.name) || 'desconhecido'), 'erro');
   } finally {
     syncBusy = false;
     bgTaskEnd(folderNotifId);

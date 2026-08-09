@@ -2344,11 +2344,22 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.165** (base web) · `SHELL_VERSION` **34**, e o bundle segue com
+**Versão atual: v5.166** (base web) · `SHELL_VERSION` **34**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
+> **A v5.166: a pasta era persistida DEPOIS do laço, e por isso uma
+> sincronização interrompida "não salvava progresso nenhum".** Cada arquivo já
+> ia para o OPFS e para a store `files` na hora, com `folder: <id>` — mas o
+> ÍNDICE DE PASTAS (`opfs-folders`) só era gravado no fim. Uma pasta de 600
+> vídeos interrompida na metade deixava 300 arquivos escritos e **nenhuma pasta
+> que os apontasse**: órfãos, invisíveis na tela, ocupando gigabytes — e o
+> coletor de lixo, que existe para recolher registro sem dono, os apagava. Agora
+> a pasta é gravada ANTES do primeiro arquivo e a contagem tem ponto de controle
+> a cada 25. O mecanismo de retomada sempre existiu (o laço pula o que está em
+> dia por tamanho + data); o que faltava era ele ter o que retomar. OTA puro.
+>
 > **A v5.165: TOCAR DE NOVO NO QUE ESTÁ NO AR = TIRAR DO AR.** Era a convenção
 > da Bíblia, da Mensagem, do cronômetro e do sorteio, e faltava nos itens do
 > Cronograma — ali a única saída era o **Parar**, que é outra coisa: ele encerra
