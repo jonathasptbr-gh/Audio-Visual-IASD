@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.157';
+const WEB_VERSION = '5.158';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -10657,8 +10657,14 @@ function linhasDaTela(v) {
   const folgaA = v.afim === -99999 ? 'sem faixa' : sinal(v.afim);
   // O ALARME VEM PRIMEIRO, e ele é o motivo desta função existir.
   const seco = (v.vfim !== -99999 && (v.vfim | 0) < 0) || (v.afim !== -99999 && (v.afim | 0) < 0);
+  // OS BLOCOS DO BUFFER, quando há mais de um. Um `buffered` partido é a
+  // diferença entre "a tela está atrasada" e "a tela está PARADA num buraco", e
+  // as duas têm correções opostas. Só aparece quando diz alguma coisa.
+  const partido = ((v.nr | 0) > 1) || ((v.na | 0) > 1);
   out.push('folga do cursor: video ' + folgaV + ' · som ' + folgaA
     + ' · janela ' + Math.round((v.jan | 0) / 100) / 10 + ' s'
+    + (partido ? ' · buffer PARTIDO em ' + (v.nr | 0)
+      + ((v.na | 0) > 0 ? '/' + (v.na | 0) : '') + ' bloco(s)' : '')
     + (seco ? '  ← CURSOR FORA DO BUFFER: a tela congela sem erro' : ''));
   const perdidos = (v.dq | 0) >= 0 && (v.tq | 0) > 0
     ? (v.dq | 0) + '/' + (v.tq | 0)
@@ -10711,6 +10717,21 @@ function linhasDaTela(v) {
       out.push('menor folga ja vista: video ' + sinal(v.pv)
         + ((v.pa != null && (v.pa | 0) !== -99999) ? ' · som ' + sinal(v.pa) : '')
         + (((v.pv | 0) < 0 || (v.pa | 0) < 0) ? '  ← chegou a secar' : ''));
+    }
+    // O TOTAL DA SESSÃO, e é ele que responde a pergunta do operador com um
+    // número. As duas recuperações vão separadas porque têm causas diferentes:
+    // `enc` é o cursor fora do buffer (o congelamento em estado puro, que até a
+    // v5.157 só saía sete segundos depois, pelo `sal`).
+    if (v.tn != null && ((v.tn | 0) || (v.sal | 0) || (v.enc | 0))) {
+      const bits = [];
+      if (v.tn | 0) {
+        bits.push((v.tn | 0) + ' parada(s) na sessao, '
+          + Math.round((v.tt | 0) / 100) / 10 + ' s no total');
+      }
+      if (v.enc | 0) bits.push((v.enc | 0) + ' encalhe(s) do cursor');
+      if (v.sal | 0) bits.push((v.sal | 0) + ' salto(s) de recuperacao');
+      if (v.pod | 0) bits.push((v.pod | 0) + ' poda(s) sem quadro-chave');
+      out.push('total: ' + bits.join(' · '));
     }
   }
   // O `MediaError` do elemento, que é onde mora a frase do demuxer do Chromium

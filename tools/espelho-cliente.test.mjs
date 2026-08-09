@@ -658,7 +658,12 @@ checar(true, 'aprovada, a MESMA página troca para o player (sem navegar)');
     // fotografia do instante do envio — e por isso a única que responde "trava
     // a cada 7 segundos". Sem eles o relato volta a chegar sempre saudável,
     // porque quem o manda não está travando naquele milissegundo.
-    'pq', 'nq', 'pc', 'pv', 'pa'];
+    'pq', 'nq', 'pc', 'pv', 'pa',
+    // `nr`/`na` separam as DUAS causas do congelamento (fome × buraco), e o
+    // total da sessão é o que responde "trava a cada 7 segundos" com um número:
+    // o pior caso acima zera na descontinuidade que ENCERRA o travamento, então
+    // sem acumulador todo travamento resolvido por salto contava zero.
+    'nr', 'na', 'tt', 'tn', 'sal', 'enc', 'pod'];
   const faltando = exigidos.filter((k) => !(k in ultimo));
   checar(faltando.length === 0,
     'e ele carrega as MEDIDAS da tela — o que só ela sabe (' + exigidos.length + ' campos)',
@@ -716,6 +721,70 @@ checar(true, 'aprovada, a MESMA página troca para o player (sem navegar)');
   checar(r.somNaFrente === 10,
     'e com o som à frente a borda volta a ser a da imagem: é o MÍNIMO, não a do som',
     r.somNaFrente);
+}
+
+// O ENCALHE — o cursor FORA de qualquer bloco do `buffered`.
+//
+// É o congelamento em estado puro: a MSE não toca, `currentTime` não anda, não
+// há erro, não há evento — e como o cursor não anda ele nunca sai sozinho. Até
+// a v5.157 a única saída era o `SALTO_S`, que só dispara quando a borda ao vivo
+// abre oito segundos sobre um cursor parado: a tela ficava ~7 s congelada TODA
+// VEZ, que é exatamente o número que o operador cronometrou em aparelho.
+//
+// E a folga era medida contra `end(length - 1)` — o fim do ÚLTIMO bloco, que
+// num buffer partido é a borda de um bloco onde o cursor NEM ESTÁ. Era o que
+// produzia a contradição do log: `readyState 2` ("sem dado adiante") ao lado de
+// `vfim +3893 ms`, impossível num buffer contíguo. E `pv`/`pa` "nunca ficaram
+// negativas" era tautologia: com qualquer bloco à frente, elas não podiam.
+//
+// Montar um buraco de verdade exigiria uma sequência de fragmentos que o
+// Chromium do CI não decodifica; as duas regras são aritméticas.
+{
+  const r = await pg.evaluate(() => {
+    // Um `TimeRanges` de mentira: pares [início, fim].
+    const tr = (pares) => ({
+      length: pares.length,
+      start: (i) => pares[i][0],
+      end: (i) => pares[i][1],
+    });
+    const inteiro = tr([[0, 10]]);
+    const partido = tr([[0, 4], [7, 12]]);
+    const F = window.__espelho;
+    return {
+      dentro: F.indiceNoCursor(inteiro, 5),
+      antes: F.indiceNoCursor(inteiro, -1),
+      depois: F.indiceNoCursor(inteiro, 11),
+      bloco0: F.indiceNoCursor(partido, 2),
+      bloco1: F.indiceNoCursor(partido, 9),
+      noBuraco: F.indiceNoCursor(partido, 5.5),
+      naBorda: F.indiceNoCursor(inteiro, 10.02),
+      folgaDentro: F.folgaDoCursor(inteiro, 5),
+      folgaNoBuraco: F.folgaDoCursor(partido, 5),
+      folgaNoBloco0: F.folgaDoCursor(partido, 2),
+      folgaPassouDeTudo: F.folgaDoCursor(inteiro, 12),
+      folgaSemFaixa: F.folgaDoCursor(null, 5),
+    };
+  });
+  checar(r.dentro === 0 && r.bloco0 === 0 && r.bloco1 === 1,
+    'o cursor é localizado no bloco a que ele pertence', JSON.stringify(r));
+  checar(r.noBuraco === -1 && r.antes === -1 && r.depois === -1,
+    'e num buraco (ou fora de tudo) o índice é -1 — o encalhe, detectável no instante',
+    JSON.stringify({ buraco: r.noBuraco, antes: r.antes, depois: r.depois }));
+  checar(r.naBorda === 0,
+    'a borda tem folga de 50 ms: um cursor no fim exato do bloco não é encalhe',
+    r.naBorda);
+  checar(r.folgaDentro === 5 && r.folgaNoBloco0 === 2,
+    'a folga é até o fim DO BLOCO EM QUE O CURSOR ESTÁ, não do último bloco',
+    JSON.stringify({ dentro: r.folgaDentro, bloco0: r.folgaNoBloco0 }));
+  // ESTE é o caso que a v5.157 reportava como +8000 ms de folga confortável.
+  checar(r.folgaNoBuraco === -2,
+    'e dentro de um buraco ela é NEGATIVA — o que o campo sempre prometeu significar',
+    r.folgaNoBuraco);
+  checar(r.folgaPassouDeTudo === -2,
+    'passado o fim de tudo, idem: negativa, e pelo tanto que passou',
+    r.folgaPassouDeTudo);
+  checar(r.folgaSemFaixa === null, 'sem faixa nenhuma, a resposta é null (e não zero)',
+    r.folgaSemFaixa);
 }
 
 // A DESPEDIDA (`0x30 {"m":"adeus"}`) — o operador desligou o espelho.

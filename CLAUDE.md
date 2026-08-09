@@ -2341,10 +2341,24 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.157** (base web) · `SHELL_VERSION` **34**, e o bundle segue com
+**Versão atual: v5.158** (base web) · `SHELL_VERSION` **34**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.158 achou a causa do travamento, e ela era a PODA.** `SourceBuffer.remove()`
+> da MSE não apaga só o intervalo pedido: ele continua **até o próximo ponto de
+> acesso aleatório** (e, não havendo nenhum, até o fim). A janela viva do cliente
+> era de 5 s e o GOP real numa cena de letra é de **~19 s de parede** — o
+> `KEY_I_FRAME_INTERVAL` vira CONTAGEM DE QUADROS (150) e o produtor entrega 8
+> quadros por segundo. A poda apagava o presente; o cursor ficava fora do buffer;
+> a MSE não toca, não erra e não avisa; e a única saída era o salto de `SALTO_S`,
+> que precisa de 8 s de borda aberta — **7,1 s**. Os "trava a cada 7 segundos"
+> nunca foram o defeito: eram o relógio da recuperação. A correção é OTA
+> (`cliente.js`: poda em cima de quadro-chave, janela 12 s, encalhe detectado no
+> instante, `ALVO_S` 1,5 s), e os sete campos novos do Registro exigem o APK. Ver
+> §10-A.4 do doc do espelho — inclusive por que a medida `pq` da v5.157 era
+> estruturalmente incapaz de ver a parada que existia para medir.
 
 > **A v5.157 mede o travamento, e a metade que MEDE é APK.** O batimento que cede
 > a vez ao conteúdo (P3, `display.js`) é OTA puro e vale sozinho. Já os cinco

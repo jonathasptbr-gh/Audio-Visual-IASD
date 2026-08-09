@@ -1275,6 +1275,29 @@ class EspelhoServidor(
         .put("pc", o.optInt("pc", 0).coerceIn(0, 3_600_000))
         .put("pv", o.optInt("pv", 0).coerceIn(-3_600_000, 3_600_000))
         .put("pa", o.optInt("pa", 0).coerceIn(-3_600_000, 3_600_000))
+        // QUANTOS BLOCOS tem o `buffered` de cada faixa — o número que separa
+        // as duas causas do congelamento e que faltava. `1` é buffer contíguo
+        // (o problema é FOME: o produtor não entregou a tempo); acima de `1` há
+        // BURACO. `-1` = faixa ausente.
+        .put("nr", o.optInt("nr", -1).coerceIn(-1, 10_000))
+        .put("na", o.optInt("na", -1).coerceIn(-1, 10_000))
+        // O TOTAL DA SESSÃO, que é o que responde "trava a cada 7 segundos". Os
+        // cinco de cima são o pior caso desde a última descontinuidade, e a
+        // descontinuidade que mais interessa é justamente a que ENCERRA um
+        // travamento — sem acumulador, todo travamento resolvido pelo salto
+        // contribuía zero para a estatística.
+        .put("tt", o.optLong("tt", 0L).coerceIn(0L, 86_400_000L))
+        .put("tn", o.optInt("tn", 0).coerceIn(0, 1_000_000))
+        // As duas recuperações, contadas à parte porque têm causas diferentes:
+        // `sal` é a borda ao vivo tendo aberto (a aba congelou, a reconexão
+        // demorou); `enc` é o cursor fora do buffer, que é o congelamento em
+        // estado puro e que até a v5.157 só saía pelo `sal`, sete segundos
+        // depois.
+        .put("sal", o.optInt("sal", 0).coerceIn(0, 1_000_000))
+        .put("enc", o.optInt("enc", 0).coerceIn(0, 1_000_000))
+        // Podas recusadas por não haver quadro-chave conhecido antes do corte.
+        // Crescendo sem parar, a janela viva do cliente está encostando no GOP.
+        .put("pod", o.optInt("pod", 0).coerceIn(0, 1_000_000))
 
     private fun pendentes(): List<EspelhoPares.Pendente> = EspelhoPares.pendentes()
 
