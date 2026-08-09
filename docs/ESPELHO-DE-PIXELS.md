@@ -1932,6 +1932,34 @@ atraso que **ela** aguenta — uma rede ruim recebe sozinha a folga que uma rede
 só pelo transitório de partida, que a ~2 podas por segundo enche em ~17 s. Um número grande que não
 queria dizer nada é pior que nenhum.
 
+### 10-A.7 — o transitório de partida estava impedindo a convergência (5.161)
+
+Quarto log. O produtor mudou de regime (cena de vídeo real: `29.6 fps`, `intervalo 33 ms`,
+`5 chave(s)` em 10 s — o GOP de 2 s do `I_FRAME_S` novo, exatamente como projetado), zero encalhes,
+`pod` em zero. E a adaptação **funcionando**: `menor folga ja vista: som +1362 ms` é igual à folga
+atual, isto é, o alvo estava descendo naquele instante.
+
+Mas em 43 s de sessão sem defeito nenhum apareceram `1 parada(s), 1.5 s` e `2 salto(s)`. Os dois são
+o **transitório de partida**, e ambos disparam `recuarAlvo()` — ou seja, o começo de cada sessão
+estava sistematicamente impedindo a convergência que a §10-A.6 existe para dar.
+
+- **`posicionar()` entrava no ponto mais ANTIGO que as duas faixas tinham.** Quando a conexão já
+  trouxe alguns segundos, isso são alguns segundos de atraso a recuperar, e o `borda()` seguinte via
+  `atraso > SALTO_S` e saltava. A entrada passa a ser `max(inicioComum, min(bordaViva − alvo,
+  bordaViva − 50 ms))`: a tela nasce **na latência certa**, em vez de nascer atrasada e correr a
+  108% até alcançar. O `Math.max` mantém a regra do som (§ o KDoc de `posicionar`) intacta — com
+  pouca coisa bufferizada o alvo cai antes do início comum e o comportamento é o de sempre.
+- **A espera pelo PRIMEIRO quadro era contada como travamento.** Entre `comecar()` e o primeiro
+  quadro apresentado correm a conexão, o segmento de inicialização e o primeiro fragmento —
+  segundos, legitimamente. Parada é intervalo **entre** quadros; sem o primeiro não há intervalo.
+
+É o mesmo tema de todo este apêndice: **a medida errada custa mais que a ausência dela.** Aqui ela
+não só mentia no Registro — ela realimentava o controlador e segurava o atraso no teto.
+
+Um número para vigiar, sem ação por enquanto: `ritmo 4107 kbps` contra `alvo 3000 kbps`. É o VBR
+fazendo o que VBR faz numa cena de movimento, e o enlace medido comporta; com **três** telas isso
+seriam ~12 Mbps no AP da igreja, e é aí que o número deixa de ser acadêmico.
+
 ---
 
 ## 11. A FRASE PARA O OPERADOR

@@ -313,6 +313,7 @@
   let piorAfim = 99999;                   // idem, do som
   let ultimoQuadroMs = 0;                 // quando o último quadro foi apresentado
   let abertoContado = false;              // a parada EM CURSO já entrou em `parouQuadro`?
+  let houveQuadro = false;                // algum quadro já foi APRESENTADO nesta mídia?
   let ultimoCT = -1;
   let ultimoCTem = 0;
   let vfcArmado = false;
@@ -411,6 +412,13 @@
    */
   function dobrarAberto() {
     if (!vfcArmado) return;
+    // A ESPERA PELO PRIMEIRO QUADRO NÃO É UMA PARADA. Entre `comecar()` e o
+    // primeiro quadro apresentado correm a conexão, o segmento de
+    // inicialização e o primeiro fragmento — segundos, legitimamente. Contá-los
+    // fazia toda sessão saudável nascer com "1 parada, 1,5 s", e, pior, o
+    // incidente falso devolvia a folga adaptativa ao teto logo na partida.
+    // Parada é intervalo ENTRE quadros; sem o primeiro não há intervalo.
+    if (!houveQuadro) return;
     const aberto = Date.now() - ultimoQuadroMs;
     if (aberto > piorQuadro) piorQuadro = aberto;
     if (aberto > PARADA_MS && !abertoContado) {
@@ -451,7 +459,10 @@
       if (gap > piorQuadro) piorQuadro = gap;
       // A parada pode já ter sido contada com o intervalo em aberto (ver
       // `dobrarAberto`); contá-la de novo aqui dobraria `nq` e `tt`.
-      if (gap > PARADA_MS && !abertoContado) { parouQuadro++; travouN++; travouMs += gap; }
+      if (houveQuadro && gap > PARADA_MS && !abertoContado) {
+        parouQuadro++; travouN++; travouMs += gap;
+      }
+      houveQuadro = true;
       abertoContado = false;
       if (!vivo) { vfcArmado = false; return; }
       try { el.v.requestVideoFrameCallback(passo); } catch (_) { vfcArmado = false; }
@@ -1204,7 +1215,22 @@
       ini = Math.max(ini, ba.start(0));
     }
     posicionado = true;
-    try { el.v.currentTime = ini; } catch (_) {}
+    // E O PONTO DE ENTRADA É A BORDA AO VIVO, não o começo do buffer.
+    //
+    // Entrar em `ini` põe o cursor no ponto MAIS ANTIGO que as duas faixas
+    // têm — e quando a conexão já trouxe alguns segundos, isso são alguns
+    // segundos de atraso a recuperar. O `borda()` seguinte via `atraso` acima
+    // de `SALTO_S` e saltava: em aparelho, DOIS saltos nos primeiros 43 s de
+    // uma sessão sem defeito nenhum. Cada salto é contado como incidente e
+    // devolve a folga adaptativa ao teto (ver `recuarAlvo`), então o
+    // transitório de partida impedia justamente a convergência que a v5.160
+    // existe para dar.
+    //
+    // `Math.max(ini, …)` mantém a regra de cima intacta: com pouca coisa
+    // bufferizada o alvo cai antes de `ini` e o comportamento é o de sempre.
+    const fim = bordaViva(bv, sbA ? faixaDe(sbA) : null);
+    const entrada = Math.max(ini, Math.min(fim - alvoS, fim - TOCA_S));
+    try { el.v.currentTime = entrada; } catch (_) {}
     tocar();
   }
 
@@ -2071,6 +2097,9 @@
     chaves.length = 0;
     encalhesSeguidos = 0;
     recuarAlvo();
+    // A mídia nova volta a esperar o PRIMEIRO quadro, e essa espera não é uma
+    // parada — ver `dobrarAberto`.
+    houveQuadro = false;
     fila.length = 0;
     // E O QUE AINDA ESTÁ NO FIO TAMBÉM VAI FORA — sem isto o recomeço não
     // recomeça nada, e o defeito é o pior tipo: silencioso e circular.
@@ -2171,6 +2200,7 @@
     podaSemChave = 0;
     chaves.length = 0;
     travouVisto = 0;
+    houveQuadro = false;
     recuarAlvo();
     zerarPiores();
     armarQuadros();

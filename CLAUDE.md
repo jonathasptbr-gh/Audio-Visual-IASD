@@ -2341,11 +2341,22 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.160** (base web) · `SHELL_VERSION` **34**, e o bundle segue com
+**Versão atual: v5.161** (base web) · `SHELL_VERSION` **34**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
+> **A v5.161 tira o TRANSITÓRIO DE PARTIDA da conta, e ele estava impedindo a
+> convergência da v5.160.** Duas contagens falsas: (1) `posicionar()` entrava no
+> ponto MAIS ANTIGO que as duas faixas tinham, então o `borda()` seguinte via
+> atraso acima de `SALTO_S` e saltava — **dois saltos nos primeiros 43 s** de uma
+> sessão sem defeito, e cada salto devolve a folga adaptativa ao teto; a entrada
+> passa a ser a borda ao vivo menos o alvo, com `Math.max` mantendo a regra do
+> som intacta. (2) A espera pelo PRIMEIRO quadro apresentado era contada como
+> travamento — toda sessão saudável nascia com "1 parada, 1,5 s", e o incidente
+> falso recuava o alvo logo na partida. Parada é intervalo ENTRE quadros; sem o
+> primeiro não há intervalo. OTA puro.
+>
 > **A v5.160 é OTA PURO e ataca o ATRASO, que virou a queixa depois que o
 > travamento saiu.** A folga do cliente é seguro contra soluço do produtor, e
 > seguro custa atraso: o operador toca um botão e a projeção responde `ALVO_S`
