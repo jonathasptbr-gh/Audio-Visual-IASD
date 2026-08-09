@@ -140,6 +140,17 @@
   // volta a ser o que ele diz ser — a aba que ficou congelada — e cabe em 4 s.
   const SALTO_S = 4;
 
+  // Quanto tempo o cursor precisa ficar PARADO antes de o encalhe valer socorro.
+  // Um pouco abaixo do compasso, para que dois giros seguidos sem andar já
+  // contem — teto de ~1 s de tela congelada, contra os ~7 s do `SALTO_S`.
+  const ENCALHE_MS = 400;
+
+  // O PEDIDO DE CHAVE QUANDO A PODA ESTÁ FAMINTA. Freio próprio, e longo: um
+  // IDR de 720p custa dezenas de kB (ver a armadilha 4 do `EspelhoCodec.kt`), e
+  // pedir um a cada giro do compasso torraria a banda que o recurso inteiro
+  // existe para caber.
+  const CHAVE_PODA_MS = 8000;
+
   // Fila de append longa demais = este aparelho não dá conta do fluxo. Ver
   // `recomecar()`: a resposta NÃO é descartar fragmentos (isso abriria buraco,
   // que é exatamente o que o muxer trabalha para evitar), é recomeçar limpo.
@@ -439,6 +450,23 @@
     if (t !== ultimoCT) { ultimoCT = t; ultimoCTem = agora; return; }
     const parado = agora - ultimoCTem;
     if (parado > piorCursor) piorCursor = parado;
+  }
+
+  /**
+   * Há quanto tempo o `currentTime` não anda — 0 quando ele acabou de andar.
+   *
+   * Lida DEPOIS de `amostrarPiores` no mesmo giro, ela é a diferença entre "o
+   * cursor está fora do buffer" e "o cursor está PARADO fora do buffer", e essa
+   * diferença é o que a v5.158 não fez: o Chromium pula buraco pequeno sozinho
+   * (é o `gap jumping` dele), e um cursor que atravessa um buraco de 100 ms
+   * ANDANDO não precisa de socorro nenhum. Socorrê-lo custa um `currentTime`
+   * escrito — que estala, esvazia o decodificador e conta quadro descartado. Em
+   * aparelho isso deu dez saltos por minuto e 13,7% de quadros perdidos, onde a
+   * v5.157 tinha 1,6%.
+   */
+  function cursorParadoMs() {
+    if (!posicionado || el.v.paused) return 0;
+    return el.v.currentTime === ultimoCT ? Date.now() - ultimoCTem : 0;
   }
 
   const conta = { quadros: 0, bytes: 0, recomecos: 0, reconexoes: 0, quadrosAudio: 0 };
@@ -1025,6 +1053,14 @@
   const CHAVES_MAX = 64;
   const chaves = [];
 
+  let ultimaChavePoda = 0;
+
+  /** O começo da janela viva do vídeo — quanto PASSADO está guardado. */
+  function faixaInicio() {
+    const b = faixaDe(sbV);
+    return b ? b.start(0) : el.v.currentTime;
+  }
+
   function anotarChave(ptsUs) {
     chaves.push(ptsUs / 1e6);
     if (chaves.length > CHAVES_MAX) chaves.shift();
@@ -1060,6 +1096,22 @@
       // Sem chave conhecida antes do ponto pedido, não há corte seguro. A
       // janela cresce por mais um giro — memória é barata, projeção não é.
       podaSemChave++;
+      // E SE ELA CONTINUAR CRESCENDO, PEÇA UMA CHAVE. Em aparelho a janela
+      // chegou a 25,6 s com 65 podas recusadas seguidas, porque o GOP real
+      // numa cena parada é maior que a janela: `KEY_I_FRAME_INTERVAL` vira
+      // CONTAGEM DE QUADROS (5 s × `KEY_FRAME_RATE` 30 = 150) e o produtor
+      // entrega ~9 quadros por segundo — uma chave a cada ~16 s.
+      //
+      // O cliente não precisa esperar: o caminho de pedir IDR já existe e já é
+      // usado a cada conexão (`POST /r {do:'key'}`). Pedir aqui fecha o laço
+      // pelo lado que chega por OTA, e sozinho basta — a correção do intervalo
+      // no encoder é o conserto estrutural, mas ela exige instalar o APK.
+      const agoraMs = Date.now();
+      if (el.v.currentTime - faixaInicio() > JANELA_S * 1.5
+          && agoraMs - ultimaChavePoda > CHAVE_PODA_MS) {
+        ultimaChavePoda = agoraMs;
+        pedirChave();
+      }
       return false;
     }
     const alvos = [sbV, sbA];
@@ -1286,7 +1338,12 @@
     // Encalhe é condição OBSERVÁVEL no instante: não precisa de prova por
     // tempo. Detectá-lo aqui derruba o teto de tela parada de ~7 s para o
     // compasso, meio segundo.
-    if (posicionado && !el.v.seeking
+    // ...E ELE PRECISA ESTAR PARADO, não só fora do buffer. O Chromium pula
+    // buraco pequeno sozinho, e um cursor que atravessa um buraco ANDANDO já
+    // está se resolvendo — ver `cursorParadoMs`. Um giro inteiro sem andar
+    // (`ENCALHE_MS`, abaixo do compasso de 500 ms de propósito) é o que separa
+    // o congelamento de verdade do socorro que só serve para estalar a imagem.
+    if (posicionado && !el.v.seeking && cursorParadoMs() >= ENCALHE_MS
         && (indiceNoCursor(b, agora) < 0 || (ba && ba.length && indiceNoCursor(ba, agora) < 0))) {
       // O destino precisa estar dentro do ÚLTIMO bloco das DUAS faixas: pular
       // para `fim - ALVO_S` cairia noutro buraco se o bloco vivo começar depois

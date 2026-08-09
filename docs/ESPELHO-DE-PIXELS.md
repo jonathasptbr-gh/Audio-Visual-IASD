@@ -1861,6 +1861,45 @@ campos conhecidos, então a folga honesta chega sozinha. Os sete campos novos pa
 de `EspelhoServidor.medidasDe` e **exigem o APK**; num shell anterior são descartados em silêncio e
 as linhas simplesmente não são desenhadas.
 
+### 10-A.5 — o GOP era maior que a janela, e pelo MESMO motivo de sempre (5.159)
+
+A v5.158 funcionou: o travamento de sete segundos virou **2 paradas, 2,3 s no total** em quatro
+minutos de culto. O que o log seguinte mostrou foi o que sobrou, e vale por si:
+
+| medido | leitura |
+|---|---|
+| `65 poda(s) sem quadro-chave` | a poda **nunca** conseguiu cortar |
+| `janela 25.6 s` | e por isso a janela viva cresceu ao dobro do pedido |
+| `0 chave(s)` numa janela de 10 s | não havia quadro-chave para cortar |
+| `10 encalhe(s) do cursor` em 1 min | o socorro novo disparando dez vezes por minuto |
+| `115/841 (13.7%) perdido(s)` | contra 1,6% na v5.157 |
+
+**`KEY_I_FRAME_INTERVAL` não é segundos de parede — é contagem de QUADROS.** O framework o
+multiplica por `KEY_FRAME_RATE` (declarado 30, ver a armadilha 9 do `EspelhoCodec.kt`), então o
+valor 5 são **150 quadros**; a ~9 quadros por segundo de uma cena parada, isso são **~16 s** entre
+IDRs espontâneos. É exatamente a mesma família do defeito da §10-A.4 (`JANELA_S` contra um GOP em
+frames) e do `setInteger` numa chave `long` da §3.3: **a unidade não é a que o nome sugere, o
+compilador aprova, e nada falha — o número só fica errado.**
+
+Com o GOP em 16 s e a janela em 12, a poda corretamente **desiste** (é a guarda que a §10-A.4
+introduziu) e a janela cresce sem parar. Três correções:
+
+- **`I_FRAME_S` 5 → 2** (`EspelhoCodec.kt`, **APK**). São 60 quadros: ~7,5 s numa cena parada a
+  8 fps e **2,0 s num vídeo a 30 fps** — os dois abaixo da janela do cliente, e o segundo é o GOP
+  padrão de transmissão ao vivo, o que deixa o fluxo pronto para o caminho de live/podcast sem
+  outra mudança. Continua inteiro: nada de `setFloat`, que alguns codecs de fabricante tratam mal.
+  O custo dobra o piso de banda de uma cena parada (~300 kbps por tela), e **não** o multiplica por
+  cinco — a estimativa antiga do KDoc tratava o valor como segundos, que era o erro.
+- **A poda faminta PEDE uma chave** (`cliente.js`, **OTA**). O caminho já existe e já é usado a cada
+  conexão (`POST /r {do:'key'}`); o cliente não precisa esperar o encoder. Freio próprio e longo
+  (8 s), porque um IDR de 720p custa dezenas de kB. Sozinho ele já limita a janela — a correção do
+  encoder é a estrutural, esta é a que chega sem instalar nada.
+- **O encalhe exige o cursor PARADO** (`cliente.js`, **OTA**). Fora do buffer **andando** é o
+  Chromium pulando um buraco pequeno sozinho (o *gap jumping* dele) e não precisa de socorro:
+  socorrê-lo escreve `currentTime`, o que estala, esvazia o decodificador e conta quadro
+  descartado. Foi o que levou os 1,6% a 13,7%. Um giro inteiro sem andar (`ENCALHE_MS`, 400 ms,
+  abaixo do compasso de propósito) mantém o teto de tela congelada em ~1 s.
+
 ---
 
 ## 11. A FRASE PARA O OPERADOR

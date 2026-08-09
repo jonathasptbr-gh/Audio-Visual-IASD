@@ -2341,11 +2341,25 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.158** (base web) · `SHELL_VERSION` **34**, e o bundle segue com
+**Versão atual: v5.159** (base web) · `SHELL_VERSION` **34**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
+> **A v5.159 fechou o que a v5.158 deixou de pé, e o achado é do MESMO tipo:
+> `KEY_I_FRAME_INTERVAL` não é segundos de parede, é CONTAGEM DE QUADROS.** O
+> framework o multiplica por `KEY_FRAME_RATE` (declarado 30), então `5` são 150
+> quadros — ~16 s no espelho, que entrega ~9 quadros por segundo numa cena
+> parada. Com a janela do cliente em 12 s, a poda desistia sempre: 65 recusas
+> seguidas e a janela crescendo até 25,6 s em aparelho. Passa a **2** (60
+> quadros: ~7,5 s parado, 2,0 s num vídeo a 30 fps — este último é o GOP padrão
+> de transmissão ao vivo, o que deixa o fluxo pronto para o caminho de
+> live/podcast). **Exige o APK.** Do lado do cliente, por OTA: o encalhe passa a
+> exigir o cursor PARADO (fora do buffer ANDANDO é o Chromium pulando buraco
+> pequeno sozinho — socorrê-lo estala a imagem e foi o que levou os quadros
+> descartados de 1,6% a 13,7%), e a poda faminta PEDE uma chave, fechando o laço
+> pelo lado que não precisa de instalação.
+>
 > **A v5.158 achou a causa do travamento, e ela era a PODA.** `SourceBuffer.remove()`
 > da MSE não apaga só o intervalo pedido: ele continua **até o próximo ponto de
 > acesso aleatório** (e, não havendo nenhum, até o fim). A janela viva do cliente
