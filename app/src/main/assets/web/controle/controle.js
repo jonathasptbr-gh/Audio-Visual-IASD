@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.163';
+const WEB_VERSION = '5.164';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -263,6 +263,8 @@ const mirrorCloseEl = document.getElementById('mirrorClose');
 const mirrorLeadEl = document.getElementById('mirrorLead');
 const mirrorAddrEl = document.getElementById('mirrorAddr');
 const mirrorUrlEl = document.getElementById('mirrorUrl');
+const mirrorUrl2El = document.getElementById('mirrorUrl2');
+const mirrorNomeHintEl = document.getElementById('mirrorNomeHint');
 const mirrorPinEl = document.getElementById('mirrorPin');
 const mirrorAutoEl = document.getElementById('mirrorAuto');
 const mirrorListEl = document.getElementById('mirrorList');
@@ -14427,7 +14429,28 @@ function renderEspelho() {
     ? e.erro + '\n\n' + MIRROR_TEXTO_OFF
     : (ligado ? MIRROR_TEXTO_ON : MIRROR_TEXTO_OFF);
   mirrorAddrEl.hidden = !ligado;
-  mirrorUrlEl.textContent = e.endereco || '';
+  // O NOME CURTO VEM PRIMEIRO, e o IP FICA LOGO ABAIXO — nunca no lugar dele.
+  //
+  // `av.local` é mais fácil de digitar num controle remoto e sobrevive à troca
+  // de IP do DHCP, mas ele depende de a TELA resolver `.local`: Windows, macOS,
+  // iOS e Linux com avahi sim; o Chrome do Android e a maioria das Smart TVs,
+  // NÃO. Mostrar só o nome trocaria o endereço que funciona em toda tela pelo
+  // que funciona em algumas — uma regressão com cara de melhoria. Os dois
+  // juntos, com a ordem dizendo qual tentar primeiro.
+  const nomeLocal = e.nomeLocal || '';
+  mirrorUrlEl.textContent = nomeLocal || e.endereco || '';
+  if (mirrorUrl2El) {
+    mirrorUrl2El.hidden = !nomeLocal;
+    mirrorUrl2El.textContent = nomeLocal ? 'ou ' + (e.endereco || '') : '';
+  }
+  if (mirrorNomeHintEl) {
+    mirrorNomeHintEl.hidden = !ligado;
+    mirrorNomeHintEl.textContent = nomeLocal
+      ? 'Se a tela não abrir pelo nome, use o endereço numérico — nem toda TV entende ".local".'
+      : (e.nomeErro
+        ? 'Nome curto indisponível: ' + e.nomeErro
+        : '');
+  }
   mirrorPinEl.textContent = e.pin || '';
   // O botão de ler o QR só existe com o espelho no ar: sem servidor não há
   // tela mostrando código nenhum, e apontar a câmera para o nada não é um

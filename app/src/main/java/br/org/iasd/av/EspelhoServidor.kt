@@ -251,11 +251,20 @@ class EspelhoServidor(
         // afrouxa nada por ter duas entradas: ela segue EXATA, e o que ela
         // barra (DNS rebinding: `evil.com` resolvendo para o nosso IP) continua
         // barrado, porque `evil.com` não é nenhuma das duas.
-        hostsAceitos = if (comNome) {
-            setOf("$hostTls:$portaServida", hostTls, "$ipServido:$portaServida", ipServido)
-        } else {
-            setOf("$ipServido:$portaServida", ipServido)
-        }
+        //
+        // E O NOME mDNS ENTRA PELA MESMA PORTA, quando ele sobe: o navegador
+        // que digita `av.local:8787` manda `Host: av.local:8787`, e uma
+        // allowlist que só conhece o IP devolveria o 404 IDÊNTICO de sempre —
+        // isto é, "o nome não funciona" sem uma linha em lugar nenhum que o
+        // explicasse. É exatamente a armadilha que o `hostTls` acima documenta,
+        // e ela vale duas vezes porque agora há dois nomes possíveis.
+        val nomeMdns = if (EspelhoMdns.noAr) EspelhoMdns.NOME else ""
+        val lista = HashSet<String>()
+        lista.add("$ipServido:$portaServida")
+        lista.add(ipServido)
+        if (comNome) { lista.add("$hostTls:$portaServida"); lista.add(hostTls) }
+        if (nomeMdns.isNotEmpty()) { lista.add("$nomeMdns:$portaServida"); lista.add(nomeMdns) }
+        hostsAceitos = lista
         ligadoEm = SystemClock.elapsedRealtime()
         conexoesTotais.set(0)
         proximoRotulo.set(0)

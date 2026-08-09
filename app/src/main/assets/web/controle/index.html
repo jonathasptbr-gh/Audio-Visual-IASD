@@ -729,7 +729,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.163</span>
+        <span id="appVersion" class="app-version">Controle v5.164</span>
       </div>
     </div>
   </div>
@@ -812,8 +812,14 @@
              aprovação e vive no `sessionStorage` da tela que pareou. -->
         <div class="mirror-addr" id="mirrorAddr" hidden>
           <span class="mirror-url" id="mirrorUrl"></span>
+          <!-- O ENDEREÇO NUMÉRICO CONTINUA À VISTA quando há nome curto: nem
+               toda tela resolve `.local` (o Chrome do Android e a maioria das
+               Smart TVs não), e trocar o que funciona em toda tela pelo que
+               funciona em algumas seria regressão com cara de melhoria. -->
+          <span class="mirror-url2" id="mirrorUrl2" hidden></span>
           <span class="mirror-pin" id="mirrorPin"></span>
         </div>
+        <p class="mirror-nome-hint" id="mirrorNomeHint" hidden></p>
         <!-- O CAMINHO CURTO: a tela mostra um QR, o operador lê aqui, pronto.
              Ele não substitui o PIN acima — a câmera pode não existir, a
              leitura pode não estar disponível no WebView, e o operador pode
