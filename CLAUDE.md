@@ -2344,11 +2344,22 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.164** (base web) · `SHELL_VERSION` **34**, e o bundle segue com
+**Versão atual: v5.165** (base web) · `SHELL_VERSION` **34**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
+> **A v5.165: TOCAR DE NOVO NO QUE ESTÁ NO AR = TIRAR DO AR.** Era a convenção
+> da Bíblia, da Mensagem, do cronômetro e do sorteio, e faltava nos itens do
+> Cronograma — ali a única saída era o **Parar**, que é outra coisa: ele encerra
+> a CENA INTEIRA. Com um louvor de fundo sob um versículo (o uso normal, que a
+> independência áudio × texto existe para permitir), tirar o versículo pelo
+> Parar levava a música junto. Por isso o desligamento é **por camada**: cena de
+> roteiro sai pela Camada de Texto e **não toca na mídia**; mídia sai pelo mesmo
+> caminho do Parar, porque ali ela É a cena. `currentId` **não** é zerado — é
+> ele que deixa o ▶ repetir o item, e quem responde "há algo no telão?" é
+> `midiaNoAr`. OTA puro.
+>
 > **A v5.164 dá um NOME ao espelho: `av.local`.** Dois arquivos novos —
 > `EspelhoMdnsPacote.kt` (**puro**, com JUnit, porque é o segundo ponto do
 > projeto que aceita bytes de um desconhecido, e aqui um erro vira **laço
