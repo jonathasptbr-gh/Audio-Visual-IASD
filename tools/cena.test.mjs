@@ -206,6 +206,46 @@ try {
   checar(!(await pg.evaluate((id) => linhaAtiva(id), cenaId)),
     'e o realce da cena sai, enquanto o da música fica');
 
+  // ---- E O SIMÉTRICO: TIRAR A MÚSICA E DEIXAR A CENA (v5.178) ----
+  //
+  // Era a metade que faltava, e a mais cara das duas: até aqui o segundo toque
+  // numa MÍDIA chamava `stopClear()`, que é o Parar do transporte — ele encerra
+  // a CENA INTEIRA. Com um louvor de fundo sob a contagem regressiva de
+  // abertura (o uso normal, e o que a independência áudio × texto existe para
+  // permitir), tirar a música levava o cronômetro junto, e a única saída era
+  // parar tudo e reprojetar na frente da congregação.
+  await pg.evaluate(async (ids) => { await send(ids[0]); await send(ids[1]); },
+    [cenaId, audioId]);
+  checar(await pg.evaluate(() => cenaDeRoteiroNoAr()) && await pg.evaluate(() => midiaNoAr),
+    'com as duas camadas no ar de novo');
+
+  const soAMidia = await pg.evaluate(async (id) => {
+    window.__espiao.length = 0;
+    await onTap({ id, kind: 'audio' });
+    await new Promise((r) => setTimeout(r, 200));
+    return window.__espiao.map((m) => m.type);
+  }, audioId);
+  checar(!(await pg.evaluate(() => midiaNoAr)), 'o segundo toque na música tira a MÚSICA do ar');
+  checar(await pg.evaluate(() => cenaDeRoteiroNoAr()),
+    'e a CENA DE ROTEIRO continua no ar — era este o risco de usar o Parar');
+  // O comando é `media-clear`, e o `clear` NÃO pode sair: é ele que chama
+  // `hideText` no Display. Um `clear` aqui apagaria o cronômetro sem que nada
+  // no Controle o dissesse — o mesmo modo de falhar do `text-hide` que faltava.
+  checar(soAMidia.includes('media-clear'),
+    'e o comando é o `media-clear` — o desligamento por camada, do outro lado',
+    JSON.stringify(soAMidia));
+  checar(!soAMidia.includes('clear'),
+    'nenhum `clear` é enviado: ele encerraria a Camada de Texto junto',
+    JSON.stringify(soAMidia));
+  checar(!(await pg.evaluate((id) => linhaNoAr(id), audioId)),
+    'a linha da música deixa de dizer "No ar"');
+  checar(await pg.evaluate((id) => linhaNoAr(id), cenaId),
+    'e a da cena continua dizendo — cada linha fala da SUA camada');
+  // E o Parar de verdade continua sendo o Parar: ele leva as duas.
+  await pg.evaluate(() => stopClear());
+  checar(!(await pg.evaluate(() => cenaDeRoteiroNoAr())) && !(await pg.evaluate(() => midiaNoAr)),
+    'e o Parar do transporte segue encerrando a CENA INTEIRA — ele não virou por camada');
+
   // ---- O SELO "● No ar" (v5.174) ----
   //
   // "Atual" e "no ar" eram a MESMA marca — um contorno em accent —, e depois de

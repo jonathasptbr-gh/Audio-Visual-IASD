@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.177';
+const WEB_VERSION = '5.178';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -1900,6 +1900,16 @@ function aplicarNaPreview(obj) {
     hidePvText(false); // a cena inteira está sendo encerrada; nada a restaurar
     if (ytPreview) dropYtPreview();
     preview.handle(obj);
+    return;
+  }
+  // PARAR SÓ A MÍDIA: a ilustração segue o telão camada por camada (v5.178). O
+  // `hidePvText` NÃO é chamado — é justamente o texto que continua no ar —, e a
+  // escolha entre as duas saídas do stage repete a do Display, lida aqui pelo
+  // `pvTextActive`, que é o espelho local do `textActive` de lá.
+  if (obj.type === 'media-clear') {
+    hidePvLyrics(true);
+    if (ytPreview) dropYtPreview();
+    preview.handle({ type: pvTextActive ? 'clear-media' : 'clear' });
     return;
   }
   if (obj.type === 'lyricsbg') {
@@ -7464,15 +7474,24 @@ async function toggleMute() {
   renderControls();
 }
 
-// Parar = limpar o display (volta ao wallpaper); mantém currentId para replay com play.
-async function stopClear() {
+/**
+ * TIRAR A MÍDIA DO AR — o corpo comum do Parar e do stop por camada.
+ *
+ * O que ele NÃO faz é o que o distingue: nada aqui encosta na Camada de Texto.
+ * Quem encerra a cena inteira é o [stopClear], que chama isto e depois derruba o
+ * texto; quem tira só a música de fundo é o [retirarDoAr], que chama isto e para
+ * por aqui.
+ *
+ * [tipo] é o comando que vai ao telão — `clear` (o ponto final, com a cortina
+ * indo ao wallpaper) ou `media-clear` (só a mídia; ver `display.js`).
+ */
+async function pararMidia(tipo) {
   // Parar também é um comando do operador: arma a mesma janela de
   // `pausaPedida` que o ▶ arma, senão o `pause` que o 'clear' provoca no
   // <video> da preview entrava no diário como "PAUSA ESPONTÂNEA" — um falso
   // alarme no instrumento que existe para achar as pausas de verdade.
   pausaEm = Date.now();
-  cmd({ type: 'clear' });
-  clearManualText();
+  cmd({ type: tipo });
   // O TELÃO ESTÁ VAZIO A PARTIR DAQUI, e isso precisa ser dito ANTES do fade
   // terminar: quem pergunta a `preview.getCurrent()` recebe "ainda tem mídia"
   // durante todo o esmaecimento do `clearFaded` (ver `midiaNoAr`).
@@ -7485,6 +7504,12 @@ async function stopClear() {
   playPauseEl.querySelector('.msym').textContent = ICON.play;
   seekEl.value = 0; seekEl.disabled = true;
   curTimeEl.textContent = '0:00';
+}
+
+// Parar = limpar o display (volta ao wallpaper); mantém currentId para replay com play.
+async function stopClear() {
+  await pararMidia('clear');
+  clearManualText();
   // A cena de roteiro caiu junto (o `clearManualText` acima), e o realce dela
   // precisa cair com ela: ele vem do `cueNoArId`, que nenhuma re-renderização
   // da lista está agendada para reler. Sem isto, uma linha continuaria marcada
@@ -7601,7 +7626,17 @@ async function retirarDoAr(item) {
     renderNowPlaying();
     return;
   }
-  await stopClear();
+  // MÍDIA: sai SÓ ELA (v5.178). Até aqui este caminho chamava `stopClear()`, que
+  // é o Parar do transporte — ele encerra a CENA INTEIRA. Com um louvor de fundo
+  // sob a contagem regressiva de abertura (o uso normal, e o que a independência
+  // áudio × texto existe para permitir), tirar a música do ar levava o
+  // cronômetro junto, e a única saída era parar tudo e reprojetar a cena na
+  // frente da congregação. É o simétrico exato do `text-hide` acima: cada camada
+  // sai pela sua porta, e o botão de cada linha fala da camada DAQUELA linha.
+  await pararMidia('media-clear');
+  marcarNoAr();
+  renderNowPlaying();
+  await persistCurrent();
 }
 
 /**
