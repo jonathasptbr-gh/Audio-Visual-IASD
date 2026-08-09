@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.164';
+const WEB_VERSION = '5.165';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -2699,7 +2699,16 @@ function renderPlaylist() {
 
     row.append(name, rm, handle);
     li.appendChild(row);
-    row.addEventListener('click', (e) => { if (!e.target.closest('.row-btn,.row-handle')) send(item.id); });
+    // O SEGUNDO TOQUE RETIRA DO AR (ver `retirarDoAr`) — mas o item da
+    // playlist NÃO passa por `onTap`: aqui o toque é `send` direto, porque
+    // tocar numa linha da fila não pode REDEFINIR a fila para aquele item, que
+    // é o que `onTap` faz para a biblioteca. Só a metade do desligamento é
+    // compartilhada.
+    row.addEventListener('click', (e) => {
+      if (e.target.closest('.row-btn,.row-handle')) return;
+      if (noArAgora(item)) { retirarDoAr(item); return; }
+      send(item.id);
+    });
     attachHandle(handle, item.id, 'playlist');
     playlistEl.appendChild(li);
   });
@@ -7213,8 +7222,49 @@ async function replacePlaylistWith(rec) {
   }
 }
 
+/**
+ * TOCAR DE NOVO NO QUE JÁ ESTÁ NO AR = TIRAR DO AR.
+ *
+ * É a convenção que a Bíblia, a Mensagem, o cronômetro e o sorteio já seguiam,
+ * e que faltava nos itens do Cronograma: ali a única saída era o **Parar**, que
+ * é outra coisa — ele encerra a CENA INTEIRA. Com um louvor de fundo sob um
+ * versículo (que é o uso normal, e que a independência áudio × texto existe
+ * para permitir), tirar o versículo pelo Parar levava a música junto.
+ *
+ * Por isso o desligamento é POR CAMADA, e não um `clear` genérico:
+ *
+ *  - **cena de roteiro** (versículo, mensagem, letra, cronômetro, sorteio) sai
+ *    pela Camada de Texto e **não toca na mídia** — o áudio de fundo continua;
+ *  - **mídia** sai pelo mesmo caminho do Parar, porque ali ela É a cena.
+ *
+ * `currentId` NÃO é zerado, de propósito: é ele que permite ao ▶ repetir o
+ * item sem precisar reabri-lo, e é um contrato que o CLAUDE.md descreve. Quem
+ * responde "há algo no telão?" é `midiaNoAr`, e é ele que o `stopClear` baixa.
+ */
+async function retirarDoAr(item) {
+  if (isCue(item)) {
+    clearManualText();
+    // A linha perde o realce, mas o item continua sendo o "atual" para o ▶.
+    document.querySelectorAll('.lib-item,.row-item').forEach((el) => el.classList.remove('active'));
+    renderNowPlaying();
+    return;
+  }
+  await stopClear();
+}
+
+/** Está no ar AGORA? É o que decide entre projetar e retirar. */
+function noArAgora(item) {
+  if (!item || item.id !== currentId) return false;
+  if (isCue(item)) {
+    return !!(bibleSession || msgSession || lyricSession || chronoSession || drawSession);
+  }
+  return midiaNoAr;
+}
+
 async function onTap(item) {
   if (selectionMode) { toggleSelect(item.id); return; }
+  // O SEGUNDO TOQUE RETIRA — ver `retirarDoAr`.
+  if (noArAgora(item)) { await retirarDoAr(item); return; }
   // Cena de roteiro: PROJETA, e não mexe na playlist. Um versículo não é uma
   // fila de reprodução — trocar a playlist por ele apagaria o bloco de louvores
   // que o operador acabou de montar, e o áudio de fundo (que a Camada de Texto
