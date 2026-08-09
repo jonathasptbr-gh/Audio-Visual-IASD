@@ -640,28 +640,32 @@
              excesso, e entre as duas não sobra caso para uma terceira que
              deforma o rosto de quem está no vídeo. Nenhum operador escolhe
              isso de propósito; escolhia por engano, e o telão inteiro pagava. -->
+        <!-- PREENCHIMENTO E GIRO NA MESMA LINHA (v5.169): são a mesma decisão
+             — "como esta mídia ocupa o telão" —, e separá-las em duas linhas
+             fazia o operador procurar em dois lugares por um ajuste só.
+             O giro é um BOTÃO que avança 90° por toque, e não quatro segmentos:
+             ninguém pensa em "270°", pensa em "gira mais uma vez até ficar de
+             pé". O rótulo mostra o ângulo vigente, para o estado ser legível
+             sem contar toques. -->
         <div class="fade-row fade-row--fit">
-          <span>Preenchimento da mídia</span>
-          <div class="fit-seg" id="fitSeg">
-            <button type="button" class="fit-opt" data-fit="contain">Ajustar</button>
-            <button type="button" class="fit-opt" data-fit="cover">Preencher</button>
+          <span>Preenchimento e giro</span>
+        <!-- O GIRO fica AO LADO do seletor, não DENTRO dele: `#fitSeg` é a
+             escolha de preenchimento e tem exatamente duas opções (o "Esticar"
+             saiu na v5.142 porque distorcia a proporção). Girar é uma AÇÃO que
+             divide a linha, não uma terceira opção — e `tools/cena.test.mjs`
+             trava essa contagem, que foi o que pegou a primeira tentativa. -->
+          <div class="fit-linha">
+            <div class="fit-seg" id="fitSeg">
+              <button type="button" class="fit-opt" data-fit="contain">Ajustar</button>
+              <button type="button" class="fit-opt" data-fit="cover">Preencher</button>
+            </div>
+            <button type="button" class="fit-opt fit-opt--rot" id="rotBtn" title="Girar 90° no telão">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 12a8 8 0 1 1 2.3 5.6"/><polyline points="4 7 4 12 9 12"/>
+              </svg>
+              <span id="rotLabel">0°</span>
+            </button>
           </div>
-        </div>
-        <!-- GIRAR (v5.142): o lugar que o "Esticar" deixou, e por um motivo que
-             o esticar nunca teve — vídeo gravado de lado no celular chega
-             deitado no telão, e até aqui não havia nada a fazer sobre isso.
-             Um botão que AVANÇA 90° por toque, e não quatro segmentos: o
-             operador não pensa em "270°", pensa em "gira mais uma vez até
-             ficar de pé". O rótulo mostra o ângulo vigente, para o estado ser
-             legível sem contar toques. -->
-        <div class="fade-row fade-row--fit">
-          <span>Girar a mídia</span>
-          <button type="button" class="fit-opt fit-opt--rot" id="rotBtn" title="Girar 90° no telão">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M4 12a8 8 0 1 1 2.3 5.6"/><polyline points="4 7 4 12 9 12"/>
-            </svg>
-            <span id="rotLabel">0°</span>
-          </button>
         </div>
         <!-- Imagens dos slides da música: cada estrofe do hino traz uma imagem
              de fundo baixada com ele. Removê-las deixa a letra sobre preto —
@@ -729,7 +733,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.168</span>
+        <span id="appVersion" class="app-version">Controle v5.169</span>
         <!-- O APK NOVO, quando existir. Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso. `hidden`
