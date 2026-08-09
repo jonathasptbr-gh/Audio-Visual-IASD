@@ -59,6 +59,16 @@
          declara `CAMERA` sem dizer nada — esconderia o app de qualquer
          aparelho sem câmera. -->
     <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- ATUALIZAR O PRÓPRIO APK de dentro do app (ver `ShellUpdater.kt`).
+         O usuário concede numa tela do sistema, uma vez — e o Android continua
+         mostrando o diálogo de instalação a cada vez, que está certo: instalar
+         derruba o app inteiro, com a projeção junto.
+         A garantia forte não é esta permissão, é a ASSINATURA: o sistema recusa
+         instalar por cima um pacote que não venha da mesma keystore, então um
+         binário adulterado no caminho simplesmente não instala. É por isso que o
+         `ShellUpdater` não replica o `sha256` do OTA da base web. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 
@@ -179,5 +189,20 @@
             android:name=".EspelhoService"
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
+
+        <!-- O caminho do APK baixado até o instalador. Um `file://` num Intent
+             lança `FileUriExposedException` desde o Android 7, e o instalador é
+             um app de fora: ele precisa da concessão temporária que só um
+             `content://` carrega. `exported=false` + `grantUriPermissions`: nada
+             fica legível por padrão, e o acesso morre com o Intent. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.apk"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/apk_paths" />
+        </provider>
     </application>
 </manifest>

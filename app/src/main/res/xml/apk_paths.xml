@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  O ÚNICO caminho exposto é o do APK baixado, e ele mora no CACHE.
+
+  Um `<cache-path>` de raiz exporia o cache inteiro do WebView — que é o cache
+  da base web e das mídias. `path="apk/"` é o subdiretório que o `ShellUpdater`
+  cria e limpa sozinho; nada mais entra por aqui.
+-->
+<paths>
+  <cache-path name="apk" path="apk/" />
+</paths>

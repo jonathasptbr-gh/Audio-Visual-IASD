@@ -3524,3 +3524,18 @@ body.mode-simple .hymn-add-btn { display: none; }
    vermelho. É a única forma de o espelho sair do ar por vontade de alguém — ele
    não se desliga sozinho, nem quando a TV conecta. */
 #mirrorToggle.on { border-color: var(--danger-text); color: var(--danger-text); }
+
+/* ---------- A linha do APK novo (v5.167) ----------
+   Ela vive ao lado do rótulo de versão, no rodapé de Configurações, e só
+   aparece quando há uma Release mais nova. Em `--accent` porque é navegação
+   ("vá para lá"), nunca em `--live` nem em `--danger`: instalar não é destrutivo
+   e não é o que está no ar — as duas cores têm dono neste app. */
+.apk-row {
+  display: block; width: 100%;
+  margin-top: 6px; padding: 8px 10px;
+  border: 1px solid var(--accent); border-radius: var(--radius-sm, 8px);
+  background: transparent; color: var(--accent);
+  font-size: .82rem; font-weight: 600; text-align: center;
+  cursor: pointer;
+}
+.apk-row:disabled { border-color: var(--line); color: var(--muted); cursor: default; }
