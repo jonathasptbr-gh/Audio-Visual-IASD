@@ -180,6 +180,43 @@ try {
   checar(padrao.endereco > 0,
     'e o bloco do endereço também (raio ' + padrao.endereco + 'px)');
 
+  // ---- O ÍCONE DE CONECTAR DIZ "HÁ TELA RECEBENDO" (v5.176) --------------
+  //
+  // Ele tomou o lugar do cartão do espelho na barra de notificações — aquele
+  // não pode ser removido (um serviço em primeiro plano é obrigado a ter uma
+  // notificação, e é ele que mantém o espelho no ar com o app minimizado), mas
+  // foi para `IMPORTANCE_MIN` e saiu da barra de status. Se o ícone não
+  // acender, o operador fica sem NENHUM sinal de que há telas na rede — a troca
+  // teria piorado o que veio consertar.
+  //
+  // Mesma classe do telão (`.connected`), de propósito: uma convenção só para
+  // um fato só.
+  const cast = await pg.evaluate(() => {
+    const btn = document.getElementById('pvCastBtn');
+    if (!btn) return { achou: false };
+    const antes = mirrorEstado;
+    const ler = () => { renderCastBtn(); return btn.classList.contains('connected'); };
+    mirrorEstado = null;
+    const desligado = ler();
+    mirrorEstado = { ligado: true, telas: [] };
+    const semTela = ler();
+    mirrorEstado = { ligado: true, telas: [{ rotulo: 'A' }, { rotulo: 'B' }] };
+    const comTelas = ler();
+    const dica = btn.title;
+    mirrorEstado = antes;
+    renderCastBtn();
+    return { achou: true, desligado, semTela, comTelas, dica };
+  });
+  checar(cast.achou, 'o ícone de conectar existe na preview');
+  checar(cast.achou && !cast.desligado,
+    'com o espelho desligado ele fica apagado');
+  checar(cast.achou && !cast.semTela,
+    'ligado e sem ninguém recebendo, também — "no ar" é ter alguém do outro lado');
+  checar(cast.achou && cast.comTelas,
+    'e com telas da rede recebendo ele acende, como acende com um telão');
+  checar(cast.achou && /rede/i.test(cast.dica || ''),
+    'e a dica do botão diz quantas são', cast.dica);
+
   // ---- O ECO DO TRANSPORTE (v5.162) --------------------------------------
   //
   // Quando a projeção são as telas da rede, a resposta de verdade de um botão
