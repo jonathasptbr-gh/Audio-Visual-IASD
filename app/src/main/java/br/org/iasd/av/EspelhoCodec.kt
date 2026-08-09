@@ -79,27 +79,48 @@ data class Quadro(
  *     PRODUZIDO.** Com a cena parada e a tela virtual sem compor nada, pedir
  *     IDR **não produz nada**. [pedirIdr] e o batimento são complementares, não
  *     alternativos.
- *  4. **`KEY_I_FRAME_INTERVAL = 5`, nem 2 nem 10.** Todo `GET /v` é por
- *     construção um cliente novo e o servidor pede IDR ali mesmo, então o
- *     intervalo espontâneo **não** é o caminho normal de um cliente pegar o
- *     primeiro quadro. Ele é o que sobra quando o pedido explícito é engolido
- *     pelo freio do `EspelhoServidor` (1 por tela a cada 2 s **e** um piso
- *     global de 1 s): duas telas que abrem juntas, ou — o caso que dói — uma
- *     fila que estourou e recomeçou com `esperandoIdr = true` no mesmo segundo
- *     em que outra já pediu. Nesse buraco o cliente fica **preto até o próximo
- *     IDR espontâneo**, e a 10 s isso são dez segundos de tela apagada no meio
- *     do culto por causa de um congestionamento de rede de meio segundo.
+ *  4. **`KEY_I_FRAME_INTERVAL` NÃO É SEGUNDOS DE PAREDE — é uma contagem de
+ *     QUADROS**, e a v5.159 corrigiu esta armadilha depois de o aparelho provar
+ *     o contrário. O framework multiplica o valor por [MediaFormat.KEY_FRAME_RATE]
+ *     (declarado 30, ver a armadilha 9) e entrega ao codec um número de quadros.
+ *     Com o valor antigo de 5, isso são **150 quadros** — e o produtor deste
+ *     espelho, numa cena parada, entrega ~9 quadros por segundo. O intervalo
+ *     real entre IDRs espontâneos era, portanto, de **~16 segundos**, não de
+ *     cinco. Medido: `3 pedido(s)` de chave em quatro minutos e uma janela de
+ *     10 s do Registro fechando com `0 chave(s) = 0 kbps`.
  *
- *     A conta do outro lado, com o número medido no aparelho: uma cena PARADA
- *     rodava a 156 kbps com ~1 IDR na janela de 10 s — isto é, o quadro-chave é
- *     quase toda a banda, porque um IDR de 720p de um wallpaper fotográfico
- *     custa dezenas a centenas de kB. Cair para 5 s **dobra esse piso**
- *     (~300 kbps por tela, ~0,9 Mbps com as três) e corta o pior caso pela
- *     metade. É o compromisso escolhido; 2 s multiplicaria o piso por cinco
- *     para ganhar mais três segundos. A linha "ritmo" do Registro agora separa
- *     `kbps de chaves` do resto justamente para esta conta poder ser refeita com
- *     medição em vez de estimativa — se o piso incomodar no AP da igreja, o
- *     número a mexer é este, e o efeito é visível na mesma linha.
+ *     Não é detalhe de contabilidade. A janela viva do cliente (`JANELA_S`, 12 s)
+ *     precisa **caber um GOP inteiro**: `SourceBuffer.remove()` da MSE apaga até
+ *     o próximo ponto de acesso aleatório, então uma janela menor que o GOP
+ *     apaga o PRESENTE (ver §10-A.4 do doc do espelho — foi este o travamento
+ *     de sete segundos). Com o GOP em 16 s e a janela em 12, a poda do cliente
+ *     desistia sempre: em aparelho, 65 recusas seguidas e a janela crescendo até
+ *     25,6 s.
+ *
+ *     **2 dá 60 quadros**, que são ~7,5 s numa cena parada a 8 fps e 2,0 s num
+ *     vídeo a 30 — os dois abaixo da janela do cliente, e o segundo é o GOP
+ *     padrão de transmissão ao vivo, o que deixa o fluxo pronto para o caminho
+ *     de live/podcast sem outra mudança. Continua sendo inteiro (nada de
+ *     `setFloat`, que alguns codecs de fabricante tratam mal).
+ *
+ *     A conta da banda, com o número medido: uma cena parada rodava a 156 kbps
+ *     com ~1 IDR na janela de 10 s — o quadro-chave é quase toda a banda, porque
+ *     um IDR de 720p de um wallpaper fotográfico custa dezenas a centenas de kB.
+ *     Passar de ~16 s para ~7,5 s **dobra** esse piso (~300 kbps por tela,
+ *     ~0,9 Mbps com as três), e não o multiplica por cinco: a estimativa antiga
+ *     de "×5" tratava o valor como segundos, que é justamente o erro. A linha
+ *     "ritmo" do Registro separa `kbps de chaves` do resto para esta conta poder
+ *     ser refeita com medição em vez de estimativa — se o piso incomodar no AP
+ *     da igreja, o número a mexer é este, e o efeito é visível na mesma linha.
+ *
+ *     E o intervalo espontâneo não é o caminho normal de um cliente pegar o
+ *     primeiro quadro: todo `GET /v` é por construção um cliente novo e o
+ *     servidor pede IDR ali mesmo. Ele é o que sobra quando o pedido explícito é
+ *     engolido pelo freio do `EspelhoServidor` (1 por tela a cada 2 s **e** um
+ *     piso global de 1 s) — duas telas que abrem juntas, ou uma fila que
+ *     estourou e recomeçou com `esperandoIdr = true` no mesmo segundo em que
+ *     outra já pediu. Nesse buraco o cliente fica preto até o próximo IDR
+ *     espontâneo, e é por isso que ele precisa ser curto.
  *  5. **`KEY_COLOR_RANGE` é DESCRITOR, não comando.** A doc o chama de
  *     *"optional key **describing** the range"*; ele não governa a conversão
  *     RGB→YUV do encoder em entrada por Surface e não há `isFormatSupported`
@@ -555,8 +576,12 @@ class EspelhoCodec(private val onQuadro: (Quadro) -> Unit) {
         /** 3 Mbps a 720p. Ver o §2.4 da especificação para a conta de rede. */
         const val BITRATE_PADRAO = 3_000_000
 
-        /** Segundos entre IDRs espontâneos. Ver a armadilha 4. */
-        private const val I_FRAME_S = 5
+        /**
+         * O valor de `KEY_I_FRAME_INTERVAL`. **Não são segundos de parede** —
+         * ver a armadilha 4, que foi reescrita depois de o aparelho mostrar o
+         * contrário.
+         */
+        private const val I_FRAME_S = 2
 
         /**
          * O intervalo do **batimento do papel `espelho`**, em microssegundos —
