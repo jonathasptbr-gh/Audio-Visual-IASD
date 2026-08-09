@@ -82,13 +82,42 @@
   // navegador ter margem de decodificação e pouco o suficiente para a cota do
   // MSE nunca ser o assunto. Na cota apertada (`QuotaExceededError`) a poda é
   // mais agressiva — dois segundos.
-  const JANELA_S = 5;
-  const GUARDA_S = 2;
+  // A JANELA PRECISA CABER UM GOP INTEIRO, e isto é uma correção, não folga.
+  //
+  // `SourceBuffer.remove(a, b)` da MSE não apaga só o que foi pedido: depois de
+  // remover as amostras do intervalo, o algoritmo de remoção de quadros
+  // codificados **continua apagando até o PRÓXIMO ponto de acesso aleatório** —
+  // senão sobrariam quadros delta sem a chave de que dependem. Com uma janela
+  // menor que o GOP, `remove(0, currentTime - JANELA_S)` come para a frente e
+  // pode levar o PRESENTE junto: o cursor fica fora do buffer, a imagem congela
+  // sem erro nenhum, e a única saída era o salto de `SALTO_S`.
+  //
+  // E o GOP aqui é LONGO. `KEY_I_FRAME_INTERVAL` do `EspelhoCodec` é convertido
+  // pelo framework em CONTAGEM DE QUADROS (5 s × `KEY_FRAME_RATE` 30 = 150
+  // quadros); numa cena de letra o produtor entrega ~8 quadros por segundo, e
+  // 150 quadros viram ~19 SEGUNDOS de parede. Cinco segundos de janela contra um
+  // GOP de dezenove é a bomba armada.
+  //
+  // Duas defesas, porque uma só não basta: a janela cresce, e a poda passa a
+  // cortar SÓ em cima de um quadro-chave que ela viu passar (ver `podar`).
+  const JANELA_S = 12;
+  const GUARDA_S = 6;
 
   // A PERSEGUIÇÃO DA BORDA, por `playbackRate` e nunca por `currentTime`
   // (§3.11, invariante 6): escrever `currentTime` estala, e um estalo por
   // compasso durante duas horas é pior que meio segundo de atraso.
-  const ALVO_S = 0.6;
+  // O ALVO ERA 0,6 s, e ele era o orçamento inteiro da tela contra qualquer
+  // soluço do celular. Numa cena parada o único produtor de quadros é um timer
+  // na main thread do Blink, COMPARTILHADA com o documento do Controle e com o
+  // do telão (invariante 3): um bloqueio de 600 ms lá — o operador rolando uma
+  // lista — esvaziava a TV daqui. A rede de segurança do MediaCodec
+  // (`REPETIR_APOS_US`, 500 ms) só arma DEPOIS que o orçamento acabou.
+  //
+  // 1,5 s é atraso invisível numa projeção (ninguém interage com o telão) e é o
+  // dobro do pior bloqueio plausível. `TOL_S` NÃO acompanha: alargá-la para 0,5
+  // poria o cursor a 100 ms de uma borda que o próprio encoder deixa 150 ms sem
+  // andar, reabrindo o engasgo que a v5.155 fechou.
+  const ALVO_S = 1.5;
   const TOL_S = 0.25;
   const RAPIDO = 1.08;                    // acima disto o áudio ficaria audivelmente rápido
   const LENTO = 0.97;
@@ -101,7 +130,15 @@
   // uma amostra de vários segundos para NÃO abrir buraco no `buffered` (ver o
   // cabeçalho de `fmp4.js`). Fechar o buraco é o certo; a contrapartida é este
   // salto único, aqui, uma vez. Ele não é a perseguição — é a recuperação dela.
-  const SALTO_S = 8;
+  //
+  // ERA OITO, E OITO ERA O PERÍODO DO DEFEITO. Enquanto o cursor encalhado só
+  // fosse detectado por ESTE limiar, o tempo de tela congelada era exatamente o
+  // tempo de a borda ao vivo abrir 8 s sobre um cursor parado — 7,1 a 7,6 s
+  // partindo da folga de regime. É o número que o operador cronometrou
+  // ("trava a cada 7 segundos"): ele nunca foi a causa, era o RELÓGIO DA
+  // RECUPERAÇÃO. Com o encalhe detectado no instante (ver `borda`), este limiar
+  // volta a ser o que ele diz ser — a aba que ficou congelada — e cabe em 4 s.
+  const SALTO_S = 4;
 
   // Fila de append longa demais = este aparelho não dá conta do fluxo. Ver
   // `recomecar()`: a resposta NÃO é descartar fragmentos (isso abriria buraco,
@@ -240,24 +277,113 @@
   let piorVfim = 99999;                   // menor folga vista até o fim do vídeo
   let piorAfim = 99999;                   // idem, do som
   let ultimoQuadroMs = 0;                 // quando o último quadro foi apresentado
+  let abertoContado = false;              // a parada EM CURSO já entrou em `parouQuadro`?
   let ultimoCT = -1;
   let ultimoCTem = 0;
   let vfcArmado = false;
   let geracaoVfc = 0;
+
+  // O TOTAL DA SESSÃO, que é o que responde "trava a cada 7 segundos".
+  //
+  // `piorQuadro`/`piorCursor` são o pior caso desde a última descontinuidade —
+  // e a descontinuidade que mais interessa é justamente a que ENCERRA um
+  // travamento (o salto). Sem um acumulador, todo travamento resolvido pelo
+  // salto contribuía ZERO para a estatística. Estes quatro só zeram em
+  // `comecar()`, e transformam "trava" em "23 paradas, 51 s no total".
+  let travouMs = 0;
+  let travouN = 0;
+  let saltos = 0;                         // recuperações por SALTO_S (a borda abriu)
+  let encalhes = 0;                       // recuperações por cursor FORA do buffer
+  let encalhesSeguidos = 0;
+  let podaSemChave = 0;                   // podas recusadas por falta de quadro-chave
+
+  // A FOLGA DE UM `TimeRanges` COM BURACO — e é aqui que a v5.157 mentiu.
+  //
+  // Toda folga era medida contra `b.end(b.length - 1)`: o fim do ÚLTIMO
+  // intervalo, que com um buraco é a borda de um bloco em que o cursor NEM
+  // ESTÁ. O log de aparelho trouxe a contradição em estado puro — `readyState`
+  // 2 ("sem dado adiante") convivendo com `vfim` de +3893 ms, que num buffer
+  // contíguo é impossível. E `pv`/`pa` ("nunca ficou negativa") eram tautologia:
+  // medidas contra o fim do último bloco, elas NÃO PODEM ser negativas enquanto
+  // existir qualquer bloco à frente.
+  const TOCA_S = 0.05;
+
+  /**
+   * Em qual intervalo do `buffered` o cursor está — ou `-1` se ele estiver num
+   * buraco, antes do começo, ou depois do fim.
+   *
+   * Pura e exposta em `__espelho` pela mesma razão de `bordaViva`: provar isto
+   * com um buraco de verdade exigiria uma sequência de fragmentos que o
+   * Chromium do CI não monta, e a regra é aritmética.
+   */
+  function indiceNoCursor(b, t) {
+    if (!b || !b.length) return -1;
+    for (let i = 0; i < b.length; i++) {
+      if (t >= b.start(i) - TOCA_S && t <= b.end(i) + TOCA_S) return i;
+    }
+    return -1;
+  }
+
+  /**
+   * A folga HONESTA: quanto dado existe adiante do cursor NO BLOCO EM QUE ELE
+   * ESTÁ. `null` = não há faixa nenhuma.
+   *
+   * Fora de qualquer bloco o número é NEGATIVO, que é o que o campo sempre
+   * prometeu significar (ver o KDoc de `medidasDe` no Kotlin) e o que a
+   * geometria anterior nunca produzia:
+   *  - num buraco, é menos a distância até o dado voltar;
+   *  - passado o fim de tudo, é a própria distância, já negativa.
+   */
+  function folgaDoCursor(b, t) {
+    if (!b || !b.length) return null;
+    const i = indiceNoCursor(b, t);
+    if (i >= 0) return b.end(i) - t;
+    for (let k = 0; k < b.length; k++) if (b.start(k) > t) return -(b.start(k) - t);
+    return b.end(b.length - 1) - t;
+  }
 
   // ZERAR É PARTE DA MEDIDA. Toda descontinuidade abaixo é NOSSA — o salto de
   // recuperação, a remontagem, a reconexão —, e contá-la como travamento faria
   // o número dizer "a tela parou 8 s" toda vez que ela se recuperou depressa.
   // O que sobra depois disso é só o que o operador de fato viu.
   function zerarPiores() {
+    // FECHAR A MEDIDA ANTES DE APAGÁ-LA. Este ponto é chamado justamente pelo
+    // salto que ENCERRA um travamento — e, até a v5.157, ele escrevia
+    // `ultimoQuadroMs = Date.now()` antes de o quadro que fecharia o intervalo
+    // chegar. Todo travamento resolvido pelo salto contribuía zero para `pq`, e
+    // por isso a primeira linha que o operador lê dizia "maior parada: 0,3 s"
+    // sobre uma tela que ele viu congelar por segundos.
+    dobrarAberto();
     piorQuadro = -1;
     parouQuadro = 0;
     piorCursor = 0;
     piorVfim = 99999;
     piorAfim = 99999;
     ultimoQuadroMs = Date.now();
+    abertoContado = false;
     ultimoCT = -1;
     ultimoCTem = Date.now();
+  }
+
+  /**
+   * O intervalo EM ABERTO — o travamento que está acontecendo agora — entra na
+   * medida sem esperar o quadro que o encerra.
+   *
+   * Sob guarda de `vfcArmado`, e a guarda não é detalhe: sem ela, uma TV que não
+   * traga `requestVideoFrameCallback` deixaria de reportar `pq = -1` ("não
+   * medida") e passaria a reportar "tempo desde que liguei" — trocar um
+   * sentinela honesto por um número falso é pior que não medir.
+   */
+  function dobrarAberto() {
+    if (!vfcArmado) return;
+    const aberto = Date.now() - ultimoQuadroMs;
+    if (aberto > piorQuadro) piorQuadro = aberto;
+    if (aberto > PARADA_MS && !abertoContado) {
+      abertoContado = true;
+      parouQuadro++;
+      travouN++;
+      travouMs += aberto;
+    }
   }
 
   // O QUE MEDE O CONGELAMENTO É O QUADRO APRESENTADO, não o `currentTime`.
@@ -288,7 +414,10 @@
       const gap = agora - ultimoQuadroMs;
       ultimoQuadroMs = agora;
       if (gap > piorQuadro) piorQuadro = gap;
-      if (gap > PARADA_MS) parouQuadro++;
+      // A parada pode já ter sido contada com o intervalo em aberto (ver
+      // `dobrarAberto`); contá-la de novo aqui dobraria `nq` e `tt`.
+      if (gap > PARADA_MS && !abertoContado) { parouQuadro++; travouN++; travouMs += gap; }
+      abertoContado = false;
       if (!vivo) { vfcArmado = false; return; }
       try { el.v.requestVideoFrameCallback(passo); } catch (_) { vfcArmado = false; }
     };
@@ -296,7 +425,10 @@
   }
 
   function amostrarPiores(vfimMs, afimMs) {
-    if (vfimMs < piorVfim) piorVfim = vfimMs;
+    // O intervalo EM ABERTO entra a cada compasso: um travamento em curso é
+    // visível ANTES de o quadro que o encerra chegar.
+    dobrarAberto();
+    if (vfimMs !== null && vfimMs < piorVfim) piorVfim = vfimMs;
     if (afimMs !== null && afimMs < piorAfim) piorAfim = afimMs;
     // O CURSOR PARADO só conta com o elemento TOCANDO: pausado (antes do
     // posicionamento, ou com o gesto pendente) ele fica parado de direito, e
@@ -879,10 +1011,57 @@
     } catch (_) { return null; }
   }
 
+  // O ANEL DOS QUADROS-CHAVE — o que a poda precisa saber e não sabia.
+  //
+  // `remove(a, b)` da MSE apaga o intervalo pedido E CONTINUA até o próximo
+  // ponto de acesso aleatório (senão sobrariam deltas sem a chave de que
+  // dependem). Cortar num ponto qualquer é, portanto, pedir ao navegador que
+  // decida sozinho até onde ir — e num GOP de ~19 s (ver `JANELA_S`) esse
+  // "sozinho" pode passar por cima do PRESENTE.
+  //
+  // O cliente não precisa supor onde estão as chaves: ele as VÊ passar no fio
+  // (`q.chave`, §5.3). Guardar os últimos carimbos custa um anel de 64 números
+  // e transforma a poda numa operação com destino conhecido.
+  const CHAVES_MAX = 64;
+  const chaves = [];
+
+  function anotarChave(ptsUs) {
+    chaves.push(ptsUs / 1e6);
+    if (chaves.length > CHAVES_MAX) chaves.shift();
+  }
+
+  /** O maior carimbo de quadro-chave em `chaves` que seja ≤ [t]; `null` se não
+   *  houver nenhum — e aí a poda DESISTE, em vez de cortar no escuro. */
+  function chaveAte(t) {
+    let melhor = null;
+    for (let i = 0; i < chaves.length; i++) {
+      if (chaves[i] <= t && (melhor === null || chaves[i] > melhor)) melhor = chaves[i];
+    }
+    return melhor;
+  }
+
   // Uma poda por giro, na faixa que precisar — as duas entram na mesma fila
   // serializada, e o compasso de meio segundo dá conta das duas de sobra.
   function podar(agressiva) {
-    const limite = el.v.currentTime - (agressiva ? GUARDA_S : JANELA_S);
+    const pedido = el.v.currentTime - (agressiva ? GUARDA_S : JANELA_S);
+    // O CORTE CAI NUMA CHAVE, sempre — assim o "próximo ponto de acesso
+    // aleatório" que o algoritmo da MSE persegue é exatamente o ponto onde
+    // paramos, e a remoção não avança um quadro além do pedido.
+    //
+    // Um FIO antes dela, não em cima. O algoritmo da MSE
+    // procura o primeiro ponto de acesso aleatório ≥ `end`: mirando o carimbo
+    // exato, qualquer arredondamento para cima faria a busca pular para a chave
+    // SEGUINTE — e voltaríamos a apagar o presente, só que mais raramente, que
+    // é o pior tipo de defeito. O timescale do vídeo aqui é 1 µs (o carimbo
+    // entra verbatim, ver `fmp4.js`), então 50 ms é folga de sobra.
+    const chave = chaveAte(pedido);
+    const limite = chave === null ? null : chave - TOCA_S;
+    if (limite === null) {
+      // Sem chave conhecida antes do ponto pedido, não há corte seguro. A
+      // janela cresce por mais um giro — memória é barata, projeção não é.
+      podaSemChave++;
+      return false;
+    }
     const alvos = [sbV, sbA];
     for (let i = 0; i < alvos.length; i++) {
       const alvo = alvos[i];
@@ -1083,22 +1262,67 @@
     // maioria das telas) nada muda: o mínimo de um só é ele mesmo.
     const ba = sbA ? faixaDe(sbA) : null;
     const fim = bordaViva(b, ba);
-    const atraso = fim - el.v.currentTime;
+    const agora = el.v.currentTime;
+    const atraso = fim - agora;
 
+    const fv = folgaDoCursor(b, agora);
+    const fa = folgaDoCursor(ba, agora);
     amostrarPiores(
-      Math.round((b.end(b.length - 1) - el.v.currentTime) * 1000),
-      ba && ba.length ? Math.round((ba.end(ba.length - 1) - el.v.currentTime) * 1000) : null
+      fv === null ? null : Math.round(fv * 1000),
+      fa === null ? null : Math.round(fa * 1000)
     );
 
     if (el.v.paused && posicionado) tocar();
 
+    // O ENCALHE — o cursor FORA de qualquer intervalo bufferizado, que é o
+    // congelamento em estado puro: a MSE não toca, `currentTime` não anda, não
+    // há erro, não há evento, e como o cursor não anda ele nunca sai sozinho.
+    //
+    // Até a v5.157 a ÚNICA saída era o `SALTO_S`, e ele só dispara quando a
+    // borda ao vivo abre oito segundos sobre um cursor parado — isto é, a tela
+    // ficava congelada por ~7 s TODA VEZ. Era literalmente o relógio da
+    // recuperação, e foi ele que o operador cronometrou.
+    //
+    // Encalhe é condição OBSERVÁVEL no instante: não precisa de prova por
+    // tempo. Detectá-lo aqui derruba o teto de tela parada de ~7 s para o
+    // compasso, meio segundo.
+    if (posicionado && !el.v.seeking
+        && (indiceNoCursor(b, agora) < 0 || (ba && ba.length && indiceNoCursor(ba, agora) < 0))) {
+      // O destino precisa estar dentro do ÚLTIMO bloco das DUAS faixas: pular
+      // para `fim - ALVO_S` cairia noutro buraco se o bloco vivo começar depois
+      // disso, e o encalhe recomeçaria em meio segundo.
+      let seguro = b.start(b.length - 1);
+      if (ba && ba.length) seguro = Math.max(seguro, ba.start(ba.length - 1));
+      const alvo = Math.max(seguro, Math.min(fim - ALVO_S, fim - TOCA_S));
+      encalhes++;
+      encalhesSeguidos++;
+      dobrarAberto();
+      // Três encalhes seguidos é o destino não estar servindo — a linha do
+      // tempo das duas faixas não se sobrepõe. Insistir seria piscar a projeção
+      // a cada meio segundo; recomeçar limpo custa um piscar e resolve.
+      if (encalhesSeguidos >= 3) { recomecar('o cursor não encontra o fluxo'); return; }
+      try { el.v.currentTime = alvo; } catch (_) {}
+      el.v.playbackRate = 1;
+      zerarPiores();
+      return;
+    }
+    encalhesSeguidos = 0;
+
     if (atraso > SALTO_S) {
       // A recuperação, não a perseguição — ver o comentário de `SALTO_S`.
+      saltos++;
       try { el.v.currentTime = fim - ALVO_S; } catch (_) {}
       el.v.playbackRate = 1;
       // O salto é NOSSO, e por isso apaga o pior caso: ele é a recuperação
-      // funcionando, não o travamento que o operador viu.
+      // funcionando, não o travamento que o operador viu. `zerarPiores` FECHA a
+      // medida em aberto antes de apagá-la — sem isso o travamento que o salto
+      // acabou de encerrar não entrava em número nenhum.
       zerarPiores();
+    } else if (el.v.readyState < 3) {
+      // SEM DADO ADIANTE: acelerar um elemento que não está andando não alcança
+      // nada e deixa 1,08 grudado — e foi assim que o log de aparelho chegou,
+      // com `vel 108%` sobre uma tela parada. Perseguir exige estar andando.
+      el.v.playbackRate = 1;
     } else if (atraso > ALVO_S + TOL_S) {
       el.v.playbackRate = RAPIDO;
     } else if (atraso < ALVO_S - TOL_S) {
@@ -1223,6 +1447,10 @@
    */
   function medidasDaTela() {
     const v = el.v || {};
+    // A MEDIDA EM ABERTO ENTRA NO RELATO. Sem isto, uma tela congelada AGORA
+    // reportaria o pior caso de antes do congelamento — que é exatamente o log
+    // saudável que a v5.157 produziu no meio de um travamento.
+    dobrarAberto();
     const bv = faixaDe(sbV);
     const ba = faixaDe(sbA);
     const agora = v.currentTime || 0;
@@ -1248,8 +1476,13 @@
       fila: fila.length,
       // Folga do cursor até o fim de cada faixa. `-99999` = não há faixa; um
       // NEGATIVO é o cursor fora do buffer, que é o congelamento.
-      vfim: bv ? emMs(bv.end(bv.length - 1) - agora) : -99999,
-      afim: ba ? emMs(ba.end(ba.length - 1) - agora) : -99999,
+      // Folga do cursor até o fim DO BLOCO EM QUE ELE ESTÁ — ver
+      // `folgaDoCursor`. Até a v5.157 era até o fim do ÚLTIMO bloco, e com um
+      // buraco isso media a borda de um bloco onde o cursor nem estava: o log
+      // de aparelho trouxe `readyState 2` ("sem dado adiante") ao lado de
+      // `vfim +3893 ms`, que num buffer contíguo é impossível.
+      vfim: bv ? emMs(folgaDoCursor(bv, agora)) : -99999,
+      afim: ba ? emMs(folgaDoCursor(ba, agora)) : -99999,
       // A janela viva inteira (passado bufferizado), que é o que a poda governa.
       jan: bv ? emMs(bv.end(bv.length - 1) - bv.start(0)) : 0,
       rate: Math.round((v.playbackRate || 0) * 100),
@@ -1276,6 +1509,21 @@
       pc: piorCursor,
       pv: piorVfim === 99999 ? -99999 : piorVfim,
       pa: piorAfim === 99999 ? -99999 : piorAfim,
+      // QUANTOS BLOCOS tem o `buffered` de cada faixa. É o número que separa as
+      // duas causas possíveis do congelamento e que não existia: `1` diz que o
+      // buffer é contíguo e o problema é FOME (o produtor não entregou a
+      // tempo); acima de `1` há BURACO, e a caçada é outra. `-1` = sem faixa.
+      nr: bv ? bv.length : -1,
+      na: ba ? ba.length : -1,
+      // O TOTAL DA SESSÃO — o que responde "trava a cada 7 segundos" com um
+      // número em vez de uma impressão. Estes quatro só zeram em `comecar()`.
+      tt: travouMs,
+      tn: travouN,
+      sal: saltos,
+      enc: encalhes,
+      // Podas recusadas por não haver quadro-chave conhecido antes do corte.
+      // Crescendo sem parar, a janela viva está encostando no GOP.
+      pod: podaSemChave,
     };
   }
 
@@ -1487,6 +1735,10 @@
         if (!q.chave) return;
         esperandoChave = false;
       }
+      // A poda precisa saber onde estão as chaves — ver `anotarChave`. Anotar
+      // aqui, e não no muxer, porque é aqui que se sabe que o quadro foi de
+      // fato ACEITO (o descarte de deltas antes do IDR já passou).
+      if (q.chave) anotarChave(q.pts);
       conta.quadros++;
       tentativa = 0;                      // quadro de verdade: a espera zera
       // E UM TRECHO LONGO decodificado sem recusa é o que zera o contador de
@@ -1698,6 +1950,10 @@
     // achar a parada silenciosa passaria a medir a parada barulhenta.
     zerarPiores();
     armarQuadros();
+    // O anel de chaves é da `MediaSource` que está morrendo: um carimbo antigo
+    // faria a poda mirar um ponto que não está mais no buffer.
+    chaves.length = 0;
+    encalhesSeguidos = 0;
     fila.length = 0;
     // E O QUE AINDA ESTÁ NO FIO TAMBÉM VAI FORA — sem isto o recomeço não
     // recomeça nada, e o defeito é o pior tipo: silencioso e circular.
@@ -1788,6 +2044,15 @@
     vivo = true;
     muxer = global.AVFmp4.criar();
     ultimoAlive = Date.now();
+    // O TOTAL DA SESSÃO nasce aqui, e SÓ aqui: ele existe justamente para
+    // sobreviver aos saltos e às reconexões que zeram o pior caso.
+    travouMs = 0;
+    travouN = 0;
+    saltos = 0;
+    encalhes = 0;
+    encalhesSeguidos = 0;
+    podaSemChave = 0;
+    chaves.length = 0;
     zerarPiores();
     armarQuadros();
     compasso = setInterval(function () {
@@ -1951,6 +2216,14 @@
     // pura, então o teste a prova sem precisar de um AAC que o Chromium do CI
     // não tem.
     bordaViva: bordaViva,
+    // O ENCALHE, pela mesma razão: `indiceNoCursor` é a regra que separa "a
+    // tela está atrasada" de "a tela está PARADA", e toda a v5.158 depende de
+    // ela estar certa. Montar um buraco de verdade no buffer exigiria uma
+    // sequência de fragmentos que o Chromium do CI não decodifica; a regra é
+    // aritmética e se prova com um `TimeRanges` de mentira.
+    indiceNoCursor: indiceNoCursor,
+    folgaDoCursor: folgaDoCursor,
+    medidas: medidasDaTela,
   };
 
   if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', iniciar);

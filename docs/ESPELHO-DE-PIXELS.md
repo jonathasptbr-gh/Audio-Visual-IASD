@@ -1779,6 +1779,88 @@ do operador a disputa, o batimento atrasa, e a folga de 741 ms do cliente acaba.
 para 1,5 s é a resposta óbvia e está **retida de propósito** — aplicá-la agora mascararia a medida
 que acabou de nascer. Primeiro o número, depois a folga.
 
+*(A hipótese acima estava errada — ver §10-A.4. O batimento contribuía, mas a causa era a poda.)*
+
+### 10-A.4 — a poda apagava o PRESENTE, e os "7 segundos" eram o relógio da recuperação (5.158)
+
+O log da v5.157 fechou o caso ao trazer três números incompatíveis no mesmo instantâneo:
+`readyState 2` (**sem dado adiante**) ao lado de `vfim +3893 ms` (**3,9 s bufferizados adiante**),
+com `vel 108%` numa tela que não andava. Num buffer contíguo isso é impossível — logo o buffer não
+era contíguo, ou a folga não media o que dizia medir. Era o segundo caso, e ele levou ao primeiro.
+
+**A causa: `SourceBuffer.remove()` não apaga só o que se pede.** O algoritmo de remoção de quadros
+codificados da MSE, depois de remover o intervalo, **continua apagando até o próximo ponto de acesso
+aleatório** — senão sobrariam quadros delta sem a chave de que dependem. E se não houver ponto de
+acesso aleatório depois do fim pedido, o `remove end timestamp` vira a **duração**, isto é: apaga
+até o fim de tudo.
+
+Agora a aritmética do espelho:
+
+- `JANELA_S` era **5 s**, e `I_FRAME_S` do `EspelhoCodec` também é 5 — mas em **contagem de
+  quadros**: o framework converte `KEY_I_FRAME_INTERVAL` por `KEY_FRAME_RATE`, declarado 30. São
+  **150 quadros** entre chaves.
+- Numa cena de letra o produtor entrega ~8 quadros por segundo. 150 quadros = **~19 segundos de
+  parede** entre um IDR e o próximo.
+- `podar()` chamava `remove(0, currentTime - 5)` com o próximo IDR até 19 s à frente. A MSE apagava
+  de `currentTime - 5` **até esse IDR** — isto é, **o presente e os próximos catorze segundos**.
+- O cursor ficava fora de qualquer bloco: a MSE não toca, `currentTime` não anda, **não há erro e
+  não há evento**. E como o cursor não anda, ele nunca sai sozinho.
+- A única saída era `if (atraso > SALTO_S)` com `SALTO_S = 8`: a borda ao vivo precisava abrir oito
+  segundos sobre um cursor parado. Partindo da folga de regime (0,35–0,85 s), isso leva **7,15 a
+  7,65 s**.
+
+**Os "trava a cada 7 segundos" nunca foram o defeito: eram o RELÓGIO DA RECUPERAÇÃO**, uma constante
+do cliente. E o ciclo fecha: recuperado o cursor, o buffer volta a acumular passado, em ~5 s a poda
+roda de novo, e tudo se repete. Também explica por que **vídeo real trava menos** — a 30 fps, 150
+quadros são 5 s de parede, praticamente a janela, e a remoção quase não passa do pedido.
+
+Quatro correções, e cada uma fecha um degrau diferente:
+
+- **A poda corta EM CIMA DE UMA CHAVE que o cliente viu passar.** Ele não precisa supor onde elas
+  estão: `q.chave` chega no fio (§5.3), e um anel de 64 carimbos basta. `limite` passa a ser a maior
+  chave ≤ o ponto pedido, **menos 50 ms** — mirando o carimbo exato, qualquer arredondamento para
+  cima faria a MSE pular para a chave SEGUINTE, e voltaríamos a apagar o presente, só que mais
+  raramente, que é o pior tipo de defeito. Sem chave conhecida, a poda **desiste** (`pod` conta) e a
+  janela cresce por mais um giro: memória é barata, projeção não é.
+- **`JANELA_S` 5 → 12 s** e **`GUARDA_S` 2 → 6 s**, para a janela caber um GOP com folga mesmo antes
+  de a primeira chave nova aparecer.
+- **O ENCALHE é detectado no instante.** Cursor fora de qualquer bloco é condição **observável**, não
+  algo que precise de oito segundos de prova: `indiceNoCursor` < 0 em qualquer faixa dispara o salto
+  na mesma volta do compasso. O teto de tela congelada cai de ~7 s para meio segundo. O destino é o
+  começo do **último bloco das duas faixas** (pular para `fim − ALVO_S` cairia noutro buraco), e três
+  encalhes seguidos viram `recomecar` — insistir seria piscar a projeção a cada meio segundo.
+  Com isso `SALTO_S` volta a ser o que ele diz ser (a aba que ficou congelada) e cabe em **4 s**.
+- **`ALVO_S` 0,6 → 1,5 s**, agora sim: ele era o orçamento inteiro da tela contra um soluço do
+  celular, e um bloqueio de 600 ms na main thread do Blink o esgotava. `TOL_S` **não** acompanha —
+  alargá-la para 0,5 poria o cursor a 100 ms de uma borda que o próprio encoder deixa 150 ms sem
+  andar, reabrindo o engasgo da v5.155. Junto, uma linha defensiva: `playbackRate = 1` quando
+  `readyState < 3`, porque acelerar um elemento parado não alcança nada e foi assim que o log chegou
+  (`vel 108%` sobre uma tela congelada).
+
+**E a medida da v5.157 estava quebrada — isto vem antes de tudo.** `pq` ("maior parada de imagem")
+só era escrito **dentro** do callback de `requestVideoFrameCallback`: durante o congelamento nada é
+comparado, e o intervalo só nasceria no quadro que ENCERRA a parada. Só que `zerarPiores()` escreve
+`ultimoQuadroMs = Date.now()` e é chamado **pelo salto que encerra a parada** — todo travamento
+resolvido por salto contribuía **zero**. A primeira linha que o operador lia dizia "0,3 s" sobre uma
+tela que ele viu congelar por segundos. Agora o intervalo **em aberto** entra na medida a cada
+compasso e antes de cada zeragem (`dobrarAberto`, sob guarda de `vfcArmado` — sem ela, uma TV sem
+`rVFC` trocaria o sentinela honesto `-1` por "tempo desde que liguei").
+
+E `pv`/`pa` "nunca ficaram negativas" era **tautologia**: medidas contra `end(length − 1)`, elas não
+podem ser negativas enquanto existir qualquer bloco à frente. `folgaDoCursor` passa a medir até o fim
+**do bloco em que o cursor está**, e devolve negativo num buraco — que é o que o KDoc de
+`medidasDe` sempre prometeu e a geometria antiga nunca produzia.
+
+Sete campos novos no relato, e cada um decide alguma coisa: `nr`/`na` (quantos blocos tem cada
+faixa — `1` é fome, acima de `1` é buraco), `tt`/`tn` (o total da sessão, que sobrevive aos saltos e
+responde "trava a cada 7 segundos" com um número), `sal`/`enc` (as duas recuperações, contadas à
+parte porque têm causas diferentes) e `pod`.
+
+**Divisão de entrega:** a correção inteira é `cliente.js`, isto é, **OTA** — e `vfim`/`afim` já são
+campos conhecidos, então a folga honesta chega sozinha. Os sete campos novos passam pela lista fixa
+de `EspelhoServidor.medidasDe` e **exigem o APK**; num shell anterior são descartados em silêncio e
+as linhas simplesmente não são desenhadas.
+
 ---
 
 ## 11. A FRASE PARA O OPERADOR
