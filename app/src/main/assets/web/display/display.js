@@ -2042,8 +2042,36 @@ if (ESPELHO) {
       && (videoEl.videoWidth | 0) > 0 && (videoEl.readyState | 0) >= 2;
   };
 
+  // O BATIMENTO NUNCA PARA — ele DIMINUI. E esta é uma correção da v5.157.
+  //
+  // Aquela versão fez o batimento CEDER A VEZ ao conteúdo, e o ganho era real
+  // (quadros descartados de 7% para 1,6%). Mas ela transformou um PISO em uma
+  // condição — e um piso com condição não é piso.
+  //
+  // O que quebrou, medido em aparelho: `requestVideoFrameCallback` dispara por
+  // quadro que o ELEMENTO apresenta, não por mudança na TELA VIRTUAL. Um vídeo
+  // tocando por baixo da cortina, do wallpaper ou da Camada de Texto (a cena
+  // "Sorteio" do relato) continua apresentando quadros que não mudam um pixel
+  // do que vai ao encoder. O batimento se cala, nada mais compõe, e o Registro
+  // mostrou o desfecho com todas as letras: `0 kbps · 0 fps` e o alarme
+  // "ISTO É UM RETÂNGULO PRETO". Com o vídeo parado o áudio seguiu sozinho, e
+  // as duas linhas do tempo abriram 35 SEGUNDOS uma da outra.
+  //
+  // Perguntar "o conteúdo está visível?" seria empilhar mais uma condição sobre
+  // a mesma aposta — e é uma aposta sobre cortina, fade, `object-fit`, rotação
+  // e a Camada de Texto, isto é, sobre todo o motor de cena. A resposta certa é
+  // não apostar: o batimento continua sempre, e o que muda é a CADÊNCIA. A um
+  // quarto do ritmo ele mantém a fase longe dos 30 fps do conteúdo (que era o
+  // ganho da v5.157) e mantém o piso de quadros (que era o ponto de existir).
+  //
+  // Preto de segurança: mesmo no ritmo reduzido, oito segundos sem quadro
+  // nenhum seria o `REPETIR_APOS_US` do `EspelhoCodec` sozinho segurando a
+  // projeção, e ele repete no máximo dez vezes.
+  const ESPELHO_BATIMENTO_LENTO = 4;      // uma batida a cada quatro, com conteúdo
+  let giro = 0;
   setInterval(() => {
-    if (conteudoAnda()) return;
+    giro++;
+    if (conteudoAnda() && (giro % ESPELHO_BATIMENTO_LENTO)) return;
     claro = !claro;
     pulso.style.background = claro ? '#010101' : '#000000';
   }, ESPELHO_BATIMENTO_MS);
