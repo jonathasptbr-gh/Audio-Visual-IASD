@@ -2344,11 +2344,27 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.167** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
+**Versão atual: v5.168** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
+> **A v5.168 DESFAZ metade da v5.157, e a lição é sobre PISOS.** O batimento de
+> 8 Hz do papel espelho passou a "ceder a vez ao conteúdo", e o ganho era real
+> (quadros descartados de 7% para 1,6%) — mas transformou um **piso** numa
+> **condição**, e um piso com condição não é piso. Em aparelho:
+> `ritmo: 0 kbps · 0 fps` com o alarme "ISTO É UM RETÂNGULO PRETO", numa cena de
+> Sorteio. A causa: `requestVideoFrameCallback` dispara por quadro que o
+> ELEMENTO apresenta, não por mudança na TELA VIRTUAL — um vídeo tocando por
+> baixo da cortina, do wallpaper ou da Camada de Texto continua apresentando
+> quadros que não mudam um pixel do que vai ao encoder. Com o vídeo parado o
+> áudio seguiu sozinho e as duas linhas do tempo abriram **35 segundos** uma da
+> outra. Perguntar "o conteúdo está visível?" seria empilhar outra aposta sobre
+> cortina, fade, `object-fit`, rotação e Camada de Texto; a resposta é não
+> apostar — **o batimento nunca para, ele DIMINUI** (uma batida a cada quatro
+> com conteúdo em cena). Mantém a fase longe dos 30 fps, que era o ganho, e
+> mantém o piso, que era o motivo de existir. OTA puro.
+>
 > **O APP ESTÁ EM ALFA FECHADO.** Um operador, um aparelho, e o APK sai por
 > Release do GitHub. Isso muda o peso da retrocompatibilidade: **não é preciso
 > sustentar shell antigo indefinidamente**. Um método novo da ponte pode
