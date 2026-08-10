@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.179';
+const WEB_VERSION = '5.180';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -1835,7 +1835,8 @@ let filaPreviewTimer = null;
 function drenarPreview(tudo) {
   const agora = Date.now();
   while (filaPreview.length && (tudo || filaPreview[0].em <= agora)) {
-    aplicarNaPreview(filaPreview.shift().obj);
+    const passo = filaPreview.shift();
+    aplicarNaPreview(passo.obj, passo.item);
   }
   clearTimeout(filaPreviewTimer);
   filaPreviewTimer = null;
@@ -1865,34 +1866,44 @@ function cmd(obj) {
   // Escondida, a preview aplica na hora: é a posição mais próxima da verdade
   // que ela pode ocupar, e é dela que o realinhamento da retomada parte.
   const atraso = document.visibilityState === 'visible' ? previewAtrasoMs() : 0;
-  if (atraso <= 0) { drenarPreview(true); aplicarNaPreview(obj); return; }
-  filaPreview.push({ obj: obj, em: Date.now() + atraso });
+  if (atraso <= 0) { drenarPreview(true); aplicarNaPreview(obj, currentItem); return; }
+  // O ITEM VIAJA COM O COMANDO (v5.180). `aplicarNaPreview` lia `currentItem`
+  // no instante do DRENO, e o dreno acontece até 2,5 s depois: dois toques
+  // dentro da janela do atraso (trocar de música, ou errar a linha e corrigir)
+  // faziam o `load` de A ser aplicado com o item B na mão — a preview montava a
+  // mídia certa pelo `mediaId` e decidia LETRA, YouTube e "mantém o texto?" pelo
+  // item errado. O comando é do passado por construção; o estado que ele carrega
+  // tem de ser o daquele passado também.
+  filaPreview.push({ obj: obj, item: currentItem, em: Date.now() + atraso });
   if (filaPreview.length > FILA_PREVIEW_MAX) { drenarPreview(true); return; }
   if (!filaPreviewTimer) drenarPreview(false);
 }
 
-function aplicarNaPreview(obj) {
+// `item` é o `currentItem` DE QUANDO O COMANDO SAIU, não o de agora — ver a
+// fila em `cmd`. Só ele: `pvTextActive` é estado da PRÓPRIA preview e já vive na
+// linha do tempo atrasada dela, então lê-se no dreno mesmo.
+function aplicarNaPreview(obj, item) {
   // O tempo volta a correr: destrava a letra congelada pelo fim natural.
   if (obj.type === 'load' || obj.type === 'play' || obj.type === 'seek') pvLyricsEnded = false;
   // Texto manual (Bíblia/Mensagem): overlay independente — espelha na preview.
   if (obj.type === 'text') { showPvText(obj); return; }
   if (obj.type === 'text-hide') { hidePvText(); return; }
-  const nowYoutube = !!(currentItem && currentItem.kind === 'youtube');
+  const nowYoutube = !!(item && item.kind === 'youtube');
   if (obj.type === 'load') {
     // Esconde a letra incondicionalmente (como o Display). O texto manual é um
     // overlay independente: só some ao carregar VISUAL; ÁUDIO toca por baixo e
     // mantém o texto (independência áudio × texto).
     hidePvLyrics(true);
-    const keepText = pvTextActive && currentItem && currentItem.kind === 'audio';
+    const keepText = pvTextActive && item && item.kind === 'audio';
     if (!keepText) hidePvText(false); // o load abaixo já monta a cena nova
     // preview.handle() sempre roda primeiro: mantém preview.getCurrent()/
     // fallback de thumbnail em dia (stage.js já sabe lidar com kind=youtube,
     // só não toca o vídeo) — mesmo quando o player real assume por cima.
     preview.handle(obj);
-    if (nowYoutube) loadYtPreview(currentItem, obj.view);
+    if (nowYoutube) loadYtPreview(item, obj.view);
     else if (ytPreview) dropYtPreview();
     // Só mostra a letra do áudio se NÃO houver texto manual em cena (precedência).
-    if (!keepText && currentItem && currentItem.kind === 'audio' && Array.isArray(currentItem.lyrics) && currentItem.lyrics.length) showPvLyrics(currentItem);
+    if (!keepText && item && item.kind === 'audio' && Array.isArray(item.lyrics) && item.lyrics.length) showPvLyrics(item);
     return;
   }
   if (obj.type === 'clear') {
@@ -11109,10 +11120,6 @@ async function playSongVariant(coll, s, variant) {
 // da música (`setSongRowBusy`), que fica à vista porque o acervo continua
 // aberto de propósito. O aviso que sobra é o do RESULTADO ("Adicionado à
 // playlist"), que é outra informação.
-async function addSongVariant(coll, s, variant, btn) {
-  return addSongToDestinos(coll, s, variant, ['cronograma'], btn);
-}
-
 // UM download, VÁRIAS listas (v5.141). O caro aqui é `resolveSongMediaId` — ele
 // baixa o áudio quando ele ainda não está no aparelho —, e o item resultante é
 // o MESMO id em todas as listas. Fazer a conta uma vez e distribuir depois é a
@@ -11313,6 +11320,12 @@ function somDaTela(c) {
 // os decora; e a diferença entre 2 e 4 é exatamente a diferença entre "sem
 // dado" e "tocando com folga", que é a pergunta.
 const MIRROR_RS = ['SEM DADO', 'so metadados', 'SEM DADO ADIANTE', 'tem o proximo', 'tem folga'];
+// E o `networkState`, que a tela media e o servidor transportava desde a v5.156
+// sem NINGUÉM o desenhar (v5.180). Ele é a outra metade da pergunta: `rs` diz
+// quanto dado o elemento tem, `ns` diz se ele ainda está ligado numa fonte.
+// `SEM FONTE` com `rs` em `SEM DADO` é a `MediaSource` que nunca foi anexada ou
+// que já se desprendeu — outro defeito, e outra correção, que "faminto".
+const MIRROR_NS = ['vazio', 'ocioso', 'buscando', 'SEM FONTE'];
 
 /**
  * O QUE A TELA MEDIU DE SI, em duas ou três linhas.
@@ -11360,6 +11373,9 @@ function linhasDaTela(v) {
     : 'nao informado';
   out.push('decodificador: ' + perdidos + ' perdido(s)'
     + ' · estado ' + (MIRROR_RS[v.rs | 0] || v.rs)
+    // `-1` é "esta tela não informou" (shell/bundle anterior): a linha some, em
+    // vez de escrever um "-1" que não quer dizer nada — é a regra do bloco.
+    + ((v.ns | 0) >= 0 ? ' · fonte ' + (MIRROR_NS[v.ns | 0] || (v.ns | 0)) : '')
     + ' · vel ' + (v.rate | 0) + '%'
     + ' · fila de append ' + (v.fila | 0));
   out.push('recebeu: ' + (v.q | 0) + ' quadro(s), ' + (v.qa | 0) + ' de som'
