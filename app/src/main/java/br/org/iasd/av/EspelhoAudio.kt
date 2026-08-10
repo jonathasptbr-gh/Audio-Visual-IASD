@@ -331,7 +331,39 @@ class EspelhoAudio(
             // espelho (`createMediaElementSource` é porta de mão única), então
             // uma segunda configuração é sinal de recarga da página — e aí o
             // caminho certo é soltar e instalar de novo.
-            return if (sr == taxa && ch == canais) null else "encoder ja ligado em $taxa Hz"
+            if (sr != taxa || ch != canais) return "encoder ja ligado em $taxa Hz"
+            // E CHEGAR AQUI É A PÁGINA TENDO RENASCIDO — reancore (v5.181).
+            //
+            // Este ramo devolvia "ok" sem tocar em nada, e o preço era uma
+            // defesagem A/V **permanente**, do tamanho do buraco, que ACUMULA.
+            //
+            // Os dois eixos são de naturezas diferentes por desenho: o vídeo é
+            // `brutoUs - baseUs` (relógio monotônico, anda sozinho) e o áudio é
+            // `ancoraUs + amostras * 1e6 / taxa` (CONTAGEM DE AMOSTRAS, só anda
+            // quando chega PCM). Numa remontagem do WebView do espelho — OOM do
+            // renderer, `ERROR_RECLAIMED`, a Presentation recriada — o
+            // `AudioWorklet` morre e por alguns segundos nenhum bloco chega. O
+            // vídeo não para: o preto e o carregamento da página compõem, e os
+            // carimbos vêm do relógio. A página volta, cai aqui, e daí em diante
+            // **todo quadro AAC sai carimbado N segundos no passado**.
+            //
+            // Como a borda ao vivo do cliente é o MÍNIMO das duas faixas, a
+            // projeção inteira passa a ser exibida N segundos atrás do vivo. Um
+            // segundo buraco soma; cruzados os 3 s de `ATRASO_AUDIO_S`, o
+            // cliente solta a faixa, remonta contra a MESMA defasagem, e ao
+            // terceiro desiste: **muda pelo resto do culto, com a imagem
+            // seguindo**.
+            //
+            // O KDoc de `ptsAgora` diz "nunca há reancoragem", e ele está certo
+            // sobre o caso que descreve: reancorar NO MEIO do fluxo abre buraco
+            // no `buffered`. Este não é aquele caso — aqui o fluxo já foi
+            // interrompido pela morte do worklet, e o `fmp4.js` costura o salto
+            // esticando a duração da amostra anterior (`dur = pts - anterior`,
+            // sem teto), então o `buffered` continua sendo um intervalo só.
+            amostras.set(0)
+            ancorado = false
+            registrar("audio: a pagina renasceu — eixo do som reancorado")
+            return null
         }
         if (sr !in TAXAS_AAC) return "taxa de amostragem nao suportada: $sr"
         if (ch !in 1..2) return "numero de canais invalido: $ch"
@@ -500,9 +532,15 @@ class EspelhoAudio(
      * do áudio é o intervalo do pulso, e não há aviso automático.
      *
      * Daí em diante o tempo anda por CONTAGEM DE AMOSTRAS, não por relógio: a
-     * taxa do worklet é a do hardware de áudio, e é ela que manda. E **nunca há
-     * reancoragem**: um `tfdt` que salte para a frente abre buraco no
-     * `buffered`, e navegador **para em buraco**.
+     * taxa do worklet é a do hardware de áudio, e é ela que manda.
+     *
+     * **Não há reancoragem NO MEIO DO FLUXO** — um `tfdt` que salte para a
+     * frente com a faixa correndo abre buraco no `buffered`, e navegador para em
+     * buraco. Há exatamente UMA reancoragem, e ela é o oposto disso: a página do
+     * espelho tendo RENASCIDO (ver [ligarEncoder], v5.181), quando o fluxo já
+     * foi interrompido pela morte do `AudioWorklet` e o eixo do som ficou
+     * parado enquanto o do vídeo seguiu andando. Sem ela a defasagem é
+     * permanente e ACUMULA, até a tela ficar muda com a imagem seguindo.
      */
     private fun ptsAgora(): Long {
         if (!ancorado) {

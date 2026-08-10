@@ -1969,9 +1969,17 @@ async function espelhoAudioIniciar() {
 // NÃO se manda `{"fim":true}` no `pagehide`, e a omissão é deliberada: numa
 // remontagem do WebView o encoder do Kotlin continua de pé, e a página que
 // renasce reconfigura com a MESMA taxa e o mesmo número de canais — caso em que
-// `ligarEncoder` devolve `ok` sem reiniciar nada, preservando o eixo de tempo
-// do áudio. Soltar aqui trocaria uma recuperação transparente por um corte. O
-// `fim` é do operador fechando o espelho, e quem o dá é o lado Kotlin.
+// `ligarEncoder` devolve `ok` sem reiniciar o encoder. Soltar aqui trocaria uma
+// recuperação transparente por um corte. O `fim` é do operador fechando o
+// espelho, e quem o dá é o lado Kotlin.
+//
+// O QUE MUDOU NA v5.181: aquele caminho **reancora o eixo do som**, e é ele que
+// consertava. Este comentário dizia que ele "preservava o eixo de tempo do
+// áudio", e preservava mesmo — só que o eixo do áudio é CONTAGEM DE AMOSTRAS e
+// não anda sem PCM, enquanto o do vídeo é relógio e anda sozinho. Preservá-lo
+// através de uma remontagem era, portanto, guardar uma defasagem permanente do
+// tamanho do buraco — que ACUMULA e acaba deixando a tela muda. Ver o KDoc de
+// `EspelhoAudio.ligarEncoder`.
 espelhoAudioIniciar();
 
 // ---------- O BATIMENTO DO ESPELHO ----------

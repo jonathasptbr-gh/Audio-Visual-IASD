@@ -2418,10 +2418,69 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.181** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
+**Versão atual: v5.182** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.182 (v1.72): A ESTABILIDADE DO ESPELHO, SEGUNDA METADE — e esta
+> EXIGE INSTALAR O APK.** Três das seis falhas Kotlin da mesma varredura. As
+> outras três são de REDE e ficaram de fora de propósito: elas mexem no único
+> código que decide se o socket sobe e onde, e a regra de calendário deste
+> documento manda testar isso numa terça-feira.
+>
+> - **O ENCODER MORRENDO DESLIGAVA O ESPELHO PELA METADE.** `EspelhoDisplay` só
+>   sabe da tela virtual, do encoder e da janela; quem derruba servidor, mDNS,
+>   pareamento e serviço é o `desmontarEspelho` da `MainActivity`, e os três
+>   chamadores dele (`stopMirror`, `onDestroy`, `EspelhoService.onGone`) **não
+>   incluíam nenhum dos SEIS caminhos de auto-desligamento**. O que sobrava, num
+>   culto sem TV em que as telas da rede SÃO a projeção: socket escutando,
+>   `av.local` publicado, notificação dizendo "no ar", e três telas com o
+>   `GET /v` aberto recebendo zero byte — congelam, o vigia aborta aos 20 s,
+>   reconectam, e o pedido de IDR cai num `codec` nulo. **Telas pretas
+>   reconectando pelo resto do culto**, e religar falhava no bind porque o
+>   socket antigo seguia em LISTEN: irrecuperável sem matar o processo. Agora os
+>   seis passam por um funil (`desligarSozinho`) que avisa a Activity —
+>   `desmontarEspelho()`, **nunca `stopMirror()`**, que reentraria em
+>   `desligar()`. O callback é limpo no `onDestroy` porque `EspelhoDisplay` é um
+>   `object` que sobrevive à Activity: esquecê-lo lá reteria a Activity inteira.
+>   De brinde, os dois caminhos de falha do `startMirror` deixavam o `av.local`
+>   publicado apontando para uma porta que não atende.
+> - **O GOP NÃO TINHA TETO EM SEGUNDOS.** `KEY_I_FRAME_INTERVAL` é **contagem de
+>   quadros** (o framework o multiplica por `KEY_FRAME_RATE`), então `I_FRAME_S`
+>   = 2 são 60 quadros — o que só vira "2 segundos" quando a fonte entrega 30
+>   fps. E a fonte é o batimento do `display.js`, que **muda de cadência
+>   conforme a cena**: 8 Hz parada (7,5 s) e, desde a v5.168, um quarto disso
+>   quando há conteúdo apresentando quadros que não mudam pixel nenhum da tela
+>   virtual — **30 s**, contra a `JANELA_S` de 12 s do cliente. É a aritmética
+>   da §10-A.5 de volta por outra porta, e a v5.168 é a única mudança do espelho
+>   sem seção própria na §10-A, que é como ela atravessou. A correção não é
+>   mexer no batimento (já tentado duas vezes): é **parar de depender dele** —
+>   `garantirChavePorRelogio` pede uma chave passados 6 s de parede sem
+>   nenhuma. Em cena com movimento ela nunca dispara; em cena parada ela é o
+>   único motivo de existir uma chave. E imuniza contra a próxima vez que
+>   alguém mexer na cadência da fonte.
+> - **TODA REMONTAGEM DO WEBVIEW INJETAVA DEFASAGEM A/V PERMANENTE, E ELA
+>   ACUMULAVA.** Os dois eixos são de naturezas diferentes por desenho: o vídeo
+>   é relógio monotônico (anda sozinho) e o áudio é CONTAGEM DE AMOSTRAS (só
+>   anda com PCM chegando). Numa remontagem — OOM do renderer, `ERROR_RECLAIMED`
+>   — o `AudioWorklet` morre por alguns segundos enquanto o vídeo segue
+>   compondo; a página volta, `ligarEncoder` devolvia "ok" sem tocar em nada, e
+>   **todo quadro AAC dali em diante saía carimbado N segundos no passado**.
+>   Como a borda ao vivo do cliente é o MÍNIMO das duas faixas, a projeção
+>   inteira passava a ser exibida N segundos atrás; um segundo buraco somava, e
+>   cruzados os 3 s o cliente soltava a faixa, remontava contra a MESMA
+>   defasagem e ao terceiro desistia — **muda pelo resto do culto, com a imagem
+>   seguindo**. O KDoc de `ptsAgora` dizia "nunca há reancoragem" e estava certo
+>   sobre o caso dele (reancorar no MEIO do fluxo abre buraco no `buffered`);
+>   este é o oposto — o fluxo já foi interrompido, e o `fmp4.js` costura o salto
+>   esticando a amostra anterior. Os dois comentários que afirmavam o contrário
+>   (`ptsAgora` e o `pagehide` do `display.js`) foram corrigidos junto, senão a
+>   próxima leitura desfaz isto.
+>
+> `SHELL_VERSION` **não sobe**: nenhum método da ponte nasceu nem mudou de
+> assinatura. O que muda é comportamento nativo interno — e por isso a v5.182
+> **precisa de Release**, ou o operador fica com o bundle novo e o shell velho.
 
 > **A v5.181: A ESTABILIDADE DO ESPELHO, PRIMEIRA METADE (a que chega por
 > OTA).** Uma varredura de 36 agentes sobre o sistema de conexão — sete
