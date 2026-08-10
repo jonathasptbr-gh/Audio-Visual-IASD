@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.178';
+const WEB_VERSION = '5.179';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -1940,6 +1940,14 @@ function previewTick() {
   // só dirige a UI/letra na ausência dele; enquanto ele estiver ativo, quem
   // atualiza tudo isso é o handler de 'display-status' (AVDB.onCommand).
   if (displayActive()) return;
+  // MÍDIA FORA DE CENA NÃO PINTA TRANSPORTE (v5.179) — a outra metade da guarda
+  // do handler de `display-status`, e ela precisa estar nos DOIS lugares porque
+  // são duas fontes independentes: sem telão nem espelho, quem alimenta a barra
+  // é este tick. `preview.getCurrent()` continua devolvendo o registro durante
+  // todo o esmaecimento do `clearFaded` (é o mesmo fato que o comentário de
+  // `midiaNoAr` descreve para o ▶), então o Parar zerava a barra e o tick
+  // seguinte a repunha no ponto antigo, com o ícone de pausa de volta.
+  if (!midiaNoAr) return;
   setPlaying(preview.isPlaying());
   const dur = preview.getDuration();
   durTimeEl.textContent = fmtTime(dur);
@@ -15968,6 +15976,24 @@ AVDB.onCommand((msg) => {
     // display-status ainda em trânsito reportando o player antigo tocando —
     // senão o ícone voltaria a "pause" e o ▶ (que deve recarregar) quebraria.
     if (isYoutube && ytEnded) return;
+    // E A MÍDIA LOCAL TEM A MESMA REGRA (v5.179) — era ela o "o Parar só
+    // funciona no SEGUNDO toque".
+    //
+    // A guarda acima cobria só o YouTube. Um `clear`/`media-clear` de mídia
+    // comum ESMAECE antes de sair de cena (`clearFaded`/`fadeOutToBlack`,
+    // ~0,6 s), e nesse intervalo o `<video>` do telão CONTINUA tocando: a rampa
+    // é de volume, não de pausa. Cada `display-status` do fade chegava aqui com
+    // `playing: true` e o tempo antigo e reescrevia, a ~4 Hz, exatamente a UI que
+    // `pararMidia` acabara de zerar — a barra voltava ao meio, o seek era
+    // reabilitado e o ▶ não aparecia. O segundo toque só "funcionava" porque a
+    // essa altura a mídia já saíra e ninguém mais reportava aquele `mediaId`.
+    //
+    // `midiaNoAr` é a pergunta certa, e já existe desde a v5.142: ele cai no
+    // INSTANTE do stop, enquanto `currentId` sobrevive de propósito (é o que
+    // permite ao ▶ repetir a faixa) — e é por isso que o filtro por `mediaId`
+    // logo acima deixava tudo isto passar. Um status sobre uma mídia que não
+    // está mais em cena é passado, e passado não pinta transporte.
+    if (!midiaNoAr) return;
     // O TELÃO TEM PRECEDÊNCIA — ver "A REFERÊNCIA". Com os dois no ar, o que a
     // congregação vê é a TV, e o espelho vira ruído a ~4 Hz numa barra que
     // andaria para a frente e para trás.

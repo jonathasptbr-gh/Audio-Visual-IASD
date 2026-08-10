@@ -263,6 +263,44 @@ await telao.waitForFunction(
 const depoisDoClear = await telao.evaluate(() => document.getElementById('text').hidden);
 checar(depoisDoClear, 'e o `clear` segue encerrando a CENA INTEIRA — ele não virou por camada');
 
+// 5-B. E O TELÃO VAZIO DIZ QUE ESTÁ VAZIO (v5.179).
+//
+//    O `clear` esmaece por ~0,6 s antes de sair de cena, e durante a rampa o
+//    `<video>` CONTINUA tocando (ela é de volume, não de pausa): cada
+//    `display-status` do fade contava, com `playing: true` e o tempo antigo, uma
+//    cena que o operador acabara de encerrar. No Controle isso repintava a barra
+//    e o ícone que o Parar tinha acabado de zerar — o "o Parar só funciona no
+//    segundo toque" —, e na NOTIFICAÇÃO era pior, porque ali não há segundo
+//    toque: o `snoopDisplayStatus` do Kotlin lê este mesmo status de passagem.
+//
+//    A guarda cala o fade e emite UM status final com o stage já limpo. É esse
+//    último que este caso mede: sem ele, o derradeiro a viajar seria o do começo
+//    do fade, dizendo "tocando".
+//    A janela do fade não é observável daqui — sem mídia de verdade em cena o
+//    `clear` resolve num piscar, e com mídia seria preciso um vídeo tocando num
+//    Chromium de CI. Então o caso exercita o MECANISMO, com uma promise que ele
+//    controla: enquanto ela não resolver, o telão está saindo de cena, e um
+//    `sendStatus()` (que é literalmente o que o `onTime` do stage chama a cada
+//    quadro) não pode produzir mensagem nenhuma.
+await espiao.evaluate(() => { window.__vistos.length = 0; });
+const mecanismo = await telao.evaluate(async () => {
+  if (typeof aoSairDeCena !== 'function') return 'sem a guarda';
+  let soltar;
+  aoSairDeCena(new Promise((r) => { soltar = r; }));
+  sendStatus();                       // o quadro do meio do fade
+  await new Promise((r) => setTimeout(r, 150));
+  soltar();                           // o fade acabou: o palco está limpo
+  await new Promise((r) => setTimeout(r, 150));
+  return 'ok';
+});
+const doFade = await espiao.evaluate(
+  () => window.__vistos.filter((c) => c && c.type === 'display-status'),
+);
+checar(mecanismo === 'ok', 'o telão sabe dizer que está SAINDO de cena (`aoSairDeCena`)', mecanismo);
+checar(doFade.length === 1 && !doFade[0].mediaId && !doFade[0].playing,
+  'e o `sendStatus` do meio do fade não viaja: sai UM status só, o do palco VAZIO',
+  JSON.stringify(doFade));
+
 //    A mensagem volta para os passos de medida abaixo (é a única forma de o
 //    `#textMain` ter tamanho).
 await espiao.evaluate(() => window.__mandar({

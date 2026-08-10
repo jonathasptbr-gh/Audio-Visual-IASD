@@ -81,8 +81,43 @@ window.addEventListener('pagehide', () => diag('pagehide'));
 window.addEventListener('freeze', () => diag('congelou'));
 window.addEventListener('resume', () => diag('descongelou'));
 
+// ===== O TELÃO QUE ESTÁ SAINDO DE CENA NÃO REPORTA (v5.179) =====
+//
+// É o par local do `yt.stopping`, e ele faltava desde sempre. `clear` e
+// `media-clear` ESMAECEM antes de sair (`clearFaded`/`fadeOutToBlack`, ~0,6 s), e
+// nesse intervalo o `<video>` continua tocando — a rampa é de volume, não de
+// pausa —, então `onTime` seguia disparando e cada `display-status` do fade
+// contava, com `playing: true` e o tempo antigo, uma cena que o operador acabou
+// de encerrar. Do lado do Controle isso repunha a barra e o ícone de pausa que o
+// Parar tinha acabado de zerar (daí o "só funciona no segundo toque"); e do lado
+// da NOTIFICAÇÃO era pior, porque ali não há segundo toque — o
+// `snoopDisplayStatus` do Kotlin lê este mesmo status de passagem e deixava o
+// cartão de mídia anunciando "tocando" sobre um telão vazio, até a cena seguinte.
+//
+// Corrigir na FONTE é o que fecha os dois consumidores de uma vez, e sem APK.
+//
+// É um CONTADOR, e não um booleano: dois clears sobrepostos (o operador toca
+// duas vezes, ou um `media-clear` chega em cima de um `clear`) fariam o primeiro
+// a terminar liberar o segundo. Um `load` que chegue durante o fade cancela o
+// clear pelo `loadSeq` do stage, mas a promise dele resolve do mesmo jeito — e é
+// por isso que o decremento mora no `then`, nunca num ponto de sucesso.
+let saindoDeCena = 0;
+function aoSairDeCena(p) {
+  saindoDeCena++;
+  Promise.resolve(p).catch(() => {}).then(() => {
+    if (--saindoDeCena) return;
+    // E O TELÃO VAZIO É DITO UMA VEZ, agora que ele é verdade. Sem esta linha o
+    // último status a viajar seria o do começo do fade — `playing: true` —, e a
+    // notificação (que não tem o `midiaNoAr` do Controle para se defender)
+    // ficaria com ele. `sendStatus` lê o stage já limpo: `mediaId: null`,
+    // `playing: false`.
+    sendStatus();
+  });
+}
+
 function sendStatus() {
   if (yt) return; // com YouTube ativo o status tem fluxo próprio (ytStatus)
+  if (saindoDeCena) return; // ver acima: o que ele reportaria aqui é passado
   // No fim natural o stage zera o currentTime (preparando o replay) e continua
   // emitindo tempo: seguir isso re-renderizaria o slide 0 e a CAPA do hino
   // piscava por um instante antes do wallpaper cobrir. Terminado, a letra
@@ -1454,7 +1489,7 @@ AVDB.onCommand(async (cmd) => {
     hideLyrics(true);
     if (yt) stopYoutube();
     else ++ytSeq;
-    stage.handle({ type: textActive ? 'clear-media' : 'clear' });
+    aoSairDeCena(stage.handle({ type: textActive ? 'clear-media' : 'clear' }));
     return;
   }
   // Enquanto o texto manual está em cena, ele é um OVERLAY independente:
@@ -1553,7 +1588,7 @@ AVDB.onCommand(async (cmd) => {
     // começaria a tocar depois de o operador já ter parado.
     if (yt) stopYoutube();
     else ++ytSeq;
-    stage.handle(cmd);
+    aoSairDeCena(stage.handle(cmd));
     return;
   }
 

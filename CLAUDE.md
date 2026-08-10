@@ -2418,10 +2418,47 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.178** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
+**Versão atual: v5.179** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.179: O PARAR EXIGIA DOIS TOQUES, e a culpa era do ECO — não das
+> camadas.** O relato: no primeiro toque a mídia para, mas a barra fica a meio
+> caminho e o ▶ não aparece; o segundo toque resolve. A hipótese natural é um
+> sistema de camadas em que o Parar derruba a de cima primeiro, e ela está
+> errada — `stopClear` derruba mídia e Camada de Texto no MESMO toque, e o
+> `cena.test.mjs` já travava isso desde a v5.178.
+>
+> A causa é a mesma que a v5.142 documentou para o ▶, do outro lado do fio:
+> **`clear` e `media-clear` ESMAECEM antes de sair de cena** (~0,6 s,
+> `clearFaded`/`fadeOutToBlack`), e nesse intervalo o `<video>` do telão
+> **continua tocando** — a rampa é de volume, não de pausa. Cada `display-status`
+> do fade chegava ao Controle com `playing: true` e o tempo antigo e repintava, a
+> ~4 Hz, exatamente a UI que `pararMidia` acabara de zerar: a barra voltava ao
+> meio, o seek era reabilitado e o ícone voltava a ⏸. O segundo toque só
+> "funcionava" porque a essa altura a mídia já saíra e ninguém mais reportava
+> aquele `mediaId` — o filtro do handler é por `mediaId`, e `currentId` sobrevive
+> de propósito ao stop.
+>
+> **O caminho do YouTube já tinha a guarda desde sempre** (`yt.stopping`, cujo
+> comentário descreve palavra por palavra este defeito); o da mídia local nunca
+> teve. A correção fecha os dois lados, e é **OTA puro**:
+>
+> - **na FONTE** (`display.js`): o telão que está saindo de cena não reporta o
+>   fade, e diz UMA vez que o palco ficou vazio. É o que também conserta a
+>   **notificação de mídia**, onde não há segundo toque — o `snoopDisplayStatus`
+>   do Kotlin lê esse mesmo status de passagem e deixava o cartão anunciando
+>   "tocando" sobre um telão vazio até a cena seguinte.
+> - **no CONSUMIDOR** (`controle.js`): `midiaNoAr` guarda as **duas** fontes que
+>   pintam o transporte — o handler de `display-status`/`espelho-status` e o
+>   `previewTick`, que é quem manda **sem telão nem espelho**, e que sofria do
+>   mesmo mal porque `preview.getCurrent()` só fica nulo no FIM do fade.
+>
+> Nada foi tirado do Parar: ele continua sendo o ponto final que leva as duas
+> camadas, e as saídas por camada (`text-hide` e `media-clear`, v5.173/v5.178)
+> continuam sendo as portas de cada uma. `tools/cena.test.mjs` trava o lado do
+> Controle e `tools/display-smoke.mjs` o do telão.
 
 > **A v5.178: O STOP VIRA POR CAMADA, e agora as duas portas existem.** O botão
 > de Parar da linha no ar (v5.177) chamava `stopClear()` para uma mídia — que é

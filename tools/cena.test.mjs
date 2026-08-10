@@ -319,6 +319,73 @@ try {
   await pg.evaluate(() => stopClear());
   await pg.evaluate(async (id) => { await send(id); }, id);
 
+  // ---- O PARAR EXIGIA DOIS TOQUES, E A CULPA ERA DO ECO (v5.179) ----
+  //
+  // Relato do operador: "no primeiro toque ele para a mídia, mas a barra de
+  // progresso ainda fica a meio caminho e o botão de play ainda não é visível".
+  // A hipótese natural — e errada — é um sistema de camadas em que o Parar
+  // derruba a de cima primeiro. Não é: `stopClear` derruba as duas de uma vez,
+  // e o teste acima já trava isso.
+  //
+  // O que acontece é que o `clear` ESMAECE antes de sair de cena (~0,6 s) e o
+  // `<video>` do telão continua tocando durante a rampa — ela é de volume, não
+  // de pausa. Cada `display-status` desse intervalo chegava com `playing: true`
+  // e o tempo antigo, e repintava, a ~4 Hz, exatamente a UI que `pararMidia`
+  // acabara de zerar. O segundo toque só "funcionava" porque a essa altura a
+  // mídia já saíra e ninguém mais reportava aquele `mediaId`.
+  //
+  // O eco vem de um IFRAME `about:blank` (que herda o origin do pai): o
+  // BroadcastChannel não entrega ao próprio contexto que postou, e é exatamente
+  // por esse caminho que o telão fala.
+  await pg.evaluate(() => {
+    const f = document.createElement('iframe');
+    f.style.display = 'none';
+    document.body.appendChild(f);
+    window.__telao = (m) => f.contentWindow.eval(
+      'new BroadcastChannel("av-iasd").postMessage(' + JSON.stringify(m) + ')');
+  });
+  const ecoar = async (extra) => pg.evaluate(async (m) => {
+    window.__telao(m);
+    await new Promise((r) => setTimeout(r, 150));
+    return {
+      seek: parseFloat(seekEl.value) || 0,
+      travada: seekEl.disabled,
+      icone: playPauseEl.querySelector('.msym').textContent,
+      playing,
+    };
+  }, Object.assign({ type: 'display-status', mediaId: id, playing: true, currentTime: 120, duration: 240 }, extra));
+
+  const tocando = await ecoar({});
+  checar(tocando.seek === 120 && !tocando.travada && tocando.playing,
+    'o telão tocando dirige o transporte: barra no meio, ícone de pausa',
+    JSON.stringify(tocando));
+
+  await pg.evaluate(() => stopClear());
+  const zerado = await pg.evaluate(() => ({
+    seek: parseFloat(seekEl.value) || 0,
+    travada: seekEl.disabled,
+    icone: playPauseEl.querySelector('.msym').textContent,
+  }));
+  checar(zerado.seek === 0 && zerado.travada,
+    'o PRIMEIRO toque no Parar zera a barra e a desabilita', JSON.stringify(zerado));
+
+  const eco = await ecoar({ currentTime: 122 });
+  checar(eco.seek === 0 && eco.travada && !eco.playing,
+    'e o status ATRASADO do fade não a traz de volta — era este o "segundo toque"',
+    JSON.stringify(eco));
+  checar(eco.icone === zerado.icone,
+    'o ícone continua sendo o ▶ que o Parar aplicou (era ele que sumia)',
+    JSON.stringify(eco));
+
+  // E a guarda é sobre estar EM CENA, não um desligar: tocar de novo devolve a
+  // palavra ao telão no mesmo instante.
+  await pg.evaluate(async (x) => { await send(x); }, id);
+  const devolta = await ecoar({ currentTime: 30 });
+  checar(devolta.seek === 30 && devolta.playing,
+    'e tocar de novo devolve a direção ao telão na hora', JSON.stringify(devolta));
+  await pg.evaluate(() => stopClear());
+  await pg.evaluate(async (x) => { await send(x); }, id);
+
   // ---- A PREVIEW ESCONDIDA NÃO É TOCADA (v5.177) ----
   //
   // Este caso nasceu de um Registro de aparelho. Com o app minimizado, a linha
