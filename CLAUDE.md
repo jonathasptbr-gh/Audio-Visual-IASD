@@ -2418,10 +2418,74 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.180** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
+**Versão atual: v5.181** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.181: A ESTABILIDADE DO ESPELHO, PRIMEIRA METADE (a que chega por
+> OTA).** Uma varredura de 36 agentes sobre o sistema de conexão — sete
+> revisores por dimensão, dois céticos por achado — devolveu 35 achados, dos
+> quais 14 foram à verificação adversarial e 9 sobreviveram por unanimidade. Os
+> três que vivem inteiros no `cliente.js` estão aqui; os outros são Kotlin e
+> **só chegam instalando o APK**. Os três, e o que cada um custava:
+>
+> - **O SEGMENTO DE INICIALIZAÇÃO ERA APPENDADO ATRÁS DOS FRAGMENTOS.** A
+>   retenção do `csd` de áudio mantém a `MediaSource` fechada por até 2,5 s, e o
+>   caminho de vídeo em `receber` **não pergunta por ela**: passada a guarda de
+>   `esperandoChave`, todo quadro vira fragmento e entra na fila. Quando a
+>   `MediaSource` enfim abria, o `push` do init o punha atrás do que já
+>   esperava — e o primeiro `appendBuffer` era um `moof+mdat` **sem init**, que
+>   o Chromium recusa. Bastava o `POST /r {do:'audio'}` atrasar 300 ms (uma
+>   retransmissão de Wi-Fi) para o IDR ganhar a corrida: ligar o som virava
+>   recomeço, e a três recusas a tela escrevia *"esta tela não está conseguindo
+>   decodificar o fluxo"* — **mandando o operador trocar a TV por um defeito
+>   nosso**. Pôr na frente é melhor que limpar a fila: os fragmentos acumulados
+>   começam no IDR desta conexão e são válidos para o init que entra; limpar
+>   custaria segundos de preto esperando o quadro-chave seguinte. A ordem virou
+>   função pura (`porInitNaFrente`) porque é a REGRA, e é ela que o teste afirma.
+> - **NENHUM `POST` DO CLIENTE TINHA PRAZO.** O `GET /v` sempre teve
+>   `AbortController` e vigia de fio; o canal de volta não tinha nada, e o
+>   buraco é o mesmo TCP meio-aberto por outra porta. O dano não é perder um
+>   relato: **o Chromium abre no máximo 6 conexões por host**, e `postar` usa URL
+>   relativa — o MESMO grupo de sockets do `fetch('/v')` da reconexão. Uma
+>   batida a cada 10 s durante o laço de reconexão enche os slots com zumbis e a
+>   **reconexão fica enfileirada atrás deles**, com a tela dizendo "tentando de
+>   novo em 0 s" enquanto o AP já voltou. Prazo de 15 s (nunca menos: o
+>   `PRAZO_LINHA_MS` do servidor é 10 s desde a §10-A.10, e um prazo curto aqui
+>   reabriria pelo outro lado o caso que aquele fecha) mais guarda de relato em
+>   voo — o relato é uma fotografia, e a mais nova é a única que interessa.
+> - **A ESCADA DE RECONEXÃO NÃO EXISTIA PARA OITO DOS NOVE CHAMADORES.**
+>   `recusasSeguidas` sobe num ponto só (o `error` do `SourceBuffer`); os outros
+>   oito `recomecar` zeram `tentativa` e não alimentam contador nenhum. Numa
+>   Smart TV que não dá conta de uma cena a 30 fps a fila de append estoura,
+>   recomeça em 500 ms, e o ciclo se repete: **pisca-pisca de ~5 s na projeção,
+>   indefinidamente**. E `tentativa` é estruturalmente incapaz de servir de
+>   escada ali, porque ela também zera a cada quadro aceito — e nesses casos os
+>   quadros CHEGAM, é justamente por isso que a fila estoura. Daí
+>   `recomecosSeguidos`, contado no funil e zerado pelo mesmo trecho longo sem
+>   incidente. `recusasSeguidas` fica: é ele que escolhe a FRASE, e "este
+>   navegador não aceita o fluxo" × "esta tela não está dando conta" pedem ações
+>   opostas do operador.
+>
+> **O que NÃO entrou, e por quê:** as seis falhas restantes são Kotlin (encoder
+> que morre desligando o espelho pela metade; IDR sem garantia de relógio de
+> parede; rede padrão virando a celular numa Wi-Fi sem internet; IP novo
+> derrubando tudo sem religar; defasagem A/V permanente a cada remontagem do
+> WebView; vaga presa a uma tela fantasma). Elas exigem APK, e duas delas mexem
+> no único código que decide se o socket sobe e onde — o que, pela regra de
+> calendário deste documento, se testa **numa terça-feira, não no culto**.
+>
+> **E uma lacuna estrutural que a varredura não nomeou e a revisão manual sim:
+> o laço de controle do espelho é ABERTO.** O servidor conta `descartes`, o
+> cliente reporta `dq`/`tq`/`vfim`, o Android estima a banda do enlace — e nada
+> disso é consumido por ninguém: os três só são impressos no Registro. O único
+> atuador que existe, `ajustarBitrate`, está ligado **exclusivamente ao sensor
+> térmico**. O produtor emite 3 Mbps fixos × 3 telas sobre um enlace de
+> capacidade variável, e a única resposta ao congestionamento é descartar quadro
+> e pedir IDR — que é um quadro **grande**, entregue num enlace que já não dava
+> conta. É um laço que se realimenta, e é a explicação mais econômica para
+> "pouco fluído".
 
 > **A v5.180: O COMANDO ATRASADO LEVAVA O ESTADO DE AGORA** — mais uma revisão
 > de varredura. A fila da preview (v5.162) atrasa a CÓPIA em até 2,5 s para ela
