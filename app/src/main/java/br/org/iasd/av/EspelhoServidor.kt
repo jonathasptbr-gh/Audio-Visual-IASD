@@ -5,6 +5,7 @@ import android.net.ConnectivityManager
 import android.net.LinkProperties
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.os.SystemClock
 import android.util.Log
 import org.json.JSONArray
@@ -106,6 +107,10 @@ import kotlin.concurrent.thread
  * @param aoPerderRede a Wi-Fi sumiu com o espelho no ar: além de desligar o
  *   servidor (que este arquivo faz sozinho), o dono precisa soltar a tela
  *   virtual e o encoder.
+ * @param aoTrocarEndereco o endereço mudou e o socket foi RELIGADO nele (o IP
+ *   do DHCP trocou, o roteador reiniciou). O servidor se resolve sozinho; quem
+ *   precisa saber são o `av.local` (que aponta para o IP velho) e a notificação
+ *   do serviço, que mostra o endereço ao operador. Ver [religarNoIp].
  */
 class EspelhoServidor(
     private val ctx: Context,
@@ -113,6 +118,7 @@ class EspelhoServidor(
     private val registrar: (String) -> Unit = {},
     private val pedirIdr: () -> Unit = {},
     private val aoPerderRede: () -> Unit = {},
+    private val aoTrocarEndereco: (String, Inet4Address) -> Unit = { _, _ -> },
 ) {
 
     private val app: Context = ctx.applicationContext
@@ -127,6 +133,18 @@ class EspelhoServidor(
     @Volatile private var comTls = false
     @Volatile private var ssl: SSLContext? = null
     @Volatile private var hostsAceitos: Set<String> = emptySet()
+
+    /**
+     * O nome do certificado desta sessão. Guardado porque a allowlist de `Host`
+     * é REFEITA quando o endereço muda ([religarNoIp]), e sem ele o nome do TLS
+     * cairia da lista — isto é, o navegador que conecta pelo nome (o único para
+     * quem o certificado vale) passaria a receber o 404 idêntico.
+     */
+    @Volatile private var hostTlsServido = ""
+
+    /** Rebinds por troca de endereço, com janela — ver [religarNoIp]. */
+    @Volatile private var rebindsNaJanela = 0
+    @Volatile private var marcoRebind = 0L
 
     /**
      * O `csd` mais recente de cada faixa, JÁ ENQUADRADO.
@@ -263,13 +281,8 @@ class EspelhoServidor(
         // isto é, "o nome não funciona" sem uma linha em lugar nenhum que o
         // explicasse. É exatamente a armadilha que o `hostTls` acima documenta,
         // e ela vale duas vezes porque agora há dois nomes possíveis.
-        val nomeMdns = if (EspelhoMdns.noAr) EspelhoMdns.NOME else ""
-        val lista = HashSet<String>()
-        lista.add("$ipServido:$portaServida")
-        lista.add(ipServido)
-        if (comNome) { lista.add("$hostTls:$portaServida"); lista.add(hostTls) }
-        if (nomeMdns.isNotEmpty()) { lista.add("$nomeMdns:$portaServida"); lista.add(nomeMdns) }
-        hostsAceitos = lista
+        hostTlsServido = hostTls
+        hostsAceitos = montarHosts(comNome)
         ligadoEm = SystemClock.elapsedRealtime()
         conexoesTotais.set(0)
         proximoRotulo.set(0)
@@ -282,6 +295,32 @@ class EspelhoServidor(
         registrar("servidor ligado em $endereco" + if (comTls) " (TLS)" else " (HTTP)")
         Log.i(TAG, "espelho servindo em $endereco")
         return endereco
+    }
+
+    /**
+     * A allowlist EXATA de `Host`, montada do estado atual.
+     *
+     * Extraída de [ligar] porque [religarNoIp] precisa REFAZÊ-LA: ela guarda
+     * `ip:porta`, e um `Host` fora dela recebe o 404 idêntico de toda
+     * requisição recusada (§3.4, invariante 5) — o modo de falhar mais mudo
+     * deste servidor.
+     *
+     * Ela segue exata: `evil.com` resolvendo para o nosso IP continua barrado,
+     * que é a defesa contra DNS rebinding. O que ela tem são os endereços por
+     * onde ESTE servidor de fato atende — o IP, o nome do certificado quando há
+     * TLS, e `av.local` quando o mDNS está no ar.
+     */
+    private fun montarHosts(comNome: Boolean): Set<String> {
+        val nomeMdns = if (EspelhoMdns.noAr) EspelhoMdns.NOME else ""
+        val lista = HashSet<String>()
+        lista.add("$ipServido:$portaServida")
+        lista.add(ipServido)
+        if (comNome) {
+            lista.add("$hostTlsServido:$portaServida")
+            lista.add(hostTlsServido)
+        }
+        if (nomeMdns.isNotEmpty()) { lista.add("$nomeMdns:$portaServida"); lista.add(nomeMdns) }
+        return lista
     }
 
     /** Idempotente, e chamável de QUALQUER thread — inclusive de dentro do
@@ -331,9 +370,12 @@ class EspelhoServidor(
         comTls = false
         ssl = null
         hostsAceitos = emptySet()
+        hostTlsServido = ""
         ligadoEm = 0
         redeSuspeitaDesde = 0L
         redeSuspeitaMotivo = ""
+        rebindsNaJanela = 0
+        marcoRebind = 0L
         // "O token tem prazo e MORRE COM A SESSÃO" (§3.5, invariante 3): não há
         // token que sobreviva ao culto.
         zerarPares()
@@ -920,6 +962,10 @@ class EspelhoServidor(
             Log.w(TAG, "não foi possível zerar o soTimeout", e)
         }
         conexoesTotais.incrementAndGet()
+        // ESTA SESSÃO VOLTOU A TER ALGUÉM DO OUTRO LADO. Sem isto, uma tela que
+        // caiu e reconectou continuaria marcada como fantasma, e a vaga dela
+        // seria tomada 45 s depois — com ela projetando.
+        EspelhoPares.marcarComConexao(sessao.token)
         registrar("tela ${tela.rotulo} conectada")
         EspelhoService.telasMudaram(app, telas.size)
         try {
@@ -933,7 +979,17 @@ class EspelhoServidor(
         } catch (e: IOException) {
             Log.i(TAG, "tela ${tela.rotulo} caiu: ${e.message}")
         } finally {
-            telas.remove(sessao.token, tela)
+            // A GUARDA DE DOIS ARGUMENTOS É O QUE TORNA O RESTO SEGURO: `fechar`
+            // da conexão ANTERIOR roda depois de `telas[token] = tela` da nova,
+            // então esta thread pode ser a velha. `remove(chave, valor)` só tira
+            // se o valor ainda for o nosso — e é a MESMA condição que decide se
+            // a sessão pode ser marcada como sem conexão. Sem isso a thread
+            // velha marcaria como morta uma sessão com fluxo vivo, e o
+            // `liberarVagaOciosa` a tomaria 45 s depois.
+            val eraNossa = telas.remove(sessao.token, tela)
+            if (eraNossa) {
+                EspelhoPares.marcarSemConexao(sessao.token, agoraMs())
+            }
             anotarSaida(tela)
             registrar("tela ${tela.rotulo} desconectada")
             EspelhoService.telasMudaram(app, telas.size)
@@ -1085,13 +1141,28 @@ class EspelhoServidor(
 
     // ---------- rede ----------
 
+    /**
+     * ASSINA A WI-FI, E NÃO A REDE PADRÃO (v5.183).
+     *
+     * `registerDefaultNetworkCallback` fala da rede **padrão**, e é justamente
+     * ela que vira a celular numa Wi-Fi sem uplink — ver o KDoc de [wifiDe]. O
+     * `NetworkRequest` com `TRANSPORT_WIFI` faz os avisos chegarem sobre a rede
+     * que de fato importa: a que carrega os pixels até as telas da igreja.
+     *
+     * **`NET_CAPABILITY_NOT_VPN` entra; `NET_CAPABILITY_VALIDATED` NÃO.** O
+     * primeiro é a mesma regra da §2.3 (uma VPN se sobrepõe a tudo e o socket
+     * iria para o lugar errado); o segundo é a internet funcionando, que é
+     * exatamente o que não se pode exigir aqui.
+     */
     private fun observarRede() {
         val gerente = app.getSystemService(ConnectivityManager::class.java) ?: return
         val cb = object : ConnectivityManager.NetworkCallback() {
-            override fun onLost(network: Network) = conferir(null)
+            override fun onLost(network: Network) = conferir()
+
+            override fun onAvailable(network: Network) = redeVoltou()
 
             override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
-                conferir(caps)
+                if (ehWifiLimpa(caps)) redeVoltou() else conferir()
             }
 
             override fun onLinkPropertiesChanged(network: Network, lp: LinkProperties) {
@@ -1099,22 +1170,32 @@ class EspelhoServidor(
                 // o roteador reiniciando): o socket continua ligado a um IP que
                 // já não é o do aparelho, e nenhuma conexão nova chega — sem
                 // um único erro em lugar nenhum.
+                //
+                // A suspeita é levantada aqui e o VEREDITO é do [confirmarRede],
+                // que sabe distinguir "trocou de endereço" (religa) de "sumiu"
+                // (desliga). Ver o KDoc de lá.
                 val temIp = lp.linkAddresses.any { it.address.hostAddress == ipServido }
                 if (!temIp) suspeitarDaRede("o endereço da Wi-Fi mudou") else redeVoltou()
             }
 
-            private fun conferir(caps: NetworkCapabilities?) {
+            /**
+             * Uma Wi-Fi saiu de cena. Isto é SUSPEITA, nunca veredito: com duas
+             * redes Wi-Fi conhecidas (roaming entre APs de um mesh), o `onLost`
+             * de uma chega antes de o `onAvailable` da outra ser processado.
+             * Quem confere, 6 s depois e pelo que de fato importa, é o
+             * [confirmarRede].
+             */
+            private fun conferir() {
                 if (servidor == null) return
-                val c = caps ?: gerente.activeNetwork?.let { gerente.getNetworkCapabilities(it) }
-                val ok = c != null &&
-                    c.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) &&
-                    !c.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) &&
-                    !c.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
-                if (!ok) suspeitarDaRede("a rede sumiu") else redeVoltou()
+                if (ipAindaEDaWifi(app, ipServido)) redeVoltou() else suspeitarDaRede("a Wi-Fi sumiu")
             }
         }
         try {
-            gerente.registerDefaultNetworkCallback(cb)
+            val pedido = NetworkRequest.Builder()
+                .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+                .build()
+            gerente.registerNetworkCallback(pedido, cb)
             cm = gerente
             callbackRede = cb
         } catch (e: Exception) {
@@ -1174,18 +1255,101 @@ class EspelhoServidor(
         val desde = redeSuspeitaDesde
         if (desde == 0L || servidor == null) return
         if (agora - desde < GRACA_REDE_MS) return
-        val ok = try {
-            redeDaWifi(app).ip.hostAddress == ipServido
-        } catch (e: Exception) {
-            false
-        }
-        if (ok) {
+        // A PERGUNTA CERTA É A MAIS FRACA (v5.183): o endereço em que este
+        // socket está ligado ainda é endereço de alguma Wi-Fi deste aparelho?
+        // Reusar a função de ADMISSÃO numa pergunta de SOBREVIVÊNCIA era o erro
+        // estrutural — ver o KDoc de [ipAindaEDaWifi].
+        if (ipAindaEDaWifi(app, ipServido)) {
             redeVoltou()
+            return
+        }
+        // O ENDEREÇO TROCOU, MAS A WI-FI ESTÁ LÁ: religa o socket no IP novo em
+        // vez de derrubar a projeção. É o caso do roteador reiniciando às 19h40,
+        // do lease de DHCP que não devolve o mesmo endereço, e do mesh com DHCP
+        // próprio — nenhum pacote da rede se perdeu e o aparelho está no mesmo
+        // AP, mas até a v5.182 isso desligava servidor, tela virtual, encoder,
+        // janela, mDNS e serviço, e **não havia religamento**.
+        val ipNovo = try { redeDaWifi(app).ip } catch (e: Exception) { null }
+        if (ipNovo != null && ipNovo.hostAddress != ipServido) {
+            redeSuspeitaDesde = 0L
+            redeSuspeitaMotivo = ""
+            if (religarNoIp(ipNovo)) return
+            // Falhou o rebind: cai no desligamento de sempre, com a frase certa.
+            queda("o endereço mudou e o servidor não subiu no novo")
             return
         }
         val motivo = redeSuspeitaMotivo
         redeSuspeitaDesde = 0L
-        queda(if (motivo.isEmpty()) "a rede sumiu" else motivo)
+        queda(if (motivo.isEmpty()) "a Wi-Fi sumiu" else motivo)
+    }
+
+    /**
+     * RELIGA O SOCKET NUM ENDEREÇO NOVO, sem desmontar o resto (v5.183).
+     *
+     * **Não passa por [ligar]**, e a razão é dura: aquele chama [desligar]
+     * quando há servidor de pé, e `desligar` termina em `zerarPares()` — as três
+     * telas voltariam ao pareamento por uma troca de DHCP que elas nem viram.
+     * O que morre aqui é exatamente um `ServerSocket`; o pareamento, o encoder,
+     * a tela virtual, o `csd` e as sessões ficam.
+     *
+     * **A allowlist de `Host` é refeita**, e isso não é detalhe: ela guarda
+     * `ip:porta`, e um `Host` fora dela recebe o 404 IDÊNTICO de toda requisição
+     * recusada — "com o IP novo o espelho para de funcionar", sem uma linha no
+     * Registro que o explicasse. É a mesma armadilha que o `hostTls` e o nome
+     * mDNS já documentam em [ligar], agora valendo uma terceira vez.
+     *
+     * As telas conectadas caem: os sockets delas estão no IP velho e já estão
+     * mortos. Quem as recolhe é o [vigiar], e quem volta sozinha é a tela que
+     * usa `av.local` — que é justamente para isto que o nome da v5.164 existe.
+     * A que digitou o IP cru precisa do endereço novo, e por isso ele é
+     * anunciado ([aoTrocarEndereco]) além de ir para o Registro.
+     *
+     * **Isto tangencia o item 25 do doc ("não deixar o espelho ligar sozinho"),
+     * e a distinção que o sustenta é esta: o espelho não LIGA sozinho — ele
+     * CONTINUA ligado por uma decisão que o operador já tomou, e cuja premissa
+     * (o socket serve a LAN deste aparelho) não mudou.** O teto de tentativas
+     * existe para que uma rede instável não vire um laço de rebind.
+     */
+    private fun religarNoIp(ipNovo: Inet4Address): Boolean {
+        val agora = SystemClock.elapsedRealtime()
+        if (agora - marcoRebind > REBIND_JANELA_MS) rebindsNaJanela = 0
+        if (rebindsNaJanela >= REBIND_MAX) {
+            registrar("o endereço mudou ${rebindsNaJanela}× seguidas — desistindo de religar")
+            return false
+        }
+        marcoRebind = agora
+        rebindsNaJanela++
+
+        val velho = ipServido
+        val ss = ServerSocket()
+        try {
+            ss.reuseAddress = true
+            ss.bind(InetSocketAddress(ipNovo, portaServida), 8)
+        } catch (e: IOException) {
+            fecharQuieto(ss)
+            registrar("o endereço mudou para ${ipNovo.hostAddress}, mas a porta não abriu: ${e.message}")
+            return false
+        }
+        // A TROCA, e a ordem importa: o laço de aceite antigo sai por
+        // `servidor === ss`, então o campo é escrito ANTES de o socket velho ser
+        // fechado — senão haveria um instante sem ninguém escutando em nada.
+        val antigo = servidor
+        servidor = ss
+        fecharQuieto(antigo)
+        ipServido = ipNovo.hostAddress ?: ""
+        portaServida = ss.localPort
+        val comNome = comTls && hostTlsServido.isNotEmpty()
+        endereco = if (comNome) "https://$hostTlsServido:$portaServida"
+        else (if (comTls) "https://" else "http://") + ipServido + ":" + portaServida
+        hostsAceitos = montarHosts(comNome)
+        Thread({ aceitarConexoes(ss) }, "av-espelho-accept").apply { isDaemon = true }.start()
+        registrar("o endereço mudou de $velho para $ipServido — servidor religado, sem perder o pareamento")
+        try {
+            aoTrocarEndereco(endereco, ipNovo)
+        } catch (e: Exception) {
+            Log.w(TAG, "falhou avisando a troca de endereço", e)
+        }
+        return true
     }
 
     private fun queda(motivo: String) {
@@ -1273,6 +1437,14 @@ class EspelhoServidor(
             .put("noArMs", if (ligadoEm == 0L) 0L else agora - ligadoEm)
             .put("telas", lista)
             .put("teto", TETO_TELAS)
+            // SESSÕES VIVAS × TELAS CONECTADAS, lado a lado (v5.183).
+            //
+            // O teto de três é de SESSÕES, e a lista acima é de CONEXÕES: os
+            // dois divergem enquanto uma tela que caiu ainda ocupa a vaga dela.
+            // Sem este número, "o espelho diz lotado" com duas telas na folha é
+            // uma contradição sem leitura possível — e foi exatamente o que a
+            // vaga fantasma produzia.
+            .put("sessoes", EspelhoPares.sessoes().size)
             .put("pendentes", pend)
             // "3 PINs recusados (2 origens)" — a linha que diz que alguém está
             // TENTANDO. Os dois números são do [EspelhoPares], que é quem conta.
@@ -1841,6 +2013,21 @@ class EspelhoServidor(
          * pode morrer por causa de um piscar.
          */
         private const val GRACA_REDE_MS = 6_000L
+
+        /**
+         * Quantas trocas de endereço se aceita religar, e em que janela.
+         *
+         * Existe para uma rede instável não virar um laço de rebind: cada
+         * religamento fecha e reabre um `ServerSocket` e derruba as telas
+         * conectadas, então repeti-lo sem fim seria trocar uma queda por um
+         * piscar contínuo. Batido o teto, vale o desligamento de sempre — que é
+         * o comportamento anterior a esta versão, e que o operador reconhece.
+         *
+         * Três numa hora é generoso para o caso real (o roteador reiniciando) e
+         * apertado para o patológico (um DHCP que troca o endereço a cada minuto).
+         */
+        private const val REBIND_MAX = 3
+        private const val REBIND_JANELA_MS = 60L * 60 * 1000
         private const val IDR_POR_TELA_MS = 2_000L
         private const val IDR_GLOBAL_MS = 1_000L
         private const val CABECALHO = 16
@@ -1901,27 +2088,97 @@ class EspelhoServidor(
         fun redeDaWifi(ctx: Context): Rede {
             val cm = ctx.applicationContext.getSystemService(ConnectivityManager::class.java)
                 ?: throw Recusa("sem acesso ao estado da rede")
-            val net = cm.activeNetwork
-                ?: throw Recusa("sem rede — o espelho so liga em Wi-Fi")
-            val caps = cm.getNetworkCapabilities(net)
-                ?: throw Recusa("sem rede — o espelho so liga em Wi-Fi")
-            if (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
-                throw Recusa("a rede ativa e uma VPN — o espelho so liga em Wi-Fi")
-            }
-            if (caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
-                throw Recusa("so liga em Wi-Fi — este aparelho esta em dados moveis")
-            }
-            if (!caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
-                throw Recusa("a rede ativa nao e Wi-Fi — o espelho so liga em Wi-Fi")
-            }
+            val net = wifiDe(cm)
+                ?: throw Recusa("sem Wi-Fi — o espelho so liga em Wi-Fi")
             val lp = cm.getLinkProperties(net)
                 ?: throw Recusa("a Wi-Fi nao informou endereco a este aparelho")
-            val ip = lp.linkAddresses
-                .map { it.address }
-                .filterIsInstance<Inet4Address>()
-                .firstOrNull { !it.isLoopbackAddress && !it.isAnyLocalAddress }
+            val ip = ipv4De(lp)
                 ?: throw Recusa("a Wi-Fi nao deu endereco IPv4 a este aparelho")
             return Rede(ip)
+        }
+
+        /**
+         * A REDE DA WI-FI, E NUNCA A REDE PADRÃO (v5.183).
+         *
+         * `getActiveNetwork()` é, por definição, a rede **padrão** — aquela por
+         * onde o tráfego geral sai. Numa igreja com o AP no ar e o link de
+         * internet fora (o `CLAUDE.md` descreve o ambiente como *"rede ruim,
+         * pode não ter internet"*), o Android marca a Wi-Fi como não validada e
+         * promove a **celular** a padrão — e dados móveis estão ligados, porque
+         * o download do YouTube depende do IP do chip.
+         *
+         * O preço disso era duplo, e os dois lados eram silenciosos:
+         *  - o operador tocava em "Mostrar numa tela da rede" e lia *"so liga em
+         *    Wi-Fi — este aparelho esta em dados moveis"*, com o celular
+         *    associado à Wi-Fi e o IP na mão;
+         *  - com o espelho já no ar, a troca de padrão derrubava a projeção
+         *    inteira com a LAN intacta e o socket funcionando.
+         *
+         * E a §2.5 do doc promete o contrário, com todas as letras: *"Sem
+         * internet | domingo comum na igreja | o espelho funciona inteiro"*.
+         *
+         * **A propriedade de segurança da §2.3 fica intacta:** o que se procura
+         * aqui é uma rede com `TRANSPORT_WIFI` e **sem** VPN e **sem** celular,
+         * e o socket continua ligado a um IPv4 dela — nunca a `0.0.0.0`. O que
+         * muda é só a pergunta: "existe uma Wi-Fi neste aparelho?" em vez de "a
+         * rede padrão é Wi-Fi?".
+         *
+         * **`NET_CAPABILITY_VALIDATED` fica DELIBERADAMENTE fora do filtro** —
+         * é exatamente ele que falta numa igreja sem uplink, e exigi-lo seria
+         * reintroduzir o defeito com outro nome.
+         *
+         * `getAllNetworks()` está deprecado desde a API 31 e é usado assim
+         * mesmo, com o motivo escrito: **não existe substituto SÍNCRONO**. O
+         * caminho moderno (`registerNetworkCallback` + guardar o `Network` do
+         * `onAvailable`) é assíncrono, e esta função é chamada no toque do
+         * operador, antes de existir callback nenhum — trocar a resposta certa
+         * por uma corrida de inicialização seria pior que a anotação de
+         * deprecação. O `registerNetworkCallback` de `TRANSPORT_WIFI` existe, e
+         * é o de [observarRede]; ele cuida do que vem DEPOIS.
+         */
+        @Suppress("DEPRECATION")
+        private fun wifiDe(cm: ConnectivityManager): Network? {
+            for (n in cm.allNetworks) {
+                val caps = cm.getNetworkCapabilities(n) ?: continue
+                if (ehWifiLimpa(caps) && cm.getLinkProperties(n)?.let { ipv4De(it) } != null) return n
+            }
+            return null
+        }
+
+        /** Wi-Fi de verdade: nem VPN (que se sobrepõe a tudo), nem celular. */
+        @JvmStatic
+        fun ehWifiLimpa(caps: NetworkCapabilities): Boolean =
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) &&
+                !caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN) &&
+                !caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
+
+        private fun ipv4De(lp: LinkProperties): Inet4Address? = lp.linkAddresses
+            .map { it.address }
+            .filterIsInstance<Inet4Address>()
+            .firstOrNull { !it.isLoopbackAddress && !it.isAnyLocalAddress }
+
+        /**
+         * O `ipServido` ainda é endereço de ALGUMA Wi-Fi deste aparelho?
+         *
+         * É a pergunta de SOBREVIVÊNCIA, e ela é mais fraca que a de admissão
+         * de propósito: [redeDaWifi] escolhe *uma* Wi-Fi e devolve *o primeiro*
+         * IPv4 dela, então reusá-la aqui reprovaria um aparelho com duas
+         * interfaces Wi-Fi (ou dois endereços na mesma) por uma questão de
+         * ordem de listagem — e a reprovação significa desligar a projeção.
+         */
+        @Suppress("DEPRECATION")
+        @JvmStatic
+        fun ipAindaEDaWifi(ctx: Context, ip: String): Boolean {
+            if (ip.isEmpty()) return false
+            val cm = ctx.applicationContext.getSystemService(ConnectivityManager::class.java)
+                ?: return false
+            for (n in cm.allNetworks) {
+                val caps = cm.getNetworkCapabilities(n) ?: continue
+                if (!ehWifiLimpa(caps)) continue
+                val lp = cm.getLinkProperties(n) ?: continue
+                if (lp.linkAddresses.any { it.address.hostAddress == ip }) return true
+            }
+            return false
         }
     }
 }

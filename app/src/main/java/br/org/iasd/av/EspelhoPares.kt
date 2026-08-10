@@ -149,6 +149,18 @@ object EspelhoPares {
      */
     const val PRAZO_OCIOSA_MS = 4L * 60 * 1000
 
+    /**
+     * Quanto se espera antes de tomar a vaga de uma sessão que o SERVIDOR já
+     * declarou sem conexão — ver [marcarSemConexao].
+     *
+     * 45 s, e o número é uma volta inteira de recuperação do cliente: o vigia de
+     * fio dele aborta com 20 s sem bytes, mais a escada de reconexão de até 8 s,
+     * mais o csd e o quadro-chave da conexão nova. Menos que isso trocaria um
+     * fantasma por uma tela VIVA expulsa no meio da própria recuperação — que é
+     * o defeito oposto, e pior, porque atinge quem estava funcionando.
+     */
+    const val PRAZO_SEM_CONEXAO_MS = 45_000L
+
     /** Erros de PIN da MESMA origem antes do bloqueio. */
     const val ERROS_ATE_BLOQUEIO = 5
 
@@ -251,6 +263,20 @@ object EspelhoPares {
          */
         @Volatile
         var ultimoUsoMs: Long = 0L
+
+        /**
+         * QUANDO O SERVIDOR CONCLUIU QUE NÃO HÁ MAIS NINGUÉM DO OUTRO LADO —
+         * `0` = há (ou nunca houve) conexão. Ver [marcarSemConexao].
+         *
+         * Ele existe porque [ultimoUsoMs] responde outra pergunta: ele é
+         * renovado a cada volta do vigia enquanto a conexão existir, então uma
+         * tela que morreu às 10h00 e foi fechada às 10h01 tem carimbo de "um
+         * minuto atrás" — e [liberarVagaOciosa] só a solta quatro minutos depois
+         * disso. Cinco minutos de vaga presa a um fantasma, com a folha do
+         * operador listando duas telas e o espelho dizendo "lotado".
+         */
+        @Volatile
+        var semConexaoDesde: Long = 0L
 
         override fun toString(): String =
             "Sessao(token=<oculto>, ua=${relato.ua}, expiraEm=$expiraEm)"
@@ -871,11 +897,65 @@ object EspelhoPares {
      * qualifica uma vaga como livre é ninguém estar do outro lado dela.
      */
     private fun liberarVagaOciosa(agora: Long): Boolean {
+        // PRIMEIRO A VAGA QUE O SERVIDOR JÁ SABE ESTAR VAZIA (v5.183).
+        //
+        // `ultimoUsoMs` é renovado a cada volta do vigia enquanto a conexão
+        // existir, então uma tela desligada na tomada às 10h00 e fechada pelo
+        // `TETO_SEM_RELATO_MS` às 10h01 fica com carimbo de "1 min atrás" — e o
+        // critério de ociosidade só a soltaria às ~10h05. Nesse intervalo a TV
+        // do saguão que alguém acabou de ligar recebe `{estado:lotado}` **com a
+        // folha do operador listando duas telas**, e ele não tem em quem tocar
+        // em "Desconectar". Pior: a MESMA TV religada é recusada pelo fantasma
+        // dela própria, porque o token vive em `sessionStorage` e morre com o
+        // navegador. É a §10-A.10 item 2 corrigida pela metade — ela falhava
+        // justamente no exemplo que o doc nomeia.
+        //
+        // O piso de [PRAZO_SEM_CONEXAO_MS] não é zelo: uma tela em recuperação
+        // normal fica sem conexão por uma volta inteira (o vigia de fio do
+        // cliente aborta aos 20 s, mais a escada de até 8 s), e tomar a vaga
+        // dela no meio disso trocaria um fantasma por uma tela viva expulsa.
+        val fantasma = vivas
+            .filter { it.semConexaoDesde != 0L && agora - it.semConexaoDesde > PRAZO_SEM_CONEXAO_MS }
+            .maxByOrNull { agora - it.semConexaoDesde }
+        if (fantasma != null) {
+            encerrar(fantasma.token)
+            return true
+        }
         val alvo = vivas
             .filter { agora - it.ultimoUsoMs > PRAZO_OCIOSA_MS }
             .maxByOrNull { agora - it.ultimoUsoMs }
             ?: return false
         encerrar(alvo.token)
+        return true
+    }
+
+    /**
+     * O SERVIDOR CONCLUIU QUE ESTA SESSÃO FICOU SEM NINGUÉM DO OUTRO LADO.
+     *
+     * Chamado quando a thread de escrita de uma tela termina — isto é, quando o
+     * `GET /v` daquela sessão acabou, por queda, por prazo ou por fecho. É a
+     * única informação que o pareamento não tem por conta própria: ele vê
+     * tokens, não sockets.
+     *
+     * `false` quando o token não é de nenhuma sessão viva — o que é normal (a
+     * sessão pode ter sido encerrada antes) e não é erro.
+     */
+    @Synchronized
+    fun marcarSemConexao(token: String, agora: Long): Boolean {
+        val s = vivas.firstOrNull { igual(it.token, token) } ?: return false
+        s.semConexaoDesde = agora
+        return true
+    }
+
+    /**
+     * E O CONTRÁRIO: há conexão de novo. Chamado quando um `GET /v` assume a
+     * sessão, e é ele que impede uma tela que reconectou de continuar marcada
+     * como fantasma pelo resto da sessão.
+     */
+    @Synchronized
+    fun marcarComConexao(token: String): Boolean {
+        val s = vivas.firstOrNull { igual(it.token, token) } ?: return false
+        s.semConexaoDesde = 0L
         return true
     }
 

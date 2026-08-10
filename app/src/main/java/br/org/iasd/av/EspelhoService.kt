@@ -521,12 +521,24 @@ class EspelhoService : Service() {
             publicar(ctx)
         }
 
-        // (`enderecoMudou` saiu na v5.180: nunca teve chamador, e nenhum caminho
-        // hoje muda o endereço com o serviço no ar — importar um certificado
-        // com o espelho ligado NÃO o promove a TLS, porque o socket já está de
-        // pé, e a folha diz isso ao operador (`noAr` × `servindoTls` em
-        // `mirrorCertState`). Quem trouxer um caminho que mude o endereço em
-        // curso traz este método de volta junto.)
+        /**
+         * O endereço mudou com o serviço no ar.
+         *
+         * Este método SAIU na v5.180, por não ter chamador: naquele momento
+         * nenhum caminho mudava o endereço em curso (importar um certificado com
+         * o espelho ligado não o promove a TLS, porque o socket já está de pé).
+         * A v5.183 criou exatamente esse caminho — o `religarNoIp` do
+         * [EspelhoServidor], que reabre o socket num IP novo em vez de derrubar
+         * a projeção —, e por isso ele volta. A remoção estava certa e o retorno
+         * também; o que muda é o mundo, não a regra.
+         *
+         * Sem ele a notificação — que com o app minimizado é a única janela para
+         * o espelho — continuaria mostrando um endereço que não atende mais.
+         */
+        fun enderecoMudou(ctx: Context, novo: String) {
+            endereco = novo
+            publicar(ctx)
+        }
 
         private fun publicar(ctx: Context) {
             if (!running) return
