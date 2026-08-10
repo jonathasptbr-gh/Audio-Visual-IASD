@@ -778,6 +778,38 @@ checar(true, 'aprovada, a MESMA página troca para o player (sem navegar)');
     r.somNaFrente);
 }
 
+// O SEGMENTO DE INICIALIZAÇÃO VAI PARA A FRENTE DA FILA (v5.181).
+//
+// A retenção do `csd` de áudio mantém a `MediaSource` fechada por até 2,5 s, e
+// o caminho de vídeo em `receber` NÃO pergunta por ela: passada a guarda de
+// `esperandoChave`, todo quadro vira fragmento e entra na fila. Quando a
+// `MediaSource` enfim abre, um `push` do init o punha ATRÁS do que já estava
+// esperando — e o primeiro `appendBuffer` virava um `moof+mdat` sem init, que o
+// Chromium recusa. O desfecho é `recomecar('o decodificador recusou os dados')`,
+// e a três recusas a tela escreve "não está conseguindo decodificar o fluxo":
+// o operador é mandado trocar a TV por um defeito NOSSO.
+//
+// Basta o `POST /r {do:'audio'}` atrasar 300 ms — uma retransmissão de Wi-Fi —
+// para o IDR ganhar a corrida. Reproduzir isso pelo caminho de verdade exigiria
+// H.264 que o Chromium do CI não decodifica MAIS uma corrida de rede; a ordem,
+// essa, é aritmética de lista, e por isso mora numa função pura.
+{
+  const r = await pg.evaluate(() => {
+    const acumulada = () => [{ b: 'frag1', a: false }, { b: 'frag2', a: false }];
+    const so = window.__espelho.porInitNaFrente(acumulada(), 'initV', null);
+    const com = window.__espelho.porInitNaFrente(acumulada(), 'initV', 'initA');
+    return { so: so.map((x) => x.b), com: com.map((x) => x.b), audio: com.map((x) => x.a) };
+  });
+  checar(JSON.stringify(r.so) === JSON.stringify(['initV', 'frag1', 'frag2']),
+    'o init de vídeo entra NA FRENTE dos fragmentos que já esperavam', JSON.stringify(r.so));
+  checar(JSON.stringify(r.com) === JSON.stringify(['initV', 'initA', 'frag1', 'frag2']),
+    'e com som são os DOIS inits na frente, vídeo primeiro (a ordem da §5.3)',
+    JSON.stringify(r.com));
+  checar(JSON.stringify(r.audio) === JSON.stringify([false, true, false, false]),
+    'e cada um vai para a sua faixa — o init de som marcado como som',
+    JSON.stringify(r.audio));
+}
+
 // O ENCALHE — o cursor FORA de qualquer bloco do `buffered`.
 //
 // É o congelamento em estado puro: a MSE não toca, `currentTime` não anda, não

@@ -687,15 +687,55 @@
     };
   }
 
+  /**
+   * TODO `POST` DAQUI TEM PRAZO (v5.181) — e é ele que destrava a RECONEXÃO.
+   *
+   * O `GET /v` sempre teve `AbortController` e vigia de fio; os `POST` não
+   * tinham nada, e o buraco é o mesmo TCP meio-aberto que motivou o
+   * `vigiarFio`, por outra porta: o celular troca de AP e muda de IP, e do lado
+   * da TV a interface não mudou, então nada erra — o pedido simplesmente fica
+   * pendurado até o SO desistir, o que leva MINUTOS.
+   *
+   * O dano não é perder um relato. É que **o Chromium abre no máximo 6
+   * conexões por host** e `postar` usa URL relativa, isto é, o MESMO grupo de
+   * sockets do `fetch('/v')` da reconexão. Uma batida a cada [ALIVE_MS] durante
+   * todo o laço de reconexão enche os slots com relatos zumbis, e a reconexão
+   * fica ENFILEIRADA ATRÁS DELES — com a tela dizendo "tentando de novo em 0 s"
+   * enquanto o AP já voltou. Num culto isso é indistinguível de "nunca".
+   *
+   * O prazo é de 15 s, e o número não é livre: o `PRAZO_LINHA_MS` do servidor é
+   * de 10 s desde a §10-A.10, porque uma Wi-Fi congestionada leva segundos para
+   * entregar um corpo de 4 KiB. Um prazo curto aqui reabriria pelo outro lado o
+   * caso que aquele existe para fechar.
+   *
+   * A guarda de `typeof` é o mesmo idioma do `conectar`: uma TV antiga sem
+   * `AbortController` continua funcionando como antes, sem prazo — que é a
+   * degradação certa, e não um `throw` na cara de quem só quer assistir.
+   */
+  const PRAZO_POST_MS = 15000;
+
   async function postar(rota, corpo, comToken) {
     const cab = { 'Content-Type': 'application/json' };
     if (comToken && token) cab.Authorization = 'Bearer ' + token;
-    const r = await fetch(rota, {
-      method: 'POST', headers: cab, cache: 'no-store', body: JSON.stringify(corpo),
-    });
-    let json = null;
-    try { json = await r.json(); } catch (_) { json = null; }
-    return { status: r.status, corpo: json };
+    const ac = typeof global.AbortController === 'function' ? new global.AbortController() : null;
+    const prazo = ac ? setTimeout(function () { try { ac.abort(); } catch (_) {} }, PRAZO_POST_MS) : null;
+    try {
+      const r = await fetch(rota, {
+        method: 'POST',
+        headers: cab,
+        cache: 'no-store',
+        body: JSON.stringify(corpo),
+        signal: ac ? ac.signal : undefined,
+      });
+      let json = null;
+      try { json = await r.json(); } catch (_) { json = null; }
+      return { status: r.status, corpo: json };
+    } finally {
+      // NO `finally`, e não depois do `await`: um `throw` do `fetch` (rede,
+      // ou o próprio aborto) deixaria o timer vivo, e ele abortaria um
+      // controlador já morto a cada pedido que falhasse.
+      if (prazo !== null) clearTimeout(prazo);
+    }
   }
 
   // --------------------------------------------------------------------------
@@ -1116,8 +1156,30 @@
       // recebido o segmento de inicialização, a `MediaSource` não inicializa —
       // e enfileirar o vídeo antes de o `addSourceBuffer` do som ter acontecido
       // seria correr contra isso à toa.
-      enfileirar(infoV.bytes, false);
-      if (som) enfileirar(som.bytes, true);
+      //
+      // E ELES ENTRAM NA FRENTE DA FILA, não no fim (v5.181).
+      //
+      // A retenção do `csd` de áudio mantém `ms === null` por até
+      // [ESPERA_CSD_AUDIO_MS], e o caminho de `T_VIDEO` em `receber` NÃO
+      // pergunta por `ms`: passada a guarda de `esperandoChave`, todo quadro
+      // vira fragmento e cai em `enfileirar`. Quando a `MediaSource` enfim
+      // nasce, a fila já tem o IDR e os deltas dele — e um `push` punha o
+      // segmento de inicialização ATRÁS deles. O primeiro `appendBuffer` era
+      // então um `moof+mdat` sem init: o Chromium recusa, e o desfecho é
+      // `recomecar('o decodificador recusou os dados')`. Basta o
+      // `POST /r {do:'audio'}` atrasar 300 ms — uma retransmissão de Wi-Fi —
+      // para o IDR ganhar a corrida, e a três recusas a tela passa a dizer
+      // "esta tela não está conseguindo decodificar o fluxo", mandando o
+      // operador trocar a TV por um defeito NOSSO.
+      //
+      // Pôr na frente é melhor que limpar a fila: os fragmentos acumulados
+      // COMEÇAM no IDR desta conexão (o `esperandoChave` já os filtrou) e são
+      // válidos para o init que está entrando. Limpar obrigaria a esperar o
+      // quadro-chave seguinte — numa cena parada, segundos de preto.
+      //
+      // É seguro porque aqui `emVoo` é necessariamente `null`: a
+      // `MediaSource` acabou de abrir e nenhum `appendBuffer` pôde começar.
+      porInitNaFrente(fila, infoV.bytes, som ? som.bytes : null);
       aplicar();
     }, { once: true });
     el.v.src = URL.createObjectURL(ms);
@@ -1171,6 +1233,36 @@
   // A partir daqui a espera curta acaba e a frase passa a nomear o estado.
   const RECUSAS_ATE_ESCADA = 3;
 
+  /**
+   * RECOMEÇOS SEGUIDOS — a escada que faltava para OITO dos nove chamadores
+   * (v5.181).
+   *
+   * `recusasSeguidas` é a válvula da escada de reconexão, e ela sobe num ÚNICO
+   * ponto: o `error` do `SourceBuffer` de vídeo. Os outros oito `recomecar` não
+   * alimentam contador nenhum — a fila de append estourando, a cota de memória
+   * do navegador, o `addSourceBuffer` recusado, o cursor que não encontra o
+   * fluxo, o mime trocado, a faixa de som que não soltou —, e todos eles zeram
+   * `tentativa` no caminho.
+   *
+   * O efeito, numa Smart TV que não dá conta de uma cena a 30 fps: a fila
+   * acumula, `recomecar`, reconexão em 500 ms, csd + IDR + a mesma enxurrada,
+   * estouro de novo. **Pisca-pisca de ~5 s na projeção, indefinidamente**, sem
+   * um único degrau de escada, martelando o AP e repetindo a mesma frase.
+   *
+   * E `tentativa` é ESTRUTURALMENTE incapaz de servir de escada aqui: ela
+   * também é zerada a cada quadro aceito, e nesses casos os quadros CHEGAM — é
+   * por isso que a fila estoura. Daí um contador próprio, zerado pelo mesmo
+   * `QUADROS_SAUDAVEL` que zera as recusas, isto é, por um trecho longo
+   * projetado sem incidente.
+   *
+   * `recusasSeguidas` continua existindo, e não virou redundância: é ele que
+   * escolhe a FRASE. "Este navegador não aceita o fluxo" e "esta tela não está
+   * dando conta" pedem ações opostas do operador — trocar a tela × mexer na
+   * rede —, e um contador só não saberia dizer qual das duas é.
+   */
+  let recomecosSeguidos = 0;
+  const RECOMECOS_ATE_ESCADA = 3;
+
   function prepararBuffer(tipo, ehAudio) {
     const b = ms.addSourceBuffer(tipo);
     // `segments`, NUNCA `sequence`: nossos fragmentos carregam o `tfdt`
@@ -1187,6 +1279,26 @@
       recomecar('o decodificador recusou os dados' + porqueDaMidia());
     });
     return b;
+  }
+
+  /**
+   * OS SEGMENTOS DE INICIALIZAÇÃO VÃO PARA A FRENTE DA FILA — vídeo primeiro,
+   * som logo atrás, e tudo o que já estava esperando depois deles (v5.181).
+   *
+   * Pura e separada do `sourceopen` pelo motivo de sempre nesta casa: ela é a
+   * REGRA, e a regra é o que o `tools/espelho-cliente.test.mjs` afirma. Prová-la
+   * pelo caminho de verdade exigiria um H.264 que o Chromium do CI não
+   * decodifica e uma corrida de 300 ms no `POST /r`; a ordem, essa, é aritmética
+   * de lista.
+   *
+   * A ordem entre os dois inits importa e é a de sempre (§5.3): o vídeo abre a
+   * `MediaSource` e o som entra atrás. Invertê-los faria a faixa de som receber
+   * bytes antes de a de imagem existir.
+   */
+  function porInitNaFrente(f, initV, initA) {
+    if (initA) f.unshift({ b: initA, a: true });
+    f.unshift({ b: initV, a: false });
+    return f;
   }
 
   function enfileirar(bytes, ehAudio) {
@@ -1943,15 +2055,36 @@
   // sobra é o relato de antes, que aquele shell entende inteiro.
   let relatoCurto = false;
 
+  /**
+   * UM RELATO POR VEZ (v5.181) — a outra metade da defesa de [postar].
+   *
+   * O relato mais novo é o único que interessa: ele é uma FOTOGRAFIA do estado
+   * de agora, não um evento que se perde. Empilhar batidas enquanto a anterior
+   * não voltou só serve para consumir os seis sockets que a reconexão também
+   * precisa — e as batidas se acumulam justamente quando a rede está ruim, que
+   * é quando a reconexão importa.
+   *
+   * A bandeira NÃO envolve a sequência de dois POSTs do ramo 413: aquele par é
+   * deliberado (o grande foi recusado, o curto o substitui) e roda dentro da
+   * mesma passagem.
+   */
+  let relatoEmVoo = false;
+
   async function enviarRelato() {
     if (!vivo || !token) return;
-    let r;
-    try { r = await postar('/r', corpoDoAlive(), true); } catch (_) { return; }
-    if (r && r.status === 413 && !relatoCurto) {
-      relatoCurto = true;
-      // E o que foi recusado precisa ser REENVIADO na forma curta: senão esta
-      // batida se perde, e numa tela que caia logo em seguida ela era a única.
-      try { await postar('/r', corpoDoAlive(), true); } catch (_) { /* rede */ }
+    if (relatoEmVoo) return;
+    relatoEmVoo = true;
+    try {
+      let r;
+      try { r = await postar('/r', corpoDoAlive(), true); } catch (_) { return; }
+      if (r && r.status === 413 && !relatoCurto) {
+        relatoCurto = true;
+        // E o que foi recusado precisa ser REENVIADO na forma curta: senão esta
+        // batida se perde, e numa tela que caia logo em seguida ela era a única.
+        try { await postar('/r', corpoDoAlive(), true); } catch (_) { /* rede */ }
+      }
+    } finally {
+      relatoEmVoo = false;
     }
   }
 
@@ -2110,7 +2243,9 @@
       // enxergar entrega dezenas de quadros e SÓ ENTÃO estoura, de três em três
       // segundos: zerar no primeiro quadro faria o contador nunca sair de um e
       // a escada nunca subir.
-      if (++quadrosDesdeRecusa > QUADROS_SAUDAVEL) recusasSeguidas = 0;
+      // Os DOIS contadores da escada zeram no mesmo marco, e é o marco certo
+      // para os dois: "esta tela projetou um trecho longo sem incidente".
+      if (++quadrosDesdeRecusa > QUADROS_SAUDAVEL) { recusasSeguidas = 0; recomecosSeguidos = 0; }
       const frag = muxer.quadro({ ptsUs: q.pts, chave: q.chave, dados: carga });
       if (frag) enfileirar(frag);
       if (conta.quadros === 1) limparAviso();
@@ -2331,9 +2466,25 @@
       // recusa seguida do decodificador isso vira um martelo — e um martelo é
       // pior que uma espera, porque não conserta nada e ainda pisca a projeção
       // de três em três segundos na frente de quem está assistindo.
-      const degrau = recusasSeguidas >= RECUSAS_ATE_ESCADA
-        ? Math.min(recusasSeguidas - RECUSAS_ATE_ESCADA + 1, RECONEXAO.length - 1)
-        : Math.min(tentativa, RECONEXAO.length - 1);
+      //
+      // E ELA VALE PARA QUALQUER RECOMEÇO QUE SE REPITA (v5.181), não só para a
+      // recusa do decodificador: `recomecosSeguidos` é o contador do funil, e
+      // ele cobre os oito chamadores de `recomecar` que não alimentavam nenhum
+      // — a fila de append estourando numa TV lenta é o caso real, e ali os
+      // quadros CHEGAM, então `tentativa` é zerado a cada um deles e nunca
+      // chegaria a subir um degrau sozinho.
+      //
+      // O degrau é o MAIOR dos três candidatos: quem estiver pior manda. As
+      // três réguas medem coisas diferentes (conexão infrutífera, recusa do
+      // decodificador, recomeço em laço) e a espera tem de servir à pior delas.
+      const degrauRecusa = recusasSeguidas >= RECUSAS_ATE_ESCADA
+        ? recusasSeguidas - RECUSAS_ATE_ESCADA + 1 : 0;
+      const degrauRecomeco = recomecosSeguidos >= RECOMECOS_ATE_ESCADA
+        ? recomecosSeguidos - RECOMECOS_ATE_ESCADA + 1 : 0;
+      const degrau = Math.min(
+        Math.max(tentativa, degrauRecusa, degrauRecomeco),
+        RECONEXAO.length - 1,
+      );
       const espera = RECONEXAO[degrau];
       tentativa++;
       if (recusasSeguidas >= RECUSAS_ATE_ESCADA) {
@@ -2343,6 +2494,14 @@
         // roteador ou troca a tela.
         avisar('Esta tela não está conseguindo decodificar o fluxo ('
           + recusasSeguidas + ' recusas seguidas) — tentando de novo em '
+          + Math.round(espera / 1000) + ' s.', true);
+      } else if (degrauRecomeco > 0) {
+        // A FRASE É OUTRA, e a distinção é a mesma de sempre: aqui o fluxo está
+        // chegando e esta tela é que não o acompanha. Sem esta linha o recomeço
+        // em escada esperaria até 8 s em silêncio, com a tela ainda mostrando
+        // "Recomeçando: …" — que diz o que aconteceu e não o que vem agora.
+        avisar('Esta tela não está dando conta do fluxo ('
+          + recomecosSeguidos + ' recomeços seguidos) — tentando de novo em '
           + Math.round(espera / 1000) + ' s.', true);
       } else if (!nosso) {
         avisar('Sem sinal — tentando de novo em ' + Math.round(espera / 1000) + ' s.', true);
@@ -2358,6 +2517,13 @@
   // e volta certo.
   function recomecar(porque, suave) {
     conta.recomecos++;
+    // A ESCADA CONTA AQUI, no funil por onde as nove causas passam (v5.181).
+    //
+    // `suave` fica de fora: ele é o gesto do visitante ligando o som, que já
+    // tem teto próprio (`REBUILDS_AUDIO`) e não é falha de conexão nenhuma —
+    // contá-lo faria dois toques no ícone de som empurrarem a projeção para
+    // uma espera de segundos.
+    if (!suave) recomecosSeguidos++;
     // A reconexão já tem número próprio (`rec`/`recomecos`) e deixa rastro no
     // Registro. Contá-la também como travamento afogaria o pior caso: cada
     // recomeço injetaria vários segundos em `pq`, e o número que existe para
@@ -2787,6 +2953,12 @@
     // aritmética e se prova com um `TimeRanges` de mentira.
     indiceNoCursor: indiceNoCursor,
     folgaDoCursor: folgaDoCursor,
+    // A ORDEM DO INIT, pela mesma razão que as duas de cima: durante a retenção
+    // do `csd` de áudio a fila acumula fragmentos, e um `push` do segmento de
+    // inicialização o punha ATRÁS deles — o primeiro `appendBuffer` virava um
+    // `moof+mdat` sem init, o Chromium recusava, e a tela acusava o defeito
+    // como se fosse dela ("não está conseguindo decodificar o fluxo").
+    porInitNaFrente: porInitNaFrente,
     medidas: medidasDaTela,
   };
 
