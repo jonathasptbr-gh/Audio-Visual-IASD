@@ -444,6 +444,56 @@ object EspelhoDisplay {
     }
 
     /**
+     * AVISADO QUANDO O ESPELHO SE DESLIGA POR CONTA PRÓPRIA — nunca quando o
+     * operador desliga (v5.181).
+     *
+     * Sem isto o espelho desligava **pela metade**, e o estado que sobrava era
+     * pior que nenhum. Este objeto só sabe da tela virtual, do encoder e da
+     * janela; quem derruba o servidor, o mDNS, o pareamento e o serviço é o
+     * `desmontarEspelho` da [MainActivity], e os três chamadores dele —
+     * `stopMirror`, `onDestroy` e `EspelhoService.onGone` — não incluíam nenhum
+     * dos seis caminhos de auto-desligamento daqui.
+     *
+     * O que sobrava, num culto sem TV em que as telas da rede SÃO a projeção: o
+     * `ServerSocket` escutando, `av.local` publicado, a notificação dizendo "no
+     * ar", e as três telas com o `GET /v` aberto recebendo zero byte — elas
+     * congelam, o vigia de fio aborta aos 20 s, reconectam, recebem o `csd`
+     * velho, e o pedido de IDR cai num `codec` nulo: no-op silencioso. **Telas
+     * pretas reconectando pelo resto do culto.** E a folha do Controle dizia
+     * "desligado" (ela cruza `estaLigado && srv.ligado`), então o operador
+     * tocava em religar — e o bind falhava, porque o socket antigo continuava em
+     * LISTEN. Irrecuperável sem matar o processo.
+     *
+     * É um `@Volatile` com dono único (a [MainActivity] o arma ao ligar e o
+     * limpa no `onDestroy`) porque este objeto **sobrevive à Activity** de
+     * propósito — segurar uma referência morta aqui vazaria a Activity inteira.
+     */
+    @Volatile
+    var aoDesligarSozinho: (() -> Unit)? = null
+
+    /**
+     * O funil dos seis auto-desligamentos: registra a frase, desliga a metade
+     * que é nossa, e avisa quem sabe derrubar a outra.
+     *
+     * O aviso vai pela main **sempre**, e não só quando estamos fora dela: quem
+     * atende desmonta um `ServerSocket` e um serviço em primeiro plano, e fazer
+     * isso reentrantemente de dentro do laço de dreno do encoder é o tipo de
+     * coisa que funciona num aparelho e trava noutro.
+     */
+    private fun desligarSozinho(motivo: String) {
+        diag.registrar(motivo)
+        desligar()
+        val avisar = aoDesligarSozinho ?: return
+        main.post {
+            try {
+                avisar()
+            } catch (e: Exception) {
+                Log.w(TAG, "falhou avisando o desligamento do espelho", e)
+            }
+        }
+    }
+
+    /**
      * Garante que a janela do espelho está de pé **sobre a tela virtual que já
      * existe**, e ligada à Activity ATUAL. Chamada do `onCreate` da
      * [MainActivity], ao lado do `syncPresentation()`.
@@ -470,8 +520,7 @@ object EspelhoDisplay {
         dono = WeakReference(act)
         derrubarJanela()
         if (!criarJanela(act, vdd)) {
-            diag.registrar("a janela do espelho não voltou — espelho desligado")
-            desligar()
+            desligarSozinho("a janela do espelho não voltou — espelho desligado")
             return
         }
         diag.registrar("janela do espelho remontada")
@@ -791,12 +840,10 @@ object EspelhoDisplay {
             EspelhoCodec.Fim.NORMAL -> Unit
             EspelhoCodec.Fim.RECLAMADO -> tratarReclaim()
             EspelhoCodec.Fim.SEM_RECURSO -> {
-                diag.registrar("o aparelho ficou sem encoder — espelho desligado")
-                desligar()
+                desligarSozinho("o aparelho ficou sem encoder — espelho desligado")
             }
             EspelhoCodec.Fim.ERRO -> {
-                diag.registrar("o encoder falhou — espelho desligado")
-                desligar()
+                desligarSozinho("o encoder falhou — espelho desligado")
             }
         }
     }
@@ -825,8 +872,7 @@ object EspelhoDisplay {
         diag.fato("reclaims", reclaimsTotal)
 
         if (reclaimsNaJanela >= 2) {
-            diag.registrar("encoder tomado pelo sistema 2× — espelho desligado")
-            desligar()
+            desligarSozinho("encoder tomado pelo sistema 2× — espelho desligado")
             return
         }
         diag.registrar("encoder tomado pelo sistema — remontando")
@@ -837,8 +883,7 @@ object EspelhoDisplay {
     private fun remontar() {
         val act = dono?.get()
         if (act == null || act.isFinishing || act.isDestroyed) {
-            diag.registrar("sem tela para remontar o espelho — desligado")
-            desligar()
+            desligarSozinho("sem tela para remontar o espelho — desligado")
             return
         }
         soltarPecas()
@@ -847,8 +892,7 @@ object EspelhoDisplay {
         EspelhoCodec.marcarDescontinuidade()
         val r = montar(act)
         if (r is Resultado.Recusado) {
-            diag.registrar("remontagem falhou: ${r.motivo}")
-            desligar()
+            desligarSozinho("remontagem falhou: ${r.motivo}")
         } else {
             diag.registrar("encoder e tela virtual remontados")
         }

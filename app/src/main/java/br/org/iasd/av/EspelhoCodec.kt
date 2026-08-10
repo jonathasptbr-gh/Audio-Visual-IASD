@@ -245,6 +245,21 @@ class EspelhoCodec(private val onQuadro: (Quadro) -> Unit) {
         private set
 
     /**
+     * Quando saiu a última chave, e quando foi o último pedido feito por causa
+     * do relógio — ver [garantirChavePorRelogio].
+     *
+     * Os dois são escritos e lidos só na thread de dreno; `@Volatile` mesmo
+     * assim, porque [ultimaChaveMs] entra no Registro pelo `EspelhoDiag`, que
+     * lê de outra thread. Zero = ainda não houve quadro nenhum.
+     */
+    @Volatile
+    var ultimaChaveMs = 0L
+        private set
+
+    @Volatile
+    private var ultimoPedidoParedeMs = 0L
+
+    /**
      * Constrói o `MediaFormat`. Separado de [iniciar] de propósito: ele é o
      * documento das decisões acima e precisa ser legível sem o laço em volta.
      */
@@ -418,6 +433,7 @@ class EspelhoCodec(private val onQuadro: (Quadro) -> Unit) {
         }
 
         val chave = (info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME) != 0
+        if (chave) ultimaChaveMs = SystemClock.elapsedRealtime()
         onQuadro(
             Quadro(
                 TIPO_VIDEO,
@@ -427,7 +443,55 @@ class EspelhoCodec(private val onQuadro: (Quadro) -> Unit) {
                 bytes,
             ),
         )
+        garantirChavePorRelogio()
         return true
+    }
+
+    /**
+     * O GOP DO ENCODER É CONTADO EM QUADROS; A JANELA DO CLIENTE, EM SEGUNDOS —
+     * e é esta função que faz a ponte (v5.181).
+     *
+     * `KEY_I_FRAME_INTERVAL` não é tempo de parede: o framework o multiplica por
+     * `KEY_FRAME_RATE` (declarado 30), então [I_FRAME_S] = 2 são **60 quadros**.
+     * Isso só vira "2 segundos" quando a fonte de fato entrega 30 fps — e a
+     * fonte aqui é o batimento do `display.js`, que **muda de cadência conforme
+     * a cena**: 8 Hz numa cena parada (60 quadros = 7,5 s) e, desde a v5.168, um
+     * quarto disso quando há conteúdo apresentando quadros que não mudam pixel
+     * nenhum da tela virtual (60 quadros = **30 s**).
+     *
+     * Contra a `JANELA_S` de 12 s do cliente, 30 s é o desencontro da §10-A.5 de
+     * volta por outra porta: a poda desiste por não achar quadro-chave antes do
+     * corte, a janela viva da tela cresce, e a recuperação passa a depender do
+     * pedido de chave — que tem freio de 2 s por tela.
+     *
+     * A correção não é mexer no batimento (isso já foi tentado duas vezes, e a
+     * v5.168 documenta por que um piso com condição não é piso): é **parar de
+     * depender dele**. Passados [CHAVE_PAREDE_MS] sem nenhuma chave, pede-se
+     * uma. O GOP passa a ter teto em segundos, aconteça o que acontecer com a
+     * cadência da fonte — inclusive na próxima vez que alguém a mexer.
+     *
+     * Chamado do laço de dreno, isto é, no máximo uma vez por quadro emitido —
+     * o mesmo lugar onde a chave é observada, sem timer novo e sem thread nova.
+     * `pedirIdr()` não tem efeito garantido (armadilha 3 do KDoc da classe), e é
+     * por isso que a âncora só é reescrita quando uma chave de fato SAI: um
+     * pedido ignorado é repetido no quadro seguinte, em vez de sumir.
+     */
+    private fun garantirChavePorRelogio() {
+        val agora = SystemClock.elapsedRealtime()
+        // A âncora nasce no primeiro quadro: sem isso o zero inicial pediria uma
+        // chave já no primeiro dreno, que é justamente quando o `csd` e o IDR de
+        // abertura acabaram de sair.
+        if (ultimaChaveMs == 0L) {
+            ultimaChaveMs = agora
+            return
+        }
+        if (agora - ultimaChaveMs < CHAVE_PAREDE_MS) return
+        // NÃO se escreve `ultimaChaveMs` aqui — quem a move é a chave que SAIU.
+        // Um freio próprio evita repetir o pedido a cada quadro enquanto o
+        // encoder ainda não atendeu.
+        if (agora - ultimoPedidoParedeMs < CHAVE_PAREDE_FREIO_MS) return
+        ultimoPedidoParedeMs = agora
+        pedirIdr()
     }
 
     /**
@@ -582,6 +646,30 @@ class EspelhoCodec(private val onQuadro: (Quadro) -> Unit) {
          * contrário.
          */
         private const val I_FRAME_S = 2
+
+        /**
+         * O TETO DO GOP EM SEGUNDOS DE PAREDE — o que [I_FRAME_S] não é.
+         *
+         * 6 s, e o número tem duas âncoras. O piso: precisa ser confortavelmente
+         * menor que a `JANELA_S` de 12 s do cliente, senão a poda dele desiste
+         * por não achar chave antes do corte (é a §10-A.4/§10-A.5 inteira). O
+         * teto: precisa ser maior que o GOP normal de uma cena com movimento
+         * (60 quadros a 30 fps = 2 s), senão esta guarda passaria a ditar o GOP
+         * em vez de socorrê-lo — e um IDR é um quadro grande, caro de mandar
+         * para três telas num enlace de igreja.
+         *
+         * Ou seja: em cena com movimento ela nunca dispara, e em cena parada ela
+         * é o único motivo de existir uma chave.
+         */
+        private const val CHAVE_PAREDE_MS = 6_000L
+
+        /**
+         * Freio do pedido feito por relógio. `pedirIdr` não tem efeito garantido
+         * (armadilha 3), então o pedido precisa poder ser repetido — mas não a
+         * cada quadro: numa cena com movimento isso seriam 30 pedidos por
+         * segundo enquanto o encoder não atende.
+         */
+        private const val CHAVE_PAREDE_FREIO_MS = 1_000L
 
         /**
          * O intervalo do **batimento do papel `espelho`**, em microssegundos —

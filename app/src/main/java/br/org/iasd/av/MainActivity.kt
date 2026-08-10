@@ -358,6 +358,16 @@ class MainActivity : ComponentActivity(), BridgeHost {
         EspelhoService.onDesligar = { stopMirror() }
         EspelhoService.onGone = { runOnUiThread { desmontarEspelho() } }
         EspelhoService.onTermica = { grau -> aoEsquentar(grau) }
+        // A SIMÉTRICA DO `onGone`, do outro lado do espelho (v5.181): o encoder
+        // ou a janela caindo sozinhos. `EspelhoDisplay` só sabe derrubar a
+        // metade dele; sem este aviso sobrava o `ServerSocket` escutando, o
+        // `av.local` publicado, o serviço em primeiro plano e as três telas
+        // recebendo zero byte — e religar falhava no bind. Ver o KDoc de
+        // [EspelhoDisplay.aoDesligarSozinho].
+        //
+        // `desmontarEspelho()`, NUNCA `stopMirror()`: aquele reentraria em
+        // `EspelhoDisplay.desligar()`, que é justamente quem nos chamou.
+        EspelhoDisplay.aoDesligarSozinho = { desmontarEspelho() }
 
         onBackPressedDispatcher.addCallback(this) { handleBack() }
     }
@@ -612,6 +622,11 @@ class MainActivity : ComponentActivity(), BridgeHost {
         EspelhoService.onDesligar = null
         EspelhoService.onGone = null
         EspelhoService.onTermica = null
+        // Pelo MESMO motivo dos três acima, e com uma agravante: `EspelhoDisplay`
+        // é um `object` que sobrevive à Activity de propósito (invariante 5 do
+        // KDoc dele), então uma lambda esquecida aqui não é um callback órfão —
+        // é a Activity inteira retida pelo processo.
+        EspelhoDisplay.aoDesligarSozinho = null
         displayManager?.unregisterDisplayListener(displayListener)
         presentation?.let {
             it.release()
@@ -1247,7 +1262,13 @@ class MainActivity : ComponentActivity(), BridgeHost {
                     cert?.first, cert?.second, hostTls,
                 )
             } catch (e: Exception) {
+                // O `EspelhoMdns` JÁ SUBIU quando se chega aqui (a ordem acima é
+                // contrato), e `srv.desligar()` não sabe dele: sem esta linha o
+                // `av.local` fica publicado apontando para uma porta que não
+                // atende, e quem digitar o nome recebe o 404 idêntico — o modo de
+                // falhar mais mudo deste servidor. (v5.181)
                 srv.desligar()
+                EspelhoMdns.desligar()
                 onResult(mirrorJson(erro = e.message ?: "o servidor do espelho não subiu"))
                 return@runOnUiThread
             }
@@ -1263,6 +1284,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
             val r = EspelhoDisplay.ligar(this@MainActivity) { q -> srv.difundir(q) }
             if (r is Resultado.Recusado) {
                 srv.desligar()
+                EspelhoMdns.desligar()   // idem ao ramo acima (v5.181)
                 onResult(mirrorJson(erro = r.motivo))
                 return@runOnUiThread
             }
