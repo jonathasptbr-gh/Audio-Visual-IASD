@@ -250,12 +250,28 @@ try {
   const esp = await pgEspelho.evaluate(percursoDoBarramento);
 
   checar(esp.papel === 'espelho', 'o papel `espelho` chega ao lado web', esp.papel);
-  checar(esp.bus.length === 1 && esp.bus[0].type === 'display-ready',
-    'no espelho, o relay nativo deixa passar SÓ o display-ready (lista de permissão de um item)',
-    JSON.stringify(esp.bus.map((m) => m.type)));
-  checar(esp.bus.length === 1 && esp.bus[0].__de === 'inst-1',
-    'e ele passa ASSINADO — é o `__de` que faz o reenvio da cena ser endereçado',
-    JSON.stringify(esp.bus[0]));
+  const tipos = esp.bus.map((m) => m.type);
+  checar(esp.bus.length === 2,
+    'no espelho o relay deixa passar DOIS: o anúncio, e o status RENOMEADO',
+    JSON.stringify(tipos));
+  const pronto = esp.bus.find((m) => m.type === 'display-ready');
+  checar(!!pronto && pronto.__de === 'inst-1',
+    'e o anúncio passa ASSINADO — é o `__de` que faz o reenvio da cena ser endereçado',
+    JSON.stringify(pronto));
+  // O RENOMEADO, e é ele que fecha o buraco da v5.173: sem telão, o espelho É a
+  // projeção, e calá-lo deixava o Controle sem referência de tempo nenhuma — a
+  // preview virava a régua, e ela é justamente o que o Android estrangula.
+  const status = esp.bus.find((m) => m.type === 'espelho-status');
+  checar(!!status && status.currentTime === 12,
+    'o `display-status` do espelho sai como `espelho-status`, com a carga intacta',
+    JSON.stringify(status));
+  checar(!tipos.includes('display-status'),
+    'e NUNCA com o nome do telão — quem espera "o telão" não pode receber o espelho por engano',
+    JSON.stringify(tipos));
+  // A lista continua sendo de PERMISSÃO: o que não está nela morre.
+  checar(!tipos.includes('media-ended') && !tipos.includes('mic-status'),
+    'e `media-ended`/`mic-status` seguem MUDOS — os motivos deles não mudaram',
+    JSON.stringify(tipos));
   checar(esp.vazou === false,
     'e o BroadcastChannel do espelho não emite nada (postMessage é no-op)', esp.vazou);
   checar(esp.temBC === true,

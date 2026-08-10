@@ -733,7 +733,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.171</span>
+        <span id="appVersion" class="app-version">Controle v5.179</span>
         <!-- O APK NOVO, quando existir. Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso. `hidden`
@@ -801,7 +801,6 @@
              interruptor da porta) continuam existindo numa folha própria — só
              deixaram de estar no caminho de quem só quer conectar uma tela. -->
         <button type="button" class="cast-link" id="mirrorOpenBtn" hidden>Ajustes avançados</button>
-        <span id="mirrorRow" hidden><span id="mirrorRowHint"></span></span>
       </div>
     </div>
   </div>
@@ -827,20 +826,18 @@
       </div>
       <div class="mirror-body">
         <p class="mirror-lead" id="mirrorLead"></p>
-        <!-- O ENDEREÇO e o PIN, em corpo grande: é o que alguém do outro lado do
-             salão vai digitar olhando por cima do ombro do operador. O token da
-             sessão NUNCA aparece aqui nem em URL nenhuma — ele nasce da
-             aprovação e vive no `sessionStorage` da tela que pareou. -->
-        <div class="mirror-addr" id="mirrorAddr" hidden>
-          <span class="mirror-url" id="mirrorUrl"></span>
-          <!-- O ENDEREÇO NUMÉRICO CONTINUA À VISTA quando há nome curto: nem
-               toda tela resolve `.local` (o Chrome do Android e a maioria das
-               Smart TVs não), e trocar o que funciona em toda tela pelo que
-               funciona em algumas seria regressão com cara de melhoria. -->
-          <span class="mirror-url2" id="mirrorUrl2" hidden></span>
+        <!-- O PIN — o plano B, e SÓ ele.
+             O ENDEREÇO SAIU DAQUI (v5.175): esta folha só se alcança de dentro
+             da folha de conectar, que o mostra em corpo grande uma linha acima.
+             Repeti-lo aqui era a mesma informação com duas anatomias — dois
+             tamanhos, dois raios, dois paddings —, que é a classe de divergência
+             que a paleta única deste projeto existe para não ter. O token da
+             sessão nunca aparece aqui nem em URL nenhuma: ele nasce da aprovação
+             e vive no `sessionStorage` da tela que pareou. -->
+        <div class="cast-addr" id="mirrorAddr" hidden>
           <span class="mirror-pin" id="mirrorPin"></span>
+          <span class="cast-url2">Digite estes seis dígitos na tela, se ela pedir</span>
         </div>
-        <p class="mirror-nome-hint" id="mirrorNomeHint" hidden></p>
         <!-- O CAMINHO CURTO: a tela mostra um QR, o operador lê aqui, pronto.
              Ele não substitui o PIN acima — a câmera pode não existir, a
              leitura pode não estar disponível no WebView, e o operador pode

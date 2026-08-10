@@ -257,6 +257,179 @@ class EspelhoParesTest {
         assertTrue("a fila precisa recusar em algum ponto", lotou)
     }
 
+    // ------------------------------------------------------ a PORTA ABERTA
+
+    /**
+     * O caminho que a v5.170 anunciou e que **não existia**: abrir o endereço e
+     * entrar, sem PIN, sem QR e sem espera nenhuma.
+     *
+     * Ele não era uma ausência qualquer. Como toda queda de rede, toda religada
+     * do espelho e toda expiração de token devolvem a tela ao pareamento, a
+     * falta deste caminho fazia cada uma dessas coisas exigir uma caminhada até
+     * o televisor — e era isso, e não o AP da igreja, a maior parte de "conecta
+     * mas não é confiável".
+     */
+    @Test
+    fun portaAbertaEntregaOTokenNaMesmaChamada() {
+        EspelhoPares.definirAutoAprovar(true)
+        val v = EspelhoPares.entrarAberto(origem, relato(), t0)
+        assertTrue(v.toString(), v is EspelhoPares.Veredito.Aprovada)
+        val s = (v as EspelhoPares.Veredito.Aprovada).sessao
+        assertEquals(s, EspelhoPares.validar("Bearer ${s.token}", t0))
+        // E NENHUMA ESPERA É CRIADA. Uma por entrada encheria o [MAX_ESPERAS] na
+        // primeira tela que reconectasse em laço — trancando o PIN, que é o
+        // plano B de quando a porta estiver fechada.
+        assertEquals(0, EspelhoPares.pendentes().size)
+        assertEquals(0, EspelhoPares.esperandoQr())
+    }
+
+    /** Porta FECHADA: a entrada é recusada — e sem gastar a cota de ninguém. */
+    @Test
+    fun portaFechadaRecusaSemContarErro() {
+        EspelhoPares.definirAutoAprovar(false)
+        repeat(EspelhoPares.ERROS_ATE_BLOQUEIO + 2) {
+            assertSame(
+                EspelhoPares.Veredito.Recusada,
+                EspelhoPares.entrarAberto(origem, relato(), t0),
+            )
+        }
+        // Não houve segredo tentado, então não houve erro: o visitante que está
+        // digitando o PIN ao lado não pode ficar bloqueado porque uma TV
+        // perguntou seis vezes se podia entrar.
+        assertEquals(0, EspelhoPares.recusas())
+        assertEquals(0, EspelhoPares.origensEmBloqueio(t0))
+        assertTrue(EspelhoPares.tentar(pin, origem, relato(), t0) is EspelhoPares.Veredito.Espera)
+    }
+
+    /** O teto de sessões continua sendo o dano real de um curioso na rede. */
+    @Test
+    fun portaAbertaRespeitaOTetoDeSessoes() {
+        EspelhoPares.definirAutoAprovar(true)
+        repeat(EspelhoPares.MAX_SESSOES) {
+            assertTrue(EspelhoPares.entrarAberto("10.0.0.$it", relato(), t0) is EspelhoPares.Veredito.Aprovada)
+        }
+        assertSame(
+            EspelhoPares.Veredito.Lotada,
+            EspelhoPares.entrarAberto("10.0.0.99", relato(), t0),
+        )
+    }
+
+    /** E o castigo por origem (invariante 6) vale para ela também. */
+    @Test
+    fun origemBloqueadaNaoEntraPelaPortaAberta() {
+        repeat(EspelhoPares.ERROS_ATE_BLOQUEIO) {
+            EspelhoPares.tentar(pinErrado(), origem, relato(), t0)
+        }
+        EspelhoPares.definirAutoAprovar(true)
+        assertTrue(
+            EspelhoPares.entrarAberto(origem, relato(), t0) is EspelhoPares.Veredito.Bloqueada,
+        )
+        // E a origem que não errou nada entra normalmente.
+        assertTrue(
+            EspelhoPares.entrarAberto("192.168.0.78", relato(), t0) is EspelhoPares.Veredito.Aprovada,
+        )
+    }
+
+    // ------------------------------------------- a VAGA que ninguém está usando
+
+    /**
+     * TRÊS RECOMEÇOS NÃO PODEM TRANCAR O ESPELHO PELO RESTO DO CULTO.
+     *
+     * Uma sessão só saía de `vivas` por [EspelhoPares.encerrar], por
+     * [EspelhoPares.recusar] ou pelas SEIS HORAS do prazo. Uma tela que recomeça
+     * numa aba nova (a TV desligada e religada, o navegador que perdeu o
+     * `sessionStorage`) pede um token novo e deixa o antigo ocupando vaga — e com
+     * a porta aberta isso deixou de ser hipótese.
+     */
+    @Test
+    fun vagaOciosaEAproveitadaPorUmaTelaNova() {
+        EspelhoPares.definirAutoAprovar(true)
+        repeat(EspelhoPares.MAX_SESSOES) {
+            assertTrue(EspelhoPares.entrarAberto("10.0.0.$it", relato(), t0) is EspelhoPares.Veredito.Aprovada)
+        }
+        // No mesmo instante ninguém está ocioso: o teto vale, e é isso que
+        // impede a vaga de virar torneira.
+        assertSame(
+            EspelhoPares.Veredito.Lotada,
+            EspelhoPares.entrarAberto("10.0.0.99", relato(), t0),
+        )
+        // Passado o prazo de ociosidade sem NENHUMA delas ter sido usada, a
+        // quarta entra — tomando a vaga de quem já foi embora.
+        val depois = t0 + EspelhoPares.PRAZO_OCIOSA_MS + 1
+        assertTrue(
+            EspelhoPares.entrarAberto("10.0.0.99", relato(), depois) is EspelhoPares.Veredito.Aprovada,
+        )
+        assertEquals(EspelhoPares.MAX_SESSOES, EspelhoPares.sessoes().size)
+    }
+
+    /** E a vaga tomada é a de quem está PARADO, nunca a da tela que está no ar. */
+    @Test
+    fun aVagaTomadaEADeQuemNaoEstaUsando() {
+        EspelhoPares.definirAutoAprovar(true)
+        val viva = (EspelhoPares.entrarAberto("10.0.0.1", relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
+        val morta = (EspelhoPares.entrarAberto("10.0.0.2", relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
+        val outra = (EspelhoPares.entrarAberto("10.0.0.3", relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
+        val depois = t0 + EspelhoPares.PRAZO_OCIOSA_MS + 1
+        // A primeira e a terceira continuam falando; a segunda emudeceu.
+        assertNotNull(EspelhoPares.validar(viva.token, depois - 1))
+        assertNotNull(EspelhoPares.validar(outra.token, depois - 1))
+        assertTrue(
+            EspelhoPares.entrarAberto("10.0.0.4", relato(), depois) is EspelhoPares.Veredito.Aprovada,
+        )
+        assertNotNull("a tela no ar não pode perder a vaga", EspelhoPares.validar(viva.token, depois))
+        assertNotNull(EspelhoPares.validar(outra.token, depois))
+        assertNull("a vaga tomada é a de quem parou", EspelhoPares.validar(morta.token, depois))
+    }
+
+    /**
+     * O carimbo de uso **não** é uma janela deslizante disfarçada: ele só faz
+     * uma sessão morrer mais cedo, e nunca estende o prazo absoluto.
+     */
+    @Test
+    fun oCarimboDeUsoNaoEstendeOPrazoAbsoluto() {
+        val s = parear()
+        // Usada de minuto em minuto até quase o fim do prazo...
+        var t = t0
+        while (t < t0 + EspelhoPares.PRAZO_SESSAO_MS - 60_000) {
+            t += 60_000
+            assertNotNull(EspelhoPares.validar(s.token, t))
+        }
+        // ...e ainda assim ela morre na hora marcada.
+        assertNull(EspelhoPares.validar(s.token, t0 + EspelhoPares.PRAZO_SESSAO_MS))
+    }
+
+    // ------------------------------------------------ o operador DERRUBA
+
+    /**
+     * "Desconectar" precisa DURAR alguma coisa com a porta aberta.
+     *
+     * Encerrar a sessão sozinha não basta: a tela derrubada perde o token, volta
+     * ao pareamento e entra de novo em dois segundos — o botão reportaria
+     * sucesso e não faria nada visível. O castigo por origem é o que dá sentido
+     * ao ato, e ele é CURTO de propósito: derrubar a tela errada é um toque, e
+     * ficar sem poder readmiti-la seria o preço errado.
+     */
+    @Test
+    fun derrubarTiraATelaDoArEASeguraPorUmTempo() {
+        EspelhoPares.definirAutoAprovar(true)
+        val s = (EspelhoPares.entrarAberto(origem, relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
+        EspelhoPares.derrubar(s.token, origem, t0)
+        assertNull(EspelhoPares.validar(s.token, t0))
+        assertTrue(
+            "derrubada, ela não pode voltar no segundo seguinte",
+            EspelhoPares.entrarAberto(origem, relato(), t0 + 1) is EspelhoPares.Veredito.Bloqueada,
+        )
+        // E o castigo é de quem foi derrubado, não da rede inteira.
+        assertTrue(
+            EspelhoPares.entrarAberto("192.168.0.90", relato(), t0 + 1) is EspelhoPares.Veredito.Aprovada,
+        )
+        // Vencido o prazo, ela volta a ser bem-vinda.
+        val depois = t0 + EspelhoPares.BLOQUEIO_DERRUBADA_MS + 1
+        assertTrue(
+            EspelhoPares.entrarAberto(origem, relato(), depois) is EspelhoPares.Veredito.Aprovada,
+        )
+    }
+
     @Test
     fun filaDoOperadorTemTeto() {
         repeat(EspelhoPares.MAX_ESPERAS) {

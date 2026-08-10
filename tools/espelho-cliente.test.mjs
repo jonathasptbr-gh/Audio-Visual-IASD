@@ -87,6 +87,13 @@ let qrLiberado = true;       // o servidor aceita criar espera de QR?
 let qrAprovado = false;      // e o "operador" já leu o código?
 let pendencias = 0;          // quantos polls de `espera` ainda respondem "pendente"
 let aprovar = true;
+// A PORTA (v5.170). Nasce FECHADA aqui pelo mesmo motivo pelo qual o
+// `EspelhoParesTest` a fecha: com ela aberta a tela entra na primeira chamada e
+// todo o percurso de pareamento — QR, PIN, espera, aprovação — passaria por
+// vacuidade, que é a pior forma de um teste de acesso passar. O caso que a
+// exercita a abre de propósito, no fim.
+let portaAberta = false;
+const visto2 = { aberto: [] };   // os pedidos de entrada pela porta aberta
 let fluxo = null;            // a resposta de /v em curso
 let aoAbrirFluxo = null;
 
@@ -159,6 +166,19 @@ const servidor = http.createServer(async (req, res) => {
       if (!aprovar) { json(res, 403, { estado: 'recusada' }); return; }
       if (pendencias > 0) { pendencias--; json(res, 202, { estado: 'pendente' }); return; }
       json(res, 200, { t: TOKEN });
+      return;
+    }
+    // A PORTA ABERTA (v5.170) — o corpo sem `pin`, sem `qr` e sem `espera`.
+    //
+    // O `EspelhoServidor` aprova na MESMA chamada e devolve o token: não há
+    // espera a criar, porque não há decisão a tomar. Este ramo não existia nem
+    // aqui nem no servidor de verdade, e por isso o recurso inteiro nunca
+    // chegou a funcionar — o cliente pedia, o servidor respondia 403/404, e
+    // toda tela continuava dependendo de alguém apontar uma câmera.
+    if (c) {
+      visto2.aberto.push(c);
+      if (portaAberta) { json(res, 200, { t: TOKEN }); return; }
+      json(res, 403, { estado: 'recusada' });
       return;
     }
     json(res, 404, {});
@@ -580,20 +600,55 @@ checar(true, 'aprovada, a MESMA página troca para o player (sem navegar)');
   }
 }
 
-// O GESTO É A ÚNICA PORTA DO SOM, e é por isso que ele precisa de um caso.
+// O ÍCONE DO SOM É A ÚNICA PORTA DO SOM, e é por isso que ele precisa de um
+// caso.
 //
 // As telas nascem MUDAS por decisão (§3.11, invariante 10), e nada no cliente
 // liga `audioQuerido` além deste toque. No primeiro culto de teste o Registro
 // mostrou `som torneira:nao` — que quer dizer "esta tela nunca pediu" — e a
 // leitura na sala foi "o celular não está enviando som", porque o botão dizia
-// só "ver em tela cheia". O rótulo mudou; este caso é o que impede a porta de
-// ser fechada de novo por um refactor.
+// só "ver em tela cheia". Desde a v5.177 são DOIS ícones, e o que trocou o
+// rótulo por um desenho tem de continuar dizendo som em algum lugar: o
+// `aria-label`/`title` é esse lugar, e é o que um leitor de tela anuncia.
 // (O percurso completo do toque é exercitado na aba limpa, no fim.)
 {
-  const rotulo = await pg.$eval('#gesto', (e) => e.textContent || '');
-  checar(/ouvir|som/i.test(rotulo),
-    'o botão do gesto ANUNCIA o som — ele é a única porta para o áudio da tela',
-    rotulo);
+  const rot = await pg.$eval('#btnSom', (e) => (e.getAttribute('aria-label') || '') + '|' + (e.title || ''));
+  checar(/som|ouvir|mudo/i.test(rot),
+    'o ícone do som ANUNCIA o som — ele é a única porta para o áudio da tela', rot);
+  const dica = await pg.$eval('#dica', (e) => e.textContent || '');
+  checar(/som|ouvir|alto-falante/i.test(dica),
+    'e a dica da estreia também o nomeia (o som é opt-in e ninguém adivinha)', dica);
+  // A TELA CHEIA É SEPARÁVEL DO SOM, e este é o caso que impede alguém de
+  // juntar os dois de novo: a tela do saguão quer imagem cheia e SILÊNCIO.
+  const cheia = await pg.$eval('#btnFull', (e) => (e.getAttribute('aria-label') || '') + '|' + (e.title || ''));
+  checar(/tela cheia/i.test(cheia) && !/som|ouvir|mudo/i.test(cheia),
+    'e o ícone de tela cheia é SÓ tela cheia — as duas decisões não voltam a ser uma', cheia);
+}
+
+// OS CONTROLES SE RECOLHEM, e voltam com um toque — o player de sempre.
+//
+// Sem o recolhimento, dois ícones ficam parados sobre a projeção pelo resto do
+// culto; sem a volta, uma tela que se calou não teria como pedir som de novo
+// sem recarregar a página.
+{
+  await pg.waitForFunction(() => {
+    const c = document.getElementById('ctrl');
+    return c && c.classList.contains('some');
+  }, null, { timeout: 8000 }).then(() => checar(true, 'a barra de controles se recolhe sozinha'))
+    .catch(() => checar(false, 'a barra de controles se recolhe sozinha'));
+
+  await pg.click('#play', { position: { x: 5, y: 5 } });
+  const voltou = await pg.$eval('#ctrl', (e) => !e.classList.contains('some'));
+  checar(voltou, 'e um toque fora dos ícones a traz de volta');
+
+  // A CARÊNCIA, e ela precisa de um caso: num notebook o ponteiro se mexe antes
+  // do clique, e é esse movimento que traz a barra. Sem a carência o clique de
+  // trás a recolheria no mesmo gesto — o operador veria os ícones aparecerem e
+  // sumirem, como se o toque não tivesse funcionado.
+  await espera(600);
+  await pg.click('#play', { position: { x: 5, y: 5 } });
+  const foi = await pg.$eval('#ctrl', (e) => e.classList.contains('some'));
+  checar(foi, 'e o toque seguinte a recolhe — "ou tocando fora deles"');
 }
 
 // A VOLTA (§5.1): três palavras, e nada que venha da rede entra no barramento.
@@ -814,6 +869,56 @@ checar(true, 'aprovada, a MESMA página troca para o player (sem navegar)');
     antesGets + ' → ' + visto.gets);
   checar(/desligado no celular/i.test(e.aviso || ''),
     'e a tela DIZ que foi o operador, em vez de "sem sinal"', e.aviso);
+
+  // ...E PARAR NÃO É DESISTIR. O adeus era TERMINAL: a página ficava morta até
+  // alguém recarregá-la à mão, e desligar/ligar o espelho é coisa que o
+  // operador faz várias vezes (trocar certificado, remontar o encoder, testar).
+  // Numa igreja isso significa uma caminhada até cada televisor. Passado o
+  // silêncio combinado, a tela volta a oferecer entrada sozinha — e com a porta
+  // aberta ela entra sem ninguém tocar em nada.
+  portaAberta = true;
+  const antesVolta = visto.gets;
+  await pg.waitForFunction(() => window.__espelho.estado().vivo,
+    null, { timeout: 40000 });
+  checar(visto.gets > antesVolta,
+    'e passado o silêncio ela VOLTA sozinha — o adeus não é uma sentença',
+    antesVolta + ' → ' + visto.gets);
+  portaAberta = false;
+}
+
+// ---------------------------------------------------------------------------
+// A PORTA ABERTA (v5.170), numa aba limpa: abrir o endereço e já estar
+// projetando. Sem código, sem dígito, sem ninguém tocar no celular.
+//
+// Este é o caso que não existia — nem aqui nem no servidor. O `cliente.js`
+// mandava o pedido de entrada desde a v5.170 e o `when` do `EspelhoServidor`
+// não tinha ramo para ele: caía no `else -> 403`. O recurso anunciado nunca
+// aconteceu, e o preço maior não era o atrito da estreia — era a RECUPERAÇÃO,
+// porque toda queda de rede, toda religada e toda expiração de token devolvem a
+// tela ao pareamento, onde ela ficava mostrando um QR que ninguém ia ler.
+// ---------------------------------------------------------------------------
+{
+  portaAberta = true;
+  const antes = visto2.aberto.length;
+  const ctx3 = await navegador.newContext();
+  const pg3 = await ctx3.newPage();
+  await pg3.goto(base + '/', { waitUntil: 'domcontentloaded' });
+  await pg3.waitForFunction(() => !document.getElementById('play').hidden,
+    null, { timeout: 15000 });
+  const e3 = await pg3.evaluate(() => window.__espelho.estado());
+  checar(e3.pareado, 'com a porta aberta a tela entra sozinha ao abrir o endereço');
+  checar(!e3.qr, 'e nenhum QR chega a ser desenhado — não havia o que aprovar');
+  const pedidos = visto2.aberto.slice(antes);
+  checar(pedidos.length > 0, 'o pedido de entrada chega ao servidor', pedidos.length);
+  // ELE É ANÔNIMO E NÃO CARREGA SEGREDO NENHUM (§3.5, invariante 7): a página
+  // de pareamento não sabe o PIN, e um pedido de entrada que o carregasse
+  // reporia na rede justamente o que a porta aberta existe para não exigir.
+  checar(pedidos.every((c) => c.pin === undefined && c.espera === undefined),
+    'e ele não leva PIN nem id de espera — é um pedido, não uma prova');
+  checar(pedidos.every((c) => c.aberto === true),
+    'e se NOMEIA (aberto:true), em vez de depender de um corpo sem chave nenhuma');
+  await ctx3.close();
+  portaAberta = false;
 }
 
 // ---------------------------------------------------------------------------
@@ -852,14 +957,26 @@ checar(true, 'aprovada, a MESMA página troca para o player (sem navegar)');
   // tela nunca pediu" — e a leitura na sala foi "o celular não está enviando
   // som", porque o botão dizia só "ver em tela cheia".
   const audioAntes = visto.volta.filter((x) => x && x.do === 'audio').length;
-  await pg2.click('#gesto');
+  await pg2.click('#btnSom');
   await espera(800);
   const pedidos = visto.volta.filter((x) => x && x.do === 'audio');
   checar(pedidos.length > audioAntes,
-    'e o gesto PEDE o áudio ao servidor (POST /r {do:audio,on:true})',
+    'e o ícone do som PEDE o áudio ao servidor (POST /r {do:audio,on:true})',
     audioAntes + ' → ' + pedidos.length);
   checar(pedidos.every((x) => x.on === true),
     'sempre para LIGAR — o cliente nunca desliga o som de si mesmo');
+
+  // E O SEGUNDO TOQUE É UM MUDO DE VERDADE: `muted` no elemento, sem remontar
+  // nada e sem pedir nada ao servidor. Era a metade que faltava — com o botão
+  // único de antes, quem descobria o eco na sala não tinha como desfazer sem
+  // recarregar a página.
+  const antesDoMudo = visto.volta.filter((x) => x && x.do === 'audio').length;
+  await pg2.click('#btnSom');
+  await espera(300);
+  const mudo = await pg2.$eval('#v', (e) => e.muted);
+  checar(mudo, 'e o toque seguinte MUTA a tela (sem remontar a MediaSource)');
+  checar(visto.volta.filter((x) => x && x.do === 'audio').length === antesDoMudo,
+    'e ele não fala com o servidor: o mudo é local, a torneira segue como estava');
   await ctx2.close();
 }
 

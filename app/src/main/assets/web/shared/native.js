@@ -295,11 +295,44 @@
   // existe para fechar.
   const ESPELHO = global.__AV_ROLE__ === 'espelho';
 
+  // ## O SEGUNDO item da lista, e ele entra RENOMEADO (v5.173)
+  //
+  // `display-status` era o primeiro nome da lista de recusa acima, e o motivo
+  // continua inteiro: com um telão de verdade no ar, duas fontes alternadas dão
+  // uma barra que anda para a frente e para trás. Só que **sem telão o espelho
+  // É a projeção** — as telas da rede são o que a congregação vê —, e calá-lo
+  // deixava o Controle sem NENHUMA referência de tempo. A única que sobrava era
+  // a preview, que é justamente a coisa que o Android estrangula quando o app
+  // sai da frente: minimizar e voltar deixava a preview arbitrariamente longe do
+  // que estava sendo projetado, sem nada que a corrigisse.
+  //
+  // A saída não é deixá-lo falar com o mesmo nome — é dar-lhe um nome PRÓPRIO.
+  // `espelho-status` carrega os mesmos campos e é lido por um consumidor que
+  // sabe qual dos dois vale: o Controle o descarta enquanto houver
+  // `display-status` recente (o telão tem precedência), e o
+  // `NativeBridge.snoopDisplayStatus` faz a mesma conta para a notificação de
+  // mídia. Nenhum código que espera "o telão" passa a receber o espelho por
+  // engano, que era o risco inteiro.
+  //
+  // `media-ended`, `mic-status` e `diag-ask` continuam MUDOS, e por motivos que
+  // não mudaram: o primeiro dobraria um `load` em `repeat one`, o segundo apaga
+  // o estado do microfone verdadeiro, e o terceiro faz o Registro mostrar o
+  // diário de um dos dois sem dizer qual.
+  const RENOMEADOS = { 'display-status': 'espelho-status' };
+
+  function paraOFio(msg) {
+    if (!ESPELHO) return msg;
+    const novo = msg && RENOMEADOS[msg.type];
+    if (novo) return Object.assign({}, msg, { type: novo });
+    // A lista de permissão. Ver o bloco acima: um item, e o motivo dele.
+    return (msg && msg.type === 'display-ready') ? msg : null;
+  }
+
   global.__AVBus = {
     post(msg) {
-      // A lista de permissão. Ver o bloco acima: um item, e o motivo dele.
-      if (ESPELHO && !(msg && msg.type === 'display-ready')) return;
-      try { B.busPost(JSON.stringify(msg)); } catch (_) { /* ponte indisponível */ }
+      const fora = paraOFio(msg);
+      if (!fora) return;
+      try { B.busPost(JSON.stringify(fora)); } catch (_) { /* ponte indisponível */ }
     },
     recv(fn) { busListeners.push(fn); },
   };

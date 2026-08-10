@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.171';
+const WEB_VERSION = '5.179';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -322,21 +322,16 @@ const castMirrorSubEl = document.getElementById('castMirrorSub');
 const castNetBtnEl = document.getElementById('castNetBtn');
 const castNetSubEl = document.getElementById('castNetSub');
 const castMsgEl = document.getElementById('castMsg');
-const mirrorRowEl = document.getElementById('mirrorRow');
-const mirrorRowHintEl = document.getElementById('mirrorRowHint');
 const mirrorOpenBtnEl = document.getElementById('mirrorOpenBtn');
 const mirrorPopupEl = document.getElementById('mirrorPopup');
 const mirrorCloseEl = document.getElementById('mirrorClose');
 const mirrorLeadEl = document.getElementById('mirrorLead');
 const mirrorAddrEl = document.getElementById('mirrorAddr');
-const mirrorUrlEl = document.getElementById('mirrorUrl');
 const castLiveEl = document.getElementById('castLive');
 const castUrlEl = document.getElementById('castUrl');
 const castUrl2El = document.getElementById('castUrl2');
 const castHintEl = document.getElementById('castHint');
 const castTelasEl = document.getElementById('castTelas');
-const mirrorUrl2El = document.getElementById('mirrorUrl2');
-const mirrorNomeHintEl = document.getElementById('mirrorNomeHint');
 const mirrorPinEl = document.getElementById('mirrorPin');
 const mirrorAutoEl = document.getElementById('mirrorAuto');
 const mirrorListEl = document.getElementById('mirrorList');
@@ -1114,6 +1109,49 @@ let ytEnded = false;       // YouTube terminou/parou sem player tocando: ▶ rec
 //
 // Uma variável, três defeitos: o estado que faltava era esse.
 let midiaNoAr = false;
+// QUAL mídia está no telão — o par de `cueNoArId`, e pelo mesmo motivo.
+//
+// `midiaNoAr` responde "há mídia no ar?" e `currentId` responde "qual é o item
+// atual", e nenhum dos dois responde "QUAL mídia está no ar": no instante em que
+// uma cena de roteiro é projetada por cima de um louvor de fundo, `currentId`
+// passa a ser a cena e a música continua tocando sem que nada aponte para ela.
+// Sem este campo, o realce de "no ar" mudaria de linha sozinho.
+let midiaNoArId = '';
+
+// QUAL cena de roteiro está no ar — e por que isto NÃO pode ser o `currentId`.
+//
+// A Camada de Texto (versículo, mensagem, letra, cronômetro, sorteio) é uma
+// camada PARALELA à mídia: um louvor de fundo sob um versículo é o uso normal, e
+// a independência áudio × texto existe justamente para permitir isso. Mas
+// `currentId` é o ÚLTIMO item enviado, seja ele cena ou mídia — então, no
+// instante em que o operador põe uma música para tocar por baixo do versículo,
+// `currentId` passa a ser a música e o versículo deixa de ser reconhecível.
+//
+// Era esse o buraco do segundo toque (v5.165): ele perguntava
+// `item.id === currentId`, e no caso mais comum de todos — cena de roteiro COM
+// áudio de fundo, que é exatamente o caso em que o Parar é perigoso — a resposta
+// era `false`. O toque então re-projetava a mesma cena em vez de retirá-la, e a
+// única saída voltava a ser o Parar, que leva a música junto. O recurso existia
+// e não alcançava o caso que o justificava.
+//
+// Este campo responde a pergunta certa: **qual item pôs no ar a Camada de Texto
+// que está no ar agora?**
+let cueNoArId = '';
+// Texto de roteiro projetado SEM sessão — ver `cenaDeRoteiroNoAr`.
+let textoAvulsoNoAr = false;
+
+// O último estado lido da ponte sobre o espelho (`null` = nunca perguntamos).
+// Formato em `AVNative.espelhoEstado`.
+//
+// ELE MORA AQUI, e não junto do resto do bloco do espelho, por uma razão de
+// ORDEM: desde a v5.176 o ícone de conectar lê este estado (`espelhoRecebendo`),
+// e `renderCastBtn` roda na inicialização — muito antes da linha onde o bloco do
+// espelho começa. Um `let` lido antes da sua declaração lança
+// `ReferenceError: Cannot access 'mirrorEstado' before initialization` (zona
+// morta temporal), e o `smoke.mjs` pegou exatamente isso: a página inteira
+// morria na carga. É a prima do defeito que o `tools/sombra.test.mjs` trava —
+// mesma zona morta, por outra porta.
+let mirrorEstado = null;
 let displayAudioBlocked = false; // Display reportou áudio bloqueado pelo navegador
 const scrollPos = {};      // posição de scroll por aba/pasta (sessão)
 
@@ -1354,12 +1392,94 @@ function recalcularAtrasoPreview() {
   if (!alvo) drenarPreview(true);
 }
 
+// ===== A REFERÊNCIA: quem é a PROJEÇÃO, e por que nunca é a preview =====
+//
+// A preview é uma ILUSTRAÇÃO do que está na tela — nunca a fonte de verdade.
+// Ela roda no WebView do Controle, que é justamente o que o Android estrangula
+// quando o app sai da frente: com o app minimizado o `<video>` dela é pausado
+// ou desacelerado, e ao voltar ela está arbitrariamente longe do que está sendo
+// projetado. Enquanto ela for a referência, nada consegue corrigir isso —
+// porque o erro está na própria régua.
+//
+// A projeção é uma destas três, NESTA ordem:
+//
+//   1. **o TELÃO** (`display-status`), quando há TV conectada;
+//   2. **o ESPELHO** (`espelho-status`, v5.173), quando não há TV: as telas da
+//      rede são o que a congregação vê, e quem as alimenta é o `/display/` da
+//      `MirrorPresentation` — um `<video>` de verdade, numa `Presentation` que
+//      o sistema NÃO estrangula. Ele era mudo no barramento até a v5.172 (ver o
+//      dreno em `shared/native.js`), e era essa a causa de "minimizei e a
+//      preview voltou completamente dessincronizada": não havia referência
+//      nenhuma, então não havia o que corrigir;
+//   3. **ninguém** — sem TV e sem espelho, a projeção É a preview em tela
+//      cheia, que exige o app na frente. Aí ela é a própria referência, e o
+//      caso não existe.
+//
+// `displayStatusAt`/`lastDisplayTime` guardam o último status de QUEM estiver
+// valendo; `telaoStatusAt` é só do telão, porque a precedência dele precisa de
+// um relógio próprio (com os dois no ar, o espelho é ruído).
 let displayStatusAt = 0;
 let lastDisplayTime = 0;
-const DISPLAY_TIMEOUT = 2500; // sem status do Display por mais que isso → preview assume
-const SYNC_DRIFT = 1.6;       // só re-sincroniza a preview se o drift passar disso (s)
+let telaoStatusAt = 0;
+let refFonte = '';            // 'telao' | 'espelho' | '' — só diagnóstico
+const DISPLAY_TIMEOUT = 2500; // sem status da projeção por mais que isso → preview assume
+
+// A TOLERÂNCIA DO RE-ALINHAMENTO, e ela era grande demais.
+//
+// 1,6 s foi escolhido quando o resync existia para não estalar o áudio da
+// preview. Só que a preview **não tem som** fora do modo "mesa de som" — e ali
+// o resync nem acontece (ver a guarda de `standalone` nas duas funções). Sem
+// som, um seek é invisível: o que se paga é um quadro, e o que se ganha é a
+// ilustração parar de mentir. Meio segundo é folga de sobra para o jitter do
+// status (que chega a ~4 Hz) e apertado o bastante para um desvio de verdade
+// nunca chegar a ser percebido.
+const SYNC_DRIFT = 0.5;
+
+// E AO VOLTAR DO SEGUNDO PLANO O ALINHAMENTO É EXATO, não tolerante.
+//
+// A tolerância existe para não corrigir ruído; ao retomar não há ruído a
+// poupar, há um desvio conhecido e possivelmente enorme. `RESYNC_EXATO` é só a
+// margem que evita um seek inútil quando por sorte já estava alinhado.
+const RESYNC_EXATO = 0.15;
+// Por quanto tempo depois de retomar o próximo status vale como reposicionamento
+// forçado. Ele precisa sobreviver ao intervalo entre a retomada e o status
+// seguinte — que, num telão parado, é o compasso do `display-status`.
+const RESYNC_JANELA_MS = 4000;
+let forcarResyncAte = 0;
+
+/**
+ * COM A PÁGINA ESCONDIDA NÃO SE TOCA NO TRANSPORTE DA PREVIEW.
+ *
+ * Esta guarda é a metade que faltava da v5.173. Ao passar a escutar o
+ * `espelho-status`, o Controle ganhou uma referência de tempo justamente no
+ * caso em que ele não tinha nenhuma (sem TV, app minimizado) — e junto ganhou
+ * uma consequência que não estava prevista: `resyncPreviewToDisplay` passou a
+ * chamar `preview.play()` a ~4 Hz numa página oculta.
+ *
+ * O Chromium PAUSA um `<video>` de página escondida. O `play()` sai, o
+ * navegador pausa de volta, o status seguinte chega 250 ms depois e recomeça —
+ * um laço de `play`/`PAUSA ESPONTÂNEA` que a própria linha do tempo do Registro
+ * mostrou, par a par, com a marca `[oculto]`. O estrago não fica na preview: os
+ * três WebViews dividem UM processo, e essa rotatividade de decodificador rouba
+ * justamente o fio que alimenta o `AudioWorklet` do espelho. Do lado da tela da
+ * rede isso aparece como `AUDIO_MUDO_MS` vencido — "o som parou de chegar" com
+ * a imagem seguindo — que é a queixa que abriu esta rodada.
+ *
+ * Não há nada a preservar: um `play()` que o navegador desfaz no quadro
+ * seguinte não é sincronização, é ruído. Escondida, a preview fica onde está; o
+ * realinhamento EXATO da retomada (`forcarResyncAte` + `ressincronizarPreview`)
+ * é o que a traz de volta ao lugar, e ele já existe desde a v5.173.
+ */
+function preverPodeMexer() {
+  return typeof document === 'undefined' || document.visibilityState === 'visible';
+}
+
 function displayActive() {
   return (Date.now() - displayStatusAt) < DISPLAY_TIMEOUT;
+}
+/** Só o TELÃO de verdade — é ele que tira o espelho da jogada. */
+function telaoAtivo() {
+  return (Date.now() - telaoStatusAt) < DISPLAY_TIMEOUT;
 }
 function ytDisplayActive() {
   return !!(currentItem && currentItem.kind === 'youtube') && displayActive();
@@ -1381,17 +1501,38 @@ function authoritativeTime() {
   // preview existe para curar.
   return (preview.getTime() || 0) + previewAtrasoMs() / 1000;
 }
+
+/**
+ * O tempo que a PREVIEW deve estar mostrando — a projeção menos o atraso.
+ *
+ * É o par de [authoritativeTime], e a distinção entre os dois é o modelo
+ * inteiro: um responde "o que está NO AR agora?" (decisões — qual estrofe vem a
+ * seguir, o que a barra marca, o que a `MediaSession` publica) e o outro
+ * responde "o que a ILUSTRAÇÃO deve estar desenhando?" (o `<video>` da preview,
+ * a letra desenhada dentro dela).
+ *
+ * Sem os dois, o atraso deliberado da preview (ver `cmd`) vira defeito: quem
+ * desenha a letra pelo tempo da projeção a troca `previewAtrasoMs` ANTES da
+ * imagem correspondente, e quem re-alinha o `<video>` pelo tempo da projeção
+ * DESFAZ o atraso a cada status — os dois em silêncio.
+ */
+function tempoDaPreview() {
+  return Math.max(0, authoritativeTime() - previewAtrasoMs() / 1000);
+}
 // Re-alinha a preview à projeção real do Display (fonte de verdade): casa o
 // play/pause e, se o tempo divergir muito (ex: preview estrangulada enquanto o
 // Controle esteve minimizado), busca o instante do Display. Não busca em "mesa
 // de som" (evita salto audível); só casa play/pause.
-function ytResyncPreviewToDisplay(isPlaying, currentTime) {
+function ytResyncPreviewToDisplay(isPlaying, currentTime, tolerancia) {
   const p = ytPreview && ytPreview.player;
   if (!p) return;
+  if (!preverPodeMexer()) return;   // ver `preverPodeMexer`
+  const tol = typeof tolerancia === 'number' ? tolerancia : SYNC_DRIFT;
   try {
     if (!standalone && typeof currentTime === 'number' && isFinite(currentTime)) {
+      const alvo = alvoDaPreview(currentTime);
       const pt = p.getCurrentTime() || 0;
-      if (Math.abs(pt - currentTime) > SYNC_DRIFT) p.seekTo(currentTime, true);
+      if (Math.abs(pt - alvo) > tol) p.seekTo(alvo, true);
     }
     const st = p.getPlayerState();
     if (isPlaying && st !== 1 && st !== 3) p.playVideo();
@@ -1404,16 +1545,50 @@ function ytResyncPreviewToDisplay(isPlaying, currentTime) {
 // de áudio independentes (Display e preview) divergem aos poucos e a letra
 // sincronizada acaba trocando de slide em momentos diferentes nos dois
 // lados. Também não busca em "mesa de som" (evita salto audível).
-function resyncPreviewToDisplay(isPlaying, currentTime) {
+function resyncPreviewToDisplay(isPlaying, currentTime, tolerancia) {
   if (!preview.isTimed()) return;
+  if (!preverPodeMexer()) return;   // ver `preverPodeMexer`
+  const tol = typeof tolerancia === 'number' ? tolerancia : SYNC_DRIFT;
   try {
     if (!standalone && typeof currentTime === 'number' && isFinite(currentTime)) {
+      const alvo = alvoDaPreview(currentTime);
       const pt = preview.getTime() || 0;
-      if (Math.abs(pt - currentTime) > SYNC_DRIFT) preview.seek(currentTime);
+      if (Math.abs(pt - alvo) > tol) preview.seek(alvo);
     }
     if (isPlaying && !preview.isPlaying()) preview.play();
     else if (!isPlaying && preview.isPlaying()) preview.pause();
   } catch (_) {}
+}
+
+/**
+ * Onde a preview deveria estar, dado um instante da PROJEÇÃO.
+ *
+ * O atraso entra aqui com o sinal certo, e ele é a razão de esta linha existir:
+ * mirar o instante da projeção faria cada `display-status` (a ~4 Hz) puxar a
+ * preview para a frente, desfazendo o deslocamento que ela tem de propósito
+ * para casar com as telas da rede (ver `cmd`). Com o telão conectado o atraso é
+ * zero e isto é a identidade.
+ */
+function alvoDaPreview(tempoDaProjecao) {
+  return Math.max(0, tempoDaProjecao - previewAtrasoMs() / 1000);
+}
+
+/**
+ * Realinha a preview AGORA, pela última posição conhecida da projeção.
+ *
+ * Chamado ao retomar do segundo plano, antes de qualquer status novo chegar: se
+ * a referência ainda estiver fresca, a correção acontece no ato; se não, o
+ * `forcarResyncAte` faz o próximo status valer como reposicionamento forçado.
+ * Sem os dois caminhos, a correção dependeria de o telão estar emitindo naquele
+ * exato instante — e uma cena PARADA (imagem, versículo) não emite nada.
+ */
+function ressincronizarPreview() {
+  if (!displayActive()) return;
+  if (currentItem && currentItem.kind === 'youtube') {
+    ytResyncPreviewToDisplay(playing, lastDisplayTime, RESYNC_EXATO);
+  } else {
+    resyncPreviewToDisplay(playing, lastDisplayTime, RESYNC_EXATO);
+  }
 }
 function ytPreviewTick() {
   if (ytDisplayActive()) return; // Display presente é a fonte — a preview só assume na ausência dele
@@ -1680,8 +1855,17 @@ const FILA_PREVIEW_MAX = 24;
 
 function cmd(obj) {
   AVDB.sendCommand(obj);
-  const atraso = previewAtrasoMs();
-  if (atraso <= 0 && !filaPreview.length) { aplicarNaPreview(obj); return; }
+  // COM A PÁGINA ESCONDIDA A ILUSTRAÇÃO NÃO TEM PLATEIA — e atrasá-la ali é o
+  // pior dos dois mundos. O atraso existe para o operador não ver a preview
+  // responder antes das telas da rede; com o app fora da frente ninguém está
+  // comparando nada, e os `setTimeout` que fariam a fila escoar são justamente
+  // os que o Android estrangula. O resultado era a preview voltando do segundo
+  // plano com uma cena velha na mão, esperando um relógio que não corria.
+  //
+  // Escondida, a preview aplica na hora: é a posição mais próxima da verdade
+  // que ela pode ocupar, e é dela que o realinhamento da retomada parte.
+  const atraso = document.visibilityState === 'visible' ? previewAtrasoMs() : 0;
+  if (atraso <= 0) { drenarPreview(true); aplicarNaPreview(obj); return; }
   filaPreview.push({ obj: obj, em: Date.now() + atraso });
   if (filaPreview.length > FILA_PREVIEW_MAX) { drenarPreview(true); return; }
   if (!filaPreviewTimer) drenarPreview(false);
@@ -1718,6 +1902,16 @@ function aplicarNaPreview(obj) {
     preview.handle(obj);
     return;
   }
+  // PARAR SÓ A MÍDIA: a ilustração segue o telão camada por camada (v5.178). O
+  // `hidePvText` NÃO é chamado — é justamente o texto que continua no ar —, e a
+  // escolha entre as duas saídas do stage repete a do Display, lida aqui pelo
+  // `pvTextActive`, que é o espelho local do `textActive` de lá.
+  if (obj.type === 'media-clear') {
+    hidePvLyrics(true);
+    if (ytPreview) dropYtPreview();
+    preview.handle({ type: pvTextActive ? 'clear-media' : 'clear' });
+    return;
+  }
   if (obj.type === 'lyricsbg') {
     // Não é um comando do stage.js (letra é camada paralela) — aplica direto
     // na preview, se ela estiver mostrando letra sincronizada agora.
@@ -1738,8 +1932,7 @@ function previewTick() {
   // O conjunto é o MESMO de `clearManualText` — as cinco sessões, incluindo
   // cronômetro e sorteio; listar só três deixava o tick rodando sobre uma
   // preview sem mídia durante uma contagem regressiva.
-  if ((bibleSession || msgSession || lyricSession || chronoSession || drawSession)
-    && !preview.getCurrent()) return;
+  if (cenaDeRoteiroNoAr() && !preview.getCurrent()) return;
   // Itens YouTube tocam só no Display (player real): a UI de transporte é
   // dirigida pelo display-status remoto, não pela preview local.
   if (currentItem && currentItem.kind === 'youtube') return;
@@ -1747,6 +1940,14 @@ function previewTick() {
   // só dirige a UI/letra na ausência dele; enquanto ele estiver ativo, quem
   // atualiza tudo isso é o handler de 'display-status' (AVDB.onCommand).
   if (displayActive()) return;
+  // MÍDIA FORA DE CENA NÃO PINTA TRANSPORTE (v5.179) — a outra metade da guarda
+  // do handler de `display-status`, e ela precisa estar nos DOIS lugares porque
+  // são duas fontes independentes: sem telão nem espelho, quem alimenta a barra
+  // é este tick. `preview.getCurrent()` continua devolvendo o registro durante
+  // todo o esmaecimento do `clearFaded` (é o mesmo fato que o comentário de
+  // `midiaNoAr` descreve para o ▶), então o Parar zerava a barra e o tick
+  // seguinte a repunha no ponto antigo, com o ícone de pausa de volta.
+  if (!midiaNoAr) return;
   setPlaying(preview.isPlaying());
   const dur = preview.getDuration();
   durTimeEl.textContent = fmtTime(dur);
@@ -1961,7 +2162,8 @@ function restorePvSceneAfterText() {
   if (!cur || preview.hasEnded()) { preview.coverIn(false); return; }
   if (cur.kind !== 'audio' || !Array.isArray(cur.lyrics) || !cur.lyrics.length) return;
   showPvLyrics(cur);
-  updatePvLyricSlide(authoritativeTime());
+  // O tempo da ILUSTRAÇÃO, não o da projeção — ver `tempoDaPreview`.
+  updatePvLyricSlide(tempoDaPreview());
 }
 
 // Texto VIVO na preview (cronômetro e sorteio): mesmo desenho do Display (ver
@@ -2757,7 +2959,8 @@ function renderPlaylist() {
   }
   plItems.forEach((item) => {
     const li = document.createElement('li');
-    li.className = 'row-item' + (item.id === currentId ? ' active' : '');
+    li.className = 'row-item' + (linhaAtiva(item.id) ? ' active' : '')
+      + (linhaNoAr(item.id) ? ' no-ar' : '');
     li.dataset.id = item.id;
 
     const row = document.createElement('div');
@@ -3966,6 +4169,10 @@ function projetarMensagemCue(d) {
   const texto = String(d.text || '').trim();
   if (!texto) { avisar('A mensagem deste item foi excluída', 'erro'); return; }
   clearManualText();
+  // SEM SESSÃO DE NAVEGAÇÃO, MAS NÃO SEM ESTADO: sem esta linha o texto ficava
+  // projetado e invisível para o resto do app — o segundo toque não o
+  // reconhecia como no ar, e só o Parar o tirava. Ver `cenaDeRoteiroNoAr`.
+  textoAvulsoNoAr = true;
   view = 'visual';
   persistCurrent();
   cmd({ type: 'text', mode: 'message', main: texto, sub: '', view: 'visual' });
@@ -4101,6 +4308,27 @@ function lyricStep(delta) {
 function clearManualText() {
   clearBibleSession(); clearMsgSession(); clearLyricSession();
   clearChronoSession(); clearDrawSession();
+  textoAvulsoNoAr = false;
+  // A Camada de Texto saiu: nenhuma cena de roteiro está mais no ar, venha ela
+  // de onde vier. Ver `cueNoArId`.
+  cueNoArId = '';
+}
+
+/**
+ * Há uma Camada de Texto no ar? As cinco sessões — mais o texto AVULSO.
+ *
+ * O avulso é a mensagem de roteiro cuja mensagem original foi apagada da lista:
+ * `projetarMensagemCue` projeta o texto guardado e, de propósito, **sem sessão
+ * de navegação** (não há lista para percorrer, e os botões voltam a ser de
+ * mídia). Só que "sem sessão de navegação" virou "sem sessão nenhuma", e sem
+ * sessão nenhuma esta função respondia `false` sobre uma coisa que estava
+ * projetada: o segundo toque não a reconhecia, e a única saída voltava a ser o
+ * Parar — que leva o louvor de fundo junto. É o mesmo defeito da regra do
+ * `currentId`, por outra porta.
+ */
+function cenaDeRoteiroNoAr() {
+  return !!(bibleSession || msgSession || lyricSession || chronoSession
+    || drawSession || textoAvulsoNoAr);
 }
 
 // Projeta a mensagem de índice `idx` (Display + preview). Encerra a Bíblia (só
@@ -5291,8 +5519,12 @@ function renderLibrary() {
   items.forEach((item) => {
     const li = document.createElement('li');
     // Bug fix: active highlight only when not in selection mode
-    const isActive = !selectionMode && item.id === currentId;
-    li.className = 'lib-item' + (isActive ? ' active' : '') + (selected.has(item.id) ? ' selected' : '');
+    const isActive = !selectionMode && linhaAtiva(item.id);
+    // NO AR é outra coisa que "atual" — ver `linhaNoAr`. Na seleção múltipla ele
+    // some junto com o realce: ali a tela fala de escolha, não de projeção.
+    const noAr = !selectionMode && linhaNoAr(item.id);
+    li.className = 'lib-item' + (isActive ? ' active' : '') + (noAr ? ' no-ar' : '')
+      + (selected.has(item.id) ? ' selected' : '');
     li.dataset.id = item.id;
 
     const row = document.createElement('div'); row.className = 'row';
@@ -5308,6 +5540,7 @@ function renderLibrary() {
     const name = document.createElement('span'); name.className = 'row-name'; name.textContent = item.name;
     const sub = document.createElement('span'); sub.className = 'row-sub';
     sub.textContent = subtituloItem(item);
+    pintarSubNoAr(sub, noAr);
     textWrap.append(name, sub);
     // Item de player do YouTube num shell que sabe baixar: o botão converte o
     // link num arquivo local. Quem diz que ele DEPENDE DO YOUTUBE agora é o
@@ -5378,6 +5611,34 @@ function renderLibrary() {
     // fora da seleção múltipla porque ali o alvo é o conjunto, não a linha.
     const star = selectionMode ? null : favBtn(item.id, item.name);
 
+    // O PARAR TOMA O LUGAR DE MOVER E FAVORITAR ENQUANTO A LINHA ESTIVER NO AR.
+    //
+    // O segundo toque no corpo da linha já tira do ar desde a v5.165, e o selo
+    // "● No ar" já diz que ela está — mas os dois botões da direita seguiam
+    // oferecendo outra coisa (arrastar para reordenar, favoritar) na única
+    // linha em que a decisão do operador é uma só. Trocá-los é o que faz
+    // QUALQUER toque naquela linha significar a mesma coisa, que é o pedido:
+    // não há mais como mirar o ✕ e acertar a estrela.
+    //
+    // A troca é por CSS (`.lib-item.no-ar`), e não por remontar a linha: quem
+    // liga e desliga o estado é `marcarNoAr`, que só troca classes — e é ele
+    // que roda a cada `display-status`. Fazer cirurgia de DOM ali seria
+    // recriar botões (e perder listeners) quatro vezes por segundo.
+    let stopBtn = null;
+    if (!selectionMode) {
+      stopBtn = document.createElement('button');
+      stopBtn.className = 'row-btn row-stop';
+      stopBtn.title = 'Tirar do ar';
+      // O MESMO glifo do Parar do transporte (`&#xe047;` no `index.html`),
+      // escrito por escape: é o único do app que nasce fora do mapa `ICON`,
+      // porque ele não é um símbolo NOVO — é o de lá, na linha.
+      stopBtn.appendChild(msym(''));
+      stopBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        retirarDoAr(item);
+      });
+    }
+
     // Item que JÁ existe e está sendo baixado (converter um link em arquivo):
     // o aviso vai nele mesmo, não na preview.
     const dl = libBaixando.get(item.id);
@@ -5399,6 +5660,10 @@ function renderLibrary() {
     // continuar desenhando "baixar" ao lado de um anel girando é oferecer a
     // ação que está justamente em curso.
     if (ytDl && !dl) parts.push(ytDl);
+    // O Parar entra ANTES da estrela e do arrastar, no lugar que eles ocupam: é
+    // ele que aparece quando os dois somem (ver `.lib-item.no-ar` na folha), e
+    // a mão do operador não pode ter de mudar de destino conforme o estado.
+    if (stopBtn) parts.push(stopBtn);
     if (star) parts.push(star);
     if (addBtn) parts.push(addBtn);
     if (activeTab !== 'folders') parts.push(handle);
@@ -6423,7 +6688,8 @@ function favGrupo(item) {
 // se quer de um favorito, sem entrar em pasta nenhuma.
 function favItemRow(item) {
   const li = document.createElement('li');
-  li.className = 'lib-item' + (item.id === currentId ? ' active' : '');
+  li.className = 'lib-item' + (linhaAtiva(item.id) ? ' active' : '')
+    + (linhaNoAr(item.id) ? ' no-ar' : '');
   li.dataset.id = item.id;
   const row = document.createElement('div'); row.className = 'row';
   // A MESMA coluna nome+subtítulo da biblioteca, e de propósito: uma segunda
@@ -6669,8 +6935,14 @@ async function send(id) {
     currentItem = alvo;
     currentId = id;
     await persistCurrent();
-    document.querySelectorAll('.lib-item,.row-item').forEach((el) => el.classList.toggle('active', el.dataset.id === id));
     await playCue(alvo);
+    // DEPOIS do `playCue`, e não antes: um pacote (`group`) não põe nada no ar,
+    // e um versículo pode falhar (capítulo ausente e sem internet). Quem
+    // responde "esta cena está no ar?" são as sessões, não a intenção — e
+    // marcar antes deixaria o realce e o segundo toque apontando para uma cena
+    // que nunca chegou ao telão.
+    cueNoArId = cenaDeRoteiroNoAr() ? id : '';
+    marcarNoAr();
     return;
   }
   currentId = id;
@@ -6683,7 +6955,7 @@ async function send(id) {
   // manual em cena (Bíblia/Mensagem/cronômetro); qualquer VISUAL (vídeo/imagem/
   // YouTube) encerra. Um louvor de fundo sob a contagem regressiva de abertura
   // é justamente o uso normal.
-  if (!((bibleSession || msgSession || lyricSession || chronoSession || drawSession) && currentItem && currentItem.kind === 'audio')) clearManualText();
+  if (!(cenaDeRoteiroNoAr() && currentItem && currentItem.kind === 'audio')) clearManualText();
   await persistCurrent();
   ytEnded = false;
   displayStatusAt = 0; // até o Display confirmar o novo item, a preview dirige
@@ -6696,8 +6968,9 @@ async function send(id) {
   // A partir daqui há mídia no telão — é o que a reconexão precisa reenviar e o
   // que o ▶ pode retomar em vez de recarregar (ver `midiaNoAr`).
   midiaNoAr = true;
+  midiaNoArId = id;
   // re-render leve de estados ativos
-  document.querySelectorAll('.lib-item,.row-item').forEach((el) => el.classList.toggle('active', el.dataset.id === id));
+  marcarNoAr();
   renderNowPlaying();
   // E o EIXO DOS BOTÕES, que muda com o item (v5.101). Sem esta linha, trocar
   // de mídia deixava ⏮/⏭ com o estado da mídia ANTERIOR — e para uma
@@ -7148,6 +7421,7 @@ function resetAfterEnd() {
   // que caísse depois do fim de um louvor trazia a faixa de volta à TV — que é
   // o "ele tenta exibir a primeira tela/thumbnail" do relato.
   midiaNoAr = false;
+  midiaNoArId = '';
   setPlaying(false);
   seekEl.value = 0;
   curTimeEl.textContent = '0:00';
@@ -7208,19 +7482,29 @@ async function toggleMute() {
   renderControls();
 }
 
-// Parar = limpar o display (volta ao wallpaper); mantém currentId para replay com play.
-async function stopClear() {
+/**
+ * TIRAR A MÍDIA DO AR — o corpo comum do Parar e do stop por camada.
+ *
+ * O que ele NÃO faz é o que o distingue: nada aqui encosta na Camada de Texto.
+ * Quem encerra a cena inteira é o [stopClear], que chama isto e depois derruba o
+ * texto; quem tira só a música de fundo é o [retirarDoAr], que chama isto e para
+ * por aqui.
+ *
+ * [tipo] é o comando que vai ao telão — `clear` (o ponto final, com a cortina
+ * indo ao wallpaper) ou `media-clear` (só a mídia; ver `display.js`).
+ */
+async function pararMidia(tipo) {
   // Parar também é um comando do operador: arma a mesma janela de
   // `pausaPedida` que o ▶ arma, senão o `pause` que o 'clear' provoca no
   // <video> da preview entrava no diário como "PAUSA ESPONTÂNEA" — um falso
   // alarme no instrumento que existe para achar as pausas de verdade.
   pausaEm = Date.now();
-  cmd({ type: 'clear' });
-  clearManualText();
+  cmd({ type: tipo });
   // O TELÃO ESTÁ VAZIO A PARTIR DAQUI, e isso precisa ser dito ANTES do fade
   // terminar: quem pergunta a `preview.getCurrent()` recebe "ainda tem mídia"
   // durante todo o esmaecimento do `clearFaded` (ver `midiaNoAr`).
   midiaNoAr = false;
+  midiaNoArId = '';
   setPlaying(false);
   // YouTube: 'clear' derruba o player da preview (dropYtPreview via cmd) e o do
   // Display → o próximo ▶ precisa recarregar (send), não só reenviar 'play'.
@@ -7228,6 +7512,17 @@ async function stopClear() {
   playPauseEl.querySelector('.msym').textContent = ICON.play;
   seekEl.value = 0; seekEl.disabled = true;
   curTimeEl.textContent = '0:00';
+}
+
+// Parar = limpar o display (volta ao wallpaper); mantém currentId para replay com play.
+async function stopClear() {
+  await pararMidia('clear');
+  clearManualText();
+  // A cena de roteiro caiu junto (o `clearManualText` acima), e o realce dela
+  // precisa cair com ela: ele vem do `cueNoArId`, que nenhuma re-renderização
+  // da lista está agendada para reler. Sem isto, uma linha continuaria marcada
+  // como "no ar" sobre um telão vazio até a próxima troca de aba.
+  marcarNoAr();
   await persistCurrent();
 }
 
@@ -7315,22 +7610,135 @@ async function replacePlaylistWith(rec) {
  */
 async function retirarDoAr(item) {
   if (isCue(item)) {
+    // O `text-hide` É O QUE TIRA DA TELA — e ele faltava.
+    //
+    // `clearManualText()` é BOOKKEEPING: as cinco `clear*Session` zeram o
+    // estado do Controle, re-renderizam a navegação e não mandam um único
+    // comando ao telão. Nos outros chamadores isso está certo, porque logo
+    // atrás vem um `load` (que esconde o texto no Display) ou um `clear`. Aqui
+    // não vem nada — e o resultado era o defeito que o operador relatou com
+    // todas as letras: o segundo toque "não remove no player". Ele removia a
+    // SESSÃO, e o versículo continuava projetado na frente da congregação, sem
+    // nenhuma linha na tela do operador que o dissesse.
+    //
+    // `text-hide` encerra só a Camada de Texto — é o mesmo comando do "tirar do
+    // ar" da Bíblia e da Mensagem, e é justamente o que o `clear` NÃO é: o
+    // áudio de fundo segue tocando.
+    cmd({ type: 'text-hide' });
     clearManualText();
-    // A linha perde o realce, mas o item continua sendo o "atual" para o ▶.
-    document.querySelectorAll('.lib-item,.row-item').forEach((el) => el.classList.remove('active'));
+    // O realce sai da CENA e fica na MÍDIA, se houver — era isto que o
+    // `remove('active')` cego apagava junto. Tirar o versículo do ar não tira o
+    // louvor que continua tocando por baixo dele, e a lista precisa continuar
+    // dizendo isso.
+    marcarNoAr();
     renderNowPlaying();
     return;
   }
-  await stopClear();
+  // MÍDIA: sai SÓ ELA (v5.178). Até aqui este caminho chamava `stopClear()`, que
+  // é o Parar do transporte — ele encerra a CENA INTEIRA. Com um louvor de fundo
+  // sob a contagem regressiva de abertura (o uso normal, e o que a independência
+  // áudio × texto existe para permitir), tirar a música do ar levava o
+  // cronômetro junto, e a única saída era parar tudo e reprojetar a cena na
+  // frente da congregação. É o simétrico exato do `text-hide` acima: cada camada
+  // sai pela sua porta, e o botão de cada linha fala da camada DAQUELA linha.
+  await pararMidia('media-clear');
+  marcarNoAr();
+  renderNowPlaying();
+  await persistCurrent();
 }
 
-/** Está no ar AGORA? É o que decide entre projetar e retirar. */
-function noArAgora(item) {
-  if (!item || item.id !== currentId) return false;
-  if (isCue(item)) {
-    return !!(bibleSession || msgSession || lyricSession || chronoSession || drawSession);
+/**
+ * O REALCE DA LISTA marca as DUAS coisas que podem estar no ar ao mesmo tempo.
+ *
+ * Ele era uma linha só (`el.dataset.id === id`), e por isso um louvor de fundo
+ * apagava o realce do versículo que continuava projetado: o operador perdia de
+ * vista a única linha em que o segundo toque tinha efeito. Duas camadas, dois
+ * realces — é o mesmo modelo que a independência áudio × texto já descreve.
+ */
+function marcarNoAr() {
+  document.querySelectorAll('.lib-item,.row-item').forEach((el) => {
+    const id = el.dataset.id;
+    el.classList.toggle('active', linhaAtiva(id));
+    const noAr = linhaNoAr(id);
+    el.classList.toggle('no-ar', noAr);
+    // O SELO acompanha a classe: ele é a metade que se LÊ, e sem ele o estado
+    // volta a ser só uma cor a mais numa tela que já tem várias.
+    const sub = el.querySelector('.row-sub');
+    if (sub) pintarSubNoAr(sub, noAr);
+  });
+}
+
+/**
+ * ESTA LINHA ESTÁ NO TELÃO AGORA?
+ *
+ * Diferente de [linhaAtiva], que também marca "o item atual" — aquele que o ▶
+ * repete e que sobrevive de propósito ao Parar. Um item selecionado depois de um
+ * Parar continua sendo o atual e **não** está no ar; dizer "No ar" sobre ele
+ * seria mentir na única linha da tela que existe para não mentir.
+ *
+ * As duas camadas respondem separadas porque elas coexistem: um louvor de fundo
+ * sob um versículo põe DUAS linhas no ar ao mesmo tempo.
+ */
+function linhaNoAr(id) {
+  if (!id) return false;
+  if (midiaNoAr && id === midiaNoArId) return true;
+  return !!cueNoArId && id === cueNoArId && cenaDeRoteiroNoAr();
+}
+
+/**
+ * O SELO "● No ar" na segunda linha da linha — o MESMO desenho da Bíblia
+ * (`renderBibleReading`), onde ele é prefixado à referência do versículo
+ * central em `--live-strong`.
+ *
+ * Ele mora no subtítulo, e não numa faixa própria, porque essa linha já existe e
+ * já é onde o operador procura o que o item É. Um selo em elemento novo
+ * empurraria a altura de toda a lista para dizer algo que só vale em uma linha
+ * de cada vez.
+ */
+function pintarSubNoAr(sub, noAr) {
+  const antigo = sub.querySelector('.row-live');
+  if (noAr === !!antigo) return;
+  if (!noAr) {
+    // O separador vai junto com o selo — ele é um nó de texto solto criado ao
+    // lado dele, e deixá-lo para trás daria " · Áudio · 3:14".
+    if (antigo && antigo.nextSibling && antigo.nextSibling.nodeType === 3) antigo.nextSibling.remove();
+    if (antigo) antigo.remove();
+    return;
   }
-  return midiaNoAr;
+  const selo = document.createElement('span');
+  selo.className = 'row-live';
+  selo.textContent = '● No ar';
+  sub.prepend(selo);
+  if (sub.textContent.replace('● No ar', '').trim()) selo.after(' · ');
+}
+
+/**
+ * Esta linha deve estar realçada?
+ *
+ * `currentId` continua valendo — ele é "o item atual", o que o ▶ repete — e o
+ * que se ACRESCENTA é a cena de roteiro no ar, que pode ser outra: com um louvor
+ * de fundo sob um versículo, `currentId` é a música e a cena é o versículo.
+ * Marcar só um dos dois é esconder metade do que está no telão.
+ */
+function linhaAtiva(id) {
+  if (!id) return false;
+  if (id === currentId) return true;
+  return !!cueNoArId && id === cueNoArId && cenaDeRoteiroNoAr();
+}
+
+/**
+ * Está no ar AGORA? É o que decide entre projetar e retirar.
+ *
+ * As duas camadas respondem por caminhos diferentes de propósito: a MÍDIA é o
+ * `currentId` (ela é a cena), e a CENA DE ROTEIRO é o `cueNoArId` — porque ela
+ * convive com uma mídia de fundo, e nesse caso `currentId` é da música. Ver
+ * `cueNoArId`: era essa confusão que fazia o segundo toque não funcionar
+ * exatamente no caso em que ele mais importa.
+ */
+function noArAgora(item) {
+  if (!item) return false;
+  if (isCue(item)) return !!cueNoArId && item.id === cueNoArId && cenaDeRoteiroNoAr();
+  return item.id === currentId && midiaNoAr;
 }
 
 async function onTap(item) {
@@ -13653,16 +14061,50 @@ function holdRepeat(btn, fn) {
 // "conectado" que o simplificado deixou aceso ficava para sempre — o operador
 // trocava de modo, a tela caía, e o ícone seguia dizendo que havia telão. O
 // estado da tela não é uma decoração de um dos modos; é o mesmo fato nos dois.
+/**
+ * Quantas telas da REDE estão recebendo agora — 0 com o espelho desligado.
+ *
+ * Deliberadamente separado do `simpleDisplay()`: aquele responde "há um TELÃO?"
+ * e governa coisas de peso (a cortina do modo simplificado, o atraso da preview,
+ * quem é a referência de tempo). Aqui a pergunta é só "há alguém recebendo?",
+ * que é o que o ícone de conectar tem a dizer.
+ */
+function espelhoRecebendo() {
+  const e = mirrorEstado;
+  if (!e || !e.ligado || !Array.isArray(e.telas)) return 0;
+  return e.telas.length;
+}
+
 function renderCastBtn() {
   const tv = simpleDisplay();
+  // AS TELAS DA REDE CONTAM COMO CONEXÃO — e é o ÍCONE que passa a dizer isso
+  // (v5.176), no lugar do cartão na barra de notificações.
+  //
+  // A notificação do `EspelhoService` não pode sumir (um serviço em primeiro
+  // plano é obrigado a ter uma, e é ele que mantém o espelho no ar com o app
+  // minimizado), mas ela também não era o lugar certo para essa informação: o
+  // operador olha para o app, e o app já tem um ícone cujo trabalho é
+  // exatamente esse. O cartão foi para `IMPORTANCE_MIN` — sai da barra de
+  // status — e o fato subiu para cá.
+  //
+  // Mesma classe, mesma cor, mesmo efeito do telão: `.connected` quer dizer "há
+  // uma tela recebendo", e três navegadores da rede são três telas recebendo.
+  // Inventar um segundo estado visual para o mesmo fato seria pedir ao operador
+  // que aprendesse duas convenções para uma coisa só.
+  const naRede = espelhoRecebendo();
   // `.connected` marca "há uma tela recebendo"; a liberação de teste NUNCA o
   // veste (ver `castTestUnlocked`) — ela é aviso, não conexão.
-  pvCastBtnEl.classList.toggle('connected', !!tv && !castTestUnlocked);
+  pvCastBtnEl.classList.toggle('connected', (!!tv || naRede > 0) && !castTestUnlocked);
   pvCastBtnEl.classList.toggle('testing', castTestUnlocked);
+  const naRedeTxt = naRede === 1 ? '1 tela na rede' : naRede + ' telas na rede';
   pvCastBtnEl.title = castTestUnlocked
     ? 'Liberação de teste ativa — toque para trancar'
-    : (tv ? 'Conectado: ' + (tv.name || 'TV') + ' — toque para trocar ou desconectar'
-          : 'Espelhar na TV');
+    : tv
+      ? 'Conectado: ' + (tv.name || 'TV') + (naRede ? ' · ' + naRedeTxt : '')
+        + ' — toque para trocar ou desconectar'
+      : naRede
+        ? naRedeTxt + ' recebendo — toque para ver quem está conectado'
+        : 'Espelhar na TV';
 }
 
 function renderSimpleCast() {
@@ -14485,9 +14927,8 @@ function espelhoDisponivel() {
   return !!window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= MIRROR_SHELL;
 }
 
-// O último estado lido da ponte (`null` = nunca perguntamos). Formato em
-// `AVNative.espelhoEstado`.
-let mirrorEstado = null;
+// (`mirrorEstado` é declarado lá em cima, junto do resto do estado de cena —
+// ver o comentário de lá para o porquê.)
 let mirrorTimer = null;
 let mirrorOcupado = false;
 // A confirmação de ligar COM A TV NO AR, lembrada pela SESSÃO: perguntar de
@@ -14509,18 +14950,28 @@ async function lerEspelho() {
   mirrorEstado = e || null;
   recalcularAtrasoPreview();
   renderEspelho();
+  // O ÍCONE DE CONECTAR ACOMPANHA — ele é quem diz "há tela recebendo" desde
+  // que a notificação do espelho saiu da barra de status (v5.176). Sem esta
+  // linha ele só seria repintado quando o TELÃO mudasse, e uma tela da rede
+  // entrando não acenderia nada até a próxima troca de aba.
+  renderCastBtn();
   return mirrorEstado;
 }
 
 // A ENQUETE DE FUNDO, e ela é de propósito bem mais lenta que a da folha.
 //
 // A folha enqueta a 2,5 s porque ali o operador está OLHANDO a fila de telas.
-// Fora dela, a única coisa que ainda precisa de leitura é o atraso da preview
-// (ver `cmd`) — e ele muda devagar, porque a folga do cliente do espelho
-// encolhe de 100 em 100 ms a cada oito segundos. Um pedido a cada dez segundos
-// enquanto o espelho está no ar é ruído nenhum, e é o que faz a preview
-// acompanhar uma tela que entrou no meio do culto sem ninguém abrir nada.
-const MIRROR_FUNDO_MS = 10000;
+// Fora dela havia um consumidor só, e lento: o atraso da preview (ver `cmd`),
+// que muda de 100 em 100 ms a cada oito segundos e por isso vivia bem com dez
+// segundos de enquete.
+//
+// Desde a v5.176 há um SEGUNDO consumidor, e ele é um indicador de estado: o
+// ícone de conectar, que passou a dizer "há tela recebendo" no lugar do cartão
+// na barra de notificações. Aquele cartão se atualizava a cada tela que entrava
+// ou saía; um ícone que levasse dez segundos para acender seria uma troca ruim.
+// Quatro segundos é a resposta que o operador lê como imediata, e o custo é uma
+// chamada de ponte com um JSON pequeno — só enquanto o espelho está no ar.
+const MIRROR_FUNDO_MS = 4000;
 let mirrorFundoTimer = null;
 
 function acertarEnqueteDeFundo() {
@@ -14560,51 +15011,25 @@ const MIRROR_TEXTO_ON =
 
 function renderEspelho() {
   acertarEnqueteDeFundo();
-  if (!mirrorRowEl) return;
-  // A LINHA de Configurações. `hidden` até o shell ter os métodos.
-  mirrorRowEl.hidden = !espelhoDisponivel();
-  if (mirrorRowEl.hidden) return;
+  // A GUARDA É SOBRE A FOLHA, e não sobre uma linha de Configurações que não
+  // existe mais (v5.175). Ela existia como `#mirrorRow` — a linha da lista de
+  // preferências de onde o espelho era ligado até a v5.156 —, e o que sobrou
+  // dela era um `<span hidden>` alimentado a cada leitura com uma frase de
+  // estado que ninguém via, mais duas regras de CSS órfãs. Um elemento de UI
+  // morto usado como sentinela de existência é a pior forma de guarda: ele
+  // parece intencional e some no primeiro `hidden` que alguém mexer.
+  if (!mirrorLeadEl || !espelhoDisponivel()) return;
   const e = mirrorEstado || {};
   const ligado = !!e.ligado;
-  const telas = Array.isArray(e.telas) ? e.telas : [];
   const pendentes = Array.isArray(e.pendentes) ? e.pendentes : [];
-  mirrorRowHintEl.textContent = ligado
-    ? (e.endereco || 'Ligado') + ' · ' + telas.length + ' tela(s)'
-      + (pendentes.length ? ' · ' + pendentes.length + ' esperando' : '')
-    : (e.erro || 'Desligado');
-  // Verde é "há uma tela recebendo" no resto do app, e aqui quer dizer o mesmo.
-  // Nunca o vermelho preenchido de "no ar": esse é do telão, e o espelho é
-  // auxiliar — dois significados para a mesma cor na mesma tela é o erro que
-  // este projeto já documenta ter cometido com o ícone da cortina.
-  mirrorRowHintEl.classList.toggle('on', ligado);
 
-  // A FOLHA.
   mirrorLeadEl.textContent = e.erro
     ? e.erro + '\n\n' + MIRROR_TEXTO_OFF
     : (ligado ? MIRROR_TEXTO_ON : MIRROR_TEXTO_OFF);
+  // O ENDEREÇO NÃO SE REPETE AQUI. Esta folha só se alcança de dentro da folha
+  // de conectar, que já o mostra em corpo grande — e o `.local` e o IP com ele.
+  // O que sobra é o PIN, que é o plano B de quando a câmera não serve.
   mirrorAddrEl.hidden = !ligado;
-  // O NOME CURTO VEM PRIMEIRO, e o IP FICA LOGO ABAIXO — nunca no lugar dele.
-  //
-  // `av.local` é mais fácil de digitar num controle remoto e sobrevive à troca
-  // de IP do DHCP, mas ele depende de a TELA resolver `.local`: Windows, macOS,
-  // iOS e Linux com avahi sim; o Chrome do Android e a maioria das Smart TVs,
-  // NÃO. Mostrar só o nome trocaria o endereço que funciona em toda tela pelo
-  // que funciona em algumas — uma regressão com cara de melhoria. Os dois
-  // juntos, com a ordem dizendo qual tentar primeiro.
-  const nomeLocal = e.nomeLocal || '';
-  mirrorUrlEl.textContent = nomeLocal || e.endereco || '';
-  if (mirrorUrl2El) {
-    mirrorUrl2El.hidden = !nomeLocal;
-    mirrorUrl2El.textContent = nomeLocal ? 'ou ' + (e.endereco || '') : '';
-  }
-  if (mirrorNomeHintEl) {
-    mirrorNomeHintEl.hidden = !ligado;
-    mirrorNomeHintEl.textContent = nomeLocal
-      ? 'Se a tela não abrir pelo nome, use o endereço numérico — nem toda TV entende ".local".'
-      : (e.nomeErro
-        ? 'Nome curto indisponível: ' + e.nomeErro
-        : '');
-  }
   mirrorPinEl.textContent = e.pin || '';
   // O botão de ler o QR só existe com o espelho no ar: sem servidor não há
   // tela mostrando código nenhum, e apontar a câmera para o nada não é um
@@ -14624,13 +15049,17 @@ function renderEspelho() {
     : (ligado ? 'Desligar o espelho' : 'Ligar o espelho');
   mirrorToggleEl.disabled = mirrorOcupado;
   mirrorToggleEl.classList.toggle('on', ligado);
-  renderEspelhoLista(pendentes, telas);
+  renderEspelhoLista(pendentes);
 }
 
-// A fila de aprovação em cima, as telas já conectadas embaixo. Uma lista só,
-// porque são a mesma pergunta em dois estados ("quem está olhando?") e duas
-// listas fariam a de baixo parecer ação pendente quando não é.
-function renderEspelhoLista(pendentes, telas) {
+// SÓ A FILA DE APROVAÇÃO — quem já está vendo mora na folha de conectar.
+//
+// Até a v5.174 esta lista trazia as duas coisas, e desde a v5.171 as telas
+// conectadas também apareciam na folha principal: a MESMA informação em duas
+// telas, com duas anatomias diferentes (`.cast-tela` e `.mirror-item`, raios,
+// fontes e gaps distintos). Aqui ficou o que é assunto DESTA folha — o plano B
+// do PIN, que é o único caminho que ainda produz uma tela "esperando".
+function renderEspelhoLista(pendentes) {
   mirrorListEl.innerHTML = '';
   pendentes.forEach((p) => {
     const li = document.createElement('li');
@@ -14668,21 +15097,6 @@ function renderEspelhoLista(pendentes, telas) {
     li.append(main, sim, nao);
     mirrorListEl.appendChild(li);
   });
-  telas.forEach((t) => {
-    const li = document.createElement('li');
-    li.className = 'mirror-item';
-    const main = document.createElement('div');
-    main.className = 'mirror-item-main';
-    const nome = document.createElement('span');
-    nome.className = 'mirror-item-name';
-    nome.textContent = t.ua || 'Tela';
-    const sub = document.createElement('span');
-    sub.className = 'mirror-item-sub';
-    sub.textContent = 'recebendo' + (t.rotulo ? ' · tela ' + t.rotulo : '');
-    main.append(nome, sub);
-    li.append(main);
-    mirrorListEl.appendChild(li);
-  });
   if (!mirrorListEl.children.length && espelhoLigado()) {
     const li = document.createElement('li');
     li.className = 'mirror-item';
@@ -14690,14 +15104,12 @@ function renderEspelhoLista(pendentes, telas) {
     main.className = 'mirror-item-main';
     const nome = document.createElement('span');
     nome.className = 'mirror-item-name';
-    nome.textContent = 'Nenhuma tela ainda';
+    nome.textContent = 'Ninguém esperando aprovação';
     const sub = document.createElement('span');
     sub.className = 'mirror-item-sub';
-    // A frase que dá a saída, e não só o fato: "ninguém conectou" e "o roteador
-    // está isolando os clientes" são a MESMA tela vazia, e o operador não tem
-    // como distinguir sem que alguém diga. O veredito com hora está no
-    // Registro; aqui fica a leitura curta.
-    sub.textContent = 'se alguém já abriu o endereço, o roteador pode estar isolando os aparelhos';
+    // A frase diz o que esta lista É — e onde está a outra. Com a porta aberta
+    // (v5.170) a fila fica vazia quase sempre: quem entra não passa por aqui.
+    sub.textContent = 'quem já está vendo aparece na folha de conectar';
     main.append(nome, sub);
     li.append(main);
     mirrorListEl.appendChild(li);
@@ -15249,7 +15661,10 @@ function closeMirror() {
   fecharLeitorQr();
 }
 
-if (mirrorRowEl) {
+// Os ouvintes da seção de conexão. A guarda é o botão que ABRE a folha de
+// ajustes — um elemento que de fato existe na tela —, e não mais o `#mirrorRow`
+// escondido que sobrou da linha de Configurações (v5.175).
+if (mirrorOpenBtnEl) {
   mirrorOpenBtnEl.addEventListener('click', openMirror);
   mirrorAutoEl.addEventListener('change', async () => {
     // O `'*'` é a chave da aprovação automática desta sessão — ver o KDoc de
@@ -15556,13 +15971,45 @@ AVDB.onCommand((msg) => {
   const isYoutube = currentItem.kind === 'youtube';
   const isTimedLocal = currentItem.kind === 'audio' || currentItem.kind === 'video';
   if (!isYoutube && !isTimedLocal) return; // imagem/etc: sem noção de tempo, nada a sincronizar
-  if (msg.type === 'display-status') {
+  if (msg.type === 'display-status' || msg.type === 'espelho-status') {
     // Player morto/parado (fim natural ou stop manual): ignora qualquer
     // display-status ainda em trânsito reportando o player antigo tocando —
     // senão o ícone voltaria a "pause" e o ▶ (que deve recarregar) quebraria.
     if (isYoutube && ytEnded) return;
+    // E A MÍDIA LOCAL TEM A MESMA REGRA (v5.179) — era ela o "o Parar só
+    // funciona no SEGUNDO toque".
+    //
+    // A guarda acima cobria só o YouTube. Um `clear`/`media-clear` de mídia
+    // comum ESMAECE antes de sair de cena (`clearFaded`/`fadeOutToBlack`,
+    // ~0,6 s), e nesse intervalo o `<video>` do telão CONTINUA tocando: a rampa
+    // é de volume, não de pausa. Cada `display-status` do fade chegava aqui com
+    // `playing: true` e o tempo antigo e reescrevia, a ~4 Hz, exatamente a UI que
+    // `pararMidia` acabara de zerar — a barra voltava ao meio, o seek era
+    // reabilitado e o ▶ não aparecia. O segundo toque só "funcionava" porque a
+    // essa altura a mídia já saíra e ninguém mais reportava aquele `mediaId`.
+    //
+    // `midiaNoAr` é a pergunta certa, e já existe desde a v5.142: ele cai no
+    // INSTANTE do stop, enquanto `currentId` sobrevive de propósito (é o que
+    // permite ao ▶ repetir a faixa) — e é por isso que o filtro por `mediaId`
+    // logo acima deixava tudo isto passar. Um status sobre uma mídia que não
+    // está mais em cena é passado, e passado não pinta transporte.
+    if (!midiaNoAr) return;
+    // O TELÃO TEM PRECEDÊNCIA — ver "A REFERÊNCIA". Com os dois no ar, o que a
+    // congregação vê é a TV, e o espelho vira ruído a ~4 Hz numa barra que
+    // andaria para a frente e para trás.
+    const doTelao = msg.type === 'display-status';
+    if (!doTelao && telaoAtivo()) return;
+    if (doTelao) telaoStatusAt = Date.now();
+    refFonte = doTelao ? 'telao' : 'espelho';
     displayStatusAt = Date.now();
     lastDisplayTime = msg.currentTime || 0;
+    // AO RETOMAR DO SEGUNDO PLANO o primeiro status vale como reposicionamento
+    // exato: ali não há ruído a poupar, há um desvio conhecido e grande.
+    // E ele só é CONSUMIDO se houver como agir: com a página escondida o
+    // realinhamento não acontece (ver `preverPodeMexer`), e gastar a janela ali
+    // deixaria a preview desalinhada justamente na retomada seguinte.
+    const tol = (Date.now() < forcarResyncAte && preverPodeMexer()) ? RESYNC_EXATO : undefined;
+    if (tol !== undefined) forcarResyncAte = 0;
     setPlaying(!!msg.playing);
     const dur = (typeof msg.duration === 'number' && isFinite(msg.duration)) ? msg.duration : 0;
     seekEl.disabled = !(dur > 0);
@@ -15574,11 +16021,16 @@ AVDB.onCommand((msg) => {
     }
     if (isYoutube) {
       renderSimpleTime();   // idem: o ramo do YouTube não chama renderSlideNav
-      ytResyncPreviewToDisplay(playing, msg.currentTime);
+      ytResyncPreviewToDisplay(playing, msg.currentTime, tol);
     } else {
-      updatePvLyricSlide(lastDisplayTime);
+      // A LETRA DESENHADA DENTRO DA PREVIEW segue o tempo DA PREVIEW, não o da
+      // projeção: com o atraso em jogo (ver `cmd`), alimentá-la com
+      // `lastDisplayTime` trocaria a estrofe ~1 s antes da imagem a que ela
+      // pertence — dentro do mesmo retângulo. Quem usa o tempo da PROJEÇÃO é a
+      // barra e a navegação de estrofe, logo abaixo.
+      updatePvLyricSlide(tempoDaPreview());
       renderSlideNav();
-      resyncPreviewToDisplay(playing, msg.currentTime);
+      resyncPreviewToDisplay(playing, msg.currentTime, tol);
     }
   } else if (msg.type === 'media-ended') {
     // A GUARDA DE mediaId que o comentário da preview (`onEnded`) sempre
@@ -15631,6 +16083,23 @@ document.addEventListener('visibilitychange', () => {
   // lista ao voltar para a frente é o piso que impede o ícone de cast de ficar
   // aceso sobre uma TV que não está mais lá (v5.142).
   reconferirTelas();
+  // A PREVIEW VOLTA DO ESCURO, e ela volta ERRADA — é o defeito que a v5.173
+  // existe para fechar. Enquanto o app esteve fora da frente o `<video>` dela
+  // foi pausado ou desacelerado pelo Chromium, enquanto a projeção (o telão ou
+  // o `/display/` do espelho, que rodam numa `Presentation` e não são
+  // estrangulados) seguiu andando. A distância entre os dois é arbitrária e não
+  // se corrige sozinha: nada no ciclo normal compara os dois relógios com força
+  // suficiente.
+  //
+  // São dois passos, e nenhum basta sozinho: a fila escoa (os comandos que
+  // ficaram presos num timer estrangulado valem AGORA), e o realinhamento
+  // acontece contra a última posição conhecida da projeção. Se ela já estiver
+  // velha, `forcarResyncAte` faz o próximo status valer como reposicionamento
+  // exato — que é o caminho normal numa cena parada, onde o status é o único
+  // sinal que ainda chega.
+  drenarPreview(true);
+  forcarResyncAte = Date.now() + RESYNC_JANELA_MS;
+  ressincronizarPreview();
 });
 
 (async function init() {

@@ -24,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 import javax.net.ssl.KeyManagerFactory
 import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocket
@@ -149,6 +150,10 @@ class EspelhoServidor(
     @Volatile private var ultimoIdrGlobalMs = 0L
     @Volatile private var ultimaSaida: JSONObject? = null
 
+    /** Ver [suspeitarDaRede]: a rede parece ter caído desde quando, e por quê. */
+    @Volatile private var redeSuspeitaDesde = 0L
+    @Volatile private var redeSuspeitaMotivo = ""
+
     /**
      * O que o FREIO de IDR fez, em três números.
      *
@@ -268,6 +273,8 @@ class EspelhoServidor(
         ligadoEm = SystemClock.elapsedRealtime()
         conexoesTotais.set(0)
         proximoRotulo.set(0)
+        redeSuspeitaDesde = 0L
+        redeSuspeitaMotivo = ""
 
         Thread({ aceitarConexoes(ss) }, "av-espelho-accept").apply { isDaemon = true }.start()
         Thread({ vigiar() }, "av-espelho-vigia").apply { isDaemon = true }.start()
@@ -325,6 +332,8 @@ class EspelhoServidor(
         ssl = null
         hostsAceitos = emptySet()
         ligadoEm = 0
+        redeSuspeitaDesde = 0L
+        redeSuspeitaMotivo = ""
         // "O token tem prazo e MORRE COM A SESSÃO" (§3.5, invariante 3): não há
         // token que sobreviva ao culto.
         zerarPares()
@@ -356,7 +365,7 @@ class EspelhoServidor(
         }
         for (t in telas.values) {
             if (!temDireito(t, q)) continue
-            entregar(t, q, bytes)
+            entregar(t, q.tipo, q.chave, bytes)
         }
     }
 
@@ -395,12 +404,14 @@ class EspelhoServidor(
         else -> true
     }
 
-    private fun entregar(t: Tela, q: Quadro, bytes: ByteArray) {
-        val ehVideo = q.tipo == EspelhoCodec.TIPO_VIDEO
-        val ehAudio = q.tipo == EspelhoCodec.TIPO_AUDIO || q.tipo == EspelhoCodec.TIPO_CSD_AUDIO
-        if (t.fila.offer(Pedaco(bytes, ehAudio))) {
+    private fun entregar(t: Tela, tipo: Byte, chave: Boolean, bytes: ByteArray) {
+        val ehVideo = tipo == EspelhoCodec.TIPO_VIDEO
+        val ehAudio = tipo == EspelhoCodec.TIPO_AUDIO || tipo == EspelhoCodec.TIPO_CSD_AUDIO
+        val cabeEmBytes = t.bytesNaFila.get() + bytes.size <= TETO_FILA_BYTES
+        if (cabeEmBytes && t.fila.offer(Pedaco(bytes, ehAudio))) {
+            t.bytesNaFila.addAndGet(bytes.size.toLong())
             if (ehVideo) t.enviados++
-            if (ehVideo && q.chave) t.esperandoIdr = false
+            if (ehVideo && chave) t.esperandoIdr = false
             return
         }
         // A FILA ENCHEU: o cliente não escoa. O que se joga fora é VÍDEO, e
@@ -424,13 +435,30 @@ class EspelhoServidor(
         // `removeAll` num `ArrayBlockingQueue` é atômico e preserva a ordem do
         // que fica, que é o contrato do fio (§5.3).
         t.fila.removeAll { !it.audio }
+        recontarFila(t)
         t.descartes++
         t.esperandoIdr = true
-        val recomeco = !ehVideo || q.chave
-        if (recomeco && t.fila.offer(Pedaco(bytes, ehAudio)) && ehVideo && q.chave) {
-            t.esperandoIdr = false
+        val recomeco = !ehVideo || chave
+        if (recomeco && t.fila.offer(Pedaco(bytes, ehAudio))) {
+            t.bytesNaFila.addAndGet(bytes.size.toLong())
+            if (ehVideo && chave) t.esperandoIdr = false
         }
         pedirIdrComFreio(t)
+    }
+
+    /**
+     * Refaz a conta de bytes depois de uma varredura da fila.
+     *
+     * A contabilidade é aproximada por construção (ver [Tela.bytesNaFila]) e a
+     * escritora pode estar tirando um pedaço no mesmo instante — mas ela precisa
+     * ser refeita AQUI, e não deixada à deriva: sem isto, cada estouro deixaria
+     * o contador acima do real e a tela nunca mais aceitaria um quadro, que é o
+     * único jeito de um freio de fila virar um bloqueio permanente.
+     */
+    private fun recontarFila(t: Tela) {
+        var soma = 0L
+        for (p in t.fila) soma += p.bytes.size
+        t.bytesNaFila.set(soma)
     }
 
     /**
@@ -483,16 +511,24 @@ class EspelhoServidor(
             // de um culto. Sem o número, "a tela demorou a aparecer" não tinha
             // como ser ligado à sua causa.
             if (agora - t.ultimoIdrMs < IDR_POR_TELA_MS) {
+                // ENGOLIDO NÃO É PERDIDO (v5.172): o pedido fica pendente e o
+                // [vigiar] o repete no giro seguinte. O freio continua fazendo o
+                // que existe para fazer — impedir laço —, sem deixar uma tela
+                // preta esperando o IDR espontâneo, que numa cena parada é o GOP
+                // inteiro.
+                t.idrPendente = true
                 idrEngolidos.incrementAndGet()
                 return
             }
             t.ultimoIdrMs = agora
         }
         if (agora - ultimoIdrGlobalMs < IDR_GLOBAL_MS) {
+            t?.idrPendente = true
             idrEngolidos.incrementAndGet()
             return
         }
         ultimoIdrGlobalMs = agora
+        t?.idrPendente = false
         idrAtendidos.incrementAndGet()
         try {
             pedirIdr()
@@ -513,7 +549,18 @@ class EspelhoServidor(
             // TETO DE CONEXÕES EM VOO, separado do teto de telas: três TCPs
             // mudos não podem consumir os três slots de sessão nem uma thread
             // por socket sem limite.
-            if (emVoo.get() >= TETO_EM_VOO) {
+            //
+            // **E as conexões de FLUXO não contam** — esta subtração é uma
+            // correção, não um detalhe. `servirFluxo` não volta enquanto a tela
+            // estiver conectada, então cada telão vivo segurava um slot pelo
+            // culto inteiro. Com três telas restavam cinco, e um navegador abre
+            // até SEIS conexões paralelas por host só para carregar a página
+            // (`/`, `/e.css`, `/e.js`, `/f.js`, `/q.js`): a segunda tela a abrir
+            // o endereço já esbarrava no teto e recebia conexões recusadas —
+            // que na tela viram "não foi possível falar com o celular", sem
+            // nada no Registro que ligasse uma coisa à outra. O teto de fluxos
+            // já existe e é outro ([TETO_TELAS]).
+            if (emVoo.get() - telas.size >= TETO_EM_VOO) {
                 fecharQuieto(cru)
                 continue
             }
@@ -550,6 +597,15 @@ class EspelhoServidor(
         // Nagle atrasaria cada quadro pequeno em dezenas de ms esperando
         // companhia — e este fluxo é feito de quadros pequenos.
         cru.tcpNoDelay = true
+        // KEEPALIVE: a rede da igreja perde aparelhos sem FIN nenhum (a TV que
+        // apagou, o tablet que saiu do alcance). Sem ele, um `write` num socket
+        // meio-aberto só falha quando o buffer de envio enche — o que numa cena
+        // parada leva minutos. Não substitui o [TETO_SEM_RELATO_MS] (o kernel
+        // demora muito mais que 60 s para desistir); os dois se somam, e este é
+        // grátis.
+        try { cru.keepAlive = true } catch (e: Exception) {
+            Log.i(TAG, "keepalive recusado: ${e.message}")
+        }
         val (socket, entrada) = envelopar(cru)
         // O TETO DO CORPO É DECIDIDO AQUI, porque é aqui que se sabe o que é
         // uma rota. O `/r` é autenticado e carrega o relato da tela — a única
@@ -726,7 +782,23 @@ class EspelhoServidor(
             // 5b). `optBoolean` e não `has`: um `{"qr":false}` não é um pedido.
             corpo.optBoolean("qr", false) -> respostaDoVeredito(esperaQr(origem, relatoDe(corpo)))
             corpo.has("espera") -> respostaDoVeredito(consultarEspera(corpo.optString("espera")))
-            else -> 403 to RECUSADA
+            // A PORTA ABERTA (v5.170) — e ela não tinha ramo nenhum até aqui.
+            //
+            // O `cliente.js` pede a entrada assim que a página abre, e mandava um
+            // corpo com o relato e mais nada: caía no `else -> 403` abaixo. O
+            // recurso inteiro que a v5.170 anunciou nunca chegou a existir, e o
+            // custo não era só o atrito da estreia — era a RECUPERAÇÃO. Toda
+            // queda de rede, toda religada do espelho e toda expiração de token
+            // devolvem a tela ao pareamento, e sem este ramo ela ficava lá,
+            // mostrando um QR que ninguém ia ler no meio do culto.
+            //
+            // O corpo NU (sem `pin`, sem `qr`, sem `espera`) vale como pedido de
+            // entrada pelo mesmo motivo: é o que os bundles que já estão em
+            // aparelho mandam, e o APK precisa consertá-los sem depender de o OTA
+            // chegar primeiro. Quem decide se isso vira sessão é o
+            // [EspelhoPares.entrarAberto] — com a porta fechada ele recusa, sem
+            // contar erro contra a origem.
+            else -> respostaDoVeredito(entrarAberto(origem, relatoDe(corpo)))
         }
         responder(saida, EspelhoHttp.resposta(status, "application/json", json.toByteArray(Charsets.UTF_8)))
     }
@@ -743,6 +815,10 @@ class EspelhoServidor(
             return responder(saida, naoAchei())
         }
         val tela = telas[sessao.token]
+        // QUALQUER `POST /r` É SINAL DE VIDA, e não só o `alive`: o que este
+        // carimbo responde é "há alguém do outro lado", e um pedido de chave
+        // prova isso tanto quanto um relato. Ver [Tela.ultimoRelatoMs].
+        tela?.ultimoRelatoMs = SystemClock.elapsedRealtime()
         when (corpo.optString("do")) {
             "key" -> pedirIdrComFreio(tela)
             "alive" -> if (tela != null) {
@@ -770,7 +846,14 @@ class EspelhoServidor(
                 // do encoder AAC pode enfileirar um quadro `0x11` no intervalo
                 // entre as duas linhas — e o cliente, que só monta a faixa a
                 // partir do `0x10`, o joga fora.
-                if (quer) csdAudio?.let { tela.fila.offer(Pedaco(it, true)) }
+                //
+                // E ele vai pelo caminho NORMAL de entrega, não por um `offer`
+                // solto: com a fila cheia o `offer` falharia em silêncio, o
+                // `csd` de áudio nunca chegaria, e a tela ficaria com
+                // `som: pedido, esperando o csd` para sempre — um dos sete
+                // desfechos que o cliente enumera e o único cuja causa estava
+                // deste lado.
+                if (quer) csdAudio?.let { entregar(tela, EspelhoCodec.TIPO_CSD_AUDIO, true, it) }
                 tela.audio = quer
             }
         }
@@ -792,7 +875,7 @@ class EspelhoServidor(
         saida: OutputStream,
         sessao: EspelhoPares.Sessao,
     ) {
-        val tela = Tela(rotuloNovo(), cru, sessao)
+        val tela = Tela(rotuloNovo(), cru, sessao, enderecoDe(cru))
         // O `csd` ENTRA NA FILA ANTES DE A TELA EXISTIR PARA O FAN-OUT, e a
         // ordem é o contrato do §5.3: parâmetros primeiro, quadro depois.
         //
@@ -804,7 +887,7 @@ class EspelhoServidor(
         // com ele — e num telão parado o próximo IDR pode estar a cinco
         // segundos. Enfileirar antes fecha a janela por construção, e custa
         // mover uma linha.
-        csdVideo?.let { tela.fila.offer(Pedaco(it, false)) }
+        csdVideo?.let { if (tela.fila.offer(Pedaco(it, false))) tela.bytesNaFila.addAndGet(it.size.toLong()) }
         var anterior: Tela? = null
         var lotado = false
         // A ADMISSÃO é a única decisão deste arquivo que precisa ser atômica:
@@ -873,6 +956,10 @@ class EspelhoServidor(
             }
             if (q === FIM) break
             val bytes = q.bytes
+            // O pedaço saiu da fila: a conta de bytes o acompanha. O piso em
+            // zero existe porque a contabilidade é aproximada (ver
+            // [Tela.bytesNaFila]) e um valor negativo acumulado apagaria o freio.
+            if (tela.bytesNaFila.addAndGet(-bytes.size.toLong()) < 0) tela.bytesNaFila.set(0)
             tela.escritaIniciadaMs = SystemClock.elapsedRealtime()
             try {
                 saida.write(EspelhoHttp.chunk(bytes, 0, bytes.size))
@@ -920,10 +1007,27 @@ class EspelhoServidor(
                     fechar(t, "sem escrita ha ${(agora - inicio) / 1000} s (cliente dormiu)")
                     continue
                 }
+                // O LADO DE LÁ EMUDECEU. Um TCP meio-aberto — a tela que sumiu da
+                // Wi-Fi sem fechar nada — não trava escrita nenhuma enquanto o
+                // buffer de envio do kernel couber, e numa cena parada (156 kbps)
+                // isso são MINUTOS segurando uma das três vagas. O cliente fala a
+                // cada 10 s; quatro batidas perdidas é uma tela que foi embora.
+                if (agora - t.ultimoRelatoMs > TETO_SEM_RELATO_MS) {
+                    fechar(t, "sem sinal de vida ha ${(agora - t.ultimoRelatoMs) / 1000} s")
+                    continue
+                }
                 if (validarTokenCru(t.sessao.token) == null) {
                     fechar(t, "sessao expirada")
+                    continue
+                }
+                // O PEDIDO DE CHAVE QUE O FREIO ENGOLIU, repetido assim que ele
+                // abre. Só enquanto a tela de fato estiver esperando: um pendente
+                // que sobreviveu ao IDR que o atendeu seria um laço lento.
+                if (t.idrPendente) {
+                    if (t.esperandoIdr) pedirIdrComFreio(t) else t.idrPendente = false
                 }
             }
+            confirmarRede(agora)
             limparPares()
         }
     }
@@ -940,6 +1044,7 @@ class EspelhoServidor(
         if (!t.viva) return
         t.motivoDaSaida = motivo
         t.fila.clear()
+        t.bytesNaFila.set(0)
         // A DESPEDIDA VAI NA FRENTE DO SENTINELA, e por isso ela precisa entrar
         // antes de `viva` cair: a ordem da fila é o contrato.
         if (despedida != null) t.fila.offer(Pedaco(despedida, false))
@@ -995,7 +1100,7 @@ class EspelhoServidor(
                 // já não é o do aparelho, e nenhuma conexão nova chega — sem
                 // um único erro em lugar nenhum.
                 val temIp = lp.linkAddresses.any { it.address.hostAddress == ipServido }
-                if (!temIp && servidor != null) queda("o endereço da Wi-Fi mudou")
+                if (!temIp) suspeitarDaRede("o endereço da Wi-Fi mudou") else redeVoltou()
             }
 
             private fun conferir(caps: NetworkCapabilities?) {
@@ -1005,7 +1110,7 @@ class EspelhoServidor(
                     c.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) &&
                     !c.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) &&
                     !c.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
-                if (!ok) queda("a rede sumiu")
+                if (!ok) suspeitarDaRede("a rede sumiu") else redeVoltou()
             }
         }
         try {
@@ -1026,6 +1131,61 @@ class EspelhoServidor(
             Log.w(TAG, "não foi possível parar de observar a rede", e)
         }
         cm = null
+    }
+
+    /**
+     * A rede PARECE ter caído — e o espelho **não** desliga por causa disso
+     * ainda.
+     *
+     * `registerDefaultNetworkCallback` fala da rede PADRÃO, não da nossa: no
+     * instante em que o Android reavalia a Wi-Fi (revalidação, roaming entre
+     * pontos de acesso, um `onCapabilitiesChanged` durante o handover), o padrão
+     * pisca para a rede móvel e volta em segundos. O caminho antigo lia esse
+     * piscar como "a rede sumiu" e **derrubava o espelho inteiro** — servidor,
+     * tela virtual e encoder — no meio do culto, com as telas caindo na página
+     * de pareamento e o operador sem nenhuma explicação na mão.
+     *
+     * Suspeita não é veredito: o motivo fica anotado, o [vigiar] confirma
+     * [GRACA_REDE_MS] depois consultando o estado de verdade, e só então a queda
+     * acontece. Uma oscilação some sozinha e não custa nada.
+     */
+    private fun suspeitarDaRede(motivo: String) {
+        if (servidor == null || redeSuspeitaDesde != 0L) return
+        redeSuspeitaDesde = SystemClock.elapsedRealtime()
+        redeSuspeitaMotivo = motivo
+        registrar("$motivo — conferindo antes de desligar")
+    }
+
+    private fun redeVoltou() {
+        if (redeSuspeitaDesde == 0L) return
+        redeSuspeitaDesde = 0L
+        registrar("a rede voltou — o espelho segue no ar")
+    }
+
+    /**
+     * O veredito da suspeita, no compasso do [vigiar].
+     *
+     * A confirmação não repete a leitura que gerou a suspeita: ela pergunta pelo
+     * que de fato importa — **o endereço em que este socket está ligado ainda é
+     * um endereço deste aparelho numa Wi-Fi?**. É a única pergunta cuja resposta
+     * negativa significa que nenhuma conexão nova vai chegar aqui.
+     */
+    private fun confirmarRede(agora: Long) {
+        val desde = redeSuspeitaDesde
+        if (desde == 0L || servidor == null) return
+        if (agora - desde < GRACA_REDE_MS) return
+        val ok = try {
+            redeDaWifi(app).ip.hostAddress == ipServido
+        } catch (e: Exception) {
+            false
+        }
+        if (ok) {
+            redeVoltou()
+            return
+        }
+        val motivo = redeSuspeitaMotivo
+        redeSuspeitaDesde = 0L
+        queda(if (motivo.isEmpty()) "a rede sumiu" else motivo)
     }
 
     private fun queda(motivo: String) {
@@ -1191,8 +1351,9 @@ class EspelhoServidor(
     // do arquivo não sabe que ele existe.
     //
     // O que ESTE arquivo consome de lá, e nada mais: `Relato`, `Pendente`,
-    // `Sessao` e `Veredito` (os tipos), mais `validar`, `tentar`, `consultar`,
-    // `pendentes`, `limpar`, `zerar`, `recusas` e `origensEmBloqueio`.
+    // `Sessao` e `Veredito` (os tipos), mais `validar`, `tentar`, `esperaQr`,
+    // `entrarAberto`, `consultar`, `pendentes`, `limpar`, `zerar`, `derrubar`,
+    // `recusas` e `origensEmBloqueio`.
     // `ligar`, `desligar`, `pin`, `trocarPin`, `aprovar`, `recusar` e
     // `definirAutoAprovar` são do DONO (a `MainActivity`, pela ponte): quem
     // decide sobre uma tela pendente é o operador, e o servidor nem sabe que
@@ -1229,6 +1390,38 @@ class EspelhoServidor(
 
     private fun esperaQr(origem: String, relato: EspelhoPares.Relato) =
         EspelhoPares.esperaQr(origem, relato, agoraMs())
+
+    private fun entrarAberto(origem: String, relato: EspelhoPares.Relato) =
+        EspelhoPares.entrarAberto(origem, relato, agoraMs())
+
+    /**
+     * O OPERADOR DERRUBA UMA TELA — o botão "Desconectar" da folha, que até aqui
+     * reportava sucesso e não fazia absolutamente nada.
+     *
+     * O `controle.js` manda o **rótulo** da tela ("tela B") — que é o único
+     * identificador que a folha tem, e o único que faz sentido ali: numa lista de
+     * três, o que o operador precisa é distinguir uma da outra. O caminho antigo
+     * entregava esse rótulo ao `EspelhoPares.recusar`, que procura um `id` de
+     * espera (base64url de 128 bits): nunca casava, saía em silêncio e devolvia
+     * `true`. Pior, um rótulo VAZIO cairia no id reservado da aprovação
+     * automática e **fecharia a porta** em vez de derrubar alguém.
+     *
+     * Aqui o rótulo é resolvido para a sessão de verdade, a sessão é encerrada, a
+     * origem fica de castigo por [EspelhoPares.BLOQUEIO_DERRUBADA_MS] (senão, com
+     * a porta aberta, a tela derrubada volta em dois segundos) e o socket é
+     * fechado de fora. `false` = não há tela com esse rótulo, e aí quem chama cai
+     * no caminho da pendência, que é o outro uso do mesmo botão.
+     */
+    fun derrubarTela(rotulo: String): Boolean {
+        if (rotulo.isEmpty()) return false
+        val alvo = telas.values.firstOrNull { it.rotulo == rotulo } ?: return false
+        EspelhoPares.derrubar(alvo.sessao.token, alvo.origem, agoraMs())
+        telas.remove(alvo.sessao.token, alvo)
+        fechar(alvo, "o operador desconectou esta tela")
+        EspelhoService.telasMudaram(app, telas.size)
+        registrar("tela ${alvo.rotulo} desconectada pelo operador")
+        return true
+    }
 
     /**
      * O relato que veio no corpo do `POST /par`, **cru**.
@@ -1348,6 +1541,13 @@ class EspelhoServidor(
             200 to JSONObject().put("t", v.sessao.token).toString()
         is EspelhoPares.Veredito.Pendente ->
             202 to PENDENTE
+        // LOTADO É UMA FRASE, e não a recusa genérica. As três vagas ocupadas e
+        // o PIN errado são a mesma tela ("não foi liberada") para quem está do
+        // outro lado, e as duas têm saídas opostas: uma pede que alguém feche
+        // uma página, a outra que se confira o número. O status continua 403 —
+        // quem não entrou não entrou —, e o que muda é o corpo, que o cliente lê
+        // para escolher a frase.
+        is EspelhoPares.Veredito.Lotada -> 403 to LOTADO_JSON
         else -> 403 to RECUSADA
     }
 
@@ -1451,10 +1651,53 @@ class EspelhoServidor(
          *  [fechar]. É por ele que o vigia destrava uma escrita presa. */
         val cru: Socket,
         val sessao: EspelhoPares.Sessao,
+        /** O endereço do outro lado — só o [derrubarTela] o usa, para pôr a
+         *  origem de castigo. Sem ele, com a porta aberta, "Desconectar" seria
+         *  um botão que a tela desfaz em dois segundos. */
+        val origem: String,
     ) {
         val fila = ArrayBlockingQueue<Pedaco>(FILA_QUADROS)
 
+        /**
+         * Bytes na fila. O teto de QUADROS sozinho não limita memória: um IDR de
+         * 720p custa dezenas a centenas de kB e um delta de cena parada custa
+         * dois. Com [FILA_QUADROS] alto o bastante para atravessar um soluço de
+         * rede numa cena parada, o pior caso em bytes deixaria de ser
+         * desprezível — e este processo já hospeda dois WebViews e um vídeo
+         * grande. Os dois tetos juntos dizem a coisa certa: "até N quadros, e
+         * nunca mais que M bytes".
+         *
+         * É contabilidade aproximada de propósito (produtor e escritora mexem
+         * nela de threads diferentes, sem trava): ela é freio de fila, não
+         * invariante de correção — e o teto de quadros continua sendo o piso
+         * duro.
+         */
+        val bytesNaFila = AtomicLong(0)
+
         @Volatile var esperandoIdr = true
+
+        /**
+         * O pedido de quadro-chave que o FREIO engoliu e que ainda não foi
+         * atendido.
+         *
+         * Um pedido engolido era um pedido PERDIDO: a tela ficava preta até o
+         * IDR espontâneo seguinte — que numa cena parada é o GOP inteiro. Como o
+         * freio existe para impedir laço e não para descartar necessidade, o
+         * pedido passa a ficar PENDENTE e o vigia o repete assim que o freio
+         * abre. O atraso máximo vira o compasso do vigia (1 s) em vez do GOP.
+         */
+        @Volatile var idrPendente = false
+
+        /**
+         * Quando o cliente falou pela última vez (`POST /r`).
+         *
+         * É o único sinal de vida que vem do LADO DE LÁ. Sem ele, um TCP
+         * meio-aberto — o desfecho normal de uma tela que sumiu da Wi-Fi sem
+         * fechar nada — segura uma das três vagas até uma escrita chegar a
+         * bloquear, o que numa cena parada (156 kbps) pode levar muitos minutos.
+         * O cliente relata a cada 10 s; ver [TETO_SEM_RELATO_MS].
+         */
+        @Volatile var ultimoRelatoMs = SystemClock.elapsedRealtime()
 
         @Volatile var audio = false
 
@@ -1522,11 +1765,40 @@ class EspelhoServidor(
         /** Teto RÍGIDO de sessões — §3.5, invariante 8. */
         const val TETO_TELAS = 3
 
-        /** Conexões em voo, contadas à parte do teto de telas: três TCPs mudos
-         *  não podem consumir os três slots nem uma thread cada, para sempre. */
-        private const val TETO_EM_VOO = 8
+        /**
+         * Conexões em voo **que ainda não viraram fluxo**, contadas à parte do
+         * teto de telas: três TCPs mudos não podem consumir os três slots nem
+         * uma thread cada, para sempre.
+         *
+         * Dezesseis, e não oito: um navegador abre até seis conexões paralelas
+         * por host, e três telas carregando a página ao mesmo tempo (o que
+         * acontece quando o operador liga o espelho com as TVs já apontadas para
+         * o endereço) somam mais que oito sozinhas. Ver a subtração em
+         * [aceitarConexoes].
+         */
+        private const val TETO_EM_VOO = 16
 
-        private const val FILA_QUADROS = 24
+        /**
+         * Quadros na fila de UMA tela — o freio de backpressure.
+         *
+         * Eram 24 (~1 s de vídeo), e um segundo é curto demais para o que ele
+         * precisa atravessar: um AP de igreja engasga por mais que isso sem que
+         * nada esteja quebrado, e cada estouro custa a fila inteira de vídeo mais
+         * a espera por um quadro-chave. Sessenta e quatro atravessam o soluço; o
+         * que impede que isso vire memória é o [TETO_FILA_BYTES], que morde
+         * primeiro justamente no caso em que os quadros são grandes.
+         */
+        private const val FILA_QUADROS = 64
+
+        /**
+         * E o teto em BYTES da mesma fila — o que de fato limita memória.
+         *
+         * 1,5 MB são ~4 s a 3 Mbps: fila funda o bastante para o soluço e curta
+         * o bastante para o cliente não passar o culto perseguindo uma borda que
+         * o servidor segurou. Três telas no pior caso são 4,5 MB, num processo
+         * que já hospeda dois WebViews.
+         */
+        private const val TETO_FILA_BYTES = 1_500_000L
 
         /**
          * O corte da frase que a tela manda.
@@ -1539,8 +1811,36 @@ class EspelhoServidor(
          * é ele que continua garantindo que não entre `\n` no Registro.
          */
         private const val TETO_AVISO = 240
-        private const val PRAZO_LINHA_MS = 2_000
+        /**
+         * Prazo de LEITURA da requisição — por `read()`, não pela mensagem
+         * inteira (é o que `setSoTimeout` significa).
+         *
+         * Eram 2 s, e 2 s é o que uma Wi-Fi congestionada leva para entregar um
+         * corpo de 4 KiB quando três telas estão recebendo 3 Mbps cada. O
+         * `POST /r` que estourasse esse prazo virava [EspelhoHttp.Erro.Truncado]
+         * → 400, e desde que o vigia passou a exigir sinal de vida
+         * ([TETO_SEM_RELATO_MS]) isso deixaria de ser um relato perdido para
+         * virar uma tela derrubada por causa de um timer apertado. Dez segundos
+         * é o número que o KDoc do [EspelhoHttp] já anunciava, e um socket mudo
+         * continua limitado pelo [TETO_EM_VOO].
+         */
+        private const val PRAZO_LINHA_MS = 10_000
         private const val TETO_ESCRITA_MS = 20_000L
+
+        /**
+         * Silêncio do cliente que vale desconexão. O `cliente.js` relata a cada
+         * 10 s (`ALIVE_MS`) e a cada troca de estado; seis batidas perdidas é uma
+         * tela que foi embora, e não uma tela lenta.
+         */
+        private const val TETO_SEM_RELATO_MS = 60_000L
+
+        /**
+         * Quanto tempo uma suspeita de queda de rede precisa sobreviver antes de
+         * virar desligamento. Ver [suspeitarDaRede] — o padrão do Android pisca
+         * para a rede móvel durante uma revalidação da Wi-Fi, e o espelho não
+         * pode morrer por causa de um piscar.
+         */
+        private const val GRACA_REDE_MS = 6_000L
         private const val IDR_POR_TELA_MS = 2_000L
         private const val IDR_GLOBAL_MS = 1_000L
         private const val CABECALHO = 16
@@ -1583,7 +1883,8 @@ class EspelhoServidor(
         private val OK_CURTO = "{\"ok\":true}".toByteArray(Charsets.US_ASCII)
         private val RECUSADA = "{\"estado\":\"recusada\"}"
         private val PENDENTE = "{\"estado\":\"pendente\"}"
-        private val LOTADO = "{\"estado\":\"lotado\"}".toByteArray(Charsets.US_ASCII)
+        private val LOTADO_JSON = "{\"estado\":\"lotado\"}"
+        private val LOTADO = LOTADO_JSON.toByteArray(Charsets.US_ASCII)
 
         /** Sentinela de fim de fila: é `===` que o distingue, então ele não pode
          *  ser confundido com um quadro vazio de verdade. */

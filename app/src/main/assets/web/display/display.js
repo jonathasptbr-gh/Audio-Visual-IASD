@@ -81,8 +81,43 @@ window.addEventListener('pagehide', () => diag('pagehide'));
 window.addEventListener('freeze', () => diag('congelou'));
 window.addEventListener('resume', () => diag('descongelou'));
 
+// ===== O TELÃO QUE ESTÁ SAINDO DE CENA NÃO REPORTA (v5.179) =====
+//
+// É o par local do `yt.stopping`, e ele faltava desde sempre. `clear` e
+// `media-clear` ESMAECEM antes de sair (`clearFaded`/`fadeOutToBlack`, ~0,6 s), e
+// nesse intervalo o `<video>` continua tocando — a rampa é de volume, não de
+// pausa —, então `onTime` seguia disparando e cada `display-status` do fade
+// contava, com `playing: true` e o tempo antigo, uma cena que o operador acabou
+// de encerrar. Do lado do Controle isso repunha a barra e o ícone de pausa que o
+// Parar tinha acabado de zerar (daí o "só funciona no segundo toque"); e do lado
+// da NOTIFICAÇÃO era pior, porque ali não há segundo toque — o
+// `snoopDisplayStatus` do Kotlin lê este mesmo status de passagem e deixava o
+// cartão de mídia anunciando "tocando" sobre um telão vazio, até a cena seguinte.
+//
+// Corrigir na FONTE é o que fecha os dois consumidores de uma vez, e sem APK.
+//
+// É um CONTADOR, e não um booleano: dois clears sobrepostos (o operador toca
+// duas vezes, ou um `media-clear` chega em cima de um `clear`) fariam o primeiro
+// a terminar liberar o segundo. Um `load` que chegue durante o fade cancela o
+// clear pelo `loadSeq` do stage, mas a promise dele resolve do mesmo jeito — e é
+// por isso que o decremento mora no `then`, nunca num ponto de sucesso.
+let saindoDeCena = 0;
+function aoSairDeCena(p) {
+  saindoDeCena++;
+  Promise.resolve(p).catch(() => {}).then(() => {
+    if (--saindoDeCena) return;
+    // E O TELÃO VAZIO É DITO UMA VEZ, agora que ele é verdade. Sem esta linha o
+    // último status a viajar seria o do começo do fade — `playing: true` —, e a
+    // notificação (que não tem o `midiaNoAr` do Controle para se defender)
+    // ficaria com ele. `sendStatus` lê o stage já limpo: `mediaId: null`,
+    // `playing: false`.
+    sendStatus();
+  });
+}
+
 function sendStatus() {
   if (yt) return; // com YouTube ativo o status tem fluxo próprio (ytStatus)
+  if (saindoDeCena) return; // ver acima: o que ele reportaria aqui é passado
   // No fim natural o stage zera o currentTime (preparando o replay) e continua
   // emitindo tempo: seguir isso re-renderizaria o slide 0 e a CAPA do hino
   // piscava por um instante antes do wallpaper cobrir. Terminado, a letra
@@ -1433,6 +1468,30 @@ AVDB.onCommand(async (cmd) => {
   // Microfone ao vivo: camada de ÁUDIO independente — não toca na mídia, no
   // texto nem na cortina. Convive com qualquer coisa em cena.
   if (cmd.type === 'mic') { setMic(cmd.on); return; }
+
+  // PARAR SÓ A MÍDIA — a outra metade da independência áudio × texto (v5.178).
+  //
+  // O `clear` é o Parar do transporte: ele encerra a CENA INTEIRA, e está certo
+  // que encerre. Faltava o desligamento POR CAMADA na direção oposta à do
+  // `text-hide`: com um louvor de fundo sob a contagem regressiva de abertura,
+  // tirar a música do ar levava o cronômetro junto, e a única saída era parar
+  // tudo e reprojetar a cena de roteiro na frente da congregação.
+  //
+  // O ramo tem de vir ANTES do bloco de `textActive`: lá dentro o `clear` é
+  // justamente o que chama `hideText`, e cair no fluxo comum faria o comando
+  // atravessar até um `stage.handle` que não o conhece — nada aconteceria, sem
+  // erro nenhum, que é a forma de falhar que este repositório persegue.
+  //
+  // Quem decide entre as duas saídas é o DISPLAY, e não o Controle: `textActive`
+  // é estado dele, e duplicar a leitura do outro lado é garantir que os dois
+  // divirjam num domingo.
+  if (cmd.type === 'media-clear') {
+    hideLyrics(true);
+    if (yt) stopYoutube();
+    else ++ytSeq;
+    aoSairDeCena(stage.handle({ type: textActive ? 'clear-media' : 'clear' }));
+    return;
+  }
   // Enquanto o texto manual está em cena, ele é um OVERLAY independente:
   //  - 'view' liga/desliga a cortina do wallpaper por cima do texto;
   //  - transporte (play/pause/seek/volume/mute) segue pro stage — controla o
@@ -1529,7 +1588,7 @@ AVDB.onCommand(async (cmd) => {
     // começaria a tocar depois de o operador já ter parado.
     if (yt) stopYoutube();
     else ++ytSeq;
-    stage.handle(cmd);
+    aoSairDeCena(stage.handle(cmd));
     return;
   }
 

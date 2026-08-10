@@ -319,13 +319,42 @@ class EspelhoService : Service() {
 
     // ---------- notificação ----------
 
+    /**
+     * O canal, em **IMPORTANCE_MIN** — o mínimo que a plataforma permite.
+     *
+     * ## O que NÃO dá para fazer, e precisa estar escrito
+     *
+     * **Esta notificação não pode ser removida.** Um serviço em primeiro plano é
+     * obrigado a publicar uma; `startForeground` sem ela derruba o app inteiro
+     * ("did not then call Service.startForeground()"), e é justamente este
+     * serviço que impede o Android de congelar o processo com o app minimizado —
+     * isto é, o que mantém o espelho no ar durante o culto. Trocar o cartão pelo
+     * ícone de cast do Controle é trocar duas coisas diferentes: uma é
+     * requisito do sistema, a outra é informação para o operador.
+     *
+     * O que dá para fazer é tirá-la da FRENTE, e é o que esta função faz:
+     * `IMPORTANCE_MIN` é o degrau em que o Android não desenha ícone na barra de
+     * status e recolhe a entrada para o bloco silencioso da gaveta. O cartão
+     * continua alcançável (é lá que mora o botão "Desligar"), e some da linha de
+     * cima, que é onde ele incomodava.
+     *
+     * **O canal é NOVO (`espelho2`), e tem de ser.** A importância de um canal
+     * pertence ao usuário depois de criado: `createNotificationChannel` sobre um
+     * canal existente ignora a mudança de importância em silêncio. Sem trocar o
+     * id, o aparelho que já tinha o canal em `LOW` continuaria exatamente como
+     * estava — a correção não chegaria a ninguém que já usou o recurso, que é
+     * todo mundo que a pediu. O antigo é apagado para não ficar um canal órfão
+     * na tela de notificações do app.
+     */
     private fun ensureChannel() {
         val nm = getSystemService(NotificationManager::class.java) ?: return
+        try { nm.deleteNotificationChannel(CHANNEL_ANTIGO) } catch (e: Exception) {
+            Log.i(TAG, "canal antigo não saiu: ${e.message}")
+        }
         if (nm.getNotificationChannel(CHANNEL_ID) != null) return
-        // IMPORTANCE_LOW: é um painel, não um alerta. Nada de som nem heads-up
-        // no meio de um culto.
-        val ch = NotificationChannel(CHANNEL_ID, "Espelho", NotificationManager.IMPORTANCE_LOW).apply {
-            description = "Telão espelhado para os navegadores da rede"
+        val ch = NotificationChannel(CHANNEL_ID, "Espelho", NotificationManager.IMPORTANCE_MIN).apply {
+            description = "Mantém o espelho no ar com o app minimizado. " +
+                "Quem avisa que há telas recebendo é o ícone de conectar, no app."
             setShowBadge(false)
             enableVibration(false)
             setSound(null, null)
@@ -335,7 +364,15 @@ class EspelhoService : Service() {
 
     companion object {
         private const val TAG = "EspelhoService"
-        private const val CHANNEL_ID = "espelho"
+
+        /**
+         * O canal em `IMPORTANCE_MIN` — ver [ensureChannel] para por que ele é
+         * um id NOVO, e não o mesmo com outra importância.
+         */
+        private const val CHANNEL_ID = "espelho2"
+
+        /** O canal `IMPORTANCE_LOW` de até a v5.175, apagado ao subir. */
+        private const val CHANNEL_ANTIGO = "espelho"
 
         /** 1 é do [SyncService], 2 do [SessionService] — as três coexistem. */
         private const val NOTIF_ID = 3
@@ -552,7 +589,19 @@ class EspelhoService : Service() {
                 .setSmallIcon(R.drawable.ic_image)
                 .setContentTitle("Espelho no ar")
                 .setContentText(linha)
-                .setPriority(NotificationCompat.PRIORITY_LOW)
+                // MIN, e não LOW: é o degrau em que o Android não desenha ícone
+                // na barra de status. O canal já é `IMPORTANCE_MIN` — esta linha
+                // é o par dela para as versões que ainda leem a prioridade da
+                // notificação, e as duas precisam concordar.
+                .setPriority(NotificationCompat.PRIORITY_MIN)
+                // Sem som, sem vibração, sem nada: o canal já diz isso, e um
+                // serviço que sobe no meio de um culto não pode depender de o
+                // usuário não ter mexido nas configurações do canal.
+                .setSilent(true)
+                // ADIADA. O sistema segura o cartão por ~10 s antes de mostrá-lo,
+                // e um espelho ligado e desligado nesse intervalo (o operador
+                // testando antes do culto) não chega a piscar nada na tela.
+                .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_DEFERRED)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
                 .setShowWhen(false)

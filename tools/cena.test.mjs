@@ -141,6 +141,299 @@ try {
   checar(!tipos.includes('load'),
     'e reconectar depois do fim não traz a faixa de volta (a "primeira tela/thumbnail" do relato)');
 
+  // ---- O SEGUNDO TOQUE, COM ÁUDIO DE FUNDO (v5.173) ----
+  //
+  // A v5.165 fez "tocar de novo no que está no ar = tirar do ar" e perguntava
+  // `item.id === currentId`. Só que uma cena de roteiro convive com uma mídia
+  // por baixo — é para isso que a independência áudio × texto existe —, e
+  // `currentId` é o ÚLTIMO item enviado: no instante em que o louvor de fundo
+  // entra, ele deixa de ser o versículo. O segundo toque parava de funcionar
+  // EXATAMENTE no caso que justificava o recurso, e a única saída voltava a ser
+  // o Parar, que leva a música junto. Foi o relato do operador.
+  //
+  // Este bloco é o cenário dele, inteiro: cena projetada, música por baixo, e o
+  // toque que tira só a cena.
+  const cenaId = await pg.evaluate(async () => {
+    const rec = await AVDB.addCue('message', { text: 'Aviso do teste' }, { name: 'Aviso', list: 'imports' });
+    await load();
+    return rec.id;
+  });
+  const audioId = await pg.evaluate(async () => {
+    const rec = await AVDB.addMedia(new Blob([new Uint8Array(64)], { type: 'audio/mp4' }), {
+      name: 'Fundo de teste', type: 'audio/mp4', kind: 'audio', list: 'imports',
+    });
+    await load();
+    return rec.id;
+  });
+
+  await pg.evaluate(async (id) => { await send(id); }, cenaId);
+  checar(await pg.evaluate(() => cenaDeRoteiroNoAr()), 'a cena de roteiro entra no ar');
+  checar(await pg.evaluate((id) => noArAgora({ id, kind: 'cue', cue: 'message' }), cenaId),
+    'e o segundo toque nela é reconhecido como "tirar do ar"');
+
+  // A MÚSICA POR BAIXO — o passo que quebrava tudo.
+  await pg.evaluate(async (id) => { await send(id); }, audioId);
+  checar(await pg.evaluate(() => cenaDeRoteiroNoAr()),
+    'o áudio de fundo NÃO derruba a cena (independência áudio × texto)');
+  checar(await pg.evaluate(() => currentId) === audioId,
+    'e `currentId` passa a ser a MÚSICA — era isto que escondia a cena do segundo toque');
+  checar(await pg.evaluate((id) => noArAgora({ id, kind: 'cue', cue: 'message' }), cenaId),
+    'e a cena CONTINUA reconhecida como no ar — a régua agora é `cueNoArId`, não `currentId`');
+  checar(await pg.evaluate((id) => linhaAtiva(id), cenaId),
+    'a linha dela segue realçada: duas camadas no ar, dois realces');
+  checar(await pg.evaluate((id) => linhaAtiva(id), audioId),
+    'e a da música também');
+
+  // E O TOQUE TIRA SÓ A CENA. `clear` aqui seria o Parar — e levaria o louvor.
+  const soACena = await pg.evaluate(async (id) => {
+    window.__espiao.length = 0;
+    await onTap({ id, kind: 'cue', cue: 'message' });
+    await new Promise((r) => setTimeout(r, 200));
+    return window.__espiao.map((m) => m.type);
+  }, cenaId);
+  checar(!(await pg.evaluate(() => cenaDeRoteiroNoAr())), 'o segundo toque tira a cena do ar');
+  checar(await pg.evaluate(() => midiaNoAr),
+    'e a MÚSICA DE FUNDO continua no ar — era este o risco de usar o Parar');
+  // E O COMANDO CERTO SAI. `clearManualText` é bookkeeping — ele zera a sessão
+  // e não manda nada ao telão. Sem o `text-hide`, o segundo toque apagava o
+  // estado do Controle e deixava o versículo PROJETADO: é literalmente o "tocar
+  // novamente não remove no player" do relato.
+  checar(soACena.includes('text-hide'),
+    'e o `text-hide` SAI — é ele que tira da tela, não o `clearManualText`',
+    JSON.stringify(soACena));
+  checar(!soACena.includes('clear'),
+    'nenhum `clear` é enviado: o desligamento é POR CAMADA', JSON.stringify(soACena));
+  checar(!(await pg.evaluate((id) => linhaAtiva(id), cenaId)),
+    'e o realce da cena sai, enquanto o da música fica');
+
+  // ---- E O SIMÉTRICO: TIRAR A MÚSICA E DEIXAR A CENA (v5.178) ----
+  //
+  // Era a metade que faltava, e a mais cara das duas: até aqui o segundo toque
+  // numa MÍDIA chamava `stopClear()`, que é o Parar do transporte — ele encerra
+  // a CENA INTEIRA. Com um louvor de fundo sob a contagem regressiva de
+  // abertura (o uso normal, e o que a independência áudio × texto existe para
+  // permitir), tirar a música levava o cronômetro junto, e a única saída era
+  // parar tudo e reprojetar na frente da congregação.
+  await pg.evaluate(async (ids) => { await send(ids[0]); await send(ids[1]); },
+    [cenaId, audioId]);
+  checar(await pg.evaluate(() => cenaDeRoteiroNoAr()) && await pg.evaluate(() => midiaNoAr),
+    'com as duas camadas no ar de novo');
+
+  const soAMidia = await pg.evaluate(async (id) => {
+    window.__espiao.length = 0;
+    await onTap({ id, kind: 'audio' });
+    await new Promise((r) => setTimeout(r, 200));
+    return window.__espiao.map((m) => m.type);
+  }, audioId);
+  checar(!(await pg.evaluate(() => midiaNoAr)), 'o segundo toque na música tira a MÚSICA do ar');
+  checar(await pg.evaluate(() => cenaDeRoteiroNoAr()),
+    'e a CENA DE ROTEIRO continua no ar — era este o risco de usar o Parar');
+  // O comando é `media-clear`, e o `clear` NÃO pode sair: é ele que chama
+  // `hideText` no Display. Um `clear` aqui apagaria o cronômetro sem que nada
+  // no Controle o dissesse — o mesmo modo de falhar do `text-hide` que faltava.
+  checar(soAMidia.includes('media-clear'),
+    'e o comando é o `media-clear` — o desligamento por camada, do outro lado',
+    JSON.stringify(soAMidia));
+  checar(!soAMidia.includes('clear'),
+    'nenhum `clear` é enviado: ele encerraria a Camada de Texto junto',
+    JSON.stringify(soAMidia));
+  checar(!(await pg.evaluate((id) => linhaNoAr(id), audioId)),
+    'a linha da música deixa de dizer "No ar"');
+  checar(await pg.evaluate((id) => linhaNoAr(id), cenaId),
+    'e a da cena continua dizendo — cada linha fala da SUA camada');
+  // E o Parar de verdade continua sendo o Parar: ele leva as duas.
+  await pg.evaluate(() => stopClear());
+  checar(!(await pg.evaluate(() => cenaDeRoteiroNoAr())) && !(await pg.evaluate(() => midiaNoAr)),
+    'e o Parar do transporte segue encerrando a CENA INTEIRA — ele não virou por camada');
+
+  // ---- O SELO "● No ar" (v5.174) ----
+  //
+  // "Atual" e "no ar" eram a MESMA marca — um contorno em accent —, e depois de
+  // um Parar o item continuava marcado sem estar no telão. Sem separar os dois,
+  // a linha em que o segundo toque tem efeito não é reconhecível, e o recurso
+  // depende de o operador lembrar em que estado ele deixou a tela.
+  const selo = async (id) => pg.evaluate((x) => {
+    const el = document.querySelector('.lib-item[data-id="' + x + '"]');
+    if (!el) return null;
+    return {
+      noAr: el.classList.contains('no-ar'),
+      ativo: el.classList.contains('active'),
+      texto: (el.querySelector('.row-live') || {}).textContent || '',
+    };
+  }, id);
+
+  await pg.evaluate(async (ids) => { await send(ids[0]); await send(ids[1]); },
+    [cenaId, audioId]);
+  const daCena = await selo(cenaId);
+  const daMusica = await selo(audioId);
+  checar(!!daCena && daCena.noAr && /No ar/.test(daCena.texto),
+    'a cena no ar mostra o selo "● No ar" na própria linha', JSON.stringify(daCena));
+  checar(!!daMusica && daMusica.noAr && /No ar/.test(daMusica.texto),
+    'e a música de fundo TAMBÉM — as duas camadas estão no telão', JSON.stringify(daMusica));
+
+  // ---- E OS BOTÕES DA LINHA TROCAM (v5.177) ----
+  //
+  // No ar, a única decisão que aquela linha oferece é tirá-la do ar — o toque
+  // no corpo já faz isso desde a v5.165. Mas a direita seguia oferecendo
+  // arrastar-para-reordenar e favoritar, a milímetros do gesto que o operador
+  // está mirando, e são justamente as duas coisas que ninguém quer fazer com o
+  // item que está na frente da congregação.
+  //
+  // A troca é por CSS, e é por isso que este caso mede o RENDERIZADO
+  // (`offsetParent`) e não a presença do nó: uma regra que deixe de casar não
+  // apaga botão nenhum do DOM, ela só para de escondê-lo — em silêncio, que é a
+  // mesma família do `var(--radius-md)` que nunca existiu.
+  const botoes = async (id) => pg.evaluate((x) => {
+    const el = document.querySelector('.lib-item[data-id="' + x + '"]');
+    if (!el) return null;
+    const vis = (s) => { const b = el.querySelector(s); return !!(b && b.offsetParent !== null); };
+    return { stop: vis('.row-stop'), estrela: vis('.fav-btn'), arrasta: vis('.row-handle') };
+  }, id);
+
+  const noAr = await botoes(audioId);
+  checar(!!noAr && noAr.stop, 'a linha no ar mostra o botão de PARAR', JSON.stringify(noAr));
+  checar(!!noAr && !noAr.estrela && !noAr.arrasta,
+    'e ele TOMA O LUGAR de favoritar e de arrastar — qualquer toque na linha é o mesmo',
+    JSON.stringify(noAr));
+  // E o botão faz o que diz: é o mesmo `retirarDoAr` do segundo toque.
+  await pg.evaluate((x) => document.querySelector('.lib-item[data-id="' + x + '"] .row-stop').click(), audioId);
+  await pg.waitForFunction(() => !midiaNoAr, null, { timeout: 3000 })
+    .then(() => checar(true, 'e tocá-lo tira do ar'))
+    .catch(() => checar(false, 'e tocá-lo tira do ar'));
+  const fora = await botoes(audioId);
+  checar(!!fora && !fora.stop && fora.estrela,
+    'fora do ar a linha volta ao normal — a estrela e o arrastar de sempre',
+    JSON.stringify(fora));
+
+  // O PARAR limpa as duas, e o "atual" SOBREVIVE — é ele que o ▶ repete.
+  await pg.evaluate(async (ids) => { await send(ids[0]); await send(ids[1]); },
+    [cenaId, audioId]);
+  await pg.evaluate(() => stopClear());
+  const depoisDoStop = await selo(audioId);
+  checar(!!depoisDoStop && !depoisDoStop.noAr && !depoisDoStop.texto,
+    'depois do Parar nenhuma linha diz "No ar" — o telão está vazio',
+    JSON.stringify(depoisDoStop));
+  checar(!!depoisDoStop && depoisDoStop.ativo,
+    'mas o item continua ATUAL (contorno em accent), que é o que o ▶ repete',
+    JSON.stringify(depoisDoStop));
+  await pg.evaluate(() => stopClear());
+  await pg.evaluate(async (id) => { await send(id); }, id);
+
+  // ---- O PARAR EXIGIA DOIS TOQUES, E A CULPA ERA DO ECO (v5.179) ----
+  //
+  // Relato do operador: "no primeiro toque ele para a mídia, mas a barra de
+  // progresso ainda fica a meio caminho e o botão de play ainda não é visível".
+  // A hipótese natural — e errada — é um sistema de camadas em que o Parar
+  // derruba a de cima primeiro. Não é: `stopClear` derruba as duas de uma vez,
+  // e o teste acima já trava isso.
+  //
+  // O que acontece é que o `clear` ESMAECE antes de sair de cena (~0,6 s) e o
+  // `<video>` do telão continua tocando durante a rampa — ela é de volume, não
+  // de pausa. Cada `display-status` desse intervalo chegava com `playing: true`
+  // e o tempo antigo, e repintava, a ~4 Hz, exatamente a UI que `pararMidia`
+  // acabara de zerar. O segundo toque só "funcionava" porque a essa altura a
+  // mídia já saíra e ninguém mais reportava aquele `mediaId`.
+  //
+  // O eco vem de um IFRAME `about:blank` (que herda o origin do pai): o
+  // BroadcastChannel não entrega ao próprio contexto que postou, e é exatamente
+  // por esse caminho que o telão fala.
+  await pg.evaluate(() => {
+    const f = document.createElement('iframe');
+    f.style.display = 'none';
+    document.body.appendChild(f);
+    window.__telao = (m) => f.contentWindow.eval(
+      'new BroadcastChannel("av-iasd").postMessage(' + JSON.stringify(m) + ')');
+  });
+  const ecoar = async (extra) => pg.evaluate(async (m) => {
+    window.__telao(m);
+    await new Promise((r) => setTimeout(r, 150));
+    return {
+      seek: parseFloat(seekEl.value) || 0,
+      travada: seekEl.disabled,
+      icone: playPauseEl.querySelector('.msym').textContent,
+      playing,
+    };
+  }, Object.assign({ type: 'display-status', mediaId: id, playing: true, currentTime: 120, duration: 240 }, extra));
+
+  const tocando = await ecoar({});
+  checar(tocando.seek === 120 && !tocando.travada && tocando.playing,
+    'o telão tocando dirige o transporte: barra no meio, ícone de pausa',
+    JSON.stringify(tocando));
+
+  await pg.evaluate(() => stopClear());
+  const zerado = await pg.evaluate(() => ({
+    seek: parseFloat(seekEl.value) || 0,
+    travada: seekEl.disabled,
+    icone: playPauseEl.querySelector('.msym').textContent,
+  }));
+  checar(zerado.seek === 0 && zerado.travada,
+    'o PRIMEIRO toque no Parar zera a barra e a desabilita', JSON.stringify(zerado));
+
+  const eco = await ecoar({ currentTime: 122 });
+  checar(eco.seek === 0 && eco.travada && !eco.playing,
+    'e o status ATRASADO do fade não a traz de volta — era este o "segundo toque"',
+    JSON.stringify(eco));
+  checar(eco.icone === zerado.icone,
+    'o ícone continua sendo o ▶ que o Parar aplicou (era ele que sumia)',
+    JSON.stringify(eco));
+
+  // E a guarda é sobre estar EM CENA, não um desligar: tocar de novo devolve a
+  // palavra ao telão no mesmo instante.
+  await pg.evaluate(async (x) => { await send(x); }, id);
+  const devolta = await ecoar({ currentTime: 30 });
+  checar(devolta.seek === 30 && devolta.playing,
+    'e tocar de novo devolve a direção ao telão na hora', JSON.stringify(devolta));
+  await pg.evaluate(() => stopClear());
+  await pg.evaluate(async (x) => { await send(x); }, id);
+
+  // ---- A PREVIEW ESCONDIDA NÃO É TOCADA (v5.177) ----
+  //
+  // Este caso nasceu de um Registro de aparelho. Com o app minimizado, a linha
+  // do tempo trazia pares `play [oculto]` / `PAUSA ESPONTÂNEA [oculto]` a ~4 Hz:
+  // a v5.173 passou a escutar o `espelho-status` (que é o certo — sem TV o
+  // espelho É a projeção), e com isso `resyncPreviewToDisplay` começou a chamar
+  // `preview.play()` numa página oculta. O Chromium pausa um `<video>` de
+  // página escondida, o status seguinte chega 250 ms depois e recomeça.
+  //
+  // O estrago não fica na preview: os três WebViews dividem UM processo, e essa
+  // rotatividade de decodificador rouba o fio que alimenta o `AudioWorklet` do
+  // espelho — do lado da tela da rede isso aparece como "o som parou de chegar"
+  // com a imagem seguindo, que foi a queixa que abriu a rodada.
+  //
+  // Um `play()` que o navegador desfaz no quadro seguinte não é sincronização,
+  // é ruído. Quem realinha é a retomada, e ela é EXATA.
+  {
+    const espiar = async (visivel, playing) => pg.evaluate((arg) => {
+      Object.defineProperty(document, 'visibilityState',
+        { configurable: true, get: () => (arg.visivel ? 'visible' : 'hidden') });
+      const conta = { play: 0, pause: 0, seek: 0 };
+      const oPlay = preview.play, oPause = preview.pause, oSeek = preview.seek;
+      const oTimed = preview.isTimed, oPlaying = preview.isPlaying, oTime = preview.getTime;
+      preview.play = () => { conta.play++; };
+      preview.pause = () => { conta.pause++; };
+      preview.seek = () => { conta.seek++; };
+      preview.isTimed = () => true;
+      preview.isPlaying = () => false;
+      preview.getTime = () => 0;
+      try { resyncPreviewToDisplay(arg.playing, 120, 0.15); } finally {
+        preview.play = oPlay; preview.pause = oPause; preview.seek = oSeek;
+        preview.isTimed = oTimed; preview.isPlaying = oPlaying; preview.getTime = oTime;
+        Object.defineProperty(document, 'visibilityState',
+          { configurable: true, get: () => 'visible' });
+      }
+      return conta;
+    }, { visivel, playing });
+
+    const oculta = await espiar(false, true);
+    checar(oculta.play === 0 && oculta.pause === 0 && oculta.seek === 0,
+      'com a página ESCONDIDA o resync não toca no transporte da preview',
+      JSON.stringify(oculta));
+    const visivel = await espiar(true, true);
+    checar(visivel.play === 1 && visivel.seek === 1,
+      'e com ela visível ele age normalmente — a guarda é de visibilidade, não um desligar',
+      JSON.stringify(visivel));
+  }
+
   // ---- GIRAR ----
   // O giro é preferência de EXIBIÇÃO: ele precisa chegar ao telão que reconecta
   // antes do conteúdo, senão a mídia aparece deitada e endireita na frente de

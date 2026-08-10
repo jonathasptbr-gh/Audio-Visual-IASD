@@ -1405,10 +1405,27 @@ class MainActivity : ComponentActivity(), BridgeHost {
             }
             if (approve) {
                 onResult(EspelhoPares.aprovar(id, System.currentTimeMillis()) != null)
-            } else {
-                EspelhoPares.recusar(id)
-                onResult(true)
+                return@runOnUiThread
             }
+            // NEGAR TEM DOIS SIGNIFICADOS, e o botão da folha é o mesmo nos dois
+            // casos: "não deixe esta PENDENTE entrar" (o `id` é um id de espera)
+            // e "tire esta tela CONECTADA do ar" (o `id` é o rótulo — "A", "B" —,
+            // que é o único identificador que a lista de telas tem).
+            //
+            // O caminho antigo só conhecia o primeiro: um rótulo entregue ao
+            // `EspelhoPares.recusar` não casa com id de espera nenhum (eles são
+            // base64url de 128 bits), saía em silêncio e devolvia `true`. O botão
+            // "Desconectar" da v5.171 — que é a resposta inteira do desenho ao
+            // curioso na rede, já que a porta nasce aberta — nunca fez nada.
+            //
+            // Rótulo primeiro porque ele é o caso comum e porque os dois espaços
+            // de nome não se cruzam.
+            if (espelhoSrv?.derrubarTela(id) == true) {
+                onResult(true)
+                return@runOnUiThread
+            }
+            EspelhoPares.recusar(id)
+            onResult(true)
         }
     }
 

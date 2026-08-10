@@ -501,7 +501,7 @@ roda SEMPRE em paralelo**: cada comando sai pelos dois caminhos
 `sendCommand`/`onCommand` mantêm exatamente a mesma assinatura. O custo é
 desprezível: os comandos são objetos JSON pequenos.
 
-### O DRENO do papel `espelho` — uma lista de PERMISSÃO de um item
+### O DRENO do papel `espelho` — uma lista de PERMISSÃO de dois itens
 
 O espelho de pixels hospeda uma **segunda cópia de `/web/display/`**, no mesmo
 origin e no mesmo barramento. É o mesmo arquivo — e é justamente por ser
@@ -516,6 +516,16 @@ respondido por dois faz o Registro mostrar o diário de um deles sem dizer qual.
 
 O dreno mora em `shared/native.js` e tem duas metades:
 
+- **`display-status` sai RENOMEADO para `espelho-status`** (v5.173), e essa é a
+  correção de "minimizei o app e a preview voltou completamente
+  dessincronizada". Calá-lo estava certo enquanto se supunha um telão; **sem TV
+  o espelho É a projeção**, e calá-lo deixava o Controle sem referência de tempo
+  nenhuma — sobrava a preview, que é justamente o que o Android estrangula
+  quando o app sai da frente. A régua era a coisa que se deformava. Com um nome
+  PRÓPRIO nada que espera "o telão" recebe o espelho por engano: o `controle.js`
+  o descarta enquanto houver `display-status` recente e o
+  `NativeBridge.snoopDisplayStatus` faz a mesma conta para a notificação de
+  mídia. Ver "A referência da preview", abaixo.
 - **`__AVBus.post` deixa passar exatamente `display-ready`, e mais nada.** A
   tentação é calar tudo, e **isso quebra o recurso**: é esse anúncio que faz o
   Controle reenviar a cena (`resendSceneToDisplay`). Drenado por inteiro, o
@@ -531,6 +541,59 @@ O dreno mora em `shared/native.js` e tem duas metades:
   redundância dos dois caminhos é decisão escrita deste projeto. O que morre é
   só o `postMessage`, por uma subclasse do construtor real — e a troca precisa
   acontecer **antes de `db.js`**, que captura o construtor na carga.
+
+### A referência da preview — ela ILUSTRA, nunca mede
+
+A preview do Controle é uma **ilustração** do que está no telão, e nunca a fonte
+de verdade. Ela roda no WebView do Controle, que é o único dos três que o
+Android estrangula quando o app sai da frente: com o app minimizado o `<video>`
+dela é pausado ou desacelerado enquanto a projeção segue andando, e ao voltar a
+distância entre os dois é arbitrária. **Enquanto ela for a régua, não há como
+corrigir isso — o erro está na régua.**
+
+A projeção é uma destas três, nesta ordem:
+
+1. **o TELÃO** (`display-status`), quando há TV conectada;
+2. **o ESPELHO** (`espelho-status`, v5.173), quando não há TV: as telas da rede
+   são o que a congregação vê, e quem as alimenta é o `/display/` da
+   `MirrorPresentation` — um `<video>` de verdade, numa `Presentation` que o
+   sistema não estrangula;
+3. **ninguém** — sem TV e sem espelho a projeção É a preview em tela cheia, que
+   exige o app na frente. Aí ela é a própria referência, e o caso não existe.
+
+Daí duas funções com nomes distintos, e a distinção é o modelo inteiro:
+`authoritativeTime()` responde **"o que está no ar agora?"** (decisões: qual
+estrofe vem a seguir, o que a barra marca, o que a `MediaSession` publica) e
+`tempoDaPreview()` responde **"o que a ilustração deve estar desenhando?"** (o
+`<video>` da preview e a letra desenhada dentro dela). Sem as duas, o atraso
+deliberado da preview vira defeito nos dois sentidos: quem desenha a letra pelo
+tempo da projeção troca a estrofe antes da imagem a que ela pertence, e quem
+realinha o `<video>` pelo tempo da projeção **desfaz o atraso** a cada status.
+
+Três regras completam o desenho:
+
+- **O realinhamento mira `projeção − atraso`**, nunca a projeção. Com
+  `PREV_ATRASO_MAX` (2,5 s) maior que a tolerância antiga (1,6 s), mirar a
+  projeção faria cada `display-status` puxar a preview para a frente — o resync
+  brigando com o atraso, a 4 Hz.
+- **A tolerância é de meio segundo, não de 1,6 s.** A preview **não tem som**
+  fora do modo "mesa de som", e ali o resync nem acontece; sem som um seek custa
+  um quadro e não estala nada. Ao **retomar do segundo plano** ela cai para
+  `RESYNC_EXATO` (0,15 s): ali não há ruído a poupar, há um desvio conhecido.
+- **Com a página escondida a preview não atrasa nada.** O atraso existe para o
+  operador não ver a preview responder antes das telas da rede; sem plateia ele
+  só serve para empilhar comandos numa fila cujos `setTimeout` o Android
+  estrangula. Escondida, ela aplica na hora — e é dessa posição que o
+  realinhamento da retomada parte.
+- **E escondida ela também não é TOCADA** (`preverPodeMexer`, v5.177). O
+  Chromium pausa um `<video>` de página oculta: o `play()` do resync sai, o
+  navegador pausa de volta, e o status seguinte recomeça — um laço a ~4 Hz que a
+  linha do tempo do Registro mostrou par a par, com a marca `[oculto]`. Não é só
+  inútil: **os três WebViews dividem UM processo**, e essa rotatividade de
+  decodificador rouba o fio que alimenta o `AudioWorklet` do espelho, o que do
+  lado da tela da rede aparece como "o som parou de chegar" com a imagem
+  seguindo. A janela de `forcarResyncAte` só é CONSUMIDA quando há como agir,
+  senão a retomada seguinte partiria de um crédito já gasto.
 
 ### O `load` carrega o ponto e o estado da mídia
 
@@ -2107,6 +2170,17 @@ da **despedida**: recebido o `0x30 {"m":"adeus"}`, o cliente **para** — nada d
 martelar uma porta fechada — e a tela diz que foi o operador, em vez de "sem
 sinal".
 
+A v5.175 acrescentou o **oráculo dos TOKENS** (`tools/tokens.test.mjs`, Node
+puro, **sem `continue-on-error`**): nenhum `var(--x)` **sem fallback** pode
+apontar para um token que não existe. Ele é o irmão do oráculo da sombra, e pela
+mesma razão — um `var()` inválido sem fallback não é erro em lugar nenhum: a
+declaração inteira computa para o valor INICIAL da propriedade, sem aviso no
+console e sem sintoma no lugar da causa. Na v5.171 isso deixou os DOIS botões
+principais da folha "Conectar uma tela" com `border-radius: 0`, os únicos cantos
+retos de um app inteiro arredondado, e foi preciso um par de olhos no aparelho
+para vê-lo. `var(--x, fallback)` **não** é reprovado: é o idioma legítimo dos
+valores que o JS entrega em tempo de execução (`--vol`, `--ch`, `--tab-w`).
+
 A v5.155 acrescentou dois casos ao mesmo arquivo, e os dois vieram da PRIMEIRA
 rodada em aparelho depois da auditoria — que só produziu leitura porque a
 v5.154 devolveu o canal de relato. O primeiro afirma que a **borda ao vivo é o
@@ -2344,11 +2418,252 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.171** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
+**Versão atual: v5.179** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
+> **A v5.179: O PARAR EXIGIA DOIS TOQUES, e a culpa era do ECO — não das
+> camadas.** O relato: no primeiro toque a mídia para, mas a barra fica a meio
+> caminho e o ▶ não aparece; o segundo toque resolve. A hipótese natural é um
+> sistema de camadas em que o Parar derruba a de cima primeiro, e ela está
+> errada — `stopClear` derruba mídia e Camada de Texto no MESMO toque, e o
+> `cena.test.mjs` já travava isso desde a v5.178.
+>
+> A causa é a mesma que a v5.142 documentou para o ▶, do outro lado do fio:
+> **`clear` e `media-clear` ESMAECEM antes de sair de cena** (~0,6 s,
+> `clearFaded`/`fadeOutToBlack`), e nesse intervalo o `<video>` do telão
+> **continua tocando** — a rampa é de volume, não de pausa. Cada `display-status`
+> do fade chegava ao Controle com `playing: true` e o tempo antigo e repintava, a
+> ~4 Hz, exatamente a UI que `pararMidia` acabara de zerar: a barra voltava ao
+> meio, o seek era reabilitado e o ícone voltava a ⏸. O segundo toque só
+> "funcionava" porque a essa altura a mídia já saíra e ninguém mais reportava
+> aquele `mediaId` — o filtro do handler é por `mediaId`, e `currentId` sobrevive
+> de propósito ao stop.
+>
+> **O caminho do YouTube já tinha a guarda desde sempre** (`yt.stopping`, cujo
+> comentário descreve palavra por palavra este defeito); o da mídia local nunca
+> teve. A correção fecha os dois lados, e é **OTA puro**:
+>
+> - **na FONTE** (`display.js`): o telão que está saindo de cena não reporta o
+>   fade, e diz UMA vez que o palco ficou vazio. É o que também conserta a
+>   **notificação de mídia**, onde não há segundo toque — o `snoopDisplayStatus`
+>   do Kotlin lê esse mesmo status de passagem e deixava o cartão anunciando
+>   "tocando" sobre um telão vazio até a cena seguinte.
+> - **no CONSUMIDOR** (`controle.js`): `midiaNoAr` guarda as **duas** fontes que
+>   pintam o transporte — o handler de `display-status`/`espelho-status` e o
+>   `previewTick`, que é quem manda **sem telão nem espelho**, e que sofria do
+>   mesmo mal porque `preview.getCurrent()` só fica nulo no FIM do fade.
+>
+> Nada foi tirado do Parar: ele continua sendo o ponto final que leva as duas
+> camadas, e as saídas por camada (`text-hide` e `media-clear`, v5.173/v5.178)
+> continuam sendo as portas de cada uma. `tools/cena.test.mjs` trava o lado do
+> Controle e `tools/display-smoke.mjs` o do telão.
+
+> **A v5.178: O STOP VIRA POR CAMADA, e agora as duas portas existem.** O botão
+> de Parar da linha no ar (v5.177) chamava `stopClear()` para uma mídia — que é
+> o **Parar do transporte**, e ele encerra a CENA INTEIRA. Com um louvor de
+> fundo sob a contagem regressiva de abertura (o uso normal, e o que a
+> independência áudio × texto existe para permitir), tirar a música do ar levava
+> o cronômetro junto, e a única saída era parar tudo e reprojetar a cena na
+> frente da congregação. Faltava o simétrico exato do `text-hide` que a v5.173
+> acrescentou: **`media-clear`**. Cada linha do Cronograma fala da **camada
+> daquela linha** — a da cena sai pela Camada de Texto e não toca na mídia, a da
+> mídia sai sozinha e não toca no texto —, e o Parar do transporte segue sendo o
+> ponto final que leva as duas.
+>
+> **Quem decide entre as duas saídas do palco é o DISPLAY, não o Controle.**
+> `textActive` é estado dele; duplicar a leitura do outro lado é garantir que os
+> dois divirjam num domingo. Recebido o `media-clear`, ele escolhe entre
+> `clear-media` (o `fadeOutToBlack` do `stage.js`, exposto agora: esmaece o
+> conteúdo **sem tocar na cortina**) e o `clear` de sempre. A distinção não é
+> estética: o cartão de texto vive **por baixo** da cortina do stage — é a mesma
+> razão do `instantCover(false)` do ramo de `view` —, então um `clearFaded` com
+> texto em cena fecharia o wallpaper por cima do versículo que continua no ar.
+>
+> E o ramo do `media-clear` vem **antes** do bloco de `textActive` em
+> `display.js`. Lá dentro, `clear` é justamente o que chama `hideText`; cair no
+> fluxo comum faria o comando atravessar até um `stage.handle` que não o
+> conhece — sem erro, sem log, com o cronômetro saindo do ar e nada em lugar
+> nenhum que o explicasse. **OTA puro.** `tools/cena.test.mjs` trava o lado do
+> Controle e `tools/display-smoke.mjs` o do telão, que é o que roda na frente da
+> congregação.
+>
+> **A v5.177: A PREVIEW ESCONDIDA ESTAVA ROUBANDO O SOM DO ESPELHO.** O
+> operador relatou a tela da rede ficando muda com a imagem seguindo, e o
+> Registro trazia a causa na própria linha do tempo: pares
+> `📱 play [oculto]` / `📱 PAUSA ESPONTÂNEA [oculto]` a ~4 Hz. Aqueles `📱` são
+> a **preview do Controle**, não o telão. A v5.173 passou a escutar o
+> `espelho-status` — que é o certo, porque sem TV o espelho É a projeção — e com
+> isso `resyncPreviewToDisplay` começou a chamar `preview.play()` numa página
+> oculta; o Chromium pausa um `<video>` de página escondida, o status seguinte
+> chega 250 ms depois e recomeça. **Os três WebViews dividem UM processo**, e
+> essa rotatividade de decodificador rouba justamente o fio que alimenta o
+> `AudioWorklet` do espelho: do lado da tela da rede isso vence o
+> `AUDIO_MUDO_MS` e a faixa de som é solta. A regra que faltava é a outra metade
+> da que a v5.173 já escreveu para o atraso — **com a página escondida não se
+> toca no transporte da preview** (`preverPodeMexer`): um `play()` que o
+> navegador desfaz no quadro seguinte não é sincronização, é ruído, e quem
+> realinha é a retomada, que já é EXATA. Junto veio a metade que faltava do
+> outro lado: **`soltarAudio` era uma porta de mão única** — a tela ficava muda
+> até alguém atravessar o salão para tocar nela. Agora, com o AAC voltando a
+> chegar por 2 s seguidos, o cliente **remonta sozinho** (`voltouOSom`), preso
+> ao mesmo teto de `REBUILDS_AUDIO`, que só se renova depois de a remontagem ter
+> dado certo.
+>
+> **E a tela receptora ganhou DOIS ícones no lugar do botão único.** "Ver em
+> tela cheia e ouvir" juntava duas decisões que não são a mesma: a tela do
+> saguão quer imagem cheia e SILÊNCIO (a PA está a 200 ms dali), a da sala anexa
+> quer som — e quem descobria o eco não tinha como desfazer sem recarregar a
+> página. Agora são um alto-falante e uma moldura, na mesma anatomia dos
+> `.pv-fab` da preview (traço, sem moldura, contorno por `drop-shadow`), e eles
+> **se recolhem sozinhos** depois de 4 s, voltam com um toque e somem com o
+> toque seguinte — o player de sempre, com uma carência de 400 ms porque num
+> notebook o ponteiro se mexe ANTES do clique. **O que NÃO dá para tirar, e está
+> dito em vez de escondido: o PRIMEIRO toque.** `requestFullscreen()` e sair do
+> `muted` exigem ativação transitória do usuário. O que muda é que o toque passa
+> a ser NAQUILO que se quer — e, do segundo em diante, o ícone do som é um mudo
+> de verdade (`muted` no elemento, sem remontar nada e sem falar com o
+> servidor). O som segue **opt-in** (invariante 10): o ícone nasce riscado.
+>
+> **E no Cronograma o Parar toma o lugar de mover e favoritar.** O segundo toque
+> já tirava do ar desde a v5.165 e o selo "● No ar" já dizia o estado, mas a
+> direita da linha seguia oferecendo arrastar-para-reordenar e favoritar — as
+> duas coisas que ninguém quer fazer com o item que está na frente da
+> congregação, a milímetros do gesto que o operador está mirando. Trocá-los é o
+> que faz QUALQUER toque naquela linha significar a mesma coisa. A troca é por
+> **classe CSS** (`.lib-item.no-ar`), nunca remontando a linha: quem liga e
+> desliga o estado é o `marcarNoAr`, que roda a cada `display-status`. **OTA
+> puro** — nenhuma linha de Kotlin em todo o lote.
+>
+> **A v5.176: O CARTÃO DO ESPELHO SAIU DA BARRA DE STATUS, e quem passou a
+> avisar é o ÍCONE.** Pedido do operador, e ele tem uma parte que **não dá para
+> atender**: a notificação do `EspelhoService` não pode ser removida. Um serviço
+> em primeiro plano é obrigado a publicar uma (`startForeground` sem ela derruba
+> o app inteiro), e é justamente esse serviço que impede o Android de congelar o
+> processo com o app minimizado — isto é, o que mantém o espelho no ar durante o
+> culto. O que dá para fazer é tirá-la da frente: o canal foi para
+> **`IMPORTANCE_MIN`**, o degrau em que o Android não desenha ícone na barra de
+> status e recolhe a entrada para o bloco silencioso da gaveta, mais
+> `FOREGROUND_SERVICE_DEFERRED` (o sistema segura o cartão por ~10 s, então
+> ligar e desligar para testar não pisca nada). **O canal é um id NOVO
+> (`espelho2`), e tem de ser**: a importância pertence ao usuário depois de
+> criada, e `createNotificationChannel` sobre um canal existente ignora a
+> mudança em silêncio — sem trocar o id, a correção não chegaria a ninguém que
+> já tivesse usado o recurso. O fato subiu para onde o operador olha: o ícone de
+> conectar veste `.connected` — **a mesma classe, a mesma cor e o mesmo efeito
+> do telão** — quando há telas da rede recebendo, e a dica diz quantas. Uma
+> convenção só para um fato só. Metade APK (o canal), metade OTA (o ícone).
+>
+> **A v5.175: A SEÇÃO DE CONEXÃO FORA DO PADRÃO — e o token que não existia.**
+> Os DOIS botões principais da folha "Conectar uma tela" pediam
+> `var(--radius-md)`, um token que **nunca existiu nesta base**. Um `var()`
+> inválido sem fallback computa para o valor INICIAL da propriedade: eram os
+> únicos cantos retos de um app inteiro arredondado, na primeira tela do recurso
+> mais novo, e nada reclamou em lugar nenhum — mesma família do `setInteger`
+> numa chave `long` e do `bytes` esquecido no `bgProgress`. Agora há um oráculo
+> (`tools/tokens.test.mjs`, Node puro, **sem `continue-on-error`**) que varre a
+> base inteira, mais a asserção RENDERIZADA no `smoke.mjs`.
+>
+> **E a simplificação da v5.156→v5.171 tinha deixado sobras.** O que a revisão
+> achou, e o que ficou: `.mirror-mode` (o seletor imagem × vídeo, morto desde que
+> o modo imagem saiu) e `.mirror-hint` eram CSS órfão; `#mirrorRow` era um
+> `<span hidden>` — a antiga linha de Configurações — que o `renderEspelho`
+> ainda alimentava a cada leitura com uma frase de estado que ninguém via, e que
+> ainda servia de SENTINELA de existência para a folha inteira (um elemento de UI
+> morto como guarda é a pior forma de guarda: parece intencional e some no
+> primeiro `hidden` que alguém mexer); o ENDEREÇO tinha duas anatomias
+> (`.cast-addr`/`.cast-url` e `.mirror-addr`/`.mirror-url`, raios, tamanhos e
+> paddings diferentes) e aparecia nas DUAS folhas; e as telas conectadas eram
+> listadas duas vezes, também com anatomias diferentes. Agora: a folha de
+> conectar tem o endereço e quem está vendo; a de Ajustes tem o PIN, o
+> certificado, a porta e **só a fila de aprovação**. Mais os literais que viraram
+> token (`999px` → `--radius-pill`, `4px`/`2px` → rem). OTA puro.
+>
+> **A v5.174: "ATUAL" E "NO AR" ERAM A MESMA MARCA, e não são a mesma coisa.**
+> A lista tinha um contorno em accent só, e ele significava `currentId` — o item
+> ATUAL, aquele que o ▶ repete e que sobrevive de propósito ao Parar. Depois de
+> um Parar a linha continuava marcada com o telão vazio; e com uma cena de
+> roteiro sobre um louvor de fundo (duas camadas no ar ao mesmo tempo) só uma das
+> duas aparecia. Ou seja: a marca não respondia "o que está sendo projetado?",
+> que é justamente a pergunta que o segundo toque exige responder antes de ser
+> tocado. Agora são duas — `.active` (atual) e `.no-ar` (projetando) —, e a
+> segunda usa **o mesmo desenho de "no ar" do resto do app**, com o selo
+> **"● No ar"** prefixado ao subtítulo, exatamente como a referência do versículo
+> central da Bíblia. O par `midiaNoArId`/`cueNoArId` é o que torna isso possível:
+> `midiaNoAr` dizia que HAVIA mídia no ar e `currentId` dizia qual era o item
+> atual, e nenhum dos dois dizia QUAL mídia estava no telão. OTA puro.
+>
+> **A v5.173: A PREVIEW ERA A RÉGUA, e a régua era a coisa que se deformava.**
+> O operador relatou a preview voltando "completamente dessincronizada" depois
+> de minimizar e reabrir o app. A causa não estava na preview: estava em não
+> haver mais nada. **Sem TV conectada, o único emissor de `display-status` é o
+> `/display/` do espelho — e o dreno do papel `espelho` o calava.** Restava a
+> preview como fonte de tempo, e ela é o único dos três WebViews que o Android
+> estrangula quando o app sai da frente. O status do espelho passou a sair
+> RENOMEADO (`espelho-status`, para nada que espera "o telão" recebê-lo por
+> engano), o telão tem precedência sobre ele nos dois consumidores, e a preview
+> voltou a ser o que ela é: uma ILUSTRAÇÃO. Ver "A referência da preview". Junto
+> vieram as três regras do atraso — mirar `projeção − atraso` em vez da projeção
+> (senão o resync desfaz o atraso a 4 Hz), tolerância de 0,5 s em vez de 1,6 s
+> (a preview não tem som, um seek não estala nada) e **0,15 s ao retomar**, e a
+> fila da preview deixou de atrasar com a página escondida. **É OTA puro** para
+> a sincronização — o `MessageBus` relaia qualquer tipo, então o bundle novo
+> conserta a preview num shell antigo; só a **notificação de mídia** (que também
+> congelava, e pelo mesmo motivo) precisa do APK.
+>
+> **E o SEGUNDO TOQUE do Cronograma passou a existir de verdade.** A v5.165
+> anunciou "tocar de novo no que está no ar = tirar do ar" e ele não funcionava,
+> por **três** motivos empilhados, todos silenciosos: (1) `retirarDoAr` chamava
+> só `clearManualText()`, que é BOOKKEEPING — ele zera a sessão e **não manda um
+> único comando ao telão**; o versículo continuava projetado. Faltava o
+> `text-hide`, que é o mesmo "tirar do ar" da Bíblia e da Mensagem e é
+> justamente o que o `clear` não é (o louvor de fundo segue tocando). (2) A
+> pergunta "está no ar?" era `item.id === currentId`, e `currentId` é o ÚLTIMO
+> item enviado: no instante em que o operador põe uma música por baixo do
+> versículo — o caso que justifica o recurso —, ele deixa de apontar para a
+> cena. Agora quem responde é `cueNoArId`. (3) `projetarMensagemCue` projetava o
+> texto guardado **sem sessão nenhuma** quando a mensagem original tinha sido
+> apagada, e uma cena sem sessão é invisível para todo o resto do app. O realce
+> da lista passou a marcar as DUAS camadas que podem estar no ar ao mesmo tempo,
+> porque marcar uma só escondia justamente a linha em que o toque tem efeito.
+> OTA puro.
+>
+> **A v5.172: A PORTA ABERTA NUNCA ABRIU — e mais sete.** O operador relatou o
+> espelho "funcionando, mas sem estabilidade nem confiabilidade na conexão", e a
+> revisão linha a linha achou **oito** defeitos. O primeiro explica sozinho a
+> maior parte da queixa: o `cliente.js` pedia a entrada assim que a página
+> abria — um `POST /par` com o relato e mais nada —, e o `when` do
+> `EspelhoServidor.parear` **não tinha ramo para esse corpo**. Caía no
+> `else -> 403`. A porta que a v5.170 anunciou e em volta da qual a v5.171
+> construiu a folha inteira nunca chegou a existir; e o custo maior não era o
+> atrito da estreia, era a RECUPERAÇÃO — toda queda de rede, toda religada do
+> espelho e toda expiração de token devolvem a tela ao pareamento, onde ela
+> ficava mostrando um QR que ninguém ia ler até alguém atravessar o salão.
+> Os outros sete, com o porquê de cada um, estão em
+> `docs/ESPELHO-DE-PIXELS.md` §10-A.10; os que mudam decisões deste documento:
+> **três recomeços trancavam o espelho por seis horas** (uma sessão só saía de
+> `vivas` por `encerrar`, `recusar` ou o prazo, e uma aba nova pede token novo —
+> agora a vaga OCIOSA é reaproveitada, o que só faz sessão morrer mais cedo e
+> deixa a invariante 3 intacta); **"Desconectar" era um botão que não fazia
+> nada** (a folha manda o RÓTULO da tela e ele ia parar num `recusar` que
+> procura id de espera — nunca casava, e um rótulo vazio ainda fechava a porta);
+> **o teto de conexões em voo contava os FLUXOS** (três telas ocupavam três dos
+> oito slots para sempre, e um navegador abre até seis conexões paralelas só
+> para carregar a página — a segunda tela a abrir o endereço já era recusada);
+> **nenhum dos dois lados detectava um TCP meio-aberto** (o `fetch` de `/v` fica
+> pendurado para sempre — nem `done`, nem erro —, e do lado do servidor a
+> escrita não trava enquanto o buffer do kernel couber); **uma oscilação da rede
+> PADRÃO derrubava o espelho inteiro** (`registerDefaultNetworkCallback` fala da
+> rede padrão, que pisca para a móvel numa revalidação da Wi-Fi — agora suspeita
+> não é veredito: o vigia confirma 6 s depois); e **o adeus era uma sentença**
+> (a página ficava morta até alguém recarregá-la à mão; agora ela volta a
+> oferecer entrada sozinha em 20 s). **Metade é APK e metade é OTA**, e as duas
+> degradam sozinhas: um bundle novo num shell antigo volta ao QR, e um bundle
+> antigo num shell novo entra pela porta assim mesmo, porque o corpo nu vale
+> como pedido. `SHELL_VERSION` **não sobe** — nenhum método da ponte nasceu nem
+> mudou de assinatura.
+>
 > **A v5.171: a folha de conectar vira UM DEGRAU.** Eram três (cast → espelho →
 > QR) para ler uma linha de texto. Agora **abrir a folha já liga o servidor**
 > (ninguém abre "Conectar uma tela" para não conectar, e a ordem "primeiro

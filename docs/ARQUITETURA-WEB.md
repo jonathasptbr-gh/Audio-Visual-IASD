@@ -1286,7 +1286,8 @@ significaria perder o comando seguinte no meio de um culto.
 | `volume` | `volume` (0.0–1.0) | Altera o volume |
 | `mute` | `muted` (bool) | Liga/desliga mudo |
 | `view` | `view` (`'visual'`\|`'wallpaper'`) | Alterna entre exibir a mídia ou o wallpaper (com fade, se ativo) |
-| `clear` | — | Limpa o Display (volta ao wallpaper, zera `currentId`; com fade-out, se ativo) |
+| `clear` | — | Limpa o Display (volta ao wallpaper, zera `currentId`; com fade-out, se ativo). É o **Parar do transporte**: encerra a CENA INTEIRA, Camada de Texto junto |
+| `media-clear` | — | **Tira só a MÍDIA** (v5.178) — o simétrico exato do `text-hide`, e o que faz o stop por camada da lista existir. Com texto em cena o Display manda ao stage `clear-media` (o `fadeOutToBlack`: esmaece o conteúdo **sem tocar na cortina**, porque o cartão de texto vive por BAIXO dela); sem texto, é o `clear` inteiro. Quem escolhe é o DISPLAY, que é quem tem o `textActive`. O ramo vem **antes** do bloco de `textActive` — lá dentro `clear` é justamente o que chama `hideText` |
 | `fit` | `fit` (`'contain'`\|`'cover'`\|`'fill'`) | Atualiza ao vivo o preenchimento da mídia (ajustar/preencher/esticar) |
 | `lyricsbg` | `mode` (`'black'`\|`'image'`) | Atualiza ao vivo o fundo atrás da letra sincronizada (preto ou imagens dos slides) |
 | `wallpaper` | — | Avisa que a imagem do wallpaper mudou. **Sem payload**: o blob mora no state `wallpaper`, que os dois apps compartilham — o Display relê do IDB (ver "Wallpaper personalizado") |
@@ -3866,6 +3867,73 @@ para acomodar a coluna quebraria as sete de uma vez. Ele fica, e é desfeito só
 dentro da coluna (`.row-text > .row-name { flex: none }`) — num pai em coluna,
 crescer significaria esticar na VERTICAL e descolar o nome do subtítulo. É a
 mesma nota que `.hymn-name` já carregava.
+
+#### A LINHA NO AR: `.active` × `.no-ar`, e os botões que trocam (v5.174 / v5.177)
+
+**"Atual" e "no ar" eram a mesma marca**, e não são a mesma coisa. `.active` é o
+item ATUAL — o que o ▶ repete, e que sobrevive de propósito ao Parar; `.no-ar` é
+o que está sendo PROJETADO agora. Depois de um Parar a linha continuava marcada
+com o telão vazio, e com uma cena de roteiro sobre um louvor de fundo (duas
+camadas no ar ao mesmo tempo) só uma das duas aparecia — ou seja, a marca não
+respondia "o que está sendo projetado?", que é justamente a pergunta que o
+segundo toque (v5.165: tocar de novo no que está no ar = tirar do ar) exige
+responder antes de ser tocado. Quem responde são `linhaAtiva` e `linhaNoAr`, e
+esta última lê `midiaNoArId` **e** `cueNoArId` — as duas camadas, separadas.
+
+O desenho de `.no-ar` é o **mesmo "no ar" do resto do app** (`--live-strong`
+sobre `--live-soft`, o raciocínio de `.msg-item.active` e `.bible-vsec.cur.live`)
+e vem com **texto**: o selo `● No ar` prefixado ao subtítulo, exatamente como a
+referência do versículo central da Bíblia. Uma cor a mais numa tela que já tem
+várias não ensina o que o segundo toque faz; a palavra ensina.
+
+**E o desligamento é POR CAMADA — as duas portas** (v5.178). O toque na linha
+(e o botão) fala da camada **daquela linha**, e é o que torna a lista utilizável
+com duas coisas no ar ao mesmo tempo:
+
+| a linha é… | o comando | o que continua |
+|---|---|---|
+| cena de roteiro (versículo, mensagem, cronômetro, sorteio) | `text-hide` | a mídia — o louvor de fundo segue tocando |
+| mídia (áudio, vídeo, imagem, apresentação, YouTube) | `media-clear` | a Camada de Texto — o cronômetro segue no ar |
+| — o **Parar** do transporte | `clear` | nada: é o ponto final, e está certo que seja |
+
+O `media-clear` foi a metade cara. Até a v5.177 este caminho chamava
+`stopClear()`, que é o Parar: tirar a música de fundo levava o cronômetro junto,
+e a única saída era parar tudo e reprojetar a cena na frente da congregação.
+
+**Quem escolhe a saída do palco é o DISPLAY**, não o Controle: `textActive` é
+estado dele, e duplicar a leitura do outro lado é garantir que os dois divirjam
+num domingo. Recebido o `media-clear`, ele manda ao stage `clear-media` (o
+`fadeOutToBlack`, que esmaece o conteúdo **sem tocar na cortina**) quando há
+texto, e o `clear` de sempre quando não há. A distinção não é estética: o cartão
+de texto vive **por baixo** da cortina do stage — a mesma razão do
+`instantCover(false)` do ramo de `view` —, então um `clearFaded` com texto em
+cena fecharia o wallpaper por cima do versículo que continua no ar.
+
+E o ramo do `media-clear` vem **antes** do bloco de `textActive` em
+`display.js`: lá dentro, `clear` é justamente o que chama `hideText`, e cair no
+fluxo comum faria o comando atravessar até um `stage.handle` que não o conhece —
+sem erro, sem log, com o cronômetro saindo do ar e nada que o explicasse.
+
+**E os botões da direita trocam junto** (v5.177). No ar, a única decisão que
+aquela linha oferece é tirá-la do ar — mas a direita seguia oferecendo
+arrastar-para-reordenar e favoritar, que são as duas coisas que ninguém quer
+fazer com o item que está na frente da congregação, a milímetros do gesto que o
+operador está mirando. O `.row-stop` (herdando `.row-btn`, em `--danger-text`
+contornado, nunca preenchido — preenchido é "está no ar", e é o que a linha já
+diz em volta dele) toma o lugar dos dois, **por classe CSS**:
+
+```css
+.row-stop { display: none; }
+.lib-item.no-ar .row-stop { display: flex; }
+.lib-item.no-ar .row-handle, .lib-item.no-ar .fav-btn { display: none; }
+```
+
+Por CSS, e não remontando a linha, porque **quem liga e desliga o estado é o
+`marcarNoAr`**, que roda a cada `display-status` (~4 Hz) e só troca classes —
+fazer cirurgia de DOM nesse ritmo recriaria botões e perderia listeners quatro
+vezes por segundo. O botão é construído em toda linha e fica escondido; o teste
+mede o RENDERIZADO (`offsetParent`), não a presença do nó, porque uma regra que
+deixe de casar não apaga botão nenhum: ela só para de escondê-lo, em silêncio.
 
 #### O rodapé fixo da caixa da lista (`#listFoot`, v5.107)
 

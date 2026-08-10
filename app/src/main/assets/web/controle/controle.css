@@ -1392,6 +1392,63 @@ main {
 .row { position: relative; z-index: 1; display: flex; align-items: center; gap: .5rem; padding: .35rem .5rem; background: var(--panel); touch-action: pan-y; }
 .lib-item.selected .row, .lib-item.active .row, .row-item.active .row { background: var(--panel-2); }
 
+/* ---------- NO AR: a linha que está no telão AGORA ---------- */
+/* `.active` e `.no-ar` são coisas diferentes, e confundi-las é o defeito que
+   esta regra existe para desfazer. `.active` é O ITEM ATUAL — o que o ▶ repete,
+   e que sobrevive de propósito ao Parar; `.no-ar` é o que está sendo PROJETADO.
+   Depois de um Parar o item continua atual e não está no ar, e dizer "No ar"
+   sobre ele seria mentir na única linha da tela que existe para não mentir.
+   Ver `linhaAtiva`/`linhaNoAr` em `controle.js`.
+
+   O desenho é o MESMO "no ar" do resto do app — a família do vermelho, com o
+   fundo suave da própria família por baixo do saturado (o mesmo raciocínio de
+   `.msg-item.active` e `.bible-vsec.cur.live`: `--live` é escuro por construção
+   e como contorno sobre fundo escuro sumiria; `--live-soft` dá ao `--live-strong`
+   a base que ele precisa, 4,68:1).
+
+   E ele vem com TEXTO, não só com cor: duas camadas podem estar no ar ao mesmo
+   tempo (um louvor de fundo sob um versículo), e é justamente nessas linhas que
+   o segundo toque retira do ar. Uma cor a mais numa tela que já tem várias não
+   ensina isso; "● No ar" ensina. */
+.row-item.no-ar, .lib-item.no-ar { border-color: var(--live-strong); }
+.lib-item.no-ar .row, .row-item.no-ar .row { background: var(--live-soft); }
+/* O selo mora na linha do subtítulo, prefixado — exatamente como a referência
+   do versículo central da Bíblia (`● No ar · Salmo 23:1`). */
+.row-live { color: var(--live-strong); font-weight: 800; letter-spacing: .03em; }
+.lib-item.no-ar .row-sub { color: var(--live-strong); }
+/* A seleção múltipla tem precedência VISUAL: ali a tela fala de escolha, não de
+   projeção, e o contorno de seleção é o que o operador está usando naquele
+   instante. (O JS já não põe `.no-ar` durante a seleção; esta linha é o
+   cinto e suspensório de quem reordenar as classes um dia.) */
+.lib-item.selected.no-ar { border-color: var(--accent); }
+.lib-item.selected.no-ar .row { background: var(--panel-2); }
+
+/* ---------- e os BOTÕES DA LINHA trocam junto (v5.177) ----------
+   No ar, a única decisão que aquela linha oferece é tirá-la do ar: o toque no
+   corpo já faz isso desde a v5.165 e o selo já diz o estado — mas a direita
+   seguia oferecendo arrastar-para-reordenar e favoritar, que são as duas coisas
+   que ninguém quer fazer com o item que está na frente da congregação. Pior,
+   elas ficavam a milímetros do gesto que o operador está mirando.
+
+   Trocar os dois pelo Parar é o que faz QUALQUER toque naquela linha significar
+   a mesma coisa. A troca é por classe porque quem liga e desliga o estado é o
+   `marcarNoAr`, que roda a cada `display-status` (~4 Hz) e só mexe em classes —
+   remontar botões nesse ritmo perderia listeners e trabalho à toa.
+
+   `.row-stop` herda `.row-btn` (o quadrado de ação das listas) e só troca a
+   cor: aqui ele é a AÇÃO destrutiva da linha, e a convenção do app para isso é
+   contornado em `--danger-text`, nunca preenchido — preenchido é "está no ar",
+   e é o que a própria linha já está dizendo em volta dele. */
+.row-stop { display: none; }
+.lib-item.no-ar .row-stop { display: flex; }
+.lib-item.no-ar .row-handle,
+.lib-item.no-ar .fav-btn { display: none; }
+.row-stop { color: var(--danger-text); }
+/* Na seleção múltipla nada disso vale: o alvo é o conjunto, e a linha volta a
+   ser uma caixa de escolha. (O JS já não põe `.no-ar` ali — cinto e
+   suspensório, como a regra de cima.) */
+.lib-item.selected .row-stop { display: none; }
+
 /* A caixa da miniatura é o FUNDO DO APP dentro do cartão: um buraco na
    elevação, que é o que faz a capa (quando existe) parecer colada por cima.
    Era #060606 literal — mais escuro que o próprio fundo do app e fora de
@@ -3343,10 +3400,10 @@ body.mode-simple .hymn-add-btn { display: none; }
    dois?" no meio de um culto. */
 .cast-choice {
   display: flex; align-items: center; gap: .75rem; width: 100%;
-  margin-bottom: .6rem; padding: .85rem .9rem;
+  padding: .85rem .9rem;
   text-align: left; color: var(--text);
   background: var(--surface); border: 1px solid var(--line);
-  border-radius: var(--radius-md); cursor: pointer;
+  border-radius: var(--radius-card); cursor: pointer;
 }
 .cast-choice:active { background: var(--surface-2); }
 .cast-choice .msym { font-size: 1.6rem; color: var(--accent); }
@@ -3366,19 +3423,6 @@ body.mode-simple .hymn-add-btn { display: none; }
    (220) por clareza, ainda que os dois nunca coexistam. */
 #qrPopup { z-index: 230; }
 
-/* O estado, na própria linha da lista de preferências: "Desligado", ou o
-   endereço servido. Uma linha só, com reticências — quem quiser o resto abre a
-   folha, que é onde o assunto mora. */
-.mirror-hint {
-  font-size: .75rem; color: var(--muted);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-/* Ligado, o estado deixa de ser um detalhe e passa a ser um fato sobre a rede:
-   verde é "há uma tela recebendo" no resto do app, e aqui significa a mesma
-   coisa. NUNCA o vermelho de "no ar" — vermelho preenchido é o telão, e o
-   espelho é auxiliar por contrato. */
-.mirror-hint.on { color: var(--ok); }
-
 .mirror-body {
   flex: 1; overflow-y: auto;
   padding: .6rem .7rem .8rem;
@@ -3392,33 +3436,12 @@ body.mode-simple .hymn-add-btn { display: none; }
   margin: 0; font-size: .78rem; line-height: 1.5; color: var(--muted);
   white-space: pre-line;
 }
-/* O ENDEREÇO e o PIN: o par que alguém vai ler de longe e digitar em outra
-   tela. Corpo grande, monoespaçado e selecionável — ditar "192.168.0.42" por
-   cima de uma fonte proporcional é onde 1, l e I viram a mesma coisa. */
-.mirror-addr {
-  display: flex; flex-direction: column; align-items: center; gap: .25rem;
-  background: var(--surface); border-radius: var(--radius-btn);
-  padding: .6rem .5rem;
-  -webkit-user-select: text; user-select: text;
-}
-.mirror-url {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: .95rem; font-weight: 700; color: var(--text);
-  overflow-wrap: anywhere; text-align: center;
-}
-/* O ENDEREÇO NUMÉRICO, quando há nome curto acima dele. Menor e em `--muted`
-   porque ele é a ALTERNATIVA, não o principal — mas presente, porque em boa
-   parte das telas ele é o único que resolve (ver `EspelhoMdns.kt`). */
-.mirror-url2 {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: .8rem; color: var(--muted);
-  overflow-wrap: anywhere; text-align: center;
-}
-/* A ressalva do `.local`, dita na folha em vez de descoberta no domingo. */
-.mirror-nome-hint {
-  margin: -2px 0 0; font-size: .78rem; line-height: 1.35;
-  color: var(--muted); text-align: center;
-}
+/* O PIN — e o BLOCO em volta dele é o `.cast-addr`, o mesmo da folha de
+   conectar. Havia duas anatomias para a mesma coisa (`.mirror-addr`/`.mirror-url`
+   e `.cast-addr`/`.cast-url`), com raios, tamanhos e paddings diferentes; o
+   endereço saiu daqui (ver o HTML) e o que sobrou passou a usar a anatomia que
+   já existia. Monoespaçado e espaçado: seis dígitos ditados por cima de uma
+   fonte proporcional é onde 1, l e I viram a mesma coisa. */
 .mirror-pin {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 1.35rem; font-weight: 700; letter-spacing: .18em;
@@ -3500,11 +3523,6 @@ body.mode-simple .hymn-add-btn { display: none; }
 .mirror-cert-txt.ok { color: var(--ok); }
 .mirror-cert-acts { display: flex; gap: .4rem; }
 
-/* A linha do modo reusa a anatomia da lista de preferências (é a mesma
-   decisão, no mesmo formato), só sem o fundo de cartão: aqui ela já está
-   dentro de uma folha. */
-.mirror-mode { background: transparent; padding: 0; }
-
 .mirror-auto {
   display: flex; align-items: center; gap: .5rem;
   font-size: .8rem; color: var(--muted); cursor: pointer;
@@ -3547,7 +3565,7 @@ body.mode-simple .hymn-add-btn { display: none; }
 .apk-row {
   display: block; width: 100%;
   margin-top: 6px; padding: 8px 10px;
-  border: 1px solid var(--accent); border-radius: var(--radius-sm, 8px);
+  border: 1px solid var(--accent); border-radius: var(--radius-btn);
   background: transparent; color: var(--accent);
   font-size: .82rem; font-weight: 600; text-align: center;
   cursor: pointer;
@@ -3565,7 +3583,7 @@ body.mode-simple .hymn-add-btn { display: none; }
    O endereço é o maior elemento da folha porque é o ÚNICO que alguém precisa
    copiar com os olhos para digitar no controle remoto de uma TV. */
 .cast-addr {
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  display: flex; flex-direction: column; align-items: center; gap: .2rem;
   margin: .5rem 0 .2rem; padding: .7rem .6rem;
   background: var(--surface); border-radius: var(--radius-card);
 }
@@ -3584,7 +3602,7 @@ body.mode-simple .hymn-add-btn { display: none; }
 .cast-hint { margin: .1rem 0 .5rem; font-size: .78rem; color: var(--muted); text-align: center; }
 /* Quem está vendo. Uma linha por tela, com a ação à direita — o padrão de
    lista do resto do app, não um cartão novo. */
-.cast-telas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.cast-telas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .35rem; }
 .cast-tela {
   display: flex; align-items: center; justify-content: space-between; gap: .6rem;
   padding: .5rem .6rem; border-radius: var(--radius-card);
@@ -3597,7 +3615,7 @@ body.mode-simple .hymn-add-btn { display: none; }
 .cast-tela-fora {
   flex: 0 0 auto; padding: .3rem .6rem; font-size: .75rem;
   background: transparent; color: var(--danger-text);
-  border: 1px solid var(--danger-text); border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--danger-text); border-radius: var(--radius-pill); cursor: pointer;
 }
 .cast-tela-fora:disabled { opacity: .5; cursor: default; }
 /* O acesso aos ajustes que sobraram — um link, não um cartão: ele não é o

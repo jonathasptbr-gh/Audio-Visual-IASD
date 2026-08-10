@@ -994,6 +994,14 @@
         case 'pause': pause(); break;
         case 'seek': seek(cmd.time); break;
         case 'clear': return clearFaded();
+        // PARAR SÓ A MÍDIA, sem tocar na cortina (v5.178). É o `fadeOutToBlack`
+        // exposto ao Display: com a Camada de Texto em cena, o `clear` acima
+        // fecharia o wallpaper POR CIMA do versículo (ou do cronômetro) que
+        // continua no ar — o cartão de texto vive por BAIXO da cortina do
+        // stage, que é a mesma razão do `instantCover(false)` do ramo de `view`
+        // em `display.js`. Quem escolhe entre os dois é o Display, que é quem
+        // sabe se há texto ativo.
+        case 'clear-media': return fadeOutToBlack();
         case 'fit': setFit(cmd.fit); break;
         case 'rotate': setRotate(cmd.rotate); break;
       }

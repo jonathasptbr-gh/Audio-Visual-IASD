@@ -234,6 +234,84 @@ await telao.waitForFunction(
 const todos = await telao.evaluate(() => document.getElementById('textMain').textContent);
 checar(todos === 'PARA TODOS', 'comando SEM endereço vale para todos (é o caso de sempre)', JSON.stringify(todos));
 
+// 5-A. O `media-clear` NÃO DERRUBA A CAMADA DE TEXTO (v5.178).
+//
+//    É o lado do TELÃO da mesma regra que o `cena.test.mjs` afirma do lado do
+//    Controle, e ele precisa de um caso próprio porque a decisão mora AQUI: o
+//    Display é quem sabe se há texto ativo, e o ramo do comando tem de vir antes
+//    do bloco de `textActive` — lá dentro, `clear` é justamente o que chama
+//    `hideText`. Cair no fluxo comum não daria erro nenhum: o comando
+//    atravessaria até um `stage.handle` que não o conhece, e o cronômetro sairia
+//    do ar sem uma linha em lugar nenhum que o explicasse.
+//
+//    A mensagem "PARA TODOS" do passo anterior continua em cena.
+await espiao.evaluate(() => window.__mandar({ type: 'media-clear' }));
+await telao.waitForTimeout(500);
+const textoDepois = await telao.evaluate(() => ({
+  txt: document.getElementById('textMain').textContent,
+  visivel: !document.getElementById('text').hidden,
+}));
+checar(textoDepois.txt === 'PARA TODOS' && textoDepois.visivel,
+  'o `media-clear` tira a mídia e DEIXA a Camada de Texto no ar',
+  JSON.stringify(textoDepois));
+
+//    E o `clear` continua sendo o ponto final: ele leva as duas.
+await espiao.evaluate(() => window.__mandar({ type: 'clear' }));
+await telao.waitForFunction(
+  () => document.getElementById('text').hidden, null, { timeout: 4000 },
+).catch(() => {});
+const depoisDoClear = await telao.evaluate(() => document.getElementById('text').hidden);
+checar(depoisDoClear, 'e o `clear` segue encerrando a CENA INTEIRA — ele não virou por camada');
+
+// 5-B. E O TELÃO VAZIO DIZ QUE ESTÁ VAZIO (v5.179).
+//
+//    O `clear` esmaece por ~0,6 s antes de sair de cena, e durante a rampa o
+//    `<video>` CONTINUA tocando (ela é de volume, não de pausa): cada
+//    `display-status` do fade contava, com `playing: true` e o tempo antigo, uma
+//    cena que o operador acabara de encerrar. No Controle isso repintava a barra
+//    e o ícone que o Parar tinha acabado de zerar — o "o Parar só funciona no
+//    segundo toque" —, e na NOTIFICAÇÃO era pior, porque ali não há segundo
+//    toque: o `snoopDisplayStatus` do Kotlin lê este mesmo status de passagem.
+//
+//    A guarda cala o fade e emite UM status final com o stage já limpo. É esse
+//    último que este caso mede: sem ele, o derradeiro a viajar seria o do começo
+//    do fade, dizendo "tocando".
+//    A janela do fade não é observável daqui — sem mídia de verdade em cena o
+//    `clear` resolve num piscar, e com mídia seria preciso um vídeo tocando num
+//    Chromium de CI. Então o caso exercita o MECANISMO, com uma promise que ele
+//    controla: enquanto ela não resolver, o telão está saindo de cena, e um
+//    `sendStatus()` (que é literalmente o que o `onTime` do stage chama a cada
+//    quadro) não pode produzir mensagem nenhuma.
+await espiao.evaluate(() => { window.__vistos.length = 0; });
+const mecanismo = await telao.evaluate(async () => {
+  if (typeof aoSairDeCena !== 'function') return 'sem a guarda';
+  let soltar;
+  aoSairDeCena(new Promise((r) => { soltar = r; }));
+  sendStatus();                       // o quadro do meio do fade
+  await new Promise((r) => setTimeout(r, 150));
+  soltar();                           // o fade acabou: o palco está limpo
+  await new Promise((r) => setTimeout(r, 150));
+  return 'ok';
+});
+const doFade = await espiao.evaluate(
+  () => window.__vistos.filter((c) => c && c.type === 'display-status'),
+);
+checar(mecanismo === 'ok', 'o telão sabe dizer que está SAINDO de cena (`aoSairDeCena`)', mecanismo);
+checar(doFade.length === 1 && !doFade[0].mediaId && !doFade[0].playing,
+  'e o `sendStatus` do meio do fade não viaja: sai UM status só, o do palco VAZIO',
+  JSON.stringify(doFade));
+
+//    A mensagem volta para os passos de medida abaixo (é a única forma de o
+//    `#textMain` ter tamanho).
+await espiao.evaluate(() => window.__mandar({
+  type: 'text', mode: 'message', main: 'PARA TODOS', sub: '', view: 'visual',
+}));
+await telao.waitForFunction(
+  () => document.getElementById('textMain').textContent === 'PARA TODOS'
+    && !document.getElementById('text').hidden,
+  null, { timeout: 4000 },
+).catch(() => {});
+
 // 6. O VIEWPORT DO ESPELHO — a decisão de densidade, medida.
 //
 //    Com a mensagem de cima ainda em cena (é a única forma de o `#textMain`
