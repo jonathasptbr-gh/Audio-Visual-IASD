@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.182';
+const WEB_VERSION = '5.183';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -11646,9 +11646,17 @@ function blocoEspelho(d) {
         + (en.validada === false ? ' · SEM SAÍDA PARA A INTERNET (não impede o espelho)' : '')
         + (cabem >= 0 ? ' — cabem ~' + cabem + ' tela(s) a ' + alvo + ' kbps' : ''));
     }
+    // SESSÕES × CONEXÕES, e a discordância é a leitura (v5.183). O teto de três
+    // é de SESSÕES; a lista é de CONEXÕES. Uma tela que caiu segura a vaga dela
+    // por um tempo, e é nessa janela que o espelho responde "lotado" com menos
+    // telas na folha — sem este número, uma contradição sem explicação possível.
+    const sess = (typeof srv.sessoes === 'number') ? srv.sessoes : -1;
     l.push('telas: ' + telas.length + ' conectada(s) de ' + (srv.teto || 3)
+      + (sess >= 0 && sess !== telas.length ? ' · ' + sess + ' vaga(s) ocupada(s)' : '')
       + ' · ' + pend.length + ' pendente(s)'
-      + ' · ' + (srv.conexoesTotais | 0) + ' conexão(ões) desde que ligou');
+      + ' · ' + (srv.conexoesTotais | 0) + ' conexão(ões) desde que ligou'
+      + (sess >= (srv.teto || 3) && telas.length < sess
+        ? '  ← LOTADO por vaga(s) de tela que caiu; ela abre sozinha' : ''));
     // O FREIO DE IDR trabalhava em silêncio, e um pedido engolido é uma tela
     // PRETA até o quadro-chave espontâneo — 5 s no pior caso. "A tela demorou
     // a aparecer" não tinha como ser ligado à causa; agora tem número.

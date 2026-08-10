@@ -362,6 +362,95 @@ class EspelhoParesTest {
         assertEquals(EspelhoPares.MAX_SESSOES, EspelhoPares.sessoes().size)
     }
 
+    /**
+     * A VAGA DE UMA TELA QUE O SERVIDOR JÁ SABE TER MORRIDO ABRE ANTES (v5.183).
+     *
+     * `ultimoUsoMs` é renovado a cada volta do vigia enquanto a conexão existir,
+     * então uma TV desligada na tomada às 10h00 e fechada pelo
+     * `TETO_SEM_RELATO_MS` às 10h01 fica com carimbo de "1 min atrás" — e o
+     * critério de ociosidade só a soltaria às ~10h05. Nesse intervalo a tela do
+     * saguão que alguém acabou de ligar recebe "lotado" **com a folha do
+     * operador listando duas telas**, e não há em quem tocar em "Desconectar".
+     *
+     * É a §10-A.10 item 2 corrigida pela metade: ela falhava justamente no
+     * exemplo que o doc nomeia — a TV que foi desligada e religada.
+     */
+    @Test
+    fun aVagaDeUmaTelaQueCaiuAbreAntesDaOciosidade() {
+        EspelhoPares.definirAutoAprovar(true)
+        val caiu = (EspelhoPares.entrarAberto("10.0.0.1", relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
+        repeat(EspelhoPares.MAX_SESSOES - 1) {
+            assertTrue(EspelhoPares.entrarAberto("10.0.0.5$it", relato(), t0) is EspelhoPares.Veredito.Aprovada)
+        }
+        // O vigia conclui que a primeira foi embora e fecha a conexão dela. As
+        // três continuam falando pelo canal de relato — isto é, `ultimoUsoMs`
+        // continua fresco para TODAS, que é o que travava a vaga.
+        val fechou = t0 + 60_000
+        assertTrue(EspelhoPares.marcarSemConexao(caiu.token, fechou))
+        val agora = fechou + EspelhoPares.PRAZO_SEM_CONEXAO_MS + 1
+        for (s in EspelhoPares.sessoes()) assertNotNull(EspelhoPares.validar(s.token, agora - 1))
+
+        // Bem antes do prazo de ociosidade, a vaga da que caiu já abre.
+        assertTrue(
+            "a vaga da tela que caiu tem de abrir sem esperar a ociosidade",
+            agora - t0 < EspelhoPares.PRAZO_OCIOSA_MS,
+        )
+        assertTrue(
+            EspelhoPares.entrarAberto("10.0.0.99", relato(), agora) is EspelhoPares.Veredito.Aprovada,
+        )
+        assertNull("a vaga tomada é a da tela que caiu", EspelhoPares.validar(caiu.token, agora))
+    }
+
+    /**
+     * E ELA NÃO ABRE CEDO DEMAIS. Uma tela em recuperação normal fica sem
+     * conexão por uma volta inteira (o vigia de fio do cliente aborta aos 20 s,
+     * mais a escada de até 8 s): tomar a vaga dela no meio disso trocaria um
+     * fantasma por uma tela VIVA expulsa — o defeito oposto, e pior, porque
+     * atinge quem estava funcionando.
+     */
+    @Test
+    fun aVagaNaoAbreEnquantoATelaAindaPodeVoltar() {
+        EspelhoPares.definirAutoAprovar(true)
+        val caiu = (EspelhoPares.entrarAberto("10.0.0.1", relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
+        repeat(EspelhoPares.MAX_SESSOES - 1) {
+            assertTrue(EspelhoPares.entrarAberto("10.0.0.5$it", relato(), t0) is EspelhoPares.Veredito.Aprovada)
+        }
+        assertTrue(EspelhoPares.marcarSemConexao(caiu.token, t0))
+        assertSame(
+            "dentro da janela de recuperação a vaga é dela",
+            EspelhoPares.Veredito.Lotada,
+            EspelhoPares.entrarAberto("10.0.0.99", relato(), t0 + EspelhoPares.PRAZO_SEM_CONEXAO_MS - 1),
+        )
+    }
+
+    /**
+     * E A TELA QUE RECONECTOU DEIXA DE SER FANTASMA. Sem isto ela seguiria
+     * marcada pelo resto da sessão, e a vaga dela seria tomada 45 s depois —
+     * com ela projetando.
+     */
+    @Test
+    fun reconectarDesmarcaOFantasma() {
+        EspelhoPares.definirAutoAprovar(true)
+        val volta = (EspelhoPares.entrarAberto("10.0.0.1", relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
+        repeat(EspelhoPares.MAX_SESSOES - 1) {
+            assertTrue(EspelhoPares.entrarAberto("10.0.0.5$it", relato(), t0) is EspelhoPares.Veredito.Aprovada)
+        }
+        assertTrue(EspelhoPares.marcarSemConexao(volta.token, t0))
+        assertTrue(EspelhoPares.marcarComConexao(volta.token))
+        assertSame(
+            EspelhoPares.Veredito.Lotada,
+            EspelhoPares.entrarAberto("10.0.0.99", relato(), t0 + EspelhoPares.PRAZO_SEM_CONEXAO_MS + 1),
+        )
+        assertNotNull(EspelhoPares.validar(volta.token, t0 + EspelhoPares.PRAZO_SEM_CONEXAO_MS + 1))
+    }
+
+    /** Marcar um token que não é de sessão viva é no-op, e não erro. */
+    @Test
+    fun marcarUmTokenDesconhecidoNaoQuebra() {
+        assertFalse(EspelhoPares.marcarSemConexao("nao-existe", t0))
+        assertFalse(EspelhoPares.marcarComConexao("nao-existe"))
+    }
+
     /** E a vaga tomada é a de quem está PARADO, nunca a da tela que está no ar. */
     @Test
     fun aVagaTomadaEADeQuemNaoEstaUsando() {

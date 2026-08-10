@@ -2418,10 +2418,81 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.182** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
+**Versão atual: v5.183** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.183 (v1.73): AS TRÊS DE REDE — a metade que faltava, e a mais
+> arriscada. EXIGE APK, e exige ser ligada NUMA TERÇA-FEIRA.** Ela mexe no
+> único código do projeto que decide **se o socket sobe e onde**.
+>
+> - **TODA DECISÃO DE REDE PERGUNTAVA PELA REDE PADRÃO.** `getActiveNetwork()`
+>   é, por definição, a rede por onde o tráfego geral sai. Numa igreja com o AP
+>   no ar e o link de internet fora — que este documento descreve como o
+>   ambiente normal —, o Android marca a Wi-Fi como não validada e promove a
+>   **celular** a padrão, porque dados móveis estão ligados (o download do
+>   YouTube depende do IP do chip). O preço era duplo e silencioso: o operador
+>   tocava em "Mostrar numa tela da rede" e lia *"so liga em Wi-Fi — este
+>   aparelho esta em dados moveis"* com o celular associado à Wi-Fi e o IP na
+>   mão; e, com o espelho já no ar, a troca de padrão **derrubava a projeção
+>   inteira com a LAN intacta e o socket funcionando**. A §2.5 promete o oposto,
+>   com todas as letras. Agora a pergunta é "existe uma Wi-Fi neste aparelho?"
+>   (`wifiDe`), e o `registerDefaultNetworkCallback` virou um
+>   `registerNetworkCallback` de `TRANSPORT_WIFI`. **`NET_CAPABILITY_VALIDATED`
+>   fica DELIBERADAMENTE fora do filtro** — é justamente ele que falta numa
+>   igreja sem uplink, e exigi-lo seria reintroduzir o defeito com outro nome.
+>   A propriedade da §2.3 fica intacta: o socket segue ligado a um IPv4 de rede
+>   Wi-Fi, nunca em `0.0.0.0`, e VPN e celular seguem recusados — mas **a regra
+>   1 da §2.3 ("rede ativa") precisa ser relida como "rede Wi-Fi"**, senão a
+>   próxima leitura reintroduz isto. `getAllNetworks()` está deprecado desde a
+>   API 31 e é usado assim mesmo, com o motivo escrito: não existe substituto
+>   SÍNCRONO, e esta pergunta é feita no toque do operador, antes de existir
+>   callback nenhum.
+> - **O IP MUDANDO NA MESMA REDE DERRUBAVA TUDO.** O roteador reinicia às 19h40,
+>   ou o lease do DHCP não devolve o mesmo endereço: o código detectava
+>   **corretamente**, esperava 6 s, confirmava — e desligava servidor, tela
+>   virtual, encoder, janela, mDNS e serviço. Nenhum pacote se perdeu, o
+>   aparelho está no mesmo AP, e **as três telas caíam e nunca voltavam, porque
+>   não havia servidor**. Agora `confirmarRede` separa "trocou de endereço" de
+>   "sumiu": no primeiro caso `religarNoIp` fecha só o `ServerSocket`, refaz o
+>   bind no IP novo, **refaz a allowlist de `Host`** (sem isso o IP novo
+>   receberia o 404 idêntico — a mesma armadilha do `hostTls` e do nome mDNS,
+>   pela terceira vez) e reanuncia o `av.local`. **Não passa por `ligar()`**:
+>   aquele chama `desligar()`, que termina em `zerarPares()` — as três telas
+>   voltariam ao pareamento por uma troca de DHCP que elas nem viram. Teto de
+>   três religamentos por hora; batido, vale o desligamento de sempre.
+>
+>   **Isto tangencia o item 25 do §10 ("não deixar o espelho ligar sozinho"), e
+>   está declarado como inversão em vez de escorregar como conserto de
+>   esquecimento:** o espelho não *liga* sozinho — ele **continua** ligado por
+>   uma decisão que o operador já tomou, e cuja premissa (o socket serve a LAN
+>   deste aparelho) não mudou.
+> - **A VAGA FICAVA PRESA A UMA TELA FANTASMA POR ~5 MIN.** `ultimoUsoMs` é
+>   renovado a cada volta do vigia enquanto a conexão existir, então uma TV
+>   desligada na tomada às 10h00 e fechada pelo `TETO_SEM_RELATO_MS` às 10h01
+>   fica com carimbo de "1 min atrás" — e o critério de ociosidade só a soltava
+>   às ~10h05. Nesse intervalo a tela do saguão recebia `{estado:lotado}` **com
+>   a folha do operador listando duas telas**, e não havia em quem tocar em
+>   "Desconectar"; pior, a MESMA TV religada era recusada pelo fantasma dela
+>   própria, porque o token vive em `sessionStorage`. Agora o servidor avisa o
+>   pareamento (`marcarSemConexao`, no `finally` do fluxo, **com a mesma guarda
+>   de dois argumentos do `telas.remove`** — senão a thread velha marcaria como
+>   morta uma sessão cuja reconexão já assumiu) e a vaga abre em 45 s, que é uma
+>   volta inteira de recuperação do cliente. `marcarComConexao` desfaz a marca
+>   quando ela volta. Quatro casos de JUnit travam os dois lados.
+>
+>   E o Registro passou a publicar **sessões × telas conectadas** lado a lado:
+>   enquanto os dois números pudessem divergir sem aparecer, "lotado" com duas
+>   telas na lista era uma contradição sem leitura possível.
+>
+> **`EspelhoService.enderecoMudou` VOLTOU.** Ele saiu na v5.180 por não ter
+> chamador — e naquele momento a remoção estava certa, porque nenhum caminho
+> mudava o endereço em curso. O `religarNoIp` criou exatamente esse caminho. A
+> remoção estava certa e o retorno também: o que mudou foi o mundo, não a regra.
+>
+> `SHELL_VERSION` **não sobe** — nenhum método da ponte nasceu nem mudou de
+> assinatura.
 
 > **A v5.182 (v1.72): A ESTABILIDADE DO ESPELHO, SEGUNDA METADE — e esta
 > EXIGE INSTALAR O APK.** Três das seis falhas Kotlin da mesma varredura. As

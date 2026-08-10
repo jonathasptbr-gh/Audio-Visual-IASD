@@ -1242,6 +1242,23 @@ class MainActivity : ComponentActivity(), BridgeHost {
                 registrar = { linha -> EspelhoDisplay.diag.registrar(linha) },
                 pedirIdr = { EspelhoDisplay.pedirIdr() },
                 aoPerderRede = { stopMirror() },
+                // O ENDEREÇO TROCOU E O SOCKET RELIGOU NELE (v5.183). O servidor
+                // se resolve sozinho; o que ele não sabe fazer é reanunciar o
+                // nome e reescrever a notificação — e sem as duas coisas o
+                // religamento seria invisível: `av.local` continuaria apontando
+                // para o IP velho (é justamente a tela que usa o nome a que
+                // deveria voltar sozinha) e o cartão mostraria um endereço que
+                // não atende mais.
+                //
+                // `EspelhoMdns.ligar` é idempotente e refaz a sondagem no
+                // endereço novo; a allowlist de `Host` já foi refeita do outro
+                // lado, e ela lê `EspelhoMdns.noAr`, que continua verdadeiro.
+                aoTrocarEndereco = { enderecoNovo, ipNovo ->
+                    runOnUiThread {
+                        EspelhoMdns.ligar(applicationContext, ipNovo)
+                        EspelhoService.enderecoMudou(this, enderecoNovo)
+                    }
+                },
             )
             // O CERTIFICADO, quando o operador importou um. Ausente, vencido ou
             // ilegível ⇒ `null`, e o espelho sobe em HTTP claro com o aviso na
