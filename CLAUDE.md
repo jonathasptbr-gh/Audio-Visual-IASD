@@ -2418,10 +2418,51 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.179** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
+**Versão atual: v5.180** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.180: O COMANDO ATRASADO LEVAVA O ESTADO DE AGORA** — mais uma revisão
+> de varredura. A fila da preview (v5.162) atrasa a CÓPIA em até 2,5 s para ela
+> não responder antes das telas da rede, e `aplicarNaPreview` lia `currentItem`
+> no instante do **dreno**. Dois toques dentro dessa janela — trocar de música,
+> ou errar a linha e corrigir, que é o caso comum — faziam o `load` de A ser
+> aplicado com o item B na mão: a mídia certa entrava (ela vem pelo `mediaId`) e
+> **letra, YouTube e "mantém o texto?" eram decididos pelo item errado**. Um
+> comando da fila é do passado por construção; o estado que ele carrega tem de
+> ser o daquele passado também, então o item viaja COM ele. `pvTextActive`
+> continua sendo lido no dreno, e de propósito: ele é estado da própria preview,
+> que já vive na linha do tempo atrasada. Só aparece com o espelho no ar e sem
+> TV — que é exatamente a configuração de teste do operador. `tools/cena.test.mjs`
+> trava a regra.
+>
+> Da mesma varredura, mais três, todos pequenos e todos verificados:
+>
+> - **`ns` (o `networkState` da tela) atravessava o fio inteiro e ninguém o
+>   desenhava.** A tela media, o `medidasDe` do servidor o transportava desde a
+>   v5.156, e o Registro nunca o imprimia — bytes em cada batida de cada tela
+>   para um número invisível. Ele é a outra metade da pergunta que o `rs` faz:
+>   `rs` diz quanto dado o `<video>` tem, `ns` diz se ele ainda está ligado numa
+>   fonte, e `SEM FONTE` com `rs` em `SEM DADO` é a `MediaSource` desprendida —
+>   outro defeito e outra correção que "faminto". Agora sai ao lado do `rs`; com
+>   `-1` ("esta tela não informou") a linha some, como manda a regra do bloco.
+> - **`addSongVariant`** (controle.js) e **`EspelhoService.enderecoMudou`**
+>   (Kotlin) não tinham chamador nenhum. A primeira era o resto do lote da
+>   v5.141, que unificou as três funções de destino e removeu só duas; a segunda
+>   nunca teve caminho que a acionasse — importar um certificado com o espelho
+>   ligado **não** muda o endereço, porque o socket já está de pé, e a folha diz
+>   isso ao operador.
+>
+> E o que a varredura confirmou íntegro, porque também é resultado: a superfície
+> da ponte é **simétrica nos dois sentidos** (nenhum `@JavascriptInterface` sem
+> chamador em `native.js`, nenhum `B.x` sem método Kotlin), os objetos que
+> `native.js` remonta campo a campo (`nowPlaying`, `bgProgress`) batem com os
+> chamadores, a telemetria do espelho fecha nos três lados (cliente → servidor →
+> Registro) e a tabela `POPUPS` cobre todos os popups do HTML.
+>
+> **v5.180 é quase toda OTA**; a única linha de Kotlin é a remoção do método
+> morto, que não muda comportamento nenhum e não pede Release.
 
 > **A v5.179: O PARAR EXIGIA DOIS TOQUES, e a culpa era do ECO — não das
 > camadas.** O relato: no primeiro toque a mídia para, mas a barra fica a meio

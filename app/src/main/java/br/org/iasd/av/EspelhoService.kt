@@ -521,11 +521,12 @@ class EspelhoService : Service() {
             publicar(ctx)
         }
 
-        /** O endereço mudou (religou noutra porta, ou o TLS subiu). */
-        fun enderecoMudou(ctx: Context, novo: String) {
-            endereco = novo
-            publicar(ctx)
-        }
+        // (`enderecoMudou` saiu na v5.180: nunca teve chamador, e nenhum caminho
+        // hoje muda o endereço com o serviço no ar — importar um certificado
+        // com o espelho ligado NÃO o promove a TLS, porque o socket já está de
+        // pé, e a folha diz isso ao operador (`noAr` × `servindoTls` em
+        // `mirrorCertState`). Quem trouxer um caminho que mude o endereço em
+        // curso traz este método de volta junto.)
 
         private fun publicar(ctx: Context) {
             if (!running) return

@@ -386,6 +386,67 @@ try {
   await pg.evaluate(() => stopClear());
   await pg.evaluate(async (x) => { await send(x); }, id);
 
+  // ---- O COMANDO ATRASADO LEVA O ITEM DE QUANDO ELE SAIU (v5.180) ----
+  //
+  // A fila da preview (v5.162) atrasa a CÓPIA em até 2,5 s para ela não
+  // responder antes das telas da rede. Só que `aplicarNaPreview` lia
+  // `currentItem` no instante do DRENO: dois toques dentro dessa janela — trocar
+  // de música, ou errar a linha e corrigir — faziam o `load` de A ser aplicado
+  // com o item B na mão. A mídia certa entrava (ela vem pelo `mediaId`), e
+  // LETRA, YouTube e "mantém o texto?" eram decididos pelo item errado.
+  //
+  // Um comando da fila é do passado por construção; o estado que ele carrega tem
+  // de ser o daquele passado também.
+  {
+    const idA = await pg.evaluate(async () => {
+      const rec = await AVDB.addMedia(new Blob([new Uint8Array(64)], { type: 'audio/mp4' }), {
+        name: 'Atrasado A', type: 'audio/mp4', kind: 'audio', list: 'imports',
+      });
+      await load();
+      return rec.id;
+    });
+    const idB = await pg.evaluate(async () => {
+      const rec = await AVDB.addMedia(new Blob([new Uint8Array(64)], { type: 'video/mp4' }), {
+        name: 'Atrasado B', type: 'video/mp4', kind: 'video', list: 'imports',
+      });
+      await load();
+      return rec.id;
+    });
+    const levados = await pg.evaluate(async (ids) => {
+      const vistos = [];
+      const orig = aplicarNaPreview;
+      window.aplicarNaPreview = (obj, item) => {
+        if (obj && obj.type === 'load') {
+          vistos.push({ load: obj.mediaId, levou: (item && item.id) || '', global: currentId });
+        }
+        return orig(obj, item);
+      };
+      const antes = prevAtrasoMs;
+      prevAtrasoMs = 700;               // a folga típica de uma tela da rede
+      try {
+        await send(ids[0]);
+        await send(ids[1]);             // dentro da janela: a fila ainda tem o load de A
+        await new Promise((r) => setTimeout(r, 1600));
+      } finally {
+        prevAtrasoMs = antes;
+        window.aplicarNaPreview = orig;
+      }
+      return vistos;
+    }, [idA, idB]);
+
+    const deA = levados.find((x) => x.load === idA);
+    checar(!!deA && deA.global === idB,
+      'o `load` de A é drenado depois de o item ATUAL já ser B (é a janela do atraso)',
+      JSON.stringify(levados));
+    checar(!!deA && deA.levou === idA,
+      'e mesmo assim ele leva o item A consigo — o comando é do passado, o estado dele também',
+      JSON.stringify(levados));
+    const deB = levados.find((x) => x.load === idB);
+    checar(!!deB && deB.levou === idB, 'e o de B leva B, como sempre', JSON.stringify(levados));
+    await pg.evaluate(() => stopClear());
+    await pg.evaluate(async (x) => { await send(x); }, id);
+  }
+
   // ---- A PREVIEW ESCONDIDA NÃO É TOCADA (v5.177) ----
   //
   // Este caso nasceu de um Registro de aparelho. Com o app minimizado, a linha
