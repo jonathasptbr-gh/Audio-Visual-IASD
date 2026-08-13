@@ -810,6 +810,44 @@ checar(true, 'aprovada, a MESMA página troca para o player (sem navegar)');
     JSON.stringify(r.audio));
 }
 
+// O DESVIO A/V MEDIDO NO FIO — a guarda que impede o crédito de remontagem de
+// ser queimado contra uma deriva que só o CELULAR pode desfazer (v5.184).
+//
+// Quando a faixa de som é solta por "o som ficou para trás", a causa está do
+// outro lado: o eixo do som do celular andou menos que o do vídeo. Remontar não
+// desfaz isso — a tela remonta, `vigiarAudio` mede o MESMO desvio no primeiro
+// giro e solta de novo. Três vezes em poucos segundos, o teto de remontagens se
+// esgota, e renová-lo exige 45 s de som limpo que nunca vão acontecer: a tela
+// fica **muda pelo resto do culto**, com o Registro dizendo, com toda a razão,
+// que o AAC está chegando.
+//
+// `vigiarAudio` não serve para responder isso: ele mede `bv.end - ba.end`, e com
+// a faixa solta não existe `ba`. Os carimbos crus do fio existem sempre — e por
+// isso a regra é aritmética, e mora numa função pura.
+{
+  const r = await pg.evaluate(() => {
+    const f = window.__espelho.fingirCarimbos;
+    const d = window.__espelho.desvioDoFio;
+    const sem = (f(0, 0), d());
+    const soVideo = (f(5e6, 0), d());
+    const alinhado = (f(5e6, 4.6e6), d());
+    const atrasado = (f(9e6, 4e6), d());
+    f(0, 0);
+    return { sem, soVideo, alinhado, atrasado };
+  });
+  checar(r.sem === null,
+    'sem os dois carimbos o desvio é NULO, nunca zero — "não sei" ≠ "alinhado"', r.sem);
+  checar(r.soVideo === null,
+    'e só com vídeo idem: senão toda tela que acabou de pedir som seria barrada',
+    r.soVideo);
+  checar(Math.abs(r.alinhado - 0.4) < 1e-6,
+    'com o som 400 ms atrás o desvio é 0,4 s — abaixo da guarda, a remontagem vale',
+    r.alinhado);
+  checar(Math.abs(r.atrasado - 5) < 1e-6,
+    'e com 5 s de atraso ele é 5 — acima da guarda, remontar só gastaria crédito',
+    r.atrasado);
+}
+
 // O ENCALHE — o cursor FORA de qualquer bloco do `buffered`.
 //
 // É o congelamento em estado puro: a MSE não toca, `currentTime` não anda, não

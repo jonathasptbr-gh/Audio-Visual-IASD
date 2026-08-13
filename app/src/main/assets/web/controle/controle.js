@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.183';
+const WEB_VERSION = '5.184';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -11612,6 +11612,31 @@ function blocoEspelho(d) {
         + ' · ' + au.blocosPorSegundo + ' blocos de PCM/s'
         + ' · ' + (au.quadros | 0) + ' quadro(s)'
         + (au.descartados ? ' · ' + au.descartados + ' descartado(s)' : ''));
+    }
+    // A DERIVA DO EIXO DO SOM — a outra metade de "o som ficou para trás".
+    //
+    // Aquela frase é escrita pela TELA, e até a v5.184 não havia UMA linha do
+    // lado do celular que a confirmasse ou a desmentisse: o operador via
+    // `24 blocos de PCM/s`, `7424 quadro(s)`, `0 descarte(s)` — tudo saudável —
+    // e uma tela muda. O eixo do som anda por CONTAGEM DE AMOSTRAS e o do vídeo
+    // por relógio; esta linha é a diferença entre os dois, que é literalmente o
+    // defeito.
+    //
+    // Ela só é desenhada quando o shell sabe respondê-la (`undefined` num shell
+    // antigo), como manda a regra do bloco: nada de "undefined" no meio de um
+    // log que vai ser copiado e repassado.
+    if (au.canal && typeof au.derivaMs === 'number') {
+      const partes = ['agora ' + (au.derivaMs | 0) + ' ms · pior ' + (au.piorDerivaMs | 0) + ' ms'];
+      if (au.correcoes) {
+        partes.push((au.correcoes | 0) + ' correção(ões)'
+          + (au.silencioMs ? ' · ' + (au.silencioMs | 0) + ' ms de silêncio' : '')
+          + (au.saltos ? ' · ' + (au.saltos | 0) + ' reancoragem(ns)' : ''));
+      }
+      l.push('  som atrás do vídeo: ' + partes.join(' · ')
+        // O piso do alarme é o mesmo em que a TELA desiste da faixa de som
+        // (`ATRASO_AUDIO_S`, 3 s): passar dele é, do lado de lá, ficar mudo.
+        + ((au.piorDerivaMs | 0) >= 3000
+          ? '  ← passou dos 3 s: é aqui que a tela solta o som' : ''));
     }
   }
   const proc = d.processo;
