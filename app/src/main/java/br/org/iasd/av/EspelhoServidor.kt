@@ -382,9 +382,9 @@ class EspelhoServidor(
             // por socket sem limite.
             //
             // **E as conexões de FLUXO não contam** — esta subtração é uma
-            // correção, não um detalhe. `servirFluxo` não volta enquanto a tela
-            // estiver conectada, então cada telão vivo segurava um slot pelo
-            // culto inteiro. Com três telas restavam cinco, e um navegador abre
+            // correção, não um detalhe. O `servirEventos` (o SSE) não volta
+            // enquanto a tela estiver conectada, então cada tela viva segurava
+            // um slot pelo culto inteiro. Com três telas restavam cinco, e um navegador abre
             // até SEIS conexões paralelas por host só para carregar a página
             // (`/`, `/e.css`, `/e.js`, `/f.js`): a segunda tela a abrir
             // o endereço já esbarrava no teto e recebia conexões recusadas —
@@ -563,9 +563,9 @@ class EspelhoServidor(
             )
             r.metodo == "GET" && ESTATICOS.containsKey(rota) -> servirEstatico(rota, saida)
             r.metodo == "POST" && rota == "/par" -> parear(r, saida, cru)
-            r.metodo == "GET" && rota == "/v" -> {
-                if (sessao == null) responder(saida, naoAchei()) else servirFluxo(socket, cru, saida, sessao)
-            }
+            // A rota `/v` (o fluxo de PIXELS) morreu com o espelho na v5.187:
+            // um GET nela cai no 404 idêntico do `else`, como toda rota que
+            // não existe — nada de "gone" que confirme o que já existiu.
             r.metodo == "GET" && rota == "/e" -> {
                 if (sessao == null) responder(saida, naoAchei()) else servirEventos(cru, saida, sessao)
             }
@@ -821,7 +821,8 @@ class EspelhoServidor(
      * `text/event-stream` sobre o chunked de sempre, com o batimento de
      * [PING_SSE_MS] carregando o epoch do celular.
      *
-     * O molde é o do [servirFluxo], regra a regra, porque as lições são as
+     * O molde é o do `servirFluxo` da era dos pixels (aposentado na v5.187),
+     * regra a regra, porque as lições são as
      * mesmas: admissão atômica com teto e frase de lotado, troca da conexão
      * anterior do mesmo token, `soTimeout` zerado (o vigia cobre escrita),
      * `marcarComConexao`/`marcarSemConexao` com a guarda de dois argumentos.
@@ -1383,6 +1384,31 @@ class EspelhoServidor(
 
     private fun tentarCodigo(codigo: String, origem: String, relato: EspelhoPares.Relato) =
         EspelhoPares.tentar(codigo, origem, relato, agoraMs())
+
+    private fun limparPares() = EspelhoPares.limpar(agoraMs())
+
+    private fun zerarPares() = EspelhoPares.zerar()
+
+    /**
+     * O veredito do pareamento vira status + corpo — e este é o ÚNICO ponto do
+     * arquivo que conhece a forma dele.
+     *
+     * O corpo é o da §5.1, com o `else` valendo por recusa: um veredito que
+     * este código não conheça **nega**, nunca autoriza. Falha fechada é a única
+     * postura possível num controle de acesso.
+     */
+    private fun respostaDoVeredito(v: EspelhoPares.Veredito): Pair<Int, String> = when (v) {
+        is EspelhoPares.Veredito.Aprovada ->
+            200 to JSONObject().put("t", v.sessao.token).toString()
+        // LOTADO É UMA FRASE, e não a recusa genérica. As três vagas ocupadas e
+        // o código errado são a mesma tela ("não deu para entrar") para quem
+        // está do outro lado, e as duas têm saídas opostas: uma pede que alguém
+        // feche uma página, a outra que se confira o número. O status continua
+        // 403 — quem não entrou não entrou —, e o que muda é o corpo, que o
+        // cliente lê para escolher a frase.
+        is EspelhoPares.Veredito.Lotada -> 403 to LOTADO_JSON
+        else -> 403 to RECUSADA
+    }
 
     /**
      * O OPERADOR DERRUBA UMA TELA — o botão "Desconectar" da folha, e desde a
