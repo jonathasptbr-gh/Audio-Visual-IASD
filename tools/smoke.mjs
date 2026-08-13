@@ -170,15 +170,55 @@ try {
       const el = document.querySelector(sel);
       return el ? parseFloat(getComputedStyle(el).borderTopLeftRadius) : NaN;
     };
-    const r = { escolha: raio('.cast-choice'), endereco: raio('.cast-addr') };
+    const cor = (sel, prop) => {
+      const el = document.querySelector(sel);
+      return el ? getComputedStyle(el)[prop] : '';
+    };
+    const sw = document.getElementById('castNetToggle');
+    const trilho = document.querySelector('.cast-sw');
+    const fundoDoTrilho = () => getComputedStyle(trilho).backgroundColor;
+    const antes = sw ? sw.checked : false;
+    if (sw) sw.checked = false;
+    const trilhoOff = trilho ? fundoDoTrilho() : '';
+    if (sw) sw.checked = true;
+    const trilhoOn = trilho ? fundoDoTrilho() : '';
+    if (sw) sw.checked = antes;
+    const r = {
+      acao: raio('.cast-acao'), interruptor: raio('.cast-sw-row'), endereco: raio('.cast-addr'),
+      acaoFundo: cor('.cast-acao', 'backgroundColor'), acaoTexto: cor('.cast-acao', 'color'),
+      trilhoOff, trilhoOn,
+      // O valor do token, resolvido pelo navegador — a asserção compara o
+      // RENDERIZADO com ele, e não com um literal copiado para cá.
+      accentFill: getComputedStyle(document.documentElement).getPropertyValue('--accent-fill').trim(),
+      onAccent: getComputedStyle(document.documentElement).getPropertyValue('--on-accent').trim(),
+    };
     if (cast) cast.classList.remove('open');
     return r;
   });
-  checar(padrao.escolha > 0,
-    'as escolhas da folha de conectar são arredondadas como o resto do app'
-    + ' (raio ' + padrao.escolha + 'px)');
+  checar(padrao.acao > 0 && padrao.interruptor > 0,
+    'o botão e o interruptor da folha de conectar são arredondados como o resto do app'
+    + ' (' + padrao.acao + 'px / ' + padrao.interruptor + 'px)');
   checar(padrao.endereco > 0,
     'e o bloco do endereço também (raio ' + padrao.endereco + 'px)');
+
+  // ---- E O ÂMBAR É O DA PALETA, NO PAPEL CERTO (v5.184) -----------------
+  //
+  // `--accent` e `--accent-fill` têm valores diferentes de propósito: o
+  // primeiro é claro (para ser TEXTO sobre fundo escuro) e o segundo é escuro
+  // (para RECEBER texto). Trocá-los não quebra nada de forma visível no CI —
+  // sai um botão âmbar-claro com texto quase branco por cima, abaixo do piso
+  // de contraste, e só um par de olhos no aparelho notaria. Daí a asserção.
+  const paraRgb = (hex) => {
+    const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+    return m ? 'rgb(' + parseInt(m[1], 16) + ', ' + parseInt(m[2], 16) + ', ' + parseInt(m[3], 16) + ')' : hex;
+  };
+  checar(padrao.acaoFundo === paraRgb(padrao.accentFill)
+    && padrao.acaoTexto === paraRgb(padrao.onAccent),
+    'o botão principal da folha é preenchido em --accent-fill com --on-accent por cima'
+    + ' (' + padrao.acaoFundo + ' / ' + padrao.acaoTexto + ')');
+  checar(padrao.trilhoOn === paraRgb(padrao.accentFill) && padrao.trilhoOff !== padrao.trilhoOn,
+    'e o interruptor LIGADO veste o mesmo âmbar preenchido, desligado não'
+    + ' (' + padrao.trilhoOff + ' → ' + padrao.trilhoOn + ')');
 
   // ---- O ÍCONE DE CONECTAR DIZ "HÁ TELA RECEBENDO" (v5.176) --------------
   //

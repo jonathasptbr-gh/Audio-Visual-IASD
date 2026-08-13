@@ -2222,6 +2222,54 @@ Duas correções, e nenhuma sozinha bastaria:
 causa raiz morava **fora** do espelho, e é a razão de ela estar escrita aqui assim mesmo: quem for
 diagnosticar "a tela ficou muda" vai começar por este documento.
 
+### 10-A.12 — a folha ligava o servidor para poder mostrar o estado (5.184)
+
+Esta não é uma falha de código: é uma falha de FORMA, e ela produziu uma decisão que ninguém teria
+tomado de propósito.
+
+Desde a v5.156 as duas maneiras de conectar eram o **mesmo cartão de escolha** (`.cast-choice`) —
+"Espelhar a tela na TV" e "Mostrar numa tela da rede", lado a lado. Só que elas não são a mesma
+coisa: espelhar é uma **ação** que sai do app (abre o seletor do fabricante, e o assunto termina
+ali); transmitir pelo site é um **estado** que dura o culto inteiro. Um cartão de escolha não tem
+como mostrar "ligado", e a consequência está escrita no `abrirCast` da v5.171: **abrir a folha
+ligava o servidor**. O comentário justificava — "ninguém abre 'Conectar uma tela' para não
+conectar" — e o que não estava dito é o preço: não havia como abrir aquela tela para conferir o
+endereço, o alvo de espelhamento ou quem está vendo **sem subir um `ServerSocket` na rede da
+igreja**; e, com o telão no ar, sem disparar a pergunta do custo dobrado (§2.6).
+
+A correção é a forma certa para cada coisa: **botão** para a ação, **interruptor** para o estado.
+Com um interruptor o problema desaparece do outro lado — o estado é visível parado, e quem o muda é
+o operador. Abrir a folha voltou a ser só ler.
+
+Três consequências que valem por si:
+
+- **Os dois endereços são iguais em peso.** `av.local` era o corpo grande e o IP era uma legenda em
+  `.78rem`/`--muted`. É o contrário do que este documento diz em §2.7: `.local` **não** resolve no
+  Chrome do Android nem na maioria das Smart TVs, então o número é justamente o que funciona quando
+  o nome falha — e os dois são digitados no mesmo controle remoto.
+- **A folha estava CONGELADA no instante da abertura.** `lerEspelho()` — a enquete de 2,5 s que
+  existe para essa tela estar viva enquanto o operador olha para ela — chamava `renderEspelho()` e
+  `renderCastBtn()`, e **nunca** `renderCast()`. Uma tela que entrasse depois de a folha abrir não
+  aparecia na lista; o endereço não aparecia quando o servidor subia. Defeito de omissão, sem
+  sintoma no lugar da causa — a folha simplesmente não mudava, o que se lê como "ninguém conectou".
+- **Três ícones da UI de conexão nunca foram desenhados.** `&#xe307;` (cabeçalho da folha),
+  `&#xe8ad;` (botão de espelhar) e `&#xe3b0;` (ler o código) estão **ausentes do subconjunto** em
+  `shared/fonts/material-symbols.woff2` — uma fonte gerada à mão que nunca foi regerada quando esta
+  UI nasceu. O modo de falhar é o mais mudo que uma fonte tem: o codepoint está no cmap (o navegador
+  reserva a largura de avanço e **não** cai no fallback, então não aparece tofu) e o contorno está
+  vazio. O que sobra é um vão do tamanho exato de um ícone, que se lê como desalinhamento. Medido
+  com `getImageData` sobre os 32 codepoints do bundle: exatamente estes três dão zero pixel de
+  tinta. Agora são `<symbol>`/`<use>` inline, como a engrenagem e o texto corrido já eram — e assim
+  não dependem mais de um artefato binário que ninguém revisa num diff.
+
+`tools/smoke.mjs` ganhou o par de asserções que trava a paleta destes dois controles: o botão
+principal preenchido em `--accent-fill` com `--on-accent` por cima, e o interruptor vestindo o mesmo
+âmbar **só quando ligado**. Trocar `--accent` por `--accent-fill` ali não quebra nada de forma
+visível no CI — sai um botão âmbar-claro com texto quase branco por cima, abaixo do piso de
+contraste, e só um par de olhos no aparelho notaria.
+
+**O lote é OTA** — nenhuma linha de Kotlin.
+
 ---
 
 ## 11. A FRASE PARA O OPERADOR
