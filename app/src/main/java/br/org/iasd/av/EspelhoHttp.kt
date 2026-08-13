@@ -784,6 +784,7 @@ object EspelhoHttp {
         200 -> "OK"
         202 -> "Accepted"
         206 -> "Partial Content"
+        302 -> "Found"
         400 -> "Bad Request"
         403 -> "Forbidden"
         404 -> "Not Found"

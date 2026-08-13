@@ -786,6 +786,20 @@ class EspelhoServidor(
     ) {
         val rota = r.caminho
         when {
+            // O CORTE (E6): quem abre o endereço recebe a TELA DE COMANDOS — o
+            // próprio /display/ com a casca do tela.js. O cliente de pixels
+            // deixa de ser alcançável por navegação (os arquivos dele saem na
+            // E7); quem tiver a página antiga aberta recarrega no F5 e cai
+            // aqui.
+            r.metodo == "GET" && rota == "/" -> responder(
+                saida,
+                EspelhoHttp.resposta(
+                    302,
+                    "text/html; charset=utf-8",
+                    "<a href=\"/display/index.html?tela=1\">Telão</a>".toByteArray(Charsets.UTF_8),
+                    listOf("Location: /display/index.html?tela=1"),
+                ),
+            )
             r.metodo == "GET" && ESTATICOS.containsKey(rota) -> servirEstatico(rota, saida)
             r.metodo == "POST" && rota == "/par" -> parear(r, saida, cru)
             r.metodo == "GET" && rota == "/v" -> {
@@ -1206,7 +1220,9 @@ class EspelhoServidor(
         }
         conexoesTotais.incrementAndGet()
         EspelhoPares.marcarComConexao(sessao.token)
-        registrar("tela de comandos conectada (${enderecoDe(cru)})")
+        tela.rotulo = rotuloNovo()
+        registrar("tela ${tela.rotulo} conectada (comandos, ${enderecoDe(cru)})")
+        EspelhoService.telasMudaram(app, telas.size + telasSse.size)
         try {
             saida.write(EspelhoHttp.cabecalhoSse())
             saida.flush()
@@ -1242,7 +1258,8 @@ class EspelhoServidor(
             if (eraNossa) {
                 EspelhoPares.marcarSemConexao(sessao.token, agoraMs())
             }
-            registrar("tela de comandos desconectada (${tela.motivoDaSaida})")
+            registrar("tela ${tela.rotulo} desconectada (${tela.motivoDaSaida})")
+            EspelhoService.telasMudaram(app, telas.size + telasSse.size)
         }
     }
 
@@ -1759,6 +1776,22 @@ class EspelhoServidor(
                     .put("recomecos", t.recomecos),
             )
         }
+        // AS TELAS DE COMANDO (telão por comandos, E6) entram na MESMA lista
+        // que a folha desenha — rotulo + conectadaMs são o que ela lê, e
+        // `comando: true` é o que separa as duas eras no Registro. O último
+        // comando entregue e o __de anunciado dizem se a tela está VIVA e
+        // ENDEREÇÁVEL, que são as duas perguntas novas.
+        for (t in telasSse.values) {
+            lista.put(
+                relatoJson(t.sessao.relato)
+                    .put("rotulo", t.rotulo)
+                    .put("comando", true)
+                    .put("conectadaMs", agora - t.desdeMs)
+                    .put("eventos", t.eventos)
+                    .put("pronta", t.de != null)
+                    .put("fila", t.fila.size),
+            )
+        }
         return JSONObject()
             .put("ligado", servidor != null)
             .put("url", endereco)
@@ -1901,6 +1934,16 @@ class EspelhoServidor(
      */
     fun derrubarTela(rotulo: String): Boolean {
         if (rotulo.isEmpty()) return false
+        // Telas de comando primeiro (a era nova); as de pixels ficam até a E7.
+        val alvoSse = telasSse.values.firstOrNull { it.rotulo == rotulo }
+        if (alvoSse != null) {
+            EspelhoPares.derrubar(alvoSse.sessao.token, enderecoDe(alvoSse.cru), agoraMs())
+            telasSse.remove(alvoSse.sessao.token, alvoSse)
+            fecharSse(alvoSse, "o operador desconectou esta tela")
+            EspelhoService.telasMudaram(app, telas.size + telasSse.size)
+            registrar("tela ${alvoSse.rotulo} desconectada pelo operador")
+            return true
+        }
         val alvo = telas.values.firstOrNull { it.rotulo == rotulo } ?: return false
         EspelhoPares.derrubar(alvo.sessao.token, alvo.origem, agoraMs())
         telas.remove(alvo.sessao.token, alvo)
@@ -2242,6 +2285,8 @@ class EspelhoServidor(
      * como terminou.
      */
     private class TelaSse(val sessao: EspelhoPares.Sessao, val cru: Socket) {
+        @Volatile var rotulo = ""
+
         val fila = ArrayBlockingQueue<ByteArray>(TETO_FILA_SSE)
 
         /** O `__de` que a tela anunciou no `display-ready` (E3) — é ele que

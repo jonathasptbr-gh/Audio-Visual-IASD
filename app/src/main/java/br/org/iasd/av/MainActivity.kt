@@ -242,7 +242,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // seria H.264 impecável de um RETÂNGULO PRETO, com todos os contadores
         // subindo e nada no Registro. O gatilho é a existência da tela virtual,
         // não a desta Activity — sem espelho no ar isto é um no-op.
-        EspelhoDisplay.sincronizarJanela(this)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) !=
@@ -344,16 +343,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
         EspelhoService.onDesligar = { stopMirror() }
         EspelhoService.onGone = { runOnUiThread { desmontarEspelho() } }
         EspelhoService.onTermica = { grau -> aoEsquentar(grau) }
-        // A SIMÉTRICA DO `onGone`, do outro lado do espelho (v5.181): o encoder
-        // ou a janela caindo sozinhos. `EspelhoDisplay` só sabe derrubar a
-        // metade dele; sem este aviso sobrava o `ServerSocket` escutando, o
-        // o serviço em primeiro plano, o socket escutando e as três telas
-        // recebendo zero byte — e religar falhava no bind. Ver o KDoc de
-        // [EspelhoDisplay.aoDesligarSozinho].
-        //
-        // `desmontarEspelho()`, NUNCA `stopMirror()`: aquele reentraria em
-        // `EspelhoDisplay.desligar()`, que é justamente quem nos chamou.
-        EspelhoDisplay.aoDesligarSozinho = { desmontarEspelho() }
 
         onBackPressedDispatcher.addCallback(this) { handleBack() }
     }
@@ -528,7 +517,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // que mantém o encoder produzindo numa cena parada. É o mesmo contrato
         // que o KDoc do `MirrorPresentation.keepPlaying` já declara ("chamado do
         // `onStop` da Activity"). No-op quando não há espelho no ar.
-        EspelhoDisplay.keepPlaying()
         // Mesa de som ligada: o áudio sai DESTE WebView, e ele também precisa
         // atravessar o segundo plano. Sem isso o louvor calava no instante em
         // que o operador saía do app — que é justamente o caso relatado, e o
@@ -598,7 +586,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // Activity nova.
         if (!isChangingConfigurations) {
             try {
-                EspelhoDisplay.desligar()
                 desmontarEspelho()
             } catch (e: Exception) {
                 Log.w(TAG, "espelho não desligou", e)
@@ -615,11 +602,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
         EspelhoService.onDesligar = null
         EspelhoService.onGone = null
         EspelhoService.onTermica = null
-        // Pelo MESMO motivo dos três acima, e com uma agravante: `EspelhoDisplay`
-        // é um `object` que sobrevive à Activity de propósito (invariante 5 do
-        // KDoc dele), então uma lambda esquecida aqui não é um callback órfão —
-        // é a Activity inteira retida pelo processo.
-        EspelhoDisplay.aoDesligarSozinho = null
         displayManager?.unregisterDisplayListener(displayListener)
         presentation?.let {
             it.release()
@@ -673,9 +655,11 @@ class MainActivity : ComponentActivity(), BridgeHost {
      */
     private fun telasExternas(): List<Display> {
         val dm = displayManager ?: return emptyList()
-        val meu = EspelhoDisplay.displayId
+        // A exclusão por displayId da tela virtual saiu com o espelho de
+        // pixels (E6/E7); o filtro de FLAG_PRIVATE fica — é o cinto contra o
+        // Android 14+ ter removido a ordenação por tipo de getDisplays.
         return dm.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION).filter { d ->
-            d.displayId != meu && (d.flags and Display.FLAG_PRIVATE) == 0
+            (d.flags and Display.FLAG_PRIVATE) == 0
         }
     }
 
@@ -1195,7 +1179,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
      */
     override fun startMirror(modo: String, onResult: (JSONObject) -> Unit) {
         runOnUiThread {
-            if (EspelhoDisplay.estaLigado) { onResult(mirrorJson()); return@runOnUiThread }
+            if (espelhoSrv?.ligado == true) { onResult(mirrorJson()); return@runOnUiThread }
 
             // 1. A REDE. `Recusa` traz a frase do operador na mensagem.
             val rede = try {
@@ -1213,8 +1197,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
             val srv = EspelhoServidor(
                 applicationContext,
                 WebPathHandler(applicationContext),
-                registrar = { linha -> EspelhoDisplay.diag.registrar(linha) },
-                pedirIdr = { EspelhoDisplay.pedirIdr() },
+                registrar = { linha -> espelhoDiag.registrar(linha) },
                 aoPerderRede = { stopMirror() },
                 // O ENDEREÇO TROCOU E O SOCKET RELIGOU NELE (v5.183). O servidor
                 // se resolve sozinho (refaz o bind e a allowlist de `Host`); o
@@ -1246,22 +1229,15 @@ class MainActivity : ComponentActivity(), BridgeHost {
                 return@runOnUiThread
             }
 
-            // 3. A TELA VIRTUAL E O ENCODER.
-            //
-            // [modo] é IGNORADO desde a v5.156, e a assinatura fica: o modo
-            // IMAGEM saiu (ele não tinha áudio e não tinha como ter — ver o
-            // cabeçalho do `EspelhoDisplay`), e um bundle antigo que ainda peça
-            // `"imagem"` recebe vídeo, que é o que ele deveria ter pedido. Tirar
-            // o parâmetro da ponte obrigaria a subir o `SHELL_VERSION` para não
-            // ganhar nada: quem chama já não escolhe.
-            val r = EspelhoDisplay.ligar(this@MainActivity) { q -> srv.difundir(q) }
-            if (r is Resultado.Recusado) {
-                srv.desligar()
-                onResult(mirrorJson(erro = r.motivo))
-                return@runOnUiThread
-            }
+            // 3. NÃO HÁ MAIS TELA VIRTUAL NEM ENCODER (E6, o corte do telão
+            // por comandos): as telas da rede rodam o próprio /display/ servido
+            // por este servidor e renderizam localmente — o que atravessa a
+            // rede são COMANDOS. [modo] segue IGNORADO (a assinatura da ponte
+            // fica; quem chama já não escolhe nada).
+            espelhoDiag.novaSessao()
+            espelhoDiag.registrar("transmissao por comandos ligada em " + endereco)
             espelhoSrv = srv
-            espelhoModo = "video"
+            espelhoModo = "comandos"
             // O TAP DA LAN (telão por comandos, E2): todo comando que o web
             // relaya por busPost passa a sair também no SSE das telas de
             // comandos. Escuro enquanto nenhuma tela abre o GET /e.
@@ -1277,12 +1253,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
             EspelhoPares.ligar(System.currentTimeMillis())
             EspelhoService.ligar(this, endereco)
 
-            // 5. A SONDA DE READBACK, depois de tudo de pé e sem segurar a
-            //    resposta: ela roda numa tela virtual DESCARTÁVEL (nunca na de
-            //    produção) e escreve o veredito no Registro sozinha. É o R1
-            //    respondido em produção, na primeira vez que o operador liga.
-            EspelhoDisplay.sonda(this) { /* o veredito já foi para o diag */ }
-
             onResult(mirrorJson())
         }
     }
@@ -1297,7 +1267,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * do `ytCancel`. A demolição de verdade cada peça posta para a main sozinha.
      */
     override fun stopMirror() {
-        EspelhoDisplay.desligar()
         desmontarEspelho()
     }
 
@@ -1329,12 +1298,11 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * com uma frase no Registro, para "ficou ruim" ter causa.
      */
     private fun aoEsquentar(grau: Int) {
-        if (grau >= 3) {
-            EspelhoDisplay.ajustarBitrate(BITRATE_QUENTE)
-            EspelhoDisplay.diag.registrar("aparelho quente — qualidade reduzida")
-        } else {
-            EspelhoDisplay.ajustarBitrate(BITRATE_NORMAL)
-        }
+        // Sem encoder não há qualidade a reduzir (o corte, E6): as telas
+        // renderizam localmente e o custo térmico do celular é o de sempre.
+        // A linha fica — térmica alta durante a transmissão continua sendo
+        // leitura de Registro.
+        if (grau >= 3) espelhoDiag.registrar("aparelho quente (grau " + grau + ")")
     }
 
     /**
@@ -1344,7 +1312,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
      */
     private fun mirrorJson(erro: String = ""): JSONObject {
         val srv = espelhoSrv?.estado()
-        val ligado = EspelhoDisplay.estaLigado && espelhoSrv?.ligado == true
+        val ligado = espelhoSrv?.ligado == true
         return JSONObject()
             .put("ligado", ligado)
             .put("modo", espelhoModo)
@@ -1376,8 +1344,8 @@ class MainActivity : ComponentActivity(), BridgeHost {
      */
     override fun mirrorDiag(onResult: (JSONObject) -> Unit) {
         runOnUiThread {
-            val o = EspelhoDisplay.diag.paraJson()
-            o.put("ligado", EspelhoDisplay.estaLigado)
+            val o = espelhoDiag.paraJson()
+            o.put("ligado", espelhoSrv?.ligado == true)
             espelhoSrv?.let { o.put("servidor", it.estado()) }
             try { o.put("servico", EspelhoService.estado(this)) } catch (e: Exception) {
                 Log.w(TAG, "estado do serviço do espelho indisponível", e)
@@ -1455,7 +1423,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
                 // ligado não o promove a TLS — o socket já está de pé. Sem esta
                 // distinção o operador leria "certificado válido" olhando para
                 // um endereço `http://`.
-                .put("noAr", espelhoSrv?.ligado == true && EspelhoDisplay.estaLigado)
+                .put("noAr", espelhoSrv?.ligado == true)
                 .put("servindoTls", (espelhoSrv?.estado()?.optBoolean("tls", false)) == true)
             runOnUiThread { onResult(json) }
         }
@@ -1629,6 +1597,11 @@ class MainActivity : ComponentActivity(), BridgeHost {
         @Volatile
         private var espelhoSrv: EspelhoServidor? = null
 
+        /** O anel de diagnóstico da transmissão — morava no EspelhoDisplay e
+         *  foi REALOCADO no corte (E6): o dono do Registro é quem liga o
+         *  servidor, não a tela virtual que deixou de existir. */
+        val espelhoDiag = EspelhoDiag()
+
         /** O cache da rota /m/ (E4) — vive com a transmissão, não com a
          *  Activity, pela mesma razão do servidor acima. */
         @Volatile
@@ -1640,7 +1613,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
          *  alimenta resolve na hora: nulo com a transmissão desligada. */
         private val espelhoMidiaCanal = EspelhoMidiaCanal(
             cache = { espelhoMidia },
-            registrar = { linha -> EspelhoDisplay.diag.registrar(linha) },
+            registrar = { linha -> espelhoDiag.registrar(linha) },
         )
 
         @Volatile
