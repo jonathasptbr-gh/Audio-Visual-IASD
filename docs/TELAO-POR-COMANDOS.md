@@ -10,6 +10,17 @@
 > fatos com arquivo:linha) — o bruto está em
 > `docs/anexo-varredura-command-stream.json`, que será apagado na E7. As linhas
 > citadas valem para o commit da varredura (2026-08-13) e envelhecem.
+>
+> **RECONCILIADO COM A v5.186 (v1.85)**, que entrou em `main` depois da
+> varredura e ANTES da E1: a entrada do espelho virou um CÓDIGO de três
+> dígitos (nascido em `EspelhoPares.ligar`, mostrado na folha do operador;
+> `POST /par {codigo}` → `200 {t}` | `403` na MESMA resposta, sem fila de
+> aprovação), o QR e o `av.local`/mDNS SAÍRAM (qr.js, EspelhoMdns*
+> apagados), e `SHELL_VERSION` já é **36**. A exigência que governou aquela
+> mudança governa esta também: **o botão de conectar gasta o ÚNICO gesto do
+> visitante — entra, liga o som e vai a tela cheia**. Toda decisão abaixo
+> que citava QR/av.local foi corrigida; a decisão nova de §3.4 (uma página
+> só) existe por causa dessa exigência.
 
 ---
 
@@ -73,12 +84,13 @@ IFrame API nem carregaria numa tela da rede.
 
 **Fica (infraestrutura de rede):** `EspelhoServidor` (sockets, bind Wi-Fi,
 allowlist de Host, religamento, tetos), `EspelhoHttp` (parser puro — GANHA
-Range e SSE), `EspelhoPares` (porta aberta/PIN/QR/prazos — o protocolo
-`/par` com `200 {t}` | `202 {espera}` e o prefixo `AVE1:` do QR são contrato
-com JUnit e NÃO mudam), `EspelhoMdns`, `EspelhoService`, `EspelhoCert`,
-`EspelhoDiag` (conteúdo novo), `qr.js`, e de `cliente.js`: o fluxo de
-entrada, a escada de reconexão, o `guardado()` do sessionStorage, o adeus, o
-gesto de som/tela-cheia.
+Range e SSE), `EspelhoPares` (o CÓDIGO de três dígitos da v5.186 — o
+protocolo `/par {codigo}` → `200 {t}` | `403` é contrato com JUnit e NÃO
+muda), `EspelhoService`, `EspelhoCert`, `EspelhoDiag` (conteúdo novo), e de
+`cliente.js`: a escada de reconexão, o `guardado()` do sessionStorage, o
+adeus, e o botão único que gasta o gesto (entrar + som + tela cheia) — tudo
+isso MIGRA para o `tela.js` (§3.4), porque a página da tela passa a ser o
+próprio display.
 
 **Morre (na E7, nunca antes):** `EspelhoCodec`, `EspelhoAudio`,
 `EspelhoDisplay`, `MirrorPresentation`, `fmp4.js`, a maquinaria MSE de
@@ -135,18 +147,28 @@ As decisões, cada uma com o porquê e com o fato que a sustenta:
    `resendSceneToDisplay(msg.__de)` (controle.js:16027) devolve a cena
    endereçada com `__para` — o mecanismo da v5.140, intacto. O reenvio já
    leva rotate→load(time/playing)→view→text, na ordem certa.
-4. **Papel `tela` = `espelho/tela.js` carregado ANTES de `db.js`.** Ativado
-   por query explícita (`/display/index.html?tela=1` — nunca adivinhação de
-   origem: o fluxo de desenvolvimento no navegador continua). O tela.js
-   define `window.__AVBus` ANTES de db.js capturá-lo na carga (db.js:801) —
-   a mesma janela que o native.js usa. `recv` = eventos do SSE;
-   `post` = o DRENO DE SUBIDA (§5.4). Define `__AV_ROLE__='tela'` (nenhum
-   código existente testa `=== 'display'`; `ESPELHO` fica false; guardas
-   `!== 'controle'` continuam corretas). Neutraliza o `postMessage` do
-   BroadcastChannel como o papel espelho faz (duas abas no mesmo PC não
-   podem se contaminar). `__NATIVE__` fica indefinido: o comportamento
-   "navegador" do display (overlay de gesto, recuperação de autoplay) é o
-   correto aqui.
+4. **UMA PÁGINA SÓ: a tela da rede É o `/display/` com o `tela.js` de
+   casca.** A raiz `/` da LAN responde um redirect para
+   `/display/index.html?tela=1`; NÃO existe página de entrada separada. O
+   motivo é a exigência da v5.186: `requestFullscreen()` e sair do `muted`
+   exigem ativação transitória, o gesto vale segundos e **não sobrevive a
+   uma navegação** — uma página de entrada que navegasse ao display
+   perderia o gesto, e a tela entraria muda e em janela. O tela.js desenha
+   o overlay de entrada (campo de três dígitos + botão) POR CIMA do display
+   ainda vazio; o toque no botão faz, na ordem: `POST /par {codigo}` →
+   guarda o token → desmuta o `<video>` do stage → `requestFullscreen` →
+   abre o SSE — tudo no mesmo gesto, na mesma página.
+   O `tela.js` entra em `display/index.html` ANTES de `db.js` e é ativado
+   por query explícita (`?tela=1` — nunca adivinhação de origem: o fluxo
+   de desenvolvimento no navegador continua). Ele define `window.__AVBus`
+   ANTES de db.js capturá-lo na carga (db.js:801) — a mesma janela do
+   native.js. `recv` = eventos do SSE; `post` = o DRENO DE SUBIDA (§5.4).
+   Define `__AV_ROLE__='tela'` (nenhum código existente testa
+   `=== 'display'`; `ESPELHO` fica false; guardas `!== 'controle'` seguem
+   corretas). Neutraliza o `postMessage` do BroadcastChannel como o papel
+   espelho fazia (duas abas no mesmo PC não se contaminam). `__NATIVE__`
+   fica indefinido: o comportamento "navegador" do display é o correto
+   aqui. Fora do papel `tela`, o arquivo é um no-op de uma guarda.
 5. **A mídia viaja por `__rec` + `/m/<token>`.** O `load` só carrega
    `mediaId`; TUDO vem de `AVDB.getMedia` no IDB — chamado DUAS vezes
    (display.js:1549 e stage.js:735) — e numa tela da LAN o IDB está vazio e
@@ -220,14 +242,15 @@ As decisões, cada uma com o porquê e com o fato que a sustenta:
 
 ## §4 SEQUÊNCIA DE UM CULTO
 
-1. Operador liga a transmissão. Sobe servidor+mDNS+service — sem tela
-   virtual, sem codec, sem janela.
-2. Visitante abre `http://av.local:8787/` (ou o IP). Entrada pela porta
-   aberta (`POST /par` com `{aberto:true}` — protocolo intacto), token no
-   sessionStorage, navega a `/display/index.html?tela=1`.
-3. O display carrega DO CELULAR (mesmo bundle do OTA). tela.js instala o
-   transporte, abre o SSE, o init() termina e o display emite
-   `display-ready` — que sobe pelo dreno e volta como cena endereçada.
+1. Operador liga a transmissão. Sobe servidor+service — sem tela virtual,
+   sem codec, sem janela. A folha mostra o ENDEREÇO (IP) e o CÓDIGO de
+   três dígitos (v5.186).
+2. Visitante abre `http://<ip>:8787/` → redirect para
+   `/display/index.html?tela=1`, servido DO CELULAR (mesmo bundle do OTA).
+   O tela.js mostra o overlay: campo de três dígitos + botão.
+3. O toque no botão gasta o gesto: `POST /par {codigo}` → token → som +
+   tela cheia → SSE aberto → `display-ready` sobe pelo dreno e volta como
+   cena endereçada.
 4. Cada comando chega em ~10 ms. Texto renderiza vetorial. `load` traz
    `__rec` com `/m/<token>`; o navegador toca com Range e áudio próprio.
 5. A tela reporta `tela-status`; o Controle elege a referência para barra,
@@ -300,16 +323,19 @@ Cada etapa: testes verdes, Estado atualizado, commit na branch, merge em
   arquivo); rota `/e` com heartbeat+epoch e adeus; consumidor de barramento
   em `busPost` → `EspelhoServidor.difundirJson` (novo), com filas por tela
   e a conta do `TETO_EM_VOO` refeita (SSE + mídia por tela); renovação do
-  wake lock pelos writes do SSE. `SHELL_VERSION` → 36 (o lado web pergunta
-  antes de anexar `__rec`/relayar — e a UI da E6 exige ≥ 36). Prova:
+  wake lock pelos writes do SSE. `SHELL_VERSION` → **37** (36 foi tomado
+  pela v5.186; o lado web pergunta antes de anexar `__rec` — e a UI da E6
+  exige ≥ 37). Prova:
   `tools/tela-rede.test.mjs` novo (Chromium + servidor de mentira no molde
   do espelho-cliente.test) — bundle servido, SSE abre, heartbeat chega,
   adeus para o laço.
 - **E3 — papel tela, texto completo.** `espelho/tela.js` (bus, dreno de
-  subida, correção de relógio, vigília, overlay de aviso/gesto);
-  `display/index.html` ganha `<script src="../espelho/tela.js">` ANTES de
-  `db.js`, inerte fora do papel; entrada do cliente navega para
-  `?tela=1`. Prova: tela-rede.test cobre versículo com acento, cronômetro
+  subida, overlay de ENTRADA com o código e o botão de gesto único —
+  migrado de cliente.js —, correção de relógio, vigília, overlay de
+  aviso); `display/index.html` ganha `<script src="../espelho/tela.js">`
+  ANTES de `db.js`, inerte fora do papel; a raiz `/` da LAN passa a
+  responder redirect para `?tela=1`. Prova: tela-rede.test cobre a entrada
+  pelo código (certo e errado), versículo com acento, cronômetro
   com relógio da página adiantado em 90 s (a correção tem de anular),
   sorteio, cortina, text-hide, reconexão→display-ready→cena, dreno (nada
   além de display-ready/tela-status sobe), BC neutralizado.
@@ -418,8 +444,9 @@ antigo. O `EspelhoDiag` (anel) sobrevive à troca — realocado na E7.
 18. **Canal ArrayBuffer** (EspelhoAudio.instalar): WebViewCompat +
     allowedOriginRules exato + isMainFrame + teto por mensagem + fila fora
     da main — o molde do `__avTelaMidia`.
-19. **QR/pareamento têm oráculos dos dois lados** (prefixo `AVE1:`,
-    protocolo `/par`) — não se toca.
+19. ~~QR/pareamento~~ **SUPERADO pela v5.186**: a entrada é o código de
+    três dígitos (`/par {codigo}` → `200 {t}` | `403`, JUnit dos dois
+    lados); QR, filas de espera e av.local/mDNS já saíram do código.
 20. **Frases da UI do espelho** (MIRROR_TEXTO, confirmação com TV,
     'até três navegadores') descrevem custos de pixels — mentem no mundo
     novo; reescrever na E6.
