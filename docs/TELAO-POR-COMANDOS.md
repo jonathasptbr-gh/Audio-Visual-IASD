@@ -46,8 +46,8 @@
 |---|---|---|
 | E0 | Especificação fechada (este documento) | **CONCLUÍDA** (varredura 9/11 leitores; testes-CI e docs supridos pelo CLAUDE.md) |
 | E1 | Fundações puras no shell: Range RFC 7233 + framing SSE no `EspelhoHttp` — com JUnit, sem fiação | **CONCLUÍDA** (commit b756d19, CI verde: 128 JUnit, 21 novos) |
-| E2 | Servir o bundle à LAN (prefixos `web/display/`, `web/shared/`, `web/espelho/`) + rota SSE `GET /e` + tap de comandos em `busPost` → servidor | PENDENTE |
-| E3 | Papel `tela` no lado web (`espelho/tela.js` + `?tela=1`): display rodando num navegador da LAN, TEXTO completo (versículo, mensagem, cronômetro com correção de relógio, sorteio, cortina), dreno de subida, vigília de tela acesa | PENDENTE |
+| E2 | Servir o bundle à LAN (prefixos `web/display/`, `web/shared/`, `web/espelho/`) + rota SSE `GET /e` + tap de comandos em `busPost` → servidor | **CONCLUÍDA** (aguardou o CI verde do lote E2+E3) |
+| E3 | Papel `tela` no lado web (`espelho/tela.js` + `?tela=1`): display rodando num navegador da LAN, TEXTO completo (versículo, mensagem, cronômetro com correção de relógio, sorteio, cortina), dreno de subida, vigília de tela acesa | **CONCLUÍDA** (tela-rede.test 23/23 no Chromium; ligado no apk.yml) |
 | E4 | Mídia sob demanda: cache no shell + canal ArrayBuffer OPFS→shell + `GET /m/<token>` com Range + `__rec` no load + pré-busca + wallpaper | PENDENTE |
 | E5 | Status de volta (`tela-status` → ponte → Controle), eleição de referência, snoop da notificação, preview sem atraso artificial, Registro novo | PENDENTE |
 | E6 | Corte: a folha liga o caminho novo; pixels atrás de constante por um lote; frases da UI atualizadas; política YouTube sem TV | PENDENTE |
@@ -337,8 +337,9 @@ Cada etapa: testes verdes, Estado atualizado, commit na branch, merge em
   subida, overlay de ENTRADA com o código e o botão de gesto único —
   migrado de cliente.js —, correção de relógio, vigília, overlay de
   aviso); `display/index.html` ganha `<script src="../espelho/tela.js">`
-  ANTES de `db.js`, inerte fora do papel; a raiz `/` da LAN passa a
-  responder redirect para `?tela=1`. Prova: tela-rede.test cobre a entrada
+  ANTES de `db.js`, inerte fora do papel. A raiz `/` NÃO muda aqui — o
+  cliente de pixels a usa até o corte, e trocá-la agora quebraria o caminho
+  ativo (o redirect para `?tela=1` é da E6). Prova: tela-rede.test cobre a entrada
   pelo código (certo e errado), versículo com acento, cronômetro
   com relógio da página adiantado em 90 s (a correção tem de anular),
   sorteio, cortina, text-hide, reconexão→display-ready→cena, dreno (nada
