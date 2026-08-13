@@ -428,10 +428,15 @@ object EspelhoHttp {
         if (intervalo == null) return Alcance.Inteiro
         val igual = intervalo.indexOf('=')
         if (igual <= 0) return Alcance.Inteiro
-        if (!intervalo.substring(0, igual).trim().equals("bytes", ignoreCase = true)) {
+        // SEM trim interno, de propósito: o valor do cabeçalho já chegou com as
+        // pontas aparadas pelo parser, e espaço DENTRO da especificação da
+        // faixa está fora da gramática do RFC 7233. Tolerá-lo seria adivinhar —
+        // e adivinhar é como nascem as divergências de interpretação entre dois
+        // programas. Ignorado (200 inteiro), como todo malformado daqui.
+        if (!intervalo.substring(0, igual).equals("bytes", ignoreCase = true)) {
             return Alcance.Inteiro
         }
-        val resto = intervalo.substring(igual + 1).trim()
+        val resto = intervalo.substring(igual + 1)
         if (resto.contains(',')) return Alcance.Inteiro
         val traco = resto.indexOf('-')
         if (traco < 0) return Alcance.Inteiro
