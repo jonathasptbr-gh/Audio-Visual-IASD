@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.183';
+const WEB_VERSION = '5.184';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -319,7 +319,10 @@ const castPopupEl = document.getElementById('castPopup');
 const castCloseEl = document.getElementById('castClose');
 const castMirrorBtnEl = document.getElementById('castMirrorBtn');
 const castMirrorSubEl = document.getElementById('castMirrorSub');
-const castNetBtnEl = document.getElementById('castNetBtn');
+// A transmissão pelo site é um ESTADO, e desde a v5.184 ela tem a forma de um
+// estado: uma linha com interruptor, no lugar do segundo cartão de escolha.
+const castNetRowEl = document.getElementById('castNetRow');
+const castNetToggleEl = document.getElementById('castNetToggle');
 const castNetSubEl = document.getElementById('castNetSub');
 const castMsgEl = document.getElementById('castMsg');
 const mirrorOpenBtnEl = document.getElementById('mirrorOpenBtn');
@@ -14974,6 +14977,13 @@ async function lerEspelho() {
   mirrorEstado = e || null;
   recalcularAtrasoPreview();
   renderEspelho();
+  // E A FOLHA DE CONECTAR TAMBÉM (v5.184). Ela estava fora daqui desde que
+  // nasceu: quem a redesenhava era só o `abrirCast`, então tudo o que ela
+  // mostra ao vivo — o endereço que aparece quando o servidor sobe, a lista de
+  // quem está vendo, a contagem no subtítulo — congelava no instante da
+  // abertura. A enquete de 2,5 s existe justamente para essa folha estar viva
+  // enquanto o operador olha para ela, e ela alimentava a outra.
+  renderCast();
   // O ÍCONE DE CONECTAR ACOMPANHA — ele é quem diz "há tela recebendo" desde
   // que a notificação do espelho saiu da barra de status (v5.176). Sem esta
   // linha ele só seria repintado quando o TELÃO mudasse, e uma tela da rede
@@ -15537,6 +15547,12 @@ async function desligarEspelho() {
 // A folha mostra os dois com a diferença DITA, porque ela é real: o
 // espelhamento manda a TELA INTEIRA do celular (e é o caminho da TV da igreja);
 // o espelho na rede manda SÓ O TELÃO, para navegadores, sem instalar nada.
+//
+// E elas têm FORMAS diferentes desde a v5.184, porque são coisas diferentes:
+// espelhar é uma AÇÃO que sai do app (abre o seletor do fabricante, e o assunto
+// termina ali); transmitir pelo site é um ESTADO que dura o culto inteiro e que
+// o operador precisa ver, ligar e desligar. Botão para a primeira, interruptor
+// para o segundo.
 
 function abrirCast() {
   if (!castPopupEl) { if (window.__NATIVE__) AVNative.openCast(); else openWebDisplay(); return; }
@@ -15544,19 +15560,23 @@ function abrirCast() {
   texto2(castMsgEl, '');
   // O espelho na rede só existe no app, e só num shell que tenha os métodos.
   // No navegador a folha degrada para uma escolha só, que é a honesta.
-  castNetBtnEl.hidden = !espelhoDisponivel();
+  if (castNetRowEl) castNetRowEl.hidden = !espelhoDisponivel();
   renderCast();
   if (espelhoDisponivel()) {
-    // ABRIR A FOLHA JÁ LIGA O SERVIDOR (v5.171). Ninguém abre "Conectar uma
-    // tela" para não conectar — e a ordem "primeiro ligue, depois leia o
-    // endereço" existia por causa de como o recurso é construído, não por causa
-    // de quem o usa. Com a porta aberta (v5.170) não sobrou nada a decidir no
-    // meio: o endereço aparece pronto para ser digitado na TV.
+    // ABRIR A FOLHA NÃO LIGA MAIS NADA (v5.184), e isto DESFAZ a decisão da
+    // v5.171 de propósito, não por esquecimento.
     //
-    // `ligarEspelho()` já pergunta antes quando há telão conectado (o custo
-    // dobrado que a especificação manda confirmar), e é ele que continua
-    // decidindo isso — aqui não há atalho por cima da pergunta.
-    lerEspelho().then(() => { if (!espelhoLigado()) ligarEspelho(); });
+    // Aquela decisão fazia sentido enquanto a rede era um CARTÃO DE ESCOLHA:
+    // um cartão não tem como mostrar "ligado", então a folha ligava sozinha
+    // para que o endereço estivesse lá. O preço, que não estava dito, é que
+    // não havia como abrir esta tela para conferir o endereço, o alvo de
+    // espelhamento ou quem está vendo sem SUBIR UM SERVIDOR na rede da igreja
+    // — e, com o telão no ar, sem disparar a pergunta do custo dobrado.
+    //
+    // Com um interruptor o problema desaparece do outro lado: o estado é
+    // visível parado, e quem o muda é o operador. Um interruptor que já nasce
+    // ligado toda vez que a tela abre não é um interruptor, é um rótulo.
+    lerEspelho();
     sondarLeituraQr().then(renderCast);
     clearInterval(mirrorTimer);
     mirrorTimer = setInterval(lerEspelho, MIRROR_POLL_MS);
@@ -15581,39 +15601,53 @@ function renderCast() {
   const ligado = espelhoLigado();
   const e = mirrorEstado || {};
   const telas = Array.isArray(e.telas) ? e.telas : [];
+  // O INTERRUPTOR REFLETE O SHELL, nunca o toque. Ligar é assíncrono, pode
+  // pedir confirmação (o custo dobrado com o telão no ar) e pode ser recusado
+  // com uma frase — então quem escreve `checked` é sempre a leitura do estado,
+  // e o toque só PEDE. Sem isto, uma recusa deixaria a chave na posição de uma
+  // coisa que não aconteceu.
+  if (castNetToggleEl) {
+    castNetToggleEl.checked = ligado;
+    castNetToggleEl.disabled = mirrorOcupado;
+  }
   // O SUBTÍTULO CONTA O ESTADO, e não repete a promessa: com o espelho no ar o
-  // que o operador precisa saber é quantas telas estão recebendo e que o toque
-  // agora só abre a câmera.
+  // que o operador precisa saber é quantas telas estão recebendo.
   if (castNetSubEl) {
     castNetSubEl.textContent = !ligado
-      ? 'Liga o espelho e abre a câmera para ler o código da tela'
-      : (telas.length + ' tela(s) recebendo · toque para ler o código de mais uma');
-  }
-  // Sem leitor de QR o caminho continua existindo — pelos seis dígitos, na
-  // folha de ajustes. Dizer isso é melhor que oferecer uma câmera que não abre.
-  if (castNetSubEl && ligado && qrSuportado === false) {
-    castNetSubEl.textContent = telas.length + ' tela(s) recebendo · este aparelho não lê QR: '
-      + 'use o número em Ajustes';
+      ? 'Mostra o telão em navegadores da rede — ninguém instala nada'
+      : (telas.length + ' tela(s) recebendo');
   }
 
-  // O ENDEREÇO E QUEM ESTÁ VENDO, nesta mesma folha. Eram dois degraus para
-  // ler uma linha de texto.
+  // OS DOIS ENDEREÇOS E QUEM ESTÁ VENDO, nesta mesma folha. Eram dois degraus
+  // para ler uma linha de texto.
   if (castLiveEl) castLiveEl.hidden = !ligado;
   if (mirrorOpenBtnEl) mirrorOpenBtnEl.hidden = !ligado;
   if (!ligado) return;
+  // OS DOIS, e não um OU o outro: o nome é o caminho curto quando funciona, e
+  // o número é o que resta quando ele não funciona — que é o caso do Chrome do
+  // Android e da maioria das Smart TVs. Sem `av.local` (mDNS que não subiu, ou
+  // um nome já tomado na rede) sobra o número, sozinho, na linha de cima.
   const nome = e.nomeLocal || '';
   texto2(castUrlEl, nome || e.endereco || '');
   if (castUrl2El) {
     castUrl2El.hidden = !nome;
-    castUrl2El.textContent = nome ? 'ou ' + (e.endereco || '') : '';
+    // Sem o "ou": o conector é do CSS (`::before`), justamente para não entrar
+    // na seleção de quem segurar o dedo na linha para copiar o endereço.
+    castUrl2El.textContent = nome ? (e.endereco || '') : '';
   }
   // UMA linha de instrução, e ela é a única que sobrou: digite isto na TV.
   // As três ressalvas que a folha antiga trazia (isolamento de clientes,
   // carregador, som parcial) continuam no Registro e nos Ajustes — repeti-las
   // aqui era o texto que o operador pediu para tirar.
+  //
+  // "ESTE" ou "UM DESTES" conforme o que está desenhado acima: com o `av.local`
+  // no ar são dois endereços na tela, e mandar digitar "este" deixa o operador
+  // escolhendo qual dos dois a frase quis dizer — que é justamente a dúvida
+  // que ela existe para não ter.
+  const qual = nome ? 'um destes endereços' : 'este endereço';
   texto2(castHintEl, telas.length
-    ? 'Digite este endereço no navegador de outra tela para acrescentá-la.'
-    : 'Digite este endereço no navegador da TV — ela entra sozinha.');
+    ? 'Digite ' + qual + ' no navegador de outra tela para acrescentá-la.'
+    : 'Digite ' + qual + ' no navegador da TV — ela entra sozinha.');
   renderCastTelas(telas);
 }
 
@@ -15706,40 +15740,39 @@ if (mirrorOpenBtnEl) {
     if (window.__NATIVE__) AVNative.openCast();
     else openWebDisplay();
   });
-  // MOSTRAR NUMA TELA DA REDE: um toque, as duas coisas.
+  // ATIVAR A TRANSMISSÃO PELO SITE: o interruptor, e ele é a única coisa desta
+  // folha que sobe ou derruba o servidor.
   //
-  // Ligar o espelho e ler o código eram dois passos porque é assim que o
-  // recurso é CONSTRUÍDO — primeiro sobe o servidor, depois a tela mostra o
-  // QR —, e não porque o operador tenha duas decisões a tomar. Ele tem uma:
-  // "quero aquela tela mostrando o culto". A ordem é problema nosso.
-  castNetBtnEl.addEventListener('click', async () => {
+  // O `change` de uma caixa de marcação já vem com a posição NOVA, e é ela que
+  // diz o que o operador pediu — mas quem decide o desfecho é o shell: ligar
+  // pode ser recusado ("só liga em Wi-Fi", "sem encoder livre agora") e pode
+  // pedir confirmação antes (o custo dobrado com o telão no ar). Por isso o
+  // `renderCast()` do fim reescreve `checked` a partir do ESTADO, e não da
+  // posição em que o dedo deixou a chave.
+  castNetToggleEl.addEventListener('change', async () => {
     if (!espelhoDisponivel()) return;
-    if (!espelhoLigado()) {
-      texto2(castMsgEl, 'Ligando o espelho…');
+    const quer = castNetToggleEl.checked;
+    if (quer === espelhoLigado()) return;    // já está como se pediu
+    // A CHAVE FECHA ENQUANTO O SHELL RESPONDE. Ligar espera uma confirmação e
+    // uma resposta da ponte; um segundo toque nesse intervalo cairia na guarda
+    // de `mirrorOcupado` e voltaria `false` — indistinguível, na tela, de uma
+    // recusa de verdade ("não deu para ligar") por um toque que o operador deu
+    // só porque o primeiro parecia não ter feito nada.
+    castNetToggleEl.disabled = true;
+    if (quer) {
+      texto2(castMsgEl, 'Ligando a transmissão…');
       const ok = await ligarEspelho();
-      if (!ok) {
-        // A frase da falha já saiu pelo `avisar` (ela vem pronta do Kotlin:
-        // "só liga em Wi-Fi", "sem encoder livre agora"). Aqui fica a saída.
-        texto2(castMsgEl, 'Não deu para ligar o espelho — veja o aviso acima. '
-          + 'Os ajustes ficam no botão abaixo.');
-        return;
-      }
-      // A TELA PRECISA DE UM INSTANTE PARA APARECER: quem desenha o QR é o
-      // navegador do outro lado, e ele só o pede depois de carregar a página.
-      // Abrir a câmera antes disso mostraria um visor apontado para uma tela
-      // que ainda não tem código — indistinguível de "a leitura não funciona".
-      texto2(castMsgEl, 'Espelho ligado. Abra o endereço na tela e aponte a câmera.');
+      // A frase da falha já saiu pelo `avisar` (ela vem pronta do Kotlin).
+      // Aqui fica a saída — e ela aponta para onde o operador pode agir.
+      texto2(castMsgEl, ok
+        ? 'Transmissão no ar. Digite o endereço abaixo no navegador da tela.'
+        : 'Não deu para ligar — veja o aviso acima.');
+    } else {
+      texto2(castMsgEl, 'Desligando…');
+      await desligarEspelho();
+      texto2(castMsgEl, '');
     }
     renderCast();
-    if (qrSuportado === null) await sondarLeituraQr();
-    if (qrSuportado !== true) {
-      // Sem câmera ou sem leitor, o caminho continua existindo — pelos seis
-      // dígitos. Dizer isso é melhor que abrir um visor que nunca vai ler.
-      texto2(castMsgEl, 'Este aparelho não lê códigos QR. Abra os ajustes: '
-        + 'o número de seis dígitos continua valendo.');
-      return;
-    }
-    abrirLeitorQr();
   });
   mirrorCertAddEl.addEventListener('click', importarCertEspelho);
   mirrorCertDelEl.addEventListener('click', removerCertEspelho);

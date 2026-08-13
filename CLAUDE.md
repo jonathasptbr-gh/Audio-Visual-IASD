@@ -1505,13 +1505,51 @@ app também fecha, pelo mesmo motivo pelo qual o push-to-talk fecha.
   enquanto o espelho na rede vivia numa linha de Configurações que só quem já
   sabia dele iria procurar. São dois caminhos técnicos para UMA decisão do
   operador. Agora ele abre uma folha (`castPopup`, z-index 200) com os dois e a
-  diferença dita — *a tela inteira do celular* × *só o telão, para navegadores*
-  —, e **"Mostrar numa tela da rede" liga o espelho e abre o leitor de QR num
-  toque**: a ordem entre as duas coisas existe por causa de como o recurso é
-  construído, não por causa de quem o usa. A folha do espelho (endereço, PIN,
-  telas, certificado) continua existindo como **Ajustes**, agora aberta de
-  dentro dela — e por isso o par `castPopup`/`mirrorPopup` entrou na asserção de
-  empilhamento do `tools/smoke.mjs`.
+  diferença dita — *a tela inteira do celular* × *só o telão, para navegadores*.
+  A folha do espelho (PIN, QR, certificado) continua existindo como **Ajustes**,
+  aberta de dentro dela — e por isso o par `castPopup`/`mirrorPopup` entrou na
+  asserção de empilhamento do `tools/smoke.mjs`.
+- **E AS DUAS TÊM FORMAS DIFERENTES, porque são coisas diferentes** (v5.184).
+  Espelhar é uma **ação** que sai do app (abre o seletor do fabricante, e o
+  assunto termina ali); transmitir pelo site é um **estado** que dura o culto.
+  Eram o mesmo cartão de escolha, e um cartão não sabe dizer "ligado" — daí a
+  folha LIGAR o servidor ao ser aberta (v5.171). O preço, que não estava dito:
+  não havia como abrir aquela tela para conferir o endereço, o alvo de
+  espelhamento ou quem está vendo **sem subir um `ServerSocket` na rede da
+  igreja**, nem sem disparar a pergunta do custo dobrado com o telão no ar.
+  Agora é **um botão** ("Espelhar para TV", preenchido em `--accent-fill` com
+  `--on-accent` — a anatomia de botão principal do app) e **um interruptor**
+  ("Ativar transmissão pelo site", âmbar preenchido com borda em `--accent`
+  quando ligado, pela regra da paleta de que quem diz "selecionado" é a borda).
+  Abrir a folha voltou a ser só ler. `tools/smoke.mjs` trava os dois papéis do
+  âmbar: trocar `--accent` por `--accent-fill` ali sai um botão âmbar-claro com
+  texto quase branco por cima, abaixo do piso de contraste, e só um par de olhos
+  no aparelho notaria.
+- **E OS DOIS ENDEREÇOS TÊM O MESMO PESO.** `av.local` era corpo grande e o IP
+  era legenda em `--muted` — o contrário do que vale: `.local` **não** resolve
+  no Chrome do Android nem na maioria das Smart TVs, então o número é o que
+  funciona quando o nome falha, e os dois são digitados no mesmo controle
+  remoto.
+- **A folha estava CONGELADA no instante da abertura, e ninguém tinha visto.**
+  `lerEspelho()` — a enquete de 2,5 s que existe justamente para essa tela estar
+  viva enquanto o operador olha para ela — chamava `renderEspelho()` e
+  `renderCastBtn()`, e **nunca** `renderCast()`. Uma tela que entrasse depois da
+  abertura não aparecia na lista; o endereço não aparecia quando o servidor
+  subia. Defeito de omissão, sem sintoma no lugar da causa: a folha simplesmente
+  não mudava, o que se lê como "ninguém conectou".
+- **E TRÊS ÍCONES DA UI DE CONEXÃO NUNCA FORAM DESENHADOS** (v5.184). `&#xe307;`
+  (cabeçalho da folha), `&#xe8ad;` (espelhar) e `&#xe3b0;` (ler o código) estão
+  **ausentes do subconjunto** em `shared/fonts/material-symbols.woff2` — uma
+  fonte gerada à mão ("só os ícones usados", diz o cabeçalho dela) que nunca foi
+  regerada quando esta UI nasceu. O modo de falhar é o mais mudo que uma fonte
+  tem: o codepoint está no cmap, então o navegador reserva a largura de avanço e
+  **não** cai no fallback — nada de tofu, só um vão do tamanho exato de um
+  ícone, que se lê como desalinhamento. Medido com `getImageData` sobre os 32
+  codepoints do bundle: exatamente estes três dão zero pixel de tinta. Viraram
+  `<symbol>`/`<use>` inline, como a engrenagem e o texto corrido já eram — e
+  assim deixam de depender de um artefato binário que nenhum diff revisa.
+  **Corolário: ícone novo em `.msym` precisa ser CONFERIDO em pixel**, porque
+  nem o CI nem o olho num diff pegam este caso.
 - **O REGISTRO DO ESPELHO GANHOU A METADE QUE FALTAVA** (v5.156). Ele respondia
   "quantos bytes eu escrevi"; a pergunta do operador é "por que a tela está
   travando", e ela mora inteira do lado da TELA. O `POST /r` — que é
@@ -2418,10 +2456,26 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.183** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
+**Versão atual: v5.184** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.184: A FOLHA DE CONECTAR LIGAVA O SERVIDOR PARA PODER MOSTRAR O
+> ESTADO — e isso é uma falha de FORMA, não de código. OTA PURO.** As duas
+> maneiras de conectar eram o mesmo cartão de escolha, e um cartão não sabe
+> dizer "ligado": daí o `abrirCast` da v5.171 subir um `ServerSocket` na rede da
+> igreja pelo simples fato de alguém ter aberto a tela para ler o endereço.
+> Agora são **um botão** (a ação, que sai do app) e **um interruptor** (o
+> estado, que dura o culto), com os dois endereços de acesso embaixo — e abrir a
+> folha voltou a ser só ler. Vieram junto três defeitos que a redação achou pelo
+> caminho, e os três estavam calados: a folha nunca era redesenhada pela enquete
+> de 2,5 s (uma tela que entrasse depois da abertura não aparecia), os dois
+> endereços tinham pesos tipográficos opostos ao que vale na prática, e **três
+> ícones desta UI nunca chegaram a existir na fonte** — codepoint no cmap,
+> contorno vazio, um vão do tamanho de um ícone e nenhum tofu que o denunciasse.
+> A seção do espelho tem os cinco itens, e `docs/ESPELHO-DE-PIXELS.md` §10-A.12
+> tem o porquê de cada um.
 
 > **A v5.183 (v1.73): AS TRÊS DE REDE — a metade que faltava, e a mais
 > arriscada. EXIGE APK, e exige ser ligada NUMA TERÇA-FEIRA.** Ela mexe no

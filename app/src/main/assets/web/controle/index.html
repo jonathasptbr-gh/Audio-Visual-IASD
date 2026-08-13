@@ -31,15 +31,30 @@
      leitura SÍNCRONA (localStorage), antes do primeiro quadro: uma leitura do
      IDB chegaria tarde e a tela trocaria embaixo do dedo. Ver "Modos de uso". -->
 <body class="mode-simple">
-  <!-- ÍCONES DEFINIDOS UMA VEZ (<symbol> + <use>): os dois desenhos que
-       aparecem em DOIS lugares cada — a engrenagem (porta de Configurações no
-       mixer e cabeçalho do próprio popup) e o "texto corrido" (botão da letra
-       no mixer e cabeçalho da leitura auxiliar). Eram cópias byte a byte, e
-       cópia diverge no primeiro ajuste. Os atributos de APRESENTAÇÃO
-       (fill/stroke/espessura/tamanho) ficam no <svg> de cada ponto de uso e
-       são HERDADOS pelo conteúdo do símbolo — cada uso mantém o tamanho da
-       escala da folha e a própria cor, sem tocar no desenho. O contêiner é
-       `hidden` (nunca desenhado); um <use> clona dele mesmo assim. -->
+  <!-- ÍCONES DEFINIDOS UMA VEZ (<symbol> + <use>): os desenhos que aparecem em
+       mais de um lugar — a engrenagem (porta de Configurações no mixer e
+       cabeçalho do próprio popup), o "texto corrido" (botão da letra no mixer e
+       cabeçalho da leitura auxiliar) e os TRÊS da conexão (ver abaixo). Eram
+       cópias byte a byte, e cópia diverge no primeiro ajuste. Os atributos de
+       APRESENTAÇÃO (fill/stroke/espessura/tamanho) ficam no <svg> de cada ponto
+       de uso e são HERDADOS pelo conteúdo do símbolo — cada uso mantém o
+       tamanho da escala da folha e a própria cor, sem tocar no desenho. O
+       contêiner é `hidden` (nunca desenhado); um <use> clona dele mesmo assim.
+
+       OS TRÊS DA CONEXÃO SÃO UMA CORREÇÃO, não uma preferência de desenho
+       (v5.184). Eles eram glifos da fonte de ícones — `&#xe307;`, `&#xe8ad;` e
+       `&#xe3b0;` — e os três estão AUSENTES do subconjunto em
+       `shared/fonts/material-symbols.woff2`: a fonte é um subconjunto gerado à
+       mão ("só os ícones usados", diz o cabeçalho dela) e nunca foi regerada
+       quando a UI de conexão nasceu. O modo de falhar é o mais mudo que existe
+       numa fonte: o codepoint ESTÁ no cmap (o navegador reserva a largura de
+       avanço e não cai no fallback, então não aparece tofu) e o contorno está
+       vazio. Resultado: um vão do tamanho exato de um ícone no cabeçalho da
+       folha e à esquerda do rótulo dos dois botões — que se lê como
+       desalinhamento, não como ícone faltando. Medido com `getImageData` sobre
+       os 32 codepoints do bundle: exatamente estes três dão zero pixel de
+       tinta. Em SVG eles não dependem mais da fonte, e são a mesma anatomia dos
+       outros dois símbolos daqui. -->
   <svg hidden aria-hidden="true">
     <symbol id="icoGear" viewBox="0 0 24 24">
       <circle cx="12" cy="12" r="3.2"/>
@@ -50,6 +65,37 @@
       <line x1="7.2" y1="8" x2="16.8" y2="8"/>
       <line x1="7.2" y1="12" x2="16.8" y2="12"/>
       <line x1="7.2" y1="16" x2="12.8" y2="16"/>
+    </symbol>
+    <!-- CONECTAR: a tela com as ondas saindo do canto — o desenho universal de
+         "pôr isto noutra tela", que é literalmente o título da folha. O canto
+         inferior esquerdo do quadro fica ABERTO de propósito: é ele que dá
+         lugar às ondas, e fechá-lo transforma o ícone em dois desenhos
+         empilhados num quadrado de 20px. -->
+    <symbol id="icoCast" viewBox="0 0 24 24">
+      <path d="M3 7.6V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-7"/>
+      <path d="M3 12.2a7.8 7.8 0 0 1 7.8 7.8"/>
+      <path d="M3 16.4a3.6 3.6 0 0 1 3.6 3.6"/>
+      <path d="M3.1 20h.01"/>
+    </symbol>
+    <!-- ESPELHAR PARA TV: a tela com a seta ENTRANDO nela. A seta é o que
+         separa este do de cima — um é "que telas existem", o outro é "manda
+         para lá agora". -->
+    <symbol id="icoEspelhar" viewBox="0 0 24 24">
+      <rect x="2.5" y="3.5" width="19" height="14" rx="2"/>
+      <path d="M12 17.5V21"/>
+      <path d="M8.5 21h7"/>
+      <path d="M12 14.2V7.6"/>
+      <path d="m9.2 10.4 2.8-2.8 2.8 2.8"/>
+    </symbol>
+    <!-- LER O CÓDIGO: os quatro cantos de uma mira, com dois módulos dentro.
+         Os cantos são o que diz "aponte a câmera", e não "aqui tem um QR". -->
+    <symbol id="icoQr" viewBox="0 0 24 24">
+      <path d="M3 8.5V5a2 2 0 0 1 2-2h3.5"/>
+      <path d="M15.5 3H19a2 2 0 0 1 2 2v3.5"/>
+      <path d="M21 15.5V19a2 2 0 0 1-2 2h-3.5"/>
+      <path d="M8.5 21H5a2 2 0 0 1-2-2v-3.5"/>
+      <rect x="7.2" y="7.2" width="4.2" height="4.2" rx=".8"/>
+      <rect x="12.6" y="12.6" width="4.2" height="4.2" rx=".8"/>
     </symbol>
   </svg>
   <!-- MODO SIMPLIFICADO: conectar a tela, buscar a música, tocar. Os controles
@@ -733,7 +779,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.183</span>
+        <span id="appVersion" class="app-version">Controle v5.184</span>
         <!-- O APK NOVO, quando existir. Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso. `hidden`
@@ -754,40 +800,63 @@
        A diferença entre os dois, dita em uma linha cada, porque ela é real: o
        espelhamento manda a TELA INTEIRA do celular (e é o caminho da TV da
        igreja); o espelho na rede manda SÓ O TELÃO, para navegadores, sem
-       instalar nada. -->
+       instalar nada.
+
+       AS DUAS FORMAS TÊM FORMAS DIFERENTES (v5.184), e isso é o desenho, não
+       enfeite: espelhar é uma AÇÃO que sai do app (abre o seletor do
+       fabricante e o assunto acaba ali), e a transmissão pelo site é um ESTADO
+       que dura o culto inteiro. Até aqui as duas eram o mesmo cartão de
+       escolha, e o preço estava dito no próprio código: a folha LIGAVA o
+       servidor ao ser aberta, porque um cartão não tem como mostrar "ligado" —
+       ou seja, o operador não tinha como abrir esta tela para ver o endereço
+       sem subir um servidor na rede da igreja. Botão para a ação, interruptor
+       para o estado, e o endereço aparece embaixo quando há endereço. -->
   <div id="castPopup" class="popup-backdrop">
     <div class="popup-sheet">
       <div class="popup-header">
-        <span class="msym popup-header-icon" aria-hidden="true">&#xe307;</span>
+        <span class="popup-header-icon">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCast"/></svg>
+        </span>
         <span class="popup-title">Conectar uma tela</span>
         <button id="castClose" class="popup-close" title="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
       </div>
       <div class="mirror-body">
-        <button type="button" id="castMirrorBtn" class="cast-choice">
-          <span class="msym" aria-hidden="true">&#xe8ad;</span>
-          <span class="cast-choice-txt">
-            <b>Espelhar a tela na TV</b>
+        <!-- A AÇÃO, e a única desta folha: preenchida no âmbar, que é o que o
+             app usa para "o botão principal desta tela" (a mesma anatomia da
+             pílula de ler o QR e da aba ativa). -->
+        <button type="button" id="castMirrorBtn" class="cast-acao">
+          <svg class="cast-acao-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoEspelhar"/></svg>
+          <span class="cast-acao-txt">
+            <b>Espelhar para TV</b>
             <small id="castMirrorSub">Smart View, MiraScreen ou cabo — manda a tela inteira do celular</small>
           </span>
         </button>
-        <!-- O CAMINHO CURTO, e ele faz as DUAS coisas num toque: liga o espelho
-             (se ainda não estiver) e abre o leitor de QR. Separá-los era pedir
-             ao operador que soubesse que existe uma ordem — e a ordem só existe
-             por causa de como o recurso é construído, não por causa dele. -->
-        <button type="button" id="castNetBtn" class="cast-choice" hidden>
-          <span class="msym" aria-hidden="true">&#xe1b0;</span>
-          <span class="cast-choice-txt">
-            <b>Mostrar numa tela da rede</b>
-            <small id="castNetSub">Liga o espelho e abre a câmera para ler o código da tela</small>
+
+        <!-- O ESTADO. O interruptor é a ÚNICA coisa desta folha que liga e
+             desliga o servidor — abrir a folha não liga mais nada (v5.184).
+             Um interruptor que já nasce ligado toda vez que a tela abre não é
+             um interruptor: é um rótulo. -->
+        <label class="cast-sw-row" id="castNetRow" hidden>
+          <span class="cast-sw-txt">
+            <b>Ativar transmissão pelo site</b>
+            <small id="castNetSub">Mostra o telão em navegadores da rede — ninguém instala nada</small>
           </span>
-        </button>
+          <input type="checkbox" id="castNetToggle" class="cast-sw-input" role="switch">
+          <span class="cast-sw" aria-hidden="true"></span>
+        </label>
+
         <p class="mirror-lead" id="castMsg" role="status" aria-live="polite"></p>
 
-        <!-- O ENDEREÇO E QUEM ESTÁ VENDO, aqui mesmo (v5.171).
-             Eram dois degraus de folha para ler uma linha de texto. Desde que a
-             porta nasce aberta (v5.170) não há mais nada a decidir no meio do
-             caminho: o operador precisa do endereço para digitar na TV e da
-             lista para saber quem entrou — e as duas coisas cabem nesta folha. -->
+        <!-- OS DOIS ENDEREÇOS DE ACESSO, e os dois valem: `av.local` é o que se
+             digita sem decorar número, e o IP é o que funciona quando o `.local`
+             não resolve — o que é o caso do Chrome do Android e da maioria das
+             Smart TVs (ver docs/ESPELHO-DE-PIXELS.md). Por isso um nunca
+             substitui o outro na tela: eles aparecem juntos.
+
+             Junto deles, quem já está vendo — com a porta aberta (v5.170) esta
+             lista é o controle de verdade, porque o dano de um curioso na rede
+             não é ele ver o que a congregação já vê, é ele ocupar uma das três
+             vagas. -->
         <div id="castLive" hidden>
           <div class="cast-addr">
             <span class="cast-url" id="castUrl"></span>
@@ -797,9 +866,9 @@
           <ul class="cast-telas" id="castTelas"></ul>
         </div>
 
-        <!-- Os ajustes que sobraram (PIN como plano B, certificado, o
-             interruptor da porta) continuam existindo numa folha própria — só
-             deixaram de estar no caminho de quem só quer conectar uma tela. -->
+        <!-- Os ajustes que sobraram (PIN como plano B, leitura do QR,
+             certificado) continuam existindo numa folha própria — só deixaram
+             de estar no caminho de quem só quer conectar uma tela. -->
         <button type="button" class="cast-link" id="mirrorOpenBtn" hidden>Ajustes avançados</button>
       </div>
     </div>
@@ -845,7 +914,7 @@
              tem `requestCam` e o aparelho sabe ler QR: botão que não faz nada no
              meio de um culto é pior que botão nenhum. -->
         <button type="button" id="mirrorScan" class="mirror-scan" hidden>
-          <span class="msym" aria-hidden="true">&#xe3b0;</span>
+          <svg class="mirror-scan-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoQr"/></svg>
           <span>Ler o código da tela</span>
         </button>
         <!-- O DEGRAU DE TLS. Ele é opcional por construção (ver
@@ -894,7 +963,9 @@
   <div id="qrPopup" class="popup-backdrop popup-backdrop--full">
     <div class="popup-sheet popup-sheet--full">
       <div class="popup-header">
-        <span class="msym popup-header-icon" aria-hidden="true">&#xe3b0;</span>
+        <span class="popup-header-icon">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoQr"/></svg>
+        </span>
         <span class="popup-title">Ler o código da tela</span>
         <button id="qrClose" class="popup-close" title="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
       </div>
