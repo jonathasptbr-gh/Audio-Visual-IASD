@@ -2270,6 +2270,83 @@ contraste, e só um par de olhos no aparelho notaria.
 
 **O lote é OTA** — nenhuma linha de Kotlin.
 
+### 10-A.13 — o eixo do som era um laço ABERTO, e por isso a deriva era eterna (5.185)
+
+O relato: *"o som fica para trás e a imagem continua, a tela fica sem áudio"*. As três frases não são
+três sintomas — são **a sequência inteira de um defeito só**, e a última delas é literalmente o que o
+`cliente.js` escreve: `soltarAudio('o som ficou para trás')`.
+
+**Os dois eixos são de naturezas diferentes, e essa parte é desenho, não defeito.** O vídeo é
+`brutoUs - baseUs` — relógio monotônico, anda sozinho. O som é `ancoraUs + amostras × 1e6 / taxa` —
+**contagem de amostras**, só anda quando chega PCM. O que faltava é o que fecha isso: **nada, em
+lugar nenhum, conferia uma coisa contra a outra.** O `EspelhoAudio` produzia, o `EspelhoServidor`
+entregava, o cliente media `bv.end - ba.end` e desistia aos 3 s — e o único lado com poder de
+consertar era o único que não estava olhando.
+
+Três produtores de deriva, todos reais, todos **permanentes** e todos **acumulativos**:
+
+1. **O `AudioWorklet` engasgando.** Os três WebViews dividem UM processo (invariante 3), e a §10-A.11
+   documenta uma rotatividade de decodificador que rouba exatamente esse fio. Enquanto ele não
+   produz, o eixo do som PARA e o do vídeo segue andando. Um engasgo de 1,2 s é 1,2 s de defasagem
+   **para o resto do culto**.
+2. **O relógio do hardware de áudio**, que não é o do sistema. Dezenas a centenas de ppm são décimos
+   de segundo por hora, e um culto tem duas.
+3. **PCM perdido dentro do `alimentar`** — e este era um defeito de verdade. A regra "o que não coube
+   CONTA assim mesmo" estava escrita e aplicada em `aoReceberPcm` (fila cheia), e **faltava em cinco
+   saídas** do `alimentar`: encoder sem buffer de entrada depois de `TENTATIVAS`,
+   `IllegalStateException` no `dequeue`, no `getInputBuffer` ou no `queueInputBuffer`, e o buffer
+   curto demais para um quadro de amostras. Cada uma devolvia o resto do bloco ao nada **sem somar as
+   amostras dele**, recuando o eixo permanentemente.
+
+E o desfecho tinha um segundo andar, que é o que transforma "dessincronizado" em **mudo**: soltar a
+faixa **não desfaz a deriva**, porque ela está no celular. A tela remontava, `vigiarAudio` media o
+MESMO desvio no primeiro giro e soltava de novo — três vezes em poucos segundos. O teto de
+remontagens se esgotava, e renová-lo exige 45 s de som limpo que nunca iam acontecer. Muda pelo resto
+do culto, com o Registro dizendo, com toda a razão, que o AAC estava chegando.
+
+**A correção fecha o laço, e a metade que importa é o produtor.** `EspelhoAudio.corrigirDeriva` mede
+`(relógio desde a âncora) − (amostras recebidas + silêncio inserido) ÷ taxa` antes de cada bloco, e
+age:
+
+- **abaixo de `DERIVA_MIN_US` (250 ms) não mexe em nada.** A chegada dos blocos tem jitter próprio
+  (`postMessage` na main thread), e corrigir 20 ms a cada bloco trocaria uma deriva por um serrilhado.
+- **entre a zona morta e 3 s, insere SILÊNCIO**, em passos de `TETO_SILENCIO_US`. Isto não é
+  reancoragem: o eixo continua sendo contagem de amostras, o `buffered` continua colado, e o muxer
+  não estica amostra nenhuma. O ouvinte percebe o que de fato aconteceu — um trecho mudo do tamanho
+  do engasgo — e depois dele o som volta **alinhado** em vez de voltar atrasado para sempre.
+- **acima de 3 s, reancora.** O limiar não é escolhido: é o `AUDIO_MUDO_MS` do cliente. Passado ele a
+  tela já soltou a faixa e vai remontá-la, então não há continuidade a preservar e encher três
+  segundos de silêncio só atrasaria a volta. É a mesma reancoragem da página que renasce (v5.182).
+
+**A medida é contra o PCM RECEBIDO, nunca contra o consumido**, e essa é a armadilha que a primeira
+escrita desta correção caiu: entre a entrega e o consumo há uma fila de até `FILA_BLOCOS` × ~40 ms.
+Um engasgo da main thread empilha blocos lá dentro, e medir do lado do encoder leria isso como "o
+som parou de ser produzido" — a correção encheria de silêncio um buraco que os blocos empilhados
+fechariam sozinhos meio segundo depois, jogando o som **à frente** do vídeo. Que é o único erro que
+este desenho não tem como desfazer, porque a correção para trás é rebobinar o `tfdt`.
+
+Do lado do cliente entra a guarda que faltava: **`voltouOSom` não remonta enquanto o fio ainda
+mostrar o som mais de `ATRASO_VOLTA_S` (1,5 s) atrás.** Ela não conserta a deriva — quem conserta é o
+celular — mas impede que os três créditos de remontagem sejam queimados **antes** de a correção
+chegar, e faz a tela voltar a ter som sozinha no instante do realinhamento. `vigiarAudio` não servia
+para responder isso: ele mede `bv.end - ba.end`, e com a faixa solta não existe `ba`. Os carimbos
+crus do fio existem sempre — daí `desvioDoFio`.
+
+**E o Registro ganhou a linha que faltava o tempo todo.** "O som ficou para trás" era escrito pela
+TELA, e do lado do celular não havia **uma** medida que o confirmasse ou o desmentisse: o operador
+via `24 blocos de PCM/s`, `7424 quadro(s)`, `0 descarte(s)` — tudo saudável — e uma tela muda. Agora
+sai `som atrás do vídeo: agora N ms · pior M ms`, com as correções e o silêncio inserido, e um alarme
+quando o pior passou dos 3 s em que a tela desiste.
+
+**Metade APK, metade OTA**, e as duas degradam sozinhas: a correção da deriva é Kotlin e **só chega
+instalando o APK**; a guarda do `voltouOSom` e a linha do Registro chegam por OTA e valem sozinhas —
+num shell antigo `derivaMs` vem `undefined` e a linha simplesmente não é desenhada, como manda a
+regra do bloco. `SHELL_VERSION` **não sobe**: nenhum método da ponte nasceu ou mudou de assinatura.
+
+**O que ficou de fora, e está dito:** o embed do YouTube segue sem áudio (iframe de outra origem) e o
+microfone ao vivo segue proibido de sair na rede. As duas são decisões do §3.9, não consequências
+deste defeito.
+
 ---
 
 ## 11. A FRASE PARA O OPERADOR

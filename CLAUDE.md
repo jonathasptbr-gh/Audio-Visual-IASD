@@ -1389,7 +1389,7 @@ mesmo?"), lembrada pela sessão.
 | `EspelhoServidor.kt` | sockets, rotas, fan-out. **Bind explícito ao IPv4 da Wi-Fi**, e recusa em celular/VPN: um `ServerSocket(porta)` liga em `0.0.0.0` — inclusive `rmnet`, e operadoras brasileiras entregam IPv6 globalmente roteável ao aparelho. Seria o culto em H.264 numa porta alcançável do mundo |
 | `EspelhoService.kt` | foreground service **`connectedDevice`** (sem cota, ao contrário do `dataSync` que o app já gasta). Exige `CHANGE_WIFI_MULTICAST_STATE` no manifest — sem ela `startForeground` **lança** |
 | `EspelhoMdnsPacote.kt` · `EspelhoMdns.kt` | **`av.local`.** O primeiro é **puro, com JUnit**, pela mesma regra do `EspelhoHttp` — e aqui um erro de parser vira **laço infinito**, porque ponteiro de compressão de DNS é um grafo que pode apontar para trás. O segundo é o socket 5353 com `MulticastLock` (sem ele o Android **não entrega o pacote**: o socket abre, o `joinGroup` funciona, e o `receive` nunca volta), a sondagem que impede roubar um nome alheio, e a despedida com TTL 0. **`NsdManager` não serviria**: ele publica um SERVIÇO, e serviço não vira nome que se digita numa TV. **A porta FICA na URL** (portas < 1024 são privilegiadas no Linux; nenhum app Android as reivindica) e **o IP continua divulgado ao lado**, porque `.local` não resolve no Chrome do Android nem na maioria das Smart TVs |
-| `EspelhoAudio.kt` | o PCM que o `AudioWorklet` do WebView do espelho entrega, virando AAC no mesmo fio. **O `AudioWorklet` existe ali porque aquele WebView É contexto seguro** (invariante 1) mesmo com o cliente em `http://` — o princípio geral: *tudo que precisa de contexto seguro pode ir para DENTRO do WebView* |
+| `EspelhoAudio.kt` | o PCM que o `AudioWorklet` do WebView do espelho entrega, virando AAC no mesmo fio. **O `AudioWorklet` existe ali porque aquele WebView É contexto seguro** (invariante 1) mesmo com o cliente em `http://` — o princípio geral: *tudo que precisa de contexto seguro pode ir para DENTRO do WebView*. E o eixo de tempo dele é **contagem de amostras**, conferido contra o relógio a cada bloco desde a v5.185 (`corrigirDeriva`): sem essa conferência toda interrupção do PCM vira defasagem PERMANENTE, e ela acumula até a tela soltar a faixa de som |
 | `EspelhoCert.kt` | o `.p12` do degrau de TLS: guarda, diz até quando vale, e **recusa o vencido** (subir com ele é a tela vermelha que o TLS existe para evitar). A senha do operador NÃO fica: o arquivo é reescrito com uma senha nossa de 128 bits |
 | `EspelhoDiag.kt` | o anel. **Devolve JSON, não texto** — quem monta a frase é o `controle.js`. Ele vive num `object` e SOBREVIVE a desligar e ligar o espelho, então a âncora do atraso precisa ser zerada por `novaSessao()` — a guarda de "o carimbo andou para trás" não pega o caso em que a base do codec não rebobina, e o tempo de espelho DESLIGADO era impresso como fila de encoder (v5.146) |
 | `assets/web/espelho/` | a página do cliente (uma página, dois estados), o muxer fMP4 em JS e o **codificador de QR** (`qr.js`, nível M versões 1–6, ~330 linhas sem dependência — o oráculo que o valida DECODIFICA o símbolo, em `tools/qr.test.mjs`) |
@@ -2240,11 +2240,20 @@ rodava no default do Playwright por acidente, e fixado ali ele **prova a decisã
 de densidade do espelho sem aparelho**.
 
 **E há um passo de JUnit no CI desde a v5.143:** `./gradlew testDebugUnitTest`,
-**sem `continue-on-error`**, antes do `assembleRelease`, cobrindo os dois
-arquivos PUROS do espelho (`app/src/test/.../EspelhoHttpTest.kt` e
-`EspelhoParesTest.kt`): tetos do parser, `read()` parcial, `Host` fora da
-allowlist, `Origin` estranha, 404 uniforme, PIN, prazo, bloqueio por origem,
-teto de sessões e saneamento. É a primeira fronteira de rede do projeto, e é o
+**sem `continue-on-error`**, antes do `assembleRelease`, cobrindo os arquivos
+PUROS do espelho (`app/src/test/.../EspelhoHttpTest.kt` e `EspelhoParesTest.kt`,
+mais `EspelhoMdnsPacoteTest.kt`): tetos do parser, `read()` parcial, `Host` fora
+da allowlist, `Origin` estranha, 404 uniforme, PIN, prazo, bloqueio por origem,
+teto de sessões e saneamento. **E a REGRA DA DERIVA DO SOM** desde a v5.185
+(`EspelhoAudioTest.kt`, sobre `EspelhoAudio.planoDeCorrecao`): o resto daquele
+arquivo é `MediaCodec` e threads e não cabe num teste de unidade, mas a regra é
+aritmética — e é ela que decide se a tela da rede fica com som ou fica muda pelo
+resto do culto. As duas propriedades que ela trava valem escritas, porque
+inverter qualquer uma transforma a correção no defeito: **o silêncio inserido
+nunca passa da deriva medida** (passar poria o som À FRENTE do vídeo, e a
+correção para trás é rebobinar o `tfdt`) e **toda deriva acima da zona morta
+produz um passo que a encolhe de verdade** (migalhas deixariam a correção
+disparando a cada bloco sem nunca alcançar). É a primeira fronteira de rede do projeto, e é o
 único lugar dele em que um erro vira controle de acesso quebrado em vez de pixel
 errado — ver a quarta exceção nas regras de desenvolvimento.
 
@@ -2456,10 +2465,66 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.184** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
+**Versão atual: v5.185** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.185 (v1.74): O EIXO DO SOM ERA UM LAÇO ABERTO — "o som fica para trás,
+> a imagem continua, a tela fica sem áudio". METADE APK.** As três frases do
+> relato não são três sintomas: são a sequência inteira de um defeito só, e a
+> última é literalmente o que o `cliente.js` escreve
+> (`soltarAudio('o som ficou para trás')`).
+>
+> **Os dois eixos são de naturezas diferentes por desenho** — o vídeo é relógio
+> monotônico e anda sozinho; o som é CONTAGEM DE AMOSTRAS e só anda quando chega
+> PCM. O que faltava é o que fecha isso: **nada, em lugar nenhum, conferia uma
+> coisa contra a outra.** Três produtores de deriva, todos reais, todos
+> permanentes e todos ACUMULATIVOS: o `AudioWorklet` engasgando (os três
+> WebViews dividem UM processo — é o fio que a v5.177 documenta sendo roubado),
+> o relógio do hardware de áudio (dezenas a centenas de ppm são décimos de
+> segundo por hora, e um culto tem duas), e **PCM perdido dentro do
+> `alimentar`** — este um defeito de verdade: a regra "o que não coube CONTA
+> assim mesmo" estava escrita e aplicada em `aoReceberPcm`, e **faltava em cinco
+> saídas** daquela função, cada uma recuando o eixo permanentemente.
+>
+> E o desfecho tinha um segundo andar, que é o que transforma "dessincronizado"
+> em **mudo**: soltar a faixa **não desfaz a deriva**, porque ela está no
+> celular. A tela remontava, `vigiarAudio` media o MESMO desvio no primeiro giro
+> e soltava de novo — três vezes em poucos segundos, o teto de remontagens se
+> esgotava, e renová-lo exige 45 s de som limpo que nunca iam acontecer.
+>
+> - **No shell (APK)**: `EspelhoAudio.corrigirDeriva` fecha o laço. Abaixo de
+>   250 ms não mexe em nada (a chegada dos blocos tem jitter próprio, e corrigir
+>   20 ms a cada bloco trocaria uma deriva por um serrilhado); daí até 3 s
+>   **insere SILÊNCIO**, que não é reancoragem — o eixo continua sendo contagem
+>   de amostras, o `buffered` continua colado e o muxer não estica amostra
+>   nenhuma; acima de 3 s **reancora**, e o limiar não é escolhido: é o
+>   `AUDIO_MUDO_MS` do cliente, isto é, o ponto em que a tela já soltou a faixa e
+>   não há continuidade a preservar. **A medida é contra o PCM RECEBIDO, nunca
+>   contra o consumido** — entre os dois há uma fila de até 64 × ~40 ms, e medir
+>   do lado do encoder leria um engasgo da main thread como "o som parou de ser
+>   produzido", enchendo de silêncio um buraco que os blocos empilhados fechariam
+>   sozinhos e jogando o som À FRENTE do vídeo. Que é o único erro que este
+>   desenho não tem como desfazer, porque a correção para trás é rebobinar o
+>   `tfdt`.
+> - **No web (OTA)**: `voltouOSom` não remonta enquanto o fio ainda mostrar o som
+>   mais de 1,5 s atrás. Ela não conserta a deriva — impede que os três créditos
+>   de remontagem sejam queimados ANTES de a correção chegar. `vigiarAudio` não
+>   servia para isso: ele mede `bv.end - ba.end`, e com a faixa solta não existe
+>   `ba`; os carimbos crus do fio existem sempre (`desvioDoFio`).
+> - **E o Registro ganhou a linha que faltava o tempo todo**: `som atrás do
+>   vídeo: agora N ms · pior M ms`, com as correções e o silêncio inserido. Até
+>   aqui "o som ficou para trás" era escrito pela TELA e o lado do celular não
+>   tinha UMA medida que o confirmasse — o operador via `24 blocos de PCM/s`,
+>   `7424 quadro(s)`, `0 descarte(s)`, tudo saudável, e uma tela muda.
+>
+> `SHELL_VERSION` **não sobe** — nenhum método da ponte nasceu nem mudou de
+> assinatura. Num shell antigo `derivaMs` vem `undefined` e a linha do Registro
+> não é desenhada, como manda a regra do bloco. A regra pura
+> (`EspelhoAudio.planoDeCorrecao`) tem JUnit, pelo motivo de sempre: o resto do
+> arquivo é `MediaCodec` e threads, e é a REGRA que decide se o culto fica com
+> som. Ver `docs/ESPELHO-DE-PIXELS.md` §10-A.13.
 
 > **A v5.184: A FOLHA DE CONECTAR LIGAVA O SERVIDOR PARA PODER MOSTRAR O
 > ESTADO — e isso é uma falha de FORMA, não de código. OTA PURO.** As duas

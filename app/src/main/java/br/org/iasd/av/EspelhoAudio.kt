@@ -127,8 +127,54 @@ class EspelhoAudio(
      */
     private val amostras = AtomicLong(0)
 
+    /**
+     * Amostras (por canal) que o worklet JÁ NOS ENTREGOU — contadas na main
+     * thread, no instante da entrega, e sem passar pela fila.
+     *
+     * Ele existe separado do [amostras] por um motivo que só aparece na segunda
+     * leitura: [amostras] é o eixo de tempo (ele anda quando o bloco é
+     * CONSUMIDO pelo encoder), e a fila entre os dois tem até
+     * [FILA_BLOCOS] × ~40 ms de folga. Medir a deriva contra ele leria um
+     * engasgo da main thread — os blocos empilhados esperando a vez — como
+     * "o som parou de ser produzido", e a correção encheria de silêncio um
+     * buraco que não existe: os blocos empilhados sairiam logo depois e
+     * jogariam o som À FRENTE do vídeo, que é o único erro que este desenho não
+     * tem como desfazer.
+     *
+     * A pergunta certa é "o worklet produziu tudo o que o relógio pedia?", e
+     * quem a responde é este contador. Ver [derivaUs].
+     */
+    private val recebidas = AtomicLong(0)
+
+    /** E as amostras MUDAS que nós mesmos inserimos, que também são tempo. */
+    private val silenciadas = AtomicLong(0)
+
     @Volatile private var ancoraUs = 0L
     @Volatile private var ancorado = false
+
+    /**
+     * O RELÓGIO DE PAREDE no instante da âncora — a outra metade dela, e a peça
+     * que faltava para o eixo do som ter como se conferir.
+     *
+     * `ancoraUs` diz ONDE o som entrou no eixo da sessão; este diz QUANDO. Com
+     * os dois, "quanto tempo de som já foi produzido" (contagem de amostras)
+     * pode ser comparado com "quanto tempo passou" (relógio) — e a diferença é
+     * exatamente a defasagem contra o vídeo, que anda por relógio. Ver
+     * [derivaUs] e [corrigirDeriva].
+     *
+     * `System.nanoTime()` porque é o MESMO `CLOCK_MONOTONIC` de onde saem os
+     * carimbos da *input surface* do vídeo (`EspelhoCodec.carimbar`).
+     * `elapsedRealtime()` conta o sono profundo e divergiria do eixo do vídeo
+     * justamente no caso em que ninguém está olhando.
+     */
+    @Volatile private var ancoraRelogioUs = 0L
+
+    /** Quantas vezes a deriva foi corrigida — por silêncio ou por salto. */
+    @Volatile private var correcoes = 0L
+    @Volatile private var saltos = 0L
+    @Volatile private var silencioUs = 0L
+    @Volatile private var piorDerivaUs = 0L
+    @Volatile private var ultimoLogUs = 0L
 
     @Volatile private var csdEnviado = false
     @Volatile private var blocos = 0L
@@ -229,6 +275,17 @@ class EspelhoAudio(
         .put("descartados", blocosDescartados)
         .put("quadros", quadrosAac)
         .put("bitrate", BITRATE)
+        // A DERIVA, e ela é o número que faltava no Registro inteiro.
+        //
+        // "o som ficou para trás" era a frase que a TELA escrevia, e do lado do
+        // celular não havia UMA linha que a confirmasse ou a desmentisse — o
+        // operador via `24 blocos de PCM/s` e `7424 quadros`, tudo saudável, e
+        // uma tela muda. Estes quatro campos são a outra metade da frase.
+        .put("derivaMs", derivaUs() / 1000)
+        .put("piorDerivaMs", piorDerivaUs / 1000)
+        .put("correcoes", correcoes)
+        .put("saltos", saltos)
+        .put("silencioMs", silencioUs / 1000)
 
     // ---------- o canal ----------
 
@@ -297,6 +354,12 @@ class EspelhoAudio(
         if (!rodando) return
         if (bytes.isEmpty() || bytes.size > TETO_BLOCO) return
         contarBloco()
+        // A ÂNCORA DO RELÓGIO NASCE AQUI, no primeiro bloco entregue — e não no
+        // primeiro bloco CONSUMIDO: a fila fica entre os dois, e ancorar do
+        // outro lado dela poria a folga da fila dentro da medida de deriva.
+        if (ancoraRelogioUs == 0L) ancoraRelogioUs = relogioUs()
+        val quadroPcm = 2 * canais
+        if (quadroPcm > 0) recebidas.addAndGet((bytes.size / quadroPcm).toLong())
         if (fila.offer(bytes)) return
         // A FILA ENCHEU: o encoder não escoa. O bloco é perdido, mas as
         // amostras dele **contam** — o eixo de tempo do áudio é o tempo real, e
@@ -360,7 +423,15 @@ class EspelhoAudio(
             // interrompido pela morte do worklet, e o `fmp4.js` costura o salto
             // esticando a duração da amostra anterior (`dur = pts - anterior`,
             // sem teto), então o `buffered` continua sendo um intervalo só.
+            //
+            // E A FILA VAI JUNTO. O PCM que sobrou da página morta pertence ao
+            // eixo velho: alimentá-lo depois da reancoragem carimbaria áudio de
+            // antes do buraco com o tempo de depois dele.
+            fila.clear()
             amostras.set(0)
+            recebidas.set(0)
+            silenciadas.set(0)
+            ancoraRelogioUs = 0L
             ancorado = false
             registrar("audio: a pagina renasceu — eixo do som reancorado")
             return null
@@ -385,7 +456,14 @@ class EspelhoAudio(
         taxa = sr
         canais = ch
         amostras.set(0)
+        recebidas.set(0)
+        silenciadas.set(0)
+        ancoraRelogioUs = 0L
         ancorado = false
+        correcoes = 0
+        saltos = 0
+        silencioUs = 0
+        piorDerivaUs = 0
         csdEnviado = false
         quadrosAac = 0
         fila.clear()
@@ -424,6 +502,11 @@ class EspelhoAudio(
         taxa = 0
         canais = 0
         blocosPorSegundo = 0
+        // A âncora do relógio morre com o encoder: a próxima sessão de som é
+        // outra âncora, e uma sobrevivente daria uma deriva do tamanho do tempo
+        // em que o espelho esteve desligado — que é o mesmo erro que o
+        // `EspelhoDiag.novaSessao()` teve de consertar na v5.146.
+        ancoraRelogioUs = 0L
     }
 
     /**
@@ -441,58 +524,96 @@ class EspelhoAudio(
             } catch (e: InterruptedException) {
                 break
             }
-            if (bloco != null) alimentar(c, bloco)
+            // A CORREÇÃO VEM ANTES DO BLOCO, e só quando há bloco: ver
+            // [corrigirDeriva]. Com o fio de PCM parado não se corrige nada —
+            // quem responde por um som que não chega é o vigia do cliente.
+            if (bloco != null) {
+                corrigirDeriva(c)
+                alimentar(c, bloco)
+            }
             if (!drenar(c, info)) break
         }
     }
 
+    /**
+     * Alimenta o encoder com um bloco de PCM.
+     *
+     * **O QUE NÃO COUBE CONTA ASSIM MESMO**, e essa é a regra inteira desta
+     * função — a mesma que [aoReceberPcm] já aplicava para a fila cheia, e que
+     * aqui **faltava em cinco saídas**: encoder sem buffer de entrada depois de
+     * [TENTATIVAS], `IllegalStateException` no `dequeue`, no `getInputBuffer` ou
+     * no `queueInputBuffer`, e o buffer curto demais para um quadro de amostras.
+     * Cada uma dessas saídas devolvia o resto do bloco ao nada **sem somar as
+     * amostras dele**, e o eixo do som — que é contagem de amostras — recuava
+     * permanentemente por esse tanto.
+     *
+     * Cada buraco EMPURRA todo o resto do culto para trás, e somados alguns a
+     * borda do som fica mais de `ATRASO_AUDIO_S` (3 s) atrás da do vídeo: o
+     * cliente solta a faixa com *"o som ficou para trás"*, remonta contra a
+     * MESMA defasagem e ao terceiro desiste — **muda pelo resto do culto, com a
+     * imagem seguindo**.
+     *
+     * O [corrigirDeriva] fecha esse buraco de qualquer jeito, e é justamente
+     * por isso que a contagem daqui **não é redundante com ele**: a deriva é
+     * medida contra o PCM RECEBIDO, então um bloco que se perde aqui dentro sem
+     * ser contado é a única forma de defasagem que aquela medida **não
+     * enxerga**.
+     *
+     * O `finally` é o que torna a regra estrutural em vez de disciplinar: uma
+     * saída nova que alguém acrescente amanhã já nasce contando.
+     */
     private fun alimentar(c: MediaCodec, bloco: ByteArray) {
         val quadro = 2 * canais
         if (quadro <= 0) return
         var off = 0
         var tentativas = 0
-        while (off < bloco.size && rodando) {
-            val idx = try {
-                c.dequeueInputBuffer(ESPERA_US)
-            } catch (e: IllegalStateException) {
-                return
-            }
-            if (idx < 0) {
-                // Sem buffer de entrada agora: drena a saída (é o que os
-                // libera) e tenta de novo, com teto. Insistir para sempre
-                // seguraria a thread e a fila cresceria atrás.
-                val info = MediaCodec.BufferInfo()
-                if (!drenar(c, info)) return
-                if (++tentativas > TENTATIVAS) {
-                    blocosDescartados++
-                    return
-                }
-                continue
-            }
-            tentativas = 0
-            val buf = entrada(c, idx) ?: return
-            buf.clear()
-            val cabe = minOf(buf.remaining(), bloco.size - off)
-            // ALINHADO AO QUADRO DE AMOSTRAS: partir uma amostra de 16 bits (ou
-            // um par estéreo) ao meio troca os canais do resto do bloco e sai
-            // como estalo na caixa de som do templo.
-            val n = cabe - (cabe % quadro)
-            if (n <= 0) {
-                try {
-                    c.queueInputBuffer(idx, 0, 0, ptsAgora(), 0)
+        try {
+            while (off < bloco.size && rodando) {
+                val idx = try {
+                    c.dequeueInputBuffer(ESPERA_US)
                 } catch (e: IllegalStateException) {
-                    // nada a fazer: o encoder saiu de estado
+                    break
                 }
-                return
+                if (idx < 0) {
+                    // Sem buffer de entrada agora: drena a saída (é o que os
+                    // libera) e tenta de novo, com teto. Insistir para sempre
+                    // seguraria a thread e a fila cresceria atrás.
+                    val info = MediaCodec.BufferInfo()
+                    if (!drenar(c, info)) break
+                    if (++tentativas > TENTATIVAS) {
+                        blocosDescartados++
+                        break
+                    }
+                    continue
+                }
+                tentativas = 0
+                val buf = entrada(c, idx) ?: break
+                buf.clear()
+                val cabe = minOf(buf.remaining(), bloco.size - off)
+                // ALINHADO AO QUADRO DE AMOSTRAS: partir uma amostra de 16 bits
+                // (ou um par estéreo) ao meio troca os canais do resto do bloco
+                // e sai como estalo na caixa de som do templo.
+                val n = cabe - (cabe % quadro)
+                if (n <= 0) {
+                    try {
+                        c.queueInputBuffer(idx, 0, 0, ptsAgora(), 0)
+                    } catch (e: IllegalStateException) {
+                        // nada a fazer: o encoder saiu de estado
+                    }
+                    break
+                }
+                buf.put(bloco, off, n)
+                try {
+                    c.queueInputBuffer(idx, 0, n, ptsAgora(), 0)
+                } catch (e: IllegalStateException) {
+                    break
+                }
+                amostras.addAndGet((n / quadro).toLong())
+                off += n
             }
-            buf.put(bloco, off, n)
-            try {
-                c.queueInputBuffer(idx, 0, n, ptsAgora(), 0)
-            } catch (e: IllegalStateException) {
-                return
-            }
-            amostras.addAndGet((n / quadro).toLong())
-            off += n
+        } finally {
+            val resto = (bloco.size - off) / quadro
+            if (resto > 0) amostras.addAndGet(resto.toLong())
         }
     }
 
@@ -534,13 +655,21 @@ class EspelhoAudio(
      * Daí em diante o tempo anda por CONTAGEM DE AMOSTRAS, não por relógio: a
      * taxa do worklet é a do hardware de áudio, e é ela que manda.
      *
-     * **Não há reancoragem NO MEIO DO FLUXO** — um `tfdt` que salte para a
-     * frente com a faixa correndo abre buraco no `buffered`, e navegador para em
-     * buraco. Há exatamente UMA reancoragem, e ela é o oposto disso: a página do
-     * espelho tendo RENASCIDO (ver [ligarEncoder], v5.181), quando o fluxo já
-     * foi interrompido pela morte do `AudioWorklet` e o eixo do som ficou
-     * parado enquanto o do vídeo seguiu andando. Sem ela a defasagem é
-     * permanente e ACUMULA, até a tela ficar muda com a imagem seguindo.
+     * **A CONTAGEM DE AMOSTRAS É CONFERIDA CONTRA O RELÓGIO** (v5.185), e não
+     * pode deixar de ser: ela é o eixo do som, o vídeo anda por relógio, e nada
+     * fazia as duas coisas se olharem. Ver [corrigirDeriva] — o normal é
+     * preencher o buraco com SILÊNCIO, que não é reancoragem nenhuma (o eixo
+     * continua sendo contagem de amostras) e por isso não abre buraco no
+     * `buffered`.
+     *
+     * **Reancoragem no meio do fluxo, essa, continua sendo a exceção**, e por
+     * um motivo que segue valendo: um `tfdt` que salte para a frente com a
+     * faixa CORRENDO abre buraco, e navegador para em buraco. Ela só acontece
+     * onde o fluxo já foi interrompido de qualquer jeito — a página do espelho
+     * tendo renascido (ver [ligarEncoder], v5.181) e a deriva acima de
+     * [DERIVA_SALTO_US], que é o mesmo prazo em que o cliente já soltou a
+     * faixa. Nos dois casos o `fmp4.js` costura o salto esticando a duração da
+     * amostra anterior.
      */
     private fun ptsAgora(): Long {
         if (!ancorado) {
@@ -550,6 +679,125 @@ class EspelhoAudio(
         val t = taxa
         if (t <= 0) return ancoraUs
         return ancoraUs + amostras.get() * 1_000_000L / t
+    }
+
+    /** O `CLOCK_MONOTONIC`, em µs — o mesmo relógio dos carimbos do vídeo. */
+    private fun relogioUs(): Long = System.nanoTime() / 1_000L
+
+    /**
+     * QUANTO O SOM ESTÁ ATRÁS DO VÍDEO, em microssegundos. Positivo = atrás.
+     *
+     * A conta é entre dois tempos DECORRIDOS desde a mesma âncora, e não entre
+     * dois instantes absolutos — assim ela não depende de o eixo do vídeo e o do
+     * som terem a mesma origem (eles não têm: a âncora é `ultimoCarimbo()`, que
+     * pode estar até um intervalo de batimento no passado, e esse deslocamento
+     * constante é erro conhecido e aceito desde a v5.144).
+     *
+     *  - decorrido do VÍDEO   = relógio de parede desde a âncora;
+     *  - decorrido do SOM     = (amostras RECEBIDAS + silêncio inserido) ÷ taxa.
+     *
+     * **Recebidas, e não consumidas** — ver [recebidas]: entre a entrega e o
+     * consumo existe uma fila, e lê-la como deriva mandaria encher de silêncio
+     * um buraco que os blocos empilhados fechariam sozinhos meio segundo
+     * depois. O eixo do PTS ([amostras]) contabiliza exatamente o mesmo total
+     * assim que a fila drena, porque [alimentar] conta o que não coube — é essa
+     * igualdade que faz medir de um lado e corrigir do outro ser correto.
+     *
+     * A diferença é a deriva, e ela tem três origens, todas reais e nenhuma
+     * detectada até aqui:
+     *
+     *  1. **O `AudioWorklet` engasgando.** Os três WebViews dividem UM processo;
+     *     uma rotatividade de decodificador rouba o fio que alimenta o worklet
+     *     (é o defeito que a v5.177 descreve do outro lado). Enquanto ele não
+     *     produz, o eixo do som PARA e o do vídeo segue andando.
+     *  2. **O relógio do hardware de áudio.** Ele não é o relógio do sistema: as
+     *     dezenas a centenas de ppm de diferença são décimos de segundo por
+     *     hora, e um culto tem duas.
+     *  3. **PCM perdido** (fila cheia, encoder sem buffer). Este o código já
+     *     contabilizava — depois da correção do [alimentar].
+     *
+     * Nenhuma delas se recupera sozinha, e todas ACUMULAM.
+     */
+    private fun derivaUs(): Long {
+        val t = taxa
+        val marco = ancoraRelogioUs
+        if (t <= 0 || marco == 0L) return 0L
+        val doVideo = relogioUs() - marco
+        val doSom = (recebidas.get() + silenciadas.get()) * 1_000_000L / t
+        return doVideo - doSom
+    }
+
+    /**
+     * FECHA O LAÇO: mede a deriva e a desfaz, antes de o bloco seguinte ser
+     * carimbado.
+     *
+     * Até a v5.185 este laço era ABERTO — o eixo do som andava por contagem de
+     * amostras e nada, em lugar nenhum, conferia essa contagem contra o relógio
+     * que carimba o vídeo. A defasagem crescia em silêncio até a tela da rede
+     * escrever *"o som ficou para trás"* e ficar muda pelo resto do culto, que é
+     * exatamente o relato que abriu esta versão.
+     *
+     * **A correção normal é SILÊNCIO, não salto**, e a diferença importa:
+     * inserir amostras mudas mantém a invariante deste arquivo intacta (o eixo
+     * do som continua sendo contagem de amostras), não abre buraco nenhum no
+     * `buffered` e não obriga o muxer a esticar amostra nenhuma. O que o
+     * ouvinte percebe é o que de fato aconteceu — um trecho mudo do tamanho do
+     * engasgo —, e depois dele o som volta ALINHADO em vez de voltar atrasado
+     * para sempre.
+     *
+     * **O salto fica para a deriva grande**, e o limiar não é arbitrário: passado
+     * o `AUDIO_MUDO_MS` do cliente (3 s), a tela JÁ soltou a faixa de som e vai
+     * remontá-la — não há continuidade a preservar, e encher três segundos de
+     * silêncio só atrasaria a volta. É a mesma reancoragem que a v5.182 já faz
+     * quando a página do espelho renasce, pelo mesmo motivo: ali o fluxo também
+     * já tinha sido interrompido.
+     *
+     * O `deadband` existe para a correção não virar um tique: a chegada dos
+     * blocos tem jitter próprio (`postMessage` na main thread), e corrigir 20 ms
+     * a cada bloco seria trocar uma deriva por um serrilhado.
+     */
+    private fun corrigirDeriva(c: MediaCodec) {
+        val t = taxa
+        val ch = canais
+        if (t <= 0 || ch <= 0) return
+        val deriva = derivaUs()
+        if (deriva > piorDerivaUs) piorDerivaUs = deriva
+        val plano = planoDeCorrecao(deriva)
+        if (plano == 0L) return
+        if (plano < 0L) {
+            correcoes++
+            // SALTO: o eixo do PTS recomeça no carimbo de vídeo de agora, e a
+            // MEDIDA recomeça junto — as duas âncoras são a mesma decisão, e
+            // deixar uma delas para trás faria a deriva já corrigida ser
+            // corrigida de novo, para sempre.
+            amostras.set(0)
+            recebidas.set(0)
+            silenciadas.set(0)
+            ancoraRelogioUs = relogioUs()
+            ancorado = false
+            saltos++
+            registrar("audio: o som ficou ${deriva / 1000} ms atras — eixo reancorado")
+            return
+        }
+        val quadros = plano * t / 1_000_000L
+        if (quadros <= 0L) return
+        correcoes++
+        // O SILÊNCIO CONTA ANTES DE SER ALIMENTADO, e não depois: `alimentar`
+        // pode demorar (ele drena o encoder no caminho), e uma leitura de
+        // [derivaUs] no meio disso veria a deriva ainda inteira e mandaria
+        // encher de novo.
+        silenciadas.addAndGet(quadros)
+        // Um `ByteArray` nasce zerado, e zero é o silêncio do PCM Int16.
+        alimentar(c, ByteArray((quadros * 2 * ch).toInt()))
+        silencioUs += plano
+        // Uma linha no diário, com freio: uma deriva grande é fechada em vários
+        // passos de [TETO_SILENCIO_US], e uma linha por passo afogaria o anel
+        // com a MESMA notícia. O número que interessa (o total) está no JSON.
+        val agora = relogioUs()
+        if (agora - ultimoLogUs >= LOG_CORRECAO_US) {
+            ultimoLogUs = agora
+            registrar("audio: ${deriva / 1000} ms de atraso preenchidos com silencio")
+        }
     }
 
     /** @return `false` quando o encoder saiu de estado e o laço deve parar. */
@@ -662,6 +910,49 @@ class EspelhoAudio(
         private const val TETO_TEXTO = 512
         private const val ESPERA_US = 10_000L
         private const val TENTATIVAS = 50
+
+        /**
+         * A ZONA MORTA da correção de deriva. Abaixo dela não se mexe em nada.
+         *
+         * Ela precisa ser maior que o jitter de chegada dos blocos — que são
+         * ~40 ms entregues por `postMessage` na main thread de um processo que
+         * hospeda três WebViews —, senão a correção viraria um tique a cada
+         * bloco. E ela precisa ser MUITO menor que os 3 s em que o cliente
+         * desiste da faixa de som, porque o ponto inteiro é nunca chegar lá.
+         */
+        const val DERIVA_MIN_US = 250_000L
+
+        /** Quanto silêncio se insere de uma vez. Uma deriva maior é fechada em
+         *  passos: os blocos chegam a cada ~40 ms, então mesmo dois segundos de
+         *  buraco somem em menos de meio segundo de relógio. */
+        const val TETO_SILENCIO_US = 250_000L
+
+        /**
+         * A partir daqui não se preenche: reancora-se.
+         *
+         * Três segundos é o `AUDIO_MUDO_MS` do cliente — passado ele, a tela já
+         * soltou a faixa de som e vai remontá-la, então não há continuidade a
+         * preservar e encher o buraco de silêncio só atrasaria a volta. É a
+         * mesma reancoragem da página que renasce (v5.182), pelo mesmo motivo.
+         */
+        const val DERIVA_SALTO_US = 3_000_000L
+
+        /** Freio do diário: uma linha de correção a cada 5 s, no máximo. */
+        private const val LOG_CORRECAO_US = 5_000_000L
+
+        /**
+         * O QUE FAZER COM UMA DERIVA — pura, e por isso com JUnit
+         * (`EspelhoAudioTest`). O resto desta classe é `MediaCodec` e threads;
+         * a REGRA é aritmética, e é ela que decide se o culto fica com som.
+         *
+         * @return `0` = nada a fazer · `-1` = reancorar (salto) · `> 0` = os
+         *   microssegundos de silêncio a inserir agora.
+         */
+        fun planoDeCorrecao(derivaUs: Long): Long = when {
+            derivaUs <= DERIVA_MIN_US -> 0L
+            derivaUs >= DERIVA_SALTO_US -> -1L
+            else -> minOf(derivaUs, TETO_SILENCIO_US)
+        }
 
         /** As taxas que o AAC aceita. Um `AudioContext` de WebView entrega
          *  48000 (ou 44100 em alguns aparelhos); o resto está aqui para que um

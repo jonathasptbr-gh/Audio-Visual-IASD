@@ -259,6 +259,13 @@
   // sozinha. Ver `voltouOSom`: soltar a faixa é a metade fácil — a que faltava
   // era ela VOLTAR sem ninguém tocar na tela.
   const AUDIO_VOLTA_MS = 2000;
+  // ...E QUÃO ALINHADO ele precisa estar para a remontagem valer a pena.
+  //
+  // Menor que [ATRASO_AUDIO_S] de propósito, e não igual: remontar com 2,9 s de
+  // desvio é gastar um dos três créditos para que `vigiarAudio` solte a faixa
+  // no giro seguinte, aos 3,0 s. A margem é o que faz a remontagem só acontecer
+  // quando ela tem chance de durar.
+  const ATRASO_VOLTA_S = 1.5;
 
   // O relato cabe no corpo de 256 B que o `POST /par` aceita (§5.1), e a conta
   // é apertada de propósito — passar do teto não dá erro de validação, dá um
@@ -319,6 +326,11 @@
   // quando foi o último). Ver `voltouOSom`.
   let voltaDesde = 0;
   let voltaUltimoMs = 0;
+
+  // OS CARIMBOS CRUS DO FIO, que é a única medida de desvio que sobrevive à
+  // faixa de som solta. Ver `desvioDoFio`. Zero = nada visto ainda.
+  let ptsVideoUs = 0;
+  let ptsAudioUs = 0;
 
   // POR QUE ESTA TELA ESTÁ MUDA — o ramo exato, em texto curto, e sempre.
   //
@@ -1646,6 +1658,25 @@
    * [REBUILDS_AUDIO], e esse teto só se renova depois de [AUDIO_SAUDAVEL_MS] de
    * som limpo (`vigiarAudio`) — isto é, depois de a remontagem ter DADO CERTO.
    */
+  /**
+   * O DESVIO A/V MEDIDO NO FIO, em segundos — e não nos buffers.
+   *
+   * `vigiarAudio` mede `bv.end - ba.end`, o que exige as duas faixas montadas.
+   * Com a faixa de som SOLTA não há `ba`, e é exatamente aí que a pergunta
+   * importa: o som continua chegando pelo fio (o servidor não parou de
+   * entregar), só não tem onde entrar. Os carimbos crus respondem a mesma
+   * pergunta sem faixa nenhuma.
+   *
+   * `null` quando um dos dois lados ainda não foi visto — e `null` NÃO é zero:
+   * quem o lê precisa distinguir "alinhado" de "não sei", senão a guarda de
+   * `voltouOSom` bloquearia a remontagem de toda tela que ainda não recebeu
+   * áudio, que é toda tela que acabou de pedir som.
+   */
+  function desvioDoFio() {
+    if (!ptsVideoUs || !ptsAudioUs) return null;
+    return (ptsVideoUs - ptsAudioUs) / 1e6;
+  }
+
   function voltouOSom() {
     if (!audioQuerido || sbA || !ms || ms.readyState !== 'open') return;
     if (rebuilds >= REBUILDS_AUDIO) return;
@@ -1653,6 +1684,27 @@
     if (!voltaDesde || agora - voltaUltimoMs > AUDIO_MUDO_MS) voltaDesde = agora;
     voltaUltimoMs = agora;
     if (agora - voltaDesde < AUDIO_VOLTA_MS) return;
+    // E O SOM PRECISA ESTAR ALINHADO, não só CHEGANDO.
+    //
+    // Esta é a metade que faltava do episódio inteiro. Quando a faixa é solta
+    // por `'o som ficou para trás'`, a causa está no CELULAR — o eixo do som
+    // andou menos que o do vídeo —, e remontar não a desfaz: a tela remonta,
+    // `vigiarAudio` mede o MESMO desvio no primeiro giro e solta de novo. Três
+    // vezes em poucos segundos, o teto de remontagens se esgota, e a renovação
+    // dele exige 45 s de som limpo que nunca vão acontecer. **Muda pelo resto
+    // do culto** — e o Registro dizendo, com toda a razão, que o AAC está
+    // chegando.
+    //
+    // A guarda não conserta a deriva (quem a conserta é o `corrigirDeriva` do
+    // `EspelhoAudio`, do outro lado). Ela impede que o crédito de remontagem
+    // seja queimado ANTES de a correção chegar — e assim a tela volta a ter som
+    // sozinha no instante em que o celular se realinha.
+    const desvio = desvioDoFio();
+    if (desvio !== null && desvio > ATRASO_VOLTA_S) {
+      porqueSemSom = 'o som ainda está ' + Math.round(desvio * 1000)
+        + ' ms atrás — esperando o celular alinhar';
+      return;
+    }
     voltaDesde = 0;
     voltaUltimoMs = 0;
     porqueSemSom = 'o som voltou ao fio — remontando (' + (rebuilds + 1) + '/' + REBUILDS_AUDIO + ')';
@@ -2236,6 +2288,9 @@
       // aqui, e não no muxer, porque é aqui que se sabe que o quadro foi de
       // fato ACEITO (o descarte de deltas antes do IDR já passou).
       if (q.chave) anotarChave(q.pts);
+      // O CARIMBO CRU, guardado para a pergunta que a faixa de som solta não
+      // tem como responder: ver `desvioDoFio`.
+      ptsVideoUs = q.pts;
       conta.quadros++;
       tentativa = 0;                      // quadro de verdade: a espera zera
       // E UM TRECHO LONGO decodificado sem recusa é o que zera o contador de
@@ -2288,6 +2343,9 @@
       return;
     }
     if (q.tipo === T_AUDIO) {
+      // ANTES DA GUARDA, sempre: é justamente com a faixa SOLTA que este
+      // carimbo é a única medida de desvio que sobra (ver `desvioDoFio`).
+      ptsAudioUs = q.pts;
       if (!sbA) { voltouOSom(); return; }
       // A âncora do teto de remontagens nasce no PRIMEIRO quadro AAC desta
       // faixa: é dele em diante que "o som está chegando" começa a contar.
@@ -2959,6 +3017,14 @@
     // `moof+mdat` sem init, o Chromium recusava, e a tela acusava o defeito
     // como se fosse dela ("não está conseguindo decodificar o fluxo").
     porInitNaFrente: porInitNaFrente,
+    // O DESVIO MEDIDO NO FIO, pelo mesmo motivo das três de cima: ele é a
+    // guarda que impede o crédito de remontagem de ser queimado contra uma
+    // deriva que só o celular pode desfazer, e provar isso com um AAC de
+    // verdade exigiria um codec que o Chromium do CI não traz.
+    desvioDoFio: desvioDoFio,
+    // E os carimbos que o alimentam, para o teste poder montar o cenário sem
+    // um fio de verdade.
+    fingirCarimbos: function (v, a) { ptsVideoUs = v; ptsAudioUs = a; },
     medidas: medidasDaTela,
   };
 
