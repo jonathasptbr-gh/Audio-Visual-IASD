@@ -45,7 +45,7 @@
 | Etapa | Descrição curta | Estado |
 |---|---|---|
 | E0 | Especificação fechada (este documento) | **CONCLUÍDA** (varredura 9/11 leitores; testes-CI e docs supridos pelo CLAUDE.md) |
-| E1 | Fundações puras no shell: Range RFC 7233 + framing SSE no `EspelhoHttp` — com JUnit, sem fiação | PENDENTE |
+| E1 | Fundações puras no shell: Range RFC 7233 + framing SSE no `EspelhoHttp` — com JUnit, sem fiação | **CONCLUÍDA** (commit b756d19, CI verde: 128 JUnit, 21 novos) |
 | E2 | Servir o bundle à LAN (prefixos `web/display/`, `web/shared/`, `web/espelho/`) + rota SSE `GET /e` + tap de comandos em `busPost` → servidor | PENDENTE |
 | E3 | Papel `tela` no lado web (`espelho/tela.js` + `?tela=1`): display rodando num navegador da LAN, TEXTO completo (versículo, mensagem, cronômetro com correção de relógio, sorteio, cortina), dreno de subida, vigília de tela acesa | PENDENTE |
 | E4 | Mídia sob demanda: cache no shell + canal ArrayBuffer OPFS→shell + `GET /m/<token>` com Range + `__rec` no load + pré-busca + wallpaper | PENDENTE |
