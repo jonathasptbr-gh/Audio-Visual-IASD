@@ -181,6 +181,18 @@ class NativeBridge(
         const val SHELL_VERSION = 36
 
         /**
+         * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
+         * `docs/TELAO-POR-COMANDOS.md` §3.2): a `MainActivity` o aponta para o
+         * `EspelhoServidor.difundirJson` enquanto o servidor estiver no ar, e
+         * o anula ao desmontar. Ele vive no `companion` porque `busPost` chega
+         * pelas pontes de TODOS os WebViews (Controle, telão, espelho) e o
+         * consumidor é um só. `@Volatile`: escrito pela main, lido de qualquer
+         * thread de WebView. Nulo = nenhum custo no caminho quente.
+         */
+        @Volatile
+        var tapLan: ((String) -> Unit)? = null
+
+        /**
          * Por quanto tempo um `display-status` do TELÃO cala o `espelho-status`
          * — ver [snoopDisplayStatus]. Folga sobre o compasso do status (~4 Hz)
          * para uma batida perdida não devolver a palavra ao espelho.
@@ -367,6 +379,12 @@ class NativeBridge(
     fun busPost(json: String) {
         MessageBus.post(webRef(), json)
         snoopDisplayStatus(json)
+        // O TAP DA LAN (telão por comandos, spec §3.2). Aqui, e NUNCA no
+        // `MessageBus.post`: por aqui só passa o que o LADO WEB emitiu — uma
+        // mensagem que o Kotlin injetar de volta no barramento (o `tela-status`
+        // da E5) entra por `MessageBus.post(null, …)` e não ecoa para as telas
+        // da rede. É o que fecha o laço de eco por construção.
+        tapLan?.invoke(json)
     }
 
     /**

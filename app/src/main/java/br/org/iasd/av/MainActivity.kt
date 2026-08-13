@@ -1255,6 +1255,10 @@ class MainActivity : ComponentActivity(), BridgeHost {
             }
             espelhoSrv = srv
             espelhoModo = "video"
+            // O TAP DA LAN (telão por comandos, E2): todo comando que o web
+            // relaya por busPost passa a sair também no SSE das telas de
+            // comandos. Escuro enquanto nenhuma tela abre o GET /e.
+            NativeBridge.tapLan = { j -> espelhoSrv?.difundirJson(j) }
 
             // 4. O PAREAMENTO nasce do zero — é isto que faz nenhum token
             //    sobreviver ao culto anterior — e o SERVIÇO sobe por último,
@@ -1296,6 +1300,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * um no-op.
      */
     private fun desmontarEspelho() {
+        NativeBridge.tapLan = null
         espelhoSrv?.desligar()
         espelhoSrv = null
         EspelhoPares.desligar()

@@ -324,12 +324,15 @@ Cada etapa: testes verdes, Estado atualizado, commit na branch, merge em
   arquivo); rota `/e` com heartbeat+epoch e adeus; consumidor de barramento
   em `busPost` → `EspelhoServidor.difundirJson` (novo), com filas por tela
   e a conta do `TETO_EM_VOO` refeita (SSE + mídia por tela); renovação do
-  wake lock pelos writes do SSE. `SHELL_VERSION` → **37** (36 foi tomado
-  pela v5.186; o lado web pergunta antes de anexar `__rec` — e a UI da E6
-  exige ≥ 37). Prova:
-  `tools/tela-rede.test.mjs` novo (Chromium + servidor de mentira no molde
-  do espelho-cliente.test) — bundle servido, SSE abre, heartbeat chega,
-  adeus para o laço.
+  wake lock pelos writes do SSE. `SHELL_VERSION` NÃO sobe aqui: o tap não é
+  superfície da ponte (o web não o vê), e a regra do repositório manda subir
+  só quando a superfície muda — o bump vai na E4, junto com o canal de mídia
+  e o `__rec` (a primeira mudança que o web precisa detectar). Prova:
+  o CI compila e roda os JUnit (o roteamento é código de socket, fora do
+  alcance de teste puro — o padrão da casa: o `EspelhoServidor` nunca teve
+  JUnit próprio); o contrato é provado do lado do CLIENTE na E3, quando o
+  `tela.js` existir (`tools/tela-rede.test.mjs` contra servidor de mentira,
+  o molde do espelho-cliente.test).
 - **E3 — papel tela, texto completo.** `espelho/tela.js` (bus, dreno de
   subida, overlay de ENTRADA com o código e o botão de gesto único —
   migrado de cliente.js —, correção de relógio, vigília, overlay de

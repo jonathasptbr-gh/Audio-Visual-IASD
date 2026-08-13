@@ -160,6 +160,14 @@ class EspelhoServidor(
     /** As telas conectadas, **indexadas pelo TOKEN** — ver [servirFluxo]. */
     private val telas = ConcurrentHashMap<String, Tela>()
 
+    /**
+     * As telas do TELÃO POR COMANDOS (`GET /e`), à parte das de pixels — e a
+     * separação é deliberada: durante a migração (spec §0.6) os dois caminhos
+     * coexistem, e um campo a mais na [Tela] de pixels seria um estado
+     * fantasma nos dois. Chaveada por token de sessão, como a outra.
+     */
+    private val telasSse = ConcurrentHashMap<String, TelaSse>()
+
     private val emVoo = AtomicInteger(0)
     private val conexoesTotais = AtomicInteger(0)
     private val proximoRotulo = AtomicInteger(0)
@@ -361,11 +369,19 @@ class EspelhoServidor(
             ),
         )
         for (t in telas.values) fechar(t, "espelho desligado", adeus)
+        // A MESMA despedida para as telas de comandos — desde o primeiro
+        // commit, porque a lição da v5.154 (código morto simétrico) e a da
+        // v5.172 (o adeus que era sentença) já foram pagas uma vez cada.
+        if (telasSse.isNotEmpty()) {
+            val adeusSse = EspelhoHttp.eventoSse("""{"m":"adeus"}""")
+            for (t in telasSse.values) fecharSse(t, "espelho desligado", adeusSse)
+        }
         val ss = servidor
         servidor = null
         pararDeObservarRede()
         fecharQuieto(ss)
         telas.clear()
+        telasSse.clear()
         csdVideo = null
         csdAudio = null
         endereco = ""
@@ -606,7 +622,7 @@ class EspelhoServidor(
             // que na tela viram "não foi possível falar com o celular", sem
             // nada no Registro que ligasse uma coisa à outra. O teto de fluxos
             // já existe e é outro ([TETO_TELAS]).
-            if (emVoo.get() - telas.size >= TETO_EM_VOO) {
+            if (emVoo.get() - telas.size - telasSse.size >= TETO_EM_VOO) {
                 fecharQuieto(cru)
                 continue
             }
@@ -767,11 +783,48 @@ class EspelhoServidor(
             r.metodo == "GET" && rota == "/v" -> {
                 if (sessao == null) responder(saida, naoAchei()) else servirFluxo(socket, cru, saida, sessao)
             }
+            r.metodo == "GET" && rota == "/e" -> {
+                if (sessao == null) responder(saida, naoAchei()) else servirEventos(cru, saida, sessao)
+            }
             r.metodo == "POST" && rota == "/r" -> {
                 if (sessao == null) responder(saida, naoAchei()) else retorno(r, saida, sessao)
             }
+            r.metodo == "GET" && caminhoDoBundle(rota) != null ->
+                servirDoBundle(caminhoDoBundle(rota)!!, saida)
             else -> responder(saida, naoAchei())
         }
+    }
+
+    /**
+     * O caminho no bundle para uma rota de prefixo — ou `null` quando a rota
+     * não é de bundle (e o 404 idêntico de sempre responde).
+     *
+     * O nome não pode ser vazio (`GET /display/` não é um arquivo) e o parser
+     * já garantiu ASCII imprimível sem `..`; o resto da contenção é do
+     * [WebPathHandler] (canonicalPath no bundle OTA, assets no APK).
+     */
+    private fun caminhoDoBundle(rota: String): String? {
+        for ((prefixo, base) in PREFIXOS_BUNDLE) {
+            if (rota.startsWith(prefixo) && rota.length > prefixo.length) {
+                return base + rota.substring(prefixo.length)
+            }
+        }
+        return null
+    }
+
+    private fun servirDoBundle(caminho: String, saida: OutputStream) {
+        val corpo = lerDoBundle(caminho)
+        if (corpo == null) {
+            registrar("faltou no bundle: $caminho")
+            return responder(saida, naoAchei())
+        }
+        val nome = caminho.substringAfterLast('/')
+        val tipo = bundle.mimeOf(nome) + (bundle.encodingOf(nome)?.let { "; charset=$it" } ?: "")
+        // Toda PÁGINA leva a CSP — e é a CSP que FORÇA a exclusão do embed do
+        // YouTube nas telas da rede (`default-src 'self'` barra a IFrame API;
+        // spec §1). Os demais arquivos levam só os cabeçalhos de sempre.
+        val extra = if (nome.endsWith(".html")) EspelhoHttp.CABECALHOS_PAGINA else emptyList()
+        responder(saida, EspelhoHttp.resposta(200, tipo, corpo, extra))
     }
 
     private fun servirEstatico(rota: String, saida: OutputStream) {
@@ -850,6 +903,9 @@ class EspelhoServidor(
         // carimbo responde é "há alguém do outro lado", e um pedido de chave
         // prova isso tanto quanto um relato. Ver [Tela.ultimoRelatoMs].
         tela?.ultimoRelatoMs = SystemClock.elapsedRealtime()
+        // ...e vale igual para a tela de COMANDOS da mesma sessão: o ping do
+        // SSE só prova o nosso lado do fio.
+        telasSse[sessao.token]?.ultimoRelatoMs = SystemClock.elapsedRealtime()
         when (corpo.optString("do")) {
             "key" -> pedirIdrComFreio(tela)
             "alive" -> if (tela != null) {
@@ -985,6 +1041,152 @@ class EspelhoServidor(
         }
     }
 
+    /**
+     * O fluxo de COMANDOS do telão por comandos (`GET /e`, spec §5.1) —
+     * `text/event-stream` sobre o chunked de sempre, com o batimento de
+     * [PING_SSE_MS] carregando o epoch do celular.
+     *
+     * O molde é o do [servirFluxo], regra a regra, porque as lições são as
+     * mesmas: admissão atômica com teto e frase de lotado, troca da conexão
+     * anterior do mesmo token, `soTimeout` zerado (o vigia cobre escrita),
+     * `marcarComConexao`/`marcarSemConexao` com a guarda de dois argumentos.
+     * O que NÃO existe aqui: csd, IDR, fila de bytes — comando é JSON pequeno
+     * e a fila é de eventos inteiros.
+     */
+    private fun servirEventos(cru: Socket, saida: OutputStream, sessao: EspelhoPares.Sessao) {
+        val tela = TelaSse(sessao, cru)
+        var anterior: TelaSse? = null
+        var lotado = false
+        synchronized(telasSse) {
+            val atual = telasSse[sessao.token]
+            if (atual == null && telasSse.size >= TETO_TELAS) {
+                lotado = true
+            } else {
+                anterior = atual
+                telasSse[sessao.token] = tela
+            }
+        }
+        if (lotado) {
+            responder(saida, EspelhoHttp.resposta(503, "application/json", LOTADO))
+            return
+        }
+        anterior?.let { fecharSse(it, "a mesma tela reabriu a página") }
+        try {
+            cru.soTimeout = 0
+        } catch (e: Exception) {
+            Log.w(TAG, "não foi possível zerar o soTimeout", e)
+        }
+        conexoesTotais.incrementAndGet()
+        EspelhoPares.marcarComConexao(sessao.token)
+        registrar("tela de comandos conectada (${enderecoDe(cru)})")
+        try {
+            saida.write(EspelhoHttp.cabecalhoSse())
+            saida.flush()
+            // O "oi" com o epoch: a primeira amostra da correção de relógio da
+            // tela, antes de qualquer comando.
+            val oi = EspelhoHttp.eventoSse(
+                JSONObject().put("m", "oi").put("ms", System.currentTimeMillis()).toString(),
+            )
+            escreverSse(tela, saida, oi)
+            while (true) {
+                val ev = tela.fila.poll(PING_SSE_MS, TimeUnit.MILLISECONDS)
+                if (ev === FIM_SSE) break
+                if (ev == null) {
+                    if (!tela.viva || servidor == null) break
+                    escreverSse(tela, saida, EspelhoHttp.pingSse(System.currentTimeMillis()))
+                    continue
+                }
+                escreverSse(tela, saida, ev)
+                tela.eventos++
+            }
+            try {
+                saida.write(EspelhoHttp.chunkFinal())
+                saida.flush()
+            } catch (e: IOException) {
+                // O cliente já foi: o fim de chunked é cortesia, não obrigação.
+            }
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+        } catch (e: IOException) {
+            Log.i(TAG, "tela de comandos caiu: ${e.message}")
+        } finally {
+            val eraNossa = telasSse.remove(sessao.token, tela)
+            if (eraNossa) {
+                EspelhoPares.marcarSemConexao(sessao.token, agoraMs())
+            }
+            registrar("tela de comandos desconectada (${tela.motivoDaSaida})")
+        }
+    }
+
+    private fun escreverSse(tela: TelaSse, saida: OutputStream, bytes: ByteArray) {
+        tela.escritaIniciadaMs = SystemClock.elapsedRealtime()
+        try {
+            saida.write(EspelhoHttp.chunk(bytes, 0, bytes.size))
+            saida.flush()
+        } finally {
+            tela.escritaIniciadaMs = 0
+        }
+        // PROGRESSO REAL — o mesmo contrato do fluxo de pixels: é a escrita, e
+        // não um tique de relógio, que renova o wake lock do serviço.
+        EspelhoService.progresso()
+    }
+
+    /** Fecha uma tela de comandos de fora. Com [adeus], o evento entra na
+     *  frente do sentinela — a mesma ordem-contrato do [fechar] dos pixels. */
+    private fun fecharSse(t: TelaSse, motivo: String, adeus: ByteArray? = null) {
+        if (!t.viva) return
+        t.motivoDaSaida = motivo
+        t.viva = false
+        if (adeus != null) t.fila.offer(adeus)
+        if (!t.fila.offer(FIM_SSE)) {
+            // Fila entupida: o sentinela não coube. O socket cai de fora, que é
+            // o destravamento de sempre.
+            fecharQuieto(t.cru)
+        }
+        if (adeus == null) fecharQuieto(t.cru)
+    }
+
+    /**
+     * O TAP DO BARRAMENTO (spec §3.2): todo comando que o web relaya por
+     * `busPost` chega aqui verbatim e sai no SSE de cada tela de comandos.
+     *
+     * O Kotlin NÃO interpreta (invariante 5) — a única leitura é o `__para`
+     * do endereçamento, comparado por igualdade de string com o `__de` que a
+     * tela anunciou; e ela só acontece quando a substring existe, para os
+     * `display-status` a 4 Hz não pagarem um parse de JSON cada.
+     *
+     * Fila cheia = tela que não escoa = derrubada (ela reconecta e recebe a
+     * cena inteira de novo pelo `display-ready`). Nunca descarte silencioso
+     * de comando: um `load` perdido é a cena errada sem erro nenhum.
+     */
+    fun difundirJson(json: String) {
+        if (servidor == null || telasSse.isEmpty()) return
+        val para = if (json.contains("\"__para\"")) {
+            try {
+                JSONObject(json).optString("__para", "")
+            } catch (e: Exception) {
+                ""
+            }
+        } else {
+            ""
+        }
+        val ev = try {
+            EspelhoHttp.eventoSse(json)
+        } catch (e: IllegalArgumentException) {
+            // Quebra de linha crua num JSON do barramento é defeito nosso; o
+            // evento partido derrubaria o parse do outro lado inteiro.
+            Log.w(TAG, "comando com quebra de linha não relayado")
+            return
+        }
+        for (t in telasSse.values) {
+            if (!t.viva) continue
+            if (para.isNotEmpty() && t.de != para) continue
+            if (!t.fila.offer(ev)) {
+                fecharSse(t, "a fila de comandos encheu (a tela não escoa)")
+            }
+        }
+    }
+
     private fun escrever(tela: Tela, saida: OutputStream) {
         while (true) {
             val q = tela.fila.poll(1, TimeUnit.SECONDS)
@@ -1070,6 +1272,25 @@ class EspelhoServidor(
                 // que sobreviveu ao IDR que o atendeu seria um laço lento.
                 if (t.idrPendente) {
                     if (t.esperandoIdr) pedirIdrComFreio(t) else t.idrPendente = false
+                }
+            }
+            // AS MESMAS TRÊS REGRAS para as telas de comandos: escrita travada
+            // (o ping de 15 s pode bloquear num socket meio-aberto tanto quanto
+            // um quadro), silêncio do lado de lá (ping só prova o NOSSO lado do
+            // fio — o alive do cliente continua sendo a única voz dele), e
+            // sessão vencida.
+            for (t in telasSse.values) {
+                val inicio = t.escritaIniciadaMs
+                if (inicio != 0L && agora - inicio > TETO_ESCRITA_MS) {
+                    fecharSse(t, "sem escrita ha ${(agora - inicio) / 1000} s (cliente dormiu)")
+                    continue
+                }
+                if (agora - t.ultimoRelatoMs > TETO_SEM_RELATO_MS) {
+                    fecharSse(t, "sem sinal de vida ha ${(agora - t.ultimoRelatoMs) / 1000} s")
+                    continue
+                }
+                if (validarTokenCru(t.sessao.token) == null) {
+                    fecharSse(t, "sessao expirada")
                 }
             }
             confirmarRede(agora)
@@ -1882,6 +2103,31 @@ class EspelhoServidor(
         @Volatile var motivoDaSaida = "fechou a página"
     }
 
+    /**
+     * Uma tela do telão por comandos — o assinante de UM `GET /e`.
+     *
+     * A fila carrega eventos JÁ enquadrados em SSE (`data: …\n\n`), prontos
+     * para virar um chunk cada. Os campos de sobrevivência são os mesmos da
+     * [Tela] de pixels, pelas lições já pagas: [escritaIniciadaMs] para o
+     * vigia destravar um `write()` preso, [ultimoRelatoMs] porque ping só
+     * prova o NOSSO lado do fio, [viva]/[motivoDaSaida] para o Registro dizer
+     * como terminou.
+     */
+    private class TelaSse(val sessao: EspelhoPares.Sessao, val cru: Socket) {
+        val fila = ArrayBlockingQueue<ByteArray>(TETO_FILA_SSE)
+
+        /** O `__de` que a tela anunciou no `display-ready` (E3) — é ele que
+         *  roteia comando endereçado (`__para`). `null` até o anúncio. */
+        @Volatile var de: String? = null
+
+        @Volatile var ultimoRelatoMs = SystemClock.elapsedRealtime()
+        @Volatile var escritaIniciadaMs = 0L
+        @Volatile var eventos = 0L
+        val desdeMs: Long = SystemClock.elapsedRealtime()
+        @Volatile var viva = true
+        @Volatile var motivoDaSaida = "fechou a página"
+    }
+
     /** A rede recusou-se a servir, e a mensagem é a frase que o operador lê. */
     class Recusa(mensagem: String) : IOException(mensagem)
 
@@ -1957,6 +2203,57 @@ class EspelhoServidor(
          */
         private const val PRAZO_LINHA_MS = 10_000
         private const val TETO_ESCRITA_MS = 20_000L
+
+        /**
+         * O batimento do fluxo de COMANDOS (`GET /e`, telão por comandos —
+         * `docs/TELAO-POR-COMANDOS.md` §5.1). Ele paga três contas de uma vez:
+         * o vigia de fio do cliente (que no fluxo de pixels vivia dos bytes
+         * contínuos do vídeo), a detecção de TCP meio-aberto deste lado (a
+         * escrita do ping falha), e a renovação do wake lock do
+         * [EspelhoService], que é por progresso real de escrita — um SSE pode
+         * ficar minutos sem comando numa cena parada, e sem o ping o teto de
+         * 2 h venceria no meio do culto. O ping carrega o epoch que ancora a
+         * correção de relógio das telas (cronômetro e sorteio viajam por
+         * descritor em `Date.now()` do celular).
+         */
+        private const val PING_SSE_MS = 15_000L
+
+        /**
+         * Eventos na fila de UMA tela de comandos. O tráfego normal é
+         * minúsculo (JSONs de operação + status a ~4 Hz), então uma fila que
+         * ENCHE não é rajada: é um cliente que parou de escoar — e a resposta
+         * certa é derrubá-lo (ele reconecta e recebe a cena de novo pelo
+         * `display-ready`), nunca descartar comando em silêncio, porque um
+         * `load` perdido é uma tela mostrando a cena errada sem erro nenhum.
+         */
+        private const val TETO_FILA_SSE = 256
+
+        /**
+         * Os PREFIXOS do bundle servidos à LAN (telão por comandos, E2) — a
+         * tela da rede roda o próprio `/web/display/`, servido daqui com a
+         * MESMA resolução OTA→APK dos WebViews ([WebPathHandler], arquivo a
+         * arquivo).
+         *
+         * Allowlist de PREFIXO, e ela convive com o mapa fixo [ESTATICOS] sem
+         * o substituir: o mapa fixo continua sendo a regra das rotas curtas, e
+         * o prefixo existe porque o display carrega dezenas de arquivos
+         * (`display.js`, `shared/*.js`, fontes) que um mapa fixo obrigaria a
+         * enumerar um a um e a esquecer no primeiro arquivo novo. A contenção
+         * não se perde: o parser já recusa `..` e não-ASCII no caminho, e o
+         * [WebPathHandler] confere `canonicalPath` no bundle OTA.
+         *
+         * **`web/controle/` NUNCA entra aqui** — o Controle é a superfície do
+         * operador, e servi-lo à rede entregaria a UI inteira a qualquer um no
+         * Wi-Fi (§8 da spec).
+         */
+        private val PREFIXOS_BUNDLE = mapOf(
+            "/display/" to "web/display/",
+            "/shared/" to "web/shared/",
+            "/espelho/" to "web/espelho/",
+        )
+
+        /** Sentinela de fim da fila SSE — o mesmo papel do [FIM] dos pixels. */
+        private val FIM_SSE = ByteArray(0)
 
         /**
          * Silêncio do cliente que vale desconexão. O `cliente.js` relata a cada
