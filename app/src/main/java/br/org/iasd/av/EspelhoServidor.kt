@@ -2237,7 +2237,7 @@ class EspelhoServidor(
          * Allowlist de PREFIXO, e ela convive com o mapa fixo [ESTATICOS] sem
          * o substituir: o mapa fixo continua sendo a regra das rotas curtas, e
          * o prefixo existe porque o display carrega dezenas de arquivos
-         * (`display.js`, `shared/*.js`, fontes) que um mapa fixo obrigaria a
+         * (`display.js`, os módulos de `shared/`, fontes) que um mapa fixo obrigaria a
          * enumerar um a um e a esquecer no primeiro arquivo novo. A contenção
          * não se perde: o parser já recusa `..` e não-ASCII no caminho, e o
          * [WebPathHandler] confere `canonicalPath` no bundle OTA.
