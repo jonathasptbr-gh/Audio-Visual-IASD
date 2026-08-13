@@ -237,7 +237,7 @@ O `display-status` do barramento, o `SYNC_DRIFT = 1.6 s` (`controle.js:1177`) e 
 enunciado deste projeto diz que a igreja pode não ter internet, cujo desfecho normal é o celular em
 dados móveis. Operadoras brasileiras entregam **IPv6 globalmente roteável** ao aparelho, sem NAT e
 sem firewall implícito. O resultado seria **o culto em H.264 numa porta alcançável do mundo,
-protegida por seis dígitos** — e ninguém no prédio teria como perceber.
+protegida por um código curto** — e ninguém no prédio teria como perceber.
 
 **A regra, e ela não é negociável:**
 
@@ -667,7 +667,7 @@ object EspelhoHttp {
 
 ### 3.5 `EspelhoPares.kt` (~160 linhas, **PURO**)
 
-**Responsabilidade:** PIN, aprovação pelo operador, tokens, prazo, limitação de taxa. Puro pelo
+**Responsabilidade:** o CÓDIGO de três dígitos, tokens, prazo, limitação de taxa. Puro pelo
 mesmo motivo do anterior.
 
 ```kotlin
@@ -697,17 +697,18 @@ object EspelhoPares {
    `PLANO-TELAO-NA-REDE.md:422`, reinstalada.
 3. **O token tem prazo e morre com a sessão.** `desligar()` zera tudo. Não há token que sobreviva ao
    culto.
-4. **Comparação em tempo constante** (`MessageDigest.isEqual`) para PIN e token.
-5. **O operador fica no laço.** PIN correto ⇒ a tela entra como **pendente**, e a folha do espelho no
-   Controle mostra `tela pendente — aprovar?`. Há um interruptor `aprovar automaticamente nesta
-   sessão` (nasce **desligado**) para quando o operador estiver ocupado. Um PIN de seis dígitos
-   visível na tela do celular durante todo o culto é fraco demais para ser o único controle.
-6. **Bloqueio por ORIGEM antes de qualquer rotação global.** 5 tentativas erradas do mesmo endereço
-   ⇒ 60 s de espera **para aquele endereço**. **O PIN NÃO ROTACIONA por tentativas erradas** — isso
-   seria negação de serviço contra o pareamento legítimo: um atacante erra dez vezes de propósito e o
-   visitante que está digitando recebe "PIN inválido" para sempre, e numa rede com AP isolation o
-   operador culparia a rede. O PIN muda só em `ligar()` ou por ação do operador, e a mudança
-   re-renderiza PIN e QR na hora.
+4. **Comparação em tempo constante** (`MessageDigest.isEqual`) para o código e o token.
+5. **O CÓDIGO é a porta, e código certo ENTRA — sem fila** (v5.185, §10-A.13). Três dígitos gerados
+   em `ligar()`, isto é, no instante em que o operador ativa a transmissão. Não há aprovação a
+   esperar: o gesto do visitante é UM (o botão que também libera som e tela cheia), e uma fila o
+   gastaria antes de a tela entrar. O controle do operador passou a ser DERRUBAR, na lista de quem
+   está vendo.
+6. **Bloqueio por ORIGEM, e ele CRESCE.** 5 tentativas erradas do mesmo endereço ⇒ espera **para
+   aquele endereço**, dobrando a cada bloqueio novo (60 s → 30 min). É ele, e não o tamanho do
+   código, que torna três dígitos defensáveis. **O CÓDIGO NÃO ROTACIONA por tentativas erradas** —
+   isso seria negação de serviço contra o pareamento legítimo: um atacante erra dez vezes de
+   propósito e o visitante que está digitando recebe "código inválido" para sempre, e numa rede com
+   AP isolation o operador culparia a rede. Ele muda só em `ligar()` ou por ação do operador.
 7. **A página de pareamento é ANÔNIMA.** Sem versão do app, sem nome do aparelho, sem SSID, sem nome
    da igreja. Reconhecimento não se dá de graça a quem ainda não provou nada.
 8. **Teto de 3 SESSÕES, e o slot é do TOKEN, não do socket.** Um `GET /v` com um token que já tem
@@ -2346,6 +2347,83 @@ regra do bloco. `SHELL_VERSION` **não sobe**: nenhum método da ponte nasceu ou
 **O que ficou de fora, e está dito:** o embed do YouTube segue sem áudio (iframe de outra origem) e o
 microfone ao vivo segue proibido de sair na rede. As duas são decisões do §3.9, não consequências
 deste defeito.
+### 10-A.14 — a entrada vira um CÓDIGO de três dígitos, e o `av.local` sai (5.186)
+
+O pedido do operador tem quatro partes, e a última governa as outras três: *"o
+botão de conectar já vai fazer a função de liberar o áudio e colocar em tela
+cheia"*.
+
+**Isso é uma restrição de plataforma, não de gosto.** `requestFullscreen()` e
+sair do `muted` exigem *ativação transitória do usuário*, e um gesto vale por
+poucos segundos. Para um botão fazer as três coisas, ele precisa gastar o gesto
+ANTES de a rede responder — e daí sai, por dedução e não por oportunismo, que
+**não pode existir fila de aprovação**: quando o operador aprovasse, o gesto já
+teria passado, e a tela entraria muda e em janela. Numa TV do outro lado do
+salão não há ninguém para dar o segundo toque; é exatamente o caso que este
+recurso existe para resolver.
+
+O que saiu, e por quê:
+
+| saiu | porque |
+|---|---|
+| a fila (`Pendencia`, `aprovar`, `recusar`, `consultar`, `pendentes`, a aprovação automática) | código certo ENTRA, na mesma resposta — não há o que aprovar |
+| a porta aberta (`entrarAberto`, §10-A.10) | agora há um código, e ele é exigido. É mais forte que a v5.170, não mais fraco |
+| o QR inteiro (`esperaQr`, `espelho/qr.js`, `tools/qr.test.mjs`, o leitor do Controle, `requestCam`, a permissão `CAMERA`) | ele existia para INVERTER quem mostra e quem lê o segredo; a inversão perdeu a razão de ser quando o segredo virou três dígitos que a TELA digita |
+| o mDNS (`EspelhoMdns.kt`, `EspelhoMdnsPacote.kt`, o JUnit) | `av.local` não resolve no Chrome do Android nem na maioria das Smart TVs — §2.7 sempre disse isso, e o IP sempre foi o endereço que de fato funcionava |
+
+**O que sustenta três dígitos.** Mil combinações não se defendem pelo tamanho:
+quem as defende é o **bloqueio crescente por origem** — `BLOQUEIO_MS` (60 s)
+dobrando a cada bloqueio novo da mesma origem, até `BLOQUEIO_MAX_MS` (30 min).
+Com um minuto FIXO, mil combinações saem em ~3 h de martelada paciente (cinco
+tentativas por minuto); dobrando, a sétima rodada já custa mais que o culto
+inteiro. Duas decisões sustentam isso e as duas têm JUnit:
+
+- **o contador de bloqueios NÃO zera quando o bloqueio vence** (só a cota de
+  erros zera). Quem esperou o minuto e voltou a martelar é exatamente quem a
+  rodada seguinte precisa segurar por mais tempo — zerar ali devolveria a
+  martelada ao primeiro degrau a cada rodada, e o crescimento não existiria;
+- **e ele zera inteiro na primeira tentativa CERTA.** Quem acertou não é quem
+  estava martelando, e carregar o expoente adiante puniria a TV que errou o
+  número duas vezes antes de acertar.
+
+O teto tem um caso próprio, e ele é da família do `setInteger` numa chave `long`
+(§3.3, C1): em Kotlin/JVM o `shl` usa só os **6 bits baixos** do deslocamento, e
+`1L shl 64` é `1L`. Sem o `coerceAtMost`, a 65ª rodada devolveria UM MINUTO — o
+oposto exato do que o crescimento existe para fazer, sem nada que o denunciasse.
+
+E `limpar` passou a esquecer uma origem depois de `BLOQUEIO_MAX_MS` parada, e
+não `BLOQUEIO_MS`: com o expoente morando no mapa, esquecê-lo depois de um
+minuto de silêncio teria o mesmo efeito de zerá-lo.
+
+**A reentrada sozinha**, do lado do cliente, é a metade que salva um culto. A
+tela guarda **em memória** (nunca no `sessionStorage` — lá mora o token, e um
+segredo a mais guardado é um segredo a mais a vazar) o último código que
+funcionou, e reentra com espera crescente. Recusada, ela **desiste e diz por
+quê**: o código nasce a cada `ligar`, então uma recusa depois de uma queda quer
+dizer "o operador religou a transmissão", e martelar um número morto pelo resto
+do culto seria pior que parar.
+
+**Um defeito que o teste pegou, e ele é da família deste apêndice.** A primeira
+versão do `armarGesto` pedia `requestFullscreen()` no `#play` — que, no instante
+do toque, ainda está `hidden`. O Chromium ACEITA: o elemento vira o elemento de
+tela cheia, **desenha nada**, e passa a interceptar os toques. O campo do código
+ficava visível por baixo e completamente inerte — o pior desfecho possível numa
+TV que ninguém vai atender. O `tools/espelho-cliente.test.mjs` o nomeou com
+todas as letras (`html intercepts pointer events`), e a correção é pedir tela
+cheia no **documento**, que contém os dois estados: a troca de um para o outro
+acontece dentro dela, sem pedir nada de novo.
+
+**`CHANGE_WIFI_MULTICAST_STATE` FICA no manifest**, e a leitura natural ("o mDNS
+saiu, logo ela é lixo") está errada: quem a exige não é o multicast, é o TIPO do
+serviço em primeiro plano (`connectedDevice`, §2.6). Removê-la faz
+`startForeground` lançar `SecurityException` e derruba o app inteiro no instante
+em que o operador liga a transmissão.
+
+**Metade APK, metade OTA**, e as duas metades precisam chegar juntas: o servidor
+só aceita `{"codigo": …}` e o cliente só manda isso. Um bundle novo num shell
+antigo cai no `else -> 403`; um bundle antigo num shell novo também. É por isso
+que `SHELL_VERSION` sobe a **36** — o primeiro degrau deste contrato que
+ENCOLHE.
 
 ---
 
@@ -2353,8 +2431,9 @@ deste defeito.
 
 > Dá para pôr o telão inteiro — inclusive vídeo, fades e cortina — em até três navegadores da rede da
 > igreja, sem instalar nada nas telas e sem depender de internet. O celular vira o servidor; quem
-> quiser assistir digita o endereço uma vez, vê um número de seis dígitos na sua tela, e **você
-> aprova**.
+> quiser assistir digita o endereço, digita o **código de três dígitos** que aparece na sua tela, e
+> toca em Conectar — e esse toque já entra com som e em tela cheia. Você vê quem entrou e pode
+> derrubar qualquer uma.
 >
 > Quatro coisas precisam ser ditas antes: **o roteador da igreja pode bloquear isso sozinho**
 > (isolamento de clientes) e não há conserto do lado do app — o próprio recurso vai dizer, em texto,

@@ -138,20 +138,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
         cb?.invoke(granted)
     }
 
-    /**
-     * E o mesmo par para a CÂMERA, pedida no toque de "ler o código da tela" do
-     * espelho — nunca antes. Um app de projeção pedindo câmera na abertura é
-     * exatamente o pedido que se nega sem ler.
-     */
-    private var pendingCamPermission: ((Boolean) -> Unit)? = null
-    private val camPermission = registerForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        val cb = pendingCamPermission
-        pendingCamPermission = null
-        cb?.invoke(granted)
-    }
-
     /** Callback do `AVNative.pickDoc()` em andamento. */
     private var pendingDocPick: ((List<Uri>) -> Unit)? = null
 
@@ -361,7 +347,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // A SIMÉTRICA DO `onGone`, do outro lado do espelho (v5.181): o encoder
         // ou a janela caindo sozinhos. `EspelhoDisplay` só sabe derrubar a
         // metade dele; sem este aviso sobrava o `ServerSocket` escutando, o
-        // `av.local` publicado, o serviço em primeiro plano e as três telas
+        // o serviço em primeiro plano, o socket escutando e as três telas
         // recebendo zero byte — e religar falhava no bind. Ver o KDoc de
         // [EspelhoDisplay.aoDesligarSozinho].
         //
@@ -1144,25 +1130,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
         }
     }
 
-    override fun requestCamPermission(onResult: (Boolean) -> Unit) {
-        runOnUiThread {
-            if (temCamera()) { onResult(true); return@runOnUiThread }
-            pendingCamPermission?.invoke(false)
-            pendingCamPermission = onResult
-            try {
-                camPermission.launch(android.Manifest.permission.CAMERA)
-            } catch (e: Exception) {
-                Log.w(TAG, "não foi possível pedir a permissão de câmera", e)
-                pendingCamPermission = null
-                onResult(false)
-            }
-        }
-    }
-
-    private fun temCamera(): Boolean =
-        checkSelfPermission(android.Manifest.permission.CAMERA) ==
-            PackageManager.PERMISSION_GRANTED
-
     override fun setCaptureVolumeKeys(on: Boolean) {
         runOnUiThread { captureVolumeKeys = on }
     }
@@ -1243,21 +1210,15 @@ class MainActivity : ComponentActivity(), BridgeHost {
                 pedirIdr = { EspelhoDisplay.pedirIdr() },
                 aoPerderRede = { stopMirror() },
                 // O ENDEREÇO TROCOU E O SOCKET RELIGOU NELE (v5.183). O servidor
-                // se resolve sozinho; o que ele não sabe fazer é reanunciar o
-                // nome e reescrever a notificação — e sem as duas coisas o
-                // religamento seria invisível: `av.local` continuaria apontando
-                // para o IP velho (é justamente a tela que usa o nome a que
-                // deveria voltar sozinha) e o cartão mostraria um endereço que
-                // não atende mais.
+                // se resolve sozinho (refaz o bind e a allowlist de `Host`); o
+                // que ele não sabe fazer é reescrever a notificação, e sem isso
+                // o cartão mostraria um endereço que não atende mais.
                 //
-                // `EspelhoMdns.ligar` é idempotente e refaz a sondagem no
-                // endereço novo; a allowlist de `Host` já foi refeita do outro
-                // lado, e ela lê `EspelhoMdns.noAr`, que continua verdadeiro.
-                aoTrocarEndereco = { enderecoNovo, ipNovo ->
-                    runOnUiThread {
-                        EspelhoMdns.ligar(applicationContext, ipNovo)
-                        EspelhoService.enderecoMudou(this, enderecoNovo)
-                    }
+                // O IP novo NÃO chega às telas sozinho — elas guardam a URL que
+                // foi digitada — e é por isso que este caminho existe: o
+                // operador precisa ler o endereço novo em algum lugar.
+                aoTrocarEndereco = { enderecoNovo, _ ->
+                    runOnUiThread { EspelhoService.enderecoMudou(this, enderecoNovo) }
                 },
             )
             // O CERTIFICADO, quando o operador importou um. Ausente, vencido ou
@@ -1267,25 +1228,13 @@ class MainActivity : ComponentActivity(), BridgeHost {
             // evitar. Ver o KDoc de [EspelhoCert.material].
             val cert = EspelhoCert.material(this)
             val hostTls = if (cert != null) EspelhoCert.estado(this).host else ""
-            // O NOME mDNS SOBE ANTES DO SERVIDOR, e a ordem é o contrato: quem
-            // monta a allowlist de `Host` é o `ligar` abaixo, e ele pergunta ao
-            // [EspelhoMdns] se o nome está no ar. Subir depois deixaria a lista
-            // sem o nome — e `av.local:8787` receberia o 404 idêntico de sempre,
-            // que é o modo de falhar mais mudo deste servidor.
-            EspelhoMdns.ligar(applicationContext, rede.ip)
             val endereco = try {
                 srv.ligar(
                     EspelhoServidor.PORTA_PADRAO, rede.ip,
                     cert?.first, cert?.second, hostTls,
                 )
             } catch (e: Exception) {
-                // O `EspelhoMdns` JÁ SUBIU quando se chega aqui (a ordem acima é
-                // contrato), e `srv.desligar()` não sabe dele: sem esta linha o
-                // `av.local` fica publicado apontando para uma porta que não
-                // atende, e quem digitar o nome recebe o 404 idêntico — o modo de
-                // falhar mais mudo deste servidor. (v5.181)
                 srv.desligar()
-                EspelhoMdns.desligar()
                 onResult(mirrorJson(erro = e.message ?: "o servidor do espelho não subiu"))
                 return@runOnUiThread
             }
@@ -1301,7 +1250,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
             val r = EspelhoDisplay.ligar(this@MainActivity) { q -> srv.difundir(q) }
             if (r is Resultado.Recusado) {
                 srv.desligar()
-                EspelhoMdns.desligar()   // idem ao ramo acima (v5.181)
                 onResult(mirrorJson(erro = r.motivo))
                 return@runOnUiThread
             }
@@ -1350,10 +1298,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
     private fun desmontarEspelho() {
         espelhoSrv?.desligar()
         espelhoSrv = null
-        // O nome sai da rede com uma despedida (TTL 0) — ver [EspelhoMdns]:
-        // sumir sem avisar deixa as telas apontadas para um IP que não atende
-        // mais, pelos dois minutos do TTL.
-        EspelhoMdns.desligar()
         EspelhoPares.desligar()
         try { EspelhoService.desligar(this) } catch (e: Exception) {
             Log.w(TAG, "serviço do espelho não parou", e)
@@ -1387,23 +1331,19 @@ class MainActivity : ComponentActivity(), BridgeHost {
             .put("ligado", ligado)
             .put("modo", espelhoModo)
             .put("endereco", srv?.optString("url") ?: "")
-            .put("pin", if (ligado) EspelhoPares.pin() else "")
-            .put("autoAprovar", EspelhoPares.autoAprovando())
+            // O CÓDIGO DE TRÊS DÍGITOS (v5.185), que nasce no `EspelhoPares.ligar`
+            // — isto é, no instante em que o operador ativa a transmissão. O
+            // campo trocou de nome junto com o conceito (`pin` → `codigo`): um
+            // shell novo com bundle antigo leria o nome velho e mostraria vazio,
+            // e é justamente para isso que o `SHELL_VERSION` subiu.
+            //
+            // STRING, e nunca número: "007" é um código legítimo, e um `Int`
+            // engoliria os zeros à esquerda no meio do caminho sem nada
+            // reclamar — o operador leria "7" na folha e a tela recusaria os
+            // três dígitos que ele ditou.
+            .put("codigo", if (ligado) EspelhoPares.codigo() else "")
             .put("erro", erro)
-            // O NOME CURTO, quando ele subiu — e o `endereco` acima FICA, com o
-            // IP. Não é redundância: `.local` não resolve no Chrome do Android
-            // nem na maioria das Smart TVs (ver [EspelhoMdns]), então o IP é o
-            // que funciona em metade das telas. Trocar um pelo outro seria uma
-            // regressão com cara de melhoria.
-            .put("nomeLocal", if (ligado) EspelhoMdns.endereco(EspelhoServidor.PORTA_PADRAO) else "")
-            .put("nomeErro", if (ligado) EspelhoMdns.erro else "")
             .put("telas", srv?.optJSONArray("telas") ?: JSONArray())
-            .put("pendentes", srv?.optJSONArray("pendentes") ?: JSONArray())
-            // Quantas telas estão com um QR em cartaz. A folha usa este número
-            // para dizer "há uma tela esperando a leitura" — sem ele, uma tela
-            // que já fez a parte dela é indistinguível de tela nenhuma, porque a
-            // espera de QR não entra na lista de pendentes de propósito.
-            .put("qrEsperando", srv?.optInt("qrEsperando", 0) ?: 0)
     }
 
     override fun mirrorState(onResult: (JSONObject) -> Unit) {
@@ -1435,36 +1375,30 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * Aprovar aqui não "abre" nada: o cliente está enquetando `POST /par` e a
      * sessão que nasce da aprovação é o que a próxima enquete dele encontra.
      */
+    /**
+     * DERRUBAR UMA TELA — e, desde a v5.185, é a única coisa que este método faz.
+     *
+     * Ele nasceu como "o operador decide sobre uma tela pendente", e teve três
+     * significados empilhados: aprovar uma pendente, recusá-la, e ligar a
+     * aprovação automática pelo id reservado `"*"`. Os três morreram com a fila
+     * de aprovação (ver a invariante 5 do [EspelhoPares]): quem digita o código
+     * certo entra na hora, então não há o que aprovar.
+     *
+     * O que sobra é a pergunta que o operador de fato faz durante um culto —
+     * *"quem é aquela tela, e como eu a tiro do ar?"* —, e o `id` é o RÓTULO da
+     * tela ("tela B"), que é o único identificador que a lista dele tem.
+     *
+     * **A assinatura fica**, com o `aprovar` ignorado, e isso é deliberado:
+     * mudá-la obrigaria a subir o `SHELL_VERSION` de novo sem ganhar nada, e o
+     * lado web já manda `false` no único ponto que chama.
+     */
     override fun approveMirrorScreen(id: String, approve: Boolean, onResult: (Boolean) -> Unit) {
         runOnUiThread {
-            if (id.isBlank() || id == "*") {
-                EspelhoPares.definirAutoAprovar(approve)
-                onResult(true)
-                return@runOnUiThread
-            }
-            if (approve) {
-                onResult(EspelhoPares.aprovar(id, System.currentTimeMillis()) != null)
-                return@runOnUiThread
-            }
-            // NEGAR TEM DOIS SIGNIFICADOS, e o botão da folha é o mesmo nos dois
-            // casos: "não deixe esta PENDENTE entrar" (o `id` é um id de espera)
-            // e "tire esta tela CONECTADA do ar" (o `id` é o rótulo — "A", "B" —,
-            // que é o único identificador que a lista de telas tem).
-            //
-            // O caminho antigo só conhecia o primeiro: um rótulo entregue ao
-            // `EspelhoPares.recusar` não casa com id de espera nenhum (eles são
-            // base64url de 128 bits), saía em silêncio e devolvia `true`. O botão
-            // "Desconectar" da v5.171 — que é a resposta inteira do desenho ao
-            // curioso na rede, já que a porta nasce aberta — nunca fez nada.
-            //
-            // Rótulo primeiro porque ele é o caso comum e porque os dois espaços
-            // de nome não se cruzam.
-            if (espelhoSrv?.derrubarTela(id) == true) {
-                onResult(true)
-                return@runOnUiThread
-            }
-            EspelhoPares.recusar(id)
-            onResult(true)
+            // Um rótulo VAZIO derrubaria a primeira tela que casasse com nada —
+            // ou, pior, cairia num caminho de "todas". Recusar cedo é a única
+            // resposta possível.
+            if (id.isBlank()) { onResult(false); return@runOnUiThread }
+            onResult(espelhoSrv?.derrubarTela(id) == true)
         }
     }
 
@@ -1546,42 +1480,35 @@ class MainActivity : ComponentActivity(), BridgeHost {
         }
 
         /**
-         * Concede ao WebView do CONTROLE o uso da câmera — e **só** a câmera,
-         * e **só** para ler o QR do espelho.
+         * O WebView do Controle NÃO recebe câmera, microfone, MIDI nem proteção
+         * de conteúdo — nada. Ele nega tudo, e a ausência de exceção é o ponto.
          *
-         * Sem este override o WebView nega `getUserMedia` **em silêncio**: a
-         * promise é rejeitada e não há erro no console que explique. É o mesmo
-         * padrão do [onShowFileChooser] (invariante 6) e a mesma armadilha que o
-         * [MicChromeClient] documenta para o telão — e ela custou aqui o
-         * recurso inteiro até este método existir.
+         * Este override existia desde a v5.145 para conceder VÍDEO, e só vídeo,
+         * ao leitor de QR do espelho. O leitor saiu na v5.185 (a página do
+         * cliente passou a ter um campo e um botão, e quem digita o código é a
+         * TELA), e com ele saiu a permissão `CAMERA` do manifest.
          *
-         * As três regras são as de lá, trocando áudio por vídeo:
+         * **Ele NÃO foi removido junto, e é isso que precisa estar escrito:** um
+         * WebView sem `onPermissionRequest` nega em silêncio, o que dá o mesmo
+         * resultado hoje — e deixaria a próxima pessoa que precisasse de mídia
+         * aqui descobrindo a armadilha do zero, no aparelho, sem erro nenhum no
+         * console (é a mesma que o [MicChromeClient] documenta para o telão).
+         * Negar EXPLICITAMENTE, com log, transforma "não faz nada" em uma linha
+         * no logcat.
          *
-         * - **Só vídeo.** Microfone, MIDI e proteção de conteúdo são negados
-         *   aqui. O microfone do app é do TELÃO, por decisão de arquitetura (um
-         *   `MediaStream` não atravessa o barramento, então quem abre é quem
-         *   reproduz) — conceder áudio neste WebView não habilitaria recurso
-         *   nenhum e só ampliaria a superfície.
-         * - **Só se o APP já tiver `CAMERA`.** Conceder ao WebView uma permissão
-         *   que o processo não tem adia a falha para um ponto sem sinal claro. O
-         *   lado web pede antes, por `AVNative.requestCam()`.
-         * - **Só da própria origem.** O Controle não carrega terceiro por
-         *   design — mas ele é o WebView com `host != null`, o que injeta
-         *   `pickFolder`, `listFolder`, `openExternal` e `espelhoLigar`. É
-         *   justamente o documento em que uma concessão silenciosa custa mais
-         *   caro. Origem ausente não é negada, pela mesma razão de lá.
+         * E a recusa é a postura certa por si: este é o WebView com
+         * `host != null`, o que injeta `pickFolder`, `listFolder`,
+         * `openExternal` e `espelhoLigar`. Quem precisar de mídia aqui um dia
+         * volta pela porta da frente — permissão no manifest, pedido sob
+         * demanda, e uma allowlist de recurso e de origem, como era.
          */
         override fun onPermissionRequest(request: PermissionRequest) {
-            val origem = request.origin?.toString()?.trimEnd('/')
-            val querido = request.resources.filter { it == PermissionRequest.RESOURCE_VIDEO_CAPTURE }
-            if (querido.isEmpty() || !temCamera() ||
-                (origem != null && origem != WebViewFactory.ORIGIN)
-            ) {
-                Log.w(TAG, "permissão de mídia negada ao Controle ($origem): ${request.resources.joinToString()}")
-                request.deny()
-                return
-            }
-            request.grant(querido.toTypedArray())
+            Log.w(
+                TAG,
+                "permissão de mídia negada ao Controle " +
+                    "(${request.origin}): ${request.resources.joinToString()}",
+            )
+            request.deny()
         }
 
         override fun onShowCustomView(view: View, callback: CustomViewCallback) {

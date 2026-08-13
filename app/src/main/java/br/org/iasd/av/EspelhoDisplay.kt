@@ -455,7 +455,7 @@ object EspelhoDisplay {
      * dos seis caminhos de auto-desligamento daqui.
      *
      * O que sobrava, num culto sem TV em que as telas da rede SÃO a projeção: o
-     * `ServerSocket` escutando, `av.local` publicado, a notificação dizendo "no
+     * `ServerSocket` escutando, a notificação dizendo "no
      * ar", e as três telas com o `GET /v` aberto recebendo zero byte — elas
      * congelam, o vigia de fio aborta aos 20 s, reconectam, recebem o `csd`
      * velho, e o pedido de IDR cai num `codec` nulo: no-op silencioso. **Telas

@@ -80,54 +80,32 @@ h1 { font-size: 20px; font-weight: 600; letter-spacing: .01em; }
 
 .ajuda { margin-top: 8px; color: var(--muted); font-size: 14px; }
 
-/* ---------- o QR ----------
-   Ele é o assunto da tela agora: quem MOSTRA é aqui, quem LÊ é o celular. Numa
-   TV a 3 metros o código precisa ser grande — daí o cartão crescer quando há
-   QR — e precisa ser BRANCO, não a superfície da paleta: um QR sobre fundo
-   escuro inverte o contraste que o leitor procura, e vários telefones
-   simplesmente não o veem. É a mesma exceção que `--stage-text: #fff` já
-   declara: legibilidade vence calibração. */
+/* ---------- o CÓDIGO ----------
+   Três dígitos, grandes e espaçados, para serem conferidos de longe contra a
+   tela do celular — e para serem digitados num controle remoto de TV, que é o
+   teclado real deste campo.
 
-.qr-box { margin-top: 18px; }
+   O campo e o botão ficam LADO A LADO em tela larga e empilhados em tela
+   estreita, e isso não é enfeite: numa TV o foco caminha por Tab/setas, e um
+   campo seguido do botão na mesma linha é um passo só até o "OK" do controle. */
 
-.qr {
-  display: block;
-  width: min(52vmin, 300px);
-  height: auto;
-  margin: 0 auto;
-  border-radius: 8px;
-  /* O canvas tem UM PIXEL POR MÓDULO e quem estica é esta linha. Ampliar com
-     interpolação borraria as bordas — e um módulo cinza é um módulo que a
-     câmera vai adivinhar. */
-  image-rendering: pixelated;
-  /* O `background` cobre a zona de silêncio caso o arredondamento do
-     navegador deixe meia borda de fora. */
-  background: #fff;
+.entrada {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
 }
 
-.qr-box .ajuda { margin-top: 12px; }
-
-/* O PIN vira o plano B, e um `<details>` diz isso sem precisar de texto: ele
-   está ali, fechado, e abre com um toque. Aberto por conta própria só quando o
-   QR não pôde ser gerado — que é quando ele deixa de ser plano B. */
-.pin-box { margin-top: 18px; text-align: left; }
-
-.pin-box > summary {
-  color: var(--muted);
-  font-size: 14px;
-  text-align: center;
-  cursor: pointer;
-  padding: 6px;
-}
-
-#pin {
-  /* Seis dígitos grandes, espaçados, para serem conferidos de longe contra a
-     tela do celular. */
-  width: 100%;
-  margin-top: 12px;
+.cod {
+  flex: 1 1 8ch;
+  min-width: 0;
   padding: 12px 8px;
-  font: 600 30px/1.1 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font: 700 40px/1.1 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   letter-spacing: .22em;
+  /* O `letter-spacing` põe um vão DEPOIS do último dígito também, o que
+     descentra visualmente um número curto. Meio caractere de recuo à esquerda
+     devolve a simetria — com três dígitos isso é visível. */
+  text-indent: .11em;
   text-align: center;
   color: var(--text);
   /* Dentro de um CARTÃO a superfície AFUNDA: o overlay é PRETO, não branco.
@@ -138,12 +116,13 @@ h1 { font-size: 20px; font-weight: 600; letter-spacing: .01em; }
   border-radius: 10px;
   outline: none;
 }
-#pin:focus { border-color: var(--accent); }
+.cod:focus { border-color: var(--accent); }
 
 .botao {
-  width: 100%;
-  margin-top: 14px;
-  padding: 13px 16px;
+  /* Não cresce com o campo: um botão de 60% da largura da TV não é mais fácil
+     de acertar, só maior. */
+  flex: 0 0 auto;
+  padding: 13px 22px;
   font: 600 16px/1 inherit;
   color: var(--on-accent);
   background: var(--accent-fill);

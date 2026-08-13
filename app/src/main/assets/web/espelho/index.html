@@ -9,7 +9,7 @@
        viaje no HTML. Quem abriu este endereço ainda não provou nada, e
        reconhecimento não se dá de graça: um `<title>` dizendo o nome da igreja
        transformaria um IP varrido ao acaso numa informação sobre um prédio.
-       "Tela" é tudo o que esta página tem direito de dizer antes do PIN. -->
+       "Tela" é tudo o que esta página tem direito de dizer antes do código. -->
   <title>Tela</title>
   <!-- Nada de `<link rel="icon">`, `manifest` ou `theme-color`: os três só
        existem para o navegador GUARDAR a página (histórico, tela inicial,
@@ -21,7 +21,7 @@
 <!-- ============================================================
      UMA PÁGINA, DOIS ESTADOS — e é por isso que o token nunca
      entra numa URL (§3.5, invariante 2).
-     Não há navegação entre o pareamento e o player: os dois moram
+     Não há navegação entre a entrada e o player: os dois moram
      aqui e o JS troca qual está `hidden`. Se fossem duas páginas,
      o token teria de atravessar de uma para a outra, e o único
      canal barato para isso seria a URL — que vaza para o
@@ -30,42 +30,36 @@
      em `Authorization: Bearer`, e mais nada.
      ============================================================ -->
 
-<!-- ---------- estado 1: PAREAMENTO ---------- -->
+<!-- ---------- estado 1: ENTRAR ----------
+     UM CAMPO E UM BOTÃO, e mais nada (v5.185).
+
+     O botão faz TRÊS coisas no mesmo toque — entra, liga o som e vai para tela
+     cheia —, e isso não é economia de cliques: é a única forma de as três
+     acontecerem. `requestFullscreen()` e sair do `muted` exigem ATIVAÇÃO
+     TRANSITÓRIA DO USUÁRIO, e um gesto só vale por um punhado de segundos.
+     Qualquer coisa entre o toque e elas (uma fila de aprovação no celular, um
+     segundo botão depois de conectar) gasta o gesto e deixa a tela entrando
+     muda e em janela — com alguém tendo de atravessar o salão para tocar nela.
+
+     Foi por isso que o QR e a fila de aprovação saíram junto. O QR existia para
+     inverter quem mostra e quem lê o segredo, e a inversão perdeu a razão de
+     ser quando o segredo virou três dígitos que a TELA digita. -->
 <section id="par" class="tela">
   <div class="cartao">
     <h1>Tela</h1>
+    <p class="ajuda">Digite o código que aparece no celular.</p>
 
-    <!-- O QR VEM PRIMEIRO, e a inversão é o ponto: aqui quem MOSTRA é a tela e
-         quem LÊ é o celular. O código desenhado abaixo não é segredo nenhum —
-         é o `id` da espera que esta página acabou de criar, que o servidor
-         devolveu a quem pediu. Ele só vira acesso quando o operador apontar a
-         câmera para ELE, que é o mesmo ato de aprovação de sempre.
-
-         O canvas nasce escondido: sem espera criada (espelho desligado, rede
-         caída, servidor recusando) não há o que desenhar, e um quadrado branco
-         vazio no meio da tela seria pior que ausência. -->
-    <div id="qrBox" class="qr-box" hidden>
-      <!-- `image-rendering: pixelated` na folha: o canvas tem UM pixel por
-           módulo e quem estica é o CSS. Ampliar módulos inteiros mantém as
-           bordas duras, que é o que a câmera precisa. -->
-      <canvas id="qr" class="qr" aria-label="Código para o aplicativo ler"></canvas>
-      <p class="ajuda">No celular, abra <b>Espelho na rede local</b> e toque em
-        <b>Ler o código da tela</b>.</p>
+    <!-- `inputmode` e `pattern`, não `type="number"`: um campo numérico traz as
+         setinhas de incremento, aceita sinal e expoente, e come o zero à
+         esquerda — e um código de três dígitos começa com zero uma vez em cada
+         dez. `autofocus` porque esta página não tem outro lugar para o cursor
+         ir, e num controle remoto de TV cada tecla até o campo é um atrito. -->
+    <div class="entrada">
+      <input id="cod" class="cod" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3"
+             autocomplete="off" autocorrect="off" spellcheck="false" autofocus
+             aria-label="Código de três dígitos">
+      <button id="parBtn" class="botao">Conectar</button>
     </div>
-
-    <!-- O PIN CONTINUA, e continua por escrito: a câmera pode não existir
-         naquele aparelho, a leitura de QR pode não estar disponível no WebView,
-         e o operador pode simplesmente estar do outro lado do salão. Um caminho
-         só seria um caminho sem plano B no meio de um culto. -->
-    <details id="pinBox" class="pin-box">
-      <summary>Ou digitar o código de seis dígitos</summary>
-      <!-- `inputmode` e `pattern`, não `type="number"`: um campo numérico traz
-           as setinhas de incremento, aceita sinal e expoente, e come o zero à
-           esquerda — e um PIN começa com zero uma vez em cada dez. -->
-      <input id="pin" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6"
-             autocomplete="off" autocorrect="off" spellcheck="false" aria-label="Código">
-      <button id="parBtn" class="botao">Entrar</button>
-    </details>
 
     <p id="parMsg" class="msg" role="status" aria-live="polite"></p>
   </div>
@@ -81,24 +75,24 @@
        `disableremoteplayback` sai no JS (não há atributo em todo navegador). -->
   <video id="v" muted playsinline autoplay></video>
 
-  <!-- DOIS ÍCONES, DUAS DECISÕES — e ela ainda é UMA barra de player comum.
-       Até aqui havia um botão só ("Ver em tela cheia e ouvir"), e ele juntava
-       duas coisas que não são a mesma: a tela do saguão quer imagem cheia e
-       silêncio (a PA está a 200 ms dali), a da sala anexa quer som. Com um
-       botão só, quem queria tela cheia levava o som junto — e quem descobria o
-       eco não tinha como desfazer sem recarregar a página.
+  <!-- DOIS ÍCONES, DUAS DECISÕES — e desde a v5.185 eles são o DESFAZER.
+       O botão "Conectar" já entra com som e em tela cheia, porque é ele que
+       carrega o gesto do visitante. A tela da sala anexa quer as duas; a do
+       saguão quer imagem cheia e SILÊNCIO (a PA está a 200 ms dali), e quem
+       descobre o eco precisa de um lugar para desfazer sem recarregar a página
+       — que é justamente o que faltava quando havia um botão só.
 
-       O QUE NÃO DÁ PARA TIRAR, e está dito em vez de escondido: o PRIMEIRO
-       toque. `requestFullscreen()` e sair do `muted` exigem ativação transitória
-       do usuário, e não há truque — o que este desenho muda é que agora o toque
-       é NAQUILO que se quer, e não num pacote.
+       O SOM DEIXOU DE SER OPT-IN NA TELA (v5.185), e a inversão precisa estar
+       escrita: até aqui o ícone nascia riscado e NADA no cliente ligava o som
+       além do toque do visitante — o que produziu, no primeiro culto de teste,
+       um Registro dizendo `som torneira:nao` ("esta tela nunca pediu") e a
+       leitura na sala "o celular não está enviando som". Agora quem liga é o
+       botão "Conectar", porque é ele que carrega o gesto.
 
-       O SOM CONTINUA SENDO OPT-IN (§3.11, invariante 10): o ícone nasce riscado
-       e nada mais no cliente liga `audioQuerido`. É por isso que ele vem
-       PRIMEIRO na barra, e é por isso que a dica abaixo o nomeia — quando o
-       rótulo não anunciava o som, o Registro do primeiro culto de teste mostrou
-       `som torneira:nao` ("esta tela nunca pediu") e a leitura na sala foi "o
-       celular não está enviando som".
+       O que NÃO mudou: o som é por TELA e ninguém o liga de fora. Três telas
+       com som dentro da igreja continuam sendo três alto-falantes com eco, e a
+       resposta a isso é este ícone — visível, no primeiro toque, sem recarregar
+       nada.
 
        `type="button"`: sem `<form>` em volta o padrão já seria esse, mas um
        botão que some e volta é exatamente o lugar em que um `submit` acidental
@@ -126,7 +120,7 @@
       </svg>
     </button>
   </div>
-  <p id="dica" class="dica">Toque no alto-falante para ouvir · na moldura para tela cheia</p>
+  <p id="dica" class="dica">Toque no alto-falante para tirar o som · na moldura para sair da tela cheia</p>
 
   <!-- O ESTADO, DESENHADO. Com o app do outro lado do salão, esta linha é a
        única coisa que responde "por que a tela está preta?". -->
@@ -149,12 +143,10 @@
          "/e.css" → espelho/espelho.css
          "/e.js"  → espelho/cliente.js
          "/f.js"  → espelho/fmp4.js
-         "/q.js"  → espelho/qr.js
 
      Os nomes na rede não são os nomes no disco, e isso é o certo: o que sai
      pelo fio não deve descrever a árvore do bundle. -->
 <script src="/f.js"></script>
-<script src="/q.js"></script>
 <script src="/e.js"></script>
 </body>
 </html>

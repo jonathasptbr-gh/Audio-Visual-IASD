@@ -62,9 +62,6 @@ interface BridgeHost {
     /** Pede a permissão de microfone ao Android (push-to-talk). */
     fun requestMicPermission(onResult: (Boolean) -> Unit)
 
-    /** Pede a permissão de CÂMERA ao Android (ler o QR da tela do espelho). */
-    fun requestCamPermission(onResult: (Boolean) -> Unit)
-
     /** Consome (uma única vez) um compartilhamento recebido por intent. */
     fun takePendingShare(): JSONObject?
 
@@ -147,19 +144,33 @@ class NativeBridge(
          * exijam mais do que o shell instalado oferece (ver [WebUpdater]).
          * Subir SEMPRE que a superfície da ponte mudar.
          *
+         * 36 (v5.185) — o CÓDIGO DE TRÊS DÍGITOS do espelho, e ele é uma
+         * REMOÇÃO de superfície além de uma mudança de forma. Saiu `requestCam`
+         * (com o pareamento por QR, e com a permissão `CAMERA` do manifest);
+         * `espelhoEstado` trocou `pin` por `codigo` e perdeu `autoAprovar`,
+         * `pendentes`, `qrEsperando`, `nomeLocal` e `nomeErro`; e
+         * `espelhoAprovar` passou a fazer UMA coisa — derrubar a tela cujo
+         * rótulo ele recebe. A assinatura dele fica (mudá-la custaria outro
+         * degrau sem ganhar nada), e o `aprovar` é ignorado.
+         *
+         * É o primeiro degrau deste contrato que ENCOLHE, e o bump é o que
+         * impede um bundle antigo de ler `pin` num shell que só publica
+         * `codigo` — ele mostraria o campo vazio, e o operador ficaria sem o
+         * número que a tela precisa digitar, sem nada que o explicasse.
+         *
+         * 35 (v5.167) — `shellAtualizar`/`shellVerificar`: o APK se atualizando
+         * de dentro do app.
+         *
          * 34 (v5.152) — os três métodos do CERTIFICADO do espelho
          * (`espelhoCertImportar`, `espelhoCertEstado`, `espelhoCertApagar`).
          * Abaixo disto a linha do certificado não é desenhada e o espelho segue
          * em HTTP claro, que é o que ele sempre foi: o TLS é um degrau
          * opcional, não um requisito (ver `docs/ESPELHO-DE-PIXELS.md` §2.4).
          *
-         * 33 (v5.145) — `requestCam`, a permissão de CÂMERA para o Controle ler
-         * o QR que a tela do espelho mostra. Ela é indispensável e não tem
-         * degradação possível: sem ela o `getUserMedia` do WebView é negado **em
-         * silêncio** pelo `onPermissionRequest` (o mesmo modo de falhar que o
-         * `MicChromeClient` documenta), e o botão de ler o código ficaria sem
-         * fazer nada e sem dizer por quê. Abaixo do 33 o Controle nem o desenha
-         * e o pareamento segue pelos seis dígitos, que continuam existindo.
+         * (33, v5.145, foi `requestCam` — o pareamento por QR. Ele saiu inteiro
+         * na v5.185: a página do cliente passou a ter um campo e um botão, e
+         * quem digita o código é a TELA. O degrau fica na história porque um
+         * número de contrato nunca é reciclado.)
          *
          * 32 (v5.141) — os cinco métodos do ESPELHO DE PIXELS (`espelhoLigar`,
          * `espelhoDesligar`, `espelhoEstado`, `espelhoDiag`, `espelhoAprovar`).
@@ -167,7 +178,7 @@ class NativeBridge(
          * novo NÃO chega por OTA, e um botão que não faz nada no meio de um
          * culto é pior que botão nenhum (a mesma regra do `appendYoutubeSearch`).
          */
-        const val SHELL_VERSION = 35
+        const val SHELL_VERSION = 36
 
         /**
          * Por quanto tempo um `display-status` do TELÃO cala o `espelho-status`
@@ -1036,28 +1047,6 @@ class NativeBridge(
         val h = host
         if (h == null) { resolve(callId, "false"); return }
         h.requestMicPermission { granted -> resolve(callId, if (granted) "true" else "false") }
-    }
-
-    /**
-     * O mesmo, para a CÂMERA: ler o QR que a tela do espelho mostra.
-     *
-     * **Privilégio do Controle** — `host == null` no telão e no espelho, e ali
-     * a resposta é `false` sem nem chegar ao Android. É a invariante 9 do shell
-     * aplicada ao caso mais óbvio dela: os dois WebViews que hospedam código de
-     * terceiro por design não têm nenhum uso para uma câmera, e conceder-lhes
-     * um caminho para pedi-la seria o oposto de tudo o que aquela invariante
-     * existe para fazer.
-     *
-     * Ela nasce SOB DEMANDA, no toque do botão de ler o código, pelo mesmo
-     * motivo do [requestMic]: um pedido de câmera no primeiro lançamento, sem
-     * contexto, é o tipo de coisa que se nega por reflexo — e o recurso ficaria
-     * quebrado sem que ninguém soubesse por quê.
-     */
-    @JavascriptInterface
-    fun requestCam(callId: String) {
-        val h = host
-        if (h == null) { resolve(callId, "false"); return }
-        h.requestCamPermission { granted -> resolve(callId, if (granted) "true" else "false") }
     }
 
     // ---------- compartilhamento (substitui o share_target do SW) ----------

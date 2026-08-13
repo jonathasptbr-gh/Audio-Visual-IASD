@@ -109,7 +109,7 @@ import kotlin.concurrent.thread
  *   virtual e o encoder.
  * @param aoTrocarEndereco o endereço mudou e o socket foi RELIGADO nele (o IP
  *   do DHCP trocou, o roteador reiniciou). O servidor se resolve sozinho; quem
- *   precisa saber são o `av.local` (que aponta para o IP velho) e a notificação
+ *   precisa saber é a notificação
  *   do serviço, que mostra o endereço ao operador. Ver [religarNoIp].
  */
 class EspelhoServidor(
@@ -275,12 +275,12 @@ class EspelhoServidor(
         // barra (DNS rebinding: `evil.com` resolvendo para o nosso IP) continua
         // barrado, porque `evil.com` não é nenhuma das duas.
         //
-        // E O NOME mDNS ENTRA PELA MESMA PORTA, quando ele sobe: o navegador
-        // que digita `av.local:8787` manda `Host: av.local:8787`, e uma
-        // allowlist que só conhece o IP devolveria o 404 IDÊNTICO de sempre —
-        // isto é, "o nome não funciona" sem uma linha em lugar nenhum que o
-        // explicasse. É exatamente a armadilha que o `hostTls` acima documenta,
-        // e ela vale duas vezes porque agora há dois nomes possíveis.
+        // (O nome mDNS `av.local` entrava aqui pela mesma porta até a v5.185.
+        // Ele saiu com o responder inteiro — ver [montarHosts] —, e a armadilha
+        // que ele documentava continua valendo para o `hostTls`: um endereço
+        // por onde o servidor atende e que NÃO esteja nesta lista recebe o 404
+        // idêntico de sempre, isto é, "não funciona" sem uma linha em lugar
+        // nenhum que o explique.)
         hostTlsServido = hostTls
         hostsAceitos = montarHosts(comNome)
         ligadoEm = SystemClock.elapsedRealtime()
@@ -307,11 +307,16 @@ class EspelhoServidor(
      *
      * Ela segue exata: `evil.com` resolvendo para o nosso IP continua barrado,
      * que é a defesa contra DNS rebinding. O que ela tem são os endereços por
-     * onde ESTE servidor de fato atende — o IP, o nome do certificado quando há
-     * TLS, e `av.local` quando o mDNS está no ar.
+     * onde ESTE servidor de fato atende — o IP e, quando há TLS, o nome do
+     * certificado.
+     *
+     * **`av.local` saiu na v5.185, junto com o responder mDNS inteiro.** Ele
+     * nunca resolveu no Chrome do Android nem na maioria das Smart TVs — que
+     * são exatamente as telas deste recurso —, então o IP sempre foi o endereço
+     * que de fato funcionava, e o nome ao lado dele era um segundo caminho que
+     * dava errado numa fração dos casos sem dizer por quê.
      */
     private fun montarHosts(comNome: Boolean): Set<String> {
-        val nomeMdns = if (EspelhoMdns.noAr) EspelhoMdns.NOME else ""
         val lista = HashSet<String>()
         lista.add("$ipServido:$portaServida")
         lista.add(ipServido)
@@ -319,7 +324,6 @@ class EspelhoServidor(
             lista.add("$hostTlsServido:$portaServida")
             lista.add(hostTlsServido)
         }
-        if (nomeMdns.isNotEmpty()) { lista.add("$nomeMdns:$portaServida"); lista.add(nomeMdns) }
         return lista
     }
 
@@ -597,7 +601,7 @@ class EspelhoServidor(
             // estiver conectada, então cada telão vivo segurava um slot pelo
             // culto inteiro. Com três telas restavam cinco, e um navegador abre
             // até SEIS conexões paralelas por host só para carregar a página
-            // (`/`, `/e.css`, `/e.js`, `/f.js`, `/q.js`): a segunda tela a abrir
+            // (`/`, `/e.css`, `/e.js`, `/f.js`): a segunda tela a abrir
             // o endereço já esbarrava no teto e recebia conexões recusadas —
             // que na tela viram "não foi possível falar com o celular", sem
             // nada no Registro que ligasse uma coisa à outra. O teto de fluxos
@@ -809,38 +813,23 @@ class EspelhoServidor(
             return responder(saida, naoAchei())
         }
         // A ORIGEM DO BLOQUEIO É O ENDEREÇO DO PAR, e não o cabeçalho `Origin`:
-        // cinco PINs errados bloqueiam **aquele aparelho** por 60 s, e um
-        // cabeçalho é escrito por quem tenta. O PIN, esse, NÃO rotaciona por
-        // tentativa errada — seria negação de serviço contra o visitante
-        // legítimo que está digitando.
+        // cinco códigos errados bloqueiam **aquele aparelho**, e um cabeçalho é
+        // escrito por quem tenta. O código, esse, NÃO rotaciona por tentativa
+        // errada — seria negação de serviço contra o visitante legítimo que
+        // está digitando.
         val origem = enderecoDe(cru)
-        val (status, json) = when {
-            corpo.has("pin") -> {
-                val relato = relatoDe(corpo)
-                respostaDoVeredito(tentarPin(corpo.optString("pin"), origem, relato))
-            }
-            // O QR: a tela pede um `id` para desenhar, sem provar nada — e o
-            // `id` não vale nada até o operador ler o desenho (§3.5, invariante
-            // 5b). `optBoolean` e não `has`: um `{"qr":false}` não é um pedido.
-            corpo.optBoolean("qr", false) -> respostaDoVeredito(esperaQr(origem, relatoDe(corpo)))
-            corpo.has("espera") -> respostaDoVeredito(consultarEspera(corpo.optString("espera")))
-            // A PORTA ABERTA (v5.170) — e ela não tinha ramo nenhum até aqui.
-            //
-            // O `cliente.js` pede a entrada assim que a página abre, e mandava um
-            // corpo com o relato e mais nada: caía no `else -> 403` abaixo. O
-            // recurso inteiro que a v5.170 anunciou nunca chegou a existir, e o
-            // custo não era só o atrito da estreia — era a RECUPERAÇÃO. Toda
-            // queda de rede, toda religada do espelho e toda expiração de token
-            // devolvem a tela ao pareamento, e sem este ramo ela ficava lá,
-            // mostrando um QR que ninguém ia ler no meio do culto.
-            //
-            // O corpo NU (sem `pin`, sem `qr`, sem `espera`) vale como pedido de
-            // entrada pelo mesmo motivo: é o que os bundles que já estão em
-            // aparelho mandam, e o APK precisa consertá-los sem depender de o OTA
-            // chegar primeiro. Quem decide se isso vira sessão é o
-            // [EspelhoPares.entrarAberto] — com a porta fechada ele recusa, sem
-            // contar erro contra a origem.
-            else -> respostaDoVeredito(entrarAberto(origem, relatoDe(corpo)))
+        // UM RAMO SÓ desde a v5.185: o corpo traz `codigo`, e o veredito já é o
+        // desfecho. Saíram daqui `qr`, `espera` e o corpo NU da porta aberta —
+        // ver a invariante 5 do [EspelhoPares] para por que a fila de aprovação
+        // não sobreviveu ao gesto único do visitante.
+        //
+        // O `else` continua sendo **403 por omissão**, e é ele que faz um corpo
+        // desconhecido (o de um bundle antigo, por exemplo) falhar FECHADO em
+        // vez de cair em algum caminho de entrada.
+        val (status, json) = if (corpo.has("codigo")) {
+            respostaDoVeredito(tentarCodigo(corpo.optString("codigo"), origem, relatoDe(corpo)))
+        } else {
+            403 to RECUSADA
         }
         responder(saida, EspelhoHttp.resposta(status, "application/json", json.toByteArray(Charsets.UTF_8)))
     }
@@ -1295,14 +1284,15 @@ class EspelhoServidor(
      * **A allowlist de `Host` é refeita**, e isso não é detalhe: ela guarda
      * `ip:porta`, e um `Host` fora dela recebe o 404 IDÊNTICO de toda requisição
      * recusada — "com o IP novo o espelho para de funcionar", sem uma linha no
-     * Registro que o explicasse. É a mesma armadilha que o `hostTls` e o nome
-     * mDNS já documentam em [ligar], agora valendo uma terceira vez.
+     * Registro que o explicasse. É a mesma armadilha que o `hostTls` já
+     * documenta em [ligar], agora valendo uma segunda vez.
      *
      * As telas conectadas caem: os sockets delas estão no IP velho e já estão
-     * mortos. Quem as recolhe é o [vigiar], e quem volta sozinha é a tela que
-     * usa `av.local` — que é justamente para isto que o nome da v5.164 existe.
-     * A que digitou o IP cru precisa do endereço novo, e por isso ele é
-     * anunciado ([aoTrocarEndereco]) além de ir para o Registro.
+     * mortos, e o endereço que elas guardaram deixou de atender. **Nenhuma
+     * volta sozinha** — desde que o `av.local` saiu (v5.185) não há nome que as
+     * reencontre —, então o endereço novo precisa CHEGAR AO OPERADOR: é para
+     * isso que ele é anunciado ([aoTrocarEndereco], que reescreve a notificação)
+     * além de ir para o Registro e para a folha.
      *
      * **Isto tangencia o item 25 do doc ("não deixar o espelho ligar sozinho"),
      * e a distinção que o sustenta é esta: o espelho não LIGA sozinho — ele
@@ -1420,14 +1410,6 @@ class EspelhoServidor(
                     .put("recomecos", t.recomecos),
             )
         }
-        val pend = JSONArray()
-        for (p in pendentes()) {
-            pend.put(
-                relatoJson(p.relato)
-                    .put("id", p.id)
-                    .put("desde", p.desde),
-            )
-        }
         return JSONObject()
             .put("ligado", servidor != null)
             .put("url", endereco)
@@ -1445,16 +1427,12 @@ class EspelhoServidor(
             // uma contradição sem leitura possível — e foi exatamente o que a
             // vaga fantasma produzia.
             .put("sessoes", EspelhoPares.sessoes().size)
-            .put("pendentes", pend)
-            // "3 PINs recusados (2 origens)" — a linha que diz que alguém está
-            // TENTANDO. Os dois números são do [EspelhoPares], que é quem conta.
+            // "3 códigos recusados (2 origens)" — a linha que diz que alguém
+            // está TENTANDO. Os dois números são do [EspelhoPares], que é quem
+            // conta, e com um código de três dígitos eles passaram a ser a
+            // única leitura que o operador tem de uma martelada em curso.
             .put("recusas", EspelhoPares.recusas())
             .put("origensBloqueadas", EspelhoPares.origensEmBloqueio(agoraMs()))
-            // Telas com um QR EM CARTAZ esperando a câmera. É o que separa
-            // "ninguém abriu o endereço" de "a tela abriu, o código está lá, e o
-            // que não funcionou foi a leitura" — na folha do operador as duas
-            // são a mesma lista vazia, porque a espera de QR não aparece nela.
-            .put("qrEsperando", EspelhoPares.esperandoQr())
             .put("conexoesTotais", conexoesTotais.get())
             .put("semConexaoMs", if (conexoesTotais.get() == 0 && ligadoEm != 0L) agora - ligadoEm else 0L)
             .put("ultimaSaida", ultimaSaida ?: JSONObject.NULL)
@@ -1518,19 +1496,19 @@ class EspelhoServidor(
     // ---------- PONTE COM O EspelhoPares ----------
     //
     // Todo contato com [EspelhoPares] passa por aqui, e por nenhum outro lugar
-    // (fora as menções ao TIPO `Sessao`/`Pendente`/`Relato` nas assinaturas).
-    // Se a implementação dele divergir, é ESTE bloco que se conserta — o resto
-    // do arquivo não sabe que ele existe.
+    // (fora as menções ao TIPO `Sessao`/`Relato` nas assinaturas). Se a
+    // implementação dele divergir, é ESTE bloco que se conserta — o resto do
+    // arquivo não sabe que ele existe.
     //
-    // O que ESTE arquivo consome de lá, e nada mais: `Relato`, `Pendente`,
-    // `Sessao` e `Veredito` (os tipos), mais `validar`, `tentar`, `esperaQr`,
-    // `entrarAberto`, `consultar`, `pendentes`, `limpar`, `zerar`, `derrubar`,
-    // `recusas` e `origensEmBloqueio`.
-    // `ligar`, `desligar`, `pin`, `trocarPin`, `aprovar`, `recusar` e
-    // `definirAutoAprovar` são do DONO (a `MainActivity`, pela ponte): quem
-    // decide sobre uma tela pendente é o operador, e o servidor nem sabe que
-    // aquela decisão aconteceu — ele descobre no `POST /par` seguinte do
-    // cliente, que é justamente o que mantém a rede fora do laço de decisão.
+    // O que ESTE arquivo consome de lá, e nada mais: `Relato`, `Sessao` e
+    // `Veredito` (os tipos), mais `validar`, `tentar`, `limpar`, `zerar`,
+    // `derrubar`, `sessoes`, `recusas`, `origensEmBloqueio`, `marcarSemConexao`
+    // e `marcarComConexao`.
+    // `ligar`, `desligar`, `codigo` e `trocarCodigo` são do DONO (a
+    // `MainActivity`, pela ponte): quem liga o espelho e quem lê o código em
+    // cartaz é o operador, e o servidor não precisa saber disso — ele só
+    // confere o que chega no `POST /par`, que é o que mantém a rede fora do
+    // laço de decisão.
     //
     // O relógio entregue a ele é `System.currentTimeMillis()`, e não o
     // `elapsedRealtime` que este arquivo usa internamente: [EspelhoPares] é
@@ -1555,34 +1533,22 @@ class EspelhoServidor(
     private fun validarTokenCru(token: String): EspelhoPares.Sessao? =
         EspelhoPares.validar(token, agoraMs())
 
-    private fun tentarPin(pin: String, origem: String, relato: EspelhoPares.Relato) =
-        EspelhoPares.tentar(pin, origem, relato, agoraMs())
-
-    private fun consultarEspera(id: String) = EspelhoPares.consultar(id, agoraMs())
-
-    private fun esperaQr(origem: String, relato: EspelhoPares.Relato) =
-        EspelhoPares.esperaQr(origem, relato, agoraMs())
-
-    private fun entrarAberto(origem: String, relato: EspelhoPares.Relato) =
-        EspelhoPares.entrarAberto(origem, relato, agoraMs())
+    private fun tentarCodigo(codigo: String, origem: String, relato: EspelhoPares.Relato) =
+        EspelhoPares.tentar(codigo, origem, relato, agoraMs())
 
     /**
-     * O OPERADOR DERRUBA UMA TELA — o botão "Desconectar" da folha, que até aqui
-     * reportava sucesso e não fazia absolutamente nada.
+     * O OPERADOR DERRUBA UMA TELA — o botão "Desconectar" da folha, e desde a
+     * v5.185 o ÚNICO controle que ele tem sobre quem está vendo.
      *
-     * O `controle.js` manda o **rótulo** da tela ("tela B") — que é o único
-     * identificador que a folha tem, e o único que faz sentido ali: numa lista de
-     * três, o que o operador precisa é distinguir uma da outra. O caminho antigo
-     * entregava esse rótulo ao `EspelhoPares.recusar`, que procura um `id` de
-     * espera (base64url de 128 bits): nunca casava, saía em silêncio e devolvia
-     * `true`. Pior, um rótulo VAZIO cairia no id reservado da aprovação
-     * automática e **fecharia a porta** em vez de derrubar alguém.
+     * O `controle.js` manda o **rótulo** da tela ("tela B"), que é o único
+     * identificador que a folha tem e o único que faz sentido ali: numa lista de
+     * três, o que o operador precisa é distinguir uma da outra.
      *
-     * Aqui o rótulo é resolvido para a sessão de verdade, a sessão é encerrada, a
-     * origem fica de castigo por [EspelhoPares.BLOQUEIO_DERRUBADA_MS] (senão, com
-     * a porta aberta, a tela derrubada volta em dois segundos) e o socket é
-     * fechado de fora. `false` = não há tela com esse rótulo, e aí quem chama cai
-     * no caminho da pendência, que é o outro uso do mesmo botão.
+     * O rótulo é resolvido para a sessão de verdade, a sessão é encerrada, a
+     * origem fica de castigo por [EspelhoPares.BLOQUEIO_DERRUBADA_MS] — senão a
+     * tela derrubada digita o código de novo e volta em dois segundos, e o botão
+     * reportaria sucesso sem fazer nada visível — e o socket é fechado de fora.
+     * `false` = não há tela com esse rótulo.
      */
     fun derrubarTela(rotulo: String): Boolean {
         if (rotulo.isEmpty()) return false
@@ -1692,8 +1658,6 @@ class EspelhoServidor(
         // Crescendo sem parar, a janela viva do cliente está encostando no GOP.
         .put("pod", o.optInt("pod", 0).coerceIn(0, 1_000_000))
 
-    private fun pendentes(): List<EspelhoPares.Pendente> = EspelhoPares.pendentes()
-
     private fun limparPares() = EspelhoPares.limpar(agoraMs())
 
     private fun zerarPares() = EspelhoPares.zerar()
@@ -1707,18 +1671,14 @@ class EspelhoServidor(
      * postura possível num controle de acesso.
      */
     private fun respostaDoVeredito(v: EspelhoPares.Veredito): Pair<Int, String> = when (v) {
-        is EspelhoPares.Veredito.Espera ->
-            202 to JSONObject().put("espera", v.id).toString()
         is EspelhoPares.Veredito.Aprovada ->
             200 to JSONObject().put("t", v.sessao.token).toString()
-        is EspelhoPares.Veredito.Pendente ->
-            202 to PENDENTE
         // LOTADO É UMA FRASE, e não a recusa genérica. As três vagas ocupadas e
-        // o PIN errado são a mesma tela ("não foi liberada") para quem está do
-        // outro lado, e as duas têm saídas opostas: uma pede que alguém feche
-        // uma página, a outra que se confira o número. O status continua 403 —
-        // quem não entrou não entrou —, e o que muda é o corpo, que o cliente lê
-        // para escolher a frase.
+        // o código errado são a mesma tela ("não deu para entrar") para quem
+        // está do outro lado, e as duas têm saídas opostas: uma pede que alguém
+        // feche uma página, a outra que se confira o número. O status continua
+        // 403 — quem não entrou não entrou —, e o que muda é o corpo, que o
+        // cliente lê para escolher a frase.
         is EspelhoPares.Veredito.Lotada -> 403 to LOTADO_JSON
         else -> 403 to RECUSADA
     }
@@ -1745,9 +1705,8 @@ class EspelhoServidor(
         .put("fetchStream", r.fetchStream)
         .put("videoDecoder", r.videoDecoder)
         .put("wakeLock", r.wakeLock)
-        // O do relato é o que a tela DECLAROU ao parear; para uma tela
-        // conectada, [estado] o sobrescreve logo em seguida com o número vivo
-        // do `alive`. Aqui ele serve às PENDENTES, que ainda não têm conexão.
+        // O do relato é o que a tela DECLAROU ao entrar; [estado] o sobrescreve
+        // logo em seguida com o número vivo do `alive`.
         .put("telaAcesaMin", r.telaAcesaMin)
 
     // ---------- utilidades ----------
@@ -2063,13 +2022,11 @@ class EspelhoServidor(
             "/" to "web/espelho/index.html",
             "/e.js" to "web/espelho/cliente.js",
             "/f.js" to "web/espelho/fmp4.js",
-            "/q.js" to "web/espelho/qr.js",
             "/e.css" to "web/espelho/espelho.css",
         )
 
         private val OK_CURTO = "{\"ok\":true}".toByteArray(Charsets.US_ASCII)
         private val RECUSADA = "{\"estado\":\"recusada\"}"
-        private val PENDENTE = "{\"estado\":\"pendente\"}"
         private val LOTADO_JSON = "{\"estado\":\"lotado\"}"
         private val LOTADO = LOTADO_JSON.toByteArray(Charsets.US_ASCII)
 
