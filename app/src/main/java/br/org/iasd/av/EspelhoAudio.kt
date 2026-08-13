@@ -424,16 +424,11 @@ class EspelhoAudio(
             // esticando a duração da amostra anterior (`dur = pts - anterior`,
             // sem teto), então o `buffered` continua sendo um intervalo só.
             //
-            // E A FILA VAI JUNTO. O PCM que sobrou da página morta pertence ao
-            // eixo velho: alimentá-lo depois da reancoragem carimbaria áudio de
-            // antes do buraco com o tempo de depois dele.
-            fila.clear()
-            amostras.set(0)
-            recebidas.set(0)
-            silenciadas.set(0)
-            ancoraRelogioUs = 0L
-            ancorado = false
-            registrar("audio: a pagina renasceu — eixo do som reancorado")
+            // É o MESMO [reancorar] do [corrigirDeriva], e tem de ser: as duas
+            // reancoragens deste arquivo respondem à mesma pergunta, e a regra
+            // de nunca andar para trás não pode existir num caminho e faltar no
+            // outro.
+            reancorar("audio: a pagina renasceu — eixo do som reancorado")
             return null
         }
         if (sr !in TAXAS_AAC) return "taxa de amostragem nao suportada: $sr"
@@ -685,6 +680,40 @@ class EspelhoAudio(
     private fun relogioUs(): Long = System.nanoTime() / 1_000L
 
     /**
+     * PÕE O EIXO DO SOM NO CARIMBO DE VÍDEO DE AGORA — os dois pontos do
+     * arquivo que reancoram passam por aqui, e é isso que torna a regra abaixo
+     * estrutural em vez de repetida.
+     *
+     * **NUNCA PARA TRÁS.** O alvo é `EspelhoCodec.ultimoCarimbo()`, que é o
+     * último quadro de VÍDEO — e ele pode estar velho: o batimento do
+     * `display.js` é o único produtor numa cena parada, e um encoder de vídeo em
+     * apuros deixa esse carimbo ainda mais atrás. Com o alvo mais antigo que o
+     * último PTS de áudio já emitido, reancorar rebobinaria o `tfdt` — que este
+     * projeto trata como o pior desfecho catalogado deste desenho, porque a
+     * `MediaSource` quebra em silêncio. O `maxOf` fecha isso por construção; o
+     * `+ 1` mantém a mesma monotonicidade estrita do `EspelhoCodec.carimbar`.
+     *
+     * A MEDIDA recomeça junto com o EIXO, e as duas são a mesma decisão: deixar
+     * a âncora do relógio para trás faria a deriva recém-corrigida ser medida de
+     * novo, e corrigida de novo, para sempre.
+     *
+     * E A FILA VAI JUNTO. O PCM que sobrou pertence ao eixo velho: alimentá-lo
+     * depois da reancoragem carimbaria áudio de antes do buraco com o tempo de
+     * depois dele.
+     */
+    private fun reancorar(motivo: String) {
+        val anterior = if (ancorado) ptsAgora() else -1L
+        fila.clear()
+        amostras.set(0)
+        recebidas.set(0)
+        silenciadas.set(0)
+        ancoraRelogioUs = relogioUs()
+        ancoraUs = maxOf(EspelhoCodec.ultimoCarimbo(), anterior + 1L)
+        ancorado = true
+        registrar(motivo)
+    }
+
+    /**
      * QUANTO O SOM ESTÁ ATRÁS DO VÍDEO, em microssegundos. Positivo = atrás.
      *
      * A conta é entre dois tempos DECORRIDOS desde a mesma âncora, e não entre
@@ -766,17 +795,8 @@ class EspelhoAudio(
         if (plano == 0L) return
         if (plano < 0L) {
             correcoes++
-            // SALTO: o eixo do PTS recomeça no carimbo de vídeo de agora, e a
-            // MEDIDA recomeça junto — as duas âncoras são a mesma decisão, e
-            // deixar uma delas para trás faria a deriva já corrigida ser
-            // corrigida de novo, para sempre.
-            amostras.set(0)
-            recebidas.set(0)
-            silenciadas.set(0)
-            ancoraRelogioUs = relogioUs()
-            ancorado = false
             saltos++
-            registrar("audio: o som ficou ${deriva / 1000} ms atras — eixo reancorado")
+            reancorar("audio: o som ficou ${deriva / 1000} ms atras — eixo reancorado")
             return
         }
         val quadros = plano * t / 1_000_000L
