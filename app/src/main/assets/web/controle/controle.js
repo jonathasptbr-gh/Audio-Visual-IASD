@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.185';
+const WEB_VERSION = '5.186';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -329,25 +329,16 @@ const mirrorOpenBtnEl = document.getElementById('mirrorOpenBtn');
 const mirrorPopupEl = document.getElementById('mirrorPopup');
 const mirrorCloseEl = document.getElementById('mirrorClose');
 const mirrorLeadEl = document.getElementById('mirrorLead');
-const mirrorAddrEl = document.getElementById('mirrorAddr');
 const castLiveEl = document.getElementById('castLive');
 const castUrlEl = document.getElementById('castUrl');
-const castUrl2El = document.getElementById('castUrl2');
+const castCodEl = document.getElementById('castCod');
 const castHintEl = document.getElementById('castHint');
 const castTelasEl = document.getElementById('castTelas');
-const mirrorPinEl = document.getElementById('mirrorPin');
-const mirrorAutoEl = document.getElementById('mirrorAuto');
-const mirrorListEl = document.getElementById('mirrorList');
 const mirrorToggleEl = document.getElementById('mirrorToggle');
-const mirrorScanEl = document.getElementById('mirrorScan');
 const mirrorCertRowEl = document.getElementById('mirrorCertRow');
 const mirrorCertTxtEl = document.getElementById('mirrorCertTxt');
 const mirrorCertAddEl = document.getElementById('mirrorCertAdd');
 const mirrorCertDelEl = document.getElementById('mirrorCertDel');
-const qrPopupEl = document.getElementById('qrPopup');
-const qrCloseEl = document.getElementById('qrClose');
-const qrVideoEl = document.getElementById('qrVideo');
-const qrMsgEl = document.getElementById('qrMsg');
 const songMenuPopupEl = document.getElementById('songMenuPopup');
 const songMenuTitleEl = document.getElementById('songMenuTitle');
 const songMenuListEl = document.getElementById('songMenuList');
@@ -11747,20 +11738,16 @@ function blocoEspelho(d) {
       l.push('nenhuma conexão desde que ligou (há ' + mirrorDur(srv.semConexaoMs) + ') — '
         + 'se alguém abriu o endereço, o roteador está isolando os clientes');
     }
-    // ALGUÉM ESTÁ TENTANDO. Os dois números vinham do `EspelhoPares` desde a
-    // primeira versão (`recusas`, `origensBloqueadas`) e não eram impressos em
-    // lugar nenhum — o único sinal de PINs sendo martelados na rede da igreja
-    // ficava no JSON, sem leitor. Zero recusas não vira linha: um Registro que
-    // repete "0" a cada leitura ensina a pular a linha.
+    // ALGUÉM ESTÁ TENTANDO — e com um código de TRÊS dígitos esta linha deixou
+    // de ser curiosidade e passou a ser a leitura principal de segurança do
+    // recurso. Os dois números vêm do `EspelhoPares` (`recusas`,
+    // `origensBloqueadas`); o segundo é o bloqueio crescente em ação, e um
+    // número alto ali com o primeiro subindo é uma martelada em curso, não um
+    // visitante desastrado. Zero recusas não vira linha: um Registro que repete
+    // "0" a cada leitura ensina a pular a linha.
     if (srv.recusas) {
-      l.push('pareamento: ' + (srv.recusas | 0) + ' PIN(s) recusado(s)'
+      l.push('entrada: ' + (srv.recusas | 0) + ' codigo(s) recusado(s)'
         + ' · ' + (srv.origensBloqueadas | 0) + ' origem(ns) de castigo agora');
-    }
-    if (srv.qrEsperando) {
-      // A OUTRA METADE DA FOLHA VAZIA: a espera de QR não entra na lista de
-      // pendentes de propósito, então "nenhuma tela" e "uma tela com o código
-      // em cartaz esperando a câmera" são a mesma tela vazia sem esta linha.
-      l.push('QR: ' + (srv.qrEsperando | 0) + ' tela(s) com o código em cartaz esperando a leitura');
     }
     const saida = srv.ultimaSaida;
     if (saida && typeof saida === 'object') {
@@ -14987,12 +14974,6 @@ let mirrorOcupado = false;
 // novo a cada toque viraria ruído, e quem já respondeu "sim" uma vez naquele
 // culto não muda de ideia por causa do segundo toque.
 let mirrorTvConfirmado = false;
-// Este aparelho sabe ler um QR pela câmera? `null` = ainda não perguntamos.
-// A pergunta é assíncrona (`getSupportedFormats`) e a resposta é lembrada pela
-// sessão: ela é sobre o aparelho e o WebView, e nenhum dos dois muda no meio de
-// um culto. Ver `sondarLeituraQr`.
-let qrSuportado = null;
-
 function espelhoLigado() { return !!(mirrorEstado && mirrorEstado.ligado); }
 
 async function lerEspelho() {
@@ -15080,100 +15061,17 @@ function renderEspelho() {
   if (!mirrorLeadEl || !espelhoDisponivel()) return;
   const e = mirrorEstado || {};
   const ligado = !!e.ligado;
-  const pendentes = Array.isArray(e.pendentes) ? e.pendentes : [];
 
   mirrorLeadEl.textContent = e.erro
     ? e.erro + '\n\n' + MIRROR_TEXTO_OFF
     : (ligado ? MIRROR_TEXTO_ON : MIRROR_TEXTO_OFF);
-  // O ENDEREÇO NÃO SE REPETE AQUI. Esta folha só se alcança de dentro da folha
-  // de conectar, que já o mostra em corpo grande — e o `.local` e o IP com ele.
-  // O que sobra é o PIN, que é o plano B de quando a câmera não serve.
-  mirrorAddrEl.hidden = !ligado;
-  mirrorPinEl.textContent = e.pin || '';
-  // O botão de ler o QR só existe com o espelho no ar: sem servidor não há
-  // tela mostrando código nenhum, e apontar a câmera para o nada não é um
-  // estado que valha desenhar. `qrLeituraOk()` é a sonda do aparelho (câmera +
-  // leitor de QR + shell 33) — e ela é resolvida uma vez, ao abrir a folha.
-  mirrorScanEl.hidden = !(ligado && qrSuportado === true);
-  // "Uma tela esperando a leitura" é o dado que separa "ninguém abriu o
-  // endereço" de "abriu, o código está lá, e o que falta é a câmera". As duas
-  // coisas são a MESMA lista vazia, porque a espera de QR não entra nela.
-  const emCartaz = e.qrEsperando | 0;
-  mirrorScanEl.querySelector('span:last-child').textContent = emCartaz
-    ? 'Ler o código da tela (' + emCartaz + ' esperando)'
-    : 'Ler o código da tela';
-  mirrorAutoEl.checked = !!e.autoAprovar;
   mirrorToggleEl.textContent = mirrorOcupado
     ? 'Um instante…'
     : (ligado ? 'Desligar o espelho' : 'Ligar o espelho');
   mirrorToggleEl.disabled = mirrorOcupado;
   mirrorToggleEl.classList.toggle('on', ligado);
-  renderEspelhoLista(pendentes);
 }
 
-// SÓ A FILA DE APROVAÇÃO — quem já está vendo mora na folha de conectar.
-//
-// Até a v5.174 esta lista trazia as duas coisas, e desde a v5.171 as telas
-// conectadas também apareciam na folha principal: a MESMA informação em duas
-// telas, com duas anatomias diferentes (`.cast-tela` e `.mirror-item`, raios,
-// fontes e gaps distintos). Aqui ficou o que é assunto DESTA folha — o plano B
-// do PIN, que é o único caminho que ainda produz uma tela "esperando".
-function renderEspelhoLista(pendentes) {
-  mirrorListEl.innerHTML = '';
-  pendentes.forEach((p) => {
-    const li = document.createElement('li');
-    li.className = 'mirror-item';
-    const main = document.createElement('div');
-    main.className = 'mirror-item-main';
-    const nome = document.createElement('span');
-    nome.className = 'mirror-item-name';
-    // `textContent`, NUNCA `innerHTML`: este texto vem de um desconhecido da
-    // rede. Ele já é saneado no Kotlin (§3.5), e esta linha é a segunda
-    // fechadura — a diferença entre um espelho e a execução de JavaScript de
-    // terceiro no origin privilegiado que injeta `__AVBridge`.
-    nome.textContent = p.ua || 'Tela desconhecida';
-    const sub = document.createElement('span');
-    sub.className = 'mirror-item-sub';
-    // O CAMPO É `desde`, e é um instante de PAREDE — não uma duração. A linha
-    // pedia `p.desdeMs`, que o Kotlin nunca mandou (`EspelhoServidor.estado`
-    // põe `desde`), então "esperando há…" nunca apareceu uma vez sequer: o
-    // `undefined` é falso e o operando inteiro sumia em silêncio. É a mesma
-    // família do `bytes` no `bgProgress` (v5.137) — campo remontado à mão, nome
-    // que não bate, nada quebra.
-    const espera = p.desde ? Math.max(0, Date.now() - p.desde) : 0;
-    sub.textContent = 'quer entrar' + (espera ? ' · esperando há ' + mirrorDur(espera) : '');
-    main.append(nome, sub);
-    const sim = document.createElement('button');
-    sim.type = 'button';
-    sim.className = 'mirror-act';
-    sim.textContent = 'Aprovar';
-    sim.addEventListener('click', () => decidirEspelho(p.id, true));
-    const nao = document.createElement('button');
-    nao.type = 'button';
-    nao.className = 'mirror-act mirror-act--no';
-    nao.textContent = 'Recusar';
-    nao.addEventListener('click', () => decidirEspelho(p.id, false));
-    li.append(main, sim, nao);
-    mirrorListEl.appendChild(li);
-  });
-  if (!mirrorListEl.children.length && espelhoLigado()) {
-    const li = document.createElement('li');
-    li.className = 'mirror-item';
-    const main = document.createElement('div');
-    main.className = 'mirror-item-main';
-    const nome = document.createElement('span');
-    nome.className = 'mirror-item-name';
-    nome.textContent = 'Ninguém esperando aprovação';
-    const sub = document.createElement('span');
-    sub.className = 'mirror-item-sub';
-    // A frase diz o que esta lista É — e onde está a outra. Com a porta aberta
-    // (v5.170) a fila fica vazia quase sempre: quem entra não passa por aqui.
-    sub.textContent = 'quem já está vendo aparece na folha de conectar';
-    main.append(nome, sub);
-    li.append(main);
-    mirrorListEl.appendChild(li);
-  }
-}
 
 // ============================================================================
 // O CERTIFICADO DO ESPELHO — o degrau de TLS (shell 34)
@@ -15293,209 +15191,13 @@ async function removerCertEspelho() {
   avisar('Certificado removido.');
 }
 
-async function decidirEspelho(id, aprovar) {
-  if (!id) return;
-  try { await AVNative.espelhoAprovar(id, aprovar); } catch (_) { /* ponte */ }
-  await lerEspelho();
-}
-
-// ============================================================================
-// O LEITOR DE QR — o caminho curto do pareamento
-// ============================================================================
-//
-// **A INVERSÃO É O RECURSO.** No pareamento por PIN, o CELULAR mostra um
-// segredo de seis dígitos e a TELA o digita: alguém atravessa o salão, um
-// teclado de controle remoto entra na história, e o segredo fica em cartaz na
-// tela do operador durante todo o culto — que é exatamente o motivo de a
-// aprovação automática nascer desligada. Aqui é ao contrário: a TELA mostra e o
-// CELULAR lê.
-//
-// E o que ela mostra **não é segredo nenhum**: é o `id` da espera que aquela
-// página acabou de criar, que o servidor devolve a quem pedir. Ele não abre
-// nada. O que autoriza é o operador ter apontado a câmera para AQUELA tela — a
-// mesma decisão da invariante 5 do `EspelhoPares` ("o operador fica no laço"),
-// tomada com um gesto em vez de uma lista. Quem fotografar o QR de longe leva
-// 22 caracteres que já foram usados.
-//
-// Por isso a aprovação reusa `espelhoAprovar` sem método novo: ler o código é
-// aprovar aquele id, e é literalmente o mesmo ato que o botão "Aprovar" da
-// lista faz. O único método novo do lote é a PERMISSÃO de câmera.
-//
-// O SHELL PRECISA SER NOVO, e não há como contornar: sem `requestCam` o
-// `getUserMedia` do WebView é negado **em silêncio** (a promise rejeita e não há
-// erro no console), que é a armadilha que o `MicChromeClient` já documenta para
-// o telão. Abaixo do shell 33 o botão nem aparece e o PIN segue sendo o
-// caminho — ele nunca deixou de existir.
-
-// O prefixo que separa "isto é uma tela do espelho" de "isto é um QR qualquer".
-// Sem ele, apontar a câmera para um cartaz mandaria um texto aleatório como id
-// de aprovação — inofensivo (nenhum id casa), mas indistinguível de uma falha.
-const QR_PREFIXO = 'AVE1:';
-// O id é base64url de 128 bits (22 caracteres) — a mesma forma do `SafRegistry`
-// e do `StreamProxy`. Conferir a FORMA antes de mandar é o que faz um QR de
-// outro app virar uma frase em vez de uma chamada à ponte.
-const QR_FORMA = /^[A-Za-z0-9_-]{16,64}$/;
-const QR_INTERVALO_MS = 220;
-
-let qrLeitor = null;      // o BarcodeDetector, criado uma vez por leitura
-let qrFluxo = null;       // o MediaStream vivo — é ELE que precisa morrer
-let qrTimer = null;
-let qrOcupado = false;    // uma detecção por vez (a chamada é assíncrona)
-
-/**
- * O aparelho sabe ler QR? Uma vez por sessão, e o resultado governa o botão.
- *
- * `BarcodeDetector` existe no Chrome do Android e no WebView, mas depende de um
- * módulo do sistema que pode não estar presente — e `getSupportedFormats()` é a
- * única pergunta honesta, porque a classe existir não promete que ela saiba ler
- * `qr_code`.
- */
-async function sondarLeituraQr() {
-  if (qrSuportado !== null) return qrSuportado;
-  qrSuportado = false;
-  try {
-    if (!espelhoDisponivel() || (window.__SHELL_VERSION__ | 0) < 33) return false;
-    if (typeof window.BarcodeDetector !== 'function') return false;
-    if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) return false;
-    const formatos = await window.BarcodeDetector.getSupportedFormats();
-    qrSuportado = Array.isArray(formatos) && formatos.indexOf('qr_code') >= 0;
-  } catch (_) { qrSuportado = false; }
-  return qrSuportado;
-}
-
-async function abrirLeitorQr() {
-  if (qrFluxo) return;
-  qrPopupEl.classList.add('open');
-  qrMsgEl.textContent = 'Pedindo a câmera…';
-  // A permissão do ANDROID antes do `getUserMedia` do WebView: sem ela o
-  // `onPermissionRequest` do Controle nega calado, de propósito.
-  let permitido = false;
-  try { permitido = await AVNative.requestCam(); } catch (_) { permitido = false; }
-  if (!qrPopupEl.classList.contains('open')) return;   // fechou enquanto pedia
-  if (!permitido) {
-    qrMsgEl.textContent = 'A câmera não foi liberada. Use o número de seis '
-      + 'dígitos que aparece acima, ou libere a câmera nas permissões do app.';
-    return;
-  }
-  try {
-    qrFluxo = await navigator.mediaDevices.getUserMedia({
-      // A traseira, porque o operador aponta o aparelho para a tela. `ideal` e
-      // não `exact`: num aparelho de uma câmera só, `exact` FALHA em vez de
-      // cair na que existe.
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } },
-      audio: false,
-    });
-  } catch (e) {
-    qrMsgEl.textContent = 'Não foi possível abrir a câmera (' + (e && e.name ? e.name : 'erro')
-      + '). O número de seis dígitos continua valendo.';
-    return;
-  }
-  if (!qrPopupEl.classList.contains('open')) { fecharLeitorQr(); return; }
-  qrVideoEl.srcObject = qrFluxo;
-  try { await qrVideoEl.play(); } catch (_) { /* autoplay mudo não costuma falhar */ }
-  try { qrLeitor = new window.BarcodeDetector({ formats: ['qr_code'] }); } catch (_) { qrLeitor = null; }
-  if (!qrLeitor) {
-    qrMsgEl.textContent = 'Este aparelho não sabe ler códigos QR.';
-    fecharLeitorQr();
-    return;
-  }
-  qrMsgEl.textContent = 'Aponte para o código que aparece na tela.';
-  clearInterval(qrTimer);
-  qrTimer = setInterval(passoLeitorQr, QR_INTERVALO_MS);
-  vigiarImagemQr();
-}
-
-// A CÂMERA PODE ABRIR SEM ENTREGAR IMAGEM, e isso aconteceu em aparelho: o
-// indicador do sistema acende, a leitura roda, e o operador olha para um
-// retângulo preto sem ter como mirar. Um visor preto e um visor "ainda
-// carregando" são a mesma tela, e quem está com o aparelho na mão não tem como
-// distinguir — então o app diz qual dos dois é.
-//
-// `videoWidth` é o teste honesto: ele só sai de zero quando um quadro de
-// verdade chegou ao elemento. A frase só aparece depois de dois segundos
-// porque abrir a câmera leva um instante em qualquer aparelho, e um alarme que
-// pisca no caminho normal é um alarme que ninguém lê.
-function vigiarImagemQr() {
-  const ate = Date.now() + 2000;
-  const olhar = () => {
-    if (!qrFluxo) return;
-    if (qrVideoEl.videoWidth > 0) {
-      qrMsgEl.textContent = 'Aponte para o código que aparece na tela ('
-        + qrVideoEl.videoWidth + '×' + qrVideoEl.videoHeight + ').';
-      return;
-    }
-    if (Date.now() > ate) {
-      qrMsgEl.textContent = 'A câmera abriu mas não está entregando imagem. '
-        + 'A leitura continua tentando às cegas — se não funcionar, use o número '
-        + 'de seis dígitos.';
-      return;
-    }
-    setTimeout(olhar, 250);
-  };
-  setTimeout(olhar, 250);
-}
-
-async function passoLeitorQr() {
-  if (qrOcupado || !qrLeitor || !qrFluxo) return;
-  qrOcupado = true;
-  let achados = [];
-  try { achados = await qrLeitor.detect(qrVideoEl); } catch (_) { achados = []; }
-  qrOcupado = false;
-  if (!qrFluxo) return;                       // fechou durante a detecção
-  for (const a of achados) {
-    const cru = (a && a.rawValue) || '';
-    if (cru.slice(0, QR_PREFIXO.length) !== QR_PREFIXO) continue;
-    const id = cru.slice(QR_PREFIXO.length);
-    if (!QR_FORMA.test(id)) continue;
-    await aprovarPorQr(id);
-    return;
-  }
-  // Um QR que não é nosso é um desfecho DITO, não um silêncio: apontar para o
-  // cartaz errado e não receber resposta nenhuma é indistinguível de "a câmera
-  // não está lendo".
-  if (achados.length) qrMsgEl.textContent = 'Este código não é de uma tela do espelho.';
-}
-
-async function aprovarPorQr(id) {
-  // Para a leitura ANTES de aprovar: sem isto o intervalo seguinte dispara com
-  // o mesmo código ainda na frente da câmera e aprova de novo. `espelhoAprovar`
-  // é idempotente do lado do Kotlin (dois toques devolvem a MESMA sessão), mas
-  // depender disso aqui seria deixar a corrida de pé por sorte.
-  clearInterval(qrTimer);
-  qrTimer = null;
-  qrMsgEl.textContent = 'Liberando a tela…';
-  let ok = false;
-  try { ok = await AVNative.espelhoAprovar(id, true); } catch (_) { ok = false; }
-  if (ok) {
-    fecharLeitorQr();
-    avisar('Tela liberada.');
-    await lerEspelho();
-    return;
-  }
-  // A recusa do Kotlin tem três causas, e o operador precisa da que se resolve:
-  // o teto de três telas é a única acionável.
-  qrMsgEl.textContent = 'A tela não foi liberada. Pode ser o limite de três '
-    + 'telas — feche uma antes, ou peça para a página gerar um código novo.';
-  qrTimer = setInterval(passoLeitorQr, QR_INTERVALO_MS);
-}
-
-/**
- * Fecha e **desliga a câmera**, que é a única coisa aqui que não pode ficar
- * para trás. Chamado pelo ✕, pelo toque no fundo e pelo botão voltar do
- * aparelho — os três, porque este popup está na tabela `POPUPS`.
- */
-function fecharLeitorQr() {
-  clearInterval(qrTimer);
-  qrTimer = null;
-  qrLeitor = null;
-  qrOcupado = false;
-  if (qrFluxo) {
-    try { qrFluxo.getTracks().forEach((t) => t.stop()); } catch (_) { /* já morto */ }
-    qrFluxo = null;
-  }
-  try { qrVideoEl.srcObject = null; } catch (_) { /* ignorado */ }
-  qrPopupEl.classList.remove('open');
-}
+// (O LEITOR DE QR SAIU NA v5.185, e com ele a permissão de CÂMERA do manifest.
+// Ele existia para INVERTER quem mostra e quem lê o segredo: a tela desenhava
+// um código e o celular o lia pela câmera. A inversão perdeu a razão de ser
+// quando o segredo virou três dígitos que a TELA digita — a página do cliente
+// tem um campo e um botão, e não desenha mais nada. Foram ~230 linhas aqui,
+// o `espelho/qr.js`, o `tools/qr.test.mjs`, o popup `#qrPopup` e o
+// `AVNative.requestCam`.)
 
 // LIGAR COM A TV NO AR pede uma confirmação explícita, e ela substitui o
 // interruptor escondido em Configurações que o desenho anterior tinha: ninguém
@@ -15602,7 +15304,6 @@ function abrirCast() {
     // visível parado, e quem o muda é o operador. Um interruptor que já nasce
     // ligado toda vez que a tela abre não é um interruptor, é um rótulo.
     lerEspelho();
-    sondarLeituraQr().then(renderCast);
     clearInterval(mirrorTimer);
     mirrorTimer = setInterval(lerEspelho, MIRROR_POLL_MS);
   }
@@ -15643,36 +15344,24 @@ function renderCast() {
       : (telas.length + ' tela(s) recebendo');
   }
 
-  // OS DOIS ENDEREÇOS E QUEM ESTÁ VENDO, nesta mesma folha. Eram dois degraus
-  // para ler uma linha de texto.
+  // O ENDEREÇO, O CÓDIGO E QUEM ESTÁ VENDO, nesta mesma folha.
   if (castLiveEl) castLiveEl.hidden = !ligado;
   if (mirrorOpenBtnEl) mirrorOpenBtnEl.hidden = !ligado;
   if (!ligado) return;
-  // OS DOIS, e não um OU o outro: o nome é o caminho curto quando funciona, e
-  // o número é o que resta quando ele não funciona — que é o caso do Chrome do
-  // Android e da maioria das Smart TVs. Sem `av.local` (mDNS que não subiu, ou
-  // um nome já tomado na rede) sobra o número, sozinho, na linha de cima.
-  const nome = e.nomeLocal || '';
-  texto2(castUrlEl, nome || e.endereco || '');
-  if (castUrl2El) {
-    castUrl2El.hidden = !nome;
-    // Sem o "ou": o conector é do CSS (`::before`), justamente para não entrar
-    // na seleção de quem segurar o dedo na linha para copiar o endereço.
-    castUrl2El.textContent = nome ? (e.endereco || '') : '';
-  }
-  // UMA linha de instrução, e ela é a única que sobrou: digite isto na TV.
-  // As três ressalvas que a folha antiga trazia (isolamento de clientes,
-  // carregador, som parcial) continuam no Registro e nos Ajustes — repeti-las
-  // aqui era o texto que o operador pediu para tirar.
-  //
-  // "ESTE" ou "UM DESTES" conforme o que está desenhado acima: com o `av.local`
-  // no ar são dois endereços na tela, e mandar digitar "este" deixa o operador
-  // escolhendo qual dos dois a frase quis dizer — que é justamente a dúvida
-  // que ela existe para não ter.
-  const qual = nome ? 'um destes endereços' : 'este endereço';
+  // UM ENDEREÇO SÓ (v5.185): o IP. O `av.local` saiu com o responder mDNS —
+  // ele não resolve no Chrome do Android nem na maioria das Smart TVs, que são
+  // exatamente as telas deste recurso.
+  texto2(castUrlEl, e.endereco || '');
+  // O CÓDIGO, que nasce no instante em que a transmissão é ativada. Campo
+  // `codigo` desde o shell 36; um shell antigo não o publica e a linha fica
+  // vazia — que é a degradação certa, já que ali o servidor também não o exige.
+  texto2(castCodEl, e.codigo || '');
+  // DUAS FRASES, e a diferença é o que o operador faz a seguir. Sem tela
+  // nenhuma, o passo é ir até a TV; com telas no ar, o passo é repetir o mesmo
+  // par para acrescentar mais uma.
   texto2(castHintEl, telas.length
-    ? 'Digite ' + qual + ' no navegador de outra tela para acrescentá-la.'
-    : 'Digite ' + qual + ' no navegador da TV — ela entra sozinha.');
+    ? 'Abra o endereço noutra tela e digite o código para acrescentá-la.'
+    : 'Abra o endereço no navegador da TV e digite o código.');
   renderCastTelas(telas);
 }
 
@@ -15708,7 +15397,7 @@ function renderCastTelas(telas) {
     fora.textContent = 'Desconectar';
     fora.addEventListener('click', async () => {
       fora.disabled = true;
-      try { await AVNative.espelhoAprovar(t.rotulo || '', false); } catch (_) { /* ponte */ }
+      try { await AVNative.espelhoDerrubar(t.rotulo || ''); } catch (_) { /* ponte */ }
       lerEspelho();
     });
     li.append(nome, fora);
@@ -15723,7 +15412,6 @@ function openMirror() {
   // A sonda da câmera é feita AQUI, uma vez: ela é assíncrona e o `render` é
   // síncrono, então perguntar de dentro dele deixaria o botão aparecendo um
   // ciclo depois. Ao voltar, um `renderEspelho` acerta o botão.
-  sondarLeituraQr().then(() => renderEspelho());
   // O certificado é lido ao ABRIR, como o resto: ele muda por ação do
   // operador (importar/remover), nunca sozinho.
   lerCertEspelho();
@@ -15738,10 +15426,6 @@ function closeMirror() {
     clearInterval(mirrorTimer);
     mirrorTimer = null;
   }
-  // A folha fechando leva a câmera junto: o leitor foi aberto DE DENTRO dela, e
-  // um popup filho que sobrevive ao pai é uma câmera ligada sem tela que a
-  // explique.
-  fecharLeitorQr();
 }
 
 // Os ouvintes da seção de conexão. A guarda é o botão que ABRE a folha de
@@ -15749,17 +15433,9 @@ function closeMirror() {
 // escondido que sobrou da linha de Configurações (v5.175).
 if (mirrorOpenBtnEl) {
   mirrorOpenBtnEl.addEventListener('click', openMirror);
-  mirrorAutoEl.addEventListener('change', async () => {
-    // O `'*'` é a chave da aprovação automática desta sessão — ver o KDoc de
-    // `espelhoAprovar` na ponte para por que é um id reservado e não um sexto
-    // método.
-    try { await AVNative.espelhoAprovar('*', mirrorAutoEl.checked); } catch (_) { /* ponte */ }
-    await lerEspelho();
-  });
   mirrorToggleEl.addEventListener('click', () => {
     if (espelhoLigado()) desligarEspelho(); else ligarEspelho();
   });
-  mirrorScanEl.addEventListener('click', abrirLeitorQr);
   // ESPELHAR: o caminho de sempre, agora atrás de uma escolha.
   castMirrorBtnEl.addEventListener('click', () => {
     if (window.__NATIVE__) AVNative.openCast();
@@ -15843,7 +15519,6 @@ const POPUPS = [
   // E o leitor de QR abre de dentro da folha do espelho, então vem DEPOIS dela.
   // Aqui a linha vale mais que nos outros: fechar este popup é DESLIGAR A
   // CÂMERA, e é esta tabela que garante que os três caminhos façam isso.
-  [qrPopupEl, qrCloseEl, fecharLeitorQr],
   [lyricsPopupEl, lyricsPopupCloseEl, closeLyricsPopup],
   // A folha da música abre DE DENTRO do acervo, e o seletor de atalhos abre de
   // dentro dela: o voltar percorre esta tabela de trás para a frente, então a
@@ -16153,10 +15828,6 @@ document.addEventListener('visibilitychange', () => {
     // o microfone não pode continuar aberto. Push-to-talk que sobrevive ao
     // app sair da frente vira um microfone esquecido ligado.
     if (micPressed || micOn) sendMic(false);
-    // E a CÂMERA do leitor de QR, pelo mesmo motivo e com mais razão: ela é
-    // visível de fora (o LED, o indicador do sistema) e o operador acabou de
-    // sair da tela que a explicava.
-    fecharLeitorQr();
     return;
   }
   autoRefreshCollections();

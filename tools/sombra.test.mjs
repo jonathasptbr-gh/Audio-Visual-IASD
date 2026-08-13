@@ -64,7 +64,6 @@ const WEB = join(raiz, 'app/src/main/assets/web');
 const ARQUIVOS = [
   ['espelho/cliente.js', 2],
   ['espelho/fmp4.js', 2],
-  ['espelho/qr.js', 2],
   ['display/display.js', 0],
   ['controle/controle.js', 0],
   ['controle/louvorja.js', 2],

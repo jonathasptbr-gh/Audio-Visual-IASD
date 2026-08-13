@@ -69,8 +69,6 @@
   // permanência que o servidor não dá.
   const CHAVE = 'av-espelho';
 
-  const POLL_MS = 1200;                   // compasso do "já aprovaram?"
-  const POLL_LIMITE = 5 * 60 * 1000;      // e o prazo para desistir de esperar
 
   // Espera crescente entre reconexões. Curta no começo porque a causa mais
   // comum é o servidor tendo reiniciado o encoder (segundos), longa no fim
@@ -751,259 +749,197 @@
   }
 
   // --------------------------------------------------------------------------
-  // PAREAMENTO (§5.4) — o operador fica no laço, e é ele quem aprova
+  // ENTRAR (§5.4) — UM campo, UM botão, UM gesto
   // --------------------------------------------------------------------------
-
-  // ---- O QR: quem MOSTRA é esta tela, e quem LÊ é o celular ----------------
   //
-  // A inversão é o recurso inteiro. No PIN, o celular exibia um segredo curto
-  // durante todo o culto e alguém o digitava aqui — num teclado de controle
-  // remoto, do outro lado do salão. Aqui esta página pede um `id` de espera,
-  // desenha, e espera a câmera do operador. O `id` NÃO é segredo (o servidor o
-  // devolve a quem pedir): o que autoriza é o operador ter apontado a câmera
-  // para ESTA tela, que é a mesma decisão que ele já tomava na folha.
+  // ## Por que o botão faz três coisas
   //
-  // O prefixo `AVE1:` existe para o app poder RECUSAR um QR qualquer — um
-  // cartaz, uma nota fiscal, o Wi-Fi da igreja — em vez de mandar um texto
-  // aleatório como id de aprovação.
-  const QR_PREFIXO = 'AVE1:';
-  // A espera do servidor vence em 5 min; o desenho é refeito antes disso para
-  // nunca haver um QR em cartaz que já não vale. Um código que "não funciona"
-  // sem dizer por quê é o pior desfecho possível para este recurso.
-  const QR_RENOVA_MS = 4 * 60 * 1000;
-  // E a espera entre tentativas quando o pedido falha (espelho ainda subindo,
-  // rede associando). Curta: é a primeira coisa que acontece na tela.
-  const QR_RETENTA_MS = 4000;
-  // ...e o teto dela, porque a falha que DURA é o espelho desligado, e insistir
-  // de quatro em quatro segundos por horas é gastar rádio de um AP de igreja
-  // por algo que só volta quando o operador tocar no celular.
-  const QR_RETENTA_MAX = 20000;
+  // `requestFullscreen()` e sair do `muted` exigem ATIVAÇÃO TRANSITÓRIA DO
+  // USUÁRIO, e um gesto vale por poucos segundos. Se entrar e ligar o som/tela
+  // cheia fossem dois toques, o segundo teria de acontecer DEPOIS de a conexão
+  // subir — e numa TV do outro lado do salão ninguém está lá para dá-lo. Por
+  // isso `conectarAgora` chama `armarGesto()` ANTES de qualquer `await`: o que
+  // ele faz é gastar o gesto no que ele ainda alcança (o `muted` do elemento e
+  // o `requestFullscreen`), e só então ir à rede.
+  //
+  // Esta é também a razão inteira de a fila de aprovação ter saído do servidor
+  // (ver a invariante 5 do `EspelhoPares`): uma aprovação que chega depois
+  // encontra o gesto já gasto.
+  //
+  // ## E o laço de reentrada, que é o que salva um culto
+  //
+  // Uma tela que caiu — espelho religado, token vencido, rede que voltou — é
+  // justamente a que ninguém vai atender. Ela guarda o último código que
+  // funcionou (`ultimoCodigo`, em memória, nunca no `sessionStorage`: o token
+  // é que mora lá, e um segredo a mais guardado é um segredo a mais a vazar) e
+  // volta a tentar sozinha, com espera crescente. O gesto não é reaproveitado
+  // — o som e a tela cheia continuam valendo do estado anterior da página, que
+  // é o que o navegador preserva enquanto o documento não recarrega.
 
-  let qrVivo = false;
-  let qrId = '';
-  // O espelho já está com as três telas? Vale uma frase, não um silêncio: "não
-  // foi liberada" e "não há vaga" pedem coisas opostas de quem está olhando.
-  let cheio = false;
+  // Compasso da reentrada automática, e o teto dela. Crescente porque o caso
+  // comum desta falha é o espelho estar DESLIGADO: um pedido fixo a cada quatro
+  // segundos, vezes três telas, é uma martelada no AP da igreja pelo resto do
+  // culto por algo que ninguém está esperando.
+  const REENTRA_MS = 4000;
+  const REENTRA_MAX = 20000;
 
-  function mostrarQr(id) {
-    qrId = id || '';
-    if (!el.qrBox || !el.qr) return;
-    if (!qrId || !global.AVQr) { el.qrBox.hidden = true; return; }
-    try {
-      // As cores do QR são as do PALCO (preto sobre branco), e não as da
-      // paleta: contraste máximo é requisito de leitura, não escolha de estilo.
-      // É a mesma exceção que `--stage-text: #fff` já declara.
-      global.AVQr.pintar(el.qr, QR_PREFIXO + qrId, '#000000', '#ffffff');
-      el.qrBox.hidden = false;
-    } catch (_) {
-      el.qrBox.hidden = true;
+  let ultimoCodigo = '';
+  let reentraVivo = false;
+
+  /**
+   * O GESTO, gasto no que ele alcança — e antes de qualquer `await`.
+   *
+   * Ele não espera a conexão: o `muted = false` e o `requestFullscreen()`
+   * acontecem no manipulador do clique, que é o único lugar em que o navegador
+   * os aceita. Se a entrada falhar, a página volta ao campo do código com o som
+   * armado e a tela cheia desfeita pelo próprio `aoPareamento`.
+   *
+   * `audioQuerido` é o que faz o `POST /r {"do":"audio"}` sair depois — ver a
+   * invariante 10: nada mais no cliente liga a torneira de som desta tela.
+   */
+  function armarGesto() {
+    audioQuerido = true;
+    porqueSemSom = 'pedido, esperando o csd';
+    esperaAudioAte = 0;
+    try { el.v.muted = false; } catch (_) {}
+    // A tela cheia é PEDIDA aqui e pode ser recusada (um iframe sem permissão,
+    // um navegador de TV que não a implementa). A recusa não é erro: a projeção
+    // funciona em janela, e o ícone da moldura continua ali para tentar de novo.
+    pedirCheia();
+    // O wake lock é CINTO E SUSPENSÓRIO, nunca o único cinto: quem segura a tela
+    // acesa é o `<video>` tocando. Este só existe quando houver TLS.
+    if (global.isSecureContext && global.navigator.wakeLock) {
+      try { global.navigator.wakeLock.request('screen').catch(function () {}); } catch (_) {}
     }
   }
 
   /**
-   * O laço do QR: pede uma espera, desenha, enquete a aprovação, e renova antes
-   * de a espera vencer. Roda até alguém entrar (por aqui ou pelo PIN).
+   * A TELA CHEIA É DO DOCUMENTO, e não do `#play` — e isto é uma correção, não
+   * uma preferência.
    *
-   * Ele NÃO desabilita o campo do PIN nem compete com ele: os dois caminhos
-   * criam esperas independentes, e a primeira que for aprovada ganha. Quem
-   * cancela o outro é o `qrVivo`, conferido depois de cada `await`.
+   * O gesto é gasto ANTES de a rede responder (é a razão de este desenho
+   * existir), então no instante do `requestFullscreen` a página ainda está no
+   * estado de ENTRADA e o `#play` está `hidden`. Pedir tela cheia num elemento
+   * escondido é aceito pelo Chromium: ele vira o elemento de tela cheia,
+   * **desenha nada**, e passa a interceptar os toques — o campo do código fica
+   * visível por baixo e inerte, que é o pior desfecho possível numa TV que
+   * ninguém vai atender. (Foi o `tools/espelho-cliente.test.mjs` que pegou
+   * isto, com todas as letras: "html intercepts pointer events".)
+   *
+   * O documento contém os dois estados, então a troca de um para o outro
+   * acontece DENTRO da tela cheia, sem pedir nada de novo.
    */
+  function pedirCheia() {
+    const alvo = doc.documentElement;
+    try {
+      if (alvo.requestFullscreen) alvo.requestFullscreen().catch(function () {});
+      else if (alvo.webkitRequestFullscreen) alvo.webkitRequestFullscreen();
+    } catch (_) {}
+  }
+
+  function sairDaCheia() {
+    try {
+      if (doc.fullscreenElement && doc.exitFullscreen) doc.exitFullscreen().catch(function () {});
+      else if (doc.webkitFullscreenElement && doc.webkitExitFullscreen) doc.webkitExitFullscreen();
+    } catch (_) {}
+  }
+
   /**
-   * A PORTA ABERTA (v5.170): tenta entrar SEM PIN e sem esperar ninguém.
+   * Pede a entrada com um código. Devolve o motivo da recusa, ou `''` se entrou.
    *
-   * O espelho transmite a imagem do que está sendo projetado para a
-   * congregação — conteúdo público por construção —, e desde a v5.170 o
-   * servidor nasce com o acesso aberto. Então a primeira coisa que uma tela faz
-   * ao abrir o endereço é pedir a entrada: se ela vier, a TV já está
-   * projetando, sem código, sem dígito e sem ninguém tocar no celular.
-   *
-   * A recusa NÃO é erro: é o operador tendo fechado a porta nesta sessão. Aí a
-   * página segue para o caminho de sempre (QR + PIN), que continua inteiro —
-   * ele é o plano B, não o passado.
-   *
-   * `true` = entrou.
+   * Um `POST` e um desfecho — não há poll, não há espera, não há segundo
+   * pedido. É o contrato inteiro do `/par` desde a v5.185.
    */
-  async function tentarPortaAberta() {
+  async function pedirEntrada(codigo) {
     let r;
-    // `aberto: true` é EXPLÍCITO de propósito, mesmo o servidor aceitando o
-    // corpo nu: um pedido que se nomeia é um pedido que não depende de o outro
-    // lado adivinhar o que um corpo sem chave nenhuma quer dizer.
     const corpo = relato();
-    corpo.aberto = true;
-    try { r = await postar('/par', corpo, false); } catch (_) { return false; }
-    cheio = !!(r.corpo && r.corpo.estado === 'lotado');
-    // O CAMINHO NORMAL: com a porta aberta o servidor aprova na mesma chamada e
-    // devolve o token. Não há espera a criar, e não haver espera é o ponto — uma
-    // por entrada encheria a fila do operador numa tela que reconecta.
+    corpo.codigo = codigo;
+    try { r = await postar('/par', corpo, false); } catch (_) { return 'rede'; }
     if (r.status === 200 && r.corpo && r.corpo.t) {
       token = String(r.corpo.t);
       guardado(token);
-      return true;
+      return '';
     }
-    // E o caminho do shell que ainda cria uma espera para este corpo. Uma
-    // consulta basta: o token não volta no 202, e pedi-lo é o que separa "há uma
-    // vaga" de "a vaga é minha".
-    if (!(r.status === 202 && r.corpo && r.corpo.espera)) return false;
-    const id = String(r.corpo.espera);
-    let p;
-    try { p = await postar('/par', { espera: id }, false); } catch (_) { return false; }
-    if (!(p.status === 200 && p.corpo && p.corpo.t)) return false;
-    token = String(p.corpo.t);
-    guardado(token);
-    return true;
+    // LOTADO NÃO É CÓDIGO ERRADO, e mandar conferir o número é mandar repetir
+    // uma coisa que não vai funcionar nenhuma das vezes. O corpo distingue os
+    // dois; o status, de propósito, não.
+    if (r.corpo && r.corpo.estado === 'lotado') return 'lotado';
+    if (r.status === 0) return 'rede';
+    return 'recusado';
   }
 
-  async function cicloQr() {
-    if (qrVivo || !el.qrBox) return;
-    qrVivo = true;
-    // Falhas SEGUIDAS ao pedir um código. Ver a espera crescente abaixo.
-    let qrFalhas = 0;
-    while (qrVivo) {
-      // A PORTA PRIMEIRO, E A CADA VOLTA. Desenhar um QR para depois descobrir
-      // que ninguém precisava dele é o atrito que a v5.170 removeu — e tentar
-      // só UMA vez, na abertura da página, deixava de fora o caso que mais
-      // importa: a tela que caiu (espelho religado, token vencido, rede que
-      // voltou) e que ninguém vai atender. Ela precisa entrar sozinha assim que
-      // o celular estiver de pé, e não esperar alguém apontar a câmera.
-      if (await tentarPortaAberta()) { pararQr(); aoPlayer(); return; }
-      if (!qrVivo) return;
-
-      let r;
-      try {
-        const corpo = relato();
-        corpo.qr = true;
-        r = await postar('/par', corpo, false);
-      } catch (_) { r = { status: 0 }; }
-      if (!qrVivo) return;
-
-      if (!(r.status === 202 && r.corpo && r.corpo.espera)) {
-        // Sem QR, a tela ainda tem o PIN — e precisa DIZER isso, porque um
-        // espaço vazio onde deveria haver um código não explica nada.
-        mostrarQr('');
-        if (el.pinBox) el.pinBox.open = true;
-        // TRÊS CAUSAS, TRÊS FRASES. "O código não pôde ser gerado" era a única,
-        // e ela é a menos provável das três: o caso comum é o celular não estar
-        // atendendo (espelho desligado, ainda subindo, ou fora da rede), e nesse
-        // caso pedir os seis dígitos manda o visitante para um caminho que
-        // também não vai funcionar.
-        texto('parMsg', r.status === 0
-          ? 'Sem contato com o celular. Esta tela entra sozinha assim que o espelho voltar.'
-          : cheio
-            ? 'O espelho já está com o número máximo de telas. Feche uma das outras.'
-            : 'O código não pôde ser gerado agora. Use os seis dígitos abaixo.');
-        // ESPERA CRESCENTE. O caso comum desta falha é o espelho estar
-        // DESLIGADO — o operador ainda não ligou, ou acabou de desligar —, e um
-        // pedido fixo a cada quatro segundos, vezes três telas, é uma martelada
-        // no AP da igreja pelo resto do culto por algo que ninguém está
-        // esperando. Ela volta ao piso na primeira resposta boa.
-        qrFalhas++;
-        await dormir(Math.min(QR_RETENTA_MS * qrFalhas, QR_RETENTA_MAX));
-        continue;
-      }
-      qrFalhas = 0;
-
-      const id = String(r.corpo.espera);
-      mostrarQr(id);
-      texto('parMsg', 'Esperando a leitura no celular…');
-      const ate = Date.now() + QR_RENOVA_MS;
-      let entrou = false;
-      let giros = 0;
-      while (qrVivo && Date.now() < ate) {
-        await dormir(POLL_MS);
-        if (!qrVivo) return;
-        // E A PORTA CONTINUA SENDO TENTADA COM O CÓDIGO EM CARTAZ, de tantos em
-        // tantos giros: o operador pode abrir a porta (ou ligar o espelho)
-        // enquanto esta tela espera a câmera, e nesse instante a espera deixou
-        // de ter razão de ser. Um em cada cinco giros são ~6 s — resposta rápida
-        // sem dobrar o tráfego do poll.
-        if (++giros % 5 === 0 && await tentarPortaAberta()) { entrou = true; break; }
-        if (!qrVivo) return;
-        let p;
-        try { p = await postar('/par', { espera: id }, false); } catch (_) { p = { status: 0 }; }
-        if (p.status === 200 && p.corpo && p.corpo.t) {
-          token = String(p.corpo.t);
-          guardado(token);
-          entrou = true;
-          break;
-        }
-        // 403 aqui é o operador tendo RECUSADO esta tela, ou a espera vencida.
-        // Nos dois casos a resposta certa é pedir um código novo, não desistir:
-        // esta página é uma TV que ninguém vai atender, e ela precisa continuar
-        // oferecendo uma forma de entrar.
-        if (p.status === 403) break;
-      }
-      if (entrou) { pararQr(); aoPlayer(); return; }
+  function fraseDaRecusa(motivo) {
+    if (motivo === 'rede') {
+      return 'Não foi possível falar com o celular. Confira a rede e tente de novo.';
     }
+    if (motivo === 'lotado') {
+      return 'O espelho já está com o número máximo de telas. Feche uma das outras.';
+    }
+    // O servidor responde 403 tanto para código errado quanto para origem
+    // bloqueada por tentativas (§3.5, invariante 6). A frase cobre os dois sem
+    // afirmar qual é — e é o servidor que decide se ainda aceita.
+    return 'Código não confere. Confira o número na tela do celular.';
   }
 
-  function pararQr() {
-    qrVivo = false;
-    qrId = '';
-    if (el.qrBox) el.qrBox.hidden = true;
-  }
-
-  async function parear() {
-    const pin = (el.pin.value || '').replace(/[^0-9]/g, '');
-    if (pin.length !== 6) { texto('parMsg', 'São seis dígitos.', true); return; }
+  /** O toque no botão "Conectar". */
+  async function conectarAgora() {
+    const codigo = (el.cod.value || '').replace(/[^0-9]/g, '');
+    if (codigo.length !== 3) { texto('parMsg', 'São três dígitos.', true); return; }
+    // ANTES DE QUALQUER `await`: ver `armarGesto`.
+    armarGesto();
+    pintarControles();
     el.parBtn.disabled = true;
-    texto('parMsg', 'Enviando…');
-    let r;
-    try {
-      const corpo = relato();
-      corpo.pin = pin;
-      r = await postar('/par', corpo, false);
-    } catch (_) {
-      // A causa quase sempre é a rede, não o código. Dizer isso poupa o
-      // visitante de digitar o PIN mais três vezes.
-      texto('parMsg', 'Não foi possível falar com o celular. Confira a rede e tente de novo.', true);
-      el.parBtn.disabled = false;
-      return;
-    }
-    if (r.status === 202 && r.corpo && r.corpo.espera) {
-      await aguardar(String(r.corpo.espera));
-      return;
-    }
-    // LOTADO NÃO É PIN ERRADO, e mandar conferir o número é mandar repetir uma
-    // coisa que não vai funcionar nenhuma das vezes. O corpo distingue os dois;
-    // o status, de propósito, não.
-    if (r.corpo && r.corpo.estado === 'lotado') {
-      texto('parMsg', 'O espelho já está com o número máximo de telas. Feche uma das outras.', true);
-      el.parBtn.disabled = false;
-      return;
-    }
-    // O servidor responde 403 tanto para PIN errado quanto para origem
-    // bloqueada por tentativas (§3.5, invariante 6). A mensagem cobre os dois
-    // sem afirmar qual é — e é o servidor que decide se ainda aceita.
-    texto('parMsg', 'Código não confere. Confira o número na tela do celular.', true);
+    texto('parMsg', 'Conectando…');
+    const motivo = await pedirEntrada(codigo);
     el.parBtn.disabled = false;
+    if (motivo) {
+      // A TELA CHEIA DESFAZ JUNTO. O gesto a pediu antes de saber o desfecho, e
+      // sem esta linha o visitante fica olhando para um campo de código
+      // ocupando a TV inteira, sem barra de navegador e sem Esc à mão.
+      sairDaCheia();
+      texto('parMsg', fraseDaRecusa(motivo), true);
+      return;
+    }
+    ultimoCodigo = codigo;
+    pararReentrada();
+    aoPlayer();
   }
 
-  async function aguardar(id) {
-    texto('parMsg', 'Aguardando a aprovação no celular…');
-    const ate = Date.now() + POLL_LIMITE;
-    for (;;) {
-      await dormir(POLL_MS);
-      let r;
-      try { r = await postar('/par', { espera: id }, false); } catch (_) { r = { status: 0 }; }
-      if (r.status === 200 && r.corpo && r.corpo.t) {
-        token = String(r.corpo.t);
-        guardado(token);
-        pararQr();
-        aoPlayer();
+  /**
+   * A REENTRADA SOZINHA, com o último código que funcionou.
+   *
+   * Só existe depois de uma entrada bem-sucedida — sem `ultimoCodigo` não há o
+   * que tentar, e a página fica esperando o toque, que é o certo: uma tela que
+   * nunca entrou não tem segredo nenhum para repetir.
+   */
+  async function cicloReentrada() {
+    if (reentraVivo || !ultimoCodigo) return;
+    reentraVivo = true;
+    let falhas = 0;
+    while (reentraVivo && ultimoCodigo) {
+      await dormir(Math.min(REENTRA_MS * (falhas + 1), REENTRA_MAX));
+      if (!reentraVivo) return;
+      const motivo = await pedirEntrada(ultimoCodigo);
+      if (!reentraVivo) return;
+      if (!motivo) { pararReentrada(); aoPlayer(); return; }
+      falhas++;
+      // O CÓDIGO PODE TER MUDADO. Ele nasce a cada `ligar` do espelho, então
+      // uma recusa depois de uma reconexão é o caso normal de "o operador
+      // religou a transmissão" — e insistir num código morto não vai a lugar
+      // nenhum. Aqui a página desiste e devolve o campo ao visitante, dizendo
+      // por quê; nas outras duas causas (rede, lotado) ela continua tentando,
+      // porque as duas passam sozinhas.
+      if (motivo === 'recusado') {
+        ultimoCodigo = '';
+        texto('parMsg', 'O código mudou. Digite o novo, que está na tela do celular.', true);
+        pararReentrada();
         return;
       }
-      if (r.status === 403) {
-        texto('parMsg', 'A tela não foi liberada.', true);
-        el.parBtn.disabled = false;
-        return;
-      }
-      if (Date.now() > ate) {
-        texto('parMsg', 'Ninguém respondeu no celular. Tente de novo.', true);
-        el.parBtn.disabled = false;
-        return;
-      }
+      texto('parMsg', fraseDaRecusa(motivo), true);
     }
   }
+
+  function pararReentrada() { reentraVivo = false; }
 
   function aoPareamento(motivo) {
     parar();
@@ -1013,13 +949,12 @@
     doc.body.classList.remove('sem-cursor');
     if (ctrlTimer) { clearTimeout(ctrlTimer); ctrlTimer = null; }
     el.parBtn.disabled = false;
-    el.pin.value = '';
+    // A TELA CHEIA SAI JUNTO, pelo mesmo motivo da recusa acima.
+    sairDaCheia();
     if (motivo) texto('parMsg', motivo, true);
-    // O QR volta ao ar SEM esperar toque: uma tela que caiu (sessão vencida,
-    // espelho desligado e religado) é justamente a que ninguém está olhando —
-    // e a que o operador vai querer readmitir apontando a câmera de novo.
-    pararQr();
-    cicloQr();
+    // E ELA TENTA VOLTAR SOZINHA: uma tela que caiu é justamente a que ninguém
+    // está olhando. Ver `cicloReentrada`.
+    cicloReentrada();
   }
 
   function aoPlayer() {
@@ -2390,9 +2325,9 @@
       // faz — trocar de modo, mudar o certificado, uma remontagem do encoder —,
       // de modo que uma sessão de testes deixava três telas mortas espalhadas
       // pelo salão. O token morreu com o desligamento (o pareamento é zerado),
-      // então voltar é voltar ao pareamento: com a porta aberta, isso é
-      // automático e silencioso; com ela fechada, o QR reaparece, que é o
-      // comportamento certo nos dois casos.
+      // então voltar é voltar à entrada — e de lá a reentrada automática tenta
+      // o último código que funcionou. Se o operador religar a transmissão, o
+      // código muda e a página diz isso, em vez de martelar um número morto.
       if (voltarDepois) clearTimeout(voltarDepois);
       voltarDepois = setTimeout(function () {
         voltarDepois = null;
@@ -2853,16 +2788,7 @@
   async function alternarCheia() {
     primeiroToque();
     mostrarControles();
-    try {
-      if (naCheia()) {
-        if (doc.exitFullscreen) await doc.exitFullscreen();
-        else if (doc.webkitExitFullscreen) doc.webkitExitFullscreen();
-      } else if (el.play.requestFullscreen) {
-        await el.play.requestFullscreen();
-      } else if (el.play.webkitRequestFullscreen) {
-        el.play.webkitRequestFullscreen();
-      }
-    } catch (_) {}
+    if (naCheia()) sairDaCheia(); else pedirCheia();
     pintarControles();
     tocar();
   }
@@ -2929,14 +2855,18 @@
   }
 
   function iniciar() {
-    ['par', 'pin', 'pinBox', 'parBtn', 'parMsg', 'qrBox', 'qr', 'play', 'v',
+    ['par', 'cod', 'parBtn', 'parMsg', 'play', 'v',
       'ctrl', 'btnSom', 'btnFull', 'dica', 'aviso'].forEach(function (id) {
       el[id] = doc.getElementById(id);
     });
     if (!el.par || !el.play) return;      // não é a página do espelho
 
-    el.parBtn.addEventListener('click', parear);
-    el.pin.addEventListener('keydown', function (e) { if (e.key === 'Enter') parear(); });
+    el.parBtn.addEventListener('click', conectarAgora);
+    // ENTER CONECTA, e num controle remoto de TV ele é o botão OK — que é o
+    // gesto natural depois de digitar três números. O `keydown` conta como
+    // ativação transitória do usuário tanto quanto um clique, então o gesto
+    // que o `armarGesto` gasta vale igual por aqui.
+    el.cod.addEventListener('keydown', function (e) { if (e.key === 'Enter') conectarAgora(); });
     if (el.btnSom) el.btnSom.addEventListener('click', alternarSom);
     if (el.btnFull) el.btnFull.addEventListener('click', alternarCheia);
     // O toque fora dos ícones alterna a barra, como em qualquer player. Ele
@@ -2965,13 +2895,17 @@
     acordar();
 
     token = guardado();
-    // O QR NASCE JUNTO COM A PÁGINA — sem toque, sem foco, sem nada a digitar.
-    // É uma TV: ninguém vai clicar em "gerar código". O campo do PIN não recebe
-    // foco por isso mesmo: um teclado virtual abrindo sozinho numa smart TV
-    // cobriria justamente o código que ela precisa mostrar.
     pintarControles();
+    // COM TOKEN GUARDADO A PÁGINA VOLTA DIRETO À PROJEÇÃO — é o caso de um
+    // recarregamento (F5, a TV que restaurou a aba) dentro da mesma sessão do
+    // navegador. Ela volta MUDA e em janela, e isso é inevitável: o token
+    // sobrevive no `sessionStorage`, o GESTO não sobrevive a nada. Os dois
+    // ícones da barra existem exatamente para esse caso.
+    //
+    // Sem token, a página espera o toque. Não há reentrada automática aqui de
+    // propósito: sem `ultimoCodigo` não há segredo a repetir, e uma tela que
+    // nunca entrou não tem o que tentar sozinha.
     if (token) aoPlayer();
-    else cicloQr();
   }
 
   // O ESTADO, LEGÍVEL DE FORA. Esta página não tem Registro — o Registro do
@@ -2983,10 +2917,11 @@
     estado: function () {
       return {
         pareado: !!token, vivo: vivo,
-        // O QR em cartaz: `qr` é o desenho na tela, `qrId` diz se há espera
-        // criada. Os dois juntos separam "o servidor não deu id" de "deu e o
-        // desenho falhou" — que na tela são o mesmo espaço vazio.
-        qr: !!(el.qrBox && !el.qrBox.hidden), qrId: !!qrId,
+        // A reentrada sozinha: `reentra` diz se o laço está de pé, e `temCodigo`
+        // se há um código guardado para ele repetir. Os dois separam "a tela
+        // desistiu porque o código mudou" de "a tela está tentando" — que na
+        // tela são a mesma mensagem parada.
+        reentra: reentraVivo, temCodigo: !!ultimoCodigo,
         mime: mime, fila: fila.length, posicionado: posicionado,
         quadros: conta.quadros, bytes: conta.bytes,
         recomecos: conta.recomecos, reconexoes: conta.reconexoes,

@@ -107,17 +107,14 @@ jobs:
           # OS TRÊS DO ESPELHO DE PIXELS, que existiam no repositório desde a
           # v5.143 e NÃO estavam ligados aqui — ou seja, rodavam em lugar
           # nenhum. O oráculo do muxer fMP4 (boxes byte a byte, no molde do
-          # `sidx`), a varredura de contexto seguro (o cliente roda em `http://`
+          # `sidx`) e a varredura de contexto seguro (o cliente roda em `http://`
           # por construção, e ali `VideoDecoder`/`wakeLock`/`crypto.subtle` vêm
-          # `undefined`) e o codificador de QR do pareamento.
+          # `undefined`).
+          # (O oráculo do QR saiu na v5.185, com o pareamento por QR: a página
+          # do cliente passou a ter um campo e um botão, e quem digita o código
+          # de três dígitos é a TELA.)
           node tools/fmp4.test.mjs
           node tools/contexto-seguro.test.mjs
-          # O QR: um símbolo errado não dá erro, dá uma câmera apontada para uma
-          # tela que não responde — indistinguível de "a câmera não funciona" e
-          # de "o roteador está isolando os aparelhos". O oráculo DECODIFICA o
-          # que o codificador produziu (formato com BCH, máscara, zigue-zague,
-          # síndromes de Reed-Solomon), em vez de conferir propriedades.
-          node tools/qr.test.mjs
           # A SOMBRA: nenhuma função redeclara um nome de módulo da base web.
           # `node --check` aprova `const ms = …` dentro de uma função que LÊ a
           # `ms` do módulo na primeira linha — e o resultado é

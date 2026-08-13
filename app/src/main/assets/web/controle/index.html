@@ -41,9 +41,10 @@
        tamanho da escala da folha e a própria cor, sem tocar no desenho. O
        contêiner é `hidden` (nunca desenhado); um <use> clona dele mesmo assim.
 
-       OS TRÊS DA CONEXÃO SÃO UMA CORREÇÃO, não uma preferência de desenho
-       (v5.184). Eles eram glifos da fonte de ícones — `&#xe307;`, `&#xe8ad;` e
-       `&#xe3b0;` — e os três estão AUSENTES do subconjunto em
+       OS DOIS DA CONEXÃO SÃO UMA CORREÇÃO, não uma preferência de desenho
+       (v5.184). Eles eram glifos da fonte de ícones — `&#xe307;` e `&#xe8ad;`
+       (mais o `&#xe3b0;` do leitor de QR, que saiu na v5.185) — e estão
+       AUSENTES do subconjunto em
        `shared/fonts/material-symbols.woff2`: a fonte é um subconjunto gerado à
        mão ("só os ícones usados", diz o cabeçalho dela) e nunca foi regerada
        quando a UI de conexão nasceu. O modo de falhar é o mais mudo que existe
@@ -86,16 +87,6 @@
       <path d="M8.5 21h7"/>
       <path d="M12 14.2V7.6"/>
       <path d="m9.2 10.4 2.8-2.8 2.8 2.8"/>
-    </symbol>
-    <!-- LER O CÓDIGO: os quatro cantos de uma mira, com dois módulos dentro.
-         Os cantos são o que diz "aponte a câmera", e não "aqui tem um QR". -->
-    <symbol id="icoQr" viewBox="0 0 24 24">
-      <path d="M3 8.5V5a2 2 0 0 1 2-2h3.5"/>
-      <path d="M15.5 3H19a2 2 0 0 1 2 2v3.5"/>
-      <path d="M21 15.5V19a2 2 0 0 1-2 2h-3.5"/>
-      <path d="M8.5 21H5a2 2 0 0 1-2-2v-3.5"/>
-      <rect x="7.2" y="7.2" width="4.2" height="4.2" rx=".8"/>
-      <rect x="12.6" y="12.6" width="4.2" height="4.2" rx=".8"/>
     </symbol>
   </svg>
   <!-- MODO SIMPLIFICADO: conectar a tela, buscar a música, tocar. Os controles
@@ -779,7 +770,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.185</span>
+        <span id="appVersion" class="app-version">Controle v5.186</span>
         <!-- O APK NOVO, quando existir. Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso. `hidden`
@@ -847,28 +838,40 @@
 
         <p class="mirror-lead" id="castMsg" role="status" aria-live="polite"></p>
 
-        <!-- OS DOIS ENDEREÇOS DE ACESSO, e os dois valem: `av.local` é o que se
-             digita sem decorar número, e o IP é o que funciona quando o `.local`
-             não resolve — o que é o caso do Chrome do Android e da maioria das
-             Smart TVs (ver docs/ESPELHO-DE-PIXELS.md). Por isso um nunca
-             substitui o outro na tela: eles aparecem juntos.
+        <!-- O ENDEREÇO E O CÓDIGO — as duas coisas que a tela precisa, nesta
+             ordem, porque é a ordem em que são usadas: digita-se o endereço no
+             navegador, e o código no campo que aparece lá.
 
-             Junto deles, quem já está vendo — com a porta aberta (v5.170) esta
-             lista é o controle de verdade, porque o dano de um curioso na rede
-             não é ele ver o que a congregação já vê, é ele ocupar uma das três
+             UM ENDEREÇO SÓ (v5.185). `av.local` saiu junto com o responder
+             mDNS: ele não resolvia no Chrome do Android nem na maioria das
+             Smart TVs — que são exatamente as telas deste recurso —, então o
+             número sempre foi o endereço que de fato funcionava, e o nome ao
+             lado dele era um segundo caminho que dava errado numa fração dos
+             casos sem dizer por quê.
+
+             Junto deles, quem já está vendo: com a entrada imediata, esta lista
+             é o controle inteiro do operador — o dano de um curioso na rede não
+             é ele ver o que a congregação já vê, é ele ocupar uma das três
              vagas. -->
         <div id="castLive" hidden>
           <div class="cast-addr">
+            <span class="cast-rot">Endereço</span>
             <span class="cast-url" id="castUrl"></span>
-            <span class="cast-url2" id="castUrl2" hidden></span>
+          </div>
+          <div class="cast-addr">
+            <span class="cast-rot">Código</span>
+            <!-- Monoespaçado e espaçado, como o PIN de antes: três dígitos
+                 ditados de um lado do salão para o outro por cima de uma fonte
+                 proporcional é onde 1, l e I viram a mesma coisa. -->
+            <span class="cast-cod" id="castCod"></span>
           </div>
           <p class="cast-hint" id="castHint"></p>
           <ul class="cast-telas" id="castTelas"></ul>
         </div>
 
-        <!-- Os ajustes que sobraram (PIN como plano B, leitura do QR,
-             certificado) continuam existindo numa folha própria — só deixaram
-             de estar no caminho de quem só quer conectar uma tela. -->
+        <!-- Os ajustes que sobraram (certificado, porta) continuam existindo
+             numa folha própria — só deixaram de estar no caminho de quem só
+             quer conectar uma tela. -->
         <button type="button" class="cast-link" id="mirrorOpenBtn" hidden>Ajustes avançados</button>
       </div>
     </div>
@@ -880,12 +883,14 @@
        música (com o mesmo z de todos, quem decidiria seria a ordem do
        documento — e esse acaso já cobriu um popup por inteiro aqui).
 
-       O que a folha diz, nesta ordem: o que o recurso é, o endereço e o PIN,
-       o modo (imagem × vídeo, escolhido no LIGAR — trocar ao vivo é desligar e
-       ligar de novo), a fila de telas esperando aprovação, e o botão que liga
-       ou desliga. A frase do topo é a única propaganda: as três ressalvas que o
-       operador precisa ouvir ANTES (o roteador pode bloquear sozinho, o celular
-       no carregador, o som não vai completo) estão ali, não num manual. -->
+       O que a folha diz, nesta ordem: o que o recurso é, o certificado (o
+       degrau de TLS) e o botão que liga ou desliga. O endereço e o código moram
+       na folha de conectar, uma camada abaixo — repeti-los aqui era a mesma
+       informação com duas anatomias, que é a classe de divergência que a paleta
+       única deste projeto existe para não ter. A frase do topo é a única
+       propaganda: as três ressalvas que o operador precisa ouvir ANTES (o
+       roteador pode bloquear sozinho, o celular no carregador, o som não vai
+       completo) estão ali, não num manual. -->
   <div id="mirrorPopup" class="popup-backdrop">
     <div class="popup-sheet">
       <div class="popup-header">
@@ -895,28 +900,6 @@
       </div>
       <div class="mirror-body">
         <p class="mirror-lead" id="mirrorLead"></p>
-        <!-- O PIN — o plano B, e SÓ ele.
-             O ENDEREÇO SAIU DAQUI (v5.175): esta folha só se alcança de dentro
-             da folha de conectar, que o mostra em corpo grande uma linha acima.
-             Repeti-lo aqui era a mesma informação com duas anatomias — dois
-             tamanhos, dois raios, dois paddings —, que é a classe de divergência
-             que a paleta única deste projeto existe para não ter. O token da
-             sessão nunca aparece aqui nem em URL nenhuma: ele nasce da aprovação
-             e vive no `sessionStorage` da tela que pareou. -->
-        <div class="cast-addr" id="mirrorAddr" hidden>
-          <span class="mirror-pin" id="mirrorPin"></span>
-          <span class="cast-url2">Digite estes seis dígitos na tela, se ela pedir</span>
-        </div>
-        <!-- O CAMINHO CURTO: a tela mostra um QR, o operador lê aqui, pronto.
-             Ele não substitui o PIN acima — a câmera pode não existir, a
-             leitura pode não estar disponível no WebView, e o operador pode
-             estar do outro lado do salão. O botão só é DESENHADO quando o shell
-             tem `requestCam` e o aparelho sabe ler QR: botão que não faz nada no
-             meio de um culto é pior que botão nenhum. -->
-        <button type="button" id="mirrorScan" class="mirror-scan" hidden>
-          <svg class="mirror-scan-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoQr"/></svg>
-          <span>Ler o código da tela</span>
-        </button>
         <!-- O DEGRAU DE TLS. Ele é opcional por construção (ver
              docs/ESPELHO-DE-PIXELS.md §2.4): certificado público para IP
              privado não existe, autoassinado é uma tela vermelha em cada
@@ -930,54 +913,9 @@
             <button type="button" class="mirror-act mirror-act--no" id="mirrorCertDel" hidden>Remover</button>
           </div>
         </div>
-        <!-- O OPERADOR NO LAÇO (§3.5): acertar o PIN põe a tela na fila; quem a
-             deixa entrar é este botão. O interruptor de aprovação automática
-             existe para quando ele estiver ocupado e NASCE DESLIGADO — um PIN de
-             seis dígitos visível na tela do celular durante todo o culto é fraco
-             demais para ser o único controle. -->
-        <label class="mirror-auto">
-          <input type="checkbox" id="mirrorAuto">
-          <span>Aprovar automaticamente nesta sessão</span>
-        </label>
-        <ul class="mirror-list" id="mirrorList"></ul>
       </div>
       <div class="popup-footer">
         <button type="button" id="mirrorToggle" class="new-folder-btn">Ligar o espelho</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- O LEITOR DE QR. Popup próprio, e não um estado da folha do espelho, por
-       uma razão de ciclo de vida: enquanto ele está aberto há uma CÂMERA LIGADA,
-       e "fechar" precisa querer dizer "desligar a câmera" nos três caminhos (✕,
-       toque no fundo, botão voltar do aparelho). Entrando na tabela POPUPS ele
-       ganha os três de uma vez — que é exatamente o que a tabela existe para
-       fazer. Uma câmera que sobrevive ao fechamento é o equivalente visual do
-       microfone esquecido ligado. -->
-  <!-- TELA CHEIA, e sem a animação de subida da folha. Duas razões, e as duas
-       são sobre ver a imagem: mirar um código numa TV do outro lado do salão
-       pede o maior visor possível, e um `<video>` de câmera dentro de um
-       contêiner TRANSFORMADO é território conhecido de renderização vazia no
-       WebView do Android — a folha comum vive num `translateY`. Aqui não há
-       transform nenhum. -->
-  <div id="qrPopup" class="popup-backdrop popup-backdrop--full">
-    <div class="popup-sheet popup-sheet--full">
-      <div class="popup-header">
-        <span class="popup-header-icon">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoQr"/></svg>
-        </span>
-        <span class="popup-title">Ler o código da tela</span>
-        <button id="qrClose" class="popup-close" title="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
-      </div>
-      <div class="mirror-body">
-        <div class="qr-scan">
-          <!-- `playsinline` e `muted` no HTML: sem eles o Android abre o vídeo
-               em tela cheia por conta própria e a política de autoplay recusa o
-               `play()`. É a mesma dupla do `<video>` do cliente do espelho. -->
-          <video id="qrVideo" playsinline muted autoplay></video>
-          <div class="qr-alvo" aria-hidden="true"></div>
-        </div>
-        <p class="mirror-lead" id="qrMsg" role="status" aria-live="polite"></p>
       </div>
     </div>
   </div>

@@ -31,12 +31,12 @@
 //
 // ## E a segunda metade: o cliente, ponta a ponta
 //
-// Um servidor de mentira implementa o §5 inteiro (o mapa de rotas, o
-// pareamento com o operador no laço, o fluxo binário de 16 bytes de cabeçalho)
-// e o teste percorre o caminho do visitante: PIN errado, PIN certo, espera,
-// aprovação, modo imagem, queda do fluxo e reconexão. As duas asserções mais
-// importantes desse trecho são NEGATIVAS: **o token não aparece em URL
-// nenhuma** e **a página é anônima antes do pareamento**.
+// Um servidor de mentira implementa o §5 inteiro (o mapa de rotas, a entrada
+// pelo código de três dígitos, o fluxo binário de 16 bytes de cabeçalho) e o
+// teste percorre o caminho do visitante: código errado, código certo, o gesto
+// único que entra COM som e tela cheia, queda do fluxo e reconexão. As duas
+// asserções mais importantes desse trecho são NEGATIVAS: **o token não aparece
+// em URL nenhuma** e **a página é anônima antes da entrada**.
 //
 //   node tools/espelho-cliente.test.mjs
 import { chromium } from 'playwright';
@@ -73,27 +73,18 @@ const MAPA = {
   '/e.css': [path.join(ESP, 'espelho.css'), 'text/css; charset=utf-8'],
   '/e.js': [path.join(ESP, 'cliente.js'), 'text/javascript; charset=utf-8'],
   '/f.js': [path.join(ESP, 'fmp4.js'), 'text/javascript; charset=utf-8'],
-  '/q.js': [path.join(ESP, 'qr.js'), 'text/javascript; charset=utf-8'],
 };
 
-const PIN = '424242';
+const CODIGO = '426';
 const TOKEN = 'Zm9vYmFyLXRva2VuLTEyOA';
 
-const visto = { urls: [], autorizacoes: [], volta: [], gets: 0, qr: [] };
-// O id de espera que o QR carrega. 22 caracteres base64url, como o
-// `EspelhoPares.novoToken()` produz — é o tamanho que decide a versão do QR.
-const ESPERA_QR = 'aB3-_xY9zQ1kLmNoPqRsTu';
-let qrLiberado = true;       // o servidor aceita criar espera de QR?
-let qrAprovado = false;      // e o "operador" já leu o código?
-let pendencias = 0;          // quantos polls de `espera` ainda respondem "pendente"
-let aprovar = true;
-// A PORTA (v5.170). Nasce FECHADA aqui pelo mesmo motivo pelo qual o
-// `EspelhoParesTest` a fecha: com ela aberta a tela entra na primeira chamada e
-// todo o percurso de pareamento — QR, PIN, espera, aprovação — passaria por
-// vacuidade, que é a pior forma de um teste de acesso passar. O caso que a
-// exercita a abre de propósito, no fim.
-let portaAberta = false;
-const visto2 = { aberto: [] };   // os pedidos de entrada pela porta aberta
+const visto = { urls: [], autorizacoes: [], volta: [], gets: 0 };
+// O servidor aceita alguém agora? Os dois interruptores separam as TRÊS
+// respostas que o cliente precisa distinguir por frases diferentes: código
+// errado, servidor lotado, e servidor fora do ar.
+let servidorAceita = true;
+let lotado = false;
+const visto2 = { entradas: [] };   // todo corpo de `POST /par` que chegou
 let fluxo = null;            // a resposta de /v em curso
 let aoAbrirFluxo = null;
 
@@ -140,48 +131,19 @@ const servidor = http.createServer(async (req, res) => {
 
   if (req.method === 'POST' && u.pathname === '/par') {
     const c = await corpoDe(req);
-    if (c && c.pin) {
-      if (c.pin !== PIN) { json(res, 403, {}); return; }
-      json(res, 202, { espera: 'e1' });
-      return;
-    }
-    // O QR: a tela pede um id SEM provar nada, e o id não vale nada até alguém
-    // ler o desenho (§3.5, invariante 5b). `qrDado` guarda o corpo para o teste
-    // conferir que ele cabe no teto de 256 B do `POST /par`.
-    if (c && c.qr === true) {
-      visto.qr.push(c);
-      if (!qrLiberado) { json(res, 403, {}); return; }
-      json(res, 202, { espera: ESPERA_QR });
-      return;
-    }
-    if (c && c.espera) {
-      // A espera do QR tem o seu próprio interruptor: enquanto o operador não
-      // "lê o código", ela responde PENDENTE — o QR fica em cartaz sem
-      // atravessar o percurso do PIN, que é o que o resto deste arquivo testa.
-      if (c.espera === ESPERA_QR) {
-        if (qrAprovado) { json(res, 200, { t: TOKEN }); return; }
-        json(res, 202, { estado: 'pendente' });
-        return;
-      }
-      if (!aprovar) { json(res, 403, { estado: 'recusada' }); return; }
-      if (pendencias > 0) { pendencias--; json(res, 202, { estado: 'pendente' }); return; }
+    // UM RAMO SÓ desde a v5.185, e o desfecho sai na MESMA resposta: não há
+    // 202, não há espera, não há poll. É o que permite ao botão "Conectar"
+    // carregar o gesto que libera o som e a tela cheia.
+    if (c && typeof c.codigo === 'string') {
+      visto2.entradas.push(c);
+      if (!servidorAceita) { json(res, 403, { estado: 'recusada' }); return; }
+      if (lotado) { json(res, 403, { estado: 'lotado' }); return; }
+      if (c.codigo !== CODIGO) { json(res, 403, { estado: 'recusada' }); return; }
       json(res, 200, { t: TOKEN });
       return;
     }
-    // A PORTA ABERTA (v5.170) — o corpo sem `pin`, sem `qr` e sem `espera`.
-    //
-    // O `EspelhoServidor` aprova na MESMA chamada e devolve o token: não há
-    // espera a criar, porque não há decisão a tomar. Este ramo não existia nem
-    // aqui nem no servidor de verdade, e por isso o recurso inteiro nunca
-    // chegou a funcionar — o cliente pedia, o servidor respondia 403/404, e
-    // toda tela continuava dependendo de alguém apontar uma câmera.
-    if (c) {
-      visto2.aberto.push(c);
-      if (portaAberta) { json(res, 200, { t: TOKEN }); return; }
-      json(res, 403, { estado: 'recusada' });
-      return;
-    }
-    json(res, 404, {});
+    // O `else` do servidor de verdade é 403 por omissão — falha FECHADA.
+    json(res, 403, { estado: 'recusada' });
     return;
   }
 
@@ -463,7 +425,6 @@ const NALU = Buffer.concat([
   Buffer.alloc(64, 0x42),
 ]);
 
-pendencias = 2;
 await pg.goto(base + '/', { waitUntil: 'domcontentloaded' });
 
 // A PÁGINA É ANÔNIMA (§3.5, invariante 7). Nada de versão, nome de aparelho,
@@ -477,63 +438,59 @@ await pg.goto(base + '/', { waitUntil: 'domcontentloaded' });
   checar(jogaPlayer, 'a página abre no estado de PAREAMENTO');
 }
 
-// O QR NASCE COM A PÁGINA — sem toque, sem foco, sem nada a digitar. É o ponto
-// inteiro do recurso: numa TV ninguém vai clicar em "gerar código".
-{
-  await pg.waitForFunction(() => !document.getElementById('qrBox').hidden,
-    null, { timeout: 8000 }).catch(() => {});
-  const visivel = await pg.$eval('#qrBox', (e) => !e.hidden);
-  checar(visivel, 'o QR aparece sozinho ao abrir a página, sem nenhum toque');
-
-  // E ele foi DESENHADO: um canvas em branco passaria na asserção acima.
-  const desenho = await pg.evaluate(() => {
-    const c = document.getElementById('qr');
-    const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
-    let escuros = 0;
-    for (let i = 0; i < d.length; i += 4) if (d[i] < 128) escuros += 1;
-    return { lado: c.width, escuros, total: d.length / 4 };
-  });
-  // Versão 3 (29 módulos) + 4 de zona de silêncio de cada lado = 37.
-  checar(desenho.lado === 37, 'com o tamanho da versão 3 mais a zona de silêncio', desenho.lado);
-  checar(desenho.escuros > desenho.total * 0.2 && desenho.escuros < desenho.total * 0.6,
-    'e com módulos escuros de verdade — não é um quadrado em branco',
-    desenho.escuros + '/' + desenho.total);
-
-  // O CORPO CABE NO TETO. O `POST /par` aceita 256 bytes e o servidor fecha a
-  // conexão acima disso, o que na tela vira "não foi possível falar com o
-  // celular" — uma falha sem causa visível. A conta é apertada e precisa de
-  // guarda.
-  const corpo = visto.qr[0];
-  const bytes = Buffer.byteLength(JSON.stringify(corpo));
-  checar(bytes <= 256, 'e o corpo do pedido de QR cabe nos 256 B do POST /par', bytes);
-  checar(corpo && corpo.qr === true && !corpo.pin,
-    'o pedido de QR não leva PIN nenhum — ele não prova nada, e não precisa');
-
-  // O PIN continua existindo como plano B, e ISSO É O CONTRATO: a câmera pode
-  // faltar, a leitura de QR pode não existir naquele WebView.
-  checar(await pg.$('#pin') !== null, 'e os seis dígitos continuam na tela como plano B');
-}
-
-// PIN errado: mensagem, e o botão volta a funcionar.
-// O campo mora num `<details>` fechado desde que o QR virou o caminho
-// principal — abri-lo é o que o visitante faria, e é o que este teste faz.
-await pg.click('#pinBox > summary');
-await pg.fill('#pin', '000000');
+// CÓDIGO ERRADO: a frase pede que se confira o número, e o botão volta a
+// funcionar. Ela precisa ser DIFERENTE da de lotado — as duas têm saídas
+// opostas, e mandar conferir o número quando faltou vaga é mandar repetir uma
+// coisa que não vai funcionar nenhuma das vezes.
+await pg.fill('#cod', '000');
 await pg.click('#parBtn');
 await pg.waitForFunction(() => document.getElementById('parMsg').textContent.length > 0
   && !document.getElementById('parBtn').disabled, null, { timeout: 5000 });
 checar(/não confere/i.test(await pg.$eval('#parMsg', (e) => e.textContent)),
-  'PIN errado diz que não confere, e destrava o botão para tentar de novo');
+  'código errado diz que não confere, e destrava o botão para tentar de novo');
 
-// PIN certo: o servidor põe a tela como PENDENTE e o operador aprova.
-await pg.fill('#pin', PIN);
+// LOTADO tem frase PRÓPRIA, e é o caso em que insistir não adianta.
+lotado = true;
+await pg.fill('#cod', CODIGO);
 await pg.click('#parBtn');
-await pg.waitForFunction(() => /Aguardando/.test(document.getElementById('parMsg').textContent),
+await pg.waitForFunction(() => /máximo de telas/.test(document.getElementById('parMsg').textContent),
   null, { timeout: 5000 });
-checar(true, 'PIN certo entra em ESPERA — quem libera é o operador, não o PIN');
+checar(true, 'lotado tem frase própria — fechar outra tela, não conferir o número');
+lotado = false;
 
+// O CORPO CABE NO TETO. O `POST /par` aceita 256 bytes e o servidor fecha a
+// conexão acima disso, o que na tela vira "não foi possível falar com o
+// celular" — uma falha sem causa visível. A conta é apertada e precisa de
+// guarda.
+{
+  const corpo = visto2.entradas[0];
+  const bytes = Buffer.byteLength(JSON.stringify(corpo));
+  checar(bytes <= 256, 'o corpo do pedido de entrada cabe nos 256 B do POST /par', bytes);
+  checar(typeof corpo.codigo === 'string' && corpo.codigo.length === 3,
+    'e ele leva o código como STRING de três dígitos — um Int comeria o zero à esquerda',
+    JSON.stringify(corpo.codigo));
+}
+
+// CÓDIGO CERTO: entra na MESMA resposta. Não há espera, não há poll.
+await pg.fill('#cod', CODIGO);
+await pg.click('#parBtn');
 await pg.waitForFunction(() => !document.getElementById('play').hidden, null, { timeout: 15000 });
-checar(true, 'aprovada, a MESMA página troca para o player (sem navegar)');
+checar(true, 'código certo: a MESMA página troca para o player (sem navegar)');
+
+// A PROMESSA INTEIRA DO BOTÃO, e a razão de a fila de aprovação ter saído do
+// servidor: o gesto é UM, e ele precisa produzir as TRÊS coisas. `muted` e o
+// pedido de áudio ao servidor são o que este teste consegue medir num Chromium
+// headless; a tela cheia depende do gesto ser confiável e o Playwright a recusa
+// fora de um contexto de janela, então ela fica para o aparelho.
+{
+  const e = await pg.evaluate(() => window.__espelho.estado());
+  checar(e.audioQuerido === true,
+    'e o MESMO toque já pediu o som — sem segundo botão, sem alguém atravessar o salão');
+  checar(e.mudo === false, 'e tirou o elemento do mudo no gesto', e.mudo);
+  await pg.waitForFunction(
+    () => window.__espelho.estado().audioQuerido, null, { timeout: 5000 },
+  );
+}
 
 // AS DUAS ASSERÇÕES NEGATIVAS QUE MAIS IMPORTAM.
 {
@@ -590,7 +547,14 @@ checar(true, 'aprovada, a MESMA página troca para o player (sem navegar)');
   const pps = Buffer.from([0x68, 0xce, 0x3c, 0x80]);
   const s4 = Buffer.from([0, 0, 0, 1]);
   fluxo.write(quadro(0x01, 0, 4000000, Buffer.concat([s4, sps, s4, pps])));
-  await espera(600);
+  // A ESPERA É LONGA DE PROPÓSITO (v5.185). Com o som pedido — e ele passou a
+  // ser pedido pelo próprio botão "Conectar" —, o `csd` de vídeo fica RETIDO
+  // por até `ESPERA_CSD_AUDIO_MS` (2,5 s) esperando o de áudio: as duas faixas
+  // precisam nascer juntas, porque o Chromium recusa `addSourceBuffer` depois
+  // que a `MediaSource` inicializou. Este servidor de mentira nunca manda um
+  // `csd` de áudio, então a `MediaSource` só abre quando o prazo vence — e uma
+  // espera de 600 ms media o silêncio da retenção, não o veredito do codec.
+  await espera(3400);
   const e = await pg.evaluate(() => window.__espelho.estado());
   if (temAvc) {
     checar(!/não decodifica/.test(e.aviso), 'com H.264 disponível, o csd é aceito sem reclamação', e.aviso);
@@ -944,107 +908,77 @@ checar(true, 'aprovada, a MESMA página troca para o player (sem navegar)');
   // alguém recarregá-la à mão, e desligar/ligar o espelho é coisa que o
   // operador faz várias vezes (trocar certificado, remontar o encoder, testar).
   // Numa igreja isso significa uma caminhada até cada televisor. Passado o
-  // silêncio combinado, a tela volta a oferecer entrada sozinha — e com a porta
-  // aberta ela entra sem ninguém tocar em nada.
-  portaAberta = true;
+  // silêncio combinado, a tela volta a oferecer entrada sozinha — e a REENTRADA
+  // automática repete o último código que funcionou, sem ninguém digitar nada.
   const antesVolta = visto.gets;
   await pg.waitForFunction(() => window.__espelho.estado().vivo,
     null, { timeout: 40000 });
   checar(visto.gets > antesVolta,
     'e passado o silêncio ela VOLTA sozinha — o adeus não é uma sentença',
     antesVolta + ' → ' + visto.gets);
-  portaAberta = false;
 }
 
 // ---------------------------------------------------------------------------
-// A PORTA ABERTA (v5.170), numa aba limpa: abrir o endereço e já estar
-// projetando. Sem código, sem dígito, sem ninguém tocar no celular.
+// A REENTRADA SOZINHA (v5.185): a tela que caiu volta com o último código que
+// funcionou, sem ninguém digitar nada — e DESISTE quando o código muda.
 //
-// Este é o caso que não existia — nem aqui nem no servidor. O `cliente.js`
-// mandava o pedido de entrada desde a v5.170 e o `when` do `EspelhoServidor`
-// não tinha ramo para ele: caía no `else -> 403`. O recurso anunciado nunca
-// aconteceu, e o preço maior não era o atrito da estreia — era a RECUPERAÇÃO,
-// porque toda queda de rede, toda religada e toda expiração de token devolvem a
-// tela ao pareamento, onde ela ficava mostrando um QR que ninguém ia ler.
-// ---------------------------------------------------------------------------
-{
-  portaAberta = true;
-  const antes = visto2.aberto.length;
-  const ctx3 = await navegador.newContext();
-  const pg3 = await ctx3.newPage();
-  await pg3.goto(base + '/', { waitUntil: 'domcontentloaded' });
-  await pg3.waitForFunction(() => !document.getElementById('play').hidden,
-    null, { timeout: 15000 });
-  const e3 = await pg3.evaluate(() => window.__espelho.estado());
-  checar(e3.pareado, 'com a porta aberta a tela entra sozinha ao abrir o endereço');
-  checar(!e3.qr, 'e nenhum QR chega a ser desenhado — não havia o que aprovar');
-  const pedidos = visto2.aberto.slice(antes);
-  checar(pedidos.length > 0, 'o pedido de entrada chega ao servidor', pedidos.length);
-  // ELE É ANÔNIMO E NÃO CARREGA SEGREDO NENHUM (§3.5, invariante 7): a página
-  // de pareamento não sabe o PIN, e um pedido de entrada que o carregasse
-  // reporia na rede justamente o que a porta aberta existe para não exigir.
-  checar(pedidos.every((c) => c.pin === undefined && c.espera === undefined),
-    'e ele não leva PIN nem id de espera — é um pedido, não uma prova');
-  checar(pedidos.every((c) => c.aberto === true),
-    'e se NOMEIA (aberto:true), em vez de depender de um corpo sem chave nenhuma');
-  await ctx3.close();
-  portaAberta = false;
-}
-
-// ---------------------------------------------------------------------------
-// E O PERCURSO INTEIRO DO QR, numa aba limpa: abrir o endereço, o operador ler
-// o código, e a tela entrar — SEM NINGUÉM DIGITAR NADA. É a promessa do
-// recurso, e ela precisa estar travada por um caso e não por uma frase no doc.
+// Este é o caso que salva um culto. Uma tela que perdeu a sessão (espelho
+// religado, token vencido, rede que voltou) é justamente a que ninguém está
+// olhando, e o desenho antigo a deixava parada mostrando um QR que ninguém ia
+// ler. A outra metade é igualmente importante: o código nasce a cada `ligar` do
+// espelho, então uma recusa depois de uma queda quer dizer "o operador religou
+// a transmissão" — e martelar um número morto pelo resto do culto seria pior
+// que parar.
 //
 // Aba nova (contexto novo) porque o `sessionStorage` da anterior já tem token:
-// com ele a página vai direto ao player e o pareamento não acontece.
+// com ele a página vai direto ao player e a entrada não acontece.
 // ---------------------------------------------------------------------------
 {
   const ctx2 = await navegador.newContext();
   const pg2 = await ctx2.newPage();
   await pg2.goto(base + '/', { waitUntil: 'domcontentloaded' });
-  await pg2.waitForFunction(() => window.__espelho && window.__espelho.estado().qr,
-    null, { timeout: 8000 }).catch(() => {});
-  const antes = await pg2.evaluate(() => window.__espelho.estado());
-  checar(antes.qr && !antes.pareado, 'numa aba limpa a tela mostra o código e NÃO está pareada');
-
-  // O "operador lê o código": no aparelho é a câmera do Controle chamando
-  // `espelhoAprovar(id, true)`; aqui é o servidor de mentira aprovando a MESMA
-  // espera que o QR carrega.
-  qrAprovado = true;
+  // Sem token guardado, a página ESPERA o toque: uma tela que nunca entrou não
+  // tem segredo nenhum para repetir sozinha.
+  {
+    const e = await pg2.evaluate(() => window.__espelho.estado());
+    checar(!e.pareado && !e.temCodigo,
+      'numa aba limpa a tela espera o toque — não há código guardado a repetir');
+  }
+  await pg2.fill('#cod', CODIGO);
+  await pg2.click('#parBtn');
   await pg2.waitForFunction(() => !document.getElementById('play').hidden,
     null, { timeout: 15000 });
-  const depois = await pg2.evaluate(() => window.__espelho.estado());
-  checar(depois.pareado, 'lido o código, a tela entra sozinha — nenhuma tecla foi digitada');
-  checar(!depois.qr, 'e o código sai do ar assim que ela entra');
 
-  // E O GESTO, NO MODO VÍDEO — a única porta do som.
-  //
-  // O espelho é só vídeo desde a v5.156, e é aqui que o pedido de áudio se
-  // exercita ponta a ponta. As telas nascem MUDAS por
-  // decisão (§3.11, invariante 10) e nada mais no cliente liga `audioQuerido`:
-  // no primeiro culto de teste o Registro mostrou `som torneira:nao` — "esta
-  // tela nunca pediu" — e a leitura na sala foi "o celular não está enviando
-  // som", porque o botão dizia só "ver em tela cheia".
-  const audioAntes = visto.volta.filter((x) => x && x.do === 'audio').length;
-  await pg2.click('#btnSom');
-  await espera(800);
+  // O CÓDIGO FICA GUARDADO — é ele, e só ele, que a reentrada repete quando a
+  // tela cair. Ele mora em MEMÓRIA de propósito: o `sessionStorage` guarda o
+  // token, e um segredo a mais guardado é um segredo a mais a vazar.
+  {
+    const e = await pg2.evaluate(() => window.__espelho.estado());
+    checar(e.pareado && e.temCodigo,
+      'entrada feita, a tela guarda o código que funcionou — é ele que a reentrada repete');
+    const noDisco = await pg2.evaluate(() => JSON.stringify(sessionStorage));
+    checar(noDisco.indexOf(CODIGO) < 0,
+      'e o CÓDIGO não vai para o sessionStorage — só o token mora lá', noDisco);
+  }
+
+  // E O SOM, PONTA A PONTA. Quem o pede agora é o botão "Conectar", porque é
+  // ele que carrega o gesto — e é isto que este bloco prova do lado do fio.
   const pedidos = visto.volta.filter((x) => x && x.do === 'audio');
-  checar(pedidos.length > audioAntes,
-    'e o ícone do som PEDE o áudio ao servidor (POST /r {do:audio,on:true})',
-    audioAntes + ' → ' + pedidos.length);
+  checar(pedidos.length > 0,
+    'o botão Conectar PEDE o áudio ao servidor (POST /r {do:audio,on:true})',
+    pedidos.length);
   checar(pedidos.every((x) => x.on === true),
     'sempre para LIGAR — o cliente nunca desliga o som de si mesmo');
 
-  // E O SEGUNDO TOQUE É UM MUDO DE VERDADE: `muted` no elemento, sem remontar
-  // nada e sem pedir nada ao servidor. Era a metade que faltava — com o botão
-  // único de antes, quem descobria o eco na sala não tinha como desfazer sem
-  // recarregar a página.
+  // E O ÍCONE É O DESFAZER: `muted` no elemento, sem remontar nada e sem pedir
+  // nada ao servidor. É a resposta ao eco na sala — a tela do saguão quer
+  // imagem cheia e SILÊNCIO, e quem descobre isso não pode ter de recarregar a
+  // página para consertar.
   const antesDoMudo = visto.volta.filter((x) => x && x.do === 'audio').length;
   await pg2.click('#btnSom');
   await espera(300);
   const mudo = await pg2.$eval('#v', (e) => e.muted);
-  checar(mudo, 'e o toque seguinte MUTA a tela (sem remontar a MediaSource)');
+  checar(mudo, 'e o ícone do som MUTA a tela (sem remontar a MediaSource)');
   checar(visto.volta.filter((x) => x && x.do === 'audio').length === antesDoMudo,
     'e ele não fala com o servidor: o mudo é local, a torneira segue como estava');
   await ctx2.close();

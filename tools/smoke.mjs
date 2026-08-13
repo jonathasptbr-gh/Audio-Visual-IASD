@@ -139,9 +139,12 @@ try {
   // pega uma classe inteira de defeito que só aparece em aparelho.
   const ANINHADOS = [
     ['castPopup', 'mirrorPopup'],   // os ajustes do espelho abrem da folha de conexão
-    ['mirrorPopup', 'qrPopup'],     // e o leitor de QR abre da folha do espelho
     ['songMenuPopup', 'folderPopup'], // o seletor de pastas abre da folha da música
   ];
+  // (O par `mirrorPopup`/`qrPopup` saiu na v5.185 com o leitor de QR. A regra
+  // continua valendo para todo popup aninhado que existir — foi ela que pegou o
+  // leitor nascendo um degrau ABAIXO da folha que o abria, com o sintoma sendo
+  // uma câmera acesa e imagem nenhuma.)
   const z = await pg.evaluate((pares) => pares.map(([pai, filho]) => {
     const v = (id) => {
       const e = document.getElementById(id);

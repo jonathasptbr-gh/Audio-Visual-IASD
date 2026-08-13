@@ -13,7 +13,7 @@ import org.junit.Test
 import java.security.SecureRandom
 
 /**
- * O oráculo do [EspelhoPares] — PIN, aprovação, token, prazo e bloqueio.
+ * O oráculo do [EspelhoPares] — o CÓDIGO, o token, o prazo e o bloqueio.
  *
  * A outra metade da justificativa da QUARTA EXCEÇÃO (o JUnit; ver
  * `app/build.gradle.kts`). Aqui um erro não vira pixel errado: vira uma tela
@@ -28,27 +28,11 @@ class EspelhoParesTest {
 
     private val t0 = 1_000_000L
     private val origem = "192.168.0.77"
-    private lateinit var pin: String
+    private lateinit var codigo: String
 
-    /**
-     * A FIXTURE FECHA A PORTA, e o modo aberto tem casos próprios.
-     *
-     * Desde a v5.170 o acesso nasce ABERTO — quem abre o endereço entra, sem
-     * PIN. Isso é o produto, e está afirmado em
-     * [acessoNasceAbertoEVoltaAoPadraoAoReligar] e
-     * [comAcessoAbertoQualquerPinEntra].
-     *
-     * Mas a maior parte desta suíte existe para provar o CONTROLE DE ACESSO —
-     * bloqueio por origem, PIN que não rotaciona, contador de recusas, o
-     * segredo que não vaza no `toString`. Com a porta aberta, nada disso chega
-     * a ser exercitado: os casos passariam por vacuidade, que é a pior forma de
-     * um teste de segurança passar. Fechá-la aqui mantém cada um deles medindo
-     * o que sempre mediu.
-     */
     @Before
     fun ligar() {
-        pin = EspelhoPares.ligar(t0)
-        EspelhoPares.definirAutoAprovar(false)
+        codigo = EspelhoPares.ligar(t0)
     }
 
     /**
@@ -74,260 +58,148 @@ class EspelhoParesTest {
         telaAcesaMin = 0,
     )
 
-    private fun pinErrado() = if (pin == "000000") "111111" else "000000"
+    private fun codigoErrado() = if (codigo == "000") "111" else "000"
 
-    /** Pareia e aprova, devolvendo a sessão. */
-    private fun parear(de: String = origem, agora: Long = t0): EspelhoPares.Sessao {
-        val v = EspelhoPares.tentar(pin, de, relato(), agora)
-        val id = (v as EspelhoPares.Veredito.Espera).id
-        return EspelhoPares.aprovar(id, agora)!!
-    }
+    /** Entra com o código certo, devolvendo a sessão. */
+    private fun parear(de: String = origem, agora: Long = t0): EspelhoPares.Sessao =
+        (EspelhoPares.tentar(codigo, de, relato(), agora) as EspelhoPares.Veredito.Aprovada).sessao
 
-    // --------------------------------------------------------------------- PIN
+    // ------------------------------------------------------------------ CÓDIGO
 
     @Test
-    fun pinTemSeisDigitos() {
-        assertTrue(pin, Regex("^[0-9]{6}$").matches(pin))
-        // E os zeros à esquerda sobrevivem — um PIN de 5 dígitos na tela seria
-        // impossível de digitar num campo que espera 6.
-        val rnd = SecureRandom()
-        repeat(500) {
-            val p = EspelhoPares.novoPin(rnd)
-            assertTrue(p, Regex("^[0-9]{6}$").matches(p))
-        }
+    fun codigoTemTresDigitos() {
+        assertTrue(codigo, Regex("^[0-9]{3}$").matches(codigo))
+        assertEquals(EspelhoPares.DIGITOS_CODIGO, codigo.length)
     }
 
     /**
-     * Invariante 6, a metade que quase ninguém escreve: o PIN **não rotaciona**
-     * por tentativa errada. Rotacionar seria negação de serviço contra o
-     * pareamento legítimo — o atacante erra de propósito e o visitante que está
-     * digitando recebe "PIN inválido" para sempre.
+     * OS ZEROS À ESQUERDA SOBREVIVEM, e este caso é o que impede a regressão
+     * mais provável deste arquivo: alguém trocar a `String` por um `Int` em
+     * qualquer ponto do caminho. Um em cada dez códigos começa com zero, e "007"
+     * virando "7" faz a folha do operador mostrar dois dígitos e a tela recusar
+     * os três que ele ditou — sem nada quebrar em lugar nenhum.
      */
     @Test
-    fun pinNaoRotacionaComTentativaErrada() {
-        repeat(ERRADAS) { EspelhoPares.tentar(pinErrado(), origem, relato(), t0) }
-        assertEquals(pin, EspelhoPares.pin())
+    fun zeroAEsquerdaSobrevive() {
+        val fixa = object : SecureRandom() {
+            override fun nextInt(bound: Int) = 7
+        }
+        assertEquals("007", EspelhoPares.novoCodigo(fixa))
     }
 
+    /** Invariante 6: errar não troca o segredo — isso seria DoS contra quem digita. */
     @Test
-    fun trocarPinEAcaoDoOperadorENaoDerrubaSessao() {
+    fun codigoNaoRotacionaComTentativaErrada() {
+        EspelhoPares.tentar(codigoErrado(), origem, relato(), t0)
+        assertEquals(codigo, EspelhoPares.codigo())
+    }
+
+    /**
+     * Trocar o código é ação do operador, e ela NÃO derruba quem já está vendo:
+     * é isso que separa "trocar o código" de "desligar".
+     */
+    @Test
+    fun trocarCodigoEAcaoDoOperadorENaoDerrubaSessao() {
         val s = parear()
-        // Três trocas: um PIN sorteado pode repetir o anterior (1 em 1 milhão), e
-        // um teste que reprova por azar é pior que teste nenhum. Quatro valores
-        // todos iguais é 1 em 1e18 — isso não acontece.
-        val vistos = (1..3).map { EspelhoPares.trocarPin() }.toSet() + pin
-        assertTrue(vistos.size > 1)
-        for (p in vistos) assertTrue(p, Regex("^[0-9]{6}$").matches(p))
-        // E trocar o PIN não derruba quem já entrou — é isso que o separa de
-        // desligar.
-        assertNotNull(EspelhoPares.validar("Bearer ${s.token}", t0))
-    }
-
-    // -------------------------------------------------------------- pareamento
-
-    /** Acertar o PIN dá vaga na fila do operador, não acesso (invariante 5). */
-    @Test
-    fun pinCertoEntraNaFilaDoOperador() {
-        val v = EspelhoPares.tentar(pin, origem, relato(), t0)
-        assertTrue(v is EspelhoPares.Veredito.Espera)
-        val id = (v as EspelhoPares.Veredito.Espera).id
-        assertSame(EspelhoPares.Veredito.Pendente, EspelhoPares.consultar(id, t0))
-        assertEquals(1, EspelhoPares.pendentes().size)
-        assertEquals(id, EspelhoPares.pendentes()[0].id)
+        val novo = EspelhoPares.trocarCodigo()
+        assertNotEquals(codigo, novo)
+        assertEquals(novo, EspelhoPares.codigo())
+        assertNotNull("quem já entrou continua vendo", EspelhoPares.validar(s.token, t0))
+        // E o código VELHO deixa de valer no mesmo instante.
+        assertSame(
+            EspelhoPares.Veredito.Recusada,
+            EspelhoPares.tentar(codigo, "192.168.0.90", relato(), t0),
+        )
     }
 
     @Test
-    fun aprovarEntregaOTokenAoDonoDaEspera() {
-        val v = EspelhoPares.tentar(pin, origem, relato(), t0)
-        val id = (v as EspelhoPares.Veredito.Espera).id
-        val s = EspelhoPares.aprovar(id, t0)
-        assertNotNull(s)
-        val consulta = EspelhoPares.consultar(id, t0)
-        assertTrue(consulta is EspelhoPares.Veredito.Aprovada)
-        assertEquals(s, (consulta as EspelhoPares.Veredito.Aprovada).sessao)
-        // Aprovada, some da fila do operador.
-        assertEquals(0, EspelhoPares.pendentes().size)
+    fun trocarComEspelhoDesligadoNaoInventaCodigo() {
+        EspelhoPares.desligar()
+        assertEquals("", EspelhoPares.trocarCodigo())
     }
 
-    /** Dois toques no botão não podem cunhar dois tokens (e consumir dois slots). */
+    // ------------------------------------------------------------- a ENTRADA
+
+    /**
+     * O CONTRATO INTEIRO DESDE A v5.185: código certo ⇒ token, na MESMA chamada.
+     *
+     * Não há 202, não há espera, não há poll. É o que permite ao botão
+     * "Conectar" da página do cliente carregar o gesto que libera o som e a tela
+     * cheia — uma aprovação que chegasse depois encontraria o gesto já gasto.
+     */
     @Test
-    fun aprovarDuasVezesDevolveAMesmaSessao() {
-        val v = EspelhoPares.tentar(pin, origem, relato(), t0)
-        val id = (v as EspelhoPares.Veredito.Espera).id
-        val a = EspelhoPares.aprovar(id, t0)!!
-        val b = EspelhoPares.aprovar(id, t0)!!
-        assertEquals(a.token, b.token)
+    fun codigoCertoEntraNaHora() {
+        val v = EspelhoPares.tentar(codigo, origem, relato(), t0)
+        assertTrue(v is EspelhoPares.Veredito.Aprovada)
+        val s = (v as EspelhoPares.Veredito.Aprovada).sessao
+        assertNotNull(EspelhoPares.validar(s.token, t0))
         assertEquals(1, EspelhoPares.sessoes().size)
     }
 
     @Test
-    fun recusarDerrubaAEsperaEASessao() {
-        val v = EspelhoPares.tentar(pin, origem, relato(), t0)
-        val id = (v as EspelhoPares.Veredito.Espera).id
-        val s = EspelhoPares.aprovar(id, t0)!!
-        EspelhoPares.recusar(id)
-        assertSame(EspelhoPares.Veredito.Recusada, EspelhoPares.consultar(id, t0))
-        assertNull(EspelhoPares.validar("Bearer ${s.token}", t0))
+    fun codigoErradoNaoEntra() {
+        assertSame(
+            EspelhoPares.Veredito.Recusada,
+            EspelhoPares.tentar(codigoErrado(), origem, relato(), t0),
+        )
+        assertEquals(0, EspelhoPares.sessoes().size)
     }
 
+    /** Com o espelho desligado nada entra — nem com o código de antes. */
     @Test
-    fun esperaExpiraEViraDesconhecida() {
-        val v = EspelhoPares.tentar(pin, origem, relato(), t0)
-        val id = (v as EspelhoPares.Veredito.Espera).id
-        val depois = t0 + EspelhoPares.PRAZO_ESPERA_MS + 1
-        assertSame(EspelhoPares.Veredito.Desconhecida, EspelhoPares.consultar(id, depois))
-        assertNull(EspelhoPares.aprovar(id, depois))
-    }
-
-    @Test
-    fun idDeEsperaDesconhecidoNaoVazaNada() {
-        assertSame(EspelhoPares.Veredito.Desconhecida, EspelhoPares.consultar("nao-existe", t0))
-        assertNull(EspelhoPares.aprovar("nao-existe", t0))
-    }
-
-    @Test
-    fun aprovarAutomaticamenteEntregaSemOperador() {
-        EspelhoPares.definirAutoAprovar(true)
-        val v = EspelhoPares.tentar(pin, origem, relato(), t0)
-        val id = (v as EspelhoPares.Veredito.Espera).id
-        assertTrue(EspelhoPares.consultar(id, t0) is EspelhoPares.Veredito.Aprovada)
-    }
-
-    /**
-     * O ACESSO NASCE ABERTO (v5.170) — e volta a nascer aberto depois de o
-     * operador o ter fechado e o espelho ter sido religado.
-     *
-     * O sentido é o oposto do que este caso afirmava até aqui, e a inversão é
-     * deliberada: o espelho transmite a imagem do que está sendo projetado
-     * PARA A CONGREGAÇÃO, isto é, conteúdo público — e três degraus de tela
-     * mais seis dígitos em cartaz durante o culto custavam mais do que rendiam.
-     * O que sustenta a decisão continua no lugar: o microfone nunca sai na
-     * rede, o token nunca viaja numa URL, a allowlist de `Host` segue exata e o
-     * teto de três sessões segue valendo.
-     *
-     * O que se AFIRMA aqui, e é o que uma refatoração poderia perder sem que
-     * nada mais reclamasse: `ligar` devolve o PADRÃO, e não o último valor que
-     * o operador escolheu. Fechar a porta é decisão de uma sessão.
-     */
-    /** Folga suficiente para estourar a fila em qualquer configuração. */
-    private val MAX_SESSOES_FOLGA = 6
-
-    @Test
-    fun acessoNasceAbertoEVoltaAoPadraoAoReligar() {
-        // A fixture fechou a porta de propósito (ver [ligar]); aqui o assunto é
-        // justamente o PADRÃO, então religar é parte do caso.
+    fun espelhoDesligadoNaoAceitaNinguem() {
         EspelhoPares.desligar()
-        EspelhoPares.ligar(t0)
-        assertTrue(EspelhoPares.autoAprovando())
-        EspelhoPares.definirAutoAprovar(false)
-        assertFalse(EspelhoPares.autoAprovando())
-        EspelhoPares.desligar()
-        EspelhoPares.ligar(t0)
-        assertTrue(EspelhoPares.autoAprovando())
-    }
-
-    /** Com o acesso aberto, o PIN não é perguntado — entrar é abrir o endereço. */
-    @Test
-    fun comAcessoAbertoQualquerPinEntra() {
-        EspelhoPares.definirAutoAprovar(true)
-        val v = EspelhoPares.tentar("", origem, relato(), t0)
-        assertTrue(v is EspelhoPares.Veredito.Espera)
-        val id = (v as EspelhoPares.Veredito.Espera).id
-        assertTrue(EspelhoPares.consultar(id, t0) is EspelhoPares.Veredito.Aprovada)
+        assertSame(
+            EspelhoPares.Veredito.Desligado,
+            EspelhoPares.tentar(codigo, origem, relato(), t0),
+        )
     }
 
     /**
-     * E A FILA CONTINUA TENDO TETO com a porta aberta.
-     *
-     * Abrir o acesso não abre a torneira: a aprovação automática só sai
-     * enquanto houver vaga, e o excesso vira [Veredito.Lotada] — que é uma
-     * frase para o visitante, não um travamento. Sem esta afirmação, uma
-     * refatoração poderia deixar o "aberto" passar por cima do teto de sessões,
-     * que é o dano REAL de um curioso na rede (ele toma a vaga da TV do
-     * templo), e não o sigilo.
+     * RELIGAR TROCA O CÓDIGO, e isso é o produto: ele nasce no `ligar`, que é o
+     * instante em que o operador ativa a transmissão. O código do culto passado
+     * não abre o culto de hoje.
      */
     @Test
-    fun oTetoContinuaValendoComAcessoAberto() {
-        EspelhoPares.definirAutoAprovar(true)
-        var lotou = false
-        repeat(EspelhoPares.MAX_ESPERAS + MAX_SESSOES_FOLGA) {
-            val v = EspelhoPares.tentar("", origem + it, relato(), t0)
-            if (v is EspelhoPares.Veredito.Lotada) lotou = true
-        }
-        assertTrue("a fila precisa recusar em algum ponto", lotou)
+    fun religarTrocaOCodigoEDerrubaTudo() {
+        val s = parear()
+        val velho = codigo
+        val novo = EspelhoPares.ligar(t0 + 1000)
+        assertNull("nenhum token sobrevive ao religar", EspelhoPares.validar(s.token, t0 + 1000))
+        assertSame(
+            EspelhoPares.Veredito.Recusada,
+            EspelhoPares.tentar(velho, origem, relato(), t0 + 1000),
+        )
+        assertTrue(
+            EspelhoPares.tentar(novo, origem, relato(), t0 + 1000) is EspelhoPares.Veredito.Aprovada,
+        )
     }
-
-    // ------------------------------------------------------ a PORTA ABERTA
 
     /**
-     * O caminho que a v5.170 anunciou e que **não existia**: abrir o endereço e
-     * entrar, sem PIN, sem QR e sem espera nenhuma.
+     * LOTADO NÃO É CÓDIGO ERRADO, e a distinção não é cosmética: as duas têm
+     * saídas opostas (fechar uma tela × conferir o número), e o cliente escolhe
+     * a frase pelo corpo da resposta.
      *
-     * Ele não era uma ausência qualquer. Como toda queda de rede, toda religada
-     * do espelho e toda expiração de token devolvem a tela ao pareamento, a
-     * falta deste caminho fazia cada uma dessas coisas exigir uma caminhada até
-     * o televisor — e era isso, e não o AP da igreja, a maior parte de "conecta
-     * mas não é confiável".
+     * **E lotado não gasta cota**: o segredo estava certo, faltou vaga. Contá-lo
+     * faria a quarta tela bloquear a própria origem tentando de novo, sem nunca
+     * ter errado nada.
      */
     @Test
-    fun portaAbertaEntregaOTokenNaMesmaChamada() {
-        EspelhoPares.definirAutoAprovar(true)
-        val v = EspelhoPares.entrarAberto(origem, relato(), t0)
-        assertTrue(v.toString(), v is EspelhoPares.Veredito.Aprovada)
-        val s = (v as EspelhoPares.Veredito.Aprovada).sessao
-        assertEquals(s, EspelhoPares.validar("Bearer ${s.token}", t0))
-        // E NENHUMA ESPERA É CRIADA. Uma por entrada encheria o [MAX_ESPERAS] na
-        // primeira tela que reconectasse em laço — trancando o PIN, que é o
-        // plano B de quando a porta estiver fechada.
-        assertEquals(0, EspelhoPares.pendentes().size)
-        assertEquals(0, EspelhoPares.esperandoQr())
-    }
-
-    /** Porta FECHADA: a entrada é recusada — e sem gastar a cota de ninguém. */
-    @Test
-    fun portaFechadaRecusaSemContarErro() {
-        EspelhoPares.definirAutoAprovar(false)
-        repeat(EspelhoPares.ERROS_ATE_BLOQUEIO + 2) {
-            assertSame(
-                EspelhoPares.Veredito.Recusada,
-                EspelhoPares.entrarAberto(origem, relato(), t0),
+    fun lotadoEDiferenteDeRecusadoENaoContaErro() {
+        repeat(EspelhoPares.MAX_SESSOES) { i ->
+            assertTrue(
+                EspelhoPares.tentar(codigo, "10.0.0.$i", relato(), t0) is EspelhoPares.Veredito.Aprovada,
             )
         }
-        // Não houve segredo tentado, então não houve erro: o visitante que está
-        // digitando o PIN ao lado não pode ficar bloqueado porque uma TV
-        // perguntou seis vezes se podia entrar.
-        assertEquals(0, EspelhoPares.recusas())
-        assertEquals(0, EspelhoPares.origensEmBloqueio(t0))
-        assertTrue(EspelhoPares.tentar(pin, origem, relato(), t0) is EspelhoPares.Veredito.Espera)
-    }
-
-    /** O teto de sessões continua sendo o dano real de um curioso na rede. */
-    @Test
-    fun portaAbertaRespeitaOTetoDeSessoes() {
-        EspelhoPares.definirAutoAprovar(true)
-        repeat(EspelhoPares.MAX_SESSOES) {
-            assertTrue(EspelhoPares.entrarAberto("10.0.0.$it", relato(), t0) is EspelhoPares.Veredito.Aprovada)
+        val quarta = "10.0.0.99"
+        repeat(EspelhoPares.ERROS_ATE_BLOQUEIO + 2) {
+            assertSame(
+                EspelhoPares.Veredito.Lotada,
+                EspelhoPares.tentar(codigo, quarta, relato(), t0),
+            )
         }
-        assertSame(
-            EspelhoPares.Veredito.Lotada,
-            EspelhoPares.entrarAberto("10.0.0.99", relato(), t0),
-        )
-    }
-
-    /** E o castigo por origem (invariante 6) vale para ela também. */
-    @Test
-    fun origemBloqueadaNaoEntraPelaPortaAberta() {
-        repeat(EspelhoPares.ERROS_ATE_BLOQUEIO) {
-            EspelhoPares.tentar(pinErrado(), origem, relato(), t0)
-        }
-        EspelhoPares.definirAutoAprovar(true)
-        assertTrue(
-            EspelhoPares.entrarAberto(origem, relato(), t0) is EspelhoPares.Veredito.Bloqueada,
-        )
-        // E a origem que não errou nada entra normalmente.
-        assertTrue(
-            EspelhoPares.entrarAberto("192.168.0.78", relato(), t0) is EspelhoPares.Veredito.Aprovada,
-        )
+        assertEquals("lotado não é recusa", 0, EspelhoPares.recusas())
+        assertEquals("e não põe ninguém de castigo", 0, EspelhoPares.origensEmBloqueio(t0))
     }
 
     // ------------------------------------------- a VAGA que ninguém está usando
@@ -336,28 +208,27 @@ class EspelhoParesTest {
      * TRÊS RECOMEÇOS NÃO PODEM TRANCAR O ESPELHO PELO RESTO DO CULTO.
      *
      * Uma sessão só saía de `vivas` por [EspelhoPares.encerrar], por
-     * [EspelhoPares.recusar] ou pelas SEIS HORAS do prazo. Uma tela que recomeça
+     * [EspelhoPares.derrubar] ou pelas SEIS HORAS do prazo. Uma tela que recomeça
      * numa aba nova (a TV desligada e religada, o navegador que perdeu o
      * `sessionStorage`) pede um token novo e deixa o antigo ocupando vaga — e com
      * a porta aberta isso deixou de ser hipótese.
      */
     @Test
     fun vagaOciosaEAproveitadaPorUmaTelaNova() {
-        EspelhoPares.definirAutoAprovar(true)
         repeat(EspelhoPares.MAX_SESSOES) {
-            assertTrue(EspelhoPares.entrarAberto("10.0.0.$it", relato(), t0) is EspelhoPares.Veredito.Aprovada)
+            assertTrue(EspelhoPares.tentar(codigo, "10.0.0.$it", relato(), t0) is EspelhoPares.Veredito.Aprovada)
         }
         // No mesmo instante ninguém está ocioso: o teto vale, e é isso que
         // impede a vaga de virar torneira.
         assertSame(
             EspelhoPares.Veredito.Lotada,
-            EspelhoPares.entrarAberto("10.0.0.99", relato(), t0),
+            EspelhoPares.tentar(codigo, "10.0.0.99", relato(), t0),
         )
         // Passado o prazo de ociosidade sem NENHUMA delas ter sido usada, a
         // quarta entra — tomando a vaga de quem já foi embora.
         val depois = t0 + EspelhoPares.PRAZO_OCIOSA_MS + 1
         assertTrue(
-            EspelhoPares.entrarAberto("10.0.0.99", relato(), depois) is EspelhoPares.Veredito.Aprovada,
+            EspelhoPares.tentar(codigo, "10.0.0.99", relato(), depois) is EspelhoPares.Veredito.Aprovada,
         )
         assertEquals(EspelhoPares.MAX_SESSOES, EspelhoPares.sessoes().size)
     }
@@ -377,10 +248,9 @@ class EspelhoParesTest {
      */
     @Test
     fun aVagaDeUmaTelaQueCaiuAbreAntesDaOciosidade() {
-        EspelhoPares.definirAutoAprovar(true)
-        val caiu = (EspelhoPares.entrarAberto("10.0.0.1", relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
+        val caiu = (EspelhoPares.tentar(codigo, "10.0.0.1", relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
         repeat(EspelhoPares.MAX_SESSOES - 1) {
-            assertTrue(EspelhoPares.entrarAberto("10.0.0.5$it", relato(), t0) is EspelhoPares.Veredito.Aprovada)
+            assertTrue(EspelhoPares.tentar(codigo, "10.0.0.5$it", relato(), t0) is EspelhoPares.Veredito.Aprovada)
         }
         // O vigia conclui que a primeira foi embora e fecha a conexão dela. As
         // três continuam falando pelo canal de relato — isto é, `ultimoUsoMs`
@@ -396,7 +266,7 @@ class EspelhoParesTest {
             agora - t0 < EspelhoPares.PRAZO_OCIOSA_MS,
         )
         assertTrue(
-            EspelhoPares.entrarAberto("10.0.0.99", relato(), agora) is EspelhoPares.Veredito.Aprovada,
+            EspelhoPares.tentar(codigo, "10.0.0.99", relato(), agora) is EspelhoPares.Veredito.Aprovada,
         )
         assertNull("a vaga tomada é a da tela que caiu", EspelhoPares.validar(caiu.token, agora))
     }
@@ -410,16 +280,15 @@ class EspelhoParesTest {
      */
     @Test
     fun aVagaNaoAbreEnquantoATelaAindaPodeVoltar() {
-        EspelhoPares.definirAutoAprovar(true)
-        val caiu = (EspelhoPares.entrarAberto("10.0.0.1", relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
+        val caiu = (EspelhoPares.tentar(codigo, "10.0.0.1", relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
         repeat(EspelhoPares.MAX_SESSOES - 1) {
-            assertTrue(EspelhoPares.entrarAberto("10.0.0.5$it", relato(), t0) is EspelhoPares.Veredito.Aprovada)
+            assertTrue(EspelhoPares.tentar(codigo, "10.0.0.5$it", relato(), t0) is EspelhoPares.Veredito.Aprovada)
         }
         assertTrue(EspelhoPares.marcarSemConexao(caiu.token, t0))
         assertSame(
             "dentro da janela de recuperação a vaga é dela",
             EspelhoPares.Veredito.Lotada,
-            EspelhoPares.entrarAberto("10.0.0.99", relato(), t0 + EspelhoPares.PRAZO_SEM_CONEXAO_MS - 1),
+            EspelhoPares.tentar(codigo, "10.0.0.99", relato(), t0 + EspelhoPares.PRAZO_SEM_CONEXAO_MS - 1),
         )
     }
 
@@ -430,16 +299,15 @@ class EspelhoParesTest {
      */
     @Test
     fun reconectarDesmarcaOFantasma() {
-        EspelhoPares.definirAutoAprovar(true)
-        val volta = (EspelhoPares.entrarAberto("10.0.0.1", relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
+        val volta = (EspelhoPares.tentar(codigo, "10.0.0.1", relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
         repeat(EspelhoPares.MAX_SESSOES - 1) {
-            assertTrue(EspelhoPares.entrarAberto("10.0.0.5$it", relato(), t0) is EspelhoPares.Veredito.Aprovada)
+            assertTrue(EspelhoPares.tentar(codigo, "10.0.0.5$it", relato(), t0) is EspelhoPares.Veredito.Aprovada)
         }
         assertTrue(EspelhoPares.marcarSemConexao(volta.token, t0))
         assertTrue(EspelhoPares.marcarComConexao(volta.token))
         assertSame(
             EspelhoPares.Veredito.Lotada,
-            EspelhoPares.entrarAberto("10.0.0.99", relato(), t0 + EspelhoPares.PRAZO_SEM_CONEXAO_MS + 1),
+            EspelhoPares.tentar(codigo, "10.0.0.99", relato(), t0 + EspelhoPares.PRAZO_SEM_CONEXAO_MS + 1),
         )
         assertNotNull(EspelhoPares.validar(volta.token, t0 + EspelhoPares.PRAZO_SEM_CONEXAO_MS + 1))
     }
@@ -454,16 +322,15 @@ class EspelhoParesTest {
     /** E a vaga tomada é a de quem está PARADO, nunca a da tela que está no ar. */
     @Test
     fun aVagaTomadaEADeQuemNaoEstaUsando() {
-        EspelhoPares.definirAutoAprovar(true)
-        val viva = (EspelhoPares.entrarAberto("10.0.0.1", relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
-        val morta = (EspelhoPares.entrarAberto("10.0.0.2", relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
-        val outra = (EspelhoPares.entrarAberto("10.0.0.3", relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
+        val viva = (EspelhoPares.tentar(codigo, "10.0.0.1", relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
+        val morta = (EspelhoPares.tentar(codigo, "10.0.0.2", relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
+        val outra = (EspelhoPares.tentar(codigo, "10.0.0.3", relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
         val depois = t0 + EspelhoPares.PRAZO_OCIOSA_MS + 1
         // A primeira e a terceira continuam falando; a segunda emudeceu.
         assertNotNull(EspelhoPares.validar(viva.token, depois - 1))
         assertNotNull(EspelhoPares.validar(outra.token, depois - 1))
         assertTrue(
-            EspelhoPares.entrarAberto("10.0.0.4", relato(), depois) is EspelhoPares.Veredito.Aprovada,
+            EspelhoPares.tentar(codigo, "10.0.0.4", relato(), depois) is EspelhoPares.Veredito.Aprovada,
         )
         assertNotNull("a tela no ar não pode perder a vaga", EspelhoPares.validar(viva.token, depois))
         assertNotNull(EspelhoPares.validar(outra.token, depois))
@@ -490,206 +357,150 @@ class EspelhoParesTest {
     // ------------------------------------------------ o operador DERRUBA
 
     /**
-     * "Desconectar" precisa DURAR alguma coisa com a porta aberta.
+     * "Desconectar" precisa DURAR alguma coisa.
      *
      * Encerrar a sessão sozinha não basta: a tela derrubada perde o token, volta
-     * ao pareamento e entra de novo em dois segundos — o botão reportaria
+     * à entrada e — com o código ainda em cartaz na folha em que o operador
+     * acabou de tocar — entra de novo em dois segundos. O botão reportaria
      * sucesso e não faria nada visível. O castigo por origem é o que dá sentido
      * ao ato, e ele é CURTO de propósito: derrubar a tela errada é um toque, e
      * ficar sem poder readmiti-la seria o preço errado.
      */
     @Test
     fun derrubarTiraATelaDoArEASeguraPorUmTempo() {
-        EspelhoPares.definirAutoAprovar(true)
-        val s = (EspelhoPares.entrarAberto(origem, relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
+        val s = parear()
         EspelhoPares.derrubar(s.token, origem, t0)
         assertNull(EspelhoPares.validar(s.token, t0))
         assertTrue(
             "derrubada, ela não pode voltar no segundo seguinte",
-            EspelhoPares.entrarAberto(origem, relato(), t0 + 1) is EspelhoPares.Veredito.Bloqueada,
+            EspelhoPares.tentar(codigo, origem, relato(), t0 + 1) is EspelhoPares.Veredito.Bloqueada,
         )
         // E o castigo é de quem foi derrubado, não da rede inteira.
         assertTrue(
-            EspelhoPares.entrarAberto("192.168.0.90", relato(), t0 + 1) is EspelhoPares.Veredito.Aprovada,
+            EspelhoPares.tentar(codigo, "192.168.0.90", relato(), t0 + 1)
+                is EspelhoPares.Veredito.Aprovada,
         )
         // Vencido o prazo, ela volta a ser bem-vinda.
         val depois = t0 + EspelhoPares.BLOQUEIO_DERRUBADA_MS + 1
         assertTrue(
-            EspelhoPares.entrarAberto(origem, relato(), depois) is EspelhoPares.Veredito.Aprovada,
+            EspelhoPares.tentar(codigo, origem, relato(), depois) is EspelhoPares.Veredito.Aprovada,
         )
-    }
-
-    @Test
-    fun filaDoOperadorTemTeto() {
-        repeat(EspelhoPares.MAX_ESPERAS) {
-            assertTrue(EspelhoPares.tentar(pin, origem, relato(), t0) is EspelhoPares.Veredito.Espera)
-        }
-        assertSame(
-            EspelhoPares.Veredito.Lotada,
-            EspelhoPares.tentar(pin, origem, relato(), t0),
-        )
-    }
-
-    // ------------------------------------------------------------ o QR (5b)
-    //
-    // A espera de QR é o caminho em que ninguém prova nada — e ela é mais forte
-    // que o PIN justamente por isso: o que autoriza não é um segredo digitado, é
-    // o operador ter apontado a câmera para AQUELA tela. Os casos abaixo travam
-    // as três regras que sustentam a afirmação.
-
-    @Test
-    fun qrDaUmIdSemPinENaoLiberaNada() {
-        val v = EspelhoPares.esperaQr(origem, relato(), t0)
-        assertTrue(v is EspelhoPares.Veredito.Espera)
-        val id = (v as EspelhoPares.Veredito.Espera).id
-        assertTrue(id.length >= 16)
-        // Sem a aprovação, o poll continua respondendo "pendente" para sempre —
-        // ter o id não é ter acesso.
-        assertSame(EspelhoPares.Veredito.Pendente, EspelhoPares.consultar(id, t0))
-        assertTrue(EspelhoPares.sessoes().isEmpty())
-    }
-
-    @Test
-    fun qrSoEntraQuandoOOperadorAprovaAquelaEspera() {
-        val id = (EspelhoPares.esperaQr(origem, relato(), t0) as EspelhoPares.Veredito.Espera).id
-        assertNotNull(EspelhoPares.aprovar(id, t0))
-        val v = EspelhoPares.consultar(id, t0)
-        assertTrue(v is EspelhoPares.Veredito.Aprovada)
-        assertEquals(1, EspelhoPares.sessoes().size)
-    }
-
-    /**
-     * **A regra que impede a folha do operador de virar lixo**: a espera de QR
-     * não aparece na lista. Ele não teria como distinguir "a TV da sala anexa"
-     * de "o aparelho de alguém", e aprovar às cegas é o oposto da invariante 5.
-     */
-    @Test
-    fun esperaDeQrNaoApareceNaFolhaDoOperador() {
-        EspelhoPares.esperaQr(origem, relato(), t0)
-        EspelhoPares.esperaQr(origem, relato(), t0)
-        assertTrue(EspelhoPares.pendentes().isEmpty())
-        assertEquals(2, EspelhoPares.esperandoQr())
-        // E a do PIN continua aparecendo — o par negativo, sem o qual este caso
-        // passaria com `pendentes()` devolvendo sempre vazio.
-        EspelhoPares.tentar(pin, origem, relato(), t0)
-        assertEquals(1, EspelhoPares.pendentes().size)
-    }
-
-    /**
-     * **"Aprovar automaticamente" nunca significou "qualquer aparelho da rede
-     * entra sozinho".** Ele existe para poupar o toque de quem ACERTOU O PIN.
-     */
-    @Test
-    fun aprovacaoAutomaticaNaoAlcancaOQr() {
-        EspelhoPares.definirAutoAprovar(true)
-        val id = (EspelhoPares.esperaQr(origem, relato(), t0) as EspelhoPares.Veredito.Espera).id
-        assertSame(EspelhoPares.Veredito.Pendente, EspelhoPares.consultar(id, t0))
-        assertTrue(EspelhoPares.sessoes().isEmpty())
-        // Enquanto pelo PIN ela sai na hora, como sempre.
-        val v = EspelhoPares.tentar(pin, origem, relato(), t0)
-        assertTrue(EspelhoPares.consultar((v as EspelhoPares.Veredito.Espera).id, t0)
-            is EspelhoPares.Veredito.Aprovada)
-    }
-
-    /**
-     * O teto por ORIGEM despeja a mais velha DAQUELA origem — uma tela que
-     * recarrega a página não pode acumular esperas para sempre, e não pode
-     * empurrar a de outra tela para fora.
-     */
-    @Test
-    fun tetoDeQrPorOrigemDespejaAMaisVelhaDaMesmaOrigem() {
-        val a = (EspelhoPares.esperaQr(origem, relato(), t0) as EspelhoPares.Veredito.Espera).id
-        val b = (EspelhoPares.esperaQr(origem, relato(), t0) as EspelhoPares.Veredito.Espera).id
-        val outra = (EspelhoPares.esperaQr("192.168.0.90", relato(), t0) as EspelhoPares.Veredito.Espera).id
-        val c = (EspelhoPares.esperaQr(origem, relato(), t0) as EspelhoPares.Veredito.Espera).id
-        assertSame(EspelhoPares.Veredito.Desconhecida, EspelhoPares.consultar(a, t0))
-        assertSame(EspelhoPares.Veredito.Pendente, EspelhoPares.consultar(b, t0))
-        assertSame(EspelhoPares.Veredito.Pendente, EspelhoPares.consultar(c, t0))
-        // A de outro endereço fica INTACTA: o teto é por origem, não global.
-        assertSame(EspelhoPares.Veredito.Pendente, EspelhoPares.consultar(outra, t0))
-    }
-
-    /**
-     * E uma espera de QR **já aprovada nunca é despejada**. Despejá-la devolveria
-     * `Desconhecida` à tela que o operador acabou de liberar — ela voltaria ao
-     * pareamento com um dos três slots de sessão consumido.
-     */
-    @Test
-    fun qrAprovadoNaoEDespejadoPeloTeto() {
-        val vivo = (EspelhoPares.esperaQr(origem, relato(), t0) as EspelhoPares.Veredito.Espera).id
-        EspelhoPares.aprovar(vivo, t0)
-        repeat(4) { EspelhoPares.esperaQr(origem, relato(), t0) }
-        assertTrue(EspelhoPares.consultar(vivo, t0) is EspelhoPares.Veredito.Aprovada)
-    }
-
-    /**
-     * As duas filas são SEPARADAS, e é isso que impede que encher o balde do QR
-     * (que qualquer um na rede pode fazer) negue o pareamento por PIN — o
-     * caminho que ainda funciona quando não há câmera.
-     */
-    @Test
-    fun qrLotadoNaoTrancaOPin() {
-        repeat(EspelhoPares.MAX_ESPERAS_QR + 4) { EspelhoPares.esperaQr("10.0.0.$it", relato(), t0) }
-        assertTrue(EspelhoPares.tentar(pin, origem, relato(), t0) is EspelhoPares.Veredito.Espera)
-    }
-
-    /** E o bloqueio por origem da invariante 6 vale para o QR também. */
-    @Test
-    fun origemBloqueadaNaoGanhaQr() {
-        repeat(ERRADAS) { EspelhoPares.tentar(pinErrado(), origem, relato(), t0) }
-        assertTrue(EspelhoPares.esperaQr(origem, relato(), t0) is EspelhoPares.Veredito.Bloqueada)
-        // Outra origem segue livre — o castigo é do endereço, não do recurso.
-        assertTrue(EspelhoPares.esperaQr("192.168.0.90", relato(), t0) is EspelhoPares.Veredito.Espera)
-    }
-
-    @Test
-    fun qrComEspelhoDesligadoNaoDaId() {
-        EspelhoPares.desligar()
-        assertSame(EspelhoPares.Veredito.Desligado, EspelhoPares.esperaQr(origem, relato(), t0))
     }
 
     // -------------------------------------------------- bloqueio por origem
 
     /**
      * Invariante 6: cinco erros da MESMA origem e o sexto não é nem lido — nem
-     * quando ele traz o PIN certo. Um atacante que acertasse na sexta continua
-     * de fora.
+     * quando ele traz o código certo. Um atacante que acertasse na sexta
+     * continua de fora.
      */
     @Test
-    fun cincoPinsErradosBloqueiamOSexto() {
+    fun cincoCodigosErradosBloqueiamOSexto() {
         repeat(ERRADAS) {
             assertSame(
                 EspelhoPares.Veredito.Recusada,
-                EspelhoPares.tentar(pinErrado(), origem, relato(), t0),
+                EspelhoPares.tentar(codigoErrado(), origem, relato(), t0),
             )
         }
-        val sexto = EspelhoPares.tentar(pin, origem, relato(), t0)
-        assertTrue("o 6º com o PIN CERTO ainda tem de ser bloqueado", sexto is EspelhoPares.Veredito.Bloqueada)
+        val sexto = EspelhoPares.tentar(codigo, origem, relato(), t0)
+        assertTrue("o 6º com o código CERTO ainda tem de ser bloqueado", sexto is EspelhoPares.Veredito.Bloqueada)
         assertEquals(EspelhoPares.BLOQUEIO_MS, (sexto as EspelhoPares.Veredito.Bloqueada).restaMs)
     }
 
-    /** O bloqueio é da ORIGEM: o vizinho continua conseguindo parear. */
+    /** O bloqueio é da ORIGEM: o vizinho continua conseguindo entrar. */
     @Test
     fun bloqueioNaoAtingeOutraOrigem() {
-        repeat(ERRADAS) { EspelhoPares.tentar(pinErrado(), origem, relato(), t0) }
+        repeat(ERRADAS) { EspelhoPares.tentar(codigoErrado(), origem, relato(), t0) }
         assertTrue(
-            EspelhoPares.tentar(pin, "192.168.0.90", relato(), t0) is EspelhoPares.Veredito.Espera
+            EspelhoPares.tentar(codigo, "192.168.0.90", relato(), t0) is EspelhoPares.Veredito.Aprovada,
         )
     }
 
     @Test
     fun bloqueioVenceEACotaVolta() {
-        repeat(ERRADAS) { EspelhoPares.tentar(pinErrado(), origem, relato(), t0) }
+        repeat(ERRADAS) { EspelhoPares.tentar(codigoErrado(), origem, relato(), t0) }
         val depois = t0 + EspelhoPares.BLOQUEIO_MS + 1
-        assertTrue(EspelhoPares.tentar(pin, origem, relato(), depois) is EspelhoPares.Veredito.Espera)
+        assertTrue(EspelhoPares.tentar(codigo, origem, relato(), depois) is EspelhoPares.Veredito.Aprovada)
+    }
+
+    /**
+     * O BLOQUEIO CRESCE, e é ELE que sustenta um código de três dígitos.
+     *
+     * Com um minuto fixo, mil combinações saem numa tarde de martelada paciente
+     * (cinco por minuto). Dobrando a cada rodada, a sétima já custa mais que o
+     * culto inteiro — e é por isso que o `bloqueios` NÃO zera quando o bloqueio
+     * VENCE: quem esperou e voltou a errar é exatamente quem a rodada seguinte
+     * precisa segurar por mais tempo.
+     */
+    @Test
+    fun bloqueiosSeguidosDobramAEspera() {
+        var agora = t0
+        val esperado = longArrayOf(
+            EspelhoPares.BLOQUEIO_MS,
+            EspelhoPares.BLOQUEIO_MS * 2,
+            EspelhoPares.BLOQUEIO_MS * 4,
+        )
+        esperado.forEachIndexed { i, quanto ->
+            repeat(ERRADAS) { EspelhoPares.tentar(codigoErrado(), origem, relato(), agora) }
+            val v = EspelhoPares.tentar(codigoErrado(), origem, relato(), agora)
+            assertTrue("rodada $i devia bloquear", v is EspelhoPares.Veredito.Bloqueada)
+            assertEquals(
+                "rodada $i",
+                quanto,
+                (v as EspelhoPares.Veredito.Bloqueada).restaMs,
+            )
+            agora += quanto + 1
+        }
+    }
+
+    /**
+     * E O CRESCIMENTO TEM TETO. Sem ele, uma TV atrás de um NAT compartilhado
+     * com quem estiver errando ao lado ficaria de fora pelo resto do dia — e
+     * ninguém teria como desfazer.
+     *
+     * O caso também trava a armadilha do `shl`: em Kotlin/JVM ele usa só os 6
+     * bits baixos do deslocamento (`1L shl 64` é `1L`), então sem o
+     * `coerceAtMost` a 65ª rodada devolveria UM MINUTO — o oposto exato do que
+     * o crescimento existe para fazer, e sem nada que o denunciasse.
+     */
+    @Test
+    fun oCrescimentoTemTeto() {
+        assertEquals(EspelhoPares.BLOQUEIO_MS, EspelhoPares.esperaDoBloqueio(1))
+        assertEquals(EspelhoPares.BLOQUEIO_MS * 2, EspelhoPares.esperaDoBloqueio(2))
+        assertEquals(EspelhoPares.BLOQUEIO_MAX_MS, EspelhoPares.esperaDoBloqueio(30))
+        assertEquals(EspelhoPares.BLOQUEIO_MAX_MS, EspelhoPares.esperaDoBloqueio(64))
+        assertEquals(EspelhoPares.BLOQUEIO_MAX_MS, EspelhoPares.esperaDoBloqueio(65))
+        assertEquals(EspelhoPares.BLOQUEIO_MAX_MS, EspelhoPares.esperaDoBloqueio(1000))
+        // E nunca menos que o piso, seja qual for a entrada.
+        assertEquals(EspelhoPares.BLOQUEIO_MS, EspelhoPares.esperaDoBloqueio(0))
+        assertEquals(EspelhoPares.BLOQUEIO_MS, EspelhoPares.esperaDoBloqueio(-3))
+    }
+
+    /**
+     * ACERTAR LIMPA TUDO, inclusive o expoente. Quem acertou não é quem estava
+     * martelando — e carregar o contador adiante puniria a TV que errou o número
+     * duas vezes antes de acertar.
+     */
+    @Test
+    fun acertarZeraOExpoente() {
+        repeat(ERRADAS) { EspelhoPares.tentar(codigoErrado(), origem, relato(), t0) }
+        val depois = t0 + EspelhoPares.BLOQUEIO_MS + 1
+        assertTrue(EspelhoPares.tentar(codigo, origem, relato(), depois) is EspelhoPares.Veredito.Aprovada)
+        // A rodada seguinte de erros volta ao PRIMEIRO degrau.
+        repeat(ERRADAS) { EspelhoPares.tentar(codigoErrado(), origem, relato(), depois) }
+        val v = EspelhoPares.tentar(codigoErrado(), origem, relato(), depois)
+        assertEquals(
+            EspelhoPares.BLOQUEIO_MS,
+            (v as EspelhoPares.Veredito.Bloqueada).restaMs,
+        )
     }
 
     @Test
     fun contadorDeRecusasAlimentaORegistro() {
-        repeat(3) { EspelhoPares.tentar(pinErrado(), origem, relato(), t0) }
+        repeat(3) { EspelhoPares.tentar(codigoErrado(), origem, relato(), t0) }
         assertEquals(3, EspelhoPares.recusas())
         assertEquals(0, EspelhoPares.origensEmBloqueio(t0))
-        repeat(2) { EspelhoPares.tentar(pinErrado(), origem, relato(), t0) }
+        repeat(2) { EspelhoPares.tentar(codigoErrado(), origem, relato(), t0) }
         assertEquals(1, EspelhoPares.origensEmBloqueio(t0))
     }
 
@@ -753,15 +564,18 @@ class EspelhoParesTest {
 
     @Test
     fun tetoDeTresSessoes() {
-        val ids = (1..4).map {
-            (EspelhoPares.tentar(pin, "192.168.0.$it", relato(), t0) as EspelhoPares.Veredito.Espera).id
-        }
-        val primeira = EspelhoPares.aprovar(ids[0], t0)!!
-        EspelhoPares.aprovar(ids[1], t0)!!
-        EspelhoPares.aprovar(ids[2], t0)!!
-        assertNull("a quarta tela não entra sem o operador liberar uma", EspelhoPares.aprovar(ids[3], t0))
+        val primeira = parear("192.168.0.1")
+        parear("192.168.0.2")
+        parear("192.168.0.3")
+        assertSame(
+            "a quarta tela não entra sem o operador derrubar uma",
+            EspelhoPares.Veredito.Lotada,
+            EspelhoPares.tentar(codigo, "192.168.0.4", relato(), t0),
+        )
         EspelhoPares.encerrar(primeira.token)
-        assertNotNull(EspelhoPares.aprovar(ids[3], t0))
+        assertTrue(
+            EspelhoPares.tentar(codigo, "192.168.0.4", relato(), t0) is EspelhoPares.Veredito.Aprovada,
+        )
         assertEquals(EspelhoPares.MAX_SESSOES, EspelhoPares.sessoes().size)
     }
 
@@ -779,26 +593,25 @@ class EspelhoParesTest {
         EspelhoPares.desligar()
         assertNull(EspelhoPares.validar("Bearer ${s.token}", t0))
         assertEquals(0, EspelhoPares.sessoes().size)
-        assertEquals(0, EspelhoPares.pendentes().size)
-        assertEquals("", EspelhoPares.pin())
+        assertEquals("", EspelhoPares.codigo())
         assertFalse(EspelhoPares.estaLigado())
         assertSame(
             EspelhoPares.Veredito.Desligado,
-            EspelhoPares.tentar("000000", origem, relato(), t0),
+            EspelhoPares.tentar("000", origem, relato(), t0),
         )
     }
 
     /**
-     * Com o espelho desligado o PIN guardado é vazio — e um PIN vazio vindo da
-     * rede não pode casar com ele. É a guarda de string vazia da comparação em
-     * tempo constante.
+     * Com o espelho desligado o código guardado é vazio — e um código vazio
+     * vindo da rede não pode casar com ele. É a guarda de string vazia da
+     * comparação em tempo constante.
      */
     @Test
-    fun pinVazioNaoCasaComEspelhoDesligado() {
-        // Ligado, o PIN vazio é só um PIN errado.
+    fun codigoVazioNaoCasaComEspelhoDesligado() {
+        // Ligado, o código vazio é só um código errado.
         assertSame(EspelhoPares.Veredito.Recusada, EspelhoPares.tentar("", origem, relato(), t0))
-        // Desligado, o PIN guardado É vazio — e é aí que a guarda de string vazia
-        // da comparação em tempo constante impede o casamento de dois nadas.
+        // Desligado, o código guardado É vazio — e é aí que a guarda de string
+        // vazia da comparação em tempo constante impede o casamento de dois nadas.
         EspelhoPares.desligar()
         assertSame(EspelhoPares.Veredito.Desligado, EspelhoPares.tentar("", origem, relato(), t0))
     }
@@ -852,13 +665,12 @@ class EspelhoParesTest {
     @Test
     fun oRelatoGuardadoJaVemSaneado() {
         val v = EspelhoPares.tentar(
-            pin,
+            codigo,
             origem,
             relato("Firefox\r\ntelas: 99 conectadas \"x\"").copy(w = -5, h = 999_999, telaAcesaMin = -1),
             t0,
         )
-        val id = (v as EspelhoPares.Veredito.Espera).id
-        val s = EspelhoPares.aprovar(id, t0)!!
+        val s = (v as EspelhoPares.Veredito.Aprovada).sessao
         assertFalse(s.relato.ua.contains('\n'))
         assertFalse(s.relato.ua.contains('\r'))
         assertFalse(s.relato.ua.contains('"'))
@@ -869,17 +681,16 @@ class EspelhoParesTest {
     }
 
     /**
-     * O `token` e o `id` são PORTADORES: quem os tem entra. Eles não podem sair
-     * numa interpolação distraída — e o Registro é copiado e repassado.
+     * O `token` é PORTADOR: quem o tem entra. Ele não pode sair numa
+     * interpolação distraída — e o Registro é copiado e repassado.
      */
     @Test
     fun oSegredoNaoApareceNoToString() {
-        val v = EspelhoPares.tentar(pin, origem, relato(), t0)
-        val id = (v as EspelhoPares.Veredito.Espera).id
-        val pendente = EspelhoPares.pendentes()[0]
-        assertFalse(pendente.toString().contains(id))
-        val s = EspelhoPares.aprovar(id, t0)!!
+        val s = parear()
         assertFalse(s.toString().contains(s.token))
+        // E o CÓDIGO também não: ele é curto, e é justamente por ser curto que
+        // uma linha de log com ele vale por uma chave inteira.
+        assertFalse(s.toString().contains(codigo))
     }
 
     private companion object {

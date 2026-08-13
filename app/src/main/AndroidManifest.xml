@@ -44,21 +44,23 @@
          estão nessa lista. Sem uma delas, `startForeground` lança
          SecurityException e leva junto os dois WebViews e a Presentation.
          CHANGE_WIFI_MULTICAST_STATE é de nível `normal` (sem diálogo) e a menos
-         poderosa das cinco; o app não faz multicast nenhum. -->
+         poderosa das cinco.
+
+         E ELA FICA MESMO SEM O mDNS. O responder `av.local` saiu na v5.185 e
+         era o único código que de fato fazia multicast — a leitura natural é
+         "então esta permissão é lixo agora", e ela está ERRADA: o que a exige
+         não é o multicast, é o TIPO do serviço em primeiro plano. Removê-la faz
+         `startForeground` lançar SecurityException e derruba o app inteiro no
+         instante em que o operador liga a transmissão. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
 
-    <!-- CÂMERA: só para LER O QR que a tela do espelho mostra, no toque do
-         operador em "Ler o código da tela". Nada é gravado, nada é enviado, e a
-         permissão é pedida SOB DEMANDA naquele toque — nunca na abertura.
-
-         Ela vem com `uses-feature required="false"` porque uma câmera ausente
-         (ou negada) não pode tirar o app de aparelho nenhum: o pareamento por
-         seis dígitos continua existindo e é exatamente o plano B desse caso. Um
-         `required="true"` implícito — que é o que o Play assume quando se
-         declara `CAMERA` sem dizer nada — esconderia o app de qualquer
-         aparelho sem câmera. -->
-    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- (A CÂMERA saiu na v5.185, com o pareamento por QR. Ela existia para
+         LER o código que a página do espelho desenhava; a página passou a ter
+         só um campo e um botão, e quem digita o código de três dígitos é a
+         TELA. Uma permissão de câmera que nenhum caminho usa é a pior espécie
+         de permissão: ela aparece na loja e no diálogo do sistema, e não há o
+         que apontar como resposta a "para quê?".) -->
 
     <!-- ATUALIZAR O PRÓPRIO APK de dentro do app (ver `ShellUpdater.kt`).
          O usuário concede numa tela do sistema, uma vez — e o Android continua
@@ -69,8 +71,6 @@
          binário adulterado no caminho simplesmente não instala. É por isso que o
          `ShellUpdater` não replica o `sha256` do OTA da base web. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <uses-feature android:name="android.hardware.camera" android:required="false" />
-    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 
     <!-- Sem TV conectada o app continua útil (preview em tela cheia no
          próprio celular), então a Presentation não é um requisito de hardware. -->

@@ -73,9 +73,8 @@ app/src/main/
 │   ├── shared/stage.js          #   motor de mídia (compartilhado Controle/Display)
 │   ├── vendor/                  #   ÚNICO código de terceiro do lado web:
 │   │                            #   o renderizador de .pptx (ver o LEIA-ME de lá)
-│   ├── espelho/                 #   O ESPELHO DE PIXELS: a página do cliente, o
-│   │                            #   muxer fMP4 e o codificador de QR do
-│   │                            #   pareamento (ver a seção do recurso)
+│   ├── espelho/                 #   O ESPELHO DE PIXELS: a página do cliente
+│   │                            #   (um campo, um botão) e o muxer fMP4
 │   ├── controle/                #   (sem sw.js / manifest / icons — ver abaixo)
 │   └── display/                 #   (idem)
 ├── java/br/org/iasd/av/
@@ -100,12 +99,10 @@ app/src/main/
 │   ├── EspelhoDisplay.kt        # dono do VirtualDisplay, da densidade e da sonda
 │   ├── EspelhoCodec.kt          # MediaCodec H.264 sobre a Surface da tela virtual
 │   ├── EspelhoHttp.kt           # o parser HTTP — PURO, zero import de Android
-│   ├── EspelhoPares.kt          # PIN, aprovação, tokens, prazo — PURO
+│   ├── EspelhoPares.kt          # o CÓDIGO de 3 dígitos, tokens, prazo — PURO
 │   ├── EspelhoServidor.kt       # sockets, rotas, fan-out
 │   ├── EspelhoService.kt        # foreground service `connectedDevice`
 │   ├── EspelhoAudio.kt          # PCM do WebView do espelho → AAC no mesmo fio
-│   ├── EspelhoMdnsPacote.kt     # o fio do mDNS — PURO, com JUnit
-│   ├── EspelhoMdns.kt           # `av.local`: socket 5353, sondagem, despedida
 │   └── EspelhoDiag.kt           # o anel de diagnóstico — devolve JSON, não frase
 └── res/
     ├── drawable/                # ic_image{,_off} — a cortina, na notificação
@@ -323,7 +320,6 @@ window.AVNative = {
   captureVolumeKeys(bool), // botões físicos de volume vão para o app
   systemVolume(step),  // devolve um passo ao volume do sistema (fader no limite)
   requestMic(),        // → bool: permissão RECORD_AUDIO (push-to-talk)
-  requestCam(),        // → bool: permissão CAMERA (ler o QR da tela do espelho)
   keepAlive(bool),     // download em curso — ver "Trabalho em segundo plano"
   bgProgress({label, done, total, etaMs, items, idleMs, bytes}), // progresso na notificação
   nowPlaying({active, title, subtitle, playing, slideMode, slideLabel, wallpaper, positionMs, durationMs}),
@@ -331,22 +327,21 @@ window.AVNative = {
   // ---- ESPELHO DE PIXELS (shell 32) — ver a seção do recurso ----
   espelhoLigar(modo),  // 'imagem'|'video' → o objeto de estado abaixo
   espelhoDesligar(),   // síncrono e sem resposta, como o `ytCancel`
-  espelhoEstado(),     // → { ligado, modo, endereco, pin, autoAprovar, erro,
-                       //     telas:[…], pendentes:[…], qrEsperando }
+  espelhoEstado(),     // → { ligado, modo, endereco, codigo, erro, telas:[…] }
+                       //   `codigo` são os TRÊS dígitos, como STRING ("007")
   espelhoDiag(),       // → JSON do Registro (servidor, tela virtual, readback,
                        //   encoder, ritmo, térmica, áudio, telas)
-  espelhoAprovar(id, sim), // o operador decide sobre uma tela pendente
-                       //   (`id` vazio ou '*' = a aprovação automática da sessão)
-                       //   É TAMBÉM o que a LEITURA DO QR chama: ler o código é
-                       //   aprovar aquele id, e por isso o pareamento por QR
-                       //   não acrescentou método nenhum aqui
+  espelhoDerrubar(rotulo), // tira ESTA tela do ar (o "Desconectar" da folha).
+                       //   No Kotlin ele ainda é `espelhoAprovar(id, sim)` —
+                       //   a assinatura ficou para não custar outro degrau de
+                       //   SHELL_VERSION, e o `sim` é ignorado
   espelhoCertImportar(url, senha), // → '' ou a FRASE do erro: o .p12 do TLS
   espelhoCertEstado(), // → { temCert, host, ate, nome, noAr, servindoTls }
   espelhoCertApagar(), // a chave privada sai do aparelho
 }
 ```
 
-São **trinta e nove métodos**, e essa é a superfície inteira que o resto do
+São **trinta e oito métodos**, e essa é a superfície inteira que o resto do
 lado web tem direito de usar: fora do `native.js`, tocar em `__AVBridge` direto é
 acoplamento indevido. O próprio `native.js` chama mais oito coisas no
 `__AVBridge`, e nenhuma delas é API para o app — duas são
@@ -419,19 +414,22 @@ esperam uma **pessoa** e ficam sem prazo, porque um timeout ali resolveria null
 com o operador ainda escolhendo a pasta.
 
 `NativeBridge.SHELL_VERSION` identifica a versão da casca — **subir sempre que
-a superfície da ponte mudar**. Hoje vale **34** — a v5.152 acrescentou os três
+a superfície da ponte mudar**. Hoje vale **36** — a v5.185 é o primeiro degrau
+deste contrato que **ENCOLHE**: saiu `requestCam` (com o pareamento por QR e a
+permissão `CAMERA` do manifest), `espelhoEstado` trocou `pin` por `codigo` (os
+TRÊS dígitos, como STRING) e perdeu `autoAprovar`, `pendentes`, `qrEsperando`,
+`nomeLocal` e `nomeErro`, e `espelhoAprovar` passou a fazer uma coisa só —
+derrubar a tela cujo rótulo ele recebe (o lado web o chama de `espelhoDerrubar`).
+O bump é o que impede um bundle antigo de ler `pin` num shell que só publica
+`codigo`: ele mostraria o campo vazio, e o operador ficaria sem o número que a
+tela precisa digitar, sem nada que o explicasse. A v5.167 (35) acrescentou
+`apkProcurar`/`apkInstalar`. A v5.152 acrescentou os três
 métodos do CERTIFICADO do espelho (`espelhoCertImportar`, `espelhoCertEstado`,
 `espelhoCertApagar`), o degrau opcional de TLS. Abaixo do 34 a linha do
 certificado não é desenhada e o espelho segue em HTTP claro, que é o que ele
 sempre foi. A v5.145 acrescentou
-`requestCam`, a permissão de CÂMERA para o Controle LER O QR que a tela do
-espelho mostra (ver "O pareamento é por QR", na seção do recurso). Ele é o único
-método do lote: aprovar a tela lida é o `espelhoAprovar` que já existia, porque é
-literalmente o mesmo ato do botão "Aprovar" da lista. E ele não tem degradação
-possível — sem a permissão do Android, o `onPermissionRequest` do Controle nega
-o `getUserMedia` **em silêncio**, que é a mesma armadilha que o `MicChromeClient`
-documenta para o telão. Abaixo do shell 33 o botão nem é desenhado e o
-pareamento segue pelos seis dígitos, que nunca deixaram de existir.
+`requestCam`, a permissão de CÂMERA do pareamento por QR — **os dois saíram na
+v5.185**, com a câmera e com o `qr.js`.
 A v5.141 acrescentou os cinco
 métodos do ESPELHO DE PIXELS (`espelhoLigar`, `espelhoDesligar`,
 `espelhoEstado`, `espelhoDiag`, `espelhoAprovar`). Os cinco são **privilégio do
@@ -1388,56 +1386,68 @@ mesmo?"), lembrada pela sessão.
 | `EspelhoHttp.kt` · `EspelhoPares.kt` | **PUROS, zero import de Android.** É o primeiro código do projeto que aceita entrada de um desconhecido, e o único em que um erro vira controle de acesso quebrado em vez de pixel errado — daí serem funções puras, com JUnit |
 | `EspelhoServidor.kt` | sockets, rotas, fan-out. **Bind explícito ao IPv4 da Wi-Fi**, e recusa em celular/VPN: um `ServerSocket(porta)` liga em `0.0.0.0` — inclusive `rmnet`, e operadoras brasileiras entregam IPv6 globalmente roteável ao aparelho. Seria o culto em H.264 numa porta alcançável do mundo |
 | `EspelhoService.kt` | foreground service **`connectedDevice`** (sem cota, ao contrário do `dataSync` que o app já gasta). Exige `CHANGE_WIFI_MULTICAST_STATE` no manifest — sem ela `startForeground` **lança** |
-| `EspelhoMdnsPacote.kt` · `EspelhoMdns.kt` | **`av.local`.** O primeiro é **puro, com JUnit**, pela mesma regra do `EspelhoHttp` — e aqui um erro de parser vira **laço infinito**, porque ponteiro de compressão de DNS é um grafo que pode apontar para trás. O segundo é o socket 5353 com `MulticastLock` (sem ele o Android **não entrega o pacote**: o socket abre, o `joinGroup` funciona, e o `receive` nunca volta), a sondagem que impede roubar um nome alheio, e a despedida com TTL 0. **`NsdManager` não serviria**: ele publica um SERVIÇO, e serviço não vira nome que se digita numa TV. **A porta FICA na URL** (portas < 1024 são privilegiadas no Linux; nenhum app Android as reivindica) e **o IP continua divulgado ao lado**, porque `.local` não resolve no Chrome do Android nem na maioria das Smart TVs |
 | `EspelhoAudio.kt` | o PCM que o `AudioWorklet` do WebView do espelho entrega, virando AAC no mesmo fio. **O `AudioWorklet` existe ali porque aquele WebView É contexto seguro** (invariante 1) mesmo com o cliente em `http://` — o princípio geral: *tudo que precisa de contexto seguro pode ir para DENTRO do WebView*. E o eixo de tempo dele é **contagem de amostras**, conferido contra o relógio a cada bloco desde a v5.185 (`corrigirDeriva`): sem essa conferência toda interrupção do PCM vira defasagem PERMANENTE, e ela acumula até a tela soltar a faixa de som |
 | `EspelhoCert.kt` | o `.p12` do degrau de TLS: guarda, diz até quando vale, e **recusa o vencido** (subir com ele é a tela vermelha que o TLS existe para evitar). A senha do operador NÃO fica: o arquivo é reescrito com uma senha nossa de 128 bits |
 | `EspelhoDiag.kt` | o anel. **Devolve JSON, não texto** — quem monta a frase é o `controle.js`. Ele vive num `object` e SOBREVIVE a desligar e ligar o espelho, então a âncora do atraso precisa ser zerada por `novaSessao()` — a guarda de "o carimbo andou para trás" não pega o caso em que a base do codec não rebobina, e o tempo de espelho DESLIGADO era impresso como fila de encoder (v5.146) |
-| `assets/web/espelho/` | a página do cliente (uma página, dois estados), o muxer fMP4 em JS e o **codificador de QR** (`qr.js`, nível M versões 1–6, ~330 linhas sem dependência — o oráculo que o valida DECODIFICA o símbolo, em `tools/qr.test.mjs`) |
+| `assets/web/espelho/` | a página do cliente (uma página, dois estados: **um campo e um botão**, depois o player) e o muxer fMP4 em JS |
 
-### O pareamento é por QR, e o QR está do lado que parece o errado
+### A entrada é UM CÓDIGO DE TRÊS DÍGITOS, e ele é gerado ao ligar (v5.185)
 
-**Quem MOSTRA o código é a TELA; quem LÊ é o CELULAR** (v5.145). O desenho
-original tinha o QR do lado oposto — desenhado pelo celular, contendo a URL —, o
-que resolve *descoberta* e não resolve *autorização*, e ainda esbarra em que,
-para ler a URL num QR, a tela já precisa de um leitor.
+O código nasce em `EspelhoPares.ligar` — isto é, **no instante em que o operador
+ativa a transmissão**, e em lugar nenhum mais. A página do cliente tem **um campo
+e um botão**, e código certo **entra na hora**: sem fila, sem aprovação, sem
+poll.
 
-O que o código carrega **não é segredo nenhum**: é o `id` da espera que aquela
-página acabou de criar, que o servidor devolve a quem pedir. Ele não abre nada. O
-que autoriza é o operador ter apontado a câmera para AQUELA tela — a mesma
-decisão de sempre, com um gesto em vez de uma lista. Quem fotografar o código de
-longe leva 22 caracteres já usados. **Por isso o QR é mais forte que o PIN, não
-mais fraco:** some o segredo curto em cartaz na tela do operador durante todo o
-culto, que era justamente o motivo de a aprovação automática nascer desligada.
+**A razão de não haver fila é o GESTO, e ela é aritmética, não gosto.**
+`requestFullscreen()` e sair do `muted` exigem *ativação transitória do usuário*,
+e um gesto vale por poucos segundos. Se entrar e ligar som/tela cheia fossem dois
+toques, o segundo teria de acontecer DEPOIS de a conexão subir — e numa TV do
+outro lado do salão não há ninguém para dá-lo. Por isso o toque em "Conectar"
+gasta o gesto ANTES de ir à rede, e por isso a fila de aprovação teve de sair do
+servidor: uma aprovação que chega depois encontra o gesto já gasto, e a tela
+entra muda e em janela.
 
-Três regras sustentam isso, e as três têm JUnit (`EspelhoParesTest`): a espera de
-QR **não aparece na folha** (qualquer um na rede cria uma, e numa lista o
-operador não distinguiria a TV da sala anexa do aparelho de alguém); a **aprovação
-automática não a alcança** (aquele interruptor sempre quis dizer "quem acertou o
-PIN não precisa do meu toque"); e as **duas filas são separadas**, com teto por
-origem — encher o balde do QR não pode negar o pareamento por PIN, porque negar o
-plano B é pior que a ausência do plano A.
+**Três dígitos são mil combinações, e o que os sustenta não é o tamanho.** É o
+bloqueio por origem **CRESCENTE** (60 s, 2 min, 4 min… até 30 min, dobrando a
+cada bloqueio novo da mesma origem), o teto de três sessões, e o fato de o
+conteúdo ser o que a congregação inteira já está vendo. Com um minuto FIXO, mil
+combinações saem numa tarde de martelada paciente; dobrando, a sétima rodada já
+custa mais que o culto. O contador de bloqueios **não zera quando o bloqueio
+vence** — quem esperou e voltou a martelar é exatamente quem a rodada seguinte
+precisa segurar por mais tempo —, e zera inteiro na primeira tentativa CERTA.
 
-**O plano B é obrigatório e continua inteiro:** aparelho sem câmera, WebView sem
-o módulo de leitura (`BarcodeDetector.getSupportedFormats()` é a única pergunta
-honesta — a classe existir não promete que ela leia `qr_code`) e operador do outro
-lado do salão são três casos que acontecem. O botão só é desenhado com shell ≥ 33
-**e** leitura disponível.
+E ele é mais forte que a v5.170, não mais fraco: aquela versão deixou a porta
+**aberta**, com "quem digitar o endereço entra". A leitura de segurança do
+Registro (`entrada: N codigo(s) recusado(s) · M origem(ns) de castigo agora`)
+passou de curiosidade a linha principal.
+
+**O QR SAIU** (v5.185), e com ele o `qr.js`, o `tools/qr.test.mjs`, o leitor de
+câmera do Controle, o `AVNative.requestCam` e a permissão `CAMERA` do manifest.
+Ele existia para INVERTER quem mostra e quem lê o segredo — a tela desenhava, o
+celular lia —, e a inversão perdeu a razão de ser quando o segredo virou três
+dígitos que a TELA digita.
+
+**E a tela que cai VOLTA SOZINHA.** Ela guarda em memória o último código que
+funcionou (nunca no `sessionStorage`: lá mora o token, e um segredo a mais
+guardado é um segredo a mais a vazar) e reentra com espera crescente. Quando o
+código é RECUSADO na reentrada, ela desiste e diz por quê — uma recusa depois de
+uma queda quer dizer "o operador religou a transmissão", e martelar um número
+morto pelo resto do culto seria pior que parar.
 
 ### O que o operador vê, e onde
 
-Uma **linha** em Configurações (escondida abaixo do shell 32) abre uma **folha**
-com o endereço, o botão de ler o código, o PIN de seis dígitos, o modo, a fila de
-telas esperando aprovação e o botão que liga ou desliga. A folha entra na tabela
-`POPUPS`, e o leitor de QR entra numa linha própria logo depois dela — o que não
-é burocracia: **fechar aquele popup é DESLIGAR A CÂMERA**, e é a tabela que
-garante que os três caminhos (✕, toque no fundo, botão voltar) façam isso. Sair do
-app também fecha, pelo mesmo motivo pelo qual o push-to-talk fecha.
+O botão de cast abre a folha **Conectar uma tela** (escondida abaixo do shell
+32), com o botão de espelhar, o interruptor da transmissão, o **endereço** e o
+**código de três dígitos**, mais a lista de quem está vendo com o botão de
+derrubar. Os ajustes que sobraram (o certificado) moram numa folha própria atrás
+de "Ajustes avançados". As duas entram na tabela `POPUPS`.
 
-- **O operador fica no laço, nos dois caminhos.** Ler o QR é aprovar aquele id;
-  acertar o PIN põe a tela como **pendente** e quem a deixa entrar é um toque na
-  folha. Há um interruptor de aprovação automática **para a sessão**, que nasce
-  desligado e **não vale para o QR**. O token da sessão **nunca** viaja numa URL
-  — nem em `?t=`, nem em fragmento, nem no QR.
+- **O controle do operador é DERRUBAR, não aprovar.** Com a entrada imediata não
+  há o que aprovar — a pergunta que ele de fato faz durante um culto é "quem é
+  aquela tela, e como eu a tiro do ar?", e a lista responde as duas. Derrubar põe
+  a origem de castigo por dois minutos, senão a tela digita o código de novo e
+  volta em dois segundos. O token da sessão **nunca** viaja numa URL — nem em
+  `?t=`, nem em fragmento.
 - **Trocar de modo (imagem ⇄ vídeo) é desligar e ligar de novo**, e a folha diz
   isso em vez de fingir que é um interruptor: trocar a Surface de um
   `VirtualDisplay` ao vivo tem, nas palavras do AOSP, "efeito parecido com
@@ -1446,27 +1456,13 @@ app também fecha, pelo mesmo motivo pelo qual o push-to-talk fecha.
   Controle e telão e deixaria o espelho servindo o bundle ANTIGO, de um
   diretório que o `beginSession()` seguinte apaga. É o terceiro caso de
   `horaRuimParaAtualizar()`, ao lado de cena no ar e download em curso.
-- **E ele é o TERCEIRO DEGRAU de empilhamento** (v5.149). Ele abre de dentro da
-  folha do espelho (z-index 210), que abre de dentro de Configurações (200) — e
-  nasceu no 200 padrão, um degrau **abaixo** da folha que o abre. A folha cobria
-  a câmera por inteiro: o operador via o leitor "funcionando", com o indicador
-  de câmera do sistema aceso, e imagem nenhuma. É a mesma armadilha que o
-  `controle.css` já descrevia num comentário para o `#songMenuPopup` — e o
-  comentário não bastou, então a regra virou **asserção** em `tools/smoke.mjs`:
-  todo popup aninhado precisa de z-index maior que o do pai. O sintoma dessa
-  classe de defeito nunca é "está por baixo"; é "o toque não faz nada", e só
-  aparece em aparelho.
-- **O leitor de QR é TELA CHEIA e sem transform** (v5.146). A primeira versão
-  era uma caixa 4:3 dentro da folha comum, e ela falhou em aparelho de duas
-  formas ao mesmo tempo: pequena demais para mirar um código numa TV do outro
-  lado do salão, e **dentro de um `.popup-sheet`, que vive num
-  `transform: translateY(…)`** — um `<video>` de câmera sob um contêiner
-  transformado é caso conhecido de imagem que não aparece no WebView do Android.
-  A câmera acendia, a leitura rodava, e o operador olhava para um retângulo
-  preto sem ter como mirar. E como "visor preto" e "visor ainda carregando" são
-  a mesma tela, o app passou a **dizer qual dos dois é**: `videoWidth` só sai de
-  zero quando um quadro de verdade chegou, e depois de dois segundos sem isso a
-  linha de estado nomeia a falha.
+- **Todo popup aninhado precisa de z-index maior que o do pai**, e isso é
+  **asserção** em `tools/smoke.mjs`, não comentário (v5.149). O leitor de QR
+  nasceu um degrau ABAIXO da folha que o abria e ela cobria a câmera por
+  inteiro: o operador via o leitor "funcionando", com o indicador do sistema
+  aceso, e imagem nenhuma. O sintoma dessa classe de defeito nunca é "está por
+  baixo"; é "o toque não faz nada", e só aparece em aparelho. (O leitor saiu na
+  v5.185; a regra fica.)
 - **A TELA CONTA O QUE ESTÁ VENDO** (v5.146), pelo `alive` que já existia. Até
   aqui o Registro respondia só o que o SERVIDOR via de fora — bytes, descartes,
   último write —, e isso não distingue "está projetando" de "está num laço de
@@ -1506,7 +1502,7 @@ app também fecha, pelo mesmo motivo pelo qual o push-to-talk fecha.
   sabia dele iria procurar. São dois caminhos técnicos para UMA decisão do
   operador. Agora ele abre uma folha (`castPopup`, z-index 200) com os dois e a
   diferença dita — *a tela inteira do celular* × *só o telão, para navegadores*.
-  A folha do espelho (PIN, QR, certificado) continua existindo como **Ajustes**,
+  A folha do espelho (o certificado) continua existindo como **Ajustes**,
   aberta de dentro dela — e por isso o par `castPopup`/`mirrorPopup` entrou na
   asserção de empilhamento do `tools/smoke.mjs`.
 - **E AS DUAS TÊM FORMAS DIFERENTES, porque são coisas diferentes** (v5.184).
@@ -1875,7 +1871,7 @@ contextos.
 | Fullscreen da preview | `requestFullscreen` + Screen Orientation API | idem, com trava de paisagem **nativa** (`onShowCustomView`) |
 | Botões físicos de volume | o navegador não os recebe | **interceptados** e ligados ao fader do app (ver abaixo) |
 | Microfone (`getUserMedia`) | o navegador pergunta | `MicChromeClient` + permissão `RECORD_AUDIO` (ver abaixo) |
-| Câmera (`getUserMedia`) | o navegador pergunta | **`onPermissionRequest` no `ControleChromeClient` + `AVNative.requestCam()`** (v5.145, shell 33). Só o Controle, só `RESOURCE_VIDEO_CAPTURE`, só com a permissão `CAMERA` já concedida ao processo e só da própria origem — as MESMAS três regras do `MicChromeClient`, que o telão aplica ao áudio. Sem esse override o WebView **nega em silêncio**, e o único uso da câmera aqui (ler o QR do espelho) ficaria quebrado sem uma linha no console |
+| Câmera (`getUserMedia`) | o navegador pergunta | **negada, sempre** (v5.185). O único uso era o leitor de QR do espelho, que saiu com a permissão `CAMERA` do manifest. O `onPermissionRequest` do `ControleChromeClient` FICOU, negando explicitamente com log: um WebView sem ele nega **em silêncio**, e o próximo que precisar de mídia aqui descobriria a armadilha do zero, no aparelho, sem erro no console |
 | Botão voltar | — | **fecha o que estiver aberto** (popup, sub-tela, aba) e só então manda a tarefa para segundo plano (ver abaixo) |
 | Controles fora do app | — | **notificação + tela de bloqueio + botões de mídia** via `MediaSession` (ver seção acima) |
 | Download com o app minimizado | a aba continua baixando | **foreground service + wake lock** — sem isso o processo é congelado (ver seção acima) |
@@ -2241,10 +2237,10 @@ de densidade do espelho sem aparelho**.
 
 **E há um passo de JUnit no CI desde a v5.143:** `./gradlew testDebugUnitTest`,
 **sem `continue-on-error`**, antes do `assembleRelease`, cobrindo os arquivos
-PUROS do espelho (`app/src/test/.../EspelhoHttpTest.kt` e `EspelhoParesTest.kt`,
-mais `EspelhoMdnsPacoteTest.kt`): tetos do parser, `read()` parcial, `Host` fora
-da allowlist, `Origin` estranha, 404 uniforme, PIN, prazo, bloqueio por origem,
-teto de sessões e saneamento. **E a REGRA DA DERIVA DO SOM** desde a v5.185
+PUROS do espelho (`app/src/test/.../EspelhoHttpTest.kt` e
+`EspelhoParesTest.kt`): tetos do parser, `read()` parcial, `Host` fora da
+allowlist, `Origin` estranha, 404 uniforme, o código de três dígitos, prazo,
+bloqueio CRESCENTE por origem, teto de sessões e saneamento. **E a REGRA DA DERIVA DO SOM** desde a v5.185
 (`EspelhoAudioTest.kt`, sobre `EspelhoAudio.planoDeCorrecao`): o resto daquele
 arquivo é `MediaCodec` e threads e não cabe num teste de unidade, mas a regra é
 aritmética — e é ela que decide se a tela da rede fica com som ou fica muda pelo
@@ -2465,11 +2461,60 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.185** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
+**Versão atual: v5.186** (base web) · `SHELL_VERSION` **36**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
+> **A v5.186 (v1.85): A ENTRADA VIRA UM CÓDIGO DE TRÊS DÍGITOS, e o `av.local`
+> sai. EXIGE APK — é a maior remoção de superfície da história do projeto.**
+>
+> O pedido do operador, literalmente: *"vamos remover o uso do endereço com o
+> localhost, vamos usar apenas o endereço que usa IP. Vamos usar o sistema de
+> código na página web, um código de 3 dígitos, gerado quando se ativa a
+> disponibilidade online. E na web, teremos apenas o campo de digitar o código e
+> o botão de Conectar, pois assim o botão de conectar já vai fazer a função de
+> liberar o áudio e colocar em tela cheia."*
+>
+> **A última frase é a que governa tudo o mais.** `requestFullscreen()` e sair do
+> `muted` exigem *ativação transitória do usuário*, e um gesto vale por poucos
+> segundos. Para o botão "Conectar" fazer as três coisas, ele precisa gastar o
+> gesto ANTES de a rede responder — e isso torna impossível qualquer fila de
+> aprovação: quando o operador aprovasse, o gesto já teria passado, e a tela
+> entraria muda e em janela, com alguém tendo de atravessar o salão para tocar
+> nela. Daí a cascata de remoções, e nenhuma delas é oportunismo:
+>
+> - **a fila de aprovação** (`Pendencia`, `aprovar`, `recusar`, `consultar`,
+>   `pendentes`, a aprovação automática) — código certo ENTRA, na mesma
+>   resposta;
+> - **a porta aberta da v5.170** (`entrarAberto`) — agora há um código, e ele é
+>   exigido; isto é mais forte que a v5.170, não mais fraco;
+> - **o pareamento por QR inteiro** (`esperaQr`, `espelho/qr.js`,
+>   `tools/qr.test.mjs`, o leitor de câmera do Controle, `AVNative.requestCam` e
+>   a permissão `CAMERA` do manifest) — ele existia para INVERTER quem mostra e
+>   quem lê o segredo, e a inversão perdeu a razão de ser quando o segredo virou
+>   três dígitos que a TELA digita;
+> - **o responder mDNS** (`EspelhoMdns.kt`, `EspelhoMdnsPacote.kt` e o JUnit
+>   dele) — `av.local` não resolve no Chrome do Android nem na maioria das Smart
+>   TVs, que são exatamente as telas deste recurso, então o IP sempre foi o
+>   endereço que de fato funcionava.
+>
+> **O que SUSTENTA três dígitos não é o tamanho, é o bloqueio CRESCENTE** por
+> origem: 60 s dobrando a cada bloqueio novo, até 30 min. Com um minuto fixo,
+> mil combinações saem numa tarde; dobrando, a sétima rodada custa mais que o
+> culto. O contador de bloqueios **não zera quando o bloqueio vence** (quem
+> esperou e voltou a martelar é quem a rodada seguinte precisa segurar), e zera
+> inteiro na primeira tentativa CERTA. Mais o teto de três sessões, mais o fato
+> de o conteúdo ser o que a congregação já está vendo.
+>
+> **`CHANGE_WIFI_MULTICAST_STATE` FICA no manifest mesmo sem o mDNS**, e isso
+> precisa estar escrito porque a leitura natural é o contrário: quem a exige não
+> é o multicast, é o TIPO do serviço em primeiro plano (`connectedDevice`).
+> Removê-la faz `startForeground` lançar e derruba o app no instante em que o
+> operador liga a transmissão.
+>
+> `SHELL_VERSION` vai a **36** — o primeiro degrau deste contrato que ENCOLHE.
+>
 > **A v5.185 (v1.84): O EIXO DO SOM ERA UM LAÇO ABERTO — "o som fica para trás,
 > a imagem continua, a tela fica sem áudio". METADE APK.** As três frases do
 > relato não são três sintomas: são a sequência inteira de um defeito só, e a
@@ -3117,7 +3162,11 @@ controles), que **só chegam instalando o APK novo**, não pelo OTA.
 > ele que deixa o ▶ repetir o item, e quem responde "há algo no telão?" é
 > `midiaNoAr`. OTA puro.
 >
-> **A v5.164 dá um NOME ao espelho: `av.local`.** Dois arquivos novos —
+> **A v5.164 dá um NOME ao espelho: `av.local`. REVOGADA na v5.185** — o
+> responder inteiro saiu, porque `.local` não resolve no Chrome do Android nem
+> na maioria das Smart TVs, que são exatamente as telas deste recurso. O texto
+> abaixo fica pelo que ele ensina (a allowlist de `Host`, o `MulticastLock`, o
+> porquê de o `NsdManager` não servir). Dois arquivos novos —
 > `EspelhoMdnsPacote.kt` (**puro**, com JUnit, porque é o segundo ponto do
 > projeto que aceita bytes de um desconhecido, e aqui um erro vira **laço
 > infinito**: ponteiro de compressão de DNS é um grafo) e `EspelhoMdns.kt` (o

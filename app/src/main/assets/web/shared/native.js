@@ -528,7 +528,7 @@
     //
     // Num shell antigo os dois resolvem o desfecho INOFENSIVO em vez de lançar:
     // quem chama é uma linha de Configurações, e um `throw` ali deixaria a tela
-    // sem a versão web também. Mesma regra do `requestCam`.
+    // sem a versão web também.
     apkProcurar: () => call((id) => B.apkProcurar(id), CALL_TIMEOUT_MS).catch(() => ({})),
 
     // BAIXA e abre o instalador do sistema. `''` = deu certo; qualquer outra
@@ -644,11 +644,17 @@
     espelhoDesligar() { try { B.espelhoDesligar(); } catch (_) { /* shell antigo */ } },
     espelhoEstado: () => call((id) => B.espelhoEstado(id), CALL_TIMEOUT_MS),
     espelhoDiag: () => call((id) => B.espelhoDiag(id), CALL_TIMEOUT_MS),
-    // `idPendente` vazio (ou '*') é a chave da APROVAÇÃO AUTOMÁTICA da sessão,
-    // e `sim` é o valor dela — é o mesmo método porque é a mesma decisão do
-    // operador: quem entra nesta tela.
-    espelhoAprovar: (idPendente, sim) => call(
-      (id) => B.espelhoAprovar(id, String(idPendente || ''), !!sim), CALL_TIMEOUT_MS,
+    // DERRUBAR UMA TELA — e desde o shell 36 é a única coisa que este método
+    // faz. Ele nasceu como "o operador decide sobre uma tela pendente" e teve
+    // três significados empilhados (aprovar, recusar, e o `'*'` da aprovação
+    // automática); os três morreram com a fila, porque quem digita o código
+    // certo entra na hora e não há o que aprovar.
+    //
+    // `rotulo` é o da tela ("tela B"), que é o único identificador que a folha
+    // do operador tem. O segundo argumento fica na assinatura e é IGNORADO pelo
+    // shell: mudá-la custaria outro degrau de `SHELL_VERSION` sem ganhar nada.
+    espelhoDerrubar: (rotulo) => call(
+      (id) => B.espelhoAprovar(id, String(rotulo || ''), false), CALL_TIMEOUT_MS,
     ).then((r) => r === true),
 
     // O CERTIFICADO do espelho (shell 34) — o degrau opcional de TLS. Ver
@@ -690,7 +696,6 @@
     // SEM PRAZO, como o `pickFolder` e o `requestMic`: quem responde é uma
     // PESSOA num diálogo do sistema, e um timeout de 60 s resolveria `false`
     // com o operador ainda lendo a pergunta.
-    requestCam: () => call((id) => B.requestCam(id)).then((r) => r === true),
 
     // Downloads em andamento: sem isto o Android congela o processo quando o
     // app é minimizado e a sincronização para no meio — justamente o que
