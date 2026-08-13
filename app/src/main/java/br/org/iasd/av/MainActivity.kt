@@ -1563,18 +1563,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
         /** `Build.MANUFACTURER`/`Build.BRAND` de um aparelho Samsung. */
         private const val SAMSUNG_VENDOR = "samsung"
 
-        /**
-         * Bitrate do espelho, normal e com o aparelho quente.
-         *
-         * A degradação térmica mexe em BITRATE e taxa de quadros, **nunca em
-         * resolução**: a resolução define a densidade da tela virtual, a
-         * densidade define o viewport CSS, e o viewport define onde a estrofe
-         * quebra. Degradar por resolução refluiria o layout do telão na frente
-         * da congregação — que é exatamente o que ninguém pediu ao reclamar de
-         * calor.
-         */
-        private const val BITRATE_NORMAL = 3_000_000
-        private const val BITRATE_QUENTE = 1_200_000
         /** Pacotes do Smart View conhecidos (varia por versão do One UI). */
         private val SAMSUNG_MIRROR_PACKAGES = listOf(
             "com.samsung.android.smartmirroring",

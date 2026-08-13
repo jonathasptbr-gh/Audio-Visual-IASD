@@ -1,3 +1,15 @@
+> **DOCUMENTO APOSENTADO (v5.187 / v1.86).** O espelho de pixels foi
+> SUBSTITUÍDO pelo **telão por comandos** — as telas da rede rodam o próprio
+> `/web/display/` servido pelo celular e recebem os COMANDOS do barramento por
+> SSE, com a mídia servida sob demanda com Range. A especificação viva é
+> [`docs/TELAO-POR-COMANDOS.md`](TELAO-POR-COMANDOS.md).
+>
+> Este arquivo fica como registro histórico: o apêndice §10-A (a tabela de
+> defeitos do pipeline de pixels — poda, GOP, IDR, deriva de áudio, borda
+> viva) é o argumento documentado da substituição, e as invariantes de REDE
+> daqui (bind à Wi-Fi, allowlist de `Host`, teto de sessões, mic nunca sai,
+> token nunca em URL) continuam valendo no transporte novo, uma a uma.
+
 # ESPELHO DE PIXELS — especificação de implementação
 
 > **Estado:** especificação fechada. Nada implementado. **Substitui**

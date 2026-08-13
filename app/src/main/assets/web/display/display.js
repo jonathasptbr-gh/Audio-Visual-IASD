@@ -35,7 +35,6 @@ const INSTANCIA = 'd' + Math.random().toString(36).slice(2, 10).padEnd(8, '0');
 // verdade também, então tudo o que ela guarda é código morto nos dois casos —
 // que é exatamente a regra de escrita do projeto: o comportamento de sempre é
 // o padrão, o novo é a exceção que se declara.
-const ESPELHO = window.__AV_ROLE__ === 'espelho';
 
 // O quarto papel (telão por comandos, docs/TELAO-POR-COMANDOS.md): este MESMO
 // documento rodando num navegador da LAN, servido pelo celular, com os
@@ -158,7 +157,7 @@ const stage = createStage({
   // o som é OPT-IN por tela (invariante 10 do espelho, que sobrevive à troca
   // de transporte), e quem o liga é o gesto do visitante — o botão de
   // conectar do tela.js, que chama o gancho `__telaSom` logo abaixo.
-  forceMuted: ESPELHO || TELA,
+  forceMuted: TELA,
   onTime: sendStatus,
   // O TELÃO NÃO RECUPERA SOZINHO uma transmissão que falhou, e não é omissão:
   // ele não tem a ponte (`host = null`, ver NativeBridge) para pedir um
@@ -627,7 +626,6 @@ async function startMic() {
   // Ou seja: o espelho APAGARIA o estado do microfone real, no meio de um
   // push-to-talk. Sair antes de qualquer status é o que mantém o telão dono
   // dessa informação.
-  if (ESPELHO) { diag('mic ignorado (espelho)'); return; }
   const seq = ++micSeq;
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     micStatus(false, 'unsupported');
@@ -933,7 +931,7 @@ function ytSafeCall(fn) { try { fn(); } catch (_) {} }
 // três caminhos que desmutam (`onPlayerReady`, o comando `mute` e o botão
 // "Ligar Sistema"), e três cópias divergiriam no primeiro caminho novo.
 function ytAplicarMudo(p) {
-  if (ESPELHO || (yt && yt.muted)) ytSafeCall(() => p.mute());
+  if (yt && yt.muted) ytSafeCall(() => p.mute());
   else ytSafeCall(() => p.unMute());
 }
 
@@ -1397,11 +1395,6 @@ function ytHandle(cmd) {
         cur.muteApplyTimer = setTimeout(() => {
           if (yt === cur && cur.muted) ytSafeCall(() => cur.player.mute());
         }, MUTE_RAMP_TIME * 1000);
-      } else if (ESPELHO) {
-        // No espelho o operador pode desmutar à vontade: o embed continua mudo
-        // (ver ytAplicarMudo). O estado é aceito para o `display-status` não
-        // mentir ao Controle; o que não acontece é o som.
-        ytSafeCall(() => p.mute());
       } else {
         ytSafeCall(() => p.unMute());
         ytRampVolume(0, cur.volume, MUTE_RAMP_TIME);
@@ -1749,439 +1742,14 @@ startBtnEl.addEventListener('click', () => {
 // no PRÓXIMO lançamento — justamente para nunca recarregar o WebView do telão
 // no meio de um culto.
 
-// ===== O ÁUDIO DO ESPELHO DE PIXELS =====
+// ===== O papel `espelho` (o ESPELHO DE PIXELS) foi REMOVIDO (E7) =====
 //
-// Ver docs/ESPELHO-DE-PIXELS.md §3.9 e o KDoc de `EspelhoAudio.kt`, que é o
-// outro lado exato deste bloco.
-//
-// ## A observação que destrava tudo
-//
-// Este WebView JÁ É CONTEXTO SEGURO — ele carrega
-// `https://appassets.androidplatform.net/` (invariante 1 do projeto), então
-// `AudioWorklet`, que é `[SecureContext]`, existe aqui dentro **mesmo com o
-// cliente da rede em `http://`**. É o princípio geral do recurso: tudo o que
-// precisa de contexto seguro pode ser movido para DENTRO do WebView; só o que
-// obrigatoriamente roda no navegador do visitante fica preso ao piso `http://`.
-//
-// ## O grafo, e por que ele tem dois ganhos zerados
-//
-//   <video> ─createMediaElementSource()─┬─ Gain(0) ──────────────→ destination
-//                                       └─ AudioWorkletNode ─ Gain(0) → destination
-//                                             │ postMessage(Int16, ~40 ms)
-//                                             ↓ __avEspelhoAudio  (addWebMessageListener)
-//                                        MediaCodec AAC-LC 96 kbps → 2ª SourceBuffer do cliente
-//
-// O que tira o som do SALÃO não é `video.muted` — é o próprio ROTEAMENTO:
-// criado o `MediaElementAudioSourceNode`, o áudio do elemento passa a existir
-// só dentro do grafo, e os dois ganhos em zero fecham a saída. Mutar o
-// elemento seria pior que inútil, porque zeraria TAMBÉM o que entra no grafo,
-// e aí a rede receberia silêncio (é por isso que o `forceMuted` inicial é
-// LIBERADO no fim deste bloco, e não mantido).
-//
-// O segundo `Gain(0)` — o do worklet — parece decorativo e não é. A spec do
-// Web Audio cobre explicitamente o caso de ENTRADA desconectada e **não** cobre
-// o de SAÍDA desconectada (`WebAudio/web-audio-api#2566`, aberto: *"the spec
-// text doesn't cover the case of unconnected output"*), e o comportamento do
-// Chrome depende do retorno de `process()` combinado com o estado do nó. Um nó
-// folha é a armadilha clássica do velho `ScriptProcessorNode`, e o modo de
-// falhar é **zero áudio na rede, sem exceção, sem log, com o grafo
-// aparentemente saudável** — a assinatura que este projeto trata como a pior de
-// todas. Um `GainNode(0)` custa nada e faz a pergunta nunca ser feita.
-//
-// ## E por que blocos de ~40 ms
-//
-// `WebViewCompat.WebMessageListener.onPostMessage` é anotado `@UiThread`, e o
-// `AudioWorklet` processa em quanta de 128 amostras (~2,7 ms a 48 kHz): um
-// `postMessage` por quantum seriam ~375 mensagens por segundo entregues na MAIN
-// THREAD do processo que hospeda o Controle *e* a `Presentation` na TV, cada
-// uma pagando JNI, alocação e GC. Acumulando ~40 ms e já convertendo para
-// Int16 dentro do worklet, são ~25 msg/s e metade dos bytes — e a conversão sai
-// da main thread de brinde. Grande demais não serve pelo motivo oposto:
-// latência e um `TETO_BLOCO` de 64 kB do outro lado.
-const ESPELHO_BLOCO_MS = 40;
-const ESPELHO_CANAL_ESPERA_MS = 250;
-const ESPELHO_CANAL_TENTATIVAS = 60;  // ~15 s
-const ESPELHO_HANDSHAKE_MS = 5000;
-
-// O worklet, como TEXTO, virando um módulo por `blob:`.
-//
-// `addModule` só aceita URL, e um arquivo separado seria um segundo lugar para
-// esta lógica envelhecer — além de mais um asset para o OTA e para o CI
-// conhecerem. Um `blob:` HERDA a origem do documento, então o módulo continua
-// same-origin e o contexto seguro vale para ele igual.
-//
-// Ele converte para Int16 little-endian INTERCALADO (o formato que o
-// `EspelhoAudio.aoReceberPcm` espera) e transfere o `ArrayBuffer` em vez de
-// copiá-lo — o buffer sai do worklet e nunca mais é tocado aqui.
-const ESPELHO_WORKLET = `
-class ColetorPcm extends AudioWorkletProcessor {
-  constructor(opts) {
-    super();
-    const o = (opts && opts.processorOptions) || {};
-    this.canais = o.canais || 2;
-    // Capacidade em AMOSTRAS Int16: quadros × canais.
-    this.buf = new Int16Array((o.quadros || 1920) * this.canais);
-    this.escrito = 0;
-  }
-  process(entradas) {
-    const ent = entradas[0];
-    // Sem entrada ligada ainda: seguir VIVO. Devolver false aqui mataria o nó
-    // para sempre, e o defeito seria justamente o silêncio silencioso.
-    if (!ent || !ent.length || !ent[0]) return true;
-    const n = ent[0].length;
-    for (let i = 0; i < n; i++) {
-      for (let c = 0; c < this.canais; c++) {
-        const faixa = ent[c] || ent[0];
-        let v = faixa[i];
-        // Satura em vez de estourar, e NaN vira zero: um único valor fora da
-        // faixa vira estalo na caixa de som do templo depois do AAC.
-        if (v > 1) v = 1;
-        else if (v < -1) v = -1;
-        else if (!(v === v)) v = 0;
-        // Assimétrico de propósito: o fundo de escala negativo do Int16 é
-        // -32768 e o positivo é +32767.
-        this.buf[this.escrito++] = v < 0 ? v * 32768 : v * 32767;
-      }
-      if (this.escrito >= this.buf.length) this.despejar();
-    }
-    return true;
-  }
-  despejar() {
-    if (!this.escrito) return;
-    const fatia = this.buf.slice(0, this.escrito);
-    this.escrito = 0;
-    this.port.postMessage(fatia.buffer, [fatia.buffer]);
-  }
-}
-registerProcessor('av-espelho-pcm', ColetorPcm);
-`;
-
-let espelhoAudioLigado = false;
-
-// O canal pode não existir AINDA. O Kotlin instala o `__avEspelhoAudio` antes
-// de a página carregar, mas numa remontagem do WebView (morte de renderer, que
-// neste processo é evento conhecido) a ordem entre `instalar()` e o
-// `/display/` que renasce não é garantida. Esperar por ele é o que faz o
-// espelho REARMAR sozinho depois de um renderer morto — sem isso, a página
-// voltaria muda para sempre e ninguém saberia por quê.
-function espelhoEsperarCanal() {
-  return new Promise((resolve) => {
-    let tentativas = 0;
-    (function olhar() {
-      const c = window.__avEspelhoAudio;
-      if (c && typeof c.postMessage === 'function') return resolve(c);
-      if (++tentativas >= ESPELHO_CANAL_TENTATIVAS) return resolve(null);
-      setTimeout(olhar, ESPELHO_CANAL_ESPERA_MS);
-    })();
-  });
-}
-
-// O HANDSHAKE. É ele que decide se o salão vai deixar de ser a saída deste
-// documento: a resposta `{"ok":true}` do Kotlin é a ÚNICA coisa que libera o
-// `forceMuted`. Sem resposta (encoder que não subiu, canal que caiu, WebView
-// sem `ArrayBuffer` neste transporte), o prazo vence e o espelho fica mudo.
-function espelhoPedirEncoder(canal, sr, ch) {
-  return new Promise((resolve) => {
-    let respondido = false;
-    const fechar = (r) => {
-      if (respondido) return;
-      respondido = true;
-      try { canal.removeEventListener('message', ouvir); } catch (_) { canal.onmessage = null; }
-      resolve(r);
-    };
-    const ouvir = (ev) => {
-      let r = null;
-      try { r = JSON.parse(String((ev && ev.data) || '')); } catch (_) { return; }
-      fechar(r);
-    };
-    // O ouvinte ENTRA ANTES do envio: o Kotlin responde de dentro do próprio
-    // `onPostMessage`, e uma resposta que chegasse antes do listener existir
-    // seria perdida — e o desfecho disso é o espelho mudo por um prazo que
-    // nunca precisou existir.
-    try { canal.addEventListener('message', ouvir); } catch (_) { canal.onmessage = ouvir; }
-    setTimeout(() => fechar(null), ESPELHO_HANDSHAKE_MS);
-    try { canal.postMessage(JSON.stringify({ sr, ch })); } catch (_) { fechar(null); }
-  });
-}
-
-async function espelhoAudioIniciar() {
-  // Papel `display` e navegador comum: nada acontece aqui, nunca.
-  if (!ESPELHO || espelhoAudioLigado) return;
-
-  const canal = await espelhoEsperarCanal();
-  if (!canal) { diag('espelho-audio: canal ausente'); return; }
-
-  try {
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (!Ctx) { diag('espelho-audio: sem AudioContext'); return; }
-    const ctx = new Ctx();
-    // Um contexto suspenso não PUXA o grafo: sem `process()` não há PCM, e o
-    // sintoma é o mesmo do nó folha — tudo saudável, nada saindo.
-    try { await ctx.resume(); } catch (_) { /* segue e o statechange reporta */ }
-    if (!ctx.audioWorklet) { diag('espelho-audio: sem AudioWorklet'); return; }
-
-    // PORTA DE MÃO ÚNICA, e por isso UMA VEZ por carregamento, aqui — nunca
-    // por `load`: a segunda chamada no mesmo elemento lança `InvalidStateError`.
-    // Isso só é viável porque `shared/stage.js` NUNCA faz `createElement`: ele
-    // usa o único `#video` de `display/index.html`, que é o `videoEl` do topo
-    // deste arquivo.
-    const fonte = ctx.createMediaElementSource(videoEl);
-
-    const saidaDireta = ctx.createGain();
-    saidaDireta.gain.value = 0;
-    fonte.connect(saidaDireta).connect(ctx.destination);
-
-    const url = URL.createObjectURL(new Blob([ESPELHO_WORKLET], { type: 'text/javascript' }));
-    try { await ctx.audioWorklet.addModule(url); } finally { URL.revokeObjectURL(url); }
-
-    // 1 ou 2 canais: é o que o AAC do outro lado aceita (`ligarEncoder` recusa
-    // o resto com texto, em vez de configurar e não emitir nada).
-    const canais = Math.min(2, Math.max(1, ctx.destination.channelCount || 2));
-    // Múltiplo de 128 (o quantum do worklet) mais próximo de 40 ms — a 48 kHz
-    // dá 1920 exato; a 44,1 kHz, 1792 (~40,6 ms).
-    const quadros = Math.max(128, Math.round((ctx.sampleRate * ESPELHO_BLOCO_MS / 1000) / 128) * 128);
-
-    const no = new AudioWorkletNode(ctx, 'av-espelho-pcm', {
-      numberOfInputs: 1,
-      numberOfOutputs: 1,
-      outputChannelCount: [canais],
-      // `explicit` para o worklet receber SEMPRE o número de canais que foi
-      // anunciado ao encoder. No modo padrão (`max`) uma mídia mono faria
-      // `entradas[0]` chegar com um canal só, e o intercalado sairia com
-      // metade dos quadros — o áudio na rede tocaria no dobro da velocidade.
-      channelCount: canais,
-      channelCountMode: 'explicit',
-      channelInterpretation: 'speakers',
-      processorOptions: { canais, quadros },
-    });
-
-    const saidaWorklet = ctx.createGain();
-    saidaWorklet.gain.value = 0;
-    fonte.connect(no).connect(saidaWorklet).connect(ctx.destination);
-
-    // O ouvinte entra ANTES do handshake, mas com a tranca fechada: o worklet
-    // começa a produzir no instante em que é conectado, e uma `MessagePort`
-    // ENFILEIRA o que chega antes de `onmessage` existir. Sem a tranca, os
-    // segundos de PCM acumulados durante o handshake sairiam todos de uma vez
-    // assim que ele terminasse — um atraso permanente entre o áudio e o vídeo,
-    // logo na abertura.
-    let liberado = false;
-    no.port.onmessage = (ev) => {
-      if (!liberado) return;
-      const buf = ev.data;
-      if (!buf || !buf.byteLength) return;
-      try { canal.postMessage(buf); } catch (_) { /* canal caiu: o Kotlin já parou */ }
-    };
-
-    const resp = await espelhoPedirEncoder(canal, Math.round(ctx.sampleRate), canais);
-    if (!resp || resp.ok !== true) {
-      diag('espelho-audio: encoder recusou', { erro: (resp && resp.erro) || 'sem resposta' });
-      return; // MUDO — a falha segura
-    }
-
-    liberado = true;
-    espelhoAudioLigado = true;
-
-    // Um contexto que volte a `suspended` depois de um `resume()` bem-sucedido
-    // deixa o espelho mudo no salão E na rede ao mesmo tempo — e em silêncio.
-    // Aqui ele vira uma linha do diário e uma tentativa de voltar.
-    ctx.addEventListener('statechange', () => {
-      diag('espelho-audio: contexto ' + ctx.state);
-      if (ctx.state === 'suspended') { try { ctx.resume(); } catch (_) {} }
-    });
-
-    // E SÓ AGORA o som deixa de ser barrado no elemento. A partir daqui o
-    // áudio existe só dentro do grafo (os dois ganhos estão em zero), então o
-    // salão continua em silêncio — quem o mantinha mudo até este ponto era o
-    // `forceMuted`, que também barrava a entrada do grafo.
-    stage.setForceMuted(false);
-    diag('espelho-audio: no ar', { sr: Math.round(ctx.sampleRate), ch: canais, quadros });
-  } catch (e) {
-    // Qualquer tropeço deixa o `forceMuted` como está: mudo.
-    diag('espelho-audio: falhou', { erro: String((e && e.message) || e) });
-  }
-}
-
-// NÃO se manda `{"fim":true}` no `pagehide`, e a omissão é deliberada: numa
-// remontagem do WebView o encoder do Kotlin continua de pé, e a página que
-// renasce reconfigura com a MESMA taxa e o mesmo número de canais — caso em que
-// `ligarEncoder` devolve `ok` sem reiniciar o encoder. Soltar aqui trocaria uma
-// recuperação transparente por um corte. O `fim` é do operador fechando o
-// espelho, e quem o dá é o lado Kotlin.
-//
-// O QUE MUDOU NA v5.181: aquele caminho **reancora o eixo do som**, e é ele que
-// consertava. Este comentário dizia que ele "preservava o eixo de tempo do
-// áudio", e preservava mesmo — só que o eixo do áudio é CONTAGEM DE AMOSTRAS e
-// não anda sem PCM, enquanto o do vídeo é relógio e anda sozinho. Preservá-lo
-// através de uma remontagem era, portanto, guardar uma defasagem permanente do
-// tamanho do buraco — que ACUMULA e acaba deixando a tela muda. Ver o KDoc de
-// `EspelhoAudio.ligarEncoder`.
-espelhoAudioIniciar();
-
-// ---------- O BATIMENTO DO ESPELHO ----------
-//
-// Um `VirtualDisplay` só produz buffer quando algum PIXEL MUDA. E o estado
-// normal de um telão de igreja é imagem PARADA: uma estrofe projetada por três
-// minutos, um versículo durante a pregação, o cronômetro entre dois segundos.
-// Sem nada mudando, o encoder fica minutos sem emitir um quadro — e do lado do
-// cliente isso é uma `SourceBuffer` que para de receber: o `<video>` esgota o
-// buffer, o `currentTime` congela, e a tela do coral fica mostrando o último
-// quadro sem que ninguém saiba se aquilo é a cena ou um travamento.
-//
-// A especificação chegou a atribuir isso ao `KEY_REPEAT_PREVIOUS_FRAME_AFTER`
-// do `MediaCodec`. Duas correções desfizeram esse caminho: a chave é `long` (um
-// `setInteger` nem chega a ligá-la) e, mesmo ligada, ela **repete uma vez** —
-// não é piso de quadros. O conserto tinha de morar aqui, no lado que sabe o que
-// está em cena, e vem de graça por OTA.
-//
-// UM PIXEL, alternando entre dois pretos quase iguais. É a menor mudança que o
-// compositor reconhece como quadro novo, e a diferença é imperceptível num
-// telão — mas ela é REAL, e é isso que importa: `#000` para `#000` não muda
-// nada e não gera quadro.
-//
-// ## 125 ms (8 Hz), e NÃO 1 s — o número que estava errado
-//
-// A 1 Hz o espelho chegava ao navegador da rede, e chegava TRAVANDO. O motivo
-// não é o batimento existir: é que **este intervalo é a granularidade da linha
-// do tempo INTEIRA do recurso**, e a 1 s ele empurra três coisas ao mesmo
-// tempo, todas fora deste arquivo:
-//
-//  1. **A duração de cada amostra do fMP4 é MEDIDA entre dois quadros
-//     consecutivos** (o "atraso de um quadro" do `espelho/fmp4.js`, achado D3 da
-//     especificação: o fragmento de N só é emitido quando N+1 chega, para a
-//     duração ser medição e não palpite). Numa cena parada — o estado NORMAL de
-//     um telão de igreja — quem produz os quadros é este batimento e mais
-//     ninguém, então a 1 Hz cada amostra dura 1 s **e chega 1 s atrasada**. O
-//     `<video>` do cliente consome 1 s de mídia por segundo de relógio contra
-//     uma fonte que entrega 1 s de mídia a cada 1 s: a margem é ZERO por
-//     construção, e todo soluço de rede, de GC ou de encoder vira um `waiting`
-//     de até um segundo — o travamento relatado. A 8 Hz a mesma margem zero
-//     custa 125 ms, que é abaixo do que se lê como travada, e o cliente ainda
-//     pode segurar dois ou três quadros de folga continuando "ao vivo".
-//  2. **A âncora do ÁUDIO é o carimbo do último quadro de vídeo**
-//     (`EspelhoAudio.ptsAgora` → `EspelhoCodec.ultimoCarimbo`), escolhida uma
-//     vez e **nunca reancorada** de propósito. O KDoc de lá orça o erro em "um
-//     intervalo de quadro (~33 ms)" — verdade com vídeo tocando, e falso numa
-//     cena parada, onde o intervalo era 1 s. Ligar o áudio com uma estrofe
-//     projetada podia nascer com até um segundo de desvio permanente entre voz
-//     e imagem: a desincronia relatada. A 8 Hz o mesmo erro é de 125 ms.
-//  3. **O que a fila do servidor descarta** e o "último write há N s" do
-//     Registro passam a ter resolução de 125 ms em vez de 1 s.
-//
-// ## O custo, com o número medido do aparelho
-//
-// Cada batida é UM P-frame cujo único macrobloco alterado é o do pulso; todo o
-// resto do quadro é `skip`, que o CABAC codifica como corrida — dezenas a
-// poucas centenas de bytes. Os sete quadros a mais por segundo custam da ordem
-// de 2 a 20 kbps. Medido no aparelho, uma cena PARADA já rodava a **156 kbps**
-// com 1,2 fps: a banda estava sendo comida pelos quadros-chave periódicos e
-// pelo conteúdo, não pelo batimento. Ou seja, subir a cadência oito vezes é
-// ruído no orçamento de rede e paga o recurso inteiro — e a conta pode ser
-// refeita a qualquer momento pela linha "ritmo" do Registro, que agora separa o
-// kbps dos quadros-chave do resto.
-//
-// ## Por que não 30 Hz
-//
-// Porque 125 ms já está abaixo do limiar de percepção de travamento e o jitter
-// de um AP de igreja é maior que a diferença; e porque cada batida é um passe
-// completo de codificação de 1280×720 sobre um quadro que não mudou. 8 Hz
-// mantém o encoder ocioso 27 de cada 30 quadros; 30 Hz o deixa em regime de
-// vídeo o culto inteiro, com o telão parado.
-//
-// A justificativa original ("o wake lock do `<video>` cai no stall") é FALSA e
-// não voltou: o Chromium só limpa `playing_` em `pause` e `emptied`, não em
-// `waiting`. O batimento vale pelo resto — a granularidade acima, dar um quadro
-// recente a quem conectar no meio de uma cena parada, e fazer o "sem conexão há
-// N s" do diagnóstico significar alguma coisa.
-//
-// **Acoplado ao `REPETIR_APOS_US` do `EspelhoCodec.kt`** (a repetição de quadro
-// do `MediaCodec`), que é a rede de segurança para quando ESTE timer for
-// estrangulado: lá o valor é quatro batidas, para nunca correr junto com o
-// batimento normal e ainda assim destravar rápido o quadro pendente no muxer.
-// Mexeu aqui, leia o companion de lá.
-const ESPELHO_BATIMENTO_MS = 125;
-if (ESPELHO) {
-  const pulso = document.createElement('div');
-  // Fora de qualquer fluxo, acima de tudo, e do tamanho de um pixel: ele não
-  // pode empurrar layout nem aparecer sobre a projeção. `pointer-events: none`
-  // porque o telão não recebe toque, mas um elemento no topo do `z-index` que
-  // engolisse um clique seria o tipo de coisa que ninguém liga à causa.
-  pulso.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;'
-    + 'z-index:2147483647;pointer-events:none;background:#000';
-  document.body.appendChild(pulso);
-  let claro = false;
-
-  // O BATIMENTO CEDE A VEZ AO CONTEÚDO — e isso é uma correção, não economia.
-  //
-  // Ele nasceu incondicional, e num vídeo de verdade passou a competir com o
-  // conteúdo: 8 batidas por segundo em FASE ALEATÓRIA contra 30 quadros por
-  // segundo, cada batida forçando uma recomposição do SurfaceFlinger fora do
-  // ritmo do `<video>`. O encoder passa a receber quadros em intervalos
-  // irregulares, o carimbo de tempo dos fragmentos herda esse jitter, e do
-  // outro lado da rede o cliente o mede como quadro descartado — os 7% que o
-  // Registro do primeiro culto mostrou.
-  //
-  // A pergunta certa não é "está tocando?" (um vídeo pausado mostra um quadro
-  // congelado e PRECISA do batimento; um `<video>` de áudio com wallpaper
-  // também) — é "alguém já pintou um quadro há pouco?". `requestVideoFrameCallback`
-  // dispara uma vez por quadro que o compositor de fato apresentou, que é
-  // exatamente a medida procurada, e ele se corrige sozinho: o instante em que o
-  // conteúdo para, o batimento volta na batida seguinte.
-  //
-  // Sem `rVFC` (navegador antigo) a pergunta vira a aproximação honesta —
-  // tocando, com imagem e com dado —, que erra só para o lado de bater a mais.
-  let ultimoQuadroConteudo = 0;
-  const temRvfc = videoEl && typeof videoEl.requestVideoFrameCallback === 'function';
-  if (temRvfc) {
-    const marcar = () => {
-      ultimoQuadroConteudo = Date.now();
-      try { videoEl.requestVideoFrameCallback(marcar); } catch (_) {}
-    };
-    try { videoEl.requestVideoFrameCallback(marcar); } catch (_) {}
-  }
-  const conteudoAnda = () => {
-    if (temRvfc) return Date.now() - ultimoQuadroConteudo < ESPELHO_BATIMENTO_MS;
-    return !!videoEl && !videoEl.paused && !videoEl.ended
-      && (videoEl.videoWidth | 0) > 0 && (videoEl.readyState | 0) >= 2;
-  };
-
-  // O BATIMENTO NUNCA PARA — ele DIMINUI. E esta é uma correção da v5.157.
-  //
-  // Aquela versão fez o batimento CEDER A VEZ ao conteúdo, e o ganho era real
-  // (quadros descartados de 7% para 1,6%). Mas ela transformou um PISO em uma
-  // condição — e um piso com condição não é piso.
-  //
-  // O que quebrou, medido em aparelho: `requestVideoFrameCallback` dispara por
-  // quadro que o ELEMENTO apresenta, não por mudança na TELA VIRTUAL. Um vídeo
-  // tocando por baixo da cortina, do wallpaper ou da Camada de Texto (a cena
-  // "Sorteio" do relato) continua apresentando quadros que não mudam um pixel
-  // do que vai ao encoder. O batimento se cala, nada mais compõe, e o Registro
-  // mostrou o desfecho com todas as letras: `0 kbps · 0 fps` e o alarme
-  // "ISTO É UM RETÂNGULO PRETO". Com o vídeo parado o áudio seguiu sozinho, e
-  // as duas linhas do tempo abriram 35 SEGUNDOS uma da outra.
-  //
-  // Perguntar "o conteúdo está visível?" seria empilhar mais uma condição sobre
-  // a mesma aposta — e é uma aposta sobre cortina, fade, `object-fit`, rotação
-  // e a Camada de Texto, isto é, sobre todo o motor de cena. A resposta certa é
-  // não apostar: o batimento continua sempre, e o que muda é a CADÊNCIA. A um
-  // quarto do ritmo ele mantém a fase longe dos 30 fps do conteúdo (que era o
-  // ganho da v5.157) e mantém o piso de quadros (que era o ponto de existir).
-  //
-  // Preto de segurança: mesmo no ritmo reduzido, oito segundos sem quadro
-  // nenhum seria o `REPETIR_APOS_US` do `EspelhoCodec` sozinho segurando a
-  // projeção, e ele repete no máximo dez vezes.
-  const ESPELHO_BATIMENTO_LENTO = 4;      // uma batida a cada quatro, com conteúdo
-  let giro = 0;
-  setInterval(() => {
-    giro++;
-    if (conteudoAnda() && (giro % ESPELHO_BATIMENTO_LENTO)) return;
-    claro = !claro;
-    pulso.style.background = claro ? '#010101' : '#000000';
-  }, ESPELHO_BATIMENTO_MS);
-  // Os dois números, porque a leitura útil é a FREQUÊNCIA (é ela que aparece na
-  // linha "ritmo" como piso de fps) e o que se edita é o intervalo.
-  diag('batimento do espelho ligado (' + ESPELHO_BATIMENTO_MS + ' ms · '
-    + Math.round(1000 / ESPELHO_BATIMENTO_MS) + ' Hz)');
-}
+// O bloco inteiro do áudio do espelho (AudioWorklet → __avEspelhoAudio →
+// AAC) e o batimento de 8 Hz que forçava o SurfaceFlinger a recompor viviam
+// aqui — eram a metade web do pipeline de pixels. O substituto é o TELÃO
+// POR COMANDOS (docs/TELAO-POR-COMANDOS.md): as telas da rede rodam este
+// MESMO documento no papel `tela` e tocam a mídia com a própria faixa de
+// som — a sincronia A/V é do navegador de cada uma, e não há mais nada a
+// capturar, codificar ou pulsar deste lado.
 
 restore();

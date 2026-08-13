@@ -144,6 +144,18 @@ class NativeBridge(
          * exijam mais do que o shell instalado oferece (ver [WebUpdater]).
          * Subir SEMPRE que a superfície da ponte mudar.
          *
+         * 37 (v5.187) — o TELÃO POR COMANDOS substitui o espelho de pixels
+         * (docs/TELAO-POR-COMANDOS.md). Nenhum método nasceu nem mudou de
+         * assinatura — o degrau sobe porque a FORMA do que os métodos devolvem
+         * mudou: `espelhoEstado` publica telas de COMANDO (`comando: true`,
+         * `pronta`, `eventos`; os campos do pipeline de pixels — `vivo`,
+         * `esperandoIdr`, `descartes`, `bytes` — não existem mais), `modo` é
+         * `"comandos"`, e `espelhoDiag` perdeu os fatos de encoder, readback e
+         * ritmo. Um bundle antigo leria a folha do espelho com metade dos
+         * campos em branco e a preview atrasada por um `vivo.vfim` que nunca
+         * mais chega — o bump é o que faz um bundle velho num shell novo cair
+         * na degradação declarada em vez de na meia-verdade.
+         *
          * 36 (v5.185) — o CÓDIGO DE TRÊS DÍGITOS do espelho, e ele é uma
          * REMOÇÃO de superfície além de uma mudança de forma. Saiu `requestCam`
          * (com o pareamento por QR, e com a permissão `CAMERA` do manifest);
@@ -178,7 +190,7 @@ class NativeBridge(
          * novo NÃO chega por OTA, e um botão que não faz nada no meio de um
          * culto é pior que botão nenhum (a mesma regra do `appendYoutubeSearch`).
          */
-        const val SHELL_VERSION = 36
+        const val SHELL_VERSION = 37
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —

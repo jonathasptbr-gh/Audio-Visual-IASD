@@ -104,16 +104,6 @@ jobs:
           # Determinístico, sem rede e sem navegador: entra aqui, e sem
           # `continue-on-error`.
           node tools/webview-range.test.mjs
-          # OS TRÊS DO ESPELHO DE PIXELS, que existiam no repositório desde a
-          # v5.143 e NÃO estavam ligados aqui — ou seja, rodavam em lugar
-          # nenhum. O oráculo do muxer fMP4 (boxes byte a byte, no molde do
-          # `sidx`) e a varredura de contexto seguro (o cliente roda em `http://`
-          # por construção, e ali `VideoDecoder`/`wakeLock`/`crypto.subtle` vêm
-          # `undefined`).
-          # (O oráculo do QR saiu na v5.185, com o pareamento por QR: a página
-          # do cliente passou a ter um campo e um botão, e quem digita o código
-          # de três dígitos é a TELA.)
-          node tools/fmp4.test.mjs
           node tools/contexto-seguro.test.mjs
           # A SOMBRA: nenhuma função redeclara um nome de módulo da base web.
           # `node --check` aprova `const ms = …` dentro de uma função que LÊ a
@@ -202,13 +192,6 @@ jobs:
           # do dongle é o caminho menos testável à mão — exige TV, dongle e o
           # timing de derrubá-lo — e roda sozinho na frente da congregação.
           PW_CHROMIUM="" node tools/cena.test.mjs
-          # E O CLIENTE DO ESPELHO, que também estava no repositório sem estar
-          # ligado aqui. Ele sobe um servidor de mentira com o mapa de rotas do
-          # `EspelhoServidor` e prova, num Chromium de verdade, que o muxer
-          # entrega uma faixa CONTÍNUA (`buffered.length === 1`), que o token
-          # nunca aparece numa URL, e que o pareamento por QR fecha o ciclo sem
-          # ninguém digitar nada.
-          PW_CHROMIUM="" node tools/espelho-cliente.test.mjs
           # E A TELA DA REDE do telão por comandos (E3 — ver
           # docs/TELAO-POR-COMANDOS.md): o /display/ servido pelo celular
           # rodando num navegador comum, com a entrada pelo código, o dreno de

@@ -50,10 +50,19 @@
 | E3 | Papel `tela` no lado web (`espelho/tela.js` + `?tela=1`): display rodando num navegador da LAN, TEXTO completo (versículo, mensagem, cronômetro com correção de relógio, sorteio, cortina), dreno de subida, vigília de tela acesa | **CONCLUÍDA** (tela-rede.test 23/23 no Chromium; ligado no apk.yml) |
 | E4 | Mídia sob demanda: cache no shell + canal ArrayBuffer OPFS→shell + `GET /m/<token>` com Range + `__rec` no load + wallpaper | **CONCLUÍDA** (JUnit do cache; tela-rede.test 26/26). Pendências DECLARADAS → E4.1: pré-busca da playlist, imagens de fundo da letra, deck por páginas, proxy da transmissão direta (§7) — hoje deck/stream/embed viram o aviso de cena-sem-rede |
 | E5 | Status de volta (`tela-status` → ponte → Controle), eleição de referência, snoop da notificação, preview sem atraso | **CONCLUÍDA** (ramo `st` no /r → MessageBus + snoop; eleição no controle.js; preview: telas de comando não entram em `mirrorEstado.telas`, então o atraso já resolve 0 sem pixels). Folha/Registro novos → E6 |
-| E6 | Corte: a folha liga o caminho novo; pixels atrás de constante por um lote; frases da UI atualizadas; política YouTube sem TV | PENDENTE |
-| E7 | Remoção: EspelhoCodec/EspelhoAudio/EspelhoDisplay/MirrorPresentation/fmp4.js/maquinaria MSE; realocação do EspelhoDiag; docs e testes | PENDENTE |
+| E6 | Corte: a transmissão liga o caminho novo; raiz `/` → tela; frases da UI; política YouTube sem TV | **CONCLUÍDA** (commit 518f960) — **DESVIO DECLARADO**: a pedido do operador, E6 e E7 saíram num lote só; a "volta por constante" não existe — a volta é o revert do lote |
+| E7 | Remoção: EspelhoCodec/EspelhoAudio/EspelhoDisplay/MirrorPresentation/fmp4.js/cliente.js/espelho.css/sonda.html; EspelhoDiag realocado na MainActivity; dreno do papel espelho fora do native.js; testes e CI atualizados; SHELL_VERSION 37; v5.187 | **CONCLUÍDA** (o commit desta linha) |
 
 > Preencher ao concluir: `CONCLUÍDA (commit <hash>, vX.YZZ)`.
+>
+> **PROJETO CONCLUÍDO (v5.187 / v1.86).** O que fica de fora, declarado:
+> E4.1 (pré-busca da playlist, imagens de fundo da letra, deck por páginas),
+> §7 (proxy da transmissão direta — hoje ela cai no download quando não há
+> TV), e o primeiro culto de VALIDAÇÃO em aparelho — que, pela regra de
+> calendário herdada do espelho, acontece numa terça-feira, nunca num
+> domingo. O Registro e a folha mostram as telas de comando; o diagnóstico
+> fino delas (eco de __mid, atraso medido) é evolução futura sobre o campo
+> `eventos`/`pronta` que já viaja.
 
 ---
 
