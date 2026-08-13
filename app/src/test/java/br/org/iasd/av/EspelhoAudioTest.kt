@@ -36,11 +36,22 @@ class EspelhoAudioTest {
         assertEquals(0L, EspelhoAudio.planoDeCorrecao(-10_000_000L))
     }
 
+    /**
+     * **O passo é o TETO, nunca a deriva inteira** — e a primeira escrita deste
+     * caso afirmava o contrário ("logo acima da zona morta, fecha de uma vez"),
+     * o que reprovou no CI e estava certo em reprovar: `TETO_SILENCIO_US` e
+     * `DERIVA_MIN_US` são iguais, então esse caso não existe.
+     *
+     * O que existe, e é o que sustenta a convergência, é a relação entre os
+     * dois: o que sobra depois de um passo cai dentro da zona morta sempre que a
+     * deriva era menor que a soma deles.
+     */
     @Test
     fun `deriva media e fechada com silencio, em passos`() {
-        // Logo acima da zona morta: fecha inteira de uma vez.
         val pouco = EspelhoAudio.DERIVA_MIN_US + 1_000L
-        assertEquals(pouco, EspelhoAudio.planoDeCorrecao(pouco))
+        val passo = EspelhoAudio.planoDeCorrecao(pouco)
+        assertEquals(EspelhoAudio.TETO_SILENCIO_US, passo)
+        assertTrue("sobraram ${pouco - passo} µs", pouco - passo <= EspelhoAudio.DERIVA_MIN_US)
         // Grande demais para um passo: sai o teto, e o resto fica para a volta
         // seguinte do laço — os blocos chegam a cada ~40 ms.
         assertEquals(EspelhoAudio.TETO_SILENCIO_US, EspelhoAudio.planoDeCorrecao(2_000_000L))
