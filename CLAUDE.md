@@ -2470,7 +2470,7 @@ mão.
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
-> **A v5.185 (v1.74): O EIXO DO SOM ERA UM LAÇO ABERTO — "o som fica para trás,
+> **A v5.185 (v1.84): O EIXO DO SOM ERA UM LAÇO ABERTO — "o som fica para trás,
 > a imagem continua, a tela fica sem áudio". METADE APK.** As três frases do
 > relato não são três sintomas: são a sequência inteira de um defeito só, e a
 > última é literalmente o que o `cliente.js` escreve
