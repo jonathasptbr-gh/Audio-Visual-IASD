@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.186';
+const WEB_VERSION = '5.187';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -1368,12 +1368,22 @@ function recalcularAtrasoPreview() {
   const e = mirrorEstado;
   const telas = (e && e.ligado && Array.isArray(e.telas)) ? e.telas : [];
   if (telas.length && !telaoConectado()) {
-    const folgas = telas
+    // TELAS DE COMANDO renderizam localmente com ~10 ms de latência: elas
+    // NÃO entram na conta, e uma sala só com elas fica em atraso ZERO — o
+    // motivo da fila da preview (v5.162) morreu junto com o pipeline de
+    // pixels. Sem esta guarda, telas sem `vivo.vfim` cairiam no PADRÃO de
+    // 1,2 s — a preview atrasando por um atraso que não existe.
+    const dePixels = telas.filter((t) => t && !t.comando);
+    const folgas = dePixels
       .map((t) => (t && t.vivo && typeof t.vivo.vfim === 'number') ? t.vivo.vfim : null)
       .filter((v) => v !== null && v > 0)
       .sort((a, b) => a - b);
-    alvo = folgas.length ? folgas[Math.floor(folgas.length / 2)] : PREV_ATRASO_PADRAO;
-    alvo = Math.min(PREV_ATRASO_MAX, Math.max(PREV_ATRASO_MIN, alvo));
+    if (!dePixels.length) {
+      alvo = 0;
+    } else {
+      alvo = folgas.length ? folgas[Math.floor(folgas.length / 2)] : PREV_ATRASO_PADRAO;
+      alvo = Math.min(PREV_ATRASO_MAX, Math.max(PREV_ATRASO_MIN, alvo));
+    }
   }
   // Ligar e desligar o atraso é sempre uma mudança de regime, por menor que
   // seja o número: é a diferença entre a preview espelhar a rede e espelhar o
@@ -10068,7 +10078,13 @@ async function ytAcao(r, destinos, btn, somenteAudio, altura) {
   // produz arquivo (é um manifesto que expira em horas), e o operador que
   // marcou "Cronograma" pediu justamente o que sobra depois do domingo. Aqui o
   // download é obrigatório, e projetar acontece no fim dele.
-  if (tocar && !guardar.length && await tentarTransmitir(r, altura, soAudio)) return;
+  // COM A TRANSMISSÃO LIGADA E SEM TELÃO, as telas da rede são a projeção — e
+  // a transmissão direta não chega nelas (URLs do StreamProxy só existem
+  // dentro do WebView; spec §5.6/§7). Pular direto ao download é o que faz o
+  // vídeo APARECER nas telas; com TV conectada, a transmissão segue valendo
+  // (a projeção é a TV, e as telas avisam a cena-sem-rede).
+  const pularTransmissao = espelhoLigado() && !telaoConectado();
+  if (!pularTransmissao && tocar && !guardar.length && await tentarTransmitir(r, altura, soAudio)) return;
 
   const existente = r && r.id ? await AVDB.mediaByYoutube(r.id, soAudio ? 'audio' : 'video') : null;
   // "Já estava lá" é sobre o CONJUNTO: com mais de um destino, o que interessa
@@ -15029,25 +15045,24 @@ function acertarEnqueteDeFundo() {
 // roteador pode bloquear isso sozinho e não há conserto do lado do app; o
 // celular precisa do carregador; e o som não vai completo.
 const MIRROR_TEXTO_OFF =
-  'Põe o telão inteiro — com fades, cortina e vídeo — em até três navegadores '
-  + 'da rede da igreja. Ninguém instala nada: digita o endereço, vê o número de '
-  + 'seis dígitos aqui na sua tela, e você aprova.\n\n'
-  + 'Antes de ligar: o roteador da igreja pode bloquear isto sozinho (isolamento '
-  + 'de clientes) — se for o caso, o Registro vai dizer em texto; deixe o celular '
-  + 'no carregador; e o som não vai completo (vídeo do YouTube pelo player '
-  + 'embutido vai mudo, e o microfone ao vivo nunca sai na rede, de propósito).';
+  'Põe o telão — letra, versículo, cronômetro, vídeo e imagem — em até três '
+  + 'navegadores da rede da igreja. Ninguém instala nada: quem for assistir '
+  + 'abre o endereço, digita o código de três dígitos que aparece aqui, e '
+  + 'entra com som e tela cheia num toque.\n\n'
+  + 'Antes de ligar: o roteador da igreja pode bloquear isto sozinho '
+  + '(isolamento de clientes) — se for o caso, o Registro vai dizer em texto. '
+  + 'O vídeo do YouTube e o microfone ao vivo não vão para a rede, de '
+  + 'propósito.';
 const MIRROR_TEXTO_ON =
-  'Quem for assistir abre o endereço abaixo no navegador. A tela mostra um '
-  + 'código; toque em "Ler o código da tela", aponte a câmera para ele, e ela '
-  + 'entra na hora.\n\n'
-  + 'Sem câmera à mão, o número de seis dígitos continua valendo: quem digitar '
-  + 'o número entra na fila abaixo e você aprova.\n\n'
-  // O SOM É POR TELA, e quem liga é quem está na frente dela. Isto precisa
-  // estar dito AQUI, na tela do operador, porque é ele quem vai ser perguntado
-  // — e no primeiro culto de teste a resposta que faltava era esta.
-  + 'Cada tela entra MUDA, de propósito (três telas com som dentro da igreja '
-  + 'são três alto-falantes com eco). Quem estiver na sala toca uma vez na tela '
-  + 'para ver em tela cheia e ouvir.';
+  'Quem for assistir abre o endereço abaixo no navegador e digita o código de '
+  + 'três dígitos. O botão de conectar já entra com som e em tela cheia — um '
+  + 'toque só.\n\n'
+  // O som continua sendo decisão de quem está na frente da tela: o toque de
+  // conectar é o opt-in (invariante 10 do espelho, que sobreviveu à troca de
+  // transporte) — e cada tela pode se calar sem falar com ninguém.
+  + 'A tela renderiza localmente: texto nítido em qualquer resolução e '
+  + 'resposta imediata aos comandos. O vídeo do YouTube e o microfone ao vivo '
+  + 'não vão para a rede, de propósito.';
 
 function renderEspelho() {
   acertarEnqueteDeFundo();
@@ -15207,19 +15222,11 @@ async function removerCertEspelho() {
 // não se pode fazer é decidir por conta própria apagar a imagem que a sala
 // anexa está assistindo.
 async function confirmarEspelhoComTv() {
-  if (mirrorTvConfirmado) return true;
-  if (!lastDisplays.length) return true;
-  const ok = await appConfirm({
-    title: 'Ligar com a TV no ar?',
-    message: 'Com o telão conectado, o aparelho passa a desenhar e codificar DUAS '
-      + 'projeções ao mesmo tempo — isto dobra o trabalho dele.\n\n'
-      + 'A TV não é afetada: se faltar fôlego, quem sai do ar é o espelho, com uma '
-      + 'frase dizendo por quê. Ligar assim mesmo?',
-    okText: 'Ligar assim mesmo',
-    cancelText: 'Agora não',
-  });
-  if (ok) mirrorTvConfirmado = true;
-  return ok;
+  // A pergunta do custo dobrado MORREU COM O ENCODER (E6): a transmissão por
+  // comandos custa JSON e rajadas de arquivo — não há segunda projeção sendo
+  // desenhada e codificada no aparelho. Ligar com a TV no ar é simplesmente
+  // ligar. A função fica (dois chamadores) como registro da decisão.
+  return true;
 }
 
 // O ESPELHO É SÓ VÍDEO desde a v5.156 — o modo imagem saiu por não ter áudio
