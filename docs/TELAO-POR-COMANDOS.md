@@ -109,11 +109,12 @@ faixa), poda/GOP/IDR/borda viva, térmica do encoder, atraso do pipeline, e o
 
 ```
 ┌───────────────────────── celular ─────────────────────────┐   ┌─── navegador na LAN ───┐
-│ Controle ── AVDB.sendCommand (db.js:832) ──► BC + __AVBus │   │ /espelho/ (entrada,    │
-│   (no load: anexa __rec com URLs /m/ — §5.5)              │   │  pareamento, gesto)    │
-│                    ▼ busPost (NativeBridge:355)           │   │        │ token         │
-│ MessageBus ─► telão/TV      └► EspelhoServidor            │   │        ▼               │
-│      ▲                        ├ GET  /e   SSE ────────────┼───┼─► /display/?tela=1     │
+│ Controle ── AVDB.sendCommand (db.js:832) ──► BC + __AVBus │   │ GET / → redirect       │
+│   (no load: anexa __rec com URLs /m/ — §5.5)              │   │        │               │
+│                    ▼ busPost (NativeBridge:355)           │   │        ▼               │
+│ MessageBus ─► telão/TV      └► EspelhoServidor            │   │ UMA página: display +  │
+│      ▲                        │                           │   │ overlay do código      │
+│      ▲                        ├ GET  /e   SSE ────────────┼───┼─► comandos JSON        │
 │      │ injeta tela-status     ├ GET  web/display|shared ──┼───┼─► o próprio bundle     │
 │      │ (POST /r "st")         ├ GET  /m/<token>  Range ───┼───┼─► mídia sob demanda    │
 │      │                        └ POST /r  ◄────────────────┼───┼── tela.js: dreno de    │
