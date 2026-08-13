@@ -209,6 +209,14 @@ jobs:
           # nunca aparece numa URL, e que o pareamento por QR fecha o ciclo sem
           # ninguém digitar nada.
           PW_CHROMIUM="" node tools/espelho-cliente.test.mjs
+          # E A TELA DA REDE do telão por comandos (E3 — ver
+          # docs/TELAO-POR-COMANDOS.md): o /display/ servido pelo celular
+          # rodando num navegador comum, com a entrada pelo código, o dreno de
+          # subida (só display-ready e tela-status sobem), a correção de
+          # relógio anulando 90 s de desvio, a reconexão que se reapresenta e
+          # o adeus que não martela. Teste fora do workflow é documentação —
+          # a lição da v5.145 (três testes escritos e ligados em lugar nenhum).
+          PW_CHROMIUM="" node tools/tela-rede.test.mjs
 
       - name: Empacotar a base web
         run: |

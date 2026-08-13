@@ -79,6 +79,14 @@
   <!-- native.js PRIMEIRO: define window.__NATIVE__ antes que qualquer outro
        script consulte essa guarda. No navegador é no-op. -->
   <script src="../shared/native.js"></script>
+  <!-- O PAPEL `tela` (telão por comandos): a casca que faz este documento
+       rodar num navegador da LAN, servido pelo celular. PRECISA vir antes de
+       db.js — ele define window.__AVBus (o transporte SSE) e neutraliza o
+       postMessage do BroadcastChannel, e db.js captura os dois NA CARGA.
+       Fora do papel (`?tela=1` na query) é um no-op de uma guarda: no telão
+       de verdade, no espelho e no navegador de desenvolvimento ele não
+       existe. Ver docs/TELAO-POR-COMANDOS.md §3.4. -->
+  <script src="../espelho/tela.js"></script>
   <script src="../shared/db.js"></script>
   <!-- ANTES do stage.js: é ele quem consulta `AVStream` ao carregar uma mídia
        de transmissão direta, e um script carregado depois chegaria tarde para

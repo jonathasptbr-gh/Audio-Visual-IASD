@@ -46,10 +46,10 @@
 |---|---|---|
 | E0 | Especificação fechada (este documento) | **CONCLUÍDA** (varredura 9/11 leitores; testes-CI e docs supridos pelo CLAUDE.md) |
 | E1 | Fundações puras no shell: Range RFC 7233 + framing SSE no `EspelhoHttp` — com JUnit, sem fiação | **CONCLUÍDA** (commit b756d19, CI verde: 128 JUnit, 21 novos) |
-| E2 | Servir o bundle à LAN (prefixos `web/display/`, `web/shared/`, `web/espelho/`) + rota SSE `GET /e` + tap de comandos em `busPost` → servidor | PENDENTE |
-| E3 | Papel `tela` no lado web (`espelho/tela.js` + `?tela=1`): display rodando num navegador da LAN, TEXTO completo (versículo, mensagem, cronômetro com correção de relógio, sorteio, cortina), dreno de subida, vigília de tela acesa | PENDENTE |
-| E4 | Mídia sob demanda: cache no shell + canal ArrayBuffer OPFS→shell + `GET /m/<token>` com Range + `__rec` no load + pré-busca + wallpaper | PENDENTE |
-| E5 | Status de volta (`tela-status` → ponte → Controle), eleição de referência, snoop da notificação, preview sem atraso artificial, Registro novo | PENDENTE |
+| E2 | Servir o bundle à LAN (prefixos `web/display/`, `web/shared/`, `web/espelho/`) + rota SSE `GET /e` + tap de comandos em `busPost` → servidor | **CONCLUÍDA** (aguardou o CI verde do lote E2+E3) |
+| E3 | Papel `tela` no lado web (`espelho/tela.js` + `?tela=1`): display rodando num navegador da LAN, TEXTO completo (versículo, mensagem, cronômetro com correção de relógio, sorteio, cortina), dreno de subida, vigília de tela acesa | **CONCLUÍDA** (tela-rede.test 23/23 no Chromium; ligado no apk.yml) |
+| E4 | Mídia sob demanda: cache no shell + canal ArrayBuffer OPFS→shell + `GET /m/<token>` com Range + `__rec` no load + wallpaper | **CONCLUÍDA** (JUnit do cache; tela-rede.test 26/26). Pendências DECLARADAS → E4.1: pré-busca da playlist, imagens de fundo da letra, deck por páginas, proxy da transmissão direta (§7) — hoje deck/stream/embed viram o aviso de cena-sem-rede |
+| E5 | Status de volta (`tela-status` → ponte → Controle), eleição de referência, snoop da notificação, preview sem atraso | **CONCLUÍDA** (ramo `st` no /r → MessageBus + snoop; eleição no controle.js; preview: telas de comando não entram em `mirrorEstado.telas`, então o atraso já resolve 0 sem pixels). Folha/Registro novos → E6 |
 | E6 | Corte: a folha liga o caminho novo; pixels atrás de constante por um lote; frases da UI atualizadas; política YouTube sem TV | PENDENTE |
 | E7 | Remoção: EspelhoCodec/EspelhoAudio/EspelhoDisplay/MirrorPresentation/fmp4.js/maquinaria MSE; realocação do EspelhoDiag; docs e testes | PENDENTE |
 
@@ -324,18 +324,25 @@ Cada etapa: testes verdes, Estado atualizado, commit na branch, merge em
   arquivo); rota `/e` com heartbeat+epoch e adeus; consumidor de barramento
   em `busPost` → `EspelhoServidor.difundirJson` (novo), com filas por tela
   e a conta do `TETO_EM_VOO` refeita (SSE + mídia por tela); renovação do
-  wake lock pelos writes do SSE. `SHELL_VERSION` → **37** (36 foi tomado
-  pela v5.186; o lado web pergunta antes de anexar `__rec` — e a UI da E6
-  exige ≥ 37). Prova:
-  `tools/tela-rede.test.mjs` novo (Chromium + servidor de mentira no molde
-  do espelho-cliente.test) — bundle servido, SSE abre, heartbeat chega,
-  adeus para o laço.
+  wake lock pelos writes do SSE. `SHELL_VERSION` NÃO sobe aqui: o tap não é
+  superfície da ponte (o web não o vê), e a regra do repositório manda subir
+  só quando a superfície muda — o bump vai na E4, junto com o canal de mídia
+  e o `__rec` (a primeira mudança que o web precisa detectar). Prova:
+  o CI compila e roda os JUnit (o roteamento é código de socket, fora do
+  alcance de teste puro — o padrão da casa: o `EspelhoServidor` nunca teve
+  JUnit próprio); o contrato é provado do lado do CLIENTE na E3, quando o
+  `tela.js` existir (`tools/tela-rede.test.mjs` contra servidor de mentira,
+  o molde do espelho-cliente.test). NOTA da E4: o `SHELL_VERSION` acabou não
+  subindo em lugar nenhum — a detecção do canal de mídia é por PRESENÇA
+  (`window.__avTelaMidia`, a mesma pergunta que `__AVBridge` sempre
+  respondeu), que degrada melhor que número de versão.
 - **E3 — papel tela, texto completo.** `espelho/tela.js` (bus, dreno de
   subida, overlay de ENTRADA com o código e o botão de gesto único —
   migrado de cliente.js —, correção de relógio, vigília, overlay de
   aviso); `display/index.html` ganha `<script src="../espelho/tela.js">`
-  ANTES de `db.js`, inerte fora do papel; a raiz `/` da LAN passa a
-  responder redirect para `?tela=1`. Prova: tela-rede.test cobre a entrada
+  ANTES de `db.js`, inerte fora do papel. A raiz `/` NÃO muda aqui — o
+  cliente de pixels a usa até o corte, e trocá-la agora quebraria o caminho
+  ativo (o redirect para `?tela=1` é da E6). Prova: tela-rede.test cobre a entrada
   pelo código (certo e errado), versículo com acento, cronômetro
   com relógio da página adiantado em 90 s (a correção tem de anular),
   sorteio, cortina, text-hide, reconexão→display-ready→cena, dreno (nada

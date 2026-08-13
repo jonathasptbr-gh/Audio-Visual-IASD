@@ -37,6 +37,13 @@ const INSTANCIA = 'd' + Math.random().toString(36).slice(2, 10).padEnd(8, '0');
 // o padrão, o novo é a exceção que se declara.
 const ESPELHO = window.__AV_ROLE__ === 'espelho';
 
+// O quarto papel (telão por comandos, docs/TELAO-POR-COMANDOS.md): este MESMO
+// documento rodando num navegador da LAN, servido pelo celular, com os
+// comandos chegando por SSE pela casca `espelho/tela.js`. Ele é falso no
+// telão, no espelho e no navegador de desenvolvimento — a mesma regra de
+// escrita do ESPELHO acima: o comportamento de sempre é o padrão.
+const TELA = window.__AV_ROLE__ === 'tela';
+
 // Config de transições, usada aqui para animar o player do YouTube (que vive
 // fora do stage). INERENTE ao sistema: toda troca visual é animada com fade,
 // sempre — não há opção de desligar nem ajustar. Vem de stage.js para não
@@ -147,7 +154,11 @@ const stage = createStage({
   // mudo — o cliente da rede diz "esta tela está sem som" e o salão continua
   // em silêncio. NUNCA o contrário: um espelho que toca alto por engano é um
   // culto interrompido.
-  forceMuted: ESPELHO,
+  // ...e a TELA DA REDE TAMBÉM NASCE MUDA, por outra razão com a mesma forma:
+  // o som é OPT-IN por tela (invariante 10 do espelho, que sobrevive à troca
+  // de transporte), e quem o liga é o gesto do visitante — o botão de
+  // conectar do tela.js, que chama o gancho `__telaSom` logo abaixo.
+  forceMuted: ESPELHO || TELA,
   onTime: sendStatus,
   // O TELÃO NÃO RECUPERA SOZINHO uma transmissão que falhou, e não é omissão:
   // ele não tem a ponte (`host = null`, ver NativeBridge) para pedir um
@@ -182,6 +193,14 @@ const stage = createStage({
     AVDB.sendCommand({ type: 'media-ended', mediaId: cur ? cur.id : null });
   },
 });
+
+// O GANCHO DO SOM da tela da rede: o botão de conectar do tela.js gasta o
+// gesto do visitante e chama isto para soltar o `forceMuted` — o mesmo
+// mecanismo que o áudio do espelho usava (`setForceMuted(false)` depois do
+// handshake), agora com o gesto no lugar do handshake. Só existe no papel
+// `tela`: em qualquer outro, mexer no forceMuted por fora seria um segundo
+// dono para o mesmo estado.
+if (TELA) window.__telaSom = (on) => stage.setForceMuted(!on);
 
 // ===== Letra sincronizada (Hinário 2022 — ver CLAUDE.md) =====
 // Camada paralela ao stage.js (mesmo padrão da ponte do YouTube): stage.js
@@ -755,6 +774,16 @@ function setMic(on) {
 // Controle; o comando `wallpaper` só avisa que ela mudou — o Display lê do
 // IDB, que é compartilhado. Sem imagem, volta ao gradiente e à marca.
 let wallpaperUrl = null;
+
+// O wallpaper da TELA DA REDE — só a URL, sem IDB. A marca some pela mesma
+// regra do applyWallpaper: wallpaper de verdade cobre a marca.
+function telaAplicarWallpaper(url) {
+  try {
+    wallpaperEl.style.backgroundImage = 'url(' + JSON.stringify(url) + ')';
+    const marca = wallpaperEl.querySelector('.wallpaper-brand');
+    if (marca) marca.style.display = 'none';
+  } catch (e) { /* fica o gradiente padrão */ }
+}
 
 async function applyWallpaper() {
   let blob = null;
@@ -1464,7 +1493,14 @@ AVDB.onCommand(async (cmd) => {
   if (cmd.type === 'text') { showText(cmd); return; }
   if (cmd.type === 'text-hide') { hideText(); return; }
   // Wallpaper trocado no Controle: a imagem já está no state compartilhado.
-  if (cmd.type === 'wallpaper') { applyWallpaper(); return; }
+  if (cmd.type === 'wallpaper') {
+    // NA TELA DA REDE a imagem não está no IDB (que é por-aparelho): ela vem
+    // pela URL /m/ que o Controle anexou ao próprio comando (telão por
+    // comandos, E4). No telão e no espelho, o caminho de sempre.
+    if (TELA && cmd.__wp) { telaAplicarWallpaper(cmd.__wp); return; }
+    applyWallpaper();
+    return;
+  }
   // Microfone ao vivo: camada de ÁUDIO independente — não toca na mídia, no
   // texto nem na cortina. Convive com qualquer coisa em cena.
   if (cmd.type === 'mic') { setMic(cmd.on); return; }

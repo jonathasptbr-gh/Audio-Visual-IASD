@@ -15728,6 +15728,21 @@ AVDB.onCommand((msg) => {
   const isYoutube = currentItem.kind === 'youtube';
   const isTimedLocal = currentItem.kind === 'audio' || currentItem.kind === 'video';
   if (!isYoutube && !isTimedLocal) return; // imagem/etc: sem noção de tempo, nada a sincronizar
+  // A ELEIÇÃO DAS TELAS DE COMANDO (telão por comandos, E5). N telas emitem
+  // `tela-status` e o handler abaixo supõe UMA fonte por tipo — a mesma
+  // alternância de fontes que o dreno do papel espelho existia para impedir.
+  // A eleita é a primeira vista; troca quando ela cala por
+  // TELA_REF_SILENCIO_MS. O status da eleita entra no ramo do espelho-status
+  // (mesma precedência do telão, mesmo realinhamento da preview); as outras
+  // telas só existem para a folha e o Registro.
+  if (msg.type === 'tela-status') {
+    const idTela = String(msg.__tela || '?');
+    const agoraTela = Date.now();
+    if (!telaRefId || agoraTela - telaRefEm > TELA_REF_SILENCIO_MS) telaRefId = idTela;
+    if (idTela !== telaRefId) return;
+    telaRefEm = agoraTela;
+    msg = Object.assign({}, msg, { type: 'espelho-status' });
+  }
   if (msg.type === 'display-status' || msg.type === 'espelho-status') {
     // Player morto/parado (fim natural ou stop manual): ignora qualquer
     // display-status ainda em trânsito reportando o player antigo tocando —
@@ -16063,3 +16078,191 @@ async function varrerRestos() {
     console.warn('[limpeza] falhou:', e);
   }
 }
+
+
+// ===== TELÃO POR COMANDOS (E4/E5 — docs/TELAO-POR-COMANDOS.md) =====
+//
+// O Controle é o único lado que tem o acervo (OPFS) E a ponte — então é ele
+// que: (a) ENRIQUECE todo `load` com o registro saneado (`__rec`) que uma tela
+// sem IndexedDB precisa para renderizar; (b) EMPURRA os bytes da mídia ao
+// cache do shell pelo canal `__avTelaMidia`, de onde a rota `/m/` serve com
+// Range; (c) ELEGE a tela de referência entre N `tela-status` (declarada
+// acima, usada no handler de status).
+//
+// Nada disto roda no navegador (`__NATIVE__`) nem com a transmissão desligada
+// — e a detecção do canal é por PRESENÇA (`window.__avTelaMidia`), nunca por
+// versão de shell: o objeto só existe onde o Kotlin o instalou, que é a mesma
+// pergunta que `__AVBridge` sempre respondeu.
+
+let telaRefId = '';
+let telaRefEm = 0;
+const TELA_REF_SILENCIO_MS = 5000;
+
+const telaTokens = new Map();      // id do acervo → token de serviço (/m/<t>)
+const telaEmpurrados = new Set();  // ids já completos no cache do shell
+const telaFila = [];               // empurrões esperando (um por vez)
+let telaEmpurrando = null;
+let telaResposta = null;
+
+function telaCanal() { return (window.__NATIVE__ && window.__avTelaMidia) || null; }
+function telaAtiva() { return !!telaCanal() && espelhoLigado(); }
+
+// O token é cunhado AQUI (contexto seguro → randomUUID de verdade) porque o
+// `__rec` é montado de forma síncrona na emissão do load — uma ida ao Kotlin
+// atrasaria todo load do culto. O shell só valida a forma.
+function telaTokenDe(id) {
+  let t = telaTokens.get(id);
+  if (!t) {
+    t = (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '') : null);
+    if (!t) return null; // sem randomUUID não há token forte — sem mídia na rede
+    telaTokens.set(id, t);
+  }
+  return t;
+}
+
+// O registro SANEADO: toda referência local vira URL servível; `blob`,
+// `opfsPath`, `stream` e `youtubeId` NUNCA atravessam (spec §5.5). A letra
+// vai SEM as imagens de fundo dos slides (v1: slides só de texto — cada
+// imagem seria mais um empurrão, e o texto é o que não pode faltar).
+function telaSanearRec(it, token) {
+  const rec = {
+    id: it.id,
+    kind: it.kind || '',
+    name: it.name || '',
+    type: it.type || '',
+    url: '/m/' + token,
+    seconds: it.seconds || 0,
+    height: it.height || 0,
+  };
+  if (it.hymnName) rec.hymnName = it.hymnName;
+  if (it.hymnTrack) rec.hymnTrack = it.hymnTrack;
+  if (Array.isArray(it.lyrics) && it.lyrics.length) {
+    rec.lyrics = it.lyrics.map((sl) => ({
+      time: sl.time, text: sl.text, auxText: sl.auxText,
+      cover: !!sl.cover, imagePosition: sl.imagePosition,
+    }));
+  }
+  return rec;
+}
+
+// ---- o canal: pedido/resposta serializado (o empurrão é UM por vez) ----
+function telaOuvirCanal(c) {
+  if (c.__avOuvindo) return;
+  c.__avOuvindo = true;
+  c.onmessage = (ev) => {
+    let r = null;
+    try { r = JSON.parse(String((ev && ev.data) || '')); } catch (_) { return; }
+    const fn = telaResposta;
+    telaResposta = null;
+    if (fn) fn(r);
+  };
+}
+function telaPedir(c, msg) {
+  return new Promise((resolve) => {
+    telaResposta = resolve;
+    setTimeout(() => {
+      if (telaResposta === resolve) { telaResposta = null; resolve(null); }
+    }, 15000);
+    try { c.postMessage(msg); } catch (_) {
+      if (telaResposta === resolve) { telaResposta = null; resolve(null); }
+    }
+  });
+}
+
+async function telaEmpurrarAgora(it) {
+  const c = telaCanal();
+  if (!c) return;
+  telaOuvirCanal(c);
+  const token = telaTokenDe(it.id);
+  if (!token) return;
+  let arquivo = it.blob || null;
+  if (!arquivo && it.opfsPath) {
+    try { arquivo = await AVDB.opfsGetFile(it.opfsPath); } catch (_) { return; }
+  }
+  if (!arquivo) return;
+  const abriu = await telaPedir(c, JSON.stringify({
+    abrir: { token, id: it.id, nome: it.name || '', tipo: arquivo.type || it.type || '', tamanho: arquivo.size },
+  }));
+  if (!abriu || abriu.ok !== true) return;
+  if (abriu.completo) { telaEmpurrados.add(it.id); return; }
+  // A RETOMADA vem do outro lado: `recebido` diz de onde continuar — um
+  // empurrão interrompido (renderer morto no meio) nunca recomeça do zero.
+  let pos = abriu.recebido || 0;
+  const PASSO = 512 * 1024;
+  while (pos < arquivo.size) {
+    if (!telaAtiva()) { await telaPedir(c, JSON.stringify({ cancelar: true })); return; }
+    const fatia = await arquivo.slice(pos, Math.min(pos + PASSO, arquivo.size)).arrayBuffer();
+    const r = await telaPedir(c, fatia);
+    if (!r) return;                                   // prazo: o próximo load retoma
+    if (r.erro === 'fila cheia') {                    // o disco engasgou: mesmo bloco de novo
+      await new Promise((x) => setTimeout(x, 200));
+      continue;
+    }
+    if (typeof r.r !== 'number' || r.r < 0) return;
+    pos = r.r;
+  }
+  const fim = await telaPedir(c, JSON.stringify({ fim: true }));
+  if (fim && fim.ok) telaEmpurrados.add(it.id);
+}
+
+function telaGarantirEnvio(it) {
+  if (!it || !it.id || telaEmpurrados.has(it.id)) return;
+  if (telaEmpurrando === it.id || telaFila.some((x) => x.id === it.id)) return;
+  telaFila.push(it);
+  telaEscoar();
+}
+async function telaEscoar() {
+  if (telaEmpurrando) return;
+  const it = telaFila.shift();
+  if (!it) return;
+  telaEmpurrando = it.id;
+  try { await telaEmpurrarAgora(it); } catch (e) { console.warn('[tela] empurrão falhou:', e); }
+  telaEmpurrando = null;
+  telaEscoar();
+}
+
+// ---- o enriquecimento, no funil que vê TODO envio deste documento ----
+function telaEnriquecer(cmd) {
+  if (!cmd || !telaAtiva()) return;
+  if (cmd.type === 'load') {
+    const it = (currentItem && currentItem.id === cmd.mediaId) ? currentItem : null;
+    if (!it) return;
+    // As cenas que NÃO vão para a rede (spec §5.6): o embed é iframe de
+    // terceiro (e a CSP das telas o barra por construção); a transmissão
+    // direta tem URLs do StreamProxy que só existem dentro do WebView; o deck
+    // são Blobs por página (E4.1). O aviso sai LOGO DEPOIS do load — a tela
+    // sem __rec limpa a cena sozinha (getMedia nulo → clear).
+    if (it.kind === 'youtube' || it.stream || it.kind === 'deck') {
+      setTimeout(() => {
+        try { AVDB.sendCommand({ type: 'tela-aviso', texto: 'Esta cena não aparece nas telas da rede.' }); } catch (_) { /* nada */ }
+      }, 0);
+      return;
+    }
+    const token = telaTokenDe(it.id);
+    if (!token) return;
+    cmd.__rec = telaSanearRec(it, token);
+    telaGarantirEnvio(it);
+  } else if (cmd.type === 'wallpaper') {
+    // O wallpaper é o id MUTÁVEL: cada troca cunha token novo (o shell
+    // substitui e mata o velho) e o comando leva a URL nova em __wp.
+    telaTokens.delete('__wp');
+    telaEmpurrados.delete('__wp');
+    const token = telaTokenDe('__wp');
+    if (!token) return;
+    cmd.__wp = '/m/' + token;
+    (async () => {
+      try {
+        const blob = await AVDB.getState('wallpaper');
+        if (blob) telaGarantirEnvio({ id: '__wp', name: 'wallpaper', type: blob.type || 'image/jpeg', blob });
+      } catch (_) { /* sem wallpaper */ }
+    })();
+  }
+}
+(function () {
+  if (!window.__NATIVE__) return;
+  const enviar0 = AVDB.sendCommand;
+  AVDB.sendCommand = function (cmd) {
+    try { telaEnriquecer(cmd); } catch (e) { console.warn('[tela] enriquecer falhou:', e); }
+    return enviar0(cmd);
+  };
+})();
