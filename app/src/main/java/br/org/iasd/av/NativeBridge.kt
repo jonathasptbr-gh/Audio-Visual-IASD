@@ -200,6 +200,50 @@ class NativeBridge(
         private const val PRECEDENCIA_TELAO_MS = 3_000L
 
         /**
+         * Quando o TELÃO de verdade falou pela última vez. NO COMPANION, e a
+         * mudança é correção além de conveniência: cada papel tem a PRÓPRIA
+         * instância de ponte, então um campo de instância nunca cruzava o
+         * display-status (que chega pela ponte do telão) com o espelho-status
+         * (que chega pela do espelho) — a precedência era comparada contra um
+         * relógio que o outro lado nunca escrevia. Compartilhado, ela passa a
+         * valer entre papéis — e para o `tela-status` do telão por comandos,
+         * que nem ponte tem (chega pelo `POST /r` do servidor da LAN).
+         */
+        @Volatile
+        private var ultimoStatusDoTelaoMs = 0L
+
+        /**
+         * O snoop da notificação de mídia, chamável DE FORA de uma ponte —
+         * é o que alimenta a MediaSession quando o status vem do servidor da
+         * LAN (`tela-status`, E5) com o app minimizado e o WebView do Controle
+         * estrangulado. Não é decisão de transporte: copia campos que o lado
+         * web já calculou — a exceção documentada do snoop desde sempre.
+         */
+        fun snoopStatusDeFora(ctx: Context, json: String) {
+            if (!json.contains("display-status") && !json.contains("espelho-status") &&
+                !json.contains("tela-status")
+            ) return
+            val o = try { JSONObject(json) } catch (e: Exception) { return }
+            val tipo = o.optString("type")
+            if (tipo != "display-status" && tipo != "espelho-status" && tipo != "tela-status") return
+            // A PRECEDÊNCIA é a mesma do `controle.js`: com um telão de verdade
+            // emitindo, espelho e telas da rede são ruído — duas fontes
+            // alternadas dão uma barra que anda para a frente e para trás.
+            val agora = android.os.SystemClock.elapsedRealtime()
+            if (tipo == "display-status") {
+                ultimoStatusDoTelaoMs = agora
+            } else if (agora - ultimoStatusDoTelaoMs < PRECEDENCIA_TELAO_MS) {
+                return
+            }
+            SessionService.updateFromDisplay(
+                ctx,
+                playing = o.optBoolean("playing"),
+                positionMs = (o.optDouble("currentTime", 0.0) * 1000).toLong(),
+                durationMs = (o.optDouble("duration", 0.0) * 1000).toLong(),
+            )
+        }
+
+        /**
          * Fila de IO da ponte, **compartilhada por todas as instâncias**.
          *
          * Um executor por instância vazava: `newSingleThreadExecutor` cria uma
@@ -387,12 +431,6 @@ class NativeBridge(
         tapLan?.invoke(json)
     }
 
-    /**
-     * Quando o TELÃO de verdade falou pela última vez — ver [snoopDisplayStatus].
-     * `@Volatile` porque `busPost` chega de qualquer thread de WebView.
-     */
-    @Volatile
-    private var ultimoStatusDoTelaoMs = 0L
 
     /**
      * Lê de passagem o `display-status` que o telão emite a 2 Hz e mantém a
@@ -414,36 +452,7 @@ class NativeBridge(
      * lado web já calculou. Título, subtítulo e modo de slide continuam vindo
      * de `nowPlaying`; sem cena publicada, nada é inventado aqui.
      */
-    private fun snoopDisplayStatus(json: String) {
-        // barato antes de parsear
-        if (!json.contains("display-status") && !json.contains("espelho-status")) return
-        val o = try { JSONObject(json) } catch (e: Exception) { return }
-        val tipo = o.optString("type")
-        if (tipo != "display-status" && tipo != "espelho-status") return
-        // O ESPELHO CONTA A MESMA HISTÓRIA, e sem ele a notificação congela no
-        // caso que mais importa: **sem TV conectada**, a projeção é o
-        // `/display/` do espelho — e ele era mudo no barramento até a v5.172.
-        // Com o app minimizado (o estado normal no meio do culto) o WebView do
-        // Controle é estrangulado, o `pushNowPlaying` para, e a única fonte que
-        // restava era um telão que não existe. O cartão ficava com o botão em
-        // "play" e a barra parada enquanto três telas da rede projetavam.
-        //
-        // A PRECEDÊNCIA é a mesma do `controle.js`: com um telão de verdade
-        // emitindo, o espelho é ruído — duas fontes alternadas dão uma barra que
-        // anda para a frente e para trás.
-        val agora = android.os.SystemClock.elapsedRealtime()
-        if (tipo == "display-status") {
-            ultimoStatusDoTelaoMs = agora
-        } else if (agora - ultimoStatusDoTelaoMs < PRECEDENCIA_TELAO_MS) {
-            return
-        }
-        SessionService.updateFromDisplay(
-            ctx,
-            playing = o.optBoolean("playing"),
-            positionMs = (o.optDouble("currentTime", 0.0) * 1000).toLong(),
-            durationMs = (o.optDouble("duration", 0.0) * 1000).toLong(),
-        )
-    }
+    private fun snoopDisplayStatus(json: String) = snoopStatusDeFora(ctx, json)
 
     // ---------- sessão de culto ----------
 

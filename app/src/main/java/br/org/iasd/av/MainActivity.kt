@@ -471,6 +471,13 @@ class MainActivity : ComponentActivity(), BridgeHost {
         webContainer.addView(w, matchParent())
         web = w
         MessageBus.attach(w)
+        // O canal de mídia do telão por comandos (E4) — POR INSTÂNCIA de
+        // WebView, como o do áudio do espelho: a remontagem por morte de
+        // renderer chega aqui de novo e o reinstala sozinha. Instalado sempre
+        // (a presença de `window.__avTelaMidia` é como o lado web detecta o
+        // suporte); com a transmissão desligada o cache resolve nulo e o
+        // canal recusa com frase.
+        espelhoMidiaCanal.instalar(w)
         w.loadUrl(WebViewFactory.URL_CONTROLE)
     }
 
@@ -1259,6 +1266,10 @@ class MainActivity : ComponentActivity(), BridgeHost {
             // relaya por busPost passa a sair também no SSE das telas de
             // comandos. Escuro enquanto nenhuma tela abre o GET /e.
             NativeBridge.tapLan = { j -> espelhoSrv?.difundirJson(j) }
+            // E o CACHE DE MÍDIA (E4) nasce com a transmissão — os tokens são
+            // da sessão, e a rota /m/ responde 404 idêntico fora dela.
+            espelhoMidia = EspelhoMidiaCache(java.io.File(cacheDir, "espelho-midia"))
+            srv.midia = espelhoMidia
 
             // 4. O PAREAMENTO nasce do zero — é isto que faz nenhum token
             //    sobreviver ao culto anterior — e o SERVIÇO sobe por último,
@@ -1303,6 +1314,8 @@ class MainActivity : ComponentActivity(), BridgeHost {
         NativeBridge.tapLan = null
         espelhoSrv?.desligar()
         espelhoSrv = null
+        espelhoMidia?.zerar()
+        espelhoMidia = null
         EspelhoPares.desligar()
         try { EspelhoService.desligar(this) } catch (e: Exception) {
             Log.w(TAG, "serviço do espelho não parou", e)
@@ -1615,6 +1628,20 @@ class MainActivity : ComponentActivity(), BridgeHost {
          */
         @Volatile
         private var espelhoSrv: EspelhoServidor? = null
+
+        /** O cache da rota /m/ (E4) — vive com a transmissão, não com a
+         *  Activity, pela mesma razão do servidor acima. */
+        @Volatile
+        private var espelhoMidia: EspelhoMidiaCache? = null
+
+        /** O canal __avTelaMidia — um por PROCESSO (o listener é
+         *  por-instância de WebView e é reinstalado a cada remontagem do
+         *  Controle, mas a fila e a thread são uma só). O cache que ele
+         *  alimenta resolve na hora: nulo com a transmissão desligada. */
+        private val espelhoMidiaCanal = EspelhoMidiaCanal(
+            cache = { espelhoMidia },
+            registrar = { linha -> EspelhoDisplay.diag.registrar(linha) },
+        )
 
         @Volatile
         private var espelhoModo = ""

@@ -775,6 +775,16 @@ function setMic(on) {
 // IDB, que é compartilhado. Sem imagem, volta ao gradiente e à marca.
 let wallpaperUrl = null;
 
+// O wallpaper da TELA DA REDE — só a URL, sem IDB. A marca some pela mesma
+// regra do applyWallpaper: wallpaper de verdade cobre a marca.
+function telaAplicarWallpaper(url) {
+  try {
+    wallpaperEl.style.backgroundImage = 'url(' + JSON.stringify(url) + ')';
+    const marca = wallpaperEl.querySelector('.wallpaper-brand');
+    if (marca) marca.style.display = 'none';
+  } catch (e) { /* fica o gradiente padrão */ }
+}
+
 async function applyWallpaper() {
   let blob = null;
   try { blob = await AVDB.getState('wallpaper'); } catch (_) { /* segue no padrão */ }
@@ -1483,7 +1493,14 @@ AVDB.onCommand(async (cmd) => {
   if (cmd.type === 'text') { showText(cmd); return; }
   if (cmd.type === 'text-hide') { hideText(); return; }
   // Wallpaper trocado no Controle: a imagem já está no state compartilhado.
-  if (cmd.type === 'wallpaper') { applyWallpaper(); return; }
+  if (cmd.type === 'wallpaper') {
+    // NA TELA DA REDE a imagem não está no IDB (que é por-aparelho): ela vem
+    // pela URL /m/ que o Controle anexou ao próprio comando (telão por
+    // comandos, E4). No telão e no espelho, o caminho de sempre.
+    if (TELA && cmd.__wp) { telaAplicarWallpaper(cmd.__wp); return; }
+    applyWallpaper();
+    return;
+  }
   // Microfone ao vivo: camada de ÁUDIO independente — não toca na mídia, no
   // texto nem na cortina. Convive com qualquer coisa em cena.
   if (cmd.type === 'mic') { setMic(cmd.on); return; }

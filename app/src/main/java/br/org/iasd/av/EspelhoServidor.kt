@@ -168,6 +168,14 @@ class EspelhoServidor(
      */
     private val telasSse = ConcurrentHashMap<String, TelaSse>()
 
+    /** O cache que a rota `/m/` serve (E4) — ligado pela MainActivity junto
+     *  com o canal `__avTelaMidia`; nulo = rota responde o 404 idêntico. */
+    @Volatile var midia: EspelhoMidiaCache? = null
+
+    /** Fluxos de `/m/` em curso — descontados do [TETO_EM_VOO] como os de
+     *  tela: um vídeo grande é minutos de conexão que não volta. */
+    private val midiaEmVoo = AtomicInteger(0)
+
     private val emVoo = AtomicInteger(0)
     private val conexoesTotais = AtomicInteger(0)
     private val proximoRotulo = AtomicInteger(0)
@@ -622,7 +630,7 @@ class EspelhoServidor(
             // que na tela viram "não foi possível falar com o celular", sem
             // nada no Registro que ligasse uma coisa à outra. O teto de fluxos
             // já existe e é outro ([TETO_TELAS]).
-            if (emVoo.get() - telas.size - telasSse.size >= TETO_EM_VOO) {
+            if (emVoo.get() - telas.size - telasSse.size - midiaEmVoo.get() >= TETO_EM_VOO) {
                 fecharQuieto(cru)
                 continue
             }
@@ -791,7 +799,109 @@ class EspelhoServidor(
             }
             r.metodo == "GET" && caminhoDoBundle(rota) != null ->
                 servirDoBundle(caminhoDoBundle(rota)!!, saida)
+            // A MÍDIA é ANÔNIMA DE PROPÓSITO (spec §3.6): o token opaco na
+            // rota É a capacidade — um <video src> não manda Authorization, e
+            // o token de SESSÃO continua nunca viajando em URL. Quem não tem
+            // o token de serviço leva o 404 idêntico de sempre.
+            r.metodo == "GET" && rota.startsWith("/m/") ->
+                servirMidia(rota.substring(3), r, saida)
             else -> responder(saida, naoAchei())
+        }
+    }
+
+    /**
+     * A rota de mídia — Range DE VERDADE, nosso (a inversão da invariante 8:
+     * não há WebView no caminho, e o 200 seco do StreamProxy aqui seria o
+     * erro exato). Streaming do arquivo em blocos, nunca o corpo inteiro em
+     * memória: três telas puxando 380 MB pelo molde do StreamProxy
+     * derrubariam o processo da projeção.
+     *
+     * Item EM CRESCIMENTO (o empurrão do Controle ainda anda) sai por chunked
+     * progressivo — o <video> começa a tocar sem esperar o fim — e o Range só
+     * vale para item completo, que é a regra simples declarada na spec §5.3.
+     */
+    private fun servirMidia(token: String, r: EspelhoHttp.Req, saida: OutputStream) {
+        val item = midia?.servir(token)
+        if (item == null || item.cancelado) return responder(saida, naoAchei())
+        midiaEmVoo.incrementAndGet()
+        try {
+            if (item.completo) {
+                val tamanho = item.recebido
+                when (val alcance = EspelhoHttp.alcanceDe(r.intervalo, tamanho)) {
+                    is EspelhoHttp.Alcance.Insatisfazivel ->
+                        responder(saida, EspelhoHttp.resposta416(tamanho))
+                    is EspelhoHttp.Alcance.Inteiro -> {
+                        saida.write(EspelhoHttp.cabecalhoConteudo(item.tipo, tamanho))
+                        copiarFaixa(item.arquivo, 0, tamanho - 1, saida)
+                        saida.flush()
+                    }
+                    is EspelhoHttp.Alcance.Parcial -> {
+                        val f = alcance.faixa
+                        saida.write(EspelhoHttp.cabecalhoParcial(item.tipo, f, tamanho))
+                        copiarFaixa(item.arquivo, f.ini, f.fim, saida)
+                        saida.flush()
+                    }
+                }
+                return
+            }
+            // EM CRESCIMENTO: chunked do byte 0, acompanhando o empurrão.
+            saida.write(EspelhoHttp.cabecalhoChunked(200, item.tipo))
+            saida.flush()
+            var pos = 0L
+            var paradoDesde = 0L
+            val buf = ByteArray(64 * 1024)
+            java.io.RandomAccessFile(item.arquivo, "r").use { raf ->
+                while (true) {
+                    val disponivel = item.recebido - pos
+                    if (disponivel <= 0) {
+                        if (item.completo || item.cancelado) break
+                        val agora = SystemClock.elapsedRealtime()
+                        if (paradoDesde == 0L) paradoDesde = agora
+                        // O empurrão morreu (a página do Controle caiu no meio):
+                        // um fluxo que não cresce não pode segurar a conexão e
+                        // a vaga para sempre.
+                        if (agora - paradoDesde > TETO_MIDIA_PARADA_MS) break
+                        Thread.sleep(100)
+                        continue
+                    }
+                    paradoDesde = 0
+                    raf.seek(pos)
+                    val n = raf.read(buf, 0, minOf(buf.size.toLong(), disponivel).toInt())
+                    if (n <= 0) break
+                    saida.write(EspelhoHttp.chunk(buf, 0, n))
+                    saida.flush()
+                    pos += n
+                    EspelhoService.progresso()
+                }
+            }
+            try {
+                saida.write(EspelhoHttp.chunkFinal())
+                saida.flush()
+            } catch (e: IOException) {
+                // O cliente já foi.
+            }
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+        } catch (e: IOException) {
+            Log.i(TAG, "mídia $token interrompida: ${e.message}")
+        } finally {
+            midiaEmVoo.decrementAndGet()
+        }
+    }
+
+    /** Copia `[ini..fim]` do arquivo para a saída, em blocos de 64 kB. */
+    private fun copiarFaixa(arquivo: java.io.File, ini: Long, fim: Long, saida: OutputStream) {
+        val buf = ByteArray(64 * 1024)
+        java.io.RandomAccessFile(arquivo, "r").use { raf ->
+            raf.seek(ini)
+            var falta = fim - ini + 1
+            while (falta > 0) {
+                val n = raf.read(buf, 0, minOf(buf.size.toLong(), falta).toInt())
+                if (n <= 0) break
+                saida.write(buf, 0, n)
+                falta -= n
+                EspelhoService.progresso()
+            }
         }
     }
 
@@ -906,6 +1016,24 @@ class EspelhoServidor(
         // ...e vale igual para a tela de COMANDOS da mesma sessão: o ping do
         // SSE só prova o nosso lado do fio.
         telasSse[sessao.token]?.ultimoRelatoMs = SystemClock.elapsedRealtime()
+        // O RAMO DO TELÃO POR COMANDOS (E5): o status da tela sobe verbatim ao
+        // barramento — o Controle o consome como consome o espelho-status — e
+        // alimenta a notificação de mídia (o snoop lê campos que o web já
+        // calculou; é a exceção documentada dele). display-ready registra o
+        // __de que roteia comando endereçado no SSE. NADA disso passa por
+        // sanear(): o caminho de comandos não é o Registro (spec §5.2/§5.4).
+        if (corpo.optString("do") == "st") {
+            val st = corpo.optJSONObject("st") ?: return responder(saida, naoAchei())
+            val tipo = st.optString("type")
+            if (tipo.isEmpty()) return responder(saida, naoAchei())
+            if (tipo == "display-ready") {
+                telasSse[sessao.token]?.de = st.optString("__de").ifEmpty { null }
+            }
+            val json = st.toString()
+            NativeBridge.snoopStatusDeFora(app, json)
+            MessageBus.post(null, json)
+            return responder(saida, EspelhoHttp.resposta(200, "application/json", OK_CURTO))
+        }
         when (corpo.optString("do")) {
             "key" -> pedirIdrComFreio(tela)
             "alive" -> if (tela != null) {
@@ -2254,6 +2382,11 @@ class EspelhoServidor(
 
         /** Sentinela de fim da fila SSE — o mesmo papel do [FIM] dos pixels. */
         private val FIM_SSE = ByteArray(0)
+
+        /** Um fluxo de mídia EM CRESCIMENTO que fica este tanto sem byte novo
+         *  perdeu o empurrão do outro lado (a página do Controle caiu): a
+         *  conexão fecha e o <video> da tela cai na recuperação normal dele. */
+        private const val TETO_MIDIA_PARADA_MS = 30_000L
 
         /**
          * Silêncio do cliente que vale desconexão. O `cliente.js` relata a cada

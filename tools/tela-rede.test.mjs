@@ -122,6 +122,17 @@ const servidor = http.createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === 'GET' && u.pathname.startsWith('/m/')) {
+    // Um PNG de 1×1 — o bastante para provar que a tela busca a mídia na URL
+    // servida pelo celular (o resto do Range é provado por JUnit no shell).
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      'base64');
+    res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': png.length, 'Accept-Ranges': 'bytes' });
+    res.end(png);
+    return;
+  }
+
   if (req.method === 'POST' && u.pathname === '/r') {
     if (req.headers.authorization !== 'Bearer ' + TOKEN) { json(res, 404, {}); return; }
     visto.volta.push(await corpoDe(req));
@@ -233,6 +244,35 @@ checar(await pg.$eval('#text', (e) => e.hidden), 'text-hide tira a Camada de Tex
     checar(t === 'display-ready' || t === 'tela-status',
       'só display-ready e tela-status sobem — subiu: ' + t);
   }
+}
+
+// ---------------------------------------------------------------------------
+// 5b. A MÍDIA da E4: o __rec aponta para /m/ e a tela busca DO CELULAR
+// ---------------------------------------------------------------------------
+{
+  evento({
+    type: 'load', mediaId: 'img1', view: 'visual', muted: true, volume: 1,
+    __rec: { id: 'img1', kind: 'image', name: 'Cartaz', type: 'image/png', url: '/m/tokimg111111111111111' },
+    __mid: 'm:6',
+  });
+  await ate(() => pg.$eval('#img', (e) => !e.hidden && e.src.includes('/m/')).catch(() => false), 5000);
+  checar(await pg.$eval('#img', (e) => !e.hidden && e.src.includes('/m/tokimg111111111111111')),
+    'o load com __rec toca a mídia da URL /m/ — sem IDB, sem OPFS, do celular');
+}
+
+// ---------------------------------------------------------------------------
+// 5c. O wallpaper por URL e o aviso de cena-sem-rede
+// ---------------------------------------------------------------------------
+{
+  evento({ type: 'wallpaper', __wp: '/m/tokwp1111111111111111', __mid: 'm:7' });
+  await ate(() => pg.$eval('#wallpaper', (e) => e.style.backgroundImage.includes('/m/')).catch(() => false), 4000);
+  checar(await pg.$eval('#wallpaper', (e) => e.style.backgroundImage.includes('/m/tokwp1111111111111111')),
+    'o wallpaper vem pela URL do comando — o IDB da tela está vazio e não importa');
+
+  evento({ type: 'tela-aviso', texto: 'Esta cena não aparece nas telas da rede.', __mid: 'm:8' });
+  await ate(() => pg.$eval('#telaAviso', (e) => e.textContent.includes('não aparece')).catch(() => false), 4000);
+  checar(await pg.$eval('#telaAviso', (e) => e.textContent.includes('não aparece')),
+    'a cena que não vai para a rede é DITA, nunca uma tela vazia sem explicação');
 }
 
 // ---------------------------------------------------------------------------

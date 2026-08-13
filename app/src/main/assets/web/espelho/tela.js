@@ -243,8 +243,52 @@
       return '';
     }
     if (msg.m === 'adeus') return 'adeus';
+    // O REGISTRO ENRIQUECIDO (E4): uma tela sem o IndexedDB do celular não
+    // resolve mediaId em nada — o `__rec` que o Controle anexa ao load é o
+    // registro inteiro, com a mídia apontando para a URL /m/ servida pelo
+    // celular. Cacheado ANTES da entrega, porque o display o pede DUAS vezes
+    // (display.js e stage.js) pelo mesmo AVDB.getMedia embrulhado abaixo.
+    if (msg.type === 'load' && msg.__rec && msg.__rec.id) {
+      recCache[msg.__rec.id] = msg.__rec;
+    }
+    if (msg.type === 'tela-aviso') {
+      avisoCena(String(msg.texto || 'Esta cena não aparece nas telas da rede.'));
+      return '';
+    }
     entregar(corrigirRelogio(msg));
     return '';
+  }
+
+  // ---- o acervo da tela: os __rec que já passaram por aqui ----
+  var recCache = {};
+  function embrulharAcervo() {
+    var db = global.AVDB;
+    if (!db || db.__telaEmbrulhado) return;
+    db.__telaEmbrulhado = true;
+    var original = db.getMedia;
+    db.getMedia = function (id) {
+      if (recCache[id]) return Promise.resolve(recCache[id]);
+      return original.call(db, id);
+    };
+  }
+
+  // ---- o aviso de cena que não vai para a rede ----
+  var avisoEl = null;
+  var avisoTimer = null;
+  function avisoCena(texto) {
+    if (!avisoEl) {
+      avisoEl = doc.createElement('div');
+      avisoEl.id = 'telaAviso';
+      avisoEl.style.cssText = 'position:fixed;left:50%;bottom:8%;transform:translateX(-50%);' +
+        'z-index:9998;padding:.6rem 1.2rem;border-radius:var(--radius-pill,999px);' +
+        'background:rgba(0,0,0,.75);color:var(--text,#f2efe9);font-family:system-ui,sans-serif;' +
+        'font-size:1rem;transition:opacity .3s;pointer-events:none;';
+      doc.body.appendChild(avisoEl);
+    }
+    avisoEl.textContent = texto;
+    avisoEl.style.opacity = '1';
+    if (avisoTimer) clearTimeout(avisoTimer);
+    avisoTimer = setTimeout(function () { avisoEl.style.opacity = '0'; }, 6000);
   }
 
   function aoConectar() {
@@ -508,6 +552,9 @@
   // Boot
   // --------------------------------------------------------------------------
   function iniciar() {
+    // O AVDB já existe (db.js carrega antes do DOM pronto) — o embrulho do
+    // acervo entra aqui, uma vez.
+    embrulharAcervo();
     var t = guardado();
     if (t) {
       // Recarga com sessão viva: reconecta sem pedir código. O gesto se
