@@ -212,7 +212,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.193';
+const WEB_VERSION = '5.194';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -369,12 +369,10 @@ const castConnEl = document.getElementById('castConn');
 const simpleConnEl = document.getElementById('simpleConn');
 const castCloseEl = document.getElementById('castClose');
 const castMirrorBtnEl = document.getElementById('castMirrorBtn');
-const castMirrorSubEl = document.getElementById('castMirrorSub');
 // A transmissão pelo site é um ESTADO, e desde a v5.184 ela tem a forma de um
 // estado: uma linha com interruptor, no lugar do segundo cartão de escolha.
 const castNetRowEl = document.getElementById('castNetRow');
 const castNetToggleEl = document.getElementById('castNetToggle');
-const castNetSubEl = document.getElementById('castNetSub');
 const castMsgEl = document.getElementById('castMsg');
 const mirrorOpenBtnEl = document.getElementById('mirrorOpenBtn');
 const mirrorPopupEl = document.getElementById('mirrorPopup');
@@ -382,7 +380,6 @@ const mirrorCloseEl = document.getElementById('mirrorClose');
 const mirrorLeadEl = document.getElementById('mirrorLead');
 const castLiveEl = document.getElementById('castLive');
 const castUrlEl = document.getElementById('castUrl');
-const castHintEl = document.getElementById('castHint');
 const castTelasEl = document.getElementById('castTelas');
 const mirrorToggleEl = document.getElementById('mirrorToggle');
 const mirrorCertRowEl = document.getElementById('mirrorCertRow');
@@ -15203,8 +15200,11 @@ if (window.__NATIVE__) {
     // ver ANTES de tocar é a diferença entre "abriu a tela errada" e "eu sabia
     // que ia abrir essa". O Registro continua tendo a linha, agora a partir
     // desta variável — ver `cabecalhoDiag`.
+    // SÓ PARA O REGISTRO (v5.194). Ele já foi subtítulo do botão de espelhar
+    // ("Abre: Smart View") — mas o operador não escolhe entre dois caminhos
+    // pelo NOME do seletor que vai abrir, e quando o botão abre a tela errada a
+    // resposta está no Registro, que é o que se copia para diagnosticar.
     castAlvo = label || '';
-    if (castAlvo && castMirrorSubEl) castMirrorSubEl.textContent = 'Abre: ' + castAlvo;
   });
 } else {
   // NO NAVEGADOR ELE FICA, e é AÇÃO, não estado: sem `Presentation` não há quem
@@ -15320,25 +15320,21 @@ function acertarEnqueteDeFundo() {
 // As três ressalvas que o operador precisa ouvir ANTES, e não num domingo: o
 // roteador pode bloquear isso sozinho e não há conserto do lado do app; o
 // celular precisa do carregador; e o som não vai completo.
-const MIRROR_TEXTO_OFF =
-  'Põe o telão — letra, versículo, cronômetro, vídeo e imagem — em até três '
-  + 'navegadores da rede da igreja. Ninguém instala nada: quem for assistir '
-  + 'abre o endereço, digita o código de três dígitos que aparece aqui, e '
-  + 'entra com som e tela cheia num toque.\n\n'
-  + 'Antes de ligar: o roteador da igreja pode bloquear isto sozinho '
-  + '(isolamento de clientes) — se for o caso, o Registro vai dizer em texto. '
-  + 'O vídeo do YouTube e o microfone ao vivo não vão para a rede, de '
-  + 'propósito.';
-const MIRROR_TEXTO_ON =
-  'Quem for assistir abre o endereço abaixo no navegador e digita o código de '
-  + 'três dígitos. O botão de conectar já entra com som e em tela cheia — um '
-  + 'toque só.\n\n'
-  // O som continua sendo decisão de quem está na frente da tela: o toque de
-  // conectar é o opt-in (invariante 10 do espelho, que sobreviveu à troca de
-  // transporte) — e cada tela pode se calar sem falar com ninguém.
-  + 'A tela renderiza localmente: texto nítido em qualquer resolução e '
-  + 'resposta imediata aos comandos. O vídeo do YouTube e o microfone ao vivo '
-  + 'não vão para a rede, de propósito.';
+// UMA FRASE, E SÓ O QUE NÃO SE DESCOBRE SOZINHO (v5.194).
+//
+// Eram dois parágrafos, um por estado, e os dois descreviam o recurso para
+// alguém que já o ligou — mais uma terceira e uma quarta repetição de "abra o
+// endereço no navegador", que agora mora no rótulo do endereço. Pior: os dois
+// ainda mandavam **digitar o código de três dígitos**, que saiu na v5.189. Um
+// texto grande é também um texto que ninguém revisa.
+//
+// O que sobra é o que o operador não tem como adivinhar e que muda o que ele
+// faz: o roteador pode bloquear isto sozinho, e há duas coisas que de propósito
+// NÃO vão para a rede. Um estado só, porque a ressalva é a mesma ligada ou
+// desligada.
+const MIRROR_TEXTO = 'O roteador da igreja pode bloquear isto sozinho '
+  + '(isolamento de clientes) — o Registro diz quando é o caso. '
+  + 'O vídeo do YouTube e o microfone ao vivo não vão para a rede, de propósito.';
 
 function renderEspelho() {
   acertarEnqueteDeFundo();
@@ -15353,9 +15349,7 @@ function renderEspelho() {
   const e = mirrorEstado || {};
   const ligado = !!e.ligado;
 
-  mirrorLeadEl.textContent = e.erro
-    ? e.erro + '\n\n' + MIRROR_TEXTO_OFF
-    : (ligado ? MIRROR_TEXTO_ON : MIRROR_TEXTO_OFF);
+  mirrorLeadEl.textContent = e.erro ? e.erro + '\n\n' + MIRROR_TEXTO : MIRROR_TEXTO;
   mirrorToggleEl.textContent = mirrorOcupado
     ? 'Um instante…'
     : (ligado ? 'Desligar o espelho' : 'Ligar o espelho');
@@ -15626,15 +15620,12 @@ function renderCast() {
     castNetToggleEl.checked = ligado;
     castNetToggleEl.disabled = mirrorOcupado;
   }
-  // O SUBTÍTULO CONTA O ESTADO, e não repete a promessa: com o espelho no ar o
-  // que o operador precisa saber é quantas telas estão recebendo.
-  if (castNetSubEl) {
-    castNetSubEl.textContent = !ligado
-      ? 'Mostra o telão em navegadores da rede — ninguém instala nada'
-      : (telas.length + ' tela(s) recebendo');
-  }
+  // (O subtítulo do interruptor saiu na v5.194: desligado ele descrevia o
+  // recurso para quem já decidiu usá-lo, e ligado dizia "N tela(s) recebendo" —
+  // que é exatamente o que a LISTA logo abaixo mostra, com nome e tempo de
+  // cada uma. Contar o que já está listado é dizer duas vezes.)
 
-  // O ENDEREÇO, O CÓDIGO E QUEM ESTÁ VENDO, nesta mesma folha.
+  // O ENDEREÇO E QUEM ESTÁ VENDO, nesta mesma folha.
   if (castLiveEl) castLiveEl.hidden = !ligado;
   if (mirrorOpenBtnEl) mirrorOpenBtnEl.hidden = !ligado;
   if (!ligado) return;
@@ -15642,15 +15633,11 @@ function renderCast() {
   // ele não resolve no Chrome do Android nem na maioria das Smart TVs, que são
   // exatamente as telas deste recurso.
   texto2(castUrlEl, e.endereco || '');
-  // DUAS FRASES, e a diferença é o que o operador faz a seguir. Sem tela
-  // nenhuma, o passo é ir até a TV; com telas no ar, o passo é repetir o mesmo
-  // par para acrescentar mais uma.
-  // SEM CÓDIGO desde a v5.189: a tela abre o endereço e toca em "Ativar esta
-  // tela". As duas frases continuam separadas porque o passo seguinte é
-  // diferente — ir até a TV × repetir o mesmo em mais uma.
-  texto2(castHintEl, telas.length
-    ? 'Abra o mesmo endereço noutra tela e toque em "Ativar esta tela".'
-    : 'Abra o endereço no navegador da TV e toque em "Ativar esta tela".');
+  // (A FRASE DE INSTRUÇÃO SAIU na v5.194, e com ela o par "primeira tela × mais
+  // uma": as duas diziam a mesma coisa com palavras trocadas, e o que elas
+  // pediam agora está no rótulo do próprio endereço. O "toque em Ativar esta
+  // tela" também saiu daqui — quem precisa dessa instrução é quem está NA
+  // OUTRA TELA, e lá ela está escrita no botão, que é onde ela serve.)
   renderCastTelas(telas);
 }
 
@@ -15754,9 +15741,10 @@ if (mirrorOpenBtnEl) {
       const ok = await ligarEspelho();
       // A frase da falha já saiu pelo `avisar` (ela vem pronta do Kotlin).
       // Aqui fica a saída — e ela aponta para onde o operador pode agir.
-      texto2(castMsgEl, ok
-        ? 'Transmissão no ar. Digite o endereço abaixo no navegador da tela.'
-        : 'Não deu para ligar — veja o aviso acima.');
+      // O SUCESSO NÃO PRECISA DE FRASE (v5.194): o endereço aparecendo logo
+      // abaixo, com o rótulo que diz o que fazer com ele, É o "deu certo". A
+      // falha continua falando, porque ali não há nada que apareça sozinho.
+      texto2(castMsgEl, ok ? '' : 'Não deu para ligar — veja o aviso acima.');
     } else {
       texto2(castMsgEl, 'Desligando…');
       await desligarEspelho();
