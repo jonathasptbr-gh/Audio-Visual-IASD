@@ -55,6 +55,14 @@
 
 > Preencher ao concluir: `CONCLUÍDA (commit <hash>, vX.YZZ)`.
 >
+> **CONFIRMADO EM REDE DE VERDADE (v5.205 / v1.92):** *"funcionou, a tela
+> conectou"*. A primeira ligada em rede real custou cinco versões de correção
+> depois do corte, e as três que valeram estão na §8 e na §10: o estilo da
+> entrada bloqueado pela CSP (era o defeito), o papel `tela` deixando de depender
+> da query (a fragilidade), e — fora deste doc, na seção do OTA do CLAUDE.md — o
+> cache do WebView na troca de base servida, que fazia a versão ANTIGA reaparecer
+> e mascarou o diagnóstico por três rodadas.
+>
 > **PROJETO CONCLUÍDO (v5.187 / v1.86).** O que fica de fora, declarado:
 > E4.1 (pré-busca da playlist, imagens de fundo da letra, deck por páginas),
 > §7 (proxy da transmissão direta — hoje ela cai no download quando não há
@@ -422,6 +430,28 @@ escrito na folha como as outras inversões; o degrau de TLS é a resposta. O
 que não muda: mic nunca sai, token de sessão nunca em URL, allowlist de Host
 exata, teto de 3 sessões, 404 uniforme, `web/controle/` jamais servido à
 rede, CSP `self` nas páginas servidas.
+
+**E A CSP `self` TEM UM PREÇO QUE PRECISA ESTAR ESCRITO** (aprendido na v5.205,
+depois de ela custar quatro versões de investigação): `default-src 'self'` sem
+`style-src` **bloqueia estilo embutido**, e um `<style>` criado em runtime é
+estilo embutido. O `espelho/tela.js` montava a entrada assim, e o desfecho não
+foi um erro visível: o overlay era criado, recebia `display:flex` pelo CSSOM (que
+a CSP não barra) e virava um bloco sem posição no fim do `<body>` — **debaixo da
+camada fixa do wallpaper**. Invisível e inclicável, com o papel `tela` ativo e
+tudo mais funcionando. O `shared/stage.js` tinha o mesmo defeito no indicador de
+espera. Os dois viraram folhas (`espelho/tela.css`, `shared/stage.css`).
+
+> **A REGRA: nas telas da rede não existe estilo embutido.**
+> `element.style.x = y` (CSSOM) continua valendo — a CSP não o alcança.
+> `document.createElement('style')` e atributo `style="…"` em HTML injetado,
+> **não**. Todo CSS novo do papel `tela` entra numa FOLHA servida do origin.
+
+> **E O HARNESS TEM DE MANDAR A CSP.** O `tela-rede.test.mjs` servia a página sem
+> ela, então provava o percurso num ambiente mais permissivo que o do aparelho —
+> foi por isso que o defeito acima atravessou o CI. Ele manda a CSP verbatim
+> desde a v5.205, e AFIRMA a garantia que ela existe para dar (a IFrame API do
+> YouTube barrada). Um servidor de mentira que diverge do de verdade não prova
+> nada; é a mesma lição da marca do papel (v5.204), por outra porta.
 
 ## §9 DIAGNÓSTICO (Registro)
 Morrem: readback, encoder, ritmo, fila de quadros, IDR, csd. Nascem, por

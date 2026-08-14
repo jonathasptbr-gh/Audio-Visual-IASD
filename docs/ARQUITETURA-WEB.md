@@ -168,6 +168,9 @@ app/src/main/assets/web/
 │   ├── native.js               # ponte AVNative (só existe no app; no-op no navegador)
 │   ├── db.js                   # Camada comum: IndexedDB + OPFS + BroadcastChannel (+ relay nativo)
 │   ├── stage.js                # Motor de renderização compartilhado
+│   ├── stage.css               # CSS do motor (o indicador de espera) — FOLHA e
+│   │                           # não `<style>` em runtime: a CSP das telas da
+│   │                           # rede bloqueia estilo embutido (v5.205)
 │   ├── material-symbols.css    # Font-face da fonte de ícones (subset offline; só o Controle usa)
 │   └── fonts/
 │       └── material-symbols.woff2  # ~2.2 KB — 30 glifos, todos em uso
@@ -181,6 +184,10 @@ app/src/main/assets/web/
 │   ├── controle.js             # Lógica do Controle
 │   ├── louvorja.js             # Cliente da API pública do LouvorJA (Coleções de mídia — ver seção própria)
 │   └── bible.js                # Cliente da parte bíblica do banco LouvorJA (livros/versões/capítulos — ver seção "Bíblia")
+├── espelho/                    # o papel `tela` (telão nas telas da rede)
+│   ├── tela.js                 # a casca: SSE, dreno de subida, entrada, relógio
+│   └── tela.css                # o CSS da ENTRADA — folha pelo mesmo motivo do
+│                               # stage.css (ver o cabeçalho do arquivo)
 └── display/
     ├── index.html              # UI do Display (inclui iframe #youtube)
     ├── display.css             # Estilos do Display

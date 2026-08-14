@@ -74,6 +74,10 @@ app/src/main/
 │   ├── shared/stage.js          #   motor de mídia (compartilhado Controle/Display)
 │   ├── vendor/                  #   ÚNICO código de terceiro do lado web:
 │   │                            #   o renderizador de .pptx (ver o LEIA-ME de lá)
+│   ├── shared/stage.css         #   o CSS do motor (o indicador de espera)
+│   ├── espelho/tela.css         #   o CSS da ENTRADA da tela da rede
+│   │                            #   (os dois eram `<style>` em runtime, e a CSP
+│   │                            #    das telas da rede os bloqueava — v5.205)
 │   ├── espelho/tela.js          #   O TELÃO POR COMANDOS: a casca do papel
 │   │                            #   `tela` sobre o próprio /display/ (SSE)
 │   ├── controle/                #   (sem sw.js / manifest / icons — ver abaixo)
@@ -2035,6 +2039,23 @@ fica escrita porque continua valendo: **teste que não está no workflow é
 documentação, não rede de segurança** — o `tela-rede` entrou no `apk.yml` no
 mesmo commit em que nasceu.
 
+> **E ELE PRECISA SER TÃO RESTRITO QUANTO O SERVIDOR DE VERDADE** (v5.204/v5.205,
+> a lição mais cara da primeira ligada em rede real). Ele entregava o HTML **sem
+> a CSP** e carregava a página com `?tela=1` **na mão** — isto é, provava o
+> percurso num ambiente mais permissivo e por um caminho que o aparelho pode não
+> receber. As duas divergências esconderam dois defeitos ao mesmo tempo: o estilo
+> da entrada bloqueado (`<style>` em runtime × `default-src 'self'`) e o papel
+> dependendo de uma query que se perde. Hoje ele injeta a marca do papel como o
+> servidor injeta, manda a CSP verbatim, roda **sem query nenhuma** e AFIRMA a
+> garantia que a CSP existe para dar (a IFrame API do YouTube barrada). **Um
+> servidor de mentira que diverge do de verdade não prova nada.**
+>
+> E a instabilidade dele foi consertada no mesmo lote: falhava em duas de cada
+> três execuções e "passava na segunda tentativa", porque esperava o servidor
+> RECEBER o `POST /par` e lia a frase de erro no instante seguinte, quando quem a
+> escreve é o cliente, depois da resposta. Com `continue-on-error` no `apk.yml`,
+> um teste assim não é rede de segurança: é ruído que ensina a ignorar vermelho.
+
 A v5.154 acrescentou o **oráculo da SOMBRA** (`tools/sombra.test.mjs`, Node puro,
 **sem `continue-on-error`**): nenhuma função da base web pode redeclarar um nome
 de módulo. Ele existe porque `node --check` **aprova** um `const ms = …` dentro
@@ -2298,8 +2319,9 @@ nativos por construção (a escada do voltar, os botões de volume, a notificaç
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
 > **A v5.205: A CSP BLOQUEAVA O ESTILO DA ENTRADA — o overlay existia, sem
-> posição, DEBAIXO do wallpaper. OTA PURO.** Relato: *"não aparece o botão, cai
-> direto no wallpaper"*, no v1.92, com a marca do papel já funcionando.
+> posição, DEBAIXO do wallpaper. OTA PURO. CONFIRMADO EM APARELHO:** *"funcionou,
+> a tela conectou"*. Relato de partida: *"não aparece o botão, cai direto no
+> wallpaper"*, no v1.92, com a marca do papel já funcionando.
 >
 > **O papel sempre esteve certo; quem não aparecia era o overlay.** O
 > `espelho/tela.js` montava a entrada e injetava as regras dela num
