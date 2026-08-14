@@ -73,7 +73,7 @@ const MIME = {
 const PREFIXOS = { '/display/': 'display', '/shared/': 'shared', '/espelho/': 'espelho' };
 
 let lotado = false;
-const visto = { volta: [], gets: 0, pares: [] };
+const visto = { volta: [], gets: 0, pares: [], getsPor: {} };
 let sse = null;             // a resposta do GET /e em curso
 let aoAbrirSse = null;
 
@@ -137,6 +137,11 @@ const servidor = http.createServer(async (req, res) => {
   if (req.method === 'GET' && u.pathname === '/e') {
     if (req.headers.authorization !== 'Bearer ' + TOKEN) { json(res, 404, {}); return; }
     visto.gets++;
+    // ATRIBUIÇÃO POR PÁGINA: o contador global não distingue quem abriu o fio, e
+    // a seção 9 precisa afirmar que UMA página específica não reconectou
+    // sozinha. O cabeçalho vem do contexto do Playwright (`extraHTTPHeaders`).
+    const dePagina = req.headers['x-teste-pagina'] || '?';
+    visto.getsPor[dePagina] = (visto.getsPor[dePagina] || 0) + 1;
     res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', 'Connection': 'close' });
     res.write('data: ' + JSON.stringify({ m: 'oi', ms: agoraDoCelular() }) + '\n\n');
     sse = res;
@@ -244,53 +249,48 @@ checar(await pg.$eval('#telaEntrada', (e) => e.style.display === 'none'),
   'e o overlay some');
 
 // ---------------------------------------------------------------------------
-// 1-bis. UM TOQUE, E SÓ UM — a ativação é unificada (v5.214)
+// 1-bis. UM TOQUE, E SÓ UM — e nenhum segundo botão (v5.214 · v5.218)
 //
 // O botão de entrada gasta o gesto em TUDO de uma vez: pareamento, som e tela
 // cheia. O que este bloco trava é o desfecho que o operador relatou — a tela
 // ativava por inteiro e um SEGUNDO botão nascia por cima dela oferecendo
 // justamente o que aquele mesmo toque acabara de fazer.
 //
-// A causa era `oferecerGesto()` rodando no clique que gasta o gesto:
+// A causa (v5.214) era `oferecerGesto()` rodando no clique que gasta o gesto:
 // `requestFullscreen()` é assíncrono, o clique borbulha até o `document` antes
 // de a tela cheia existir, e a pergunta "o que falta?" era respondida contra o
-// passado. O botão então ficava PRESO, porque `esconderCanto` não cancelava o
-// quadro de opacidade agendado por `mostrarCanto`: a saída relia `opacity` e
-// encontrava o `'1'` que o prazo órfão repusera.
+// passado. Na v5.218 o botão de canto saiu por inteiro — a recarga passou a
+// voltar para a entrada oficial, que era a razão de ele existir —, e a regra
+// virou a mais simples que existe: **não há segundo botão, em momento nenhum.**
 //
 // A ASSERÇÃO NÃO DEPENDE DE O NAVEGADOR CONCEDER TELA CHEIA, de propósito — um
 // oráculo que exigisse a concessão viraria vermelho num runner que a negue, e
-// vermelho ambiental é o que ensina a ignorar vermelho (a lição da v5.204). O
-// que ela afirma é a regra, verdadeira nos dois ambientes: **nenhum botão pode
-// estar na tela oferecendo uma coisa que já está feita.**
+// vermelho ambiental é o que ensina a ignorar vermelho (a lição da v5.204).
 // ---------------------------------------------------------------------------
-const estadoDoGesto = () => pg.evaluate(() => {
-  const c = document.getElementById('telaCanto');
-  const cs = c && getComputedStyle(c);
-  return {
-    cheia: !!(document.fullscreenElement || document.webkitFullscreenElement),
-    canto: !c || cs.display === 'none' || cs.opacity === '0' ? '' : (c.textContent || ''),
-  };
-});
-// O gesto assenta com o pedido de tela cheia; 1,5 s é o prazo do `tela.js`.
-await ate(async () => { const g = await estadoDoGesto(); return g.cheia || g.canto; }, 2500);
-const gesto = await estadoDoGesto();
-checar(!(gesto.cheia && gesto.canto),
-  'o toque que ativa a tela NÃO deixa um segundo botão pedindo o que ele já fez',
-  'tela cheia=' + gesto.cheia + ' canto="' + gesto.canto + '"');
+const emCheia = () => pg.evaluate(() => !!(document.fullscreenElement || document.webkitFullscreenElement));
+await ate(emCheia, 2500);
+checar(await pg.evaluate(() => !document.getElementById('telaCanto')),
+  'o toque que ativa a tela NÃO deixa um segundo botão pedindo o que ele já fez');
 
-// E o caminho de VOLTA continua de pé — sem ele, apagar o botão de canto
-// "passaria" no teste acima e tiraria a única saída de quem esbarra na tecla
-// errada do controle remoto. Só é exercitável onde a tela cheia foi concedida,
-// e o contrário é DITO em vez de passar em silêncio (a lição da v5.213).
-if (gesto.cheia) {
+// O CAMINHO DE VOLTA — sem ele, apagar os atalhos "passaria" no teste acima e
+// tiraria a única saída de quem esbarra na tecla errada do controle remoto. São
+// os dois gestos que a v5.218 deixou no lugar do botão. Só exercitáveis onde a
+// tela cheia foi concedida, e o contrário é DITO em vez de passar em silêncio
+// (a lição da v5.213).
+if (await emCheia()) {
   await pg.evaluate(() => document.exitFullscreen());
-  await ate(async () => (await estadoDoGesto()).canto, 2000);
-  checar(/tela cheia/i.test((await estadoDoGesto()).canto),
-    'e sair da tela cheia OFERECE a volta na hora',
-    (await estadoDoGesto()).canto);
+  await ate(async () => !(await emCheia()), 2000);
+  await pg.dblclick('body');
+  await ate(emCheia, 2500);
+  checar(await emCheia(), 'o TOQUE DUPLO devolve a tela cheia');
+
+  await pg.evaluate(() => document.exitFullscreen());
+  await ate(async () => !(await emCheia()), 2000);
+  await pg.keyboard.press('F11');
+  await ate(emCheia, 2500);
+  checar(await emCheia(), 'e o F11 faz o mesmo — o atalho de quem opera num computador');
 } else {
-  console.log('----    o botão de volta não foi exercitado: este navegador não concedeu tela cheia');
+  console.log('----    os atalhos de volta não foram exercitados: este navegador não concedeu tela cheia');
 }
 
 // O token nunca em URL — a regra de sempre, no transporte novo.
@@ -460,46 +460,86 @@ checar(await pg.$eval('#text', (e) => e.hidden), 'text-hide tira a Camada de Tex
 }
 
 // ---------------------------------------------------------------------------
-// 9. A RECARGA — o botão antigo não pode voltar (v5.216)
+// 9. A RECARGA VOLTA PARA A ENTRADA OFICIAL (v5.216 · v5.218)
 //
-// Este é o caminho que nenhum teste percorria, e foi por ele que o defeito
-// passou: o `#startBtn` ("Ligar Sistema", o overlay da era do navegador) era
-// escondido dentro de `montarEntrada()`, que só roda na PRIMEIRA carga. A
-// recarga com sessão viva reconecta POR TRÁS, sem desenhar overlay nenhum — e
-// então o botão antigo voltava, `inset: 0`, com a pílula no centro da tela.
+// Este é o caminho que nenhum teste percorria, e foi por ele que passaram os
+// dois defeitos do relato:
 //
-// O dano não é cosmético: ele não pareia, não solta o som e não pede tela
-// cheia; só se esconde. O visitante gasta nele o único gesto que tinha e a tela
-// fica conectada, MUDA e em janela — que é, palavra por palavra, o relato.
+//  • o `#startBtn` ("Ligar Sistema", o overlay da era do navegador) voltava,
+//    porque quem o escondia era uma linha dentro de `montarEntrada()` — e essa
+//    função só roda na primeira carga. Ele não pareia, não solta o som e não
+//    pede tela cheia: só se esconde. O visitante gastava nele o único gesto e a
+//    tela ficava conectada, MUDA e em janela;
+//  • e a tela reconectava POR TRÁS, sem oferecer a ativação — o gesto tinha
+//    morrido com a navegação, e nada na tela dizia como recuperá-lo.
 //
-// A asserção mede o que o dedo encontra (`elementFromPoint` no centro), e não
-// só a propriedade `hidden`: é o CENTRO da tela que decide para onde vai o
-// toque, e era exatamente ali que o botão errado estava.
+// A regra agora é a do operador: **recarregar volta para a entrada oficial**, a
+// mesma do primeiro acesso. A asserção mede o que o DEDO encontra
+// (`elementFromPoint` no centro), e não só a propriedade `hidden`: é o centro
+// da tela que decide para onde vai o toque, e era exatamente ali que o botão
+// errado estava.
 // ---------------------------------------------------------------------------
 {
-  const pg3 = await ctx.newPage();
+  // A PÁGINA PRINCIPAL SAI DE CENA PRIMEIRO, e isto é o que torna a medição
+  // atribuível: depois do `adeus` da seção 7 ela fica numa escada de reentrada
+  // (comportamento correto, e afirmado ali mesmo), então um `GET /e` dela cairia
+  // no contador global e seria lido como "a tela recarregada reconectou
+  // sozinha". Foi exatamente o falso positivo que a primeira versão desta seção
+  // produziu.
+  await pg.close();
+
+  // CONTEXTO PRÓPRIO, com um cabeçalho que identifica esta página no servidor de
+  // mentira. Sem ele a asserção "não reconectou sozinha" lê um contador global —
+  // e a primeira versão desta seção falhou por isso, culpando a página nova por
+  // um `GET /e` que era de outra.
+  const ctx3 = await navegador.newContext({
+    viewport: { width: 1280, height: 720 },
+    extraHTTPHeaders: { 'x-teste-pagina': 'recarga' },
+  });
+  const pg3 = await ctx3.newPage();
   await pg3.goto(base + '/display/index.html');
   await pg3.waitForSelector('#telaEntrada', { state: 'visible' });
   await pg3.click('#telaEntrar');
   await ate(async () => pg3.$eval('#telaEntrada', (e) => e.style.display === 'none').catch(() => false), 5000);
 
+  const getsAntes = visto.getsPor.recarga || 0;
   await pg3.reload();
-  await espera(1200);
+  await pg3.waitForSelector('#telaEntrada', { state: 'visible', timeout: 5000 }).catch(() => {});
   const depois = await pg3.evaluate(() => {
     const sb = document.getElementById('startBtn');
     const cs = sb && getComputedStyle(sb);
+    const ent = document.getElementById('telaEntrada');
     const meio = document.elementFromPoint(innerWidth / 2, innerHeight / 2);
     return {
       antigo: !!(sb && !sb.hidden && cs.display !== 'none'),
+      entrada: !!(ent && ent.style.display !== 'none'),
+      rotulo: (document.getElementById('telaEntrar') || {}).textContent || '',
       meio: meio ? (meio.id || String(meio.className) || meio.tagName) : '?',
     };
   });
   checar(!depois.antigo,
     'recarregar a tela NÃO traz de volta o "Ligar Sistema" da era do navegador');
+  checar(depois.entrada && /ativar esta tela/i.test(depois.rotulo),
+    'recarregar volta para a ENTRADA OFICIAL — o mesmo botão do primeiro acesso',
+    'entrada=' + depois.entrada + ' rótulo="' + depois.rotulo + '"');
   checar(!/start/.test(depois.meio),
     'e o centro da tela não é um botão que gastaria o gesto sem ativar nada',
     'no centro: ' + depois.meio);
-  await pg3.close();
+  checar((visto.getsPor.recarga || 0) === getsAntes,
+    'e ela NÃO reconecta sozinha: o fio só abre quando alguém toca',
+    'GET /e novos desta página: ' + ((visto.getsPor.recarga || 0) - getsAntes));
+
+  // E o toque REAPROVEITA A VAGA: `telasSse` é indexado pelo token, então pedir
+  // pareamento novo a cada F5 deixaria a sessão anterior ocupando lugar até o
+  // vigia notá-la — e a terceira recarga seguida bateria no teto de três telas.
+  const paresAntes = visto.pares.length;
+  await pg3.click('#telaEntrar');
+  await ate(() => (visto.getsPor.recarga || 0) > getsAntes, 5000);
+  checar((visto.getsPor.recarga || 0) > getsAntes, 'e o toque reconecta');
+  checar(visto.pares.length === paresAntes,
+    'reaproveitando o token — sem pedir vaga nova a cada recarga (o teto é 3)',
+    'POST /par novos: ' + (visto.pares.length - paresAntes));
+  await ctx3.close();
 }
 
 checar(pedidosDeFora.length === 0,

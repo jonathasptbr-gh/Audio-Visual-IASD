@@ -72,6 +72,24 @@
 > fino delas (eco de __mid, atraso medido) é evolução futura sobre o campo
 > `eventos`/`pronta` que já viaja.
 >
+> **v5.218: a RECARGA volta para a entrada oficial, e o botão de canto sai.**
+> Decisão do operador, e ela revoga a metade da v5.189 que valia para o F5 — a
+> distinção é entre perder o FIO e perder a PÁGINA. Numa queda de conexão a
+> mídia continua tocando (local, `/m/`, letra pelo `timeupdate`) e cobrir a tela
+> apagaria uma cena que o problema não atingiu: isso NÃO mudou, `cairToken`/
+> `reentrarSozinho` seguem silenciosos. Uma recarga já derrubou tudo, inclusive
+> o gesto (ativação transitória não sobrevive a uma navegação), então não há
+> projeção a preservar e nada a cobrir — e o certo é o mesmo botão do primeiro
+> acesso, não um segundo controle de canto com outro nome. Saíram
+> `mostrarCanto`/`esconderCanto`/`oQueFalta`/`oferecerGesto` e o `assentando` da
+> v5.214 (era só o guarda daquela pergunta; a regra dele virou comentário no
+> `telaCheia`). Ficaram DOIS atalhos para voltar à tela cheia sem derrubar nada:
+> toque duplo e **F11** (com `preventDefault`, senão o navegador entra na tela
+> cheia dele junto com a da API e sair exige dois comandos). **O token é
+> carregado adiante na recarga** — o fio só abre no toque, mas a vaga é
+> reaproveitada: `telasSse` é indexado pelo token, e pedir pareamento novo a
+> cada F5 faria a terceira recarga seguida receber "lotado".
+>
 > **v5.216: e na RECARGA quem desmentia era o "Ligar Sistema".** O `#startBtn`
 > — o overlay da era do navegador — era escondido por uma linha dentro de
 > `montarEntrada()` do `tela.js`, e essa função só roda na PRIMEIRA carga: a
