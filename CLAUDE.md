@@ -2336,10 +2336,33 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.210** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
+**Versão atual: v5.211** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.211 (v1.96): A CAPA ARTIFICIAL SAI — fica a COR, sólida. EXIGE APK.**
+> Pedido do operador sobre a v5.210, e ele encurta uma decisão que eu tinha
+> tomado por ele: *"não preciso da capa artificial, apenas da cor. sólida, limpa
+> e minimalista"*.
+>
+> **O argumento da v5.210 era sobre o BURACO, e o buraco é menos ruim que o
+> enchimento.** Um `MediaStyle` sem `largeIcon` deixa um vão do tamanho de uma
+> capa que cada versão do Android preenche de um jeito, e eu tratei isso como
+> defeito a corrigir. Só que a capa que eu pus ali não informava nada — era o
+> mesmo símbolo em todo louvor, todo vídeo e toda mensagem —, e um elemento
+> constante que não distingue nada é decoração. Num cartão que o operador olha
+> de relance, no escuro, no meio de um culto, quem carrega a informação é o
+> TÍTULO e o transporte; **sólido lê mais rápido que ilustrado.** Com
+> `setColorized(true)` o cartão já é um painel de cor inteiro, e é ele que faz o
+> trabalho de "isto é o mesmo app".
+>
+> Saíram o `capaArtificial`, o `capaCache`, o `setLargeIcon` e os dois imports
+> de `graphics` — o `temaMudou()` e o `corDoTema()` ficam intactos, porque a cor
+> era o pedido desde o começo. **A regra que a v5.210 escreveu e que continua
+> valendo é a outra**: a capa não podia seguir o tema (o vetor do ícone está nos
+> tokens do escuro, e sobre o `app_bg_claro` daria 1,02:1) — quem segue o tema é
+> o cartão, e agora é a única coisa que segue.
 
 > **A v5.210 (v1.95): A NOTIFICAÇÃO VESTE O TEMA, e o MODO RELÓGIO deixa de
 > perguntar as horas ao aparelho errado. EXIGE APK.** Dois pedidos do operador,
@@ -2357,7 +2380,9 @@ controles), que **só chegam instalando o APK novo**, não pelo OTA.
 >   `MediaStyle` — que é exatamente o caso dos dois. Trocar de tema **repinta na
 >   hora** (`SessionService.temaMudou`): sem esse aviso a cor só mudaria no
 >   próximo `publish()`, que numa cena parada é daqui a um louvor inteiro.
-> - **E ele ganhou uma CAPA, porque não existe capa de verdade.** O acervo é
+> - **E ele ganhou uma CAPA, porque não existe capa de verdade. ~~REVOGADA na
+>   v5.211~~** a pedido do operador — leia mesmo assim, porque a regra do meio
+>   (a capa não pode seguir o tema) é o que sobrou de pé. O acervo é
 >   hino, vídeo e imagem de culto: não há arte de álbum em lugar nenhum, e um
 >   `MediaStyle` sem `largeIcon` fica com um buraco do tamanho de uma capa que
 >   cada versão do Android preenche de um jeito. A capa é o símbolo do ícone do
