@@ -1350,6 +1350,47 @@ publicar uma versão nova. E não há risco de descompasso: `native.js` viaja
 DENTRO do bundle que ele valida, então a função e o `__avBack` que ela exige são
 sempre do mesmo commit.
 
+#### Trocar a base servida OBRIGA a limpar o cache do WebView (v1.91)
+
+As URLs da base **não mudam de nome entre versões** — `/web/controle/
+controle.js` é sempre esse caminho — e o WebView roda com
+`cacheMode = LOAD_DEFAULT`. Então, toda vez que o app passa a servir um bundle
+diferente do que serviu antes, o cache do processo ainda guarda a versão velha
+dos mesmos endereços, e a página nasce **com metade de cada bundle**.
+
+A regra já estava escrita no projeto, em `StagePresentation.recarregar` e em
+`MainActivity.applyWebUpdate`: *"sem limpar o cache, a página nova pode ser
+montada com pedaços da antiga — o pior desfecho possível, porque tudo PARECE ter
+funcionado"*. Ela tinha sido aplicada em **um** dos dois lugares em que a base
+troca.
+
+O outro é o **lançamento**, e são justamente os caminhos de recuo do
+`beginSession`: o watchdog descartando um bundle que não confirmou o boot, e um
+APK novo atropelando um OTA mais antigo. Nos dois, a sessão anterior serviu X e
+esta serve Y. Foi assim que o **botão único de conectar da v5.192** — a base
+embutida no APK v1.90, onde ele existe com o rótulo "Toque para conectar uma
+tela" — reapareceu num aparelho que já rodava a v5.197, com o relato exato de
+*"algum tipo de resquício, cache ou conflito que ignorava as mudanças da
+atualização"*.
+
+**E o modo de falhar se REALIMENTA**: uma página remendada tem tudo para não
+satisfazer o `otaAppIsUp`, então o bundle seguinte também é descartado — o
+aparelho fica preso indo e voltando entre duas versões, que é exatamente a
+sequência de três sintomas que o operador descreveu duas vezes.
+
+`WebUpdater.baseTrocou` responde a pergunta (contra `KEY_SERVIDO`, o que a
+sessão anterior de fato serviu — que **não** é o `KEY_ACTIVE`, porque aquele diz
+o que o OTA *quer* servir e este diz o que os WebViews *serviram*), e
+`buildControleWebView` limpa o cache antes do primeiro `loadUrl`. O cache é
+**por aplicação**, então limpar no primeiro WebView do processo cobre a
+`Presentation`, que nasce depois. Ausente não conta como troca: numa primeira
+execução não há cache anterior com que conflitar.
+
+`beginSession` passou a ter **saída única** (`fixarBase`) por causa disto: eram
+quatro `return` espalhados, e um quinto caminho acrescentado sem a anotação
+passaria despercebido — que é a forma exata como este defeito nasceu do outro
+lado.
+
 #### As outras defesas do caminho de download
 
 - **Uma verificação por vez** (`checking`, um `AtomicBoolean`). `checkAsync`
@@ -2251,10 +2292,50 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.199** (base web) · `SHELL_VERSION` **39**, e o bundle segue com
+**Versão atual: v5.200** (base web) · `SHELL_VERSION` **39**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.200 (v1.91): O "RESQUÍCIO" ERA O CACHE DO WEBVIEW, e ele tem nome e
+> endereço. EXIGE APK.** O operador insistiu, e a insistência estava certa: o
+> que ele via não era a cortina da v5.199 — era **o botão único de conectar da
+> v5.192**, aquele que só abre o Smart View. Ele existe, com esse rótulo, na
+> base embutida no **APK v1.90**; e o app serve a embutida sempre que o
+> `beginSession` recua (watchdog descartando um bundle, ou APK novo atropelando
+> um OTA antigo). Como as URLs da base não mudam de nome entre versões e o
+> WebView roda em `LOAD_DEFAULT`, esse recuo montava a página com **metade de
+> cada bundle** — e a regra "trocou a base, limpa o cache" já estava escrita
+> neste repositório, aplicada em UM dos dois lugares em que a base troca. O
+> outro é o lançamento. Detalhes, incluindo por que o defeito se realimenta
+> (uma página remendada não confirma o boot, e o bundle seguinte também é
+> descartado), na seção do OTA — "Trocar a base servida OBRIGA a limpar o cache
+> do WebView".
+>
+> `SHELL_VERSION` **não sobe**: nenhum método da ponte nasceu, saiu ou mudou de
+> assinatura. Mas **sem a Release o operador continua com o defeito**, porque a
+> correção é Kotlin.
+>
+> Junto vieram dois pedidos de tela, os dois OTA:
+>
+> - **"Buscar música" desceu para entre a letra e o teclado**, largo, nos DOIS
+>   estados. Ele nasceu dividindo a faixa do alto com a preview e só apareceu
+>   com a largura inteira na v5.199, quando aquela faixa virou uma coluna — foi
+>   essa forma que o operador pediu para ficar. E o lugar é o certo: buscar é o
+>   começo de OPERAR, então pertence ao teclado, a milímetros do ▶ que vem logo
+>   depois de escolher, e não ao alto da tela, junto do que se resolve uma vez
+>   por culto. A faixa de cima ficou com uma decisão só (preview × conexão), e a
+>   preview ganhou um teto de altura de 20vh: sem o botão ao lado ela tomaria a
+>   largura inteira, e 16:9 num aparelho de 430px são ~242px tirados da letra.
+> - **A aba do Cronograma virou um RELÓGIO.** A família do TEMPO é o que separa
+>   essa lista da playlist em todo o app, mas quem dizia isso era só o
+>   `more_time` dos botões "Adicionar ao Cronograma"; a aba respondia com uma
+>   agenda — mesma ideia, outro desenho. Agora é o mesmo mostrador, sem o "+",
+>   porque a aba é um lugar e não um acréscimo. **SVG inline**, como a aba da
+>   Bíblia e pelo mesmo motivo: `schedule` (U+E8B5) não está no subset de
+>   `shared/fonts/material-symbols.woff2` (31 codepoints), e codepoint ausente é
+>   um retângulo vazio na barra de navegação — a armadilha da v5.184. Auditados
+>   os 32 codepoints em uso contra o cmap da fonte: nenhum outro falta.
 
 > **A v5.199: O BLOQUEIO DO MODO FÁCIL SAI — e é ele que o operador chamava de
 > "o botão de conectar". OTA PURO.** Relato, pela segunda vez depois de a v5.197

@@ -90,6 +90,17 @@ object WebUpdater {
     private const val KEY_PENDING = "pending-bundle"
     private const val KEY_PENDING_LEGACY = "pending"
 
+    /**
+     * O que a sessão ANTERIOR de fato serviu — o nome do subdiretório, ou `""`
+     * para o bundle embutido no APK. É a memória de que [baseTrocou] precisa.
+     *
+     * Ela não é redundante com [KEY_ACTIVE]: aquela diz o que o OTA *quer*
+     * servir, e esta diz o que os WebViews *serviram*. Os dois divergem
+     * exatamente nos casos que importam aqui — um bundle descartado pelo
+     * watchdog e um APK novo que atropela um OTA antigo.
+     */
+    private const val KEY_SERVIDO = "servido"
+
     private const val CONNECT_TIMEOUT = 10_000
     private const val READ_TIMEOUT = 30_000
     private const val MAX_ZIP_BYTES = 64L * 1024 * 1024 // teto de sanidade
@@ -157,6 +168,38 @@ object WebUpdater {
         private set
 
     /**
+     * ESTA SESSÃO SERVE UM BUNDLE DIFERENTE DO QUE A ANTERIOR SERVIU?
+     *
+     * Quem lê é a `MainActivity`, e o que ela faz com isso é **limpar o cache
+     * do WebView antes do primeiro `loadUrl`**. A regra já estava escrita neste
+     * projeto, em `StagePresentation.recarregar` e em `applyWebUpdate`: *"sem
+     * limpar o cache, a página nova pode ser montada com pedaços da antiga — o
+     * pior desfecho possível, porque tudo PARECE ter funcionado"*. Só que ela
+     * tinha sido aplicada num dos dois lugares em que a base servida troca.
+     *
+     * O outro é aqui, no lançamento, e são justamente os caminhos de recuo:
+     * o watchdog descartando um bundle que não confirmou o boot, e um APK novo
+     * atropelando um OTA mais antigo. Nos dois a sessão anterior serviu o
+     * bundle X e esta serve o Y, com as MESMAS URLs — `/web/controle/
+     * controle.js` não muda de nome entre versões, e o `cacheMode` do WebView é
+     * `LOAD_DEFAULT`. O que o operador vê é uma página montada com metade de
+     * cada versão; foi assim que o botão único de conectar da v5.192 (embutida
+     * no APK v1.90) reapareceu num aparelho que já rodava a v5.197, com o
+     * relato exato de *"algum tipo de resquício, cache ou conflito que ignorava
+     * as mudanças da atualização"*.
+     *
+     * E o modo de falhar se REALIMENTA: uma página remendada tem tudo para não
+     * satisfazer o `otaAppIsUp`, então o bundle seguinte também é descartado, e
+     * o aparelho fica preso indo e voltando entre duas versões.
+     *
+     * Vale para o lançamento inteiro, não só para o primeiro `onCreate`: é uma
+     * propriedade da SESSÃO, decidida junto com o [sessionRoot].
+     */
+    @Volatile
+    var baseTrocou = false
+        private set
+
+    /**
      * Decide o que servir nesta sessão e arma o watchdog. Chamar no início do
      * `onCreate`, antes de criar os WebViews.
      *
@@ -169,8 +212,7 @@ object WebUpdater {
         val p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val active = p.getString(KEY_ACTIVE, null)
         if (active == null) {
-            sessionRoot = null
-            return null
+            return fixarBase(p, null)
         }
         val dir = File(baseDir(ctx), active)
 
@@ -187,8 +229,7 @@ object WebUpdater {
             dir.deleteRecursively()
             p.edit().remove(KEY_ACTIVE).remove(KEY_PENDING).remove(KEY_PENDING_LEGACY).apply()
             cleanup(ctx, keep = emptySet())
-            sessionRoot = null
-            return null
+            return fixarBase(p, null)
         }
 
         // Um APK novo pode trazer uma base web mais recente que o OTA guardado
@@ -199,19 +240,48 @@ object WebUpdater {
             dir.deleteRecursively()
             p.edit().remove(KEY_ACTIVE).remove(KEY_PENDING).remove(KEY_PENDING_LEGACY).apply()
             cleanup(ctx, keep = emptySet())
-            sessionRoot = null
-            return null
+            return fixarBase(p, null)
         }
 
         // Arma o watchdog PARA ESTE bundle, e aproveita para varrer a chave
         // booleana antiga (ver [KEY_PENDING_LEGACY]).
         p.edit().putString(KEY_PENDING, active).remove(KEY_PENDING_LEGACY).apply()
-        sessionRoot = dir
         // Ponto único e seguro para recolher bundles antigos: nenhum WebView
         // existe ainda, então nada está sendo servido. É aqui que sai o diretório
         // que o `check()` da sessão anterior preservou de propósito.
         cleanup(ctx, keep = setOf(dir.name))
         Log.i(TAG, "servindo bundle OTA $installed (embutido: $embedded)")
+        return fixarBase(p, dir)
+    }
+
+    /**
+     * A SAÍDA ÚNICA do [beginSession]: fixa o [sessionRoot], anota o que esta
+     * sessão vai servir e responde, em [baseTrocou], se isso mudou desde a
+     * sessão anterior.
+     *
+     * Saída única de propósito. Antes eram quatro `return` espalhados, e um
+     * quinto caminho acrescentado sem a anotação passaria despercebido — que é
+     * exatamente a forma como este defeito nasceu do outro lado, com a limpeza
+     * de cache aplicada em `applyNow` e esquecida aqui.
+     */
+    private fun fixarBase(p: android.content.SharedPreferences, dir: File?): File? {
+        sessionRoot = dir
+        val agora = dir?.name ?: ""
+        val antes = try {
+            p.getString(KEY_SERVIDO, null)
+        } catch (_: ClassCastException) {
+            null
+        }
+        // AUSENTE NÃO É TROCA. Numa primeira execução (ou logo depois de o app
+        // ser instalado por cima de uma versão que não gravava esta chave) não
+        // há cache anterior para conflitar, e limpar por precaução só custaria
+        // uma releitura de assets locais — mas anunciar "trocou" onde nada
+        // trocou tiraria o sentido do nome e do log.
+        baseTrocou = antes != null && antes != agora
+        if (baseTrocou) {
+            Log.w(TAG, "a base servida mudou ('$antes' → '$agora') — o cache do WebView será limpo")
+        }
+        p.edit().putString(KEY_SERVIDO, agora).apply()
         return dir
     }
 
@@ -317,7 +387,16 @@ object WebUpdater {
             Log.w(TAG, "bundle $active sem index do Controle — não aplicado ao vivo")
             return null
         }
-        p.edit().putString(KEY_PENDING, active).remove(KEY_PENDING_LEGACY).apply()
+        // `KEY_SERVIDO` acompanha, porque a base servida ACABOU de mudar e quem
+        // limpa o cache neste caminho é a própria `applyWebUpdate`, agora. Sem
+        // esta linha o lançamento seguinte compararia contra o bundle da
+        // ABERTURA desta sessão e concluiria "trocou" para uma troca já
+        // resolvida — um `clearCache` inútil por atualização aplicada ao vivo.
+        p.edit()
+            .putString(KEY_PENDING, active)
+            .remove(KEY_PENDING_LEGACY)
+            .putString(KEY_SERVIDO, active)
+            .apply()
         sessionRoot = dir
         Log.i(TAG, "base web $versao aplicada AO VIVO, a pedido do operador")
         return versao
