@@ -1495,13 +1495,31 @@ TV, as telas da rede SÃO o que a congregação vê.
   (`__telaSom(true)` → `requestFullscreen` → `POST /par` → token → SSE).
   **Desde a v5.189 o botão é UM só, "Ativar esta tela", e não há código a
   digitar**: a porta é o endereço.
+
+  **E a pergunta "o que ainda falta nesta tela?" NÃO pode ser feita DENTRO do
+  gesto** (v5.214). `requestFullscreen()` é assíncrono e o clique borbulha até
+  o `document` antes de a tela cheia existir — medido em Chromium, o ouvinte do
+  documento roda com `fullscreenElement=false` e o `fullscreenchange` chega
+  9 ms depois. Perguntar ali responde sempre contra o passado, e o que nascia
+  disso era um SEGUNDO botão oferecendo exatamente o que o toque acabara de
+  fazer: a ativação unificada parecendo exigir uma segunda interação. Quem
+  responde é o próprio pedido de tela cheia — a Promise resolve quando ela
+  entrou e rejeita quando foi recusada —, e entre o gesto e esse desfecho o
+  `oferecerGesto()` é mudo (`assentando`, em `tela.js`).
 - **Depois de ativada, NADA cobre a tela.** O overlay cheio existe só na
   primeira carga, quando não há nada por baixo dele. Queda de fio, token
   vencido e até o `adeus` do operador reentram em silêncio (um `POST /par` numa
   escada de 1 s a 30 s) — a mídia é local (`/m/`) e a letra anda pelo
   `timeupdate` do próprio `<video>`, então a queda leva o fio e mais nada. O
   gesto perdido (tela cheia, som) é oferecido por um botão discreto de canto,
-  que se recolhe em 5 s; o toque duplo faz o mesmo.
+  que se recolhe em 5 s; o toque duplo faz o mesmo. **E "se recolhe" tem de ser
+  verdade**: o par mostrar/esconder dele agenda três prazos (a opacidade um
+  quadro adiante, o recolhimento em 5 s, o `display:none` no fim do
+  esmaecimento) e precisa cancelar os TRÊS a cada chamada. Sem isso ele não é
+  idempotente — o quadro de opacidade órfão repunha `opacity: 1` depois de o
+  esconder ter rodado, a saída relia o estilo, encontrava `'1'` e desistia, e o
+  botão ficava opaco por cima da projeção **sem nenhum prazo vivo para
+  recolhê-lo** (v5.214).
 - **O tap é no `busPost`, e isso fecha o eco.** `NativeBridge.busPost` vê 100%
   dos comandos (o relay nativo roda sempre — ver o barramento), e é ali que o
   `tapLan` os copia para o fan-out SSE. A injeção de volta (o `st` do
@@ -2359,10 +2377,61 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.213** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
+**Versão atual: v5.214** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.214: A ATIVAÇÃO DA TELA DA REDE JÁ ERA UNIFICADA — o que sobrava era um
+> segundo botão pedindo o que o primeiro tinha acabado de fazer. OTA PURO**
+> (nenhuma linha de Kotlin; sem Release).
+>
+> Relato do operador: o "Ativar esta tela" não estaria ativando som e tela cheia
+> junto com o display, e exigiria uma segunda interação para isso.
+>
+> **Medido antes de mexer, e o diagnóstico natural estava errado.** Um toque só,
+> num Chromium de verdade contra o servidor de mentira do `tela-rede`: tela cheia
+> `true`, overlay fora, `__telaSom(true)` chamado. **As três coisas aconteciam no
+> primeiro toque** — o gesto sempre foi um só. O que aparecia era um botão de
+> canto, opaco, escrito "Voltar à tela cheia", que **nunca saía de cena**. Do
+> lado de quem opera isso é indistinguível de "a ativação não funcionou", e é
+> exatamente assim que foi relatado.
+>
+> São dois defeitos, e eles se compõem — nenhum dos dois produz sintoma sozinho:
+>
+> - **A pergunta era feita DENTRO do gesto.** `oferecerGesto()` roda no ouvinte
+>   de clique do `document`, e o clique que gasta o gesto borbulha até lá **antes
+>   de a tela cheia existir**: `requestFullscreen()` é assíncrono. A linha do
+>   tempo instrumentada mostra o ouvinte rodando com `fullscreenElement=false` e
+>   o `fullscreenchange` chegando 9 ms depois. Isto é: a única pergunta que esse
+>   botão existe para responder era feita no único instante em que a resposta é
+>   garantidamente falsa. Agora quem responde é o próprio pedido — a Promise
+>   resolve se entrou, rejeita se foi recusada — e entre uma coisa e outra
+>   `oferecerGesto()` é mudo (`assentando`).
+> - **E o botão não sabia sair.** `mostrarCanto` agenda a opacidade um quadro
+>   adiante e o recolhimento em 5 s; `esconderCanto`, chamado no meio disso pelo
+>   `fullscreenchange`, matava o de 5 s e agendava a saída — e então o quadro
+>   órfão repunha `opacity: 1`. A saída conferia `opacity === '0'`, encontrava
+>   `'1'` e desistia. **Opaco, por cima da projeção, sem nenhum prazo vivo para
+>   recolhê-lo.** Os três prazos passaram a ser cancelados em bloco, que é a
+>   única regra que um par mostrar/esconder pode ter: o último a ser chamado
+>   vale.
+>
+> **O oráculo entrou no mesmo commit** (`tools/tela-rede.test.mjs`, a regra da
+> v5.145), e a asserção é deliberadamente independente de o navegador CONCEDER
+> tela cheia — exigir a concessão viraria vermelho num runner que a negue, e
+> vermelho ambiental é o que ensina a ignorar vermelho (a lição da v5.204). O que
+> ela afirma vale nos dois ambientes: **nenhum botão pode estar na tela
+> oferecendo uma coisa que já está feita.** O caminho de VOLTA é travado logo
+> abaixo — sem ele, apagar o botão de canto passaria no teste de cima e tiraria a
+> única saída de quem esbarra na tecla errada do controle remoto; e quando o
+> ambiente não concede tela cheia, o caso não é exercitado e isso é **dito**, não
+> silenciado (a lição da v5.213).
+>
+> A régua que fica, e ela é mais larga que este arquivo: **estado que uma API
+> assíncrona vai escrever não pode ser lido no mesmo turno em que ela é
+> chamada** — e um par mostrar/esconder com prazos só é honesto se cancelar
+> todos os seus.
 
 > **A v5.213: OS ORÁCULOS DE CHROMIUM VIRAM DOIS PASSOS — o painel verde
 > escondia um teste caindo. OTA PURO** (o único arquivo tocado fora da base é o
