@@ -338,6 +338,10 @@ window.AVNative = {
   espelhoCertImportar(url, senha), // → '' ou a FRASE do erro: o .p12 do TLS
   espelhoCertEstado(), // → { temCert, host, ate, nome, noAr, servindoTls }
   espelhoCertApagar(), // a chave privada sai do aparelho
+                       //   OS TRÊS ESTÃO SEM UI DESDE A v5.196: a folha de
+                       //   "Ajustes avançados" era a única porta deles e saiu.
+                       //   Ficam na ponte de propósito — voltar atrás é
+                       //   desenhar uma folha, não publicar uma Release.
 }
 ```
 
@@ -2247,10 +2251,49 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.195** (base web) · `SHELL_VERSION` **39**, e o bundle segue com
+**Versão atual: v5.196** (base web) · `SHELL_VERSION` **39**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.196: A FOLHA DE "AJUSTES AVANÇADOS" SAI INTEIRA. OTA PURO.**
+> Pedido do operador: *"nada ali é realmente útil, exceto pelo botão de
+> desconectar tela"*. Ele tinha razão sobre a folha e estava enganado sobre o
+> botão — e a diferença importa, porque é ela que decide onde o desconectar vai
+> parar.
+>
+> **O botão daquela folha era "Ligar/Desligar o espelho": a TRANSMISSÃO PELA
+> REDE, não o espelhamento para a TV.** E ele já era o mesmo estado do
+> interruptor "Transmitir pela rede", a dois centímetros dali, na folha de onde
+> aquela era aberta. Dois controles para um estado é a forma mais direta de eles
+> discordarem — some com a folha e o problema some junto.
+>
+> Foram três coisas, e nenhuma sobreviveu à pergunta "isto muda o que o operador
+> faz?": o parágrafo de ressalvas (já reduzido a uma linha na v5.194, e a linha
+> mora na folha de conexão), o botão duplicado, e o **certificado TLS**. Este
+> último é a única perda real e está dita: ele exige do operador um subdomínio
+> com wildcard por DNS-01, uma entrada estática de DNS no roteador da igreja e
+> renovação automática — três coisas que o app não adivinha e que ninguém aqui
+> montou. **Os três métodos da ponte continuam no shell**, então voltar atrás é
+> desenhar uma folha, não publicar uma Release.
+>
+> **E o desconectar foi para onde ele de fato pertence, em dois lugares
+> diferentes**, porque são duas coisas diferentes:
+>
+> - **tela da rede** → continua na lista de quem está vendo, com o botão
+>   "Desconectar" por linha, na folha de conexão;
+> - **TV** → o app NÃO TEM COMO derrubar um espelhamento (não existe API
+>   pública), e quem desconecta é o seletor do Android. O botão de espelhar leva
+>   exatamente para lá nos dois estados; o que mudou é ele **dizer qual TV está
+>   no ar** ("Espelhando em TV do templo", em verde de conectado). O rótulo NÃO
+>   vira "Desconectar" de propósito: um botão com esse nome que abre uma lista
+>   seria uma promessa que a tela seguinte não cumpre.
+>
+> **Uma armadilha do caminho, dita porque é da mesma família das outras:** o
+> bloco de ouvintes da seção de conexão era guardado por `if (mirrorOpenBtnEl)`
+> — o link "Ajustes avançados". Apagá-lo sem trocar a guarda desligaria em
+> silêncio tudo o que está dentro dela, **inclusive o interruptor da
+> transmissão**. A guarda passou a ser o botão de espelhar, que existe sempre.
 
 > **A v5.195: O PENTE NO RESTO DO APP — e a TELA PRETA que ele causou, com o
 > oráculo que faltava. OTA PURO.**
