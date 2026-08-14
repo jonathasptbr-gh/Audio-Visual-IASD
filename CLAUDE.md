@@ -1943,9 +1943,15 @@ produziria exatamente o mesmo estado, por isso a fila espera.
 todo `.js` de `assets/web`, uma validação de `version.json`, os testes de
 `tools/` — o parser `sidx`, o **oráculo do contrato de `shouldInterceptRequest`**
 (`webview-range.test.mjs`, que trava a invariante 8: Node puro, determinístico,
-sem `continue-on-error`) e nove testes **em Chromium de verdade**, todos em
+sem `continue-on-error`) e dez testes **em Chromium de verdade**, todos em
 `continue-on-error`: a **fumaça** que sobe a base web e usa a tela
-(`smoke.mjs`), as **mensagens de falha** da transmissão direta
+(`smoke.mjs`), o **BOOT COM A PONTE PRESENTE** (`boot-nativo.test.mjs`, v5.195 —
+o `smoke` sobe a base SEM `__AVBridge`, e por isso todo caminho guardado por
+`window.__NATIVE__` nunca era executado por teste nenhum: são justamente os que
+só rodam no aparelho. A v5.195 saiu com um `const` em zona morta temporal dentro
+de um `if (espelhoDisponivel())` — verde no CI, tela PRETA no celular, e o
+watchdog do OTA descartando o bundle no lançamento seguinte. Ele injeta uma
+ponte de mentira e pergunta o que o watchdog pergunta: o app ficou de pé?), as **mensagens de falha** da transmissão direta
 (`mse.test.mjs`), a **transição de entrada do palco** (`stage-fade.test.mjs`),
 o **coletor de lixo do banco** (`db-gc.test.mjs` — o único código do app que
 apaga mídia do operador), as **contas da biblioteca** (`acervo.test.mjs`:
@@ -2241,10 +2247,70 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.194** (base web) · `SHELL_VERSION` **39**, e o bundle segue com
+**Versão atual: v5.195** (base web) · `SHELL_VERSION` **39**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.195: O PENTE NO RESTO DO APP — e a TELA PRETA que ele causou, com o
+> oráculo que faltava. OTA PURO.**
+>
+> **Primeiro o defeito, porque ele é a parte que importa.** O app passou a abrir
+> em PRETO, e o relato do operador descreve a sequência inteira: tela preta →
+> na segunda abertura o Modo Fácil só com "Espelhar para TV" → na terceira, o
+> botão grande antigo de volta. Três sintomas, uma causa: `MIRROR_POLL_MS` e
+> `MIRROR_SHELL` são lidos na CARGA do módulo (pelo `hostCastConn` da v5.193,
+> alcançado pelo `setAppMode` do fim do arquivo) e nasciam 14 mil linhas abaixo
+> — zona morta temporal, `ReferenceError`, `controle.js` abortado. O terceiro
+> sintoma é o watchdog do OTA funcionando exatamente como projetado: sem
+> confirmação de boot, ele descarta o bundle e o lançamento seguinte serve o
+> EMBUTIDO NO APK, que é a versão anterior.
+>
+> **É a terceira vez que esta armadilha morde** (`mirrorEstado` na v5.184,
+> `mirrorOcupado`/`mirrorTimer` na v5.193) e a primeira em que o CI não tinha
+> como vê-la: a leitura mora dentro de `if (espelhoDisponivel())`, que é FALSO
+> num navegador. **O `smoke.mjs` passava verde porque nunca executava a linha.**
+>
+> **Daí o `tools/boot-nativo.test.mjs`**, e ele é a peça que faltava neste
+> repositório desde sempre: sobe a base web com um `__AVBridge` DE MENTIRA
+> injetado antes da carga, e pergunta a MESMA coisa que o watchdog do OTA
+> pergunta (`otaAppIsUp`) — o app ficou de pé? Todo caminho guardado por
+> `window.__NATIVE__` — que é dizer: todo caminho que só roda no aparelho, onde
+> não há console para olhar — passou a ter execução em CI. Ele achou o segundo
+> TDZ (`MIRROR_SHELL`) na primeira execução, e o stub tem uma fidelidade que
+> precisa estar dita: o Kotlin resolve `__avResolve(id, VALOR)` com objeto já
+> pronto, não com string — passar `'[]'` faria `lastDisplays[0]` ser o
+> caractere `'['`, verdadeiro, e o app acharia que há um telão conectado.
+>
+> Junto veio uma correção do mesmo lote: o guard do `renderCast` usava
+> `offsetParent === null` para saber se o bloco estava aparecendo, e
+> `.popup-backdrop` esconde por **opacidade**, não por `display` — a guarda
+> nunca barrou nada. Perguntar por ESTADO (`.open` / `hidden`) funciona nas duas
+> casas do bloco.
+>
+> **E o pente propriamente dito**, com a régua que a v5.194 estabeleceu — cai o
+> que repete o rótulo, fica o que diz uma consequência que o rótulo não implica:
+>
+> - **Os três destinos perderam o subtítulo.** Playlist, Cronograma e Favoritos
+>   são NOMES DE ABA deste app; escrever embaixo de cada um o que ele é ("A
+>   lista do culto") é explicar a própria navegação para quem já está navegando
+>   nela — e era metade da altura da folha.
+> - **"Tocar agora" MANTEVE o dele**, e é o contraste que mostra a régua: ele é
+>   o único que não guarda nada, e isso o rótulo não diz ("Sem entrar em lista
+>   nenhuma"). No caminho de só-áudio o que ele não diz é outra coisa ("Sem
+>   mexer no telão").
+> - **"Instrumental, sem a voz"** saiu: playback é o termo que o app usa em toda
+>   parte, inclusive no seletor Cantada/Playback, que nunca teve explicação.
+> - **"Sem música e sem passagem automática de slides"** virou "Os slides não
+>   passam sozinhos" — a primeira metade repetia "Apenas a letra".
+> - **A linha de confirmação parou de listar os destinos escolhidos**: eles são
+>   as caixas marcadas, visíveis a três linhas dali. O contador responde
+>   "quantos?" sem repetir "quais?".
+> - **O cartão de conectar do Modo Fácil ficou só com o estado.** Ele tinha três
+>   frases de instrução ("Toque para escolher a tela") que repetiam o rótulo e o
+>   ícone ao lado — e, desde a v5.193, ele só existe COM tela conectada.
+> - **"Hinários e álbuns"** saiu do cartão de buscar: não há segunda busca neste
+>   modo para escolher entre elas.
 
 > **A v5.194: A FOLHA DE CONECTAR PERDE TRÊS QUARTOS DO TEXTO. OTA PURO.**
 > Relato do operador: "extremamente poluído e repetido e pouco claro".
