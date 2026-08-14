@@ -601,10 +601,13 @@
     el.entrada = raiz;
     el.msg = doc.getElementById('telaMsg');
     doc.getElementById('telaEntrar').addEventListener('click', ativar);
-    // O overlay "Ligar Sistema" do display cobre a tela no navegador; aqui o
-    // gesto é o NOSSO botão, e dois overlays de gesto é um a mais.
-    var start = doc.getElementById('startBtn');
-    if (start) start.hidden = true;
+    // O "Ligar Sistema" do display NÃO é escondido aqui (v5.216). Ele era, e o
+    // buraco estava justamente nisto: `montarEntrada()` só roda na PRIMEIRA
+    // carga — a recarga com sessão viva reconecta por trás, sem desenhar
+    // overlay nenhum —, então um F5 na tela da rede trazia o botão antigo de
+    // volta por cima da projeção, e o toque do visitante ia para ele em vez de
+    // ir para o nosso. Quem o esconde agora é o próprio `display.js`, que é o
+    // documento que o declara, e o faz pelo PAPEL — em toda carga.
   }
 
   function mostrarEntrada(motivo) {
