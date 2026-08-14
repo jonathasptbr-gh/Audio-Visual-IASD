@@ -2164,10 +2164,36 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.190** (base web) · `SHELL_VERSION` **38**, e o bundle segue com
+**Versão atual: v5.191** (base web) · `SHELL_VERSION` **38**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.191: O DOWNLOAD PASSA A TER SAÍDA — e a intenção deixa de ressuscitar.
+> OTA PURO.** Dois relatos do operador, e o segundo é o mais caro.
+>
+> - **"A notificação sobre o preview não tem forma de cancelar."** Verdade, e
+>   pior do que parecia: dos TRÊS lugares que mostram um download em curso, só
+>   a linha do resultado da busca sabia cancelar (v5.131) — e ela é justamente
+>   a que some quando o operador fecha a busca. O cartão sobre a preview e a
+>   linha provisória do Cronograma mostravam minutos de download sem oferecer
+>   saída nenhuma. Agora os dois têm botão, alimentados pela MESMA alça
+>   (`cancelarDownload`, um núcleo só para os três pontos de toque).
+> - **"Mesmo depois de fechar o app, e o vídeo já não indo para o player, ele
+>   fica sempre querendo baixar."** Era o resgate de intenção da v5.133 comendo
+>   a própria cauda: o `ytArquivo` REGISTRA a intenção ao começar, então cada
+>   resgate interrompido registrava outra, e o ciclo se repetia por seis horas.
+>   Três regras o fecham, e são a mesma do coletor de lixo do banco — **o que
+>   não está em lugar nenhum não é guardado**, aqui nem baixado: intenção sem
+>   destino VISÍVEL (`imports`/`playlist`/`favs` — a prateleira `avulsos` do
+>   "Tocar agora" não conta) é descartada e o download é CANCELADO no aparelho;
+>   há um teto de duas reclamações por intenção; e o cancelamento manual
+>   esquece a intenção, sem o que "parei o download" durava até o operador
+>   fechar o app.
+> - **E o resgate deixou de ser invisível**: ele nascia com `aviso: 'nenhum'`,
+>   isto é, dez minutos de download sem nada na tela e sem nada para tocar.
+>   Agora ele desenha a linha provisória na lista de destino — que é onde o
+>   botão de cancelar mora.
 
 > **A v5.190 (v1.88): UM CARTÃO SÓ NA GAVETA — a transmissão passa a viajar no
 > serviço da sessão de mídia. EXIGE APK, e é Kotlin puro.**

@@ -435,6 +435,18 @@ body {
 }
 /* A miniatura de verdade escurece atrás do anel, senão as duas competem. */
 .lib-item.baixando .thumb img, .lib-item.baixando .thumb .msym { opacity: .25; }
+/* E o CANCELAR na própria linha (v5.191): um download que foi para o Cronograma
+   com a busca já fechada não tinha mais nenhuma superfície onde ser parado. */
+.dl-cancel {
+  flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px;
+  border: none; border-radius: var(--radius-pill);
+  background: transparent; color: var(--muted);
+  cursor: pointer;
+}
+.dl-cancel .msym { font-size: 1.15rem; }
+.dl-cancel:active { color: var(--danger-text); }
 .dl-pct {
   flex-shrink: 0; font-size: .74rem; font-weight: 700;
   color: var(--accent); font-variant-numeric: tabular-nums;
@@ -480,6 +492,22 @@ body {
   background: var(--bg);
   box-shadow: 0 4px 14px var(--shadow-card);
 }
+
+/* O CANCELAR do cartão (v5.191). O `.pv-busy` inteiro é `pointer-events: none`
+   — ele não pode roubar o toque da preview, que continua sendo a projeção
+   quando não há TV —, então quem devolve o gesto é o próprio botão. Discreto:
+   ele é a saída de emergência de um download, não a ação principal do cartão. */
+.pv-busy-cancel {
+  pointer-events: auto;
+  flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; margin-left: .1rem;
+  border: none; border-radius: var(--radius-pill);
+  background: var(--surface-2); color: var(--muted);
+  cursor: pointer;
+}
+.pv-busy-cancel .msym { font-size: 1.1rem; }
+.pv-busy-cancel:active { color: var(--text); }
 /* ---------- O ANEL DE DOWNLOAD (`.dl-ring`) ----------
    O aro gira; a SETA fica parada dentro dele. Um spinner puro diria só
    "espere"; o que precisa ser dito é O QUE está acontecendo, e a seta é a mesma

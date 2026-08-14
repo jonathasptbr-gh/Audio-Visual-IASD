@@ -452,6 +452,14 @@
                 <span class="pv-busy-cap" id="pvBusyCap">Baixando</span>
                 <span class="pv-busy-label" id="pvBusyLabel"></span>
               </span>
+              <!-- CANCELAR (v5.191): só aparece quando o que está em curso SABE
+                   ser cancelado (hoje, o download do YouTube — `ytCancel`, do
+                   shell 28). O cartão inteiro é `pointer-events: none` para não
+                   roubar os gestos da preview; este botão devolve o seu. -->
+              <button id="pvBusyCancel" class="pv-busy-cancel" type="button"
+                      title="Cancelar o download" aria-label="Cancelar o download" hidden>
+                <span class="msym" aria-hidden="true">&#xe14c;</span>
+              </button>
             </div>
           </div>
           <!-- Controles nos CANTOS da preview, em layout de player: cast no
@@ -758,7 +766,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.190</span>
+        <span id="appVersion" class="app-version">Controle v5.191</span>
         <!-- O APK NOVO, quando existir. Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso. `hidden`
