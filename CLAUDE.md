@@ -2289,6 +2289,23 @@ controles), que **só chegam instalando o APK novo**, não pelo OTA.
 >   de atraso no fundo do splash — e só nele.** Num shell 38 o bundle novo
 >   funciona por inteiro e o app fica com as barras do escuro: é a degradação
 >   certa, e por isso `minShell` continua em 2.
+> - **E a v1.90 conserta o que a v1.89 derrubou: o app não abria.**
+>   `window.insetsController` é, no `PhoneWindow`, um
+>   `mDecor.getWindowInsetsController()` **sem verificação de nulo**, e o
+>   `mDecor` só nasce no `installDecor()` — isto é, no `setContentView()`. O
+>   tipo devolvido é anulável, então o `?.` do Kotlin dá a impressão de que a
+>   chamada é segura; ela não é, porque **quem lança é o RECEPTOR, não o
+>   retorno**. Chamada de um `onCreate` antes do `setContentView`, ela era uma
+>   `NullPointerException` em todo lançamento, com qualquer tema. Três coisas
+>   fecham o caso: a leitura da preferência e o `setTheme` passaram para ANTES
+>   do `super.onCreate` (é o único momento em que `setTheme` ainda pinta o
+>   `windowBackground`, e agora existe um `Theme.AvIasd.Claro` para ele
+>   apontar), o resto foi para DEPOIS do `setContentView`, e o
+>   `aplicarCromoDoTema` ganhou a guarda exata — `window.peekDecorView()`, que
+>   pergunta se a decor view existe sem CRIÁ-la, ao contrário do `decorView`.
+>   A lição para o próximo: **o CI compila e roda JUnit, não a Activity** — um
+>   erro de ciclo de vida atravessa build verde, teste verde e Release, e só
+>   aparece no aparelho.
 > - **Dois oráculos ficaram mais fortes.** `tools/tokens.test.mjs` passou a
 >   ignorar COMENTÁRIOS (um `var(--x)` citado na prosa que justifica a regra não
 >   é um uso) e ganhou um caso novo: **nenhum token pode existir só no tema
