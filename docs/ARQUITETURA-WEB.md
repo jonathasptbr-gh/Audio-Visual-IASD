@@ -2495,25 +2495,45 @@ comando (ver a chave legada `fade`).
 ### Wallpaper personalizado
 
 A cortina do telão aceita uma **imagem escolhida pelo operador** no lugar do
-gradiente padrão — em **Configurações** (engrenagem no topo do mixer):
-*Escolher imagem* / *Padrão*.
+desenho padrão — em **Configurações** (engrenagem no topo do mixer):
+*Padrão* / *Escolher imagem* (nessa ordem desde a v5.188: o estado de partida
+à esquerda, a ação à direita, como nos demais segmentados).
 
+- **O PADRÃO é o símbolo oficial da IASD** (v5.188): branco, cor sólida única,
+  centrado sobre um denim profundo quase-preto — as regras do
+  identity.adventist.org (uma cor só, fundo contrastante, espaço livre maior
+  que a altura do símbolo). O desenho inteiro mora em
+  **`shared/wallpaper-padrao.svg`**, fonte ÚNICA usada pelo `.wallpaper` do
+  Display, pelo `.pv-wall` da preview e pelas telas da rede (o bundle servido
+  inclui `shared/`). A URL do SVG fica **nas duas folhas consumidoras**, com o
+  mesmo caminho relativo — não no token `--wallpaper`, porque um `url()`
+  substituído por `var()` resolve contra a PÁGINA, não contra a folha, e cada
+  página o quebraria para um caminho diferente (foi o primeiro defeito da
+  própria v5.188). O token guarda só a cor de base que aparece enquanto o SVG
+  carrega. A marca de TEXTO "Audio Visual IASD"
+  (`.wallpaper-brand`/`.pv-brand`) saiu com o gradiente verde: o símbolo é a
+  identidade, e um texto por cima só competiria. (E a lição que o SVG carrega
+  no próprio comentário: comentário de XML não aceita hífen duplo — um
+  `--token` citado ali dentro invalida o arquivo INTEIRO, sem erro em lugar
+  nenhum, só um fundo liso.)
 - O blob mora no **state `wallpaper`**, que Controle e Display compartilham,
   então o comando `wallpaper` **não carrega payload**: só avisa que mudou, e
   cada lado relê do IDB. (Mandar a imagem pelo canal seria copiar megabytes a
-  cada troca, sem ganho nenhum.)
+  cada troca, sem ganho nenhum.) **Exceção: as telas da rede** não têm esse
+  IDB — para elas o funil `telaEnriquecer` resolve o blob e manda um SEGUNDO
+  comando com `__wp` (a URL `/m/` da imagem empurrada), ou o sentinela
+  `__wp:'padrao'` quando a troca foi de volta ao padrão; e quem CONECTA no
+  meio recebe o wallpaper endereçado no próprio `display-ready`
+  (`telaReenviarPreferencias`, junto com `lyricsbg` e `fit`).
 - A imagem é **reduzida para no máximo 1920×1080** (`fitWallpaperImage`) antes
   de ser guardada. O operador escolhe uma foto do próprio celular (12 MP);
   guardar e decodificar isso a cada abertura seria desperdício puro — a
   cortina nunca passa da resolução da TV. Imagens que já cabem são guardadas
   como vieram, sem recompressão.
-- A **marca "Audio Visual IASD"** (`.wallpaper-brand`/`.pv-brand`) é ocultada
-  enquanto há imagem própria: ela é a identidade do fundo padrão e sobre uma
-  imagem escolhida só atrapalharia.
 - CSS: a imagem entra como `background-image` inline (vence o
-  `background: var(--wallpaper)` da folha) com `background-size: cover` —
-  limpar o inline devolve o gradiente. Aplicado em `restore()` (Display) e no
-  `init()` (Controle), além do comando ao vivo.
+  `background-image` do SVG padrão na folha) com `background-size: cover` —
+  limpar o inline devolve o desenho padrão. Aplicado em `restore()` (Display)
+  e no `init()` (Controle), além do comando ao vivo.
 
 **Botão ⏹ ("Parar e limpar"):** envia `clear` (volta ao wallpaper) mas mantém
 `currentId` — o ▶ recarrega e reproduz do início.
@@ -4019,7 +4039,12 @@ app não existia aqui: só o toque no ícone. `setupTabCarousel` escuta o
   ou seja, no contêiner que rola. Quem precisa da declaração, então, é cada
   scroller: a `.lib-list` (Cronograma, Favoritos, Bíblia) e, na aba
   **Ferramentas**, o `.misc-panel` e a `.msg-list`, porque ali a `.lib-list` é
-  `overflow: hidden` e quem rola é o painel de dentro. Sem a declaração o
+  `overflow: hidden` e quem rola é o painel de dentro — e, desde a v5.188, as
+  **`.bible-half`** (capítulos/versículos com um livro aberto), a MESMA lição
+  pela terceira vez: sem a declaração, o WebView tomava o gesto horizontal
+  sobre um scroller que só rola na vertical, e o fling residual **engolia o
+  toque seguinte** — era o "depois de tentar o carrossel na Bíblia, os botões
+  das abas exigem dois toques" relatado em aparelho. Sem a declaração o
   navegador considera o gesto dele (`manipulation`, herdado do `*`) e o engole
   com um `pointercancel` ao primeiro movimento, muito antes dos 60px que a
   troca exige.
@@ -4049,7 +4074,12 @@ app não existia aqui: só o toque no ícone. `setupTabCarousel` escuta o
 - **Nem em sub-tela** (pasta aberta, capítulo/leitura da Bíblia), reconhecida
   pelo `#backBtn` visível: ali o eixo horizontal pertence à navegação de dentro.
   Também ficam de fora campos de texto e trilhos que rolam na horizontal (o
-  histórico do sorteio) e o modo de seleção múltipla.
+  histórico do sorteio) e o modo de seleção múltipla. **Exceção (v5.188): a
+  FAIXA DE ABAS.** Um gesto que começa sobre a própria fileira de abas
+  (`tabsEl.contains(target)`) só responde às guardas globais (modo de seleção,
+  aba fora de `SWIPE_TABS`): a faixa não pertence a sub-tela nenhuma, e com um
+  livro da Bíblia aberto — o estado normal de quem usa a Bíblia — o gesto mais
+  óbvio de todos morria calado na guarda do voltar.
 - **O `click` do fim do gesto é engolido** por um listener de CAPTURA no
   `<main>`, senão deslizar sobre a grade de livros trocava de aba **e** abria um
   livro; sobre a faixa, trocava de aba e voltava para a do ícone que o dedo

@@ -67,6 +67,7 @@ app/src/main/
 ├── assets/web/                  # ← a base web (cópia própria, versionada aqui)
 │   ├── version.json             #   identidade do bundle (version + minShell)
 │   ├── shared/tokens.css        #   PALETA — fonte única, carregada pelos dois apps
+│   ├── shared/wallpaper-padrao.svg  # o WALLPAPER padrão: símbolo oficial IASD
 │   ├── shared/native.js         #   ponte AVNative + watchdog do OTA (NÃO existe no PWA)
 │   ├── shared/mse.js            #   player DASH mínimo: transmissão direta sem baixar
 │   ├── shared/db.js             #   + relay nativo no canal de comandos
@@ -2143,10 +2144,53 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.187** (base web) · `SHELL_VERSION` **37**, e o bundle segue com
+**Versão atual: v5.188** (base web) · `SHELL_VERSION` **37**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.188: A PRIMEIRA RODADA EM APARELHO DO TELÃO POR COMANDOS — três
+> relatos, uma identidade. OTA PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> - **"O carrossel na Bíblia não funciona, e depois as abas exigem DOIS
+>   toques."** As duas frases são UM defeito, e ele é a lição da v5.61 pela
+>   terceira vez: `.bible-half` rola sem `touch-action: pan-y`, então o
+>   WebView tomava o gesto horizontal para si e o fling residual engolia o
+>   toque seguinte — reproduzido em Chromium com toque real (CDP), não
+>   deduzido. E havia uma segunda metade de desenho: com um livro aberto (o
+>   estado normal de quem usa a Bíblia), a guarda de sub-tela matava o
+>   carrossel até NA FAIXA DE ABAS, onde o eixo horizontal não pertence a
+>   ninguém além dele — a faixa agora é sempre território do carrossel
+>   (`tabsEl.contains(target)` em `elegivel`).
+> - **"O telão não herdou o papel de parede."** O `__wp` só viajava na TROCA:
+>   quem conectasse depois ficava no padrão para sempre. O `display-ready` de
+>   uma tela (`__tela`) agora dispara `telaReenviarPreferencias` — wallpaper
+>   (token REUSADO; o funil não re-cunha comando que já chega com `__wp`),
+>   `lyricsbg` e `fit`, tudo ENDEREÇADO (`__para`). A remoção viaja como o
+>   sentinela `__wp:'padrao'` (anexar URL antes de saber se havia blob cunhava
+>   uma URL sem bytes), e a tela pré-carrega com retentativa curta — o
+>   comando pode vencer a corrida contra o empurrão dos bytes.
+> - **"As imagens de fundo dos slides das músicas não aparecem."** Era a
+>   exclusão declarada da E4.1, agora fechada: cada estrofe com
+>   `imageOpfsPath` ganha `imageUrl` (`/m/` por imagem DISTINTA, id estável
+>   `ly:`+caminho — o mesmo hino de novo custa zero re-empurrão), enfileirada
+>   DEPOIS da mídia principal (o som não espera as fotos), e o
+>   `applyLyricsImage` do display aceita a URL direto, com retentativa.
+> - **E o WALLPAPER PADRÃO virou o símbolo oficial da IASD** (pedido do
+>   operador, com o pacote oficial de SVGs em mãos): branco, cor sólida
+>   única, sobre denim profundo — as regras do identity.adventist.org. O
+>   desenho inteiro é UM arquivo (`shared/wallpaper-padrao.svg`), fonte única
+>   do Display, da preview e das telas da rede; a marca de texto
+>   "Audio Visual IASD" saiu com o gradiente verde da paleta antiga. No
+>   seletor, "Padrão" foi para a ESQUERDA. Duas armadilhas ficaram escritas
+>   nos arquivos: `url()` substituído por `var()` resolve contra a PÁGINA
+>   (a URL do SVG mora nas folhas consumidoras, não no token), e comentário
+>   de XML não aceita hífen duplo (um `--token` citado invalida o SVG
+>   inteiro, sem erro nenhum).
+>
+> Detalhes por seção: o carrossel em `docs/ARQUITETURA-WEB.md` (deslizar
+> troca de aba), o wallpaper em "Wallpaper personalizado" (mesmo doc), e as
+> duas dívidas fechadas no `docs/TELAO-POR-COMANDOS.md` (nota v5.188).
 
 > **A v5.187 (v1.86): O TELÃO POR COMANDOS SUBSTITUI O ESPELHO DE PIXELS POR
 > INTEIRO. EXIGE APK — e a primeira ligada em rede de verdade é numa

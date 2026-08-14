@@ -269,6 +269,29 @@ checar(await pg.$eval('#text', (e) => e.hidden), 'text-hide tira a Camada de Tex
   checar(await pg.$eval('#wallpaper', (e) => e.style.backgroundImage.includes('/m/tokwp1111111111111111')),
     'o wallpaper vem pela URL do comando — o IDB da tela está vazio e não importa');
 
+  // O sentinela 'padrao' (v5.188): o operador voltou ao wallpaper padrão — a
+  // tela desfaz o inline e o desenho do CSS (o símbolo oficial) volta a valer.
+  evento({ type: 'wallpaper', __wp: 'padrao', __mid: 'm:7b' });
+  await ate(() => pg.$eval('#wallpaper', (e) => e.style.backgroundImage === '').catch(() => false), 4000);
+  checar(await pg.$eval('#wallpaper', (e) => e.style.backgroundImage === ''),
+    "o sentinela 'padrao' devolve o desenho padrão — sem ele a tela ficaria presa na última imagem");
+
+  // A LETRA COM FUNDO (v5.188): o __rec leva `imageUrl` por estrofe (a URL /m/
+  // da imagem empurrada) e ele tem de SOBREVIVER ao cache do acervo da tela —
+  // é dali que display.js/stage.js releem o registro.
+  evento({
+    type: 'load', mediaId: 'hino2', muted: true,
+    __rec: {
+      id: 'hino2', kind: 'audio', name: 'Hino', type: 'audio/mp4', url: '/m/tokhin111111111111111',
+      lyrics: [{ time: 0, text: 'Estrofe 1', imageUrl: '/m/tokly1111111111111111' }],
+    },
+    __mid: 'm:7c',
+  });
+  await ate(() => pg.evaluate(() => window.AVDB.getMedia('hino2').then((r) => !!r)).catch(() => false), 4000);
+  const recLetra = await pg.evaluate(() => window.AVDB.getMedia('hino2'));
+  checar(recLetra && recLetra.lyrics && recLetra.lyrics[0].imageUrl === '/m/tokly1111111111111111',
+    'o imageUrl da estrofe atravessa o __rec e o getMedia embrulhado — é dele que o fundo da letra sai');
+
   evento({ type: 'tela-aviso', texto: 'Esta cena não aparece nas telas da rede.', __mid: 'm:8' });
   await ate(() => pg.$eval('#telaAviso', (e) => e.textContent.includes('não aparece')).catch(() => false), 4000);
   checar(await pg.$eval('#telaAviso', (e) => e.textContent.includes('não aparece')),

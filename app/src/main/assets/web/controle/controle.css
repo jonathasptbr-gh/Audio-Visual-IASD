@@ -542,13 +542,14 @@ body {
 .pv-wall {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   background: var(--wallpaper);
-  /* Espelha o Display: a imagem escolhida entra como background-image inline. */
+  /* O desenho padrão espelha o Display: mesmo SVG, mesmo caminho relativo
+     (ver o comentário do token em tokens.css). A imagem escolhida entra como
+     background-image inline por cima. */
+  background-image: url('../shared/wallpaper-padrao.svg');
   background-size: cover;
   background-position: center;
   z-index: 3;
 }
-.pv-brand { font-size: clamp(.7rem, 3.5vw, 1.05rem); font-weight: 700; letter-spacing: .03em; color: var(--stage-text-soft); }
-.pv-brand b { color: var(--gold); }
 .pv-layer { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: var(--stage-bg); z-index: 1; }
 /* Camada de TEXTO manual: acima de toda a mídia (inclusive do iframe do
    YouTube), opaca pelo `background: var(--stage-bg)` herdado de .pv-layer. Espelha o
@@ -1923,7 +1924,12 @@ main {
   flex: 1; min-height: 0;
   display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: .5rem;
 }
-.bible-half { min-height: 0; overflow-y: auto; }
+/* `touch-action: pan-y` porque ESTE é o elemento que rola (a mesma lição da
+   `.misc-panel`, v5.61): sem declarar o eixo, o WebView assume o gesto no
+   primeiro movimento — inclusive o HORIZONTAL, que aqui não significa nada — e
+   o fling residual ENGOLE o toque seguinte: era o "dois toques nos botões das
+   abas" relatado depois de tentar o carrossel na Bíblia (v5.188). */
+.bible-half { min-height: 0; overflow-y: auto; touch-action: pan-y; }
 /* Separador entre as duas metades — deixa claro que são dois níveis. */
 .bible-half + .bible-half { border-top: 1px solid var(--line); padding-top: .5rem; }
 /* Barra de rolagem SEMPRE VISÍVEL nestas duas grades. No Android a barra é

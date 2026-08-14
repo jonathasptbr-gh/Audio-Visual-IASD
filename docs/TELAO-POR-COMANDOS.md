@@ -63,6 +63,17 @@
 > domingo. O Registro e a folha mostram as telas de comando; o diagnóstico
 > fino delas (eco de __mid, atraso medido) é evolução futura sobre o campo
 > `eventos`/`pronta` que já viaja.
+>
+> **v5.188 fechou duas dívidas da E4.1 e uma lacuna que a E4 nem via:** as
+> **imagens de fundo da letra** agora viajam (`imageUrl` por estrofe no
+> `__rec`, uma URL `/m/` por imagem distinta, id estável `ly:`+caminho — o
+> mesmo hino duas vezes custa zero re-empurrão), e a tela que CONECTA recebe
+> as **preferências visuais** que o telão de verdade lê do IDB e ela não tem
+> de onde tirar: wallpaper (token REUSADO — o funil não re-cunha comando que
+> já chega com `__wp`; remoção viaja como o sentinela `__wp:'padrao'`),
+> `lyricsbg` e `fit`, tudo ENDEREÇADO no mesmo `display-ready` do reenvio de
+> cena (`telaReenviarPreferencias`). Seguem de fora: pré-busca da playlist,
+> deck por páginas e o proxy §7.
 
 ---
 
