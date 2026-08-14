@@ -27,6 +27,10 @@
        o ../shared/material-symbols.css acima. -->
   <link rel="stylesheet" href="../shared/tokens.css">
   <link rel="stylesheet" href="controle.css">
+  <!-- O CSS do motor (o indicador de espera) — ver o cabeçalho de
+       `shared/stage.css`: ele era estilo embutido e a CSP das telas da rede o
+       bloqueava em silêncio. -->
+  <link rel="stylesheet" href="../shared/stage.css">
 </head>
 <!-- A classe vem no HTML para a tela certa aparecer sem esperar JS/IndexedDB —
      o simplificado é o padrão de quem nunca escolheu. Quem escolheu reabre no
@@ -815,7 +819,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.204</span>
+        <span id="appVersion" class="app-version">Controle v5.205</span>
         <!-- O APK NOVO, quando existir. Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso. `hidden`

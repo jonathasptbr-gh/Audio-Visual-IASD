@@ -1,0 +1,56 @@
+/* ============================================================================
+   O CSS DO MOTOR (`shared/stage.js`) — hoje só o indicador de espera.
+   ============================================================================
+
+   ## Por que isto é um ARQUIVO
+
+   O `stage.js` criava estas regras num `<style>` em runtime, e o comentário
+   dele justificava a escolha assim: *"Sem CSS externo pelo mesmo motivo — a
+   animação é um `@keyframes` injetado uma vez."* O argumento era bom e ficou
+   FALSO quando o telão passou a rodar também nas telas da rede (v5.187): a
+   página servida pelo celular leva `default-src 'self'` sem `style-src` (ver
+   `EspelhoHttp.CABECALHOS_PAGINA`), e um `<style>` criado em runtime exige
+   `'unsafe-inline'` — o navegador anexa o elemento e não aplica nada.
+
+   O prejuízo é exatamente o que este indicador existe para evitar: sem as
+   regras, o `.av-stage-busy` é uma `div` vazia sem tamanho e sem animação, e a
+   tela da rede fica em preto durante a espera de um stream **sem nada dizendo
+   que o app está trabalhando** — que o próprio KDoc do `spinner()` descreve
+   como "indistinguível de uma projeção que morreu".
+
+   É o irmão do defeito do `espelho/tela.css`, achado na mesma varredura: os
+   dois eram estilo embutido, os dois morriam calados sob a CSP, e nenhum dos
+   dois tinha como aparecer no CI enquanto o harness servia a página sem ela.
+
+   ## Escopo
+
+   Carregada pelos DOIS `index.html` (Controle e Display) porque o motor é
+   compartilhado — a preview do Controle usa o mesmo `createStage`. Os seletores
+   estão todos sob `.av-stage-busy`, um nó que só o motor cria. */
+
+@keyframes avStageSpin { to { transform: rotate(360deg); } }
+
+/* Ele mora DENTRO da caixa do vídeo (o pai do `<video>`), por isso `absolute`
+   e não `fixed`: no Controle essa caixa é a miniatura da preview, e um
+   indicador de tela cheia ali cobriria o app inteiro. */
+.av-stage-busy {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* Branco com alfa, e não um token: este anel vive sobre o PALCO, que é preto em
+   qualquer tema (ver "O PALCO NÃO TEM TEMA" em CLAUDE.md). */
+.av-stage-busy::after {
+  content: "";
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, .22);
+  border-top-color: rgba(255, 255, 255, .85);
+  animation: avStageSpin 900ms linear infinite;
+}

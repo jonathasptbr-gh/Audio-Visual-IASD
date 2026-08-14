@@ -2292,10 +2292,52 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.204** (base web) · `SHELL_VERSION` **39**, e o bundle segue com
+**Versão atual: v5.205** (base web) · `SHELL_VERSION` **39**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.205: A CSP BLOQUEAVA O ESTILO DA ENTRADA — o overlay existia, sem
+> posição, DEBAIXO do wallpaper. OTA PURO.** Relato: *"não aparece o botão, cai
+> direto no wallpaper"*, no v1.92, com a marca do papel já funcionando.
+>
+> **O papel sempre esteve certo; quem não aparecia era o overlay.** O
+> `espelho/tela.js` montava a entrada e injetava as regras dela num
+> `document.createElement('style')`. A página servida às telas da rede leva
+> `default-src 'self'` **sem `style-src`** (`EspelhoHttp.CABECALHOS_PAGINA`), e
+> um `<style>` criado em runtime exige `'unsafe-inline'`: o navegador anexa o
+> elemento e **não aplica nada**. O `#telaEntrada` era criado, recebia
+> `display:flex` pelo CSSOM (que a CSP não barra) e virava um bloco sem posição
+> no fim do `<body>` — isto é, embaixo da camada fixa do wallpaper. Invisível e
+> inclicável.
+>
+> **É o pior tipo de falha: nada quebra, nada erra alto.** Ela resistiu a duas
+> correções que mexiam no lugar errado (a query do papel na v5.204 e a marca do
+> servidor no v1.92) porque o sintoma — "cai no wallpaper" — é idêntico ao de um
+> `tela.js` que não roda.
+>
+> **E o CI não tinha como vê-la**, pela mesma razão da v5.204 por outra porta: o
+> `tela-rede.test.mjs` servia a página **sem a CSP**, então ali o `<style>`
+> valia. Um harness mais permissivo que o servidor de verdade prova o percurso
+> num ambiente que não existe. Hoje ele manda a CSP verbatim, e o clique real no
+> botão (que já estava no teste) é o que falha quando as regras não são
+> aplicadas — reproduzido antes de consertar.
+>
+> Junto veio o IRMÃO do mesmo defeito, achado na mesma varredura: o
+> `shared/stage.js` injetava o CSS do indicador de espera do mesmo jeito, com o
+> argumento — bom até a v5.187 — de que "a animação é um `@keyframes` injetado
+> uma vez". Nas telas da rede ele era uma `div` vazia: a tela ficava em preto
+> durante a espera de um stream sem nada dizendo que o app estava trabalhando,
+> que é exatamente o que aquele indicador existe para evitar.
+>
+> Os dois viraram FOLHA — `espelho/tela.css` e `shared/stage.css` —, servidas do
+> próprio origin, sem relaxar a CSP em nada. **A regra que fica: nas telas da
+> rede não existe estilo embutido.** `element.style.x = y` (CSSOM) continua
+> valendo; `<style>` criado em runtime e atributo `style=` em HTML injetado, não.
+>
+> E o teste passou a AFIRMAR a garantia que a CSP existe para dar: a IFrame API
+> do YouTube é barrada — zero pixel de terceiro numa tela da rede (spec §1) —, em
+> vez de essa recusa virar ruído no console.
 
 > **A v5.204 (v1.92): O PAPEL `tela` DEIXA DE DEPENDER DA QUERY — e o teste que
 > devia ter pego isso estava mentindo. EXIGE APK.** Relato: *"a tela não está

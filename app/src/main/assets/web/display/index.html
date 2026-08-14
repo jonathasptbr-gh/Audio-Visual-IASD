@@ -23,6 +23,18 @@
        precise ajustar só para si continua podendo ser redeclarado lá. -->
   <link rel="stylesheet" href="../shared/tokens.css">
   <link rel="stylesheet" href="display.css">
+  <!-- O CSS do motor (o indicador de espera) — ver o cabeçalho de
+       `shared/stage.css`: ele era estilo embutido e a CSP das telas da rede o
+       bloqueava em silêncio. -->
+  <link rel="stylesheet" href="../shared/stage.css">
+  <!-- A ENTRADA DA TELA DA REDE (v5.205). Ela precisa ser uma FOLHA e não um
+       `<style>` criado pelo `tela.js`: a página servida às telas leva
+       `default-src 'self'` sem `style-src`, e a CSP bloqueia estilo embutido —
+       o overlay ficava sem posição nenhuma, debaixo do wallpaper, invisível e
+       inclicável. Ver o cabeçalho de `espelho/tela.css`.
+       Inerte nos outros dois papéis: todo seletor dela está sob `#telaEntrada`,
+       que só o `tela.js` cria. -->
+  <link rel="stylesheet" href="../espelho/tela.css">
 </head>
 <body>
   <!-- O wallpaper padrão é o símbolo oficial da IASD, desenhado por

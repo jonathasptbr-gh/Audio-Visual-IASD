@@ -1,0 +1,104 @@
+/* ============================================================================
+   A ENTRADA DA TELA DA REDE — o overlay do papel `tela`.
+   ============================================================================
+
+   ## Por que isto é um ARQUIVO, e não um `<style>` criado pelo tela.js
+
+   Ele era um `document.createElement('style')` com as regras numa string, e
+   isso NÃO FUNCIONA na tela da rede: a página servida pelo celular leva a CSP
+   `default-src 'self'` (ver `EspelhoHttp.CABECALHOS_PAGINA`), sem `style-src`,
+   e um `<style>` criado em runtime precisa de `'unsafe-inline'`. O navegador
+   anexa o elemento e simplesmente NÃO APLICA as regras.
+
+   O desfecho é o pior tipo: nada quebra, nada some, nada erra alto. O
+   `#telaEntrada` é criado, recebe `display:flex` pelo CSSOM (que a CSP não
+   barra) e fica sendo um bloco sem posição no fim do `<body>` — isto é, DEBAIXO
+   da camada fixa do wallpaper do display. O operador vê o wallpaper, não vê
+   botão nenhum, e a tela nunca pede entrada: foi o relato exato, *"não aparece
+   o botão, cai direto no wallpaper"*, e ele resistiu a duas correções que
+   mexiam no lugar errado (a query do papel e a marca do servidor) porque o
+   papel SEMPRE esteve certo — quem não aparecia era o overlay.
+
+   **E o CI não tinha como ver.** O `tela-rede.test.mjs` servia a página sem a
+   CSP, então ali o `<style>` valia e o overlay aparecia. Um harness mais
+   permissivo que o servidor de verdade prova o percurso num ambiente que não
+   existe; hoje ele manda a CSP verbatim e o percurso inclui um clique real no
+   botão, que é o que falha quando as regras não são aplicadas.
+
+   ## Escopo
+
+   Esta folha é carregada pelo `display/index.html` e vale para os TRÊS papéis
+   (telão, tela da rede, navegador de desenvolvimento) — mas todo seletor daqui
+   está sob `#telaEntrada` / `#telaEntrar` / `#telaMsg`, que só o `tela.js`
+   cria. No telão de verdade ela é inerte.
+
+   As cores saem de `shared/tokens.css` (o palco, que não tem tema — ver a seção
+   da paleta em CLAUDE.md), pelas mesmas variáveis que a string usava. */
+
+#telaEntrada {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* O WALLPAPER PADRÃO — o símbolo oficial IASD, a mesma fonte única do palco.
+     A URL é relativa a ESTE arquivo (`espelho/tela.css`), e não à página: é a
+     regra dos `url()` em CSS, e é por isso que ela não pode virar um token
+     (ver a armadilha registrada na v5.188). */
+  background: var(--wallpaper) center/cover no-repeat;
+  background-image: url('../shared/wallpaper-padrao.svg');
+  color: var(--stage-text);
+  font-family: system-ui, -apple-system, sans-serif;
+  text-align: center;
+}
+
+#telaEntrada .te-caixa {
+  max-width: 26rem;
+  padding: 2rem 1.25rem;
+  background: var(--scrim);
+  border-radius: var(--radius-card, 10px);
+}
+
+#telaEntrada .te-marca {
+  font-size: .78rem;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--stage-text-dim);
+  margin-bottom: .5rem;
+}
+
+#telaEntrada h1 {
+  font-size: 1.5rem;
+  line-height: 1.25;
+  margin: 0 0 .35rem;
+  font-weight: 700;
+}
+
+#telaEntrada .te-sub {
+  font-size: .95rem;
+  color: var(--stage-text-soft);
+  margin: 0 0 1.4rem;
+}
+
+#telaEntrar {
+  font-size: 1.1rem;
+  font-weight: 700;
+  padding: .8rem 2.2rem;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  transition: transform .12s ease;
+}
+
+#telaEntrar:active { transform: var(--press, scale(.96)); }
+
+#telaMsg {
+  margin-top: 1rem;
+  min-height: 1.2rem;
+  font-size: .9rem;
+  color: var(--stage-text-dim);
+}
