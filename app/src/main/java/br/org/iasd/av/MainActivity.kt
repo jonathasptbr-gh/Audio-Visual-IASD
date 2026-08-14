@@ -193,6 +193,14 @@ class MainActivity : ComponentActivity(), BridgeHost {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // O TEMA, E ELE PRECISA VIR ANTES DO `super` (v1.90). `setTheme` só tem
+        // efeito enquanto a janela não foi criada, e é do TEMA que sai o
+        // `windowBackground` — o que aparece enquanto o WebView carrega. Depois
+        // da decor view instalada, mudar o tema não repinta mais esse fundo.
+        // `getSharedPreferences` já funciona aqui: o contexto base é anexado em
+        // `attachBaseContext`, que roda antes do `onCreate`.
+        temaClaro = getSharedPreferences(TEMA_PREFS, MODE_PRIVATE).getBoolean(TEMA_CLARO_KEY, false)
+        if (temaClaro) setTheme(R.style.Theme_AvIasd_Claro)
         super.onCreate(savedInstanceState)
 
         if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
@@ -201,14 +209,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
 
         // A tela do operador não pode apagar no meio do culto.
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-
-        // O TEMA ESCOLHIDO, aplicado ao cromo do sistema ANTES de o WebView
-        // existir — é este o motivo de o shell guardar uma cópia da escolha:
-        // o fundo da janela e a cor dos ícones das barras precisam estar certos
-        // no primeiro quadro, e o lado web só responde depois de carregar. Ver
-        // [setTemaClaro].
-        temaClaro = getSharedPreferences(TEMA_PREFS, MODE_PRIVATE).getBoolean(TEMA_CLARO_KEY, false)
-        aplicarCromoDoTema(temaClaro)
 
         // Volume desta Activity = mídia, sempre. Sem isto o Android escolhe a
         // stream pelo contexto e, com espelhamento ativo, os botões podem cair
@@ -237,6 +237,11 @@ class MainActivity : ComponentActivity(), BridgeHost {
         root.addView(webContainer, matchParent())
         root.addView(fullscreenContainer, matchParent())
         setContentView(root)
+
+        // Os ÍCONES das barras de sistema, e SÓ DEPOIS do `setContentView`:
+        // quem os pinta é o `WindowInsetsController`, e ele só existe com a
+        // decor view instalada (ver a armadilha em [aplicarCromoDoTema]).
+        aplicarCromoDoTema(temaClaro)
 
         // SÓ na primeira criação. A única saída do app é `moveTaskToBack`, então
         // a Activity nunca é finalizada e `getIntent()` continua devolvendo o
@@ -1146,11 +1151,30 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * Pinta o que é do SISTEMA conforme o tema: os ícones das barras e o fundo
      * da janela.
      *
-     * O fundo é aplicado aqui além de vir do tema do APK porque o
-     * `windowBackground` do XML é resolvido uma vez, na criação — trocar de
-     * tema com o app aberto deixaria o retângulo do XML aparecendo em qualquer
-     * momento em que o WebView ainda não pintou (uma recriação da Activity por
-     * mudança de fonte, por exemplo). Custa uma linha e fecha o caso.
+     * O fundo é aplicado aqui ALÉM de vir do tema do APK porque o
+     * `windowBackground` do XML é resolvido uma vez, quando a decor view é
+     * instalada: trocar de tema com o app aberto deixaria o retângulo do XML
+     * aparecendo em qualquer momento em que o WebView ainda não pintou. Quem
+     * cobre o PRIMEIRO quadro é o `setTheme` do `onCreate`, que precisa vir
+     * antes do `super` — os dois caminhos existem, e nenhum substitui o outro.
+     *
+     * ## A armadilha que derrubou a v1.89, e que a guarda abaixo fecha
+     *
+     * `window.insetsController` é, no `PhoneWindow`, um
+     * `mDecor.getWindowInsetsController()` **sem verificação de nulo** — e o
+     * `mDecor` só nasce no `installDecor()`, que é o `setContentView()` que o
+     * chama. O tipo devolvido é anulável, então o `?.` do Kotlin dá a impressão
+     * de que a chamada é segura; ela não é: **quem lança é o receptor, não o
+     * retorno**. Chamada de um `onCreate` antes do `setContentView`, ela é uma
+     * `NullPointerException` em todo lançamento, com qualquer tema — e o
+     * sintoma é o app simplesmente não abrir. Nada disso aparece em tempo de
+     * compilação, e o CI compila e roda JUnit, não a Activity.
+     *
+     * `peekDecorView()` é a pergunta exata ("a decor view já existe?") e é
+     * pública justamente para isto — ao contrário de `decorView`, que a CRIA.
+     * Com ela, esta função passa a ser segura de chamar de qualquer ponto, que
+     * é o que o `setTemaClaro` (vindo da thread do WebView, a qualquer momento)
+     * precisa.
      */
     @Suppress("DEPRECATION")   // o ramo abaixo da API 30 (ver dentro)
     private fun aplicarCromoDoTema(claro: Boolean) {
@@ -1158,6 +1182,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
         val fundo = getColor(if (claro) R.color.app_bg_claro else R.color.app_bg)
         window.setBackgroundDrawable(ColorDrawable(fundo))
         if (::root.isInitialized) root.setBackgroundColor(fundo)
+        if (window.peekDecorView() == null) return
         // API 30+: `WindowInsetsController`. Abaixo dela, as bandeiras de
         // aparência da barra vivem no `systemUiVisibility` da decor view (que é
         // deprecado desde a 30 — daí o @Suppress na função), e ali só existe a
