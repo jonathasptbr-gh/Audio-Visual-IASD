@@ -212,7 +212,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.194';
+const WEB_VERSION = '5.195';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -1204,6 +1204,21 @@ let mirrorEstado = null;
 // caminho de render tem de nascer aqui, com o resto do estado de cena.
 let mirrorTimer = null;
 let mirrorOcupado = false;
+// Enquanto o bloco de conexão está na tela, o estado é relido: é o que faz uma
+// tela da rede aparecer na lista sem o operador tocar em nada. Fora dele nada é
+// enquetado — o espelho não muda por conta própria.
+//
+// **E ELE PRECISA NASCER AQUI**, não junto do resto do espelho lá embaixo. É a
+// TERCEIRA vez que esta armadilha morde (`mirrorEstado` na v5.184,
+// `mirrorOcupado`/`mirrorTimer` na v5.193), e a v5.195 foi a pior das três
+// porque o navegador NÃO CONSEGUIA vê-la: a leitura mora dentro de
+// `if (espelhoDisponivel())`, que é falso sem `__AVBridge` — o `smoke.mjs`
+// passava e o aparelho abria em PRETO. Ver `tools/boot-nativo.test.mjs`, que
+// nasceu desta.
+const MIRROR_POLL_MS = 2500;
+// O piso de shell do espelho. Sobe junto pelo mesmo motivo: quem o lê é o
+// `espelhoDisponivel()`, e ele é chamado na carga do módulo.
+const MIRROR_SHELL = 32;
 let displayAudioBlocked = false; // Display reportou áudio bloqueado pelo navegador
 const scrollPos = {};      // posição de scroll por aba/pasta (sessão)
 
@@ -3898,10 +3913,15 @@ const ROTULO_PADRAO = { em: 'na lista', para: 'à lista' };
 // o nome do destino como o app fala dele por fora (é o que viaja nas ações e no
 // `ytAcao`); `lista` é o nome no banco, que não se confunde com ele — o
 // Cronograma é a lista `imports` desde antes de se chamar Cronograma.
+// SEM SUBTÍTULO (v5.195). Os três destinos se chamam Playlist, Cronograma e
+// Favoritos — que são NOMES DE ABA deste app, na barra que o operador usa todo
+// domingo. Escrever embaixo de cada um o que ele é ("A lista do culto") é
+// explicar a própria navegação para quem já está navegando nela, e era metade
+// da altura desta folha.
 const DESTINOS = [
-  { chave: 'playlist', lista: 'playlist', rotulo: 'Playlist', sub: 'Entra na fila do que está tocando agora' },
-  { chave: 'cronograma', lista: 'imports', rotulo: 'Cronograma', sub: 'A lista do culto' },
-  { chave: 'favoritos', lista: 'favs', rotulo: 'Favoritos', sub: 'O que se usa toda semana, sempre à mão' },
+  { chave: 'playlist', lista: 'playlist', rotulo: 'Playlist' },
+  { chave: 'cronograma', lista: 'imports', rotulo: 'Cronograma' },
+  { chave: 'favoritos', lista: 'favs', rotulo: 'Favoritos' },
 ];
 function destinoPorChave(chave) { return DESTINOS.find((d) => d.chave === chave) || null; }
 function listaDoDestino(chave) {
@@ -9808,17 +9828,18 @@ function openYtMenu(r) {
   // que é exatamente o que se faz com o louvor que acabou de chegar.
   const remontar = () => openYtMenu(r);
   destExecutor = (alvos, btn) => ytAcao(r, alvos, btn, soAudio, altura);
+  // "Tocar agora" é o único desta folha que GUARDA NADA, e é isso que o rótulo
+  // não diz — daí ele manter subtítulo enquanto os três destinos perderam o
+  // deles. No caminho de só-áudio o que ele não diz é outra coisa: o telão não
+  // muda (o kind `audio` mantém o wallpaper).
   songMenuListEl.appendChild(songMenuItem(msym(ICON.play), 'Tocar agora',
-    soAudio ? 'Toca no fundo, sem mexer no telão' : 'Projeta em seguida, sem entrar no Cronograma',
+    soAudio ? 'Sem mexer no telão' : 'Sem entrar em lista nenhuma',
     (vr, btn, alvos) => ytAcao(r, alvos, null, soAudio, altura), 'tocar'));
-  songMenuListEl.appendChild(songMenuItem(msym(ICON.queue), 'Adicionar à playlist',
-    'Entra na fila, sem entrar no Cronograma',
+  songMenuListEl.appendChild(songMenuItem(msym(ICON.queue), 'Adicionar à playlist', '',
     (vr, btn, alvos) => ytAcao(r, alvos, btn, soAudio, altura), 'playlist', remontar));
-  songMenuListEl.appendChild(songMenuItem(msym(ICON.cronoAdd), 'Adicionar ao Cronograma',
-    'A lista do culto',
+  songMenuListEl.appendChild(songMenuItem(msym(ICON.cronoAdd), 'Adicionar ao Cronograma', '',
     (vr, btn, alvos) => ytAcao(r, alvos, btn, soAudio, altura), 'cronograma', remontar));
-  songMenuListEl.appendChild(songMenuItem(msym(ICON.star), 'Favoritar',
-    'Baixa e marca — fica à mão toda semana',
+  songMenuListEl.appendChild(songMenuItem(msym(ICON.star), 'Favoritar', '',
     (vr, btn, alvos) => ytAcao(r, alvos, btn, soAudio, altura), 'favoritos', remontar));
   const go = destConfirmRow();
   if (go) songMenuListEl.appendChild(go);
@@ -10604,19 +10625,16 @@ function songMenuItem(icone, rotulo, sub, acao, destino, aoMudar) {
 function destConfirmRow() {
   if (!destMarcados.size || !destExecutor) return null;
   const alvos = destUniao(null);
-  const nomes = juntarFrases(alvos.map((c) => {
-    const d = destinoPorChave(c);
-    return d ? d.rotulo : c;
-  }));
   const li = document.createElement('li');
   li.className = 'song-menu-go-row';
   const btn = document.createElement('button');
   btn.type = 'button'; btn.className = 'song-menu-btn song-menu-go';
   const txt = document.createElement('span'); txt.className = 'song-menu-text';
   const t = document.createElement('span'); t.className = 'song-menu-label';
+  // SEM LISTAR OS NOMES (v5.195): eles são as caixas marcadas, visíveis a três
+  // linhas daqui. O contador responde "quantos?" sem repetir "quais?".
   t.textContent = alvos.length > 1 ? 'Enviar aos ' + alvos.length + ' destinos' : 'Enviar';
-  const d = document.createElement('span'); d.className = 'song-menu-sub'; d.textContent = nomes;
-  txt.append(t, d);
+  txt.appendChild(t);
   btn.appendChild(txt);
   btn.addEventListener('click', () => {
     const variante = songMenuFor ? songMenuFor.variant : 'full';
@@ -10695,8 +10713,7 @@ function renderDestPrompt() {
     ic.classList.add('song-menu-icon');
     const txt = document.createElement('span'); txt.className = 'song-menu-text';
     const t = document.createElement('span'); t.className = 'song-menu-label'; t.textContent = d.rotulo;
-    const sub = document.createElement('span'); sub.className = 'song-menu-sub'; sub.textContent = d.sub;
-    txt.append(t, sub);
+    txt.appendChild(t);
     // A caixa é a MESMA das outras folhas — ela para o borbulhar, então o
     // listener da linha não roda duas vezes quando o toque cai exatamente nela.
     btn.append(ic, txt, destCheck(d.chave, remontar));
@@ -10715,9 +10732,7 @@ function renderDestPrompt() {
   const t = document.createElement('span'); t.className = 'song-menu-label';
   const escolhidos = destUniao(null);
   t.textContent = escolhidos.length ? 'Importar' : 'Escolha um destino';
-  const sub = document.createElement('span'); sub.className = 'song-menu-sub';
-  sub.textContent = juntarFrases(escolhidos.map((c) => (destinoPorChave(c) || {}).rotulo || c));
-  txt.append(t, sub);
+  txt.appendChild(t);
   go.appendChild(txt);
   go.disabled = !escolhidos.length;
   go.addEventListener('click', () => fecharDestPrompt(escolhidos));
@@ -10738,14 +10753,18 @@ function renderSongMenu(modo) {
     songMenuListEl.appendChild(songMenuItem(voiceIconSvg(), 'Tocar música cantada', '',
       () => playSongVariant(coll, s, 'full')));
     if (temPlayback) {
-      songMenuListEl.appendChild(songMenuItem(noteIconSvg(), 'Tocar playback', 'Instrumental, sem a voz',
+      // "Playback" é o termo que este app usa em toda parte, inclusive no
+      // seletor Cantada/Playback que nunca teve explicação nenhuma ao lado.
+      songMenuListEl.appendChild(songMenuItem(noteIconSvg(), 'Tocar playback', '',
         () => playSongVariant(coll, s, 'playback')));
     }
     // "Só a letra" NÃO é uma variante de áudio: nenhum arquivo é tocado (nem
     // precisa estar baixado — a letra vem do acervo de letras). É por isso que
     // ela mora aqui e não numa terceira variante de `playSongVariant`.
+    // "Sem música" repetia o rótulo; o que ele NÃO diz é que os slides param de
+    // virar sozinhos, e é isso que muda o que o operador faz durante o louvor.
     songMenuListEl.appendChild(songMenuItem(lyricsOnlyIconSvg(), 'Apenas a letra',
-      'Sem música e sem passagem automática de slides',
+      'Os slides não passam sozinhos',
       () => projectSongLyricsOnly(coll, s)));
     return;
   }
@@ -10769,17 +10788,14 @@ function renderSongMenu(modo) {
   // mesmo dos três, porque a diferença entre eles sempre foi só a lista.
   const remontar = () => renderSongMenu('add');
   destExecutor = (alvos, btn, vr) => addSongToDestinos(coll, s, vr, alvos, btn);
-  songMenuListEl.appendChild(songMenuItem(msym(ICON.queue), 'Adicionar à playlist',
-    'Entra na fila do que está tocando agora',
+  songMenuListEl.appendChild(songMenuItem(msym(ICON.queue), 'Adicionar à playlist', '',
     (vr, btn, alvos) => addSongToDestinos(coll, s, vr, alvos, btn), 'playlist', remontar));
-  songMenuListEl.appendChild(songMenuItem(msym(ICON.cronoAdd), 'Adicionar ao Cronograma',
-    'A lista do culto',
+  songMenuListEl.appendChild(songMenuItem(msym(ICON.cronoAdd), 'Adicionar ao Cronograma', '',
     (vr, btn, alvos) => addSongToDestinos(coll, s, vr, alvos, btn), 'cronograma', remontar));
   // "Escolha o atalho" saiu do subtítulo (v5.103): favoritar virou o ato
   // simples, sem seletor no meio. Organizar em atalho continua possível — pela
   // seleção múltipla, dentro da gaveta, para quem tem muita coisa marcada.
-  songMenuListEl.appendChild(songMenuItem(msym(ICON.star), 'Favoritar',
-    'O que se usa toda semana, sempre à mão',
+  songMenuListEl.appendChild(songMenuItem(msym(ICON.star), 'Favoritar', '',
     (vr, btn, alvos) => addSongToDestinos(coll, s, vr, alvos, btn), 'favoritos', remontar));
   // A LETRA como cena de roteiro: entra no Cronograma sem baixar áudio nenhum,
   // e projetá-la é o mesmo "Apenas a letra" da folha de tocar. É o item de
@@ -14307,22 +14323,18 @@ function renderSimpleCast() {
   // tudo sozinho: uma frase, no rótulo. Com tela conectada ele volta a ser um
   // cartão entre outros — o rótulo nomeia a ação e o subtítulo informa o
   // estado, que é a divisão de sempre.
-  simpleCastLabelEl.textContent = tv ? 'Conectar a tela' : 'Toque para conectar uma tela';
-  // O subtítulo tem UMA linha e corta com reticências: cabe o estado, não a
-  // instrução. Quem está nesse modo acabou de segurar o botão 5 s para entrar
-  // nele — a instrução de sair vai no `title`.
+  simpleCastLabelEl.textContent = 'Conectar a tela';
   simpleCastBtnEl.title = castTestUnlocked
     ? 'Liberação de teste ativa — segure 5 s para trancar'
     : 'Segure 5 s para liberar a tela sem telão (teste)';
-  if (castTestUnlocked) {
-    simpleCastStatusEl.textContent = 'Liberado para teste';
-  } else if (!window.__NATIVE__) {
-    simpleCastStatusEl.textContent = tv ? 'Tela do Display aberta' : 'Abrir a tela do Display';
-  } else {
-    simpleCastStatusEl.textContent = tv
-      ? 'Conectado: ' + (tv.name || 'TV')
-      : 'Toque para escolher a tela';
-  }
+  // O SUBTÍTULO É SÓ ESTADO (v5.195). Ele tinha três frases de instrução —
+  // "Toque para escolher a tela", "Abrir a tela do Display" — que repetiam o
+  // rótulo logo acima e o ícone ao lado. E desde a v5.193 este cartão só existe
+  // COM tela conectada (sem ela, quem ocupa a tela é a seção de conexão
+  // inteira), então o caso sem nada a dizer é o que quase nunca acontece.
+  simpleCastStatusEl.textContent = castTestUnlocked
+    ? 'Liberado para teste'
+    : (tv ? (tv.name || 'Tela conectada') : '');
   renderSimpleGate();
 }
 
@@ -15243,11 +15255,10 @@ if (window.__NATIVE__) {
 // O piso de shell. Um método novo NÃO chega por OTA: num shell antigo a linha
 // simplesmente não é desenhada, e volta sozinha quando o APK novo for
 // instalado. É a mesma regra (e o mesmo motivo) do `appendYoutubeSearch`.
-const MIRROR_SHELL = 32;
-// Enquanto a folha está aberta, o estado é relido: é o que faz uma tela que
-// acabou de digitar o PIN aparecer na fila sem o operador tocar em nada. Fora
-// da folha nada é enquetado — o espelho não muda por conta própria.
-const MIRROR_POLL_MS = 2500;
+// (`MIRROR_SHELL` subiu junto com o `MIRROR_POLL_MS` — ver o topo.)
+// (`MIRROR_POLL_MS` subiu para o topo na v5.195, junto do resto do estado de
+// cena — ver o comentário de lá. Ele é lido na CARGA do módulo, e ficar aqui o
+// deixava em zona morta temporal no aparelho.)
 
 function espelhoDisponivel() {
   return !!window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= MIRROR_SHELL;
@@ -15604,10 +15615,24 @@ function fecharCast() {
 // Um `textContent` que aceita elemento nulo — a folha existe só no bundle novo.
 function texto2(el, s) { if (el) el.textContent = s; }
 
+// O bloco de conexão está de fato APARECENDO? Ele tem duas casas (ver
+// `hostCastConn`), e a pergunta muda conforme a casa.
+//
+// **Não dá para perguntar ao layout.** A primeira versão disto usava
+// `offsetParent === null`, e ela está errada por uma razão que não se vê lendo:
+// `.popup-backdrop` esconde por `opacity: 0` + `pointer-events: none`, NÃO por
+// `display: none` — então um popup fechado tem `offsetParent` normal e a guarda
+// nunca barrava nada. Perguntar por estado, e não por pixel, é o que funciona
+// nos dois casos.
+function castConnVisivel() {
+  if (!castConnEl) return false;
+  return castConnEl.parentElement === simpleConnEl
+    ? !simpleConnEl.hidden
+    : !!castPopupEl && castPopupEl.classList.contains('open');
+}
+
 function renderCast() {
-  // "ESTÁ NA TELA?", e não "a folha está aberta?" (v5.193): no Modo Fácil sem
-  // tela este bloco vive DENTRO da tela bloqueada, sem folha nenhuma em volta.
-  if (!castConnEl || castConnEl.offsetParent === null) return;
+  if (!castConnVisivel()) return;
   const ligado = espelhoLigado();
   const e = mirrorEstado || {};
   const telas = Array.isArray(e.telas) ? e.telas : [];

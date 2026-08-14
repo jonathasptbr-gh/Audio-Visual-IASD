@@ -147,7 +147,7 @@
           <path d="M8.5 5h10A2.5 2.5 0 0 1 21 7.5v9a2.5 2.5 0 0 1-2.5 2.5H16"/>
         </svg>
         <span class="simple-key-label" id="simpleCastLabel">Conectar a tela</span>
-        <span class="simple-key-sub" id="simpleCastStatus">Abrir a lista de telas</span>
+        <span class="simple-key-sub" id="simpleCastStatus"></span>
       </button>
 
       <button type="button" id="simpleSearchBtn" class="simple-key simple-action">
@@ -156,7 +156,10 @@
           <line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
         <span class="simple-key-label">Buscar música</span>
-        <span class="simple-key-sub">Hinários e álbuns</span>
+        <!-- O subtítulo saiu na v5.195 ("Hinários e álbuns"): ele nomeava onde
+             a busca procura, e não há segunda busca neste modo para escolher
+             entre elas. O cartão ao lado (conectar) também ficou só com o
+             rótulo e o estado, então os dois seguem com a mesma altura. -->
       </button>
     </div>
 
@@ -799,7 +802,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.194</span>
+        <span id="appVersion" class="app-version">Controle v5.195</span>
         <!-- O APK NOVO, quando existir. Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso. `hidden`
