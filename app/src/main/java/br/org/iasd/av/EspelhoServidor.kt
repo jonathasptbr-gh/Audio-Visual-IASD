@@ -651,7 +651,7 @@ class EspelhoServidor(
                     saida.write(EspelhoHttp.chunk(buf, 0, n))
                     saida.flush()
                     pos += n
-                    EspelhoService.progresso()
+                    EspelhoEnergia.progresso()
                 }
             }
             try {
@@ -745,7 +745,7 @@ class EspelhoServidor(
                         if (n <= 0) break
                         saida.write(EspelhoHttp.chunk(buf, 0, n))
                         saida.flush()
-                        EspelhoService.progresso()
+                        EspelhoEnergia.progresso()
                     }
                 }
                 saida.write(EspelhoHttp.chunkFinal())
@@ -768,7 +768,7 @@ class EspelhoServidor(
             val n = entrada.read(buf)
             if (n <= 0) break
             saida.write(buf, 0, n)
-            EspelhoService.progresso()
+            EspelhoEnergia.progresso()
         }
     }
 
@@ -783,7 +783,7 @@ class EspelhoServidor(
                 if (n <= 0) break
                 saida.write(buf, 0, n)
                 falta -= n
-                EspelhoService.progresso()
+                EspelhoEnergia.progresso()
             }
         }
     }
@@ -956,7 +956,7 @@ class EspelhoServidor(
         EspelhoPares.marcarComConexao(sessao.token)
         tela.rotulo = rotuloNovo()
         registrar("tela ${tela.rotulo} conectada (comandos, ${enderecoDe(cru)})")
-        EspelhoService.telasMudaram(app, telasSse.size)
+        EspelhoEnergia.telasMudaram(app, telasSse.size)
         try {
             saida.write(EspelhoHttp.cabecalhoSse())
             saida.flush()
@@ -997,7 +997,7 @@ class EspelhoServidor(
                 .put("motivo", tela.motivoDaSaida)
                 .put("haMs", 0)
             registrar("tela ${tela.rotulo} desconectada (${tela.motivoDaSaida})")
-            EspelhoService.telasMudaram(app, telasSse.size)
+            EspelhoEnergia.telasMudaram(app, telasSse.size)
         }
     }
 
@@ -1011,7 +1011,7 @@ class EspelhoServidor(
         }
         // PROGRESSO REAL — o mesmo contrato do fluxo de pixels: é a escrita, e
         // não um tique de relógio, que renova o wake lock do serviço.
-        EspelhoService.progresso()
+        EspelhoEnergia.progresso()
     }
 
     /** Fecha uma tela de comandos de fora. Com [adeus], o evento entra na
@@ -1532,7 +1532,7 @@ class EspelhoServidor(
         EspelhoPares.derrubar(alvo.sessao.token, enderecoDe(alvo.cru), agoraMs())
         telasSse.remove(alvo.sessao.token, alvo)
         fecharSse(alvo, "o operador desconectou esta tela")
-        EspelhoService.telasMudaram(app, telasSse.size)
+        EspelhoEnergia.telasMudaram(app, telasSse.size)
         registrar("tela ${alvo.rotulo} desconectada pelo operador")
         return true
     }

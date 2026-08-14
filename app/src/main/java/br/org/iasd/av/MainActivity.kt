@@ -340,9 +340,9 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // `onGone` é o serviço morrendo sem ninguém pedir: o Kotlin tem de
         // ESQUECER que estava servindo, senão sobra um servidor sem serviço e a
         // folha continua dizendo "ligado".
-        EspelhoService.onDesligar = { stopMirror() }
-        EspelhoService.onGone = { runOnUiThread { desmontarEspelho() } }
-        EspelhoService.onTermica = { grau -> aoEsquentar(grau) }
+        EspelhoEnergia.onDesligar = { stopMirror() }
+        EspelhoEnergia.onGone = { runOnUiThread { desmontarEspelho() } }
+        EspelhoEnergia.onTermica = { grau -> aoEsquentar(grau) }
 
         onBackPressedDispatcher.addCallback(this) { handleBack() }
     }
@@ -571,9 +571,9 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // Android numa mudança de configuração é `onDestroy` da antiga e só
         // então `onCreate` da nova, então não há janela em que o espelho fique
         // sem dono.)
-        EspelhoService.onDesligar = null
-        EspelhoService.onGone = null
-        EspelhoService.onTermica = null
+        EspelhoEnergia.onDesligar = null
+        EspelhoEnergia.onGone = null
+        EspelhoEnergia.onTermica = null
         displayManager?.unregisterDisplayListener(displayListener)
         presentation?.let {
             it.release()
@@ -1180,7 +1180,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
                 // foi digitada — e é por isso que este caminho existe: o
                 // operador precisa ler o endereço novo em algum lugar.
                 aoTrocarEndereco = { enderecoNovo, _ ->
-                    runOnUiThread { EspelhoService.enderecoMudou(this, enderecoNovo) }
+                    runOnUiThread { EspelhoEnergia.enderecoMudou(this, enderecoNovo) }
                 },
             )
             // O CERTIFICADO, quando o operador importou um. Ausente, vencido ou
@@ -1223,7 +1223,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
             //    sobreviver ao culto anterior — e o SERVIÇO sobe por último,
             //    quando já há endereço para a notificação mostrar.
             EspelhoPares.ligar(System.currentTimeMillis())
-            EspelhoService.ligar(this, endereco)
+            EspelhoEnergia.ligar(this, endereco)
 
             onResult(mirrorJson())
         }
@@ -1258,7 +1258,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
         espelhoMidia?.zerar()
         espelhoMidia = null
         EspelhoPares.desligar()
-        try { EspelhoService.desligar(this) } catch (e: Exception) {
+        try { EspelhoEnergia.desligar(this) } catch (e: Exception) {
             Log.w(TAG, "serviço do espelho não parou", e)
         }
     }
@@ -1313,7 +1313,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
             val o = espelhoDiag.paraJson()
             o.put("ligado", espelhoSrv?.ligado == true)
             espelhoSrv?.let { o.put("servidor", it.estado()) }
-            try { o.put("servico", EspelhoService.estado(this)) } catch (e: Exception) {
+            try { o.put("servico", EspelhoEnergia.estado(this)) } catch (e: Exception) {
                 Log.w(TAG, "estado do serviço do espelho indisponível", e)
             }
             onResult(o)
