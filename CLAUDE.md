@@ -2241,10 +2241,76 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.192** (base web) · `SHELL_VERSION` **39**, e o bundle segue com
+**Versão atual: v5.193** (base web) · `SHELL_VERSION` **39**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.193: CINCO AJUSTES DE USO, e um deles é a QUARTA correção do mesmo
+> mecanismo. OTA PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> - **O carrossel de abas parou de ignorar a navegação interna.** A guarda mais
+>   larga que ele tinha era "qualquer SUB-TELA" (botão voltar visível), sob o
+>   argumento de que ali o eixo horizontal pertence à navegação de dentro.
+>   Medido, o argumento é falso: com um capítulo da Bíblia aberto — o estado
+>   normal de quem usa a Bíblia num culto — NADA disputa o eixo horizontal
+>   (`.bible-half` rola só na vertical, e a folha declara `touch-action: pan-y`
+>   nela desde a v5.188). Pior, a própria `.bible-half` estava na lista de
+>   exclusão, proibindo um gesto que ela libera. Esta é a quarta correção deste
+>   mecanismo, e as três anteriores erraram do mesmo jeito: **mantendo à mão a
+>   lista do que o eixo não pode atravessar**. Agora a pergunta é medida — entre
+>   o alvo e a superfície que escuta, existe alguém que de fato ROLE na
+>   horizontal (`scrollWidth`, `overflow-x`)? Um trilho cheio responde sim; o
+>   mesmo trilho com três pílulas responde não, e nos dois casos a resposta é a
+>   verdadeira em vez da que alguém digitou meses atrás. `tools/smoke.mjs` trava
+>   as duas metades com toque de verdade (CDP) — e o contra-teste só vale porque
+>   o positivo passa: sem `hasTouch` no contexto, o toque não chega e os dois
+>   casos "passariam" por não medir nada.
+> - **Quem está conectado saiu de Configurações.** O rodapé daquela folha dizia
+>   "Telão conectado: X" e "Espelhar abre: Y" — as duas coisas que a folha de
+>   "Conectar uma tela" já diz, no lugar em que se decide sobre elas e só quando
+>   há o que dizer. Estado repetido em duas telas é a mesma classe de
+>   divergência que a paleta única existe para não ter. O Registro continua com
+>   as duas linhas, agora lidas de DADO e não do DOM: um diagnóstico que depende
+>   de um elemento de UI existir emudece no dia em que alguém o esconde.
+> - **O Modo Fácil sem tela mostra a SEÇÃO DE CONEXÃO, não um botão que a
+>   abre.** Havia ali um botão do tamanho da tela cujo único efeito era abrir a
+>   folha — um toque cobrado para chegar às duas escolhas que cabem na própria
+>   tela bloqueada. O bloco é o MESMO nó, movido entre a folha e a tela
+>   (`hostCastConn`, o padrão do `hostPreview`), porque duas marcações para a
+>   mesma decisão divergem no primeiro ajuste. Junto vieram duas correções que
+>   o pedido do operador expôs: **o bloqueio passou a contar as telas da REDE**
+>   (desde a v5.187, sem TV elas SÃO a projeção — o bloqueio não tinha
+>   acompanhado, e quem ligava a transmissão continuava atrás da cortina), e a
+>   folha **fecha sozinha quando alguma tela conecta**, por qualquer um dos dois
+>   caminhos. A liberação de teste de 5 s mudou de dono: ela vivia no botão que
+>   deixou de existir no estado bloqueado, isto é, sumia justamente de onde
+>   servia — agora é o toque longo na própria cortina.
+> - **O Modo Fácil não faz manutenção de álbum.** Peso, "Completo offline",
+>   "Verificar atualizações" e "Remover do dispositivo" respondem perguntas de
+>   quem ADMINISTRA o acervo; quem está no Modo Fácil procura um louvor para
+>   tocar agora. Some a INFORMAÇÃO e fica a AÇÃO — o botão de baixar (que
+>   durante um download é o CANCELAR) permanece. Por CSS, não por um ramo no
+>   construtor do card: a classe mora no `<body>` e o operador troca de modo com
+>   a lista já montada.
+> - **A entrada da tela da rede veste o app.** Ela nasceu na v5.189 como um
+>   botão de estilo inline com fallbacks escritos à mão — inclusive um
+>   `var(--accent-fill, #8a6d1d)` cujo valor de emergência é o âmbar que a
+>   v5.192 aposentou (invisível, porque o token resolvia). Mas o problema maior
+>   era o que a tela É: a PRIMEIRA coisa que alguém vê num televisor da igreja,
+>   e ela mostrava um botão solto num retângulo escuro sem dizer de que sistema
+>   era. Agora veste o wallpaper do telão (o símbolo oficial, fonte única), diz
+>   o nome do sistema e o que o toque faz, e usa a anatomia dos botões
+>   principais do app.
+>
+> **E uma armadilha que mordeu de novo, com a resposta já escrita no arquivo:**
+> o bloco de conexão ganhar uma segunda casa fez o `setAppMode` do fim do
+> `controle.js` — que roda durante a carga do módulo — alcançar o `renderCast`,
+> que lê `mirrorOcupado`, declarado 14 mil linhas abaixo. Zona morta temporal,
+> `ReferenceError` na carga, página inteira morta. O comentário do `mirrorEstado`
+> já contava essa história uma vez (v5.184) e o `smoke.mjs` a pegou nas duas.
+> A regra fica: **estado lido por qualquer caminho de render nasce no topo**,
+> junto do resto do estado de cena.
 
 > **A v5.192 (v1.89): A PALETA VIRA A IDENTIDADE OFICIAL DA IASD, E O APP GANHA
 > TEMA CLARO. METADE OTA, METADE APK.** Pedido do operador: um tema claro e um
