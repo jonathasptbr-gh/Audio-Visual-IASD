@@ -67,9 +67,9 @@ function checar(cond, msg) {
 // `native.js` já trata. O contrato do lado Kotlin é assíncrono por `callId`:
 // quem chama espera `window.__avResolve(id, json)`, então os métodos com
 // `callId` resolvem sozinhos no próximo tique.
-const PONTE = `(() => {
-  const vazio = { displays: [], listFolder: [], pickDoc: [], ytSearch: [],
-    espelhoEstado: { ligado: false, telas: [] }, espelhoDiag: {},
+const ponteCom = (espelho, telas) => `(() => {
+  const vazio = { displays: ${JSON.stringify(telas || [])}, listFolder: [], pickDoc: [], ytSearch: [],
+    espelhoEstado: ${JSON.stringify(espelho)}, espelhoDiag: {},
     espelhoCertEstado: { temCert: false }, castTarget: { label: 'Tela de teste' } };
   const comCallId = new Set(['displays','listFolder','pickDoc','pickFolder','ytSearch','ytFetch',
     'ytFetchAte','ytFetchAudio','ytStream','deckPages','deckExportUrl','requestMic','castTarget',
@@ -105,6 +105,9 @@ const PONTE = `(() => {
   }
   window.__AVBridge = B;
 })();`;
+
+// O DESLIGADO é o estado de partida; o segundo cenário é o do OPERADOR.
+const PONTE = ponteCom({ ligado: false, telas: [] }, []);
 
 await new Promise((r) => servidor.listen(0, r));
 const porta = servidor.address().port;
@@ -167,7 +170,58 @@ try {
   checar(conn.achou && conn.preso && conn.pai === 'simpleConn',
     'o bloco de conexão está NA TELA do Modo Fácil bloqueado (pai: ' + conn.pai + ')');
   checar(conn.redeVisivel,
-    'e ele oferece as DUAS formas — espelhar para a TV e transmitir pela rede');
+    'e ele oferece as DUAS formas — espelhar para a TV e transmitir para navegador');
+
+  // ---- O ESTADO EM QUE O OPERADOR DE FATO OPERA -------------------------
+  //
+  // Transmissão LIGADA, telas na rede recebendo, e NENHUMA TV. É a
+  // configuração normal desta igreja desde a v5.187 (sem TV, as telas da rede
+  // SÃO a projeção) — e é uma combinação que o primeiro percurso não cobre: lá
+  // o espelho nasce desligado, então metade do `renderCast`, o
+  // `acertarEnqueteDeFundo` e o caminho DESTRAVADO do Modo Fácil nunca correm.
+  //
+  // Uma página NOVA, e não um `mirrorEstado = …` na de cima: o que se quer
+  // provar é que o bundle SOBE assim, com o estado presente desde o primeiro
+  // instante — que é como o aparelho o encontra ao abrir com a transmissão já
+  // no ar. Mexer no estado de uma página já de pé provaria outra coisa.
+  const pg2 = await ctx.newPage();
+  const erros2 = [];
+  pg2.on('pageerror', (e) => erros2.push('pageerror: ' + e.message));
+  pg2.on('console', (m) => {
+    if (m.type() !== 'error') return;
+    const t = m.text();
+    if (EXTERNO.test(t) || /Failed to load resource/.test(t)) return;
+    erros2.push(t);
+  });
+  await pg2.addInitScript(ponteCom(
+    { ligado: true, endereco: 'http://192.168.0.14:8787',
+      telas: [{ rotulo: 'tela A', conectadaMs: 90000, pronta: true }] },
+    [],
+  ));
+  await pg2.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
+  let deuPe2 = false;
+  try {
+    await pg2.waitForFunction(
+      () => window.AVDB && window.AVStream && window.createStage
+        && typeof window.__avBack === 'function'
+        && !!document.querySelector('#playlist li'),
+      null, { timeout: 25000 },
+    );
+    deuPe2 = true;
+  } catch (_) { deuPe2 = false; }
+  checar(deuPe2, 'O APP FICA DE PÉ com a transmissão JÁ LIGADA e telas na rede');
+
+  // E o bloqueio do Modo Fácil tem de estar ABERTO: sem TV, as telas da rede
+  // são a projeção (v5.193). Era este o caso que ficava trancado para sempre.
+  const destravado = await pg2.evaluate(() => ({
+    preso: document.getElementById('simpleMode').classList.contains('locked'),
+    modo: appMode,
+  }));
+  checar(!destravado.preso,
+    'e o Modo Fácil NÃO fica trancado: sem TV, as telas da rede são a projeção');
+  checar(erros2.length === 0,
+    'nenhum erro de console no percurso com a transmissão ligada'
+    + (erros2.length ? ':\n        ' + erros2.join('\n        ') : ''));
 } catch (e) {
   checar(false, 'o percurso terminou sem exceção (' + (e && e.message) + ')');
 }

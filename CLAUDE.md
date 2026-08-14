@@ -2251,10 +2251,23 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.197** (base web) · `SHELL_VERSION` **39**, e o bundle segue com
+**Versão atual: v5.198** (base web) · `SHELL_VERSION` **39**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.198: O INTERRUPTOR DA REDE PASSA A NOMEAR O DESTINO. OTA PURO.**
+> "Transmitir pela rede" descrevia o MEIO — por onde a coisa viaja —, e meio
+> nenhum ajuda a escolher. A opção de cima diz para onde vai ("Espelhar para
+> TV") e por isso se lê de primeira; esta ficava sem par, e o operador tinha de
+> deduzir o destino de "rede".
+>
+> Agora é **"Transmitir para navegador"**, e a palavra é a certa por ser
+> literalmente o requisito da outra ponta: um computador, um notebook, um tablet
+> ou a própria TV servem, desde que abram o endereço. É também a palavra que o
+> rótulo do endereço logo abaixo já usa ("Acesse este endereço no navegador"),
+> então as duas linhas passaram a completar uma à outra em vez de cada uma
+> nomear a coisa de um jeito.
 
 > **A v5.197: O BOTÃO ÚNICO DE CONECTAR SAI — e ele estava MORTO havia quatro
 > versões. OTA PURO.** O operador viu resquícios dele no Modo Fácil; medido, o
