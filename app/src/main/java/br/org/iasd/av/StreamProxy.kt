@@ -130,6 +130,24 @@ object StreamProxy {
     fun urlFor(url: String): String = WebViewFactory.ORIGIN + ROTA + registrar(url)
 
     /**
+     * A URL do googlevideo por trás de um token — ou `null`.
+     *
+     * Existe para o **telão por comandos** (v5.189): as telas da rede não estão
+     * dentro do WebView, então o `shouldInterceptRequest` não as alcança, e o
+     * `EspelhoServidor` precisa servir a mesma faixa pelo socket dele. O
+     * registro continua sendo UM só — dois registros dariam dois tokens para a
+     * mesma faixa e o cache de um não valeria para o outro.
+     *
+     * O que esta função NÃO faz é tão importante quanto o que ela faz: ela não
+     * decide nada sobre quem pode pedir. Quem valida a sessão da tela é a rota
+     * do servidor; aqui o token é a capacidade, exatamente como no `/m/`.
+     */
+    fun urlDoToken(token: String): String? = porToken[token]
+
+    /** O UA que combina com a URL — a mesma leitura do `c=` do download. */
+    fun uaDaUrl(url: String): String = YoutubeGrab.uaPara(url)
+
+    /**
      * Atende a requisição se ela for nossa; `null` deixa o asset loader seguir.
      *
      * **BLOQUEANTE** — roda na thread de carregamento de recursos do WebView,

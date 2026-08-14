@@ -443,10 +443,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
             // página morta (ou a recarga falhando), a Activity seguia
             // consumindo as teclas e entregando o passo a um `__avVolumeKey`
             // que não existe: o aparelho ficava sem NENHUM controle de volume.
-            // `audioAlive` órfão manteria o WebView novo com prioridade de
-            // renderer que ninguém pediu.
             captureVolumeKeys = false
-            audioAlive = false
             webContainer.post { buildControleWebView() }
         }
         w.webChromeClient = ControleChromeClient()
@@ -517,36 +514,11 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // que mantém o encoder produzindo numa cena parada. É o mesmo contrato
         // que o KDoc do `MirrorPresentation.keepPlaying` já declara ("chamado do
         // `onStop` da Activity"). No-op quando não há espelho no ar.
-        // Mesa de som ligada: o áudio sai DESTE WebView, e ele também precisa
-        // atravessar o segundo plano. Sem isso o louvor calava no instante em
-        // que o operador saía do app — que é justamente o caso relatado, e o
-        // que as três tentativas anteriores não cobriam, porque protegiam o
-        // WebView do telão.
-        if (audioAlive) {
-            val w = web ?: return
-            try {
-                w.onResume()
-                w.resumeTimers()
-            } catch (_: Exception) { /* WebView já destruído */ }
-        }
-    }
-
-    /** A mesa de som está ligada? (ver [setAudioAlive]) */
-    private var audioAlive = false
-
-    override fun setAudioAlive(on: Boolean) {
-        runOnUiThread {
-            audioAlive = on
-            val w = web as? WebViewFactory.KeepVisibleWebView ?: return@runOnUiThread
-            w.manterVisivel = on
-            // Com o celular fazendo o som, o renderer do Controle não pode ser
-            // rebaixado quando a View sai de vista — é a mesma política do
-            // telão, e pelo mesmo motivo.
-            // `waivedWhenNotVisible = !on`: com a mesa de som ligada NÃO se abre
-            // mão da prioridade por a View sair de vista; desligada, volta ao
-            // padrão de um WebView comum.
-            w.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, !on)
-        }
+        // (Saiu na v5.189 o despertar do WebView do Controle pela MESA DE SOM.
+        // Ela existia para o caso em que o celular ERA a caixa de som, e esse
+        // caso deixou de existir: o som é dos displays. O WebView do Controle
+        // volta a ser estrangulado em segundo plano sempre — que é o certo
+        // quando ele é só a mesa de comando.)
     }
 
     override fun onDestroy() {
@@ -1317,17 +1289,11 @@ class MainActivity : ComponentActivity(), BridgeHost {
             .put("ligado", ligado)
             .put("modo", espelhoModo)
             .put("endereco", srv?.optString("url") ?: "")
-            // O CÓDIGO DE TRÊS DÍGITOS (v5.185), que nasce no `EspelhoPares.ligar`
-            // — isto é, no instante em que o operador ativa a transmissão. O
-            // campo trocou de nome junto com o conceito (`pin` → `codigo`): um
-            // shell novo com bundle antigo leria o nome velho e mostraria vazio,
-            // e é justamente para isso que o `SHELL_VERSION` subiu.
-            //
-            // STRING, e nunca número: "007" é um código legítimo, e um `Int`
-            // engoliria os zeros à esquerda no meio do caminho sem nada
-            // reclamar — o operador leria "7" na folha e a tela recusaria os
-            // três dígitos que ele ditou.
-            .put("codigo", if (ligado) EspelhoPares.codigo() else "")
+            // (Saiu na v5.189: `codigo`. A porta é o ENDEREÇO — ver a
+            // invariante 5 do [EspelhoPares]. O `SHELL_VERSION` sobe por isso:
+            // um bundle antigo leria `codigo` vazio e desenharia um campo de
+            // três dígitos que o servidor não exige mais, mandando o operador
+            // ditar um número que não existe.)
             .put("erro", erro)
             .put("telas", srv?.optJSONArray("telas") ?: JSONArray())
     }

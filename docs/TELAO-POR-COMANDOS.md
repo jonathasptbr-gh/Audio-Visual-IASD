@@ -64,6 +64,18 @@
 > fino delas (eco de __mid, atraso medido) é evolução futura sobre o campo
 > `eventos`/`pronta` que já viaja.
 >
+> **v5.189 fechou a §7 e mudou a PORTA.** A transmissão direta do YouTube
+> agora chega às telas: o shell serve as mesmas faixas em `/s/<token>` (repasse
+> ao googlevideo com o UA que combina, `Range` do cliente subindo cru) e o
+> `telaEnriquecer` reescreve o manifesto — com isso o `pularTransmissao` da
+> v5.187, que mandava todo "Tocar agora" para o download quando a transmissão
+> estava ligada e não havia TV, deixou de ter razão de existir e saiu. E a
+> ENTRADA perdeu o código de três dígitos (a porta é o endereço; ver a
+> invariante 5 do `EspelhoPares`): o overlay virou UM botão — "Ativar esta
+> tela" — que gasta o gesto, e a perda de token passou a reentrar sozinha, sem
+> desenhar nada por cima da mídia. Segue de fora: pré-busca da playlist e deck
+> por páginas.
+>
 > **v5.188 fechou duas dívidas da E4.1 e uma lacuna que a E4 nem via:** as
 > **imagens de fundo da letra** agora viajam (`imageUrl` por estrofe no
 > `__rec`, uma URL `/m/` por imagem distinta, id estável `ly:`+caminho — o

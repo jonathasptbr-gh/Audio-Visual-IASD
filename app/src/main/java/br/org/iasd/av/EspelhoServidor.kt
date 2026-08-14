@@ -580,6 +580,11 @@ class EspelhoServidor(
             // o token de serviço leva o 404 idêntico de sempre.
             r.metodo == "GET" && rota.startsWith("/m/") ->
                 servirMidia(rota.substring(3), r, saida)
+            // A TRANSMISSÃO DIRETA (v5.189) — ANÔNIMA pelo mesmo motivo do
+            // `/m/`: o token opaco na rota é a capacidade, e quem busca é o
+            // `shared/mse.js`, que não sabe de sessão nenhuma.
+            r.metodo == "GET" && rota.startsWith("/s/") ->
+                servirTransmissao(rota.substring(3), r, saida)
             else -> responder(saida, naoAchei())
         }
     }
@@ -661,6 +666,109 @@ class EspelhoServidor(
             Log.i(TAG, "mídia $token interrompida: ${e.message}")
         } finally {
             midiaEmVoo.decrementAndGet()
+        }
+    }
+
+    /**
+     * A TRANSMISSÃO DIRETA nas telas da rede (v5.189, a dívida §7 do contrato).
+     *
+     * Enquanto esta rota não existia, "Tocar agora" num link do YouTube com a
+     * transmissão ligada e sem TV era obrigado a BAIXAR o vídeo inteiro antes
+     * de projetar — o `pularTransmissao` do `controle.js`. O motivo estava
+     * certo: o manifesto aponta para `/stream/<token>` no origin do WebView, e
+     * uma tela da rede não tem WebView nenhum no caminho. A saída é servir a
+     * MESMA faixa por aqui, e é isso que esta rota faz.
+     *
+     * ## Ela é um REPASSE, não um servidor de faixas
+     *
+     * O `Range` do cliente sobe CRU para o googlevideo e a resposta dele é
+     * espelhada de volta (status, `Content-Type`, `Content-Length`,
+     * `Content-Range`). Não se usa o [EspelhoHttp.alcanceDe] aqui, e isso não é
+     * inconsistência com o `/m/`: lá o recurso é um arquivo NOSSO, cujo tamanho
+     * conhecemos; aqui o dono da faixa é o CDN, e reimplementar a aritmética
+     * dele sobre um corpo que chega por streaming seria inventar um segundo
+     * contrato para errar. (Também não vale o molde do [StreamProxy]: aquele
+     * devolve a fatia como se fosse o todo porque o WebView aplica o `Range`
+     * por cima — a armadilha da invariante 8, que num socket não existe.)
+     *
+     * ## O UA importa e o token é a capacidade
+     *
+     * Pedir uma faixa do visionOS anunciando um Chrome de Android é o caminho
+     * conhecido para um 403 — o mesmo cuidado do download e do `StreamProxy`,
+     * e por isso o UA sai do [StreamProxy.uaDaUrl], num ponto só. O token é
+     * opaco (128 bits) e vive só enquanto o processo viver; a URL por trás dele
+     * expira sozinha em horas, e é ela que manda.
+     */
+    private fun servirTransmissao(token: String, r: EspelhoHttp.Req, saida: OutputStream) {
+        if (!EspelhoMidiaCache.tokenValido(token)) return responder(saida, naoAchei())
+        val alvo = StreamProxy.urlDoToken(token) ?: return responder(saida, naoAchei())
+        midiaEmVoo.incrementAndGet()
+        var conn: java.net.HttpURLConnection? = null
+        try {
+            conn = (java.net.URL(alvo).openConnection() as java.net.HttpURLConnection).apply {
+                connectTimeout = 15_000
+                readTimeout = 30_000
+                instanceFollowRedirects = true
+                setRequestProperty("User-Agent", StreamProxy.uaDaUrl(alvo))
+                // Sem `Range` do cliente pedimos do zero: as URLs adaptativas do
+                // googlevideo costumam recusar quem não pede faixa.
+                setRequestProperty("Range", r.intervalo ?: "bytes=0-")
+            }
+            val status = conn.responseCode
+            if (status !in 200..299) {
+                Log.i(TAG, "transmissao $token: o CDN respondeu $status")
+                return responder(saida, naoAchei())
+            }
+            val tipo = conn.contentType?.let { EspelhoHttp.semQuebraPublica(it) } ?: "application/octet-stream"
+            val tamanho = conn.getHeaderField("Content-Length")?.toLongOrNull() ?: -1L
+            val contentRange = conn.getHeaderField("Content-Range")
+            val extra = if (contentRange.isNullOrEmpty()) emptyList()
+                else listOf("Content-Range: " + EspelhoHttp.semQuebraPublica(contentRange))
+            // Tamanho conhecido ⇒ espelha o 206/200 com `Content-Length`; sem
+            // ele (o CDN não disse), sai por chunked, que é o único framing
+            // honesto para um corpo de tamanho desconhecido.
+            if (tamanho >= 0) {
+                saida.write(
+                    EspelhoHttp.cabecalhoComTamanhoPublico(
+                        if (status == 206) 206 else 200, tipo, tamanho,
+                        listOf("Accept-Ranges: bytes") + extra,
+                    ),
+                )
+                conn.inputStream.use { ent -> copiarPara(ent, saida) }
+            } else {
+                saida.write(EspelhoHttp.cabecalhoChunked(200, tipo))
+                saida.flush()
+                val buf = ByteArray(64 * 1024)
+                conn.inputStream.use { ent ->
+                    while (true) {
+                        val n = ent.read(buf)
+                        if (n <= 0) break
+                        saida.write(EspelhoHttp.chunk(buf, 0, n))
+                        saida.flush()
+                        EspelhoService.progresso()
+                    }
+                }
+                saida.write(EspelhoHttp.chunkFinal())
+            }
+            saida.flush()
+        } catch (e: IOException) {
+            Log.i(TAG, "transmissao $token interrompida: ${e.message}")
+        } catch (e: Exception) {
+            Log.w(TAG, "transmissao $token falhou", e)
+        } finally {
+            try { conn?.disconnect() } catch (e: Exception) { /* já foi */ }
+            midiaEmVoo.decrementAndGet()
+        }
+    }
+
+    /** Bombeia um fluxo de entrada para a saída, em blocos de 64 kB. */
+    private fun copiarPara(entrada: java.io.InputStream, saida: OutputStream) {
+        val buf = ByteArray(64 * 1024)
+        while (true) {
+            val n = entrada.read(buf)
+            if (n <= 0) break
+            saida.write(buf, 0, n)
+            EspelhoService.progresso()
         }
     }
 
@@ -750,25 +858,17 @@ class EspelhoServidor(
         } catch (e: Exception) {
             return responder(saida, naoAchei())
         }
-        // A ORIGEM DO BLOQUEIO É O ENDEREÇO DO PAR, e não o cabeçalho `Origin`:
-        // cinco códigos errados bloqueiam **aquele aparelho**, e um cabeçalho é
-        // escrito por quem tenta. O código, esse, NÃO rotaciona por tentativa
-        // errada — seria negação de serviço contra o visitante legítimo que
-        // está digitando.
+        // A ORIGEM DO CASTIGO É O ENDEREÇO DO PAR, e não o cabeçalho `Origin`:
+        // quem o operador derrubou é **aquele aparelho**, e um cabeçalho é
+        // escrito por quem tenta.
         val origem = enderecoDe(cru)
-        // UM RAMO SÓ desde a v5.185: o corpo traz `codigo`, e o veredito já é o
-        // desfecho. Saíram daqui `qr`, `espera` e o corpo NU da porta aberta —
-        // ver a invariante 5 do [EspelhoPares] para por que a fila de aprovação
-        // não sobreviveu ao gesto único do visitante.
-        //
-        // O `else` continua sendo **403 por omissão**, e é ele que faz um corpo
-        // desconhecido (o de um bundle antigo, por exemplo) falhar FECHADO em
-        // vez de cair em algum caminho de entrada.
-        val (status, json) = if (corpo.has("codigo")) {
-            respostaDoVeredito(tentarCodigo(corpo.optString("codigo"), origem, relatoDe(corpo)))
-        } else {
-            403 to RECUSADA
-        }
+        // UM RAMO SÓ, e agora sem segredo nenhum (v5.189): o corpo traz o
+        // RELATO da tela e mais nada — a porta é o endereço (invariante 5 do
+        // [EspelhoPares]). Um corpo de bundle ANTIGO, que ainda mande `codigo`,
+        // entra por este mesmo caminho: o campo a mais é ignorado, e é essa a
+        // degradação certa — a tela velha continua entrando, só que sem
+        // precisar do número que o Controle não mostra mais.
+        val (status, json) = respostaDoVeredito(entrarNaSessao(origem, relatoDe(corpo)))
         responder(saida, EspelhoHttp.resposta(status, "application/json", json.toByteArray(Charsets.UTF_8)))
     }
 
@@ -1286,11 +1386,11 @@ class EspelhoServidor(
             // uma contradição sem leitura possível — e foi exatamente o que a
             // vaga fantasma produzia.
             .put("sessoes", EspelhoPares.sessoes().size)
-            // "3 códigos recusados (2 origens)" — a linha que diz que alguém
-            // está TENTANDO. Os dois números são do [EspelhoPares], que é quem
-            // conta, e com um código de três dígitos eles passaram a ser a
-            // única leitura que o operador tem de uma martelada em curso.
-            .put("recusas", EspelhoPares.recusas())
+            // Quantas telas estão de CASTIGO agora (derrubadas pelo operador há
+            // menos de dois minutos). Com o código fora (v5.189) não há mais
+            // recusa a contar: este é o único freio que existe, e vê-lo no
+            // Registro é o que explica uma tela que "não volta" logo depois de
+            // o operador a desconectar sem querer.
             .put("origensBloqueadas", EspelhoPares.origensEmBloqueio(agoraMs()))
             .put("conexoesTotais", conexoesTotais.get())
             .put("semConexaoMs", if (conexoesTotais.get() == 0 && ligadoEm != 0L) agora - ligadoEm else 0L)
@@ -1350,14 +1450,13 @@ class EspelhoServidor(
     // arquivo não sabe que ele existe.
     //
     // O que ESTE arquivo consome de lá, e nada mais: `Relato`, `Sessao` e
-    // `Veredito` (os tipos), mais `validar`, `tentar`, `limpar`, `zerar`,
-    // `derrubar`, `sessoes`, `recusas`, `origensEmBloqueio`, `marcarSemConexao`
+    // `Veredito` (os tipos), mais `validar`, `entrar`, `limpar`, `zerar`,
+    // `derrubar`, `sessoes`, `origensEmBloqueio`, `marcarSemConexao`
     // e `marcarComConexao`.
-    // `ligar`, `desligar`, `codigo` e `trocarCodigo` são do DONO (a
-    // `MainActivity`, pela ponte): quem liga o espelho e quem lê o código em
-    // cartaz é o operador, e o servidor não precisa saber disso — ele só
-    // confere o que chega no `POST /par`, que é o que mantém a rede fora do
-    // laço de decisão.
+    // `ligar` e `desligar` são do DONO (a `MainActivity`, pela ponte): quem
+    // liga a transmissão é o operador, e o servidor não precisa saber disso —
+    // ele só atende o que chega no `POST /par`, que é o que mantém a rede fora
+    // do laço de decisão.
     //
     // O relógio entregue a ele é `System.currentTimeMillis()`, e não o
     // `elapsedRealtime` que este arquivo usa internamente: [EspelhoPares] é
@@ -1382,8 +1481,8 @@ class EspelhoServidor(
     private fun validarTokenCru(token: String): EspelhoPares.Sessao? =
         EspelhoPares.validar(token, agoraMs())
 
-    private fun tentarCodigo(codigo: String, origem: String, relato: EspelhoPares.Relato) =
-        EspelhoPares.tentar(codigo, origem, relato, agoraMs())
+    private fun entrarNaSessao(origem: String, relato: EspelhoPares.Relato) =
+        EspelhoPares.entrar(origem, relato, agoraMs())
 
     private fun limparPares() = EspelhoPares.limpar(agoraMs())
 
@@ -1407,6 +1506,9 @@ class EspelhoServidor(
         // 403 — quem não entrou não entrou —, e o que muda é o corpo, que o
         // cliente lê para escolher a frase.
         is EspelhoPares.Veredito.Lotada -> 403 to LOTADO_JSON
+        // Bloqueada (o operador derrubou esta tela há pouco) e Desligado caem
+        // aqui, no corpo genérico: quem foi derrubado não recebe a duração do
+        // castigo de volta — seria dizer a um curioso quanto falta.
         else -> 403 to RECUSADA
     }
 

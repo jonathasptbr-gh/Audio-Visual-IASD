@@ -5,8 +5,8 @@ import java.security.SecureRandom
 import java.util.Base64
 
 /**
- * O controle de acesso do espelho de pixels: o CÓDIGO de três dígitos, os
- * tokens, o prazo e a limitação de taxa. **ZERO import de Android**, pelo mesmo
+ * O controle de acesso do telão por comandos: os tokens, o prazo e o castigo
+ * de quem foi derrubado. **ZERO import de Android**, pelo mesmo
  * motivo do [EspelhoHttp] — este e aquele são as duas peças em que um erro não
  * vira pixel errado, e sim porta aberta, e são as duas que o JUnit cobre (ver a
  * QUARTA EXCEÇÃO declarada no `dependencies` de `app/build.gradle.kts`).
@@ -37,56 +37,47 @@ import java.util.Base64
  *    isso não é uma janela deslizante disfarçada: o carimbo só faz uma sessão
  *    morrer MAIS CEDO — ele é o que permite a [liberarVagaOciosa] tomar a vaga
  *    de quem já foi embora, e nunca estende o prazo de ninguém.
- * 4. **Comparação em tempo constante** (`MessageDigest.isEqual`) para o código e
- *    para o token. E, pelo mesmo motivo, as sessões vivem numa LISTA percorrida
+ * 4. **Comparação em tempo constante** (`MessageDigest.isEqual`) para o token.
+ *    E, pelo mesmo motivo, as sessões vivem numa LISTA percorrida
  *    inteira: um `HashMap[token]` compara por hash e sai na primeira diferença —
  *    seria jogar fora, no lookup, o cuidado tomado na comparação. Com teto de
  *    três sessões, percorrer é de graça.
- * 5. **O CÓDIGO É A PORTA, e código certo ENTRA — sem fila** (v5.185).
+ * 5. **A PORTA É O ENDEREÇO, e quem o abre ENTRA — sem código, sem fila**
+ *    (v5.189).
  *
- *    Foram três desenhos até aqui, e vale saber por que este substitui os dois
- *    anteriores. O primeiro era "seis dígitos ⇒ a tela vira PENDENTE e o
- *    operador aprova numa lista"; o segundo (v5.170) foi "a porta nasce ABERTA,
- *    quem digitar o endereço entra", com os seis dígitos e o QR como plano B. O
- *    primeiro cobrava três degraus de tela e um segredo em cartaz durante todo o
- *    culto; o segundo não cobrava nada, e por isso o único controle que sobrava
- *    era o operador ver a lista e derrubar quem não devia estar lá.
+ *    São quatro desenhos até aqui, e este é o segundo a chegar na porta aberta —
+ *    agora por uma razão que os outros três não tinham. O primeiro era "seis
+ *    dígitos ⇒ a tela vira PENDENTE e o operador aprova numa lista"; o segundo
+ *    (v5.170) abriu a porta com o QR e os seis dígitos como plano B; o terceiro
+ *    (v5.185) exigiu três dígitos, porque o gesto único do visitante torna
+ *    impossível qualquer fila de aprovação. Este remove o código.
  *
- *    Este é o meio termo, e ele é o que o gesto do visitante permite: a página
- *    do cliente tem UM campo e UM botão, e o toque nesse botão é o mesmo que
- *    libera o som e a tela cheia (as duas exigem ativação transitória do
- *    usuário, e não há segundo gesto para gastar). Uma fila de aprovação
- *    quebraria isso por construção — quando o operador aprovasse, o gesto já
- *    teria passado, e a tela entraria muda e em janela.
+ *    **O argumento é do operador, e é sobre o que o segredo protegia:** cada
+ *    tela precisa do ENDEREÇO deste aparelho nesta rede para chegar aqui, e
+ *    esse endereço já é, na prática, a credencial — quem não configurou a tela
+ *    não o tem, e ele muda de rede para rede e de sessão para sessão. Somado ao
+ *    que já valia (o conteúdo é o que a congregação inteira está vendo; o dano
+ *    de um curioso é ocupar uma das três vagas, nunca ver a projeção), o
+ *    código cobrava um degrau de digitação em todo culto para proteger algo que
+ *    o endereço já protege.
  *
- *    Três dígitos são MIL combinações, e o que os sustenta não é o tamanho: é o
- *    [BLOQUEIO_MS] **crescente** da invariante 6, o teto de [MAX_SESSOES] e o
- *    fato de o conteúdo ser o que a congregação inteira já está vendo. O dano de
- *    um curioso na rede nunca foi ele ver a projeção — é ele ocupar uma das três
- *    vagas —, e a resposta a isso continua sendo o operador ver quem está
- *    conectado e poder derrubar ([derrubar]).
- * 6. **Bloqueio por ORIGEM, e ele CRESCE.** [ERROS_ATE_BLOQUEIO] tentativas
- *    erradas do mesmo endereço ⇒ espera **para aquele endereço**, dobrando a
- *    cada bloqueio novo (60 s, 2 min, 4 min… até [BLOQUEIO_MAX_MS]).
- *
- *    O crescimento nasceu com o código de três dígitos e é o que o torna
- *    defensável: com um bloqueio FIXO de um minuto, mil combinações saem em
- *    ~3 h de martelada paciente; dobrando, a décima rodada já custa mais que o
- *    culto inteiro. E o custo para quem errou de verdade é nenhum — o contador
- *    de bloqueios zera junto com os erros na primeira tentativa CERTA, e a
- *    origem some do mapa depois de um período parada ([limpar]).
- *
- *    **O código NÃO ROTACIONA por tentativa errada** — isso seria negação de
- *    serviço contra o pareamento legítimo: um atacante erra dez vezes de
- *    propósito e o visitante que está digitando recebe "código inválido" para
- *    sempre, e numa rede com AP isolation o operador culparia a rede. Ele muda
- *    só em [ligar] ou por [trocarCodigo] (ação do operador).
+ *    O que SEGURA o recurso continua no lugar, e é o que sempre foi o controle
+ *    real: o teto de [MAX_SESSOES], o [derrubar] do operador com o castigo de
+ *    [BLOQUEIO_DERRUBADA_MS] — sem ele o botão "Desconectar" seria um botão que
+ *    não faz nada, porque a tela derrubada voltaria em dois segundos — e o
+ *    fato de o servidor só existir enquanto o operador o mantiver ligado.
+ * 6. **A ENTRADA É ANÔNIMA E IMEDIATA, e o único freio é o castigo.** Não há
+ *    tentativa errada a contar (não há segredo a errar), então não há bloqueio
+ *    crescente: o mapa de castigos guarda **só** quem o operador derrubou, por
+ *    [BLOQUEIO_DERRUBADA_MS]. Uma tela que chega e encontra as três vagas
+ *    ocupadas recebe [Veredito.Lotada] — que é uma FRASE, não a recusa
+ *    genérica, porque a saída dela é fechar uma das outras.
  * 7. **A página de pareamento é ANÔNIMA** — sem versão do app, sem nome do
  *    aparelho, sem SSID, sem nome da igreja. Este arquivo colabora não tendo nada
  *    disso para dar: o único dado que ele devolve a quem não provou nada é um id
  *    opaco.
- * 8. **Teto de [MAX_SESSOES] sessões.** Atingido, [tentar] devolve
- *    [Veredito.Lotada] mesmo com o código certo, e o operador precisa
+ * 8. **Teto de [MAX_SESSOES] sessões.** Atingido, [entrar] devolve
+ *    [Veredito.Lotada], e o operador precisa
  *    [derrubar] uma — o recurso é auxiliar e finito de propósito. (O teto de
  *    CONEXÕES em voo, e a regra de que um `GET /v` com token repetido fecha a
  *    conexão anterior, são do servidor: são sobre sockets, não sobre
@@ -105,8 +96,8 @@ import java.util.Base64
  * ## Por que um `object` com estado, e não uma classe
  *
  * A especificação o desenha como `object` e o servidor é único por processo, mas
- * a razão de ficar assim é outra: [ligar] **zera tudo** e é o único ponto em que
- * o código nasce, o que torna "há exatamente um espelho, e ele começa limpo" uma
+ * a razão de ficar assim é outra: [ligar] **zera tudo**, o que torna "há
+ * exatamente uma transmissão, e ela começa limpa" uma
  * propriedade verificável em vez de uma convenção. Todo método público é
  * `@Synchronized` (o servidor é multithread — uma thread por cliente) e **todo
  * relógio entra por parâmetro** (`agora: Long`): nada aqui chama
@@ -120,18 +111,6 @@ object EspelhoPares {
      * folga e não cobrem o domingo seguinte — que é exatamente a divisão certa.
      */
     const val PRAZO_SESSAO_MS = 6L * 60 * 60 * 1000
-
-    /**
-     * Quantos dígitos tem o código (v5.185). Três, e o número é o único que
-     * cabe no gesto que a página do cliente tem: um campo, um botão, e o toque
-     * que também libera o som e a tela cheia. Seis dígitos digitados num
-     * controle remoto de TV, tecla a tecla, eram o atrito que fazia o operador
-     * atravessar o salão.
-     *
-     * O que compensa o encurtamento não é o campo — é o bloqueio CRESCENTE por
-     * origem (invariante 6). Ver o KDoc dele.
-     */
-    const val DIGITOS_CODIGO = 3
 
     /**
      * Quanto tempo uma sessão pode ficar SEM SER USADA antes de a vaga dela
@@ -175,34 +154,14 @@ object EspelhoPares {
      */
     const val PRAZO_SEM_CONEXAO_MS = 45_000L
 
-    /** Erros de código da MESMA origem antes do bloqueio. */
-    const val ERROS_ATE_BLOQUEIO = 5
-
-    /** Duração do PRIMEIRO bloqueio de uma origem — ver [BLOQUEIO_MAX_MS]. */
-    const val BLOQUEIO_MS = 60_000L
-
-    /**
-     * O TETO do bloqueio crescente (invariante 6).
-     *
-     * Cada bloqueio novo da mesma origem DOBRA o anterior: 1 min, 2, 4, 8, 16,
-     * 32 e daí em diante o teto. É isto, e não o tamanho do código, que torna
-     * três dígitos defensáveis — com um minuto fixo, mil combinações saem numa
-     * tarde; dobrando, a sétima rodada já custa mais que o culto.
-     *
-     * O teto existe para o bloqueio não virar permanente: uma TV atrás de um NAT
-     * compartilha origem com quem estiver errando ao lado, e nada aqui pode
-     * produzir "esta tela não entra mais hoje" sem que ninguém consiga desfazer.
-     * Meia hora é longo o bastante para não haver martelada útil e curto o
-     * bastante para caber dentro de um culto.
-     */
-    const val BLOQUEIO_MAX_MS = 30L * 60 * 1000
-
     /**
      * Duração do castigo de uma tela DERRUBADA pelo operador — ver [derrubar].
      *
-     * Mais longo que o [BLOQUEIO_MS] (que existe para frear marteladas de
-     * código) e muito mais curto que o culto: derrubar precisa DURAR alguma
-     * coisa, e enganar-se de tela não pode custar o domingo.
+     * É o ÚNICO bloqueio que existe desde a v5.189: sem código não há tentativa
+     * errada a punir, e o mapa de castigos passou a guardar só isto. Dois
+     * minutos porque derrubar precisa DURAR alguma coisa — sem castigo nenhum a
+     * tela volta em dois segundos e o botão "Desconectar" reporta sucesso sem
+     * fazer nada visível — e enganar-se de tela não pode custar o domingo.
      */
     const val BLOQUEIO_DERRUBADA_MS = 2L * 60 * 1000
 
@@ -219,7 +178,7 @@ object EspelhoPares {
      * degrau algum dia?
      *
      * Todo campo aqui **veio da rede** e não vale nada até passar por [sanear] —
-     * o que [tentar] faz com o relato inteiro antes de guardá-lo.
+     * o que [entrar] faz com o relato inteiro antes de guardá-lo.
      */
     data class Relato(
         val ua: String,
@@ -277,7 +236,7 @@ object EspelhoPares {
     }
 
     /**
-     * A resposta de [tentar] — a única forma do `POST /par` desde a v5.185.
+     * A resposta de [entrar] — a única forma do `POST /par`.
      *
      * Um tipo selado, e não um booleano, porque cada variante corresponde a UMA
      * resposta do fio: quem roteia escreve um `when` com `else -> 403`, e
@@ -292,70 +251,55 @@ object EspelhoPares {
      * cheia. Ver a invariante 5.)
      */
     sealed class Veredito {
-        /** Código certo e vaga livre: o token, uma vez. `200 {"t": token}`. */
+        /** Vaga livre: o token, uma vez. `200 {"t": token}`. */
         data class Aprovada(val sessao: Sessao) : Veredito()
 
-        /** Código errado. `403`. */
-        object Recusada : Veredito()
-
-        /** Origem bloqueada por tentativas erradas — [restaMs] até liberar. `403`. */
+        /** Origem de castigo (o operador a derrubou) — [restaMs] até liberar. `403`. */
         data class Bloqueada(val restaMs: Long) : Veredito()
 
-        /** Código CERTO, mas as [MAX_SESSOES] vagas estão ocupadas. `403`. */
+        /** As [MAX_SESSOES] vagas estão ocupadas. `403`. */
         object Lotada : Veredito()
 
-        /** O espelho não está ligado. `403`. */
+        /** A transmissão não está ligada. `403`. */
         object Desligado : Veredito()
+
+        // (Saiu na v5.189, com o código: `Recusada`. Ela dizia "o segredo está
+        // errado", e não há mais segredo a errar — a porta é o endereço.)
     }
 
-    private class Tentativas {
-        var erros = 0
-        var bloqueadoAte = 0L
+    /** O castigo de UMA origem — só o [derrubar] o cria (invariante 6). */
+    private class Castigo {
+        var ate = 0L
         var visto = 0L
-
-        /**
-         * QUANTOS bloqueios esta origem já levou — é o expoente do crescimento
-         * (invariante 6). Zera junto com [erros] na primeira tentativa CERTA:
-         * quem acertou não é quem estava martelando.
-         */
-        var bloqueios = 0
     }
 
     private var noAr = false
-    private var codigoAtual = ""
     private var rnd: SecureRandom = SecureRandom()
-    private var recusados = 0
 
     private val vivas = ArrayList<Sessao>()
-    private val erros = HashMap<String, Tentativas>()
+    private val castigos = HashMap<String, Castigo>()
 
     // ------------------------------------------------------------ interruptor
 
     /**
-     * Liga o pareamento e devolve o CÓDIGO novo.
+     * Liga o pareamento.
      *
-     * Zera TUDO antes: sessões e bloqueios. Ligar o espelho é começar do zero, e
-     * é isso que faz o token não sobreviver ao culto anterior.
+     * Zera TUDO antes: sessões e castigos. Ligar a transmissão é começar do
+     * zero, e é isso que faz o token não sobreviver ao culto anterior.
      *
-     * **É AQUI QUE O CÓDIGO NASCE, e em lugar nenhum mais.** O pedido do
-     * operador é literalmente esse — "o código é gerado quando se ativa a
-     * disponibilidade online" —, e ele sai de graça desta forma: não existe
-     * caminho que ligue o espelho sem passar por aqui.
-     *
-     * [aleatorio] entra por parâmetro para o teste poder fixar a fonte; em
-     * produção é um `SecureRandom` novo, como no `SafRegistry` e no [StreamProxy].
+     * [aleatorio] entra por parâmetro para o teste poder fixar a fonte do TOKEN;
+     * em produção é um `SecureRandom` novo, como no `SafRegistry` e no
+     * [StreamProxy].
      */
     @Synchronized
-    fun ligar(agora: Long, aleatorio: SecureRandom = SecureRandom()): String {
+    fun ligar(agora: Long, aleatorio: SecureRandom = SecureRandom()) {
         zerar()
         rnd = aleatorio
         noAr = true
-        codigoAtual = novoCodigo(rnd)
         // `agora` não é usado hoje — o estado nasce vazio, sem nada a expirar.
         // Ele está na assinatura porque toda porta deste arquivo recebe o relógio
         // de fora, e uma que não recebesse convidaria a próxima a chamar o
         // relógio por dentro.
-        return codigoAtual
     }
 
     /** Desliga e apaga tudo. Não há token que sobreviva a isto. */
@@ -373,146 +317,75 @@ object EspelhoPares {
     @Synchronized
     fun zerar() {
         noAr = false
-        codigoAtual = ""
-        recusados = 0
         vivas.clear()
-        erros.clear()
+        castigos.clear()
     }
 
     @Synchronized
     fun estaLigado(): Boolean = noAr
 
-    /** O código em cartaz, para a folha do Controle. */
-    @Synchronized
-    fun codigo(): String = codigoAtual
-
-    /**
-     * Troca o código por ação do operador (invariante 6 — e só por ela).
-     *
-     * Não derruba sessão nenhuma: quem já entrou continua vendo, e é isso que
-     * separa "trocar o código" de "desligar".
-     */
-    @Synchronized
-    fun trocarCodigo(): String {
-        if (!noAr) return ""
-        codigoAtual = novoCodigo(rnd)
-        return codigoAtual
-    }
-
-    /**
-     * [DIGITOS_CODIGO] dígitos, com os zeros à esquerda preservados — "007" é um
-     * código legítimo, e é por isso que ele viaja como STRING de ponta a ponta.
-     *
-     * `nextInt(1000)` não tem viés de módulo (o `Random.nextInt(bound)` do JDK
-     * descarta o resto do intervalo), e o `SecureRandom` é o mesmo gerador do
-     * token — um código previsível derrubaria o pareamento inteiro sem que nada
-     * parecesse quebrado. Com mil combinações isso importa MAIS, não menos: uma
-     * fonte enviesada que só produzisse cem valores distintos reduziria o espaço
-     * a um décimo sem sintoma nenhum.
-     */
-    fun novoCodigo(aleatorio: SecureRandom): String {
-        var teto = 1
-        repeat(DIGITOS_CODIGO) { teto *= 10 }
-        return aleatorio.nextInt(teto).toString().padStart(DIGITOS_CODIGO, '0')
-    }
-
     // ------------------------------------------------------------- pareamento
 
     /**
-     * A ÚNICA porta: uma tentativa de código, vinda de [origem] (o endereço do
-     * socket). Código certo e vaga livre ⇒ [Veredito.Aprovada], com o token, na
-     * mesma resposta.
+     * A ÚNICA porta: uma tela pedindo entrada, vinda de [origem] (o endereço do
+     * socket). Vaga livre ⇒ [Veredito.Aprovada], com o token, na mesma resposta.
      *
-     * A ordem importa e é esta: **bloqueio da origem primeiro, código depois**.
-     * Um atacante que acertasse na sexta tentativa **continua bloqueado** — e o
-     * visitante legítimo que errou cinco vezes espera o bloqueio, que é o preço
-     * combinado.
+     * ## Não há segredo a conferir (v5.189)
      *
-     * ## Por que não há mais fila de aprovação
+     * A porta é o ENDEREÇO deste aparelho nesta rede — ver a invariante 5. O que
+     * este método ainda decide é o que sempre foi o controle real: a transmissão
+     * está ligada? esta origem está de castigo (o operador a derrubou há pouco)?
+     * há vaga entre as [MAX_SESSOES]?
      *
-     * Porque o gesto do visitante é UM só. A página do cliente tem um campo e um
-     * botão, e o toque nesse botão é também o que libera o som e a tela cheia —
-     * as duas exigem ativação transitória do usuário, e uma aprovação que
-     * chegasse depois encontraria o gesto já gasto: a tela entraria muda e em
-     * janela, e alguém teria de atravessar o salão para tocar nela. Ver a
-     * invariante 5.
+     * A ordem importa e é esta: **castigo primeiro, vaga depois**. Uma tela
+     * derrubada não pode reentrar tomando a vaga que o operador acabou de abrir.
      *
-     * ## Os dois casos de recusa NÃO são o mesmo, e o cliente precisa dos dois
+     * ## Por que não há fila de aprovação
      *
-     * [Veredito.Recusada] pede que se confira o número; [Veredito.Lotada] pede
-     * que se feche uma das outras telas — e repetir o código não resolve nem uma
-     * vez. O status do fio é 403 nos dois (quem não entrou não entrou); o que
-     * distingue é o corpo.
+     * Porque o gesto do visitante é UM só. A página do cliente tem UM botão, e o
+     * toque nele é também o que libera o som e a tela cheia — as duas exigem
+     * ativação transitória do usuário, e uma aprovação que chegasse depois
+     * encontraria o gesto já gasto: a tela entraria muda e em janela, e alguém
+     * teria de atravessar o salão para tocar nela.
      *
-     * **Lotado não conta erro nem gasta cota**: o segredo estava certo, o que
-     * faltou foi vaga. Contá-lo faria a terceira tela do templo bloquear a
-     * origem dela sozinha, tentando de novo, sem nunca ter errado nada.
+     * ## Lotada é uma FRASE, não a recusa genérica
+     *
+     * Ela pede que se feche uma das outras telas — e insistir não resolve nem
+     * uma vez. O status do fio é 403 (quem não entrou não entrou); o que
+     * distingue é o corpo. **Lotado não gasta cota nenhuma**: o que faltou foi
+     * vaga, e contá-lo faria a terceira tela do templo punir a si mesma.
      */
     @Synchronized
-    fun tentar(codigo: String, origem: String, relato: Relato, agora: Long): Veredito {
+    fun entrar(origem: String, relato: Relato, agora: Long): Veredito {
         limpar(agora)
         if (!noAr) return Veredito.Desligado
 
         val chave = sanear(origem, 64)
-        val t = erros.getOrPut(chave) { Tentativas() }
-        t.visto = agora
-        if (t.bloqueadoAte > agora) return Veredito.Bloqueada(t.bloqueadoAte - agora)
-        if (t.bloqueadoAte != 0L) {
-            // O bloqueio venceu: a origem volta com a cota de ERROS inteira.
-            // Sem isto, a sexta tentativa de sempre seria bloqueada para
-            // sempre. `bloqueios` NÃO zera aqui, e é essa a diferença entre o
-            // bloqueio fixo de antes e o crescente: quem esperou o minuto e
-            // voltou a martelar é exatamente quem o próximo bloqueio precisa
-            // segurar por mais tempo.
-            t.bloqueadoAte = 0L
-            t.erros = 0
-        }
-
-        if (!igual(codigo, codigoAtual)) {
-            t.erros++
-            recusados++
-            if (t.erros >= ERROS_ATE_BLOQUEIO) {
-                t.bloqueios++
-                t.bloqueadoAte = agora + esperaDoBloqueio(t.bloqueios)
+        val c = castigos[chave]
+        if (c != null) {
+            if (c.ate > agora) {
+                c.visto = agora
+                return Veredito.Bloqueada(c.ate - agora)
             }
-            return Veredito.Recusada
+            // O castigo venceu: a origem volta ao normal e some do mapa. Não há
+            // expoente a carregar adiante — o castigo é do DERRUBAR, e derrubar
+            // duas vezes a mesma tela é o operador dizendo a mesma coisa duas
+            // vezes, não uma escalada a punir.
+            castigos.remove(chave)
         }
 
-        // CÓDIGO CERTO: a origem sai de castigo por inteiro — inclusive o
-        // contador de bloqueios. Quem acertou não é quem estava martelando, e
-        // carregar o expoente adiante puniria a TV que errou o número duas
-        // vezes antes de acertar.
-        erros.remove(chave)
         val s = novaSessao(relato, agora) ?: return Veredito.Lotada
         return Veredito.Aprovada(s)
     }
 
     /**
-     * A espera do bloqueio para o n-ésimo bloqueio desta origem (invariante 6):
-     * [BLOQUEIO_MS] dobrando, com teto em [BLOQUEIO_MAX_MS].
-     *
-     * O deslocamento é limitado ANTES de acontecer. Um `shl` com contagem grande
-     * em Kotlin/JVM não satura: ele usa só os 6 bits baixos do deslocamento
-     * (`1L shl 64` é `1L`), então um atacante persistente veria o bloqueio
-     * DIMINUIR de volta para um minuto na 64ª rodada — o oposto exato do que
-     * este método existe para fazer, e sem nada que o denunciasse.
-     */
-    internal fun esperaDoBloqueio(bloqueios: Int): Long {
-        if (bloqueios <= 1) return BLOQUEIO_MS
-        val passos = (bloqueios - 1).coerceAtMost(20)
-        val espera = BLOQUEIO_MS shl passos
-        return if (espera <= 0L || espera > BLOQUEIO_MAX_MS) BLOQUEIO_MAX_MS else espera
-    }
-
-    /**
      * O operador tirou ESTA tela do ar (o botão "Desconectar" da folha).
      *
-     * Encerrar a sessão não basta: a tela derrubada perde o token, volta ao
-     * pareamento e — com o código ainda em cartaz na folha do operador, que é
-     * onde ele acabou de tocar — **entra de novo em dois segundos**. O botão
-     * reportaria sucesso e não faria nada visível. Por isso derrubar também põe
-     * a origem de castigo, pelo mesmo mecanismo do código errado e por um prazo
-     * curto: [BLOQUEIO_DERRUBADA_MS].
+     * Encerrar a sessão não basta: a tela derrubada perde o token e **entra de
+     * novo em dois segundos** — com a porta aberta da v5.189, sem nem uma
+     * digitação pelo caminho. O botão reportaria sucesso e não faria nada
+     * visível. Por isso derrubar põe a origem de castigo por
+     * [BLOQUEIO_DERRUBADA_MS], e é o ÚNICO caminho que cria um castigo.
      *
      * Curto de propósito. Derrubar a tela errada é um toque; ficar sem poder
      * readmiti-la pelo resto do culto seria o preço errado para isso.
@@ -522,9 +395,9 @@ object EspelhoPares {
         encerrar(token)
         val chave = sanear(origem, 64)
         if (chave.isEmpty()) return
-        val t = erros.getOrPut(chave) { Tentativas() }
-        t.visto = agora
-        t.bloqueadoAte = agora + BLOQUEIO_DERRUBADA_MS
+        val c = castigos.getOrPut(chave) { Castigo() }
+        c.visto = agora
+        c.ate = agora + BLOQUEIO_DERRUBADA_MS
     }
 
     // (Saíram na v5.185, com a fila de aprovação: `esperaQr`, `abrirVagaQr`,
@@ -593,39 +466,32 @@ object EspelhoPares {
     fun sessoes(): List<Sessao> = ArrayList(vivas)
 
     /**
-     * Recolhe o que venceu: sessões e contadores de erro parados.
+     * Recolhe o que venceu: sessões e castigos já cumpridos.
      *
-     * Público porque o servidor a chama de tempos em tempos (um espelho ligado
-     * sem cliente nenhum não teria quem passasse por aqui), e chamada no começo
-     * de toda porta deste arquivo — assim nenhuma decisão é tomada sobre estado
-     * podre, mesmo que ninguém varra nada.
+     * Público porque o servidor a chama de tempos em tempos (uma transmissão
+     * ligada sem cliente nenhum não teria quem passasse por aqui), e chamada no
+     * começo de toda porta deste arquivo — assim nenhuma decisão é tomada sobre
+     * estado podre, mesmo que ninguém varra nada.
      *
-     * O critério de esquecer uma origem é `BLOQUEIO_MAX_MS` parada, e não
-     * `BLOQUEIO_MS`: com o bloqueio crescente (invariante 6) o expoente mora no
-     * mapa, e esquecê-lo depois de um minuto de silêncio devolveria a martelada
-     * ao primeiro degrau a cada rodada — que é exatamente o que o crescimento
-     * existe para impedir. O custo é uma entrada de mapa por origem, por meia
-     * hora.
+     * Um castigo cumprido é esquecido depois de outro tanto de silêncio: ele
+     * não é um expoente que precise sobreviver (v5.189), só a memória curta de
+     * "o operador acabou de tirar esta tela do ar".
      */
     @Synchronized
     fun limpar(agora: Long) {
         vivas.removeAll { it.expiraEm <= agora }
-        val iter = erros.entries.iterator()
+        val iter = castigos.entries.iterator()
         while (iter.hasNext()) {
-            val t = iter.next().value
-            if (t.bloqueadoAte <= agora && agora - t.visto > BLOQUEIO_MAX_MS) iter.remove()
+            val c = iter.next().value
+            if (c.ate <= agora && agora - c.visto > BLOQUEIO_DERRUBADA_MS) iter.remove()
         }
     }
 
     // ------------------------------------------------------------ diagnóstico
 
-    /** Quantos códigos foram recusados desde o [ligar] — linha do Registro. */
+    /** Quantas telas estão de castigo agora (derrubadas há pouco) — o Registro. */
     @Synchronized
-    fun recusas(): Int = recusados
-
-    /** Quantas origens estão de castigo agora — a outra metade da mesma linha. */
-    @Synchronized
-    fun origensEmBloqueio(agora: Long): Int = erros.values.count { it.bloqueadoAte > agora }
+    fun origensEmBloqueio(agora: Long): Int = castigos.values.count { it.ate > agora }
 
     // ---------------------------------------------------------- saneamento
 
@@ -654,7 +520,7 @@ object EspelhoPares {
 
     /**
      * O relato inteiro, saneado — e o ÚNICO caminho por onde um [Relato] entra
-     * neste arquivo, porque [tentar] o aplica antes de guardar.
+     * neste arquivo, porque [entrar] o aplica antes de guardar.
      *
      * É por isso que o `EspelhoServidor` pode montar o [Relato] **cru**, campo a
      * campo, a partir do JSON do corpo: `org.json` é da plataforma (num teste de
@@ -679,11 +545,10 @@ object EspelhoPares {
      * Cunha uma sessão, ou `null` quando o teto de [MAX_SESSOES] está cheio **e
      * nenhuma das vagas está ociosa**.
      *
-     * O relato já vem saneado de [tentar]/[esperaQr] no caminho da pendência; no
-     * caminho da porta aberta ele chega cru, e por isso passa pelo funil aqui.
-     * Sanear duas vezes é idempotente — `[\x20-\x7E]` já filtrado continua
-     * filtrado —, e a alternativa (confiar em quem chama) é a forma de um
-     * caminho novo entrar sem saneamento nenhum.
+     * O relato chega CRU da rede e passa pelo funil aqui — um ponto só, do
+     * lado que tem teste. Sanear duas vezes seria idempotente
+     * (`[\x20-\x7E]` já filtrado continua filtrado); confiar em quem chama é
+     * que seria a forma de um caminho novo entrar sem saneamento nenhum.
      */
     private fun novaSessao(relato: Relato, agora: Long): Sessao? {
         if (vivas.size >= MAX_SESSOES && !liberarVagaOciosa(agora)) return null
@@ -784,9 +649,10 @@ object EspelhoPares {
      * Comparação em tempo constante (invariante 4).
      *
      * O `MessageDigest.isEqual` do JDK não sai na primeira diferença. Vazio nunca
-     * é igual a vazio aqui: sem essa guarda, um código vazio casaria com o
-     * [codigoAtual] vazio de um espelho desligado — o caso em que o segredo não
-     * existe é o caso em que ele não pode valer.
+     * é igual a vazio aqui: sem essa guarda, um token vazio casaria com o de uma
+     * sessão malformada — o caso em que o segredo não existe é o caso em que ele
+     * não pode valer. (Desde a v5.189 o único segredo comparado aqui é o TOKEN:
+     * o código de entrada saiu.)
      */
     private fun igual(a: String, b: String): Boolean {
         if (a.isEmpty() || b.isEmpty()) return false

@@ -468,22 +468,6 @@
                mais — ver setupPreviewGestures), com uma exceção: ficam ocultos
                em TELA CHEIA, que é o que vai ao telão quando não há TV
                conectada — um botão sobreposto seria projetado junto. -->
-          <!-- MESA DE SOM (áudio saindo pelo próprio celular). Saiu de
-               Configurações na v5.82: é a única coisa daquela lista que se liga
-               e desliga DURANTE o culto — o operador chega, liga a caixa, e
-               precisa do som no aparelho ou não. Um ajuste dessa frequência
-               atrás de dois toques num popup é atrito; aqui ele mora sobre a
-               preview, que é onde o som está sendo julgado. Canto INFERIOR
-               ESQUERDO: a coluna direita já é do cast e do tela cheia. -->
-          <button id="pvSoundBtn" class="pv-fab pv-fab--bl" title="Som no celular (mesa de som)">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M4 9.5h3.2L12 5.4v13.2L7.2 14.5H4z"/>
-              <path class="pv-sound-on" d="M16 9.2a4 4 0 0 1 0 5.6"/>
-              <path class="pv-sound-on" d="M18.6 6.6a7.6 7.6 0 0 1 0 10.8"/>
-              <path class="pv-sound-off" d="M16.5 10l5 4"/>
-              <path class="pv-sound-off" d="M21.5 10l-5 4"/>
-            </svg>
-          </button>
           <div class="pv-fabs" id="pvFabs">
             <button id="pvCastBtn" class="pv-fab" title="Espelhar na TV" hidden>
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -541,15 +525,14 @@
            cortina do telão (#viewToggle), letra completa (#lyricsViewBtn) e
            mudo; bottom guarda o volume recolhível (vira fader ao abrir,
            ocupando top+mid).
-           A "mesa de som" tinha um botão aqui; hoje ela é o ícone de
-           alto-falante no canto inferior esquerdo da preview (`#pvSoundBtn`,
-           v5.82 — passou por uma linha de Configurações no caminho): é a única
-           dessas decisões que se liga e desliga DURANTE o culto, e o lugar de
-           julgar o som é olhando a preview. O botão que ela deixou vago virou
-           a porta de Configurações, e ela subiu para o TOPO da coluna: é o
-           único botão daqui que não opera o culto, então fica fora do
-           agrupamento de operação (cortina/letra/mudo/volume) em vez de no meio
-           dele. -->
+           A "mesa de som" tinha um botão aqui, depois virou um ícone sobre a
+           preview, e SAIU na v5.189 a pedido do operador: o som do sistema é o
+           dos displays (a TV e as telas da rede), e o áudio da preview só
+           disputava o foco de áudio do Android com a projeção. O botão que ela
+           deixou vago virou a porta de Configurações, e ela subiu para o TOPO
+           da coluna: é o único botão daqui que não opera o culto, então fica
+           fora do agrupamento de operação (cortina/letra/mudo/volume) em vez
+           de no meio dele. -->
       <div class="mixer" id="mixer">
         <div class="mixer-slot mixer-top">
           <div class="mixer-stack">
@@ -775,7 +758,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.188</span>
+        <span id="appVersion" class="app-version">Controle v5.189</span>
         <!-- O APK NOVO, quando existir. Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso. `hidden`
@@ -862,13 +845,6 @@
           <div class="cast-addr">
             <span class="cast-rot">Endereço</span>
             <span class="cast-url" id="castUrl"></span>
-          </div>
-          <div class="cast-addr">
-            <span class="cast-rot">Código</span>
-            <!-- Monoespaçado e espaçado, como o PIN de antes: três dígitos
-                 ditados de um lado do salão para o outro por cima de uma fonte
-                 proporcional é onde 1, l e I viram a mesma coisa. -->
-            <span class="cast-cod" id="castCod"></span>
           </div>
           <p class="cast-hint" id="castHint"></p>
           <ul class="cast-telas" id="castTelas"></ul>

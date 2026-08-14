@@ -97,7 +97,7 @@ app/src/main/
 │   ├── MessageBus.kt            # relay de comandos entre os dois WebViews
 │   │                            # ↓ TELÃO POR COMANDOS (ver a seção do recurso)
 │   ├── EspelhoHttp.kt           # o parser HTTP (+ Range/SSE) — PURO, zero import de Android
-│   ├── EspelhoPares.kt          # o CÓDIGO de 3 dígitos, tokens, prazo — PURO
+│   ├── EspelhoPares.kt          # a porta, tokens, prazo, castigo — PURO
 │   ├── EspelhoServidor.kt       # sockets, rotas (bundle, /e, /m/, /par, /r), fan-out
 │   ├── EspelhoMidiaCache.kt     # o cache da rota /m/<token> — PURO, com JUnit
 │   ├── EspelhoMidiaCanal.kt     # canal de ArrayBuffer: OPFS → cache (WebMessage)
@@ -307,7 +307,6 @@ window.AVNative = {
   otaDiag(),           // → string: quando foi a última busca e o que ela deu
   ytDiag(),            // → string: o que o extrator recebeu na última extração
                        //   (diagnóstico do rodapé de Configurações)
-  keepAudioAlive(bool),// mesa de som ligada: este WebView não pode ser suspenso
   ytStream(url, altura), // → manifesto DASH { video, audio, seconds, height } ou null
                        //   TRANSMITIR sem baixar — exige shell 26
   ytSearch(termo),     // → [{ id, url, name, author, seconds, thumb }] do YouTube
@@ -325,8 +324,8 @@ window.AVNative = {
   espelhoLigar(modo),  // liga a transmissão (o argumento é IGNORADO desde a
                        //   v5.156 — ficou para não custar um degrau de shell)
   espelhoDesligar(),   // síncrono e sem resposta, como o `ytCancel`
-  espelhoEstado(),     // → { ligado, endereco, codigo, erro, telas:[…] }
-                       //   `codigo` são os TRÊS dígitos, como STRING ("007");
+  espelhoEstado(),     // → { ligado, endereco, erro, telas:[…] }
+                       //   (sem `codigo` desde a v5.189: a porta é o ENDEREÇO)
                        //   cada tela: { rotulo, comando:true, conectadaMs,
                        //   telaAcesaMin, aviso, eventos, pronta, fila }
   espelhoDiag(),       // → JSON do Registro (servidor, sessões, cache de
@@ -341,7 +340,7 @@ window.AVNative = {
 }
 ```
 
-São **trinta e oito métodos**, e essa é a superfície inteira que o resto do
+São **trinta e seis métodos**, e essa é a superfície inteira que o resto do
 lado web tem direito de usar: fora do `native.js`, tocar em `__AVBridge` direto é
 acoplamento indevido. O próprio `native.js` chama mais oito coisas no
 `__AVBridge`, e nenhuma delas é API para o app — duas são
@@ -415,8 +414,12 @@ esperam uma **pessoa** e ficam sem prazo, porque um timeout ali resolveria null
 com o operador ainda escolhendo a pasta.
 
 `NativeBridge.SHELL_VERSION` identifica a versão da casca — **subir sempre que
-a superfície da ponte mudar**. Hoje vale **37** — a v5.187 (o telão por
-comandos, E7) não acrescentou método nenhum, mas mudou a **FORMA do que
+a superfície da ponte mudar**. Hoje vale **38** — a v5.189 ENCOLHE duas vezes:
+`espelhoEstado` perdeu `codigo` (a entrada da tela deixou de ter segredo — a
+porta é o endereço) e saiu `keepAudioAlive`, que só existia para a mesa de som.
+Um bundle antigo num shell 38 desenharia um teclado de três dígitos pedindo um
+número que ninguém mais publica, e é isso que o degrau impede. O anterior, **37**
+(v5.187, o telão por comandos, E7), não acrescentou método nenhum, mas mudou a **FORMA do que
 `espelhoEstado` e `espelhoDiag` devolvem**: as telas passaram a ser as da
 transmissão por comandos (`comando: true`, `conectadaMs`, `telaAcesaMin`,
 `pronta`, `fila`) e o diagnóstico perdeu o bloco inteiro de encoder/tela
@@ -585,7 +588,7 @@ Três regras completam o desenho:
   projeção faria cada `display-status` puxar a preview para a frente — o resync
   brigando com o atraso, a 4 Hz.
 - **A tolerância é de meio segundo, não de 1,6 s.** A preview **não tem som**
-  fora do modo "mesa de som", e ali o resync nem acontece; sem som um seek custa
+  (desde a v5.189 não tem por construção — a mesa de som saiu); sem som um seek custa
   um quadro e não estala nada. Ao **retomar do segundo plano** ela cai para
   `RESYNC_EXATO` (0,15 s): ali não há ruído a poupar, há um desvio conhecido.
 - **Com a página escondida a preview não atrasa nada.** O atraso existe para o
@@ -943,10 +946,10 @@ percentual e o tempo restante.
 um `MediaSession` e uma notificação `MediaStyle` com os controles de transporte.
 Dois ganhos, e o segundo é o menos óbvio:
 
-1. **Controlar sem abrir o app.** No modo "mesa de som" o celular está ligado na
-   caixa de som e provavelmente bloqueado; abrir o app só para pausar é atrito
-   real no meio de um culto. Com o `MediaSession` os controles aparecem também
-   na **tela de bloqueio** e nas configurações rápidas, de graça.
+1. **Controlar sem abrir o app.** O celular fica no suporte, provavelmente
+   bloqueado, e abrir o app só para pausar é atrito real no meio de um culto.
+   Com o `MediaSession` os controles aparecem também na **tela de bloqueio** e
+   nas configurações rápidas, de graça.
 2. **A projeção deixa de ser descartável.** Antes disto o único serviço em
    primeiro plano era o `SyncService`, que só sobe DURANTE downloads: num culto
    normal não havia nenhum, e o processo seguia candidato a ser morto sob
@@ -1064,11 +1067,12 @@ Dois ganhos, e o segundo é o menos óbvio:
   Pelo mesmo motivo o `onDestroy` **cancela a notificação explicitamente**: o
   sistema só recolhe sozinho a que veio de `startForeground`.
 - **A notificação NÃO pode depender do JS do Controle estar rodando.** Com o
-  app minimizado e sem áudio audível no celular (mesa de som desligada), o
+  app minimizado e sem áudio audível no celular, o
   sistema estrangula aquele WebView: `pushNowPlaying` para de ser chamado e a
   notificação congela — botão em "play", barra parada — enquanto o telão segue
-  projetando. Ligar a mesa de som fazia o defeito sumir porque áudio audível
-  isenta a página do estrangulamento, o que foi justamente a pista.
+  projetando. (Ligar o áudio no próprio celular fazia o defeito sumir, porque
+  áudio audível isenta a página do estrangulamento — foi justamente essa a
+  pista. Aquele modo, a "mesa de som", saiu na v5.189: o som é dos displays.)
   `NativeBridge.snoopDisplayStatus` lê de passagem o `display-status` que o
   telão já emite pelo `busPost` e corrige play/pause, posição e duração
   (`SessionService.updateFromDisplay`). A `Presentation` não é estrangulada —
@@ -1394,15 +1398,15 @@ TV, as telas da rede SÃO o que a congregação vê.
 | Arquivo | O quê |
 |---|---|
 | `EspelhoHttp.kt` | o parser HTTP **+ Range + SSE** — **PURO, zero import de Android**, com JUnit (`EspelhoHttpTest`, `EspelhoHttpRangeTest`). `alcanceDe` segue a RFC 7233 à risca: faixa malformada é **IGNORADA** (200 inteiro), nunca adivinhada; `Range` duplicado é malformado; fora do tamanho é 416 |
-| `EspelhoPares.kt` | o código de 3 dígitos, tokens, prazo — **PURO**, com JUnit. O token da sessão **nunca viaja numa URL**: o SSE vai por `fetch` + `Authorization: Bearer` (não `EventSource`, que não manda cabeçalho) |
+| `EspelhoPares.kt` | a porta, tokens, prazo, castigo — **PURO**, com JUnit. **Sem código desde a v5.189**: a porta é o ENDEREÇO deste aparelho na rede, e o controle real é o teto de 3 sessões + o `derrubar` do operador (com castigo de 2 min, sem o qual "Desconectar" não faria nada visível). O token da sessão **nunca viaja numa URL**: o SSE vai por `fetch` + `Authorization: Bearer` (não `EventSource`, que não manda cabeçalho) |
 | `EspelhoServidor.kt` | sockets, rotas, fan-out. Serve **só** `PREFIXOS_BUNDLE` (display/shared/espelho — nunca `web/controle/`), `GET /e` (o fluxo SSE: fila de 256 por tela, ping de 15 s com o epoch do celular, `adeus` no desligar), `/m/<token>` (completo = 206/416; **em crescimento = chunked**, servindo enquanto o empurrão anda), `POST /r` (o caminho de volta: `st` injeta o status no barramento via `MessageBus.post(null,…)` — que NÃO passa pelo `busPost`, logo **sem eco por construção**). Bind explícito ao IPv4 da Wi-Fi, allowlist de `Host` exata — as regras da era dos pixels que continuam valendo |
 | `EspelhoMidiaCache.kt` | o cache da rota `/m/` — **PURO**, com JUnit. Token é **capacidade** (forma validada; entropia de quem cunha — o Controle, `crypto.randomUUID`), mesmo id + mesmo token = mesmo item (a regra do SafRegistry), id com token novo **substitui** (o wallpaper trocado), LRU por **bytes** e só de **completos** (um item em crescimento tem um empurrão vivo do outro lado) |
 | `EspelhoMidiaCanal.kt` | o empurrão: OPFS → cache, por `WebMessageListener` com `ArrayBuffer` (o molde do `EspelhoAudio` aposentado — allowedOriginRules exato, `isMainFrame`, host conferido). Fluxo com ack por bloco; a oferta na fila é **não-bloqueante** (fila cheia = erro retentável, nunca travar a main thread) |
 | `EspelhoService.kt` | foreground service **`connectedDevice`** (sem cota, ao contrário do `dataSync`). Exige `CHANGE_WIFI_MULTICAST_STATE` no manifest — sem ela `startForeground` **lança** |
 | `EspelhoDiag.kt` | o anel. **Devolve JSON, não texto** — quem monta a frase é o `controle.js` |
 | `espelho/tela.js` | a casca do papel `tela` — **carregada no próprio `display/index.html`**, entre `native.js` e `db.js`, e um no-op de uma guarda fora do papel (`?tela=1`). Define `__AVBus` (recepção = SSE; envio = o DRENO, ver o barramento), neutraliza o `postMessage` do `BroadcastChannel`, corrige o relógio (mediana do epoch dos pings — cronômetro e sorteio chegam como DESCRITOR com instante do celular), embrulha `AVDB.getMedia` para resolver `__rec.url`, e mantém a vigília (canvas.captureStream) para a tela não dormir |
-| `display.js` (papel `tela`) | `forceMuted` nasce ligado (autoplay sem gesto não existe num navegador de verdade); `window.__telaSom(true)` é o que o botão de entrada chama ao gastar o único gesto (fullscreen + som, **na mesma pilha**); wallpaper chega por `__wp` |
-| `controle.js` (o outro lado) | **enriquece** cada `load` com `__rec` (registro saneado: id/kind/nome/tipo/url=`/m/<token>`/letra — **nunca** blob, opfsPath, stream ou youtubeId) e dispara o empurrão da mídia; **elege** uma tela como referência de tempo; converte YouTube/stream/deck em `tela-aviso` (o que a tela não sabe tocar, ela DIZ) |
+| `display.js` (papel `tela`) | `forceMuted` nasce ligado (autoplay sem gesto não existe num navegador de verdade); `window.__telaSom(true)` é o que o botão de entrada chama ao gastar o único gesto (fullscreen + som, **na mesma pilha**); wallpaper chega por `__wp` (ou o sentinela `'padrao'`), e o fundo da letra por `imageUrl` na estrofe |
+| `controle.js` (o outro lado) | **enriquece** cada `load` com `__rec` (registro saneado: id/kind/nome/tipo/url=`/m/<token>`/letra — **nunca** blob, opfsPath ou youtubeId) e dispara o empurrão da mídia; reescreve o manifesto de STREAM para `/s/<token>` (v5.189); **elege** uma tela como referência de tempo; converte o embed do YouTube e o deck em `tela-aviso` (o que a tela não sabe tocar, ela DIZ) |
 
 ### As decisões que precisam estar ditas
 
@@ -1410,9 +1414,16 @@ TV, as telas da rede SÃO o que a congregação vê.
   sobrevive a uma navegação** — por isso não existe "página de entrada que
   redireciona": `tela.js` desenha a entrada como OVERLAY sobre o próprio
   display, e o toque no botão gasta o único gesto em tudo de uma vez
-  (`POST /par {codigo}` → token → `__telaSom(true)` → `requestFullscreen` →
-  SSE). Com a porta aberta (o padrão desde a v5.170) o modo é só o gesto, sem
-  código nenhum.
+  (`__telaSom(true)` → `requestFullscreen` → `POST /par` → token → SSE).
+  **Desde a v5.189 o botão é UM só, "Ativar esta tela", e não há código a
+  digitar**: a porta é o endereço.
+- **Depois de ativada, NADA cobre a tela.** O overlay cheio existe só na
+  primeira carga, quando não há nada por baixo dele. Queda de fio, token
+  vencido e até o `adeus` do operador reentram em silêncio (um `POST /par` numa
+  escada de 1 s a 30 s) — a mídia é local (`/m/`) e a letra anda pelo
+  `timeupdate` do próprio `<video>`, então a queda leva o fio e mais nada. O
+  gesto perdido (tela cheia, som) é oferecido por um botão discreto de canto,
+  que se recolhe em 5 s; o toque duplo faz o mesmo.
 - **O tap é no `busPost`, e isso fecha o eco.** `NativeBridge.busPost` vê 100%
   dos comandos (o relay nativo roda sempre — ver o barramento), e é ali que o
   `tapLan` os copia para o fan-out SSE. A injeção de volta (o `st` do
@@ -1426,12 +1437,15 @@ TV, as telas da rede SÃO o que a congregação vê.
 - **`display-ready` com `__tela` sobe; `tela-status` sobe; o resto morre.** O
   dreno de subida é a mesma lista de permissão de dois itens do barramento —
   `media-ended`, `mic-status` e `diag-dump` de uma tela morrem nela.
-- **Sem telão e com transmissão ligada, o YouTube nem tenta transmitir**
-  (`pularTransmissao` em `tocarYoutube`): a tela da rede não tem como tocar o
-  embed nem o stream do proxy (o manifesto aponta para o origin do celular — a
-  rota `/stream/` não é servida pelo `EspelhoServidor`, de propósito: URLs do
-  googlevideo expiram e não são capacidade nossa). O caminho é o download — que
-  produz um arquivo do acervo, que o `/m/` sabe servir.
+- **A TRANSMISSÃO DIRETA CHEGA ÀS TELAS** (v5.189, a dívida §7). A rota
+  `/s/<token>` do servidor repassa a faixa do googlevideo (o `Range` do cliente
+  sobe cru; a resposta é espelhada de volta) com o UA que combina com a URL, e
+  o `telaEnriquecer` reescreve `/stream/<token>` → `/s/<token>` no manifesto.
+  O token é o MESMO dos dois lados (o registro do `StreamProxy` é um só), então
+  não há segunda extração. Da v5.187 à v5.188 havia aqui um `pularTransmissao`
+  que mandava tudo ao download quando a transmissão estava ligada sem TV — e
+  como esse é o estado normal do operador, o "Tocar agora" nunca transmitia.
+  O que ainda não vai para a rede é o EMBED (iframe de terceiro) e o DECK.
 - **A preview não atrasa para telas de comando** (`dePixels` em
   `recalcularAtrasoPreview`): o atraso da v5.162 media o buffer de MSE do
   espelho de pixels; uma tela por comandos aplica o comando no ato, e o alvo é
@@ -1562,7 +1576,7 @@ contextos.
 | Botão de cast da preview | oculto | `AVNative.openCast()` → seletor de **espelhamento de tela** (ver abaixo) |
 | Retomada do telão ao RECONECTAR | idem (o caminho é o mesmo `resendSceneToDisplay`) | **só reenvia o que ESTAVA no ar** (v5.142). `currentId` sobrevive de propósito ao stop e ao fim natural — é o que permite repetir a faixa com o ▶ —, e reenviar por ele fazia o telão acordar com um vídeo engatilhado que ninguém pediu (o retângulo cinza com o play) ou ressuscitar a música que já tinha acabado. Quem responde a pergunta certa é `midiaNoAr`; um telão vazio também é um estado, e restaurá-lo é não mandar nada |
 | Girar a mídia | idem (o comando é o mesmo `rotate`) | **novo na v5.142**: vídeo gravado de lado chega DEITADO no telão e não havia o que fazer. Um botão em Configurações avança 90° por toque; o motor TROCA O EIXO da caixa antes de girar, para o `object-fit` fazer a conta no retângulo em que a mídia vai de fato aparecer. Tomou o lugar do "Esticar", que distorcia a proporção — o defeito que "Ajustar" e "Preencher" existem para evitar |
-| Botão da mesa de som (som da preview) | mesma regra: some com a janela do Display aberta | **oculto com telão conectado** (v5.141). Os dois WebViews dividem o processo e a saída de áudio do Android: ligar o som da preview com o telão projetando faz o `<video>` do Controle tomar o foco de áudio e INTERROMPER o player do telão, no meio do louvor. O modo existe para quando o celular É a caixa de som — o caso sem telão, por definição. Conectar a tela com o som já ligado DESLIGA o modo, em vez de deixar o estado proibido sem controle na tela |
+| Som na preview ("mesa de som") | **não existe mais** — a preview é sempre muda | **REMOVIDO na v5.189**, a pedido do operador: o som do sistema é o dos DISPLAYS (a TV pela `Presentation`, as telas da rede pelo `<video>` delas). Os WebViews dividem o processo e a saída de áudio do Android, então o áudio da preview só tinha como tomar o foco e INTERROMPER o player do telão — a v5.141 já escondia o botão com telão conectado, e a v5.189 tirou o modo inteiro (com ele, o `keepAudioAlive` da ponte) |
 | PDF, PowerPoint, Google Apresentações | **PDF não existe** (não há quem o desenhe); o `.pptx` funciona, e é o MESMO caminho do app | **viram UMA IMAGEM POR PÁGINA**, cada formato pelo caminho que existe para ele: o **PDF** pelo `PdfRenderer` da PLATAFORMA (`SlideDeck.kt` + `AVNative.deckPages`) — fidelidade total, zero dependência; o **`.pptx`** pelo renderizador de OOXML em `assets/web/vendor/` (`pptxParaPaginas`, em `controle.js`), carregado por `import()` dinâmico e rasterizado com `<foreignObject>` + canvas. Daí para a frente é mídia comum: fade, cortina, telão e `MediaSession` que já existem, com ⏮/⏭ passando página. **Não há botão de "apresentação"**: uma apresentação é um arquivo como outro qualquer, e entra pelo mesmo "Importar arquivos" (que no app abre o seletor do SISTEMA, `pickDoc` — o `<input type="file">` devolve bytes, e o PDF precisa que o shell abra o ARQUIVO) ou pelo compartilhamento. O `.ppt` anterior a 2007 e o `.odp` ficam de fora: ninguém sabe desenhá-los, e aceitar para depois falhar é pior que não aceitar. O link do Google entra sozinho pela URL de exportação |
 | **Tocar agora** de um vídeo do YouTube | player embutido (IFrame API) | **TRANSMISSÃO DIRETA** (v5.120/shell 26; **funcionando só do shell 27 em diante**): o shell monta o manifesto das duas faixas adaptativas (`ytStream`), o `StreamProxy` as serve pelo NOSSO origin com o UA que combina com a URL, e o `MediaSource` de `shared/mse.js` as vira um `<video>` COMUM — fade, cortina, `MediaSession`, barra e segundo plano de graça, **e zero pixel de YouTube no telão**. Sem esperar o download. A faixa de bytes viaja na QUERY (`?r=<ini>-<fim>`), nunca no cabeçalho `Range` — ver a invariante 8, que é a razão de o recurso ter passado três versões sem tocar um único vídeo. Só em "Tocar agora": as outras três ações GUARDAM o item, e um manifesto expira em horas. Falhando qualquer coisa (shell < 27, vídeo sem par adaptativo, WebView sem o codec) cai no download, calado — o operador pediu o louvor, não o método |
 | Vídeo do YouTube | player embutido (IFrame API) | **arquivo de vídeo baixado PELO APARELHO** (`YoutubeGrab.kt` + `AVNative.ytFetch`) — o embed pausa sozinho com o app minimizado, e a extração no próprio celular sai do IP do chip, que é o que o YouTube não bloqueia. Sem configurar nada. Cobalt continua como segunda opção para quem já mantém uma instância; falhando os dois, o link vira item de player |
@@ -2144,10 +2158,58 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.188** (base web) · `SHELL_VERSION` **37**, e o bundle segue com
+**Versão atual: v5.189** (base web) · `SHELL_VERSION` **38**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.189 (v1.87): A SEGUNDA RODADA EM APARELHO — a porta abre, o YouTube
+> volta a transmitir e a preview emudece. EXIGE APK.**
+>
+> - **"Tocar direto um link do YouTube não funciona, ele sempre baixa."** Era
+>   a política que a própria v5.187 escreveu: `pularTransmissao = espelho
+>   ligado && sem telão` — e transmissão ligada sem TV é o estado NORMAL do
+>   operador, então o recurso inteiro parou de acontecer. O motivo era real (o
+>   manifesto aponta para `/stream/` no origin do WebView, que a tela da rede
+>   não alcança), e a saída não foi relaxar a guarda: foi **tirar-lhe a razão
+>   de existir** fechando a dívida §7 do contrato. O servidor passou a servir
+>   as mesmas faixas em **`/s/<token>`** — um REPASSE ao googlevideo (o
+>   `Range` do cliente sobe cru, a resposta é espelhada de volta), com o UA que
+>   combina com a URL, o mesmo registro de token do `StreamProxy` e nenhuma
+>   segunda extração. O `telaEnriquecer` reescreve o manifesto para a tela.
+> - **A ENTRADA DA TELA PERDEU O CÓDIGO.** Argumento do operador: cada tela
+>   precisa do ENDEREÇO deste aparelho nesta rede para chegar aqui, e esse
+>   endereço já é a credencial — quem não configurou a tela não o tem. O
+>   overlay virou **um botão só, "Ativar esta tela"**, que gasta o gesto
+>   (tela cheia + som) e entra. O que segura o recurso continua sendo o teto de
+>   três sessões e o "Desconectar" do operador (com o castigo de 2 min, sem o
+>   qual o botão não faria nada visível). Saíram do `EspelhoPares`: o código,
+>   a rotação, o bloqueio crescente e o contador de recusas — e com eles os
+>   casos de JUnit que os cobriam, porque o que eles cobriam deixou de existir.
+> - **A TELA VOLTA A FICAR EM TELA CHEIA SEM RECARREGAR.** Sair da tela cheia
+>   é um toque na tecla errada de um controle remoto, e até aqui o único ponto
+>   do sistema que chamava `requestFullscreen` era o botão de entrada. Agora um
+>   botão discreto de canto aparece quando FALTA tela cheia (ou som), se
+>   recolhe em 5 s e volta com um toque — e o TOQUE DUPLO em qualquer lugar faz
+>   a mesma coisa, que é o gesto que todo mundo tenta primeiro num vídeo.
+> - **A QUEDA DE CONEXÃO NÃO COBRE MAIS A MÍDIA.** O overlay de reentrada
+>   aparecia por cima do louvor que continuava tocando — e continuava mesmo:
+>   a mídia da tela é LOCAL (o `<video>` toca o arquivo do `/m/`) e **a letra
+>   sincronizada anda pelo `timeupdate` dela**, não por comando, então a queda
+>   leva o fio e nada mais. Sem código a digitar, a reentrada não precisa de
+>   gente: virou um `POST /par` numa escada (1 s → 30 s), silencioso. O overlay
+>   cheio só existe na PRIMEIRA carga, quando não há nada por baixo dele.
+> - **A MESA DE SOM SAIU POR INTEIRO.** O som do sistema é o dos displays (a
+>   TV pela Presentation, as telas da rede pelo `<video>` delas), e o áudio da
+>   preview só tinha como disputar o foco de áudio do Android com a projeção —
+>   o defeito que a v5.141 já contornara escondendo o botão com telão
+>   conectado. Com o modo, saíram o botão, o `standalone`, o
+>   `AVNative.keepAudioAlive` e o `setAudioAlive` do shell (um método de ponte
+>   sem chamador é dívida).
+>
+> `SHELL_VERSION` **38**: o degrau é um ENCOLHIMENTO duplo — `espelhoEstado`
+> perdeu `codigo` e a ponte perdeu `keepAudioAlive`. A rota `/s/` não pesa nele
+> (é do servidor HTTP, não da ponte).
 
 > **A v5.188: A PRIMEIRA RODADA EM APARELHO DO TELÃO POR COMANDOS — três
 > relatos, uma identidade. OTA PURO** (nenhuma linha de Kotlin; sem Release).

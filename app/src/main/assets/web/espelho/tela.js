@@ -62,6 +62,10 @@
   // Constantes — as lições pagas pelo cliente do espelho, herdadas uma a uma
   // --------------------------------------------------------------------------
   var RECONEXAO = [500, 1000, 2000, 4000, 8000];
+  // A escada da REENTRADA (pedir um token novo depois de perdê-lo) é mais
+  // lenta no fim: aqui não há nada a recuperar com pressa — a mídia local
+  // segue tocando — e o celular pode estar com a transmissão desligada.
+  var REENTRADA = [1000, 3000, 8000, 15000, 30000];
   // O ping do servidor bate a cada 15 s; dois perdidos + folga = fio mudo. É o
   // detector de TCP meio-aberto deste lado (§10-A.10 do espelho, de graça).
   var PING_SUMIDO_MS = 35000;
@@ -82,6 +86,10 @@
   var fioMudo = false;
   var listeners = [];
   var conectada = false;
+  // O gesto do visitante já foi gasto NESTA página? É ele que separa "ainda
+  // não ativaram esta tela" (o overlay cheio é legítimo, não há nada por
+  // baixo) de "está no ar" (nada pode cobrir a projeção — ver `cairToken`).
+  var gestoGasto = false;
   // O último display-ready que o display emitiu — guardado SEMPRE, mesmo antes
   // de haver token: o init() do display corre em paralelo com a digitação do
   // código, e é este cache que permite reanunciar a tela em TODA conexão (o
@@ -308,10 +316,13 @@
       conectada = false;
       abortar = null;
       if (!vivo) break;
-      if (fim === 'token') { cairToken('A transmissão foi reiniciada — digite o código novo.'); break; }
+      if (fim === 'token') { cairToken('A transmissão foi reiniciada — reconectando.'); break; }
       if (fim === 'adeus') { aoAdeus(); break; }
       var degrau = Math.min(tentativa, RECONEXAO.length - 1);
       tentativa++;
+      // A frase só existe enquanto o overlay existe (a primeira ativação). Com
+      // a tela no ar ela não é desenhada em lugar nenhum, de propósito: a
+      // reconexão é do FIO, e a mídia local não parou para esperá-la.
       frase('Sem sinal (' + fim + ') — tentando de novo…');
       await pausa(RECONEXAO[degrau]);
     }
@@ -381,67 +392,100 @@
   function guardado() {
     try { return global.sessionStorage.getItem('av-tela') || ''; } catch (e) { return ''; }
   }
+  /**
+   * O token morreu (404/403, ou o operador religou a transmissão).
+   *
+   * **Isto NÃO desenha nada por cima da mídia** (v5.189). Até aqui a resposta
+   * era o overlay de entrada, e ele aparecia por cima do louvor que continuava
+   * tocando — porque a mídia é LOCAL na tela (o `<video>` toca o arquivo do
+   * `/m/`, e a letra sincronizada anda pelo `timeupdate` dele): a queda leva o
+   * fio de comandos, nunca o que já está no ar. Cobrir isso com um cartaz era
+   * apagar a projeção por causa de um problema que não a atingia.
+   *
+   * Sem código a digitar, a reentrada não precisa de gente: ela é um `POST`
+   * que se repete numa escada. O gesto (som e tela cheia) já foi gasto nesta
+   * página e sobrevive a tudo isto.
+   */
   function cairToken(motivo) {
     token = '';
     try { global.sessionStorage.removeItem('av-tela'); } catch (e) { /* nada */ }
     conectada = false;
     vivo = false;
     if (abortar) try { abortar.abort(); } catch (e) { /* já caiu */ }
-    mostrarEntrada(motivo || '');
+    if (gestoGasto) reentrarSozinho(motivo);
+    else mostrarEntrada(motivo || '');
   }
 
   function aoAdeus() {
-    // Despedida do operador ≠ queda de rede: nada de martelar a porta. O
-    // código nasce a cada ligar, então a volta é pelo overlay, com o código
-    // novo que a folha do operador mostra.
-    cairToken('O operador desligou a transmissão.');
+    // Despedida do operador ≠ queda de rede: nada de martelar a porta. Mas
+    // também não é o fim da tela — o operador que desliga a transmissão para
+    // religá-la dois minutos depois não pode precisar de alguém atravessando o
+    // salão. A escada de reentrada cuida disso: ela vai a 30 s entre pedidos, e
+    // o servidor desligado simplesmente recusa a conexão até voltar.
+    cairToken('');
+  }
+
+  /**
+   * A REENTRADA SILENCIOSA: pede um token novo até conseguir, sem cobrir nada.
+   *
+   * A escada é a mesma ideia da reconexão do fluxo (500 ms → 8 s), só que mais
+   * lenta no fim (30 s): aqui não há nada a recuperar com pressa — a mídia
+   * segue tocando —, e um `POST` a cada 30 s contra um celular que pode estar
+   * com a transmissão desligada é ruído que não custa nada a ninguém.
+   */
+  var reentrando = false;
+  async function reentrarSozinho(motivo) {
+    if (reentrando) return;
+    reentrando = true;
+    if (motivo) avisoCena(motivo);
+    var i = 0;
+    while (!token) {
+      await pausa(REENTRADA[Math.min(i, REENTRADA.length - 1)]);
+      i++;
+      var erro = await pedirEntrada();
+      if (!erro) break;
+    }
+    reentrando = false;
+    if (token && !vivo) laco();
   }
 
   // --------------------------------------------------------------------------
-  // A ENTRADA — o overlay do código, e o botão que gasta o gesto
+  // A ENTRADA — UM BOTÃO, e o gesto que ele gasta (v5.189)
+  //
+  // Não há mais código a digitar: a porta é o ENDEREÇO deste celular nesta
+  // rede (ver a invariante 5 do `EspelhoPares`). Sobra a única coisa que o
+  // navegador não deixa o app fazer sozinho — `requestFullscreen()` e sair do
+  // `muted` exigem ativação transitória do usuário —, e é por isso que ainda
+  // existe um toque: ele não é uma senha, é o gesto.
+  //
+  // ## Duas formas, e a diferença é se há mídia no ar
+  //
+  // • **Nada tocando** (a primeira carga da página): o overlay CHEIO, porque
+  //   não há nada por baixo para ele cobrir.
+  // • **Sessão viva no `sessionStorage`** (recarga no meio do culto): o
+  //   fluxo recomeça NA HORA, por trás, e o toque é oferecido por um botão
+  //   discreto de canto — cobrir a projeção com um cartaz seria trocar um
+  //   problema por outro.
+  //
+  // E uma queda de conexão não desenha nada: ela reentra sozinha (não há
+  // segredo a pedir), e a mídia que estiver tocando continua até o fim.
   // --------------------------------------------------------------------------
-  /**
-   * Dois modos, um overlay: `codigo` (a entrada de sempre) e `gesto` (recarga
-   * com sessão viva — só o toque que devolve som e tela cheia, porque o gesto
-   * não sobrevive à recarga da página).
-   */
-  function montarEntrada(modo) {
+  function montarEntrada() {
     if (el.entrada) el.entrada.remove();
     var raiz = doc.createElement('div');
     raiz.id = 'telaEntrada';
     raiz.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:var(--bg,#000);color:var(--text,#f2efe9);font-family:system-ui,sans-serif;';
-    var deCodigo = modo !== 'gesto';
     raiz.innerHTML =
       '<div style="text-align:center;max-width:22rem;padding:1rem">' +
-      (deCodigo
-        ? '<div style="font-size:1.1rem;margin-bottom:.75rem">Digite o código que aparece no celular</div>' +
-          '<input id="telaCod" inputmode="numeric" autocomplete="one-time-code" maxlength="3" ' +
-          'style="width:9rem;font-size:2.2rem;text-align:center;letter-spacing:.4rem;padding:.35rem;' +
-          'background:transparent;color:inherit;border:1px solid var(--muted,#777);border-radius:var(--radius-pill,999px)">'
-        : '') +
-      '<div style="margin-top:.9rem">' +
-      '<button id="telaEntrar" style="font-size:1.05rem;padding:.55rem 1.6rem;border:none;' +
+      '<button id="telaEntrar" style="font-size:1.15rem;padding:.7rem 2rem;border:none;' +
       'border-radius:var(--radius-pill,999px);background:var(--accent-fill,#8a6d1d);color:var(--on-accent,#111)">' +
-      (deCodigo ? 'Conectar — com som e tela cheia' : 'Tocar para ouvir e ir a tela cheia') +
-      '</button></div>' +
-      '<div id="telaMsg" style="margin-top:.8rem;min-height:1.2rem;color:var(--muted,#aaa)"></div>' +
+      'Ativar esta tela</button>' +
+      '<div id="telaMsg" style="margin-top:.9rem;min-height:1.2rem;color:var(--muted,#aaa)"></div>' +
       '</div>';
     doc.body.appendChild(raiz);
     el.entrada = raiz;
-    el.cod = doc.getElementById('telaCod');
     el.msg = doc.getElementById('telaMsg');
-    var btn = doc.getElementById('telaEntrar');
-    if (deCodigo) {
-      btn.addEventListener('click', entrarClique);
-      el.cod.addEventListener('keydown', function (ev) {
-        if (ev.key === 'Enter') entrarClique();
-      });
-    } else {
-      btn.addEventListener('click', function () {
-        gastarGesto();
-        esconderEntrada();
-      }, { once: true });
-    }
+    doc.getElementById('telaEntrar').addEventListener('click', ativar);
     // O overlay "Ligar Sistema" do display cobre a tela no navegador; aqui o
     // gesto é o NOSSO botão, e dois overlays de gesto é um a mais.
     var start = doc.getElementById('startBtn');
@@ -449,7 +493,7 @@
   }
 
   function mostrarEntrada(motivo) {
-    montarEntrada('codigo');
+    montarEntrada();
     el.entrada.style.display = 'flex';
     frase(motivo || '');
   }
@@ -460,21 +504,32 @@
     if (el.msg) el.msg.textContent = s;
   }
 
-  async function entrarClique() {
-    var codigo = String((el.cod && el.cod.value) || '').replace(/[^0-9]/g, '');
-    if (codigo.length !== 3) { frase('São três dígitos.'); return; }
-    // O GESTO É GASTO AQUI, ANTES da rede responder — é a restrição de
-    // plataforma que desenhou a v5.186 inteira: a ativação transitória não
-    // espera um POST dar a volta.
+  /**
+   * O toque do visitante: gasta o gesto ANTES da rede (a ativação transitória
+   * não espera um POST dar a volta) e só então trata da sessão.
+   */
+  async function ativar() {
     gastarGesto();
+    esconderEntrada();
+    esconderCanto();
+    if (token) { if (!vivo) laco(); return; }
     frase('Conectando…');
+    var erro = await pedirEntrada();
+    if (erro) { mostrarEntrada(erro); return; }
+    laco();
+  }
+
+  /**
+   * `POST /par` sem segredo nenhum — o corpo é o RELATO da tela e mais nada.
+   * Devolve '' quando entrou, ou a FRASE do que impediu.
+   */
+  async function pedirEntrada() {
     var resp = null;
     try {
       var r = await fetch('/par', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          codigo: codigo,
           ua: semAcento(String(global.navigator.userAgent || '').slice(0, 88)),
           w: global.innerWidth | 0,
           h: global.innerHeight | 0,
@@ -483,32 +538,106 @@
       });
       resp = { status: r.status, corpo: await r.json().catch(function () { return {}; }) };
     } catch (e) {
-      frase('Não foi possível falar com o celular. Ele está nesta rede?');
-      return;
+      return 'Não foi possível falar com o celular. Ele está nesta rede?';
     }
     if (resp.status === 200 && resp.corpo && resp.corpo.t) {
       guardar(resp.corpo.t);
-      laco();
-      return;
+      return '';
     }
     if (resp.corpo && resp.corpo.estado === 'lotado') {
-      frase('O limite de telas foi atingido — feche uma das outras.');
-      return;
+      return 'O limite de telas foi atingido — feche uma das outras.';
     }
-    frase('Código não confere — olhe o número no celular.');
+    return 'O celular recusou esta tela. O operador pode tê-la desconectado.';
   }
 
   function gastarGesto() {
+    gestoGasto = true;
     // Tela cheia: no documento inteiro — o display É a página.
+    telaCheia();
+    // Som: o display nasce com forceMuted no papel tela; o gancho o solta.
+    // O som continua OPT-IN por tela (invariante 10) — este É o opt-in.
+    try { if (global.__telaSom) global.__telaSom(true); } catch (e) { /* mudo */ }
+    vigilia();
+  }
+
+  function telaCheia() {
     try {
       var raiz = doc.documentElement;
       var f = raiz.requestFullscreen || raiz.webkitRequestFullscreen;
       if (f) { var p = f.call(raiz); if (p && p.catch) p.catch(function () {}); }
     } catch (e) { /* alguns navegadores recusam: a tela funciona em janela */ }
-    // Som: o display nasce com forceMuted no papel tela; o gancho o solta.
-    // O som continua OPT-IN por tela (invariante 10) — este É o opt-in.
-    try { if (global.__telaSom) global.__telaSom(true); } catch (e) { /* mudo */ }
-    vigilia();
+  }
+
+  function emTelaCheia() {
+    return !!(doc.fullscreenElement || doc.webkitFullscreenElement);
+  }
+
+  // --------------------------------------------------------------------------
+  // O BOTÃO DE CANTO — o caminho de volta à tela cheia (v5.189)
+  //
+  // Sair da tela cheia é UM toque na tecla errada de um controle remoto, e até
+  // aqui a única forma de voltar era recarregar a página: o gesto de entrada
+  // era o único ponto do sistema que chamava `requestFullscreen`. Ele
+  // aparece só quando FALTA tela cheia (ou som), se recolhe sozinho em 5 s e
+  // volta com qualquer toque — o player de sempre. E um TOQUE DUPLO em
+  // qualquer lugar da página faz a mesma coisa, que é o gesto que todo mundo
+  // já tenta primeiro num vídeo.
+  // --------------------------------------------------------------------------
+  var cantoTimer = null;
+  function mostrarCanto(rotulo) {
+    if (!el.canto) {
+      var b = doc.createElement('button');
+      b.id = 'telaCanto';
+      b.style.cssText = 'position:fixed;right:1.2rem;bottom:1.2rem;z-index:9998;' +
+        'font-size:.95rem;padding:.5rem 1.1rem;border:none;opacity:0;transition:opacity .25s;' +
+        'border-radius:var(--radius-pill,999px);background:rgba(0,0,0,.66);color:var(--text,#f2efe9);' +
+        'font-family:system-ui,sans-serif';
+      b.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        gastarGesto();
+        esconderCanto();
+      });
+      doc.body.appendChild(b);
+      el.canto = b;
+    }
+    el.canto.textContent = rotulo;
+    el.canto.style.display = '';
+    // Um quadro depois, para a transição de opacidade acontecer.
+    setTimeout(function () { if (el.canto) el.canto.style.opacity = '1'; }, 16);
+    if (cantoTimer) clearTimeout(cantoTimer);
+    cantoTimer = setTimeout(esconderCanto, 5000);
+  }
+  function esconderCanto() {
+    if (cantoTimer) { clearTimeout(cantoTimer); cantoTimer = null; }
+    if (!el.canto) return;
+    el.canto.style.opacity = '0';
+    setTimeout(function () { if (el.canto && el.canto.style.opacity === '0') el.canto.style.display = 'none'; }, 260);
+  }
+  /** O que falta nesta tela, como frase de botão — ou '' quando nada falta. */
+  function oQueFalta() {
+    var semSom = !gestoGasto;
+    if (!emTelaCheia() && semSom) return 'Ativar som e tela cheia';
+    if (!emTelaCheia()) return 'Voltar à tela cheia';
+    if (semSom) return 'Ativar o som';
+    return '';
+  }
+  function oferecerGesto() {
+    var falta = oQueFalta();
+    if (falta) mostrarCanto(falta);
+  }
+
+  function ligarGestosDeTela() {
+    // Toque/clique: mostra o botão quando há o que oferecer. O duplo faz na
+    // hora, sem passar pelo botão.
+    doc.addEventListener('click', function () { oferecerGesto(); });
+    doc.addEventListener('dblclick', function () {
+      if (oQueFalta()) { gastarGesto(); esconderCanto(); } else { telaCheia(); }
+    });
+    // Sair da tela cheia (o ESC, o botão do controle remoto) OFERECE a volta na
+    // hora: é o instante em que o operador percebe o problema.
+    doc.addEventListener('fullscreenchange', function () {
+      if (!emTelaCheia()) oferecerGesto(); else esconderCanto();
+    });
   }
 
   // --------------------------------------------------------------------------
@@ -555,17 +684,22 @@
     // O AVDB já existe (db.js carrega antes do DOM pronto) — o embrulho do
     // acervo entra aqui, uma vez.
     embrulharAcervo();
+    ligarGestosDeTela();
     var t = guardado();
     if (t) {
-      // Recarga com sessão viva: reconecta sem pedir código. O gesto se
-      // perdeu com a página — o som volta forçado-mudo e a tela em janela; o
-      // overlay oferece o toque que destrava os dois de novo.
+      // RECARGA COM SESSÃO VIVA (o culto está no ar). O fluxo recomeça na
+      // hora, e o overlay NÃO é desenhado: cobrir a projeção com um cartaz
+      // por causa de um F5 seria o mesmo defeito que a v5.189 tirou do
+      // caminho da queda de conexão. O que se perdeu com a página foi o
+      // gesto — o som volta forçado-mudo e a tela em janela —, e ele é
+      // oferecido pelo botão de canto, que se recolhe sozinho.
       token = t;
-      montarEntrada('gesto');
-      frase('Reconectando…');
       laco();
+      oferecerGesto();
       return;
     }
+    // PRIMEIRA CARGA: não há nada por baixo, e o overlay cheio é a forma certa
+    // de dizer "esta tela ainda não foi ativada".
     mostrarEntrada('');
   }
 

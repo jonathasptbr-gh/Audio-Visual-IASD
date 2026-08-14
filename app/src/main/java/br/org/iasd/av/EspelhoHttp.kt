@@ -512,6 +512,38 @@ object EspelhoHttp {
         listOf("Content-Range: bytes */$total"),
     )
 
+    /**
+     * O mesmo cabeçalho, para quem ESPELHA a resposta de outro servidor (a
+     * rota `/s/` da transmissão direta, v5.189): ali o status e o
+     * `Content-Range` vêm do CDN, não de um cálculo nosso, e as duas outras
+     * portas ([cabecalhoConteudo] e [cabecalhoParcial]) presumem o contrário.
+     */
+    fun cabecalhoComTamanhoPublico(
+        status: Int,
+        tipo: String,
+        tamanho: Long,
+        extra: List<String> = emptyList(),
+    ): ByteArray = cabecalhoComTamanho(status, tipo, tamanho, extra)
+
+    /**
+     * O funil de cabeçalho VINDO DE FORA — a rota `/s/` repassa o
+     * `Content-Type` e o `Content-Range` que o CDN mandou, e uma linha de
+     * resposta de outro servidor não pode carregar `\r\n` para dentro da nossa
+     * (injeção de cabeçalho).
+     *
+     * Ele **filtra**, ao contrário do [semQuebra] interno, que LANÇA. A
+     * diferença é a origem do texto e ela é a regra do projeto inteiro: um
+     * caractere inválido num cabeçalho que nós montamos é defeito de
+     * programação (e uma exceção é a resposta certa); num cabeçalho que veio
+     * da rede é só dado sujo, e derrubar a projeção por causa dele seria
+     * deixar um terceiro escolher quando o culto para.
+     */
+    fun semQuebraPublica(s: String): String {
+        val sb = StringBuilder(s.length)
+        for (c in s) if (c >= ' ' && c <= '~') sb.append(c)
+        return sb.toString()
+    }
+
     private fun cabecalhoComTamanho(
         status: Int,
         tipo: String,
