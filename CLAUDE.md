@@ -1730,7 +1730,7 @@ contextos.
 | Ponto | Navegador | App nativo |
 |---|---|---|
 | Service workers (`sw.js`) | — | **o arquivo não existe no bundle e o registro saiu dos DOIS apps** (v5.48): os assets já são locais, e recarregar o WebView do telão no meio de um culto é justamente o que não pode acontecer. Atualizar a base é papel do OTA |
-| `#startBtn` "Ligar Sistema" | destrava autoplay de terceiros | **oculto** — `mediaPlaybackRequiresUserGesture = false`; uma TV não recebe toque |
+| `#startBtn` "Ligar Sistema" | destrava autoplay de terceiros | **oculto** — `mediaPlaybackRequiresUserGesture = false`; uma TV não recebe toque. **E oculto também no papel `tela`** (v5.216), pela razão OPOSTA: ali há política de gesto, mas o gesto é do "Ativar esta tela" do `tela.js` — este não pareia, não solta o som e não pede tela cheia, só se esconde, então gastá-lo é perder o único toque disponível. Quem o desliga é o `display.js`, pelo papel e em TODA carga: a regra morava no `montarEntrada()` do `tela.js`, que a recarga com sessão viva não chama, e um F5 trazia o botão de volta por cima da projeção |
 | Recuperação de áudio bloqueado | segue tocando mudo + retentativas | **desativada já no `onBlocked`** — sem política de gesto, qualquer `NotAllowedError` só pode ser falso positivo, e mutar antes de descobrir isso deixava o telão sem som sem armar recuperação nenhuma |
 | Pastas do dispositivo | `showDirectoryPicker()` | **SAF** — a File System Access API **não existe no Android**; este recurso era letra morta no celular e passa a funcionar |
 | Compartilhamento | **não existe mais** — vinha do `share_target` do manifest com o POST interceptado pelo SW, e os dois saíram do bundle; a leitura remanescente do estado `pending-share` (que ninguém escrevia desde a v5.48) saiu na limpeza da auditoria de agosto/2026 | **`intent-filter` nativo** (`ShareIntake.kt`), que só aceita `content://` de outro app (ver abaixo) |
@@ -2377,10 +2377,53 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.215** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
+**Versão atual: v5.216** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.216: O "LIGAR SISTEMA" VOLTAVA NA RECARGA — e ele gasta o gesto sem
+> ativar nada. OTA PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> Segunda metade do relato da v5.214, e desta vez com o passo que faltava:
+> *"o erro acontece quando o display é recarregado, mostrando um botão antigo de
+> ativar tela. A tela se conecta, mas o som e nem o fullscreen é ativado."*
+>
+> **O botão antigo tem nome: é o `#startBtn`, o "Ligar Sistema"** — o overlay da
+> era dos dois PWAs, que existe para destravar o autoplay num navegador comum.
+> Ele era escondido no papel `tela` por uma linha dentro de `montarEntrada()`, e
+> aí está o buraco: **`montarEntrada()` só roda na PRIMEIRA carga.** A recarga
+> com sessão viva reconecta POR TRÁS, de propósito (v5.189: cobrir a projeção
+> com um cartaz por causa de um F5 seria trocar um problema por outro) — e sai
+> pelo `return` antes de qualquer overlay ser montado. Bastava um F5.
+>
+> Medido, depois de recarregar: `startVisivel: true`, e
+> `elementFromPoint` no CENTRO da tela devolvendo `start-pill`. O botão certo
+> ("Ativar som e tela cheia") estava lá, em cima na ordem de pilha — mas é
+> discreto e de canto, enquanto este é `inset: 0` com a pílula no meio. O
+> visitante toca no óbvio; e tocar nele dá, medido, `tela cheia = false` e
+> `som pedido = false`: **ele não pareia, não solta o som e não pede tela cheia
+> — só se esconde.** O único gesto disponível é gasto em nada, e a tela fica
+> conectada, muda e em janela. Palavra por palavra, o relato.
+>
+> **A correção muda o DONO, não só a linha.** Quem esconde o botão passa a ser o
+> `display.js` — o documento que o declara —, pelo PAPEL e em toda carga, ao
+> lado da decisão gêmea que já existia ali (`window.__NATIVE__`). No papel
+> `tela` ele não existe pela razão oposta à do app nativo: lá não há política de
+> gesto para destravar; aqui há, mas o gesto é do OUTRO botão. Decidir isso de
+> fora, no `tela.js`, é que abria a porta para um caminho de carga esquecer a
+> decisão — e foi exatamente o que aconteceu.
+>
+> **O oráculo cobre o caminho que nenhum teste percorria: a RECARGA.** O
+> `tela-rede.test.mjs` ativava a tela e seguia em frente; ninguém dava F5. As
+> duas asserções novas reprovam no código anterior (verificado) e uma delas mede
+> **o que o dedo encontra** — `elementFromPoint` no centro —, não a propriedade
+> `hidden`: é o centro da tela que decide para onde vai o toque, e era ali que o
+> botão errado estava.
+>
+> A régua que fica: **um elemento que só faz sentido em UM papel tem de ser
+> desligado por quem o declara, no papel — nunca por um caminho de UI que pode
+> não ser percorrido.**
 
 > **A v5.215: SEM TELA CONECTADA, O SOM SAI DO PRÓPRIO APARELHO. OTA PURO**
 > (nenhuma linha de Kotlin, `SHELL_VERSION` intacto em 40; sem Release).
