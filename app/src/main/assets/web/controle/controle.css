@@ -742,13 +742,10 @@ body {
   color: var(--brand); font-size: 9.5cqmin;
 }
 
-.pv-yt-frame { pointer-events: none; overflow: hidden; }
-.pv-yt-frame iframe {
-  position: absolute; top: 50%; left: 50%;
-  width: 400%; height: 400%; border: 0;
-  transform: translate(-50%, -50%) scale(.25);
-  transform-origin: center center;
-}
+/* (SAIU NA v5.212: `.pv-yt-frame`, a camada do player do YouTube na preview.
+   Ela renderizava o iframe a 400% e o encolhia por transform, para a UI do
+   YouTube ficar proporcionalmente menor. O embed saiu dos dois papéis — ver o
+   bloco "A PREVIEW NÃO TEM MAIS PLAYER DO YOUTUBE" em controle.js.) */
 
 /* Nome + barra de progresso */
 .nowplaying { display: flex; flex-direction: column; gap: .25rem; }

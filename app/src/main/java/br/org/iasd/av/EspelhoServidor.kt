@@ -32,10 +32,14 @@ import javax.net.ssl.SSLSocket
 import kotlin.concurrent.thread
 
 /**
- * O SERVIDOR DO ESPELHO — sockets, threads, roteamento e fan-out.
+ * O SERVIDOR DO TELÃO POR COMANDOS — sockets, threads, roteamento e fan-out.
  *
- * Ele é o cano por onde os pixels do telão saem para os navegadores da rede
- * local. **Não decide nada** que os dois arquivos puros já decidam: quem lê a
+ * Ele é o cano por onde o bundle, os COMANDOS e a MÍDIA saem para os
+ * navegadores da rede local. (Até a v5.187 ele carregava PIXELS, e boa parte
+ * deste KDoc ainda falava daquele pipeline — corrigido na v5.212, pela mesma
+ * razão que a v5.206 catalogou: registro que descreve um mecanismo morto manda
+ * o próximo leitor procurar o defeito no lugar errado.)
+ * **Não decide nada** que os dois arquivos puros já decidam: quem lê a
  * requisição é o [EspelhoHttp] e quem diz se aquela tela pode entrar é o
  * [EspelhoPares]. Aqui moram só as três coisas que exigem o Android e um
  * `ServerSocket`: **onde o socket liga**, **quantas threads existem** e **o que
@@ -60,8 +64,10 @@ import kotlin.concurrent.thread
  * 2. **recusa ligar** quando a rede ativa não tem `TRANSPORT_WIFI`, ou tem
  *    `TRANSPORT_CELLULAR` ou `TRANSPORT_VPN` — com a frase no Registro, nunca
  *    em silêncio (ver [redeDaWifi] e [Recusa]);
- * 3. a rede que some **desliga o servidor** (`registerDefaultNetworkCallback`).
- *    Um endereço que sumiu não pode continuar escutando.
+ * 3. a rede que some **desliga o servidor** — por um
+ *    `registerNetworkCallback` de `TRANSPORT_WIFI`, e não pelo callback da rede
+ *    PADRÃO (v5.183; ver [observarRede]). Um endereço que sumiu não pode
+ *    continuar escutando.
  *
  * ## O transporte é `Transfer-Encoding: chunked`, não WebSocket
  *
@@ -77,11 +83,14 @@ import kotlin.concurrent.thread
  * vazamento
  *
  * Nenhum arquivo do acervo, nenhum id, nenhuma listagem; **nunca `/saf/`** (os
- * tokens do SAF não expiram e indexam arquivos pessoais); e **nada que venha da
- * rede entra no barramento de comandos** — não há uma única referência a
- * [MessageBus] neste arquivo, de propósito. O upstream inteiro é
- * `key` / `alive` / `audio` / `relato`, e o cliente é **somente-leitura de
- * pixels**.
+ * tokens do SAF não expiram e indexam arquivos pessoais).
+ *
+ * E o que VEM da rede para o barramento é uma lista de PERMISSÃO de dois tipos
+ * ([TIPOS_QUE_SOBEM], em [retorno]) — nunca "qualquer comando com um `type`".
+ * Até a v5.212 este parágrafo dizia que **nada** da rede entrava no barramento,
+ * e isso tinha deixado de ser verdade na E5, quando o `st` passou a subir: o
+ * texto descrevia a garantia certa e o código não a impunha mais. O upstream
+ * inteiro é `alive` e `st`, e o `st` é filtrado.
  *
  * Os estáticos saem do [WebPathHandler] (a mesma resolução OTA→APK e a mesma
  * tabela MIME dos WebViews) por um **mapa fixo** de rota → caminho, nunca por
@@ -93,17 +102,20 @@ import kotlin.concurrent.thread
  * ## A invariante 8 do `CLAUDE.md` se INVERTE aqui
  *
  * Num `shouldInterceptRequest` quem aplica o `Range` é o próprio WebView, sobre
- * o que o app devolveu. **Num `ServerSocket` de verdade quem aplicaria seria o
- * servidor** — e aqui não há `Range` nenhum: as rotas de mídia são fluxos
- * infinitos, sem keep-alive e sem `Content-Encoding`. Copiar o [StreamProxy]
- * seria o erro exato.
+ * o que o app devolveu. **Num `ServerSocket` de verdade quem aplica é o
+ * servidor**, e é o que a rota `/m/` faz: RFC 7233 de verdade, por
+ * [EspelhoHttp.alcanceDe] (com JUnit). Copiar o [StreamProxy] para cá é o erro
+ * exato — aquele devolve a fatia como se fosse o todo, porque do outro lado há
+ * um WebView que vai refatiar de novo.
+ *
+ * (Este parágrafo dizia "aqui não há `Range` nenhum: as rotas de mídia são
+ * fluxos infinitos". Era verdade até a E1 do telão por comandos, e passou a
+ * ser o oposto do código 500 linhas abaixo. Corrigido na v5.212.)
  *
  * @param registrar linha crua para o diário do espelho (`EspelhoDiag`). O
  *   Kotlin devolve DADO; quem monta a frase é o `controle.js` — por isso o
  *   parâmetro é uma função e não uma dependência de UI. Padrão vazio: a
  *   assinatura de dois parâmetros da especificação continua válida.
- * @param pedirIdr pede um quadro-chave ao encoder (é o `EspelhoDisplay` quem
- *   sabe fazer isso). Todo `GET /v` novo é, por construção, um cliente novo.
  * @param aoPerderRede a Wi-Fi sumiu com o espelho no ar: além de desligar o
  *   servidor (que este arquivo faz sozinho), o dono precisa soltar a tela
  *   virtual e o encoder.
@@ -145,20 +157,9 @@ class EspelhoServidor(
     @Volatile private var rebindsNaJanela = 0
     @Volatile private var marcoRebind = 0L
 
-    /**
-     * O `csd` mais recente de cada faixa, JÁ ENQUADRADO.
-     *
-     * Toda conexão começa por ele (§5.3) e um encoder remontado emite outro —
-     * guardá-lo aqui é o que permite servir um cliente que chegou no meio do
-     * culto sem esperar o próximo `INFO_OUTPUT_FORMAT_CHANGED`, que numa cena
-     * parada pode não vir nunca.
-     */
-    /**
-     * As telas do TELÃO POR COMANDOS (`GET /e`), à parte das de pixels — e a
-     * separação é deliberada: durante a migração (spec §0.6) os dois caminhos
-     * coexistem, e um campo a mais na [Tela] de pixels seria um estado
-     * fantasma nos dois. Chaveada por token de sessão, como a outra.
-     */
+    /** As telas do telão por comandos (`GET /e`), chaveadas por token de
+     *  sessão. (O KDoc órfão do `csd` que morava aqui saiu na v5.212 com o
+     *  resto do vocabulário do encoder.) */
     private val telasSse = ConcurrentHashMap<String, TelaSse>()
 
     /** O cache que a rota `/m/` serve (E4) — ligado pela MainActivity junto
@@ -905,9 +906,16 @@ class EspelhoServidor(
     }
 
     /**
-     * O canal de volta do cliente. Três verbos, todos inertes por construção:
-     * `key` pede um quadro-chave (com freio), `alive` só atualiza um número que
-     * vai para o Registro, e `audio` liga a entrega de AAC **para aquela tela**.
+     * O canal de volta do cliente. DOIS verbos desde o corte da v5.187, e os
+     * dois inertes por construção: `alive` só atualiza números que vão para o
+     * Registro, e `st` sobe ao barramento — **um de dois tipos, e nada mais**
+     * (ver [TIPOS_QUE_SOBEM]).
+     *
+     * (Este KDoc descrevia `key` e `audio`, os verbos do espelho de PIXELS —
+     * quadro-chave e entrega de AAC —, que saíram com o encoder na v5.187. É a
+     * mesma classe de registro obsoleto que a v5.206 catalogou: um comentário
+     * que nomeia um mecanismo morto manda o próximo leitor procurar o defeito
+     * no lugar errado.)
      */
     private fun retorno(r: EspelhoHttp.Req, saida: OutputStream, sessao: EspelhoPares.Sessao) {
         val corpo = try {
@@ -929,6 +937,31 @@ class EspelhoServidor(
             val st = corpo.optJSONObject("st") ?: return responder(saida, naoAchei())
             val tipo = st.optString("type")
             if (tipo.isEmpty()) return responder(saida, naoAchei())
+            // A LISTA DE PERMISSÃO MORA AQUI, e não só no `espelho/tela.js`.
+            //
+            // O dreno de subida é documentado como "uma lista de PERMISSÃO de
+            // dois itens" desde a E3 — e estava escrito apenas no CLIENTE, que
+            // é o lado que um desconhecido controla. A fronteira de confiança é
+            // este socket: sem a guarda, `tipo` só precisava ser não-vazio e
+            // QUALQUER comando do barramento subia daqui para os dois WebViews
+            // (o [MessageBus] entrega a todos), incluindo `load`, `clear`,
+            // `text` e `mic` — isto é, a projeção da igreja e o microfone do
+            // celular, alcançáveis por quem estiver na Wi-Fi. A porta do
+            // pareamento nasce ABERTA desde a v5.189 (o conteúdo é público, e
+            // essa decisão continua certa), então "estar pareado" nunca foi uma
+            // credencial: é exatamente por isso que a filtragem não pode
+            // depender do cliente se comportar.
+            //
+            // Os dois tipos são os mesmos que o `tela.js` deixa subir, e a
+            // razão de cada um está lá: `display-ready` é o que faz o Controle
+            // reenviar a cena (e ele é ENDEREÇADO desde a v5.140, então o telão
+            // de verdade descarta o que não é dele), e `tela-status` tem nome
+            // próprio justamente para que nada que espera "o telão" o receba
+            // por engano. Tipo novo nasce mudo dos DOIS lados.
+            if (tipo !in TIPOS_QUE_SOBEM) {
+                registrar("relato recusado: uma tela tentou subir '${EspelhoPares.sanear(tipo, 40)}'")
+                return responder(saida, naoAchei())
+            }
             if (tipo == "display-ready") {
                 telasSse[sessao.token]?.de = st.optString("__de").ifEmpty { null }
             }
@@ -1149,10 +1182,11 @@ class EspelhoServidor(
     /**
      * ASSINA A WI-FI, E NÃO A REDE PADRÃO (v5.183).
      *
-     * `registerDefaultNetworkCallback` fala da rede **padrão**, e é justamente
-     * ela que vira a celular numa Wi-Fi sem uplink — ver o KDoc de [wifiDe]. O
-     * `NetworkRequest` com `TRANSPORT_WIFI` faz os avisos chegarem sobre a rede
-     * que de fato importa: a que carrega os pixels até as telas da igreja.
+     * `registerDefaultNetworkCallback` falaria da rede **padrão**, e é
+     * justamente ela que vira a celular numa Wi-Fi sem uplink — ver o KDoc de
+     * [wifiDe]. O `NetworkRequest` com `TRANSPORT_WIFI` faz os avisos chegarem
+     * sobre a rede que de fato importa: a que carrega a projeção até as telas
+     * da igreja.
      *
      * **`NET_CAPABILITY_NOT_VPN` entra; `NET_CAPABILITY_VALIDATED` NÃO.** O
      * primeiro é a mesma regra da §2.3 (uma VPN se sobrepõe a tudo e o socket
@@ -1223,13 +1257,13 @@ class EspelhoServidor(
      * A rede PARECE ter caído — e o espelho **não** desliga por causa disso
      * ainda.
      *
-     * `registerDefaultNetworkCallback` fala da rede PADRÃO, não da nossa: no
-     * instante em que o Android reavalia a Wi-Fi (revalidação, roaming entre
-     * pontos de acesso, um `onCapabilitiesChanged` durante o handover), o padrão
-     * pisca para a rede móvel e volta em segundos. O caminho antigo lia esse
-     * piscar como "a rede sumiu" e **derrubava o espelho inteiro** — servidor,
-     * tela virtual e encoder — no meio do culto, com as telas caindo na página
-     * de pareamento e o operador sem nenhuma explicação na mão.
+     * O Android reavalia a Wi-Fi o tempo todo (revalidação, roaming entre
+     * pontos de acesso, um `onCapabilitiesChanged` durante o handover), e o
+     * caminho antigo — que assinava a rede PADRÃO — lia esse piscar como "a rede
+     * sumiu" e **derrubava a transmissão inteira** no meio do culto, com as
+     * telas caindo e o operador sem nenhuma explicação na mão. A assinatura
+     * passou a ser de `TRANSPORT_WIFI` (v5.183); esta graça é a segunda
+     * defesa.
      *
      * Suspeita não é veredito: o motivo fica anotado, o [vigiar] confirma
      * [GRACA_REDE_MS] depois consultando o estado de verdade, e só então a queda
@@ -1788,6 +1822,16 @@ class EspelhoServidor(
         private const val TETO_FILA_SSE = 256
 
         /**
+         * O QUE UMA TELA PODE INJETAR NO BARRAMENTO — ver [retorno].
+         *
+         * É a metade servidora do dreno de subida do `espelho/tela.js`, e as
+         * duas precisam existir: a do cliente evita o tráfego, esta é a que
+         * **vale**. Mantê-las iguais é obrigação de quem acrescentar um tipo;
+         * o `tools/tela-rede.test.mjs` cobra o par.
+         */
+        private val TIPOS_QUE_SOBEM = setOf("display-ready", "tela-status")
+
+        /**
          * Os PREFIXOS do bundle servidos à LAN (telão por comandos, E2) — a
          * tela da rede roda o próprio `/web/display/`, servido daqui com a
          * MESMA resolução OTA→APK dos WebViews ([WebPathHandler], arquivo a
@@ -1881,33 +1925,13 @@ class EspelhoServidor(
          */
         private const val REBIND_MAX = 3
         private const val REBIND_JANELA_MS = 60L * 60 * 1000
-        private const val CABECALHO = 16
 
-        /** Folga para a escritora entregar o adeus antes do fecho de fora. */
+        // (SAIU NA v5.212: quatro blocos de KDoc órfãos — a folga da escritora
+        // do adeus, o corpo do quadro `0x30`, os tipos do fio do `EspelhoCodec`
+        // e o mapa fixo de rotas. Os quatro descreviam constantes APAGADAS com o
+        // espelho de pixels; sem declaração embaixo, um bloco de KDoc é só um
+        // parágrafo sobre um mecanismo que não existe.)
 
-        /**
-         * O corpo do quadro `0x30` de despedida — ver [desligar].
-         *
-         * O `cliente.js` já o trata desde a primeira versão (`controle(j)`,
-         * ramo `'adeus'`): ele para o laço de reconexão e escreve "o espelho
-         * foi desligado no celular". A forma tem de bater com a de lá.
-         */
-
-        // OS TIPOS DO FIO (§5.2) MORAM NO [EspelhoCodec], e este arquivo os lê
-        // de lá. Uma segunda cópia dos mesmos seis números seria a forma mais
-        // barata de fazer o servidor e o encoder discordarem sobre o que é um
-        // quadro de áudio — e o sintoma apareceria no navegador de outra
-        // pessoa, no meio de um culto.
-
-        /**
-         * MAPA FIXO de rota → caminho no bundle. **Nunca concatenação.**
-         *
-         * `/f.js` não está na tabela da §5.1 porque aquela tabela esqueceu o
-         * `fmp4.js`, que a §3.11 lista como arquivo próprio. Uma rota fixa a
-         * mais é inócua; um `handle("espelho/" + nome)` serviria o `controle.js`
-         * inteiro para a rede. Se o cliente embutir o muxer no `cliente.js`,
-         * esta linha simplesmente não é usada.
-         */
         /**
          * A marca do papel `tela`, injetada em toda página servida — ver
          * [comMarcaDeTela]. `<meta>` porque a CSP desta resposta não permite
@@ -1919,9 +1943,6 @@ class EspelhoServidor(
         private val RECUSADA = "{\"estado\":\"recusada\"}"
         private val LOTADO_JSON = "{\"estado\":\"lotado\"}"
         private val LOTADO = LOTADO_JSON.toByteArray(Charsets.US_ASCII)
-
-        /** Sentinela de fim de fila: é `===` que o distingue, então ele não pode
-         *  ser confundido com um quadro vazio de verdade. */
 
         /**
          * O IPv4 da Wi-Fi, ou uma [Recusa] com a frase pronta.
