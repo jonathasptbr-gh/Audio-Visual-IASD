@@ -10,29 +10,34 @@ import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import java.security.SecureRandom
 
 /**
- * O oráculo do [EspelhoPares] — o CÓDIGO, o token, o prazo e o bloqueio.
+ * O oráculo do [EspelhoPares] — a porta, o token, o prazo e o castigo.
  *
  * A outra metade da justificativa da QUARTA EXCEÇÃO (o JUnit; ver
  * `app/build.gradle.kts`). Aqui um erro não vira pixel errado: vira uma tela
  * desconhecida projetando o culto, ou o operador trancado para fora do próprio
  * recurso.
  *
+ * **Saíram na v5.189, com o código de entrada:** os casos do código de três
+ * dígitos, da rotação, do bloqueio crescente e do contador de recusas. Eles não
+ * foram "simplificados" — o que eles cobriam deixou de existir, porque a porta
+ * passou a ser o ENDEREÇO (invariante 5). O que ficou é o que ainda decide
+ * quem entra: transmissão ligada, castigo do [EspelhoPares.derrubar], teto de
+ * sessões, prazo e saneamento.
+ *
  * **Todo relógio entra por parâmetro.** Nenhum caso deste arquivo espera um
  * segundo de verdade — é por isso que dá para testar prazo de seis horas e
- * bloqueio de um minuto no mesmo CI que roda em segundos.
+ * castigo de dois minutos no mesmo CI que roda em segundos.
  */
 class EspelhoParesTest {
 
     private val t0 = 1_000_000L
     private val origem = "192.168.0.77"
-    private lateinit var codigo: String
 
     @Before
     fun ligar() {
-        codigo = EspelhoPares.ligar(t0)
+        EspelhoPares.ligar(t0)
     }
 
     /**
@@ -58,65 +63,9 @@ class EspelhoParesTest {
         telaAcesaMin = 0,
     )
 
-    private fun codigoErrado() = if (codigo == "000") "111" else "000"
-
-    /** Entra com o código certo, devolvendo a sessão. */
+    /** Entra pela porta (o endereço), devolvendo a sessão. */
     private fun parear(de: String = origem, agora: Long = t0): EspelhoPares.Sessao =
-        (EspelhoPares.tentar(codigo, de, relato(), agora) as EspelhoPares.Veredito.Aprovada).sessao
-
-    // ------------------------------------------------------------------ CÓDIGO
-
-    @Test
-    fun codigoTemTresDigitos() {
-        assertTrue(codigo, Regex("^[0-9]{3}$").matches(codigo))
-        assertEquals(EspelhoPares.DIGITOS_CODIGO, codigo.length)
-    }
-
-    /**
-     * OS ZEROS À ESQUERDA SOBREVIVEM, e este caso é o que impede a regressão
-     * mais provável deste arquivo: alguém trocar a `String` por um `Int` em
-     * qualquer ponto do caminho. Um em cada dez códigos começa com zero, e "007"
-     * virando "7" faz a folha do operador mostrar dois dígitos e a tela recusar
-     * os três que ele ditou — sem nada quebrar em lugar nenhum.
-     */
-    @Test
-    fun zeroAEsquerdaSobrevive() {
-        val fixa = object : SecureRandom() {
-            override fun nextInt(bound: Int) = 7
-        }
-        assertEquals("007", EspelhoPares.novoCodigo(fixa))
-    }
-
-    /** Invariante 6: errar não troca o segredo — isso seria DoS contra quem digita. */
-    @Test
-    fun codigoNaoRotacionaComTentativaErrada() {
-        EspelhoPares.tentar(codigoErrado(), origem, relato(), t0)
-        assertEquals(codigo, EspelhoPares.codigo())
-    }
-
-    /**
-     * Trocar o código é ação do operador, e ela NÃO derruba quem já está vendo:
-     * é isso que separa "trocar o código" de "desligar".
-     */
-    @Test
-    fun trocarCodigoEAcaoDoOperadorENaoDerrubaSessao() {
-        val s = parear()
-        val novo = EspelhoPares.trocarCodigo()
-        assertNotEquals(codigo, novo)
-        assertEquals(novo, EspelhoPares.codigo())
-        assertNotNull("quem já entrou continua vendo", EspelhoPares.validar(s.token, t0))
-        // E o código VELHO deixa de valer no mesmo instante.
-        assertSame(
-            EspelhoPares.Veredito.Recusada,
-            EspelhoPares.tentar(codigo, "192.168.0.90", relato(), t0),
-        )
-    }
-
-    @Test
-    fun trocarComEspelhoDesligadoNaoInventaCodigo() {
-        EspelhoPares.desligar()
-        assertEquals("", EspelhoPares.trocarCodigo())
-    }
+        (EspelhoPares.entrar(de, relato(), agora) as EspelhoPares.Veredito.Aprovada).sessao
 
     // ------------------------------------------------------------- a ENTRADA
 
@@ -128,78 +77,61 @@ class EspelhoParesTest {
      * cheia — uma aprovação que chegasse depois encontraria o gesto já gasto.
      */
     @Test
-    fun codigoCertoEntraNaHora() {
-        val v = EspelhoPares.tentar(codigo, origem, relato(), t0)
+    fun aTelaEntraNaHora() {
+        val v = EspelhoPares.entrar(origem, relato(), t0)
         assertTrue(v is EspelhoPares.Veredito.Aprovada)
         val s = (v as EspelhoPares.Veredito.Aprovada).sessao
         assertNotNull(EspelhoPares.validar(s.token, t0))
         assertEquals(1, EspelhoPares.sessoes().size)
     }
-
+    /** Com a transmissão desligada nada entra — a porta nem existe. */
     @Test
-    fun codigoErradoNaoEntra() {
-        assertSame(
-            EspelhoPares.Veredito.Recusada,
-            EspelhoPares.tentar(codigoErrado(), origem, relato(), t0),
-        )
-        assertEquals(0, EspelhoPares.sessoes().size)
-    }
-
-    /** Com o espelho desligado nada entra — nem com o código de antes. */
-    @Test
-    fun espelhoDesligadoNaoAceitaNinguem() {
+    fun desligadoNaoAceitaNinguem() {
         EspelhoPares.desligar()
         assertSame(
             EspelhoPares.Veredito.Desligado,
-            EspelhoPares.tentar(codigo, origem, relato(), t0),
+            EspelhoPares.entrar(origem, relato(), t0),
         )
     }
 
     /**
-     * RELIGAR TROCA O CÓDIGO, e isso é o produto: ele nasce no `ligar`, que é o
-     * instante em que o operador ativa a transmissão. O código do culto passado
-     * não abre o culto de hoje.
+     * RELIGAR DERRUBA TUDO: o token do culto passado não abre o de hoje. É o
+     * `ligar` que zera, e é isso que faz "não existe token que sobreviva ao
+     * culto" (invariante 3) uma propriedade do código, não da boa vontade.
      */
     @Test
-    fun religarTrocaOCodigoEDerrubaTudo() {
+    fun religarDerrubaTudo() {
         val s = parear()
-        val velho = codigo
-        val novo = EspelhoPares.ligar(t0 + 1000)
+        EspelhoPares.ligar(t0 + 1000)
         assertNull("nenhum token sobrevive ao religar", EspelhoPares.validar(s.token, t0 + 1000))
-        assertSame(
-            EspelhoPares.Veredito.Recusada,
-            EspelhoPares.tentar(velho, origem, relato(), t0 + 1000),
-        )
         assertTrue(
-            EspelhoPares.tentar(novo, origem, relato(), t0 + 1000) is EspelhoPares.Veredito.Aprovada,
+            "e a tela entra de novo, agora com token novo",
+            EspelhoPares.entrar(origem, relato(), t0 + 1000) is EspelhoPares.Veredito.Aprovada,
         )
     }
 
     /**
-     * LOTADO NÃO É CÓDIGO ERRADO, e a distinção não é cosmética: as duas têm
-     * saídas opostas (fechar uma tela × conferir o número), e o cliente escolhe
-     * a frase pelo corpo da resposta.
-     *
-     * **E lotado não gasta cota**: o segredo estava certo, faltou vaga. Contá-lo
-     * faria a quarta tela bloquear a própria origem tentando de novo, sem nunca
-     * ter errado nada.
+     * LOTADO É UMA FRASE, e ela não põe ninguém de castigo. A saída dela é
+     * fechar uma das outras telas, e insistir não resolve nem uma vez — mas
+     * insistir também não pode punir: a quarta tela do templo bloquearia a
+     * própria origem sem nunca ter feito nada errado. (Com o código fora, o
+     * único castigo que existe é o do [derrubar].)
      */
     @Test
-    fun lotadoEDiferenteDeRecusadoENaoContaErro() {
+    fun lotadoNaoPoeNinguemDeCastigo() {
         repeat(EspelhoPares.MAX_SESSOES) { i ->
             assertTrue(
-                EspelhoPares.tentar(codigo, "10.0.0.$i", relato(), t0) is EspelhoPares.Veredito.Aprovada,
+                EspelhoPares.entrar("10.0.0.$i", relato(), t0) is EspelhoPares.Veredito.Aprovada,
             )
         }
         val quarta = "10.0.0.99"
-        repeat(EspelhoPares.ERROS_ATE_BLOQUEIO + 2) {
+        repeat(7) {
             assertSame(
                 EspelhoPares.Veredito.Lotada,
-                EspelhoPares.tentar(codigo, quarta, relato(), t0),
+                EspelhoPares.entrar(quarta, relato(), t0),
             )
         }
-        assertEquals("lotado não é recusa", 0, EspelhoPares.recusas())
-        assertEquals("e não põe ninguém de castigo", 0, EspelhoPares.origensEmBloqueio(t0))
+        assertEquals("insistir não põe ninguém de castigo", 0, EspelhoPares.origensEmBloqueio(t0))
     }
 
     // ------------------------------------------- a VAGA que ninguém está usando
@@ -216,19 +148,19 @@ class EspelhoParesTest {
     @Test
     fun vagaOciosaEAproveitadaPorUmaTelaNova() {
         repeat(EspelhoPares.MAX_SESSOES) {
-            assertTrue(EspelhoPares.tentar(codigo, "10.0.0.$it", relato(), t0) is EspelhoPares.Veredito.Aprovada)
+            assertTrue(EspelhoPares.entrar("10.0.0.$it", relato(), t0) is EspelhoPares.Veredito.Aprovada)
         }
         // No mesmo instante ninguém está ocioso: o teto vale, e é isso que
         // impede a vaga de virar torneira.
         assertSame(
             EspelhoPares.Veredito.Lotada,
-            EspelhoPares.tentar(codigo, "10.0.0.99", relato(), t0),
+            EspelhoPares.entrar("10.0.0.99", relato(), t0),
         )
         // Passado o prazo de ociosidade sem NENHUMA delas ter sido usada, a
         // quarta entra — tomando a vaga de quem já foi embora.
         val depois = t0 + EspelhoPares.PRAZO_OCIOSA_MS + 1
         assertTrue(
-            EspelhoPares.tentar(codigo, "10.0.0.99", relato(), depois) is EspelhoPares.Veredito.Aprovada,
+            EspelhoPares.entrar("10.0.0.99", relato(), depois) is EspelhoPares.Veredito.Aprovada,
         )
         assertEquals(EspelhoPares.MAX_SESSOES, EspelhoPares.sessoes().size)
     }
@@ -248,9 +180,9 @@ class EspelhoParesTest {
      */
     @Test
     fun aVagaDeUmaTelaQueCaiuAbreAntesDaOciosidade() {
-        val caiu = (EspelhoPares.tentar(codigo, "10.0.0.1", relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
+        val caiu = (EspelhoPares.entrar("10.0.0.1", relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
         repeat(EspelhoPares.MAX_SESSOES - 1) {
-            assertTrue(EspelhoPares.tentar(codigo, "10.0.0.5$it", relato(), t0) is EspelhoPares.Veredito.Aprovada)
+            assertTrue(EspelhoPares.entrar("10.0.0.5$it", relato(), t0) is EspelhoPares.Veredito.Aprovada)
         }
         // O vigia conclui que a primeira foi embora e fecha a conexão dela. As
         // três continuam falando pelo canal de relato — isto é, `ultimoUsoMs`
@@ -266,7 +198,7 @@ class EspelhoParesTest {
             agora - t0 < EspelhoPares.PRAZO_OCIOSA_MS,
         )
         assertTrue(
-            EspelhoPares.tentar(codigo, "10.0.0.99", relato(), agora) is EspelhoPares.Veredito.Aprovada,
+            EspelhoPares.entrar("10.0.0.99", relato(), agora) is EspelhoPares.Veredito.Aprovada,
         )
         assertNull("a vaga tomada é a da tela que caiu", EspelhoPares.validar(caiu.token, agora))
     }
@@ -280,15 +212,15 @@ class EspelhoParesTest {
      */
     @Test
     fun aVagaNaoAbreEnquantoATelaAindaPodeVoltar() {
-        val caiu = (EspelhoPares.tentar(codigo, "10.0.0.1", relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
+        val caiu = (EspelhoPares.entrar("10.0.0.1", relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
         repeat(EspelhoPares.MAX_SESSOES - 1) {
-            assertTrue(EspelhoPares.tentar(codigo, "10.0.0.5$it", relato(), t0) is EspelhoPares.Veredito.Aprovada)
+            assertTrue(EspelhoPares.entrar("10.0.0.5$it", relato(), t0) is EspelhoPares.Veredito.Aprovada)
         }
         assertTrue(EspelhoPares.marcarSemConexao(caiu.token, t0))
         assertSame(
             "dentro da janela de recuperação a vaga é dela",
             EspelhoPares.Veredito.Lotada,
-            EspelhoPares.tentar(codigo, "10.0.0.99", relato(), t0 + EspelhoPares.PRAZO_SEM_CONEXAO_MS - 1),
+            EspelhoPares.entrar("10.0.0.99", relato(), t0 + EspelhoPares.PRAZO_SEM_CONEXAO_MS - 1),
         )
     }
 
@@ -299,15 +231,15 @@ class EspelhoParesTest {
      */
     @Test
     fun reconectarDesmarcaOFantasma() {
-        val volta = (EspelhoPares.tentar(codigo, "10.0.0.1", relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
+        val volta = (EspelhoPares.entrar("10.0.0.1", relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
         repeat(EspelhoPares.MAX_SESSOES - 1) {
-            assertTrue(EspelhoPares.tentar(codigo, "10.0.0.5$it", relato(), t0) is EspelhoPares.Veredito.Aprovada)
+            assertTrue(EspelhoPares.entrar("10.0.0.5$it", relato(), t0) is EspelhoPares.Veredito.Aprovada)
         }
         assertTrue(EspelhoPares.marcarSemConexao(volta.token, t0))
         assertTrue(EspelhoPares.marcarComConexao(volta.token))
         assertSame(
             EspelhoPares.Veredito.Lotada,
-            EspelhoPares.tentar(codigo, "10.0.0.99", relato(), t0 + EspelhoPares.PRAZO_SEM_CONEXAO_MS + 1),
+            EspelhoPares.entrar("10.0.0.99", relato(), t0 + EspelhoPares.PRAZO_SEM_CONEXAO_MS + 1),
         )
         assertNotNull(EspelhoPares.validar(volta.token, t0 + EspelhoPares.PRAZO_SEM_CONEXAO_MS + 1))
     }
@@ -322,15 +254,15 @@ class EspelhoParesTest {
     /** E a vaga tomada é a de quem está PARADO, nunca a da tela que está no ar. */
     @Test
     fun aVagaTomadaEADeQuemNaoEstaUsando() {
-        val viva = (EspelhoPares.tentar(codigo, "10.0.0.1", relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
-        val morta = (EspelhoPares.tentar(codigo, "10.0.0.2", relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
-        val outra = (EspelhoPares.tentar(codigo, "10.0.0.3", relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
+        val viva = (EspelhoPares.entrar("10.0.0.1", relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
+        val morta = (EspelhoPares.entrar("10.0.0.2", relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
+        val outra = (EspelhoPares.entrar("10.0.0.3", relato(), t0) as EspelhoPares.Veredito.Aprovada).sessao
         val depois = t0 + EspelhoPares.PRAZO_OCIOSA_MS + 1
         // A primeira e a terceira continuam falando; a segunda emudeceu.
         assertNotNull(EspelhoPares.validar(viva.token, depois - 1))
         assertNotNull(EspelhoPares.validar(outra.token, depois - 1))
         assertTrue(
-            EspelhoPares.tentar(codigo, "10.0.0.4", relato(), depois) is EspelhoPares.Veredito.Aprovada,
+            EspelhoPares.entrar("10.0.0.4", relato(), depois) is EspelhoPares.Veredito.Aprovada,
         )
         assertNotNull("a tela no ar não pode perder a vaga", EspelhoPares.validar(viva.token, depois))
         assertNotNull(EspelhoPares.validar(outra.token, depois))
@@ -373,137 +305,21 @@ class EspelhoParesTest {
         assertNull(EspelhoPares.validar(s.token, t0))
         assertTrue(
             "derrubada, ela não pode voltar no segundo seguinte",
-            EspelhoPares.tentar(codigo, origem, relato(), t0 + 1) is EspelhoPares.Veredito.Bloqueada,
+            EspelhoPares.entrar(origem, relato(), t0 + 1) is EspelhoPares.Veredito.Bloqueada,
         )
         // E o castigo é de quem foi derrubado, não da rede inteira.
         assertTrue(
-            EspelhoPares.tentar(codigo, "192.168.0.90", relato(), t0 + 1)
+            EspelhoPares.entrar("192.168.0.90", relato(), t0 + 1)
                 is EspelhoPares.Veredito.Aprovada,
         )
         // Vencido o prazo, ela volta a ser bem-vinda.
         val depois = t0 + EspelhoPares.BLOQUEIO_DERRUBADA_MS + 1
         assertTrue(
-            EspelhoPares.tentar(codigo, origem, relato(), depois) is EspelhoPares.Veredito.Aprovada,
+            EspelhoPares.entrar(origem, relato(), depois) is EspelhoPares.Veredito.Aprovada,
         )
     }
 
     // -------------------------------------------------- bloqueio por origem
-
-    /**
-     * Invariante 6: cinco erros da MESMA origem e o sexto não é nem lido — nem
-     * quando ele traz o código certo. Um atacante que acertasse na sexta
-     * continua de fora.
-     */
-    @Test
-    fun cincoCodigosErradosBloqueiamOSexto() {
-        repeat(ERRADAS) {
-            assertSame(
-                EspelhoPares.Veredito.Recusada,
-                EspelhoPares.tentar(codigoErrado(), origem, relato(), t0),
-            )
-        }
-        val sexto = EspelhoPares.tentar(codigo, origem, relato(), t0)
-        assertTrue("o 6º com o código CERTO ainda tem de ser bloqueado", sexto is EspelhoPares.Veredito.Bloqueada)
-        assertEquals(EspelhoPares.BLOQUEIO_MS, (sexto as EspelhoPares.Veredito.Bloqueada).restaMs)
-    }
-
-    /** O bloqueio é da ORIGEM: o vizinho continua conseguindo entrar. */
-    @Test
-    fun bloqueioNaoAtingeOutraOrigem() {
-        repeat(ERRADAS) { EspelhoPares.tentar(codigoErrado(), origem, relato(), t0) }
-        assertTrue(
-            EspelhoPares.tentar(codigo, "192.168.0.90", relato(), t0) is EspelhoPares.Veredito.Aprovada,
-        )
-    }
-
-    @Test
-    fun bloqueioVenceEACotaVolta() {
-        repeat(ERRADAS) { EspelhoPares.tentar(codigoErrado(), origem, relato(), t0) }
-        val depois = t0 + EspelhoPares.BLOQUEIO_MS + 1
-        assertTrue(EspelhoPares.tentar(codigo, origem, relato(), depois) is EspelhoPares.Veredito.Aprovada)
-    }
-
-    /**
-     * O BLOQUEIO CRESCE, e é ELE que sustenta um código de três dígitos.
-     *
-     * Com um minuto fixo, mil combinações saem numa tarde de martelada paciente
-     * (cinco por minuto). Dobrando a cada rodada, a sétima já custa mais que o
-     * culto inteiro — e é por isso que o `bloqueios` NÃO zera quando o bloqueio
-     * VENCE: quem esperou e voltou a errar é exatamente quem a rodada seguinte
-     * precisa segurar por mais tempo.
-     */
-    @Test
-    fun bloqueiosSeguidosDobramAEspera() {
-        var agora = t0
-        val esperado = longArrayOf(
-            EspelhoPares.BLOQUEIO_MS,
-            EspelhoPares.BLOQUEIO_MS * 2,
-            EspelhoPares.BLOQUEIO_MS * 4,
-        )
-        esperado.forEachIndexed { i, quanto ->
-            repeat(ERRADAS) { EspelhoPares.tentar(codigoErrado(), origem, relato(), agora) }
-            val v = EspelhoPares.tentar(codigoErrado(), origem, relato(), agora)
-            assertTrue("rodada $i devia bloquear", v is EspelhoPares.Veredito.Bloqueada)
-            assertEquals(
-                "rodada $i",
-                quanto,
-                (v as EspelhoPares.Veredito.Bloqueada).restaMs,
-            )
-            agora += quanto + 1
-        }
-    }
-
-    /**
-     * E O CRESCIMENTO TEM TETO. Sem ele, uma TV atrás de um NAT compartilhado
-     * com quem estiver errando ao lado ficaria de fora pelo resto do dia — e
-     * ninguém teria como desfazer.
-     *
-     * O caso também trava a armadilha do `shl`: em Kotlin/JVM ele usa só os 6
-     * bits baixos do deslocamento (`1L shl 64` é `1L`), então sem o
-     * `coerceAtMost` a 65ª rodada devolveria UM MINUTO — o oposto exato do que
-     * o crescimento existe para fazer, e sem nada que o denunciasse.
-     */
-    @Test
-    fun oCrescimentoTemTeto() {
-        assertEquals(EspelhoPares.BLOQUEIO_MS, EspelhoPares.esperaDoBloqueio(1))
-        assertEquals(EspelhoPares.BLOQUEIO_MS * 2, EspelhoPares.esperaDoBloqueio(2))
-        assertEquals(EspelhoPares.BLOQUEIO_MAX_MS, EspelhoPares.esperaDoBloqueio(30))
-        assertEquals(EspelhoPares.BLOQUEIO_MAX_MS, EspelhoPares.esperaDoBloqueio(64))
-        assertEquals(EspelhoPares.BLOQUEIO_MAX_MS, EspelhoPares.esperaDoBloqueio(65))
-        assertEquals(EspelhoPares.BLOQUEIO_MAX_MS, EspelhoPares.esperaDoBloqueio(1000))
-        // E nunca menos que o piso, seja qual for a entrada.
-        assertEquals(EspelhoPares.BLOQUEIO_MS, EspelhoPares.esperaDoBloqueio(0))
-        assertEquals(EspelhoPares.BLOQUEIO_MS, EspelhoPares.esperaDoBloqueio(-3))
-    }
-
-    /**
-     * ACERTAR LIMPA TUDO, inclusive o expoente. Quem acertou não é quem estava
-     * martelando — e carregar o contador adiante puniria a TV que errou o número
-     * duas vezes antes de acertar.
-     */
-    @Test
-    fun acertarZeraOExpoente() {
-        repeat(ERRADAS) { EspelhoPares.tentar(codigoErrado(), origem, relato(), t0) }
-        val depois = t0 + EspelhoPares.BLOQUEIO_MS + 1
-        assertTrue(EspelhoPares.tentar(codigo, origem, relato(), depois) is EspelhoPares.Veredito.Aprovada)
-        // A rodada seguinte de erros volta ao PRIMEIRO degrau.
-        repeat(ERRADAS) { EspelhoPares.tentar(codigoErrado(), origem, relato(), depois) }
-        val v = EspelhoPares.tentar(codigoErrado(), origem, relato(), depois)
-        assertEquals(
-            EspelhoPares.BLOQUEIO_MS,
-            (v as EspelhoPares.Veredito.Bloqueada).restaMs,
-        )
-    }
-
-    @Test
-    fun contadorDeRecusasAlimentaORegistro() {
-        repeat(3) { EspelhoPares.tentar(codigoErrado(), origem, relato(), t0) }
-        assertEquals(3, EspelhoPares.recusas())
-        assertEquals(0, EspelhoPares.origensEmBloqueio(t0))
-        repeat(2) { EspelhoPares.tentar(codigoErrado(), origem, relato(), t0) }
-        assertEquals(1, EspelhoPares.origensEmBloqueio(t0))
-    }
-
     // ------------------------------------------------------------------ token
 
     @Test
@@ -570,11 +386,11 @@ class EspelhoParesTest {
         assertSame(
             "a quarta tela não entra sem o operador derrubar uma",
             EspelhoPares.Veredito.Lotada,
-            EspelhoPares.tentar(codigo, "192.168.0.4", relato(), t0),
+            EspelhoPares.entrar("192.168.0.4", relato(), t0),
         )
         EspelhoPares.encerrar(primeira.token)
         assertTrue(
-            EspelhoPares.tentar(codigo, "192.168.0.4", relato(), t0) is EspelhoPares.Veredito.Aprovada,
+            EspelhoPares.entrar("192.168.0.4", relato(), t0) is EspelhoPares.Veredito.Aprovada,
         )
         assertEquals(EspelhoPares.MAX_SESSOES, EspelhoPares.sessoes().size)
     }
@@ -593,27 +409,24 @@ class EspelhoParesTest {
         EspelhoPares.desligar()
         assertNull(EspelhoPares.validar("Bearer ${s.token}", t0))
         assertEquals(0, EspelhoPares.sessoes().size)
-        assertEquals("", EspelhoPares.codigo())
         assertFalse(EspelhoPares.estaLigado())
         assertSame(
             EspelhoPares.Veredito.Desligado,
-            EspelhoPares.tentar("000", origem, relato(), t0),
+            EspelhoPares.entrar(origem, relato(), t0),
         )
     }
 
     /**
-     * Com o espelho desligado o código guardado é vazio — e um código vazio
-     * vindo da rede não pode casar com ele. É a guarda de string vazia da
-     * comparação em tempo constante.
+     * O TOKEN VAZIO NÃO CASA COM NADA. A guarda de string vazia da comparação
+     * em tempo constante existe para isto: sem ela, um `Authorization: Bearer `
+     * (vazio) poderia casar com uma sessão malformada, e um segredo que não
+     * existe não pode valer.
      */
     @Test
-    fun codigoVazioNaoCasaComEspelhoDesligado() {
-        // Ligado, o código vazio é só um código errado.
-        assertSame(EspelhoPares.Veredito.Recusada, EspelhoPares.tentar("", origem, relato(), t0))
-        // Desligado, o código guardado É vazio — e é aí que a guarda de string
-        // vazia da comparação em tempo constante impede o casamento de dois nadas.
-        EspelhoPares.desligar()
-        assertSame(EspelhoPares.Veredito.Desligado, EspelhoPares.tentar("", origem, relato(), t0))
+    fun tokenVazioNaoValeNada() {
+        parear()
+        assertNull(EspelhoPares.validar("", t0))
+        assertNull(EspelhoPares.validar("Bearer ", t0))
     }
 
     // -------------------------------------------------------------- saneamento
@@ -664,8 +477,7 @@ class EspelhoParesTest {
      */
     @Test
     fun oRelatoGuardadoJaVemSaneado() {
-        val v = EspelhoPares.tentar(
-            codigo,
+        val v = EspelhoPares.entrar(
             origem,
             relato("Firefox\r\ntelas: 99 conectadas \"x\"").copy(w = -5, h = 999_999, telaAcesaMin = -1),
             t0,
@@ -688,14 +500,6 @@ class EspelhoParesTest {
     fun oSegredoNaoApareceNoToString() {
         val s = parear()
         assertFalse(s.toString().contains(s.token))
-        // E o CÓDIGO também não: ele é curto, e é justamente por ser curto que
-        // uma linha de log com ele vale por uma chave inteira.
-        assertFalse(s.toString().contains(codigo))
-    }
-
-    private companion object {
-        /** Legibilidade: o número que a invariante 6 fixa. */
-        const val ERRADAS = EspelhoPares.ERROS_ATE_BLOQUEIO
     }
 }
 

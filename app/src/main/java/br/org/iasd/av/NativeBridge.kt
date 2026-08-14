@@ -51,7 +51,6 @@ interface BridgeHost {
      * A *mesa de som* está ligada: o áudio sai pelo CELULAR, do WebView do
      * Controle — que portanto não pode ser suspenso quando o app é minimizado.
      */
-    fun setAudioAlive(on: Boolean)
 
     /** Interceptar os botões físicos de volume e mandá-los para o app. */
     fun setCaptureVolumeKeys(on: Boolean)
@@ -144,6 +143,23 @@ class NativeBridge(
          * exijam mais do que o shell instalado oferece (ver [WebUpdater]).
          * Subir SEMPRE que a superfície da ponte mudar.
          *
+         * 38 (v5.189) — A PORTA ABERTA e o FIM DA MESA DE SOM, dois
+         * encolhimentos no mesmo degrau:
+         *
+         * • `espelhoEstado` **perdeu `codigo`**. A entrada da tela deixou de
+         *   ter segredo — a porta é o endereço deste aparelho na rede (ver a
+         *   invariante 5 do [EspelhoPares]) —, e um bundle antigo leria o
+         *   campo vazio e desenharia um teclado de três dígitos pedindo um
+         *   número que o Controle não mostra mais e o servidor não exige.
+         * • Saiu `keepAudioAlive`. Ele existia para o modo "mesa de som", em
+         *   que o celular ERA a caixa de som e o WebView do Controle não podia
+         *   ser suspenso; o modo saiu a pedido do operador (o som é dos
+         *   DISPLAYS), e um método de ponte sem chamador é dívida.
+         *
+         * A rota `/s/<token>` da transmissão direta nas telas da rede entrou
+         * no mesmo lote e **não** pesa aqui: ela é do servidor HTTP, não da
+         * ponte, e o lado web a detecta pela presença do manifesto reescrito.
+         *
          * 37 (v5.187) — o TELÃO POR COMANDOS substitui o espelho de pixels
          * (docs/TELAO-POR-COMANDOS.md). Nenhum método nasceu nem mudou de
          * assinatura — o degrau sobe porque a FORMA do que os métodos devolvem
@@ -190,7 +206,7 @@ class NativeBridge(
          * novo NÃO chega por OTA, e um botão que não faz nada no meio de um
          * culto é pior que botão nenhum (a mesma regra do `appendYoutubeSearch`).
          */
-        const val SHELL_VERSION = 37
+        const val SHELL_VERSION = 38
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -1038,17 +1054,6 @@ class NativeBridge(
     @JavascriptInterface
     fun castTarget(callId: String) {
         resolve(callId, JSONObject().put("label", host?.describeCastTarget() ?: "").toString())
-    }
-
-    /**
-     * Mesa de som ligada/desligada. Com ela ligada o celular É a caixa de som, e
-     * minimizar o app não pode calar o louvor — ver [BridgeHost.setAudioAlive].
-     * Desligada, o WebView do Controle volta a ser estrangulado em segundo
-     * plano, que é o certo quando ele é só a mesa de comando.
-     */
-    @JavascriptInterface
-    fun keepAudioAlive(on: Boolean) {
-        host?.setAudioAlive(on)
     }
 
     // ---------- botões físicos de volume ----------

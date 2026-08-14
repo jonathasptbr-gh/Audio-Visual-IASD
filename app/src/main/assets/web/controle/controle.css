@@ -416,9 +416,8 @@ body {
 }
 /* Em tela cheia a preview É a projeção (quando não há TV conectada): nada de
    UI por cima, ou o botão iria junto para o telão. */
-.preview:fullscreen .pv-fabs, .preview:fullscreen .pv-fab--bl,
-.preview:-webkit-full-screen .pv-fabs,
-.preview:-webkit-full-screen .pv-fab--bl { display: none !important; }
+.preview:fullscreen .pv-fabs,
+.preview:-webkit-full-screen .pv-fabs { display: none !important; }
 
 /* ---------- "Baixando…" NA LINHA DO CRONOGRAMA ----------
    O cartão sobre a preview diz "isto vai entrar em cena"; quando o toque foi só
@@ -869,8 +868,8 @@ body {
 /* Estados dos controles agrupados por ESTADO, não por componente — a mesma
    receita estava escrita quatro vezes. `.view-blocked` = visual bloqueado,
    `.muted` = mudo, `.danger` = ação destrutiva. (Havia um quarto, `.active` da
-   mesa de som; ele saiu com o botão — que hoje é o ícone de alto-falante no
-   canto da preview, `#pvSoundBtn`, v5.82.)
+   mesa de som; ela saiu por inteiro na v5.189 — o som do sistema é o dos
+   displays.)
    (O botão do fundo da letra saiu do mixer: virou o segmento "Imagens dos
    slides" no popup de Exibição, e o lugar dele é a leitura da letra completa —
    um botão que ABRE algo, sem estado próprio a pintar.) */
@@ -3091,20 +3090,6 @@ body.mode-simple .bottombar { display: none; }
    desconectar, e o que o toque faz é trancar de volta. */
 .pv-fab.connected { color: var(--danger-strong); }
 
-/* Mesa de som: o mesmo `.pv-fab` dos outros dois, no canto INFERIOR ESQUERDO —
-   a coluna da direita já é do cast (em cima) e do tela cheia (embaixo). Fora do
-   `.pv-fabs` porque aquele contêiner é uma coluna à direita; este é um ponto
-   fixo no canto oposto. */
-.pv-fab--bl { position: absolute; left: 2px; bottom: 2px; z-index: 5; }
-/* LIGADO acende no accent. O ícone carrega o ESTADO (alto-falante inteiro ×
-   riscado), pela mesma convenção da cortina e do mudo: o riscado é o corte. */
-.pv-fab--bl.on { color: var(--accent); }
-.pv-fab--bl .pv-sound-on { display: none; }
-.pv-fab--bl.on .pv-sound-on { display: inline; }
-.pv-fab--bl.on .pv-sound-off { display: none; }
-/* (Em tela cheia ele some junto com os outros — a regra é a mesma dos
-   `.pv-fabs`, lá em cima: ali a preview É a projeção.) */
-
 /* A caixa-preta do telão, em Configurações. `pre` porque cada linha é um
    registro e a ordem/alinhamento são a informação. */
 /* O REGISTRO INTEIRO (v5.121) — antes só a caixa-preta do telão.
@@ -3597,15 +3582,6 @@ body.mode-simple .hymn-add-btn { display: none; }
 /* O CÓDIGO é o accent, e o endereço não: eles não competem, porque o âmbar aqui
    diz "este é o número do momento" — ele muda a cada vez que a transmissão é
    ativada, e o endereço não. Mesma anatomia do PIN que ele substitui. */
-.cast-cod {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 1.6rem; font-weight: 700; letter-spacing: .18em;
-  /* O `letter-spacing` põe um vão DEPOIS do último dígito, o que descentra um
-     número de três. Meio caractere de recuo devolve a simetria. */
-  text-indent: .18em;
-  color: var(--accent);
-  -webkit-user-select: text; user-select: text;
-}
 .cast-hint { margin: .1rem 0 .5rem; font-size: .78rem; color: var(--muted); text-align: center; }
 /* Quem está vendo. Uma linha por tela, com a ação à direita — o padrão de
    lista do resto do app, não um cartão novo. */

@@ -267,27 +267,18 @@ try {
   });
   checar(desistiu === null, 'e desistir resolve em vez de deixar a importação pendurada');
 
-  // ---- O SOM DA PREVIEW SOME COM TELÃO CONECTADO ----
-  // Ligar o som da preview com o telão projetando faz o `<video>` do Controle
-  // tomar o foco de áudio do Android e INTERROMPER o player do telão. O botão só
-  // faz sentido quando o celular é a caixa de som — isto é, sem telão.
-  const som = await pg.evaluate(() => {
-    // No navegador o "telão" é a janela do Display; um objeto com `closed:false`
-    // é exatamente o que `telaoConectado()` lê dela.
-    webDisplayWin = null;
-    pushTelaoNoSom();
-    const semTelao = !pvSoundBtn.hidden;
-    setStandalone(true);
-    const ligouSemTelao = standalone;
-    webDisplayWin = { closed: false };
-    pushTelaoNoSom();
-    return { semTelao, ligouSemTelao, comTelao: pvSoundBtn.hidden, desligou: !standalone };
-  });
-  checar(som.semTelao, 'sem telão, o botão da mesa de som está na preview');
-  checar(som.ligouSemTelao, 'e ele liga o som local, como sempre');
-  checar(som.comTelao, 'com telão conectado ele SOME — o som da preview cortaria o player do telão');
-  checar(som.desligou, 'e conectar a tela com o som já ligado DESLIGA o som, em vez de deixá-lo sem controle');
-  await pg.evaluate(() => { webDisplayWin = null; pushTelaoNoSom(); });
+  // ---- A PREVIEW NÃO TEM MAIS SOM (v5.189) ----
+  // A mesa de som saiu por inteiro: o som do sistema é o dos DISPLAYS (a TV
+  // pela Presentation, as telas da rede pelo <video> delas). O que este caso
+  // trava é a REMOÇÃO — um botão de som ressuscitado sobre a preview é o
+  // caminho de volta para o `<video>` do Controle roubar o foco de áudio do
+  // Android e interromper o player do telão no meio do louvor.
+  const semSom = await pg.evaluate(() => ({
+    semBotao: !document.getElementById('pvSoundBtn'),
+    semModo: typeof window.setStandalone === 'undefined',
+  }));
+  checar(semSom.semBotao, 'não há botão de som sobre a preview');
+  checar(semSom.semModo, 'e o modo "mesa de som" não existe mais — o som é dos displays');
 } catch (e) {
   checar(false, 'o percurso terminou sem exceção (' + (e && e.message) + ')');
 }

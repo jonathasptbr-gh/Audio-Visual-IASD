@@ -58,7 +58,6 @@ async function ate(fn, ms = 4000, passo = 50) {
 // máquina. É o cenário da Smart TV com o relógio fora — e é exatamente o que
 // a correção de relógio do tela.js existe para anular.
 // ---------------------------------------------------------------------------
-const CODIGO = '426';
 const TOKEN = 'dGVsYS1kZS1jb21hbmRvcy10';
 const DESVIO_MS = 90_000;
 const agoraDoCelular = () => Date.now() + DESVIO_MS;
@@ -73,6 +72,7 @@ const MIME = {
 };
 const PREFIXOS = { '/display/': 'display', '/shared/': 'shared', '/espelho/': 'espelho' };
 
+let lotado = false;
 const visto = { volta: [], gets: 0, pares: [] };
 let sse = null;             // a resposta do GET /e em curso
 let aoAbrirSse = null;
@@ -107,8 +107,11 @@ const servidor = http.createServer(async (req, res) => {
   if (req.method === 'POST' && u.pathname === '/par') {
     const c = await corpoDe(req);
     visto.pares.push(c);
-    if (c && c.codigo === CODIGO) { json(res, 200, { t: TOKEN }); return; }
-    json(res, 403, { estado: 'recusada' });
+    // SEM CÓDIGO (v5.189): a porta é o endereço. O servidor de mentira só
+    // recusa quando o teste pede que ele recuse (`lotado`), para o caminho da
+    // frase continuar coberto.
+    if (lotado) { json(res, 403, { estado: 'lotado' }); return; }
+    json(res, 200, { t: TOKEN });
     return;
   }
 
@@ -172,16 +175,22 @@ checar(true, 'o overlay de entrada aparece por cima do display');
 checar(await pg.$eval('#startBtn', (e) => e.hidden),
   'e o "Ligar Sistema" do display está escondido — um overlay de gesto só');
 
-await pg.fill('#telaCod', '111');
+// LOTADO tem FRASE, não silêncio — e o overlay CONTINUA de pé, porque não há
+// nada por baixo dele para proteger.
+lotado = true;
 await pg.click('#telaEntrar');
 await ate(() => visto.pares.length >= 1);
-checar(/não confere/i.test(await pg.$eval('#telaMsg', (e) => e.textContent)),
-  'código errado tem frase, não silêncio');
+checar(/limite de telas/i.test(await pg.$eval('#telaMsg', (e) => e.textContent)),
+  'lotado tem frase, não silêncio');
+checar(await pg.$eval('#telaEntrada', (e) => e.style.display !== 'none'),
+  'e o overlay fica de pé — não há nada por baixo para ele cobrir');
+checar(!visto.pares.some((c) => c && 'codigo' in c),
+  'o pedido de entrada NÃO manda código nenhum — a porta é o endereço (v5.189)');
 
-await pg.fill('#telaCod', CODIGO);
+lotado = false;
 await pg.click('#telaEntrar');
 await ate(() => visto.gets >= 1, 5000);
-checar(visto.gets >= 1, 'código certo abre o SSE');
+checar(visto.gets >= 1, 'o toque em "Ativar esta tela" abre o SSE');
 await ate(() => pg.$eval('#telaEntrada', (e) => e.style.display === 'none').catch(() => false), 4000);
 checar(await pg.$eval('#telaEntrada', (e) => e.style.display === 'none'),
   'e o overlay some');
@@ -317,16 +326,26 @@ checar(await pg.$eval('#text', (e) => e.hidden), 'text-hide tira a Camada de Tex
 // 7. O adeus
 // ---------------------------------------------------------------------------
 {
-  evento({ m: 'adeus' });
-  await ate(() => pg.$eval('#telaEntrada', (e) => e.style.display !== 'none').catch(() => false), 4000);
-  checar(await pg.$eval('#telaEntrada', (e) => e.style.display !== 'none'),
-    'depois do adeus o overlay volta');
-  checar(/desligou/i.test(await pg.$eval('#telaMsg', (e) => e.textContent)),
-    'e a tela DIZ que foi o operador, em vez de "sem sinal"');
+  // A TELA NUNCA MAIS É COBERTA depois de ativada (v5.189). O `adeus` do
+  // operador tira o FIO, não a mídia: o `<video>` toca um arquivo local
+  // (`/m/`) e a letra anda pelo `timeupdate` dele. Um overlay aqui apagaria
+  // uma projeção que continua perfeitamente viva.
+  const paresAntes = visto.pares.length;
   const getsAntes = visto.gets;
+  lotado = true;                 // o celular não devolve token: transmissão desligada
+  evento({ m: 'adeus' });
   await espera(2500);
+  checar(await pg.$eval('#telaEntrada', (e) => e.style.display === 'none'),
+    'depois do adeus o overlay NÃO volta — a mídia em cena não pode ser coberta');
   checar(visto.gets === getsAntes,
     'e NENHUM GET /e novo sai — nada de martelar uma porta fechada');
+  // A reentrada é silenciosa e ESPAÇADA (1 s, 3 s, 8 s…): ela existe para a
+  // tela voltar sozinha quando o operador religar, sem ninguém atravessar o
+  // salão — e não pode virar uma martelada.
+  const tentativas = visto.pares.length - paresAntes;
+  checar(tentativas >= 1 && tentativas <= 3,
+    'a reentrada tenta sozinha, mas espaçada (' + tentativas + ' pedido(s) em 2,5 s)');
+  lotado = false;
 }
 
 // ---------------------------------------------------------------------------

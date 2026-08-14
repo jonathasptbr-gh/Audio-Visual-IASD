@@ -87,7 +87,6 @@ const mixerEl = document.getElementById('mixer');
 const volToggleEl = document.getElementById('volToggle');
 const volCloseEl = document.getElementById('volClose');
 const settingsBtnEl = document.getElementById('settingsBtn');
-const pvSoundBtnEl = document.getElementById('pvSoundBtn');
 const lyricsViewBtnEl = document.getElementById('lyricsViewBtn');
 const lyricsPopupEl = document.getElementById('lyricsPopup');
 const lyricsPopupTitleEl = document.getElementById('lyricsPopupTitle');
@@ -163,7 +162,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.188';
+const WEB_VERSION = '5.189';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -331,7 +330,6 @@ const mirrorCloseEl = document.getElementById('mirrorClose');
 const mirrorLeadEl = document.getElementById('mirrorLead');
 const castLiveEl = document.getElementById('castLive');
 const castUrlEl = document.getElementById('castUrl');
-const castCodEl = document.getElementById('castCod');
 const castHintEl = document.getElementById('castHint');
 const castTelasEl = document.getElementById('castTelas');
 const mirrorToggleEl = document.getElementById('mirrorToggle');
@@ -1071,13 +1069,13 @@ function isConfirmedWifi() {
   return t === 'wifi' || t === 'ethernet';
 }
 let mediaFit = 'contain'; // preenchimento da mídia (persistido em state 'fit')
-// Modo "mesa de som": saída de áudio local — a preview deixa de ser
-// forçosamente muda e passa a tocar o som de verdade pelo próprio aparelho.
-// Não mexe na comunicação com o Display (comandos continuam normais); se o
-// Display nem estiver aberto, ele só não escuta, sem tratamento especial
-// disso aqui. Não é persistido: cada abertura do app começa em modo normal
-// (preview muda), evitando som inesperado saindo do celular numa sessão nova.
-let standalone = false;
+// (Saiu na v5.189 o modo "mesa de som" — a saída de áudio LOCAL, em que a
+// preview deixava de ser muda e o celular virava a caixa de som. Pedido do
+// operador, e a razão é o desenho atual do sistema: o som sai dos DISPLAYS (a
+// TV pela Presentation, as telas da rede pelo próprio <video> delas), e o
+// áudio da preview só tinha como disputar o foco de áudio do Android com a
+// projeção — o defeito que a v5.141 já tinha escondido escondendo o botão com
+// telão conectado. A preview é uma ILUSTRAÇÃO, e ilustração não faz som.)
 let ytEnded = false;       // YouTube terminou/parou sem player tocando: ▶ recarrega
 // HÁ MÍDIA EM CENA NO TELÃO? (v5.142)
 //
@@ -1288,14 +1286,9 @@ async function loadYtPreview(rec, v, startAt) {
     events: {
       onReady: (e) => {
         if (ytPreview !== cur) return;
-        // Normalmente a preview é sempre muda (espelha o Display); no modo
-        // "mesa de som" ela é quem toca o áudio de verdade, com o volume/mudo
-        // que o operador já tiver definido.
-        if (standalone) {
-          try { if (!muted) e.target.unMute(); e.target.setVolume(Math.round(volume * 100)); } catch (_) {}
-        } else {
-          try { e.target.mute(); } catch (_) {}
-        }
+        // A preview é SEMPRE muda (ela espelha o Display — o som é dos
+        // displays, v5.189).
+        try { e.target.mute(); } catch (_) {}
         ytPreviewForceLowQuality(e.target);
         try { e.target.playVideo(); } catch (_) {}
         clearInterval(cur.qualityTimer);
@@ -1431,8 +1424,8 @@ const DISPLAY_TIMEOUT = 2500; // sem status da projeção por mais que isso → 
 // A TOLERÂNCIA DO RE-ALINHAMENTO, e ela era grande demais.
 //
 // 1,6 s foi escolhido quando o resync existia para não estalar o áudio da
-// preview. Só que a preview **não tem som** fora do modo "mesa de som" — e ali
-// o resync nem acontece (ver a guarda de `standalone` nas duas funções). Sem
+// preview. Só que a preview **não tem som** — e desde a v5.189 não tem por
+// construção, porque a mesa de som saiu e o som é dos displays. Sem
 // som, um seek é invisível: o que se paga é um quadro, e o que se ganha é a
 // ilustração parar de mentir. Meio segundo é folga de sobra para o jitter do
 // status (que chega a ~4 Hz) e apertado o bastante para um desvio de verdade
@@ -1533,7 +1526,7 @@ function ytResyncPreviewToDisplay(isPlaying, currentTime, tolerancia) {
   if (!preverPodeMexer()) return;   // ver `preverPodeMexer`
   const tol = typeof tolerancia === 'number' ? tolerancia : SYNC_DRIFT;
   try {
-    if (!standalone && typeof currentTime === 'number' && isFinite(currentTime)) {
+    if (typeof currentTime === 'number' && isFinite(currentTime)) {
       const alvo = alvoDaPreview(currentTime);
       const pt = p.getCurrentTime() || 0;
       if (Math.abs(pt - alvo) > tol) p.seekTo(alvo, true);
@@ -1554,7 +1547,7 @@ function resyncPreviewToDisplay(isPlaying, currentTime, tolerancia) {
   if (!preverPodeMexer()) return;   // ver `preverPodeMexer`
   const tol = typeof tolerancia === 'number' ? tolerancia : SYNC_DRIFT;
   try {
-    if (!standalone && typeof currentTime === 'number' && isFinite(currentTime)) {
+    if (typeof currentTime === 'number' && isFinite(currentTime)) {
       const alvo = alvoDaPreview(currentTime);
       const pt = preview.getTime() || 0;
       if (Math.abs(pt - alvo) > tol) preview.seek(alvo);
@@ -1637,98 +1630,14 @@ function ytPreviewHandle(obj) {
     case 'play': try { p.playVideo(); } catch (_) {} break;
     case 'pause': try { p.pauseVideo(); } catch (_) {} break;
     case 'seek': if (typeof obj.time === 'number') { try { p.seekTo(obj.time, true); } catch (_) {} } break;
-    // Mudo e volume seguem a MESMA orquestração do ytHandle do Display (e do
-    // setMute do stage): rampa curta em vez de corte seco — no modo "mesa de
-    // som" este é o áudio que sai na caixa da igreja, e um corte no talo estala.
+    // MUDO E VOLUME NÃO CHEGAM MAIS AQUI (v5.189): a preview é sempre muda —
+    // o som é dos displays —, então não há rampa a orquestrar nem foco de
+    // áudio a disputar com o telão. Os dois comandos seguem viajando para o
+    // Display, que é quem de fato toca.
     case 'mute':
-      if (standalone) {
-        clearTimeout(ytPreviewMuteApplyTimer);
-        if (obj.muted) {
-          // Desce até 0 e só então muta de fato (o "pop" mora no corte).
-          ytPreviewRampVolume(volume, 0, MUTE_RAMP_TIME);
-          ytPreviewMuteApplyTimer = setTimeout(() => {
-            // Confere de novo: um mute/unmute mais recente pode ter mudado a
-            // intenção enquanto a rampa corria — a aplicação atrasada não pode
-            // ressuscitar um mudo já desfeito.
-            if (muted && standalone) { try { p.mute(); } catch (_) {} }
-          }, MUTE_RAMP_TIME * 1000);
-        } else {
-          // Desmuta já (senão volume 0 não seria ouvido) e sobe em rampa.
-          try { p.unMute(); } catch (_) {}
-          ytPreviewRampVolume(0, volume, MUTE_RAMP_TIME);
-        }
-      }
-      break;
     case 'volume':
-      if (standalone && typeof obj.volume === 'number') {
-        // O operador mandou: cancela qualquer rampa em curso, senão os passos
-        // restantes (com o alvo antigo) sobrescreveriam o valor novo e o fader
-        // "voltaria" sozinho.
-        clearInterval(ytPreviewRampTimer);
-        clearTimeout(ytPreviewMuteApplyTimer);
-        try { p.setVolume(Math.round(obj.volume * 100)); } catch (_) {}
-      }
       break;
   }
-}
-
-// Liga/desliga o modo "mesa de som": é só uma SAÍDA DE ÁUDIO LOCAL — a
-// preview passa a tocar o som de verdade pelo próprio aparelho, em vez de
-// sempre muda. Não mexe em nada da comunicação com o Display: os comandos
-// continuam sendo enviados normalmente (cmd() não muda de comportamento);
-// na prática, se o Display nem estiver aberto, ninguém escuta esses
-// comandos e é como se ele não existisse — mas o Controle não precisa saber
-// disso nem tratar esse caso de forma especial.
-async function setStandalone(v) {
-  if (standalone === v) return;
-  standalone = v;
-  // Mídia local: a rampa vive no stage (setForceMuted). YouTube da preview:
-  // rampa aqui, em paralelo, com a mesma duração — ligar desmuta e sobe de 0
-  // ao volume alvo (respeitando o mudo do operador); desligar desce até 0 e só
-  // então muta.
-  preview.setForceMuted(!standalone);
-  pushAudioAlive();
-  if (ytPreview && ytPreview.player) {
-    const p = ytPreview.player;
-    clearInterval(ytPreviewRampTimer);
-    // Mesmo timer do 'mute' de ytPreviewHandle: as duas rampas são mutuamente
-    // exclusivas no tempo e a mais recente tem de cancelar a anterior.
-    clearTimeout(ytPreviewMuteApplyTimer);
-    if (standalone) {
-      if (!muted) { try { p.unMute(); } catch (_) {} ytPreviewRampVolume(0, volume, MUTE_RAMP_TIME); }
-      else { try { p.setVolume(Math.round(volume * 100)); } catch (_) {} }
-    } else {
-      ytPreviewRampVolume(volume, 0, MUTE_RAMP_TIME);
-      ytPreviewMuteApplyTimer = setTimeout(() => {
-        if (!standalone && ytPreview && ytPreview.player) { try { ytPreview.player.mute(); } catch (_) {} }
-      }, MUTE_RAMP_TIME * 1000);
-    }
-  }
-  renderStandaloneSeg();
-}
-
-// A mesa de som é um ÍCONE SOBRE A PREVIEW desde a v5.82 (foi botão do mixer,
-// depois segmento em Configurações). Ela é a única preferência daquela lista
-// que se mexe DURANTE o culto — chega-se, liga-se a caixa, e ou há som no
-// aparelho ou não —, e o lugar de decidir isso é olhando para a preview, que é
-// justamente onde o som está sendo julgado. Dois toques num popup para uma
-// decisão dessa frequência era atrito puro.
-//
-// O ÍCONE mostra o ESTADO (alto-falante inteiro = há som no celular; riscado =
-// não há), pela mesma convenção do botão de mudo e da cortina: o riscado é o
-// corte. Quem nomeia a ação é o `title`.
-// MESA DE SOM LIGADA = O CELULAR É A CAIXA DE SOM, e aí minimizar o app não
-// pode calar o louvor. Este WebView (o do Controle) é estrangulado em segundo
-// plano de propósito — é o certo quando ele é só a mesa de comando —, mas
-// deixa de ser quando é ELE que está tocando: o áudio sai daqui, do `<video>`
-// da preview, não do telão.
-//
-// Foi essa distinção que faltou nas três tentativas anteriores: elas
-// protegeram o WebView do TELÃO, e o problema relatado acontecia com a mesa de
-// som, isto é, no outro WebView.
-function pushAudioAlive() {
-  if (!window.__NATIVE__ || (window.__SHELL_VERSION__ | 0) < 17) return;
-  try { AVNative.keepAudioAlive(standalone); } catch (_) { /* shell antigo */ }
 }
 
 // HÁ UMA TELA RECEBENDO A PROJEÇÃO?
@@ -1746,38 +1655,6 @@ function pushAudioAlive() {
 function telaoConectado() {
   if (!window.__NATIVE__) return !!(webDisplayWin && !webDisplayWin.closed);
   return lastDisplays.length > 0;
-}
-
-// O BOTÃO DA MESA DE SOM SOME COM TELÃO CONECTADO (v5.141).
-//
-// Os dois WebViews dividem o mesmo processo e a mesma saída de áudio do
-// Android. Ligar o som da preview enquanto o telão projeta não é "ouvir junto":
-// o `<video>` do Controle assume o foco de áudio e o player do telão é
-// INTERROMPIDO no meio do louvor, na frente da congregação. O botão existe para
-// o caso em que o celular É a caixa de som — e esse caso, por definição, é o
-// caso sem telão.
-//
-// Some, e não fica desabilitado: um botão apagado num canto da preview seria
-// mais um elemento a decifrar durante o culto, e a explicação ("por que não
-// posso ligar o som?") não cabe num `title` que ninguém vai abrir. Sem telão
-// ele volta sozinho, no mesmo lugar de sempre.
-function renderStandaloneSeg() {
-  if (!pvSoundBtnEl) return;
-  pvSoundBtnEl.hidden = telaoConectado();
-  pvSoundBtnEl.classList.toggle('on', standalone);
-  pvSoundBtnEl.title = standalone
-    ? 'Som no celular LIGADO — tocar para desligar'
-    : 'Som no celular desligado — tocar para ligar (mesa de som)';
-}
-
-// A tela pode ser conectada COM A MESA DE SOM JÁ LIGADA — é o caso normal, aliás:
-// o operador chega, ouve o louvor pelo celular enquanto acerta as coisas, e só
-// então liga o dongle. Esconder o botão sem desligar o modo deixaria exatamente
-// o estado que este lote existe para impedir, e sem nenhum controle na tela para
-// desfazê-lo. Quem re-renderiza é o próprio `setStandalone`.
-function pushTelaoNoSom() {
-  if (telaoConectado() && standalone) { setStandalone(false); return; }
-  renderStandaloneSeg();
 }
 
 // Fundo da letra sincronizada (Hinário 2022): 'black' (padrão) ignora as
@@ -1806,9 +1683,8 @@ function renderLyricsBgSeg() {
 }
 
 // Envia o comando ao display E aplica na preview (espelho) — YouTube usa seu
-// próprio player pequeno (acima); mídia comum continua no stage.js. O modo
-// "mesa de som" não altera nada aqui (ver setStandalone) — só a saída de
-// áudio da preview muda, a comunicação com o Display permanece normal.
+// próprio player pequeno (acima); mídia comum continua no stage.js. A preview
+// é sempre MUDA (v5.189): o som é dos displays.
 // A PREVIEW ATRASA JUNTO COM AS TELAS DA REDE, e o ponto de corte é aqui.
 //
 // Sem telão, as telas da rede SÃO o que a congregação vê — e elas chegam ~1 s
@@ -10078,13 +9954,18 @@ async function ytAcao(r, destinos, btn, somenteAudio, altura) {
   // produz arquivo (é um manifesto que expira em horas), e o operador que
   // marcou "Cronograma" pediu justamente o que sobra depois do domingo. Aqui o
   // download é obrigatório, e projetar acontece no fim dele.
-  // COM A TRANSMISSÃO LIGADA E SEM TELÃO, as telas da rede são a projeção — e
-  // a transmissão direta não chega nelas (URLs do StreamProxy só existem
-  // dentro do WebView; spec §5.6/§7). Pular direto ao download é o que faz o
-  // vídeo APARECER nas telas; com TV conectada, a transmissão segue valendo
-  // (a projeção é a TV, e as telas avisam a cena-sem-rede).
-  const pularTransmissao = espelhoLigado() && !telaoConectado();
-  if (!pularTransmissao && tocar && !guardar.length && await tentarTransmitir(r, altura, soAudio)) return;
+  // A TRANSMISSÃO VALE SEMPRE, inclusive com as telas da rede no ar (v5.189).
+  //
+  // Da v5.187 à v5.188 havia aqui um `pularTransmissao` — com a transmissão
+  // ligada e sem TV, o "Tocar agora" ia direto ao download, porque as URLs do
+  // manifesto só existiam dentro do WebView e a tela da rede não teria o que
+  // buscar. O efeito prático foi que o recurso INTEIRO parou de acontecer: a
+  // transmissão ligada é o estado normal do operador, e ele relatou que
+  // "tocar direto nunca funciona, sempre baixa". A saída não era relaxar a
+  // guarda e sim tirar-lhe a razão de existir — o shell serve as mesmas faixas
+  // em `/s/<token>` e o `telaEnriquecer` reescreve o manifesto (dívida §7,
+  // fechada).
+  if (tocar && !guardar.length && await tentarTransmitir(r, altura, soAudio)) return;
 
   const existente = r && r.id ? await AVDB.mediaByYoutube(r.id, soAudio ? 'audio' : 'video') : null;
   // "Já estava lá" é sobre o CONJUNTO: com mais de um destino, o que interessa
@@ -11158,7 +11039,6 @@ async function addSongToDestinos(coll, s, variant, destinos, btn) {
 // ===== transições (fade in/out) =====
 function openFadePopup() {
   renderAppModeSeg();
-  renderStandaloneSeg();
   renderFitSeg();
   renderRotBtn();
   renderLyricsBgSeg();
@@ -11754,16 +11634,14 @@ function blocoEspelho(d) {
       l.push('nenhuma conexão desde que ligou (há ' + mirrorDur(srv.semConexaoMs) + ') — '
         + 'se alguém abriu o endereço, o roteador está isolando os clientes');
     }
-    // ALGUÉM ESTÁ TENTANDO — e com um código de TRÊS dígitos esta linha deixou
-    // de ser curiosidade e passou a ser a leitura principal de segurança do
-    // recurso. Os dois números vêm do `EspelhoPares` (`recusas`,
-    // `origensBloqueadas`); o segundo é o bloqueio crescente em ação, e um
-    // número alto ali com o primeiro subindo é uma martelada em curso, não um
-    // visitante desastrado. Zero recusas não vira linha: um Registro que repete
-    // "0" a cada leitura ensina a pular a linha.
-    if (srv.recusas) {
-      l.push('entrada: ' + (srv.recusas | 0) + ' codigo(s) recusado(s)'
-        + ' · ' + (srv.origensBloqueadas | 0) + ' origem(ns) de castigo agora');
+    // TELAS DE CASTIGO — as que o operador acabou de derrubar. Com o código
+    // fora (v5.189) não há recusa a contar, e este é o único freio que existe:
+    // é ele que explica uma tela que "não volta" logo depois de um toque em
+    // Desconectar sem querer. Zero não vira linha: um Registro que repete "0"
+    // a cada leitura ensina a pular a linha.
+    if (srv.origensBloqueadas) {
+      l.push('telas de castigo agora: ' + (srv.origensBloqueadas | 0)
+        + ' (derrubadas ha pouco pelo operador)');
     }
     const saida = srv.ultimaSaida;
     if (saida && typeof saida === 'object') {
@@ -13744,12 +13622,6 @@ muteToggleEl.addEventListener('click', toggleMute);
 // miniatura, e uma configuração escondida atrás de um estado de UI é a que
 // ninguém acha.
 settingsBtnEl.addEventListener('click', openFadePopup);
-pvSoundBtnEl.addEventListener('click', (e) => {
-  // A preview inteira tem gestos próprios (arrastar o volume, tocar para tela
-  // cheia): sem isto, ligar o som também disparava o gesto de baixo.
-  e.stopPropagation();
-  setStandalone(!standalone);
-});
 lyricsViewBtnEl.addEventListener('click', openLyricsPopup);
 // Letra × Bíblia (só aparece com as duas em cena — ver renderLyricsView).
 lyricsViewSegEl.addEventListener('click', (e) => {
@@ -14304,7 +14176,6 @@ function openWebDisplay() {
   // No navegador a janela do Display é o "telão", e vale a mesma regra da mesa
   // de som (ver `telaoConectado`) — inclusive para desenvolver a base web fora
   // do aparelho, que é justamente o que este caminho serve.
-  pushTelaoNoSom();
   clearInterval(webDisplayTimer);
   if (!webDisplayWin) return;
   webDisplayTimer = setInterval(() => {
@@ -14313,8 +14184,7 @@ function openWebDisplay() {
     webDisplayTimer = null;
     webDisplayWin = null;
     renderSimpleCast();
-    pushTelaoNoSom();
-  }, 1000);
+    }, 1000);
 }
 
 simpleFullBtnEl.addEventListener('click', () => setAppMode('full'));
@@ -14374,7 +14244,6 @@ setAppMode(appMode);
 // Mesa de som nasce desligada (não é persistida); o segmento precisa nascer
 // dizendo isso, senão a primeira abertura de Configurações mostra dois botões
 // apagados e nenhuma escolha marcada.
-renderStandaloneSeg();
 
 // ===== Botões físicos de volume =====
 // No app eles passam a mexer no fader daqui, não na saída do sistema: com
@@ -14913,9 +14782,6 @@ if (window.__NATIVE__) {
       ? 'Telão conectado: ' + (tv.name || 'TV') + ' (' + tv.w + '\u00d7' + tv.h + ')'
       : 'Nenhum telão conectado';
     applyPreviewAspect(tv);
-    // O botão da mesa de som depende disto (ver `renderStandaloneSeg`): com
-    // telão conectado, o som da preview interromperia o player do telão.
-    pushTelaoNoSom();
   };
   AVNative.displays().then(renderDisplayStatus);
   AVNative.onDisplayChange(renderDisplayStatus);
@@ -15362,16 +15228,15 @@ function renderCast() {
   // ele não resolve no Chrome do Android nem na maioria das Smart TVs, que são
   // exatamente as telas deste recurso.
   texto2(castUrlEl, e.endereco || '');
-  // O CÓDIGO, que nasce no instante em que a transmissão é ativada. Campo
-  // `codigo` desde o shell 36; um shell antigo não o publica e a linha fica
-  // vazia — que é a degradação certa, já que ali o servidor também não o exige.
-  texto2(castCodEl, e.codigo || '');
   // DUAS FRASES, e a diferença é o que o operador faz a seguir. Sem tela
   // nenhuma, o passo é ir até a TV; com telas no ar, o passo é repetir o mesmo
   // par para acrescentar mais uma.
+  // SEM CÓDIGO desde a v5.189: a tela abre o endereço e toca em "Ativar esta
+  // tela". As duas frases continuam separadas porque o passo seguinte é
+  // diferente — ir até a TV × repetir o mesmo em mais uma.
   texto2(castHintEl, telas.length
-    ? 'Abra o endereço noutra tela e digite o código para acrescentá-la.'
-    : 'Abra o endereço no navegador da TV e digite o código.');
+    ? 'Abra o mesmo endereço noutra tela e toque em "Ativar esta tela".'
+    : 'Abra o endereço no navegador da TV e toque em "Ativar esta tela".');
   renderCastTelas(telas);
 }
 
@@ -16170,6 +16035,33 @@ function telaSanearRec(it, token) {
   return rec;
 }
 
+// O MANIFESTO REESCRITO PARA A REDE (v5.189).
+//
+// As URLs que o shell entrega apontam para `/stream/<token>` no origin do
+// WebView (`https://appassets.androidplatform.net/…`), e uma tela da rede não
+// tem WebView nenhum no caminho: para ela a mesma faixa é servida pelo
+// `EspelhoServidor` em `/s/<token>`, RELATIVA — o host é o próprio celular, de
+// onde a página veio. O token é o MESMO dos dois lados (o registro do
+// `StreamProxy` é um só), então não há segunda extração nem segundo cache.
+//
+// Devolve `null` quando não há faixa reescrevível: aí a cena vira o aviso de
+// sempre, em vez de uma tela preta com um `<video>` que não busca nada.
+function telaManifestoDaRede(man) {
+  if (!man) return null;
+  const refazer = (faixa) => {
+    if (!faixa || !faixa.url) return null;
+    const i = String(faixa.url).indexOf('/stream/');
+    if (i < 0) return null;
+    return Object.assign({}, faixa, { url: '/s/' + String(faixa.url).slice(i + 8) });
+  };
+  const video = refazer(man.video);
+  const audio = refazer(man.audio);
+  // O áudio é o que não pode faltar: um manifesto sem ele não toca em lugar
+  // nenhum, e a tela sem som é justamente o que a rede existe para evitar.
+  if (!audio) return null;
+  return Object.assign({}, man, { video: video, audio: audio });
+}
+
 // Token estável por imagem de letra; devolve a URL /m/ dela (ou undefined).
 function telaImagemLetraUrl(opfsPath) {
   const token = telaTokenDe('ly:' + opfsPath);
@@ -16270,12 +16162,29 @@ function telaEnriquecer(cmd) {
   if (cmd.type === 'load') {
     const it = (currentItem && currentItem.id === cmd.mediaId) ? currentItem : null;
     if (!it) return;
+    // A TRANSMISSÃO DIRETA VAI PARA A REDE desde a v5.189 (a dívida §7): o
+    // shell passou a servir as mesmas faixas em `/s/<token>`, então o que a
+    // tela precisa é do manifesto com as URLs REESCRITAS — as originais
+    // apontam para `/stream/` no origin do WebView, que não existe lá.
+    if (it.stream) {
+      const man = telaManifestoDaRede(it.stream);
+      if (man) {
+        cmd.__rec = Object.assign(telaSanearRec(it, telaTokenDe(it.id) || ''), {
+          // Sem `url`: quem toca é o MediaSource, pelo manifesto. Deixar a
+          // `/m/<token>` de um item que ninguém empurrou faria a tela buscar
+          // um 404 antes de tentar o stream.
+          url: '',
+          stream: man,
+        });
+        return;
+      }
+      // Manifesto sem faixa servível: cai no aviso, como as outras.
+    }
     // As cenas que NÃO vão para a rede (spec §5.6): o embed é iframe de
-    // terceiro (e a CSP das telas o barra por construção); a transmissão
-    // direta tem URLs do StreamProxy que só existem dentro do WebView; o deck
+    // terceiro (e a CSP das telas o barra por construção); o deck
     // são Blobs por página (E4.1). O aviso sai LOGO DEPOIS do load — a tela
     // sem __rec limpa a cena sozinha (getMedia nulo → clear).
-    if (it.kind === 'youtube' || it.stream || it.kind === 'deck') {
+    if (it.kind === 'youtube' || it.kind === 'deck') {
       setTimeout(() => {
         try { AVDB.sendCommand({ type: 'tela-aviso', texto: 'Esta cena não aparece nas telas da rede.' }); } catch (_) { /* nada */ }
       }, 0);
