@@ -16214,9 +16214,16 @@ function telaTokenDe(id) {
 }
 
 // O registro SANEADO: toda referência local vira URL servível; `blob`,
-// `opfsPath`, `stream` e `youtubeId` NUNCA atravessam (spec §5.5). A letra
-// vai SEM as imagens de fundo dos slides (v1: slides só de texto — cada
-// imagem seria mais um empurrão, e o texto é o que não pode faltar).
+// `opfsPath`, `stream` e `youtubeId` NUNCA atravessam (spec §5.5).
+//
+// AS IMAGENS DE FUNDO DOS SLIDES VÃO JUNTO desde a v5.188 — cada estrofe com
+// `imageOpfsPath` ganha um `imageUrl` `/m/`, e os bytes são enfileirados pelo
+// `telaEmpurrarImagensLetra` DEPOIS da mídia principal (o som não espera as
+// fotos). O texto deste comentário ainda descrevia a exclusão da v1 ("a letra
+// vai SEM as imagens de fundo"), que foi justamente o relato do operador
+// naquela versão e foi fechado nela: um registro que descreve a limitação
+// depois de ela ter caído manda o próximo leitor procurar o defeito no lugar
+// errado — foi o que aconteceu ao auditar a herança de preferências.
 function telaSanearRec(it, token) {
   const rec = {
     id: it.id,
