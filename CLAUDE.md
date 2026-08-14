@@ -1741,7 +1741,7 @@ contextos.
 | Botão de cast da preview | oculto | `AVNative.openCast()` → seletor de **espelhamento de tela** (ver abaixo) |
 | Retomada do telão ao RECONECTAR | idem (o caminho é o mesmo `resendSceneToDisplay`) | **só reenvia o que ESTAVA no ar** (v5.142). `currentId` sobrevive de propósito ao stop e ao fim natural — é o que permite repetir a faixa com o ▶ —, e reenviar por ele fazia o telão acordar com um vídeo engatilhado que ninguém pediu (o retângulo cinza com o play) ou ressuscitar a música que já tinha acabado. Quem responde a pergunta certa é `midiaNoAr`; um telão vazio também é um estado, e restaurá-lo é não mandar nada |
 | Girar a mídia | idem (o comando é o mesmo `rotate`) | **novo na v5.142**: vídeo gravado de lado chega DEITADO no telão e não havia o que fazer. Um botão em Configurações avança 90° por toque; o motor TROCA O EIXO da caixa antes de girar, para o `object-fit` fazer a conta no retângulo em que a mídia vai de fato aparecer. Tomou o lugar do "Esticar", que distorcia a proporção — o defeito que "Ajustar" e "Preencher" existem para evitar |
-| Som na preview ("mesa de som") | **não existe mais** — a preview é sempre muda | **REMOVIDO na v5.189**, a pedido do operador: o som do sistema é o dos DISPLAYS (a TV pela `Presentation`, as telas da rede pelo `<video>` delas). Os WebViews dividem o processo e a saída de áudio do Android, então o áudio da preview só tinha como tomar o foco e INTERROMPER o player do telão — a v5.141 já escondia o botão com telão conectado, e a v5.189 tirou o modo inteiro (com ele, o `keepAudioAlive` da ponte) |
+| Som da preview (a saída de áudio) | idem: com a janela do Display aberta ela é muda, sem ela toca — sujeito à política de autoplay do navegador, que faz o `onBlocked` devolvê-la ao mudo | **SEM TELA NENHUMA CONECTADA, O SOM SAI DESTE APARELHO** (v5.215, `acertarSaidaDeAudio`), e é OTA puro. A "mesa de som" MANUAL (v5.82–v5.188) foi removida na v5.189 com um argumento que continua inteiro — o som é dos DISPLAYS (a TV pela `Presentation`, as telas da rede pelo `<video>` delas), e os WebViews dividem o processo e a saída de áudio do Android, então o áudio da preview tomava o foco e INTERROMPIA o player do telão. O que ela não respondia é o caso em que **não há display nenhum**: ali a projeção É a preview em tela cheia, e uma projeção muda não é projeção. Agora não há interruptor a esquecer ligado — o estado é DERIVADO da conexão (`simpleDisplay`: a TV **ou** uma tela da rede) e só vale no modo avançado; com qualquer tela conectada este aparelho está mudo, sempre. O `keepAudioAlive` **não voltou**: áudio audível já isenta a página do estrangulamento |
 | PDF, PowerPoint, Google Apresentações | **PDF não existe** (não há quem o desenhe); o `.pptx` funciona, e é o MESMO caminho do app | **viram UMA IMAGEM POR PÁGINA**, cada formato pelo caminho que existe para ele: o **PDF** pelo `PdfRenderer` da PLATAFORMA (`SlideDeck.kt` + `AVNative.deckPages`) — fidelidade total, zero dependência; o **`.pptx`** pelo renderizador de OOXML em `assets/web/vendor/` (`pptxParaPaginas`, em `controle.js`), carregado por `import()` dinâmico e rasterizado com `<foreignObject>` + canvas. Daí para a frente é mídia comum: fade, cortina, telão e `MediaSession` que já existem, com ⏮/⏭ passando página. **Não há botão de "apresentação"**: uma apresentação é um arquivo como outro qualquer, e entra pelo mesmo "Importar arquivos" (que no app abre o seletor do SISTEMA, `pickDoc` — o `<input type="file">` devolve bytes, e o PDF precisa que o shell abra o ARQUIVO) ou pelo compartilhamento. O `.ppt` anterior a 2007 e o `.odp` ficam de fora: ninguém sabe desenhá-los, e aceitar para depois falhar é pior que não aceitar. O link do Google entra sozinho pela URL de exportação |
 | **Tocar agora** de um vídeo do YouTube | **não toca** — sem ponte não há transmissão nem download, e o app diz isso na linha do item | **TRANSMISSÃO DIRETA** (v5.120/shell 26; **funcionando só do shell 27 em diante**): o shell monta o manifesto das duas faixas adaptativas (`ytStream`), o `StreamProxy` as serve pelo NOSSO origin com o UA que combina com a URL, e o `MediaSource` de `shared/mse.js` as vira um `<video>` COMUM — fade, cortina, `MediaSession`, barra e segundo plano de graça, **e zero pixel de YouTube no telão**. Sem esperar o download. A faixa de bytes viaja na QUERY (`?r=<ini>-<fim>`), nunca no cabeçalho `Range` — ver a invariante 8, que é a razão de o recurso ter passado três versões sem tocar um único vídeo. Só em "Tocar agora": as outras três ações GUARDAM o item, e um manifesto expira em horas. Falhando qualquer coisa (shell < 27, vídeo sem par adaptativo, WebView sem o codec) cai no download, calado — o operador pediu o louvor, não o método |
 | Vídeo do YouTube | **não toca** (ver acima) | **arquivo de vídeo baixado PELO APARELHO** (`YoutubeGrab.kt` + `AVNative.ytFetch`) — o embed pausa sozinho com o app minimizado, e a extração no próprio celular sai do IP do chip, que é o que o YouTube não bloqueia. Sem configurar nada. Cobalt continua como segunda opção para quem já mantém uma instância; falhando os dois, o link vira um item de LINK, que o toque seguinte tenta resolver de novo (v5.212 — não há mais player embutido para onde cair) |
@@ -2377,10 +2377,71 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.214** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
+**Versão atual: v5.215** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.215: SEM TELA CONECTADA, O SOM SAI DO PRÓPRIO APARELHO. OTA PURO**
+> (nenhuma linha de Kotlin, `SHELL_VERSION` intacto em 40; sem Release).
+>
+> Pedido do operador: no modo avançado, tocar uma mídia sem nenhuma tela
+> conectada tem de produzir som no celular. Ele fecha um buraco que a v5.189
+> abriu e que este documento descrevia sem perceber — o argumento de lá ("a
+> preview é uma ILUSTRAÇÃO, e ilustração não faz som") vale enquanto existe
+> alguém ilustrando alguma coisa. **Sem display nenhum a projeção É a preview em
+> tela cheia**, e ali ela não ilustra: ela É a projeção. O louvor simplesmente
+> não tocava em lugar nenhum.
+>
+> **A diferença para a "mesa de som" é a única coisa que importa neste lote, e
+> ela é estrutural: não é um modo, é uma CONSEQUÊNCIA.** Não há botão, não há
+> preferência, não há nada guardado entre sessões — o estado é uma função da
+> conexão (`somLocalDeveEstar`), aplicada num ponto só
+> (`acertarSaidaDeAudio` → `preview.setForceMuted`), com os gatilhos onde a
+> conexão muda: telas (`renderDisplayStatus`), transmissão (`lerEspelho`), modo
+> do app (`setAppMode`) e a janela do Display no navegador. É isso que torna
+> impossível o desfecho que matou a versão manual — o operador esquece a mesa
+> ligada, conecta a TV, e o `<video>` do Controle rouba o foco de áudio do
+> Android **interrompendo o player do telão na frente da congregação**. Com
+> qualquer tela conectada este aparelho está mudo, sempre.
+>
+> **TELA é a pergunta larga** (`simpleDisplay`, a mesma do Modo Fácil): a TV
+> **ou** uma tela da rede recebendo. Desde a v5.187 elas são a projeção quando
+> não há TV e cada uma toca o próprio arquivo — contá-las é o que impede o
+> celular de somar o mesmo louvor à sala fora de compasso, porque são dois
+> decodificadores. `telaoConectado()` continua respondendo só pela TV, que é a
+> pergunta certa para o atraso da preview e para o botão de espelhar.
+>
+> **Só no modo avançado**, como pedido — e a razão sobrevive à leitura: no Modo
+> Fácil sem tela a cortina cobre tudo (v5.203), e som atrás de uma tela que diz
+> "conecte uma tela" seria a única coisa acontecendo ali. A troca entre os dois
+> mundos é automática nos dois sentidos e não corta o áudio: a rampa curta do
+> `setForceMuted` desce até 0 antes de mutar, e uma TV que conecta no meio do
+> louvor assume pelo reenvio de cena com posição e estado que a reconexão já faz.
+>
+> **A rede de segurança do navegador está dita em vez de suposta:** num
+> navegador comum a política de autoplay rejeita o `play()` com som sem ativação
+> do usuário, e o `stage` engole a rejeição — sem tratamento, o preço de ligar o
+> som seria a preview PARAR DE TOCAR, que é trocar uma ilustração muda por
+> nenhuma ilustração. O `onBlocked` a devolve ao mudo na hora e cada `load` novo
+> ganha outra tentativa. No app isso não acontece
+> (`mediaPlaybackRequiresUserGesture = false`).
+>
+> **O que NÃO voltou, e é deliberado:** o `AVNative.keepAudioAlive` (shell), que
+> a versão manual usava para o WebView do Controle atravessar o segundo plano.
+> Áudio audível já isenta a página do estrangulamento — é o que a nota do
+> `snoopDisplayStatus` descreve pelo avesso ("ligar o áudio no próprio celular
+> fazia o defeito sumir") — e o `SessionService` mantém o processo vivo enquanto
+> houver cena. Repô-lo custaria um degrau de `SHELL_VERSION` e uma Release por
+> um problema que ainda não foi observado; o endereço da resposta ficou escrito
+> em `docs/ARQUITETURA-WEB.md`, para o dia em que for.
+>
+> Dois oráculos travam a regra, e o primeiro é o único que podia: o
+> `boot-nativo.test.mjs` é o que sobe a base COM a ponte, isto é, o único lugar
+> em que existe conexão a medir — sem tela a preview deixa de ser muda, no Modo
+> Fácil volta a ser, e com uma tela da rede recebendo ela fica muda mesmo no
+> avançado. O `destinos.test.mjs` continua travando a REMOÇÃO (nenhum botão,
+> nenhum `setStandalone`) e agora afirma também que o estado é derivado.
 
 > **A v5.214: A ATIVAÇÃO DA TELA DA REDE JÁ ERA UNIFICADA — o que sobrava era um
 > segundo botão pedindo o que o primeiro tinha acabado de fazer. OTA PURO**

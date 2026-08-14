@@ -1350,7 +1350,8 @@ sustentam isso, e as duas primeiras nasceram de defeitos vistos em culto:
 ## Motor de renderização (`shared/stage.js`)
 
 `createStage(opts)` retorna um objeto com a API de reprodução. Usado pelo Display
-(tela real) e pelo Controle (mini-preview sempre mudo). Suporta blobs locais,
+(tela real) e pelo Controle (a mini-preview, muda enquanto houver tela conectada
+— ver "A saída de áudio"). Suporta blobs locais,
 arquivos do OPFS (`opfsPath` — resolvidos via `AVDB.opfsGetFile`, com re-checagem
 de `loadSeq` após o await) e itens de URL direta (`blob=null, url=string`).
 Itens `kind='youtube'` **não são reproduzidos pelo stage** — ele apenas mostra
@@ -1556,9 +1557,9 @@ stage.seek(seconds)
 stage.setView(v) / setMute(m) / setVolume(vol)
 stage.setFade({ fadeIn, fadeOut, time })  // chamado uma vez, no init, com createStage.FADE
 stage.setFit(v)        // 'contain' (ajustar) | 'cover' (preencher) | 'fill' (esticar)
-stage.setForceMuted(v) // alterna em tempo real se o stage é forçado a ficar sempre mudo
-                        // (preview normal) ou toca áudio de verdade (modo "mesa de som"),
-                        // com rampa curta de volume (MUTE_RAMP_TIME)
+stage.setForceMuted(v) // alterna em tempo real se o stage é forçado a ficar mudo
+                        // (preview com tela conectada; tela da rede antes do gesto)
+                        // ou toca áudio de verdade, com rampa curta (MUTE_RAMP_TIME)
 stage.coverIn(rampAudio) / coverOut() / instantCover(show)  // cortina do wallpaper (ver acima)
 stage.fadeOutToBlack()  // esmaece até o preto e reseta (current=null) sem tocar a cortina —
                         // usado só na troca de TIPO de conteúdo (mídia local ↔ YouTube)
@@ -1913,9 +1914,10 @@ simplificado**: as teclas de volume já estão na tela, com o número ao lado.
 
 Neste modo **a projeção É o telão** — não existe preview aqui. Sem tela
 conectada, buscar uma música e dar play não produz nada: nem imagem (não há para
-onde) nem som (a preview é muda por construção desde a v5.189, quando a mesa de
-som saiu). Os controles continuavam à disposição, respondendo a cada toque, sem
-que nada acontecesse em lugar nenhum.
+onde) nem som (a preview toca o som deste aparelho só no modo AVANÇADO — ver "A
+saída de áudio"; aqui ela segue muda, e é este bloqueio a razão). Os controles
+continuavam à disposição, respondendo a cada toque, sem que nada acontecesse em
+lugar nenhum.
 
 `renderSimpleGate()` cobre a tela com a cortina `#simpleVeil` — `backdrop-filter:
 blur(7px)` mais um véu em `--veil` — que **intercepta os toques** do que ficou
@@ -2803,78 +2805,84 @@ notificava ninguém; e o `setOnDismissListener` — o caminho da queda por dist�
 a frente**, porque um evento perdido não se recupera sozinho e este WebView é
 estrangulado justamente enquanto o app está minimizado.
 
-### Modo "mesa de som" (saída de áudio local)
+### A saída de áudio: os displays, ou ESTE APARELHO (v5.215)
 
-**Ícone de alto-falante no canto INFERIOR ESQUERDO da preview**
-(`#pvSoundBtn`, `.pv-fab--bl` — v5.82): liga um modo em que
-a **preview do Controle passa a tocar o áudio de verdade pelo próprio
-aparelho**, em vez de sempre muda — para quando não há intenção de exibir vídeo,
-só tocar música
-(ex: o celular do operador ligado direto na mesa de som/caixa de som da
-igreja, sem precisar nem abrir o Display).
+**Sem tela nenhuma conectada, quem toca o som é a preview do Controle** — isto
+é, o próprio celular. Não há botão, não há preferência e não há nada a lembrar
+entre sessões: o estado é **derivado da conexão**, e o único ponto que o aplica
+é `acertarSaidaDeAudio()`, que liga e desliga o `forceMuted` do stage da
+preview.
 
-- **Não mexe em nada da comunicação com o Display** — `cmd()` continua
-  enviando todos os comandos normalmente (`AVDB.sendCommand`), exatamente
-  como no modo normal. Se o Display estiver aberto, ele continua recebendo e
-  reagindo aos comandos como sempre; se não estiver aberto, os comandos
-  simplesmente não têm quem escute — o Controle não trata esse caso de forma
-  especial, nem precisa saber se o Display está ou não em uso.
-- `setStandalone(v)` só alterna a saída de áudio da preview, **com rampa curta**
-  (a mesma `MUTE_RAMP_TIME` do mudo, 0,25 s) — ligar/desligar não corta o áudio
-  na hora:
-  - **Ligar**: `preview.setForceMuted(false)` — a preview deixa de ser sempre
-    muda e passa a tocar o volume/mudo real que o operador já tiver ajustado; o
-    áudio **sobe em rampa de 0 até o alvo**. Se o item atual for YouTube, o
-    player da preview (`ytPreview`) é desmutado e sobe pela mesma rampa
-    (`ytPreviewRampVolume`, em paralelo).
-  - **Desligar**: o áudio **desce em rampa até 0 e só então muta**
-    (`preview.setForceMuted(true)`; para o YouTube, `ytPreviewRampVolume` +
-    `player.mute()` ao fim da rampa).
-- `stage.js` ganhou `setForceMuted(v)`/`isForceMuted()`: `forceMuted` deixou
-  de ser fixado na criação do stage (`const`) e virou alternável em tempo
-  real (`let`). A troca faz a mesma rampa do `setMute` (`rampVolume` +
-  `MUTE_RAMP_TIME`): ao **desativar**, `forceMuted` só liga no **fim** da rampa
-  (senão `rampVolume` abortaria de imediato, pois ignora pedidos com
-  `forceMuted` já ligado); ao **ativar**, respeita o mudo do operador. Sem mídia
-  tocando, aplica na hora (sem rampa, nada a esmaecer).
-- **Não é persistido** — cada abertura do app começa em modo normal (preview
-  muda), evitando som inesperado saindo do celular numa sessão nova. Por isso
-  `renderStandaloneSeg()` também roda na carga: sem ela o segmento abriria com
-  os dois botões apagados, sem nenhuma escolha marcada.
-- **O BOTÃO SOME COM TELÃO CONECTADO** (v5.141). Os dois WebViews dividem o
-  mesmo processo e a mesma saída de áudio do Android: ligar o som da preview
-  enquanto o telão projeta não é "ouvir junto" — o `<video>` do Controle assume
-  o foco de áudio e o player do telão é **interrompido** no meio do louvor, na
-  frente da congregação. O modo existe para o caso em que o celular É a caixa de
-  som, e esse caso é, por definição, o caso sem telão. Quem responde "há tela?"
-  é `telaoConectado()`, que pergunta pela CONEXÃO (a `Presentation` no app, a
-  janela do Display no navegador) e não por `displayActive()`, que mede se o
-  telão mandou notícia há pouco — um telão mostrando o wallpaper não emite
-  `display-status` nenhum e continua sendo um telão conectado. A **liberação de
-  teste** do simplificado não conta: ela não conecta nada, logo não há player a
-  interromper, e esconder o botão ali tiraria o som do único lugar em que ele
-  pode ser ouvido. Conectar a tela com o som JÁ LIGADO **desliga o modo**
-  (`pushTelaoNoSom`) — esconder o botão sem desligá-lo deixaria exatamente o
-  estado que a regra existe para impedir, e sem controle na tela para desfazê-lo.
-  Some em vez de ficar desabilitado: um botão apagado num canto da preview seria
-  mais um elemento a decifrar durante o culto, e a explicação não cabe num
-  `title` que ninguém vai abrir.
-- **Voltou a ser um ícone, e desta vez sobre a PREVIEW** (v5.82). Ela era a
-  única preferência da lista de Configurações que se mexe DURANTE o culto —
-  chega-se, liga-se a caixa de som, e ou há som no aparelho ou não —, e dois
-  toques num popup para uma decisão dessa frequência é atrito puro. O lugar de
-  decidir se há som no celular é olhando para a preview, que é onde o som está
-  sendo julgado. O ícone carrega o ESTADO (alto-falante inteiro × riscado), pela
-  mesma convenção da cortina e do mudo: o riscado é o corte; quem nomeia a ação
-  é o `title`. Some em tela cheia junto com os outros `.pv-fab`.
-- **Era um botão do mixer** (`#standaloneToggle`, ícone de fone de ouvido) até a
-  v5.48. Virou linha de Configurações na v5.49 pelo mesmo critério que já havia
-  mandado para lá as imagens dos slides e o preenchimento da mídia: é uma
-  decisão de **roteamento de áudio** que se toma uma vez ao montar o culto — "o
-  celular está ligado na caixa de som?" —, não um controle que se opera no meio
-  dele. Na coluna do mixer ela ocupava o meio do bloco de operação (entre a
-  leitura da letra e o mudo) sendo a única ali que não se toca mais depois de
-  decidida. O lugar que ela deixou virou a porta de Configurações.
+```
+alguma tela conectada?  ── sim ──▶  preview MUDA (o som é da TV / das telas)
+   (simpleDisplay)      ── não ──▶  preview TOCA (o celular é a caixa de som)
+```
+
+- **TELA é a pergunta larga**: a TV pela `Presentation` **ou** uma tela da rede
+  recebendo. Desde a v5.187 elas são a projeção quando não há TV, e cada uma
+  toca o próprio arquivo no `<video>` dela — contá-las é o que impede o celular
+  de duplicar o áudio da sala, fora de compasso (são dois decodificadores). Quem
+  responde é `simpleDisplay()`, a mesma função do Modo Fácil, por
+  `algumaTelaConectada()`: delegar em vez de reescrever é o que impede as duas
+  de divergirem no primeiro caso de borda. `telaoConectado()` continua
+  respondendo só pela TV, que é a pergunta certa para o atraso da preview e para
+  o botão de espelhar.
+- **Só no modo avançado.** No Modo Fácil sem tela a cortina cobre tudo (ver o
+  bloqueio daquele modo) e não há o que projetar; som saindo de um app bloqueado
+  seria a única coisa acontecendo atrás de uma tela que diz "conecte uma tela".
+  Trocar de modo é, por isso, um dos gatilhos de `acertarSaidaDeAudio()` — os
+  outros são as telas (`renderDisplayStatus`), a transmissão (`lerEspelho`) e a
+  janela do Display no navegador (`openWebDisplay`).
+- **A troca é automática nos dois sentidos e não corta o áudio**: a rampa curta
+  do `setForceMuted` (a mesma `MUTE_RAMP_TIME` do mudo) desce até 0 e só então
+  muta ao emudecer, e sobe de 0 ao alvo ao dar som, respeitando o mudo e o fader
+  que o operador já tiver ajustado. Uma TV conectando no meio do louvor cala
+  este aparelho e o telão assume pelo reenvio de cena que a reconexão já faz
+  (`resendSceneToDisplay`, com posição e estado); ela caindo devolve o som para
+  cá.
+- **O navegador pode recusar**, e a resposta é voltar a tocar MUDO na hora
+  (`onBlocked` da preview + `somLocalBloqueado`). No app isso não acontece
+  (`mediaPlaybackRequiresUserGesture = false`); num navegador comum a política
+  de autoplay rejeita o `play()` com som sem ativação do usuário, e sem esse
+  ramo o preço de ligar o som seria a preview **parar de tocar** — trocar uma
+  ilustração muda por nenhuma ilustração. A recusa vale só até o próximo `load`:
+  cada mídia nova ganha uma tentativa, e o toque que a carregou é a ativação que
+  faltava.
+- **O Registro diz onde o som está saindo** ("Som: …"). "Não sai som" tem causas
+  que a tela não separa — mudo, fader em zero, tela conectada sem volume, este
+  aparelho calado por haver tela —, e quem lê o Registro está a distância.
+
+#### Por que não é a "mesa de som" de volta
+
+Da v5.82 à v5.188 existiu um **modo manual** com esse nome: um ícone de
+alto-falante sobre a preview (`#pvSoundBtn`) ligava a saída de áudio local, e
+`setStandalone()` a alternava. Ele saiu por inteiro na v5.189, a pedido do
+operador, e o argumento era bom: os dois WebViews dividem o mesmo processo e a
+mesma saída de áudio do Android, então o `<video>` do Controle **rouba o foco de
+áudio** e interrompe o player do telão no meio do louvor. A v5.141 já tinha
+escondido o botão com telão conectado, e a v5.189 concluiu que a preview é uma
+ilustração — e ilustração não faz som.
+
+O que a v5.189 não respondeu foi o caso em que **não há display nenhum**: ali a
+projeção É a preview em tela cheia, e uma projeção muda não é projeção. O louvor
+simplesmente não tocava em lugar nenhum.
+
+A diferença entre as duas versões é a que faz esta ser segura onde aquela não
+era: **não existe interruptor a esquecer ligado**. O estado inteiro é uma função
+da conexão, então o desencontro que matava a versão manual — o operador liga a
+mesa, conecta a TV depois e o telão é interrompido — não tem como acontecer: com
+qualquer tela conectada este aparelho está mudo, sempre. `tools/destinos.test.mjs`
+trava a ausência do botão e do modo, e `tools/boot-nativo.test.mjs` (o único que
+sobe a base com a ponte presente, que é onde a conexão existe) trava os dois
+lados da regra.
+
+Do lado nativo isto é **OTA puro**: nenhuma linha de Kotlin, `SHELL_VERSION`
+intacto. O `AVNative.keepAudioAlive`, que a versão manual usava para o WebView
+do Controle atravessar o segundo plano, **não voltou** — áudio audível já isenta
+a página do estrangulamento (é o que a nota do `snoopDisplayStatus` no
+`CLAUDE.md` descreve pelo avesso), e o `SessionService` mantém o processo vivo
+enquanto houver cena.
+
 
 ### Leitura auxiliar (letra completa / capítulo inteiro)
 
@@ -7442,6 +7450,19 @@ Depois de tudo acima, veio a informação que faltava: a pausa acontecia com a
 toca é o `<video>` da **preview**, no WebView do **Controle**, e não o do telão.
 As três correções anteriores protegiam o WebView errado.
 
+> **E ISTO VOLTOU A TER DONO NA v5.215**, com uma diferença que precisa estar
+> dita: sem tela nenhuma conectada, quem toca é de novo o `<video>` da preview,
+> no WebView do **Controle** — mas o `AVNative.keepAudioAlive` (e o
+> `setAudioAlive` do shell) **saiu na v5.189 e não voltou**. O que segura o caso
+> hoje é o que já segurava o defeito relatado quando ele foi diagnosticado:
+> **áudio audível isenta a página do estrangulamento** — é a mesma observação
+> que o `CLAUDE.md` registra pelo avesso na nota do `snoopDisplayStatus` ("ligar
+> o áudio no próprio celular fazia o defeito sumir") — e o `SessionService`
+> mantém o processo vivo enquanto houver cena. Se um dia o louvor calar ao
+> minimizar o app com o som saindo do celular, é aqui que a resposta começa, e o
+> caminho é o `manterVisivel` + `RENDERER_PRIORITY_IMPORTANT` descrito acima.
+> Ele custa um degrau de `SHELL_VERSION` e uma Release.
+
 E o Controle ser estrangulado em segundo plano é, normalmente, o comportamento
 CERTO: ele é a mesa de comando, e o som está no telão. Deixa de ser certo
 exatamente quando a mesa de som está ligada, porque aí o celular é a caixa de
@@ -7985,7 +8006,7 @@ distingue ligado de desligado, não qual dos três. Ali o ícone segue sendo o
 modo atual, que é a informação que se perderia.
 
 Botões de **função** (engrenagem de Configurações, folha da leitura auxiliar) e
-**segmentados** (modo do app, mesa de som, preenchimento, imagens dos slides,
+**segmentados** (modo do app, tema, preenchimento, imagens dos slides,
 wallpaper) ficam fora da regra por natureza: não alternam duas ações opostas — o
 ícone nomeia o recurso, e o segmento marcado diz o resto.
 

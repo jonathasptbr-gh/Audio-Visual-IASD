@@ -322,18 +322,23 @@ try {
   checar(teto >= 1 && teto <= 3,
     'há um teto de resgates — sem ele a intenção volta a cada abertura pelas 6 h inteiras');
 
-  // ---- A PREVIEW NÃO TEM MAIS SOM (v5.189) ----
-  // A mesa de som saiu por inteiro: o som do sistema é o dos DISPLAYS (a TV
-  // pela Presentation, as telas da rede pelo <video> delas). O que este caso
-  // trava é a REMOÇÃO — um botão de som ressuscitado sobre a preview é o
-  // caminho de volta para o `<video>` do Controle roubar o foco de áudio do
-  // Android e interromper o player do telão no meio do louvor.
+  // ---- A MESA DE SOM NÃO VOLTA COMO MODO (v5.189, reafirmado na v5.215) ----
+  //
+  // O som deste aparelho voltou a existir na v5.215 — mas como CONSEQUÊNCIA da
+  // conexão (sem tela nenhuma, a preview toca; ver `acertarSaidaDeAudio`), e
+  // nunca como um interruptor. O que este caso trava é justamente a diferença:
+  // um botão de som sobre a preview, ou um `standalone` guardado, é o caminho
+  // de volta para o `<video>` do Controle roubar o foco de áudio do Android e
+  // interromper o player do telão no meio do louvor — que era o defeito da
+  // versão manual, e que só o estado DERIVADO impede por construção.
   const semSom = await pg.evaluate(() => ({
     semBotao: !document.getElementById('pvSoundBtn'),
     semModo: typeof window.setStandalone === 'undefined',
+    derivado: typeof somLocalDeveEstar === 'function',
   }));
   checar(semSom.semBotao, 'não há botão de som sobre a preview');
-  checar(semSom.semModo, 'e o modo "mesa de som" não existe mais — o som é dos displays');
+  checar(semSom.semModo, 'e a "mesa de som" não volta como MODO — não há interruptor a esquecer ligado');
+  checar(semSom.derivado, 'o som deste aparelho é DERIVADO da conexão (somLocalDeveEstar)');
 } catch (e) {
   checar(false, 'o percurso terminou sem exceção (' + (e && e.message) + ')');
 }
