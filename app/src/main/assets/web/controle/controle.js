@@ -25,9 +25,6 @@ const temaSegEl = document.getElementById('temaSeg');
 const simpleModeEl = document.getElementById('simpleMode');
 const simpleFullBtnEl = document.getElementById('simpleFullBtn');
 const fullSimpleBtnEl = document.getElementById('fullSimpleBtn');
-const simpleCastBtnEl = document.getElementById('simpleCastBtn');
-const simpleCastLabelEl = document.getElementById('simpleCastLabel');
-const simpleCastStatusEl = document.getElementById('simpleCastStatus');
 const simpleSearchBtnEl = document.getElementById('simpleSearchBtn');
 const simpleVeilEl = document.getElementById('simpleVeil');
 const simpleStageEl = document.getElementById('simpleStage');
@@ -212,7 +209,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.196';
+const WEB_VERSION = '5.197';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -14303,30 +14300,17 @@ function renderCastBtn() {
         : 'Espelhar na TV';
 }
 
+// O QUE SOBROU DE "renderizar a conexão no Modo Fácil" (v5.197): o ícone de
+// cast da preview e o bloqueio. O cartão que esta função existia para pintar —
+// rótulo, subtítulo, estado, `title` do gesto de 5 s — saiu com o botão único,
+// que estava morto desde a v5.193 (escondido por duas regras de `display: none`
+// que juntas cobriam todos os estados).
+//
+// O nome fica: são treze chamadores, e a função continua sendo "acerte o que
+// depende de haver tela conectada" — só que hoje isso é o ícone e a cortina.
 function renderSimpleCast() {
   renderCastBtn();
   if (appMode !== 'simple') return;
-  const tv = simpleDisplay();
-  // `.connected` é o verde de "há uma tela recebendo"; a liberação de teste
-  // NUNCA o veste (ver `castTestUnlocked`) — ela é aviso, não conexão.
-  simpleCastBtnEl.classList.toggle('connected', !!tv && !castTestUnlocked);
-  simpleCastBtnEl.classList.toggle('testing', castTestUnlocked);
-  // Sem tela, o botão é a tela inteira (ver o bloqueio abaixo) e precisa dizer
-  // tudo sozinho: uma frase, no rótulo. Com tela conectada ele volta a ser um
-  // cartão entre outros — o rótulo nomeia a ação e o subtítulo informa o
-  // estado, que é a divisão de sempre.
-  simpleCastLabelEl.textContent = 'Conectar a tela';
-  simpleCastBtnEl.title = castTestUnlocked
-    ? 'Liberação de teste ativa — segure 5 s para trancar'
-    : 'Segure 5 s para liberar a tela sem telão (teste)';
-  // O SUBTÍTULO É SÓ ESTADO (v5.195). Ele tinha três frases de instrução —
-  // "Toque para escolher a tela", "Abrir a tela do Display" — que repetiam o
-  // rótulo logo acima e o ícone ao lado. E desde a v5.193 este cartão só existe
-  // COM tela conectada (sem ela, quem ocupa a tela é a seção de conexão
-  // inteira), então o caso sem nada a dizer é o que quase nunca acontece.
-  simpleCastStatusEl.textContent = castTestUnlocked
-    ? 'Liberado para teste'
-    : (tv ? (tv.name || 'Tela conectada') : '');
   renderSimpleGate();
 }
 
@@ -14534,37 +14518,13 @@ holdRepeat(simpleVolDownEl, () => simpleVolStep(-1));
 // Toque curto = abrir o seletor de tela; 5 s segurando = liberação de teste
 // (acima). O `holdFired` é o que impede o `click` seguinte de abrir o seletor
 // de espelhamento em cima da tela que acabou de destravar.
+// A LIBERAÇÃO DE TESTE, e ela mora na CORTINA (v5.193; a metade do botão saiu
+// na v5.197 com o próprio botão).
 (function setupCastHold() {
-  let timer = null, holdFired = false;
-  const stop = () => {
-    clearTimeout(timer); timer = null;
-    simpleCastBtnEl.classList.remove('simple-key--holding');
-  };
-  simpleCastBtnEl.style.setProperty('--cast-hold', CAST_HOLD_MS + 'ms');
-  simpleCastBtnEl.addEventListener('pointerdown', () => {
-    holdFired = false;
-    clearTimeout(timer);
-    // A classe reentra do zero a cada toque: reiniciar a animação exige que ela
-    // saia e volte, e é o `stop()` de qualquer toque anterior que a tirou.
-    simpleCastBtnEl.classList.add('simple-key--holding');
-    timer = setTimeout(() => {
-      holdFired = true;
-      castTestUnlocked = !castTestUnlocked;
-      stop();
-      renderSimpleCast();
-    }, CAST_HOLD_MS);
-  });
-  ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => simpleCastBtnEl.addEventListener(ev, stop));
-  simpleCastBtnEl.addEventListener('click', () => {
-    if (holdFired) { holdFired = false; return; }
-    abrirCast();
-  });
-
-  // E A CORTINA CARREGA O MESMO SEGREDO (v5.193). A liberação de teste vivia só
-  // no botão grande, e o botão grande deixou de existir quando a tela está
-  // bloqueada — isto é, ela sumiu exatamente do estado em que ela serve para
-  // alguma coisa: destravar o app SEM tela, para ensaiar ou conferir uma
-  // playlist na terça-feira.
+  // Ela vivia no botão grande de conectar, e ele não existe quando a tela está
+  // bloqueada — isto é, ela sumia exatamente do estado em que serve para alguma
+  // coisa: destravar o app SEM tela, para ensaiar ou conferir uma playlist na
+  // terça-feira.
   //
   // A cortina é o alvo certo: ela ocupa toda a tela que não é a seção de
   // conexão, já intercepta tudo o que está atrás dela, e um toque nela não
@@ -14572,9 +14532,16 @@ holdRepeat(simpleVolDownEl, () => simpleVolStep(-1));
   // emergência de quem desenvolve, e anunciá-la ao operador convidaria a
   // projetar sem telão sem saber que é isso que está acontecendo.
   let vt = null;
-  const pararVeu = () => { clearTimeout(vt); vt = null; };
+  const pararVeu = () => {
+    clearTimeout(vt); vt = null;
+    simpleVeilEl.classList.remove('segurando');
+  };
+  simpleVeilEl.style.setProperty('--cast-hold', CAST_HOLD_MS + 'ms');
   simpleVeilEl.addEventListener('pointerdown', () => {
     pararVeu();
+    // A barra reentra do zero a cada toque: reiniciar a animação exige que a
+    // classe saia e volte, e é o `pararVeu()` acima que a tirou.
+    simpleVeilEl.classList.add('segurando');
     vt = setTimeout(() => {
       castTestUnlocked = !castTestUnlocked;
       pararVeu();

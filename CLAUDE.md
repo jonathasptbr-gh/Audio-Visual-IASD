@@ -2251,10 +2251,35 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.196** (base web) · `SHELL_VERSION` **39**, e o bundle segue com
+**Versão atual: v5.197** (base web) · `SHELL_VERSION` **39**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.197: O BOTÃO ÚNICO DE CONECTAR SAI — e ele estava MORTO havia quatro
+> versões. OTA PURO.** O operador viu resquícios dele no Modo Fácil; medido, o
+> resquício era o botão inteiro.
+>
+> Ele estava escondido por **DOIS caminhos ao mesmo tempo**, e é por isso que
+> ninguém notou: `.simple:not(.locked) #simpleCastBtn { display: none }` (com
+> tela, quem ocupa a célula é a preview — v5.75) e
+> `.simple.locked #simpleCastBtn { display: none }` (sem tela, quem ocupa a tela
+> é a seção de conexão inteira — v5.193). Duas regras que juntas cobrem TODOS os
+> estados são um elemento que nunca aparece; e o CSS de um elemento que nunca
+> aparece não tem como ser notado errado.
+>
+> Ainda assim ele carregava rótulo, subtítulo, ícone, `title`, ~25 linhas de CSS
+> de destaque, três `getElementById` e metade do `renderSimpleCast` — que existia
+> para pintá-lo e ficou com três linhas depois de ele sair. **A regra que isto
+> ensina é sobre a forma de esconder**: `display: none` por estado é acumulável,
+> e dois deles não somam "escondido às vezes", somam "não existe".
+>
+> **E a barra de progresso do gesto de 5 s foi junto — descobrindo que ela nunca
+> tinha chegado ao novo dono.** A liberação de teste mudou de alvo na v5.193 (do
+> botão para a cortina) e a animação ficou para trás: eram **cinco segundos de
+> nada**, indistinguíveis de um toque que não pegou. Agora ela corre no TOPO da
+> cortina — embaixo ficaria atrás do teclado de transporte, que é o que a
+> cortina cobre.
 
 > **A v5.196: A FOLHA DE "AJUSTES AVANÇADOS" SAI INTEIRA. OTA PURO.**
 > Pedido do operador: *"nada ali é realmente útil, exceto pelo botão de
