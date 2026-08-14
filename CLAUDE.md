@@ -1603,7 +1603,13 @@ virava um quadrado cheio.
 (`app_bg` e `app_bg_claro`). É o fundo das barras de status e navegação e o
 `windowBackground` (o que aparece ANTES de o WebView carregar). Nada no build
 detecta a divergência, e o OTA pode trocar a base web sem trocar o APK — se um
-token mudar, o valor daqui muda junto. Quem escolhe entre os dois é a
+token mudar, o valor daqui muda junto. **Ele é o ÚNICO lugar fora de
+`tokens.css` que carrega a cor de fundo, e não tem escapatória**: recurso de
+Android não enxerga custom property de CSS. O `theme-color` do `<meta>` chegou a
+ser um segundo e deixou de ser — o `pintarTema()` o LÊ do `--bg` já resolvido (a
+folha entra no `<head>` e o script no fim do `<body>`, então o estilo já está
+aplicado quando ele roda), e o literal do HTML cobre só o instante anterior a
+esse script. Quem escolhe entre os dois é a
 `MainActivity` em tempo de execução (`AVNative.temaClaro` → `setTemaClaro`), a
 partir de uma CÓPIA da escolha guardada em `SharedPreferences`: um recurso de
 XML é resolvido antes de existir JavaScript, então o primeiro quadro só pode vir
