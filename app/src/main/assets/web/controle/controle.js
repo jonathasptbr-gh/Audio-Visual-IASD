@@ -26,7 +26,6 @@ const simpleModeEl = document.getElementById('simpleMode');
 const simpleFullBtnEl = document.getElementById('simpleFullBtn');
 const fullSimpleBtnEl = document.getElementById('fullSimpleBtn');
 const simpleSearchBtnEl = document.getElementById('simpleSearchBtn');
-const simpleVeilEl = document.getElementById('simpleVeil');
 const simpleStageEl = document.getElementById('simpleStage');
 // A preview e a casa dela no modo avançado: são módulo-nível porque o nó MUDA
 // DE PAI conforme o modo (ver hostPreview).
@@ -209,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.198';
+const WEB_VERSION = '5.199';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -1210,6 +1209,17 @@ const MIRROR_POLL_MS = 2500;
 // O piso de shell do espelho. Sobe junto pelo mesmo motivo: quem o lê é o
 // `espelhoDisponivel()`, e ele é chamado na carga do módulo.
 const MIRROR_SHELL = 32;
+// E AS TELAS CONECTADAS SOBEM JUNTO (v5.199), pela mesma regra — nenhuma
+// explosão desta vez, e é justamente esse o ponto. `lastDisplays` era declarado
+// na linha ~14050 e já é lido por TRÊS caminhos de render (`telaoConectado`
+// aqui em cima, `simpleDisplay` e `renderCastBtn`); só não explodia porque o
+// `setAppMode(appMode)` que os alcança na carga fica DEPOIS dele no arquivo.
+// Isto é: a corretude dependia da ordem relativa de duas linhas separadas por
+// 14 mil, e foi exatamente essa dependência que quebrou o app quatro vezes.
+// `reconferirTelas` vem junto porque é a outra metade do mesmo estado (quem o
+// atribui de verdade é o bloco nativo, lá embaixo).
+let lastDisplays = [];          // telas conectadas (ponte nativa)
+let reconferirTelas = () => {}; // releitura da lista; no navegador é no-op
 let displayAudioBlocked = false; // Display reportou áudio bloqueado pelo navegador
 const scrollPos = {};      // posição de scroll por aba/pasta (sessão)
 
@@ -1714,10 +1724,6 @@ function ytPreviewHandle(obj) {
 // telão conectado. Aqui a pergunta é sobre a CONEXÃO — a `Presentation` no app,
 // a janela do Display no navegador —, que é o que decide se ligar o som deste
 // aparelho atrapalha alguém.
-//
-// A liberação de teste do simplificado (`castTestUnlocked`) NÃO conta, e é
-// deliberado: ela não conecta nada, então não há player nenhum para interromper
-// — esconder o botão ali tiraria o som do único lugar onde ele pode ser ouvido.
 function telaoConectado() {
   if (!window.__NATIVE__) return !!(webDisplayWin && !webDisplayWin.closed);
   return lastDisplays.length > 0;
@@ -14051,11 +14057,11 @@ volSliderEl.addEventListener('change', () => { volSeekingEl = null; persistCurre
 // recarregar, mudo bloqueado pelo navegador — existe em dois lugares.
 // (`appMode` é declarado no TOPO do arquivo, junto de `storedAppMode`: a classe
 // do `<body>` precisa estar certa antes do primeiro quadro.)
-let lastDisplays = [];          // telas conectadas (ponte nativa)
-// Releitura da lista de telas, definida junto do bloco nativo (ver mais abaixo)
-// e chamada na retomada do app. No navegador continua no-op: lá quem responde
-// "há tela?" é a janela do Display, e ela é observada por um relógio próprio.
-let reconferirTelas = () => {};
+// (`lastDisplays` e `reconferirTelas` foram para o TOPO do arquivo na v5.199,
+// junto do resto do estado lido por caminhos de render — ver o comentário da
+// zona morta temporal lá em cima. `reconferirTelas` continua sendo ATRIBUÍDO
+// pelo bloco nativo mais abaixo, e no navegador segue no-op: lá quem responde
+// "há tela?" é a janela do Display, observada por um relógio próprio.)
 
 function setAppMode(mode) {
   appMode = mode === 'simple' ? 'simple' : 'full';
@@ -14287,14 +14293,11 @@ function renderCastBtn() {
   // Inventar um segundo estado visual para o mesmo fato seria pedir ao operador
   // que aprendesse duas convenções para uma coisa só.
   const naRede = espelhoRecebendo();
-  // `.connected` marca "há uma tela recebendo"; a liberação de teste NUNCA o
-  // veste (ver `castTestUnlocked`) — ela é aviso, não conexão.
-  pvCastBtnEl.classList.toggle('connected', (!!tv || naRede > 0) && !castTestUnlocked);
-  pvCastBtnEl.classList.toggle('testing', castTestUnlocked);
+  // `.connected` marca "há uma tela recebendo". (O terceiro estado, `.testing`
+  // da liberação de teste em `--warn`, saiu na v5.199 com a própria liberação.)
+  pvCastBtnEl.classList.toggle('connected', !!tv || naRede > 0);
   const naRedeTxt = naRede === 1 ? '1 tela na rede' : naRede + ' telas na rede';
-  pvCastBtnEl.title = castTestUnlocked
-    ? 'Liberação de teste ativa — toque para trancar'
-    : tv
+  pvCastBtnEl.title = tv
       ? 'Conectado: ' + (tv.name || 'TV') + (naRede ? ' · ' + naRedeTxt : '')
         + ' — toque para trocar ou desconectar'
       : naRede
@@ -14337,41 +14340,21 @@ function renderSimpleCast() {
 let webDisplayWin = null;      // navegador: janela do Display aberta pelo botão
 let webDisplayTimer = null;
 
-// ===== Liberação de TESTE do modo simplificado (segurar 5 s) =====
-// Sem telão à mão não há como OLHAR a tela simplificada destravada — e ela é a
-// tela que o app abre, ou seja, a que mais precisa ser vista enquanto se mexe
-// no desenho dela. Segurar "Conectar a tela" por 5 s destrava como se houvesse
-// telão; segurar de novo tranca.
-//
-// **É uma porta de desenvolvimento, e ela é honesta**: não finge conexão
-// nenhuma. `simpleDisplay()` devolve um descritor marcado (`test: true`), o
-// botão fica em AVISO (nunca no verde de conectado) e o subtítulo diz que é
-// teste — quem pegar o aparelho nesse estado lê na tela o que está acontecendo,
-// em vez de procurar a TV que "conectou" sozinha.
-//
-// Nada mais no app muda: os comandos continuam saindo pelo barramento como
-// sempre (e, sem Display, ninguém os escuta — exatamente o que já acontece hoje
-// com o modo avançado sem telão). A liberação não é persistida: cada abertura
-// do app volta ao comportamento normal.
-//
-// 5 s é longo de propósito — o botão é a ÚNICA ação da tela bloqueada, e um
-// limiar curto faria um toque hesitante virar um destravamento que ninguém
-// pediu.
-const CAST_HOLD_MS = 5000;
-let castTestUnlocked = false;
+// (A LIBERAÇÃO DE TESTE — segurar 5 s para destravar sem tela — SAIU na v5.199,
+// junto com o bloqueio. Ela era uma porta de desenvolvimento cujo único
+// trabalho era derrotar a cortina, e uma porta sem parede não é uma porta: o
+// modo já abre usável. Com ela saíram `CAST_HOLD_MS`, `castTestUnlocked`, o
+// gesto na cortina e o estado `.testing` do ícone de cast.)
 
 // HÁ ALGUMA TELA RECEBENDO? — e desde a v5.193 a resposta inclui as telas da
 // REDE, não só a TV pela `Presentation`.
 //
-// O bloqueio do Modo Fácil existe porque sem tela não há o que operar: a
-// projeção É o telão. Só que "o telão" deixou de ser sinônimo de "uma TV
-// conectada por espelhamento" na v5.187 — sem TV, as telas da rede SÃO o que a
-// congregação vê, e este documento afirma isso em três lugares. O bloqueio não
-// tinha acompanhado: o operador ligava a transmissão, a tela do saguão entrava,
-// a projeção estava no ar, e o Modo Fácil continuava atrás da cortina mandando
-// conectar uma tela.
+// Ela não decide mais bloqueio nenhum (v5.199): decide QUEM ocupa a célula da
+// preview no Modo Fácil — a preview, quando há tela, ou a seção de conexão,
+// quando não há — e o estado do ícone de cast. "O telão" deixou de ser sinônimo
+// de "uma TV conectada por espelhamento" na v5.187: sem TV, as telas da rede
+// SÃO o que a congregação vê, e é por isso que elas contam aqui.
 function simpleDisplay() {
-  if (castTestUnlocked) return { name: 'Modo de teste', test: true };
   if (!window.__NATIVE__) {
     return webDisplayWin && !webDisplayWin.closed ? { name: 'Display' } : null;
   }
@@ -14380,28 +14363,38 @@ function simpleDisplay() {
   return rede.length ? { name: rede[0].rotulo || 'Tela da rede', rede: true } : null;
 }
 
-// As telas da rede que estão de fato RECEBENDO. Uma só fonte para o bloqueio do
-// Modo Fácil e para o fechamento da folha — ver `renderSimpleGate`.
+// As telas da rede que estão de fato RECEBENDO. Uma só fonte para o Modo Fácil
+// e para o fechamento da folha — ver `renderSimpleGate`.
 function telasDaRede() {
   const e = mirrorEstado || {};
   return espelhoLigado() && Array.isArray(e.telas) ? e.telas : [];
 }
 
+// QUEM OCUPA A CÉLULA DA PREVIEW NO MODO FÁCIL. O nome ficou de quando esta
+// função era um PORTÃO (ela trancava a tela inteira até haver telão); hoje ela
+// só troca o conteúdo de uma célula, e o resto da tela nunca é coberto.
+//
+// **O bloqueio saiu na v5.199, e o motivo é o que ele virou.** Sem tela, a
+// cortina embaçava a tela inteira e içava para o centro um cartão cujo elemento
+// dominante é um botão preenchido em accent com a largura útil da tela — a
+// mesma anatomia, no mesmo lugar, do botão único que a v5.197 tinha removido.
+// O operador o descreveu de volta como "o botão de conectar, que persiste em
+// existir e bloquear a tela", e ele estava certo: o que incomodava nunca foi o
+// ELEMENTO, foi a tela inteira parar por causa dele. O argumento original
+// ("sem tela este modo é inútil") vale para PROJETAR e não para o resto —
+// procurar um hino, montar a lista e conferir a letra são exatamente o que se
+// faz antes de a tela existir.
 function renderSimpleGate() {
-  const preso = appMode === 'simple' && !simpleDisplay();
-  simpleVeilEl.hidden = !preso;
-  simpleModeEl.classList.toggle('locked', preso);
-  // A busca é o que a cortina esconde: reabri-la por trás dela deixaria o
-  // popup no ar sobre uma tela bloqueada.
-  if (preso) closeHymnSearch();
-  hostCastConn(preso);
+  const semTela = appMode === 'simple' && !simpleDisplay();
+  simpleModeEl.classList.toggle('sem-tela', semTela);
+  hostCastConn(semTela);
   // ALGUMA TELA ENTROU COM A FOLHA ABERTA: ela fecha. Vale para os DOIS
-  // caminhos (espelhar para a TV, transmitir pela rede) e nos dois modos —
+  // caminhos (espelhar para a TV, transmitir para navegador) e nos dois modos —
   // quem acabou de conectar terminou o que veio fazer ali, e uma folha que
-  // continua no ar por cima dos controles recém-liberados é um toque cobrado
-  // para nada. No Modo Fácil ela nem é uma folha: o bloco está DENTRO da tela,
-  // e o `hostCastConn` acima já o devolveu para a folha.
-  if (!preso && castPopupEl && castPopupEl.classList.contains('open') && simpleDisplay()) {
+  // continua no ar por cima dos controles é um toque cobrado para nada. No Modo
+  // Fácil ela nem é uma folha: o bloco está DENTRO da tela, e o `hostCastConn`
+  // acima já o devolveu para a folha.
+  if (!semTela && castPopupEl && castPopupEl.classList.contains('open') && simpleDisplay()) {
     fecharCast();
   }
 }
@@ -14410,26 +14403,44 @@ function renderSimpleGate() {
 // (a preview também troca de pai conforme o modo). Duplicar a marcação daria
 // duas anatomias para a mesma decisão e elas divergiriam no primeiro ajuste.
 //
-// `preso` é a única condição: é exatamente o estado em que o Modo Fácil não tem
-// o que fazer além de conectar. Fora dele o bloco volta para a folha, que é
-// onde ele é aberto de propósito (pelo botão de cast da preview, ou pelo cartão
-// deste mesmo modo com uma tela já conectada).
-function hostCastConn(preso) {
+// `naTela` é a única condição: é exatamente o estado em que o Modo Fácil não
+// tem tela para onde projetar, e a conexão ocupa a célula da preview. Fora dele
+// o bloco volta para a folha, que é onde ele é aberto de propósito (pelo botão
+// de cast da preview, ou pelo cartão deste mesmo modo com uma tela conectada).
+function hostCastConn(naTela) {
   if (!castConnEl || !simpleConnEl) return;
-  const alvo = preso ? simpleConnEl : castPopupEl.querySelector('.popup-sheet');
+  const alvo = naTela ? simpleConnEl : castPopupEl.querySelector('.popup-sheet');
   if (alvo && castConnEl.parentElement !== alvo) alvo.appendChild(castConnEl);
-  simpleConnEl.hidden = !preso;
-  if (preso) {
+  simpleConnEl.hidden = !naTela;
+  if (naTela) {
     // Ele passa a ser conteúdo de tela, não de folha: o estado precisa estar
-    // certo sem ninguém ter aberto nada, e a enquete do espelho precisa correr
-    // (é ela que faz a tela da rede aparecer na lista quando entra).
+    // certo sem ninguém ter aberto nada.
     if (castNetRowEl) castNetRowEl.hidden = !espelhoDisponivel();
     renderCast();
-    if (espelhoDisponivel()) {
-      lerEspelho();
-      if (!mirrorTimer) mirrorTimer = setInterval(lerEspelho, MIRROR_POLL_MS);
-    }
   }
+  acertarEnqueteDaConexao();
+}
+
+// A ENQUETE DE 2,5 s TEM UM DONO SÓ, e é a VISIBILIDADE do bloco (v5.199).
+//
+// Ela nasceu como enquete da FOLHA — `abrirCast` a ligava, `fecharCast` a
+// matava —, e a v5.193 deu ao bloco uma segunda casa (a tela do Modo Fácil sem
+// telão) sem dar um dono novo à enquete. Ficaram dois acionadores e um só
+// interruptor, com as duas metades erradas: `hostCastConn` a acendia e nunca a
+// apagava (uma tela entrando devolvia o bloco à folha e deixava a enquete
+// batendo na ponte a cada 2,5 s pelo resto da sessão), e `fecharCast` a apagava
+// mesmo quando quem a tinha acendido era a TELA — isto é, abrir e fechar a
+// folha uma vez cegava o Modo Fácil justamente para o evento que ele espera,
+// uma tela da rede entrando.
+//
+// Perguntar "o bloco está aparecendo?" responde os dois casos de uma vez, e é a
+// mesma pergunta que o `renderCast` já faz para decidir se vale desenhar.
+function acertarEnqueteDaConexao() {
+  const querer = espelhoDisponivel() && castConnVisivel();
+  if (querer === !!mirrorTimer) return;
+  if (!querer) { clearInterval(mirrorTimer); mirrorTimer = null; return; }
+  lerEspelho();
+  mirrorTimer = setInterval(lerEspelho, MIRROR_POLL_MS);
 }
 
 // ===== A PREVIEW é UM nó só, e ele MUDA DE CASA =====
@@ -14517,42 +14528,11 @@ simpleStopEl.addEventListener('click', () => stopEl.click());
 simpleMuteEl.addEventListener('click', () => muteToggleEl.click());
 holdRepeat(simpleVolUpEl, () => simpleVolStep(1));
 holdRepeat(simpleVolDownEl, () => simpleVolStep(-1));
-// Toque curto = abrir o seletor de tela; 5 s segurando = liberação de teste
-// (acima). O `holdFired` é o que impede o `click` seguinte de abrir o seletor
-// de espelhamento em cima da tela que acabou de destravar.
-// A LIBERAÇÃO DE TESTE, e ela mora na CORTINA (v5.193; a metade do botão saiu
-// na v5.197 com o próprio botão).
-(function setupCastHold() {
-  // Ela vivia no botão grande de conectar, e ele não existe quando a tela está
-  // bloqueada — isto é, ela sumia exatamente do estado em que serve para alguma
-  // coisa: destravar o app SEM tela, para ensaiar ou conferir uma playlist na
-  // terça-feira.
-  //
-  // A cortina é o alvo certo: ela ocupa toda a tela que não é a seção de
-  // conexão, já intercepta tudo o que está atrás dela, e um toque nela não
-  // significa nada hoje. Continua sem rótulo em lugar nenhum — é uma saída de
-  // emergência de quem desenvolve, e anunciá-la ao operador convidaria a
-  // projetar sem telão sem saber que é isso que está acontecendo.
-  let vt = null;
-  const pararVeu = () => {
-    clearTimeout(vt); vt = null;
-    simpleVeilEl.classList.remove('segurando');
-  };
-  simpleVeilEl.style.setProperty('--cast-hold', CAST_HOLD_MS + 'ms');
-  simpleVeilEl.addEventListener('pointerdown', () => {
-    pararVeu();
-    // A barra reentra do zero a cada toque: reiniciar a animação exige que a
-    // classe saia e volte, e é o `pararVeu()` acima que a tirou.
-    simpleVeilEl.classList.add('segurando');
-    vt = setTimeout(() => {
-      castTestUnlocked = !castTestUnlocked;
-      pararVeu();
-      renderSimpleGate();
-      renderSimpleCast();
-    }, CAST_HOLD_MS);
-  });
-  ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => simpleVeilEl.addEventListener(ev, pararVeu));
-})();
+// (A LIBERAÇÃO DE TESTE — segurar 5 s — SAIU na v5.199. O alvo dela mudou duas
+// vezes em cinco versões: o botão grande (até a v5.192), a cortina (v5.193) e
+// nada (v5.199), porque o que ela destravava deixou de estar trancado. Ficasse,
+// seria um gesto secreto de 5 s cujo efeito é indistinguível do estado normal
+// da tela.)
 // Fecha o ciclo com o HTML: as classes já vêm do documento (e, no modo
 // lembrado, já foram corrigidas no topo do arquivo), aqui o estado do JS
 // (segmento do popup, espelho dos controles) nasce igual a elas.
@@ -15027,14 +15007,9 @@ hymnSearchInputEl.addEventListener('input', debounce(() => renderSearchResults(h
   // declara. No SIMPLIFICADO ele aparece sempre, porque ali é o sinal de
   // conexão da preview e a porta de saída dela (ver renderSimpleCast): no
   // navegador, "desconectar" é fechar a janela do Display.
-  pvCastBtnEl.addEventListener('click', () => {
-    // Liberação de TESTE: não há tela real para desconectar, então o toque
-    // simplesmente tranca de volta. É o par do "segurar 5 s" que destravou —
-    // e o botão que hospedava aquele gesto some justamente quando a liberação
-    // fica ativa, porque a preview toma o lugar dele.
-    if (castTestUnlocked) { castTestUnlocked = false; renderSimpleCast(); return; }
-    abrirCast();
-  });
+  // (Havia aqui um ramo para TRANCAR de volta a liberação de teste. Ele saiu na
+  // v5.199 com ela.)
+  pvCastBtnEl.addEventListener('click', () => abrirCast());
 
   async function enterFullscreen() {
     try {
@@ -15389,9 +15364,8 @@ async function desligarEspelho() {
 function abrirCast() {
   if (!castPopupEl) { if (window.__NATIVE__) AVNative.openCast(); else openWebDisplay(); return; }
   // O BLOCO PODE ESTAR NA OUTRA CASA (v5.193): no Modo Fácil sem tela ele vive
-  // dentro da tela bloqueada. Abrir a folha sem trazê-lo de volta mostraria um
-  // cartão vazio — e é um caminho alcançável, porque o botão de cast da preview
-  // existe em cima da cortina.
+  // dentro da própria tela. Abrir a folha sem trazê-lo de volta mostraria um
+  // cartão vazio.
   hostCastConn(false);
   castPopupEl.classList.add('open');
   texto2(castMsgEl, '');
@@ -15413,19 +15387,19 @@ function abrirCast() {
     // Com um interruptor o problema desaparece do outro lado: o estado é
     // visível parado, e quem o muda é o operador. Um interruptor que já nasce
     // ligado toda vez que a tela abre não é um interruptor, é um rótulo.
-    lerEspelho();
-    clearInterval(mirrorTimer);
-    mirrorTimer = setInterval(lerEspelho, MIRROR_POLL_MS);
+    //
+    // (A enquete de 2,5 s deixou de ser ligada aqui na v5.199: quem a decide é
+    // a VISIBILIDADE do bloco, que tem duas casas — ver `acertarEnqueteDaConexao`.)
   }
+  acertarEnqueteDaConexao();
 }
 
 function fecharCast() {
   castPopupEl.classList.remove('open');
-  // (Havia aqui uma ressalva para a folha de ajustes, que podia estar aberta
-  // por cima e também mostrava estado ao vivo. Ela saiu na v5.196, e com ela a
-  // única razão de este `clear` ser condicional.)
-  clearInterval(mirrorTimer);
-  mirrorTimer = null;
+  // (Havia aqui um `clearInterval(mirrorTimer)` incondicional. Ele saiu na
+  // v5.199: fechar a FOLHA não pode apagar a enquete quando quem a acendeu foi
+  // a TELA do Modo Fácil — ver `acertarEnqueteDaConexao`.)
+  acertarEnqueteDaConexao();
 }
 
 // Um `textContent` que aceita elemento nulo — a folha existe só no bundle novo.

@@ -3172,61 +3172,36 @@ body.mode-simple .bottombar { display: none; }
    FORA do `<pre>` de propósito: dentro de uma área que rola, ele sairia de
    cena junto com o texto. */
 .log-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
-.pv-fab.testing { color: var(--warn); }
-/* Sem tela conectada a faixa não existe — a tela inteira é o bloqueio, e o
-   botão de conectar volta ao centro dela. */
-.simple.locked .simple-stage { display: none; }
-
-/* ----- Bloqueio sem tela conectada (ver renderSimpleGate) ----- */
-/* A cortina cobre a tela inteira e é o que embaça: `backdrop-filter` age sobre
-   o que está ATRÁS do elemento, então quem precisa ficar legível sobe na
-   pilha. Sobem dois: o cabeçalho (onde está a saída para o modo avançado) e o
-   botão de conectar, que é a única ação que resolve o bloqueio. */
-/* A cor é `--veil`, que é o próprio `--bg` com alfa: os dois têm de andar
-   JUNTOS. Escrita literal (era rgba(18,18,18,…), do tempo em que --bg valia
-   #121212), a cortina viraria um retângulo de outro preto assim que o fundo
-   do app mudasse — e isso na tela que ABRE por padrão sem TV conectada. */
-.simple-veil {
-  position: absolute; inset: 0; z-index: 1;
-  background: var(--veil);
-  backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px);
-}
-/* Sem suporte a backdrop-filter o embaçado simplesmente não acontece — e uma
-   cortina transparente pareceria um toque perdido, não um bloqueio. O véu
-   fica então opaco: some a informação de trás, mas o BLOQUEIO continua dito. */
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .simple-veil { background: var(--veil-solid); }
-}
-/* (Não há regra `[hidden]` própria para a cortina: o `[hidden] { display: none
-   !important }` da linha 16 já a esconde com prioridade que nenhuma regra
-   normal desta folha alcança. A que existia aqui justificava-se por um
-   `display:flex` que `.simple-veil` nunca declarou.) */
-.simple.locked .simple-head { position: relative; z-index: 2; }
-/* Bloqueado, a faixa de ações deixa de ser uma faixa: vira UMA coluna no
-   centro da tela, com a mensagem e o botão que a resolve. É o único conteúdo
-   legível, então fica onde o olho já está — e centralizar o grupo inteiro
-   (mensagem + botão) num bloco só dispensa medir a altura de um para
-   posicionar o outro. */
-.simple.locked .simple-actions {
-  position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
-  z-index: 2;
-  display: flex; flex-direction: column; gap: 1rem;
-  padding: 0 1.1rem;
-}
-/* Só o botão de conectar fica na frente: com a tela bloqueada, buscar música
-   não leva a lugar nenhum. */
-.simple.locked #simpleSearchBtn { display: none; }
-/* SEM TELA, QUEM OCUPA O CENTRO É A SEÇÃO DE CONEXÃO (v5.193) — e não mais um
-   botão do tamanho da tela que só abria a folha onde ela mora. As duas formas
-   de conectar (espelhar para a TV, transmitir pela rede) cabem aqui, e este
-   modo não tem outra coisa a fazer enquanto não houver tela.
-   O cartão ganha fundo próprio porque a cortina embaçada por trás não é fundo
-   de leitura: sobre ela, um texto secundário some. */
+/* ----- Sem tela conectada (ver renderSimpleGate) ----- */
+/* A CORTINA DE BLOQUEIO SAIU na v5.199, e com ela o centramento absoluto e a
+   liberação de teste de 5 s que existia só para derrotá-la.
+   O que havia aqui: um vidro fosco de tela inteira (`.simple-veil`,
+   `backdrop-filter`) com `.simple-actions` içada para o centro em
+   `position: absolute`, a busca escondida e só o cartão de conexão legível. O
+   argumento era "sem tela este modo é inútil" — e ele continua verdadeiro para
+   PROJETAR, mas não para o resto: montar a lista, procurar um hino e conferir a
+   letra são coisas que se fazem antes de a tela existir, e são justamente o que
+   se faz na terça-feira. Pior, o cartão centrado tem como elemento dominante um
+   botão preenchido em accent com a largura útil da tela — a anatomia exata do
+   botão único que a v5.197 removeu. Do lugar do operador, o botão "continuou
+   existindo": trocar um botão grande centrado por outro botão grande centrado
+   não é removê-lo.
+   Hoje a faixa de ações só muda de EIXO: com tela ela é a grade de duas colunas
+   de sempre (preview + buscar); sem tela vira uma coluna, a conexão em cima e a
+   busca embaixo, no fluxo, no alto da tela. Nada cobre nada. */
+.simple.sem-tela .simple-stage { display: none; }
+.simple.sem-tela .simple-actions { display: flex; flex-direction: column; }
+/* SEM TELA, QUEM OCUPA A CÉLULA DA PREVIEW É A SEÇÃO DE CONEXÃO (v5.193) — e
+   não mais um botão que só abria a folha onde ela mora. As duas formas de
+   conectar (espelhar para a TV, transmitir para navegador) cabem aqui.
+   O cartão tem fundo próprio porque ele é um cartão dentro da tela, como
+   qualquer outro do app — e o teto de altura existe porque a lista de quem está
+   recebendo cresce com a transmissão ligada, e ela não pode empurrar o
+   transporte para fora da tela. */
 .simple-conn {
-  position: relative; z-index: 2;
   background: var(--panel); border: 1px solid var(--line);
   border-radius: var(--radius-card); padding: .9rem;
-  max-height: 70vh; overflow-y: auto;
+  max-height: 46vh; overflow-y: auto;
 }
 /* Dentro do cartão o controle AFUNDA, como em qualquer outro cartão do app —
    ver "A superfície AFUNDA dentro de um cartão", no topo desta folha. Sem esta
@@ -3240,32 +3215,13 @@ body.mode-simple .bottombar { display: none; }
    em cada estado é um elemento que nunca aparece, e o CSS de um elemento que
    nunca aparece não tem como ser notado errado.) */
 
-/* ----- Liberação de TESTE (segurar 5 s a CORTINA) -----
-   Uma porta de desenvolvimento: sem telão à mão não há como olhar a tela
-   simplificada destravada, que é justamente a tela que o app abre. Segurar a
-   cortina por 5 s destrava como se houvesse tela; segurar de novo tranca. Ver
-   `CAST_HOLD_MS` em controle.js.
-
-   O ALVO MUDOU DUAS VEZES, e a segunda foi um conserto: até a v5.192 o gesto
-   era no botão grande de conectar; a v5.193 pôs a seção de conexão no lugar
-   dele e o gesto foi para a cortina — que é o resto da tela e não significa
-   nada hoje. Na v5.197 o botão saiu de vez, e esta barra veio junto com ele
-   porque ela nunca chegou a ser aplicada à cortina: eram cinco segundos de
-   NADA, indistinguíveis de um toque que não pegou.
-
-   `forwards` mantém o fim: quem completou a contagem vê a barra cheia no
-   instante em que a tela destrava, em vez de vê-la sumir e duvidar do que
-   aconteceu. No TOPO da cortina, e não no pé: embaixo ela ficaria atrás do
-   teclado de transporte, que é o que a cortina cobre. */
-.simple-veil.segurando::after {
-  content: ''; position: absolute; left: 0; top: 0; height: 3px; width: 0;
-  background: var(--accent); opacity: .85;
-  animation: cast-hold var(--cast-hold, 5s) linear forwards;
-}
-@keyframes cast-hold { to { width: 100%; } }
-/* Destravado por teste NÃO é "conectado": em `--warn`, que é a família de
-   aviso, e nunca no verde de `.connected` — verde ali significaria uma tela
-   real recebendo a projeção, e não há nenhuma. */
+/* (A LIBERAÇÃO DE TESTE — segurar 5 s — SAIU na v5.199, junto com a cortina.)
+   Ela era uma porta de desenvolvimento para destravar o app SEM tela, e o
+   único trabalho dela era derrotar o bloqueio. Sem bloqueio não há porta a
+   abrir: o modo já abre usável, que é o que a liberação simulava. Com ela
+   saíram `.simple-veil.segurando::after`, o `@keyframes cast-hold` e o
+   `.pv-fab.testing` em `--warn` — este último dizia "destravado por teste, e
+   isto NÃO é uma conexão", uma distinção que deixou de existir. */
 
 /* Letra da música em cena — ocupa o espaço que sobra entre as ações e as
    teclas. Mesmas linhas da leitura auxiliar do modo avançado (.lv-row). */

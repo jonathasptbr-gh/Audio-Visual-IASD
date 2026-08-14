@@ -113,10 +113,9 @@
     </div>
 
     <!-- As duas ações no alto, lado a lado: teclas grandes de ícone + rótulo.
-         Com a tela bloqueada esta faixa sai do fluxo e vai para o CENTRO da
-         tela, só com o botão de conectar (ver .simple.locked .simple-actions).
-         Ali o botão diz tudo sozinho — ícone e uma frase —, então não há
-         mensagem separada: ver renderSimpleCast. -->
+         SEM TELA a faixa vira uma coluna (a seção de conexão em cima, a busca
+         embaixo) — continua no fluxo, no alto da tela, sem cobrir nada do que
+         vem depois. Ver `.simple.sem-tela .simple-actions`. -->
     <div class="simple-actions">
       <!-- Com uma tela CONECTADA, o botão de conectar dá lugar à PREVIEW, NA
            MESMA CÉLULA da grade: ela é o sinal de conexão (não há o que dizer
@@ -133,24 +132,19 @@
       <div class="simple-stage" id="simpleStage"></div>
       <!-- SEM TELA, A SEÇÃO DE CONEXÃO INTEIRA (v5.193). Aqui havia um botão do
            tamanho da tela que só abria a folha de conexão — um toque cobrado
-           para chegar às duas escolhas que cabem na própria tela bloqueada.
-           Como este modo é INÚTIL sem tela (a projeção É o telão), esconder as
-           opções atrás de um botão era cerimônia: o que a pessoa precisa fazer
-           é a única coisa que ela pode fazer.
+           para chegar às duas escolhas que cabem na própria tela.
            Vazio no HTML de propósito — quem o preenche é `hostCastConn()`. -->
       <div class="simple-conn" id="simpleConn" hidden></div>
-      <!-- (O BOTÃO ÚNICO DE CONECTAR SAIU na v5.197.) Ele já estava morto desde
-           a v5.193 e ninguém notou, porque a folha o escondia por DOIS
-           caminhos: `.simple:not(.locked) #simpleCastBtn` (com tela, quem ocupa
-           a célula é a preview) e `.simple.locked #simpleCastBtn` (sem tela,
-           quem ocupa a tela é a seção de conexão inteira). Duas regras de
-           `display: none` que juntas cobrem todos os estados são um elemento
-           que nunca aparece — e ainda assim ele carregava rótulo, subtítulo,
-           ícone, um `title`, ~25 linhas de CSS de destaque e o gesto de 5 s da
-           liberação de teste, que a v5.193 já tinha mudado para a cortina.
+      <!-- (O BOTÃO ÚNICO DE CONECTAR SAIU na v5.197, e o BLOQUEIO na v5.199.)
+           Ele já estava morto desde a v5.193 e ninguém notou, porque a folha o
+           escondia por DOIS caminhos: `.simple:not(.locked) #simpleCastBtn`
+           (com tela, quem ocupa a célula é a preview) e
+           `.simple.locked #simpleCastBtn` (sem tela, quem ocupava a tela era a
+           seção de conexão). Duas regras de `display: none` que juntas cobrem
+           todos os estados são um elemento que nunca aparece.
            Com tela: a PREVIEW (que é o melhor sinal possível de "está
            conectado") e o ícone de cast no canto dela, por onde se abre a folha
-           de conexão. Sem tela: a seção de conexão, na tela inteira. -->
+           de conexão. Sem tela: a seção de conexão no lugar dela. -->
       <button type="button" id="simpleSearchBtn" class="simple-key simple-action">
         <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="11" cy="11" r="7"/>
@@ -224,13 +218,16 @@
       </div>
     </div>
 
-    <!-- BLOQUEIO: sem tela conectada não há o que operar neste modo — a
-         projeção É o telão. A cortina embaça e intercepta tudo o que está
-         atrás dela; o que fica na frente é só o botão de conectar (e o
-         "Modo avançado" do cabeçalho, que é a saída de quem vai projetar
-         pela preview em tela cheia). Ela é só o vidro fosco: o texto e o
-         botão vivem em .simple-actions, acima dela. Ver renderSimpleGate. -->
-    <div class="simple-veil" id="simpleVeil" hidden></div>
+    <!-- (A CORTINA DE BLOQUEIO SAIU na v5.199.) Sem tela conectada este modo
+         ficava atrás de um vidro fosco de tela inteira com um cartão centrado
+         no meio — e o elemento dominante desse cartão é um botão preenchido em
+         accent, do tamanho da largura útil, no centro vertical da tela. Isto é,
+         exatamente a anatomia do botão único que a v5.197 tinha removido: do
+         lugar do operador, ele "continuou existindo". Trocar um botão grande
+         centrado por outro botão grande centrado não é remover o botão.
+         Hoje a conexão é uma SEÇÃO NO FLUXO (ver .simple.sem-tela) e o resto da
+         tela continua vivo: dá para buscar, montar a lista e conferir a letra
+         antes de a tela existir. Ver renderSimpleGate. -->
   </div>
 
   <main>
@@ -803,7 +800,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.198</span>
+        <span id="appVersion" class="app-version">Controle v5.199</span>
         <!-- O APK NOVO, quando existir. Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso. `hidden`
