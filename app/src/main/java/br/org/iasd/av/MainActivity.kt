@@ -1150,6 +1150,13 @@ class MainActivity : ComponentActivity(), BridgeHost {
             getSharedPreferences(TEMA_PREFS, MODE_PRIVATE).edit()
                 .putBoolean(TEMA_CLARO_KEY, claro).apply()
             aplicarCromoDoTema(claro)
+            // E A NOTIFICAÇÃO REPINTA (v5.210). Ela usa o mesmo `--bg` do tema
+            // (ver `SessionService.corDoTema`), e sem este aviso ela só mudaria
+            // no próximo `publish()` — que numa cena parada pode ser daqui a um
+            // louvor inteiro. O app claro com um cartão escuro pendurado nele é
+            // exatamente o tipo de divergência que ter UMA fonte de cor existe
+            // para impedir.
+            SessionService.temaMudou()
         }
     }
 
@@ -1657,6 +1664,23 @@ class MainActivity : ComponentActivity(), BridgeHost {
          */
         private const val TEMA_PREFS = "tema"
         private const val TEMA_CLARO_KEY = "claro"
+
+        /**
+         * O tema escolhido, para quem não é a Activity.
+         *
+         * O [SessionService] precisa dele para pintar a notificação (v5.210), e
+         * ele roda sem Activity — a instância pode nem existir quando o cartão
+         * é publicado. A preferência é a MESMA que o primeiro quadro do app usa
+         * (ver [setTemaClaro]): uma leitura de `SharedPreferences`, que é o
+         * único lugar onde essa escolha sobrevive ao processo.
+         *
+         * Público de propósito, e não uma cópia da chave no outro arquivo: duas
+         * constantes com o mesmo nome em dois lugares é a divergência que este
+         * projeto recusa em toda parte.
+         */
+        fun temaClaroSalvo(ctx: Context): Boolean =
+            ctx.getSharedPreferences(TEMA_PREFS, Context.MODE_PRIVATE)
+                .getBoolean(TEMA_CLARO_KEY, false)
         private const val GMS_PACKAGE = "com.google.android.gms"
         /**
          * Prazo para o lado web responder ao botão voltar (ver [handleBack]).
