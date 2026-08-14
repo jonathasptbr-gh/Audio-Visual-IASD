@@ -112,43 +112,15 @@
       </button>
     </div>
 
-    <!-- As duas ações no alto, lado a lado: teclas grandes de ícone + rótulo.
-         SEM TELA a faixa vira uma coluna (a seção de conexão em cima, a busca
-         embaixo) — continua no fluxo, no alto da tela, sem cobrir nada do que
-         vem depois. Ver `.simple.sem-tela .simple-actions`. -->
-    <div class="simple-actions">
-      <!-- Com uma tela CONECTADA, o botão de conectar dá lugar à PREVIEW, NA
-           MESMA CÉLULA da grade: ela é o sinal de conexão (não há o que dizer
-           melhor sobre "está conectado?" do que mostrar o que a TV exibe) e o
-           ícone de cast no canto dela é por onde se desconecta. Os dois nunca
-           coexistem, então dividir a célula é o certo — a faixa continua sendo
-           duas colunas, com "Buscar música" ao lado, como sempre foi.
-           O nó da preview é O MESMO do modo avançado — ele é MOVIDO para cá e
-           de volta (ver `hostPreview` em controle.js), pelo mesmo padrão do
-           `#selbar` e do `<input type=file>`: dois nós divergiriam no primeiro
-           ajuste, e dois `createStage` decodificariam o mesmo vídeo duas vezes
-           num aparelho que já roda dois WebViews.
-           Vazio no HTML de propósito: quem o preenche é o `hostPreview`. -->
-      <div class="simple-stage" id="simpleStage"></div>
-      <!-- SEM TELA, A SEÇÃO DE CONEXÃO INTEIRA (v5.193). Aqui havia um botão do
-           tamanho da tela que só abria a folha de conexão — um toque cobrado
-           para chegar às duas escolhas que cabem na própria tela.
-           Vazio no HTML de propósito — quem o preenche é `hostCastConn()`. -->
-      <div class="simple-conn" id="simpleConn" hidden></div>
-      <!-- (O BOTÃO ÚNICO DE CONECTAR SAIU na v5.197, e o BLOQUEIO na v5.199.)
-           Ele já estava morto desde a v5.193 e ninguém notou, porque a folha o
-           escondia por DOIS caminhos: `.simple:not(.locked) #simpleCastBtn`
-           (com tela, quem ocupa a célula é a preview) e
-           `.simple.locked #simpleCastBtn` (sem tela, quem ocupava a tela era a
-           seção de conexão). Duas regras de `display: none` que juntas cobrem
-           todos os estados são um elemento que nunca aparece.
-           Com tela: a PREVIEW (que é o melhor sinal possível de "está
-           conectado") e o ícone de cast no canto dela, por onde se abre a folha
-           de conexão. Sem tela: a seção de conexão no lugar dela. -->
-      <!-- (BUSCAR MÚSICA saiu daqui na v5.200 — foi para junto do transporte,
-           ver abaixo.) Esta faixa ficou com uma decisão só: o que ocupa a
-           célula da conexão. -->
-    </div>
+    <!-- SEM TELA, A SEÇÃO DE CONEXÃO VEM PRIMEIRO — antes da letra e antes de
+         qualquer controle (v5.201). Ela é a única coisa que resolve o que falta,
+         e este modo não tem preview para ilustrar o que sairia no telão: pôr a
+         conexão no alto é dizer, sem cortina nenhuma, o que precisa acontecer
+         para o resto valer.
+         Com tela conectada ela desaparece daqui e a célula dela na faixa de
+         baixo passa a ser a PREVIEW.
+         Vazio no HTML de propósito — quem o preenche é `hostCastConn()`. -->
+    <div class="simple-conn" id="simpleConn" hidden></div>
 
     <!-- Letra completa da música em cena: o espaço que sobrava entre as ações
          e as teclas. Mesmas linhas (.lv-row) da leitura auxiliar do modo
@@ -176,26 +148,38 @@
       <div class="simple-lyrics" id="simpleLyrics"></div>
     </div>
 
-    <!-- BUSCAR MÚSICA, ENTRE A LETRA E O TRANSPORTE (v5.200). Ele nasceu na
-         faixa de ações do alto, dividindo a linha com a preview, e ficou lá até
-         a v5.199 — quando, sem tela, a faixa virou uma coluna e ele apareceu
-         pela primeira vez com a largura inteira. Foi essa forma que o operador
-         pediu para ficar, e o lugar dela é aqui: buscar é o começo de OPERAR,
-         não de configurar, então ele pertence ao teclado — a poucos milímetros
-         do ▶ que vem logo depois de escolher —, e não ao alto da tela, junto do
-         que se resolve uma vez por culto.
-         E aqui ele é largo NOS DOIS estados: a preview volta a ter a faixa de
-         cima só para ela, sem uma célula vaga ao lado. -->
-    <button type="button" id="simpleSearchBtn" class="simple-key simple-action">
-      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <circle cx="11" cy="11" r="7"/>
-        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-      </svg>
-      <span class="simple-key-label">Buscar música</span>
-      <!-- O subtítulo saiu na v5.195 ("Hinários e álbuns"): ele nomeava onde a
-           busca procura, e não há segunda busca neste modo para escolher entre
-           elas. -->
-    </button>
+    <!-- A FAIXA DE AÇÕES — preview + buscar, lado a lado, NA ZONA DE BAIXO
+         (v5.201). Ela nasceu no alto da tela e desceu para cá: o topo é da
+         LETRA, que é o que se lê durante o louvor, e estas duas são o que se
+         OPERA — a busca a milímetros do ▶ que vem logo depois de escolher, e a
+         preview onde o olho já está quando se confere o que saiu.
+         O par voltou a dividir a linha: a v5.200 os tinha separado (a busca
+         larga aqui embaixo, a preview sozinha no alto), e é a forma emparelhada
+         que o operador pediu de volta. -->
+    <div class="simple-actions">
+      <!-- Com uma tela CONECTADA, a PREVIEW ocupa esta célula: ela é o sinal de
+           conexão (não há o que dizer melhor sobre "está conectado?" do que
+           mostrar o que a TV exibe) e o ícone de cast no canto dela é por onde
+           se troca de tela ou se desconecta. SEM tela ela some, a faixa vira
+           uma coluna só (a busca) e quem responde "conectar" é a seção do alto.
+           O nó da preview é O MESMO do modo avançado — ele é MOVIDO para cá e
+           de volta (ver `hostPreview` em controle.js), pelo mesmo padrão do
+           `#selbar` e do `<input type=file>`: dois nós divergiriam no primeiro
+           ajuste, e dois `createStage` decodificariam o mesmo vídeo duas vezes
+           num aparelho que já roda dois WebViews.
+           Vazio no HTML de propósito: quem o preenche é o `hostPreview`. -->
+      <div class="simple-stage" id="simpleStage"></div>
+      <button type="button" id="simpleSearchBtn" class="simple-key simple-action">
+        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <span class="simple-key-label">Buscar música</span>
+        <!-- O subtítulo saiu na v5.195 ("Hinários e álbuns"): ele nomeava onde
+             a busca procura, e não há segunda busca neste modo para escolher
+             entre elas. -->
+      </button>
+    </div>
 
     <!-- O "controle remoto": teclas grandes, nada de arrastar. -->
     <div class="simple-remote">
@@ -825,7 +809,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.200</span>
+        <span id="appVersion" class="app-version">Controle v5.201</span>
         <!-- O APK NOVO, quando existir. Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso. `hidden`

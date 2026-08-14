@@ -2292,10 +2292,31 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.200** (base web) · `SHELL_VERSION` **39**, e o bundle segue com
+**Versão atual: v5.201** (base web) · `SHELL_VERSION` **39**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.201: O MODO FÁCIL FICA COM A LETRA EM CIMA E O QUE SE OPERA EMBAIXO.
+> OTA PURO.** Pedido do operador, e ele desfaz metade da v5.200: *"pode voltar
+> ao design de preview + botão de pesquisar músicas, mas deixe ele na zona de
+> baixo mesmo, com a parte superior para a letra da música"*.
+>
+> A v5.199 fez a faixa de ações virar coluna sem tela, a v5.200 separou o par de
+> vez (busca larga embaixo, preview sozinha no alto), e a forma que ficou de pé
+> é a EMPARELHADA, embaixo:
+>
+> - **letra no topo** — é o que se lê durante o louvor, e é o que mais cresce;
+> - **preview + "Buscar música" lado a lado, na zona de baixo** — as duas coisas
+>   que se OPERAM, a busca a milímetros do ▶ que vem logo depois de escolher;
+> - **teclado por último**, como sempre.
+>
+> **Sem tela conectada a seção de conexão vai para o TOPO, acima da letra** — o
+> "priorizando a conexão" que o operador pediu na v5.199, agora sem disputar
+> espaço com a faixa de baixo: ali a preview simplesmente some e a grade vira
+> uma coluna, com a busca inteira. Com o par de volta na linha, o teto de altura
+> de 20vh da v5.200 saiu junto com a razão dele — quem limita a preview é a
+> largura da célula outra vez.
 
 > **A v5.200 (v1.91): O "RESQUÍCIO" ERA O CACHE DO WEBVIEW, e ele tem nome e
 > endereço. EXIGE APK.** O operador insistiu, e a insistência estava certa: o
