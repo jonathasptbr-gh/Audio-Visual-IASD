@@ -209,7 +209,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.206';
+const WEB_VERSION = '5.207';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -226,6 +226,25 @@ function renderVersionLabel() {
   appVersionEl.title = shell
     ? 'Base web v' + WEB_VERSION + ' (atualiza por OTA) · shell nativo v' + shell + ' (atualiza instalando o APK)'
     : 'Base web v' + WEB_VERSION;
+}
+
+// O PRÓPRIO RÓTULO RESPONDE (v5.207).
+//
+// Tocar na versão procura atualização, e até aqui a resposta saía numa faixa
+// flutuante no TOPO da tela — a 700px do dedo, cobrindo outra coisa, enquanto o
+// olho estava no rodapé de Configurações. A informação deslocada do alvo de
+// foco é exatamente o que o operador pediu para acabar.
+//
+// Aqui o alvo já é um texto, então ele empresta a si mesmo: o rótulo vira a
+// resposta e volta a ser a versão. Não há elemento novo, não há camada nova, e
+// quem tocou está olhando para o lugar em que a frase aparece.
+let versaoFalaTimer = null;
+function falarNaVersao(texto, ms) {
+  if (!appVersionEl) return;
+  clearTimeout(versaoFalaTimer);
+  appVersionEl.textContent = texto;
+  // `null` = fica até alguém reescrever (o desfecho de uma busca em curso).
+  if (ms) versaoFalaTimer = setTimeout(renderVersionLabel, ms);
 }
 
 renderVersionLabel();
@@ -285,7 +304,11 @@ if (apkRowEl) {
     let erro = '';
     try { erro = await AVNative.apkInstalar(); } catch (_) { erro = 'falha ao baixar'; }
     apkBaixando = false;
-    if (erro) { avisar('Não deu para atualizar: ' + erro, 'erro'); renderApkRow(); return; }
+    // O ERRO MORA NO BOTÃO QUE FOI TOCADO (v5.207), e não numa faixa no topo:
+    // este botão é a única coisa nesta tela que fala de atualizar o shell, e o
+    // dedo acabou de sair de cima dele. `renderApkRow()` o reescreveria, então
+    // ele NÃO é chamado aqui — a linha fica com o motivo até a próxima procura.
+    if (erro) { apkRowEl.textContent = 'Não deu para atualizar: ' + erro; return; }
     // Deu certo: o diálogo do sistema está na frente. A linha vira o convite a
     // confirmar, porque o operador pode ter recusado o diálogo sem querer.
     apkRowEl.textContent = 'Confirme a instalação na tela do sistema';
@@ -310,9 +333,10 @@ if (appVersionEl && window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= 31) {
   appVersionEl.title += ' — toque para procurar atualização';
   appVersionEl.addEventListener('click', () => {
     AVNative.otaCheck(true);
-    // `avisar`, não `flash`: o flash é no-op desde que o toast saiu, e esta
-    // resposta é o ÚNICO sinal de que o toque fez alguma coisa.
-    avisar('Procurando atualização…');
+    // O RÓTULO RESPONDE A SI MESMO (ver `falarNaVersao`): esta é a única
+    // confirmação de que o toque fez alguma coisa, e ela precisa nascer onde o
+    // toque nasceu. Sem prazo — quem a substitui é o desfecho, abaixo.
+    falarNaVersao('Procurando atualização…', 0);
     // A busca é rede: o desfecho chega pelo empurrão do shell (`__avOta`) ou
     // pela enquete. Estas duas consultas antecipadas existem para o caso em que
     // não HÁ nada novo — aí não há empurrão nenhum, e sem elas o toque ficaria
@@ -332,7 +356,11 @@ async function atualizarProcura(anunciar) {
   // para pedir a atualização de propósito.
   otaRecusadas.clear();
   await ofertarAtualizacao();
-  if (anunciar && !otaPendenteVersao) avisar('Você já está na versão mais recente.');
+  // O DESFECHO VOLTA PARA O MESMO RÓTULO, e depois ele volta a ser a versão.
+  if (anunciar && !otaPendenteVersao) falarNaVersao('Você já está na versão mais recente.', 3200);
+  // E se HÁ algo novo, quem fala é a oferta (`ofertarAtualizacao`) — mas o
+  // rótulo não pode ficar preso em "Procurando…" enquanto ela decide.
+  else if (!anunciar && otaPendenteVersao) renderVersionLabel();
 }
 
 
@@ -358,7 +386,6 @@ const lyricsBgSegEl = document.getElementById('lyricsBgSeg');
 const wallFileEl = document.getElementById('wallFile');
 const wallPickEl = document.getElementById('wallPick');
 const wallResetEl = document.getElementById('wallReset');
-const diagBoxEl = document.getElementById('diagBox');
 const diagCopyEl = document.getElementById('diagCopy');
 // Espelho de pixels: a LINHA em Configurações e a FOLHA que ela abre.
 const castPopupEl = document.getElementById('castPopup');
@@ -1252,7 +1279,8 @@ const preview = createStage({
   onError: (e) => {
     const code = e.target.error ? e.target.error.code : '?';
     const src = e.target.src ? e.target.src.slice(-60) : '(sem src)';
-    flash('Erro ' + code + ': …' + src);
+    // (O `flash` era no-op desde que o primeiro toast saiu; o diagnóstico de
+    //  verdade deste erro vive no Registro, por `diagC`.)
   },
 });
 
@@ -4065,16 +4093,19 @@ async function criarCue(cue, data, nome, destino, btn) {
 // usava, então o comportamento (incluindo ⏮/⏭, o rótulo do now-playing e a
 // notificação nativa) é idêntico ao de projetar pela aba — porque É a mesma
 // projeção.
+// O `rec.id` DESCE JUNTO porque é ele que diz em qual LINHA escrever quando a
+// projeção não dá (ver `falharNoItem`): estas quatro falhas são sobre um item
+// específico de uma lista que está na tela, e a resposta pertence a ele.
 async function playCue(rec) {
   if (!isCue(rec)) return;
   const d = rec.data || {};
   switch (rec.cue) {
-    case 'verse': return projetarVersiculoRef(d);
-    case 'message': return projetarMensagemCue(d);
-    case 'songlyrics': return projetarLetraCue(d);
+    case 'verse': return projetarVersiculoRef(d, rec.id);
+    case 'message': return projetarMensagemCue(d, rec.id);
+    case 'songlyrics': return projetarLetraCue(d, rec.id);
     case 'chrono': return projetarTempoCue(d);
     case 'draw': return projetarSorteioCue(d);
-    case 'group': return abrirPacote(d);
+    case 'group': return abrirPacote(d, rec.id);
     default: return undefined;
   }
 }
@@ -4084,7 +4115,7 @@ async function playCue(rec) {
 // reaproveita `bibleGotoChapter` de propósito: aquela exige uma sessão já
 // aberta (lê `s.versionId` dela), e aqui a sessão é justamente o que não
 // existe — o operador pode estar em qualquer aba quando toca no roteiro.
-async function projetarVersiculoRef(ref) {
+async function projetarVersiculoRef(ref, cueId) {
   // A VERSÃO EM USO HOJE tem precedência sobre a que estava em uso quando o
   // item foi guardado: a referência é do TEXTO ("Salmo 23:1"), não da tradução,
   // e um roteiro montado há um mês não pode arrastar de volta uma versão que o
@@ -4092,14 +4123,14 @@ async function projetarVersiculoRef(ref) {
   // A guardada fica como RESERVA, e é ela que salva o caso offline: a versão de
   // hoje pode não ter este capítulo em cache, e a de então provavelmente tem.
   const versoes = [bibleVersionId, ref.versionId].filter((v, i, a) => v && a.indexOf(v) === i);
-  if (!versoes.length) { avisar('Escolha uma versão da Bíblia primeiro', 'erro'); return; }
+  if (!versoes.length) { falharNoItem(cueId, 'nenhuma versão da Bíblia baixada'); return; }
   let verses = null;
   let versao = versoes[0];
   for (const v of versoes) {
     try { verses = await fetchBibleChapterCached(v, ref.bookIdx, ref.chapter); versao = v; break; }
     catch (_) { /* tenta a próxima */ }
   }
-  if (!verses || !verses.length) { avisar('Sem este capítulo no aparelho (e sem internet para baixar)', 'erro'); return; }
+  if (!verses || !verses.length) { falharNoItem(cueId, 'capítulo não está no aparelho'); return; }
   const book = Bible.BOOKS[ref.bookIdx];
   if (!book) return;
   // Pelo NÚMERO do versículo, não pelo índice: capítulos com numeração
@@ -4127,11 +4158,11 @@ async function projetarVersiculoRef(ref) {
 // mensagem, o roteiro não pode ficar mudo no meio do culto: projeta o texto
 // guardado, sem sessão de navegação (o `slideTarget` devolve null e os botões
 // voltam a ser de mídia, que é a leitura honesta — não há lista para percorrer).
-function projetarMensagemCue(d) {
+function projetarMensagemCue(d, cueId) {
   const i = d.msgId ? messages.findIndex((m) => m.id === d.msgId) : -1;
   if (i >= 0) { projectMessage(i); return; }
   const texto = String(d.text || '').trim();
-  if (!texto) { avisar('A mensagem deste item foi excluída', 'erro'); return; }
+  if (!texto) { falharNoItem(cueId, 'a mensagem foi excluída'); return; }
   clearManualText();
   // SEM SESSÃO DE NAVEGAÇÃO, MAS NÃO SEM ESTADO: sem esta linha o texto ficava
   // projetado e invisível para o resto do app — o segundo toque não o
@@ -4146,10 +4177,10 @@ function projetarMensagemCue(d) {
 }
 
 // ---- letra avulsa ----
-async function projetarLetraCue(d) {
+async function projetarLetraCue(d, cueId) {
   const coll = allCollections().find((c) => c.id === d.collId);
   const s = coll ? collSongs(d.collId).find((x) => String(x.id_music) === String(d.songId)) : null;
-  if (!coll || !s) { avisar('Esta música não está mais no acervo', 'erro'); return; }
+  if (!coll || !s) { falharNoItem(cueId, 'a música saiu do acervo'); return; }
   await projectSongLyricsOnly(coll, s);
 }
 
@@ -4193,10 +4224,10 @@ function projetarSorteioCue(d) {
 // abertura entrando com um toque, em vez de quatro itens montados à mão a cada
 // semana. Os ids que não existirem mais são simplesmente pulados (uma mídia
 // excluída não pode impedir o resto do bloco de tocar).
-async function abrirPacote(d) {
+async function abrirPacote(d, cueId) {
   const ids = Array.isArray(d.ids) ? d.ids : [];
   const recs = (await Promise.all(ids.map((id) => AVDB.getMedia(id)))).filter(Boolean);
-  if (!recs.length) { avisar('As mídias deste pacote não estão mais no aparelho', 'erro'); return; }
+  if (!recs.length) { falharNoItem(cueId, 'as mídias saíram do aparelho'); return; }
   await AVDB.listSet('playlist', recs.map((r) => r.id));
   plItems = recs;
   renderPlaylist();
@@ -4225,10 +4256,12 @@ async function projectSongLyricsOnly(coll, s) {
   try {
     let stanzas = await lyricStanzaTexts(coll, s);
     if (!stanzas.length) {
-      await ensureSongDownloaded(coll, s, { toast: !bg.visivel });
+      await ensureSongDownloaded(coll, s);
       stanzas = await lyricStanzaTexts(coll, s);
     }
-    if (!stanzas.length) { avisar('Letra indisponível para esta música', 'erro'); return; }
+    // O MESMO CARTÃO que estava dizendo "Baixando…" diz por que não deu — ele
+    // é sobre a preview, que é onde a letra apareceria.
+    if (!stanzas.length) { bg.falhar('esta música não tem letra'); return; }
     clearBibleSession(); clearMsgSession(); clearChronoSession(); clearDrawSession();
     lyricSession = { title: songLabel(coll, s), stanzas, idx: 0, projecting: true };
     projectLyricStanza(0);
@@ -5003,10 +5036,28 @@ function pushDraw() {
   cmd({ type: 'text', mode: 'draw', draw: drawDescriptor(), sub: draw.label || '', view: 'visual' });
 }
 
+// O SORTEIO FALA NO PRÓPRIO PAINEL (v5.207).
+//
+// "Escreva as opções antes de sortear" e "todas já saíram" são respostas ao
+// botão de sortear, e ele mora num painel da aba Ferramentas que está inteiro
+// na tela. A frase ia para uma faixa flutuante no topo; agora ela ocupa o
+// lugar do VALOR sorteado — que é exatamente o que o operador está olhando
+// quando toca em sortear, e o que ele teria recebido se houvesse o que sortear.
+function naoResta(texto) {
+  // `#drawRead` é o mostrador do sorteio — o mesmo que exibe o número/nome
+  // sorteado e a animação do rolo (ver `renderDrawReadout`). Ele é redesenhado
+  // a cada sorteio, então a frase não precisa ser limpa: o próximo sorteio
+  // válido a substitui pelo resultado.
+  const el = document.getElementById('drawRead');
+  if (!el) return;
+  el.classList.remove('rolling');
+  el.textContent = texto;
+}
+
 function doDraw() {
   const v = draw.kind === 'text' ? pickText() : pickNumber();
   if (v == null) {
-    flash(draw.kind === 'text' && !draw.pool.length
+    naoResta(draw.kind === 'text' && !draw.pool.length
       ? 'Escreva as opções antes de sortear.'
       : 'Todas as opções já saíram. Toque em "Reiniciar" para sortear de novo.');
     return;
@@ -5505,6 +5556,10 @@ function renderLibrary() {
     const sub = document.createElement('span'); sub.className = 'row-sub';
     sub.textContent = subtituloItem(item);
     pintarSubNoAr(sub, noAr);
+    // A linha pode estar sendo remontada COM uma falha recente em cena (a lista
+    // se redesenha por vários motivos); sem isto, o motivo sumiria no primeiro
+    // render e o operador ficaria sem resposta.
+    pintarFalha(sub, item.id);
     textWrap.append(name, sub);
     // Item de player do YouTube num shell que sabe baixar: o botão converte o
     // link num arquivo local. Quem diz que ele DEPENDE DO YOUTUBE agora é o
@@ -6551,6 +6606,38 @@ function renderCollectionsNow() {
 // Duas origens, cada uma com seu cabeçalho, na ordem em que fazem sentido:
 // os atalhos criados pelo operador primeiro (é o que ele marcou), as pastas
 // do dispositivo depois (a origem bruta, que ele sincronizou uma vez).
+// O ESTADO DE UMA PASTA MORA NA LINHA DELA (v5.207).
+//
+// A sincronização de uma pasta do dispositivo falava por uma faixa flutuante no
+// topo da tela: "Sincronizando 12/340…", "Pasta já em dia", "Erro na
+// sincronização". Três mensagens sobre UMA linha que estava na tela, logo
+// abaixo, com o dedo ainda em cima do botão de sincronizar — e a resposta
+// aparecendo a meia tela de distância, por cima de outra coisa.
+//
+// Aqui ela ocupa o lugar do CONTADOR daquela pasta, que é exatamente o número
+// que a sincronização está mudando: enquanto ela corre, o contador vira o
+// progresso; terminada, ele volta a ser a contagem. Nenhum elemento novo.
+const pastaStatus = new Map();
+function statusPasta(id, texto, ms) {
+  if (!id) return;
+  const antes = pastaStatus.get(id);
+  if (antes && antes.timer) clearTimeout(antes.timer);
+  if (!texto) pastaStatus.delete(id);
+  else {
+    pastaStatus.set(id, {
+      texto,
+      timer: ms ? setTimeout(() => { pastaStatus.delete(id); renderFoldersSeVisivel(); }, ms) : 0,
+    });
+  }
+  renderFoldersSeVisivel();
+}
+// Só redesenha quando a lista de pastas está de fato à vista — o mesmo cuidado
+// do `refreshCollectionsIfVisible`: uma sincronização de 600 arquivos rodando
+// com a gaveta fechada não pode remontar a lista a cada arquivo.
+function renderFoldersSeVisivel() {
+  if (activeTab === 'folders' && !currentFolder) renderLibrary();
+}
+
 function renderFolderList() {
   if (opfsFolders.length === 0 && folders.length === 0 && favItems.length === 0) {
     const empty = document.createElement('li');
@@ -6595,14 +6682,20 @@ function renderFolderList() {
     const icon = document.createElement('div'); icon.className = 'thumb thumb--icon';
     icon.appendChild(msym(ICON.import));
     const nameEl = document.createElement('span'); nameEl.className = 'row-name'; nameEl.textContent = f.name;
-    const countEl = document.createElement('span'); countEl.className = 'folder-count'; countEl.textContent = String(f.count || 0);
+    // O CONTADOR É TAMBÉM O CANAL DE ESTADO desta pasta (ver `statusPasta`):
+    // durante a sincronização ele mostra o progresso, e depois volta a ser a
+    // contagem. É o número que a ação está mudando — nada mais perto do alvo.
+    const st = pastaStatus.get(f.id);
+    const countEl = document.createElement('span');
+    countEl.className = 'folder-count' + (st ? ' folder-count--st' : '');
+    countEl.textContent = st ? st.texto : String(f.count || 0);
     const syncBtn = document.createElement('button'); syncBtn.className = 'row-btn'; syncBtn.title = 'Re-sincronizar com a pasta do dispositivo';
     // Setas circulares, o MESMO desenho de "sincronizar" dos cards de coleção.
     // Antes era `ICON.import` (folder_open) — o mesmo glifo do ícone à esquerda,
     // que identifica a pasta: na mesma linha, o operador via o mesmo desenho
     // duas vezes, um como identidade e outro como ação (com a lixeira ao lado).
     syncBtn.innerHTML = syncIconSvg();
-    syncBtn.addEventListener('click', (e) => { e.stopPropagation(); syncDeviceFolder(f); });
+    syncBtn.addEventListener('click', (e) => { e.stopPropagation(); syncDeviceFolder(f, syncBtn); });
     const rmBtn = document.createElement('button'); rmBtn.className = 'row-btn'; rmBtn.title = 'Excluir pasta e arquivos sincronizados';
     rmBtn.appendChild(msym(ICON.del));
     rmBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteOpfsFolder(f); });
@@ -7438,7 +7531,8 @@ async function toggleMute() {
   // o clique vira "liberar o som" — pede uma retentativa imediata.
   if (displayAudioBlocked && !muted) {
     AVDB.sendCommand({ type: 'audio-retry' });
-    flash('Tentando liberar o áudio no Display…');
+    // (idem: no-op legado. Quem relata o áudio bloqueado é o próprio botão
+    //  de mudo, que veste `.blocked` — ver `renderControls`.)
     return;
   }
   muted = !muted; await persistCurrent();
@@ -7628,7 +7722,7 @@ function marcarNoAr() {
     // O SELO acompanha a classe: ele é a metade que se LÊ, e sem ele o estado
     // volta a ser só uma cor a mais numa tela que já tem várias.
     const sub = el.querySelector('.row-sub');
-    if (sub) pintarSubNoAr(sub, noAr);
+    if (sub) { pintarSubNoAr(sub, noAr); pintarFalha(sub, id); }
   });
 }
 
@@ -7659,6 +7753,59 @@ function linhaNoAr(id) {
  * empurraria a altura de toda a lista para dizer algo que só vale em uma linha
  * de cada vez.
  */
+/**
+ * A FALHA MORA NA LINHA QUE FOI TOCADA (v5.207).
+ *
+ * Projetar uma cena de roteiro pode não dar: o capítulo não está no aparelho, a
+ * mensagem foi apagada, a música saiu do acervo, as mídias do pacote sumiram.
+ * As quatro saíam por uma faixa flutuante no TOPO da tela — enquanto o dedo e o
+ * olho estavam numa linha do Cronograma, no meio ou no fim da lista. A
+ * informação deslocada do alvo de foco é o que o operador pediu para acabar.
+ *
+ * Aqui ela usa o MESMO lugar e o MESMO desenho do selo "● No ar": um `<span>`
+ * prefixado ao subtítulo da própria linha. O subtítulo não é reescrito — o
+ * selo é um nó à parte —, então o tipo e a duração continuam legíveis ao lado
+ * do motivo, e nenhum dos dois pintores atrapalha o outro.
+ *
+ * Ela se apaga sozinha: um motivo que ficasse para sempre viraria parte da
+ * descrição do item.
+ */
+const FALHA_ITEM_MS = 6000;
+const falhaItem = new Map();
+function notaNoItem(id, texto, tipo) {
+  if (!id || !texto) return;
+  const antes = falhaItem.get(id);
+  if (antes && antes.timer) clearTimeout(antes.timer);
+  falhaItem.set(id, {
+    texto,
+    tipo: tipo || 'erro',
+    timer: setTimeout(() => { falhaItem.delete(id); marcarNoAr(); }, FALHA_ITEM_MS),
+  });
+  marcarNoAr();
+}
+// Açúcar para o caso mais comum, que é o de falha.
+function falharNoItem(id, texto) { notaNoItem(id, texto, 'erro'); }
+
+function pintarFalha(sub, id) {
+  const antigo = sub.querySelector('.row-nota');
+  const f = falhaItem.get(id);
+  if (!f) {
+    if (antigo && antigo.nextSibling && antigo.nextSibling.nodeType === 3) antigo.nextSibling.remove();
+    if (antigo) antigo.remove();
+    return;
+  }
+  if (antigo) {
+    antigo.textContent = f.texto;
+    antigo.className = 'row-nota row-nota--' + f.tipo;
+    return;
+  }
+  const selo = document.createElement('span');
+  selo.className = 'row-nota row-nota--' + f.tipo;
+  selo.textContent = f.texto;
+  sub.prepend(selo);
+  if (sub.textContent.replace(f.texto, '').trim()) selo.after(' · ');
+}
+
 function pintarSubNoAr(sub, noAr) {
   const antigo = sub.querySelector('.row-live');
   if (noAr === !!antigo) return;
@@ -8200,7 +8347,9 @@ async function refreshOpfsFolderCount(folderId) {
 // `stat()` devolve { size, mtime } SEM ler os bytes: é o que permite pular
 // arquivos inalterados de graça (no SAF os metadados já vêm na listagem; no
 // navegador o File é obtido uma vez e reaproveitado por `read()`).
-async function openFolderSource(existing) {
+// `botao` é quem foi tocado — o único alvo de foco quando ainda não há linha
+// de pasta em que responder. Ver `syncDeviceFolder`.
+async function openFolderSource(existing, botao) {
   if (window.__NATIVE__) {
     let picked = existing && existing.uri ? { uri: existing.uri, name: existing.name } : null;
     let list = picked ? await AVNative.listFolder(picked.uri) : null;
@@ -8228,9 +8377,10 @@ async function openFolderSource(existing) {
     };
   }
 
-  // `avisar`, não `flash` (no-op): sem o aviso, um navegador sem a API
-  // simplesmente não responderia ao toque — falha muda.
-  if (!('showDirectoryPicker' in window)) { avisar('Navegador não suporta seleção de pastas', 'erro'); return null; }
+  // NAVEGADOR SEM A API — caso que não existe no app (lá o seletor é o SAF) e
+  // que no navegador é permanente. O pulso vermelho no botão que foi tocado diz
+  // "não vai dar" sem uma camada nova para uma frase que ninguém pode resolver.
+  if (!('showDirectoryPicker' in window)) { pulsar(botao, 'erro'); return null; }
 
   // Re-sync: tenta reutilizar o handle salvo (browsers que persistem a
   // permissão nem mostram prompt); senão cai no picker.
@@ -8266,11 +8416,21 @@ async function openFolderSource(existing) {
 // A cada quantos arquivos o índice de pastas é regravado. Ver `syncDeviceFolder`.
 const CHECKPOINT_PASTA = 25;
 
-async function syncDeviceFolder(existing) {
-  if (!AVDB.opfsSupported()) { avisar('Navegador não suporta armazenamento OPFS', 'erro'); return; }
-  if (syncBusy) { avisar('Sincronização em andamento…', 'dup'); return; }
+// `botao` = quem foi tocado (a linha da pasta ou "adicionar"). Ele existe para
+// as duas recusas abaixo terem onde responder: nelas ainda não há pasta, logo
+// não há linha — e o único alvo de foco é o botão que o dedo acabou de soltar.
+async function syncDeviceFolder(existing, botao) {
+  // NAVEGADOR SEM OPFS: caso que não existe no app (o WebView tem OPFS) e que
+  // no navegador é permanente. O pulso vermelho no próprio botão diz "não vai
+  // dar" sem inventar uma camada para uma frase que ninguém pode resolver.
+  if (!AVDB.opfsSupported()) { pulsar(botao, 'erro'); return; }
+  // JÁ HÁ UMA SINCRONIZAÇÃO CORRENDO, e o motivo está VISÍVEL na mesma tela: a
+  // pasta que está sincronizando mostra o progresso no contador dela (ver
+  // `statusPasta`). Repetir isso numa faixa seria dizer duas vezes o que já
+  // está escrito a duas linhas dali.
+  if (syncBusy) { pulsar(botao, 'dup'); return; }
 
-  const source = await openFolderSource(existing);
+  const source = await openFolderSource(existing, botao);
   if (!source) return;
 
   syncBusy = true;
@@ -8278,11 +8438,16 @@ async function syncDeviceFolder(existing) {
   // grandes); mesma proteção contra o congelamento ao minimizar.
   bgWorkBegin();
   let folderNotifId = 0; // fora do try: o finally precisa encerrar a tarefa
+  // E `folder` TAMBÉM fora: é ele que diz em qual LINHA a falha vai ser escrita
+  // (ver `statusPasta`), e um `let` dentro do `try` não existe para o `catch` —
+  // a mensagem de erro morreria com um ReferenceError em cima da falha que ela
+  // estava tentando relatar.
+  let folder = null;
   try {
     // Pede armazenamento persistente para o browser não descartar os arquivos.
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 
-    let folder = existing || opfsFolders.find((f) => f.name === source.name);
+    folder = existing || opfsFolders.find((f) => f.name === source.name);
     if (!folder) {
       folder = { id: uid(), name: source.name, count: 0, syncedAt: 0 };
       opfsFolders.push(folder);
@@ -8322,10 +8487,11 @@ async function syncDeviceFolder(existing) {
     folderNotifId = bgTaskStart('Pasta · ' + folder.name, entries.length);
     for (const [entry, type] of entries) {
       done++;
-      // Cada chamada reinicia o timer do aviso, então a faixa fica em cena
-      // durante a cópia inteira, contando — é o progresso na própria tela
-      // (a notificação só aparece com o app minimizado).
-      avisar('Sincronizando ' + done + '/' + entries.length + '…');
+      // O PROGRESSO NO CONTADOR DA PRÓPRIA PASTA (v5.207): é o número que esta
+      // cópia está mudando, na linha em que o operador tocou. Sem prazo — quem
+      // o substitui é o desfecho, no fim do laço. (A notificação do sistema
+      // continua sendo o canal de quando o app está minimizado.)
+      statusPasta(folder.id, done + '/' + entries.length, 0);
       bgTaskStep(folderNotifId, done);
       const name = entry.name;
       bgItemOnly(folderNotifId, name);
@@ -8371,13 +8537,16 @@ async function syncDeviceFolder(existing) {
     await AVDB.setState('opfs-folders', opfsFolders);
     // O desfecho é o que a faixa existe para dizer: "já em dia" é a resposta
     // que evita re-sincronizar à toa, e ela precisa se distinguir de "entrou".
-    if (added > 0) avisar(added + ' arquivo(s) sincronizado(s)');
-    else avisar('Pasta já em dia', 'dup');
+    // O desfecho vai para o CONTADOR da própria pasta: "já em dia" é a
+    // resposta que evita re-sincronizar à toa, e ela precisa se distinguir de
+    // "entrou". Some sozinho e o número volta.
+    statusPasta(folder.id, added > 0 ? '+' + added : 'em dia', 4000);
   } catch (e) {
-    // A CAUSA VAI JUNTO. "Erro na sincronização" sozinho não distingue disco
-    // cheio de permissão revogada de arquivo ilegível, e as três têm saídas
-    // diferentes — a primeira é a provável numa pasta de 600 vídeos.
-    avisar('Erro na sincronização: ' + ((e && e.name) || 'desconhecido'), 'erro');
+    // A CAUSA VAI JUNTO. "Erro" sozinho não distingue disco cheio de permissão
+    // revogada de arquivo ilegível, e as três têm saídas diferentes — a
+    // primeira é a provável numa pasta de 600 vídeos. Fica mais tempo na tela
+    // que o desfecho bom, porque é ele que o operador precisa ler.
+    if (folder) statusPasta(folder.id, 'erro: ' + ((e && e.name) || 'desconhecido'), 9000);
   } finally {
     syncBusy = false;
     bgTaskEnd(folderNotifId);
@@ -10114,11 +10283,12 @@ async function ytAcao(r, destinos, btn, somenteAudio, altura) {
     setTimeout(() => { if ((ytEstado.get(r.id) || {}).estado === 'erro') setYtEstado(r.id, null); }, YT_ERRO_MS);
     pulsar(btn, 'erro');
     // SEM LINHA NA TELA, o vermelho não tem onde aparecer — é o caso do link
-    // COMPARTILHADO (v5.137), que abre a folha sem busca nenhuma atrás. Aqui a
-    // faixa de aviso é o único canal que resta ("flash" é no-op desde que o
-    // toast saiu), e "um download de minutos que termina em nada" é o silêncio
-    // que este app não pode ter.
-    if (!ytLinhaVisivel(r.id)) avisar('Não deu para baixar "' + (r.name || 'o vídeo') + '".', 'erro');
+    // COMPARTILHADO (v5.137), que abre a folha sem busca nenhuma atrás. Quem
+    // responde então é o CARTÃO DA PREVIEW: é o mesmo lugar em que este
+    // download vinha se anunciando (`aviso: 'preview'`), e ele fica sobre a
+    // preview, que é para onde o operador olha na tela principal. "Um download
+    // de minutos que termina em nada" é o silêncio que este app não pode ter.
+    if (!ytLinhaVisivel(r.id)) previewBusy('Baixando', r.name || 'o vídeo').falhar('não foi possível baixar');
     return;
   }
   setYtEstado(r.id, 'pronto');
@@ -10155,7 +10325,11 @@ async function ytAcao(r, destinos, btn, somenteAudio, altura) {
     if (!ytLinhaVisivel(r.id)) {
       const onde = juntarFrases((jaNaLista ? listas : listasNovas)
         .map((l) => (LISTA_ROTULO[l] || ROTULO_PADRAO).em));
-      avisar((jaNaLista ? 'Já estava ' : 'Adicionado ') + onde + '.', jaNaLista ? 'dup' : 'ok');
+      // A NOTA VAI PARA A LINHA DO ITEM QUE ACABOU DE NASCER (v5.207) — e ele
+      // existe agora, com id, em pelo menos uma lista. `focarImportado` leva o
+      // operador até ela, e é lá que a frase o espera, em vez de numa faixa no
+      // topo de uma tela que ele está deixando.
+      notaNoItem(rec.id, (jaNaLista ? 'já estava ' : 'foi ') + onde, jaNaLista ? 'dup' : 'ok');
     }
   } else {
     await fixarAvulso(rec.id);
@@ -10890,13 +11064,16 @@ async function songVariantsNeeded(coll, s) {
 // pediu pra usar, nunca o acervo inteiro de uma vez. Reaproveita
 // downloadCollectionSong — a música sai já com áudio, capa e letra, pronta pra
 // tocar 100% offline nas próximas vezes.
-// `opts.toast === false` cala o aviso na tela principal — é o que o caminho de
-// TOCAR usa desde a v5.64, porque ali quem anuncia o download é o indicador na
-// miniatura da preview (ver `previewBusy`). Os caminhos de ADICIONAR seguem com
-// o aviso (`avisar` — o flash é no-op desde que o toast saiu): eles não mexem
-// na preview, e sem ele o toque ficaria mudo. A faixa é transitória e some
-// sozinha, então ninguém precisa "fechá-la" no fim do download.
-async function ensureSongDownloaded(coll, s, opts) {
+// O PARÂMETRO `opts.toast` SAIU na v5.207, e com ele o último motivo de existir
+// desta assinatura. Ele calava um `avisar('Baixando "X"…')` numa faixa
+// flutuante, e existia porque o caminho de TOCAR já anunciava o mesmo download
+// no cartão da preview — dois canais para um fato, com um `if` para escolher.
+//
+// Sem a faixa não há o que calar: quem diz que ESTA música está baixando é a
+// linha dela (`setSongRowBusy`, logo abaixo), que fica à vista porque o acervo
+// continua aberto, e o cartão da preview quando o caminho é o de tocar. Os dois
+// são in-place e coexistem sem se atropelar.
+async function ensureSongDownloaded(coll, s) {
   const { needsFull, needsPlayback } = await songVariantsNeeded(coll, s);
   if (!needsFull && !needsPlayback) return;
 
@@ -10911,7 +11088,6 @@ async function ensureSongDownloaded(coll, s, opts) {
     const key = coll.id + ':' + s.id_music;
     if (songDownloadInFlight.has(key)) { await songDownloadInFlight.get(key); return; }
     const p = withBgWork(async () => {
-      if (!opts || opts.toast !== false) avisar('Baixando "' + s.name + '"…');
       await downloadCollectionSong(coll, s);
       await AVDB.setState('coll:' + coll.id, collState[coll.id]);
       refreshCollectionsIfVisible();
@@ -10923,8 +11099,8 @@ async function ensureSongDownloaded(coll, s, opts) {
   }
 }
 
-async function resolveSongMediaId(coll, s, variant, opts) {
-  await ensureSongDownloaded(coll, s, opts);
+async function resolveSongMediaId(coll, s, variant) {
+  await ensureSongDownloaded(coll, s);
   const fileId = variant === 'full' ? s.fileIdFull : s.fileIdPlayback;
   if (!fileId) return null;
   const rec = await AVDB.fileGet(fileId);
@@ -10973,6 +11149,10 @@ async function ensureDownloadConsent() {
 // está a caminho. Um aviso na tela principal seria mais um cartaz avulso a
 // interpretar; na preview a espera vira estado do próprio destino.
 const PV_BUSY_DELAY_MS = 180;
+// Quanto o cartão SEGURA um motivo de falha antes de sair (ver `falhar`).
+// Generoso de propósito: "Baixando…" o operador vê de relance, mas "sem
+// internet para baixar" ele precisa LER — e é a única resposta que ele vai ter.
+const PV_FALHA_MS = 5000;
 let pvBusyCount = 0;
 let pvBusyTimer = null;
 
@@ -11077,7 +11257,11 @@ function previewBusy(acao, nome, aoCancelar) {
   // No simplificado a preview só está na tela com um telão conectado (ver
   // hostPreview/`.simple.sem-tela`); bloqueado, quem avisa continua sendo o
   // toast — é por isso que o chamador precisa saber.
-  if (appMode === 'simple' && !simpleDisplay()) return { visivel: false, atualizar: () => {}, soltar: () => {} };
+  // `falhar` entra no stub junto com os outros: um chamador que só quer relatar
+  // uma falha não pode explodir porque o cartão não existe neste modo.
+  if (appMode === 'simple' && !simpleDisplay()) {
+    return { visivel: false, atualizar: () => {}, soltar: () => {}, falhar: () => {} };
+  }
   pvBusyCount++;
   pvBusyCapEl.textContent = acao;
   pvBusyLabelEl.textContent = nome;
@@ -11126,8 +11310,32 @@ function previewBusy(acao, nome, aoCancelar) {
       if (pvBusyCount) return;
       clearTimeout(pvBusyTimer); pvBusyTimer = null;
       pvBusyEl.classList.remove('on');
+      pvBusyEl.classList.remove('falhou');
       pvBusyCancelar = null;
       pintarPvBusyCancelar();
+    },
+    // O MESMO CARTÃO DIZ QUE NÃO DEU (v5.207).
+    //
+    // Ele já é o lugar em que este trabalho se anuncia, e é sobre a PREVIEW —
+    // isto é, exatamente onde a mídia apareceria se tivesse dado certo. O
+    // motivo ("sem internet para baixar") saía antes por uma faixa flutuante no
+    // topo da tela, longe do cartão que estava dizendo "Baixando…" um segundo
+    // antes: duas camadas para as duas metades da mesma frase.
+    //
+    // Ele SEGURA o cartão pelo tempo da leitura e só então solta — sem isso, o
+    // `finally` do chamador apagaria a mensagem no mesmo quadro em que ela
+    // nasce.
+    falhar(motivo) {
+      if (solto) return;
+      pvBusyEl.classList.add('on', 'falhou');
+      pvBusyCapEl.textContent = 'Não deu';
+      pvBusyLabelEl.textContent = motivo;
+      if (meuCancelar && pvBusyCancelar === meuCancelar) {
+        pvBusyCancelar = null;
+        pintarPvBusyCancelar();
+      }
+      const eu = this;
+      setTimeout(() => eu.soltar(), PV_FALHA_MS);
     },
   };
 }
@@ -11139,12 +11347,12 @@ async function playSongVariant(coll, s, variant) {
   closeHymnSearch();
   const bg = previewBusy('Baixando', songLabel(coll, s));
   try {
-    // Dois avisos para o mesmo download é ruído: com o indicador na preview, a
-    // faixa de aviso sai de cena.
-    const id = await resolveSongMediaId(coll, s, variant, { toast: !bg.visivel });
-    if (!id) { avisar('Não foi possível tocar (sem internet para baixar)', 'erro'); return; }
+    const id = await resolveSongMediaId(coll, s, variant);
+    // As duas falhas falam pelo MESMO cartão que estava dizendo "Baixando…", e
+    // é ele que fica na tela — sobre a preview, que é onde a música apareceria.
+    if (!id) { bg.falhar('sem internet para baixar'); return; }
     const rec = await AVDB.getMedia(id);
-    if (!rec) { avisar('Erro ao carregar mídia', 'erro'); return; }
+    if (!rec) { bg.falhar('não foi possível abrir a mídia'); return; }
     await replacePlaylistWith(rec);
     await send(id);
   } finally {
@@ -11152,19 +11360,20 @@ async function playSongVariant(coll, s, variant) {
   }
 }
 
-// Os três caminhos de ADICIONAR passam `toast: false` pelo mesmo motivo que o
-// de tocar: quem anuncia o download é o indicador — aqui, a miniatura da linha
-// da música (`setSongRowBusy`), que fica à vista porque o acervo continua
-// aberto de propósito. O aviso que sobra é o do RESULTADO ("Adicionado à
-// playlist"), que é outra informação.
+// Quem anuncia o download aqui é a miniatura da linha da música
+// (`setSongRowBusy`), que fica à vista porque o acervo continua aberto de
+// propósito. O RESULTADO é outra informação, e ele responde no botão que foi
+// tocado (ver `adicionarNasListas`).
 // UM download, VÁRIAS listas (v5.141). O caro aqui é `resolveSongMediaId` — ele
 // baixa o áudio quando ele ainda não está no aparelho —, e o item resultante é
 // o MESMO id em todas as listas. Fazer a conta uma vez e distribuir depois é a
 // diferença entre esperar um download e esperar três para a mesma música.
 async function addSongToDestinos(coll, s, variant, destinos, btn) {
   const alvos = (destinos && destinos.length) ? destinos : ['cronograma'];
-  const id = await resolveSongMediaId(coll, s, variant, { toast: false });
-  if (!id) { avisar('Não foi possível adicionar (sem internet para baixar)', 'erro'); return; }
+  const id = await resolveSongMediaId(coll, s, variant);
+  // A RECUSA RESPONDE NO BOTÃO QUE FOI TOCADO: ele é o alvo de foco, e o pulso
+  // vermelho é o mesmo vocabulário que o sucesso já usa nesta mesma folha.
+  if (!id) { pulsar(btn, 'erro'); return; }
   await adicionarNasListas(listasDosDestinos(alvos), id, songLabel(coll, s), btn);
   // Cada destino redesenha o que ele mudou, e só isso: os Favoritos aparecem na
   // estrela de cada linha do acervo, e o Cronograma só precisa ser remontado se
@@ -11553,7 +11762,6 @@ let diagTexto = '';
 let diagSeq = 0;
 
 async function renderDiag() {
-  if (!diagBoxEl) return;
   const meu = ++diagSeq;
   // O ESTADO DA PROCURA antes de montar o cabeçalho, que o lê (shell 31+). É a
   // única linha do bloco que precisa ir à ponte, e ela é barata: uma string.
@@ -11594,8 +11802,12 @@ async function renderDiag() {
   }
   if (meu !== diagSeq) return;   // outro render assumiu durante a espera
   blocos.push(eventosDiag());
+  // O TEXTO MORA NA VARIÁVEL, e não num nó do DOM (v5.207). O visor `<pre>`
+  // saiu de Configurações — ver o comentário do bloco no `index.html`: ele
+  // gastava 240px de espaço sempre visível para exibir, em fonte de 0,68rem,
+  // um log cujo consumidor é um humano a distância. Quem o leva até lá é o
+  // botão de copiar, e é `diagTexto` que ele copia.
   diagTexto = blocos.join('\n\n');
-  diagBoxEl.textContent = diagTexto;
 }
 // Junta os dois anéis em ORDEM DE RELÓGIO: celular e telão são dois processos
 // da mesma cena, e o que interessa é a sequência entre eles — "o celular ficou
@@ -11651,11 +11863,12 @@ async function copiarTexto(texto, btn) {
 // referência PENDURADA — apontava para um `#diagCopy` que o HTML não tinha e
 // não escutava nada. Agora o elemento existe e ele tem função.
 //
-// Copia o registro MONTADO, não o que está à vista: a caixa rola, e copiar a
-// janela visível entregaria um pedaço do meio — que é justamente o defeito que
-// esta reforma veio corrigir.
+// Copia o registro MONTADO. Até a v5.206 havia um `|| diagBoxEl.textContent`
+// atrás desta leitura, e ele existia porque a caixa ROLAVA: copiar o que estava
+// à vista entregaria um pedaço do meio. Sem o visor, a variável é a única fonte
+// — e é a completa.
 if (diagCopyEl) {
-  diagCopyEl.addEventListener('click', () => copiarTexto(diagTexto || diagBoxEl.textContent || '', diagCopyEl));
+  diagCopyEl.addEventListener('click', () => copiarTexto(diagTexto, diagCopyEl));
 }
 
 function renderFitSeg() {
@@ -12251,6 +12464,9 @@ async function pptxImportar(file, nome, opts) {
 }
 
 async function deckImportar(origem, nome, opts) {
+  // Quantas páginas o shell entregou quando ele CORTOU o deck (0 = não cortou).
+  // Ver o ponto em que ela é lida, logo abaixo: a nota pertence à linha do item.
+  let truncadaEm = 0;
   if (!window.__NATIVE__ || (window.__SHELL_VERSION__ | 0) < 19) return null;
   const rotulo = nome || 'Apresentação';
   const naPreview = !!(opts && opts.naPreview);
@@ -12276,7 +12492,12 @@ async function deckImportar(origem, nome, opts) {
       // enviar): um deck cortado sem aviso leria como "o arquivo era assim", e
       // o operador só descobriria na frente da congregação, na página que não
       // existe. Campo ausente (shell antigo) = sem aviso, como sempre.
-      if (r.truncado) avisar('Apresentação truncada em ' + r.pages.length + ' páginas', 'erro');
+      // A NOTA VAI PARA A LINHA DO ITEM QUE VAI NASCER (v5.207), e por isso ela
+      // é guardada aqui e aplicada lá embaixo, quando o registro já tem id: uma
+      // apresentação cortada é um fato SOBRE AQUELE ITEM, e o lugar de um fato
+      // sobre um item é a linha dele — não uma faixa no topo da tela, que já
+      // teria sumido quando o operador chegasse ao Cronograma.
+      truncadaEm = r.truncado ? r.pages.length : 0;
       // Uma página de cada vez: as imagens já estão no cache do aparelho, e
       // buscar as dezenas de uma vez só encheria a memória sem ganhar tempo.
       const pages = [];
@@ -12288,9 +12509,14 @@ async function deckImportar(origem, nome, opts) {
         pages.push(b);
       }
       const thumb = await makeThumb(pages[0], 'image');
-      return await AVDB.addDeck(pages, {
+      const criado = await AVDB.addDeck(pages, {
         name: r.name || rotulo, thumb, list: (opts && opts.lista) || 'imports',
       });
+      // Um deck cortado sem aviso leria como "o arquivo era assim", e o
+      // operador só descobriria na frente da congregação, na página que não
+      // existe. (Campo ausente = shell antigo = sem aviso, como sempre.)
+      if (truncadaEm && criado) falharNoItem(criado.id, 'truncada em ' + truncadaEm + ' páginas');
+      return criado;
     });
   } catch (e) {
     console.warn('[apresentação] falhou:', e && e.message);
@@ -12680,12 +12906,17 @@ async function importShare(pending) {
   if (added && !tratado) await focarImportado(primeiro);
   // DIZER PARA ONDE FOI, e só quando não for óbvio. `focarImportado` leva o
   // operador ao Cronograma — a resposta visual de sempre —, mas um item que foi
-  // para os Favoritos ou para a playlist não aparece ali, e sem uma frase o
-  // import terminaria parecendo que nada entrou.
+  // para os Favoritos ou para a playlist não aparece ali, e sem isso o import
+  // terminaria parecendo que nada entrou.
+  //
+  // A frase mora na LINHA do primeiro item do lote (v5.207), que é justamente a
+  // linha para a qual o `focarImportado` acabou de rolar: o operador está
+  // olhando para ela quando a resposta aparece. Antes era uma faixa flutuante
+  // no topo, e ela chegava enquanto a tela ainda estava trocando de aba.
   if (added && !tratado && lote.length
     && (listasEscolhidas.length > 1 || (listasEscolhidas.length === 1 && listasEscolhidas[0] !== 'imports'))) {
-    const quantos = lote.length === 1 ? '1 item adicionado ' : lote.length + ' itens adicionados ';
-    avisar(quantos + ondeDe(listasEscolhidas, 'para') + '.', 'ok');
+    const quantos = lote.length === 1 ? 'foi ' : lote.length + ' itens ';
+    notaNoItem(primeiro && primeiro.id, quantos + ondeDe(listasEscolhidas, 'para'), 'ok');
   }
   if (naoAbriu) await avisarNaoAbriu(naoAbriu);
   return added;
@@ -12759,27 +12990,60 @@ function registrarShareNativo() {
       // este catch a rejeição virava unhandled rejection no console e o
       // compartilhamento evaporava sem nenhum rastro visível.
       diagC('share falhou: ' + ((e && e.message) || e));
-      avisar('Não deu para importar o compartilhamento', 'erro');
+      // ESTE É O ÚNICO PONTO SEM INTERFACE DE ORIGEM: o compartilhamento vem de
+      // FORA do app, o intent já foi consumido no Kotlin (não existe segunda
+      // entrega) e nenhum item chegou a nascer — não há linha, botão ou folha
+      // em que responder. O diálogo do próprio app é a resposta certa aqui, e
+      // não uma faixa flutuante: ele toma o foco, exige um toque e não some
+      // sozinho enquanto o operador olha para outro lugar. Perder um
+      // compartilhamento em silêncio é o desfecho que isto existe para impedir.
+      appConfirm({
+        title: 'Não deu para importar',
+        message: 'O que foi compartilhado não pôde ser lido, e o Android já entregou '
+          + 'o item — não há como tentar de novo daqui. Compartilhe outra vez pelo '
+          + 'app de origem.',
+        okText: 'Entendi', cancelText: null,
+      });
     });
   });
 }
 
-// ===== feedback rápido =====
-// O sistema de alerta FLUTUANTE (toast) foi removido: as informações agora são
-// transmitidas pela própria interface de design (estados dos botões, contadores,
-// listas e — para a sincronização — o texto no card da coleção, ver
-// setCollStatus/renderCollectionCard). flash() virou no-op para não precisar
-// mexer nos pontos de chamada LEGADOS que restam espalhados pelo arquivo;
-// qualquer mensagem que antes ia pro toast simplesmente não aparece mais.
-// (Os pontos em que o aviso era o ÚNICO canal migraram para `avisar()` na
-// auditoria de agosto/2026 — OTA pelo rótulo de versão, desfecho do share,
-// sincronização de pastas e o "Baixando…" do acervo.)
+// ===== O FEEDBACK MORA NA INTERFACE DE ORIGEM (v5.207) =====
 //
-// FEEDBACK NOVO NÃO USA flash(): quando o aviso é o único canal (nenhum botão,
-// linha ou card na tela para responder), o canal é `avisar()` — a faixa de
-// aviso logo abaixo, que se dispensa sozinha. Chamar flash() em código novo é
-// escrever uma mensagem que ninguém verá.
-function flash() { /* no-op: alerta flutuante removido (ver comentário acima) */ }
+// **Não existe mais alerta flutuante neste app**, e a regra é uma só: a
+// resposta de uma ação nasce onde a ação nasceu. Nada de uma camada por cima
+// da tela levando a informação para longe do alvo de foco.
+//
+// A história vale escrita porque ela deu duas voltas. Um toast foi removido
+// há muito tempo; no lugar dele nasceu `avisar()`, e o comentário que o
+// justificava afirmava, com todas as letras, "o que ele NÃO é: o toast de
+// volta. Não flutua (mora no fim da área de lista)". O CSS dizia outra coisa —
+// `position: fixed; top: .5rem; z-index: 400` —, e era um toast: uma faixa no
+// TOPO da tela, por cima do que estivesse ali, para responder a um toque dado
+// no rodapé, numa linha do meio da lista ou dentro de uma folha aberta.
+// Trinta e cinco pontos do app falavam por ela.
+//
+// OS CANAIS QUE A SUBSTITUÍRAM, todos in-place e todos já existentes ou
+// nascidos aqui:
+//
+//  · `pulsar(btn, tipo)` — o botão que foi tocado responde. É o feedback de
+//    adicionar/favoritar/copiar, e o vocabulário de cor já era este.
+//  · `notaNoItem(id, texto, tipo)` — a LINHA do item, prefixada ao subtítulo,
+//    no mesmo desenho do selo "● No ar". Para tudo que é um fato sobre um
+//    item de lista: falhou ao projetar, foi para tal lista, veio truncada.
+//  · `previewBusy(...).falhar(motivo)` — o cartão sobre a preview, que já
+//    dizia "Baixando…". Para o que aconteceria na preview e não aconteceu.
+//  · `statusPasta(id, texto)` — o contador da própria pasta, que é o número
+//    que a sincronização está mudando.
+//  · `falarNaVersao` / `falarNoPacote` / `#apkRow` — o rótulo do próprio
+//    controle empresta a si mesmo por alguns segundos, e volta.
+//  · `#castMsg` — a linha de estado que a folha de conexão sempre teve.
+//  · `appConfirm` — o diálogo do app, para o ÚNICO caso sem interface de
+//    origem (um compartilhamento que chega de fora e falha inteiro). Ele toma
+//    o foco e exige um toque; não é uma faixa que passa.
+//
+// Se um caminho novo não tem onde responder, a pergunta certa não é "qual
+// camada uso?" — é "por que esta ação não tem uma interface?".
 
 // ===== Aviso de salvamento (v5.104) =====
 // A exceção à regra acima, e ela tem um limite claro: **só para o que o
@@ -12796,9 +13060,6 @@ function flash() { /* no-op: alerta flutuante removido (ver comentário acima) *
 // `tipo`: 'ok' (entrou) | 'dup' (já estava lá) | 'erro'. A distinção é o ponto:
 // "já estava nos favoritos" é a resposta que impede a duplicação acidental, e
 // ela precisa ser visivelmente diferente de "adicionado".
-const saveHintEl = document.getElementById('saveHint');
-const AVISO_MS = 2400;
-let avisoTimer = null;
 
 // ===== O PULSO NO PRÓPRIO BOTÃO (v5.106) =====
 // É este o feedback de adicionar/favoritar, e não a faixa de aviso: o dedo já
@@ -12838,12 +13099,18 @@ function pulsar(btn, tipo) {
   return true;
 }
 
-// Responde no BOTÃO quando ele ainda está na tela; cai na faixa quando não
-// está (folha fechada, lista redesenhada). Um só ponto de decisão, para nenhum
-// caminho ficar mudo por esquecimento.
-function responder(btn, tipo, texto) {
-  if (pulsar(btn, tipo)) return;
-  if (texto) avisar(texto, tipo);
+// Responde no BOTÃO. Devolve `false` quando ele não está mais na tela (folha
+// fechada, lista redesenhada) — e é o CHAMADOR que decide o que fazer com
+// isso, porque só ele sabe qual é a interface de origem daquela ação.
+//
+// Até a v5.206 havia aqui um `else avisar(texto)`: um ponto único de decisão
+// que mandava toda resposta órfã para a faixa flutuante. Era cômodo e era
+// justamente o mecanismo que levava a informação para longe do alvo de foco —
+// e ele escondia a pergunta que importa, que é por que uma ação ficou sem
+// interface em que responder. O parâmetro `texto` saiu com ele; nenhum dos
+// catorze chamadores o passava.
+function responder(btn, tipo) {
+  return pulsar(btn, tipo);
 }
 
 // ===== O ECO: "o comando saiu" =====
@@ -12883,24 +13150,9 @@ document.addEventListener('click', (ev) => {
   alvo._ecoTimer = setTimeout(() => { alvo.classList.remove('btn-eco'); }, ECO_MS);
 }, true);
 
-function avisar(texto, tipo) {
-  if (!saveHintEl || !texto) return;
-  clearTimeout(avisoTimer);
-  saveHintEl.textContent = texto;
-  saveHintEl.className = 'save-hint save-hint--' + (tipo || 'ok');
-  saveHintEl.hidden = false;
-  // Reinicia a animação de entrada mesmo com o aviso já em cena (dois toques
-  // seguidos): sem o reflow, o segundo aviso trocaria o texto sem nenhum
-  // movimento e pareceria o primeiro, ainda parado ali.
-  saveHintEl.classList.remove('on');
-  void saveHintEl.offsetWidth;
-  saveHintEl.classList.add('on');
-  avisoTimer = setTimeout(() => {
-    saveHintEl.classList.remove('on');
-    // O `hidden` só no fim da saída, senão ele some com corte seco.
-    avisoTimer = setTimeout(() => { saveHintEl.hidden = true; }, 220);
-  }, AVISO_MS);
-}
+// (`avisar()` SAIU na v5.207, com a faixa flutuante que ela desenhava. Ver o
+//  bloco "O FEEDBACK MORA NA INTERFACE DE ORIGEM", acima, para onde foi cada
+//  uma das mensagens que passavam por aqui.)
 
 // ===== Proporção da preview =====
 // A preview é uma MINIATURA FIEL do telão, e isso só se sustenta se ela tiver a
@@ -13410,6 +13662,21 @@ appDialogInputEl.addEventListener('keydown', (e) => {
 // A fila em cena vira um PACOTE: um item do Cronograma que, ao ser tocado,
 // devolve exatamente estes itens nesta ordem. O nome sai do primeiro item mais
 // a contagem — "Abertura · 4 itens" é o que se reconhece numa lista de culto.
+// O BOTÃO DE PACOTE EMPRESTA O PRÓPRIO RÓTULO (v5.207) — mesmo mecanismo do
+// `#apkRow` e do rótulo de versão: a resposta nasce onde o toque nasceu, e o
+// botão volta a ser o que era. O `<span>` de texto é o segundo filho (o
+// primeiro é o glifo), e é só ele que troca.
+let pacoteFalaTimer = null;
+const PACOTE_ROTULO = 'Guardar como pacote no Cronograma';
+function falarNoPacote(texto, ms) {
+  if (!plPackEl) return;
+  const alvo = plPackEl.querySelector('span:not(.msym)');
+  if (!alvo) return;
+  clearTimeout(pacoteFalaTimer);
+  alvo.textContent = texto;
+  pacoteFalaTimer = setTimeout(() => { alvo.textContent = PACOTE_ROTULO; }, ms || 3000);
+}
+
 async function guardarPacote() {
   // Só MÍDIA entra num pacote. Uma cena de roteiro dentro dele abriria a porta
   // para um pacote que contém outro pacote — e dois que se contenham
@@ -13422,7 +13689,12 @@ async function guardarPacote() {
   // Motivo não cabe num botão — então os dois sinais saem juntos.
   if (ids.length < 2) {
     pulsar(plPackEl, 'erro');
-    avisar('Monte a fila com dois ou mais itens antes de guardar', 'erro');
+    // O MOTIVO NO PRÓPRIO BOTÃO (v5.207). O comentário acima dizia que "motivo
+    // não cabe num botão" e por isso os dois sinais saíam juntos — o pulso aqui
+    // e a frase numa faixa no topo da tela. Cabe: o botão tem rótulo, e ele
+    // empresta o rótulo por três segundos. É o mesmo mecanismo do `#apkRow` e
+    // do rótulo de versão, e mantém a resposta onde o toque aconteceu.
+    falarNoPacote('Precisa de 2 itens ou mais');
     return;
   }
   // O nome sai do primeiro item QUE ENTRA no pacote (`midias[0]`), não de
@@ -14658,7 +14930,7 @@ selRenameEl.addEventListener('click', renameSelected);
 
 backBtnEl.addEventListener('click', navigateBack);
 favBackEl.addEventListener('click', navigateBack);
-addDirBtnEl.addEventListener('click', () => syncDeviceFolder());
+addDirBtnEl.addEventListener('click', () => syncDeviceFolder(undefined, addDirBtnEl));
 // Buscar redesenha a lista inteira (innerHTML = '' + um object URL novo por
 // miniatura). Numa pasta de igreja com centenas de arquivos, sem debounce isso
 // acontecia por TECLA — e nas primeiras letras a lista ainda é quase inteira.
@@ -15033,9 +15305,16 @@ async function ligarEspelho() {
   // A falha é NOMEADA, sempre: "sem encoder livre agora", "só liga em Wi-Fi",
   // a classe da exceção do `show()`. Um espelho que não liga em silêncio é
   // indistinguível de um botão quebrado.
-  if (!r) { avisar('O espelho não respondeu.', 'erro'); return false; }
-  if (r.erro) { avisar(r.erro, 'erro'); return false; }
-  avisar('Espelho ligado.');
+  // …E ELA MORA NA FOLHA DE CONEXÃO (v5.207), que é de onde o interruptor foi
+  // tocado. Antes saía numa faixa flutuante no topo da tela — sobre uma folha
+  // que estava aberta bem embaixo dela, com o dedo e o olho no interruptor.
+  // `#castMsg` já existia para as frases desta folha; a falha do espelho é uma
+  // frase desta folha.
+  if (!r) { texto2(castMsgEl, 'A transmissão não respondeu.'); return false; }
+  if (r.erro) { texto2(castMsgEl, r.erro); return false; }
+  // O SUCESSO NÃO PRECISA DE FRASE (a regra da v5.194): o endereço aparecendo
+  // logo abaixo, com o rótulo que diz o que fazer com ele, É o "deu certo".
+  texto2(castMsgEl, '');
   return true;
 }
 
@@ -15052,7 +15331,10 @@ async function desligarEspelho() {
   await new Promise((r) => setTimeout(r, 300));
   mirrorOcupado = false;
   await lerEspelho();
-  avisar('Espelho desligado.');
+  // Idem: quem responde é a própria folha. E aqui o sinal já é visível sem
+  // frase nenhuma — o endereço e a lista de telas somem —, então ela só limpa
+  // o que estivesse escrito.
+  texto2(castMsgEl, '');
 }
 
 // ============================================================================
@@ -15266,7 +15548,11 @@ if (castMirrorBtnEl) {
       // O SUCESSO NÃO PRECISA DE FRASE (v5.194): o endereço aparecendo logo
       // abaixo, com o rótulo que diz o que fazer com ele, É o "deu certo". A
       // falha continua falando, porque ali não há nada que apareça sozinho.
-      texto2(castMsgEl, ok ? '' : 'Não deu para ligar — veja o aviso acima.');
+      // (Até a v5.206 esta linha dizia "veja o aviso acima" e apontava para a
+      // faixa flutuante. Com o motivo escrito AQUI pelo `ligarEspelho`, mandar
+      // o operador olhar para outro lugar seria mandá-lo olhar para o lugar
+      // onde a mensagem deixou de estar — então ela só não sobrescreve.)
+      if (ok) texto2(castMsgEl, '');
     } else {
       texto2(castMsgEl, 'Desligando…');
       await desligarEspelho();
@@ -15512,9 +15798,11 @@ AVDB.onCommand((msg) => {
   if (msg.type === 'display-status' && typeof msg.audioBlocked === 'boolean'
       && msg.audioBlocked !== displayAudioBlocked) {
     displayAudioBlocked = msg.audioBlocked;
-    flash(displayAudioBlocked
-      ? 'Display sem áudio (navegador) — recuperando automaticamente…'
-      : 'Áudio do Display ativo');
+    // QUEM AVISA É O BOTÃO DE MUDO, e ele já avisava: `renderControls` o veste
+    // com `.blocked` (fundo `--warn-soft`, ícone em `--warn`, pulsando), e o
+    // toque nele é o atalho para liberar. A chamada que morava aqui era um
+    // `flash()` — no-op desde que o primeiro toast saiu, isto é, uma frase que
+    // ninguém via havia versões. O canal certo já estava de pé.
     renderControls();
   }
   // Microfone: camada de áudio independente da mídia — precisa ser tratado
@@ -15854,7 +16142,10 @@ async function ofertarAtualizacao() {
   // AVISAR, e não perguntar. A frase existe porque um piscar sem explicação no
   // meio de um culto é pior que o piscar — e ela sai ANTES da recarga, que é o
   // único instante em que ainda há uma página para mostrá-la.
-  try { avisar('Atualizando para a versão ' + versao + '…'); } catch (_) { /* cedo demais */ }
+  // O RÓTULO DE VERSÃO É QUEM FALA (ver `falarNaVersao`): a frase é sobre a
+  // versão, e o rótulo é onde a versão mora. Sem prazo — as duas páginas
+  // recarregam em seguida e levam a mensagem junto.
+  try { falarNaVersao('Atualizando para a versão ' + versao + '…', 0); } catch (_) { /* cedo demais */ }
   let aplicada = null;
   try {
     // Daqui não se volta: o documento é substituído pela recarga. Só quando NÃO

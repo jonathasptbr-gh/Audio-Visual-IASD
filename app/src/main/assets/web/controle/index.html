@@ -780,27 +780,30 @@
              telão: três versões seguidas tentaram consertar "o vídeo para
              quando o app é minimizado" por hipótese e as três erraram, porque
              ninguém vê o que acontece com a projeção enquanto o celular está
-             fora da frente.
-             Depois vieram outros diagnósticos, e o do YouTube foi parar no
-             RODAPÉ desta folha — conteúdo de tamanho variável num lugar de
-             espaço fixo. Uma extração com muitas tentativas simplesmente
-             transbordava e a parte de baixo ficava inalcançável, que é o
-             oposto do que um log serve.
-             Agora tudo mora aqui dentro, numa caixa que ROLA: identificação do
-             aparelho, suporte a transmissão direta, a última extração do
-             YouTube e a linha do tempo dos dois processos. Um botão copia o
-             conjunto — é assim que ele chega a quem for diagnosticar. -->
-        <div class="fade-row fade-row--col">
-          <div class="log-head">
-            <span>Registro</span>
-            <button id="diagCopy" class="log-copy" title="Copiar o registro" aria-label="Copiar o registro">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <rect x="9" y="9" width="11" height="11" rx="2"/>
-                <path d="M5 15V5a2 2 0 0 1 2-2h10"/>
-              </svg>
-            </button>
-          </div>
-          <pre class="diag-box" id="diagBox"></pre>
+             fora da frente. Ele junta identificação do aparelho, suporte a
+             transmissão direta, a última extração do YouTube, o estado da
+             transmissão e a linha do tempo dos dois processos.
+
+             O VISOR SAIU na v5.207, e o que ele custava era ESPAÇO SEMPRE
+             VISÍVEL. A caixa `<pre>` tinha 240px de altura máxima no meio de
+             Configurações, e empurrava para fora da tela as linhas que o
+             operador de fato ajusta (wallpaper, tema, preenchimento) — para
+             mostrar um log em fonte de 0,68rem que ninguém lê no celular. O
+             consumidor deste texto é um humano A DISTÂNCIA: ele não é lido
+             aqui, é COPIADO e repassado.
+
+             Então ficou o que serve: a linha do Registro e o botão que o copia.
+             O texto continua sendo montado por `renderDiag()` a cada abertura
+             desta folha — quem o guarda é a variável `diagTexto`, e não mais um
+             nó do DOM. -->
+        <div class="fade-row">
+          <span>Registro</span>
+          <button id="diagCopy" class="log-copy" title="Copiar o registro" aria-label="Copiar o registro">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="9" y="9" width="11" height="11" rx="2"/>
+              <path d="M5 15V5a2 2 0 0 1 2-2h10"/>
+            </svg>
+          </button>
         </div>
       </div>
       <!-- QUEM ESTÁ CONECTADO NÃO MORA MAIS AQUI (v5.193). O rodapé desta
@@ -826,7 +829,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.206</span>
+        <span id="appVersion" class="app-version">Controle v5.207</span>
         <!-- O APK NOVO, quando existir. Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso. `hidden`
@@ -1112,7 +1115,13 @@
        (`display: none`), o que levaria o aviso junto. Aqui, como camada de
        tela, ele aparece nos dois modos e por cima de qualquer folha aberta —
        que é de onde partem metade dos salvamentos. -->
-  <div id="saveHint" class="save-hint" hidden aria-live="polite"></div>
+  <!-- (A FAIXA DE AVISO SAIU na v5.207.) Ela era `position: fixed; top: .5rem;
+       z-index: 400` — isto é, um TOAST, apesar de o comentário dela afirmar o
+       contrário ("não flutua; mora no fim da área de lista"). Trinta e cinco
+       pontos do app respondiam por ela, sempre no topo da tela, para toques
+       dados no rodapé, no meio de uma lista ou dentro de uma folha aberta.
+       Agora cada resposta nasce na interface de origem — ver o bloco
+       "O FEEDBACK MORA NA INTERFACE DE ORIGEM" em controle.js. -->
 
   <div id="appDialog" class="dialog-backdrop">
     <!-- aria-labelledby/-describedby: sem eles um `role="dialog"` abre mudo no

@@ -160,6 +160,34 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   --surface-2: var(--surface-2-sunk);
 }
 
+/* ---------- A ARESTA DO CONTROLE, e ela só aparece no tema claro ----------
+   O tema escuro tem um mecanismo que o claro não tem: um controle se anuncia
+   por ser MAIS CLARO que a base. No claro a base já é branca, e não existe
+   "mais claro que branco" — então o mesmo `--surface` que no escuro dá um
+   degrau confortável aqui dá **1,14:1**, que é um botão invisível. Foi o relato
+   do operador, e ele estava certo: eram os segmentados de Configurações
+   (`.fit-opt`), oito deles, mais o ✕ das folhas e o copiar do Registro.
+
+   A saída é a que o `tokens.css` já afirmava e não cumpria: no claro quem
+   anuncia o controle é a LINHA. `--control-edge` é `transparent` no escuro,
+   então esta regra vale para os dois temas e só DESENHA em um.
+
+   `box-shadow: inset` e NÃO `border`: estes controles têm caixa medida (`--hit`
+   nos botões de ícone, a grade dos segmentados), e um `border` de 1px mudaria a
+   altura de todos eles nos DOIS temas para resolver um problema que existe em
+   um. Sombra não ocupa espaço de layout.
+
+   A lista é dos controles cujo fundo é `--surface`/`--surface-2` e que NÃO têm
+   borda própria — os que já trazem `1px solid var(--line)` (`.pill`, `.seg`, os
+   campos) não entram aqui, senão ganhariam duas linhas sobrepostas. */
+:is(.fit-opt, .popup-close, .log-copy, .dialog-btn, .simple-key, .sel-btn, .row-btn) {
+  box-shadow: inset 0 0 0 1px var(--control-edge);
+}
+/* O PREENCHIDO NÃO LEVA ARESTA: `.fit-opt.active` e `.dialog-btn.primary` são
+   fundo `--accent-fill`, que dá 7,70:1 contra o painel — a linha só sujaria a
+   borda de uma peça que já se distingue com folga. */
+.fit-opt.active, .dialog-btn.primary { box-shadow: none; }
+
 /* ---------- Feedback de toque (regra única) ----------
    Como o `*` acima zera o -webkit-tap-highlight-color, um controle SEM
    `:active` fica totalmente mudo ao toque no aparelho — o operador não sabe se
@@ -560,6 +588,15 @@ body {
   font-size: .6rem; font-weight: 800; letter-spacing: .08em;
   text-transform: uppercase; color: var(--accent);
 }
+/* O MESMO CARTÃO DIZENDO QUE NÃO DEU (v5.207) — ver `previewBusy().falhar`.
+   Ele já é o lugar em que este trabalho se anuncia ("Baixando…") e fica sobre a
+   PREVIEW, que é onde a mídia apareceria se tivesse dado certo. Só a cor da
+   legenda muda: a caixa, a posição e o nome continuam os mesmos, para o cartão
+   ser lido como a continuação da frase que ele já estava dizendo — e não como
+   uma coisa nova aparecendo. O anel de progresso some, porque não há progresso.
+   (Substituiu a faixa flutuante que dizia isto no topo da tela.) */
+.pv-busy.falhou .pv-busy-cap { color: var(--danger-text); }
+.pv-busy.falhou .dl-ring { display: none; }
 /* Duas linhas no máximo: a miniatura tem ~150px de altura, e o nome de um hino
    longo tomaria a caixa inteira. */
 .pv-busy-label {
@@ -956,34 +993,11 @@ main {
      dela — justamente nos casos em que ele é mais necessário. Daí `fixed` e um
      z-index acima das folhas (que vão até 300).
    `pointer-events: none` — é um aviso, não um controle: o toque atravessa. */
-.save-hint {
-  position: fixed; z-index: 400;
-  left: 50%; transform: translate(-50%, -6px);
-  top: calc(.5rem + env(safe-area-inset-top));
-  max-width: min(92vw, 26rem);
-  pointer-events: none;
-  padding: .5rem .7rem; border-radius: var(--radius-btn);
-  background: var(--panel); border: 1px solid var(--line);
-  color: var(--text); font-size: .82rem; font-weight: 600;
-  text-align: center;
-  box-shadow: 0 6px 18px var(--scrim);
-  opacity: 0;
-  transition: opacity .18s ease, transform .18s ease;
-}
-.save-hint.on { opacity: 1; transform: translate(-50%, 0); }
-/* Três leituras, três cores — e a do meio é a que importa: "já estava lá" é a
-   resposta que impede o segundo toque, e ela não pode se parecer com "pronto,
-   adicionei". Âmbar (atenção sem alarme) para o repetido, verde para o que
-   entrou, vermelho contornado para a falha. */
-.save-hint--ok { border-color: var(--ok); color: var(--ok); }
-.save-hint--dup { border-color: var(--warn); color: var(--warn-text); }
-/* A borda da falha segue a regra da folha (ver `.view-btn.view-blocked`,
-   acima): contorno vermelho é `--danger-strong`, nunca o `--danger` cheio —
-   escuro por construção, ele praticamente some sobre o `--panel` do aviso. O
-   TEXTO fica no salmão `--danger-text`: é o caso documentado em tokens.css de
-   um vermelho pousando direto num painel elevado, sem o fundo suave da
-   família — ali o saturado reprova (3,78:1) e o salmão passa (5,18:1). */
-.save-hint--erro { border-color: var(--danger-strong); color: var(--danger-text); }
+/* (`.save-hint*` SAIU na v5.207, com a faixa flutuante.) Ela era um TOAST:
+   `position: fixed`, ancorada no topo da tela, por cima do que estivesse ali —
+   e respondia a toques dados em qualquer lugar da interface. O feedback agora
+   mora onde a ação nasce; ver `.row-nota` (a linha do item), `.folder-count--st`
+   (o contador da pasta) e `.pv-busy.falhou` (o cartão da preview). */
 
 /* ---------- Título da lista ativa ---------- */
 .list-header { flex-shrink: 0; display: flex; align-items: center; gap: .3rem; }
@@ -1451,6 +1465,23 @@ main {
 /* O selo mora na linha do subtítulo, prefixado — exatamente como a referência
    do versículo central da Bíblia (`● No ar · Salmo 23:1`). */
 .row-live { color: var(--live-strong); font-weight: 800; letter-spacing: .03em; }
+
+/* ---------- A NOTA DA LINHA (v5.207) ----------
+   O canal que substituiu a faixa flutuante para tudo que é um fato SOBRE UM
+   ITEM: "capítulo não está no aparelho", "a música saiu do acervo", "foi para
+   os Favoritos", "truncada em 40 páginas". Ver `notaNoItem` em controle.js.
+
+   Mesmo lugar e mesma anatomia do selo "● No ar" — prefixada ao subtítulo da
+   própria linha, com o separador ` · ` que o `pintarFalha` cria ao lado. O
+   subtítulo NÃO é reescrito: o tipo e a duração continuam legíveis ao lado do
+   motivo, e os dois pintores não disputam o mesmo nó.
+
+   Três leituras, três cores, o mesmo vocabulário do pulso do botão: verde
+   entrou, âmbar já estava, vermelho não deu. */
+.row-nota { font-weight: 800; letter-spacing: .02em; }
+.row-nota--ok { color: var(--ok); }
+.row-nota--dup { color: var(--warn-text); }
+.row-nota--erro { color: var(--danger-text); }
 .lib-item.no-ar .row-sub { color: var(--live-strong); }
 /* A seleção múltipla tem precedência VISUAL: ali a tela fala de escolha, não de
    projeção, e o contorno de seleção é o que o operador está usando naquele
@@ -2624,6 +2655,14 @@ main {
   background: var(--surface-2); border-radius: var(--radius-pill);
   padding: 2px .5rem; flex-shrink: 0;
 }
+/* O MESMO contador FALANDO (v5.207) — ver `statusPasta` em controle.js.
+   Enquanto a sincronização corre ele mostra "12/340"; terminada, "+18" ou
+   "em dia"; falhando, "erro: NotAllowedError". É o número que a ação está
+   mudando, na linha em que o dedo tocou — e é o que substituiu a faixa
+   flutuante que dizia isso no TOPO da tela, a meia tela de distância.
+   O accent o separa de uma contagem comum sem trocar a caixa de lugar: a
+   pílula é a mesma, e a linha não se mexe quando o texto troca. */
+.folder-count--st { background: var(--accent-soft); color: var(--accent); font-variant-numeric: tabular-nums; }
 
 /* ---------- Rodapé do popup (Nova pasta) ---------- */
 .popup-footer {
@@ -3170,19 +3209,18 @@ body.mode-simple .bottombar { display: none; }
    Mais alta que antes porque agora carrega quatro blocos em vez de um; ainda é
    uma caixa que rola, e o botão de copiar entrega o conjunto de qualquer
    jeito. */
-.diag-box {
-  margin: 0; max-height: 240px; overflow: auto;
-  background: var(--surface); border-radius: var(--radius-btn);
-  padding: .5rem .6rem;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: .68rem; line-height: 1.5; color: var(--muted);
-  white-space: pre-wrap; overflow-wrap: anywhere;
-  -webkit-user-select: text; user-select: text;
-}
+/* (`.diag-box` SAIU na v5.207, com o visor do Registro.) A caixa tinha 240px de
+   altura máxima no meio de Configurações e empurrava para fora da tela as
+   linhas que o operador de fato ajusta — para mostrar um log em fonte de
+   0,68rem que ninguém lê no celular. O Registro continua sendo montado; o que
+   saiu é a vitrine dele. Ver o bloco do `#diagCopy` no `index.html`. */
 /* O rótulo e o botão de copiar na mesma linha, acima da caixa. O botão fica
    FORA do `<pre>` de propósito: dentro de uma área que rola, ele sairia de
    cena junto com o texto. */
-.log-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+/* (`.log-head` SAIU na v5.207, com o visor.) Ele era o cabeçalho de uma caixa
+   que não existe mais; hoje o rótulo e o botão de copiar são os dois filhos
+   diretos de uma `.fade-row`, que já faz `space-between` — um invólucro a
+   menos, e a linha volta a ocupar a largura toda. */
 /* ----- Sem tela conectada (ver renderSimpleGate) ----- */
 /* ----- Bloqueio sem tela conectada (ver renderSimpleGate) -----
    A cortina cobre a tela inteira e é o que embaça: `backdrop-filter` age sobre
@@ -3342,7 +3380,8 @@ body.mode-simple .hymn-add-btn { display: none; }
 /* Um diagnóstico existe para ser REPASSADO: sem o botão, a alternativa é
    transcrever à mão uma linha cheia de números ou tirar foto da tela. A caixa
    vem do esqueleto de botão de ícone (`--hit`, no alto da folha); ele mora no
-   `.log-head`, FORA da caixa que rola (ver `.diag-box`).
+   própria `.fade-row` do Registro, que desde a v5.207 é uma linha simples:
+   rótulo à esquerda, botão à direita, sem caixa embaixo.
    (As irmãs `.log-line`/`.log-text` descreviam as linhas de log avulsas que o
    `#diagBox` unificou na v5.121 — nenhum JS as desenhava mais.) */
 .log-copy { background: var(--surface-2); color: var(--muted); }

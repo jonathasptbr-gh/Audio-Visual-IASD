@@ -2336,10 +2336,65 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.206** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
+**Versão atual: v5.207** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.207: O ALERTA FLUTUANTE ACABA — a resposta nasce onde o toque nasceu.
+> OTA PURO.** Três pedidos do operador, e o terceiro é uma regra nova do
+> projeto: *"precisamos remover todos [os toasts] e colocar todas as mensagens
+> de alerta na própria interface de origem delas. A informação deslocando do
+> alvo de foco não é o objetivo."*
+>
+> **E ele estava descrevendo um toast que o projeto jurava não ter.** O comentário
+> do `avisar()` dizia, com todas as letras: *"o que ele NÃO é: o toast de volta.
+> Não flutua (mora no fim da área de lista)"*. O CSS dela era `position: fixed;
+> top: .5rem; z-index: 400` — uma faixa no TOPO da tela, por cima do que
+> estivesse ali, respondendo a toques dados no rodapé de Configurações, numa
+> linha do meio da lista ou dentro de uma folha aberta. **Trinta e cinco pontos
+> do app falavam por ela.** É a segunda encarnação do mesmo mecanismo (um toast
+> já tinha sido removido antes), e é por isso que desta vez a regra ficou com
+> ORÁCULO: `tools/smoke.mjs` afirma que nenhuma camada fixa sobrou por cima da
+> interface — a régua é estrutural, não de nome, porque o próximo toast pode se
+> chamar qualquer coisa.
+>
+> **Os canais que a substituíram**, todos in-place e a maioria já existente:
+> `pulsar` (o botão tocado), **`notaNoItem`** (a LINHA do item, prefixada ao
+> subtítulo no mesmo desenho do selo "● No ar" — para tudo que é um fato sobre
+> um item: falhou ao projetar, foi para tal lista, veio truncada),
+> **`previewBusy().falhar`** (o mesmo cartão que dizia "Baixando…", sobre a
+> preview, que é onde a mídia apareceria), **`statusPasta`** (o CONTADOR da
+> pasta, que é o número que a sincronização está mudando), **`falarNaVersao`** e
+> **`falarNoPacote`** (o rótulo do próprio controle empresta a si mesmo e
+> volta), `#castMsg` (a folha de conexão) e `appConfirm` — este último para o
+> **único caso sem interface de origem**: um compartilhamento que chega de fora,
+> falha inteiro e não deixa item nem lista em que responder. Um diálogo não é
+> uma faixa que passa: ele toma o foco e exige um toque.
+>
+> Saíram junto o `flash()` (no-op havia versões, com três chamadores que
+> escreviam frases que ninguém via) e o parâmetro `opts.toast` do download de
+> música — ele existia só para CALAR a faixa quando o cartão da preview já
+> falava, isto é, era um `if` para escolher entre dois canais para o mesmo fato.
+>
+> **O REGISTRO PERDEU O VISOR.** A caixa `<pre>` tinha 240px de altura no meio
+> de Configurações e empurrava para fora da tela as linhas que o operador de
+> fato ajusta — para exibir, em fonte de 0,68rem, um log cujo consumidor é um
+> humano A DISTÂNCIA: ele é COPIADO, não lido ali. Ficaram a linha e o botão que
+> o copia; o texto vive em `diagTexto`, não num nó do DOM. Medido: a folha
+> deixou de rolar nos dois temas, e o `smoke.mjs` trava isso.
+>
+> **E O TEMA CLARO GANHOU A ARESTA QUE O `tokens.css` já prometia.** Relato:
+> "botões com fundo branco no branco". Medido, ele estava certo por um fator
+> grande: os segmentados de Configurações (`.fit-opt`, oito deles) davam
+> **1,14:1** contra o painel branco. A causa é estrutural — no escuro um
+> controle se anuncia por ser MAIS CLARO que a base, e no claro não existe "mais
+> claro que branco". O cabeçalho do tema claro já dizia que "é a linha em
+> `--line` que anuncia o controle aqui", e **nenhum controle a desenhava**: era
+> uma intenção, não uma descrição. Agora `--control-edge` (transparente no
+> escuro, `--line` no claro) a torna verdadeira, por `box-shadow: inset` para
+> não mover um pixel de layout em tema nenhum, e os afundados subiram de
+> .06/.10 para .10/.16.
 
 > **A v5.206 (v1.93): O REGISTRO MENTIA — o consumidor sobreviveu ao produtor,
 > e o valor ausente virou resposta. EXIGE APK.** Uma revisão de todo o repositório

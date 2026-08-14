@@ -113,11 +113,23 @@ try {
   await pg.waitForSelector('#fadePopup.open', { timeout: 5000 });
   checar(true, 'Configurações abre');
 
-  const temRegistro = await pg.$eval('#diagBox', (el) => (el.textContent || '').length > 0);
-  checar(temRegistro, 'o Registro tem conteúdo');
+  // O REGISTRO NÃO TEM MAIS VISOR (v5.207): a caixa `<pre>` gastava 240px de
+  // espaço sempre visível em Configurações para exibir, em fonte de 0,68rem, um
+  // log cujo consumidor é um humano A DISTÂNCIA — ele é copiado, não lido aqui.
+  // Então o que se afirma passou a ser o que de fato importa: **o texto existe
+  // e é o que o botão entrega**.
+  const temRegistro = await pg.evaluate(() => typeof diagTexto === 'string' && diagTexto.length > 0);
+  checar(temRegistro, 'o Registro é montado (o texto que o botão copia existe)');
 
-  const rolaHorizontal = await pg.$eval('#diagBox', (el) => el.scrollWidth > el.clientWidth + 1);
-  checar(!rolaHorizontal, 'o Registro não rola na horizontal');
+  checar(await pg.$('#diagBox') === null,
+    'e não há mais visor ocupando espaço sempre visível na folha');
+
+  // E A FOLHA CABE NA TELA. Era esta a queixa do operador — as linhas que ele de
+  // fato ajusta (tema, preenchimento, wallpaper) ficavam abaixo da dobra por
+  // causa da caixa de log. Medir a rolagem é medir a queixa.
+  const precisaRolar = await pg.$eval('#fadePopup .popup-sheet',
+    (el) => el.scrollHeight > el.clientHeight + 1);
+  checar(!precisaRolar, 'Configurações cabe sem rolar');
 
   // O QUE A v5.121 QUEBROU: o clique chamava uma função apagada. Um handler que
   // estoura não muda nada na tela — daí conferir o efeito (o pulso de
@@ -126,6 +138,63 @@ try {
   await pg.waitForTimeout(300);
   const pulsou = await pg.$eval('#diagCopy', (el) => el.classList.contains('btn-pulso'));
   checar(pulsou, 'o botão de copiar o Registro responde ao toque');
+
+  // ==========================================================================
+  // NÃO EXISTE ALERTA FLUTUANTE (v5.207) — e este é o oráculo da regra.
+  //
+  // O app já removeu um toast uma vez, e no lugar dele nasceu `avisar()`, cujo
+  // próprio comentário afirmava "não flutua". O CSS dizia `position: fixed;
+  // top: .5rem; z-index: 400`: era um toast com outro nome, e 35 pontos do app
+  // respondiam por ele — sempre no topo da tela, para toques dados no rodapé,
+  // no meio de uma lista ou dentro de uma folha aberta.
+  //
+  // Sem um teste, a terceira encarnação nasce na primeira vez que alguém
+  // precisar responder a uma ação e não achar onde. A régua aqui é estrutural,
+  // não de nome: **nenhum elemento fixo por cima da interface que não seja uma
+  // folha/cortina/diálogo** — porque o próximo toast pode se chamar qualquer
+  // coisa.
+  // ==========================================================================
+  await pg.evaluate(() => document.getElementById('fadePopupClose').click());
+  await pg.waitForTimeout(250);
+
+  checar(await pg.evaluate(() => typeof avisar === 'undefined'),
+    'a função da faixa flutuante não existe mais');
+  checar(await pg.$('#saveHint') === null, 'e nem o elemento dela');
+
+  const flutuantes = await pg.evaluate(() => {
+    // Os fixos LEGÍTIMOS: as folhas e o diálogo (que tomam o foco e pedem um
+    // toque), a cortina do Modo Fácil, o próprio modo, e a barra de baixo.
+    // O DIÁLOGO DO APP entra na lista: ele não é uma faixa que passa — toma o
+    // foco, escurece o resto e exige um toque. É o canal do único caso sem
+    // interface de origem (um compartilhamento que chega de fora e falha
+    // inteiro); ver `registrarShareNativo`.
+    const OK = ['popup-backdrop', 'popup-sheet', 'simple', 'simple-veil', 'bottombar',
+      'appDialog', 'dialog-card', 'tab-ghost', 'selbar'];
+    const achados = [];
+    document.querySelectorAll('body *').forEach((el) => {
+      const cs = getComputedStyle(el);
+      if (cs.position !== 'fixed') return;
+      const z = parseInt(cs.zIndex, 10) || 0;
+      if (z < 100) return;                       // não disputa com o conteúdo
+      const cls = el.className.toString();
+      if (OK.some((k) => cls.includes(k) || (el.id || '').includes(k))) return;
+      achados.push((el.id || cls || el.tagName).slice(0, 40));
+    });
+    return achados;
+  });
+  checar(flutuantes.length === 0,
+    'nenhuma camada flutuante sobrou por cima da interface' + (flutuantes.length ? ' (achei: ' + flutuantes.join(', ') + ')' : ''));
+
+  // E O CONTRÁRIO — os canais in-place existem. Sem esta metade, apagar o
+  // feedback inteiro passaria no teste acima.
+  const canais = await pg.evaluate(() => ({
+    linha: typeof notaNoItem === 'function',
+    botao: typeof pulsar === 'function',
+    pasta: typeof statusPasta === 'function',
+    versao: typeof falarNaVersao === 'function',
+  }));
+  checar(canais.linha && canais.botao && canais.pasta && canais.versao,
+    'e os canais que responderam no lugar dela estão de pé (linha, botão, pasta, rótulo)');
 
   const copiado = await pg.evaluate(() => navigator.clipboard.readText().catch(() => ''));
   checar(copiado.includes('Linha do tempo'), 'e o texto do Registro foi para a área de transferência');

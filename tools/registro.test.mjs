@@ -165,9 +165,12 @@ try {
   // shell) e roda ao abrir Configurações. Chamá-la direto é o caminho honesto:
   // é a mesma função que o botão aciona, e esperar a caixa parar de crescer
   // seria medir o relógio em vez do conteúdo.
+  // O texto do Registro vive numa variável, não num nó do DOM (o visor saiu na
+  // v5.207 — ver `renderDiag`). Ler `diagTexto` é ler exatamente o que o botão
+  // de copiar entrega ao operador, que é o único consumidor que ele tem.
   const texto = await pg.evaluate(async () => {
     await window.renderDiag();
-    return document.getElementById('diagBox').textContent || '';
+    return typeof diagTexto === 'string' ? diagTexto : '';
   });
 
   checar(texto.length > 0, 'o Registro é montado e tem conteúdo');
