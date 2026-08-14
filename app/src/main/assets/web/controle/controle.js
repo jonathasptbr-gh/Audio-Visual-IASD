@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.214';
+const WEB_VERSION = '5.215';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -1251,11 +1251,35 @@ let displayAudioBlocked = false; // Display reportou áudio bloqueado pelo naveg
 const scrollPos = {};      // posição de scroll por aba/pasta (sessão)
 
 // ===== preview (espelho do display) =====
-// Mostra exatamente o que o display mostra; sempre mudo. Recebe os MESMOS
-// comandos enviados ao display e ainda comanda a barra de progresso/avanço.
+// Mostra exatamente o que o display mostra. Recebe os MESMOS comandos enviados
+// ao display e ainda comanda a barra de progresso/avanço.
+//
+// Ela NASCE muda (`forceMuted`), e continua muda enquanto houver uma tela
+// recebendo a projeção — mas deixou de ser muda POR CONSTRUÇÃO na v5.215: sem
+// tela nenhuma conectada, é ela que toca o som deste aparelho. Ver
+// `acertarSaidaDeAudio`, que é o único ponto que mexe nisso.
 const preview = createStage({
   wallpaper: pvWallEl, img: pvImgEl, video: pvVideoEl, forceMuted: true,
   onTime: previewTick,
+  // O NAVEGADOR RECUSOU O SOM — e a resposta é voltar a tocar MUDO, na hora.
+  //
+  // No app isto não acontece (`mediaPlaybackRequiresUserGesture = false`), e é
+  // justamente por isso que a rede de segurança existe: num navegador comum a
+  // política de autoplay rejeita o `play()` com som quando não há ativação do
+  // usuário, e o `stage` engole a rejeição. Sem este ramo, o preço de ligar o
+  // som deste aparelho seria a preview parar de tocar — isto é, trocar uma
+  // ilustração muda por nenhuma ilustração, que é muito pior.
+  //
+  // A recusa vale só até o próximo `load` (ver `aplicarNaPreview`): cada mídia
+  // nova ganha uma tentativa, e o toque do operador que a carregou é ativação
+  // suficiente para a seguinte passar.
+  onBlocked: () => {
+    if (!somLocal) return;   // sem som local não há o que desfazer
+    somLocalBloqueado = true;
+    acertarSaidaDeAudio();
+    preview.handle({ type: 'play' });
+    diagC('som local RECUSADO (autoplay) — a preview volta a tocar muda');
+  },
   // A PREVIEW É A CANÁRIA da transmissão direta: ela toca o mesmo registro que
   // o telão, na mesma hora, e é aqui — na tela do operador — que uma URL
   // expirada aparece primeiro. Quem recupera é o Controle, porque é ele que
@@ -1415,12 +1439,16 @@ const DISPLAY_TIMEOUT = 2500; // sem status da projeção por mais que isso → 
 // A TOLERÂNCIA DO RE-ALINHAMENTO, e ela era grande demais.
 //
 // 1,6 s foi escolhido quando o resync existia para não estalar o áudio da
-// preview. Só que a preview **não tem som** — e desde a v5.189 não tem por
-// construção, porque a mesa de som saiu e o som é dos displays. Sem
-// som, um seek é invisível: o que se paga é um quadro, e o que se ganha é a
-// ilustração parar de mentir. Meio segundo é folga de sobra para o jitter do
-// status (que chega a ~4 Hz) e apertado o bastante para um desvio de verdade
-// nunca chegar a ser percebido.
+// preview. Só que **a preview que se realinha não tem som**, e isso continua
+// verdadeiro depois da v5.215: o realinhamento só roda com `displayActive()`,
+// isto é, com uma projeção reportando status — e é exatamente essa a condição
+// que cala este aparelho (ver `acertarSaidaDeAudio`). As duas são mutuamente
+// exclusivas por construção; a única janela em que elas se tocam são os
+// `DISPLAY_TIMEOUT` (2,5 s) seguintes à queda de uma tela, e ali um seek custa
+// um quadro num som que acabou de nascer. Sem som, um seek é invisível: o que
+// se paga é um quadro, e o que se ganha é a ilustração parar de mentir. Meio
+// segundo é folga de sobra para o jitter do status (que chega a ~4 Hz) e
+// apertado o bastante para um desvio de verdade nunca chegar a ser percebido.
 const SYNC_DRIFT = 0.5;
 
 // E AO VOLTAR DO SEGUNDO PLANO O ALINHAMENTO É EXATO, não tolerante.
@@ -1564,6 +1592,68 @@ function telaoConectado() {
   return lastDisplays.length > 0;
 }
 
+// ===== A SAÍDA DE ÁUDIO: os displays, ou ESTE APARELHO (v5.215) =====
+//
+// **Sem tela nenhuma conectada, quem toca o som é a preview** — isto é, o
+// próprio celular. Pedido do operador, e ele fecha um buraco que a v5.189
+// abriu ao remover a "mesa de som": ali o argumento era que o som é dos
+// DISPLAYS (a TV pela `Presentation`, as telas da rede pelo `<video>` delas), e
+// ele continua inteiro — só não responde ao caso em que **não há display
+// nenhum**. Nesse caso a projeção É a preview em tela cheia, e uma projeção
+// muda não é projeção: o louvor simplesmente não tocava em lugar nenhum.
+//
+// O QUE MUDA EM RELAÇÃO À MESA DE SOM, e é o que faz esta versão ser segura
+// onde aquela não era:
+//
+//  - **não é um modo, é uma CONSEQUÊNCIA.** Não há botão, não há preferência e
+//    não há nada a lembrar entre sessões: o estado é derivado da conexão, e por
+//    isso não existe o desencontro que matava a versão anterior — o operador
+//    esquecer a mesa ligada e o `<video>` deste WebView roubar o foco de áudio
+//    do Android do player do telão no meio do louvor. **Com qualquer tela
+//    conectada este aparelho está mudo, sempre**, e quem responde "há tela?" é
+//    a mesma função que o Modo Fácil já usa (`simpleDisplay`).
+//  - **a troca é automática nos dois sentidos.** A TV conecta no meio do
+//    louvor: o som desce em rampa aqui e sobe lá, pelo reenvio de cena que a
+//    reconexão já faz (`resendSceneToDisplay`). Ela cai: o som volta para cá.
+//
+// TELA, aqui, é a mesma pergunta do Modo Fácil (`simpleDisplay`) — a TV **ou**
+// uma tela da rede recebendo. Desde a v5.187 elas são a projeção quando não há
+// TV, e cada uma toca o próprio arquivo no `<video>` dela: contá-las é o que
+// impede o celular de duplicar o áudio da sala inteira.
+//
+// **Só no modo avançado**, como pedido. No Modo Fácil sem tela a cortina cobre
+// tudo e não há o que projetar (v5.203) — som saindo de um app bloqueado seria
+// a única coisa acontecendo atrás de uma tela que diz "conecte uma tela".
+let somLocal = false;          // a preview está tocando o som DESTE aparelho?
+let somLocalBloqueado = false; // o navegador recusou o som (ver `onBlocked`)
+
+// HÁ ALGUMA TELA RECEBENDO — a TV ou uma tela da rede.
+//
+// `telaoConectado()` responde só pela TV, e é a pergunta certa para o atraso da
+// preview e para o botão de espelhar. Para o SOM a pergunta é mais larga, e ela
+// já tem uma resposta única no app: `simpleDisplay()`. O nome é do Modo Fácil
+// porque foi lá que ela nasceu; delegar em vez de reescrever é o que impede as
+// duas de divergirem no primeiro caso de borda.
+function algumaTelaConectada() { return !!simpleDisplay(); }
+
+function somLocalDeveEstar() {
+  if (somLocalBloqueado) return false;
+  return appMode === 'full' && !algumaTelaConectada();
+}
+
+// O ÚNICO ponto que mexe no mudo da preview. Chamado de onde o estado muda —
+// telas (`renderDisplayStatus`), transmissão (`lerEspelho`), modo do app
+// (`setAppMode`) e a janela do Display no navegador (`openWebDisplay`).
+function acertarSaidaDeAudio() {
+  const alvo = somLocalDeveEstar();
+  if (alvo === somLocal) return;
+  somLocal = alvo;
+  // A rampa curta mora no `stage` (ver `setForceMuted`): sem ela a troca seria
+  // um corte no talo, e um corte estala na caixa de som.
+  preview.setForceMuted(!somLocal);
+  diagC(somLocal ? 'som: neste aparelho' : 'som: nos displays');
+}
+
 // Fundo da letra sincronizada (Hinário 2022): 'black' (padrão) ignora as
 // imagens dos slides e mantém o fundo preto atrás do texto; 'image' usa as
 // imagens de verdade. Persistido em state.lyricsBg, aplicado ao vivo (igual
@@ -1590,8 +1680,10 @@ function renderLyricsBgSeg() {
 }
 
 // Envia o comando ao display E aplica na preview (espelho) — YouTube usa seu
-// próprio player pequeno (acima); mídia comum continua no stage.js. A preview
-// é sempre MUDA (v5.189): o som é dos displays.
+// próprio player pequeno (acima); mídia comum continua no stage.js. O mudo da
+// preview NÃO se decide aqui: ela é muda enquanto houver tela conectada e toca
+// o som deste aparelho quando não houver (v5.215, `acertarSaidaDeAudio`) — o
+// que viaja neste funil é o mesmo comando para os dois lados, como sempre.
 // A PREVIEW ATRASA JUNTO COM AS TELAS DA REDE, e o ponto de corte é aqui.
 //
 // Sem telão, as telas da rede SÃO o que a congregação vê — e elas chegam ~1 s
@@ -1672,6 +1764,14 @@ function cmd(obj) {
 function aplicarNaPreview(obj, item) {
   // O tempo volta a correr: destrava a letra congelada pelo fim natural.
   if (obj.type === 'load' || obj.type === 'play' || obj.type === 'seek') pvLyricsEnded = false;
+  // MÍDIA NOVA, TENTATIVA NOVA de som local: a recusa de autoplay de um
+  // navegador vale para o `play()` que a levou, não para a sessão inteira — e
+  // quem carregou esta veio de um toque, que é a ativação que faltava. No app
+  // isto nunca chega a valer (não há política de gesto ali). Ver `onBlocked`.
+  if (obj.type === 'load' && somLocalBloqueado) {
+    somLocalBloqueado = false;
+    acertarSaidaDeAudio();
+  }
   // Texto manual (Bíblia/Mensagem): overlay independente — espelha na preview.
   if (obj.type === 'text') { showPvText(obj); return; }
   if (obj.type === 'text-hide') { hidePvText(); return; }
@@ -11315,10 +11415,10 @@ function closeFadePopup() {
 // guarda o anel dele e entrega quando alguém pergunta.
 let diagLinhas = [];
 
-// O CONTROLE TEM O PRÓPRIO ANEL, e ele é o que importa no modo MESA DE SOM: ali
-// quem toca é o `<video>` desta página, não o do telão — o registro do Display
-// não veria nada. Foi exatamente essa distinção que faltou nas tentativas
-// anteriores.
+// O CONTROLE TEM O PRÓPRIO ANEL, e ele é o que importa quando o som sai DESTE
+// APARELHO (v5.215, `acertarSaidaDeAudio`): ali quem toca é o `<video>` desta
+// página, não o do telão — o registro do Display não veria nada. Foi exatamente
+// essa distinção que faltou nas tentativas anteriores.
 const DIAG_MAX_C = 40;
 const diarioC = [];
 function diagC(ev, extra) {
@@ -11358,6 +11458,17 @@ function cabecalhoDiag() {
   // emudece no dia em que alguém o esconde, e emudece em silêncio.
   l.push('Telão: ' + descreverTelao());
   if (castAlvo) l.push('Espelhar abre: ' + castAlvo);
+  // ONDE O SOM ESTÁ SAINDO (v5.215). "Não sai som" tem causas que a tela não
+  // separa — mudo, fader em zero, tela conectada sem volume, ou este aparelho
+  // calado por haver tela —, e quem lê este bloco está a distância. Ele diz o
+  // que o app DECIDIU, não o que o alto-falante fez.
+  l.push('Som: ' + (somLocal
+    ? 'neste aparelho (nenhuma tela conectada)'
+    : (algumaTelaConectada()
+      ? 'nas telas conectadas'
+      : (somLocalBloqueado
+        ? 'em lugar nenhum — o navegador recusou o som deste aparelho'
+        : 'em lugar nenhum — sem tela e no Modo Fácil (este aparelho só soa no avançado)'))));
   // SUPORTE A TRANSMISSÃO DIRETA. É o dado mais útil deste bloco desde a
   // v5.120: quando um "Tocar agora" cai no download em vez de transmitir, a
   // primeira pergunta é se o WebView deste aparelho aceita os codecs — e a
@@ -13937,6 +14048,10 @@ function setAppMode(mode) {
   // A preview troca de casa junto com o modo (ver hostPreview) — antes dos
   // renders, para que eles já a encontrem no lugar certo.
   hostPreview();
+  // E TROCA DE PAPEL JUNTO: só no avançado ela é a caixa de som deste aparelho
+  // (ver `acertarSaidaDeAudio`). Voltar ao Modo Fácil a emudece, porque lá sem
+  // tela a cortina já cobre tudo.
+  acertarSaidaDeAudio();
   renderAppModeSeg();
   renderSimple();
   renderSimpleCast();
@@ -14362,9 +14477,11 @@ function hostPreview() {
 function openWebDisplay() {
   webDisplayWin = window.open('../display/', 'avDisplay');
   renderSimpleCast();
-  // No navegador a janela do Display é o "telão", e vale a mesma regra da mesa
-  // de som (ver `telaoConectado`) — inclusive para desenvolver a base web fora
-  // do aparelho, que é justamente o que este caminho serve.
+  // No navegador a janela do Display é o "telão", e vale a mesma regra do som
+  // deste aparelho (ver `acertarSaidaDeAudio`) — inclusive para desenvolver a
+  // base web fora do aparelho, que é justamente o que este caminho serve: abrir
+  // a janela cala a preview, fechá-la devolve o som a ela.
+  acertarSaidaDeAudio();
   clearInterval(webDisplayTimer);
   if (!webDisplayWin) return;
   webDisplayTimer = setInterval(() => {
@@ -14373,6 +14490,7 @@ function openWebDisplay() {
     webDisplayTimer = null;
     webDisplayWin = null;
     renderSimpleCast();
+    acertarSaidaDeAudio();
     }, 1000);
 }
 
@@ -14994,6 +15112,9 @@ if (window.__NATIVE__) {
     // Conectar (ou perder) o telão MUDA O REGIME da preview: com TV a projeção
     // é ela, chega no ato, e a preview volta a andar junto. Ver `cmd`.
     recalcularAtrasoPreview();
+    // E MUDA QUEM TOCA O SOM: a TV entrando cala este aparelho, a TV caindo o
+    // devolve à caixa de som. Ver `acertarSaidaDeAudio`.
+    acertarSaidaDeAudio();
     renderSimpleCast();
     renderCast();          // a folha de conexão é quem mostra isto agora
     applyPreviewAspect(tv);
@@ -15083,6 +15204,9 @@ async function lerEspelho() {
   try { e = await AVNative.espelhoEstado(); } catch (_) { e = null; }
   mirrorEstado = e || null;
   recalcularAtrasoPreview();
+  // UMA TELA DA REDE ENTRANDO TAMBÉM CALA ESTE APARELHO — sem TV são elas a
+  // projeção, e cada uma toca o próprio arquivo. Ver `acertarSaidaDeAudio`.
+  acertarSaidaDeAudio();
   acertarEnqueteDeFundo();
   // E A FOLHA DE CONECTAR TAMBÉM (v5.184). Ela estava fora daqui desde que
   // nasceu: quem a redesenhava era só o `abrirCast`, então tudo o que ela

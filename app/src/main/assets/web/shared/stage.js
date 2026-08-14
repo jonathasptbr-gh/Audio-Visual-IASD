@@ -128,9 +128,11 @@
     const wallpaper = opts.wallpaper;
     const img = opts.img;
     const video = opts.video;
-    // Não é const: o Controle alterna isso em tempo real no modo "mesa de
-    // som" (preview normalmente sempre muda vira independente, com áudio de
-    // verdade saindo pelo próprio aparelho) — ver setForceMuted().
+    // Não é const, e os DOIS papéis que o alternam em tempo real são: o
+    // Controle, quando não há tela nenhuma conectada e a preview passa a tocar
+    // o som do próprio aparelho (`acertarSaidaDeAudio`), e a tela da rede, que
+    // nasce muda e solta o som no gesto do visitante (`__telaSom`). Ver
+    // setForceMuted().
     let forceMuted = !!opts.forceMuted;
 
     let current = null;
@@ -611,10 +613,10 @@
         catch (_) { /* sem observer o giro só não reage a redimensionamento */ }
       }
     }
-    // Alterna se este stage é forçado a ficar sempre mudo (uso normal da
-    // preview do Controle, espelhando o Display em silêncio) ou se passa a
-    // tocar áudio de verdade pelo próprio aparelho ("mesa de som", modo
-    // independente do Display). A troca não corta o áudio na hora — faz a mesma
+    // Alterna se este stage é forçado a ficar sempre mudo (a preview do
+    // Controle espelhando o Display em silêncio, a tela da rede antes do gesto
+    // do visitante) ou se passa a tocar áudio de verdade pelo próprio
+    // aparelho. A troca não corta o áudio na hora — faz a mesma
     // rampa curta do setMute (MUTE_RAMP_TIME): ao ATIVAR, respeita o mudo do
     // operador e sobe o volume de 0 até o alvo; ao DESATIVAR, desce até 0 e só
     // então muta. Na desativação, `forceMuted` só liga no fim da rampa — senão
@@ -632,14 +634,14 @@
         return;
       }
       if (target) {
-        // Desativar mesa de som: rampa até 0, depois muta (forceMuted no fim).
+        // EMUDECER: rampa até 0, depois muta (forceMuted só no fim).
         if (video.muted) { forceMuted = true; return; }
         rampVolume(video.volume, 0, MUTE_RAMP_TIME);
         muteApplyTimer = setTimeout(() => {
           forceMuted = true; video.muted = true; video.volume = volume;
         }, MUTE_RAMP_TIME * 1000);
       } else {
-        // Ativar mesa de som: som já liberado; respeita o mudo do operador.
+        // DAR SOM: som já liberado; respeita o mudo do operador.
         forceMuted = false;
         video.muted = muted;
         if (muted) video.volume = volume;
