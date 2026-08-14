@@ -159,6 +159,24 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   --surface: var(--surface-sunk);
   --surface-2: var(--surface-2-sunk);
 }
+/* ---------- A BARRA DE BAIXO AFUNDA, e SÓ NO TEMA CLARO (v5.207) ----------
+   Aqui a inversão não é uma escolha de estilo, é aritmética. No tema claro
+   `--bar` é BRANCO — o mesmo valor de `--panel` —, e os controles que moram
+   nela (`.t-btn` do transporte, `.ctl-btn` do mixer) pintam `--surface`, que é
+   branco com alfa. Branco a 70% sobre branco é branco: **1,00:1**, medido. Os
+   botões que o operador mais usa no culto ficavam literalmente invisíveis, e
+   foi o relato: "as teclas dos controles do modo avançado seguem com problemas
+   de contraste no modo claro".
+
+   Por que ela NÃO entra na lista acima, que valeria para os dois temas: no
+   escuro `--bar` (#252b33) é bem mais escura que os botões, e o degrau claro
+   funciona — inverter ali trocaria a aparência do transporte inteiro, que é a
+   peça mais usada do app, para resolver um problema que só existe no claro.
+   A regra é do tema, então ela mora no tema. */
+:root[data-tema="claro"] .bottombar {
+  --surface: var(--surface-sunk);
+  --surface-2: var(--surface-2-sunk);
+}
 
 /* ---------- A ARESTA DO CONTROLE, e ela só aparece no tema claro ----------
    O tema escuro tem um mecanismo que o claro não tem: um controle se anuncia
@@ -180,13 +198,14 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    A lista é dos controles cujo fundo é `--surface`/`--surface-2` e que NÃO têm
    borda própria — os que já trazem `1px solid var(--line)` (`.pill`, `.seg`, os
    campos) não entram aqui, senão ganhariam duas linhas sobrepostas. */
-:is(.fit-opt, .popup-close, .log-copy, .dialog-btn, .simple-key, .sel-btn, .row-btn) {
+:is(.fit-opt, .popup-close, .log-copy, .dialog-btn, .simple-key, .sel-btn, .row-btn,
+    .t-btn, .ctl-btn) {
   box-shadow: inset 0 0 0 1px var(--control-edge);
 }
 /* O PREENCHIDO NÃO LEVA ARESTA: `.fit-opt.active` e `.dialog-btn.primary` são
    fundo `--accent-fill`, que dá 7,70:1 contra o painel — a linha só sujaria a
    borda de uma peça que já se distingue com folga. */
-.fit-opt.active, .dialog-btn.primary { box-shadow: none; }
+.fit-opt.active, .dialog-btn.primary, .ctl-btn.vol-btn { box-shadow: none; }
 
 /* ---------- Feedback de toque (regra única) ----------
    Como o `*` acima zera o -webkit-tap-highlight-color, um controle SEM
