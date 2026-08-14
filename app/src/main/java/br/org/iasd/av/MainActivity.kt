@@ -5,6 +5,7 @@ import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.hardware.display.DisplayManager
 import android.media.AudioManager
 import android.net.Uri
@@ -16,6 +17,7 @@ import android.view.Display
 import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowInsetsController
 import android.view.WindowManager
 import android.webkit.ConsoleMessage
 import android.webkit.PermissionRequest
@@ -42,6 +44,13 @@ import org.json.JSONObject
 class MainActivity : ComponentActivity(), BridgeHost {
 
     private lateinit var root: FrameLayout
+
+    /**
+     * O tema em vigor, do ponto de vista do SHELL. Cópia da escolha que vive no
+     * `localStorage` do Controle — ver [setTemaClaro]; aqui ela existe só para
+     * pintar o cromo do sistema antes de o WebView carregar.
+     */
+    private var temaClaro = false
     private lateinit var webContainer: FrameLayout
     private lateinit var fullscreenContainer: FrameLayout
     private var web: WebView? = null
@@ -193,6 +202,14 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // A tela do operador não pode apagar no meio do culto.
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
+        // O TEMA ESCOLHIDO, aplicado ao cromo do sistema ANTES de o WebView
+        // existir — é este o motivo de o shell guardar uma cópia da escolha:
+        // o fundo da janela e a cor dos ícones das barras precisam estar certos
+        // no primeiro quadro, e o lado web só responde depois de carregar. Ver
+        // [setTemaClaro].
+        temaClaro = getSharedPreferences(TEMA_PREFS, MODE_PRIVATE).getBoolean(TEMA_CLARO_KEY, false)
+        aplicarCromoDoTema(temaClaro)
+
         // Volume desta Activity = mídia, sempre. Sem isto o Android escolhe a
         // stream pelo contexto e, com espelhamento ativo, os botões podem cair
         // na saída remota (o volume da TV) em vez do áudio do app.
@@ -204,7 +221,15 @@ class MainActivity : ComponentActivity(), BridgeHost {
         WebUpdater.beginSession(this)
 
         root = FrameLayout(this)
-        root.setBackgroundColor(Color.BLACK)
+        // A raiz é o que se vê no INTERVALO entre a janela existir e o WebView
+        // pintar o primeiro quadro. Ela era `Color.BLACK` desde sempre, e com
+        // um app só escuro isso nunca custou nada — `--bg` era quase preto. Com
+        // o tema claro, um retângulo preto ali é um piscar do app inteiro a
+        // cada abertura, então ela segue o tema como o `windowBackground`. (O
+        // `fullscreenContainer`, logo abaixo, continua PRETO em qualquer tema:
+        // ele hospeda a preview em tela cheia, que é PALCO — ver o bloco
+        // compartilhado de `shared/tokens.css`.)
+        root.setBackgroundColor(getColor(if (temaClaro) R.color.app_bg_claro else R.color.app_bg))
         webContainer = FrameLayout(this)
         fullscreenContainer = FrameLayout(this)
         fullscreenContainer.setBackgroundColor(Color.BLACK)
@@ -1097,6 +1122,61 @@ class MainActivity : ComponentActivity(), BridgeHost {
         runOnUiThread { captureVolumeKeys = on }
     }
 
+    /**
+     * O tema escolhido no Controle (ver [NativeBridge.temaClaro]).
+     *
+     * Duas ações, e a segunda é a que explica a `SharedPreferences`: os ícones
+     * das barras viram AGORA, e o `windowBackground` do PRÓXIMO lançamento
+     * fica guardado — ele é um recurso do APK, resolvido pelo sistema antes de
+     * o WebView existir, então não há como perguntar ao lado web a tempo.
+     *
+     * `runOnUiThread` porque todo `@JavascriptInterface` chega de uma thread
+     * do WebView, e mexer na janela de fora dela é o tipo de coisa que
+     * funciona num aparelho e falha calada noutro.
+     */
+    override fun setTemaClaro(claro: Boolean) {
+        runOnUiThread {
+            getSharedPreferences(TEMA_PREFS, MODE_PRIVATE).edit()
+                .putBoolean(TEMA_CLARO_KEY, claro).apply()
+            aplicarCromoDoTema(claro)
+        }
+    }
+
+    /**
+     * Pinta o que é do SISTEMA conforme o tema: os ícones das barras e o fundo
+     * da janela.
+     *
+     * O fundo é aplicado aqui além de vir do tema do APK porque o
+     * `windowBackground` do XML é resolvido uma vez, na criação — trocar de
+     * tema com o app aberto deixaria o retângulo do XML aparecendo em qualquer
+     * momento em que o WebView ainda não pintou (uma recriação da Activity por
+     * mudança de fonte, por exemplo). Custa uma linha e fecha o caso.
+     */
+    @Suppress("DEPRECATION")   // o ramo abaixo da API 30 (ver dentro)
+    private fun aplicarCromoDoTema(claro: Boolean) {
+        temaClaro = claro
+        val fundo = getColor(if (claro) R.color.app_bg_claro else R.color.app_bg)
+        window.setBackgroundDrawable(ColorDrawable(fundo))
+        if (::root.isInitialized) root.setBackgroundColor(fundo)
+        // API 30+: `WindowInsetsController`. Abaixo dela, as bandeiras de
+        // aparência da barra vivem no `systemUiVisibility` da decor view (que é
+        // deprecado desde a 30 — daí o @Suppress na função), e ali só existe a
+        // da barra de STATUS: a de navegação chegou na 27, e o par ficaria
+        // assimétrico de qualquer forma. Aparelho antigo fica com os botões de
+        // navegação claros sobre um fundo claro; o alvo deste app é o Android
+        // 15+, e trocar isso por uma terceira variante não se paga.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val mascara = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or
+                WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+            window.insetsController?.setSystemBarsAppearance(if (claro) mascara else 0, mascara)
+        } else {
+            val v = window.decorView
+            val bit = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+            v.systemUiVisibility =
+                if (claro) v.systemUiVisibility or bit else v.systemUiVisibility and bit.inv()
+        }
+    }
+
     override fun adjustSystemVolume(step: Int) {
         runOnUiThread {
             val am = getSystemService(AudioManager::class.java) ?: return@runOnUiThread
@@ -1518,6 +1598,18 @@ class MainActivity : ComponentActivity(), BridgeHost {
 
     companion object {
         private const val TAG = "AvIasd"
+        /**
+         * O tema escolhido, guardado só para o `windowBackground` do PRÓXIMO
+         * lançamento (ver [setTemaClaro]). A fonte de verdade é o
+         * `localStorage` do Controle — aqui é uma CÓPIA, e o lado web a
+         * reescreve em toda carga da página, então uma divergência se corrige
+         * sozinha na abertura seguinte. Arquivo próprio, e não o do OTA: o
+         * `web-ota.xml` está fora do backup de propósito (é ponteiro para
+         * CÓDIGO) e o tema é preferência do operador, que deve viajar na troca
+         * de aparelho como qualquer outra.
+         */
+        private const val TEMA_PREFS = "tema"
+        private const val TEMA_CLARO_KEY = "claro"
         private const val GMS_PACKAGE = "com.google.android.gms"
         /**
          * Prazo para o lado web responder ao botão voltar (ver [handleBack]).

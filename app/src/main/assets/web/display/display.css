@@ -14,7 +14,7 @@
    era "sincronização manual" — e bastava um ajuste entrar só de um lado para o
    telão e a preview do Controle (que existe justamente para ESPELHAR o telão)
    passarem a mostrar coisas diferentes.
-   O Display usa daí, e só daí: `--gold` (marca), `--wallpaper` (a cortina),
+   O Display usa daí, e só daí: `--brand` (marca), `--wallpaper` (a cortina),
    `--lyrics-frame-bg` (a faixa da letra), os tokens `--stage-*` (o preto de
    verdade e o branco pleno da projeção), `--live-strong` (o timer estourado),
    `--bg` (o texto sobre o dourado da pílula) e `--accent-glow` (o halo dessa
@@ -207,7 +207,7 @@ html, body {
    caixa de tamanho fixo, só a fonte/cor mudam (aux fica escondido no slide
    de capa, então as 2 linhas do clamp têm a caixa toda pra si). */
 .lyrics-content.cover .lyrics-line {
-  color: var(--gold); font-size: 9.5cqmin;
+  color: var(--brand); font-size: 9.5cqmin;
 }
 
 /* ---------- Camada de TEXTO manual (Bíblia + Mensagens) ----------
@@ -268,7 +268,7 @@ html, body {
 /* Linha secundária ABAIXO do texto — a referência (ex: "João 3:16") no modo
    versículo, dourada, 1 linha. Oculta no modo mensagem. */
 .text-sub {
-  color: var(--gold); font-weight: 700;
+  color: var(--brand); font-weight: 700;
   font-size: 4.6cqmin; line-height: 1.2; letter-spacing: .02em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
 }
@@ -326,7 +326,7 @@ html, body {
    um quadro do rolo. */
 .text-content.mode-draw.draw-rolling .text-main {
   opacity: .55; transform: scale(.94);
-  color: var(--gold);
+  color: var(--brand);
 }
 .text-content.mode-draw .text-main {
   transition: opacity .18s ease, transform .18s cubic-bezier(.2,1.5,.4,1), color .18s ease;
@@ -392,13 +392,13 @@ html, body {
   justify-content: center;
   padding: 1.1em 2.6em;
   border-radius: 999px;
-  /* Preenchido no dourado da marca, com o texto no ESCURO do app: `--gold` é
+  /* Preenchido na cor da marca, com o texto no ESCURO do app: `--brand` é
      um tom claro (existe para ser lido sobre fundo escuro), então quem vai por
      cima dele tem de ser escuro — 8,65:1 medidos. O quase-preto literal que
      estava aqui era um valor solto que nenhuma troca de paleta alcançaria.
      (O raio fica literal: este é o único elemento em cápsula do Display, e o
      :root dele é intencionalmente mínimo — não há escala de raio a respeitar.) */
-  background: var(--gold);
+  background: var(--brand);
   color: var(--bg);
   font-family: system-ui, sans-serif;
   font-size: clamp(1.1rem, 4vw, 1.8rem);

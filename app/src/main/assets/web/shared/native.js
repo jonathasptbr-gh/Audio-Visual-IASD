@@ -566,6 +566,26 @@
     // Fader já no limite: devolve o passo ao volume do sistema.
     systemVolume(step) { try { B.systemVolume(step | 0); } catch (_) { /* shell antigo */ } },
 
+    // TEMA (v5.192): o shell precisa saber qual dos dois está no ar por duas
+    // razões que o CSS não alcança.
+    //
+    // 1. **Os ÍCONES das barras de sistema.** Com `targetSdk` 35 o Android
+    //    força edge-to-edge e ignora as cores de barra do tema — quem pinta o
+    //    fundo atrás delas é o body desta base web, com o token `--bg`. Mas o
+    //    relógio, a bateria e os três botões de navegação continuam sendo
+    //    desenhados pelo SISTEMA, e a cor deles vem de uma bandeira do
+    //    `WindowInsetsController`. No tema claro, sem esta chamada, eles
+    //    seguem brancos sobre um fundo quase branco: somem.
+    // 2. **O `windowBackground`**, isto é, o que aparece ANTES de o WebView
+    //    carregar. Ele é um recurso do APK, resolvido antes de existir
+    //    JavaScript; o shell guarda a escolha e a aplica no lançamento
+    //    seguinte. Trocar de tema, portanto, tem um lançamento de atraso NESSE
+    //    detalhe — e só nele.
+    //
+    // Num shell antigo (< 39) o método não existe, o `try` engole, e o app
+    // fica com as barras do tema escuro: exatamente o que ele sempre foi.
+    temaClaro(on) { try { B.temaClaro(!!on); } catch (_) { /* shell antigo */ } },
+
     // Microfone (push-to-talk): garante a permissão RECORD_AUDIO do Android
     // ANTES do getUserMedia. Sem ela o WebView nega a captura de propósito
     // (ver MicChromeClient). Num shell antigo resolve false — e o lado web

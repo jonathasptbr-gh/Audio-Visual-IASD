@@ -123,8 +123,8 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
 
 /* ---------- A superfície AFUNDA dentro de um cartão ----------
    `--surface`/`--surface-2` são branco com alfa (ver tokens.css), então eles
-   EMPILHAM: 12% de branco sobre `--bg` dá #2f2e2e, mas o MESMO token sobre
-   `--panel` dá #4c4b49 — uma superfície 1,6x mais clara. Era essa a causa raiz
+   EMPILHAM: 12% de branco sobre `--bg` dá #22282e, mas o MESMO token sobre
+   `--panel` dá #414850 — uma superfície bem mais clara. Era essa a causa raiz
    do pior contraste do app: todo texto/ícone colorido dentro de um cartão
    reprovava AA (o ícone de cancelar download media 2,32:1) porque a base dele
    era muito mais clara do que a folha supunha.
@@ -145,11 +145,19 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    um cartão o botão tem ícone, e a linha em `--line` do próprio cartão já o
    separa do resto. O que NÃO era negociável era o texto — e nenhum par colorido
    dentro de cartão reprova AA depois desta regra (o pior, o ícone de cancelar
-   download, sai de 2,32:1 para 7,36:1). */
+   download, sai de 2,32:1 para 7,36:1).
+
+   OS DOIS VALORES SAÍRAM DAQUI NA v5.192, e a razão é o tema claro. Eles eram
+   os últimos literais de cor fora de tokens.css, e a regra que descrevem é a
+   MESMA nos dois temas — flutua sobre a página, afunda dentro do cartão —,
+   mudando só a intensidade do overlay (no claro o par é preto a .06/.10 sobre
+   um cartão branco). Escrito literal aqui, o tema claro herdaria um recesso de
+   24% de preto e todo cartão viraria um bloco cinza. A regra continua sendo
+   esta lista de seletores; o VALOR mora com as outras cores. */
 .row-item, .lib-item, .hymnal-card, .msg-item, .bible-vsec,
 .dialog-card, .popup-sheet, .fade-row, .simple-lyrics, .simple-key {
-  --surface: rgba(0, 0, 0, .24);
-  --surface-2: rgba(0, 0, 0, .14);
+  --surface: var(--surface-sunk);
+  --surface-2: var(--surface-2-sunk);
 }
 
 /* ---------- Feedback de toque (regra única) ----------
@@ -675,7 +683,7 @@ body {
   display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
 }
 .pv-lyrics-content.cover .pv-lyrics-line {
-  color: var(--gold); font-size: 9.5cqmin;
+  color: var(--brand); font-size: 9.5cqmin;
 }
 
 .pv-yt-frame { pointer-events: none; overflow: hidden; }
@@ -912,7 +920,7 @@ body {
 }
 /* Sem áudio no Display (bloqueio do navegador): AVISO pulsante; o clique pede
    a liberação do som (comando audio-retry). Em `--warn`, e não mais em
-   `--gold`: nesta paleta o dourado da marca É o accent (mesmo valor), então
+   `--brand`: nesta paleta a cor da marca É o accent (mesmo valor), então
    "áudio bloqueado" pintado de gold ficaria idêntico a "ação normal". */
 .mute-btn.blocked {
   border-color: var(--warn); background: var(--warn-soft); color: var(--warn-text);
@@ -1091,7 +1099,7 @@ main {
    cor do ícone — ouro aqui, accent lá —, no mesmo lugar em que a
    `.mode-switch` põe a seta; o tamanho dele vem da escala da folha
    (`--icon-sm`, como o da seta), não mais dos 18px soltos do HTML. */
-.head-fav-btn svg { flex-shrink: 0; color: var(--gold); }
+.head-fav-btn svg { flex-shrink: 0; color: var(--brand); }
 
 /* ---------- Abas (ícones) ---------- */
 /* A faixa tem TRÊS abas em `flex:1` (Cronograma é o 1º filho) e, à direita, o
@@ -1527,7 +1535,7 @@ main {
    na Bíblia e nas Ferramentas (v5.109). Mesma caixa dos botões de linha e da
    barra de seleção — `--hit`, `--surface-2`, mesmo raio —, porque são as MESMAS
    duas ações que aqueles já fazem; desenhá-las como pílula de texto num lugar e
-   como ícone no outro era o mesmo par com duas caras. O ícone em `--gold` é o
+   como ícone no outro era o mesmo par com duas caras. O ícone em `--brand` é o
    que os distingue dos botões neutros ao redor: é a cor que o app usa para
    "guardado" (a estrela do favorito), não para navegação.
    Contornados e não preenchidos: quem vem à tela da Bíblia vem para PROJETAR, e
@@ -1537,7 +1545,7 @@ main {
   border: 1px solid var(--line);
   background: var(--surface-2); color: var(--muted);
 }
-.cue-save-btn .msym { font-size: var(--icon-sm); color: var(--gold); }
+.cue-save-btn .msym { font-size: var(--icon-sm); color: var(--brand); }
 
 /* A ESTRELA DE CADA LINHA. PREENCHIDA quando marcada, contornada quando não —
    a convenção universal de favorito, que se reconhece sem aprender. Ela é SVG
@@ -1551,14 +1559,14 @@ main {
    bastante para o olho passar batido pela lista inteira e forte o bastante para
    ser encontrada quando se procura por ela. */
 .fav-btn { background: transparent; color: var(--line); }
-.fav-btn.on { color: var(--gold); }
+.fav-btn.on { color: var(--brand); }
 
 /* A miniatura da CENA DE ROTEIRO em ouro: ela diz "isto não é mídia, é uma
    cena" numa lista onde todo o resto tem bytes. (O selo `.cue-badge` saiu com
    os irmãos de URL/YT — ver a lápide acima.) */
-.thumb--cue { color: var(--gold); }
+.thumb--cue { color: var(--brand); }
 .thumb--cue svg { width: 22px; height: 22px; }
-.thumb--cue .msym { color: var(--gold); }
+.thumb--cue .msym { color: var(--brand); }
 
 /* pastas sincronizadas (OPFS) */
 .folder-opfs .msym { color: var(--accent); }
@@ -1883,7 +1891,7 @@ main {
 /* O mesmo botão vira "cancelar" enquanto o download roda (ver
    renderCollectionOptions) — sem giro, e em AVISO para não se confundir nem
    com a ação normal nem com excluir, que são os seus dois vizinhos imediatos
-   nesta mesma folha. Era `--gold`, e nesta paleta o dourado da marca tem o
+   nesta mesma folha. Era `--brand`, e nesta paleta a cor da marca tem o
    mesmo valor do accent: ficaria idêntico à ação normal, que é exatamente o
    que o raciocínio original queria evitar. */
 .coll-opts .new-folder-btn.cancel { color: var(--warn-text); background: var(--warn-soft); }
@@ -1981,7 +1989,7 @@ main {
 /* Aviso/estado (baixando versículos, sem rede etc.) */
 .bible-note { color: var(--muted); font-size: .82rem; line-height: 1.5; text-align: center; padding: .8rem .4rem; }
 /* Diagnóstico (sem rede, versão indisponível): é AVISO, não marca. Em
-   `--gold-text` ele saía na mesma cor do rótulo de estrofe e do realce de
+   `--brand-text` ele saía na mesma cor do rótulo de estrofe e do realce de
    busca — nada distinguia "algo falhou" de "metadado". */
 .bible-note.err { color: var(--warn-text); }
 
@@ -2162,7 +2170,7 @@ main {
   50% { box-shadow: 0 0 0 10px transparent; }
 }
 /* Só aparece com ERRO (permissão negada, sem microfone…) — é diagnóstico, e
-   diagnóstico é AVISO: em `--gold-text` ficava idêntico ao rótulo "REFRÃO" da
+   diagnóstico é AVISO: em `--brand-text` ficava idêntico ao rótulo "REFRÃO" da
    letra logo acima e ao realce da busca. */
 .mic-note { font-size: .84rem; font-weight: 600; color: var(--warn-text); text-align: center; max-width: 34ch; line-height: 1.45; }
 
@@ -2317,7 +2325,7 @@ main {
 }
 /* Rolando: esmaecido e dourado, como no telão — o contraste com o valor final
    é o que anuncia o resultado. */
-.draw-read.rolling { opacity: .55; color: var(--gold); }
+.draw-read.rolling { opacity: .55; color: var(--brand); }
 .draw-range { display: flex; gap: .6rem; }
 /* `min-width: 0` nos DOIS níveis: o padrão de um item flex é `min-width: auto`,
    que o impede de encolher abaixo da largura intrínseca do conteúdo — e um
@@ -2351,8 +2359,8 @@ main {
 .draw-hist-chip.last { background: var(--accent-soft); color: var(--text); }
 .draw-go {
   padding: .8rem .4rem;
-  border: 1px solid var(--gold); border-radius: var(--radius-btn);
-  background: var(--gold-soft); color: var(--gold-text);
+  border: 1px solid var(--brand); border-radius: var(--radius-btn);
+  background: var(--brand-soft); color: var(--brand-text);
   font-size: 1rem; font-weight: 800; letter-spacing: .02em; cursor: pointer;
   appearance: none; -webkit-appearance: none;
 }
@@ -2390,7 +2398,7 @@ main {
 }
 /* indicador de salto pro capítulo/livro vizinho (preview anterior/próximo) */
 .bible-vsec.cross { border-style: dashed; }
-.bible-vsec-cross { font-size: .6rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--gold); }
+.bible-vsec-cross { font-size: .6rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--brand); }
 /* `flex: 1 1 0` com `min-height: 0`: as seções dividem a altura disponível em
    vez de somarem a altura do próprio texto (que é imprevisível — um versículo
    pode ter duas linhas ou dez). O `min-height:0` é o que permite encolherem
@@ -2448,7 +2456,7 @@ main {
   color: var(--stage-text); font-weight: 500; font-size: 6.4cqmin; line-height: 1.34; white-space: pre-line;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 8; overflow: hidden;
 }
-.pv-text-sub { color: var(--gold); font-weight: 700; font-size: 4.6cqmin; line-height: 1.2; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.pv-text-sub { color: var(--brand); font-weight: 700; font-size: 4.6cqmin; line-height: 1.2; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .pv-text-content.mode-message .pv-text-main { font-size: 7.4cqmin; -webkit-line-clamp: 7; font-weight: 600; }
 /* Cronômetro/relógio/timer — espelha .mode-chrono do Display (display.css),
    inclusive o `tabular-nums`, sem o qual o número treme a cada segundo. */
@@ -2475,7 +2483,7 @@ main {
   transition: opacity .18s ease, transform .18s cubic-bezier(.2,1.5,.4,1), color .18s ease;
 }
 .pv-text-content.mode-draw.draw-rolling .pv-text-main {
-  opacity: .55; transform: scale(.94); color: var(--gold);
+  opacity: .55; transform: scale(.94); color: var(--brand);
 }
 .pv-text-sub:empty { display: none; }
 
@@ -2761,8 +2769,8 @@ main {
    se confunde com o nome da coleção, que fica logo acima. Uma linha só: a
    lista é varrida de relance no meio do culto. */
 .hymn-lyric-hit {
-  font-size: .8rem; font-style: italic; color: var(--gold-text);
-  border-left: 2px solid var(--gold); padding-left: .4rem; margin-top: .12rem;
+  font-size: .8rem; font-style: italic; color: var(--brand-text);
+  border-left: 2px solid var(--brand); padding-left: .4rem; margin-top: .12rem;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
 }
 /* (A duração saiu da linha na v5.63: ela ocupava a única sobra de largura para
@@ -2794,7 +2802,7 @@ main {
    distinguir dela à primeira vista sem roubar o olho. */
 .hymn-stanza-label {
   font-size: .68rem; font-weight: 800; letter-spacing: .06em;
-  text-transform: uppercase; color: var(--gold);
+  text-transform: uppercase; color: var(--brand);
   margin-bottom: .15rem;
 }
 .hymn-lyrics-line {
@@ -2806,7 +2814,7 @@ main {
    pode poupar. Fundo (e não só cor) porque a marca precisa ser achada de
    relance, com a lista rolando. */
 .hymn-lyrics-line.hit {
-  background: var(--gold-soft); color: var(--gold-text);
+  background: var(--brand-soft); color: var(--brand-text);
   font-weight: 700; border-radius: var(--radius-xs);
   margin: .1rem -.25rem; padding: .1rem .25rem;
 }
@@ -3050,7 +3058,7 @@ body.mode-simple .bottombar { display: none; }
 .simple.open { display: flex; }
 .simple-head { display: flex; align-items: center; gap: .5rem; flex: none; }
 .simple-brand { flex: 1; min-width: 0; font-size: .9rem; font-weight: 800; letter-spacing: .03em; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.simple-brand b { color: var(--gold); }
+.simple-brand b { color: var(--brand); }
 
 /* Tecla: a peça única deste modo. Fundo próprio e alvo grande o bastante para
    o polegar sem mirar.

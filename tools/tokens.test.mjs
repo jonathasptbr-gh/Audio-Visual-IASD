@@ -47,6 +47,14 @@ function folhas(dir) {
   return out;
 }
 
+// COMENTÁRIO NÃO É DECLARAÇÃO, e também não é uso. Este arquivo documenta a si
+// mesmo com fartura — o cabeçalho de `tokens.css` cita `var(--x)` para explicar
+// a própria regra —, e sem tirar os comentários o oráculo reprova a prosa que
+// existe para justificá-lo. Tirar é estritamente correto nos DOIS sentidos: um
+// `--token: valor` dentro de um comentário não define nada, e um `var(--token)`
+// dentro de um comentário não pinta nada.
+const semComentarios = (s) => s.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '));
+
 const arquivos = folhas(RAIZ);
 const falhas = [];
 function checar(cond, msg, detalhe) {
@@ -59,8 +67,11 @@ checar(arquivos.length > 0, 'a base web tem folhas de estilo para varrer', Strin
 // TODAS as definições, de TODAS as folhas: `tokens.css` é a fonte única da
 // paleta, mas cada app define os próprios tokens de layout no `:root`.
 const definidos = new Set();
+const fonte = new Map();   // caminho → conteúdo já sem comentários
 for (const f of arquivos) {
-  for (const m of fs.readFileSync(f, 'utf8').matchAll(/(--[a-zA-Z0-9-]+)\s*:/g)) definidos.add(m[1]);
+  const s = semComentarios(fs.readFileSync(f, 'utf8'));
+  fonte.set(f, s);
+  for (const m of s.matchAll(/(--[a-zA-Z0-9-]+)\s*:/g)) definidos.add(m[1]);
 }
 checar(definidos.has('--accent') && definidos.has('--radius-btn'),
   'e a varredura enxerga os tokens de verdade (a paleta e a escala de raio)',
@@ -69,7 +80,7 @@ checar(definidos.has('--accent') && definidos.has('--radius-btn'),
 // E TODO uso sem fallback tem de casar com uma definição.
 const orfaos = [];
 for (const f of arquivos) {
-  const s = fs.readFileSync(f, 'utf8');
+  const s = fonte.get(f);
   for (const m of s.matchAll(/var\(\s*(--[a-zA-Z0-9-]+)\s*\)/g)) {
     if (definidos.has(m[1])) continue;
     orfaos.push(path.relative(RAIZ, f) + ':' + (s.slice(0, m.index).split('\n').length) + ' → ' + m[1]);
@@ -78,6 +89,35 @@ for (const f of arquivos) {
 checar(orfaos.length === 0,
   'nenhum `var(--x)` sem fallback aponta para um token inexistente',
   orfaos.join('\n        '));
+
+// ---------- O TEMA CLARO SÓ SOBRESCREVE (v5.192) ----------
+// O bloco `:root[data-tema="claro"]` é um DELTA sobre o `:root` de base: o que
+// ele não redeclara cai no tema escuro, e é assim que o PALCO (`--stage-*`,
+// `--wallpaper`, as sombras) fica igual nos dois — deliberado, porque um telão
+// claro cega a congregação e a preview do Controle espelha o telão.
+//
+// O que essa montagem NÃO tolera é um token que exista SÓ no claro: no tema
+// escuro — que é o padrão de quem nunca escolheu nada, isto é, quase todo
+// aparelho — ele simplesmente não estaria definido, e o `var()` computaria para
+// o valor inicial da propriedade. Sem aviso, sem log, e só no tema padrão: a
+// mesma falha da v5.171, num lugar onde quem escreveu acabou de ver a cor certa
+// na tela porque estava com o claro ligado.
+{
+  const s = fonte.get(arquivos.find((f) => f.endsWith('tokens.css'))) || '';
+  const blocos = [...s.matchAll(/(:root(?:\[data-tema="(\w+)"\])?)\s*\{([^}]*)\}/g)];
+  const naBase = new Set();
+  const soNoClaro = [];
+  for (const b of blocos) if (!b[2]) for (const m of b[3].matchAll(/(--[a-zA-Z0-9-]+)\s*:/g)) naBase.add(m[1]);
+  for (const b of blocos) {
+    if (b[2] !== 'claro') continue;
+    for (const m of b[3].matchAll(/(--[a-zA-Z0-9-]+)\s*:/g)) if (!naBase.has(m[1])) soNoClaro.push(m[1]);
+  }
+  checar(blocos.some((b) => b[2] === 'claro'), 'tokens.css declara o bloco do tema claro',
+    blocos.map((b) => b[1]).join(' · '));
+  checar(soNoClaro.length === 0,
+    'nenhum token existe SÓ no tema claro (o escuro é a base, o claro é o delta)',
+    soNoClaro.join(', '));
+}
 
 console.log(falhas.length ? '\n' + falhas.length + ' FALHA(S)' : '\nTodos passaram.');
 process.exit(falhas.length ? 1 : 0);

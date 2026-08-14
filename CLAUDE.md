@@ -315,6 +315,7 @@ window.AVNative = {
   deckDiscard(url),    //   e apaga as páginas depois da cópia
   captureVolumeKeys(bool), // botões físicos de volume vão para o app
   systemVolume(step),  // devolve um passo ao volume do sistema (fader no limite)
+  temaClaro(bool),     // o TEMA escolhido: ícones das barras + windowBackground
   requestMic(),        // → bool: permissão RECORD_AUDIO (push-to-talk)
   keepAlive(bool),     // download em curso — ver "Trabalho em segundo plano"
   bgProgress({label, done, total, etaMs, items, idleMs, bytes}), // progresso na notificação
@@ -340,7 +341,7 @@ window.AVNative = {
 }
 ```
 
-São **trinta e seis métodos**, e essa é a superfície inteira que o resto do
+São **trinta e sete métodos**, e essa é a superfície inteira que o resto do
 lado web tem direito de usar: fora do `native.js`, tocar em `__AVBridge` direto é
 acoplamento indevido. O próprio `native.js` chama mais oito coisas no
 `__AVBridge`, e nenhuma delas é API para o app — duas são
@@ -414,7 +415,13 @@ esperam uma **pessoa** e ficam sem prazo, porque um timeout ali resolveria null
 com o operador ainda escolhendo a pasta.
 
 `NativeBridge.SHELL_VERSION` identifica a versão da casca — **subir sempre que
-a superfície da ponte mudar**. Hoje vale **38** — a v5.189 ENCOLHE duas vezes:
+a superfície da ponte mudar**. Hoje vale **39** — a v5.192 acrescentou
+`temaClaro`, o único pedaço do tema claro que o CSS não alcança: os ÍCONES das
+barras de sistema (que o Android desenha, e que ficariam brancos sobre um fundo
+quase branco) e o `windowBackground`, resolvido antes de existir JavaScript. Num
+shell 38 o bundle novo funciona por inteiro — a cor de tudo vem do CSS e chega
+por OTA —, e o app fica com as barras do tema escuro. O anterior, **38**
+(v5.189), ENCOLHE duas vezes:
 `espelhoEstado` perdeu `codigo` (a entrada da tela deixou de ter segredo — a
 porta é o endereço) e saiu `keepAudioAlive`, que só existia para a mesa de som.
 Um bundle antigo num shell 38 desenharia um teclado de três dígitos pedindo um
@@ -1495,28 +1502,65 @@ TV, as telas da rede SÃO o que a congregação vê.
 
 ## A paleta
 
-A paleta "Sala Escura" (âmbar) mora em **`assets/web/shared/tokens.css`**, fonte
-única carregada pelos dois `index.html` **antes** da folha do app. Até a v5.47 os
-tokens de marca eram mantidos à mão em DUAS folhas (`controle.css` e
-`display.css`), e o comentário das duas admitia que "a sincronização é manual" —
-sincronização manual entre dois arquivos é uma classe de bug, não um processo:
-basta um ajuste entrar só num lado para o telão e a preview do Controle, que
-existe justamente para ESPELHAR o telão, mostrarem coisas diferentes.
+A paleta mora em **`assets/web/shared/tokens.css`**, fonte única carregada pelos
+dois `index.html` **antes** da folha do app. Até a v5.47 os tokens de marca eram
+mantidos à mão em DUAS folhas (`controle.css` e `display.css`), e o comentário
+das duas admitia que "a sincronização é manual" — sincronização manual entre
+dois arquivos é uma classe de bug, não um processo: basta um ajuste entrar só
+num lado para o telão e a preview do Controle, que existe justamente para
+ESPELHAR o telão, mostrarem coisas diferentes.
+
+**Desde a v5.192 ela é a IDENTIDADE OFICIAL DA IASD, e são DOIS TEMAS.** As
+matizes vêm do pacote oficial adventista — o mesmo de que saiu o símbolo do
+wallpaper padrão na v5.188 —, com o **denim `#2F557F`** (PMS 302) como núcleo. O
+âmbar da paleta "Sala Escura" saiu, e ele nunca foi oficial: a v5.47 o adotou
+por um argumento de CONTRASTE (a paleta azul anterior usava um valor único para
+fundo preenchido e para texto, e era esse par que reprovava), e a separação de
+papéis em `--accent`/`--accent-fill`/`--on-accent` resolve isso sem trocar a
+matiz. Com ela no lugar, o azul oficial passa com folga nos dois temas.
 
 O essencial para não quebrar nada aqui:
 
 - **Só cor entra em `tokens.css`.** Raio, escala de ícone, curva de toque e
   medidas de layout ficam no `:root` de `controle.css`: são decisões da UI densa
   do Controle, e o Display (que não tem UI) não teria o que fazer com elas.
-- **Três matizes, com papéis que não se misturam.** Âmbar é a marca IASD **e** o
-  accent (navegação, seleção, progresso) — `--gold` e `--accent` têm o mesmo
-  valor de propósito, e os dois nomes existem para distinguir na folha "isto é
-  marca" de "isto é navegação". Vermelho é atenção, em dois papéis separados:
+- **A montagem dos temas são três blocos**, e a ordem deles é a regra:
+  `:root` com o que NÃO muda, `:root` com o tema ESCURO (o padrão, sem atributo
+  nenhum) e `:root[data-tema="claro"]` (0,2,0 vence o 0,1,0). O claro é um
+  DELTA: o que ele não redeclara cai no escuro. **Um token que exista SÓ no
+  claro não está definido no tema padrão** — o `var()` computa para o valor
+  inicial da propriedade, sem aviso e sem log, e quem escreveu acabou de ver a
+  cor certa na tela porque estava com o claro ligado. `tools/tokens.test.mjs`
+  trava isso.
+- **O PALCO NÃO TEM TEMA, e é isso que faz o recurso valer.** `--stage-*`,
+  `--wallpaper` e `--lyrics-frame-bg` (mais as sombras e o `--scrim`) moram no
+  bloco compartilhado. O Display já ficaria escuro por omissão — ele nunca
+  escreve o atributo —; o que a separação garante é o outro lado: a PREVIEW do
+  Controle roda no documento que TEM tema, e ela existe para ESPELHAR o telão.
+  Um telão claro num salão às escuras cega a congregação, e uma preview que
+  clareasse junto com a UI deixaria de cumprir seu papel exatamente no tema em
+  que o operador mais precisa dela. `tools/smoke.mjs` trava isso.
+- **Três matizes, com papéis que não se misturam.** O azul denim é a marca IASD
+  **e** o accent (navegação, seleção, progresso) — `--brand` e `--accent` têm o
+  mesmo valor de propósito, e os dois nomes existem para distinguir na folha
+  "isto é marca" de "isto é navegação". (Eles se chamavam `--gold*` até a
+  v5.192: um token chamado "gold" guardando um azul é exatamente a divergência
+  que a fonte única existe para impedir, então foram renomeados junto com a
+  cor.) Vermelho é atenção — o `scarlett` oficial —, em dois papéis separados:
   **preenchido = está no ar agora** (`--live`), **contornado = ação destrutiva**
-  (`--danger-text`) — nunca preenchida, para não competir com o que está de fato
-  no telão. Verde (`--ok`) é **só** concluído/conectado; antes ele também dizia
-  "está no ar" em dois lugares enquanto outros quatro diziam o mesmo em
-  vermelho, duas cores opostas para a mesma mensagem na mesma tela.
+  (`--danger-strong`/`--danger-text`) — nunca preenchida, para não competir com
+  o que está de fato no telão. Verde (`--ok`, do `treefrog` oficial) é **só**
+  concluído/conectado; antes ele também dizia "está no ar" em dois lugares
+  enquanto outros quatro diziam o mesmo em vermelho, duas cores opostas para a
+  mesma mensagem na mesma tela.
+- **Nem todo token é um valor oficial, e os derivados estão marcados.** Os
+  dezoito valores oficiais foram desenhados para fundo BRANCO: medidos, todos
+  passam AA sobre branco, e NENHUM passa AA como texto sobre o quase-preto do
+  tema escuro (bluejay dá 3,97:1). Onde clarear ou escurecer foi preciso, o
+  comentário de `tokens.css` diz de qual oficial o valor saiu, e a matiz é
+  preservada. O mesmo vale para os ladrilhos da Bíblia: a identidade tem sete
+  famílias de matiz e a tela de livros precisa de DEZ grupos separáveis por
+  pelo menos 20°, então cinco são oficiais e cinco preenchem os vãos.
 - **A superfície AFUNDA dentro de um cartão** (a regra no topo de
   `controle.css`). `--surface`/`--surface-2` são branco com alfa, então
   EMPILHAM: o mesmo token sobre `--panel` produz uma base bem mais clara do que
@@ -1525,19 +1569,29 @@ O essencial para não quebrar nada aqui:
   overlay passa a ser preto) — que também é a convenção certa de UI escura: o
   cartão já está elevado, logo o controle dentro dele é recesso, e ainda emite
   menos luz num salão escuro. Como custom properties HERDAM, a regra só precisa
-  marcar os elementos que de fato pintam `--panel`.
+  marcar os elementos que de fato pintam `--panel`. **O SINAL é o mesmo nos dois
+  temas** — flutua sobre a página, afunda dentro do cartão —, e só a intensidade
+  muda; por isso os dois valores viraram token (`--surface-sunk`) na v5.192, em
+  vez de seguirem literais em `controle.css`: eram os últimos pedaços de cor
+  fora da fonte única, e o tema claro herdaria um recesso de 24% de preto sobre
+  um cartão branco.
 - **Nunca escrever branco literal.** Nenhum `#fff` sobrou como valor de cor em
   `controle.css`/`display.css`: o branco pleno era a maior fonte isolada de luz
   emitida do app, e o off-white da paleta (`--text`) é o que se usa. As únicas
   exceções são **o palco**: `--stage-text: #fff`, porque num telão a
   legibilidade vem de luminância máxima, não de um off-white calibrado para uma
-  tela a 30 cm do rosto.
-- **O ÍCONE DO APP também é a paleta** (v1.34). Ele era um PNG com o botão AZUL
-— sobra da paleta azul que a base web abandonou na v5.47 — sobre um fundo verde
+  tela a 30 cm do rosto. No tema CLARO o `--panel` é branco pleno, e ali a regra
+  não se aplica pelo motivo dela: uma página clara é a escolha explícita de quem
+  não está no escuro.
+- **O ÍCONE DO APP também é a paleta** (v1.34). Ele era um PNG com um botão
+azul QUALQUER — sobra de uma paleta azul aposentada — sobre um fundo verde
 copiado do wallpaper, que é a cortina da TV e nunca aparece no celular: nenhuma
 das duas cores existia na tela que o operador vê ao tocar no ícone. Agora é o
 mesmo mixer de três faixas em `--text` (trilha) e `--accent` (botão) sobre
-`--bg`, o mesmo preto que o sistema desenha antes de o WebView carregar. Ele
+`--bg`, o mesmo fundo que o sistema desenha antes de o WebView carregar — e na
+v5.192 o azul voltou, agora o certo: o bluejay oficial da IASD. Ele **não segue
+o tema claro**, e não tem como: o ícone é desenhado pela gaveta do sistema com o
+app fechado, e o par escuro é o padrão. Ele
 virou VETOR (`res/drawable/ic_launcher_foreground.xml`) porque com `minSdk` 26 o
 adaptativo é o único ícone que chega a ser desenhado: os cinco PNGs por
 densidade eram peso morto e mais cinco lugares para a cor divergir. A camada
@@ -1545,15 +1599,31 @@ densidade eram peso morto e mais cinco lugares para a cor divergir. A camada
 apontava para o PNG do primeiro plano, que tinha fundo opaco, e o ícone temático
 virava um quadrado cheio.
 
-**`res/values/colors.xml` espelha `--bg` à mão.** É o preto das barras de
-  status e navegação e o `windowBackground` (o que aparece ANTES de o WebView
-  carregar). Nada no build detecta a divergência, e o OTA pode trocar a base web
-  sem trocar o APK — se o token mudar, este valor muda junto.
+**`res/values/colors.xml` espelha `--bg` à mão — agora DOIS valores**
+(`app_bg` e `app_bg_claro`). É o fundo das barras de status e navegação e o
+`windowBackground` (o que aparece ANTES de o WebView carregar). Nada no build
+detecta a divergência, e o OTA pode trocar a base web sem trocar o APK — se um
+token mudar, o valor daqui muda junto. Quem escolhe entre os dois é a
+`MainActivity` em tempo de execução (`AVNative.temaClaro` → `setTemaClaro`), a
+partir de uma CÓPIA da escolha guardada em `SharedPreferences`: um recurso de
+XML é resolvido antes de existir JavaScript, então o primeiro quadro só pode vir
+de uma preferência guardada. **O preço, dito em vez de escondido: trocar de tema
+tem um lançamento de atraso no fundo do splash, e só nele.** A mesma chamada
+vira a bandeira `APPEARANCE_LIGHT_STATUS_BARS` — que o Android 15+ NÃO ignora
+(ele ignora as CORES das barras, não a aparência dos ícones), e sem a qual o
+tema claro fica com o relógio e os botões de navegação brancos sobre branco.
 
 **Não há teste automatizado de contraste no repositório.** Os números nos
 comentários de `tokens.css` são medições feitas à mão, e os pares que ficam
 abaixo do piso estão declarados como tais no próprio comentário. Ao mexer num
-token, meça — nada no CI vai barrar uma regressão.
+token, meça — nada no CI vai barrar uma regressão, **e agora são DOIS temas a
+medir**. O que o CI trava é outra coisa, e vale repetir para não confundir os
+dois: `tools/tokens.test.mjs` garante que todo `var(--x)` sem fallback aponta
+para um token que EXISTE (um `var()` inválido computa para o valor inicial da
+propriedade, sem aviso nenhum — foi assim que os dois botões da folha de
+conectar ficaram com cantos retos na v5.171) e que nenhum token exista só no
+tema claro; `tools/smoke.mjs` trava o efeito RENDERIZADO nos dois temas, o palco
+que não os segue e a escolha que sobrevive à recarga.
 
 O raciocínio completo (cada par medido, os pisos adotados, os ladrilhos da
 Bíblia e as células de capítulo/versículo) está na seção de paleta de
@@ -1602,6 +1672,7 @@ contextos.
 | Controles fora do app | — | **notificação + tela de bloqueio + botões de mídia** via `MediaSession` (ver seção acima) |
 | Download com o app minimizado | a aba continua baixando | **foreground service + wake lock** — sem isso o processo é congelado (ver seção acima) |
 | Atualização da base web | recarregar a página | **OTA** — bundle publicado em `web-latest`, aplicado no próximo lançamento (ver seção acima) |
+| Tema claro × escuro | funciona igual: a escolha é CSS + `localStorage`, e o `theme-color` tinge a barra de endereço | idem, **mais o cromo do sistema**: `AVNative.temaClaro` vira os ÍCONES das barras (que o Android desenha, e que ficariam brancos sobre branco) e guarda a escolha para o `windowBackground` do PRÓXIMO lançamento — um recurso do APK é resolvido antes de existir JavaScript |
 | **Telão nas telas da rede** | **não existe** — um navegador não abre `ServerSocket` nem serve o bundle | **servidor HTTP no próprio celular** servindo o `/web/display/` de verdade (resolução OTA→APK) + comandos por SSE + mídia por `/m/<token>`: o telão inteiro em até três navegadores da rede, sem instalar nada neles e sem internet (ver a seção do recurso). Liga e desliga **só** por ação do operador |
 | Papel `__AV_ROLE__` | `'controle'` / `'display'` | **um TERCEIRO valor, `'tela'`** — o mesmo `/web/display/` num navegador da LAN, marcado por `?tela=1` na query (não há ponte lá; quem escreve a global é o próprio `tela.js`). Ele é seguro por construção: as leituras do papel no bundle comparam `!== 'controle'`, e **nenhum caminho testa `=== 'display'`**. O papel ativa o dreno de subida, o `forceMuted` inicial e o `__telaSom` do gesto de entrada |
 
@@ -2164,10 +2235,64 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.191** (base web) · `SHELL_VERSION` **38**, e o bundle segue com
+**Versão atual: v5.192** (base web) · `SHELL_VERSION` **39**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.192 (v1.89): A PALETA VIRA A IDENTIDADE OFICIAL DA IASD, E O APP GANHA
+> TEMA CLARO. METADE OTA, METADE APK.** Pedido do operador: um tema claro e um
+> escuro trocáveis em Configurações, padronizados pelas cores oficiais da
+> identidade visual adventista — a mesma fonte de que saiu o símbolo do
+> wallpaper na v5.188.
+>
+> - **O âmbar sai, e ele nunca foi oficial.** A v5.47 o adotou como "a marca
+>   IASD" por um argumento de CONTRASTE: a paleta azul anterior usava UM valor
+>   para os dois papéis (fundo preenchido e texto), e é esse par que reprovava —
+>   não o azul. A saída certa era separar os papéis, que é o que
+>   `--accent`/`--accent-fill`/`--on-accent` já fazem. Com eles no lugar, o
+>   **denim `#2F557F`** (PMS 302, o núcleo da identidade) entra como
+>   preenchimento verbatim, com 7,70:1 contra o branco que a própria identidade
+>   recomenda por cima, e o `bluejay` clareado vira o accent de texto do tema
+>   escuro (5,86:1 sobre o painel). `scarlett` é o vermelho de atenção,
+>   `campfire` o aviso, `treefrog` o concluído, `night`/`winter` os neutros.
+> - **Nem todo token é oficial, e os derivados estão marcados.** Os dezoito
+>   valores foram desenhados para fundo BRANCO — todos passam AA sobre branco, e
+>   NENHUM passa como texto sobre o quase-preto do tema escuro. Onde clarear (ou
+>   escurecer, no claro) foi preciso, `tokens.css` diz de qual oficial o valor
+>   saiu e preserva a matiz. Nos ladrilhos da Bíblia a conta é estrutural: a
+>   identidade tem SETE famílias de matiz e a tela de livros precisa de DEZ
+>   grupos separados por ≥20°, então cinco são oficiais e cinco preenchem os
+>   vãos — e o `scarlett` fica FORA da escala de propósito, porque vermelho é
+>   atenção neste app e um grupo de livros vermelho competiria com "está no ar".
+> - **O PALCO NÃO TEM TEMA, e é isso que faz o recurso valer.** `--stage-*`,
+>   `--wallpaper`, `--lyrics-frame-bg` e as sombras foram para um bloco
+>   compartilhado. O Display já ficaria escuro por omissão (ele nunca escreve o
+>   atributo); o que a separação garante é a PREVIEW do Controle, que roda no
+>   documento que TEM tema e existe para ESPELHAR o telão. Um telão claro cega a
+>   congregação, e uma preview clara deixaria de cumprir seu papel exatamente no
+>   tema em que o operador mais precisa dela.
+> - **O que o shell faz, e é só isto** (`temaClaro`, `SHELL_VERSION` **39**):
+>   os ÍCONES das barras de sistema e o `windowBackground`. As duas coisas que
+>   uma folha de estilo não alcança — com `targetSdk` 35 o Android ignora as
+>   CORES das barras (quem as pinta é o body, com o token), mas o relógio e os
+>   botões de navegação continuam sendo desenhados pelo sistema e ficariam
+>   brancos sobre branco; e o `windowBackground` é um recurso do APK, resolvido
+>   antes de existir JavaScript, então o shell guarda uma cópia da escolha e a
+>   aplica no lançamento seguinte. **Trocar de tema tem, portanto, um lançamento
+>   de atraso no fundo do splash — e só nele.** Num shell 38 o bundle novo
+>   funciona por inteiro e o app fica com as barras do escuro: é a degradação
+>   certa, e por isso `minShell` continua em 2.
+> - **Dois oráculos ficaram mais fortes.** `tools/tokens.test.mjs` passou a
+>   ignorar COMENTÁRIOS (um `var(--x)` citado na prosa que justifica a regra não
+>   é um uso) e ganhou um caso novo: **nenhum token pode existir só no tema
+>   claro**. O claro é um DELTA sobre o escuro, e um token declarado só lá não
+>   estaria definido no tema padrão — o `var()` computaria para o valor inicial
+>   da propriedade, sem aviso, e quem escreveu acabaria de ver a cor certa na
+>   tela porque estava com o claro ligado. `tools/smoke.mjs` trava o efeito
+>   RENDERIZADO: os dois temas mudam fundo e texto, o palco não muda uma
+>   vírgula, a superfície afunda dentro do cartão NOS DOIS, e a escolha
+>   sobrevive à recarga.
 
 > **A v5.191: O DOWNLOAD PASSA A TER SAÍDA — e a intenção deixa de ressuscitar.
 > OTA PURO.** Dois relatos do operador, e o segundo é o mais caro.

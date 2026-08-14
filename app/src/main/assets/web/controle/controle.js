@@ -21,6 +21,7 @@ const faderWrapEl = document.querySelector('.fader-wrap');
 
 // Modo de uso (ver "Modos de uso" mais abaixo)
 const appModeSegEl = document.getElementById('appModeSeg');
+const temaSegEl = document.getElementById('temaSeg');
 const simpleModeEl = document.getElementById('simpleMode');
 const simpleFullBtnEl = document.getElementById('simpleFullBtn');
 const fullSimpleBtnEl = document.getElementById('fullSimpleBtn');
@@ -82,6 +83,49 @@ let appMode = storedAppMode();
 // existe e a faixa de abas já tem largura para ser medida.
 document.body.classList.toggle('mode-simple', appMode === 'simple');
 simpleModeEl.classList.toggle('open', appMode === 'simple');
+
+// ===== O TEMA (claro × escuro) — mesma gaveta, mesma razão =====
+// Vale palavra por palavra o parágrafo do `APP_MODE_KEY` acima: a escolha
+// precisa ser lida ANTES DO PRIMEIRO QUADRO, `localStorage` é síncrono e o
+// IndexedDB não é. Aqui o preço de errar é maior, não menor — o modo troca a
+// TELA, e o tema troca a COR DE TUDO: um flash do app inteiro em preto antes
+// de virar claro é o tipo de coisa que se vê a cada abertura.
+//
+// O ESCURO É O PADRÃO, e continua sendo o app sem atributo nenhum. Não é
+// inércia: este app é operado num salão às escuras, e quem nunca escolheu nada
+// precisa abrir na versão que não cega o operador nem ilumina a fileira de
+// trás. O claro existe para o ensaio de sábado de manhã e para quem opera com
+// a igreja acesa, e é uma escolha explícita.
+//
+// **O PALCO NÃO SEGUE O TEMA** — os tokens `--stage-*`, `--wallpaper` e
+// `--lyrics-frame-bg` moram num bloco à parte de tokens.css justamente para
+// isto. O Display nunca escreve este atributo (ele nem carrega este arquivo),
+// mas a PREVIEW do Controle roda aqui dentro: sem a separação, escolher o tema
+// claro faria a preview parar de espelhar o telão, que é a única coisa que ela
+// existe para fazer.
+const TEMA_KEY = 'av.tema';
+function storedTema() {
+  try { return localStorage.getItem(TEMA_KEY) === 'claro' ? 'claro' : 'escuro'; }
+  catch (_) { return 'escuro'; }
+}
+let tema = storedTema();
+// A cor da barra de endereço do NAVEGADOR (no app nativo quem pinta atrás das
+// barras é o próprio body, com o mesmo token). O valor não pode ser lido do
+// `getComputedStyle` aqui: `<meta>` é o único consumidor e o token só existe
+// depois de a folha aplicar — ler antes do primeiro quadro devolveria vazio.
+// São dois valores, e eles ESPELHAM `--bg` dos dois temas em tokens.css: se um
+// mudar lá, muda aqui junto (é a mesma dívida do `res/values/colors.xml`, e
+// pela mesma razão — nada no build detecta a divergência).
+const TEMA_BARRA = { escuro: '#0e1215', claro: '#dfe3e7' };
+const temaMetaEl = document.getElementById('temaMeta');
+function pintarTema() {
+  document.documentElement.dataset.tema = tema;
+  if (temaMetaEl) temaMetaEl.setAttribute('content', TEMA_BARRA[tema]);
+  // O shell: ícones das barras de sistema e o windowBackground do próximo
+  // lançamento. No navegador `AVNative` não existe e a linha é pulada.
+  try { window.AVNative?.temaClaro(tema === 'claro'); } catch (_) { /* shell antigo */ }
+}
+pintarTema();
 
 const mixerEl = document.getElementById('mixer');
 const volToggleEl = document.getElementById('volToggle');
@@ -163,7 +207,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.191';
+const WEB_VERSION = '5.192';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -11118,6 +11162,7 @@ async function addSongToDestinos(coll, s, variant, destinos, btn) {
 // ===== transições (fade in/out) =====
 function openFadePopup() {
   renderAppModeSeg();
+  renderTemaSeg();
   renderFitSeg();
   renderRotBtn();
   renderLyricsBgSeg();
@@ -14014,6 +14059,26 @@ function renderAppModeSeg() {
   });
 }
 
+// ---- Tema (a leitura e a pintura estão no topo do arquivo) ----
+// Trocar de tema NÃO fecha o popup, ao contrário do modo do app: o modo troca
+// a tela inteira atrás dele (não há o que ver com o popup na frente), e o tema
+// troca a cor DO PRÓPRIO POPUP — é olhando para ele que o operador decide se
+// gostou. Escolher e continuar vendo é a resposta.
+function setTema(t) {
+  const novo = t === 'claro' ? 'claro' : 'escuro';
+  if (novo === tema) return;
+  tema = novo;
+  try { localStorage.setItem(TEMA_KEY, tema); } catch (_) { /* storage bloqueado */ }
+  pintarTema();
+  renderTemaSeg();
+}
+
+function renderTemaSeg() {
+  temaSegEl.querySelectorAll('.fit-opt').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.tema === tema);
+  });
+}
+
 // A tela simplificada é um ESPELHO dos controles reais: copia o glifo e o
 // estado dos botões do mixer/transporte em vez de recalcular play/pause e
 // mudo por conta própria. Se a regra mudar lá, muda aqui junto.
@@ -14374,6 +14439,10 @@ appModeSegEl.addEventListener('click', (e) => {
   if (!btn) return;
   setAppMode(btn.dataset.mode);
   closeFadePopup();   // a escolha já mudou a tela inteira atrás do popup
+});
+temaSegEl.addEventListener('click', (e) => {
+  const btn = e.target.closest('.fit-opt');
+  if (btn) setTema(btn.dataset.tema);
 });
 simpleSearchBtnEl.addEventListener('click', openHymnSearch);
 // Os controles do simplificado são os do modo completo, acionados por click():

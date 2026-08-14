@@ -14,7 +14,20 @@
          o body da base web pintando o MESMO token `bg` por baixo delas; é por
          isso que a igualdade entre `@color/app_bg` e o token continua
          OBRIGATÓRIA mesmo com os itens ignorados: divergir reintroduziria a
-         faixa de outro preto, agora só nos aparelhos novos. -->
+         faixa de outro preto, agora só nos aparelhos novos.
+
+         TEMA CLARO (v5.192): tudo aqui descreve o tema ESCURO, que é o padrão
+         de quem nunca escolheu nada — um recurso de XML é resolvido antes de
+         existir JavaScript, então não há como perguntar ao Controle a tempo do
+         primeiro quadro. Quem troca é a MainActivity em tempo de execução, a
+         partir de uma cópia da escolha guardada em SharedPreferences: ela
+         repinta o windowBackground e vira a bandeira
+         `APPEARANCE_LIGHT_STATUS_BARS`, que é o que o
+         `android:windowLightStatusBar` abaixo faz aqui e o que o Android 15+
+         NÃO ignora (ele ignora as CORES das barras, não a aparência dos
+         ícones). O preço, dito em vez de escondido: trocar de tema tem um
+         lançamento de atraso no fundo do splash, e só nele. -->
+
     <style name="Theme.AvIasd" parent="@android:style/Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/app_bg</item>
         <item name="android:colorBackground">@color/app_bg</item>

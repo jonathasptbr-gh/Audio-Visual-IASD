@@ -58,6 +58,12 @@ interface BridgeHost {
     /** Devolver um passo de volume ao SISTEMA (fader já no limite). */
     fun adjustSystemVolume(step: Int)
 
+    /**
+     * O tema escolhido no Controle. Ver [NativeBridge.temaClaro] — o CSS não
+     * alcança nem os ícones das barras de sistema nem o `windowBackground`.
+     */
+    fun setTemaClaro(claro: Boolean)
+
     /** Pede a permissão de microfone ao Android (push-to-talk). */
     fun requestMicPermission(onResult: (Boolean) -> Unit)
 
@@ -143,6 +149,15 @@ class NativeBridge(
          * exijam mais do que o shell instalado oferece (ver [WebUpdater]).
          * Subir SEMPRE que a superfície da ponte mudar.
          *
+         * 39 (v5.192) — `temaClaro`, o TEMA CLARO. A cor de tudo é decidida
+         * pelo CSS e chega por OTA; o método existe pelas duas coisas que uma
+         * folha de estilo não alcança — os ÍCONES das barras de sistema (que o
+         * Android desenha, e que ficariam brancos sobre branco) e o
+         * `windowBackground`, que é resolvido antes de existir JavaScript. Num
+         * shell 38 o bundle novo funciona por inteiro e o app fica com as
+         * barras do tema escuro: é a degradação certa, e é por isso que
+         * `minShell` continua em 2.
+         *
          * 38 (v5.189) — A PORTA ABERTA e o FIM DA MESA DE SOM, dois
          * encolhimentos no mesmo degrau:
          *
@@ -206,7 +221,7 @@ class NativeBridge(
          * novo NÃO chega por OTA, e um botão que não faz nada no meio de um
          * culto é pior que botão nenhum (a mesma regra do `appendYoutubeSearch`).
          */
-        const val SHELL_VERSION = 38
+        const val SHELL_VERSION = 39
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -1076,6 +1091,35 @@ class NativeBridge(
     @JavascriptInterface
     fun systemVolume(step: Int) {
         host?.adjustSystemVolume(step)
+    }
+
+    // ---------- tema (claro × escuro) ----------
+
+    /**
+     * O tema escolhido em Configurações. A cor de tudo é decidida pelo CSS
+     * (`shared/tokens.css`, com os dois blocos de tema) — o que sobra para o
+     * shell são exatamente as duas coisas que uma folha de estilo não alcança:
+     *
+     * 1. **Os ÍCONES das barras de sistema.** Com `targetSdk` 35 o Android
+     *    força edge-to-edge e IGNORA `statusBarColor`/`navigationBarColor`
+     *    (ver `res/values/themes.xml`): quem pinta o FUNDO atrás das barras é o
+     *    body da base web, com o token `--bg`. Só que o relógio, a bateria e os
+     *    botões de navegação seguem sendo desenhados pelo sistema, e a cor
+     *    deles vem de `APPEARANCE_LIGHT_STATUS_BARS`. Sem virar essa chave, o
+     *    tema claro fica com ícones brancos sobre um fundo quase branco —
+     *    invisíveis, e sem nada na tela que explique por quê.
+     * 2. **O `windowBackground`**, o que aparece ANTES de o WebView carregar.
+     *    Ele é um recurso do APK, resolvido pelo sistema antes de existir
+     *    JavaScript, então não há como perguntar ao lado web na hora certa: o
+     *    shell GUARDA a escolha e a aplica no lançamento seguinte. Trocar de
+     *    tema tem, portanto, um lançamento de atraso nesse detalhe — e só nele.
+     *
+     * Privilégio do Controle por construção: é a Activity que responde, e o
+     * WebView do telão nasce com `host = null` (invariante 9).
+     */
+    @JavascriptInterface
+    fun temaClaro(on: Boolean) {
+        host?.setTemaClaro(on)
     }
 
     // ---------- microfone (push-to-talk) ----------
