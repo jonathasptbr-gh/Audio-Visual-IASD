@@ -2377,10 +2377,49 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.215** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
+**Versão atual: v5.216** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.216: O BOTÃO DE CAST NÃO ABRIA NADA COM UMA TELA JÁ CONECTADA — o
+> fecho automático da folha era um NÍVEL onde a frase dizia BORDA. OTA PURO**
+> (nenhuma linha de Kotlin; sem Release).
+>
+> Relato do operador: com o ícone de cast no estado conectado (vermelho), tocar
+> nele não abre a folha de conexão.
+>
+> **Ele abria — e se fechava sozinha em milissegundos.** A v5.193 acrescentou ao
+> `renderSimpleGate` a regra "alguma tela ENTROU com a folha aberta: ela fecha",
+> e escreveu `if (há tela && a folha está aberta) fecharCast()`. A frase fala de
+> um EVENTO; o código testa um ESTADO. Com uma tela conectada — que é o estado
+> normal de um culto — qualquer passagem por aquela função fechava a folha, e o
+> `abrirCast` **liga a enquete de 2,5 s**, que chama justamente aquela função.
+> Isto é: o próprio ato de abrir agendava o fecho, e a primeira leitura do
+> estado (milissegundos depois, pela ponte) o executava.
+>
+> O que se perdia com isso não era um detalhe de UI: aquela folha é a única
+> porta para trocar de TV, ligar e desligar a transmissão e derrubar uma tela da
+> rede. Com tela conectada, nenhuma dessas coisas tinha como ser feita sem antes
+> desconectar tudo.
+>
+> A correção é a borda que a frase sempre descreveu (`gateTinhaTela`), **com a
+> memória re-armada em `abrirCast`** — e é esse re-armar que dá à regra o
+> significado certo: *enquanto ESTA folha estiver aberta, se uma tela entrar,
+> ela fecha*. Sem ele, uma folha aberta muito depois herdaria uma borda de horas
+> atrás, que é a mesma classe de defeito com outro relógio.
+>
+> **Os dois lados entraram no `boot-nativo.test.mjs` no mesmo commit**, e o
+> segundo é o que impede a correção de virar "a folha nunca mais fecha sozinha":
+> com tela conectada ela ABRE e CONTINUA aberta depois de um ciclo inteiro da
+> enquete; com a folha aberta e uma tela entrando, ela fecha. A primeira metade
+> é lida no MESMO turno do clique — entre dois `evaluate` cabe o `setTimeout(0)`
+> com que a ponte de mentira resolve o `espelhoEstado`, e a asserção passaria a
+> depender de quem ganha essa corrida.
+>
+> A régua que fica: **"entrou" e "existe" não são a mesma condição, e um
+> comentário que diz a primeira sobre um código que testa a segunda envelhece
+> parecendo correto** — foi assim que este atravessou vinte e três versões.
 
 > **A v5.215: SEM TELA CONECTADA, O SOM SAI DO PRÓPRIO APARELHO. OTA PURO**
 > (nenhuma linha de Kotlin, `SHELL_VERSION` intacto em 40; sem Release).

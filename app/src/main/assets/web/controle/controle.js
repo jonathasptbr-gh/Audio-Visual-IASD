@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.215';
+const WEB_VERSION = '5.216';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -1247,6 +1247,11 @@ const MIRROR_SHELL = 32;
 // atribui de verdade é o bloco nativo, lá embaixo).
 let lastDisplays = [];          // telas conectadas (ponte nativa)
 let reconferirTelas = () => {}; // releitura da lista; no navegador é no-op
+// HAVIA TELA NA LEITURA ANTERIOR? — a memória que transforma o fecho automático
+// da folha de conexão numa BORDA em vez de um NÍVEL (ver `renderSimpleGate`).
+// Mora aqui, no topo, pela regra de sempre: quem é lido por um caminho de render
+// nasce junto do resto do estado de cena, ou vira zona morta temporal na carga.
+let gateTinhaTela = false;
 let displayAudioBlocked = false; // Display reportou áudio bloqueado pelo navegador
 const scrollPos = {};      // posição de scroll por aba/pasta (sessão)
 
@@ -14369,7 +14374,8 @@ function telasDaRede() {
 // cabeçalho, que fica por cima da cortina de propósito: o que se bloqueia é
 // este MODO, não o app.
 function renderSimpleGate() {
-  const semTela = appMode === 'simple' && !simpleDisplay();
+  const temTela = !!simpleDisplay();
+  const semTela = appMode === 'simple' && !temTela;
   simpleModeEl.classList.toggle('sem-tela', semTela);
   // A CORTINA VOLTOU na v5.203 (ver o comentário do `.simple-veil`): sem tela
   // este modo não projeta nada — nem imagem nem som, desde que a mesa saiu na
@@ -14387,7 +14393,25 @@ function renderSimpleGate() {
   // continua no ar por cima dos controles é um toque cobrado para nada. No Modo
   // Fácil ela nem é uma folha: o bloco está DENTRO da tela, e o `hostCastConn`
   // acima já o devolveu para a folha.
-  if (!semTela && castPopupEl && castPopupEl.classList.contains('open') && simpleDisplay()) {
+  //
+  // **É UMA BORDA, e até a v5.216 estava escrita como NÍVEL** — `if (há tela)
+  // fecha`. A frase acima diz "entrou"; o código dizia "existe". Com uma tela
+  // conectada (o ícone de cast em VERMELHO, que é o estado normal de um culto),
+  // a folha era fechada por QUALQUER passagem por aqui — e o próprio `abrirCast`
+  // liga a enquete de 2,5 s, que chama esta função. A folha abria e se fechava
+  // em milissegundos: do lado de quem opera, **o botão de cast simplesmente não
+  // abria nada**, que foi exatamente o relato. Era também a única porta para
+  // trocar de TV, desligar a transmissão ou derrubar uma tela sem antes
+  // desconectar tudo.
+  //
+  // A memória é re-armada em `abrirCast` (`gateTinhaTela = há tela?`), e é isso
+  // que dá à regra o significado certo: **enquanto ESTA folha estiver aberta, se
+  // uma tela entrar, ela fecha.** Sem esse re-armar, uma folha aberta muito
+  // depois herdaria uma borda de horas atrás — a mesma classe de defeito, com
+  // outro relógio.
+  const entrou = temTela && !gateTinhaTela;
+  gateTinhaTela = temTela;
+  if (entrou && !semTela && castPopupEl && castPopupEl.classList.contains('open')) {
     fecharCast();
   }
 }
@@ -15371,6 +15395,10 @@ function abrirCast() {
   // cartão vazio.
   hostCastConn(false);
   castPopupEl.classList.add('open');
+  // RE-ARMA A MEMÓRIA DO FECHO AUTOMÁTICO (v5.216): a folha que ACABA de abrir
+  // parte do estado de agora, então "uma tela entrou" passa a significar
+  // "entrou depois que abri isto". Ver `renderSimpleGate`.
+  gateTinhaTela = !!simpleDisplay();
   texto2(castMsgEl, '');
   // O espelho na rede só existe no app, e só num shell que tenha os métodos.
   // No navegador a folha degrada para uma escolha só, que é a honesta.

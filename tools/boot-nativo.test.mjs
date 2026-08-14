@@ -214,6 +214,27 @@ try {
   checar(!somSemTela.facil.local && somSemTela.facil.mudo,
     'e no Modo Fácil ela volta a ser muda (lá a cortina cobre tudo)');
 
+  // ---- E A OUTRA METADE DA REGRA: uma tela ENTRANDO fecha a folha (v5.193) --
+  //
+  // O par do caso de baixo, e o que impede a correção da v5.216 de virar "a
+  // folha nunca mais fecha sozinha": quem acabou de conectar terminou o que
+  // veio fazer ali. A tela entra num turno só, com a folha já aberta — é a
+  // BORDA que a regra sempre quis descrever.
+  const fechaAoEntrar = await pg.evaluate(() => {
+    setAppMode('full');
+    abrirCast();
+    const abriu = document.getElementById('castPopup').classList.contains('open');
+    mirrorEstado = { ligado: true, telas: [{ rotulo: 'tela B', pronta: true }] };
+    renderSimpleGate();
+    const fechou = !document.getElementById('castPopup').classList.contains('open');
+    mirrorEstado = null;
+    fecharCast();
+    setAppMode('simple');   // devolve o `localStorage` — a página seguinte parte daqui
+    return { abriu, fechou };
+  });
+  checar(fechaAoEntrar.abriu && fechaAoEntrar.fechou,
+    'uma tela ENTRANDO com a folha aberta continua fechando-a (a borda, não o nível)');
+
   // ---- O ESTADO EM QUE O OPERADOR DE FATO OPERA -------------------------
   //
   // Transmissão LIGADA, telas na rede recebendo, e NENHUMA TV. É a
@@ -277,6 +298,34 @@ try {
   });
   checar(somComTela.tela && !somComTela.local && somComTela.mudo,
     'COM TELA DA REDE RECEBENDO este aparelho fica mudo, inclusive no avançado');
+
+  // ---- A FOLHA DE CONEXÃO ABRE COM TELA JÁ CONECTADA (v5.216) -----------
+  //
+  // O relato: com o ícone de cast no estado CONECTADO (vermelho), tocar nele
+  // não abria nada. Ele abria — e a folha se fechava sozinha em milissegundos,
+  // porque o fecho automático da v5.193 era um teste de NÍVEL ("há tela?") e
+  // não de BORDA ("uma tela entrou?"). O próprio `abrirCast` liga a enquete,
+  // a enquete chama `renderSimpleGate`, e o nível é verdadeiro o tempo todo
+  // enquanto houver tela.
+  //
+  // A espera é maior que um ciclo da enquete (`MIRROR_POLL_MS` = 2,5 s) de
+  // propósito: o defeito precisa de uma leitura do estado para se manifestar,
+  // e afirmar "abriu" no instante do clique passaria com ele no lugar.
+  // O clique e a leitura no MESMO turno: entre dois `evaluate` cabe o
+  // `setTimeout(0)` com que a ponte de mentira resolve o `espelhoEstado`, e a
+  // primeira metade do defeito passaria a depender de quem ganha essa corrida.
+  const abriuNaHora = await pg2.evaluate(() => {
+    document.getElementById('pvCastBtn').click();
+    return document.getElementById('castPopup').classList.contains('open');
+  });
+  await pg2.waitForTimeout(3200);
+  const continuaAberta = await pg2.evaluate(() => ({
+    aberta: document.getElementById('castPopup').classList.contains('open'),
+    conectado: document.getElementById('pvCastBtn').classList.contains('connected'),
+  }));
+  checar(abriuNaHora, 'o toque no ícone de cast ABRE a folha de conexão');
+  checar(continuaAberta.conectado && continuaAberta.aberta,
+    'e ela CONTINUA aberta com tela conectada — a enquete não a fecha sozinha');
   checar(erros2.length === 0,
     'nenhum erro de console no percurso com a transmissão ligada'
     + (erros2.length ? ':\n        ' + erros2.join('\n        ') : ''));

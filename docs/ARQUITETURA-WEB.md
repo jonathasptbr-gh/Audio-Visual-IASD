@@ -1979,6 +1979,20 @@ O ícone de **cast no canto** da preview faz os dois papéis que sobraram:
   (O terceiro estado deste ícone — **âmbar**, na liberação de teste — saiu na
   v5.199 junto com ela.)
 
+**E por vinte e três versões ele não abria nada nesse estado** (corrigido na
+v5.216). A v5.193 deu ao `renderSimpleGate` a regra "alguma tela ENTROU com a
+folha aberta: ela fecha" e a escreveu como `if (há tela && a folha está aberta)`
+— uma frase sobre EVENTO implementada como teste de ESTADO. Com uma tela
+conectada, qualquer passagem por aquela função fechava a folha; e `abrirCast`
+liga a enquete de 2,5 s, que chama justamente aquela função. A folha abria e se
+fechava em milissegundos, o que do lado de quem opera é indistinguível de "o
+botão não faz nada" — e o que se perdia era a única porta para trocar de TV,
+ligar/desligar a transmissão e derrubar uma tela da rede. A correção é a BORDA
+que a frase sempre descreveu (`gateTinhaTela`), com a memória **re-armada em
+`abrirCast`**: enquanto ESTA folha estiver aberta, se uma tela entrar, ela
+fecha. `tools/boot-nativo.test.mjs` trava os dois lados — a folha que continua
+aberta depois de um ciclo inteiro da enquete, e a tela que entra e a fecha.
+
 **A tela cheia (`#pvFullBtn`) não aparece aqui**: neste modo existe um telão
 conectado — é o que faz esta faixa existir — e a projeção está nele.
 
