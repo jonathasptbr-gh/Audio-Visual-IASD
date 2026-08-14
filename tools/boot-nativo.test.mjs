@@ -190,6 +190,30 @@ try {
   checar(conn.cortinaNoAr && !conn.buscaVisivel,
     'SEM TELA A TELA FICA BLOQUEADA: a cortina cobre tudo e a busca sai de cena');
 
+  // ---- SEM TELA NENHUMA, O SOM SAI DESTE APARELHO (v5.214) --------------
+  //
+  // A regra vive num ramo que o `smoke.mjs` não alcança: sem ponte não há
+  // `lastDisplays` nem transmissão, e é a CONEXÃO que decide. O que se mede é o
+  // efeito, não a variável sozinha — `pvVideo.muted` é o que o alto-falante
+  // obedece, e é ele que a `setForceMuted` acerta.
+  //
+  // O segundo caso é o portão de MODO: voltar ao Modo Fácil emudece, porque lá
+  // sem tela a cortina já cobre tudo (o caso acima) e som atrás dela seria a
+  // única coisa acontecendo. Ele também devolve o `localStorage` ao
+  // simplificado — é dele que a página seguinte parte.
+  const somSemTela = await pg.evaluate(() => {
+    const v = document.getElementById('pvVideo');
+    setAppMode('full');
+    const avancado = { local: somLocal, mudo: v.muted };
+    setAppMode('simple');
+    const facil = { local: somLocal, mudo: v.muted };
+    return { avancado, facil };
+  });
+  checar(somSemTela.avancado.local && !somSemTela.avancado.mudo,
+    'NO AVANÇADO SEM TELA a preview deixa de ser muda — o som é deste aparelho');
+  checar(!somSemTela.facil.local && somSemTela.facil.mudo,
+    'e no Modo Fácil ela volta a ser muda (lá a cortina cobre tudo)');
+
   // ---- O ESTADO EM QUE O OPERADOR DE FATO OPERA -------------------------
   //
   // Transmissão LIGADA, telas na rede recebendo, e NENHUMA TV. É a
@@ -239,6 +263,20 @@ try {
   }));
   checar(!comTela.semTela && comTela.connEscondido && !comTela.cortinaNoAr,
     'e a tela DESTRAVA: sem TV, as telas da rede contam como tela');
+
+  // E O SOM CONTINUA SENDO DAS TELAS (v5.214). É a metade que protege o
+  // desfecho que a mesa de som produzia: cada tela da rede toca o próprio
+  // arquivo no `<video>` dela, e um celular somando a própria saída seria o
+  // mesmo louvor duas vezes na sala — fora do compasso, porque são dois
+  // decodificadores. Vale mesmo no modo avançado, que é onde o som local
+  // existe.
+  const somComTela = await pg2.evaluate(() => {
+    const v = document.getElementById('pvVideo');
+    setAppMode('full');
+    return { local: somLocal, mudo: v.muted, tela: algumaTelaConectada() };
+  });
+  checar(somComTela.tela && !somComTela.local && somComTela.mudo,
+    'COM TELA DA REDE RECEBENDO este aparelho fica mudo, inclusive no avançado');
   checar(erros2.length === 0,
     'nenhum erro de console no percurso com a transmissão ligada'
     + (erros2.length ? ':\n        ' + erros2.join('\n        ') : ''));
