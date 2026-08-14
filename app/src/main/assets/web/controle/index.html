@@ -803,7 +803,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.197</span>
+        <span id="appVersion" class="app-version">Controle v5.198</span>
         <!-- O APK NOVO, quando existir. Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso. `hidden`
@@ -872,9 +872,19 @@
         <!-- O ESTADO. O interruptor é a ÚNICA coisa desta folha que liga e
              desliga o servidor — abrir a folha não liga mais nada (v5.184).
              Um interruptor que já nasce ligado toda vez que a tela abre não é
-             um interruptor: é um rótulo. -->
+             um interruptor: é um rótulo.
+
+             O RÓTULO NOMEIA O DESTINO, não o meio (v5.198). Ele dizia
+             "Transmitir pela rede", e "pela rede" descreve por ONDE a coisa
+             viaja — o que não ajuda ninguém a escolher. A opção de cima diz
+             para onde vai ("Espelhar para TV") e por isso se lê de primeira;
+             esta ficava sem par. "Navegador" é a palavra certa porque é
+             literalmente o que a outra ponta precisa ter: um computador, um
+             notebook, um tablet ou a própria TV, desde que abra o endereço
+             que aparece logo abaixo — e é esse mesmo endereço que completa a
+             frase, com o rótulo dele dizendo o que fazer. -->
         <label class="cast-sw-row" id="castNetRow" hidden>
-          <span class="cast-sw-txt"><b>Transmitir pela rede</b></span>
+          <span class="cast-sw-txt"><b>Transmitir para navegador</b></span>
           <input type="checkbox" id="castNetToggle" class="cast-sw-input" role="switch">
           <span class="cast-sw" aria-hidden="true"></span>
         </label>

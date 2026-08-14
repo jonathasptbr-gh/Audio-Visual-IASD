@@ -209,7 +209,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.197';
+const WEB_VERSION = '5.198';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -366,8 +366,10 @@ const castConnEl = document.getElementById('castConn');
 const simpleConnEl = document.getElementById('simpleConn');
 const castCloseEl = document.getElementById('castClose');
 const castMirrorBtnEl = document.getElementById('castMirrorBtn');
-// A transmissão pelo site é um ESTADO, e desde a v5.184 ela tem a forma de um
-// estado: uma linha com interruptor, no lugar do segundo cartão de escolha.
+// A transmissão para navegadores da rede é um ESTADO, e desde a v5.184 ela tem
+// a forma de um estado: uma linha com interruptor, no lugar do segundo cartão
+// de escolha. O rótulo dela nomeia o DESTINO desde a v5.198 — ver o comentário
+// no `index.html`.
 const castNetRowEl = document.getElementById('castNetRow');
 const castNetToggleEl = document.getElementById('castNetToggle');
 const castMsgEl = document.getElementById('castMsg');
