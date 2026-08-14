@@ -3101,12 +3101,12 @@ body.mode-simple .bottombar { display: none; }
 .simple-key svg { display: block; color: var(--accent); }
 .simple-key-label { font-size: .9rem; font-weight: 700; }
 .simple-key-sub { font-size: .72rem; color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* DUAS COLUNAS de novo (v5.201), e na ZONA DE BAIXO: preview | buscar.
+/* DUAS COLUNAS (v5.201), e na ZONA DE BAIXO: preview | buscar.
    A v5.199 fez a faixa virar coluna sem tela, a v5.200 separou o par de vez, e
    é a forma emparelhada que o operador pediu de volta — só que embaixo, com o
-   topo da tela reservado à letra. Sem tela a preview some e sobra uma célula
-   com a busca: a grade passa a UMA coluna (`.simple.sem-tela`), senão o botão
-   ficaria com metade da largura e uma lacuna ao lado. */
+   topo da tela reservado à letra. Este é o estado DESTRAVADO, o único em que
+   estas duas células existem: sem tela a faixa inteira é içada para o centro,
+   com só o cartão de conexão dentro (ver `.simple.sem-tela`). */
 .simple-actions { flex: none; display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
 .simple-action { padding: .8rem .5rem; }
 /* Telão conectado: o ícone confirma sem precisar ler o subtítulo. */
@@ -3181,35 +3181,58 @@ body.mode-simple .bottombar { display: none; }
    cena junto com o texto. */
 .log-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
 /* ----- Sem tela conectada (ver renderSimpleGate) ----- */
-/* A CORTINA DE BLOQUEIO SAIU na v5.199, e com ela o centramento absoluto e a
-   liberação de teste de 5 s que existia só para derrotá-la.
-   O que havia aqui: um vidro fosco de tela inteira (`.simple-veil`,
-   `backdrop-filter`) com `.simple-actions` içada para o centro em
-   `position: absolute`, a busca escondida e só o cartão de conexão legível. O
-   argumento era "sem tela este modo é inútil" — e ele continua verdadeiro para
-   PROJETAR, mas não para o resto: montar a lista, procurar um hino e conferir a
-   letra são coisas que se fazem antes de a tela existir, e são justamente o que
-   se faz na terça-feira. Pior, o cartão centrado tem como elemento dominante um
-   botão preenchido em accent com a largura útil da tela — a anatomia exata do
-   botão único que a v5.197 removeu. Do lugar do operador, o botão "continuou
-   existindo": trocar um botão grande centrado por outro botão grande centrado
-   não é removê-lo.
-   Hoje a faixa de ações só muda de EIXO: com tela ela é a grade de duas colunas
-   de sempre (preview + buscar); sem tela vira uma coluna, a conexão em cima e a
-   busca embaixo, no fluxo, no alto da tela. Nada cobre nada. */
-.simple.sem-tela .simple-stage { display: none; }
-/* UMA COLUNA sem tela: sobram a conexão e a busca, e as duas ficam com a
-   largura inteira, uma sobre a outra — a conexão em cima porque é ela que
-   resolve o que falta. Com metade da largura o cartão de conexão (um botão e um
-   interruptor com rótulo) não caberia sem quebrar linha em toda frase. */
-.simple.sem-tela .simple-actions { grid-template-columns: 1fr; }
+/* ----- Bloqueio sem tela conectada (ver renderSimpleGate) -----
+   A cortina cobre a tela inteira e é o que embaça: `backdrop-filter` age sobre
+   o que está ATRÁS do elemento, então quem precisa ficar legível sobe na pilha.
+   Sobem dois: o cabeçalho (onde está a saída para o modo avançado) e a faixa de
+   ações, que ali só tem a seção de conexão — a única coisa que resolve o
+   bloqueio.
+
+   ELA SAIU NA v5.199 E VOLTOU NA v5.203. O que a derrubou foi um diagnóstico
+   errado: o operador relatava "o botão de conectar que persiste em bloquear a
+   tela", e a leitura foi de que o BLOQUEIO incomodava. Não era — o que ele
+   descrevia era o botão ANTIGO reaparecendo, servido pela base embutida no APK
+   depois de um recuo do watchdog sem limpar o cache do WebView (ver v5.200 /
+   v1.91). Ele já tinha dito "essa parte não era o problema"; o texto ficou
+   aqui porque um argumento que parece bom e está errado volta sozinho.
+
+   A COR é `--veil`, que é o próprio `--bg` com alfa: os dois têm de andar
+   JUNTOS. Escrita literal, a cortina viraria um retângulo de outro preto assim
+   que o fundo do app mudasse — e isso na tela que ABRE por padrão sem TV. */
+.simple-veil {
+  position: absolute; inset: 0; z-index: 1;
+  background: var(--veil);
+  backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px);
+}
+/* Sem suporte a backdrop-filter o embaçado não acontece — e uma cortina
+   transparente pareceria um toque perdido, não um bloqueio. O véu fica então
+   opaco: some a informação de trás, mas o BLOQUEIO continua dito. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .simple-veil { background: var(--veil-solid); }
+}
+/* (Não há regra `[hidden]` própria para a cortina: o `[hidden] { display: none
+   !important }` do topo desta folha já a esconde com prioridade que nenhuma
+   regra normal alcança.) */
+.simple.sem-tela .simple-head { position: relative; z-index: 2; }
+/* SEM TELA A PREVIEW NÃO EXISTE, e a busca não leva a lugar nenhum: as duas
+   somem e a faixa de ações deixa de ser faixa — vira o cartão de conexão
+   sozinho, no CENTRO da tela, que é onde o olho já está. Centralizar o bloco
+   inteiro dispensa medir a altura de um elemento para posicionar o outro. */
+.simple.sem-tela .simple-stage,
+.simple.sem-tela #simpleSearchBtn { display: none; }
+.simple.sem-tela .simple-actions {
+  position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
+  z-index: 2;
+  grid-template-columns: 1fr;
+  padding: 0 1.1rem;
+}
 /* SEM TELA, QUEM OCUPA A CÉLULA DA PREVIEW É A SEÇÃO DE CONEXÃO (v5.193) — e
    não mais um botão que só abria a folha onde ela mora. As duas formas de
    conectar (espelhar para a TV, transmitir para navegador) cabem aqui.
-   O cartão tem fundo próprio porque ele é um cartão dentro da tela, como
-   qualquer outro do app — e o teto de altura existe porque a lista de quem está
-   recebendo cresce com a transmissão ligada, e ela não pode empurrar o
-   transporte para fora da tela. */
+   O cartão tem fundo PRÓPRIO porque a cortina embaçada por trás não é fundo de
+   leitura: sobre ela, um texto secundário some. E o teto de altura existe
+   porque a lista de quem está recebendo cresce com a transmissão ligada — no
+   centro da tela ela empurraria o cartão para fora dos dois lados. */
 .simple-conn {
   background: var(--panel); border: 1px solid var(--line);
   border-radius: var(--radius-card); padding: .9rem;
