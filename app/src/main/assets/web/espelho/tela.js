@@ -41,9 +41,30 @@
 (function (global) {
   'use strict';
   var doc = global.document;
-  // A GUARDA: papel explícito por query, nunca adivinhação de origem — o
-  // fluxo de desenvolvimento no navegador precisa continuar funcionando.
-  if (!/[?&]tela=1(?:&|$)/.test(global.location.search)) return;
+  // A GUARDA: papel EXPLÍCITO, nunca adivinhação de origem — o fluxo de
+  // desenvolvimento no navegador (`window.open('../display/')`) precisa
+  // continuar caindo fora daqui, e ele chega pelo mesmo protocolo e por um
+  // endereço parecido.
+  //
+  // SÃO DOIS SINAIS, e o segundo existe porque o primeiro é uma corrente de
+  // elos frágeis. `?tela=1` chega por um 302 da rota `/`, e basta um elo ceder
+  // — um navegador de TV que não preserva a query no redirecionamento, o
+  // endereço guardado nos favoritos sem ela, alguém digitando `/display/`
+  // direto — para a página abrir como um `/display/` comum: mostra o wallpaper,
+  // não desenha a entrada, não pede token e nunca conecta. Os dois sintomas que
+  // o operador relatou juntos ("pula a tela de ativar" + "não conecta na rede")
+  // são esse único desfecho.
+  //
+  // A `<meta name="av-tela">` é injetada pelo SERVIDOR em toda página que ele
+  // entrega (`EspelhoServidor.comMarcaDeTela`), e ele só entrega o display —
+  // `web/controle/` nunca entra na allowlist de prefixos. Quem serve a página
+  // sabe o que ela é; a URL é só o transporte. É `<meta>` e não `<script>`
+  // porque a CSP daquela resposta não permite script embutido.
+  //
+  // Degrada nos dois sentidos: num shell antigo a marca não vem e a query
+  // resolve; num bundle antigo a marca é ignorada e a query resolve.
+  var marcada = !!(doc && doc.querySelector('meta[name="av-tela"]'));
+  if (!marcada && !/[?&]tela=1(?:&|$)/.test(global.location.search)) return;
 
   global.__AV_ROLE__ = 'tela';
 

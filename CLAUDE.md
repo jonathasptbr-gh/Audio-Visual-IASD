@@ -2292,10 +2292,58 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.203** (base web) · `SHELL_VERSION` **39**, e o bundle segue com
+**Versão atual: v5.204** (base web) · `SHELL_VERSION` **39**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.204 (v1.92): O PAPEL `tela` DEIXA DE DEPENDER DA QUERY — e o teste que
+> devia ter pego isso estava mentindo. EXIGE APK.** Relato: *"a tela não está
+> conectando na rede"* mais *"no navegador ele pula a tela de ativar tela,
+> diretamente para o wallpaper"*. As duas frases são UM desfecho: sem o papel
+> `tela`, o `espelho/tela.js` é um no-op de uma guarda — a página abre como um
+> `/display/` comum, mostra o wallpaper, não desenha a entrada, não pede token e
+> nunca conecta.
+>
+> O papel vinha de `?tela=1`, e esse marcador chega por um 302 da rota `/`.
+> **É uma corrente de elos frágeis**, e basta um ceder: um navegador de TV que
+> não preserva a query no redirecionamento, o endereço guardado nos favoritos
+> sem ela, alguém digitando `/display/` direto. Lida a fonte inteira, o 302 é
+> bem-formado, o endereço publicado é a raiz e o token vencido se recupera
+> sozinho — não achei o elo que cede no aparelho do operador, e por isso a
+> correção não é consertar um elo: é **não depender da URL**. Quem serve a
+> página sabe o que ela é, e este servidor só serve o display
+> (`web/controle/` nunca entra em `PREFIXOS_BUNDLE`), então ele injeta
+> `<meta name="av-tela">` em toda página que entrega. É `<meta>` e não
+> `<script>` porque a CSP daquela resposta é `default-src 'self'` sem
+> `'unsafe-inline'` — um script embutido seria bloqueado, e em silêncio.
+> Degrada nos dois sentidos: shell antigo não injeta e a query resolve; bundle
+> antigo ignora a marca e a query resolve.
+>
+> **E o `tela-rede.test.mjs` provava o percurso pelo caminho errado.** Ele
+> carregava a página com `?tela=1` na mão e o servidor de mentira entregava o
+> HTML cru — isto é, testava um caminho que o aparelho pode não receber, e era
+> justamente essa divergência entre o servidor falso e o de verdade que deixava
+> o defeito passar. Agora o harness INJETA a marca como o servidor real, e o
+> percurso inteiro roda **sem query nenhuma**.
+>
+> **Junto, a instabilidade dele foi consertada** — ela falhava em duas de cada
+> três execuções e "passava na segunda tentativa". A corrida era do próprio
+> teste: ele esperava o servidor RECEBER o `POST /par` e lia a frase de erro no
+> instante seguinte, quando quem a escreve é o cliente, depois da resposta. Com
+> `continue-on-error` no CI, um teste assim não é rede de segurança — é ruído
+> que ensina a ignorar a cor vermelha. Quatro de quatro depois do conserto.
+>
+> **O Registro passou a dizer onde o pareamento parou:** cada página entregue e
+> cada `POST /par` **aceito ou recusado** viram linha. Até aqui só a tela que
+> CONECTAVA deixava rastro, e "a tela não conecta" tinha duas causas
+> indistinguíveis — nenhum navegador chegou a pedir, ou pediu e foi recusado —
+> que pedem ações opostas do operador.
+>
+> **E quatro rotas mortas saíram**: o mapa `ESTATICOS` apontava para
+> `espelho/index.html`, `cliente.js`, `fmp4.js` e `espelho.css`, os quatro
+> apagados na v5.187 com o espelho de pixels. Três só sabiam responder "faltou
+> no bundle" e a quarta (`/`) o `when` já interceptava antes.
 
 > **A v5.203: A CORTINA DO MODO FÁCIL VOLTA — e a v5.199 foi um diagnóstico
 > errado, não uma mudança de gosto. OTA PURO.** Pedido do operador: *"lembre que
