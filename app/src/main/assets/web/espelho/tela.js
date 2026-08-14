@@ -514,33 +514,16 @@
   // carrega para TODO mundo (telão de verdade incluído), e uma folha a mais no
   // `<head>` pesaria nos três papéis para servir a um. Aqui ela nasce só quando
   // a entrada é montada.
-  var ESTILO_ENTRADA = [
-    '#telaEntrada{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;',
-    'justify-content:center;background:var(--wallpaper) center/cover no-repeat;',
-    "background-image:url('../shared/wallpaper-padrao.svg');",
-    'color:var(--stage-text);font-family:system-ui,-apple-system,sans-serif;text-align:center}',
-    '#telaEntrada .te-caixa{max-width:26rem;padding:2rem 1.25rem;',
-    'background:var(--scrim);border-radius:var(--radius-card, 10px)}',
-    '#telaEntrada .te-marca{font-size:.78rem;letter-spacing:.18em;text-transform:uppercase;',
-    'color:var(--stage-text-dim);margin-bottom:.5rem}',
-    '#telaEntrada h1{font-size:1.5rem;line-height:1.25;margin:0 0 .35rem;font-weight:700}',
-    '#telaEntrada .te-sub{font-size:.95rem;color:var(--stage-text-soft);margin:0 0 1.4rem}',
-    '#telaEntrar{font-size:1.1rem;font-weight:700;padding:.8rem 2.2rem;border:none;cursor:pointer;',
-    'font-family:inherit;border-radius:var(--radius-pill, 999px);',
-    'background:var(--accent-fill);color:var(--on-accent);',
-    'transition:transform .12s ease}',
-    '#telaEntrar:active{transform:var(--press, scale(.96))}',
-    '#telaMsg{margin-top:1rem;min-height:1.2rem;font-size:.9rem;color:var(--stage-text-dim)}',
-  ].join('');
+  // (AS REGRAS DA ENTRADA SAÍRAM DAQUI na v5.205 e viraram `espelho/tela.css`.)
+  // Elas eram uma string injetada num `<style>` criado em runtime, e a CSP da
+  // página servida às telas da rede (`default-src 'self'`, sem `style-src`)
+  // BLOQUEIA isso: o elemento é anexado e as regras não são aplicadas. O
+  // overlay virava um bloco sem posição no fim do `<body>`, debaixo da camada
+  // fixa do wallpaper — invisível e inclicável. Ver o cabeçalho de `tela.css`.
+
 
   function montarEntrada() {
     if (el.entrada) el.entrada.remove();
-    if (!doc.getElementById('telaEntradaCss')) {
-      var css = doc.createElement('style');
-      css.id = 'telaEntradaCss';
-      css.textContent = ESTILO_ENTRADA;
-      doc.head.appendChild(css);
-    }
     var raiz = doc.createElement('div');
     raiz.id = 'telaEntrada';
     raiz.innerHTML =

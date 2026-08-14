@@ -108,7 +108,16 @@ const servidor = http.createServer(async (req, res) => {
       if (alvo.endsWith('.html')) {
         b = Buffer.from(b.toString('utf8').replace('<head>', '<head><meta name="av-tela" content="1">'), 'utf8');
       }
-      res.writeHead(200, { 'Content-Type': MIME[path.extname(alvo)] || 'application/octet-stream', 'Content-Length': b.length, 'Cache-Control': 'no-store' });
+      const cab = { 'Content-Type': MIME[path.extname(alvo)] || 'application/octet-stream', 'Content-Length': b.length, 'Cache-Control': 'no-store' };
+      // A CSP DA PÁGINA, verbatim do `EspelhoHttp.CABECALHOS_PAGINA`. Ela é o
+      // que FORÇA a exclusão do embed do YouTube nas telas da rede — e é uma
+      // restrição REAL que o navegador aplica: um harness que não a manda prova
+      // o percurso num ambiente mais permissivo que o do aparelho.
+      if (alvo.endsWith('.html')) {
+        cab['Content-Security-Policy'] = "default-src 'self'; frame-ancestors 'none'; "
+          + "base-uri 'none'; img-src 'self' blob: data:; media-src 'self' blob:";
+      }
+      res.writeHead(200, cab);
       res.end(b);
       return;
     }
@@ -169,10 +178,17 @@ const navegador = await chromium.launch(
 const ctx = await navegador.newContext({ viewport: { width: 1280, height: 720 } });
 const pg = await ctx.newPage();
 const errosConsole = [];
+let ytBarrado = false;
 pg.on('console', (m) => {
   const t = m.text();
   if (m.type() !== 'error') return;
   if (/Failed to load resource/.test(t)) return;
+  // A IFrame API DO YOUTUBE BARRADA É A GARANTIA, não um defeito: a CSP existe
+  // para que ZERO pixel de terceiro entre numa tela da rede (spec §1). Ela é
+  // contada e afirmada logo abaixo, em vez de virar ruído no console.
+  if (/youtube\.com\/iframe_api/.test(t) && /Content Security Policy/.test(t)) {
+    ytBarrado = true; return;
+  }
   errosConsole.push(t);
 });
 
@@ -385,6 +401,8 @@ checar(await pg.$eval('#text', (e) => e.hidden), 'text-hide tira a Camada de Tex
   checar(vazou === false, 'postMessage do BroadcastChannel é no-op no papel tela');
 }
 
+checar(ytBarrado,
+  'a CSP BARRA a IFrame API do YouTube — zero pixel de terceiro na tela da rede');
 checar(errosConsole.length === 0, 'nenhum erro de console no percurso inteiro',
   errosConsole.join(' | '));
 

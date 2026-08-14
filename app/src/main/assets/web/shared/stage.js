@@ -179,26 +179,23 @@
     // sem nada dizendo que o app está trabalhando. Do lado de quem opera isso é
     // indistinguível de uma projeção que morreu.
     //
-    // O nó é criado AQUI, e não nos dois `index.html`: ele é do motor, existe só
+    // O NÓ é criado AQUI, e não nos dois `index.html`: ele é do motor e existe só
     // enquanto um stream espera, e duplicá-lo em dois arquivos seria a mesma
-    // divergência que a cortina compartilhada já existe para evitar. Sem CSS
-    // externo pelo mesmo motivo — a animação é um `@keyframes` injetado uma vez.
+    // divergência que a cortina compartilhada já existe para evitar.
+    //
+    // AS REGRAS, NÃO (v5.205). Elas eram um `<style>` injetado aqui, com o
+    // argumento de que "a animação é um `@keyframes` injetado uma vez" —
+    // verdadeiro até o telão passar a rodar nas telas da rede, onde a CSP da
+    // página (`default-src 'self'`, sem `style-src`) BLOQUEIA estilo embutido.
+    // O elemento era anexado, as regras não valiam, e o indicador virava uma
+    // `div` vazia: a tela ficava em preto durante a espera sem nada dizendo que
+    // o app estava trabalhando, que é precisamente o que ele existe para
+    // evitar. Hoje elas moram em `shared/stage.css`.
     let girando = null;
     function spinner() {
       if (girando) return girando;
       const casa = (video && video.parentElement) || null;
       if (!casa) return null;
-      if (!document.getElementById('av-stage-busy-css')) {
-        const st = document.createElement('style');
-        st.id = 'av-stage-busy-css';
-        st.textContent = '@keyframes avStageSpin{to{transform:rotate(360deg)}}'
-          + '.av-stage-busy{position:absolute;inset:0;display:flex;align-items:center;'
-          + 'justify-content:center;pointer-events:none;z-index:3}'
-          + '.av-stage-busy::after{content:"";width:44px;height:44px;border-radius:50%;'
-          + 'border:3px solid rgba(255,255,255,.22);border-top-color:rgba(255,255,255,.85);'
-          + 'animation:avStageSpin 900ms linear infinite}';
-        document.head.appendChild(st);
-      }
       girando = document.createElement('div');
       girando.className = 'av-stage-busy';
       girando.hidden = true;
