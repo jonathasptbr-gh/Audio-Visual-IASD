@@ -267,27 +267,73 @@ try {
   });
   checar(desistiu === null, 'e desistir resolve em vez de deixar a importação pendurada');
 
-  // ---- O SOM DA PREVIEW SOME COM TELÃO CONECTADO ----
-  // Ligar o som da preview com o telão projetando faz o `<video>` do Controle
-  // tomar o foco de áudio do Android e INTERROMPER o player do telão. O botão só
-  // faz sentido quando o celular é a caixa de som — isto é, sem telão.
-  const som = await pg.evaluate(() => {
-    // No navegador o "telão" é a janela do Display; um objeto com `closed:false`
-    // é exatamente o que `telaoConectado()` lê dela.
-    webDisplayWin = null;
-    pushTelaoNoSom();
-    const semTelao = !pvSoundBtn.hidden;
-    setStandalone(true);
-    const ligouSemTelao = standalone;
-    webDisplayWin = { closed: false };
-    pushTelaoNoSom();
-    return { semTelao, ligouSemTelao, comTelao: pvSoundBtn.hidden, desligou: !standalone };
+  // ---- O CANCELAR DO DOWNLOAD (v5.191) ----
+  // Três lugares mostram um download em curso e só um deles sabia cancelar (a
+  // linha do resultado da busca — justamente a que some quando o operador fecha
+  // a busca). O que este caso trava é que os OUTROS dois passaram a saber:
+  // o cartão sobre a preview e a linha provisória do Cronograma.
+  const cancelar = await pg.evaluate(async () => {
+    const out = {};
+    // 1. O cartão sobre a preview: o botão só existe quando quem está baixando
+    //    SABE cancelar (um hino local não sabe, e um botão morto seria pior).
+    const semAlca = previewBusy('Preparando vídeo', 'Sem alça');
+    out.escondidoSemAlca = document.getElementById('pvBusyCancel').hidden;
+    semAlca.soltar();
+    let chamou = 0;
+    const comAlca = previewBusy('Baixando vídeo', 'Com alça', () => { chamou++; });
+    out.visivelComAlca = !document.getElementById('pvBusyCancel').hidden;
+    document.getElementById('pvBusyCancel').click();
+    out.chamou = chamou === 1;
+    comAlca.soltar();
+    out.sumiuAoSoltar = document.getElementById('pvBusyCancel').hidden;
+
+    // 2. A linha provisória do Cronograma, com o ✕ na própria linha.
+    let naLinha = 0;
+    const dl = libBusy('Vídeo do YouTube', null, () => { naLinha++; });
+    await load();
+    const li = [...document.querySelectorAll('.lib-item.baixando')].pop();
+    const x = li && li.querySelector('.dl-cancel');
+    out.temBotaoNaLinha = !!x;
+    if (x) x.click();
+    out.cancelouNaLinha = naLinha === 1;
+    dl.soltar();
+    return out;
   });
-  checar(som.semTelao, 'sem telão, o botão da mesa de som está na preview');
-  checar(som.ligouSemTelao, 'e ele liga o som local, como sempre');
-  checar(som.comTelao, 'com telão conectado ele SOME — o som da preview cortaria o player do telão');
-  checar(som.desligou, 'e conectar a tela com o som já ligado DESLIGA o som, em vez de deixá-lo sem controle');
-  await pg.evaluate(() => { webDisplayWin = null; pushTelaoNoSom(); });
+  checar(cancelar.escondidoSemAlca, 'o cartão da preview NÃO mostra cancelar quando não há o que cancelar');
+  checar(cancelar.visivelComAlca, 'e mostra quando o download sabe ser parado');
+  checar(cancelar.chamou, 'o toque no botão chama o cancelamento daquele download');
+  checar(cancelar.sumiuAoSoltar, 'e o botão sai com o dono dele');
+  checar(cancelar.temBotaoNaLinha, 'a linha provisória do Cronograma tem o ✕ de cancelar');
+  checar(cancelar.cancelouNaLinha, 'e ele cancela o download daquela linha');
+
+  // ---- A INTENÇÃO SEM DESTINO NÃO RESSUSCITA (v5.191) ----
+  // "Tocar agora" é do instante em que o operador tocou: reclamá-lo no
+  // lançamento seguinte baixa minutos de vídeo para uma cena que já passou, e o
+  // item não aparece em lista nenhuma para ser achado depois. Era o relato —
+  // "esse vídeo não está mais indo para o player e ele continua querendo
+  // baixar".
+  const listas = await pg.evaluate(() => (typeof LISTAS_VISIVEIS === 'undefined' ? null : LISTAS_VISIVEIS.slice()));
+  checar(!!listas && listas.indexOf('avulsos') < 0,
+    'a prateleira invisível (avulsos) NÃO conta como destino de resgate');
+  checar(!!listas && listas.indexOf('imports') >= 0 && listas.indexOf('playlist') >= 0
+    && listas.indexOf('favs') >= 0,
+    'e as três listas visíveis contam');
+  const teto = await pg.evaluate(() => (typeof INTENCAO_MAX_TENTATIVAS === 'undefined' ? -1 : INTENCAO_MAX_TENTATIVAS));
+  checar(teto >= 1 && teto <= 3,
+    'há um teto de resgates — sem ele a intenção volta a cada abertura pelas 6 h inteiras');
+
+  // ---- A PREVIEW NÃO TEM MAIS SOM (v5.189) ----
+  // A mesa de som saiu por inteiro: o som do sistema é o dos DISPLAYS (a TV
+  // pela Presentation, as telas da rede pelo <video> delas). O que este caso
+  // trava é a REMOÇÃO — um botão de som ressuscitado sobre a preview é o
+  // caminho de volta para o `<video>` do Controle roubar o foco de áudio do
+  // Android e interromper o player do telão no meio do louvor.
+  const semSom = await pg.evaluate(() => ({
+    semBotao: !document.getElementById('pvSoundBtn'),
+    semModo: typeof window.setStandalone === 'undefined',
+  }));
+  checar(semSom.semBotao, 'não há botão de som sobre a preview');
+  checar(semSom.semModo, 'e o modo "mesa de som" não existe mais — o som é dos displays');
 } catch (e) {
   checar(false, 'o percurso terminou sem exceção (' + (e && e.message) + ')');
 }

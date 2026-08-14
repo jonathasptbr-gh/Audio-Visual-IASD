@@ -51,7 +51,6 @@ interface BridgeHost {
      * A *mesa de som* está ligada: o áudio sai pelo CELULAR, do WebView do
      * Controle — que portanto não pode ser suspenso quando o app é minimizado.
      */
-    fun setAudioAlive(on: Boolean)
 
     /** Interceptar os botões físicos de volume e mandá-los para o app. */
     fun setCaptureVolumeKeys(on: Boolean)
@@ -59,11 +58,14 @@ interface BridgeHost {
     /** Devolver um passo de volume ao SISTEMA (fader já no limite). */
     fun adjustSystemVolume(step: Int)
 
+    /**
+     * O tema escolhido no Controle. Ver [NativeBridge.temaClaro] — o CSS não
+     * alcança nem os ícones das barras de sistema nem o `windowBackground`.
+     */
+    fun setTemaClaro(claro: Boolean)
+
     /** Pede a permissão de microfone ao Android (push-to-talk). */
     fun requestMicPermission(onResult: (Boolean) -> Unit)
-
-    /** Pede a permissão de CÂMERA ao Android (ler o QR da tela do espelho). */
-    fun requestCamPermission(onResult: (Boolean) -> Unit)
 
     /** Consome (uma única vez) um compartilhamento recebido por intent. */
     fun takePendingShare(): JSONObject?
@@ -147,19 +149,96 @@ class NativeBridge(
          * exijam mais do que o shell instalado oferece (ver [WebUpdater]).
          * Subir SEMPRE que a superfície da ponte mudar.
          *
+         * 40 (v5.206) — A LIMPEZA QUE A v5.187 DEIXOU PELA METADE, e ela é um
+         * ENCOLHIMENTO em duas formas de retorno:
+         *
+         * • `espelhoDiag` **perdeu `ritmo`**. O objeto continuava saindo depois
+         *   que o produtor dele morreu com o encoder H.264 — zerado —, e o lado
+         *   web lia `kbps < 40` como "isto é um retângulo preto". Num culto
+         *   normal (transmissão ligada, vídeo tocando, cortina aberta) o
+         *   Registro imprimia **ALARME: ISTO É UM RETÂNGULO PRETO**, no
+         *   artefato que existe para ser copiado e repassado. Saíram junto os
+         *   fatos estruturados (`fato()`), que não tinham produtor desde a
+         *   mesma versão.
+         * • `espelhoEstado` **perdeu `modo`**. Ele era o seletor imagem × vídeo
+         *   do espelho de pixels, removido na v5.156; desde então viajava com
+         *   o valor `"comandos"`, que o consumidor comparava com `'video'` e
+         *   desenhava como **"modo: imagem (JPEG)"**.
+         *
+         * **Por que isto é um degrau de verdade e não uma faxina:** a v5.187 já
+         * declarou que forma mudada é superfície mudada, e o preço de não subir
+         * aqui seria um bundle antigo continuar desenhando as duas linhas
+         * falsas num shell que parou de mandá-las. E fica a lição, que vale
+         * para a próxima aposentadoria: **apagar o produtor de um campo e
+         * deixar o consumidor de pé não produz silêncio — produz um zero, e
+         * zero é um valor legítimo que o consumidor interpreta.** Remoção de
+         * recurso é remoção dos dois lados do fio, no mesmo lote.
+         *
+         * 39 (v5.192) — `temaClaro`, o TEMA CLARO. A cor de tudo é decidida
+         * pelo CSS e chega por OTA; o método existe pelas duas coisas que uma
+         * folha de estilo não alcança — os ÍCONES das barras de sistema (que o
+         * Android desenha, e que ficariam brancos sobre branco) e o
+         * `windowBackground`, que é resolvido antes de existir JavaScript. Num
+         * shell 38 o bundle novo funciona por inteiro e o app fica com as
+         * barras do tema escuro: é a degradação certa, e é por isso que
+         * `minShell` continua em 2.
+         *
+         * 38 (v5.189) — A PORTA ABERTA e o FIM DA MESA DE SOM, dois
+         * encolhimentos no mesmo degrau:
+         *
+         * • `espelhoEstado` **perdeu `codigo`**. A entrada da tela deixou de
+         *   ter segredo — a porta é o endereço deste aparelho na rede (ver a
+         *   invariante 5 do [EspelhoPares]) —, e um bundle antigo leria o
+         *   campo vazio e desenharia um teclado de três dígitos pedindo um
+         *   número que o Controle não mostra mais e o servidor não exige.
+         * • Saiu `keepAudioAlive`. Ele existia para o modo "mesa de som", em
+         *   que o celular ERA a caixa de som e o WebView do Controle não podia
+         *   ser suspenso; o modo saiu a pedido do operador (o som é dos
+         *   DISPLAYS), e um método de ponte sem chamador é dívida.
+         *
+         * A rota `/s/<token>` da transmissão direta nas telas da rede entrou
+         * no mesmo lote e **não** pesa aqui: ela é do servidor HTTP, não da
+         * ponte, e o lado web a detecta pela presença do manifesto reescrito.
+         *
+         * 37 (v5.187) — o TELÃO POR COMANDOS substitui o espelho de pixels
+         * (docs/TELAO-POR-COMANDOS.md). Nenhum método nasceu nem mudou de
+         * assinatura — o degrau sobe porque a FORMA do que os métodos devolvem
+         * mudou: `espelhoEstado` publica telas de COMANDO (`comando: true`,
+         * `pronta`, `eventos`; os campos do pipeline de pixels — `vivo`,
+         * `esperandoIdr`, `descartes`, `bytes` — não existem mais), `modo` é
+         * `"comandos"`, e `espelhoDiag` perdeu os fatos de encoder, readback e
+         * ritmo. Um bundle antigo leria a folha do espelho com metade dos
+         * campos em branco e a preview atrasada por um `vivo.vfim` que nunca
+         * mais chega — o bump é o que faz um bundle velho num shell novo cair
+         * na degradação declarada em vez de na meia-verdade.
+         *
+         * 36 (v5.185) — o CÓDIGO DE TRÊS DÍGITOS do espelho, e ele é uma
+         * REMOÇÃO de superfície além de uma mudança de forma. Saiu `requestCam`
+         * (com o pareamento por QR, e com a permissão `CAMERA` do manifest);
+         * `espelhoEstado` trocou `pin` por `codigo` e perdeu `autoAprovar`,
+         * `pendentes`, `qrEsperando`, `nomeLocal` e `nomeErro`; e
+         * `espelhoAprovar` passou a fazer UMA coisa — derrubar a tela cujo
+         * rótulo ele recebe. A assinatura dele fica (mudá-la custaria outro
+         * degrau sem ganhar nada), e o `aprovar` é ignorado.
+         *
+         * É o primeiro degrau deste contrato que ENCOLHE, e o bump é o que
+         * impede um bundle antigo de ler `pin` num shell que só publica
+         * `codigo` — ele mostraria o campo vazio, e o operador ficaria sem o
+         * número que a tela precisa digitar, sem nada que o explicasse.
+         *
+         * 35 (v5.167) — `shellAtualizar`/`shellVerificar`: o APK se atualizando
+         * de dentro do app.
+         *
          * 34 (v5.152) — os três métodos do CERTIFICADO do espelho
          * (`espelhoCertImportar`, `espelhoCertEstado`, `espelhoCertApagar`).
          * Abaixo disto a linha do certificado não é desenhada e o espelho segue
          * em HTTP claro, que é o que ele sempre foi: o TLS é um degrau
          * opcional, não um requisito (ver `docs/ESPELHO-DE-PIXELS.md` §2.4).
          *
-         * 33 (v5.145) — `requestCam`, a permissão de CÂMERA para o Controle ler
-         * o QR que a tela do espelho mostra. Ela é indispensável e não tem
-         * degradação possível: sem ela o `getUserMedia` do WebView é negado **em
-         * silêncio** pelo `onPermissionRequest` (o mesmo modo de falhar que o
-         * `MicChromeClient` documenta), e o botão de ler o código ficaria sem
-         * fazer nada e sem dizer por quê. Abaixo do 33 o Controle nem o desenha
-         * e o pareamento segue pelos seis dígitos, que continuam existindo.
+         * (33, v5.145, foi `requestCam` — o pareamento por QR. Ele saiu inteiro
+         * na v5.185: a página do cliente passou a ter um campo e um botão, e
+         * quem digita o código é a TELA. O degrau fica na história porque um
+         * número de contrato nunca é reciclado.)
          *
          * 32 (v5.141) — os cinco métodos do ESPELHO DE PIXELS (`espelhoLigar`,
          * `espelhoDesligar`, `espelhoEstado`, `espelhoDiag`, `espelhoAprovar`).
@@ -167,7 +246,70 @@ class NativeBridge(
          * novo NÃO chega por OTA, e um botão que não faz nada no meio de um
          * culto é pior que botão nenhum (a mesma regra do `appendYoutubeSearch`).
          */
-        const val SHELL_VERSION = 35
+        const val SHELL_VERSION = 40
+
+        /**
+         * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
+         * `docs/TELAO-POR-COMANDOS.md` §3.2): a `MainActivity` o aponta para o
+         * `EspelhoServidor.difundirJson` enquanto o servidor estiver no ar, e
+         * o anula ao desmontar. Ele vive no `companion` porque `busPost` chega
+         * pelas pontes de TODOS os WebViews (Controle, telão, espelho) e o
+         * consumidor é um só. `@Volatile`: escrito pela main, lido de qualquer
+         * thread de WebView. Nulo = nenhum custo no caminho quente.
+         */
+        @Volatile
+        var tapLan: ((String) -> Unit)? = null
+
+        /**
+         * Por quanto tempo um `display-status` do TELÃO cala o `espelho-status`
+         * — ver [snoopDisplayStatus]. Folga sobre o compasso do status (~4 Hz)
+         * para uma batida perdida não devolver a palavra ao espelho.
+         */
+        private const val PRECEDENCIA_TELAO_MS = 3_000L
+
+        /**
+         * Quando o TELÃO de verdade falou pela última vez. NO COMPANION, e a
+         * mudança é correção além de conveniência: cada papel tem a PRÓPRIA
+         * instância de ponte, então um campo de instância nunca cruzava o
+         * display-status (que chega pela ponte do telão) com o espelho-status
+         * (que chega pela do espelho) — a precedência era comparada contra um
+         * relógio que o outro lado nunca escrevia. Compartilhado, ela passa a
+         * valer entre papéis — e para o `tela-status` do telão por comandos,
+         * que nem ponte tem (chega pelo `POST /r` do servidor da LAN).
+         */
+        @Volatile
+        private var ultimoStatusDoTelaoMs = 0L
+
+        /**
+         * O snoop da notificação de mídia, chamável DE FORA de uma ponte —
+         * é o que alimenta a MediaSession quando o status vem do servidor da
+         * LAN (`tela-status`, E5) com o app minimizado e o WebView do Controle
+         * estrangulado. Não é decisão de transporte: copia campos que o lado
+         * web já calculou — a exceção documentada do snoop desde sempre.
+         */
+        fun snoopStatusDeFora(ctx: Context, json: String) {
+            if (!json.contains("display-status") && !json.contains("espelho-status") &&
+                !json.contains("tela-status")
+            ) return
+            val o = try { JSONObject(json) } catch (e: Exception) { return }
+            val tipo = o.optString("type")
+            if (tipo != "display-status" && tipo != "espelho-status" && tipo != "tela-status") return
+            // A PRECEDÊNCIA é a mesma do `controle.js`: com um telão de verdade
+            // emitindo, espelho e telas da rede são ruído — duas fontes
+            // alternadas dão uma barra que anda para a frente e para trás.
+            val agora = android.os.SystemClock.elapsedRealtime()
+            if (tipo == "display-status") {
+                ultimoStatusDoTelaoMs = agora
+            } else if (agora - ultimoStatusDoTelaoMs < PRECEDENCIA_TELAO_MS) {
+                return
+            }
+            SessionService.updateFromDisplay(
+                ctx,
+                playing = o.optBoolean("playing"),
+                positionMs = (o.optDouble("currentTime", 0.0) * 1000).toLong(),
+                durationMs = (o.optDouble("duration", 0.0) * 1000).toLong(),
+            )
+        }
 
         /**
          * Fila de IO da ponte, **compartilhada por todas as instâncias**.
@@ -349,7 +491,14 @@ class NativeBridge(
     fun busPost(json: String) {
         MessageBus.post(webRef(), json)
         snoopDisplayStatus(json)
+        // O TAP DA LAN (telão por comandos, spec §3.2). Aqui, e NUNCA no
+        // `MessageBus.post`: por aqui só passa o que o LADO WEB emitiu — uma
+        // mensagem que o Kotlin injetar de volta no barramento (o `tela-status`
+        // da E5) entra por `MessageBus.post(null, …)` e não ecoa para as telas
+        // da rede. É o que fecha o laço de eco por construção.
+        tapLan?.invoke(json)
     }
+
 
     /**
      * Lê de passagem o `display-status` que o telão emite a 2 Hz e mantém a
@@ -371,17 +520,7 @@ class NativeBridge(
      * lado web já calculou. Título, subtítulo e modo de slide continuam vindo
      * de `nowPlaying`; sem cena publicada, nada é inventado aqui.
      */
-    private fun snoopDisplayStatus(json: String) {
-        if (!json.contains("display-status")) return   // barato antes de parsear
-        val o = try { JSONObject(json) } catch (e: Exception) { return }
-        if (o.optString("type") != "display-status") return
-        SessionService.updateFromDisplay(
-            ctx,
-            playing = o.optBoolean("playing"),
-            positionMs = (o.optDouble("currentTime", 0.0) * 1000).toLong(),
-            durationMs = (o.optDouble("duration", 0.0) * 1000).toLong(),
-        )
-    }
+    private fun snoopDisplayStatus(json: String) = snoopStatusDeFora(ctx, json)
 
     // ---------- sessão de culto ----------
 
@@ -957,17 +1096,6 @@ class NativeBridge(
         resolve(callId, JSONObject().put("label", host?.describeCastTarget() ?: "").toString())
     }
 
-    /**
-     * Mesa de som ligada/desligada. Com ela ligada o celular É a caixa de som, e
-     * minimizar o app não pode calar o louvor — ver [BridgeHost.setAudioAlive].
-     * Desligada, o WebView do Controle volta a ser estrangulado em segundo
-     * plano, que é o certo quando ele é só a mesa de comando.
-     */
-    @JavascriptInterface
-    fun keepAudioAlive(on: Boolean) {
-        host?.setAudioAlive(on)
-    }
-
     // ---------- botões físicos de volume ----------
 
     /**
@@ -990,6 +1118,35 @@ class NativeBridge(
         host?.adjustSystemVolume(step)
     }
 
+    // ---------- tema (claro × escuro) ----------
+
+    /**
+     * O tema escolhido em Configurações. A cor de tudo é decidida pelo CSS
+     * (`shared/tokens.css`, com os dois blocos de tema) — o que sobra para o
+     * shell são exatamente as duas coisas que uma folha de estilo não alcança:
+     *
+     * 1. **Os ÍCONES das barras de sistema.** Com `targetSdk` 35 o Android
+     *    força edge-to-edge e IGNORA `statusBarColor`/`navigationBarColor`
+     *    (ver `res/values/themes.xml`): quem pinta o FUNDO atrás das barras é o
+     *    body da base web, com o token `--bg`. Só que o relógio, a bateria e os
+     *    botões de navegação seguem sendo desenhados pelo sistema, e a cor
+     *    deles vem de `APPEARANCE_LIGHT_STATUS_BARS`. Sem virar essa chave, o
+     *    tema claro fica com ícones brancos sobre um fundo quase branco —
+     *    invisíveis, e sem nada na tela que explique por quê.
+     * 2. **O `windowBackground`**, o que aparece ANTES de o WebView carregar.
+     *    Ele é um recurso do APK, resolvido pelo sistema antes de existir
+     *    JavaScript, então não há como perguntar ao lado web na hora certa: o
+     *    shell GUARDA a escolha e a aplica no lançamento seguinte. Trocar de
+     *    tema tem, portanto, um lançamento de atraso nesse detalhe — e só nele.
+     *
+     * Privilégio do Controle por construção: é a Activity que responde, e o
+     * WebView do telão nasce com `host = null` (invariante 9).
+     */
+    @JavascriptInterface
+    fun temaClaro(on: Boolean) {
+        host?.setTemaClaro(on)
+    }
+
     // ---------- microfone (push-to-talk) ----------
 
     /**
@@ -1003,28 +1160,6 @@ class NativeBridge(
         val h = host
         if (h == null) { resolve(callId, "false"); return }
         h.requestMicPermission { granted -> resolve(callId, if (granted) "true" else "false") }
-    }
-
-    /**
-     * O mesmo, para a CÂMERA: ler o QR que a tela do espelho mostra.
-     *
-     * **Privilégio do Controle** — `host == null` no telão e no espelho, e ali
-     * a resposta é `false` sem nem chegar ao Android. É a invariante 9 do shell
-     * aplicada ao caso mais óbvio dela: os dois WebViews que hospedam código de
-     * terceiro por design não têm nenhum uso para uma câmera, e conceder-lhes
-     * um caminho para pedi-la seria o oposto de tudo o que aquela invariante
-     * existe para fazer.
-     *
-     * Ela nasce SOB DEMANDA, no toque do botão de ler o código, pelo mesmo
-     * motivo do [requestMic]: um pedido de câmera no primeiro lançamento, sem
-     * contexto, é o tipo de coisa que se nega por reflexo — e o recurso ficaria
-     * quebrado sem que ninguém soubesse por quê.
-     */
-    @JavascriptInterface
-    fun requestCam(callId: String) {
-        val h = host
-        if (h == null) { resolve(callId, "false"); return }
-        h.requestCamPermission { granted -> resolve(callId, if (granted) "true" else "false") }
     }
 
     // ---------- compartilhamento (substitui o share_target do SW) ----------

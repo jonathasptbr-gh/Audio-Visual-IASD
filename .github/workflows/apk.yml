@@ -104,20 +104,7 @@ jobs:
           # Determinístico, sem rede e sem navegador: entra aqui, e sem
           # `continue-on-error`.
           node tools/webview-range.test.mjs
-          # OS TRÊS DO ESPELHO DE PIXELS, que existiam no repositório desde a
-          # v5.143 e NÃO estavam ligados aqui — ou seja, rodavam em lugar
-          # nenhum. O oráculo do muxer fMP4 (boxes byte a byte, no molde do
-          # `sidx`), a varredura de contexto seguro (o cliente roda em `http://`
-          # por construção, e ali `VideoDecoder`/`wakeLock`/`crypto.subtle` vêm
-          # `undefined`) e o codificador de QR do pareamento.
-          node tools/fmp4.test.mjs
           node tools/contexto-seguro.test.mjs
-          # O QR: um símbolo errado não dá erro, dá uma câmera apontada para uma
-          # tela que não responde — indistinguível de "a câmera não funciona" e
-          # de "o roteador está isolando os aparelhos". O oráculo DECODIFICA o
-          # que o codificador produziu (formato com BCH, máscara, zigue-zague,
-          # síndromes de Reed-Solomon), em vez de conferir propriedades.
-          node tools/qr.test.mjs
           # A SOMBRA: nenhuma função redeclara um nome de módulo da base web.
           # `node --check` aprova `const ms = …` dentro de uma função que LÊ a
           # `ms` do módulo na primeira linha — e o resultado é
@@ -128,6 +115,17 @@ jobs:
           # como "travando e dessincronizando", nunca como uma exceção.
           # Determinístico, sem navegador: entra aqui, sem `continue-on-error`.
           node tools/sombra.test.mjs
+
+      - name: Tokens de CSS que não existem (Node puro)
+        run: |
+          # Um `var(--nao-existe)` SEM fallback computa para o valor INICIAL da
+          # propriedade — sem aviso no console, sem erro, sem sintoma no lugar
+          # da causa. Na v5.171 isso deixou os DOIS botões principais da folha
+          # "Conectar uma tela" com `border-radius: 0`, os únicos cantos retos
+          # de um app inteiro arredondado, e nenhuma ferramenta reclamou.
+          # Mesma família do `setInteger` numa chave `long` e do `bytes`
+          # esquecido no `bgProgress`. Determinístico: sem `continue-on-error`.
+          node tools/tokens.test.mjs
 
       # FUMAÇA DO CONTROLE, num Chromium de verdade. O passo acima prova que os
       # arquivos são PARSEÁVEIS; este prova que o app SOBE e responde ao toque.
@@ -146,6 +144,14 @@ jobs:
           npm i --no-audit --no-fund --silent playwright
           npx playwright install --with-deps chromium
           PW_CHROMIUM="" node tools/smoke.mjs
+          # E O BOOT COMO O APP O FAZ — com a ponte presente. O `smoke.mjs`
+          # acima sobe a base SEM `__AVBridge`, e por isso todo caminho guardado
+          # por `window.__NATIVE__` nunca era executado por teste nenhum: são
+          # justamente os que só rodam no aparelho, onde não há console para
+          # olhar. A v5.195 saiu com um `const` em zona morta temporal dentro de
+          # um `if (espelhoDisponivel())` — verde aqui, tela PRETA no celular, e
+          # o watchdog do OTA descartando o bundle no lançamento seguinte.
+          PW_CHROMIUM="" node tools/boot-nativo.test.mjs
           # E as MENSAGENS DE FALHA da transmissão direta. Nelas a mensagem é o
           # produto: a transmissão roda no aparelho do operador, contra URLs que
           # expiram, e a única coisa que atravessa essa distância é a linha do
@@ -194,13 +200,25 @@ jobs:
           # do dongle é o caminho menos testável à mão — exige TV, dongle e o
           # timing de derrubá-lo — e roda sozinho na frente da congregação.
           PW_CHROMIUM="" node tools/cena.test.mjs
-          # E O CLIENTE DO ESPELHO, que também estava no repositório sem estar
-          # ligado aqui. Ele sobe um servidor de mentira com o mapa de rotas do
-          # `EspelhoServidor` e prova, num Chromium de verdade, que o muxer
-          # entrega uma faixa CONTÍNUA (`buffered.length === 1`), que o token
-          # nunca aparece numa URL, e que o pareamento por QR fecha o ciclo sem
-          # ninguém digitar nada.
-          PW_CHROMIUM="" node tools/espelho-cliente.test.mjs
+          # E A TELA DA REDE do telão por comandos (E3 — ver
+          # docs/TELAO-POR-COMANDOS.md): o /display/ servido pelo celular
+          # rodando num navegador comum, com a entrada pelo código, o dreno de
+          # subida (só display-ready e tela-status sobem), a correção de
+          # relógio anulando 90 s de desvio, a reconexão que se reapresenta e
+          # o adeus que não martela. Teste fora do workflow é documentação —
+          # a lição da v5.145 (três testes escritos e ligados em lugar nenhum).
+          PW_CHROMIUM="" node tools/tela-rede.test.mjs
+          # E O REGISTRO — o único artefato do app cujo consumidor é um HUMANO A
+          # DISTÂNCIA. Todo o resto falha na frente de quem pode ver; ele falha
+          # CONTINUANDO A RESPONDER, com uma frase errada, e quem a lê vai
+          # investigar o que ela diz. Nenhum teste o carregava até a v5.206, e
+          # foi por aí que passaram três defeitos ao mesmo tempo: o `ritmo`
+          # zerado imprimindo "ALARME: ISTO É UM RETÂNGULO PRETO" em todo culto,
+          # toda tela conectada sendo acusada de rodar "bundle antigo", e um
+          # "modo: imagem (JPEG)" de um modo removido dez versões antes. Os três
+          # têm a mesma forma — um consumidor que sobreviveu ao produtor lê o
+          # valor ausente como se fosse resposta.
+          PW_CHROMIUM="" node tools/registro.test.mjs
 
       - name: Empacotar a base web
         run: |

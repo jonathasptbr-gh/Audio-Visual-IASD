@@ -1,3 +1,15 @@
+> **DOCUMENTO APOSENTADO (v5.187 / v1.86).** O espelho de pixels foi
+> SUBSTITUÍDO pelo **telão por comandos** — as telas da rede rodam o próprio
+> `/web/display/` servido pelo celular e recebem os COMANDOS do barramento por
+> SSE, com a mídia servida sob demanda com Range. A especificação viva é
+> [`docs/TELAO-POR-COMANDOS.md`](TELAO-POR-COMANDOS.md).
+>
+> Este arquivo fica como registro histórico: o apêndice §10-A (a tabela de
+> defeitos do pipeline de pixels — poda, GOP, IDR, deriva de áudio, borda
+> viva) é o argumento documentado da substituição, e as invariantes de REDE
+> daqui (bind à Wi-Fi, allowlist de `Host`, teto de sessões, mic nunca sai,
+> token nunca em URL) continuam valendo no transporte novo, uma a uma.
+
 # ESPELHO DE PIXELS — especificação de implementação
 
 > **Estado:** especificação fechada. Nada implementado. **Substitui**
@@ -237,7 +249,7 @@ O `display-status` do barramento, o `SYNC_DRIFT = 1.6 s` (`controle.js:1177`) e 
 enunciado deste projeto diz que a igreja pode não ter internet, cujo desfecho normal é o celular em
 dados móveis. Operadoras brasileiras entregam **IPv6 globalmente roteável** ao aparelho, sem NAT e
 sem firewall implícito. O resultado seria **o culto em H.264 numa porta alcançável do mundo,
-protegida por seis dígitos** — e ninguém no prédio teria como perceber.
+protegida por um código curto** — e ninguém no prédio teria como perceber.
 
 **A regra, e ela não é negociável:**
 
@@ -667,7 +679,7 @@ object EspelhoHttp {
 
 ### 3.5 `EspelhoPares.kt` (~160 linhas, **PURO**)
 
-**Responsabilidade:** PIN, aprovação pelo operador, tokens, prazo, limitação de taxa. Puro pelo
+**Responsabilidade:** o CÓDIGO de três dígitos, tokens, prazo, limitação de taxa. Puro pelo
 mesmo motivo do anterior.
 
 ```kotlin
@@ -697,17 +709,18 @@ object EspelhoPares {
    `PLANO-TELAO-NA-REDE.md:422`, reinstalada.
 3. **O token tem prazo e morre com a sessão.** `desligar()` zera tudo. Não há token que sobreviva ao
    culto.
-4. **Comparação em tempo constante** (`MessageDigest.isEqual`) para PIN e token.
-5. **O operador fica no laço.** PIN correto ⇒ a tela entra como **pendente**, e a folha do espelho no
-   Controle mostra `tela pendente — aprovar?`. Há um interruptor `aprovar automaticamente nesta
-   sessão` (nasce **desligado**) para quando o operador estiver ocupado. Um PIN de seis dígitos
-   visível na tela do celular durante todo o culto é fraco demais para ser o único controle.
-6. **Bloqueio por ORIGEM antes de qualquer rotação global.** 5 tentativas erradas do mesmo endereço
-   ⇒ 60 s de espera **para aquele endereço**. **O PIN NÃO ROTACIONA por tentativas erradas** — isso
-   seria negação de serviço contra o pareamento legítimo: um atacante erra dez vezes de propósito e o
-   visitante que está digitando recebe "PIN inválido" para sempre, e numa rede com AP isolation o
-   operador culparia a rede. O PIN muda só em `ligar()` ou por ação do operador, e a mudança
-   re-renderiza PIN e QR na hora.
+4. **Comparação em tempo constante** (`MessageDigest.isEqual`) para o código e o token.
+5. **O CÓDIGO é a porta, e código certo ENTRA — sem fila** (v5.185, §10-A.13). Três dígitos gerados
+   em `ligar()`, isto é, no instante em que o operador ativa a transmissão. Não há aprovação a
+   esperar: o gesto do visitante é UM (o botão que também libera som e tela cheia), e uma fila o
+   gastaria antes de a tela entrar. O controle do operador passou a ser DERRUBAR, na lista de quem
+   está vendo.
+6. **Bloqueio por ORIGEM, e ele CRESCE.** 5 tentativas erradas do mesmo endereço ⇒ espera **para
+   aquele endereço**, dobrando a cada bloqueio novo (60 s → 30 min). É ele, e não o tamanho do
+   código, que torna três dígitos defensáveis. **O CÓDIGO NÃO ROTACIONA por tentativas erradas** —
+   isso seria negação de serviço contra o pareamento legítimo: um atacante erra dez vezes de
+   propósito e o visitante que está digitando recebe "código inválido" para sempre, e numa rede com
+   AP isolation o operador culparia a rede. Ele muda só em `ligar()` ou por ação do operador.
 7. **A página de pareamento é ANÔNIMA.** Sem versão do app, sem nome do aparelho, sem SSID, sem nome
    da igreja. Reconhecimento não se dá de graça a quem ainda não provou nada.
 8. **Teto de 3 SESSÕES, e o slot é do TOKEN, não do socket.** Um `GET /v` com um token que já tem
@@ -988,7 +1001,7 @@ página do cliente em modo imagem, ou a primeira coisa que chega ao operador vai
 | `index.html` | ~70 | **uma página, dois estados**: pareamento (PIN) e player. Não há navegação entre eles — é o que permite o token nunca entrar numa URL |
 | `fmp4.js` | ~330 | o muxer: `ftyp`+`moov` (com `avcC` **construído a partir do Annex-B**) + `mvex/trex`, e por fragmento `moof(mfhd,traf(tfhd,tfdt,trun)) + mdat`. Faixa de áudio (`mp4a/esds`) na Entrega 3: +35 |
 | `cliente.js` | ~280 | transporte, fila de append serializada, poda do passado, perseguição da borda, reconexão com espera crescente, o relato de capacidades, modo imagem |
-| `espelho.css` | ~130 | preto, `object-fit: contain`, `cursor:none` depois do gesto |
+| `espelho.css` | ~130 | preto, `object-fit: contain`, a barra de dois ícones e o `cursor:none` que some com ela |
 | `sonda.html` + `sonda.mp4` | ~60 + ~40 kB | a sonda de readback (§7.4) |
 
 **O caminho implementado:**
@@ -1033,11 +1046,24 @@ fetch('/v', { headers: { Authorization: 'Bearer ' + t } }) → response.body.get
    `MediaSource`** **(MDN BCD; a mesma detecção que o go2rtc faz — prática)**.
 8. **O cliente nasce MUDO e tocando.** *"Muted autoplay is always allowed"* **(doc — política de
    autoplay do Chrome)**. `playsinline` obrigatório.
-9. **Um gesto, quatro efeitos.** `requestFullscreen()` exige ativação transitória e não há truque.
-   Então: **um botão grande na montagem da tela** que faz `requestFullscreen()` + `video.muted = false`
-   (se for a tela com som) + `audioCtx.resume()` + `wakeLock.request()` (se existir). Depois disso a
-   ativação é *sticky* pela sessão. É o mesmo padrão do `#startBtn` do `/display/`
+9. **Um gesto — e, desde a v5.177, DOIS ÍCONES em vez de um botão.** `requestFullscreen()` e sair do
+   `muted` exigem ativação transitória e não há truque: o primeiro toque é obrigatório e continua
+   sendo. O que mudou é o que ele decide. Um botão único ("Ver em tela cheia e ouvir") juntava duas
+   coisas que não são a mesma — a tela do saguão quer imagem cheia e **silêncio** (a PA está a
+   200 ms dali), a da sala anexa quer som —, e quem descobria o eco não tinha como desfazer sem
+   recarregar a página. Agora são **um alto-falante e uma moldura**, na anatomia dos `.pv-fab` do
+   Controle (traço, sem moldura, contorno por `drop-shadow`, porque eles ficam sobre um slide que
+   pode ser branco). O do som carrega os quatro efeitos de antes (`video.muted = false` +
+   `audioCtx.resume()` + o pedido de áudio ao servidor + `wakeLock.request()`, se existir) e a
+   ÚNICA remontagem da `MediaSource`; do segundo toque em diante ele é um **mudo local** — `muted`
+   no elemento, sem remontar nada e sem falar com o servidor. Depois do primeiro toque a ativação é
+   *sticky* pela sessão. É o mesmo padrão do `#startBtn` do `/display/`
    (`display/display.js:1514-1536` — código).
+9-A. **E eles se recolhem, como em qualquer player.** Quatro segundos sem toque e a barra some (com
+   o cursor junto: `body.projetando.sem-cursor`); um toque fora dela a traz de volta, o seguinte a
+   recolhe. A carência de 400 ms existe porque **num notebook o ponteiro se mexe ANTES do clique** —
+   sem ela, o movimento traria a barra e o clique de trás a recolheria no mesmo gesto, que se lê
+   como "o toque não funcionou".
 10. **As telas nascem mudas por decisão, não só por política.** Elas estão dentro da igreja, a
     100–300 ms da PA: três telas desmutadas são três alto-falantes com eco. Quem está em outra sala
     aperta o botão.
@@ -2066,12 +2092,360 @@ passou a caber na janela (§10-A.5), a poda quase não precisa pedir nada.
 
 ---
 
+### 10-A.10 — a PORTA ABERTA nunca abriu, e era ela a metade que faltava (5.172)
+
+O operador relatou o espelho "funcionando, mas sem estabilidade nem confiabilidade na conexão". A
+revisão achou **oito** defeitos, e o primeiro explica sozinho a maior parte da queixa. Os oito têm
+uma família em comum com o resto deste apêndice: nenhum deles dá erro em lugar nenhum.
+
+**1. `tentarPortaAberta` mandava um corpo que o servidor recusava.** A v5.170 declarou que "quem
+abrir o endereço entra"; a v5.171 construiu a folha inteira em volta disso. O `cliente.js` pedia a
+entrada assim que a página abria — um `POST /par` com o relato e mais nada — e o `when` do
+`EspelhoServidor.parear` tinha ramo para `pin`, para `qr` e para `espera`. Um corpo sem nenhum dos
+três caía no `else -> 403`. **O recurso anunciado nunca chegou a existir.**
+
+O atrito da estreia era o menor custo. O grande é a **recuperação**: toda queda de rede, toda
+religada do espelho, toda expiração de token e todo `EspelhoPares.zerar()` devolvem a tela ao
+pareamento — e sem esse ramo ela ficava lá, mostrando um QR que ninguém ia ler, no meio do culto,
+até alguém atravessar o salão. É essa a diferença entre "conecta" e "é confiável".
+
+O ramo passou a existir nos dois lados. O corpo **nu** também vale como pedido de entrada, de
+propósito: é o que os bundles já instalados mandam, e o APK precisa consertá-los sem depender de o
+OTA chegar antes. Quem decide é o `EspelhoPares.entrarAberto`, que **não cria espera nenhuma** (uma
+por entrada encheria o `MAX_ESPERAS` na primeira tela que reconectasse em laço — trancando o PIN,
+que é o plano B), respeita o bloqueio por origem e o teto de sessões, e **não conta erro** com a
+porta fechada: não houve segredo tentado, e contá-lo faria uma TV que perguntou "posso entrar?"
+gastar a cota do visitante que está digitando o PIN ao lado.
+
+**2. Três recomeços trancavam o espelho pelo resto do culto.** Uma sessão só saía de `vivas` por
+`encerrar`, por `recusar` ou pelas **seis horas** do prazo. Uma tela que recomeça numa aba nova (a
+TV desligada e religada, o navegador que perdeu o `sessionStorage`) pede um token novo e deixa o
+antigo ocupando vaga — e o teto é **três**. Com a porta aberta isso deixaria de ser hipótese para
+ser rotina. `liberarVagaOciosa` toma a vaga **mais ociosa** quando ela está parada há mais de
+`PRAZO_OCIOSA_MS` (4 min), e só quando uma tela nova precisa dela. A mais ociosa, e nunca a mais
+velha: a mais velha pode ser justamente a TV do templo, ligada desde o começo. A invariante 3 sai
+ilesa — o carimbo de uso só faz uma sessão morrer **mais cedo**, nunca estende o prazo absoluto.
+
+**3. "Desconectar" era um botão que não fazia nada.** A folha manda o **rótulo** da tela ("B") ao
+`espelhoAprovar(id, false)`, e o `approveMirrorScreen` o entregava ao `EspelhoPares.recusar`, que
+procura um `id` de espera (base64url de 128 bits). Nunca casava, saía em silêncio e devolvia `true`.
+Pior: um rótulo vazio cairia no id reservado da aprovação automática e **fecharia a porta** em vez
+de derrubar alguém. E o botão não é um detalhe — ele é a resposta inteira do desenho ao curioso na
+rede, já que a porta nasce aberta e o dano real dele é ocupar uma das três vagas. Agora o rótulo é
+resolvido para a sessão, o socket é fechado de fora, e a origem fica de castigo por
+`BLOQUEIO_DERRUBADA_MS` (2 min) — senão, com a porta aberta, a tela derrubada volta em dois segundos
+e o botão continuaria não fazendo nada visível.
+
+**4. O teto de conexões em voo contava os FLUXOS.** `servirFluxo` não volta enquanto a tela estiver
+conectada, então cada telão vivo segurava um dos oito slots pelo culto inteiro. Com três telas
+restavam cinco — e um navegador abre até **seis** conexões paralelas por host só para carregar a
+página (`/`, `/e.css`, `/e.js`, `/f.js`, `/q.js`). A segunda tela a abrir o endereço já esbarrava no
+teto e recebia conexões recusadas, que na tela viram *"não foi possível falar com o celular"*, sem
+nada no Registro que ligasse uma coisa à outra. O teto passou a excluir os fluxos (que já têm teto
+próprio, `TETO_TELAS`) e subiu para 16.
+
+**5. O cliente não tinha detector para o FIO MUDO.** Toda a recuperação dele age sobre a
+*reprodução* — o salto, o encalhe, a poda, a remontagem — e todas supõem que os bytes continuam
+chegando. Um TCP meio-aberto (a Wi-Fi que trocou de ponto de acesso, o celular que mudou de IP, o AP
+que limpou a tabela) deixa o `fetch` de `/v` pendurado para sempre: nem `done`, nem erro, nem
+evento. A tela congela e o laço de reconexão, que consertaria isso, nunca roda porque a conexão
+anterior nunca terminou. `vigiarFio` aborta depois de `SEM_BYTES_MS` (20 s) e o motivo viaja no
+`alive` (`fim: sem bytes por 20 s`) — senão a única leitura possível seria "a tela reconectou
+sozinha, não se sabe por quê".
+
+**6. E o servidor não tinha o detector simétrico.** Do lado de cá, um socket meio-aberto não trava
+escrita nenhuma enquanto o buffer de envio do kernel couber — numa cena parada (156 kbps) isso são
+minutos segurando uma das três vagas. Qualquer `POST /r` passou a valer como sinal de vida, e o
+vigia fecha a tela que emudeceu por `TETO_SEM_RELATO_MS` (60 s, contra os 10 s de batida do
+cliente). `SO_KEEPALIVE` entrou junto, de graça, e o `PRAZO_LINHA_MS` subiu de 2 s para os 10 s que
+o KDoc do `EspelhoHttp` já anunciava — 2 s é o que uma Wi-Fi congestionada leva para entregar um
+corpo de 4 KiB, e com o detector novo um relato atrasado deixaria de ser um relato perdido para
+virar uma tela derrubada por causa de um timer apertado.
+
+**7. Uma oscilação da rede padrão derrubava o espelho inteiro.**
+`registerDefaultNetworkCallback` fala da rede **padrão**, não da nossa: no instante em que o Android
+reavalia a Wi-Fi (revalidação, roaming entre APs, um `onCapabilitiesChanged` durante o handover) o
+padrão pisca para a rede móvel e volta em segundos. O caminho antigo lia isso como "a rede sumiu" e
+derrubava servidor, tela virtual e encoder no meio do culto. Suspeita deixou de ser veredito: o
+motivo fica anotado, o vigia confirma `GRACA_REDE_MS` (6 s) depois perguntando o que de fato
+importa — *o IP em que este socket está ligado ainda é um endereço deste aparelho numa Wi-Fi?* — e
+só então a queda acontece.
+
+**8. E o adeus era uma sentença.** Recebido o `0x30 {"m":"adeus"}` o cliente parava e ficava morto
+até alguém recarregar a página à mão. Desligar e ligar o espelho é coisa que o operador faz várias
+vezes numa tarde de testes, e cada vez custava uma caminhada até cada televisor. Parar de martelar
+continua certo; desistir, não. Passados 20 s a página volta a oferecer entrada, e com a porta aberta
+isso é automático e silencioso.
+
+Duas correções menores vieram no mesmo lote: a fila por tela passou de 24 quadros (~1 s, curto
+demais para atravessar um soluço de AP) para **64 quadros com teto de 1,5 MB** — os dois juntos
+dizem "até N quadros, e nunca mais que M bytes", que é o que o teto de quadros sozinho não dizia; e
+um pedido de IDR **engolido pelo freio deixou de ser um pedido perdido** (ele fica pendente e o
+vigia o repete no giro seguinte, o que troca "preta até o próximo IDR espontâneo" por "preta por até
+um segundo"). O `csd` de áudio do `POST /r {do:audio}` passou a ir pelo caminho normal de entrega —
+com a fila cheia, o `offer` solto falhava em silêncio e a tela ficava em `som: pedido, esperando o
+csd` para sempre, o único dos sete desfechos do som cuja causa estava deste lado.
+
+**A divisão do lote**, que importa para quem for testar em aparelho: os itens 1 (metade), 2, 3, 4,
+6, 7 e as duas menores são **Kotlin — só chegam instalando o APK**. Os itens 1 (a outra metade), 5 e
+8 vivem no `cliente.js` e chegam **por OTA**. `SHELL_VERSION` **não sobe**: nenhum método da ponte
+nasceu nem mudou de assinatura. E as duas metades degradam sozinhas — um bundle novo num shell
+antigo recebe 403 no pedido de entrada e volta ao QR (o comportamento de hoje), e um bundle antigo
+num shell novo entra pela porta aberta assim mesmo, porque o corpo nu vale como pedido.
+
+### 10-A.11 — o som morria FORA do espelho, e a porta de volta não existia (5.177)
+
+O operador relatou a tela da rede ficando **muda com a imagem seguindo**, e desta vez o Registro
+trazia a resposta inteira — mas não no lado em que se estava procurando.
+
+Do lado do servidor tudo estava certo: `24 blocos de PCM/s`, `7424` quadros AAC produzidos,
+`0 descarte(s)`, `fila 0/64`, enlace a 98 Mbps. A tela dizia ter recebido `5731 de som`. Ou seja: o
+som **estava sendo produzido e estava chegando**, e mesmo assim a faixa não existia
+(`som: PEDIDO e a faixa não nasceu`, `2 remontagem(ns)`).
+
+**A causa estava na LINHA DO TEMPO, e ela nem é do espelho.** Pares repetidos de
+`📱 play [oculto]` / `📱 PAUSA ESPONTÂNEA [oculto]`, a ~4 Hz. Aqueles `📱` são o `diagC` do
+`controle.js` (`onde: 'celular'`), isto é **a preview do Controle** — não o telão. A v5.173 fez o
+Controle passar a escutar o `espelho-status`, o que está certo (sem TV o espelho É a projeção), e
+com isso o `resyncPreviewToDisplay` passou a rodar com o app minimizado: ele chama `preview.play()`,
+o Chromium **pausa um `<video>` de página oculta**, o status seguinte chega 250 ms depois e
+recomeça. Os três WebViews dividem UM processo — essa rotatividade de decodificador é o que faz o
+`AudioWorklet` do espelho engasgar, o cliente vencer o `AUDIO_MUDO_MS` e soltar a faixa.
+
+É a família de sempre deste apêndice: **nenhum dos dois lados dá erro**. O `play()` é aceito, a
+pausa que vem atrás é comportamento documentado do navegador, e do lado do cliente soltar a faixa é
+exatamente o que ele deve fazer para salvar a imagem.
+
+Duas correções, e nenhuma sozinha bastaria:
+
+1. **`preverPodeMexer`** (`controle.js`): com a página escondida não se toca no transporte da
+   preview. Um `play()` que o navegador desfaz no quadro seguinte não é sincronização, é ruído — e
+   quem realinha é a retomada, que já é EXATA desde a v5.173. A janela de `forcarResyncAte` só é
+   CONSUMIDA quando há como agir.
+2. **`voltouOSom`** (`cliente.js`): `soltarAudio` era uma **porta de mão única**. Ele acerta ao
+   soltar (a MSE não toca sem dado em todas as faixas, e a imagem morreria pelo som), mas o que
+   sobrava era uma tela muda pelo resto do culto, esperando alguém atravessar o salão para tocar
+   nela — e a causa mais comum é passageira. Agora, com o AAC voltando a chegar por 2 s **seguidos**
+   (a janela reinicia a cada intervalo maior que `AUDIO_MUDO_MS`, para um quadro perdido no meio de
+   uma turbulência não contar como recuperação), o cliente remonta sozinho. O freio é o de sempre:
+   `REBUILDS_AUDIO`, que só se renova depois de `AUDIO_SAUDAVEL_MS` de som limpo — isto é, depois de
+   a remontagem ter dado certo.
+
+**O lote inteiro é OTA** — nenhuma linha de Kotlin. É a primeira entrada deste apêndice em que a
+causa raiz morava **fora** do espelho, e é a razão de ela estar escrita aqui assim mesmo: quem for
+diagnosticar "a tela ficou muda" vai começar por este documento.
+
+### 10-A.12 — a folha ligava o servidor para poder mostrar o estado (5.184)
+
+Esta não é uma falha de código: é uma falha de FORMA, e ela produziu uma decisão que ninguém teria
+tomado de propósito.
+
+Desde a v5.156 as duas maneiras de conectar eram o **mesmo cartão de escolha** (`.cast-choice`) —
+"Espelhar a tela na TV" e "Mostrar numa tela da rede", lado a lado. Só que elas não são a mesma
+coisa: espelhar é uma **ação** que sai do app (abre o seletor do fabricante, e o assunto termina
+ali); transmitir pelo site é um **estado** que dura o culto inteiro. Um cartão de escolha não tem
+como mostrar "ligado", e a consequência está escrita no `abrirCast` da v5.171: **abrir a folha
+ligava o servidor**. O comentário justificava — "ninguém abre 'Conectar uma tela' para não
+conectar" — e o que não estava dito é o preço: não havia como abrir aquela tela para conferir o
+endereço, o alvo de espelhamento ou quem está vendo **sem subir um `ServerSocket` na rede da
+igreja**; e, com o telão no ar, sem disparar a pergunta do custo dobrado (§2.6).
+
+A correção é a forma certa para cada coisa: **botão** para a ação, **interruptor** para o estado.
+Com um interruptor o problema desaparece do outro lado — o estado é visível parado, e quem o muda é
+o operador. Abrir a folha voltou a ser só ler.
+
+Três consequências que valem por si:
+
+- **Os dois endereços são iguais em peso.** `av.local` era o corpo grande e o IP era uma legenda em
+  `.78rem`/`--muted`. É o contrário do que este documento diz em §2.7: `.local` **não** resolve no
+  Chrome do Android nem na maioria das Smart TVs, então o número é justamente o que funciona quando
+  o nome falha — e os dois são digitados no mesmo controle remoto.
+- **A folha estava CONGELADA no instante da abertura.** `lerEspelho()` — a enquete de 2,5 s que
+  existe para essa tela estar viva enquanto o operador olha para ela — chamava `renderEspelho()` e
+  `renderCastBtn()`, e **nunca** `renderCast()`. Uma tela que entrasse depois de a folha abrir não
+  aparecia na lista; o endereço não aparecia quando o servidor subia. Defeito de omissão, sem
+  sintoma no lugar da causa — a folha simplesmente não mudava, o que se lê como "ninguém conectou".
+- **Três ícones da UI de conexão nunca foram desenhados.** `&#xe307;` (cabeçalho da folha),
+  `&#xe8ad;` (botão de espelhar) e `&#xe3b0;` (ler o código) estão **ausentes do subconjunto** em
+  `shared/fonts/material-symbols.woff2` — uma fonte gerada à mão que nunca foi regerada quando esta
+  UI nasceu. O modo de falhar é o mais mudo que uma fonte tem: o codepoint está no cmap (o navegador
+  reserva a largura de avanço e **não** cai no fallback, então não aparece tofu) e o contorno está
+  vazio. O que sobra é um vão do tamanho exato de um ícone, que se lê como desalinhamento. Medido
+  com `getImageData` sobre os 32 codepoints do bundle: exatamente estes três dão zero pixel de
+  tinta. Agora são `<symbol>`/`<use>` inline, como a engrenagem e o texto corrido já eram — e assim
+  não dependem mais de um artefato binário que ninguém revisa num diff.
+
+`tools/smoke.mjs` ganhou o par de asserções que trava a paleta destes dois controles: o botão
+principal preenchido em `--accent-fill` com `--on-accent` por cima, e o interruptor vestindo o mesmo
+âmbar **só quando ligado**. Trocar `--accent` por `--accent-fill` ali não quebra nada de forma
+visível no CI — sai um botão âmbar-claro com texto quase branco por cima, abaixo do piso de
+contraste, e só um par de olhos no aparelho notaria.
+
+**O lote é OTA** — nenhuma linha de Kotlin.
+
+### 10-A.13 — o eixo do som era um laço ABERTO, e por isso a deriva era eterna (5.185)
+
+O relato: *"o som fica para trás e a imagem continua, a tela fica sem áudio"*. As três frases não são
+três sintomas — são **a sequência inteira de um defeito só**, e a última delas é literalmente o que o
+`cliente.js` escreve: `soltarAudio('o som ficou para trás')`.
+
+**Os dois eixos são de naturezas diferentes, e essa parte é desenho, não defeito.** O vídeo é
+`brutoUs - baseUs` — relógio monotônico, anda sozinho. O som é `ancoraUs + amostras × 1e6 / taxa` —
+**contagem de amostras**, só anda quando chega PCM. O que faltava é o que fecha isso: **nada, em
+lugar nenhum, conferia uma coisa contra a outra.** O `EspelhoAudio` produzia, o `EspelhoServidor`
+entregava, o cliente media `bv.end - ba.end` e desistia aos 3 s — e o único lado com poder de
+consertar era o único que não estava olhando.
+
+Três produtores de deriva, todos reais, todos **permanentes** e todos **acumulativos**:
+
+1. **O `AudioWorklet` engasgando.** Os três WebViews dividem UM processo (invariante 3), e a §10-A.11
+   documenta uma rotatividade de decodificador que rouba exatamente esse fio. Enquanto ele não
+   produz, o eixo do som PARA e o do vídeo segue andando. Um engasgo de 1,2 s é 1,2 s de defasagem
+   **para o resto do culto**.
+2. **O relógio do hardware de áudio**, que não é o do sistema. Dezenas a centenas de ppm são décimos
+   de segundo por hora, e um culto tem duas.
+3. **PCM perdido dentro do `alimentar`** — e este era um defeito de verdade. A regra "o que não coube
+   CONTA assim mesmo" estava escrita e aplicada em `aoReceberPcm` (fila cheia), e **faltava em cinco
+   saídas** do `alimentar`: encoder sem buffer de entrada depois de `TENTATIVAS`,
+   `IllegalStateException` no `dequeue`, no `getInputBuffer` ou no `queueInputBuffer`, e o buffer
+   curto demais para um quadro de amostras. Cada uma devolvia o resto do bloco ao nada **sem somar as
+   amostras dele**, recuando o eixo permanentemente.
+
+E o desfecho tinha um segundo andar, que é o que transforma "dessincronizado" em **mudo**: soltar a
+faixa **não desfaz a deriva**, porque ela está no celular. A tela remontava, `vigiarAudio` media o
+MESMO desvio no primeiro giro e soltava de novo — três vezes em poucos segundos. O teto de
+remontagens se esgotava, e renová-lo exige 45 s de som limpo que nunca iam acontecer. Muda pelo resto
+do culto, com o Registro dizendo, com toda a razão, que o AAC estava chegando.
+
+**A correção fecha o laço, e a metade que importa é o produtor.** `EspelhoAudio.corrigirDeriva` mede
+`(relógio desde a âncora) − (amostras recebidas + silêncio inserido) ÷ taxa` antes de cada bloco, e
+age:
+
+- **abaixo de `DERIVA_MIN_US` (250 ms) não mexe em nada.** A chegada dos blocos tem jitter próprio
+  (`postMessage` na main thread), e corrigir 20 ms a cada bloco trocaria uma deriva por um serrilhado.
+- **entre a zona morta e 3 s, insere SILÊNCIO**, em passos de `TETO_SILENCIO_US`. Isto não é
+  reancoragem: o eixo continua sendo contagem de amostras, o `buffered` continua colado, e o muxer
+  não estica amostra nenhuma. O ouvinte percebe o que de fato aconteceu — um trecho mudo do tamanho
+  do engasgo — e depois dele o som volta **alinhado** em vez de voltar atrasado para sempre.
+- **acima de 3 s, reancora.** O limiar não é escolhido: é o `AUDIO_MUDO_MS` do cliente. Passado ele a
+  tela já soltou a faixa e vai remontá-la, então não há continuidade a preservar e encher três
+  segundos de silêncio só atrasaria a volta. É a mesma reancoragem da página que renasce (v5.182).
+
+**A medida é contra o PCM RECEBIDO, nunca contra o consumido**, e essa é a armadilha que a primeira
+escrita desta correção caiu: entre a entrega e o consumo há uma fila de até `FILA_BLOCOS` × ~40 ms.
+Um engasgo da main thread empilha blocos lá dentro, e medir do lado do encoder leria isso como "o
+som parou de ser produzido" — a correção encheria de silêncio um buraco que os blocos empilhados
+fechariam sozinhos meio segundo depois, jogando o som **à frente** do vídeo. Que é o único erro que
+este desenho não tem como desfazer, porque a correção para trás é rebobinar o `tfdt`.
+
+Do lado do cliente entra a guarda que faltava: **`voltouOSom` não remonta enquanto o fio ainda
+mostrar o som mais de `ATRASO_VOLTA_S` (1,5 s) atrás.** Ela não conserta a deriva — quem conserta é o
+celular — mas impede que os três créditos de remontagem sejam queimados **antes** de a correção
+chegar, e faz a tela voltar a ter som sozinha no instante do realinhamento. `vigiarAudio` não servia
+para responder isso: ele mede `bv.end - ba.end`, e com a faixa solta não existe `ba`. Os carimbos
+crus do fio existem sempre — daí `desvioDoFio`.
+
+**E o Registro ganhou a linha que faltava o tempo todo.** "O som ficou para trás" era escrito pela
+TELA, e do lado do celular não havia **uma** medida que o confirmasse ou o desmentisse: o operador
+via `24 blocos de PCM/s`, `7424 quadro(s)`, `0 descarte(s)` — tudo saudável — e uma tela muda. Agora
+sai `som atrás do vídeo: agora N ms · pior M ms`, com as correções e o silêncio inserido, e um alarme
+quando o pior passou dos 3 s em que a tela desiste.
+
+**Metade APK, metade OTA**, e as duas degradam sozinhas: a correção da deriva é Kotlin e **só chega
+instalando o APK**; a guarda do `voltouOSom` e a linha do Registro chegam por OTA e valem sozinhas —
+num shell antigo `derivaMs` vem `undefined` e a linha simplesmente não é desenhada, como manda a
+regra do bloco. `SHELL_VERSION` **não sobe**: nenhum método da ponte nasceu ou mudou de assinatura.
+
+**O que ficou de fora, e está dito:** o embed do YouTube segue sem áudio (iframe de outra origem) e o
+microfone ao vivo segue proibido de sair na rede. As duas são decisões do §3.9, não consequências
+deste defeito.
+### 10-A.14 — a entrada vira um CÓDIGO de três dígitos, e o `av.local` sai (5.186)
+
+O pedido do operador tem quatro partes, e a última governa as outras três: *"o
+botão de conectar já vai fazer a função de liberar o áudio e colocar em tela
+cheia"*.
+
+**Isso é uma restrição de plataforma, não de gosto.** `requestFullscreen()` e
+sair do `muted` exigem *ativação transitória do usuário*, e um gesto vale por
+poucos segundos. Para um botão fazer as três coisas, ele precisa gastar o gesto
+ANTES de a rede responder — e daí sai, por dedução e não por oportunismo, que
+**não pode existir fila de aprovação**: quando o operador aprovasse, o gesto já
+teria passado, e a tela entraria muda e em janela. Numa TV do outro lado do
+salão não há ninguém para dar o segundo toque; é exatamente o caso que este
+recurso existe para resolver.
+
+O que saiu, e por quê:
+
+| saiu | porque |
+|---|---|
+| a fila (`Pendencia`, `aprovar`, `recusar`, `consultar`, `pendentes`, a aprovação automática) | código certo ENTRA, na mesma resposta — não há o que aprovar |
+| a porta aberta (`entrarAberto`, §10-A.10) | agora há um código, e ele é exigido. É mais forte que a v5.170, não mais fraco |
+| o QR inteiro (`esperaQr`, `espelho/qr.js`, `tools/qr.test.mjs`, o leitor do Controle, `requestCam`, a permissão `CAMERA`) | ele existia para INVERTER quem mostra e quem lê o segredo; a inversão perdeu a razão de ser quando o segredo virou três dígitos que a TELA digita |
+| o mDNS (`EspelhoMdns.kt`, `EspelhoMdnsPacote.kt`, o JUnit) | `av.local` não resolve no Chrome do Android nem na maioria das Smart TVs — §2.7 sempre disse isso, e o IP sempre foi o endereço que de fato funcionava |
+
+**O que sustenta três dígitos.** Mil combinações não se defendem pelo tamanho:
+quem as defende é o **bloqueio crescente por origem** — `BLOQUEIO_MS` (60 s)
+dobrando a cada bloqueio novo da mesma origem, até `BLOQUEIO_MAX_MS` (30 min).
+Com um minuto FIXO, mil combinações saem em ~3 h de martelada paciente (cinco
+tentativas por minuto); dobrando, a sétima rodada já custa mais que o culto
+inteiro. Duas decisões sustentam isso e as duas têm JUnit:
+
+- **o contador de bloqueios NÃO zera quando o bloqueio vence** (só a cota de
+  erros zera). Quem esperou o minuto e voltou a martelar é exatamente quem a
+  rodada seguinte precisa segurar por mais tempo — zerar ali devolveria a
+  martelada ao primeiro degrau a cada rodada, e o crescimento não existiria;
+- **e ele zera inteiro na primeira tentativa CERTA.** Quem acertou não é quem
+  estava martelando, e carregar o expoente adiante puniria a TV que errou o
+  número duas vezes antes de acertar.
+
+O teto tem um caso próprio, e ele é da família do `setInteger` numa chave `long`
+(§3.3, C1): em Kotlin/JVM o `shl` usa só os **6 bits baixos** do deslocamento, e
+`1L shl 64` é `1L`. Sem o `coerceAtMost`, a 65ª rodada devolveria UM MINUTO — o
+oposto exato do que o crescimento existe para fazer, sem nada que o denunciasse.
+
+E `limpar` passou a esquecer uma origem depois de `BLOQUEIO_MAX_MS` parada, e
+não `BLOQUEIO_MS`: com o expoente morando no mapa, esquecê-lo depois de um
+minuto de silêncio teria o mesmo efeito de zerá-lo.
+
+**A reentrada sozinha**, do lado do cliente, é a metade que salva um culto. A
+tela guarda **em memória** (nunca no `sessionStorage` — lá mora o token, e um
+segredo a mais guardado é um segredo a mais a vazar) o último código que
+funcionou, e reentra com espera crescente. Recusada, ela **desiste e diz por
+quê**: o código nasce a cada `ligar`, então uma recusa depois de uma queda quer
+dizer "o operador religou a transmissão", e martelar um número morto pelo resto
+do culto seria pior que parar.
+
+**Um defeito que o teste pegou, e ele é da família deste apêndice.** A primeira
+versão do `armarGesto` pedia `requestFullscreen()` no `#play` — que, no instante
+do toque, ainda está `hidden`. O Chromium ACEITA: o elemento vira o elemento de
+tela cheia, **desenha nada**, e passa a interceptar os toques. O campo do código
+ficava visível por baixo e completamente inerte — o pior desfecho possível numa
+TV que ninguém vai atender. O `tools/espelho-cliente.test.mjs` o nomeou com
+todas as letras (`html intercepts pointer events`), e a correção é pedir tela
+cheia no **documento**, que contém os dois estados: a troca de um para o outro
+acontece dentro dela, sem pedir nada de novo.
+
+**`CHANGE_WIFI_MULTICAST_STATE` FICA no manifest**, e a leitura natural ("o mDNS
+saiu, logo ela é lixo") está errada: quem a exige não é o multicast, é o TIPO do
+serviço em primeiro plano (`connectedDevice`, §2.6). Removê-la faz
+`startForeground` lançar `SecurityException` e derruba o app inteiro no instante
+em que o operador liga a transmissão.
+
+**Metade APK, metade OTA**, e as duas metades precisam chegar juntas: o servidor
+só aceita `{"codigo": …}` e o cliente só manda isso. Um bundle novo num shell
+antigo cai no `else -> 403`; um bundle antigo num shell novo também. É por isso
+que `SHELL_VERSION` sobe a **36** — o primeiro degrau deste contrato que
+ENCOLHE.
+
+---
+
 ## 11. A FRASE PARA O OPERADOR
 
 > Dá para pôr o telão inteiro — inclusive vídeo, fades e cortina — em até três navegadores da rede da
 > igreja, sem instalar nada nas telas e sem depender de internet. O celular vira o servidor; quem
-> quiser assistir digita o endereço uma vez, vê um número de seis dígitos na sua tela, e **você
-> aprova**.
+> quiser assistir digita o endereço, digita o **código de três dígitos** que aparece na sua tela, e
+> toca em Conectar — e esse toque já entra com som e em tela cheia. Você vê quem entrou e pode
+> derrubar qualquer uma.
 >
 > Quatro coisas precisam ser ditas antes: **o roteador da igreja pode bloquear isso sozinho**
 > (isolamento de clientes) e não há conserto do lado do app — o próprio recurso vai dizer, em texto,
