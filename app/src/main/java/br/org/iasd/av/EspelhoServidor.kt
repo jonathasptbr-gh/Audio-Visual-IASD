@@ -561,7 +561,6 @@ class EspelhoServidor(
                     listOf("Location: /display/index.html?tela=1"),
                 ),
             )
-            r.metodo == "GET" && ESTATICOS.containsKey(rota) -> servirEstatico(rota, saida)
             r.metodo == "POST" && rota == "/par" -> parear(r, saida, cru)
             // A rota `/v` (o fluxo de PIXELS) morreu com o espelho na v5.187:
             // um GET nela cai no 404 idêntico do `else`, como toda rota que
@@ -806,35 +805,57 @@ class EspelhoServidor(
     }
 
     private fun servirDoBundle(caminho: String, saida: OutputStream) {
-        val corpo = lerDoBundle(caminho)
-        if (corpo == null) {
+        val bruto = lerDoBundle(caminho)
+        if (bruto == null) {
             registrar("faltou no bundle: $caminho")
             return responder(saida, naoAchei())
         }
         val nome = caminho.substringAfterLast('/')
         val tipo = bundle.mimeOf(nome) + (bundle.encodingOf(nome)?.let { "; charset=$it" } ?: "")
+        val pagina = nome.endsWith(".html")
+        val corpo = if (pagina) comMarcaDeTela(bruto) else bruto
+        if (pagina) registrar("página entregue: $caminho")
         // Toda PÁGINA leva a CSP — e é a CSP que FORÇA a exclusão do embed do
         // YouTube nas telas da rede (`default-src 'self'` barra a IFrame API;
         // spec §1). Os demais arquivos levam só os cabeçalhos de sempre.
-        val extra = if (nome.endsWith(".html")) EspelhoHttp.CABECALHOS_PAGINA else emptyList()
+        val extra = if (pagina) EspelhoHttp.CABECALHOS_PAGINA else emptyList()
         responder(saida, EspelhoHttp.resposta(200, tipo, corpo, extra))
     }
 
-    private fun servirEstatico(rota: String, saida: OutputStream) {
-        val caminho = ESTATICOS[rota] ?: return responder(saida, naoAchei())
-        val corpo = lerDoBundle(caminho)
-        if (corpo == null) {
-            registrar("faltou no bundle: $caminho")
-            return responder(saida, naoAchei())
-        }
-        val nome = caminho.substringAfterLast('/')
-        val tipo = bundle.mimeOf(nome) + (bundle.encodingOf(nome)?.let { "; charset=$it" } ?: "")
-        // A PÁGINA leva CSP e `X-Frame-Options`; os outros cabeçalhos de higiene
-        // (`no-store`, `nosniff`, `no-referrer`, `Connection: close`) o
-        // [EspelhoHttp] põe em toda resposta.
-        val extra = if (rota == "/") EspelhoHttp.CABECALHOS_PAGINA else emptyList()
-        responder(saida, EspelhoHttp.resposta(200, tipo, corpo, extra))
+    /**
+     * O PAPEL `tela` DEIXA DE DEPENDER DA QUERY (v1.92).
+     *
+     * O `espelho/tela.js` decidia se era uma tela da rede olhando `?tela=1` em
+     * `location.search`, e esse marcador chega por um 302 da rota `/`. Isso é
+     * uma corrente de elos frágeis, e basta UM ceder para a tela abrir como um
+     * `/display/` comum: ela mostra o wallpaper, nunca desenha a entrada, nunca
+     * pede token e nunca conecta — que é exatamente o par de sintomas relatado
+     * ("pula a tela de ativar" + "não conecta na rede"). Elos possíveis: um
+     * navegador de TV que não preserva a query no redirecionamento, um endereço
+     * guardado nos favoritos sem ela, alguém digitando `/display/` direto, ou um
+     * QR/atalho que a corta.
+     *
+     * A resposta é não depender da URL: **quem serve a página sabe o que ela é**.
+     * Toda página que sai por este servidor é uma tela da rede — este servidor
+     * não serve outra coisa (`web/controle/` nunca entra em `PREFIXOS_BUNDLE`).
+     *
+     * É `<meta>` e não `<script>` de propósito: a CSP desta resposta é
+     * `default-src 'self'` SEM `'unsafe-inline'`, então um script embutido seria
+     * bloqueado — e em silêncio, que é o pior desfecho possível para uma
+     * correção que existe justamente por causa de uma falha silenciosa.
+     *
+     * Degrada nos dois sentidos: bundle antigo ignora a marca e usa a query;
+     * shell antigo não a injeta e a query continua sendo o caminho.
+     */
+    private fun comMarcaDeTela(html: ByteArray): ByteArray {
+        val texto = String(html, Charsets.UTF_8)
+        val i = texto.indexOf("<head>")
+        if (i < 0) return html
+        val corte = i + "<head>".length
+        return (texto.substring(0, corte) + MARCA_TELA + texto.substring(corte))
+            .toByteArray(Charsets.UTF_8)
     }
+
 
     /**
      * Os estáticos vêm do MESMO lugar que os WebViews leem — bundle OTA da
@@ -869,6 +890,17 @@ class EspelhoServidor(
         // degradação certa — a tela velha continua entrando, só que sem
         // precisar do número que o Controle não mostra mais.
         val (status, json) = respostaDoVeredito(entrarNaSessao(origem, relatoDe(corpo)))
+        // O REGISTRO PRECISA SABER QUE ALGUÉM BATEU (v1.92). Até aqui a única
+        // linha do pareamento era a da tela que CONECTOU; uma tentativa recusada
+        // (teto de sessões, castigo) não deixava rastro nenhum, e "a tela não
+        // conecta" tinha duas causas indistinguíveis no diagnóstico: nenhum
+        // navegador chegou a pedir, ou pediu e foi recusado. São ações opostas —
+        // conferir a rede × derrubar uma tela ocupando a vaga — e o operador
+        // ficava sem como escolher.
+        registrar(
+            if (status == 200) "pedido de entrada ACEITO ($origem)"
+            else "pedido de entrada RECUSADO ($origem): $json",
+        )
         responder(saida, EspelhoHttp.resposta(status, "application/json", json.toByteArray(Charsets.UTF_8)))
     }
 
@@ -1755,13 +1787,19 @@ class EspelhoServidor(
          * MESMA resolução OTA→APK dos WebViews ([WebPathHandler], arquivo a
          * arquivo).
          *
-         * Allowlist de PREFIXO, e ela convive com o mapa fixo [ESTATICOS] sem
-         * o substituir: o mapa fixo continua sendo a regra das rotas curtas, e
-         * o prefixo existe porque o display carrega dezenas de arquivos
-         * (`display.js`, os módulos de `shared/`, fontes) que um mapa fixo obrigaria a
-         * enumerar um a um e a esquecer no primeiro arquivo novo. A contenção
-         * não se perde: o parser já recusa `..` e não-ASCII no caminho, e o
-         * [WebPathHandler] confere `canonicalPath` no bundle OTA.
+         * Allowlist de PREFIXO, e desde a v1.92 é a ÚNICA. Havia ao lado dela um
+         * mapa fixo de rotas curtas (`ESTATICOS`), e as quatro entradas dele
+         * apontavam para arquivos que a v5.187 APAGOU com o espelho de pixels
+         * (`espelho/index.html`, `cliente.js`, `fmp4.js`, `espelho.css`) — três
+         * rotas que só sabiam responder "faltou no bundle" e uma (`/`) que o
+         * `when` já interceptava antes. Rota que aponta para arquivo que não
+         * existe é pior que rota nenhuma: ela documenta um recurso morto.
+         *
+         * O prefixo existe porque o display carrega dezenas de arquivos
+         * (`display.js`, os módulos de `shared/`, fontes) que um mapa fixo
+         * obrigaria a enumerar um a um e a esquecer no primeiro arquivo novo. A
+         * contenção não se perde: o parser já recusa `..` e não-ASCII no
+         * caminho, e o [WebPathHandler] confere `canonicalPath` no bundle OTA.
          *
          * **`web/controle/` NUNCA entra aqui** — o Controle é a superfície do
          * operador, e servi-lo à rede entregaria a UI inteira a qualquer um no
@@ -1837,12 +1875,12 @@ class EspelhoServidor(
          * inteiro para a rede. Se o cliente embutir o muxer no `cliente.js`,
          * esta linha simplesmente não é usada.
          */
-        private val ESTATICOS = mapOf(
-            "/" to "web/espelho/index.html",
-            "/e.js" to "web/espelho/cliente.js",
-            "/f.js" to "web/espelho/fmp4.js",
-            "/e.css" to "web/espelho/espelho.css",
-        )
+        /**
+         * A marca do papel `tela`, injetada em toda página servida — ver
+         * [comMarcaDeTela]. `<meta>` porque a CSP desta resposta não permite
+         * script embutido.
+         */
+        private const val MARCA_TELA = "<meta name=\"av-tela\" content=\"1\">"
 
         private val OK_CURTO = "{\"ok\":true}".toByteArray(Charsets.US_ASCII)
         private val RECUSADA = "{\"estado\":\"recusada\"}"

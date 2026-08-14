@@ -97,7 +97,17 @@ const servidor = http.createServer(async (req, res) => {
     if (req.method === 'GET' && u.pathname.startsWith(pre)) {
       const alvo = path.join(WEB, dir, u.pathname.slice(pre.length));
       if (!alvo.startsWith(path.join(WEB, dir)) || !fs.existsSync(alvo)) { json(res, 404, {}); return; }
-      const b = fs.readFileSync(alvo);
+      let b = fs.readFileSync(alvo);
+      // A MARCA DO PAPEL `tela`, como o servidor de verdade a injeta
+      // (`EspelhoServidor.comMarcaDeTela`). Sem ela aqui, o percurso inteiro
+      // seria provado por um caminho — a query — que o aparelho pode não
+      // receber: é exatamente essa divergência entre o servidor de mentira e o
+      // de verdade que deixou "a tela abre no wallpaper e não conecta" passar
+      // pelo CI. `<meta>` e não `<script>`: a CSP da resposta real não permite
+      // script embutido.
+      if (alvo.endsWith('.html')) {
+        b = Buffer.from(b.toString('utf8').replace('<head>', '<head><meta name="av-tela" content="1">'), 'utf8');
+      }
       res.writeHead(200, { 'Content-Type': MIME[path.extname(alvo)] || 'application/octet-stream', 'Content-Length': b.length, 'Cache-Control': 'no-store' });
       res.end(b);
       return;
@@ -169,9 +179,14 @@ pg.on('console', (m) => {
 // ---------------------------------------------------------------------------
 // 1. A entrada
 // ---------------------------------------------------------------------------
-await pg.goto(base + '/display/index.html?tela=1');
+// SEM `?tela=1` NA URL, de propósito: é assim que o aparelho a recebe quando o
+// redirecionamento, um favorito ou o navegador da TV comem a query. Quem diz o
+// papel é a marca que o servidor injetou (v1.92).
+await pg.goto(base + '/display/index.html');
 await pg.waitForSelector('#telaEntrada', { state: 'visible' });
-checar(true, 'o overlay de entrada aparece por cima do display');
+checar(true, 'o overlay de entrada aparece por cima do display, SEM query nenhuma');
+checar(await pg.evaluate(() => window.__AV_ROLE__ === 'tela'),
+  'e o papel é `tela` pela MARCA do servidor, não pela URL');
 checar(await pg.$eval('#startBtn', (e) => e.hidden),
   'e o "Ligar Sistema" do display está escondido — um overlay de gesto só');
 
@@ -180,6 +195,15 @@ checar(await pg.$eval('#startBtn', (e) => e.hidden),
 lotado = true;
 await pg.click('#telaEntrar');
 await ate(() => visto.pares.length >= 1);
+// ESPERAR A FRASE, e não o SERVIDOR. Este teste esperava `visto.pares` — isto
+// é, que o servidor de mentira tivesse RECEBIDO o POST — e lia `#telaMsg` no
+// instante seguinte. Só que quem escreve a frase é o cliente, DEPOIS de ler a
+// resposta: entre uma coisa e a outra há uma volta de rede e um `await`, e o
+// teste ganhava a corrida na maioria das vezes. Era essa a instabilidade que
+// fazia o arquivo falhar em duas de cada três execuções e passar "na segunda
+// tentativa" — com `continue-on-error` no CI, um teste assim não é rede de
+// segurança nenhuma, é ruído que ensina a ignorar a cor vermelha.
+await ate(async () => /limite de telas/i.test(await pg.$eval('#telaMsg', (e) => e.textContent)));
 checar(/limite de telas/i.test(await pg.$eval('#telaMsg', (e) => e.textContent)),
   'lotado tem frase, não silêncio');
 checar(await pg.$eval('#telaEntrada', (e) => e.style.display !== 'none'),
