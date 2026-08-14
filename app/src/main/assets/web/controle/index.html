@@ -7,9 +7,12 @@
        existe: no NAVEGADOR o `theme-color` tinge a barra de endereço e o cartão
        do alternador de abas, então um valor congelado numa paleta antiga
        desenha uma moldura de outra cor em volta do app. No app nativo quem
-       pinta a barra é o tema do APK (res/values/themes.xml), não isto. -->
+       pinta a barra é o tema do APK (res/values/themes.xml), não isto.
+       Desde a v5.192 ele tem `id` e o `pintarTema()` o reescreve na troca de
+       tema: o valor aqui é só o do tema ESCURO, que é o padrão de quem nunca
+       escolheu — e é o único que vale antes de o JS rodar. -->
 
-  <meta name="theme-color" content="#131211">
+  <meta id="temaMeta" name="theme-color" content="#0e1215">
   <title>Controle AV</title>
   <!-- Sem manifest/ícones de PWA: aqui o Controle é uma tela hospedada pelo
        shell nativo (WebView), não um app instalável pelo navegador. Ícone,
@@ -660,6 +663,22 @@
             <button type="button" class="fit-opt" data-mode="full">Avançado</button>
           </div>
         </div>
+        <!-- TEMA (v5.192). Mora logo abaixo do modo do app porque as duas são
+             a mesma classe de decisão — "como este app se apresenta" — e as
+             duas são LEMBRADAS entre aberturas.
+             O escuro vem primeiro por ser o padrão, e o segmentado segue a
+             leitura esquerda→direita dos demais (o estado de partida à
+             esquerda, como o "Padrão" do wallpaper desde a v5.188).
+             Trocar aqui NÃO fecha o popup, ao contrário do modo do app: é
+             olhando para esta folha, que acabou de mudar de cor, que o
+             operador decide se ficou bom. -->
+        <div class="fade-row fade-row--fit">
+          <span>Tema</span>
+          <div class="fit-seg" id="temaSeg">
+            <button type="button" class="fit-opt" data-tema="escuro">Escuro</button>
+            <button type="button" class="fit-opt" data-tema="claro">Claro</button>
+          </div>
+        </div>
         <!-- (A "Mesa de som" saiu daqui na v5.82: virou o ícone de alto-falante
              no canto inferior esquerdo da preview. É a única preferência desta
              lista que se mexe DURANTE o culto, e o lugar de decidir se há som
@@ -766,7 +785,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.191</span>
+        <span id="appVersion" class="app-version">Controle v5.192</span>
         <!-- O APK NOVO, quando existir. Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso. `hidden`

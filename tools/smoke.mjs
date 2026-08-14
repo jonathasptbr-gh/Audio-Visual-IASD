@@ -220,7 +220,7 @@ try {
     'o botão principal da folha é preenchido em --accent-fill com --on-accent por cima'
     + ' (' + padrao.acaoFundo + ' / ' + padrao.acaoTexto + ')');
   checar(padrao.trilhoOn === paraRgb(padrao.accentFill) && padrao.trilhoOff !== padrao.trilhoOn,
-    'e o interruptor LIGADO veste o mesmo âmbar preenchido, desligado não'
+    'e o interruptor LIGADO veste o mesmo denim preenchido, desligado não'
     + ' (' + padrao.trilhoOff + ' → ' + padrao.trilhoOn + ')');
 
   // ---- O ÍCONE DE CONECTAR DIZ "HÁ TELA RECEBENDO" (v5.176) --------------
@@ -288,6 +288,76 @@ try {
     'e o eco NÃO esconde o ícone do botão — ele é anel, não ✓', eco.visivel);
   checar(!!eco.anel && eco.anel !== '0px', 'o anel do eco é de fato desenhado', eco.anel);
   checar(eco.sumiu, 'e ele sai sozinho, sem deixar o botão marcado');
+
+  // ---- OS DOIS TEMAS, E O PALCO QUE NÃO SEGUE NENHUM (v5.192) ------------
+  //
+  // O tema claro é um DELTA sobre o escuro (`:root[data-tema="claro"]` em
+  // tokens.css). Três coisas podem quebrar nessa montagem sem que nada
+  // reclame, e as três estão travadas aqui:
+  //
+  // 1. **O PALCO seguir o tema.** `--stage-*`, `--wallpaper` e
+  //    `--lyrics-frame-bg` moram num bloco à parte de propósito: o Display não
+  //    tem tema (ele nunca escreve o atributo), mas a PREVIEW do Controle roda
+  //    no documento que TEM — e ela existe para espelhar o telão. Bastaria
+  //    alguém redeclarar `--stage-bg` dentro do bloco claro para a preview
+  //    parar de mostrar o que a TV mostra, e nenhum outro teste veria isso.
+  // 2. **A superfície não INVERTER dentro do cartão.** A regra ("flutua sobre
+  //    a página, afunda dentro do cartão") virou token na v5.192 justamente
+  //    para poder mudar de tema; escrita errada, o tema claro herdaria o
+  //    recesso de 24% de preto do escuro e todo cartão viraria um bloco cinza.
+  // 3. **A escolha não sobreviver à recarga.** Ela é lida do `localStorage`
+  //    ANTES do primeiro quadro (mesma razão do modo do app); um erro aí
+  //    aparece como um flash escuro a cada abertura, que é exatamente o tipo
+  //    de coisa que ninguém reporta e todo mundo aguenta.
+  const tema = await pg.evaluate(() => {
+    const raiz = document.documentElement;
+    const meta = document.getElementById('temaMeta');
+    const ler = () => {
+      const s = getComputedStyle(raiz);
+      const v = (t) => s.getPropertyValue(t).trim();
+      // Um cartão de verdade, para ver a superfície AFUNDADA em vigor.
+      const cartao = document.querySelector('.fade-row');
+      const sc = cartao ? getComputedStyle(cartao) : null;
+      return {
+        bg: v('--bg'), texto: v('--text'), accent: v('--accent'), fill: v('--accent-fill'),
+        palco: v('--stage-bg') + '|' + v('--stage-text') + '|' + v('--wallpaper')
+          + '|' + v('--lyrics-frame-bg'),
+        superficie: v('--surface'),
+        afundada: sc ? sc.getPropertyValue('--surface').trim() : '',
+        barra: meta ? meta.getAttribute('content') : '',
+      };
+    };
+    const escuro = ler();
+    document.querySelector('#temaSeg .fit-opt[data-tema="claro"]').click();
+    const claro = ler();
+    return { escuro, claro, atributo: raiz.dataset.tema, guardado: localStorage.getItem('av.tema') };
+  });
+  checar(tema.escuro.bg !== tema.claro.bg && tema.escuro.texto !== tema.claro.texto,
+    'trocar o tema troca fundo e texto (' + tema.escuro.bg + ' → ' + tema.claro.bg + ')');
+  checar(tema.escuro.palco === tema.claro.palco,
+    'e NÃO troca uma vírgula do palco — a preview continua espelhando o telão',
+    tema.claro.palco);
+  checar(tema.escuro.superficie !== tema.escuro.afundada
+    && tema.claro.superficie !== tema.claro.afundada,
+    'a superfície afunda dentro do cartão NOS DOIS temas'
+    + ' (escuro ' + tema.escuro.superficie + ' → ' + tema.escuro.afundada
+    + ' · claro ' + tema.claro.superficie + ' → ' + tema.claro.afundada + ')');
+  checar(tema.escuro.accent !== tema.escuro.fill,
+    'no escuro o accent de TEXTO e o de PREENCHIMENTO seguem diferentes'
+    + ' (' + tema.escuro.accent + ' / ' + tema.escuro.fill + ')');
+  checar(tema.escuro.barra !== tema.claro.barra && /^#[0-9a-f]{6}$/i.test(tema.claro.barra),
+    'e o `theme-color` acompanha (' + tema.escuro.barra + ' → ' + tema.claro.barra + ')');
+  checar(tema.atributo === 'claro' && tema.guardado === 'claro',
+    'a escolha vai para o `localStorage`, de onde ela é lida antes do primeiro quadro');
+
+  await pg.reload({ waitUntil: 'domcontentloaded' });
+  await pg.waitForFunction(() => typeof window.__avBack === 'function', null, { timeout: 20000 });
+  const depois = await pg.evaluate(() => ({
+    atributo: document.documentElement.dataset.tema,
+    bg: getComputedStyle(document.documentElement).getPropertyValue('--bg').trim(),
+  }));
+  checar(depois.atributo === 'claro' && depois.bg === tema.claro.bg,
+    'e ela sobrevive à recarga da página (' + depois.atributo + ' · ' + depois.bg + ')');
 } catch (e) {
   checar(false, 'o percurso terminou sem exceção (' + (e && e.message) + ')');
 }
