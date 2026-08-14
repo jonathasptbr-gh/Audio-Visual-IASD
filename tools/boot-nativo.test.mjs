@@ -168,24 +168,27 @@ try {
       pai: c && c.parentElement ? (c.parentElement.id || c.parentElement.className) : '',
       redeVisivel: !!rede && !rede.hidden,
       semTela: sm.classList.contains('sem-tela'),
-      // O QUE O BLOQUEIO ESCONDIA. Duas provas de que ele saiu, e as duas são
-      // sobre o operador e não sobre uma classe: a cortina não existe no
-      // documento, e a busca — que a tela trancada escondia por
-      // `display: none` — está desenhada e clicável.
-      cortina: !!document.querySelector('.simple-veil, #simpleVeil'),
+      // O BLOQUEIO, medido pelo que o operador vê e não por uma classe: a
+      // cortina está no ar e cobre a tela inteira, e a busca — que ela esconde —
+      // não está desenhada. (A v5.199 afirmava aqui exatamente o contrário; ver
+      // o comentário de `renderSimpleGate` sobre por que ela caiu e voltou.)
+      cortinaNoAr: (() => {
+        const v = document.getElementById('simpleVeil');
+        if (!v || v.hidden) return false;
+        const r = v.getBoundingClientRect();
+        return r.width >= innerWidth - 1 && r.height >= innerHeight - 1;
+      })(),
       buscaVisivel: !!bb && bb.width > 2 && bb.height > 2,
     };
   });
   checar(conn.achou && conn.semTela && conn.pai === 'simpleConn',
-    'sem tela, o bloco de conexão ocupa a célula da preview (pai: ' + conn.pai + ')');
+    'sem tela, o bloco de conexão é o que fica legível (pai: ' + conn.pai + ')');
   checar(conn.redeVisivel,
     'e ele oferece as DUAS formas — espelhar para a TV e transmitir para navegador');
-  // A REGRESSÃO QUE O OPERADOR RELATOU DUAS VEZES (v5.199). A v5.197 removeu o
-  // botão único e ele "continuou aparecendo", porque o que incomodava não era o
-  // elemento: era a tela inteira parar por causa dele. Cortina de tela cheia com
-  // um botão preenchido em accent no centro é a mesma coisa por outro nome.
-  checar(!conn.cortina && conn.buscaVisivel,
-    'SEM TELA A TELA NÃO É BLOQUEADA: não há cortina, e a busca continua usável');
+  // O BLOQUEIO (v5.203, de volta a pedido do operador). Sem tela este modo não
+  // projeta nada — nem imagem nem som —, e a cortina é o que diz isso.
+  checar(conn.cortinaNoAr && !conn.buscaVisivel,
+    'SEM TELA A TELA FICA BLOQUEADA: a cortina cobre tudo e a busca sai de cena');
 
   // ---- O ESTADO EM QUE O OPERADOR DE FATO OPERA -------------------------
   //
@@ -231,10 +234,11 @@ try {
   const comTela = await pg2.evaluate(() => ({
     semTela: document.getElementById('simpleMode').classList.contains('sem-tela'),
     connEscondido: document.getElementById('simpleConn').hidden,
+    cortinaNoAr: !document.getElementById('simpleVeil').hidden,
     modo: appMode,
   }));
-  checar(!comTela.semTela && comTela.connEscondido,
-    'e a célula volta a ser a PREVIEW: sem TV, as telas da rede contam como tela');
+  checar(!comTela.semTela && comTela.connEscondido && !comTela.cortinaNoAr,
+    'e a tela DESTRAVA: sem TV, as telas da rede contam como tela');
   checar(erros2.length === 0,
     'nenhum erro de console no percurso com a transmissão ligada'
     + (erros2.length ? ':\n        ' + erros2.join('\n        ') : ''));

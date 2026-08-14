@@ -26,6 +26,7 @@ const simpleModeEl = document.getElementById('simpleMode');
 const simpleFullBtnEl = document.getElementById('simpleFullBtn');
 const fullSimpleBtnEl = document.getElementById('fullSimpleBtn');
 const simpleSearchBtnEl = document.getElementById('simpleSearchBtn');
+const simpleVeilEl = document.getElementById('simpleVeil');
 const simpleStageEl = document.getElementById('simpleStage');
 // A preview e a casa dela no modo avançado: são módulo-nível porque o nó MUDA
 // DE PAI conforme o modo (ver hostPreview).
@@ -208,7 +209,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.202';
+const WEB_VERSION = '5.203';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -14377,23 +14378,36 @@ function telasDaRede() {
   return espelhoLigado() && Array.isArray(e.telas) ? e.telas : [];
 }
 
-// QUEM OCUPA A CÉLULA DA PREVIEW NO MODO FÁCIL. O nome ficou de quando esta
-// função era um PORTÃO (ela trancava a tela inteira até haver telão); hoje ela
-// só troca o conteúdo de uma célula, e o resto da tela nunca é coberto.
+// O PORTÃO DO MODO FÁCIL: sem tela conectada, a cortina bloqueia e o cartão de
+// conexão é a única coisa legível.
 //
-// **O bloqueio saiu na v5.199, e o motivo é o que ele virou.** Sem tela, a
-// cortina embaçava a tela inteira e içava para o centro um cartão cujo elemento
-// dominante é um botão preenchido em accent com a largura útil da tela — a
-// mesma anatomia, no mesmo lugar, do botão único que a v5.197 tinha removido.
-// O operador o descreveu de volta como "o botão de conectar, que persiste em
-// existir e bloquear a tela", e ele estava certo: o que incomodava nunca foi o
-// ELEMENTO, foi a tela inteira parar por causa dele. O argumento original
-// ("sem tela este modo é inútil") vale para PROJETAR e não para o resto —
-// procurar um hino, montar a lista e conferir a letra são exatamente o que se
-// faz antes de a tela existir.
+// **Ele saiu na v5.199 e voltou na v5.203, e a ida e a volta valem escritas**,
+// porque a remoção foi um diagnóstico errado e não uma mudança de gosto. O
+// operador relatava "o botão de conectar que persiste em existir e bloquear a
+// tela do modo simples"; a leitura foi de que o BLOQUEIO incomodava, e a v5.199
+// o derrubou inteiro. Não era isso: o que ele via era o botão ANTIGO — o
+// `#simpleCastBtn` da v5.192, servido pela base embutida no APK depois de um
+// recuo do watchdog que não limpava o cache do WebView (a causa real, corrigida
+// na v5.200/v1.91). Ele chegou a dizer, com todas as letras, que "essa parte
+// não era o problema".
+//
+// O argumento que sustenta o bloqueio continua o mesmo, e ficou mais forte com
+// o tempo: sem tela a projeção não existe, e desde a v5.189 a preview nem som
+// tem — um ▶ aqui não produz absolutamente nada. A saída é o "Modo avançado" do
+// cabeçalho, que fica por cima da cortina de propósito: o que se bloqueia é
+// este MODO, não o app.
 function renderSimpleGate() {
   const semTela = appMode === 'simple' && !simpleDisplay();
   simpleModeEl.classList.toggle('sem-tela', semTela);
+  // A CORTINA VOLTOU na v5.203 (ver o comentário do `.simple-veil`): sem tela
+  // este modo não projeta nada — nem imagem nem som, desde que a mesa saiu na
+  // v5.189 —, e o bloqueio é o que diz isso sem depender de ninguém ler um
+  // cartão. O elemento existe só no bundle novo, daí a guarda.
+  if (simpleVeilEl) simpleVeilEl.hidden = !semTela;
+  // A busca é o que a cortina esconde: deixá-la aberta por trás daria um popup
+  // funcionando sobre uma tela bloqueada, e tocar uma música dali não projetaria
+  // coisa nenhuma.
+  if (semTela) closeHymnSearch();
   hostCastConn(semTela);
   // ALGUMA TELA ENTROU COM A FOLHA ABERTA: ela fecha. Vale para os DOIS
   // caminhos (espelhar para a TV, transmitir para navegador) e nos dois modos —

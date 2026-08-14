@@ -214,16 +214,23 @@
       </div>
     </div>
 
-    <!-- (A CORTINA DE BLOQUEIO SAIU na v5.199.) Sem tela conectada este modo
-         ficava atrás de um vidro fosco de tela inteira com um cartão centrado
-         no meio — e o elemento dominante desse cartão é um botão preenchido em
-         accent, do tamanho da largura útil, no centro vertical da tela. Isto é,
-         exatamente a anatomia do botão único que a v5.197 tinha removido: do
-         lugar do operador, ele "continuou existindo". Trocar um botão grande
-         centrado por outro botão grande centrado não é remover o botão.
-         Hoje a conexão é uma SEÇÃO NO FLUXO (ver .simple.sem-tela) e o resto da
-         tela continua vivo: dá para buscar, montar a lista e conferir a letra
-         antes de a tela existir. Ver renderSimpleGate. -->
+    <!-- BLOQUEIO: sem tela conectada não há o que operar neste modo — a
+         projeção É o telão, e desde a v5.189 a preview nem som tem, então um ▶
+         aqui não produz absolutamente nada. A cortina embaça e INTERCEPTA tudo
+         o que está atrás dela; na frente ficam só a seção de conexão (a única
+         ação que resolve o bloqueio) e o "Modo avançado" do cabeçalho, que é a
+         saída de quem vai projetar pela preview em tela cheia. Ela é só o vidro
+         fosco: não tem conteúdo próprio.
+
+         ELA SAIU NA v5.199 E VOLTOU NA v5.203, a pedido do operador. O que a
+         derrubou foi um diagnóstico errado: ele relatava "o botão de conectar
+         que persiste em bloquear a tela", e a leitura foi de que o BLOQUEIO
+         incomodava. Não era — o que ele estava descrevendo era o botão ANTIGO
+         reaparecendo (a base embutida no APK, servida por um recuo do watchdog
+         sem limpar o cache do WebView; ver v5.200/v1.91). O bloqueio nunca foi a
+         queixa, e ele disse isso com todas as letras: "essa parte não era o
+         problema". Ver renderSimpleGate. -->
+    <div class="simple-veil" id="simpleVeil" hidden></div>
   </div>
 
   <main>
@@ -808,7 +815,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.202</span>
+        <span id="appVersion" class="app-version">Controle v5.203</span>
         <!-- O APK NOVO, quando existir. Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso. `hidden`

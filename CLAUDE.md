@@ -2292,10 +2292,44 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.202** (base web) · `SHELL_VERSION` **39**, e o bundle segue com
+**Versão atual: v5.203** (base web) · `SHELL_VERSION` **39**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.203: A CORTINA DO MODO FÁCIL VOLTA — e a v5.199 foi um diagnóstico
+> errado, não uma mudança de gosto. OTA PURO.** Pedido do operador: *"lembre que
+> lhe pedi para voltar a tela de blur do modo simples que bloqueia a tela
+> enquanto não fizerem a conexão com uma tela"*.
+>
+> **Ele já tinha dito isso, e eu li errado.** Duas mensagens antes: *"sobre a
+> tela de blur bloqueada, ESSA PARTE NÃO ERA O PROBLEMA — a questão era que ao
+> invés de aparecer a seção com opção de conectar TV ou ligar a rede, aparecia
+> ainda o botão antigo"*. Isto é: o que ele relatava era o `#simpleCastBtn` da
+> v5.192 reaparecendo (a base embutida no APK, servida por um recuo do watchdog
+> que não limpava o cache do WebView — a causa real, corrigida na v5.200/v1.91),
+> e eu tinha lido "o botão de conectar persiste em bloquear a tela" como se o
+> BLOQUEIO fosse a queixa. A v5.199 derrubou a cortina inteira por causa dessa
+> leitura, e o "priorizando a conexão" da mensagem seguinte foi lido de novo como
+> ordem na tela em vez de bloqueio.
+>
+> **A lição não é sobre CSS.** Quando o operador descreve um sintoma com o nome
+> de um elemento, o nome pode estar errado e o sintoma nunca está: a resposta é
+> ir medir o que ele está vendo — foi o que finalmente achou o cache do WebView
+> —, não redesenhar em cima do nome. E quando ele diz explicitamente "essa parte
+> não era o problema", isso vale mais que qualquer inferência.
+>
+> Voltaram: `#simpleVeil`, os tokens `--veil`/`--veil-solid` (nos dois temas), o
+> içamento de `.simple-actions` para o centro e o `closeHymnSearch()` do
+> bloqueio. **Não voltou** a liberação de teste de 5 s: a saída legítima é o
+> "Modo avançado" do cabeçalho, que fica por cima da cortina e é visível e
+> rotulado — um gesto secreto que destrava a projeção sem dizer que destravou é
+> pior que não ter saída nenhuma.
+>
+> O estado DESTRAVADO é o da v5.202 e não mudou: letra no topo, preview +
+> "Buscar música" lado a lado na zona de baixo, teclado por último.
+> `tools/boot-nativo.test.mjs` afirma agora as duas metades — com tela a página
+> destrava, sem tela a cortina cobre a tela inteira e a busca sai de cena.
 
 > **A v5.202: A CONEXÃO DESCE PARA A ZONA DE BAIXO — o topo é da LETRA, como
 > foi pedido. OTA PURO.** A v5.201 pôs a seção de conexão ACIMA da letra, e isso

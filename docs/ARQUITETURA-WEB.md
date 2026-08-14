@@ -1860,9 +1860,9 @@ sem a borda — o mudo, aliás, passou ao vermelho **saturado**.
 
 | Elemento | O que faz |
 |---|---|
-| **Seção de conexão** (`#simpleConn`) | as duas formas de conectar — espelhar para a TV e transmitir para navegador —, **só SEM tela conectada**, na CÉLULA DA PREVIEW da faixa de baixo (v5.202 — a v5.201 a tinha posto acima da letra, e o topo é da letra): sem tela a faixa vira uma coluna e ela sai com a largura inteira, logo acima da busca e do teclado. É o MESMO nó da folha de "Conectar uma tela" (`#castConn`), movido entre as duas casas por `hostCastConn`; conectado, ela some e a célula da faixa de baixo passa a ser a preview. (Antes da v5.193 era um botão único, `#simpleCastBtn`, que só ABRIA a folha — um toque cobrado para chegar às escolhas que cabem na própria tela) |
+| **Seção de conexão** (`#simpleConn`) | as duas formas de conectar — espelhar para a TV e transmitir para navegador —, **só SEM tela conectada**, e ali ela é a ÚNICA coisa legível: a faixa de ações é içada para o centro da tela, por cima da cortina do bloqueio (ver abaixo). É o MESMO nó da folha de "Conectar uma tela" (`#castConn`), movido entre as duas casas por `hostCastConn`; conectado, ela some e a célula da faixa de baixo passa a ser a preview. (Antes da v5.193 era um botão único, `#simpleCastBtn`, que só ABRIA a folha — um toque cobrado para chegar às escolhas que cabem na própria tela) |
 | **Preview** (`.simple-stage`) | a projeção em miniatura, **só com tela conectada** — ver "A preview no lugar da seção de conexão". Desde a v5.201 ela mora na faixa de baixo, dividindo a linha com "Buscar música"; o topo da tela é da LETRA, que é o que se lê durante o louvor |
-| **Buscar música** (`#simpleSearchBtn`) | o MESMO popup de busca do acervo (`openHymnSearch`). Um toque na linha **toca a versão Cantada direto** (ver abaixo). **Desde a v5.200 ele mora na ZONA DE BAIXO** — buscar é o começo de OPERAR, então pertence ao transporte, a milímetros do ▶ que vem logo depois de escolher, e não ao alto da tela. Na v5.201 ele voltou a dividir a linha com a preview (`.simple-actions`), agora ali embaixo; sem tela a preview some e a grade vira uma coluna, com a busca inteira |
+| **Buscar música** (`#simpleSearchBtn`) | o MESMO popup de busca do acervo (`openHymnSearch`). Um toque na linha **toca a versão Cantada direto** (ver abaixo). Some com a tela bloqueada. **Desde a v5.200 ele mora na ZONA DE BAIXO** — buscar é o começo de OPERAR, então pertence ao transporte, a milímetros do ▶ que vem logo depois de escolher, e não ao alto da tela. Na v5.201 ele voltou a dividir a linha com a preview (`.simple-actions`), agora ali embaixo; sem tela a preview some e a grade vira uma coluna, com a busca inteira |
 | **Linha do tempo** (`#simpleTime`) | decorrido · barra · duração — espelha a mesma `#seek` do modo avançado (que já é alimentada pela preview, pelo `display-status` e pelo polling do YouTube) e some quando o item não tem duração. **Interativa desde a v5.142**: tocar salta, arrastar procura. Ela nasceu como indicador ("quem precisa saltar no tempo usa o modo avançado") — só que voltar o refrão é a coisa mais comum que se faz durante um louvor, e mandar o operador SAIR do modo para isso é o oposto do que o modo existe para dar. O alvo de toque é a FAIXA (`.simple-time-hit`), não o traço de 4px: um controle de posição que exige mira não é um controle. O comando sai no `pointerup` — um `seek` por quadro faria a mídia engasgar durante o gesto —, e `simpleSeeking` impede o `timeupdate` de puxar o preenchimento de volta debaixo do dedo (a mesma regra do `volSeekingEl` no fader) |
 | **Letra** (`#simpleLyrics`) | a letra INTEIRA da música em cena, com o mesmo destaque e o mesmo acompanhamento da leitura auxiliar do modo avançado |
 | **Play/pause, parar e mudo** | `.click()` em `#playpause` / `#stop` / `#muteToggle`. O **parar** entrou na v5.72, ao lado do play: é a outra metade do transporte, e sem ele tirar a mídia do telão obrigava a ir ao modo avançado — justamente o que se faz no fim de cada louvor. A fileira passou a ter três colunas |
@@ -1902,49 +1902,42 @@ acompanhamento até a próxima música, como no popup.
 A espiada do volume pelos botões físicos (`peekVolume`) **não roda no
 simplificado**: as teclas de volume já estão na tela, com o número ao lado.
 
-#### Sem tela conectada: a conexão ocupa a célula da preview (v5.39–v5.41, e o BLOQUEIO SAIU na v5.199)
+#### Sem tela conectada, o modo inteiro fica bloqueado (v5.39; SAIU na v5.199 e VOLTOU na v5.203)
 
 Neste modo **a projeção É o telão** — não existe preview aqui. Sem tela
-conectada, buscar uma música e dar play produz som no celular e mais nada, e foi
-por isso que da v5.39 à v5.198 o modo inteiro ficava atrás de uma cortina
-(`#simpleVeil`: `backdrop-filter: blur(7px)` mais um véu, interceptando todos os
-toques), com `.simple-actions` içada em `position: absolute` para o centro exato
-da tela, a busca escondida e um botão preenchido em accent como única ação.
+conectada, buscar uma música e dar play não produz nada: nem imagem (não há para
+onde) nem som (a preview é muda por construção desde a v5.189, quando a mesa de
+som saiu). Os controles continuavam à disposição, respondendo a cada toque, sem
+que nada acontecesse em lugar nenhum.
 
-**O bloqueio saiu na v5.199, e o que o derrubou foi a leitura do operador.** A
-v5.197 removeu o botão único (`#simpleCastBtn`) e ele voltou relatado como
-presente: *"o botão toque para conectar em uma tela ainda persiste em existir e
-ficar bloqueando a tela do modo simples"*. Medido no bundle publicado, o
-elemento e a frase não existiam mais — e o operador continuava certo, porque o
-que ele estava descrevendo não era o ELEMENTO. Desde a v5.193 quem ocupa aquele
-centro é a seção de conexão, cujo item dominante é `#castMirrorBtn`: preenchido
-em `--accent-fill`, com a largura útil da tela, no meio vertical dela, sobre um
-fundo embaçado. Mesma anatomia, mesmo lugar, mesmo efeito. **Trocar um botão
-grande centrado por outro botão grande centrado não é remover o botão** — o que
-incomodava era a tela inteira parar por causa dele.
+`renderSimpleGate()` cobre a tela com a cortina `#simpleVeil` — `backdrop-filter:
+blur(7px)` mais um véu em `--veil` — que **intercepta os toques** do que ficou
+atrás. Ela é só o vidro fosco: não tem conteúdo. Na frente sobem duas coisas, e
+só duas:
 
-E o argumento original só vale para METADE do que a tela faz. "Sem tela não há o
-que operar" é verdade para PROJETAR, e falso para procurar um hino, montar a
-lista e conferir a letra — que são exatamente as coisas que se fazem **antes** de
-a tela existir, na terça-feira.
+- **a seção de conexão** (`#simpleConn`, dentro de `.simple-actions`), a única
+  ação que resolve o bloqueio. Bloqueada a tela, a faixa de ações deixa de ser
+  faixa: a preview e "Buscar música" somem, e o que resta é içado para o
+  **centro exato da tela** em `position: absolute`. O cartão tem fundo próprio
+  (`--panel`) porque a cortina embaçada por trás não é fundo de leitura;
+- **Modo avançado** (`#simpleFullBtn`), no cabeçalho. **Sem TV o app não fica
+  inútil** — a projeção passa a ser a preview em tela cheia —, e trancar essa
+  saída transformaria a falta de telão numa parede. O que se bloqueia é o modo
+  simplificado, não o app.
 
-Hoje `renderSimpleGate()` não tranca nada: ela só decide **quem ocupa a célula
-da preview** (o nome ficou de quando era um portão de verdade).
+**A ida e a volta valem escritas, porque a remoção foi um diagnóstico errado.**
+O operador relatava "o botão de conectar que persiste em existir e bloquear a
+tela do modo simples", e a leitura foi de que o BLOQUEIO incomodava: a v5.199 o
+derrubou inteiro, com a cortina, os tokens `--veil*` e a liberação de teste de
+5 s. Não era isso — o que ele via era o botão ANTIGO (`#simpleCastBtn`, da
+v5.192) reaparecendo, servido pela base embutida no APK depois de um recuo do
+watchdog que não limpava o cache do WebView; a causa real foi corrigida na
+v5.200 / v1.91. Ele chegou a dizer, com todas as letras, que "essa parte não era
+o problema", e pediu a cortina de volta na v5.203.
 
-- **Com tela**: a preview, e a faixa `.simple-actions` é a grade de duas colunas
-  de sempre — preview + "Buscar música".
-- **Sem tela**: a classe `.sem-tela` no `#simpleMode` esconde `.simple-stage` e
-  vira a faixa numa COLUNA — a seção de conexão em cima, a busca embaixo. No
-  fluxo, no alto da tela, sem cobrir a letra nem o transporte, que continuam
-  desenhados e usáveis.
-
-**O que a tela deixa de dizer, e é aceito em vez de escondido:** com nada
-conectado, apertar ▶ não produz imagem em lugar nenhum (e desde a v5.189 nem som,
-porque a preview é muda por construção). Quem responde a isso é a seção de
-conexão, que está no alto da tela e é a primeira coisa que se lê.
-
-**Saíram junto** o `#simpleVeil`, os tokens `--veil`/`--veil-solid` (a cortina
-era o único consumidor que eles já tiveram) e a liberação de teste de 5 s.
+**A busca aberta é fechada pelo bloqueio** (`closeHymnSearch()`): perder a tela
+com o popup no ar deixaria a busca funcionando por cima de uma tela bloqueada, e
+tocar uma música dali não projetaria nada.
 
 #### A preview no lugar da seção de conexão (v5.71)
 
