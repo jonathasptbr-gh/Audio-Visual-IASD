@@ -92,6 +92,7 @@ app/src/main/
 │   ├── SyncService.kt           # foreground service: downloads com o app minimizado
 │   ├── SessionService.kt        # O ÚNICO foreground service: MediaSession + transmissão
 │   ├── WebUpdater.kt            # OTA da base web (watchdog, minShell, sha256)
+│   ├── ShellUpdater.kt          # OTA do APK: a Release nova, instalada de dentro do app
 │   ├── WebPathHandler.kt        # serve o bundle OTA, com fallback pro APK
 │   ├── YoutubeGrab.kt           # extrai e baixa o vídeo do YouTube NO APARELHO
 │   ├── MuxMp4.kt                # junta as faixas de vídeo e áudio (1080p) — MediaMuxer
@@ -105,8 +106,9 @@ app/src/main/
 │   ├── EspelhoServidor.kt       # sockets, rotas (bundle, /e, /m/, /par, /r), fan-out
 │   ├── EspelhoMidiaCache.kt     # o cache da rota /m/<token> — PURO, com JUnit
 │   ├── EspelhoMidiaCanal.kt     # canal de ArrayBuffer: OPFS → cache (WebMessage)
-│   ├── EspelhoEnergia.kt       # wake lock, Wi-Fi lock e térmica da transmissão
-│   └── EspelhoDiag.kt           # o anel de diagnóstico — devolve JSON, não frase
+│   ├── EspelhoEnergia.kt        # wake lock, Wi-Fi lock e térmica da transmissão
+│   ├── EspelhoCert.kt           # o .p12 do TLS opcional (sem UI desde a v5.196)
+│   └── EspelhoDiag.kt           # o DIÁRIO da transmissão — devolve JSON, não frase
 └── res/
     ├── drawable/                # ic_image{,_off} — a cortina, na notificação
     │                            #  + ic_launcher_{foreground,mono} — o ÍCONE, em vetor
@@ -121,7 +123,7 @@ docs/
 └── FONTE-DE-DADOS-LOUVORJA.md   # referência do banco LouvorJA (hinos/Bíblia)
 ```
 
-**Vinte e três arquivos Kotlin, uma dependência de terceiros no shell** — o
+**Vinte e cinco arquivos Kotlin, uma dependência de terceiros no shell** — o
 resto é AndroidX oficial (`core-ktx`, `activity-ktx`, `webkit`). A troca do
 espelho de pixels pelo telão por comandos (v5.187) **removeu** quatro arquivos
 nativos inteiros (encoder, tela virtual, segunda Presentation, ponte de áudio)
@@ -309,6 +311,8 @@ window.AVNative = {
   otaApply(),          // APLICA-a agora: as duas páginas recarregam — shell 29
   otaCheck(forcar),    // PROCURA agora; `forcar` pula o piso do shell — shell 31
   otaDiag(),           // → string: quando foi a última busca e o que ela deu
+  apkProcurar(),       // → { versao, url, notas } da Release nova, ou null — shell 35
+  apkInstalar(url),    // baixa e abre o diálogo de instalação do sistema — shell 35
   ytDiag(),            // → string: o que o extrator recebeu na última extração
                        //   (diagnóstico do rodapé de Configurações)
   ytStream(url, altura), // → manifesto DASH { video, audio, seconds, height } ou null
@@ -349,7 +353,7 @@ window.AVNative = {
 }
 ```
 
-São **trinta e sete métodos**, e essa é a superfície inteira que o resto do
+São **quarenta métodos**, e essa é a superfície inteira que o resto do
 lado web tem direito de usar: fora do `native.js`, tocar em `__AVBridge` direto é
 acoplamento indevido. O próprio `native.js` chama mais oito coisas no
 `__AVBridge`, e nenhuma delas é API para o app — duas são
@@ -423,7 +427,17 @@ esperam uma **pessoa** e ficam sem prazo, porque um timeout ali resolveria null
 com o operador ainda escolhendo a pasta.
 
 `NativeBridge.SHELL_VERSION` identifica a versão da casca — **subir sempre que
-a superfície da ponte mudar**. Hoje vale **39** — a v5.192 acrescentou
+a superfície da ponte mudar**. Hoje vale **40** — a v5.206 ENCOLHE duas formas
+de retorno, e as duas são resto do espelho de pixels que a v5.187 não levou
+junto: `espelhoDiag` perdeu `ritmo` (o objeto continuava saindo ZERADO depois
+que o encoder que o alimentava morreu, e o lado web lia `kbps < 40` como
+"retângulo preto" — o Registro imprimia um ALARME em todo culto com vídeo no
+ar) e `espelhoEstado` perdeu `modo` (o seletor imagem × vídeo, removido na
+v5.156, que viajava como `"comandos"` e era desenhado como "modo: imagem
+(JPEG)"). A lição está escrita no KDoc do `EspelhoDiag` e vale para a próxima
+aposentadoria: **apagar o produtor de um campo e deixar o consumidor de pé não
+produz silêncio — produz um zero, e zero é um valor legítimo que o consumidor
+interpreta.** O anterior, **39** (v5.192), acrescentou
 `temaClaro`, o único pedaço do tema claro que o CSS não alcança: os ÍCONES das
 barras de sistema (que o Android desenha, e que ficariam brancos sobre um fundo
 quase branco) e o `windowBackground`, resolvido antes de existir JavaScript. Num
@@ -1992,7 +2006,7 @@ produziria exatamente o mesmo estado, por isso a fila espera.
 todo `.js` de `assets/web`, uma validação de `version.json`, os testes de
 `tools/` — o parser `sidx`, o **oráculo do contrato de `shouldInterceptRequest`**
 (`webview-range.test.mjs`, que trava a invariante 8: Node puro, determinístico,
-sem `continue-on-error`) e dez testes **em Chromium de verdade**, todos em
+sem `continue-on-error`) e onze testes **em Chromium de verdade**, todos em
 `continue-on-error`: a **fumaça** que sobe a base web e usa a tela
 (`smoke.mjs`), o **BOOT COM A PONTE PRESENTE** (`boot-nativo.test.mjs`, v5.195 —
 o `smoke` sobe a base SEM `__AVBridge`, e por isso todo caminho guardado por
@@ -2021,7 +2035,16 @@ dois, sem erro nenhum) e **A CENA** (`cena.test.mjs`, v5.142 — o que o telão
 mostra ao RECONECTAR. `currentId` sobrevive de propósito ao stop e ao fim
 natural, então reenviar a cena por ele fazia o telão acordar tocando o que o
 operador tinha parado; e a reconexão do dongle é o caminho menos testável à mão,
-porque exige TV, dongle e o timing de derrubá-lo).
+porque exige TV, dongle e o timing de derrubá-lo) e **O REGISTRO**
+(`registro.test.mjs`, v5.206 — o único artefato do app cujo consumidor é um
+HUMANO A DISTÂNCIA: todo o resto falha na frente de quem pode ver, e ele falha
+CONTINUANDO A RESPONDER com uma frase errada. Nenhum teste o carregava, e por
+aí passaram três defeitos ao mesmo tempo — o `ritmo` zerado imprimindo "ALARME:
+ISTO É UM RETÂNGULO PRETO" em todo culto, toda tela conectada acusada de rodar
+"bundle antigo", e um "modo: imagem (JPEG)" de um modo removido dez versões
+antes. Ele cobra as DUAS metades: nenhuma palavra de recurso aposentado, e o
+que o operador foi buscar presente — sem a segunda, apagar o bloco inteiro
+passaria).
 O telão nas telas da rede acrescentou mais dois: a **varredura de contexto
 seguro** (`contexto-seguro.test.mjs`, que procura `VideoDecoder`, `wakeLock`,
 `audioWorklet`, `randomUUID` e `crypto.subtle` fora de uma guarda
@@ -2313,10 +2336,79 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.205** (base web) · `SHELL_VERSION` **39**, e o bundle segue com
+**Versão atual: v5.206** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.206 (v1.93): O REGISTRO MENTIA — o consumidor sobreviveu ao produtor,
+> e o valor ausente virou resposta. EXIGE APK.** Uma revisão de todo o repositório
+> com viés para os três últimos dias (v5.184 → v5.205) achou o rastro que a
+> aposentadoria do espelho de pixels (v5.187) deixou para trás: o Kotlin parou de
+> PRODUZIR as métricas daquele pipeline e o `controle.js` continuou CONSUMINDO-as.
+>
+> **O defeito, e por que ele é o pior tipo:** o `EspelhoDiag` publicava `ritmo`
+> mesmo sem `amostra()` ter um único chamador — zerado —, e o `blocoEspelho` lê
+> `kbps < 40` como "isto é um retângulo preto". Com a transmissão ligada, um
+> vídeo tocando e a cortina aberta (um culto normal), o Registro imprimia
+> **`ALARME: ISTO É UM RETÂNGULO PRETO`**. O Registro é o ÚNICO artefato deste
+> app cujo consumidor é um humano a distância — ele é feito para ser copiado e
+> repassado —, e o KDoc daquele mesmo arquivo já dizia, desde que nasceu, que
+> "diagnóstico que mente é pior que diagnóstico nenhum". Ele mentia havia
+> dezenove versões. Dois irmãos do mesmo lote: `linhasDaTela(undefined)` acusava
+> **toda** tela conectada de rodar "bundle antigo", e `modo: "comandos"`
+> comparado com `'video'` desenhava **"modo: imagem (JPEG)"** — um modo removido
+> na v5.156.
+>
+> **A regra que fica**, e ela é o que este lote acrescenta ao projeto: *apagar o
+> PRODUTOR de uma métrica e deixar o CONSUMIDOR de pé não produz silêncio —
+> produz um ZERO, e zero é um valor legítimo que o consumidor interpreta.*
+> Remoção de recurso é remoção dos dois lados do fio, no mesmo lote.
+>
+> **O que saiu, medido:** ~310 linhas de `SondaClipe`/`SondaPathHandler` (o
+> instrumento cujo clipe e cuja página foram apagados na v5.187), o anel de
+> `ritmo` inteiro e o `fato()` do `EspelhoDiag` — o arquivo caiu de 775 para 140
+> linhas —, nove ramos mortos do `blocoEspelho`, o autorrelato de tela
+> (`somDaTela`, `linhasDaTela`, `MIRROR_VEREDITO`, `MIRROR_RS`, `MIRROR_NS`,
+> ~155 linhas), a rampa de volume da preview do YouTube (resto da mesa de som da
+> v5.189, com o comentário que ainda falava dos "três sinks de áudio"),
+> `.simple-key-sub` e dois `id` órfãos.
+>
+> **E o oráculo que faltava:** `tools/registro.test.mjs` monta o Registro com a
+> ponte presente e uma resposta de `espelhoDiag` na forma REAL de hoje, e cobra
+> as duas metades — nenhuma palavra de recurso aposentado, e o que o operador
+> foi buscar presente (endereço, telas, diário). Sem a segunda metade, apagar o
+> bloco inteiro passaria. Rodado contra o código anterior, ele reprova em oito
+> pontos. Nenhum teste carregava o Registro até aqui, e foi por aí que os três
+> defeitos passaram.
+>
+> **Os registros que contradiziam o código** foram corrigidos no mesmo lote — e
+> o mais caro deles era um comentário: o `espelho/tela.js` ainda ARGUMENTAVA a
+> favor do `<style>` injetado ("uma folha a mais no `<head>` pesaria nos três
+> papéis"), com o parêntese da v5.205 anexado embaixo dizendo que as regras
+> tinham saído. Um argumento plausível e errado, pronto para reverter a correção
+> que acabara de custar duas versões. Junto: `.simple.locked` (a classe é
+> `.sem-tela`), o comentário do `#simpleConn` descrevendo o layout no fluxo que a
+> v5.203 içou para o centro, "O ENDEREÇO E O CÓDIGO" (o código saiu na v5.189), o
+> KDoc do `mirrorDiag` citando o `EspelhoDisplay.kt` apagado, o do
+> `WebViewFactory` justificando a subclasse pela mesa de som, o da CSP
+> justificando `blob:`/`data:` pelo cliente de pixels (as diretivas continuam
+> necessárias — OPFS e o `POSTER_VAZIO` —, as razões é que eram outras), e o
+> `?tela=1` como marcador único do papel `tela` (é a `<meta name="av-tela">`
+> desde a v1.92).
+>
+> **A paleta foi medida, não relida:** 44 dos 50 pares declarados em
+> `tokens.css` batem na segunda casa decimal. As seis divergências eram todas de
+> fundo com ALFA e tinham uma causa só — **toda medição "sobre o soft" usa o soft
+> composto sobre `--bg`**, e isso não estava escrito. Dentro de um cartão o valor
+> é outro (`--danger-text` sobre `--danger-soft`: 6,89:1 na página, 5,03:1 no
+> cartão; os dois passam AA). A base agora está dita no cabeçalho do arquivo.
+>
+> **E o texto de UI passou:** nenhuma frase estática acima de 70 caracteres e
+> nenhuma repetição no `index.html` — a poda das v5.194→v5.198 fez o serviço. O
+> excesso que restava era de COMENTÁRIO, nos blocos mortos acima, descrevendo
+> readback, perfil de encoder e `FLAG_NEVER_BLANK` no arquivo mais lido do
+> projeto.
 
 > **A v5.205: A CSP BLOQUEAVA O ESTILO DA ENTRADA — o overlay existia, sem
 > posição, DEBAIXO do wallpaper. OTA PURO. CONFIRMADO EM APARELHO:** *"funcionou,

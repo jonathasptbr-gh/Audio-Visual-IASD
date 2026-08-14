@@ -3100,7 +3100,10 @@ body.mode-simple .bottombar { display: none; }
 }
 .simple-key svg { display: block; color: var(--accent); }
 .simple-key-label { font-size: .9rem; font-weight: 700; }
-.simple-key-sub { font-size: .72rem; color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* (`.simple-key-sub` saiu na v5.206.) O subtítulo dos botões grandes deste modo
+   foi removido na v5.195 — "Hinários e álbuns" embaixo de "Buscar música"
+   nomeava onde a busca procura, e não há segunda busca aqui para escolher entre
+   elas —, e a regra ficou para trás sem nenhum elemento para vestir. */
 /* DUAS COLUNAS (v5.201), e na ZONA DE BAIXO: preview | buscar.
    A v5.199 fez a faixa virar coluna sem tela, a v5.200 separou o par de vez, e
    é a forma emparelhada que o operador pediu de volta — só que embaixo, com o

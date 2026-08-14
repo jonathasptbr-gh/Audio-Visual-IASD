@@ -1433,10 +1433,16 @@ class EspelhoServidor(
             // aparelho, `malformada` em quantidade é um scanner na rede.
             .put("recusadas", JSONObject().also { o -> for ((k, v) in recusadas) o.put(k, v.get()) })
             // A BANDA QUE A REDE DIZ TER. Não é medição nossa — é o que o
-            // Android reporta do enlace —, e ela responde de uma vez a pergunta
-            // que sustenta o recurso inteiro: **cabem 3 Mbps × 3 telas neste
-            // AP?**. Um `upKbps` de 6000 com três telas pedidas é o operador
-            // descobrindo a causa antes do culto, e não durante.
+            // Android reporta do enlace —, e ela responde antes do culto se
+            // este AP tem fôlego, em vez de o operador descobrir durante.
+            //
+            // A pergunta que ela respondia era "cabem 3 Mbps × 3 telas neste
+            // AP?", e aquela conta morreu com o espelho de PIXELS (v5.187): não
+            // há mais fluxo contínuo por tela. O que atravessa a rede agora são
+            // objetos JSON pequenos e a MÍDIA SOB DEMANDA — uma vez por item,
+            // em rajada, e depois silêncio. O número cru continua valendo; o
+            // teto de telas derivado dele não, e por isso ele saiu do Registro
+            // na v5.206.
             .put("enlace", enlaceJson())
     }
 

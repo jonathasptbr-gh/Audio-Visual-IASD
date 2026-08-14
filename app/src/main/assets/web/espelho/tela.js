@@ -34,9 +34,14 @@
 //
 // Não renderiza nada (o display.js é o motor — invariante 5 aplicada ao
 // próprio lado web), não decide cena, não toca em mídia (E4: o `__rec` chega
-// no próprio load). Fora do papel `tela` (`?tela=1` na query), é um no-op de
-// uma guarda — no telão de verdade, no espelho e no navegador de
-// desenvolvimento ele não existe.
+// no próprio load). Fora do papel `tela`, é um no-op de uma guarda — no telão
+// de verdade e no navegador de desenvolvimento ele não existe.
+//
+// O papel é marcado pela `<meta name="av-tela">` que o SERVIDOR injeta em toda
+// página que entrega (v1.92), com `?tela=1` na query como caminho de recuo para
+// shell antigo — nesta ordem, e a inversão importa: a query era o marcador
+// ÚNICO até a v5.204, e ela chega por um 302 que um navegador de TV pode não
+// preservar. Ver a guarda logo abaixo.
 // ============================================================================
 (function (global) {
   'use strict';
@@ -509,17 +514,29 @@
   // principais do app: pílula preenchida em `--accent-fill` com `--on-accent`
   // por cima, e o mesmo recuo de toque (`--press`) do resto.
   //
-  // Continua sendo CSS injetado por JS, e não uma folha à parte, por um motivo
-  // que não mudou: `tela.js` é a casca de um papel que o `display/index.html`
-  // carrega para TODO mundo (telão de verdade incluído), e uma folha a mais no
-  // `<head>` pesaria nos três papéis para servir a um. Aqui ela nasce só quando
-  // a entrada é montada.
-  // (AS REGRAS DA ENTRADA SAÍRAM DAQUI na v5.205 e viraram `espelho/tela.css`.)
-  // Elas eram uma string injetada num `<style>` criado em runtime, e a CSP da
-  // página servida às telas da rede (`default-src 'self'`, sem `style-src`)
-  // BLOQUEIA isso: o elemento é anexado e as regras não são aplicadas. O
-  // overlay virava um bloco sem posição no fim do `<body>`, debaixo da camada
-  // fixa do wallpaper — invisível e inclicável. Ver o cabeçalho de `tela.css`.
+  // AS REGRAS DA ENTRADA NÃO MORAM MAIS AQUI: elas são `espelho/tela.css`,
+  // carregada pelo `display/index.html` (v5.205).
+  //
+  // Até a v5.204 este bloco montava um `<style>` em runtime, e o argumento
+  // escrito era: "uma folha a mais no `<head>` pesaria nos TRÊS papéis para
+  // servir a um; aqui ela nasce só quando a entrada é montada". **O argumento
+  // era plausível e estava errado**, e o preço foi a tela da rede não conectar:
+  // a página servida pelo celular leva `default-src 'self'` sem `style-src`
+  // (`EspelhoHttp.CABECALHOS_PAGINA`), e um `<style>` criado em runtime exige
+  // `'unsafe-inline'`. O navegador ANEXA o elemento e não aplica nada — o
+  // `#telaEntrada` virava um bloco sem posição no fim do `<body>`, debaixo da
+  // camada fixa do wallpaper: invisível e inclicável, sem um erro sequer.
+  //
+  // O custo real da folha, medido em vez de suposto, é uma requisição de 3 kB
+  // ao MESMO origin, e ela é inerte nos outros dois papéis (todo seletor está
+  // sob `#telaEntrada`, que só esta casca cria). O custo do `<style>` era o
+  // recurso não funcionar.
+  //
+  // **A regra que fica, e ela é do papel `tela` inteiro: nas telas da rede não
+  // existe estilo embutido.** `element.style.x = y` (CSSOM) continua valendo —
+  // a CSP não o barra —, mas `<style>` criado em runtime e atributo `style=`
+  // dentro de HTML injetado, não. O irmão deste defeito era o indicador de
+  // espera do `shared/stage.js`, achado na mesma varredura e corrigido junto.
 
 
   function montarEntrada() {

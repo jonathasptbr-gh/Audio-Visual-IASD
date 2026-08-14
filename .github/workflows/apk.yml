@@ -208,6 +208,17 @@ jobs:
           # o adeus que não martela. Teste fora do workflow é documentação —
           # a lição da v5.145 (três testes escritos e ligados em lugar nenhum).
           PW_CHROMIUM="" node tools/tela-rede.test.mjs
+          # E O REGISTRO — o único artefato do app cujo consumidor é um HUMANO A
+          # DISTÂNCIA. Todo o resto falha na frente de quem pode ver; ele falha
+          # CONTINUANDO A RESPONDER, com uma frase errada, e quem a lê vai
+          # investigar o que ela diz. Nenhum teste o carregava até a v5.206, e
+          # foi por aí que passaram três defeitos ao mesmo tempo: o `ritmo`
+          # zerado imprimindo "ALARME: ISTO É UM RETÂNGULO PRETO" em todo culto,
+          # toda tela conectada sendo acusada de rodar "bundle antigo", e um
+          # "modo: imagem (JPEG)" de um modo removido dez versões antes. Os três
+          # têm a mesma forma — um consumidor que sobreviveu ao produtor lê o
+          # valor ausente como se fosse resposta.
+          PW_CHROMIUM="" node tools/registro.test.mjs
 
       - name: Empacotar a base web
         run: |

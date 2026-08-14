@@ -149,6 +149,31 @@ class NativeBridge(
          * exijam mais do que o shell instalado oferece (ver [WebUpdater]).
          * Subir SEMPRE que a superfície da ponte mudar.
          *
+         * 40 (v5.206) — A LIMPEZA QUE A v5.187 DEIXOU PELA METADE, e ela é um
+         * ENCOLHIMENTO em duas formas de retorno:
+         *
+         * • `espelhoDiag` **perdeu `ritmo`**. O objeto continuava saindo depois
+         *   que o produtor dele morreu com o encoder H.264 — zerado —, e o lado
+         *   web lia `kbps < 40` como "isto é um retângulo preto". Num culto
+         *   normal (transmissão ligada, vídeo tocando, cortina aberta) o
+         *   Registro imprimia **ALARME: ISTO É UM RETÂNGULO PRETO**, no
+         *   artefato que existe para ser copiado e repassado. Saíram junto os
+         *   fatos estruturados (`fato()`), que não tinham produtor desde a
+         *   mesma versão.
+         * • `espelhoEstado` **perdeu `modo`**. Ele era o seletor imagem × vídeo
+         *   do espelho de pixels, removido na v5.156; desde então viajava com
+         *   o valor `"comandos"`, que o consumidor comparava com `'video'` e
+         *   desenhava como **"modo: imagem (JPEG)"**.
+         *
+         * **Por que isto é um degrau de verdade e não uma faxina:** a v5.187 já
+         * declarou que forma mudada é superfície mudada, e o preço de não subir
+         * aqui seria um bundle antigo continuar desenhando as duas linhas
+         * falsas num shell que parou de mandá-las. E fica a lição, que vale
+         * para a próxima aposentadoria: **apagar o produtor de um campo e
+         * deixar o consumidor de pé não produz silêncio — produz um zero, e
+         * zero é um valor legítimo que o consumidor interpreta.** Remoção de
+         * recurso é remoção dos dois lados do fio, no mesmo lote.
+         *
          * 39 (v5.192) — `temaClaro`, o TEMA CLARO. A cor de tudo é decidida
          * pelo CSS e chega por OTA; o método existe pelas duas coisas que uma
          * folha de estilo não alcança — os ÍCONES das barras de sistema (que o
@@ -221,7 +246,7 @@ class NativeBridge(
          * novo NÃO chega por OTA, e um botão que não faz nada no meio de um
          * culto é pior que botão nenhum (a mesma regra do `appendYoutubeSearch`).
          */
-        const val SHELL_VERSION = 39
+        const val SHELL_VERSION = 40
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —

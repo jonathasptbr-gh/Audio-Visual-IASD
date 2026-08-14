@@ -76,9 +76,9 @@ const ponteCom = (espelho, telas) => `(() => {
     'espelhoEstado','espelhoDiag','espelhoCertEstado','espelhoCertImportar','espelhoCertApagar',
     'apkProcurar','apkInstalar','otaPending','otaApply','otaCheck','otaDiag','ytDiag']);
   const B = {
-    shellVersion: () => 39,
+    shellVersion: () => 40,
     role: () => 'controle',
-    appVersion: () => '1.90-teste',
+    appVersion: () => '1.93-teste',
     takeShare: () => '',
     busPost: () => {},
     otaConfirm: () => {},

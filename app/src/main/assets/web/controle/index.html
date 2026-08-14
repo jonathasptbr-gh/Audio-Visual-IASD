@@ -163,12 +163,19 @@
            ajuste, e dois `createStage` decodificariam o mesmo vídeo duas vezes
            num aparelho que já roda dois WebViews.
            Vazio no HTML de propósito: quem o preenche é o `hostPreview`. -->
-      <!-- SEM TELA, A CONEXÃO OCUPA A CÉLULA DA PREVIEW (e a faixa vira uma
-           coluna, então ela sai com a largura inteira). Ela esteve NO TOPO na
-           v5.201, acima da letra, e desceu na v5.202: a parte de cima é da
-           LETRA, que é o que se lê durante o louvor — a conexão continua sendo
-           a primeira coisa da zona de operar, logo acima da busca e do teclado,
-           e some por inteiro assim que há tela.
+      <!-- SEM TELA, A CONEXÃO OCUPA A CÉLULA DA PREVIEW — e, com a cortina de
+           volta (v5.203), a faixa inteira é IÇADA para o centro vertical da
+           tela: a preview e a busca somem, a grade vira uma coluna só, e o que
+           sobra é o cartão de conexão em cima do vidro fosco. Ver
+           `.simple.sem-tela .simple-actions`, que é quem manda aqui.
+
+           A ordem das versões, porque ela se inverteu duas vezes: v5.201 pôs a
+           conexão NO TOPO (acima da letra); a v5.202 a desceu para a zona de
+           baixo, no fluxo; a v5.203 trouxe a cortina de volta e, com ela, o
+           içamento para o centro — que é o estado atual. Esta última troca não
+           foi anotada aqui na época, e o comentário ficou descrevendo por três
+           versões um layout no fluxo que o CSS já não desenhava.
+
            Vazio no HTML de propósito — quem o preenche é `hostCastConn()`. -->
       <div class="simple-conn" id="simpleConn" hidden></div>
       <div class="simple-stage" id="simpleStage"></div>
@@ -507,7 +514,7 @@
                mais — ver setupPreviewGestures), com uma exceção: ficam ocultos
                em TELA CHEIA, que é o que vai ao telão quando não há TV
                conectada — um botão sobreposto seria projetado junto. -->
-          <div class="pv-fabs" id="pvFabs">
+          <div class="pv-fabs">
             <button id="pvCastBtn" class="pv-fab" title="Espelhar na TV" hidden>
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M3 19a2 2 0 0 1 2 2"/>
@@ -762,7 +769,7 @@
           <!-- "Padrão" primeiro (v5.188): o estado de partida fica à esquerda
                e a ação que escolhe uma imagem à direita — a mesma leitura
                esquerda→direita dos demais segmentados. -->
-          <div class="fit-seg" id="wallSeg">
+          <div class="fit-seg">
             <button type="button" class="fit-opt" id="wallReset">Padrão</button>
             <label class="fit-opt" id="wallPick">Escolher imagem
               <input id="wallFile" type="file" accept="image/*" hidden>
@@ -819,7 +826,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.205</span>
+        <span id="appVersion" class="app-version">Controle v5.206</span>
         <!-- O APK NOVO, quando existir. Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso. `hidden`
@@ -907,9 +914,13 @@
 
         <p class="mirror-lead" id="castMsg" role="status" aria-live="polite"></p>
 
-        <!-- O ENDEREÇO E O CÓDIGO — as duas coisas que a tela precisa, nesta
-             ordem, porque é a ordem em que são usadas: digita-se o endereço no
-             navegador, e o código no campo que aparece lá.
+        <!-- O ENDEREÇO — a única coisa que a tela precisa.
+
+             (O "E O CÓDIGO" saiu do texto na v5.206, tarde: o código de três
+             dígitos foi removido na v5.189, quando a porta passou a ser o
+             ENDEREÇO deste aparelho na rede. O comentário continuou prometendo
+             "digita-se o endereço no navegador, e o código no campo que aparece
+             lá" — um campo que a tela da rede não desenha há dezessete versões.)
 
              UM ENDEREÇO SÓ (v5.185). `av.local` saiu junto com o responder
              mDNS: ele não resolvia no Chrome do Android nem na maioria das
@@ -944,9 +955,9 @@
        • um parágrafo de ressalvas — que continua existindo, em UMA linha, na
          própria folha de conexão;
        • o botão "Ligar/Desligar o espelho" — o MESMO estado que o interruptor
-         "Transmitir pela rede", a dois centímetros dali, na folha de onde esta
-         era aberta. Dois controles para um estado é a forma mais direta de
-         eles discordarem;
+         "Transmitir para navegador", a dois centímetros dali, na folha de onde
+         esta era aberta. Dois controles para um estado é a forma mais direta
+         de eles discordarem;
        • o certificado TLS (.p12), um degrau opcional que exige do operador um
          subdomínio com wildcard por DNS-01, uma entrada estática de DNS no
          roteador da igreja e renovação automática — três coisas que o app não

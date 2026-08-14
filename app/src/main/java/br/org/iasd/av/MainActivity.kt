@@ -1317,10 +1317,12 @@ class MainActivity : ComponentActivity(), BridgeHost {
             // por este servidor e renderizam localmente — o que atravessa a
             // rede são COMANDOS. [modo] segue IGNORADO (a assinatura da ponte
             // fica; quem chama já não escolhe nada).
-            espelhoDiag.novaSessao()
+            //
+            // (Saiu na v5.206: `espelhoDiag.novaSessao()`. Ela zerava a âncora
+            // do atraso captura→fio do anel de `ritmo`, e aquele anel morreu com
+            // o encoder que o alimentava — ver o KDoc do [EspelhoDiag].)
             espelhoDiag.registrar("transmissao por comandos ligada em " + endereco)
             espelhoSrv = srv
-            espelhoModo = "comandos"
             // O TAP DA LAN (telão por comandos, E2): todo comando que o web
             // relaya por busPost passa a sair também no SSE das telas de
             // comandos. Escuro enquanto nenhuma tela abre o GET /e.
@@ -1398,13 +1400,20 @@ class MainActivity : ComponentActivity(), BridgeHost {
         val ligado = espelhoSrv?.ligado == true
         return JSONObject()
             .put("ligado", ligado)
-            .put("modo", espelhoModo)
             .put("endereco", srv?.optString("url") ?: "")
             // (Saiu na v5.189: `codigo`. A porta é o ENDEREÇO — ver a
             // invariante 5 do [EspelhoPares]. O `SHELL_VERSION` sobe por isso:
             // um bundle antigo leria `codigo` vazio e desenharia um campo de
             // três dígitos que o servidor não exige mais, mandando o operador
             // ditar um número que não existe.)
+            //
+            // (Saiu na v5.206: `modo`. Ele era o seletor imagem × vídeo do
+            // espelho de pixels, removido na v5.156 — desde então o campo
+            // viajava com o valor `"comandos"`, e o `blocoEspelho` do lado web
+            // o comparava com `'video'` e imprimia **"modo: imagem (JPEG)"** no
+            // Registro. Um campo mantido "por compatibilidade" depois que o
+            // recurso saiu não é compatibilidade: é uma resposta errada com
+            // aparência de resposta.)
             .put("erro", erro)
             .put("telas", srv?.optJSONArray("telas") ?: JSONArray())
     }
@@ -1414,10 +1423,17 @@ class MainActivity : ComponentActivity(), BridgeHost {
     }
 
     /**
-     * O diagnóstico inteiro, JUNTADO aqui: o anel do `EspelhoDisplay` (tela
-     * virtual, viewport, encoder, readback, ritmo) mais o que só o servidor sabe
-     * e o que só o serviço sabe. Cada um devolve DADO; quem escreve as frases é
-     * o `blocoEspelho` do `controle.js`.
+     * O diagnóstico inteiro, JUNTADO aqui: o **diário** do [EspelhoDiag] mais o
+     * que só o servidor sabe (endereço, sessões, telas, cache de mídia) e o que
+     * só a proteção sabe (wake lock, Wi-Fi lock, térmica). Cada um devolve DADO;
+     * quem escreve as frases é o `blocoEspelho` do `controle.js`.
+     *
+     * O KDoc anterior descrevia "o anel do `EspelhoDisplay` (tela virtual,
+     * viewport, encoder, readback, ritmo)" — cinco fontes que morreram com o
+     * espelho de pixels na v5.187, num arquivo que não existe mais. A parte
+     * `ritmo` daquela lista não era só documentação velha: ela continuou sendo
+     * PUBLICADA, zerada, e o lado web a lia como alarme. Ver o KDoc do
+     * [EspelhoDiag].
      */
     override fun mirrorDiag(onResult: (JSONObject) -> Unit) {
         runOnUiThread {
@@ -1692,9 +1708,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
             cache = { espelhoMidia },
             registrar = { linha -> espelhoDiag.registrar(linha) },
         )
-
-        @Volatile
-        private var espelhoModo = ""
 
         /**
          * Cache de [castCandidates] — no companion porque a informação é do

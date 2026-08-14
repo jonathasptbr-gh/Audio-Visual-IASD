@@ -209,7 +209,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.205';
+const WEB_VERSION = '5.206';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -1284,33 +1284,26 @@ function loadYtPreviewApi() {
 let ytPreview = null; // { mediaId, player }
 let ytPreviewSeq = 0;
 
-// Rampa curta de volume do player da preview do YouTube, usada ao ligar/
-// desligar a "mesa de som" — evita o corte abrupto de áudio. Reusa o mesmo
-// passo-a-passo/duração do stage.js (createStage.rampSteps/MUTE_RAMP_TIME),
-// fonte única compartilhada pelos três sinks de áudio do sistema.
-const MUTE_RAMP_TIME = createStage.MUTE_RAMP_TIME;
-let ytPreviewRampTimer = null;
-// Aplica o mudo real ao FIM da rampa de descida (mesmo papel do muteApplyTimer
-// do stage.js e do yt.muteApplyTimer do Display).
-let ytPreviewMuteApplyTimer = null;
-function ytPreviewRampVolume(from, to, dur) {
-  clearInterval(ytPreviewRampTimer);
-  const p = ytPreview && ytPreview.player;
-  if (!p) return;
-  try { p.setVolume(Math.round(Math.min(1, Math.max(0, from)) * 100)); } catch (_) {}
-  ytPreviewRampTimer = createStage.rampSteps(from, to, dur, (v) => {
-    try { if (ytPreview && ytPreview.player) ytPreview.player.setVolume(Math.round(v * 100)); } catch (_) {}
-  });
-}
-
+// (SAIU NA v5.206: a RAMPA DE VOLUME do player da preview do YouTube —
+//  `MUTE_RAMP_TIME`, `ytPreviewRampTimer`, `ytPreviewMuteApplyTimer` e
+//  `ytPreviewRampVolume`.)
+//
+//  Ela existia para um lugar só: ligar e desligar a "mesa de som", o modo em
+//  que o celular ERA a caixa de som, e que saiu na v5.189 a pedido do operador
+//  (o som é dos DISPLAYS — a TV pela `Presentation`, as telas da rede pelo
+//  `<video>` delas). Desde então a preview é MUDA por construção, e uma rampa
+//  de volume para um player sem volume não tinha como ser notada errada.
+//
+//  O comentário que morava aqui ainda falava dos "três sinks de áudio do
+//  sistema"; são dois desde aquela versão. O `dropYtPreview` abaixo também
+//  limpava os dois temporizadores — defensivamente, contra um armador que
+//  deixou de existir.
 function dropYtPreview() {
   if (ytPreview) {
     clearInterval(ytPreview.qualityTimer);
     clearInterval(ytPreview.tickTimer);
     if (ytPreview.player) { try { ytPreview.player.destroy(); } catch (_) {} }
   }
-  clearInterval(ytPreviewRampTimer);
-  clearTimeout(ytPreviewMuteApplyTimer);
   ytPreview = null;
   pvYoutubeEl.hidden = true;
   pvYoutubeEl.innerHTML = '';
@@ -1405,15 +1398,17 @@ function startYtPreviewTick(cur) {
 // `authoritativeTime()`).
 // ===== O atraso da preview (ver `cmd`) =====
 //
-// Ele NÃO é chutado: cada tela da rede relata a própria folga do cursor
-// (`vivo.vfim`, em ms — ver `linhasDaTela`), que é literalmente o quanto ela
-// está atrás da projeção. A mediana das telas conectadas é o número que o
-// operador vê na sala.
+// **HOJE ELE É SEMPRE ZERO, e os três limites abaixo são a rede de segurança de
+// um caminho que nenhuma tela alcança mais** — ver `recalcularAtrasoPreview`.
+// O mecanismo existia para o espelho de PIXELS: lá cada tela relatava a própria
+// folga de cursor (`vivo.vfim`) e a preview era atrasada pela mediana delas,
+// para não responder antes da sala. Uma tela de COMANDOS aplica o comando no
+// ato, e o único produtor daquele relato (`espelho/cliente.js`) saiu na v5.187.
 //
-// Os limites existem porque este valor vira uma espera na tela do operador: um
-// relato absurdo (tela reconectando, medida ainda não formada) não pode
-// congelar a preview por dez segundos. Sem relato nenhum vale o PADRÃO, que é
-// a soma típica da folga adaptativa com o desvio A/V.
+// A fila fica porque ela é o funil único de `cmd()` e custa zero com o atraso
+// em zero (drena no mesmo passo); os limites ficam porque, se um dia voltar a
+// existir uma tela que atrase, é aqui que o número entra — e um relato absurdo
+// não pode congelar a preview por dez segundos.
 const PREV_ATRASO_MIN = 300;
 const PREV_ATRASO_MAX = 2500;
 const PREV_ATRASO_PADRAO = 1200;
@@ -11080,7 +11075,7 @@ function pintarPvBusyCancelar() {
 
 function previewBusy(acao, nome, aoCancelar) {
   // No simplificado a preview só está na tela com um telão conectado (ver
-  // hostPreview/`.simple.locked`); bloqueado, quem avisa continua sendo o
+  // hostPreview/`.simple.sem-tela`); bloqueado, quem avisa continua sendo o
   // toast — é por isso que o chamador precisa saber.
   if (appMode === 'simple' && !simpleDisplay()) return { visivel: false, atualizar: () => {}, soltar: () => {} };
   pvBusyCount++;
@@ -11327,176 +11322,31 @@ function mirrorDur(ms) {
   return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60) + ' min';
 }
 
-// Os cinco vereditos da sonda em frase — a tabela §7.4 da especificação. O
-// Kotlin manda o NOME do enum; traduzir aqui é o mesmo princípio de todo o
-// resto do bloco, e é o que permite mudar a frase sem tocar no shell.
-const MIRROR_VEREDITO = {
-  OK: 'OK — o vídeo aparece',
-  OK_ESCURO: 'OK, porém ESCURO (as cores da rede saem mais escuras que o telão)',
-  VIDEO_PRETO: 'VÍDEO SAI PRETO',
-  TUDO_PRETO: 'TELA INTEIRA PRETA — a composição não chega',
-  SEM_QUADRO: 'NENHUM QUADRO EM 5 s',
-  INDEFINIDO: 'INDEFINIDO — mediu algo fora dos casos catalogados',
-};
 // `PowerManager.THERMAL_STATUS_*` por índice.
 const MIRROR_TERMICA = ['NONE', 'LIGHT', 'MODERATE', 'SEVERE', 'CRITICAL', 'EMERGENCY', 'SHUTDOWN'];
 
-// O SOM DE UMA TELA, em uma frase.
-//
-// São DOIS fatos independentes, e cada combinação é um estado diferente com uma
-// saída diferente — deixá-los crus ("torneira:nao faixa:nao") obrigava a leitura
-// a ser feita de cabeça, e no primeiro culto de teste `torneira:nao`, que quer
-// dizer "ninguém tocou naquela tela", foi lido como "o celular não está
-// enviando som".
-//
-//  · `audio` (torneira) é o que o SERVIDOR abriu para aquela tela, e ele só
-//    abre quando ela pede — o que só acontece no toque do visitante, porque as
-//    telas nascem mudas por decisão (§3.11, invariante 10);
-//  · `som` (faixa) é o que o CLIENTE de fato conseguiu montar.
-//
-// A discordância entre os dois é o defeito; a concordância em "não" é apenas
-// uma tela que ninguém pediu para ouvir.
-function somDaTela(c) {
-  if (!c.audio && !c.som) return 'som: não pedido (ninguém tocou naquela tela)';
-  if (c.audio && !c.som) return 'som: PEDIDO e a faixa não nasceu';
-  if (!c.audio && c.som) return 'som: faixa montada sem a torneira aberta (?)';
-  return 'som: tocando';
-}
+// (SAIU NA v5.206, com o resto do consumo do espelho de pixels: `MIRROR_VEREDITO`
+//  — os cinco vereditos da SONDA, um instrumento cujo produtor (`SondaClipe`) e
+//  cuja página (`sonda.html`) foram apagados na v5.187. A tabela ficou dezenove
+//  versões traduzindo um enum que ninguém mais emite.)
 
-// O `readyState` de um `<video>` em palavra. Os números são da spec e ninguém
-// os decora; e a diferença entre 2 e 4 é exatamente a diferença entre "sem
-// dado" e "tocando com folga", que é a pergunta.
-const MIRROR_RS = ['SEM DADO', 'so metadados', 'SEM DADO ADIANTE', 'tem o proximo', 'tem folga'];
-// E o `networkState`, que a tela media e o servidor transportava desde a v5.156
-// sem NINGUÉM o desenhar (v5.180). Ele é a outra metade da pergunta: `rs` diz
-// quanto dado o elemento tem, `ns` diz se ele ainda está ligado numa fonte.
-// `SEM FONTE` com `rs` em `SEM DADO` é a `MediaSource` que nunca foi anexada ou
-// que já se desprendeu — outro defeito, e outra correção, que "faminto".
-const MIRROR_NS = ['vazio', 'ocioso', 'buscando', 'SEM FONTE'];
-
-/**
- * O QUE A TELA MEDIU DE SI, em duas ou três linhas.
- *
- * Cada número aqui separa dois desfechos com correções DIFERENTES — é a mesma
- * régua do resto do bloco —, e nenhum deles existe do lado do servidor:
- *
- *  · `folga` NEGATIVA em qualquer faixa é o cursor fora do buffer, isto é, a
- *    MSE sem dado para tocar: a tela congela **sem erro nenhum**. Foi este o
- *    defeito da v5.155, e este é o número que o teria mostrado no primeiro
- *    minuto em vez de na terceira rodada.
- *  · `perdidos` (quadros descartados pelo decodificador) é o único número que
- *    diz "este aparelho não dá conta" em vez de "a rede está ruim" — rede ruim
- *    atrasa, não descarta quadro já decodificado.
- *  · `estado` baixo com imagem parada é fonte; alto com imagem parada é
- *    decodificador.
- *  · `vel` colada em 108% o tempo todo é uma tela que nunca alcança a borda.
- *
- * Toda linha é opcional, como o resto: uma tela com bundle antigo não manda
- * `vivo`, e a resposta certa é não desenhar — nunca "undefined" num log que vai
- * ser copiado e repassado.
- */
-function linhasDaTela(v) {
-  if (!v || typeof v !== 'object') {
-    return ['(esta tela ainda nao relatou medidas — bundle antigo, ou o primeiro `alive` nao chegou)'];
-  }
-  const out = [];
-  const sinal = (n) => ((n | 0) >= 0 ? '+' : '') + (n | 0) + ' ms';
-  const folgaV = v.vfim === -99999 ? 'sem faixa' : sinal(v.vfim);
-  const folgaA = v.afim === -99999 ? 'sem faixa' : sinal(v.afim);
-  // O ALARME VEM PRIMEIRO, e ele é o motivo desta função existir.
-  const seco = (v.vfim !== -99999 && (v.vfim | 0) < 0) || (v.afim !== -99999 && (v.afim | 0) < 0);
-  // OS BLOCOS DO BUFFER, quando há mais de um. Um `buffered` partido é a
-  // diferença entre "a tela está atrasada" e "a tela está PARADA num buraco", e
-  // as duas têm correções opostas. Só aparece quando diz alguma coisa.
-  const partido = ((v.nr | 0) > 1) || ((v.na | 0) > 1);
-  out.push('folga do cursor: video ' + folgaV + ' · som ' + folgaA
-    + ' · janela ' + Math.round((v.jan | 0) / 100) / 10 + ' s'
-    + (partido ? ' · buffer PARTIDO em ' + (v.nr | 0)
-      + ((v.na | 0) > 0 ? '/' + (v.na | 0) : '') + ' bloco(s)' : '')
-    + (seco ? '  ← CURSOR FORA DO BUFFER: a tela congela sem erro' : ''));
-  const perdidos = (v.dq | 0) >= 0 && (v.tq | 0) > 0
-    ? (v.dq | 0) + '/' + (v.tq | 0)
-      + ' (' + Math.round((v.dq | 0) * 1000 / (v.tq | 0)) / 10 + '%)'
-    : 'nao informado';
-  out.push('decodificador: ' + perdidos + ' perdido(s)'
-    + ' · estado ' + (MIRROR_RS[v.rs | 0] || v.rs)
-    // `-1` é "esta tela não informou" (shell/bundle anterior): a linha some, em
-    // vez de escrever um "-1" que não quer dizer nada — é a regra do bloco.
-    + ((v.ns | 0) >= 0 ? ' · fonte ' + (MIRROR_NS[v.ns | 0] || (v.ns | 0)) : '')
-    + ' · vel ' + (v.rate | 0) + '%'
-    + ' · fila de append ' + (v.fila | 0));
-  out.push('recebeu: ' + (v.q | 0) + ' quadro(s), ' + (v.qa | 0) + ' de som'
-    + ' · ' + Math.round((v.kb | 0) / 102.4) / 10 + ' MB'
-    + ' · ' + (v.rec | 0) + ' reconexao(oes)'
-    // Os três tetos internos do cliente. Batido qualquer um, ele desiste de
-    // algo em silêncio — e agora o Registro diz qual.
-    + (v.reb ? ' · ' + v.reb + ' remontagem(ns) de som' : '')
-    + (v.cota ? ' · ' + v.cota + ' estouro(s) de cota' : '')
-    + (v.rr ? ' · ' + v.rr + ' recusa(s) seguida(s) do decodificador' : ''));
-  if (v.cod || v.vid) {
-    out.push('codec: ' + (v.cod || '?')
-      + ' · video ' + (v.vid || '?') + ' numa tela de ' + (v.tela || '?'));
-  }
-  // O PIOR CASO — e é a única linha aqui que não é uma fotografia.
-  //
-  // Tudo acima vale para o instante em que o relato saiu, e essa é justamente a
-  // razão de o primeiro log de culto ter chegado SAUDÁVEL: quem o mandou não
-  // estava travando naquele milissegundo. Estas medidas acumulam entre relatos
-  // e só zeram numa descontinuidade do próprio cliente (o salto de recuperação
-  // e a reconexão), então o que sobra nelas é o que o operador de fato viu.
-  //
-  // `pq` é o intervalo entre quadros APRESENTADOS, que é a definição exata de
-  // "congelou". `pc` é o cursor parado — mais grosso (amostra de 500 ms), e o
-  // que sobra num navegador sem `requestVideoFrameCallback`.
-  const temPior = v.pq != null || v.pc != null;
-  if (temPior) {
-    const pq = v.pq == null ? -1 : v.pq | 0;
-    const pc = v.pc | 0;
-    const nq = v.nq | 0;
-    const seg = (n) => Math.round(n / 100) / 10 + ' s';
-    const partes = [];
-    partes.push(pq < 0
-      ? 'maior parada de imagem: nao medida (este navegador nao traz o relogio de quadro)'
-      : 'maior parada de imagem: ' + seg(pq));
-    if (nq) partes.push(nq + ' parada(s) acima de 1 s');
-    if (pc) partes.push('cursor parado por ate ' + seg(pc));
-    out.push(partes.join(' · ')
-      + (pq >= 2000 || pc >= 2000 ? '  ← TRAVAMENTO CONFIRMADO deste lado' : ''));
-    // E a menor folga já vista, que é o que ANTECEDE o congelamento: `vfim`
-    // acima pode estar confortável agora e ter chegado a zero há dez segundos.
-    if (v.pv != null && (v.pv | 0) !== -99999) {
-      // `-99999` é AUSÊNCIA de faixa, não folga negativa. Sem essa ressalva,
-      // toda tela muda (a maioria delas, e toda tela que perdeu o som) saía do
-      // Registro com "← chegou a secar" — um alarme falso em cima do log que o
-      // operador usa justamente para separar alarme de ruído.
-      const temA = v.pa != null && (v.pa | 0) !== -99999;
-      out.push('menor folga ja vista: video ' + sinal(v.pv)
-        + (temA ? ' · som ' + sinal(v.pa) : '')
-        + (((v.pv | 0) < 0 || (temA && (v.pa | 0) < 0)) ? '  ← chegou a secar' : ''));
-    }
-    // O TOTAL DA SESSÃO, e é ele que responde a pergunta do operador com um
-    // número. As duas recuperações vão separadas porque têm causas diferentes:
-    // `enc` é o cursor fora do buffer (o congelamento em estado puro, que até a
-    // v5.157 só saía sete segundos depois, pelo `sal`).
-    if (v.tn != null && ((v.tn | 0) || (v.sal | 0) || (v.enc | 0))) {
-      const bits = [];
-      if (v.tn | 0) {
-        bits.push((v.tn | 0) + ' parada(s) na sessao, '
-          + Math.round((v.tt | 0) / 100) / 10 + ' s no total');
-      }
-      if (v.enc | 0) bits.push((v.enc | 0) + ' encalhe(s) do cursor');
-      if (v.sal | 0) bits.push((v.sal | 0) + ' salto(s) de recuperacao');
-      // SEGUIDAS: zera no primeiro corte bem-sucedido. O número acumulado
-      // marcava 46 numa sessão saudável só pelo transitório de partida.
-      if (v.pod | 0) bits.push((v.pod | 0) + ' poda(s) seguidas sem quadro-chave');
-      out.push('total: ' + bits.join(' · '));
-    }
-  }
-  // O `MediaError` do elemento, que é onde mora a frase do demuxer do Chromium
-  // — e que ninguém leria, porque ninguém abre console numa TV.
-  if (v.err) out.push('erro de midia: ' + v.err);
-  return out;
-}
+// (SAIU NA v5.206: `somDaTela`, `MIRROR_RS`, `MIRROR_NS` e `linhasDaTela` — as
+//  ~155 linhas que traduziam o AUTORRELATO de uma tela do espelho de PIXELS.
+//
+//  Quem produzia aquele objeto (`c.vivo`) era o `espelho/cliente.js`, apagado
+//  na v5.187. Uma tela de comandos publica hoje `rotulo`, `conectadaMs`,
+//  `telaAcesaMin`, `aviso`, `eventos`, `pronta` e `fila`, e mais nada — não há
+//  `buffered`, nem `readyState`, nem quadros descartados, porque não há MSE:
+//  a tela toca o arquivo local que buscou em `/m/<token>`.
+//
+//  E isto NÃO era inerte. `linhasDaTela(undefined)` devolvia a frase
+//  "(esta tela ainda nao relatou medidas — bundle antigo, ou o primeiro `alive`
+//  nao chegou)", então TODA tela conectada saía do Registro acusada de rodar um
+//  bundle velho — no artefato que o operador copia e repassa quando algo não
+//  conecta, mandando-o investigar a versão da tela por um recurso que o app
+//  removeu. É o mesmo defeito do `ritmo` zerado, pela outra ponta: o consumidor
+//  ficou de pé depois que o produtor morreu, e o valor ausente virou uma
+//  resposta em vez de silêncio.)
 
 function blocoEspelho(d) {
   if (!d || typeof d !== 'object') return '';
@@ -11518,234 +11368,75 @@ function blocoEspelho(d) {
   } else {
     l.push('servidor: desligado');
   }
-  const t = d.telaVirtual;
-  if (t) {
-    l.push('tela virtual: ' + t.larg + 'x' + t.alt + ' @ ' + t.dpi + ' dpi'
-      + ' · flags=' + (t.flags | 0)
-      + ' · privada: ' + (t.privada ? 'SIM' : 'NÃO')
-      // O nome do campo já diz que é DERIVADO, e a frase repete: não existe
-      // getter público de FLAG_NEVER_BLANK, então isto é dedução de não termos
-      // passado PUBLIC — não é leitura. Um Registro que afirma o que ninguém
-      // mediu é pior que um que se cala.
-      + ' · NEVER_BLANK (derivado): ' + (t.neverBlankDerivado ? 'SIM' : 'NÃO')
-      + (t.id != null ? ' · id ' + t.id : ''));
-  }
-  const vp = d.viewport;
-  if (vp) {
-    // OS DOIS NÚMEROS, sempre — é a promessa do recurso ("o espelho desenha no
-    // MESMO viewport CSS que a TV") virando leitura em vez de fé. 213 dpi dá
-    // 961,5 px CSS para um alvo de 960: meio ponto percentual, que não muda uma
-    // quebra de linha. Identidade de pixel não é prometida, e por isso os dois
-    // aparecem.
-    l.push('viewport do espelho: ' + (vp.cssExato != null ? vp.cssExato : vp.css) + ' px CSS'
-      + ' (alvo: ' + vp.alvo + ' — a TV desenha assim)');
-  }
-  if (d.modo) l.push('modo: ' + (d.modo === 'video' ? 'vídeo (H.264)' : 'imagem (JPEG)'));
-  // A JANELA DO ESPELHO, perguntada em vez de deduzida. O §7.5 fazia isso pelo
-  // BITRATE cruzado com a cena — inferência que erra nos dois sentidos: uma
-  // cena legitimamente escura passa por janela morta, e uma janela morta sobre
-  // um wallpaper claro passa por cena. Aqui é leitura direta, e é o estado que
-  // produz "H.264 impecável de um retângulo preto".
-  const jan = d.janela;
-  if (jan) {
-    const viva = jan.existe && jan.mostrando && jan.web;
-    l.push('janela do espelho: ' + (viva ? 'de pé' : 'MORTA — o encoder está codificando um retângulo preto')
-      + ' (existe:' + (jan.existe ? 'sim' : 'nao')
-      + ' mostrando:' + (jan.mostrando ? 'sim' : 'nao')
-      + ' webview:' + (jan.web ? 'sim' : 'nao')
-      + ' activity:' + (jan.dono ? 'sim' : 'nao') + ')'
-      + (jan.mortesDoRenderer ? ' · ' + jan.mortesDoRenderer + ' morte(s) de renderer' : ''));
-  }
-  const r = d.readback;
-  if (r) {
-    // O RGB MEDIDO SEMPRE, nunca só o veredito: há aparelho conhecido que
-    // devolve a imagem escurecida, e uma comparação exata imprimiria "TELA
-    // INTEIRA PRETA" — um diagnóstico falso, que manda o próximo leitor caçar
-    // um defeito que não existe.
-    l.push('readback: ' + (MIRROR_VEREDITO[r.veredito] || r.veredito || '?')
-      + ' — fundo ' + r.fora + ' · vídeo ' + r.dentro
-      + ' · preto ' + r.preto + ' · branco ' + r.branco
-      + (r.pixelCopy ? ' · PixelCopy ' + r.pixelCopy : '')
-      + (r.nota ? ' · ' + r.nota : ''));
-  }
-  const enc = d.encoder;
-  if (enc) {
-    // PERFIL E NÍVEL são do FORNECEDOR — nada os pede (armadilha 6 do
-    // `EspelhoCodec`) —, e é por isso que eles precisam ser LIDOS: "esta TV não
-    // decodifica o fluxo" e "esta TV não decodifica ESTE PERFIL" são a mesma
-    // tela preta, e só este número as separa. Cruzam com o `codec:` que a tela
-    // relata, que diz a mesma coisa pelo outro lado do fio.
-    l.push('encoder: ' + (enc.nome || '?')
-      + (enc.maxInstancias ? ' · instâncias máx: ' + enc.maxInstancias : '')
-      + (enc.perfil ? ' · perfil ' + enc.perfil + '/nível ' + (enc.nivel | 0) : '')
-      + (enc.bitrateAlvo ? ' · alvo ' + Math.round(enc.bitrateAlvo / 1000) + ' kbps' : '')
-      + (enc.fpsMedido != null ? ' · ' + enc.fpsMedido + ' fps na saída' : '')
-      + ' · reclaims: ' + (enc.reclaims | 0));
-  }
-  const ritmo = d.ritmo;
-  if (ritmo && d.ligado) {
-    // O ÚNICO detector de "a janela do espelho morreu e o encoder continuou":
-    // H.264 impecável de um retângulo preto, com todos os contadores subindo e
-    // nenhuma exceção em lugar nenhum. Ele só ACUSA com vídeo tocando e cortina
-    // aberta — durante uma oração com a cortina fechada e um louvor pausado
-    // atrás, um detector ingênuo denunciaria uma falha que não existe, no
-    // Registro, com botão de copiar, para ser repassado.
-    // O TERMO DO fps SAIU, e a razão é que ele deixou de significar o que
-    // significava: o batimento do papel espelho passou de 1 Hz para 8 Hz
-    // (v5.144), então uma cena PARADA agora marca ~8 fps e a condição
-    // `fps <= 1.2` nunca mais seria verdadeira — o alarme morreria calado, que
-    // é o pior desfecho para um detector. Quem sobrou é o bitrate, e ele
-    // sozinho separa os dois casos com folga de uma ordem de grandeza: um
-    // retângulo preto só produz P-frames de macrobloco `skip` (dezenas a
-    // poucas centenas de bytes) e quadros-chave de uma tela preta, o que dá
-    // algo abaixo de 30 kbps; qualquer coisa de verdade em cena — até um
-    // wallpaper parado, medido em 156 kbps no aparelho — fica muito acima.
-    const parado = (ritmo.kbps | 0) < 40;
-    const acusa = parado && cenaComVideoAberto();
-    l.push('ritmo: ' + (ritmo.kbps | 0) + ' kbps · ' + (ritmo.fps || 0) + ' fps'
-      + ' (' + Math.round((ritmo.janelaMs || 0) / 1000) + ' s)'
-      + ' · cena "' + (npNameInnerEl ? (npNameInnerEl.textContent || '—') : '—') + '"'
-      + ' — ' + (acusa
-        ? 'ALARME: ISTO É UM RETÂNGULO PRETO'
-        : (parado ? 'imagem parada, normal' : 'conteúdo se movendo')));
-    // A CADÊNCIA, numa linha própria e inteiramente opcional (shell antigo não
-    // manda estes campos e a linha não aparece — nunca "undefined" num log que
-    // vai ser copiado e repassado). Ela existe para a próxima rodada em
-    // aparelho ser CONCLUSIVA: "kbps + fps" não distingue uma fonte regular de
-    // uma fonte em rajada, e é a rajada — o PIOR intervalo — que trava o
-    // `<video>` do outro lado, porque ele consome em tempo real.
-    const cad = [];
-    if (ritmo.msMedio != null) {
-      cad.push('intervalo ' + (ritmo.msMedio | 0) + ' ms · pior '
-        + (ritmo.msPior | 0) + ' ms');
-    }
-    if (ritmo.chaves != null) {
-      cad.push((ritmo.chaves | 0) + ' chave(s) = ' + (ritmo.kbpsChave | 0) + ' kbps');
-    }
-    if (ritmo.atrasoMs != null) {
-      // "Relativo" está escrito na tela de propósito: o número é o quanto o
-      // quadro de agora demorou A MAIS que o primeiro da sessão entre a captura
-      // e o fio, e não uma latência absoluta (ver o KDoc de `EspelhoDiag`).
-      // Sem a palavra, alguém somaria isto ao atraso do cliente.
-      //
-      // E COLADO NO TETO NÃO É UMA MEDIDA — é a ausência de uma. O Kotlin
-      // trunca em `TETO_MS`, então um valor exatamente no teto quer dizer
-      // "a âncora desta sessão não vale" (o anel sobreviveu a um espelho
-      // anterior sem o carimbo ter andado para trás), e imprimi-lo como
-      // "60000 ms" faz o operador ler um minuto de fila que não existe. Foi o
-      // que apareceu no primeiro culto de teste, num espelho com 30 s no ar.
-      const TETO_ATRASO_MS = 60000;
-      const pinado = (ritmo.atrasoMs | 0) >= TETO_ATRASO_MS;
-      cad.push(pinado
-        ? 'atraso relativo: sem referência válida nesta sessão'
-        : 'atraso relativo ' + (ritmo.atrasoMs | 0) + ' ms · pior '
-          + (ritmo.atrasoPiorMs | 0) + ' ms');
-    }
-    if (cad.length) l.push('  cadência: ' + cad.join(' · '));
-  }
-  // O ÁUDIO, e ele precisa de DOIS vereditos nomeados — não de um número.
+  // ==========================================================================
+  // (SAIU NA v5.206: NOVE ramos deste bloco — `telaVirtual`, `viewport`,
+  //  `modo`, `janela`, `readback`, `encoder`, `ritmo`, `audio` e `processo`.)
   //
-  // A cadeia tem duas metades que falham de formas indistinguíveis num log:
-  // o canal nativo (`WebMessageListener`) pode nunca ter sido instalado, e o
-  // grafo Web Audio pode estar de pé produzindo NADA (é o modo de falha que a
-  // especificação chama de pior: um `AudioWorkletNode` sem caminho até o
-  // `destination` não lança, não avisa, e simplesmente não roda). Sem separar
-  // os dois, "não sai som" seria uma frase só para duas causas opostas — e foi
-  // exatamente por não haver esta linha que a primeira rodada em aparelho
-  // gastou um teste inteiro sem descobrir que o `instalar()` nunca era chamado.
-  const au = d.audio;
-  if (au && typeof au === 'object') {
-    if (!au.canal) {
-      l.push('áudio: CANAL FECHADO — o espelho não tem por onde mandar som');
-    } else if (!au.blocosPorSegundo) {
-      l.push('áudio: canal aberto + 0 blocos de PCM/s'
-        + ' — o telão não está entregando som (grafo Web Audio mudo)');
-    } else {
-      l.push('áudio: canal aberto · AAC ' + (au.bitrate ? (au.bitrate / 1000 | 0) + ' kbps' : '?')
-        + ' @ ' + (au.taxa || '?') + ' Hz, ' + (au.canais || '?') + ' canal(is)'
-        + ' · ' + au.blocosPorSegundo + ' blocos de PCM/s'
-        + ' · ' + (au.quadros | 0) + ' quadro(s)'
-        + (au.descartados ? ' · ' + au.descartados + ' descartado(s)' : ''));
-    }
-    // A DERIVA DO EIXO DO SOM — a outra metade de "o som ficou para trás".
-    //
-    // Aquela frase é escrita pela TELA, e até a v5.185 não havia UMA linha do
-    // lado do celular que a confirmasse ou a desmentisse: o operador via
-    // `24 blocos de PCM/s`, `7424 quadro(s)`, `0 descarte(s)` — tudo saudável —
-    // e uma tela muda. O eixo do som anda por CONTAGEM DE AMOSTRAS e o do vídeo
-    // por relógio; esta linha é a diferença entre os dois, que é literalmente o
-    // defeito.
-    //
-    // Ela só é desenhada quando o shell sabe respondê-la (`undefined` num shell
-    // antigo), como manda a regra do bloco: nada de "undefined" no meio de um
-    // log que vai ser copiado e repassado.
-    if (au.canal && typeof au.derivaMs === 'number') {
-      const partes = ['agora ' + (au.derivaMs | 0) + ' ms · pior ' + (au.piorDerivaMs | 0) + ' ms'];
-      if (au.correcoes) {
-        partes.push((au.correcoes | 0) + ' correção(ões)'
-          + (au.silencioMs ? ' · ' + (au.silencioMs | 0) + ' ms de silêncio' : '')
-          + (au.saltos ? ' · ' + (au.saltos | 0) + ' reancoragem(ns)' : ''));
-      }
-      l.push('  som atrás do vídeo: ' + partes.join(' · ')
-        // O piso do alarme é o mesmo em que a TELA desiste da faixa de som
-        // (`ATRASO_AUDIO_S`, 3 s): passar dele é, do lado de lá, ficar mudo.
-        + ((au.piorDerivaMs | 0) >= 3000
-          ? '  ← passou dos 3 s: é aqui que a tela solta o som' : ''));
-    }
-  }
-  const proc = d.processo;
-  if (proc && proc.heapTetoMb) {
-    // A CAUSA DE FUNDO do `ERROR_RECLAIMED` e da morte do renderer: os dois
-    // aparecem no Registro como CONSEQUÊNCIA ("encoder tomado 2x", "renderer
-    // remontado") e nunca como causa. Um heap colado no teto é a causa.
-    const pct = Math.round((proc.heapMb | 0) * 100 / proc.heapTetoMb);
-    l.push('memória do app: ' + (proc.heapMb | 0) + ' de ' + proc.heapTetoMb + ' MB (' + pct + '%)'
-      + (pct >= 85 ? '  ← perto do teto: é daqui que sai o encoder tomado e o renderer morto' : ''));
-  }
+  //  Os nove liam chaves que o shell PAROU DE PUBLICAR na v5.187, quando o
+  //  espelho de pixels foi aposentado: não há tela virtual, não há encoder
+  //  H.264, não há readback de pixel, não há `AudioWorklet` empurrando AAC.
+  //  Oito deles eram mudos (guardados por `if (x)` sobre uma chave ausente).
+  //
+  //  O NONO NÃO ERA, e ele é a razão desta limpeza existir. O `EspelhoDiag`
+  //  continuava publicando `ritmo` — zerado, porque `amostra()` perdeu o
+  //  produtor —, e a regra desenhada aqui era `kbps < 40 → isto é um retângulo
+  //  preto`. Com a transmissão ligada, um vídeo tocando e a cortina aberta (um
+  //  culto normal), o Registro imprimia:
+  //
+  //      ritmo: 0 kbps · 0 fps (12 s) · cena "…" — ALARME: ISTO É UM RETÂNGULO PRETO
+  //
+  //  …no artefato que existe para ser COPIADO E REPASSADO quando algo não
+  //  conecta, acusando um subsistema que não existe. O KDoc do `EspelhoDiag`
+  //  já dizia que "diagnóstico que mente é pior que diagnóstico nenhum";
+  //  a linha mentia havia dezenove versões.
+  //
+  //  A REGRA QUE FICA, e ela vale para a próxima aposentadoria: apagar o
+  //  PRODUTOR de uma métrica e deixar o CONSUMIDOR de pé não produz silêncio —
+  //  produz um ZERO, e zero é um valor legítimo que o consumidor interpreta.
+  //  Remoção de recurso é remoção dos dois lados do fio.
+  // ==========================================================================
   if (svc.termico != null) {
     l.push('térmica: ' + (MIRROR_TERMICA[svc.termico] || svc.termico)
       + ' (máx na sessão: ' + (MIRROR_TERMICA[svc.termicoMax] || svc.termicoMax) + ')'
       + ' · carregador: ' + (svc.carregando ? 'SIM' : 'NÃO'));
   }
   const telas = Array.isArray(srv.telas) ? srv.telas : [];
-  const pend = Array.isArray(srv.pendentes) ? srv.pendentes : [];
   if (srv.ligado) {
-    // A BANDA QUE A REDE DIZ TER — estimativa do Android, não medição nossa, e
-    // vale por isso mesmo: ela responde ANTES do culto a pergunta que sustenta
-    // o recurso ("cabem 3 Mbps × 3 telas neste AP?"), em vez de o operador
-    // descobrir durante. Sem `iface` de Wi-Fi é a confirmação estrutural de
-    // que o socket está onde deveria.
+    // A BANDA QUE A REDE DIZ TER — estimativa do Android, não medição nossa.
+    // Sem `iface` de Wi-Fi é a confirmação estrutural de que o socket está
+    // onde deveria.
+    //
+    // O "cabem ~N tela(s) a 3000 kbps" SAIU na v5.206, e a conta é que morreu:
+    // ela dividia a subida do enlace pelo bitrate-alvo do ENCODER, que era um
+    // fluxo contínuo de 3 Mbps por tela. O telão por comandos não tem fluxo
+    // contínuo nenhum — o que atravessa a rede são objetos JSON pequenos e a
+    // mídia SOB DEMANDA, uma vez por item —, então dividir banda por um número
+    // que não existe mais dava um teto inventado. Os números crus ficam: eles
+    // continuam respondendo "este AP aguenta?" sem fingir precisão.
     const en = srv.enlace;
     if (en && (en.upKbps || en.iface)) {
-      const alvo = Math.round(((d.encoder && d.encoder.bitrateAlvo) || 3000000) / 1000);
-      const cabem = en.upKbps > 0 ? Math.floor(en.upKbps / alvo) : -1;
       l.push('enlace: ' + (en.iface || '?')
         + (en.upKbps > 0 ? ' · subida ' + en.upKbps + ' kbps' : '')
         + (en.downKbps > 0 ? ' · descida ' + en.downKbps + ' kbps' : '')
-        + (en.validada === false ? ' · SEM SAÍDA PARA A INTERNET (não impede o espelho)' : '')
-        + (cabem >= 0 ? ' — cabem ~' + cabem + ' tela(s) a ' + alvo + ' kbps' : ''));
+        + (en.validada === false ? ' · SEM SAÍDA PARA A INTERNET (não impede a transmissão)' : ''));
     }
     // SESSÕES × CONEXÕES, e a discordância é a leitura (v5.183). O teto de três
     // é de SESSÕES; a lista é de CONEXÕES. Uma tela que caiu segura a vaga dela
     // por um tempo, e é nessa janela que o espelho responde "lotado" com menos
     // telas na folha — sem este número, uma contradição sem explicação possível.
     const sess = (typeof srv.sessoes === 'number') ? srv.sessoes : -1;
+    // (O "· N pendente(s)" SAIU na v5.206: `srv.pendentes` era a FILA DE
+    //  APROVAÇÃO, removida na v5.185 — quem chega entra na hora. O array nunca
+    //  mais foi publicado, então a linha escrevia "· 0 pendente(s)" em toda
+    //  leitura, e a regra do bloco já dizia que zero não vira linha: um
+    //  Registro que repete "0" ensina a pular a linha.)
     l.push('telas: ' + telas.length + ' conectada(s) de ' + (srv.teto || 3)
       + (sess >= 0 && sess !== telas.length ? ' · ' + sess + ' vaga(s) ocupada(s)' : '')
-      + ' · ' + pend.length + ' pendente(s)'
       + ' · ' + (srv.conexoesTotais | 0) + ' conexão(ões) desde que ligou'
       + (sess >= (srv.teto || 3) && telas.length < sess
         ? '  ← LOTADO por vaga(s) de tela que caiu; ela abre sozinha' : ''));
-    // O FREIO DE IDR trabalhava em silêncio, e um pedido engolido é uma tela
-    // PRETA até o quadro-chave espontâneo — 5 s no pior caso. "A tela demorou
-    // a aparecer" não tinha como ser ligado à causa; agora tem número.
-    const idr = srv.idr;
-    if (idr && idr.pedidos) {
-      l.push('quadro-chave: ' + (idr.pedidos | 0) + ' pedido(s) · '
-        + (idr.atendidos | 0) + ' atendido(s) · ' + (idr.engolidos | 0) + ' engolido(s) pelo freio'
-        + ((idr.engolidos | 0) > (idr.atendidos | 0)
-          ? '  ← o freio está barrando mais do que deixa passar' : ''));
-    }
+    // (O FREIO DE IDR saiu na v5.206, com o resto: pedir quadro-chave é
+    //  vocabulário de encoder, e não há encoder desde a v5.187.)
     // QUEM BATEU NA PORTA E FOI RECUSADO. Todas respondem o mesmo 404 no fio
     // (não vazar existência), e é só aqui que elas se distinguem: `host` é
     // tentativa de DNS rebinding contra este aparelho, `malformada` em
@@ -11758,35 +11449,36 @@ function blocoEspelho(d) {
           + (rec.host ? '  ← `host` é tentativa de DNS rebinding contra este aparelho' : ''));
       }
     }
+    // UMA TELA DE COMANDOS, no que o servidor de fato sabe dela (v5.206).
+    //
+    // O bloco anterior desenhava treze campos de uma tela do espelho de PIXELS
+    // (MSE, fetch-stream, MB entregues, descartes, quadros enviados, o
+    // autorrelato inteiro do `cliente.js`) — e o servidor publica OITO campos,
+    // nenhum daqueles. O resultado era uma tela saudável saindo do Registro
+    // como `tela A  ?  MSE:nao  fetch-stream:nao  seguro:nao  wakeLock:nao`
+    // seguida de "(esta tela ainda nao relatou medidas — bundle antigo)":
+    // quatro negativas e uma acusação, todas falsas, sobre a única tela que
+    // estava funcionando.
+    //
+    // O que ficou é o que separa dois desfechos com correções diferentes:
+    //
+    //  · `pronta` é o `display-ready` TER CHEGADO (o `__de` que roteia comando
+    //    endereçado). Conectada e NÃO pronta é a tela que abriu o SSE e cujo
+    //    `/display/` não subiu — outro defeito, e outra correção, que "a tela
+    //    não conecta".
+    //  · `fila` cheia é esta tela não escoando; vazia com a projeção parada é o
+    //    contrário, e o problema está antes.
+    //  · `conectada ha` separa uma tela estável de uma que reconecta em laço —
+    //    o rótulo não diz isso, porque ele reinicia junto.
     telas.forEach((c) => {
-      l.push('  tela ' + (c.rotulo || '?') + '  ' + (c.ua || '?')
-        + '  MSE:' + (c.mse ? 'sim' : 'nao')
-        + '  fetch-stream:' + (c.fetchStream ? 'sim' : 'nao')
-        + '  seguro:' + (c.seguro ? 'sim' : 'nao')
-        + '  wakeLock:' + (c.wakeLock ? 'sim' : 'nao')
-        + '  tela acesa ' + (c.telaAcesaMin | 0) + ' min');
-      l.push('          ' + Math.round((c.bytes || 0) / 104857.6) / 10 + ' MB'
-        + ' · ' + (c.descartes | 0) + ' descarte(s)'
-        + ' · ultimo write ha ' + mirrorDur(c.ultimaEscritaMs)
-        // O SOM EM UMA FRASE, e não em dois "nao" para o operador interpretar.
-        + ' · ' + somDaTela(c)
-        + ' · ' + (c.recomecos | 0) + ' recomeco(s)');
-      // O QUE O SERVIDOR VÊ DESTA CONEXÃO, e que antes não saía do JSON.
-      //
-      // `conectada ha` separa uma tela estável de uma que reconecta em laço — o
-      // rótulo trocando não dizia isso, porque ele reinicia junto. `fila` cheia
-      // é este cliente não escoando, vazia com imagem parada é o contrário.
-      // `ESPERANDO IDR` é a tela estando PRETA agora, por construção.
-      l.push('          conectada ha ' + mirrorDur(c.conectadaMs)
-        + ' · fila ' + (c.fila | 0) + '/' + (c.filaTeto || 24)
-        + ' · ' + (c.enviados | 0) + ' quadro(s) enviado(s)'
-        + (c.esperandoIdr ? ' · ESPERANDO QUADRO-CHAVE (a tela esta preta)' : ''));
-      // E O QUE SÓ A TELA SABE — a metade do diagnóstico que o servidor não tem
-      // como produzir. Ver `medidasDaTela` no `cliente.js`: daqui se enxerga
-      // quantos bytes saíram, e não se a imagem andou.
-      linhasDaTela(c.vivo).forEach((x) => l.push('          ' + x));
-      // E A FRASE QUE ESTÁ ESCRITA NAQUELA TELA, quando há uma. É onde o
-      // cliente já dizia a causa — só que para uma sala em que ninguém está.
+      l.push('  tela ' + (c.rotulo || '?')
+        + ' · ' + (c.pronta ? 'pronta' : 'CONECTADA SEM display-ready')
+        + ' · conectada ha ' + mirrorDur(c.conectadaMs)
+        + ' · ' + (c.eventos | 0) + ' comando(s) entregue(s)'
+        + ' · fila ' + (c.fila | 0)
+        + ' · tela acesa ' + (c.telaAcesaMin | 0) + ' min');
+      // E A FRASE QUE ESTÁ ESCRITA NAQUELA TELA, quando há uma. É onde a tela
+      // já diz a causa — só que para uma sala em que ninguém está.
       if (c.aviso) l.push('          diz: "' + c.aviso + '"');
     });
     // A LINHA MAIS IMPORTANTE DESTE BLOCO quando ela aparece. Servidor de pé,
@@ -11826,16 +11518,13 @@ function blocoEspelho(d) {
   return l.join('\n');
 }
 
-// O detector de ritmo só pode ACUSAR com vídeo tocando e a cortina ABERTA — a
-// cortina cobre o telão, ou seja, por construção ela É um retângulo preto com a
-// mídia carregada. `view` é a cortina (ver renderControls) e `currentItem` diz
-// o tipo do que está em cena.
-function cenaComVideoAberto() {
-  if (view !== 'visual') return false;                 // cortina fechada: preto é o esperado
-  if (!currentItem) return false;
-  if (currentItem.kind === 'audio' || currentItem.kind === 'image') return false;
-  try { return !!preview.isPlaying(); } catch (_) { return false; }
-}
+// (SAIU NA v5.206: `cenaComVideoAberto`. Ela era a metade SÃ do detector de
+//  "retângulo preto" — a guarda que impedia o alarme de disparar durante uma
+//  oração com a cortina fechada. Só que a outra metade lia um `ritmo` que o
+//  shell publicava zerado desde a v5.187, então a guarda passou a fazer o
+//  oposto do que foi escrita para fazer: em vez de calar um alarme falso, ela
+//  ESCOLHIA o culto normal — vídeo tocando, cortina aberta — como o momento de
+//  disparar um. Sem o detector ela não tem outro chamador.)
 
 // A LINHA DO TEMPO dos dois processos, em ordem de relógio.
 function eventosDiag() {
@@ -14472,8 +14161,12 @@ function acertarEnqueteDaConexao() {
 // vezes num aparelho que já roda dois WebViews.
 //
 // A troca acontece só na mudança de MODO — não ao conectar/desconectar. Com a
-// tela bloqueada a faixa some por CSS (`.simple.locked .simple-stage`), e um
+// tela bloqueada a faixa some por CSS (`.simple.sem-tela .simple-stage`), e um
 // `display:none` não custa nada; mover o nó a cada conexão, sim (ver abaixo).
+// (O seletor citado aqui dizia `.simple.locked` — uma classe que nunca chegou a
+// existir nesta folha: quem marca o estado é `.sem-tela`, escrita pelo
+// `renderSimpleGate`. Um comentário que aponta para um seletor inexistente é
+// pior que nenhum: ele faz o próximo leitor procurar a regra no lugar errado.)
 function hostPreview() {
   const alvo = appMode === 'simple' ? simpleStageEl : previewRowEl;
   if (previewEl.parentElement === alvo) {

@@ -81,6 +81,18 @@
    fundos em que de fato aparecem — os números nos comentários são medições, não
    estimativas. Piso adotado: 4,5:1 para texto pequeno, 3:1 para ícone/borda que
    carrega informação, ~1,3:1 para o degrau entre duas superfícies grandes.
+
+   **"SOBRE O SOFT" QUER DIZER: O SOFT COMPOSTO SOBRE `--bg`.** Os `*-soft` são
+   cor com ALFA, então não têm contraste próprio — o número depende do que está
+   embaixo, e toda medição de "X sobre o soft" neste arquivo usa a PÁGINA como
+   base. Escrever isso é a correção da v5.206: as medições estavam certas e a
+   base estava implícita, e ela não é uma escolha óbvia, porque vários chips
+   `*-soft` vivem DENTRO de um cartão (`--panel`). Ali o valor real é outro, e a
+   diferença chega a ser grande: `--danger-text` sobre `--danger-soft` dá 6,89:1
+   sobre a página e **5,03:1** dentro de um cartão, no tema escuro. Os dois
+   passam AA, e é por isso que ninguém notou — mas quem for mexer num destes
+   valores precisa saber qual dos dois número está lendo.
+
    `tools/tokens.test.mjs` garante que todo `var(--x)` sem fallback aponta para
    um token existente NOS DOIS TEMAS; ele não mede contraste — para isso não há
    oráculo, e mexer num valor daqui continua pedindo medição à mão. */
@@ -247,7 +259,9 @@
   /* O VERMELHO QUE SE LÊ COMO VERMELHO (v5.76, matiz reancorada na v5.192).
      DERIVADO do `scarlett` (matiz 358°, a mesma do oficial arredondada),
      clareado até passar como texto.
-     MEDIDO: 7,27:1 sobre `--bg`, 6,59:1 sobre `--live-soft`/`--danger-soft`,
+     MEDIDO: 7,27:1 sobre `--bg`, 6,50:1 sobre `--live-soft`/`--danger-soft`
+     (o soft sobre a PÁGINA — ver "como ler as medições"; dentro de um cartão o
+     mesmo par dá 4,75:1, que ainda passa AA),
      4,88:1 sobre `--panel` e **3,77:1 sobre `--panel-2`** — este último passa o
      piso de 3:1 de uma borda mas REPROVA o de 4,5:1 de texto pequeno.
      A consequência prática é uma regra, não uma exceção: quem veste este
@@ -268,7 +282,9 @@
      acima, ação destrutiva é sempre CONTORNADA, e contorno/texto usam
      `--danger-strong`/`--danger-text`. */
   --danger: #d0021b;
-  --danger-text: #e98d83;                /* 5,17:1 sobre painel · 6,89:1 sobre o soft */
+  --danger-text: #e98d83;                /* 5,17:1 sobre painel · 6,89:1 sobre o soft
+                                            (o soft sobre a PÁGINA; dentro de um
+                                            cartão, 5,03:1 — ver "como ler") */
   --danger-soft: rgba(208, 2, 27, .22);
 
   /* ---------- LARANJA: aviso ----------
