@@ -2336,10 +2336,104 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.209** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
+**Versão atual: v5.210** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.210 (v1.95): A NOTIFICAÇÃO VESTE O TEMA, e o MODO RELÓGIO deixa de
+> perguntar as horas ao aparelho errado. EXIGE APK.** Dois pedidos do operador,
+> mais uma verificação que ele encomendou junto e que não achou defeito nenhum.
+>
+> - **O CARTÃO PASSA A TER A COR DO APP.** Uma notificação sem `setColor` é
+>   pintada com o cinza padrão do sistema — que não é nem o claro nem o escuro
+>   deste app, e fica visivelmente estranho ao lado da tela de onde veio. Agora
+>   os DOIS cartões (o player e o da transmissão) usam o mesmo `--bg` do tema
+>   escolhido, lido de `values/colors.xml` pela mesma preferência que pinta o
+>   `windowBackground` — **é o quarto consumidor daquela cópia à mão, e não há
+>   escapatória**: recurso de Android não enxerga custom property de CSS.
+>   `setColorized(true)` é o que faz o sistema usá-la como FUNDO em vez de um
+>   respingo no ícone, e ele só é honrado em serviço em primeiro plano ou
+>   `MediaStyle` — que é exatamente o caso dos dois. Trocar de tema **repinta na
+>   hora** (`SessionService.temaMudou`): sem esse aviso a cor só mudaria no
+>   próximo `publish()`, que numa cena parada é daqui a um louvor inteiro.
+> - **E ele ganhou uma CAPA, porque não existe capa de verdade.** O acervo é
+>   hino, vídeo e imagem de culto: não há arte de álbum em lugar nenhum, e um
+>   `MediaStyle` sem `largeIcon` fica com um buraco do tamanho de uma capa que
+>   cada versão do Android preenche de um jeito. A capa é o símbolo do ícone do
+>   app sobre o fundo escuro, rasterizado uma vez e cacheado (`publish()` roda a
+>   cada play/pause e a cada salto de posição). **Ela NÃO segue o tema, e isso é
+>   a regra do ícone do app pelo mesmo motivo**: o vetor está pintado nos tokens
+>   do tema ESCURO, e sobre o `app_bg_claro` a trilha daria **1,02:1** — o
+>   desenho sumiria. Capa é arte, e arte não troca de cor com a moldura; quem
+>   segue o tema é o cartão.
+> - **O MODO RELÓGIO lia o relógio DE QUEM DESENHA.** Cronômetro e sorteio
+>   viajam por DESCRITOR ancorado numa época do celular, e a casca do papel
+>   `tela` já a traduz para o referencial da tela (`corrigirRelogio`). O modo
+>   relógio não tem época nenhuma na mensagem — ele desenha a hora corrente — e
+>   por isso era o único que ficava com o segundo de uma Smart TV, que pode estar
+>   minutos fora, na frente da congregação. Agora a casca publica
+>   `window.__avAgora` (a mediana das épocas do ping) e só o modo relógio o
+>   consulta. **A primeira versão disto aplicou a correção aos três**, e o
+>   `tools/tela-rede.test.mjs` a reprovou no ato — *"o cronômetro lê ~0 s, o
+>   desvio de 90 s foi ANULADO"* —, porque medir contra a origem um descritor já
+>   traduzido corrige duas vezes. O teste estava certo, e o comentário no
+>   `display.js` guarda o caso para a próxima leitura.
+> - **A vigília foi verificada e está certa nos dois lados**, sem mudança: no app
+>   é `FLAG_KEEP_SCREEN_ON` nas duas janelas (a Activity e a `Presentation`), e
+>   na tela da rede é o `navigator.wakeLock` da v5.209 com o `<video>` de 2×2
+>   como piso para o `http`.
+
+> **A v5.209 (v1.94): AS TELAS MORRIAM DE 60 EM 60 s porque o sinal de vida era
+> um TIMER. EXIGE APK.** O Registro do operador entregou o defeito em duas
+> linhas — `tela C conectada` às 16:30:56, `tela C desconectada (sem sinal de
+> vida ha 60 s)` às 16:31:56 — e o mesmo navegador reentrando como tela A, B, C,
+> D ao longo do culto. **Enquanto ele reentra, o comando não chega**: é o "deixa
+> de controlar" que o operador vinha relatando.
+>
+> O `alive` vivia num `setInterval` de 10 s e o servidor derrubava com 60 s de
+> silêncio — "seis batidas perdidas é uma tela que foi embora". O raciocínio
+> supõe que o timer bate, e **um navegador de TV com a aba em segundo plano
+> estrangula timer para ~1 por minuto**. As seis viram uma, que chega na
+> fronteira, e o vigia executa uma tela perfeitamente viva. As duas metades:
+> **o sinal pega carona no FIO** (byte que chega não é timer — o `read()` do SSE
+> resolve porque o servidor escreveu, e o ping dele é de 15 s; o timer fica como
+> piso e a volta da aba manda um na hora) e **o teto do servidor vai a 150 s**,
+> onde cabem dez pings e uma tela que de fato saiu ainda cai em menos de três
+> minutos.
+>
+> Mais duas da mesma família: a **vigília ganhou a trava de verdade**
+> (`navigator.wakeLock` quando o contexto é seguro, re-pedida no
+> `visibilitychange` porque a API a solta ao perder o foco — a guarda entra como
+> BLOCO, que é a forma que o `tools/contexto-seguro.test.mjs` sabe ler, e ele
+> reprovou a primeira versão, que usava retorno antecipado); e
+> **`telaReenviarPreferencias` deixou de perguntar a um CACHE**. A guarda era
+> `telaAtiva()`, que consulta um estado relido por enquete só quando a folha de
+> conexão está à vista — mas quem chega ali é um `display-ready` que veio PELO
+> SSE, e se ele chegou a transmissão está no ar. O cache só podia produzir falso
+> negativo, e o preço era a tela ficar sem wallpaper, sem fundo de letra e sem
+> preenchimento, sem nada que o explicasse.
+
+> **A v5.208: O TRANSPORTE DO MODO AVANÇADO ESTAVA BRANCO NO BRANCO. OTA PURO.**
+> Medido: **1,00:1** — `rgb(255,255,255)` sobre `rgb(255,255,255)`. A v5.207
+> consertou os segmentados de Configurações (1,14:1) e eu dei o assunto por
+> encerrado sem nunca ter TROCADO DE MODO na medição: os botões que o operador
+> mais usa num culto (▶, ⏹, ⏮, ⏭, cortina, letra, mudo) ficaram de fora, e eram
+> o pior caso do app inteiro — invisíveis, não "fracos".
+>
+> No tema claro `--bar` é BRANCO, o mesmo valor de `--panel`, e os controles da
+> barra pintam `--surface`, que é branco com alfa. Branco a 70% sobre branco é
+> branco; no escuro o mesmo par funciona, e é por isso que ninguém tinha visto.
+> A correção é do TEMA e não da folha (`:root[data-tema="claro"] .bottombar`
+> afunda a superfície): pôr o transporte na lista geral de "afunda" inverteria a
+> aparência da peça mais usada do app **no escuro** para resolver um problema que
+> só existe no claro. Mais a aresta de `--control-edge`, pelo mesmo raciocínio da
+> v5.207. Medido depois: claro 1,00 → 1,25 com aresta visível, escuro inalterado.
+>
+> **A lição é sobre método:** medir "os botões" sem entrar no modo em que eles
+> vivem é medir outra tela. O modo avançado exige `setAppMode('full')` — remover
+> a classe `.open` do simplificado deixa a página em branco, e **uma medição que
+> não acha nada parece uma medição que passou**.
 
 > **A v5.207: O ALERTA FLUTUANTE ACABA — a resposta nasce onde o toque nasceu.
 > OTA PURO.** Três pedidos do operador, e o terceiro é uma regra nova do

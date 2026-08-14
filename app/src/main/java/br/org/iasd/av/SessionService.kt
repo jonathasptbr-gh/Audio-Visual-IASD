@@ -8,6 +8,8 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.drawable.Icon
 import android.media.MediaMetadata
 import android.media.session.MediaSession
@@ -647,6 +649,96 @@ class SessionService : Service() {
             )
         }
 
+        /**
+         * A COR DO CARTÃO SEGUE O TEMA DO APP (v5.210).
+         *
+         * Uma notificação `MediaStyle` sem cor declarada é pintada pelo sistema
+         * com o cinza padrão dele — que não é nem o claro nem o escuro do app, e
+         * fica visivelmente estranho ao lado da tela de onde ele veio. Como este
+         * cartão é o app inteiro quando o celular está no suporte, ele passa a
+         * usar o MESMO `--bg` da base web, pelo tema que o operador escolheu.
+         *
+         * `setColorized(true)` é o que faz o sistema de fato usá-la como FUNDO
+         * (sem ele a cor é só um respingo no ícone), e ele só é honrado em
+         * notificação de serviço em primeiro plano ou `MediaStyle` — que é
+         * exatamente o caso dos dois cartões deste arquivo. O contraste do texto
+         * quem resolve é o Android, a partir da luminância da cor.
+         */
+        private fun corDoTema(ctx: Context): Int =
+            ctx.getColor(
+                if (MainActivity.temaClaroSalvo(ctx)) R.color.app_bg_claro else R.color.app_bg,
+            )
+
+        /**
+         * A CAPA ARTIFICIAL — porque não existe capa de verdade.
+         *
+         * O acervo deste app é hino, vídeo e imagem de culto: não há arte de
+         * álbum em lugar nenhum, e um `MediaStyle` sem `largeIcon` fica com um
+         * buraco cinza do tamanho de uma capa, que o sistema preenche com o
+         * ícone pequeno esticado em alguns aparelhos. O resultado é um cartão
+         * que muda de aparência conforme a versão do Android.
+         *
+         * Então ele ganha uma capa constante: o mesmo símbolo do ícone do app
+         * (`ic_launcher_foreground`, o mixer de três faixas) sobre o fundo do
+         * tema ESCURO. Ela não informa nada sobre a mídia — e é essa a
+         * intenção: o que informa é o TÍTULO, e a capa existe para o cartão ter
+         * sempre a mesma forma.
+         *
+         * **Ela NÃO segue o tema, e isso não é esquecimento — é a mesma regra
+         * do ícone do app, pelo mesmo motivo.** O vetor está pintado nos tokens
+         * do tema ESCURO (`#dce0e5` na trilha, `#8fb1f3` no botão), literais
+         * porque recurso de Android não enxerga custom property de CSS. Sobre o
+         * `app_bg_claro` (`#dfe3e7`) a trilha daria **1,02:1** — o desenho
+         * simplesmente desapareceria. Uma capa é arte, e arte não troca de cor
+         * com o tema da moldura: quem segue o tema é o CARTÃO (`corDoTema`), que
+         * é o pedido do operador.
+         *
+         * CACHEADA, e isso não é micro-otimização: `publish()` roda a cada troca
+         * de play/pause e a cada salto de posição — rasterizar um vetor de
+         * 512×512 nesse ritmo seria trabalho de GC no processo que hospeda dois
+         * WebViews e a projeção.
+         */
+        @Volatile private var capaCache: Bitmap? = null
+
+        /**
+         * O OPERADOR TROCOU DE TEMA: o cartão que está na gaveta ficou com a cor
+         * do tema anterior.
+         *
+         * Sem isto a notificação só mudaria de cor no próximo `publish()` — que
+         * numa cena parada pode ser daqui a um louvor inteiro —, e o operador
+         * veria o app claro com um cartão escuro pendurado nele. Chamado pela
+         * [MainActivity.setTemaClaro]. A capa não é invalidada porque ela não
+         * depende do tema (ver [capaArtificial]).
+         */
+        fun temaMudou() {
+            val inst = instance
+            if (running && inst != null) inst.publish()
+        }
+
+        private fun capaArtificial(ctx: Context): Bitmap? {
+            val cache = capaCache
+            if (cache != null) return cache
+            return try {
+                val lado = 512
+                val bmp = Bitmap.createBitmap(lado, lado, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(bmp)
+                canvas.drawColor(ctx.getColor(R.color.app_bg))
+                val fg = ctx.getDrawable(R.drawable.ic_launcher_foreground)
+                if (fg != null) {
+                    fg.setBounds(0, 0, lado, lado)
+                    fg.draw(canvas)
+                }
+                capaCache = bmp
+                bmp
+            } catch (e: Exception) {
+                // Sem capa o cartão continua funcionando — ele só volta a ficar
+                // com a cara que o sistema escolher. Nunca vale derrubar a
+                // notificação de controle por causa de um bitmap.
+                Log.w(TAG, "capa artificial não pôde ser desenhada", e)
+                null
+            }
+        }
+
         private fun acao(ctx: Context, icone: Int, rotulo: String, action: String): Notification.Action =
             Notification.Action.Builder(
                 Icon.createWithResource(ctx, icone),
@@ -696,6 +788,9 @@ class SessionService : Service() {
                 .setOnlyAlertOnce(true)
                 .setShowWhen(false)
                 .setOngoing(true)
+                // A cara do app, nos dois cartões — ver `corDoTema`.
+                .setColor(corDoTema(ctx))
+                .setColorized(true)
                 .addAction(
                     acaoDireta(ctx, android.R.drawable.ic_menu_close_clear_cancel, "Desligar transmissão", desligar),
                 )
@@ -759,6 +854,13 @@ class SessionService : Service() {
                 // tiraria justamente a informação útil.
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .setOnlyAlertOnce(true)
+                // A cor do app e a capa constante — ver `corDoTema` e
+                // `capaArtificial`. Sem as duas, o `MediaStyle` fica com o cinza
+                // do sistema e um buraco do tamanho de uma capa que cada versão
+                // do Android preenche de um jeito.
+                .setColor(corDoTema(ctx))
+                .setColorized(true)
+                .setLargeIcon(capaArtificial(ctx))
                 // Ongoing enquanto toca: evita que um deslize acidental tire o
                 // painel de controle no meio do culto. Pausado ele é
                 // dispensável, como manda o comportamento normal de um player.

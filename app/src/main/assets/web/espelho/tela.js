@@ -191,6 +191,24 @@
     temOffset = true;
   }
 
+  // O RELÓGIO DO CELULAR, PUBLICADO (v5.210).
+  //
+  // `corrigirRelogio`, abaixo, conserta o que vem DENTRO da mensagem —
+  // `chrono.startAt` e `draw.rollUntil`, que são épocas do celular. Mas o modo
+  // RELÓGIO da ferramenta de Tempo não tem época nenhuma na mensagem: ele
+  // desenha a hora corrente, e o `display.js` a lia de `Date.now()` — isto é,
+  // do relógio DA TELA. Uma Smart TV com o relógio adiantado projetava a hora
+  // errada na frente da congregação, e não havia campo a corrigir.
+  //
+  // Então a casca publica o relógio da ORIGEM. `offsetMs` é (tela − celular),
+  // medido pela mediana das amostras do ping; subtraí-lo devolve o instante do
+  // celular. Nos outros dois papéis esta função não existe e o `display.js` cai
+  // no `Date.now()` de sempre — que ali JÁ É o celular, porque é o mesmo
+  // aparelho.
+  global.__avAgora = function () {
+    return temOffset ? Date.now() - offsetMs : Date.now();
+  };
+
   function corrigirRelogio(msg) {
     if (!temOffset || !msg || msg.type !== 'text') return msg;
     var m = msg;

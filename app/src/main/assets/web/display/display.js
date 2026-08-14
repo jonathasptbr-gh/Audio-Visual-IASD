@@ -463,9 +463,42 @@ let liveKind = '';    // 'chrono' | 'draw' | ''
 let liveDesc = null;
 let liveTimer = null;
 
+// O RELÓGIO DA ORIGEM — e a diferença entre ele e `Date.now()` é uma hora
+// errada na frente da congregação.
+//
+// Cronômetro e sorteio viajam por DESCRITOR ancorado numa época do CELULAR
+// (`startAt`, `rollUntil`), e o modo RELÓGIO desenha a hora corrente. Nos dois
+// casos a conta precisa ser feita contra o relógio de QUEM MANDOU, não contra o
+// de quem desenha: numa tela da rede o segundo é o de uma Smart TV, que pode
+// estar minutos fora — e nenhum campo da mensagem daria para corrigir a hora
+// corrente, porque ela não viaja.
+//
+// `__avAgora` é publicado pela casca do papel `tela` (`espelho/tela.js`), que
+// mede o desvio pela mediana das épocas do ping. No telão e no navegador de
+// desenvolvimento ele não existe, e o `Date.now()` de sempre JÁ É a origem —
+// é o mesmo aparelho.
+function agoraDaOrigem() {
+  const f = window.__avAgora;
+  return typeof f === 'function' ? f() : Date.now();
+}
+
 function liveReading() {
+  // O SORTEIO E O CRONÔMETRO CONTINUAM NO RELÓGIO LOCAL, e isso é deliberado:
+  // `rollUntil` e `startAt` são épocas do celular que a casca do papel `tela`
+  // JÁ TRADUZ para o referencial desta tela (`corrigirRelogio`). Medir contra a
+  // origem aqui corrigiria a mesma diferença duas vezes — foi o que a primeira
+  // versão disto fez, e o `tools/tela-rede.test.mjs` a reprovou na hora
+  // ("o cronômetro lê ~0 s — o desvio de 90 s foi ANULADO"). O teste estava
+  // certo: com o descritor traduzido, o relógio local é o referencial correto.
   if (liveKind === 'draw') return drawReading(liveDesc, Date.now());
-  if (liveKind === 'chrono') return chronoReading(liveDesc, Date.now());
+  if (liveKind === 'chrono') {
+    // O MODO RELÓGIO É A EXCEÇÃO, e é o único caso que a tradução não alcança:
+    // ele desenha a HORA CORRENTE, que não viaja em campo nenhum da mensagem —
+    // não há o que corrigir. Ele é o único que precisa perguntar as horas a
+    // quem mandou, e não ao aparelho que desenha.
+    const agora = (liveDesc && liveDesc.mode === 'clock') ? agoraDaOrigem() : Date.now();
+    return chronoReading(liveDesc, agora);
+  }
   return null;
 }
 
