@@ -127,23 +127,71 @@ jobs:
           # esquecido no `bgProgress`. Determinístico: sem `continue-on-error`.
           node tools/tokens.test.mjs
 
-      # FUMAÇA DO CONTROLE, num Chromium de verdade. O passo acima prova que os
-      # arquivos são PARSEÁVEIS; este prova que o app SOBE e responde ao toque.
-      # A distinção não é acadêmica: a v5.121 saiu com o botão de copiar o
-      # Registro chamando uma função que uma limpeza tinha apagado — sintaxe
-      # perfeita, `node --check` verde, botão morto no aparelho.
+      # ────────────────────────────────────────────────────────────────────
+      # OS ORÁCULOS DE CHROMIUM, EM DOIS PASSOS (v5.213)
       #
-      # `continue-on-error` de propósito: um teste de navegador tem mais formas
-      # de falhar por infraestrutura (download do Chromium, runner sem rede) do
-      # que por defeito real, e barrar o OTA por causa disso seria trocar um
-      # risco raro por um bloqueio frequente. Ele grita no log; quem lê decide.
-      - name: Fumaça do Controle (Chromium)
+      # Eram um só, e o arranjo tinha um defeito que o painel verde escondia:
+      # `set -euo pipefail` com doze testes em sequência faz o PRIMEIRO que
+      # reprovar abortar os ONZE seguintes. Somado ao `continue-on-error`, o
+      # desfecho era "um teste caiu, os outros nunca rodaram, e o run está
+      # verde" — e descobrir isso exigia abrir o log e reparar em qual linha
+      # ele parou. Um teste que não é lido não é rede de segurança; um teste
+      # cujo RESULTADO não é lido também não.
+      #
+      # A separação não é organização: ela é o que dá sentido ao
+      # `continue-on-error`. A justificativa dele sempre foi INFRAESTRUTURA
+      # (download do Chromium, runner sem rede), e infraestrutura agora é o
+      # passo de baixo, sozinho. O passo dos testes ficou com uma causa só de
+      # falhar — defeito de verdade —, roda os doze SEMPRE (nenhum aborta o
+      # próximo), emite `::error::` por reprovado e escreve o placar no resumo
+      # do run, onde se lê sem abrir log nenhum.
+      #
+      # Ele SEGUE com `continue-on-error`, e isso é a política do projeto
+      # intacta, não esquecimento: barrar o canal OTA por um teste de navegador
+      # continua sendo trocar um risco raro por um bloqueio frequente. O que
+      # mudou é que agora essa escolha é uma linha só — e a razão que a
+      # sustentava mudou de endereço.
+      # ────────────────────────────────────────────────────────────────────
+      - name: Preparar o Chromium (infraestrutura)
+        id: chromium
         continue-on-error: true
         run: |
           set -euo pipefail
           npm i --no-audit --no-fund --silent playwright
           npx playwright install --with-deps chromium
-          PW_CHROMIUM="" node tools/smoke.mjs
+
+      # FUMAÇA DO CONTROLE e os demais oráculos, num Chromium de verdade. Os
+      # passos acima provam que os arquivos são PARSEÁVEIS; estes provam que o
+      # app SOBE e responde ao toque. A distinção não é acadêmica: a v5.121 saiu
+      # com o botão de copiar o Registro chamando uma função que uma limpeza
+      # tinha apagado — sintaxe perfeita, `node --check` verde, botão morto no
+      # aparelho.
+      #
+      # `if` no resultado do passo de cima: sem Chromium instalado os doze
+      # falhariam por um motivo que não é deles, e doze `::error::` de
+      # infraestrutura é exatamente o ruído que ensina a ignorar vermelho.
+      - name: Oráculos em Chromium
+        if: steps.chromium.outcome == 'success'
+        continue-on-error: true
+        run: |
+          # SEM `-e`, e é o ponto do passo: um reprovado não pode calar os que
+          # vêm depois. Quem guarda o desfecho é o `rodar`.
+          set -uo pipefail
+          rodados=0
+          falhas=()
+          rodar() {
+            rodados=$((rodados + 1))
+            echo "::group::$1"
+            if PW_CHROMIUM="" node "$1"; then
+              echo "::endgroup::"
+            else
+              echo "::endgroup::"
+              falhas+=("$1")
+              echo "::error::$1 REPROVOU"
+            fi
+          }
+
+          rodar tools/smoke.mjs
           # E O BOOT COMO O APP O FAZ — com a ponte presente. O `smoke.mjs`
           # acima sobe a base SEM `__AVBridge`, e por isso todo caminho guardado
           # por `window.__NATIVE__` nunca era executado por teste nenhum: são
@@ -151,36 +199,36 @@ jobs:
           # olhar. A v5.195 saiu com um `const` em zona morta temporal dentro de
           # um `if (espelhoDisponivel())` — verde aqui, tela PRETA no celular, e
           # o watchdog do OTA descartando o bundle no lançamento seguinte.
-          PW_CHROMIUM="" node tools/boot-nativo.test.mjs
+          rodar tools/boot-nativo.test.mjs
           # E as MENSAGENS DE FALHA da transmissão direta. Nelas a mensagem é o
           # produto: a transmissão roda no aparelho do operador, contra URLs que
           # expiram, e a única coisa que atravessa essa distância é a linha do
           # Registro. "Não deu" já custou duas rodadas de APK aqui.
-          PW_CHROMIUM="" node tools/mse.test.mjs
+          rodar tools/mse.test.mjs
           # E a TRANSIÇÃO DE ENTRADA do palco. Ela ficou anos pela metade (a
           # mídia velha esmaecia, a nova entrava no talo) e ninguém viu, porque
           # um arquivo local vira quadro em milissegundos e o corte colava no
           # fim do esmaecimento. Só a transmissão direta — com a rede inteira
           # entre o preto e o primeiro quadro — tornou a falta visível. É um
           # defeito que nenhum `--check` pega e que a congregação inteira vê.
-          PW_CHROMIUM="" node tools/stage-fade.test.mjs
+          rodar tools/stage-fade.test.mjs
           # E o COLETOR DE LIXO do banco, que é o único código do app que apaga
           # mídia do operador. Um erro ali não dá tela branca: some com o vídeo
           # do domingo, em silêncio e sem desfazer.
-          PW_CHROMIUM="" node tools/db-gc.test.mjs
+          rodar tools/db-gc.test.mjs
           # E as CONTAS DA BIBLIOTECA — "esta coleção está completa?" e "quanto
           # ela ocupa?". As duas eram respondidas por fórmulas diferentes em
           # lugares diferentes da mesma tela, e o resultado era um card com o
           # botão de baixar ao lado de um chip dizendo "Completo offline". Conta
           # errada não estoura em lugar nenhum: ela só mostra o número errado.
-          PW_CHROMIUM="" node tools/acervo.test.mjs
+          rodar tools/acervo.test.mjs
           # E O QUE A PONTE DE FATO ENTREGA. `native.js` REMONTA campo a campo
           # os objetos que manda ao Kotlin, e um campo esquecido some em
           # silêncio: do outro lado, `optBoolean`/`optLong` leem ausente como
           # `false`/`0`, que são valores legítimos. Já custou duas vezes —
           # `slideLabel` (v5.97→v5.102) e `bytes`, que nunca chegou a viajar
           # desde a versão que o criou.
-          PW_CHROMIUM="" node tools/ponte.test.mjs
+          rodar tools/ponte.test.mjs
           # E O TELÃO, que até agora NENHUM teste tinha carregado. A fumaça
           # acima abre o Controle; o `stage-fade` monta o palco à mão. A metade
           # que roda na frente da congregação era a metade que a CI nunca
@@ -188,18 +236,18 @@ jobs:
           # do OTA também não a valida (quem confirma o bundle é o Controle).
           # Ele trava, de quebra, o endereçamento do reenvio de cena: sem ele,
           # uma segunda instância do Display faz a TV recarregar a mídia.
-          PW_CHROMIUM="" node tools/display-smoke.mjs
+          rodar tools/display-smoke.mjs
           # E OS DESTINOS das folhas de escolha. O que está marcado precisa
           # ATRAVESSAR o fechamento da folha: a ação roda depois de
           # `closeSongMenu()`, que zera o conjunto, e uma leitura tarde demais
           # devolveria só a linha tocada — o item iria para um destino em vez de
           # dois, sem erro nenhum. Mesma classe de falha muda do `slideLabel`.
-          PW_CHROMIUM="" node tools/destinos.test.mjs
+          rodar tools/destinos.test.mjs
           # E A CENA: o que o telão mostra ao RECONECTAR, o que o operador
           # ajusta nela (girar, preencher) e o que ele lê sobre ela. A reconexão
           # do dongle é o caminho menos testável à mão — exige TV, dongle e o
           # timing de derrubá-lo — e roda sozinho na frente da congregação.
-          PW_CHROMIUM="" node tools/cena.test.mjs
+          rodar tools/cena.test.mjs
           # E A TELA DA REDE do telão por comandos (E3 — ver
           # docs/TELAO-POR-COMANDOS.md): o /display/ servido pelo celular
           # rodando num navegador comum, com a entrada pelo código, o dreno de
@@ -207,7 +255,7 @@ jobs:
           # relógio anulando 90 s de desvio, a reconexão que se reapresenta e
           # o adeus que não martela. Teste fora do workflow é documentação —
           # a lição da v5.145 (três testes escritos e ligados em lugar nenhum).
-          PW_CHROMIUM="" node tools/tela-rede.test.mjs
+          rodar tools/tela-rede.test.mjs
           # E O REGISTRO — o único artefato do app cujo consumidor é um HUMANO A
           # DISTÂNCIA. Todo o resto falha na frente de quem pode ver; ele falha
           # CONTINUANDO A RESPONDER, com uma frase errada, e quem a lê vai
@@ -218,7 +266,18 @@ jobs:
           # "modo: imagem (JPEG)" de um modo removido dez versões antes. Os três
           # têm a mesma forma — um consumidor que sobreviveu ao produtor lê o
           # valor ausente como se fosse resposta.
-          PW_CHROMIUM="" node tools/registro.test.mjs
+          rodar tools/registro.test.mjs
+
+          # O PLACAR VAI PARA O RESUMO DO RUN, não só para o log — a queixa que
+          # originou este lote foi precisamente que o desfecho só existia lá
+          # dentro. `rodados` é CONTADO, nunca digitado: um número fixo aqui
+          # envelheceria no primeiro oráculo novo, e envelheceria mentindo.
+          passaram=$((rodados - ${#falhas[@]}))
+          echo "Oráculos em Chromium: $passaram/$rodados passaram." | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ ${#falhas[@]} -gt 0 ]; then
+            printf 'REPROVOU: %s\n' "${falhas[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
 
       - name: Empacotar a base web
         run: |

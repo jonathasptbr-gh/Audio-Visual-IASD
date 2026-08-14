@@ -2008,8 +2008,28 @@ produziria exatamente o mesmo estado, por isso a fila espera.
 todo `.js` de `assets/web`, uma validação de `version.json`, os testes de
 `tools/` — o parser `sidx`, o **oráculo do contrato de `shouldInterceptRequest`**
 (`webview-range.test.mjs`, que trava a invariante 8: Node puro, determinístico,
-sem `continue-on-error`) e onze testes **em Chromium de verdade**, todos em
-`continue-on-error`: a **fumaça** que sobe a base web e usa a tela
+sem `continue-on-error`) e doze testes **em Chromium de verdade**, em DOIS
+PASSOS desde a v5.213 — `Preparar o Chromium` (o `npm i` e o
+`playwright install`, com `continue-on-error`) e `Oráculos em Chromium`, que
+depende do primeiro ter dado certo.
+
+> **A separação é o que dá sentido ao `continue-on-error`, e ela nasceu de um
+> defeito que o painel verde escondia.** Os doze rodavam num passo só, com
+> `set -euo pipefail`: o PRIMEIRO que reprovasse abortava os ONZE seguintes — e
+> como o passo era `continue-on-error`, o run ficava verde. Descobrir isso
+> exigia abrir o log e reparar em qual linha ele tinha parado. A justificativa
+> do `continue-on-error` sempre foi INFRAESTRUTURA (download do Chromium, runner
+> sem rede), e infraestrutura agora é o primeiro passo, sozinho; o segundo ficou
+> com uma causa só de falhar, roda os doze SEMPRE (nenhum aborta o próximo),
+> emite `::error::` por reprovado e escreve o placar (`N/12 passaram`) no
+> **resumo do run**, onde se lê sem abrir log nenhum. `N` é CONTADO, nunca
+> digitado: um número fixo ali envelheceria no primeiro oráculo novo — e
+> envelheceria mentindo. O segundo passo SEGUE com `continue-on-error`, e isso é
+> a política intacta e não esquecimento: barrar o canal OTA por um teste de
+> navegador continua sendo trocar um risco raro por um bloqueio frequente. O que
+> mudou é que agora essa escolha é uma linha só.
+
+Os doze: a **fumaça** que sobe a base web e usa a tela
 (`smoke.mjs`), o **BOOT COM A PONTE PRESENTE** (`boot-nativo.test.mjs`, v5.195 —
 o `smoke` sobe a base SEM `__AVBridge`, e por isso todo caminho guardado por
 `window.__NATIVE__` nunca era executado por teste nenhum: são justamente os que
@@ -2339,10 +2359,44 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.212** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
+**Versão atual: v5.213** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.213: OS ORÁCULOS DE CHROMIUM VIRAM DOIS PASSOS — o painel verde
+> escondia um teste caindo. OTA PURO** (o único arquivo tocado fora da base é o
+> workflow; nenhuma linha de Kotlin, sem Release).
+>
+> Pedido do operador depois da v5.212, sobre uma observação que a auditoria
+> deixou em aberto. Os doze oráculos de Chromium rodavam num passo só, com
+> `set -euo pipefail` — então o PRIMEIRO que reprovasse abortava os ONZE
+> seguintes. Somado ao `continue-on-error` do passo, o desfecho era: **um teste
+> caiu, os outros nunca rodaram, e o run está verde.** Saber disso exigia abrir
+> o log e reparar em qual linha ele tinha parado — foi exatamente o que precisei
+> fazer para conferir a v5.212.
+>
+> **A separação não é organização, é o que dá sentido ao `continue-on-error`.**
+> A justificativa dele sempre foi INFRAESTRUTURA (download do Chromium, runner
+> sem rede), e infraestrutura passou a ser o primeiro passo, sozinho
+> (`Preparar o Chromium`). O segundo (`Oráculos em Chromium`) ficou com uma
+> causa só de falhar — defeito de verdade —, roda os doze SEMPRE, emite
+> `::error::` por reprovado e escreve o placar no **resumo do run**. O `if:
+> steps.chromium.outcome == 'success'` existe para o caso de o Chromium não
+> instalar: doze `::error::` de infraestrutura seriam precisamente o ruído que
+> ensina a ignorar vermelho.
+>
+> **O que NÃO mudou, e é dito para não parecer esquecimento:** o segundo passo
+> segue com `continue-on-error`. Barrar o canal OTA por um teste de navegador
+> continua sendo trocar um risco raro por um bloqueio frequente, e essa é a
+> política do projeto, não minha. O que mudou é que agora ela é uma linha só — e
+> a razão que a sustentava mudou de endereço.
+>
+> Duas medidas pequenas, pela regra de sempre: o placar é `N/12` com o `N`
+> **contado**, nunca digitado (um número fixo envelheceria no primeiro oráculo
+> novo, e envelheceria mentindo), e a lógica do passo foi exercitada nos dois
+> sentidos antes de subir — com dois reprovados no meio, os outros dez rodam,
+> o resumo os nomeia e o passo sai com 1; com tudo passando, sai com 0.
 
 > **A v5.212 (v1.97): O EMBED DO YOUTUBE SAI DOS DOIS WEBVIEWS, e com ele uma
 > ponte privilegiada exposta a terceiro. Mais duas correções de uma auditoria
