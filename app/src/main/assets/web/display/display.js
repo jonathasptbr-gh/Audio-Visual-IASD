@@ -1284,7 +1284,23 @@ const startBtnEl = document.getElementById('startBtn');
 // para destravar. O telão precisa acender sozinho ao receber um comando;
 // exigir um toque numa TV (que não recebe toque nenhum) seria um beco sem
 // saída.
-if (window.__NATIVE__) startBtnEl.hidden = true;
+//
+// E NO PAPEL `tela` ELE TAMBÉM NÃO EXISTE, pela razão oposta (v5.216): ali há
+// política de gesto, mas o gesto é do OUTRO botão — o "Ativar esta tela" do
+// `tela.js`, que gasta a ativação transitória em pareamento, som e tela cheia
+// de uma vez. Este aqui não faz nenhuma das três: ele só se esconde. Dois
+// overlays de gesto na mesma página não são redundância, são uma armadilha —
+// o visitante gasta o toque no que estiver na frente, e o que estava na frente
+// era este (`inset: 0`, com a pílula no CENTRO; medido, `elementFromPoint` no
+// meio da tela devolvia a `start-pill`).
+//
+// A REGRA VIVE AQUI, e não no `tela.js`, porque o dono deste botão é o
+// documento que o declara — era justamente por a decisão morar do lado de fora
+// que ela tinha um buraco: o `tela.js` o escondia dentro de `montarEntrada()`,
+// que a RECARGA COM SESSÃO VIVA nunca chama (ela reconecta por trás, sem
+// desenhar overlay nenhum). Bastava um F5 na tela da rede para o botão antigo
+// voltar sozinho, cobrindo a projeção.
+if (window.__NATIVE__ || TELA) startBtnEl.hidden = true;
 // "Ligar Display" APENAS ativa o Display (gasta o gesto real que o navegador
 // exige para tocar com som). O Display é INDEPENDENTE — não abre o Controle
 // nem redireciona pra lugar nenhum.

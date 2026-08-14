@@ -1980,7 +1980,7 @@ O ícone de **cast no canto** da preview faz os dois papéis que sobraram:
   v5.199 junto com ela.)
 
 **E por vinte e três versões ele não abria nada nesse estado** (corrigido na
-v5.216). A v5.193 deu ao `renderSimpleGate` a regra "alguma tela ENTROU com a
+v5.217). A v5.193 deu ao `renderSimpleGate` a regra "alguma tela ENTROU com a
 folha aberta: ela fecha" e a escreveu como `if (há tela && a folha está aberta)`
 — uma frase sobre EVENTO implementada como teste de ESTADO. Com uma tela
 conectada, qualquer passagem por aquela função fechava a folha; e `abrirCast`

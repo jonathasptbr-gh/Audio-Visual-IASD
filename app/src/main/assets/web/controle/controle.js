@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.216';
+const WEB_VERSION = '5.217';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -14394,7 +14394,7 @@ function renderSimpleGate() {
   // Fácil ela nem é uma folha: o bloco está DENTRO da tela, e o `hostCastConn`
   // acima já o devolveu para a folha.
   //
-  // **É UMA BORDA, e até a v5.216 estava escrita como NÍVEL** — `if (há tela)
+  // **É UMA BORDA, e até a v5.217 estava escrita como NÍVEL** — `if (há tela)
   // fecha`. A frase acima diz "entrou"; o código dizia "existe". Com uma tela
   // conectada (o ícone de cast em VERMELHO, que é o estado normal de um culto),
   // a folha era fechada por QUALQUER passagem por aqui — e o próprio `abrirCast`
@@ -15395,7 +15395,7 @@ function abrirCast() {
   // cartão vazio.
   hostCastConn(false);
   castPopupEl.classList.add('open');
-  // RE-ARMA A MEMÓRIA DO FECHO AUTOMÁTICO (v5.216): a folha que ACABA de abrir
+  // RE-ARMA A MEMÓRIA DO FECHO AUTOMÁTICO (v5.217): a folha que ACABA de abrir
   // parte do estado de agora, então "uma tela entrou" passa a significar
   // "entrou depois que abri isto". Ver `renderSimpleGate`.
   gateTinhaTela = !!simpleDisplay();

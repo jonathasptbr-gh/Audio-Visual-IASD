@@ -459,6 +459,49 @@ checar(await pg.$eval('#text', (e) => e.hidden), 'text-hide tira a Camada de Tex
   checar(vazou === false, 'postMessage do BroadcastChannel é no-op no papel tela');
 }
 
+// ---------------------------------------------------------------------------
+// 9. A RECARGA — o botão antigo não pode voltar (v5.216)
+//
+// Este é o caminho que nenhum teste percorria, e foi por ele que o defeito
+// passou: o `#startBtn` ("Ligar Sistema", o overlay da era do navegador) era
+// escondido dentro de `montarEntrada()`, que só roda na PRIMEIRA carga. A
+// recarga com sessão viva reconecta POR TRÁS, sem desenhar overlay nenhum — e
+// então o botão antigo voltava, `inset: 0`, com a pílula no centro da tela.
+//
+// O dano não é cosmético: ele não pareia, não solta o som e não pede tela
+// cheia; só se esconde. O visitante gasta nele o único gesto que tinha e a tela
+// fica conectada, MUDA e em janela — que é, palavra por palavra, o relato.
+//
+// A asserção mede o que o dedo encontra (`elementFromPoint` no centro), e não
+// só a propriedade `hidden`: é o CENTRO da tela que decide para onde vai o
+// toque, e era exatamente ali que o botão errado estava.
+// ---------------------------------------------------------------------------
+{
+  const pg3 = await ctx.newPage();
+  await pg3.goto(base + '/display/index.html');
+  await pg3.waitForSelector('#telaEntrada', { state: 'visible' });
+  await pg3.click('#telaEntrar');
+  await ate(async () => pg3.$eval('#telaEntrada', (e) => e.style.display === 'none').catch(() => false), 5000);
+
+  await pg3.reload();
+  await espera(1200);
+  const depois = await pg3.evaluate(() => {
+    const sb = document.getElementById('startBtn');
+    const cs = sb && getComputedStyle(sb);
+    const meio = document.elementFromPoint(innerWidth / 2, innerHeight / 2);
+    return {
+      antigo: !!(sb && !sb.hidden && cs.display !== 'none'),
+      meio: meio ? (meio.id || String(meio.className) || meio.tagName) : '?',
+    };
+  });
+  checar(!depois.antigo,
+    'recarregar a tela NÃO traz de volta o "Ligar Sistema" da era do navegador');
+  checar(!/start/.test(depois.meio),
+    'e o centro da tela não é um botão que gastaria o gesto sem ativar nada',
+    'no centro: ' + depois.meio);
+  await pg3.close();
+}
+
 checar(pedidosDeFora.length === 0,
   'a tela da rede não pede UM BYTE a origem nenhuma além do celular',
   pedidosDeFora.join(' | '));

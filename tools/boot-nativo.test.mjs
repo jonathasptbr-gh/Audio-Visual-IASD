@@ -216,7 +216,7 @@ try {
 
   // ---- E A OUTRA METADE DA REGRA: uma tela ENTRANDO fecha a folha (v5.193) --
   //
-  // O par do caso de baixo, e o que impede a correção da v5.216 de virar "a
+  // O par do caso de baixo, e o que impede a correção da v5.217 de virar "a
   // folha nunca mais fecha sozinha": quem acabou de conectar terminou o que
   // veio fazer ali. A tela entra num turno só, com a folha já aberta — é a
   // BORDA que a regra sempre quis descrever.
@@ -299,7 +299,7 @@ try {
   checar(somComTela.tela && !somComTela.local && somComTela.mudo,
     'COM TELA DA REDE RECEBENDO este aparelho fica mudo, inclusive no avançado');
 
-  // ---- A FOLHA DE CONEXÃO ABRE COM TELA JÁ CONECTADA (v5.216) -----------
+  // ---- A FOLHA DE CONEXÃO ABRE COM TELA JÁ CONECTADA (v5.217) -----------
   //
   // O relato: com o ícone de cast no estado CONECTADO (vermelho), tocar nele
   // não abria nada. Ele abria — e a folha se fechava sozinha em milissegundos,

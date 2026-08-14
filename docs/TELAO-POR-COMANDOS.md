@@ -72,6 +72,20 @@
 > fino delas (eco de __mid, atraso medido) é evolução futura sobre o campo
 > `eventos`/`pronta` que já viaja.
 >
+> **v5.216: e na RECARGA quem desmentia era o "Ligar Sistema".** O `#startBtn`
+> — o overlay da era do navegador — era escondido por uma linha dentro de
+> `montarEntrada()` do `tela.js`, e essa função só roda na PRIMEIRA carga: a
+> recarga com sessão viva reconecta por trás (§3.4, a decisão da v5.189 de não
+> cobrir a projeção por causa de um F5) e sai antes de montar overlay nenhum.
+> Bastava recarregar para o botão antigo voltar, `inset: 0`, com a pílula no
+> centro — medido, `elementFromPoint` no meio da tela devolvia `start-pill`. Ele
+> não pareia, não solta o som e não pede tela cheia; só se esconde. O visitante
+> gastava nele o único gesto e a tela ficava conectada, MUDA e em janela. Quem o
+> desliga passou a ser o `display.js`, que é quem o declara, pelo PAPEL e em toda
+> carga — a decisão saiu de um caminho de UI que pode não ser percorrido e foi
+> para o dono do elemento. O `tela-rede.test.mjs` ganhou a seção da recarga, que
+> era o caminho que nenhum teste percorria.
+>
 > **v5.214: a ativação de UM TOQUE já era verdade — o que a desmentia era um
 > segundo botão.** O relato ("o Ativar esta tela não ativa som nem tela cheia
 > junto") foi medido antes de qualquer mudança, num Chromium de verdade: as três
