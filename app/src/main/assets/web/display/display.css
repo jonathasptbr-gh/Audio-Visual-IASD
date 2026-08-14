@@ -72,21 +72,17 @@ html, body {
   align-items: center;
   justify-content: center;
   background: var(--wallpaper);
-  /* Wallpaper personalizado (imagem escolhida pelo operador) entra como
-     background-image inline — cobre a tela sem distorcer. */
+  /* O DESENHO padrão (v5.188): o símbolo oficial da IASD — fonte única em
+     `shared/wallpaper-padrao.svg`, mesmo caminho relativo que o `.pv-wall`
+     do Controle usa (a URL não pode ir para o token — ver tokens.css).
+     Wallpaper personalizado (imagem escolhida pelo operador) entra como
+     background-image INLINE por cima desta declaração — e removê-lo (inline
+     vazio) devolve o desenho padrão sozinho. */
+  background-image: url('../shared/wallpaper-padrao.svg');
   background-size: cover;
   background-position: center;
   z-index: 3;
 }
-
-.wallpaper-brand {
-  font-family: system-ui, sans-serif;
-  font-size: clamp(1.5rem, 5vw, 3.5rem);
-  font-weight: 700;
-  letter-spacing: .04em;
-  color: var(--stage-text-soft);
-}
-.wallpaper-brand span { color: var(--gold); }
 
 /* Letra sincronizada (Hinário 2022): imagem de fundo cheia + retângulo
    central com moldura (fundo semitransparente + borda + cantos arredondados)

@@ -326,7 +326,11 @@ function renderLyricSlide(idx) {
 // obsoletas (mesmo padrão do `loadSeq` do stage).
 function applyLyricsImage(slide) {
   if (!slide) return;
-  const key = (lyricsBgMode === 'image' && slide.imageOpfsPath) ? slide.imageOpfsPath : null;
+  // Na TELA DA REDE o slide não tem `imageOpfsPath` (o OPFS é do celular):
+  // vem `imageUrl`, a rota /m/ do próprio celular (v5.188) — servida pelo
+  // mesmo origin de onde a página veio, então o src direto basta.
+  const chaveDoSlide = slide.imageOpfsPath || slide.imageUrl;
+  const key = (lyricsBgMode === 'image' && chaveDoSlide) ? chaveDoSlide : null;
   if (key === lyricImgKey) return;
   const seq = ++lyricLoadSeq;
   if (!key) {
@@ -354,6 +358,35 @@ function applyLyricsImage(slide) {
       if (seq !== lyricLoadSeq) return; // outra imagem já assumiu: o src é DELA
       lyricsImgEl.removeAttribute('src');
     }, LAYER_FADE_MS);
+    return;
+  }
+  if (!slide.imageOpfsPath) {
+    // TELA DA REDE: a chave É a URL. Pré-carrega com retentativa curta — o
+    // empurrão da imagem pode ainda estar chegando ao cache do celular, e um
+    // src que 404a não retenta nunca. Sem object URL: nada a revogar da nova,
+    // só da anterior (que pode ter sido um OPFS de outra era desta página).
+    const ESPERAS = [0, 600, 1800];
+    let tentativa = 0;
+    const tentar = () => {
+      if (seq !== lyricLoadSeq) return;
+      const img = new Image();
+      img.onload = () => {
+        if (seq !== lyricLoadSeq) return;
+        const prevUrl = lyricImgUrl;
+        lyricImgUrl = null;
+        lyricImgKey = key;
+        lyricsImgEl.src = key;
+        fadeLayerIn(lyricsImgEl);
+        if (prevUrl) URL.revokeObjectURL(prevUrl);
+      };
+      img.onerror = () => {
+        tentativa++;
+        if (seq === lyricLoadSeq && tentativa < ESPERAS.length) setTimeout(tentar, ESPERAS[tentativa]);
+        // esgotado: mantém a imagem anterior, como no caminho do OPFS
+      };
+      img.src = key;
+    };
+    tentar();
     return;
   }
   AVDB.opfsGetFile(key).then((file) => {
@@ -775,28 +808,54 @@ let wallpaperUrl = null;
 
 // O wallpaper da TELA DA REDE — só a URL, sem IDB. A marca some pela mesma
 // regra do applyWallpaper: wallpaper de verdade cobre a marca.
-function telaAplicarWallpaper(url) {
+function telaWallpaperPadrao() {
+  telaWpSeq++;                       // mata retentativas de uma imagem antiga
   try {
-    wallpaperEl.style.backgroundImage = 'url(' + JSON.stringify(url) + ')';
-    const marca = wallpaperEl.querySelector('.wallpaper-brand');
-    if (marca) marca.style.display = 'none';
-  } catch (e) { /* fica o gradiente padrão */ }
+    wallpaperEl.style.backgroundImage = '';
+  } catch (e) { /* já era o padrão */ }
+}
+
+let telaWpSeq = 0;
+function telaAplicarWallpaper(url) {
+  // PRÉ-CARREGA com retentativa (v5.188): o comando com `__wp` pode chegar
+  // ANTES de o empurrão do Controle ter aberto o item no cache do celular — a
+  // primeira busca leva 404 e um `background-image` que falha não retenta
+  // nunca. Um `Image()` com três novas tentativas cobre a corrida nos dois
+  // caminhos (troca de wallpaper e a herança ao conectar), e só pinta o fundo
+  // quando há imagem de verdade — o gradiente padrão nunca é coberto por nada
+  // quebrado. `telaWpSeq` descarta a retentativa de um wallpaper que outro já
+  // substituiu.
+  const seq = ++telaWpSeq;
+  const ESPERAS = [0, 500, 1500, 4000];
+  let tentativa = 0;
+  const tentar = () => {
+    if (seq !== telaWpSeq) return;
+    const img = new Image();
+    img.onload = () => {
+      if (seq !== telaWpSeq) return;
+      try {
+        wallpaperEl.style.backgroundImage = 'url(' + JSON.stringify(url) + ')';
+      } catch (e) { /* fica o desenho padrão */ }
+    };
+    img.onerror = () => {
+      tentativa++;
+      if (seq !== telaWpSeq || tentativa >= ESPERAS.length) return;
+      setTimeout(tentar, ESPERAS[tentativa]);
+    };
+    img.src = url;
+  };
+  tentar();
 }
 
 async function applyWallpaper() {
   let blob = null;
   try { blob = await AVDB.getState('wallpaper'); } catch (_) { /* segue no padrão */ }
   if (wallpaperUrl) { URL.revokeObjectURL(wallpaperUrl); wallpaperUrl = null; }
-  const brand = wallpaperEl.querySelector('.wallpaper-brand');
   if (blob instanceof Blob) {
     wallpaperUrl = URL.createObjectURL(blob);
     wallpaperEl.style.backgroundImage = 'url("' + wallpaperUrl + '")';
-    // A marca é a identidade do fundo PADRÃO; sobre uma imagem própria ela
-    // só atrapalharia.
-    if (brand) brand.hidden = true;
   } else {
     wallpaperEl.style.backgroundImage = '';
-    if (brand) brand.hidden = false;
   }
 }
 
@@ -1490,7 +1549,12 @@ AVDB.onCommand(async (cmd) => {
     // NA TELA DA REDE a imagem não está no IDB (que é por-aparelho): ela vem
     // pela URL /m/ que o Controle anexou ao próprio comando (telão por
     // comandos, E4). No telão e no espelho, o caminho de sempre.
-    if (TELA && cmd.__wp) { telaAplicarWallpaper(cmd.__wp); return; }
+    if (TELA && cmd.__wp) {
+      // `'padrao'` é o sentinela de "voltou ao padrão": a tela desfaz o
+      // inline e o desenho padrão do CSS volta a valer (v5.188).
+      if (cmd.__wp === 'padrao') telaWallpaperPadrao(); else telaAplicarWallpaper(cmd.__wp);
+      return;
+    }
     applyWallpaper();
     return;
   }

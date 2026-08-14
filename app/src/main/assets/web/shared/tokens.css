@@ -197,8 +197,17 @@
   --shadow-card: rgba(0, 0, 0, .55);
   --shadow-ink: rgba(0, 0, 0, .9);
 
-  /* wallpaper (cortina do telão) — a identidade visual do Display */
-  --wallpaper: radial-gradient(circle at 50% 35%, #14331f 0%, #0a1a10 55%, #050b07 100%);
+  /* wallpaper (cortina do telão) — a cor de BASE por baixo do desenho padrão.
+     Desde a v5.188 o desenho é o SÍMBOLO OFICIAL da IASD sobre denim profundo
+     (`shared/wallpaper-padrao.svg`, fonte única) — mas a URL dele NÃO pode
+     morar neste token: um `url()` substituído por `var()` é resolvido contra a
+     PÁGINA, não contra esta folha, e cada página o quebraria para um caminho
+     diferente. Quem aponta para o SVG são as duas folhas consumidoras
+     (`display.css` no `.wallpaper` e `controle.css` no `.pv-wall`), com o
+     MESMO caminho relativo `../shared/wallpaper-padrao.svg`. Aqui fica só a
+     cor que aparece enquanto a imagem carrega — o mesmo quase-preto do fundo
+     do próprio SVG. */
+  --wallpaper: #04070d;
 
   /* Moldura da letra sincronizada (modo imagem). Sem linha de borda: a faixa
      escura já separa o texto da foto, e o contorno branco competia com a letra

@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.187';
+const WEB_VERSION = '5.188';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -13135,14 +13135,11 @@ async function applyPvWallpaper() {
   customWallpaper = blob instanceof Blob;
   renderWallSeg();
   if (pvWallpaperUrl) { URL.revokeObjectURL(pvWallpaperUrl); pvWallpaperUrl = null; }
-  const brand = pvWallEl.querySelector('.pv-brand');
   if (blob instanceof Blob) {
     pvWallpaperUrl = URL.createObjectURL(blob);
     pvWallEl.style.backgroundImage = 'url("' + pvWallpaperUrl + '")';
-    if (brand) brand.hidden = true;
   } else {
     pvWallEl.style.backgroundImage = '';
-    if (brand) brand.hidden = false;
   }
 }
 
@@ -14624,9 +14621,15 @@ const TAB_SWIPE_RATIO = 1.5;  // quanto o eixo X precisa dominar o Y
 
   function elegivel(target) {
     if (selectionMode) return false;
-    if (!backBtnEl.hidden) return false;                 // sub-tela: o voltar manda ali
     if (SWIPE_TABS.indexOf(activeTab) < 0) return false;
     if (!target || !target.closest) return false;
+    // A FAIXA DE ABAS é sempre território do carrossel (v5.188). As guardas
+    // abaixo protegem gestos que significam outra coisa NO CONTEÚDO — mas um
+    // deslize sobre a própria fileira de abas não pertence a sub-tela nenhuma:
+    // com um livro da Bíblia aberto (o estado normal de quem usa a Bíblia), o
+    // gesto mais óbvio de todos morria calado na guarda do voltar.
+    if (tabsEl.contains(target)) return true;
+    if (!backBtnEl.hidden) return false;                 // sub-tela: o voltar manda ali
     if (target.closest('input, textarea, .draw-hist, .bible-half')) return false;
     return true;
   }
@@ -15706,7 +15709,14 @@ AVDB.onCommand((msg) => {
   // Reenvia SÓ para quem se anunciou (ver `resendSceneToDisplay`). Um telão
   // com bundle antigo não manda `__de`, e aí o reenvio volta a ser broadcast —
   // exatamente o comportamento de antes desta versão.
-  if (msg.type === 'display-ready') { resendSceneToDisplay(msg.__de); return; }
+  if (msg.type === 'display-ready') {
+    // Uma TELA DA REDE (`__tela`) não tem o IndexedDB do celular: além da
+    // cena, ela precisa receber wallpaper, fundo da letra e preenchimento —
+    // o telão de verdade lê tudo isso do IDB sozinho e não entra aqui.
+    if (msg.__tela) telaReenviarPreferencias(msg.__de);
+    resendSceneToDisplay(msg.__de);
+    return;
+  }
   if (msg.type === 'diag-dump') {
     juntarDiag(Array.isArray(msg.linhas) ? msg.linhas : []);
     return;
@@ -16147,9 +16157,35 @@ function telaSanearRec(it, token) {
     rec.lyrics = it.lyrics.map((sl) => ({
       time: sl.time, text: sl.text, auxText: sl.auxText,
       cover: !!sl.cover, imagePosition: sl.imagePosition,
+      // A IMAGEM DE FUNDO da estrofe (v5.188): `imageOpfsPath` continua NUNCA
+      // viajando (é caminho de OPFS, que só existe no celular) — o que viaja é
+      // uma URL /m/ por imagem DISTINTA, com id estável ('ly:'+caminho): a
+      // regra "mesmo id + mesmo token = já tenho" do shell faz o segundo load
+      // do mesmo hino custar zero empurrão. Quem enfileira os bytes é o
+      // chamador (telaEnriquecer), DEPOIS da mídia principal — o som não pode
+      // esperar as fotos.
+      imageUrl: sl.imageOpfsPath ? telaImagemLetraUrl(sl.imageOpfsPath) : undefined,
     }));
   }
   return rec;
+}
+
+// Token estável por imagem de letra; devolve a URL /m/ dela (ou undefined).
+function telaImagemLetraUrl(opfsPath) {
+  const token = telaTokenDe('ly:' + opfsPath);
+  return token ? '/m/' + token : undefined;
+}
+
+// Enfileira o empurrão das imagens de fundo de um registro já saneado.
+function telaEmpurrarImagensLetra(it) {
+  if (!Array.isArray(it.lyrics)) return;
+  const vistos = new Set();
+  for (const sl of it.lyrics) {
+    const p = sl.imageOpfsPath;
+    if (!p || vistos.has(p)) continue;
+    vistos.add(p);
+    telaGarantirEnvio({ id: 'ly:' + p, name: 'letra', type: 'image/jpeg', opfsPath: p });
+  }
 }
 
 // ---- o canal: pedido/resposta serializado (o empurrão é UM por vez) ----
@@ -16249,21 +16285,58 @@ function telaEnriquecer(cmd) {
     if (!token) return;
     cmd.__rec = telaSanearRec(it, token);
     telaGarantirEnvio(it);
+    telaEmpurrarImagensLetra(it);
   } else if (cmd.type === 'wallpaper') {
-    // O wallpaper é o id MUTÁVEL: cada troca cunha token novo (o shell
-    // substitui e mata o velho) e o comando leva a URL nova em __wp.
-    telaTokens.delete('__wp');
-    telaEmpurrados.delete('__wp');
-    const token = telaTokenDe('__wp');
-    if (!token) return;
-    cmd.__wp = '/m/' + token;
+    // Um comando que JÁ CHEGA com `__wp` é a segunda etapa (abaixo) ou o
+    // reenvio de conexão (`telaReenviarWallpaper`): o token dele já está
+    // resolvido e re-cunhar aqui mataria a URL que as telas estão usando.
+    if (cmd.__wp) return;
+    // O aviso de troca segue na hora para o telão de verdade (que lê o IDB
+    // sozinho); a parte das TELAS é resolvida em segundo tempo, porque só o
+    // blob diz se a troca foi PARA uma imagem ou PARA o padrão — e anexar
+    // `__wp` antes de saber cunhava uma URL sem bytes no caminho do "Padrão"
+    // (v5.188). O wallpaper é o id MUTÁVEL: cada troca com imagem cunha token
+    // novo (o shell substitui e mata o velho).
     (async () => {
-      try {
-        const blob = await AVDB.getState('wallpaper');
-        if (blob) telaGarantirEnvio({ id: '__wp', name: 'wallpaper', type: blob.type || 'image/jpeg', blob });
-      } catch (_) { /* sem wallpaper */ }
+      let blob = null;
+      try { blob = await AVDB.getState('wallpaper'); } catch (_) { /* padrão */ }
+      if (!blob) { AVDB.sendCommand({ type: 'wallpaper', __wp: 'padrao' }); return; }
+      telaTokens.delete('__wp');
+      telaEmpurrados.delete('__wp');
+      const token = telaTokenDe('__wp');
+      if (!token) return;
+      telaGarantirEnvio({ id: '__wp', name: 'wallpaper', type: blob.type || 'image/jpeg', blob });
+      AVDB.sendCommand({ type: 'wallpaper', __wp: '/m/' + token });
     })();
   }
+}
+
+// AS PREFERÊNCIAS DE QUEM ACABOU DE CONECTAR (v5.188). O telão de verdade lê
+// wallpaper, fundo da letra e preenchimento do IndexedDB no arranque; uma TELA
+// DA REDE não tem esse IDB, e tudo que só viaja "na troca" simplesmente não
+// existia para quem entrasse depois — ela ficava no wallpaper padrão, com a
+// letra sobre preto e no preenchimento default para sempre. Este é o simétrico
+// do `resendSceneToDisplay`: roda no MESMO `display-ready`, e é ENDEREÇADO
+// (`__para`) para o telão de verdade e as outras telas nem o verem.
+// O token do wallpaper é REUSADO quando já existe (o funil acima não re-cunha
+// um comando que chega com `__wp`), então N conexões custam UM empurrão — a
+// regra "mesmo id + mesmo token = já tenho" do shell responde as demais.
+function telaReenviarPreferencias(para) {
+  if (!telaAtiva()) return;
+  const mandar = (c) => { if (para) c.__para = para; AVDB.sendCommand(c); };
+  // Só o que DIVERGE do padrão viaja: a tela recém-carregada já está no
+  // padrão, e mandar o default de volta seria ruído no caminho da conexão.
+  if (lyricsBg === 'image') mandar({ type: 'lyricsbg', mode: lyricsBg });
+  if (mediaFit !== 'contain') mandar({ type: 'fit', fit: mediaFit });
+  (async () => {
+    let blob = null;
+    try { blob = await AVDB.getState('wallpaper'); } catch (_) { /* padrão */ }
+    if (!blob) return;                       // sem wallpaper próprio: o padrão da tela já é o certo
+    const token = telaTokenDe('__wp');
+    if (!token) return;
+    telaGarantirEnvio({ id: '__wp', name: 'wallpaper', type: blob.type || 'image/jpeg', blob });
+    mandar({ type: 'wallpaper', __wp: '/m/' + token });
+  })();
 }
 (function () {
   if (!window.__NATIVE__) return;
