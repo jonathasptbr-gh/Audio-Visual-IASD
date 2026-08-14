@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.201';
+const WEB_VERSION = '5.202';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -11499,7 +11499,14 @@ function linhasDaTela(v) {
 
 function blocoEspelho(d) {
   if (!d || typeof d !== 'object') return '';
-  const l = ['Espelho de pixels'];
+  // O TÍTULO É "TRANSMISSÃO PARA NAVEGADOR" (v5.202). Ele dizia "Espelho de
+  // pixels" — o nome do recurso que a v5.187 APOSENTOU por inteiro (o
+  // VirtualDisplay → H.264 → MSE). O bloco descreve o telão por comandos há
+  // catorze versões, e o operador lê este texto justamente quando algo não está
+  // conectando: um título que nomeia um recurso que não existe mais é a pior
+  // linha possível num diagnóstico que vai ser repassado. O nome usado aqui é o
+  // MESMO do interruptor na folha de conexão, para os dois falarem do mesmo.
+  const l = ['Transmissão para navegador'];
   const srv = d.servidor || {};
   const svc = d.servico || {};
   if (srv.ligado) {

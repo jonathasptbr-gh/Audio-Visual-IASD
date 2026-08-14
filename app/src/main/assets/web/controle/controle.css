@@ -3198,6 +3198,10 @@ body.mode-simple .bottombar { display: none; }
    de sempre (preview + buscar); sem tela vira uma coluna, a conexão em cima e a
    busca embaixo, no fluxo, no alto da tela. Nada cobre nada. */
 .simple.sem-tela .simple-stage { display: none; }
+/* UMA COLUNA sem tela: sobram a conexão e a busca, e as duas ficam com a
+   largura inteira, uma sobre a outra — a conexão em cima porque é ela que
+   resolve o que falta. Com metade da largura o cartão de conexão (um botão e um
+   interruptor com rótulo) não caberia sem quebrar linha em toda frase. */
 .simple.sem-tela .simple-actions { grid-template-columns: 1fr; }
 /* SEM TELA, QUEM OCUPA A CÉLULA DA PREVIEW É A SEÇÃO DE CONEXÃO (v5.193) — e
    não mais um botão que só abria a folha onde ela mora. As duas formas de
