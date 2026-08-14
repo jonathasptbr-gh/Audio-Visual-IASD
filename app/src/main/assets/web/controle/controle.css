@@ -3505,12 +3505,11 @@ body.mode-simple .hymn-add-btn { display: none; }
   width: var(--icon-lg); height: var(--icon-lg);
   color: var(--on-accent);
 }
-.cast-acao-txt { display: flex; flex-direction: column; gap: .15rem; }
+.cast-acao-txt { min-width: 0; }
 .cast-acao-txt b { font-size: .92rem; }
 /* A linha auxiliar herda o `--on-accent` com alfa em vez de virar `--muted`:
    o cinza da paleta é calibrado contra as superfícies escuras e some sobre o
    âmbar preenchido. */
-.cast-acao-txt small { color: var(--on-accent); opacity: .78; font-size: .78rem; line-height: 1.3; }
 
 /* O INTERRUPTOR. Ele é uma LINHA de estado, não um botão: fundo de superfície
    comum, texto normal, e o sinal fica todo no trilho à direita. A linha inteira
@@ -3523,9 +3522,8 @@ body.mode-simple .hymn-add-btn { display: none; }
   background: var(--surface); border: 1px solid var(--line);
   border-radius: var(--radius-card); cursor: pointer;
 }
-.cast-sw-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .15rem; }
+.cast-sw-txt { flex: 1; min-width: 0; }
 .cast-sw-txt b { font-size: .92rem; }
-.cast-sw-txt small { color: var(--muted); font-size: .78rem; line-height: 1.3; }
 /* O `<input>` some da vista mas CONTINUA no fluxo de foco e de acessibilidade —
    `display: none` o tiraria dos dois. É ele que carrega o estado (`:checked`),
    e o trilho abaixo é desenhado a partir dele. */
@@ -3666,7 +3664,6 @@ body.mode-simple .hymn-add-btn { display: none; }
 /* O CÓDIGO é o accent, e o endereço não: eles não competem, porque o âmbar aqui
    diz "este é o número do momento" — ele muda a cada vez que a transmissão é
    ativada, e o endereço não. Mesma anatomia do PIN que ele substitui. */
-.cast-hint { margin: .1rem 0 .5rem; font-size: .78rem; color: var(--muted); text-align: center; }
 /* Quem está vendo. Uma linha por tela, com a ação à direita — o padrão de
    lista do resto do app, não um cartão novo. */
 .cast-telas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .35rem; }

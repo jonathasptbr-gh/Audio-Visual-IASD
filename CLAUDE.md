@@ -2241,10 +2241,44 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.193** (base web) · `SHELL_VERSION` **39**, e o bundle segue com
+**Versão atual: v5.194** (base web) · `SHELL_VERSION` **39**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.194: A FOLHA DE CONECTAR PERDE TRÊS QUARTOS DO TEXTO. OTA PURO.**
+> Relato do operador: "extremamente poluído e repetido e pouco claro".
+>
+> Contado, ele estava certo por um fator de quatro. Para DUAS decisões
+> (espelhar para a TV × transmitir pela rede) a tela trazia: um subtítulo
+> explicando o que é espelhamento, outro explicando o que é a transmissão, uma
+> frase mandando abrir o endereço no navegador, uma mensagem de sucesso
+> mandando a mesma coisa, e — atrás de "Ajustes avançados" — dois parágrafos
+> dizendo tudo pela quarta vez. **Cinco formas de dizer "abra o endereço no
+> navegador".**
+>
+> - **Os subtítulos saíram.** Eles descreviam o recurso para quem já tinha
+>   decidido usá-lo: ninguém abre "Conectar uma tela" para aprender o que é
+>   Smart View. O do interruptor era pior — ligado, ele dizia "N tela(s)
+>   recebendo", que é exatamente o que a LISTA logo abaixo mostra, com nome e
+>   tempo de cada uma.
+> - **A instrução virou o RÓTULO do endereço** ("Acesse este endereço no
+>   navegador"). Era uma linha separada abaixo dele, em duas versões que
+>   trocavam as palavras de lugar conforme houvesse ou não uma tela conectada. O
+>   "toque em Ativar esta tela" saiu junto: quem precisa dessa instrução está NA
+>   OUTRA TELA, e lá ela está escrita no botão — que é onde ela serve.
+> - **"Abre: Smart View" saiu do botão de espelhar.** Ninguém escolhe entre dois
+>   caminhos pelo NOME do seletor que vai abrir; quando o botão abre a tela
+>   errada, a resposta está no Registro, que é o que se copia para diagnosticar.
+>   O dado continua lá.
+> - **Os dois parágrafos dos ajustes viraram uma frase** — e eles ainda mandavam
+>   **digitar o código de três dígitos**, que saiu na v5.189. Texto grande é
+>   também texto que ninguém revisa. Ficou o que o operador não tem como
+>   adivinhar e que muda o que ele faz: o roteador pode bloquear isto sozinho, e
+>   há duas coisas que de propósito não vão para a rede.
+> - **O sucesso deixou de ter frase.** O endereço aparecendo, com o rótulo que
+>   diz o que fazer com ele, É o "deu certo". A falha continua falando, porque
+>   ali não há nada que apareça sozinho.
 
 > **A v5.193: CINCO AJUSTES DE USO, e um deles é a QUARTA correção do mesmo
 > mecanismo. OTA PURO** (nenhuma linha de Kotlin; sem Release).
