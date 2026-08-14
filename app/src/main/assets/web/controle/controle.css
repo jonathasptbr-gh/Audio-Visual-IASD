@@ -3101,8 +3101,16 @@ body.mode-simple .bottombar { display: none; }
 .simple-key svg { display: block; color: var(--accent); }
 .simple-key-label { font-size: .9rem; font-weight: 700; }
 .simple-key-sub { font-size: .72rem; color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.simple-actions { flex: none; display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
-.simple-action { padding: .8rem .5rem; }
+/* UMA COLUNA desde a v5.200. Ela era uma grade de duas (preview | buscar), e
+   agora tem uma decisão só: a preview, ou a seção de conexão no lugar dela —
+   os dois nunca coexistem. "Buscar música" desceu para junto do transporte
+   (ver `.simple-action`), então não há segunda célula a preencher. */
+.simple-actions { flex: none; display: flex; flex-direction: column; }
+/* BUSCAR MÚSICA — largo, entre a letra e o teclado.
+   `flex: none` porque ele vive no flex-column do `.simple-mode` ao lado da
+   letra, que é quem estica (`flex: 1`): sem isto o botão dividiria a sobra com
+   ela e mudaria de altura conforme o tamanho da letra em cena. */
+.simple-action { flex: none; padding: .8rem .5rem; margin-bottom: .6rem; }
 /* Telão conectado: o ícone confirma sem precisar ler o subtítulo. */
 
 /* ----- A PREVIEW no lugar do botão de conectar (v5.71) -----
@@ -3120,7 +3128,21 @@ body.mode-simple .bottombar { display: none; }
    preview a 16:9 nessa largura sai um pouco mais alta que a tecla ao lado, é
    ela quem define a linha — e "Buscar música" acompanha. */
 .simple-stage { min-width: 0; display: flex; align-items: center; justify-content: center; }
-.simple-stage .preview { width: 100%; height: auto; max-width: 100%; max-height: 100%; }
+/* A FAIXA VIROU UMA COLUNA na v5.200 (a busca desceu para junto do teclado), e
+   sem o botão ao lado a preview passaria a ocupar a largura inteira — 16:9 num
+   aparelho de 430px são ~242px de altura, mais de um quarto da tela, tirados da
+   letra, que é o que se lê durante o louvor.
+   O TETO É DE ALTURA e não de largura, porque a altura é o recurso escasso
+   aqui: `--pv-ar` é a proporção do telão REAL (pode ser 2,17:1 numa TV
+   ultrawide), então limitar a largura daria alturas diferentes conforme a TV.
+   `max-width` derivado da altura mantém a proporção sem que `aspect-ratio`
+   tenha de brigar com duas restrições — quem manda continua sendo a largura,
+   como manda o comentário de `.preview`. */
+.simple-stage .preview {
+  width: 100%; height: auto;
+  max-width: min(100%, calc(20vh * var(--pv-ar, 1.7778)));
+  max-height: 100%;
+}
 /* O cartão de "Baixando…" foi desenhado para a preview do deck, que é quase o
    dobro desta: aqui ele transbordava a miniatura e passava por baixo do ícone
    de cast. Mesmo cartão, medidas menores — a folga da direita continua sendo a

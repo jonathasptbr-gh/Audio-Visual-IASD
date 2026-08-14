@@ -494,6 +494,12 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // suporte); com a transmissão desligada o cache resolve nulo e o
         // canal recusa com frase.
         espelhoMidiaCanal.instalar(w)
+        // A BASE SERVIDA MUDOU DESDE O LANÇAMENTO ANTERIOR: limpar o cache
+        // antes de carregar. Ver `WebUpdater.baseTrocou` — as URLs não mudam de
+        // nome entre versões da base, então sem isto a página nasce com metade
+        // de cada bundle. O cache é do processo (os dois WebViews o dividem),
+        // então basta aqui: o telão é criado depois e já pega o cache limpo.
+        if (WebUpdater.baseTrocou) w.clearCache(true)
         w.loadUrl(WebViewFactory.URL_CONTROLE)
     }
 
