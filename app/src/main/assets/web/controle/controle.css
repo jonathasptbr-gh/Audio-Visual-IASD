@@ -3104,7 +3104,6 @@ body.mode-simple .bottombar { display: none; }
 .simple-actions { flex: none; display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
 .simple-action { padding: .8rem .5rem; }
 /* Telão conectado: o ícone confirma sem precisar ler o subtítulo. */
-.simple-action.connected svg { color: var(--ok); }
 
 /* ----- A PREVIEW no lugar do botão de conectar (v5.71) -----
    Conectado, não há nada melhor a dizer sobre "está conectado?" do que MOSTRAR
@@ -3177,9 +3176,6 @@ body.mode-simple .bottombar { display: none; }
 /* Sem tela conectada a faixa não existe — a tela inteira é o bloqueio, e o
    botão de conectar volta ao centro dela. */
 .simple.locked .simple-stage { display: none; }
-/* Com tela conectada é o botão de conectar que sai — a preview já está na
-   célula dele. A grade segue com as duas colunas de sempre. */
-.simple:not(.locked) #simpleCastBtn { display: none; }
 
 /* ----- Bloqueio sem tela conectada (ver renderSimpleGate) ----- */
 /* A cortina cobre a tela inteira e é o que embaça: `backdrop-filter` age sobre
@@ -3237,56 +3233,39 @@ body.mode-simple .bottombar { display: none; }
    linha, o bloco que mora numa FOLHA (onde `.popup-sheet` já a aplica) chegaria
    aqui flutuando em branco sobre um painel claro. */
 .simple-conn { --surface: var(--surface-sunk); --surface-2: var(--surface-2-sunk); }
-/* E o botão grande sai de cena: a seção é a ação agora. Ele continua existindo
-   para o caso COM tela conectada (o cartão comum, ao lado da preview) e segue
-   carregando a liberação de teste de 5 s — que, bloqueado, passou a viver no
-   toque longo da própria CORTINA (ver `setupCastHold`), porque era justamente
-   no estado bloqueado que ela servia para alguma coisa. */
-.simple.locked #simpleCastBtn { display: none; }
+/* (AS REGRAS DO BOTÃO ÚNICO SAÍRAM na v5.197, com o próprio botão. Eram ~25
+   linhas de destaque — preenchimento em accent, ícone de 44px, rótulo em
+   800 — para um elemento que a própria folha escondia por DOIS caminhos ao
+   mesmo tempo: `.simple:not(.locked)` e `.simple.locked`. Um `display: none`
+   em cada estado é um elemento que nunca aparece, e o CSS de um elemento que
+   nunca aparece não tem como ser notado errado.) */
 
-/* Em DESTAQUE: preenchido no accent, não a mesma tecla escura das outras.
-   Contornado ele pesava igual ao teclado embaçado atrás — e a única ação
-   possível da tela não pode disputar atenção com o que está bloqueado. */
-.simple.locked #simpleCastBtn {
-  padding: 1.5rem 1rem; gap: .5rem;
-  background: var(--accent-fill); color: var(--on-accent);
-  /* SEM HALO (v5.75). Havia aqui uma sombra em `--accent-glow` para "separar o
-     botão do teclado embaçado atrás dele" — mas quem separa é a CORTINA: o
-     `backdrop-filter` já apaga tudo que está atrás, e o botão é a única coisa
-     nítida e a única coisa preenchida da tela. O halo não estava resolvendo um
-     problema de leitura, estava só espalhando luz âmbar num salão escuro. */
-}
-.simple.locked #simpleCastBtn svg { color: var(--on-accent); width: 44px; height: 44px; }
-.simple.locked #simpleCastBtn .simple-key-label { font-size: 1.08rem; font-weight: 800; }
-/* Ícone e UMA frase, e nada mais. O subtítulo ("Toque para escolher a tela")
-   repetia o rótulo, e a mensagem que havia acima do botão até a v5.40 dizia
-   pela terceira vez a mesma coisa: três textos para uma tela que tem UMA
-   ação. Com tela conectada o subtítulo volta — ali ele informa QUAL tela, que
-   é notícia. */
-.simple.locked #simpleCastBtn .simple-key-sub { display: none; }
-
-/* ----- Liberação de TESTE (segurar 5 s o botão de conectar) -----
+/* ----- Liberação de TESTE (segurar 5 s a CORTINA) -----
    Uma porta de desenvolvimento: sem telão à mão não há como olhar a tela
-   simplificada destravada, que é justamente a tela que o app abre. Segurar o
-   botão de conectar por 5 s destrava como se houvesse tela; segurar de novo
-   tranca. Ver `CAST_HOLD_MS` em controle.js.
-   A espera precisa de um sinal — 5 s de nada é indistinguível de um toque que
-   não pegou —, então a barra corre no pé do botão enquanto o dedo estiver lá.
+   simplificada destravada, que é justamente a tela que o app abre. Segurar a
+   cortina por 5 s destrava como se houvesse tela; segurar de novo tranca. Ver
+   `CAST_HOLD_MS` em controle.js.
+
+   O ALVO MUDOU DUAS VEZES, e a segunda foi um conserto: até a v5.192 o gesto
+   era no botão grande de conectar; a v5.193 pôs a seção de conexão no lugar
+   dele e o gesto foi para a cortina — que é o resto da tela e não significa
+   nada hoje. Na v5.197 o botão saiu de vez, e esta barra veio junto com ele
+   porque ela nunca chegou a ser aplicada à cortina: eram cinco segundos de
+   NADA, indistinguíveis de um toque que não pegou.
+
    `forwards` mantém o fim: quem completou a contagem vê a barra cheia no
    instante em que a tela destrava, em vez de vê-la sumir e duvidar do que
-   aconteceu. */
-.simple-key--holding { position: relative; overflow: hidden; }
-.simple-key--holding::after {
-  content: ''; position: absolute; left: 0; bottom: 0; height: 3px; width: 0;
-  background: var(--on-accent); opacity: .85;
+   aconteceu. No TOPO da cortina, e não no pé: embaixo ela ficaria atrás do
+   teclado de transporte, que é o que a cortina cobre. */
+.simple-veil.segurando::after {
+  content: ''; position: absolute; left: 0; top: 0; height: 3px; width: 0;
+  background: var(--accent); opacity: .85;
   animation: cast-hold var(--cast-hold, 5s) linear forwards;
 }
 @keyframes cast-hold { to { width: 100%; } }
 /* Destravado por teste NÃO é "conectado": em `--warn`, que é a família de
    aviso, e nunca no verde de `.connected` — verde ali significaria uma tela
    real recebendo a projeção, e não há nenhuma. */
-.simple-action.testing svg { color: var(--warn); }
-.simple-action.testing .simple-key-sub { color: var(--warn-text); }
 
 /* Letra da música em cena — ocupa o espaço que sobra entre as ações e as
    teclas. Mesmas linhas da leitura auxiliar do modo avançado (.lv-row). */

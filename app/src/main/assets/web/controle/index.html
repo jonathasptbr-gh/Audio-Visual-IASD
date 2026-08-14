@@ -139,17 +139,18 @@
            é a única coisa que ela pode fazer.
            Vazio no HTML de propósito — quem o preenche é `hostCastConn()`. -->
       <div class="simple-conn" id="simpleConn" hidden></div>
-      <button type="button" id="simpleCastBtn" class="simple-key simple-action">
-        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M3 19a2 2 0 0 1 2 2"/>
-          <path d="M3 15.5a5.5 5.5 0 0 1 5.5 5.5"/>
-          <path d="M3 12a9 9 0 0 1 9 9"/>
-          <path d="M8.5 5h10A2.5 2.5 0 0 1 21 7.5v9a2.5 2.5 0 0 1-2.5 2.5H16"/>
-        </svg>
-        <span class="simple-key-label" id="simpleCastLabel">Conectar a tela</span>
-        <span class="simple-key-sub" id="simpleCastStatus"></span>
-      </button>
-
+      <!-- (O BOTÃO ÚNICO DE CONECTAR SAIU na v5.197.) Ele já estava morto desde
+           a v5.193 e ninguém notou, porque a folha o escondia por DOIS
+           caminhos: `.simple:not(.locked) #simpleCastBtn` (com tela, quem ocupa
+           a célula é a preview) e `.simple.locked #simpleCastBtn` (sem tela,
+           quem ocupa a tela é a seção de conexão inteira). Duas regras de
+           `display: none` que juntas cobrem todos os estados são um elemento
+           que nunca aparece — e ainda assim ele carregava rótulo, subtítulo,
+           ícone, um `title`, ~25 linhas de CSS de destaque e o gesto de 5 s da
+           liberação de teste, que a v5.193 já tinha mudado para a cortina.
+           Com tela: a PREVIEW (que é o melhor sinal possível de "está
+           conectado") e o ícone de cast no canto dela, por onde se abre a folha
+           de conexão. Sem tela: a seção de conexão, na tela inteira. -->
       <button type="button" id="simpleSearchBtn" class="simple-key simple-action">
         <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="11" cy="11" r="7"/>
@@ -802,7 +803,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.196</span>
+        <span id="appVersion" class="app-version">Controle v5.197</span>
         <!-- O APK NOVO, quando existir. Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso. `hidden`
