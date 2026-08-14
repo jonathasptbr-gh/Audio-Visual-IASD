@@ -332,39 +332,14 @@ html, body {
   transition: opacity .18s ease, transform .18s cubic-bezier(.2,1.5,.4,1), color .18s ease;
 }
 
-/* Fundo preto evita flash branco enquanto o player do YouTube carrega.
-   pointer-events:none: toques/hover no telão nunca invocam a UI do player
-   (título, controles) — todo o transporte vem do Controle via IFrame Player
-   API. #youtube é só um wrapper; o iframe real é criado pela API oficial
-   dentro dele (display.js), por isso o tamanho é herdado via seletor filho.
-   O iframe é renderizado a 400% do wrapper e encolhido de volta com
-   transform:scale(.25) — mesmo truque da preview do Controle (ver
-   controle.css): a UI própria do YouTube (logo, botão de play do estado
-   "cued", spinner) tem um piso de tamanho próprio; renderizando "grande"
-   primeiro e só depois encolhendo o resultado já composto (via transform,
-   que não re-dispara o layout responsivo interno do iframe), essa UI sai
-   ainda mais discreta em relação ao vídeo — mesmo já sendo o telão
-   inteiro, o objetivo aqui é minimizar ao máximo a marca do YouTube na
-   apresentação, não só corrigir desproporção. */
-.yt-frame { border: none; background: var(--stage-bg); pointer-events: none; overflow: hidden; }
-.yt-frame iframe {
-  position: absolute; top: 50%; left: 50%;
-  width: 400%; height: 400%; border: none;
-  transform: translate(-50%, -50%) scale(.25);
-  transform-origin: center center;
-}
-
-/* Escudo anti-UI do YouTube: usado só no FIM do vídeo — cobre a tela de
-   "vídeos relacionados" enquanto o player é derrubado. Fica ACIMA do
-   wallpaper (z-index maior): entra instantâneo (para vencer a UI) já com o
-   wallpaper pronto por baixo, e esmaece revelando o wallpaper graciosamente. */
-.yt-shield {
-  background: var(--stage-bg);
-  opacity: 0;
-  pointer-events: none;
-  z-index: 4;
-}
-.yt-shield.on { opacity: 1; }
+/* (SAIU NA v5.212: `.yt-frame` e `.yt-shield`, as duas camadas do embed do
+   YouTube. A primeira renderizava o iframe a 400% e o encolhia por transform,
+   para minimizar a marca do YouTube no telão; a segunda era o escudo que
+   cobria a tela de "vídeos relacionados" enquanto o player caía. As duas
+   existiam para consertar o que um player de TERCEIRO desenha por conta
+   própria — e o embed saiu inteiro: o que toca vídeo do YouTube agora é o
+   `<video>` do palco, alimentado pela transmissão direta ou pelo arquivo
+   baixado. Não há UI alheia a esconder.) */
 
 /* Toque único ao abrir o Display: cobre a tela inteira, acima de tudo
    (inclusive do wallpaper e do escudo) — é o gesto real que o navegador

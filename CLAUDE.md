@@ -206,8 +206,7 @@ rodadas de APK para ser aprendida:
    > `StreamProxy` para lá é o erro exato**, e é por isso que o `EspelhoHttp` é
    > um arquivo à parte, puro, e não uma parametrização daquele.
 
-**No WebView do TELÃO** — o documento que hospeda código de terceiro por
-design (a IFrame Player API do YouTube):
+**No WebView do TELÃO:**
 
 9. **A ponte nasce com `host = null`, e o loader é montado SEM o handler
    `/saf/`.** É o que separa "uma segunda janela do Display" de um
@@ -228,9 +227,10 @@ YouTube dividem o mesmo processo.
 **`KeepVisibleWebView` (só o telão).** O Chromium marca a página como `hidden`
 quando a janela da View some, e é isso que acontece com a `Presentation` no
 instante em que o app é minimizado. Um `<video>` local não liga; o **embed do
-YouTube pausa sozinho** ao ver `document.hidden`. `onWindowVisibilityChanged`
+YouTube pausava sozinho** ao ver `document.hidden`. `onWindowVisibilityChanged`
 reporta sempre `VISIBLE` para tirar esse gatilho. **Não bastou** para o YouTube
-(a solução real é baixar o vídeo — ver a tabela de divergências), mas fica: o
+(a solução real foi baixar o vídeo, e desde a v5.212 o embed não existe mais),
+mas fica: o
 telão é a projeção, ele continua no ar com o app minimizado de propósito, e não
 há razão para o renderer dele ser desacelerado. O WebView do **Controle** segue
 o ciclo normal — ali ser estrangulado em segundo plano é o comportamento certo,
@@ -312,7 +312,9 @@ window.AVNative = {
   otaCheck(forcar),    // PROCURA agora; `forcar` pula o piso do shell — shell 31
   otaDiag(),           // → string: quando foi a última busca e o que ela deu
   apkProcurar(),       // → { versao, url, notas } da Release nova, ou null — shell 35
-  apkInstalar(url),    // baixa e abre o diálogo de instalação do sistema — shell 35
+  apkInstalar(),       // baixa e abre o diálogo de instalação do sistema — shell 35
+                       //   (sem URL: quem a escolhe é o `ShellUpdater`, do
+                       //    achado da última `apkProcurar`)
   ytDiag(),            // → string: o que o extrator recebeu na última extração
                        //   (diagnóstico do rodapé de Configurações)
   ytStream(url, altura), // → manifesto DASH { video, audio, seconds, height } ou null
@@ -409,9 +411,9 @@ Sobre o token (`SafRegistry`, em `SafPathHandler.kt`):
 ponte com `host = null` justamente para não ter poderes de Activity, e o loader
 dele é montado **sem** o handler `/saf/`. `listFolder` honra a mesma regra e
 devolve lista vazia sem host: era a exceção, porque lê o `ContentResolver`
-direto, e sem a guarda qualquer script rodando no documento do Display (que
-carrega a IFrame Player API de terceiro **por design**) lia o índice inteiro —
-nome, tamanho e token servível — de toda pasta que o operador já concedeu. Os
+direto, e sem a guarda qualquer script rodando no documento do Display lia o
+índice inteiro — nome, tamanho e token servível — de toda pasta que o operador
+já concedeu. Os
 dois consumidores de arquivo do dispositivo (`importShare` e `syncDeviceFolder`)
 rodam no Controle e copiam os bytes para o OPFS antes de qualquer coisa chegar
 ao telão; o Display nunca busca um `/saf/`.
@@ -1714,7 +1716,7 @@ contextos.
 | Recuperação de áudio bloqueado | segue tocando mudo + retentativas | **desativada já no `onBlocked`** — sem política de gesto, qualquer `NotAllowedError` só pode ser falso positivo, e mutar antes de descobrir isso deixava o telão sem som sem armar recuperação nenhuma |
 | Pastas do dispositivo | `showDirectoryPicker()` | **SAF** — a File System Access API **não existe no Android**; este recurso era letra morta no celular e passa a funcionar |
 | Compartilhamento | **não existe mais** — vinha do `share_target` do manifest com o POST interceptado pelo SW, e os dois saíram do bundle; a leitura remanescente do estado `pending-share` (que ninguém escrevia desde a v5.48) saiu na limpeza da auditoria de agosto/2026 | **`intent-filter` nativo** (`ShareIntake.kt`), que só aceita `content://` de outro app (ver abaixo) |
-| Link do YouTube compartilhado | vira item de player (o embed) | **no avançado, as MESMAS quatro escolhas da busca** (v5.137): a folha de tocar · playlist · Cronograma · Favoritos, com vídeo/só-áudio e o teto de resolução. As duas portas de entrada de um vídeo do YouTube passaram a dar no mesmo lugar — antes o share decidia sozinho: sempre vídeo, sempre no Cronograma, sempre no padrão de qualidade. **No simplificado não há pergunta e há TRANSMISSÃO DIRETA** (v5.138): ali o link compartilhado É um "tocar agora" — vai direto ao telão, não entra em lista visível nenhuma e ninguém pediu para guardar —, então ele passa por `tentarTransmitir` antes do download, como o "Tocar agora" do avançado. Uma folha com destinos que aquela tela não tem seria pior que folha nenhuma; esperar centenas de MB para começar a projetar era a espera que a transmissão existe para acabar. Falhando a transmissão, cai no download e, falhando ele, no item de player: um link compartilhado nunca se perde |
+| Link do YouTube compartilhado | vira item de LINK, que só o app resolve | **no avançado, as MESMAS quatro escolhas da busca** (v5.137): a folha de tocar · playlist · Cronograma · Favoritos, com vídeo/só-áudio e o teto de resolução. As duas portas de entrada de um vídeo do YouTube passaram a dar no mesmo lugar — antes o share decidia sozinho: sempre vídeo, sempre no Cronograma, sempre no padrão de qualidade. **No simplificado não há pergunta e há TRANSMISSÃO DIRETA** (v5.138): ali o link compartilhado É um "tocar agora" — vai direto ao telão, não entra em lista visível nenhuma e ninguém pediu para guardar —, então ele passa por `tentarTransmitir` antes do download, como o "Tocar agora" do avançado. Uma folha com destinos que aquela tela não tem seria pior que folha nenhuma; esperar centenas de MB para começar a projetar era a espera que a transmissão existe para acabar. Falhando a transmissão, cai no download e, falhando ele, vira um item de LINK — que não é mais um player embutido e sim uma dívida a resolver no próximo toque (`resolverLinkYoutube`, v5.212): um link compartilhado nunca se perde |
 | Destino de um item (acervo · YouTube · importação · share) | uma escolha por vez: a folha fechava no primeiro toque | **VÁRIOS destinos de uma vez** (v5.141): cada linha de destino ganhou uma caixa de marcação na borda. O toque no corpo da linha continua sendo a ação de um toque — agora para aquela linha MAIS o que estiver marcado —, e a caixa só marca, sem fechar a folha. Um vídeo do YouTube passa a ser baixado UMA vez para ir ao Cronograma e aos Favoritos (antes eram dois downloads de minutos, e o operador só descobria na segunda espera). A importação e o share de arquivo abrem a mesma folha como PERGUNTA, com o Cronograma já marcado; desistir dela entra no Cronograma, como sempre. Ver `docs/ARQUITETURA-WEB.md`, "UM item, VÁRIOS destinos" |
 | Onde o share ATERRISSA | idem ao nativo (o caminho é o mesmo `importShare`) | **`focarImportado`** (v5.77): fecha os popups abertos e a seleção, e então **projeta na hora** no simplificado ou **vai para o Cronograma** no avançado — e no simplificado o item NÃO entra em lista visível nenhuma (v5.89: vai para a prateleira `avulsos`), porque aquela tela não tem Cronograma nem playlist. A preview em tela cheia só é encerrada se houver telão — sem ele, ela É a projeção |
 | Estado do telão (rodapé de Configurações) | atalho `window.open('../display/')`, útil só para desenvolver | **indicador ao vivo** (desabilitado como botão) — a Presentation é criada sozinha |
@@ -1723,11 +1725,11 @@ contextos.
 | Girar a mídia | idem (o comando é o mesmo `rotate`) | **novo na v5.142**: vídeo gravado de lado chega DEITADO no telão e não havia o que fazer. Um botão em Configurações avança 90° por toque; o motor TROCA O EIXO da caixa antes de girar, para o `object-fit` fazer a conta no retângulo em que a mídia vai de fato aparecer. Tomou o lugar do "Esticar", que distorcia a proporção — o defeito que "Ajustar" e "Preencher" existem para evitar |
 | Som na preview ("mesa de som") | **não existe mais** — a preview é sempre muda | **REMOVIDO na v5.189**, a pedido do operador: o som do sistema é o dos DISPLAYS (a TV pela `Presentation`, as telas da rede pelo `<video>` delas). Os WebViews dividem o processo e a saída de áudio do Android, então o áudio da preview só tinha como tomar o foco e INTERROMPER o player do telão — a v5.141 já escondia o botão com telão conectado, e a v5.189 tirou o modo inteiro (com ele, o `keepAudioAlive` da ponte) |
 | PDF, PowerPoint, Google Apresentações | **PDF não existe** (não há quem o desenhe); o `.pptx` funciona, e é o MESMO caminho do app | **viram UMA IMAGEM POR PÁGINA**, cada formato pelo caminho que existe para ele: o **PDF** pelo `PdfRenderer` da PLATAFORMA (`SlideDeck.kt` + `AVNative.deckPages`) — fidelidade total, zero dependência; o **`.pptx`** pelo renderizador de OOXML em `assets/web/vendor/` (`pptxParaPaginas`, em `controle.js`), carregado por `import()` dinâmico e rasterizado com `<foreignObject>` + canvas. Daí para a frente é mídia comum: fade, cortina, telão e `MediaSession` que já existem, com ⏮/⏭ passando página. **Não há botão de "apresentação"**: uma apresentação é um arquivo como outro qualquer, e entra pelo mesmo "Importar arquivos" (que no app abre o seletor do SISTEMA, `pickDoc` — o `<input type="file">` devolve bytes, e o PDF precisa que o shell abra o ARQUIVO) ou pelo compartilhamento. O `.ppt` anterior a 2007 e o `.odp` ficam de fora: ninguém sabe desenhá-los, e aceitar para depois falhar é pior que não aceitar. O link do Google entra sozinho pela URL de exportação |
-| **Tocar agora** de um vídeo do YouTube | player embutido (IFrame API) | **TRANSMISSÃO DIRETA** (v5.120/shell 26; **funcionando só do shell 27 em diante**): o shell monta o manifesto das duas faixas adaptativas (`ytStream`), o `StreamProxy` as serve pelo NOSSO origin com o UA que combina com a URL, e o `MediaSource` de `shared/mse.js` as vira um `<video>` COMUM — fade, cortina, `MediaSession`, barra e segundo plano de graça, **e zero pixel de YouTube no telão**. Sem esperar o download. A faixa de bytes viaja na QUERY (`?r=<ini>-<fim>`), nunca no cabeçalho `Range` — ver a invariante 8, que é a razão de o recurso ter passado três versões sem tocar um único vídeo. Só em "Tocar agora": as outras três ações GUARDAM o item, e um manifesto expira em horas. Falhando qualquer coisa (shell < 27, vídeo sem par adaptativo, WebView sem o codec) cai no download, calado — o operador pediu o louvor, não o método |
-| Vídeo do YouTube | player embutido (IFrame API) | **arquivo de vídeo baixado PELO APARELHO** (`YoutubeGrab.kt` + `AVNative.ytFetch`) — o embed pausa sozinho com o app minimizado, e a extração no próprio celular sai do IP do chip, que é o que o YouTube não bloqueia. Sem configurar nada. Cobalt continua como segunda opção para quem já mantém uma instância; falhando os dois, o link vira item de player |
+| **Tocar agora** de um vídeo do YouTube | **não toca** — sem ponte não há transmissão nem download, e o app diz isso na linha do item | **TRANSMISSÃO DIRETA** (v5.120/shell 26; **funcionando só do shell 27 em diante**): o shell monta o manifesto das duas faixas adaptativas (`ytStream`), o `StreamProxy` as serve pelo NOSSO origin com o UA que combina com a URL, e o `MediaSource` de `shared/mse.js` as vira um `<video>` COMUM — fade, cortina, `MediaSession`, barra e segundo plano de graça, **e zero pixel de YouTube no telão**. Sem esperar o download. A faixa de bytes viaja na QUERY (`?r=<ini>-<fim>`), nunca no cabeçalho `Range` — ver a invariante 8, que é a razão de o recurso ter passado três versões sem tocar um único vídeo. Só em "Tocar agora": as outras três ações GUARDAM o item, e um manifesto expira em horas. Falhando qualquer coisa (shell < 27, vídeo sem par adaptativo, WebView sem o codec) cai no download, calado — o operador pediu o louvor, não o método |
+| Vídeo do YouTube | **não toca** (ver acima) | **arquivo de vídeo baixado PELO APARELHO** (`YoutubeGrab.kt` + `AVNative.ytFetch`) — o embed pausa sozinho com o app minimizado, e a extração no próprio celular sai do IP do chip, que é o que o YouTube não bloqueia. Sem configurar nada. Cobalt continua como segunda opção para quem já mantém uma instância; falhando os dois, o link vira um item de LINK, que o toque seguinte tenta resolver de novo (v5.212 — não há mais player embutido para onde cair) |
 | Qualidade do download | — | **o operador escolhe o teto** (1080p · 720p · 480p, v5.118/shell 25), no mesmo seletor de Vídeo/Só áudio da folha. Ele nasce no padrão A CADA ITEM, e isso é deliberado: um teto que grudasse faria quem escolheu 480p numa rede ruim receber, sem aviso, o vídeo principal do domingo seguinte em 480p no telão — o atrito de dois toques é visível, a regressão silenciosa não seria. Pedir 1080p continua saindo pelo `ytFetch` de sempre (nenhum shell novo exigido); só um teto MENOR usa o método novo. O progressivo respeita o teto, mas nunca ao ponto de não entregar nada: não cabendo nenhum, vale o menor que existir |
 | Resolução do download | — | **até 1080p, montando as duas faixas** (v1.44; pares por contêiner na v1.45). Acima de 720p o YouTube só entrega vídeo SEM som, com o som à parte — e por isso o app baixava a pior cópia: só sabia pegar o progressivo, que neste aparelho é UM, de 360p. `MuxMp4.kt` junta as duas com o `MediaMuxer` da PLATAFORMA: é cópia de amostras, não recodificação, então não há perda nem espera. Teto de 1080p de propósito (o telão da igreja é 1080p) e só quando o resultado for melhor que o progressivo — senão dois downloads e um muxer entregariam o mesmo de antes. Os pares são do MESMO contêiner (mp4+m4a → MP4, webm+webm → WebM, este só na API 29+): "a melhor de cada lado" produziria VP9 dentro de MP4, que o muxer recusa depois de tudo baixado. Falhando qualquer etapa, o progressivo segue como piso. **Da v1.44 à v1.48 isso não saía do papel: as faixas eram listadas (1080p) e o CDN respondia 403 a todas** — com os dois pares, os dois perfis de UA e `Range`. Era o SABR, que o YouTube passou a exigir de quem pede sem PO Token. A saída não era montar o token (o `getWebClientPoToken` da biblioteca não tem uma única chamada em versão nenhuma, e o token do cliente Android — o que ela de fato consome — exige o DroidGuard do Play Services): foi **atualizar o extrator para a v0.26.4** (v1.49), que busca o cliente **visionOS** sem token nenhum e volta a entregar as adaptativas. Como as listas passaram a chegar MISTURADAS (visionOS + o cliente antigo), a escolha virou uma **fila de candidatos** — ver "O cliente visionOS destrava o 1080p" em `docs/ARQUITETURA-WEB.md`. **CONFIRMADO em aparelho:** `clientes VISIONOS 17, ANDROID 1 → juntou 1080p (mp4, 137@VISIONOS/V)`, sem uma única recusa na fila. Diagnóstico no rodapé de Configurações, agora com o itag, o cliente e o motivo de cada tentativa |
-| **Só o ÁUDIO** em "Tocar agora" | player embutido | **TRANSMITIDO também** (v5.130): o manifesto do shell já traz o par, e o lado web simplesmente DESCARTA a faixa de vídeo (`man.video = null`) — nenhum método novo, nenhum byte de 1080p baixado para ser jogado fora, e por isso chega por OTA. Entra como `kind: 'audio'` (o telão mantém o wallpaper) e o fallback, se a transmissão morrer, baixa a MESMA forma. O download de um m4a é rápido, mas "rápido" não é o pedido: o pedido é não esperar |
+| **Só o ÁUDIO** em "Tocar agora" | **não toca** | **TRANSMITIDO também** (v5.130): o manifesto do shell já traz o par, e o lado web simplesmente DESCARTA a faixa de vídeo (`man.video = null`) — nenhum método novo, nenhum byte de 1080p baixado para ser jogado fora, e por isso chega por OTA. Entra como `kind: 'audio'` (o telão mantém o wallpaper) e o fallback, se a transmissão morrer, baixa a MESMA forma. O download de um m4a é rápido, mas "rápido" não é o pedido: o pedido é não esperar |
 | **Só o ÁUDIO** guardado (playlist · Cronograma · Favoritos) | — | **`ytFetchAudio`** (v5.112, shell ≥ 23; **exige o APK v1.41+** — ver abaixo): a faixa de áudio, sem vídeo. A escolha é o MESMO seletor de Cantada/Playback das músicas, no topo da folha de destinos, e vale para as quatro ações. Entra como `kind: 'audio'` e **sem miniatura** — é o kind que faz o telão manter o wallpaper em vez de trocar de imagem. É também o único caminho em que o teto de 720p do progressivo não existe: o áudio do YouTube já vem em faixa separada, então aqui ele vem inteiro. **E é justamente por ser faixa separada que ele pode não vir**: adaptativo é o que o YouTube protegeu com SABR quando o app pedia sem PO Token. Daí a fila de tentativas do shell — que na v1.49 deixou de ser "m4a → qualquer outro → progressivo" e passou a ser **três candidatos de áudio na ordem do cliente que funciona** (visionOS primeiro), com o progressivo ainda no fim. **CONFIRMADO em aparelho:** `→ veio m4a 140@VISIONOS` (AAC-LC 128 kbps, primeiro candidato, primeira requisição) — até a v1.48 este caminho caía no vídeo de 360p inteiro. O registro entra como `kind: 'audio'` em todos os casos: quem decide que o telão não muda de imagem é o kind, não o container |
 | Buscar no YouTube | não existe: o botão abre o YouTube numa aba | **a busca acontece DENTRO do acervo** — a tela que o rótulo chama de **Biblioteca** desde a v5.96, e que no código segue sendo o acervo — (`AVNative.ytSearch`, `YoutubeGrab.pesquisar`, em **português** — no padrão en-GB da biblioteca o YouTube devolve o título TRADUZIDO de vídeos que são originalmente em português, e passar a localização ao `NewPipe.init` NÃO resolve: o serviço filtra o idioma por uma lista de suportados que hoje só tem `en-GB`. Quem resolve é o `forceLocalization` do próprio `Extractor`): os resultados entram na mesma lista e o toque abre a mesma folha de escolhas das músicas (tocar · playlist · Cronograma · Favoritos), cada uma indo para o seu lugar — e, desde a v5.141, para mais de um de uma vez, com um download só. Um iframe da página de resultados é recusado pelo `X-Frame-Options` do YouTube, e a API oficial exigiria chave com cota compartilhada pela frota |
 | Link para fora do app ("Pesquisar … no YouTube") | `window.open` numa aba nova | **`AVNative.openExternal(url)`** → `ACTION_VIEW` numa tarefa própria. O WebView RECUSA navegar para outro origin (invariante 2), então sem esse método um link externo não faz absolutamente nada — nem erro no console |
@@ -2261,8 +2263,9 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK instalado).
 - **Todo código novo em `assets/web/` precisa continuar rodando no navegador.**
   Caminhos nativos entram sempre como `if (!window.__NATIVE__) { …web… }`.
 - Não introduzir dependências externas — Kotlin puro + AndroidX oficial no
-  shell; JavaScript puro no web. **Três exceções, e as três são declaradas:** a
-  IFrame Player API do YouTube (carregada em runtime), o
+  shell; JavaScript puro no web. **Duas exceções no web, e as duas são
+  declaradas** (a terceira, a IFrame Player API do YouTube, SAIU na v5.212 — ver
+  a nota daquela versão): o
   **`@aiden0z/pptx-renderer`** (v5.99, em `assets/web/vendor/`, Apache-2.0,
   carregado por `import()` dinâmico só quando alguém importa um `.pptx`), que
   existe porque o Android **não desenha PowerPoint** — a plataforma só traz o
@@ -2336,10 +2339,86 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.211** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
+**Versão atual: v5.212** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.212 (v1.97): O EMBED DO YOUTUBE SAI DOS DOIS WEBVIEWS, e com ele uma
+> ponte privilegiada exposta a terceiro. Mais duas correções de uma auditoria
+> do repositório inteiro. EXIGE APK.**
+>
+> - **`POST /r` INJETAVA COMANDO ARBITRÁRIO NO BARRAMENTO.** O ramo `st` do
+>   canal de volta conferia que `type` não era vazio e mais nada, e então
+>   chamava `MessageBus.post(null, …)` — que entrega a TODOS os WebViews. O
+>   dreno documentado ("uma lista de PERMISSÃO de dois itens") existia só no
+>   `espelho/tela.js`, isto é, **no lado que um desconhecido controla**. E a
+>   porta do pareamento nasce aberta desde a v5.189 (decisão certa: o conteúdo
+>   é público), então estar pareado nunca foi credencial. Com uma TV conectada,
+>   qualquer aparelho no Wi-Fi da igreja podia projetar `text` arbitrário,
+>   `clear`, `load` — e ligar o `mic`, que abre o microfone do celular na saída
+>   de som do templo. A metade servidora da lista agora existe
+>   (`TIPOS_QUE_SOBEM`, em `EspelhoServidor.retorno`), e o par tem de ser
+>   mantido junto. **A lição é a de sempre, num lugar novo: validação que mora
+>   no cliente não é validação — é economia de tráfego.**
+> - **RELIGAR A TRANSMISSÃO DEIXAVA AS TELAS SEM MÍDIA, em silêncio.** O
+>   `telaEmpurrados` do `controle.js` era uma SEGUNDA fonte de verdade sobre o
+>   cache do shell, e o cache é DA SESSÃO: `startMirror` constrói um
+>   `EspelhoMidiaCache` novo (o `init` apaga o diretório) e `desmontarEspelho`
+>   chama `zerar()`. Bastava desligar e religar — ou a Wi-Fi oscilar além dos
+>   6 s de graça, que aciona `aoPerderRede = { stopMirror() }` — para o Controle
+>   seguir afirmando "já empurrei" contra um cache vazio: o `load` ia com
+>   `__rec.url = '/m/<token>'` e a rota devolvia o 404 idêntico. **Toda mídia já
+>   tocada antes do religamento ficava invisível**, sem erro em lugar nenhum. O
+>   LRU de 1,5 GiB produzia o mesmo desencontro por outra porta. O conjunto saiu:
+>   quem responde "já tenho isto?" é o `abrir` do shell, que já respondia.
+> - **E O EMBED DO YOUTUBE SAIU DOS DOIS WEBVIEWS** (pedido do operador:
+>   *"vamos abandonar o sistema nativo do próprio YouTube e seguir apenas com o
+>   nosso embed"*). O KDoc do `display.js` dizia que o risco de supply-chain
+>   daquele `<script>` era "ACEITO conscientemente" e que a mitigação "ainda não
+>   foi feita" — e descrevia METADE do problema. `addJavascriptInterface` injeta
+>   o objeto em **todas as frames**, iframes de outra origem inclusive (é o que
+>   a documentação do Android diz, e é por isso que o canal de mídia usa
+>   `addWebMessageListener`, que tem `allowedOriginRules`). No telão a ponte
+>   nasce com `host = null` e o estrago seria limitado; **o mesmo embed era
+>   criado no CONTROLE, para a preview**, e lá a ponte é a completa —
+>   `pickFolder`, `listFolder`, `pickDoc`, `openExternal`, `espelhoLigar`,
+>   `apkInstalar`. **A invariante 9 protegia a metade errada**, e atravessou
+>   dezenas de versões assim porque o texto dela só nomeia o telão.
+>
+>   Saíram ~540 linhas do `display.js` (`YT.Player`, `ytHandle`, `ytStatus`,
+>   `ytShield`, a máquina de mudo que "ignora o `forceMuted` do stage por
+>   completo") e ~180 do `controle.js`, mais as duas camadas de CSS que
+>   existiam só para esconder a UI de um player alheio. O que some junto é o
+>   argumento inteiro: um segundo motor de transporte, um segundo emissor de
+>   status, uma segunda cortina e um `if (yt)` em quinze pontos.
+>
+>   **Quem toca YouTube agora é o caminho PRÓPRIO, e ele já era o preferido**:
+>   transmissão direta (`ytStream` → `shared/mse.js`) e, falhando ela, o arquivo
+>   baixado. Um registro `kind: 'youtube'` (o link sem bytes) deixou de ser
+>   tocável como link e passa a ser RESOLVIDO no toque, dentro do `send`
+>   (`resolverLinkYoutube`): transmite, ou baixa e **troca o item na lista em
+>   posição** (`listSet` com função — `listAdd`+`listRemove` mandaria o item
+>   para o fim de um Cronograma que alguém montou à mão). A transmissão não
+>   troca nada, porque um manifesto expira em horas. No navegador não há o que
+>   fazer, e a linha do item diz isso em vez de projetar nada.
+>
+>   **O oráculo ficou mais forte, não mais fraco**: o `tela-rede.test.mjs`
+>   afirmava que a CSP BARRAVA a IFrame API — uma garantia de segunda ordem, que
+>   dependia de um cabeçalho continuar certo. Agora ele afirma que a tela da
+>   rede **não pede um byte a origem nenhuma além do celular**, o que falha mesmo
+>   que a CSP o barrasse depois.
+> - **E a documentação que contradizia o código foi corrigida junto**, pela
+>   regra da v5.206: o KDoc do `EspelhoServidor` ainda se chamava "o cano por
+>   onde os PIXELS saem" e afirmava que "aqui não há `Range` nenhum" — 500 linhas
+>   acima de uma rota que faz RFC 7233 completo; o do `EspelhoHttp` dizia o mesmo
+>   e discordava da própria invariante 7, dentro do mesmo arquivo; o `retorno`
+>   documentava os verbos `key` e `audio` do encoder aposentado; havia um
+>   `@param pedirIdr` para um parâmetro que não existe, quatro blocos de KDoc
+>   órfãos sobre constantes apagadas e um `const CABECALHO = 16` morto. E o
+>   parágrafo que prometia que "**nada** que venha da rede entra no barramento"
+>   deixara de ser verdade na E5 — ele descrevia a garantia certa, e o código não
+>   a impunha mais. Era exatamente o defeito de cima, escrito em prosa.
 
 > **A v5.211 (v1.96): A CAPA ARTIFICIAL SAI — fica a COR, sólida. EXIGE APK.**
 > Pedido do operador sobre a v5.210, e ele encurta uma decisão que eu tinha

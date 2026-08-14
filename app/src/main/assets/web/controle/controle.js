@@ -150,7 +150,6 @@ const pvBusyLabelEl = document.getElementById('pvBusyLabel');
 const pvBusyCancelEl = document.getElementById('pvBusyCancel');
 const pvImgEl = document.getElementById('pvImg');
 const pvVideoEl = document.getElementById('pvVideo');
-const pvYoutubeEl = document.getElementById('pvYoutube');
 const pvLyricsEl = document.getElementById('pvLyrics');
 const pvLyricsImgEl = document.getElementById('pvLyricsImg');
 const pvLyricsContentEl = document.getElementById('pvLyricsContent');
@@ -209,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.211';
+const WEB_VERSION = '5.212';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -1266,7 +1265,7 @@ const preview = createStage({
   // está ativo, quem avança é o `media-ended` remoto (com guarda de mediaId).
   // Sem este early-return, se o Display chegar ao fim antes da preview (drift
   // até SYNC_DRIFT), os dois disparariam autoAdvance() e pulariam uma faixa.
-  // Mesmo princípio de previewTick/ytPreviewTick.
+  // Mesmo princípio do `previewTick`.
   onEnded: () => {
     // A letra sai de cena junto com a música, esmaecendo (camada paralela: não
     // participa do fade do stage) — e `pvLyricsEnded` impede o slide de capa de
@@ -1284,137 +1283,29 @@ const preview = createStage({
   },
 });
 
-// ===== preview do YouTube (player real, mudo, minúsculo) =====
-// stage.js não toca YouTube (só mostra a thumbnail) — para ter uma preview
-// de verdade aqui, criamos nosso próprio YT.Player, sempre mudo, dirigido
-// pelos mesmos comandos que vão para o Display (mesmo padrão do
-// display.js, bem simplificado: sem cortina/fade próprios do vídeo, sem
-// avanço automático — isso continua vindo do display-status remoto).
-let ytPreviewApiPromise = null;
-function loadYtPreviewApi() {
-  if (window.YT && window.YT.Player) return Promise.resolve();
-  if (ytPreviewApiPromise) return ytPreviewApiPromise;
-  ytPreviewApiPromise = new Promise((resolve, reject) => {
-    const prevCb = window.onYouTubeIframeAPIReady;
-    window.onYouTubeIframeAPIReady = () => { if (prevCb) prevCb(); resolve(); };
-    const tag = document.createElement('script');
-    tag.src = 'https://www.youtube.com/iframe_api';
-    // Sem onerror, uma falha de rede no fetch do script deixaria a promise
-    // pendente para sempre — e como ela é cacheada, TODA preview YouTube
-    // futura travaria. Rejeitar + limpar o cache deixa a próxima tentativa
-    // refazer o fetch.
-    tag.onerror = () => { ytPreviewApiPromise = null; reject(new Error('YT API load failed')); };
-    document.head.appendChild(tag);
-  });
-  return ytPreviewApiPromise;
-}
-
-let ytPreview = null; // { mediaId, player }
-let ytPreviewSeq = 0;
-
-// (SAIU NA v5.206: a RAMPA DE VOLUME do player da preview do YouTube —
-//  `MUTE_RAMP_TIME`, `ytPreviewRampTimer`, `ytPreviewMuteApplyTimer` e
-//  `ytPreviewRampVolume`.)
+// ===== A PREVIEW NÃO TEM MAIS PLAYER DO YOUTUBE (v5.212) =====
 //
-//  Ela existia para um lugar só: ligar e desligar a "mesa de som", o modo em
-//  que o celular ERA a caixa de som, e que saiu na v5.189 a pedido do operador
-//  (o som é dos DISPLAYS — a TV pela `Presentation`, as telas da rede pelo
-//  `<video>` delas). Desde então a preview é MUDA por construção, e uma rampa
-//  de volume para um player sem volume não tinha como ser notada errada.
+// Aqui morava um `YT.Player` de verdade — mudo, minúsculo, dirigido pelos
+// mesmos comandos que vão para o Display — e com ele o `loadYtPreviewApi`, o
+// `dropYtPreview`, o `ytPreviewForceLowQuality`, o `startYtPreviewTick`, o
+// `ytPreviewTick`, o `onYtPreviewState`, o `ytPreviewHandle`, o
+// `ytResyncPreviewToDisplay`, o `ytDisplayActive` e o `ytPreviewTime`.
 //
-//  O comentário que morava aqui ainda falava dos "três sinks de áudio do
-//  sistema"; são dois desde aquela versão. O `dropYtPreview` abaixo também
-//  limpava os dois temporizadores — defensivamente, contra um armador que
-//  deixou de existir.
-function dropYtPreview() {
-  if (ytPreview) {
-    clearInterval(ytPreview.qualityTimer);
-    clearInterval(ytPreview.tickTimer);
-    if (ytPreview.player) { try { ytPreview.player.destroy(); } catch (_) {} }
-  }
-  ytPreview = null;
-  pvYoutubeEl.hidden = true;
-  pvYoutubeEl.innerHTML = '';
-}
+// A razão é a mesma que tirou o embed do telão, e neste documento ela pesa
+// MAIS, não menos: `addJavascriptInterface` injeta o objeto em TODAS as frames
+// da página, iframes de outra origem inclusive. No WebView do telão a ponte
+// nasce com `host = null` (invariante 9) e o estrago seria limitado; aqui a
+// ponte é a COMPLETA — `pickFolder`, `listFolder`, `pickDoc`, `openExternal`,
+// `espelhoLigar`, `apkInstalar`. A invariante 9 nomeia só o telão, e é por isso
+// que esta metade atravessou dezenas de versões sem ninguém reparar: o texto
+// protegia o WebView menos exposto dos dois.
+//
+// O que a preview mostra de um item do YouTube continua sendo o que o
+// `stage.js` já desenha para `kind: 'youtube'` — a miniatura. E ela deixou de
+// precisar de mais que isso: um link não vai mais ao telão como link (ver
+// `resolverLinkYoutube`), então o que a preview ilustra é sempre um `<video>`
+// de verdade, transmitido ou baixado, que ela já sabe espelhar.
 
-// Pede a menor qualidade disponível: a preview já é minúscula (~150px de
-// altura), então isso só reforça o que o YouTube tende a escolher sozinho
-// pelo tamanho do player — evita puxar HD à toa num player que ninguém vê em
-// tamanho real. Reforçado também por polling (abaixo, não só onReady/
-// onPlaybackQualityChange): o iframe agora é renderizado a 400% do wrapper
-// e encolhido de volta via CSS (ver controle.css, truque pra deixar a UI do
-// YouTube proporcionalmente menor) — o YouTube decide a qualidade padrão
-// pelo tamanho do iframe QUE ELE PRÓPRIO enxerga (400%, não o tamanho visual
-// já encolhido), então sem reforço contínuo esse truque de UI poderia
-// silenciosamente puxar uma qualidade mais alta do que antes.
-function ytPreviewForceLowQuality(player) {
-  try { if (player.getPlaybackQuality() !== 'tiny') player.setPlaybackQuality('tiny'); } catch (_) {}
-}
-
-// `startAt` (segundos) existe para a REMONTAGEM: mover o `#preview` de lugar no
-// DOM recarrega o iframe do YouTube e mata o player, então `hostPreview` o
-// reconstrói — e reconstruir do zero faria a miniatura voltar ao início de um
-// vídeo que segue no telão. Mesmo campo, mesmo nome e mesmo papel do `startAt`
-// de `loadYoutube` no Display.
-async function loadYtPreview(rec, v, startAt) {
-  dropYtPreview();
-  const seq = ++ytPreviewSeq;
-  // stage.js retorna cedo para kind='youtube' (só marca a thumbnail) e por
-  // isso nunca chega na revelação da cortina no fim de load() — cobre aqui
-  // à parte, igual o display.js faz para o player real. A thumbnail (posta
-  // por preview.handle() em paralelo) fica como placeholder até o player
-  // real assumir por cima (mesmo z-index, depois no DOM).
-  preview.instantCover(v === 'wallpaper');
-  try { await loadYtPreviewApi(); }
-  catch (_) { return; }   // API não carregou (rede) — mantém só a thumbnail
-  if (seq !== ytPreviewSeq) return;
-  const host = document.createElement('div');
-  pvYoutubeEl.appendChild(host);
-  pvYoutubeEl.hidden = false;
-  const cur = { mediaId: rec.id, player: null, qualityTimer: null, tickTimer: null };
-  ytPreview = cur;
-  cur.player = new YT.Player(host, {
-    videoId: rec.youtubeId,
-    playerVars: {
-      autoplay: 1, mute: 1, controls: 0, disablekb: 1, fs: 0,
-      iv_load_policy: 3, rel: 0, playsinline: 1,
-      // Segundos inteiros — é o que a IFrame Player API aceita.
-      start: Math.max(0, Math.floor(startAt || 0)),
-    },
-    events: {
-      onReady: (e) => {
-        if (ytPreview !== cur) return;
-        // A preview é SEMPRE muda (ela espelha o Display — o som é dos
-        // displays, v5.189).
-        try { e.target.mute(); } catch (_) {}
-        ytPreviewForceLowQuality(e.target);
-        try { e.target.playVideo(); } catch (_) {}
-        clearInterval(cur.qualityTimer);
-        cur.qualityTimer = setInterval(() => {
-          if (ytPreview !== cur || !cur.player) return;
-          ytPreviewForceLowQuality(cur.player);
-        }, 1500);
-        startYtPreviewTick(cur);
-      },
-      onStateChange: (e) => { if (ytPreview === cur) onYtPreviewState(e); },
-      onPlaybackQualityChange: (e) => { if (ytPreview === cur) ytPreviewForceLowQuality(e.target); },
-    },
-  });
-}
-
-// A preview do YouTube (player real na tela do operador) é a FONTE DE VERDADE
-// do play/pause, da barra de progresso e do avanço automático dos itens YouTube
-// — como a preview local (`previewTick`) faz para mídia comum. Antes isso
-// dependia só do `display-status` remoto do Display, que pode chegar atrasado
-// ou nem chegar (Display em segundo plano/fechado), deixando o ▶/⏸ preso e sem
-// pausar. Agora o player local dirige a UI, sempre responsivo.
-function startYtPreviewTick(cur) {
-  clearInterval(cur.tickTimer);
-  cur.tickTimer = setInterval(() => {
-    if (ytPreview !== cur || !cur.player) return;
-    ytPreviewTick();
-  }, 500);
-}
 // Sincronização (qualquer tipo de mídia com tempo — YouTube, áudio, vídeo):
 // o player do DISPLAY (a projeção real) é a fonte de verdade quando está
 // enviando status; se ele não existir / estiver estrangulado ou fechado
@@ -1578,9 +1469,6 @@ function displayActive() {
 function telaoAtivo() {
   return (Date.now() - telaoStatusAt) < DISPLAY_TIMEOUT;
 }
-function ytDisplayActive() {
-  return !!(currentItem && currentItem.kind === 'youtube') && displayActive();
-}
 // Posição "oficial" do item atual: a do Display enquanto ele for a fonte de
 // verdade (ver acima), senão a da própria preview. Usado por ações
 // disparadas fora do ciclo de tick normal (stepSlide, renderSlideNav) — sem
@@ -1617,27 +1505,7 @@ function tempoDaPreview() {
   return Math.max(0, authoritativeTime() - previewAtrasoMs() / 1000);
 }
 // Re-alinha a preview à projeção real do Display (fonte de verdade): casa o
-// play/pause e, se o tempo divergir muito (ex: preview estrangulada enquanto o
-// Controle esteve minimizado), busca o instante do Display. Não busca em "mesa
-// de som" (evita salto audível); só casa play/pause.
-function ytResyncPreviewToDisplay(isPlaying, currentTime, tolerancia) {
-  const p = ytPreview && ytPreview.player;
-  if (!p) return;
-  if (!preverPodeMexer()) return;   // ver `preverPodeMexer`
-  const tol = typeof tolerancia === 'number' ? tolerancia : SYNC_DRIFT;
-  try {
-    if (typeof currentTime === 'number' && isFinite(currentTime)) {
-      const alvo = alvoDaPreview(currentTime);
-      const pt = p.getCurrentTime() || 0;
-      if (Math.abs(pt - alvo) > tol) p.seekTo(alvo, true);
-    }
-    const st = p.getPlayerState();
-    if (isPlaying && st !== 1 && st !== 3) p.playVideo();
-    else if (!isPlaying && st === 1) p.pauseVideo();
-  } catch (_) {}
-}
-// Mesmo princípio de ytResyncPreviewToDisplay, para mídia comum (áudio/vídeo
-// do próprio stage.js, não YouTube): casa o play/pause e corrige o tempo da
+// Casa o play/pause e corrige o tempo da
 // preview se o drift passar de SYNC_DRIFT — sem isso, dois decodificadores
 // de áudio independentes (Display e preview) divergem aos poucos e a letra
 // sincronizada acaba trocando de slide em momentos diferentes nos dois
@@ -1681,65 +1549,8 @@ function alvoDaPreview(tempoDaProjecao) {
  */
 function ressincronizarPreview() {
   if (!displayActive()) return;
-  if (currentItem && currentItem.kind === 'youtube') {
-    ytResyncPreviewToDisplay(playing, lastDisplayTime, RESYNC_EXATO);
-  } else {
-    resyncPreviewToDisplay(playing, lastDisplayTime, RESYNC_EXATO);
-  }
+  resyncPreviewToDisplay(playing, lastDisplayTime, RESYNC_EXATO);
 }
-function ytPreviewTick() {
-  if (ytDisplayActive()) return; // Display presente é a fonte — a preview só assume na ausência dele
-  const p = ytPreview && ytPreview.player;
-  if (!p) return;
-  let st = -1, t = 0, dur = 0;
-  try { st = p.getPlayerState(); t = p.getCurrentTime() || 0; dur = p.getDuration() || 0; } catch (_) { return; }
-  setPlaying(st === 1 || st === 3); // playing | buffering
-  durTimeEl.textContent = fmtTime(dur);
-  seekEl.disabled = !(dur > 0);
-  if (!seeking) {
-    seekEl.max = dur > 0 ? dur : 0;
-    seekEl.value = t;
-    curTimeEl.textContent = fmtTime(t);
-  }
-  renderSimpleTime();   // o YouTube não passa por renderSlideNav
-}
-function onYtPreviewState(e) {
-  if (ytDisplayActive()) return; // Display presente é a fonte — ignora eventos locais
-  const st = e.data; // 1 playing, 2 paused, 3 buffering, 0 ended, 5 cued
-  if (st === 0) { // fim natural → avança a playlist (só quando a preview é a fonte)
-    setPlaying(false);
-    ytEnded = true;
-    autoAdvance();
-    return;
-  }
-  if (st === 1 || st === 2 || st === 3) {
-    ytEnded = false;
-    ytPreviewTick();
-  }
-}
-
-// Transporte do player da preview: play/pause/seek sempre; mute/volume só
-// importam no modo "mesa de som" (fora dele a preview do YouTube é sempre
-// muda, como a mídia local). A cortina (view/fade) é tratada à parte, sempre
-// via preview.handle() (ver cmd()), pois é a mesma cortina compartilhada
-// usada pela mídia local.
-function ytPreviewHandle(obj) {
-  if (!ytPreview || !ytPreview.player) return;
-  const p = ytPreview.player;
-  switch (obj.type) {
-    case 'play': try { p.playVideo(); } catch (_) {} break;
-    case 'pause': try { p.pauseVideo(); } catch (_) {} break;
-    case 'seek': if (typeof obj.time === 'number') { try { p.seekTo(obj.time, true); } catch (_) {} } break;
-    // MUDO E VOLUME NÃO CHEGAM MAIS AQUI (v5.189): a preview é sempre muda —
-    // o som é dos displays —, então não há rampa a orquestrar nem foco de
-    // áudio a disputar com o telão. Os dois comandos seguem viajando para o
-    // Display, que é quem de fato toca.
-    case 'mute':
-    case 'volume':
-      break;
-  }
-}
-
 // HÁ UMA TELA RECEBENDO A PROJEÇÃO?
 //
 // Não é a mesma pergunta de `displayActive()`, que mede se o telão MANDOU
@@ -1876,8 +1687,6 @@ function aplicarNaPreview(obj, item) {
     // fallback de thumbnail em dia (stage.js já sabe lidar com kind=youtube,
     // só não toca o vídeo) — mesmo quando o player real assume por cima.
     preview.handle(obj);
-    if (nowYoutube) loadYtPreview(item, obj.view);
-    else if (ytPreview) dropYtPreview();
     // Só mostra a letra do áudio se NÃO houver texto manual em cena (precedência).
     if (!keepText && item && item.kind === 'audio' && Array.isArray(item.lyrics) && item.lyrics.length) showPvLyrics(item);
     return;
@@ -1885,7 +1694,6 @@ function aplicarNaPreview(obj, item) {
   if (obj.type === 'clear') {
     hidePvLyrics(true);
     hidePvText(false); // a cena inteira está sendo encerrada; nada a restaurar
-    if (ytPreview) dropYtPreview();
     preview.handle(obj);
     return;
   }
@@ -1895,7 +1703,6 @@ function aplicarNaPreview(obj, item) {
   // `pvTextActive`, que é o espelho local do `textActive` de lá.
   if (obj.type === 'media-clear') {
     hidePvLyrics(true);
-    if (ytPreview) dropYtPreview();
     preview.handle({ type: pvTextActive ? 'clear-media' : 'clear' });
     return;
   }
@@ -1909,7 +1716,6 @@ function aplicarNaPreview(obj, item) {
     preview.handle(obj); // cortina/config compartilhada — sempre, independe do youtube
     return;
   }
-  if (nowYoutube && ytPreview) { ytPreviewHandle(obj); return; }
   preview.handle(obj);
 }
 
@@ -1971,10 +1777,9 @@ const drawReading = createStage.drawReading;
 const DRAW_FRAME_MS = createStage.DRAW_FRAME_MS;
 
 // ===== Letra sincronizada na preview — mesma visualização do Display =====
-// A preview já espelha o Display para imagem/vídeo (stage.js) e YouTube
-// (segundo player, ver loadYtPreview) — letra sincronizada segue o mesmo
-// princípio universal do sistema: o operador vê no celular exatamente o que
-// está sendo exibido no telão.
+// A preview já espelha o Display para imagem e vídeo (stage.js) — letra
+// sincronizada segue o mesmo princípio universal do sistema: o operador vê no
+// celular exatamente o que está sendo exibido no telão.
 let pvLyrics = null;
 let pvLyricsMeta = null; // { hymnName, hymnTrack } do item atual, pro slide de capa
 let pvLyricSlideIdx = -1;
@@ -2135,8 +1940,6 @@ function hidePvText(restore = true) {
 // no slide correspondente ao instante atual — por authoritativeTime(), que é
 // a posição do Display quando ele é a fonte de verdade.
 function restorePvSceneAfterText() {
-  // YouTube segue tocando por baixo do cartão e reaparece sozinho.
-  if (ytPreview) return;
   const cur = preview.getCurrent();
   // NADA de fato em cena — nenhuma mídia carregada, ou a que havia já terminou
   // (só na playlist, ou tocada antes). O ponto de repouso é o WALLPAPER, não o
@@ -7002,6 +6805,15 @@ async function send(id) {
     marcarNoAr();
     return;
   }
+  // O ITEM DE LINK NÃO VAI AO TELÃO COMO LINK (v5.212). Ele é resolvido agora —
+  // transmissão direta ou download — e quem projeta é o registro que sair daí.
+  // A guarda fica AQUI pelo mesmo motivo da guarda de cena de roteiro logo
+  // acima: `send` é o ponto por onde TODOS os caminhos passam (o avanço
+  // automático da playlist, o ⏮/⏭ do transporte, a notificação nativa).
+  if (alvo && alvo.kind === 'youtube') {
+    await resolverLinkYoutube(alvo);
+    return;
+  }
   currentId = id;
   // O registro já foi resolvido acima (listas carregadas, com o IDB como
   // reserva) — a mídia AVULSA (v5.87 — "Tocar agora" num vídeo do YouTube) não
@@ -7564,8 +7376,9 @@ async function pararMidia(tipo) {
   midiaNoAr = false;
   midiaNoArId = '';
   setPlaying(false);
-  // YouTube: 'clear' derruba o player da preview (dropYtPreview via cmd) e o do
-  // Display → o próximo ▶ precisa recarregar (send), não só reenviar 'play'.
+  // Item de LINK: o `clear` derruba a cena, e o próximo ▶ precisa passar pelo
+  // `send` (que hoje o RESOLVE — ver `resolverLinkYoutube`), não só reenviar
+  // 'play'.
   if (currentItem && currentItem.kind === 'youtube') ytEnded = true;
   playPauseEl.querySelector('.msym').textContent = ICON.play;
   seekEl.value = 0; seekEl.disabled = true;
@@ -10109,6 +9922,89 @@ async function tentarTransmitir(r, altura, somenteAudio) {
   await fixarAvulso(rec.id);
   await load();
   await send(rec.id);
+  return true;
+}
+
+// ============================================================================
+// O ITEM DE LINK RESOLVE ANTES DE IR AO TELÃO (v5.212)
+// ============================================================================
+//
+// Um registro `kind: 'youtube'` é o LINK sem bytes — a última carta de quando a
+// transmissão e o download falharam ("falhando os dois, o link vira item de
+// player"). Até aqui ele era projetado por um `YT.Player` dentro do próprio
+// documento do telão; com o embed fora (ver o bloco da preview, acima), ele
+// deixa de ser tocável como link e passa a ser RESOLVIDO no toque:
+//
+//   1. transmissão direta (`tentarTransmitir`) — ela já projeta sozinha;
+//   2. download (`ytArquivo`) — o caminho que sempre funcionou.
+//
+// É a MESMA escada do "Tocar agora" e a mesma do `recuperarStream`, e não é
+// coincidência: era ela que o operador já usava em todos os caminhos que
+// importam. O que muda é que o último recurso deixou de ser "um player de
+// terceiro no nosso origin" e passou a ser "tente de novo, agora".
+//
+// ## O download TROCA o item na lista; a transmissão não
+//
+// Um arquivo é durável e é o que o operador queria desde o começo, então ele
+// toma o lugar do link EM POSIÇÃO — `listSet` com uma função é read-modify-write
+// atômico, e trocar por `listAdd`+`listRemove` mandaria o item para o fim do
+// Cronograma, que é uma ordem que alguém montou à mão. Uma transmissão, não: o
+// manifesto expira em horas, e guardá-lo seria guardar algo que não abre no
+// domingo — a mesma razão pela qual "Tocar agora" é a única ação que a usa.
+const LISTAS_DO_OPERADOR = ['playlist', 'imports', 'favs'];
+
+async function trocarLinkPeloArquivo(velhoId, novoId) {
+  if (!velhoId || !novoId || velhoId === novoId) return;
+  for (const l of LISTAS_DO_OPERADOR) {
+    if (!(await AVDB.listHas(l, velhoId))) continue;
+    await AVDB.listSet(l, (antes) => {
+      const fora = [];
+      for (const x of antes) {
+        const y = x === velhoId ? novoId : x;
+        // O arquivo pode já estar na lista (o operador baixou o mesmo vídeo
+        // antes): trocar sem deduplicar deixaria a mesma faixa duas vezes.
+        if (!fora.includes(y)) fora.push(y);
+      }
+      return fora;
+    });
+  }
+}
+
+/**
+ * Resolve um item de link e o projeta. Devolve `true` quando algo foi ao ar.
+ *
+ * Toda saída negativa FALA — na linha do próprio item, que é onde o toque
+ * nasceu (a régua da v5.207). Um link que não resolve e não diz nada é
+ * indistinguível de um toque que não pegou, e o operador toca de novo.
+ */
+async function resolverLinkYoutube(rec) {
+  const vid = (rec && rec.youtubeId) || extractYouTubeId((rec && rec.url) || '');
+  if (!vid) {
+    notaNoItem(rec.id, 'Sem o vídeo de origem — não há o que projetar.');
+    return false;
+  }
+  if (!window.__NATIVE__) {
+    // No navegador não há ponte: nem transmissão, nem download. Dizer isso é
+    // melhor que projetar nada em silêncio.
+    notaNoItem(rec.id, 'Este link só toca pelo app — o navegador não baixa vídeo.');
+    return false;
+  }
+  const link = 'https://www.youtube.com/watch?v=' + vid;
+  const alvo = { id: vid, url: link, name: rec.name || 'Vídeo' };
+  // A FORMA do registro manda: quem guardou só o áudio não pode receber o vídeo
+  // de volta. (Um item de link nasce como `youtube`; a leitura fica dita para o
+  // dia em que houver um link só de áudio.)
+  const soAudio = rec.kind === 'audio';
+  if (await tentarTransmitir(alvo, 0, soAudio)) return true;
+  const novo = await ytArquivo(alvo, { lista: 'avulsos', aviso: 'preview', somenteAudio: soAudio });
+  if (!novo) {
+    notaNoItem(rec.id, 'Não foi possível transmitir nem baixar este vídeo.');
+    return false;
+  }
+  await fixarAvulso(novo.id);
+  await trocarLinkPeloArquivo(rec.id, novo.id);
+  await load();
+  await send(novo.id);
   return true;
 }
 
@@ -14452,24 +14348,11 @@ function hostPreview() {
   // conexão e a porta de saída, então existe sempre; no avançado continua sendo
   // um atalho para um intent do Android, e some no navegador.
   pvCastBtnEl.hidden = !(appMode === 'simple' || window.__NATIVE__);
-  const yt = ytPreview;
-  const emQueSegundo = yt ? ytPreviewTime() : 0;
   alvo.appendChild(previewEl);
-  // Um IFRAME, ao contrário, RECARREGA ao mudar de pai — o player do YouTube
-  // morre junto. Como o item segue tocando no telão, a miniatura é remontada
-  // no ponto em que estava, e não do começo.
-  if (yt && currentItem && currentItem.kind === 'youtube') {
-    loadYtPreview(currentItem, view, emQueSegundo);
-  }
-}
-
-// Segundo atual do player da preview do YouTube (0 se ele não responder).
-function ytPreviewTime() {
-  try {
-    const p = ytPreview && ytPreview.player;
-    const t = p && p.getCurrentTime && p.getCurrentTime();
-    return typeof t === 'number' && isFinite(t) ? t : 0;
-  } catch (_) { return 0; }
+  // (Havia aqui a remontagem do player do YouTube: um IFRAME, ao contrário de
+  //  um `<video>`, RECARREGA ao mudar de pai, e o player morria junto — então
+  //  ele era reconstruído no segundo em que estava. Sem embed sobra só o
+  //  `<video>`, que o `appendChild` acima preserva por construção.)
 }
 
 // Abre a tela do Display no navegador e acompanha a janela: fechá-la é o
@@ -15767,7 +15650,7 @@ function resendSceneToDisplay(para) {
 // — dirige o play/pause, a barra de progresso, a letra sincronizada e o
 // avanço, e re-alinha a preview a ele. Se ele não existir/estiver
 // estrangulado ou fechado (nenhum status recente → displayActive() falso), a
-// PREVIEW local assume (previewTick/ytPreviewTick+onYtPreviewState). Isso
+// PREVIEW local assume (previewTick). Isso
 // cobre os dois casos: Controle em primeiro plano com Display em segundo
 // (preview manda) e Controle minimizado com o Display tocando (Display
 // manda, e a preview se re-alinha a ele ao voltar). Vale tanto para YouTube
@@ -15883,7 +15766,6 @@ AVDB.onCommand((msg) => {
     }
     if (isYoutube) {
       renderSimpleTime();   // idem: o ramo do YouTube não chama renderSlideNav
-      ytResyncPreviewToDisplay(playing, msg.currentTime, tol);
     } else {
       // A LETRA DESENHADA DENTRO DA PREVIEW segue o tempo DA PREVIEW, não o da
       // projeção: com o atraso em jogo (ver `cmd`), alimentá-la com
@@ -16192,7 +16074,30 @@ let telaRefEm = 0;
 const TELA_REF_SILENCIO_MS = 5000;
 
 const telaTokens = new Map();      // id do acervo → token de serviço (/m/<t>)
-const telaEmpurrados = new Set();  // ids já completos no cache do shell
+// (SAIU NA v5.212: `telaEmpurrados`, o conjunto de ids "já completos no cache
+//  do shell". Ele era uma SEGUNDA fonte de verdade sobre um estado que mora do
+//  outro lado da ponte, e as duas se separavam sozinhas.
+//
+//  O cache do shell é DA SESSÃO de transmissão: `MainActivity.startMirror`
+//  constrói um `EspelhoMidiaCache` novo (cujo `init` apaga o diretório) e o
+//  `desmontarEspelho` chama `zerar()`. Este conjunto vivia enquanto a PÁGINA
+//  vivesse. Então bastava desligar e religar a transmissão — ou a Wi-Fi oscilar
+//  além dos 6 s de graça, que aciona `aoPerderRede = { stopMirror() }` — para o
+//  shell ficar com o cache vazio e o Controle continuar afirmando "já empurrei":
+//  `telaGarantirEnvio` saía na primeira linha, o `load` seguia com
+//  `__rec.url = '/m/<token>'`, e a rota devolvia o 404 idêntico. TODA mídia já
+//  tocada antes do religamento ficava invisível nas telas da rede, sem erro em
+//  lugar nenhum. O LRU de 1,5 GiB (`despejarSePreciso`) produzia o mesmo
+//  desencontro por outra porta.
+//
+//  Quem responde "já tenho isto?" é o shell, e ele já respondia: o `abrir`
+//  devolve `{ok, recebido, completo}`, e o `completo` é exatamente essa
+//  resposta. O caminho passou a perguntar sempre — uma ida-e-volta de
+//  WebMessage por item, em segundo plano, contra uma classe inteira de falha
+//  silenciosa. `telaTokens` FICA: o token tem de ser estável por id (é a URL
+//  que as telas já estão usando, e é a regra "mesmo id + mesmo token = mesmo
+//  item" do shell), e ele sobrevive ao religamento sem prejuízo — o `abrir`
+//  recria o item sob o mesmo token.)
 const telaFila = [];               // empurrões esperando (um por vez)
 let telaEmpurrando = null;
 let telaResposta = null;
@@ -16337,7 +16242,9 @@ async function telaEmpurrarAgora(it) {
     abrir: { token, id: it.id, nome: it.name || '', tipo: arquivo.type || it.type || '', tamanho: arquivo.size },
   }));
   if (!abriu || abriu.ok !== true) return;
-  if (abriu.completo) { telaEmpurrados.add(it.id); return; }
+  // O SHELL É QUEM SABE: `completo` é a resposta a "já tenho isto?", e ela vale
+  // para esta sessão de transmissão — que é o escopo do cache lá.
+  if (abriu.completo) return;
   // A RETOMADA vem do outro lado: `recebido` diz de onde continuar — um
   // empurrão interrompido (renderer morto no meio) nunca recomeça do zero.
   let pos = abriu.recebido || 0;
@@ -16354,12 +16261,14 @@ async function telaEmpurrarAgora(it) {
     if (typeof r.r !== 'number' || r.r < 0) return;
     pos = r.r;
   }
-  const fim = await telaPedir(c, JSON.stringify({ fim: true }));
-  if (fim && fim.ok) telaEmpurrados.add(it.id);
+  await telaPedir(c, JSON.stringify({ fim: true }));
 }
 
 function telaGarantirEnvio(it) {
-  if (!it || !it.id || telaEmpurrados.has(it.id)) return;
+  if (!it || !it.id) return;
+  // A DEDUPLICAÇÃO QUE FICA é só a da fila em curso — dois `load` do mesmo item
+  // em sequência não podem virar dois empurrões concorrentes. "Já está no cache
+  // do shell" não é pergunta desta função: quem a responde é o `abrir`.
   if (telaEmpurrando === it.id || telaFila.some((x) => x.id === it.id)) return;
   telaFila.push(it);
   telaEscoar();
@@ -16428,8 +16337,11 @@ function telaEnriquecer(cmd) {
       let blob = null;
       try { blob = await AVDB.getState('wallpaper'); } catch (_) { /* padrão */ }
       if (!blob) { AVDB.sendCommand({ type: 'wallpaper', __wp: 'padrao' }); return; }
+      // O ÚNICO id MUTÁVEL do acervo: a mesma chave passa a apontar para outros
+      // bytes. Descartar o token força a cunhagem de um novo, e o `abrir` com
+      // token novo SUBSTITUI o item no shell (matando a URL antiga, que é o que
+      // impede uma tela de continuar buscando o wallpaper que saiu de cena).
       telaTokens.delete('__wp');
-      telaEmpurrados.delete('__wp');
       const token = telaTokenDe('__wp');
       if (!token) return;
       telaGarantirEnvio({ id: '__wp', name: 'wallpaper', type: blob.type || 'image/jpeg', blob });

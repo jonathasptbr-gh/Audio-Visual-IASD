@@ -5,7 +5,9 @@ import java.io.IOException
 import java.io.InputStream
 
 /**
- * O parser HTTP do espelho de pixels. **ZERO import de Android, de propósito.**
+ * O parser HTTP do telão por comandos. **ZERO import de Android, de
+ * propósito.** (Ele nasceu para o espelho de PIXELS, aposentado na v5.187; o
+ * título ficou para trás até a v5.212.)
  *
  * ## Por que este arquivo é puro
  *
@@ -34,11 +36,17 @@ import java.io.InputStream
  * No `shouldInterceptRequest` o `InputStream` devolvido é o recurso INTEIRO a
  * partir do byte 0 e quem aplica o `Range` é o **próprio WebView** — regra que
  * custou três rodadas de APK (v1.52 → v1.54) e que o [StreamProxy] documenta em
- * detalhe. **Aqui é o contrário**: num `ServerSocket` de verdade quem aplicaria
- * `Range` seria o servidor, e não há WebView nenhum no caminho. E, sobretudo,
- * **não há `Range` nenhum**: as rotas do espelho são fluxos infinitos
- * (`Transfer-Encoding: chunked`, corpo que só acaba quando o culto acaba).
- * **Copiar o [StreamProxy] para cá seria o erro exato.**
+ * detalhe. **Aqui é o contrário**: num `ServerSocket` de verdade quem aplica o
+ * `Range` é o servidor, e não há WebView nenhum no caminho — é o que
+ * [alcanceDe] faz, com a gramática do RFC 7233 inteira e JUnit próprio.
+ * **Copiar o [StreamProxy] para cá seria o erro exato**, porque aquele devolve
+ * a fatia como se fosse o todo justamente para o WebView refatiar por cima.
+ *
+ * (Este parágrafo afirmava que "não há `Range` nenhum: as rotas do espelho são
+ * fluxos infinitos". Valia enquanto toda rota era fluxo; a rota `/m/` do telão
+ * por comandos a inverteu na E1, e o texto ficou dizendo o contrário do código
+ * até a v5.212. A invariante 7, logo abaixo, já registrava a mudança — as duas
+ * discordavam dentro do mesmo arquivo.)
  *
  * ## As oito invariantes, e o motivo de cada uma
  *
@@ -99,8 +107,9 @@ object EspelhoHttp {
 
     /**
      * Corpo de `POST`. Os dois únicos corpos do protocolo são o pareamento
-     * (`{"pin":…,"ua":…}`) e a volta do cliente (`{"do":"alive",…}`), e os dois
-     * cabem folgadamente. É um teto de PROTOCOLO, não de conveniência: ele é o
+     * (`{"ua":…,"w":…,"h":…}` — sem segredo nenhum desde a v5.189, quando a
+     * porta passou a ser o endereço) e a volta do cliente (`{"do":"alive",…}`),
+     * e os dois cabem folgadamente. É um teto de PROTOCOLO, não de conveniência: ele é o
      * que garante que ninguém nos faça alocar memória pedindo.
      */
     const val TETO_CORPO = 256
@@ -111,8 +120,8 @@ object EspelhoHttp {
      * Ele é maior que o [TETO_CORPO] por uma razão de diagnóstico, e a
      * diferença entre os dois é a razão de existirem dois. O `POST /par` é
      * ANÔNIMO — qualquer um na rede o alcança — e 256 B são de sobra para um
-     * PIN e um relato de capacidades; apertá-lo é o que garante que ninguém nos
-     * faça alocar memória pedindo. O `POST /r` só existe depois de o operador
+     * relato de capacidades; apertá-lo é o que garante que ninguém nos faça
+     * alocar memória pedindo. O `POST /r` só existe depois de o operador
      * ter aprovado aquela tela, e é por ele que chega **a única informação que
      * o servidor não tem como obter sozinho**: se a imagem está de fato
      * andando do outro lado.

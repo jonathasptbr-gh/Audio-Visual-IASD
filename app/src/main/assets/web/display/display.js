@@ -1,8 +1,6 @@
 const wallpaperEl = document.getElementById('wallpaper');
 const imgEl = document.getElementById('img');
 const videoEl = document.getElementById('video');
-const youtubeEl = document.getElementById('youtube'); // wrapper; a API cria o iframe real dentro dele
-const ytShieldEl = document.getElementById('ytShield');
 const lyricsEl = document.getElementById('lyrics');
 const lyricsImgEl = document.getElementById('lyricsImg');
 const lyricsContentEl = document.getElementById('lyricsContent');
@@ -49,7 +47,8 @@ const TELA = window.__AV_ROLE__ === 'tela';
 // existirem duas cópias do mesmo objeto (Display e Controle) podendo divergir.
 const fadeCfg = createStage.FADE;
 
-// Fonte única do payload display-status: sendStatus (stage) e ytStatus
+// Fonte única do payload display-status: hoje só o stage o alimenta (a v5.212
+// tirou o segundo emissor, que era o do embed do YouTube).
 // (YouTube) só preenchem os valores; o `type` e o `audioBlocked` ficam num
 // lugar só, evitando que os dois campos saiam inconsistentes para o Controle.
 function sendDisplayStatus(fields) {
@@ -89,7 +88,8 @@ window.addEventListener('resume', () => diag('descongelou'));
 
 // ===== O TELÃO QUE ESTÁ SAINDO DE CENA NÃO REPORTA (v5.179) =====
 //
-// É o par local do `yt.stopping`, e ele faltava desde sempre. `clear` e
+// (Ele nasceu como o par local do `yt.stopping` do embed, que saiu na v5.212;
+// o mecanismo é o mesmo e continua valendo para a mídia comum.) `clear` e
 // `media-clear` ESMAECEM antes de sair (`clearFaded`/`fadeOutToBlack`, ~0,6 s), e
 // nesse intervalo o `<video>` continua tocando — a rampa é de volume, não de
 // pausa —, então `onTime` seguia disparando e cada `display-status` do fade
@@ -122,7 +122,6 @@ function aoSairDeCena(p) {
 }
 
 function sendStatus() {
-  if (yt) return; // com YouTube ativo o status tem fluxo próprio (ytStatus)
   if (saindoDeCena) return; // ver acima: o que ele reportaria aqui é passado
   // No fim natural o stage zera o currentTime (preparando o replay) e continua
   // emitindo tempo: seguir isso re-renderizaria o slide 0 e a CAPA do hino
@@ -604,10 +603,6 @@ function hideText(restore = true) {
 // reaparecem sozinhos assim que o cartão opaco sai da frente. Só a letra
 // sincronizada precisa ser remontada — e no slide certo, não do começo.
 function restoreSceneAfterText() {
-  // YouTube segue tocando por baixo do cartão e reaparece sozinho — mas a
-  // cortina ainda precisa concordar com a view do player: enquanto o cartão
-  // estava no ar o operador pode ter coberto ou descoberto o telão.
-  if (yt) { reconcileCover(yt.view); return; }
   const cur = stage.getCurrent();
   // NADA de fato em cena — nenhuma mídia carregada, ou a que havia já terminou
   // (só na playlist, ou tocada antes). O ponto de repouso do telão é o
@@ -637,9 +632,7 @@ function reconcileCover(view) {
   // `stage.shouldCover()` cobre o caso do ÁUDIO SEM LETRA (v5.112): a view dele
   // é 'visual' como a de qualquer mídia, mas não há o que revelar — abrir a
   // cortina deixaria o telão no preto do palco. Só vale quando a cena é do
-  // stage: com o player do YouTube no ar, `current` pode estar nulo aqui, e a
-  // pergunta responderia "cobre" justamente sobre o vídeo que está tocando.
-  if (view === 'wallpaper' || (!yt && stage.shouldCover())) stage.coverIn(false);
+  if (view === 'wallpaper' || stage.shouldCover()) stage.coverIn(false);
   else stage.coverOut();
 }
 
@@ -902,7 +895,7 @@ async function applyWallpaper() {
 let audioBlocked = false;
 let audioRetryTimer = null;
 
-function pushStatus() { if (yt) ytStatus(); else sendStatus(); }
+function pushStatus() { sendStatus(); }
 
 function beginAudioRecovery() {
   // No app nativo não existe bloqueio de autoplay (ver #startBtn abaixo):
@@ -934,7 +927,7 @@ function scheduleAudioRetry(ms) {
 // gerava falsos positivos (buffering demorado confundido com bloqueio),
 // deixando o vídeo mutando/desmutando e reiniciando em loop.
 function tryRestoreAudio() {
-  if (!audioBlocked || yt) return;
+  if (!audioBlocked) return;
   const cur = stage.getCurrent();
   if (!cur || (cur.kind !== 'video' && cur.kind !== 'audio')) { endAudioRecovery(); return; }
   if (videoEl.paused) { scheduleAudioRetry(5000); return; } // não está tocando agora
@@ -957,7 +950,7 @@ function tryRestoreAudio() {
 // Qualquer gesto real no Display (toque, tecla de um controle remoto) concede
 // a ativação do navegador — religa o áudio na hora (só se aplica ao stage).
 function onUserGesture() {
-  if (!audioBlocked || yt) return;
+  if (!audioBlocked) return;
   stage.setMute(false);
   stage.play();
   endAudioRecovery();
@@ -965,550 +958,53 @@ function onUserGesture() {
 document.addEventListener('pointerdown', onUserGesture);
 document.addEventListener('keydown', onUserGesture);
 
-// ===== YouTube: IFrame Player API oficial =====
-// Antes disso o Display falava diretamente com o protocolo interno (não
-// documentado) do embed via postMessage cru — reimplementar esse protocolo à
-// mão é frágil (timing de handshake, mensagens do vídeo anterior confundidas
-// com o novo). A API oficial (`https://www.youtube.com/iframe_api`) expõe um
-// objeto `YT.Player` de verdade: eventos garantidos (onReady/onStateChange),
-// métodos reais (playVideo/pauseVideo/seekTo/setVolume/mute/unMute) e
-// destroy() para descartar uma instância sem ambiguidade. O embed continua
-// usando a sessão logada do navegador (conta Premium ⇒ sem anúncios).
-let yt = null;   // estado do player ativo (null = sem YouTube em cena)
-let ytSeq = 0;   // guarda sequencial: descarta fades/loads assíncronos obsoletos
-
-// Carrega a API oficial uma única vez. Não é dependência de BUILD (não entra
-// npm nenhum, e o projeto já depende de rede/youtube.com para tocar o vídeo),
-// mas também NÃO é "só um <script>": ele executa no mesmo documento onde o
-// shell publica `__AVBridge` via addJavascriptInterface, com acesso
-// same-origin ao IndexedDB, ao OPFS e à ponte nativa. Não há CSP em nenhuma
-// das duas páginas, então o risco de supply-chain neste endpoint é ACEITO
-// conscientemente — a mitigação (header Content-Security-Policy servido pelo
-// WebPathHandler, ou o player dentro de um iframe de outro origin) está fora
-// do alcance deste arquivo e ainda não foi feita.
-let ytApiPromise = null;
-function loadYtApi() {
-  if (window.YT && window.YT.Player) return Promise.resolve();
-  if (ytApiPromise) return ytApiPromise;
-  ytApiPromise = new Promise((resolve, reject) => {
-    const prevCb = window.onYouTubeIframeAPIReady;
-    window.onYouTubeIframeAPIReady = () => { if (prevCb) prevCb(); resolve(); };
-    const tag = document.createElement('script');
-    tag.src = 'https://www.youtube.com/iframe_api';
-    // Sem onerror, uma falha de rede deixaria a promise pendente para sempre
-    // (e cacheada), travando o `await loadYtApi()` de todo vídeo do YouTube
-    // desta sessão. Rejeitar + limpar o cache deixa a próxima tentativa
-    // refazer o fetch.
-    tag.onerror = () => { ytApiPromise = null; reject(new Error('YT API load failed')); };
-    document.head.appendChild(tag);
-  });
-  return ytApiPromise;
-}
-
-// Chama um método do player "com segurança": ignora se o player ainda não
-// aceita comandos ou já foi destruído (evita exceções não tratadas).
-function ytSafeCall(fn) { try { fn(); } catch (_) {} }
-
-// O MUDO DO PLAYER DO YOUTUBE, num lugar só.
+// ===== YouTube: SEM PLAYER DE TERCEIRO (v5.212) =====
 //
-// O embed é a primeira das duas exceções nomeadas do §3.9: é um iframe de
-// OUTRA ORIGEM, e o Web Audio não alcança o áudio dele. Ou seja, o grafo do
-// espelho — que silencia o salão pelo roteamento do `<video>` — não tem
-// absolutamente nenhum efeito aqui: com um vídeo do YouTube em cena, ligar o
-// espelho jogaria o som do embed no salão inteiro. Aquela cena vai MUDA para a
-// rede (o cliente diz isso), e muda também no salão.
+// A IFrame Player API do YouTube (`https://www.youtube.com/iframe_api`) SAIU
+// deste documento, e com ela o `YT.Player`, o `ytHandle`, o `ytStatus` e as
+// ~540 linhas de máquina de estados que existiam só para dirigi-la. O que toca
+// vídeo do YouTube neste app agora é o caminho PRÓPRIO, e ele já era o
+// preferido: a transmissão direta (`ytStream` → `shared/mse.js` → um `<video>`
+// comum) e, falhando ela, o arquivo baixado pelo aparelho (`ytFetch`).
 //
-// `yt.muted` é uma máquina de estados própria e ignora o `forceMuted` do stage
-// por completo, então a regra precisa morar aqui — e num lugar SÓ, porque são
-// três caminhos que desmutam (`onPlayerReady`, o comando `mute` e o botão
-// "Ligar Sistema"), e três cópias divergiriam no primeiro caminho novo.
-function ytAplicarMudo(p) {
-  if (yt && yt.muted) ytSafeCall(() => p.mute());
-  else ytSafeCall(() => p.unMute());
-}
-
-// A API substitui este elemento host pelo <iframe> real que ela cria e
-// gerencia — um host novo a cada vídeo garante um iframe/contentWindow novo,
-// então nunca há confusão entre eventos de um player e o próximo.
-let ytHostSeq = 0;
-function createYtHost() {
-  const host = document.createElement('div');
-  host.id = 'yt-host-' + (++ytHostSeq);
-  youtubeEl.appendChild(host);
-  return host;
-}
-
-function ytStatus() {
-  if (!yt || !yt.player || yt.stopping) return;
-  let state = -1, currentTime = 0, duration = 0;
-  try {
-    state = yt.player.getPlayerState();
-    currentTime = yt.player.getCurrentTime() || 0;
-    duration = yt.player.getDuration() || 0;
-  } catch (_) { return; }
-  sendDisplayStatus({
-    mediaId: yt.mediaId,
-    view: yt.view,
-    muted: yt.muted,
-    volume: yt.volume,
-    playing: state === 1 || state === 3, // playing | buffering
-    currentTime,
-    duration,
-  });
-}
-
-// A API oficial não empurra tempo continuamente (só eventos discretos de
-// estado) — para a barra de progresso do Controle, fazemos um polling leve
-// enquanto este player existir. Também resincroniza o mudo: se autoplay com
-// som foi bloqueado (comum antes do toque em #startBtn — ver mais abaixo), o
-// player pode ter ficado mudo mesmo com o operador querendo som.
-// `player.isMuted()` é um FATO real relatado pelo player agora — ao contrário
-// da antiga detecção por tempo decorrido (removida por gerar falsos positivos
-// com buffering), aqui não há suposição: só reage quando o mudo realmente
-// diverge da intenção, convergindo assim que a página tiver um gesto real.
-function ytStartTimeLoop() {
-  const cur = yt;
-  clearInterval(cur.timeLoop);
-  cur.timeLoop = setInterval(() => {
-    if (yt !== cur || !cur.player) return;
-    if (!cur.muted) {
-      let stillMuted = false;
-      try { stillMuted = cur.player.isMuted(); } catch (_) {}
-      if (stillMuted) {
-        ytSafeCall(() => cur.player.unMute());
-        ytSafeCall(() => cur.player.setVolume(Math.round(cur.volume * 100)));
-      }
-    }
-    ytStatus();
-  }, 500);
-}
-
-function ytClearFadeStyle() {
-  youtubeEl.style.transition = '';
-  youtubeEl.style.opacity = '';
-}
-
-// Escudo anti-UI: usado APENAS no fim do vídeo, para a tela final de
-// "vídeos relacionados" nunca chegar ao telão enquanto o player é derrubado.
-// Pausa e seek seguem o padrão (quadro congelado + UI nativa do YouTube,
-// como um player normal) — sem tela preta.
-function ytShield(on) {
-  ytShieldEl.classList.toggle('on', !!on);
-  if (!on) { ytShieldEl.style.transition = ''; ytShieldEl.style.opacity = ''; }
-}
-
-// Fonte única (compartilhada com o stage.js) da duração da rampa de mudo.
-const MUTE_RAMP_TIME = createStage.MUTE_RAMP_TIME;
-
-// Rampa de volume do player (fade sonoro) via setVolume, reusando o mesmo
-// passo-a-passo do stage (createStage.rampSteps) — mesma curva/duração.
-function ytRampVolume(from, to, dur) {
-  if (!yt || !yt.player) return;
-  const p = yt.player;
-  clearInterval(yt.rampTimer);
-  yt.rampTimer = createStage.rampSteps(from, to, dur, (v) => ytSafeCall(() => p.setVolume(Math.round(v * 100))));
-}
-
-// Revela o wrapper do YouTube (DOM + fade-in). Chamado quando o vídeo está de
-// fato REPRODUZINDO (estado 1) ou quando o timeout de segurança expira —
-// antes disso o player mostra título/botão grande, que nunca devem aparecer
-// no telão. Independe da view: quem cobre/revela conforme o wallpaper
-// ligado/desligado é a cortina compartilhada do stage (ver stage.coverIn/
-// coverOut em ytSetView e onPlayerStateChange) — o wrapper em si só cuida de
-// "o vídeo já tem conteúdo pronto pra mostrar", sempre.
-function ytShow() {
-  if (!yt || yt.shown) return;
-  yt.shown = true;
-  clearTimeout(yt.showTimer);
-  if (fadeCfg.in) {
-    youtubeEl.style.transition = 'none';
-    youtubeEl.style.opacity = '0';
-    youtubeEl.hidden = false;
-    void youtubeEl.offsetWidth;
-    youtubeEl.style.transition = 'opacity ' + fadeCfg.time + 's ease';
-    youtubeEl.style.opacity = '1';
-    yt.fadeTimer = setTimeout(ytClearFadeStyle, fadeCfg.time * 1000 + 60);
-  } else {
-    youtubeEl.hidden = false;
-    ytClearFadeStyle();
-  }
-}
-
-// Derruba o player imediatamente (sem transição).
-function ytDrop() {
-  if (yt) {
-    clearInterval(yt.rampTimer);
-    clearInterval(yt.timeLoop);
-    clearTimeout(yt.showTimer);
-    clearTimeout(yt.fadeTimer);
-    clearTimeout(yt.endTimer);
-    clearTimeout(yt.startTimer);
-    clearTimeout(yt.muteApplyTimer);
-    clearTimeout(yt.resumeTimer);
-    if (yt.player) ytSafeCall(() => yt.player.destroy());
-    yt = null;
-  }
-  ytShield(false);
-  youtubeEl.hidden = true;
-  // destroy() já remove o iframe que a API criou; innerHTML='' garante que
-  // nenhum host residual sobre — o próximo load cria um host (e portanto um
-  // iframe/contentWindow) inteiramente novo, então uma mensagem atrasada do
-  // player anterior nunca pode ser confundida com o estado do próximo vídeo.
-  youtubeEl.innerHTML = '';
-  ytClearFadeStyle();
-}
-
-// Esmaece o player visível (fade-out ativo) com rampa de volume; quem chama
-// decide o que vem depois. O vídeo NÃO é pausado (pausa desenharia a UI do
-// YouTube no meio do fade) — o destino é sempre derrubar o player.
-function ytFadeOutPlayer() {
-  return new Promise((resolve) => {
-    if (!yt || !fadeCfg.out || youtubeEl.hidden || !yt.shown) { resolve(); return; }
-    clearTimeout(yt.fadeTimer);
-    ytRampVolume(yt.volume, 0, fadeCfg.time);
-    youtubeEl.style.transition = 'opacity ' + fadeCfg.time + 's ease';
-    youtubeEl.style.opacity = '0';
-    if (ytShieldEl.classList.contains('on')) {
-      // escudo do fim de vídeo esmaece junto, revelando o wallpaper
-      ytShieldEl.style.transition = 'opacity ' + fadeCfg.time + 's ease';
-      ytShieldEl.style.opacity = '0';
-    }
-    setTimeout(resolve, fadeCfg.time * 1000);
-  });
-}
-
-// `startAt`/`autoplay` chegam no comando de load da RECONEXÃO do telão (ver
-// resendSceneToDisplay no Controle). Sem eles o vídeo do YouTube recomeçava do
-// zero — e tocando — depois de um blip do dongle, exatamente como acontecia com
-// a mídia local.
-async function loadYoutube(rec, v, m, vol, startAt, autoplay) {
-  // O YouTube não usa a recuperação de áudio do stage (ver tryRestoreAudio) —
-  // se ela ficou presa em "bloqueado" por causa de um vídeo local anterior,
-  // isso não pode vazar para o indicador do mixer durante o YouTube.
-  endAudioRecovery();
-  const seq = ++ytSeq;
-  const desiredView = v === 'wallpaper' ? 'wallpaper' : 'visual';
-  if (yt) {
-    // YouTube → YouTube: esmaece o player atual antes de trocar.
-    await ytFadeOutPlayer();
-    if (seq !== ytSeq) return;
-    ytDrop();
-  } else {
-    // Mídia comum sai esmaecendo até o PRETO (nunca a cortina do wallpaper
-    // aqui — é troca de conteúdo, não um stop/clear do operador).
-    await stage.fadeOutToBlack();
-    if (seq !== ytSeq) return;
-  }
-
-  // Enquanto o vídeo carrega (mais lento que mídia local — depende de rede),
-  // mostra PRETO em vez do wallpaper se a intenção é ver o conteúdo: o
-  // wallpaper é reservado para quando é de fato a escolha do operador
-  // (view='wallpaper'), não para uma espera de carregamento — sem isso, o
-  // wallpaper ficava exposto por vários segundos a cada troca para YouTube,
-  // parecendo que o sistema tinha parado em vez de só carregando.
-  stage.instantCover(desiredView === 'wallpaper');
-
-  try { await loadYtApi(); }
-  catch (e) {
-    // API não carregou (rede): aborta o load do vídeo — mas NUNCA em silêncio
-    // sobre o preto. O instantCover acima acabou de descobrir o palco (view
-    // 'visual') esperando um vídeo que não vem; devolver a cortina deixa o
-    // telão no wallpaper, que é o ponto de repouso, em vez de um preto que se
-    // lê como projetor apagado. E a caixa-preta registra o porquê — é a linha
-    // que o `diag-dump` leva ao Registro quando o operador abrir Configurações.
-    if (seq !== ytSeq) return; // um load mais novo já assumiu a cena
-    diag('YT API FALHOU', { erro: String((e && e.message) || e || '?').slice(0, 80) });
-    stage.instantCover(true);
-    return;
-  }
-  if (seq !== ytSeq) return; // um load mais novo chegou enquanto a API carregava
-
-  yt = {
-    mediaId: rec.id,
-    view: desiredView,
-    muted: !!m,
-    volume: typeof vol === 'number' ? vol : 1,
-    player: null,
-    ready: false, shown: false, endedSent: false, stopping: false,
-    autoplay: autoplay !== false,
-    // A INTENÇÃO de transporte, separada do estado real do player — é ela que
-    // o vigia de segundo plano compara (ver ytWatchResume).
-    wantPlaying: autoplay !== false,
-    resumeTries: 0,
-    showTimer: null, fadeTimer: null, endTimer: null, rampTimer: null,
-    startTimer: null, timeLoop: null, muteApplyTimer: null, resumeTimer: null,
-  };
-  const cur = yt;
-  // O wrapper fica oculto (cortina do wallpaper em cena) até o vídeo
-  // REPRODUZIR — os estados de carregamento/cued do player mostram título e
-  // botão grande.
-  youtubeEl.hidden = true;
-  ytClearFadeStyle();
-  // Segurança: se por algum motivo o player nunca revelar sozinho (nenhum
-  // onReady/onStateChange chegou), revela mesmo assim — melhor player com UI
-  // do que telão vazio.
-  cur.showTimer = setTimeout(() => { if (yt === cur && !cur.shown) ytShow(); }, 5000);
-
-  const host = createYtHost();
-  // Player "limpo": sem barra de controles (controls=0), sem anotações
-  // (iv_load_policy=3), sem teclado (disablekb=1) e sem botão de fullscreen
-  // (fs=0) — todo o transporte vem do Controle via a API. Junto com
-  // pointer-events:none no wrapper (CSS) e o escudo anti-UI, nenhum overlay
-  // do YouTube aparece no telão: só o vídeo.
-  const player = new YT.Player(host, {
-    videoId: rec.youtubeId,
-    playerVars: {
-      // `start` é o único jeito de o embed ABRIR já na posição: um seekTo
-      // depois do onReady aparece como salto no telão. Só aceita inteiro.
-      start: (typeof startAt === 'number' && startAt > 0) ? Math.floor(startAt) : 0,
-      autoplay: autoplay === false ? 0 : 1,
-      playsinline: 1,
-      controls: 0,
-      disablekb: 1,
-      fs: 0,
-      iv_load_policy: 3,
-      // LEGENDA NUNCA. Num telão de culto ela cobre a parte de baixo do vídeo
-      // — exatamente onde a Camada de Texto do app escreve — e vem no idioma e
-      // no gosto da CONTA que estiver logada no WebView, não numa escolha do
-      // operador. `cc_load_policy: 0` é só metade: ele diz "não force a
-      // legenda", e perde para o "sempre mostrar legendas" da conta. A outra
-      // metade é `unloadModule` (ver ytKillCaptions), que tira o módulo do
-      // player em vez de pedir educadamente.
-      cc_load_policy: 0,
-      rel: 0,
-      origin: location.origin,
-    },
-    events: {
-      onReady: (e) => { if (yt === cur) onPlayerReady(e); },
-      onStateChange: (e) => { if (yt === cur) onPlayerStateChange(e); },
-    },
-  });
-  cur.player = player;
-  // allow precisa estar no iframe real (criado pela API) para autoplay com
-  // som/fullscreen/PiP funcionarem — garantido aqui em vez de depender do
-  // default da API.
-  ytSafeCall(() => {
-    const frame = player.getIframe();
-    if (frame) frame.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture');
-  });
-}
-
-// stop/clear com YouTube ativo: esmaece e derruba o player (volta ao wallpaper).
-async function stopYoutube() {
-  const seq = ++ytSeq;
-  // Marca 'stopping' já aqui: o vídeo continua tocando durante o fade
-  // (rampa de volume, sem pausar — pausar desenharia UI), então sem isso o
-  // Controle receberia display-status com playing:true durante todo o
-  // fade-out (via polling OU via onPlayerStateChange) e sobrescreveria o
-  // ícone de play que o stop acabou de aplicar.
-  if (yt) { yt.stopping = true; clearInterval(yt.timeLoop); }
-  await ytFadeOutPlayer();
-  if (seq !== ytSeq) return;
-  ytDrop();
-}
-
-function onPlayerReady(e) {
-  if (!yt || yt.ready) return;
-  yt.ready = true;
-  const p = yt.player;
-  ytSafeCall(() => {
-    const frame = p.getIframe();
-    if (frame) frame.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture');
-  });
-  ytKillCaptions(p);
-  ytAplicarMudo(p);
-  ytSafeCall(() => p.setVolume(Math.round(yt.volume * 100)));
-  // Cena que voltou PAUSADA (reconexão): o quadro precisa aparecer, mas o vídeo
-  // não pode sair andando sozinho na frente da congregação. `ytWatchStart`
-  // também não corre — ele existe para empurrar um play que não pegou, e aqui
-  // não há play a empurrar.
-  if (yt.autoplay === false) {
-    ytSafeCall(() => p.pauseVideo());
-    ytShow();
-    ytStartTimeLoop();
-    return;
-  }
-  ytSafeCall(() => p.playVideo());
-  ytStartTimeLoop();
-  ytWatchStart(0);
-}
-
-// Tira a legenda do player, de verdade. `unloadModule` DESCARREGA o módulo em
-// vez de pedir para ele ficar escondido, e é o único caminho que vence o
-// "sempre mostrar legendas" de uma conta logada. São dois nomes porque são dois
-// players: `cc` é o HTML5 (o que roda hoje) e `captions` é o legado — chamar os
-// dois é barato e cobre o dia em que o embed servir o outro.
+// ## Por que ela precisava sair
 //
-// Roda no `onReady` E de novo quando o vídeo começa a REPRODUZIR: o módulo de
-// legenda costuma ser carregado junto com a faixa de vídeo, ou seja, depois do
-// ready — descarregar só ali deixaria a legenda voltar no primeiro quadro.
-function ytKillCaptions(p) {
-  if (!p) return;
-  ytSafeCall(() => p.unloadModule('captions'));
-  ytSafeCall(() => p.unloadModule('cc'));
-}
-
-// ===== O vídeo não pode parar porque o app saiu da frente =====
-// Com o app minimizado o telão segue projetando (a `Presentation` não morre com
-// a Activity — é para isso que existe o serviço de sessão), e um `<video>`
-// local continua tocando normalmente. O embed do YouTube, não: o player dele
-// PAUSA sozinho quando a página passa a "oculta", que é o que o Android reporta
-// ao WebView quando o app vai para segundo plano. O louvor parava no meio.
+// O comentário que morava aqui dizia, com todas as letras, que o risco era
+// "ACEITO conscientemente" e que a mitigação "está fora do alcance deste
+// arquivo e ainda não foi feita". Ele descrevia METADE do problema. O embed
+// não é só um script de terceiro no nosso documento: `addJavascriptInterface`
+// injeta o objeto em TODAS as frames da página, iframes de outra origem
+// inclusive — é o que a documentação do Android diz, e é por isso que o canal
+// de mídia das telas usa `addWebMessageListener`, que tem
+// `allowedOriginRules`. Ou seja, o `www.youtube.com` dentro deste documento
+// enxergava `window.__AVBridge`.
 //
-// Aqui isso é sempre um engano, e dá para afirmar: o player nasce com
-// `controls: 0`, `disablekb: 1`, o wrapper tem `pointer-events: none` e ainda
-// há o escudo anti-UI — NINGUÉM pausa este vídeo pelo telão. Toda pausa que o
-// app não pediu (`wantPlaying`) veio do próprio YouTube, e a resposta certa é
-// mandar tocar de novo.
+// No TELÃO a ponte nasce com `host = null` (invariante 9) e o estrago seria
+// limitado. Mas o MESMO embed era criado no CONTROLE, para a preview — e lá a
+// ponte é a completa: `pickFolder`, `listFolder`, `pickDoc`, `openExternal`,
+// `espelhoLigar`, `apkInstalar`. A invariante 9 protegia a metade errada, e
+// ninguém tinha reparado porque o texto dela só fala do telão.
 //
-// LIMITADO a algumas tentativas espaçadas, e não um laço eterno: se o vídeo
-// parar por um motivo real e permanente (um erro do embed, por exemplo),
-// insistir para sempre seria uma briga invisível com o player. O contador zera
-// a cada vez que ele volta a REPRODUZIR, então uma sessão longa com várias
-// idas ao segundo plano é recuperada todas as vezes.
-const YT_RESUME_TRIES = 4;
-const YT_RESUME_MS = 700;
-function ytWatchResume() {
-  const cur = yt;
-  if (!cur || !cur.wantPlaying || cur.stopping || cur.endedSent) return;
-  if (cur.resumeTries >= YT_RESUME_TRIES) return;
-  cur.resumeTries++;
-  clearTimeout(cur.resumeTimer);
-  cur.resumeTimer = setTimeout(() => {
-    if (yt !== cur || !cur.player || !cur.wantPlaying || cur.stopping) return;
-    let st;
-    try { st = cur.player.getPlayerState(); } catch (_) { return; }
-    if (st !== 2) return;   // já saiu da pausa sozinho
-    ytSafeCall(() => cur.player.playVideo());
-  }, YT_RESUME_MS);
-}
-
-// Garante que o vídeo realmente comece (o primeiro playVideo() pode chegar
-// antes do player interno estar pronto para aceitá-lo — sem retentativa, o
-// vídeo fica parado/cued indefinidamente). NUNCA mexe no mudo aqui: isso não
-// é detecção de bloqueio de áudio, só um empurrão para o play pegar. Desiste
-// sozinho assim que o vídeo entra em reprodução/pausa/buffering, ou após
-// algumas tentativas.
-function ytWatchStart(attempt) {
-  const cur = yt;
-  cur.startTimer = setTimeout(() => {
-    if (yt !== cur || !cur.player) return;
-    let st;
-    try { st = cur.player.getPlayerState(); } catch (_) { return; }
-    if (st === 1 || st === 2 || st === 3) return; // playing/paused/buffering: já saiu do zero
-    if (attempt >= 4) return;
-    ytSafeCall(() => cur.player.playVideo());
-    ytWatchStart(attempt + 1);
-  }, 2000);
-}
-
-function onPlayerStateChange(e) {
-  if (!yt) return;
-  const st = e.data;
-  if (st === 1) { // reproduzindo: revela (1ª vez) e libera replays de 'ended'
-    ytShow();
-    ytShield(false);
-    yt.endedSent = false;
-    // O módulo de legenda entra junto com a faixa de vídeo, DEPOIS do ready —
-    // descarregar só lá deixava a legenda voltar no primeiro quadro.
-    ytKillCaptions(yt.player);
-    // Voltou a tocar: a cota do vigia de segundo plano é reposta.
-    yt.resumeTries = 0;
-    clearTimeout(yt.resumeTimer);
-    // Se a view atual pedir visual, esconde a cortina (a reprodução em si
-    // não espera por isso — só a exibição). Se a view for wallpaper, fica
-    // tocando por baixo da cortina; ytSetView('visual') revela depois.
-    if (yt.view === 'visual') stage.coverOut();
-  }
-  // Pausa que o app NÃO pediu = o YouTube pausou sozinho (app em segundo
-  // plano). Ver ytWatchResume: aqui ninguém mais tem como pausar este player.
-  if (st === 2) ytWatchResume();
-  if (st === 0 && !yt.endedSent) { // fim do vídeo → avanço de playlist no Controle
-    yt.endedSent = true;
-    // cobre a tela final de "vídeos relacionados" enquanto o player cai —
-    // instantâneo, e já deixa a cortina do wallpaper pronta por baixo do
-    // escudo (revelada com fade quando o escudo sumir em ytFadeOutPlayer()).
-    ytShield(true);
-    stage.instantCover(true);
-    AVDB.sendCommand({ type: 'media-ended', mediaId: yt.mediaId });
-    // Sem 'load' de avanço automático em seguida (repeat off / Controle
-    // fechado), derruba o player — fim natural volta ao wallpaper.
-    const cur = yt;
-    cur.endTimer = setTimeout(() => {
-      let curSt;
-      try { curSt = cur.player && cur.player.getPlayerState(); } catch (_) { curSt = null; }
-      if (yt === cur && curSt === 0) stopYoutube();
-    }, 400);
-  }
-  ytStatus();
-}
-
-// Transporte/volume/view com YouTube ativo, via métodos do YT.Player.
-function ytHandle(cmd) {
-  if (!yt.player) return;
-  const p = yt.player;
-  switch (cmd.type) {
-    case 'play':
-      yt.wantPlaying = true;
-      yt.resumeTries = 0;
-      ytSafeCall(() => p.playVideo());
-      break;
-    case 'pause':
-      // A intenção do operador desarma o vigia — daqui em diante a pausa é
-      // legítima e não pode ser desfeita por ele.
-      yt.wantPlaying = false;
-      clearTimeout(yt.resumeTimer);
-      // padrão de player normal: quadro congelado (a UI nativa que o
-      // YouTube desenhar na pausa é aceita — sem tela preta)
-      ytSafeCall(() => p.pauseVideo());
-      break;
-    case 'seek':
-      if (isFinite(cmd.time)) ytSafeCall(() => p.seekTo(cmd.time, true));
-      break;
-    case 'volume':
-      if (typeof cmd.volume === 'number') {
-        yt.volume = cmd.volume;
-        clearInterval(yt.rampTimer); // operador manda: cancela rampa em curso
-        clearTimeout(yt.muteApplyTimer);
-        ytSafeCall(() => p.setVolume(Math.round(cmd.volume * 100)));
-      }
-      break;
-    case 'mute': {
-      // Mesma rampa curta do stage.js (mídia local): ao mutar, desce o volume
-      // até 0 e só então muta de fato (evita corte abrupto); ao desmutar,
-      // desmuta já (senão volume=0 não seria ouvido) e sobe a rampa.
-      yt.muted = !!cmd.muted;
-      clearTimeout(yt.muteApplyTimer);
-      const cur = yt;
-      if (cur.muted) {
-        let alreadyMuted = false;
-        try { alreadyMuted = p.isMuted(); } catch (_) {}
-        ytRampVolume(alreadyMuted ? 0 : cur.volume, 0, MUTE_RAMP_TIME);
-        cur.muteApplyTimer = setTimeout(() => {
-          if (yt === cur && cur.muted) ytSafeCall(() => cur.player.mute());
-        }, MUTE_RAMP_TIME * 1000);
-      } else {
-        ytSafeCall(() => p.unMute());
-        ytRampVolume(0, cur.volume, MUTE_RAMP_TIME);
-      }
-      break;
-    }
-    case 'view': ytSetView(cmd.view === 'wallpaper' ? 'wallpaper' : 'visual'); break;
-  }
-}
-
-// Visual on/off para YouTube: liga/desliga a cortina COMPARTILHADA do
-// wallpaper (mesma usada pelo stage) — o wrapper do YouTube em si nunca
-// esconde/revela por causa da view; ele só cuida de ter conteúdo pronto (ver
-// ytShow()). O vídeo continua tocando (áudio incluído) por baixo da cortina
-// quando ela está cobrindo.
-function ytSetView(v) {
-  if (!yt || yt.view === v) return;
-  yt.view = v;
-  if (v === 'wallpaper') stage.coverIn(false); // sem rampa: só o visual muda
-  else stage.coverOut();
-  ytStatus();
-}
+// ## O que se ganha além disso
+//
+// O embed era a razão de existir de quase toda exceção deste arquivo: um
+// segundo motor de transporte (`ytHandle` ao lado do `stage.handle`), um
+// segundo emissor de status (`ytStatus` ao lado do `sendStatus`), uma segunda
+// máquina de mudo que "ignora o `forceMuted` do stage por completo", uma
+// cortina própria (`ytShield`) e um `if (yt)` em quinze pontos. Tudo isso some
+// junto — e some também a dependência de rede/youtube.com em cena, o
+// `document.hidden` que pausava o player com o app minimizado, e a cena que ia
+// MUDA para as telas da rede porque o Web Audio não alcança um iframe alheio.
+//
+// ## Quem resolve o item de link, e onde
+//
+// Um registro `kind: 'youtube'` (o link sem bytes — a última carta de quando
+// transmissão e download falharam) NÃO chega mais aqui como cena tocável:
+// quem o resolve é o CONTROLE, antes de emitir o `load`
+// (`resolverLinkYoutube` em `controle.js`). Se um chegar assim mesmo — bundle
+// antigo do outro lado, ou um registro guardado antes desta versão —, o
+// tratamento está no `onCommand` e é o honesto: o palco esvazia e o telão
+// volta ao wallpaper, em vez de ficar com a cena anterior congelada.
 
 // Um `pause` que o app não pediu é o EVENTO que interessa: é ele que o
 // operador vê como "o vídeo parou". `pausaComandada` é armado por quem manda
@@ -1549,18 +1045,16 @@ AVDB.onCommand(async (cmd) => {
     return;
   }
 
-  // Preenchimento (object-fit): sempre vai pro stage, mesmo com YouTube ativo
-  // (o iframe não usa isso) — sem esse desvio explícito, cairia em ytHandle()
-  // (que ignora 'fit') enquanto um vídeo do YouTube estiver tocando, e o
-  // stage só pegaria o valor novo na próxima mídia local, com atraso.
+  // Preenchimento (object-fit): vai direto pro stage. (O desvio explícito
+  // nasceu para não cair no `ytHandle` do embed, que ignorava 'fit'; com o
+  // embed fora — v5.212 — ele continua sendo o caminho mais curto e o mais
+  // legível, então fica.)
   if (cmd.type === 'fit') {
     stage.setFit(cmd.fit);
     return;
   }
 
-  // Giro da mídia (v5.142): mesmo desvio explícito do `fit`, e pela MESMA razão
-  // — sem ele o comando cairia no `ytHandle()` enquanto um vídeo do YouTube
-  // estivesse tocando, e o stage só veria o valor novo na mídia seguinte.
+  // Giro da mídia (v5.142): mesmo desvio explícito do `fit`.
   if (cmd.type === 'rotate') {
     stage.setRotate(cmd.rotate);
     return;
@@ -1613,8 +1107,6 @@ AVDB.onCommand(async (cmd) => {
   // divirjam num domingo.
   if (cmd.type === 'media-clear') {
     hideLyrics(true);
-    if (yt) stopYoutube();
-    else ++ytSeq;
     aoSairDeCena(stage.handle({ type: textActive ? 'clear-media' : 'clear' }));
     return;
   }
@@ -1623,15 +1115,15 @@ AVDB.onCommand(async (cmd) => {
   //  - transporte (play/pause/seek/volume/mute) segue pro stage — controla o
   //    ÁUDIO DE FUNDO (o texto não é afetado);
   //  - 'load' de ÁUDIO troca o som de fundo mantendo o texto; 'load' de VISUAL
-  //    (vídeo/imagem/YouTube) e 'clear' encerram o texto e seguem o fluxo.
+  //    (vídeo/imagem) e 'clear' encerram o texto e seguem o fluxo.
   if (textActive) {
     if (cmd.type === 'view') {
       const v = cmd.view === 'wallpaper' ? 'wallpaper' : 'visual';
       textView = v;
-      // Delega a mudança a QUEM É DONO do estado (o player do YouTube, ou o
-      // stage), em vez de mexer na cortina por fora. Chamar coverIn/coverOut
-      // direto daqui movia a cortina deixando `stage.view`/`yt.view`
-      // congelados no valor antigo, e o estrago só aparecia DEPOIS do
+      // Delega a mudança a QUEM É DONO do estado (o stage), em vez de mexer
+      // na cortina por fora. Chamar coverIn/coverOut direto daqui movia a
+      // cortina deixando `stage.view`
+      // congelado no valor antigo, e o estrago só aparecia DEPOIS do
       // 'text-hide': o 'view' seguinte comparava com esse valor, concluía que
       // nada mudara e RETORNAVA SEM FAZER NADA — o botão de cobrir/mostrar o
       // telão ficava morto e o operador precisava tocá-lo duas ou três vezes.
@@ -1639,7 +1131,6 @@ AVDB.onCommand(async (cmd) => {
       // ainda 'visual', o 'play' seguinte reavaliava computeCover() e
       // DESCOBRIA o telão sozinho, expondo a mídia que o operador tinha
       // coberto de propósito.
-      if (yt) { ytSetView(v); return; }
       // `overlay: true` — o cartão de texto está por cima do stage, então aqui
       // descobrir REVELA alguma coisa mesmo sem mídia nenhuma. Sem esse aviso o
       // stage pularia a transição (ele só enxerga o que ele mesmo desenha, e
@@ -1677,21 +1168,21 @@ AVDB.onCommand(async (cmd) => {
     // (o som de fundo troca por baixo do cartão). Sem restaurar a cena: o
     // próprio load abaixo monta a nova (restaurar aqui faria a antiga piscar).
     if (textActive && (!rec || rec.kind !== 'audio')) hideText(false);
+    // O ITEM DE LINK NÃO TOCA MAIS AQUI (v5.212).
+    //
+    // Quem o resolve — por transmissão direta ou download — é o Controle,
+    // ANTES de emitir o `load` (`resolverLinkYoutube`). Um `kind: 'youtube'`
+    // que chegue assim mesmo é um registro que este documento não sabe
+    // desenhar: bundle antigo do outro lado, ou um item guardado antes desta
+    // versão. A resposta honesta é esvaziar o palco — o telão volta ao
+    // wallpaper, que é o ponto de repouso e diz "não há nada em cena" — em vez
+    // de deixar congelada a cena ANTERIOR, que mentiria sobre o que o operador
+    // acabou de pedir. Nada de `media-ended` daqui: ele avançaria a playlist
+    // sozinho, e um item que não toca viraria um laço.
     if (rec && rec.kind === 'youtube') {
-      loadYoutube(rec, cmd.view, cmd.muted, cmd.volume, cmd.time, cmd.playing);
+      diag('link do YouTube nao tocavel neste papel', { s: String(cmd.mediaId || '') });
+      aoSairDeCena(stage.handle({ type: 'clear' }));
       return;
-    }
-    // YouTube → mídia comum: o player esmaece por cima enquanto a nova mídia
-    // entra por baixo (crossfade); sem fade, derruba na hora. O `++ytSeq`
-    // também CANCELA um loadYoutube possivelmente em curso entre os awaits
-    // (yt ainda null): sem isto, esse player nasceria por cima desta mídia
-    // comum alguns segundos depois (o fadeOutToBlack/loadYtApi ainda corria
-    // quando este load chegou).
-    if (yt && fadeCfg.out && !youtubeEl.hidden) {
-      stopYoutube();
-    } else {
-      ++ytSeq;
-      ytDrop();
     }
     if (rec && rec.kind === 'audio' && Array.isArray(rec.lyrics) && rec.lyrics.length) showLyrics(rec);
     stage.handle(cmd);
@@ -1709,11 +1200,6 @@ AVDB.onCommand(async (cmd) => {
 
   if (cmd.type === 'clear') {
     hideLyrics(true);
-    // `++ytSeq` (via stopYoutube quando há player, ou direto) cancela também um
-    // loadYoutube em curso entre os awaits (yt ainda null) — sem isto, o vídeo
-    // começaria a tocar depois de o operador já ter parado.
-    if (yt) stopYoutube();
-    else ++ytSeq;
     aoSairDeCena(stage.handle(cmd));
     return;
   }
@@ -1724,27 +1210,14 @@ AVDB.onCommand(async (cmd) => {
     return;
   }
 
-  if (yt) { ytHandle(cmd); return; }
-
   stage.handle(cmd);
 });
 
 async function restore() {
-  // Adianta o fetch do script da IFrame Player API do YouTube (~1x por sessão)
-  // já na abertura do Display, em vez de esperar o primeiro vídeo do YouTube
-  // ser carregado. SÓ NO NAVEGADOR: lá o embed é o caminho normal de um vídeo
-  // do YouTube e o custo de rede vai ser pago de qualquer forma — só não faz
-  // sentido esperar o meio do culto pra pagá-lo. No app nativo o embed é
-  // fallback raro (o caminho é a transmissão direta ou o download), e o
-  // prefetch injetava script de terceiro no origin privilegiado — o mesmo
-  // documento que enxerga `__AVBridge`, IDB e OPFS, sem CSP (risco declarado
-  // em loadYtApi) — em TODA sessão, mesmo nas muitas em que nenhum embed
-  // toca. O `loadYtApi()` sob demanda do loadYoutube() continua cobrindo o
-  // caso nativo, pagando o fetch só quando o fallback é real.
-  // Fire-and-forget: não atrasa nada, loadYoutube() espera a mesma promise.
-  if (!window.__NATIVE__) {
-    loadYtApi().catch(() => {});   // prefetch: falha de rede é retentada no 1º loadYoutube()
-  }
+  // (SAIU NA v5.212: o prefetch do script da IFrame Player API. Ele já era
+  //  guardado por `!window.__NATIVE__`, justamente porque injetar script de
+  //  terceiro no origin privilegiado era o custo que ninguém queria pagar em
+  //  toda sessão. Com o embed fora dos dois papéis, não há o que adiantar.)
   // Config de transições (fade) definida no Controle — preferência visual,
   // não é "tocar" nada.
   // Transições são INERENTES ao sistema (sempre ligadas, duração fixa — ver
@@ -1808,21 +1281,14 @@ const startBtnEl = document.getElementById('startBtn');
 
 // No app nativo o overlay "Ligar Sistema" NÃO EXISTE: o WebView roda com
 // `setMediaPlaybackRequiresUserGesture(false)`, então não há política de gesto
-// para destravar — nem para mídia local, nem para o iframe do YouTube. O
-// telão precisa acender sozinho ao receber um comando; exigir um toque numa
-// TV (que não recebe toque nenhum) seria um beco sem saída.
+// para destravar. O telão precisa acender sozinho ao receber um comando;
+// exigir um toque numa TV (que não recebe toque nenhum) seria um beco sem
+// saída.
 if (window.__NATIVE__) startBtnEl.hidden = true;
-// "Ligar Display" APENAS ativa o Display (destrava o áudio de terceiros/YouTube
-// com o gesto real). O Display é INDEPENDENTE — não abre o Controle nem
-// redireciona pra lugar nenhum. `display: standalone` no manifest continua
-// (não `fullscreen`), mas aqui não há mais nenhum window.open.
+// "Ligar Display" APENAS ativa o Display (gasta o gesto real que o navegador
+// exige para tocar com som). O Display é INDEPENDENTE — não abre o Controle
+// nem redireciona pra lugar nenhum.
 startBtnEl.addEventListener('click', () => {
-  if (yt && yt.player) {
-    const p = yt.player;
-    ytAplicarMudo(p);
-    ytSafeCall(() => p.setVolume(Math.round(yt.volume * 100)));
-    ytSafeCall(() => p.playVideo());
-  }
   // Feedback de toque (pill "confirma" antes de sumir) — sem isso o overlay
   // desaparece no mesmo instante do clique e o toque parece não ter feito nada.
   startBtnEl.classList.add('confirming');

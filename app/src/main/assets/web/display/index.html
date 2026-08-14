@@ -74,13 +74,8 @@
       </div>
     </div>
   </div>
-  <!-- Substituído pelo iframe oficial do YouTube IFrame Player API em runtime -->
-  <div id="youtube" class="layer yt-frame" hidden></div>
-  <!-- escudo anti-UI: cobre a tela final do YouTube enquanto o player cai -->
-  <div id="ytShield" class="layer yt-shield"></div>
-
   <!-- Toque único ao abrir: navegadores exigem um gesto real do usuário para
-       liberar autoplay com som em conteúdo de terceiros (iframe do YouTube).
+       liberar autoplay com som.
        Cobre a tela inteira (qualquer toque serve) — some ao primeiro toque.
        "Ligar Sistema" APENAS ativa o Display: o handler (display.js) empurra o
        player do YouTube e esconde o overlay, e não há nenhum window.open no

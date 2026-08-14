@@ -178,17 +178,25 @@ const navegador = await chromium.launch(
 const ctx = await navegador.newContext({ viewport: { width: 1280, height: 720 } });
 const pg = await ctx.newPage();
 const errosConsole = [];
-let ytBarrado = false;
+// ZERO PEDIDO A TERCEIRO, e a régua ficou mais forte na v5.212.
+//
+// Até aqui este teste afirmava que a CSP BARRAVA a IFrame API do YouTube — isto
+// é, que o `display.js` PEDIA o script e o navegador recusava. A garantia era
+// real, mas de segunda ordem: ela dependia de um cabeçalho continuar certo. Com
+// o embed removido dos dois papéis, a afirmação passa a ser sobre o que a página
+// FAZ: ela não pede. Um `<script>` de terceiro que voltasse ao `display.js`
+// falharia aqui mesmo que a CSP o barrasse depois — que é a ordem certa de
+// descobrir isso.
+const pedidosDeFora = [];
+pg.on('request', (r) => {
+  let host = '';
+  try { host = new URL(r.url()).host; } catch (_) { return; }
+  if (host && host !== new URL(base).host) pedidosDeFora.push(host + ' ← ' + r.resourceType());
+});
 pg.on('console', (m) => {
   const t = m.text();
   if (m.type() !== 'error') return;
   if (/Failed to load resource/.test(t)) return;
-  // A IFrame API DO YOUTUBE BARRADA É A GARANTIA, não um defeito: a CSP existe
-  // para que ZERO pixel de terceiro entre numa tela da rede (spec §1). Ela é
-  // contada e afirmada logo abaixo, em vez de virar ruído no console.
-  if (/youtube\.com\/iframe_api/.test(t) && /Content Security Policy/.test(t)) {
-    ytBarrado = true; return;
-  }
   errosConsole.push(t);
 });
 
@@ -401,8 +409,9 @@ checar(await pg.$eval('#text', (e) => e.hidden), 'text-hide tira a Camada de Tex
   checar(vazou === false, 'postMessage do BroadcastChannel é no-op no papel tela');
 }
 
-checar(ytBarrado,
-  'a CSP BARRA a IFrame API do YouTube — zero pixel de terceiro na tela da rede');
+checar(pedidosDeFora.length === 0,
+  'a tela da rede não pede UM BYTE a origem nenhuma além do celular',
+  pedidosDeFora.join(' | '));
 checar(errosConsole.length === 0, 'nenhum erro de console no percurso inteiro',
   errosConsole.join(' | '));
 
