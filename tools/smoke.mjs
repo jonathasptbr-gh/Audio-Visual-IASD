@@ -143,10 +143,11 @@ try {
   // que o abre. Por isso a regra virou asserção — ela custa três linhas e
   // pega uma classe inteira de defeito que só aparece em aparelho.
   const ANINHADOS = [
-    ['castPopup', 'mirrorPopup'],   // os ajustes do espelho abrem da folha de conexão
     ['songMenuPopup', 'folderPopup'], // o seletor de pastas abre da folha da música
   ];
-  // (O par `mirrorPopup`/`qrPopup` saiu na v5.185 com o leitor de QR. A regra
+  // (O par `castPopup`/`mirrorPopup` saiu na v5.196 com a folha de "Ajustes
+  // avançados"; o par `mirrorPopup`/`qrPopup` saíra na v5.185 com o leitor de
+  // QR. A regra
   // continua valendo para todo popup aninhado que existir — foi ela que pegou o
   // leitor nascendo um degrau ABAIXO da folha que o abria, com o sintoma sendo
   // uma câmera acesa e imagem nenhuma.)

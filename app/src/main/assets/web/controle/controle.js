@@ -212,7 +212,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.195';
+const WEB_VERSION = '5.196';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -374,18 +374,10 @@ const castMirrorBtnEl = document.getElementById('castMirrorBtn');
 const castNetRowEl = document.getElementById('castNetRow');
 const castNetToggleEl = document.getElementById('castNetToggle');
 const castMsgEl = document.getElementById('castMsg');
-const mirrorOpenBtnEl = document.getElementById('mirrorOpenBtn');
-const mirrorPopupEl = document.getElementById('mirrorPopup');
-const mirrorCloseEl = document.getElementById('mirrorClose');
-const mirrorLeadEl = document.getElementById('mirrorLead');
+const castMirrorLabelEl = document.getElementById('castMirrorLabel');
 const castLiveEl = document.getElementById('castLive');
 const castUrlEl = document.getElementById('castUrl');
 const castTelasEl = document.getElementById('castTelas');
-const mirrorToggleEl = document.getElementById('mirrorToggle');
-const mirrorCertRowEl = document.getElementById('mirrorCertRow');
-const mirrorCertTxtEl = document.getElementById('mirrorCertTxt');
-const mirrorCertAddEl = document.getElementById('mirrorCertAdd');
-const mirrorCertDelEl = document.getElementById('mirrorCertDel');
 const songMenuPopupEl = document.getElementById('songMenuPopup');
 const songMenuTitleEl = document.getElementById('songMenuTitle');
 const songMenuListEl = document.getElementById('songMenuList');
@@ -15278,7 +15270,7 @@ async function lerEspelho() {
   try { e = await AVNative.espelhoEstado(); } catch (_) { e = null; }
   mirrorEstado = e || null;
   recalcularAtrasoPreview();
-  renderEspelho();
+  acertarEnqueteDeFundo();
   // E A FOLHA DE CONECTAR TAMBÉM (v5.184). Ela estava fora daqui desde que
   // nasceu: quem a redesenhava era só o `abrirCast`, então tudo o que ela
   // mostra ao vivo — o endereço que aparece quando o servidor sobe, a lista de
@@ -15328,164 +15320,20 @@ function acertarEnqueteDeFundo() {
   }
 }
 
-// As três ressalvas que o operador precisa ouvir ANTES, e não num domingo: o
-// roteador pode bloquear isso sozinho e não há conserto do lado do app; o
-// celular precisa do carregador; e o som não vai completo.
-// UMA FRASE, E SÓ O QUE NÃO SE DESCOBRE SOZINHO (v5.194).
-//
-// Eram dois parágrafos, um por estado, e os dois descreviam o recurso para
-// alguém que já o ligou — mais uma terceira e uma quarta repetição de "abra o
-// endereço no navegador", que agora mora no rótulo do endereço. Pior: os dois
-// ainda mandavam **digitar o código de três dígitos**, que saiu na v5.189. Um
-// texto grande é também um texto que ninguém revisa.
-//
-// O que sobra é o que o operador não tem como adivinhar e que muda o que ele
-// faz: o roteador pode bloquear isto sozinho, e há duas coisas que de propósito
-// NÃO vão para a rede. Um estado só, porque a ressalva é a mesma ligada ou
-// desligada.
-const MIRROR_TEXTO = 'O roteador da igreja pode bloquear isto sozinho '
-  + '(isolamento de clientes) — o Registro diz quando é o caso. '
-  + 'O vídeo do YouTube e o microfone ao vivo não vão para a rede, de propósito.';
+// (`MIRROR_TEXTO` e `renderEspelho` saíram na v5.196, com a folha de ajustes.
+// O parágrafo de ressalvas virou UMA linha na folha de conexão, e o que o
+// `renderEspelho` de fato fazia — acertar a enquete de fundo — era uma chamada
+// só, que os chamadores passaram a fazer direto.)
 
-function renderEspelho() {
-  acertarEnqueteDeFundo();
-  // A GUARDA É SOBRE A FOLHA, e não sobre uma linha de Configurações que não
-  // existe mais (v5.175). Ela existia como `#mirrorRow` — a linha da lista de
-  // preferências de onde o espelho era ligado até a v5.156 —, e o que sobrou
-  // dela era um `<span hidden>` alimentado a cada leitura com uma frase de
-  // estado que ninguém via, mais duas regras de CSS órfãs. Um elemento de UI
-  // morto usado como sentinela de existência é a pior forma de guarda: ele
-  // parece intencional e some no primeiro `hidden` que alguém mexer.
-  if (!mirrorLeadEl || !espelhoDisponivel()) return;
-  const e = mirrorEstado || {};
-  const ligado = !!e.ligado;
-
-  mirrorLeadEl.textContent = e.erro ? e.erro + '\n\n' + MIRROR_TEXTO : MIRROR_TEXTO;
-  mirrorToggleEl.textContent = mirrorOcupado
-    ? 'Um instante…'
-    : (ligado ? 'Desligar o espelho' : 'Ligar o espelho');
-  mirrorToggleEl.disabled = mirrorOcupado;
-  mirrorToggleEl.classList.toggle('on', ligado);
-}
-
-
-// ============================================================================
-// O CERTIFICADO DO ESPELHO — o degrau de TLS (shell 34)
-// ============================================================================
-//
-// O espelho serve em HTTP CLARO, e isso está escrito como inversão deliberada
-// na especificação: com ele o aparelho passa a ter a imagem contínua de tudo
-// que a igreja projeta, e o pareamento é uma fechadura numa parede de vidro.
-// Só o TLS fecha a parede.
-//
-// E TLS aqui não é "ligar um interruptor". Certificado público para IP privado
-// NÃO EXISTE — a CA/Browser Forum proibiu em 2015 —, e autoassinado está
-// descartado: o Chrome do Android exige Certificate Transparency e o navegador
-// de uma smart TV não tem UI para instalar CA. Trocaria uma limitação
-// silenciosa e previsível por uma tela vermelha em cada culto.
-//
-// O que funciona é o modelo do Plex: um NOME que o operador controla, com
-// registro `A` apontando para o IP privado e certificado emitido por DNS-01.
-// **As três condições são dele, não do app** — um subdomínio com wildcard por
-// DNS-01, uma entrada estática de DNS no roteador da igreja (sem ela o nome só
-// resolve com internet, e a proteção contra DNS rebinding do roteador o quebra
-// em silêncio) e renovação automática. O app não adivinha nenhuma: ele guarda
-// o `.p12` que o operador trouxe pronto, diz até quando vale, e recusa o que
-// não serve.
-const CERT_SHELL = 34;
-let mirrorCert = null;
-
-function certDisponivel() {
-  return !!window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= CERT_SHELL;
-}
-
-async function lerCertEspelho() {
-  if (!certDisponivel()) return null;
-  try { mirrorCert = await AVNative.espelhoCertEstado(); } catch (_) { mirrorCert = null; }
-  renderCertEspelho();
-  return mirrorCert;
-}
-
-function renderCertEspelho() {
-  if (!mirrorCertRowEl) return;
-  mirrorCertRowEl.hidden = !certDisponivel();
-  if (mirrorCertRowEl.hidden) return;
-  const c = mirrorCert || {};
-  if (!c.temCert) {
-    // A frase diz o ESTADO e a consequência, não só "sem certificado": quem lê
-    // isto precisa saber que o espelho funciona assim mesmo, e o que muda.
-    mirrorCertTxtEl.textContent = 'Sem certificado — o espelho serve em HTTP claro. '
-      + 'Quem estiver na rede consegue ver o que a igreja projeta.';
-    mirrorCertTxtEl.classList.remove('ok');
-    mirrorCertDelEl.hidden = true;
-    mirrorCertAddEl.textContent = 'Importar .p12';
-    return;
-  }
-  const dias = c.ate ? Math.floor((c.ate - Date.now()) / 86400000) : 0;
-  // O PRAZO EM DIAS, e não a data: o teto de validade já é de 200 dias e cai
-  // para 47 em 2029, então "vence em 12 dias" é a leitura que faz alguém agir —
-  // uma data no futuro não é.
-  const prazo = !c.ate ? 'sem prazo declarado'
-    : dias < 0 ? 'VENCIDO — o espelho volta a HTTP claro'
-      : dias === 0 ? 'vence hoje'
-        : 'vence em ' + dias + ' dia(s)';
-  // E O ESTADO NO AR é diferente do estado GUARDADO: importar com o espelho já
-  // ligado não promove o socket que já está de pé. Sem dizer isso, o operador
-  // leria "certificado válido" olhando para um endereço `http://`.
-  const noAr = c.noAr && !c.servindoTls
-    ? ' · desligue e ligue o espelho para ele passar a valer'
-    : '';
-  mirrorCertTxtEl.textContent = (c.host || 'certificado') + ' · ' + prazo + noAr;
-  mirrorCertTxtEl.classList.toggle('ok', dias >= 0 && !noAr);
-  mirrorCertDelEl.hidden = false;
-  mirrorCertAddEl.textContent = 'Trocar';
-}
-
-async function importarCertEspelho() {
-  if (!certDisponivel()) return;
-  let escolhidos = [];
-  try {
-    // O seletor do SISTEMA, como toda importação do app. `application/x-pkcs12`
-    // é o tipo registrado; muitos aparelhos não o conhecem e devolvem o arquivo
-    // como `octet-stream`, então os dois entram — quem de fato valida é o
-    // Kotlin, ao abrir o PKCS12.
-    escolhidos = await AVNative.pickDoc(['application/x-pkcs12', 'application/octet-stream']);
-  } catch (_) { escolhidos = []; }
-  const arq = escolhidos && escolhidos[0];
-  if (!arq || !arq.url) return;
-  // A SENHA É DIGITADA À MÃO, sempre. Ela nunca viaja junto com o arquivo: um
-  // segredo que anda com o que ele protege não protege nada — o mesmo
-  // raciocínio que o `WebUpdater` já escreve sobre o `sha256`.
-  const senha = await appPrompt({
-    title: 'Senha do certificado',
-    message: 'Digite a senha do arquivo ' + (arq.name || '.p12') + '.\n\n'
-      + 'Ela não fica guardada: o app reescreve o arquivo com uma senha própria '
-      + 'e esquece a sua.',
-    okText: 'Importar',
-    placeholder: 'Senha do .p12',
-  });
-  if (senha === null || senha === undefined) return;
-  const erro = await AVNative.espelhoCertImportar(arq.url, senha);
-  if (erro) { avisar(erro, 'erro'); return; }
-  await lerCertEspelho();
-  avisar(espelhoLigado()
-    ? 'Certificado importado — desligue e ligue o espelho para ele valer.'
-    : 'Certificado importado.');
-}
-
-async function removerCertEspelho() {
-  const ok = await appConfirm({
-    title: 'Remover o certificado?',
-    message: 'O espelho volta a servir em HTTP claro na próxima vez que for '
-      + 'ligado. A chave privada é apagada do aparelho e só volta reimportando '
-      + 'o arquivo.',
-    okText: 'Remover',
-  });
-  if (!ok) return;
-  try { await AVNative.espelhoCertApagar(); } catch (_) { /* ponte */ }
-  await lerCertEspelho();
-  avisar('Certificado removido.');
-}
+// (O CERTIFICADO TLS saiu na v5.196, com a folha de ajustes que era a única
+// porta dele — foram ~120 linhas: `CERT_SHELL`, `certDisponivel`,
+// `lerCertEspelho`, `renderCertEspelho`, `importarCertEspelho` e
+// `removerCertEspelho`. Ele nunca foi um interruptor: exige do operador um
+// subdomínio com wildcard por DNS-01, uma entrada estática de DNS no roteador
+// da igreja e renovação automática — e sem as três o espelho serve em HTTP
+// claro, que é o que ele sempre fez. Os três métodos da ponte
+// (`espelhoCertImportar`/`Estado`/`Apagar`) continuam no shell: voltar atrás é
+// desenhar uma folha, não publicar uma Release.)
 
 // (O LEITOR DE QR SAIU NA v5.185, e com ele a permissão de CÂMERA do manifest.
 // Ele existia para INVERTER quem mostra e quem lê o segredo: a tela desenhava
@@ -15518,12 +15366,12 @@ async function ligarEspelho() {
   if (mirrorOcupado) return false;
   if (!(await confirmarEspelhoComTv())) return false;
   mirrorOcupado = true;
-  renderEspelho();
+  acertarEnqueteDeFundo();
   let r = null;
   try { r = await AVNative.espelhoLigar('video'); } catch (_) { r = null; }
   mirrorOcupado = false;
   mirrorEstado = r || null;
-  renderEspelho();
+  acertarEnqueteDeFundo();
   // A falha é NOMEADA, sempre: "sem encoder livre agora", "só liga em Wi-Fi",
   // a classe da exceção do `show()`. Um espelho que não liga em silêncio é
   // indistinguível de um botão quebrado.
@@ -15536,7 +15384,7 @@ async function ligarEspelho() {
 async function desligarEspelho() {
   if (mirrorOcupado) return;
   mirrorOcupado = true;
-  renderEspelho();
+  acertarEnqueteDeFundo();
   try { AVNative.espelhoDesligar(); } catch (_) { /* ponte */ }
   // `espelhoDesligar` volta na hora (escreve um campo e sai — ver o KDoc da
   // ponte): a demolição acontece logo depois, na main thread do shell. Sem esta
@@ -15604,12 +15452,11 @@ function abrirCast() {
 
 function fecharCast() {
   castPopupEl.classList.remove('open');
-  // O relógio só continua se a folha do espelho tiver assumido — senão ele
-  // ficaria enquetando a ponte com nada na tela.
-  if (!mirrorPopupEl.classList.contains('open')) {
-    clearInterval(mirrorTimer);
-    mirrorTimer = null;
-  }
+  // (Havia aqui uma ressalva para a folha de ajustes, que podia estar aberta
+  // por cima e também mostrava estado ao vivo. Ela saiu na v5.196, e com ela a
+  // única razão de este `clear` ser condicional.)
+  clearInterval(mirrorTimer);
+  mirrorTimer = null;
 }
 
 // Um `textContent` que aceita elemento nulo — a folha existe só no bundle novo.
@@ -15645,6 +15492,22 @@ function renderCast() {
     castNetToggleEl.checked = ligado;
     castNetToggleEl.disabled = mirrorOcupado;
   }
+  // O BOTÃO DE ESPELHAR DIZ QUAL TV ESTÁ NO AR (v5.196). Ele levava a folha de
+  // "Ajustes avançados" a existir com um botão de desligar dentro; agora o
+  // estado mora no próprio botão, que é onde a decisão é tomada.
+  //
+  // O RÓTULO NÃO VIRA "Desconectar", e isso é honestidade, não timidez: o app
+  // não tem como derrubar um espelhamento — não existe API pública — e o toque
+  // abre o MESMO seletor do Android nos dois estados. É lá que se desconecta.
+  // Um botão escrito "Desconectar" que abre uma lista seria uma promessa que a
+  // tela seguinte não cumpre.
+  const tv = window.__NATIVE__ ? (lastDisplays[0] || null) : null;
+  if (castMirrorLabelEl) {
+    castMirrorLabelEl.textContent = tv
+      ? 'Espelhando em ' + (tv.name || 'TV')
+      : 'Espelhar para TV';
+  }
+  if (castMirrorBtnEl) castMirrorBtnEl.classList.toggle('connected', !!tv);
   // (O subtítulo do interruptor saiu na v5.194: desligado ele descrevia o
   // recurso para quem já decidiu usá-lo, e ligado dizia "N tela(s) recebendo" —
   // que é exatamente o que a LISTA logo abaixo mostra, com nome e tempo de
@@ -15652,7 +15515,6 @@ function renderCast() {
 
   // O ENDEREÇO E QUEM ESTÁ VENDO, nesta mesma folha.
   if (castLiveEl) castLiveEl.hidden = !ligado;
-  if (mirrorOpenBtnEl) mirrorOpenBtnEl.hidden = !ligado;
   if (!ligado) return;
   // UM ENDEREÇO SÓ (v5.185): o IP. O `av.local` saiu com o responder mDNS —
   // ele não resolve no Chrome do Android nem na maioria das Smart TVs, que são
@@ -15706,38 +15568,16 @@ function renderCastTelas(telas) {
   });
 }
 
-function openMirror() {
-  if (!espelhoDisponivel()) return;
-  mirrorPopupEl.classList.add('open');
-  lerEspelho();
-  // A sonda da câmera é feita AQUI, uma vez: ela é assíncrona e o `render` é
-  // síncrono, então perguntar de dentro dele deixaria o botão aparecendo um
-  // ciclo depois. Ao voltar, um `renderEspelho` acerta o botão.
-  // O certificado é lido ao ABRIR, como o resto: ele muda por ação do
-  // operador (importar/remover), nunca sozinho.
-  lerCertEspelho();
-  clearInterval(mirrorTimer);
-  mirrorTimer = setInterval(lerEspelho, MIRROR_POLL_MS);
-}
-function closeMirror() {
-  mirrorPopupEl.classList.remove('open');
-  // O relógio continua se a folha do CAST ainda estiver aberta por baixo — foi
-  // dela que esta veio, e ela também mostra estado ao vivo.
-  if (!castPopupEl || !castPopupEl.classList.contains('open')) {
-    clearInterval(mirrorTimer);
-    mirrorTimer = null;
-  }
-}
-
-// Os ouvintes da seção de conexão. A guarda é o botão que ABRE a folha de
-// ajustes — um elemento que de fato existe na tela —, e não mais o `#mirrorRow`
-// escondido que sobrou da linha de Configurações (v5.175).
-if (mirrorOpenBtnEl) {
-  mirrorOpenBtnEl.addEventListener('click', openMirror);
-  mirrorToggleEl.addEventListener('click', () => {
-    if (espelhoLigado()) desligarEspelho(); else ligarEspelho();
-  });
-  // ESPELHAR: o caminho de sempre, agora atrás de uma escolha.
+// Os ouvintes da seção de conexão. A guarda é o BOTÃO DE ESPELHAR (v5.196):
+// era o link "Ajustes avançados", que saiu com a folha dele — e uma guarda que
+// aponta para um elemento removido desliga EM SILÊNCIO tudo o que está dentro
+// dela, inclusive o interruptor da transmissão.
+if (castMirrorBtnEl) {
+  // ESPELHAR: abre o seletor do Android, e é ele quem CONECTA E DESCONECTA a
+  // TV. O app não tem como derrubar um espelhamento — não existe API pública
+  // para isso —, então o botão leva ao mesmo lugar nos dois estados; o que muda
+  // é ele DIZER qual TV está no ar (ver `renderCast`), que é a informação que
+  // faltava para o toque não ser um pulo no escuro.
   castMirrorBtnEl.addEventListener('click', () => {
     if (window.__NATIVE__) AVNative.openCast();
     else openWebDisplay();
@@ -15777,10 +15617,7 @@ if (mirrorOpenBtnEl) {
     }
     renderCast();
   });
-  mirrorCertAddEl.addEventListener('click', importarCertEspelho);
-  mirrorCertDelEl.addEventListener('click', removerCertEspelho);
-  renderEspelho();
-  renderCertEspelho();
+  acertarEnqueteDeFundo();
 }
 
 newFolderInPickerBtnEl.addEventListener('click', async () => {
@@ -15817,7 +15654,6 @@ const POPUPS = [
   // o voltar percorre esta tabela de trás para a frente e precisa fechar a de
   // cima primeiro. Uma linha aqui já a liga aos três caminhos de fechamento
   // (✕, toque no fundo, botão do aparelho) — é para isso que a tabela existe.
-  [mirrorPopupEl, mirrorCloseEl, closeMirror],
   // E o leitor de QR abre de dentro da folha do espelho, então vem DEPOIS dela.
   // Aqui a linha vale mais que nos outros: fechar este popup é DESLIGAR A
   // CÂMERA, e é esta tabela que garante que os três caminhos façam isso.
