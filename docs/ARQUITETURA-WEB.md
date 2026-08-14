@@ -1860,8 +1860,8 @@ sem a borda — o mudo, aliás, passou ao vermelho **saturado**.
 
 | Elemento | O que faz |
 |---|---|
-| **Conectar a tela** (`#simpleCastBtn`) | `AVNative.openCast()` — o seletor de espelhamento do Android. **Só existe SEM tela conectada**, e ali é o único botão da tela (ver o bloqueio abaixo); conectado, ele dá lugar à preview. No navegador vira o atalho para a tela do Display |
-| **Preview** (`.simple-stage`) | a projeção em miniatura, **só com tela conectada** — ver "A preview no lugar do botão de conectar" |
+| **Seção de conexão** (`#simpleConn`) | as duas formas de conectar — espelhar para a TV e transmitir para navegador —, **só SEM tela conectada**. É o MESMO nó da folha de "Conectar uma tela" (`#castConn`), movido entre as duas casas por `hostCastConn`; conectado, a célula volta a ser a preview. (Antes da v5.193 era um botão único, `#simpleCastBtn`, que só ABRIA a folha — um toque cobrado para chegar às escolhas que cabem na própria tela) |
+| **Preview** (`.simple-stage`) | a projeção em miniatura, **só com tela conectada** — ver "A preview no lugar da seção de conexão" |
 | **Buscar música** (`#simpleSearchBtn`) | o MESMO popup de busca do acervo (`openHymnSearch`). Um toque na linha **toca a versão Cantada direto** (ver abaixo) |
 | **Linha do tempo** (`#simpleTime`) | decorrido · barra · duração — espelha a mesma `#seek` do modo avançado (que já é alimentada pela preview, pelo `display-status` e pelo polling do YouTube) e some quando o item não tem duração. **Interativa desde a v5.142**: tocar salta, arrastar procura. Ela nasceu como indicador ("quem precisa saltar no tempo usa o modo avançado") — só que voltar o refrão é a coisa mais comum que se faz durante um louvor, e mandar o operador SAIR do modo para isso é o oposto do que o modo existe para dar. O alvo de toque é a FAIXA (`.simple-time-hit`), não o traço de 4px: um controle de posição que exige mira não é um controle. O comando sai no `pointerup` — um `seek` por quadro faria a mídia engasgar durante o gesto —, e `simpleSeeking` impede o `timeupdate` de puxar o preenchimento de volta debaixo do dedo (a mesma regra do `volSeekingEl` no fader) |
 | **Letra** (`#simpleLyrics`) | a letra INTEIRA da música em cena, com o mesmo destaque e o mesmo acompanhamento da leitura auxiliar do modo avançado |
@@ -1902,52 +1902,55 @@ acompanhamento até a próxima música, como no popup.
 A espiada do volume pelos botões físicos (`peekVolume`) **não roda no
 simplificado**: as teclas de volume já estão na tela, com o número ao lado.
 
-#### Sem tela conectada, o modo inteiro fica bloqueado (v5.39–v5.41)
+#### Sem tela conectada: a conexão ocupa a célula da preview (v5.39–v5.41, e o BLOQUEIO SAIU na v5.199)
 
 Neste modo **a projeção É o telão** — não existe preview aqui. Sem tela
-conectada, buscar uma música e dar play produzia som no celular e mais nada:
-os controles continuavam à disposição, respondendo a cada toque, sem que nada
-aparecesse em lugar nenhum. O modo avançado não tem esse problema, porque lá a
-preview mostra o que sairia no telão; aqui não há para onde olhar.
+conectada, buscar uma música e dar play produz som no celular e mais nada, e foi
+por isso que da v5.39 à v5.198 o modo inteiro ficava atrás de uma cortina
+(`#simpleVeil`: `backdrop-filter: blur(7px)` mais um véu, interceptando todos os
+toques), com `.simple-actions` içada em `position: absolute` para o centro exato
+da tela, a busca escondida e um botão preenchido em accent como única ação.
 
-`renderSimpleGate()` cobre a tela com a cortina `#simpleVeil` — `backdrop-
-filter: blur(7px)` mais um véu — que **intercepta os toques** do que ficou
-atrás. A cortina é só o vidro fosco: não tem conteúdo. Na frente sobem duas
-coisas, e só duas:
+**O bloqueio saiu na v5.199, e o que o derrubou foi a leitura do operador.** A
+v5.197 removeu o botão único (`#simpleCastBtn`) e ele voltou relatado como
+presente: *"o botão toque para conectar em uma tela ainda persiste em existir e
+ficar bloqueando a tela do modo simples"*. Medido no bundle publicado, o
+elemento e a frase não existiam mais — e o operador continuava certo, porque o
+que ele estava descrevendo não era o ELEMENTO. Desde a v5.193 quem ocupa aquele
+centro é a seção de conexão, cujo item dominante é `#castMirrorBtn`: preenchido
+em `--accent-fill`, com a largura útil da tela, no meio vertical dela, sobre um
+fundo embaçado. Mesma anatomia, mesmo lugar, mesmo efeito. **Trocar um botão
+grande centrado por outro botão grande centrado não é remover o botão** — o que
+incomodava era a tela inteira parar por causa dele.
 
-- **Conectar a tela** (`#simpleCastBtn`), a única ação que resolve o bloqueio.
-  Bloqueada a tela, a faixa `.simple-actions` deixa de ser faixa: vira um
-  bloco absoluto no **centro exato da tela**, com a busca escondida e o botão
-  preenchido no accent (`--accent-fill`, ícone de 44px). Ele
-  não podia continuar sendo a mesma tecla escura das outras: a única ação
-  possível da tela não disputa atenção com o teclado embaçado atrás dela.
-  **Sem halo desde a v5.75**: havia um `box-shadow` em `--accent-glow` para
-  "separar o botão do fundo", mas quem separa é a CORTINA — o `backdrop-filter`
-  já apaga tudo atrás, e o botão é a única coisa nítida e a única preenchida da
-  tela. O halo não resolvia leitura nenhuma, só espalhava luz âmbar num salão
-  escuro.
-  **Ali ele é ícone e UMA frase** — "Toque para conectar uma tela" — e nada
-  mais: o subtítulo repetia o rótulo e a mensagem que havia acima dele dizia
-  pela terceira vez a mesma coisa, três textos para uma tela com uma ação só.
-  Com tela conectada o rótulo volta a nomear a ação ("Conectar a tela") e o
-  subtítulo volta a informar QUAL tela, que aí é notícia.
-- **Modo avançado** (`#simpleFullBtn`), no cabeçalho. **Sem TV o app não fica
-  inútil** — a projeção passa a ser a preview em tela cheia —, e trancar essa
-  saída transformaria a falta de telão numa parede. O que se bloqueia é o modo
-  simplificado, não o app.
+E o argumento original só vale para METADE do que a tela faz. "Sem tela não há o
+que operar" é verdade para PROJETAR, e falso para procurar um hino, montar a
+lista e conferir a letra — que são exatamente as coisas que se fazem **antes** de
+a tela existir, na terça-feira.
 
-**E não há mensagem separada.** Houve uma (`.simple-gate-msg`, pendurada acima
-do botão); ela saiu porque a tela passou a ter **um texto só**: com o botão
-dizendo "Toque para conectar uma tela", uma legenda por cima repetia o que o
-próprio botão já dizia. Sem ela, `.simple-actions` pode simplesmente centralizar
-o que sobrou — o botão fica no meio exato, sem ninguém precisar medir a altura
-de um para posicionar o outro.
+Hoje `renderSimpleGate()` não tranca nada: ela só decide **quem ocupa a célula
+da preview** (o nome ficou de quando era um portão de verdade).
 
-#### A preview no lugar do botão de conectar (v5.71)
+- **Com tela**: a preview, e a faixa `.simple-actions` é a grade de duas colunas
+  de sempre — preview + "Buscar música".
+- **Sem tela**: a classe `.sem-tela` no `#simpleMode` esconde `.simple-stage` e
+  vira a faixa numa COLUNA — a seção de conexão em cima, a busca embaixo. No
+  fluxo, no alto da tela, sem cobrir a letra nem o transporte, que continuam
+  desenhados e usáveis.
+
+**O que a tela deixa de dizer, e é aceito em vez de escondido:** com nada
+conectado, apertar ▶ não produz imagem em lugar nenhum (e desde a v5.189 nem som,
+porque a preview é muda por construção). Quem responde a isso é a seção de
+conexão, que está no alto da tela e é a primeira coisa que se lê.
+
+**Saíram junto** o `#simpleVeil`, os tokens `--veil`/`--veil-solid` (a cortina
+era o único consumidor que eles já tiveram) e a liberação de teste de 5 s.
+
+#### A preview no lugar da seção de conexão (v5.71)
 
 Conectado, não há nada melhor a dizer sobre "está conectado?" do que **mostrar o
-que a TV está exibindo**. O botão de conectar sai e a preview ocupa **a célula
-dele** na grade de ações — mesma largura, mesma linha, ao lado de "Buscar
+que a TV está exibindo**. A seção de conexão sai e a preview ocupa **a célula
+dela** na grade de ações — mesma largura, mesma linha, ao lado de "Buscar
 música", que continua onde sempre esteve. Os dois nunca coexistem, então
 dividir a célula é o certo: a faixa segue com as duas colunas de sempre e nada
 no resto da tela se move.
@@ -1968,14 +1971,11 @@ O ícone de **cast no canto** da preview faz os dois papéis que sobraram:
   o ícone dizer é o que o toque faz. Vermelho **contornado** (a família de ação
   destrutiva) e nunca o `--danger` cheio: preenchido, o vermelho deste app
   significa "está no ar agora", e competiria com a mídia que a miniatura está
-  justamente mostrando. Ele abre o seletor do Android, que é onde se troca de
-  tela ou se desconecta; desconectado, `onDisplayChange` rebaixa a cortina
-  sozinho e o botão de conectar volta ao centro, pelo caminho que já existia;
-- **âmbar (`--warn`) na liberação de teste** — ali não há tela para desconectar,
-  e o que o toque faz é trancar de volta.
-- Na **liberação de teste** o toque simplesmente TRANCA de volta: não há tela
-  real para desconectar, e o botão que hospedava o "segurar 5 s" some justamente
-  quando a liberação fica ativa, porque a preview toma o lugar dele.
+  justamente mostrando. Ele abre a folha de "Conectar uma tela", que é onde se
+  troca de tela ou se desconecta; desconectado, `onDisplayChange` devolve a
+  célula à seção de conexão, pelo caminho que já existia.
+  (O terceiro estado deste ícone — **âmbar**, na liberação de teste — saiu na
+  v5.199 junto com ela.)
 
 **A tela cheia (`#pvFullBtn`) não aparece aqui**: neste modo existe um telão
 conectado — é o que faz esta faixa existir — e a projeção está nele.
@@ -1986,8 +1986,8 @@ previews divergiriam no primeiro ajuste, e dois `createStage` decodificariam o
 MESMO vídeo duas vezes num aparelho que já roda dois WebViews. Três detalhes
 que a mudança de pai obriga:
 
-- **A troca acontece só na mudança de MODO**, não ao conectar/desconectar. Com
-  a tela bloqueada a faixa some por CSS (`.simple.locked .simple-stage`), e um
+- **A troca acontece só na mudança de MODO**, não ao conectar/desconectar. Sem
+  tela a preview some por CSS (`.simple.sem-tela .simple-stage`), e um
   `display:none` não custa nada.
 - **Um `<video>` sobrevive à mudança de pai**; um **iframe, não** — ele recarrega
   e leva o player do YouTube junto. Por isso `hostPreview` remonta a preview do
@@ -2016,47 +2016,24 @@ botão abre (`openWebDisplay`), e fechá-la equivale a desconectar. Como não h�
 evento de "janela fechada", um relógio de 1 s olha o `closed` — e ele só existe
 enquanto a janela existe.
 
-#### Liberação de TESTE: segurar 5 s o botão de conectar (v5.49)
+#### (A liberação de TESTE de 5 s SAIU na v5.199)
 
-Sem telão à mão **não há como olhar esta tela destravada** — e ela é a tela que
-o app abre, ou seja, a que mais precisa ser vista enquanto se mexe no desenho
-dela. Segurar `#simpleCastBtn` por **5 s** (`CAST_HOLD_MS`) destrava como se
-houvesse tela conectada. Para **trancar** de volta basta um toque no ícone de
-cast da preview (v5.71): o botão que hospedava o gesto de 5 s some assim que a
-liberação fica ativa, porque é a preview que toma o lugar dele.
+Ela existia porque, sem telão à mão, **não havia como olhar esta tela
+destravada** — e ela é a tela que o app abre. Segurar por 5 s destravava como se
+houvesse tela conectada; `castTestUnlocked` entrava por `simpleDisplay()` como um
+descritor marcado (`{ name: 'Modo de teste', test: true }`), o ícone de cast ia
+para `--warn` (nunca o verde de `.connected`, porque não havia tela nenhuma) e
+uma barra corria durante a espera, para 5 s sem resposta não passarem por um
+toque que não pegou.
 
-- **`castTestUnlocked` entra por `simpleDisplay()`**, que passa a devolver um
-  descritor marcado (`{ name: 'Modo de teste', test: true }`). Um ponto só, e é
-  o mesmo que a cortina, o rótulo do botão e o modo simplificado inteiro já
-  consultavam — nada mais no app precisou saber que existe um modo de teste.
-- **Não finge conexão.** O botão — e, destravado, o ícone de cast da preview —
-  fica em `--warn` (`.simple-action.testing`/`.pv-fab.testing`),
-  **nunca** no verde de `.connected`, e o subtítulo diz "Liberado para teste"
-  (o subtítulo é de UMA linha e corta com reticências, então cabe o estado; a
-  instrução de sair vai no `title`).
-  Verde ali significaria uma TV recebendo a projeção, e não há nenhuma: quem
-  pegar o aparelho nesse estado lê na tela o que está acontecendo em vez de
-  procurar a tela que "conectou" sozinha.
-- **A espera tem sinal.** 5 s sem resposta nenhuma é indistinguível de um toque
-  que não pegou, então uma barra corre no pé do botão enquanto o dedo estiver
-  lá (`.simple-key--holding::after`, `animation-fill-mode: forwards` — quem
-  completou vê a barra cheia no instante em que a tela destrava).
-- **5 s é longo de propósito**: o botão é a ÚNICA ação da tela bloqueada, e um
-  limiar curto faria um toque hesitante virar um destravamento que ninguém
-  pediu. O `holdFired` impede que o `click` seguinte abra o seletor de
-  espelhamento por cima da tela recém-destravada.
-- **Não é persistido**: cada abertura do app volta ao comportamento normal.
+**O alvo dela mudou duas vezes em cinco versões** — o botão único (até a v5.192),
+a cortina (v5.193) e nada (v5.199) —, e o motivo de sair é que o que ela
+destravava deixou de estar trancado: o modo já abre usável sem tela. Uma porta
+sem parede não é uma porta; ficasse, seria um gesto secreto de 5 s cujo efeito é
+indistinguível do estado normal da tela.
 
-Dois detalhes que só aparecem em uso:
-
-- **A busca aberta é fechada pelo bloqueio.** Perder a tela com o popup no ar
-  deixaria a busca funcionando por cima de uma tela bloqueada — e tocar uma
-  música dali não projetaria nada.
-- **A cortina precisa de `[hidden] { display: none }` explícito.** O
-  `display: flex` da regra venceria o `display: none` que o navegador dá a
-  `[hidden]`, e ela nunca sairia da frente. Onde não há suporte a
-  `backdrop-filter` o véu fica opaco: uma cortina transparente pareceria um
-  toque perdido, não um bloqueio.
+Saíram com ela `CAST_HOLD_MS`, `castTestUnlocked`, o ramo de "trancar de volta"
+no ícone de cast, o `@keyframes cast-hold` e o `.pv-fab.testing`.
 
 ### Layout geral
 

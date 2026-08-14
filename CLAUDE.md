@@ -2251,10 +2251,69 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.198** (base web) · `SHELL_VERSION` **39**, e o bundle segue com
+**Versão atual: v5.199** (base web) · `SHELL_VERSION` **39**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.199: O BLOQUEIO DO MODO FÁCIL SAI — e é ele que o operador chamava de
+> "o botão de conectar". OTA PURO.** Relato, pela segunda vez depois de a v5.197
+> ter removido o botão único: *"o botão toque para conectar em uma tela ainda
+> persiste em existir e ficar bloqueando a tela do modo simples, e ele também
+> está causando bugs"*.
+>
+> **Medido no bundle publicado, o elemento não existia** — nem `#simpleCastBtn`
+> nem a frase "Toque para conectar uma tela" aparecem no v5.197 que o aparelho
+> estava rodando. **E o operador continuava certo.** O que ele descrevia não era
+> o elemento: desde a v5.193 quem ocupa aquele centro é a seção de conexão, e o
+> item dominante dela é o botão de espelhar — preenchido em `--accent-fill`, com
+> a largura útil da tela, no meio vertical dela, sobre uma cortina embaçada de
+> tela inteira. Mesma anatomia, mesmo lugar, mesmo efeito. **Trocar um botão
+> grande centrado por outro botão grande centrado não é remover o botão**, e a
+> lição é que o que incomodava nunca foi o ELEMENTO: era a tela inteira parar por
+> causa dele.
+>
+> O argumento do bloqueio ("sem tela este modo é inútil") vale para PROJETAR e
+> não para o resto — procurar um hino, montar a lista e conferir a letra são
+> exatamente o que se faz **antes** de a tela existir, na terça-feira. Agora a
+> faixa de ações só muda de EIXO: com tela é a grade de duas colunas de sempre
+> (preview + buscar); sem tela vira uma coluna — conexão em cima, busca embaixo —
+> no fluxo, no alto, sem cobrir a letra nem o transporte. O preço está dito em
+> vez de escondido: sem nada conectado o ▶ não produz imagem em lugar nenhum (nem
+> som, desde que a mesa saiu na v5.189), e quem responde a isso é a seção de
+> conexão, que é a primeira coisa que se lê na tela.
+>
+> **Saíram junto**: a cortina `#simpleVeil`, os tokens `--veil`/`--veil-solid`
+> (ela era o único consumidor que eles já tiveram) e a **liberação de teste de
+> 5 s** — cujo alvo mudou duas vezes em cinco versões (o botão único, a cortina,
+> nada) e cujo único trabalho era derrotar o bloqueio. Porta sem parede não é
+> porta.
+>
+> **E a "busca profunda" achou os dois defeitos que o relato prometia**, os dois
+> da mesma família — um dono a menos:
+>
+> - **A ENQUETE DE 2,5 s DO ESPELHO TINHA DOIS ACIONADORES E UM SÓ INTERRUPTOR.**
+>   Ela nasceu como enquete da FOLHA (`abrirCast` liga, `fecharCast` mata), e a
+>   v5.193 deu ao bloco uma segunda casa sem lhe dar um dono novo. As duas
+>   metades erradas: `hostCastConn` a acendia e **nunca** a apagava (uma tela
+>   entrando devolvia o bloco à folha e deixava a enquete batendo na ponte pelo
+>   resto da sessão), e `fecharCast` a apagava **mesmo quando quem a acendeu foi
+>   a TELA** — isto é, abrir e fechar a folha uma vez cegava o Modo Fácil
+>   justamente para o evento que ele espera, uma tela da rede entrando. Agora o
+>   dono é um só e é a VISIBILIDADE do bloco (`acertarEnqueteDaConexao`), que é a
+>   mesma pergunta que o `renderCast` já faz para decidir se vale desenhar.
+> - **`lastDisplays` e `reconferirTelas` SUBIRAM PARA O TOPO** — a família da
+>   zona morta temporal, pela quinta vez. Não explodiu, e é esse o ponto: os dois
+>   são lidos por TRÊS caminhos de render (`telaoConectado`, `simpleDisplay`,
+>   `renderCastBtn`) e eram declarados 14 mil linhas abaixo; só não quebravam
+>   porque o `setAppMode(appMode)` que os alcança na carga fica DEPOIS deles no
+>   arquivo. A corretude dependia da ordem relativa de duas linhas separadas por
+>   14 mil — que é exatamente a dependência que derrubou o app nas v5.184, v5.193
+>   e v5.195.
+>
+> `tools/boot-nativo.test.mjs` passou a afirmar o que o operador relatou, e não
+> uma classe CSS: **não há cortina no documento e a busca continua desenhada e
+> clicável sem tela nenhuma.**
 
 > **A v5.198: O INTERRUPTOR DA REDE PASSA A NOMEAR O DESTINO. OTA PURO.**
 > "Transmitir pela rede" descrevia o MEIO — por onde a coisa viaja —, e meio

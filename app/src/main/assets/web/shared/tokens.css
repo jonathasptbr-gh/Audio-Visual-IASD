@@ -291,12 +291,8 @@
   --ok: #80bd64;                         /* 5,64:1 sobre painel · 8,41:1 sobre o fundo */
   --ok-soft: rgba(43, 133, 0, .20);
 
-  /* Cortina do bloqueio do modo simplificado. É o --bg com alfa; os dois têm de
-     andar JUNTOS, senão o véu vira um retângulo mais escuro (ou mais claro) que
-     o app inteiro justamente na tela que abre por padrão sem TV conectada. A
-     variante sólida cobre o caso sem `backdrop-filter`. */
-  --veil: rgba(14, 18, 21, .55);
-  --veil-solid: rgba(14, 18, 21, .92);
+  /* (`--veil`/`--veil-solid` SAÍRAM na v5.199, com a cortina do bloqueio do
+     modo simplificado — o único consumidor que eles já tiveram.) */
 
   /* ---------- Bíblia: ladrilhos dos 66 livros ----------
      TINTA ESCURA + faixa lateral com a matiz do grupo, não o bloco saturado de
@@ -428,10 +424,6 @@
   --warn-soft: rgba(205, 73, 0, .08);
   --ok: #216900;                         /* 4,76:1 sobre --ok-soft · 6,81:1 sobre o painel */
   --ok-soft: rgba(33, 105, 0, .08);
-
-  /* o véu segue o --bg deste tema, pela mesma regra do escuro */
-  --veil: rgba(223, 227, 231, .55);
-  --veil-solid: rgba(223, 227, 231, .92);
 
   /* Bíblia: as MESMAS dez matizes, com a tinta invertida — ladrilho claro e
      rótulo em `--text`. O alvo do rótulo aqui é 6,5:1 e não os 8,7:1 do escuro,
