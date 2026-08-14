@@ -2292,10 +2292,34 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.201** (base web) · `SHELL_VERSION` **39**, e o bundle segue com
+**Versão atual: v5.202** (base web) · `SHELL_VERSION` **39**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.202: A CONEXÃO DESCE PARA A ZONA DE BAIXO — o topo é da LETRA, como
+> foi pedido. OTA PURO.** A v5.201 pôs a seção de conexão ACIMA da letra, e isso
+> contrariava a própria frase que a encomendou: *"deixe ele na zona de baixo
+> mesmo, com a parte superior para a letra da música"*. O operador leu a tela,
+> viu o cartão ocupando o alto e concluiu que **a atualização não tinha
+> chegado** — e o Registro que ele mandou junto provava o contrário (`Web
+> v5.201 · Shell v1.91`, "última busca há 11s: nada novo (publicada: v5.201)").
+> Fica a lição: quando a tela não bate com o pedido, o primeiro suspeito do
+> operador é o canal de entrega, não a decisão de desenho. Uma leitura errada do
+> pedido custa a confiança no OTA.
+>
+> Agora `#simpleConn` mora DENTRO da `.simple-actions`, na célula da preview:
+> sem tela a faixa vira uma coluna e sai conexão em cima, busca embaixo, as duas
+> com a largura inteira, logo acima do teclado; com tela ela some por inteiro e a
+> célula volta a ser a preview. O topo é da letra nos dois casos.
+>
+> Junto, uma linha do Registro que estava mentindo: o bloco da transmissão se
+> intitulava **"Espelho de pixels"**, o recurso que a v5.187 aposentou por
+> inteiro. Ele descreve o telão por comandos há catorze versões, e é lido
+> justamente quando alguma coisa não conecta — um título que nomeia um recurso
+> que não existe mais é a pior linha possível num diagnóstico que vai ser
+> repassado. Passou a ser **"Transmissão para navegador"**, o mesmo nome do
+> interruptor na folha de conexão.
 
 > **A v5.201: O MODO FÁCIL FICA COM A LETRA EM CIMA E O QUE SE OPERA EMBAIXO.
 > OTA PURO.** Pedido do operador, e ele desfaz metade da v5.200: *"pode voltar

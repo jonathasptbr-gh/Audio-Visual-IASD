@@ -112,15 +112,6 @@
       </button>
     </div>
 
-    <!-- SEM TELA, A SEÇÃO DE CONEXÃO VEM PRIMEIRO — antes da letra e antes de
-         qualquer controle (v5.201). Ela é a única coisa que resolve o que falta,
-         e este modo não tem preview para ilustrar o que sairia no telão: pôr a
-         conexão no alto é dizer, sem cortina nenhuma, o que precisa acontecer
-         para o resto valer.
-         Com tela conectada ela desaparece daqui e a célula dela na faixa de
-         baixo passa a ser a PREVIEW.
-         Vazio no HTML de propósito — quem o preenche é `hostCastConn()`. -->
-    <div class="simple-conn" id="simpleConn" hidden></div>
 
     <!-- Letra completa da música em cena: o espaço que sobrava entre as ações
          e as teclas. Mesmas linhas (.lv-row) da leitura auxiliar do modo
@@ -168,6 +159,14 @@
            ajuste, e dois `createStage` decodificariam o mesmo vídeo duas vezes
            num aparelho que já roda dois WebViews.
            Vazio no HTML de propósito: quem o preenche é o `hostPreview`. -->
+      <!-- SEM TELA, A CONEXÃO OCUPA A CÉLULA DA PREVIEW (e a faixa vira uma
+           coluna, então ela sai com a largura inteira). Ela esteve NO TOPO na
+           v5.201, acima da letra, e desceu na v5.202: a parte de cima é da
+           LETRA, que é o que se lê durante o louvor — a conexão continua sendo
+           a primeira coisa da zona de operar, logo acima da busca e do teclado,
+           e some por inteiro assim que há tela.
+           Vazio no HTML de propósito — quem o preenche é `hostCastConn()`. -->
+      <div class="simple-conn" id="simpleConn" hidden></div>
       <div class="simple-stage" id="simpleStage"></div>
       <button type="button" id="simpleSearchBtn" class="simple-key simple-action">
         <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -809,7 +808,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.201</span>
+        <span id="appVersion" class="app-version">Controle v5.202</span>
         <!-- O APK NOVO, quando existir. Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso. `hidden`
