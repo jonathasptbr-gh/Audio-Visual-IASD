@@ -145,7 +145,6 @@ const lyricsViewSegEl = document.getElementById('lyricsViewSeg');
 const lyricsViewBodyEl = document.getElementById('lyricsViewBody');
 const openDisplayBtnEl = document.getElementById('openDisplayBtn');
 const displayStatusTextEl = document.getElementById('displayStatusText');
-const castTargetLineEl = document.getElementById('castTargetLine');
 
 const pvWallEl = document.getElementById('pvWall');
 const pvBusyEl = document.getElementById('pvBusy');
@@ -213,7 +212,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.192';
+const WEB_VERSION = '5.193';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -366,6 +365,8 @@ const diagBoxEl = document.getElementById('diagBox');
 const diagCopyEl = document.getElementById('diagCopy');
 // Espelho de pixels: a LINHA em Configurações e a FOLHA que ela abre.
 const castPopupEl = document.getElementById('castPopup');
+const castConnEl = document.getElementById('castConn');
+const simpleConnEl = document.getElementById('simpleConn');
 const castCloseEl = document.getElementById('castClose');
 const castMirrorBtnEl = document.getElementById('castMirrorBtn');
 const castMirrorSubEl = document.getElementById('castMirrorSub');
@@ -1196,6 +1197,16 @@ let textoAvulsoNoAr = false;
 // morria na carga. É a prima do defeito que o `tools/sombra.test.mjs` trava —
 // mesma zona morta, por outra porta.
 let mirrorEstado = null;
+// E O RELÓGIO E O "OCUPADO" DO ESPELHO SOBEM JUNTO (v5.193), pelo MESMO motivo
+// e depois de a mesma armadilha morder de novo: o bloco de conexão passou a ter
+// uma segunda casa (a tela bloqueada do Modo Fácil), e o `setAppMode` do fim do
+// arquivo — que roda durante a carga do módulo — agora alcança o `renderCast`.
+// Ele lê `mirrorOcupado`, que ficava declarado 14 mil linhas abaixo: zona morta
+// temporal, `ReferenceError` na carga, página inteira morta. O comentário acima
+// já contava essa história uma vez; a lição é que estado LIDO por qualquer
+// caminho de render tem de nascer aqui, com o resto do estado de cena.
+let mirrorTimer = null;
+let mirrorOcupado = false;
 let displayAudioBlocked = false; // Display reportou áudio bloqueado pelo navegador
 const scrollPos = {};      // posição de scroll por aba/pasta (sessão)
 
@@ -11229,8 +11240,13 @@ function cabecalhoDiag() {
   l.push('Web v' + WEB_VERSION
     + (window.__SHELL_NAME__ ? ' · Shell v' + window.__SHELL_NAME__ : ' · navegador')
     + (window.__NATIVE__ ? ' · ponte ' + (window.__SHELL_VERSION__ | 0) : ''));
-  if (displayStatusTextEl) l.push('Telão: ' + (displayStatusTextEl.textContent || '?'));
-  if (castTargetLineEl && !castTargetLineEl.hidden) l.push(castTargetLineEl.textContent);
+  // DO DADO, NÃO DO DOM (v5.193). As duas linhas saíram do rodapé desta folha
+  // — quem está conectado é assunto da folha de conexão —, e o Registro lia
+  // justamente aqueles elementos. Ler de variável é o que deveria ter sido
+  // desde sempre: um diagnóstico que depende de um elemento de UI existir
+  // emudece no dia em que alguém o esconde, e emudece em silêncio.
+  l.push('Telão: ' + descreverTelao());
+  if (castAlvo) l.push('Espelhar abre: ' + castAlvo);
   // SUPORTE A TRANSMISSÃO DIRETA. É o dado mais útil deste bloco desde a
   // v5.120: quando um "Tocar agora" cai no download em vez de transmitir, a
   // primeira pergunta é se o WebView deste aparelho aceita os codecs — e a
@@ -14357,12 +14373,31 @@ let webDisplayTimer = null;
 const CAST_HOLD_MS = 5000;
 let castTestUnlocked = false;
 
+// HÁ ALGUMA TELA RECEBENDO? — e desde a v5.193 a resposta inclui as telas da
+// REDE, não só a TV pela `Presentation`.
+//
+// O bloqueio do Modo Fácil existe porque sem tela não há o que operar: a
+// projeção É o telão. Só que "o telão" deixou de ser sinônimo de "uma TV
+// conectada por espelhamento" na v5.187 — sem TV, as telas da rede SÃO o que a
+// congregação vê, e este documento afirma isso em três lugares. O bloqueio não
+// tinha acompanhado: o operador ligava a transmissão, a tela do saguão entrava,
+// a projeção estava no ar, e o Modo Fácil continuava atrás da cortina mandando
+// conectar uma tela.
 function simpleDisplay() {
   if (castTestUnlocked) return { name: 'Modo de teste', test: true };
   if (!window.__NATIVE__) {
     return webDisplayWin && !webDisplayWin.closed ? { name: 'Display' } : null;
   }
-  return lastDisplays[0] || null;
+  if (lastDisplays[0]) return lastDisplays[0];
+  const rede = telasDaRede();
+  return rede.length ? { name: rede[0].rotulo || 'Tela da rede', rede: true } : null;
+}
+
+// As telas da rede que estão de fato RECEBENDO. Uma só fonte para o bloqueio do
+// Modo Fácil e para o fechamento da folha — ver `renderSimpleGate`.
+function telasDaRede() {
+  const e = mirrorEstado || {};
+  return espelhoLigado() && Array.isArray(e.telas) ? e.telas : [];
 }
 
 function renderSimpleGate() {
@@ -14372,6 +14407,42 @@ function renderSimpleGate() {
   // A busca é o que a cortina esconde: reabri-la por trás dela deixaria o
   // popup no ar sobre uma tela bloqueada.
   if (preso) closeHymnSearch();
+  hostCastConn(preso);
+  // ALGUMA TELA ENTROU COM A FOLHA ABERTA: ela fecha. Vale para os DOIS
+  // caminhos (espelhar para a TV, transmitir pela rede) e nos dois modos —
+  // quem acabou de conectar terminou o que veio fazer ali, e uma folha que
+  // continua no ar por cima dos controles recém-liberados é um toque cobrado
+  // para nada. No Modo Fácil ela nem é uma folha: o bloco está DENTRO da tela,
+  // e o `hostCastConn` acima já o devolveu para a folha.
+  if (!preso && castPopupEl && castPopupEl.classList.contains('open') && simpleDisplay()) {
+    fecharCast();
+  }
+}
+
+// O BLOCO DE CONEXÃO TEM DUAS CASAS, e é o MESMO nó — o padrão do `hostPreview`
+// (a preview também troca de pai conforme o modo). Duplicar a marcação daria
+// duas anatomias para a mesma decisão e elas divergiriam no primeiro ajuste.
+//
+// `preso` é a única condição: é exatamente o estado em que o Modo Fácil não tem
+// o que fazer além de conectar. Fora dele o bloco volta para a folha, que é
+// onde ele é aberto de propósito (pelo botão de cast da preview, ou pelo cartão
+// deste mesmo modo com uma tela já conectada).
+function hostCastConn(preso) {
+  if (!castConnEl || !simpleConnEl) return;
+  const alvo = preso ? simpleConnEl : castPopupEl.querySelector('.popup-sheet');
+  if (alvo && castConnEl.parentElement !== alvo) alvo.appendChild(castConnEl);
+  simpleConnEl.hidden = !preso;
+  if (preso) {
+    // Ele passa a ser conteúdo de tela, não de folha: o estado precisa estar
+    // certo sem ninguém ter aberto nada, e a enquete do espelho precisa correr
+    // (é ela que faz a tela da rede aparecer na lista quando entra).
+    if (castNetRowEl) castNetRowEl.hidden = !espelhoDisponivel();
+    renderCast();
+    if (espelhoDisponivel()) {
+      lerEspelho();
+      if (!mirrorTimer) mirrorTimer = setInterval(lerEspelho, MIRROR_POLL_MS);
+    }
+  }
 }
 
 // ===== A PREVIEW é UM nó só, e ele MUDA DE CASA =====
@@ -14487,6 +14558,30 @@ holdRepeat(simpleVolDownEl, () => simpleVolStep(-1));
     if (holdFired) { holdFired = false; return; }
     abrirCast();
   });
+
+  // E A CORTINA CARREGA O MESMO SEGREDO (v5.193). A liberação de teste vivia só
+  // no botão grande, e o botão grande deixou de existir quando a tela está
+  // bloqueada — isto é, ela sumiu exatamente do estado em que ela serve para
+  // alguma coisa: destravar o app SEM tela, para ensaiar ou conferir uma
+  // playlist na terça-feira.
+  //
+  // A cortina é o alvo certo: ela ocupa toda a tela que não é a seção de
+  // conexão, já intercepta tudo o que está atrás dela, e um toque nela não
+  // significa nada hoje. Continua sem rótulo em lugar nenhum — é uma saída de
+  // emergência de quem desenvolve, e anunciá-la ao operador convidaria a
+  // projetar sem telão sem saber que é isso que está acontecendo.
+  let vt = null;
+  const pararVeu = () => { clearTimeout(vt); vt = null; };
+  simpleVeilEl.addEventListener('pointerdown', () => {
+    pararVeu();
+    vt = setTimeout(() => {
+      castTestUnlocked = !castTestUnlocked;
+      pararVeu();
+      renderSimpleGate();
+      renderSimpleCast();
+    }, CAST_HOLD_MS);
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => simpleVeilEl.addEventListener(ev, pararVeu));
 })();
 // Fecha o ciclo com o HTML: as classes já vêm do documento (e, no modo
 // lembrado, já foram corrigidas no topo do arquivo), aqui o estado do JS
@@ -14703,11 +14798,31 @@ tabsEl.addEventListener('click', (e) => {
 // justamente na aba em que o operador mais tenta usá-lo. O deslize da linha
 // saiu (ver "gestos da biblioteca") e o eixo horizontal ficou livre.
 //
-// As guardas restantes existem para não roubar gestos que já significam algo:
-// campos de texto, trilhos que rolam na horizontal (as pílulas de categoria, o
-// histórico do sorteio) e qualquer SUB-TELA (pasta aberta, capítulo/leitura da
-// Bíblia — reconhecidas pelo botão voltar visível), onde o eixo horizontal
-// pertence à navegação de dentro, não à de fora.
+// ## A GUARDA PERGUNTA AO DOM, e não a uma lista de classes (v5.193)
+//
+// Esta é a QUARTA vez que o carrossel é consertado, e as três anteriores
+// erraram do mesmo jeito: mantendo à mão a lista do que o eixo horizontal NÃO
+// pode atravessar. A v5.49 excluiu `.row` (e o Cronograma inteiro é feito de
+// linhas). A v5.61 e a v5.188 mexeram no `touch-action`. E a guarda que sobrou
+// era a mais larga de todas — **qualquer sub-tela**, reconhecida pelo botão
+// voltar visível — sob o argumento de que ali "o eixo horizontal pertence à
+// navegação de dentro". Medido, esse argumento é falso: com um capítulo da
+// Bíblia aberto (o estado normal de quem usa a Bíblia num culto) NADA na tela
+// disputa o eixo horizontal — `.bible-half` rola só na VERTICAL, e a própria
+// folha declara `touch-action: pan-y` nela. O carrossel morria calado em toda
+// navegação interna do app, que é exatamente onde o operador mais desliza.
+//
+// A lista também estava errada por dentro: `.bible-half` entrou nela na v5.188
+// como parte do conserto do `touch-action`, e ficou proibindo um gesto que ela
+// própria libera.
+//
+// Agora a pergunta é a certa e é **medida**: existe, entre o alvo e a
+// superfície que escuta, alguém que de fato ROLE NA HORIZONTAL? Um trilho de
+// pílulas cheio responde sim; o mesmo trilho com três pílulas responde não — e
+// nos dois casos a resposta é a verdadeira, não a que alguém digitou meses
+// atrás. Campos de texto continuam fora por outro motivo (ali o eixo é do
+// cursor, não da rolagem), e esses são nomeáveis porque são um conceito do
+// HTML, não uma classe deste app.
 const SWIPE_TABS = ['imports', 'bible', 'mic'];
 const TAB_SWIPE_MIN = 60;     // px — para TROCAR de aba
 const TAB_CLAIM_MIN = 12;     // px — para REIVINDICAR o gesto do navegador
@@ -14743,18 +14858,37 @@ const TAB_SWIPE_RATIO = 1.5;  // quanto o eixo X precisa dominar o Y
   let done = false;          // aba já trocada neste gesto
   let engolirClique = false;
 
+  // ROLA MESMO NA HORIZONTAL? Três condições, e as três são necessárias: o
+  // elemento precisa TER conteúdo excedente (`scrollWidth`), precisa estar
+  // configurado para rolar nesse eixo (`overflow-x`) e precisa ter para onde
+  // ir. A última é o que impede um trilho já no fim de engolir o gesto de
+  // volta — mas ela é medida com folga de 1px, porque uma largura fracionária
+  // deixa `scrollLeft` a meio pixel do fim e nenhum trilho real precisa desse
+  // último meio pixel.
+  function rolaNoEixoX(el) {
+    if (!el || el.nodeType !== 1) return false;
+    if (el.scrollWidth <= el.clientWidth + 1) return false;
+    const ov = getComputedStyle(el).overflowX;
+    return ov === 'auto' || ov === 'scroll';
+  }
+
   function elegivel(target) {
     if (selectionMode) return false;
     if (SWIPE_TABS.indexOf(activeTab) < 0) return false;
     if (!target || !target.closest) return false;
-    // A FAIXA DE ABAS é sempre território do carrossel (v5.188). As guardas
-    // abaixo protegem gestos que significam outra coisa NO CONTEÚDO — mas um
-    // deslize sobre a própria fileira de abas não pertence a sub-tela nenhuma:
-    // com um livro da Bíblia aberto (o estado normal de quem usa a Bíblia), o
-    // gesto mais óbvio de todos morria calado na guarda do voltar.
+    // A FAIXA DE ABAS é sempre território do carrossel (v5.188): deslizar sobre
+    // a própria fileira de abas é o gesto mais óbvio de todos, e ela não tem
+    // conteúdo que dispute o eixo.
     if (tabsEl.contains(target)) return true;
-    if (!backBtnEl.hidden) return false;                 // sub-tela: o voltar manda ali
-    if (target.closest('input, textarea, .draw-hist, .bible-half')) return false;
+    // O CURSOR manda dentro de um campo de texto.
+    if (target.closest('input, textarea')) return false;
+    // E o resto é medido: sobe do alvo até a superfície que escuta procurando
+    // alguém que role de verdade na horizontal. Parar em `mainEl` importa —
+    // acima dele estão o `<body>` e o `<html>`, que num app de tela cheia
+    // podem responder qualquer coisa e não são de ninguém.
+    for (let el = target; el && el !== mainEl && el !== tabsEl; el = el.parentElement) {
+      if (rolaNoEixoX(el)) return false;
+    }
     return true;
   }
 
@@ -15023,6 +15157,22 @@ wallResetEl.addEventListener('click', () => { setWallpaper(null); });
 //
 // No navegador não existe Presentation: o rodapé volta a ser o atalho para a
 // tela do Display, útil para desenvolver a base web fora do app.
+// O alvo de espelhamento deste aparelho, guardado como DADO (v5.193). Ele saía
+// numa linha do rodapé de Configurações e o Registro a lia do DOM; a linha saiu
+// (é assunto da folha de conexão, onde ela continua, no subtítulo do botão de
+// espelhar) e o valor passou a morar aqui. Vazio no navegador.
+let castAlvo = '';
+
+// "Telão: …" para o Registro. Mesma frase que o rodapé mostrava, montada do
+// `lastDisplays` em vez de lida de um `<span>` — ver `cabecalhoDiag`.
+function descreverTelao() {
+  if (!window.__NATIVE__) return 'navegador (sem Presentation)';
+  const tv = lastDisplays[0];
+  return tv
+    ? 'conectado: ' + (tv.name || 'TV') + ' (' + tv.w + '\u00d7' + tv.h + ')'
+    : 'nenhum conectado';
+}
+
 if (window.__NATIVE__) {
   const renderDisplayStatus = (list) => {
     const tv = (list && list[0]) || null;
@@ -15031,11 +15181,7 @@ if (window.__NATIVE__) {
     // é ela, chega no ato, e a preview volta a andar junto. Ver `cmd`.
     recalcularAtrasoPreview();
     renderSimpleCast();
-    openDisplayBtnEl.disabled = true;
-    openDisplayBtnEl.classList.toggle('connected', !!tv);
-    displayStatusTextEl.textContent = tv
-      ? 'Telão conectado: ' + (tv.name || 'TV') + ' (' + tv.w + '\u00d7' + tv.h + ')'
-      : 'Nenhum telão conectado';
+    renderCast();          // a folha de conexão é quem mostra isto agora
     applyPreviewAspect(tv);
   };
   AVNative.displays().then(renderDisplayStatus);
@@ -15052,18 +15198,19 @@ if (window.__NATIVE__) {
   // Samsung, "Wireless display" no AOSP) sem API documentada — então o app
   // mostra o que encontrou em vez de deixar isso invisível.
   AVNative.castTarget().then((label) => {
-    // E TAMBÉM NA FOLHA DE CONEXÃO, que é onde o operador decide. Os alvos de
-    // espelhamento variam por fabricante e não são API documentada: ver ANTES
-    // de tocar é a diferença entre "abriu a tela errada" e "eu sabia que ia
-    // abrir essa". A linha de Configurações fica, porque o Registro a copia.
-    if (label && castMirrorSubEl) {
-      castMirrorSubEl.textContent = 'Abre: ' + label;
-    }
-    if (!label) return;
-    castTargetLineEl.hidden = false;
-    castTargetLineEl.textContent = 'Espelhar abre: ' + label;
+    // NA FOLHA DE CONEXÃO, que é onde o operador decide, e SÓ ali (v5.193). Os
+    // alvos de espelhamento variam por fabricante e não são API documentada:
+    // ver ANTES de tocar é a diferença entre "abriu a tela errada" e "eu sabia
+    // que ia abrir essa". O Registro continua tendo a linha, agora a partir
+    // desta variável — ver `cabecalhoDiag`.
+    castAlvo = label || '';
+    if (castAlvo && castMirrorSubEl) castMirrorSubEl.textContent = 'Abre: ' + castAlvo;
   });
 } else {
+  // NO NAVEGADOR ELE FICA, e é AÇÃO, não estado: sem `Presentation` não há quem
+  // abra a tela do Display sozinho, e é assim que a base web se desenvolve fora
+  // do aparelho. É o único caso em que este botão faz alguma coisa.
+  openDisplayBtnEl.hidden = false;
   displayStatusTextEl.textContent = 'Abrir tela do Display';
   // Mesmo caminho do botão do simplificado: uma janela só (nome 'avDisplay') e
   // um só lugar que sabe se ela ainda está aberta.
@@ -15106,10 +15253,8 @@ function espelhoDisponivel() {
   return !!window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= MIRROR_SHELL;
 }
 
-// (`mirrorEstado` é declarado lá em cima, junto do resto do estado de cena —
-// ver o comentário de lá para o porquê.)
-let mirrorTimer = null;
-let mirrorOcupado = false;
+// (`mirrorEstado`, `mirrorTimer` e `mirrorOcupado` são declarados lá em cima,
+// junto do resto do estado de cena — ver o comentário de lá para o porquê.)
 // A confirmação de ligar COM A TV NO AR, lembrada pela SESSÃO: perguntar de
 // novo a cada toque viraria ruído, e quem já respondeu "sim" uma vez naquele
 // culto não muda de ideia por causa do segundo toque.
@@ -15135,6 +15280,13 @@ async function lerEspelho() {
   // linha ele só seria repintado quando o TELÃO mudasse, e uma tela da rede
   // entrando não acenderia nada até a próxima troca de aba.
   renderCastBtn();
+  // E O BLOQUEIO DO MODO FÁCIL (v5.193): desde que as telas da rede contam como
+  // projeção (`simpleDisplay`), uma delas entrando é o que libera os controles
+  // — e é aqui, na enquete, que isso se descobre. Sem esta linha o operador
+  // ligava a transmissão, via a tela do saguão aparecer na lista e continuava
+  // atrás da cortina até trocar de modo.
+  renderSimpleGate();
+  renderSimpleCast();
   return mirrorEstado;
 }
 
@@ -15414,6 +15566,11 @@ async function desligarEspelho() {
 
 function abrirCast() {
   if (!castPopupEl) { if (window.__NATIVE__) AVNative.openCast(); else openWebDisplay(); return; }
+  // O BLOCO PODE ESTAR NA OUTRA CASA (v5.193): no Modo Fácil sem tela ele vive
+  // dentro da tela bloqueada. Abrir a folha sem trazê-lo de volta mostraria um
+  // cartão vazio — e é um caminho alcançável, porque o botão de cast da preview
+  // existe em cima da cortina.
+  hostCastConn(false);
   castPopupEl.classList.add('open');
   texto2(castMsgEl, '');
   // O espelho na rede só existe no app, e só num shell que tenha os métodos.
@@ -15454,7 +15611,9 @@ function fecharCast() {
 function texto2(el, s) { if (el) el.textContent = s; }
 
 function renderCast() {
-  if (!castPopupEl || !castPopupEl.classList.contains('open')) return;
+  // "ESTÁ NA TELA?", e não "a folha está aberta?" (v5.193): no Modo Fácil sem
+  // tela este bloco vive DENTRO da tela bloqueada, sem folha nenhuma em volta.
+  if (!castConnEl || castConnEl.offsetParent === null) return;
   const ligado = espelhoLigado();
   const e = mirrorEstado || {};
   const telas = Array.isArray(e.telas) ? e.telas : [];

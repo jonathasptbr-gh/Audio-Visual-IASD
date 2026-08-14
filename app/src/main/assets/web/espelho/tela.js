@@ -470,17 +470,66 @@
   // E uma queda de conexão não desenha nada: ela reentra sozinha (não há
   // segredo a pedir), e a mídia que estiver tocando continua até o fim.
   // --------------------------------------------------------------------------
+  // O DESENHO É O DO APP (v5.193), e ele não era.
+  //
+  // A entrada nasceu na v5.189 como um botão de estilo inline com valores de
+  // emergência escritos à mão — inclusive um `var(--accent-fill, #8a6d1d)` cujo
+  // fallback é o ÂMBAR que a v5.192 aposentou. Como o `tokens.css` é servido
+  // junto (esta casca roda dentro do próprio `display/index.html`), o token
+  // resolvia e o âmbar nunca aparecia: um valor errado invisível, esperando o
+  // dia em que a folha não carregasse.
+  //
+  // Mas o problema maior não era a cor de emergência, e sim o que a tela É: ela
+  // é a PRIMEIRA coisa que alguém vê num televisor da igreja, e mostrava um
+  // botão solto no meio de um retângulo escuro, sem dizer de que sistema ele
+  // era nem o que ia acontecer. Agora ela veste o mesmo wallpaper do telão (o
+  // símbolo oficial da IASD, fonte única em `shared/wallpaper-padrao.svg`), diz
+  // o nome do sistema, o que o toque faz, e usa a anatomia dos botões
+  // principais do app: pílula preenchida em `--accent-fill` com `--on-accent`
+  // por cima, e o mesmo recuo de toque (`--press`) do resto.
+  //
+  // Continua sendo CSS injetado por JS, e não uma folha à parte, por um motivo
+  // que não mudou: `tela.js` é a casca de um papel que o `display/index.html`
+  // carrega para TODO mundo (telão de verdade incluído), e uma folha a mais no
+  // `<head>` pesaria nos três papéis para servir a um. Aqui ela nasce só quando
+  // a entrada é montada.
+  var ESTILO_ENTRADA = [
+    '#telaEntrada{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;',
+    'justify-content:center;background:var(--wallpaper) center/cover no-repeat;',
+    "background-image:url('../shared/wallpaper-padrao.svg');",
+    'color:var(--stage-text);font-family:system-ui,-apple-system,sans-serif;text-align:center}',
+    '#telaEntrada .te-caixa{max-width:26rem;padding:2rem 1.25rem;',
+    'background:var(--scrim);border-radius:var(--radius-card, 10px)}',
+    '#telaEntrada .te-marca{font-size:.78rem;letter-spacing:.18em;text-transform:uppercase;',
+    'color:var(--stage-text-dim);margin-bottom:.5rem}',
+    '#telaEntrada h1{font-size:1.5rem;line-height:1.25;margin:0 0 .35rem;font-weight:700}',
+    '#telaEntrada .te-sub{font-size:.95rem;color:var(--stage-text-soft);margin:0 0 1.4rem}',
+    '#telaEntrar{font-size:1.1rem;font-weight:700;padding:.8rem 2.2rem;border:none;cursor:pointer;',
+    'font-family:inherit;border-radius:var(--radius-pill, 999px);',
+    'background:var(--accent-fill);color:var(--on-accent);',
+    'transition:transform .12s ease}',
+    '#telaEntrar:active{transform:var(--press, scale(.96))}',
+    '#telaMsg{margin-top:1rem;min-height:1.2rem;font-size:.9rem;color:var(--stage-text-dim)}',
+  ].join('');
+
   function montarEntrada() {
     if (el.entrada) el.entrada.remove();
+    if (!doc.getElementById('telaEntradaCss')) {
+      var css = doc.createElement('style');
+      css.id = 'telaEntradaCss';
+      css.textContent = ESTILO_ENTRADA;
+      doc.head.appendChild(css);
+    }
     var raiz = doc.createElement('div');
     raiz.id = 'telaEntrada';
-    raiz.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:var(--bg,#000);color:var(--text,#f2efe9);font-family:system-ui,sans-serif;';
     raiz.innerHTML =
-      '<div style="text-align:center;max-width:22rem;padding:1rem">' +
-      '<button id="telaEntrar" style="font-size:1.15rem;padding:.7rem 2rem;border:none;' +
-      'border-radius:var(--radius-pill,999px);background:var(--accent-fill,#8a6d1d);color:var(--on-accent,#111)">' +
-      'Ativar esta tela</button>' +
-      '<div id="telaMsg" style="margin-top:.9rem;min-height:1.2rem;color:var(--muted,#aaa)"></div>' +
+      '<div class="te-caixa">' +
+      '<div class="te-marca">Audio Visual IASD</div>' +
+      '<h1>Esta tela vai mostrar a projeção</h1>' +
+      '<p class="te-sub">Toque para ativar: a tela entra em modo cheio e passa a ' +
+      'receber o que o operador projetar.</p>' +
+      '<button id="telaEntrar">Ativar esta tela</button>' +
+      '<div id="telaMsg"></div>' +
       '</div>';
     doc.body.appendChild(raiz);
     el.entrada = raiz;

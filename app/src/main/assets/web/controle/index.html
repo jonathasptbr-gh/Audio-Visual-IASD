@@ -131,6 +131,14 @@
            num aparelho que já roda dois WebViews.
            Vazio no HTML de propósito: quem o preenche é o `hostPreview`. -->
       <div class="simple-stage" id="simpleStage"></div>
+      <!-- SEM TELA, A SEÇÃO DE CONEXÃO INTEIRA (v5.193). Aqui havia um botão do
+           tamanho da tela que só abria a folha de conexão — um toque cobrado
+           para chegar às duas escolhas que cabem na própria tela bloqueada.
+           Como este modo é INÚTIL sem tela (a projeção É o telão), esconder as
+           opções atrás de um botão era cerimônia: o que a pessoa precisa fazer
+           é a única coisa que ela pode fazer.
+           Vazio no HTML de propósito — quem o preenche é `hostCastConn()`. -->
+      <div class="simple-conn" id="simpleConn" hidden></div>
       <button type="button" id="simpleCastBtn" class="simple-key simple-action">
         <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M3 19a2 2 0 0 1 2 2"/>
@@ -768,24 +776,30 @@
           <pre class="diag-box" id="diagBox"></pre>
         </div>
       </div>
-      <!-- Estado do telão. Não há mais "Abrir Display": o Display é a
-           `Presentation` que o shell cria sozinho na TV (e recria quando o
-           dongle cai e volta) — não existe o que abrir. No navegador, onde
-           não há Presentation, vira o atalho para a tela do Display. -->
+      <!-- QUEM ESTÁ CONECTADO NÃO MORA MAIS AQUI (v5.193). O rodapé desta
+           folha dizia "Telão conectado: X" e "Espelhar abre: Y" — as duas
+           coisas que a folha de "Conectar uma tela" já diz, no lugar em que se
+           decide sobre elas, e só quando há o que dizer. Uma informação de
+           estado repetida em duas telas é a mesma classe de divergência que a
+           paleta única existe para não ter: basta uma delas parar de ser
+           atualizada para o app afirmar duas coisas diferentes sobre o mesmo
+           fato, e a de Configurações é justamente a que ninguém olha durante o
+           culto. O Registro continua com as duas linhas — ele é o que se
+           COPIA para diagnosticar, e ali repetir é o objetivo.
+
+           NO NAVEGADOR o botão FICA, porque ali ele não é estado: é a única
+           forma de abrir a tela do Display (não há `Presentation` para criá-la
+           sozinha), e é assim que a base web se desenvolve fora do aparelho. -->
       <div class="popup-footer">
-        <button id="openDisplayBtn" class="display-status">
+        <button id="openDisplayBtn" class="display-status" hidden>
           <span class="msym" aria-hidden="true">&#xe251;</span> <span id="displayStatusText">Telão</span>
         </button>
-        <!-- Para onde o botão de cast da preview abre. Os alvos de
-             espelhamento variam por fabricante e não são API documentada —
-             melhor o operador ver antes de tocar. Vazio no navegador. -->
-        <span id="castTargetLine" class="cast-target" hidden></span>
         <!-- Versão da base web (e do shell, no app). Morava no cabeçalho da
              lista, ao lado do título do Cronograma; veio para cá porque é
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.192</span>
+        <span id="appVersion" class="app-version">Controle v5.193</span>
         <!-- O APK NOVO, quando existir. Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso. `hidden`
@@ -826,7 +840,13 @@
         <span class="popup-title">Conectar uma tela</span>
         <button id="castClose" class="popup-close" title="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
       </div>
-      <div class="mirror-body">
+      <!-- ESTE BLOCO TEM DUAS CASAS (v5.193). Ele é o conteúdo da folha aqui, e
+           no Modo Fácil SEM TELA ele é MOVIDO para dentro da tela bloqueada
+           (`#simpleConn`) — mesmo padrão do `hostPreview` e do `#selbar`: um nó
+           só, dois pais. Duplicar a marcação daria duas anatomias para a mesma
+           decisão, que é a divergência que este projeto recusa em toda parte.
+           Quem o move é `hostCastConn()`. -->
+      <div class="mirror-body" id="castConn">
         <!-- A AÇÃO, e a única desta folha: preenchida no âmbar, que é o que o
              app usa para "o botão principal desta tela" (a mesma anatomia da
              pílula de ler o QR e da aba ativa). -->

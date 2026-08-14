@@ -61,7 +61,12 @@ const porta = servidor.address().port;
 const navegador = await chromium.launch(
   process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
 );
-const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 } });
+// `hasTouch`: sem ele o contexto do Playwright não emula toque, e um
+// `Input.dispatchTouchEvent` do CDP é entregue sem disparar
+// `touchstart`/`touchmove` — o carrossel de abas (o único gesto de toque que
+// este arquivo exercita) não teria como reagir, e o caso "passaria" por não
+// medir nada. É o aparelho que este teste imita; o padrão de mesa não é.
+const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 }, hasTouch: true });
 // `localhost` já é contexto seguro, então a Clipboard API está disponível — é o
 // mesmo caminho que o app usa no aparelho (`https://appassets.…`).
 try { await ctx.grantPermissions(['clipboard-read', 'clipboard-write']); } catch (_) {}
@@ -288,6 +293,85 @@ try {
     'e o eco NÃO esconde o ícone do botão — ele é anel, não ✓', eco.visivel);
   checar(!!eco.anel && eco.anel !== '0px', 'o anel do eco é de fato desenhado', eco.anel);
   checar(eco.sumiu, 'e ele sai sozinho, sem deixar o botão marcado');
+
+  // ---- O CARROSSEL VALE DENTRO DA NAVEGAÇÃO INTERNA (v5.193) ------------
+  //
+  // Quarta correção do mesmo mecanismo, e as três anteriores mantinham à mão a
+  // lista do que o eixo horizontal não podia atravessar. A guarda mais larga
+  // era "qualquer sub-tela" (botão voltar visível): com um capítulo da Bíblia
+  // aberto — o estado normal de quem usa a Bíblia num culto — o gesto morria
+  // calado, e NADA ali disputa o eixo horizontal (`.bible-half` rola só na
+  // vertical, e a própria folha declara `touch-action: pan-y`).
+  //
+  // O teste é o COMPORTAMENTO, com toque de verdade (CDP): um deslize sobre o
+  // conteúdo de uma sub-tela tem de trocar de aba, e um deslize sobre um
+  // trilho que ROLA de verdade na horizontal não pode. As duas metades
+  // importam — sem a segunda, "libera tudo" passaria no teste.
+  const cdp = await ctx.newCDPSession(pg);
+  const deslizar = async (x0, y0, dx) => {
+    const p = (x, y) => [{ x, y, radiusX: 6, radiusY: 6, force: 1, id: 1 }];
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: p(x0, y0) });
+    for (let i = 1; i <= 6; i++) {
+      await cdp.send('Input.dispatchTouchEvent',
+        { type: 'touchMove', touchPoints: p(x0 + (dx * i) / 6, y0) });
+    }
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await pg.waitForTimeout(120);
+  };
+
+  // O CENÁRIO É MONTADO À MÃO, e de propósito: o runner do CI não tem rede,
+  // então não há livro da Bíblia para abrir nem sorteio com histórico. O que
+  // mudou na v5.193 é a REGRA — "quem é dono do eixo horizontal?" —, e ela se
+  // exercita com um botão voltar visível (o que caracteriza uma sub-tela) e um
+  // trilho que de fato rola. Testar a regra é testar o que quebrou.
+  const cenario = await pg.evaluate(() => {
+    // O MODO AVANÇADO PRIMEIRO: o app abre no Modo Fácil, e ali o `<main>` está
+    // atrás da tela simplificada — sem esta linha o gesto cai no vazio e o
+    // teste "passa" por não medir nada.
+    setAppMode('full');
+    // E A FOLHA DE CONFIGURAÇÕES SAI DA FRENTE: ela foi aberta lá em cima e
+    // ninguém a fechou. Com ela no ar o toque pousa no popup, o `<main>` nem
+    // vê o gesto, e o caso falha por um motivo que não é o que ele mede.
+    closeFadePopup();
+    switchTab('imports');
+    // Sub-tela: era ESTA condição, sozinha, que matava o gesto no conteúdo.
+    document.getElementById('backBtn').hidden = false;
+    const m = document.querySelector('main');
+    const r = m.getBoundingClientRect();
+    return { aba: activeTab, x: r.x + r.width / 2, y: r.y + Math.min(r.height / 2, 160) };
+  });
+  await deslizar(cenario.x + 90, cenario.y, -160);
+  const depoisDoDeslize = await pg.evaluate(() => activeTab);
+  checar(depoisDoDeslize !== cenario.aba,
+    'com uma sub-tela aberta (voltar visível), deslizar no conteúdo TROCA de aba'
+    + ' (' + cenario.aba + ' → ' + depoisDoDeslize + ')');
+
+  // E o outro lado, que é o que impede a correção de virar "libera tudo": um
+  // elemento que ROLA de verdade na horizontal fica com o gesto.
+  const trilho = await pg.evaluate(() => {
+    const m = document.querySelector('main');
+    const t = document.createElement('div');
+    t.id = 'trilhoDeTeste';
+    t.style.cssText = 'overflow-x:auto;display:flex;white-space:nowrap;height:80px';
+    t.innerHTML = '<div style="min-width:3000px;height:60px"></div>';
+    m.insertBefore(t, m.firstChild);
+    const r = t.getBoundingClientRect();
+    return {
+      rola: t.scrollWidth > t.clientWidth + 1,
+      x: r.x + r.width / 2, y: r.y + r.height / 2, aba: activeTab,
+    };
+  });
+  checar(trilho.rola, 'o trilho do contra-teste de fato rola na horizontal');
+  await deslizar(trilho.x + 60, trilho.y, -160);
+  const depoisDoTrilho = await pg.evaluate(() => {
+    const t = document.getElementById('trilhoDeTeste');
+    const a = activeTab;
+    if (t) t.remove();
+    document.getElementById('backBtn').hidden = true;
+    return a;
+  });
+  checar(depoisDoTrilho === trilho.aba,
+    'e um elemento que ROLA na horizontal fica com o gesto (' + depoisDoTrilho + ')');
 
   // ---- OS DOIS TEMAS, E O PALCO QUE NÃO SEGUE NENHUM (v5.192) ------------
   //

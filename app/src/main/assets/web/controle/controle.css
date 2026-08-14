@@ -1864,6 +1864,26 @@ main {
    abaixo da barra (`--inline`), e não num bottom-sheet: um popup sobre o acervo
    — que já é um popup de tela cheia — era uma camada a mais para ver o peso de
    um álbum que já estava aberto na tela. */
+/* ---------- O MODO FÁCIL NÃO FAZ MANUTENÇÃO DE ÁLBUM (v5.193) ----------
+   Peso, "Completo offline", "Verificar atualizações" e "Remover do
+   dispositivo" respondem perguntas de quem ADMINISTRA o acervo — quanto ocupa,
+   o que falta baixar, o que dá para apagar. Quem está no Modo Fácil está
+   procurando um louvor para tocar agora, e para essa pessoa cada um desses
+   números é uma linha a mais entre ela e o nome da música.
+
+   Some a INFORMAÇÃO, fica a AÇÃO: o botão da barra (`.coll-bar-dl`) continua,
+   porque ele é baixar e, durante um download, CANCELAR — e um download de
+   centenas de faixas que não pode ser parado é o problema que aquele botão
+   veio resolver. Não é uma tela diferente, é a mesma com menos ruído; tudo
+   continua inteiro no modo avançado.
+
+   Por CSS, e não por um ramo no JS: a classe mora no `<body>` e o operador
+   troca de modo com a lista já montada — uma condição no construtor do card
+   exigiria reconstruir a biblioteca inteira na troca, e esqueceria de fazê-lo
+   no primeiro caminho que alguém acrescentasse. */
+.mode-simple .coll-opts,
+.mode-simple .coll-bar-sync { display: none; }
+
 .coll-opts { display: flex; flex-direction: column; gap: .6rem; }
 /* Sem padding lateral (o card já tem o seu) e separado da lista de músicas
    pelo mesmo respiro que separa as músicas entre si. (O padding largo que a
@@ -2640,11 +2660,15 @@ main {
 }
 .display-status .msym { font-size: var(--icon-sm); }
 .display-status:disabled { cursor: default; }
+/* `.connected` sobrou de quando este botão era o INDICADOR do telão no rodapé
+   de Configurações (v5.193 o tirou de lá: quem está conectado é assunto da
+   folha de conexão). Ele fica porque o botão continua existindo no NAVEGADOR,
+   onde é a ação de abrir a tela do Display — e o dia em que ela quiser dizer
+   "já está aberta" o desenho já existe. */
 .display-status.connected {
   background: var(--ok-soft); border-color: var(--ok); color: var(--ok);
 }
 /* Alvo do botão de cast da preview — informativo, discreto. */
-.cast-target { display: block; text-align: center; font-size: .72rem; color: var(--muted); padding-top: .4rem; }
 /* A versão desceu do cabeçalho da lista para cá (ver o comentário no HTML): no
    rodapé ela fica na mesma coluna do estado do telão e do alvo de
    espelhamento — as três coisas que se olha quando algo não está certo. */
@@ -3196,6 +3220,30 @@ body.mode-simple .bottombar { display: none; }
 /* Só o botão de conectar fica na frente: com a tela bloqueada, buscar música
    não leva a lugar nenhum. */
 .simple.locked #simpleSearchBtn { display: none; }
+/* SEM TELA, QUEM OCUPA O CENTRO É A SEÇÃO DE CONEXÃO (v5.193) — e não mais um
+   botão do tamanho da tela que só abria a folha onde ela mora. As duas formas
+   de conectar (espelhar para a TV, transmitir pela rede) cabem aqui, e este
+   modo não tem outra coisa a fazer enquanto não houver tela.
+   O cartão ganha fundo próprio porque a cortina embaçada por trás não é fundo
+   de leitura: sobre ela, um texto secundário some. */
+.simple-conn {
+  position: relative; z-index: 2;
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius-card); padding: .9rem;
+  max-height: 70vh; overflow-y: auto;
+}
+/* Dentro do cartão o controle AFUNDA, como em qualquer outro cartão do app —
+   ver "A superfície AFUNDA dentro de um cartão", no topo desta folha. Sem esta
+   linha, o bloco que mora numa FOLHA (onde `.popup-sheet` já a aplica) chegaria
+   aqui flutuando em branco sobre um painel claro. */
+.simple-conn { --surface: var(--surface-sunk); --surface-2: var(--surface-2-sunk); }
+/* E o botão grande sai de cena: a seção é a ação agora. Ele continua existindo
+   para o caso COM tela conectada (o cartão comum, ao lado da preview) e segue
+   carregando a liberação de teste de 5 s — que, bloqueado, passou a viver no
+   toque longo da própria CORTINA (ver `setupCastHold`), porque era justamente
+   no estado bloqueado que ela servia para alguma coisa. */
+.simple.locked #simpleCastBtn { display: none; }
+
 /* Em DESTAQUE: preenchido no accent, não a mesma tecla escura das outras.
    Contornado ele pesava igual ao teclado embaçado atrás — e a única ação
    possível da tela não pode disputar atenção com o que está bloqueado. */
