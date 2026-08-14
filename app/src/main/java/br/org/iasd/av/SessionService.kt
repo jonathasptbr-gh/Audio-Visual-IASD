@@ -52,27 +52,62 @@ object SessionRemote {
 }
 
 /**
- * Sessão de mídia + notificação com controles de transporte.
+ * O ÚNICO serviço em primeiro plano do culto: sessão de mídia, controles de
+ * transporte e — desde a v5.190 — a proteção da TRANSMISSÃO para as telas da
+ * rede.
  *
  * DOIS ganhos, e o segundo é o menos óbvio:
  *
- * 1. **Controlar sem abrir o app.** No modo "mesa de som" o celular está ligado
- *    na caixa de som e provavelmente bloqueado; abrir o app só para pausar é
- *    atrito real no meio de um culto. Com [MediaSession] os controles aparecem
- *    também na tela de bloqueio e nas configurações rápidas, de graça.
+ * 1. **Controlar sem abrir o app.** O celular fica no suporte, provavelmente
+ *    bloqueado, e abrir o app só para pausar é atrito real no meio de um culto.
+ *    Com [MediaSession] os controles aparecem também na tela de bloqueio e nas
+ *    configurações rápidas, de graça.
  *
  * 2. **A projeção deixa de ser descartável.** Antes disto, o único serviço em
  *    primeiro plano do app era o [SyncService], que só sobe DURANTE downloads.
  *    Num culto normal não havia nenhum: o `moveTaskToBack` do botão voltar
  *    mantém a Activity, mas o processo continuava candidato a ser morto sob
- *    pressão de memória — levando junto a `Presentation` na TV. Um serviço em
- *    primeiro plano do tipo `mediaPlayback`, ativo enquanto houver cena no ar,
- *    fecha esse buraco.
+ *    pressão de memória — levando junto a `Presentation` na TV.
  *
- * O serviço vive enquanto houver CENA (mídia carregada, letra, versículo ou
- * mensagem no ar), não só enquanto estiver tocando — pausado, a notificação
- * precisa continuar lá para o operador poder dar play. Sem cena, ele para e a
- * notificação some.
+ * ## DUAS RAZÕES DE VIVER, e é isso que torna a fusão legítima (v5.190)
+ *
+ * Até a v5.189 a transmissão tinha serviço e notificação PRÓPRIOS
+ * (`EspelhoService`), e o KDoc dele defendia a separação: "empilhar dono é o
+ * caminho para o cartão eterno". O argumento estava certo sobre ciclo de vida e
+ * errado sobre o preço: num culto com transmissão ligada e mídia no ar, a
+ * gaveta mostrava DOIS cartões do mesmo app, e só um deles servia para alguma
+ * coisa.
+ *
+ * A fusão não apaga o problema que a separação evitava — ela o resolve por
+ * escrito. Este serviço tem **duas razões independentes** de existir:
+ *
+ * - **CENA** ([scene]): mídia carregada, letra, versículo, mensagem, cronômetro
+ *   ou sorteio no ar. Nasce e morre com o lado web.
+ * - **TRANSMISSÃO** ([transmissao]): o servidor das telas da rede está no ar.
+ *   Nasce e morre por ação do operador, e pode durar o culto inteiro.
+ *
+ * Ele só para quando **as duas** caem. É a mesma disciplina de antes — o
+ * `running`, o `foregrounded`, o `stopSelf(startId)` —, num lugar só; o que
+ * mudou é que agora a condição de parada está num `if` explícito em vez de
+ * espalhada por dois arquivos que não se conhecem.
+ *
+ * ## O TIPO é a união dos dois, e nenhum deles tem cota
+ *
+ * `mediaPlayback|connectedDevice`. O Android 15 impõe teto de tempo ao
+ * `dataSync` e ao `mediaProcessing`; nenhum destes dois. O pré-requisito de
+ * permissão do `connectedDevice` (uma de `CHANGE_WIFI_MULTICAST_STATE` e
+ * companhia, que **não** inclui `INTERNET`) está explicado no KDoc do
+ * [EspelhoEnergia] — e é ele que derruba a primeira Release de quem o remover
+ * do manifest achando que sobrou do mDNS.
+ *
+ * ## O cartão tem DUAS CARAS
+ *
+ * Com cena: o player de sempre (título, barra, cinco controles). Sem cena e com
+ * a transmissão no ar: o endereço, quantas telas estão recebendo e o botão
+ * **Desligar transmissão** — que só aparece aí, e de propósito. Ao lado do
+ * transporte, no escuro, ele seria um toque errado derrubando a projeção da
+ * igreja inteira; sem cena não há transporte a mostrar, e sobra o espaço exato
+ * para ele.
  */
 class SessionService : Service() {
 
@@ -128,12 +163,28 @@ class SessionService : Service() {
         // `stopSelf(startId)` e não `stopSelf()`: se outro comando (uma cena
         // nova) já estiver na fila, ele tem `startId` maior e o pedido de
         // parada é ignorado, como manda o contrato do Service.
-        if (scene == null) {
-            Log.i(TAG, "sessão encerrada antes de o serviço subir — parando")
+        if (scene == null && transmissao == null) {
+            Log.i(TAG, "nada no ar antes de o serviço subir — parando")
             stopSelf(startId)
             return START_NOT_STICKY
         }
         val action = intent?.action
+        if (action == ACTION_DESLIGAR_TX) {
+            // O BOTÃO "Desligar transmissão" é a única forma de desligá-la com o
+            // app minimizado, e é por isso que ele existe. Quem desmonta o
+            // servidor é o DONO (o hook), não este serviço: ele não sabe o que é
+            // um `ServerSocket` — a invariante 5, aqui como em todo lugar.
+            Log.i(TAG, "desligar a transmissão, pedido pela notificação")
+            val hook = EspelhoEnergia.onDesligar
+            if (hook != null) mainHandler.post {
+                try {
+                    hook.invoke()
+                } catch (e: Exception) {
+                    Log.w(TAG, "falhou desligando a transmissão pela notificação", e)
+                }
+            }
+            return START_NOT_STICKY
+        }
         if (action != null && action.startsWith(ACTION_PREFIX)) {
             SessionRemote.send(action.removePrefix(ACTION_PREFIX))
         }
@@ -154,6 +205,15 @@ class SessionService : Service() {
         session = null
         instance = null
         foregrounded = false
+        tiposPublicados = 0
+        // A PROTEÇÃO MORREU JUNTO. Se a transmissão ainda se julga no ar, o dono
+        // precisa saber: sem isto o próximo `espelhoLigar()` encontra o estado
+        // antigo e vira no-op CALADO. Quando a parada foi pedida,
+        // `transmissaoDesligada` já zerou tudo e nada é avisado aqui.
+        if (transmissao != null) {
+            transmissao = null
+            EspelhoEnergia.aoMorrerOServico()
+        }
         // O sistema remove a notificação de um serviço em primeiro plano ao
         // destruí-lo, mas [publish] também usa `notify` quando o serviço já
         // está publicado — e um `notify` não tem relação nenhuma com o ciclo
@@ -199,11 +259,22 @@ class SessionService : Service() {
         // caminho NORMAL de parada não ressuscita nada, porque [stop] limpa
         // `scene` antes de derrubar o serviço.
         if (!running) {
-            if (scene != null) iniciar(applicationContext)
+            if (scene != null || transmissao != null) iniciar(applicationContext)
             return
         }
         val s = scene ?: Scene()
-        session?.let { ms ->
+        // SEM CENA a sessão de mídia é ZERADA, e não preenchida com o placeholder
+        // "Nada em exibição": com um `PlaybackState` pausado o sistema promove a
+        // sessão ao painel de mídia das configurações rápidas, e o operador
+        // ganharia um player fantasma para controlar coisa nenhuma. `STATE_NONE`
+        // sem ações é o que diz "não há mídia aqui" — o cartão dessa hora é o da
+        // transmissão, montado abaixo.
+        if (scene == null) {
+            session?.setPlaybackState(
+                PlaybackState.Builder().setState(PlaybackState.STATE_NONE, 0L, 0f).build(),
+            )
+        }
+        if (scene != null) session?.let { ms ->
             ms.setMetadata(
                 MediaMetadata.Builder()
                     .putString(MediaMetadata.METADATA_KEY_TITLE, s.title)
@@ -273,25 +344,41 @@ class SessionService : Service() {
         lastPubPlaying = s.playing
 
         val notif = buildNotification(this, s, session)
-        if (foregrounded) {
+        // O TIPO acompanha as razões vivas, e por isso é recalculado a cada
+        // publicação: a transmissão pode subir com o serviço já em primeiro
+        // plano (o operador liga as telas no meio de um louvor), e um
+        // `connectedDevice` que nunca fosse declarado deixaria a proteção
+        // valendo só enquanto houvesse cena. `startForeground` chamado de novo
+        // com a máscara nova é a forma suportada de mudá-la.
+        val tipos = tiposAgora()
+        if (foregrounded && tipos == tiposPublicados) {
             getSystemService(NotificationManager::class.java)?.notify(NOTIF_ID, notif)
         } else {
-            ServiceCompat.startForeground(
-                this,
-                NOTIF_ID,
-                notif,
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
-                } else {
-                    0
-                },
-            )
+            ServiceCompat.startForeground(this, NOTIF_ID, notif, tipos)
             foregrounded = true
+            tiposPublicados = tipos
         }
+    }
+
+    /** A união dos tipos das razões vivas — ver o KDoc da classe. */
+    private fun tiposAgora(): Int {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return 0
+        var t = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+        if (transmissao != null) t = t or ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+        return t
     }
 
     private fun ensureChannel() {
         val nm = getSystemService(NotificationManager::class.java) ?: return
+        // OS CANAIS DA TRANSMISSÃO SAEM COM ELA (v5.190). Eles pertenciam ao
+        // `EspelhoService`, que deixou de existir — e um canal órfão fica na
+        // tela de notificações do app para sempre, oferecendo ao operador um
+        // interruptor que não governa mais nada.
+        for (velho in CANAIS_APOSENTADOS) {
+            try { nm.deleteNotificationChannel(velho) } catch (e: Exception) {
+                Log.i(TAG, "canal $velho não saiu: ${e.message}")
+            }
+        }
         if (nm.getNotificationChannel(CHANNEL_ID) != null) return
         // IMPORTANCE_LOW: controles são um painel, não um alerta — nada de som
         // nem heads-up no meio de um culto.
@@ -307,8 +394,14 @@ class SessionService : Service() {
     companion object {
         private const val TAG = "SessionService"
         private const val CHANNEL_ID = "session"
+
+        /** Os canais do antigo `EspelhoService` — ver [ensureChannel]. */
+        private val CANAIS_APOSENTADOS = listOf("espelho", "espelho2")
         private const val NOTIF_ID = 2   // 1 é do SyncService — as duas coexistem
         private const val ACTION_PREFIX = "br.org.iasd.av.remote."
+
+        /** O "Desligar transmissão" do cartão — ver `cartaoDaTransmissao`. */
+        private const val ACTION_DESLIGAR_TX = "br.org.iasd.av.espelho.desligar"
 
         /**
          * O que está no ar, reportado pelo lado web (`pushNowPlaying` em
@@ -331,6 +424,18 @@ class SessionService : Service() {
         @Volatile
         private var scene: Scene? = null
 
+        /**
+         * A SEGUNDA razão de viver: o servidor das telas da rede está no ar.
+         *
+         * Independente da [Scene] de propósito — ela nasce e morre com o lado
+         * web, esta com o toque do operador, e o serviço só para quando as duas
+         * caem (ver o KDoc da classe).
+         */
+        data class Transmissao(val endereco: String = "", val telas: Int = 0)
+
+        @Volatile
+        private var transmissao: Transmissao? = null
+
         @Volatile
         private var running = false
 
@@ -347,8 +452,17 @@ class SessionService : Service() {
         @Volatile
         private var foregrounded = false
 
+        /** A máscara de tipos já entregue ao `startForeground` — ver
+         *  `tiposAgora`. Zerada no `onDestroy` junto com [foregrounded]. */
+        @Volatile
+        private var tiposPublicados = 0
+
         @Volatile
         private var instance: SessionService? = null
+
+        /** O serviço está de pé e publicado? (o Registro da transmissão lê
+         *  isto para dizer se a proteção existe). */
+        fun emPrimeiroPlano(): Boolean = running && foregrounded
 
         /** Há cena no ar: sobe o serviço (se preciso) e atualiza a notificação. */
         fun update(ctx: Context, s: Scene) {
@@ -457,12 +571,70 @@ class SessionService : Service() {
             lastPubPosMs = 0L
             lastPubAt = 0L
             lastPubPlaying = false
+            pararSeNadaVivo(ctx)
+        }
+
+        /**
+         * A REGRA DE PARADA, num lugar só: o serviço morre quando as DUAS razões
+         * caem. Com uma delas viva, o cartão apenas troca de cara.
+         */
+        private fun pararSeNadaVivo(ctx: Context) {
+            if (scene != null || transmissao != null) {
+                // Sobrou razão: o cartão só troca de cara. E se o serviço tiver
+                // morrido nesse meio-tempo, ele volta — a razão viva é a prova
+                // de que há o que proteger.
+                val inst = instance
+                if (running && inst != null) inst.publish() else iniciar(ctx)
+                return
+            }
             if (!foregrounded) return
             try {
                 ctx.stopService(Intent(ctx, SessionService::class.java))
             } catch (e: Exception) {
                 Log.w(TAG, "não foi possível parar a sessão", e)
             }
+        }
+
+        // ---------- a TRANSMISSÃO (a segunda razão de viver) ----------
+
+        /** O servidor das telas subiu: o cartão passa a existir mesmo sem cena. */
+        fun transmissaoLigada(ctx: Context, endereco: String) {
+            transmissao = Transmissao(endereco, 0)
+            val inst = instance
+            if (running && inst != null) inst.publish() else iniciar(ctx)
+        }
+
+        /** O servidor desceu: sem cena, o cartão vai junto. */
+        fun transmissaoDesligada(ctx: Context) {
+            transmissao = null
+            pararSeNadaVivo(ctx)
+        }
+
+        fun transmissaoTelas(ctx: Context, quantas: Int) {
+            val t = transmissao ?: return
+            if (t.telas == quantas) return
+            transmissao = t.copy(telas = quantas)
+            atualizarTransmissao(ctx)
+        }
+
+        fun transmissaoEndereco(ctx: Context, novo: String) {
+            val t = transmissao ?: return
+            if (t.endereco == novo) return
+            transmissao = t.copy(endereco = novo)
+            atualizarTransmissao(ctx)
+        }
+
+        /**
+         * Republica por causa da transmissão — e **só quando ela é a cara
+         * visível**. Com uma cena no ar o cartão é o player, e o endereço não
+         * aparece nele: republicar ali seria gastar uma atualização de
+         * notificação (que o Android limita) para redesenhar exatamente a mesma
+         * coisa.
+         */
+        private fun atualizarTransmissao(ctx: Context) {
+            if (scene != null) return
+            val inst = instance
+            if (running && inst != null) inst.publish() else iniciar(ctx)
         }
 
         private fun actionIntent(ctx: Context, action: String): PendingIntent {
@@ -482,6 +654,69 @@ class SessionService : Service() {
                 actionIntent(ctx, action),
             ).build()
 
+        /**
+         * O cartão quando NÃO há cena e a transmissão está no ar.
+         *
+         * É aqui — e **só** aqui — que mora o "Desligar transmissão". Ao lado do
+         * transporte, durante um louvor, ele seria um toque errado no escuro
+         * derrubando a projeção da igreja inteira; sem cena não há transporte a
+         * mostrar, e sobra o espaço exato para ele.
+         *
+         * Sem `MediaStyle`: um player sem nada tocando é justamente o cartão que
+         * esta cara existe para não ser.
+         */
+        private fun cartaoDaTransmissao(
+            ctx: Context,
+            tx: Transmissao,
+            abrir: PendingIntent,
+        ): Notification {
+            val desligar = PendingIntent.getService(
+                ctx,
+                "tx-desligar".hashCode(),
+                Intent(ctx, SessionService::class.java).setAction(ACTION_DESLIGAR_TX),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            val linha = when {
+                tx.endereco.isEmpty() -> "Preparando…"
+                tx.telas == 0 -> tx.endereco + " · nenhuma tela ainda"
+                tx.telas == 1 -> tx.endereco + " · 1 tela"
+                else -> tx.endereco + " · " + tx.telas + " telas"
+            }
+            val b = Notification.Builder(ctx, CHANNEL_ID)
+                // O mesmo símbolo que a cortina usa nos controles: aqui ele diz
+                // "há imagem saindo deste aparelho".
+                .setSmallIcon(R.drawable.ic_image)
+                .setContentTitle("Transmissão no ar")
+                .setContentText(linha)
+                .setContentIntent(abrir)
+                // O endereço já está na tela do celular e à vista de quem estiver
+                // perto da TV; escondê-lo na tela de bloqueio não protegeria nada
+                // e tiraria a informação útil.
+                .setVisibility(Notification.VISIBILITY_PUBLIC)
+                .setOnlyAlertOnce(true)
+                .setShowWhen(false)
+                .setOngoing(true)
+                .addAction(
+                    acaoDireta(ctx, android.R.drawable.ic_menu_close_clear_cancel, "Desligar transmissão", desligar),
+                )
+            // ADIADA: o sistema segura o cartão por ~10 s antes de mostrá-lo, e
+            // uma transmissão ligada e desligada nesse intervalo (o operador
+            // testando antes do culto) não chega a piscar nada. API 31+; abaixo
+            // disso o cartão aparece na hora, como sempre apareceu.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                b.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_DEFERRED)
+            }
+            return b.build()
+        }
+
+        private fun acaoDireta(
+            ctx: Context,
+            icone: Int,
+            rotulo: String,
+            pi: PendingIntent,
+        ): Notification.Action =
+            Notification.Action.Builder(Icon.createWithResource(ctx, icone), rotulo, pi).build()
+
         private fun buildNotification(ctx: Context, s: Scene, ms: MediaSession?): Notification {
             val abrir = PendingIntent.getActivity(
                 ctx,
@@ -491,6 +726,13 @@ class SessionService : Service() {
                 },
                 PendingIntent.FLAG_IMMUTABLE,
             )
+
+            // A CARA DA TRANSMISSÃO: sem cena, o cartão deixa de ser um player
+            // vazio ("Nada em exibição" com botões que não fazem nada) e passa a
+            // dizer o que de fato está acontecendo — o endereço que as telas
+            // precisam e quantas estão recebendo. Ver o KDoc da classe.
+            val tx = transmissao
+            if (scene == null && tx != null) return cartaoDaTransmissao(ctx, tx, abrir)
 
             // ⏮/⏭ mudam de significado conforme o que está no ar. Na tela os dois
             // eixos têm botões próprios (mídia na linha de transporte, estrofe ao

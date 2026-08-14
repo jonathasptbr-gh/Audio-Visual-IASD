@@ -86,7 +86,7 @@ app/src/main/
 │   ├── SafPathHandler.kt        # serve arquivos do dispositivo em /saf/<token>
 │   ├── ShareIntake.kt           # intent ACTION_SEND → formato do share web
 │   ├── SyncService.kt           # foreground service: downloads com o app minimizado
-│   ├── SessionService.kt        # MediaSession + notificação com os controles de transporte
+│   ├── SessionService.kt        # O ÚNICO foreground service: MediaSession + transmissão
 │   ├── WebUpdater.kt            # OTA da base web (watchdog, minShell, sha256)
 │   ├── WebPathHandler.kt        # serve o bundle OTA, com fallback pro APK
 │   ├── YoutubeGrab.kt           # extrai e baixa o vídeo do YouTube NO APARELHO
@@ -101,7 +101,7 @@ app/src/main/
 │   ├── EspelhoServidor.kt       # sockets, rotas (bundle, /e, /m/, /par, /r), fan-out
 │   ├── EspelhoMidiaCache.kt     # o cache da rota /m/<token> — PURO, com JUnit
 │   ├── EspelhoMidiaCanal.kt     # canal de ArrayBuffer: OPFS → cache (WebMessage)
-│   ├── EspelhoService.kt        # foreground service `connectedDevice`
+│   ├── EspelhoEnergia.kt       # wake lock, Wi-Fi lock e térmica da transmissão
 │   └── EspelhoDiag.kt           # o anel de diagnóstico — devolve JSON, não frase
 └── res/
     ├── drawable/                # ic_image{,_off} — a cortina, na notificação
@@ -741,21 +741,27 @@ vídeos emendados, sem erro nenhum, aparecendo só na hora de projetar. O mapa
 morre com o processo de propósito: retomar entre execuções exigiria gravar qual
 faixa era, e o ganho não paga o risco de errar essa conta.
 
-> **E há um SEGUNDO serviço em primeiro plano desde a v5.141**, o
-> `EspelhoService` do espelho de pixels — um serviço **novo**, nunca um campo a
-> mais no `SyncService` ou no `SessionService`: ciclos de vida e regras de
-> parada diferentes, e empilhar dono é o caminho para o cartão eterno que os
-> dois já aprenderam a evitar. Ele é do tipo **`connectedDevice`** ("interações
-> com dispositivos externos que exigem… uma conexão de **rede**"), e o motivo de
-> não ser `dataSync` é que **`connectedDevice` não tem cota** — o teto de 6 h em
-> 24 h que o `SyncService` gasta com hinário, Bíblia e pastas seria consumido
-> por dois cultos. O pré-requisito que derruba a primeira Release: além de
-> `FOREGROUND_SERVICE_CONNECTED_DEVICE`, o tipo exige **uma** de
+> **A TRANSMISSÃO viaja no MESMO serviço da sessão de mídia desde a v5.190.**
+> Da v5.141 à v5.189 ela tinha um serviço próprio (`EspelhoService`), e o
+> argumento era bom — "nunca um campo a mais no `SyncService` ou no
+> `SessionService`: ciclos de vida diferentes, e empilhar dono é o caminho para
+> o cartão eterno". Ele estava certo sobre ciclo de vida e errado sobre o preço:
+> num culto com transmissão ligada e mídia no ar, a gaveta mostrava DOIS cartões
+> do mesmo app, e só um servia para alguma coisa. Agora o [`SessionService`] tem
+> **duas razões independentes de viver** (cena · transmissão) e só para quando
+> as duas caem — a mesma disciplina, num `if` explícito em vez de espalhada por
+> dois arquivos que não se conhecem. O tipo é a UNIÃO
+> (`mediaPlayback|connectedDevice`), e nenhum dos dois tem cota — o teto de 6 h
+> em 24 h é do `dataSync`, que o `SyncService` gasta com hinário, Bíblia e
+> pastas. O pré-requisito que derruba a primeira Release continua valendo: além
+> de `FOREGROUND_SERVICE_CONNECTED_DEVICE`, o tipo exige **uma** de
 > `CHANGE_NETWORK_STATE`/`CHANGE_WIFI_STATE`/`CHANGE_WIFI_MULTICAST_STATE`/
 > `NFC`/`TRANSMIT_IR` — e `INTERNET`/`ACCESS_NETWORK_STATE`, as duas que o app
 > tem, **não estão na lista**. Sem declarar `CHANGE_WIFI_MULTICAST_STATE`
-> (nível *normal*, sem diálogo), `startForeground` lança. As nove regras dele
-> são herdadas daqui, uma a uma, inclusive o `onGone` com token de geração.
+> (nível *normal*, sem diálogo), `startForeground` lança. O que sobrou no
+> `EspelhoEnergia` é o que nunca foi sobre notificação: o wake lock (renovado
+> por progresso REAL de entrega, nunca por tique de relógio), o Wi-Fi lock e a
+> leitura térmica.
 
 ### O ciclo de vida do serviço tem duas armadilhas, e as duas matam o app
 
@@ -1191,8 +1197,8 @@ SAF, Presentation e o serviço de segundo plano seguem idênticos.
 
    **Por que ela caiu, e não foi por preguiça:** o que ela prometia nunca
    acontecia. "Entra no próximo lançamento" é literal — `beginSession()` decide
-   uma vez por **PROCESSO** —, e este processo quase nunca morre: os três
-   serviços em primeiro plano (`SessionService`, `SyncService`, `EspelhoService`)
+   uma vez por **PROCESSO** —, e este processo quase nunca morre: os serviços
+   em primeiro plano (`SessionService` — cena ou transmissão — e `SyncService`)
    o mantêm vivo de propósito, e fechar pelo Recentes derruba a Activity, não o
    processo. Somado a isso, a oferta de aplicar ao vivo era suprimida com cena no
    ar, download em curso **ou espelho ligado** — e nos testes do espelho ele
@@ -1402,7 +1408,7 @@ TV, as telas da rede SÃO o que a congregação vê.
 | `EspelhoServidor.kt` | sockets, rotas, fan-out. Serve **só** `PREFIXOS_BUNDLE` (display/shared/espelho — nunca `web/controle/`), `GET /e` (o fluxo SSE: fila de 256 por tela, ping de 15 s com o epoch do celular, `adeus` no desligar), `/m/<token>` (completo = 206/416; **em crescimento = chunked**, servindo enquanto o empurrão anda), `POST /r` (o caminho de volta: `st` injeta o status no barramento via `MessageBus.post(null,…)` — que NÃO passa pelo `busPost`, logo **sem eco por construção**). Bind explícito ao IPv4 da Wi-Fi, allowlist de `Host` exata — as regras da era dos pixels que continuam valendo |
 | `EspelhoMidiaCache.kt` | o cache da rota `/m/` — **PURO**, com JUnit. Token é **capacidade** (forma validada; entropia de quem cunha — o Controle, `crypto.randomUUID`), mesmo id + mesmo token = mesmo item (a regra do SafRegistry), id com token novo **substitui** (o wallpaper trocado), LRU por **bytes** e só de **completos** (um item em crescimento tem um empurrão vivo do outro lado) |
 | `EspelhoMidiaCanal.kt` | o empurrão: OPFS → cache, por `WebMessageListener` com `ArrayBuffer` (o molde do `EspelhoAudio` aposentado — allowedOriginRules exato, `isMainFrame`, host conferido). Fluxo com ack por bloco; a oferta na fila é **não-bloqueante** (fila cheia = erro retentável, nunca travar a main thread) |
-| `EspelhoService.kt` | foreground service **`connectedDevice`** (sem cota, ao contrário do `dataSync`). Exige `CHANGE_WIFI_MULTICAST_STATE` no manifest — sem ela `startForeground` **lança** |
+| `EspelhoEnergia.kt` | wake lock, Wi-Fi lock e térmica — **não é mais um Service** (v5.190): quem carrega a transmissão em primeiro plano é o `SessionService`, com o tipo `connectedDevice` somado ao dele. Exige `CHANGE_WIFI_MULTICAST_STATE` no manifest — sem ela `startForeground` **lança** |
 | `EspelhoDiag.kt` | o anel. **Devolve JSON, não texto** — quem monta a frase é o `controle.js` |
 | `espelho/tela.js` | a casca do papel `tela` — **carregada no próprio `display/index.html`**, entre `native.js` e `db.js`, e um no-op de uma guarda fora do papel (`?tela=1`). Define `__AVBus` (recepção = SSE; envio = o DRENO, ver o barramento), neutraliza o `postMessage` do `BroadcastChannel`, corrige o relógio (mediana do epoch dos pings — cronômetro e sorteio chegam como DESCRITOR com instante do celular), embrulha `AVDB.getMedia` para resolver `__rec.url`, e mantém a vigília (canvas.captureStream) para a tela não dormir |
 | `display.js` (papel `tela`) | `forceMuted` nasce ligado (autoplay sem gesto não existe num navegador de verdade); `window.__telaSom(true)` é o que o botão de entrada chama ao gastar o único gesto (fullscreen + som, **na mesma pilha**); wallpaper chega por `__wp` (ou o sentinela `'padrao'`), e o fundo da letra por `imageUrl` na estrofe |
@@ -2158,10 +2164,80 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.189** (base web) · `SHELL_VERSION` **38**, e o bundle segue com
+**Versão atual: v5.191** (base web) · `SHELL_VERSION` **38**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.191: O DOWNLOAD PASSA A TER SAÍDA — e a intenção deixa de ressuscitar.
+> OTA PURO.** Dois relatos do operador, e o segundo é o mais caro.
+>
+> - **"A notificação sobre o preview não tem forma de cancelar."** Verdade, e
+>   pior do que parecia: dos TRÊS lugares que mostram um download em curso, só
+>   a linha do resultado da busca sabia cancelar (v5.131) — e ela é justamente
+>   a que some quando o operador fecha a busca. O cartão sobre a preview e a
+>   linha provisória do Cronograma mostravam minutos de download sem oferecer
+>   saída nenhuma. Agora os dois têm botão, alimentados pela MESMA alça
+>   (`cancelarDownload`, um núcleo só para os três pontos de toque).
+> - **"Mesmo depois de fechar o app, e o vídeo já não indo para o player, ele
+>   fica sempre querendo baixar."** Era o resgate de intenção da v5.133 comendo
+>   a própria cauda: o `ytArquivo` REGISTRA a intenção ao começar, então cada
+>   resgate interrompido registrava outra, e o ciclo se repetia por seis horas.
+>   Três regras o fecham, e são a mesma do coletor de lixo do banco — **o que
+>   não está em lugar nenhum não é guardado**, aqui nem baixado: intenção sem
+>   destino VISÍVEL (`imports`/`playlist`/`favs` — a prateleira `avulsos` do
+>   "Tocar agora" não conta) é descartada e o download é CANCELADO no aparelho;
+>   há um teto de duas reclamações por intenção; e o cancelamento manual
+>   esquece a intenção, sem o que "parei o download" durava até o operador
+>   fechar o app.
+> - **E o resgate deixou de ser invisível**: ele nascia com `aviso: 'nenhum'`,
+>   isto é, dez minutos de download sem nada na tela e sem nada para tocar.
+>   Agora ele desenha a linha provisória na lista de destino — que é onde o
+>   botão de cancelar mora.
+
+> **A v5.190 (v1.88): UM CARTÃO SÓ NA GAVETA — a transmissão passa a viajar no
+> serviço da sessão de mídia. EXIGE APK, e é Kotlin puro.**
+>
+> Pergunta do operador: *"essa notificação pode ser mais útil com mais
+> ferramentas e botões? ou melhor ainda, fixar essa atividade à notificação de
+> player que já acontece durante uma reprodução?"* — e a resposta é sim, com um
+> ajuste de escopo que vale registrar.
+>
+> - **O que NÃO dava para fazer: mais botões.** O `MediaStyle` mostra 3 no modo
+>   compacto e até 5 no expandido, e o cartão já tinha exatamente 5 (⏮,
+>   play/pause, ⏭, Parar, cortina). Desde o Android 13 quem os desenha é o
+>   `PlaybackState`, não a notificação — a cicatriz da v1.18. Acrescentar ali é
+>   TROCAR, não somar.
+> - **O que dava, e é o pedido de verdade: um cartão só.** Num culto com
+>   transmissão ligada e mídia no ar a gaveta mostrava DOIS cartões do mesmo
+>   app — o player e o "Espelho no ar" —, e só um servia para alguma coisa. O
+>   `EspelhoService` deixou de existir: o `SessionService` virou o ÚNICO serviço
+>   em primeiro plano do culto, com o tipo `mediaPlayback|connectedDevice`
+>   (nenhum dos dois tem cota) e **duas razões independentes de viver** — cena
+>   no ar e transmissão ligada —, parando só quando as duas caem.
+> - **O cartão tem DUAS CARAS.** Com cena, o player de sempre. Sem cena e com a
+>   transmissão no ar, o endereço, quantas telas estão recebendo e o botão
+>   **Desligar transmissão** — que só aparece aí, e de propósito: ao lado do
+>   transporte, no escuro, ele seria um toque errado derrubando a projeção da
+>   igreja inteira. Sem cena não há transporte a mostrar, e sobra o espaço
+>   exato para ele.
+> - **A regra que isto desafia continua valendo, agora por escrito.** O KDoc do
+>   serviço antigo dizia "empilhar dono é o caminho para o cartão eterno", e
+>   estava certo: a fusão só é legítima porque a condição de parada virou um
+>   `if` explícito num lugar só (`pararSeNadaVivo`), com o `running`, o
+>   `foregrounded` e o `stopSelf(startId)` intactos. E sem cena a sessão de
+>   mídia é ZERADA (`STATE_NONE`), senão o sistema promoveria um player
+>   fantasma ao painel das configurações rápidas.
+> - **`EspelhoEnergia`** é o que sobrou do serviço: wake lock, Wi-Fi lock e
+>   térmica — as três coisas que nunca foram sobre notificação. Os canais
+>   `espelho`/`espelho2` são apagados na subida, para não ficar um interruptor
+>   órfão nas configurações de notificação do app.
+>
+> `SHELL_VERSION` **não sobe**: nenhum método da ponte nasceu, saiu ou mudou de
+> assinatura, e o `espelhoDiag` mantém a mesma FORMA (o campo `servico` passou a
+> responder "o serviço que carrega a proteção está de pé?", que é o que ele já
+> queria dizer). A base web não mudou uma linha — a versão sobe junto só para o
+> rodapé de Configurações não mentir sobre o que está instalado.
 
 > **A v5.189 (v1.87): A SEGUNDA RODADA EM APARELHO — a porta abre, o YouTube
 > volta a transmitir e a preview emudece. EXIGE APK.**

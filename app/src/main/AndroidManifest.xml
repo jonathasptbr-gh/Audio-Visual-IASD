@@ -176,19 +176,23 @@
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
+        <!-- O ÚNICO serviço em primeiro plano do culto (v5.190): os controles
+             de mídia E a proteção da transmissão para as telas da rede. Os dois
+             tipos são declarados porque ele carrega as DUAS razões de viver —
+             ver o KDoc de SessionService.kt — e a máscara entregue ao
+             `startForeground` acompanha o que está vivo naquele instante.
+
+             `connectedDevice` exige, ALÉM de FOREGROUND_SERVICE_CONNECTED_DEVICE,
+             uma das permissões de rede listadas no KDoc de EspelhoEnergia.kt
+             (CHANGE_WIFI_MULTICAST_STATE, aqui) — sem ela `startForeground`
+             lança e o app cai com a projeção junto.
+
+             `exported="false"`: quem o inicia é o próprio app e os
+             PendingIntent da notificação, que são nossos. -->
         <service
             android:name=".SessionService"
             android:exported="false"
-            android:foregroundServiceType="mediaPlayback" />
-
-        <!-- Ver EspelhoService.kt. `exported="false"`: quem o inicia é o próprio
-             app (o interruptor mora na UI do Controle) e o botão "Desligar" da
-             notificação, que é um PendingIntent nosso — nada de fora tem por que
-             alcançá-lo. -->
-        <service
-            android:name=".EspelhoService"
-            android:exported="false"
-            android:foregroundServiceType="connectedDevice" />
+            android:foregroundServiceType="mediaPlayback|connectedDevice" />
 
         <!-- O caminho do APK baixado até o instalador. Um `file://` num Intent
              lança `FileUriExposedException` desde o Android 7, e o instalador é

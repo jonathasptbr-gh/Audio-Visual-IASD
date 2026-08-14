@@ -101,6 +101,7 @@ const pvWallEl = document.getElementById('pvWall');
 const pvBusyEl = document.getElementById('pvBusy');
 const pvBusyCapEl = document.getElementById('pvBusyCap');
 const pvBusyLabelEl = document.getElementById('pvBusyLabel');
+const pvBusyCancelEl = document.getElementById('pvBusyCancel');
 const pvImgEl = document.getElementById('pvImg');
 const pvVideoEl = document.getElementById('pvVideo');
 const pvYoutubeEl = document.getElementById('pvYoutube');
@@ -162,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.189';
+const WEB_VERSION = '5.191';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -395,6 +396,7 @@ const ICON = {
   // deixou de ser "onde os arquivos ficam" e passou a ser "o que eu marquei".
   star: '',      // star
   folderNew: '', // create_new_folder
+  close: '',     // close — o MESMO glifo dos `.popup-close` (v5.191)
 };
 
 const REPEATS = ['off', 'all', 'one', 'shuffle'];
@@ -9543,26 +9545,61 @@ async function marcarYtProntos(itens) {
 // pintaria a linha de vermelho e diria que deu erro — para algo que o próprio
 // operador pediu.
 const ytCancelados = new Set();
-async function cancelarDownloadYt(r) {
-  if (!r || !r.id) return;
+
+/** O aparelho sabe parar um download? (o `ytCancel` é do shell 28.) */
+function podeCancelarDownload() {
   // Sem o método na ponte não há o que oferecer: um "cancelar" que só some com
   // a marca da tela enquanto o aparelho continua baixando centenas de MB é
   // pior que não ter botão, porque o operador acredita que parou.
-  if (!window.__NATIVE__ || (window.__SHELL_VERSION__ | 0) < 28) return;
-  if ((ytEstado.get(r.id) || {}).estado !== 'baixando') return;
+  return !!window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= 28;
+}
+
+/**
+ * O NÚCLEO DO CANCELAMENTO, e ele é um só para os três lugares onde o operador
+ * pode pedir (v5.191): a linha do resultado da busca, o cartão sobre a preview
+ * e a linha provisória do Cronograma.
+ *
+ * `aindaVale` é a segunda leitura do estado, feita DEPOIS da pergunta: o
+ * download pode ter terminado enquanto o diálogo estava aberto, e um pedido que
+ * chegasse ao shell depois do fim ficaria armado contra o PRÓXIMO download do
+ * mesmo vídeo.
+ *
+ * **E ele esquece a INTENÇÃO** — é essa linha que impede o vídeo cancelado de
+ * ressuscitar no lançamento seguinte (ver `resgatarDownloads`). Sem ela, "parei
+ * o download" durava até o operador fechar o app.
+ */
+async function cancelarDownload({ link, youtubeId, nome, soAudio, aindaVale }) {
+  if (!podeCancelarDownload() || !link) return false;
+  if (aindaVale && !aindaVale()) return false;
   const ok = await appConfirm({
     title: 'Cancelar o download?',
-    message: (r.name || 'Este vídeo') + '\n\nO que já baixou é descartado.',
+    message: (nome || 'Este vídeo') + '\n\nO que já baixou é descartado.',
     okText: 'Cancelar download',
     cancelText: 'Continuar baixando',
   });
-  // O download pode ter TERMINADO durante a pergunta — e aí não há mais o que
-  // cancelar. Sem esta segunda leitura, o pedido chegaria ao shell depois do
-  // fim e ficaria armado contra o próximo download do mesmo vídeo.
-  if (!ok || (ytEstado.get(r.id) || {}).estado !== 'baixando') return;
-  ytCancelados.add(r.id);
-  AVNative.ytCancel(r.url);
-  setYtEstado(r.id, null);
+  if (!ok || (aindaVale && !aindaVale())) return false;
+  if (youtubeId) ytCancelados.add(youtubeId);
+  try { AVNative.ytCancel(link); } catch (_) { /* shell antigo: a guarda acima já barrou */ }
+  await esquecerIntencao(link, !!soAudio);
+  if (youtubeId) setYtEstado(youtubeId, null);
+  return true;
+}
+
+async function cancelarDownloadYt(r) {
+  if (!r || !r.id) return;
+  const parou = await cancelarDownload({
+    link: r.url,
+    youtubeId: r.id,
+    nome: r.name,
+    soAudio: false,
+    aindaVale: () => (ytEstado.get(r.id) || {}).estado === 'baixando',
+  });
+  // A FORMA não é conhecida aqui — a linha da busca não sabe se o que está em
+  // curso é o download do vídeo ou o do áudio —, então o cancelamento esquece
+  // as DUAS intenções possíveis do mesmo link: é o que "cancelar este vídeo"
+  // quer dizer. Só quando ele de fato aconteceu: quem escolheu "continuar
+  // baixando" não pode perder a intenção que faria o resgate funcionar.
+  if (parou) await esquecerIntencao(r.url, true);
 }
 
 // O estado de cada resultado (`baixando` / `pronto`) vive num Map, e não na
@@ -10893,9 +10930,9 @@ let pvBusyTimer = null;
 // player), e uma chave provisória quando não existe (um link recém-chegado).
 const libBaixando = new Map();
 
-function libBusy(nome, chaveExistente) {
+function libBusy(nome, chaveExistente, aoCancelar) {
   const chave = chaveExistente || ('dl:' + Math.random().toString(36).slice(2, 9));
-  libBaixando.set(chave, { nome: nome || 'Baixando…', pct: -1 });
+  libBaixando.set(chave, { nome: nome || 'Baixando…', pct: -1, cancelar: aoCancelar || null });
   if (activeTab === 'imports') load();
   let solto = false;
   return {
@@ -10938,11 +10975,38 @@ function libBusyRow(chave, reg) {
   const pct = document.createElement('span'); pct.className = 'dl-pct';
   pct.textContent = reg.pct >= 0 ? reg.pct + '%' : '';
   row.append(t, nome, pct);
+  // O CANCELAR MORA NA PRÓPRIA LINHA (v5.191). É o pedido do operador em
+  // palavras dele — "a opção de cancelar no mesmo elemento visual do item na
+  // listagem onde está baixando" —, e ele resolve o caso que o toque na linha
+  // da busca não cobria: um download que foi para o Cronograma e cuja busca já
+  // está fechada não tinha mais nenhuma superfície onde ser parado.
+  if (reg.cancelar) {
+    const x = document.createElement('button');
+    x.type = 'button';
+    x.className = 'dl-cancel';
+    x.title = 'Cancelar o download';
+    x.setAttribute('aria-label', 'Cancelar o download');
+    x.innerHTML = '<span class="msym" aria-hidden="true">' + ICON.close + '</span>';
+    // A linha inteira tem gestos próprios (abrir, arrastar para reordenar):
+    // sem isto, cancelar dispararia também o de baixo.
+    x.addEventListener('click', (ev) => { ev.stopPropagation(); reg.cancelar(); });
+    row.appendChild(x);
+  }
   li.appendChild(row);
   return li;
 }
 
-function previewBusy(acao, nome) {
+// Quem o botão de cancelar do cartão da preview aciona AGORA. Uma variável só,
+// e não uma pilha: com dois downloads ao mesmo tempo o cartão já mostrava o
+// último a escrever (a legenda é uma só), e o botão segue a mesma regra — o que
+// se lê na tela e o que o toque faz são sempre o mesmo download.
+let pvBusyCancelar = null;
+function pintarPvBusyCancelar() {
+  if (!pvBusyCancelEl) return;
+  pvBusyCancelEl.hidden = !pvBusyCancelar;
+}
+
+function previewBusy(acao, nome, aoCancelar) {
   // No simplificado a preview só está na tela com um telão conectado (ver
   // hostPreview/`.simple.locked`); bloqueado, quem avisa continua sendo o
   // toast — é por isso que o chamador precisa saber.
@@ -10950,6 +11014,13 @@ function previewBusy(acao, nome) {
   pvBusyCount++;
   pvBusyCapEl.textContent = acao;
   pvBusyLabelEl.textContent = nome;
+  // O botão segue o ÚLTIMO a escrever, exatamente como a legenda — inclusive
+  // quando o novo dono NÃO sabe cancelar (um hino baixando por cima de um vídeo
+  // do YouTube): o cartão diria uma coisa e o botão faria outra, e o operador
+  // pararia o download errado.
+  const meuCancelar = aoCancelar || null;
+  pvBusyCancelar = meuCancelar;
+  pintarPvBusyCancelar();
   // Só acende depois de um respiro: uma música JÁ baixada resolve em poucos
   // milissegundos, e um cartão que pisca é pior que nenhum — lê-se como falha.
   if (!pvBusyTimer && !pvBusyEl.classList.contains('on')) {
@@ -10978,10 +11049,18 @@ function previewBusy(acao, nome) {
     soltar() {
       if (solto) return;
       solto = true;
+      // O botão sai com O DONO dele: se outro download assumiu o cartão nesse
+      // meio-tempo, quem manda é o novo — a mesma regra da legenda.
+      if (meuCancelar && pvBusyCancelar === meuCancelar) {
+        pvBusyCancelar = null;
+        pintarPvBusyCancelar();
+      }
       pvBusyCount = Math.max(0, pvBusyCount - 1);
       if (pvBusyCount) return;
       clearTimeout(pvBusyTimer); pvBusyTimer = null;
       pvBusyEl.classList.remove('on');
+      pvBusyCancelar = null;
+      pintarPvBusyCancelar();
     },
   };
 }
@@ -11934,8 +12013,32 @@ async function ytBaixarNativo(link, nome, opts) {
   // que nunca vai aparecer lá. Ali quem mostra o andamento é a própria linha
   // do resultado (`onPct`) mais a notificação do sistema.
   const aviso = (opts && opts.aviso) || (naPreview ? 'preview' : 'lib');
-  const bg = aviso === 'preview' ? previewBusy(soAudio ? 'Preparando áudio' : 'Preparando vídeo', rotulo)
-    : aviso === 'lib' ? libBusy(rotulo, opts && opts.chave)
+  // A ALÇA DE CANCELAMENTO (v5.191), entregue a QUEM ESTÁ MOSTRANDO o download.
+  //
+  // Até aqui só a linha do resultado da busca sabia cancelar — e ela é
+  // justamente a que some quando o operador fecha a busca. O cartão sobre a
+  // preview e a linha provisória do Cronograma mostravam minutos de download
+  // sem oferecer saída nenhuma; a única forma de parar era esperar.
+  //
+  // `terminado` fecha a janela do fim: um toque no botão depois de o download
+  // acabar mandaria ao shell um cancelamento que ficaria armado contra o
+  // próximo download do mesmo vídeo.
+  let terminado = false;
+  let cancelado = false;
+  const cancelar = !podeCancelarDownload() ? null : async () => {
+    if (cancelado) return;
+    const parou = await cancelarDownload({
+      link,
+      youtubeId: (opts && opts.youtubeId) || null,
+      nome: rotulo,
+      soAudio,
+      aindaVale: () => !terminado && !cancelado,
+    });
+    if (parou) { cancelado = true; bg.soltar(); }
+  };
+  const bg = aviso === 'preview'
+    ? previewBusy(soAudio ? 'Preparando áudio' : 'Preparando vídeo', rotulo, cancelar)
+    : aviso === 'lib' ? libBusy(rotulo, opts && opts.chave, cancelar)
       : { visivel: false, atualizar() {}, soltar() {} };
   const notif = bgTaskStart(rotuloBaixando, 1);
   // O NOME DO VÍDEO na linha da notificação, pela mesma razão do lote de
@@ -11954,6 +12057,9 @@ async function ytBaixarNativo(link, nome, opts) {
     soAudio,
     altura,
     quando: Date.now(),
+    // Quantos resgates este download já custou — o teto que impede uma
+    // intenção de voltar a cada abertura (ver `resgatarDownloads`).
+    tentativas: (opts && opts.tentativas) | 0,
   });
   try {
     return await withBgWork(async () => {
@@ -12031,6 +12137,7 @@ async function ytBaixarNativo(link, nome, opts) {
     console.warn('[yt nativo] falhou:', e && e.message);
     return null;
   } finally {
+    terminado = true;
     bgTaskEnd(notif);
     bg.soltar();
     // A INTENÇÃO SAI DO REGISTRO AQUI, e só aqui: chegando neste ponto o
@@ -12089,6 +12196,39 @@ async function esquecerIntencao(link, soAudio) {
   } catch (e) { console.warn('[yt] não deu para limpar a intenção:', e); }
 }
 
+// As listas em que um item RESSURGE para o operador. Uma intenção que não
+// aponta para nenhuma delas não tem onde aterrissar: o `avulsos` é a prateleira
+// invisível do simplificado, e um vídeo resgatado para lá baixaria centenas de
+// MB para não aparecer em lugar nenhum.
+const LISTAS_VISIVEIS = ['imports', 'playlist', 'favs'];
+
+/**
+ * Quantas vezes uma intenção pode ser reclamada antes de ser desistida.
+ *
+ * O resgate REGISTRA a intenção de novo (é o `lembrarIntencao` do começo de
+ * todo download), então um download que nunca termina — o app fechado no meio,
+ * outra vez, e outra — voltava a cada abertura pelas seis horas inteiras de
+ * validade. Foi o que o operador relatou: "mesmo depois de fechar o app ele
+ * fica sempre querendo baixar o vídeo". Duas tentativas cobrem o caso real (um
+ * OOM do renderer) e fecham o laço.
+ */
+const INTENCAO_MAX_TENTATIVAS = 2;
+
+/**
+ * Desiste de uma intenção: apaga o registro e PARA o download no aparelho.
+ *
+ * "Apagar e cancelar" é a regra que o operador pediu com todas as letras, e ela
+ * é a mesma do coletor de lixo do banco: o que não está em lugar nenhum não é
+ * guardado — aqui, não é nem baixado. Sem o `ytCancel` o shell seguiria
+ * baixando um arquivo que ninguém mais espera, gastando rede e bateria no meio
+ * do culto.
+ */
+async function desistirDaIntencao(p, porque) {
+  console.info('[yt] intenção descartada (' + porque + '):', p.nome || p.link);
+  try { if (podeCancelarDownload()) AVNative.ytCancel(p.link); } catch (_) { /* nada */ }
+  await esquecerIntencao(p.link, !!p.soAudio);
+}
+
 // Chamado uma vez por abertura. Silencioso quando não há nada — que é o caso
 // normal.
 async function resgatarDownloads() {
@@ -12102,12 +12242,42 @@ async function resgatarDownloads() {
   // pelo caminho normal (`lembrarIntencao` no começo do download).
   try { await AVDB.setState(YT_INTENCOES, []); } catch (_) { /* segue */ }
   for (const p of pendentes) {
-    if (!p || !p.link || (agora - (p.quando || 0)) > INTENCAO_VALIDA_MS) continue;
+    if (!p || !p.link) continue;
+    if ((agora - (p.quando || 0)) > INTENCAO_VALIDA_MS) {
+      await desistirDaIntencao(p, 'venceu');
+      continue;
+    }
+    // SEM DESTINO VISÍVEL, NÃO SE RESGATA. Um "Tocar agora" é do INSTANTE em
+    // que o operador tocou: reclamá-lo num lançamento seguinte baixa minutos de
+    // vídeo para uma cena que já passou, e o item não aparece em lista nenhuma
+    // para ser achado depois. Era o caso exato do relato — "esse vídeo não está
+    // mais indo para o player e ele continua querendo baixar".
+    if (LISTAS_VISIVEIS.indexOf(p.lista) < 0) {
+      await desistirDaIntencao(p, 'sem destino');
+      continue;
+    }
+    if ((p.tentativas | 0) >= INTENCAO_MAX_TENTATIVAS) {
+      await desistirDaIntencao(p, 'tentou demais');
+      continue;
+    }
     console.info('[yt] reclamando download interrompido:', p.nome || p.link);
     try {
       const rec = await ytArquivo(
         { id: p.youtubeId || null, url: p.link, name: p.nome },
-        { lista: p.lista, somenteAudio: p.soAudio, altura: p.altura, aviso: 'nenhum' },
+        {
+          lista: p.lista,
+          somenteAudio: p.soAudio,
+          altura: p.altura,
+          // O RESGATE APARECE, e na linha da lista de destino: até aqui ele era
+          // `aviso: 'nenhum'` — dez minutos de download invisíveis, sem nada
+          // que o operador pudesse tocar para parar. Com a linha provisória ele
+          // vê o que está acontecendo e tem onde cancelar (v5.191).
+          aviso: 'lib',
+          // A CONTAGEM ATRAVESSA o novo `lembrarIntencao` de dentro do
+          // `ytArquivo`: sem ela o contador nasceria zerado a cada resgate e o
+          // teto nunca seria alcançado.
+          tentativas: (p.tentativas | 0) + 1,
+        },
       );
       if (!rec) continue;
       // O DESTINO ORIGINAL é honrado: quem pediu "para o Cronograma" recebe no
@@ -13622,6 +13792,16 @@ muteToggleEl.addEventListener('click', toggleMute);
 // miniatura, e uma configuração escondida atrás de um estado de UI é a que
 // ninguém acha.
 settingsBtnEl.addEventListener('click', openFadePopup);
+// O CANCELAR do cartão sobre a preview (v5.191). A preview inteira tem gestos
+// próprios (arrastar o volume, tocar para tela cheia): sem o `stopPropagation`,
+// cancelar um download dispararia também o de baixo.
+if (pvBusyCancelEl) {
+  pvBusyCancelEl.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const fn = pvBusyCancelar;
+    if (fn) fn();
+  });
+}
 lyricsViewBtnEl.addEventListener('click', openLyricsPopup);
 // Letra × Bíblia (só aparece com as duas em cena — ver renderLyricsView).
 lyricsViewSegEl.addEventListener('click', (e) => {
