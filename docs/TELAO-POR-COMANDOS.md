@@ -72,6 +72,24 @@
 > fino delas (eco de __mid, atraso medido) é evolução futura sobre o campo
 > `eventos`/`pronta` que já viaja.
 >
+> **v5.214: a ativação de UM TOQUE já era verdade — o que a desmentia era um
+> segundo botão.** O relato ("o Ativar esta tela não ativa som nem tela cheia
+> junto") foi medido antes de qualquer mudança, num Chromium de verdade: as três
+> coisas acontecem no primeiro toque. O que ficava na tela era o botão de canto
+> da v5.189, opaco e permanente, oferecendo a tela cheia que já estava no ar.
+> Duas causas compostas: `oferecerGesto()` era chamado pelo ouvinte de clique do
+> `document` **no mesmo turno** do gesto — e `requestFullscreen()` é assíncrono,
+> então a pergunta "o que falta?" era respondida contra o passado (medido: o
+> ouvinte roda com `fullscreenElement=false`, o `fullscreenchange` chega 9 ms
+> depois) —; e o par mostrar/esconder do botão não cancelava o quadro de
+> opacidade que ele mesmo agendava, de modo que a saída relia `opacity`,
+> encontrava `'1'` e desistia. Agora quem responde é a Promise do próprio pedido
+> de tela cheia (resolve = entrou, rejeita = recusada) e `oferecerGesto()` é mudo
+> enquanto o gesto assenta; e os três prazos do botão são cancelados em bloco. O
+> `tela-rede.test.mjs` ganhou a regra, escrita para não depender de o runner
+> conceder tela cheia: **nada pode estar na tela oferecendo o que já está feito**
+> — e o caminho de volta é travado logo abaixo, senão apagar o botão passaria.
+>
 > **v5.189 fechou a §7 e mudou a PORTA.** A transmissão direta do YouTube
 > agora chega às telas: o shell serve as mesmas faixas em `/s/<token>` (repasse
 > ao googlevideo com o UA que combina, `Range` do cliente subindo cru) e o

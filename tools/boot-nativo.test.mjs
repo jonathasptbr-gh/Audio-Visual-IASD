@@ -190,7 +190,7 @@ try {
   checar(conn.cortinaNoAr && !conn.buscaVisivel,
     'SEM TELA A TELA FICA BLOQUEADA: a cortina cobre tudo e a busca sai de cena');
 
-  // ---- SEM TELA NENHUMA, O SOM SAI DESTE APARELHO (v5.214) --------------
+  // ---- SEM TELA NENHUMA, O SOM SAI DESTE APARELHO (v5.215) --------------
   //
   // A regra vive num ramo que o `smoke.mjs` não alcança: sem ponte não há
   // `lastDisplays` nem transmissão, e é a CONEXÃO que decide. O que se mede é o
@@ -264,7 +264,7 @@ try {
   checar(!comTela.semTela && comTela.connEscondido && !comTela.cortinaNoAr,
     'e a tela DESTRAVA: sem TV, as telas da rede contam como tela');
 
-  // E O SOM CONTINUA SENDO DAS TELAS (v5.214). É a metade que protege o
+  // E O SOM CONTINUA SENDO DAS TELAS (v5.215). É a metade que protege o
   // desfecho que a mesa de som produzia: cada tela da rede toca o próprio
   // arquivo no `<video>` dela, e um celular somando a própria saída seria o
   // mesmo louvor duas vezes na sala — fora do compasso, porque são dois

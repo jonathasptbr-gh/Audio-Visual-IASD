@@ -2805,7 +2805,7 @@ notificava ninguém; e o `setOnDismissListener` — o caminho da queda por dist�
 a frente**, porque um evento perdido não se recupera sozinho e este WebView é
 estrangulado justamente enquanto o app está minimizado.
 
-### A saída de áudio: os displays, ou ESTE APARELHO (v5.214)
+### A saída de áudio: os displays, ou ESTE APARELHO (v5.215)
 
 **Sem tela nenhuma conectada, quem toca o som é a preview do Controle** — isto
 é, o próprio celular. Não há botão, não há preferência e não há nada a lembrar
@@ -7450,7 +7450,7 @@ Depois de tudo acima, veio a informação que faltava: a pausa acontecia com a
 toca é o `<video>` da **preview**, no WebView do **Controle**, e não o do telão.
 As três correções anteriores protegiam o WebView errado.
 
-> **E ISTO VOLTOU A TER DONO NA v5.214**, com uma diferença que precisa estar
+> **E ISTO VOLTOU A TER DONO NA v5.215**, com uma diferença que precisa estar
 > dita: sem tela nenhuma conectada, quem toca é de novo o `<video>` da preview,
 > no WebView do **Controle** — mas o `AVNative.keepAudioAlive` (e o
 > `setAudioAlive` do shell) **saiu na v5.189 e não voltou**. O que segura o caso

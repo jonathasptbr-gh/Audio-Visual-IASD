@@ -1495,13 +1495,31 @@ TV, as telas da rede SÃO o que a congregação vê.
   (`__telaSom(true)` → `requestFullscreen` → `POST /par` → token → SSE).
   **Desde a v5.189 o botão é UM só, "Ativar esta tela", e não há código a
   digitar**: a porta é o endereço.
+
+  **E a pergunta "o que ainda falta nesta tela?" NÃO pode ser feita DENTRO do
+  gesto** (v5.214). `requestFullscreen()` é assíncrono e o clique borbulha até
+  o `document` antes de a tela cheia existir — medido em Chromium, o ouvinte do
+  documento roda com `fullscreenElement=false` e o `fullscreenchange` chega
+  9 ms depois. Perguntar ali responde sempre contra o passado, e o que nascia
+  disso era um SEGUNDO botão oferecendo exatamente o que o toque acabara de
+  fazer: a ativação unificada parecendo exigir uma segunda interação. Quem
+  responde é o próprio pedido de tela cheia — a Promise resolve quando ela
+  entrou e rejeita quando foi recusada —, e entre o gesto e esse desfecho o
+  `oferecerGesto()` é mudo (`assentando`, em `tela.js`).
 - **Depois de ativada, NADA cobre a tela.** O overlay cheio existe só na
   primeira carga, quando não há nada por baixo dele. Queda de fio, token
   vencido e até o `adeus` do operador reentram em silêncio (um `POST /par` numa
   escada de 1 s a 30 s) — a mídia é local (`/m/`) e a letra anda pelo
   `timeupdate` do próprio `<video>`, então a queda leva o fio e mais nada. O
   gesto perdido (tela cheia, som) é oferecido por um botão discreto de canto,
-  que se recolhe em 5 s; o toque duplo faz o mesmo.
+  que se recolhe em 5 s; o toque duplo faz o mesmo. **E "se recolhe" tem de ser
+  verdade**: o par mostrar/esconder dele agenda três prazos (a opacidade um
+  quadro adiante, o recolhimento em 5 s, o `display:none` no fim do
+  esmaecimento) e precisa cancelar os TRÊS a cada chamada. Sem isso ele não é
+  idempotente — o quadro de opacidade órfão repunha `opacity: 1` depois de o
+  esconder ter rodado, a saída relia o estilo, encontrava `'1'` e desistia, e o
+  botão ficava opaco por cima da projeção **sem nenhum prazo vivo para
+  recolhê-lo** (v5.214).
 - **O tap é no `busPost`, e isso fecha o eco.** `NativeBridge.busPost` vê 100%
   dos comandos (o relay nativo roda sempre — ver o barramento), e é ali que o
   `tapLan` os copia para o fan-out SSE. A injeção de volta (o `st` do
@@ -1723,7 +1741,7 @@ contextos.
 | Botão de cast da preview | oculto | `AVNative.openCast()` → seletor de **espelhamento de tela** (ver abaixo) |
 | Retomada do telão ao RECONECTAR | idem (o caminho é o mesmo `resendSceneToDisplay`) | **só reenvia o que ESTAVA no ar** (v5.142). `currentId` sobrevive de propósito ao stop e ao fim natural — é o que permite repetir a faixa com o ▶ —, e reenviar por ele fazia o telão acordar com um vídeo engatilhado que ninguém pediu (o retângulo cinza com o play) ou ressuscitar a música que já tinha acabado. Quem responde a pergunta certa é `midiaNoAr`; um telão vazio também é um estado, e restaurá-lo é não mandar nada |
 | Girar a mídia | idem (o comando é o mesmo `rotate`) | **novo na v5.142**: vídeo gravado de lado chega DEITADO no telão e não havia o que fazer. Um botão em Configurações avança 90° por toque; o motor TROCA O EIXO da caixa antes de girar, para o `object-fit` fazer a conta no retângulo em que a mídia vai de fato aparecer. Tomou o lugar do "Esticar", que distorcia a proporção — o defeito que "Ajustar" e "Preencher" existem para evitar |
-| Som da preview (a saída de áudio) | idem: com a janela do Display aberta ela é muda, sem ela toca — sujeito à política de autoplay do navegador, que faz o `onBlocked` devolvê-la ao mudo | **SEM TELA NENHUMA CONECTADA, O SOM SAI DESTE APARELHO** (v5.214, `acertarSaidaDeAudio`), e é OTA puro. A "mesa de som" MANUAL (v5.82–v5.188) foi removida na v5.189 com um argumento que continua inteiro — o som é dos DISPLAYS (a TV pela `Presentation`, as telas da rede pelo `<video>` delas), e os WebViews dividem o processo e a saída de áudio do Android, então o áudio da preview tomava o foco e INTERROMPIA o player do telão. O que ela não respondia é o caso em que **não há display nenhum**: ali a projeção É a preview em tela cheia, e uma projeção muda não é projeção. Agora não há interruptor a esquecer ligado — o estado é DERIVADO da conexão (`simpleDisplay`: a TV **ou** uma tela da rede) e só vale no modo avançado; com qualquer tela conectada este aparelho está mudo, sempre. O `keepAudioAlive` **não voltou**: áudio audível já isenta a página do estrangulamento |
+| Som da preview (a saída de áudio) | idem: com a janela do Display aberta ela é muda, sem ela toca — sujeito à política de autoplay do navegador, que faz o `onBlocked` devolvê-la ao mudo | **SEM TELA NENHUMA CONECTADA, O SOM SAI DESTE APARELHO** (v5.215, `acertarSaidaDeAudio`), e é OTA puro. A "mesa de som" MANUAL (v5.82–v5.188) foi removida na v5.189 com um argumento que continua inteiro — o som é dos DISPLAYS (a TV pela `Presentation`, as telas da rede pelo `<video>` delas), e os WebViews dividem o processo e a saída de áudio do Android, então o áudio da preview tomava o foco e INTERROMPIA o player do telão. O que ela não respondia é o caso em que **não há display nenhum**: ali a projeção É a preview em tela cheia, e uma projeção muda não é projeção. Agora não há interruptor a esquecer ligado — o estado é DERIVADO da conexão (`simpleDisplay`: a TV **ou** uma tela da rede) e só vale no modo avançado; com qualquer tela conectada este aparelho está mudo, sempre. O `keepAudioAlive` **não voltou**: áudio audível já isenta a página do estrangulamento |
 | PDF, PowerPoint, Google Apresentações | **PDF não existe** (não há quem o desenhe); o `.pptx` funciona, e é o MESMO caminho do app | **viram UMA IMAGEM POR PÁGINA**, cada formato pelo caminho que existe para ele: o **PDF** pelo `PdfRenderer` da PLATAFORMA (`SlideDeck.kt` + `AVNative.deckPages`) — fidelidade total, zero dependência; o **`.pptx`** pelo renderizador de OOXML em `assets/web/vendor/` (`pptxParaPaginas`, em `controle.js`), carregado por `import()` dinâmico e rasterizado com `<foreignObject>` + canvas. Daí para a frente é mídia comum: fade, cortina, telão e `MediaSession` que já existem, com ⏮/⏭ passando página. **Não há botão de "apresentação"**: uma apresentação é um arquivo como outro qualquer, e entra pelo mesmo "Importar arquivos" (que no app abre o seletor do SISTEMA, `pickDoc` — o `<input type="file">` devolve bytes, e o PDF precisa que o shell abra o ARQUIVO) ou pelo compartilhamento. O `.ppt` anterior a 2007 e o `.odp` ficam de fora: ninguém sabe desenhá-los, e aceitar para depois falhar é pior que não aceitar. O link do Google entra sozinho pela URL de exportação |
 | **Tocar agora** de um vídeo do YouTube | **não toca** — sem ponte não há transmissão nem download, e o app diz isso na linha do item | **TRANSMISSÃO DIRETA** (v5.120/shell 26; **funcionando só do shell 27 em diante**): o shell monta o manifesto das duas faixas adaptativas (`ytStream`), o `StreamProxy` as serve pelo NOSSO origin com o UA que combina com a URL, e o `MediaSource` de `shared/mse.js` as vira um `<video>` COMUM — fade, cortina, `MediaSession`, barra e segundo plano de graça, **e zero pixel de YouTube no telão**. Sem esperar o download. A faixa de bytes viaja na QUERY (`?r=<ini>-<fim>`), nunca no cabeçalho `Range` — ver a invariante 8, que é a razão de o recurso ter passado três versões sem tocar um único vídeo. Só em "Tocar agora": as outras três ações GUARDAM o item, e um manifesto expira em horas. Falhando qualquer coisa (shell < 27, vídeo sem par adaptativo, WebView sem o codec) cai no download, calado — o operador pediu o louvor, não o método |
 | Vídeo do YouTube | **não toca** (ver acima) | **arquivo de vídeo baixado PELO APARELHO** (`YoutubeGrab.kt` + `AVNative.ytFetch`) — o embed pausa sozinho com o app minimizado, e a extração no próprio celular sai do IP do chip, que é o que o YouTube não bloqueia. Sem configurar nada. Cobalt continua como segunda opção para quem já mantém uma instância; falhando os dois, o link vira um item de LINK, que o toque seguinte tenta resolver de novo (v5.212 — não há mais player embutido para onde cair) |
@@ -2359,12 +2377,12 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.214** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
+**Versão atual: v5.215** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
-> **A v5.214: SEM TELA CONECTADA, O SOM SAI DO PRÓPRIO APARELHO. OTA PURO**
+> **A v5.215: SEM TELA CONECTADA, O SOM SAI DO PRÓPRIO APARELHO. OTA PURO**
 > (nenhuma linha de Kotlin, `SHELL_VERSION` intacto em 40; sem Release).
 >
 > Pedido do operador: no modo avançado, tocar uma mídia sem nenhuma tela
@@ -2424,6 +2442,57 @@ controles), que **só chegam instalando o APK novo**, não pelo OTA.
 > Fácil volta a ser, e com uma tela da rede recebendo ela fica muda mesmo no
 > avançado. O `destinos.test.mjs` continua travando a REMOÇÃO (nenhum botão,
 > nenhum `setStandalone`) e agora afirma também que o estado é derivado.
+
+> **A v5.214: A ATIVAÇÃO DA TELA DA REDE JÁ ERA UNIFICADA — o que sobrava era um
+> segundo botão pedindo o que o primeiro tinha acabado de fazer. OTA PURO**
+> (nenhuma linha de Kotlin; sem Release).
+>
+> Relato do operador: o "Ativar esta tela" não estaria ativando som e tela cheia
+> junto com o display, e exigiria uma segunda interação para isso.
+>
+> **Medido antes de mexer, e o diagnóstico natural estava errado.** Um toque só,
+> num Chromium de verdade contra o servidor de mentira do `tela-rede`: tela cheia
+> `true`, overlay fora, `__telaSom(true)` chamado. **As três coisas aconteciam no
+> primeiro toque** — o gesto sempre foi um só. O que aparecia era um botão de
+> canto, opaco, escrito "Voltar à tela cheia", que **nunca saía de cena**. Do
+> lado de quem opera isso é indistinguível de "a ativação não funcionou", e é
+> exatamente assim que foi relatado.
+>
+> São dois defeitos, e eles se compõem — nenhum dos dois produz sintoma sozinho:
+>
+> - **A pergunta era feita DENTRO do gesto.** `oferecerGesto()` roda no ouvinte
+>   de clique do `document`, e o clique que gasta o gesto borbulha até lá **antes
+>   de a tela cheia existir**: `requestFullscreen()` é assíncrono. A linha do
+>   tempo instrumentada mostra o ouvinte rodando com `fullscreenElement=false` e
+>   o `fullscreenchange` chegando 9 ms depois. Isto é: a única pergunta que esse
+>   botão existe para responder era feita no único instante em que a resposta é
+>   garantidamente falsa. Agora quem responde é o próprio pedido — a Promise
+>   resolve se entrou, rejeita se foi recusada — e entre uma coisa e outra
+>   `oferecerGesto()` é mudo (`assentando`).
+> - **E o botão não sabia sair.** `mostrarCanto` agenda a opacidade um quadro
+>   adiante e o recolhimento em 5 s; `esconderCanto`, chamado no meio disso pelo
+>   `fullscreenchange`, matava o de 5 s e agendava a saída — e então o quadro
+>   órfão repunha `opacity: 1`. A saída conferia `opacity === '0'`, encontrava
+>   `'1'` e desistia. **Opaco, por cima da projeção, sem nenhum prazo vivo para
+>   recolhê-lo.** Os três prazos passaram a ser cancelados em bloco, que é a
+>   única regra que um par mostrar/esconder pode ter: o último a ser chamado
+>   vale.
+>
+> **O oráculo entrou no mesmo commit** (`tools/tela-rede.test.mjs`, a regra da
+> v5.145), e a asserção é deliberadamente independente de o navegador CONCEDER
+> tela cheia — exigir a concessão viraria vermelho num runner que a negue, e
+> vermelho ambiental é o que ensina a ignorar vermelho (a lição da v5.204). O que
+> ela afirma vale nos dois ambientes: **nenhum botão pode estar na tela
+> oferecendo uma coisa que já está feita.** O caminho de VOLTA é travado logo
+> abaixo — sem ele, apagar o botão de canto passaria no teste de cima e tiraria a
+> única saída de quem esbarra na tecla errada do controle remoto; e quando o
+> ambiente não concede tela cheia, o caso não é exercitado e isso é **dito**, não
+> silenciado (a lição da v5.213).
+>
+> A régua que fica, e ela é mais larga que este arquivo: **estado que uma API
+> assíncrona vai escrever não pode ser lido no mesmo turno em que ela é
+> chamada** — e um par mostrar/esconder com prazos só é honesto se cancelar
+> todos os seus.
 
 > **A v5.213: OS ORÁCULOS DE CHROMIUM VIRAM DOIS PASSOS — o painel verde
 > escondia um teste caindo. OTA PURO** (o único arquivo tocado fora da base é o

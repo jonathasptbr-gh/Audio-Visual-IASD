@@ -243,6 +243,56 @@ await ate(() => pg.$eval('#telaEntrada', (e) => e.style.display === 'none').catc
 checar(await pg.$eval('#telaEntrada', (e) => e.style.display === 'none'),
   'e o overlay some');
 
+// ---------------------------------------------------------------------------
+// 1-bis. UM TOQUE, E SÓ UM — a ativação é unificada (v5.214)
+//
+// O botão de entrada gasta o gesto em TUDO de uma vez: pareamento, som e tela
+// cheia. O que este bloco trava é o desfecho que o operador relatou — a tela
+// ativava por inteiro e um SEGUNDO botão nascia por cima dela oferecendo
+// justamente o que aquele mesmo toque acabara de fazer.
+//
+// A causa era `oferecerGesto()` rodando no clique que gasta o gesto:
+// `requestFullscreen()` é assíncrono, o clique borbulha até o `document` antes
+// de a tela cheia existir, e a pergunta "o que falta?" era respondida contra o
+// passado. O botão então ficava PRESO, porque `esconderCanto` não cancelava o
+// quadro de opacidade agendado por `mostrarCanto`: a saída relia `opacity` e
+// encontrava o `'1'` que o prazo órfão repusera.
+//
+// A ASSERÇÃO NÃO DEPENDE DE O NAVEGADOR CONCEDER TELA CHEIA, de propósito — um
+// oráculo que exigisse a concessão viraria vermelho num runner que a negue, e
+// vermelho ambiental é o que ensina a ignorar vermelho (a lição da v5.204). O
+// que ela afirma é a regra, verdadeira nos dois ambientes: **nenhum botão pode
+// estar na tela oferecendo uma coisa que já está feita.**
+// ---------------------------------------------------------------------------
+const estadoDoGesto = () => pg.evaluate(() => {
+  const c = document.getElementById('telaCanto');
+  const cs = c && getComputedStyle(c);
+  return {
+    cheia: !!(document.fullscreenElement || document.webkitFullscreenElement),
+    canto: !c || cs.display === 'none' || cs.opacity === '0' ? '' : (c.textContent || ''),
+  };
+});
+// O gesto assenta com o pedido de tela cheia; 1,5 s é o prazo do `tela.js`.
+await ate(async () => { const g = await estadoDoGesto(); return g.cheia || g.canto; }, 2500);
+const gesto = await estadoDoGesto();
+checar(!(gesto.cheia && gesto.canto),
+  'o toque que ativa a tela NÃO deixa um segundo botão pedindo o que ele já fez',
+  'tela cheia=' + gesto.cheia + ' canto="' + gesto.canto + '"');
+
+// E o caminho de VOLTA continua de pé — sem ele, apagar o botão de canto
+// "passaria" no teste acima e tiraria a única saída de quem esbarra na tecla
+// errada do controle remoto. Só é exercitável onde a tela cheia foi concedida,
+// e o contrário é DITO em vez de passar em silêncio (a lição da v5.213).
+if (gesto.cheia) {
+  await pg.evaluate(() => document.exitFullscreen());
+  await ate(async () => (await estadoDoGesto()).canto, 2000);
+  checar(/tela cheia/i.test((await estadoDoGesto()).canto),
+    'e sair da tela cheia OFERECE a volta na hora',
+    (await estadoDoGesto()).canto);
+} else {
+  console.log('----    o botão de volta não foi exercitado: este navegador não concedeu tela cheia');
+}
+
 // O token nunca em URL — a regra de sempre, no transporte novo.
 checar(!visto.pares.some((c) => JSON.stringify(c).includes(TOKEN)),
   'o token não aparece em nenhum corpo de /par');

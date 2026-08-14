@@ -322,9 +322,9 @@ try {
   checar(teto >= 1 && teto <= 3,
     'há um teto de resgates — sem ele a intenção volta a cada abertura pelas 6 h inteiras');
 
-  // ---- A MESA DE SOM NÃO VOLTA COMO MODO (v5.189, reafirmado na v5.214) ----
+  // ---- A MESA DE SOM NÃO VOLTA COMO MODO (v5.189, reafirmado na v5.215) ----
   //
-  // O som deste aparelho voltou a existir na v5.214 — mas como CONSEQUÊNCIA da
+  // O som deste aparelho voltou a existir na v5.215 — mas como CONSEQUÊNCIA da
   // conexão (sem tela nenhuma, a preview toca; ver `acertarSaidaDeAudio`), e
   // nunca como um interruptor. O que este caso trava é justamente a diferença:
   // um botão de som sobre a preview, ou um `standalone` guardado, é o caminho

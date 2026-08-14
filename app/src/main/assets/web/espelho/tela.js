@@ -665,22 +665,75 @@
     return 'O celular recusou esta tela. O operador pode tê-la desconectado.';
   }
 
+  // --------------------------------------------------------------------------
+  // O GESTO É UM SÓ — E "O QUE FALTA?" NÃO PODE SER PERGUNTADO DENTRO DELE
+  // (v5.214).
+  //
+  // `requestFullscreen()` é ASSÍNCRONO: devolve uma Promise, e o
+  // `document.fullscreenElement` só passa a valer alguns milissegundos depois.
+  // O clique que gasta o gesto, porém, BORBULHA até o `document` no MESMO
+  // instante — e era ali que `oferecerGesto()` perguntava o que faltava. Medido
+  // em Chromium: o ouvinte do documento roda com `fullscreenElement=false` e o
+  // `fullscreenchange` chega 9 ms depois. A resposta era portanto sempre a
+  // mesma e sempre falsa — "falta tela cheia", medida antes de existir a tela
+  // cheia que aquele mesmo clique acabara de pedir.
+  //
+  // O desfecho é o que o operador relatou: ele toca em "Ativar esta tela", a
+  // tela ativa POR INTEIRO (pareia, solta o som e entra em tela cheia) e um
+  // segundo botão nasce por cima dela oferecendo justamente o que ele acabou de
+  // fazer — a ativação unificada parecendo exigir uma segunda interação.
+  //
+  // Daí `assentando`: entre o gesto e o desfecho dele não se pergunta nada.
+  // Quem responde é o PRÓPRIO pedido de tela cheia — a Promise resolve quando
+  // ela entrou e rejeita quando o navegador recusou —, que é a única fonte que
+  // sabe a verdade. O prazo é a rede de segurança do `webkitRequestFullscreen`
+  // antigo, que não devolve Promise nenhuma e cujo evento de mudança tem outro
+  // nome, que esta casca não escuta.
+  // --------------------------------------------------------------------------
+  var assentando = false;
+  var assentaTimer = null;
+  var ASSENTA_MS = 1500;
+
   function gastarGesto() {
     gestoGasto = true;
+    assentando = true;
+    if (assentaTimer) clearTimeout(assentaTimer);
+    assentaTimer = setTimeout(assentar, ASSENTA_MS);
     // Tela cheia: no documento inteiro — o display É a página.
-    telaCheia();
+    var p = telaCheia();
     // Som: o display nasce com forceMuted no papel tela; o gancho o solta.
     // O som continua OPT-IN por tela (invariante 10) — este É o opt-in.
     try { if (global.__telaSom) global.__telaSom(true); } catch (e) { /* mudo */ }
     vigilia();
+    // Os DOIS desfechos assentam: entrou (nada falta) ou foi recusada (aí sim
+    // o botão de canto tem o que oferecer, e agora é verdade).
+    if (p && p.then) p.then(assentar, assentar);
   }
 
+  /** O gesto assentou: a partir daqui "o que falta?" tem resposta verdadeira. */
+  function assentar() {
+    if (assentaTimer) { clearTimeout(assentaTimer); assentaTimer = null; }
+    if (!assentando) return;
+    assentando = false;
+    oferecerGesto();
+  }
+
+  /** Devolve a Promise do pedido quando o navegador a oferece (senão, `null`). */
   function telaCheia() {
     try {
       var raiz = doc.documentElement;
       var f = raiz.requestFullscreen || raiz.webkitRequestFullscreen;
-      if (f) { var p = f.call(raiz); if (p && p.catch) p.catch(function () {}); }
+      if (f) {
+        var p = f.call(raiz);
+        // A recusa é tratada por quem chamou (`gastarGesto` assenta nos dois
+        // desfechos); este `catch` só garante que ela não vire uma rejeição sem
+        // dono quando ninguém encadeou nada — o caso do duplo-toque já em tela
+        // cheia.
+        if (p && p.catch) p.catch(function () {});
+        return p || null;
+      }
     } catch (e) { /* alguns navegadores recusam: a tela funciona em janela */ }
+    return null;
   }
 
   function emTelaCheia() {
@@ -698,7 +751,28 @@
   // qualquer lugar da página faz a mesma coisa, que é o gesto que todo mundo
   // já tenta primeiro num vídeo.
   // --------------------------------------------------------------------------
-  var cantoTimer = null;
+  // OS TRÊS PRAZOS SÃO NOMEADOS, e isso não é arrumação (v5.214).
+  //
+  // O par mostrar/esconder não era idempotente, e o preço era o botão ficar na
+  // tela PARA SEMPRE. `mostrarCanto` agendava a opacidade num quadro adiante
+  // (+16 ms) e o recolhimento automático em 5 s; `esconderCanto`, chamado no
+  // meio disso, matava o de 5 s, escrevia `opacity: 0` e agendava a saída para
+  // +260 ms — e então o quadro de +16 ms, que ninguém tinha cancelado, repunha
+  // `opacity: 1`. A saída conferia `opacity === '0'`, encontrava `'1'` e
+  // desistia de esconder. Resultado: opaco, sem nenhum prazo vivo para
+  // recolhê-lo, exatamente por cima da projeção.
+  //
+  // Com os três prazos cancelados em bloco, o último a ser chamado é o que
+  // vale — que é a única regra que um par assim pode ter —, e a saída deixa de
+  // precisar reler o estilo para adivinhar se ainda vale.
+  var cantoTimer = null;   // o recolher sozinho, 5 s
+  var cantoFade = null;    // o quadro de espera da transição de opacidade
+  var cantoSaida = null;   // o `display:none` no fim do esmaecimento
+  function limparPrazosDoCanto() {
+    if (cantoTimer) { clearTimeout(cantoTimer); cantoTimer = null; }
+    if (cantoFade) { clearTimeout(cantoFade); cantoFade = null; }
+    if (cantoSaida) { clearTimeout(cantoSaida); cantoSaida = null; }
+  }
   function mostrarCanto(rotulo) {
     if (!el.canto) {
       var b = doc.createElement('button');
@@ -715,18 +789,24 @@
       doc.body.appendChild(b);
       el.canto = b;
     }
+    limparPrazosDoCanto();
     el.canto.textContent = rotulo;
     el.canto.style.display = '';
     // Um quadro depois, para a transição de opacidade acontecer.
-    setTimeout(function () { if (el.canto) el.canto.style.opacity = '1'; }, 16);
-    if (cantoTimer) clearTimeout(cantoTimer);
+    cantoFade = setTimeout(function () {
+      cantoFade = null;
+      if (el.canto) el.canto.style.opacity = '1';
+    }, 16);
     cantoTimer = setTimeout(esconderCanto, 5000);
   }
   function esconderCanto() {
-    if (cantoTimer) { clearTimeout(cantoTimer); cantoTimer = null; }
+    limparPrazosDoCanto();
     if (!el.canto) return;
     el.canto.style.opacity = '0';
-    setTimeout(function () { if (el.canto && el.canto.style.opacity === '0') el.canto.style.display = 'none'; }, 260);
+    cantoSaida = setTimeout(function () {
+      cantoSaida = null;
+      if (el.canto) el.canto.style.display = 'none';
+    }, 260);
   }
   /** O que falta nesta tela, como frase de botão — ou '' quando nada falta. */
   function oQueFalta() {
@@ -737,6 +817,9 @@
     return '';
   }
   function oferecerGesto() {
+    // Dentro do gesto não se pergunta: a tela cheia pedida agora ainda não
+    // existe, e a resposta seria o passado (ver `assentando`, acima).
+    if (assentando) return;
     var falta = oQueFalta();
     if (falta) mostrarCanto(falta);
   }

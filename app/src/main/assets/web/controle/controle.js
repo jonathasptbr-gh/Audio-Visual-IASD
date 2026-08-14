@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.214';
+const WEB_VERSION = '5.215';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -1255,7 +1255,7 @@ const scrollPos = {};      // posição de scroll por aba/pasta (sessão)
 // ao display e ainda comanda a barra de progresso/avanço.
 //
 // Ela NASCE muda (`forceMuted`), e continua muda enquanto houver uma tela
-// recebendo a projeção — mas deixou de ser muda POR CONSTRUÇÃO na v5.214: sem
+// recebendo a projeção — mas deixou de ser muda POR CONSTRUÇÃO na v5.215: sem
 // tela nenhuma conectada, é ela que toca o som deste aparelho. Ver
 // `acertarSaidaDeAudio`, que é o único ponto que mexe nisso.
 const preview = createStage({
@@ -1440,7 +1440,7 @@ const DISPLAY_TIMEOUT = 2500; // sem status da projeção por mais que isso → 
 //
 // 1,6 s foi escolhido quando o resync existia para não estalar o áudio da
 // preview. Só que **a preview que se realinha não tem som**, e isso continua
-// verdadeiro depois da v5.214: o realinhamento só roda com `displayActive()`,
+// verdadeiro depois da v5.215: o realinhamento só roda com `displayActive()`,
 // isto é, com uma projeção reportando status — e é exatamente essa a condição
 // que cala este aparelho (ver `acertarSaidaDeAudio`). As duas são mutuamente
 // exclusivas por construção; a única janela em que elas se tocam são os
@@ -1592,7 +1592,7 @@ function telaoConectado() {
   return lastDisplays.length > 0;
 }
 
-// ===== A SAÍDA DE ÁUDIO: os displays, ou ESTE APARELHO (v5.214) =====
+// ===== A SAÍDA DE ÁUDIO: os displays, ou ESTE APARELHO (v5.215) =====
 //
 // **Sem tela nenhuma conectada, quem toca o som é a preview** — isto é, o
 // próprio celular. Pedido do operador, e ele fecha um buraco que a v5.189
@@ -1682,7 +1682,7 @@ function renderLyricsBgSeg() {
 // Envia o comando ao display E aplica na preview (espelho) — YouTube usa seu
 // próprio player pequeno (acima); mídia comum continua no stage.js. O mudo da
 // preview NÃO se decide aqui: ela é muda enquanto houver tela conectada e toca
-// o som deste aparelho quando não houver (v5.214, `acertarSaidaDeAudio`) — o
+// o som deste aparelho quando não houver (v5.215, `acertarSaidaDeAudio`) — o
 // que viaja neste funil é o mesmo comando para os dois lados, como sempre.
 // A PREVIEW ATRASA JUNTO COM AS TELAS DA REDE, e o ponto de corte é aqui.
 //
@@ -11416,7 +11416,7 @@ function closeFadePopup() {
 let diagLinhas = [];
 
 // O CONTROLE TEM O PRÓPRIO ANEL, e ele é o que importa quando o som sai DESTE
-// APARELHO (v5.214, `acertarSaidaDeAudio`): ali quem toca é o `<video>` desta
+// APARELHO (v5.215, `acertarSaidaDeAudio`): ali quem toca é o `<video>` desta
 // página, não o do telão — o registro do Display não veria nada. Foi exatamente
 // essa distinção que faltou nas tentativas anteriores.
 const DIAG_MAX_C = 40;
@@ -11458,7 +11458,7 @@ function cabecalhoDiag() {
   // emudece no dia em que alguém o esconde, e emudece em silêncio.
   l.push('Telão: ' + descreverTelao());
   if (castAlvo) l.push('Espelhar abre: ' + castAlvo);
-  // ONDE O SOM ESTÁ SAINDO (v5.214). "Não sai som" tem causas que a tela não
+  // ONDE O SOM ESTÁ SAINDO (v5.215). "Não sai som" tem causas que a tela não
   // separa — mudo, fader em zero, tela conectada sem volume, ou este aparelho
   // calado por haver tela —, e quem lê este bloco está a distância. Ele diz o
   // que o app DECIDIU, não o que o alto-falante fez.
