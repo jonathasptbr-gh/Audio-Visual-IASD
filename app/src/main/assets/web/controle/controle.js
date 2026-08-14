@@ -109,18 +109,24 @@ function storedTema() {
   catch (_) { return 'escuro'; }
 }
 let tema = storedTema();
-// A cor da barra de endereço do NAVEGADOR (no app nativo quem pinta atrás das
-// barras é o próprio body, com o mesmo token). O valor não pode ser lido do
-// `getComputedStyle` aqui: `<meta>` é o único consumidor e o token só existe
-// depois de a folha aplicar — ler antes do primeiro quadro devolveria vazio.
-// São dois valores, e eles ESPELHAM `--bg` dos dois temas em tokens.css: se um
-// mudar lá, muda aqui junto (é a mesma dívida do `res/values/colors.xml`, e
-// pela mesma razão — nada no build detecta a divergência).
-const TEMA_BARRA = { escuro: '#0e1215', claro: '#dfe3e7' };
 const temaMetaEl = document.getElementById('temaMeta');
 function pintarTema() {
-  document.documentElement.dataset.tema = tema;
-  if (temaMetaEl) temaMetaEl.setAttribute('content', TEMA_BARRA[tema]);
+  const raiz = document.documentElement;
+  raiz.dataset.tema = tema;
+  // A cor da barra de endereço do NAVEGADOR — no app nativo quem pinta atrás
+  // das barras é o próprio body, com este mesmo token. Ela é LIDA do `--bg` já
+  // resolvido, e não de uma tabela de dois hexadecimais aqui: a folha entra no
+  // `<head>` e este script no fim do `<body>`, então o estilo já está aplicado
+  // quando esta linha roda — e o atributo acabou de ser escrito, então o valor
+  // que volta é o do tema certo. Copiar os dois valores para cá seria um
+  // TERCEIRO lugar para a cor de fundo divergir (o segundo é o
+  // `res/values/colors.xml`, que não tem escapatória: recurso de Android não
+  // enxerga custom property). O literal do HTML cobre só o instante anterior a
+  // este script, e ele é o do tema escuro, que é o padrão.
+  if (temaMetaEl) {
+    const bg = getComputedStyle(raiz).getPropertyValue('--bg').trim();
+    if (bg) temaMetaEl.setAttribute('content', bg);
+  }
   // O shell: ícones das barras de sistema e o windowBackground do próximo
   // lançamento. No navegador `AVNative` não existe e a linha é pulada.
   try { window.AVNative?.temaClaro(tema === 'claro'); } catch (_) { /* shell antigo */ }
