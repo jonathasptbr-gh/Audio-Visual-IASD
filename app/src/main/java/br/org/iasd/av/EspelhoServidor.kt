@@ -1826,11 +1826,38 @@ class EspelhoServidor(
         private const val TETO_MIDIA_PARADA_MS = 30_000L
 
         /**
-         * Silêncio do cliente que vale desconexão. O `cliente.js` relata a cada
-         * 10 s (`ALIVE_MS`) e a cada troca de estado; seis batidas perdidas é uma
-         * tela que foi embora, e não uma tela lenta.
+         * Silêncio do cliente que vale desconexão.
+         *
+         * ERAM 60 s, E ELES EXECUTAVAM TELAS VIVAS (v5.208). O raciocínio
+         * original — "o cliente relata a cada 10 s, seis batidas perdidas é uma
+         * tela que foi embora" — supõe que o `setInterval` do outro lado bate a
+         * cada 10 s. **Um navegador de TV com a aba em segundo plano estrangula
+         * timer para ~1 por minuto**, e alguns o suspendem enquanto a tela
+         * dorme: as seis batidas viram UMA, que chega exatamente na fronteira.
+         *
+         * O Registro do operador mostrou o desfecho em três linhas: uma tela
+         * conectada às 16:30:56 e derrubada às 16:31:56 — **60 s cravados** — e
+         * o MESMO navegador reentrando como tela A, B, C, D ao longo do culto.
+         * Enquanto ele reentra, o comando não chega: é o "deixa de controlar".
+         *
+         * As duas metades da correção:
+         *
+         *  1. O cliente passou a mandar o sinal de vida PELO FIO (v5.208 —
+         *     `tela.js`): byte que chega não é timer, e o ping daqui é de 15 s.
+         *     Isso conserta a causa.
+         *  2. Este teto sobe para 150 s, que é a margem que faltava. Ele existe
+         *     para distinguir "foi embora" de "está lenta", e 60 s não
+         *     distinguia: um cliente com timer estrangulado a 60 s é uma tela
+         *     PERFEITAMENTE VIVA que o vigia matava por chegar meio segundo
+         *     atrasada. Com 150 s cabem dez pings, e uma tela que de fato foi
+         *     embora ainda sai em menos de três minutos — bem dentro do que o
+         *     operador percebe como "aquela tela caiu".
+         *
+         * As duas são precisas: sem (1) o cliente segue dependendo de um timer
+         * que o navegador não garante; sem (2) qualquer engasgo de rede na
+         * fronteira volta a derrubar sessão viva.
          */
-        private const val TETO_SEM_RELATO_MS = 60_000L
+        private const val TETO_SEM_RELATO_MS = 150_000L
 
         /**
          * Quanto tempo uma suspeita de queda de rede precisa sobreviver antes de

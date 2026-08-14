@@ -209,7 +209,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.208';
+const WEB_VERSION = '5.209';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -16449,7 +16449,20 @@ function telaEnriquecer(cmd) {
 // um comando que chega com `__wp`), então N conexões custam UM empurrão — a
 // regra "mesmo id + mesmo token = já tenho" do shell responde as demais.
 function telaReenviarPreferencias(para) {
-  if (!telaAtiva()) return;
+  // A GUARDA NÃO PODE SER `telaAtiva()` (v5.208).
+  //
+  // `telaAtiva()` pergunta a um CACHE COM ENQUETE (`mirrorEstado`, relido de
+  // 2,5 em 2,5 s só quando a folha de conexão está à vista) se a transmissão
+  // está ligada. Mas quem chega aqui é um `display-ready` que veio PELO SSE de
+  // uma tela da rede: se ele chegou, o servidor está no ar e a tela está
+  // conectada — a pergunta já está respondida pelo próprio fato de a mensagem
+  // existir. Consultar o cache só pode produzir FALSO NEGATIVO, e o preço dele
+  // é a tela ficar para sempre sem wallpaper, sem fundo de letra e sem
+  // preenchimento, sem nada que o explique.
+  //
+  // O que fica é a única condição de que este corpo depende de verdade: o
+  // canal de mídia, porque é ele que empurra os bytes do wallpaper.
+  if (!telaCanal()) return;
   const mandar = (c) => { if (para) c.__para = para; AVDB.sendCommand(c); };
   // Só o que DIVERGE do padrão viaja: a tela recém-carregada já está no
   // padrão, e mandar o default de volta seria ruído no caminho da conexão.

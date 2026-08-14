@@ -246,6 +246,20 @@
       }
       if (r.done) return 'fim do fluxo';
       ultimoByteMs = Date.now();
+      // O SINAL DE VIDA PEGA CARONA NO FIO (v5.208), e e esta a correcao.
+      //
+      // O `alive` morava so num `setInterval` de 10 s -- e um navegador de TV
+      // ESTRANGULA timer de aba em segundo plano para ~1 por minuto (ou o
+      // suspende enquanto a tela dorme). Com o teto do servidor em exatamente
+      // 60 s, seis batidas viravam uma, e a sessao era executada na fronteira:
+      // o Registro do operador mostrou uma tela morrendo em 60 s CRAVADOS, e o
+      // mesmo navegador reentrando como tela A, B, C, D...
+      //
+      // Byte que CHEGA nao e timer: este `read()` resolve porque o servidor
+      // escreveu, e o ping dele e de 15 s. Reportar daqui torna o sinal de vida
+      // dirigido por EVENTO -- imune ao estrangulamento que matava a sessao. O
+      // timer fica como piso, para o fio em silencio legitimo.
+      if (Date.now() - ultimoAliveMs >= ALIVE_MS) enviarAlive();
       buf += dec.decode(r.value, { stream: true });
       var corte;
       while ((corte = buf.indexOf('\n\n')) >= 0) {
@@ -365,14 +379,27 @@
       if (abortar) try { abortar.abort(); } catch (e) { /* já caiu */ }
     }
   }, 1000);
-  setInterval(function () {
+  // O SINAL DE VIDA, num lugar so. Ele tem DOIS acionadores de proposito:
+  // o fio (byte que chega -- ver o laco de leitura) e este timer, que e o
+  // piso para quando o servidor esta em silencio legitimo. `ultimoAliveMs`
+  // e o que impede os dois de dobrarem o trafego.
+  var ultimoAliveMs = 0;
+  function enviarAlive() {
     if (!token || !conectada) return;
+    ultimoAliveMs = Date.now();
     postar({
       do: 'alive',
       telaAcesaMin: Math.floor((Date.now() - abertaEm) / 60000),
       aviso: semAcento('[tela de comandos] ' + (prontoUltimo ? 'pronta' : 'esperando o display')),
     });
-  }, ALIVE_MS);
+  }
+  setInterval(enviarAlive, ALIVE_MS);
+  // E A VOLTA DA ABA e um sinal de vida na hora: um navegador que estrangulou
+  // os timers volta a atender aqui primeiro, e este e o instante em que o
+  // servidor mais precisa saber que a tela nunca foi embora.
+  doc.addEventListener('visibilitychange', function () {
+    if (!doc.hidden) enviarAlive();
+  });
 
   async function postar(corpo) {
     if (!token) return;
@@ -723,9 +750,41 @@
   // aparelho.
   // --------------------------------------------------------------------------
   var vigiliaLigada = false;
+  var travaTela = null;
+  // A TRAVA DE VERDADE, quando ela existe (v5.208). `navigator.wakeLock` é
+  // [SecureContext] e NÃO existe no http em que esta tela costuma rodar — mas
+  // existe quando o operador configurou o certificado, e existe em `localhost`.
+  // Onde ela existe, ela é o mecanismo correto; o `<video>` de 2x2 abaixo
+  // continua como o piso para o caso normal.
+  //
+  // A guarda é `isSecureContext`, e ela é obrigatória: `tools/contexto-seguro.
+  // test.mjs` reprova qualquer uso de `wakeLock` fora dela, justamente porque
+  // aqui o padrão é http e um `undefined` viraria exceção no meio do culto.
+  async function travar() {
+    // A GUARDA COMO BLOCO, e não como retorno antecipado: é a forma que a
+    // doutrina do projeto prescreve (`if (isSecureContext && 'X' in Y) { melhor }`)
+    // e a que `tools/contexto-seguro.test.mjs` sabe ler — ele conta chaves, e um
+    // `if (...) return;` deixaria a chamada fora de qualquer bloco guardado.
+    // O oráculo reprovou a primeira versão disto, que é exatamente o trabalho
+    // dele: no http em que esta tela roda, `wakeLock` vem `undefined`.
+    if (global.isSecureContext && global.navigator && global.navigator.wakeLock) {
+      try {
+        travaTela = await global.navigator.wakeLock.request('screen');
+      } catch (e) {
+        travaTela = null;   // negada (bateria fraca, política do aparelho): fica o piso
+      }
+    }
+  }
   function vigilia() {
     if (vigiliaLigada) return;
     vigiliaLigada = true;
+    travar();
+    // A TRAVA MORRE QUANDO A ABA SAI DE FOCO, por contrato da API — e voltar
+    // sem re-pedir deixaria a tela apagando no meio do sermão depois do
+    // primeiro piscar. Este é o mesmo evento que reenvia o sinal de vida.
+    doc.addEventListener('visibilitychange', function () {
+      if (!doc.hidden && !travaTela) travar();
+    });
     try {
       var c = doc.createElement('canvas');
       c.width = 2; c.height = 2;
