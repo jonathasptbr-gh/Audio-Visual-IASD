@@ -2397,10 +2397,43 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.219** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
+**Versão atual: v5.220** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.220: A LINHA DO ÁLBUM NÃO CHEGAVA À BIBLIOTECA QUE JÁ EXISTE — os
+> dois pontos de escrita estavam certos e os dois erravam o alvo. OTA PURO**
+> (nenhuma linha de Kotlin; sem Release).
+>
+> Relato do operador: tocando um hino do hinário, a capa não mostra "Hinário
+> Adventista 2022" — nem o nome de coleção nenhuma.
+>
+> **O dado nunca chegaria sozinho.** A v5.219 escreve `hymnAlbum` em dois
+> lugares: no download de uma música nova e na varredura da sincronização. Os
+> dois são o lugar certo para uma biblioteca que está sendo MONTADA — e nenhum
+> deles alcança a que já está pronta: a música do operador já está baixada, e
+> uma coleção completa não é re-sincronizada (é justamente o que o "Completo
+> offline" existe para dizer). O campo ficava vazio para sempre, e a capa caía
+> no caso degenerado, que é o título centralizado.
+>
+> A correção é a passagem que faltava (`preencherAlbunsDosHinos`), no mesmo
+> molde do `desnumerarAlbunsBaixados` que já morava ao lado: uma vez, marcada em
+> estado, depois de `loadCollections()` — é de lá que sai o nome. **A ligação já
+> existia e não estava sendo lida**: o `folder` de todo registro baixado de uma
+> coleção É o id dela. Ela CORRIGE além de preencher (compara com o nome atual
+> em vez de olhar só se está vazio), porque uma coleção renomeada na origem
+> deixaria capas dizendo o nome velho pelo mesmo preço.
+>
+> O oráculo entrou no `acervo.test.mjs`, que é onde as contas da biblioteca já
+> moram, e ele mede **o registro** — que é o que o Display vai ler —, não o
+> retorno da função: a música já baixada ganha o nome, um nome velho é
+> substituído, e um arquivo de pasta do aparelho (que não é coleção nenhuma)
+> fica intocado.
+>
+> A régua que fica: **escrever um campo novo nos caminhos de ESCRITA não o
+> entrega a quem já tem os dados** — um lote que acrescenta campo a registro
+> precisa dizer, explicitamente, como ele chega ao acervo existente.
 
 > **A v5.219: O TÍTULO DO LOUVOR ERA AZUL-ESCURO SOBRE O PRETO — o palco lia
 > tokens de TEMA. E o slide de capa virou um CARTÃO. OTA PURO** (nenhuma linha

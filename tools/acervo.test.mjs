@@ -139,6 +139,42 @@ try {
 
   const semPasta = await pg.evaluate(() => AVDB.opfsFolderSize('folders/naoExiste'));
   checar(semPasta === 0, 'pasta inexistente: 0, sem estourar', semPasta);
+
+  // ---- O ÁLBUM DA CAPA CHEGA À BIBLIOTECA QUE JÁ EXISTE (v5.220) ----------
+  //
+  // A v5.219 escrevia `hymnAlbum` no download e na varredura da sincronização —
+  // os dois pontos certos, e os dois inúteis para o caso real: a música do
+  // operador já está baixada, e coleção completa não é re-sincronizada. O
+  // relato foi esse: tocar um hino do hinário e a capa não dizer de onde ele é.
+  //
+  // O que este caso trava é a PASSAGEM de preenchimento, e ele mede o que o
+  // Display vai ler — o registro —, não o que a função devolve. Inclui a
+  // CORREÇÃO (um nome velho é substituído) e o limite (registro de pasta do
+  // aparelho, que não é coleção nenhuma, fica intocado).
+  const albuns = await pg.evaluate(async () => {
+    await AVDB.setState('migAlbumDaCapa', 0);
+    await AVDB.fileAdd({ id: 'capa-1', folder: 'hymnal-2022', name: '147. Ó Adorai (Cantado)',
+      hymnName: 'Ó Adorai o Senhor', hymnTrack: 147, kind: 'audio' });
+    await AVDB.fileAdd({ id: 'capa-2', folder: 'hymnal-2022', name: 'outro',
+      hymnAlbum: 'Nome Antigo do Hinário', kind: 'audio' });
+    await AVDB.fileAdd({ id: 'capa-3', folder: 'pastaDoAparelho', name: 'video.mp4', kind: 'video' });
+    await preencherAlbunsDosHinos();
+    const ler = async (id) => (await AVDB.fileGet(id)) || {};
+    return {
+      preencheu: (await ler('capa-1')).hymnAlbum,
+      corrigiu: (await ler('capa-2')).hymnAlbum,
+      naoInventou: (await ler('capa-3')).hymnAlbum,
+      marcou: await AVDB.getState('migAlbumDaCapa'),
+    };
+  });
+  checar(albuns.preencheu === 'Hinário Adventista 2022',
+    'a música JÁ BAIXADA ganha o nome da coleção — é o `folder` do registro que responde',
+    String(albuns.preencheu));
+  checar(albuns.corrigiu === 'Hinário Adventista 2022',
+    'e um nome velho é CORRIGIDO, não só preenchido', String(albuns.corrigiu));
+  checar(albuns.naoInventou === undefined,
+    'um arquivo de pasta do aparelho não ganha álbum nenhum', String(albuns.naoInventou));
+  checar(!!albuns.marcou, 'a passagem se marca como feita — ela não roda a cada abertura');
 } catch (e) {
   checar(false, 'o percurso terminou sem exceção (' + (e && e.message) + ')');
 }

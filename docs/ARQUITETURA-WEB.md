@@ -5740,8 +5740,14 @@ ganha campos extras, sem exigir bump de `DB_VERSION` (o `files`/`media` do
   consulta na hora de projetar, porque quem projeta é o Display: ele só recebe
   o registro do arquivo e não tem acesso a coleção nenhuma. Registro antigo é
   preenchido na varredura que a sincronização já faz (uma escrita por registro,
-  em `ensureSongVariant`) — sem isso a linha do álbum só apareceria em música
-  baixada depois da v5.219, isto é, nunca na biblioteca que o operador já tem.
+  em `ensureSongVariant`) — e, para a biblioteca que JÁ ESTÁ PRONTA, por uma
+  passagem única no lançamento (`preencherAlbunsDosHinos`, v5.220, no molde do
+  `desnumerarAlbunsBaixados`): os dois pontos de escrita cobrem uma biblioteca
+  sendo MONTADA, e nenhum deles alcança a que já existe — música baixada não é
+  baixada de novo, e coleção completa não é re-sincronizada. A ligação que a
+  passagem lê já existia: o `folder` de todo registro baixado de uma coleção é
+  o id dela. Ela corrige além de preencher, para uma coleção renomeada na
+  origem não deixar capas com o nome velho.
   **Não há campo de AUTOR na fonte**: o LouvorJA publica nome, faixa e álbuns
   (ver `docs/FONTE-DE-DADOS-LOUVORJA.md` §5.1), e uma linha inventada na frente
   da congregação é pior que uma linha a menos.

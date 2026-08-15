@@ -209,7 +209,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.219';
+const WEB_VERSION = '5.220';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -5840,6 +5840,41 @@ async function desnumerarAlbunsBaixados() {
   } catch (_) {
     // Sem a marca, a próxima abertura tenta de novo — é uma limpeza cosmética
     // e nada depende dela para o app funcionar.
+  }
+}
+
+// O ÁLBUM DA CAPA, PARA A BIBLIOTECA QUE JÁ EXISTE (v5.220).
+//
+// A v5.219 pôs o nome da coleção no registro em dois pontos — no download e na
+// varredura da sincronização — e os dois estão certos e os dois erram o alvo: a
+// música do operador **já está baixada**, e uma coleção completa não é
+// re-sincronizada. O relato foi exatamente esse: tocar um hino do hinário e a
+// capa não mostrar "Hinário Adventista 2022". O dado nunca chegaria sozinho.
+//
+// Este é o preenchimento que faltava, no mesmo molde do `desnumerarAlbunsBaixados`
+// logo acima: uma passagem, marcada em estado, depois de `loadCollections()` (é
+// dele que sai o nome). O `folder` do registro é o id da coleção — a ligação já
+// existia, só não estava sendo lida.
+//
+// Ele CORRIGE além de preencher (compara com o nome atual em vez de só olhar se
+// está vazio): uma coleção renomeada na origem deixaria capas dizendo o nome
+// velho, e o custo de conferir é o mesmo.
+const MIG_ALBUM_CAPA = 'migAlbumDaCapa';
+async function preencherAlbunsDosHinos() {
+  if (await AVDB.getState(MIG_ALBUM_CAPA)) return;
+  try {
+    const nomes = new Map(allCollections().map((c) => [c.id, c.name]));
+    const arquivos = await AVDB.filesAll();
+    for (const rec of arquivos) {
+      const nome = nomes.get(rec.folder);
+      if (!nome || rec.hymnAlbum === nome) continue;
+      rec.hymnAlbum = nome;
+      await AVDB.fileAdd(rec);
+    }
+    await AVDB.setState(MIG_ALBUM_CAPA, 1);
+  } catch (_) {
+    // Mesma regra da passagem acima: sem a marca, a próxima abertura tenta de
+    // novo. A capa sem a linha do álbum é a capa da v5.218 — não quebra nada.
   }
 }
 
@@ -16029,6 +16064,7 @@ document.addEventListener('visibilitychange', () => {
 (async function init() {
   await loadCollections();
   await desnumerarAlbunsBaixados();
+  await preencherAlbunsDosHinos();
   // ANTES do load(): é ele que lê `current` e monta a tela a partir dela.
   await clearCurrentSelection();
   await load();
