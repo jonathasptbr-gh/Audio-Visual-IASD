@@ -2201,11 +2201,22 @@ O essencial para não quebrar nada aqui:
 - **Nunca escrever branco literal.** Nenhum `#fff` sobrou como valor de cor em
   `controle.css`/`display.css`: o branco pleno era a maior fonte isolada de luz
   emitida do app, e o off-white da paleta (`--text`) é o que se usa. As únicas
-  exceções são **o palco**: `--stage-text: #fff`, porque num telão a
-  legibilidade vem de luminância máxima, não de um off-white calibrado para uma
-  tela a 30 cm do rosto. No tema CLARO o `--panel` é branco pleno, e ali a regra
-  não se aplica pelo motivo dela: uma página clara é a escolha explícita de quem
-  não está no escuro.
+  exceções são DUAS, e as duas são declaradas em `tokens.css`. **O palco**
+  (`--stage-text: #fff`), porque num telão a legibilidade vem de luminância
+  máxima, não de um off-white calibrado para uma tela a 30 cm do rosto. E **o
+  campo de busca da Biblioteca** (`--field-bg`, v5.267, pedido do operador):
+  ali o argumento da regra continua de pé e o preço está dito — num salão
+  escuro aquele é o retângulo mais luminoso da tela —, mas ele é pequeno, só
+  existe com a Biblioteca aberta, e é uma escolha explícita de quem opera. No
+  tema CLARO o `--panel` é branco pleno, e ali a regra não se aplica pelo motivo
+  dela: uma página clara é a escolha explícita de quem não está no escuro.
+
+  **E uma superfície sem tema arrasta o que vive DENTRO dela** — é a regra do
+  palco (v5.219) num lugar novo. `--field-bg` vem com `--field-text` e
+  `--field-muted`, no bloco compartilhado: o texto, o placeholder e a lupa moram
+  dentro do campo, e no tema escuro `--text` sobre branco dá **1,17:1**. Trocar
+  só o fundo apaga o que se digita, e é o meio-conserto que o oráculo do
+  `smoke.mjs` reprova.
 - **O ÍCONE DO APP também é a paleta** (v1.34). Ele era um PNG com um botão
 azul QUALQUER — sobra de uma paleta azul aposentada — sobre um fundo verde
 copiado do wallpaper, que é a cortina da TV e nunca aparece no celular: nenhuma
@@ -2981,10 +2992,43 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.266** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.267** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.267: O CAMPO DE BUSCA FICA BRANCO NOS DOIS TEMAS. OTA PURO** (só CSS;
+> sem Release).
+>
+> Pedido do operador: *"coloque a caixa de texto em branco, para o tema claro e
+> o escuro."*
+>
+> Ele era `--surface-2` — um OVERLAY. Dentro da folha, que pinta `--panel`, a
+> superfície se INVERTE (a regra "a superfície afunda dentro de um cartão"), e o
+> campo saía como um recesso preto a 14%/16%: o desenho de um botão afundado,
+> para a única peça da tela em que se DIGITA. Branco, ele deixa de ser um degrau
+> da base e passa a ser uma folha de papel sobre a barra — medido, 9,75:1 contra
+> ela no escuro e 1,30:1 no claro, onde ele volta a ser o branco da própria
+> página sobre a faixa cinza.
+>
+> **A metade que "o campo branco" não diz, e que reprovaria calada:** o texto, o
+> placeholder e a lupa moram DENTRO dele. No tema escuro `--text` é um off-white
+> e sobre branco dá **1,17:1** — invisível. Então os três param de seguir o tema
+> junto com o fundo: `--field-bg`, `--field-text` e `--field-muted` vivem no
+> bloco COMPARTILHADO de `tokens.css`, pelo mesmo motivo que os `--stage-*` (uma
+> superfície que não segue o tema não pode ler tokens que seguem — a regra da
+> v5.219). Medido nos dois temas: texto 8,86:1, placeholder e lupa 6,08:1.
+>
+> **`--field-bg` é a SEGUNDA exceção declarada à regra "não escrever branco fora
+> do palco"**, e o preço está dito em vez de escondido: num salão escuro aquele
+> é o retângulo mais luminoso da tela. Ele é pequeno, só existe com a Biblioteca
+> aberta, e é uma escolha explícita de quem opera. A regra em CLAUDE.md foi
+> atualizada para nomear as duas exceções em vez de uma.
+>
+> Verificado por ISOLAMENTO, e o segundo caso é o que importa: devolvendo o
+> recesso, **4** asserções reprovam; pintando **só o fundo** de branco e
+> deixando as três cores de dentro seguirem o tema, **3** — todas no escuro, com
+> o texto em 1,33:1.
 
 > **A v5.266: A BARRA DE BUSCA GANHA TOM E SOMBRA — agora que ela flutua, ela
 > precisa se destacar. OTA PURO** (só CSS; sem Release).

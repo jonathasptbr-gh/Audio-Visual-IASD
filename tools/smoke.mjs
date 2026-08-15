@@ -1622,6 +1622,10 @@ for (const tema of ['escuro', 'claro']) {
         // A RÉGUA do próprio app: o degrau da barra de baixo contra o fundo.
         corpoPrincipal: fundo('body'),
         barraPrincipal: fundo('.bottombar'),
+        // O que mora DENTRO do campo (v5.267).
+        texto: getComputedStyle(document.getElementById('hymnSearchInput')).color,
+        ph: getComputedStyle(document.getElementById('hymnSearchInput'), '::placeholder').color,
+        lupa: getComputedStyle(document.querySelector('#hymnSearchPopup .lib-search-lupa')).color,
       };
       closeHymnSearch();
       return r;
@@ -1661,6 +1665,19 @@ for (const tema of ['escuro', 'claro']) {
     checar(razao(campo, barra) > 1.1,
       '[' + tema + '] e o campo continua legível DENTRO dela ('
       + razao(campo, barra).toFixed(2) + ':1)');
+    // ── O CAMPO É BRANCO NOS DOIS TEMAS (v5.267) ─────────────────────────
+    // Pedido do operador. A primeira metade é o fundo; a SEGUNDA é a que não se
+    // percebe pedindo "o campo branco" e que reprovaria calada: as três coisas
+    // que moram dentro dele (o texto, o placeholder e a lupa) precisam parar de
+    // seguir o tema junto com ele — no escuro, `--text` sobre branco dá 1,17:1.
+    checar(campo.every((v) => Math.round(v) === 255),
+      '[' + tema + '] o CAMPO é branco — o mesmo nos dois temas, como o palco',
+      c.campo);
+    for (const [nome, cor] of [['texto', c.texto], ['placeholder', c.ph], ['lupa', c.lupa]]) {
+      const r = razao(sobre(cor, c.campo), campo);
+      checar(r >= 4.5,
+        '[' + tema + '] e o ' + nome + ' é legível sobre ele (' + r.toFixed(2) + ':1)');
+    }
   } catch (e) {
     checar(false, '[' + tema + '] a medição do contraste da barra terminou sem exceção ('
       + (e && e.message) + ')');

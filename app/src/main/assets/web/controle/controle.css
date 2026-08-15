@@ -3322,6 +3322,24 @@ main {
 }
 /* O recuo à esquerda abre o lugar dela: 12 (margem) + 18 (ícone) + 8 (respiro). */
 #hymnSearchInput { flex: 1; min-width: 0; padding: 11px 14px 11px 38px; font-size: .95rem; }
+/* ---------- E O CAMPO É BRANCO NOS DOIS TEMAS (v5.267) ----------
+   Pedido do operador. Ele era `--surface-2`, isto é, um OVERLAY: dentro da
+   folha, que pinta `--panel`, a superfície se INVERTE (a regra no topo deste
+   arquivo) e ele saía como um recesso preto a 14%/16% — o mesmo desenho de um
+   botão afundado, para a única peça da tela em que se DIGITA.
+
+   Branco, ele deixa de ser um degrau da base e passa a ser uma folha de papel
+   sobre a barra — medido, 9,75:1 contra ela no tema escuro e 1,30:1 no claro,
+   onde ele volta a ser o branco da própria página sobre a faixa cinza.
+
+   **As TRÊS cores andam juntas, e essa é a metade que não se percebe pedindo
+   "o campo branco":** o texto, o placeholder e a lupa moram DENTRO dele. No
+   tema escuro `--text` é um off-white — sobre branco ele dá 1,17:1, isto é,
+   invisível —, então os três vêm dos tokens sem tema (`--field-*`, em
+   tokens.css). Trocar só o fundo teria apagado o que se digita. */
+#hymnSearchInput { background: var(--field-bg); color: var(--field-text); }
+#hymnSearchInput::placeholder { color: var(--field-muted); }
+#hymnSearchPopup .lib-search-lupa { color: var(--field-muted); }
 /* Resultado: linha compacta [▶] [nome / subtítulo] [+]. Dois botões, cada um
    abrindo a folha com as três coisas que ele faz (ver hymnResultRow); o toque
    na linha continua abrindo a letra. A lista precisa ser legível de relance no
