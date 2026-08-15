@@ -302,11 +302,59 @@
     return d ? d + ' · ' + item.titulo : item.titulo;
   }
 
+  /**
+   * A IMPRESSÃO DIGITAL DA REGRA (v5.233) — e ela existe por um defeito
+   * relatado no aparelho, não por elegância.
+   *
+   * O índice da série é GUARDADO com os nomes já formados ("03/Jan · Não há
+   * órfãos de Deus"), e a atualização é pulada quando a assinatura das
+   * playlists do canal bate com a guardada — a economia que evita doze
+   * extrações por retomada. Só que aquela assinatura fala do que o CANAL
+   * publicou, e não sabe nada sobre a regra que transformou aquilo em nome e em
+   * ORDEM. Quando a v5.230 ensinou o `dataDoVideo` a ler "sábado 3 janeiro", o
+   * canal não tinha mudado uma vírgula: a assinatura continuou batendo, o
+   * índice guardado nunca foi refeito, e o episódio ficou **preso** sem data e
+   * fora de ordem — inclusive depois de limpar o cache e recarregar, porque o
+   * índice mora no IndexedDB e não no cache do WebView.
+   *
+   * É a lição da v5.220 num lugar novo: **um valor DERIVADO que sobrevive à
+   * mudança da regra que o derivou é um valor errado com carimbo de atual.**
+   *
+   * A impressão é tirada do PRÓPRIO CÓDIGO das funções que decidem (mais o
+   * catálogo), e não de um número escrito à mão: um contador que alguém precise
+   * lembrar de subir é a mesma classe de sincronização manual que este projeto
+   * recusa em toda parte — e quem esquecesse de subi-lo reproduziria
+   * exatamente o defeito acima. Mudou a regra, muda a impressão, o índice é
+   * refeito UMA vez. Não mudou, nada é reextraído.
+   *
+   * O hash é o FNV-1a de 32 bits: não é criptografia, é um dedo-de-prosa curto
+   * que muda quando o texto muda — que é tudo o que uma chave de cache precisa.
+   * (Se um dia este bundle passar por um minificador, a impressão muda a cada
+   * build e o custo vira doze extrações por versão. Hoje ele não passa: a base
+   * web é publicada como está escrita.)
+   */
+  function impressao() {
+    const fonte = [
+      JSON.stringify(SERIES),
+      String(mesDaPlaylist), String(playlistsDaSerie),
+      String(dataDoVideo), String(montarData), String(rotuloData),
+      String(itensDaPlaylist), String(ordenarItens), String(nomeDoItem),
+      String(tituloDoEpisodio), String(ehLibras), String(normalizar),
+    ].join('\u0000');
+    let h = 0x811c9dc5;
+    for (let i = 0; i < fonte.length; i++) {
+      h ^= fonte.charCodeAt(i);
+      h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+    }
+    return 'r' + h.toString(36);
+  }
+
   global.AVSerie = {
     SERIES,
     normalizar, ehLibras,
     mesDaPlaylist, playlistsDaSerie,
     dataDoVideo, tituloDoEpisodio, rotuloData,
     itensDaPlaylist, ordenarItens, nomeDoItem,
+    impressao,
   };
 })(this);
