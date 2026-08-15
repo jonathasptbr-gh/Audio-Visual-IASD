@@ -2788,10 +2788,53 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.238** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.239** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.239: A SEÇÃO DE FAVORITOS FICA SÓ COM A LISTA — as ações sobem para a
+> barra, viram UM ícone, e o rodapé de disco sai. OTA PURO** (nenhuma linha de
+> Kotlin; sem Release).
+>
+> Quatro podas do operador, e as quatro tiram da tela coisa que não decide nada.
+>
+> **O contador saiu.** *"Remova o indicador de quantos favoritos temos."* A
+> seção está sempre aberta e a lista inteira vem logo abaixo: um número dizendo
+> quantos itens há a dois centímetros deles é a mesma medida dita duas vezes —
+> o argumento que tirou o peso do painel do álbum na v5.232.
+>
+> **As ações subiram para a BARRA da seção, só com ícone.** No corpo elas eram
+> dois botões de texto no rodapé, isto é, duas linhas de lista que não são itens
+> da lista. Na barra o rótulo do que a ação faz mora na folha que ela abre — e
+> um cabeçalho com texto de botão dentro deixa de se ler como cabeçalho.
+>
+> **E OS DOIS BOTÕES VIRARAM UM.** *"Unifique o botão de Adicionar pasta com o
+> botão de buscar no sistema. Agora ao tocar ele, ele dá a opção de criar uma
+> pasta, ou trazer uma pasta e seus arquivos que já existem do sistema do
+> celular."* A unificação é a leitura certa: os dois respondiam à MESMA pergunta
+> ("quero uma pasta aqui") por caminhos diferentes, e lado a lado obrigavam a
+> ler dois rótulos para descobrir isso. Um alvo só, e a diferença — que é o que
+> de fato precisa ser lido — vai para a folha, **escrita por extenso**, que é
+> onde este app põe escolha desde a v5.62. A folha é a MESMA do acervo e do
+> YouTube (`#songMenuPopup`), pelo motivo de sempre: uma segunda com a mesma
+> anatomia divergiria no primeiro ajuste. É o precedente do `escolherDestinos`.
+>
+> **O corpo perdeu a prosa.** O vazio explicava COMO favoritar e COMO criar
+> pasta, em três linhas. A estrela está em cada linha do app inteiro e a criação
+> de pasta agora fica a um dedo dali, na barra: **instrução que descreve um
+> botão visível é ruído, e o botão é a instrução.** Ficou "Nenhum favorito
+> ainda."
+>
+> **E O RODAPÉ DE DISCO SAIU DA BIBLIOTECA** — *"esse valor é falso, irreal e
+> disputa com os cabeçalhos que já dizem o peso atual e total dos arquivos"*. Ele
+> está certo pela régua da própria medida: `navigator.storage.estimate()` fala do
+> ORIGIN inteiro e é deliberadamente imprecisa (os navegadores acrescentam
+> padding ao valor, contra ataques de tempo), e a "cota" é o que o navegador ACHA
+> que pode ceder — não o que o cartão tem. Ela ocupava o rodapé da tela em que a
+> pergunta *"quanto isto pesa?"* já é respondida coleção por coleção, com o
+> número que o app de fato conhece. `renderStorageUsage` saiu com os dois
+> chamadores; `fmtBytes` fica, porque é o formatador de tamanho do app inteiro.
 
 > **A v5.238: OS FAVORITOS DEIXAM DE TER DUAS PORTAS — a seção não colapsa, e a
 > gaveta vira só a tela de dentro de uma pasta. OTA PURO** (nenhuma linha de

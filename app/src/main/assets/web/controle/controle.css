@@ -248,7 +248,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   .bible-cell, .bible-ref-part, .bible-vsec, .bible-ver-row,
   .hymn-row, .hymn-play-thumb, .song-menu-btn, .msg-add-btn, .msg-item,
   .misc-tab, .misc-seg, .misc-chip, .chrono-btn, .misc-project, .draw-go,
-  .fit-opt, .dialog-btn, .lib-item .row,
+  .fit-opt, .dialog-btn, .lib-item .row, .coll-group-acao,
   .cue-save-btn, .pl-pack, .yt-search-btn, .log-copy,
   .simple-key, .simple-action, .simple-key--big, .simple-key--vol, .mode-switch
 ):active { transform: var(--press); }
@@ -1701,7 +1701,6 @@ main {
    `.net-badge`/`.net-badge--warn` que viviam aqui já eram inalcançáveis, e o
    chip `.hymnal-stat.net` que as substituíra saiu com as opções condensadas da
    v5.73 — quem pergunta sobre dados móveis é o diálogo da sincronização.) */
-.storage-usage { font-size: .72rem; opacity: .7; padding: 10px 0; }
 
 /* ---------- Card de coleção (álbum / hinário) ---------- */
 /* Uma linha só, e ela É o álbum: tocar abre a LISTA DE MÚSICAS. A manutenção
@@ -1811,6 +1810,22 @@ main {
    cursor de toque. Um cabeçalho que parece tocável e não faz nada é pior que um
    rótulo — e o cursor é a única parte disso que o CSS decide. */
 .coll-group--drop.fixo > .coll-group-bar { cursor: default; }
+/* As AÇÕES da seção, na barra dela (v5.239). O espaçador empurra os botões para
+   a direita — o nome fica com `flex: 1` só quando há um contador ao lado, e num
+   cabeçalho sem contador ele encolhe ao próprio texto. */
+.coll-group-espaco { flex: 1; min-width: 0; }
+.coll-group-acao {
+  /* `--hit`, o mesmo alvo do `.coll-bar-dl` do card e do `.coll-group-btn`:
+     alinhados na coluna da direita, os três precisam do mesmo tamanho, senão os
+     centros discordam. */
+  flex-shrink: 0; width: var(--hit); height: var(--hit); padding: 0;
+  border: none; appearance: none; -webkit-appearance: none;
+  border-radius: var(--radius-btn);
+  background: var(--accent-soft); color: var(--accent);
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.coll-group-acao .msym { font-size: var(--icon-sm); }
+.coll-group-acao svg { display: block; width: var(--icon-sm); height: var(--icon-sm); }
 /* O corpo. `overflow: hidden` é requisito da animação de altura
    (`expandAccordion`), e a moldura fecha embaixo o que a barra abriu em cima. */
 .coll-group-corpo {

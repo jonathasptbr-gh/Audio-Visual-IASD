@@ -589,15 +589,23 @@ try {
     const r = {
       temItem: !!corpo && /Louvor favorito de teste/.test(corpo.textContent),
       temNovaPasta: false, temPastaDoAparelho: false,
-      // A linha de uso do disco é o rodapé da GAVETA: dentro da Biblioteca ela
-      // já é desenhada uma vez pelo `renderSearchResults`, e duas no mesmo
-      // `<ul>` seria a segunda apagando a primeira.
-      semLinhaDeDisco: !!corpo && !corpo.querySelector('.storage-usage'),
+      // A LINHA DE USO DO DISCO SAIU (v5.239): `navigator.storage.estimate()`
+      // fala do origin inteiro, com padding deliberado, e a cota é o que o
+      // navegador ACHA que pode ceder — ela disputava a leitura com os
+      // cabeçalhos, que dizem o peso de verdade de cada coleção. A asserção
+      // vale para a lista INTEIRA, não só para o corpo da seção: era ali, no
+      // rodapé da Biblioteca, que ela morava.
+      semLinhaDeDisco: !lista.querySelector('.storage-usage'),
       // O RODAPÉ DA SEÇÃO. `syncDeviceFolder` era o botão do cabeçalho da
       // gaveta, e a gaveta deixou de ter porta própria: sem esta linha a ação
       // ficaria sem lugar nenhum de onde ser alcançada.
       rodape: !corpo ? [] : [...corpo.querySelectorAll('.import-row .import-btn')]
         .map((b) => b.textContent.trim()),
+      // O cabeçalho: o que ele mostra em TEXTO (só o nome — o contador saiu) e
+      // se o botão de ação está lá.
+      cabecalho: !grupo ? '' : (grupo.querySelector('.coll-group-bar') || {}).textContent,
+      temAcaoNaBarra: !!(grupo && grupo.querySelector('.coll-group-bar .coll-group-acao')),
+      semContagem: !!grupo && !grupo.querySelector('.coll-group-count'),
       // E a GAVETA continua inteira: o host é emprestado, não movido.
       naGaveta: (() => {
         document.getElementById('favList').innerHTML = '';
@@ -605,8 +613,31 @@ try {
         return /Louvor favorito de teste/.test(document.getElementById('favList').textContent);
       })(),
     };
-    r.temNovaPasta = r.rodape.some((t) => /Nova pasta/.test(t));
-    r.temPastaDoAparelho = r.rodape.some((t) => /Pasta do aparelho/.test(t));
+    r.semRodape = r.rodape.length === 0;
+    // A FOLHA que o botão abre.
+    grupo.querySelector('.coll-group-acao').click();
+    const pop = document.getElementById('songMenuPopup');
+    const linhas = [...pop.querySelectorAll('.song-menu-label')].map((e) => e.textContent.trim());
+    r.folha = {
+      linhas,
+      criar: linhas.some((t) => /Criar uma pasta/i.test(t)),
+      doAparelho: linhas.some((t) => /pasta do aparelho/i.test(t)),
+    };
+    closeSongMenu();
+    // E O VAZIO: uma frase só. Medido com a lista de favoritos esvaziada.
+    const guardados = favItems.slice();
+    favItems = [];
+    const lista2 = document.createElement('ul');
+    document.body.appendChild(lista2);
+    favHost = lista2;
+    try { renderFolderList(); } finally { favHost = null; }
+    const vazio = lista2.querySelector('.empty');
+    r.vazioTexto = vazio ? vazio.textContent.trim() : '';
+    r.vazioUmaLinha = !!vazio && !vazio.querySelector('br')
+      && /^Nenhum favorito ainda\.?$/.test(r.vazioTexto)
+      && !lista2.querySelector('.import-row');
+    lista2.remove();
+    favItems = guardados;
     lista.remove();
     gruposAbertos.clear();
     await AVDB.listRemove('favs', rec.id);
@@ -617,13 +648,30 @@ try {
     'OS FAVORITOS SÃO DESENHADOS DENTRO DA BIBLIOTECA, pelo mesmo '
     + '`renderFolderList` da gaveta');
   checar(favs.semLinhaDeDisco,
-    'sem repetir ali a linha de uso do disco, que já é o rodapé da listagem');
+    'e a Biblioteca não tem mais rodapé de uso do disco — número que a medida '
+    + 'não sustenta, disputando com o peso que os cabeçalhos já dizem');
   checar(favs.naGaveta,
     'e a GAVETA continua desenhando a dela — o host é emprestado, não movido');
-  checar(favs.temNovaPasta && favs.temPastaDoAparelho,
-    'com as DUAS formas de criar pasta no rodapé da seção: "Nova pasta" e '
-    + '"Pasta do aparelho" — esta desceu do cabeçalho da gaveta, que deixou de '
-    + 'ter porta', JSON.stringify(favs.rodape));
+  // ── UM BOTÃO, DUAS ORIGENS (v5.239) ────────────────────────────────────
+  // Pedido do operador: as ações da seção vão para a BARRA dela, só com ícone,
+  // e "Adicionar pasta" se unifica com "buscar no sistema" — um toque, e a
+  // folha oferece criar uma pasta ou trazer uma do aparelho.
+  //
+  // As duas metades: o corpo da lista ficou LIMPO (nenhum botão de texto, e o
+  // vazio é uma linha só) **e** as duas origens continuam alcançáveis. Sem a
+  // segunda, apagar a linha do rodapé teria passado — e levado a sincronização
+  // de pastas junto, sem nada na tela que a explicasse.
+  checar(favs.semRodape && favs.semContagem,
+    'a seção não tem mais rodapé de botões nem contador — o corpo é só a lista',
+    JSON.stringify(favs.rodape) + ' · ' + JSON.stringify(favs.cabecalho));
+  checar(favs.temAcaoNaBarra,
+    'a ação mora na BARRA da seção, só com ícone', JSON.stringify(favs.cabecalho));
+  checar(favs.folha.criar && favs.folha.doAparelho,
+    'e o toque nela abre a folha com as DUAS origens: criar uma pasta ou trazer '
+    + 'uma do aparelho', JSON.stringify(favs.folha.linhas));
+  checar(favs.vazioUmaLinha,
+    'e a lista vazia diz uma frase só — "Nenhum favorito ainda"',
+    JSON.stringify(favs.vazioTexto));
 
   // ── A FILA DE LETRAS NÃO PERGUNTA POR UM VÍDEO (v5.236) ────────────────
   // `syncLyrics` varria TODA coleção com itens e pedia `music_<id>` ao LouvorJA

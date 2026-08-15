@@ -209,7 +209,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.238';
+const WEB_VERSION = '5.239';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -6227,11 +6227,26 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
     bar.appendChild(name);
     // O RESUMO do grupo é o mesmo de antes, e ele importa mais agora: fechado,
     // ele é a única coisa que o cabeçalho diz sobre o que há lá dentro.
-    if (gOpts && gOpts.contagem != null) {
-      const info = document.createElement('span');
-      info.className = 'coll-group-count';
-      info.textContent = String(gOpts.contagem);
-      bar.appendChild(info);
+    if (gOpts && gOpts.acoes) {
+      // AS AÇÕES DA SEÇÃO MORAM NA BARRA DELA (v5.239, pedido do operador). Só
+      // ícone: o rótulo do que a ação faz mora na folha que ela abre, e uma
+      // barra de seção com texto de botão dentro deixa de se ler como um
+      // cabeçalho. `stopPropagation` porque num grupo colapsável a barra
+      // inteira é o alvo de abrir/fechar.
+      const espaco = document.createElement('span');
+      espaco.className = 'coll-group-espaco';
+      bar.appendChild(espaco);
+      gOpts.acoes.forEach((a) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'coll-group-acao';
+        b.title = a.titulo;
+        b.setAttribute('aria-label', a.titulo);
+        if (typeof a.icone === 'string') b.innerHTML = a.icone;
+        else b.appendChild(a.icone);
+        b.addEventListener('click', (e) => { e.stopPropagation(); a.aoTocar(b); });
+        bar.appendChild(b);
+      });
     } else if (colls && colls.length && !(gOpts && gOpts.semBotao)) {
       montarResumoGrupo(bar, 'grp:' + text, text, colls, gOpts);
     } else if (colls && colls.length) {
@@ -6317,8 +6332,18 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
   // com voltar, busca e seleção múltipla, que é uma tela inteira e não uma
   // seção. `openFolder`/`openOpfsFolder` a abrem sozinhos quando o toque veio
   // daqui.
-  const favN = favItems.length + folders.length + opfsFolders.length;
-  const favCorpo = grupo(GRUPO_FAVORITOS, null, { contagem: favN, fixo: true });
+  // SEM CONTADOR (v5.239, pedido do operador): a seção está sempre aberta e a
+  // lista inteira está logo abaixo — um número dizendo quantos itens há a dois
+  // centímetros deles é a mesma medida dita duas vezes, que foi o que tirou o
+  // peso do painel do álbum na v5.232.
+  const favCorpo = grupo(GRUPO_FAVORITOS, null, {
+    fixo: true,
+    acoes: [{
+      icone: msym(ICON.folderNew),
+      titulo: 'Adicionar pasta',
+      aoTocar: (b) => abrirFolhaDePasta(b),
+    }],
+  });
   if (favCorpo) {
     favHost = favCorpo;
     // `finally` obrigatório: um erro ao montar uma linha deixaria o host preso
@@ -6960,8 +6985,8 @@ function renderFoldersSeVisivel() {
 //
 // A lista continua sendo montada por `renderFolderList`; o que muda é ONDE ela
 // é desenhada — a gaveta de tela cheia (`#favList`) ou o grupo do topo da
-// Biblioteca. É o mesmo padrão que `listHost()` e `renderStorageUsage(alvo)` já
-// usam neste arquivo, e a razão é a de sempre: duas marcações para a mesma
+// Biblioteca. É o mesmo padrão que `listHost()` já usa neste arquivo, e a razão
+// é a de sempre: duas marcações para a mesma
 // lista divergem no primeiro ajuste, e aqui divergiriam em gestos (o toque
 // longo que entra na seleção múltipla), no agrupamento por tipo e na estrela.
 //
@@ -6975,13 +7000,17 @@ function favAlvo() { return favHost || favListEl; }
 
 function renderFolderList() {
   if (opfsFolders.length === 0 && folders.length === 0 && favItems.length === 0) {
+    // UMA LINHA, E SÓ (v5.239, pedido do operador: *"remova todo o texto e
+    // explicações no corpo da lista dos favoritos, mantenha apenas um 'Nenhum
+    // favorito ainda'"*). O que estava aqui explicava COMO favoritar e COMO
+    // criar pasta — duas instruções num corpo de lista, quando a ação de criar
+    // pasta agora está a um dedo dali, na barra da seção, e a estrela está em
+    // cada linha do app inteiro. Instrução que descreve um botão visível é
+    // ruído; o botão é a instrução.
     const empty = document.createElement('li');
     empty.className = 'empty';
-    empty.innerHTML = 'Nenhum favorito ainda.<br>Toque na estrela de qualquer item para marcá-lo aqui'
-      + '<br>— ou crie uma pasta para agrupar o que você mais usa.';
+    empty.textContent = 'Nenhum favorito ainda.';
     favAlvo().appendChild(empty);
-    appendNewFavoriteRow();
-    if (!favHost) renderStorageUsage();
     return;
   }
   // OS MARCADOS VÊM PRIMEIRO: é o que a estrela promete e o que o operador vem
@@ -7039,12 +7068,6 @@ function renderFolderList() {
     li.addEventListener('click', () => openOpfsFolder(f));
     favAlvo().appendChild(li);
   });
-  appendNewFavoriteRow();
-  // A linha de uso do disco é o RODAPÉ DA GAVETA. Dentro da Biblioteca ela já
-  // é desenhada uma vez, no fim da listagem (ver `renderSearchResults`): pedi-la
-  // aqui poria duas no mesmo `<ul>`, e a segunda apagaria a primeira num
-  // `estimate()` fora de ordem.
-  if (!favHost) renderStorageUsage();
 }
 
 // Os grupos da gaveta, NA ORDEM em que aparecem. A ordem é fixa (não segue o
@@ -7154,58 +7177,41 @@ function renderVirtualFolders() {
   });
 }
 
-// O RODAPÉ DA SEÇÃO: as duas formas de trazer coisa para cá.
+// ===== "ADICIONAR PASTA": UM BOTÃO, DUAS ORIGENS (v5.239) =====
 //
-// "Nova pasta" cria um atalho vazio. Antes só existia o caminho de trás para a
-// frente (selecionar mídias → "salvar em pasta" → nova pasta): uma seção de
-// atalhos que não deixa criar um atalho é justamente o que não se espera dela.
+// Pedido do operador: *"unifique o botão de Adicionar pasta com o botão de
+// buscar no sistema. agora ao tocar ele, ele dá a opção de criar uma pasta, ou
+// trazer uma pasta e seus arquivos que já existem do sistema do celular."*
 //
-// "Pasta do aparelho" é a SINCRONIZAÇÃO com uma pasta do armazenamento
-// (`syncDeviceFolder`), e ela desceu para cá na v5.238. Era um botão no
-// cabeçalho da gaveta — e a gaveta deixou de ter porta própria, então a ação
-// ficaria sem lugar nenhum de onde ser alcançada. Aqui ela fica ao lado da
-// outra forma de criar pasta, que é a leitura certa: as duas respondem "de onde
-// vem o que eu quero ter à mão?".
+// E a unificação é a leitura certa: os dois botões respondiam à MESMA pergunta
+// ("quero uma pasta aqui") por caminhos diferentes, e lado a lado no rodapé eles
+// obrigavam a ler dois rótulos para descobrir isso. Um alvo só, e a diferença —
+// que é o que de fato precisa ser lido — vai para a folha, escrita por extenso,
+// que é onde este app põe escolha desde a v5.62 ("o custo de errar aqui é uma
+// música errada no telão, e o que evita isso é o texto, não o desenho").
 //
-// Os dois são `.import-btn` na mesma `.import-row`, que já é `flex` com
-// `flex: 1` em cada — eles dividem a linha sem uma regra nova.
-function appendNewFavoriteRow() {
-  const li = document.createElement('li');
-  li.className = 'import-row';
-
-  const novo = document.createElement('button');
-  novo.type = 'button';
-  novo.className = 'import-btn';
-  novo.appendChild(msym(ICON.folderNew));
-  const t1 = document.createElement('span');
-  t1.textContent = 'Nova pasta';
-  novo.appendChild(t1);
-  novo.addEventListener('click', promptNewFavorite);
-  li.appendChild(novo);
-
-  // No app é o SAF; no navegador, `showDirectoryPicker` — e onde nenhum dos
-  // dois existe (Firefox, Safari) quem diz isso é `openFolderSource`, na hora,
-  // com a frase inteira. É a condição que o botão do cabeçalho já tinha, isto
-  // é, nenhuma: esconder a ação num navegador que só a suporta às vezes trocaria
-  // um aviso claro por um botão ausente sem explicação.
-  {
-    const dev = document.createElement('button');
-    dev.type = 'button';
-    dev.className = 'import-btn';
-    dev.title = 'Sincronizar uma pasta do armazenamento do aparelho';
-    // Setas circulares, o MESMO desenho de "sincronizar" dos cards de coleção e
-    // da linha de cada pasta do sistema — `folder_open` fica reservado à
-    // IDENTIDADE de pasta, nunca à ação (a regra da linha da pasta, aqui de
-    // novo).
-    dev.innerHTML = syncIconSvg();
-    const t2 = document.createElement('span');
-    t2.textContent = 'Pasta do aparelho';
-    dev.appendChild(t2);
-    dev.addEventListener('click', () => syncDeviceFolder(undefined, dev));
-    li.appendChild(dev);
-  }
-
-  favAlvo().appendChild(li);
+// A FOLHA É A MESMA do acervo e do YouTube (`#songMenuPopup`), pelo mesmo
+// motivo de sempre: uma segunda folha com a mesma anatomia divergiria no
+// primeiro ajuste. É o precedente do `escolherDestinos`, que já a reusa como
+// pergunta.
+function abrirFolhaDePasta(botao) {
+  destLimpar();
+  // `folha` marca o tipo desta abertura: `renderSongMenu` desiste em qualquer
+  // uma que não seja a do acervo (ele desestrutura `coll`/`s`, que aqui não
+  // existem), e o seletor de variante do topo é quem o chamaria de volta.
+  songMenuFor = { folha: 'pasta' };
+  songMenuTitleEl.textContent = 'Adicionar pasta';
+  songMenuListEl.innerHTML = '';
+  songMenuListEl.appendChild(songMenuItem(msym(ICON.folderNew), 'Criar uma pasta',
+    'Vazia, para agrupar o que você já favoritou',
+    () => promptNewFavorite()));
+  // Setas circulares = "sincronizar", o MESMO desenho dos cards de coleção e da
+  // linha de cada pasta do sistema. `folder_open` fica reservado à IDENTIDADE
+  // de pasta, nunca à ação.
+  songMenuListEl.appendChild(songMenuItem(syncIconSvg(), 'Trazer uma pasta do aparelho',
+    'Com os arquivos que já estão nela',
+    () => syncDeviceFolder(undefined, botao)));
+  songMenuPopupEl.classList.add('open');
 }
 
 async function promptNewFavorite() {
@@ -7213,30 +7219,9 @@ async function promptNewFavorite() {
   if (name && name.trim()) await createFolder(name.trim());
 }
 
-// Rodapé com o uso de armazenamento do origin (OPFS + IDB). `alvo` porque esta
-// linha vive em dois lugares: a tela de Favoritos e o acervo dentro da busca —
-// e é lá que ela mais importa, já que quem ocupa o disco é o download de
-// música. `valido` é a condição de que a tela ainda é a mesma quando o
-// `estimate()` responde (ele é assíncrono; a aba pode ter mudado no meio).
-function renderStorageUsage(alvo, valido) {
-  // Sem `alvo`, é a linha do rodapé dos Favoritos — que hoje mora na gaveta. O
-  // outro chamador (o acervo dentro da busca) passa o dele.
-  alvo = alvo || favListEl;
-  valido = valido || (() => activeTab === 'folders' && !currentFolder);
-  if (!(navigator.storage && navigator.storage.estimate)) return;
-  navigator.storage.estimate().then(({ usage, quota }) => {
-    if (!valido()) return;
-    // Remove uma linha anterior antes de anexar: sem isto, dois estimate()
-    // pendentes (renderFolderList chamado em sequência) empilhariam duas
-    // linhas de uso na mesma lista.
-    const old = alvo.querySelector('.storage-usage');
-    if (old) old.remove();
-    const li = document.createElement('li');
-    li.className = 'empty storage-usage';
-    li.textContent = fmtBytes(usage || 0) + ' usados de ' + fmtBytes(quota || 0) + ' disponíveis';
-    alvo.appendChild(li);
-  }).catch(() => {});
-}
+// (`renderStorageUsage` saiu na v5.239 com os dois chamadores. `fmtBytes`
+// FICA: ele é o formatador de tamanho do app inteiro — o peso de cada coleção,
+// o total do acervo, o diálogo de confirmação antes de um download grande.)
 
 // Vírgula decimal (v5.93): o app é em português e o número aparece ao lado de
 // texto em português — "1.5 GB" lia como mil e quinhentos em pt-BR.
@@ -10216,10 +10201,14 @@ function renderSearchResults(query) {
     renderAcervoTotal(() => renderSearchResults(hymnSearchInputEl.value));
     renderCollectionsList(hymnResultsEl, () => renderSearchResults(hymnSearchInputEl.value),
       { semTotal: true });
-    // Quem enche o disco é o download de música: a linha de uso vem junto do
-    // acervo, que é onde se decide baixar (e onde se decide apagar).
-    renderStorageUsage(hymnResultsEl, () => hymnSearchPopupEl.classList.contains('open')
-      && searchIsBrowsing(normalizeForSearch(hymnSearchInputEl.value).trim()));
+    // (A linha de uso do disco saiu na v5.239, a pedido do operador: *"esse
+    // valor é falso, irreal e disputa com os cabeçalhos que já dizem o peso
+    // atual e total dos arquivos"*. E ele está certo pela régua da própria
+    // medida: `navigator.storage.estimate()` fala do ORIGIN inteiro — com
+    // padding deliberado contra ataques de tempo — e a cota é o que o navegador
+    // ACHA que pode ceder, não o que o cartão tem. Os dois números eram
+    // arredondados sem casa acima de 10, e nenhum dos dois respondia a pergunta
+    // que a tela já responde uma linha acima: quanto ESTE acervo pesa.)
     return;
   }
   const cols = allCollections();
@@ -11713,10 +11702,11 @@ function renderDestPrompt() {
 }
 
 function renderSongMenu(modo) {
-  // A folha é compartilhada com os resultados do YouTube (`openYtMenu`) e com o
-  // seletor de destinos da importação (`escolherDestinos`), que não têm
-  // `coll`/`s` — e o seletor de variante do topo chama isto de volta.
-  if (!songMenuFor || songMenuFor.yt || songMenuFor.destPrompt) return;
+  // A folha é compartilhada com os resultados do YouTube (`openYtMenu`), com o
+  // seletor de destinos da importação (`escolherDestinos`) e com o "Adicionar
+  // pasta" dos Favoritos (`abrirFolhaDePasta`), que não têm `coll`/`s` — e o
+  // seletor de variante do topo chama isto de volta.
+  if (!songMenuFor || songMenuFor.yt || songMenuFor.destPrompt || songMenuFor.folha) return;
   const { coll, s } = songMenuFor;
   const temPlayback = !!s.has_instrumental_music;
   songMenuListEl.innerHTML = '';
