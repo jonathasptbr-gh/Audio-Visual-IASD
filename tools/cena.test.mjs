@@ -271,39 +271,69 @@ try {
   checar(!!daMusica && daMusica.noAr && /No ar/.test(daMusica.texto),
     'e a música de fundo TAMBÉM — as duas camadas estão no telão', JSON.stringify(daMusica));
 
-  // ---- E OS BOTÕES DA LINHA TROCAM (v5.177) ----
+  // ---- O PARAR MORA NA GAVETA DE AÇÕES, COM OS OUTROS (v5.177 → v5.258) ----
   //
-  // No ar, a única decisão que aquela linha oferece é tirá-la do ar — o toque
-  // no corpo já faz isso desde a v5.165. Mas a direita seguia oferecendo
-  // arrastar-para-reordenar e favoritar, a milímetros do gesto que o operador
-  // está mirando, e são justamente as duas coisas que ninguém quer fazer com o
-  // item que está na frente da congregação.
+  // A v5.177 tinha feito o botão de parar TOMAR O LUGAR da estrela e do
+  // arrastar na linha no ar — a direita oferecia, a milímetros do gesto mirado,
+  // as duas coisas que ninguém quer fazer com o item que está na frente da
+  // congregação. A v5.258 resolve isso de uma vez e para TODA linha: a direita
+  // passou a ter um botão só (o ⋮) e os quatro moram numa gaveta que abre por
+  // cima do título. Não há mais troca a medir — há uma gaveta FECHADA, que é o
+  // que devolve ao título a largura que ele disputava.
   //
-  // A troca é por CSS, e é por isso que este caso mede o RENDERIZADO
-  // (`offsetParent`) e não a presença do nó: uma regra que deixe de casar não
-  // apaga botão nenhum do DOM, ela só para de escondê-lo — em silêncio, que é a
-  // mesma família do `var(--radius-md)` que nunca existiu.
+  // O caso continua medindo o RENDERIZADO, e agora ele PRECISA disso: a gaveta
+  // é escondida por `opacity`/`visibility` (para poder animar), então os botões
+  // seguem no DOM e com caixa de layout — `offsetParent` sozinho diria que
+  // estão todos à vista, o tempo todo.
   const botoes = async (id) => pg.evaluate((x) => {
     const el = document.querySelector('.lib-item[data-id="' + x + '"]');
     if (!el) return null;
-    const vis = (s) => { const b = el.querySelector(s); return !!(b && b.offsetParent !== null); };
-    return { stop: vis('.row-stop'), estrela: vis('.fav-btn'), arrasta: vis('.row-handle') };
+    const vis = (s) => {
+      const b = el.querySelector(s);
+      if (!b || b.offsetParent === null) return false;
+      for (let n = b; n && n !== document.body; n = n.parentElement) {
+        const cs = getComputedStyle(n);
+        if (cs.visibility === 'hidden' || parseFloat(cs.opacity) < .5) return false;
+      }
+      return true;
+    };
+    return {
+      mais: vis('.row-mais'), stop: vis('.row-stop'),
+      estrela: vis('.fav-btn'), arrasta: vis('.row-handle'),
+    };
   }, id);
+  const abrirGaveta = async (id) => {
+    // `?.` de propósito: sem o `⋮` isto é um resultado a reportar, não uma
+    // exceção que leva o arquivo inteiro junto (a lição da v5.213).
+    await pg.evaluate((x) => document.querySelector('.lib-item[data-id="' + x + '"] .row-mais')?.click(), id);
+    await pg.waitForTimeout(320); // a gaveta ABRE animada — medir no mesmo turno lê o quadro zero
+  };
 
-  const noAr = await botoes(audioId);
-  checar(!!noAr && noAr.stop, 'a linha no ar mostra o botão de PARAR', JSON.stringify(noAr));
-  checar(!!noAr && !noAr.estrela && !noAr.arrasta,
-    'e ele TOMA O LUGAR de favoritar e de arrastar — qualquer toque na linha é o mesmo',
-    JSON.stringify(noAr));
+  const fechada = await botoes(audioId);
+  checar(!!fechada && fechada.mais && !fechada.stop && !fechada.estrela && !fechada.arrasta,
+    'na linha no ar a direita tem UM botão só (o ⋮) — nada disputa o título',
+    JSON.stringify(fechada));
+  await abrirGaveta(audioId);
+  const aberta = await botoes(audioId);
+  checar(!!aberta && aberta.stop, 'e a gaveta aberta traz o PARAR', JSON.stringify(aberta));
+  checar(!!aberta && aberta.estrela && aberta.arrasta,
+    'ao LADO da estrela e do arrastar — a gaveta não troca botão, ela os reúne',
+    JSON.stringify(aberta));
   // E o botão faz o que diz: é o mesmo `retirarDoAr` do segundo toque.
   await pg.evaluate((x) => document.querySelector('.lib-item[data-id="' + x + '"] .row-stop').click(), audioId);
   await pg.waitForFunction(() => !midiaNoAr, null, { timeout: 3000 })
     .then(() => checar(true, 'e tocá-lo tira do ar'))
     .catch(() => checar(false, 'e tocá-lo tira do ar'));
+  const foraFechada = await botoes(audioId);
+  checar(!!foraFechada && !foraFechada.stop && !foraFechada.estrela,
+    'e escolher uma opção FECHA a gaveta — ela não fica cobrindo o nome depois de agir',
+    JSON.stringify(foraFechada));
+  await abrirGaveta(audioId);
   const fora = await botoes(audioId);
   checar(!!fora && !fora.stop && fora.estrela,
-    'fora do ar a linha volta ao normal — a estrela e o arrastar de sempre',
+    'fora do ar o PARAR não existe mais na gaveta, e a estrela continua lá',
     JSON.stringify(fora));
+  await pg.evaluate(() => { if (typeof fecharAcoesDaLinha === 'function') fecharAcoesDaLinha(); });
 
   // O PARAR limpa as duas, e o "atual" SOBREVIVE — é ele que o ▶ repete.
   await pg.evaluate(async (ids) => { await send(ids[0]); await send(ids[1]); },

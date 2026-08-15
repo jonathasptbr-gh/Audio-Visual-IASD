@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.257';
+const WEB_VERSION = '5.258';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -452,7 +452,6 @@ const songMenuCloseEl = document.getElementById('songMenuClose');
 const hymnSearchBtnEl = document.getElementById('hymnSearchBtn');
 const hymnSearchPopupEl = document.getElementById('hymnSearchPopup');
 const hymnSearchCloseEl = document.getElementById('hymnSearchClose');
-const hymnSearchTotalEl = document.getElementById('hymnSearchTotal');
 const hymnSearchInputEl = document.getElementById('hymnSearchInput');
 const hymnResultsEl = document.getElementById('hymnResults');
 const hymnSearchTitleEl = document.getElementById('hymnSearchTitle');
@@ -496,11 +495,13 @@ const ICON = {
   plRemove: '', // playlist_remove
   queue: '', // queue_music
   // Favoritos: o que está marcado leva ESTRELA, não pasta — a seção deixou de
-  // ser "onde os arquivos ficam" e passou a ser "o que eu marquei". (Os glifos
-  // `folder` e `create_new_folder` saíram na v5.254, com os atalhos de pasta:
-  // a única pasta que resta é a do aparelho, e ela usa o `import`
-  // (`folder_open`) como IDENTIDADE e as setas circulares como ação.)
+  // ser "onde os arquivos ficam" e passou a ser "o que eu marquei". (O glifo
+  // `folder` saiu na v5.254 com os atalhos de pasta; `create_new_folder`
+  // voltou na v5.258 como o botão de TRAZER uma pasta do aparelho — a única
+  // que resta —, e o `import` (`folder_open`) segue sendo a IDENTIDADE dela na
+  // linha.)
   star: '',      // star
+  folderNew: '', // create_new_folder — "trazer uma pasta"
   close: '',     // close — o MESMO glifo dos `.popup-close` (v5.191)
 };
 
@@ -839,38 +840,10 @@ async function syncGroup(key, label, colls, opts) {
   if (!colls.length) return;
   if (!AVDB.opfsSupported()) { setGroupStatus(key, 'OPFS indisponível', 5000); return; }
 
-  // "Todo o acervo" confirma SEMPRE, mesmo no Wi-Fi: são milhares de músicas e
-  // vários GB no aparelho. A pergunta de rede (abaixo) é sobre o plano de
-  // dados; esta é sobre a escala, e as duas são perguntas diferentes.
-  if (opts && opts.confirmScale) {
-    let songs = 0, est = 0;
-    for (const c of colls) {
-      const pend = faltamNaColecao(c.id);
-      songs += pend;
-      est += estimatePendingBytes(c);
-    }
-    // "Nada pendente" NÃO é "já completo" (v5.135): um álbum SEM ÍNDICE tem
-    // zero variantes faltando pela conta — ele não tem lista nenhuma —, e essa
-    // era a resposta na janela em que o `autoRefreshCollections` ainda não
-    // indexou o acervo. O botão de baixar TUDO respondia "Já completo" e não
-    // fazia nada. Quem sabe a diferença é `grupoCompleto`, que exige índice.
-    if (grupoCompleto(colls)) { setGroupStatus(key, 'Já completo', 5000); return; }
-    // Sem índice ainda não há o que contar, e "0 músicas" seria uma promessa
-    // errada dos dois jeitos possíveis (nem "nada a fazer", nem um tamanho).
-    const escala = songs
-      ? ', com ' + songs + ' música(s) ainda não baixada(s)'
-        + (est ? ', aproximadamente ' + fmtBytes(est) : '')
-      : '. As listas ainda estão sendo carregadas, então o tamanho só aparece depois';
-    const ok = await appConfirm({
-      title: 'Baixar toda a biblioteca?',
-      // O tamanho sai da mesma medida do álbum avulso (ver `medirColecao`).
-      message: 'São ' + colls.length + ' coleções' + escala + '.'
-        + '\n\nO download continua com o app minimizado, mostra o progresso na notificação '
-        + 'e pode ser cancelado a qualquer momento.',
-      okText: 'Baixar tudo', cancelText: 'Agora não',
-    });
-    if (!ok) return;
-  }
+  // (A confirmação de ESCALA — "Baixar toda a biblioteca?", com a contagem de
+  // coleções — saiu na v5.258 junto com o botão que a disparava, e ela era o
+  // único chamador de `confirmScale`. O que ficou é a pergunta de REDE, abaixo:
+  // ela é sobre o plano de dados e vale para qualquer lote.)
 
   let allowMobile = true;
   if (!isConfirmedWifi()) {
@@ -4056,9 +4029,25 @@ function isCue(rec) { return !!(rec && rec.kind === 'cue' && rec.cue); }
 // `<video>` que já monta a miniatura), a duração vem junto, as páginas são o
 // tamanho do array. Um detalhe que exigisse trabalho por linha, a cada render,
 // não valeria a informação que dá.
+// DE ONDE O ITEM VEIO (v5.258, pedido do operador: *"não apenas o tipo de
+// arquivo, mas também no caso das músicas, seu álbum"*).
+//
+// `hymnAlbum` é gravado no REGISTRO quando a mídia vem de uma coleção
+// (`coll.name` — ver `preencherAlbunsDosHinos`, que também o preenche para o
+// acervo que já estava no aparelho). Ele nasceu na v5.219 para o slide de capa
+// do telão; a lista é o segundo lugar em que a pergunta "é este mesmo?" se faz,
+// e ali o álbum distingue duas gravações do mesmo hino, que é justamente o que
+// o nome sozinho não faz.
+//
+// Vale para QUALQUER item que tenha o campo, não só áudio: um episódio de série
+// é vídeo e vem de uma coleção também, e dizer de qual é a mesma informação.
+// Entra logo depois do tipo, ANTES da duração: numa linha que corta com
+// reticências, o que sobrevive tem de ser o que identifica.
 function subtituloItem(item) {
   if (!item) return '';
   if (isCue(item)) return cueTipo(item);
+  const album = (item.hymnAlbum || '').trim();
+  const com = (base) => base + (album ? ' · ' + album : '');
   if (item.kind === 'deck') {
     const n = Array.isArray(item.pages) ? item.pages.length : 0;
     return 'Apresentação' + (n ? ' · ' + n + (n === 1 ? ' página' : ' páginas') : '');
@@ -4066,15 +4055,15 @@ function subtituloItem(item) {
   // O item de PLAYER: o link, sem bytes no aparelho. Dizer "YouTube" é dizer
   // que ele depende da rede durante o culto, que é a diferença que importa
   // entre ele e o arquivo baixado do mesmo vídeo.
-  if (item.kind === 'youtube') return 'YouTube';
-  if (item.kind === 'video') return 'Vídeo' + (item.height ? ' · ' + item.height + 'p' : '');
+  if (item.kind === 'youtube') return com('YouTube');
+  if (item.kind === 'video') return com('Vídeo') + (item.height ? ' · ' + item.height + 'p' : '');
   if (item.kind === 'audio') {
     const d = fmtDur(item.seconds);
-    return 'Áudio' + (d ? ' · ' + d : '');
+    return com('Áudio') + (d ? ' · ' + d : '');
   }
-  if (item.kind === 'image') return 'Imagem';
+  if (item.kind === 'image') return com('Imagem');
   if (!item.blob && item.url) return 'Link externo';
-  return 'Arquivo';
+  return com('Arquivo');
 }
 
 // ===== UM SÓ CAMINHO PARA "ADICIONAR" (v5.104) =====
@@ -5654,6 +5643,9 @@ function refreshDiversos() {
 function msgProjecting() { return !!(msgSession && msgSession.projecting); }
 
 function renderLibrary() {
+  // O menu de uma linha (v5.258) não sobrevive ao redesenho — ver
+  // `renderFolderList`, mesmo motivo.
+  fecharAcoesDaLinha();
   const host = listHost();
   // Revoga SÓ as URLs que este host criou no render anterior — as do outro
   // host continuam em cena e continuam válidas (ver `thumbUrlsPorHost`).
@@ -5857,17 +5849,26 @@ function renderLibrary() {
       pct.textContent = dl.pct >= 0 ? dl.pct + '%' : '';
       parts.push(pct);
     }
+    // TUDO ATRÁS DO `⋮` (v5.258) — ver `montarAcoesDaLinha`. A ordem dentro da
+    // caixa é a de sempre, da esquerda para a direita: o que se usa mais fica
+    // mais perto do dedo que acabou de tocar no `⋮`, que é a direita.
+    //
     // Baixando: o botão de converter sai de cena. Ele já está desabilitado, mas
     // continuar desenhando "baixar" ao lado de um anel girando é oferecer a
     // ação que está justamente em curso.
-    if (ytDl && !dl) parts.push(ytDl);
-    // O Parar entra ANTES da estrela e do arrastar, no lugar que eles ocupam: é
-    // ele que aparece quando os dois somem (ver `.lib-item.no-ar` na folha), e
-    // a mão do operador não pode ter de mudar de destino conforme o estado.
-    if (stopBtn) parts.push(stopBtn);
-    if (star) parts.push(star);
-    if (addBtn) parts.push(addBtn);
-    if (activeTab !== 'folders') parts.push(handle);
+    //
+    // Na SELEÇÃO MÚLTIPLA não há `⋮`: ali o alvo é o conjunto, e quem age é a
+    // barra do rodapé. (Antes a alça de arrastar continuava na linha; arrastar
+    // com meia lista marcada nunca foi uma operação que alguém quisesse.)
+    if (!selectionMode) {
+      parts.push(...montarAcoesDaLinha(li, [
+        (ytDl && !dl) ? ytDl : null,
+        stopBtn,
+        star,
+        addBtn,
+        activeTab !== 'folders' ? handle : null,
+      ]));
+    }
     row.append(...parts);
     li.appendChild(row);
     attachRowGestures(row, item);
@@ -5991,6 +5992,111 @@ function countDownloaded(id) {
 // `isConfirmedWifi()`, e ela o diz na hora, no diálogo — que é onde a
 // informação tem consequência. Um chip permanente repetindo o estado da rede
 // em cada álbum aberto era ruído entre dados sobre o ÁLBUM.)
+
+// ===== OS BOTÕES DA LINHA VIRAM UM SÓ (v5.258) =====
+//
+// Relato do operador: *"hoje o título disputa com todos os botões de acesso
+// rápido, cortando o título e subtítulo. Então use um botão de 3 pontos para
+// indicar a abertura das opções."*
+//
+// Medido, ele estava certo por muito: numa lista de 368px, uma linha do
+// Cronograma com estrela + arrastar deixava 194px para o nome, e uma dos
+// Favoritos com estrela + Cronograma + arrastar, 152px — menos de metade da
+// largura para a única coisa da linha que não se adivinha. Cada botão novo
+// (o Parar da v5.177, o `+` da v5.102, a alça da v5.254) foi um pedaço a menos
+// de nome, e nenhum deles é usado com a frequência com que se LÊ a lista.
+//
+// Agora a linha tem UM botão à direita — `⋮` —, e as ações aparecem por cima
+// dela, da direita para a esquerda, quando ele é tocado. O que se paga é um
+// toque a mais para agir; o que se ganha é a lista legível o tempo todo, que é
+// o estado em que ela passa 95% do culto.
+//
+// **O "Tirar do ar" não perdeu o caminho curto**: o segundo toque no CORPO da
+// linha já faz isso desde a v5.165, e é o gesto que continua valendo sem abrir
+// nada. O botão dentro do menu é o mesmo desfecho, nomeado.
+//
+// SVG inline porque `more_vert` (U+E5D4) **não está** no subset de
+// `material-symbols.woff2` — 31 codepoints, conferidos. Um glifo ausente
+// desenha um retângulo vazio, que é a armadilha da v5.200.
+function dotsIconSvg() {
+  return '<svg viewBox="0 0 24 24" width="19" height="19" fill="currentColor" aria-hidden="true">'
+    + '<circle cx="12" cy="5" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="12" cy="19" r="1.9"/>'
+    + '</svg>';
+}
+
+// A linha com o menu aberto — UMA por vez. Duas abertas seriam duas faixas
+// cobrindo dois nomes, e o operador teria de fechar a errada para ler.
+let linhaAcoesAberta = null;
+function fecharAcoesDaLinha() {
+  if (linhaAcoesAberta) linhaAcoesAberta.classList.remove('acoes-abertas');
+  linhaAcoesAberta = null;
+}
+function alternarAcoesDaLinha(li) {
+  const abrir = linhaAcoesAberta !== li;
+  fecharAcoesDaLinha();
+  if (!abrir) return;
+  li.classList.add('acoes-abertas');
+  linhaAcoesAberta = li;
+}
+// Tocar em QUALQUER outro lugar fecha. Na fase de CAPTURA e por `pointerdown`,
+// e não por `click`: o gesto de arrastar (a alça, que mora dentro do menu)
+// captura o ponteiro e nunca produz um `click` — sem isto, arrastar um item
+// deixaria o menu aberto por cima da linha que acabou de se mover.
+document.addEventListener('pointerdown', (e) => {
+  if (!linhaAcoesAberta) return;
+  if (e.target.closest && e.target.closest('.acoes-abertas')) return;
+  fecharAcoesDaLinha();
+}, true);
+
+/**
+ * Os botões de uma linha, guardados atrás do `⋮`.
+ *
+ * Devolve `[caixa, botão]` na ordem em que entram na linha — a caixa é
+ * absoluta e cobre da miniatura até o `⋮`, então a posição dela no DOM não
+ * importa para o layout, mas importa para a ORDEM DE LEITURA de quem usa
+ * leitor de tela: as ações vêm antes do botão que as abre.
+ *
+ * Uma linha sem ação nenhuma (não há, hoje) não ganha `⋮`: um botão que abre
+ * uma caixa vazia é pior que botão nenhum.
+ */
+function montarAcoesDaLinha(li, botoes) {
+  const uteis = botoes.filter(Boolean);
+  if (!uteis.length) return [];
+  const caixa = document.createElement('div');
+  caixa.className = 'row-acoes';
+  caixa.append(...uteis);
+  // ESCOLHIDA a opção, a caixa fecha — ela cobre o nome, e um menu que fica
+  // aberto por cima do item depois de já ter feito o que se pediu é o defeito
+  // que ele existe para corrigir. A ALÇA é a exceção, e a única: ela não é uma
+  // decisão que termina, é um gesto que dura (e um `click` residual dela
+  // fecharia o menu no fim de cada arrasto).
+  //
+  // O VAZIO da caixa fecha pelo mesmo motivo, e é o que dá uma saída barata a
+  // quem só queria ler a linha: sem ele o único caminho de volta seria acertar
+  // o `⋮` outra vez — um alvo de 34px ao lado de uma faixa inteira inerte.
+  //
+  // Na fase de CAPTURA, e isto não é preferência: todo botão de linha deste app
+  // chama `stopPropagation` no próprio `click` (senão o toque nele acionaria o
+  // corpo da linha atrás), então um ouvinte de bolha aqui nunca veria nenhum
+  // deles. Fechar antes de a ação rodar não a atrapalha — `fecharAcoesDaLinha`
+  // só tira uma classe.
+  caixa.addEventListener('click', (e) => {
+    const alvo = e.target === caixa ? caixa : (e.target.closest && e.target.closest('button'));
+    if (!alvo || (alvo !== caixa && alvo.classList.contains('row-handle'))) return;
+    if (alvo === caixa) e.stopPropagation();
+    fecharAcoesDaLinha();
+  }, true);
+  const mais = document.createElement('button');
+  mais.className = 'row-btn row-mais';
+  mais.title = 'Opções deste item';
+  mais.setAttribute('aria-label', 'Opções deste item');
+  mais.innerHTML = dotsIconSvg();
+  mais.addEventListener('click', (e) => {
+    e.stopPropagation();
+    alternarAcoesDaLinha(li);
+  });
+  return [caixa, mais];
+}
 
 // SVG inline (fora do subset da fonte): setas circulares de "sincronizar".
 function syncIconSvg() {
@@ -6162,11 +6268,10 @@ function categoryCards(cat) {
 }
 
 // O MIOLO do cabeçalho de grupo — contador (busy/done/fração) + botão de
-// lote/cancelar — usado pelo `header()` da lista E pelo "Baixar todo o acervo"
-// fixo do popup (`renderAcervoTotal`). Era escrito duas vezes, compartilhando
-// até o mesmo estado (`gui(key)`); com o miolo num lugar só, a régua do verde
-// e o comportamento do botão não têm como divergir entre os dois.
-// `aposClique` é a diferença legítima do popup: ele precisa se redesenhar.
+// lote/cancelar — hoje usado só pelo `header()` da lista, por CATEGORIA. Ele
+// era compartilhado com o "Baixar toda a biblioteca" fixo do cabeçalho do
+// popup, que saiu na v5.258; `aposClique` era a diferença legítima daquele
+// (ele precisava se redesenhar) e ficou sem chamador que o passe.
 function montarResumoGrupo(host, key, text, colls, gOpts, aposClique) {
   const g = gui(key);
   const complete = grupoCompleto(colls);
@@ -6184,9 +6289,7 @@ function montarResumoGrupo(host, key, text, colls, gOpts, aposClique) {
     btn.className = 'coll-group-btn' + (g.busy ? ' busy' : '');
     btn.title = g.busy
       ? 'Cancelar o download'
-      : (gOpts && gOpts.confirmScale)
-        ? 'Baixar TODA a biblioteca (' + colls.length + ' coleções)'
-        : 'Baixar a coleção completa (' + colls.length + ' álbum(ns))';
+      : 'Baixar a coleção completa (' + colls.length + ' álbum(ns))';
     btn.innerHTML = g.busy ? closeIconSvg() : downloadAllIconSvg();
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -6225,11 +6328,11 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
   // botão que baixa a COLEÇÃO COMPLETA — ele deixou de ser só um rótulo e
   // passou a ser onde mora a ação. (`showName === false` existia para o caso
   // de um filtro ativo, quando a pílula selecionada já dizia o nome do grupo;
-  // as pílulas saíram na v5.70, e hoje só "Todo o acervo" o usa, porque ali o
-  // nome estaria dentro do próprio botão.)
+  // as pílulas saíram na v5.70, e o último a usá-lo — "Todo o acervo" — saiu
+  // na v5.258.)
   // O parâmetro se chama `gOpts`, e não `opts`, para não sombrear o `opts` de
-  // `renderCollectionsList` — o `semTotal` lá de fora é lido DENTRO desta
-  // função de render, e o shadowing esconderia o engano em silêncio.
+  // `renderCollectionsList` — o de fora é lido DENTRO desta função de render, e
+  // o shadowing esconderia o engano em silêncio.
   const header = (text, colls, showName, gOpts) => {
     const li = document.createElement('li');
     li.className = 'coll-group';
@@ -6360,6 +6463,10 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
 
     const corpo = document.createElement('ul');
     corpo.className = 'coll-group-corpo';
+    // A MARCA que o redesenho no lugar procura (v5.258, ver
+    // `redesenharFavoritosNaBiblioteca`). Só a seção FIXA a leva porque só ela
+    // é os Favoritos; as demais são coleções, e quem as redesenha é o acervo.
+    if (fixo) corpo.dataset.favCorpo = '1';
     li.appendChild(corpo);
 
     // ABRIR NÃO FECHA OS OUTROS, ao contrário do acordeão de um álbum. Lá a
@@ -6401,19 +6508,9 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
     return corpo;
   };
 
-  // Baixar TODO o acervo de uma vez: os hinários mais todos os álbuns de todas
-  // as categorias.
-  // `semTotal`: no popup do acervo esta barra subiu para o CABEÇALHO (ver
-  // renderAcervoTotal) — é a ação de maior alcance da tela e estava rolando
-  // junto com a lista, saindo de vista assim que se descia um pouco.
-  if (!(opts && opts.semTotal)) {
-    // A SÉRIE FICA DE FORA (v5.230): "Baixar toda a biblioteca" somaria ~52
-    // vídeos de ~300 MB a um botão que o operador aperta pensando em louvor. O
-    // contador dela também sai — um total que promete o que o botão não faz
-    // seria a pior das duas metades.
-    const todas = allCollections().filter((c) => !isHymnalAlbum(c) && !ehSerie(c));
-    if (todas.length > 1) header('Toda a biblioteca', todas, true, { confirmScale: true });
-  }
+  // (A barra "Toda a biblioteca" saiu na v5.258 — ver o bloco acima. Ela já
+  // vinha desligada por `semTotal` no único chamador real desde que subiu para
+  // o cabeçalho, e o cabeçalho saiu com ela.)
 
   // ===== FAVORITOS, O PRIMEIRO GRUPO (v5.237) =====
   //
@@ -6435,14 +6532,16 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
   // peso do painel do álbum na v5.232.
   const favCorpo = grupo(GRUPO_FAVORITOS, null, {
     fixo: true,
-    // UMA AÇÃO, E ELA FAZ A COISA (v5.254): trazer uma pasta do aparelho. Até
-    // aqui o toque abria uma folha com duas escolhas, e a outra — criar um
-    // atalho de pasta — deixou de existir a pedido do operador. Setas
-    // circulares porque é SINCRONIZAR, o mesmo desenho dos cards de coleção e
-    // da linha de cada pasta já trazida; `folder_open` fica reservado à
-    // IDENTIDADE de pasta, nunca à ação.
+    // UMA AÇÃO, E ELA FAZ A COISA (v5.254): trazer uma pasta do aparelho.
+    //
+    // PASTA + (v5.258, pedido do operador). A v5.254 pôs aqui as setas
+    // circulares, e elas são o desenho de RE-SINCRONIZAR — o que a linha de
+    // cada pasta já trazida faz. Este botão não re-sincroniza nada: ele
+    // ACRESCENTA uma pasta que ainda não está aqui, e é isso que o `+` diz.
+    // As setas continuam sendo as certas onde a ação é repetir; aqui a ação é
+    // a primeira vez.
     acoes: [{
-      icone: syncIconSvg(),
+      icone: msym(ICON.folderNew),
       titulo: 'Trazer uma pasta do aparelho',
       aoTocar: (b) => syncDeviceFolder(undefined, b),
     }],
@@ -6901,21 +7000,22 @@ function collapseAccordion(el, depois) {
 // e não têm como saber o alvo sozinhos.
 let redesenharAcervo = () => {};
 
-// "Baixar todo o acervo", no cabeçalho do popup: o mesmo `syncGroup` e a mesma
-// chave de grupo (`grp:Toda a biblioteca`) da barra que existia na lista — só
-// que FIXO no alto. Ali é a ação de maior alcance da tela; dentro da lista, ela
-// saía de vista assim que o operador descia um pouco, que é justamente quando
-// ele está decidindo se baixa tudo ou escolhe um álbum.
-function renderAcervoTotal(redesenhar) {
-  hymnSearchTotalEl.innerHTML = '';
-  const todas = allCollections().filter((c) => !isHymnalAlbum(c));
-  if (todas.length < 2) return;
-  // O bloco contador+botão é o MESMO do cabeçalho de categoria
-  // (`montarResumoGrupo`) — aqui ele pesa ainda mais: é o botão de maior
-  // alcance da tela. A única diferença é o `redesenhar` após o clique.
-  montarResumoGrupo(hymnSearchTotalEl, 'grp:Toda a biblioteca', 'Toda a biblioteca',
-    todas, { confirmScale: true }, redesenhar);
-}
+// ===== "BAIXAR TODA A BIBLIOTECA" SAIU (v5.258) =====
+//
+// Pedido do operador: *"remova a opção de download total de toda a biblioteca,
+// pois ele ficou muito grande e muito inconveniente. Pode inclusive remover o
+// botão e o indicador de peso total que ficam na barra do topo."*
+//
+// Ele está certo pela própria escala que o botão anunciava: com as séries e os
+// álbuns de hoje, "tudo" é dezenas de gigabytes — um toque cujo desfecho
+// razoável é sempre "não", e que ocupava o lugar de maior alcance da tela para
+// oferecer isso. O CONTADOR foi junto: ele era o peso do acervo INTEIRO, um
+// número que não responde nenhuma pergunta que o operador faça de fato (a que
+// ele faz é sobre UMA coleção, e essa continua na barra de cada card).
+//
+// O que FICA: o download por coleção (a barra de cada card) e o por CATEGORIA
+// (`montarResumoGrupo`, no cabeçalho de "Diversos", "CDs do ano"…). São os dois
+// que têm tamanho de decisão.
 
 // ===== Abrir o card de uma coleção =====
 // Abre o card sem passar pelo alternador da barra: é o caminho do toque numa
@@ -7174,6 +7274,9 @@ let favHost = null;
 function favAlvo() { return favHost || favListEl; }
 
 function renderFolderList() {
+  // O menu de uma linha não sobrevive ao redesenho: o `li` que a classe marcava
+  // deixou de existir, e a referência viraria um nó órfão preso para sempre.
+  fecharAcoesDaLinha();
   if (opfsFolders.length === 0 && favItems.length === 0) {
     // UMA LINHA, E SÓ (v5.239, pedido do operador: *"remova todo o texto e
     // explicações no corpo da lista dos favoritos, mantenha apenas um 'Nenhum
@@ -7284,7 +7387,10 @@ function favItemRow(item) {
   handle.className = 'row-handle'; handle.title = 'Arraste para reordenar';
   handle.appendChild(msym(ICON.drag));
   const partes = [isCue(item) ? cueThumb(item) : thumbEl(item), textWrap];
-  partes.push(favBtn(item.id, item.name), add, handle);
+  // E OS TRÊS FICAM ATRÁS DO `⋮` (v5.258), como no Cronograma: era esta lista
+  // que pagava mais caro — 152px de nome numa lista de 368 — porque é a única
+  // com três botões.
+  partes.push(...montarAcoesDaLinha(li, [favBtn(item.id, item.name), add, handle]));
   row.append(...partes);
   li.appendChild(row);
   // Os mesmos gestos da biblioteca: toque projeta/toca, toque longo entra na
@@ -7374,7 +7480,7 @@ async function toggleFav(id, nome, btn) {
   }
   const marcado = favSet.has(id);
   responder(btn, 'ok', rotulo + (marcado ? ' adicionado aos favoritos' : ' removido dos favoritos'));
-  await recarregarFavoritos();
+  await recarregarFavoritos(PULSO_MS);
   // O BOTÃO SE ATUALIZA NO LUGAR (estrela cheia ↔ vazada) e a lista só é
   // remontada DEPOIS do pulso: `renderLibrary` recria as linhas, e recriar
   // agora arrancaria da tela justamente o botão que está confirmando.
@@ -7392,10 +7498,42 @@ async function toggleFav(id, nome, btn) {
 
 // Relê a lista e os registros. Chamado depois de qualquer mudança — é o único
 // ponto que reconstrói `favSet`/`favItems`, para os dois nunca divergirem.
-async function recarregarFavoritos() {
+//
+// E DESDE A v5.258 ELE TAMBÉM REDESENHA (relato do operador: *"se estou na
+// biblioteca e adiciono algo aos favoritos, ele só aparece na lista após fechar
+// e abrir novamente"*). Ele estava certo, e a causa é que os favoritos têm DUAS
+// casas desde a v5.237: quem redesenhava depois de favoritar era o
+// `renderLibrary` — a lista de baixo —, e a seção dentro da Biblioteca é
+// desenhada por `renderSearchResults`, que ninguém chamava. O estado estava em
+// dia; a tela é que não.
+//
+// Por SEÇÃO e não pela Biblioteca inteira: `renderSearchResults` refaz o
+// `innerHTML` da lista, e com ele a POSIÇÃO DE ROLAGEM — favoritar um item no
+// meio do acervo jogaria o operador de volta ao topo, que é pior que o defeito.
+//
+// `atrasoMs` existe para o pulso: quem acabou de tocar na estrela DENTRO da
+// seção veria a própria linha sumir por baixo do dedo antes de o pulso
+// confirmar o que aconteceu. É o mesmo raciocínio (e o mesmo prazo) do
+// `renderLibrary` adiado em `toggleFav`.
+async function recarregarFavoritos(atrasoMs) {
   const ids = await AVDB.listIds('favs');
   favSet = new Set(ids);
   favItems = await AVDB.listItems('favs');
+  if (atrasoMs) setTimeout(redesenharFavoritosNaBiblioteca, atrasoMs);
+  else redesenharFavoritosNaBiblioteca();
+}
+
+// A seção de Favoritos DENTRO da Biblioteca, redesenhada no lugar. O corpo é
+// marcado no `grupo()` (`data-fav-corpo`) porque ele é criado lá e não tem id:
+// procurá-lo por posição ou pelo texto do cabeçalho quebraria no primeiro
+// grupo novo.
+function redesenharFavoritosNaBiblioteca() {
+  if (!hymnSearchPopupEl.classList.contains('open')) return;
+  const corpo = hymnResultsEl.querySelector('[data-fav-corpo]');
+  if (!corpo) return;
+  corpo.innerHTML = '';
+  favHost = corpo;
+  try { renderFolderList(); } finally { favHost = null; }
 }
 
 // O botão de estrela de uma linha. `.on` = favoritado (a cor faz o estado, como
@@ -10402,9 +10540,7 @@ function renderSearchResults(query) {
   if (!ytBuscando && ytBuscaItens && ytBuscaTermo !== (query || '').trim()) ytBuscaItens = null;
   if (searchIsBrowsing(q)) {
     hymnResultsEl.innerHTML = '';
-    renderAcervoTotal(() => renderSearchResults(hymnSearchInputEl.value));
-    renderCollectionsList(hymnResultsEl, () => renderSearchResults(hymnSearchInputEl.value),
-      { semTotal: true });
+    renderCollectionsList(hymnResultsEl, () => renderSearchResults(hymnSearchInputEl.value));
     // (A linha de uso do disco saiu na v5.239, a pedido do operador: *"esse
     // valor é falso, irreal e disputa com os cabeçalhos que já dizem o peso
     // atual e total dos arquivos"*. E ele está certo pela régua da própria

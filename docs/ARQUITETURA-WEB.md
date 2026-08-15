@@ -4012,15 +4012,110 @@ diz em volta dele) toma o lugar dos dois, **por classe CSS**:
 ```css
 .row-stop { display: none; }
 .lib-item.no-ar .row-stop { display: flex; }
-.lib-item.no-ar .row-handle, .lib-item.no-ar .fav-btn { display: none; }
 ```
 
 Por CSS, e não remontando a linha, porque **quem liga e desliga o estado é o
 `marcarNoAr`**, que roda a cada `display-status` (~4 Hz) e só troca classes —
 fazer cirurgia de DOM nesse ritmo recriaria botões e perderia listeners quatro
 vezes por segundo. O botão é construído em toda linha e fica escondido; o teste
-mede o RENDERIZADO (`offsetParent`), não a presença do nó, porque uma regra que
-deixe de casar não apaga botão nenhum: ela só para de escondê-lo, em silêncio.
+mede o RENDERIZADO, não a presença do nó, porque uma regra que deixe de casar
+não apaga botão nenhum: ela só para de escondê-lo, em silêncio.
+
+**As duas linhas que ESCONDIAM a alça e a estrela saíram na v5.258**, e o
+argumento delas foi atendido de um jeito mais largo: os quatro botões passaram a
+morar dentro do `⋮` (abaixo), então não há mais disputa de lugar na direita da
+linha — o Parar simplesmente se junta aos outros quando a linha está no ar.
+
+#### Os botões da linha viram UM SÓ (o `⋮`, v5.258)
+
+Pedido do operador: *"isole todos os botões de interação em um único botão à
+direita, que ao tocar abre as opções disponíveis para a sua esquerda sobre o
+item, cobrindo o título e etc… pois hoje o título disputa com todos os botões de
+acesso rápido, cortando o título e o subtítulo."*
+
+Ele está descrevendo uma conta: a coluna de texto é `flex: 1` entre a miniatura
+e uma fileira de botões que **cresce com o estado do item** — estrela, `+`,
+alça, o download de um link do YouTube, o Parar quando está no ar. Num item do
+Cronograma isso chega a quatro alvos de `--hit` mais os `gap`, e quem paga é
+sempre o mesmo: o nome, que é a única coisa daquela linha que não se adivinha.
+
+`montarAcoesDaLinha(li, botoes)` é o funil único — ele devolve `[caixa, ⋮]` e é
+chamado tanto pelo `renderLibrary` quanto pelo `favItemRow`, para as duas listas
+não divergirem no primeiro ajuste. As decisões:
+
+- **A caixa é ABSOLUTA e cobre da miniatura até o `⋮`** (`left: calc(var(--hit)
+  + .5rem)` / `right: calc(var(--hit) + 1rem)`), com `background: inherit` —
+  ela precisa APAGAR o texto por baixo, e herdar o fundo é o que a mantém certa
+  na linha normal, na selecionada e na que está no ar sem uma regra por estado.
+- **Uma aberta por vez** (`linhaAcoesAberta`). Duas seriam duas faixas cobrindo
+  dois nomes, e o operador teria de fechar a errada para ler.
+- **O fechamento de fora é `pointerdown` na fase de CAPTURA**, não `click`: a
+  alça mora dentro da caixa e o arrasto captura o ponteiro, então ele **nunca
+  produz um `click`** — sem isso, arrastar um item deixaria o menu aberto por
+  cima da linha que acabou de se mover.
+- **Escolher uma opção FECHA**, e esse ouvinte também é de CAPTURA — por um
+  motivo que não é preferência: todo botão de linha deste app chama
+  `stopPropagation` no próprio `click` (senão o toque nele acionaria o corpo da
+  linha atrás), e um ouvinte de bolha na caixa **não veria nenhum deles**. A
+  **alça é a exceção**: ela não é uma decisão que termina, é um gesto que dura.
+- **O vazio da caixa fecha também.** Ela cobre o nome; sem isso o único caminho
+  de volta seria acertar o `⋮` outra vez — um alvo de 34px ao lado de uma faixa
+  inteira inerte.
+- **O redesenho fecha** (`fecharAcoesDaLinha()` no topo do `renderLibrary` e do
+  `renderFolderList`): a caixa é remontada a cada render, e a referência velha
+  ficaria apontando para um nó fora do documento.
+- **O ícone é SVG inline.** `more_vert` (U+E5D4) **não está** no subset de 31
+  codepoints de `material-symbols.woff2` — um glifo ausente desenha um retângulo
+  vazio, que é a armadilha da v5.200.
+- **Na seleção múltipla não há `⋮`**: ali o alvo é o conjunto, e a linha volta a
+  ser uma caixa de escolha.
+
+#### O subtítulo diz DE ONDE o item veio (v5.258)
+
+Mesmo pedido, primeira parte: *"tanto no Cronograma quanto na lista dos
+favoritos, adicione como informação do subtítulo, não apenas o tipo de arquivo,
+mas também, no caso das músicas, seu álbum."*
+
+`subtituloItem` passou a compor `tipo · álbum` quando o registro tem
+`hymnAlbum` — o mesmo campo que a v5.219 criou para o slide de capa e que a
+v5.220 passou a preencher no acervo que já estava baixado. **Não há leitura
+nova**: é o registro respondendo o que já sabe, que é a regra desta linha desde
+a v5.118. Numa lista de culto com três "Ó Adorai o Senhor" de hinários
+diferentes, o álbum é literalmente o que distingue um do outro.
+
+#### A Biblioteca: sem "baixar tudo", com a busca na BASE (v5.258)
+
+Duas podas do mesmo pedido, e as duas são sobre a barra do topo:
+
+- **"Baixar toda a biblioteca" saiu**, com o peso total ao lado
+  (`renderAcervoTotal`, `#hymnSearchTotal`, `.popup-total`). O argumento do
+  operador é o tamanho: *"ele ficou muito grande e muito inconveniente"* — e ele
+  é o mesmo que já tinha tirado a série daquele total (v5.230), agora aplicado
+  ao botão inteiro. Um alvo do tamanho do cabeçalho para uma ação de dezenas de
+  gigabytes, no topo da tela em que se procura UM louvor, era o oposto do que
+  aquela tela existe para fazer. Baixar coleção por coleção continua onde
+  sempre esteve: no card de cada uma.
+- **A busca e o ✕ desceram para uma barra na BASE** — *"eles estão muito longe
+  do teclado e do toque de acesso"*. Ela é a última coisa do sheet, e o sheet
+  mede `100%` de um `<body>` cuja altura já desconta o teclado
+  (`calc(100svh - var(--kb))`, do handler de `visualViewport`): **a barra encosta
+  na borda de cima do teclado sem uma regra própria**, pelo mesmo mecanismo que
+  já mantém o transporte visível. O ✕ vem DEPOIS do campo, na ponta em que o
+  polegar já está.
+
+#### Os favoritos se atualizam com a Biblioteca ABERTA (v5.258)
+
+Relato: *"se estou na biblioteca e adiciono algo aos favoritos, ele só aparece
+na lista após fechar e abrir novamente."*
+
+Os favoritos têm **duas casas** desde a v5.237 — a gaveta e a seção do topo da
+Biblioteca —, e o `toggleFav` só redesenhava a lista de baixo. A correção
+(`redesenharFavoritosNaBiblioteca`) redesenha **só o corpo daquela seção**,
+achado por uma marca no próprio nó (`data-fav-corpo`), apontando o `favHost`
+para ele — e **não** `renderSearchResults()`, que remontaria a tela inteira e
+jogaria fora a posição de rolagem de quem estava no meio de um hinário para
+marcar uma estrela. O oráculo cobra as duas metades: o item aparece **e** a
+rolagem sobrevive.
 
 #### O rodapé fixo da caixa da lista (`#listFoot`, v5.107)
 
@@ -4444,7 +4539,9 @@ A lista tem **duas** naturezas, e desde a v5.254 nenhum cabeçalho entre elas �
    ordem de chegada até o operador arrastá-los. Cada linha faz as três coisas
    que se quer de um favorito: **tocar/projetar** (o mesmo `onTap` da
    biblioteca), **desmarcar** (a estrela) e **mandar ao Cronograma** (o `+`) —
-   mais a quarta, que a v5.254 acrescentou: **mover de lugar** (a alça).
+   mais a quarta, que a v5.254 acrescentou: **mover de lugar** (a alça). As
+   três últimas moram **dentro do `⋮`** desde a v5.258 (ver "Os botões da linha
+   viram um só", abaixo); o toque no corpo continua sendo o que projeta.
    O agrupamento por TIPO (`FAV_GRUPOS`, v5.104: Músicas · Vídeos · YouTube ·
    Imagens · Apresentações · Versículos · Letras · Mensagens · Tempo · Sorteios
    · Pacotes · Outros) saiu com ela, e o argumento dele caiu por si: ele supunha
@@ -8702,8 +8799,9 @@ faders/mixer), a **lupa** da busca do acervo (`#hymnSearchBtn`), a antena de
 **Wi-Fi** dos cards de coleção (`wifiIconEl`), o **fone de ouvido** da mesa de
 som (`#pvSoundBtn`, hoje sobre a preview), a **folha com linhas** da leitura
 auxiliar (`#lyricsViewBtn`, que substituiu a flor do antigo botão de fundo da
-letra), a **engrenagem** de Configurações (`#settingsBtn`, no topo do mixer), as
-**setas** do par de troca de modo (`.mode-switch`), o
+letra), a **engrenagem** de Configurações (`#settingsBtn`, no topo do mixer — e,
+desde a v5.250, também no cabeçalho do Modo Fácil), os **três pontos** do menu
+de uma linha (`dotsIconSvg`, v5.258 — `more_vert` não está no subset), o
 ícone **"arquivos+"** (documento com `+`) do botão de importar no fim do
 Cronograma (`.import-btn`), que diferencia importar ARQUIVOS de abrir os
 FAVORITOS (estrela, no botão ao lado — e a mesma estrela na "Nova pasta"),

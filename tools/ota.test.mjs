@@ -261,8 +261,13 @@ try {
     await pg.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function',
       null, { timeout: 25000 });
     let retomou = true;
+    // 25 s, o mesmo da espera acima: a asserção é sobre a retomada ACONTECER, e
+    // não sobre a velocidade dela — a recarga é de verdade e reexecuta a
+    // inicialização inteira. Com 15 s ele reprovava uma vez a cada cinco
+    // execuções numa máquina ocupada, e teste que reprova por carga ensina a
+    // ignorar vermelho (a lição da v5.204).
     await pg.waitForFunction(() => window.__chamadas.includes('apkInstalar'),
-      null, { timeout: 15000 }).catch(() => { retomou = false; });
+      null, { timeout: 25000 }).catch(() => { retomou = false; });
     checar(retomou,
       'depois da recarga o app RETOMA sozinho e baixa o APK (a segunda metade do lote)');
     checar(await pg.evaluate(async () => !(await window.AVDB.getState('ota-intencao'))),

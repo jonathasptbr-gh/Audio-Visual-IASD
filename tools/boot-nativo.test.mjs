@@ -930,7 +930,14 @@ try {
       secoes: lista3.querySelectorAll('.fav-section').length,
       // Tipos diferentes (áudio e vídeo) na MESMA lista, sem nada entre eles.
       nomes: [...lista3.querySelectorAll('.lib-item .row-name')].map((e) => e.textContent),
-      alcas: lista3.querySelectorAll('.lib-item .row-handle').length,
+      // A ALÇA continua existindo — e desde a v5.258 ela mora DENTRO do menu
+      // `⋮`, com a estrela e o `+`. Medir só a presença dela aprovaria a linha
+      // antiga, com os três botões em cima do título.
+      alcas: [...lista3.querySelectorAll('.lib-item .row-handle')]
+        .filter((h) => h.closest('.row-acoes')).length,
+      soUmBotaoNaLinha: [...lista3.querySelectorAll('.lib-item')]
+        .every((li) => li.querySelectorAll('.row > button').length === 1
+          && !!li.querySelector('.row > .row-mais')),
       // O subtítulo voltou: sem cabeçalho de tipo, é ele que distingue.
       subs: [...lista3.querySelectorAll('.lib-item .row-sub')]
         .map((e) => getComputedStyle(e).display).filter((d) => d !== 'none').length,
@@ -992,11 +999,54 @@ try {
     'A LISTA DE FAVORITOS É ÚNICA: tipos diferentes juntos, sem subdivisão nenhuma',
     JSON.stringify(favs.lista.nomes));
   checar(favs.lista.alcas === favs.lista.nomes.length,
-    'e cada item tem a ALÇA de arrastar — a ordem passou a ser decisão do operador');
+    'e cada item tem a ALÇA de arrastar, agora DENTRO do menu `⋮` (v5.258)');
+  checar(favs.lista.soUmBotaoNaLinha,
+    'e a linha ficou com um botão só: o `⋮` — o resto saiu de cima do título');
   checar(favs.lista.subs === favs.lista.nomes.length,
     'e o subtítulo voltou a aparecer: sem cabeçalho de tipo, é ele que distingue');
   checar(favs.lista.ordemDepois === 0,
     'e o arrastar MOVE de verdade (o mesmo `reorder` do Cronograma)');
+  // ── OS FAVORITOS SE ATUALIZAM COM A BIBLIOTECA ABERTA (v5.258) ─────────
+  //
+  // Relato do operador: *"se estou na biblioteca e adiciono algo aos favoritos,
+  // ele só aparece na lista após fechar e abrir novamente."* Ele estava certo, e
+  // a causa é que os favoritos têm DUAS casas desde a v5.237: quem redesenhava
+  // depois de favoritar era o `renderLibrary` — a lista de baixo —, e a seção
+  // dentro da Biblioteca é desenhada por `renderSearchResults`, que ninguém
+  // chamava. O estado estava em dia; a tela é que não.
+  //
+  // O teste usa a tela DE VERDADE (o popup aberto), e não um `<ul>` de mentira:
+  // o defeito era exatamente a distância entre o estado e aquela tela.
+  const favVivo = await pg.evaluate(async () => {
+    openHymnSearch();
+    await new Promise((r) => setTimeout(r, 250));
+    const secao = () => document.querySelector('#hymnResults [data-fav-corpo]');
+    const antes = !!secao() && /Favorito ao vivo/.test(secao().textContent);
+    const rec = await AVDB.addMedia(new Blob(['z'], { type: 'audio/mpeg' }),
+      { name: 'Favorito ao vivo', list: 'avulsos' });
+    // Pelo MESMO caminho do operador: a estrela de uma linha.
+    await toggleFav(rec.id, 'Favorito ao vivo', null);
+    await new Promise((r) => setTimeout(r, 1400));   // o pulso, e o redesenho depois dele
+    const depois = !!secao() && /Favorito ao vivo/.test(secao().textContent);
+    // A ROLAGEM não pode ter sido zerada: redesenhar a Biblioteca inteira
+    // jogaria o operador de volta ao topo, que é pior que o defeito.
+    const lista = document.getElementById('hymnResults');
+    lista.scrollTop = 40;
+    const rolagemAntes = lista.scrollTop;
+    await recarregarFavoritos();
+    const rolagemDepois = lista.scrollTop;
+    await AVDB.listRemove('favs', rec.id);
+    await recarregarFavoritos();
+    closeHymnSearch();
+    return { antes, depois, rolagemAntes, rolagemDepois };
+  });
+  checar(!favVivo.antes && favVivo.depois,
+    'FAVORITAR COM A BIBLIOTECA ABERTA já mostra o item na seção — sem fechar e reabrir',
+    JSON.stringify(favVivo));
+  checar(favVivo.rolagemAntes === 0 || favVivo.rolagemDepois === favVivo.rolagemAntes,
+    'e o redesenho é da SEÇÃO, não da Biblioteca inteira: a rolagem não volta ao topo',
+    JSON.stringify(favVivo));
+
   // ── A MIGRAÇÃO DOS ATALHOS DE PASTA (v5.254) ───────────────────────────
   //
   // Esta é a asserção que impede o lote de virar PERDA DE MÍDIA. Um item cujo
