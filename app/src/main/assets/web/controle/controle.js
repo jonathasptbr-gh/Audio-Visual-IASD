@@ -209,7 +209,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.242';
+const WEB_VERSION = '5.243';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -732,6 +732,11 @@ let bibleSession = null;
 // `versionId` é REVERSÍVEL — A→B→A ressuscitava os workers da primeira.
 let bibleDl = null;
 let bibleDlSeq = 0;
+// Quantas falhas SEGUIDAS desistem da varredura (ver ensureBibleVersionDownloaded).
+// Vinte e cinco está bem acima do maior soluço possível — a concorrência é de
+// NET_CONCURRENCY (6), então um blip da rede produz meia dúzia, não vinte e
+// cinco — e bem abaixo dos 1189 que um lançamento offline pagaria à toa.
+const BIBLE_DL_DESISTE = 25;
 // Versões já totalmente baixadas (offline) — cache em memória de
 // state['bibleComplete:<v>'], pra a tela de livros mostrar "completa" sem async.
 const bibleCompleteVersions = new Set();
@@ -3185,6 +3190,44 @@ async function enterBibleTab() {
   if (bibleVersionId != null) ensureBibleVersionDownloaded(bibleVersionId);
 }
 
+// A BÍBLIA BASE DO APP, baixada sozinha na abertura (v5.242)
+//
+// O download da versão INTEIRA sempre existiu — e só era disparado por
+// `enterBibleTab` e por `changeBibleVersion`, isto é, por alguém ENTRAR na aba
+// Bíblia. Quem nunca entrou ficava com o caminho sob demanda do
+// `loadBibleChapter`: um capítulo por vez, conforme o uso, com a rede da igreja
+// no meio do culto como única rede disponível. Era o relato do operador, e o
+// oposto do que a aba faz assim que é aberta uma vez.
+//
+// Agora o app garante UMA versão offline por conta própria, na abertura, como
+// já faz com os índices das coleções (`autoRefreshCollections`). O paralelo com
+// o hinário é exato num ponto e não no outro: lá o que chega sozinho é a
+// LISTAGEM, porque o áudio pesa; aqui o texto de 1189 capítulos é leve o
+// bastante para vir inteiro, e vir inteiro é o que torna a Bíblia utilizável
+// sem rede nenhuma.
+//
+// **A versão é a que o app já escolheria** (`pickDefaultBibleVersion`: a Almeida
+// Revista e Atualizada, e a primeira disponível se ela não estiver no banco) —
+// e não `bibleVersionId`, que é a ESCOLHA do operador. A distinção importa:
+// esta é a base que o app garante, não a preferência de quem opera. Quem trocou
+// de versão continua tendo a dele baixada pelo caminho de sempre, ao entrar na
+// aba — e as duas convivem, porque `ensureBibleVersionDownloaded` é resumível e
+// idempotente (uma versão já completa custa uma leitura de estado e volta).
+//
+// Fire-and-forget na init, e por isso os erros morrem aqui: uma falha de rede
+// na abertura não pode borbulhar para o `init()`.
+async function garantirBibliaBase() {
+  try {
+    // Mesma proteção do `enterBibleTab`, e agora ela é ainda mais devida: sem
+    // ninguém abrir a aba, este é o único ponto que pede à origin para não ser
+    // descartada sob pressão de espaço.
+    if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+    await ensureBibleMeta(false);
+    const base = pickDefaultBibleVersion(bibleVersions);
+    if (base != null) await ensureBibleVersionDownloaded(base);
+  } catch (_) {}
+}
+
 // Baixa a versão INTEIRA da Bíblia (todos os capítulos de todos os livros) na
 // 1ª vez que ela é usada — em segundo plano, resumível (pula o que já está em
 // cache), concorrência limitada (runLimited, 5). O texto de cada capítulo é
@@ -3234,6 +3277,21 @@ async function ensureBibleVersionDownloaded(versionId) {
   }
 
   let done = total - missing.length, failed = 0;
+  // Falhas CONSECUTIVAS — o freio de quem varre 1189 capítulos sem rede.
+  //
+  // Enquanto a varredura só começava por alguém ENTRAR na aba Bíblia, insistir
+  // até o fim era barato: havia um operador olhando. Com a varredura automática
+  // na abertura (`garantirBibliaBase`, v5.242) o cenário mudou — um lançamento
+  // offline, ou com o Wi-Fi da igreja sem uplink (que este projeto descreve
+  // como o ambiente NORMAL), pagaria 1189 requisições fadadas ao erro, com
+  // serviço em primeiro plano, wake lock e uma notificação contando até o fim,
+  // a cada abertura. Vinte e cinco erros seguidos não são uma oscilação: são a
+  // rede fora, e a resposta certa é parar e tentar no lançamento seguinte.
+  //
+  // Ele NÃO grava `bibleComplete` (o `failed` cresce), então a versão continua
+  // pendente e a varredura é retomada de onde parou — que é exatamente o que
+  // ela já fazia depois de qualquer interrupção.
+  let seguidas = 0;
   // Sequência monotônica: cada invocação ganha a sua, e uma varredura superada
   // nunca mais volta a valer (ver o guard do worker abaixo). Trocar `bibleDl`
   // por si só não bastava — a igualdade de versão é reversível.
@@ -3257,6 +3315,9 @@ async function ensureBibleVersionDownloaded(versionId) {
     // `return` sem contar falha, gravava `bibleComplete` sobre uma varredura
     // incompleta — flag persistida, versão nunca mais completada.
     if (!bibleDl || !bibleDl.running || bibleDl.seq !== runSeq) { failed++; return; }
+    // A rede caiu (ver `seguidas`): o que resta conta como falha e sai sem
+    // abrir requisição nenhuma.
+    if (seguidas >= BIBLE_DL_DESISTE) { failed++; return; }
     const key = prefix + it.bId + '_' + it.chapter;
     const nome = (it.bookName || '') + ' ' + it.chapter;
     bgItemStart(notifId, nome);
@@ -3264,9 +3325,9 @@ async function ensureBibleVersionDownloaded(versionId) {
       // Só quando não houve varredura de chaves (fallback): confere um a um.
       if (!cached && (await AVDB.getState(key))) { done++; return; }
       const vs = await Bible.fetchChapter(versionId, it.bId, it.chapter);
-      if (vs.length) await AVDB.setState(key, { verses: vs, syncedAt: Date.now() });
-      else failed++;
-    } catch (_) { failed++; }
+      if (vs.length) { await AVDB.setState(key, { verses: vs, syncedAt: Date.now() }); seguidas = 0; }
+      else { failed++; seguidas++; }
+    } catch (_) { failed++; seguidas++; }
     finally { bgItemEnd(notifId, nome); }
     done++;
     bgTaskStep(notifId, done - (total - missing.length));
@@ -16968,9 +17029,11 @@ document.addEventListener('visibilitychange', () => {
   // Índices das coleções em segundo plano (fire-and-forget): não atrasa a
   // abertura do app, só deixa a busca/os cards prontos assim que a resposta chegar.
   autoRefreshCollections();
-  // Metadados da Bíblia (versões + livros) em segundo plano — baixados na 1ª
-  // vez e cacheados; deixa a aba Bíblia pronta pra baixar capítulos.
-  ensureBibleMeta(false);
+  // A BÍBLIA BASE, garantida sozinha (v5.242) — metadados e, atrás deles, a
+  // versão padrão INTEIRA, em segundo plano e resumível. Fire-and-forget pelo
+  // mesmo motivo do `autoRefreshCollections` logo acima: não atrasa a abertura
+  // do app. Ver `garantirBibliaBase`.
+  garantirBibliaBase();
   // A FAXINA DOS RESTOS, por último e sem segurar nada (v5.131). Ver
   // `AVDB.gcOrfaos`: registros que nenhuma lista aponta e que nenhum caminho
   // normal alcançava — o `listSet` os criava a cada troca de playlist. Aqui é

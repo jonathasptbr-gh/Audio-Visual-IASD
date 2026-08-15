@@ -6993,10 +6993,51 @@ de baixar só o capítulo tocado, ao usar a Bíblia pela primeira vez o app baix
 "Baixa ao usar" — `refreshBibleDl` re-renderiza a lista enquanto o popup está
 aberto), **sem disputar espaço com a leitura**; ao terminar sem falhas marca
 `state['bibleComplete:<v>']` pra não refazer (cacheado em memória em
-`bibleCompleteVersions`, populado pra **todas** as versões no `ensureBibleMeta`). O download **NÃO** é disparado no `init` (só quando o
-operador de fato abre a aba Bíblia), e a leitura por capítulo
-(`loadBibleChapter`) continua baixando sob demanda como fallback se o operador
-abrir um capítulo antes de o download em massa chegar nele.
+`bibleCompleteVersions`, populado pra **todas** as versões no `ensureBibleMeta`).
+A leitura por capítulo (`loadBibleChapter`) continua baixando sob demanda como
+fallback se o operador abrir um capítulo antes de o download em massa chegar
+nele.
+
+### A BÍBLIA BASE, garantida na abertura (v5.242)
+
+Até aqui o download em massa **só** era disparado por alguém ENTRAR na aba
+Bíblia (ou trocar de versão). Quem nunca entrou ficava com o caminho sob
+demanda: um capítulo por vez, conforme o uso, com a rede da igreja no meio do
+culto como única rede disponível. Foi o relato do operador — *"ela está baixando
+aos pedaços conforme o uso"* — e era o oposto do que a aba faz assim que é
+aberta uma vez.
+
+`garantirBibliaBase()`, chamada no `init()` sem `await` (como o
+`autoRefreshCollections`), garante **uma** versão offline por conta do app. O
+paralelo com o hinário é exato num ponto e não no outro: lá o que chega sozinho
+é a LISTAGEM, porque o áudio pesa; aqui o texto de 1189 capítulos é leve o
+bastante para vir inteiro — e vir inteiro é o que torna a Bíblia utilizável sem
+rede nenhuma.
+
+**A versão é a que o app já escolheria** (`pickDefaultBibleVersion`: a Almeida
+Revista e Atualizada, e a primeira disponível se ela não estiver no banco) — e
+**não** `bibleVersionId`, que é a ESCOLHA do operador. A distinção é o recurso
+inteiro: esta é a base que o app garante, não a preferência de quem opera. Quem
+trocou de versão continua tendo a dele baixada pelo caminho de sempre, ao entrar
+na aba; as duas convivem porque `ensureBibleVersionDownloaded` é resumível e
+idempotente (uma versão já completa custa uma leitura de estado e volta).
+
+**O freio de 25 falhas SEGUIDAS** (`BIBLE_DL_DESISTE`) nasceu junto, e nasceu
+porque a automação o exigiu. Enquanto a varredura só começava por um toque na
+aba, insistir até o fim era barato: havia alguém olhando. Automática na
+abertura, um lançamento offline — ou com o Wi-Fi da igreja sem uplink, que este
+projeto descreve como o ambiente normal — pagaria 1189 requisições fadadas ao
+erro, com serviço em primeiro plano, wake lock e notificação, **a cada
+abertura**. Vinte e cinco erros seguidos não são uma oscilação (a concorrência é
+de 6: um blip produz meia dúzia): são a rede fora. Ele não grava
+`bibleComplete`, então a versão segue pendente e a varredura é retomada no
+lançamento seguinte — que é o que ela já fazia depois de qualquer interrupção.
+
+O oráculo é o `tools/boot-nativo.test.mjs` (o único que sobe a base COM a
+ponte), com o banco do LouvorJA de mentira e a ARA em **segundo** lugar na lista
+de versões de propósito: `pickDefaultBibleVersion` cai na primeira disponível
+quando não acha a ARA, e uma lista com ela na frente aprovaria os dois
+comportamentos.
 
 **O que já está em cache é descoberto com UMA leitura de chaves**
 (`AVDB.stateKeys('bible:<v>_')` → `Set`), não com 1189 `getState`. Cada
@@ -7022,7 +7063,8 @@ que é o que impede a marca de completude indevida.
 **Persistência offline (não some entre sessões)**: os capítulos ficam no
 IndexedDB (`state`, durável por natureza — sobrevive a fechar/reabrir o app e à
 troca de bundle por OTA, que só substitui arquivos servidos). Além
-disso, `enterBibleTab()` pede `navigator.storage.persist()` — **a mesma
+disso, `enterBibleTab()` **e `garantirBibliaBase()`** pedem
+`navigator.storage.persist()` — **a mesma
 proteção do sync de músicas/pastas** — para o browser não descartar a origin sob
 pressão de espaço (é origin-wide e idempotente). O download é **resumível**:
 cada capítulo é gravado assim que chega, então uma interrupção não perde o que
