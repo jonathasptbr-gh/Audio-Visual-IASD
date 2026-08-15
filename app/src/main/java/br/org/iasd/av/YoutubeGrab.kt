@@ -8,8 +8,15 @@ import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
 import org.schabi.newpipe.extractor.Extractor
+import org.schabi.newpipe.extractor.InfoItem
 import org.schabi.newpipe.extractor.NewPipe
+import org.schabi.newpipe.extractor.Page
 import org.schabi.newpipe.extractor.ServiceList
+import org.schabi.newpipe.extractor.channel.ChannelInfo
+import org.schabi.newpipe.extractor.channel.tabs.ChannelTabInfo
+import org.schabi.newpipe.extractor.channel.tabs.ChannelTabs
+import org.schabi.newpipe.extractor.playlist.PlaylistInfo
+import org.schabi.newpipe.extractor.playlist.PlaylistInfoItem
 import org.schabi.newpipe.extractor.downloader.Downloader
 import org.schabi.newpipe.extractor.downloader.Request
 import org.schabi.newpipe.extractor.downloader.Response
@@ -1382,6 +1389,140 @@ object YoutubeGrab {
 
     /** `watch?v=<id>`, `youtu.be/<id>`, `/shorts/<id>` — o id tem 11 caracteres. */
     private val ID_NA_URL = Regex("(?:[?&]v=|/)([A-Za-z0-9_-]{11})(?:[?&#]|\\z)")
+
+    // ────────────────────────────────────────────────────────────────────
+    // PLAYLISTS — o transporte das SÉRIES da Biblioteca (v5.228)
+    //
+    // As duas funções abaixo são deliberadamente BURRAS: elas devolvem o que o
+    // canal publica, na ordem em que ele publica, sem opinião nenhuma sobre o
+    // que presta. Quem decide qual playlist é "Provai e Vede 2026", qual é a
+    // versão em Libras e como o item se chama na lista é
+    // `assets/web/controle/serie.js` — invariante 5, e a razão prática está
+    // dita lá: a nomenclatura de um canal muda sem avisar, e cada ajuste dela
+    // custaria um degrau de `SHELL_VERSION` e uma Release se a regra morasse
+    // aqui. Do lado web, ela chega por OTA em minutos e tem oráculo em Node.
+    //
+    // **O nome do vídeo sai CRU, e isso é uma decisão.** O `pesquisar` passa os
+    // títulos pelo `tituloLimpo`, que corta o nome do canal da frente; aqui
+    // isso seria estrago — os títulos da série são
+    // "Episódio | Provai e Vede 2026 (15/Ago)", e o `serie.js` precisa do
+    // string inteiro para achar a data e a marca de Libras. Cortar antes de
+    // entregar é decidir do lado errado do fio.
+    // ────────────────────────────────────────────────────────────────────
+
+    /** Teto de páginas ao varrer a aba de playlists de um canal. */
+    private const val PAG_CANAL_MAX = 6
+
+    /**
+     * As playlists que um canal publica — `[{ name, url, count }]`.
+     *
+     * **É a aba Playlists do canal, não uma busca.** A diferença é de
+     * AUTORIDADE: numa busca por texto quem escolhe o resultado é o ranking do
+     * YouTube, e qualquer pessoa pode nomear uma playlist "Provai e Vede 2026".
+     * Aqui a fonte é o próprio canal — o publicador —, então o pior caso é uma
+     * playlist a menos, nunca um vídeo de outra pessoa na projeção do culto.
+     *
+     * **A paginação não é enfeite:** o canal tem uma playlist por mês E a
+     * versão em Libras de cada uma, mais os anos anteriores. Uma página do
+     * NewPipe traz algumas dezenas, então sem o laço os meses mais antigos
+     * simplesmente não existiriam para o app — o modo de falhar mais mudo
+     * possível, porque a lista aparece, só que incompleta. O teto de
+     * [PAG_CANAL_MAX] existe para um canal enorme não segurar a fila de IO
+     * indefinidamente.
+     */
+    fun playlistsDoCanal(canalUrl: String): JSONArray {
+        val out = JSONArray()
+        if (canalUrl.isBlank()) return out
+        garantirInit()
+        val svc = ServiceList.YouTube
+        // `aportuguesar` em TODO extrator, e aqui ele não é cosmético: no padrão
+        // en-GB da biblioteca o YouTube devolve o título TRADUZIDO (é o que a
+        // nota do `pesquisar` documenta). Traduzido, `(15/Ago)` viraria
+        // `(15/Aug)` e a marca de Libras mudaria de palavra — as duas coisas de
+        // que o `serie.js` depende, quebrando **sem erro nenhum**: a lista
+        // apareceria, com os itens sem data e a versão em Libras junto.
+        val cEx = svc.getChannelExtractor(svc.channelLHFactory.fromUrl(canalUrl))
+        aportuguesar(cEx)
+        cEx.fetchPage()
+        val aba = ChannelInfo.getInfo(cEx).tabs
+            .firstOrNull { it.contentFilters.contains(ChannelTabs.PLAYLISTS) } ?: return out
+
+        val ex = svc.getChannelTabExtractor(aba)
+        aportuguesar(ex)
+        ex.fetchPage()
+        val info = ChannelTabInfo.getInfo(ex)
+        info.relatedItems.forEach { item -> anexarPlaylist(out, item) }
+
+        // As páginas seguintes saem do MESMO extrator, e não do
+        // `getMoreItems(service, …)`: aquele monta um extrator novo por dentro,
+        // que nasceria sem o `forceLocalization` — os meses do fim da lista
+        // voltariam em inglês enquanto os do começo vêm em português.
+        var pagina = info.nextPage
+        var n = 1
+        while (pagina != null && Page.isValid(pagina) && n < PAG_CANAL_MAX) {
+            val mais = ex.getPage(pagina)
+            mais.items.forEach { item -> anexarPlaylist(out, item) }
+            pagina = mais.nextPage
+            n++
+        }
+        return out
+    }
+
+    private fun anexarPlaylist(out: JSONArray, item: InfoItem) {
+        if (item !is PlaylistInfoItem) return
+        val url = item.url ?: return
+        out.put(
+            JSONObject()
+                .put("name", item.name ?: "")
+                .put("url", url)
+                .put("count", item.streamCount),
+        )
+    }
+
+    /**
+     * Os vídeos de UMA playlist — `{ name, author, items:[{id,url,name,seconds,thumb}] }`.
+     *
+     * O `name` do item é o TÍTULO CRU do YouTube (ver a nota do bloco acima).
+     */
+    fun playlist(url: String, max: Int = 200): JSONObject {
+        val res = JSONObject().put("name", "").put("author", "").put("items", JSONArray())
+        if (url.isBlank()) return res
+        garantirInit()
+        val svc = ServiceList.YouTube
+        // Mesma razão do `playlistsDoCanal`: o título CRU e em PORTUGUÊS é o
+        // insumo do `serie.js` (data do episódio e marca de Libras).
+        val ex = svc.getPlaylistExtractor(url)
+        aportuguesar(ex)
+        ex.fetchPage()
+        val info = PlaylistInfo.getInfo(ex)
+        res.put("name", info.name ?: "").put("author", info.uploaderName ?: "")
+        val itens = res.getJSONArray("items")
+        info.relatedItems.forEach { v -> anexarVideo(itens, v, max) }
+
+        var pagina = info.nextPage
+        while (pagina != null && Page.isValid(pagina) && itens.length() < max) {
+            val mais = ex.getPage(pagina)
+            mais.items.forEach { v -> anexarVideo(itens, v, max) }
+            pagina = mais.nextPage
+        }
+        return res
+    }
+
+    private fun anexarVideo(out: JSONArray, item: InfoItem, max: Int) {
+        if (out.length() >= max) return
+        if (item !is StreamInfoItem) return
+        val url = item.url ?: return
+        val id = ID_NA_URL.find(url)?.groupValues?.get(1) ?: return
+        out.put(
+            JSONObject()
+                .put("id", id)
+                .put("url", url)
+                .put("name", item.name ?: "")
+                .put("author", item.uploaderName ?: "")
+                .put("seconds", item.duration)
+                .put("thumb", "https://i.ytimg.com/vi/$id/mqdefault.jpg"),
+        )
+    }
 
     /**
      * Apaga o arquivo depois que o lado web já copiou os bytes para a

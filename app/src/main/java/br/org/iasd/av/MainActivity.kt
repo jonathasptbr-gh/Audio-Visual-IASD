@@ -1,10 +1,12 @@
 package br.org.iasd.av
 
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.hardware.display.DisplayManager
 import android.media.AudioManager
 import android.net.Uri
@@ -16,6 +18,7 @@ import android.view.Display
 import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowInsetsController
 import android.view.WindowManager
 import android.webkit.ConsoleMessage
 import android.webkit.PermissionRequest
@@ -42,6 +45,13 @@ import org.json.JSONObject
 class MainActivity : ComponentActivity(), BridgeHost {
 
     private lateinit var root: FrameLayout
+
+    /**
+     * O tema em vigor, do ponto de vista do SHELL. Cópia da escolha que vive no
+     * `localStorage` do Controle — ver [setTemaClaro]; aqui ela existe só para
+     * pintar o cromo do sistema antes de o WebView carregar.
+     */
+    private var temaClaro = false
     private lateinit var webContainer: FrameLayout
     private lateinit var fullscreenContainer: FrameLayout
     private var web: WebView? = null
@@ -138,20 +148,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
         cb?.invoke(granted)
     }
 
-    /**
-     * E o mesmo par para a CÂMERA, pedida no toque de "ler o código da tela" do
-     * espelho — nunca antes. Um app de projeção pedindo câmera na abertura é
-     * exatamente o pedido que se nega sem ler.
-     */
-    private var pendingCamPermission: ((Boolean) -> Unit)? = null
-    private val camPermission = registerForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        val cb = pendingCamPermission
-        pendingCamPermission = null
-        cb?.invoke(granted)
-    }
-
     /** Callback do `AVNative.pickDoc()` em andamento. */
     private var pendingDocPick: ((List<Uri>) -> Unit)? = null
 
@@ -198,6 +194,14 @@ class MainActivity : ComponentActivity(), BridgeHost {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // O TEMA, E ELE PRECISA VIR ANTES DO `super` (v1.90). `setTheme` só tem
+        // efeito enquanto a janela não foi criada, e é do TEMA que sai o
+        // `windowBackground` — o que aparece enquanto o WebView carrega. Depois
+        // da decor view instalada, mudar o tema não repinta mais esse fundo.
+        // `getSharedPreferences` já funciona aqui: o contexto base é anexado em
+        // `attachBaseContext`, que roda antes do `onCreate`.
+        temaClaro = getSharedPreferences(TEMA_PREFS, MODE_PRIVATE).getBoolean(TEMA_CLARO_KEY, false)
+        if (temaClaro) setTheme(R.style.Theme_AvIasd_Claro)
         super.onCreate(savedInstanceState)
 
         if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
@@ -218,7 +222,15 @@ class MainActivity : ComponentActivity(), BridgeHost {
         WebUpdater.beginSession(this)
 
         root = FrameLayout(this)
-        root.setBackgroundColor(Color.BLACK)
+        // A raiz é o que se vê no INTERVALO entre a janela existir e o WebView
+        // pintar o primeiro quadro. Ela era `Color.BLACK` desde sempre, e com
+        // um app só escuro isso nunca custou nada — `--bg` era quase preto. Com
+        // o tema claro, um retângulo preto ali é um piscar do app inteiro a
+        // cada abertura, então ela segue o tema como o `windowBackground`. (O
+        // `fullscreenContainer`, logo abaixo, continua PRETO em qualquer tema:
+        // ele hospeda a preview em tela cheia, que é PALCO — ver o bloco
+        // compartilhado de `shared/tokens.css`.)
+        root.setBackgroundColor(getColor(if (temaClaro) R.color.app_bg_claro else R.color.app_bg))
         webContainer = FrameLayout(this)
         fullscreenContainer = FrameLayout(this)
         fullscreenContainer.setBackgroundColor(Color.BLACK)
@@ -226,6 +238,11 @@ class MainActivity : ComponentActivity(), BridgeHost {
         root.addView(webContainer, matchParent())
         root.addView(fullscreenContainer, matchParent())
         setContentView(root)
+
+        // Os ÍCONES das barras de sistema, e SÓ DEPOIS do `setContentView`:
+        // quem os pinta é o `WindowInsetsController`, e ele só existe com a
+        // decor view instalada (ver a armadilha em [aplicarCromoDoTema]).
+        aplicarCromoDoTema(temaClaro)
 
         // SÓ na primeira criação. A única saída do app é `moveTaskToBack`, então
         // a Activity nunca é finalizada e `getIntent()` continua devolvendo o
@@ -256,7 +273,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // seria H.264 impecável de um RETÂNGULO PRETO, com todos os contadores
         // subindo e nada no Registro. O gatilho é a existência da tela virtual,
         // não a desta Activity — sem espelho no ar isto é um no-op.
-        EspelhoDisplay.sincronizarJanela(this)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) !=
@@ -282,40 +298,31 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // toa: quando o bundle fica pronto, o shell empurra. Um bundle antigo
         // (sem `__avOta`) simplesmente não tem a função e o empurrão vira
         // no-op — a enquete continua sendo o piso.
+        // O EMPURRÃO LEVA O ESTADO INTEIRO desde a v5.234, e não só a versão da
+        // base web: quem pergunta "tem atualização?" precisa saber, no mesmo
+        // instante, se ela vem com APK — senão a tela desenha a pergunta com
+        // metade do que ela tem a dizer e se corrige meio segundo depois.
+        //
+        // `__avOta` continua sendo chamado ao lado, e não é redundância: ele é o
+        // contrato de um bundle mais antigo que este shell, que existe de
+        // verdade na janela entre a Release e o OTA daquele lote.
         WebUpdater.aoChegar = { versao ->
-            val js = "window.__avOta && window.__avOta(${JSONObject.quote(versao)});"
+            val estado = WebUpdater.estado(this).toString()
+            val js = "window.__avAtualizacao && window.__avAtualizacao($estado);" +
+                "window.__avOta && window.__avOta(${JSONObject.quote(versao)});"
             runOnUiThread { web?.evaluateJavascript(js, null) }
         }
 
-        // E ELA ENTRA SOZINHA, no segundo em que fica pronta (v1.68).
-        //
-        // "Entra no próximo lançamento" era literal de um jeito que ninguém
-        // tinha medido: o `beginSession` decide uma vez por PROCESSO, e este
-        // processo quase nunca morre — os três serviços em primeiro plano o
-        // mantêm vivo de propósito, e fechar pelo Recentes derruba a Activity,
-        // não o processo. O operador reabria o app "várias e várias vezes" e
-        // continuava na versão velha. Ver o KDoc de `WebUpdater.aplicarSozinho`
-        // para a corrente inteira e para o que esta troca custa.
-        WebUpdater.aplicarSozinho = { versao ->
-            // ...MAS NÃO COM DOWNLOAD EM CURSO. Aplicar recarrega as duas
-            // páginas, e um laço de sincronização (hinário, Bíblia, pasta) morre
-            // com o documento — ele não é um `fetch` que o shell retoma, é um
-            // `for` na página. Foi o que parou o hinário em 300 de 600 numa
-            // tarde de várias publicações.
-            //
-            // Só o download segura, e é deliberado: a v5.151 tirou as travas de
-            // cena e espelho porque elas eram permanentes num culto e faziam a
-            // atualização nunca chegar. Um download acaba — e o empurrão volta
-            // pela ronda de um minuto, ou pela enquete do lado web.
-            if (backgroundWork) {
-                Log.i(TAG, "base web $versao esperando o download terminar")
-            } else {
-                applyWebUpdate { aplicada ->
-                    Log.i(TAG, if (aplicada != null) "base web $versao aplicada sozinha"
-                    else "base web $versao não pôde ser aplicada agora")
-                }
-            }
-        }
+        // (A APLICAÇÃO AUTOMÁTICA SAIU AQUI, na v5.234.) Da v1.68 até aqui este
+        // ponto tinha um `WebUpdater.aplicarSozinho` que trocava a base no
+        // instante em que ela ficava pronta, sem perguntar. Ele nasceu contra um
+        // defeito real — "entra no próximo lançamento" nunca chegava, porque o
+        // processo não morre — e o diagnóstico continua válido; o remédio é que
+        // era largo demais. Quem decide QUANDO o telão pisca é o operador, e
+        // agora ele é perguntado: o `controle.js` desenha o aviso e chama
+        // `otaApply()`. O que tornou isso possível foi consertar a CAUSA — a
+        // detecção ficou rápida e a supressão do lado web perdeu o espelho, que
+        // era permanente e travava tudo. Ver o KDoc de `WebUpdater.aoChegar`.
 
         // Notificação de controles / tela de bloqueio / botões de mídia: o
         // sistema entrega a ação aqui e ela vai para o MESMO caminho dos botões
@@ -355,9 +362,9 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // `onGone` é o serviço morrendo sem ninguém pedir: o Kotlin tem de
         // ESQUECER que estava servindo, senão sobra um servidor sem serviço e a
         // folha continua dizendo "ligado".
-        EspelhoService.onDesligar = { stopMirror() }
-        EspelhoService.onGone = { runOnUiThread { desmontarEspelho() } }
-        EspelhoService.onTermica = { grau -> aoEsquentar(grau) }
+        EspelhoEnergia.onDesligar = { stopMirror() }
+        EspelhoEnergia.onGone = { runOnUiThread { desmontarEspelho() } }
+        EspelhoEnergia.onTermica = { grau -> aoEsquentar(grau) }
 
         onBackPressedDispatcher.addCallback(this) { handleBack() }
     }
@@ -458,10 +465,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
             // página morta (ou a recarga falhando), a Activity seguia
             // consumindo as teclas e entregando o passo a um `__avVolumeKey`
             // que não existe: o aparelho ficava sem NENHUM controle de volume.
-            // `audioAlive` órfão manteria o WebView novo com prioridade de
-            // renderer que ninguém pediu.
             captureVolumeKeys = false
-            audioAlive = false
             webContainer.post { buildControleWebView() }
         }
         w.webChromeClient = ControleChromeClient()
@@ -475,6 +479,19 @@ class MainActivity : ComponentActivity(), BridgeHost {
         webContainer.addView(w, matchParent())
         web = w
         MessageBus.attach(w)
+        // O canal de mídia do telão por comandos (E4) — POR INSTÂNCIA de
+        // WebView, como o do áudio do espelho: a remontagem por morte de
+        // renderer chega aqui de novo e o reinstala sozinha. Instalado sempre
+        // (a presença de `window.__avTelaMidia` é como o lado web detecta o
+        // suporte); com a transmissão desligada o cache resolve nulo e o
+        // canal recusa com frase.
+        espelhoMidiaCanal.instalar(w)
+        // A BASE SERVIDA MUDOU DESDE O LANÇAMENTO ANTERIOR: limpar o cache
+        // antes de carregar. Ver `WebUpdater.baseTrocou` — as URLs não mudam de
+        // nome entre versões da base, então sem isto a página nasce com metade
+        // de cada bundle. O cache é do processo (os dois WebViews o dividem),
+        // então basta aqui: o telão é criado depois e já pega o cache limpo.
+        if (WebUpdater.baseTrocou) w.clearCache(true)
         w.loadUrl(WebViewFactory.URL_CONTROLE)
     }
 
@@ -498,7 +515,28 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // e é quando a rede costuma estar de volta (ele saiu, trocou de Wi-Fi,
         // ligou os dados). Rajadas de `onResume` — alternar entre dois apps
         // dispara um por toque — são absorvidas pelo piso do `checkAsync`.
-        WebUpdater.checkAsync(this, "retomada")
+        //
+        // `forcar`, e é a exceção que prova a regra do piso: a retomada é o
+        // único instante em que a resposta pode virar uma pergunta na tela, e
+        // chegar cinco segundos atrasada nela é chegar depois de o operador já
+        // ter olhado. Ela acontece no máximo uma vez por vinda ao app.
+        WebUpdater.emPrimeiroPlano = true
+        WebUpdater.checkAsync(this, "retomada", forcar = true)
+    }
+
+    /**
+     * O ritmo da ronda segue a atenção do operador (v5.234).
+     *
+     * Não é economia de bateria — a ronda é um JSON de trezentos bytes. É que o
+     * desfecho de uma detecção em segundo plano é uma pergunta que ninguém pode
+     * responder: o aviso mora no WebView do Controle, e é justamente ele que o
+     * Android estrangula quando o app sai da frente. A detecção continua
+     * acontecendo, mais espaçada, para que a resposta já esteja pronta na
+     * retomada — que é onde o gatilho acima a colhe.
+     */
+    override fun onPause() {
+        super.onPause()
+        WebUpdater.emPrimeiroPlano = false
     }
 
     /**
@@ -525,37 +563,11 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // que mantém o encoder produzindo numa cena parada. É o mesmo contrato
         // que o KDoc do `MirrorPresentation.keepPlaying` já declara ("chamado do
         // `onStop` da Activity"). No-op quando não há espelho no ar.
-        EspelhoDisplay.keepPlaying()
-        // Mesa de som ligada: o áudio sai DESTE WebView, e ele também precisa
-        // atravessar o segundo plano. Sem isso o louvor calava no instante em
-        // que o operador saía do app — que é justamente o caso relatado, e o
-        // que as três tentativas anteriores não cobriam, porque protegiam o
-        // WebView do telão.
-        if (audioAlive) {
-            val w = web ?: return
-            try {
-                w.onResume()
-                w.resumeTimers()
-            } catch (_: Exception) { /* WebView já destruído */ }
-        }
-    }
-
-    /** A mesa de som está ligada? (ver [setAudioAlive]) */
-    private var audioAlive = false
-
-    override fun setAudioAlive(on: Boolean) {
-        runOnUiThread {
-            audioAlive = on
-            val w = web as? WebViewFactory.KeepVisibleWebView ?: return@runOnUiThread
-            w.manterVisivel = on
-            // Com o celular fazendo o som, o renderer do Controle não pode ser
-            // rebaixado quando a View sai de vista — é a mesma política do
-            // telão, e pelo mesmo motivo.
-            // `waivedWhenNotVisible = !on`: com a mesa de som ligada NÃO se abre
-            // mão da prioridade por a View sair de vista; desligada, volta ao
-            // padrão de um WebView comum.
-            w.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, !on)
-        }
+        // (Saiu na v5.189 o despertar do WebView do Controle pela MESA DE SOM.
+        // Ela existia para o caso em que o celular ERA a caixa de som, e esse
+        // caso deixou de existir: o som é dos displays. O WebView do Controle
+        // volta a ser estrangulado em segundo plano sempre — que é o certo
+        // quando ele é só a mesa de comando.)
     }
 
     override fun onDestroy() {
@@ -576,7 +588,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // E o empurrão do OTA, pelo mesmo motivo dos dois acima: ele captura
         // esta Activity, e a ronda do `WebUpdater` sobrevive à tela.
         WebUpdater.aoChegar = null
-        WebUpdater.aplicarSozinho = null
         try { SessionService.stop(this) } catch (_: Exception) { }
         // O ESPELHO NÃO SOBREVIVE AO FECHAMENTO DO APP — ele é auxiliar e
         // nasceu de um toque do operador nesta tela. Deixá-lo servindo com a
@@ -595,7 +606,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // Activity nova.
         if (!isChangingConfigurations) {
             try {
-                EspelhoDisplay.desligar()
                 desmontarEspelho()
             } catch (e: Exception) {
                 Log.w(TAG, "espelho não desligou", e)
@@ -609,9 +619,9 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // Android numa mudança de configuração é `onDestroy` da antiga e só
         // então `onCreate` da nova, então não há janela em que o espelho fique
         // sem dono.)
-        EspelhoService.onDesligar = null
-        EspelhoService.onGone = null
-        EspelhoService.onTermica = null
+        EspelhoEnergia.onDesligar = null
+        EspelhoEnergia.onGone = null
+        EspelhoEnergia.onTermica = null
         displayManager?.unregisterDisplayListener(displayListener)
         presentation?.let {
             it.release()
@@ -665,9 +675,11 @@ class MainActivity : ComponentActivity(), BridgeHost {
      */
     private fun telasExternas(): List<Display> {
         val dm = displayManager ?: return emptyList()
-        val meu = EspelhoDisplay.displayId
+        // A exclusão por displayId da tela virtual saiu com o espelho de
+        // pixels (E6/E7); o filtro de FLAG_PRIVATE fica — é o cinto contra o
+        // Android 14+ ter removido a ordenação por tipo de getDisplays.
         return dm.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION).filter { d ->
-            d.displayId != meu && (d.flags and Display.FLAG_PRIVATE) == 0
+            (d.flags and Display.FLAG_PRIVATE) == 0
         }
     }
 
@@ -1129,27 +1141,90 @@ class MainActivity : ComponentActivity(), BridgeHost {
         }
     }
 
-    override fun requestCamPermission(onResult: (Boolean) -> Unit) {
+    override fun setCaptureVolumeKeys(on: Boolean) {
+        runOnUiThread { captureVolumeKeys = on }
+    }
+
+    /**
+     * O tema escolhido no Controle (ver [NativeBridge.temaClaro]).
+     *
+     * Duas ações, e a segunda é a que explica a `SharedPreferences`: os ícones
+     * das barras viram AGORA, e o `windowBackground` do PRÓXIMO lançamento
+     * fica guardado — ele é um recurso do APK, resolvido pelo sistema antes de
+     * o WebView existir, então não há como perguntar ao lado web a tempo.
+     *
+     * `runOnUiThread` porque todo `@JavascriptInterface` chega de uma thread
+     * do WebView, e mexer na janela de fora dela é o tipo de coisa que
+     * funciona num aparelho e falha calada noutro.
+     */
+    override fun setTemaClaro(claro: Boolean) {
         runOnUiThread {
-            if (temCamera()) { onResult(true); return@runOnUiThread }
-            pendingCamPermission?.invoke(false)
-            pendingCamPermission = onResult
-            try {
-                camPermission.launch(android.Manifest.permission.CAMERA)
-            } catch (e: Exception) {
-                Log.w(TAG, "não foi possível pedir a permissão de câmera", e)
-                pendingCamPermission = null
-                onResult(false)
-            }
+            getSharedPreferences(TEMA_PREFS, MODE_PRIVATE).edit()
+                .putBoolean(TEMA_CLARO_KEY, claro).apply()
+            aplicarCromoDoTema(claro)
+            // E A NOTIFICAÇÃO REPINTA (v5.210). Ela usa o mesmo `--bg` do tema
+            // (ver `SessionService.corDoTema`), e sem este aviso ela só mudaria
+            // no próximo `publish()` — que numa cena parada pode ser daqui a um
+            // louvor inteiro. O app claro com um cartão escuro pendurado nele é
+            // exatamente o tipo de divergência que ter UMA fonte de cor existe
+            // para impedir.
+            SessionService.temaMudou()
         }
     }
 
-    private fun temCamera(): Boolean =
-        checkSelfPermission(android.Manifest.permission.CAMERA) ==
-            PackageManager.PERMISSION_GRANTED
-
-    override fun setCaptureVolumeKeys(on: Boolean) {
-        runOnUiThread { captureVolumeKeys = on }
+    /**
+     * Pinta o que é do SISTEMA conforme o tema: os ícones das barras e o fundo
+     * da janela.
+     *
+     * O fundo é aplicado aqui ALÉM de vir do tema do APK porque o
+     * `windowBackground` do XML é resolvido uma vez, quando a decor view é
+     * instalada: trocar de tema com o app aberto deixaria o retângulo do XML
+     * aparecendo em qualquer momento em que o WebView ainda não pintou. Quem
+     * cobre o PRIMEIRO quadro é o `setTheme` do `onCreate`, que precisa vir
+     * antes do `super` — os dois caminhos existem, e nenhum substitui o outro.
+     *
+     * ## A armadilha que derrubou a v1.89, e que a guarda abaixo fecha
+     *
+     * `window.insetsController` é, no `PhoneWindow`, um
+     * `mDecor.getWindowInsetsController()` **sem verificação de nulo** — e o
+     * `mDecor` só nasce no `installDecor()`, que é o `setContentView()` que o
+     * chama. O tipo devolvido é anulável, então o `?.` do Kotlin dá a impressão
+     * de que a chamada é segura; ela não é: **quem lança é o receptor, não o
+     * retorno**. Chamada de um `onCreate` antes do `setContentView`, ela é uma
+     * `NullPointerException` em todo lançamento, com qualquer tema — e o
+     * sintoma é o app simplesmente não abrir. Nada disso aparece em tempo de
+     * compilação, e o CI compila e roda JUnit, não a Activity.
+     *
+     * `peekDecorView()` é a pergunta exata ("a decor view já existe?") e é
+     * pública justamente para isto — ao contrário de `decorView`, que a CRIA.
+     * Com ela, esta função passa a ser segura de chamar de qualquer ponto, que
+     * é o que o `setTemaClaro` (vindo da thread do WebView, a qualquer momento)
+     * precisa.
+     */
+    @Suppress("DEPRECATION")   // o ramo abaixo da API 30 (ver dentro)
+    private fun aplicarCromoDoTema(claro: Boolean) {
+        temaClaro = claro
+        val fundo = getColor(if (claro) R.color.app_bg_claro else R.color.app_bg)
+        window.setBackgroundDrawable(ColorDrawable(fundo))
+        if (::root.isInitialized) root.setBackgroundColor(fundo)
+        if (window.peekDecorView() == null) return
+        // API 30+: `WindowInsetsController`. Abaixo dela, as bandeiras de
+        // aparência da barra vivem no `systemUiVisibility` da decor view (que é
+        // deprecado desde a 30 — daí o @Suppress na função), e ali só existe a
+        // da barra de STATUS: a de navegação chegou na 27, e o par ficaria
+        // assimétrico de qualquer forma. Aparelho antigo fica com os botões de
+        // navegação claros sobre um fundo claro; o alvo deste app é o Android
+        // 15+, e trocar isso por uma terceira variante não se paga.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val mascara = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or
+                WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+            window.insetsController?.setSystemBarsAppearance(if (claro) mascara else 0, mascara)
+        } else {
+            val v = window.decorView
+            val bit = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+            v.systemUiVisibility =
+                if (claro) v.systemUiVisibility or bit else v.systemUiVisibility and bit.inv()
+        }
     }
 
     override fun adjustSystemVolume(step: Int) {
@@ -1206,7 +1281,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
      */
     override fun startMirror(modo: String, onResult: (JSONObject) -> Unit) {
         runOnUiThread {
-            if (EspelhoDisplay.estaLigado) { onResult(mirrorJson()); return@runOnUiThread }
+            if (espelhoSrv?.ligado == true) { onResult(mirrorJson()); return@runOnUiThread }
 
             // 1. A REDE. `Recusa` traz a frase do operador na mensagem.
             val rede = try {
@@ -1224,9 +1299,19 @@ class MainActivity : ComponentActivity(), BridgeHost {
             val srv = EspelhoServidor(
                 applicationContext,
                 WebPathHandler(applicationContext),
-                registrar = { linha -> EspelhoDisplay.diag.registrar(linha) },
-                pedirIdr = { EspelhoDisplay.pedirIdr() },
+                registrar = { linha -> espelhoDiag.registrar(linha) },
                 aoPerderRede = { stopMirror() },
+                // O ENDEREÇO TROCOU E O SOCKET RELIGOU NELE (v5.183). O servidor
+                // se resolve sozinho (refaz o bind e a allowlist de `Host`); o
+                // que ele não sabe fazer é reescrever a notificação, e sem isso
+                // o cartão mostraria um endereço que não atende mais.
+                //
+                // O IP novo NÃO chega às telas sozinho — elas guardam a URL que
+                // foi digitada — e é por isso que este caminho existe: o
+                // operador precisa ler o endereço novo em algum lugar.
+                aoTrocarEndereco = { enderecoNovo, _ ->
+                    runOnUiThread { EspelhoEnergia.enderecoMudou(this, enderecoNovo) }
+                },
             )
             // O CERTIFICADO, quando o operador importou um. Ausente, vencido ou
             // ilegível ⇒ `null`, e o espelho sobe em HTTP claro com o aviso na
@@ -1235,12 +1320,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
             // evitar. Ver o KDoc de [EspelhoCert.material].
             val cert = EspelhoCert.material(this)
             val hostTls = if (cert != null) EspelhoCert.estado(this).host else ""
-            // O NOME mDNS SOBE ANTES DO SERVIDOR, e a ordem é o contrato: quem
-            // monta a allowlist de `Host` é o `ligar` abaixo, e ele pergunta ao
-            // [EspelhoMdns] se o nome está no ar. Subir depois deixaria a lista
-            // sem o nome — e `av.local:8787` receberia o 404 idêntico de sempre,
-            // que é o modo de falhar mais mudo deste servidor.
-            EspelhoMdns.ligar(applicationContext, rede.ip)
             val endereco = try {
                 srv.ligar(
                     EspelhoServidor.PORTA_PADRAO, rede.ip,
@@ -1252,34 +1331,31 @@ class MainActivity : ComponentActivity(), BridgeHost {
                 return@runOnUiThread
             }
 
-            // 3. A TELA VIRTUAL E O ENCODER.
+            // 3. NÃO HÁ MAIS TELA VIRTUAL NEM ENCODER (E6, o corte do telão
+            // por comandos): as telas da rede rodam o próprio /display/ servido
+            // por este servidor e renderizam localmente — o que atravessa a
+            // rede são COMANDOS. [modo] segue IGNORADO (a assinatura da ponte
+            // fica; quem chama já não escolhe nada).
             //
-            // [modo] é IGNORADO desde a v5.156, e a assinatura fica: o modo
-            // IMAGEM saiu (ele não tinha áudio e não tinha como ter — ver o
-            // cabeçalho do `EspelhoDisplay`), e um bundle antigo que ainda peça
-            // `"imagem"` recebe vídeo, que é o que ele deveria ter pedido. Tirar
-            // o parâmetro da ponte obrigaria a subir o `SHELL_VERSION` para não
-            // ganhar nada: quem chama já não escolhe.
-            val r = EspelhoDisplay.ligar(this@MainActivity) { q -> srv.difundir(q) }
-            if (r is Resultado.Recusado) {
-                srv.desligar()
-                onResult(mirrorJson(erro = r.motivo))
-                return@runOnUiThread
-            }
+            // (Saiu na v5.206: `espelhoDiag.novaSessao()`. Ela zerava a âncora
+            // do atraso captura→fio do anel de `ritmo`, e aquele anel morreu com
+            // o encoder que o alimentava — ver o KDoc do [EspelhoDiag].)
+            espelhoDiag.registrar("transmissao por comandos ligada em " + endereco)
             espelhoSrv = srv
-            espelhoModo = "video"
+            // O TAP DA LAN (telão por comandos, E2): todo comando que o web
+            // relaya por busPost passa a sair também no SSE das telas de
+            // comandos. Escuro enquanto nenhuma tela abre o GET /e.
+            NativeBridge.tapLan = { j -> espelhoSrv?.difundirJson(j) }
+            // E o CACHE DE MÍDIA (E4) nasce com a transmissão — os tokens são
+            // da sessão, e a rota /m/ responde 404 idêntico fora dela.
+            espelhoMidia = EspelhoMidiaCache(java.io.File(cacheDir, "espelho-midia"))
+            srv.midia = espelhoMidia
 
             // 4. O PAREAMENTO nasce do zero — é isto que faz nenhum token
             //    sobreviver ao culto anterior — e o SERVIÇO sobe por último,
             //    quando já há endereço para a notificação mostrar.
             EspelhoPares.ligar(System.currentTimeMillis())
-            EspelhoService.ligar(this, endereco)
-
-            // 5. A SONDA DE READBACK, depois de tudo de pé e sem segurar a
-            //    resposta: ela roda numa tela virtual DESCARTÁVEL (nunca na de
-            //    produção) e escreve o veredito no Registro sozinha. É o R1
-            //    respondido em produção, na primeira vez que o operador liga.
-            EspelhoDisplay.sonda(this) { /* o veredito já foi para o diag */ }
+            EspelhoEnergia.ligar(this, endereco)
 
             onResult(mirrorJson())
         }
@@ -1295,7 +1371,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * do `ytCancel`. A demolição de verdade cada peça posta para a main sozinha.
      */
     override fun stopMirror() {
-        EspelhoDisplay.desligar()
         desmontarEspelho()
     }
 
@@ -1309,14 +1384,13 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * um no-op.
      */
     private fun desmontarEspelho() {
+        NativeBridge.tapLan = null
         espelhoSrv?.desligar()
         espelhoSrv = null
-        // O nome sai da rede com uma despedida (TTL 0) — ver [EspelhoMdns]:
-        // sumir sem avisar deixa as telas apontadas para um IP que não atende
-        // mais, pelos dois minutos do TTL.
-        EspelhoMdns.desligar()
+        espelhoMidia?.zerar()
+        espelhoMidia = null
         EspelhoPares.desligar()
-        try { EspelhoService.desligar(this) } catch (e: Exception) {
+        try { EspelhoEnergia.desligar(this) } catch (e: Exception) {
             Log.w(TAG, "serviço do espelho não parou", e)
         }
     }
@@ -1328,12 +1402,11 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * com uma frase no Registro, para "ficou ruim" ter causa.
      */
     private fun aoEsquentar(grau: Int) {
-        if (grau >= 3) {
-            EspelhoDisplay.ajustarBitrate(BITRATE_QUENTE)
-            EspelhoDisplay.diag.registrar("aparelho quente — qualidade reduzida")
-        } else {
-            EspelhoDisplay.ajustarBitrate(BITRATE_NORMAL)
-        }
+        // Sem encoder não há qualidade a reduzir (o corte, E6): as telas
+        // renderizam localmente e o custo térmico do celular é o de sempre.
+        // A linha fica — térmica alta durante a transmissão continua sendo
+        // leitura de Registro.
+        if (grau >= 3) espelhoDiag.registrar("aparelho quente (grau " + grau + ")")
     }
 
     /**
@@ -1343,28 +1416,25 @@ class MainActivity : ComponentActivity(), BridgeHost {
      */
     private fun mirrorJson(erro: String = ""): JSONObject {
         val srv = espelhoSrv?.estado()
-        val ligado = EspelhoDisplay.estaLigado && espelhoSrv?.ligado == true
+        val ligado = espelhoSrv?.ligado == true
         return JSONObject()
             .put("ligado", ligado)
-            .put("modo", espelhoModo)
             .put("endereco", srv?.optString("url") ?: "")
-            .put("pin", if (ligado) EspelhoPares.pin() else "")
-            .put("autoAprovar", EspelhoPares.autoAprovando())
+            // (Saiu na v5.189: `codigo`. A porta é o ENDEREÇO — ver a
+            // invariante 5 do [EspelhoPares]. O `SHELL_VERSION` sobe por isso:
+            // um bundle antigo leria `codigo` vazio e desenharia um campo de
+            // três dígitos que o servidor não exige mais, mandando o operador
+            // ditar um número que não existe.)
+            //
+            // (Saiu na v5.206: `modo`. Ele era o seletor imagem × vídeo do
+            // espelho de pixels, removido na v5.156 — desde então o campo
+            // viajava com o valor `"comandos"`, e o `blocoEspelho` do lado web
+            // o comparava com `'video'` e imprimia **"modo: imagem (JPEG)"** no
+            // Registro. Um campo mantido "por compatibilidade" depois que o
+            // recurso saiu não é compatibilidade: é uma resposta errada com
+            // aparência de resposta.)
             .put("erro", erro)
-            // O NOME CURTO, quando ele subiu — e o `endereco` acima FICA, com o
-            // IP. Não é redundância: `.local` não resolve no Chrome do Android
-            // nem na maioria das Smart TVs (ver [EspelhoMdns]), então o IP é o
-            // que funciona em metade das telas. Trocar um pelo outro seria uma
-            // regressão com cara de melhoria.
-            .put("nomeLocal", if (ligado) EspelhoMdns.endereco(EspelhoServidor.PORTA_PADRAO) else "")
-            .put("nomeErro", if (ligado) EspelhoMdns.erro else "")
             .put("telas", srv?.optJSONArray("telas") ?: JSONArray())
-            .put("pendentes", srv?.optJSONArray("pendentes") ?: JSONArray())
-            // Quantas telas estão com um QR em cartaz. A folha usa este número
-            // para dizer "há uma tela esperando a leitura" — sem ele, uma tela
-            // que já fez a parte dela é indistinguível de tela nenhuma, porque a
-            // espera de QR não entra na lista de pendentes de propósito.
-            .put("qrEsperando", srv?.optInt("qrEsperando", 0) ?: 0)
     }
 
     override fun mirrorState(onResult: (JSONObject) -> Unit) {
@@ -1372,17 +1442,24 @@ class MainActivity : ComponentActivity(), BridgeHost {
     }
 
     /**
-     * O diagnóstico inteiro, JUNTADO aqui: o anel do `EspelhoDisplay` (tela
-     * virtual, viewport, encoder, readback, ritmo) mais o que só o servidor sabe
-     * e o que só o serviço sabe. Cada um devolve DADO; quem escreve as frases é
-     * o `blocoEspelho` do `controle.js`.
+     * O diagnóstico inteiro, JUNTADO aqui: o **diário** do [EspelhoDiag] mais o
+     * que só o servidor sabe (endereço, sessões, telas, cache de mídia) e o que
+     * só a proteção sabe (wake lock, Wi-Fi lock, térmica). Cada um devolve DADO;
+     * quem escreve as frases é o `blocoEspelho` do `controle.js`.
+     *
+     * O KDoc anterior descrevia "o anel do `EspelhoDisplay` (tela virtual,
+     * viewport, encoder, readback, ritmo)" — cinco fontes que morreram com o
+     * espelho de pixels na v5.187, num arquivo que não existe mais. A parte
+     * `ritmo` daquela lista não era só documentação velha: ela continuou sendo
+     * PUBLICADA, zerada, e o lado web a lia como alarme. Ver o KDoc do
+     * [EspelhoDiag].
      */
     override fun mirrorDiag(onResult: (JSONObject) -> Unit) {
         runOnUiThread {
-            val o = EspelhoDisplay.diag.paraJson()
-            o.put("ligado", EspelhoDisplay.estaLigado)
+            val o = espelhoDiag.paraJson()
+            o.put("ligado", espelhoSrv?.ligado == true)
             espelhoSrv?.let { o.put("servidor", it.estado()) }
-            try { o.put("servico", EspelhoService.estado(this)) } catch (e: Exception) {
+            try { o.put("servico", EspelhoEnergia.estado(this)) } catch (e: Exception) {
                 Log.w(TAG, "estado do serviço do espelho indisponível", e)
             }
             onResult(o)
@@ -1396,19 +1473,30 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * Aprovar aqui não "abre" nada: o cliente está enquetando `POST /par` e a
      * sessão que nasce da aprovação é o que a próxima enquete dele encontra.
      */
+    /**
+     * DERRUBAR UMA TELA — e, desde a v5.185, é a única coisa que este método faz.
+     *
+     * Ele nasceu como "o operador decide sobre uma tela pendente", e teve três
+     * significados empilhados: aprovar uma pendente, recusá-la, e ligar a
+     * aprovação automática pelo id reservado `"*"`. Os três morreram com a fila
+     * de aprovação (ver a invariante 5 do [EspelhoPares]): quem digita o código
+     * certo entra na hora, então não há o que aprovar.
+     *
+     * O que sobra é a pergunta que o operador de fato faz durante um culto —
+     * *"quem é aquela tela, e como eu a tiro do ar?"* —, e o `id` é o RÓTULO da
+     * tela ("tela B"), que é o único identificador que a lista dele tem.
+     *
+     * **A assinatura fica**, com o `aprovar` ignorado, e isso é deliberado:
+     * mudá-la obrigaria a subir o `SHELL_VERSION` de novo sem ganhar nada, e o
+     * lado web já manda `false` no único ponto que chama.
+     */
     override fun approveMirrorScreen(id: String, approve: Boolean, onResult: (Boolean) -> Unit) {
         runOnUiThread {
-            if (id.isBlank() || id == "*") {
-                EspelhoPares.definirAutoAprovar(approve)
-                onResult(true)
-                return@runOnUiThread
-            }
-            if (approve) {
-                onResult(EspelhoPares.aprovar(id, System.currentTimeMillis()) != null)
-            } else {
-                EspelhoPares.recusar(id)
-                onResult(true)
-            }
+            // Um rótulo VAZIO derrubaria a primeira tela que casasse com nada —
+            // ou, pior, cairia num caminho de "todas". Recusar cedo é a única
+            // resposta possível.
+            if (id.isBlank()) { onResult(false); return@runOnUiThread }
+            onResult(espelhoSrv?.derrubarTela(id) == true)
         }
     }
 
@@ -1447,7 +1535,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
                 // ligado não o promove a TLS — o socket já está de pé. Sem esta
                 // distinção o operador leria "certificado válido" olhando para
                 // um endereço `http://`.
-                .put("noAr", espelhoSrv?.ligado == true && EspelhoDisplay.estaLigado)
+                .put("noAr", espelhoSrv?.ligado == true)
                 .put("servindoTls", (espelhoSrv?.estado()?.optBoolean("tls", false)) == true)
             runOnUiThread { onResult(json) }
         }
@@ -1490,42 +1578,35 @@ class MainActivity : ComponentActivity(), BridgeHost {
         }
 
         /**
-         * Concede ao WebView do CONTROLE o uso da câmera — e **só** a câmera,
-         * e **só** para ler o QR do espelho.
+         * O WebView do Controle NÃO recebe câmera, microfone, MIDI nem proteção
+         * de conteúdo — nada. Ele nega tudo, e a ausência de exceção é o ponto.
          *
-         * Sem este override o WebView nega `getUserMedia` **em silêncio**: a
-         * promise é rejeitada e não há erro no console que explique. É o mesmo
-         * padrão do [onShowFileChooser] (invariante 6) e a mesma armadilha que o
-         * [MicChromeClient] documenta para o telão — e ela custou aqui o
-         * recurso inteiro até este método existir.
+         * Este override existia desde a v5.145 para conceder VÍDEO, e só vídeo,
+         * ao leitor de QR do espelho. O leitor saiu na v5.185 (a página do
+         * cliente passou a ter um campo e um botão, e quem digita o código é a
+         * TELA), e com ele saiu a permissão `CAMERA` do manifest.
          *
-         * As três regras são as de lá, trocando áudio por vídeo:
+         * **Ele NÃO foi removido junto, e é isso que precisa estar escrito:** um
+         * WebView sem `onPermissionRequest` nega em silêncio, o que dá o mesmo
+         * resultado hoje — e deixaria a próxima pessoa que precisasse de mídia
+         * aqui descobrindo a armadilha do zero, no aparelho, sem erro nenhum no
+         * console (é a mesma que o [MicChromeClient] documenta para o telão).
+         * Negar EXPLICITAMENTE, com log, transforma "não faz nada" em uma linha
+         * no logcat.
          *
-         * - **Só vídeo.** Microfone, MIDI e proteção de conteúdo são negados
-         *   aqui. O microfone do app é do TELÃO, por decisão de arquitetura (um
-         *   `MediaStream` não atravessa o barramento, então quem abre é quem
-         *   reproduz) — conceder áudio neste WebView não habilitaria recurso
-         *   nenhum e só ampliaria a superfície.
-         * - **Só se o APP já tiver `CAMERA`.** Conceder ao WebView uma permissão
-         *   que o processo não tem adia a falha para um ponto sem sinal claro. O
-         *   lado web pede antes, por `AVNative.requestCam()`.
-         * - **Só da própria origem.** O Controle não carrega terceiro por
-         *   design — mas ele é o WebView com `host != null`, o que injeta
-         *   `pickFolder`, `listFolder`, `openExternal` e `espelhoLigar`. É
-         *   justamente o documento em que uma concessão silenciosa custa mais
-         *   caro. Origem ausente não é negada, pela mesma razão de lá.
+         * E a recusa é a postura certa por si: este é o WebView com
+         * `host != null`, o que injeta `pickFolder`, `listFolder`,
+         * `openExternal` e `espelhoLigar`. Quem precisar de mídia aqui um dia
+         * volta pela porta da frente — permissão no manifest, pedido sob
+         * demanda, e uma allowlist de recurso e de origem, como era.
          */
         override fun onPermissionRequest(request: PermissionRequest) {
-            val origem = request.origin?.toString()?.trimEnd('/')
-            val querido = request.resources.filter { it == PermissionRequest.RESOURCE_VIDEO_CAPTURE }
-            if (querido.isEmpty() || !temCamera() ||
-                (origem != null && origem != WebViewFactory.ORIGIN)
-            ) {
-                Log.w(TAG, "permissão de mídia negada ao Controle ($origem): ${request.resources.joinToString()}")
-                request.deny()
-                return
-            }
-            request.grant(querido.toTypedArray())
+            Log.w(
+                TAG,
+                "permissão de mídia negada ao Controle " +
+                    "(${request.origin}): ${request.resources.joinToString()}",
+            )
+            request.deny()
         }
 
         override fun onShowCustomView(view: View, callback: CustomViewCallback) {
@@ -1583,6 +1664,35 @@ class MainActivity : ComponentActivity(), BridgeHost {
 
     companion object {
         private const val TAG = "AvIasd"
+        /**
+         * O tema escolhido, guardado só para o `windowBackground` do PRÓXIMO
+         * lançamento (ver [setTemaClaro]). A fonte de verdade é o
+         * `localStorage` do Controle — aqui é uma CÓPIA, e o lado web a
+         * reescreve em toda carga da página, então uma divergência se corrige
+         * sozinha na abertura seguinte. Arquivo próprio, e não o do OTA: o
+         * `web-ota.xml` está fora do backup de propósito (é ponteiro para
+         * CÓDIGO) e o tema é preferência do operador, que deve viajar na troca
+         * de aparelho como qualquer outra.
+         */
+        private const val TEMA_PREFS = "tema"
+        private const val TEMA_CLARO_KEY = "claro"
+
+        /**
+         * O tema escolhido, para quem não é a Activity.
+         *
+         * O [SessionService] precisa dele para pintar a notificação (v5.210), e
+         * ele roda sem Activity — a instância pode nem existir quando o cartão
+         * é publicado. A preferência é a MESMA que o primeiro quadro do app usa
+         * (ver [setTemaClaro]): uma leitura de `SharedPreferences`, que é o
+         * único lugar onde essa escolha sobrevive ao processo.
+         *
+         * Público de propósito, e não uma cópia da chave no outro arquivo: duas
+         * constantes com o mesmo nome em dois lugares é a divergência que este
+         * projeto recusa em toda parte.
+         */
+        fun temaClaroSalvo(ctx: Context): Boolean =
+            ctx.getSharedPreferences(TEMA_PREFS, Context.MODE_PRIVATE)
+                .getBoolean(TEMA_CLARO_KEY, false)
         private const val GMS_PACKAGE = "com.google.android.gms"
         /**
          * Prazo para o lado web responder ao botão voltar (ver [handleBack]).
@@ -1594,18 +1704,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
         /** `Build.MANUFACTURER`/`Build.BRAND` de um aparelho Samsung. */
         private const val SAMSUNG_VENDOR = "samsung"
 
-        /**
-         * Bitrate do espelho, normal e com o aparelho quente.
-         *
-         * A degradação térmica mexe em BITRATE e taxa de quadros, **nunca em
-         * resolução**: a resolução define a densidade da tela virtual, a
-         * densidade define o viewport CSS, e o viewport define onde a estrofe
-         * quebra. Degradar por resolução refluiria o layout do telão na frente
-         * da congregação — que é exatamente o que ninguém pediu ao reclamar de
-         * calor.
-         */
-        private const val BITRATE_NORMAL = 3_000_000
-        private const val BITRATE_QUENTE = 1_200_000
         /** Pacotes do Smart View conhecidos (varia por versão do One UI). */
         private val SAMSUNG_MIRROR_PACKAGES = listOf(
             "com.samsung.android.smartmirroring",
@@ -1628,8 +1726,24 @@ class MainActivity : ComponentActivity(), BridgeHost {
         @Volatile
         private var espelhoSrv: EspelhoServidor? = null
 
+        /** O anel de diagnóstico da transmissão — morava no EspelhoDisplay e
+         *  foi REALOCADO no corte (E6): o dono do Registro é quem liga o
+         *  servidor, não a tela virtual que deixou de existir. */
+        val espelhoDiag = EspelhoDiag()
+
+        /** O cache da rota /m/ (E4) — vive com a transmissão, não com a
+         *  Activity, pela mesma razão do servidor acima. */
         @Volatile
-        private var espelhoModo = ""
+        private var espelhoMidia: EspelhoMidiaCache? = null
+
+        /** O canal __avTelaMidia — um por PROCESSO (o listener é
+         *  por-instância de WebView e é reinstalado a cada remontagem do
+         *  Controle, mas a fila e a thread são uma só). O cache que ele
+         *  alimenta resolve na hora: nulo com a transmissão desligada. */
+        private val espelhoMidiaCanal = EspelhoMidiaCanal(
+            cache = { espelhoMidia },
+            registrar = { linha -> espelhoDiag.registrar(linha) },
+        )
 
         /**
          * Cache de [castCandidates] — no companion porque a informação é do

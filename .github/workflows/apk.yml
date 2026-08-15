@@ -6,6 +6,17 @@ on:
     tags: ['v*']
   pull_request:
     branches: [main]
+  # A RELEASE SAINDO É UM GATILHO DO CANAL OTA (v5.234).
+  #
+  # Quando o lote declara `shellTag` em `version.json`, o `web-ota` do push em
+  # main SEGURA a publicação: um bundle que pressupõe um shell que ainda não
+  # existe é exatamente a janela que este lote fecha. Quem a reabre é a Release
+  # — e ela chega minutos depois, por um disparo manual, num evento que este
+  # workflow não escutava. Sem esta linha o operador teria de lembrar de
+  # re-executar o job à mão, que é a mesma classe de "atualização que depende de
+  # alguém lembrar" que o recurso inteiro existe para acabar.
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       release_tag:
@@ -30,7 +41,14 @@ jobs:
   # aparelhos, sem APK novo (ver WebUpdater.kt). O APK continua trazendo a
   # mesma base embutida, que é o fallback offline e o piso de versão.
   web-ota:
-    if: github.ref == 'refs/heads/main'
+    # Push/dispatch em main, OU uma Release recém-publicada — e nunca a própria
+    # `web-latest`, senão a publicação deste job dispararia este job (a action
+    # emite `edited` ao atualizar uma release existente, mas na PRIMEIRA vez ela
+    # a cria, e aí o evento é `published`). O guarda é explícito porque um laço
+    # de CI que se auto-alimenta não é o tipo de coisa que se descobre lendo.
+    if: >-
+      github.ref == 'refs/heads/main' ||
+      (github.event_name == 'release' && github.event.release.tag_name != 'web-latest')
     runs-on: ubuntu-latest
     # Um grupo só, SEM cancelamento: os dois assets da release `web-latest`
     # (o zip e o version.json que carrega o sha256 dele) são substituídos um a
@@ -44,7 +62,13 @@ jobs:
       group: web-ota
       cancel-in-progress: false
     steps:
+      # No evento `release` o `github.ref` é a TAG, e o que precisa ser
+      # empacotado é a base web de `main` — a mesma de onde a Release nasceu
+      # (`target_commitish: main`). Sem isto o republicar do OTA sairia do
+      # commit da tag, que é o mesmo conteúdo por sorte e não por construção.
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'release' && 'main' || '' }}
 
       # O canal OTA publica direto para a frota: um erro de sintaxe aqui chega
       # aos aparelhos e o watchdog de boot NÃO evita o primeiro estrago —
@@ -64,12 +88,23 @@ jobs:
           # um arquivo que não é nosso.
           find app/src/main/assets/web -name '*.js' -not -path '*/vendor/*' -print0 |
             xargs -0 -n1 -t node --check
-          python3 -c "
-          import json
+          python3 - <<'PY'
+          import json, re
           m = json.load(open('app/src/main/assets/web/version.json'))
           assert m['version'] and int(m['minShell']) > 0, m
+          # `shellTag` é o ACOPLAMENTO com a Release (v5.234): declarado, ele
+          # segura a publicação do bundle até a Release existir. Um valor
+          # malformado ("1.99" sem o v, um espaço solto) não seria erro em lugar
+          # nenhum — a consulta à API devolveria 404, o job seguraria o OTA para
+          # sempre, e o sintoma no aparelho seria "a atualização não chega", que
+          # é o modo de falhar mais mudo que este canal tem. Por isso a forma é
+          # exigida aqui, onde a mensagem ainda pode nomeá-la.
+          tag = m.get('shellTag', '')
+          assert isinstance(tag, str), m
+          assert not tag or re.fullmatch(r'v[0-9]+(\.[0-9]+)*', tag), (
+              f'shellTag malformado: {tag!r} — use o formato da tag, ex. "v2.0"')
           print('version.json OK:', m)
-          "
+          PY
           # A versão mora em TRÊS lugares (ver CLAUDE.md), e os três precisam
           # bater: esquecer o WEB_VERSION é "o erro silencioso" (o OTA distribui
           # e o aparelho exibe a versão antiga) e esquecer o version.json é "o
@@ -104,20 +139,7 @@ jobs:
           # Determinístico, sem rede e sem navegador: entra aqui, e sem
           # `continue-on-error`.
           node tools/webview-range.test.mjs
-          # OS TRÊS DO ESPELHO DE PIXELS, que existiam no repositório desde a
-          # v5.143 e NÃO estavam ligados aqui — ou seja, rodavam em lugar
-          # nenhum. O oráculo do muxer fMP4 (boxes byte a byte, no molde do
-          # `sidx`), a varredura de contexto seguro (o cliente roda em `http://`
-          # por construção, e ali `VideoDecoder`/`wakeLock`/`crypto.subtle` vêm
-          # `undefined`) e o codificador de QR do pareamento.
-          node tools/fmp4.test.mjs
           node tools/contexto-seguro.test.mjs
-          # O QR: um símbolo errado não dá erro, dá uma câmera apontada para uma
-          # tela que não responde — indistinguível de "a câmera não funciona" e
-          # de "o roteador está isolando os aparelhos". O oráculo DECODIFICA o
-          # que o codificador produziu (formato com BCH, máscara, zigue-zague,
-          # síndromes de Reed-Solomon), em vez de conferir propriedades.
-          node tools/qr.test.mjs
           # A SOMBRA: nenhuma função redeclara um nome de módulo da base web.
           # `node --check` aprova `const ms = …` dentro de uma função que LÊ a
           # `ms` do módulo na primeira linha — e o resultado é
@@ -128,53 +150,129 @@ jobs:
           # como "travando e dessincronizando", nunca como uma exceção.
           # Determinístico, sem navegador: entra aqui, sem `continue-on-error`.
           node tools/sombra.test.mjs
+          # A REGRA DA SÉRIE: quais playlists do canal formam o álbum "Provai e
+          # Vede 2026" e quais vídeos entram nele. Os dois modos de errar são
+          # silenciosos e caros — aceitar demais põe a versão em LIBRAS em par
+          # com a de português (o álbum dobra, com o intérprete na projeção sem
+          # ninguém ter pedido), e aceitar de menos apaga um MÊS inteiro da
+          # Biblioteca sem erro no console. As entradas do teste são VERBATIM do
+          # canal, incluindo a playlist que não tem o hífen que todas as outras
+          # têm. Node puro, sem rede: sem `continue-on-error`.
+          node tools/serie.test.mjs
 
-      # FUMAÇA DO CONTROLE, num Chromium de verdade. O passo acima prova que os
-      # arquivos são PARSEÁVEIS; este prova que o app SOBE e responde ao toque.
-      # A distinção não é acadêmica: a v5.121 saiu com o botão de copiar o
-      # Registro chamando uma função que uma limpeza tinha apagado — sintaxe
-      # perfeita, `node --check` verde, botão morto no aparelho.
+      - name: Tokens de CSS que não existem (Node puro)
+        run: |
+          # Um `var(--nao-existe)` SEM fallback computa para o valor INICIAL da
+          # propriedade — sem aviso no console, sem erro, sem sintoma no lugar
+          # da causa. Na v5.171 isso deixou os DOIS botões principais da folha
+          # "Conectar uma tela" com `border-radius: 0`, os únicos cantos retos
+          # de um app inteiro arredondado, e nenhuma ferramenta reclamou.
+          # Mesma família do `setInteger` numa chave `long` e do `bytes`
+          # esquecido no `bgProgress`. Determinístico: sem `continue-on-error`.
+          node tools/tokens.test.mjs
+
+      # ────────────────────────────────────────────────────────────────────
+      # OS ORÁCULOS DE CHROMIUM, EM DOIS PASSOS (v5.213)
       #
-      # `continue-on-error` de propósito: um teste de navegador tem mais formas
-      # de falhar por infraestrutura (download do Chromium, runner sem rede) do
-      # que por defeito real, e barrar o OTA por causa disso seria trocar um
-      # risco raro por um bloqueio frequente. Ele grita no log; quem lê decide.
-      - name: Fumaça do Controle (Chromium)
+      # Eram um só, e o arranjo tinha um defeito que o painel verde escondia:
+      # `set -euo pipefail` com os testes em sequência faz o PRIMEIRO que
+      # reprovar abortar os ONZE seguintes. Somado ao `continue-on-error`, o
+      # desfecho era "um teste caiu, os outros nunca rodaram, e o run está
+      # verde" — e descobrir isso exigia abrir o log e reparar em qual linha
+      # ele parou. Um teste que não é lido não é rede de segurança; um teste
+      # cujo RESULTADO não é lido também não.
+      #
+      # A separação não é organização: ela é o que dá sentido ao
+      # `continue-on-error`. A justificativa dele sempre foi INFRAESTRUTURA
+      # (download do Chromium, runner sem rede), e infraestrutura agora é o
+      # passo de baixo, sozinho. O passo dos testes ficou com uma causa só de
+      # falhar — defeito de verdade —, roda todos eles SEMPRE (nenhum aborta o
+      # próximo), emite `::error::` por reprovado e escreve o placar no resumo
+      # do run, onde se lê sem abrir log nenhum.
+      #
+      # Ele SEGUE com `continue-on-error`, e isso é a política do projeto
+      # intacta, não esquecimento: barrar o canal OTA por um teste de navegador
+      # continua sendo trocar um risco raro por um bloqueio frequente. O que
+      # mudou é que agora essa escolha é uma linha só — e a razão que a
+      # sustentava mudou de endereço.
+      # ────────────────────────────────────────────────────────────────────
+      - name: Preparar o Chromium (infraestrutura)
+        id: chromium
         continue-on-error: true
         run: |
           set -euo pipefail
           npm i --no-audit --no-fund --silent playwright
           npx playwright install --with-deps chromium
-          PW_CHROMIUM="" node tools/smoke.mjs
+
+      # FUMAÇA DO CONTROLE e os demais oráculos, num Chromium de verdade. Os
+      # passos acima provam que os arquivos são PARSEÁVEIS; estes provam que o
+      # app SOBE e responde ao toque. A distinção não é acadêmica: a v5.121 saiu
+      # com o botão de copiar o Registro chamando uma função que uma limpeza
+      # tinha apagado — sintaxe perfeita, `node --check` verde, botão morto no
+      # aparelho.
+      #
+      # `if` no resultado do passo de cima: sem Chromium instalado todos
+      # falhariam por um motivo que não é deles, e uma dúzia de `::error::` de
+      # infraestrutura é exatamente o ruído que ensina a ignorar vermelho.
+      - name: Oráculos em Chromium
+        if: steps.chromium.outcome == 'success'
+        continue-on-error: true
+        run: |
+          # SEM `-e`, e é o ponto do passo: um reprovado não pode calar os que
+          # vêm depois. Quem guarda o desfecho é o `rodar`.
+          set -uo pipefail
+          rodados=0
+          falhas=()
+          rodar() {
+            rodados=$((rodados + 1))
+            echo "::group::$1"
+            if PW_CHROMIUM="" node "$1"; then
+              echo "::endgroup::"
+            else
+              echo "::endgroup::"
+              falhas+=("$1")
+              echo "::error::$1 REPROVOU"
+            fi
+          }
+
+          rodar tools/smoke.mjs
+          # E O BOOT COMO O APP O FAZ — com a ponte presente. O `smoke.mjs`
+          # acima sobe a base SEM `__AVBridge`, e por isso todo caminho guardado
+          # por `window.__NATIVE__` nunca era executado por teste nenhum: são
+          # justamente os que só rodam no aparelho, onde não há console para
+          # olhar. A v5.195 saiu com um `const` em zona morta temporal dentro de
+          # um `if (espelhoDisponivel())` — verde aqui, tela PRETA no celular, e
+          # o watchdog do OTA descartando o bundle no lançamento seguinte.
+          rodar tools/boot-nativo.test.mjs
           # E as MENSAGENS DE FALHA da transmissão direta. Nelas a mensagem é o
           # produto: a transmissão roda no aparelho do operador, contra URLs que
           # expiram, e a única coisa que atravessa essa distância é a linha do
           # Registro. "Não deu" já custou duas rodadas de APK aqui.
-          PW_CHROMIUM="" node tools/mse.test.mjs
+          rodar tools/mse.test.mjs
           # E a TRANSIÇÃO DE ENTRADA do palco. Ela ficou anos pela metade (a
           # mídia velha esmaecia, a nova entrava no talo) e ninguém viu, porque
           # um arquivo local vira quadro em milissegundos e o corte colava no
           # fim do esmaecimento. Só a transmissão direta — com a rede inteira
           # entre o preto e o primeiro quadro — tornou a falta visível. É um
           # defeito que nenhum `--check` pega e que a congregação inteira vê.
-          PW_CHROMIUM="" node tools/stage-fade.test.mjs
+          rodar tools/stage-fade.test.mjs
           # E o COLETOR DE LIXO do banco, que é o único código do app que apaga
           # mídia do operador. Um erro ali não dá tela branca: some com o vídeo
           # do domingo, em silêncio e sem desfazer.
-          PW_CHROMIUM="" node tools/db-gc.test.mjs
+          rodar tools/db-gc.test.mjs
           # E as CONTAS DA BIBLIOTECA — "esta coleção está completa?" e "quanto
           # ela ocupa?". As duas eram respondidas por fórmulas diferentes em
           # lugares diferentes da mesma tela, e o resultado era um card com o
           # botão de baixar ao lado de um chip dizendo "Completo offline". Conta
           # errada não estoura em lugar nenhum: ela só mostra o número errado.
-          PW_CHROMIUM="" node tools/acervo.test.mjs
+          rodar tools/acervo.test.mjs
           # E O QUE A PONTE DE FATO ENTREGA. `native.js` REMONTA campo a campo
           # os objetos que manda ao Kotlin, e um campo esquecido some em
           # silêncio: do outro lado, `optBoolean`/`optLong` leem ausente como
           # `false`/`0`, que são valores legítimos. Já custou duas vezes —
           # `slideLabel` (v5.97→v5.102) e `bytes`, que nunca chegou a viajar
           # desde a versão que o criou.
-          PW_CHROMIUM="" node tools/ponte.test.mjs
+          rodar tools/ponte.test.mjs
           # E O TELÃO, que até agora NENHUM teste tinha carregado. A fumaça
           # acima abre o Controle; o `stage-fade` monta o palco à mão. A metade
           # que roda na frente da congregação era a metade que a CI nunca
@@ -182,32 +280,186 @@ jobs:
           # do OTA também não a valida (quem confirma o bundle é o Controle).
           # Ele trava, de quebra, o endereçamento do reenvio de cena: sem ele,
           # uma segunda instância do Display faz a TV recarregar a mídia.
-          PW_CHROMIUM="" node tools/display-smoke.mjs
+          rodar tools/display-smoke.mjs
           # E OS DESTINOS das folhas de escolha. O que está marcado precisa
           # ATRAVESSAR o fechamento da folha: a ação roda depois de
           # `closeSongMenu()`, que zera o conjunto, e uma leitura tarde demais
           # devolveria só a linha tocada — o item iria para um destino em vez de
           # dois, sem erro nenhum. Mesma classe de falha muda do `slideLabel`.
-          PW_CHROMIUM="" node tools/destinos.test.mjs
+          rodar tools/destinos.test.mjs
           # E A CENA: o que o telão mostra ao RECONECTAR, o que o operador
           # ajusta nela (girar, preencher) e o que ele lê sobre ela. A reconexão
           # do dongle é o caminho menos testável à mão — exige TV, dongle e o
           # timing de derrubá-lo — e roda sozinho na frente da congregação.
-          PW_CHROMIUM="" node tools/cena.test.mjs
-          # E O CLIENTE DO ESPELHO, que também estava no repositório sem estar
-          # ligado aqui. Ele sobe um servidor de mentira com o mapa de rotas do
-          # `EspelhoServidor` e prova, num Chromium de verdade, que o muxer
-          # entrega uma faixa CONTÍNUA (`buffered.length === 1`), que o token
-          # nunca aparece numa URL, e que o pareamento por QR fecha o ciclo sem
-          # ninguém digitar nada.
-          PW_CHROMIUM="" node tools/espelho-cliente.test.mjs
+          rodar tools/cena.test.mjs
+          # E A TELA DA REDE do telão por comandos (E3 — ver
+          # docs/TELAO-POR-COMANDOS.md): o /display/ servido pelo celular
+          # rodando num navegador comum, com a entrada pelo código, o dreno de
+          # subida (só display-ready e tela-status sobem), a correção de
+          # relógio anulando 90 s de desvio, a reconexão que se reapresenta e
+          # o adeus que não martela. Teste fora do workflow é documentação —
+          # a lição da v5.145 (três testes escritos e ligados em lugar nenhum).
+          rodar tools/tela-rede.test.mjs
+          # E O REGISTRO — o único artefato do app cujo consumidor é um HUMANO A
+          # DISTÂNCIA. Todo o resto falha na frente de quem pode ver; ele falha
+          # CONTINUANDO A RESPONDER, com uma frase errada, e quem a lê vai
+          # investigar o que ela diz. Nenhum teste o carregava até a v5.206, e
+          # foi por aí que passaram três defeitos ao mesmo tempo: o `ritmo`
+          # zerado imprimindo "ALARME: ISTO É UM RETÂNGULO PRETO" em todo culto,
+          # toda tela conectada sendo acusada de rodar "bundle antigo", e um
+          # "modo: imagem (JPEG)" de um modo removido dez versões antes. Os três
+          # têm a mesma forma — um consumidor que sobreviveu ao produtor lê o
+          # valor ausente como se fosse resposta.
+          rodar tools/registro.test.mjs
+          # E O FLUXO DE ATUALIZAÇÃO, que é o único caminho do app cujo defeito
+          # NÃO TEM SINTOMA: quando a atualização não chega, nada quebra e nada
+          # erra alto — o operador só continua na versão de anteontem sem saber.
+          # Foi assim por dezenas de versões, e a v5.151 chegou a REMOVER a
+          # pergunta por concluir que ela "nunca aparecia" (era o espelho ligado
+          # suprimindo o diálogo, e isso levou meses para ser identificado).
+          # Nenhum teste tocava neste código: o `smoke.mjs` sobe sem ponte e
+          # todo o bloco é `window.__NATIVE__`; o `boot-nativo` prova o boot,
+          # não o fluxo. Ele entra no workflow no MESMO commit em que nasce —
+          # a lição da v5.145.
+          rodar tools/ota.test.mjs
 
-      - name: Empacotar a base web
+          # O PLACAR VAI PARA O RESUMO DO RUN, não só para o log — a queixa que
+          # originou este lote foi precisamente que o desfecho só existia lá
+          # dentro. `rodados` é CONTADO, nunca digitado: um número fixo aqui
+          # envelheceria no primeiro oráculo novo, e envelheceria mentindo.
+          passaram=$((rodados - ${#falhas[@]}))
+          echo "Oráculos em Chromium: $passaram/$rodados passaram." | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ ${#falhas[@]} -gt 0 ]; then
+            printf 'REPROVOU: %s\n' "${falhas[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      # ────────────────────────────────────────────────────────────────────
+      # A RELEASE QUE ESTE LOTE EXIGE (v5.234)
+      #
+      # Até aqui os dois canais eram independentes e o push em main publicava o
+      # bundle na hora. Quando o lote mexia no Kotlin, todo aparelho recebia web
+      # NOVO com shell VELHO por horas ou dias — e a única defesa era `minShell`,
+      # que este projeto mantém em 2 de propósito (subi-lo recusaria a
+      # atualização inteira em quem estivesse atrasado). O operador via metade
+      # do lote funcionando e metade não, sem nada que explicasse a diferença.
+      #
+      # Agora `shellTag` no `version.json` do repositório declara a dependência,
+      # e este passo é o portão: sem a Release publicada, o bundle NÃO sai. O
+      # job termina VERDE, porque isto não é falha — é o estado normal entre o
+      # merge e o disparo da Release, e pintá-lo de vermelho ensinaria a ignorar
+      # vermelho (a lição da v5.204).
+      #
+      # Havendo a Release, o manifesto sai com o bloco `shell`, e é dele que o
+      # aparelho tira o link do APK: uma tela só, uma decisão só, e ZERO
+      # consultas à API do GitHub na ronda rápida — que é o que permite a ronda
+      # ser rápida sem estourar o limite de 60 requisições por hora.
+      # ────────────────────────────────────────────────────────────────────
+      - name: A Release que este lote exige
+        id: shell
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          ZIP="$GITHUB_WORKSPACE/web-assets.zip"
-          META="$GITHUB_WORKSPACE/version.json"
+          TAG=$(python3 -c "import json;print(json.load(open('app/src/main/assets/web/version.json')).get('shellTag',''))")
+          # `|| true` porque um 404 é resposta esperada (a Release ainda não
+          # saiu), e com `set -e` ele abortaria o job com cara de defeito.
+          EXIGIDA=$([ -n "$TAG" ] && echo sim || echo nao)
+          if [ -n "$TAG" ]; then
+            echo "Este lote EXIGE a Release $TAG."
+            REL=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" \
+                    --json tagName,assets 2>/dev/null || true)
+            if [ -z "$REL" ]; then
+              echo "SEGURANDO O OTA: a Release $TAG ainda não existe." \
+                | tee -a "$GITHUB_STEP_SUMMARY"
+              echo "O bundle sairá sozinho quando ela for publicada (gatilho \`release\`)." \
+                >> "$GITHUB_STEP_SUMMARY"
+              echo "HOLD=true" >> "$GITHUB_ENV"
+              exit 0
+            fi
+          else
+            # SEM `shellTag` O MANIFESTO AINDA ANUNCIA O APK MAIS RECENTE, e
+            # isto não é zelo: é o buraco que a primeira versão deste passo
+            # deixou aberta. `shellTag` responde "este lote PRECISA de uma
+            # Release?" — e uma Release publicada sem que a base web mudasse
+            # (uma correção só de Kotlin) não a declara em lugar nenhum. Sem
+            # esta metade, esse APK nunca seria anunciado a aparelho nenhum e o
+            # operador voltaria a caçá-lo no navegador, que é exatamente o
+            # atrito que este lote existe para acabar.
+            #
+            # `gh release view` sem tag devolve a "latest" da API, que ignora
+            # prereleases — ou seja, a `web-latest` fica de fora por
+            # construção, sem precisar de filtro.
+            echo "Sem shellTag: nada a segurar. Anunciando a Release mais recente, se houver."
+            REL=$(gh release view --repo "$GITHUB_REPOSITORY" \
+                    --json tagName,assets 2>/dev/null || true)
+            if [ -z "$REL" ]; then
+              echo "Nenhuma Release publicada ainda: OTA puro."
+              echo "SHELL_JSON=" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            TAG=$(printf '%s' "$REL" | python3 -c "import json,sys;print(json.load(sys.stdin)['tagName'])")
+          fi
+          SHELL_JSON=$(python3 - "$REL" "$TAG" <<'PY'
+          import json, sys
+          rel, tag = sys.argv[1], sys.argv[2]
+          o = json.loads(rel)
+          apk = next((a for a in o.get('assets', [])
+                      if a.get('name', '').lower().endswith('.apk')), None)
+          if not apk:
+              # A Release existe e não tem APK: publicar o bundle apontando para
+              # um shell que ninguém consegue instalar seria pior que segurar.
+              print('SEM_APK'); raise SystemExit(0)
+          print(json.dumps({
+              'versao': tag.lstrip('vV'),
+              'apk': apk['url'],
+              'bytes': int(apk.get('size') or 0),
+          }, separators=(',', ':')))
+          PY
+          )
+          if [ "$SHELL_JSON" = "SEM_APK" ]; then
+            # A ASSIMETRIA É A DECISÃO. Uma Release EXIGIDA que ainda não tem
+            # `.apk` é a corrida normal entre a criação da Release e o upload do
+            # binário — segurar é o certo, e o gatilho `release` (que dispara
+            # com o arquivo já anexado) resolve sozinho. Já uma Release
+            # qualquer sem `.apk` não tem nada a ver com este bundle: bloquear o
+            # canal OTA inteiro por causa dela seria deixar a base web presa por
+            # um evento que não é dela.
+            if [ "$EXIGIDA" = "sim" ]; then
+              echo "SEGURANDO O OTA: a Release $TAG existe mas ainda não tem .apk." \
+                | tee -a "$GITHUB_STEP_SUMMARY"
+              echo "HOLD=true" >> "$GITHUB_ENV"
+            else
+              echo "A Release $TAG não tem .apk — publicando sem o bloco shell."
+              echo "SHELL_JSON=" >> "$GITHUB_ENV"
+            fi
+            exit 0
+          fi
+          echo "Release $TAG encontrada: $SHELL_JSON"
+          echo "SHELL_JSON=$SHELL_JSON" >> "$GITHUB_ENV"
+
+      - name: Empacotar a base web
+        if: env.HOLD != 'true'
+        run: |
+          set -euo pipefail
           SRC="$GITHUB_WORKSPACE/app/src/main/assets/web/version.json"
+          VERSION=$(python3 -c "import json;print(json.load(open('$SRC'))['version'])")
+          # O NOME DO ZIP CARREGA A VERSÃO, e isso não é cosmético.
+          #
+          # Ele era `web-assets.zip`, SUBSTITUÍDO no lugar a cada publicação —
+          # e o próprio comentário do `concurrency` acima já reconhecia o
+          # desfecho: duas execuções intercaladas deixam o zip de uma com o
+          # sha256 da outra, e a partir daí **todo aparelho baixa, confere o
+          # hash, reprova e o OTA fica INERTE até o próximo push**, sem sinal
+          # nenhum. A fila reduzia a chance; ela não fechava a classe, porque
+          # nada impede a fila de ser furada por um `retag` ou por uma execução
+          # que morra entre os dois uploads. Um nome imutável por versão fecha:
+          # o zip da versão N nunca é sobrescrito, então um manifesto que fale
+          # da versão N sempre encontra o zip da versão N. De quebra, some a
+          # janela em que um cache intermediário pode devolver o zip de ontem
+          # no endereço de hoje.
+          ZIP="$GITHUB_WORKSPACE/web-$VERSION.zip"
+          META="$GITHUB_WORKSPACE/version.json"
 
           # O zip preserva o prefixo `web/` para que o caminho dentro do
           # bundle bata 1:1 com a URL servida pelo asset loader.
@@ -216,40 +468,79 @@ jobs:
 
           SHA=$(sha256sum "$ZIP" | cut -d' ' -f1)
 
-          python3 - "$SRC" "$META" "$SHA" "$GITHUB_REPOSITORY" <<'PY'
-          import json, sys
-          src, out, sha, repo = sys.argv[1:5]
+          python3 - "$SRC" "$META" "$SHA" "$GITHUB_REPOSITORY" "$(basename "$ZIP")" <<'PY'
+          import json, os, sys
+          src, out, sha, repo, nome = sys.argv[1:6]
           meta = json.load(open(src))
-          json.dump({
+          saida = {
               "version": meta["version"],
               "minShell": int(meta["minShell"]),
               "sha256": sha,
-              "assets": f"https://github.com/{repo}/releases/download/web-latest/web-assets.zip",
-          }, open(out, "w"), indent=2)
+              "assets": f"https://github.com/{repo}/releases/download/web-latest/{nome}",
+          }
+          # O BLOCO `shell` É O RECADO PARA O APARELHO: "esta base web vem com um
+          # APK, e ele está aqui". Sem ele o app trata a atualização como OTA
+          # puro — que é o caso comum e continua funcionando igual.
+          bruto = os.environ.get("SHELL_JSON", "").strip()
+          if bruto:
+              saida["shell"] = json.loads(bruto)
+          json.dump(saida, open(out, "w"), indent=2)
           PY
 
           echo "Bundle: $(du -h "$ZIP" | cut -f1)"
           cat "$META"
+          echo "ZIP_NOME=$(basename "$ZIP")" >> "$GITHUB_ENV"
 
-      # Tag fixa: a URL do bundle precisa ser estável, porque está compilada
-      # no shell. Cada push substitui os dois arquivos desta mesma release.
+      # Tag fixa: a URL do `version.json` precisa ser estável, porque está
+      # compilada no shell. O ZIP, não — ele é encontrado PELO manifesto, e por
+      # isso pode (e deve) ter nome versionado. Ou seja, o único arquivo
+      # substituído no lugar passa a ser o manifesto, que é minúsculo, tem
+      # `?t=` anti-cache do lado do app e é escrito por ÚLTIMO: mesmo uma
+      # publicação interrompida no meio deixa o estado anterior íntegro, em vez
+      # de um sha órfão.
       - uses: softprops/action-gh-release@v2
+        if: env.HOLD != 'true'
         with:
           tag_name: web-latest
           name: Base web (canal OTA)
           prerelease: true
           files: |
-            web-assets.zip
+            ${{ env.ZIP_NOME }}
             version.json
           body: |
             **Infraestrutura — não é para instalar.**
 
             Canal de atualização da base web: o app consulta o `version.json`
-            aqui e baixa o `web-assets.zip` quando há versão nova, aplicando-a
-            no lançamento seguinte. Os APKs para instalar estão nas releases
-            `v*`.
+            aqui e baixa o `web-<versão>.zip` que ele apontar. Os APKs para
+            instalar estão nas releases `v*`.
+
+      # Com nome versionado os zips ACUMULAM, e um asset de release não é
+      # recolhido por ninguém. Ficam os três mais novos: o servido, o que acabou
+      # de sair e uma folga para o aparelho que estava baixando o anterior no
+      # instante da publicação — apagar o que alguém está baixando devolveria um
+      # 404 no meio do download, que é justamente o tipo de falha intermitente
+      # que este lote existe para acabar.
+      - name: Recolher bundles antigos
+        if: env.HOLD != 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release view web-latest --repo "$GITHUB_REPOSITORY" --json assets \
+            --jq '.assets[] | select(.name | test("^web-.*\\.zip$")) | .name' \
+            | sort -V -r | tail -n +4 | while read -r velho; do
+              echo "recolhendo $velho"
+              gh release delete-asset web-latest "$velho" \
+                --repo "$GITHUB_REPOSITORY" --yes || true
+            done
 
   apk:
+    # No evento `release` não há APK a construir: a Release ACABOU de publicar
+    # um. Rodar aqui recompilaria o mesmo commit para jogar o resultado fora —
+    # e, pior, o `PUBLISH` daria falso (não é tag nem dispatch), então sairia um
+    # build de debug consumindo minutos de runner por nada.
+    if: github.event_name != 'release'
     runs-on: ubuntu-latest
     steps:
       # `fetch-depth: 0` porque o versionCode sai da CONTAGEM DE COMMITS (ver

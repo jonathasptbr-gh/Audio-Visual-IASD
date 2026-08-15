@@ -41,7 +41,15 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
-const ALVO = path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web', 'espelho');
+// DOIS alvos desde a E7 do telão por comandos: a tela da rede roda o PRÓPRIO
+// /display/ em http://, então a disciplina de contexto seguro passou a valer
+// lá também — e o bloco do espelho de pixels (AudioWorklet etc.) que a
+// varredura teria pego já saiu junto com o pipeline.
+const ALVOS = [
+  path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web', 'espelho'),
+  path.join(AQUI, '..', 'app', 'src', 'main', 'assets', 'web', 'display'),
+];
+const ALVO = ALVOS[0];
 
 const falhas = [];
 function checar(cond, msg, obtido) {
@@ -306,7 +314,7 @@ if (!fs.existsSync(ALVO)) {
   // não é um verde VAZIO nessa janela é o auto-teste acima, que roda sempre.
   console.log('    (a pasta ainda não existe — o oráculo acima já roda; a varredura entra com o P2)');
 } else {
-  const lista = arquivos(ALVO);
+  const lista = ALVOS.flatMap((a) => arquivos(a));
   checar(lista.length > 0, 'há arquivos para varrer em assets/web/espelho/');
   for (const arq of lista) {
     const achados = varrer(fs.readFileSync(arq, 'utf8'));

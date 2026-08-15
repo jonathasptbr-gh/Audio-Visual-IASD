@@ -23,11 +23,25 @@
        precise ajustar só para si continua podendo ser redeclarado lá. -->
   <link rel="stylesheet" href="../shared/tokens.css">
   <link rel="stylesheet" href="display.css">
+  <!-- O CSS do motor (o indicador de espera) — ver o cabeçalho de
+       `shared/stage.css`: ele era estilo embutido e a CSP das telas da rede o
+       bloqueava em silêncio. -->
+  <link rel="stylesheet" href="../shared/stage.css">
+  <!-- A ENTRADA DA TELA DA REDE (v5.205). Ela precisa ser uma FOLHA e não um
+       `<style>` criado pelo `tela.js`: a página servida às telas leva
+       `default-src 'self'` sem `style-src`, e a CSP bloqueia estilo embutido —
+       o overlay ficava sem posição nenhuma, debaixo do wallpaper, invisível e
+       inclicável. Ver o cabeçalho de `espelho/tela.css`.
+       Inerte nos outros dois papéis: todo seletor dela está sob `#telaEntrada`,
+       que só o `tela.js` cria. -->
+  <link rel="stylesheet" href="../espelho/tela.css">
 </head>
 <body>
-  <div id="wallpaper" class="wallpaper">
-    <div class="wallpaper-brand">Audio Visual <span>IASD</span></div>
-  </div>
+  <!-- O wallpaper padrão é o símbolo oficial da IASD, desenhado por
+       `shared/wallpaper-padrao.svg` via o token `--wallpaper` (v5.188) — a
+       marca de texto que morava aqui saiu com ele: o símbolo É a identidade,
+       e um texto por cima só competiria. -->
+  <div id="wallpaper" class="wallpaper"></div>
 
   <img id="img" class="layer" alt="" hidden>
   <video id="video" class="layer" playsinline hidden></video>
@@ -38,7 +52,17 @@
     <div class="lyrics-bg"><img id="lyricsImg" alt="" hidden></div>
     <div class="lyrics-content" id="lyricsContent">
       <div class="lyrics-box">
+        <!-- O NÚMERO DO HINO, só no slide de CAPA (v5.218). Ele vinha colado na
+             frente do título ("147. NOME"), gastando a largura da linha que
+             mais precisa dela e obrigando o olho a separar duas informações de
+             pesos diferentes dentro da mesma frase. Fora da capa o elemento não
+             existe em cena — `hidden`, escrito por `renderLyricSlide`. -->
+        <div class="lyrics-num" id="lyricsNum" hidden></div>
         <div class="lyrics-line" id="lyricsLine"></div>
+        <!-- Na capa esta MESMA linha carrega o álbum/coleção (ver
+             `.lyrics-content.cover .lyrics-aux`): reusá-la é um elemento a
+             menos e uma regra de fade a menos, e os dois papéis nunca estão em
+             cena ao mesmo tempo. -->
         <div class="lyrics-aux" id="lyricsAux" hidden></div>
       </div>
     </div>
@@ -60,13 +84,8 @@
       </div>
     </div>
   </div>
-  <!-- Substituído pelo iframe oficial do YouTube IFrame Player API em runtime -->
-  <div id="youtube" class="layer yt-frame" hidden></div>
-  <!-- escudo anti-UI: cobre a tela final do YouTube enquanto o player cai -->
-  <div id="ytShield" class="layer yt-shield"></div>
-
   <!-- Toque único ao abrir: navegadores exigem um gesto real do usuário para
-       liberar autoplay com som em conteúdo de terceiros (iframe do YouTube).
+       liberar autoplay com som.
        Cobre a tela inteira (qualquer toque serve) — some ao primeiro toque.
        "Ligar Sistema" APENAS ativa o Display: o handler (display.js) empurra o
        player do YouTube e esconde o overlay, e não há nenhum window.open no
@@ -79,6 +98,15 @@
   <!-- native.js PRIMEIRO: define window.__NATIVE__ antes que qualquer outro
        script consulte essa guarda. No navegador é no-op. -->
   <script src="../shared/native.js"></script>
+  <!-- O PAPEL `tela` (telão por comandos): a casca que faz este documento
+       rodar num navegador da LAN, servido pelo celular. PRECISA vir antes de
+       db.js — ele define window.__AVBus (o transporte SSE) e neutraliza o
+       postMessage do BroadcastChannel, e db.js captura os dois NA CARGA.
+       Fora do papel `tela` é um no-op de uma guarda: no telão de verdade e no
+       navegador de desenvolvimento ele não existe. O papel é marcado pela
+       `<meta name="av-tela">` que o servidor injeta (v1.92), com `?tela=1` na
+       query como recuo para shell antigo. Ver docs/TELAO-POR-COMANDOS.md §3.4. -->
+  <script src="../espelho/tela.js"></script>
   <script src="../shared/db.js"></script>
   <!-- ANTES do stage.js: é ele quem consulta `AVStream` ao carregar uma mídia
        de transmissão direta, e um script carregado depois chegaria tarde para

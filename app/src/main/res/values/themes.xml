@@ -14,13 +14,40 @@
          o body da base web pintando o MESMO token `bg` por baixo delas; é por
          isso que a igualdade entre `@color/app_bg` e o token continua
          OBRIGATÓRIA mesmo com os itens ignorados: divergir reintroduziria a
-         faixa de outro preto, agora só nos aparelhos novos. -->
+         faixa de outro preto, agora só nos aparelhos novos.
+
+         TEMA CLARO (v5.192): este é o tema ESCURO, que é o padrão de quem nunca
+         escolheu nada e o único que o MANIFEST pode declarar — um recurso de
+         XML é resolvido antes de existir JavaScript, então não há como
+         perguntar ao Controle a tempo do primeiro quadro. Quem escolhe é a
+         MainActivity, com um `setTheme(Theme.AvIasd.Claro)` ANTES do
+         `super.onCreate` (é o único momento em que ele ainda vale: depois de a
+         decor view existir, mudar o tema não repinta mais o windowBackground),
+         a partir de uma cópia da escolha guardada em SharedPreferences. O
+         preço, dito em vez de escondido: trocar de tema tem um lançamento de
+         atraso no fundo do splash, e só nele. -->
+
     <style name="Theme.AvIasd" parent="@android:style/Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/app_bg</item>
         <item name="android:colorBackground">@color/app_bg</item>
         <item name="android:statusBarColor">@color/app_bg</item>
         <item name="android:navigationBarColor">@color/app_bg</item>
         <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <!-- O MESMO tema, no claro. Ele NÃO entra no manifest: o app abre no escuro
+         por padrão, e a MainActivity troca para cá antes do `super.onCreate`
+         quando a preferência guardada disser "claro".
+         `windowLightStatusBar` aqui é o par estático da bandeira que a Activity
+         também vira em tempo de execução (para a troca ao vivo) — os dois
+         existem porque cobrem momentos diferentes: este vale desde o primeiro
+         quadro, aquele vale quando o operador troca com o app já aberto. -->
+    <style name="Theme.AvIasd.Claro">
+        <item name="android:windowBackground">@color/app_bg_claro</item>
+        <item name="android:colorBackground">@color/app_bg_claro</item>
+        <item name="android:statusBarColor">@color/app_bg_claro</item>
+        <item name="android:navigationBarColor">@color/app_bg_claro</item>
+        <item name="android:windowLightStatusBar">true</item>
     </style>
 
     <!-- A Presentation (telão) é sempre preta e sem decoração nenhuma. -->

@@ -61,7 +61,12 @@ const porta = servidor.address().port;
 const navegador = await chromium.launch(
   process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {},
 );
-const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 } });
+// `hasTouch`: sem ele o contexto do Playwright não emula toque, e um
+// `Input.dispatchTouchEvent` do CDP é entregue sem disparar
+// `touchstart`/`touchmove` — o carrossel de abas (o único gesto de toque que
+// este arquivo exercita) não teria como reagir, e o caso "passaria" por não
+// medir nada. É o aparelho que este teste imita; o padrão de mesa não é.
+const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 }, hasTouch: true });
 // `localhost` já é contexto seguro, então a Clipboard API está disponível — é o
 // mesmo caminho que o app usa no aparelho (`https://appassets.…`).
 try { await ctx.grantPermissions(['clipboard-read', 'clipboard-write']); } catch (_) {}
@@ -108,11 +113,23 @@ try {
   await pg.waitForSelector('#fadePopup.open', { timeout: 5000 });
   checar(true, 'Configurações abre');
 
-  const temRegistro = await pg.$eval('#diagBox', (el) => (el.textContent || '').length > 0);
-  checar(temRegistro, 'o Registro tem conteúdo');
+  // O REGISTRO NÃO TEM MAIS VISOR (v5.207): a caixa `<pre>` gastava 240px de
+  // espaço sempre visível em Configurações para exibir, em fonte de 0,68rem, um
+  // log cujo consumidor é um humano A DISTÂNCIA — ele é copiado, não lido aqui.
+  // Então o que se afirma passou a ser o que de fato importa: **o texto existe
+  // e é o que o botão entrega**.
+  const temRegistro = await pg.evaluate(() => typeof diagTexto === 'string' && diagTexto.length > 0);
+  checar(temRegistro, 'o Registro é montado (o texto que o botão copia existe)');
 
-  const rolaHorizontal = await pg.$eval('#diagBox', (el) => el.scrollWidth > el.clientWidth + 1);
-  checar(!rolaHorizontal, 'o Registro não rola na horizontal');
+  checar(await pg.$('#diagBox') === null,
+    'e não há mais visor ocupando espaço sempre visível na folha');
+
+  // E A FOLHA CABE NA TELA. Era esta a queixa do operador — as linhas que ele de
+  // fato ajusta (tema, preenchimento, wallpaper) ficavam abaixo da dobra por
+  // causa da caixa de log. Medir a rolagem é medir a queixa.
+  const precisaRolar = await pg.$eval('#fadePopup .popup-sheet',
+    (el) => el.scrollHeight > el.clientHeight + 1);
+  checar(!precisaRolar, 'Configurações cabe sem rolar');
 
   // O QUE A v5.121 QUEBROU: o clique chamava uma função apagada. Um handler que
   // estoura não muda nada na tela — daí conferir o efeito (o pulso de
@@ -121,6 +138,63 @@ try {
   await pg.waitForTimeout(300);
   const pulsou = await pg.$eval('#diagCopy', (el) => el.classList.contains('btn-pulso'));
   checar(pulsou, 'o botão de copiar o Registro responde ao toque');
+
+  // ==========================================================================
+  // NÃO EXISTE ALERTA FLUTUANTE (v5.207) — e este é o oráculo da regra.
+  //
+  // O app já removeu um toast uma vez, e no lugar dele nasceu `avisar()`, cujo
+  // próprio comentário afirmava "não flutua". O CSS dizia `position: fixed;
+  // top: .5rem; z-index: 400`: era um toast com outro nome, e 35 pontos do app
+  // respondiam por ele — sempre no topo da tela, para toques dados no rodapé,
+  // no meio de uma lista ou dentro de uma folha aberta.
+  //
+  // Sem um teste, a terceira encarnação nasce na primeira vez que alguém
+  // precisar responder a uma ação e não achar onde. A régua aqui é estrutural,
+  // não de nome: **nenhum elemento fixo por cima da interface que não seja uma
+  // folha/cortina/diálogo** — porque o próximo toast pode se chamar qualquer
+  // coisa.
+  // ==========================================================================
+  await pg.evaluate(() => document.getElementById('fadePopupClose').click());
+  await pg.waitForTimeout(250);
+
+  checar(await pg.evaluate(() => typeof avisar === 'undefined'),
+    'a função da faixa flutuante não existe mais');
+  checar(await pg.$('#saveHint') === null, 'e nem o elemento dela');
+
+  const flutuantes = await pg.evaluate(() => {
+    // Os fixos LEGÍTIMOS: as folhas e o diálogo (que tomam o foco e pedem um
+    // toque), a cortina do Modo Fácil, o próprio modo, e a barra de baixo.
+    // O DIÁLOGO DO APP entra na lista: ele não é uma faixa que passa — toma o
+    // foco, escurece o resto e exige um toque. É o canal do único caso sem
+    // interface de origem (um compartilhamento que chega de fora e falha
+    // inteiro); ver `registrarShareNativo`.
+    const OK = ['popup-backdrop', 'popup-sheet', 'simple', 'simple-veil', 'bottombar',
+      'appDialog', 'dialog-card', 'tab-ghost', 'selbar'];
+    const achados = [];
+    document.querySelectorAll('body *').forEach((el) => {
+      const cs = getComputedStyle(el);
+      if (cs.position !== 'fixed') return;
+      const z = parseInt(cs.zIndex, 10) || 0;
+      if (z < 100) return;                       // não disputa com o conteúdo
+      const cls = el.className.toString();
+      if (OK.some((k) => cls.includes(k) || (el.id || '').includes(k))) return;
+      achados.push((el.id || cls || el.tagName).slice(0, 40));
+    });
+    return achados;
+  });
+  checar(flutuantes.length === 0,
+    'nenhuma camada flutuante sobrou por cima da interface' + (flutuantes.length ? ' (achei: ' + flutuantes.join(', ') + ')' : ''));
+
+  // E O CONTRÁRIO — os canais in-place existem. Sem esta metade, apagar o
+  // feedback inteiro passaria no teste acima.
+  const canais = await pg.evaluate(() => ({
+    linha: typeof notaNoItem === 'function',
+    botao: typeof pulsar === 'function',
+    pasta: typeof statusPasta === 'function',
+    versao: typeof falarNaVersao === 'function',
+  }));
+  checar(canais.linha && canais.botao && canais.pasta && canais.versao,
+    'e os canais que responderam no lugar dela estão de pé (linha, botão, pasta, rótulo)');
 
   const copiado = await pg.evaluate(() => navigator.clipboard.readText().catch(() => ''));
   checar(copiado.includes('Linha do tempo'), 'e o texto do Registro foi para a área de transferência');
@@ -138,10 +212,14 @@ try {
   // que o abre. Por isso a regra virou asserção — ela custa três linhas e
   // pega uma classe inteira de defeito que só aparece em aparelho.
   const ANINHADOS = [
-    ['castPopup', 'mirrorPopup'],   // os ajustes do espelho abrem da folha de conexão
-    ['mirrorPopup', 'qrPopup'],     // e o leitor de QR abre da folha do espelho
     ['songMenuPopup', 'folderPopup'], // o seletor de pastas abre da folha da música
   ];
+  // (O par `castPopup`/`mirrorPopup` saiu na v5.196 com a folha de "Ajustes
+  // avançados"; o par `mirrorPopup`/`qrPopup` saíra na v5.185 com o leitor de
+  // QR. A regra
+  // continua valendo para todo popup aninhado que existir — foi ela que pegou o
+  // leitor nascendo um degrau ABAIXO da folha que o abria, com o sintoma sendo
+  // uma câmera acesa e imagem nenhuma.)
   const z = await pg.evaluate((pares) => pares.map(([pai, filho]) => {
     const v = (id) => {
       const e = document.getElementById(id);
@@ -154,6 +232,151 @@ try {
       'o popup `' + p.filho + '` fica ACIMA do `' + p.pai + '`, de onde ele abre'
       + ' (' + p.zFilho + ' > ' + p.zPai + ')');
   });
+
+  // Um `#rrggbb` de token vira o `rgb(...)` que o `getComputedStyle` devolve —
+  // as asserções comparam o RENDERIZADO com o token resolvido, nunca com um
+  // literal copiado para cá. (Ele mora acima dos dois blocos que o usam: era
+  // declarado no segundo, e o primeiro passou a precisar dele na v5.224.)
+  const paraRgb = (hex) => {
+    const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+    return m ? 'rgb(' + parseInt(m[1], 16) + ', ' + parseInt(m[2], 16) + ', ' + parseInt(m[3], 16) + ')' : hex;
+  };
+
+  // ---- A SEÇÃO DE CONEXÃO SEGUE O PADRÃO DO APP (v5.175) -----------------
+  //
+  // O `tools/tokens.test.mjs` prova que nenhum `var(--x)` aponta para um token
+  // inexistente; este prova o efeito RENDERIZADO, que é o que o operador vê.
+  // Os dois botões da folha "Conectar uma tela" pediam `var(--radius-md)` — um
+  // token que nunca existiu —, e um `var()` inválido sem fallback computa para
+  // o valor INICIAL da propriedade: eram os únicos cantos retos de um app
+  // inteiro arredondado, na primeira tela do recurso mais novo.
+  const padrao = await pg.evaluate(() => {
+    const cast = document.getElementById('castPopup');
+    if (cast) cast.classList.add('open');
+    const raio = (sel) => {
+      const el = document.querySelector(sel);
+      return el ? parseFloat(getComputedStyle(el).borderTopLeftRadius) : NaN;
+    };
+    const cor = (sel, prop) => {
+      const el = document.querySelector(sel);
+      return el ? getComputedStyle(el)[prop] : '';
+    };
+    // AS DUAS FORMAS DE CONECTAR SÃO BOTÕES IRMÃOS (v5.226) — a segunda era um
+    // interruptor. O que se mede aqui é que elas são a MESMA peça desligadas
+    // (mesmo raio, mesmo preenchimento) e peças DIFERENTES ligadas, porque o
+    // estado é a única coisa que as separa.
+    const net = document.getElementById('castNetBtn');
+    const fundoNet = () => getComputedStyle(net).backgroundColor;
+    const bordaNet = () => getComputedStyle(net).borderTopColor;
+    const netOff = net ? fundoNet() : '';
+    if (net) net.classList.add('ligado');
+    const netOn = net ? fundoNet() : '';
+    const netOnBorda = net ? bordaNet() : '';
+    if (net) net.classList.remove('ligado');
+    const r = {
+      acao: raio('.cast-acao'), interruptor: raio('#castNetBtn'), endereco: raio('.cast-addr'),
+      netOff, netOn, netOnBorda,
+      dangerStrong: getComputedStyle(document.documentElement).getPropertyValue('--danger-strong').trim(),
+      acaoFundo: cor('.cast-acao', 'backgroundColor'), acaoTexto: cor('.cast-acao', 'color'),
+      // O valor do token, resolvido pelo navegador — a asserção compara o
+      // RENDERIZADO com ele, e não com um literal copiado para cá.
+      accentFill: getComputedStyle(document.documentElement).getPropertyValue('--accent-fill').trim(),
+      onAccent: getComputedStyle(document.documentElement).getPropertyValue('--on-accent').trim(),
+    };
+    if (cast) cast.classList.remove('open');
+    return r;
+  });
+  checar(padrao.acao > 0 && padrao.interruptor > 0,
+    'os dois botões da folha de conectar são arredondados como o resto do app'
+    + ' (' + padrao.acao + 'px / ' + padrao.interruptor + 'px)');
+  checar(padrao.acao === padrao.interruptor && padrao.netOff === padrao.acaoFundo,
+    'e DESLIGADOS eles são a mesma peça — mesmo raio, mesmo preenchimento',
+    padrao.netOff + ' × ' + padrao.acaoFundo);
+  checar(padrao.netOn !== padrao.netOff && padrao.netOnBorda === paraRgb(padrao.dangerStrong),
+    'LIGADA, a transmissão perde o preenchimento e ganha o contorno vermelho'
+    + ' (' + padrao.netOn + ' / borda ' + padrao.netOnBorda + ')');
+
+  // ---- E A FOLHA CRESCE EM VEZ DE SALTAR (v5.226) ------------------------
+  //
+  // O bloco do endereço aparece e some com a transmissão. Medido aqui pelo que
+  // decide o salto: a ALTURA do bloco com e sem a classe que o abre. Recolhido
+  // ele tem de valer zero — se um dia alguém trocar o `grid-template-rows` por
+  // um `display: none`, o número continua zero mas a transição morre, e é por
+  // isso que a segunda metade da asserção pergunta pela propriedade.
+  const cresce = await pg.evaluate(async () => {
+    const cast = document.getElementById('castPopup');
+    cast.classList.add('open');
+    const bloco = document.getElementById('castLive');
+    bloco.classList.remove('aberto');
+    const fechado = bloco.getBoundingClientRect().height;
+    bloco.classList.add('aberto');
+    // A ESPERA É A PRÓPRIA AFIRMAÇÃO: medir no mesmo turno devolveria zero
+    // justamente PORQUE a altura é animada (a transição começa em 0fr). O
+    // primeiro rascunho deste caso reprovou por isso, e a leitura certa é que
+    // ele estava medindo o quadro inicial de uma animação que existe.
+    await new Promise((r) => setTimeout(r, 420));
+    const aberto = bloco.getBoundingClientRect().height;
+    bloco.classList.remove('aberto');
+    cast.classList.remove('open');
+    return { fechado, aberto, transicao: getComputedStyle(bloco).transitionProperty };
+  });
+  checar(cresce.fechado < 1 && cresce.aberto > 20,
+    'o bloco do endereço vale ZERO recolhido e tem altura aberto ('
+    + cresce.fechado.toFixed(1) + 'px → ' + cresce.aberto.toFixed(1) + 'px)');
+  checar(/grid-template-rows/.test(cresce.transicao),
+    'e o que muda entre os dois é uma propriedade ANIMÁVEL — a folha cresce, não salta',
+    cresce.transicao);
+  checar(padrao.endereco > 0,
+    'e o bloco do endereço também (raio ' + padrao.endereco + 'px)');
+
+  // ---- E O ÂMBAR É O DA PALETA, NO PAPEL CERTO (v5.184) -----------------
+  //
+  // `--accent` e `--accent-fill` têm valores diferentes de propósito: o
+  // primeiro é claro (para ser TEXTO sobre fundo escuro) e o segundo é escuro
+  // (para RECEBER texto). Trocá-los não quebra nada de forma visível no CI —
+  // sai um botão âmbar-claro com texto quase branco por cima, abaixo do piso
+  // de contraste, e só um par de olhos no aparelho notaria. Daí a asserção.
+  checar(padrao.acaoFundo === paraRgb(padrao.accentFill)
+    && padrao.acaoTexto === paraRgb(padrao.onAccent),
+    'o botão principal da folha é preenchido em --accent-fill com --on-accent por cima'
+    + ' (' + padrao.acaoFundo + ' / ' + padrao.acaoTexto + ')');
+
+  // ---- O ÍCONE DE CONECTAR DIZ "HÁ TELA RECEBENDO" (v5.176) --------------
+  //
+  // Ele tomou o lugar do cartão do espelho na barra de notificações — aquele
+  // não pode ser removido (um serviço em primeiro plano é obrigado a ter uma
+  // notificação, e é ele que mantém o espelho no ar com o app minimizado), mas
+  // foi para `IMPORTANCE_MIN` e saiu da barra de status. Se o ícone não
+  // acender, o operador fica sem NENHUM sinal de que há telas na rede — a troca
+  // teria piorado o que veio consertar.
+  //
+  // Mesma classe do telão (`.connected`), de propósito: uma convenção só para
+  // um fato só.
+  const cast = await pg.evaluate(() => {
+    const btn = document.getElementById('pvCastBtn');
+    if (!btn) return { achou: false };
+    const antes = mirrorEstado;
+    const ler = () => { renderCastBtn(); return btn.classList.contains('connected'); };
+    mirrorEstado = null;
+    const desligado = ler();
+    mirrorEstado = { ligado: true, telas: [] };
+    const semTela = ler();
+    mirrorEstado = { ligado: true, telas: [{ rotulo: 'A' }, { rotulo: 'B' }] };
+    const comTelas = ler();
+    const dica = btn.title;
+    mirrorEstado = antes;
+    renderCastBtn();
+    return { achou: true, desligado, semTela, comTelas, dica };
+  });
+  checar(cast.achou, 'o ícone de conectar existe na preview');
+  checar(cast.achou && !cast.desligado,
+    'com o espelho desligado ele fica apagado');
+  checar(cast.achou && !cast.semTela,
+    'ligado e sem ninguém recebendo, também — "no ar" é ter alguém do outro lado');
+  checar(cast.achou && cast.comTelas,
+    'e com telas da rede recebendo ele acende, como acende com um telão');
+  checar(cast.achou && /rede/i.test(cast.dica || ''),
+    'e a dica do botão diz quantas são', cast.dica);
 
   // ---- O ECO DO TRANSPORTE (v5.162) --------------------------------------
   //
@@ -183,8 +406,299 @@ try {
     'e o eco NÃO esconde o ícone do botão — ele é anel, não ✓', eco.visivel);
   checar(!!eco.anel && eco.anel !== '0px', 'o anel do eco é de fato desenhado', eco.anel);
   checar(eco.sumiu, 'e ele sai sozinho, sem deixar o botão marcado');
+
+  // ---- O CARROSSEL VALE DENTRO DA NAVEGAÇÃO INTERNA (v5.193) ------------
+  //
+  // Quarta correção do mesmo mecanismo, e as três anteriores mantinham à mão a
+  // lista do que o eixo horizontal não podia atravessar. A guarda mais larga
+  // era "qualquer sub-tela" (botão voltar visível): com um capítulo da Bíblia
+  // aberto — o estado normal de quem usa a Bíblia num culto — o gesto morria
+  // calado, e NADA ali disputa o eixo horizontal (`.bible-half` rola só na
+  // vertical, e a própria folha declara `touch-action: pan-y`).
+  //
+  // O teste é o COMPORTAMENTO, com toque de verdade (CDP): um deslize sobre o
+  // conteúdo de uma sub-tela tem de trocar de aba, e um deslize sobre um
+  // trilho que ROLA de verdade na horizontal não pode. As duas metades
+  // importam — sem a segunda, "libera tudo" passaria no teste.
+  const cdp = await ctx.newCDPSession(pg);
+  const deslizar = async (x0, y0, dx) => {
+    const p = (x, y) => [{ x, y, radiusX: 6, radiusY: 6, force: 1, id: 1 }];
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: p(x0, y0) });
+    for (let i = 1; i <= 6; i++) {
+      await cdp.send('Input.dispatchTouchEvent',
+        { type: 'touchMove', touchPoints: p(x0 + (dx * i) / 6, y0) });
+    }
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await pg.waitForTimeout(120);
+  };
+
+  // O CENÁRIO É MONTADO À MÃO, e de propósito: o runner do CI não tem rede,
+  // então não há livro da Bíblia para abrir nem sorteio com histórico. O que
+  // mudou na v5.193 é a REGRA — "quem é dono do eixo horizontal?" —, e ela se
+  // exercita com um botão voltar visível (o que caracteriza uma sub-tela) e um
+  // trilho que de fato rola. Testar a regra é testar o que quebrou.
+  const cenario = await pg.evaluate(() => {
+    // O MODO AVANÇADO PRIMEIRO: o app abre no Modo Fácil, e ali o `<main>` está
+    // atrás da tela simplificada — sem esta linha o gesto cai no vazio e o
+    // teste "passa" por não medir nada.
+    setAppMode('full');
+    // E A FOLHA DE CONFIGURAÇÕES SAI DA FRENTE: ela foi aberta lá em cima e
+    // ninguém a fechou. Com ela no ar o toque pousa no popup, o `<main>` nem
+    // vê o gesto, e o caso falha por um motivo que não é o que ele mede.
+    closeFadePopup();
+    switchTab('imports');
+    // Sub-tela: era ESTA condição, sozinha, que matava o gesto no conteúdo.
+    document.getElementById('backBtn').hidden = false;
+    const m = document.querySelector('main');
+    const r = m.getBoundingClientRect();
+    return { aba: activeTab, x: r.x + r.width / 2, y: r.y + Math.min(r.height / 2, 160) };
+  });
+  await deslizar(cenario.x + 90, cenario.y, -160);
+  const depoisDoDeslize = await pg.evaluate(() => activeTab);
+  checar(depoisDoDeslize !== cenario.aba,
+    'com uma sub-tela aberta (voltar visível), deslizar no conteúdo TROCA de aba'
+    + ' (' + cenario.aba + ' → ' + depoisDoDeslize + ')');
+
+  // E o outro lado, que é o que impede a correção de virar "libera tudo": um
+  // elemento que ROLA de verdade na horizontal fica com o gesto.
+  const trilho = await pg.evaluate(() => {
+    const m = document.querySelector('main');
+    const t = document.createElement('div');
+    t.id = 'trilhoDeTeste';
+    t.style.cssText = 'overflow-x:auto;display:flex;white-space:nowrap;height:80px';
+    t.innerHTML = '<div style="min-width:3000px;height:60px"></div>';
+    m.insertBefore(t, m.firstChild);
+    const r = t.getBoundingClientRect();
+    return {
+      rola: t.scrollWidth > t.clientWidth + 1,
+      x: r.x + r.width / 2, y: r.y + r.height / 2, aba: activeTab,
+    };
+  });
+  checar(trilho.rola, 'o trilho do contra-teste de fato rola na horizontal');
+  await deslizar(trilho.x + 60, trilho.y, -160);
+  const depoisDoTrilho = await pg.evaluate(() => {
+    const t = document.getElementById('trilhoDeTeste');
+    const a = activeTab;
+    if (t) t.remove();
+    document.getElementById('backBtn').hidden = true;
+    return a;
+  });
+  checar(depoisDoTrilho === trilho.aba,
+    'e um elemento que ROLA na horizontal fica com o gesto (' + depoisDoTrilho + ')');
+
+  // ---- OS DOIS TEMAS, E O PALCO QUE NÃO SEGUE NENHUM (v5.192) ------------
+  //
+  // O tema claro é um DELTA sobre o escuro (`:root[data-tema="claro"]` em
+  // tokens.css). Três coisas podem quebrar nessa montagem sem que nada
+  // reclame, e as três estão travadas aqui:
+  //
+  // 1. **O PALCO seguir o tema.** `--stage-*`, `--wallpaper` e
+  //    `--lyrics-frame-bg` moram num bloco à parte de propósito: o Display não
+  //    tem tema (ele nunca escreve o atributo), mas a PREVIEW do Controle roda
+  //    no documento que TEM — e ela existe para espelhar o telão. Bastaria
+  //    alguém redeclarar `--stage-bg` dentro do bloco claro para a preview
+  //    parar de mostrar o que a TV mostra, e nenhum outro teste veria isso.
+  // 2. **A superfície não INVERTER dentro do cartão.** A regra ("flutua sobre
+  //    a página, afunda dentro do cartão") virou token na v5.192 justamente
+  //    para poder mudar de tema; escrita errada, o tema claro herdaria o
+  //    recesso de 24% de preto do escuro e todo cartão viraria um bloco cinza.
+  // 3. **A escolha não sobreviver à recarga.** Ela é lida do `localStorage`
+  //    ANTES do primeiro quadro (mesma razão do modo do app); um erro aí
+  //    aparece como um flash escuro a cada abertura, que é exatamente o tipo
+  //    de coisa que ninguém reporta e todo mundo aguenta.
+  const tema = await pg.evaluate(() => {
+    const raiz = document.documentElement;
+    const meta = document.getElementById('temaMeta');
+    const ler = () => {
+      const s = getComputedStyle(raiz);
+      const v = (t) => s.getPropertyValue(t).trim();
+      // Um cartão de verdade, para ver a superfície AFUNDADA em vigor.
+      const cartao = document.querySelector('.fade-row');
+      const sc = cartao ? getComputedStyle(cartao) : null;
+      // E O PALCO PINTADO, não só os tokens dele (v5.218).
+      //
+      // A versão anterior comparava QUATRO NOMES de token, e o defeito passou
+      // por baixo dela: os tokens do palco estavam certos, e as REGRAS do palco
+      // apontavam para tokens de TEMA (`--brand`, `--live-strong`, `--bg`,
+      // `--accent-glow`). No tema claro, o título do slide de capa da preview
+      // era desenhado em denim escuro sobre o preto — 2,73:1, ilegível, e foi
+      // assim que o operador o encontrou.
+      //
+      // Perguntar pela COR COMPUTADA de cada camada fecha a classe inteira: não
+      // importa por qual token ela chegou, ela tem de ser a mesma nos dois
+      // temas. As classes são as que o app de fato escreve (`cover`,
+      // `mode-chrono chrono-over`, `mode-draw draw-rolling`) e são desfeitas na
+      // mesma linha — o que se mede é a folha, não o estado da tela.
+      const cor = (sel) => getComputedStyle(document.querySelector(sel)).color;
+      const comClasse = (host, classes, sel) => {
+        const h = document.querySelector(host);
+        h.classList.add(...classes);
+        const c = cor(sel);
+        h.classList.remove(...classes);
+        return c;
+      };
+      const palcoPintado = [
+        comClasse('#pvLyricsContent', ['cover'], '#pvLyricsLine'),
+        comClasse('#pvLyricsContent', ['cover'], '#pvLyricsNum'),
+        comClasse('#pvLyricsContent', ['cover'], '#pvLyricsAux'),
+        cor('#pvLyricsLine'), cor('#pvLyricsAux'),
+        cor('#pvTextMain'), cor('#pvTextSub'),
+        comClasse('#pvTextContent', ['mode-chrono', 'chrono-over'], '#pvTextMain'),
+        comClasse('#pvTextContent', ['mode-draw', 'draw-rolling'], '#pvTextMain'),
+        getComputedStyle(document.querySelector('.pv-lyrics-bg')).backgroundColor,
+      ].join(' · ');
+      return {
+        bg: v('--bg'), texto: v('--text'), accent: v('--accent'), fill: v('--accent-fill'),
+        palco: v('--stage-bg') + '|' + v('--stage-text') + '|' + v('--wallpaper')
+          + '|' + v('--lyrics-frame-bg'),
+        palcoPintado,
+        superficie: v('--surface'),
+        afundada: sc ? sc.getPropertyValue('--surface').trim() : '',
+        barra: meta ? meta.getAttribute('content') : '',
+      };
+    };
+    const escuro = ler();
+    document.querySelector('#temaSeg .fit-opt[data-tema="claro"]').click();
+    const claro = ler();
+    return { escuro, claro, atributo: raiz.dataset.tema, guardado: localStorage.getItem('av.tema') };
+  });
+  checar(tema.escuro.bg !== tema.claro.bg && tema.escuro.texto !== tema.claro.texto,
+    'trocar o tema troca fundo e texto (' + tema.escuro.bg + ' → ' + tema.claro.bg + ')');
+  checar(tema.escuro.palco === tema.claro.palco,
+    'e NÃO troca uma vírgula do palco — a preview continua espelhando o telão',
+    tema.claro.palco);
+  checar(tema.escuro.palcoPintado === tema.claro.palcoPintado,
+    'nem uma vírgula do que o palco PINTA — nenhuma camada dele lê um token de tema',
+    'escuro: ' + tema.escuro.palcoPintado + '\n        claro:  ' + tema.claro.palcoPintado);
+  checar(tema.escuro.superficie !== tema.escuro.afundada
+    && tema.claro.superficie !== tema.claro.afundada,
+    'a superfície afunda dentro do cartão NOS DOIS temas'
+    + ' (escuro ' + tema.escuro.superficie + ' → ' + tema.escuro.afundada
+    + ' · claro ' + tema.claro.superficie + ' → ' + tema.claro.afundada + ')');
+  checar(tema.escuro.accent !== tema.escuro.fill,
+    'no escuro o accent de TEXTO e o de PREENCHIMENTO seguem diferentes'
+    + ' (' + tema.escuro.accent + ' / ' + tema.escuro.fill + ')');
+  checar(tema.escuro.barra !== tema.claro.barra && /^#[0-9a-f]{6}$/i.test(tema.claro.barra),
+    'e o `theme-color` acompanha (' + tema.escuro.barra + ' → ' + tema.claro.barra + ')');
+  checar(tema.atributo === 'claro' && tema.guardado === 'claro',
+    'a escolha vai para o `localStorage`, de onde ela é lida antes do primeiro quadro');
+
+  await pg.reload({ waitUntil: 'domcontentloaded' });
+  await pg.waitForFunction(() => typeof window.__avBack === 'function', null, { timeout: 20000 });
+  const depois = await pg.evaluate(() => ({
+    atributo: document.documentElement.dataset.tema,
+    bg: getComputedStyle(document.documentElement).getPropertyValue('--bg').trim(),
+  }));
+  checar(depois.atributo === 'claro' && depois.bg === tema.claro.bg,
+    'e ela sobrevive à recarga da página (' + depois.atributo + ' · ' + depois.bg + ')');
 } catch (e) {
   checar(false, 'o percurso terminou sem exceção (' + (e && e.message) + ')');
+}
+
+// ---------------------------------------------------------------------------
+// O RESPIRO ENTRE ESTROFES — a leitura da letra, nos DOIS modos (v5.226)
+//
+// A estrutura de estrofes sempre esteve inteira (o banco entrega uma estrofe por
+// entrada de `lyric`, e `lvBuildSong` desenha assim desde a v5.42) — mas o
+// ESPAÇAMENTO estava invertido, e é ele que decide se a letra respira: 8,8 px
+// (avançado) e 8,0 px (simples) entre estrofes DIFERENTES contra 11,4 px entre
+// dois blocos da MESMA. Duas estrofes ficavam mais juntas que o miolo de uma, e
+// a hierarquia se lia ao contrário.
+//
+// A asserção é a REGRA, não o número: uma fronteira de estrofe tem de valer o
+// mesmo nos três lugares onde existe (entre slides, dentro de um slide, nos dois
+// modos) e tem de ser pelo menos uma LINHA — que é literalmente o que a fonte
+// codifica com `<br><br>`. Escrever o pixel aqui faria o oráculo reprovar numa
+// mudança legítima de fonte; escrever a razão o mantém verdadeiro.
+try {
+  const gaps = await pg.evaluate(() => {
+    const medir = (cls) => {
+      const box = document.createElement('div');
+      box.className = cls;
+      box.style.cssText = 'position:fixed;left:0;top:0;width:380px;height:700px;';
+      const mk = (blocos) => {
+        const row = document.createElement('div');
+        row.className = 'lv-row';
+        for (const b of blocos) {
+          const t = document.createElement('div');
+          t.className = 'lv-text';
+          t.textContent = b;
+          row.appendChild(t);
+        }
+        return row;
+      };
+      const e1 = mk(['A1\nA2\nA3\nA4']);
+      const e2 = mk(['B1\nB2', 'C1\nC2']);   // duas estrofes DENTRO de um slide
+      box.appendChild(e1); box.appendChild(e2);
+      document.body.appendChild(box);
+      const d = e2.querySelectorAll('.lv-text');
+      const out = {
+        entre: e2.getBoundingClientRect().top - e1.getBoundingClientRect().bottom,
+        dentro: d[1].getBoundingClientRect().top - d[0].getBoundingClientRect().bottom,
+        linha: parseFloat(getComputedStyle(e1).lineHeight),
+      };
+      box.remove();
+      return out;
+    };
+    return { avancado: medir('lyricsview-body'), simples: medir('simple-lyrics') };
+  });
+  for (const [modo, g] of Object.entries(gaps)) {
+    const detalhe = ' (entre ' + g.entre.toFixed(1) + 'px · dentro ' + g.dentro.toFixed(1)
+      + 'px · linha ' + g.linha.toFixed(1) + 'px)';
+    checar(g.entre >= g.dentro - 0.5,
+      'no modo ' + modo + ', duas estrofes não ficam mais juntas que o miolo de uma' + detalhe);
+    checar(g.entre >= g.linha - 0.5,
+      'e a fronteira entre elas vale ao menos uma LINHA — a que a fonte codifica' + detalhe);
+  }
+  checar(Math.abs(gaps.avancado.entre - gaps.simples.entre) < 0.5,
+    'e o respiro é o MESMO nos dois modos — a mesma letra não muda de ritmo');
+} catch (e) {
+  checar(false, 'a medição do respiro entre estrofes terminou sem exceção (' + (e && e.message) + ')');
+}
+
+// ── O PROGRESSO DESENHADO NO BOTÃO DE CANCELAR (v5.232) ───────────────────
+// FORMA, e por isso mora aqui: o `boot-nativo` mede o ESTADO (o painel tem uma
+// linha só, com o resultado dentro do botão) e este mede o que a tela PINTA
+// enquanto o download roda. Ele existe porque a barra do card, dois centímetros
+// acima, já escreve "Baixando 2 de 4…" — repetir a frase aqui seria o defeito
+// que a v5.73 tirou deste painel, então o que o botão acrescenta não pode ser
+// texto. Um preenchimento invisível (a mesma tinta do fundo, ou atrás dele)
+// seria a promessa sem a entrega, e é isso que a medição cobra.
+try {
+  const barra = await pg.evaluate(() => {
+    const box = document.createElement('div');
+    box.className = 'coll-opts coll-opts--inline';
+    const linha = document.createElement('div'); linha.className = 'coll-opts-acoes';
+    const b = document.createElement('button');
+    b.className = 'new-folder-btn cancel';
+    b.style.setProperty('--p', '40%');
+    b.appendChild(document.createTextNode('Cancelar'));
+    linha.appendChild(b); box.appendChild(linha); document.body.appendChild(box);
+    const cs = getComputedStyle(b, '::before');
+    const larg = b.getBoundingClientRect().width;
+    const out = {
+      largura: parseFloat(cs.width),
+      caixa: larg,
+      // Atrás do texto, nunca por cima: o rótulo é um NÓ DE TEXTO e não tem
+      // como ser levantado, então quem desce é a barra.
+      z: cs.zIndex,
+      pinta: cs.backgroundColor,
+      fundoBotao: getComputedStyle(b).backgroundColor,
+    };
+    box.remove();
+    return out;
+  });
+  const prop = barra.caixa ? barra.largura / barra.caixa : 0;
+  checar(Math.abs(prop - 0.4) < 0.05,
+    'o botão de cancelar se preenche na PROPORÇÃO do download ('
+    + Math.round(prop * 100) + '% para --p: 40%)');
+  checar(barra.z === '-1',
+    'e o preenchimento fica ATRÁS do rótulo — texto solto não recebe z-index', barra.z);
+  checar(barra.pinta !== barra.fundoBotao && !/rgba\(0, 0, 0, 0\)/.test(barra.pinta),
+    'e ele é VISÍVEL: a tinta do progresso não é a mesma do fundo do botão ('
+    + barra.pinta + ' sobre ' + barra.fundoBotao + ')');
+} catch (e) {
+  checar(false, 'a medição do progresso no botão terminou sem exceção (' + (e && e.message) + ')');
 }
 
 checar(erros.length === 0, 'nenhum erro de console' + (erros.length ? ':\n        ' + erros.join('\n        ') : ''));

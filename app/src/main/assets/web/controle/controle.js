@@ -21,12 +21,10 @@ const faderWrapEl = document.querySelector('.fader-wrap');
 
 // Modo de uso (ver "Modos de uso" mais abaixo)
 const appModeSegEl = document.getElementById('appModeSeg');
+const temaSegEl = document.getElementById('temaSeg');
 const simpleModeEl = document.getElementById('simpleMode');
 const simpleFullBtnEl = document.getElementById('simpleFullBtn');
 const fullSimpleBtnEl = document.getElementById('fullSimpleBtn');
-const simpleCastBtnEl = document.getElementById('simpleCastBtn');
-const simpleCastLabelEl = document.getElementById('simpleCastLabel');
-const simpleCastStatusEl = document.getElementById('simpleCastStatus');
 const simpleSearchBtnEl = document.getElementById('simpleSearchBtn');
 const simpleVeilEl = document.getElementById('simpleVeil');
 const simpleStageEl = document.getElementById('simpleStage');
@@ -83,11 +81,59 @@ let appMode = storedAppMode();
 document.body.classList.toggle('mode-simple', appMode === 'simple');
 simpleModeEl.classList.toggle('open', appMode === 'simple');
 
+// ===== O TEMA (claro × escuro) — mesma gaveta, mesma razão =====
+// Vale palavra por palavra o parágrafo do `APP_MODE_KEY` acima: a escolha
+// precisa ser lida ANTES DO PRIMEIRO QUADRO, `localStorage` é síncrono e o
+// IndexedDB não é. Aqui o preço de errar é maior, não menor — o modo troca a
+// TELA, e o tema troca a COR DE TUDO: um flash do app inteiro em preto antes
+// de virar claro é o tipo de coisa que se vê a cada abertura.
+//
+// O ESCURO É O PADRÃO, e continua sendo o app sem atributo nenhum. Não é
+// inércia: este app é operado num salão às escuras, e quem nunca escolheu nada
+// precisa abrir na versão que não cega o operador nem ilumina a fileira de
+// trás. O claro existe para o ensaio de sábado de manhã e para quem opera com
+// a igreja acesa, e é uma escolha explícita.
+//
+// **O PALCO NÃO SEGUE O TEMA** — os tokens `--stage-*`, `--wallpaper` e
+// `--lyrics-frame-bg` moram num bloco à parte de tokens.css justamente para
+// isto. O Display nunca escreve este atributo (ele nem carrega este arquivo),
+// mas a PREVIEW do Controle roda aqui dentro: sem a separação, escolher o tema
+// claro faria a preview parar de espelhar o telão, que é a única coisa que ela
+// existe para fazer.
+const TEMA_KEY = 'av.tema';
+function storedTema() {
+  try { return localStorage.getItem(TEMA_KEY) === 'claro' ? 'claro' : 'escuro'; }
+  catch (_) { return 'escuro'; }
+}
+let tema = storedTema();
+const temaMetaEl = document.getElementById('temaMeta');
+function pintarTema() {
+  const raiz = document.documentElement;
+  raiz.dataset.tema = tema;
+  // A cor da barra de endereço do NAVEGADOR — no app nativo quem pinta atrás
+  // das barras é o próprio body, com este mesmo token. Ela é LIDA do `--bg` já
+  // resolvido, e não de uma tabela de dois hexadecimais aqui: a folha entra no
+  // `<head>` e este script no fim do `<body>`, então o estilo já está aplicado
+  // quando esta linha roda — e o atributo acabou de ser escrito, então o valor
+  // que volta é o do tema certo. Copiar os dois valores para cá seria um
+  // TERCEIRO lugar para a cor de fundo divergir (o segundo é o
+  // `res/values/colors.xml`, que não tem escapatória: recurso de Android não
+  // enxerga custom property). O literal do HTML cobre só o instante anterior a
+  // este script, e ele é o do tema escuro, que é o padrão.
+  if (temaMetaEl) {
+    const bg = getComputedStyle(raiz).getPropertyValue('--bg').trim();
+    if (bg) temaMetaEl.setAttribute('content', bg);
+  }
+  // O shell: ícones das barras de sistema e o windowBackground do próximo
+  // lançamento. No navegador `AVNative` não existe e a linha é pulada.
+  try { window.AVNative?.temaClaro(tema === 'claro'); } catch (_) { /* shell antigo */ }
+}
+pintarTema();
+
 const mixerEl = document.getElementById('mixer');
 const volToggleEl = document.getElementById('volToggle');
 const volCloseEl = document.getElementById('volClose');
 const settingsBtnEl = document.getElementById('settingsBtn');
-const pvSoundBtnEl = document.getElementById('pvSoundBtn');
 const lyricsViewBtnEl = document.getElementById('lyricsViewBtn');
 const lyricsPopupEl = document.getElementById('lyricsPopup');
 const lyricsPopupTitleEl = document.getElementById('lyricsPopupTitle');
@@ -96,20 +142,20 @@ const lyricsViewSegEl = document.getElementById('lyricsViewSeg');
 const lyricsViewBodyEl = document.getElementById('lyricsViewBody');
 const openDisplayBtnEl = document.getElementById('openDisplayBtn');
 const displayStatusTextEl = document.getElementById('displayStatusText');
-const castTargetLineEl = document.getElementById('castTargetLine');
 
 const pvWallEl = document.getElementById('pvWall');
 const pvBusyEl = document.getElementById('pvBusy');
 const pvBusyCapEl = document.getElementById('pvBusyCap');
 const pvBusyLabelEl = document.getElementById('pvBusyLabel');
+const pvBusyCancelEl = document.getElementById('pvBusyCancel');
 const pvImgEl = document.getElementById('pvImg');
 const pvVideoEl = document.getElementById('pvVideo');
-const pvYoutubeEl = document.getElementById('pvYoutube');
 const pvLyricsEl = document.getElementById('pvLyrics');
 const pvLyricsImgEl = document.getElementById('pvLyricsImg');
 const pvLyricsContentEl = document.getElementById('pvLyricsContent');
 const pvLyricsLineEl = document.getElementById('pvLyricsLine');
 const pvLyricsAuxEl = document.getElementById('pvLyricsAux');
+const pvLyricsNumEl = document.getElementById('pvLyricsNum');
 const pvTextEl = document.getElementById('pvText');
 const pvTextContentEl = document.getElementById('pvTextContent');
 const pvTextMainEl = document.getElementById('pvTextMain');
@@ -163,7 +209,24 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.171';
+const WEB_VERSION = '5.236';
+
+// O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
+// regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
+// três vezes (`mirrorEstado` na v5.184, `mirrorOcupado` na v5.193,
+// `MIRROR_SHELL` na v5.195). **Estado lido por qualquer caminho de render nasce
+// junto do resto do estado de cena** — e estes quatro são lidos por
+// `renderVersionLabel()`, que roda na CARGA do módulo, dez mil linhas acima de
+// onde o resto do bloco de atualização mora. Declará-los lá embaixo daria um
+// `ReferenceError` na carga, isto é, tela preta e o watchdog do OTA
+// descartando o bundle no lançamento seguinte.
+//
+// O que cada um responde está no bloco "A ATUALIZAÇÃO PERGUNTA", que é onde
+// eles são escritos.
+let otaPendenteVersao = '';
+let otaDiagTexto = '';
+let apkNovo = null;
+let apkBaixando = false;
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -174,30 +237,64 @@ function renderVersionLabel() {
   // __SHELL_NAME__ = versionName do APK (ver native.js). Vazio no navegador e
   // em shells anteriores ao `appVersion()` — aí sai só a versão da base web.
   const shell = window.__SHELL_NAME__;
-  appVersionEl.textContent = shell
+  // O PONTO É O ÚNICO SINAL QUE SOBREVIVE À PERGUNTA ADIADA (v5.234).
+  //
+  // "Deixar para depois" silencia o diálogo pela sessão, e sem isto ele
+  // silenciaria também o FATO — o operador não teria como saber que ainda há
+  // algo esperando, nem que o rótulo é onde se toca para trazê-lo de volta. O
+  // mesmo vale enquanto a pergunta espera a cena sair do ar. Um ponto no rótulo
+  // que já fala de versão é o menor sinal possível para isso, e mora onde a
+  // resposta mora.
+  const esperando = !!(otaPendenteVersao || apkNovo);
+  const ponto = esperando ? ' ●' : '';
+  appVersionEl.textContent = (shell
     ? 'Web v' + WEB_VERSION + ' · Shell v' + shell
-    : 'Controle v' + WEB_VERSION;
-  appVersionEl.title = shell
+    : 'Controle v' + WEB_VERSION) + ponto;
+  appVersionEl.classList.toggle('tem-atualizacao', esperando);
+  const base = shell
     ? 'Base web v' + WEB_VERSION + ' (atualiza por OTA) · shell nativo v' + shell + ' (atualiza instalando o APK)'
     : 'Base web v' + WEB_VERSION;
+  appVersionEl.title = esperando
+    ? base + ' — atualização disponível, toque para ver'
+    : base;
+}
+
+// O PRÓPRIO RÓTULO RESPONDE (v5.207).
+//
+// Tocar na versão procura atualização, e até aqui a resposta saía numa faixa
+// flutuante no TOPO da tela — a 700px do dedo, cobrindo outra coisa, enquanto o
+// olho estava no rodapé de Configurações. A informação deslocada do alvo de
+// foco é exatamente o que o operador pediu para acabar.
+//
+// Aqui o alvo já é um texto, então ele empresta a si mesmo: o rótulo vira a
+// resposta e volta a ser a versão. Não há elemento novo, não há camada nova, e
+// quem tocou está olhando para o lugar em que a frase aparece.
+let versaoFalaTimer = null;
+function falarNaVersao(texto, ms) {
+  if (!appVersionEl) return;
+  clearTimeout(versaoFalaTimer);
+  appVersionEl.textContent = texto;
+  // `null` = fica até alguém reescrever (o desfecho de uma busca em curso).
+  if (ms) versaoFalaTimer = setTimeout(renderVersionLabel, ms);
 }
 
 renderVersionLabel();
 
-// ===== O APK SE ATUALIZA SOZINHO (v5.167 · shell 35) =====
+// ===== A LINHA DO APK, no rodapé de Configurações (v5.167 · shell 35) =====
 //
-// A assimetria era o atrito: um ajuste de JS chegava por OTA e qualquer
-// mudança de Kotlin obrigava o operador a abrir o navegador, achar a Release no
-// GitHub e caçar o `.apk`. Numa semana de seis publicações, seis vezes.
+// Ela existia sozinha, com procura própria (uma consulta à API do GitHub a cada
+// meia hora) e desenho próprio. Desde a v5.234 quem procura é o canal ÚNICO de
+// atualização — o manifesto do OTA traz o bloco `shell` —, e esta linha ficou
+// sendo o que ela sempre quis ser: **o caminho de quem foi atrás**, ao lado do
+// rótulo de versão, para o caso de a pergunta ter sido adiada ou de o operador
+// simplesmente querer resolver isso agora.
 //
-// A linha só aparece quando HÁ versão nova — um "está em dia" permanente seria
-// ruído no rodapé de uma tela de diagnóstico —, e o botão só age quando a hora
-// é boa: instalar derruba o app inteiro, com a projeção junto, então aqui o
-// `horaRuimParaAtualizar()` vale POR INTEIRO (cena, download e espelho), ao
-// contrário do OTA da base web, cujo custo é um piscar.
+// Ela só aparece quando HÁ versão nova (um "está em dia" permanente seria ruído
+// no rodapé de uma tela de diagnóstico) e só age quando a hora é boa: instalar
+// derruba o app inteiro, com a projeção junto, então aqui o
+// `horaRuimParaAtualizar()` vale POR INTEIRO — cena, download e espelho —, ao
+// contrário da pergunta, cujo custo é um piscar.
 const apkRowEl = document.getElementById('apkRow');
-let apkNovo = null;
-let apkBaixando = false;
 
 function renderApkRow() {
   if (!apkRowEl) return;
@@ -209,46 +306,20 @@ function renderApkRow() {
   }
   const ruim = horaRuimParaAtualizar();
   apkRowEl.disabled = ruim;
-  const mb = apkNovo.bytes ? ' · ' + Math.round(apkNovo.bytes / 104857.6) / 10 + ' MB' : '';
+  const tamanho = apkNovo.bytes ? ' · ' + Math.round(apkNovo.bytes / 104857.6) / 10 + ' MB' : '';
   apkRowEl.textContent = ruim
-    ? 'Shell ' + apkNovo.versao + ' disponivel — espere a cena/download/espelho'
-    : 'Instalar o shell ' + apkNovo.versao + mb;
+    ? 'App v' + apkNovo.versao + ' disponível — espere a cena/download/espelho'
+    : 'Instalar o app v' + apkNovo.versao + tamanho;
 }
-
-async function procurarApk() {
-  if (!window.__NATIVE__ || (window.__SHELL_VERSION__ | 0) < 35) return;
-  let r = null;
-  try { r = await AVNative.apkProcurar(); } catch (_) { return; }
-  apkNovo = (r && r.versao) ? r : null;
-  renderApkRow();
-}
-
-// O PROGRESSO VEM POR EMPURRÃO do shell — o download roda na fila de IO dele e
-// daqui não há o que perguntar. Ver `NativeBridge.apkInstalar`.
-window.__avApk = (pct) => {
-  if (!apkRowEl || !apkBaixando) return;
-  apkRowEl.textContent = 'Baixando o shell ' + (apkNovo ? apkNovo.versao : '') + '… ' + (pct | 0) + '%';
-};
 
 if (apkRowEl) {
-  apkRowEl.addEventListener('click', async () => {
+  apkRowEl.addEventListener('click', () => {
     if (!apkNovo || apkBaixando) return;
-    apkBaixando = true;
-    renderApkRow();
-    apkRowEl.textContent = 'Baixando o shell ' + apkNovo.versao + '… 0%';
-    let erro = '';
-    try { erro = await AVNative.apkInstalar(); } catch (_) { erro = 'falha ao baixar'; }
-    apkBaixando = false;
-    if (erro) { avisar('Não deu para atualizar: ' + erro, 'erro'); renderApkRow(); return; }
-    // Deu certo: o diálogo do sistema está na frente. A linha vira o convite a
-    // confirmar, porque o operador pode ter recusado o diálogo sem querer.
-    apkRowEl.textContent = 'Confirme a instalação na tela do sistema';
+    // O MESMO caminho da pergunta, e não uma segunda cópia dele: quem baixa,
+    // desenha o progresso, apaga a intenção e fala do erro é o `instalarApk`.
+    // Dois caminhos para uma instalação divergiriam no primeiro ajuste.
+    instalarApk(apkNovo.versao);
   });
-  // Uma procura na abertura e outra a cada meia hora. Devagar de propósito: uma
-  // Release nova é evento de dias, não de minutos, e a linha só existe para o
-  // operador não precisar ir ao navegador — não para avisá-lo no segundo.
-  setTimeout(procurarApk, 4000);
-  setInterval(procurarApk, 30 * 60 * 1000);
 }
 
 // TOCAR NA VERSÃO PROCURA ATUALIZAÇÃO (v5.136 · shell 31). Não é um botão novo:
@@ -264,9 +335,10 @@ if (appVersionEl && window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= 31) {
   appVersionEl.title += ' — toque para procurar atualização';
   appVersionEl.addEventListener('click', () => {
     AVNative.otaCheck(true);
-    // `avisar`, não `flash`: o flash é no-op desde que o toast saiu, e esta
-    // resposta é o ÚNICO sinal de que o toque fez alguma coisa.
-    avisar('Procurando atualização…');
+    // O RÓTULO RESPONDE A SI MESMO (ver `falarNaVersao`): esta é a única
+    // confirmação de que o toque fez alguma coisa, e ela precisa nascer onde o
+    // toque nasceu. Sem prazo — quem a substitui é o desfecho, abaixo.
+    falarNaVersao('Procurando atualização…', 0);
     // A busca é rede: o desfecho chega pelo empurrão do shell (`__avOta`) ou
     // pela enquete. Estas duas consultas antecipadas existem para o caso em que
     // não HÁ nada novo — aí não há empurrão nenhum, e sem elas o toque ficaria
@@ -280,13 +352,20 @@ if (appVersionEl && window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= 31) {
 // avisos para uma pergunta. (O parâmetro NÃO pode se chamar `avisar`: ele
 // sombrearia a função global de aviso, que é justamente quem fala aqui.)
 async function atualizarProcura(anunciar) {
-  try { otaDiagTexto = await AVNative.otaDiag(); } catch (_) { /* shell antigo */ }
-  // O TOQUE DESFAZ A RECUSA. "Depois" silencia o aviso AUTOMÁTICO desta sessão
-  // (regra 2 do bloco abaixo); ele não pode silenciar o operador que voltou
-  // para pedir a atualização de propósito.
+  // O TOQUE DESFAZ O ADIAMENTO. "Deixar para depois" silencia o diálogo
+  // AUTOMÁTICO desta sessão; ele não pode silenciar o operador que voltou para
+  // pedir a atualização de propósito — que é exatamente o que este toque é.
+  // `otaRecusadas` (o que o SHELL não conseguiu aplicar) também é limpo: pode
+  // ter sido um bundle pela metade que a procura de agora já substituiu.
+  otaAdiadas.clear();
   otaRecusadas.clear();
   await ofertarAtualizacao();
-  if (anunciar && !otaPendenteVersao) avisar('Você já está na versão mais recente.');
+  // O DESFECHO VOLTA PARA O MESMO RÓTULO, e depois ele volta a ser a versão.
+  const lote = loteDaAtualizacao();
+  if (anunciar && !lote) falarNaVersao('Você já está na versão mais recente.', 3200);
+  // E se HÁ algo novo, quem fala é o diálogo — mas o rótulo não pode ficar
+  // preso em "Procurando…" enquanto ele decide.
+  else if (!anunciar && lote) renderVersionLabel();
 }
 
 
@@ -312,44 +391,24 @@ const lyricsBgSegEl = document.getElementById('lyricsBgSeg');
 const wallFileEl = document.getElementById('wallFile');
 const wallPickEl = document.getElementById('wallPick');
 const wallResetEl = document.getElementById('wallReset');
-const diagBoxEl = document.getElementById('diagBox');
 const diagCopyEl = document.getElementById('diagCopy');
 // Espelho de pixels: a LINHA em Configurações e a FOLHA que ela abre.
 const castPopupEl = document.getElementById('castPopup');
+const castConnEl = document.getElementById('castConn');
+const simpleConnEl = document.getElementById('simpleConn');
 const castCloseEl = document.getElementById('castClose');
 const castMirrorBtnEl = document.getElementById('castMirrorBtn');
-const castMirrorSubEl = document.getElementById('castMirrorSub');
+// A transmissão para navegadores da rede é um ESTADO, e desde a v5.184 ela tem
+// a forma de um estado: uma linha com interruptor, no lugar do segundo cartão
+// de escolha. O rótulo dela nomeia o DESTINO desde a v5.198 — ver o comentário
+// no `index.html`.
 const castNetBtnEl = document.getElementById('castNetBtn');
-const castNetSubEl = document.getElementById('castNetSub');
+const castNetLabelEl = document.getElementById('castNetLabel');
 const castMsgEl = document.getElementById('castMsg');
-const mirrorRowEl = document.getElementById('mirrorRow');
-const mirrorRowHintEl = document.getElementById('mirrorRowHint');
-const mirrorOpenBtnEl = document.getElementById('mirrorOpenBtn');
-const mirrorPopupEl = document.getElementById('mirrorPopup');
-const mirrorCloseEl = document.getElementById('mirrorClose');
-const mirrorLeadEl = document.getElementById('mirrorLead');
-const mirrorAddrEl = document.getElementById('mirrorAddr');
-const mirrorUrlEl = document.getElementById('mirrorUrl');
+const castMirrorLabelEl = document.getElementById('castMirrorLabel');
 const castLiveEl = document.getElementById('castLive');
 const castUrlEl = document.getElementById('castUrl');
-const castUrl2El = document.getElementById('castUrl2');
-const castHintEl = document.getElementById('castHint');
 const castTelasEl = document.getElementById('castTelas');
-const mirrorUrl2El = document.getElementById('mirrorUrl2');
-const mirrorNomeHintEl = document.getElementById('mirrorNomeHint');
-const mirrorPinEl = document.getElementById('mirrorPin');
-const mirrorAutoEl = document.getElementById('mirrorAuto');
-const mirrorListEl = document.getElementById('mirrorList');
-const mirrorToggleEl = document.getElementById('mirrorToggle');
-const mirrorScanEl = document.getElementById('mirrorScan');
-const mirrorCertRowEl = document.getElementById('mirrorCertRow');
-const mirrorCertTxtEl = document.getElementById('mirrorCertTxt');
-const mirrorCertAddEl = document.getElementById('mirrorCertAdd');
-const mirrorCertDelEl = document.getElementById('mirrorCertDel');
-const qrPopupEl = document.getElementById('qrPopup');
-const qrCloseEl = document.getElementById('qrClose');
-const qrVideoEl = document.getElementById('qrVideo');
-const qrMsgEl = document.getElementById('qrMsg');
 const songMenuPopupEl = document.getElementById('songMenuPopup');
 const songMenuTitleEl = document.getElementById('songMenuTitle');
 const songMenuListEl = document.getElementById('songMenuList');
@@ -408,6 +467,7 @@ const ICON = {
   // deixou de ser "onde os arquivos ficam" e passou a ser "o que eu marquei".
   star: '',      // star
   folderNew: '', // create_new_folder
+  close: '',     // close — o MESMO glifo dos `.popup-close` (v5.191)
 };
 
 const REPEATS = ['off', 'all', 'one', 'shuffle'];
@@ -528,8 +588,34 @@ let albumCatalog = { categories: [], albums: [] };
 // Registro completo de coleções: hinários fixos + um card por álbum do catálogo.
 // `subtitle`/`order` NÃO entram aqui: são do pivô categoria↔álbum e só fazem
 // sentido no contexto de uma categoria (ver renderCollectionsList).
+// AS SÉRIES DO YOUTUBE (v5.231) — um card por série do catálogo de `serie.js`.
+// A primeira é "Provai e Vede 2026"; a regra que decide o que entra em cada uma
+// mora lá, e o que chega aqui é só o card.
+//
+// **Guardadas por SHELL 41**, e é a regra de sempre (`appendYoutubeSearch`, a
+// linha do espelho): `ytCanalPlaylists`/`ytPlaylist` não chegam por OTA, então
+// num shell antigo o card existiria sem ter como carregar item nenhum — pior
+// que card nenhum, ainda mais numa tela em que o operador procura o vídeo do
+// culto. Ele aparece sozinho depois que o APK novo for instalado. No navegador
+// `__SHELL_VERSION__` é `undefined`, o `| 0` o zera, e a série simplesmente não
+// existe — a base continua rodando fora do aparelho, como manda a regra.
+const SERIE_SHELL = 41;
+function serieDisponivel() {
+  return !!window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= SERIE_SHELL
+    && !!window.AVSerie;
+}
+function serieCollections() {
+  if (!serieDisponivel()) return [];
+  // `iconKey` só assume 'music' ou 'queue' (ver o comentário do `ICON`): um
+  // nome novo aqui seria um codepoint fora do subset da fonte, isto é, um
+  // retângulo vazio no card — a armadilha da v5.184 e da v5.200.
+  return AVSerie.SERIES.map((s) => ({
+    id: s.id, name: s.name, kind: 'serie', serie: s, source: s.canal, iconKey: 'queue',
+  }));
+}
+
 function allCollections() {
-  const cols = FIXED_COLLECTIONS.slice();
+  const cols = FIXED_COLLECTIONS.concat(serieCollections());
   for (const a of albumCatalog.albums) {
     cols.push({ id: 'album-' + a.id_album, name: a.name, kind: 'album',
       source: 'album_' + a.id_album, albumId: a.id_album, iconKey: 'queue',
@@ -538,6 +624,63 @@ function allCollections() {
   return cols;
 }
 function collSongs(id) { return (collState[id] && collState[id].songs) || []; }
+
+// ===== O TIPO DE UMA COLEÇÃO — quem governa a linha e as duas folhas =====
+//
+// A Biblioteca nasceu com UM modelo de item, e é dele que saiu tudo o que a
+// lista oferece: a música do LouvorJA. Ela tem áudio, tem LETRA e tem uma
+// segunda variante (Playback) — então o toque na linha abre a letra, o ▶
+// pergunta "cantada ou playback?" e o + oferece "só a letra, no Cronograma".
+//
+// A série (v5.228) trouxe o segundo modelo: um VÍDEO. Ele não tem letra, não
+// tem playback, não se baixa em lote (~300 MB por episódio) e nem sequer está
+// no aparelho — é um link. A v5.230 desviou as duas FOLHAS para o caminho do
+// YouTube e parou aí: a LINHA continuou sendo a da música, e por isso o toque
+// nela ainda abria a caixa da letra, que anunciava **"Letra ainda não
+// baixada"** para uma coisa que nunca vai ter letra. Foi o que o operador
+// relatou, e o defeito é o mesmo da v5.229 outra vez: **desviar as portas de
+// um recurso não desvia o que estava atrás delas.**
+//
+// Daí este bloco. O tipo é decidido UMA vez, num lugar só, e cada afordância
+// pergunta pela CAPACIDADE de que ela depende — nunca por "é série?". A
+// diferença não é de estilo: é ela que abre lugar para o TERCEIRO modelo (os
+// materiais de evento, os vídeos avulsos e as apresentações), que entrará como
+// mais um tipo e um punhado de respostas, em vez de mais um `if (ehSerie)`
+// espalhado por meia dúzia de funções que não se conhecem.
+//
+// **Por COLEÇÃO, e não por item, e isso é uma escolha e não um atalho.** Hoje
+// toda coleção é homogênea: um hinário só tem música, uma série só tem vídeo.
+// Uma coleção de materiais de evento não será — ela mistura vídeo, imagem e
+// apresentação —, e o dia em que ela existir o que muda aqui é `tipoDoItem(coll,
+// s)` consultar o `s` antes de cair no tipo da coleção. Escrever esse desvio
+// agora seria um ramo que nada alcança, isto é, código morto com aparência de
+// preparo.
+const TIPO_MUSICA = 'musica';   // faixa do LouvorJA: áudio no acervo, letra, variantes
+const TIPO_VIDEO = 'video';     // vídeo do YouTube: um LINK, sem letra e sem variante
+
+function tipoDaColecao(coll) {
+  return coll && coll.kind === 'serie' ? TIPO_VIDEO : TIPO_MUSICA;
+}
+function ehSerie(coll) { return !!coll && coll.kind === 'serie'; }
+
+// ----- As CAPACIDADES, que é o que os chamadores devem perguntar -----
+//
+// **A LETRA existe?** Governa quatro coisas que estavam todas presas ao mesmo
+// engano: o que o toque na linha abre, o que a busca por trecho varre, o que o
+// índice de letras indexa e — a mais cara — o que a fila de `syncLyrics` vai
+// BUSCAR NA REDE. Ela pedia `music_<id>` ao LouvorJA para os ~52 vídeos de cada
+// série, com um id que é do YouTube e que aquele banco nunca vai reconhecer:
+// 52 requisições perdidas por abertura, para sempre, porque falha de rede não
+// grava `LYRIC_NONE` de propósito (e aqui não é falha de rede — é uma pergunta
+// que não faz sentido). Elas ainda entravam no total da notificação "Letras das
+// músicas", inflando um contador que o operador lê.
+function temLetra(coll) { return tipoDaColecao(coll) === TIPO_MUSICA; }
+
+// **O item é um LINK?** Então os bytes não estão aqui, e três decisões mudam:
+// as folhas são as do YouTube (transmitir em "Tocar agora", baixar só nos
+// destinos que GUARDAM), o card não oferece download em lote, e o toque no
+// Modo Fácil transmite em vez de baixar.
+function ehLink(coll) { return tipoDaColecao(coll) === TIPO_VIDEO; }
 
 // ===== Bíblia (acervo online, baixado na 1ª vez que for usado) =====
 // Ver bible.js (window.Bible) e a seção "Bíblia" no CLAUDE.md. A seleção é uma
@@ -871,6 +1014,14 @@ let filaPeso = Promise.resolve();
 // álbum ainda vazio não teria tamanho nenhum a mostrar, que é exatamente
 // quando a informação é mais útil.
 const BPS_PADRAO = 16000;          // 128 kbps ≈ 16 KB/s
+// E a de VÍDEO, que é outra ordem de grandeza (v5.229). A escada acima
+// pressupõe áudio em todos os degraus: a constante é o bitrate do LouvorJA, e a
+// média global é dominada por hinário. Numa SÉRIE ainda vazia — que é
+// exatamente quando o número importa — os dois davam ~16 KB/s para um 1080p que
+// entrega ~600, e a tela prometia **~50 MB para um ano que pesa ~15 GB**.
+// Errar por 40× na única pergunta que essa conta existe para responder ("espero
+// o Wi-Fi?") é pior que não mostrar número nenhum.
+const BPS_VIDEO_PADRAO = 600000;   // ~4,8 Mbps ≈ 600 KB/s (1080p do YouTube)
 const SEG_PADRAO = 210;            // 3min30 — só para faixa sem duração no índice
 
 function segundosDaMusica(s) { return parseTimeToSeconds(s && s.duration) || 0; }
@@ -966,15 +1117,37 @@ function grupoCompleto(colls) {
 }
 
 // Bytes por segundo medidos no aparelho (ver a escada acima).
+// As coleções cujo conteúdo é VÍDEO. A taxa delas não pode entrar na média de
+// áudio nem sair dela — são grandezas diferentes, e misturá-las estraga as duas
+// contas ao mesmo tempo: um ano de série baixado puxaria a estimativa de todo
+// álbum de louvor para cima, e a média de áudio puxaria a da série para baixo.
+function ehColecaoDeVideo(id) {
+  return String(id || '').startsWith('serie-');
+}
+
 function bytesPorSegundo(id) {
   const u = ui(id);
   const meu = levantarColecao(id);
   if (u.bytes && meu.segFeitos) return u.bytes / meu.segFeitos;
+  const video = ehColecaoDeVideo(id);
   // A taxa GLOBAL não depende do `id`: dentro de uma passada de render ela é
-  // a mesma para todo card sem taxa própria — calcular uma vez basta.
+  // a mesma para todo card sem taxa própria — calcular uma vez basta. Mas ela é
+  // a média do que já foi baixado, e o que já foi baixado é quase todo ÁUDIO:
+  // uma série ainda vazia não pode herdá-la (ver [BPS_VIDEO_PADRAO]).
+  if (video) {
+    for (const c of allCollections()) {
+      if (!ehColecaoDeVideo(c.id)) continue;
+      const cu = collUI[c.id];
+      if (!cu || !cu.bytes) continue;
+      const l = levantarColecao(c.id);
+      if (l.segFeitos) return cu.bytes / l.segFeitos;
+    }
+    return BPS_VIDEO_PADRAO;
+  }
   if (cacheColecoesAtivo && cacheBpsGlobal) return cacheBpsGlobal;
   let bytes = 0, seg = 0;
   for (const c of allCollections()) {
+    if (ehColecaoDeVideo(c.id)) continue;
     const cu = collUI[c.id];
     if (!cu || !cu.bytes) continue;
     const l = levantarColecao(c.id);
@@ -1039,11 +1212,11 @@ function fracaoPeso(ids) {
   return fmtFracBytes(no, total);
 }
 
-// O miolo comum das duas formas de "tanto de tanto" (`fmtFracBytes` e
-// `fmtParBytes`): a unidade só aparece uma vez quando é a mesma nos dois
-// números; se divergirem (800 KB de ~1,2 GB), as duas ficam — omitir a
-// primeira seria simplesmente falso. O separador é o ÚNICO ponto em que as
-// formas diferem, então ele é o parâmetro.
+// O miolo do "tanto de tanto" (hoje só `fmtFracBytes` o usa; até a v5.232
+// havia uma segunda forma, por extenso): a unidade só aparece uma vez quando é
+// a mesma nos dois números; se divergirem (800 KB de ~1,2 GB), as duas ficam —
+// omitir a primeira seria simplesmente falso. O separador é o ÚNICO ponto em
+// que as formas diferiam, então ele é o parâmetro.
 function fmtBytesPar(a, b, sep) {
   const fa = fmtBytes(a);
   const fb = fmtBytes(b);
@@ -1051,8 +1224,9 @@ function fmtBytesPar(a, b, sep) {
   const ub = fb.split(' ')[1];
   return (ua === ub ? va : fa) + sep + fb;
 }
-// "3,7/~18 MB" — a forma curta, para as barras (ver `fmtParBytes`, a forma por
-// extenso do chip de opções, que tem largura para o "de").
+// "3,7/~18 MB" — a forma curta, e desde a v5.232 a única: é ela que a barra do
+// card mostra, e é justamente por ela já estar lá que o chip de peso do painel
+// aberto saiu.
 function fmtFracBytes(a, b) { return fmtBytesPar(a, b, '/~'); }
 
 // Downloads de música em andamento ("<coll.id>:<id_music>" -> Promise) — evita
@@ -1082,13 +1256,13 @@ function isConfirmedWifi() {
   return t === 'wifi' || t === 'ethernet';
 }
 let mediaFit = 'contain'; // preenchimento da mídia (persistido em state 'fit')
-// Modo "mesa de som": saída de áudio local — a preview deixa de ser
-// forçosamente muda e passa a tocar o som de verdade pelo próprio aparelho.
-// Não mexe na comunicação com o Display (comandos continuam normais); se o
-// Display nem estiver aberto, ele só não escuta, sem tratamento especial
-// disso aqui. Não é persistido: cada abertura do app começa em modo normal
-// (preview muda), evitando som inesperado saindo do celular numa sessão nova.
-let standalone = false;
+// (Saiu na v5.189 o modo "mesa de som" — a saída de áudio LOCAL, em que a
+// preview deixava de ser muda e o celular virava a caixa de som. Pedido do
+// operador, e a razão é o desenho atual do sistema: o som sai dos DISPLAYS (a
+// TV pela Presentation, as telas da rede pelo próprio <video> delas), e o
+// áudio da preview só tinha como disputar o foco de áudio do Android com a
+// projeção — o defeito que a v5.141 já tinha escondido escondendo o botão com
+// telão conectado. A preview é uma ILUSTRAÇÃO, e ilustração não faz som.)
 let ytEnded = false;       // YouTube terminou/parou sem player tocando: ▶ recarrega
 // HÁ MÍDIA EM CENA NO TELÃO? (v5.142)
 //
@@ -1114,15 +1288,123 @@ let ytEnded = false;       // YouTube terminou/parou sem player tocando: ▶ rec
 //
 // Uma variável, três defeitos: o estado que faltava era esse.
 let midiaNoAr = false;
+// QUAL mídia está no telão — o par de `cueNoArId`, e pelo mesmo motivo.
+//
+// `midiaNoAr` responde "há mídia no ar?" e `currentId` responde "qual é o item
+// atual", e nenhum dos dois responde "QUAL mídia está no ar": no instante em que
+// uma cena de roteiro é projetada por cima de um louvor de fundo, `currentId`
+// passa a ser a cena e a música continua tocando sem que nada aponte para ela.
+// Sem este campo, o realce de "no ar" mudaria de linha sozinho.
+let midiaNoArId = '';
+
+// QUAL cena de roteiro está no ar — e por que isto NÃO pode ser o `currentId`.
+//
+// A Camada de Texto (versículo, mensagem, letra, cronômetro, sorteio) é uma
+// camada PARALELA à mídia: um louvor de fundo sob um versículo é o uso normal, e
+// a independência áudio × texto existe justamente para permitir isso. Mas
+// `currentId` é o ÚLTIMO item enviado, seja ele cena ou mídia — então, no
+// instante em que o operador põe uma música para tocar por baixo do versículo,
+// `currentId` passa a ser a música e o versículo deixa de ser reconhecível.
+//
+// Era esse o buraco do segundo toque (v5.165): ele perguntava
+// `item.id === currentId`, e no caso mais comum de todos — cena de roteiro COM
+// áudio de fundo, que é exatamente o caso em que o Parar é perigoso — a resposta
+// era `false`. O toque então re-projetava a mesma cena em vez de retirá-la, e a
+// única saída voltava a ser o Parar, que leva a música junto. O recurso existia
+// e não alcançava o caso que o justificava.
+//
+// Este campo responde a pergunta certa: **qual item pôs no ar a Camada de Texto
+// que está no ar agora?**
+let cueNoArId = '';
+// Texto de roteiro projetado SEM sessão — ver `cenaDeRoteiroNoAr`.
+let textoAvulsoNoAr = false;
+
+// O último estado lido da ponte sobre o espelho (`null` = nunca perguntamos).
+// Formato em `AVNative.espelhoEstado`.
+//
+// ELE MORA AQUI, e não junto do resto do bloco do espelho, por uma razão de
+// ORDEM: desde a v5.176 o ícone de conectar lê este estado (`espelhoRecebendo`),
+// e `renderCastBtn` roda na inicialização — muito antes da linha onde o bloco do
+// espelho começa. Um `let` lido antes da sua declaração lança
+// `ReferenceError: Cannot access 'mirrorEstado' before initialization` (zona
+// morta temporal), e o `smoke.mjs` pegou exatamente isso: a página inteira
+// morria na carga. É a prima do defeito que o `tools/sombra.test.mjs` trava —
+// mesma zona morta, por outra porta.
+let mirrorEstado = null;
+// E O RELÓGIO E O "OCUPADO" DO ESPELHO SOBEM JUNTO (v5.193), pelo MESMO motivo
+// e depois de a mesma armadilha morder de novo: o bloco de conexão passou a ter
+// uma segunda casa (a tela bloqueada do Modo Fácil), e o `setAppMode` do fim do
+// arquivo — que roda durante a carga do módulo — agora alcança o `renderCast`.
+// Ele lê `mirrorOcupado`, que ficava declarado 14 mil linhas abaixo: zona morta
+// temporal, `ReferenceError` na carga, página inteira morta. O comentário acima
+// já contava essa história uma vez; a lição é que estado LIDO por qualquer
+// caminho de render tem de nascer aqui, com o resto do estado de cena.
+let mirrorTimer = null;
+let mirrorOcupado = false;
+// Enquanto o bloco de conexão está na tela, o estado é relido: é o que faz uma
+// tela da rede aparecer na lista sem o operador tocar em nada. Fora dele nada é
+// enquetado — o espelho não muda por conta própria.
+//
+// **E ELE PRECISA NASCER AQUI**, não junto do resto do espelho lá embaixo. É a
+// TERCEIRA vez que esta armadilha morde (`mirrorEstado` na v5.184,
+// `mirrorOcupado`/`mirrorTimer` na v5.193), e a v5.195 foi a pior das três
+// porque o navegador NÃO CONSEGUIA vê-la: a leitura mora dentro de
+// `if (espelhoDisponivel())`, que é falso sem `__AVBridge` — o `smoke.mjs`
+// passava e o aparelho abria em PRETO. Ver `tools/boot-nativo.test.mjs`, que
+// nasceu desta.
+const MIRROR_POLL_MS = 2500;
+// O piso de shell do espelho. Sobe junto pelo mesmo motivo: quem o lê é o
+// `espelhoDisponivel()`, e ele é chamado na carga do módulo.
+const MIRROR_SHELL = 32;
+// E AS TELAS CONECTADAS SOBEM JUNTO (v5.199), pela mesma regra — nenhuma
+// explosão desta vez, e é justamente esse o ponto. `lastDisplays` era declarado
+// na linha ~14050 e já é lido por TRÊS caminhos de render (`telaoConectado`
+// aqui em cima, `simpleDisplay` e `renderCastBtn`); só não explodia porque o
+// `setAppMode(appMode)` que os alcança na carga fica DEPOIS dele no arquivo.
+// Isto é: a corretude dependia da ordem relativa de duas linhas separadas por
+// 14 mil, e foi exatamente essa dependência que quebrou o app quatro vezes.
+// `reconferirTelas` vem junto porque é a outra metade do mesmo estado (quem o
+// atribui de verdade é o bloco nativo, lá embaixo).
+let lastDisplays = [];          // telas conectadas (ponte nativa)
+let reconferirTelas = () => {}; // releitura da lista; no navegador é no-op
+// HAVIA TELA NA LEITURA ANTERIOR? — a memória que transforma o fecho automático
+// da folha de conexão numa BORDA em vez de um NÍVEL (ver `renderSimpleGate`).
+// Mora aqui, no topo, pela regra de sempre: quem é lido por um caminho de render
+// nasce junto do resto do estado de cena, ou vira zona morta temporal na carga.
+let gateTinhaTela = false;
 let displayAudioBlocked = false; // Display reportou áudio bloqueado pelo navegador
 const scrollPos = {};      // posição de scroll por aba/pasta (sessão)
 
 // ===== preview (espelho do display) =====
-// Mostra exatamente o que o display mostra; sempre mudo. Recebe os MESMOS
-// comandos enviados ao display e ainda comanda a barra de progresso/avanço.
+// Mostra exatamente o que o display mostra. Recebe os MESMOS comandos enviados
+// ao display e ainda comanda a barra de progresso/avanço.
+//
+// Ela NASCE muda (`forceMuted`), e continua muda enquanto houver uma tela
+// recebendo a projeção — mas deixou de ser muda POR CONSTRUÇÃO na v5.215: sem
+// tela nenhuma conectada, é ela que toca o som deste aparelho. Ver
+// `acertarSaidaDeAudio`, que é o único ponto que mexe nisso.
 const preview = createStage({
   wallpaper: pvWallEl, img: pvImgEl, video: pvVideoEl, forceMuted: true,
   onTime: previewTick,
+  // O NAVEGADOR RECUSOU O SOM — e a resposta é voltar a tocar MUDO, na hora.
+  //
+  // No app isto não acontece (`mediaPlaybackRequiresUserGesture = false`), e é
+  // justamente por isso que a rede de segurança existe: num navegador comum a
+  // política de autoplay rejeita o `play()` com som quando não há ativação do
+  // usuário, e o `stage` engole a rejeição. Sem este ramo, o preço de ligar o
+  // som deste aparelho seria a preview parar de tocar — isto é, trocar uma
+  // ilustração muda por nenhuma ilustração, que é muito pior.
+  //
+  // A recusa vale só até o próximo `load` (ver `aplicarNaPreview`): cada mídia
+  // nova ganha uma tentativa, e o toque do operador que a carregou é ativação
+  // suficiente para a seguinte passar.
+  onBlocked: () => {
+    if (!somLocal) return;   // sem som local não há o que desfazer
+    somLocalBloqueado = true;
+    acertarSaidaDeAudio();
+    preview.handle({ type: 'play' });
+    diagC('som local RECUSADO (autoplay) — a preview volta a tocar muda');
+  },
   // A PREVIEW É A CANÁRIA da transmissão direta: ela toca o mesmo registro que
   // o telão, na mesma hora, e é aqui — na tela do operador — que uma URL
   // expirada aparece primeiro. Quem recupera é o Controle, porque é ele que
@@ -1132,7 +1414,7 @@ const preview = createStage({
   // está ativo, quem avança é o `media-ended` remoto (com guarda de mediaId).
   // Sem este early-return, se o Display chegar ao fim antes da preview (drift
   // até SYNC_DRIFT), os dois disparariam autoAdvance() e pulariam uma faixa.
-  // Mesmo princípio de previewTick/ytPreviewTick.
+  // Mesmo princípio do `previewTick`.
   onEnded: () => {
     // A letra sai de cena junto com a música, esmaecendo (camada paralela: não
     // participa do fade do stage) — e `pvLyricsEnded` impede o slide de capa de
@@ -1145,153 +1427,34 @@ const preview = createStage({
   onError: (e) => {
     const code = e.target.error ? e.target.error.code : '?';
     const src = e.target.src ? e.target.src.slice(-60) : '(sem src)';
-    flash('Erro ' + code + ': …' + src);
+    // (O `flash` era no-op desde que o primeiro toast saiu; o diagnóstico de
+    //  verdade deste erro vive no Registro, por `diagC`.)
   },
 });
 
-// ===== preview do YouTube (player real, mudo, minúsculo) =====
-// stage.js não toca YouTube (só mostra a thumbnail) — para ter uma preview
-// de verdade aqui, criamos nosso próprio YT.Player, sempre mudo, dirigido
-// pelos mesmos comandos que vão para o Display (mesmo padrão do
-// display.js, bem simplificado: sem cortina/fade próprios do vídeo, sem
-// avanço automático — isso continua vindo do display-status remoto).
-let ytPreviewApiPromise = null;
-function loadYtPreviewApi() {
-  if (window.YT && window.YT.Player) return Promise.resolve();
-  if (ytPreviewApiPromise) return ytPreviewApiPromise;
-  ytPreviewApiPromise = new Promise((resolve, reject) => {
-    const prevCb = window.onYouTubeIframeAPIReady;
-    window.onYouTubeIframeAPIReady = () => { if (prevCb) prevCb(); resolve(); };
-    const tag = document.createElement('script');
-    tag.src = 'https://www.youtube.com/iframe_api';
-    // Sem onerror, uma falha de rede no fetch do script deixaria a promise
-    // pendente para sempre — e como ela é cacheada, TODA preview YouTube
-    // futura travaria. Rejeitar + limpar o cache deixa a próxima tentativa
-    // refazer o fetch.
-    tag.onerror = () => { ytPreviewApiPromise = null; reject(new Error('YT API load failed')); };
-    document.head.appendChild(tag);
-  });
-  return ytPreviewApiPromise;
-}
+// ===== A PREVIEW NÃO TEM MAIS PLAYER DO YOUTUBE (v5.212) =====
+//
+// Aqui morava um `YT.Player` de verdade — mudo, minúsculo, dirigido pelos
+// mesmos comandos que vão para o Display — e com ele o `loadYtPreviewApi`, o
+// `dropYtPreview`, o `ytPreviewForceLowQuality`, o `startYtPreviewTick`, o
+// `ytPreviewTick`, o `onYtPreviewState`, o `ytPreviewHandle`, o
+// `ytResyncPreviewToDisplay`, o `ytDisplayActive` e o `ytPreviewTime`.
+//
+// A razão é a mesma que tirou o embed do telão, e neste documento ela pesa
+// MAIS, não menos: `addJavascriptInterface` injeta o objeto em TODAS as frames
+// da página, iframes de outra origem inclusive. No WebView do telão a ponte
+// nasce com `host = null` (invariante 9) e o estrago seria limitado; aqui a
+// ponte é a COMPLETA — `pickFolder`, `listFolder`, `pickDoc`, `openExternal`,
+// `espelhoLigar`, `apkInstalar`. A invariante 9 nomeia só o telão, e é por isso
+// que esta metade atravessou dezenas de versões sem ninguém reparar: o texto
+// protegia o WebView menos exposto dos dois.
+//
+// O que a preview mostra de um item do YouTube continua sendo o que o
+// `stage.js` já desenha para `kind: 'youtube'` — a miniatura. E ela deixou de
+// precisar de mais que isso: um link não vai mais ao telão como link (ver
+// `resolverLinkYoutube`), então o que a preview ilustra é sempre um `<video>`
+// de verdade, transmitido ou baixado, que ela já sabe espelhar.
 
-let ytPreview = null; // { mediaId, player }
-let ytPreviewSeq = 0;
-
-// Rampa curta de volume do player da preview do YouTube, usada ao ligar/
-// desligar a "mesa de som" — evita o corte abrupto de áudio. Reusa o mesmo
-// passo-a-passo/duração do stage.js (createStage.rampSteps/MUTE_RAMP_TIME),
-// fonte única compartilhada pelos três sinks de áudio do sistema.
-const MUTE_RAMP_TIME = createStage.MUTE_RAMP_TIME;
-let ytPreviewRampTimer = null;
-// Aplica o mudo real ao FIM da rampa de descida (mesmo papel do muteApplyTimer
-// do stage.js e do yt.muteApplyTimer do Display).
-let ytPreviewMuteApplyTimer = null;
-function ytPreviewRampVolume(from, to, dur) {
-  clearInterval(ytPreviewRampTimer);
-  const p = ytPreview && ytPreview.player;
-  if (!p) return;
-  try { p.setVolume(Math.round(Math.min(1, Math.max(0, from)) * 100)); } catch (_) {}
-  ytPreviewRampTimer = createStage.rampSteps(from, to, dur, (v) => {
-    try { if (ytPreview && ytPreview.player) ytPreview.player.setVolume(Math.round(v * 100)); } catch (_) {}
-  });
-}
-
-function dropYtPreview() {
-  if (ytPreview) {
-    clearInterval(ytPreview.qualityTimer);
-    clearInterval(ytPreview.tickTimer);
-    if (ytPreview.player) { try { ytPreview.player.destroy(); } catch (_) {} }
-  }
-  clearInterval(ytPreviewRampTimer);
-  clearTimeout(ytPreviewMuteApplyTimer);
-  ytPreview = null;
-  pvYoutubeEl.hidden = true;
-  pvYoutubeEl.innerHTML = '';
-}
-
-// Pede a menor qualidade disponível: a preview já é minúscula (~150px de
-// altura), então isso só reforça o que o YouTube tende a escolher sozinho
-// pelo tamanho do player — evita puxar HD à toa num player que ninguém vê em
-// tamanho real. Reforçado também por polling (abaixo, não só onReady/
-// onPlaybackQualityChange): o iframe agora é renderizado a 400% do wrapper
-// e encolhido de volta via CSS (ver controle.css, truque pra deixar a UI do
-// YouTube proporcionalmente menor) — o YouTube decide a qualidade padrão
-// pelo tamanho do iframe QUE ELE PRÓPRIO enxerga (400%, não o tamanho visual
-// já encolhido), então sem reforço contínuo esse truque de UI poderia
-// silenciosamente puxar uma qualidade mais alta do que antes.
-function ytPreviewForceLowQuality(player) {
-  try { if (player.getPlaybackQuality() !== 'tiny') player.setPlaybackQuality('tiny'); } catch (_) {}
-}
-
-// `startAt` (segundos) existe para a REMONTAGEM: mover o `#preview` de lugar no
-// DOM recarrega o iframe do YouTube e mata o player, então `hostPreview` o
-// reconstrói — e reconstruir do zero faria a miniatura voltar ao início de um
-// vídeo que segue no telão. Mesmo campo, mesmo nome e mesmo papel do `startAt`
-// de `loadYoutube` no Display.
-async function loadYtPreview(rec, v, startAt) {
-  dropYtPreview();
-  const seq = ++ytPreviewSeq;
-  // stage.js retorna cedo para kind='youtube' (só marca a thumbnail) e por
-  // isso nunca chega na revelação da cortina no fim de load() — cobre aqui
-  // à parte, igual o display.js faz para o player real. A thumbnail (posta
-  // por preview.handle() em paralelo) fica como placeholder até o player
-  // real assumir por cima (mesmo z-index, depois no DOM).
-  preview.instantCover(v === 'wallpaper');
-  try { await loadYtPreviewApi(); }
-  catch (_) { return; }   // API não carregou (rede) — mantém só a thumbnail
-  if (seq !== ytPreviewSeq) return;
-  const host = document.createElement('div');
-  pvYoutubeEl.appendChild(host);
-  pvYoutubeEl.hidden = false;
-  const cur = { mediaId: rec.id, player: null, qualityTimer: null, tickTimer: null };
-  ytPreview = cur;
-  cur.player = new YT.Player(host, {
-    videoId: rec.youtubeId,
-    playerVars: {
-      autoplay: 1, mute: 1, controls: 0, disablekb: 1, fs: 0,
-      iv_load_policy: 3, rel: 0, playsinline: 1,
-      // Segundos inteiros — é o que a IFrame Player API aceita.
-      start: Math.max(0, Math.floor(startAt || 0)),
-    },
-    events: {
-      onReady: (e) => {
-        if (ytPreview !== cur) return;
-        // Normalmente a preview é sempre muda (espelha o Display); no modo
-        // "mesa de som" ela é quem toca o áudio de verdade, com o volume/mudo
-        // que o operador já tiver definido.
-        if (standalone) {
-          try { if (!muted) e.target.unMute(); e.target.setVolume(Math.round(volume * 100)); } catch (_) {}
-        } else {
-          try { e.target.mute(); } catch (_) {}
-        }
-        ytPreviewForceLowQuality(e.target);
-        try { e.target.playVideo(); } catch (_) {}
-        clearInterval(cur.qualityTimer);
-        cur.qualityTimer = setInterval(() => {
-          if (ytPreview !== cur || !cur.player) return;
-          ytPreviewForceLowQuality(cur.player);
-        }, 1500);
-        startYtPreviewTick(cur);
-      },
-      onStateChange: (e) => { if (ytPreview === cur) onYtPreviewState(e); },
-      onPlaybackQualityChange: (e) => { if (ytPreview === cur) ytPreviewForceLowQuality(e.target); },
-    },
-  });
-}
-
-// A preview do YouTube (player real na tela do operador) é a FONTE DE VERDADE
-// do play/pause, da barra de progresso e do avanço automático dos itens YouTube
-// — como a preview local (`previewTick`) faz para mídia comum. Antes isso
-// dependia só do `display-status` remoto do Display, que pode chegar atrasado
-// ou nem chegar (Display em segundo plano/fechado), deixando o ▶/⏸ preso e sem
-// pausar. Agora o player local dirige a UI, sempre responsivo.
-function startYtPreviewTick(cur) {
-  clearInterval(cur.tickTimer);
-  cur.tickTimer = setInterval(() => {
-    if (ytPreview !== cur || !cur.player) return;
-    ytPreviewTick();
-  }, 500);
-}
 // Sincronização (qualquer tipo de mídia com tempo — YouTube, áudio, vídeo):
 // o player do DISPLAY (a projeção real) é a fonte de verdade quando está
 // enviando status; se ele não existir / estiver estrangulado ou fechado
@@ -1303,15 +1466,17 @@ function startYtPreviewTick(cur) {
 // `authoritativeTime()`).
 // ===== O atraso da preview (ver `cmd`) =====
 //
-// Ele NÃO é chutado: cada tela da rede relata a própria folga do cursor
-// (`vivo.vfim`, em ms — ver `linhasDaTela`), que é literalmente o quanto ela
-// está atrás da projeção. A mediana das telas conectadas é o número que o
-// operador vê na sala.
+// **HOJE ELE É SEMPRE ZERO, e os três limites abaixo são a rede de segurança de
+// um caminho que nenhuma tela alcança mais** — ver `recalcularAtrasoPreview`.
+// O mecanismo existia para o espelho de PIXELS: lá cada tela relatava a própria
+// folga de cursor (`vivo.vfim`) e a preview era atrasada pela mediana delas,
+// para não responder antes da sala. Uma tela de COMANDOS aplica o comando no
+// ato, e o único produtor daquele relato (`espelho/cliente.js`) saiu na v5.187.
 //
-// Os limites existem porque este valor vira uma espera na tela do operador: um
-// relato absurdo (tela reconectando, medida ainda não formada) não pode
-// congelar a preview por dez segundos. Sem relato nenhum vale o PADRÃO, que é
-// a soma típica da folga adaptativa com o desvio A/V.
+// A fila fica porque ela é o funil único de `cmd()` e custa zero com o atraso
+// em zero (drena no mesmo passo); os limites ficam porque, se um dia voltar a
+// existir uma tela que atrase, é aqui que o número entra — e um relato absurdo
+// não pode congelar a preview por dez segundos.
 const PREV_ATRASO_MIN = 300;
 const PREV_ATRASO_MAX = 2500;
 const PREV_ATRASO_PADRAO = 1200;
@@ -1336,12 +1501,22 @@ function recalcularAtrasoPreview() {
   const e = mirrorEstado;
   const telas = (e && e.ligado && Array.isArray(e.telas)) ? e.telas : [];
   if (telas.length && !telaoConectado()) {
-    const folgas = telas
+    // TELAS DE COMANDO renderizam localmente com ~10 ms de latência: elas
+    // NÃO entram na conta, e uma sala só com elas fica em atraso ZERO — o
+    // motivo da fila da preview (v5.162) morreu junto com o pipeline de
+    // pixels. Sem esta guarda, telas sem `vivo.vfim` cairiam no PADRÃO de
+    // 1,2 s — a preview atrasando por um atraso que não existe.
+    const dePixels = telas.filter((t) => t && !t.comando);
+    const folgas = dePixels
       .map((t) => (t && t.vivo && typeof t.vivo.vfim === 'number') ? t.vivo.vfim : null)
       .filter((v) => v !== null && v > 0)
       .sort((a, b) => a - b);
-    alvo = folgas.length ? folgas[Math.floor(folgas.length / 2)] : PREV_ATRASO_PADRAO;
-    alvo = Math.min(PREV_ATRASO_MAX, Math.max(PREV_ATRASO_MIN, alvo));
+    if (!dePixels.length) {
+      alvo = 0;
+    } else {
+      alvo = folgas.length ? folgas[Math.floor(folgas.length / 2)] : PREV_ATRASO_PADRAO;
+      alvo = Math.min(PREV_ATRASO_MAX, Math.max(PREV_ATRASO_MIN, alvo));
+    }
   }
   // Ligar e desligar o atraso é sempre uma mudança de regime, por menor que
   // seja o número: é a diferença entre a preview espelhar a rede e espelhar o
@@ -1354,15 +1529,98 @@ function recalcularAtrasoPreview() {
   if (!alvo) drenarPreview(true);
 }
 
+// ===== A REFERÊNCIA: quem é a PROJEÇÃO, e por que nunca é a preview =====
+//
+// A preview é uma ILUSTRAÇÃO do que está na tela — nunca a fonte de verdade.
+// Ela roda no WebView do Controle, que é justamente o que o Android estrangula
+// quando o app sai da frente: com o app minimizado o `<video>` dela é pausado
+// ou desacelerado, e ao voltar ela está arbitrariamente longe do que está sendo
+// projetado. Enquanto ela for a referência, nada consegue corrigir isso —
+// porque o erro está na própria régua.
+//
+// A projeção é uma destas três, NESTA ordem:
+//
+//   1. **o TELÃO** (`display-status`), quando há TV conectada;
+//   2. **o ESPELHO** (`espelho-status`, v5.173), quando não há TV: as telas da
+//      rede são o que a congregação vê, e quem as alimenta é o `/display/` da
+//      `MirrorPresentation` — um `<video>` de verdade, numa `Presentation` que
+//      o sistema NÃO estrangula. Ele era mudo no barramento até a v5.172 (ver o
+//      dreno em `shared/native.js`), e era essa a causa de "minimizei e a
+//      preview voltou completamente dessincronizada": não havia referência
+//      nenhuma, então não havia o que corrigir;
+//   3. **ninguém** — sem TV e sem espelho, a projeção É a preview em tela
+//      cheia, que exige o app na frente. Aí ela é a própria referência, e o
+//      caso não existe.
+//
+// `displayStatusAt`/`lastDisplayTime` guardam o último status de QUEM estiver
+// valendo; `telaoStatusAt` é só do telão, porque a precedência dele precisa de
+// um relógio próprio (com os dois no ar, o espelho é ruído).
 let displayStatusAt = 0;
 let lastDisplayTime = 0;
-const DISPLAY_TIMEOUT = 2500; // sem status do Display por mais que isso → preview assume
-const SYNC_DRIFT = 1.6;       // só re-sincroniza a preview se o drift passar disso (s)
+let telaoStatusAt = 0;
+let refFonte = '';            // 'telao' | 'espelho' | '' — só diagnóstico
+const DISPLAY_TIMEOUT = 2500; // sem status da projeção por mais que isso → preview assume
+
+// A TOLERÂNCIA DO RE-ALINHAMENTO, e ela era grande demais.
+//
+// 1,6 s foi escolhido quando o resync existia para não estalar o áudio da
+// preview. Só que **a preview que se realinha não tem som**, e isso continua
+// verdadeiro depois da v5.215: o realinhamento só roda com `displayActive()`,
+// isto é, com uma projeção reportando status — e é exatamente essa a condição
+// que cala este aparelho (ver `acertarSaidaDeAudio`). As duas são mutuamente
+// exclusivas por construção; a única janela em que elas se tocam são os
+// `DISPLAY_TIMEOUT` (2,5 s) seguintes à queda de uma tela, e ali um seek custa
+// um quadro num som que acabou de nascer. Sem som, um seek é invisível: o que
+// se paga é um quadro, e o que se ganha é a ilustração parar de mentir. Meio
+// segundo é folga de sobra para o jitter do status (que chega a ~4 Hz) e
+// apertado o bastante para um desvio de verdade nunca chegar a ser percebido.
+const SYNC_DRIFT = 0.5;
+
+// E AO VOLTAR DO SEGUNDO PLANO O ALINHAMENTO É EXATO, não tolerante.
+//
+// A tolerância existe para não corrigir ruído; ao retomar não há ruído a
+// poupar, há um desvio conhecido e possivelmente enorme. `RESYNC_EXATO` é só a
+// margem que evita um seek inútil quando por sorte já estava alinhado.
+const RESYNC_EXATO = 0.15;
+// Por quanto tempo depois de retomar o próximo status vale como reposicionamento
+// forçado. Ele precisa sobreviver ao intervalo entre a retomada e o status
+// seguinte — que, num telão parado, é o compasso do `display-status`.
+const RESYNC_JANELA_MS = 4000;
+let forcarResyncAte = 0;
+
+/**
+ * COM A PÁGINA ESCONDIDA NÃO SE TOCA NO TRANSPORTE DA PREVIEW.
+ *
+ * Esta guarda é a metade que faltava da v5.173. Ao passar a escutar o
+ * `espelho-status`, o Controle ganhou uma referência de tempo justamente no
+ * caso em que ele não tinha nenhuma (sem TV, app minimizado) — e junto ganhou
+ * uma consequência que não estava prevista: `resyncPreviewToDisplay` passou a
+ * chamar `preview.play()` a ~4 Hz numa página oculta.
+ *
+ * O Chromium PAUSA um `<video>` de página escondida. O `play()` sai, o
+ * navegador pausa de volta, o status seguinte chega 250 ms depois e recomeça —
+ * um laço de `play`/`PAUSA ESPONTÂNEA` que a própria linha do tempo do Registro
+ * mostrou, par a par, com a marca `[oculto]`. O estrago não fica na preview: os
+ * três WebViews dividem UM processo, e essa rotatividade de decodificador rouba
+ * justamente o fio que alimenta o `AudioWorklet` do espelho. Do lado da tela da
+ * rede isso aparece como `AUDIO_MUDO_MS` vencido — "o som parou de chegar" com
+ * a imagem seguindo — que é a queixa que abriu esta rodada.
+ *
+ * Não há nada a preservar: um `play()` que o navegador desfaz no quadro
+ * seguinte não é sincronização, é ruído. Escondida, a preview fica onde está; o
+ * realinhamento EXATO da retomada (`forcarResyncAte` + `ressincronizarPreview`)
+ * é o que a traz de volta ao lugar, e ele já existe desde a v5.173.
+ */
+function preverPodeMexer() {
+  return typeof document === 'undefined' || document.visibilityState === 'visible';
+}
+
 function displayActive() {
   return (Date.now() - displayStatusAt) < DISPLAY_TIMEOUT;
 }
-function ytDisplayActive() {
-  return !!(currentItem && currentItem.kind === 'youtube') && displayActive();
+/** Só o TELÃO de verdade — é ele que tira o espelho da jogada. */
+function telaoAtivo() {
+  return (Date.now() - telaoStatusAt) < DISPLAY_TIMEOUT;
 }
 // Posição "oficial" do item atual: a do Display enquanto ele for a fonte de
 // verdade (ver acima), senão a da própria preview. Usado por ações
@@ -1381,177 +1639,71 @@ function authoritativeTime() {
   // preview existe para curar.
   return (preview.getTime() || 0) + previewAtrasoMs() / 1000;
 }
-// Re-alinha a preview à projeção real do Display (fonte de verdade): casa o
-// play/pause e, se o tempo divergir muito (ex: preview estrangulada enquanto o
-// Controle esteve minimizado), busca o instante do Display. Não busca em "mesa
-// de som" (evita salto audível); só casa play/pause.
-function ytResyncPreviewToDisplay(isPlaying, currentTime) {
-  const p = ytPreview && ytPreview.player;
-  if (!p) return;
-  try {
-    if (!standalone && typeof currentTime === 'number' && isFinite(currentTime)) {
-      const pt = p.getCurrentTime() || 0;
-      if (Math.abs(pt - currentTime) > SYNC_DRIFT) p.seekTo(currentTime, true);
-    }
-    const st = p.getPlayerState();
-    if (isPlaying && st !== 1 && st !== 3) p.playVideo();
-    else if (!isPlaying && st === 1) p.pauseVideo();
-  } catch (_) {}
+
+/**
+ * O tempo que a PREVIEW deve estar mostrando — a projeção menos o atraso.
+ *
+ * É o par de [authoritativeTime], e a distinção entre os dois é o modelo
+ * inteiro: um responde "o que está NO AR agora?" (decisões — qual estrofe vem a
+ * seguir, o que a barra marca, o que a `MediaSession` publica) e o outro
+ * responde "o que a ILUSTRAÇÃO deve estar desenhando?" (o `<video>` da preview,
+ * a letra desenhada dentro dela).
+ *
+ * Sem os dois, o atraso deliberado da preview (ver `cmd`) vira defeito: quem
+ * desenha a letra pelo tempo da projeção a troca `previewAtrasoMs` ANTES da
+ * imagem correspondente, e quem re-alinha o `<video>` pelo tempo da projeção
+ * DESFAZ o atraso a cada status — os dois em silêncio.
+ */
+function tempoDaPreview() {
+  return Math.max(0, authoritativeTime() - previewAtrasoMs() / 1000);
 }
-// Mesmo princípio de ytResyncPreviewToDisplay, para mídia comum (áudio/vídeo
-// do próprio stage.js, não YouTube): casa o play/pause e corrige o tempo da
+// Re-alinha a preview à projeção real do Display (fonte de verdade): casa o
+// Casa o play/pause e corrige o tempo da
 // preview se o drift passar de SYNC_DRIFT — sem isso, dois decodificadores
 // de áudio independentes (Display e preview) divergem aos poucos e a letra
 // sincronizada acaba trocando de slide em momentos diferentes nos dois
 // lados. Também não busca em "mesa de som" (evita salto audível).
-function resyncPreviewToDisplay(isPlaying, currentTime) {
+function resyncPreviewToDisplay(isPlaying, currentTime, tolerancia) {
   if (!preview.isTimed()) return;
+  if (!preverPodeMexer()) return;   // ver `preverPodeMexer`
+  const tol = typeof tolerancia === 'number' ? tolerancia : SYNC_DRIFT;
   try {
-    if (!standalone && typeof currentTime === 'number' && isFinite(currentTime)) {
+    if (typeof currentTime === 'number' && isFinite(currentTime)) {
+      const alvo = alvoDaPreview(currentTime);
       const pt = preview.getTime() || 0;
-      if (Math.abs(pt - currentTime) > SYNC_DRIFT) preview.seek(currentTime);
+      if (Math.abs(pt - alvo) > tol) preview.seek(alvo);
     }
     if (isPlaying && !preview.isPlaying()) preview.play();
     else if (!isPlaying && preview.isPlaying()) preview.pause();
   } catch (_) {}
 }
-function ytPreviewTick() {
-  if (ytDisplayActive()) return; // Display presente é a fonte — a preview só assume na ausência dele
-  const p = ytPreview && ytPreview.player;
-  if (!p) return;
-  let st = -1, t = 0, dur = 0;
-  try { st = p.getPlayerState(); t = p.getCurrentTime() || 0; dur = p.getDuration() || 0; } catch (_) { return; }
-  setPlaying(st === 1 || st === 3); // playing | buffering
-  durTimeEl.textContent = fmtTime(dur);
-  seekEl.disabled = !(dur > 0);
-  if (!seeking) {
-    seekEl.max = dur > 0 ? dur : 0;
-    seekEl.value = t;
-    curTimeEl.textContent = fmtTime(t);
-  }
-  renderSimpleTime();   // o YouTube não passa por renderSlideNav
-}
-function onYtPreviewState(e) {
-  if (ytDisplayActive()) return; // Display presente é a fonte — ignora eventos locais
-  const st = e.data; // 1 playing, 2 paused, 3 buffering, 0 ended, 5 cued
-  if (st === 0) { // fim natural → avança a playlist (só quando a preview é a fonte)
-    setPlaying(false);
-    ytEnded = true;
-    autoAdvance();
-    return;
-  }
-  if (st === 1 || st === 2 || st === 3) {
-    ytEnded = false;
-    ytPreviewTick();
-  }
+
+/**
+ * Onde a preview deveria estar, dado um instante da PROJEÇÃO.
+ *
+ * O atraso entra aqui com o sinal certo, e ele é a razão de esta linha existir:
+ * mirar o instante da projeção faria cada `display-status` (a ~4 Hz) puxar a
+ * preview para a frente, desfazendo o deslocamento que ela tem de propósito
+ * para casar com as telas da rede (ver `cmd`). Com o telão conectado o atraso é
+ * zero e isto é a identidade.
+ */
+function alvoDaPreview(tempoDaProjecao) {
+  return Math.max(0, tempoDaProjecao - previewAtrasoMs() / 1000);
 }
 
-// Transporte do player da preview: play/pause/seek sempre; mute/volume só
-// importam no modo "mesa de som" (fora dele a preview do YouTube é sempre
-// muda, como a mídia local). A cortina (view/fade) é tratada à parte, sempre
-// via preview.handle() (ver cmd()), pois é a mesma cortina compartilhada
-// usada pela mídia local.
-function ytPreviewHandle(obj) {
-  if (!ytPreview || !ytPreview.player) return;
-  const p = ytPreview.player;
-  switch (obj.type) {
-    case 'play': try { p.playVideo(); } catch (_) {} break;
-    case 'pause': try { p.pauseVideo(); } catch (_) {} break;
-    case 'seek': if (typeof obj.time === 'number') { try { p.seekTo(obj.time, true); } catch (_) {} } break;
-    // Mudo e volume seguem a MESMA orquestração do ytHandle do Display (e do
-    // setMute do stage): rampa curta em vez de corte seco — no modo "mesa de
-    // som" este é o áudio que sai na caixa da igreja, e um corte no talo estala.
-    case 'mute':
-      if (standalone) {
-        clearTimeout(ytPreviewMuteApplyTimer);
-        if (obj.muted) {
-          // Desce até 0 e só então muta de fato (o "pop" mora no corte).
-          ytPreviewRampVolume(volume, 0, MUTE_RAMP_TIME);
-          ytPreviewMuteApplyTimer = setTimeout(() => {
-            // Confere de novo: um mute/unmute mais recente pode ter mudado a
-            // intenção enquanto a rampa corria — a aplicação atrasada não pode
-            // ressuscitar um mudo já desfeito.
-            if (muted && standalone) { try { p.mute(); } catch (_) {} }
-          }, MUTE_RAMP_TIME * 1000);
-        } else {
-          // Desmuta já (senão volume 0 não seria ouvido) e sobe em rampa.
-          try { p.unMute(); } catch (_) {}
-          ytPreviewRampVolume(0, volume, MUTE_RAMP_TIME);
-        }
-      }
-      break;
-    case 'volume':
-      if (standalone && typeof obj.volume === 'number') {
-        // O operador mandou: cancela qualquer rampa em curso, senão os passos
-        // restantes (com o alvo antigo) sobrescreveriam o valor novo e o fader
-        // "voltaria" sozinho.
-        clearInterval(ytPreviewRampTimer);
-        clearTimeout(ytPreviewMuteApplyTimer);
-        try { p.setVolume(Math.round(obj.volume * 100)); } catch (_) {}
-      }
-      break;
-  }
+/**
+ * Realinha a preview AGORA, pela última posição conhecida da projeção.
+ *
+ * Chamado ao retomar do segundo plano, antes de qualquer status novo chegar: se
+ * a referência ainda estiver fresca, a correção acontece no ato; se não, o
+ * `forcarResyncAte` faz o próximo status valer como reposicionamento forçado.
+ * Sem os dois caminhos, a correção dependeria de o telão estar emitindo naquele
+ * exato instante — e uma cena PARADA (imagem, versículo) não emite nada.
+ */
+function ressincronizarPreview() {
+  if (!displayActive()) return;
+  resyncPreviewToDisplay(playing, lastDisplayTime, RESYNC_EXATO);
 }
-
-// Liga/desliga o modo "mesa de som": é só uma SAÍDA DE ÁUDIO LOCAL — a
-// preview passa a tocar o som de verdade pelo próprio aparelho, em vez de
-// sempre muda. Não mexe em nada da comunicação com o Display: os comandos
-// continuam sendo enviados normalmente (cmd() não muda de comportamento);
-// na prática, se o Display nem estiver aberto, ninguém escuta esses
-// comandos e é como se ele não existisse — mas o Controle não precisa saber
-// disso nem tratar esse caso de forma especial.
-async function setStandalone(v) {
-  if (standalone === v) return;
-  standalone = v;
-  // Mídia local: a rampa vive no stage (setForceMuted). YouTube da preview:
-  // rampa aqui, em paralelo, com a mesma duração — ligar desmuta e sobe de 0
-  // ao volume alvo (respeitando o mudo do operador); desligar desce até 0 e só
-  // então muta.
-  preview.setForceMuted(!standalone);
-  pushAudioAlive();
-  if (ytPreview && ytPreview.player) {
-    const p = ytPreview.player;
-    clearInterval(ytPreviewRampTimer);
-    // Mesmo timer do 'mute' de ytPreviewHandle: as duas rampas são mutuamente
-    // exclusivas no tempo e a mais recente tem de cancelar a anterior.
-    clearTimeout(ytPreviewMuteApplyTimer);
-    if (standalone) {
-      if (!muted) { try { p.unMute(); } catch (_) {} ytPreviewRampVolume(0, volume, MUTE_RAMP_TIME); }
-      else { try { p.setVolume(Math.round(volume * 100)); } catch (_) {} }
-    } else {
-      ytPreviewRampVolume(volume, 0, MUTE_RAMP_TIME);
-      ytPreviewMuteApplyTimer = setTimeout(() => {
-        if (!standalone && ytPreview && ytPreview.player) { try { ytPreview.player.mute(); } catch (_) {} }
-      }, MUTE_RAMP_TIME * 1000);
-    }
-  }
-  renderStandaloneSeg();
-}
-
-// A mesa de som é um ÍCONE SOBRE A PREVIEW desde a v5.82 (foi botão do mixer,
-// depois segmento em Configurações). Ela é a única preferência daquela lista
-// que se mexe DURANTE o culto — chega-se, liga-se a caixa, e ou há som no
-// aparelho ou não —, e o lugar de decidir isso é olhando para a preview, que é
-// justamente onde o som está sendo julgado. Dois toques num popup para uma
-// decisão dessa frequência era atrito puro.
-//
-// O ÍCONE mostra o ESTADO (alto-falante inteiro = há som no celular; riscado =
-// não há), pela mesma convenção do botão de mudo e da cortina: o riscado é o
-// corte. Quem nomeia a ação é o `title`.
-// MESA DE SOM LIGADA = O CELULAR É A CAIXA DE SOM, e aí minimizar o app não
-// pode calar o louvor. Este WebView (o do Controle) é estrangulado em segundo
-// plano de propósito — é o certo quando ele é só a mesa de comando —, mas
-// deixa de ser quando é ELE que está tocando: o áudio sai daqui, do `<video>`
-// da preview, não do telão.
-//
-// Foi essa distinção que faltou nas três tentativas anteriores: elas
-// protegeram o WebView do TELÃO, e o problema relatado acontecia com a mesa de
-// som, isto é, no outro WebView.
-function pushAudioAlive() {
-  if (!window.__NATIVE__ || (window.__SHELL_VERSION__ | 0) < 17) return;
-  try { AVNative.keepAudioAlive(standalone); } catch (_) { /* shell antigo */ }
-}
-
 // HÁ UMA TELA RECEBENDO A PROJEÇÃO?
 //
 // Não é a mesma pergunta de `displayActive()`, que mede se o telão MANDOU
@@ -1560,45 +1712,71 @@ function pushAudioAlive() {
 // telão conectado. Aqui a pergunta é sobre a CONEXÃO — a `Presentation` no app,
 // a janela do Display no navegador —, que é o que decide se ligar o som deste
 // aparelho atrapalha alguém.
-//
-// A liberação de teste do simplificado (`castTestUnlocked`) NÃO conta, e é
-// deliberado: ela não conecta nada, então não há player nenhum para interromper
-// — esconder o botão ali tiraria o som do único lugar onde ele pode ser ouvido.
 function telaoConectado() {
   if (!window.__NATIVE__) return !!(webDisplayWin && !webDisplayWin.closed);
   return lastDisplays.length > 0;
 }
 
-// O BOTÃO DA MESA DE SOM SOME COM TELÃO CONECTADO (v5.141).
+// ===== A SAÍDA DE ÁUDIO: os displays, ou ESTE APARELHO (v5.215) =====
 //
-// Os dois WebViews dividem o mesmo processo e a mesma saída de áudio do
-// Android. Ligar o som da preview enquanto o telão projeta não é "ouvir junto":
-// o `<video>` do Controle assume o foco de áudio e o player do telão é
-// INTERROMPIDO no meio do louvor, na frente da congregação. O botão existe para
-// o caso em que o celular É a caixa de som — e esse caso, por definição, é o
-// caso sem telão.
+// **Sem tela nenhuma conectada, quem toca o som é a preview** — isto é, o
+// próprio celular. Pedido do operador, e ele fecha um buraco que a v5.189
+// abriu ao remover a "mesa de som": ali o argumento era que o som é dos
+// DISPLAYS (a TV pela `Presentation`, as telas da rede pelo `<video>` delas), e
+// ele continua inteiro — só não responde ao caso em que **não há display
+// nenhum**. Nesse caso a projeção É a preview em tela cheia, e uma projeção
+// muda não é projeção: o louvor simplesmente não tocava em lugar nenhum.
 //
-// Some, e não fica desabilitado: um botão apagado num canto da preview seria
-// mais um elemento a decifrar durante o culto, e a explicação ("por que não
-// posso ligar o som?") não cabe num `title` que ninguém vai abrir. Sem telão
-// ele volta sozinho, no mesmo lugar de sempre.
-function renderStandaloneSeg() {
-  if (!pvSoundBtnEl) return;
-  pvSoundBtnEl.hidden = telaoConectado();
-  pvSoundBtnEl.classList.toggle('on', standalone);
-  pvSoundBtnEl.title = standalone
-    ? 'Som no celular LIGADO — tocar para desligar'
-    : 'Som no celular desligado — tocar para ligar (mesa de som)';
+// O QUE MUDA EM RELAÇÃO À MESA DE SOM, e é o que faz esta versão ser segura
+// onde aquela não era:
+//
+//  - **não é um modo, é uma CONSEQUÊNCIA.** Não há botão, não há preferência e
+//    não há nada a lembrar entre sessões: o estado é derivado da conexão, e por
+//    isso não existe o desencontro que matava a versão anterior — o operador
+//    esquecer a mesa ligada e o `<video>` deste WebView roubar o foco de áudio
+//    do Android do player do telão no meio do louvor. **Com qualquer tela
+//    conectada este aparelho está mudo, sempre**, e quem responde "há tela?" é
+//    a mesma função que o Modo Fácil já usa (`simpleDisplay`).
+//  - **a troca é automática nos dois sentidos.** A TV conecta no meio do
+//    louvor: o som desce em rampa aqui e sobe lá, pelo reenvio de cena que a
+//    reconexão já faz (`resendSceneToDisplay`). Ela cai: o som volta para cá.
+//
+// TELA, aqui, é a mesma pergunta do Modo Fácil (`simpleDisplay`) — a TV **ou**
+// uma tela da rede recebendo. Desde a v5.187 elas são a projeção quando não há
+// TV, e cada uma toca o próprio arquivo no `<video>` dela: contá-las é o que
+// impede o celular de duplicar o áudio da sala inteira.
+//
+// **Só no modo avançado**, como pedido. No Modo Fácil sem tela a cortina cobre
+// tudo e não há o que projetar (v5.203) — som saindo de um app bloqueado seria
+// a única coisa acontecendo atrás de uma tela que diz "conecte uma tela".
+let somLocal = false;          // a preview está tocando o som DESTE aparelho?
+let somLocalBloqueado = false; // o navegador recusou o som (ver `onBlocked`)
+
+// HÁ ALGUMA TELA RECEBENDO — a TV ou uma tela da rede.
+//
+// `telaoConectado()` responde só pela TV, e é a pergunta certa para o atraso da
+// preview e para o botão de espelhar. Para o SOM a pergunta é mais larga, e ela
+// já tem uma resposta única no app: `simpleDisplay()`. O nome é do Modo Fácil
+// porque foi lá que ela nasceu; delegar em vez de reescrever é o que impede as
+// duas de divergirem no primeiro caso de borda.
+function algumaTelaConectada() { return !!simpleDisplay(); }
+
+function somLocalDeveEstar() {
+  if (somLocalBloqueado) return false;
+  return appMode === 'full' && !algumaTelaConectada();
 }
 
-// A tela pode ser conectada COM A MESA DE SOM JÁ LIGADA — é o caso normal, aliás:
-// o operador chega, ouve o louvor pelo celular enquanto acerta as coisas, e só
-// então liga o dongle. Esconder o botão sem desligar o modo deixaria exatamente
-// o estado que este lote existe para impedir, e sem nenhum controle na tela para
-// desfazê-lo. Quem re-renderiza é o próprio `setStandalone`.
-function pushTelaoNoSom() {
-  if (telaoConectado() && standalone) { setStandalone(false); return; }
-  renderStandaloneSeg();
+// O ÚNICO ponto que mexe no mudo da preview. Chamado de onde o estado muda —
+// telas (`renderDisplayStatus`), transmissão (`lerEspelho`), modo do app
+// (`setAppMode`) e a janela do Display no navegador (`openWebDisplay`).
+function acertarSaidaDeAudio() {
+  const alvo = somLocalDeveEstar();
+  if (alvo === somLocal) return;
+  somLocal = alvo;
+  // A rampa curta mora no `stage` (ver `setForceMuted`): sem ela a troca seria
+  // um corte no talo, e um corte estala na caixa de som.
+  preview.setForceMuted(!somLocal);
+  diagC(somLocal ? 'som: neste aparelho' : 'som: nos displays');
 }
 
 // Fundo da letra sincronizada (Hinário 2022): 'black' (padrão) ignora as
@@ -1627,9 +1805,10 @@ function renderLyricsBgSeg() {
 }
 
 // Envia o comando ao display E aplica na preview (espelho) — YouTube usa seu
-// próprio player pequeno (acima); mídia comum continua no stage.js. O modo
-// "mesa de som" não altera nada aqui (ver setStandalone) — só a saída de
-// áudio da preview muda, a comunicação com o Display permanece normal.
+// próprio player pequeno (acima); mídia comum continua no stage.js. O mudo da
+// preview NÃO se decide aqui: ela é muda enquanto houver tela conectada e toca
+// o som deste aparelho quando não houver (v5.215, `acertarSaidaDeAudio`) — o
+// que viaja neste funil é o mesmo comando para os dois lados, como sempre.
 // A PREVIEW ATRASA JUNTO COM AS TELAS DA REDE, e o ponto de corte é aqui.
 //
 // Sem telão, as telas da rede SÃO o que a congregação vê — e elas chegam ~1 s
@@ -1660,7 +1839,8 @@ let filaPreviewTimer = null;
 function drenarPreview(tudo) {
   const agora = Date.now();
   while (filaPreview.length && (tudo || filaPreview[0].em <= agora)) {
-    aplicarNaPreview(filaPreview.shift().obj);
+    const passo = filaPreview.shift();
+    aplicarNaPreview(passo.obj, passo.item);
   }
   clearTimeout(filaPreviewTimer);
   filaPreviewTimer = null;
@@ -1680,42 +1860,75 @@ const FILA_PREVIEW_MAX = 24;
 
 function cmd(obj) {
   AVDB.sendCommand(obj);
-  const atraso = previewAtrasoMs();
-  if (atraso <= 0 && !filaPreview.length) { aplicarNaPreview(obj); return; }
-  filaPreview.push({ obj: obj, em: Date.now() + atraso });
+  // COM A PÁGINA ESCONDIDA A ILUSTRAÇÃO NÃO TEM PLATEIA — e atrasá-la ali é o
+  // pior dos dois mundos. O atraso existe para o operador não ver a preview
+  // responder antes das telas da rede; com o app fora da frente ninguém está
+  // comparando nada, e os `setTimeout` que fariam a fila escoar são justamente
+  // os que o Android estrangula. O resultado era a preview voltando do segundo
+  // plano com uma cena velha na mão, esperando um relógio que não corria.
+  //
+  // Escondida, a preview aplica na hora: é a posição mais próxima da verdade
+  // que ela pode ocupar, e é dela que o realinhamento da retomada parte.
+  const atraso = document.visibilityState === 'visible' ? previewAtrasoMs() : 0;
+  if (atraso <= 0) { drenarPreview(true); aplicarNaPreview(obj, currentItem); return; }
+  // O ITEM VIAJA COM O COMANDO (v5.180). `aplicarNaPreview` lia `currentItem`
+  // no instante do DRENO, e o dreno acontece até 2,5 s depois: dois toques
+  // dentro da janela do atraso (trocar de música, ou errar a linha e corrigir)
+  // faziam o `load` de A ser aplicado com o item B na mão — a preview montava a
+  // mídia certa pelo `mediaId` e decidia LETRA, YouTube e "mantém o texto?" pelo
+  // item errado. O comando é do passado por construção; o estado que ele carrega
+  // tem de ser o daquele passado também.
+  filaPreview.push({ obj: obj, item: currentItem, em: Date.now() + atraso });
   if (filaPreview.length > FILA_PREVIEW_MAX) { drenarPreview(true); return; }
   if (!filaPreviewTimer) drenarPreview(false);
 }
 
-function aplicarNaPreview(obj) {
+// `item` é o `currentItem` DE QUANDO O COMANDO SAIU, não o de agora — ver a
+// fila em `cmd`. Só ele: `pvTextActive` é estado da PRÓPRIA preview e já vive na
+// linha do tempo atrasada dela, então lê-se no dreno mesmo.
+function aplicarNaPreview(obj, item) {
   // O tempo volta a correr: destrava a letra congelada pelo fim natural.
   if (obj.type === 'load' || obj.type === 'play' || obj.type === 'seek') pvLyricsEnded = false;
+  // MÍDIA NOVA, TENTATIVA NOVA de som local: a recusa de autoplay de um
+  // navegador vale para o `play()` que a levou, não para a sessão inteira — e
+  // quem carregou esta veio de um toque, que é a ativação que faltava. No app
+  // isto nunca chega a valer (não há política de gesto ali). Ver `onBlocked`.
+  if (obj.type === 'load' && somLocalBloqueado) {
+    somLocalBloqueado = false;
+    acertarSaidaDeAudio();
+  }
   // Texto manual (Bíblia/Mensagem): overlay independente — espelha na preview.
   if (obj.type === 'text') { showPvText(obj); return; }
   if (obj.type === 'text-hide') { hidePvText(); return; }
-  const nowYoutube = !!(currentItem && currentItem.kind === 'youtube');
+  const nowYoutube = !!(item && item.kind === 'youtube');
   if (obj.type === 'load') {
     // Esconde a letra incondicionalmente (como o Display). O texto manual é um
     // overlay independente: só some ao carregar VISUAL; ÁUDIO toca por baixo e
     // mantém o texto (independência áudio × texto).
     hidePvLyrics(true);
-    const keepText = pvTextActive && currentItem && currentItem.kind === 'audio';
+    const keepText = pvTextActive && item && item.kind === 'audio';
     if (!keepText) hidePvText(false); // o load abaixo já monta a cena nova
     // preview.handle() sempre roda primeiro: mantém preview.getCurrent()/
     // fallback de thumbnail em dia (stage.js já sabe lidar com kind=youtube,
     // só não toca o vídeo) — mesmo quando o player real assume por cima.
     preview.handle(obj);
-    if (nowYoutube) loadYtPreview(currentItem, obj.view);
-    else if (ytPreview) dropYtPreview();
     // Só mostra a letra do áudio se NÃO houver texto manual em cena (precedência).
-    if (!keepText && currentItem && currentItem.kind === 'audio' && Array.isArray(currentItem.lyrics) && currentItem.lyrics.length) showPvLyrics(currentItem);
+    if (!keepText && item && item.kind === 'audio' && Array.isArray(item.lyrics) && item.lyrics.length) showPvLyrics(item);
     return;
   }
   if (obj.type === 'clear') {
     hidePvLyrics(true);
     hidePvText(false); // a cena inteira está sendo encerrada; nada a restaurar
-    if (ytPreview) dropYtPreview();
     preview.handle(obj);
+    return;
+  }
+  // PARAR SÓ A MÍDIA: a ilustração segue o telão camada por camada (v5.178). O
+  // `hidePvText` NÃO é chamado — é justamente o texto que continua no ar —, e a
+  // escolha entre as duas saídas do stage repete a do Display, lida aqui pelo
+  // `pvTextActive`, que é o espelho local do `textActive` de lá.
+  if (obj.type === 'media-clear') {
+    hidePvLyrics(true);
+    preview.handle({ type: pvTextActive ? 'clear-media' : 'clear' });
     return;
   }
   if (obj.type === 'lyricsbg') {
@@ -1728,7 +1941,6 @@ function aplicarNaPreview(obj) {
     preview.handle(obj); // cortina/config compartilhada — sempre, independe do youtube
     return;
   }
-  if (nowYoutube && ytPreview) { ytPreviewHandle(obj); return; }
   preview.handle(obj);
 }
 
@@ -1738,8 +1950,7 @@ function previewTick() {
   // O conjunto é o MESMO de `clearManualText` — as cinco sessões, incluindo
   // cronômetro e sorteio; listar só três deixava o tick rodando sobre uma
   // preview sem mídia durante uma contagem regressiva.
-  if ((bibleSession || msgSession || lyricSession || chronoSession || drawSession)
-    && !preview.getCurrent()) return;
+  if (cenaDeRoteiroNoAr() && !preview.getCurrent()) return;
   // Itens YouTube tocam só no Display (player real): a UI de transporte é
   // dirigida pelo display-status remoto, não pela preview local.
   if (currentItem && currentItem.kind === 'youtube') return;
@@ -1747,6 +1958,14 @@ function previewTick() {
   // só dirige a UI/letra na ausência dele; enquanto ele estiver ativo, quem
   // atualiza tudo isso é o handler de 'display-status' (AVDB.onCommand).
   if (displayActive()) return;
+  // MÍDIA FORA DE CENA NÃO PINTA TRANSPORTE (v5.179) — a outra metade da guarda
+  // do handler de `display-status`, e ela precisa estar nos DOIS lugares porque
+  // são duas fontes independentes: sem telão nem espelho, quem alimenta a barra
+  // é este tick. `preview.getCurrent()` continua devolvendo o registro durante
+  // todo o esmaecimento do `clearFaded` (é o mesmo fato que o comentário de
+  // `midiaNoAr` descreve para o ▶), então o Parar zerava a barra e o tick
+  // seguinte a repunha no ponto antigo, com o ícone de pausa de volta.
+  if (!midiaNoAr) return;
   setPlaying(preview.isPlaying());
   const dur = preview.getDuration();
   durTimeEl.textContent = fmtTime(dur);
@@ -1783,12 +2002,11 @@ const drawReading = createStage.drawReading;
 const DRAW_FRAME_MS = createStage.DRAW_FRAME_MS;
 
 // ===== Letra sincronizada na preview — mesma visualização do Display =====
-// A preview já espelha o Display para imagem/vídeo (stage.js) e YouTube
-// (segundo player, ver loadYtPreview) — letra sincronizada segue o mesmo
-// princípio universal do sistema: o operador vê no celular exatamente o que
-// está sendo exibido no telão.
+// A preview já espelha o Display para imagem e vídeo (stage.js) — letra
+// sincronizada segue o mesmo princípio universal do sistema: o operador vê no
+// celular exatamente o que está sendo exibido no telão.
 let pvLyrics = null;
-let pvLyricsMeta = null; // { hymnName, hymnTrack } do item atual, pro slide de capa
+let pvLyricsMeta = null; // { hymnName, hymnTrack, hymnAlbum } do item atual, pro slide de capa
 let pvLyricSlideIdx = -1;
 let pvLyricLoadSeq = 0;
 let pvLyricImgKey = null;
@@ -1827,7 +2045,7 @@ function hidePvLyrics(fade) {
 
 function showPvLyrics(rec) {
   pvLyrics = rec.lyrics;
-  pvLyricsMeta = { hymnName: rec.hymnName, hymnTrack: rec.hymnTrack };
+  pvLyricsMeta = { hymnName: rec.hymnName, hymnTrack: rec.hymnTrack, hymnAlbum: rec.hymnAlbum };
   pvLyricSlideIdx = -1;
   pvLayerIn(pvLyricsEl);
   applyPvLyricsBgClass();
@@ -1851,18 +2069,29 @@ function renderPvLyricSlide(idx) {
 
   pvLyricsContentEl.classList.toggle('cover', !!slide.cover);
   if (slide.cover) {
+    // Espelha o cartão de capa do telão peça a peça (ver `renderLyricSlide` em
+    // display.js, que é onde o desenho está explicado). A preview existe para
+    // mostrar o que a congregação vê — uma capa diferente aqui seria uma
+    // ilustração errada, e é justamente na capa que o operador confere se
+    // pegou o hino certo.
     const meta = pvLyricsMeta || {};
-    pvLyricsLineEl.textContent = (meta.hymnTrack ? meta.hymnTrack + '. ' : '') + (meta.hymnName || '');
-    pvLyricsAuxEl.hidden = true;
+    pvLyricsNumEl.textContent = meta.hymnTrack ? String(meta.hymnTrack) : '';
+    pvLyricsNumEl.hidden = !pvLyricsNumEl.textContent;
+    pvLyricsLineEl.textContent = meta.hymnName || '';
+    pvLyricsAuxEl.textContent = meta.hymnAlbum || '';
+    pvLyricsAuxEl.hidden = !pvLyricsAuxEl.textContent;
   } else {
+    pvLyricsNumEl.hidden = true;
     pvLyricsLineEl.textContent = slide.text || '';
     pvLyricsAuxEl.textContent = slide.auxText || '';
     pvLyricsAuxEl.hidden = !slide.auxText;
   }
   // Trecho sem letra (solo, introdução, instrumental): a moldura esmaece e
   // some, deixando só a imagem de fundo — mesmo comportamento do telão.
-  pvLyricsContentEl.classList.toggle('nolyric', !pvLyricsLineEl.textContent.trim() && pvLyricsAuxEl.hidden);
+  pvLyricsContentEl.classList.toggle('nolyric',
+    !pvLyricsLineEl.textContent.trim() && pvLyricsAuxEl.hidden && pvLyricsNumEl.hidden);
   pvFadeIn(pvLyricsLineEl);
+  if (!pvLyricsNumEl.hidden) pvFadeIn(pvLyricsNumEl);
   if (!pvLyricsAuxEl.hidden) pvFadeIn(pvLyricsAuxEl);
 
   applyPvLyricsImage(slide);
@@ -1947,8 +2176,6 @@ function hidePvText(restore = true) {
 // no slide correspondente ao instante atual — por authoritativeTime(), que é
 // a posição do Display quando ele é a fonte de verdade.
 function restorePvSceneAfterText() {
-  // YouTube segue tocando por baixo do cartão e reaparece sozinho.
-  if (ytPreview) return;
   const cur = preview.getCurrent();
   // NADA de fato em cena — nenhuma mídia carregada, ou a que havia já terminou
   // (só na playlist, ou tocada antes). O ponto de repouso é o WALLPAPER, não o
@@ -1961,7 +2188,8 @@ function restorePvSceneAfterText() {
   if (!cur || preview.hasEnded()) { preview.coverIn(false); return; }
   if (cur.kind !== 'audio' || !Array.isArray(cur.lyrics) || !cur.lyrics.length) return;
   showPvLyrics(cur);
-  updatePvLyricSlide(authoritativeTime());
+  // O tempo da ILUSTRAÇÃO, não o da projeção — ver `tempoDaPreview`.
+  updatePvLyricSlide(tempoDaPreview());
 }
 
 // Texto VIVO na preview (cronômetro e sorteio): mesmo desenho do Display (ver
@@ -2504,6 +2732,47 @@ function applyTitleMarquee() {
 const POS_TOL_MS = 1500;
 let lastScene = '';
 let lastPosMs = 0, lastPosAt = 0, lastPosPlaying = false;
+/**
+ * QUAIS BOTÕES A NOTIFICAÇÃO MOSTRA NESTA CENA — e por que a decisão é daqui.
+ *
+ * Eram cinco fixos (⏮ · play/pause · ⏭ · parar · cortina), e eles serviam a UMA
+ * cena: mídia tocando. Nas outras eles não somem, eles MENTEM — com a contagem
+ * regressiva de abertura no ar, sem louvor nenhum, o play/pause não tem o que
+ * tocar e ⏮/⏭ não têm por onde andar; os três ficavam ocupando o modo compacto
+ * (que só mostra três) e roubando o alvo de toque das duas ações que de fato
+ * existem ali: cobrir o telão e parar.
+ *
+ * A escolha é do LADO WEB por invariante (a 5): a mesma razão que mantém toda
+ * decisão de transporte aqui. Quem sabe se "próxima estrofe" faz sentido agora
+ * é esta função, que tem a cena inteira na mão; uma cópia dessa regra em Kotlin
+ * envelheceria à parte desta.
+ *
+ * As três perguntas, e cada uma tem um dono claro:
+ *
+ *  - **play/pause** só existe com mídia que tenha TEMPO (`temTempo`, a mesma
+ *    régua da barra de progresso). Imagem, versículo, mensagem e cronômetro não
+ *    têm o que pausar.
+ *  - **⏮/⏭** existem quando há um EIXO para andar: uma cena com slides (`who`,
+ *    de `slideTarget`) ou uma mídia atual, que é o que faz o par trocar de item
+ *    na lista. Um cronômetro sozinho não tem nem um nem outro.
+ *  - **cortina e parar** existem sempre: qualquer coisa que esteja no telão
+ *    pode ser coberta, e qualquer cena pode ser encerrada.
+ *
+ * A ORDEM IMPORTA: o shell mostra os três primeiros no modo compacto (é ele que
+ * calcula os índices a partir desta lista). Com transporte, os três primeiros
+ * são o transporte; sem ele, sobem a cortina e o parar — que passam a ser os
+ * dois botões grandes do cartão.
+ */
+function acoesDaNotificacao(who, temTempo) {
+  const eixo = !!who || !!currentId;
+  const a = [];
+  if (eixo) a.push('prev');
+  if (temTempo) a.push('playpause');
+  if (eixo) a.push('next');
+  a.push('view', 'stop');
+  return a;
+}
+
 function pushNowPlaying() {
   if (!window.__NATIVE__) return;
   const who = slideTarget();
@@ -2539,6 +2808,8 @@ function pushNowPlaying() {
   // que não significa nada.
   const temTempo = !seekEl.disabled;
   const cena = {
+    // OS BOTÕES DA NOTIFICAÇÃO (v5.231). Ver `acoesDaNotificacao`.
+    actions: acoesDaNotificacao(who, temTempo),
     active,
     title: npNameInnerEl.textContent || '',
     subtitle,
@@ -2562,7 +2833,12 @@ function pushNowPlaying() {
   // (1x tocando), então reenviar a cada segundo só para mexer o cursor seria
   // desperdício. O que precisa chegar é toda MUDANÇA de estado.
   const chave = JSON.stringify([cena.active, cena.title, cena.subtitle,
-    cena.playing, cena.slideMode, cena.wallpaper, cena.durationMs]);
+    cena.playing, cena.slideMode, cena.wallpaper, cena.durationMs,
+    // O CONJUNTO DE BOTÕES entra na chave (v5.231): sem ele, uma cena que muda
+    // só de eixo — o cronômetro entrando por cima de uma imagem, por exemplo —
+    // seria deduplicada e o cartão ficaria com os botões da cena anterior. Um
+    // botão que sobrou é pior que um que faltou: ele responde.
+    cena.actions.join(',')]);
   const agora = Date.now();
   const extrapolado = lastPosAt
     ? lastPosMs + (lastPosPlaying ? agora - lastPosAt : 0)
@@ -2757,7 +3033,8 @@ function renderPlaylist() {
   }
   plItems.forEach((item) => {
     const li = document.createElement('li');
-    li.className = 'row-item' + (item.id === currentId ? ' active' : '');
+    li.className = 'row-item' + (linhaAtiva(item.id) ? ' active' : '')
+      + (linhaNoAr(item.id) ? ' no-ar' : '');
     li.dataset.id = item.id;
 
     const row = document.createElement('div');
@@ -3744,10 +4021,15 @@ const ROTULO_PADRAO = { em: 'na lista', para: 'à lista' };
 // o nome do destino como o app fala dele por fora (é o que viaja nas ações e no
 // `ytAcao`); `lista` é o nome no banco, que não se confunde com ele — o
 // Cronograma é a lista `imports` desde antes de se chamar Cronograma.
+// SEM SUBTÍTULO (v5.195). Os três destinos se chamam Playlist, Cronograma e
+// Favoritos — que são NOMES DE ABA deste app, na barra que o operador usa todo
+// domingo. Escrever embaixo de cada um o que ele é ("A lista do culto") é
+// explicar a própria navegação para quem já está navegando nela, e era metade
+// da altura desta folha.
 const DESTINOS = [
-  { chave: 'playlist', lista: 'playlist', rotulo: 'Playlist', sub: 'Entra na fila do que está tocando agora' },
-  { chave: 'cronograma', lista: 'imports', rotulo: 'Cronograma', sub: 'A lista do culto' },
-  { chave: 'favoritos', lista: 'favs', rotulo: 'Favoritos', sub: 'O que se usa toda semana, sempre à mão' },
+  { chave: 'playlist', lista: 'playlist', rotulo: 'Playlist' },
+  { chave: 'cronograma', lista: 'imports', rotulo: 'Cronograma' },
+  { chave: 'favoritos', lista: 'favs', rotulo: 'Favoritos' },
 ];
 function destinoPorChave(chave) { return DESTINOS.find((d) => d.chave === chave) || null; }
 function listaDoDestino(chave) {
@@ -3898,16 +4180,19 @@ async function criarCue(cue, data, nome, destino, btn) {
 // usava, então o comportamento (incluindo ⏮/⏭, o rótulo do now-playing e a
 // notificação nativa) é idêntico ao de projetar pela aba — porque É a mesma
 // projeção.
+// O `rec.id` DESCE JUNTO porque é ele que diz em qual LINHA escrever quando a
+// projeção não dá (ver `falharNoItem`): estas quatro falhas são sobre um item
+// específico de uma lista que está na tela, e a resposta pertence a ele.
 async function playCue(rec) {
   if (!isCue(rec)) return;
   const d = rec.data || {};
   switch (rec.cue) {
-    case 'verse': return projetarVersiculoRef(d);
-    case 'message': return projetarMensagemCue(d);
-    case 'songlyrics': return projetarLetraCue(d);
+    case 'verse': return projetarVersiculoRef(d, rec.id);
+    case 'message': return projetarMensagemCue(d, rec.id);
+    case 'songlyrics': return projetarLetraCue(d, rec.id);
     case 'chrono': return projetarTempoCue(d);
     case 'draw': return projetarSorteioCue(d);
-    case 'group': return abrirPacote(d);
+    case 'group': return abrirPacote(d, rec.id);
     default: return undefined;
   }
 }
@@ -3917,7 +4202,7 @@ async function playCue(rec) {
 // reaproveita `bibleGotoChapter` de propósito: aquela exige uma sessão já
 // aberta (lê `s.versionId` dela), e aqui a sessão é justamente o que não
 // existe — o operador pode estar em qualquer aba quando toca no roteiro.
-async function projetarVersiculoRef(ref) {
+async function projetarVersiculoRef(ref, cueId) {
   // A VERSÃO EM USO HOJE tem precedência sobre a que estava em uso quando o
   // item foi guardado: a referência é do TEXTO ("Salmo 23:1"), não da tradução,
   // e um roteiro montado há um mês não pode arrastar de volta uma versão que o
@@ -3925,14 +4210,14 @@ async function projetarVersiculoRef(ref) {
   // A guardada fica como RESERVA, e é ela que salva o caso offline: a versão de
   // hoje pode não ter este capítulo em cache, e a de então provavelmente tem.
   const versoes = [bibleVersionId, ref.versionId].filter((v, i, a) => v && a.indexOf(v) === i);
-  if (!versoes.length) { avisar('Escolha uma versão da Bíblia primeiro', 'erro'); return; }
+  if (!versoes.length) { falharNoItem(cueId, 'nenhuma versão da Bíblia baixada'); return; }
   let verses = null;
   let versao = versoes[0];
   for (const v of versoes) {
     try { verses = await fetchBibleChapterCached(v, ref.bookIdx, ref.chapter); versao = v; break; }
     catch (_) { /* tenta a próxima */ }
   }
-  if (!verses || !verses.length) { avisar('Sem este capítulo no aparelho (e sem internet para baixar)', 'erro'); return; }
+  if (!verses || !verses.length) { falharNoItem(cueId, 'capítulo não está no aparelho'); return; }
   const book = Bible.BOOKS[ref.bookIdx];
   if (!book) return;
   // Pelo NÚMERO do versículo, não pelo índice: capítulos com numeração
@@ -3960,12 +4245,16 @@ async function projetarVersiculoRef(ref) {
 // mensagem, o roteiro não pode ficar mudo no meio do culto: projeta o texto
 // guardado, sem sessão de navegação (o `slideTarget` devolve null e os botões
 // voltam a ser de mídia, que é a leitura honesta — não há lista para percorrer).
-function projetarMensagemCue(d) {
+function projetarMensagemCue(d, cueId) {
   const i = d.msgId ? messages.findIndex((m) => m.id === d.msgId) : -1;
   if (i >= 0) { projectMessage(i); return; }
   const texto = String(d.text || '').trim();
-  if (!texto) { avisar('A mensagem deste item foi excluída', 'erro'); return; }
+  if (!texto) { falharNoItem(cueId, 'a mensagem foi excluída'); return; }
   clearManualText();
+  // SEM SESSÃO DE NAVEGAÇÃO, MAS NÃO SEM ESTADO: sem esta linha o texto ficava
+  // projetado e invisível para o resto do app — o segundo toque não o
+  // reconhecia como no ar, e só o Parar o tirava. Ver `cenaDeRoteiroNoAr`.
+  textoAvulsoNoAr = true;
   view = 'visual';
   persistCurrent();
   cmd({ type: 'text', mode: 'message', main: texto, sub: '', view: 'visual' });
@@ -3975,10 +4264,10 @@ function projetarMensagemCue(d) {
 }
 
 // ---- letra avulsa ----
-async function projetarLetraCue(d) {
+async function projetarLetraCue(d, cueId) {
   const coll = allCollections().find((c) => c.id === d.collId);
   const s = coll ? collSongs(d.collId).find((x) => String(x.id_music) === String(d.songId)) : null;
-  if (!coll || !s) { avisar('Esta música não está mais no acervo', 'erro'); return; }
+  if (!coll || !s) { falharNoItem(cueId, 'a música saiu do acervo'); return; }
   await projectSongLyricsOnly(coll, s);
 }
 
@@ -4022,10 +4311,10 @@ function projetarSorteioCue(d) {
 // abertura entrando com um toque, em vez de quatro itens montados à mão a cada
 // semana. Os ids que não existirem mais são simplesmente pulados (uma mídia
 // excluída não pode impedir o resto do bloco de tocar).
-async function abrirPacote(d) {
+async function abrirPacote(d, cueId) {
   const ids = Array.isArray(d.ids) ? d.ids : [];
   const recs = (await Promise.all(ids.map((id) => AVDB.getMedia(id)))).filter(Boolean);
-  if (!recs.length) { avisar('As mídias deste pacote não estão mais no aparelho', 'erro'); return; }
+  if (!recs.length) { falharNoItem(cueId, 'as mídias saíram do aparelho'); return; }
   await AVDB.listSet('playlist', recs.map((r) => r.id));
   plItems = recs;
   renderPlaylist();
@@ -4054,10 +4343,12 @@ async function projectSongLyricsOnly(coll, s) {
   try {
     let stanzas = await lyricStanzaTexts(coll, s);
     if (!stanzas.length) {
-      await ensureSongDownloaded(coll, s, { toast: !bg.visivel });
+      await ensureSongDownloaded(coll, s);
       stanzas = await lyricStanzaTexts(coll, s);
     }
-    if (!stanzas.length) { avisar('Letra indisponível para esta música', 'erro'); return; }
+    // O MESMO CARTÃO que estava dizendo "Baixando…" diz por que não deu — ele
+    // é sobre a preview, que é onde a letra apareceria.
+    if (!stanzas.length) { bg.falhar('esta música não tem letra'); return; }
     clearBibleSession(); clearMsgSession(); clearChronoSession(); clearDrawSession();
     lyricSession = { title: songLabel(coll, s), stanzas, idx: 0, projecting: true };
     projectLyricStanza(0);
@@ -4101,6 +4392,27 @@ function lyricStep(delta) {
 function clearManualText() {
   clearBibleSession(); clearMsgSession(); clearLyricSession();
   clearChronoSession(); clearDrawSession();
+  textoAvulsoNoAr = false;
+  // A Camada de Texto saiu: nenhuma cena de roteiro está mais no ar, venha ela
+  // de onde vier. Ver `cueNoArId`.
+  cueNoArId = '';
+}
+
+/**
+ * Há uma Camada de Texto no ar? As cinco sessões — mais o texto AVULSO.
+ *
+ * O avulso é a mensagem de roteiro cuja mensagem original foi apagada da lista:
+ * `projetarMensagemCue` projeta o texto guardado e, de propósito, **sem sessão
+ * de navegação** (não há lista para percorrer, e os botões voltam a ser de
+ * mídia). Só que "sem sessão de navegação" virou "sem sessão nenhuma", e sem
+ * sessão nenhuma esta função respondia `false` sobre uma coisa que estava
+ * projetada: o segundo toque não a reconhecia, e a única saída voltava a ser o
+ * Parar — que leva o louvor de fundo junto. É o mesmo defeito da regra do
+ * `currentId`, por outra porta.
+ */
+function cenaDeRoteiroNoAr() {
+  return !!(bibleSession || msgSession || lyricSession || chronoSession
+    || drawSession || textoAvulsoNoAr);
 }
 
 // Projeta a mensagem de índice `idx` (Display + preview). Encerra a Bíblia (só
@@ -4811,10 +5123,28 @@ function pushDraw() {
   cmd({ type: 'text', mode: 'draw', draw: drawDescriptor(), sub: draw.label || '', view: 'visual' });
 }
 
+// O SORTEIO FALA NO PRÓPRIO PAINEL (v5.207).
+//
+// "Escreva as opções antes de sortear" e "todas já saíram" são respostas ao
+// botão de sortear, e ele mora num painel da aba Ferramentas que está inteiro
+// na tela. A frase ia para uma faixa flutuante no topo; agora ela ocupa o
+// lugar do VALOR sorteado — que é exatamente o que o operador está olhando
+// quando toca em sortear, e o que ele teria recebido se houvesse o que sortear.
+function naoResta(texto) {
+  // `#drawRead` é o mostrador do sorteio — o mesmo que exibe o número/nome
+  // sorteado e a animação do rolo (ver `renderDrawReadout`). Ele é redesenhado
+  // a cada sorteio, então a frase não precisa ser limpa: o próximo sorteio
+  // válido a substitui pelo resultado.
+  const el = document.getElementById('drawRead');
+  if (!el) return;
+  el.classList.remove('rolling');
+  el.textContent = texto;
+}
+
 function doDraw() {
   const v = draw.kind === 'text' ? pickText() : pickNumber();
   if (v == null) {
-    flash(draw.kind === 'text' && !draw.pool.length
+    naoResta(draw.kind === 'text' && !draw.pool.length
       ? 'Escreva as opções antes de sortear.'
       : 'Todas as opções já saíram. Toque em "Reiniciar" para sortear de novo.');
     return;
@@ -5291,8 +5621,12 @@ function renderLibrary() {
   items.forEach((item) => {
     const li = document.createElement('li');
     // Bug fix: active highlight only when not in selection mode
-    const isActive = !selectionMode && item.id === currentId;
-    li.className = 'lib-item' + (isActive ? ' active' : '') + (selected.has(item.id) ? ' selected' : '');
+    const isActive = !selectionMode && linhaAtiva(item.id);
+    // NO AR é outra coisa que "atual" — ver `linhaNoAr`. Na seleção múltipla ele
+    // some junto com o realce: ali a tela fala de escolha, não de projeção.
+    const noAr = !selectionMode && linhaNoAr(item.id);
+    li.className = 'lib-item' + (isActive ? ' active' : '') + (noAr ? ' no-ar' : '')
+      + (selected.has(item.id) ? ' selected' : '');
     li.dataset.id = item.id;
 
     const row = document.createElement('div'); row.className = 'row';
@@ -5308,6 +5642,11 @@ function renderLibrary() {
     const name = document.createElement('span'); name.className = 'row-name'; name.textContent = item.name;
     const sub = document.createElement('span'); sub.className = 'row-sub';
     sub.textContent = subtituloItem(item);
+    pintarSubNoAr(sub, noAr);
+    // A linha pode estar sendo remontada COM uma falha recente em cena (a lista
+    // se redesenha por vários motivos); sem isto, o motivo sumiria no primeiro
+    // render e o operador ficaria sem resposta.
+    pintarFalha(sub, item.id);
     textWrap.append(name, sub);
     // Item de player do YouTube num shell que sabe baixar: o botão converte o
     // link num arquivo local. Quem diz que ele DEPENDE DO YOUTUBE agora é o
@@ -5378,6 +5717,34 @@ function renderLibrary() {
     // fora da seleção múltipla porque ali o alvo é o conjunto, não a linha.
     const star = selectionMode ? null : favBtn(item.id, item.name);
 
+    // O PARAR TOMA O LUGAR DE MOVER E FAVORITAR ENQUANTO A LINHA ESTIVER NO AR.
+    //
+    // O segundo toque no corpo da linha já tira do ar desde a v5.165, e o selo
+    // "● No ar" já diz que ela está — mas os dois botões da direita seguiam
+    // oferecendo outra coisa (arrastar para reordenar, favoritar) na única
+    // linha em que a decisão do operador é uma só. Trocá-los é o que faz
+    // QUALQUER toque naquela linha significar a mesma coisa, que é o pedido:
+    // não há mais como mirar o ✕ e acertar a estrela.
+    //
+    // A troca é por CSS (`.lib-item.no-ar`), e não por remontar a linha: quem
+    // liga e desliga o estado é `marcarNoAr`, que só troca classes — e é ele
+    // que roda a cada `display-status`. Fazer cirurgia de DOM ali seria
+    // recriar botões (e perder listeners) quatro vezes por segundo.
+    let stopBtn = null;
+    if (!selectionMode) {
+      stopBtn = document.createElement('button');
+      stopBtn.className = 'row-btn row-stop';
+      stopBtn.title = 'Tirar do ar';
+      // O MESMO glifo do Parar do transporte (`&#xe047;` no `index.html`),
+      // escrito por escape: é o único do app que nasce fora do mapa `ICON`,
+      // porque ele não é um símbolo NOVO — é o de lá, na linha.
+      stopBtn.appendChild(msym(''));
+      stopBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        retirarDoAr(item);
+      });
+    }
+
     // Item que JÁ existe e está sendo baixado (converter um link em arquivo):
     // o aviso vai nele mesmo, não na preview.
     const dl = libBaixando.get(item.id);
@@ -5399,6 +5766,10 @@ function renderLibrary() {
     // continuar desenhando "baixar" ao lado de um anel girando é oferecer a
     // ação que está justamente em curso.
     if (ytDl && !dl) parts.push(ytDl);
+    // O Parar entra ANTES da estrela e do arrastar, no lugar que eles ocupam: é
+    // ele que aparece quando os dois somem (ver `.lib-item.no-ar` na folha), e
+    // a mão do operador não pode ter de mudar de destino conforme o estado.
+    if (stopBtn) parts.push(stopBtn);
     if (star) parts.push(star);
     if (addBtn) parts.push(addBtn);
     if (activeTab !== 'folders') parts.push(handle);
@@ -5639,6 +6010,41 @@ async function desnumerarAlbunsBaixados() {
   }
 }
 
+// O ÁLBUM DA CAPA, PARA A BIBLIOTECA QUE JÁ EXISTE (v5.220).
+//
+// A v5.219 pôs o nome da coleção no registro em dois pontos — no download e na
+// varredura da sincronização — e os dois estão certos e os dois erram o alvo: a
+// música do operador **já está baixada**, e uma coleção completa não é
+// re-sincronizada. O relato foi exatamente esse: tocar um hino do hinário e a
+// capa não mostrar "Hinário Adventista 2022". O dado nunca chegaria sozinho.
+//
+// Este é o preenchimento que faltava, no mesmo molde do `desnumerarAlbunsBaixados`
+// logo acima: uma passagem, marcada em estado, depois de `loadCollections()` (é
+// dele que sai o nome). O `folder` do registro é o id da coleção — a ligação já
+// existia, só não estava sendo lida.
+//
+// Ele CORRIGE além de preencher (compara com o nome atual em vez de só olhar se
+// está vazio): uma coleção renomeada na origem deixaria capas dizendo o nome
+// velho, e o custo de conferir é o mesmo.
+const MIG_ALBUM_CAPA = 'migAlbumDaCapa';
+async function preencherAlbunsDosHinos() {
+  if (await AVDB.getState(MIG_ALBUM_CAPA)) return;
+  try {
+    const nomes = new Map(allCollections().map((c) => [c.id, c.name]));
+    const arquivos = await AVDB.filesAll();
+    for (const rec of arquivos) {
+      const nome = nomes.get(rec.folder);
+      if (!nome || rec.hymnAlbum === nome) continue;
+      rec.hymnAlbum = nome;
+      await AVDB.fileAdd(rec);
+    }
+    await AVDB.setState(MIG_ALBUM_CAPA, 1);
+  } catch (_) {
+    // Mesma regra da passagem acima: sem a marca, a próxima abertura tenta de
+    // novo. A capa sem a linha do álbum é a capa da v5.218 — não quebra nada.
+  }
+}
+
 // A aba Álbuns espelha a classificação do banco: **categoria → álbum**, na
 // ordem que o próprio banco define (`order`), com os hinários num grupo fixo
 // no topo. Antes era uma lista plana de todos os álbuns em ordem de descoberta
@@ -5764,18 +6170,38 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
   // renderAcervoTotal) — é a ação de maior alcance da tela e estava rolando
   // junto com a lista, saindo de vista assim que se descia um pouco.
   if (!(opts && opts.semTotal)) {
-    const todas = allCollections().filter((c) => !isHymnalAlbum(c));
+    // A SÉRIE FICA DE FORA (v5.230): "Baixar toda a biblioteca" somaria ~52
+    // vídeos de ~300 MB a um botão que o operador aperta pensando em louvor. O
+    // contador dela também sai — um total que promete o que o botão não faz
+    // seria a pior das duas metades.
+    const todas = allCollections().filter((c) => !isHymnalAlbum(c) && !ehSerie(c));
     if (todas.length > 1) header('Toda a biblioteca', todas, true, { confirmScale: true });
   }
 
-  const fixed = FIXED_COLLECTIONS.filter((c) => byId.has(c.id));
+  // O GRUPO DO TOPO são as coleções FIXAS: os hinários e as séries (v5.229).
+  //
+  // A v5.228 acrescentou a série ao `allCollections()` e parou aí — e
+  // `allCollections()` alimenta as CONTAS (peso, "toda a biblioteca", busca),
+  // não o desenho. Os três grupos desenhados são estes: as fixas, as categorias
+  // de álbuns e os álbuns órfãos; uma coleção que não é `FIXED_COLLECTIONS` nem
+  // álbum do catálogo **não caía em nenhum**. O card era construído, entrava no
+  // `byId`, contava no peso — e não aparecia em lugar nenhum da tela.
+  //
+  // É a lição da v5.220 outra vez, num lugar novo: **acrescentar ao lugar em
+  // que o dado NASCE não o entrega a quem o MOSTRA.** O que fecha a classe é o
+  // grupo do topo passar a ser "as fixas", que é o que ele sempre quis dizer,
+  // em vez de uma lista literal.
+  const seriesFixas = serieCollections();
+  const fixed = FIXED_COLLECTIONS.concat(seriesFixas).filter((c) => byId.has(c.id));
   if (fixed.length) {
-    // **Os hinários NÃO baixam em lote.** São as duas maiores coleções do
-    // acervo (~1.100 músicas juntas): um botão só disparando as duas é um
-    // download que ninguém consegue dimensionar antes de tocar, e que não dá
-    // para parar pela metade sem perder o outro. Cada um baixa pelo próprio
-    // card (o botão na barra). O contador do grupo fica — ele informa.
-    header('Hinários', fixed, true, { semBotao: true });
+    // **Nem os hinários nem as séries baixam em lote.** São as maiores coleções
+    // do acervo (~1.100 músicas nos dois hinários; ~52 vídeos numa série, que
+    // em 1080p passam de vários GB): um botão só disparando tudo é um download
+    // que ninguém consegue dimensionar antes de tocar, e que não dá para parar
+    // pela metade sem perder o resto. Cada um baixa pelo próprio card (o botão
+    // na barra). O contador do grupo fica — ele informa.
+    const temSerie = fixed.some((c) => c.kind === 'serie');
+    header(temSerie ? 'Hinários e séries' : 'Hinários', fixed, true, { semBotao: true });
     fixed.forEach((coll) => { alvo.appendChild(renderCollectionCard(coll)); any = true; });
   }
 
@@ -5923,7 +6349,13 @@ function renderCollectionCard(coll, ctx) {
       alternarAcordeao();
     });
     bar.appendChild(cfg);
-  } else if (u.syncBusy || !complete) {
+  } else if ((u.syncBusy || !complete) && !(ehLink(coll) && total > 0)) {
+    // **O QUE É LINK NÃO BAIXA EM LOTE** (v5.230). São ~52 vídeos de ~300 MB — o
+    // "download direto" que o operador pediu para não existir, na maior escala
+    // que este app tem. Quem quiser um episódio offline o manda ao Cronograma
+    // ou aos Favoritos pela folha, que é o caminho do YouTube. O botão continua
+    // aparecendo enquanto NÃO há índice (`total === 0`): ali ele não baixa
+    // nada, ele busca a lista — que é justamente o que falta na tela.
     const dl = document.createElement('button');
     dl.className = 'coll-bar-dl' + (u.syncBusy ? ' busy' : '');
     dl.title = u.syncBusy ? 'Cancelar o download'
@@ -6184,49 +6616,20 @@ function buildCollectionOptions(coll, collOptsEl) {
   const u = ui(coll.id);
 
   // A LINHA DE STATUS SAIU DAQUI (v5.73). Parada, ela repetia numa linha
-  // inteira o que o chip abaixo já diz ("Completo offline", "Parcial", "Não
-  // sincronizado"); em movimento, repetia PALAVRA POR PALAVRA o
+  // inteira o que o estado ao lado do botão já diz ("Completo offline",
+  // "Parcial", "Não sincronizado"); em movimento, repetia PALAVRA POR PALAVRA o
   // "Baixando 2 de 4…" que a barra do card mostra dois centímetros acima — e a
   // barra é fixa no topo do aberto, então ela nunca sai de vista enquanto se
   // lê o painel.
-
-  const stats = document.createElement('div'); stats.className = 'hymnal-card-stats';
-
-  // UM chip para as duas informações (v5.73): quantas faixas estão no aparelho
-  // e o que isso significa. Separadas, "4/4" e "Completo offline" eram a mesma
-  // frase dita duas vezes — e a segunda ainda ocupava a largura toda.
-  const sinc = document.createElement('div');
-  sinc.className = 'hymnal-stat sinc' + (complete ? ' done' : '');
-  const sLabel = document.createElement('label'); sLabel.textContent = 'Sincronizados';
-  const sVal = document.createElement('b');
-  if (complete) sVal.innerHTML = checkIconSvg();
-  // O texto num <span> porque o <b> é flex (por causa do ✓): num contêiner
-  // flex o texto solto vira item anônimo e o `text-overflow` do pai não o
-  // alcança — o nome de um álbum longo cortaria a seco em vez de reticências.
-  const sTxt = document.createElement('span');
-  sTxt.textContent = (total ? downloaded + '/' + total : '—') + ' · '
-    + (complete ? 'Completo offline' : (total > 0 ? 'Parcial' : 'Não sincronizado'));
-  sVal.appendChild(sTxt);
-  sinc.append(sLabel, sVal);
-  stats.appendChild(sinc);
-
-  // O peso à DIREITA: é o número curto e secundário da linha, e ancorá-lo na
-  // borda oposta dá ao chip de sincronização toda a largura de que ele precisa.
   //
-  // E ele diz as DUAS medidas (v5.93): o que está no aparelho e o que o álbum
-  // inteiro vai ocupar. Só o primeiro número não responde a pergunta que se faz
-  // antes de baixar — "quanto isto vai custar" —, e só o segundo esconde o que
-  // já foi gasto. Completo, os dois seriam o mesmo número dito duas vezes,
-  // então fica um só, sem o "~": ali a medida é exata.
-  const m = medirColecao(coll.id);
-  // Mesma definição de "completo" da barra do card (ver `fracaoPeso`): os dois
-  // números estão a dois centímetros um do outro na mesma tela.
-  const pesoTxt = (complete && m.noAparelho) ? fmtBytes(m.noAparelho)
-    : !m.total ? '—'
-      : m.noAparelho ? fmtParBytes(m.noAparelho, m.total)
-        : '~' + fmtBytes(m.total);
-  stats.appendChild(hymnalStat('Peso', pesoTxt, 'right'));
-  collOptsEl.appendChild(stats);
+  // E A FAIXA DE CHIPS SAIU TODA (v5.232, pedido do operador). Eram duas
+  // linhas — "Sincronizados: 4/4 · Completo offline" e "Peso: 18 MB" — para um
+  // painel cujas ações cabem numa. O PESO já está na barra do card, ANTES de
+  // abrir (`fracaoPeso`, o mesmo par de números): repeti-lo aqui era dizer duas
+  // vezes, a dois centímetros, a coisa que o operador já tinha lido para
+  // decidir abrir. O ESTADO não se perdeu — ele desceu para DENTRO do botão de
+  // verificação, que é a única coisa da tela que ele qualifica: o rótulo diz o
+  // que o toque faz e o estado diz por que ele faz isso.
 
   // OS DOIS BOTÕES DIVIDEM UMA LINHA (v5.95). Empilhados, eles ocupavam duas
   // faixas largas para duas ações curtas, e era esse tamanho que obrigava a
@@ -6251,36 +6654,78 @@ function buildCollectionOptions(coll, collOptsEl) {
   // baixar" era a mesma frase para os dois casos opostos: com o álbum inteiro
   // no aparelho não há o que baixar — só conferir se o catálogo mudou —, e com
   // ele vazio "atualizar" não descreve nada do que vai acontecer.
+  // Numa SÉRIE o rótulo é sempre "Atualizar a lista" (v5.230): o toque só
+  // busca as playlists do canal — os episódios são baixados um a um, pela
+  // folha, como um vídeo do YouTube. Prometer "Baixar" aqui seria oferecer
+  // ~15 GB atrás de uma palavra de três sílabas.
   syncBtn.appendChild(document.createTextNode(
-    u.syncBusy ? 'Cancelar' : (complete ? 'Verificar atualizações' : 'Baixar'),
+    u.syncBusy ? 'Cancelar'
+      : (ehSerie(coll) ? 'Atualizar a lista' : (complete ? 'Verificar' : 'Baixar')),
   ));
-  syncBtn.addEventListener('click', () => syncCollection(coll));
+
+  // O ESTADO VIVE DENTRO DO BOTÃO (v5.233) — é o que sobrou do chip de
+  // sincronização, reduzido ao que ele de fato acrescenta ao rótulo.
+  //
+  // A regra é a do resto do app (a cortina, o botão de transmitir): **o rótulo
+  // nomeia a AÇÃO, o estado diz onde ela está**. "Verificar" com um "✓ completo"
+  // ao lado responde as duas perguntas de uma vez; "Verificar atualizações"
+  // sozinho, num álbum inteiro no aparelho, não dizia nem que ele estava
+  // inteiro. Ele fica na MESMA linha do rótulo (v5.235): uma segunda linha
+  // desfazia metade do ganho de ter condensado o painel. Numa SÉRIE o número que importa não é quanto foi baixado (nada é,
+  // por desenho — ver `serieComoYoutube`): é quantos episódios a lista tem.
+  const estado = document.createElement('small');
+  estado.className = 'coll-opt-estado' + (complete && !ehSerie(coll) ? ' done' : '');
+  if (u.syncBusy) {
+    // Em movimento o estado é MUDO, e de propósito: quem escreve "Baixando 2 de
+    // 4…" é a barra do card, fixa no topo do aberto e visível daqui. O que este
+    // botão acrescenta é o que aquela linha não tem — o PROGRESSO desenhado
+    // (`--p`, abaixo), que se lê sem ler.
+    estado.textContent = '';
+  } else if (ehSerie(coll)) {
+    estado.textContent = total ? total + ' episódios' : 'sem lista';
+  } else {
+    estado.textContent = complete ? '✓ completo'
+      : (total > 0 ? downloaded + '/' + total : 'sem lista');
+  }
+  if (estado.textContent) syncBtn.appendChild(estado);
+
+  // O PROGRESSO É O PREENCHIMENTO DO PRÓPRIO BOTÃO. Uma segunda frase de
+  // "Baixando 2 de 4…" seria o defeito que a v5.73 tirou daqui; uma barra
+  // determinada não repete palavra nenhuma e responde "quanto falta?" no lugar
+  // em que o dedo já está — que é o botão de cancelar. Sem índice não há fração
+  // e não há barra: prometer uma proporção que não se conhece é pior que nada.
+  if (u.syncBusy && total > 0) {
+    syncBtn.style.setProperty('--p', Math.min(100, Math.round(downloaded * 100 / total)) + '%');
+  }
+  syncBtn.addEventListener('click', () => syncCollection(coll, ehSerie(coll) ? { soIndice: true } : undefined));
   acoes.appendChild(syncBtn);
 
   if (downloaded > 0 || total > 0) {
     const rmBtn = document.createElement('button');
-    rmBtn.className = 'new-folder-btn danger';
-    rmBtn.appendChild(msym(ICON.del));
+    // SÓ O ÍCONE (v5.235, pedido do operador): a lixeira para no próprio
+    // tamanho e devolve a linha inteira ao botão que carrega ação, estado e
+    // progresso. A frase continua existindo onde ela é lida — no `title`, e
+    // sobretudo no DIÁLOGO que a ação abre, que nomeia o alcance ("o que foi
+    // baixado… e a lista offline"). É essa confirmação que permite um
+    // destrutivo sem rótulo; sem ela, o ícone sozinho seria uma aposta.
+    //
     // "Remover do dispositivo", e não "Excluir downloads do álbum": o que sai é
     // o que ocupa espaço NESTE aparelho, e o álbum continua no acervo para
     // baixar de novo quando quiser. "Excluir" prometia um dano maior do que o
     // que a ação faz.
-    rmBtn.appendChild(document.createTextNode('Remover do dispositivo'));
+    rmBtn.className = 'new-folder-btn danger icone';
+    rmBtn.title = 'Remover do dispositivo';
+    rmBtn.setAttribute('aria-label', 'Remover do dispositivo');
+    rmBtn.appendChild(msym(ICON.del));
     rmBtn.addEventListener('click', () => deleteCollection(coll));
     acoes.appendChild(rmBtn);
   }
   collOptsEl.appendChild(acoes);
 }
 
-// Monta um "chip" de estatística (rótulo em cima, valor embaixo).
-function hymnalStat(label, value, extraClass) {
-  const el = document.createElement('div');
-  el.className = 'hymnal-stat' + (extraClass ? ' ' + extraClass : '');
-  const l = document.createElement('label'); l.textContent = label;
-  const v = document.createElement('b'); v.textContent = value;
-  el.append(l, v);
-  return el;
-}
+// (`hymnalStat` — o construtor dos chips do painel — saiu na v5.232 com o
+// último chip que restava, o do peso: ele já estava na barra do card, antes
+// mesmo de abrir.)
 
 // Só re-renderiza os cards de coleção se a aba Álbuns estiver de fato visível —
 // evita custo de DOM à toa enquanto o operador está em outra aba durante o download.
@@ -6322,6 +6767,38 @@ function renderCollectionsNow() {
 // Duas origens, cada uma com seu cabeçalho, na ordem em que fazem sentido:
 // os atalhos criados pelo operador primeiro (é o que ele marcou), as pastas
 // do dispositivo depois (a origem bruta, que ele sincronizou uma vez).
+// O ESTADO DE UMA PASTA MORA NA LINHA DELA (v5.207).
+//
+// A sincronização de uma pasta do dispositivo falava por uma faixa flutuante no
+// topo da tela: "Sincronizando 12/340…", "Pasta já em dia", "Erro na
+// sincronização". Três mensagens sobre UMA linha que estava na tela, logo
+// abaixo, com o dedo ainda em cima do botão de sincronizar — e a resposta
+// aparecendo a meia tela de distância, por cima de outra coisa.
+//
+// Aqui ela ocupa o lugar do CONTADOR daquela pasta, que é exatamente o número
+// que a sincronização está mudando: enquanto ela corre, o contador vira o
+// progresso; terminada, ele volta a ser a contagem. Nenhum elemento novo.
+const pastaStatus = new Map();
+function statusPasta(id, texto, ms) {
+  if (!id) return;
+  const antes = pastaStatus.get(id);
+  if (antes && antes.timer) clearTimeout(antes.timer);
+  if (!texto) pastaStatus.delete(id);
+  else {
+    pastaStatus.set(id, {
+      texto,
+      timer: ms ? setTimeout(() => { pastaStatus.delete(id); renderFoldersSeVisivel(); }, ms) : 0,
+    });
+  }
+  renderFoldersSeVisivel();
+}
+// Só redesenha quando a lista de pastas está de fato à vista — o mesmo cuidado
+// do `refreshCollectionsIfVisible`: uma sincronização de 600 arquivos rodando
+// com a gaveta fechada não pode remontar a lista a cada arquivo.
+function renderFoldersSeVisivel() {
+  if (activeTab === 'folders' && !currentFolder) renderLibrary();
+}
+
 function renderFolderList() {
   if (opfsFolders.length === 0 && folders.length === 0 && favItems.length === 0) {
     const empty = document.createElement('li');
@@ -6366,14 +6843,20 @@ function renderFolderList() {
     const icon = document.createElement('div'); icon.className = 'thumb thumb--icon';
     icon.appendChild(msym(ICON.import));
     const nameEl = document.createElement('span'); nameEl.className = 'row-name'; nameEl.textContent = f.name;
-    const countEl = document.createElement('span'); countEl.className = 'folder-count'; countEl.textContent = String(f.count || 0);
+    // O CONTADOR É TAMBÉM O CANAL DE ESTADO desta pasta (ver `statusPasta`):
+    // durante a sincronização ele mostra o progresso, e depois volta a ser a
+    // contagem. É o número que a ação está mudando — nada mais perto do alvo.
+    const st = pastaStatus.get(f.id);
+    const countEl = document.createElement('span');
+    countEl.className = 'folder-count' + (st ? ' folder-count--st' : '');
+    countEl.textContent = st ? st.texto : String(f.count || 0);
     const syncBtn = document.createElement('button'); syncBtn.className = 'row-btn'; syncBtn.title = 'Re-sincronizar com a pasta do dispositivo';
     // Setas circulares, o MESMO desenho de "sincronizar" dos cards de coleção.
     // Antes era `ICON.import` (folder_open) — o mesmo glifo do ícone à esquerda,
     // que identifica a pasta: na mesma linha, o operador via o mesmo desenho
     // duas vezes, um como identidade e outro como ação (com a lixeira ao lado).
     syncBtn.innerHTML = syncIconSvg();
-    syncBtn.addEventListener('click', (e) => { e.stopPropagation(); syncDeviceFolder(f); });
+    syncBtn.addEventListener('click', (e) => { e.stopPropagation(); syncDeviceFolder(f, syncBtn); });
     const rmBtn = document.createElement('button'); rmBtn.className = 'row-btn'; rmBtn.title = 'Excluir pasta e arquivos sincronizados';
     rmBtn.appendChild(msym(ICON.del));
     rmBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteOpfsFolder(f); });
@@ -6423,7 +6906,8 @@ function favGrupo(item) {
 // se quer de um favorito, sem entrar em pasta nenhuma.
 function favItemRow(item) {
   const li = document.createElement('li');
-  li.className = 'lib-item' + (item.id === currentId ? ' active' : '');
+  li.className = 'lib-item' + (linhaAtiva(item.id) ? ' active' : '')
+    + (linhaNoAr(item.id) ? ' no-ar' : '');
   li.dataset.id = item.id;
   const row = document.createElement('div'); row.className = 'row';
   // A MESMA coluna nome+subtítulo da biblioteca, e de propósito: uma segunda
@@ -6555,9 +7039,9 @@ function fmtBytes(n) {
   return n + ' B';
 }
 
-// "3,7 de ~18 MB" — a forma por extenso do chip de opções. O miolo (unidade
-// repetida só quando necessário) é o mesmo da forma curta: `fmtBytesPar`.
-function fmtParBytes(a, b) { return fmtBytesPar(a, b, ' de ~'); }
+// (`fmtParBytes` — a forma por extenso, "3,7 de ~18 MB" — saiu na v5.232 com o
+// chip de peso, seu único chamador. A forma curta, `fmtFracBytes`, é a das
+// barras e continua.)
 
 function renderSelbar() {
   hostSelbar();
@@ -6669,8 +7153,23 @@ async function send(id) {
     currentItem = alvo;
     currentId = id;
     await persistCurrent();
-    document.querySelectorAll('.lib-item,.row-item').forEach((el) => el.classList.toggle('active', el.dataset.id === id));
     await playCue(alvo);
+    // DEPOIS do `playCue`, e não antes: um pacote (`group`) não põe nada no ar,
+    // e um versículo pode falhar (capítulo ausente e sem internet). Quem
+    // responde "esta cena está no ar?" são as sessões, não a intenção — e
+    // marcar antes deixaria o realce e o segundo toque apontando para uma cena
+    // que nunca chegou ao telão.
+    cueNoArId = cenaDeRoteiroNoAr() ? id : '';
+    marcarNoAr();
+    return;
+  }
+  // O ITEM DE LINK NÃO VAI AO TELÃO COMO LINK (v5.212). Ele é resolvido agora —
+  // transmissão direta ou download — e quem projeta é o registro que sair daí.
+  // A guarda fica AQUI pelo mesmo motivo da guarda de cena de roteiro logo
+  // acima: `send` é o ponto por onde TODOS os caminhos passam (o avanço
+  // automático da playlist, o ⏮/⏭ do transporte, a notificação nativa).
+  if (alvo && alvo.kind === 'youtube') {
+    await resolverLinkYoutube(alvo);
     return;
   }
   currentId = id;
@@ -6683,7 +7182,7 @@ async function send(id) {
   // manual em cena (Bíblia/Mensagem/cronômetro); qualquer VISUAL (vídeo/imagem/
   // YouTube) encerra. Um louvor de fundo sob a contagem regressiva de abertura
   // é justamente o uso normal.
-  if (!((bibleSession || msgSession || lyricSession || chronoSession || drawSession) && currentItem && currentItem.kind === 'audio')) clearManualText();
+  if (!(cenaDeRoteiroNoAr() && currentItem && currentItem.kind === 'audio')) clearManualText();
   await persistCurrent();
   ytEnded = false;
   displayStatusAt = 0; // até o Display confirmar o novo item, a preview dirige
@@ -6696,8 +7195,9 @@ async function send(id) {
   // A partir daqui há mídia no telão — é o que a reconexão precisa reenviar e o
   // que o ▶ pode retomar em vez de recarregar (ver `midiaNoAr`).
   midiaNoAr = true;
+  midiaNoArId = id;
   // re-render leve de estados ativos
-  document.querySelectorAll('.lib-item,.row-item').forEach((el) => el.classList.toggle('active', el.dataset.id === id));
+  marcarNoAr();
   renderNowPlaying();
   // E o EIXO DOS BOTÕES, que muda com o item (v5.101). Sem esta linha, trocar
   // de mídia deixava ⏮/⏭ com o estado da mídia ANTERIOR — e para uma
@@ -7148,6 +7648,7 @@ function resetAfterEnd() {
   // que caísse depois do fim de um louvor trazia a faixa de volta à TV — que é
   // o "ele tenta exibir a primeira tela/thumbnail" do relato.
   midiaNoAr = false;
+  midiaNoArId = '';
   setPlaying(false);
   seekEl.value = 0;
   curTimeEl.textContent = '0:00';
@@ -7200,7 +7701,8 @@ async function toggleMute() {
   // o clique vira "liberar o som" — pede uma retentativa imediata.
   if (displayAudioBlocked && !muted) {
     AVDB.sendCommand({ type: 'audio-retry' });
-    flash('Tentando liberar o áudio no Display…');
+    // (idem: no-op legado. Quem relata o áudio bloqueado é o próprio botão
+    //  de mudo, que veste `.blocked` — ver `renderControls`.)
     return;
   }
   muted = !muted; await persistCurrent();
@@ -7208,26 +7710,48 @@ async function toggleMute() {
   renderControls();
 }
 
-// Parar = limpar o display (volta ao wallpaper); mantém currentId para replay com play.
-async function stopClear() {
+/**
+ * TIRAR A MÍDIA DO AR — o corpo comum do Parar e do stop por camada.
+ *
+ * O que ele NÃO faz é o que o distingue: nada aqui encosta na Camada de Texto.
+ * Quem encerra a cena inteira é o [stopClear], que chama isto e depois derruba o
+ * texto; quem tira só a música de fundo é o [retirarDoAr], que chama isto e para
+ * por aqui.
+ *
+ * [tipo] é o comando que vai ao telão — `clear` (o ponto final, com a cortina
+ * indo ao wallpaper) ou `media-clear` (só a mídia; ver `display.js`).
+ */
+async function pararMidia(tipo) {
   // Parar também é um comando do operador: arma a mesma janela de
   // `pausaPedida` que o ▶ arma, senão o `pause` que o 'clear' provoca no
   // <video> da preview entrava no diário como "PAUSA ESPONTÂNEA" — um falso
   // alarme no instrumento que existe para achar as pausas de verdade.
   pausaEm = Date.now();
-  cmd({ type: 'clear' });
-  clearManualText();
+  cmd({ type: tipo });
   // O TELÃO ESTÁ VAZIO A PARTIR DAQUI, e isso precisa ser dito ANTES do fade
   // terminar: quem pergunta a `preview.getCurrent()` recebe "ainda tem mídia"
   // durante todo o esmaecimento do `clearFaded` (ver `midiaNoAr`).
   midiaNoAr = false;
+  midiaNoArId = '';
   setPlaying(false);
-  // YouTube: 'clear' derruba o player da preview (dropYtPreview via cmd) e o do
-  // Display → o próximo ▶ precisa recarregar (send), não só reenviar 'play'.
+  // Item de LINK: o `clear` derruba a cena, e o próximo ▶ precisa passar pelo
+  // `send` (que hoje o RESOLVE — ver `resolverLinkYoutube`), não só reenviar
+  // 'play'.
   if (currentItem && currentItem.kind === 'youtube') ytEnded = true;
   playPauseEl.querySelector('.msym').textContent = ICON.play;
   seekEl.value = 0; seekEl.disabled = true;
   curTimeEl.textContent = '0:00';
+}
+
+// Parar = limpar o display (volta ao wallpaper); mantém currentId para replay com play.
+async function stopClear() {
+  await pararMidia('clear');
+  clearManualText();
+  // A cena de roteiro caiu junto (o `clearManualText` acima), e o realce dela
+  // precisa cair com ela: ele vem do `cueNoArId`, que nenhuma re-renderização
+  // da lista está agendada para reler. Sem isto, uma linha continuaria marcada
+  // como "no ar" sobre um telão vazio até a próxima troca de aba.
+  marcarNoAr();
   await persistCurrent();
 }
 
@@ -7315,22 +7839,188 @@ async function replacePlaylistWith(rec) {
  */
 async function retirarDoAr(item) {
   if (isCue(item)) {
+    // O `text-hide` É O QUE TIRA DA TELA — e ele faltava.
+    //
+    // `clearManualText()` é BOOKKEEPING: as cinco `clear*Session` zeram o
+    // estado do Controle, re-renderizam a navegação e não mandam um único
+    // comando ao telão. Nos outros chamadores isso está certo, porque logo
+    // atrás vem um `load` (que esconde o texto no Display) ou um `clear`. Aqui
+    // não vem nada — e o resultado era o defeito que o operador relatou com
+    // todas as letras: o segundo toque "não remove no player". Ele removia a
+    // SESSÃO, e o versículo continuava projetado na frente da congregação, sem
+    // nenhuma linha na tela do operador que o dissesse.
+    //
+    // `text-hide` encerra só a Camada de Texto — é o mesmo comando do "tirar do
+    // ar" da Bíblia e da Mensagem, e é justamente o que o `clear` NÃO é: o
+    // áudio de fundo segue tocando.
+    cmd({ type: 'text-hide' });
     clearManualText();
-    // A linha perde o realce, mas o item continua sendo o "atual" para o ▶.
-    document.querySelectorAll('.lib-item,.row-item').forEach((el) => el.classList.remove('active'));
+    // O realce sai da CENA e fica na MÍDIA, se houver — era isto que o
+    // `remove('active')` cego apagava junto. Tirar o versículo do ar não tira o
+    // louvor que continua tocando por baixo dele, e a lista precisa continuar
+    // dizendo isso.
+    marcarNoAr();
     renderNowPlaying();
     return;
   }
-  await stopClear();
+  // MÍDIA: sai SÓ ELA (v5.178). Até aqui este caminho chamava `stopClear()`, que
+  // é o Parar do transporte — ele encerra a CENA INTEIRA. Com um louvor de fundo
+  // sob a contagem regressiva de abertura (o uso normal, e o que a independência
+  // áudio × texto existe para permitir), tirar a música do ar levava o
+  // cronômetro junto, e a única saída era parar tudo e reprojetar a cena na
+  // frente da congregação. É o simétrico exato do `text-hide` acima: cada camada
+  // sai pela sua porta, e o botão de cada linha fala da camada DAQUELA linha.
+  await pararMidia('media-clear');
+  marcarNoAr();
+  renderNowPlaying();
+  await persistCurrent();
 }
 
-/** Está no ar AGORA? É o que decide entre projetar e retirar. */
-function noArAgora(item) {
-  if (!item || item.id !== currentId) return false;
-  if (isCue(item)) {
-    return !!(bibleSession || msgSession || lyricSession || chronoSession || drawSession);
+/**
+ * O REALCE DA LISTA marca as DUAS coisas que podem estar no ar ao mesmo tempo.
+ *
+ * Ele era uma linha só (`el.dataset.id === id`), e por isso um louvor de fundo
+ * apagava o realce do versículo que continuava projetado: o operador perdia de
+ * vista a única linha em que o segundo toque tinha efeito. Duas camadas, dois
+ * realces — é o mesmo modelo que a independência áudio × texto já descreve.
+ */
+function marcarNoAr() {
+  document.querySelectorAll('.lib-item,.row-item').forEach((el) => {
+    const id = el.dataset.id;
+    el.classList.toggle('active', linhaAtiva(id));
+    const noAr = linhaNoAr(id);
+    el.classList.toggle('no-ar', noAr);
+    // O SELO acompanha a classe: ele é a metade que se LÊ, e sem ele o estado
+    // volta a ser só uma cor a mais numa tela que já tem várias.
+    const sub = el.querySelector('.row-sub');
+    if (sub) { pintarSubNoAr(sub, noAr); pintarFalha(sub, id); }
+  });
+}
+
+/**
+ * ESTA LINHA ESTÁ NO TELÃO AGORA?
+ *
+ * Diferente de [linhaAtiva], que também marca "o item atual" — aquele que o ▶
+ * repete e que sobrevive de propósito ao Parar. Um item selecionado depois de um
+ * Parar continua sendo o atual e **não** está no ar; dizer "No ar" sobre ele
+ * seria mentir na única linha da tela que existe para não mentir.
+ *
+ * As duas camadas respondem separadas porque elas coexistem: um louvor de fundo
+ * sob um versículo põe DUAS linhas no ar ao mesmo tempo.
+ */
+function linhaNoAr(id) {
+  if (!id) return false;
+  if (midiaNoAr && id === midiaNoArId) return true;
+  return !!cueNoArId && id === cueNoArId && cenaDeRoteiroNoAr();
+}
+
+/**
+ * O SELO "● No ar" na segunda linha da linha — o MESMO desenho da Bíblia
+ * (`renderBibleReading`), onde ele é prefixado à referência do versículo
+ * central em `--live-strong`.
+ *
+ * Ele mora no subtítulo, e não numa faixa própria, porque essa linha já existe e
+ * já é onde o operador procura o que o item É. Um selo em elemento novo
+ * empurraria a altura de toda a lista para dizer algo que só vale em uma linha
+ * de cada vez.
+ */
+/**
+ * A FALHA MORA NA LINHA QUE FOI TOCADA (v5.207).
+ *
+ * Projetar uma cena de roteiro pode não dar: o capítulo não está no aparelho, a
+ * mensagem foi apagada, a música saiu do acervo, as mídias do pacote sumiram.
+ * As quatro saíam por uma faixa flutuante no TOPO da tela — enquanto o dedo e o
+ * olho estavam numa linha do Cronograma, no meio ou no fim da lista. A
+ * informação deslocada do alvo de foco é o que o operador pediu para acabar.
+ *
+ * Aqui ela usa o MESMO lugar e o MESMO desenho do selo "● No ar": um `<span>`
+ * prefixado ao subtítulo da própria linha. O subtítulo não é reescrito — o
+ * selo é um nó à parte —, então o tipo e a duração continuam legíveis ao lado
+ * do motivo, e nenhum dos dois pintores atrapalha o outro.
+ *
+ * Ela se apaga sozinha: um motivo que ficasse para sempre viraria parte da
+ * descrição do item.
+ */
+const FALHA_ITEM_MS = 6000;
+const falhaItem = new Map();
+function notaNoItem(id, texto, tipo) {
+  if (!id || !texto) return;
+  const antes = falhaItem.get(id);
+  if (antes && antes.timer) clearTimeout(antes.timer);
+  falhaItem.set(id, {
+    texto,
+    tipo: tipo || 'erro',
+    timer: setTimeout(() => { falhaItem.delete(id); marcarNoAr(); }, FALHA_ITEM_MS),
+  });
+  marcarNoAr();
+}
+// Açúcar para o caso mais comum, que é o de falha.
+function falharNoItem(id, texto) { notaNoItem(id, texto, 'erro'); }
+
+function pintarFalha(sub, id) {
+  const antigo = sub.querySelector('.row-nota');
+  const f = falhaItem.get(id);
+  if (!f) {
+    if (antigo && antigo.nextSibling && antigo.nextSibling.nodeType === 3) antigo.nextSibling.remove();
+    if (antigo) antigo.remove();
+    return;
   }
-  return midiaNoAr;
+  if (antigo) {
+    antigo.textContent = f.texto;
+    antigo.className = 'row-nota row-nota--' + f.tipo;
+    return;
+  }
+  const selo = document.createElement('span');
+  selo.className = 'row-nota row-nota--' + f.tipo;
+  selo.textContent = f.texto;
+  sub.prepend(selo);
+  if (sub.textContent.replace(f.texto, '').trim()) selo.after(' · ');
+}
+
+function pintarSubNoAr(sub, noAr) {
+  const antigo = sub.querySelector('.row-live');
+  if (noAr === !!antigo) return;
+  if (!noAr) {
+    // O separador vai junto com o selo — ele é um nó de texto solto criado ao
+    // lado dele, e deixá-lo para trás daria " · Áudio · 3:14".
+    if (antigo && antigo.nextSibling && antigo.nextSibling.nodeType === 3) antigo.nextSibling.remove();
+    if (antigo) antigo.remove();
+    return;
+  }
+  const selo = document.createElement('span');
+  selo.className = 'row-live';
+  selo.textContent = '● No ar';
+  sub.prepend(selo);
+  if (sub.textContent.replace('● No ar', '').trim()) selo.after(' · ');
+}
+
+/**
+ * Esta linha deve estar realçada?
+ *
+ * `currentId` continua valendo — ele é "o item atual", o que o ▶ repete — e o
+ * que se ACRESCENTA é a cena de roteiro no ar, que pode ser outra: com um louvor
+ * de fundo sob um versículo, `currentId` é a música e a cena é o versículo.
+ * Marcar só um dos dois é esconder metade do que está no telão.
+ */
+function linhaAtiva(id) {
+  if (!id) return false;
+  if (id === currentId) return true;
+  return !!cueNoArId && id === cueNoArId && cenaDeRoteiroNoAr();
+}
+
+/**
+ * Está no ar AGORA? É o que decide entre projetar e retirar.
+ *
+ * As duas camadas respondem por caminhos diferentes de propósito: a MÍDIA é o
+ * `currentId` (ela é a cena), e a CENA DE ROTEIRO é o `cueNoArId` — porque ela
+ * convive com uma mídia de fundo, e nesse caso `currentId` é da música. Ver
+ * `cueNoArId`: era essa confusão que fazia o segundo toque não funcionar
+ * exatamente no caso em que ele mais importa.
+ */
+function noArAgora(item) {
+  if (!item) return false;
+  if (isCue(item)) return !!cueNoArId && item.id === cueNoArId && cenaDeRoteiroNoAr();
+  return item.id === currentId && midiaNoAr;
 }
 
 async function onTap(item) {
@@ -7828,7 +8518,9 @@ async function refreshOpfsFolderCount(folderId) {
 // `stat()` devolve { size, mtime } SEM ler os bytes: é o que permite pular
 // arquivos inalterados de graça (no SAF os metadados já vêm na listagem; no
 // navegador o File é obtido uma vez e reaproveitado por `read()`).
-async function openFolderSource(existing) {
+// `botao` é quem foi tocado — o único alvo de foco quando ainda não há linha
+// de pasta em que responder. Ver `syncDeviceFolder`.
+async function openFolderSource(existing, botao) {
   if (window.__NATIVE__) {
     let picked = existing && existing.uri ? { uri: existing.uri, name: existing.name } : null;
     let list = picked ? await AVNative.listFolder(picked.uri) : null;
@@ -7856,9 +8548,10 @@ async function openFolderSource(existing) {
     };
   }
 
-  // `avisar`, não `flash` (no-op): sem o aviso, um navegador sem a API
-  // simplesmente não responderia ao toque — falha muda.
-  if (!('showDirectoryPicker' in window)) { avisar('Navegador não suporta seleção de pastas', 'erro'); return null; }
+  // NAVEGADOR SEM A API — caso que não existe no app (lá o seletor é o SAF) e
+  // que no navegador é permanente. O pulso vermelho no botão que foi tocado diz
+  // "não vai dar" sem uma camada nova para uma frase que ninguém pode resolver.
+  if (!('showDirectoryPicker' in window)) { pulsar(botao, 'erro'); return null; }
 
   // Re-sync: tenta reutilizar o handle salvo (browsers que persistem a
   // permissão nem mostram prompt); senão cai no picker.
@@ -7894,11 +8587,21 @@ async function openFolderSource(existing) {
 // A cada quantos arquivos o índice de pastas é regravado. Ver `syncDeviceFolder`.
 const CHECKPOINT_PASTA = 25;
 
-async function syncDeviceFolder(existing) {
-  if (!AVDB.opfsSupported()) { avisar('Navegador não suporta armazenamento OPFS', 'erro'); return; }
-  if (syncBusy) { avisar('Sincronização em andamento…', 'dup'); return; }
+// `botao` = quem foi tocado (a linha da pasta ou "adicionar"). Ele existe para
+// as duas recusas abaixo terem onde responder: nelas ainda não há pasta, logo
+// não há linha — e o único alvo de foco é o botão que o dedo acabou de soltar.
+async function syncDeviceFolder(existing, botao) {
+  // NAVEGADOR SEM OPFS: caso que não existe no app (o WebView tem OPFS) e que
+  // no navegador é permanente. O pulso vermelho no próprio botão diz "não vai
+  // dar" sem inventar uma camada para uma frase que ninguém pode resolver.
+  if (!AVDB.opfsSupported()) { pulsar(botao, 'erro'); return; }
+  // JÁ HÁ UMA SINCRONIZAÇÃO CORRENDO, e o motivo está VISÍVEL na mesma tela: a
+  // pasta que está sincronizando mostra o progresso no contador dela (ver
+  // `statusPasta`). Repetir isso numa faixa seria dizer duas vezes o que já
+  // está escrito a duas linhas dali.
+  if (syncBusy) { pulsar(botao, 'dup'); return; }
 
-  const source = await openFolderSource(existing);
+  const source = await openFolderSource(existing, botao);
   if (!source) return;
 
   syncBusy = true;
@@ -7906,11 +8609,16 @@ async function syncDeviceFolder(existing) {
   // grandes); mesma proteção contra o congelamento ao minimizar.
   bgWorkBegin();
   let folderNotifId = 0; // fora do try: o finally precisa encerrar a tarefa
+  // E `folder` TAMBÉM fora: é ele que diz em qual LINHA a falha vai ser escrita
+  // (ver `statusPasta`), e um `let` dentro do `try` não existe para o `catch` —
+  // a mensagem de erro morreria com um ReferenceError em cima da falha que ela
+  // estava tentando relatar.
+  let folder = null;
   try {
     // Pede armazenamento persistente para o browser não descartar os arquivos.
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 
-    let folder = existing || opfsFolders.find((f) => f.name === source.name);
+    folder = existing || opfsFolders.find((f) => f.name === source.name);
     if (!folder) {
       folder = { id: uid(), name: source.name, count: 0, syncedAt: 0 };
       opfsFolders.push(folder);
@@ -7950,10 +8658,11 @@ async function syncDeviceFolder(existing) {
     folderNotifId = bgTaskStart('Pasta · ' + folder.name, entries.length);
     for (const [entry, type] of entries) {
       done++;
-      // Cada chamada reinicia o timer do aviso, então a faixa fica em cena
-      // durante a cópia inteira, contando — é o progresso na própria tela
-      // (a notificação só aparece com o app minimizado).
-      avisar('Sincronizando ' + done + '/' + entries.length + '…');
+      // O PROGRESSO NO CONTADOR DA PRÓPRIA PASTA (v5.207): é o número que esta
+      // cópia está mudando, na linha em que o operador tocou. Sem prazo — quem
+      // o substitui é o desfecho, no fim do laço. (A notificação do sistema
+      // continua sendo o canal de quando o app está minimizado.)
+      statusPasta(folder.id, done + '/' + entries.length, 0);
       bgTaskStep(folderNotifId, done);
       const name = entry.name;
       bgItemOnly(folderNotifId, name);
@@ -7999,13 +8708,16 @@ async function syncDeviceFolder(existing) {
     await AVDB.setState('opfs-folders', opfsFolders);
     // O desfecho é o que a faixa existe para dizer: "já em dia" é a resposta
     // que evita re-sincronizar à toa, e ela precisa se distinguir de "entrou".
-    if (added > 0) avisar(added + ' arquivo(s) sincronizado(s)');
-    else avisar('Pasta já em dia', 'dup');
+    // O desfecho vai para o CONTADOR da própria pasta: "já em dia" é a
+    // resposta que evita re-sincronizar à toa, e ela precisa se distinguir de
+    // "entrou". Some sozinho e o número volta.
+    statusPasta(folder.id, added > 0 ? '+' + added : 'em dia', 4000);
   } catch (e) {
-    // A CAUSA VAI JUNTO. "Erro na sincronização" sozinho não distingue disco
-    // cheio de permissão revogada de arquivo ilegível, e as três têm saídas
-    // diferentes — a primeira é a provável numa pasta de 600 vídeos.
-    avisar('Erro na sincronização: ' + ((e && e.name) || 'desconhecido'), 'erro');
+    // A CAUSA VAI JUNTO. "Erro" sozinho não distingue disco cheio de permissão
+    // revogada de arquivo ilegível, e as três têm saídas diferentes — a
+    // primeira é a provável numa pasta de 600 vídeos. Fica mais tempo na tela
+    // que o desfecho bom, porque é ele que o operador precisa ler.
+    if (folder) statusPasta(folder.id, 'erro: ' + ((e && e.name) || 'desconhecido'), 9000);
   } finally {
     syncBusy = false;
     bgTaskEnd(folderNotifId);
@@ -8142,7 +8854,123 @@ async function fetchAlbumCatalog() {
 // hinários, o arquivo de lista (coll.source) já é o índice; para álbuns, o
 // índice vem de album_{id}.musics. Lança em caso de falha (sem rede/resposta
 // inválida); quem chama decide se avisa o operador ou ignora silenciosamente.
+/**
+ * O ÍNDICE DE UMA SÉRIE — as playlists mensais do canal viram faixas do álbum.
+ *
+ * Duas etapas, e a segunda é sequencial de propósito: são ~12 playlists de 4-5
+ * itens, e disparar doze extrações do YouTube em paralelo é justamente o que o
+ * `NET_CONCURRENCY` existe para não fazer — aqui cada chamada é uma EXTRAÇÃO
+ * (segundos), não um GET.
+ *
+ * **A mutação é IN-PLACE**, pelo mesmo motivo do índice do LouvorJA: o
+ * `syncCollection` tira um snapshot do array e grava `fileIdFull` nos objetos
+ * DELE conforme baixa. Recriar os objetos deixaria o snapshot apontando para
+ * órfãos — os bytes iam para o OPFS e os ids eram descartados no `setState`
+ * seguinte, com o item aparecendo como não baixado e sendo rebaixado.
+ *
+ * Falha com EXCEÇÃO, e não com lista vazia: quem chama (`syncCollection`) já
+ * trata isso como "sem internet — falha ao atualizar" e PRESERVA o índice
+ * anterior. Devolver zero itens apagaria da tela a série inteira que o operador
+ * já tem baixada, por uma oscilação de rede.
+ */
+
+/**
+ * O item da REGRA vira a faixa que o `collState` guarda.
+ *
+ * Ela é uma função nomeada, e não um `map` anônimo lá dentro, por uma razão só:
+ * é o CÓDIGO dela que entra na assinatura do índice (ver `AVSerie.impressao`).
+ * Guardar um campo novo aqui obsoleta todo índice já escrito, e a única forma
+ * de isso não virar o defeito mudo da v5.233 é a assinatura enxergar esta
+ * função. Um `map` anônimo não tem nome para passar.
+ *
+ * **A mutação é IN-PLACE** (recebe `s` e devolve `s`): ver o KDoc acima.
+ */
+function serieFaixaDoItem(s, it) {
+  s.name = AVSerie.nomeDoItem(it);
+  s.ytUrl = it.url;
+  // `duration` como STRING "M:SS", que é a forma do LouvorJA — assim o
+  // `parseTimeToSeconds` e toda a conta de peso do álbum (`medirColecao`,
+  // `fracaoPeso`, a estimativa antes de baixar) valem sem uma linha nova.
+  s.duration = fmtDur(it.seconds);
+  // A MINIATURA (v5.236). O extrator já a entrega em toda listagem de playlist
+  // e ela era descartada aqui — e é ela que responde, para um VÍDEO, a mesma
+  // pergunta que a letra responde para um hino: "é este mesmo?". É uma URL
+  // remota (a mesma forma que o resultado da busca do YouTube já desenha em
+  // `thumbEl`), então ela vale como ilustração e nunca como dado: sem internet
+  // a imagem não carrega, e o detalhe do item continua inteiro sem ela.
+  s.thumb = it.thumb || '';
+  // Um vídeo não tem Playback. Sem isto, `songVariantsNeeded` pediria uma
+  // segunda variante que nunca vai existir e o álbum nunca ficaria completo.
+  s.has_instrumental_music = false;
+  s._norm = normalizeForSearch(s.name);
+  return s;
+}
+
+async function fetchSerieIndex(coll) {
+  const serie = coll.serie;
+  const doCanal = await AVNative.ytCanalPlaylists(serie.canal);
+  const playlists = AVSerie.playlistsDaSerie(doCanal, serie);
+  if (!playlists.length) throw new Error('Nenhuma playlist de "' + serie.name + '" no canal');
+
+  // A ASSINATURA DAS PLAYLISTS — url:contagem, na ordem. A aba do canal já
+  // publica quantos vídeos cada playlist tem, e é isso que torna a atualização
+  // barata: bate com o que está guardado, nada mudou, e as ~12 EXTRAÇÕES são
+  // puladas. Sem isto, toda retomada do app custaria doze idas ao YouTube para
+  // redescobrir uma lista que muda uma vez por semana — e a extração é a parte
+  // frágil deste caminho, a que não convém exercitar à toa.
+  //
+  // Um episódio novo muda a contagem do mês dele e a assinatura inteira é
+  // refeita: a decisão é "tudo ou nada" de propósito, porque casar item a item
+  // exigiria guardar de qual playlist veio cada faixa — estado a mais para
+  // poupar uma extração num caso que acontece uma vez por semana.
+  //
+  // **E A REGRA ENTRA NA ASSINATURA** (`AVSerie.impressao`, v5.233). Isto não é
+  // zelo: sem ela o índice guardado — que tem os nomes JÁ FORMADOS e a ordem JÁ
+  // decidida — sobrevive a uma mudança da regra que os produziu, porque o canal
+  // não mudou nada e a contagem continua batendo. Foi o que aconteceu com a
+  // v5.230: o episódio de 3 de janeiro continuou sem data e fora de ordem
+  // depois da atualização, e nem limpar o cache resolvia (o índice mora no
+  // IndexedDB). Com a impressão na assinatura, mudar a regra refaz o índice UMA
+  // vez, sozinho, e não mudar não custa extração nenhuma.
+  //
+  // E O MONTADOR DA FAIXA ENTRA JUNTO (v5.236). `AVSerie.impressao` conhece a
+  // regra que decide NOME e ORDEM; quem decide o que o índice GUARDA é a função
+  // logo abaixo, que mora aqui porque é aqui que a coleção existe. Quando ela
+  // passou a guardar a miniatura, todo índice já escrito ficou obsoleto — e sem
+  // passá-la à impressão o sintoma seria o da v5.233 na íntegra: assinatura
+  // batendo, índice velho de pé para sempre, e o detalhe do episódio sem imagem
+  // sem nada que o explicasse.
+  const assinatura = AVSerie.impressao(serieFaixaDoItem) + '|'
+    + playlists.map((p) => p.url + ':' + p.count).join('|');
+  const guardado = collState[coll.id];
+  if (guardado && guardado.serieAssinatura === assinatura && (guardado.songs || []).length) {
+    guardado.indexSyncedAt = Date.now();
+    await AVDB.setState('coll:' + coll.id, guardado);
+    return;
+  }
+
+  const itens = [];
+  for (const pl of playlists) {
+    const info = await AVNative.ytPlaylist(pl.url);
+    if (!info || !Array.isArray(info.items)) continue;
+    itens.push(...AVSerie.itensDaPlaylist(info.items, pl.mes, serie));
+  }
+  if (!itens.length) throw new Error('As playlists de "' + serie.name + '" vieram vazias');
+
+  const byId = new Map(collSongs(coll.id).map((s) => [s.id_music, s]));
+  const songs = AVSerie.ordenarItens(itens).map((it) => serieFaixaDoItem(
+    byId.get(it.id) || { id_music: it.id, fileIdFull: null, fileIdPlayback: null }, it));
+
+  collState[coll.id] = {
+    indexSyncedAt: Date.now(), songs, isHymnal: false, serieAssinatura: assinatura,
+  };
+  await AVDB.setState('coll:' + coll.id, collState[coll.id]);
+  refreshCollectionsIfVisible();
+  if (hymnSearchPopupEl.classList.contains('open')) renderSearchResults(hymnSearchInputEl.value);
+}
+
 async function fetchCollectionIndex(coll) {
+  if (coll.kind === 'serie') return fetchSerieIndex(coll);
   const raw = await Louvorja.fetchList(coll.source);
   const list = coll.kind === 'album'
     ? (raw && Array.isArray(raw.musics) ? raw.musics : null)
@@ -8241,8 +9069,13 @@ async function autoRefreshCollections() {
     ]);
     // Fase 2: índice de cada álbum (só os que estão vazios ou vencidos pelo TTL).
     const now = Date.now();
+    // As SÉRIES entram nesta mesma fase (v5.231), e não na 1: o índice delas
+    // custa uma extração do YouTube para a aba do canal — barato quando a
+    // assinatura das playlists não mudou (ver `fetchSerieIndex`), e caro quando
+    // mudou. O TTL é o mesmo dos álbuns porque a pergunta é a mesma ("a lista
+    // envelheceu?"), e a série publica um episódio por semana.
     const stale = allCollections().filter((c) => {
-      if (c.kind !== 'album' || !idle(c)) return false;
+      if ((c.kind !== 'album' && c.kind !== 'serie') || !idle(c)) return false;
       const st = collState[c.id];
       return !st || !st.songs.length || (now - (st.indexSyncedAt || 0)) > ALBUM_INDEX_TTL;
     });
@@ -8308,6 +9141,14 @@ async function syncCollection(coll, opts) {
     catch (_) {
       setCollStatus(coll.id, 'Sem internet — falha ao atualizar', 5000);
       return { ok: false, baixados: 0, falhou: 0 };
+    }
+    // SÓ O ÍNDICE (v5.230) — é o que o botão de uma SÉRIE faz. A lista chegou,
+    // e é só ela que foi pedida: os episódios são baixados um a um, pela folha
+    // de destinos, como um vídeo do YouTube. Cair no laço abaixo aqui seria
+    // exatamente o "download direto" que este lote existe para tirar.
+    if (opts && opts.soIndice) {
+      setCollStatus(coll.id, 'Lista atualizada', 4000);
+      return { ok: true, baixados: 0, falhou: 0 };
     }
     const songs = collSongs(coll.id);
 
@@ -8430,7 +9271,67 @@ async function syncCollection(coll, opts) {
 // Devolve `false` quando nem os metadados vieram (sem rede) — quem chama
 // precisa poder distinguir "baixou" de "desistiu em silêncio", senão o status
 // final conta como baixada uma música que não saiu do lugar.
+/**
+ * Baixa UM episódio de uma série e o grava na pasta do álbum.
+ *
+ * Não passa pelo `ytBaixarNativo`: aquele é o caminho de um download AVULSO —
+ * abre tarefa própria na notificação, desenha cartão na preview e registra
+ * intenção de resgate. Aqui quem já é dono de tudo isso é o `syncCollection`
+ * (a barra, o nome do item na notificação, o cancelamento, o `withBgWork`), e
+ * empilhar uma segunda tarefa por episódio faria a notificação disputar consigo
+ * mesma a cada um dos 52.
+ *
+ * O registro vai para `folder: coll.id`, como o de uma música de coleção — é
+ * isso que faz o card contar "completo offline", o peso somar e o coletor de
+ * lixo não recolher o arquivo. E `lyrics: null` **não é enfeite**: o
+ * `songVariantsNeeded` pergunta `fullRec.lyrics === undefined` para decidir se
+ * a faixa ainda falta, então um registro sem o campo seria rebaixado a cada
+ * sincronização, para sempre, sem nada na tela que o explicasse.
+ */
+async function downloadSerieItem(coll, s) {
+  if (!s.ytUrl) return false;
+  let r;
+  try { r = await AVNative.ytFetch(s.ytUrl, null, false, 0); }
+  catch (_) { return false; }
+  if (!r || !r.url) return false;
+  try {
+    const res = await fetch(r.url);
+    if (!res.ok) return false;
+    const blob = await res.blob();
+    if (!blob.size) return false;
+    const thumb = await makeThumb(blob, 'video');
+    const id = s.fileIdFull || uid();
+    const path = 'folders/' + coll.id + '/' + s.id_music + '.mp4';
+    try { await AVDB.opfsWriteFile(path, blob); } catch (_) { return false; }
+    await AVDB.fileAdd({
+      id, folder: coll.id, opfsPath: path,
+      srcName: s.id_music,
+      name: s.name,
+      // A procedência, como nas músicas do acervo (v5.219): é a segunda linha
+      // do slide de capa, e quem projeta é o Display, que não tem acesso a
+      // coleção nenhuma.
+      hymnName: s.name, hymnTrack: null, hymnAlbum: coll.name || '',
+      type: blob.type || 'video/mp4', kind: 'video',
+      height: (r.height | 0) || null,
+      // O id do vídeo GRAVADO: é ele que faz um "Tocar agora" do mesmo
+      // episódio, vindo da busca do YouTube, reaproveitar este arquivo.
+      youtubeId: s.id_music,
+      size: blob.size, mtime: Date.now(), thumb, lyrics: null,
+      blob: null, url: null, addedAt: Date.now(),
+    });
+    s.fileIdFull = id;
+    ui(coll.id).bytes += blob.size || 0;
+    salvarPesos();
+    return true;
+  } finally {
+    // No `finally`, como no caminho avulso: falhando a cópia, o arquivo do
+    // cache não pode ficar para trás — ninguém mais tem o token dele.
+    AVNative.ytDiscard(r.url);
+  }
+}
+
 async function downloadCollectionSong(coll, s) {
+  if (coll.kind === 'serie') return downloadSerieItem(coll, s);
   let meta;
   try { meta = await Louvorja.fetchList('music_' + s.id_music); }
   catch (_) { return false; } // sem rede agora; a próxima sincronização tenta de novo
@@ -8476,7 +9377,18 @@ async function ensureSongVariant(coll, s, fileKey, urlPath, variantLabel, meta, 
   if (s[semFonte]) delete s[semFonte];
   const existingId = s[fileKey];
   const existingRec = existingId ? await AVDB.fileGet(existingId) : null;
-  if (existingRec && existingRec.lyrics !== undefined) return; // já completo
+  if (existingRec && existingRec.lyrics !== undefined) {
+    // JÁ COMPLETO — mas pode ser anterior ao `hymnAlbum` (v5.218). Sem este
+    // preenchimento, a linha do álbum só apareceria em música baixada DEPOIS
+    // desta versão: a biblioteca que o operador já tem — que é justamente a
+    // que ele usa — ficaria sem ela para sempre. Uma escrita por registro, na
+    // varredura que a sincronização já faz, e nunca mais.
+    if (!existingRec.hymnAlbum && coll.name) {
+      existingRec.hymnAlbum = coll.name;
+      await AVDB.fileAdd(existingRec);
+    }
+    return;
+  }
 
   const lyrics = await buildLyricSlides(meta, timeField, resolveImage);
 
@@ -8484,6 +9396,7 @@ async function ensureSongVariant(coll, s, fileKey, urlPath, variantLabel, meta, 
     existingRec.lyrics = lyrics;
     existingRec.hymnName = s.name;
     existingRec.hymnTrack = s.track;
+    existingRec.hymnAlbum = coll.name || '';
     await AVDB.fileAdd(existingRec);
     invalidateLyricIndex();   // letra nova no aparelho: a busca precisa vê-la
     return;
@@ -8516,6 +9429,14 @@ async function downloadCollectionFile(coll, s, urlPath, variantLabel, thumb, lyr
     // nenhuma (nenhum deles tem acesso a ela — o Display, em especial, só
     // recebe o registro do arquivo).
     hymnName: s.name, hymnTrack: collNumbersSongs(coll) ? s.track : null,
+    // O ÁLBUM/COLEÇÃO de onde a música veio (v5.218) — a segunda linha do
+    // cartão de capa. É o único metadado de procedência que a fonte publica:
+    // o LouvorJA não tem campo de AUTOR (ver docs/FONTE-DE-DADOS-LOUVORJA.md),
+    // e o nome da coleção é o que o operador reconhece de qualquer jeito
+    // ("Hinário Adventista", "Vocal Livre"). Vai no REGISTRO, e não numa
+    // consulta na hora de projetar, porque quem projeta é o Display: ele só
+    // recebe o registro do arquivo e não tem acesso a coleção nenhuma.
+    hymnAlbum: coll.name || '',
     type: blob.type || 'audio/mpeg', kind: 'audio',
     size: blob.size, mtime: Date.now(), thumb, lyrics,
     blob: null, url: null, addedAt: Date.now(),
@@ -8816,6 +9737,11 @@ async function buildLyricIndex() {
   } catch (_) { /* sem os arquivos ainda dá para indexar o lyricStore */ }
 
   for (const coll of allCollections()) {
+    // O índice da busca por TRECHO. Uma coleção sem letra não tem o que
+    // indexar, e varrê-la é percorrer ~52 itens por série a cada reconstrução
+    // para não achar nada — a mesma pergunta sem sentido do `syncLyrics`, aqui
+    // sem custo de rede.
+    if (!temLetra(coll)) continue;
     const store = lyricStore[coll.id] || null;
     for (const s of collSongs(coll.id)) {
       // O acervo de letras vem PRIMEIRO: é texto puro e completo. Os slides
@@ -8928,8 +9854,17 @@ async function syncLyrics() {
 
   // Hinários antes dos álbuns (ver acima). Dentro de cada grupo, a ordem do
   // acervo.
+  //
+  // **SÓ QUEM TEM LETRA** (v5.236). Sem esta guarda, os ~52 episódios de cada
+  // série entravam na fila e cada um virava um `music_<id>` pedido ao LouvorJA
+  // com um id que é do YOUTUBE — uma pergunta que aquele banco não tem como
+  // responder. Falha de rede não grava `LYRIC_NONE` de propósito (ver o
+  // `catch`), então elas eram repetidas a cada abertura do app, para sempre, e
+  // ainda infladas no total da notificação "Letras das músicas", que o operador
+  // lê. Ninguém percebia porque o modo de falhar é o mais silencioso que existe:
+  // um `catch` vazio numa tarefa de segundo plano.
   const cols = allCollections()
-    .filter((c) => collSongs(c.id).length)
+    .filter((c) => temLetra(c) && collSongs(c.id).length)
     .sort((a, b) => (a.kind === 'hymnal' ? 0 : 1) - (b.kind === 'hymnal' ? 0 : 1));
 
   // Agrupado por `id_music`, e não por (coleção, música): a MESMA faixa aparece
@@ -9091,9 +10026,11 @@ function renderSearchResults(query) {
     return;
   }
   if (matches.length === 0) {
-    // "no acervo" não é detalhe: logo abaixo vem o cabeçalho dos resultados do
-    // YouTube, e sem dizer ONDE não achou a frase parece negar a busca inteira.
-    hymnResultsEl.innerHTML = '<li class="empty">Nenhuma música encontrada na biblioteca.</li>';
+    // "na biblioteca" não é detalhe: logo abaixo vem o cabeçalho dos resultados
+    // do YouTube, e sem dizer ONDE não achou a frase parece negar a busca
+    // inteira. E não diz "música" (v5.236) — a Biblioteca também guarda vídeo, e
+    // negar o que não foi procurado manda o operador buscar noutro lugar.
+    hymnResultsEl.innerHTML = '<li class="empty">Nada encontrado na biblioteca.</li>';
     appendYoutubeSearch(query);
     return;
   }
@@ -9244,26 +10181,61 @@ async function marcarYtProntos(itens) {
 // pintaria a linha de vermelho e diria que deu erro — para algo que o próprio
 // operador pediu.
 const ytCancelados = new Set();
-async function cancelarDownloadYt(r) {
-  if (!r || !r.id) return;
+
+/** O aparelho sabe parar um download? (o `ytCancel` é do shell 28.) */
+function podeCancelarDownload() {
   // Sem o método na ponte não há o que oferecer: um "cancelar" que só some com
   // a marca da tela enquanto o aparelho continua baixando centenas de MB é
   // pior que não ter botão, porque o operador acredita que parou.
-  if (!window.__NATIVE__ || (window.__SHELL_VERSION__ | 0) < 28) return;
-  if ((ytEstado.get(r.id) || {}).estado !== 'baixando') return;
+  return !!window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= 28;
+}
+
+/**
+ * O NÚCLEO DO CANCELAMENTO, e ele é um só para os três lugares onde o operador
+ * pode pedir (v5.191): a linha do resultado da busca, o cartão sobre a preview
+ * e a linha provisória do Cronograma.
+ *
+ * `aindaVale` é a segunda leitura do estado, feita DEPOIS da pergunta: o
+ * download pode ter terminado enquanto o diálogo estava aberto, e um pedido que
+ * chegasse ao shell depois do fim ficaria armado contra o PRÓXIMO download do
+ * mesmo vídeo.
+ *
+ * **E ele esquece a INTENÇÃO** — é essa linha que impede o vídeo cancelado de
+ * ressuscitar no lançamento seguinte (ver `resgatarDownloads`). Sem ela, "parei
+ * o download" durava até o operador fechar o app.
+ */
+async function cancelarDownload({ link, youtubeId, nome, soAudio, aindaVale }) {
+  if (!podeCancelarDownload() || !link) return false;
+  if (aindaVale && !aindaVale()) return false;
   const ok = await appConfirm({
     title: 'Cancelar o download?',
-    message: (r.name || 'Este vídeo') + '\n\nO que já baixou é descartado.',
+    message: (nome || 'Este vídeo') + '\n\nO que já baixou é descartado.',
     okText: 'Cancelar download',
     cancelText: 'Continuar baixando',
   });
-  // O download pode ter TERMINADO durante a pergunta — e aí não há mais o que
-  // cancelar. Sem esta segunda leitura, o pedido chegaria ao shell depois do
-  // fim e ficaria armado contra o próximo download do mesmo vídeo.
-  if (!ok || (ytEstado.get(r.id) || {}).estado !== 'baixando') return;
-  ytCancelados.add(r.id);
-  AVNative.ytCancel(r.url);
-  setYtEstado(r.id, null);
+  if (!ok || (aindaVale && !aindaVale())) return false;
+  if (youtubeId) ytCancelados.add(youtubeId);
+  try { AVNative.ytCancel(link); } catch (_) { /* shell antigo: a guarda acima já barrou */ }
+  await esquecerIntencao(link, !!soAudio);
+  if (youtubeId) setYtEstado(youtubeId, null);
+  return true;
+}
+
+async function cancelarDownloadYt(r) {
+  if (!r || !r.id) return;
+  const parou = await cancelarDownload({
+    link: r.url,
+    youtubeId: r.id,
+    nome: r.name,
+    soAudio: false,
+    aindaVale: () => (ytEstado.get(r.id) || {}).estado === 'baixando',
+  });
+  // A FORMA não é conhecida aqui — a linha da busca não sabe se o que está em
+  // curso é o download do vídeo ou o do áudio —, então o cancelamento esquece
+  // as DUAS intenções possíveis do mesmo link: é o que "cancelar este vídeo"
+  // quer dizer. Só quando ele de fato aconteceu: quem escolheu "continuar
+  // baixando" não pode perder a intenção que faria o resgate funcionar.
+  if (parou) await esquecerIntencao(r.url, true);
 }
 
 // O estado de cada resultado (`baixando` / `pronto`) vive num Map, e não na
@@ -9366,7 +10338,11 @@ function openYtMenu(r) {
   // Só aparece com shell ≥ 23 (`ytFetchAudio` na ponte). Num anterior o botão
   // não faria nada, e botão que não faz nada no meio de um culto é pior que
   // botão nenhum — mesma regra do botão de busca no YouTube.
-  if (window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= 23) {
+  //
+  // **E ele NÃO existe para um episódio de série** (`semSoAudio`, v5.230): um
+  // testemunho em vídeo não tem versão de áudio que faça sentido projetar, e
+  // uma escolha que não muda nada é pior que escolha nenhuma.
+  if (window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= 23 && !r.semSoAudio) {
     songMenuListEl.appendChild(ytSegRow(
       [[false, 'Vídeo'], [true, 'Só áudio']],
       !!songMenuFor.audio,
@@ -9414,17 +10390,18 @@ function openYtMenu(r) {
   // que é exatamente o que se faz com o louvor que acabou de chegar.
   const remontar = () => openYtMenu(r);
   destExecutor = (alvos, btn) => ytAcao(r, alvos, btn, soAudio, altura);
+  // "Tocar agora" é o único desta folha que GUARDA NADA, e é isso que o rótulo
+  // não diz — daí ele manter subtítulo enquanto os três destinos perderam o
+  // deles. No caminho de só-áudio o que ele não diz é outra coisa: o telão não
+  // muda (o kind `audio` mantém o wallpaper).
   songMenuListEl.appendChild(songMenuItem(msym(ICON.play), 'Tocar agora',
-    soAudio ? 'Toca no fundo, sem mexer no telão' : 'Projeta em seguida, sem entrar no Cronograma',
+    soAudio ? 'Sem mexer no telão' : 'Sem entrar em lista nenhuma',
     (vr, btn, alvos) => ytAcao(r, alvos, null, soAudio, altura), 'tocar'));
-  songMenuListEl.appendChild(songMenuItem(msym(ICON.queue), 'Adicionar à playlist',
-    'Entra na fila, sem entrar no Cronograma',
+  songMenuListEl.appendChild(songMenuItem(msym(ICON.queue), 'Adicionar à playlist', '',
     (vr, btn, alvos) => ytAcao(r, alvos, btn, soAudio, altura), 'playlist', remontar));
-  songMenuListEl.appendChild(songMenuItem(msym(ICON.cronoAdd), 'Adicionar ao Cronograma',
-    'A lista do culto',
+  songMenuListEl.appendChild(songMenuItem(msym(ICON.cronoAdd), 'Adicionar ao Cronograma', '',
     (vr, btn, alvos) => ytAcao(r, alvos, btn, soAudio, altura), 'cronograma', remontar));
-  songMenuListEl.appendChild(songMenuItem(msym(ICON.star), 'Favoritar',
-    'Baixa e marca — fica à mão toda semana',
+  songMenuListEl.appendChild(songMenuItem(msym(ICON.star), 'Favoritar', '',
     (vr, btn, alvos) => ytAcao(r, alvos, btn, soAudio, altura), 'favoritos', remontar));
   const go = destConfirmRow();
   if (go) songMenuListEl.appendChild(go);
@@ -9532,6 +10509,89 @@ async function tentarTransmitir(r, altura, somenteAudio) {
   await fixarAvulso(rec.id);
   await load();
   await send(rec.id);
+  return true;
+}
+
+// ============================================================================
+// O ITEM DE LINK RESOLVE ANTES DE IR AO TELÃO (v5.212)
+// ============================================================================
+//
+// Um registro `kind: 'youtube'` é o LINK sem bytes — a última carta de quando a
+// transmissão e o download falharam ("falhando os dois, o link vira item de
+// player"). Até aqui ele era projetado por um `YT.Player` dentro do próprio
+// documento do telão; com o embed fora (ver o bloco da preview, acima), ele
+// deixa de ser tocável como link e passa a ser RESOLVIDO no toque:
+//
+//   1. transmissão direta (`tentarTransmitir`) — ela já projeta sozinha;
+//   2. download (`ytArquivo`) — o caminho que sempre funcionou.
+//
+// É a MESMA escada do "Tocar agora" e a mesma do `recuperarStream`, e não é
+// coincidência: era ela que o operador já usava em todos os caminhos que
+// importam. O que muda é que o último recurso deixou de ser "um player de
+// terceiro no nosso origin" e passou a ser "tente de novo, agora".
+//
+// ## O download TROCA o item na lista; a transmissão não
+//
+// Um arquivo é durável e é o que o operador queria desde o começo, então ele
+// toma o lugar do link EM POSIÇÃO — `listSet` com uma função é read-modify-write
+// atômico, e trocar por `listAdd`+`listRemove` mandaria o item para o fim do
+// Cronograma, que é uma ordem que alguém montou à mão. Uma transmissão, não: o
+// manifesto expira em horas, e guardá-lo seria guardar algo que não abre no
+// domingo — a mesma razão pela qual "Tocar agora" é a única ação que a usa.
+const LISTAS_DO_OPERADOR = ['playlist', 'imports', 'favs'];
+
+async function trocarLinkPeloArquivo(velhoId, novoId) {
+  if (!velhoId || !novoId || velhoId === novoId) return;
+  for (const l of LISTAS_DO_OPERADOR) {
+    if (!(await AVDB.listHas(l, velhoId))) continue;
+    await AVDB.listSet(l, (antes) => {
+      const fora = [];
+      for (const x of antes) {
+        const y = x === velhoId ? novoId : x;
+        // O arquivo pode já estar na lista (o operador baixou o mesmo vídeo
+        // antes): trocar sem deduplicar deixaria a mesma faixa duas vezes.
+        if (!fora.includes(y)) fora.push(y);
+      }
+      return fora;
+    });
+  }
+}
+
+/**
+ * Resolve um item de link e o projeta. Devolve `true` quando algo foi ao ar.
+ *
+ * Toda saída negativa FALA — na linha do próprio item, que é onde o toque
+ * nasceu (a régua da v5.207). Um link que não resolve e não diz nada é
+ * indistinguível de um toque que não pegou, e o operador toca de novo.
+ */
+async function resolverLinkYoutube(rec) {
+  const vid = (rec && rec.youtubeId) || extractYouTubeId((rec && rec.url) || '');
+  if (!vid) {
+    notaNoItem(rec.id, 'Sem o vídeo de origem — não há o que projetar.');
+    return false;
+  }
+  if (!window.__NATIVE__) {
+    // No navegador não há ponte: nem transmissão, nem download. Dizer isso é
+    // melhor que projetar nada em silêncio.
+    notaNoItem(rec.id, 'Este link só toca pelo app — o navegador não baixa vídeo.');
+    return false;
+  }
+  const link = 'https://www.youtube.com/watch?v=' + vid;
+  const alvo = { id: vid, url: link, name: rec.name || 'Vídeo' };
+  // A FORMA do registro manda: quem guardou só o áudio não pode receber o vídeo
+  // de volta. (Um item de link nasce como `youtube`; a leitura fica dita para o
+  // dia em que houver um link só de áudio.)
+  const soAudio = rec.kind === 'audio';
+  if (await tentarTransmitir(alvo, 0, soAudio)) return true;
+  const novo = await ytArquivo(alvo, { lista: 'avulsos', aviso: 'preview', somenteAudio: soAudio });
+  if (!novo) {
+    notaNoItem(rec.id, 'Não foi possível transmitir nem baixar este vídeo.');
+    return false;
+  }
+  await fixarAvulso(novo.id);
+  await trocarLinkPeloArquivo(rec.id, novo.id);
+  await load();
+  await send(novo.id);
   return true;
 }
 
@@ -9655,6 +10715,17 @@ async function ytAcao(r, destinos, btn, somenteAudio, altura) {
   // produz arquivo (é um manifesto que expira em horas), e o operador que
   // marcou "Cronograma" pediu justamente o que sobra depois do domingo. Aqui o
   // download é obrigatório, e projetar acontece no fim dele.
+  // A TRANSMISSÃO VALE SEMPRE, inclusive com as telas da rede no ar (v5.189).
+  //
+  // Da v5.187 à v5.188 havia aqui um `pularTransmissao` — com a transmissão
+  // ligada e sem TV, o "Tocar agora" ia direto ao download, porque as URLs do
+  // manifesto só existiam dentro do WebView e a tela da rede não teria o que
+  // buscar. O efeito prático foi que o recurso INTEIRO parou de acontecer: a
+  // transmissão ligada é o estado normal do operador, e ele relatou que
+  // "tocar direto nunca funciona, sempre baixa". A saída não era relaxar a
+  // guarda e sim tirar-lhe a razão de existir — o shell serve as mesmas faixas
+  // em `/s/<token>` e o `telaEnriquecer` reescreve o manifesto (dívida §7,
+  // fechada).
   if (tocar && !guardar.length && await tentarTransmitir(r, altura, soAudio)) return;
 
   const existente = r && r.id ? await AVDB.mediaByYoutube(r.id, soAudio ? 'audio' : 'video') : null;
@@ -9695,11 +10766,12 @@ async function ytAcao(r, destinos, btn, somenteAudio, altura) {
     setTimeout(() => { if ((ytEstado.get(r.id) || {}).estado === 'erro') setYtEstado(r.id, null); }, YT_ERRO_MS);
     pulsar(btn, 'erro');
     // SEM LINHA NA TELA, o vermelho não tem onde aparecer — é o caso do link
-    // COMPARTILHADO (v5.137), que abre a folha sem busca nenhuma atrás. Aqui a
-    // faixa de aviso é o único canal que resta ("flash" é no-op desde que o
-    // toast saiu), e "um download de minutos que termina em nada" é o silêncio
-    // que este app não pode ter.
-    if (!ytLinhaVisivel(r.id)) avisar('Não deu para baixar "' + (r.name || 'o vídeo') + '".', 'erro');
+    // COMPARTILHADO (v5.137), que abre a folha sem busca nenhuma atrás. Quem
+    // responde então é o CARTÃO DA PREVIEW: é o mesmo lugar em que este
+    // download vinha se anunciando (`aviso: 'preview'`), e ele fica sobre a
+    // preview, que é para onde o operador olha na tela principal. "Um download
+    // de minutos que termina em nada" é o silêncio que este app não pode ter.
+    if (!ytLinhaVisivel(r.id)) previewBusy('Baixando', r.name || 'o vídeo').falhar('não foi possível baixar');
     return;
   }
   setYtEstado(r.id, 'pronto');
@@ -9736,7 +10808,11 @@ async function ytAcao(r, destinos, btn, somenteAudio, altura) {
     if (!ytLinhaVisivel(r.id)) {
       const onde = juntarFrases((jaNaLista ? listas : listasNovas)
         .map((l) => (LISTA_ROTULO[l] || ROTULO_PADRAO).em));
-      avisar((jaNaLista ? 'Já estava ' : 'Adicionado ') + onde + '.', jaNaLista ? 'dup' : 'ok');
+      // A NOTA VAI PARA A LINHA DO ITEM QUE ACABOU DE NASCER (v5.207) — e ele
+      // existe agora, com id, em pelo menos uma lista. `focarImportado` leva o
+      // operador até ela, e é lá que a frase o espera, em vez de numa faixa no
+      // topo de uma tela que ele está deixando.
+      notaNoItem(rec.id, (jaNaLista ? 'já estava ' : 'foi ') + onde, jaNaLista ? 'dup' : 'ok');
     }
   } else {
     await fixarAvulso(rec.id);
@@ -9935,7 +11011,7 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
   anel.innerHTML = downloadArrowIconSvg();
   play.appendChild(anel);
   play.addEventListener('click', (e) => {
-    e.stopPropagation();   // divide a linha com o acordeão da letra
+    e.stopPropagation();   // divide a linha com o acordeão
     // No simplificado não há escolha: o toque toca o CANTADO. Abrir uma folha
     // com três opções seria devolver ao operador exatamente a decisão que este
     // modo poupa (é a mesma regra do toque na linha, abaixo).
@@ -9976,17 +11052,70 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
 
   row.append(play, info, add);
 
-  // Letra completa, abaixo da linha. Só é montada quando a linha ABRE (e uma
-  // vez só): montá-la para todos os resultados encheria a lista de centenas de
-  // nós de texto que ninguém pediu — e a lista é reconstruída a cada tecla.
-  const letra = document.createElement('div'); letra.className = 'hymn-lyrics';
-  let letraMontada = false;
+  // ===== A GAVETA DA LINHA: o que ela abre depende do TIPO =====
+  //
+  // Ela responde uma pergunta só — **"é este mesmo?"** —, e a resposta muda com
+  // o item. Numa música é a LETRA: é por ela que se reconhece o hino certo, e é
+  // dela que sai o trecho marcado quando a busca casou no meio de uma estrofe.
+  // Num VÍDEO não existe letra nenhuma, e até a v5.235 a gaveta abria assim
+  // mesmo, para anunciar "Letra ainda não baixada" — uma promessa de algo que
+  // nunca vai chegar, e o relato que abriu este lote. Ali a mesma pergunta é
+  // respondida pela MINIATURA e pela duração, que é o que o operador tem para
+  // reconhecer um episódio de que ele só sabe a data.
+  //
+  // Só é montada quando a linha ABRE (e uma vez só): montá-la para todos os
+  // resultados encheria a lista de centenas de nós que ninguém pediu — e a
+  // lista é reconstruída a cada tecla.
+  const gaveta = document.createElement('div');
+  gaveta.className = temLetra(coll) ? 'hymn-lyrics' : 'item-detalhe';
+  let gavetaMontada = false;
   let letraAlvo = null;   // a linha que casou com a busca, para rolar até ela
+
+  // A gaveta de um VÍDEO. Sem prometer nada que dependa de rede: a miniatura é
+  // ilustração (sai de cena sozinha se não carregar) e as duas linhas de texto
+  // valem offline.
+  async function montarDetalhe() {
+    gaveta.innerHTML = '';
+    if (s.thumb) {
+      const im = document.createElement('img');
+      im.className = 'item-detalhe-thumb';
+      im.src = s.thumb; im.alt = ''; im.loading = 'lazy';
+      // A imagem é de fora e pode simplesmente não vir (sem internet, canal que
+      // trocou a arte). Um retângulo quebrado no meio da gaveta é pior que
+      // gaveta sem imagem, e o resto dela continua verdadeiro sem a foto.
+      im.addEventListener('error', () => im.remove());
+      gaveta.appendChild(im);
+    }
+    const txt = document.createElement('div'); txt.className = 'item-detalhe-txt';
+    if (s.duration) {
+      const d = document.createElement('span'); d.className = 'item-detalhe-linha';
+      d.textContent = 'Duração ' + s.duration;
+      txt.appendChild(d);
+    }
+    // O ESTADO NO APARELHO, e ele é a informação que decide: "tocar agora" de um
+    // vídeo TRANSMITE (não espera download nenhum), mas um episódio que já foi
+    // guardado num destino entra do disco. São ~300 MB de diferença, e é a
+    // pergunta que o operador faz antes de escolher no domingo de manhã.
+    const est = document.createElement('span');
+    est.className = 'item-detalhe-linha item-detalhe-estado';
+    est.textContent = 'Toca sem baixar';
+    txt.appendChild(est);
+    gaveta.appendChild(txt);
+    // Assíncrono e DEPOIS de a gaveta já estar montada: a abertura mede a
+    // altura do que está em cena, e esperar o IndexedDB para desenhar deixaria
+    // a animação partir de uma caixa vazia.
+    try {
+      const recs = await AVDB.mediaByYoutube(s.id_music);
+      if (recs && recs.length) {
+        est.textContent = 'Já no aparelho';
+        est.classList.add('done');
+      }
+    } catch (_) { /* fica o texto de sempre: o padrão é o caso comum */ }
+  }
+
   async function montarLetra() {
-    if (letraMontada) return;
-    letraMontada = true;
     const estrofes = await songLyricStanzas(coll, s);
-    letra.innerHTML = '';
+    gaveta.innerHTML = '';
     if (!estrofes) {
       const vazio = document.createElement('div');
       vazio.className = 'hymn-lyrics-empty';
@@ -9995,7 +11124,7 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
       // nesta música (ou falhou). Duas mensagens diferentes sugeririam duas
       // causas diferentes onde só há uma.
       vazio.textContent = 'Letra ainda não baixada.';
-      letra.appendChild(vazio);
+      gaveta.appendChild(vazio);
       return;
     }
     const q = normalizeForSearch(hymnSearchInputEl.value).trim();
@@ -10026,7 +11155,7 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
         }
         bloco.appendChild(d);
       });
-      letra.appendChild(bloco);
+      gaveta.appendChild(bloco);
     });
     // Rolar até ela só faz sentido com a caixa JÁ visível — e agora a letra é
     // montada antes de a linha abrir (a animação precisa medir a altura). Quem
@@ -10035,7 +11164,7 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
   }
 
   row.addEventListener('click', async () => {
-    // No simplificado a linha TOCA (o cantado) — não abre letra nenhuma.
+    // No simplificado a linha TOCA — não abre gaveta nenhuma.
     if (appMode === 'simple') { simplePlaySong(coll, s); return; }
     const aberta = li.classList.contains('expanded');
     // Acordeão: abrir uma fecha a anterior — duas linhas abertas ao mesmo
@@ -10049,20 +11178,25 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
         if (el !== li) el.classList.remove('expanded');
       });
     }
-    if (aberta) { collapseAccordion(letra, () => li.classList.remove('expanded')); return; }
-    // A letra é montada ANTES de abrir: a animação mede a altura do que vai
-    // ficar em cena, e uma caixa ainda vazia mediria zero.
-    await montarLetra();
+    if (aberta) { collapseAccordion(gaveta, () => li.classList.remove('expanded')); return; }
+    // A gaveta é montada ANTES de abrir: a animação mede a altura do que vai
+    // ficar em cena, e uma caixa ainda vazia mediria zero. Uma vez só — a
+    // guarda vive AQUI, e não dentro de cada montador, para os dois não terem
+    // de repeti-la (e para o próximo tipo não poder esquecê-la).
+    if (!gavetaMontada) {
+      gavetaMontada = true;
+      await (temLetra(coll) ? montarLetra() : montarDetalhe());
+    }
     li.classList.add('expanded');
-    expandAccordion(letra);
+    expandAccordion(gaveta);
     if (letraAlvo) letraAlvo.scrollIntoView({ block: 'center' });
   });
 
-  li.append(row, letra);
+  li.append(row, gaveta);
   return li;
 }
 
-// ===== A folha rápida de uma música do acervo =====
+// ===== A folha rápida de um item do acervo =====
 // Dois botões na linha, duas folhas. Cada uma lista as três coisas que aquele
 // botão pode fazer, ESCRITAS — é o que os seis ícones mudos da versão anterior
 // não conseguiam dizer.
@@ -10111,7 +11245,35 @@ function destUniao(chave) {
   return ordem.concat([...alvo].filter((c) => !ordem.includes(c)));
 }
 
+/**
+ * UM EPISÓDIO DE SÉRIE É UM VÍDEO DO YOUTUBE, e a folha dele é a mesma (v5.230).
+ *
+ * Pedido do operador: *"o tratamento que deve ter os itens da lista do provai e
+ * vede, e suas opções, devem ser o mesmo dos vídeos do YouTube (sem a opção de
+ * apenas áudio). no caso eu não quero um download direto, e também quero a opção
+ * de tocar diretamente em stream pelo link sem o download"*.
+ *
+ * A v5.228 tratou a série como uma coleção do LouvorJA porque é dali que a
+ * casca do card veio — e naquele mundo o toque BAIXA (uma faixa de hinário são
+ * poucos MB e o acervo existe para ficar offline). Aqui a premissa não vale: são
+ * ~300 MB por episódio, e o vídeo do sábado é visto uma vez. Quem já resolvia
+ * isso é o caminho do YouTube, com a TRANSMISSÃO DIRETA no "Tocar agora" e o
+ * download só nos destinos que GUARDAM.
+ *
+ * `semSoAudio` é a única diferença: o seletor Vídeo × Só áudio some. Um
+ * testemunho em vídeo não tem versão de áudio que faça sentido projetar, e uma
+ * escolha que não muda nada é pior que escolha nenhuma.
+ */
+function serieComoYoutube(coll, s) {
+  return { id: s.id_music, url: s.ytUrl, name: s.name, semSoAudio: true };
+}
+// (`ehSerie` mora com o resto do modelo de coleção, junto de `tipoDaColecao`.)
+
 function openSongMenu(coll, s, modo) {
+  // O item que é um LINK desvia para a folha do YouTube ANTES de qualquer
+  // coisa: o resto desta função monta o seletor Cantada/Playback e as ações que
+  // baixam, que são exatamente o que não se aplica a ele.
+  if (ehLink(coll)) { openYtMenu(serieComoYoutube(coll, s)); return; }
   destLimpar();
   songMenuFor = { coll, s, variant: 'full' };
   songMenuTitleEl.textContent = songLabel(coll, s);
@@ -10199,19 +11361,16 @@ function songMenuItem(icone, rotulo, sub, acao, destino, aoMudar) {
 function destConfirmRow() {
   if (!destMarcados.size || !destExecutor) return null;
   const alvos = destUniao(null);
-  const nomes = juntarFrases(alvos.map((c) => {
-    const d = destinoPorChave(c);
-    return d ? d.rotulo : c;
-  }));
   const li = document.createElement('li');
   li.className = 'song-menu-go-row';
   const btn = document.createElement('button');
   btn.type = 'button'; btn.className = 'song-menu-btn song-menu-go';
   const txt = document.createElement('span'); txt.className = 'song-menu-text';
   const t = document.createElement('span'); t.className = 'song-menu-label';
+  // SEM LISTAR OS NOMES (v5.195): eles são as caixas marcadas, visíveis a três
+  // linhas daqui. O contador responde "quantos?" sem repetir "quais?".
   t.textContent = alvos.length > 1 ? 'Enviar aos ' + alvos.length + ' destinos' : 'Enviar';
-  const d = document.createElement('span'); d.className = 'song-menu-sub'; d.textContent = nomes;
-  txt.append(t, d);
+  txt.appendChild(t);
   btn.appendChild(txt);
   btn.addEventListener('click', () => {
     const variante = songMenuFor ? songMenuFor.variant : 'full';
@@ -10290,8 +11449,7 @@ function renderDestPrompt() {
     ic.classList.add('song-menu-icon');
     const txt = document.createElement('span'); txt.className = 'song-menu-text';
     const t = document.createElement('span'); t.className = 'song-menu-label'; t.textContent = d.rotulo;
-    const sub = document.createElement('span'); sub.className = 'song-menu-sub'; sub.textContent = d.sub;
-    txt.append(t, sub);
+    txt.appendChild(t);
     // A caixa é a MESMA das outras folhas — ela para o borbulhar, então o
     // listener da linha não roda duas vezes quando o toque cai exatamente nela.
     btn.append(ic, txt, destCheck(d.chave, remontar));
@@ -10310,9 +11468,7 @@ function renderDestPrompt() {
   const t = document.createElement('span'); t.className = 'song-menu-label';
   const escolhidos = destUniao(null);
   t.textContent = escolhidos.length ? 'Importar' : 'Escolha um destino';
-  const sub = document.createElement('span'); sub.className = 'song-menu-sub';
-  sub.textContent = juntarFrases(escolhidos.map((c) => (destinoPorChave(c) || {}).rotulo || c));
-  txt.append(t, sub);
+  txt.appendChild(t);
   go.appendChild(txt);
   go.disabled = !escolhidos.length;
   go.addEventListener('click', () => fecharDestPrompt(escolhidos));
@@ -10333,14 +11489,18 @@ function renderSongMenu(modo) {
     songMenuListEl.appendChild(songMenuItem(voiceIconSvg(), 'Tocar música cantada', '',
       () => playSongVariant(coll, s, 'full')));
     if (temPlayback) {
-      songMenuListEl.appendChild(songMenuItem(noteIconSvg(), 'Tocar playback', 'Instrumental, sem a voz',
+      // "Playback" é o termo que este app usa em toda parte, inclusive no
+      // seletor Cantada/Playback que nunca teve explicação nenhuma ao lado.
+      songMenuListEl.appendChild(songMenuItem(noteIconSvg(), 'Tocar playback', '',
         () => playSongVariant(coll, s, 'playback')));
     }
     // "Só a letra" NÃO é uma variante de áudio: nenhum arquivo é tocado (nem
     // precisa estar baixado — a letra vem do acervo de letras). É por isso que
     // ela mora aqui e não numa terceira variante de `playSongVariant`.
+    // "Sem música" repetia o rótulo; o que ele NÃO diz é que os slides param de
+    // virar sozinhos, e é isso que muda o que o operador faz durante o louvor.
     songMenuListEl.appendChild(songMenuItem(lyricsOnlyIconSvg(), 'Apenas a letra',
-      'Sem música e sem passagem automática de slides',
+      'Os slides não passam sozinhos',
       () => projectSongLyricsOnly(coll, s)));
     return;
   }
@@ -10364,17 +11524,14 @@ function renderSongMenu(modo) {
   // mesmo dos três, porque a diferença entre eles sempre foi só a lista.
   const remontar = () => renderSongMenu('add');
   destExecutor = (alvos, btn, vr) => addSongToDestinos(coll, s, vr, alvos, btn);
-  songMenuListEl.appendChild(songMenuItem(msym(ICON.queue), 'Adicionar à playlist',
-    'Entra na fila do que está tocando agora',
+  songMenuListEl.appendChild(songMenuItem(msym(ICON.queue), 'Adicionar à playlist', '',
     (vr, btn, alvos) => addSongToDestinos(coll, s, vr, alvos, btn), 'playlist', remontar));
-  songMenuListEl.appendChild(songMenuItem(msym(ICON.cronoAdd), 'Adicionar ao Cronograma',
-    'A lista do culto',
+  songMenuListEl.appendChild(songMenuItem(msym(ICON.cronoAdd), 'Adicionar ao Cronograma', '',
     (vr, btn, alvos) => addSongToDestinos(coll, s, vr, alvos, btn), 'cronograma', remontar));
   // "Escolha o atalho" saiu do subtítulo (v5.103): favoritar virou o ato
   // simples, sem seletor no meio. Organizar em atalho continua possível — pela
   // seleção múltipla, dentro da gaveta, para quem tem muita coisa marcada.
-  songMenuListEl.appendChild(songMenuItem(msym(ICON.star), 'Favoritar',
-    'O que se usa toda semana, sempre à mão',
+  songMenuListEl.appendChild(songMenuItem(msym(ICON.star), 'Favoritar', '',
     (vr, btn, alvos) => addSongToDestinos(coll, s, vr, alvos, btn), 'favoritos', remontar));
   // A LETRA como cena de roteiro: entra no Cronograma sem baixar áudio nenhum,
   // e projetá-la é o mesmo "Apenas a letra" da folha de tocar. É o item de
@@ -10476,13 +11633,16 @@ async function songVariantsNeeded(coll, s) {
 // pediu pra usar, nunca o acervo inteiro de uma vez. Reaproveita
 // downloadCollectionSong — a música sai já com áudio, capa e letra, pronta pra
 // tocar 100% offline nas próximas vezes.
-// `opts.toast === false` cala o aviso na tela principal — é o que o caminho de
-// TOCAR usa desde a v5.64, porque ali quem anuncia o download é o indicador na
-// miniatura da preview (ver `previewBusy`). Os caminhos de ADICIONAR seguem com
-// o aviso (`avisar` — o flash é no-op desde que o toast saiu): eles não mexem
-// na preview, e sem ele o toque ficaria mudo. A faixa é transitória e some
-// sozinha, então ninguém precisa "fechá-la" no fim do download.
-async function ensureSongDownloaded(coll, s, opts) {
+// O PARÂMETRO `opts.toast` SAIU na v5.207, e com ele o último motivo de existir
+// desta assinatura. Ele calava um `avisar('Baixando "X"…')` numa faixa
+// flutuante, e existia porque o caminho de TOCAR já anunciava o mesmo download
+// no cartão da preview — dois canais para um fato, com um `if` para escolher.
+//
+// Sem a faixa não há o que calar: quem diz que ESTA música está baixando é a
+// linha dela (`setSongRowBusy`, logo abaixo), que fica à vista porque o acervo
+// continua aberto, e o cartão da preview quando o caminho é o de tocar. Os dois
+// são in-place e coexistem sem se atropelar.
+async function ensureSongDownloaded(coll, s) {
   const { needsFull, needsPlayback } = await songVariantsNeeded(coll, s);
   if (!needsFull && !needsPlayback) return;
 
@@ -10497,7 +11657,6 @@ async function ensureSongDownloaded(coll, s, opts) {
     const key = coll.id + ':' + s.id_music;
     if (songDownloadInFlight.has(key)) { await songDownloadInFlight.get(key); return; }
     const p = withBgWork(async () => {
-      if (!opts || opts.toast !== false) avisar('Baixando "' + s.name + '"…');
       await downloadCollectionSong(coll, s);
       await AVDB.setState('coll:' + coll.id, collState[coll.id]);
       refreshCollectionsIfVisible();
@@ -10509,8 +11668,8 @@ async function ensureSongDownloaded(coll, s, opts) {
   }
 }
 
-async function resolveSongMediaId(coll, s, variant, opts) {
-  await ensureSongDownloaded(coll, s, opts);
+async function resolveSongMediaId(coll, s, variant) {
+  await ensureSongDownloaded(coll, s);
   const fileId = variant === 'full' ? s.fileIdFull : s.fileIdPlayback;
   if (!fileId) return null;
   const rec = await AVDB.fileGet(fileId);
@@ -10522,6 +11681,12 @@ async function resolveSongMediaId(coll, s, variant, opts) {
 // respondeu "baixar" já disse como quer que o app se comporte, e repetir a
 // pergunta a cada música viraria ruído no meio do culto.
 async function simplePlaySong(coll, s) {
+  // NO MODO FÁCIL A SÉRIE TAMBÉM TRANSMITE (v5.230), e aqui isso vale ainda
+  // mais: este modo existe para não perguntar nada, e a alternativa seria o
+  // operador esperar ~300 MB de download com o culto rodando. `ytAcao` com
+  // "tocar" e nenhum destino de guarda é exatamente o caminho da transmissão
+  // direta — e, falhando ela, o download de sempre, calado.
+  if (ehLink(coll)) { await ytAcao(serieComoYoutube(coll, s), ['tocar'], null, false, 0); return; }
   const { needsFull } = await songVariantsNeeded(coll, s);
   if (needsFull && !(await ensureDownloadConsent())) return;
   playSongVariant(coll, s, 'full');
@@ -10559,6 +11724,10 @@ async function ensureDownloadConsent() {
 // está a caminho. Um aviso na tela principal seria mais um cartaz avulso a
 // interpretar; na preview a espera vira estado do próprio destino.
 const PV_BUSY_DELAY_MS = 180;
+// Quanto o cartão SEGURA um motivo de falha antes de sair (ver `falhar`).
+// Generoso de propósito: "Baixando…" o operador vê de relance, mas "sem
+// internet para baixar" ele precisa LER — e é a única resposta que ele vai ter.
+const PV_FALHA_MS = 5000;
 let pvBusyCount = 0;
 let pvBusyTimer = null;
 
@@ -10583,9 +11752,9 @@ let pvBusyTimer = null;
 // player), e uma chave provisória quando não existe (um link recém-chegado).
 const libBaixando = new Map();
 
-function libBusy(nome, chaveExistente) {
+function libBusy(nome, chaveExistente, aoCancelar) {
   const chave = chaveExistente || ('dl:' + Math.random().toString(36).slice(2, 9));
-  libBaixando.set(chave, { nome: nome || 'Baixando…', pct: -1 });
+  libBaixando.set(chave, { nome: nome || 'Baixando…', pct: -1, cancelar: aoCancelar || null });
   if (activeTab === 'imports') load();
   let solto = false;
   return {
@@ -10628,18 +11797,56 @@ function libBusyRow(chave, reg) {
   const pct = document.createElement('span'); pct.className = 'dl-pct';
   pct.textContent = reg.pct >= 0 ? reg.pct + '%' : '';
   row.append(t, nome, pct);
+  // O CANCELAR MORA NA PRÓPRIA LINHA (v5.191). É o pedido do operador em
+  // palavras dele — "a opção de cancelar no mesmo elemento visual do item na
+  // listagem onde está baixando" —, e ele resolve o caso que o toque na linha
+  // da busca não cobria: um download que foi para o Cronograma e cuja busca já
+  // está fechada não tinha mais nenhuma superfície onde ser parado.
+  if (reg.cancelar) {
+    const x = document.createElement('button');
+    x.type = 'button';
+    x.className = 'dl-cancel';
+    x.title = 'Cancelar o download';
+    x.setAttribute('aria-label', 'Cancelar o download');
+    x.innerHTML = '<span class="msym" aria-hidden="true">' + ICON.close + '</span>';
+    // A linha inteira tem gestos próprios (abrir, arrastar para reordenar):
+    // sem isto, cancelar dispararia também o de baixo.
+    x.addEventListener('click', (ev) => { ev.stopPropagation(); reg.cancelar(); });
+    row.appendChild(x);
+  }
   li.appendChild(row);
   return li;
 }
 
-function previewBusy(acao, nome) {
+// Quem o botão de cancelar do cartão da preview aciona AGORA. Uma variável só,
+// e não uma pilha: com dois downloads ao mesmo tempo o cartão já mostrava o
+// último a escrever (a legenda é uma só), e o botão segue a mesma regra — o que
+// se lê na tela e o que o toque faz são sempre o mesmo download.
+let pvBusyCancelar = null;
+function pintarPvBusyCancelar() {
+  if (!pvBusyCancelEl) return;
+  pvBusyCancelEl.hidden = !pvBusyCancelar;
+}
+
+function previewBusy(acao, nome, aoCancelar) {
   // No simplificado a preview só está na tela com um telão conectado (ver
-  // hostPreview/`.simple.locked`); bloqueado, quem avisa continua sendo o
+  // hostPreview/`.simple.sem-tela`); bloqueado, quem avisa continua sendo o
   // toast — é por isso que o chamador precisa saber.
-  if (appMode === 'simple' && !simpleDisplay()) return { visivel: false, atualizar: () => {}, soltar: () => {} };
+  // `falhar` entra no stub junto com os outros: um chamador que só quer relatar
+  // uma falha não pode explodir porque o cartão não existe neste modo.
+  if (appMode === 'simple' && !simpleDisplay()) {
+    return { visivel: false, atualizar: () => {}, soltar: () => {}, falhar: () => {} };
+  }
   pvBusyCount++;
   pvBusyCapEl.textContent = acao;
   pvBusyLabelEl.textContent = nome;
+  // O botão segue o ÚLTIMO a escrever, exatamente como a legenda — inclusive
+  // quando o novo dono NÃO sabe cancelar (um hino baixando por cima de um vídeo
+  // do YouTube): o cartão diria uma coisa e o botão faria outra, e o operador
+  // pararia o download errado.
+  const meuCancelar = aoCancelar || null;
+  pvBusyCancelar = meuCancelar;
+  pintarPvBusyCancelar();
   // Só acende depois de um respiro: uma música JÁ baixada resolve em poucos
   // milissegundos, e um cartão que pisca é pior que nenhum — lê-se como falha.
   if (!pvBusyTimer && !pvBusyEl.classList.contains('on')) {
@@ -10668,10 +11875,42 @@ function previewBusy(acao, nome) {
     soltar() {
       if (solto) return;
       solto = true;
+      // O botão sai com O DONO dele: se outro download assumiu o cartão nesse
+      // meio-tempo, quem manda é o novo — a mesma regra da legenda.
+      if (meuCancelar && pvBusyCancelar === meuCancelar) {
+        pvBusyCancelar = null;
+        pintarPvBusyCancelar();
+      }
       pvBusyCount = Math.max(0, pvBusyCount - 1);
       if (pvBusyCount) return;
       clearTimeout(pvBusyTimer); pvBusyTimer = null;
       pvBusyEl.classList.remove('on');
+      pvBusyEl.classList.remove('falhou');
+      pvBusyCancelar = null;
+      pintarPvBusyCancelar();
+    },
+    // O MESMO CARTÃO DIZ QUE NÃO DEU (v5.207).
+    //
+    // Ele já é o lugar em que este trabalho se anuncia, e é sobre a PREVIEW —
+    // isto é, exatamente onde a mídia apareceria se tivesse dado certo. O
+    // motivo ("sem internet para baixar") saía antes por uma faixa flutuante no
+    // topo da tela, longe do cartão que estava dizendo "Baixando…" um segundo
+    // antes: duas camadas para as duas metades da mesma frase.
+    //
+    // Ele SEGURA o cartão pelo tempo da leitura e só então solta — sem isso, o
+    // `finally` do chamador apagaria a mensagem no mesmo quadro em que ela
+    // nasce.
+    falhar(motivo) {
+      if (solto) return;
+      pvBusyEl.classList.add('on', 'falhou');
+      pvBusyCapEl.textContent = 'Não deu';
+      pvBusyLabelEl.textContent = motivo;
+      if (meuCancelar && pvBusyCancelar === meuCancelar) {
+        pvBusyCancelar = null;
+        pintarPvBusyCancelar();
+      }
+      const eu = this;
+      setTimeout(() => eu.soltar(), PV_FALHA_MS);
     },
   };
 }
@@ -10683,12 +11922,12 @@ async function playSongVariant(coll, s, variant) {
   closeHymnSearch();
   const bg = previewBusy('Baixando', songLabel(coll, s));
   try {
-    // Dois avisos para o mesmo download é ruído: com o indicador na preview, a
-    // faixa de aviso sai de cena.
-    const id = await resolveSongMediaId(coll, s, variant, { toast: !bg.visivel });
-    if (!id) { avisar('Não foi possível tocar (sem internet para baixar)', 'erro'); return; }
+    const id = await resolveSongMediaId(coll, s, variant);
+    // As duas falhas falam pelo MESMO cartão que estava dizendo "Baixando…", e
+    // é ele que fica na tela — sobre a preview, que é onde a música apareceria.
+    if (!id) { bg.falhar('sem internet para baixar'); return; }
     const rec = await AVDB.getMedia(id);
-    if (!rec) { avisar('Erro ao carregar mídia', 'erro'); return; }
+    if (!rec) { bg.falhar('não foi possível abrir a mídia'); return; }
     await replacePlaylistWith(rec);
     await send(id);
   } finally {
@@ -10696,23 +11935,20 @@ async function playSongVariant(coll, s, variant) {
   }
 }
 
-// Os três caminhos de ADICIONAR passam `toast: false` pelo mesmo motivo que o
-// de tocar: quem anuncia o download é o indicador — aqui, a miniatura da linha
-// da música (`setSongRowBusy`), que fica à vista porque o acervo continua
-// aberto de propósito. O aviso que sobra é o do RESULTADO ("Adicionado à
-// playlist"), que é outra informação.
-async function addSongVariant(coll, s, variant, btn) {
-  return addSongToDestinos(coll, s, variant, ['cronograma'], btn);
-}
-
+// Quem anuncia o download aqui é a miniatura da linha da música
+// (`setSongRowBusy`), que fica à vista porque o acervo continua aberto de
+// propósito. O RESULTADO é outra informação, e ele responde no botão que foi
+// tocado (ver `adicionarNasListas`).
 // UM download, VÁRIAS listas (v5.141). O caro aqui é `resolveSongMediaId` — ele
 // baixa o áudio quando ele ainda não está no aparelho —, e o item resultante é
 // o MESMO id em todas as listas. Fazer a conta uma vez e distribuir depois é a
 // diferença entre esperar um download e esperar três para a mesma música.
 async function addSongToDestinos(coll, s, variant, destinos, btn) {
   const alvos = (destinos && destinos.length) ? destinos : ['cronograma'];
-  const id = await resolveSongMediaId(coll, s, variant, { toast: false });
-  if (!id) { avisar('Não foi possível adicionar (sem internet para baixar)', 'erro'); return; }
+  const id = await resolveSongMediaId(coll, s, variant);
+  // A RECUSA RESPONDE NO BOTÃO QUE FOI TOCADO: ele é o alvo de foco, e o pulso
+  // vermelho é o mesmo vocabulário que o sucesso já usa nesta mesma folha.
+  if (!id) { pulsar(btn, 'erro'); return; }
   await adicionarNasListas(listasDosDestinos(alvos), id, songLabel(coll, s), btn);
   // Cada destino redesenha o que ele mudou, e só isso: os Favoritos aparecem na
   // estrela de cada linha do acervo, e o Cronograma só precisa ser remontado se
@@ -10733,7 +11969,7 @@ async function addSongToDestinos(coll, s, variant, destinos, btn) {
 // ===== transições (fade in/out) =====
 function openFadePopup() {
   renderAppModeSeg();
-  renderStandaloneSeg();
+  renderTemaSeg();
   renderFitSeg();
   renderRotBtn();
   renderLyricsBgSeg();
@@ -10758,10 +11994,10 @@ function closeFadePopup() {
 // guarda o anel dele e entrega quando alguém pergunta.
 let diagLinhas = [];
 
-// O CONTROLE TEM O PRÓPRIO ANEL, e ele é o que importa no modo MESA DE SOM: ali
-// quem toca é o `<video>` desta página, não o do telão — o registro do Display
-// não veria nada. Foi exatamente essa distinção que faltou nas tentativas
-// anteriores.
+// O CONTROLE TEM O PRÓPRIO ANEL, e ele é o que importa quando o som sai DESTE
+// APARELHO (v5.215, `acertarSaidaDeAudio`): ali quem toca é o `<video>` desta
+// página, não o do telão — o registro do Display não veria nada. Foi exatamente
+// essa distinção que faltou nas tentativas anteriores.
 const DIAG_MAX_C = 40;
 const diarioC = [];
 function diagC(ev, extra) {
@@ -10794,24 +12030,57 @@ function cabecalhoDiag() {
   l.push('Web v' + WEB_VERSION
     + (window.__SHELL_NAME__ ? ' · Shell v' + window.__SHELL_NAME__ : ' · navegador')
     + (window.__NATIVE__ ? ' · ponte ' + (window.__SHELL_VERSION__ | 0) : ''));
-  if (displayStatusTextEl) l.push('Telão: ' + (displayStatusTextEl.textContent || '?'));
-  if (castTargetLineEl && !castTargetLineEl.hidden) l.push(castTargetLineEl.textContent);
+  // DO DADO, NÃO DO DOM (v5.193). As duas linhas saíram do rodapé desta folha
+  // — quem está conectado é assunto da folha de conexão —, e o Registro lia
+  // justamente aqueles elementos. Ler de variável é o que deveria ter sido
+  // desde sempre: um diagnóstico que depende de um elemento de UI existir
+  // emudece no dia em que alguém o esconde, e emudece em silêncio.
+  l.push('Telão: ' + descreverTelao());
+  if (castAlvo) l.push('Espelhar abre: ' + castAlvo);
+  // ONDE O SOM ESTÁ SAINDO (v5.215). "Não sai som" tem causas que a tela não
+  // separa — mudo, fader em zero, tela conectada sem volume, ou este aparelho
+  // calado por haver tela —, e quem lê este bloco está a distância. Ele diz o
+  // que o app DECIDIU, não o que o alto-falante fez.
+  l.push('Som: ' + (somLocal
+    ? 'neste aparelho (nenhuma tela conectada)'
+    : (algumaTelaConectada()
+      ? 'nas telas conectadas'
+      : (somLocalBloqueado
+        ? 'em lugar nenhum — o navegador recusou o som deste aparelho'
+        : 'em lugar nenhum — sem tela e no Modo Fácil (este aparelho só soa no avançado)'))));
   // SUPORTE A TRANSMISSÃO DIRETA. É o dado mais útil deste bloco desde a
   // v5.120: quando um "Tocar agora" cai no download em vez de transmitir, a
   // primeira pergunta é se o WebView deste aparelho aceita os codecs — e a
   // resposta não se descobre de fora.
   l.push('Transmissão: ' + diagMse());
-  // A ATUALIZAÇÃO QUE AINDA NÃO ENTROU. Desde a v5.151 ela entra sozinha, na
-  // hora — então esta linha deixou de ser "esperando a tela livre" e passou a
-  // ser um ALARME: se ela aparece, alguma coisa impediu a aplicação, e o
-  // Registro é o único lugar que responde "por que ainda estou na versão
-  // antiga?". O `horaRuimParaAtualizar()` continua sendo LIDO aqui — não mais
-  // como portão, e sim como a explicação provável de um piscar que aconteceu
-  // numa hora ruim.
-  if (otaPendenteVersao) {
-    l.push('Atualização: v' + otaPendenteVersao + ' baixada e AINDA NÃO aplicada'
-      + (otaRecusadas.has(otaPendenteVersao) ? ' — o shell recusou aplicá-la' : ' — entrando…')
-      + (horaRuimParaAtualizar() ? ' (com cena/download/espelho no ar)' : ''));
+  // O LOTE QUE ESPERA, e POR QUE ele espera (v5.234).
+  //
+  // Desde que a pergunta voltou a existir, "por que ainda estou na versão
+  // antiga?" tem respostas que a tela não distingue: ninguém foi perguntado
+  // ainda, o operador adiou, a pergunta está esperando a cena sair do ar, ou o
+  // shell recusou o bundle. As quatro pedem ações diferentes do operador — e
+  // este Registro é lido A DISTÂNCIA, então um "esperando…" genérico manda
+  // quem o lê investigar a coisa errada.
+  const loteReg = loteDaAtualizacao();
+  if (loteReg) {
+    const oque = [
+      loteReg.web ? 'base v' + loteReg.web : '',
+      loteReg.shell ? 'app v' + loteReg.shell : '',
+    ].filter(Boolean).join(' + ');
+    let porque;
+    if (loteReg.web && otaRecusadas.has(loteReg.web)) porque = 'o shell RECUSOU aplicá-la';
+    else if (otaAdiadas.has(loteReg.chave)) porque = 'o operador adiou nesta sessão';
+    else if (apkBaixando) porque = 'baixando o app agora';
+    else if (otaPerguntando) porque = 'perguntando agora';
+    else if (horaRuimParaPerguntar()) porque = 'esperando a cena/download sair do ar';
+    else porque = 'a pergunta está prestes a aparecer';
+    l.push('Atualização: ' + oque + ' esperando — ' + porque);
+    // O peso do APK só interessa quando ele está no lote, e interessa muito:
+    // é a diferença entre "esperar meio minuto" e "esperar o Wi-Fi da igreja".
+    if (loteReg.bytes) l.push('  · o app pesa ' + mb(loteReg.bytes));
+    if (loteReg.shell && horaRuimParaAtualizar()) {
+      l.push('  · instalar está bloqueado (cena/download/espelho no ar)');
+    }
   }
   // A PROCURA em si (v5.136). "Não apareceu aviso nenhum" tem quatro causas
   // indistinguíveis da tela — não há versão nova, a busca falhou, o bundle
@@ -10865,171 +12134,42 @@ function mirrorDur(ms) {
   return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60) + ' min';
 }
 
-// Os cinco vereditos da sonda em frase — a tabela §7.4 da especificação. O
-// Kotlin manda o NOME do enum; traduzir aqui é o mesmo princípio de todo o
-// resto do bloco, e é o que permite mudar a frase sem tocar no shell.
-const MIRROR_VEREDITO = {
-  OK: 'OK — o vídeo aparece',
-  OK_ESCURO: 'OK, porém ESCURO (as cores da rede saem mais escuras que o telão)',
-  VIDEO_PRETO: 'VÍDEO SAI PRETO',
-  TUDO_PRETO: 'TELA INTEIRA PRETA — a composição não chega',
-  SEM_QUADRO: 'NENHUM QUADRO EM 5 s',
-  INDEFINIDO: 'INDEFINIDO — mediu algo fora dos casos catalogados',
-};
 // `PowerManager.THERMAL_STATUS_*` por índice.
 const MIRROR_TERMICA = ['NONE', 'LIGHT', 'MODERATE', 'SEVERE', 'CRITICAL', 'EMERGENCY', 'SHUTDOWN'];
 
-// O SOM DE UMA TELA, em uma frase.
-//
-// São DOIS fatos independentes, e cada combinação é um estado diferente com uma
-// saída diferente — deixá-los crus ("torneira:nao faixa:nao") obrigava a leitura
-// a ser feita de cabeça, e no primeiro culto de teste `torneira:nao`, que quer
-// dizer "ninguém tocou naquela tela", foi lido como "o celular não está
-// enviando som".
-//
-//  · `audio` (torneira) é o que o SERVIDOR abriu para aquela tela, e ele só
-//    abre quando ela pede — o que só acontece no toque do visitante, porque as
-//    telas nascem mudas por decisão (§3.11, invariante 10);
-//  · `som` (faixa) é o que o CLIENTE de fato conseguiu montar.
-//
-// A discordância entre os dois é o defeito; a concordância em "não" é apenas
-// uma tela que ninguém pediu para ouvir.
-function somDaTela(c) {
-  if (!c.audio && !c.som) return 'som: não pedido (ninguém tocou naquela tela)';
-  if (c.audio && !c.som) return 'som: PEDIDO e a faixa não nasceu';
-  if (!c.audio && c.som) return 'som: faixa montada sem a torneira aberta (?)';
-  return 'som: tocando';
-}
+// (SAIU NA v5.206, com o resto do consumo do espelho de pixels: `MIRROR_VEREDITO`
+//  — os cinco vereditos da SONDA, um instrumento cujo produtor (`SondaClipe`) e
+//  cuja página (`sonda.html`) foram apagados na v5.187. A tabela ficou dezenove
+//  versões traduzindo um enum que ninguém mais emite.)
 
-// O `readyState` de um `<video>` em palavra. Os números são da spec e ninguém
-// os decora; e a diferença entre 2 e 4 é exatamente a diferença entre "sem
-// dado" e "tocando com folga", que é a pergunta.
-const MIRROR_RS = ['SEM DADO', 'so metadados', 'SEM DADO ADIANTE', 'tem o proximo', 'tem folga'];
-
-/**
- * O QUE A TELA MEDIU DE SI, em duas ou três linhas.
- *
- * Cada número aqui separa dois desfechos com correções DIFERENTES — é a mesma
- * régua do resto do bloco —, e nenhum deles existe do lado do servidor:
- *
- *  · `folga` NEGATIVA em qualquer faixa é o cursor fora do buffer, isto é, a
- *    MSE sem dado para tocar: a tela congela **sem erro nenhum**. Foi este o
- *    defeito da v5.155, e este é o número que o teria mostrado no primeiro
- *    minuto em vez de na terceira rodada.
- *  · `perdidos` (quadros descartados pelo decodificador) é o único número que
- *    diz "este aparelho não dá conta" em vez de "a rede está ruim" — rede ruim
- *    atrasa, não descarta quadro já decodificado.
- *  · `estado` baixo com imagem parada é fonte; alto com imagem parada é
- *    decodificador.
- *  · `vel` colada em 108% o tempo todo é uma tela que nunca alcança a borda.
- *
- * Toda linha é opcional, como o resto: uma tela com bundle antigo não manda
- * `vivo`, e a resposta certa é não desenhar — nunca "undefined" num log que vai
- * ser copiado e repassado.
- */
-function linhasDaTela(v) {
-  if (!v || typeof v !== 'object') {
-    return ['(esta tela ainda nao relatou medidas — bundle antigo, ou o primeiro `alive` nao chegou)'];
-  }
-  const out = [];
-  const sinal = (n) => ((n | 0) >= 0 ? '+' : '') + (n | 0) + ' ms';
-  const folgaV = v.vfim === -99999 ? 'sem faixa' : sinal(v.vfim);
-  const folgaA = v.afim === -99999 ? 'sem faixa' : sinal(v.afim);
-  // O ALARME VEM PRIMEIRO, e ele é o motivo desta função existir.
-  const seco = (v.vfim !== -99999 && (v.vfim | 0) < 0) || (v.afim !== -99999 && (v.afim | 0) < 0);
-  // OS BLOCOS DO BUFFER, quando há mais de um. Um `buffered` partido é a
-  // diferença entre "a tela está atrasada" e "a tela está PARADA num buraco", e
-  // as duas têm correções opostas. Só aparece quando diz alguma coisa.
-  const partido = ((v.nr | 0) > 1) || ((v.na | 0) > 1);
-  out.push('folga do cursor: video ' + folgaV + ' · som ' + folgaA
-    + ' · janela ' + Math.round((v.jan | 0) / 100) / 10 + ' s'
-    + (partido ? ' · buffer PARTIDO em ' + (v.nr | 0)
-      + ((v.na | 0) > 0 ? '/' + (v.na | 0) : '') + ' bloco(s)' : '')
-    + (seco ? '  ← CURSOR FORA DO BUFFER: a tela congela sem erro' : ''));
-  const perdidos = (v.dq | 0) >= 0 && (v.tq | 0) > 0
-    ? (v.dq | 0) + '/' + (v.tq | 0)
-      + ' (' + Math.round((v.dq | 0) * 1000 / (v.tq | 0)) / 10 + '%)'
-    : 'nao informado';
-  out.push('decodificador: ' + perdidos + ' perdido(s)'
-    + ' · estado ' + (MIRROR_RS[v.rs | 0] || v.rs)
-    + ' · vel ' + (v.rate | 0) + '%'
-    + ' · fila de append ' + (v.fila | 0));
-  out.push('recebeu: ' + (v.q | 0) + ' quadro(s), ' + (v.qa | 0) + ' de som'
-    + ' · ' + Math.round((v.kb | 0) / 102.4) / 10 + ' MB'
-    + ' · ' + (v.rec | 0) + ' reconexao(oes)'
-    // Os três tetos internos do cliente. Batido qualquer um, ele desiste de
-    // algo em silêncio — e agora o Registro diz qual.
-    + (v.reb ? ' · ' + v.reb + ' remontagem(ns) de som' : '')
-    + (v.cota ? ' · ' + v.cota + ' estouro(s) de cota' : '')
-    + (v.rr ? ' · ' + v.rr + ' recusa(s) seguida(s) do decodificador' : ''));
-  if (v.cod || v.vid) {
-    out.push('codec: ' + (v.cod || '?')
-      + ' · video ' + (v.vid || '?') + ' numa tela de ' + (v.tela || '?'));
-  }
-  // O PIOR CASO — e é a única linha aqui que não é uma fotografia.
-  //
-  // Tudo acima vale para o instante em que o relato saiu, e essa é justamente a
-  // razão de o primeiro log de culto ter chegado SAUDÁVEL: quem o mandou não
-  // estava travando naquele milissegundo. Estas medidas acumulam entre relatos
-  // e só zeram numa descontinuidade do próprio cliente (o salto de recuperação
-  // e a reconexão), então o que sobra nelas é o que o operador de fato viu.
-  //
-  // `pq` é o intervalo entre quadros APRESENTADOS, que é a definição exata de
-  // "congelou". `pc` é o cursor parado — mais grosso (amostra de 500 ms), e o
-  // que sobra num navegador sem `requestVideoFrameCallback`.
-  const temPior = v.pq != null || v.pc != null;
-  if (temPior) {
-    const pq = v.pq == null ? -1 : v.pq | 0;
-    const pc = v.pc | 0;
-    const nq = v.nq | 0;
-    const seg = (n) => Math.round(n / 100) / 10 + ' s';
-    const partes = [];
-    partes.push(pq < 0
-      ? 'maior parada de imagem: nao medida (este navegador nao traz o relogio de quadro)'
-      : 'maior parada de imagem: ' + seg(pq));
-    if (nq) partes.push(nq + ' parada(s) acima de 1 s');
-    if (pc) partes.push('cursor parado por ate ' + seg(pc));
-    out.push(partes.join(' · ')
-      + (pq >= 2000 || pc >= 2000 ? '  ← TRAVAMENTO CONFIRMADO deste lado' : ''));
-    // E a menor folga já vista, que é o que ANTECEDE o congelamento: `vfim`
-    // acima pode estar confortável agora e ter chegado a zero há dez segundos.
-    if (v.pv != null && (v.pv | 0) !== -99999) {
-      // `-99999` é AUSÊNCIA de faixa, não folga negativa. Sem essa ressalva,
-      // toda tela muda (a maioria delas, e toda tela que perdeu o som) saía do
-      // Registro com "← chegou a secar" — um alarme falso em cima do log que o
-      // operador usa justamente para separar alarme de ruído.
-      const temA = v.pa != null && (v.pa | 0) !== -99999;
-      out.push('menor folga ja vista: video ' + sinal(v.pv)
-        + (temA ? ' · som ' + sinal(v.pa) : '')
-        + (((v.pv | 0) < 0 || (temA && (v.pa | 0) < 0)) ? '  ← chegou a secar' : ''));
-    }
-    // O TOTAL DA SESSÃO, e é ele que responde a pergunta do operador com um
-    // número. As duas recuperações vão separadas porque têm causas diferentes:
-    // `enc` é o cursor fora do buffer (o congelamento em estado puro, que até a
-    // v5.157 só saía sete segundos depois, pelo `sal`).
-    if (v.tn != null && ((v.tn | 0) || (v.sal | 0) || (v.enc | 0))) {
-      const bits = [];
-      if (v.tn | 0) {
-        bits.push((v.tn | 0) + ' parada(s) na sessao, '
-          + Math.round((v.tt | 0) / 100) / 10 + ' s no total');
-      }
-      if (v.enc | 0) bits.push((v.enc | 0) + ' encalhe(s) do cursor');
-      if (v.sal | 0) bits.push((v.sal | 0) + ' salto(s) de recuperacao');
-      // SEGUIDAS: zera no primeiro corte bem-sucedido. O número acumulado
-      // marcava 46 numa sessão saudável só pelo transitório de partida.
-      if (v.pod | 0) bits.push((v.pod | 0) + ' poda(s) seguidas sem quadro-chave');
-      out.push('total: ' + bits.join(' · '));
-    }
-  }
-  // O `MediaError` do elemento, que é onde mora a frase do demuxer do Chromium
-  // — e que ninguém leria, porque ninguém abre console numa TV.
-  if (v.err) out.push('erro de midia: ' + v.err);
-  return out;
-}
+// (SAIU NA v5.206: `somDaTela`, `MIRROR_RS`, `MIRROR_NS` e `linhasDaTela` — as
+//  ~155 linhas que traduziam o AUTORRELATO de uma tela do espelho de PIXELS.
+//
+//  Quem produzia aquele objeto (`c.vivo`) era o `espelho/cliente.js`, apagado
+//  na v5.187. Uma tela de comandos publica hoje `rotulo`, `conectadaMs`,
+//  `telaAcesaMin`, `aviso`, `eventos`, `pronta` e `fila`, e mais nada — não há
+//  `buffered`, nem `readyState`, nem quadros descartados, porque não há MSE:
+//  a tela toca o arquivo local que buscou em `/m/<token>`.
+//
+//  E isto NÃO era inerte. `linhasDaTela(undefined)` devolvia a frase
+//  "(esta tela ainda nao relatou medidas — bundle antigo, ou o primeiro `alive`
+//  nao chegou)", então TODA tela conectada saía do Registro acusada de rodar um
+//  bundle velho — no artefato que o operador copia e repassa quando algo não
+//  conecta, mandando-o investigar a versão da tela por um recurso que o app
+//  removeu. É o mesmo defeito do `ritmo` zerado, pela outra ponta: o consumidor
+//  ficou de pé depois que o produtor morreu, e o valor ausente virou uma
+//  resposta em vez de silêncio.)
 
 function blocoEspelho(d) {
   if (!d || typeof d !== 'object') return '';
-  const l = ['Espelho de pixels'];
+  // O TÍTULO É "TRANSMISSÃO PARA NAVEGADOR" (v5.202). Ele dizia "Espelho de
+  // pixels" — o nome do recurso que a v5.187 APOSENTOU por inteiro (o
+  // VirtualDisplay → H.264 → MSE). O bloco descreve o telão por comandos há
+  // catorze versões, e o operador lê este texto justamente quando algo não está
+  // conectando: um título que nomeia um recurso que não existe mais é a pior
+  // linha possível num diagnóstico que vai ser repassado. O nome usado aqui é o
+  // MESMO do interruptor na folha de conexão, para os dois falarem do mesmo.
+  const l = ['Transmissão para navegador'];
   const srv = d.servidor || {};
   const svc = d.servico || {};
   if (srv.ligado) {
@@ -11040,201 +12180,75 @@ function blocoEspelho(d) {
   } else {
     l.push('servidor: desligado');
   }
-  const t = d.telaVirtual;
-  if (t) {
-    l.push('tela virtual: ' + t.larg + 'x' + t.alt + ' @ ' + t.dpi + ' dpi'
-      + ' · flags=' + (t.flags | 0)
-      + ' · privada: ' + (t.privada ? 'SIM' : 'NÃO')
-      // O nome do campo já diz que é DERIVADO, e a frase repete: não existe
-      // getter público de FLAG_NEVER_BLANK, então isto é dedução de não termos
-      // passado PUBLIC — não é leitura. Um Registro que afirma o que ninguém
-      // mediu é pior que um que se cala.
-      + ' · NEVER_BLANK (derivado): ' + (t.neverBlankDerivado ? 'SIM' : 'NÃO')
-      + (t.id != null ? ' · id ' + t.id : ''));
-  }
-  const vp = d.viewport;
-  if (vp) {
-    // OS DOIS NÚMEROS, sempre — é a promessa do recurso ("o espelho desenha no
-    // MESMO viewport CSS que a TV") virando leitura em vez de fé. 213 dpi dá
-    // 961,5 px CSS para um alvo de 960: meio ponto percentual, que não muda uma
-    // quebra de linha. Identidade de pixel não é prometida, e por isso os dois
-    // aparecem.
-    l.push('viewport do espelho: ' + (vp.cssExato != null ? vp.cssExato : vp.css) + ' px CSS'
-      + ' (alvo: ' + vp.alvo + ' — a TV desenha assim)');
-  }
-  if (d.modo) l.push('modo: ' + (d.modo === 'video' ? 'vídeo (H.264)' : 'imagem (JPEG)'));
-  // A JANELA DO ESPELHO, perguntada em vez de deduzida. O §7.5 fazia isso pelo
-  // BITRATE cruzado com a cena — inferência que erra nos dois sentidos: uma
-  // cena legitimamente escura passa por janela morta, e uma janela morta sobre
-  // um wallpaper claro passa por cena. Aqui é leitura direta, e é o estado que
-  // produz "H.264 impecável de um retângulo preto".
-  const jan = d.janela;
-  if (jan) {
-    const viva = jan.existe && jan.mostrando && jan.web;
-    l.push('janela do espelho: ' + (viva ? 'de pé' : 'MORTA — o encoder está codificando um retângulo preto')
-      + ' (existe:' + (jan.existe ? 'sim' : 'nao')
-      + ' mostrando:' + (jan.mostrando ? 'sim' : 'nao')
-      + ' webview:' + (jan.web ? 'sim' : 'nao')
-      + ' activity:' + (jan.dono ? 'sim' : 'nao') + ')'
-      + (jan.mortesDoRenderer ? ' · ' + jan.mortesDoRenderer + ' morte(s) de renderer' : ''));
-  }
-  const r = d.readback;
-  if (r) {
-    // O RGB MEDIDO SEMPRE, nunca só o veredito: há aparelho conhecido que
-    // devolve a imagem escurecida, e uma comparação exata imprimiria "TELA
-    // INTEIRA PRETA" — um diagnóstico falso, que manda o próximo leitor caçar
-    // um defeito que não existe.
-    l.push('readback: ' + (MIRROR_VEREDITO[r.veredito] || r.veredito || '?')
-      + ' — fundo ' + r.fora + ' · vídeo ' + r.dentro
-      + ' · preto ' + r.preto + ' · branco ' + r.branco
-      + (r.pixelCopy ? ' · PixelCopy ' + r.pixelCopy : '')
-      + (r.nota ? ' · ' + r.nota : ''));
-  }
-  const enc = d.encoder;
-  if (enc) {
-    // PERFIL E NÍVEL são do FORNECEDOR — nada os pede (armadilha 6 do
-    // `EspelhoCodec`) —, e é por isso que eles precisam ser LIDOS: "esta TV não
-    // decodifica o fluxo" e "esta TV não decodifica ESTE PERFIL" são a mesma
-    // tela preta, e só este número as separa. Cruzam com o `codec:` que a tela
-    // relata, que diz a mesma coisa pelo outro lado do fio.
-    l.push('encoder: ' + (enc.nome || '?')
-      + (enc.maxInstancias ? ' · instâncias máx: ' + enc.maxInstancias : '')
-      + (enc.perfil ? ' · perfil ' + enc.perfil + '/nível ' + (enc.nivel | 0) : '')
-      + (enc.bitrateAlvo ? ' · alvo ' + Math.round(enc.bitrateAlvo / 1000) + ' kbps' : '')
-      + (enc.fpsMedido != null ? ' · ' + enc.fpsMedido + ' fps na saída' : '')
-      + ' · reclaims: ' + (enc.reclaims | 0));
-  }
-  const ritmo = d.ritmo;
-  if (ritmo && d.ligado) {
-    // O ÚNICO detector de "a janela do espelho morreu e o encoder continuou":
-    // H.264 impecável de um retângulo preto, com todos os contadores subindo e
-    // nenhuma exceção em lugar nenhum. Ele só ACUSA com vídeo tocando e cortina
-    // aberta — durante uma oração com a cortina fechada e um louvor pausado
-    // atrás, um detector ingênuo denunciaria uma falha que não existe, no
-    // Registro, com botão de copiar, para ser repassado.
-    // O TERMO DO fps SAIU, e a razão é que ele deixou de significar o que
-    // significava: o batimento do papel espelho passou de 1 Hz para 8 Hz
-    // (v5.144), então uma cena PARADA agora marca ~8 fps e a condição
-    // `fps <= 1.2` nunca mais seria verdadeira — o alarme morreria calado, que
-    // é o pior desfecho para um detector. Quem sobrou é o bitrate, e ele
-    // sozinho separa os dois casos com folga de uma ordem de grandeza: um
-    // retângulo preto só produz P-frames de macrobloco `skip` (dezenas a
-    // poucas centenas de bytes) e quadros-chave de uma tela preta, o que dá
-    // algo abaixo de 30 kbps; qualquer coisa de verdade em cena — até um
-    // wallpaper parado, medido em 156 kbps no aparelho — fica muito acima.
-    const parado = (ritmo.kbps | 0) < 40;
-    const acusa = parado && cenaComVideoAberto();
-    l.push('ritmo: ' + (ritmo.kbps | 0) + ' kbps · ' + (ritmo.fps || 0) + ' fps'
-      + ' (' + Math.round((ritmo.janelaMs || 0) / 1000) + ' s)'
-      + ' · cena "' + (npNameInnerEl ? (npNameInnerEl.textContent || '—') : '—') + '"'
-      + ' — ' + (acusa
-        ? 'ALARME: ISTO É UM RETÂNGULO PRETO'
-        : (parado ? 'imagem parada, normal' : 'conteúdo se movendo')));
-    // A CADÊNCIA, numa linha própria e inteiramente opcional (shell antigo não
-    // manda estes campos e a linha não aparece — nunca "undefined" num log que
-    // vai ser copiado e repassado). Ela existe para a próxima rodada em
-    // aparelho ser CONCLUSIVA: "kbps + fps" não distingue uma fonte regular de
-    // uma fonte em rajada, e é a rajada — o PIOR intervalo — que trava o
-    // `<video>` do outro lado, porque ele consome em tempo real.
-    const cad = [];
-    if (ritmo.msMedio != null) {
-      cad.push('intervalo ' + (ritmo.msMedio | 0) + ' ms · pior '
-        + (ritmo.msPior | 0) + ' ms');
-    }
-    if (ritmo.chaves != null) {
-      cad.push((ritmo.chaves | 0) + ' chave(s) = ' + (ritmo.kbpsChave | 0) + ' kbps');
-    }
-    if (ritmo.atrasoMs != null) {
-      // "Relativo" está escrito na tela de propósito: o número é o quanto o
-      // quadro de agora demorou A MAIS que o primeiro da sessão entre a captura
-      // e o fio, e não uma latência absoluta (ver o KDoc de `EspelhoDiag`).
-      // Sem a palavra, alguém somaria isto ao atraso do cliente.
-      //
-      // E COLADO NO TETO NÃO É UMA MEDIDA — é a ausência de uma. O Kotlin
-      // trunca em `TETO_MS`, então um valor exatamente no teto quer dizer
-      // "a âncora desta sessão não vale" (o anel sobreviveu a um espelho
-      // anterior sem o carimbo ter andado para trás), e imprimi-lo como
-      // "60000 ms" faz o operador ler um minuto de fila que não existe. Foi o
-      // que apareceu no primeiro culto de teste, num espelho com 30 s no ar.
-      const TETO_ATRASO_MS = 60000;
-      const pinado = (ritmo.atrasoMs | 0) >= TETO_ATRASO_MS;
-      cad.push(pinado
-        ? 'atraso relativo: sem referência válida nesta sessão'
-        : 'atraso relativo ' + (ritmo.atrasoMs | 0) + ' ms · pior '
-          + (ritmo.atrasoPiorMs | 0) + ' ms');
-    }
-    if (cad.length) l.push('  cadência: ' + cad.join(' · '));
-  }
-  // O ÁUDIO, e ele precisa de DOIS vereditos nomeados — não de um número.
+  // ==========================================================================
+  // (SAIU NA v5.206: NOVE ramos deste bloco — `telaVirtual`, `viewport`,
+  //  `modo`, `janela`, `readback`, `encoder`, `ritmo`, `audio` e `processo`.)
   //
-  // A cadeia tem duas metades que falham de formas indistinguíveis num log:
-  // o canal nativo (`WebMessageListener`) pode nunca ter sido instalado, e o
-  // grafo Web Audio pode estar de pé produzindo NADA (é o modo de falha que a
-  // especificação chama de pior: um `AudioWorkletNode` sem caminho até o
-  // `destination` não lança, não avisa, e simplesmente não roda). Sem separar
-  // os dois, "não sai som" seria uma frase só para duas causas opostas — e foi
-  // exatamente por não haver esta linha que a primeira rodada em aparelho
-  // gastou um teste inteiro sem descobrir que o `instalar()` nunca era chamado.
-  const au = d.audio;
-  if (au && typeof au === 'object') {
-    if (!au.canal) {
-      l.push('áudio: CANAL FECHADO — o espelho não tem por onde mandar som');
-    } else if (!au.blocosPorSegundo) {
-      l.push('áudio: canal aberto + 0 blocos de PCM/s'
-        + ' — o telão não está entregando som (grafo Web Audio mudo)');
-    } else {
-      l.push('áudio: canal aberto · AAC ' + (au.bitrate ? (au.bitrate / 1000 | 0) + ' kbps' : '?')
-        + ' @ ' + (au.taxa || '?') + ' Hz, ' + (au.canais || '?') + ' canal(is)'
-        + ' · ' + au.blocosPorSegundo + ' blocos de PCM/s'
-        + ' · ' + (au.quadros | 0) + ' quadro(s)'
-        + (au.descartados ? ' · ' + au.descartados + ' descartado(s)' : ''));
-    }
-  }
-  const proc = d.processo;
-  if (proc && proc.heapTetoMb) {
-    // A CAUSA DE FUNDO do `ERROR_RECLAIMED` e da morte do renderer: os dois
-    // aparecem no Registro como CONSEQUÊNCIA ("encoder tomado 2x", "renderer
-    // remontado") e nunca como causa. Um heap colado no teto é a causa.
-    const pct = Math.round((proc.heapMb | 0) * 100 / proc.heapTetoMb);
-    l.push('memória do app: ' + (proc.heapMb | 0) + ' de ' + proc.heapTetoMb + ' MB (' + pct + '%)'
-      + (pct >= 85 ? '  ← perto do teto: é daqui que sai o encoder tomado e o renderer morto' : ''));
-  }
+  //  Os nove liam chaves que o shell PAROU DE PUBLICAR na v5.187, quando o
+  //  espelho de pixels foi aposentado: não há tela virtual, não há encoder
+  //  H.264, não há readback de pixel, não há `AudioWorklet` empurrando AAC.
+  //  Oito deles eram mudos (guardados por `if (x)` sobre uma chave ausente).
+  //
+  //  O NONO NÃO ERA, e ele é a razão desta limpeza existir. O `EspelhoDiag`
+  //  continuava publicando `ritmo` — zerado, porque `amostra()` perdeu o
+  //  produtor —, e a regra desenhada aqui era `kbps < 40 → isto é um retângulo
+  //  preto`. Com a transmissão ligada, um vídeo tocando e a cortina aberta (um
+  //  culto normal), o Registro imprimia:
+  //
+  //      ritmo: 0 kbps · 0 fps (12 s) · cena "…" — ALARME: ISTO É UM RETÂNGULO PRETO
+  //
+  //  …no artefato que existe para ser COPIADO E REPASSADO quando algo não
+  //  conecta, acusando um subsistema que não existe. O KDoc do `EspelhoDiag`
+  //  já dizia que "diagnóstico que mente é pior que diagnóstico nenhum";
+  //  a linha mentia havia dezenove versões.
+  //
+  //  A REGRA QUE FICA, e ela vale para a próxima aposentadoria: apagar o
+  //  PRODUTOR de uma métrica e deixar o CONSUMIDOR de pé não produz silêncio —
+  //  produz um ZERO, e zero é um valor legítimo que o consumidor interpreta.
+  //  Remoção de recurso é remoção dos dois lados do fio.
+  // ==========================================================================
   if (svc.termico != null) {
     l.push('térmica: ' + (MIRROR_TERMICA[svc.termico] || svc.termico)
       + ' (máx na sessão: ' + (MIRROR_TERMICA[svc.termicoMax] || svc.termicoMax) + ')'
       + ' · carregador: ' + (svc.carregando ? 'SIM' : 'NÃO'));
   }
   const telas = Array.isArray(srv.telas) ? srv.telas : [];
-  const pend = Array.isArray(srv.pendentes) ? srv.pendentes : [];
   if (srv.ligado) {
-    // A BANDA QUE A REDE DIZ TER — estimativa do Android, não medição nossa, e
-    // vale por isso mesmo: ela responde ANTES do culto a pergunta que sustenta
-    // o recurso ("cabem 3 Mbps × 3 telas neste AP?"), em vez de o operador
-    // descobrir durante. Sem `iface` de Wi-Fi é a confirmação estrutural de
-    // que o socket está onde deveria.
+    // A BANDA QUE A REDE DIZ TER — estimativa do Android, não medição nossa.
+    // Sem `iface` de Wi-Fi é a confirmação estrutural de que o socket está
+    // onde deveria.
+    //
+    // O "cabem ~N tela(s) a 3000 kbps" SAIU na v5.206, e a conta é que morreu:
+    // ela dividia a subida do enlace pelo bitrate-alvo do ENCODER, que era um
+    // fluxo contínuo de 3 Mbps por tela. O telão por comandos não tem fluxo
+    // contínuo nenhum — o que atravessa a rede são objetos JSON pequenos e a
+    // mídia SOB DEMANDA, uma vez por item —, então dividir banda por um número
+    // que não existe mais dava um teto inventado. Os números crus ficam: eles
+    // continuam respondendo "este AP aguenta?" sem fingir precisão.
     const en = srv.enlace;
     if (en && (en.upKbps || en.iface)) {
-      const alvo = Math.round(((d.encoder && d.encoder.bitrateAlvo) || 3000000) / 1000);
-      const cabem = en.upKbps > 0 ? Math.floor(en.upKbps / alvo) : -1;
       l.push('enlace: ' + (en.iface || '?')
         + (en.upKbps > 0 ? ' · subida ' + en.upKbps + ' kbps' : '')
         + (en.downKbps > 0 ? ' · descida ' + en.downKbps + ' kbps' : '')
-        + (en.validada === false ? ' · SEM SAÍDA PARA A INTERNET (não impede o espelho)' : '')
-        + (cabem >= 0 ? ' — cabem ~' + cabem + ' tela(s) a ' + alvo + ' kbps' : ''));
+        + (en.validada === false ? ' · SEM SAÍDA PARA A INTERNET (não impede a transmissão)' : ''));
     }
+    // SESSÕES × CONEXÕES, e a discordância é a leitura (v5.183). O teto de três
+    // é de SESSÕES; a lista é de CONEXÕES. Uma tela que caiu segura a vaga dela
+    // por um tempo, e é nessa janela que o espelho responde "lotado" com menos
+    // telas na folha — sem este número, uma contradição sem explicação possível.
+    const sess = (typeof srv.sessoes === 'number') ? srv.sessoes : -1;
+    // (O "· N pendente(s)" SAIU na v5.206: `srv.pendentes` era a FILA DE
+    //  APROVAÇÃO, removida na v5.185 — quem chega entra na hora. O array nunca
+    //  mais foi publicado, então a linha escrevia "· 0 pendente(s)" em toda
+    //  leitura, e a regra do bloco já dizia que zero não vira linha: um
+    //  Registro que repete "0" ensina a pular a linha.)
     l.push('telas: ' + telas.length + ' conectada(s) de ' + (srv.teto || 3)
-      + ' · ' + pend.length + ' pendente(s)'
-      + ' · ' + (srv.conexoesTotais | 0) + ' conexão(ões) desde que ligou');
-    // O FREIO DE IDR trabalhava em silêncio, e um pedido engolido é uma tela
-    // PRETA até o quadro-chave espontâneo — 5 s no pior caso. "A tela demorou
-    // a aparecer" não tinha como ser ligado à causa; agora tem número.
-    const idr = srv.idr;
-    if (idr && idr.pedidos) {
-      l.push('quadro-chave: ' + (idr.pedidos | 0) + ' pedido(s) · '
-        + (idr.atendidos | 0) + ' atendido(s) · ' + (idr.engolidos | 0) + ' engolido(s) pelo freio'
-        + ((idr.engolidos | 0) > (idr.atendidos | 0)
-          ? '  ← o freio está barrando mais do que deixa passar' : ''));
-    }
+      + (sess >= 0 && sess !== telas.length ? ' · ' + sess + ' vaga(s) ocupada(s)' : '')
+      + ' · ' + (srv.conexoesTotais | 0) + ' conexão(ões) desde que ligou'
+      + (sess >= (srv.teto || 3) && telas.length < sess
+        ? '  ← LOTADO por vaga(s) de tela que caiu; ela abre sozinha' : ''));
+    // (O FREIO DE IDR saiu na v5.206, com o resto: pedir quadro-chave é
+    //  vocabulário de encoder, e não há encoder desde a v5.187.)
     // QUEM BATEU NA PORTA E FOI RECUSADO. Todas respondem o mesmo 404 no fio
     // (não vazar existência), e é só aqui que elas se distinguem: `host` é
     // tentativa de DNS rebinding contra este aparelho, `malformada` em
@@ -11247,35 +12261,36 @@ function blocoEspelho(d) {
           + (rec.host ? '  ← `host` é tentativa de DNS rebinding contra este aparelho' : ''));
       }
     }
+    // UMA TELA DE COMANDOS, no que o servidor de fato sabe dela (v5.206).
+    //
+    // O bloco anterior desenhava treze campos de uma tela do espelho de PIXELS
+    // (MSE, fetch-stream, MB entregues, descartes, quadros enviados, o
+    // autorrelato inteiro do `cliente.js`) — e o servidor publica OITO campos,
+    // nenhum daqueles. O resultado era uma tela saudável saindo do Registro
+    // como `tela A  ?  MSE:nao  fetch-stream:nao  seguro:nao  wakeLock:nao`
+    // seguida de "(esta tela ainda nao relatou medidas — bundle antigo)":
+    // quatro negativas e uma acusação, todas falsas, sobre a única tela que
+    // estava funcionando.
+    //
+    // O que ficou é o que separa dois desfechos com correções diferentes:
+    //
+    //  · `pronta` é o `display-ready` TER CHEGADO (o `__de` que roteia comando
+    //    endereçado). Conectada e NÃO pronta é a tela que abriu o SSE e cujo
+    //    `/display/` não subiu — outro defeito, e outra correção, que "a tela
+    //    não conecta".
+    //  · `fila` cheia é esta tela não escoando; vazia com a projeção parada é o
+    //    contrário, e o problema está antes.
+    //  · `conectada ha` separa uma tela estável de uma que reconecta em laço —
+    //    o rótulo não diz isso, porque ele reinicia junto.
     telas.forEach((c) => {
-      l.push('  tela ' + (c.rotulo || '?') + '  ' + (c.ua || '?')
-        + '  MSE:' + (c.mse ? 'sim' : 'nao')
-        + '  fetch-stream:' + (c.fetchStream ? 'sim' : 'nao')
-        + '  seguro:' + (c.seguro ? 'sim' : 'nao')
-        + '  wakeLock:' + (c.wakeLock ? 'sim' : 'nao')
-        + '  tela acesa ' + (c.telaAcesaMin | 0) + ' min');
-      l.push('          ' + Math.round((c.bytes || 0) / 104857.6) / 10 + ' MB'
-        + ' · ' + (c.descartes | 0) + ' descarte(s)'
-        + ' · ultimo write ha ' + mirrorDur(c.ultimaEscritaMs)
-        // O SOM EM UMA FRASE, e não em dois "nao" para o operador interpretar.
-        + ' · ' + somDaTela(c)
-        + ' · ' + (c.recomecos | 0) + ' recomeco(s)');
-      // O QUE O SERVIDOR VÊ DESTA CONEXÃO, e que antes não saía do JSON.
-      //
-      // `conectada ha` separa uma tela estável de uma que reconecta em laço — o
-      // rótulo trocando não dizia isso, porque ele reinicia junto. `fila` cheia
-      // é este cliente não escoando, vazia com imagem parada é o contrário.
-      // `ESPERANDO IDR` é a tela estando PRETA agora, por construção.
-      l.push('          conectada ha ' + mirrorDur(c.conectadaMs)
-        + ' · fila ' + (c.fila | 0) + '/' + (c.filaTeto || 24)
-        + ' · ' + (c.enviados | 0) + ' quadro(s) enviado(s)'
-        + (c.esperandoIdr ? ' · ESPERANDO QUADRO-CHAVE (a tela esta preta)' : ''));
-      // E O QUE SÓ A TELA SABE — a metade do diagnóstico que o servidor não tem
-      // como produzir. Ver `medidasDaTela` no `cliente.js`: daqui se enxerga
-      // quantos bytes saíram, e não se a imagem andou.
-      linhasDaTela(c.vivo).forEach((x) => l.push('          ' + x));
-      // E A FRASE QUE ESTÁ ESCRITA NAQUELA TELA, quando há uma. É onde o
-      // cliente já dizia a causa — só que para uma sala em que ninguém está.
+      l.push('  tela ' + (c.rotulo || '?')
+        + ' · ' + (c.pronta ? 'pronta' : 'CONECTADA SEM display-ready')
+        + ' · conectada ha ' + mirrorDur(c.conectadaMs)
+        + ' · ' + (c.eventos | 0) + ' comando(s) entregue(s)'
+        + ' · fila ' + (c.fila | 0)
+        + ' · tela acesa ' + (c.telaAcesaMin | 0) + ' min');
+      // E A FRASE QUE ESTÁ ESCRITA NAQUELA TELA, quando há uma. É onde a tela
+      // já diz a causa — só que para uma sala em que ninguém está.
       if (c.aviso) l.push('          diz: "' + c.aviso + '"');
     });
     // A LINHA MAIS IMPORTANTE DESTE BLOCO quando ela aparece. Servidor de pé,
@@ -11287,20 +12302,14 @@ function blocoEspelho(d) {
       l.push('nenhuma conexão desde que ligou (há ' + mirrorDur(srv.semConexaoMs) + ') — '
         + 'se alguém abriu o endereço, o roteador está isolando os clientes');
     }
-    // ALGUÉM ESTÁ TENTANDO. Os dois números vinham do `EspelhoPares` desde a
-    // primeira versão (`recusas`, `origensBloqueadas`) e não eram impressos em
-    // lugar nenhum — o único sinal de PINs sendo martelados na rede da igreja
-    // ficava no JSON, sem leitor. Zero recusas não vira linha: um Registro que
-    // repete "0" a cada leitura ensina a pular a linha.
-    if (srv.recusas) {
-      l.push('pareamento: ' + (srv.recusas | 0) + ' PIN(s) recusado(s)'
-        + ' · ' + (srv.origensBloqueadas | 0) + ' origem(ns) de castigo agora');
-    }
-    if (srv.qrEsperando) {
-      // A OUTRA METADE DA FOLHA VAZIA: a espera de QR não entra na lista de
-      // pendentes de propósito, então "nenhuma tela" e "uma tela com o código
-      // em cartaz esperando a câmera" são a mesma tela vazia sem esta linha.
-      l.push('QR: ' + (srv.qrEsperando | 0) + ' tela(s) com o código em cartaz esperando a leitura');
+    // TELAS DE CASTIGO — as que o operador acabou de derrubar. Com o código
+    // fora (v5.189) não há recusa a contar, e este é o único freio que existe:
+    // é ele que explica uma tela que "não volta" logo depois de um toque em
+    // Desconectar sem querer. Zero não vira linha: um Registro que repete "0"
+    // a cada leitura ensina a pular a linha.
+    if (srv.origensBloqueadas) {
+      l.push('telas de castigo agora: ' + (srv.origensBloqueadas | 0)
+        + ' (derrubadas ha pouco pelo operador)');
     }
     const saida = srv.ultimaSaida;
     if (saida && typeof saida === 'object') {
@@ -11321,16 +12330,13 @@ function blocoEspelho(d) {
   return l.join('\n');
 }
 
-// O detector de ritmo só pode ACUSAR com vídeo tocando e a cortina ABERTA — a
-// cortina cobre o telão, ou seja, por construção ela É um retângulo preto com a
-// mídia carregada. `view` é a cortina (ver renderControls) e `currentItem` diz
-// o tipo do que está em cena.
-function cenaComVideoAberto() {
-  if (view !== 'visual') return false;                 // cortina fechada: preto é o esperado
-  if (!currentItem) return false;
-  if (currentItem.kind === 'audio' || currentItem.kind === 'image') return false;
-  try { return !!preview.isPlaying(); } catch (_) { return false; }
-}
+// (SAIU NA v5.206: `cenaComVideoAberto`. Ela era a metade SÃ do detector de
+//  "retângulo preto" — a guarda que impedia o alarme de disparar durante uma
+//  oração com a cortina fechada. Só que a outra metade lia um `ritmo` que o
+//  shell publicava zerado desde a v5.187, então a guarda passou a fazer o
+//  oposto do que foi escrita para fazer: em vez de calar um alarme falso, ela
+//  ESCOLHIA o culto normal — vídeo tocando, cortina aberta — como o momento de
+//  disparar um. Sem o detector ela não tem outro chamador.)
 
 // A LINHA DO TEMPO dos dois processos, em ordem de relógio.
 function eventosDiag() {
@@ -11359,7 +12365,6 @@ let diagTexto = '';
 let diagSeq = 0;
 
 async function renderDiag() {
-  if (!diagBoxEl) return;
   const meu = ++diagSeq;
   // O ESTADO DA PROCURA antes de montar o cabeçalho, que o lê (shell 31+). É a
   // única linha do bloco que precisa ir à ponte, e ela é barata: uma string.
@@ -11400,8 +12405,12 @@ async function renderDiag() {
   }
   if (meu !== diagSeq) return;   // outro render assumiu durante a espera
   blocos.push(eventosDiag());
+  // O TEXTO MORA NA VARIÁVEL, e não num nó do DOM (v5.207). O visor `<pre>`
+  // saiu de Configurações — ver o comentário do bloco no `index.html`: ele
+  // gastava 240px de espaço sempre visível para exibir, em fonte de 0,68rem,
+  // um log cujo consumidor é um humano a distância. Quem o leva até lá é o
+  // botão de copiar, e é `diagTexto` que ele copia.
   diagTexto = blocos.join('\n\n');
-  diagBoxEl.textContent = diagTexto;
 }
 // Junta os dois anéis em ORDEM DE RELÓGIO: celular e telão são dois processos
 // da mesma cena, e o que interessa é a sequência entre eles — "o celular ficou
@@ -11457,11 +12466,12 @@ async function copiarTexto(texto, btn) {
 // referência PENDURADA — apontava para um `#diagCopy` que o HTML não tinha e
 // não escutava nada. Agora o elemento existe e ele tem função.
 //
-// Copia o registro MONTADO, não o que está à vista: a caixa rola, e copiar a
-// janela visível entregaria um pedaço do meio — que é justamente o defeito que
-// esta reforma veio corrigir.
+// Copia o registro MONTADO. Até a v5.206 havia um `|| diagBoxEl.textContent`
+// atrás desta leitura, e ele existia porque a caixa ROLAVA: copiar o que estava
+// à vista entregaria um pedaço do meio. Sem o visor, a variável é a única fonte
+// — e é a completa.
 if (diagCopyEl) {
-  diagCopyEl.addEventListener('click', () => copiarTexto(diagTexto || diagBoxEl.textContent || '', diagCopyEl));
+  diagCopyEl.addEventListener('click', () => copiarTexto(diagTexto, diagCopyEl));
 }
 
 function renderFitSeg() {
@@ -11593,8 +12603,32 @@ async function ytBaixarNativo(link, nome, opts) {
   // que nunca vai aparecer lá. Ali quem mostra o andamento é a própria linha
   // do resultado (`onPct`) mais a notificação do sistema.
   const aviso = (opts && opts.aviso) || (naPreview ? 'preview' : 'lib');
-  const bg = aviso === 'preview' ? previewBusy(soAudio ? 'Preparando áudio' : 'Preparando vídeo', rotulo)
-    : aviso === 'lib' ? libBusy(rotulo, opts && opts.chave)
+  // A ALÇA DE CANCELAMENTO (v5.191), entregue a QUEM ESTÁ MOSTRANDO o download.
+  //
+  // Até aqui só a linha do resultado da busca sabia cancelar — e ela é
+  // justamente a que some quando o operador fecha a busca. O cartão sobre a
+  // preview e a linha provisória do Cronograma mostravam minutos de download
+  // sem oferecer saída nenhuma; a única forma de parar era esperar.
+  //
+  // `terminado` fecha a janela do fim: um toque no botão depois de o download
+  // acabar mandaria ao shell um cancelamento que ficaria armado contra o
+  // próximo download do mesmo vídeo.
+  let terminado = false;
+  let cancelado = false;
+  const cancelar = !podeCancelarDownload() ? null : async () => {
+    if (cancelado) return;
+    const parou = await cancelarDownload({
+      link,
+      youtubeId: (opts && opts.youtubeId) || null,
+      nome: rotulo,
+      soAudio,
+      aindaVale: () => !terminado && !cancelado,
+    });
+    if (parou) { cancelado = true; bg.soltar(); }
+  };
+  const bg = aviso === 'preview'
+    ? previewBusy(soAudio ? 'Preparando áudio' : 'Preparando vídeo', rotulo, cancelar)
+    : aviso === 'lib' ? libBusy(rotulo, opts && opts.chave, cancelar)
       : { visivel: false, atualizar() {}, soltar() {} };
   const notif = bgTaskStart(rotuloBaixando, 1);
   // O NOME DO VÍDEO na linha da notificação, pela mesma razão do lote de
@@ -11613,6 +12647,9 @@ async function ytBaixarNativo(link, nome, opts) {
     soAudio,
     altura,
     quando: Date.now(),
+    // Quantos resgates este download já custou — o teto que impede uma
+    // intenção de voltar a cada abertura (ver `resgatarDownloads`).
+    tentativas: (opts && opts.tentativas) | 0,
   });
   try {
     return await withBgWork(async () => {
@@ -11690,6 +12727,7 @@ async function ytBaixarNativo(link, nome, opts) {
     console.warn('[yt nativo] falhou:', e && e.message);
     return null;
   } finally {
+    terminado = true;
     bgTaskEnd(notif);
     bg.soltar();
     // A INTENÇÃO SAI DO REGISTRO AQUI, e só aqui: chegando neste ponto o
@@ -11748,6 +12786,39 @@ async function esquecerIntencao(link, soAudio) {
   } catch (e) { console.warn('[yt] não deu para limpar a intenção:', e); }
 }
 
+// As listas em que um item RESSURGE para o operador. Uma intenção que não
+// aponta para nenhuma delas não tem onde aterrissar: o `avulsos` é a prateleira
+// invisível do simplificado, e um vídeo resgatado para lá baixaria centenas de
+// MB para não aparecer em lugar nenhum.
+const LISTAS_VISIVEIS = ['imports', 'playlist', 'favs'];
+
+/**
+ * Quantas vezes uma intenção pode ser reclamada antes de ser desistida.
+ *
+ * O resgate REGISTRA a intenção de novo (é o `lembrarIntencao` do começo de
+ * todo download), então um download que nunca termina — o app fechado no meio,
+ * outra vez, e outra — voltava a cada abertura pelas seis horas inteiras de
+ * validade. Foi o que o operador relatou: "mesmo depois de fechar o app ele
+ * fica sempre querendo baixar o vídeo". Duas tentativas cobrem o caso real (um
+ * OOM do renderer) e fecham o laço.
+ */
+const INTENCAO_MAX_TENTATIVAS = 2;
+
+/**
+ * Desiste de uma intenção: apaga o registro e PARA o download no aparelho.
+ *
+ * "Apagar e cancelar" é a regra que o operador pediu com todas as letras, e ela
+ * é a mesma do coletor de lixo do banco: o que não está em lugar nenhum não é
+ * guardado — aqui, não é nem baixado. Sem o `ytCancel` o shell seguiria
+ * baixando um arquivo que ninguém mais espera, gastando rede e bateria no meio
+ * do culto.
+ */
+async function desistirDaIntencao(p, porque) {
+  console.info('[yt] intenção descartada (' + porque + '):', p.nome || p.link);
+  try { if (podeCancelarDownload()) AVNative.ytCancel(p.link); } catch (_) { /* nada */ }
+  await esquecerIntencao(p.link, !!p.soAudio);
+}
+
 // Chamado uma vez por abertura. Silencioso quando não há nada — que é o caso
 // normal.
 async function resgatarDownloads() {
@@ -11761,12 +12832,42 @@ async function resgatarDownloads() {
   // pelo caminho normal (`lembrarIntencao` no começo do download).
   try { await AVDB.setState(YT_INTENCOES, []); } catch (_) { /* segue */ }
   for (const p of pendentes) {
-    if (!p || !p.link || (agora - (p.quando || 0)) > INTENCAO_VALIDA_MS) continue;
+    if (!p || !p.link) continue;
+    if ((agora - (p.quando || 0)) > INTENCAO_VALIDA_MS) {
+      await desistirDaIntencao(p, 'venceu');
+      continue;
+    }
+    // SEM DESTINO VISÍVEL, NÃO SE RESGATA. Um "Tocar agora" é do INSTANTE em
+    // que o operador tocou: reclamá-lo num lançamento seguinte baixa minutos de
+    // vídeo para uma cena que já passou, e o item não aparece em lista nenhuma
+    // para ser achado depois. Era o caso exato do relato — "esse vídeo não está
+    // mais indo para o player e ele continua querendo baixar".
+    if (LISTAS_VISIVEIS.indexOf(p.lista) < 0) {
+      await desistirDaIntencao(p, 'sem destino');
+      continue;
+    }
+    if ((p.tentativas | 0) >= INTENCAO_MAX_TENTATIVAS) {
+      await desistirDaIntencao(p, 'tentou demais');
+      continue;
+    }
     console.info('[yt] reclamando download interrompido:', p.nome || p.link);
     try {
       const rec = await ytArquivo(
         { id: p.youtubeId || null, url: p.link, name: p.nome },
-        { lista: p.lista, somenteAudio: p.soAudio, altura: p.altura, aviso: 'nenhum' },
+        {
+          lista: p.lista,
+          somenteAudio: p.soAudio,
+          altura: p.altura,
+          // O RESGATE APARECE, e na linha da lista de destino: até aqui ele era
+          // `aviso: 'nenhum'` — dez minutos de download invisíveis, sem nada
+          // que o operador pudesse tocar para parar. Com a linha provisória ele
+          // vê o que está acontecendo e tem onde cancelar (v5.191).
+          aviso: 'lib',
+          // A CONTAGEM ATRAVESSA o novo `lembrarIntencao` de dentro do
+          // `ytArquivo`: sem ela o contador nasceria zerado a cada resgate e o
+          // teto nunca seria alcançado.
+          tentativas: (p.tentativas | 0) + 1,
+        },
       );
       if (!rec) continue;
       // O DESTINO ORIGINAL é honrado: quem pediu "para o Cronograma" recebe no
@@ -11966,6 +13067,9 @@ async function pptxImportar(file, nome, opts) {
 }
 
 async function deckImportar(origem, nome, opts) {
+  // Quantas páginas o shell entregou quando ele CORTOU o deck (0 = não cortou).
+  // Ver o ponto em que ela é lida, logo abaixo: a nota pertence à linha do item.
+  let truncadaEm = 0;
   if (!window.__NATIVE__ || (window.__SHELL_VERSION__ | 0) < 19) return null;
   const rotulo = nome || 'Apresentação';
   const naPreview = !!(opts && opts.naPreview);
@@ -11991,7 +13095,12 @@ async function deckImportar(origem, nome, opts) {
       // enviar): um deck cortado sem aviso leria como "o arquivo era assim", e
       // o operador só descobriria na frente da congregação, na página que não
       // existe. Campo ausente (shell antigo) = sem aviso, como sempre.
-      if (r.truncado) avisar('Apresentação truncada em ' + r.pages.length + ' páginas', 'erro');
+      // A NOTA VAI PARA A LINHA DO ITEM QUE VAI NASCER (v5.207), e por isso ela
+      // é guardada aqui e aplicada lá embaixo, quando o registro já tem id: uma
+      // apresentação cortada é um fato SOBRE AQUELE ITEM, e o lugar de um fato
+      // sobre um item é a linha dele — não uma faixa no topo da tela, que já
+      // teria sumido quando o operador chegasse ao Cronograma.
+      truncadaEm = r.truncado ? r.pages.length : 0;
       // Uma página de cada vez: as imagens já estão no cache do aparelho, e
       // buscar as dezenas de uma vez só encheria a memória sem ganhar tempo.
       const pages = [];
@@ -12003,9 +13112,14 @@ async function deckImportar(origem, nome, opts) {
         pages.push(b);
       }
       const thumb = await makeThumb(pages[0], 'image');
-      return await AVDB.addDeck(pages, {
+      const criado = await AVDB.addDeck(pages, {
         name: r.name || rotulo, thumb, list: (opts && opts.lista) || 'imports',
       });
+      // Um deck cortado sem aviso leria como "o arquivo era assim", e o
+      // operador só descobriria na frente da congregação, na página que não
+      // existe. (Campo ausente = shell antigo = sem aviso, como sempre.)
+      if (truncadaEm && criado) falharNoItem(criado.id, 'truncada em ' + truncadaEm + ' páginas');
+      return criado;
     });
   } catch (e) {
     console.warn('[apresentação] falhou:', e && e.message);
@@ -12395,12 +13509,17 @@ async function importShare(pending) {
   if (added && !tratado) await focarImportado(primeiro);
   // DIZER PARA ONDE FOI, e só quando não for óbvio. `focarImportado` leva o
   // operador ao Cronograma — a resposta visual de sempre —, mas um item que foi
-  // para os Favoritos ou para a playlist não aparece ali, e sem uma frase o
-  // import terminaria parecendo que nada entrou.
+  // para os Favoritos ou para a playlist não aparece ali, e sem isso o import
+  // terminaria parecendo que nada entrou.
+  //
+  // A frase mora na LINHA do primeiro item do lote (v5.207), que é justamente a
+  // linha para a qual o `focarImportado` acabou de rolar: o operador está
+  // olhando para ela quando a resposta aparece. Antes era uma faixa flutuante
+  // no topo, e ela chegava enquanto a tela ainda estava trocando de aba.
   if (added && !tratado && lote.length
     && (listasEscolhidas.length > 1 || (listasEscolhidas.length === 1 && listasEscolhidas[0] !== 'imports'))) {
-    const quantos = lote.length === 1 ? '1 item adicionado ' : lote.length + ' itens adicionados ';
-    avisar(quantos + ondeDe(listasEscolhidas, 'para') + '.', 'ok');
+    const quantos = lote.length === 1 ? 'foi ' : lote.length + ' itens ';
+    notaNoItem(primeiro && primeiro.id, quantos + ondeDe(listasEscolhidas, 'para'), 'ok');
   }
   if (naoAbriu) await avisarNaoAbriu(naoAbriu);
   return added;
@@ -12474,27 +13593,60 @@ function registrarShareNativo() {
       // este catch a rejeição virava unhandled rejection no console e o
       // compartilhamento evaporava sem nenhum rastro visível.
       diagC('share falhou: ' + ((e && e.message) || e));
-      avisar('Não deu para importar o compartilhamento', 'erro');
+      // ESTE É O ÚNICO PONTO SEM INTERFACE DE ORIGEM: o compartilhamento vem de
+      // FORA do app, o intent já foi consumido no Kotlin (não existe segunda
+      // entrega) e nenhum item chegou a nascer — não há linha, botão ou folha
+      // em que responder. O diálogo do próprio app é a resposta certa aqui, e
+      // não uma faixa flutuante: ele toma o foco, exige um toque e não some
+      // sozinho enquanto o operador olha para outro lugar. Perder um
+      // compartilhamento em silêncio é o desfecho que isto existe para impedir.
+      appConfirm({
+        title: 'Não deu para importar',
+        message: 'O que foi compartilhado não pôde ser lido, e o Android já entregou '
+          + 'o item — não há como tentar de novo daqui. Compartilhe outra vez pelo '
+          + 'app de origem.',
+        okText: 'Entendi', cancelText: null,
+      });
     });
   });
 }
 
-// ===== feedback rápido =====
-// O sistema de alerta FLUTUANTE (toast) foi removido: as informações agora são
-// transmitidas pela própria interface de design (estados dos botões, contadores,
-// listas e — para a sincronização — o texto no card da coleção, ver
-// setCollStatus/renderCollectionCard). flash() virou no-op para não precisar
-// mexer nos pontos de chamada LEGADOS que restam espalhados pelo arquivo;
-// qualquer mensagem que antes ia pro toast simplesmente não aparece mais.
-// (Os pontos em que o aviso era o ÚNICO canal migraram para `avisar()` na
-// auditoria de agosto/2026 — OTA pelo rótulo de versão, desfecho do share,
-// sincronização de pastas e o "Baixando…" do acervo.)
+// ===== O FEEDBACK MORA NA INTERFACE DE ORIGEM (v5.207) =====
 //
-// FEEDBACK NOVO NÃO USA flash(): quando o aviso é o único canal (nenhum botão,
-// linha ou card na tela para responder), o canal é `avisar()` — a faixa de
-// aviso logo abaixo, que se dispensa sozinha. Chamar flash() em código novo é
-// escrever uma mensagem que ninguém verá.
-function flash() { /* no-op: alerta flutuante removido (ver comentário acima) */ }
+// **Não existe mais alerta flutuante neste app**, e a regra é uma só: a
+// resposta de uma ação nasce onde a ação nasceu. Nada de uma camada por cima
+// da tela levando a informação para longe do alvo de foco.
+//
+// A história vale escrita porque ela deu duas voltas. Um toast foi removido
+// há muito tempo; no lugar dele nasceu `avisar()`, e o comentário que o
+// justificava afirmava, com todas as letras, "o que ele NÃO é: o toast de
+// volta. Não flutua (mora no fim da área de lista)". O CSS dizia outra coisa —
+// `position: fixed; top: .5rem; z-index: 400` —, e era um toast: uma faixa no
+// TOPO da tela, por cima do que estivesse ali, para responder a um toque dado
+// no rodapé, numa linha do meio da lista ou dentro de uma folha aberta.
+// Trinta e cinco pontos do app falavam por ela.
+//
+// OS CANAIS QUE A SUBSTITUÍRAM, todos in-place e todos já existentes ou
+// nascidos aqui:
+//
+//  · `pulsar(btn, tipo)` — o botão que foi tocado responde. É o feedback de
+//    adicionar/favoritar/copiar, e o vocabulário de cor já era este.
+//  · `notaNoItem(id, texto, tipo)` — a LINHA do item, prefixada ao subtítulo,
+//    no mesmo desenho do selo "● No ar". Para tudo que é um fato sobre um
+//    item de lista: falhou ao projetar, foi para tal lista, veio truncada.
+//  · `previewBusy(...).falhar(motivo)` — o cartão sobre a preview, que já
+//    dizia "Baixando…". Para o que aconteceria na preview e não aconteceu.
+//  · `statusPasta(id, texto)` — o contador da própria pasta, que é o número
+//    que a sincronização está mudando.
+//  · `falarNaVersao` / `falarNoPacote` / `#apkRow` — o rótulo do próprio
+//    controle empresta a si mesmo por alguns segundos, e volta.
+//  · `#castMsg` — a linha de estado que a folha de conexão sempre teve.
+//  · `appConfirm` — o diálogo do app, para o ÚNICO caso sem interface de
+//    origem (um compartilhamento que chega de fora e falha inteiro). Ele toma
+//    o foco e exige um toque; não é uma faixa que passa.
+//
+// Se um caminho novo não tem onde responder, a pergunta certa não é "qual
+// camada uso?" — é "por que esta ação não tem uma interface?".
 
 // ===== Aviso de salvamento (v5.104) =====
 // A exceção à regra acima, e ela tem um limite claro: **só para o que o
@@ -12511,9 +13663,6 @@ function flash() { /* no-op: alerta flutuante removido (ver comentário acima) *
 // `tipo`: 'ok' (entrou) | 'dup' (já estava lá) | 'erro'. A distinção é o ponto:
 // "já estava nos favoritos" é a resposta que impede a duplicação acidental, e
 // ela precisa ser visivelmente diferente de "adicionado".
-const saveHintEl = document.getElementById('saveHint');
-const AVISO_MS = 2400;
-let avisoTimer = null;
 
 // ===== O PULSO NO PRÓPRIO BOTÃO (v5.106) =====
 // É este o feedback de adicionar/favoritar, e não a faixa de aviso: o dedo já
@@ -12553,12 +13702,18 @@ function pulsar(btn, tipo) {
   return true;
 }
 
-// Responde no BOTÃO quando ele ainda está na tela; cai na faixa quando não
-// está (folha fechada, lista redesenhada). Um só ponto de decisão, para nenhum
-// caminho ficar mudo por esquecimento.
-function responder(btn, tipo, texto) {
-  if (pulsar(btn, tipo)) return;
-  if (texto) avisar(texto, tipo);
+// Responde no BOTÃO. Devolve `false` quando ele não está mais na tela (folha
+// fechada, lista redesenhada) — e é o CHAMADOR que decide o que fazer com
+// isso, porque só ele sabe qual é a interface de origem daquela ação.
+//
+// Até a v5.206 havia aqui um `else avisar(texto)`: um ponto único de decisão
+// que mandava toda resposta órfã para a faixa flutuante. Era cômodo e era
+// justamente o mecanismo que levava a informação para longe do alvo de foco —
+// e ele escondia a pergunta que importa, que é por que uma ação ficou sem
+// interface em que responder. O parâmetro `texto` saiu com ele; nenhum dos
+// catorze chamadores o passava.
+function responder(btn, tipo) {
+  return pulsar(btn, tipo);
 }
 
 // ===== O ECO: "o comando saiu" =====
@@ -12598,24 +13753,9 @@ document.addEventListener('click', (ev) => {
   alvo._ecoTimer = setTimeout(() => { alvo.classList.remove('btn-eco'); }, ECO_MS);
 }, true);
 
-function avisar(texto, tipo) {
-  if (!saveHintEl || !texto) return;
-  clearTimeout(avisoTimer);
-  saveHintEl.textContent = texto;
-  saveHintEl.className = 'save-hint save-hint--' + (tipo || 'ok');
-  saveHintEl.hidden = false;
-  // Reinicia a animação de entrada mesmo com o aviso já em cena (dois toques
-  // seguidos): sem o reflow, o segundo aviso trocaria o texto sem nenhum
-  // movimento e pareceria o primeiro, ainda parado ali.
-  saveHintEl.classList.remove('on');
-  void saveHintEl.offsetWidth;
-  saveHintEl.classList.add('on');
-  avisoTimer = setTimeout(() => {
-    saveHintEl.classList.remove('on');
-    // O `hidden` só no fim da saída, senão ele some com corte seco.
-    avisoTimer = setTimeout(() => { saveHintEl.hidden = true; }, 220);
-  }, AVISO_MS);
-}
+// (`avisar()` SAIU na v5.207, com a faixa flutuante que ela desenhava. Ver o
+//  bloco "O FEEDBACK MORA NA INTERFACE DE ORIGEM", acima, para onde foi cada
+//  uma das mensagens que passavam por aqui.)
 
 // ===== Proporção da preview =====
 // A preview é uma MINIATURA FIEL do telão, e isso só se sustenta se ela tiver a
@@ -12672,14 +13812,11 @@ async function applyPvWallpaper() {
   customWallpaper = blob instanceof Blob;
   renderWallSeg();
   if (pvWallpaperUrl) { URL.revokeObjectURL(pvWallpaperUrl); pvWallpaperUrl = null; }
-  const brand = pvWallEl.querySelector('.pv-brand');
   if (blob instanceof Blob) {
     pvWallpaperUrl = URL.createObjectURL(blob);
     pvWallEl.style.backgroundImage = 'url("' + pvWallpaperUrl + '")';
-    if (brand) brand.hidden = true;
   } else {
     pvWallEl.style.backgroundImage = '';
-    if (brand) brand.hidden = false;
   }
 }
 
@@ -13128,6 +14265,21 @@ appDialogInputEl.addEventListener('keydown', (e) => {
 // A fila em cena vira um PACOTE: um item do Cronograma que, ao ser tocado,
 // devolve exatamente estes itens nesta ordem. O nome sai do primeiro item mais
 // a contagem — "Abertura · 4 itens" é o que se reconhece numa lista de culto.
+// O BOTÃO DE PACOTE EMPRESTA O PRÓPRIO RÓTULO (v5.207) — mesmo mecanismo do
+// `#apkRow` e do rótulo de versão: a resposta nasce onde o toque nasceu, e o
+// botão volta a ser o que era. O `<span>` de texto é o segundo filho (o
+// primeiro é o glifo), e é só ele que troca.
+let pacoteFalaTimer = null;
+const PACOTE_ROTULO = 'Guardar como pacote no Cronograma';
+function falarNoPacote(texto, ms) {
+  if (!plPackEl) return;
+  const alvo = plPackEl.querySelector('span:not(.msym)');
+  if (!alvo) return;
+  clearTimeout(pacoteFalaTimer);
+  alvo.textContent = texto;
+  pacoteFalaTimer = setTimeout(() => { alvo.textContent = PACOTE_ROTULO; }, ms || 3000);
+}
+
 async function guardarPacote() {
   // Só MÍDIA entra num pacote. Uma cena de roteiro dentro dele abriria a porta
   // para um pacote que contém outro pacote — e dois que se contenham
@@ -13140,7 +14292,12 @@ async function guardarPacote() {
   // Motivo não cabe num botão — então os dois sinais saem juntos.
   if (ids.length < 2) {
     pulsar(plPackEl, 'erro');
-    avisar('Monte a fila com dois ou mais itens antes de guardar', 'erro');
+    // O MOTIVO NO PRÓPRIO BOTÃO (v5.207). O comentário acima dizia que "motivo
+    // não cabe num botão" e por isso os dois sinais saíam juntos — o pulso aqui
+    // e a frase numa faixa no topo da tela. Cabe: o botão tem rótulo, e ele
+    // empresta o rótulo por três segundos. É o mesmo mecanismo do `#apkRow` e
+    // do rótulo de versão, e mantém a resposta onde o toque aconteceu.
+    falarNoPacote('Precisa de 2 itens ou mais');
     return;
   }
   // O nome sai do primeiro item QUE ENTRA no pacote (`midias[0]`), não de
@@ -13284,12 +14441,16 @@ muteToggleEl.addEventListener('click', toggleMute);
 // miniatura, e uma configuração escondida atrás de um estado de UI é a que
 // ninguém acha.
 settingsBtnEl.addEventListener('click', openFadePopup);
-pvSoundBtnEl.addEventListener('click', (e) => {
-  // A preview inteira tem gestos próprios (arrastar o volume, tocar para tela
-  // cheia): sem isto, ligar o som também disparava o gesto de baixo.
-  e.stopPropagation();
-  setStandalone(!standalone);
-});
+// O CANCELAR do cartão sobre a preview (v5.191). A preview inteira tem gestos
+// próprios (arrastar o volume, tocar para tela cheia): sem o `stopPropagation`,
+// cancelar um download dispararia também o de baixo.
+if (pvBusyCancelEl) {
+  pvBusyCancelEl.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const fn = pvBusyCancelar;
+    if (fn) fn();
+  });
+}
 lyricsViewBtnEl.addEventListener('click', openLyricsPopup);
 // Letra × Bíblia (só aparece com as duas em cena — ver renderLyricsView).
 lyricsViewSegEl.addEventListener('click', (e) => {
@@ -13468,11 +14629,11 @@ volSliderEl.addEventListener('change', () => { volSeekingEl = null; persistCurre
 // recarregar, mudo bloqueado pelo navegador — existe em dois lugares.
 // (`appMode` é declarado no TOPO do arquivo, junto de `storedAppMode`: a classe
 // do `<body>` precisa estar certa antes do primeiro quadro.)
-let lastDisplays = [];          // telas conectadas (ponte nativa)
-// Releitura da lista de telas, definida junto do bloco nativo (ver mais abaixo)
-// e chamada na retomada do app. No navegador continua no-op: lá quem responde
-// "há tela?" é a janela do Display, e ela é observada por um relógio próprio.
-let reconferirTelas = () => {};
+// (`lastDisplays` e `reconferirTelas` foram para o TOPO do arquivo na v5.199,
+// junto do resto do estado lido por caminhos de render — ver o comentário da
+// zona morta temporal lá em cima. `reconferirTelas` continua sendo ATRIBUÍDO
+// pelo bloco nativo mais abaixo, e no navegador segue no-op: lá quem responde
+// "há tela?" é a janela do Display, observada por um relógio próprio.)
 
 function setAppMode(mode) {
   appMode = mode === 'simple' ? 'simple' : 'full';
@@ -13483,6 +14644,10 @@ function setAppMode(mode) {
   // A preview troca de casa junto com o modo (ver hostPreview) — antes dos
   // renders, para que eles já a encontrem no lugar certo.
   hostPreview();
+  // E TROCA DE PAPEL JUNTO: só no avançado ela é a caixa de som deste aparelho
+  // (ver `acertarSaidaDeAudio`). Voltar ao Modo Fácil a emudece, porque lá sem
+  // tela a cortina já cobre tudo.
+  acertarSaidaDeAudio();
   renderAppModeSeg();
   renderSimple();
   renderSimpleCast();
@@ -13499,6 +14664,26 @@ function setAppMode(mode) {
 function renderAppModeSeg() {
   appModeSegEl.querySelectorAll('.fit-opt').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.mode === appMode);
+  });
+}
+
+// ---- Tema (a leitura e a pintura estão no topo do arquivo) ----
+// Trocar de tema NÃO fecha o popup, ao contrário do modo do app: o modo troca
+// a tela inteira atrás dele (não há o que ver com o popup na frente), e o tema
+// troca a cor DO PRÓPRIO POPUP — é olhando para ele que o operador decide se
+// gostou. Escolher e continuar vendo é a resposta.
+function setTema(t) {
+  const novo = t === 'claro' ? 'claro' : 'escuro';
+  if (novo === tema) return;
+  tema = novo;
+  try { localStorage.setItem(TEMA_KEY, tema); } catch (_) { /* storage bloqueado */ }
+  pintarTema();
+  renderTemaSeg();
+}
+
+function renderTemaSeg() {
+  temaSegEl.querySelectorAll('.fit-opt').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.tema === tema);
   });
 }
 
@@ -13653,46 +14838,60 @@ function holdRepeat(btn, fn) {
 // "conectado" que o simplificado deixou aceso ficava para sempre — o operador
 // trocava de modo, a tela caía, e o ícone seguia dizendo que havia telão. O
 // estado da tela não é uma decoração de um dos modos; é o mesmo fato nos dois.
-function renderCastBtn() {
-  const tv = simpleDisplay();
-  // `.connected` marca "há uma tela recebendo"; a liberação de teste NUNCA o
-  // veste (ver `castTestUnlocked`) — ela é aviso, não conexão.
-  pvCastBtnEl.classList.toggle('connected', !!tv && !castTestUnlocked);
-  pvCastBtnEl.classList.toggle('testing', castTestUnlocked);
-  pvCastBtnEl.title = castTestUnlocked
-    ? 'Liberação de teste ativa — toque para trancar'
-    : (tv ? 'Conectado: ' + (tv.name || 'TV') + ' — toque para trocar ou desconectar'
-          : 'Espelhar na TV');
+/**
+ * Quantas telas da REDE estão recebendo agora — 0 com o espelho desligado.
+ *
+ * Deliberadamente separado do `simpleDisplay()`: aquele responde "há um TELÃO?"
+ * e governa coisas de peso (a cortina do modo simplificado, o atraso da preview,
+ * quem é a referência de tempo). Aqui a pergunta é só "há alguém recebendo?",
+ * que é o que o ícone de conectar tem a dizer.
+ */
+function espelhoRecebendo() {
+  const e = mirrorEstado;
+  if (!e || !e.ligado || !Array.isArray(e.telas)) return 0;
+  return e.telas.length;
 }
 
+function renderCastBtn() {
+  const tv = simpleDisplay();
+  // AS TELAS DA REDE CONTAM COMO CONEXÃO — e é o ÍCONE que passa a dizer isso
+  // (v5.176), no lugar do cartão na barra de notificações.
+  //
+  // A notificação do `EspelhoService` não pode sumir (um serviço em primeiro
+  // plano é obrigado a ter uma, e é ele que mantém o espelho no ar com o app
+  // minimizado), mas ela também não era o lugar certo para essa informação: o
+  // operador olha para o app, e o app já tem um ícone cujo trabalho é
+  // exatamente esse. O cartão foi para `IMPORTANCE_MIN` — sai da barra de
+  // status — e o fato subiu para cá.
+  //
+  // Mesma classe, mesma cor, mesmo efeito do telão: `.connected` quer dizer "há
+  // uma tela recebendo", e três navegadores da rede são três telas recebendo.
+  // Inventar um segundo estado visual para o mesmo fato seria pedir ao operador
+  // que aprendesse duas convenções para uma coisa só.
+  const naRede = espelhoRecebendo();
+  // `.connected` marca "há uma tela recebendo". (O terceiro estado, `.testing`
+  // da liberação de teste em `--warn`, saiu na v5.199 com a própria liberação.)
+  pvCastBtnEl.classList.toggle('connected', !!tv || naRede > 0);
+  const naRedeTxt = naRede === 1 ? '1 tela na rede' : naRede + ' telas na rede';
+  pvCastBtnEl.title = tv
+      ? 'Conectado: ' + (tv.name || 'TV') + (naRede ? ' · ' + naRedeTxt : '')
+        + ' — toque para trocar ou desconectar'
+      : naRede
+        ? naRedeTxt + ' recebendo — toque para ver quem está conectado'
+        : 'Espelhar na TV';
+}
+
+// O QUE SOBROU DE "renderizar a conexão no Modo Fácil" (v5.197): o ícone de
+// cast da preview e o bloqueio. O cartão que esta função existia para pintar —
+// rótulo, subtítulo, estado, `title` do gesto de 5 s — saiu com o botão único,
+// que estava morto desde a v5.193 (escondido por duas regras de `display: none`
+// que juntas cobriam todos os estados).
+//
+// O nome fica: são treze chamadores, e a função continua sendo "acerte o que
+// depende de haver tela conectada" — só que hoje isso é o ícone e a cortina.
 function renderSimpleCast() {
   renderCastBtn();
   if (appMode !== 'simple') return;
-  const tv = simpleDisplay();
-  // `.connected` é o verde de "há uma tela recebendo"; a liberação de teste
-  // NUNCA o veste (ver `castTestUnlocked`) — ela é aviso, não conexão.
-  simpleCastBtnEl.classList.toggle('connected', !!tv && !castTestUnlocked);
-  simpleCastBtnEl.classList.toggle('testing', castTestUnlocked);
-  // Sem tela, o botão é a tela inteira (ver o bloqueio abaixo) e precisa dizer
-  // tudo sozinho: uma frase, no rótulo. Com tela conectada ele volta a ser um
-  // cartão entre outros — o rótulo nomeia a ação e o subtítulo informa o
-  // estado, que é a divisão de sempre.
-  simpleCastLabelEl.textContent = tv ? 'Conectar a tela' : 'Toque para conectar uma tela';
-  // O subtítulo tem UMA linha e corta com reticências: cabe o estado, não a
-  // instrução. Quem está nesse modo acabou de segurar o botão 5 s para entrar
-  // nele — a instrução de sair vai no `title`.
-  simpleCastBtnEl.title = castTestUnlocked
-    ? 'Liberação de teste ativa — segure 5 s para trancar'
-    : 'Segure 5 s para liberar a tela sem telão (teste)';
-  if (castTestUnlocked) {
-    simpleCastStatusEl.textContent = 'Liberado para teste';
-  } else if (!window.__NATIVE__) {
-    simpleCastStatusEl.textContent = tv ? 'Tela do Display aberta' : 'Abrir a tela do Display';
-  } else {
-    simpleCastStatusEl.textContent = tv
-      ? 'Conectado: ' + (tv.name || 'TV')
-      : 'Toque para escolher a tela';
-  }
   renderSimpleGate();
 }
 
@@ -13717,44 +14916,139 @@ function renderSimpleCast() {
 let webDisplayWin = null;      // navegador: janela do Display aberta pelo botão
 let webDisplayTimer = null;
 
-// ===== Liberação de TESTE do modo simplificado (segurar 5 s) =====
-// Sem telão à mão não há como OLHAR a tela simplificada destravada — e ela é a
-// tela que o app abre, ou seja, a que mais precisa ser vista enquanto se mexe
-// no desenho dela. Segurar "Conectar a tela" por 5 s destrava como se houvesse
-// telão; segurar de novo tranca.
-//
-// **É uma porta de desenvolvimento, e ela é honesta**: não finge conexão
-// nenhuma. `simpleDisplay()` devolve um descritor marcado (`test: true`), o
-// botão fica em AVISO (nunca no verde de conectado) e o subtítulo diz que é
-// teste — quem pegar o aparelho nesse estado lê na tela o que está acontecendo,
-// em vez de procurar a TV que "conectou" sozinha.
-//
-// Nada mais no app muda: os comandos continuam saindo pelo barramento como
-// sempre (e, sem Display, ninguém os escuta — exatamente o que já acontece hoje
-// com o modo avançado sem telão). A liberação não é persistida: cada abertura
-// do app volta ao comportamento normal.
-//
-// 5 s é longo de propósito — o botão é a ÚNICA ação da tela bloqueada, e um
-// limiar curto faria um toque hesitante virar um destravamento que ninguém
-// pediu.
-const CAST_HOLD_MS = 5000;
-let castTestUnlocked = false;
+// (A LIBERAÇÃO DE TESTE — segurar 5 s para destravar sem tela — SAIU na v5.199,
+// junto com o bloqueio. Ela era uma porta de desenvolvimento cujo único
+// trabalho era derrotar a cortina, e uma porta sem parede não é uma porta: o
+// modo já abre usável. Com ela saíram `CAST_HOLD_MS`, `castTestUnlocked`, o
+// gesto na cortina e o estado `.testing` do ícone de cast.)
 
+// HÁ ALGUMA TELA RECEBENDO? — e desde a v5.193 a resposta inclui as telas da
+// REDE, não só a TV pela `Presentation`.
+//
+// Ela não decide mais bloqueio nenhum (v5.199): decide QUEM ocupa a célula da
+// preview no Modo Fácil — a preview, quando há tela, ou a seção de conexão,
+// quando não há — e o estado do ícone de cast. "O telão" deixou de ser sinônimo
+// de "uma TV conectada por espelhamento" na v5.187: sem TV, as telas da rede
+// SÃO o que a congregação vê, e é por isso que elas contam aqui.
 function simpleDisplay() {
-  if (castTestUnlocked) return { name: 'Modo de teste', test: true };
   if (!window.__NATIVE__) {
     return webDisplayWin && !webDisplayWin.closed ? { name: 'Display' } : null;
   }
-  return lastDisplays[0] || null;
+  if (lastDisplays[0]) return lastDisplays[0];
+  const rede = telasDaRede();
+  return rede.length ? { name: rede[0].rotulo || 'Tela da rede', rede: true } : null;
 }
 
+// As telas da rede que estão de fato RECEBENDO. Uma só fonte para o Modo Fácil
+// e para o fechamento da folha — ver `renderSimpleGate`.
+function telasDaRede() {
+  const e = mirrorEstado || {};
+  return espelhoLigado() && Array.isArray(e.telas) ? e.telas : [];
+}
+
+// O PORTÃO DO MODO FÁCIL: sem tela conectada, a cortina bloqueia e o cartão de
+// conexão é a única coisa legível.
+//
+// **Ele saiu na v5.199 e voltou na v5.203, e a ida e a volta valem escritas**,
+// porque a remoção foi um diagnóstico errado e não uma mudança de gosto. O
+// operador relatava "o botão de conectar que persiste em existir e bloquear a
+// tela do modo simples"; a leitura foi de que o BLOQUEIO incomodava, e a v5.199
+// o derrubou inteiro. Não era isso: o que ele via era o botão ANTIGO — o
+// `#simpleCastBtn` da v5.192, servido pela base embutida no APK depois de um
+// recuo do watchdog que não limpava o cache do WebView (a causa real, corrigida
+// na v5.200/v1.91). Ele chegou a dizer, com todas as letras, que "essa parte
+// não era o problema".
+//
+// O argumento que sustenta o bloqueio continua o mesmo, e ficou mais forte com
+// o tempo: sem tela a projeção não existe, e desde a v5.189 a preview nem som
+// tem — um ▶ aqui não produz absolutamente nada. A saída é o "Modo avançado" do
+// cabeçalho, que fica por cima da cortina de propósito: o que se bloqueia é
+// este MODO, não o app.
 function renderSimpleGate() {
-  const preso = appMode === 'simple' && !simpleDisplay();
-  simpleVeilEl.hidden = !preso;
-  simpleModeEl.classList.toggle('locked', preso);
-  // A busca é o que a cortina esconde: reabri-la por trás dela deixaria o
-  // popup no ar sobre uma tela bloqueada.
-  if (preso) closeHymnSearch();
+  const temTela = !!simpleDisplay();
+  const semTela = appMode === 'simple' && !temTela;
+  simpleModeEl.classList.toggle('sem-tela', semTela);
+  // A CORTINA VOLTOU na v5.203 (ver o comentário do `.simple-veil`): sem tela
+  // este modo não projeta nada — nem imagem nem som, desde que a mesa saiu na
+  // v5.189 —, e o bloqueio é o que diz isso sem depender de ninguém ler um
+  // cartão. O elemento existe só no bundle novo, daí a guarda.
+  if (simpleVeilEl) simpleVeilEl.hidden = !semTela;
+  // A busca é o que a cortina esconde: deixá-la aberta por trás daria um popup
+  // funcionando sobre uma tela bloqueada, e tocar uma música dali não projetaria
+  // coisa nenhuma.
+  if (semTela) closeHymnSearch();
+  hostCastConn(semTela);
+  // ALGUMA TELA ENTROU COM A FOLHA ABERTA: ela fecha. Vale para os DOIS
+  // caminhos (espelhar para a TV, transmitir para navegador) e nos dois modos —
+  // quem acabou de conectar terminou o que veio fazer ali, e uma folha que
+  // continua no ar por cima dos controles é um toque cobrado para nada. No Modo
+  // Fácil ela nem é uma folha: o bloco está DENTRO da tela, e o `hostCastConn`
+  // acima já o devolveu para a folha.
+  //
+  // **É UMA BORDA, e até a v5.217 estava escrita como NÍVEL** — `if (há tela)
+  // fecha`. A frase acima diz "entrou"; o código dizia "existe". Com uma tela
+  // conectada (o ícone de cast em VERMELHO, que é o estado normal de um culto),
+  // a folha era fechada por QUALQUER passagem por aqui — e o próprio `abrirCast`
+  // liga a enquete de 2,5 s, que chama esta função. A folha abria e se fechava
+  // em milissegundos: do lado de quem opera, **o botão de cast simplesmente não
+  // abria nada**, que foi exatamente o relato. Era também a única porta para
+  // trocar de TV, desligar a transmissão ou derrubar uma tela sem antes
+  // desconectar tudo.
+  //
+  // A memória é re-armada em `abrirCast` (`gateTinhaTela = há tela?`), e é isso
+  // que dá à regra o significado certo: **enquanto ESTA folha estiver aberta, se
+  // uma tela entrar, ela fecha.** Sem esse re-armar, uma folha aberta muito
+  // depois herdaria uma borda de horas atrás — a mesma classe de defeito, com
+  // outro relógio.
+  const entrou = temTela && !gateTinhaTela;
+  gateTinhaTela = temTela;
+  if (entrou && !semTela && castPopupEl && castPopupEl.classList.contains('open')) {
+    fecharCast();
+  }
+}
+
+// O BLOCO DE CONEXÃO TEM DUAS CASAS, e é o MESMO nó — o padrão do `hostPreview`
+// (a preview também troca de pai conforme o modo). Duplicar a marcação daria
+// duas anatomias para a mesma decisão e elas divergiriam no primeiro ajuste.
+//
+// `naTela` é a única condição: é exatamente o estado em que o Modo Fácil não
+// tem tela para onde projetar, e a conexão ocupa a célula da preview. Fora dele
+// o bloco volta para a folha, que é onde ele é aberto de propósito (pelo botão
+// de cast da preview, ou pelo cartão deste mesmo modo com uma tela conectada).
+function hostCastConn(naTela) {
+  if (!castConnEl || !simpleConnEl) return;
+  const alvo = naTela ? simpleConnEl : castPopupEl.querySelector('.popup-sheet');
+  if (alvo && castConnEl.parentElement !== alvo) alvo.appendChild(castConnEl);
+  simpleConnEl.hidden = !naTela;
+  if (naTela) {
+    // Ele passa a ser conteúdo de tela, não de folha: o estado precisa estar
+    // certo sem ninguém ter aberto nada.
+    if (castNetBtnEl) castNetBtnEl.hidden = !espelhoDisponivel();
+    renderCast();
+  }
+  acertarEnqueteDaConexao();
+}
+
+// A ENQUETE DE 2,5 s TEM UM DONO SÓ, e é a VISIBILIDADE do bloco (v5.199).
+//
+// Ela nasceu como enquete da FOLHA — `abrirCast` a ligava, `fecharCast` a
+// matava —, e a v5.193 deu ao bloco uma segunda casa (a tela do Modo Fácil sem
+// telão) sem dar um dono novo à enquete. Ficaram dois acionadores e um só
+// interruptor, com as duas metades erradas: `hostCastConn` a acendia e nunca a
+// apagava (uma tela entrando devolvia o bloco à folha e deixava a enquete
+// batendo na ponte a cada 2,5 s pelo resto da sessão), e `fecharCast` a apagava
+// mesmo quando quem a tinha acendido era a TELA — isto é, abrir e fechar a
+// folha uma vez cegava o Modo Fácil justamente para o evento que ele espera,
+// uma tela da rede entrando.
+//
+// Perguntar "o bloco está aparecendo?" responde os dois casos de uma vez, e é a
+// mesma pergunta que o `renderCast` já faz para decidir se vale desenhar.
+function acertarEnqueteDaConexao() {
+  const querer = espelhoDisponivel() && castConnVisivel();
+  if (querer === !!mirrorTimer) return;
+  if (!querer) { clearInterval(mirrorTimer); mirrorTimer = null; return; }
+  lerEspelho();
+  mirrorTimer = setInterval(lerEspelho, MIRROR_POLL_MS);
 }
 
 // ===== A PREVIEW é UM nó só, e ele MUDA DE CASA =====
@@ -13765,8 +15059,12 @@ function renderSimpleGate() {
 // vezes num aparelho que já roda dois WebViews.
 //
 // A troca acontece só na mudança de MODO — não ao conectar/desconectar. Com a
-// tela bloqueada a faixa some por CSS (`.simple.locked .simple-stage`), e um
+// tela bloqueada a faixa some por CSS (`.simple.sem-tela .simple-stage`), e um
 // `display:none` não custa nada; mover o nó a cada conexão, sim (ver abaixo).
+// (O seletor citado aqui dizia `.simple.locked` — uma classe que nunca chegou a
+// existir nesta folha: quem marca o estado é `.sem-tela`, escrita pelo
+// `renderSimpleGate`. Um comentário que aponta para um seletor inexistente é
+// pior que nenhum: ele faz o próximo leitor procurar a regra no lugar errado.)
 function hostPreview() {
   const alvo = appMode === 'simple' ? simpleStageEl : previewRowEl;
   if (previewEl.parentElement === alvo) {
@@ -13780,24 +15078,11 @@ function hostPreview() {
   // conexão e a porta de saída, então existe sempre; no avançado continua sendo
   // um atalho para um intent do Android, e some no navegador.
   pvCastBtnEl.hidden = !(appMode === 'simple' || window.__NATIVE__);
-  const yt = ytPreview;
-  const emQueSegundo = yt ? ytPreviewTime() : 0;
   alvo.appendChild(previewEl);
-  // Um IFRAME, ao contrário, RECARREGA ao mudar de pai — o player do YouTube
-  // morre junto. Como o item segue tocando no telão, a miniatura é remontada
-  // no ponto em que estava, e não do começo.
-  if (yt && currentItem && currentItem.kind === 'youtube') {
-    loadYtPreview(currentItem, view, emQueSegundo);
-  }
-}
-
-// Segundo atual do player da preview do YouTube (0 se ele não responder).
-function ytPreviewTime() {
-  try {
-    const p = ytPreview && ytPreview.player;
-    const t = p && p.getCurrentTime && p.getCurrentTime();
-    return typeof t === 'number' && isFinite(t) ? t : 0;
-  } catch (_) { return 0; }
+  // (Havia aqui a remontagem do player do YouTube: um IFRAME, ao contrário de
+  //  um `<video>`, RECARREGA ao mudar de pai, e o player morria junto — então
+  //  ele era reconstruído no segundo em que estava. Sem embed sobra só o
+  //  `<video>`, que o `appendChild` acima preserva por construção.)
 }
 
 // Abre a tela do Display no navegador e acompanha a janela: fechá-la é o
@@ -13807,10 +15092,11 @@ function ytPreviewTime() {
 function openWebDisplay() {
   webDisplayWin = window.open('../display/', 'avDisplay');
   renderSimpleCast();
-  // No navegador a janela do Display é o "telão", e vale a mesma regra da mesa
-  // de som (ver `telaoConectado`) — inclusive para desenvolver a base web fora
-  // do aparelho, que é justamente o que este caminho serve.
-  pushTelaoNoSom();
+  // No navegador a janela do Display é o "telão", e vale a mesma regra do som
+  // deste aparelho (ver `acertarSaidaDeAudio`) — inclusive para desenvolver a
+  // base web fora do aparelho, que é justamente o que este caminho serve: abrir
+  // a janela cala a preview, fechá-la devolve o som a ela.
+  acertarSaidaDeAudio();
   clearInterval(webDisplayTimer);
   if (!webDisplayWin) return;
   webDisplayTimer = setInterval(() => {
@@ -13819,8 +15105,8 @@ function openWebDisplay() {
     webDisplayTimer = null;
     webDisplayWin = null;
     renderSimpleCast();
-    pushTelaoNoSom();
-  }, 1000);
+    acertarSaidaDeAudio();
+    }, 1000);
 }
 
 simpleFullBtnEl.addEventListener('click', () => setAppMode('full'));
@@ -13831,6 +15117,10 @@ appModeSegEl.addEventListener('click', (e) => {
   setAppMode(btn.dataset.mode);
   closeFadePopup();   // a escolha já mudou a tela inteira atrás do popup
 });
+temaSegEl.addEventListener('click', (e) => {
+  const btn = e.target.closest('.fit-opt');
+  if (btn) setTema(btn.dataset.tema);
+});
 simpleSearchBtnEl.addEventListener('click', openHymnSearch);
 // Os controles do simplificado são os do modo completo, acionados por click():
 // um botão `disabled` continua sendo um no-op natural, e as bordas ficam num
@@ -13840,35 +15130,11 @@ simpleStopEl.addEventListener('click', () => stopEl.click());
 simpleMuteEl.addEventListener('click', () => muteToggleEl.click());
 holdRepeat(simpleVolUpEl, () => simpleVolStep(1));
 holdRepeat(simpleVolDownEl, () => simpleVolStep(-1));
-// Toque curto = abrir o seletor de tela; 5 s segurando = liberação de teste
-// (acima). O `holdFired` é o que impede o `click` seguinte de abrir o seletor
-// de espelhamento em cima da tela que acabou de destravar.
-(function setupCastHold() {
-  let timer = null, holdFired = false;
-  const stop = () => {
-    clearTimeout(timer); timer = null;
-    simpleCastBtnEl.classList.remove('simple-key--holding');
-  };
-  simpleCastBtnEl.style.setProperty('--cast-hold', CAST_HOLD_MS + 'ms');
-  simpleCastBtnEl.addEventListener('pointerdown', () => {
-    holdFired = false;
-    clearTimeout(timer);
-    // A classe reentra do zero a cada toque: reiniciar a animação exige que ela
-    // saia e volte, e é o `stop()` de qualquer toque anterior que a tirou.
-    simpleCastBtnEl.classList.add('simple-key--holding');
-    timer = setTimeout(() => {
-      holdFired = true;
-      castTestUnlocked = !castTestUnlocked;
-      stop();
-      renderSimpleCast();
-    }, CAST_HOLD_MS);
-  });
-  ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => simpleCastBtnEl.addEventListener(ev, stop));
-  simpleCastBtnEl.addEventListener('click', () => {
-    if (holdFired) { holdFired = false; return; }
-    abrirCast();
-  });
-})();
+// (A LIBERAÇÃO DE TESTE — segurar 5 s — SAIU na v5.199. O alvo dela mudou duas
+// vezes em cinco versões: o botão grande (até a v5.192), a cortina (v5.193) e
+// nada (v5.199), porque o que ela destravava deixou de estar trancado. Ficasse,
+// seria um gesto secreto de 5 s cujo efeito é indistinguível do estado normal
+// da tela.)
 // Fecha o ciclo com o HTML: as classes já vêm do documento (e, no modo
 // lembrado, já foram corrigidas no topo do arquivo), aqui o estado do JS
 // (segmento do popup, espelho dos controles) nasce igual a elas.
@@ -13880,7 +15146,6 @@ setAppMode(appMode);
 // Mesa de som nasce desligada (não é persistida); o segmento precisa nascer
 // dizendo isso, senão a primeira abertura de Configurações mostra dois botões
 // apagados e nenhuma escolha marcada.
-renderStandaloneSeg();
 
 // ===== Botões físicos de volume =====
 // No app eles passam a mexer no fader daqui, não na saída do sistema: com
@@ -14085,11 +15350,31 @@ tabsEl.addEventListener('click', (e) => {
 // justamente na aba em que o operador mais tenta usá-lo. O deslize da linha
 // saiu (ver "gestos da biblioteca") e o eixo horizontal ficou livre.
 //
-// As guardas restantes existem para não roubar gestos que já significam algo:
-// campos de texto, trilhos que rolam na horizontal (as pílulas de categoria, o
-// histórico do sorteio) e qualquer SUB-TELA (pasta aberta, capítulo/leitura da
-// Bíblia — reconhecidas pelo botão voltar visível), onde o eixo horizontal
-// pertence à navegação de dentro, não à de fora.
+// ## A GUARDA PERGUNTA AO DOM, e não a uma lista de classes (v5.193)
+//
+// Esta é a QUARTA vez que o carrossel é consertado, e as três anteriores
+// erraram do mesmo jeito: mantendo à mão a lista do que o eixo horizontal NÃO
+// pode atravessar. A v5.49 excluiu `.row` (e o Cronograma inteiro é feito de
+// linhas). A v5.61 e a v5.188 mexeram no `touch-action`. E a guarda que sobrou
+// era a mais larga de todas — **qualquer sub-tela**, reconhecida pelo botão
+// voltar visível — sob o argumento de que ali "o eixo horizontal pertence à
+// navegação de dentro". Medido, esse argumento é falso: com um capítulo da
+// Bíblia aberto (o estado normal de quem usa a Bíblia num culto) NADA na tela
+// disputa o eixo horizontal — `.bible-half` rola só na VERTICAL, e a própria
+// folha declara `touch-action: pan-y` nela. O carrossel morria calado em toda
+// navegação interna do app, que é exatamente onde o operador mais desliza.
+//
+// A lista também estava errada por dentro: `.bible-half` entrou nela na v5.188
+// como parte do conserto do `touch-action`, e ficou proibindo um gesto que ela
+// própria libera.
+//
+// Agora a pergunta é a certa e é **medida**: existe, entre o alvo e a
+// superfície que escuta, alguém que de fato ROLE NA HORIZONTAL? Um trilho de
+// pílulas cheio responde sim; o mesmo trilho com três pílulas responde não — e
+// nos dois casos a resposta é a verdadeira, não a que alguém digitou meses
+// atrás. Campos de texto continuam fora por outro motivo (ali o eixo é do
+// cursor, não da rolagem), e esses são nomeáveis porque são um conceito do
+// HTML, não uma classe deste app.
 const SWIPE_TABS = ['imports', 'bible', 'mic'];
 const TAB_SWIPE_MIN = 60;     // px — para TROCAR de aba
 const TAB_CLAIM_MIN = 12;     // px — para REIVINDICAR o gesto do navegador
@@ -14125,12 +15410,37 @@ const TAB_SWIPE_RATIO = 1.5;  // quanto o eixo X precisa dominar o Y
   let done = false;          // aba já trocada neste gesto
   let engolirClique = false;
 
+  // ROLA MESMO NA HORIZONTAL? Três condições, e as três são necessárias: o
+  // elemento precisa TER conteúdo excedente (`scrollWidth`), precisa estar
+  // configurado para rolar nesse eixo (`overflow-x`) e precisa ter para onde
+  // ir. A última é o que impede um trilho já no fim de engolir o gesto de
+  // volta — mas ela é medida com folga de 1px, porque uma largura fracionária
+  // deixa `scrollLeft` a meio pixel do fim e nenhum trilho real precisa desse
+  // último meio pixel.
+  function rolaNoEixoX(el) {
+    if (!el || el.nodeType !== 1) return false;
+    if (el.scrollWidth <= el.clientWidth + 1) return false;
+    const ov = getComputedStyle(el).overflowX;
+    return ov === 'auto' || ov === 'scroll';
+  }
+
   function elegivel(target) {
     if (selectionMode) return false;
-    if (!backBtnEl.hidden) return false;                 // sub-tela: o voltar manda ali
     if (SWIPE_TABS.indexOf(activeTab) < 0) return false;
     if (!target || !target.closest) return false;
-    if (target.closest('input, textarea, .draw-hist, .bible-half')) return false;
+    // A FAIXA DE ABAS é sempre território do carrossel (v5.188): deslizar sobre
+    // a própria fileira de abas é o gesto mais óbvio de todos, e ela não tem
+    // conteúdo que dispute o eixo.
+    if (tabsEl.contains(target)) return true;
+    // O CURSOR manda dentro de um campo de texto.
+    if (target.closest('input, textarea')) return false;
+    // E o resto é medido: sobe do alvo até a superfície que escuta procurando
+    // alguém que role de verdade na horizontal. Parar em `mainEl` importa —
+    // acima dele estão o `<body>` e o `<html>`, que num app de tela cheia
+    // podem responder qualquer coisa e não são de ninguém.
+    for (let el = target; el && el !== mainEl && el !== tabsEl; el = el.parentElement) {
+      if (rolaNoEixoX(el)) return false;
+    }
     return true;
   }
 
@@ -14236,7 +15546,7 @@ selRenameEl.addEventListener('click', renameSelected);
 
 backBtnEl.addEventListener('click', navigateBack);
 favBackEl.addEventListener('click', navigateBack);
-addDirBtnEl.addEventListener('click', () => syncDeviceFolder());
+addDirBtnEl.addEventListener('click', () => syncDeviceFolder(undefined, addDirBtnEl));
 // Buscar redesenha a lista inteira (innerHTML = '' + um object URL novo por
 // miniatura). Numa pasta de igreja com centenas de arquivos, sem debounce isso
 // acontecia por TECLA — e nas primeiras letras a lista ainda é quase inteira.
@@ -14299,14 +15609,9 @@ hymnSearchInputEl.addEventListener('input', debounce(() => renderSearchResults(h
   // declara. No SIMPLIFICADO ele aparece sempre, porque ali é o sinal de
   // conexão da preview e a porta de saída dela (ver renderSimpleCast): no
   // navegador, "desconectar" é fechar a janela do Display.
-  pvCastBtnEl.addEventListener('click', () => {
-    // Liberação de TESTE: não há tela real para desconectar, então o toque
-    // simplesmente tranca de volta. É o par do "segurar 5 s" que destravou —
-    // e o botão que hospedava aquele gesto some justamente quando a liberação
-    // fica ativa, porque a preview toma o lugar dele.
-    if (castTestUnlocked) { castTestUnlocked = false; renderSimpleCast(); return; }
-    abrirCast();
-  });
+  // (Havia aqui um ramo para TRANCAR de volta a liberação de teste. Ele saiu na
+  // v5.199 com ela.)
+  pvCastBtnEl.addEventListener('click', () => abrirCast());
 
   async function enterFullscreen() {
     try {
@@ -14399,6 +15704,22 @@ wallResetEl.addEventListener('click', () => { setWallpaper(null); });
 //
 // No navegador não existe Presentation: o rodapé volta a ser o atalho para a
 // tela do Display, útil para desenvolver a base web fora do app.
+// O alvo de espelhamento deste aparelho, guardado como DADO (v5.193). Ele saía
+// numa linha do rodapé de Configurações e o Registro a lia do DOM; a linha saiu
+// (é assunto da folha de conexão, onde ela continua, no subtítulo do botão de
+// espelhar) e o valor passou a morar aqui. Vazio no navegador.
+let castAlvo = '';
+
+// "Telão: …" para o Registro. Mesma frase que o rodapé mostrava, montada do
+// `lastDisplays` em vez de lida de um `<span>` — ver `cabecalhoDiag`.
+function descreverTelao() {
+  if (!window.__NATIVE__) return 'navegador (sem Presentation)';
+  const tv = lastDisplays[0];
+  return tv
+    ? 'conectado: ' + (tv.name || 'TV') + ' (' + tv.w + '\u00d7' + tv.h + ')'
+    : 'nenhum conectado';
+}
+
 if (window.__NATIVE__) {
   const renderDisplayStatus = (list) => {
     const tv = (list && list[0]) || null;
@@ -14406,16 +15727,12 @@ if (window.__NATIVE__) {
     // Conectar (ou perder) o telão MUDA O REGIME da preview: com TV a projeção
     // é ela, chega no ato, e a preview volta a andar junto. Ver `cmd`.
     recalcularAtrasoPreview();
+    // E MUDA QUEM TOCA O SOM: a TV entrando cala este aparelho, a TV caindo o
+    // devolve à caixa de som. Ver `acertarSaidaDeAudio`.
+    acertarSaidaDeAudio();
     renderSimpleCast();
-    openDisplayBtnEl.disabled = true;
-    openDisplayBtnEl.classList.toggle('connected', !!tv);
-    displayStatusTextEl.textContent = tv
-      ? 'Telão conectado: ' + (tv.name || 'TV') + ' (' + tv.w + '\u00d7' + tv.h + ')'
-      : 'Nenhum telão conectado';
+    renderCast();          // a folha de conexão é quem mostra isto agora
     applyPreviewAspect(tv);
-    // O botão da mesa de som depende disto (ver `renderStandaloneSeg`): com
-    // telão conectado, o som da preview interromperia o player do telão.
-    pushTelaoNoSom();
   };
   AVNative.displays().then(renderDisplayStatus);
   AVNative.onDisplayChange(renderDisplayStatus);
@@ -14431,18 +15748,22 @@ if (window.__NATIVE__) {
   // Samsung, "Wireless display" no AOSP) sem API documentada — então o app
   // mostra o que encontrou em vez de deixar isso invisível.
   AVNative.castTarget().then((label) => {
-    // E TAMBÉM NA FOLHA DE CONEXÃO, que é onde o operador decide. Os alvos de
-    // espelhamento variam por fabricante e não são API documentada: ver ANTES
-    // de tocar é a diferença entre "abriu a tela errada" e "eu sabia que ia
-    // abrir essa". A linha de Configurações fica, porque o Registro a copia.
-    if (label && castMirrorSubEl) {
-      castMirrorSubEl.textContent = 'Abre: ' + label;
-    }
-    if (!label) return;
-    castTargetLineEl.hidden = false;
-    castTargetLineEl.textContent = 'Espelhar abre: ' + label;
+    // NA FOLHA DE CONEXÃO, que é onde o operador decide, e SÓ ali (v5.193). Os
+    // alvos de espelhamento variam por fabricante e não são API documentada:
+    // ver ANTES de tocar é a diferença entre "abriu a tela errada" e "eu sabia
+    // que ia abrir essa". O Registro continua tendo a linha, agora a partir
+    // desta variável — ver `cabecalhoDiag`.
+    // SÓ PARA O REGISTRO (v5.194). Ele já foi subtítulo do botão de espelhar
+    // ("Abre: Smart View") — mas o operador não escolhe entre dois caminhos
+    // pelo NOME do seletor que vai abrir, e quando o botão abre a tela errada a
+    // resposta está no Registro, que é o que se copia para diagnosticar.
+    castAlvo = label || '';
   });
 } else {
+  // NO NAVEGADOR ELE FICA, e é AÇÃO, não estado: sem `Presentation` não há quem
+  // abra a tela do Display sozinho, e é assim que a base web se desenvolve fora
+  // do aparelho. É o único caso em que este botão faz alguma coisa.
+  openDisplayBtnEl.hidden = false;
   displayStatusTextEl.textContent = 'Abrir tela do Display';
   // Mesmo caminho do botão do simplificado: uma janela só (nome 'avDisplay') e
   // um só lugar que sabe se ela ainda está aberta.
@@ -14475,31 +15796,21 @@ if (window.__NATIVE__) {
 // O piso de shell. Um método novo NÃO chega por OTA: num shell antigo a linha
 // simplesmente não é desenhada, e volta sozinha quando o APK novo for
 // instalado. É a mesma regra (e o mesmo motivo) do `appendYoutubeSearch`.
-const MIRROR_SHELL = 32;
-// Enquanto a folha está aberta, o estado é relido: é o que faz uma tela que
-// acabou de digitar o PIN aparecer na fila sem o operador tocar em nada. Fora
-// da folha nada é enquetado — o espelho não muda por conta própria.
-const MIRROR_POLL_MS = 2500;
+// (`MIRROR_SHELL` subiu junto com o `MIRROR_POLL_MS` — ver o topo.)
+// (`MIRROR_POLL_MS` subiu para o topo na v5.195, junto do resto do estado de
+// cena — ver o comentário de lá. Ele é lido na CARGA do módulo, e ficar aqui o
+// deixava em zona morta temporal no aparelho.)
 
 function espelhoDisponivel() {
   return !!window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= MIRROR_SHELL;
 }
 
-// O último estado lido da ponte (`null` = nunca perguntamos). Formato em
-// `AVNative.espelhoEstado`.
-let mirrorEstado = null;
-let mirrorTimer = null;
-let mirrorOcupado = false;
+// (`mirrorEstado`, `mirrorTimer` e `mirrorOcupado` são declarados lá em cima,
+// junto do resto do estado de cena — ver o comentário de lá para o porquê.)
 // A confirmação de ligar COM A TV NO AR, lembrada pela SESSÃO: perguntar de
 // novo a cada toque viraria ruído, e quem já respondeu "sim" uma vez naquele
 // culto não muda de ideia por causa do segundo toque.
 let mirrorTvConfirmado = false;
-// Este aparelho sabe ler um QR pela câmera? `null` = ainda não perguntamos.
-// A pergunta é assíncrona (`getSupportedFormats`) e a resposta é lembrada pela
-// sessão: ela é sobre o aparelho e o WebView, e nenhum dos dois muda no meio de
-// um culto. Ver `sondarLeituraQr`.
-let qrSuportado = null;
-
 function espelhoLigado() { return !!(mirrorEstado && mirrorEstado.ligado); }
 
 async function lerEspelho() {
@@ -14508,19 +15819,46 @@ async function lerEspelho() {
   try { e = await AVNative.espelhoEstado(); } catch (_) { e = null; }
   mirrorEstado = e || null;
   recalcularAtrasoPreview();
-  renderEspelho();
+  // UMA TELA DA REDE ENTRANDO TAMBÉM CALA ESTE APARELHO — sem TV são elas a
+  // projeção, e cada uma toca o próprio arquivo. Ver `acertarSaidaDeAudio`.
+  acertarSaidaDeAudio();
+  acertarEnqueteDeFundo();
+  // E A FOLHA DE CONECTAR TAMBÉM (v5.184). Ela estava fora daqui desde que
+  // nasceu: quem a redesenhava era só o `abrirCast`, então tudo o que ela
+  // mostra ao vivo — o endereço que aparece quando o servidor sobe, a lista de
+  // quem está vendo, a contagem no subtítulo — congelava no instante da
+  // abertura. A enquete de 2,5 s existe justamente para essa folha estar viva
+  // enquanto o operador olha para ela, e ela alimentava a outra.
+  renderCast();
+  // O ÍCONE DE CONECTAR ACOMPANHA — ele é quem diz "há tela recebendo" desde
+  // que a notificação do espelho saiu da barra de status (v5.176). Sem esta
+  // linha ele só seria repintado quando o TELÃO mudasse, e uma tela da rede
+  // entrando não acenderia nada até a próxima troca de aba.
+  renderCastBtn();
+  // E O BLOQUEIO DO MODO FÁCIL (v5.193): desde que as telas da rede contam como
+  // projeção (`simpleDisplay`), uma delas entrando é o que libera os controles
+  // — e é aqui, na enquete, que isso se descobre. Sem esta linha o operador
+  // ligava a transmissão, via a tela do saguão aparecer na lista e continuava
+  // atrás da cortina até trocar de modo.
+  renderSimpleGate();
+  renderSimpleCast();
   return mirrorEstado;
 }
 
 // A ENQUETE DE FUNDO, e ela é de propósito bem mais lenta que a da folha.
 //
 // A folha enqueta a 2,5 s porque ali o operador está OLHANDO a fila de telas.
-// Fora dela, a única coisa que ainda precisa de leitura é o atraso da preview
-// (ver `cmd`) — e ele muda devagar, porque a folga do cliente do espelho
-// encolhe de 100 em 100 ms a cada oito segundos. Um pedido a cada dez segundos
-// enquanto o espelho está no ar é ruído nenhum, e é o que faz a preview
-// acompanhar uma tela que entrou no meio do culto sem ninguém abrir nada.
-const MIRROR_FUNDO_MS = 10000;
+// Fora dela havia um consumidor só, e lento: o atraso da preview (ver `cmd`),
+// que muda de 100 em 100 ms a cada oito segundos e por isso vivia bem com dez
+// segundos de enquete.
+//
+// Desde a v5.176 há um SEGUNDO consumidor, e ele é um indicador de estado: o
+// ícone de conectar, que passou a dizer "há tela recebendo" no lugar do cartão
+// na barra de notificações. Aquele cartão se atualizava a cada tela que entrava
+// ou saía; um ícone que levasse dez segundos para acender seria uma troca ruim.
+// Quatro segundos é a resposta que o operador lê como imediata, e o custo é uma
+// chamada de ponte com um JSON pequeno — só enquanto o espelho está no ar.
+const MIRROR_FUNDO_MS = 4000;
 let mirrorFundoTimer = null;
 
 function acertarEnqueteDeFundo() {
@@ -14534,497 +15872,28 @@ function acertarEnqueteDeFundo() {
   }
 }
 
-// As três ressalvas que o operador precisa ouvir ANTES, e não num domingo: o
-// roteador pode bloquear isso sozinho e não há conserto do lado do app; o
-// celular precisa do carregador; e o som não vai completo.
-const MIRROR_TEXTO_OFF =
-  'Põe o telão inteiro — com fades, cortina e vídeo — em até três navegadores '
-  + 'da rede da igreja. Ninguém instala nada: digita o endereço, vê o número de '
-  + 'seis dígitos aqui na sua tela, e você aprova.\n\n'
-  + 'Antes de ligar: o roteador da igreja pode bloquear isto sozinho (isolamento '
-  + 'de clientes) — se for o caso, o Registro vai dizer em texto; deixe o celular '
-  + 'no carregador; e o som não vai completo (vídeo do YouTube pelo player '
-  + 'embutido vai mudo, e o microfone ao vivo nunca sai na rede, de propósito).';
-const MIRROR_TEXTO_ON =
-  'Quem for assistir abre o endereço abaixo no navegador. A tela mostra um '
-  + 'código; toque em "Ler o código da tela", aponte a câmera para ele, e ela '
-  + 'entra na hora.\n\n'
-  + 'Sem câmera à mão, o número de seis dígitos continua valendo: quem digitar '
-  + 'o número entra na fila abaixo e você aprova.\n\n'
-  // O SOM É POR TELA, e quem liga é quem está na frente dela. Isto precisa
-  // estar dito AQUI, na tela do operador, porque é ele quem vai ser perguntado
-  // — e no primeiro culto de teste a resposta que faltava era esta.
-  + 'Cada tela entra MUDA, de propósito (três telas com som dentro da igreja '
-  + 'são três alto-falantes com eco). Quem estiver na sala toca uma vez na tela '
-  + 'para ver em tela cheia e ouvir.';
+// (`MIRROR_TEXTO` e `renderEspelho` saíram na v5.196, com a folha de ajustes.
+// O parágrafo de ressalvas virou UMA linha na folha de conexão, e o que o
+// `renderEspelho` de fato fazia — acertar a enquete de fundo — era uma chamada
+// só, que os chamadores passaram a fazer direto.)
 
-function renderEspelho() {
-  acertarEnqueteDeFundo();
-  if (!mirrorRowEl) return;
-  // A LINHA de Configurações. `hidden` até o shell ter os métodos.
-  mirrorRowEl.hidden = !espelhoDisponivel();
-  if (mirrorRowEl.hidden) return;
-  const e = mirrorEstado || {};
-  const ligado = !!e.ligado;
-  const telas = Array.isArray(e.telas) ? e.telas : [];
-  const pendentes = Array.isArray(e.pendentes) ? e.pendentes : [];
-  mirrorRowHintEl.textContent = ligado
-    ? (e.endereco || 'Ligado') + ' · ' + telas.length + ' tela(s)'
-      + (pendentes.length ? ' · ' + pendentes.length + ' esperando' : '')
-    : (e.erro || 'Desligado');
-  // Verde é "há uma tela recebendo" no resto do app, e aqui quer dizer o mesmo.
-  // Nunca o vermelho preenchido de "no ar": esse é do telão, e o espelho é
-  // auxiliar — dois significados para a mesma cor na mesma tela é o erro que
-  // este projeto já documenta ter cometido com o ícone da cortina.
-  mirrorRowHintEl.classList.toggle('on', ligado);
+// (O CERTIFICADO TLS saiu na v5.196, com a folha de ajustes que era a única
+// porta dele — foram ~120 linhas: `CERT_SHELL`, `certDisponivel`,
+// `lerCertEspelho`, `renderCertEspelho`, `importarCertEspelho` e
+// `removerCertEspelho`. Ele nunca foi um interruptor: exige do operador um
+// subdomínio com wildcard por DNS-01, uma entrada estática de DNS no roteador
+// da igreja e renovação automática — e sem as três o espelho serve em HTTP
+// claro, que é o que ele sempre fez. Os três métodos da ponte
+// (`espelhoCertImportar`/`Estado`/`Apagar`) continuam no shell: voltar atrás é
+// desenhar uma folha, não publicar uma Release.)
 
-  // A FOLHA.
-  mirrorLeadEl.textContent = e.erro
-    ? e.erro + '\n\n' + MIRROR_TEXTO_OFF
-    : (ligado ? MIRROR_TEXTO_ON : MIRROR_TEXTO_OFF);
-  mirrorAddrEl.hidden = !ligado;
-  // O NOME CURTO VEM PRIMEIRO, e o IP FICA LOGO ABAIXO — nunca no lugar dele.
-  //
-  // `av.local` é mais fácil de digitar num controle remoto e sobrevive à troca
-  // de IP do DHCP, mas ele depende de a TELA resolver `.local`: Windows, macOS,
-  // iOS e Linux com avahi sim; o Chrome do Android e a maioria das Smart TVs,
-  // NÃO. Mostrar só o nome trocaria o endereço que funciona em toda tela pelo
-  // que funciona em algumas — uma regressão com cara de melhoria. Os dois
-  // juntos, com a ordem dizendo qual tentar primeiro.
-  const nomeLocal = e.nomeLocal || '';
-  mirrorUrlEl.textContent = nomeLocal || e.endereco || '';
-  if (mirrorUrl2El) {
-    mirrorUrl2El.hidden = !nomeLocal;
-    mirrorUrl2El.textContent = nomeLocal ? 'ou ' + (e.endereco || '') : '';
-  }
-  if (mirrorNomeHintEl) {
-    mirrorNomeHintEl.hidden = !ligado;
-    mirrorNomeHintEl.textContent = nomeLocal
-      ? 'Se a tela não abrir pelo nome, use o endereço numérico — nem toda TV entende ".local".'
-      : (e.nomeErro
-        ? 'Nome curto indisponível: ' + e.nomeErro
-        : '');
-  }
-  mirrorPinEl.textContent = e.pin || '';
-  // O botão de ler o QR só existe com o espelho no ar: sem servidor não há
-  // tela mostrando código nenhum, e apontar a câmera para o nada não é um
-  // estado que valha desenhar. `qrLeituraOk()` é a sonda do aparelho (câmera +
-  // leitor de QR + shell 33) — e ela é resolvida uma vez, ao abrir a folha.
-  mirrorScanEl.hidden = !(ligado && qrSuportado === true);
-  // "Uma tela esperando a leitura" é o dado que separa "ninguém abriu o
-  // endereço" de "abriu, o código está lá, e o que falta é a câmera". As duas
-  // coisas são a MESMA lista vazia, porque a espera de QR não entra nela.
-  const emCartaz = e.qrEsperando | 0;
-  mirrorScanEl.querySelector('span:last-child').textContent = emCartaz
-    ? 'Ler o código da tela (' + emCartaz + ' esperando)'
-    : 'Ler o código da tela';
-  mirrorAutoEl.checked = !!e.autoAprovar;
-  mirrorToggleEl.textContent = mirrorOcupado
-    ? 'Um instante…'
-    : (ligado ? 'Desligar o espelho' : 'Ligar o espelho');
-  mirrorToggleEl.disabled = mirrorOcupado;
-  mirrorToggleEl.classList.toggle('on', ligado);
-  renderEspelhoLista(pendentes, telas);
-}
-
-// A fila de aprovação em cima, as telas já conectadas embaixo. Uma lista só,
-// porque são a mesma pergunta em dois estados ("quem está olhando?") e duas
-// listas fariam a de baixo parecer ação pendente quando não é.
-function renderEspelhoLista(pendentes, telas) {
-  mirrorListEl.innerHTML = '';
-  pendentes.forEach((p) => {
-    const li = document.createElement('li');
-    li.className = 'mirror-item';
-    const main = document.createElement('div');
-    main.className = 'mirror-item-main';
-    const nome = document.createElement('span');
-    nome.className = 'mirror-item-name';
-    // `textContent`, NUNCA `innerHTML`: este texto vem de um desconhecido da
-    // rede. Ele já é saneado no Kotlin (§3.5), e esta linha é a segunda
-    // fechadura — a diferença entre um espelho e a execução de JavaScript de
-    // terceiro no origin privilegiado que injeta `__AVBridge`.
-    nome.textContent = p.ua || 'Tela desconhecida';
-    const sub = document.createElement('span');
-    sub.className = 'mirror-item-sub';
-    // O CAMPO É `desde`, e é um instante de PAREDE — não uma duração. A linha
-    // pedia `p.desdeMs`, que o Kotlin nunca mandou (`EspelhoServidor.estado`
-    // põe `desde`), então "esperando há…" nunca apareceu uma vez sequer: o
-    // `undefined` é falso e o operando inteiro sumia em silêncio. É a mesma
-    // família do `bytes` no `bgProgress` (v5.137) — campo remontado à mão, nome
-    // que não bate, nada quebra.
-    const espera = p.desde ? Math.max(0, Date.now() - p.desde) : 0;
-    sub.textContent = 'quer entrar' + (espera ? ' · esperando há ' + mirrorDur(espera) : '');
-    main.append(nome, sub);
-    const sim = document.createElement('button');
-    sim.type = 'button';
-    sim.className = 'mirror-act';
-    sim.textContent = 'Aprovar';
-    sim.addEventListener('click', () => decidirEspelho(p.id, true));
-    const nao = document.createElement('button');
-    nao.type = 'button';
-    nao.className = 'mirror-act mirror-act--no';
-    nao.textContent = 'Recusar';
-    nao.addEventListener('click', () => decidirEspelho(p.id, false));
-    li.append(main, sim, nao);
-    mirrorListEl.appendChild(li);
-  });
-  telas.forEach((t) => {
-    const li = document.createElement('li');
-    li.className = 'mirror-item';
-    const main = document.createElement('div');
-    main.className = 'mirror-item-main';
-    const nome = document.createElement('span');
-    nome.className = 'mirror-item-name';
-    nome.textContent = t.ua || 'Tela';
-    const sub = document.createElement('span');
-    sub.className = 'mirror-item-sub';
-    sub.textContent = 'recebendo' + (t.rotulo ? ' · tela ' + t.rotulo : '');
-    main.append(nome, sub);
-    li.append(main);
-    mirrorListEl.appendChild(li);
-  });
-  if (!mirrorListEl.children.length && espelhoLigado()) {
-    const li = document.createElement('li');
-    li.className = 'mirror-item';
-    const main = document.createElement('div');
-    main.className = 'mirror-item-main';
-    const nome = document.createElement('span');
-    nome.className = 'mirror-item-name';
-    nome.textContent = 'Nenhuma tela ainda';
-    const sub = document.createElement('span');
-    sub.className = 'mirror-item-sub';
-    // A frase que dá a saída, e não só o fato: "ninguém conectou" e "o roteador
-    // está isolando os clientes" são a MESMA tela vazia, e o operador não tem
-    // como distinguir sem que alguém diga. O veredito com hora está no
-    // Registro; aqui fica a leitura curta.
-    sub.textContent = 'se alguém já abriu o endereço, o roteador pode estar isolando os aparelhos';
-    main.append(nome, sub);
-    li.append(main);
-    mirrorListEl.appendChild(li);
-  }
-}
-
-// ============================================================================
-// O CERTIFICADO DO ESPELHO — o degrau de TLS (shell 34)
-// ============================================================================
-//
-// O espelho serve em HTTP CLARO, e isso está escrito como inversão deliberada
-// na especificação: com ele o aparelho passa a ter a imagem contínua de tudo
-// que a igreja projeta, e o pareamento é uma fechadura numa parede de vidro.
-// Só o TLS fecha a parede.
-//
-// E TLS aqui não é "ligar um interruptor". Certificado público para IP privado
-// NÃO EXISTE — a CA/Browser Forum proibiu em 2015 —, e autoassinado está
-// descartado: o Chrome do Android exige Certificate Transparency e o navegador
-// de uma smart TV não tem UI para instalar CA. Trocaria uma limitação
-// silenciosa e previsível por uma tela vermelha em cada culto.
-//
-// O que funciona é o modelo do Plex: um NOME que o operador controla, com
-// registro `A` apontando para o IP privado e certificado emitido por DNS-01.
-// **As três condições são dele, não do app** — um subdomínio com wildcard por
-// DNS-01, uma entrada estática de DNS no roteador da igreja (sem ela o nome só
-// resolve com internet, e a proteção contra DNS rebinding do roteador o quebra
-// em silêncio) e renovação automática. O app não adivinha nenhuma: ele guarda
-// o `.p12` que o operador trouxe pronto, diz até quando vale, e recusa o que
-// não serve.
-const CERT_SHELL = 34;
-let mirrorCert = null;
-
-function certDisponivel() {
-  return !!window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= CERT_SHELL;
-}
-
-async function lerCertEspelho() {
-  if (!certDisponivel()) return null;
-  try { mirrorCert = await AVNative.espelhoCertEstado(); } catch (_) { mirrorCert = null; }
-  renderCertEspelho();
-  return mirrorCert;
-}
-
-function renderCertEspelho() {
-  if (!mirrorCertRowEl) return;
-  mirrorCertRowEl.hidden = !certDisponivel();
-  if (mirrorCertRowEl.hidden) return;
-  const c = mirrorCert || {};
-  if (!c.temCert) {
-    // A frase diz o ESTADO e a consequência, não só "sem certificado": quem lê
-    // isto precisa saber que o espelho funciona assim mesmo, e o que muda.
-    mirrorCertTxtEl.textContent = 'Sem certificado — o espelho serve em HTTP claro. '
-      + 'Quem estiver na rede consegue ver o que a igreja projeta.';
-    mirrorCertTxtEl.classList.remove('ok');
-    mirrorCertDelEl.hidden = true;
-    mirrorCertAddEl.textContent = 'Importar .p12';
-    return;
-  }
-  const dias = c.ate ? Math.floor((c.ate - Date.now()) / 86400000) : 0;
-  // O PRAZO EM DIAS, e não a data: o teto de validade já é de 200 dias e cai
-  // para 47 em 2029, então "vence em 12 dias" é a leitura que faz alguém agir —
-  // uma data no futuro não é.
-  const prazo = !c.ate ? 'sem prazo declarado'
-    : dias < 0 ? 'VENCIDO — o espelho volta a HTTP claro'
-      : dias === 0 ? 'vence hoje'
-        : 'vence em ' + dias + ' dia(s)';
-  // E O ESTADO NO AR é diferente do estado GUARDADO: importar com o espelho já
-  // ligado não promove o socket que já está de pé. Sem dizer isso, o operador
-  // leria "certificado válido" olhando para um endereço `http://`.
-  const noAr = c.noAr && !c.servindoTls
-    ? ' · desligue e ligue o espelho para ele passar a valer'
-    : '';
-  mirrorCertTxtEl.textContent = (c.host || 'certificado') + ' · ' + prazo + noAr;
-  mirrorCertTxtEl.classList.toggle('ok', dias >= 0 && !noAr);
-  mirrorCertDelEl.hidden = false;
-  mirrorCertAddEl.textContent = 'Trocar';
-}
-
-async function importarCertEspelho() {
-  if (!certDisponivel()) return;
-  let escolhidos = [];
-  try {
-    // O seletor do SISTEMA, como toda importação do app. `application/x-pkcs12`
-    // é o tipo registrado; muitos aparelhos não o conhecem e devolvem o arquivo
-    // como `octet-stream`, então os dois entram — quem de fato valida é o
-    // Kotlin, ao abrir o PKCS12.
-    escolhidos = await AVNative.pickDoc(['application/x-pkcs12', 'application/octet-stream']);
-  } catch (_) { escolhidos = []; }
-  const arq = escolhidos && escolhidos[0];
-  if (!arq || !arq.url) return;
-  // A SENHA É DIGITADA À MÃO, sempre. Ela nunca viaja junto com o arquivo: um
-  // segredo que anda com o que ele protege não protege nada — o mesmo
-  // raciocínio que o `WebUpdater` já escreve sobre o `sha256`.
-  const senha = await appPrompt({
-    title: 'Senha do certificado',
-    message: 'Digite a senha do arquivo ' + (arq.name || '.p12') + '.\n\n'
-      + 'Ela não fica guardada: o app reescreve o arquivo com uma senha própria '
-      + 'e esquece a sua.',
-    okText: 'Importar',
-    placeholder: 'Senha do .p12',
-  });
-  if (senha === null || senha === undefined) return;
-  const erro = await AVNative.espelhoCertImportar(arq.url, senha);
-  if (erro) { avisar(erro, 'erro'); return; }
-  await lerCertEspelho();
-  avisar(espelhoLigado()
-    ? 'Certificado importado — desligue e ligue o espelho para ele valer.'
-    : 'Certificado importado.');
-}
-
-async function removerCertEspelho() {
-  const ok = await appConfirm({
-    title: 'Remover o certificado?',
-    message: 'O espelho volta a servir em HTTP claro na próxima vez que for '
-      + 'ligado. A chave privada é apagada do aparelho e só volta reimportando '
-      + 'o arquivo.',
-    okText: 'Remover',
-  });
-  if (!ok) return;
-  try { await AVNative.espelhoCertApagar(); } catch (_) { /* ponte */ }
-  await lerCertEspelho();
-  avisar('Certificado removido.');
-}
-
-async function decidirEspelho(id, aprovar) {
-  if (!id) return;
-  try { await AVNative.espelhoAprovar(id, aprovar); } catch (_) { /* ponte */ }
-  await lerEspelho();
-}
-
-// ============================================================================
-// O LEITOR DE QR — o caminho curto do pareamento
-// ============================================================================
-//
-// **A INVERSÃO É O RECURSO.** No pareamento por PIN, o CELULAR mostra um
-// segredo de seis dígitos e a TELA o digita: alguém atravessa o salão, um
-// teclado de controle remoto entra na história, e o segredo fica em cartaz na
-// tela do operador durante todo o culto — que é exatamente o motivo de a
-// aprovação automática nascer desligada. Aqui é ao contrário: a TELA mostra e o
-// CELULAR lê.
-//
-// E o que ela mostra **não é segredo nenhum**: é o `id` da espera que aquela
-// página acabou de criar, que o servidor devolve a quem pedir. Ele não abre
-// nada. O que autoriza é o operador ter apontado a câmera para AQUELA tela — a
-// mesma decisão da invariante 5 do `EspelhoPares` ("o operador fica no laço"),
-// tomada com um gesto em vez de uma lista. Quem fotografar o QR de longe leva
-// 22 caracteres que já foram usados.
-//
-// Por isso a aprovação reusa `espelhoAprovar` sem método novo: ler o código é
-// aprovar aquele id, e é literalmente o mesmo ato que o botão "Aprovar" da
-// lista faz. O único método novo do lote é a PERMISSÃO de câmera.
-//
-// O SHELL PRECISA SER NOVO, e não há como contornar: sem `requestCam` o
-// `getUserMedia` do WebView é negado **em silêncio** (a promise rejeita e não há
-// erro no console), que é a armadilha que o `MicChromeClient` já documenta para
-// o telão. Abaixo do shell 33 o botão nem aparece e o PIN segue sendo o
-// caminho — ele nunca deixou de existir.
-
-// O prefixo que separa "isto é uma tela do espelho" de "isto é um QR qualquer".
-// Sem ele, apontar a câmera para um cartaz mandaria um texto aleatório como id
-// de aprovação — inofensivo (nenhum id casa), mas indistinguível de uma falha.
-const QR_PREFIXO = 'AVE1:';
-// O id é base64url de 128 bits (22 caracteres) — a mesma forma do `SafRegistry`
-// e do `StreamProxy`. Conferir a FORMA antes de mandar é o que faz um QR de
-// outro app virar uma frase em vez de uma chamada à ponte.
-const QR_FORMA = /^[A-Za-z0-9_-]{16,64}$/;
-const QR_INTERVALO_MS = 220;
-
-let qrLeitor = null;      // o BarcodeDetector, criado uma vez por leitura
-let qrFluxo = null;       // o MediaStream vivo — é ELE que precisa morrer
-let qrTimer = null;
-let qrOcupado = false;    // uma detecção por vez (a chamada é assíncrona)
-
-/**
- * O aparelho sabe ler QR? Uma vez por sessão, e o resultado governa o botão.
- *
- * `BarcodeDetector` existe no Chrome do Android e no WebView, mas depende de um
- * módulo do sistema que pode não estar presente — e `getSupportedFormats()` é a
- * única pergunta honesta, porque a classe existir não promete que ela saiba ler
- * `qr_code`.
- */
-async function sondarLeituraQr() {
-  if (qrSuportado !== null) return qrSuportado;
-  qrSuportado = false;
-  try {
-    if (!espelhoDisponivel() || (window.__SHELL_VERSION__ | 0) < 33) return false;
-    if (typeof window.BarcodeDetector !== 'function') return false;
-    if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) return false;
-    const formatos = await window.BarcodeDetector.getSupportedFormats();
-    qrSuportado = Array.isArray(formatos) && formatos.indexOf('qr_code') >= 0;
-  } catch (_) { qrSuportado = false; }
-  return qrSuportado;
-}
-
-async function abrirLeitorQr() {
-  if (qrFluxo) return;
-  qrPopupEl.classList.add('open');
-  qrMsgEl.textContent = 'Pedindo a câmera…';
-  // A permissão do ANDROID antes do `getUserMedia` do WebView: sem ela o
-  // `onPermissionRequest` do Controle nega calado, de propósito.
-  let permitido = false;
-  try { permitido = await AVNative.requestCam(); } catch (_) { permitido = false; }
-  if (!qrPopupEl.classList.contains('open')) return;   // fechou enquanto pedia
-  if (!permitido) {
-    qrMsgEl.textContent = 'A câmera não foi liberada. Use o número de seis '
-      + 'dígitos que aparece acima, ou libere a câmera nas permissões do app.';
-    return;
-  }
-  try {
-    qrFluxo = await navigator.mediaDevices.getUserMedia({
-      // A traseira, porque o operador aponta o aparelho para a tela. `ideal` e
-      // não `exact`: num aparelho de uma câmera só, `exact` FALHA em vez de
-      // cair na que existe.
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } },
-      audio: false,
-    });
-  } catch (e) {
-    qrMsgEl.textContent = 'Não foi possível abrir a câmera (' + (e && e.name ? e.name : 'erro')
-      + '). O número de seis dígitos continua valendo.';
-    return;
-  }
-  if (!qrPopupEl.classList.contains('open')) { fecharLeitorQr(); return; }
-  qrVideoEl.srcObject = qrFluxo;
-  try { await qrVideoEl.play(); } catch (_) { /* autoplay mudo não costuma falhar */ }
-  try { qrLeitor = new window.BarcodeDetector({ formats: ['qr_code'] }); } catch (_) { qrLeitor = null; }
-  if (!qrLeitor) {
-    qrMsgEl.textContent = 'Este aparelho não sabe ler códigos QR.';
-    fecharLeitorQr();
-    return;
-  }
-  qrMsgEl.textContent = 'Aponte para o código que aparece na tela.';
-  clearInterval(qrTimer);
-  qrTimer = setInterval(passoLeitorQr, QR_INTERVALO_MS);
-  vigiarImagemQr();
-}
-
-// A CÂMERA PODE ABRIR SEM ENTREGAR IMAGEM, e isso aconteceu em aparelho: o
-// indicador do sistema acende, a leitura roda, e o operador olha para um
-// retângulo preto sem ter como mirar. Um visor preto e um visor "ainda
-// carregando" são a mesma tela, e quem está com o aparelho na mão não tem como
-// distinguir — então o app diz qual dos dois é.
-//
-// `videoWidth` é o teste honesto: ele só sai de zero quando um quadro de
-// verdade chegou ao elemento. A frase só aparece depois de dois segundos
-// porque abrir a câmera leva um instante em qualquer aparelho, e um alarme que
-// pisca no caminho normal é um alarme que ninguém lê.
-function vigiarImagemQr() {
-  const ate = Date.now() + 2000;
-  const olhar = () => {
-    if (!qrFluxo) return;
-    if (qrVideoEl.videoWidth > 0) {
-      qrMsgEl.textContent = 'Aponte para o código que aparece na tela ('
-        + qrVideoEl.videoWidth + '×' + qrVideoEl.videoHeight + ').';
-      return;
-    }
-    if (Date.now() > ate) {
-      qrMsgEl.textContent = 'A câmera abriu mas não está entregando imagem. '
-        + 'A leitura continua tentando às cegas — se não funcionar, use o número '
-        + 'de seis dígitos.';
-      return;
-    }
-    setTimeout(olhar, 250);
-  };
-  setTimeout(olhar, 250);
-}
-
-async function passoLeitorQr() {
-  if (qrOcupado || !qrLeitor || !qrFluxo) return;
-  qrOcupado = true;
-  let achados = [];
-  try { achados = await qrLeitor.detect(qrVideoEl); } catch (_) { achados = []; }
-  qrOcupado = false;
-  if (!qrFluxo) return;                       // fechou durante a detecção
-  for (const a of achados) {
-    const cru = (a && a.rawValue) || '';
-    if (cru.slice(0, QR_PREFIXO.length) !== QR_PREFIXO) continue;
-    const id = cru.slice(QR_PREFIXO.length);
-    if (!QR_FORMA.test(id)) continue;
-    await aprovarPorQr(id);
-    return;
-  }
-  // Um QR que não é nosso é um desfecho DITO, não um silêncio: apontar para o
-  // cartaz errado e não receber resposta nenhuma é indistinguível de "a câmera
-  // não está lendo".
-  if (achados.length) qrMsgEl.textContent = 'Este código não é de uma tela do espelho.';
-}
-
-async function aprovarPorQr(id) {
-  // Para a leitura ANTES de aprovar: sem isto o intervalo seguinte dispara com
-  // o mesmo código ainda na frente da câmera e aprova de novo. `espelhoAprovar`
-  // é idempotente do lado do Kotlin (dois toques devolvem a MESMA sessão), mas
-  // depender disso aqui seria deixar a corrida de pé por sorte.
-  clearInterval(qrTimer);
-  qrTimer = null;
-  qrMsgEl.textContent = 'Liberando a tela…';
-  let ok = false;
-  try { ok = await AVNative.espelhoAprovar(id, true); } catch (_) { ok = false; }
-  if (ok) {
-    fecharLeitorQr();
-    avisar('Tela liberada.');
-    await lerEspelho();
-    return;
-  }
-  // A recusa do Kotlin tem três causas, e o operador precisa da que se resolve:
-  // o teto de três telas é a única acionável.
-  qrMsgEl.textContent = 'A tela não foi liberada. Pode ser o limite de três '
-    + 'telas — feche uma antes, ou peça para a página gerar um código novo.';
-  qrTimer = setInterval(passoLeitorQr, QR_INTERVALO_MS);
-}
-
-/**
- * Fecha e **desliga a câmera**, que é a única coisa aqui que não pode ficar
- * para trás. Chamado pelo ✕, pelo toque no fundo e pelo botão voltar do
- * aparelho — os três, porque este popup está na tabela `POPUPS`.
- */
-function fecharLeitorQr() {
-  clearInterval(qrTimer);
-  qrTimer = null;
-  qrLeitor = null;
-  qrOcupado = false;
-  if (qrFluxo) {
-    try { qrFluxo.getTracks().forEach((t) => t.stop()); } catch (_) { /* já morto */ }
-    qrFluxo = null;
-  }
-  try { qrVideoEl.srcObject = null; } catch (_) { /* ignorado */ }
-  qrPopupEl.classList.remove('open');
-}
+// (O LEITOR DE QR SAIU NA v5.185, e com ele a permissão de CÂMERA do manifest.
+// Ele existia para INVERTER quem mostra e quem lê o segredo: a tela desenhava
+// um código e o celular o lia pela câmera. A inversão perdeu a razão de ser
+// quando o segredo virou três dígitos que a TELA digita — a página do cliente
+// tem um campo e um botão, e não desenha mais nada. Foram ~230 linhas aqui,
+// o `espelho/qr.js`, o `tools/qr.test.mjs`, o popup `#qrPopup` e o
+// `AVNative.requestCam`.)
 
 // LIGAR COM A TV NO AR pede uma confirmação explícita, e ela substitui o
 // interruptor escondido em Configurações que o desenho anterior tinha: ninguém
@@ -15034,19 +15903,11 @@ function fecharLeitorQr() {
 // não se pode fazer é decidir por conta própria apagar a imagem que a sala
 // anexa está assistindo.
 async function confirmarEspelhoComTv() {
-  if (mirrorTvConfirmado) return true;
-  if (!lastDisplays.length) return true;
-  const ok = await appConfirm({
-    title: 'Ligar com a TV no ar?',
-    message: 'Com o telão conectado, o aparelho passa a desenhar e codificar DUAS '
-      + 'projeções ao mesmo tempo — isto dobra o trabalho dele.\n\n'
-      + 'A TV não é afetada: se faltar fôlego, quem sai do ar é o espelho, com uma '
-      + 'frase dizendo por quê. Ligar assim mesmo?',
-    okText: 'Ligar assim mesmo',
-    cancelText: 'Agora não',
-  });
-  if (ok) mirrorTvConfirmado = true;
-  return ok;
+  // A pergunta do custo dobrado MORREU COM O ENCODER (E6): a transmissão por
+  // comandos custa JSON e rajadas de arquivo — não há segunda projeção sendo
+  // desenhada e codificada no aparelho. Ligar com a TV no ar é simplesmente
+  // ligar. A função fica (dois chamadores) como registro da decisão.
+  return true;
 }
 
 // O ESPELHO É SÓ VÍDEO desde a v5.156 — o modo imagem saiu por não ter áudio
@@ -15057,25 +15918,37 @@ async function ligarEspelho() {
   if (mirrorOcupado) return false;
   if (!(await confirmarEspelhoComTv())) return false;
   mirrorOcupado = true;
-  renderEspelho();
+  acertarEnqueteDeFundo();
+  // O BOTÃO VIRA O RECADO agora, e não no próximo giro da enquete: é ele quem
+  // diz "Ligando…" (ver `renderCast`), e uma resposta que chega até 2,5 s
+  // depois do toque não é resposta.
+  renderCast();
   let r = null;
   try { r = await AVNative.espelhoLigar('video'); } catch (_) { r = null; }
   mirrorOcupado = false;
   mirrorEstado = r || null;
-  renderEspelho();
+  acertarEnqueteDeFundo();
   // A falha é NOMEADA, sempre: "sem encoder livre agora", "só liga em Wi-Fi",
   // a classe da exceção do `show()`. Um espelho que não liga em silêncio é
   // indistinguível de um botão quebrado.
-  if (!r) { avisar('O espelho não respondeu.', 'erro'); return false; }
-  if (r.erro) { avisar(r.erro, 'erro'); return false; }
-  avisar('Espelho ligado.');
+  // …E ELA MORA NA FOLHA DE CONEXÃO (v5.207), que é de onde o interruptor foi
+  // tocado. Antes saía numa faixa flutuante no topo da tela — sobre uma folha
+  // que estava aberta bem embaixo dela, com o dedo e o olho no interruptor.
+  // `#castMsg` já existia para as frases desta folha; a falha do espelho é uma
+  // frase desta folha.
+  if (!r) { texto2(castMsgEl, 'A transmissão não respondeu.'); return false; }
+  if (r.erro) { texto2(castMsgEl, r.erro); return false; }
+  // O SUCESSO NÃO PRECISA DE FRASE (a regra da v5.194): o endereço aparecendo
+  // logo abaixo, com o rótulo que diz o que fazer com ele, É o "deu certo".
+  texto2(castMsgEl, '');
   return true;
 }
 
 async function desligarEspelho() {
   if (mirrorOcupado) return;
   mirrorOcupado = true;
-  renderEspelho();
+  acertarEnqueteDeFundo();
+  renderCast();   // "Desligando…" no próprio botão — ver `ligarEspelho`
   try { AVNative.espelhoDesligar(); } catch (_) { /* ponte */ }
   // `espelhoDesligar` volta na hora (escreve um campo e sai — ver o KDoc da
   // ponte): a demolição acontece logo depois, na main thread do shell. Sem esta
@@ -15085,7 +15958,10 @@ async function desligarEspelho() {
   await new Promise((r) => setTimeout(r, 300));
   mirrorOcupado = false;
   await lerEspelho();
-  avisar('Espelho desligado.');
+  // Idem: quem responde é a própria folha. E aqui o sinal já é visível sem
+  // frase nenhuma — o endereço e a lista de telas somem —, então ela só limpa
+  // o que estivesse escrito.
+  texto2(castMsgEl, '');
 }
 
 // ============================================================================
@@ -15101,83 +15977,152 @@ async function desligarEspelho() {
 // A folha mostra os dois com a diferença DITA, porque ela é real: o
 // espelhamento manda a TELA INTEIRA do celular (e é o caminho da TV da igreja);
 // o espelho na rede manda SÓ O TELÃO, para navegadores, sem instalar nada.
+//
+// E elas têm FORMAS diferentes desde a v5.184, porque são coisas diferentes:
+// espelhar é uma AÇÃO que sai do app (abre o seletor do fabricante, e o assunto
+// termina ali); transmitir pelo site é um ESTADO que dura o culto inteiro e que
+// o operador precisa ver, ligar e desligar. Botão para a primeira, interruptor
+// para o segundo.
 
 function abrirCast() {
   if (!castPopupEl) { if (window.__NATIVE__) AVNative.openCast(); else openWebDisplay(); return; }
+  // O BLOCO PODE ESTAR NA OUTRA CASA (v5.193): no Modo Fácil sem tela ele vive
+  // dentro da própria tela. Abrir a folha sem trazê-lo de volta mostraria um
+  // cartão vazio.
+  hostCastConn(false);
   castPopupEl.classList.add('open');
+  // RE-ARMA A MEMÓRIA DO FECHO AUTOMÁTICO (v5.217): a folha que ACABA de abrir
+  // parte do estado de agora, então "uma tela entrou" passa a significar
+  // "entrou depois que abri isto". Ver `renderSimpleGate`.
+  gateTinhaTela = !!simpleDisplay();
   texto2(castMsgEl, '');
   // O espelho na rede só existe no app, e só num shell que tenha os métodos.
   // No navegador a folha degrada para uma escolha só, que é a honesta.
-  castNetBtnEl.hidden = !espelhoDisponivel();
+  if (castNetBtnEl) castNetBtnEl.hidden = !espelhoDisponivel();
   renderCast();
   if (espelhoDisponivel()) {
-    // ABRIR A FOLHA JÁ LIGA O SERVIDOR (v5.171). Ninguém abre "Conectar uma
-    // tela" para não conectar — e a ordem "primeiro ligue, depois leia o
-    // endereço" existia por causa de como o recurso é construído, não por causa
-    // de quem o usa. Com a porta aberta (v5.170) não sobrou nada a decidir no
-    // meio: o endereço aparece pronto para ser digitado na TV.
+    // ABRIR A FOLHA NÃO LIGA MAIS NADA (v5.184), e isto DESFAZ a decisão da
+    // v5.171 de propósito, não por esquecimento.
     //
-    // `ligarEspelho()` já pergunta antes quando há telão conectado (o custo
-    // dobrado que a especificação manda confirmar), e é ele que continua
-    // decidindo isso — aqui não há atalho por cima da pergunta.
-    lerEspelho().then(() => { if (!espelhoLigado()) ligarEspelho(); });
-    sondarLeituraQr().then(renderCast);
-    clearInterval(mirrorTimer);
-    mirrorTimer = setInterval(lerEspelho, MIRROR_POLL_MS);
+    // Aquela decisão fazia sentido enquanto a rede era um CARTÃO DE ESCOLHA:
+    // um cartão não tem como mostrar "ligado", então a folha ligava sozinha
+    // para que o endereço estivesse lá. O preço, que não estava dito, é que
+    // não havia como abrir esta tela para conferir o endereço, o alvo de
+    // espelhamento ou quem está vendo sem SUBIR UM SERVIDOR na rede da igreja
+    // — e, com o telão no ar, sem disparar a pergunta do custo dobrado.
+    //
+    // Com um interruptor o problema desaparece do outro lado: o estado é
+    // visível parado, e quem o muda é o operador. Um interruptor que já nasce
+    // ligado toda vez que a tela abre não é um interruptor, é um rótulo.
+    //
+    // (A enquete de 2,5 s deixou de ser ligada aqui na v5.199: quem a decide é
+    // a VISIBILIDADE do bloco, que tem duas casas — ver `acertarEnqueteDaConexao`.)
   }
+  acertarEnqueteDaConexao();
 }
 
 function fecharCast() {
   castPopupEl.classList.remove('open');
-  // O relógio só continua se a folha do espelho tiver assumido — senão ele
-  // ficaria enquetando a ponte com nada na tela.
-  if (!mirrorPopupEl.classList.contains('open')) {
-    clearInterval(mirrorTimer);
-    mirrorTimer = null;
-  }
+  // (Havia aqui um `clearInterval(mirrorTimer)` incondicional. Ele saiu na
+  // v5.199: fechar a FOLHA não pode apagar a enquete quando quem a acendeu foi
+  // a TELA do Modo Fácil — ver `acertarEnqueteDaConexao`.)
+  acertarEnqueteDaConexao();
 }
 
 // Um `textContent` que aceita elemento nulo — a folha existe só no bundle novo.
 function texto2(el, s) { if (el) el.textContent = s; }
 
+// O bloco de conexão está de fato APARECENDO? Ele tem duas casas (ver
+// `hostCastConn`), e a pergunta muda conforme a casa.
+//
+// **Não dá para perguntar ao layout.** A primeira versão disto usava
+// `offsetParent === null`, e ela está errada por uma razão que não se vê lendo:
+// `.popup-backdrop` esconde por `opacity: 0` + `pointer-events: none`, NÃO por
+// `display: none` — então um popup fechado tem `offsetParent` normal e a guarda
+// nunca barrava nada. Perguntar por estado, e não por pixel, é o que funciona
+// nos dois casos.
+function castConnVisivel() {
+  if (!castConnEl) return false;
+  return castConnEl.parentElement === simpleConnEl
+    ? !simpleConnEl.hidden
+    : !!castPopupEl && castPopupEl.classList.contains('open');
+}
+
 function renderCast() {
-  if (!castPopupEl || !castPopupEl.classList.contains('open')) return;
+  if (!castConnVisivel()) return;
   const ligado = espelhoLigado();
   const e = mirrorEstado || {};
   const telas = Array.isArray(e.telas) ? e.telas : [];
-  // O SUBTÍTULO CONTA O ESTADO, e não repete a promessa: com o espelho no ar o
-  // que o operador precisa saber é quantas telas estão recebendo e que o toque
-  // agora só abre a câmera.
-  if (castNetSubEl) {
-    castNetSubEl.textContent = !ligado
-      ? 'Liga o espelho e abre a câmera para ler o código da tela'
-      : (telas.length + ' tela(s) recebendo · toque para ler o código de mais uma');
+  // O INTERRUPTOR REFLETE O SHELL, nunca o toque. Ligar é assíncrono, pode
+  // pedir confirmação (o custo dobrado com o telão no ar) e pode ser recusado
+  // com uma frase — então quem escreve `checked` é sempre a leitura do estado,
+  // e o toque só PEDE. Sem isto, uma recusa deixaria a chave na posição de uma
+  // coisa que não aconteceu.
+  if (castNetBtnEl) {
+    // O BOTÃO REFLETE O SHELL, nunca o toque — a mesma regra que valia para o
+    // interruptor: ligar é assíncrono, pode pedir confirmação (o custo dobrado
+    // com o telão no ar) e pode ser recusado com uma frase. Quem escreve o
+    // estado é sempre a leitura, e o toque só PEDE; senão uma recusa deixaria o
+    // botão vermelho de uma coisa que não aconteceu.
+    castNetBtnEl.classList.toggle('ligado', ligado);
+    castNetBtnEl.disabled = mirrorOcupado;
+    if (castNetLabelEl) {
+      // Ligado, o rótulo nomeia a AÇÃO (é o que o toque faz); desligado, ele
+      // nomeia o DESTINO, que é o que ajuda a escolher entre as duas formas de
+      // conectar. Ver o comentário do botão no HTML.
+      //
+      // E ENQUANTO O SHELL RESPONDE ELE É O PRÓPRIO RECADO (v5.227). O "Ligando
+      // a transmissão…" saía numa linha de 0,78 rem ABAIXO do botão — o
+      // operador acabara de tocar ali, e a resposta aparecia noutro lugar, no
+      // menor texto da folha, ao mesmo tempo em que a folha inteira se
+      // reorganizava. O botão é onde o olho já está.
+      //
+      // `mirrorOcupado` com `ligado` FALSO é "ligando" (o servidor ainda não
+      // subiu); com `ligado` verdadeiro é "desligando". Os dois saem da mesma
+      // leitura de estado que pinta a cor — não há um terceiro lugar guardando
+      // "o que eu pedi", que é justamente o que divergiria numa resposta lenta.
+      castNetLabelEl.textContent = mirrorOcupado
+        ? (ligado ? 'Desligando…' : 'Ligando…')
+        : (ligado ? 'Desligar transmissão' : 'Transmitir para navegador');
+    }
   }
-  // Sem leitor de QR o caminho continua existindo — pelos seis dígitos, na
-  // folha de ajustes. Dizer isso é melhor que oferecer uma câmera que não abre.
-  if (castNetSubEl && ligado && qrSuportado === false) {
-    castNetSubEl.textContent = telas.length + ' tela(s) recebendo · este aparelho não lê QR: '
-      + 'use o número em Ajustes';
+  // O BOTÃO DE ESPELHAR DIZ QUAL TV ESTÁ NO AR (v5.196). Ele levava a folha de
+  // "Ajustes avançados" a existir com um botão de desligar dentro; agora o
+  // estado mora no próprio botão, que é onde a decisão é tomada.
+  //
+  // O RÓTULO NÃO VIRA "Desconectar", e isso é honestidade, não timidez: o app
+  // não tem como derrubar um espelhamento — não existe API pública — e o toque
+  // abre o MESMO seletor do Android nos dois estados. É lá que se desconecta.
+  // Um botão escrito "Desconectar" que abre uma lista seria uma promessa que a
+  // tela seguinte não cumpre.
+  const tv = window.__NATIVE__ ? (lastDisplays[0] || null) : null;
+  if (castMirrorLabelEl) {
+    castMirrorLabelEl.textContent = tv
+      ? 'Espelhando em ' + (tv.name || 'TV')
+      : 'Espelhar para TV';
   }
+  if (castMirrorBtnEl) castMirrorBtnEl.classList.toggle('connected', !!tv);
+  // (O subtítulo do interruptor saiu na v5.194: desligado ele descrevia o
+  // recurso para quem já decidiu usá-lo, e ligado dizia "N tela(s) recebendo" —
+  // que é exatamente o que a LISTA logo abaixo mostra, com nome e tempo de
+  // cada uma. Contar o que já está listado é dizer duas vezes.)
 
-  // O ENDEREÇO E QUEM ESTÁ VENDO, nesta mesma folha. Eram dois degraus para
-  // ler uma linha de texto.
-  if (castLiveEl) castLiveEl.hidden = !ligado;
-  if (mirrorOpenBtnEl) mirrorOpenBtnEl.hidden = !ligado;
+  // O ENDEREÇO E QUEM ESTÁ VENDO, nesta mesma folha.
+  // A CLASSE, e não `hidden`: é ela que dispara a expansão (ver `#castLive` em
+  // controle.css). Ela é escrita SEMPRE — inclusive no `return` de baixo —,
+  // senão desligar deixaria o bloco aberto com o endereço de um servidor que já
+  // caiu.
+  if (castLiveEl) castLiveEl.classList.toggle('aberto', ligado);
   if (!ligado) return;
-  const nome = e.nomeLocal || '';
-  texto2(castUrlEl, nome || e.endereco || '');
-  if (castUrl2El) {
-    castUrl2El.hidden = !nome;
-    castUrl2El.textContent = nome ? 'ou ' + (e.endereco || '') : '';
-  }
-  // UMA linha de instrução, e ela é a única que sobrou: digite isto na TV.
-  // As três ressalvas que a folha antiga trazia (isolamento de clientes,
-  // carregador, som parcial) continuam no Registro e nos Ajustes — repeti-las
-  // aqui era o texto que o operador pediu para tirar.
-  texto2(castHintEl, telas.length
-    ? 'Digite este endereço no navegador de outra tela para acrescentá-la.'
-    : 'Digite este endereço no navegador da TV — ela entra sozinha.');
+  // UM ENDEREÇO SÓ (v5.185): o IP. O `av.local` saiu com o responder mDNS —
+  // ele não resolve no Chrome do Android nem na maioria das Smart TVs, que são
+  // exatamente as telas deste recurso.
+  texto2(castUrlEl, e.endereco || '');
+  // (A FRASE DE INSTRUÇÃO SAIU na v5.194, e com ela o par "primeira tela × mais
+  // uma": as duas diziam a mesma coisa com palavras trocadas, e o que elas
+  // pediam agora está no rótulo do próprio endereço. O "toque em Ativar esta
+  // tela" também saiu daqui — quem precisa dessa instrução é quem está NA
+  // OUTRA TELA, e lá ela está escrita no botão, que é onde ela serve.)
   renderCastTelas(telas);
 }
 
@@ -15187,125 +16132,147 @@ function renderCast() {
 // controle de verdade: o dano de um curioso na rede não é ele ver o que a
 // congregação já vê, é ele ocupar uma das três vagas. Ver e poder derrubar é a
 // resposta a isso — e é por isso que a lista subiu para a folha principal.
+// A LISTA É UM DIFF, e não um `innerHTML = ''` (v5.226).
+//
+// Ela era refeita por inteiro a cada leitura do estado — e o estado é lido de
+// 2,5 em 2,5 segundos enquanto a folha está aberta. Duas consequências, e a
+// segunda é a que este lote existe para corrigir: o botão "Desconectar" era
+// recriado debaixo do dedo do operador (perdendo o `disabled` que o toque
+// acabara de escrever), e QUALQUER animação de entrada recomeçaria sozinha a
+// cada 2,5 s, para sempre.
+//
+// Com as linhas reaproveitadas por RÓTULO, só o que de fato mudou se mexe: uma
+// tela nova entra com a animação, uma que saiu se recolhe antes de ser removida
+// do documento, e as demais só têm o texto atualizado no lugar.
+const CAST_TELA_SAI_MS = 180;   // igual ao `castTelaSai` do CSS
 function renderCastTelas(telas) {
   if (!castTelasEl) return;
-  castTelasEl.innerHTML = '';
-  if (!telas.length) {
+  const vazia = !telas.length;
+  const chaves = new Set(vazia ? ['__vazia'] : telas.map((t, i) => t.rotulo || ('tela' + i)));
+  // O QUE SAIU: recolhe agora e some depois da animação. A marca `saindo` também
+  // o tira da conta de reaproveitamento — uma tela que volte a aparecer no
+  // meio da saída entra como linha nova, e não herda uma animação de despedida.
+  Array.from(castTelasEl.children).forEach((li) => {
+    if (chaves.has(li.dataset.chave) && !li.classList.contains('saindo')) return;
+    if (li.classList.contains('saindo')) return;
+    li.classList.add('saindo');
+    li.dataset.chave = '';
+    setTimeout(() => li.remove(), CAST_TELA_SAI_MS);
+  });
+  const achar = (chave) => Array.from(castTelasEl.children)
+    .find((li) => li.dataset.chave === chave && !li.classList.contains('saindo'));
+
+  if (vazia) {
+    if (achar('__vazia')) return;
     const li = document.createElement('li');
-    li.className = 'cast-tela cast-tela--vazia';
+    li.className = 'cast-tela cast-tela--vazia entrando';
+    li.dataset.chave = '__vazia';
     li.textContent = 'Nenhuma tela conectada ainda.';
+    limparEntrada(li);
     castTelasEl.appendChild(li);
     return;
   }
-  telas.forEach((t) => {
-    const li = document.createElement('li');
-    li.className = 'cast-tela';
-    const nome = document.createElement('span');
+
+  telas.forEach((t, i) => {
+    const chave = t.rotulo || ('tela' + i);
     // O RÓTULO é o do servidor ("tela B"), e não o User-Agent: numa lista de
     // três, o que o operador precisa é distinguir uma da outra, e um UA de 120
     // caracteres não distingue nada. O detalhe fica no Registro.
-    nome.className = 'cast-tela-nome';
-    nome.textContent = (t.rotulo || 'tela')
+    const texto = (t.rotulo || 'tela')
       + (t.conectadaMs ? ' · ' + mirrorDur(t.conectadaMs) : '');
+    const existente = achar(chave);
+    if (existente) {
+      // Só o texto, e só se mudou: reescrever um `textContent` igual a cada
+      // 2,5 s não muda um pixel, mas interrompe a seleção de quem estiver
+      // copiando o nome.
+      const alvo = existente.querySelector('.cast-tela-nome');
+      if (alvo && alvo.textContent !== texto) alvo.textContent = texto;
+      return;
+    }
+    const li = document.createElement('li');
+    li.className = 'cast-tela entrando';
+    li.dataset.chave = chave;
+    const nome = document.createElement('span');
+    nome.className = 'cast-tela-nome';
+    nome.textContent = texto;
     const fora = document.createElement('button');
     fora.type = 'button';
     fora.className = 'cast-tela-fora';
     fora.textContent = 'Desconectar';
     fora.addEventListener('click', async () => {
       fora.disabled = true;
-      try { await AVNative.espelhoAprovar(t.rotulo || '', false); } catch (_) { /* ponte */ }
+      try { await AVNative.espelhoDerrubar(t.rotulo || ''); } catch (_) { /* ponte */ }
       lerEspelho();
     });
     li.append(nome, fora);
+    limparEntrada(li);
     castTelasEl.appendChild(li);
   });
 }
 
-function openMirror() {
-  if (!espelhoDisponivel()) return;
-  mirrorPopupEl.classList.add('open');
-  lerEspelho();
-  // A sonda da câmera é feita AQUI, uma vez: ela é assíncrona e o `render` é
-  // síncrono, então perguntar de dentro dele deixaria o botão aparecendo um
-  // ciclo depois. Ao voltar, um `renderEspelho` acerta o botão.
-  sondarLeituraQr().then(() => renderEspelho());
-  // O certificado é lido ao ABRIR, como o resto: ele muda por ação do
-  // operador (importar/remover), nunca sozinho.
-  lerCertEspelho();
-  clearInterval(mirrorTimer);
-  mirrorTimer = setInterval(lerEspelho, MIRROR_POLL_MS);
-}
-function closeMirror() {
-  mirrorPopupEl.classList.remove('open');
-  // O relógio continua se a folha do CAST ainda estiver aberta por baixo — foi
-  // dela que esta veio, e ela também mostra estado ao vivo.
-  if (!castPopupEl || !castPopupEl.classList.contains('open')) {
-    clearInterval(mirrorTimer);
-    mirrorTimer = null;
-  }
-  // A folha fechando leva a câmera junto: o leitor foi aberto DE DENTRO dela, e
-  // um popup filho que sobrevive ao pai é uma câmera ligada sem tela que a
-  // explique.
-  fecharLeitorQr();
+// A MARCA DE ENTRADA SAI QUANDO A ANIMAÇÃO ACABA. Ela é `both`, então o estado
+// final dela GRUDA — e o estado final inclui um teto de altura (`max-height`)
+// que existe só para a animação ter de onde crescer. Deixá-lo ali recortaria a
+// linha no dia em que ela precisasse de duas linhas.
+function limparEntrada(li) {
+  li.addEventListener('animationend', () => li.classList.remove('entrando'), { once: true });
 }
 
-if (mirrorRowEl) {
-  mirrorOpenBtnEl.addEventListener('click', openMirror);
-  mirrorAutoEl.addEventListener('change', async () => {
-    // O `'*'` é a chave da aprovação automática desta sessão — ver o KDoc de
-    // `espelhoAprovar` na ponte para por que é um id reservado e não um sexto
-    // método.
-    try { await AVNative.espelhoAprovar('*', mirrorAutoEl.checked); } catch (_) { /* ponte */ }
-    await lerEspelho();
-  });
-  mirrorToggleEl.addEventListener('click', () => {
-    if (espelhoLigado()) desligarEspelho(); else ligarEspelho();
-  });
-  mirrorScanEl.addEventListener('click', abrirLeitorQr);
-  // ESPELHAR: o caminho de sempre, agora atrás de uma escolha.
+// Os ouvintes da seção de conexão. A guarda é o BOTÃO DE ESPELHAR (v5.196):
+// era o link "Ajustes avançados", que saiu com a folha dele — e uma guarda que
+// aponta para um elemento removido desliga EM SILÊNCIO tudo o que está dentro
+// dela, inclusive o interruptor da transmissão.
+if (castMirrorBtnEl) {
+  // ESPELHAR: abre o seletor do Android, e é ele quem CONECTA E DESCONECTA a
+  // TV. O app não tem como derrubar um espelhamento — não existe API pública
+  // para isso —, então o botão leva ao mesmo lugar nos dois estados; o que muda
+  // é ele DIZER qual TV está no ar (ver `renderCast`), que é a informação que
+  // faltava para o toque não ser um pulo no escuro.
   castMirrorBtnEl.addEventListener('click', () => {
     if (window.__NATIVE__) AVNative.openCast();
     else openWebDisplay();
   });
-  // MOSTRAR NUMA TELA DA REDE: um toque, as duas coisas.
+  // ATIVAR (E DESLIGAR) A TRANSMISSÃO PELO SITE: este botão é a única coisa
+  // desta folha que sobe ou derruba o servidor.
   //
-  // Ligar o espelho e ler o código eram dois passos porque é assim que o
-  // recurso é CONSTRUÍDO — primeiro sobe o servidor, depois a tela mostra o
-  // QR —, e não porque o operador tenha duas decisões a tomar. Ele tem uma:
-  // "quero aquela tela mostrando o culto". A ordem é problema nosso.
+  // Ele é o IRMÃO do de espelhar desde a v5.224 — era um interruptor —, e a
+  // diferença de mecânica é uma só: um `change` de caixa de marcação já vem com
+  // a posição nova, e um clique não vem com nada. O que o operador pediu passa
+  // a ser DERIVADO do estado atual (`!espelhoLigado()`), que é a mesma fonte que
+  // o `renderCast` usa para pintar o botão — então não há duas versões da
+  // verdade a divergirem no meio de uma resposta lenta.
   castNetBtnEl.addEventListener('click', async () => {
     if (!espelhoDisponivel()) return;
-    if (!espelhoLigado()) {
-      texto2(castMsgEl, 'Ligando o espelho…');
+    const quer = !espelhoLigado();
+    // O BOTÃO FECHA ENQUANTO O SHELL RESPONDE. Ligar espera uma confirmação e
+    // uma resposta da ponte; um segundo toque nesse intervalo cairia na guarda
+    // de `mirrorOcupado` e voltaria `false` — indistinguível, na tela, de uma
+    // recusa de verdade ("não deu para ligar") por um toque que o operador deu
+    // só porque o primeiro parecia não ter feito nada.
+    castNetBtnEl.disabled = true;
+    if (quer) {
+      // (O "Ligando a transmissão…" saía aqui, no `#castMsg`. Ele virou o
+      // RÓTULO do botão na v5.227 — ver `renderCast`. A linha de baixo ficou
+      // com o que ela sempre soube dizer melhor: a FALHA, que é uma frase
+      // inteira vinda do shell e não caberia num botão.)
       const ok = await ligarEspelho();
-      if (!ok) {
-        // A frase da falha já saiu pelo `avisar` (ela vem pronta do Kotlin:
-        // "só liga em Wi-Fi", "sem encoder livre agora"). Aqui fica a saída.
-        texto2(castMsgEl, 'Não deu para ligar o espelho — veja o aviso acima. '
-          + 'Os ajustes ficam no botão abaixo.');
-        return;
-      }
-      // A TELA PRECISA DE UM INSTANTE PARA APARECER: quem desenha o QR é o
-      // navegador do outro lado, e ele só o pede depois de carregar a página.
-      // Abrir a câmera antes disso mostraria um visor apontado para uma tela
-      // que ainda não tem código — indistinguível de "a leitura não funciona".
-      texto2(castMsgEl, 'Espelho ligado. Abra o endereço na tela e aponte a câmera.');
+      // A frase da falha já saiu pelo `avisar` (ela vem pronta do Kotlin).
+      // Aqui fica a saída — e ela aponta para onde o operador pode agir.
+      // O SUCESSO NÃO PRECISA DE FRASE (v5.194): o endereço aparecendo logo
+      // abaixo, com o rótulo que diz o que fazer com ele, É o "deu certo". A
+      // falha continua falando, porque ali não há nada que apareça sozinho.
+      // (Até a v5.206 esta linha dizia "veja o aviso acima" e apontava para a
+      // faixa flutuante. Com o motivo escrito AQUI pelo `ligarEspelho`, mandar
+      // o operador olhar para outro lugar seria mandá-lo olhar para o lugar
+      // onde a mensagem deixou de estar — então ela só não sobrescreve.)
+      if (ok) texto2(castMsgEl, '');
+    } else {
+      await desligarEspelho();
+      texto2(castMsgEl, '');
     }
     renderCast();
-    if (qrSuportado === null) await sondarLeituraQr();
-    if (qrSuportado !== true) {
-      // Sem câmera ou sem leitor, o caminho continua existindo — pelos seis
-      // dígitos. Dizer isso é melhor que abrir um visor que nunca vai ler.
-      texto2(castMsgEl, 'Este aparelho não lê códigos QR. Abra os ajustes: '
-        + 'o número de seis dígitos continua valendo.');
-      return;
-    }
-    abrirLeitorQr();
   });
-  mirrorCertAddEl.addEventListener('click', importarCertEspelho);
-  mirrorCertDelEl.addEventListener('click', removerCertEspelho);
-  renderEspelho();
-  renderCertEspelho();
+  acertarEnqueteDeFundo();
 }
 
 newFolderInPickerBtnEl.addEventListener('click', async () => {
@@ -15342,11 +16309,9 @@ const POPUPS = [
   // o voltar percorre esta tabela de trás para a frente e precisa fechar a de
   // cima primeiro. Uma linha aqui já a liga aos três caminhos de fechamento
   // (✕, toque no fundo, botão do aparelho) — é para isso que a tabela existe.
-  [mirrorPopupEl, mirrorCloseEl, closeMirror],
   // E o leitor de QR abre de dentro da folha do espelho, então vem DEPOIS dela.
   // Aqui a linha vale mais que nos outros: fechar este popup é DESLIGAR A
   // CÂMERA, e é esta tabela que garante que os três caminhos façam isso.
-  [qrPopupEl, qrCloseEl, fecharLeitorQr],
   [lyricsPopupEl, lyricsPopupCloseEl, closeLyricsPopup],
   // A folha da música abre DE DENTRO do acervo, e o seletor de atalhos abre de
   // dentro dela: o voltar percorre esta tabela de trás para a frente, então a
@@ -15514,7 +16479,7 @@ function resendSceneToDisplay(para) {
 // — dirige o play/pause, a barra de progresso, a letra sincronizada e o
 // avanço, e re-alinha a preview a ele. Se ele não existir/estiver
 // estrangulado ou fechado (nenhum status recente → displayActive() falso), a
-// PREVIEW local assume (previewTick/ytPreviewTick+onYtPreviewState). Isso
+// PREVIEW local assume (previewTick). Isso
 // cobre os dois casos: Controle em primeiro plano com Display em segundo
 // (preview manda) e Controle minimizado com o Display tocando (Display
 // manda, e a preview se re-alinha a ele ao voltar). Vale tanto para YouTube
@@ -15527,7 +16492,14 @@ AVDB.onCommand((msg) => {
   // Reenvia SÓ para quem se anunciou (ver `resendSceneToDisplay`). Um telão
   // com bundle antigo não manda `__de`, e aí o reenvio volta a ser broadcast —
   // exatamente o comportamento de antes desta versão.
-  if (msg.type === 'display-ready') { resendSceneToDisplay(msg.__de); return; }
+  if (msg.type === 'display-ready') {
+    // Uma TELA DA REDE (`__tela`) não tem o IndexedDB do celular: além da
+    // cena, ela precisa receber wallpaper, fundo da letra e preenchimento —
+    // o telão de verdade lê tudo isso do IDB sozinho e não entra aqui.
+    if (msg.__tela) telaReenviarPreferencias(msg.__de);
+    resendSceneToDisplay(msg.__de);
+    return;
+  }
   if (msg.type === 'diag-dump') {
     juntarDiag(Array.isArray(msg.linhas) ? msg.linhas : []);
     return;
@@ -15538,9 +16510,11 @@ AVDB.onCommand((msg) => {
   if (msg.type === 'display-status' && typeof msg.audioBlocked === 'boolean'
       && msg.audioBlocked !== displayAudioBlocked) {
     displayAudioBlocked = msg.audioBlocked;
-    flash(displayAudioBlocked
-      ? 'Display sem áudio (navegador) — recuperando automaticamente…'
-      : 'Áudio do Display ativo');
+    // QUEM AVISA É O BOTÃO DE MUDO, e ele já avisava: `renderControls` o veste
+    // com `.blocked` (fundo `--warn-soft`, ícone em `--warn`, pulsando), e o
+    // toque nele é o atalho para liberar. A chamada que morava aqui era um
+    // `flash()` — no-op desde que o primeiro toast saiu, isto é, uma frase que
+    // ninguém via havia versões. O canal certo já estava de pé.
     renderControls();
   }
   // Microfone: camada de áudio independente da mídia — precisa ser tratado
@@ -15556,13 +16530,60 @@ AVDB.onCommand((msg) => {
   const isYoutube = currentItem.kind === 'youtube';
   const isTimedLocal = currentItem.kind === 'audio' || currentItem.kind === 'video';
   if (!isYoutube && !isTimedLocal) return; // imagem/etc: sem noção de tempo, nada a sincronizar
-  if (msg.type === 'display-status') {
+  // A ELEIÇÃO DAS TELAS DE COMANDO (telão por comandos, E5). N telas emitem
+  // `tela-status` e o handler abaixo supõe UMA fonte por tipo — a mesma
+  // alternância de fontes que o dreno do papel espelho existia para impedir.
+  // A eleita é a primeira vista; troca quando ela cala por
+  // TELA_REF_SILENCIO_MS. O status da eleita entra no ramo do espelho-status
+  // (mesma precedência do telão, mesmo realinhamento da preview); as outras
+  // telas só existem para a folha e o Registro.
+  if (msg.type === 'tela-status') {
+    const idTela = String(msg.__tela || '?');
+    const agoraTela = Date.now();
+    if (!telaRefId || agoraTela - telaRefEm > TELA_REF_SILENCIO_MS) telaRefId = idTela;
+    if (idTela !== telaRefId) return;
+    telaRefEm = agoraTela;
+    msg = Object.assign({}, msg, { type: 'espelho-status' });
+  }
+  if (msg.type === 'display-status' || msg.type === 'espelho-status') {
     // Player morto/parado (fim natural ou stop manual): ignora qualquer
     // display-status ainda em trânsito reportando o player antigo tocando —
     // senão o ícone voltaria a "pause" e o ▶ (que deve recarregar) quebraria.
     if (isYoutube && ytEnded) return;
+    // E A MÍDIA LOCAL TEM A MESMA REGRA (v5.179) — era ela o "o Parar só
+    // funciona no SEGUNDO toque".
+    //
+    // A guarda acima cobria só o YouTube. Um `clear`/`media-clear` de mídia
+    // comum ESMAECE antes de sair de cena (`clearFaded`/`fadeOutToBlack`,
+    // ~0,6 s), e nesse intervalo o `<video>` do telão CONTINUA tocando: a rampa
+    // é de volume, não de pausa. Cada `display-status` do fade chegava aqui com
+    // `playing: true` e o tempo antigo e reescrevia, a ~4 Hz, exatamente a UI que
+    // `pararMidia` acabara de zerar — a barra voltava ao meio, o seek era
+    // reabilitado e o ▶ não aparecia. O segundo toque só "funcionava" porque a
+    // essa altura a mídia já saíra e ninguém mais reportava aquele `mediaId`.
+    //
+    // `midiaNoAr` é a pergunta certa, e já existe desde a v5.142: ele cai no
+    // INSTANTE do stop, enquanto `currentId` sobrevive de propósito (é o que
+    // permite ao ▶ repetir a faixa) — e é por isso que o filtro por `mediaId`
+    // logo acima deixava tudo isto passar. Um status sobre uma mídia que não
+    // está mais em cena é passado, e passado não pinta transporte.
+    if (!midiaNoAr) return;
+    // O TELÃO TEM PRECEDÊNCIA — ver "A REFERÊNCIA". Com os dois no ar, o que a
+    // congregação vê é a TV, e o espelho vira ruído a ~4 Hz numa barra que
+    // andaria para a frente e para trás.
+    const doTelao = msg.type === 'display-status';
+    if (!doTelao && telaoAtivo()) return;
+    if (doTelao) telaoStatusAt = Date.now();
+    refFonte = doTelao ? 'telao' : 'espelho';
     displayStatusAt = Date.now();
     lastDisplayTime = msg.currentTime || 0;
+    // AO RETOMAR DO SEGUNDO PLANO o primeiro status vale como reposicionamento
+    // exato: ali não há ruído a poupar, há um desvio conhecido e grande.
+    // E ele só é CONSUMIDO se houver como agir: com a página escondida o
+    // realinhamento não acontece (ver `preverPodeMexer`), e gastar a janela ali
+    // deixaria a preview desalinhada justamente na retomada seguinte.
+    const tol = (Date.now() < forcarResyncAte && preverPodeMexer()) ? RESYNC_EXATO : undefined;
+    if (tol !== undefined) forcarResyncAte = 0;
     setPlaying(!!msg.playing);
     const dur = (typeof msg.duration === 'number' && isFinite(msg.duration)) ? msg.duration : 0;
     seekEl.disabled = !(dur > 0);
@@ -15574,11 +16595,15 @@ AVDB.onCommand((msg) => {
     }
     if (isYoutube) {
       renderSimpleTime();   // idem: o ramo do YouTube não chama renderSlideNav
-      ytResyncPreviewToDisplay(playing, msg.currentTime);
     } else {
-      updatePvLyricSlide(lastDisplayTime);
+      // A LETRA DESENHADA DENTRO DA PREVIEW segue o tempo DA PREVIEW, não o da
+      // projeção: com o atraso em jogo (ver `cmd`), alimentá-la com
+      // `lastDisplayTime` trocaria a estrofe ~1 s antes da imagem a que ela
+      // pertence — dentro do mesmo retângulo. Quem usa o tempo da PROJEÇÃO é a
+      // barra e a navegação de estrofe, logo abaixo.
+      updatePvLyricSlide(tempoDaPreview());
       renderSlideNav();
-      resyncPreviewToDisplay(playing, msg.currentTime);
+      resyncPreviewToDisplay(playing, msg.currentTime, tol);
     }
   } else if (msg.type === 'media-ended') {
     // A GUARDA DE mediaId que o comentário da preview (`onEnded`) sempre
@@ -15619,10 +16644,6 @@ document.addEventListener('visibilitychange', () => {
     // o microfone não pode continuar aberto. Push-to-talk que sobrevive ao
     // app sair da frente vira um microfone esquecido ligado.
     if (micPressed || micOn) sendMic(false);
-    // E a CÂMERA do leitor de QR, pelo mesmo motivo e com mais razão: ela é
-    // visível de fora (o LED, o indicador do sistema) e o operador acabou de
-    // sair da tela que a explicava.
-    fecharLeitorQr();
     return;
   }
   autoRefreshCollections();
@@ -15631,11 +16652,29 @@ document.addEventListener('visibilitychange', () => {
   // lista ao voltar para a frente é o piso que impede o ícone de cast de ficar
   // aceso sobre uma TV que não está mais lá (v5.142).
   reconferirTelas();
+  // A PREVIEW VOLTA DO ESCURO, e ela volta ERRADA — é o defeito que a v5.173
+  // existe para fechar. Enquanto o app esteve fora da frente o `<video>` dela
+  // foi pausado ou desacelerado pelo Chromium, enquanto a projeção (o telão ou
+  // o `/display/` do espelho, que rodam numa `Presentation` e não são
+  // estrangulados) seguiu andando. A distância entre os dois é arbitrária e não
+  // se corrige sozinha: nada no ciclo normal compara os dois relógios com força
+  // suficiente.
+  //
+  // São dois passos, e nenhum basta sozinho: a fila escoa (os comandos que
+  // ficaram presos num timer estrangulado valem AGORA), e o realinhamento
+  // acontece contra a última posição conhecida da projeção. Se ela já estiver
+  // velha, `forcarResyncAte` faz o próximo status valer como reposicionamento
+  // exato — que é o caminho normal numa cena parada, onde o status é o único
+  // sinal que ainda chega.
+  drenarPreview(true);
+  forcarResyncAte = Date.now() + RESYNC_JANELA_MS;
+  ressincronizarPreview();
 });
 
 (async function init() {
   await loadCollections();
   await desnumerarAlbunsBaixados();
+  await preencherAlbunsDosHinos();
   // ANTES do load(): é ele que lê `current` e monta a tela a partir dela.
   await clearCurrentSelection();
   await load();
@@ -15665,57 +16704,102 @@ document.addEventListener('visibilitychange', () => {
   // acrescenta itens às listas, e antes de qualquer coisa demorada: se o shell
   // ainda tiver o arquivo guardado, o item aparece em segundos.
   resgatarDownloads();
-  // O AVISO DE ATUALIZAÇÃO. A primeira consulta é adiada porque o download do
-  // shell começa junto com a abertura (`checkAsync` no `onCreate`) e leva
-  // alguns segundos — perguntar agora seria perguntar antes de haver resposta.
-  // Depois é de minuto em minuto, e cada consulta custa a leitura de um JSON
-  // minúsculo: quem decide se há o que mostrar é `ofertarAtualizacao`.
-  setTimeout(ofertarAtualizacao, 8000);
-  setInterval(ofertarAtualizacao, OTA_POLL_MS);
-  // E A RETOMADA É UM GATILHO deste lado também. O shell já procura ao voltar
-  // do segundo plano, mas quem APLICA no caminho web é esta função — e é
-  // exatamente ao retomar que o operador encontra um bundle que chegou
-  // enquanto este WebView estava estrangulado.
+  // A ATUALIZAÇÃO QUE FICOU PELA METADE, retomada — e ela vem ANTES da
+  // procura, de propósito: se o operador já disse sim a um lote com APK e a
+  // recarga do OTA aconteceu, o que falta é instalar, não perguntar de novo.
+  // Ver `retomarAtualizacao`.
+  retomarAtualizacao();
+  // A PROCURA. A primeira consulta é adiada porque o download do bundle começa
+  // junto com a abertura (`checkAsync` no `onCreate`) e leva alguns segundos —
+  // perguntar agora seria perguntar antes de haver resposta. Ela é a rede de
+  // segurança: o caminho normal é o empurrão do shell (`__avAtualizacao`), que
+  // chega no segundo em que a resposta existe.
+  setTimeout(ofertarAtualizacao, 6000);
+  setInterval(() => { ofertarAtualizacao(); retomarAtualizacao(); }, OTA_POLL_MS);
+  // E A RETOMADA DO APP É UM GATILHO deste lado também. O shell já procura ao
+  // voltar do segundo plano, mas quem PERGUNTA é esta página — e é exatamente
+  // ao retomar que o operador encontra um lote que chegou enquanto este WebView
+  // estava estrangulado.
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') ofertarAtualizacao();
+    if (document.visibilityState !== 'visible') return;
+    ofertarAtualizacao();
+    retomarAtualizacao();
   });
 })();
 
 // ---------------------------------------------------------------------------
-// O AVISO DE ATUALIZAÇÃO (v5.132 · shell 29)
+// A ATUALIZAÇÃO PERGUNTA, E ELA É UM EVENTO SÓ (v5.234 · shell 43)
 //
-// Até aqui o OTA era invisível por completo: o bundle novo chegava calado e
-// entrava na abertura seguinte. Quem quisesse a correção do dia tinha de saber,
-// por fora, que precisava fechar e reabrir o app — e a correção mais urgente é
-// justamente a que ninguém quer esperar.
+// ## O que estava errado, e eram DUAS coisas em direções opostas
 //
-// Três regras, e as três protegem o culto:
+// **A detecção era lenta e desencontrada.** A base web era procurada de minuto
+// em minuto pelo shell, com piso de 15 s e espera de até 90 s depois de uma
+// falha — e o APK, por uma consulta à API do GitHub a cada MEIA HORA, cujo
+// resultado aparecia numa linha do rodapé de Configurações, tela que ninguém
+// abre no meio de um culto. Os dois canais viviam separados, então o operador
+// via metade de um lote funcionando e metade não, sem nada que explicasse a
+// diferença. É isso que "inconstante, demorada e quase aleatória" descreve.
 //
-// 1. **Não oferece com cena no ar.** Aplicar recarrega os DOIS WebViews, e o
-//    telão pisca. A garantia 1 do OTA ("nunca troca a base no meio de uma
-//    sessão") existe contra a troca ACIDENTAL; oferecer no meio de uma
-//    projeção seria transformá-la num acidente com convite. Sem cena, a mesma
-//    troca é só uma escolha — e a pergunta espera o telão esvaziar.
-// 2. **Recusar é definitivo nesta sessão.** Um aviso que volta a cada minuto
-//    vira ruído, e ruído no meio de um culto é pior que a versão antiga.
-// 3. **A pergunta diz que dá para não fazer nada.** A atualização entra sozinha
-//    na próxima abertura de qualquer jeito; oferecer "agora" sem dizer isso
-//    faria parecer que recusar significa ficar para trás.
+// **E a aplicação não perguntava.** A v5.151 tirou o diálogo porque ele quase
+// nunca aparecia: era suprimido com cena no ar, download em curso **ou espelho
+// ligado** — e o espelho fica ligado o culto inteiro, então a supressão era
+// permanente. O diagnóstico estava certo; o remédio, largo demais. Trocar a
+// base recarrega as duas páginas e o telão pisca, e a hora disso é decisão de
+// quem está operando.
+//
+// ## O desenho de agora
+//
+// 1. **Um lote, uma pergunta.** O manifesto do canal OTA carrega o bloco
+//    `shell` — o workflow SEGURA a publicação do bundle até a Release existir
+//    (ver `apk.yml`), então quando a base web chega, o link do APK chega junto.
+//    O diálogo fala do lote inteiro e o "Atualizar agora" leva os dois até o
+//    fim, um depois do outro.
+// 2. **A pergunta espera só o que ACABA.** Cena projetando e download em curso
+//    seguram o diálogo, porque nos dois casos o custo é real e temporário; o
+//    espelho NÃO segura mais, e era ele o elo que travava tudo. Enquanto
+//    espera, o rótulo de versão diz que há algo esperando.
+// 3. **"Deixar para depois" vale por esta sessão**, não para sempre: um aviso
+//    que volta a cada dez segundos é ruído, e ruído no meio de um culto é pior
+//    que a versão antiga. Ele volta a oferecer na próxima abertura, e o toque
+//    no rótulo de versão desfaz a recusa na hora.
+// 4. **A INTENÇÃO sobrevive à recarga.** Aplicar o OTA mata este documento, e
+//    com ele qualquer variável que soubesse que ainda falta instalar o APK. Ela
+//    é gravada no `state` do banco ANTES de aplicar — o mesmo lugar e o mesmo
+//    motivo da intenção de download do YouTube (v1.59) — e relida na abertura.
 // ---------------------------------------------------------------------------
-// A enquete do lado web. 20 s, e não os 60 s de antes: ela não custa rede —
-// `otaPending` lê o disco, e o `otaCheck` que ela dispara respeita o piso do
-// shell — e ela é a rede de segurança para quando o empurrão do shell se perde
-// (o WebView do Controle é estrangulado em segundo plano, e é justamente aí
-// que uma versão nova costuma chegar).
-const OTA_POLL_MS = 20000;
+
+// A enquete do lado web — a REDE DE SEGURANÇA, não o caminho principal.
+//
+// Quem põe a pergunta na tela no segundo em que ela existe é o empurrão do
+// shell (`window.__avAtualizacao`). Isto aqui cobre o caso em que o empurrão se
+// perde: o WebView do Controle é estrangulado em segundo plano, e é justamente
+// aí que uma versão nova costuma chegar. Ela não custa rede — lê o disco, e o
+// `otaCheck` que dispara respeita o piso do shell.
+const OTA_POLL_MS = 10000;
+
+// O que o operador mandou deixar para depois, POR LOTE (`web|shell`): recusar
+// uma base web não pode calar o APK que chegar amanhã junto com outra.
+const otaAdiadas = new Set();
+// O que o SHELL recusou aplicar (um bundle sem o index do Controle, por
+// exemplo). Sem esta guarda a enquete pediria a aplicação a cada dez segundos,
+// para sempre — e o operador veria a pergunta reaparecer sozinha depois de ter
+// dito sim.
 const otaRecusadas = new Set();
 let otaPerguntando = false;
-// O último diagnóstico da procura, lido do shell (shell 31+). Guardado aqui
-// porque o Registro é montado de forma síncrona e a ponte é assíncrona.
-let otaDiagTexto = '';
-// A versão que está esperando, para o Registro poder dizê-la mesmo quando a
-// pergunta não pode aparecer (cena no ar, download em curso, já recusada).
-let otaPendenteVersao = '';
+// (`otaDiagTexto`, `otaPendenteVersao`, `apkNovo` e `apkBaixando` nascem no
+// TOPO do arquivo, junto do `WEB_VERSION` — `renderVersionLabel()` os lê na
+// carga do módulo, e declará-los aqui seria zona morta temporal. Ver o
+// comentário de lá.)
+
+// A chave da INTENÇÃO no banco. Ela existe por um motivo estrutural: aplicar o
+// OTA substitui o documento, então nada em memória atravessa esse ponto — e é
+// exatamente depois dele que falta a metade nativa do lote.
+const OTA_INTENCAO = 'ota-intencao';
+// Intenção mais velha que isto é descartada. Um APK de ontem que ninguém
+// instalou não é uma tarefa pendente: é lixo, e retomá-lo sozinho na manhã de
+// domingo seria abrir o instalador do sistema por cima de quem está montando o
+// culto. (Mesmo raciocínio do teto de 6 h da intenção de download.)
+const OTA_INTENCAO_MAX_MS = 6 * 60 * 60 * 1000;
 
 // Há algo projetado agora? MESMA leitura de `pushNowPlaying` — se ela mudar de
 // ideia sobre o que é "cena", esta pergunta muda junto.
@@ -15728,103 +16812,317 @@ function cenaNoAr() {
     || drawProjecting();
 }
 
-// Momento ruim para recarregar as duas páginas: além da cena no ar, um download
-// em curso morre com o documento — os `fetch` são desta página, e o arquivo que
-// o shell terminar de baixar não teria mais quem o recebesse.
+// Momento ruim para PERGUNTAR — e ele é diferente do momento ruim para
+// INSTALAR, que é o `horaRuimParaAtualizar()` logo abaixo.
 //
-// E o ESPELHO NO AR é o terceiro caso (v5.141). Aplicar um bundle recarrega o
-// Controle e o telão — e o espelho, que é uma TERCEIRA página, ficaria servindo
-// o bundle ANTIGO, de um diretório que o `beginSession()` seguinte vai apagar.
-// Aqui as telas da rede são o que alguém está de fato assistindo: sem TV
-// conectada, elas são a projeção.
+// Aqui vale o que ACABA sozinho: uma cena sai do ar quando o louvor termina, um
+// download termina. O espelho não entra, e essa é a correção do lote: ele fica
+// ligado o culto inteiro, então incluí-lo (v5.141 → v5.151) transformava a
+// pergunta em algo que nunca aparecia — e foi por isso que a v5.151 desistiu de
+// perguntar. O espelho custa uma tela da rede com a página antiga em memória
+// até alguém recarregá-la; a cena e o download custam a projeção e o hinário
+// pela metade, que é outra ordem de grandeza.
+function horaRuimParaPerguntar() {
+  return cenaNoAr() || bgWorkCount > 0;
+}
+
+// Momento ruim para INSTALAR O APK: aqui o espelho volta a contar, porque
+// instalar derruba o app inteiro — o servidor da rede vai junto, e as telas
+// ficam sem nada. É o mesmo peso do `apkRow` desde a v5.167, e é o que o
+// Registro mostra.
 function horaRuimParaAtualizar() {
   return cenaNoAr() || bgWorkCount > 0 || espelhoLigado();
 }
 
-// O SHELL EMPURRA quando o bundle fica pronto (shell 31+): o aviso aparece no
-// segundo em que a atualização chega, em vez de esperar até um minuto pela
-// enquete. A enquete continua — ela é o piso, e cobre o caso de a página ter
-// carregado depois de o bundle já estar no disco.
+// O que está esperando, numa forma só. `null` quando não há nada.
+function loteDaAtualizacao() {
+  if (!otaPendenteVersao && !apkNovo) return null;
+  return {
+    web: otaPendenteVersao || '',
+    shell: apkNovo ? apkNovo.versao : '',
+    bytes: apkNovo ? (apkNovo.bytes | 0) : 0,
+    chave: (otaPendenteVersao || '-') + '|' + (apkNovo ? apkNovo.versao : '-'),
+  };
+}
+
+// ===== A LEITURA DO ESTADO =====
+//
+// Uma chamada no shell 43, três no shell 42. A degradação mora aqui, e não nos
+// chamadores, porque só este ponto sabe remontar a fotografia a partir do que
+// sobrou — e nenhum dos dois caminhos pode lançar: quem chama é uma enquete que
+// roda de dez em dez segundos e um `throw` a mataria em silêncio.
+async function lerAtualizacao() {
+  if (!window.__NATIVE__) return;
+  if ((window.__SHELL_VERSION__ | 0) >= 43) {
+    let e = null;
+    try { e = await AVNative.atualizacaoEstado(); } catch (_) { return; }
+    if (!e) return;
+    otaPendenteVersao = e.web || '';
+    otaDiagTexto = e.diag || '';
+    apkNovo = e.shell ? { versao: e.shell, bytes: e.shellBytes | 0 } : null;
+    return;
+  }
+  // Shell 41 e anteriores: os dois canais continuam existindo, só não chegam
+  // no mesmo instante. A pergunta é a mesma; o que se perde é a garantia de
+  // que ela nasce completa.
+  if ((window.__SHELL_VERSION__ | 0) >= 29) {
+    try { otaPendenteVersao = (await AVNative.otaPending()) || ''; } catch (_) { /* rede */ }
+  }
+  if ((window.__SHELL_VERSION__ | 0) >= 31) {
+    try { otaDiagTexto = await AVNative.otaDiag(); } catch (_) { /* shell antigo */ }
+  }
+  if ((window.__SHELL_VERSION__ | 0) >= 35) {
+    try {
+      const r = await AVNative.apkProcurar();
+      apkNovo = (r && r.versao) ? { versao: r.versao, bytes: r.bytes | 0 } : null;
+    } catch (_) { /* rede */ }
+  }
+}
+
+// ===== O EMPURRÃO DO SHELL =====
+//
+// Ele é o caminho PRINCIPAL: a pergunta aparece no segundo em que a resposta
+// existe, sem esperar enquete nenhuma. O objeto chega pronto (shell 43), então
+// aqui não há ida à ponte — o que importa é que o desenho aconteça no mesmo
+// quadro em que o dado chegou.
+window.__avAtualizacao = function (e) {
+  if (!e) return;
+  otaPendenteVersao = e.web || '';
+  otaDiagTexto = e.diag || '';
+  apkNovo = e.shell ? { versao: e.shell, bytes: e.shellBytes | 0 } : null;
+  decidirAtualizacao();
+};
+
+// O empurrão do shell 31-42, que só sabe falar da base web. Ele fica porque a
+// janela em que um shell antigo roda um bundle novo é real: ela é exatamente o
+// intervalo entre a Release sair e o operador instalá-la.
 window.__avOta = function (versao) {
   if (versao) otaPendenteVersao = String(versao);
   ofertarAtualizacao();
 };
 
-// A ATUALIZAÇÃO ENTRA SOZINHA, na hora, sem perguntar (v5.151).
-//
-// Era uma OFERTA — um diálogo "Atualizar agora?" — e ela quase nunca chegava a
-// aparecer, por dois motivos que se somavam. Do lado do shell, "entra no
-// próximo lançamento" era literal: a decisão é por PROCESSO, e o processo é
-// mantido vivo de propósito pelos serviços em primeiro plano, então reabrir o
-// app não reabria nada (ver `WebUpdater.aplicarSozinho`). Deste lado, a
-// pergunta era suprimida com cena no ar, download em curso ou espelho ligado —
-// e durante os testes do espelho ele estava ligado o tempo todo, então ela
-// nunca aparecia. O resultado prático era "o OTA não funciona".
-//
-// **O QUE ISSO CUSTA, dito por inteiro:** a base pode trocar no meio de um
-// culto, e as duas páginas recarregam. Esse custo é conhecido e recuperável — o
-// telão recarrega, dispara `display-ready`, e o Controle reenvia a cena com
-// POSIÇÃO e ESTADO DE REPRODUÇÃO (`resendSceneToDisplay`), que é o mesmo
-// caminho que a queda de um dongle já exercita: uma mídia tocando volta no
-// segundo em que estava. O que se vê é um piscar. Um lote de downloads em curso
-// recomeça o item que estava em voo, sem perder o que já baixou.
-//
-// O `horaRuimParaAtualizar()` continua existindo e continua sendo LIDO pelo
-// Registro — ele é a explicação de um piscar que aconteceu numa hora ruim, e
-// não mais um portão.
+// A enquete: relê e decide. Separada do `decidirAtualizacao` porque o empurrão
+// já vem com o estado na mão e reler seria uma ida à ponte por nada.
 async function ofertarAtualizacao() {
   if (!window.__NATIVE__ || (window.__SHELL_VERSION__ | 0) < 29) return;
-  if (otaPerguntando) return;
-  // PEDIR AO SHELL QUE PROCURE, e não só perguntar o que ele já tem (v5.136).
-  // Antes desta linha a enquete lia um valor que ninguém atualizava: o shell
-  // procurava UMA vez, no `onCreate`. Do shell 31 em diante ele procura sozinho
-  // (ronda, retomada, rede voltando), e este cutucão é a terceira rede. Sem
-  // `forcar`: o piso do shell é que decide se vale uma requisição, senão uma
-  // enquete de um minuto viraria uma consulta à rede por minuto, para sempre.
-  // Guarda própria (>= 31, e não o >= 29 do bloco): `otaCheck` só existe no
-  // shell 31 — nos shells 29-30 a chamada lançava e era engolida a cada
-  // minuto; o resto do fluxo (otaPending/otaApply, shell 29) continua valendo.
+  // CUTUCAR O SHELL, e não só perguntar o que ele já tem: sem `forcar`, porque
+  // o piso dele é que decide se vale uma requisição — senão uma enquete de dez
+  // segundos viraria seis consultas à rede por minuto, para sempre.
   if ((window.__SHELL_VERSION__ | 0) >= 31) {
     try { AVNative.otaCheck(false); } catch (_) { /* rede/ponte */ }
   }
-  let versao = '';
-  try { versao = (await AVNative.otaPending()) || ''; } catch (_) { return; }
-  otaPendenteVersao = versao;
-  if (!versao) return;
-  // `otaRecusadas` guarda o que JÁ TENTAMOS aplicar e não entrou — não mais uma
-  // recusa do operador, que não existe mais. Sem esta guarda, um bundle que o
-  // shell recusa (sem o index do Controle, por exemplo) faria a enquete pedir a
-  // aplicação a cada minuto, para sempre.
-  if (otaRecusadas.has(versao)) return;
-  // A ATUALIZAÇÃO ESPERA O DOWNLOAD TERMINAR — e só ele.
-  //
-  // Aplicar um bundle RECARREGA as duas páginas, e um laço de sincronização em
-  // curso (hinário, Bíblia, pasta) morre com o documento: ele não é um `fetch`
-  // que o shell retoma, é um `for` na página. O operador relatou exatamente
-  // isso — o hinário parando em 300 de 600 numa tarde em que várias versões
-  // foram publicadas.
-  //
-  // Só o download segura, e isso é deliberado: a v5.151 tirou as travas de
-  // "cena no ar" e "espelho ligado" porque elas eram permanentes num culto e
-  // faziam a atualização NUNCA chegar — que é o defeito oposto e igualmente
-  // ruim. Um download é limitado: ele acaba, e a enquete de 20 s aplica logo em
-  // seguida. `horaRuimParaAtualizar()` continua sendo o que o Registro mostra,
-  // com os três motivos; aqui vale só um.
-  if (bgWorkCount > 0) return;
+  await lerAtualizacao();
+  decidirAtualizacao();
+}
+
+// ===== A DECISÃO =====
+function decidirAtualizacao() {
+  renderVersionLabel();
+  renderApkRow();
+  const lote = loteDaAtualizacao();
+  if (!lote) return;
+  if (otaPerguntando || apkBaixando) return;
+  if (otaAdiadas.has(lote.chave)) return;
+  if (lote.web && otaRecusadas.has(lote.web)) return;
+  // A pergunta espera o que acaba (ver `horaRuimParaPerguntar`). Ela não se
+  // perde: a enquete de dez segundos volta, e o rótulo de versão já está
+  // dizendo que há algo esperando.
+  if (horaRuimParaPerguntar()) return;
+  perguntarAtualizacao(lote);
+}
+
+function mb(bytes) {
+  return bytes ? Math.round(bytes / 104857.6) / 10 + ' MB' : '';
+}
+
+// A FRASE muda com o lote, e cada uma diz a CONSEQUÊNCIA que o rótulo não diz.
+// Quem só vê "atualizar?" não sabe se vai perder a projeção por um instante ou
+// se o Android vai abrir um instalador em cima do culto.
+function textoDaAtualizacao(lote) {
+  const tamanho = lote.bytes ? ' (' + mb(lote.bytes) + ')' : '';
+  if (lote.web && lote.shell) {
+    return 'Base v' + lote.web + ' e app v' + lote.shell + tamanho + '.\n\n'
+      + 'A base entra primeiro e a projeção pisca por um instante. '
+      + 'Em seguida o Android vai pedir para confirmar a instalação do app.';
+  }
+  if (lote.shell) {
+    return 'App v' + lote.shell + tamanho + '.\n\n'
+      + 'Depois de baixar, o Android vai pedir para confirmar a instalação — '
+      + 'o app fecha durante ela.';
+  }
+  return 'Base v' + lote.web + '.\n\n'
+    + 'As duas telas recarregam e a projeção pisca por um instante. '
+    + 'Uma mídia tocando volta no ponto em que estava.';
+}
+
+async function perguntarAtualizacao(lote) {
   otaPerguntando = true;
-  // AVISAR, e não perguntar. A frase existe porque um piscar sem explicação no
-  // meio de um culto é pior que o piscar — e ela sai ANTES da recarga, que é o
-  // único instante em que ainda há uma página para mostrá-la.
-  try { avisar('Atualizando para a versão ' + versao + '…'); } catch (_) { /* cedo demais */ }
-  let aplicada = null;
+  let sim = false;
   try {
-    // Daqui não se volta: o documento é substituído pela recarga. Só quando NÃO
-    // houver o que aplicar a promise devolve null e a página segue viva.
-    aplicada = await AVNative.otaApply();
+    sim = await openAppDialog({
+      title: 'Atualização disponível',
+      message: textoDaAtualizacao(lote),
+      okText: 'Atualizar agora',
+      cancelText: 'Deixar para depois',
+      input: false,
+    });
   } finally {
     otaPerguntando = false;
   }
-  if (!aplicada) otaRecusadas.add(versao);
+  if (!sim) {
+    // ADIAR É POR LOTE E POR SESSÃO. Na próxima abertura a pergunta volta, e
+    // tocar no rótulo de versão a traz de volta agora — "depois" é o operador
+    // escolhendo o momento, não desistindo da atualização.
+    otaAdiadas.add(lote.chave);
+    falarNaVersao('Atualização adiada — toque aqui quando quiser', 4000);
+    return;
+  }
+  await aplicarAtualizacao(lote);
+}
+
+// ===== A APLICAÇÃO, nesta ordem e por esta razão =====
+//
+// A base web PRIMEIRO. Ela é rápida (o bundle já está no disco — o que se paga
+// é uma recarga) e é a metade que não depende de ninguém confirmar nada. O APK
+// exige um diálogo do sistema que o operador pode recusar, adiar ou perder; se
+// ele viesse antes, uma recusa ali deixaria o lote inteiro por aplicar.
+//
+// Entre os dois há uma morte de documento, e é por isso que a intenção é
+// GRAVADA antes: o que retoma a segunda metade é a abertura seguinte, lendo o
+// banco (ver `retomarAtualizacao`).
+async function aplicarAtualizacao(lote) {
+  if (lote.shell) {
+    try {
+      await AVDB.setState(OTA_INTENCAO, { shell: lote.shell, em: Date.now() });
+    } catch (_) {
+      // Sem intenção gravada, o APK não é retomado depois da recarga — então é
+      // melhor não recarregar: instala-se o APK agora e a base web entra na
+      // enquete seguinte, que continua funcionando.
+      await instalarApk(lote.shell);
+      return;
+    }
+  }
+  if (!lote.web) {
+    await instalarApk(lote.shell);
+    return;
+  }
+  falarNaVersao('Atualizando para a versão ' + lote.web + '…', 0);
+  let aplicada = null;
+  try {
+    // Daqui normalmente não se volta: o documento é substituído pela recarga.
+    // Só quando NÃO houver o que aplicar a promise devolve null e a página
+    // segue viva — e aí o APK ainda precisa acontecer, senão o operador teria
+    // dito sim para nada.
+    aplicada = await AVNative.otaApply();
+  } catch (_) { /* a recarga levou a página */ }
+  if (!aplicada) {
+    otaRecusadas.add(lote.web);
+    if (lote.shell) await instalarApk(lote.shell);
+    else falarNaVersao('Não deu para aplicar a versão ' + lote.web, 4000);
+  }
+}
+
+// ===== O APK: baixar e entregar ao instalador =====
+//
+// O progresso mora no MESMO diálogo, e não numa faixa nova: são dezenas de MB
+// numa rede de igreja, isto é, minutos — e uma tela parada sem número é
+// indistinguível de travamento. "Ocultar" fecha a janela e NÃO cancela nada; a
+// frase diz isso, porque um botão que parece cancelar e não cancela é pior que
+// não ter botão.
+async function instalarApk(versao) {
+  if (!versao || apkBaixando) return;
+  if ((window.__SHELL_VERSION__ | 0) < 35) return;
+  apkBaixando = true;
+  renderApkRow();
+  openAppDialog({
+    title: 'Baixando o app v' + versao,
+    message: 'Baixando… 0%\n\nOcultar não cancela o download: o instalador do '
+      + 'Android abre sozinho quando ele terminar.',
+    okText: 'Ocultar',
+    cancelText: null,
+    input: false,
+  });
+  let erro = '';
+  try { erro = await AVNative.apkInstalar(); } catch (_) { erro = 'falha ao baixar'; }
+  apkBaixando = false;
+  // A intenção morreu de qualquer jeito: ou o instalador está na frente do
+  // operador (e o que acontece dali em diante é dele), ou falhou e insistir
+  // sozinho a cada abertura seria um instalador aparecendo do nada. A procura
+  // continua, e a pergunta volta pelo caminho normal.
+  try { await AVDB.setState(OTA_INTENCAO, null); } catch (_) { /* banco */ }
+  if (erro) {
+    falarNaVersao('Não deu para atualizar: ' + erro, 6000);
+    if (appDialogResolve) closeAppDialog(true);
+    await appConfirm({
+      title: 'A atualização do app falhou',
+      message: erro + '\n\nDá para tentar de novo pelo rótulo de versão, em Configurações.',
+      okText: 'Entendi',
+      cancelText: null,
+    });
+    return;
+  }
+  if (appDialogResolve) closeAppDialog(true);
+  falarNaVersao('Confirme a instalação na tela do sistema', 8000);
+}
+
+// O PROGRESSO VEM POR EMPURRÃO do shell — o download roda na fila de IO dele e
+// daqui não há o que perguntar. Ele pinta os dois lugares que podem estar à
+// vista: o diálogo (se não foi ocultado) e a linha de Configurações.
+window.__avApk = (pct) => {
+  if (!apkBaixando) return;
+  const n = pct | 0;
+  if (appDialogResolve && appDialogMsgEl && !appDialogMsgEl.hidden) {
+    appDialogMsgEl.textContent = 'Baixando… ' + n + '%\n\nOcultar não cancela o '
+      + 'download: o instalador do Android abre sozinho quando ele terminar.';
+  }
+  if (apkRowEl && !apkRowEl.hidden) {
+    apkRowEl.textContent = 'Baixando o app v' + (apkNovo ? apkNovo.versao : '') + '… ' + n + '%';
+  }
+};
+
+// ===== A INTENÇÃO, relida na abertura =====
+//
+// É a outra metade do `aplicarAtualizacao`: ela grava, esta lê. Sem ela o
+// operador aceitaria um lote com APK, veria a base trocar e o app voltaria sem
+// nunca mencionar a segunda metade — o pior desfecho possível, porque tudo
+// PARECE ter funcionado.
+async function retomarAtualizacao() {
+  if (!window.__NATIVE__ || (window.__SHELL_VERSION__ | 0) < 35) return;
+  let i = null;
+  try { i = await AVDB.getState(OTA_INTENCAO); } catch (_) { return; }
+  if (!i || !i.shell) return;
+  if (!i.em || Date.now() - i.em > OTA_INTENCAO_MAX_MS) {
+    try { await AVDB.setState(OTA_INTENCAO, null); } catch (_) { /* banco */ }
+    return;
+  }
+  // O APK JÁ PODE TER SIDO INSTALADO. `__SHELL_NAME__` é o `versionName` do
+  // aparelho: alcançada a versão da intenção, ela cumpriu seu papel e o que
+  // sobra é apagá-la. Sem esta comparação, o instalador reabriria a cada
+  // abertura oferecendo a versão que já está rodando.
+  const atual = String(window.__SHELL_NAME__ || '0');
+  if (compararVersoes(atual, String(i.shell)) >= 0) {
+    try { await AVDB.setState(OTA_INTENCAO, null); } catch (_) { /* banco */ }
+    return;
+  }
+  // Esperar a hora boa vale aqui também, e mais que na pergunta: instalar
+  // derruba o app inteiro. A intenção não se perde — ela vive no banco, e esta
+  // função é chamada de novo pela enquete.
+  if (horaRuimParaAtualizar()) return;
+  await instalarApk(String(i.shell));
+}
+
+// Comparação NUMÉRICA por componente, a mesma regra do `WebUpdater` do shell:
+// "1.9" é MAIOR que "1.76" como texto e MENOR como versão, e é justamente essa
+// a faixa em que este app vive.
+function compararVersoes(a, b) {
+  const pa = String(a).replace(/^v/i, '').split('.');
+  const pb = String(b).replace(/^v/i, '').split('.');
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const x = parseInt(pa[i], 10) || 0;
+    const y = parseInt(pb[i], 10) || 0;
+    if (x !== y) return x > y ? 1 : -1;
+  }
+  return 0;
 }
 
 // Quantos restos a última faxina removeu — o Registro mostra, porque uma
@@ -15841,3 +17139,349 @@ async function varrerRestos() {
     console.warn('[limpeza] falhou:', e);
   }
 }
+
+
+// ===== TELÃO POR COMANDOS (E4/E5 — docs/TELAO-POR-COMANDOS.md) =====
+//
+// O Controle é o único lado que tem o acervo (OPFS) E a ponte — então é ele
+// que: (a) ENRIQUECE todo `load` com o registro saneado (`__rec`) que uma tela
+// sem IndexedDB precisa para renderizar; (b) EMPURRA os bytes da mídia ao
+// cache do shell pelo canal `__avTelaMidia`, de onde a rota `/m/` serve com
+// Range; (c) ELEGE a tela de referência entre N `tela-status` (declarada
+// acima, usada no handler de status).
+//
+// Nada disto roda no navegador (`__NATIVE__`) nem com a transmissão desligada
+// — e a detecção do canal é por PRESENÇA (`window.__avTelaMidia`), nunca por
+// versão de shell: o objeto só existe onde o Kotlin o instalou, que é a mesma
+// pergunta que `__AVBridge` sempre respondeu.
+
+let telaRefId = '';
+let telaRefEm = 0;
+const TELA_REF_SILENCIO_MS = 5000;
+
+const telaTokens = new Map();      // id do acervo → token de serviço (/m/<t>)
+// (SAIU NA v5.212: `telaEmpurrados`, o conjunto de ids "já completos no cache
+//  do shell". Ele era uma SEGUNDA fonte de verdade sobre um estado que mora do
+//  outro lado da ponte, e as duas se separavam sozinhas.
+//
+//  O cache do shell é DA SESSÃO de transmissão: `MainActivity.startMirror`
+//  constrói um `EspelhoMidiaCache` novo (cujo `init` apaga o diretório) e o
+//  `desmontarEspelho` chama `zerar()`. Este conjunto vivia enquanto a PÁGINA
+//  vivesse. Então bastava desligar e religar a transmissão — ou a Wi-Fi oscilar
+//  além dos 6 s de graça, que aciona `aoPerderRede = { stopMirror() }` — para o
+//  shell ficar com o cache vazio e o Controle continuar afirmando "já empurrei":
+//  `telaGarantirEnvio` saía na primeira linha, o `load` seguia com
+//  `__rec.url = '/m/<token>'`, e a rota devolvia o 404 idêntico. TODA mídia já
+//  tocada antes do religamento ficava invisível nas telas da rede, sem erro em
+//  lugar nenhum. O LRU de 1,5 GiB (`despejarSePreciso`) produzia o mesmo
+//  desencontro por outra porta.
+//
+//  Quem responde "já tenho isto?" é o shell, e ele já respondia: o `abrir`
+//  devolve `{ok, recebido, completo}`, e o `completo` é exatamente essa
+//  resposta. O caminho passou a perguntar sempre — uma ida-e-volta de
+//  WebMessage por item, em segundo plano, contra uma classe inteira de falha
+//  silenciosa. `telaTokens` FICA: o token tem de ser estável por id (é a URL
+//  que as telas já estão usando, e é a regra "mesmo id + mesmo token = mesmo
+//  item" do shell), e ele sobrevive ao religamento sem prejuízo — o `abrir`
+//  recria o item sob o mesmo token.)
+const telaFila = [];               // empurrões esperando (um por vez)
+let telaEmpurrando = null;
+let telaResposta = null;
+
+function telaCanal() { return (window.__NATIVE__ && window.__avTelaMidia) || null; }
+function telaAtiva() { return !!telaCanal() && espelhoLigado(); }
+
+// O token é cunhado AQUI (contexto seguro → randomUUID de verdade) porque o
+// `__rec` é montado de forma síncrona na emissão do load — uma ida ao Kotlin
+// atrasaria todo load do culto. O shell só valida a forma.
+function telaTokenDe(id) {
+  let t = telaTokens.get(id);
+  if (!t) {
+    t = (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '') : null);
+    if (!t) return null; // sem randomUUID não há token forte — sem mídia na rede
+    telaTokens.set(id, t);
+  }
+  return t;
+}
+
+// O registro SANEADO: toda referência local vira URL servível; `blob`,
+// `opfsPath`, `stream` e `youtubeId` NUNCA atravessam (spec §5.5).
+//
+// AS IMAGENS DE FUNDO DOS SLIDES VÃO JUNTO desde a v5.188 — cada estrofe com
+// `imageOpfsPath` ganha um `imageUrl` `/m/`, e os bytes são enfileirados pelo
+// `telaEmpurrarImagensLetra` DEPOIS da mídia principal (o som não espera as
+// fotos). O texto deste comentário ainda descrevia a exclusão da v1 ("a letra
+// vai SEM as imagens de fundo"), que foi justamente o relato do operador
+// naquela versão e foi fechado nela: um registro que descreve a limitação
+// depois de ela ter caído manda o próximo leitor procurar o defeito no lugar
+// errado — foi o que aconteceu ao auditar a herança de preferências.
+function telaSanearRec(it, token) {
+  const rec = {
+    id: it.id,
+    kind: it.kind || '',
+    name: it.name || '',
+    type: it.type || '',
+    url: '/m/' + token,
+    seconds: it.seconds || 0,
+    height: it.height || 0,
+  };
+  if (it.hymnName) rec.hymnName = it.hymnName;
+  if (it.hymnTrack) rec.hymnTrack = it.hymnTrack;
+  if (it.hymnAlbum) rec.hymnAlbum = it.hymnAlbum;
+  if (Array.isArray(it.lyrics) && it.lyrics.length) {
+    rec.lyrics = it.lyrics.map((sl) => ({
+      time: sl.time, text: sl.text, auxText: sl.auxText,
+      cover: !!sl.cover, imagePosition: sl.imagePosition,
+      // A IMAGEM DE FUNDO da estrofe (v5.188): `imageOpfsPath` continua NUNCA
+      // viajando (é caminho de OPFS, que só existe no celular) — o que viaja é
+      // uma URL /m/ por imagem DISTINTA, com id estável ('ly:'+caminho): a
+      // regra "mesmo id + mesmo token = já tenho" do shell faz o segundo load
+      // do mesmo hino custar zero empurrão. Quem enfileira os bytes é o
+      // chamador (telaEnriquecer), DEPOIS da mídia principal — o som não pode
+      // esperar as fotos.
+      imageUrl: sl.imageOpfsPath ? telaImagemLetraUrl(sl.imageOpfsPath) : undefined,
+    }));
+  }
+  return rec;
+}
+
+// O MANIFESTO REESCRITO PARA A REDE (v5.189).
+//
+// As URLs que o shell entrega apontam para `/stream/<token>` no origin do
+// WebView (`https://appassets.androidplatform.net/…`), e uma tela da rede não
+// tem WebView nenhum no caminho: para ela a mesma faixa é servida pelo
+// `EspelhoServidor` em `/s/<token>`, RELATIVA — o host é o próprio celular, de
+// onde a página veio. O token é o MESMO dos dois lados (o registro do
+// `StreamProxy` é um só), então não há segunda extração nem segundo cache.
+//
+// Devolve `null` quando não há faixa reescrevível: aí a cena vira o aviso de
+// sempre, em vez de uma tela preta com um `<video>` que não busca nada.
+function telaManifestoDaRede(man) {
+  if (!man) return null;
+  const refazer = (faixa) => {
+    if (!faixa || !faixa.url) return null;
+    const i = String(faixa.url).indexOf('/stream/');
+    if (i < 0) return null;
+    return Object.assign({}, faixa, { url: '/s/' + String(faixa.url).slice(i + 8) });
+  };
+  const video = refazer(man.video);
+  const audio = refazer(man.audio);
+  // O áudio é o que não pode faltar: um manifesto sem ele não toca em lugar
+  // nenhum, e a tela sem som é justamente o que a rede existe para evitar.
+  if (!audio) return null;
+  return Object.assign({}, man, { video: video, audio: audio });
+}
+
+// Token estável por imagem de letra; devolve a URL /m/ dela (ou undefined).
+function telaImagemLetraUrl(opfsPath) {
+  const token = telaTokenDe('ly:' + opfsPath);
+  return token ? '/m/' + token : undefined;
+}
+
+// Enfileira o empurrão das imagens de fundo de um registro já saneado.
+function telaEmpurrarImagensLetra(it) {
+  if (!Array.isArray(it.lyrics)) return;
+  const vistos = new Set();
+  for (const sl of it.lyrics) {
+    const p = sl.imageOpfsPath;
+    if (!p || vistos.has(p)) continue;
+    vistos.add(p);
+    telaGarantirEnvio({ id: 'ly:' + p, name: 'letra', type: 'image/jpeg', opfsPath: p });
+  }
+}
+
+// ---- o canal: pedido/resposta serializado (o empurrão é UM por vez) ----
+function telaOuvirCanal(c) {
+  if (c.__avOuvindo) return;
+  c.__avOuvindo = true;
+  c.onmessage = (ev) => {
+    let r = null;
+    try { r = JSON.parse(String((ev && ev.data) || '')); } catch (_) { return; }
+    const fn = telaResposta;
+    telaResposta = null;
+    if (fn) fn(r);
+  };
+}
+function telaPedir(c, msg) {
+  return new Promise((resolve) => {
+    telaResposta = resolve;
+    setTimeout(() => {
+      if (telaResposta === resolve) { telaResposta = null; resolve(null); }
+    }, 15000);
+    try { c.postMessage(msg); } catch (_) {
+      if (telaResposta === resolve) { telaResposta = null; resolve(null); }
+    }
+  });
+}
+
+async function telaEmpurrarAgora(it) {
+  const c = telaCanal();
+  if (!c) return;
+  telaOuvirCanal(c);
+  const token = telaTokenDe(it.id);
+  if (!token) return;
+  let arquivo = it.blob || null;
+  if (!arquivo && it.opfsPath) {
+    try { arquivo = await AVDB.opfsGetFile(it.opfsPath); } catch (_) { return; }
+  }
+  if (!arquivo) return;
+  const abriu = await telaPedir(c, JSON.stringify({
+    abrir: { token, id: it.id, nome: it.name || '', tipo: arquivo.type || it.type || '', tamanho: arquivo.size },
+  }));
+  if (!abriu || abriu.ok !== true) return;
+  // O SHELL É QUEM SABE: `completo` é a resposta a "já tenho isto?", e ela vale
+  // para esta sessão de transmissão — que é o escopo do cache lá.
+  if (abriu.completo) return;
+  // A RETOMADA vem do outro lado: `recebido` diz de onde continuar — um
+  // empurrão interrompido (renderer morto no meio) nunca recomeça do zero.
+  let pos = abriu.recebido || 0;
+  const PASSO = 512 * 1024;
+  while (pos < arquivo.size) {
+    if (!telaAtiva()) { await telaPedir(c, JSON.stringify({ cancelar: true })); return; }
+    const fatia = await arquivo.slice(pos, Math.min(pos + PASSO, arquivo.size)).arrayBuffer();
+    const r = await telaPedir(c, fatia);
+    if (!r) return;                                   // prazo: o próximo load retoma
+    if (r.erro === 'fila cheia') {                    // o disco engasgou: mesmo bloco de novo
+      await new Promise((x) => setTimeout(x, 200));
+      continue;
+    }
+    if (typeof r.r !== 'number' || r.r < 0) return;
+    pos = r.r;
+  }
+  await telaPedir(c, JSON.stringify({ fim: true }));
+}
+
+function telaGarantirEnvio(it) {
+  if (!it || !it.id) return;
+  // A DEDUPLICAÇÃO QUE FICA é só a da fila em curso — dois `load` do mesmo item
+  // em sequência não podem virar dois empurrões concorrentes. "Já está no cache
+  // do shell" não é pergunta desta função: quem a responde é o `abrir`.
+  if (telaEmpurrando === it.id || telaFila.some((x) => x.id === it.id)) return;
+  telaFila.push(it);
+  telaEscoar();
+}
+async function telaEscoar() {
+  if (telaEmpurrando) return;
+  const it = telaFila.shift();
+  if (!it) return;
+  telaEmpurrando = it.id;
+  try { await telaEmpurrarAgora(it); } catch (e) { console.warn('[tela] empurrão falhou:', e); }
+  telaEmpurrando = null;
+  telaEscoar();
+}
+
+// ---- o enriquecimento, no funil que vê TODO envio deste documento ----
+function telaEnriquecer(cmd) {
+  if (!cmd || !telaAtiva()) return;
+  if (cmd.type === 'load') {
+    const it = (currentItem && currentItem.id === cmd.mediaId) ? currentItem : null;
+    if (!it) return;
+    // A TRANSMISSÃO DIRETA VAI PARA A REDE desde a v5.189 (a dívida §7): o
+    // shell passou a servir as mesmas faixas em `/s/<token>`, então o que a
+    // tela precisa é do manifesto com as URLs REESCRITAS — as originais
+    // apontam para `/stream/` no origin do WebView, que não existe lá.
+    if (it.stream) {
+      const man = telaManifestoDaRede(it.stream);
+      if (man) {
+        cmd.__rec = Object.assign(telaSanearRec(it, telaTokenDe(it.id) || ''), {
+          // Sem `url`: quem toca é o MediaSource, pelo manifesto. Deixar a
+          // `/m/<token>` de um item que ninguém empurrou faria a tela buscar
+          // um 404 antes de tentar o stream.
+          url: '',
+          stream: man,
+        });
+        return;
+      }
+      // Manifesto sem faixa servível: cai no aviso, como as outras.
+    }
+    // As cenas que NÃO vão para a rede (spec §5.6): o embed é iframe de
+    // terceiro (e a CSP das telas o barra por construção); o deck
+    // são Blobs por página (E4.1). O aviso sai LOGO DEPOIS do load — a tela
+    // sem __rec limpa a cena sozinha (getMedia nulo → clear).
+    if (it.kind === 'youtube' || it.kind === 'deck') {
+      setTimeout(() => {
+        try { AVDB.sendCommand({ type: 'tela-aviso', texto: 'Esta cena não aparece nas telas da rede.' }); } catch (_) { /* nada */ }
+      }, 0);
+      return;
+    }
+    const token = telaTokenDe(it.id);
+    if (!token) return;
+    cmd.__rec = telaSanearRec(it, token);
+    telaGarantirEnvio(it);
+    telaEmpurrarImagensLetra(it);
+  } else if (cmd.type === 'wallpaper') {
+    // Um comando que JÁ CHEGA com `__wp` é a segunda etapa (abaixo) ou o
+    // reenvio de conexão (`telaReenviarWallpaper`): o token dele já está
+    // resolvido e re-cunhar aqui mataria a URL que as telas estão usando.
+    if (cmd.__wp) return;
+    // O aviso de troca segue na hora para o telão de verdade (que lê o IDB
+    // sozinho); a parte das TELAS é resolvida em segundo tempo, porque só o
+    // blob diz se a troca foi PARA uma imagem ou PARA o padrão — e anexar
+    // `__wp` antes de saber cunhava uma URL sem bytes no caminho do "Padrão"
+    // (v5.188). O wallpaper é o id MUTÁVEL: cada troca com imagem cunha token
+    // novo (o shell substitui e mata o velho).
+    (async () => {
+      let blob = null;
+      try { blob = await AVDB.getState('wallpaper'); } catch (_) { /* padrão */ }
+      if (!blob) { AVDB.sendCommand({ type: 'wallpaper', __wp: 'padrao' }); return; }
+      // O ÚNICO id MUTÁVEL do acervo: a mesma chave passa a apontar para outros
+      // bytes. Descartar o token força a cunhagem de um novo, e o `abrir` com
+      // token novo SUBSTITUI o item no shell (matando a URL antiga, que é o que
+      // impede uma tela de continuar buscando o wallpaper que saiu de cena).
+      telaTokens.delete('__wp');
+      const token = telaTokenDe('__wp');
+      if (!token) return;
+      telaGarantirEnvio({ id: '__wp', name: 'wallpaper', type: blob.type || 'image/jpeg', blob });
+      AVDB.sendCommand({ type: 'wallpaper', __wp: '/m/' + token });
+    })();
+  }
+}
+
+// AS PREFERÊNCIAS DE QUEM ACABOU DE CONECTAR (v5.188). O telão de verdade lê
+// wallpaper, fundo da letra e preenchimento do IndexedDB no arranque; uma TELA
+// DA REDE não tem esse IDB, e tudo que só viaja "na troca" simplesmente não
+// existia para quem entrasse depois — ela ficava no wallpaper padrão, com a
+// letra sobre preto e no preenchimento default para sempre. Este é o simétrico
+// do `resendSceneToDisplay`: roda no MESMO `display-ready`, e é ENDEREÇADO
+// (`__para`) para o telão de verdade e as outras telas nem o verem.
+// O token do wallpaper é REUSADO quando já existe (o funil acima não re-cunha
+// um comando que chega com `__wp`), então N conexões custam UM empurrão — a
+// regra "mesmo id + mesmo token = já tenho" do shell responde as demais.
+function telaReenviarPreferencias(para) {
+  // A GUARDA NÃO PODE SER `telaAtiva()` (v5.208).
+  //
+  // `telaAtiva()` pergunta a um CACHE COM ENQUETE (`mirrorEstado`, relido de
+  // 2,5 em 2,5 s só quando a folha de conexão está à vista) se a transmissão
+  // está ligada. Mas quem chega aqui é um `display-ready` que veio PELO SSE de
+  // uma tela da rede: se ele chegou, o servidor está no ar e a tela está
+  // conectada — a pergunta já está respondida pelo próprio fato de a mensagem
+  // existir. Consultar o cache só pode produzir FALSO NEGATIVO, e o preço dele
+  // é a tela ficar para sempre sem wallpaper, sem fundo de letra e sem
+  // preenchimento, sem nada que o explique.
+  //
+  // O que fica é a única condição de que este corpo depende de verdade: o
+  // canal de mídia, porque é ele que empurra os bytes do wallpaper.
+  if (!telaCanal()) return;
+  const mandar = (c) => { if (para) c.__para = para; AVDB.sendCommand(c); };
+  // Só o que DIVERGE do padrão viaja: a tela recém-carregada já está no
+  // padrão, e mandar o default de volta seria ruído no caminho da conexão.
+  if (lyricsBg === 'image') mandar({ type: 'lyricsbg', mode: lyricsBg });
+  if (mediaFit !== 'contain') mandar({ type: 'fit', fit: mediaFit });
+  (async () => {
+    let blob = null;
+    try { blob = await AVDB.getState('wallpaper'); } catch (_) { /* padrão */ }
+    if (!blob) return;                       // sem wallpaper próprio: o padrão da tela já é o certo
+    const token = telaTokenDe('__wp');
+    if (!token) return;
+    telaGarantirEnvio({ id: '__wp', name: 'wallpaper', type: blob.type || 'image/jpeg', blob });
+    mandar({ type: 'wallpaper', __wp: '/m/' + token });
+  })();
+}
+(function () {
+  if (!window.__NATIVE__) return;
+  const enviar0 = AVDB.sendCommand;
+  AVDB.sendCommand = function (cmd) {
+    try { telaEnriquecer(cmd); } catch (e) { console.warn('[tela] enriquecer falhou:', e); }
+    return enviar0(cmd);
+  };
+})();

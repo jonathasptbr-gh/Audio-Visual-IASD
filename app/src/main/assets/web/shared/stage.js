@@ -128,9 +128,11 @@
     const wallpaper = opts.wallpaper;
     const img = opts.img;
     const video = opts.video;
-    // Não é const: o Controle alterna isso em tempo real no modo "mesa de
-    // som" (preview normalmente sempre muda vira independente, com áudio de
-    // verdade saindo pelo próprio aparelho) — ver setForceMuted().
+    // Não é const, e os DOIS papéis que o alternam em tempo real são: o
+    // Controle, quando não há tela nenhuma conectada e a preview passa a tocar
+    // o som do próprio aparelho (`acertarSaidaDeAudio`), e a tela da rede, que
+    // nasce muda e solta o som no gesto do visitante (`__telaSom`). Ver
+    // setForceMuted().
     let forceMuted = !!opts.forceMuted;
 
     let current = null;
@@ -179,26 +181,23 @@
     // sem nada dizendo que o app está trabalhando. Do lado de quem opera isso é
     // indistinguível de uma projeção que morreu.
     //
-    // O nó é criado AQUI, e não nos dois `index.html`: ele é do motor, existe só
+    // O NÓ é criado AQUI, e não nos dois `index.html`: ele é do motor e existe só
     // enquanto um stream espera, e duplicá-lo em dois arquivos seria a mesma
-    // divergência que a cortina compartilhada já existe para evitar. Sem CSS
-    // externo pelo mesmo motivo — a animação é um `@keyframes` injetado uma vez.
+    // divergência que a cortina compartilhada já existe para evitar.
+    //
+    // AS REGRAS, NÃO (v5.205). Elas eram um `<style>` injetado aqui, com o
+    // argumento de que "a animação é um `@keyframes` injetado uma vez" —
+    // verdadeiro até o telão passar a rodar nas telas da rede, onde a CSP da
+    // página (`default-src 'self'`, sem `style-src`) BLOQUEIA estilo embutido.
+    // O elemento era anexado, as regras não valiam, e o indicador virava uma
+    // `div` vazia: a tela ficava em preto durante a espera sem nada dizendo que
+    // o app estava trabalhando, que é precisamente o que ele existe para
+    // evitar. Hoje elas moram em `shared/stage.css`.
     let girando = null;
     function spinner() {
       if (girando) return girando;
       const casa = (video && video.parentElement) || null;
       if (!casa) return null;
-      if (!document.getElementById('av-stage-busy-css')) {
-        const st = document.createElement('style');
-        st.id = 'av-stage-busy-css';
-        st.textContent = '@keyframes avStageSpin{to{transform:rotate(360deg)}}'
-          + '.av-stage-busy{position:absolute;inset:0;display:flex;align-items:center;'
-          + 'justify-content:center;pointer-events:none;z-index:3}'
-          + '.av-stage-busy::after{content:"";width:44px;height:44px;border-radius:50%;'
-          + 'border:3px solid rgba(255,255,255,.22);border-top-color:rgba(255,255,255,.85);'
-          + 'animation:avStageSpin 900ms linear infinite}';
-        document.head.appendChild(st);
-      }
       girando = document.createElement('div');
       girando.className = 'av-stage-busy';
       girando.hidden = true;
@@ -614,10 +613,10 @@
         catch (_) { /* sem observer o giro só não reage a redimensionamento */ }
       }
     }
-    // Alterna se este stage é forçado a ficar sempre mudo (uso normal da
-    // preview do Controle, espelhando o Display em silêncio) ou se passa a
-    // tocar áudio de verdade pelo próprio aparelho ("mesa de som", modo
-    // independente do Display). A troca não corta o áudio na hora — faz a mesma
+    // Alterna se este stage é forçado a ficar sempre mudo (a preview do
+    // Controle espelhando o Display em silêncio, a tela da rede antes do gesto
+    // do visitante) ou se passa a tocar áudio de verdade pelo próprio
+    // aparelho. A troca não corta o áudio na hora — faz a mesma
     // rampa curta do setMute (MUTE_RAMP_TIME): ao ATIVAR, respeita o mudo do
     // operador e sobe o volume de 0 até o alvo; ao DESATIVAR, desce até 0 e só
     // então muta. Na desativação, `forceMuted` só liga no fim da rampa — senão
@@ -635,14 +634,14 @@
         return;
       }
       if (target) {
-        // Desativar mesa de som: rampa até 0, depois muta (forceMuted no fim).
+        // EMUDECER: rampa até 0, depois muta (forceMuted só no fim).
         if (video.muted) { forceMuted = true; return; }
         rampVolume(video.volume, 0, MUTE_RAMP_TIME);
         muteApplyTimer = setTimeout(() => {
           forceMuted = true; video.muted = true; video.volume = volume;
         }, MUTE_RAMP_TIME * 1000);
       } else {
-        // Ativar mesa de som: som já liberado; respeita o mudo do operador.
+        // DAR SOM: som já liberado; respeita o mudo do operador.
         forceMuted = false;
         video.muted = muted;
         if (muted) video.volume = volume;
@@ -994,6 +993,14 @@
         case 'pause': pause(); break;
         case 'seek': seek(cmd.time); break;
         case 'clear': return clearFaded();
+        // PARAR SÓ A MÍDIA, sem tocar na cortina (v5.178). É o `fadeOutToBlack`
+        // exposto ao Display: com a Camada de Texto em cena, o `clear` acima
+        // fecharia o wallpaper POR CIMA do versículo (ou do cronômetro) que
+        // continua no ar — o cartão de texto vive por BAIXO da cortina do
+        // stage, que é a mesma razão do `instantCover(false)` do ramo de `view`
+        // em `display.js`. Quem escolhe entre os dois é o Display, que é quem
+        // sabe se há texto ativo.
+        case 'clear-media': return fadeOutToBlack();
         case 'fit': setFit(cmd.fit); break;
         case 'rotate': setRotate(cmd.rotate); break;
       }

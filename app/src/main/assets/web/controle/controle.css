@@ -27,6 +27,25 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    as duas medidas de layout que o JS também lê.
    NÃO usar valores literais soltos na folha: sempre referenciar um token. */
 :root {
+  /* ---------- O RESPIRO ENTRE ESTROFES (v5.226) ----------
+     UMA LINHA DA LETRA, e o valor não é escolhido por gosto: é literalmente o
+     que a FONTE codifica. O banco separa estrofes com `<br><br>`, e uma linha
+     em branco é o que o operador vê no LouvorJA e espera aqui.
+     `.lv-row` é .95rem com line-height 1.5 → 1.425rem = a altura de uma linha.
+
+     Ele vale nos TRÊS lugares em que uma estrofe termina, e é por isso que é um
+     token e não três literais: o `gap` da folha de leitura, o `gap` da zona de
+     letra do modo simplificado, e o `margin-top` entre dois blocos DENTRO de um
+     slide (a API às vezes empacota duas estrofes numa entrada só — v5.142).
+     Uma fronteira de estrofe é uma fronteira de estrofe: tem de parecer igual
+     nos três, senão a leitura ganha um ritmo que o texto não tem.
+
+     Até aqui os três divergiam, e na direção errada: 8,8 px (avançado) e 8,0 px
+     (simples) entre estrofes DIFERENTES contra 11,4 px entre blocos da MESMA —
+     medido. A hierarquia se lia ao contrário, e a letra não respirava apesar de
+     a estrutura por baixo estar inteira. */
+  --lv-estrofe-gap: 1.425rem;
+
   /* ---------- Raios ----------
      Dois degraus principais (controle × cartão) e três exceções, todas com
      nome próprio: um raio literal solto na folha é o que produzia dois botões
@@ -123,8 +142,8 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
 
 /* ---------- A superfície AFUNDA dentro de um cartão ----------
    `--surface`/`--surface-2` são branco com alfa (ver tokens.css), então eles
-   EMPILHAM: 12% de branco sobre `--bg` dá #2f2e2e, mas o MESMO token sobre
-   `--panel` dá #4c4b49 — uma superfície 1,6x mais clara. Era essa a causa raiz
+   EMPILHAM: 12% de branco sobre `--bg` dá #22282e, mas o MESMO token sobre
+   `--panel` dá #414850 — uma superfície bem mais clara. Era essa a causa raiz
    do pior contraste do app: todo texto/ícone colorido dentro de um cartão
    reprovava AA (o ícone de cancelar download media 2,32:1) porque a base dele
    era muito mais clara do que a folha supunha.
@@ -145,12 +164,67 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    um cartão o botão tem ícone, e a linha em `--line` do próprio cartão já o
    separa do resto. O que NÃO era negociável era o texto — e nenhum par colorido
    dentro de cartão reprova AA depois desta regra (o pior, o ícone de cancelar
-   download, sai de 2,32:1 para 7,36:1). */
+   download, sai de 2,32:1 para 7,36:1).
+
+   OS DOIS VALORES SAÍRAM DAQUI NA v5.192, e a razão é o tema claro. Eles eram
+   os últimos literais de cor fora de tokens.css, e a regra que descrevem é a
+   MESMA nos dois temas — flutua sobre a página, afunda dentro do cartão —,
+   mudando só a intensidade do overlay (no claro o par é preto a .06/.10 sobre
+   um cartão branco). Escrito literal aqui, o tema claro herdaria um recesso de
+   24% de preto e todo cartão viraria um bloco cinza. A regra continua sendo
+   esta lista de seletores; o VALOR mora com as outras cores. */
 .row-item, .lib-item, .hymnal-card, .msg-item, .bible-vsec,
 .dialog-card, .popup-sheet, .fade-row, .simple-lyrics, .simple-key {
-  --surface: rgba(0, 0, 0, .24);
-  --surface-2: rgba(0, 0, 0, .14);
+  --surface: var(--surface-sunk);
+  --surface-2: var(--surface-2-sunk);
 }
+/* ---------- A BARRA DE BAIXO AFUNDA, e SÓ NO TEMA CLARO (v5.207) ----------
+   Aqui a inversão não é uma escolha de estilo, é aritmética. No tema claro
+   `--bar` é BRANCO — o mesmo valor de `--panel` —, e os controles que moram
+   nela (`.t-btn` do transporte, `.ctl-btn` do mixer) pintam `--surface`, que é
+   branco com alfa. Branco a 70% sobre branco é branco: **1,00:1**, medido. Os
+   botões que o operador mais usa no culto ficavam literalmente invisíveis, e
+   foi o relato: "as teclas dos controles do modo avançado seguem com problemas
+   de contraste no modo claro".
+
+   Por que ela NÃO entra na lista acima, que valeria para os dois temas: no
+   escuro `--bar` (#252b33) é bem mais escura que os botões, e o degrau claro
+   funciona — inverter ali trocaria a aparência do transporte inteiro, que é a
+   peça mais usada do app, para resolver um problema que só existe no claro.
+   A regra é do tema, então ela mora no tema. */
+:root[data-tema="claro"] .bottombar {
+  --surface: var(--surface-sunk);
+  --surface-2: var(--surface-2-sunk);
+}
+
+/* ---------- A ARESTA DO CONTROLE, e ela só aparece no tema claro ----------
+   O tema escuro tem um mecanismo que o claro não tem: um controle se anuncia
+   por ser MAIS CLARO que a base. No claro a base já é branca, e não existe
+   "mais claro que branco" — então o mesmo `--surface` que no escuro dá um
+   degrau confortável aqui dá **1,14:1**, que é um botão invisível. Foi o relato
+   do operador, e ele estava certo: eram os segmentados de Configurações
+   (`.fit-opt`), oito deles, mais o ✕ das folhas e o copiar do Registro.
+
+   A saída é a que o `tokens.css` já afirmava e não cumpria: no claro quem
+   anuncia o controle é a LINHA. `--control-edge` é `transparent` no escuro,
+   então esta regra vale para os dois temas e só DESENHA em um.
+
+   `box-shadow: inset` e NÃO `border`: estes controles têm caixa medida (`--hit`
+   nos botões de ícone, a grade dos segmentados), e um `border` de 1px mudaria a
+   altura de todos eles nos DOIS temas para resolver um problema que existe em
+   um. Sombra não ocupa espaço de layout.
+
+   A lista é dos controles cujo fundo é `--surface`/`--surface-2` e que NÃO têm
+   borda própria — os que já trazem `1px solid var(--line)` (`.pill`, `.seg`, os
+   campos) não entram aqui, senão ganhariam duas linhas sobrepostas. */
+:is(.fit-opt, .popup-close, .log-copy, .dialog-btn, .simple-key, .sel-btn, .row-btn,
+    .t-btn, .ctl-btn) {
+  box-shadow: inset 0 0 0 1px var(--control-edge);
+}
+/* O PREENCHIDO NÃO LEVA ARESTA: `.fit-opt.active` e `.dialog-btn.primary` são
+   fundo `--accent-fill`, que dá 7,70:1 contra o painel — a linha só sujaria a
+   borda de uma peça que já se distingue com folga. */
+.fit-opt.active, .dialog-btn.primary, .ctl-btn.vol-btn { box-shadow: none; }
 
 /* ---------- Feedback de toque (regra única) ----------
    Como o `*` acima zera o -webkit-tap-highlight-color, um controle SEM
@@ -242,6 +316,24 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 .app-version.tocavel:active { background: var(--surface); }
+/* HÁ ATUALIZAÇÃO ESPERANDO (v5.234). O rótulo já é o lugar onde se toca para
+   trazer a pergunta de volta; o que faltava era ele DIZER que há o que trazer.
+   Sem isto, "Deixar para depois" silenciava o diálogo e, junto com ele, o fato
+   — o operador não teria como saber que ainda havia algo esperando.
+
+   A marca é a mesma gramática de "concluído/pronto" do resto do app (`--ok`,
+   contornado), e não a de "está no ar": o vermelho preenchido pertence à mídia
+   que a congregação está vendo, e um rótulo de rodapé competindo com ela seria
+   a paleta dizendo duas coisas opostas com a mesma cor.
+
+   A DIVISÃO DE TRABALHO com o `renderVersionLabel` importa: o ponto (`●`) é
+   TEXTO e some quando o `falarNaVersao` empresta o rótulo para uma frase; a
+   COR e a borda vêm da classe e ficam. É o que se quer — durante a frase ela
+   própria é o recado, e quando ela expira o ponto volta com a versão. */
+.app-version.tem-atualizacao {
+  color: var(--ok);
+  border: 1px solid color-mix(in srgb, var(--ok) 45%, transparent);
+}
 
 /* ---------- Barra de controles (base) ---------- */
 /* Desde a v5.54 ela começa na FAIXA DE ABAS e termina no transporte: um bloco
@@ -416,9 +508,8 @@ body {
 }
 /* Em tela cheia a preview É a projeção (quando não há TV conectada): nada de
    UI por cima, ou o botão iria junto para o telão. */
-.preview:fullscreen .pv-fabs, .preview:fullscreen .pv-fab--bl,
-.preview:-webkit-full-screen .pv-fabs,
-.preview:-webkit-full-screen .pv-fab--bl { display: none !important; }
+.preview:fullscreen .pv-fabs,
+.preview:-webkit-full-screen .pv-fabs { display: none !important; }
 
 /* ---------- "Baixando…" NA LINHA DO CRONOGRAMA ----------
    O cartão sobre a preview diz "isto vai entrar em cena"; quando o toque foi só
@@ -436,6 +527,18 @@ body {
 }
 /* A miniatura de verdade escurece atrás do anel, senão as duas competem. */
 .lib-item.baixando .thumb img, .lib-item.baixando .thumb .msym { opacity: .25; }
+/* E o CANCELAR na própria linha (v5.191): um download que foi para o Cronograma
+   com a busca já fechada não tinha mais nenhuma superfície onde ser parado. */
+.dl-cancel {
+  flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px;
+  border: none; border-radius: var(--radius-pill);
+  background: transparent; color: var(--muted);
+  cursor: pointer;
+}
+.dl-cancel .msym { font-size: 1.15rem; }
+.dl-cancel:active { color: var(--danger-text); }
 .dl-pct {
   flex-shrink: 0; font-size: .74rem; font-weight: 700;
   color: var(--accent); font-variant-numeric: tabular-nums;
@@ -481,6 +584,22 @@ body {
   background: var(--bg);
   box-shadow: 0 4px 14px var(--shadow-card);
 }
+
+/* O CANCELAR do cartão (v5.191). O `.pv-busy` inteiro é `pointer-events: none`
+   — ele não pode roubar o toque da preview, que continua sendo a projeção
+   quando não há TV —, então quem devolve o gesto é o próprio botão. Discreto:
+   ele é a saída de emergência de um download, não a ação principal do cartão. */
+.pv-busy-cancel {
+  pointer-events: auto;
+  flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; margin-left: .1rem;
+  border: none; border-radius: var(--radius-pill);
+  background: var(--surface-2); color: var(--muted);
+  cursor: pointer;
+}
+.pv-busy-cancel .msym { font-size: 1.1rem; }
+.pv-busy-cancel:active { color: var(--text); }
 /* ---------- O ANEL DE DOWNLOAD (`.dl-ring`) ----------
    O aro gira; a SETA fica parada dentro dele. Um spinner puro diria só
    "espere"; o que precisa ser dito é O QUE está acontecendo, e a seta é a mesma
@@ -525,6 +644,15 @@ body {
   font-size: .6rem; font-weight: 800; letter-spacing: .08em;
   text-transform: uppercase; color: var(--accent);
 }
+/* O MESMO CARTÃO DIZENDO QUE NÃO DEU (v5.207) — ver `previewBusy().falhar`.
+   Ele já é o lugar em que este trabalho se anuncia ("Baixando…") e fica sobre a
+   PREVIEW, que é onde a mídia apareceria se tivesse dado certo. Só a cor da
+   legenda muda: a caixa, a posição e o nome continuam os mesmos, para o cartão
+   ser lido como a continuação da frase que ele já estava dizendo — e não como
+   uma coisa nova aparecendo. O anel de progresso some, porque não há progresso.
+   (Substituiu a faixa flutuante que dizia isto no topo da tela.) */
+.pv-busy.falhou .pv-busy-cap { color: var(--danger-text); }
+.pv-busy.falhou .dl-ring { display: none; }
 /* Duas linhas no máximo: a miniatura tem ~150px de altura, e o nome de um hino
    longo tomaria a caixa inteira. */
 .pv-busy-label {
@@ -542,13 +670,14 @@ body {
 .pv-wall {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   background: var(--wallpaper);
-  /* Espelha o Display: a imagem escolhida entra como background-image inline. */
+  /* O desenho padrão espelha o Display: mesmo SVG, mesmo caminho relativo
+     (ver o comentário do token em tokens.css). A imagem escolhida entra como
+     background-image inline por cima. */
+  background-image: url('../shared/wallpaper-padrao.svg');
   background-size: cover;
   background-position: center;
   z-index: 3;
 }
-.pv-brand { font-size: clamp(.7rem, 3.5vw, 1.05rem); font-weight: 700; letter-spacing: .03em; color: var(--stage-text-soft); }
-.pv-brand b { color: var(--gold); }
 .pv-layer { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: var(--stage-bg); z-index: 1; }
 /* Camada de TEXTO manual: acima de toda a mídia (inclusive do iframe do
    YouTube), opaca pelo `background: var(--stage-bg)` herdado de .pv-layer. Espelha o
@@ -646,17 +775,68 @@ body {
   color: var(--stage-text-dim); font-weight: 600; font-size: 4.2cqmin; line-height: 1.25; white-space: pre-line;
   display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
 }
+/* O SLIDE DE CAPA, espelhando o Display regra a regra (ver o bloco grande em
+   display.css para o porquê de cada peça). As duas folhas são separadas de
+   propósito — a preview é uma miniatura dentro de um documento COM tema —, e é
+   por isso que aqui, mais do que lá, nenhuma cor pode vir de um token de tema:
+   era exatamente esta regra que pintava o título em denim escuro sobre o preto
+   quando o operador estava no tema claro. */
 .pv-lyrics-content.cover .pv-lyrics-line {
-  color: var(--gold); font-size: 9.5cqmin;
+  color: var(--stage-text); font-size: 8.4cqmin; font-weight: 800;
+  letter-spacing: .01em;
+  /* TRÊS linhas na capa (a estrofe segue com duas): um título de álbum passa
+     fácil de duas — "Cristo, o Senhor, Ressuscitou Hoje na Manhã Gloriosa" — e
+     cortá-lo com reticências no cartão que existe para ANUNCIAR a música é
+     perder justamente a informação. `min-height: 0` porque um item de flex não
+     encolhe abaixo do conteúdo por padrão, e sem isso o clamp não tem efeito
+     dentro da caixa. */
+  -webkit-line-clamp: 3; min-height: 0;
 }
+/* O NÚMERO É BRANCO, e não no acento (v5.221).
+   Ele nasceu em `--stage-accent` — 9,75:1 sobre o preto, contraste de sobra num
+   monitor — e o operador o descreveu como "muito discreto no fundo escuro". Ele
+   está certo, e a medida não contradiz: contraste é razão de luminância, não
+   legibilidade a dez metros. O que decide num telão é o conjunto **cor +
+   corpo**, e este número tinha a menor das duas (4,4cqmin contra os 8,4 do
+   título) somada à única cor da tela que não é branca. Num hinário o número é
+   o que a congregação procura primeiro — ele não é enfeite.
+   Branco (21:1) e um corpo maior. A cor de identidade fica nos FIOS, que é
+   onde ela não precisa ser lida: eles são decoração, e por isso o `background`
+   passou a ser explícito em vez de `currentColor`. */
+.pv-lyrics-num {
+  display: flex; align-items: center; justify-content: center; gap: 2cqmin;
+  align-self: stretch;
+  color: var(--stage-text); font-weight: 800;
+  font-size: 5.8cqmin; line-height: 1.2; letter-spacing: .14em;
+  font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
+}
+.pv-lyrics-num::before, .pv-lyrics-num::after {
+  content: ""; height: .24cqmin; flex: 0 1 12cqmin; min-width: 0;
+  background: var(--stage-accent);
+}
+.pv-lyrics-content.cover .pv-lyrics-aux {
+  color: var(--stage-text-dim); font-weight: 600; text-transform: uppercase;
+  font-size: 3.4cqmin; letter-spacing: .14em;
+}
+/* A CAIXA DA CAPA CRESCE COM O CONTEÚDO, e é a única do sistema que faz isso.
+   A altura fixa (32cqh) existe para a moldura não pular de tamanho entre uma
+   estrofe e a seguinte — mas na capa ela produzia o defeito oposto, e ele foi
+   fotografado: com o título em duas linhas, num + título + álbum somam mais que
+   a caixa, o flex encolhe os itens e a linha do álbum era desenhada POR CIMA da
+   segunda linha do título. Aqui não há "próximo slide" com que casar a altura
+   (a capa é a primeira coisa em cena), então a caixa se ajusta e o teto +
+   `overflow: hidden` seguem sendo a garantia final. */
+.pv-lyrics-content.cover .pv-lyrics-box {
+  height: auto; max-height: 60cqh; padding: 3.5cqh 4cqw; gap: 1.4cqh;
+}
+/* O número e o álbum não encolhem: quem absorve a falta de espaço é o título,
+   que é o único dos três que sabe se cortar (clamp). */
+.pv-lyrics-content.cover .pv-lyrics-aux, .pv-lyrics-num { flex-shrink: 0; }
 
-.pv-yt-frame { pointer-events: none; overflow: hidden; }
-.pv-yt-frame iframe {
-  position: absolute; top: 50%; left: 50%;
-  width: 400%; height: 400%; border: 0;
-  transform: translate(-50%, -50%) scale(.25);
-  transform-origin: center center;
-}
+/* (SAIU NA v5.212: `.pv-yt-frame`, a camada do player do YouTube na preview.
+   Ela renderizava o iframe a 400% e o encolhia por transform, para a UI do
+   YouTube ficar proporcionalmente menor. O embed saiu dos dois papéis — ver o
+   bloco "A PREVIEW NÃO TEM MAIS PLAYER DO YOUTUBE" em controle.js.) */
 
 /* Nome + barra de progresso */
 .nowplaying { display: flex; flex-direction: column; gap: .25rem; }
@@ -868,8 +1048,8 @@ body {
 /* Estados dos controles agrupados por ESTADO, não por componente — a mesma
    receita estava escrita quatro vezes. `.view-blocked` = visual bloqueado,
    `.muted` = mudo, `.danger` = ação destrutiva. (Havia um quarto, `.active` da
-   mesa de som; ele saiu com o botão — que hoje é o ícone de alto-falante no
-   canto da preview, `#pvSoundBtn`, v5.82.)
+   mesa de som; ela saiu por inteiro na v5.189 — o som do sistema é o dos
+   displays.)
    (O botão do fundo da letra saiu do mixer: virou o segmento "Imagens dos
    slides" no popup de Exibição, e o lugar dele é a leitura da letra completa —
    um botão que ABRE algo, sem estado próprio a pintar.) */
@@ -884,7 +1064,7 @@ body {
 }
 /* Sem áudio no Display (bloqueio do navegador): AVISO pulsante; o clique pede
    a liberação do som (comando audio-retry). Em `--warn`, e não mais em
-   `--gold`: nesta paleta o dourado da marca É o accent (mesmo valor), então
+   `--brand`: nesta paleta a cor da marca É o accent (mesmo valor), então
    "áudio bloqueado" pintado de gold ficaria idêntico a "ação normal". */
 .mute-btn.blocked {
   border-color: var(--warn); background: var(--warn-soft); color: var(--warn-text);
@@ -920,34 +1100,11 @@ main {
      dela — justamente nos casos em que ele é mais necessário. Daí `fixed` e um
      z-index acima das folhas (que vão até 300).
    `pointer-events: none` — é um aviso, não um controle: o toque atravessa. */
-.save-hint {
-  position: fixed; z-index: 400;
-  left: 50%; transform: translate(-50%, -6px);
-  top: calc(.5rem + env(safe-area-inset-top));
-  max-width: min(92vw, 26rem);
-  pointer-events: none;
-  padding: .5rem .7rem; border-radius: var(--radius-btn);
-  background: var(--panel); border: 1px solid var(--line);
-  color: var(--text); font-size: .82rem; font-weight: 600;
-  text-align: center;
-  box-shadow: 0 6px 18px var(--scrim);
-  opacity: 0;
-  transition: opacity .18s ease, transform .18s ease;
-}
-.save-hint.on { opacity: 1; transform: translate(-50%, 0); }
-/* Três leituras, três cores — e a do meio é a que importa: "já estava lá" é a
-   resposta que impede o segundo toque, e ela não pode se parecer com "pronto,
-   adicionei". Âmbar (atenção sem alarme) para o repetido, verde para o que
-   entrou, vermelho contornado para a falha. */
-.save-hint--ok { border-color: var(--ok); color: var(--ok); }
-.save-hint--dup { border-color: var(--warn); color: var(--warn-text); }
-/* A borda da falha segue a regra da folha (ver `.view-btn.view-blocked`,
-   acima): contorno vermelho é `--danger-strong`, nunca o `--danger` cheio —
-   escuro por construção, ele praticamente some sobre o `--panel` do aviso. O
-   TEXTO fica no salmão `--danger-text`: é o caso documentado em tokens.css de
-   um vermelho pousando direto num painel elevado, sem o fundo suave da
-   família — ali o saturado reprova (3,78:1) e o salmão passa (5,18:1). */
-.save-hint--erro { border-color: var(--danger-strong); color: var(--danger-text); }
+/* (`.save-hint*` SAIU na v5.207, com a faixa flutuante.) Ela era um TOAST:
+   `position: fixed`, ancorada no topo da tela, por cima do que estivesse ali —
+   e respondia a toques dados em qualquer lugar da interface. O feedback agora
+   mora onde a ação nasce; ver `.row-nota` (a linha do item), `.folder-count--st`
+   (o contador da pasta) e `.pv-busy.falhou` (o cartão da preview). */
 
 /* ---------- Título da lista ativa ---------- */
 .list-header { flex-shrink: 0; display: flex; align-items: center; gap: .3rem; }
@@ -1063,7 +1220,7 @@ main {
    cor do ícone — ouro aqui, accent lá —, no mesmo lugar em que a
    `.mode-switch` põe a seta; o tamanho dele vem da escala da folha
    (`--icon-sm`, como o da seta), não mais dos 18px soltos do HTML. */
-.head-fav-btn svg { flex-shrink: 0; color: var(--gold); }
+.head-fav-btn svg { flex-shrink: 0; color: var(--brand); }
 
 /* ---------- Abas (ícones) ---------- */
 /* A faixa tem TRÊS abas em `flex:1` (Cronograma é o 1º filho) e, à direita, o
@@ -1392,6 +1549,80 @@ main {
 .row { position: relative; z-index: 1; display: flex; align-items: center; gap: .5rem; padding: .35rem .5rem; background: var(--panel); touch-action: pan-y; }
 .lib-item.selected .row, .lib-item.active .row, .row-item.active .row { background: var(--panel-2); }
 
+/* ---------- NO AR: a linha que está no telão AGORA ---------- */
+/* `.active` e `.no-ar` são coisas diferentes, e confundi-las é o defeito que
+   esta regra existe para desfazer. `.active` é O ITEM ATUAL — o que o ▶ repete,
+   e que sobrevive de propósito ao Parar; `.no-ar` é o que está sendo PROJETADO.
+   Depois de um Parar o item continua atual e não está no ar, e dizer "No ar"
+   sobre ele seria mentir na única linha da tela que existe para não mentir.
+   Ver `linhaAtiva`/`linhaNoAr` em `controle.js`.
+
+   O desenho é o MESMO "no ar" do resto do app — a família do vermelho, com o
+   fundo suave da própria família por baixo do saturado (o mesmo raciocínio de
+   `.msg-item.active` e `.bible-vsec.cur.live`: `--live` é escuro por construção
+   e como contorno sobre fundo escuro sumiria; `--live-soft` dá ao `--live-strong`
+   a base que ele precisa, 4,68:1).
+
+   E ele vem com TEXTO, não só com cor: duas camadas podem estar no ar ao mesmo
+   tempo (um louvor de fundo sob um versículo), e é justamente nessas linhas que
+   o segundo toque retira do ar. Uma cor a mais numa tela que já tem várias não
+   ensina isso; "● No ar" ensina. */
+.row-item.no-ar, .lib-item.no-ar { border-color: var(--live-strong); }
+.lib-item.no-ar .row, .row-item.no-ar .row { background: var(--live-soft); }
+/* O selo mora na linha do subtítulo, prefixado — exatamente como a referência
+   do versículo central da Bíblia (`● No ar · Salmo 23:1`). */
+.row-live { color: var(--live-strong); font-weight: 800; letter-spacing: .03em; }
+
+/* ---------- A NOTA DA LINHA (v5.207) ----------
+   O canal que substituiu a faixa flutuante para tudo que é um fato SOBRE UM
+   ITEM: "capítulo não está no aparelho", "a música saiu do acervo", "foi para
+   os Favoritos", "truncada em 40 páginas". Ver `notaNoItem` em controle.js.
+
+   Mesmo lugar e mesma anatomia do selo "● No ar" — prefixada ao subtítulo da
+   própria linha, com o separador ` · ` que o `pintarFalha` cria ao lado. O
+   subtítulo NÃO é reescrito: o tipo e a duração continuam legíveis ao lado do
+   motivo, e os dois pintores não disputam o mesmo nó.
+
+   Três leituras, três cores, o mesmo vocabulário do pulso do botão: verde
+   entrou, âmbar já estava, vermelho não deu. */
+.row-nota { font-weight: 800; letter-spacing: .02em; }
+.row-nota--ok { color: var(--ok); }
+.row-nota--dup { color: var(--warn-text); }
+.row-nota--erro { color: var(--danger-text); }
+.lib-item.no-ar .row-sub { color: var(--live-strong); }
+/* A seleção múltipla tem precedência VISUAL: ali a tela fala de escolha, não de
+   projeção, e o contorno de seleção é o que o operador está usando naquele
+   instante. (O JS já não põe `.no-ar` durante a seleção; esta linha é o
+   cinto e suspensório de quem reordenar as classes um dia.) */
+.lib-item.selected.no-ar { border-color: var(--accent); }
+.lib-item.selected.no-ar .row { background: var(--panel-2); }
+
+/* ---------- e os BOTÕES DA LINHA trocam junto (v5.177) ----------
+   No ar, a única decisão que aquela linha oferece é tirá-la do ar: o toque no
+   corpo já faz isso desde a v5.165 e o selo já diz o estado — mas a direita
+   seguia oferecendo arrastar-para-reordenar e favoritar, que são as duas coisas
+   que ninguém quer fazer com o item que está na frente da congregação. Pior,
+   elas ficavam a milímetros do gesto que o operador está mirando.
+
+   Trocar os dois pelo Parar é o que faz QUALQUER toque naquela linha significar
+   a mesma coisa. A troca é por classe porque quem liga e desliga o estado é o
+   `marcarNoAr`, que roda a cada `display-status` (~4 Hz) e só mexe em classes —
+   remontar botões nesse ritmo perderia listeners e trabalho à toa.
+
+   `.row-stop` herda `.row-btn` (o quadrado de ação das listas) e só troca a
+   cor: aqui ele é a AÇÃO destrutiva da linha, e a convenção do app para isso é
+   contornado em `--danger-text`, nunca preenchido — preenchido é "está no ar",
+   e é o que a própria linha já está dizendo em volta dele. */
+.row-stop { display: none; }
+.lib-item.no-ar .row-stop { display: flex; }
+.lib-item.no-ar .row-handle,
+.lib-item.no-ar .fav-btn { display: none; }
+.row-stop { color: var(--danger-text); }
+/* Na seleção múltipla nada disso vale: o alvo é o conjunto, e a linha volta a
+   ser uma caixa de escolha. (O JS já não põe `.no-ar` ali — cinto e
+   suspensório, como a regra de cima.) */
+.lib-item.selected .row-stop { display: none; }
+
 /* A caixa da miniatura é o FUNDO DO APP dentro do cartão: um buraco na
    elevação, que é o que faz a capa (quando existe) parecer colada por cima.
    Era #060606 literal — mais escuro que o próprio fundo do app e fora de
@@ -1442,7 +1673,7 @@ main {
    na Bíblia e nas Ferramentas (v5.109). Mesma caixa dos botões de linha e da
    barra de seleção — `--hit`, `--surface-2`, mesmo raio —, porque são as MESMAS
    duas ações que aqueles já fazem; desenhá-las como pílula de texto num lugar e
-   como ícone no outro era o mesmo par com duas caras. O ícone em `--gold` é o
+   como ícone no outro era o mesmo par com duas caras. O ícone em `--brand` é o
    que os distingue dos botões neutros ao redor: é a cor que o app usa para
    "guardado" (a estrela do favorito), não para navegação.
    Contornados e não preenchidos: quem vem à tela da Bíblia vem para PROJETAR, e
@@ -1452,7 +1683,7 @@ main {
   border: 1px solid var(--line);
   background: var(--surface-2); color: var(--muted);
 }
-.cue-save-btn .msym { font-size: var(--icon-sm); color: var(--gold); }
+.cue-save-btn .msym { font-size: var(--icon-sm); color: var(--brand); }
 
 /* A ESTRELA DE CADA LINHA. PREENCHIDA quando marcada, contornada quando não —
    a convenção universal de favorito, que se reconhece sem aprender. Ela é SVG
@@ -1466,14 +1697,14 @@ main {
    bastante para o olho passar batido pela lista inteira e forte o bastante para
    ser encontrada quando se procura por ela. */
 .fav-btn { background: transparent; color: var(--line); }
-.fav-btn.on { color: var(--gold); }
+.fav-btn.on { color: var(--brand); }
 
 /* A miniatura da CENA DE ROTEIRO em ouro: ela diz "isto não é mídia, é uma
    cena" numa lista onde todo o resto tem bytes. (O selo `.cue-badge` saiu com
    os irmãos de URL/YT — ver a lápide acima.) */
-.thumb--cue { color: var(--gold); }
+.thumb--cue { color: var(--brand); }
 .thumb--cue svg { width: 22px; height: 22px; }
-.thumb--cue .msym { color: var(--gold); }
+.thumb--cue .msym { color: var(--brand); }
 
 /* pastas sincronizadas (OPFS) */
 .folder-opfs .msym { color: var(--accent); }
@@ -1771,6 +2002,26 @@ main {
    abaixo da barra (`--inline`), e não num bottom-sheet: um popup sobre o acervo
    — que já é um popup de tela cheia — era uma camada a mais para ver o peso de
    um álbum que já estava aberto na tela. */
+/* ---------- O MODO FÁCIL NÃO FAZ MANUTENÇÃO DE ÁLBUM (v5.193) ----------
+   Peso, "Completo offline", "Verificar atualizações" e "Remover do
+   dispositivo" respondem perguntas de quem ADMINISTRA o acervo — quanto ocupa,
+   o que falta baixar, o que dá para apagar. Quem está no Modo Fácil está
+   procurando um louvor para tocar agora, e para essa pessoa cada um desses
+   números é uma linha a mais entre ela e o nome da música.
+
+   Some a INFORMAÇÃO, fica a AÇÃO: o botão da barra (`.coll-bar-dl`) continua,
+   porque ele é baixar e, durante um download, CANCELAR — e um download de
+   centenas de faixas que não pode ser parado é o problema que aquele botão
+   veio resolver. Não é uma tela diferente, é a mesma com menos ruído; tudo
+   continua inteiro no modo avançado.
+
+   Por CSS, e não por um ramo no JS: a classe mora no `<body>` e o operador
+   troca de modo com a lista já montada — uma condição no construtor do card
+   exigiria reconstruir a biblioteca inteira na troca, e esqueceria de fazê-lo
+   no primeiro caminho que alguém acrescentasse. */
+.mode-simple .coll-opts,
+.mode-simple .coll-bar-sync { display: none; }
+
 .coll-opts { display: flex; flex-direction: column; gap: .6rem; }
 /* Sem padding lateral (o card já tem o seu) e separado da lista de músicas
    pelo mesmo respiro que separa as músicas entre si. (O padding largo que a
@@ -1789,19 +2040,30 @@ main {
    destrutiva não pode ser a maior das duas. O rótulo QUEBRA em duas linhas em
    vez de virar reticências: "Remover do disposi…" esconde justamente a palavra
    que diz o alcance da ação. */
-.coll-opts-acoes { display: flex; gap: .5rem; }
+/* A v5.235 desfez o `flex: 1 1 0` de metade a metade: com o rótulo do
+   destrutivo reduzido ao ÍCONE, dividir a linha ao meio daria a um alvo de um
+   símbolo o mesmo peso do controle que carrega ação, estado e progresso.
+   Agora a verificação CRESCE e a lixeira para no próprio tamanho — o inverso
+   do argumento antigo pelo mesmo motivo dele: o peso visual acompanha o que a
+   peça faz, e a ação destrutiva continua sendo a menor das duas. */
+.coll-opts-acoes { display: flex; gap: .5rem; align-items: stretch; }
 .coll-opts-acoes .new-folder-btn {
-  flex: 1 1 0; min-width: 0; width: auto;
-  padding: .55rem .4rem; font-size: .82rem; line-height: 1.2;
-  text-align: center; text-wrap: balance;
+  flex: 1 1 auto; min-width: 0; width: auto;
+  padding: .55rem .6rem; font-size: .82rem; line-height: 1.2;
+  text-align: center; white-space: nowrap;
 }
 /* O mesmo botão vira "cancelar" enquanto o download roda (ver
-   renderCollectionOptions) — sem giro, e em AVISO para não se confundir nem
+   `buildCollectionOptions`) — sem giro, e em AVISO para não se confundir nem
    com a ação normal nem com excluir, que são os seus dois vizinhos imediatos
-   nesta mesma folha. Era `--gold`, e nesta paleta o dourado da marca tem o
+   nesta mesma linha. Era `--brand`, e nesta paleta a cor da marca tem o
    mesmo valor do accent: ficaria idêntico à ação normal, que é exatamente o
-   que o raciocínio original queria evitar. */
-.coll-opts .new-folder-btn.cancel { color: var(--warn-text); background: var(--warn-soft); }
+   que o raciocínio original queria evitar.
+
+   O AVISO mudou de PAPEL na v5.232: ele era o fundo chapado do botão, e agora
+   é a borda + o texto, porque o fundo passou a ser o PROGRESSO (abaixo). Um
+   preenchimento em `--warn-soft` sobre um fundo `--warn-soft` seria uma barra
+   invisível — o estado que ela existe para mostrar. */
+.coll-opts .new-folder-btn.cancel { color: var(--warn-text); border-color: var(--warn); }
 /* (`.hymnal-card-status` e suas variantes saíram na v5.73 junto com a linha de
    texto que vestiam: o estado parado virou parte do chip de sincronizados e o
    progresso já vive na barra do card, que é fixa no topo do aberto.) */
@@ -1813,30 +2075,65 @@ main {
    botão de sincronizar do bottom-sheet NÃO gira enquanto baixa — ele vira
    "cancelar", e isso está dito no comentário de `.new-folder-btn.cancel`. */
 
-/* Faixa de estatísticas (chips): sincronização+offline à esquerda, peso à
-   direita. Eram TRÊS chips (sincronizados / peso / Rede) mais uma linha de
-   status repetindo o estado; desde a v5.73 são dois, e o peso é o único que
-   não cresce — daí ele ficar ancorado na borda oposta. */
-.hymnal-card-stats { display: flex; gap: .4rem; }
-.hymnal-stat {
-  flex: 1 1 auto; min-width: 0;
-  display: flex; flex-direction: column; gap: 1px;
-  background: var(--surface-2); border-radius: var(--radius-btn);
-  padding: .32rem .55rem;
+/* (A FAIXA DE CHIPS SAIU NA v5.232 — `.hymnal-card-stats` e `.hymnal-stat`,
+   com o chip de sincronização e o de peso. Eram duas linhas de INFORMAÇÃO
+   acima de uma linha de AÇÃO, num painel que hoje é a linha de ação e nada
+   mais: o peso já está na barra do card, antes de abrir, e o estado desceu
+   para dentro do botão que ele qualifica — ver `.coll-opt-estado`.) */
+
+/* O ESTADO, dentro do botão de verificação e NA MESMA LINHA do rótulo (v5.235,
+   pedido do operador: *"não use linha dupla, pois a ideia já é justamente
+   compactar"*). Ele nasceu quebrando para uma segunda linha — o que resolvia a
+   largura e desfazia metade do ganho, porque o painel voltava a ter duas
+   alturas de texto. Inline, quem cede espaço é ele: `min-width: 0` mais
+   reticências, então o rótulo (a AÇÃO) nunca é o que some.
+
+   O ponto separador vem do CSS e não do dado: o `.coll-opt-estado` carrega o
+   estado e nada mais — quem o lê é o oráculo, e pontuação no texto seria
+   ruído para ele. */
+.coll-opt-estado {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  font-size: .72rem; font-weight: 600; color: var(--muted);
 }
-/* O peso é um número curto: `flex:0` para ele parar no próprio tamanho, e o
-   texto alinhado à direita para o valor bater com a borda do painel. */
-.hymnal-stat.right { flex: 0 0 auto; text-align: right; }
-.hymnal-stat label, .hymnal-stat b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hymnal-stat label { font-size: .56rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
-.hymnal-stat b { font-size: .82rem; font-weight: 700; color: var(--text); }
-.hymnal-stat.done b { color: var(--ok); }
-/* O chip de sincronização carrega duas coisas na mesma linha ("4/4 · Completo
-   offline"), com um ✓ à frente quando está completo: `flex` para o ícone não
-   ser espremido pelo `text-overflow` do texto ao lado. */
-.hymnal-stat.sinc b { display: flex; align-items: center; gap: .3rem; }
-.hymnal-stat.sinc b svg { flex-shrink: 0; }
-.hymnal-stat.sinc b span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.coll-opt-estado::before { content: '·'; margin-right: .3rem; opacity: .65; }
+.coll-opt-estado.done { color: var(--ok); }
+
+/* A REMOÇÃO É SÓ O ÍCONE (v5.235). O que ela perde na tela — "do dispositivo",
+   que dizia o ALCANCE — está inteiro no diálogo que ela abre ("Excluir o que
+   foi baixado de X (áudios e capas) e a lista offline?"), e essa é a condição
+   para um destrutivo ficar sem rótulo: ele é confirmado, e a confirmação é
+   quem nomeia o dano. O `title`/`aria-label` mantém a frase para quem passa o
+   ponteiro e para o leitor de tela. */
+.coll-opts-acoes .new-folder-btn.icone {
+  flex: 0 0 auto; min-width: calc(var(--hit) + .6rem); padding: .55rem;
+}
+.coll-opts-acoes .new-folder-btn.icone .msym { font-size: var(--icon-md); }
+
+/* O PROGRESSO DESENHADO (v5.232): enquanto o download roda, o próprio botão de
+   cancelar se preenche até `--p`. Ele não escreve nada — quem escreve
+   "Baixando 2 de 4…" é a barra do card, dois centímetros acima —, e é essa a
+   razão de ele existir: responder "quanto falta?" sem uma segunda frase.
+
+   `::before` com `inset` e `width`, atrás do conteúdo (`z-index: 0` nos
+   filhos): pintar o fundo do próprio botão exigiria um gradiente recalculado a
+   cada música, e um `background-size` animado não respeita o raio da borda.
+   Sem `--p` (coleção sem índice) a largura é 0 e não há barra nenhuma — uma
+   proporção que não se conhece não se desenha. */
+.coll-opts .new-folder-btn.cancel {
+  position: relative; overflow: hidden;
+  /* `isolation` NÃO é enfeite: sem um contexto de empilhamento próprio, o
+     `z-index: -1` do preenchimento cairia atrás do FUNDO do próprio botão e
+     nada apareceria. E o -1 é obrigatório porque o rótulo é um NÓ DE TEXTO —
+     texto solto não recebe `z-index`, então quem tem de descer é a barra:
+     com `z-index: 0` ela pintaria por cima da palavra "Cancelar". */
+  isolation: isolate;
+}
+.coll-opts .new-folder-btn.cancel::before {
+  content: ''; position: absolute; inset: 0 auto 0 0; z-index: -1;
+  width: var(--p, 0); background: var(--warn-soft);
+  transition: width .3s cubic-bezier(.22, .61, .36, 1);
+  pointer-events: none;
+}
 
 /* ---------- Bíblia: seleção em "tabela periódica" ---------- */
 /* Três telas de seleção (livros → capítulos → versículos), cada uma uma grade
@@ -1866,7 +2163,12 @@ main {
   flex: 1; min-height: 0;
   display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: .5rem;
 }
-.bible-half { min-height: 0; overflow-y: auto; }
+/* `touch-action: pan-y` porque ESTE é o elemento que rola (a mesma lição da
+   `.misc-panel`, v5.61): sem declarar o eixo, o WebView assume o gesto no
+   primeiro movimento — inclusive o HORIZONTAL, que aqui não significa nada — e
+   o fling residual ENGOLE o toque seguinte: era o "dois toques nos botões das
+   abas" relatado depois de tentar o carrossel na Bíblia (v5.188). */
+.bible-half { min-height: 0; overflow-y: auto; touch-action: pan-y; }
 /* Separador entre as duas metades — deixa claro que são dois níveis. */
 .bible-half + .bible-half { border-top: 1px solid var(--line); padding-top: .5rem; }
 /* Barra de rolagem SEMPRE VISÍVEL nestas duas grades. No Android a barra é
@@ -1891,7 +2193,7 @@ main {
 /* Aviso/estado (baixando versículos, sem rede etc.) */
 .bible-note { color: var(--muted); font-size: .82rem; line-height: 1.5; text-align: center; padding: .8rem .4rem; }
 /* Diagnóstico (sem rede, versão indisponível): é AVISO, não marca. Em
-   `--gold-text` ele saía na mesma cor do rótulo de estrofe e do realce de
+   `--brand-text` ele saía na mesma cor do rótulo de estrofe e do realce de
    busca — nada distinguia "algo falhou" de "metadado". */
 .bible-note.err { color: var(--warn-text); }
 
@@ -2072,7 +2374,7 @@ main {
   50% { box-shadow: 0 0 0 10px transparent; }
 }
 /* Só aparece com ERRO (permissão negada, sem microfone…) — é diagnóstico, e
-   diagnóstico é AVISO: em `--gold-text` ficava idêntico ao rótulo "REFRÃO" da
+   diagnóstico é AVISO: em `--brand-text` ficava idêntico ao rótulo "REFRÃO" da
    letra logo acima e ao realce da busca. */
 .mic-note { font-size: .84rem; font-weight: 600; color: var(--warn-text); text-align: center; max-width: 34ch; line-height: 1.45; }
 
@@ -2225,9 +2527,9 @@ main {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   transition: opacity .18s ease, color .18s ease;
 }
-/* Rolando: esmaecido e dourado, como no telão — o contraste com o valor final
-   é o que anuncia o resultado. */
-.draw-read.rolling { opacity: .55; color: var(--gold); }
+/* Rolando: esmaecido e no accent, como no telão — o contraste com o valor
+   final é o que anuncia o resultado. */
+.draw-read.rolling { opacity: .55; color: var(--brand); }
 .draw-range { display: flex; gap: .6rem; }
 /* `min-width: 0` nos DOIS níveis: o padrão de um item flex é `min-width: auto`,
    que o impede de encolher abaixo da largura intrínseca do conteúdo — e um
@@ -2261,8 +2563,8 @@ main {
 .draw-hist-chip.last { background: var(--accent-soft); color: var(--text); }
 .draw-go {
   padding: .8rem .4rem;
-  border: 1px solid var(--gold); border-radius: var(--radius-btn);
-  background: var(--gold-soft); color: var(--gold-text);
+  border: 1px solid var(--brand); border-radius: var(--radius-btn);
+  background: var(--brand-soft); color: var(--brand-text);
   font-size: 1rem; font-weight: 800; letter-spacing: .02em; cursor: pointer;
   appearance: none; -webkit-appearance: none;
 }
@@ -2300,7 +2602,7 @@ main {
 }
 /* indicador de salto pro capítulo/livro vizinho (preview anterior/próximo) */
 .bible-vsec.cross { border-style: dashed; }
-.bible-vsec-cross { font-size: .6rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--gold); }
+.bible-vsec-cross { font-size: .6rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--brand); }
 /* `flex: 1 1 0` com `min-height: 0`: as seções dividem a altura disponível em
    vez de somarem a altura do próprio texto (que é imprevisível — um versículo
    pode ter duas linhas ou dez). O `min-height:0` é o que permite encolherem
@@ -2358,7 +2660,7 @@ main {
   color: var(--stage-text); font-weight: 500; font-size: 6.4cqmin; line-height: 1.34; white-space: pre-line;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 8; overflow: hidden;
 }
-.pv-text-sub { color: var(--gold); font-weight: 700; font-size: 4.6cqmin; line-height: 1.2; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.pv-text-sub { color: var(--stage-accent); font-weight: 700; font-size: 4.6cqmin; line-height: 1.2; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .pv-text-content.mode-message .pv-text-main { font-size: 7.4cqmin; -webkit-line-clamp: 7; font-weight: 600; }
 /* Cronômetro/relógio/timer — espelha .mode-chrono do Display (display.css),
    inclusive o `tabular-nums`, sem o qual o número treme a cada segundo. */
@@ -2375,9 +2677,9 @@ main {
    mudaria a preview sem mudar a projeção — e a preview existe para ESPELHAR o
    telão. É essa divergência silenciosa que a folha compartilhada foi criada
    para matar. */
-.pv-text-content.mode-chrono.chrono-over .pv-text-main { color: var(--live-strong); }
+.pv-text-content.mode-chrono.chrono-over .pv-text-main { color: var(--stage-alert); }
 /* Sorteio — espelha .mode-draw do Display (display.css), inclusive o estado
-   "rolando" (esmaecido/dourado até assentar). */
+   "rolando" (esmaecido, no acento do palco, até assentar). */
 .pv-text-content.mode-draw .pv-text-main {
   font-size: min(24cqmin, calc(86cqw / var(--ch, 8) / 0.66));
   font-weight: 800; line-height: 1.05; letter-spacing: .01em;
@@ -2385,7 +2687,7 @@ main {
   transition: opacity .18s ease, transform .18s cubic-bezier(.2,1.5,.4,1), color .18s ease;
 }
 .pv-text-content.mode-draw.draw-rolling .pv-text-main {
-  opacity: .55; transform: scale(.94); color: var(--gold);
+  opacity: .55; transform: scale(.94); color: var(--stage-accent);
 }
 .pv-text-sub:empty { display: none; }
 
@@ -2506,6 +2808,14 @@ main {
   background: var(--surface-2); border-radius: var(--radius-pill);
   padding: 2px .5rem; flex-shrink: 0;
 }
+/* O MESMO contador FALANDO (v5.207) — ver `statusPasta` em controle.js.
+   Enquanto a sincronização corre ele mostra "12/340"; terminada, "+18" ou
+   "em dia"; falhando, "erro: NotAllowedError". É o número que a ação está
+   mudando, na linha em que o dedo tocou — e é o que substituiu a faixa
+   flutuante que dizia isso no TOPO da tela, a meia tela de distância.
+   O accent o separa de uma contagem comum sem trocar a caixa de lugar: a
+   pílula é a mesma, e a linha não se mexe quando o texto troca. */
+.folder-count--st { background: var(--accent-soft); color: var(--accent); font-variant-numeric: tabular-nums; }
 
 /* ---------- Rodapé do popup (Nova pasta) ---------- */
 .popup-footer {
@@ -2542,11 +2852,15 @@ main {
 }
 .display-status .msym { font-size: var(--icon-sm); }
 .display-status:disabled { cursor: default; }
+/* `.connected` sobrou de quando este botão era o INDICADOR do telão no rodapé
+   de Configurações (v5.193 o tirou de lá: quem está conectado é assunto da
+   folha de conexão). Ele fica porque o botão continua existindo no NAVEGADOR,
+   onde é a ação de abrir a tela do Display — e o dia em que ela quiser dizer
+   "já está aberta" o desenho já existe. */
 .display-status.connected {
   background: var(--ok-soft); border-color: var(--ok); color: var(--ok);
 }
 /* Alvo do botão de cast da preview — informativo, discreto. */
-.cast-target { display: block; text-align: center; font-size: .72rem; color: var(--muted); padding-top: .4rem; }
 /* A versão desceu do cabeçalho da lista para cá (ver o comentário no HTML): no
    rodapé ela fica na mesma coluna do estado do telão e do alvo de
    espelhamento — as três coisas que se olha quando algo não está certo. */
@@ -2671,8 +2985,8 @@ main {
    se confunde com o nome da coleção, que fica logo acima. Uma linha só: a
    lista é varrida de relance no meio do culto. */
 .hymn-lyric-hit {
-  font-size: .8rem; font-style: italic; color: var(--gold-text);
-  border-left: 2px solid var(--gold); padding-left: .4rem; margin-top: .12rem;
+  font-size: .8rem; font-style: italic; color: var(--brand-text);
+  border-left: 2px solid var(--brand); padding-left: .4rem; margin-top: .12rem;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
 }
 /* (A duração saiu da linha na v5.63: ela ocupava a única sobra de largura para
@@ -2704,7 +3018,7 @@ main {
    distinguir dela à primeira vista sem roubar o olho. */
 .hymn-stanza-label {
   font-size: .68rem; font-weight: 800; letter-spacing: .06em;
-  text-transform: uppercase; color: var(--gold);
+  text-transform: uppercase; color: var(--brand);
   margin-bottom: .15rem;
 }
 .hymn-lyrics-line {
@@ -2716,11 +3030,40 @@ main {
    pode poupar. Fundo (e não só cor) porque a marca precisa ser achada de
    relance, com a lista rolando. */
 .hymn-lyrics-line.hit {
-  background: var(--gold-soft); color: var(--gold-text);
+  background: var(--brand-soft); color: var(--brand-text);
   font-weight: 700; border-radius: var(--radius-xs);
   margin: .1rem -.25rem; padding: .1rem .25rem;
 }
 .hymn-lyrics-empty { font-size: .84rem; color: var(--muted); font-style: italic; }
+
+/* ---------- A gaveta de um VÍDEO (v5.236) ---------- */
+/* A mesma caixa da letra, com o mesmo recuo e a mesma moldura: as duas
+   respondem "é este mesmo?" e não há razão para parecerem coisas diferentes.
+   O que muda é o conteúdo — miniatura + duração + estado no aparelho. */
+.item-detalhe { display: none; }
+.hymn-result.expanded .item-detalhe {
+  display: flex; gap: .6rem; align-items: flex-start;
+  margin: 0 .55rem .55rem; padding: .5rem .6rem;
+  border: 1px solid var(--line); border-radius: var(--radius-btn);
+  background: var(--bg);
+}
+/* `aspect-ratio` com largura fixa RESERVA a altura antes de a imagem chegar, e
+   isso não é estética: o acordeão mede `offsetHeight` no instante em que abre
+   (ver `expandAccordion`), e uma imagem remota que só carrega depois faria a
+   animação terminar numa altura menor que a final — a gaveta "pulando" no fim
+   de cada abertura. Reservado, o layout já está certo quando a medida é
+   tirada. */
+.item-detalhe-thumb {
+  width: 7.5rem; aspect-ratio: 16 / 9; flex: 0 0 auto;
+  object-fit: cover; border-radius: var(--radius-xs);
+  background: var(--surface);
+}
+.item-detalhe-txt { display: flex; flex-direction: column; gap: .25rem; min-width: 0; }
+.item-detalhe-linha { font-size: .84rem; color: var(--muted); }
+/* Verde é "concluído/já resolvido" em todo o app, e aqui ele diz exatamente
+   isso: os bytes já estão neste aparelho. Sem o modificador a linha fica em
+   `--muted`, que é o estado neutro ("toca sem baixar") e o caso comum. */
+.item-detalhe-estado.done { color: var(--ok); font-weight: 600; }
 
 /* ---------- A folha rápida de uma música (▶ e + da linha do acervo) ---------- */
 /* Linhas LARGAS e ROTULADAS, o oposto dos seis ícones mudos que substituíram:
@@ -2860,7 +3203,7 @@ main {
   position: relative;         /* offsetParent das linhas — ver lvScrollToCurrent */
   flex: 1; overflow-y: auto;
   padding: .6rem .9rem 1rem;
-  display: flex; flex-direction: column; gap: .55rem;
+  display: flex; flex-direction: column; gap: var(--lv-estrofe-gap);
   overscroll-behavior: contain;
 }
 /* UM bloco de texto, não uma pilha de cartões. Cada estrofe/versículo é um
@@ -2880,11 +3223,11 @@ main {
    E é justamente por causa dele que a ESTROFE precisa ser um nó próprio: o
    `pre-line` colapsa sequências de espaço em branco, então a linha em branco que
    separa duas estrofes dentro do mesmo slide virava uma quebra simples e as duas
-   encostavam (ver `lvBuildSong`). O espaço entre parágrafos é o dobro da entre
-   linhas — o suficiente para a divisão se ler de relance, sem transformar a
-   letra numa pilha de cartões. */
+   encostavam (ver `lvBuildSong`). O espaço entre eles é o MESMO `--lv-estrofe-gap`
+   das estrofes de slides distintos: os dois casos são a mesma fronteira, e a
+   única diferença é que um deles também carrega o destaque e a posição. */
 .lv-row .lv-text { white-space: pre-line; }
-.lv-row .lv-text + .lv-text { margin-top: .75em; }
+.lv-row .lv-text + .lv-text { margin-top: var(--lv-estrofe-gap); }
 .lv-row--cover { color: var(--muted); font-size: .78rem; letter-spacing: .04em; text-transform: uppercase; }
 .lv-aux {
   font-size: .7rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
@@ -2960,7 +3303,7 @@ body.mode-simple .bottombar { display: none; }
 .simple.open { display: flex; }
 .simple-head { display: flex; align-items: center; gap: .5rem; flex: none; }
 .simple-brand { flex: 1; min-width: 0; font-size: .9rem; font-weight: 800; letter-spacing: .03em; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.simple-brand b { color: var(--gold); }
+.simple-brand b { color: var(--brand); }
 
 /* Tecla: a peça única deste modo. Fundo próprio e alvo grande o bastante para
    o polegar sem mirar.
@@ -2978,11 +3321,19 @@ body.mode-simple .bottombar { display: none; }
 }
 .simple-key svg { display: block; color: var(--accent); }
 .simple-key-label { font-size: .9rem; font-weight: 700; }
-.simple-key-sub { font-size: .72rem; color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* (`.simple-key-sub` saiu na v5.206.) O subtítulo dos botões grandes deste modo
+   foi removido na v5.195 — "Hinários e álbuns" embaixo de "Buscar música"
+   nomeava onde a busca procura, e não há segunda busca aqui para escolher entre
+   elas —, e a regra ficou para trás sem nenhum elemento para vestir. */
+/* DUAS COLUNAS (v5.201), e na ZONA DE BAIXO: preview | buscar.
+   A v5.199 fez a faixa virar coluna sem tela, a v5.200 separou o par de vez, e
+   é a forma emparelhada que o operador pediu de volta — só que embaixo, com o
+   topo da tela reservado à letra. Este é o estado DESTRAVADO, o único em que
+   estas duas células existem: sem tela a faixa inteira é içada para o centro,
+   com só o cartão de conexão dentro (ver `.simple.sem-tela`). */
 .simple-actions { flex: none; display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
 .simple-action { padding: .8rem .5rem; }
 /* Telão conectado: o ícone confirma sem precisar ler o subtítulo. */
-.simple-action.connected svg { color: var(--ok); }
 
 /* ----- A PREVIEW no lugar do botão de conectar (v5.71) -----
    Conectado, não há nada melhor a dizer sobre "está conectado?" do que MOSTRAR
@@ -2999,6 +3350,8 @@ body.mode-simple .bottombar { display: none; }
    preview a 16:9 nessa largura sai um pouco mais alta que a tecla ao lado, é
    ela quem define a linha — e "Buscar música" acompanha. */
 .simple-stage { min-width: 0; display: flex; align-items: center; justify-content: center; }
+/* (O teto de altura da v5.200 saiu com a razão dele: a preview voltou a dividir
+   a linha com "Buscar música", então a largura da célula já a limita.) */
 .simple-stage .preview { width: 100%; height: auto; max-width: 100%; max-height: 100%; }
 /* O cartão de "Baixando…" foi desenhado para a preview do deck, que é quase o
    dobro desta: aqui ele transbordava a miniatura e passava por baixo do ícone
@@ -3028,20 +3381,6 @@ body.mode-simple .bottombar { display: none; }
    desconectar, e o que o toque faz é trancar de volta. */
 .pv-fab.connected { color: var(--danger-strong); }
 
-/* Mesa de som: o mesmo `.pv-fab` dos outros dois, no canto INFERIOR ESQUERDO —
-   a coluna da direita já é do cast (em cima) e do tela cheia (embaixo). Fora do
-   `.pv-fabs` porque aquele contêiner é uma coluna à direita; este é um ponto
-   fixo no canto oposto. */
-.pv-fab--bl { position: absolute; left: 2px; bottom: 2px; z-index: 5; }
-/* LIGADO acende no accent. O ícone carrega o ESTADO (alto-falante inteiro ×
-   riscado), pela mesma convenção da cortina e do mudo: o riscado é o corte. */
-.pv-fab--bl.on { color: var(--accent); }
-.pv-fab--bl .pv-sound-on { display: none; }
-.pv-fab--bl.on .pv-sound-on { display: inline; }
-.pv-fab--bl.on .pv-sound-off { display: none; }
-/* (Em tela cheia ele some junto com os outros — a regra é a mesma dos
-   `.pv-fabs`, lá em cima: ali a preview É a projeção.) */
-
 /* A caixa-preta do telão, em Configurações. `pre` porque cada linha é um
    registro e a ordem/alinhamento são a informação. */
 /* O REGISTRO INTEIRO (v5.121) — antes só a caixa-preta do telão.
@@ -3052,109 +3391,95 @@ body.mode-simple .bottombar { display: none; }
    Mais alta que antes porque agora carrega quatro blocos em vez de um; ainda é
    uma caixa que rola, e o botão de copiar entrega o conjunto de qualquer
    jeito. */
-.diag-box {
-  margin: 0; max-height: 240px; overflow: auto;
-  background: var(--surface); border-radius: var(--radius-btn);
-  padding: .5rem .6rem;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: .68rem; line-height: 1.5; color: var(--muted);
-  white-space: pre-wrap; overflow-wrap: anywhere;
-  -webkit-user-select: text; user-select: text;
-}
+/* (`.diag-box` SAIU na v5.207, com o visor do Registro.) A caixa tinha 240px de
+   altura máxima no meio de Configurações e empurrava para fora da tela as
+   linhas que o operador de fato ajusta — para mostrar um log em fonte de
+   0,68rem que ninguém lê no celular. O Registro continua sendo montado; o que
+   saiu é a vitrine dele. Ver o bloco do `#diagCopy` no `index.html`. */
 /* O rótulo e o botão de copiar na mesma linha, acima da caixa. O botão fica
    FORA do `<pre>` de propósito: dentro de uma área que rola, ele sairia de
    cena junto com o texto. */
-.log-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
-.pv-fab.testing { color: var(--warn); }
-/* Sem tela conectada a faixa não existe — a tela inteira é o bloqueio, e o
-   botão de conectar volta ao centro dela. */
-.simple.locked .simple-stage { display: none; }
-/* Com tela conectada é o botão de conectar que sai — a preview já está na
-   célula dele. A grade segue com as duas colunas de sempre. */
-.simple:not(.locked) #simpleCastBtn { display: none; }
+/* (`.log-head` SAIU na v5.207, com o visor.) Ele era o cabeçalho de uma caixa
+   que não existe mais; hoje o rótulo e o botão de copiar são os dois filhos
+   diretos de uma `.fade-row`, que já faz `space-between` — um invólucro a
+   menos, e a linha volta a ocupar a largura toda. */
+/* ----- Sem tela conectada (ver renderSimpleGate) ----- */
+/* ----- Bloqueio sem tela conectada (ver renderSimpleGate) -----
+   A cortina cobre a tela inteira e é o que embaça: `backdrop-filter` age sobre
+   o que está ATRÁS do elemento, então quem precisa ficar legível sobe na pilha.
+   Sobem dois: o cabeçalho (onde está a saída para o modo avançado) e a faixa de
+   ações, que ali só tem a seção de conexão — a única coisa que resolve o
+   bloqueio.
 
-/* ----- Bloqueio sem tela conectada (ver renderSimpleGate) ----- */
-/* A cortina cobre a tela inteira e é o que embaça: `backdrop-filter` age sobre
-   o que está ATRÁS do elemento, então quem precisa ficar legível sobe na
-   pilha. Sobem dois: o cabeçalho (onde está a saída para o modo avançado) e o
-   botão de conectar, que é a única ação que resolve o bloqueio. */
-/* A cor é `--veil`, que é o próprio `--bg` com alfa: os dois têm de andar
-   JUNTOS. Escrita literal (era rgba(18,18,18,…), do tempo em que --bg valia
-   #121212), a cortina viraria um retângulo de outro preto assim que o fundo
-   do app mudasse — e isso na tela que ABRE por padrão sem TV conectada. */
+   ELA SAIU NA v5.199 E VOLTOU NA v5.203. O que a derrubou foi um diagnóstico
+   errado: o operador relatava "o botão de conectar que persiste em bloquear a
+   tela", e a leitura foi de que o BLOQUEIO incomodava. Não era — o que ele
+   descrevia era o botão ANTIGO reaparecendo, servido pela base embutida no APK
+   depois de um recuo do watchdog sem limpar o cache do WebView (ver v5.200 /
+   v1.91). Ele já tinha dito "essa parte não era o problema"; o texto ficou
+   aqui porque um argumento que parece bom e está errado volta sozinho.
+
+   A COR é `--veil`, que é o próprio `--bg` com alfa: os dois têm de andar
+   JUNTOS. Escrita literal, a cortina viraria um retângulo de outro preto assim
+   que o fundo do app mudasse — e isso na tela que ABRE por padrão sem TV. */
 .simple-veil {
   position: absolute; inset: 0; z-index: 1;
   background: var(--veil);
   backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px);
 }
-/* Sem suporte a backdrop-filter o embaçado simplesmente não acontece — e uma
-   cortina transparente pareceria um toque perdido, não um bloqueio. O véu
-   fica então opaco: some a informação de trás, mas o BLOQUEIO continua dito. */
+/* Sem suporte a backdrop-filter o embaçado não acontece — e uma cortina
+   transparente pareceria um toque perdido, não um bloqueio. O véu fica então
+   opaco: some a informação de trás, mas o BLOQUEIO continua dito. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .simple-veil { background: var(--veil-solid); }
 }
 /* (Não há regra `[hidden]` própria para a cortina: o `[hidden] { display: none
-   !important }` da linha 16 já a esconde com prioridade que nenhuma regra
-   normal desta folha alcança. A que existia aqui justificava-se por um
-   `display:flex` que `.simple-veil` nunca declarou.) */
-.simple.locked .simple-head { position: relative; z-index: 2; }
-/* Bloqueado, a faixa de ações deixa de ser uma faixa: vira UMA coluna no
-   centro da tela, com a mensagem e o botão que a resolve. É o único conteúdo
-   legível, então fica onde o olho já está — e centralizar o grupo inteiro
-   (mensagem + botão) num bloco só dispensa medir a altura de um para
-   posicionar o outro. */
-.simple.locked .simple-actions {
+   !important }` do topo desta folha já a esconde com prioridade que nenhuma
+   regra normal alcança.) */
+.simple.sem-tela .simple-head { position: relative; z-index: 2; }
+/* SEM TELA A PREVIEW NÃO EXISTE, e a busca não leva a lugar nenhum: as duas
+   somem e a faixa de ações deixa de ser faixa — vira o cartão de conexão
+   sozinho, no CENTRO da tela, que é onde o olho já está. Centralizar o bloco
+   inteiro dispensa medir a altura de um elemento para posicionar o outro. */
+.simple.sem-tela .simple-stage,
+.simple.sem-tela #simpleSearchBtn { display: none; }
+.simple.sem-tela .simple-actions {
   position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
   z-index: 2;
-  display: flex; flex-direction: column; gap: 1rem;
+  grid-template-columns: 1fr;
   padding: 0 1.1rem;
 }
-/* Só o botão de conectar fica na frente: com a tela bloqueada, buscar música
-   não leva a lugar nenhum. */
-.simple.locked #simpleSearchBtn { display: none; }
-/* Em DESTAQUE: preenchido no accent, não a mesma tecla escura das outras.
-   Contornado ele pesava igual ao teclado embaçado atrás — e a única ação
-   possível da tela não pode disputar atenção com o que está bloqueado. */
-.simple.locked #simpleCastBtn {
-  padding: 1.5rem 1rem; gap: .5rem;
-  background: var(--accent-fill); color: var(--on-accent);
-  /* SEM HALO (v5.75). Havia aqui uma sombra em `--accent-glow` para "separar o
-     botão do teclado embaçado atrás dele" — mas quem separa é a CORTINA: o
-     `backdrop-filter` já apaga tudo que está atrás, e o botão é a única coisa
-     nítida e a única coisa preenchida da tela. O halo não estava resolvendo um
-     problema de leitura, estava só espalhando luz âmbar num salão escuro. */
+/* SEM TELA, QUEM OCUPA A CÉLULA DA PREVIEW É A SEÇÃO DE CONEXÃO (v5.193) — e
+   não mais um botão que só abria a folha onde ela mora. As duas formas de
+   conectar (espelhar para a TV, transmitir para navegador) cabem aqui.
+   O cartão tem fundo PRÓPRIO porque a cortina embaçada por trás não é fundo de
+   leitura: sobre ela, um texto secundário some. E o teto de altura existe
+   porque a lista de quem está recebendo cresce com a transmissão ligada — no
+   centro da tela ela empurraria o cartão para fora dos dois lados. */
+.simple-conn {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius-card); padding: .9rem;
+  max-height: 46vh; overflow-y: auto;
 }
-.simple.locked #simpleCastBtn svg { color: var(--on-accent); width: 44px; height: 44px; }
-.simple.locked #simpleCastBtn .simple-key-label { font-size: 1.08rem; font-weight: 800; }
-/* Ícone e UMA frase, e nada mais. O subtítulo ("Toque para escolher a tela")
-   repetia o rótulo, e a mensagem que havia acima do botão até a v5.40 dizia
-   pela terceira vez a mesma coisa: três textos para uma tela que tem UMA
-   ação. Com tela conectada o subtítulo volta — ali ele informa QUAL tela, que
-   é notícia. */
-.simple.locked #simpleCastBtn .simple-key-sub { display: none; }
+/* Dentro do cartão o controle AFUNDA, como em qualquer outro cartão do app —
+   ver "A superfície AFUNDA dentro de um cartão", no topo desta folha. Sem esta
+   linha, o bloco que mora numa FOLHA (onde `.popup-sheet` já a aplica) chegaria
+   aqui flutuando em branco sobre um painel claro. */
+.simple-conn { --surface: var(--surface-sunk); --surface-2: var(--surface-2-sunk); }
+/* (AS REGRAS DO BOTÃO ÚNICO SAÍRAM na v5.197, com o próprio botão. Eram ~25
+   linhas de destaque — preenchimento em accent, ícone de 44px, rótulo em
+   800 — para um elemento que a própria folha escondia por DOIS caminhos ao
+   mesmo tempo: `.simple:not(.locked)` e `.simple.locked`. Um `display: none`
+   em cada estado é um elemento que nunca aparece, e o CSS de um elemento que
+   nunca aparece não tem como ser notado errado.) */
 
-/* ----- Liberação de TESTE (segurar 5 s o botão de conectar) -----
-   Uma porta de desenvolvimento: sem telão à mão não há como olhar a tela
-   simplificada destravada, que é justamente a tela que o app abre. Segurar o
-   botão de conectar por 5 s destrava como se houvesse tela; segurar de novo
-   tranca. Ver `CAST_HOLD_MS` em controle.js.
-   A espera precisa de um sinal — 5 s de nada é indistinguível de um toque que
-   não pegou —, então a barra corre no pé do botão enquanto o dedo estiver lá.
-   `forwards` mantém o fim: quem completou a contagem vê a barra cheia no
-   instante em que a tela destrava, em vez de vê-la sumir e duvidar do que
-   aconteceu. */
-.simple-key--holding { position: relative; overflow: hidden; }
-.simple-key--holding::after {
-  content: ''; position: absolute; left: 0; bottom: 0; height: 3px; width: 0;
-  background: var(--on-accent); opacity: .85;
-  animation: cast-hold var(--cast-hold, 5s) linear forwards;
-}
-@keyframes cast-hold { to { width: 100%; } }
-/* Destravado por teste NÃO é "conectado": em `--warn`, que é a família de
-   aviso, e nunca no verde de `.connected` — verde ali significaria uma tela
-   real recebendo a projeção, e não há nenhuma. */
-.simple-action.testing svg { color: var(--warn); }
-.simple-action.testing .simple-key-sub { color: var(--warn-text); }
+/* (A LIBERAÇÃO DE TESTE — segurar 5 s — SAIU na v5.199, junto com a cortina.)
+   Ela era uma porta de desenvolvimento para destravar o app SEM tela, e o
+   único trabalho dela era derrotar o bloqueio. Sem bloqueio não há porta a
+   abrir: o modo já abre usável, que é o que a liberação simulava. Com ela
+   saíram `.simple-veil.segurando::after`, o `@keyframes cast-hold` e o
+   `.pv-fab.testing` em `--warn` — este último dizia "destravado por teste, e
+   isto NÃO é uma conexão", uma distinção que deixou de existir. */
 
 /* Letra da música em cena — ocupa o espaço que sobra entre as ações e as
    teclas. Mesmas linhas da leitura auxiliar do modo avançado (.lv-row). */
@@ -3184,7 +3509,7 @@ body.mode-simple .bottombar { display: none; }
 .simple-lyrics {
   position: relative;            /* offsetParent das linhas (ver lvScroll) */
   flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
-  display: flex; flex-direction: column; gap: .5rem;
+  display: flex; flex-direction: column; gap: var(--lv-estrofe-gap);
   /* Mesma regra das teclas: superfície sólida, sem contorno. */
   padding: .7rem .6rem; border: none; border-radius: var(--radius-card);
   background: var(--panel);
@@ -3237,7 +3562,8 @@ body.mode-simple .hymn-add-btn { display: none; }
 /* Um diagnóstico existe para ser REPASSADO: sem o botão, a alternativa é
    transcrever à mão uma linha cheia de números ou tirar foto da tela. A caixa
    vem do esqueleto de botão de ícone (`--hit`, no alto da folha); ele mora no
-   `.log-head`, FORA da caixa que rola (ver `.diag-box`).
+   própria `.fade-row` do Registro, que desde a v5.207 é uma linha simples:
+   rótulo à esquerda, botão à direita, sem caixa embaixo.
    (As irmãs `.log-line`/`.log-text` descreviam as linhas de log avulsas que o
    `#diagBox` unificou na v5.121 — nenhum JS as desenhava mais.) */
 .log-copy { background: var(--surface-2); color: var(--muted); }
@@ -3336,208 +3662,122 @@ body.mode-simple .hymn-add-btn { display: none; }
    continua no 210. O degrau é o mesmo que o leitor de QR já exigia, e
    `tools/smoke.mjs` o afirma. */
 #castPopup { z-index: 200; }
-#mirrorPopup { z-index: 210; }
 
-/* As duas escolhas da folha de conexão: alvo grande, título e a linha que diz
-   o que cada uma faz de diferente — é ela que evita a pergunta "qual dos
-   dois?" no meio de um culto. */
-.cast-choice {
+/* ---------- A folha de conexão: uma AÇÃO e um ESTADO (v5.184) ----------
+   Até aqui as duas formas de conectar eram o MESMO cartão (`.cast-choice`), e
+   por isso a folha precisava ligar o servidor sozinha ao abrir: um cartão de
+   escolha não sabe dizer "ligado". Espelhar é uma ação que sai do app;
+   transmitir pelo site é um estado que dura o culto. Formas diferentes, e a
+   diferença é legível de longe — que é como esta tela é lida.
+
+   O BOTÃO É PREENCHIDO NO ÂMBAR, a anatomia de botão principal que o app já
+   usa (`.tab-add`, `.misc-tab.active`, `.mixer .vol-btn`):
+   `--accent-fill` de fundo com `--on-accent` por cima — o par que existe
+   justamente para isso, e o único que passa o piso de contraste (5,37:1).
+   Escrever `--accent` num fundo cheio é o erro que a paleta descreve: aquele
+   tom é claro porque é para ser TEXTO sobre fundo escuro. */
+.cast-acao {
   display: flex; align-items: center; gap: .75rem; width: 100%;
-  margin-bottom: .6rem; padding: .85rem .9rem;
-  text-align: left; color: var(--text);
-  background: var(--surface); border: 1px solid var(--line);
-  border-radius: var(--radius-md); cursor: pointer;
+  padding: .85rem .9rem;
+  text-align: left;
+  color: var(--on-accent);
+  background: var(--accent-fill);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-card); cursor: pointer;
 }
-.cast-choice:active { background: var(--surface-2); }
-.cast-choice .msym { font-size: 1.6rem; color: var(--accent); }
-.cast-choice-txt { display: flex; flex-direction: column; gap: .15rem; }
-.cast-choice-txt small { color: var(--muted); font-size: .8rem; line-height: 1.3; }
-
-/* E O LEITOR DE QR É O TERCEIRO DEGRAU: ele abre de dentro da folha do espelho,
-   que abre de dentro de Configurações. Ele nasceu no 200 padrão — um degrau
-   ABAIXO da folha que o abre —, e o resultado foi a folha cobrindo a câmera por
-   inteiro: o operador via o leitor "funcionando" (a câmera acesa, o indicador do
-   sistema aceso) e imagem nenhuma.
-
-   É a MESMA armadilha que o comentário acima descreve, cometida de novo — e é
-   por isso que ela virou asserção em `tools/smoke.mjs`: cada popup aninhado
-   precisa de z-index maior que o do pai, e um comentário pedindo atenção já
-   provou não bastar. 230 e não 221 para deixar espaço, e acima do `#folderPopup`
-   (220) por clareza, ainda que os dois nunca coexistam. */
-#qrPopup { z-index: 230; }
-
-/* O estado, na própria linha da lista de preferências: "Desligado", ou o
-   endereço servido. Uma linha só, com reticências — quem quiser o resto abre a
-   folha, que é onde o assunto mora. */
-.mirror-hint {
-  font-size: .75rem; color: var(--muted);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+/* O toque escurece em vez de clarear: o preenchido já é a camada mais alta da
+   tela, e clarear ainda mais o faria brilhar num salão escuro. */
+.cast-acao:active { filter: brightness(.88); }
+/* COM UMA TV NO AR ele deixa de ser a chamada principal e vira estado: o
+   preenchimento sai e fica o contorno, como todo controle "já resolvido" deste
+   app. A ação continua a mesma (abrir o seletor do Android, que é onde se
+   desconecta) — o que muda é ele parar de disputar atenção com o que ainda
+   falta fazer na folha. */
+.cast-acao.connected {
+  background: var(--ok-soft); color: var(--text);
+  border: 1px solid var(--ok);
 }
-/* Ligado, o estado deixa de ser um detalhe e passa a ser um fato sobre a rede:
-   verde é "há uma tela recebendo" no resto do app, e aqui significa a mesma
-   coisa. NUNCA o vermelho de "no ar" — vermelho preenchido é o telão, e o
-   espelho é auxiliar por contrato. */
-.mirror-hint.on { color: var(--ok); }
+.cast-acao.connected .cast-acao-ico { color: var(--ok); }
+/* O ícone é SVG, não glifo (ver o comentário dos símbolos no HTML): os três da
+   UI de conexão estão ausentes do subconjunto da fonte e desenhavam um vão do
+   tamanho exato de um ícone. `--icon-lg` porque este é o botão principal da
+   folha, e `flex-shrink: 0` porque o rótulo tem duas linhas — sem isso o SVG é
+   o que cede espaço quando a frase quebra. */
+.cast-acao-ico {
+  flex: 0 0 auto; display: block;
+  width: var(--icon-lg); height: var(--icon-lg);
+  color: var(--on-accent);
+}
+.cast-acao-txt { min-width: 0; }
+.cast-acao-txt b { font-size: .92rem; }
+/* A linha auxiliar herda o `--on-accent` com alfa em vez de virar `--muted`:
+   o cinza da paleta é calibrado contra as superfícies escuras e some sobre o
+   âmbar preenchido. */
 
+/* O INTERRUPTOR. Ele é uma LINHA de estado, não um botão: fundo de superfície
+   comum, texto normal, e o sinal fica todo no trilho à direita. A linha inteira
+   é o alvo do toque (`<label>`), porque um interruptor de 44px numa tela
+   operada com o polegar no escuro é alvo pequeno demais. */
+/* LIGADA, a transmissão fica no VERMELHO CONTORNADO, e o rótulo passa a nomear
+   o desligamento (v5.226). É a mesma gramática do `.connected` acima — o
+   preenchimento sai, fica o contorno na cor do estado —, e a cor é a única
+   diferença: verde é "resolvido, e o app não mexe nisso" (a TV, que só o
+   seletor do Android desconecta); vermelho é "está ligado, e o toque desliga".
+
+   CONTORNADO, nunca preenchido: pela regra da paleta o vermelho CHEIO deste app
+   significa "está no ar agora" e pertence à mídia projetada. Um botão de folha
+   preenchido em `--live` competiria com o que a congregação está vendo.
+
+   (Aqui morava o INTERRUPTOR — `.cast-sw-row`, `.cast-sw-input`, `.cast-sw` e o
+   trilho com o botão deslizante. Ele saiu com a v5.224: as duas formas de
+   conectar respondem à mesma pergunta e agora têm a mesma anatomia.) */
+.cast-acao.ligado {
+  background: var(--danger-soft); color: var(--text);
+  border: 1px solid var(--danger-strong);
+}
+.cast-acao.ligado .cast-acao-ico { color: var(--danger-text); }
+/* Enquanto o shell responde (ligar leva um instante, pode pedir confirmação e
+   pode ser recusado) o botão apaga e para de aceitar toque. Um segundo toque no
+   meio do caminho é como se sobem dois servidores.
+   .7 e não .55 (v5.227): desde que o "Ligando…"/"Desligando…" passou a ser o
+   RÓTULO deste botão, ele é o recado — e um recado a 55% de opacidade é o
+   defeito que o lote veio corrigir, com outro nome. Continua claramente inerte;
+   passou a ser legível. */
+.cast-acao:disabled { opacity: .7; cursor: default; }
+.cast-acao:disabled:active { filter: none; }
+
+/* Ainda em uso: é o BLOCO DE CONEXÃO (`#castConn`). O nome vem da folha de
+   ajustes que o hospedava e que saiu na v5.196; renomeá-lo custaria tocar em
+   três arquivos para não mudar um pixel. */
 .mirror-body {
   flex: 1; overflow-y: auto;
   padding: .6rem .7rem .8rem;
   display: flex; flex-direction: column; gap: .55rem;
 }
-/* As ressalvas em texto corrido, no alto: o roteador da igreja pode bloquear
-   isso sozinho, o celular precisa do carregador, o som não vai completo. Elas
-   não cabem num rótulo de botão e não podem virar um manual que ninguém lê —
-   ficam onde o operador está no segundo em que decide ligar. */
+/* A LINHA DE RECADO da folha de conectar (`#castMsg`). Ela fica VAZIA quase
+   sempre — só fala durante um ligar/desligar e quando ele falha —, e um `<p>`
+   vazio não tem altura mas o `gap` do corpo em coluna se aplica dos dois lados
+   dele: um elemento sem conteúdo abria um vão de dois gaps entre o interruptor
+   e o endereço, que se lê como seção faltando. Daí o `:empty`.
+   (O nome vem da folha de ajustes que saiu na v5.196, onde ela era o parágrafo
+   de ressalvas; aqui ela é só o recado.) */
 .mirror-lead {
   margin: 0; font-size: .78rem; line-height: 1.5; color: var(--muted);
   white-space: pre-line;
+  /* ELA ENTRA E SAI ESMAECENDO (v5.226), e não com um `display: none`. Ela é o
+     recado do ligar/desligar — o momento exato em que a folha inteira está se
+     reorganizando —, e um parágrafo que aparece e some num quadro somava um
+     terceiro salto aos dois que este lote foi corrigir. O teto de altura é
+     folgado para duas linhas; a margem negativa cancela o `gap` do corpo
+     enquanto ela está vazia, senão o vão continuaria lá com ela invisível
+     (era o que o `:empty { display: none }` resolvia). */
+  overflow: hidden; max-height: 4rem; opacity: 1;
+  transition: max-height .2s ease, opacity .16s ease .04s, margin-top .2s ease;
 }
-/* O ENDEREÇO e o PIN: o par que alguém vai ler de longe e digitar em outra
-   tela. Corpo grande, monoespaçado e selecionável — ditar "192.168.0.42" por
-   cima de uma fonte proporcional é onde 1, l e I viram a mesma coisa. */
-.mirror-addr {
-  display: flex; flex-direction: column; align-items: center; gap: .25rem;
-  background: var(--surface); border-radius: var(--radius-btn);
-  padding: .6rem .5rem;
-  -webkit-user-select: text; user-select: text;
+.mirror-lead:empty {
+  max-height: 0; opacity: 0; margin-top: -.55rem;
+  transition: max-height .2s ease .04s, opacity .12s ease, margin-top .2s ease .04s;
 }
-.mirror-url {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: .95rem; font-weight: 700; color: var(--text);
-  overflow-wrap: anywhere; text-align: center;
-}
-/* O ENDEREÇO NUMÉRICO, quando há nome curto acima dele. Menor e em `--muted`
-   porque ele é a ALTERNATIVA, não o principal — mas presente, porque em boa
-   parte das telas ele é o único que resolve (ver `EspelhoMdns.kt`). */
-.mirror-url2 {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: .8rem; color: var(--muted);
-  overflow-wrap: anywhere; text-align: center;
-}
-/* A ressalva do `.local`, dita na folha em vez de descoberta no domingo. */
-.mirror-nome-hint {
-  margin: -2px 0 0; font-size: .78rem; line-height: 1.35;
-  color: var(--muted); text-align: center;
-}
-.mirror-pin {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 1.35rem; font-weight: 700; letter-spacing: .18em;
-  color: var(--accent);
-}
-/* O botão de LER O CÓDIGO é o caminho curto, e por isso é o único preenchido
-   no accent dentro da folha: a hierarquia da tela precisa dizer, sem texto, que
-   é por aqui. O par endereço/PIN acima continua sendo o plano B por escrito. */
-.mirror-scan {
-  display: flex; align-items: center; justify-content: center; gap: .45rem;
-  width: 100%;
-  padding: .7rem .8rem;
-  font: inherit; font-size: .85rem; font-weight: 600;
-  color: var(--on-accent);
-  background: var(--accent-fill);
-  border: 0; border-radius: var(--radius-btn);
-  cursor: pointer;
-}
-.mirror-scan .msym { font-size: 1.15rem; }
-
-/* O VISOR DA CÂMERA — TELA CHEIA.
-   A primeira versão era uma caixa 4:3 dentro da folha comum, e ela falhou no
-   aparelho de duas formas ao mesmo tempo: pequena demais para mirar um código
-   numa TV do outro lado do salão, e dentro de um `.popup-sheet`, que vive num
-   `transform: translateY(...)` — um `<video>` de câmera sob um contêiner
-   transformado é caso conhecido de imagem que não aparece no WebView do
-   Android. Aqui o popup é `--full` e o transform é anulado logo abaixo. */
-/* O corpo do leitor não tem margem nem rolagem: a imagem vai de borda a borda,
-   e o que sobra é a linha de estado embaixo. Sem isto, o `padding` e o `gap`
-   herdados da folha do espelho desenhariam uma moldura em volta da câmera. */
-#qrPopup .mirror-body { padding: 0; gap: 0; overflow: hidden; }
-#qrMsg { padding: .7rem .9rem; flex-shrink: 0; }
-
-#qrPopup .popup-sheet {
-  /* O ponto da regra: NENHUM transform sobre o vídeo da câmera. Ela também
-     tira a animação de subida, que sobre uma imagem ao vivo só atrapalha. */
-  transform: none;
-  transition: none;
-}
-.qr-scan {
-  position: relative;
-  /* Ocupa tudo o que sobra da folha. `min-height: 0` porque num contêiner flex
-     em coluna um item NÃO encolhe abaixo do conteúdo sem isso — e era esse o
-     caminho pelo qual a caixa podia ser espremida até quase zero. */
-  flex: 1; min-height: 0;
-  width: 100%;
-  background: #000;
-  overflow: hidden;
-}
-.qr-scan video {
-  width: 100%; height: 100%;
-  object-fit: cover;   /* aqui recortar é o certo: o quadro é uma mira, não uma projeção */
-  display: block;
-}
-/* A mira. Ela não recorta nem restringe a leitura (o detector olha o quadro
-   inteiro) — ela diz ONDE pôr o código, que é o que falta a quem nunca usou. */
-.qr-alvo {
-  position: absolute; left: 50%; top: 50%;
-  transform: translate(-50%, -50%);
-  width: min(70vw, 60vh); aspect-ratio: 1;
-  border: 2px solid var(--accent);
-  border-radius: var(--radius-btn);
-  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .38);
-  pointer-events: none;
-}
-
-/* O CERTIFICADO. Texto primeiro, ações depois — a linha é sobretudo uma
-   FRASE de estado ("HTTP claro: quem estiver na rede consegue ver"), e o botão
-   é a consequência dela, não o assunto. */
-.mirror-cert {
-  display: flex; flex-direction: column; gap: .45rem;
-  background: var(--surface); border-radius: var(--radius-btn);
-  padding: .6rem .65rem;
-}
-.mirror-cert-txt { font-size: .78rem; line-height: 1.45; color: var(--muted); }
-/* Verde é "concluído/conectado" no resto do app, e aqui quer dizer o mesmo:
-   a parede está fechada. Nunca o vermelho preenchido — esse é do que está no
-   ar agora, e um certificado não está no ar, ele está em vigor. */
-.mirror-cert-txt.ok { color: var(--ok); }
-.mirror-cert-acts { display: flex; gap: .4rem; }
-
-/* A linha do modo reusa a anatomia da lista de preferências (é a mesma
-   decisão, no mesmo formato), só sem o fundo de cartão: aqui ela já está
-   dentro de uma folha. */
-.mirror-mode { background: transparent; padding: 0; }
-
-.mirror-auto {
-  display: flex; align-items: center; gap: .5rem;
-  font-size: .8rem; color: var(--muted); cursor: pointer;
-  padding: .1rem .1rem;
-}
-.mirror-auto input { accent-color: var(--accent); width: 1rem; height: 1rem; }
-
-.mirror-list {
-  list-style: none; padding: 0; margin: 0;
-  display: flex; flex-direction: column; gap: .35rem;
-}
-.mirror-item {
-  display: flex; align-items: center; gap: .5rem;
-  background: var(--surface); border-radius: var(--radius-btn);
-  padding: .5rem .6rem; font-size: .8rem;
-}
-.mirror-item-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .1rem; }
-.mirror-item-name { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mirror-item-sub { font-size: .7rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* Aprovar é a ação afirmativa (accent contornado, como todo botão largo das
-   folhas); recusar é destrutiva e usa o vermelho CONTORNADO — nunca preenchido,
-   que é reservado ao que está no ar no telão. */
-.mirror-act {
-  flex-shrink: 0; border: 1px solid var(--accent); border-radius: var(--radius-btn);
-  background: var(--surface); color: var(--accent);
-  font-family: inherit; font-size: .76rem; font-weight: 600;
-  padding: .35rem .6rem; cursor: pointer;
-}
-.mirror-act--no { border-color: var(--danger-text); color: var(--danger-text); }
-/* Ligado, o botão do rodapé passa a ser "Desligar": ação destrutiva, contorno
-   vermelho. É a única forma de o espelho sair do ar por vontade de alguém — ele
-   não se desliga sozinho, nem quando a TV conecta. */
-#mirrorToggle.on { border-color: var(--danger-text); color: var(--danger-text); }
 
 /* ---------- A linha do APK novo (v5.167) ----------
    Ela vive ao lado do rótulo de versão, no rodapé de Configurações, e só
@@ -3547,7 +3787,7 @@ body.mode-simple .hymn-add-btn { display: none; }
 .apk-row {
   display: block; width: 100%;
   margin-top: 6px; padding: 8px 10px;
-  border: 1px solid var(--accent); border-radius: var(--radius-sm, 8px);
+  border: 1px solid var(--accent); border-radius: var(--radius-btn);
   background: transparent; color: var(--accent);
   font-size: .82rem; font-weight: 600; text-align: center;
   cursor: pointer;
@@ -3562,12 +3802,68 @@ body.mode-simple .hymn-add-btn { display: none; }
 .fit-linha .fit-opt--rot { flex: 0 0 auto; }
 
 /* ---------- A folha de conectar, num degrau só (v5.171) ----------
-   O endereço é o maior elemento da folha porque é o ÚNICO que alguém precisa
-   copiar com os olhos para digitar no controle remoto de uma TV. */
+   ENDEREÇO E CÓDIGO são os dois maiores elementos da folha porque são os
+   ÚNICOS que alguém precisa copiar com os olhos para digitar do outro lado do
+   salão — um no navegador da TV, o outro no campo que aparece nela.
+
+   UM ENDEREÇO SÓ desde a v5.185: o IP. O `av.local` saiu com o responder mDNS,
+   porque ele não resolve no Chrome do Android nem na maioria das Smart TVs —
+   que são exatamente as telas deste recurso.
+
+   O RÓTULO é o que os separa. Com dois blocos monoespaçados empilhados, "qual
+   deles vai no navegador?" é uma pergunta real; duas palavras a respondem sem
+   precisar de frase. */
+/* ---------- O BLOCO QUE APARECE COM A TRANSMISSÃO (v5.226) ----------
+   Ligar acrescenta o endereço e a lista de telas; desligar os tira. Com
+   `hidden` isso era uma troca instantânea de altura: a folha saltava e o
+   conteúdo aparecia do nada, no lugar onde um segundo antes havia outra coisa —
+   o operador perdia o foco e precisava reencontrar os elementos.
+
+   `grid-template-rows: 0fr → 1fr` é a única forma de transicionar até uma
+   altura `auto` sem medir nada em JS. O item de grade (`.cast-live-in`) precisa
+   de `min-height: 0` e `overflow: hidden`, senão ele se recusa a encolher
+   abaixo do conteúdo e não há animação nenhuma.
+
+   OS ATRASOS SÃO A ENCENAÇÃO, e eles são assimétricos de propósito:
+     abrindo  → a linha cresce JÁ, o conteúdo entra 0,2 s depois (o espaço nasce
+                antes do que vai ocupá-lo);
+     fechando → o conteúdo sai JÁ, a linha se recolhe 0,14 s depois (nada
+                desaparece por baixo de uma borda que está andando).
+   `visibility` fecha o caso que a opacidade não fecha: recolhido, o bloco ainda
+   teria os botões "Desconectar" no caminho do foco. Ela troca sem transição, no
+   fim de tudo (`.44s`), e volta no instante zero ao abrir. */
+#castLive {
+  display: grid; grid-template-rows: 0fr;
+  visibility: hidden;
+  /* Cancela o `gap` do corpo enquanto o bloco está recolhido: ele continua
+     sendo um item do flex, e um item de altura zero ainda soma um vão. */
+  margin-top: -.55rem;
+  transition: grid-template-rows .3s ease .14s, margin-top .3s ease .14s,
+              visibility 0s linear .44s;
+}
+#castLive.aberto {
+  grid-template-rows: 1fr; visibility: visible; margin-top: 0;
+  transition: grid-template-rows .3s ease, margin-top .3s ease, visibility 0s;
+}
+.cast-live-in {
+  min-height: 0; overflow: hidden;
+  opacity: 0; transform: translateY(-6px);
+  transition: opacity .16s ease, transform .16s ease;
+}
+#castLive.aberto .cast-live-in {
+  opacity: 1; transform: none;
+  transition: opacity .18s ease .2s, transform .18s ease .2s;
+}
+
 .cast-addr {
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
-  margin: .5rem 0 .2rem; padding: .7rem .6rem;
+  display: flex; flex-direction: column; align-items: center; gap: .15rem;
+  margin: .5rem 0 .2rem; padding: .6rem .6rem .7rem;
   background: var(--surface); border-radius: var(--radius-card);
+}
+.cast-addr + .cast-addr { margin-top: 0; }
+.cast-rot {
+  font-size: .7rem; font-weight: 600; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--muted);
 }
 .cast-url {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -3575,35 +3871,47 @@ body.mode-simple .hymn-add-btn { display: none; }
   overflow-wrap: anywhere; text-align: center;
   -webkit-user-select: text; user-select: text;
 }
-.cast-url2 {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: .78rem; color: var(--muted);
-  overflow-wrap: anywhere; text-align: center;
-  -webkit-user-select: text; user-select: text;
-}
-.cast-hint { margin: .1rem 0 .5rem; font-size: .78rem; color: var(--muted); text-align: center; }
+/* O CÓDIGO é o accent, e o endereço não: eles não competem, porque o âmbar aqui
+   diz "este é o número do momento" — ele muda a cada vez que a transmissão é
+   ativada, e o endereço não. Mesma anatomia do PIN que ele substitui. */
 /* Quem está vendo. Uma linha por tela, com a ação à direita — o padrão de
    lista do resto do app, não um cartão novo. */
-.cast-telas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.cast-telas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .35rem; }
 .cast-tela {
   display: flex; align-items: center; justify-content: space-between; gap: .6rem;
   padding: .5rem .6rem; border-radius: var(--radius-card);
   background: var(--surface); font-size: .82rem;
 }
 .cast-tela--vazia { color: var(--muted); justify-content: center; }
+/* UMA TELA QUE ENTRA (ou sai) NÃO PODE EMPURRAR A LISTA DE UM QUADRO PARA O
+   OUTRO (v5.226). O `margin-bottom` negativo no começo da entrada cancela o
+   `gap` da lista enquanto a linha ainda não tem altura — sem ele o vão nasce
+   inteiro no primeiro quadro e a animação começa com um salto de 6px. O teto de
+   3rem é folgado para a linha de uma linha que ela é; `overflow: hidden` é o
+   que faz o texto ser recortado em vez de vazar durante o crescimento.
+   Quem marca as linhas é o `renderCastTelas`, que passou a REAPROVEITAR as que
+   já estão na tela (v5.226) — sem isso a enquete de 2,5 s recriaria a lista
+   inteira e a animação recomeçaria sozinha, para sempre. */
+@keyframes castTelaEntra {
+  from { max-height: 0; opacity: 0; transform: translateY(-5px); margin-bottom: -.35rem; }
+  to   { max-height: 3rem; opacity: 1; transform: none; margin-bottom: 0; }
+}
+@keyframes castTelaSai {
+  from { max-height: 3rem; opacity: 1; margin-bottom: 0; }
+  to   { max-height: 0; opacity: 0; transform: translateY(-5px); margin-bottom: -.35rem;
+         padding-top: 0; padding-bottom: 0; }
+}
+.cast-tela { overflow: hidden; }
+.cast-tela.entrando { animation: castTelaEntra .22s ease both; }
+.cast-tela.saindo { animation: castTelaSai .18s ease both; pointer-events: none; }
 .cast-tela-nome { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Contornado, nunca preenchido: é ação destrutiva, e o preenchido em vermelho
    é "está no ar agora" neste app (ver a paleta). */
 .cast-tela-fora {
   flex: 0 0 auto; padding: .3rem .6rem; font-size: .75rem;
   background: transparent; color: var(--danger-text);
-  border: 1px solid var(--danger-text); border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--danger-text); border-radius: var(--radius-pill); cursor: pointer;
 }
 .cast-tela-fora:disabled { opacity: .5; cursor: default; }
 /* O acesso aos ajustes que sobraram — um link, não um cartão: ele não é o
    caminho de ninguém que só quer conectar uma tela. */
-.cast-link {
-  display: block; width: 100%; margin-top: .5rem; padding: .4rem;
-  background: transparent; border: 0; color: var(--muted);
-  font-size: .78rem; text-decoration: underline; cursor: pointer;
-}

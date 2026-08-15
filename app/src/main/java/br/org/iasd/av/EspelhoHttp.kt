@@ -5,7 +5,9 @@ import java.io.IOException
 import java.io.InputStream
 
 /**
- * O parser HTTP do espelho de pixels. **ZERO import de Android, de propósito.**
+ * O parser HTTP do telão por comandos. **ZERO import de Android, de
+ * propósito.** (Ele nasceu para o espelho de PIXELS, aposentado na v5.187; o
+ * título ficou para trás até a v5.212.)
  *
  * ## Por que este arquivo é puro
  *
@@ -34,11 +36,17 @@ import java.io.InputStream
  * No `shouldInterceptRequest` o `InputStream` devolvido é o recurso INTEIRO a
  * partir do byte 0 e quem aplica o `Range` é o **próprio WebView** — regra que
  * custou três rodadas de APK (v1.52 → v1.54) e que o [StreamProxy] documenta em
- * detalhe. **Aqui é o contrário**: num `ServerSocket` de verdade quem aplicaria
- * `Range` seria o servidor, e não há WebView nenhum no caminho. E, sobretudo,
- * **não há `Range` nenhum**: as rotas do espelho são fluxos infinitos
- * (`Transfer-Encoding: chunked`, corpo que só acaba quando o culto acaba).
- * **Copiar o [StreamProxy] para cá seria o erro exato.**
+ * detalhe. **Aqui é o contrário**: num `ServerSocket` de verdade quem aplica o
+ * `Range` é o servidor, e não há WebView nenhum no caminho — é o que
+ * [alcanceDe] faz, com a gramática do RFC 7233 inteira e JUnit próprio.
+ * **Copiar o [StreamProxy] para cá seria o erro exato**, porque aquele devolve
+ * a fatia como se fosse o todo justamente para o WebView refatiar por cima.
+ *
+ * (Este parágrafo afirmava que "não há `Range` nenhum: as rotas do espelho são
+ * fluxos infinitos". Valia enquanto toda rota era fluxo; a rota `/m/` do telão
+ * por comandos a inverteu na E1, e o texto ficou dizendo o contrário do código
+ * até a v5.212. A invariante 7, logo abaixo, já registrava a mudança — as duas
+ * discordavam dentro do mesmo arquivo.)
  *
  * ## As oito invariantes, e o motivo de cada uma
  *
@@ -69,11 +77,15 @@ import java.io.InputStream
  *    não serve para nada), mas [respostaDeErro] os colapsa no mesmo 404.
  * 6. **Cabeçalhos em TODA resposta** — [CABECALHOS_SEMPRE]. Na página, mais os de
  *    [CABECALHOS_PAGINA].
- * 7. **Sem keep-alive, sem `Range`, sem `Content-Encoding`.** Uma requisição por
- *    conexão, `Connection: close`, e o servidor fecha. O `nosniff` não é enfeite:
- *    sem ele o navegador pode segurar os primeiros ~512 B do fluxo para adivinhar
- *    o tipo, o que atrasa o primeiro quadro — no recurso cujo produto é
- *    justamente o primeiro quadro.
+ * 7. **Sem keep-alive, sem `Content-Encoding`.** Uma requisição por conexão,
+ *    `Connection: close`, e o servidor fecha. O `nosniff` não é enfeite: sem
+ *    ele o navegador pode segurar os primeiros ~512 B do fluxo para adivinhar
+ *    o tipo, o que atrasa o primeiro quadro. **`Range` existe desde a E1 do
+ *    telão por comandos** — a rota de mídia o exige, e num `ServerSocket` ele
+ *    é NOSSO (ver a inversão acima): [alcanceDe] interpreta, com a semântica
+ *    do RFC 7233 (malformado é IGNORADO e vira 200 inteiro; só a faixa válida
+ *    que não cabe leva 416). A invariante anterior ("sem Range") valia
+ *    enquanto toda rota era fluxo infinito.
  * 8. **Uma conexão, uma requisição** — e é isso que apaga a classe inteira do
  *    *request smuggling*: sem keep-alive não existe "próxima mensagem" no mesmo
  *    socket para contrabandear nada para dentro, e `Transfer-Encoding` em
@@ -95,8 +107,9 @@ object EspelhoHttp {
 
     /**
      * Corpo de `POST`. Os dois únicos corpos do protocolo são o pareamento
-     * (`{"pin":…,"ua":…}`) e a volta do cliente (`{"do":"alive",…}`), e os dois
-     * cabem folgadamente. É um teto de PROTOCOLO, não de conveniência: ele é o
+     * (`{"ua":…,"w":…,"h":…}` — sem segredo nenhum desde a v5.189, quando a
+     * porta passou a ser o endereço) e a volta do cliente (`{"do":"alive",…}`),
+     * e os dois cabem folgadamente. É um teto de PROTOCOLO, não de conveniência: ele é o
      * que garante que ninguém nos faça alocar memória pedindo.
      */
     const val TETO_CORPO = 256
@@ -107,8 +120,8 @@ object EspelhoHttp {
      * Ele é maior que o [TETO_CORPO] por uma razão de diagnóstico, e a
      * diferença entre os dois é a razão de existirem dois. O `POST /par` é
      * ANÔNIMO — qualquer um na rede o alcança — e 256 B são de sobra para um
-     * PIN e um relato de capacidades; apertá-lo é o que garante que ninguém nos
-     * faça alocar memória pedindo. O `POST /r` só existe depois de o operador
+     * relato de capacidades; apertá-lo é o que garante que ninguém nos faça
+     * alocar memória pedindo. O `POST /r` só existe depois de o operador
      * ter aprovado aquela tela, e é por ele que chega **a única informação que
      * o servidor não tem como obter sozinho**: se a imagem está de fato
      * andando do outro lado.
@@ -147,6 +160,16 @@ object EspelhoHttp {
         val origem: String?,
         val autorizacao: String?,
         val corpo: ByteArray,
+        /**
+         * O cabeçalho `Range` CRU, ou `null` (o caso de sempre). Capturado
+         * desde a E1 do telão por comandos (`docs/TELAO-POR-COMANDOS.md`):
+         * a rota de mídia `/m/` responde faixas DE VERDADE — num
+         * `ServerSocket` a invariante 8 se inverte e o Range é NOSSO. Quem o
+         * interpreta é [alcanceDe]; o parser só o carrega, como faz com
+         * `Authorization`. Duplicata é recusa, como nos outros quatro campos
+         * lidos.
+         */
+        val intervalo: String? = null,
     )
 
     /**
@@ -199,17 +222,37 @@ object EspelhoHttp {
      * A especificação escreve esta política como
      * `default-src 'self'; frame-ancestors 'none'; base-uri 'none'`, e é dela que
      * vem tudo o que está aqui **menos as duas últimas diretivas**. Elas existem
-     * porque `default-src 'self'` sozinho **proíbe `blob:`** — e as duas formas
-     * do cliente dependem de `blob:`: o modo imagem mostra cada JPEG por
-     * `URL.createObjectURL(blob)` (o `<img src>` direto está fora do desenho,
-     * porque um `<img>` não manda `Authorization` e isso reporia o token na URL)
-     * e o modo vídeo entrega a `MediaSource` ao `<video>` pela mesma função. Sem
-     * `img-src`/`media-src` explícitos o cliente nasceria morto, com o erro no
-     * console de um navegador que ninguém abre — numa TV.
+     * porque `default-src 'self'` sozinho **proíbe `blob:` e `data:`**, e a
+     * página que sai daqui é o `/web/display/` de verdade, que usa os dois:
      *
-     * A rigidez que a política pretende continua inteira: `blob:` é, por
-     * construção, do próprio documento (não é rede), e `script-src`/`connect-src`
-     * seguem herdando `'self'`.
+     *  - `blob:` — o `shared/stage.js` resolve toda mídia local por
+     *    `URL.createObjectURL` (o `File` do OPFS, o `Blob` do registro, cada
+     *    página de um deck), e o `display.js` faz o mesmo com o wallpaper
+     *    personalizado. É o MESMO motor do telão, e ele não tem um caminho
+     *    alternativo: sem `blob:` a tela da rede nasce sem mídia nenhuma.
+     *  - `data:` — o `POSTER_VAZIO` do `stage.js`, o GIF 1×1 transparente que
+     *    cobre o pôster padrão do WebView enquanto um `<video>` espera o
+     *    primeiro quadro. O atributo `poster` é uma IMAGEM, então quem o
+     *    governa é `img-src`, não `media-src`.
+     *
+     * (Este KDoc justificava as duas diretivas pelo "modo imagem" (JPEG por
+     * `createObjectURL`) e pelo "modo vídeo" (a `MediaSource` do `<video>`) do
+     * CLIENTE DO ESPELHO DE PIXELS — as duas formas de um recurso aposentado na
+     * v5.187. As diretivas continuam necessárias; as razões acima é que são as
+     * de verdade. Corrigido na v5.206.)
+     *
+     * **Não há `style-src`, e isso é uma decisão, não um esquecimento**: sem
+     * `'unsafe-inline'`, todo estilo desta página tem de ser FOLHA servida deste
+     * origin. Foi essa regra que a v5.205 aprendeu do jeito caro — um `<style>`
+     * criado em runtime pelo `espelho/tela.js` era anexado e nunca aplicado, e a
+     * entrada da tela ficava invisível e inclicável, sem erro nenhum. Ver o
+     * cabeçalho de `espelho/tela.css`.
+     *
+     * A rigidez que a política pretende continua inteira: `blob:` e `data:` são,
+     * por construção, do próprio documento (não são rede), e
+     * `script-src`/`connect-src` seguem herdando `'self'` — é a herança que
+     * BARRA a IFrame API do YouTube nas telas da rede, que é a exclusão §1 da
+     * especificação virando garantia em vez de promessa.
      */
     val CABECALHOS_PAGINA = listOf(
         "Content-Security-Policy: default-src 'self'; frame-ancestors 'none'; " +
@@ -358,6 +401,233 @@ object EspelhoHttp {
     /** O terminador do corpo `chunked`. Só o `desligar()` e o adeus o usam. */
     fun chunkFinal(): ByteArray = "0\r\n\r\n".toByteArray(Charsets.US_ASCII)
 
+    // ------------------------------------------------- Range (RFC 7233, E1)
+    //
+    // A invariante 7 dizia "sem Range", e ela valia enquanto todas as rotas
+    // eram fluxos infinitos. A rota de mídia do telão por comandos
+    // (`docs/TELAO-POR-COMANDOS.md` §5.3) muda isso — e num `ServerSocket` o
+    // Range é NOSSO por inteiro (a inversão da invariante 8, escrita no topo
+    // deste arquivo): 206 com `Content-Range` de verdade, nunca o 200 seco do
+    // StreamProxy, que existe para o refatiamento do WebView e aqui seria o
+    // erro exato.
+
+    /** Uma faixa RESOLVIDA contra o tamanho do recurso: `ini..fim`, inclusivos,
+     *  sempre `0 <= ini <= fim < tamanho`. */
+    data class Faixa(val ini: Long, val fim: Long) {
+        val bytes: Long get() = fim - ini + 1
+    }
+
+    /**
+     * O que fazer com um pedido diante de um `Range` — as TRÊS respostas que o
+     * RFC 7233 permite, e nenhuma outra.
+     *
+     * [Inteiro] cobre também o malformado e o que não se quer atender
+     * (multi-faixa, unidade estranha): o RFC manda IGNORAR um `Range` que não
+     * se entende e responder 200 com o recurso inteiro — que é a degradação
+     * certa, porque um 400 aqui quebraria um player legítimo por um cabeçalho
+     * que ele tinha todo o direito de mandar. [Insatisfazivel] é só para a
+     * faixa SINTATICAMENTE válida que não cabe no recurso (`ini >= tamanho`,
+     * sufixo de zero bytes): essa merece o 416, senão o player repete o pedido
+     * para sempre.
+     */
+    sealed class Alcance {
+        object Inteiro : Alcance()
+        data class Parcial(val faixa: Faixa) : Alcance()
+        object Insatisfazivel : Alcance()
+    }
+
+    /** Dígitos no máximo neste tanto — a mesma disciplina do StreamProxy: um
+     *  número de 16+ dígitos não é uma posição de arquivo, é um estouro. */
+    private const val RANGE_DIGITOS = 15
+
+    /**
+     * Interpreta o cabeçalho `Range` de [Req.intervalo] contra um recurso de
+     * [tamanho] bytes.
+     *
+     * Só `bytes` (a unidade é case-insensitive por RFC), só UMA faixa — as
+     * três formas: `bytes=a-b`, `bytes=a-`, `bytes=-n`. Multi-faixa é
+     * ignorada (200): atendê-la exigiria `multipart/byteranges`, que nenhum
+     * `<video>` precisa. `a > b`, dígito quebrado, espaço no meio: malformado,
+     * ignorado. `b` além do fim: TRUNCA (o RFC manda). `a >= tamanho` ou
+     * sufixo `-0`: [Alcance.Insatisfazivel]. Recurso de tamanho 0 não tem
+     * faixa satisfazível — qualquer `Range` válido vira 416, e sem `Range` o
+     * chamador serve o 200 vazio de sempre.
+     */
+    fun alcanceDe(intervalo: String?, tamanho: Long): Alcance {
+        if (intervalo == null) return Alcance.Inteiro
+        val igual = intervalo.indexOf('=')
+        if (igual <= 0) return Alcance.Inteiro
+        // SEM trim interno, de propósito: o valor do cabeçalho já chegou com as
+        // pontas aparadas pelo parser, e espaço DENTRO da especificação da
+        // faixa está fora da gramática do RFC 7233. Tolerá-lo seria adivinhar —
+        // e adivinhar é como nascem as divergências de interpretação entre dois
+        // programas. Ignorado (200 inteiro), como todo malformado daqui.
+        if (!intervalo.substring(0, igual).equals("bytes", ignoreCase = true)) {
+            return Alcance.Inteiro
+        }
+        val resto = intervalo.substring(igual + 1)
+        if (resto.contains(',')) return Alcance.Inteiro
+        val traco = resto.indexOf('-')
+        if (traco < 0) return Alcance.Inteiro
+        val aTxt = resto.substring(0, traco)
+        val bTxt = resto.substring(traco + 1)
+        return when {
+            // Sufixo: `bytes=-n`, os últimos n bytes.
+            aTxt.isEmpty() -> {
+                val n = numero(bTxt) ?: return Alcance.Inteiro
+                if (n == 0L || tamanho <= 0L) return Alcance.Insatisfazivel
+                val ini = maxOf(0L, tamanho - n)
+                Alcance.Parcial(Faixa(ini, tamanho - 1))
+            }
+            // Aberta: `bytes=a-`, de a até o fim.
+            bTxt.isEmpty() -> {
+                val a = numero(aTxt) ?: return Alcance.Inteiro
+                if (a >= tamanho) return Alcance.Insatisfazivel
+                Alcance.Parcial(Faixa(a, tamanho - 1))
+            }
+            else -> {
+                val a = numero(aTxt) ?: return Alcance.Inteiro
+                val b = numero(bTxt) ?: return Alcance.Inteiro
+                if (a > b) return Alcance.Inteiro
+                if (a >= tamanho) return Alcance.Insatisfazivel
+                Alcance.Parcial(Faixa(a, minOf(b, tamanho - 1)))
+            }
+        }
+    }
+
+    private fun numero(s: String): Long? {
+        if (s.isEmpty() || s.length > RANGE_DIGITOS) return null
+        for (c in s) if (c !in '0'..'9') return null
+        return s.toLong()
+    }
+
+    /**
+     * Só o CABEÇALHO de uma resposta com `Content-Length` — para corpos que o
+     * servidor vai ESCREVER EM SEGUIDA, direto do arquivo, sem carregar na
+     * memória (o StreamProxy lê o pedaço inteiro em RAM; três telas puxando um
+     * vídeo de 380 MB por esse molde derrubariam o processo da projeção).
+     * `Accept-Ranges: bytes` vai sempre: é ele que faz o `<video>` pedir
+     * faixas em vez de recomeçar do zero a cada seek.
+     */
+    fun cabecalhoConteudo(
+        tipo: String,
+        tamanho: Long,
+        extra: List<String> = emptyList(),
+    ): ByteArray = cabecalhoComTamanho(200, tipo, tamanho, listOf("Accept-Ranges: bytes") + extra)
+
+    /** O cabeçalho do 206: `Content-Range: bytes ini-fim/total` + o tamanho DA
+     *  FAIXA — os dois números que um 206 não pode errar. */
+    fun cabecalhoParcial(
+        tipo: String,
+        faixa: Faixa,
+        total: Long,
+        extra: List<String> = emptyList(),
+    ): ByteArray = cabecalhoComTamanho(
+        206,
+        tipo,
+        faixa.bytes,
+        listOf(
+            "Content-Range: bytes ${faixa.ini}-${faixa.fim}/$total",
+            "Accept-Ranges: bytes",
+        ) + extra,
+    )
+
+    /** O 416, com o `Content-Range` de asterisco (`bytes *&#47;total`) que diz
+     *  ao player o tamanho real — sem ele não há como corrigir o pedido. */
+    fun resposta416(total: Long): ByteArray = resposta(
+        416,
+        "text/plain; charset=utf-8",
+        "416".toByteArray(Charsets.US_ASCII),
+        listOf("Content-Range: bytes */$total"),
+    )
+
+    /**
+     * O mesmo cabeçalho, para quem ESPELHA a resposta de outro servidor (a
+     * rota `/s/` da transmissão direta, v5.189): ali o status e o
+     * `Content-Range` vêm do CDN, não de um cálculo nosso, e as duas outras
+     * portas ([cabecalhoConteudo] e [cabecalhoParcial]) presumem o contrário.
+     */
+    fun cabecalhoComTamanhoPublico(
+        status: Int,
+        tipo: String,
+        tamanho: Long,
+        extra: List<String> = emptyList(),
+    ): ByteArray = cabecalhoComTamanho(status, tipo, tamanho, extra)
+
+    /**
+     * O funil de cabeçalho VINDO DE FORA — a rota `/s/` repassa o
+     * `Content-Type` e o `Content-Range` que o CDN mandou, e uma linha de
+     * resposta de outro servidor não pode carregar `\r\n` para dentro da nossa
+     * (injeção de cabeçalho).
+     *
+     * Ele **filtra**, ao contrário do [semQuebra] interno, que LANÇA. A
+     * diferença é a origem do texto e ela é a regra do projeto inteiro: um
+     * caractere inválido num cabeçalho que nós montamos é defeito de
+     * programação (e uma exceção é a resposta certa); num cabeçalho que veio
+     * da rede é só dado sujo, e derrubar a projeção por causa dele seria
+     * deixar um terceiro escolher quando o culto para.
+     */
+    fun semQuebraPublica(s: String): String {
+        val sb = StringBuilder(s.length)
+        for (c in s) if (c >= ' ' && c <= '~') sb.append(c)
+        return sb.toString()
+    }
+
+    private fun cabecalhoComTamanho(
+        status: Int,
+        tipo: String,
+        tamanho: Long,
+        extra: List<String>,
+    ): ByteArray {
+        require(tamanho >= 0) { "tamanho negativo" }
+        val cab = StringBuilder()
+        cab.append("HTTP/1.1 ").append(status).append(' ').append(razao(status)).append("\r\n")
+        cab.append("Content-Type: ").append(semQuebra(tipo)).append("\r\n")
+        cab.append("Content-Length: ").append(tamanho).append("\r\n")
+        for (linha in CABECALHOS_SEMPRE) cab.append(linha).append("\r\n")
+        for (linha in extra) cab.append(semQuebra(linha)).append("\r\n")
+        cab.append("\r\n")
+        return cab.toString().toByteArray(Charsets.US_ASCII)
+    }
+
+    // ------------------------------------------------------- SSE (E1/E2)
+    //
+    // O fluxo de comandos do telão por comandos é `text/event-stream` SOBRE o
+    // chunked que este arquivo já emite — três linhas de framing, nenhum
+    // protocolo novo. O cliente é `fetch`+`ReadableStream` (o mesmo transporte
+    // do GET /v de sempre, com `Authorization` no header — `EventSource` não
+    // manda header, e o token nunca viaja numa URL).
+
+    /** O cabeçalho do fluxo de eventos. */
+    fun cabecalhoSse(extra: List<String> = emptyList()): ByteArray =
+        cabecalhoChunked(200, "text/event-stream", extra)
+
+    /**
+     * Um evento: `data: <json>\n\n`, pronto para virar UM [chunk].
+     *
+     * O `require` é a mesma doutrina do [semQuebra]: uma quebra de linha crua
+     * dentro do JSON partiria o evento em dois — e ela só pode vir de código
+     * NOSSO, porque `JSON.stringify`/`JSONObject.toString` escapam `\n` dentro
+     * de strings. Defeito, não entrada.
+     */
+    fun eventoSse(json: String): ByteArray {
+        for (c in json) require(c != '\n' && c != '\r') { "evento SSE com quebra de linha" }
+        return ("data: " + json + "\n\n").toByteArray(Charsets.UTF_8)
+    }
+
+    /**
+     * O batimento: um COMENTÁRIO SSE (`: ping <epoch-ms>`) a cada 15 s.
+     *
+     * Ele paga três contas de uma vez (spec §3.8): o vigia de fio do cliente,
+     * a detecção de TCP meio-aberto do lado do servidor (a escrita falha) e a
+     * renovação do wake lock do EspelhoService, que é por progresso real de
+     * escrita. O epoch é a referência da correção de relógio das telas — o
+     * cronômetro e o sorteio viajam por descritor ancorado em `Date.now()` do
+     * celular, e uma Smart TV com o relógio minutos fora contaria errado.
+     */
+    fun pingSse(epochMs: Long): ByteArray =
+        (": ping " + epochMs + "\n\n").toByteArray(Charsets.US_ASCII)
+
     // ---------------------------------------------------------------- interno
 
     private fun analisar(
@@ -399,6 +669,7 @@ object EspelhoHttp {
         var host: String? = null
         var origem: String? = null
         var autorizacao: String? = null
+        var intervalo: String? = null
         var tamanho: Int? = null
         var quantos = 0
         while (true) {
@@ -431,6 +702,10 @@ object EspelhoHttp {
                 "authorization" -> {
                     if (autorizacao != null) throw Erro.Malformado
                     autorizacao = valor
+                }
+                "range" -> {
+                    if (intervalo != null) throw Erro.Malformado
+                    intervalo = valor
                 }
                 "content-length" -> {
                     if (tamanho != null) throw Erro.Malformado
@@ -470,7 +745,7 @@ object EspelhoHttp {
         val o = origem
         if (o != null && !origemAceita(o, hostsAceitos)) throw Erro.OrigemEstranha
 
-        return Req(metodo, caminho, query, h, o, autorizacao, corpo)
+        return Req(metodo, caminho, query, h, o, autorizacao, corpo, intervalo)
     }
 
     private fun origemAceita(origem: String, hostsAceitos: Set<String>): Boolean {
@@ -569,11 +844,14 @@ object EspelhoHttp {
     private fun razao(status: Int): String = when (status) {
         200 -> "OK"
         202 -> "Accepted"
+        206 -> "Partial Content"
+        302 -> "Found"
         400 -> "Bad Request"
         403 -> "Forbidden"
         404 -> "Not Found"
         413 -> "Payload Too Large"
         414 -> "URI Too Long"
+        416 -> "Range Not Satisfiable"
         431 -> "Request Header Fields Too Large"
         500 -> "Internal Server Error"
         else -> if (status < 400) "OK" else "Error"

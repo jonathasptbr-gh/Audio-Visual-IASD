@@ -16,17 +16,29 @@
          divergir aqui é reintroduzir justamente o "flash" que o themes.xml diz
          evitar. Se o token mudar de novo, este valor muda junto — nada no
          build detecta a divergência, e o OTA pode trocar a base web sem trocar
-         o APK. -->
-    <color name="app_bg">#131211</color>
-    <!-- Fundo do ícone adaptativo. É o MESMO `bg` acima, e a razão mudou na
-         v1.34: até então ele seguia o verde do wallpaper (o gradiente da
-         cortina do telão), com o argumento de que o ícone é da gaveta do
-         sistema e não da UI. Só que aquele verde nunca aparece no CELULAR —
-         ele é a cortina da TV —, e o desenho por cima estava em AZUL, de uma
-         paleta que a base web abandonou na v5.47. Um ícone em verde-e-azul não
-         representava nenhuma tela deste app. A identidade que o operador vê no
-         aparelho é âmbar sobre este escuro, e é ela que o ícone mostra: o
-         mesmo preto que o sistema desenha ANTES do WebView carregar, de modo
-         que abrir o app expande o fundo do próprio ícone. -->
-    <color name="ic_launcher_background">#131211</color>
+         o APK.
+         Desde a v5.192 o valor é o quase-preto com a matiz do denim oficial da
+         IASD, e não mais o quase-preto quente da paleta âmbar. -->
+    <color name="app_bg">#0e1215</color>
+    <!-- O MESMO papel, no TEMA CLARO (v5.192): espelha o `bg` do bloco
+         :root[data-tema="claro"] de tokens.css. Quem escolhe entre os dois é a
+         MainActivity, em tempo de execução, a partir da cópia da escolha que o
+         Controle grava pela ponte (AVNative.temaClaro) — um recurso de XML é
+         resolvido antes de existir JavaScript, então o windowBackground do
+         PRIMEIRO quadro só pode vir de uma preferência guardada. O tema do APK
+         (themes.xml) continua apontando para o escuro, que é o padrão de quem
+         nunca escolheu nada. -->
+    <color name="app_bg_claro">#dfe3e7</color>
+    <!-- Fundo do ícone adaptativo. É o MESMO `bg` do tema ESCURO, e não segue
+         a escolha do operador: o ícone vive na gaveta do sistema, é desenhado
+         quando o app está fechado e não há como repintá-lo por tema. A razão
+         de ele ser o fundo do app mudou na v1.34: até então ele seguia o verde
+         do wallpaper (o gradiente da cortina do telão), com o argumento de que
+         o ícone é da gaveta do sistema e não da UI. Só que aquele verde nunca
+         aparece no CELULAR — ele é a cortina da TV. A identidade que o
+         operador vê no aparelho é o azul da IASD sobre este escuro, e é ela
+         que o ícone mostra: o mesmo fundo que o sistema desenha ANTES do
+         WebView carregar, de modo que abrir o app expande o fundo do próprio
+         ícone. -->
+    <color name="ic_launcher_background">#0e1215</color>
 </resources>

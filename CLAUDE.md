@@ -22,11 +22,12 @@ espelhar o celular.
 6. [Trabalho em segundo plano (downloads com o app minimizado)](#trabalho-em-segundo-plano-downloads-com-o-app-minimizado)
 7. [Notificação de controles (sessão de mídia)](#notificação-de-controles-sessão-de-mídia)
 8. [OTA da base web (atualização sem APK)](#ota-da-base-web-atualização-sem-apk)
-9. [Espelho de pixels (o telão nas telas da rede local)](#espelho-de-pixels-o-telão-nas-telas-da-rede-local)
-10. [A paleta](#a-paleta)
-11. [Divergências entre o caminho web e o nativo](#divergências-entre-o-caminho-web-e-o-nativo)
-12. [Build e distribuição](#build-e-distribuição)
-13. [Regras de desenvolvimento](#regras-de-desenvolvimento)
+9. [Telão por comandos (o telão nas telas da rede local)](#telão-por-comandos-o-telão-nas-telas-da-rede-local)
+10. [Séries do YouTube (o álbum "Provai e Vede 2026")](#séries-do-youtube-o-álbum-provai-e-vede-2026)
+11. [A paleta](#a-paleta)
+12. [Divergências entre o caminho web e o nativo](#divergências-entre-o-caminho-web-e-o-nativo)
+13. [Build e distribuição](#build-e-distribuição)
+14. [Regras de desenvolvimento](#regras-de-desenvolvimento)
 
 ---
 
@@ -67,15 +68,21 @@ app/src/main/
 ├── assets/web/                  # ← a base web (cópia própria, versionada aqui)
 │   ├── version.json             #   identidade do bundle (version + minShell)
 │   ├── shared/tokens.css        #   PALETA — fonte única, carregada pelos dois apps
+│   ├── shared/wallpaper-padrao.svg  # o WALLPAPER padrão: símbolo oficial IASD
 │   ├── shared/native.js         #   ponte AVNative + watchdog do OTA (NÃO existe no PWA)
 │   ├── shared/mse.js            #   player DASH mínimo: transmissão direta sem baixar
 │   ├── shared/db.js             #   + relay nativo no canal de comandos
 │   ├── shared/stage.js          #   motor de mídia (compartilhado Controle/Display)
 │   ├── vendor/                  #   ÚNICO código de terceiro do lado web:
 │   │                            #   o renderizador de .pptx (ver o LEIA-ME de lá)
-│   ├── espelho/                 #   O ESPELHO DE PIXELS: a página do cliente, o
-│   │                            #   muxer fMP4 e o codificador de QR do
-│   │                            #   pareamento (ver a seção do recurso)
+│   ├── shared/stage.css         #   o CSS do motor (o indicador de espera)
+│   ├── espelho/tela.css         #   o CSS da ENTRADA da tela da rede
+│   │                            #   (os dois eram `<style>` em runtime, e a CSP
+│   │                            #    das telas da rede os bloqueava — v5.205)
+│   ├── espelho/tela.js          #   O TELÃO POR COMANDOS: a casca do papel
+│   │                            #   `tela` sobre o próprio /display/ (SSE)
+│   ├── controle/serie.js        #   as SÉRIES do YouTube: a REGRA que decide o
+│   │                            #   que entra num álbum (PURA, com oráculo Node)
 │   ├── controle/                #   (sem sw.js / manifest / icons — ver abaixo)
 │   └── display/                 #   (idem)
 ├── java/br/org/iasd/av/
@@ -86,8 +93,9 @@ app/src/main/
 │   ├── SafPathHandler.kt        # serve arquivos do dispositivo em /saf/<token>
 │   ├── ShareIntake.kt           # intent ACTION_SEND → formato do share web
 │   ├── SyncService.kt           # foreground service: downloads com o app minimizado
-│   ├── SessionService.kt        # MediaSession + notificação com os controles de transporte
+│   ├── SessionService.kt        # O ÚNICO foreground service: MediaSession + transmissão
 │   ├── WebUpdater.kt            # OTA da base web (watchdog, minShell, sha256)
+│   ├── ShellUpdater.kt          # OTA do APK: a Release nova, instalada de dentro do app
 │   ├── WebPathHandler.kt        # serve o bundle OTA, com fallback pro APK
 │   ├── YoutubeGrab.kt           # extrai e baixa o vídeo do YouTube NO APARELHO
 │   ├── MuxMp4.kt                # junta as faixas de vídeo e áudio (1080p) — MediaMuxer
@@ -95,18 +103,15 @@ app/src/main/
 │   ├── SlideDeck.kt             # apresentação (PDF/Google) → uma imagem por página
 │   ├── MicChromeClient.kt       # onPermissionRequest: microfone no WebView do telão
 │   ├── MessageBus.kt            # relay de comandos entre os dois WebViews
-│   │                            # ↓ ESPELHO DE PIXELS (ver a seção do recurso)
-│   ├── MirrorPresentation.kt    # a 2ª Presentation, na tela virtual privada
-│   ├── EspelhoDisplay.kt        # dono do VirtualDisplay, da densidade e da sonda
-│   ├── EspelhoCodec.kt          # MediaCodec H.264 sobre a Surface da tela virtual
-│   ├── EspelhoHttp.kt           # o parser HTTP — PURO, zero import de Android
-│   ├── EspelhoPares.kt          # PIN, aprovação, tokens, prazo — PURO
-│   ├── EspelhoServidor.kt       # sockets, rotas, fan-out
-│   ├── EspelhoService.kt        # foreground service `connectedDevice`
-│   ├── EspelhoAudio.kt          # PCM do WebView do espelho → AAC no mesmo fio
-│   ├── EspelhoMdnsPacote.kt     # o fio do mDNS — PURO, com JUnit
-│   ├── EspelhoMdns.kt           # `av.local`: socket 5353, sondagem, despedida
-│   └── EspelhoDiag.kt           # o anel de diagnóstico — devolve JSON, não frase
+│   │                            # ↓ TELÃO POR COMANDOS (ver a seção do recurso)
+│   ├── EspelhoHttp.kt           # o parser HTTP (+ Range/SSE) — PURO, zero import de Android
+│   ├── EspelhoPares.kt          # a porta, tokens, prazo, castigo — PURO
+│   ├── EspelhoServidor.kt       # sockets, rotas (bundle, /e, /m/, /par, /r), fan-out
+│   ├── EspelhoMidiaCache.kt     # o cache da rota /m/<token> — PURO, com JUnit
+│   ├── EspelhoMidiaCanal.kt     # canal de ArrayBuffer: OPFS → cache (WebMessage)
+│   ├── EspelhoEnergia.kt        # wake lock, Wi-Fi lock e térmica da transmissão
+│   ├── EspelhoCert.kt           # o .p12 do TLS opcional (sem UI desde a v5.196)
+│   └── EspelhoDiag.kt           # o DIÁRIO da transmissão — devolve JSON, não frase
 └── res/
     ├── drawable/                # ic_image{,_off} — a cortina, na notificação
     │                            #  + ic_launcher_{foreground,mono} — o ÍCONE, em vetor
@@ -116,19 +121,17 @@ app/src/main/
     └── xml/                     # backup_rules + data_extraction_rules (ver "Build")
 docs/
 ├── ARQUITETURA-WEB.md           # arquitetura completa da base web
-├── ESPELHO-DE-PIXELS.md         # a especificação FECHADA do espelho (ler antes de mexer)
+├── TELAO-POR-COMANDOS.md        # o CONTRATO do telão por comandos (ler antes de mexer)
+├── ESPELHO-DE-PIXELS.md         # APOSENTADO (v5.187) — histórico do espelho de pixels
 └── FONTE-DE-DADOS-LOUVORJA.md   # referência do banco LouvorJA (hinos/Bíblia)
 ```
 
 **Vinte e cinco arquivos Kotlin, uma dependência de terceiros no shell** — o
-resto é AndroidX oficial (`core-ktx`, `activity-ktx`, `webkit`). Medido agora
-(`wc -l`, com o espelho de pixels chegando):
-**~14.000 linhas de Kotlin** contra **~20.400 linhas de JavaScript** em
-`assets/web/` (sem contar `vendor/`, que é código buildado de terceiro) — a
-proporção é o argumento, não o número absoluto — e ela **encolheu de propósito**
-com o espelho: ~1.600 linhas de Kotlin novas em oito arquivos é o maior lote
-nativo da história do projeto, e está assumido por escrito na seção do recurso.
-Manter o nativo pequeno respeita
+resto é AndroidX oficial (`core-ktx`, `activity-ktx`, `webkit`). A troca do
+espelho de pixels pelo telão por comandos (v5.187) **removeu** quatro arquivos
+nativos inteiros (encoder, tela virtual, segunda Presentation, ponte de áudio)
+e devolveu a renderização ao lado web — a proporção Kotlin × JavaScript é o
+argumento, não o número absoluto. Manter o nativo pequeno respeita
 a filosofia do projeto muito melhor que Capacitor/Cordova, que arrastariam npm e
 um build system inteiro e ainda assim exigiriam código nativo próprio para a
 Presentation.
@@ -200,14 +203,13 @@ rodadas de APK para ser aprendida:
    deixa só um erro de rede sem status. Ver `StreamProxy.kt` e
    `tools/webview-range.test.mjs`, que trava a regra no CI.
 
-   > **E ela SE INVERTE num `ServerSocket`.** No servidor do espelho de pixels
-   > quem aplicaria `Range` seria o próprio servidor, não o WebView — e ali não
-   > há `Range` nenhum: as rotas são fluxos infinitos (`chunked`). **Copiar o
+   > **E ela SE INVERTE num `ServerSocket`.** No servidor das telas da rede
+   > quem aplica o `Range` somos NÓS, não o WebView — a rota `/m/<token>` faz
+   > RFC 7233 de verdade (`EspelhoHttp.alcanceDe`, com JUnit). **Copiar o
    > `StreamProxy` para lá é o erro exato**, e é por isso que o `EspelhoHttp` é
    > um arquivo à parte, puro, e não uma parametrização daquele.
 
-**No WebView do TELÃO e no do ESPELHO** — os dois documentos que hospedam
-código de terceiro por design (a IFrame Player API do YouTube):
+**No WebView do TELÃO:**
 
 9. **A ponte nasce com `host = null`, e o loader é montado SEM o handler
    `/saf/`.** É o que separa "uma segunda janela do Display" de um
@@ -228,9 +230,10 @@ YouTube dividem o mesmo processo.
 **`KeepVisibleWebView` (só o telão).** O Chromium marca a página como `hidden`
 quando a janela da View some, e é isso que acontece com a `Presentation` no
 instante em que o app é minimizado. Um `<video>` local não liga; o **embed do
-YouTube pausa sozinho** ao ver `document.hidden`. `onWindowVisibilityChanged`
+YouTube pausava sozinho** ao ver `document.hidden`. `onWindowVisibilityChanged`
 reporta sempre `VISIBLE` para tirar esse gatilho. **Não bastou** para o YouTube
-(a solução real é baixar o vídeo — ver a tabela de divergências), mas fica: o
+(a solução real foi baixar o vídeo, e desde a v5.212 o embed não existe mais),
+mas fica: o
 telão é a projeção, ele continua no ar com o app minimizado de propósito, e não
 há razão para o renderer dele ser desacelerado. O WebView do **Controle** segue
 o ciclo normal — ali ser estrangulado em segundo plano é o comportamento certo,
@@ -311,42 +314,62 @@ window.AVNative = {
   otaApply(),          // APLICA-a agora: as duas páginas recarregam — shell 29
   otaCheck(forcar),    // PROCURA agora; `forcar` pula o piso do shell — shell 31
   otaDiag(),           // → string: quando foi a última busca e o que ela deu
+  atualizacaoEstado(), // → { web, webAtual, shell, shellBytes, shellAtual, diag }
+                       //   OS DOIS CANAIS numa leitura só — shell 43. Ele não
+                       //   acrescenta poder: acrescenta COERÊNCIA DE INSTANTE
+                       //   (ver a seção do OTA)
+  apkProcurar(),       // → { versao, url, notas } da Release nova, ou null — shell 35
+  apkInstalar(),       // baixa e abre o diálogo de instalação do sistema — shell 35
+                       //   (sem URL: quem a escolhe é o `ShellUpdater`, do
+                       //    achado da última `apkProcurar`)
   ytDiag(),            // → string: o que o extrator recebeu na última extração
                        //   (diagnóstico do rodapé de Configurações)
-  keepAudioAlive(bool),// mesa de som ligada: este WebView não pode ser suspenso
   ytStream(url, altura), // → manifesto DASH { video, audio, seconds, height } ou null
                        //   TRANSMITIR sem baixar — exige shell 26
   ytSearch(termo),     // → [{ id, url, name, author, seconds, thumb }] do YouTube
+  ytCanalPlaylists(canalUrl), // → [{ name, url, count }] da ABA do canal — shell 41
+  ytPlaylist(url),     // → { name, author, items:[{id,url,name,seconds,thumb}] }
+                       //   os dois são as SÉRIES da Biblioteca. TRANSPORTE puro:
+                       //   o `name` do item é o título CRU (sem `tituloLimpo`),
+                       //   e quem lê os nomes é `controle/serie.js`
   deckPages(origem, nome, onProg), // → { name, pages:[url] } ou { erro }: PDF em imagens
   deckExportUrl(link), // → URL de exportação PDF de um link do Google Apresentações
   deckDiscard(url),    //   e apaga as páginas depois da cópia
   captureVolumeKeys(bool), // botões físicos de volume vão para o app
   systemVolume(step),  // devolve um passo ao volume do sistema (fader no limite)
+  temaClaro(bool),     // o TEMA escolhido: ícones das barras + windowBackground
   requestMic(),        // → bool: permissão RECORD_AUDIO (push-to-talk)
-  requestCam(),        // → bool: permissão CAMERA (ler o QR da tela do espelho)
   keepAlive(bool),     // download em curso — ver "Trabalho em segundo plano"
   bgProgress({label, done, total, etaMs, items, idleMs, bytes}), // progresso na notificação
-  nowPlaying({active, title, subtitle, playing, slideMode, slideLabel, wallpaper, positionMs, durationMs}),
+  nowPlaying({active, title, subtitle, playing, slideMode, slideLabel, wallpaper, positionMs, durationMs, actions}),
+                       //   `actions`: os BOTÕES do cartão, na ordem, escolhidos
+                       //   pelo lado web — shell 42. Vazio = os cinco de sempre
   onRemote(cb),        // cb('play'|'pause'|'playpause'|'prev'|'next'|'stop'|'view')
-  // ---- ESPELHO DE PIXELS (shell 32) — ver a seção do recurso ----
-  espelhoLigar(modo),  // 'imagem'|'video' → o objeto de estado abaixo
+  // ---- TELÃO POR COMANDOS (shell 32; forma atual = 37) — ver a seção ----
+  espelhoLigar(modo),  // liga a transmissão (o argumento é IGNORADO desde a
+                       //   v5.156 — ficou para não custar um degrau de shell)
   espelhoDesligar(),   // síncrono e sem resposta, como o `ytCancel`
-  espelhoEstado(),     // → { ligado, modo, endereco, pin, autoAprovar, erro,
-                       //     telas:[…], pendentes:[…], qrEsperando }
-  espelhoDiag(),       // → JSON do Registro (servidor, tela virtual, readback,
-                       //   encoder, ritmo, térmica, áudio, telas)
-  espelhoAprovar(id, sim), // o operador decide sobre uma tela pendente
-                       //   (`id` vazio ou '*' = a aprovação automática da sessão)
-                       //   É TAMBÉM o que a LEITURA DO QR chama: ler o código é
-                       //   aprovar aquele id, e por isso o pareamento por QR
-                       //   não acrescentou método nenhum aqui
+  espelhoEstado(),     // → { ligado, endereco, erro, telas:[…] }
+                       //   (sem `codigo` desde a v5.189: a porta é o ENDEREÇO)
+                       //   cada tela: { rotulo, comando:true, conectadaMs,
+                       //   telaAcesaMin, aviso, eventos, pronta, fila }
+  espelhoDiag(),       // → JSON do Registro (servidor, sessões, cache de
+                       //   mídia, telas por comando)
+  espelhoDerrubar(rotulo), // tira ESTA tela do ar (o "Desconectar" da folha).
+                       //   No Kotlin ele ainda é `espelhoAprovar(id, sim)` —
+                       //   a assinatura ficou para não custar outro degrau de
+                       //   SHELL_VERSION, e o `sim` é ignorado
   espelhoCertImportar(url, senha), // → '' ou a FRASE do erro: o .p12 do TLS
   espelhoCertEstado(), // → { temCert, host, ate, nome, noAr, servindoTls }
   espelhoCertApagar(), // a chave privada sai do aparelho
+                       //   OS TRÊS ESTÃO SEM UI DESDE A v5.196: a folha de
+                       //   "Ajustes avançados" era a única porta deles e saiu.
+                       //   Ficam na ponte de propósito — voltar atrás é
+                       //   desenhar uma folha, não publicar uma Release.
 }
 ```
 
-São **trinta e nove métodos**, e essa é a superfície inteira que o resto do
+São **quarenta e três métodos**, e essa é a superfície inteira que o resto do
 lado web tem direito de usar: fora do `native.js`, tocar em `__AVBridge` direto é
 acoplamento indevido. O próprio `native.js` chama mais oito coisas no
 `__AVBridge`, e nenhuma delas é API para o app — duas são
@@ -358,7 +381,8 @@ pede um teto de resolução menor que o padrão (ver "Divergências") — `shell
 compartilhamento pendente (é ele que alimenta o `onShare`).
 
 Além disso, `native.js` publica **quatro globais** lidas direto (sem Promise):
-`window.__NATIVE__`, `__AV_ROLE__` (`'controle'`/`'display'`),
+`window.__NATIVE__`, `__AV_ROLE__` (`'controle'`/`'display'` — o terceiro
+valor, `'tela'`, é escrito por `espelho/tela.js`, não pela ponte),
 `__SHELL_VERSION__` (o inteiro do contrato, ver abaixo) e **`__SHELL_NAME__`** —
 o `versionName` do APK, que é o **índice de versão do shell exibido ao
 operador**. Ele não se confunde com `__SHELL_VERSION__`: base web e shell
@@ -401,9 +425,9 @@ Sobre o token (`SafRegistry`, em `SafPathHandler.kt`):
 ponte com `host = null` justamente para não ter poderes de Activity, e o loader
 dele é montado **sem** o handler `/saf/`. `listFolder` honra a mesma regra e
 devolve lista vazia sem host: era a exceção, porque lê o `ContentResolver`
-direto, e sem a guarda qualquer script rodando no documento do Display (que
-carrega a IFrame Player API de terceiro **por design**) lia o índice inteiro —
-nome, tamanho e token servível — de toda pasta que o operador já concedeu. Os
+direto, e sem a guarda qualquer script rodando no documento do Display lia o
+índice inteiro — nome, tamanho e token servível — de toda pasta que o operador
+já concedeu. Os
 dois consumidores de arquivo do dispositivo (`importShare` e `syncDeviceFolder`)
 rodam no Controle e copiam os bytes para o OPFS antes de qualquer coisa chegar
 ao telão; o Display nunca busca um `/saf/`.
@@ -419,19 +443,82 @@ esperam uma **pessoa** e ficam sem prazo, porque um timeout ali resolveria null
 com o operador ainda escolhendo a pasta.
 
 `NativeBridge.SHELL_VERSION` identifica a versão da casca — **subir sempre que
-a superfície da ponte mudar**. Hoje vale **34** — a v5.152 acrescentou os três
+a superfície da ponte mudar**. Hoje vale **43** — a v5.234 acrescenta
+`atualizacaoEstado`, os DOIS canais de atualização numa leitura só. Ele não
+acrescenta poder nenhum (tudo o que devolve já existia, espalhado por
+`otaPending`, `apkProcurar` e `otaDiag`); o que ele acrescenta é **coerência de
+instante**, e o degrau é por isso: três promessas independentes chegam em três
+momentos, e o diálogo se desenhava com metade do que tinha a dizer ("há uma base
+nova") para se corrigir meio segundo depois ("…e um APK junto"), debaixo do dedo
+de quem estava lendo. Ele é também o que torna a detecção agressiva possível sem
+estourar nada — o bloco `shell` vem do MANIFESTO do canal OTA, que é um asset de
+release e **não consome o limite de 60 requisições/hora da API do GitHub**, ao
+contrário de uma consulta por ronda. Num shell 42 o `controle.js` cai nas três
+chamadas antigas e mostra a mesma pergunta, só sem a coerência de instante. O
+anterior, **42** — a v5.231 acrescenta o campo
+**`actions`** ao `nowPlaying`: a lista de botões da notificação de controles, na
+ordem, escolhida pelo LADO WEB. É a invariante 5 aplicada ao cartão — cinco
+botões fixos serviam a UMA cena (mídia tocando), e com um cronômetro no ar sem
+louvor nenhum o play/pause e ⏮/⏭ ocupavam o modo compacto sem ter o que fazer.
+O degrau é obrigatório porque o campo muda o que o cartão MOSTRA, e a degradação
+é dupla: bundle antigo em shell 42 manda a lista vazia e recebe os cinco de
+sempre; bundle novo em shell 41 tem o campo ignorado pelo `optJSONArray` e
+também fica com os cinco. O anterior, **41** — a v5.228 acrescenta
+`ytCanalPlaylists` e `ytPlaylist`, as SÉRIES da Biblioteca (ver a seção do
+recurso). Os dois são TRANSPORTE, e a divisão de trabalho é o ponto: eles
+devolvem o que o canal publica, verbatim e na ordem dele, sem opinião nenhuma
+sobre o que presta — quem decide qual playlist é da série, qual é a versão em
+LIBRAS e como o item se chama é `assets/web/controle/serie.js`. É a invariante 5
+com uma razão prática medida: a nomenclatura de um canal muda sem avisar (as
+playlists do `@provaievedeoficial` não são consistentes nem entre si — uma delas
+não tem o hífen que todas as outras têm), e cada ajuste dessa regra custaria um
+degrau daqui e uma Release se ela morasse em Kotlin. O anterior, **40** — a
+v5.206 ENCOLHE duas formas
+de retorno, e as duas são resto do espelho de pixels que a v5.187 não levou
+junto: `espelhoDiag` perdeu `ritmo` (o objeto continuava saindo ZERADO depois
+que o encoder que o alimentava morreu, e o lado web lia `kbps < 40` como
+"retângulo preto" — o Registro imprimia um ALARME em todo culto com vídeo no
+ar) e `espelhoEstado` perdeu `modo` (o seletor imagem × vídeo, removido na
+v5.156, que viajava como `"comandos"` e era desenhado como "modo: imagem
+(JPEG)"). A lição está escrita no KDoc do `EspelhoDiag` e vale para a próxima
+aposentadoria: **apagar o produtor de um campo e deixar o consumidor de pé não
+produz silêncio — produz um zero, e zero é um valor legítimo que o consumidor
+interpreta.** O anterior, **39** (v5.192), acrescentou
+`temaClaro`, o único pedaço do tema claro que o CSS não alcança: os ÍCONES das
+barras de sistema (que o Android desenha, e que ficariam brancos sobre um fundo
+quase branco) e o `windowBackground`, resolvido antes de existir JavaScript. Num
+shell 38 o bundle novo funciona por inteiro — a cor de tudo vem do CSS e chega
+por OTA —, e o app fica com as barras do tema escuro. O anterior, **38**
+(v5.189), ENCOLHE duas vezes:
+`espelhoEstado` perdeu `codigo` (a entrada da tela deixou de ter segredo — a
+porta é o endereço) e saiu `keepAudioAlive`, que só existia para a mesa de som.
+Um bundle antigo num shell 38 desenharia um teclado de três dígitos pedindo um
+número que ninguém mais publica, e é isso que o degrau impede. O anterior, **37**
+(v5.187, o telão por comandos, E7), não acrescentou método nenhum, mas mudou a **FORMA do que
+`espelhoEstado` e `espelhoDiag` devolvem**: as telas passaram a ser as da
+transmissão por comandos (`comando: true`, `conectadaMs`, `telaAcesaMin`,
+`pronta`, `fila`) e o diagnóstico perdeu o bloco inteiro de encoder/tela
+virtual/readback — forma mudada é superfície mudada, pelo mesmo raciocínio da
+v5.133. É também o degrau em que o canal `__avTelaMidia` (o empurrão de mídia
+do Controle para o cache da rota `/m/`) passou a existir; ele é detectado por
+**presença** (`window.__avTelaMidia`), não por versão, de propósito — a guarda
+certa para um objeto injetado é perguntar por ele. O degrau anterior, **36**
+(v5.185/v5.186), foi o primeiro deste contrato que **ENCOLHE**: saiu
+`requestCam` (com o pareamento por QR e a permissão `CAMERA` do manifest),
+`espelhoEstado` trocou `pin` por `codigo` (os TRÊS dígitos, como STRING) e
+perdeu `autoAprovar`, `pendentes`, `qrEsperando`, `nomeLocal` e `nomeErro`, e
+`espelhoAprovar` passou a fazer uma coisa só — derrubar a tela cujo rótulo ele
+recebe (o lado web o chama de `espelhoDerrubar`). O bump é o que impede um
+bundle antigo de ler `pin` num shell que só publica `codigo`: ele mostraria o
+campo vazio, e o operador ficaria sem o número que a tela precisa digitar, sem
+nada que o explicasse. A v5.167 (35) acrescentou
+`apkProcurar`/`apkInstalar`. A v5.152 acrescentou os três
 métodos do CERTIFICADO do espelho (`espelhoCertImportar`, `espelhoCertEstado`,
 `espelhoCertApagar`), o degrau opcional de TLS. Abaixo do 34 a linha do
 certificado não é desenhada e o espelho segue em HTTP claro, que é o que ele
 sempre foi. A v5.145 acrescentou
-`requestCam`, a permissão de CÂMERA para o Controle LER O QR que a tela do
-espelho mostra (ver "O pareamento é por QR", na seção do recurso). Ele é o único
-método do lote: aprovar a tela lida é o `espelhoAprovar` que já existia, porque é
-literalmente o mesmo ato do botão "Aprovar" da lista. E ele não tem degradação
-possível — sem a permissão do Android, o `onPermissionRequest` do Controle nega
-o `getUserMedia` **em silêncio**, que é a mesma armadilha que o `MicChromeClient`
-documenta para o telão. Abaixo do shell 33 o botão nem é desenhado e o
-pareamento segue pelos seis dígitos, que nunca deixaram de existir.
+`requestCam`, a permissão de CÂMERA do pareamento por QR — **os dois saíram na
+v5.185**, com a câmera e com o `qr.js`.
 A v5.141 acrescentou os cinco
 métodos do ESPELHO DE PIXELS (`espelhoLigar`, `espelhoDesligar`,
 `espelhoEstado`, `espelhoDiag`, `espelhoAprovar`). Os cinco são **privilégio do
@@ -501,36 +588,112 @@ roda SEMPRE em paralelo**: cada comando sai pelos dois caminhos
 `sendCommand`/`onCommand` mantêm exatamente a mesma assinatura. O custo é
 desprezível: os comandos são objetos JSON pequenos.
 
-### O DRENO do papel `espelho` — uma lista de PERMISSÃO de um item
+### O DRENO do papel `tela` — uma lista de PERMISSÃO de dois itens
 
-O espelho de pixels hospeda uma **segunda cópia de `/web/display/`**, no mesmo
-origin e no mesmo barramento. É o mesmo arquivo — e é justamente por ser
-idêntico que **ele não pode falar**: a arquitetura inteira supõe UM telão.
-`display-status` sai a ~4 Hz de cada um, e o Controle (e o
-`snoopDisplayStatus`, que alimenta a notificação de mídia justamente quando o
-app está minimizado) passaria a ter duas fontes alternadas; `media-ended`
-dobrado dá um segundo `load` do mesmo item em `repeat one`; `mic-status` do
-espelho — que **nega `getUserMedia` em silêncio**, por não ter o
+Cada tela da rede roda uma **cópia de `/web/display/`** (papel `tela`, ver a
+seção do telão por comandos), ligada ao MESMO barramento por SSE. É o mesmo
+arquivo — e é justamente por ser idêntico que **ele não pode falar tudo**: a
+arquitetura inteira supõe UM telão. `display-status` sai a ~4 Hz de cada um, e
+o Controle (e o `snoopDisplayStatus`, que alimenta a notificação de mídia
+justamente quando o app está minimizado) passaria a ter N fontes alternadas;
+`media-ended` dobrado dá um segundo `load` do mesmo item em `repeat one`;
+`mic-status` da tela — que **nega `getUserMedia` em silêncio**, por não ter o
 `MicChromeClient` — apagaria o estado do microfone VERDADEIRO; e `diag-ask`
-respondido por dois faz o Registro mostrar o diário de um deles sem dizer qual.
+respondido por vários faz o Registro mostrar o diário de um deles sem dizer
+qual.
 
-O dreno mora em `shared/native.js` e tem duas metades:
+O dreno mora em `espelho/tela.js` (o `__AVBus.post` do papel) e é uma lista de
+**permissão** de dois itens — um tipo de mensagem novo em `display.js` nasce
+mudo por construção:
 
-- **`__AVBus.post` deixa passar exatamente `display-ready`, e mais nada.** A
-  tentação é calar tudo, e **isso quebra o recurso**: é esse anúncio que faz o
-  Controle reenviar a cena (`resendSceneToDisplay`). Drenado por inteiro, o
-  espelho fica no wallpaper até alguém tocar em alguma coisa — exatamente nos
-  três casos em que ele precisa se recuperar sozinho: ligado no meio do culto,
-  morte do renderer e a recarga do OTA. Deixar passar **esse** é seguro porque
-  o reenvio é **endereçado** desde a v5.140 (`__de`/`__para`): o telão de
-  verdade descarta o que não for dele. É uma lista de **permissão**, nunca de
-  recusa — um tipo de mensagem novo em `display.js` nasce mudo por construção.
+- **`display-ready` passa, com `__tela`.** É esse anúncio que faz o Controle
+  reenviar a cena (`resendSceneToDisplay`) — drenado por inteiro, a tela fica
+  no wallpaper até alguém tocar em alguma coisa, exatamente nos três casos em
+  que ela precisa se recuperar sozinha: ligada no meio do culto, recarga da
+  página e queda de rede. É seguro porque o reenvio é **endereçado** desde a
+  v5.140 (`__de`/`__para`): o telão de verdade descarta o que não for dele.
+
+  **E o `__tela` é o que dispara o reenvio das PREFERÊNCIAS** (wallpaper, fundo
+  da letra, preenchimento — `telaReenviarPreferencias`), porque é a única coisa
+  que distingue uma tela da rede do telão de verdade, que lê tudo do IndexedDB
+  sozinho. **Esta linha descreveu por dezenas de versões um combinado que o
+  código não cumpria**: o campo era anexado ao `tela-status` e nunca ao
+  `display-ready`, então aquela função — criada na v5.188 justamente para isto —
+  nunca rodou para uma tela de verdade, sem erro em lugar nenhum (v5.222). Quem
+  monta o anúncio é `anuncio()`, dono ÚNICO do carimbo: há dois pontos que
+  anunciam (o dreno e o `aoConectar` do reanúncio) e o que entrega é quase
+  sempre o segundo, porque o `display-ready` nasce antes de existir token. Os
+  dois lados do contrato têm oráculo — o produtor no `tela-rede.test.mjs`, o
+  consumidor no `boot-nativo.test.mjs` —, e são dois porque ler cada lado
+  isolado aprova ambos.
+- **`display-status` sai RENOMEADO para `tela-status`** (o herdeiro do
+  `espelho-status` da v5.173): **sem TV as telas da rede SÃO a projeção**, e
+  calá-las deixaria o Controle sem referência de tempo nenhuma — sobraria a
+  preview, que é justamente o que o Android estrangula quando o app sai da
+  frente. Com um nome PRÓPRIO nada que espera "o telão" o recebe por engano: o
+  `controle.js` **elege UMA tela** como referência (e converte o status dela em
+  `espelho-status`, que os consumidores já conhecem), e o
+  `NativeBridge.snoopStatusDeFora` faz a mesma conta de precedência para a
+  notificação de mídia. Ver "A referência da preview", abaixo.
 - **O `BroadcastChannel` é NEUTRALIZADO NO ENVIO, nunca apagado.** `db.js`
   escolhe o canal perguntando `'BroadcastChannel' in global`: apagar a
-  propriedade deixaria o espelho com um único caminho de **recepção**, e a
+  propriedade deixaria a tela com um único caminho de **recepção**, e a
   redundância dos dois caminhos é decisão escrita deste projeto. O que morre é
   só o `postMessage`, por uma subclasse do construtor real — e a troca precisa
   acontecer **antes de `db.js`**, que captura o construtor na carga.
+
+### A referência da preview — ela ILUSTRA, nunca mede
+
+A preview do Controle é uma **ilustração** do que está no telão, e nunca a fonte
+de verdade. Ela roda no WebView do Controle, que é o único dos três que o
+Android estrangula quando o app sai da frente: com o app minimizado o `<video>`
+dela é pausado ou desacelerado enquanto a projeção segue andando, e ao voltar a
+distância entre os dois é arbitrária. **Enquanto ela for a régua, não há como
+corrigir isso — o erro está na régua.**
+
+A projeção é uma destas três, nesta ordem:
+
+1. **o TELÃO** (`display-status`), quando há TV conectada;
+2. **a TELA ELEITA** (`tela-status` → `espelho-status`), quando não há TV: as
+   telas da rede são o que a congregação vê, e cada uma roda o próprio
+   `/display/` com um `<video>` de verdade — num navegador que o Android do
+   celular não estrangula;
+3. **ninguém** — sem TV e sem espelho a projeção É a preview em tela cheia, que
+   exige o app na frente. Aí ela é a própria referência, e o caso não existe.
+
+Daí duas funções com nomes distintos, e a distinção é o modelo inteiro:
+`authoritativeTime()` responde **"o que está no ar agora?"** (decisões: qual
+estrofe vem a seguir, o que a barra marca, o que a `MediaSession` publica) e
+`tempoDaPreview()` responde **"o que a ilustração deve estar desenhando?"** (o
+`<video>` da preview e a letra desenhada dentro dela). Sem as duas, o atraso
+deliberado da preview vira defeito nos dois sentidos: quem desenha a letra pelo
+tempo da projeção troca a estrofe antes da imagem a que ela pertence, e quem
+realinha o `<video>` pelo tempo da projeção **desfaz o atraso** a cada status.
+
+Três regras completam o desenho:
+
+- **O realinhamento mira `projeção − atraso`**, nunca a projeção. Com
+  `PREV_ATRASO_MAX` (2,5 s) maior que a tolerância antiga (1,6 s), mirar a
+  projeção faria cada `display-status` puxar a preview para a frente — o resync
+  brigando com o atraso, a 4 Hz.
+- **A tolerância é de meio segundo, não de 1,6 s.** A preview **não tem som**
+  (desde a v5.189 não tem por construção — a mesa de som saiu); sem som um seek custa
+  um quadro e não estala nada. Ao **retomar do segundo plano** ela cai para
+  `RESYNC_EXATO` (0,15 s): ali não há ruído a poupar, há um desvio conhecido.
+- **Com a página escondida a preview não atrasa nada.** O atraso existe para o
+  operador não ver a preview responder antes das telas da rede; sem plateia ele
+  só serve para empilhar comandos numa fila cujos `setTimeout` o Android
+  estrangula. Escondida, ela aplica na hora — e é dessa posição que o
+  realinhamento da retomada parte.
+- **E escondida ela também não é TOCADA** (`preverPodeMexer`, v5.177). O
+  Chromium pausa um `<video>` de página oculta: o `play()` do resync sai, o
+  navegador pausa de volta, e o status seguinte recomeça — um laço a ~4 Hz que a
+  linha do tempo do Registro mostrou par a par, com a marca `[oculto]`. Não é só
+  inútil: **os WebViews dividem UM processo**, e essa rotatividade de
+  decodificador rouba fio de todo o resto — foi ela que, na era do espelho de
+  pixels, matava o áudio das telas da rede. A janela de
+  `forcarResyncAte` só é CONSUMIDA quando há como agir,
+  senão a retomada seguinte partiria de um crédito já gasto.
 
 ### O `load` carrega o ponto e o estado da mídia
 
@@ -667,21 +830,27 @@ vídeos emendados, sem erro nenhum, aparecendo só na hora de projetar. O mapa
 morre com o processo de propósito: retomar entre execuções exigiria gravar qual
 faixa era, e o ganho não paga o risco de errar essa conta.
 
-> **E há um SEGUNDO serviço em primeiro plano desde a v5.141**, o
-> `EspelhoService` do espelho de pixels — um serviço **novo**, nunca um campo a
-> mais no `SyncService` ou no `SessionService`: ciclos de vida e regras de
-> parada diferentes, e empilhar dono é o caminho para o cartão eterno que os
-> dois já aprenderam a evitar. Ele é do tipo **`connectedDevice`** ("interações
-> com dispositivos externos que exigem… uma conexão de **rede**"), e o motivo de
-> não ser `dataSync` é que **`connectedDevice` não tem cota** — o teto de 6 h em
-> 24 h que o `SyncService` gasta com hinário, Bíblia e pastas seria consumido
-> por dois cultos. O pré-requisito que derruba a primeira Release: além de
-> `FOREGROUND_SERVICE_CONNECTED_DEVICE`, o tipo exige **uma** de
+> **A TRANSMISSÃO viaja no MESMO serviço da sessão de mídia desde a v5.190.**
+> Da v5.141 à v5.189 ela tinha um serviço próprio (`EspelhoService`), e o
+> argumento era bom — "nunca um campo a mais no `SyncService` ou no
+> `SessionService`: ciclos de vida diferentes, e empilhar dono é o caminho para
+> o cartão eterno". Ele estava certo sobre ciclo de vida e errado sobre o preço:
+> num culto com transmissão ligada e mídia no ar, a gaveta mostrava DOIS cartões
+> do mesmo app, e só um servia para alguma coisa. Agora o [`SessionService`] tem
+> **duas razões independentes de viver** (cena · transmissão) e só para quando
+> as duas caem — a mesma disciplina, num `if` explícito em vez de espalhada por
+> dois arquivos que não se conhecem. O tipo é a UNIÃO
+> (`mediaPlayback|connectedDevice`), e nenhum dos dois tem cota — o teto de 6 h
+> em 24 h é do `dataSync`, que o `SyncService` gasta com hinário, Bíblia e
+> pastas. O pré-requisito que derruba a primeira Release continua valendo: além
+> de `FOREGROUND_SERVICE_CONNECTED_DEVICE`, o tipo exige **uma** de
 > `CHANGE_NETWORK_STATE`/`CHANGE_WIFI_STATE`/`CHANGE_WIFI_MULTICAST_STATE`/
 > `NFC`/`TRANSMIT_IR` — e `INTERNET`/`ACCESS_NETWORK_STATE`, as duas que o app
 > tem, **não estão na lista**. Sem declarar `CHANGE_WIFI_MULTICAST_STATE`
-> (nível *normal*, sem diálogo), `startForeground` lança. As nove regras dele
-> são herdadas daqui, uma a uma, inclusive o `onGone` com token de geração.
+> (nível *normal*, sem diálogo), `startForeground` lança. O que sobrou no
+> `EspelhoEnergia` é o que nunca foi sobre notificação: o wake lock (renovado
+> por progresso REAL de entrega, nunca por tique de relógio), o Wi-Fi lock e a
+> leitura térmica.
 
 ### O ciclo de vida do serviço tem duas armadilhas, e as duas matam o app
 
@@ -872,10 +1041,10 @@ percentual e o tempo restante.
 um `MediaSession` e uma notificação `MediaStyle` com os controles de transporte.
 Dois ganhos, e o segundo é o menos óbvio:
 
-1. **Controlar sem abrir o app.** No modo "mesa de som" o celular está ligado na
-   caixa de som e provavelmente bloqueado; abrir o app só para pausar é atrito
-   real no meio de um culto. Com o `MediaSession` os controles aparecem também
-   na **tela de bloqueio** e nas configurações rápidas, de graça.
+1. **Controlar sem abrir o app.** O celular fica no suporte, provavelmente
+   bloqueado, e abrir o app só para pausar é atrito real no meio de um culto.
+   Com o `MediaSession` os controles aparecem também na **tela de bloqueio** e
+   nas configurações rápidas, de graça.
 2. **A projeção deixa de ser descartável.** Antes disto o único serviço em
    primeiro plano era o `SyncService`, que só sobe DURANTE downloads: num culto
    normal não havia nenhum, e o processo seguia candidato a ser morto sob
@@ -993,11 +1162,12 @@ Dois ganhos, e o segundo é o menos óbvio:
   Pelo mesmo motivo o `onDestroy` **cancela a notificação explicitamente**: o
   sistema só recolhe sozinho a que veio de `startForeground`.
 - **A notificação NÃO pode depender do JS do Controle estar rodando.** Com o
-  app minimizado e sem áudio audível no celular (mesa de som desligada), o
+  app minimizado e sem áudio audível no celular, o
   sistema estrangula aquele WebView: `pushNowPlaying` para de ser chamado e a
   notificação congela — botão em "play", barra parada — enquanto o telão segue
-  projetando. Ligar a mesa de som fazia o defeito sumir porque áudio audível
-  isenta a página do estrangulamento, o que foi justamente a pista.
+  projetando. (Ligar o áudio no próprio celular fazia o defeito sumir, porque
+  áudio audível isenta a página do estrangulamento — foi justamente essa a
+  pista. Aquele modo, a "mesa de som", saiu na v5.189: o som é dos displays.)
   `NativeBridge.snoopDisplayStatus` lê de passagem o `display-status` que o
   telão já emite pelo `busPost` e corrige play/pause, posição e duração
   (`SessionService.updateFromDisplay`). A `Presentation` não é estrangulada —
@@ -1021,11 +1191,117 @@ base web passaria a exigir baixar e instalar à mão a cada ajuste de JS/CSS —
 o OTA devolve o comportamento antigo, com mais controle.
 
 **Como funciona:** o job `web-ota` (em todo push para `main`) empacota
-`assets/web/` num `web-assets.zip` e publica, junto com um `version.json`, na
+`assets/web/` num `web-<versão>.zip` e publica, junto com um `version.json`, na
 release de tag fixa **`web-latest`** — URL estável, porque está compilada no
 shell. O app consulta esse `version.json`, baixa quando há versão nova e passa a
 servi-la. (O tamanho do zip sai no log do próprio job, no `echo "Bundle: …"` —
 número no doc envelhece a cada push.)
+
+### Os DOIS canais são UM evento (v5.234)
+
+Eles eram independentes, e essa independência era a queixa: *"a detecção de
+atualizações disponíveis é extremamente inconstante, demorada e quase
+aleatória"*. Um lote que mexia no Kotlin chegava pela metade — base web em
+minutos, APK quando o operador se lembrasse de ir ao GitHub — e o que ele via
+era metade do lote funcionando, sem nada que explicasse a diferença.
+
+```
+ push em main            Release v2.0 publicada         aparelho
+ ┌────────────┐          ┌────────────────────┐        ┌──────────────────┐
+ │ version.json│ shellTag │ audio-visual…apk   │        │ ronda de 15 s    │
+ │ "shellTag": │ ───────► │                    │ ─────► │ lê o MANIFESTO   │
+ │   "v2.0"    │  SEGURA  └────────────────────┘ gatilho│  ├─ web  5.234   │
+ └────────────┘  o OTA          release:published       │  └─ shell 2.0    │
+                                                        │ → UMA pergunta   │
+                                                        └──────────────────┘
+```
+
+**`shellTag` no `version.json` do repositório é o acoplamento.** Declarado, ele
+faz o `web-ota` **segurar a publicação do bundle** até a Release existir — o job
+termina verde e diz no resumo do run que está segurando, porque isso não é falha
+e sim o estado normal entre o merge e o disparo da Release. Quando ela sai, o
+gatilho `release: [published]` republica o bundle **com o bloco `shell`**
+(versão, URL do `.apk` e tamanho) dentro do manifesto. Sem `shellTag`, o
+manifesto ainda anuncia a Release mais recente que existir: `shellTag` responde
+"este lote PRECISA de uma Release?", e uma correção só de Kotlin não a declara
+em lugar nenhum — sem essa segunda metade, aquele APK nunca seria anunciado.
+
+**E é o manifesto que permite a detecção ser rápida.** A API do GitHub não
+autenticada dá **60 requisições por hora por IP**; uma ronda de 15 segundos são
+240. Perguntar o APK à API na ronda esgotaria o limite em quinze minutos e a
+detecção passaria a falhar com 403 pelo resto da hora — mais lenta e mais
+imprevisível do que a de meia hora que existia antes. O manifesto é um asset de
+release e **não consome limite nenhum**: a mesma requisição que já acontecia
+responde as duas perguntas, e as responde no MESMO instante, que é o que permite
+a tela falar de um lote em vez de dois eventos soltos.
+
+**O zip passou a ter o nome versionado, e isso fecha uma classe inteira.** Ele
+era `web-assets.zip`, substituído no lugar — e o comentário do `concurrency`
+deste workflow já reconhecia o desfecho: duas execuções intercaladas deixam o
+zip de uma com o `sha256` da outra, e a partir daí **todo aparelho baixa,
+confere o hash, reprova, e o OTA fica INERTE até o próximo push**, sem sinal
+nenhum. A fila reduzia a chance; ela não fechava a classe, porque nada impede a
+fila de ser furada por um `retag` ou por uma execução que morra entre os dois
+uploads. Com nome imutável por versão, um manifesto que fale da versão N sempre
+encontra o zip da versão N — e o único arquivo substituído no lugar passa a ser
+o manifesto, que é escrito por último. O job recolhe os zips antigos deixando os
+**três mais novos**: apagar o que alguém está baixando devolveria um 404 no meio
+do download.
+
+**E o `sha256` reprovado virou FALHA, não desfecho.** Devolver `null` ali
+carimbava a tentativa como bem-sucedida — `ultimoOk` renovado,
+`falhasSeguidas` zerado, sem espera crescente —, então a ronda seguinte baixava
+o mesmo zip, reprovava o mesmo hash e repetia, megabytes por minuto, para
+sempre, com o app dizendo apenas "nada aconteceu". O nome versionado fecha a
+causa; isto fecha o **modo de falhar**, que é o que precisa aguentar a próxima
+causa que ninguém previu.
+
+### A ATUALIZAÇÃO PERGUNTA de novo — e a v5.151 é revogada (v5.234)
+
+A v5.151 tirou o diálogo e passou a aplicar sozinha. O diagnóstico dela estava
+certo (a pergunta quase nunca aparecia) e o remédio era largo demais: trocar a
+base recarrega as duas páginas e o telão pisca, e a hora disso é decisão de quem
+está operando. O que este lote conserta é a CAUSA.
+
+- **A pergunta é uma só, e fala do lote.** Sem Release: *"Base v5.234 — as duas
+  telas recarregam e a projeção pisca por um instante."* Com Release: *"Base
+  v5.234 e app v2.0 (30 MB) — a base entra primeiro e a projeção pisca; em
+  seguida o Android vai pedir para confirmar a instalação do app."* Os dois
+  desfechos são **Atualizar agora** e **Deixar para depois**.
+- **A ordem é base → APK, e ela não é arbitrária.** A base é rápida (o bundle já
+  está no disco) e não depende de ninguém confirmar nada; o APK exige um diálogo
+  do sistema que pode ser recusado, adiado ou perdido. Se ele viesse antes, uma
+  recusa ali deixaria o lote inteiro por aplicar.
+- **A INTENÇÃO sobrevive à recarga.** Entre as duas metades há uma morte de
+  documento — `otaApply` substitui a página —, então nada em memória atravessa
+  esse ponto. A intenção é gravada no `state` do banco ANTES de aplicar (o mesmo
+  lugar e o mesmo motivo da intenção de download do YouTube, v1.59) e relida na
+  abertura seguinte, que retoma o download do APK sozinha. Ela é descartada
+  quando o `versionName` instalado alcança a versão pedida — sem essa
+  comparação o instalador reabriria a cada abertura oferecendo a versão que já
+  está rodando — e depois de 6 h, porque um APK de ontem que ninguém instalou
+  não é tarefa pendente.
+- **A pergunta espera só o que ACABA: cena projetando e download em curso.** O
+  **espelho não segura mais**, e era ele o elo que travava tudo — ele fica
+  ligado o culto inteiro, então incluí-lo tornava a supressão permanente, e foi
+  por isso que a v5.151 desistiu de perguntar. O espelho custa uma tela da rede
+  com a página antiga em memória até ser recarregada; a cena e o download custam
+  a projeção e o hinário pela metade. **Instalar o APK, esse sim, continua
+  esperando os três** (`horaRuimParaAtualizar`), porque derruba o app inteiro e
+  leva o servidor da rede junto.
+- **"Deixar para depois" cala o diálogo, não o FATO.** O rótulo de versão ganha
+  um ponto e a cor de concluído enquanto houver algo esperando, e tocá-lo desfaz
+  o adiamento na hora. Um aviso que volta a cada dez segundos é ruído; um "não"
+  que apaga a informação é pior.
+- **O Registro diz POR QUE está esperando**, e as causas pedem ações opostas:
+  ninguém foi perguntado ainda, o operador adiou, a pergunta espera a cena sair,
+  ou o shell recusou o bundle. Ele é lido a distância — um "esperando…" genérico
+  manda quem o lê investigar a coisa errada.
+
+Tudo isto tem oráculo: **`tools/ota.test.mjs`** sobe a base em Chromium com uma
+ponte de mentira e afirma os cinco pontos acima, incluindo a intenção
+atravessando um `reload()` de verdade. Ele reprova em 23 asserções contra o
+código anterior (verificado).
 
 ### A procura era UMA SÓ, e era esse o defeito (v1.60)
 
@@ -1040,27 +1316,48 @@ associar é o caso comum —, nada era retentado até o próximo lançamento.
 Agora são **quatro gatilhos**, e cada um cobre o que os outros não cobrem:
 
 1. **abertura** — o de sempre;
-2. **ronda periódica** de 5 min enquanto o processo viver;
+2. **ronda periódica** de **15 s** com o app na frente (120 s em segundo plano)
+   enquanto o processo viver;
 3. **retomada do app** (`onResume`) — é quando o operador agiria sobre o aviso, e
-   quando a rede costuma estar de volta;
+   quando a rede costuma estar de volta. Ela vem com `forcar` e é a exceção que
+   prova a regra do piso: é o único instante em que a resposta pode virar uma
+   pergunta na tela, e chegar cinco segundos atrasada nela é chegar depois de o
+   operador já ter olhado;
 4. **a rede voltando** (`registerDefaultNetworkCallback`) — fecha o caso do
    lançamento sem internet.
 
-Mais três peças, e nenhuma é enfeite:
+Mais quatro peças, e nenhuma é enfeite:
 
-- **Falha retenta sozinha**, com espera crescente (30 s → 1 → 2 → 5 min). "Sem
-  rede agora" quase nunca significa "sem rede daqui a meio minuto", e o custo de
-  perguntar de novo é um JSON.
+- **Falha retenta sozinha**, com espera crescente (5 s → 10 → 20 → 30 s). "Sem
+  rede agora" quase nunca significa "sem rede daqui a meio segundo", e o custo
+  de perguntar de novo é um JSON. O teto era de 90 s, e ele era o pior lugar
+  para ser generoso: acima de meio minuto a espera passa a durar MAIS que a
+  ronda normal, e uma falha transitória sairia punindo a detecção — deixando-a
+  mais lenta do que se ninguém tivesse tentado.
+- **O piso entre consultas (5 s) é MENOR que a ronda**, e isto não é folga: com
+  os dois em 15 s, uma batida que chegasse um milissegundo cedo era descartada
+  e a seguinte só viria 15 s depois — a ronda valendo 15 s ou 30 s conforme o
+  jitter do agendador. Um piso maior que a ronda é a receita exata da "detecção
+  inconstante e quase aleatória".
+- **A ronda é blindada contra exceção.** `scheduleWithFixedDelay` CANCELA todas
+  as execuções seguintes quando o `Runnable` lança — sem log e sem `Future` que
+  alguém consulte. O corpo do `checkAsync` já era protegido por dentro; o que
+  roda antes de a thread nascer, não era. O preço de errar aqui é a detecção
+  parar para sempre naquele aparelho, que é indistinguível de "o OTA não
+  funciona".
 - **Nada de cópia guardada.** O asset da release `web-latest` é SUBSTITUÍDO no
   lugar — mesma URL, conteúdo novo —, que é exatamente o caso em que um cache
   intermediário devolve o de ontem com toda a razão. Uma resposta guardada aqui
   não atrasa a atualização: ela a torna INVISÍVEL pelo tempo que o cache durar,
   sem sinal nenhum no aparelho. Daí os cabeçalhos `no-cache` **e** o `?t=` na
   URL (caches que ignoram o cabeçalho existem).
-- **O shell EMPURRA** (`window.__avOta`) quando o bundle fica pronto: o aviso
-  aparece no segundo em que a atualização chega, em vez de esperar até um minuto
-  pela enquete. Num bundle antigo a função não existe e o empurrão é no-op — a
-  enquete continua sendo o piso.
+- **O shell EMPURRA** (`window.__avAtualizacao`, com `window.__avOta` ao lado
+  para bundles anteriores ao shell 43) quando o estado muda: a pergunta aparece
+  no segundo em que a resposta existe, em vez de esperar a enquete. E ele sai
+  **também quando só o APK mudou** — uma Release pode ser publicada sem base web
+  nova, e amarrar o aviso ao bundle deixaria justamente esse caso mudo. Num
+  bundle antigo a função não existe e o empurrão é no-op; a enquete de 10 s
+  continua sendo o piso.
 
 **A comparação passou a ser contra o que o aparelho JÁ TEM, não contra o que ele
 está SERVINDO** (`versaoJaTemos`). Enquanto a procura era uma por lançamento os
@@ -1093,12 +1390,21 @@ de qualquer jeito) e custaria bateria e uma dependência.
 > `check()` engole tudo em `Log.i`, então um OTA morto não dá sinal nenhum no
 > aparelho.
 
-**A identidade do bundle é `assets/web/version.json`** (`version` +
-`minShell`), versionado no repositório: o bundle carrega a própria versão,
-seja ele o embutido ou o baixado. O workflow só acrescenta `sha256` e a URL.
-**Atualizar esse arquivo junto com os outros dois lugares de versão** — ver
-"Regras de desenvolvimento" — é o que dispara (ou não) uma atualização nos
-aparelhos.
+**A identidade do bundle é `assets/web/version.json`** (`version` + `minShell`
++ o `shellTag` opcional), versionado no repositório: o bundle carrega a própria
+versão, seja ele o embutido ou o baixado. O workflow acrescenta `sha256`, a URL
+e — quando há Release — o bloco `shell`. **Atualizar esse arquivo junto com os
+outros dois lugares de versão** — ver "Regras de desenvolvimento" — é o que
+dispara (ou não) uma atualização nos aparelhos.
+
+**E `shellTag` é o que impede a metade do lote de chegar sozinha.** Mexeu no
+shell? Declare a tag da Release que vai sair (`"shellTag": "v2.0"`) no mesmo
+commit. O `web-ota` SEGURA o bundle até ela existir, e então publica com o link
+do APK dentro — é isto que faz o aparelho perguntar uma vez sobre o lote inteiro
+em vez de duas vezes sobre metades. A forma é validada no CI (`v` + números):
+um `shellTag` malformado devolveria 404 na consulta, o job seguraria o OTA para
+sempre, e o sintoma no aparelho seria "a atualização não chega" — o modo de
+falhar mais mudo que este canal tem.
 
 **O OTA não muda o acesso ao nativo.** A ponte é injetada no WebView pelo
 Kotlin (`addJavascriptInterface`), não vem nos arquivos web: um bundle
@@ -1108,16 +1414,19 @@ SAF, Presentation e o serviço de segundo plano seguem idênticos.
 
 ### As três garantias (isto roda em culto)
 
-1. ~~**Nunca troca a base no meio de uma sessão.**~~ **REVOGADA A PEDIDO DO
-   OPERADOR (v1.68 / v5.151).** A base nova entra **sozinha, no segundo em que
-   fica pronta**, independentemente do que estiver acontecendo. Leia o resto
-   deste item mesmo assim: ele explica por que a garantia existia, e o parágrafo
-   final explica por que ela caiu e o que a substitui.
+1. ~~**Nunca troca a base no meio de uma sessão.**~~ **REVOGADA (v1.68 /
+   v5.151) e depois SUBSTITUÍDA POR UMA PERGUNTA (v5.234).** A base nova não
+   entra mais sozinha: o app AVISA e o operador escolhe entre "Atualizar agora"
+   e "Deixar para depois" (ver "A ATUALIZAÇÃO PERGUNTA de novo", acima). A
+   garantia original não voltou — quando o operador diz sim, a troca acontece na
+   hora, com cena no ar ou sem —, mas ela deixou de ser automática, que era o
+   ponto. Leia o resto deste item mesmo assim: ele explica por que a garantia
+   existia, e o parágrafo final explica por que ela caiu.
 
    **Por que ela caiu, e não foi por preguiça:** o que ela prometia nunca
    acontecia. "Entra no próximo lançamento" é literal — `beginSession()` decide
-   uma vez por **PROCESSO** —, e este processo quase nunca morre: os três
-   serviços em primeiro plano (`SessionService`, `SyncService`, `EspelhoService`)
+   uma vez por **PROCESSO** —, e este processo quase nunca morre: os serviços
+   em primeiro plano (`SessionService` — cena ou transmissão — e `SyncService`)
    o mantêm vivo de propósito, e fechar pelo Recentes derruba a Activity, não o
    processo. Somado a isso, a oferta de aplicar ao vivo era suprimida com cena no
    ar, download em curso **ou espelho ligado** — e nos testes do espelho ele
@@ -1131,9 +1440,9 @@ SAF, Presentation e o serviço de segundo plano seguem idênticos.
    reprodução** (`resendSceneToDisplay`) — o mesmo caminho que a queda de um
    dongle já exercita todo domingo. Uma mídia tocando volta no segundo em que
    estava. O que NÃO volta, e está dito em vez de escondido: o item de um lote de
-   download que estava em voo recomeça (sem perder o que já baixou), e o WebView
-   do espelho segue com a página antiga em memória até alguém desligá-lo e
-   ligá-lo.
+   download que estava em voo recomeça (sem perder o que já baixou), e uma tela
+   da rede segue com a página antiga em memória até alguém recarregá-la — a
+   reconexão do SSE re-anuncia a cena, não troca o bundle.
 
    O que a substitui é o **watchdog de boot**, que não mudou: um bundle que não
    confirme o boot é descartado no lançamento seguinte. Ele continua sendo a
@@ -1258,6 +1567,47 @@ publicar uma versão nova. E não há risco de descompasso: `native.js` viaja
 DENTRO do bundle que ele valida, então a função e o `__avBack` que ela exige são
 sempre do mesmo commit.
 
+#### Trocar a base servida OBRIGA a limpar o cache do WebView (v1.91)
+
+As URLs da base **não mudam de nome entre versões** — `/web/controle/
+controle.js` é sempre esse caminho — e o WebView roda com
+`cacheMode = LOAD_DEFAULT`. Então, toda vez que o app passa a servir um bundle
+diferente do que serviu antes, o cache do processo ainda guarda a versão velha
+dos mesmos endereços, e a página nasce **com metade de cada bundle**.
+
+A regra já estava escrita no projeto, em `StagePresentation.recarregar` e em
+`MainActivity.applyWebUpdate`: *"sem limpar o cache, a página nova pode ser
+montada com pedaços da antiga — o pior desfecho possível, porque tudo PARECE ter
+funcionado"*. Ela tinha sido aplicada em **um** dos dois lugares em que a base
+troca.
+
+O outro é o **lançamento**, e são justamente os caminhos de recuo do
+`beginSession`: o watchdog descartando um bundle que não confirmou o boot, e um
+APK novo atropelando um OTA mais antigo. Nos dois, a sessão anterior serviu X e
+esta serve Y. Foi assim que o **botão único de conectar da v5.192** — a base
+embutida no APK v1.90, onde ele existe com o rótulo "Toque para conectar uma
+tela" — reapareceu num aparelho que já rodava a v5.197, com o relato exato de
+*"algum tipo de resquício, cache ou conflito que ignorava as mudanças da
+atualização"*.
+
+**E o modo de falhar se REALIMENTA**: uma página remendada tem tudo para não
+satisfazer o `otaAppIsUp`, então o bundle seguinte também é descartado — o
+aparelho fica preso indo e voltando entre duas versões, que é exatamente a
+sequência de três sintomas que o operador descreveu duas vezes.
+
+`WebUpdater.baseTrocou` responde a pergunta (contra `KEY_SERVIDO`, o que a
+sessão anterior de fato serviu — que **não** é o `KEY_ACTIVE`, porque aquele diz
+o que o OTA *quer* servir e este diz o que os WebViews *serviram*), e
+`buildControleWebView` limpa o cache antes do primeiro `loadUrl`. O cache é
+**por aplicação**, então limpar no primeiro WebView do processo cobre a
+`Presentation`, que nasce depois. Ausente não conta como troca: numa primeira
+execução não há cache anterior com que conflitar.
+
+`beginSession` passou a ter **saída única** (`fixarBase`) por causa disto: eram
+quatro `return` espalhados, e um quinto caminho acrescentado sem a anotação
+passaria despercebido — que é a forma exata como este defeito nasceu do outro
+lado.
+
 #### As outras defesas do caminho de download
 
 - **Uma verificação por vez** (`checking`, um `AtomicBoolean`). `checkAsync`
@@ -1284,416 +1634,384 @@ sempre do mesmo commit.
 
 ---
 
-## Espelho de pixels (o telão nas telas da rede local)
+## Telão por comandos (o telão nas telas da rede local)
 
-O telão inteiro — com fades, cortina, Camada de Texto e vídeo — em até **três
-navegadores da rede da igreja**, sem instalar nada nas telas e sem depender de
-internet. A especificação fechada, com cada decisão e o motivo dela, está em
-[`docs/ESPELHO-DE-PIXELS.md`](docs/ESPELHO-DE-PIXELS.md); esta seção é o mapa.
+O telão inteiro — fades, cortina, Camada de Texto, letra sincronizada e vídeo —
+em até **três navegadores da rede da igreja**, sem instalar nada nas telas e sem
+depender de internet. A especificação fechada, com cada decisão e o motivo dela,
+está em [`docs/TELAO-POR-COMANDOS.md`](docs/TELAO-POR-COMANDOS.md) — **leia
+antes de mexer**; esta seção é o mapa. (O antecessor, o espelho de pixels —
+VirtualDisplay → H.264 → MSE —, foi **aposentado por inteiro na v5.187**;
+`docs/ESPELHO-DE-PIXELS.md` fica como histórico, com o aviso no topo.)
 
 ```
- ┌───────────────────── celular (UM processo) ─────────────────────┐   ┌── navegador na LAN ──┐
- │  MirrorPresentation → o MESMO /web/display/  (papel "espelho")   │   │                      │
- │        ↓ renderiza em                                            │   │                      │
- │  VirtualDisplay PRIVADO (flags = 0) ─Surface→ MediaCodec ─HTTP chunked→ fmp4.js → MSE → <video>
- └──────────────────────────────────────────────────────────────────┘   └──────────────────────┘
+ ┌────────────── celular ──────────────┐        ┌───── navegador na LAN ─────┐
+ │  Controle (/web/controle/)          │        │  o MESMO /web/display/     │
+ │   └─ cada comando do barramento ────┼─SSE───►│  (papel `tela`, ?tela=1)   │
+ │  EspelhoServidor                    │        │   ├─ stage.js de verdade   │
+ │   ├─ serve o BUNDLE (OTA→APK)       │◄─POST──│   ├─ mídia por /m/<token>  │
+ │   └─ /m/<token>: cache de mídia     │  /r    │   └─ status de volta       │
+ └─────────────────────────────────────┘        └────────────────────────────┘
 ```
 
-**O que faz isto valer a pena é o que NÃO é escrito duas vezes.** O telão de
-verdade roda no celular — `stage.js`, os fades, a cortina, o `mse.js`, o embed
-do YouTube — e o que atravessa a rede são **pixels**. O cliente não
-reimplementa nada e o Kotlin não decide nada: a invariante 5 sai ilesa, e o
-espelho **não tem como ser parcial**, porque copia quadros e não sabe o que eles
-significam.
+**O que faz isto valer a pena é o que NÃO atravessa a rede.** A tela da rede
+carrega o próprio bundle do app (servido pelo celular, com a MESMA resolução
+OTA→APK do `WebPathHandler`) e roda o `/web/display/` de verdade — `stage.js`,
+fades, cortina, letra, Camada de Texto. O que viaja são **comandos** (os mesmos
+objetos JSON pequenos do barramento, verbatim, por SSE) e **mídia sob demanda**
+(`/m/<token>`, com `Range` RFC 7233 de verdade — a inversão da invariante 8:
+num `ServerSocket` quem aplica a faixa somos NÓS). A invariante 5 sai ilesa
+duas vezes: o Kotlin não decide nada de cena, e a tela não reimplementa nada.
 
-**A decisão que governa a UI inteira: o espelho é AUXILIAR por contrato, e por
-isso NUNCA se desliga sozinho.** Ele liga por ação do operador, e desliga por
-ação do operador, pelo fechamento do app, ou por uma falha que o app **nomeia em
-texto**. Uma TV que conecta **não** o derruba — a regra inversa (que o desenho
-anterior tinha) mata a projeção que está no ar, porque **sem TV as telas da rede
-SÃO o que a congregação vê**. O que existe é uma **confirmação explícita** ao
-ligar com o telão já conectado ("isto dobra o trabalho do aparelho — ligar assim
-mesmo?"), lembrada pela sessão.
+**AUXILIAR por contrato, como sempre foi:** liga e desliga **só** por ação do
+operador (a folha de "Conectar uma tela"), pelo fechamento do app ou por uma
+falha nomeada em texto. Uma TV que conecta **não** derruba a transmissão — sem
+TV, as telas da rede SÃO o que a congregação vê.
 
 ### As peças, e o que cada uma se recusa a fazer
 
 | Arquivo | O quê |
 |---|---|
-| `MirrorPresentation.kt` | a 2ª `Presentation`. **Cópia do molde da `StagePresentation`, não parametrização dela** — misturar as duas faria uma mudança no espelho poder derrubar a projeção. Sem `FLAG_KEEP_SCREEN_ON` (é wake lock do APARELHO; o `FLAG_NEVER_BLANK` do display privado já resolve) e sem `MicChromeClient` (dois `getUserMedia` no mesmo processo = realimentação pública) |
-| `EspelhoDisplay.kt` | dono do `VirtualDisplay`, da densidade e da sonda de readback. **`flags = 0`**: nunca `PUBLIC` (implica `AUTO_MIRROR`, exige permissão e **remove `FLAG_NEVER_BLANK`**), nunca `FLAG_PRESENTATION` (é a causa do problema que o filtro de telas depois teria de consertar). `setSurface` **não é usado em lugar nenhum** |
-| `EspelhoCodec.kt` | H.264 sobre a input surface. `KEY_REPEAT_PREVIOUS_FRAME_AFTER` é **`setLong`** — a chave é `long` e um int32 simplesmente não é encontrado, sem exceção e sem log —, e ela **repete no máximo 10 vezes** (`kRepeatLastFrameCount` do `GraphicBufferSource` do AOSP, rearmado a cada quadro real): não é piso de fps, é uma rede de segurança finita. Quem mantém o fluxo é um batimento de **8 Hz** no JS do papel espelho — e a cadência dele é o TETO da defasagem do áudio, que ancora no último carimbo de vídeo (v5.144: a 1 Hz isso dava até um segundo de desvio permanente). **Desde a v5.157 esse batimento CEDE A VEZ ao conteúdo**: com o `<video>` apresentando quadros ele não pulsa, porque oito batidas por segundo em fase aleatória contra 30 fps é jitter que o cliente mede como quadro descartado (ver §10-A.3 do doc do espelho) |
-| `EspelhoHttp.kt` · `EspelhoPares.kt` | **PUROS, zero import de Android.** É o primeiro código do projeto que aceita entrada de um desconhecido, e o único em que um erro vira controle de acesso quebrado em vez de pixel errado — daí serem funções puras, com JUnit |
-| `EspelhoServidor.kt` | sockets, rotas, fan-out. **Bind explícito ao IPv4 da Wi-Fi**, e recusa em celular/VPN: um `ServerSocket(porta)` liga em `0.0.0.0` — inclusive `rmnet`, e operadoras brasileiras entregam IPv6 globalmente roteável ao aparelho. Seria o culto em H.264 numa porta alcançável do mundo |
-| `EspelhoService.kt` | foreground service **`connectedDevice`** (sem cota, ao contrário do `dataSync` que o app já gasta). Exige `CHANGE_WIFI_MULTICAST_STATE` no manifest — sem ela `startForeground` **lança** |
-| `EspelhoMdnsPacote.kt` · `EspelhoMdns.kt` | **`av.local`.** O primeiro é **puro, com JUnit**, pela mesma regra do `EspelhoHttp` — e aqui um erro de parser vira **laço infinito**, porque ponteiro de compressão de DNS é um grafo que pode apontar para trás. O segundo é o socket 5353 com `MulticastLock` (sem ele o Android **não entrega o pacote**: o socket abre, o `joinGroup` funciona, e o `receive` nunca volta), a sondagem que impede roubar um nome alheio, e a despedida com TTL 0. **`NsdManager` não serviria**: ele publica um SERVIÇO, e serviço não vira nome que se digita numa TV. **A porta FICA na URL** (portas < 1024 são privilegiadas no Linux; nenhum app Android as reivindica) e **o IP continua divulgado ao lado**, porque `.local` não resolve no Chrome do Android nem na maioria das Smart TVs |
-| `EspelhoAudio.kt` | o PCM que o `AudioWorklet` do WebView do espelho entrega, virando AAC no mesmo fio. **O `AudioWorklet` existe ali porque aquele WebView É contexto seguro** (invariante 1) mesmo com o cliente em `http://` — o princípio geral: *tudo que precisa de contexto seguro pode ir para DENTRO do WebView* |
-| `EspelhoCert.kt` | o `.p12` do degrau de TLS: guarda, diz até quando vale, e **recusa o vencido** (subir com ele é a tela vermelha que o TLS existe para evitar). A senha do operador NÃO fica: o arquivo é reescrito com uma senha nossa de 128 bits |
-| `EspelhoDiag.kt` | o anel. **Devolve JSON, não texto** — quem monta a frase é o `controle.js`. Ele vive num `object` e SOBREVIVE a desligar e ligar o espelho, então a âncora do atraso precisa ser zerada por `novaSessao()` — a guarda de "o carimbo andou para trás" não pega o caso em que a base do codec não rebobina, e o tempo de espelho DESLIGADO era impresso como fila de encoder (v5.146) |
-| `assets/web/espelho/` | a página do cliente (uma página, dois estados), o muxer fMP4 em JS e o **codificador de QR** (`qr.js`, nível M versões 1–6, ~330 linhas sem dependência — o oráculo que o valida DECODIFICA o símbolo, em `tools/qr.test.mjs`) |
+| `EspelhoHttp.kt` | o parser HTTP **+ Range + SSE** — **PURO, zero import de Android**, com JUnit (`EspelhoHttpTest`, `EspelhoHttpRangeTest`). `alcanceDe` segue a RFC 7233 à risca: faixa malformada é **IGNORADA** (200 inteiro), nunca adivinhada; `Range` duplicado é malformado; fora do tamanho é 416 |
+| `EspelhoPares.kt` | a porta, tokens, prazo, castigo — **PURO**, com JUnit. **Sem código desde a v5.189**: a porta é o ENDEREÇO deste aparelho na rede, e o controle real é o teto de 3 sessões + o `derrubar` do operador (com castigo de 2 min, sem o qual "Desconectar" não faria nada visível). O token da sessão **nunca viaja numa URL**: o SSE vai por `fetch` + `Authorization: Bearer` (não `EventSource`, que não manda cabeçalho) |
+| `EspelhoServidor.kt` | sockets, rotas, fan-out. Serve **só** `PREFIXOS_BUNDLE` (display/shared/espelho — nunca `web/controle/`), `GET /e` (o fluxo SSE: fila de 256 por tela, ping de 15 s com o epoch do celular, `adeus` no desligar), `/m/<token>` (completo = 206/416; **em crescimento = chunked**, servindo enquanto o empurrão anda), `POST /r` (o caminho de volta: `st` injeta o status no barramento via `MessageBus.post(null,…)` — que NÃO passa pelo `busPost`, logo **sem eco por construção**). Bind explícito ao IPv4 da Wi-Fi, allowlist de `Host` exata — as regras da era dos pixels que continuam valendo |
+| `EspelhoMidiaCache.kt` | o cache da rota `/m/` — **PURO**, com JUnit. Token é **capacidade** (forma validada; entropia de quem cunha — o Controle, `crypto.randomUUID`), mesmo id + mesmo token = mesmo item (a regra do SafRegistry), id com token novo **substitui** (o wallpaper trocado), LRU por **bytes** e só de **completos** (um item em crescimento tem um empurrão vivo do outro lado) |
+| `EspelhoMidiaCanal.kt` | o empurrão: OPFS → cache, por `WebMessageListener` com `ArrayBuffer` (o molde do `EspelhoAudio` aposentado — allowedOriginRules exato, `isMainFrame`, host conferido). Fluxo com ack por bloco; a oferta na fila é **não-bloqueante** (fila cheia = erro retentável, nunca travar a main thread) |
+| `EspelhoEnergia.kt` | wake lock, Wi-Fi lock e térmica — **não é mais um Service** (v5.190): quem carrega a transmissão em primeiro plano é o `SessionService`, com o tipo `connectedDevice` somado ao dele. Exige `CHANGE_WIFI_MULTICAST_STATE` no manifest — sem ela `startForeground` **lança** |
+| `EspelhoDiag.kt` | o anel. **Devolve JSON, não texto** — quem monta a frase é o `controle.js` |
+| `espelho/tela.js` | a casca do papel `tela` — **carregada no próprio `display/index.html`**, entre `native.js` e `db.js`, e um no-op de uma guarda fora do papel (`?tela=1`). Define `__AVBus` (recepção = SSE; envio = o DRENO, ver o barramento), neutraliza o `postMessage` do `BroadcastChannel`, corrige o relógio (mediana do epoch dos pings — cronômetro e sorteio chegam como DESCRITOR com instante do celular), embrulha `AVDB.getMedia` para resolver `__rec.url`, e mantém a vigília (canvas.captureStream) para a tela não dormir |
+| `display.js` (papel `tela`) | `forceMuted` nasce ligado (autoplay sem gesto não existe num navegador de verdade); `window.__telaSom(true)` é o que o botão de entrada chama ao gastar o único gesto (fullscreen + som, **na mesma pilha**); wallpaper chega por `__wp` (ou o sentinela `'padrao'`), e o fundo da letra por `imageUrl` na estrofe |
+| `controle.js` (o outro lado) | **enriquece** cada `load` com `__rec` (registro saneado: id/kind/nome/tipo/url=`/m/<token>`/letra — **nunca** blob, opfsPath ou youtubeId) e dispara o empurrão da mídia; reescreve o manifesto de STREAM para `/s/<token>` (v5.189); **elege** uma tela como referência de tempo; converte o embed do YouTube e o deck em `tela-aviso` (o que a tela não sabe tocar, ela DIZ) |
 
-### O pareamento é por QR, e o QR está do lado que parece o errado
+### As decisões que precisam estar ditas
 
-**Quem MOSTRA o código é a TELA; quem LÊ é o CELULAR** (v5.145). O desenho
-original tinha o QR do lado oposto — desenhado pelo celular, contendo a URL —, o
-que resolve *descoberta* e não resolve *autorização*, e ainda esbarra em que,
-para ler a URL num QR, a tela já precisa de um leitor.
+- **UMA página, não duas.** O gesto do visitante (fullscreen + som) **não
+  sobrevive a uma navegação** — por isso não existe "página de entrada que
+  redireciona": `tela.js` desenha a entrada como OVERLAY sobre o próprio
+  display, e o toque no botão gasta o único gesto em tudo de uma vez
+  (`__telaSom(true)` → `requestFullscreen` → `POST /par` → token → SSE).
+  **Desde a v5.189 o botão é UM só, "Ativar esta tela", e não há código a
+  digitar**: a porta é o endereço.
 
-O que o código carrega **não é segredo nenhum**: é o `id` da espera que aquela
-página acabou de criar, que o servidor devolve a quem pedir. Ele não abre nada. O
-que autoriza é o operador ter apontado a câmera para AQUELA tela — a mesma
-decisão de sempre, com um gesto em vez de uma lista. Quem fotografar o código de
-longe leva 22 caracteres já usados. **Por isso o QR é mais forte que o PIN, não
-mais fraco:** some o segredo curto em cartaz na tela do operador durante todo o
-culto, que era justamente o motivo de a aprovação automática nascer desligada.
+  **E a pergunta "o que ainda falta nesta tela?" NÃO pode ser feita DENTRO do
+  gesto** (v5.214). `requestFullscreen()` é assíncrono e o clique borbulha até
+  o `document` antes de a tela cheia existir — medido em Chromium, o ouvinte do
+  documento roda com `fullscreenElement=false` e o `fullscreenchange` chega
+  9 ms depois. Perguntar ali responde sempre contra o passado, e o que nascia
+  disso era um SEGUNDO botão oferecendo exatamente o que o toque acabara de
+  fazer: a ativação unificada parecendo exigir uma segunda interação. Quem
+  responde é o próprio pedido de tela cheia — a Promise resolve quando ela
+  entrou e rejeita quando foi recusada —, e entre o gesto e esse desfecho o
+  `oferecerGesto()` é mudo (`assentando`, em `tela.js`).
+- **Depois de ativada, NADA cobre a tela.** O overlay cheio existe só na
+  primeira carga, quando não há nada por baixo dele. Queda de fio, token
+  vencido e até o `adeus` do operador reentram em silêncio (um `POST /par` numa
+  escada de 1 s a 30 s) — a mídia é local (`/m/`) e a letra anda pelo
+  `timeupdate` do próprio `<video>`, então a queda leva o fio e mais nada. O
+  gesto perdido (tela cheia) volta por **dois atalhos, e nenhum botão**
+  (v5.218): o TOQUE DUPLO e o **F11**. O botão discreto de canto que existia
+  aqui saiu — ele existia para devolver o gesto numa RECARGA, e a recarga passou
+  a voltar para a entrada oficial (abaixo), então ele virou um segundo controle,
+  com outro nome e outro desenho, para a mesma decisão.
 
-Três regras sustentam isso, e as três têm JUnit (`EspelhoParesTest`): a espera de
-QR **não aparece na folha** (qualquer um na rede cria uma, e numa lista o
-operador não distinguiria a TV da sala anexa do aparelho de alguém); a **aprovação
-automática não a alcança** (aquele interruptor sempre quis dizer "quem acertou o
-PIN não precisa do meu toque"); e as **duas filas são separadas**, com teto por
-origem — encher o balde do QR não pode negar o pareamento por PIN, porque negar o
-plano B é pior que a ausência do plano A.
-
-**O plano B é obrigatório e continua inteiro:** aparelho sem câmera, WebView sem
-o módulo de leitura (`BarcodeDetector.getSupportedFormats()` é a única pergunta
-honesta — a classe existir não promete que ela leia `qr_code`) e operador do outro
-lado do salão são três casos que acontecem. O botão só é desenhado com shell ≥ 33
-**e** leitura disponível.
-
-### O que o operador vê, e onde
-
-Uma **linha** em Configurações (escondida abaixo do shell 32) abre uma **folha**
-com o endereço, o botão de ler o código, o PIN de seis dígitos, o modo, a fila de
-telas esperando aprovação e o botão que liga ou desliga. A folha entra na tabela
-`POPUPS`, e o leitor de QR entra numa linha própria logo depois dela — o que não
-é burocracia: **fechar aquele popup é DESLIGAR A CÂMERA**, e é a tabela que
-garante que os três caminhos (✕, toque no fundo, botão voltar) façam isso. Sair do
-app também fecha, pelo mesmo motivo pelo qual o push-to-talk fecha.
-
-- **O operador fica no laço, nos dois caminhos.** Ler o QR é aprovar aquele id;
-  acertar o PIN põe a tela como **pendente** e quem a deixa entrar é um toque na
-  folha. Há um interruptor de aprovação automática **para a sessão**, que nasce
-  desligado e **não vale para o QR**. O token da sessão **nunca** viaja numa URL
-  — nem em `?t=`, nem em fragmento, nem no QR.
-- **Trocar de modo (imagem ⇄ vídeo) é desligar e ligar de novo**, e a folha diz
-  isso em vez de fingir que é um interruptor: trocar a Surface de um
-  `VirtualDisplay` ao vivo tem, nas palavras do AOSP, "efeito parecido com
-  desligar a tela".
-- **O aviso do OTA se cala com o espelho no ar.** Aplicar um bundle recarrega
-  Controle e telão e deixaria o espelho servindo o bundle ANTIGO, de um
-  diretório que o `beginSession()` seguinte apaga. É o terceiro caso de
-  `horaRuimParaAtualizar()`, ao lado de cena no ar e download em curso.
-- **E ele é o TERCEIRO DEGRAU de empilhamento** (v5.149). Ele abre de dentro da
-  folha do espelho (z-index 210), que abre de dentro de Configurações (200) — e
-  nasceu no 200 padrão, um degrau **abaixo** da folha que o abre. A folha cobria
-  a câmera por inteiro: o operador via o leitor "funcionando", com o indicador
-  de câmera do sistema aceso, e imagem nenhuma. É a mesma armadilha que o
-  `controle.css` já descrevia num comentário para o `#songMenuPopup` — e o
-  comentário não bastou, então a regra virou **asserção** em `tools/smoke.mjs`:
-  todo popup aninhado precisa de z-index maior que o do pai. O sintoma dessa
-  classe de defeito nunca é "está por baixo"; é "o toque não faz nada", e só
-  aparece em aparelho.
-- **O leitor de QR é TELA CHEIA e sem transform** (v5.146). A primeira versão
-  era uma caixa 4:3 dentro da folha comum, e ela falhou em aparelho de duas
-  formas ao mesmo tempo: pequena demais para mirar um código numa TV do outro
-  lado do salão, e **dentro de um `.popup-sheet`, que vive num
-  `transform: translateY(…)`** — um `<video>` de câmera sob um contêiner
-  transformado é caso conhecido de imagem que não aparece no WebView do Android.
-  A câmera acendia, a leitura rodava, e o operador olhava para um retângulo
-  preto sem ter como mirar. E como "visor preto" e "visor ainda carregando" são
-  a mesma tela, o app passou a **dizer qual dos dois é**: `videoWidth` só sai de
-  zero quando um quadro de verdade chegou, e depois de dois segundos sem isso a
-  linha de estado nomeia a falha.
-- **A TELA CONTA O QUE ESTÁ VENDO** (v5.146), pelo `alive` que já existia. Até
-  aqui o Registro respondia só o que o SERVIDOR via de fora — bytes, descartes,
-  último write —, e isso não distingue "está projetando" de "está num laço de
-  reconexão dizendo que não recebeu som". Agora cada tela manda a frase que está
-  escrita nela, se a faixa de som nasceu e quantos recomeços deu; e o relato sai
-  **a cada conexão e a cada troca da frase**, não de cinco em cinco minutos —
-  uma tela que reconecta a cada três segundos é justamente a que precisa ser
-  vista. A linha do Registro põe os dois lados do som lado a lado
-  (`som torneira:sim faixa:nao`), e **é a discordância entre eles que é a
-  leitura**: torneira é o que o servidor abriu, faixa é o que o cliente
-  conseguiu montar.
-- **O SOM DE CADA TELA É OPT-IN, e o botão precisa dizer isso** (v5.148). As
-  telas nascem mudas por decisão — três telas com som dentro da igreja são três
-  alto-falantes com eco —, e **nada no cliente liga `audioQuerido` além do
-  toque do visitante**. O botão desse toque dizia só "Ver em tela cheia", o que
-  fazia procurar defeito onde havia um botão não tocado: no primeiro culto de
-  teste o Registro mostrou `som torneira:nao` (que quer dizer "esta tela nunca
-  pediu") e a leitura na sala foi *"o celular não está enviando som"*. O rótulo
-  passou a anunciar o som, a folha do operador passou a dizer a regra, e o
-  `espelho-cliente.test.mjs` trava a porta nos dois modos — no de vídeo o gesto
-  PEDE o AAC, no de imagem ele deliberadamente não pede.
-- **O ESPELHO É SÓ VÍDEO — o modo IMAGEM saiu** (v5.156). Ele era o degrau de
-  baixo (JPEG a ~10 fps, sem `MediaSource`), e o que o derrubou não foi
-  desempenho: **ele não tem áudio e não tem como ter** — o som do espelho é uma
-  segunda `SourceBuffer` da mesma `MediaSource`, e um `<canvas>` não é
-  `HTMLMediaElement`. Um telão de igreja mudo não é um degrau, é outro produto.
-  Com ele saíram a segunda Surface, o `ImageReader`, a `HandlerThread` que
-  comprimia JPEG de 720p na CPU do aparelho que está projetando, o seletor de
-  modo da folha e um segundo caminho em toda decisão do `EspelhoDisplay` e do
-  cliente. O byte `0x20` do fio fica **aposentado e não reciclado**: um número
-  de protocolo reusado é um cliente antigo decodificando a coisa errada, em
-  silêncio. `espelhoLigar(modo)` mantém a assinatura e IGNORA o argumento —
-  tirá-lo obrigaria a subir o `SHELL_VERSION` sem ganhar nada.
-- **O BOTÃO DE CAST É A PORTA DAS DUAS FORMAS DE CONECTAR** (v5.156). Ele sempre
-  significou "pôr isto noutra tela", e abria direto o espelhamento do fabricante
-  enquanto o espelho na rede vivia numa linha de Configurações que só quem já
-  sabia dele iria procurar. São dois caminhos técnicos para UMA decisão do
-  operador. Agora ele abre uma folha (`castPopup`, z-index 200) com os dois e a
-  diferença dita — *a tela inteira do celular* × *só o telão, para navegadores*
-  —, e **"Mostrar numa tela da rede" liga o espelho e abre o leitor de QR num
-  toque**: a ordem entre as duas coisas existe por causa de como o recurso é
-  construído, não por causa de quem o usa. A folha do espelho (endereço, PIN,
-  telas, certificado) continua existindo como **Ajustes**, agora aberta de
-  dentro dela — e por isso o par `castPopup`/`mirrorPopup` entrou na asserção de
-  empilhamento do `tools/smoke.mjs`.
-- **O REGISTRO DO ESPELHO GANHOU A METADE QUE FALTAVA** (v5.156). Ele respondia
-  "quantos bytes eu escrevi"; a pergunta do operador é "por que a tela está
-  travando", e ela mora inteira do lado da TELA. O `POST /r` — que é
-  **autenticado** — ganhou teto próprio (`TETO_CORPO_RETORNO`, 4 KiB) enquanto o
-  `POST /par` **anônimo** segue em 256 B, e é essa assimetria que permite o
-  relato: folga do cursor em cada faixa (negativa = cursor fora do buffer, a
-  tela congela sem erro), quadros descartados pelo decodificador, `readyState`,
-  fila de append, codec aceito, `MediaError` e os quatro tetos internos do
-  cliente. Do lado nativo entraram a fila por tela, `esperandoIdr`, o freio de
-  IDR em três números, as recusas por motivo, a banda do enlace, a **janela do
-  espelho perguntada em vez de deduzida**, as mortes de renderer, o perfil/nível
-  do encoder e a memória do processo. **A guarda de compatibilidade é a regra de
-  sempre:** o bundle chega por OTA e o APK não, então um shell antigo devolve
-  413 ao relato grande — o cliente vê isso uma vez e volta ao relato curto.
-- **A BORDA AO VIVO É A DA FAIXA MAIS ATRASADA, e não a da imagem** (v5.155).
-  A perseguição de borda do cliente lia só o fim do buffer de VÍDEO e mantinha o
-  cursor entre 0,35 s e 0,85 s atrás dele — e o som sai ~500 ms atrás da imagem
-  (medido em aparelho: o caminho dele é worklet → blocos de 40 ms →
-  `postMessage` → fila → `MediaCodec` AAC, e nada disso existe do lado do
-  vídeo). A ponta rápida daquele intervalo fica, portanto, **150 ms à frente do
-  fim do som** — e a MSE só toca com dado em TODAS as faixas. O `<video>`
-  engasgava toda vez que a perseguição chegava lá: micro-travamentos **com o
-  buffer de vídeo cheio** e nenhum erro em lugar nenhum. A borda ao vivo de um
-  fluxo de N faixas é o **mínimo** das bordas. O preço é a imagem atrasar pelo
-  atraso do som, e ele é o preço certo: meio segundo a mais é invisível, um
-  engasgo não. Sem faixa de som — a maioria das telas — nada muda.
-- **O QUE VAI PARA O FIO É ASCII** (v5.155). `EspelhoPares.sanear` deixa passar
-  só `[\x20-\x7E]` (invariante 9, com JUnit) e ela está certa — um `\n` vindo da
-  rede injetaria linhas falsas no Registro, que é o artefato que este projeto
-  manda copiar e repassar. Só que ela **apaga** em vez de recusar, e as frases
-  do cliente são em português: o primeiro Registro de aparelho trouxe
-  `diz: "som: ok (vdeo  frente do som em 500 ms)  fim: ns abortamos"`. O
-  conserto é do lado que ESCREVE, nunca do que saneia: a tela segue com acento,
-  o fio leva a transliteração. **Texto novo que viaje ao Kotlin passa por
-  `semAcento`**, e o `espelho-cliente.test.mjs` exige que nenhum `alive`
-  carregue byte fora da faixa.
-- **A AUDITORIA DA v5.154, e ela é o item mais importante desta seção.** O
-  operador relatou o espelho "tecnicamente conectando, mas estruturalmente
-  quebrado", e a revisão linha a linha achou **seis** defeitos — quatro deles da
-  mesma família: *código que o compilador aprova, que a especificação descreve, e
-  que nunca roda*. A tabela inteira, com o porquê de cada um ter atravessado a
-  CI verde, está em `docs/ESPELHO-DE-PIXELS.md` §10-A. Os dois que precisam
-  estar ditos aqui:
-  - **Uma variável local sombreando a `MediaSource` matava o laço de 500 ms do
-    cliente.** Um `const ms` no fim de `vigiarAudio()` põe a variável na zona
-    morta temporal do bloco inteiro, e a leitura da `ms` do módulo na PRIMEIRA
-    linha da mesma função passa a lançar `ReferenceError`. Como a guarda começa
-    por `!sbA`, isso só acontecia **depois do gesto do visitante** — e o que
-    morria junto era poda, perseguição de borda, `setLiveSeekableRange` e o
-    relato. É a mesma família do `setInteger` numa chave `long`, do `bytes` no
-    `bgProgress` e do `slideLabel` no `nowPlaying`: falha sem exceção, sem log e
-    sem sintoma no lugar da causa. **`tools/sombra.test.mjs`** varre a base web
-    inteira e trava a regra — nenhuma função redeclara um nome de módulo.
-  - **O quadro de despedida existia nas duas pontas e não era emitido por
-    ninguém.** `EspelhoServidor.avisar()` tinha KDoc e nenhum chamador; o
-    `controle(j)` do cliente tratava o ramo `'adeus'` desde sempre. Sem ele,
-    desligar o espelho era, do lado do navegador, indistinguível de uma queda de
-    rede: até três telas martelando uma porta fechada a cada 8 s pelo resto do
-    culto. Código morto **simétrico** não aparece em nenhuma leitura de um lado
-    só; agora há um caso no `espelho-cliente.test.mjs`.
-- **O PRAZO do `csd` de áudio é ABSOLUTO, e atravessa reconexões** (v5.153) —
-  **mas ele é REARMADO a cada tentativa nova** (v5.154). Vencido uma vez, ele
-  ficava vencido para sempre: toda conexão seguinte abria a `MediaSource` só com
-  imagem, o `csd` de áudio chegava "tarde", e as três remontagens do teto se
-  gastavam sem nenhuma delas ter chegado a esperar — a tela ficava muda pelo
-  resto da sessão, com o teto de remontagens mascarando a causa. Quem o rearma é
-  `tentarSom()` (o toque do visitante) e a remontagem da reconexão; o teto
-  continua sendo o que limita quantas tentativas existem.
-  Ele era um `setTimeout` que o `conectar()` limpava no topo de cada conexão —
-  certo para o `csd` retido (ele morre com a conexão que o trouxe) e **fatal
-  para o prazo**: numa tela que reconecta a cada dois segundos, um prazo de
-  2,5 s nunca chega a vencer. O cliente esperava um `csd` de áudio para sempre,
-  a `MediaSource` nunca nascia, e **nem o vídeo aparecia** — com o Registro
-  dizendo, com todas as letras, `som: pedido, esperando o csd`. Foi a
-  instrumentação da v5.150 que o nomeou: sem ela, o sintoma era "travando e
-  dessincronizando". Agora o instante é marcado em `Date.now()` (um instante
-  sobrevive a qualquer número de reconexões; um timer não) e o timer fica só
-  para o caso da conexão estável.
-- **E a tela conta COMO a conexão terminou** (v5.153), no mesmo relato: `fim do
-  fluxo do servidor` × `rede: <nome>` × `nós abortamos`. As duas perguntas do
-  espelho hoje são "por que esta tela está muda?" e "por que ela reconecta?", e
-  a segunda não tinha resposta nenhuma — uma tela trocando de rótulo a cada dois
-  segundos com `0 descarte(s)` é um fato do lado de lá, e o Registro mostrava só
-  a troca.
-- **E O RAMO do som viaja junto, sempre** (v5.150). `som: PEDIDO e a faixa não
-  nasceu` responde ONDE o defeito está — deste lado —, não QUAL é: entre o
-  pedido e a faixa há **sete** desfechos (o `csd` não chegou, chegou ilegível,
-  chegou tarde com a `MediaSource` já aberta, o navegador não decodifica o
-  codec, o `addSourceBuffer` foi recusado, o vigia soltou a faixa, ou a tela
-  reconectou reusando uma `MediaSource` muda), e cada um tem correção diferente.
-  O cliente passou a carimbar o ramo exato e a mandá-lo no MESMO campo `aviso`
-  do relato — que o Kotlin já saneia e já mostra como `diz:` —, o que faz o
-  diagnóstico chegar **por OTA, sem APK**. Ele vai **mesmo sem frase na tela**,
-  e é isso que torna a AUSÊNCIA do `diz:` uma leitura por si só: o canal de
-  relato quebrou.
-- **E a reconexão deixou de condenar a tela ao silêncio.** `abrirMidia` com uma
-  `MediaSource` já aberta reenvia o segmento de inicialização e segue — o que é
-  certo para o vídeo e fatal para o som, porque o Chromium recusa
-  `addSourceBuffer` depois da inicialização: uma tela que pediu áudio e
-  reconectou sem faixa ficava muda pelo resto da sessão, **em silêncio**. Agora
-  ela remonta (com o mesmo teto de `REBUILDS_AUDIO` do gesto, para a projeção
-  nunca piscar mais que isso) e, batido o teto, **diz** que ficou muda.
-- **E o Registro diz o som em UMA FRASE**, não em dois booleanos para o operador
-  interpretar (`somDaTela`). São dois fatos independentes com saídas diferentes:
-  a *torneira* que o servidor abriu para aquela tela e a *faixa* que o cliente
-  conseguiu montar. `não pedido` é uma tela que ninguém mandou ouvir; `PEDIDO e
-  a faixa não nasceu` é o defeito de verdade.
-- **"O decodificador recusou os dados" é uma CATEGORIA, não um diagnóstico**
-  (v5.147). O evento `error` de um `SourceBuffer` é NU por especificação — ele
-  não distingue um fragmento malformado de um perfil de H.264 que aquele
-  aparelho não decodifica, e as duas têm correções opostas. Quem carrega o
-  motivo é o `MediaError` do `<video>`, cujo `message` o Chromium preenche com a
-  frase do demuxer; ela nunca era lida porque **ninguém abre console numa TV**.
-  Agora ela é capturada nos dois pontos (o `error` do buffer e o do elemento, em
-  ordem não garantida) e viaja até o Registro do operador junto com o resto do
-  relato da tela.
-- **E a recusa que se REPETE deixou de martelar.** `recomecar` zera a espera de
-  reconexão de propósito — uma falha isolada merece voltar depressa. Só que uma
-  recusa que se repete não é isolada: em aparelho isso virou uma tela
-  reconectando **de três em três segundos indefinidamente**, que não conserta
-  nada, martela o AP da igreja e pisca a projeção na frente de quem assiste. A
-  partir da terceira recusa seguida — com "seguida" medido por **um trecho longo
-  decodificado sem falha** (~13 s), nunca pelo primeiro quadro — a escada de
-  reconexão volta a valer e a frase passa a nomear o estado: *esta tela não está
-  conseguindo decodificar o fluxo*, que é o que separa "mexer no roteador" de
-  "trocar a tela".
-- **Um BLOCO no Registro** (`#diagBox`, com o botão de copiar de sempre) traz o
-  veredito da **sonda de readback** com os RGB medidos, o estado do servidor, a
-  tela virtual, o encoder, o **ritmo** e as telas conectadas. Duas linhas de lá
-  valem a seção inteira: `readback:` responde, na primeira vez que o operador
-  liga, se o framebuffer de um `VirtualDisplay` deste aparelho de fato contém a
-  camada de vídeo; e `nenhuma conexão desde que ligou` é a **única** forma de
-  distinguir "ninguém abriu" de **AP isolation** — que não tem conserto do lado
-  do app, e cuja saída é operacional (outro SSID, ou o hotspot do celular).
-
-### O filtro de telas, que é uma correção e não um enfeite
-
-`MainActivity.telasExternas()` exclui `Display.FLAG_PRIVATE` **e** o `displayId`
-da nossa tela virtual, e os **dois** pontos que perguntam "há telão?"
-(`syncPresentation` e `listDisplays`) passam por ele. **Ele é cinto e suspensório
-para uma flag que não estamos passando** — `DISPLAY_CATEGORY_PRESENTATION`
-devolve só display com `FLAG_PRESENTATION`, que `flags = 0` nunca põe —, e isso
-precisa estar escrito ou o próximo leitor o apaga como código morto: sem filtro
-e sem TV, `syncPresentation` acharia a tela do espelho e criaria uma
-`StagePresentation` **dentro dele** — um terceiro `/display/`, com
-`MicChromeClient` instalado e portanto habilitado a abrir o microfone do templo,
-numa janela que o operador não vê. O predicado é **estrutural**, nunca um nome
-nem um id adivinhado; e o risco **não é uma janela de corrida**: no Android 14+
-a ordenação de `getDisplays` por tipo foi removida (hoje é ordem de `displayId`)
-enquanto o javadoc continua prometendo "sorted by order of preference".
-
-### O TLS é um DEGRAU, e as três condições são do operador
-
-O espelho serve em **HTTP claro** por padrão, e a primeira inversão abaixo diz o
-que isso custa. Desde a v5.152 há um degrau: um `.p12` que o operador importa
-(`EspelhoCert.kt`, três métodos da ponte, shell 34).
-
-**Por que não é um interruptor.** Certificado público para IP privado **não
-existe e nunca vai existir** — a CA/Browser Forum proibiu *Reserved IP
-Addresses* em 2015 e mandou revogar os remanescentes em 2016. E autoassinado
-está **descartado**: desde o Android 7 apps com `targetSdk ≥ 24` não confiam em
-CA de usuário, o Chrome exige Certificate Transparency, e o navegador de uma
-smart TV não tem UI para instalar CA. Trocaria uma limitação silenciosa e
-previsível por **uma tela vermelha em cada culto, em cada aparelho**.
-
-O que funciona é o modelo do Plex e do Tailscale: **um NOME que o operador
-controla**, com registro `A` apontando para o IP privado e certificado emitido
-por **DNS-01**. Daí as três condições, e as três são dele: um subdomínio com
-wildcard por DNS-01; **uma entrada estática de DNS no roteador da igreja** (sem
-ela o nome só resolve com internet, e a proteção contra DNS rebinding do
-roteador o quebra em silêncio); e renovação automática.
-
-Três coisas que o código faz e que não são detalhe:
-
-- **O nome do certificado entra na allowlist de `Host`** e vira o endereço
-  divulgado. Sem isso o TLS seria inútil: o navegador conecta pelo NOME, o
-  `Host` chega como o nome, e uma allowlist que só conhece o IP devolveria o
-  404 IDÊNTICO a toda requisição — "com certificado o espelho para de
-  funcionar", sem nada no Registro que o explicasse. O IP continua na lista; ela
-  segue EXATA, e `evil.com` resolvendo para o nosso IP continua barrado.
-- **Um certificado vencido não é servido.** O espelho sobe em HTTP claro, com o
-  aviso na folha. Degradar é melhor que quebrar, e a alternativa é justamente a
-  tela vermelha.
-- **A senha do operador não fica guardada.** O `.p12` é reescrito com uma senha
-  aleatória nossa; a dele morre no fim do método. E a chave privada sai dos
-  **dois** destinos de backup — inclusive da transferência direta, ao contrário
-  da biblioteca: perdê-la ao trocar de aparelho custa reemitir, que é o custo
-  certo.
-
-Um wildcard é **recusado** como nome (a allowlist é exata), e a derivação do
-nome lê o **SAN primeiro** — o `CN` só como último recurso, porque navegadores
-o ignoram para verificação desde o Chrome 58. As duas funções são puras e têm
-JUnit (`EspelhoCertNomeTest`).
+- **MAS A RECARGA VOLTA PARA A ENTRADA OFICIAL** (v5.218, decisão do operador —
+  ela REVOGA a metade da regra acima que valia para o F5). A distinção é entre
+  perder o FIO e perder a PÁGINA: numa queda de fio a mídia continua tocando e
+  cobrir a tela apagaria uma cena que o problema não atingiu; uma recarga já
+  derrubou tudo — documento, `<video>`, cena e, sobretudo, o GESTO, que não
+  sobrevive a uma navegação. Não há projeção a preservar, logo não há nada a
+  cobrir, e o certo é o botão que o visitante já conhece. **O token é carregado
+  adiante** ainda assim, e isso não contradiz "a recarga desconecta": o fio só
+  abre no toque. O que ele evita é o teto de três telas — `telasSse` é indexado
+  pelo TOKEN, então pedir pareamento novo a cada F5 deixaria a sessão anterior
+  ocupando vaga até o vigia notá-la, e a terceira recarga seguida receberia
+  "lotado".
+- **O tap é no `busPost`, e isso fecha o eco.** `NativeBridge.busPost` vê 100%
+  dos comandos (o relay nativo roda sempre — ver o barramento), e é ali que o
+  `tapLan` os copia para o fan-out SSE. A injeção de volta (o `st` do
+  `POST /r`) entra por `MessageBus.post(null,…)`, que **não** passa pelo
+  `busPost`: um comando vindo de uma tela não volta para as telas.
+- **`__rec` viaja NO comando, não numa consulta.** A tela não tem IndexedDB com
+  o acervo; esperar um "GET /registro/<id>" a cada load seria uma ida-e-volta a
+  mais no caminho crítico do culto. O Controle já tem o registro na mão na hora
+  de emitir o `load` — ele o sania e o anexa. Tokens de mídia são cunhados pelo
+  Controle (sincronamente); o shell só valida a FORMA (`^[A-Za-z0-9_-]{16,64}$`).
+- **`display-ready` com `__tela` sobe; `tela-status` sobe; o resto morre.** O
+  dreno de subida é a mesma lista de permissão de dois itens do barramento —
+  `media-ended`, `mic-status` e `diag-dump` de uma tela morrem nela.
+- **A TRANSMISSÃO DIRETA CHEGA ÀS TELAS** (v5.189, a dívida §7). A rota
+  `/s/<token>` do servidor repassa a faixa do googlevideo (o `Range` do cliente
+  sobe cru; a resposta é espelhada de volta) com o UA que combina com a URL, e
+  o `telaEnriquecer` reescreve `/stream/<token>` → `/s/<token>` no manifesto.
+  O token é o MESMO dos dois lados (o registro do `StreamProxy` é um só), então
+  não há segunda extração. Da v5.187 à v5.188 havia aqui um `pularTransmissao`
+  que mandava tudo ao download quando a transmissão estava ligada sem TV — e
+  como esse é o estado normal do operador, o "Tocar agora" nunca transmitia.
+  O que ainda não vai para a rede é o EMBED (iframe de terceiro) e o DECK.
+- **A preview não atrasa para telas de comando** (`dePixels` em
+  `recalcularAtrasoPreview`): o atraso da v5.162 media o buffer de MSE do
+  espelho de pixels; uma tela por comandos aplica o comando no ato, e o alvo é
+  0.
+- **`snoopStatusDeFora` é um só, no companion.** `display-status`,
+  `espelho-status` e `tela-status` passam pelo MESMO relógio de precedência
+  (`ultimoStatusDoTelaoMs`) — a versão por-instância tinha um bug latente de
+  precedência entre WebViews, e a notificação de mídia é alimentada por ele
+  quando o app está minimizado.
+- **Detecção por PRESENÇA, não por versão**, onde há um objeto injetável:
+  `telaAtiva()` pergunta `espelhoLigado() && window.__avTelaMidia`. O
+  `SHELL_VERSION` (37) subiu pela mudança de FORMA do `espelhoEstado`/`espelhoDiag`,
+  não para guardar o canal.
 
 ### As inversões que precisam estar ditas
 
-1. **`PLANO-TELAO-NA-REDE.md` dizia, verbatim, que "um servidor LAN em Kotlin,
-   sozinho, não consegue vazar o acervo — ele não tem os bytes".** Com o espelho
-   ele passa a ter **a imagem contínua de tudo que a igreja projeta**, e com o
-   áudio, o som junto. É uma inversão **deliberada**, e está escrita como
-   inversão para ninguém reler o plano antigo e achar que a propriedade
-   continua valendo. Em HTTP claro o pareamento é uma fechadura numa parede de
-   vidro; só o TLS do degrau opcional fecha a parede.
-2. **O espelho é um SEGUNDO contexto de terceiro no processo privilegiado.**
-   Sem TV havia um `/display/` carregando a IFrame Player API; com ele, dois,
-   cada um com seu `YT.Player` — e a transmissão direta passa a rodar duas
-   vezes, dobrando os dados móveis no exato ambiente descrito como "rede ruim,
-   pode não ter internet". Nada disso é impeditivo; tudo isso é custo.
-3. **O áudio é PARCIAL, por construção e por decisão.** Fica de fora o embed do
-   YouTube (iframe cross-origin — o Web Audio não alcança o áudio dele) e fica
-   de fora o **microfone ao vivo**: um `MediaStreamAudioDestinationNode` no fim
-   do grafo mandaria a voz do santuário em AAC para três navegadores
-   desconhecidos, em HTTP claro. Essa é a linha que impede a "melhoria" óbvia.
+1. **O áudio agora é INTEIRO, e local.** A tela toca o arquivo (`/m/`) no
+   próprio `<video>`/`<audio>` — acabou o AAC parcial, a deriva de eixo, o
+   `AudioWorklet` e toda a família de defeitos §10-A do doc do espelho. O som
+   continua **opt-in por tela** (o `forceMuted` só sai com o gesto do
+   visitante). O **microfone ao vivo** continua fora da rede: o comando `mic`
+   não é drenado para as telas — a captura e a reprodução dele são do telão de
+   verdade.
+2. **O que vaza numa rede aberta mudou de natureza.** Antes: a imagem contínua
+   de tudo que a igreja projeta. Agora: os comandos (títulos, referências,
+   letras) e as mídias que forem carregadas durante a transmissão — por tokens
+   opacos por sessão. A porta continua nascendo aberta (v5.170, conteúdo
+   público por definição); o teto de 3 sessões e o derrubar na folha continuam
+   sendo o controle real.
+3. **A tela executa CÓDIGO nosso, não só decodifica pixels.** O bundle servido
+   é o mesmo do app (OTA→APK), então um bundle quebrado quebra as telas junto —
+   e o watchdog de boot do OTA não as cobre. O que as cobre é o
+   `tela-rede.test.mjs` (Chromium de verdade, o percurso inteiro: entrada,
+   comandos, mídia, status, adeus) e o fato de o telão de verdade rodar o MESMO
+   display.js — quebrar um é quebrar o outro, que é o defeito que aparece.
 
-> **E uma regra de calendário:** o operador liga o espelho pela primeira vez
-> **numa terça-feira, não no culto**. Um `ServerSocket` novo, um parser HTTP
-> novo e um `VirtualDisplay` novo dentro do processo da projeção, com o teste de
-> aceitação sendo um domingo, é o oposto da disciplina do resto do repositório.
+> **E a regra de calendário fica:** a primeira ligada em rede de verdade é
+> **numa terça-feira, não no culto**.
+
+---
+
+## Séries do YouTube (o álbum "Provai e Vede 2026")
+
+Um canal que publica **um episódio por semana** e organiza o ano em **uma
+playlist por mês** vira um **álbum da Biblioteca**. O primeiro caso é o
+[Provai e Vede](https://www.youtube.com/@provaievedeoficial), mas nada no
+código é sobre ele: o catálogo em `assets/web/controle/serie.js` guarda
+`{ canal, prefixo, ano }`, e uma linha a mais dá uma série nova sem código novo.
+
+```
+ canal @provaievedeoficial          celular                    Biblioteca
+ ┌──────────────────────┐   ytCanalPlaylists   ┌───────────┐   ┌──────────────┐
+ │ aba Playlists        │────────────────────► │ serie.js  │──►│ card da série│
+ │  · Set 2026 (Libras) │                      │  a REGRA  │   │ 52 episódios │
+ │  · Set 2026          │   ytPlaylist(url)    │  (PURA)   │   │ 15/Ago · …   │
+ │  · Ago 2026 ← s/hífen│────────────────────► │           │   └──────────────┘
+ └──────────────────────┘                      └───────────┘   syncCollection
+```
+
+**A divisão de trabalho é a decisão central, e é a invariante 5.** O shell
+entrega listas cruas — os dois métodos novos não olham para o conteúdo, e o
+título do vídeo sai **sem** o `tituloLimpo` que a busca aplica, porque é dele
+que a regra tira a data e a marca de Libras. Quem decide é o lado web, e a razão
+é prática: a nomenclatura de um canal muda sem avisar ninguém, e ali um ajuste
+chega por OTA em minutos, com oráculo em Node — em Kotlin custaria um degrau de
+`SHELL_VERSION` e uma Release por vírgula.
+
+### A regra, e as seis armadilhas que ela carrega
+
+Nenhuma é hipótese: todas foram lidas nas abas Playlists e Vídeos do canal.
+
+1. **O hífen não é garantido.** As playlists são "Provai e Vede - Agosto 2026",
+   e **uma delas é "Provai e Vede Agosto 2026"**. Um `^Provai e Vede - ` teria
+   descartado o mês inteiro, sem erro nenhum. Por isso a regra não casa
+   separador: pede o prefixo no começo e procura mês e ano **em qualquer
+   posição** — o hífen é opcional por construção, não por um `?` no lugar certo.
+2. **Espaço duplo** ("Provai e Vede␣␣2026 (15/Ago)"). Tudo passa por `normalizar`.
+3. **O marcador de LIBRAS muda de forma entre os níveis:** `(Libras)` na
+   playlist, `- Libras` no vídeo. O teste é pela **palavra**, sem acento e sem
+   caixa — testar qualquer uma das duas formas literais deixaria a outra passar.
+4. **A duração não separa nada:** 4:54 × 4:55 num par, 5:07 × 5:07 noutro.
+5. **O `uploaderName` não é o canal:** os vídeos vêm como "Provai e Vede |
+   Oficial **e Adventist…**" (colaboração). Filtrar por ele derrubaria tudo.
+6. **A DATA tem DUAS formas, e o mesmo episódio usa as duas** (v5.230). A
+   compacta entre parênteses — "… 2026 (03/Jan)" — e a **por extenso**: "Não há
+   órfãos de Deus | Provai e Vede 2026 **sábado 3 janeiro**". No dia 3 de
+   janeiro de 2026 a versão em Libras saiu na primeira e a de português na
+   segunda. `dataDoVideo` tenta as duas, nessa ordem; a extensa aceita o "de"
+   opcional e o ordinal ("1º"), e exige que o nome **seja** um mês em vez de só
+   começar como um — sem essa última guarda, "3 marcos" viraria 3 de março.
+
+O que a sexta ensina não é "existem duas formas": é que **supor UMA forma era a
+aposta errada desde o começo**, e é justamente por a regra de ouro deste arquivo
+já valer (o título é só rótulo) que o episódio entrou no álbum mesmo assim. O
+preço de errar a data é o que o operador relatou — um item sem identificador de
+data, fora de ordem, no fim de janeiro —, não um episódio ausente.
+
+### As decisões que precisam estar ditas
+
+- **A descoberta é a ABA DO CANAL, não uma busca por texto.** É uma diferença
+  de AUTORIDADE: numa busca quem escolhe o resultado é o ranking do YouTube, e
+  qualquer pessoa pode nomear uma playlist "Provai e Vede 2026". Vindo do canal
+  — o publicador —, o pior caso é uma playlist a menos, nunca o vídeo de um
+  desconhecido na projeção do culto.
+- **A PLAYLIST prova o pertencimento; o título é só RÓTULO.** Um vídeo entra
+  por estar numa playlist aceita, jamais por casar um padrão de título. A data
+  `(15/Ago)` ordena e nomeia, e quando ela não casa o vídeo **entra do mesmo
+  jeito**, com a ordem em que veio. Errar para o lado de um nome feio é
+  recuperável; errar para o lado de um episódio ausente é o operador descobrindo
+  no sábado que o vídeo do culto não está lá.
+- **A recusa de Libras existe DUAS vezes, e a segunda nunca dispara hoje.** As
+  playlists PT e Libras são espelhos 1:1, então a de português já vem só com
+  português — mas um único vídeo acrescentado por engano na playlist oficial
+  iria direto ao telão, e essa é a falha que não se pode correr por economia de
+  três linhas.
+- **O ano é EXPLÍCITO no catálogo.** "O ano corrente" faria o álbum trocar de
+  conteúdo sozinho na virada de dezembro, no meio da programação de janeiro.
+  2027 é uma linha nova e um push em `main`.
+- **A assinatura das playlists evita doze extrações por retomada.** A aba do
+  canal já diz quantos vídeos cada playlist tem; batendo com o que está
+  guardado, as ~12 chamadas de `ytPlaylist` são puladas. Um episódio novo muda a
+  contagem e a assinatura inteira é refeita — "tudo ou nada" de propósito, para
+  não guardar de qual playlist veio cada faixa.
+- **E A REGRA ENTRA NESSA ASSINATURA** (`AVSerie.impressao`, v5.233). O índice
+  guarda os nomes JÁ FORMADOS e a ordem JÁ decidida; a assinatura do canal não
+  sabe nada sobre a regra que os produziu. Sem a impressão, mudar a regra deixa
+  o índice guardado de pé para sempre — foi o que prendeu o episódio de 3 de
+  janeiro sem data depois da v5.230, e nem limpar o cache resolvia (o índice
+  mora no IndexedDB). Ela é um hash do PRÓPRIO CÓDIGO das funções que decidem,
+  e não um número à mão: quem esquecesse de subir o número reproduziria o
+  defeito.
+- **O índice falha com EXCEÇÃO, nunca com lista vazia.** `syncCollection` já
+  trata isso como "sem internet" e PRESERVA o índice anterior; devolver zero
+  itens apagaria da tela a série inteira que o operador já tem baixada, por uma
+  oscilação de rede.
+- **`lyrics: null` no registro não é enfeite.** `songVariantsNeeded` pergunta
+  `fullRec.lyrics === undefined` para decidir se a faixa falta — sem o campo, os
+  52 episódios seriam rebaixados a cada sincronização, para sempre e em silêncio.
+- **`aportuguesar` em todo extrator, e aqui ele não é cosmético.** No padrão
+  en-GB da biblioteca o YouTube devolve o título TRADUZIDO: `(15/Ago)` viraria
+  `(15/Aug)` e a marca de Libras mudaria de palavra — as duas coisas de que a
+  regra depende. A paginação sai do MESMO extrator (`ex.getPage`), e não do
+  `getMoreItems(service, …)`, que monta um extrator novo por dentro e nasceria
+  sem o `forceLocalization`: os meses do fim da lista voltariam em inglês
+  enquanto os do começo vêm em português.
+- **UM EPISÓDIO É UM VÍDEO DO YOUTUBE, e a folha dele é a mesma** (v5.230,
+  pedido do operador). A v5.228 tratou a série como coleção do LouvorJA porque
+  é dali que a casca do card veio — e **naquele mundo o toque BAIXA**, o que é
+  certo para uma faixa de hinário de poucos MB que existe para ficar offline.
+  Aqui a premissa não vale: são ~300 MB por episódio e o vídeo do sábado é visto
+  uma vez. `openSongMenu` desvia para `openYtMenu` antes de qualquer coisa, e
+  com isso o episódio ganha de graça a **transmissão direta** no "Tocar agora" e
+  o download só nos destinos que GUARDAM (playlist · Cronograma · Favoritos).
+  A única diferença é `semSoAudio`: o seletor Vídeo × Só áudio some, porque um
+  testemunho em vídeo não tem versão de áudio que faça sentido projetar — e uma
+  escolha que não muda nada é pior que escolha nenhuma.
+- **E A LINHA TAMBÉM É A DO VÍDEO** (v5.236). A v5.230 desviou as duas FOLHAS e
+  parou ali: o toque na LINHA continuou abrindo o acordeão da LETRA, que
+  anunciava "Letra ainda não baixada" para uma coisa que nunca vai ter letra —
+  **desviar as portas de um recurso não desvia o que estava atrás delas**, que é
+  a lição da v5.229 outra vez. Agora quem decide é o TIPO da coleção
+  (`tipoDaColecao`, com as capacidades `temLetra` e `ehLink`), e a gaveta
+  responde a mesma pergunta — *"é este mesmo?"* — com o que o item de fato tem:
+  a **miniatura**, a duração e o estado no aparelho. Os dois primeiros o extrator
+  já entregava e o índice descartava; o terceiro é o que decide, porque "Tocar
+  agora" TRANSMITE e um episódio já guardado entra do disco.
+- **A LETRA nunca é pedida para um vídeo** (v5.236). `syncLyrics` varria toda
+  coleção com itens e pedia `music_<id>` ao LouvorJA — com um id que é do
+  YouTube. Como falha de rede não grava `LYRIC_NONE` de propósito, eram ~52
+  requisições perdidas **por abertura do app, para sempre**, infladas no total
+  da notificação "Letras das músicas". A guarda é `temLetra(coll)`, nos dois
+  consumidores (a fila e o índice da busca por trecho).
+- **O card não baixa em lote, e o botão dele muda de verbo.** "Baixar" ali seria
+  o download direto que o operador pediu para não existir, na maior escala que
+  este app tem (~15 GB). O botão da barra some assim que HÁ índice — enquanto
+  não há ele fica, porque ali ele não baixa nada, busca a lista —, o item de
+  opções vira **"Atualizar a lista"** (`syncCollection(coll, { soIndice: true })`,
+  que devolve logo depois do índice) e a série sai de "Baixar toda a
+  biblioteca", peso incluído: um total que promete o que o botão não faz é a
+  pior das duas metades.
+- **O card não é desenhado abaixo do shell 41**, pela regra de sempre: um método
+  novo não chega por OTA, e um card que não carrega nada é pior que card nenhum.
+
+### O tamanho, dito em vez de escondido
+
+São ~52 episódios de ~5 min por ano, ~300 MB cada em 1080p: o ano inteiro passa
+de 15 GB. É por isso que **não existe "baixar o álbum"** aqui — o uso normal é
+tocar o episódio do sábado, que TRANSMITE sem baixar nada, e guardar um episódio
+offline é mandá-lo ao Cronograma ou aos Favoritos pela folha, um a um.
 
 ---
 
 ## A paleta
 
-A paleta "Sala Escura" (âmbar) mora em **`assets/web/shared/tokens.css`**, fonte
-única carregada pelos dois `index.html` **antes** da folha do app. Até a v5.47 os
-tokens de marca eram mantidos à mão em DUAS folhas (`controle.css` e
-`display.css`), e o comentário das duas admitia que "a sincronização é manual" —
-sincronização manual entre dois arquivos é uma classe de bug, não um processo:
-basta um ajuste entrar só num lado para o telão e a preview do Controle, que
-existe justamente para ESPELHAR o telão, mostrarem coisas diferentes.
+A paleta mora em **`assets/web/shared/tokens.css`**, fonte única carregada pelos
+dois `index.html` **antes** da folha do app. Até a v5.47 os tokens de marca eram
+mantidos à mão em DUAS folhas (`controle.css` e `display.css`), e o comentário
+das duas admitia que "a sincronização é manual" — sincronização manual entre
+dois arquivos é uma classe de bug, não um processo: basta um ajuste entrar só
+num lado para o telão e a preview do Controle, que existe justamente para
+ESPELHAR o telão, mostrarem coisas diferentes.
+
+**Desde a v5.192 ela é a IDENTIDADE OFICIAL DA IASD, e são DOIS TEMAS.** As
+matizes vêm do pacote oficial adventista — o mesmo de que saiu o símbolo do
+wallpaper padrão na v5.188 —, com o **denim `#2F557F`** (PMS 302) como núcleo. O
+âmbar da paleta "Sala Escura" saiu, e ele nunca foi oficial: a v5.47 o adotou
+por um argumento de CONTRASTE (a paleta azul anterior usava um valor único para
+fundo preenchido e para texto, e era esse par que reprovava), e a separação de
+papéis em `--accent`/`--accent-fill`/`--on-accent` resolve isso sem trocar a
+matiz. Com ela no lugar, o azul oficial passa com folga nos dois temas.
 
 O essencial para não quebrar nada aqui:
 
 - **Só cor entra em `tokens.css`.** Raio, escala de ícone, curva de toque e
   medidas de layout ficam no `:root` de `controle.css`: são decisões da UI densa
   do Controle, e o Display (que não tem UI) não teria o que fazer com elas.
-- **Três matizes, com papéis que não se misturam.** Âmbar é a marca IASD **e** o
-  accent (navegação, seleção, progresso) — `--gold` e `--accent` têm o mesmo
-  valor de propósito, e os dois nomes existem para distinguir na folha "isto é
-  marca" de "isto é navegação". Vermelho é atenção, em dois papéis separados:
+- **A montagem dos temas são três blocos**, e a ordem deles é a regra:
+  `:root` com o que NÃO muda, `:root` com o tema ESCURO (o padrão, sem atributo
+  nenhum) e `:root[data-tema="claro"]` (0,2,0 vence o 0,1,0). O claro é um
+  DELTA: o que ele não redeclara cai no escuro. **Um token que exista SÓ no
+  claro não está definido no tema padrão** — o `var()` computa para o valor
+  inicial da propriedade, sem aviso e sem log, e quem escreveu acabou de ver a
+  cor certa na tela porque estava com o claro ligado. `tools/tokens.test.mjs`
+  trava isso.
+- **O PALCO NÃO TEM TEMA, e é isso que faz o recurso valer.** `--stage-*`,
+  `--wallpaper` e `--lyrics-frame-bg` (mais as sombras e o `--scrim`) moram no
+  bloco compartilhado. O Display já ficaria escuro por omissão — ele nunca
+  escreve o atributo —; o que a separação garante é o outro lado: a PREVIEW do
+  Controle roda no documento que TEM tema, e ela existe para ESPELHAR o telão.
+  Um telão claro num salão às escuras cega a congregação, e uma preview que
+  clareasse junto com a UI deixaria de cumprir seu papel exatamente no tema em
+  que o operador mais precisa dela. `tools/smoke.mjs` trava isso.
+- **E a regra vale para as REGRAS, não só para os tokens** (v5.219). Os tokens
+  do palco estavam certos e as folhas do palco liam `--brand`, `--live-strong`,
+  `--bg` e `--accent-glow` — quatro tokens de TEMA. No Display isso nunca doeu
+  (ele não escreve o atributo); na preview com o tema CLARO ligado, o título do
+  slide de capa era desenhado com o denim oficial sobre o preto do palco:
+  **2,73:1 medidos**, ilegível, e foi assim que o operador o encontrou. Daí
+  `--stage-accent`, `--stage-accent-glow`, `--stage-on-accent` e `--stage-alert`
+  no bloco compartilhado. **Nada pintado no palco pode ler um token redeclarado
+  em `[data-tema]`**, e o oráculo mudou de pergunta junto: `tools/smoke.mjs`
+  compara a COR COMPUTADA de cada camada do palco nos dois temas (o defeito
+  passava por baixo da versão que comparava quatro nomes de token).
+- **Três matizes, com papéis que não se misturam.** O azul denim é a marca IASD
+  **e** o accent (navegação, seleção, progresso) — `--brand` e `--accent` têm o
+  mesmo valor de propósito, e os dois nomes existem para distinguir na folha
+  "isto é marca" de "isto é navegação". (Eles se chamavam `--gold*` até a
+  v5.192: um token chamado "gold" guardando um azul é exatamente a divergência
+  que a fonte única existe para impedir, então foram renomeados junto com a
+  cor.) Vermelho é atenção — o `scarlett` oficial —, em dois papéis separados:
   **preenchido = está no ar agora** (`--live`), **contornado = ação destrutiva**
-  (`--danger-text`) — nunca preenchida, para não competir com o que está de fato
-  no telão. Verde (`--ok`) é **só** concluído/conectado; antes ele também dizia
-  "está no ar" em dois lugares enquanto outros quatro diziam o mesmo em
-  vermelho, duas cores opostas para a mesma mensagem na mesma tela.
+  (`--danger-strong`/`--danger-text`) — nunca preenchida, para não competir com
+  o que está de fato no telão. Verde (`--ok`, do `treefrog` oficial) é **só**
+  concluído/conectado; antes ele também dizia "está no ar" em dois lugares
+  enquanto outros quatro diziam o mesmo em vermelho, duas cores opostas para a
+  mesma mensagem na mesma tela.
+- **Nem todo token é um valor oficial, e os derivados estão marcados.** Os
+  dezoito valores oficiais foram desenhados para fundo BRANCO: medidos, todos
+  passam AA sobre branco, e NENHUM passa AA como texto sobre o quase-preto do
+  tema escuro (bluejay dá 3,97:1). Onde clarear ou escurecer foi preciso, o
+  comentário de `tokens.css` diz de qual oficial o valor saiu, e a matiz é
+  preservada. O mesmo vale para os ladrilhos da Bíblia: a identidade tem sete
+  famílias de matiz e a tela de livros precisa de DEZ grupos separáveis por
+  pelo menos 20°, então cinco são oficiais e cinco preenchem os vãos.
 - **A superfície AFUNDA dentro de um cartão** (a regra no topo de
   `controle.css`). `--surface`/`--surface-2` são branco com alfa, então
   EMPILHAM: o mesmo token sobre `--panel` produz uma base bem mais clara do que
@@ -1702,19 +2020,29 @@ O essencial para não quebrar nada aqui:
   overlay passa a ser preto) — que também é a convenção certa de UI escura: o
   cartão já está elevado, logo o controle dentro dele é recesso, e ainda emite
   menos luz num salão escuro. Como custom properties HERDAM, a regra só precisa
-  marcar os elementos que de fato pintam `--panel`.
+  marcar os elementos que de fato pintam `--panel`. **O SINAL é o mesmo nos dois
+  temas** — flutua sobre a página, afunda dentro do cartão —, e só a intensidade
+  muda; por isso os dois valores viraram token (`--surface-sunk`) na v5.192, em
+  vez de seguirem literais em `controle.css`: eram os últimos pedaços de cor
+  fora da fonte única, e o tema claro herdaria um recesso de 24% de preto sobre
+  um cartão branco.
 - **Nunca escrever branco literal.** Nenhum `#fff` sobrou como valor de cor em
   `controle.css`/`display.css`: o branco pleno era a maior fonte isolada de luz
   emitida do app, e o off-white da paleta (`--text`) é o que se usa. As únicas
   exceções são **o palco**: `--stage-text: #fff`, porque num telão a
   legibilidade vem de luminância máxima, não de um off-white calibrado para uma
-  tela a 30 cm do rosto.
-- **O ÍCONE DO APP também é a paleta** (v1.34). Ele era um PNG com o botão AZUL
-— sobra da paleta azul que a base web abandonou na v5.47 — sobre um fundo verde
+  tela a 30 cm do rosto. No tema CLARO o `--panel` é branco pleno, e ali a regra
+  não se aplica pelo motivo dela: uma página clara é a escolha explícita de quem
+  não está no escuro.
+- **O ÍCONE DO APP também é a paleta** (v1.34). Ele era um PNG com um botão
+azul QUALQUER — sobra de uma paleta azul aposentada — sobre um fundo verde
 copiado do wallpaper, que é a cortina da TV e nunca aparece no celular: nenhuma
 das duas cores existia na tela que o operador vê ao tocar no ícone. Agora é o
 mesmo mixer de três faixas em `--text` (trilha) e `--accent` (botão) sobre
-`--bg`, o mesmo preto que o sistema desenha antes de o WebView carregar. Ele
+`--bg`, o mesmo fundo que o sistema desenha antes de o WebView carregar — e na
+v5.192 o azul voltou, agora o certo: o bluejay oficial da IASD. Ele **não segue
+o tema claro**, e não tem como: o ícone é desenhado pela gaveta do sistema com o
+app fechado, e o par escuro é o padrão. Ele
 virou VETOR (`res/drawable/ic_launcher_foreground.xml`) porque com `minSdk` 26 o
 adaptativo é o único ícone que chega a ser desenhado: os cinco PNGs por
 densidade eram peso morto e mais cinco lugares para a cor divergir. A camada
@@ -1722,15 +2050,37 @@ densidade eram peso morto e mais cinco lugares para a cor divergir. A camada
 apontava para o PNG do primeiro plano, que tinha fundo opaco, e o ícone temático
 virava um quadrado cheio.
 
-**`res/values/colors.xml` espelha `--bg` à mão.** É o preto das barras de
-  status e navegação e o `windowBackground` (o que aparece ANTES de o WebView
-  carregar). Nada no build detecta a divergência, e o OTA pode trocar a base web
-  sem trocar o APK — se o token mudar, este valor muda junto.
+**`res/values/colors.xml` espelha `--bg` à mão — agora DOIS valores**
+(`app_bg` e `app_bg_claro`). É o fundo das barras de status e navegação e o
+`windowBackground` (o que aparece ANTES de o WebView carregar). Nada no build
+detecta a divergência, e o OTA pode trocar a base web sem trocar o APK — se um
+token mudar, o valor daqui muda junto. **Ele é o ÚNICO lugar fora de
+`tokens.css` que carrega a cor de fundo, e não tem escapatória**: recurso de
+Android não enxerga custom property de CSS. O `theme-color` do `<meta>` chegou a
+ser um segundo e deixou de ser — o `pintarTema()` o LÊ do `--bg` já resolvido (a
+folha entra no `<head>` e o script no fim do `<body>`, então o estilo já está
+aplicado quando ele roda), e o literal do HTML cobre só o instante anterior a
+esse script. Quem escolhe entre os dois é a
+`MainActivity` em tempo de execução (`AVNative.temaClaro` → `setTemaClaro`), a
+partir de uma CÓPIA da escolha guardada em `SharedPreferences`: um recurso de
+XML é resolvido antes de existir JavaScript, então o primeiro quadro só pode vir
+de uma preferência guardada. **O preço, dito em vez de escondido: trocar de tema
+tem um lançamento de atraso no fundo do splash, e só nele.** A mesma chamada
+vira a bandeira `APPEARANCE_LIGHT_STATUS_BARS` — que o Android 15+ NÃO ignora
+(ele ignora as CORES das barras, não a aparência dos ícones), e sem a qual o
+tema claro fica com o relógio e os botões de navegação brancos sobre branco.
 
 **Não há teste automatizado de contraste no repositório.** Os números nos
 comentários de `tokens.css` são medições feitas à mão, e os pares que ficam
 abaixo do piso estão declarados como tais no próprio comentário. Ao mexer num
-token, meça — nada no CI vai barrar uma regressão.
+token, meça — nada no CI vai barrar uma regressão, **e agora são DOIS temas a
+medir**. O que o CI trava é outra coisa, e vale repetir para não confundir os
+dois: `tools/tokens.test.mjs` garante que todo `var(--x)` sem fallback aponta
+para um token que EXISTE (um `var()` inválido computa para o valor inicial da
+propriedade, sem aviso nenhum — foi assim que os dois botões da folha de
+conectar ficaram com cantos retos na v5.171) e que nenhum token exista só no
+tema claro; `tools/smoke.mjs` trava o efeito RENDERIZADO nos dois temas, o palco
+que não os segue e a escolha que sobrevive à recarga.
 
 O raciocínio completo (cada par medido, os pisos adotados, os ladrilhos da
 Bíblia e as células de capítulo/versículo) está na seção de paleta de
@@ -1748,25 +2098,26 @@ contextos.
 | Ponto | Navegador | App nativo |
 |---|---|---|
 | Service workers (`sw.js`) | — | **o arquivo não existe no bundle e o registro saiu dos DOIS apps** (v5.48): os assets já são locais, e recarregar o WebView do telão no meio de um culto é justamente o que não pode acontecer. Atualizar a base é papel do OTA |
-| `#startBtn` "Ligar Sistema" | destrava autoplay de terceiros | **oculto** — `mediaPlaybackRequiresUserGesture = false`; uma TV não recebe toque |
+| `#startBtn` "Ligar Sistema" | destrava autoplay de terceiros | **oculto** — `mediaPlaybackRequiresUserGesture = false`; uma TV não recebe toque. **E oculto também no papel `tela`** (v5.216), pela razão OPOSTA: ali há política de gesto, mas o gesto é do "Ativar esta tela" do `tela.js` — este não pareia, não solta o som e não pede tela cheia, só se esconde, então gastá-lo é perder o único toque disponível. Quem o desliga é o `display.js`, pelo papel e em TODA carga: a regra morava no `montarEntrada()` do `tela.js`, que a recarga com sessão viva não chama, e um F5 trazia o botão de volta por cima da projeção |
 | Recuperação de áudio bloqueado | segue tocando mudo + retentativas | **desativada já no `onBlocked`** — sem política de gesto, qualquer `NotAllowedError` só pode ser falso positivo, e mutar antes de descobrir isso deixava o telão sem som sem armar recuperação nenhuma |
 | Pastas do dispositivo | `showDirectoryPicker()` | **SAF** — a File System Access API **não existe no Android**; este recurso era letra morta no celular e passa a funcionar |
 | Compartilhamento | **não existe mais** — vinha do `share_target` do manifest com o POST interceptado pelo SW, e os dois saíram do bundle; a leitura remanescente do estado `pending-share` (que ninguém escrevia desde a v5.48) saiu na limpeza da auditoria de agosto/2026 | **`intent-filter` nativo** (`ShareIntake.kt`), que só aceita `content://` de outro app (ver abaixo) |
-| Link do YouTube compartilhado | vira item de player (o embed) | **no avançado, as MESMAS quatro escolhas da busca** (v5.137): a folha de tocar · playlist · Cronograma · Favoritos, com vídeo/só-áudio e o teto de resolução. As duas portas de entrada de um vídeo do YouTube passaram a dar no mesmo lugar — antes o share decidia sozinho: sempre vídeo, sempre no Cronograma, sempre no padrão de qualidade. **No simplificado não há pergunta e há TRANSMISSÃO DIRETA** (v5.138): ali o link compartilhado É um "tocar agora" — vai direto ao telão, não entra em lista visível nenhuma e ninguém pediu para guardar —, então ele passa por `tentarTransmitir` antes do download, como o "Tocar agora" do avançado. Uma folha com destinos que aquela tela não tem seria pior que folha nenhuma; esperar centenas de MB para começar a projetar era a espera que a transmissão existe para acabar. Falhando a transmissão, cai no download e, falhando ele, no item de player: um link compartilhado nunca se perde |
+| Link do YouTube compartilhado | vira item de LINK, que só o app resolve | **no avançado, as MESMAS quatro escolhas da busca** (v5.137): a folha de tocar · playlist · Cronograma · Favoritos, com vídeo/só-áudio e o teto de resolução. As duas portas de entrada de um vídeo do YouTube passaram a dar no mesmo lugar — antes o share decidia sozinho: sempre vídeo, sempre no Cronograma, sempre no padrão de qualidade. **No simplificado não há pergunta e há TRANSMISSÃO DIRETA** (v5.138): ali o link compartilhado É um "tocar agora" — vai direto ao telão, não entra em lista visível nenhuma e ninguém pediu para guardar —, então ele passa por `tentarTransmitir` antes do download, como o "Tocar agora" do avançado. Uma folha com destinos que aquela tela não tem seria pior que folha nenhuma; esperar centenas de MB para começar a projetar era a espera que a transmissão existe para acabar. Falhando a transmissão, cai no download e, falhando ele, vira um item de LINK — que não é mais um player embutido e sim uma dívida a resolver no próximo toque (`resolverLinkYoutube`, v5.212): um link compartilhado nunca se perde |
 | Destino de um item (acervo · YouTube · importação · share) | uma escolha por vez: a folha fechava no primeiro toque | **VÁRIOS destinos de uma vez** (v5.141): cada linha de destino ganhou uma caixa de marcação na borda. O toque no corpo da linha continua sendo a ação de um toque — agora para aquela linha MAIS o que estiver marcado —, e a caixa só marca, sem fechar a folha. Um vídeo do YouTube passa a ser baixado UMA vez para ir ao Cronograma e aos Favoritos (antes eram dois downloads de minutos, e o operador só descobria na segunda espera). A importação e o share de arquivo abrem a mesma folha como PERGUNTA, com o Cronograma já marcado; desistir dela entra no Cronograma, como sempre. Ver `docs/ARQUITETURA-WEB.md`, "UM item, VÁRIOS destinos" |
 | Onde o share ATERRISSA | idem ao nativo (o caminho é o mesmo `importShare`) | **`focarImportado`** (v5.77): fecha os popups abertos e a seleção, e então **projeta na hora** no simplificado ou **vai para o Cronograma** no avançado — e no simplificado o item NÃO entra em lista visível nenhuma (v5.89: vai para a prateleira `avulsos`), porque aquela tela não tem Cronograma nem playlist. A preview em tela cheia só é encerrada se houver telão — sem ele, ela É a projeção |
 | Estado do telão (rodapé de Configurações) | atalho `window.open('../display/')`, útil só para desenvolver | **indicador ao vivo** (desabilitado como botão) — a Presentation é criada sozinha |
 | Botão de cast da preview | oculto | `AVNative.openCast()` → seletor de **espelhamento de tela** (ver abaixo) |
 | Retomada do telão ao RECONECTAR | idem (o caminho é o mesmo `resendSceneToDisplay`) | **só reenvia o que ESTAVA no ar** (v5.142). `currentId` sobrevive de propósito ao stop e ao fim natural — é o que permite repetir a faixa com o ▶ —, e reenviar por ele fazia o telão acordar com um vídeo engatilhado que ninguém pediu (o retângulo cinza com o play) ou ressuscitar a música que já tinha acabado. Quem responde a pergunta certa é `midiaNoAr`; um telão vazio também é um estado, e restaurá-lo é não mandar nada |
 | Girar a mídia | idem (o comando é o mesmo `rotate`) | **novo na v5.142**: vídeo gravado de lado chega DEITADO no telão e não havia o que fazer. Um botão em Configurações avança 90° por toque; o motor TROCA O EIXO da caixa antes de girar, para o `object-fit` fazer a conta no retângulo em que a mídia vai de fato aparecer. Tomou o lugar do "Esticar", que distorcia a proporção — o defeito que "Ajustar" e "Preencher" existem para evitar |
-| Botão da mesa de som (som da preview) | mesma regra: some com a janela do Display aberta | **oculto com telão conectado** (v5.141). Os dois WebViews dividem o processo e a saída de áudio do Android: ligar o som da preview com o telão projetando faz o `<video>` do Controle tomar o foco de áudio e INTERROMPER o player do telão, no meio do louvor. O modo existe para quando o celular É a caixa de som — o caso sem telão, por definição. Conectar a tela com o som já ligado DESLIGA o modo, em vez de deixar o estado proibido sem controle na tela |
+| Som da preview (a saída de áudio) | idem: com a janela do Display aberta ela é muda, sem ela toca — sujeito à política de autoplay do navegador, que faz o `onBlocked` devolvê-la ao mudo | **SEM TELA NENHUMA CONECTADA, O SOM SAI DESTE APARELHO** (v5.215, `acertarSaidaDeAudio`), e é OTA puro. A "mesa de som" MANUAL (v5.82–v5.188) foi removida na v5.189 com um argumento que continua inteiro — o som é dos DISPLAYS (a TV pela `Presentation`, as telas da rede pelo `<video>` delas), e os WebViews dividem o processo e a saída de áudio do Android, então o áudio da preview tomava o foco e INTERROMPIA o player do telão. O que ela não respondia é o caso em que **não há display nenhum**: ali a projeção É a preview em tela cheia, e uma projeção muda não é projeção. Agora não há interruptor a esquecer ligado — o estado é DERIVADO da conexão (`simpleDisplay`: a TV **ou** uma tela da rede) e só vale no modo avançado; com qualquer tela conectada este aparelho está mudo, sempre. O `keepAudioAlive` **não voltou**: áudio audível já isenta a página do estrangulamento |
 | PDF, PowerPoint, Google Apresentações | **PDF não existe** (não há quem o desenhe); o `.pptx` funciona, e é o MESMO caminho do app | **viram UMA IMAGEM POR PÁGINA**, cada formato pelo caminho que existe para ele: o **PDF** pelo `PdfRenderer` da PLATAFORMA (`SlideDeck.kt` + `AVNative.deckPages`) — fidelidade total, zero dependência; o **`.pptx`** pelo renderizador de OOXML em `assets/web/vendor/` (`pptxParaPaginas`, em `controle.js`), carregado por `import()` dinâmico e rasterizado com `<foreignObject>` + canvas. Daí para a frente é mídia comum: fade, cortina, telão e `MediaSession` que já existem, com ⏮/⏭ passando página. **Não há botão de "apresentação"**: uma apresentação é um arquivo como outro qualquer, e entra pelo mesmo "Importar arquivos" (que no app abre o seletor do SISTEMA, `pickDoc` — o `<input type="file">` devolve bytes, e o PDF precisa que o shell abra o ARQUIVO) ou pelo compartilhamento. O `.ppt` anterior a 2007 e o `.odp` ficam de fora: ninguém sabe desenhá-los, e aceitar para depois falhar é pior que não aceitar. O link do Google entra sozinho pela URL de exportação |
-| **Tocar agora** de um vídeo do YouTube | player embutido (IFrame API) | **TRANSMISSÃO DIRETA** (v5.120/shell 26; **funcionando só do shell 27 em diante**): o shell monta o manifesto das duas faixas adaptativas (`ytStream`), o `StreamProxy` as serve pelo NOSSO origin com o UA que combina com a URL, e o `MediaSource` de `shared/mse.js` as vira um `<video>` COMUM — fade, cortina, `MediaSession`, barra e segundo plano de graça, **e zero pixel de YouTube no telão**. Sem esperar o download. A faixa de bytes viaja na QUERY (`?r=<ini>-<fim>`), nunca no cabeçalho `Range` — ver a invariante 8, que é a razão de o recurso ter passado três versões sem tocar um único vídeo. Só em "Tocar agora": as outras três ações GUARDAM o item, e um manifesto expira em horas. Falhando qualquer coisa (shell < 27, vídeo sem par adaptativo, WebView sem o codec) cai no download, calado — o operador pediu o louvor, não o método |
-| Vídeo do YouTube | player embutido (IFrame API) | **arquivo de vídeo baixado PELO APARELHO** (`YoutubeGrab.kt` + `AVNative.ytFetch`) — o embed pausa sozinho com o app minimizado, e a extração no próprio celular sai do IP do chip, que é o que o YouTube não bloqueia. Sem configurar nada. Cobalt continua como segunda opção para quem já mantém uma instância; falhando os dois, o link vira item de player |
+| **Tocar agora** de um vídeo do YouTube | **não toca** — sem ponte não há transmissão nem download, e o app diz isso na linha do item | **TRANSMISSÃO DIRETA** (v5.120/shell 26; **funcionando só do shell 27 em diante**): o shell monta o manifesto das duas faixas adaptativas (`ytStream`), o `StreamProxy` as serve pelo NOSSO origin com o UA que combina com a URL, e o `MediaSource` de `shared/mse.js` as vira um `<video>` COMUM — fade, cortina, `MediaSession`, barra e segundo plano de graça, **e zero pixel de YouTube no telão**. Sem esperar o download. A faixa de bytes viaja na QUERY (`?r=<ini>-<fim>`), nunca no cabeçalho `Range` — ver a invariante 8, que é a razão de o recurso ter passado três versões sem tocar um único vídeo. Só em "Tocar agora": as outras três ações GUARDAM o item, e um manifesto expira em horas. Falhando qualquer coisa (shell < 27, vídeo sem par adaptativo, WebView sem o codec) cai no download, calado — o operador pediu o louvor, não o método |
+| Vídeo do YouTube | **não toca** (ver acima) | **arquivo de vídeo baixado PELO APARELHO** (`YoutubeGrab.kt` + `AVNative.ytFetch`) — o embed pausa sozinho com o app minimizado, e a extração no próprio celular sai do IP do chip, que é o que o YouTube não bloqueia. Sem configurar nada. Cobalt continua como segunda opção para quem já mantém uma instância; falhando os dois, o link vira um item de LINK, que o toque seguinte tenta resolver de novo (v5.212 — não há mais player embutido para onde cair) |
 | Qualidade do download | — | **o operador escolhe o teto** (1080p · 720p · 480p, v5.118/shell 25), no mesmo seletor de Vídeo/Só áudio da folha. Ele nasce no padrão A CADA ITEM, e isso é deliberado: um teto que grudasse faria quem escolheu 480p numa rede ruim receber, sem aviso, o vídeo principal do domingo seguinte em 480p no telão — o atrito de dois toques é visível, a regressão silenciosa não seria. Pedir 1080p continua saindo pelo `ytFetch` de sempre (nenhum shell novo exigido); só um teto MENOR usa o método novo. O progressivo respeita o teto, mas nunca ao ponto de não entregar nada: não cabendo nenhum, vale o menor que existir |
 | Resolução do download | — | **até 1080p, montando as duas faixas** (v1.44; pares por contêiner na v1.45). Acima de 720p o YouTube só entrega vídeo SEM som, com o som à parte — e por isso o app baixava a pior cópia: só sabia pegar o progressivo, que neste aparelho é UM, de 360p. `MuxMp4.kt` junta as duas com o `MediaMuxer` da PLATAFORMA: é cópia de amostras, não recodificação, então não há perda nem espera. Teto de 1080p de propósito (o telão da igreja é 1080p) e só quando o resultado for melhor que o progressivo — senão dois downloads e um muxer entregariam o mesmo de antes. Os pares são do MESMO contêiner (mp4+m4a → MP4, webm+webm → WebM, este só na API 29+): "a melhor de cada lado" produziria VP9 dentro de MP4, que o muxer recusa depois de tudo baixado. Falhando qualquer etapa, o progressivo segue como piso. **Da v1.44 à v1.48 isso não saía do papel: as faixas eram listadas (1080p) e o CDN respondia 403 a todas** — com os dois pares, os dois perfis de UA e `Range`. Era o SABR, que o YouTube passou a exigir de quem pede sem PO Token. A saída não era montar o token (o `getWebClientPoToken` da biblioteca não tem uma única chamada em versão nenhuma, e o token do cliente Android — o que ela de fato consome — exige o DroidGuard do Play Services): foi **atualizar o extrator para a v0.26.4** (v1.49), que busca o cliente **visionOS** sem token nenhum e volta a entregar as adaptativas. Como as listas passaram a chegar MISTURADAS (visionOS + o cliente antigo), a escolha virou uma **fila de candidatos** — ver "O cliente visionOS destrava o 1080p" em `docs/ARQUITETURA-WEB.md`. **CONFIRMADO em aparelho:** `clientes VISIONOS 17, ANDROID 1 → juntou 1080p (mp4, 137@VISIONOS/V)`, sem uma única recusa na fila. Diagnóstico no rodapé de Configurações, agora com o itag, o cliente e o motivo de cada tentativa |
-| **Só o ÁUDIO** em "Tocar agora" | player embutido | **TRANSMITIDO também** (v5.130): o manifesto do shell já traz o par, e o lado web simplesmente DESCARTA a faixa de vídeo (`man.video = null`) — nenhum método novo, nenhum byte de 1080p baixado para ser jogado fora, e por isso chega por OTA. Entra como `kind: 'audio'` (o telão mantém o wallpaper) e o fallback, se a transmissão morrer, baixa a MESMA forma. O download de um m4a é rápido, mas "rápido" não é o pedido: o pedido é não esperar |
+| **Só o ÁUDIO** em "Tocar agora" | **não toca** | **TRANSMITIDO também** (v5.130): o manifesto do shell já traz o par, e o lado web simplesmente DESCARTA a faixa de vídeo (`man.video = null`) — nenhum método novo, nenhum byte de 1080p baixado para ser jogado fora, e por isso chega por OTA. Entra como `kind: 'audio'` (o telão mantém o wallpaper) e o fallback, se a transmissão morrer, baixa a MESMA forma. O download de um m4a é rápido, mas "rápido" não é o pedido: o pedido é não esperar |
 | **Só o ÁUDIO** guardado (playlist · Cronograma · Favoritos) | — | **`ytFetchAudio`** (v5.112, shell ≥ 23; **exige o APK v1.41+** — ver abaixo): a faixa de áudio, sem vídeo. A escolha é o MESMO seletor de Cantada/Playback das músicas, no topo da folha de destinos, e vale para as quatro ações. Entra como `kind: 'audio'` e **sem miniatura** — é o kind que faz o telão manter o wallpaper em vez de trocar de imagem. É também o único caminho em que o teto de 720p do progressivo não existe: o áudio do YouTube já vem em faixa separada, então aqui ele vem inteiro. **E é justamente por ser faixa separada que ele pode não vir**: adaptativo é o que o YouTube protegeu com SABR quando o app pedia sem PO Token. Daí a fila de tentativas do shell — que na v1.49 deixou de ser "m4a → qualquer outro → progressivo" e passou a ser **três candidatos de áudio na ordem do cliente que funciona** (visionOS primeiro), com o progressivo ainda no fim. **CONFIRMADO em aparelho:** `→ veio m4a 140@VISIONOS` (AAC-LC 128 kbps, primeiro candidato, primeira requisição) — até a v1.48 este caminho caía no vídeo de 360p inteiro. O registro entra como `kind: 'audio'` em todos os casos: quem decide que o telão não muda de imagem é o kind, não o container |
+| **Séries do YouTube na Biblioteca** | **não existe** — sem ponte não há como enumerar playlist nem baixar vídeo | **um álbum por SÉRIE** (v5.228/shell 41), e o primeiro é **Provai e Vede 2026**. O canal (`@provaievedeoficial`) é a ÚNICA constante: o app lê a **aba Playlists** dele (`ytCanalPlaylists`), aceita as que casam com "prefixo + ano" e **recusa as de LIBRAS**, expande cada uma (`ytPlaylist`) e ordena os episódios pela data do título — a faixa se chama "15/Ago · Quando o evangelho sussurra", porque o operador procura pelo sábado, não pelo nome do episódio. O card fica no topo da Biblioteca, junto dos hinários — mas **o ITEM é um vídeo do YouTube, não uma faixa de hinário** (v5.230): o toque abre a MESMA folha do YouTube (sem "Só áudio"), o "Tocar agora" TRANSMITE sem baixar, e o download existe só nos destinos que guardam. E desde a v5.236 **a LINHA também sabe disso**: a gaveta que numa música abre a letra abre aqui a MINIATURA, a duração e o estado no aparelho — quem decide é o TIPO da coleção (`tipoDaColecao`), não um `if` por recurso. Não há "baixar o álbum": são ~300 MB por episódio. **A descoberta é pela ABA DO CANAL, nunca por busca de texto**: numa busca quem escolhe é o ranking do YouTube e qualquer pessoa pode nomear uma playlist "Provai e Vede 2026" — vindo do canal, o pior caso é uma playlist a menos, jamais o vídeo de um desconhecido na projeção. A regra vive em `controle/serie.js` (PURA) com oráculo em Node (`tools/serie.test.mjs`) e o percurso inteiro no `boot-nativo.test.mjs`. Ver "Séries do YouTube", abaixo |
 | Buscar no YouTube | não existe: o botão abre o YouTube numa aba | **a busca acontece DENTRO do acervo** — a tela que o rótulo chama de **Biblioteca** desde a v5.96, e que no código segue sendo o acervo — (`AVNative.ytSearch`, `YoutubeGrab.pesquisar`, em **português** — no padrão en-GB da biblioteca o YouTube devolve o título TRADUZIDO de vídeos que são originalmente em português, e passar a localização ao `NewPipe.init` NÃO resolve: o serviço filtra o idioma por uma lista de suportados que hoje só tem `en-GB`. Quem resolve é o `forceLocalization` do próprio `Extractor`): os resultados entram na mesma lista e o toque abre a mesma folha de escolhas das músicas (tocar · playlist · Cronograma · Favoritos), cada uma indo para o seu lugar — e, desde a v5.141, para mais de um de uma vez, com um download só. Um iframe da página de resultados é recusado pelo `X-Frame-Options` do YouTube, e a API oficial exigiria chave com cota compartilhada pela frota |
 | Link para fora do app ("Pesquisar … no YouTube") | `window.open` numa aba nova | **`AVNative.openExternal(url)`** → `ACTION_VIEW` numa tarefa própria. O WebView RECUSA navegar para outro origin (invariante 2), então sem esse método um link externo não faz absolutamente nada — nem erro no console |
 | "Conectar a tela" (modo simplificado) | abre a tela do Display (`window.open`) — e é ela que conta como "conectado" | mesmo `AVNative.openCast()`, com o nome da tela conectada no subtítulo |
@@ -1774,14 +2125,15 @@ contextos.
 | Fullscreen da preview | `requestFullscreen` + Screen Orientation API | idem, com trava de paisagem **nativa** (`onShowCustomView`) |
 | Botões físicos de volume | o navegador não os recebe | **interceptados** e ligados ao fader do app (ver abaixo) |
 | Microfone (`getUserMedia`) | o navegador pergunta | `MicChromeClient` + permissão `RECORD_AUDIO` (ver abaixo) |
-| Câmera (`getUserMedia`) | o navegador pergunta | **`onPermissionRequest` no `ControleChromeClient` + `AVNative.requestCam()`** (v5.145, shell 33). Só o Controle, só `RESOURCE_VIDEO_CAPTURE`, só com a permissão `CAMERA` já concedida ao processo e só da própria origem — as MESMAS três regras do `MicChromeClient`, que o telão aplica ao áudio. Sem esse override o WebView **nega em silêncio**, e o único uso da câmera aqui (ler o QR do espelho) ficaria quebrado sem uma linha no console |
+| Câmera (`getUserMedia`) | o navegador pergunta | **negada, sempre** (v5.185). O único uso era o leitor de QR do espelho, que saiu com a permissão `CAMERA` do manifest. O `onPermissionRequest` do `ControleChromeClient` FICOU, negando explicitamente com log: um WebView sem ele nega **em silêncio**, e o próximo que precisar de mídia aqui descobriria a armadilha do zero, no aparelho, sem erro no console |
 | Botão voltar | — | **fecha o que estiver aberto** (popup, sub-tela, aba) e só então manda a tarefa para segundo plano (ver abaixo) |
 | Controles fora do app | — | **notificação + tela de bloqueio + botões de mídia** via `MediaSession` (ver seção acima) |
 | Download com o app minimizado | a aba continua baixando | **foreground service + wake lock** — sem isso o processo é congelado (ver seção acima) |
-| Atualização da base web | recarregar a página | **OTA** — bundle publicado em `web-latest`, aplicado no próximo lançamento (ver seção acima) |
-| **Espelho na rede local** | **não existe** — um navegador não cria tela virtual, não codifica H.264 e não abre `ServerSocket` | **`VirtualDisplay` privado + `MediaCodec` + servidor HTTP** no próprio celular: o telão inteiro em até três navegadores da rede, sem instalar nada neles e sem internet (ver a seção do recurso). Liga e desliga **só** por ação do operador |
-| Papel `__AV_ROLE__` | `'controle'` / `'display'` | **um TERCEIRO valor, `'espelho'`** — o mesmo `/web/display/` numa segunda `Presentation`. Ele é seguro por construção: as duas leituras do papel no bundle comparam `!== 'controle'`, e **nenhum caminho testa `=== 'display'`**. O papel ativa o dreno do barramento, a recusa do `startMic`, o `forceMuted` inicial e o `mute()` forçado no `YT.Player` |
-| Batimento de 8 Hz no `/display/` | — | **só no papel espelho**: com a cena parada o `VirtualDisplay` não produz buffer e o encoder não emite nada. Um elemento de 1×1 px alternando entre dois quase-pretos força o SurfaceFlinger a recompor. **`setInterval`, nunca `requestAnimationFrame`** (rAF é suspenso em página oculta e casado ao vsync). Guardado por papel: **não toca o telão de verdade**. A 1 Hz (v5.143) cada amostra do fMP4 durava um segundo E chegava um segundo atrasada, porque o muxer retém um quadro — margem ZERO no cliente, e qualquer soluço virava travamento. |
+| Atualização da base web | recarregar a página | **OTA** — bundle publicado em `web-latest`, detectado em segundos e aplicado quando o operador responde ao aviso (ver seção acima) |
+| Atualização do APP | — | **o próprio app baixa e instala** — o manifesto do OTA carrega o link da Release (`shellTag` segura o bundle até ela sair), então a pergunta é UMA e leva as duas metades; a instalação em si é o diálogo do Android, que é obrigatório e está certo que seja |
+| Tema claro × escuro | funciona igual: a escolha é CSS + `localStorage`, e o `theme-color` tinge a barra de endereço | idem, **mais o cromo do sistema**: `AVNative.temaClaro` vira os ÍCONES das barras (que o Android desenha, e que ficariam brancos sobre branco) e guarda a escolha para o `windowBackground` do PRÓXIMO lançamento — um recurso do APK é resolvido antes de existir JavaScript |
+| **Telão nas telas da rede** | **não existe** — um navegador não abre `ServerSocket` nem serve o bundle | **servidor HTTP no próprio celular** servindo o `/web/display/` de verdade (resolução OTA→APK) + comandos por SSE + mídia por `/m/<token>`: o telão inteiro em até três navegadores da rede, sem instalar nada neles e sem internet (ver a seção do recurso). Liga e desliga **só** por ação do operador |
+| Papel `__AV_ROLE__` | `'controle'` / `'display'` | **um TERCEIRO valor, `'tela'`** — o mesmo `/web/display/` num navegador da LAN, marcado por `?tela=1` na query (não há ponte lá; quem escreve a global é o próprio `tela.js`). Ele é seguro por construção: as leituras do papel no bundle comparam `!== 'controle'`, e **nenhum caminho testa `=== 'display'`**. O papel ativa o dreno de subida, o `forceMuted` inicial e o `__telaSom` do gesto de entrada |
 
 ### Compartilhamento: um ponto de entrada exportado valida o que recebe
 
@@ -2044,9 +2396,35 @@ produziria exatamente o mesmo estado, por isso a fila espera.
 todo `.js` de `assets/web`, uma validação de `version.json`, os testes de
 `tools/` — o parser `sidx`, o **oráculo do contrato de `shouldInterceptRequest`**
 (`webview-range.test.mjs`, que trava a invariante 8: Node puro, determinístico,
-sem `continue-on-error`) e nove testes **em Chromium de verdade**, todos em
-`continue-on-error`: a **fumaça** que sobe a base web e usa a tela
-(`smoke.mjs`), as **mensagens de falha** da transmissão direta
+sem `continue-on-error`) e treze testes **em Chromium de verdade**, em DOIS
+PASSOS desde a v5.213 — `Preparar o Chromium` (o `npm i` e o
+`playwright install`, com `continue-on-error`) e `Oráculos em Chromium`, que
+depende do primeiro ter dado certo.
+
+> **A separação é o que dá sentido ao `continue-on-error`, e ela nasceu de um
+> defeito que o painel verde escondia.** Eles rodavam num passo só, com
+> `set -euo pipefail`: o PRIMEIRO que reprovasse abortava os ONZE seguintes — e
+> como o passo era `continue-on-error`, o run ficava verde. Descobrir isso
+> exigia abrir o log e reparar em qual linha ele tinha parado. A justificativa
+> do `continue-on-error` sempre foi INFRAESTRUTURA (download do Chromium, runner
+> sem rede), e infraestrutura agora é o primeiro passo, sozinho; o segundo ficou
+> com uma causa só de falhar, roda os doze SEMPRE (nenhum aborta o próximo),
+> emite `::error::` por reprovado e escreve o placar (`N/12 passaram`) no
+> **resumo do run**, onde se lê sem abrir log nenhum. `N` é CONTADO, nunca
+> digitado: um número fixo ali envelheceria no primeiro oráculo novo — e
+> envelheceria mentindo. O segundo passo SEGUE com `continue-on-error`, e isso é
+> a política intacta e não esquecimento: barrar o canal OTA por um teste de
+> navegador continua sendo trocar um risco raro por um bloqueio frequente. O que
+> mudou é que agora essa escolha é uma linha só.
+
+Os doze: a **fumaça** que sobe a base web e usa a tela
+(`smoke.mjs`), o **BOOT COM A PONTE PRESENTE** (`boot-nativo.test.mjs`, v5.195 —
+o `smoke` sobe a base SEM `__AVBridge`, e por isso todo caminho guardado por
+`window.__NATIVE__` nunca era executado por teste nenhum: são justamente os que
+só rodam no aparelho. A v5.195 saiu com um `const` em zona morta temporal dentro
+de um `if (espelhoDisponivel())` — verde no CI, tela PRETA no celular, e o
+watchdog do OTA descartando o bundle no lançamento seguinte. Ele injeta uma
+ponte de mentira e pergunta o que o watchdog pergunta: o app ficou de pé?), as **mensagens de falha** da transmissão direta
 (`mse.test.mjs`), a **transição de entrada do palco** (`stage-fade.test.mjs`),
 o **coletor de lixo do banco** (`db-gc.test.mjs` — o único código do app que
 apaga mídia do operador), as **contas da biblioteca** (`acervo.test.mjs`:
@@ -2067,32 +2445,59 @@ dois, sem erro nenhum) e **A CENA** (`cena.test.mjs`, v5.142 — o que o telão
 mostra ao RECONECTAR. `currentId` sobrevive de propósito ao stop e ao fim
 natural, então reenviar a cena por ele fazia o telão acordar tocando o que o
 operador tinha parado; e a reconexão do dongle é o caminho menos testável à mão,
-porque exige TV, dongle e o timing de derrubá-lo).
-O espelho de pixels acrescentou mais três (v5.143): o **oráculo do
-muxer fMP4** (`fmp4.test.mjs`, Node puro, boxes byte a byte, no molde do
-`sidx.test.mjs` — **sem `continue-on-error`**), a **varredura de contexto
+porque exige TV, dongle e o timing de derrubá-lo) e **O REGISTRO**
+(`registro.test.mjs`, v5.206 — o único artefato do app cujo consumidor é um
+HUMANO A DISTÂNCIA: todo o resto falha na frente de quem pode ver, e ele falha
+CONTINUANDO A RESPONDER com uma frase errada. Nenhum teste o carregava, e por
+aí passaram três defeitos ao mesmo tempo — o `ritmo` zerado imprimindo "ALARME:
+ISTO É UM RETÂNGULO PRETO" em todo culto, toda tela conectada acusada de rodar
+"bundle antigo", e um "modo: imagem (JPEG)" de um modo removido dez versões
+antes. Ele cobra as DUAS metades: nenhuma palavra de recurso aposentado, e o
+que o operador foi buscar presente — sem a segunda, apagar o bloco inteiro
+passaria) e **O FLUXO DE ATUALIZAÇÃO** (`ota.test.mjs`, v5.234 — o único
+caminho do app cujo defeito NÃO TEM SINTOMA: quando a atualização não chega,
+nada quebra e nada erra alto, e o operador só continua na versão de anteontem
+sem saber. Foi assim por dezenas de versões, e a v5.151 chegou a REMOVER a
+pergunta por concluir que ela "nunca aparecia" — era o espelho ligado
+suprimindo o diálogo, e isso levou meses para ser identificado. Nenhum teste o
+tocava: o `smoke` sobe sem ponte e todo o bloco é `window.__NATIVE__`, e o
+`boot-nativo` prova o boot, não o fluxo. Ele afirma a pergunta nos dois casos —
+com e sem Release —, o "Deixar para depois", o rótulo que continua marcando, e
+a INTENÇÃO atravessando um `reload()` de verdade para virar a instalação do
+APK).
+O telão nas telas da rede acrescentou mais dois: a **varredura de contexto
 seguro** (`contexto-seguro.test.mjs`, que procura `VideoDecoder`, `wakeLock`,
 `audioWorklet`, `randomUUID` e `crypto.subtle` fora de uma guarda
-`isSecureContext` dentro de `assets/web/espelho/` — o cliente roda em `http://`
-por construção, e ali essas APIs vêm `undefined`) e o **cliente do espelho**
-(`espelho-cliente.test.mjs`, que prova num Chromium de verdade que o muxer
-entrega uma faixa contínua: `buffered.length === 1`).
+`isSecureContext` dentro de `assets/web/espelho/` **e de
+`assets/web/display/`** — desde a v5.187 o display INTEIRO roda em `http://`
+nas telas da rede, e ali essas APIs vêm `undefined`) e **a TELA DA REDE de
+ponta a ponta** (`tela-rede.test.mjs`, v5.187, Chromium de verdade contra um
+servidor de mentira que fala o protocolo do `EspelhoServidor`: o código de
+entrada certo e o errado, o token que NUNCA aparece numa URL, o
+`display-ready` endereçado, versículo com acento intacto, o cronômetro com o
+relógio da tela 90 s errado — corrigido pela mediana dos pings —, o dreno de
+subida, a mídia por `/m/` via `__rec`, o wallpaper por `__wp`, o `tela-aviso`,
+a reconexão que se re-anuncia e o `adeus` que NÃO martela). A lição da v5.145
+fica escrita porque continua valendo: **teste que não está no workflow é
+documentação, não rede de segurança** — o `tela-rede` entrou no `apk.yml` no
+mesmo commit em que nasceu.
 
-> **E os três só passaram a RODAR na v5.145.** Eles existiam no repositório
-> desde a v5.143 e nenhum estava ligado no `apk.yml` — ou seja, foram escritos,
-> commitados e executados em lugar nenhum por duas versões. Ao ligá-los, o
-> `espelho-cliente` acusou no primeiro minuto uma rota faltando no servidor de
-> mentira. Teste que não está no workflow é documentação, não rede de segurança.
-
-A v5.145 acrescentou o **oráculo do QR** (`tools/qr.test.mjs`, Node puro, **sem
-`continue-on-error`**): ele **decodifica** o símbolo que o `espelho/qr.js`
-produziu — informação de formato com o BCH conferido, remoção da máscara,
-leitura no zigue-zague, desintercalação de blocos, síndromes de Reed-Solomon e
-modo byte —, em vez de conferir propriedades. Um QR errado não dá erro: dá uma
-câmera apontada para uma tela que não responde, indistinguível de "a câmera não
-funciona" e de "o roteador está isolando os aparelhos". O `espelho-cliente`
-ganhou o percurso inteiro do pareamento por QR, numa aba limpa, terminando na
-asserção que é a promessa do recurso: *a tela entra sem ninguém digitar nada*.
+> **E ELE PRECISA SER TÃO RESTRITO QUANTO O SERVIDOR DE VERDADE** (v5.204/v5.205,
+> a lição mais cara da primeira ligada em rede real). Ele entregava o HTML **sem
+> a CSP** e carregava a página com `?tela=1` **na mão** — isto é, provava o
+> percurso num ambiente mais permissivo e por um caminho que o aparelho pode não
+> receber. As duas divergências esconderam dois defeitos ao mesmo tempo: o estilo
+> da entrada bloqueado (`<style>` em runtime × `default-src 'self'`) e o papel
+> dependendo de uma query que se perde. Hoje ele injeta a marca do papel como o
+> servidor injeta, manda a CSP verbatim, roda **sem query nenhuma** e AFIRMA a
+> garantia que a CSP existe para dar (a IFrame API do YouTube barrada). **Um
+> servidor de mentira que diverge do de verdade não prova nada.**
+>
+> E a instabilidade dele foi consertada no mesmo lote: falhava em duas de cada
+> três execuções e "passava na segunda tentativa", porque esperava o servidor
+> RECEBER o `POST /par` e lia a frase de erro no instante seguinte, quando quem a
+> escreve é o cliente, depois da resposta. Com `continue-on-error` no `apk.yml`,
+> um teste assim não é rede de segurança: é ruído que ensina a ignorar vermelho.
 
 A v5.154 acrescentou o **oráculo da SOMBRA** (`tools/sombra.test.mjs`, Node puro,
 **sem `continue-on-error`**): nenhuma função da base web pode redeclarar um nome
@@ -2102,39 +2507,58 @@ de uma função que lê a `ms` do módulo na primeira linha, e o que sai disso �
 telas que tinham ligado o som (ver a auditoria na seção do recurso). A varredura
 é por indentação, o que este código consegue por ser uniformemente formatado, e
 a medição diz que ela não é ruidosa: nos onze arquivos da base, com o defeito no
-lugar, o único achado era ele. O `espelho-cliente.test.mjs` ganhou junto o caso
-da **despedida**: recebido o `0x30 {"m":"adeus"}`, o cliente **para** — nada de
-martelar uma porta fechada — e a tela diz que foi o operador, em vez de "sem
-sinal".
+lugar, o único achado era ele. (O caso da **despedida** — o `adeus` recebido
+faz a tela PARAR, nada de martelar uma porta fechada — nasceu ali e hoje vive
+no `tela-rede.test.mjs`.)
 
-A v5.155 acrescentou dois casos ao mesmo arquivo, e os dois vieram da PRIMEIRA
-rodada em aparelho depois da auditoria — que só produziu leitura porque a
-v5.154 devolveu o canal de relato. O primeiro afirma que a **borda ao vivo é o
-MÍNIMO das bordas** das duas faixas: a regra é aritmética e mora numa função
-pura exposta em `__espelho`, porque prová-la com uma faixa de som de verdade
-exigiria um AAC que o Chromium do CI não tem. O segundo é o par negativo do
-saneamento: **nenhum `alive` pode carregar byte fora de `[\x20-\x7E]`**, isto
-é, o `sanear` do Kotlin não pode ter o que apagar.
+A v5.228 acrescentou o **oráculo da SÉRIE** (`tools/serie.test.mjs`, Node puro,
+**sem `continue-on-error`**): quais playlists de um canal formam o álbum e quais
+vídeos entram nele. Os dois modos de errar são silenciosos e caros — aceitar
+demais põe a versão em LIBRAS em par com a de português (o álbum dobra, com o
+intérprete na projeção sem ninguém ter pedido) e aceitar de menos apaga um MÊS
+inteiro da Biblioteca sem erro no console. **As entradas são VERBATIM do canal**,
+incluindo a playlist que não tem o hífen que todas as outras têm: uma
+nomenclatura imaginada prova só que o código concorda com quem o escreveu. O
+percurso de ponta a ponta — canal → regra → card → lista ordenada — entrou no
+`boot-nativo.test.mjs`, que é o único que sobe a base COM a ponte e por isso o
+único capaz de exercitá-lo.
 
-O `ponte.test.mjs` ganhou
-o caso do **papel espelho** (o dreno deixa passar só `display-ready`, o
-`BroadcastChannel.postMessage` é no-op — **e o par negativo com `role:'display'`**,
-senão o dreno pode vazar para o telão de verdade e ninguém vê) e o do
-`requestCam` (que num shell antigo tem de resolver **false**, não lançar: quem
-chama é um botão, e um `throw` ali deixaria o leitor aberto com a câmera
-desligada e nenhuma frase na tela), e o
-`display-smoke.mjs` passou a fixar o viewport em **961×540**, explicitamente: ele
-rodava no default do Playwright por acidente, e fixado ali ele **prova a decisão
-de densidade do espelho sem aparelho**.
+A v5.175 acrescentou o **oráculo dos TOKENS** (`tools/tokens.test.mjs`, Node
+puro, **sem `continue-on-error`**): nenhum `var(--x)` **sem fallback** pode
+apontar para um token que não existe. Ele é o irmão do oráculo da sombra, e pela
+mesma razão — um `var()` inválido sem fallback não é erro em lugar nenhum: a
+declaração inteira computa para o valor INICIAL da propriedade, sem aviso no
+console e sem sintoma no lugar da causa. Na v5.171 isso deixou os DOIS botões
+principais da folha "Conectar uma tela" com `border-radius: 0`, os únicos cantos
+retos de um app inteiro arredondado, e foi preciso um par de olhos no aparelho
+para vê-lo. `var(--x, fallback)` **não** é reprovado: é o idioma legítimo dos
+valores que o JS entrega em tempo de execução (`--vol`, `--ch`, `--tab-w`).
+
+O `ponte.test.mjs` afirma desde a v5.187 que **o `native.js` não drena papel
+nenhum** (o dreno de subida mora em `tela.js`, e o relay nativo repassa tudo em
+qualquer papel — inclusive no `display`, o par negativo que impede o dreno de
+vazar para o telão de verdade) e que o **display emite as quatro mensagens**
+(`display-ready`, `display-status`, `media-ended`, `mic-status`) — é o
+`tela.js` quem filtra, nunca a fonte. O `display-smoke.mjs` fixa o viewport em
+**961×540**, explicitamente: ele rodava no default do Playwright por acidente,
+e fixado ali ele prova o layout do telão numa tela pequena sem aparelho.
 
 **E há um passo de JUnit no CI desde a v5.143:** `./gradlew testDebugUnitTest`,
-**sem `continue-on-error`**, antes do `assembleRelease`, cobrindo os dois
-arquivos PUROS do espelho (`app/src/test/.../EspelhoHttpTest.kt` e
+**sem `continue-on-error`**, antes do `assembleRelease`, cobrindo os arquivos
+PUROS do espelho (`app/src/test/.../EspelhoHttpTest.kt` e
 `EspelhoParesTest.kt`): tetos do parser, `read()` parcial, `Host` fora da
-allowlist, `Origin` estranha, 404 uniforme, PIN, prazo, bloqueio por origem,
-teto de sessões e saneamento. É a primeira fronteira de rede do projeto, e é o
-único lugar dele em que um erro vira controle de acesso quebrado em vez de pixel
-errado — ver a quarta exceção nas regras de desenvolvimento.
+allowlist, `Origin` estranha, 404 uniforme, o código de três dígitos, prazo,
+bloqueio CRESCENTE por origem, teto de sessões e saneamento. **A v5.187
+acrescentou dois oráculos à mesma família**: `EspelhoHttpRangeTest.kt` (a
+gramática RFC 7233 inteira do `alcanceDe` — malformado é IGNORADO e vira 200,
+nunca adivinhado; `Range` duplicado é malformado; sufixo, cauda aberta e 416 —
+que é a inversão da invariante 8 escrita como código, e por isso não podia
+ficar sem oráculo) e `EspelhoMidiaCacheTest.kt` (o token-capacidade da rota
+`/m/`: mesmo id + mesmo token = mesmo item, token novo substitui e MATA o
+velho, cancelado nunca é servível, LRU por bytes só de completos). É a
+fronteira de rede do projeto, e é o único lugar dele em que um erro vira
+controle de acesso quebrado em vez de pixel errado — ver a quarta exceção nas
+regras de desenvolvimento.
 
 Eles existem porque `node --check` prova que o arquivo é
 PARSEÁVEL, não que o app funciona — a v5.121 saiu com um botão chamando uma
@@ -2251,17 +2675,36 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK instalado).
   comportar de um jeito no código e de outro no culto, porque lá o
   `SHELL_VERSION` ainda é o antigo.
 
-  Então o fluxo acima ganha uma última linha quando o diff tocou o shell:
+  **Desde a v5.234 isso tem uma primeira linha, e ela vem ANTES do merge:**
+  declarar a tag em `assets/web/version.json`.
+
+  ```jsonc
+  { "version": "5.234", "minShell": 2, "shellTag": "v2.0" }
+  ```
+
+  Com ela, o `web-ota` SEGURA o bundle até a Release `v2.0` existir — nenhum
+  aparelho recebe a metade web de um lote cuja metade nativa ainda não saiu — e,
+  quando ela sai, republica o manifesto **com o link do APK dentro**, para o app
+  perguntar uma vez sobre o lote inteiro. Sem `shellTag` o bundle sai na hora,
+  que é o certo para um lote só de web.
+
+  Então o fluxo ganha uma última linha quando o diff tocou o shell:
 
   ```bash
   # depois do push em main, com o Actions → "Build APK" → Run workflow,
-  # input `release_tag` = a próxima tag (v1.24 → v1.25 → v1.26 …)
+  # input `release_tag` = a MESMA tag declarada em version.json
   ```
 
   A tag é criada pelo próprio workflow a partir de `main` (ver "Build"), então
   não é preciso empurrar tag à mão. **Não esperar o operador pedir**: mudou o
-  shell, sai Release — e a mensagem que anuncia a mudança precisa dizer que ela
-  exige instalar o APK, porque o OTA não vai levá-la.
+  shell, sai Release. E a mensagem que anuncia a mudança já não precisa avisar
+  que ela exige instalar o APK — o app avisa sozinho, e instala.
+
+  **Um `shellTag` esquecido não quebra nada, mas desfaz o ganho**: o bundle sai
+  antes da Release e o aparelho recebe a metade web sozinha, como antes da
+  v5.234. Um `shellTag` apontando para uma tag que nunca será publicada é pior:
+  o canal OTA fica segurando para sempre, em silêncio, e a única pista é a linha
+  no resumo do run.
 
 - **Nunca perder funcionalidades existentes ao refatorar.** A base web tem
   todo o sistema de culto (coleções LouvorJA, letra sincronizada, Bíblia,
@@ -2269,8 +2712,9 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK instalado).
 - **Todo código novo em `assets/web/` precisa continuar rodando no navegador.**
   Caminhos nativos entram sempre como `if (!window.__NATIVE__) { …web… }`.
 - Não introduzir dependências externas — Kotlin puro + AndroidX oficial no
-  shell; JavaScript puro no web. **Três exceções, e as três são declaradas:** a
-  IFrame Player API do YouTube (carregada em runtime), o
+  shell; JavaScript puro no web. **Duas exceções no web, e as duas são
+  declaradas** (a terceira, a IFrame Player API do YouTube, SAIU na v5.212 — ver
+  a nota daquela versão): o
   **`@aiden0z/pptx-renderer`** (v5.99, em `assets/web/vendor/`, Apache-2.0,
   carregado por `import()` dinâmico só quando alguém importa um `.pptx`), que
   existe porque o Android **não desenha PowerPoint** — a plataforma só traz o
@@ -2344,11 +2788,2894 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.171** (base web) · `SHELL_VERSION` **35**, e o bundle segue com
+**Versão atual: v5.236** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
+> **A v5.236: A BIBLIOTECA PASSA A TER TIPOS — a gaveta de um vídeo deixa de
+> prometer letra, e a fila de letras deixa de perguntar por ele. OTA PURO**
+> (nenhuma linha de Kotlin; sem Release).
+>
+> Pedido do operador: *"atualmente a biblioteca é estruturada para usar vídeos e
+> músicas, mas ela também vai ser usada para armazenar os materiais de eventos,
+> vídeos comuns e apresentações futuramente… mas por exemplo, o toque nele na
+> lista abre ainda a opção de ver a letra, mas ele não tem letra por não ser uma
+> música"*.
+>
+> **O diagnóstico é o da v5.229 numa terceira roupa: desviar as PORTAS de um
+> recurso não desvia o que estava atrás delas.** A Biblioteca nasceu com um
+> modelo de item só — a música do LouvorJA, que tem áudio, letra e uma segunda
+> variante —, e tudo o que a lista oferece saiu daí. A v5.230 desviou as duas
+> FOLHAS de um episódio de série para o caminho do YouTube e parou; a LINHA
+> continuou sendo a da música, e por isso o toque nela ainda abria a caixa da
+> letra para anunciar **"Letra ainda não baixada"** — a promessa de uma coisa
+> que nunca vai chegar.
+>
+> **O que entra não é um `if` a mais, é o TIPO** (`tipoDaColecao`, com as
+> capacidades `temLetra` e `ehLink`). Cada afordância passou a perguntar pela
+> capacidade de que ela depende, nunca por "é série?" — e a diferença é
+> justamente o que abre lugar para o terceiro modelo que o operador anuncia (os
+> materiais de evento, os vídeos avulsos e as apresentações): ele entra como mais
+> um tipo e um punhado de respostas, em vez de mais um `ehSerie` espalhado por
+> meia dúzia de funções que não se conhecem. **Por COLEÇÃO, e não por item**, e
+> isso está escrito como escolha: hoje toda coleção é homogênea, e o dia em que
+> uma não for, o que muda é `tipoDoItem(coll, s)` consultar o `s` primeiro.
+> Escrever esse desvio agora seria um ramo que nada alcança.
+>
+> **A gaveta responde a mesma pergunta com a resposta do tipo.** Ela existe para
+> dizer "é este mesmo?": numa música isso é a LETRA (e é dela que sai o trecho
+> marcado quando a busca casou no meio de uma estrofe); num vídeo é a
+> **MINIATURA**, a duração e o estado no aparelho. Os dois primeiros o extrator
+> já entregava em toda listagem de playlist e o índice **descartava**; o
+> terceiro é o que decide de verdade no domingo de manhã, porque "Tocar agora"
+> de um vídeo TRANSMITE e um episódio já guardado entra do disco — ~300 MB de
+> diferença.
+>
+> **E guardar um campo novo no índice obrigou a mexer na assinatura**, senão
+> este lote reproduziria o defeito da v5.233 pela porta de trás: `AVSerie.
+> impressao` conhece a regra que decide nome e ordem, e quem decide o que o
+> índice GUARDA é uma função do `controle.js`. Ela virou `serieFaixaDoItem`,
+> nomeada de propósito — é o CÓDIGO dela que entra na assinatura, e um `map`
+> anônimo não tem nome para passar. Índice velho é refeito uma vez, sozinho.
+>
+> **A correção mais cara do lote é a que ninguém veria.** `syncLyrics` varria
+> TODA coleção com itens e pedia `music_<id>` ao LouvorJA — e num episódio de
+> série esse id é do **YouTube**, uma pergunta que aquele banco não tem como
+> responder. Falha de rede não grava `LYRIC_NONE` de propósito, então as ~52
+> requisições de cada série voltavam **a cada abertura do app, para sempre**, e
+> ainda entravam no total da notificação "Letras das músicas", que o operador lê.
+> O modo de falhar é o mais silencioso que este projeto tem: um `catch` vazio
+> numa tarefa de segundo plano. O índice da busca por trecho varria o mesmo
+> nada, sem custo de rede.
+>
+> Os oráculos entraram no `boot-nativo.test.mjs` — o único que sobe a base COM a
+> ponte, logo o único capaz de exercitar a série — e cobram as DUAS metades: o
+> vídeo deixa de prometer letra **e** a música continua tendo a dela. Sem a
+> segunda, apagar a gaveta inteira passaria. Verificados nos dois sentidos: **6
+> asserções reprovam** contra o código anterior.
+>
+> **E a primeira versão deles reprovou por um defeito do próprio teste**, que é a
+> lição da v5.208 numa terceira roupa: ele clicava na linha sem entrar no modo
+> AVANÇADO, e no Modo Fácil o toque na linha TOCA em vez de abrir gaveta
+> nenhuma — a medição encontrava um container vazio e teria concluído o que
+> quisesse. O caso ao lado (a série é ordenada por data) escondia a segunda
+> armadilha: o primeiro item da lista é o de julho, e medir a miniatura nele
+> reprovaria uma gaveta que está certa.
+
+> **A v5.235: A LINHA DAS OPÇÕES ENCOLHE DE VERDADE — o estado sai da segunda
+> linha e a remoção vira só a lixeira. OTA PURO** (nenhuma linha de Kotlin; sem
+> Release).
+>
+> Pedido do operador sobre a v5.232: *"mude de lugar o subtítulo de completo ou
+> de progresso… não use linha dupla, pois a ideia já é justamente compactar os
+> elementos dessas opções. Apenas diminua o botão de remover apenas para um
+> botão de ícone de lixeira. Isso vai liberar mais espaço para o botão de
+> atualizar."*
+>
+> Ele está corrigindo uma meia-solução minha. A v5.232 tirou as duas faixas de
+> chips e pôs o estado DENTRO do botão — só que numa segunda linha, o que
+> devolvia ao painel a altura que condensá-lo tinha acabado de tirar. Agora o
+> estado divide a linha com o rótulo e, quando falta largura, é ELE que
+> encolhe com reticências: some o qualificador, nunca a palavra que diz o que o
+> toque faz.
+>
+> **A lixeira sem rótulo é uma decisão sobre CONFIRMAÇÃO, não sobre espaço.** O
+> que ela perde na tela — "do dispositivo", que dizia o alcance — está inteiro
+> no diálogo que ela abre ("Excluir o que foi baixado de X (áudios e capas) e a
+> lista offline?"), e é isso que permite um destrutivo ficar só com o ícone: ele
+> é confirmado, e a confirmação é quem nomeia o dano. A frase continua no
+> `title` e no `aria-label`. Medido: 44 px contra 316 px — a linha inteira é do
+> botão que carrega ação, estado e progresso.
+>
+> Com isso caiu também o argumento do `flex: 1 1 0` da v5.95 ("a ação destrutiva
+> não pode ser a maior das duas"): ela agora é, por construção, a menor.
+>
+> **E O ORÁCULO DA v5.232 ESTAVA MEDINDO ZEROS.** A asserção "os controles
+> dividem uma linha" comparava os topos dos botões dentro de um painel que, no
+> Modo Fácil, é `display: none` por regra — e num elemento escondido toda medida
+> é zero. Zeros comparados com zeros passam: ela aprovava um layout que nunca
+> tinha olhado. É a lição da v5.208 com outro nome (*"uma medição que não acha
+> nada parece uma medição que passou"*), e a correção é a mesma: **entrar no
+> modo em que a peça vive** (`setAppMode('full')`) e desenhar numa lista própria
+> e VISÍVEL, com a largura de um celular. Agora as quatro asserções novas
+> reprovam no código anterior (verificado).
+>
+> **Uma segunda armadilha do mesmo caso, e ela é do tipo que passa despercebido
+> para sempre:** "o botão não tem rótulo" não pode ser lido do `textContent`. O
+> ícone é uma LIGADURA da fonte, isto é, um caractere de uso privado dentro do
+> `<span class="msym">` — `trim()` não o remove e `JSON.stringify` o imprime sem
+> escapar, então o dump dizia `""` para uma string de comprimento 1. A pergunta
+> certa é pelos nós de TEXTO diretos do botão, que é o que "rótulo na tela"
+> significa.
+> **A v5.234 (v2.0): O SISTEMA DE ATUALIZAÇÃO INTEIRO — os dois canais viram
+> um evento, a detecção fica autoritária e a pergunta volta. EXIGE APK**
+> (`SHELL_VERSION` **43**).
+>
+> Pedido do operador, e ele nomeia o defeito melhor do que qualquer diagnóstico
+> meu: *"a detecção de atualizações disponíveis é extremamente inconstante,
+> demorada e quase aleatória… precisamos de um sistema autoritário absoluto"*.
+> Mais o desenho de como ela deve terminar: um popup com "Atualizar agora" ou
+> "deixar para depois"; e havendo Release nova, *"o sistema aguarda a release
+> sair, para então liberar o ota, assim o ota já vem com o link da release"*.
+>
+> **Os DOIS canais passam a ser UM evento.** `shellTag` no `version.json`
+> declara a Release que o lote exige; o `web-ota` SEGURA a publicação do bundle
+> até ela existir, e o gatilho `release: [published]` a republica com o bloco
+> `shell` dentro do manifesto — versão, URL do `.apk` e tamanho. O aparelho lê
+> tudo numa requisição só e pergunta UMA vez sobre o lote inteiro.
+>
+> **E é o manifesto que permite a detecção ser rápida.** A ronda foi de 60 s
+> para **15 s**, o piso de 15 s para 5 s e o back-off de até 90 s para até 30 s.
+> Perguntar o APK à API do GitHub nessa cadência esgotaria as 60 requisições/hora
+> em quinze minutos e a detecção passaria a falhar com 403 pelo resto da hora —
+> mais lenta e mais imprevisível do que os 30 minutos de antes. Um asset de
+> release não consome limite nenhum.
+>
+> **Três defeitos de detecção foram achados no caminho, e os três são mudos:**
+> o piso entre consultas (15 s) era IGUAL à ronda, então uma batida que chegasse
+> um milissegundo cedo era descartada e a ronda valia 15 s ou 30 s conforme o
+> jitter do agendador — literalmente "quase aleatória"; a ronda morria em
+> silêncio para sempre se o `Runnable` lançasse (`scheduleWithFixedDelay`
+> cancela as execuções seguintes, sem log); e um **`sha256` reprovado era
+> carimbado como SUCESSO**, então a ronda seguinte rebaixava o mesmo zip,
+> reprovava o mesmo hash e repetia, megabytes por minuto, para sempre. Este
+> último tinha causa estrutural conhecida — os dois assets eram substituídos um
+> a um, sem transação, e o próprio comentário do `concurrency` já dizia que uma
+> intercalação deixa "o zip de uma com o sha256 da outra". O **nome versionado
+> do zip** fecha a causa; tratar o sha reprovado como falha retentável fecha o
+> modo de falhar.
+>
+> **A pergunta volta, e ela revoga a v5.151 pelo lado certo.** Aquela versão
+> tirou o diálogo porque ele "nunca aparecia" — era suprimido com cena, download
+> **ou espelho ligado**, e o espelho fica ligado o culto inteiro. O diagnóstico
+> estava certo e o remédio era largo demais: aplicar sem perguntar troca a base
+> no meio do que o operador estiver fazendo. Agora o espelho **não segura mais**
+> a pergunta (ele custa uma tela da rede com a página antiga em memória; a cena
+> e o download custam a projeção e o hinário pela metade), e instalar o APK —
+> que derruba o app inteiro — continua esperando os três.
+>
+> **A INTENÇÃO é a peça que faz o lote de duas metades funcionar.** `otaApply`
+> substitui o documento, então nada em memória atravessa esse ponto — e é
+> justamente depois dele que falta instalar o APK. Ela é gravada no `state` do
+> banco ANTES de aplicar (o mesmo lugar e o mesmo motivo da intenção de download
+> do YouTube, v1.59) e relida na abertura, que retoma sozinha. Descartada quando
+> o `versionName` instalado alcança a versão pedida, senão o instalador
+> reabriria a cada abertura oferecendo a versão que já está rodando.
+>
+> **O oráculo que faltava:** `tools/ota.test.mjs`, em Chromium com ponte de
+> mentira. Este era o único caminho do app cujo defeito **não tem sintoma** —
+> quando a atualização não chega, nada quebra e o operador só continua na versão
+> de anteontem sem saber —, e nenhum teste o tocava: o `smoke.mjs` sobe sem
+> ponte (todo o bloco é `window.__NATIVE__`) e o `boot-nativo` prova o boot, não
+> o fluxo. Ele reprova em **23 asserções** contra o código anterior (verificado),
+> e ele próprio quase repetiu o erro do `apk.yml` da v5.213: a primeira versão
+> abortava na primeira asserção e levava as outras vinte e duas junto.
+>
+> **O que NÃO foi verificado, e está dito:** o Kotlin não foi compilado — o
+> ambiente desta sessão não resolve o plugin do Android (a mesma limitação da
+> v5.228). Quem compila é o CI, que falha alto. As referências cruzadas foram
+> conferidas à mão, e a lógica do passo novo do workflow foi exercitada nos
+> **seis** caminhos possíveis com um `gh` de mentira.
+
+> **A v5.233: O ÍNDICE DA SÉRIE FICAVA PRESO NA REGRA VELHA — a correção da
+> v5.230 nunca chegou à lista. OTA PURO** (nenhuma linha de Kotlin; sem
+> Release).
+>
+> Relato do operador: *"tentei limpar o cache e recarregar, mas a listagem ainda
+> mantém o item do provai e vede que não identificava o 3 de janeiro… verifique
+> se ele está atualizando a listagem ou se ele fica preso"*.
+>
+> **Ele fica preso, e a pergunta dele nomeia o defeito.** O índice da série é
+> guardado com os nomes JÁ FORMADOS e a ordem JÁ decidida, e a atualização é
+> pulada quando a assinatura das playlists bate com a guardada — a economia da
+> v5.228, que evita doze extrações do YouTube por retomada. Só que aquela
+> assinatura fala do que o **canal** publicou, e o canal não mudou uma vírgula:
+> a v5.230 mudou a REGRA que transforma títulos em nomes, e nada nessa conta
+> sabia disso. Toda atualização batia a assinatura e devolvia na hora, com o
+> índice de antes.
+>
+> **E limpar o cache não podia ajudar** — o índice mora no IndexedDB, não no
+> cache do WebView. Não havia caminho nenhum na tela que desfizesse isso.
+>
+> É a lição da v5.220 num lugar novo: **um valor DERIVADO que sobrevive à
+> mudança da regra que o derivou é um valor errado com carimbo de atual.**
+>
+> A correção é a impressão digital da regra entrar na assinatura
+> (`AVSerie.impressao`): um FNV-1a de 32 bits sobre o código das funções que
+> decidem, mais o catálogo. Mudou a regra, a impressão muda e o índice é refeito
+> **uma vez**; não mudou, nada é reextraído e a economia fica intacta. Ela é
+> tirada do próprio código de propósito — um contador que alguém precise lembrar
+> de subir é a mesma sincronização manual que este projeto recusa em toda parte,
+> e quem esquecesse de subi-lo reproduziria exatamente este defeito. O preço
+> está dito: se um dia a base web passar por um minificador, a impressão muda a
+> cada build e custa doze extrações por versão.
+>
+> **O oráculo teve DUAS versões, e a primeira era um falso positivo** — o que
+> aqui é a parte instrutiva. Ela escrevia uma assinatura inventada
+> (`"rVELHA|…"`) para simular o aparelho do operador, e qualquer lixo difere do
+> que o código calcula: ela passava nas DUAS versões, isto é, não media nada. A
+> que ficou reproduz o estado REAL — a assinatura que a versão anterior
+> escrevia, só o canal — e por isso reprova no código anterior (verificado). A
+> segunda metade é inseparável: com a regra e o canal em dia, **nenhuma**
+> extração acontece; sem ela, "refazer sempre" passaria no teste e custaria doze
+> idas ao YouTube por retomada.
+>
+> **No aparelho:** a lista se conserta sozinha na próxima atualização de índice
+> (o TTL é de 12 h, no abrir do app), e o "Atualizar a lista" do card força na
+> hora.
+
+> **A v5.232: AS OPÇÕES DO ÁLBUM VIRAM UMA LINHA — o peso sai porque já estava
+> na barra. OTA PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> Pedido do operador: *"o peso já não precisa existir ali, pois já está na barra
+> principal antes mesmo de abrir. quanto aos outros elementos, preciso ajustá-los
+> para que fiquem apenas em uma linha, resumindo basicamente a verificação (com o
+> indicador do progresso e resultado) ou remoção."*
+>
+> O painel aberto tinha **três linhas para duas ações**: uma faixa de chips
+> ("Sincronizados: 4/4 · Completo offline" e "Peso: 18 MB") e, abaixo, os dois
+> botões. Agora é uma: `[⟳ Verificar · ✓ completo] [🗑 Remover do dispositivo]`.
+>
+> **O peso era a mesma medida dita duas vezes, a dois centímetros.** Ele já vive
+> na barra do card — `fracaoPeso`, o mesmo par de números —, e é justamente por
+> lê-lo ali que o operador decide abrir. Saíram com ele o `hymnalStat()` e o
+> `fmtParBytes()`, que não tinham outro chamador. E vale registrar por que ele
+> sobreviveu tanto: a v5.73 fez esta mesma faxina, e o peso só passou a estar na
+> BARRA depois (v5.70/v5.93) — ninguém releu o painel contra ela.
+>
+> **O estado não se perdeu: ele desceu para dentro do botão que qualifica.** A
+> gramática é a mesma da cortina e do botão de transmitir — **o rótulo nomeia a
+> AÇÃO, o estado diz onde ela está**: "Verificar · ✓ completo", "Baixar · 12/24",
+> "Atualizar a lista · 52 episódios". Sozinho, o rótulo anterior ("Verificar
+> atualizações") não dizia nem que o álbum estava inteiro no aparelho.
+>
+> **E o progresso virou DESENHO, não uma segunda frase.** Enquanto o download
+> roda, o botão de cancelar se preenche até `--p`. Escrever "Baixando 2 de 4…"
+> aqui seria repor exatamente o que a v5.73 tirou deste painel — quem escreve
+> isso é a barra do card, fixa no topo do aberto e visível daqui. Duas
+> armadilhas de CSS ficaram escritas na folha: o preenchimento precisa de
+> `z-index: -1` **e** de `isolation: isolate` no botão (o rótulo é um nó de
+> TEXTO e não recebe `z-index`, então quem desce é a barra; sem o contexto de
+> empilhamento o -1 cairia atrás do fundo do próprio botão), e o aviso do
+> cancelar mudou de papel — era o fundo chapado, virou borda e texto, porque um
+> preenchimento em `--warn-soft` sobre um fundo `--warn-soft` seria uma barra
+> invisível.
+>
+> Os oráculos se dividem pela natureza: o `boot-nativo` mede o ESTADO (o painel
+> com um filho só, o peso ausente dele e PRESENTE na barra, o resultado dentro
+> do botão) e o `smoke.mjs` mede a FORMA (o preenchimento é proporcional, fica
+> atrás do rótulo e não é da cor do fundo). Verificados nos dois sentidos —
+> 4 e 3 reprovados com o código anterior.
+>
+> **E um falso negativo do próprio teste virou lição, de novo:** a primeira
+> versão da asserção não achava o painel, e o defeito era do harness —
+> `renderCollectionsList` **acrescenta** à lista, e o caso anterior já a tinha
+> desenhado, então o `find` achava o card VELHO, ainda fechado. Medir o primeiro
+> nó que casa não é medir o que está na tela.
+> **A v5.231 (v1.99): OS BOTÕES DA NOTIFICAÇÃO PASSAM A SER DA CENA, e a
+> transmissão deixa de sumir quando há mídia no ar. EXIGE APK.**
+>
+> > **A TAG É A v1.99 E NÃO A v1.98, e o registro fica porque o erro é
+> > instrutivo:** a v1.98 já tinha sido publicada pelo lote paralelo (as séries,
+> > shell 41), e disparar a Release com aquele nome não moveu a tag — o
+> > `action-gh-release` não move tag existente — mas SUBSTITUIU o `.apk` dela por
+> > um compilado de `main`. Isto é, por alguns minutos a página da v1.98 serviu
+> > um binário que não era o código da v1.98. A regra que faltava está escrita no
+> > "Build": **tag nova para binário novo**; mover uma já publicada é o que o
+> > input `retag` existe para fazer, de propósito atrás de um input próprio.
+>
+> Duas perguntas do operador, e a primeira precisa de uma correção de premissa
+> antes da resposta.
+>
+> **1. "Conseguimos centralizar a transmissão no player, removendo a notificação
+> individual dela?"** — **ela já é um cartão só desde a v5.190**: o
+> `EspelhoService` e a notificação dele foram removidos ali, e o que restou foi
+> UM cartão com DUAS CARAS (player com cena · endereço e telas sem cena). O que
+> o operador estava vendo como "a notificação exclusiva da transmissão" é a
+> segunda cara.
+>
+> O que de fato faltava, e este lote entrega: **com uma cena no ar, a
+> transmissão sumia**. Punha-se um louvor para tocar e a gaveta deixava de dizer
+> que havia um servidor no ar — a informação existia e era descartada. Agora ela
+> é o SUBTEXTO do player (a linha do cabeçalho que o `MediaStyle` desenha), que
+> não disputa espaço com o título nem com os botões.
+>
+> **Um player LITERAL em tempo integral não é possível, e a razão é da
+> plataforma, não de gosto.** Para o cartão sem cena virar `MediaStyle` seria
+> preciso uma sessão com estado — e a partir do Android 13 os botões saem do
+> `PlaybackState`, não das `Notification.Action`. Com `STATE_NONE` (o único
+> honesto sem mídia) o sistema não desenha botão nenhum e o "Desligar
+> transmissão" sumiria justamente nas versões novas; com um estado PAUSADO ele
+> apareceria, mas o sistema promoveria a sessão ao painel de mídia das
+> configurações rápidas — um player fantasma, com transporte morto, para
+> controlar coisa nenhuma. Duas caras num cartão só é o melhor que a plataforma
+> permite sem inventar um desses dois defeitos, e está escrito no KDoc do
+> `SessionService` para a próxima leitura não tentar de novo.
+>
+> **2. "Conseguimos mudar os botões conforme o estado?"** — sim, e é o outro
+> lado do lote (`SHELL_VERSION` **42**). O `nowPlaying` ganhou `actions`: a
+> lista, na ordem, escolhida pelo `controle.js`. As três perguntas que a
+> `acoesDaNotificacao` faz:
+>
+> - **play/pause** só existe com mídia que tenha TEMPO (a mesma régua da barra
+>   de progresso). Imagem, versículo, mensagem e cronômetro não têm o que pausar.
+> - **⏮/⏭** existem quando há EIXO: uma cena com slides ou uma mídia atual (é o
+>   que faz o par trocar de item na lista).
+> - **cortina e parar** existem sempre.
+>
+> Com o cronômetro de abertura sozinho no ar, o cartão passa a ter DOIS botões
+> grandes — cobrir e parar — em vez de cinco, três deles mortos ocupando o modo
+> compacto (que só mostra três).
+>
+> **A lista vem de fora pela invariante 5**, e não é formalidade: quem sabe se
+> "próxima estrofe" faz sentido agora é o lado web, e uma cópia dessa regra em
+> Kotlin envelheceria à parte da de lá. O conjunto entra também na CHAVE de
+> deduplicação do `pushNowPlaying` — sem isso, uma cena que muda só de eixo (o
+> cronômetro entrando por cima de uma imagem) seria deduplicada e o cartão
+> ficaria com os botões da cena anterior. **Um botão que sobrou é pior que um
+> que faltou: ele responde.**
+>
+> O conjunto é declarado nos DOIS lugares que o Android lê — o `PlaybackState`
+> (que desenha do 13 em diante) e as `Notification.Action` (abaixo dele) —,
+> porque declarar de um lado só é fazer o botão existir em metade dos aparelhos:
+> é o defeito da v1.17 com outro nome. E o `tools/ponte.test.mjs` afirma que o
+> campo VIAJA, que é o modo de falhar deste objeto remontado campo a campo (o
+> `slideLabel` passou cinco versões sem chegar ao Kotlin).
+
+> **A v5.230: O EPISÓDIO DE SÉRIE VIRA UM VÍDEO DO YOUTUBE, e a DATA passa a
+> ter DUAS formas. OTA PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> Dois pedidos do operador, e os dois derrubam uma suposição da v5.228.
+>
+> **1. "O tratamento dos itens deve ser o mesmo dos vídeos do YouTube (sem a
+> opção de apenas áudio). Não quero um download direto, e quero a opção de tocar
+> diretamente em stream pelo link."**
+>
+> A v5.228 tratou a série como uma coleção do LouvorJA porque **é dali que a
+> casca do card veio** — e naquele mundo o toque BAIXA, o que está certo para
+> uma faixa de hinário: poucos MB, e o acervo existe justamente para ficar
+> offline. Herdar a casca herdou a premissa junto, e aqui ela é falsa por duas
+> ordens de grandeza: são ~300 MB por episódio, ~15 GB no ano, e o vídeo do
+> sábado é visto **uma vez**. O "Baixar" do card oferecia isso atrás de uma
+> palavra de três sílabas.
+>
+> **O caminho certo já existia inteiro, e era o do YouTube.** `openSongMenu`
+> desvia para `openYtMenu` antes de montar qualquer coisa, e com um desvio de
+> uma linha o episódio ganha a **transmissão direta** no "Tocar agora"
+> (`ytStream` → `shared/mse.js`, sem esperar byte nenhum), o download só nos
+> destinos que GUARDAM, o cancelamento, o resgate de intenção e o teto de
+> resolução. Nada disso foi reimplementado — o item foi levado até onde a
+> resposta mora. No **Modo Fácil** o mesmo, e ali vale ainda mais: aquele modo
+> existe para não perguntar nada, e a alternativa era o operador esperar 300 MB
+> com o culto rodando.
+>
+> A única coisa a MENOS é o seletor Vídeo × Só áudio (`semSoAudio`): um
+> testemunho em vídeo não tem versão de áudio que faça sentido projetar, e uma
+> escolha que não muda nada é pior que escolha nenhuma.
+>
+> **E o card acompanhou, senão a promessa contradiria a folha:** o botão de
+> baixar da barra some assim que há índice (sem índice ele fica, porque ali ele
+> não baixa nada — busca a lista), o item de opções virou **"Atualizar a
+> lista"** (`syncCollection` com `soIndice`, que volta logo depois do índice) e
+> a série saiu de "Baixar toda a biblioteca", com peso e tudo. Um contador que
+> promete o que o botão não faz é a pior das duas metades.
+>
+> **2. "Ele reconheceu o vídeo, mas o nomeou apenas como 'não há órfãos de
+> deus', sem identificar a data e nem sequer colocar um identificador no padrão
+> dos outros, deixando o vídeo fora de ordem."**
+>
+> A sexta armadilha da nomenclatura, e ela é a mais direta de todas: **o mesmo
+> canal usa DUAS formas de data, no MESMO episódio.** Em 3 de janeiro de 2026 a
+> versão em Libras saiu como "… 2026 (03/Jan) - Libras" e a de português como
+> "… 2026 **sábado 3 janeiro**". `dataDoVideo` tenta a compacta e, falhando ela,
+> a extensa — com o "de" opcional, o ordinal ("1º") consumido, e a guarda que
+> exige que o nome **seja** um mês em vez de só começar como um, sem a qual
+> "3 marcos" viraria 3 de março.
+>
+> **O que salvou o episódio foi a regra de ouro deste arquivo**: quem prova
+> pertencimento é a PLAYLIST, o título é só rótulo. Por isso o vídeo estava lá —
+> feio e fora de ordem, que é o erro recuperável — em vez de ausente, que é o
+> erro que o operador só descobre no sábado.
+>
+> Os dois oráculos foram verificados nos dois sentidos: o `serie.test.mjs`
+> reprova em **7 pontos** com o `dataDoVideo` anterior, e o `boot-nativo`
+> reprova a folha do YouTube e o card sem botão de baixar com o `controle.js`
+> anterior.
+>
+> A régua que fica: **herdar a casca de um recurso herda as premissas dele.** O
+> card veio do LouvorJA e trouxe junto "o toque baixa", que nunca foi uma
+> decisão sobre séries — era o padrão de um acervo cujos itens custam poucos MB.
+
+> **A v5.229: O CARD DA SÉRIE ERA CONSTRUÍDO E NUNCA DESENHADO. OTA PURO**
+> (nenhuma linha de Kotlin; sem Release).
+>
+> Relato do operador, no dia seguinte à v5.228: *"não estou achando nada para
+> acessar esse provai e vede. e sim ele deve ficar no topo junto dos
+> hinários."*
+>
+> **Ele estava certo, e o card não existia na tela.** A v5.228 acrescentou a
+> série ao `allCollections()` — e `allCollections()` alimenta as CONTAS (peso,
+> "toda a biblioteca", busca), não o desenho. A lista da Biblioteca é montada em
+> TRÊS grupos: as fixas (`FIXED_COLLECTIONS`), as categorias de álbuns e os
+> álbuns órfãos do catálogo. Uma coleção que não é `FIXED_COLLECTIONS` nem álbum
+> **não cai em nenhum deles**. O card era construído, entrava no `byId`, contava
+> no peso do acervo — e não aparecia em lugar nenhum.
+>
+> **É a lição da v5.220 outra vez, num lugar novo:** *acrescentar ao lugar em
+> que o dado NASCE não o entrega a quem o MOSTRA.* E o que a torna cara aqui é
+> que **as doze asserções da v5.228 passavam com o defeito no lugar**: elas
+> mediam o ÍNDICE (playlists filtradas, ordem, Libras fora, URLs), e o que
+> faltava era o DESENHO. O oráculo novo pergunta ao DOM, não a uma função, e
+> reprova nos três pontos quando o grupo do topo volta a ser a lista literal.
+>
+> A correção não é acrescentar um quarto grupo: é o grupo do topo passar a ser
+> **"as coleções FIXAS"**, que é o que ele sempre quis dizer, em vez de uma
+> lista digitada à mão. Com série, o cabeçalho vira "Hinários e séries"; sem
+> ela — num shell < 41 —, continua "Hinários", e nada muda.
+>
+> **E o defeito escondia um segundo, que só apareceria depois:** o peso da
+> série era calculado pela escada de bitrate de ÁUDIO. A constante é o
+> 128 kbps do LouvorJA e a média global é dominada por hinário, então uma série
+> ainda vazia — que é exatamente quando o número importa — seria anunciada a
+> ~16 KB/s para um 1080p que entrega ~600. A tela prometeria **~50 MB para um
+> ano que pesa ~15 GB**: um erro de 40× na única pergunta que essa conta existe
+> para responder ("espero o Wi-Fi?"). Agora há `BPS_VIDEO_PADRAO`, e as duas
+> médias não se misturam nos dois sentidos — um ano de série baixado não infla
+> a estimativa de todo álbum de louvor, e a média de áudio não desinfla a da
+> série.
+
+> **A v5.228 (v1.98): AS SÉRIES DO YOUTUBE VIRAM ÁLBUNS DA BIBLIOTECA — e o
+> primeiro é o "Provai e Vede 2026". EXIGE APK** (`SHELL_VERSION` **41**).
+>
+> Pedido do operador: sincronizar os vídeos oficiais do Provai e Vede 2026, em
+> português, como um álbum da Biblioteca. A seção "Séries do YouTube" tem o
+> desenho inteiro; aqui ficam as três coisas que a investigação decidiu.
+>
+> **O LouvorJA não tinha, e não é falta de catálogo — é estrutural.** Pelo
+> contrato em `docs/FONTE-DE-DADOS-LOUVORJA.md`, o banco tem cinco famílias de
+> arquivo e **todo campo de mídia é áudio ou imagem** (`url_music`,
+> `url_instrumental_music`, `url_image`): não existe campo de vídeo em lugar
+> nenhum. Mesmo que aparecesse um álbum com esse nome, não haveria bytes para
+> buscar. O portal oficial da DSA (`downloads.adventistas.org`) publica os MP4
+> por trimestre e foi a alternativa considerada; o operador escolheu o YouTube
+> — com o argumento certo, de que "playlist vira álbum" é um recurso, e o Provai
+> e Vede é só a primeira instância dele.
+>
+> **A descoberta é automática, e ela é pela ABA DO CANAL.** A única constante é
+> `@provaievedeoficial`; meses e anos saem dos nomes das playlists. A alternativa
+> — busca por texto — foi recusada por AUTORIDADE, não por dificuldade: ali quem
+> escolhe o resultado é o ranking do YouTube, e qualquer pessoa pode nomear uma
+> playlist "Provai e Vede 2026". Num sistema de projeção de culto isso é um
+> reupload entrando no telão sem nada que o denuncie.
+>
+> **As cinco armadilhas da nomenclatura foram MEDIDAS nos prints do canal**, não
+> imaginadas, e duas delas quebrariam a regra óbvia em silêncio: uma playlist
+> **sem o hífen** que todas as outras têm (um `^Provai e Vede - ` apagaria o mês
+> inteiro) e o marcador de Libras em **duas formas diferentes** — `(Libras)` na
+> playlist e `- Libras` no vídeo. Estão as cinco no topo do `serie.js` e as cinco
+> viraram caso de teste, com as strings verbatim.
+>
+> **A regra mora no lado WEB, e isso é a invariante 5 com uma razão medida.** O
+> Kotlin ganhou dois métodos de TRANSPORTE (`ytCanalPlaylists`, `ytPlaylist`) que
+> devolvem o que o canal publica, verbatim — inclusive o título CRU, sem o
+> `tituloLimpo` da busca, porque é dele que saem a data e a marca de Libras.
+> A nomenclatura de um canal muda sem avisar; do lado web um ajuste chega por
+> OTA em minutos, com oráculo em Node, e em Kotlin custaria um degrau de shell e
+> uma Release por vírgula.
+>
+> **Uma armadilha que quase passou:** o `pesquisar` força português no extrator
+> porque no padrão en-GB o YouTube devolve o título TRADUZIDO. Sem o mesmo
+> `aportuguesar` aqui, `(15/Ago)` viraria `(15/Aug)` e "Libras" mudaria de
+> palavra — a regra inteira falharia calada. Pelo mesmo motivo a paginação sai
+> do MESMO extrator (`ex.getPage`) e não do `getMoreItems(service, …)`, que monta
+> um extrator novo por dentro: os meses do fim da lista voltariam em inglês
+> enquanto os do começo vêm em português.
+>
+> **E uma medida que evita doze extrações por retomada:** a aba do canal já diz
+> quantos vídeos cada playlist tem, então a assinatura `url:contagem` é guardada
+> e, batendo, as ~12 chamadas de `ytPlaylist` são puladas. A extração é a peça
+> frágil deste caminho — a que não convém exercitar à toa.
+>
+> **O que NÃO foi verificado, e está dito:** o Kotlin não foi compilado (o
+> ambiente desta sessão não resolve o plugin do Android nem baixa dependências).
+> Quem compila é o CI, que falha alto. A regra — a parte que decide o que vai ao
+> telão — não depende disso: são 42 casos em Node puro, verificados nos dois
+> sentidos, mais o percurso completo no `boot-nativo.test.mjs`.
+
+> **A v5.227: O "DESLIGANDO…" VIRA O RÓTULO DO PRÓPRIO BOTÃO. OTA PURO**
+> (nenhuma linha de Kotlin; sem Release).
+>
+> Pedido do operador: que a informação rápida de "desligando…" não fique
+> minúscula abaixo do botão, e sim como texto dele.
+>
+> Ela saía no `#castMsg` — 0,78 rem, o MENOR texto da folha, logo abaixo do
+> botão que o dedo acabara de tocar, e no exato instante em que a folha inteira
+> está se reorganizando (v5.226). O olho estava no botão; a resposta aparecia
+> noutro lugar, no tamanho de uma nota de rodapé.
+>
+> Agora o rótulo é uma função de `(mirrorOcupado, ligado)`, pela MESMA leitura
+> de estado que já pintava a cor: ocupado com o servidor no ar → "Desligando…";
+> ocupado sem ele → "Ligando…"; livre → o rótulo de sempre. Não há um terceiro
+> lugar guardando "o que eu pedi" — que é justamente o que divergiria numa
+> resposta lenta do shell.
+>
+> Duas peças pequenas completam: `ligarEspelho`/`desligarEspelho` chamam
+> `renderCast()` no instante em que marcam `mirrorOcupado` (a enquete da folha é
+> de 2,5 s, e uma resposta que chega até 2,5 s depois do toque não é resposta),
+> e a opacidade do botão desabilitado subiu de .55 para .7 — **um recado a 55%
+> de opacidade é o defeito deste lote com outro nome**. Continua claramente
+> inerte; passou a ser legível.
+>
+> A linha de baixo ficou com o que ela sempre soube dizer melhor: a FALHA
+> ("só liga em Wi-Fi", "sem encoder livre agora"), que é uma frase inteira vinda
+> do shell e não caberia num botão.
+
+> **A v5.226: LIGAR A TRANSMISSÃO DEIXA DE SER UM SALTO — a folha cresce, e só
+> então o conteúdo entra. OTA PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> Relato do operador: *"tanto para ligar quanto para desligar a transmissão, há
+> adição ou subtração de conteúdo nesse popup, isso move os elementos
+> irregularmente… os elementos surgem do nada e as coisas mudam de lugar,
+> atrapalhando o foco e identificação dos elementos"*.
+>
+> Ele está descrevendo um `hidden`. O endereço e a lista de telas apareciam e
+> sumiam num quadro, e com eles a altura da folha inteira — o que estava sob o
+> polegar mudava de lugar sem aviso.
+>
+> **A encenação é assimétrica de propósito, e é ela que responde ao pedido:**
+> abrindo, a linha cresce JÁ e o conteúdo entra 0,2 s depois (o espaço nasce
+> antes do que vai ocupá-lo); fechando, o conteúdo sai JÁ e a folha se recolhe
+> 0,14 s atrás dele (nada desaparece por baixo de uma borda em movimento).
+> Medido, quadro a quadro: abrindo, o bloco vai de 24 a 101 px enquanto a
+> opacidade do conteúdo é ZERO, e só aos ~250 ms — com o espaço já pronto — ele
+> aparece (0,46 → 1). Fechando, o espelho exato: opacidade a 0 nos primeiros
+> 155 ms com o bloco ainda em 109 px, e o recolhimento depois.
+>
+> A altura é animada por `grid-template-rows: 0fr → 1fr`, que é a única forma de
+> transicionar até `auto` **sem medir nada em JS** — daí a casca de dentro
+> (`.cast-live-in`), que precisa de `min-height: 0` e `overflow: hidden` para
+> aceitar encolher. `visibility` fecha o que a opacidade não fecha: recolhido, o
+> bloco ainda teria os botões "Desconectar" no caminho do foco.
+>
+> **E a LISTA passou a ser um diff por rótulo** — sem isso nada disso valeria. Ela
+> era refeita por inteiro (`innerHTML = ''`) a cada leitura do estado, e o estado
+> é lido de 2,5 em 2,5 segundos com a folha aberta: qualquer animação de entrada
+> recomeçaria sozinha para sempre, e o botão "Desconectar" era recriado debaixo
+> do dedo de quem o estava tocando, perdendo o `disabled` que o toque acabara de
+> escrever. Agora uma tela nova entra com a animação, uma que saiu se recolhe
+> antes de deixar o documento, e as demais só têm o texto atualizado no lugar.
+>
+> Os oráculos se dividem pela natureza: o `smoke.mjs` mede a FORMA (o bloco vale
+> zero recolhido, tem altura aberto, e o que muda entre os dois é uma
+> propriedade ANIMÁVEL — um `display: none` de volta continuaria dando zero e
+> mataria a transição, então a asserção pergunta pela propriedade também), e o
+> `boot-nativo.test.mjs` mede o COMPORTAMENTO da lista, que só existe com a
+> ponte presente.
+>
+> **A primeira versão do caso do `smoke` reprovou**, e a leitura certa não era
+> "o teste está errado": ele media a altura no MESMO turno em que ligava a
+> classe, e a altura é animada — o quadro inicial é zero por definição. A espera
+> que ele ganhou é, ela própria, a afirmação de que a animação existe.
+
+> **A v5.225: A LEITURA DA LETRA TINHA A HIERARQUIA INVERTIDA — duas estrofes
+> mais juntas que o miolo de uma. OTA PURO** (nenhuma linha de Kotlin; sem
+> Release).
+>
+> Pergunta do operador, com um print do LouvorJA: dá para aplicar aquele modelo
+> de estrofes na nossa leitura de letras, nos dois modos, "já que há músicas com
+> 5 linhas, 6 linhas e diversos outros formatos"?
+>
+> **A resposta é que o modelo já estava aplicado, e a contagem de linhas nunca
+> foi o problema.** O banco do LouvorJA não entrega linhas soltas: cada entrada
+> de `music_{id}.lyric` **é uma estrofe**, com `order`, o texto (linhas internas
+> como `<br>`) e `aux_lyric`, que é o RÓTULO da seção. Guardamos assim desde a
+> v5.42 (`[{a, l}]`), e os DOIS modos desenham pela mesma função (`lvBuildSong`)
+> — inclusive tratando um caso que a origem tem e o app dela não separa: dois
+> blocos de estrofe empacotados numa entrada só (v5.142). Quatro, cinco ou doze
+> linhas são só o número de `\n` dentro de uma estrofe; não há formato a
+> adivinhar.
+>
+> **O que estava errado era o ESPAÇAMENTO, e ele foi medido:** 8,8 px (avançado)
+> e 8,0 px (simples) entre estrofes DIFERENTES, contra 11,4 px entre dois blocos
+> da MESMA. Duas estrofes ficavam mais juntas que o miolo de uma — a hierarquia
+> se lia ao contrário, e por isso a letra não respirava apesar de a estrutura
+> por baixo estar inteira. É o tipo de defeito que nenhuma leitura de código
+> acha, porque cada regra isolada parece razoável.
+>
+> Agora existe `--lv-estrofe-gap` (medida de LAYOUT, logo no `:root` de
+> `controle.css`, não em `tokens.css`), e o valor não é gosto: **uma linha da
+> letra** (1.425rem = .95rem × 1.5), que é literalmente o que a fonte codifica
+> com `<br><br>` e o que o operador vê no app de origem. Ele vale nos TRÊS
+> lugares em que uma estrofe termina — o `gap` da folha de leitura, o `gap` da
+> zona de letra do Modo Fácil e o `margin-top` entre blocos dentro de um slide —
+> porque **uma fronteira de estrofe é uma fronteira de estrofe**: tem de parecer
+> igual nos três, senão a leitura ganha um ritmo que o texto não tem.
+>
+> **O oráculo afirma a REGRA, não o pixel** (`tools/smoke.mjs`): entre estrofes
+> nunca menos que dentro de uma, nunca menos que uma linha, e o mesmo valor nos
+> dois modos. Escrever o número faria o teste reprovar numa mudança legítima de
+> fonte; escrever a razão o mantém verdadeiro. Reprova em 5 pontos no CSS
+> anterior (verificado).
+>
+> A régua que fica: **estrutura correta não é leitura correta.** Os dados
+> estavam certos desde a v5.42 e a função desenhava certo desde então — o que
+> desmentia os dois era um par de medidas que ninguém tinha comparado uma com a
+> outra.
+
+> **A v5.224: A TRANSMISSÃO VIRA O BOTÃO IRMÃO DO DE ESPELHAR — o interruptor
+> sai. OTA PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> Pedido do operador: que a segunda forma de conectar tenha o mesmo desenho da
+> primeira, e que ligada ela fique **vermelha, nomeando o desligamento** — a
+> mesma função de liga-desliga, sem trilho de chave.
+>
+> **As duas escolhas da folha respondem à MESMA pergunta** ("para onde vai o
+> telão?"), e respondê-la metade com um botão preenchido e metade com um
+> interruptor fazia a segunda parecer uma preferência de configuração em vez de
+> uma porta. Agora são dois `.cast-acao` — mesma anatomia, mesmo alvo de toque,
+> mesmo lugar do ícone —, e o botão novo ganhou símbolo próprio (`icoNavegador`:
+> a janela de navegador com as ondas dentro; a moldura é literalmente a palavra
+> do rótulo, e o irmão já tinha a tela com a seta).
+>
+> **O que o interruptor dava de graça — dizer o estado parado — o botão diz pela
+> COR e pelo RÓTULO**, que é a gramática que o irmão já usava: desligado ele é a
+> chamada preenchida ("Transmitir para navegador"); ligado, perde o
+> preenchimento, ganha o contorno e passa a nomear a ação ("Desligar
+> transmissão"). Verde é "resolvido, e o app não mexe nisso" (a TV, que só o
+> seletor do Android desconecta); vermelho é "está ligado, e o toque desliga".
+>
+> **O vermelho é CONTORNADO, e isso não é timidez:** pela regra da paleta o
+> vermelho CHEIO deste app significa "está no ar agora" e pertence à mídia
+> projetada. Um botão de folha preenchido em `--live` competiria com o que a
+> congregação está vendo.
+>
+> A mecânica mudou num ponto só, e ele merece nota: um `change` de caixa de
+> marcação chega com a posição NOVA, um clique não chega com nada. O que o
+> operador pediu passou a ser DERIVADO do estado (`!espelhoLigado()`) — a mesma
+> fonte que o `renderCast` usa para pintar o botão —, então não há duas versões
+> da verdade para divergirem no meio de uma resposta lenta do shell. O resto da
+> disciplina é intacto: **quem escreve o estado é sempre a LEITURA**, nunca o
+> toque, senão uma recusa deixaria o botão vermelho de uma coisa que não
+> aconteceu.
+>
+> Dois oráculos, e eles se dividem pela natureza: o `smoke.mjs` mede a FORMA
+> (desligados os dois são a mesma peça — mesmo raio, mesmo preenchimento; ligada
+> a transmissão perde o fundo e ganha o contorno em `--danger-strong`), e o
+> `boot-nativo.test.mjs` mede o ESTADO, que é o único lugar onde ele pode ser
+> medido de verdade: lá a ponte responde `ligado: true` e quem pinta o botão é o
+> `renderCast`, não uma classe posta à mão pelo teste. Ele afirma também que
+> **não sobrou interruptor nenhum** na folha.
+
+> **A v5.223: O `display-ready` DA TELA NUNCA LEVOU `__tela` — e sem ele as TRÊS
+> preferências jamais chegaram. OTA PURO** (nenhuma linha de Kotlin; sem
+> Release).
+>
+> Relato: numa tela recém-ativada os slides ficam pretos **mesmo com a opção de
+> imagens ligada**, e agora "nem depois da música tocar completa" — isto é, não
+> era espera. A v5.221 tinha atacado o sintoma pelo lado errado.
+>
+> **A causa é um campo que nunca foi escrito.** O Controle decide reenviar
+> wallpaper, fundo da letra e preenchimento a quem conecta perguntando
+> `if (msg.__tela)` no `display-ready` — é a única coisa que distingue uma TELA
+> DA REDE do telão de verdade, que lê tudo do IndexedDB sozinho. O `tela.js`
+> anexa `__tela` ao `tela-status`… e **nunca anexou ao `display-ready`**. Medido
+> no fio: `{"type":"display-ready","__de":"dsf1cu9p7","__mid":"70y95c:1"}`.
+>
+> Ou seja: `telaReenviarPreferencias` — a função que a **v5.188 criou para
+> exatamente isto** — nunca rodou para uma tela de verdade, em nenhuma versão.
+> Não havia erro em lugar nenhum; havia três preferências que simplesmente não
+> existiam do outro lado. O fundo da letra foi o que apareceu porque preto é
+> visível; o **wallpaper** e o **preenchimento** estavam quebrados do mesmo
+> jeito, calados, porque o padrão deles é aceitável e ninguém reparou.
+>
+> **E o conserto teve duas tentativas, o que é a outra metade da lição.** A
+> primeira carimbou o `__tela` no dreno — e não mudou nada, porque há DOIS
+> pontos que anunciam a tela e o que de fato entrega é o outro: o
+> `display-ready` do `display.js` nasce na carga da página, quando ainda não há
+> token, e o `subir` devolve cedo; quem anuncia é o `aoConectar`, no reanúncio.
+> **Uma correção aplicada no ponto que não é exercitado é uma correção que nunca
+> roda** — e ela teria passado num teste que olhasse só o dreno. O carimbo
+> passou a ter dono único (`anuncio()`), usado pelos dois pontos.
+>
+> **Os dois lados do contrato ficaram travados, e isso é deliberado.** O
+> `tela-rede.test.mjs` afirma que o `display-ready` no fio LEVA `__tela` (o
+> produtor — reprova no código anterior, verificado); o `boot-nativo.test.mjs`
+> afirma que o Controle reenvia ao receber o campo **e que não reenvia sem ele**
+> (o consumidor — passa nas duas versões, porque o consumidor sempre esteve
+> certo). Travar um lado só deixaria o par livre para divergir de novo, que é
+> precisamente o que aconteceu por dezenas de versões: **o consumidor exigia um
+> campo que o produtor não mandava, e a documentação descrevia o combinado em
+> vez do código** — o CLAUDE.md dizia, com todas as letras, "`display-ready`
+> passa, com `__tela`".
+>
+> A régua: **quando dois lados combinam um campo, o oráculo tem de olhar o FIO.**
+> Ler cada lado separadamente aprova os dois — foi o que fiz aqui na primeira
+> passada, com um probe que mandava o `__tela` à mão e concluía que o Controle
+> estava certo. Estava; a mensagem é que nunca teve o campo.
+
+> **A v5.222: O NÚMERO DO HINO ERA AZUL — 9,75:1 e ainda assim discreto. OTA
+> PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> Relato do operador, sobre a capa que a v5.219 desenhou: *"o número do hino
+> está aparecendo em azul no slide, esse azul fica muito discreto no fundo
+> escuro"*.
+>
+> **Ele está certo, e a medida não o contradiz — ela responde outra pergunta.**
+> `--stage-accent` sobre o preto dá 9,75:1, contraste de sobra em qualquer
+> régua; o oráculo da v5.219 mediu isso e aprovou. Só que **contraste é razão de
+> luminância, não legibilidade a dez metros**: num telão o que decide é o
+> conjunto **cor + corpo**, e aquele número tinha o MENOR corpo do cartão
+> (4,4cqmin contra os 8,4 do título) somado à única cor da tela que não era
+> branca. Num hinário o número é o que a congregação procura primeiro — ele não
+> é enfeite, e estava desenhado como se fosse.
+>
+> Agora ele é o MESMO branco do título (21:1) e maior (5,8cqmin). A cor de
+> identidade ficou nos FIOS que o flanqueiam, que é onde ela não precisa ser
+> lida: eles são decoração, e por isso o `background` deles passou a ser
+> explícito em vez de `currentColor` — sem essa troca, embranquecer o número
+> teria embranquecido os fios junto, calados.
+>
+> **O oráculo subiu de piso junto** (`display-smoke.mjs`): ele exigia 7:1 do
+> número, que é exatamente o que o azul entregava. Agora exige 15:1 **e** que a
+> cor seja a mesma do título — uma cor de identidade que volte para cá reprova.
+>
+> A régua que fica: **um piso de contraste aprova o que ele mede, e ele não mede
+> corpo.** Onde o consumidor é um projetor visto do fundo do salão, a asserção
+> tem de amarrar as duas coisas.
+
+> **A v5.221: A IMAGEM DE FUNDO DA LETRA DESISTIA ANTES DE PODER CHEGAR. OTA
+> PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> **CORREÇÃO DE ATRIBUIÇÃO, escrita pela v5.223:** o defeito descrito abaixo é
+> REAL e a correção fica — mas ele **não era a causa** do relato do operador,
+> e esta nota afirmou que era. A causa estava uma etapa antes: o `lyricsbg`
+> nunca chegava à tela, porque o `display-ready` dela não levava `__tela`
+> (v5.222). Com o modo em `black`, `applyLyricsImage` computa `key = null` e
+> **não chega a buscar imagem nenhuma** — a ladeira curta descrita aqui nunca
+> chegou a rodar. Por isso a v5.221 não mudou nada no aparelho, e por isso
+> ela passa a valer só agora, quando a preferência de fato chega.
+>
+> Relato: numa tela recém-ativada, tocar uma música da biblioteca deixa os
+> slides em PRETO, **mesmo com a opção de imagens ligada** — e desligar e religar
+> a opção nas Configurações conserta.
+>
+> **A preferência não era o problema**, e essa era a pista falsa embutida no
+> sintoma: `telaReenviarPreferencias` manda o `lyricsbg` no `display-ready` da
+> tela e ele chega certo. O problema são os BYTES.
+>
+> As imagens de fundo são enfileiradas **DEPOIS da mídia principal**
+> (`telaEmpurrarImagensLetra`, logo após `telaGarantirEnvio`), no MESMO canal
+> serializado — de propósito, e a decisão continua certa: o som não pode esperar
+> as fotos. Só que a tela buscava a imagem com uma ladeira de **0, 600 e
+> 1800 ms**, desistindo em ~2,4 s. Por construção, os bytes só podem começar a
+> chegar depois de a música inteira atravessar o canal — segundos para um hino.
+> **A tela desistia antes de existir qualquer possibilidade de sucesso**, e o
+> slide ficava preto PARA SEMPRE, porque nada reexamina uma estrofe já
+> renderizada. Religar a opção troca a chave efetiva e refaz o caminho com os
+> bytes já no lugar: era esse o conserto que o operador vinha fazendo a cada
+> música.
+>
+> Medido, com os bytes chegando aos 4 s: aos 2 s sem `src` (esperado), **aos 6 s
+> ainda sem `src`** — dois segundos depois de a imagem estar disponível —, e
+> visível logo após o desliga/religa. Os três estados do relato, reproduzidos.
+>
+> A ladeira agora dobra até um platô de 2,5 s com teto de 45 s, e é
+> auto-limitada pelo que já existia: **a guarda de sequência mata o laço no
+> instante em que a estrofe muda**, que é o caso comum muito antes do teto.
+> Repetir a mesma URL é seguro porque o servidor manda `Cache-Control: no-store`
+> em TODA resposta (`EspelhoHttp.CABECALHOS_SEMPRE`), 404 inclusive — não há 404
+> grudado em cache para envenenar a tentativa boa.
+>
+> **O oráculo mede o que faltava.** O `tela-rede` já afirmava que o `imageUrl`
+> sobrevive ao `__rec`; ninguém nunca afirmou que a imagem **chega à tela**, e
+> era exatamente nessa distância que o defeito vivia. Agora a rota `/m/` da
+> imagem 404a por 3 s de propósito — mais que a janela antiga — e o teste exige
+> que ela apareça assim mesmo. Reprova no código anterior (verificado).
+>
+> A régua que fica: **uma retentativa tem de durar mais que o processo que ela
+> está esperando.** Aqui o processo era conhecido e estava escrito duas funções
+> acima — a fila é serializada e a imagem vem depois da música —, e ainda assim
+> o prazo foi escolhido como se a imagem pudesse chegar sozinha.
+
+> **A v5.220: A LINHA DO ÁLBUM NÃO CHEGAVA À BIBLIOTECA QUE JÁ EXISTE — os
+> dois pontos de escrita estavam certos e os dois erravam o alvo. OTA PURO**
+> (nenhuma linha de Kotlin; sem Release).
+>
+> Relato do operador: tocando um hino do hinário, a capa não mostra "Hinário
+> Adventista 2022" — nem o nome de coleção nenhuma.
+>
+> **O dado nunca chegaria sozinho.** A v5.219 escreve `hymnAlbum` em dois
+> lugares: no download de uma música nova e na varredura da sincronização. Os
+> dois são o lugar certo para uma biblioteca que está sendo MONTADA — e nenhum
+> deles alcança a que já está pronta: a música do operador já está baixada, e
+> uma coleção completa não é re-sincronizada (é justamente o que o "Completo
+> offline" existe para dizer). O campo ficava vazio para sempre, e a capa caía
+> no caso degenerado, que é o título centralizado.
+>
+> A correção é a passagem que faltava (`preencherAlbunsDosHinos`), no mesmo
+> molde do `desnumerarAlbunsBaixados` que já morava ao lado: uma vez, marcada em
+> estado, depois de `loadCollections()` — é de lá que sai o nome. **A ligação já
+> existia e não estava sendo lida**: o `folder` de todo registro baixado de uma
+> coleção É o id dela. Ela CORRIGE além de preencher (compara com o nome atual
+> em vez de olhar só se está vazio), porque uma coleção renomeada na origem
+> deixaria capas dizendo o nome velho pelo mesmo preço.
+>
+> O oráculo entrou no `acervo.test.mjs`, que é onde as contas da biblioteca já
+> moram, e ele mede **o registro** — que é o que o Display vai ler —, não o
+> retorno da função: a música já baixada ganha o nome, um nome velho é
+> substituído, e um arquivo de pasta do aparelho (que não é coleção nenhuma)
+> fica intocado.
+>
+> A régua que fica: **escrever um campo novo nos caminhos de ESCRITA não o
+> entrega a quem já tem os dados** — um lote que acrescenta campo a registro
+> precisa dizer, explicitamente, como ele chega ao acervo existente.
+
+> **A v5.219: O TÍTULO DO LOUVOR ERA AZUL-ESCURO SOBRE O PRETO — o palco lia
+> tokens de TEMA. E o slide de capa virou um CARTÃO. OTA PURO** (nenhuma linha
+> de Kotlin; sem Release).
+>
+> Relato do operador: os títulos das músicas estão em azul e ficam ilegíveis no
+> fundo escuro.
+>
+> **Medido: 2,73:1.** O slide de capa pintava o título com `--brand`, e
+> `--brand` é um token de TEMA — `#8fb1f3` no escuro (9,75:1 sobre o preto, o
+> que a TV mostrava) e o denim oficial `#2F557F` no CLARO. A preview do Controle
+> roda no documento que TEM tema: com o tema claro ligado — que é o que o
+> operador escolheu na v5.192 — ela desenhava o título em denim escuro sobre o
+> preto do palco, abaixo até do piso de 3:1 de texto grande.
+>
+> **É a regra do palco cometida do lado de fora.** Este documento diz, desde a
+> v5.192, que "o palco não tem tema"; e diz isso dos TOKENS. Os tokens estavam
+> certos — as REGRAS é que apontavam para tokens de tema, em quatro pontos:
+> `--brand` (título da capa, referência do versículo, número do sorteio
+> rolando), `--live-strong` (o cronômetro estourado), `--bg` e `--accent-glow`
+> (a pílula de entrada). Agora existem `--stage-accent`, `--stage-accent-glow`,
+> `--stage-on-accent` e `--stage-alert` no bloco compartilhado, e **nada pintado
+> no palco lê um token redeclarado em `[data-tema]`**.
+>
+> **O oráculo mudou de pergunta, e é por isso que ele não tinha visto.** O
+> `smoke.mjs` comparava quatro NOMES de token entre os dois temas; o defeito
+> passou por baixo porque os nomes estavam certos. Ele passou a comparar a COR
+> COMPUTADA de cada camada do palco (capa, letra, versículo, cronômetro
+> estourado, sorteio rolando, fundo) nos dois temas. Verificado nos dois
+> sentidos: com a regra antiga de volta, ele reprova.
+>
+> **E o cartão de capa** (o segundo pedido). Era uma linha só — "147. Ó ADORAI O
+> SENHOR" —, o número colado na frente do título, gastando a largura da linha
+> que mais precisa dela. Agora são três peças com pesos diferentes: o número no
+> acento entre dois fios, o TÍTULO em branco pleno (21:1 — num telão a
+> legibilidade vem de luminância máxima, e o acento fica no que é secundário) e
+> o ÁLBUM esmaecido embaixo. Cada peça só existe se houver o dado; sem número e
+> sem álbum, a capa é o título centralizado, que é a capa de sempre.
+>
+> **Não há AUTOR na fonte, e isso está dito em vez de inventado**: o LouvorJA
+> publica nome, faixa e álbuns (`docs/FONTE-DE-DADOS-LOUVORJA.md` §5.1). O que
+> entrou é `hymnAlbum` — a coleção de onde a música veio —, no REGISTRO, porque
+> quem projeta é o Display e ele não tem acesso a coleção nenhuma; e com
+> preenchimento na varredura que a sincronização já faz, senão a linha só
+> apareceria em música baixada depois desta versão, isto é, nunca na biblioteca
+> que o operador já tem.
+>
+> **A caixa da capa CRESCE com o conteúdo, e foi um defeito fotografado que
+> obrigou a isso**: com o título em duas linhas, número + título + álbum somavam
+> mais que a caixa de altura fixa, o flex encolhia os itens e o álbum era
+> desenhado POR CIMA da segunda linha do título. Na capa não há "próximo slide"
+> com que casar a altura — é a primeira coisa em cena —, então ela se ajusta,
+> com teto e `overflow: hidden` como garantia final.
+>
+> **A primeira medição de contraste do repositório entrou junto**
+> (`display-smoke.mjs`): este documento afirmava, desde a v5.47, que não havia
+> nenhuma. Ela cabe no palco e só nele — ali o piso não é "tela a 30 cm", é um
+> projetor visto do fundo do salão — e compõe o ALFA sobre o preto em vez de
+> ignorá-lo, senão `--stage-text-dim` (branco a 72%) sairia como 21:1 quando
+> rende 10,54:1.
+>
+> A régua que fica: **um oráculo que compara NOMES não protege o que a tela
+> PINTA.**
+
+> **A v5.218: A RECARGA VOLTA PARA A ENTRADA OFICIAL, e o botão de canto sai.
+> OTA PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> Decisão do operador depois da v5.216, e ela **revoga metade de uma regra da
+> v5.189**: *"após qualquer descarregamento da página, pode usar o botão
+> original de ativar tela, o mesmo que já se usa no primeiro acesso. Inclusive,
+> remova esse botão específico que desaparece em 5 segundos. Faça apenas a
+> lógica de aceitar o F11 como atalho, ou os dois cliques na tela."*
+>
+> **A regra da v5.189 estava certa para o caso dela e errada para este, e a
+> distinção é entre perder o FIO e perder a PÁGINA.** Numa queda de conexão a
+> mídia continua tocando — ela é local (`/m/`) e a letra anda pelo `timeupdate`
+> do próprio `<video>` —, então desenhar a entrada por cima apagaria uma cena
+> que o problema não tinha atingido; isso **não mudou**, e `cairToken`/
+> `reentrarSozinho` seguem silenciosos. Uma recarga é outra coisa: ela já
+> derrubou tudo, inclusive o gesto, porque ativação transitória não sobrevive a
+> uma navegação. A tela volta muda e em janela de qualquer jeito. **Não havendo
+> projeção a preservar, não há nada que a entrada esteja cobrindo** — e o que
+> estava lá no lugar dela era um botão de canto com outro nome ("Ativar som e
+> tela cheia"), outro desenho e cinco segundos de vida.
+>
+> **O que saiu:** `mostrarCanto`, `esconderCanto`, os três prazos, `oQueFalta`,
+> `oferecerGesto`, `emTelaCheia` e o `assentando` da v5.214 — este último era
+> apenas o guarda daquela pergunta, e some junto com ela. A regra que ele
+> protegia continua escrita, agora como comentário no `telaCheia`: **não se lê
+> `document.fullscreenElement` no mesmo turno em que se pede a tela cheia.**
+>
+> **O que ficou:** os dois gestos que já existem na cabeça de quem está ali — o
+> TOQUE DUPLO (o que se tenta primeiro num vídeo) e o **F11** (o de quem opera
+> num computador ligado ao projetor, que é o caso normal deste recurso). O
+> `preventDefault` no F11 é deliberado: sem ele o navegador entra na tela cheia
+> DELE ao mesmo tempo em que pedimos a da API, e sair passaria a exigir dois
+> comandos. Um dono só para o estado.
+>
+> **O token é carregado adiante na recarga, e isso não é uma exceção à decisão:**
+> o fio só abre quando alguém toca. O que ele evita é um defeito que a mudança
+> criaria — `telasSse` é indexado pelo TOKEN (`EspelhoServidor`), então pedir
+> pareamento novo a cada F5 deixaria a sessão anterior ocupando vaga até o vigia
+> notá-la, e a **terceira recarga seguida receberia "lotado"**. Com o token
+> reaproveitado o servidor reconhece a volta ("a mesma tela reabriu a página") e
+> a vaga é a mesma. Há oráculo para as duas metades.
+>
+> **E um falso positivo do próprio teste virou lição.** A asserção "não
+> reconecta sozinha" lia o contador GLOBAL de `GET /e` do servidor de mentira, e
+> reprovou culpando a página recarregada por um pedido que era de outra (a
+> principal, na escada de reentrada legítima do `adeus`). Um contador global não
+> prova uma afirmação sobre UMA página: agora cada contexto manda um cabeçalho
+> que o identifica, e a contagem é por página. **Medição que não é atribuível
+> não é medição.**
+>
+> **E ele reprovou uma SEGUNDA vez, no CI, por uma corrida que a máquina local
+> escondia** — com o arranjo de dois passos da v5.213 mostrando serviço:
+> `11/12`, e o reprovado nomeado no resumo do run em vez de sumir atrás de um
+> painel verde. A asserção do token esperava **o overlay sumir** para então
+> recarregar, e `ativar()` esconde o overlay ANTES de o pareamento voltar (o
+> gesto não espera a rede) — quem grava o token é a resposta do `POST /par`. Num
+> runner mais lento a recarga chegava antes do `guardar()`, o token não existia,
+> e o teste acusava o app de pedir vaga nova. Reproduzido de propósito com 400 ms
+> de atraso no servidor de mentira e corrigido esperando o `GET /e`, que só
+> acontece DEPOIS do `guardar()`. É a segunda vez que este arquivo aprende isto
+> (a v5.204 foi a primeira): **espere o sinal que prova o que você precisa
+> afirmar, não um que costuma vir junto.**
+
+> **A v5.217: O BOTÃO DE CAST NÃO ABRIA NADA COM UMA TELA JÁ CONECTADA — o
+> fecho automático da folha era um NÍVEL onde a frase dizia BORDA. OTA PURO**
+> (nenhuma linha de Kotlin; sem Release).
+>
+> Relato do operador: com o ícone de cast no estado conectado (vermelho), tocar
+> nele não abre a folha de conexão.
+>
+> **Ele abria — e se fechava sozinha em milissegundos.** A v5.193 acrescentou ao
+> `renderSimpleGate` a regra "alguma tela ENTROU com a folha aberta: ela fecha",
+> e escreveu `if (há tela && a folha está aberta) fecharCast()`. A frase fala de
+> um EVENTO; o código testa um ESTADO. Com uma tela conectada — que é o estado
+> normal de um culto — qualquer passagem por aquela função fechava a folha, e o
+> `abrirCast` **liga a enquete de 2,5 s**, que chama justamente aquela função.
+> Isto é: o próprio ato de abrir agendava o fecho, e a primeira leitura do
+> estado (milissegundos depois, pela ponte) o executava.
+>
+> O que se perdia com isso não era um detalhe de UI: aquela folha é a única
+> porta para trocar de TV, ligar e desligar a transmissão e derrubar uma tela da
+> rede. Com tela conectada, nenhuma dessas coisas tinha como ser feita sem antes
+> desconectar tudo.
+>
+> A correção é a borda que a frase sempre descreveu (`gateTinhaTela`), **com a
+> memória re-armada em `abrirCast`** — e é esse re-armar que dá à regra o
+> significado certo: *enquanto ESTA folha estiver aberta, se uma tela entrar,
+> ela fecha*. Sem ele, uma folha aberta muito depois herdaria uma borda de horas
+> atrás, que é a mesma classe de defeito com outro relógio.
+>
+> **Os dois lados entraram no `boot-nativo.test.mjs` no mesmo commit**, e o
+> segundo é o que impede a correção de virar "a folha nunca mais fecha sozinha":
+> com tela conectada ela ABRE e CONTINUA aberta depois de um ciclo inteiro da
+> enquete; com a folha aberta e uma tela entrando, ela fecha. A primeira metade
+> é lida no MESMO turno do clique — entre dois `evaluate` cabe o `setTimeout(0)`
+> com que a ponte de mentira resolve o `espelhoEstado`, e a asserção passaria a
+> depender de quem ganha essa corrida.
+>
+> A régua que fica: **"entrou" e "existe" não são a mesma condição, e um
+> comentário que diz a primeira sobre um código que testa a segunda envelhece
+> parecendo correto** — foi assim que este atravessou vinte e três versões.
+
+> **A v5.216: O "LIGAR SISTEMA" VOLTAVA NA RECARGA — e ele gasta o gesto sem
+> ativar nada. OTA PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> Segunda metade do relato da v5.214, e desta vez com o passo que faltava:
+> *"o erro acontece quando o display é recarregado, mostrando um botão antigo de
+> ativar tela. A tela se conecta, mas o som e nem o fullscreen é ativado."*
+>
+> **O botão antigo tem nome: é o `#startBtn`, o "Ligar Sistema"** — o overlay da
+> era dos dois PWAs, que existe para destravar o autoplay num navegador comum.
+> Ele era escondido no papel `tela` por uma linha dentro de `montarEntrada()`, e
+> aí está o buraco: **`montarEntrada()` só roda na PRIMEIRA carga.** A recarga
+> com sessão viva reconecta POR TRÁS, de propósito (v5.189: cobrir a projeção
+> com um cartaz por causa de um F5 seria trocar um problema por outro) — e sai
+> pelo `return` antes de qualquer overlay ser montado. Bastava um F5.
+>
+> Medido, depois de recarregar: `startVisivel: true`, e
+> `elementFromPoint` no CENTRO da tela devolvendo `start-pill`. O botão certo
+> ("Ativar som e tela cheia") estava lá, em cima na ordem de pilha — mas é
+> discreto e de canto, enquanto este é `inset: 0` com a pílula no meio. O
+> visitante toca no óbvio; e tocar nele dá, medido, `tela cheia = false` e
+> `som pedido = false`: **ele não pareia, não solta o som e não pede tela cheia
+> — só se esconde.** O único gesto disponível é gasto em nada, e a tela fica
+> conectada, muda e em janela. Palavra por palavra, o relato.
+>
+> **A correção muda o DONO, não só a linha.** Quem esconde o botão passa a ser o
+> `display.js` — o documento que o declara —, pelo PAPEL e em toda carga, ao
+> lado da decisão gêmea que já existia ali (`window.__NATIVE__`). No papel
+> `tela` ele não existe pela razão oposta à do app nativo: lá não há política de
+> gesto para destravar; aqui há, mas o gesto é do OUTRO botão. Decidir isso de
+> fora, no `tela.js`, é que abria a porta para um caminho de carga esquecer a
+> decisão — e foi exatamente o que aconteceu.
+>
+> **O oráculo cobre o caminho que nenhum teste percorria: a RECARGA.** O
+> `tela-rede.test.mjs` ativava a tela e seguia em frente; ninguém dava F5. As
+> duas asserções novas reprovam no código anterior (verificado) e uma delas mede
+> **o que o dedo encontra** — `elementFromPoint` no centro —, não a propriedade
+> `hidden`: é o centro da tela que decide para onde vai o toque, e era ali que o
+> botão errado estava.
+>
+> A régua que fica: **um elemento que só faz sentido em UM papel tem de ser
+> desligado por quem o declara, no papel — nunca por um caminho de UI que pode
+> não ser percorrido.**
+
+> **A v5.215: SEM TELA CONECTADA, O SOM SAI DO PRÓPRIO APARELHO. OTA PURO**
+> (nenhuma linha de Kotlin, `SHELL_VERSION` intacto em 40; sem Release).
+>
+> Pedido do operador: no modo avançado, tocar uma mídia sem nenhuma tela
+> conectada tem de produzir som no celular. Ele fecha um buraco que a v5.189
+> abriu e que este documento descrevia sem perceber — o argumento de lá ("a
+> preview é uma ILUSTRAÇÃO, e ilustração não faz som") vale enquanto existe
+> alguém ilustrando alguma coisa. **Sem display nenhum a projeção É a preview em
+> tela cheia**, e ali ela não ilustra: ela É a projeção. O louvor simplesmente
+> não tocava em lugar nenhum.
+>
+> **A diferença para a "mesa de som" é a única coisa que importa neste lote, e
+> ela é estrutural: não é um modo, é uma CONSEQUÊNCIA.** Não há botão, não há
+> preferência, não há nada guardado entre sessões — o estado é uma função da
+> conexão (`somLocalDeveEstar`), aplicada num ponto só
+> (`acertarSaidaDeAudio` → `preview.setForceMuted`), com os gatilhos onde a
+> conexão muda: telas (`renderDisplayStatus`), transmissão (`lerEspelho`), modo
+> do app (`setAppMode`) e a janela do Display no navegador. É isso que torna
+> impossível o desfecho que matou a versão manual — o operador esquece a mesa
+> ligada, conecta a TV, e o `<video>` do Controle rouba o foco de áudio do
+> Android **interrompendo o player do telão na frente da congregação**. Com
+> qualquer tela conectada este aparelho está mudo, sempre.
+>
+> **TELA é a pergunta larga** (`simpleDisplay`, a mesma do Modo Fácil): a TV
+> **ou** uma tela da rede recebendo. Desde a v5.187 elas são a projeção quando
+> não há TV e cada uma toca o próprio arquivo — contá-las é o que impede o
+> celular de somar o mesmo louvor à sala fora de compasso, porque são dois
+> decodificadores. `telaoConectado()` continua respondendo só pela TV, que é a
+> pergunta certa para o atraso da preview e para o botão de espelhar.
+>
+> **Só no modo avançado**, como pedido — e a razão sobrevive à leitura: no Modo
+> Fácil sem tela a cortina cobre tudo (v5.203), e som atrás de uma tela que diz
+> "conecte uma tela" seria a única coisa acontecendo ali. A troca entre os dois
+> mundos é automática nos dois sentidos e não corta o áudio: a rampa curta do
+> `setForceMuted` desce até 0 antes de mutar, e uma TV que conecta no meio do
+> louvor assume pelo reenvio de cena com posição e estado que a reconexão já faz.
+>
+> **A rede de segurança do navegador está dita em vez de suposta:** num
+> navegador comum a política de autoplay rejeita o `play()` com som sem ativação
+> do usuário, e o `stage` engole a rejeição — sem tratamento, o preço de ligar o
+> som seria a preview PARAR DE TOCAR, que é trocar uma ilustração muda por
+> nenhuma ilustração. O `onBlocked` a devolve ao mudo na hora e cada `load` novo
+> ganha outra tentativa. No app isso não acontece
+> (`mediaPlaybackRequiresUserGesture = false`).
+>
+> **O que NÃO voltou, e é deliberado:** o `AVNative.keepAudioAlive` (shell), que
+> a versão manual usava para o WebView do Controle atravessar o segundo plano.
+> Áudio audível já isenta a página do estrangulamento — é o que a nota do
+> `snoopDisplayStatus` descreve pelo avesso ("ligar o áudio no próprio celular
+> fazia o defeito sumir") — e o `SessionService` mantém o processo vivo enquanto
+> houver cena. Repô-lo custaria um degrau de `SHELL_VERSION` e uma Release por
+> um problema que ainda não foi observado; o endereço da resposta ficou escrito
+> em `docs/ARQUITETURA-WEB.md`, para o dia em que for.
+>
+> Dois oráculos travam a regra, e o primeiro é o único que podia: o
+> `boot-nativo.test.mjs` é o que sobe a base COM a ponte, isto é, o único lugar
+> em que existe conexão a medir — sem tela a preview deixa de ser muda, no Modo
+> Fácil volta a ser, e com uma tela da rede recebendo ela fica muda mesmo no
+> avançado. O `destinos.test.mjs` continua travando a REMOÇÃO (nenhum botão,
+> nenhum `setStandalone`) e agora afirma também que o estado é derivado.
+
+> **A v5.214: A ATIVAÇÃO DA TELA DA REDE JÁ ERA UNIFICADA — o que sobrava era um
+> segundo botão pedindo o que o primeiro tinha acabado de fazer. OTA PURO**
+> (nenhuma linha de Kotlin; sem Release).
+>
+> Relato do operador: o "Ativar esta tela" não estaria ativando som e tela cheia
+> junto com o display, e exigiria uma segunda interação para isso.
+>
+> **Medido antes de mexer, e o diagnóstico natural estava errado.** Um toque só,
+> num Chromium de verdade contra o servidor de mentira do `tela-rede`: tela cheia
+> `true`, overlay fora, `__telaSom(true)` chamado. **As três coisas aconteciam no
+> primeiro toque** — o gesto sempre foi um só. O que aparecia era um botão de
+> canto, opaco, escrito "Voltar à tela cheia", que **nunca saía de cena**. Do
+> lado de quem opera isso é indistinguível de "a ativação não funcionou", e é
+> exatamente assim que foi relatado.
+>
+> São dois defeitos, e eles se compõem — nenhum dos dois produz sintoma sozinho:
+>
+> - **A pergunta era feita DENTRO do gesto.** `oferecerGesto()` roda no ouvinte
+>   de clique do `document`, e o clique que gasta o gesto borbulha até lá **antes
+>   de a tela cheia existir**: `requestFullscreen()` é assíncrono. A linha do
+>   tempo instrumentada mostra o ouvinte rodando com `fullscreenElement=false` e
+>   o `fullscreenchange` chegando 9 ms depois. Isto é: a única pergunta que esse
+>   botão existe para responder era feita no único instante em que a resposta é
+>   garantidamente falsa. Agora quem responde é o próprio pedido — a Promise
+>   resolve se entrou, rejeita se foi recusada — e entre uma coisa e outra
+>   `oferecerGesto()` é mudo (`assentando`).
+> - **E o botão não sabia sair.** `mostrarCanto` agenda a opacidade um quadro
+>   adiante e o recolhimento em 5 s; `esconderCanto`, chamado no meio disso pelo
+>   `fullscreenchange`, matava o de 5 s e agendava a saída — e então o quadro
+>   órfão repunha `opacity: 1`. A saída conferia `opacity === '0'`, encontrava
+>   `'1'` e desistia. **Opaco, por cima da projeção, sem nenhum prazo vivo para
+>   recolhê-lo.** Os três prazos passaram a ser cancelados em bloco, que é a
+>   única regra que um par mostrar/esconder pode ter: o último a ser chamado
+>   vale.
+>
+> **O oráculo entrou no mesmo commit** (`tools/tela-rede.test.mjs`, a regra da
+> v5.145), e a asserção é deliberadamente independente de o navegador CONCEDER
+> tela cheia — exigir a concessão viraria vermelho num runner que a negue, e
+> vermelho ambiental é o que ensina a ignorar vermelho (a lição da v5.204). O que
+> ela afirma vale nos dois ambientes: **nenhum botão pode estar na tela
+> oferecendo uma coisa que já está feita.** O caminho de VOLTA é travado logo
+> abaixo — sem ele, apagar o botão de canto passaria no teste de cima e tiraria a
+> única saída de quem esbarra na tecla errada do controle remoto; e quando o
+> ambiente não concede tela cheia, o caso não é exercitado e isso é **dito**, não
+> silenciado (a lição da v5.213).
+>
+> A régua que fica, e ela é mais larga que este arquivo: **estado que uma API
+> assíncrona vai escrever não pode ser lido no mesmo turno em que ela é
+> chamada** — e um par mostrar/esconder com prazos só é honesto se cancelar
+> todos os seus.
+
+> **A v5.213: OS ORÁCULOS DE CHROMIUM VIRAM DOIS PASSOS — o painel verde
+> escondia um teste caindo. OTA PURO** (o único arquivo tocado fora da base é o
+> workflow; nenhuma linha de Kotlin, sem Release).
+>
+> Pedido do operador depois da v5.212, sobre uma observação que a auditoria
+> deixou em aberto. Os doze oráculos de Chromium rodavam num passo só, com
+> `set -euo pipefail` — então o PRIMEIRO que reprovasse abortava os ONZE
+> seguintes. Somado ao `continue-on-error` do passo, o desfecho era: **um teste
+> caiu, os outros nunca rodaram, e o run está verde.** Saber disso exigia abrir
+> o log e reparar em qual linha ele tinha parado — foi exatamente o que precisei
+> fazer para conferir a v5.212.
+>
+> **A separação não é organização, é o que dá sentido ao `continue-on-error`.**
+> A justificativa dele sempre foi INFRAESTRUTURA (download do Chromium, runner
+> sem rede), e infraestrutura passou a ser o primeiro passo, sozinho
+> (`Preparar o Chromium`). O segundo (`Oráculos em Chromium`) ficou com uma
+> causa só de falhar — defeito de verdade —, roda os doze SEMPRE, emite
+> `::error::` por reprovado e escreve o placar no **resumo do run**. O `if:
+> steps.chromium.outcome == 'success'` existe para o caso de o Chromium não
+> instalar: doze `::error::` de infraestrutura seriam precisamente o ruído que
+> ensina a ignorar vermelho.
+>
+> **O que NÃO mudou, e é dito para não parecer esquecimento:** o segundo passo
+> segue com `continue-on-error`. Barrar o canal OTA por um teste de navegador
+> continua sendo trocar um risco raro por um bloqueio frequente, e essa é a
+> política do projeto, não minha. O que mudou é que agora ela é uma linha só — e
+> a razão que a sustentava mudou de endereço.
+>
+> Duas medidas pequenas, pela regra de sempre: o placar é `N/12` com o `N`
+> **contado**, nunca digitado (um número fixo envelheceria no primeiro oráculo
+> novo, e envelheceria mentindo), e a lógica do passo foi exercitada nos dois
+> sentidos antes de subir — com dois reprovados no meio, os outros dez rodam,
+> o resumo os nomeia e o passo sai com 1; com tudo passando, sai com 0.
+
+> **A v5.212 (v1.97): O EMBED DO YOUTUBE SAI DOS DOIS WEBVIEWS, e com ele uma
+> ponte privilegiada exposta a terceiro. Mais duas correções de uma auditoria
+> do repositório inteiro. EXIGE APK.**
+>
+> - **`POST /r` INJETAVA COMANDO ARBITRÁRIO NO BARRAMENTO.** O ramo `st` do
+>   canal de volta conferia que `type` não era vazio e mais nada, e então
+>   chamava `MessageBus.post(null, …)` — que entrega a TODOS os WebViews. O
+>   dreno documentado ("uma lista de PERMISSÃO de dois itens") existia só no
+>   `espelho/tela.js`, isto é, **no lado que um desconhecido controla**. E a
+>   porta do pareamento nasce aberta desde a v5.189 (decisão certa: o conteúdo
+>   é público), então estar pareado nunca foi credencial. Com uma TV conectada,
+>   qualquer aparelho no Wi-Fi da igreja podia projetar `text` arbitrário,
+>   `clear`, `load` — e ligar o `mic`, que abre o microfone do celular na saída
+>   de som do templo. A metade servidora da lista agora existe
+>   (`TIPOS_QUE_SOBEM`, em `EspelhoServidor.retorno`), e o par tem de ser
+>   mantido junto. **A lição é a de sempre, num lugar novo: validação que mora
+>   no cliente não é validação — é economia de tráfego.**
+> - **RELIGAR A TRANSMISSÃO DEIXAVA AS TELAS SEM MÍDIA, em silêncio.** O
+>   `telaEmpurrados` do `controle.js` era uma SEGUNDA fonte de verdade sobre o
+>   cache do shell, e o cache é DA SESSÃO: `startMirror` constrói um
+>   `EspelhoMidiaCache` novo (o `init` apaga o diretório) e `desmontarEspelho`
+>   chama `zerar()`. Bastava desligar e religar — ou a Wi-Fi oscilar além dos
+>   6 s de graça, que aciona `aoPerderRede = { stopMirror() }` — para o Controle
+>   seguir afirmando "já empurrei" contra um cache vazio: o `load` ia com
+>   `__rec.url = '/m/<token>'` e a rota devolvia o 404 idêntico. **Toda mídia já
+>   tocada antes do religamento ficava invisível**, sem erro em lugar nenhum. O
+>   LRU de 1,5 GiB produzia o mesmo desencontro por outra porta. O conjunto saiu:
+>   quem responde "já tenho isto?" é o `abrir` do shell, que já respondia.
+> - **E O EMBED DO YOUTUBE SAIU DOS DOIS WEBVIEWS** (pedido do operador:
+>   *"vamos abandonar o sistema nativo do próprio YouTube e seguir apenas com o
+>   nosso embed"*). O KDoc do `display.js` dizia que o risco de supply-chain
+>   daquele `<script>` era "ACEITO conscientemente" e que a mitigação "ainda não
+>   foi feita" — e descrevia METADE do problema. `addJavascriptInterface` injeta
+>   o objeto em **todas as frames**, iframes de outra origem inclusive (é o que
+>   a documentação do Android diz, e é por isso que o canal de mídia usa
+>   `addWebMessageListener`, que tem `allowedOriginRules`). No telão a ponte
+>   nasce com `host = null` e o estrago seria limitado; **o mesmo embed era
+>   criado no CONTROLE, para a preview**, e lá a ponte é a completa —
+>   `pickFolder`, `listFolder`, `pickDoc`, `openExternal`, `espelhoLigar`,
+>   `apkInstalar`. **A invariante 9 protegia a metade errada**, e atravessou
+>   dezenas de versões assim porque o texto dela só nomeia o telão.
+>
+>   Saíram ~540 linhas do `display.js` (`YT.Player`, `ytHandle`, `ytStatus`,
+>   `ytShield`, a máquina de mudo que "ignora o `forceMuted` do stage por
+>   completo") e ~180 do `controle.js`, mais as duas camadas de CSS que
+>   existiam só para esconder a UI de um player alheio. O que some junto é o
+>   argumento inteiro: um segundo motor de transporte, um segundo emissor de
+>   status, uma segunda cortina e um `if (yt)` em quinze pontos.
+>
+>   **Quem toca YouTube agora é o caminho PRÓPRIO, e ele já era o preferido**:
+>   transmissão direta (`ytStream` → `shared/mse.js`) e, falhando ela, o arquivo
+>   baixado. Um registro `kind: 'youtube'` (o link sem bytes) deixou de ser
+>   tocável como link e passa a ser RESOLVIDO no toque, dentro do `send`
+>   (`resolverLinkYoutube`): transmite, ou baixa e **troca o item na lista em
+>   posição** (`listSet` com função — `listAdd`+`listRemove` mandaria o item
+>   para o fim de um Cronograma que alguém montou à mão). A transmissão não
+>   troca nada, porque um manifesto expira em horas. No navegador não há o que
+>   fazer, e a linha do item diz isso em vez de projetar nada.
+>
+>   **O oráculo ficou mais forte, não mais fraco**: o `tela-rede.test.mjs`
+>   afirmava que a CSP BARRAVA a IFrame API — uma garantia de segunda ordem, que
+>   dependia de um cabeçalho continuar certo. Agora ele afirma que a tela da
+>   rede **não pede um byte a origem nenhuma além do celular**, o que falha mesmo
+>   que a CSP o barrasse depois.
+> - **E a documentação que contradizia o código foi corrigida junto**, pela
+>   regra da v5.206: o KDoc do `EspelhoServidor` ainda se chamava "o cano por
+>   onde os PIXELS saem" e afirmava que "aqui não há `Range` nenhum" — 500 linhas
+>   acima de uma rota que faz RFC 7233 completo; o do `EspelhoHttp` dizia o mesmo
+>   e discordava da própria invariante 7, dentro do mesmo arquivo; o `retorno`
+>   documentava os verbos `key` e `audio` do encoder aposentado; havia um
+>   `@param pedirIdr` para um parâmetro que não existe, quatro blocos de KDoc
+>   órfãos sobre constantes apagadas e um `const CABECALHO = 16` morto. E o
+>   parágrafo que prometia que "**nada** que venha da rede entra no barramento"
+>   deixara de ser verdade na E5 — ele descrevia a garantia certa, e o código não
+>   a impunha mais. Era exatamente o defeito de cima, escrito em prosa.
+
+> **A v5.211 (v1.96): A CAPA ARTIFICIAL SAI — fica a COR, sólida. EXIGE APK.**
+> Pedido do operador sobre a v5.210, e ele encurta uma decisão que eu tinha
+> tomado por ele: *"não preciso da capa artificial, apenas da cor. sólida, limpa
+> e minimalista"*.
+>
+> **O argumento da v5.210 era sobre o BURACO, e o buraco é menos ruim que o
+> enchimento.** Um `MediaStyle` sem `largeIcon` deixa um vão do tamanho de uma
+> capa que cada versão do Android preenche de um jeito, e eu tratei isso como
+> defeito a corrigir. Só que a capa que eu pus ali não informava nada — era o
+> mesmo símbolo em todo louvor, todo vídeo e toda mensagem —, e um elemento
+> constante que não distingue nada é decoração. Num cartão que o operador olha
+> de relance, no escuro, no meio de um culto, quem carrega a informação é o
+> TÍTULO e o transporte; **sólido lê mais rápido que ilustrado.** Com
+> `setColorized(true)` o cartão já é um painel de cor inteiro, e é ele que faz o
+> trabalho de "isto é o mesmo app".
+>
+> Saíram o `capaArtificial`, o `capaCache`, o `setLargeIcon` e os dois imports
+> de `graphics` — o `temaMudou()` e o `corDoTema()` ficam intactos, porque a cor
+> era o pedido desde o começo. **A regra que a v5.210 escreveu e que continua
+> valendo é a outra**: a capa não podia seguir o tema (o vetor do ícone está nos
+> tokens do escuro, e sobre o `app_bg_claro` daria 1,02:1) — quem segue o tema é
+> o cartão, e agora é a única coisa que segue.
+
+> **A v5.210 (v1.95): A NOTIFICAÇÃO VESTE O TEMA, e o MODO RELÓGIO deixa de
+> perguntar as horas ao aparelho errado. EXIGE APK.** Dois pedidos do operador,
+> mais uma verificação que ele encomendou junto e que não achou defeito nenhum.
+>
+> - **O CARTÃO PASSA A TER A COR DO APP.** Uma notificação sem `setColor` é
+>   pintada com o cinza padrão do sistema — que não é nem o claro nem o escuro
+>   deste app, e fica visivelmente estranho ao lado da tela de onde veio. Agora
+>   os DOIS cartões (o player e o da transmissão) usam o mesmo `--bg` do tema
+>   escolhido, lido de `values/colors.xml` pela mesma preferência que pinta o
+>   `windowBackground` — **é o quarto consumidor daquela cópia à mão, e não há
+>   escapatória**: recurso de Android não enxerga custom property de CSS.
+>   `setColorized(true)` é o que faz o sistema usá-la como FUNDO em vez de um
+>   respingo no ícone, e ele só é honrado em serviço em primeiro plano ou
+>   `MediaStyle` — que é exatamente o caso dos dois. Trocar de tema **repinta na
+>   hora** (`SessionService.temaMudou`): sem esse aviso a cor só mudaria no
+>   próximo `publish()`, que numa cena parada é daqui a um louvor inteiro.
+> - **E ele ganhou uma CAPA, porque não existe capa de verdade. ~~REVOGADA na
+>   v5.211~~** a pedido do operador — leia mesmo assim, porque a regra do meio
+>   (a capa não pode seguir o tema) é o que sobrou de pé. O acervo é
+>   hino, vídeo e imagem de culto: não há arte de álbum em lugar nenhum, e um
+>   `MediaStyle` sem `largeIcon` fica com um buraco do tamanho de uma capa que
+>   cada versão do Android preenche de um jeito. A capa é o símbolo do ícone do
+>   app sobre o fundo escuro, rasterizado uma vez e cacheado (`publish()` roda a
+>   cada play/pause e a cada salto de posição). **Ela NÃO segue o tema, e isso é
+>   a regra do ícone do app pelo mesmo motivo**: o vetor está pintado nos tokens
+>   do tema ESCURO, e sobre o `app_bg_claro` a trilha daria **1,02:1** — o
+>   desenho sumiria. Capa é arte, e arte não troca de cor com a moldura; quem
+>   segue o tema é o cartão.
+> - **O MODO RELÓGIO lia o relógio DE QUEM DESENHA.** Cronômetro e sorteio
+>   viajam por DESCRITOR ancorado numa época do celular, e a casca do papel
+>   `tela` já a traduz para o referencial da tela (`corrigirRelogio`). O modo
+>   relógio não tem época nenhuma na mensagem — ele desenha a hora corrente — e
+>   por isso era o único que ficava com o segundo de uma Smart TV, que pode estar
+>   minutos fora, na frente da congregação. Agora a casca publica
+>   `window.__avAgora` (a mediana das épocas do ping) e só o modo relógio o
+>   consulta. **A primeira versão disto aplicou a correção aos três**, e o
+>   `tools/tela-rede.test.mjs` a reprovou no ato — *"o cronômetro lê ~0 s, o
+>   desvio de 90 s foi ANULADO"* —, porque medir contra a origem um descritor já
+>   traduzido corrige duas vezes. O teste estava certo, e o comentário no
+>   `display.js` guarda o caso para a próxima leitura.
+> - **A vigília foi verificada e está certa nos dois lados**, sem mudança: no app
+>   é `FLAG_KEEP_SCREEN_ON` nas duas janelas (a Activity e a `Presentation`), e
+>   na tela da rede é o `navigator.wakeLock` da v5.209 com o `<video>` de 2×2
+>   como piso para o `http`.
+
+> **A v5.209 (v1.94): AS TELAS MORRIAM DE 60 EM 60 s porque o sinal de vida era
+> um TIMER. EXIGE APK.** O Registro do operador entregou o defeito em duas
+> linhas — `tela C conectada` às 16:30:56, `tela C desconectada (sem sinal de
+> vida ha 60 s)` às 16:31:56 — e o mesmo navegador reentrando como tela A, B, C,
+> D ao longo do culto. **Enquanto ele reentra, o comando não chega**: é o "deixa
+> de controlar" que o operador vinha relatando.
+>
+> O `alive` vivia num `setInterval` de 10 s e o servidor derrubava com 60 s de
+> silêncio — "seis batidas perdidas é uma tela que foi embora". O raciocínio
+> supõe que o timer bate, e **um navegador de TV com a aba em segundo plano
+> estrangula timer para ~1 por minuto**. As seis viram uma, que chega na
+> fronteira, e o vigia executa uma tela perfeitamente viva. As duas metades:
+> **o sinal pega carona no FIO** (byte que chega não é timer — o `read()` do SSE
+> resolve porque o servidor escreveu, e o ping dele é de 15 s; o timer fica como
+> piso e a volta da aba manda um na hora) e **o teto do servidor vai a 150 s**,
+> onde cabem dez pings e uma tela que de fato saiu ainda cai em menos de três
+> minutos.
+>
+> Mais duas da mesma família: a **vigília ganhou a trava de verdade**
+> (`navigator.wakeLock` quando o contexto é seguro, re-pedida no
+> `visibilitychange` porque a API a solta ao perder o foco — a guarda entra como
+> BLOCO, que é a forma que o `tools/contexto-seguro.test.mjs` sabe ler, e ele
+> reprovou a primeira versão, que usava retorno antecipado); e
+> **`telaReenviarPreferencias` deixou de perguntar a um CACHE**. A guarda era
+> `telaAtiva()`, que consulta um estado relido por enquete só quando a folha de
+> conexão está à vista — mas quem chega ali é um `display-ready` que veio PELO
+> SSE, e se ele chegou a transmissão está no ar. O cache só podia produzir falso
+> negativo, e o preço era a tela ficar sem wallpaper, sem fundo de letra e sem
+> preenchimento, sem nada que o explicasse.
+
+> **A v5.208: O TRANSPORTE DO MODO AVANÇADO ESTAVA BRANCO NO BRANCO. OTA PURO.**
+> Medido: **1,00:1** — `rgb(255,255,255)` sobre `rgb(255,255,255)`. A v5.207
+> consertou os segmentados de Configurações (1,14:1) e eu dei o assunto por
+> encerrado sem nunca ter TROCADO DE MODO na medição: os botões que o operador
+> mais usa num culto (▶, ⏹, ⏮, ⏭, cortina, letra, mudo) ficaram de fora, e eram
+> o pior caso do app inteiro — invisíveis, não "fracos".
+>
+> No tema claro `--bar` é BRANCO, o mesmo valor de `--panel`, e os controles da
+> barra pintam `--surface`, que é branco com alfa. Branco a 70% sobre branco é
+> branco; no escuro o mesmo par funciona, e é por isso que ninguém tinha visto.
+> A correção é do TEMA e não da folha (`:root[data-tema="claro"] .bottombar`
+> afunda a superfície): pôr o transporte na lista geral de "afunda" inverteria a
+> aparência da peça mais usada do app **no escuro** para resolver um problema que
+> só existe no claro. Mais a aresta de `--control-edge`, pelo mesmo raciocínio da
+> v5.207. Medido depois: claro 1,00 → 1,25 com aresta visível, escuro inalterado.
+>
+> **A lição é sobre método:** medir "os botões" sem entrar no modo em que eles
+> vivem é medir outra tela. O modo avançado exige `setAppMode('full')` — remover
+> a classe `.open` do simplificado deixa a página em branco, e **uma medição que
+> não acha nada parece uma medição que passou**.
+
+> **A v5.207: O ALERTA FLUTUANTE ACABA — a resposta nasce onde o toque nasceu.
+> OTA PURO.** Três pedidos do operador, e o terceiro é uma regra nova do
+> projeto: *"precisamos remover todos [os toasts] e colocar todas as mensagens
+> de alerta na própria interface de origem delas. A informação deslocando do
+> alvo de foco não é o objetivo."*
+>
+> **E ele estava descrevendo um toast que o projeto jurava não ter.** O comentário
+> do `avisar()` dizia, com todas as letras: *"o que ele NÃO é: o toast de volta.
+> Não flutua (mora no fim da área de lista)"*. O CSS dela era `position: fixed;
+> top: .5rem; z-index: 400` — uma faixa no TOPO da tela, por cima do que
+> estivesse ali, respondendo a toques dados no rodapé de Configurações, numa
+> linha do meio da lista ou dentro de uma folha aberta. **Trinta e cinco pontos
+> do app falavam por ela.** É a segunda encarnação do mesmo mecanismo (um toast
+> já tinha sido removido antes), e é por isso que desta vez a regra ficou com
+> ORÁCULO: `tools/smoke.mjs` afirma que nenhuma camada fixa sobrou por cima da
+> interface — a régua é estrutural, não de nome, porque o próximo toast pode se
+> chamar qualquer coisa.
+>
+> **Os canais que a substituíram**, todos in-place e a maioria já existente:
+> `pulsar` (o botão tocado), **`notaNoItem`** (a LINHA do item, prefixada ao
+> subtítulo no mesmo desenho do selo "● No ar" — para tudo que é um fato sobre
+> um item: falhou ao projetar, foi para tal lista, veio truncada),
+> **`previewBusy().falhar`** (o mesmo cartão que dizia "Baixando…", sobre a
+> preview, que é onde a mídia apareceria), **`statusPasta`** (o CONTADOR da
+> pasta, que é o número que a sincronização está mudando), **`falarNaVersao`** e
+> **`falarNoPacote`** (o rótulo do próprio controle empresta a si mesmo e
+> volta), `#castMsg` (a folha de conexão) e `appConfirm` — este último para o
+> **único caso sem interface de origem**: um compartilhamento que chega de fora,
+> falha inteiro e não deixa item nem lista em que responder. Um diálogo não é
+> uma faixa que passa: ele toma o foco e exige um toque.
+>
+> Saíram junto o `flash()` (no-op havia versões, com três chamadores que
+> escreviam frases que ninguém via) e o parâmetro `opts.toast` do download de
+> música — ele existia só para CALAR a faixa quando o cartão da preview já
+> falava, isto é, era um `if` para escolher entre dois canais para o mesmo fato.
+>
+> **O REGISTRO PERDEU O VISOR.** A caixa `<pre>` tinha 240px de altura no meio
+> de Configurações e empurrava para fora da tela as linhas que o operador de
+> fato ajusta — para exibir, em fonte de 0,68rem, um log cujo consumidor é um
+> humano A DISTÂNCIA: ele é COPIADO, não lido ali. Ficaram a linha e o botão que
+> o copia; o texto vive em `diagTexto`, não num nó do DOM. Medido: a folha
+> deixou de rolar nos dois temas, e o `smoke.mjs` trava isso.
+>
+> **E O TEMA CLARO GANHOU A ARESTA QUE O `tokens.css` já prometia.** Relato:
+> "botões com fundo branco no branco". Medido, ele estava certo por um fator
+> grande: os segmentados de Configurações (`.fit-opt`, oito deles) davam
+> **1,14:1** contra o painel branco. A causa é estrutural — no escuro um
+> controle se anuncia por ser MAIS CLARO que a base, e no claro não existe "mais
+> claro que branco". O cabeçalho do tema claro já dizia que "é a linha em
+> `--line` que anuncia o controle aqui", e **nenhum controle a desenhava**: era
+> uma intenção, não uma descrição. Agora `--control-edge` (transparente no
+> escuro, `--line` no claro) a torna verdadeira, por `box-shadow: inset` para
+> não mover um pixel de layout em tema nenhum, e os afundados subiram de
+> .06/.10 para .10/.16.
+
+> **A v5.206 (v1.93): O REGISTRO MENTIA — o consumidor sobreviveu ao produtor,
+> e o valor ausente virou resposta. EXIGE APK.** Uma revisão de todo o repositório
+> com viés para os três últimos dias (v5.184 → v5.205) achou o rastro que a
+> aposentadoria do espelho de pixels (v5.187) deixou para trás: o Kotlin parou de
+> PRODUZIR as métricas daquele pipeline e o `controle.js` continuou CONSUMINDO-as.
+>
+> **O defeito, e por que ele é o pior tipo:** o `EspelhoDiag` publicava `ritmo`
+> mesmo sem `amostra()` ter um único chamador — zerado —, e o `blocoEspelho` lê
+> `kbps < 40` como "isto é um retângulo preto". Com a transmissão ligada, um
+> vídeo tocando e a cortina aberta (um culto normal), o Registro imprimia
+> **`ALARME: ISTO É UM RETÂNGULO PRETO`**. O Registro é o ÚNICO artefato deste
+> app cujo consumidor é um humano a distância — ele é feito para ser copiado e
+> repassado —, e o KDoc daquele mesmo arquivo já dizia, desde que nasceu, que
+> "diagnóstico que mente é pior que diagnóstico nenhum". Ele mentia havia
+> dezenove versões. Dois irmãos do mesmo lote: `linhasDaTela(undefined)` acusava
+> **toda** tela conectada de rodar "bundle antigo", e `modo: "comandos"`
+> comparado com `'video'` desenhava **"modo: imagem (JPEG)"** — um modo removido
+> na v5.156.
+>
+> **A regra que fica**, e ela é o que este lote acrescenta ao projeto: *apagar o
+> PRODUTOR de uma métrica e deixar o CONSUMIDOR de pé não produz silêncio —
+> produz um ZERO, e zero é um valor legítimo que o consumidor interpreta.*
+> Remoção de recurso é remoção dos dois lados do fio, no mesmo lote.
+>
+> **O que saiu, medido:** ~310 linhas de `SondaClipe`/`SondaPathHandler` (o
+> instrumento cujo clipe e cuja página foram apagados na v5.187), o anel de
+> `ritmo` inteiro e o `fato()` do `EspelhoDiag` — o arquivo caiu de 775 para 140
+> linhas —, nove ramos mortos do `blocoEspelho`, o autorrelato de tela
+> (`somDaTela`, `linhasDaTela`, `MIRROR_VEREDITO`, `MIRROR_RS`, `MIRROR_NS`,
+> ~155 linhas), a rampa de volume da preview do YouTube (resto da mesa de som da
+> v5.189, com o comentário que ainda falava dos "três sinks de áudio"),
+> `.simple-key-sub` e dois `id` órfãos.
+>
+> **E o oráculo que faltava:** `tools/registro.test.mjs` monta o Registro com a
+> ponte presente e uma resposta de `espelhoDiag` na forma REAL de hoje, e cobra
+> as duas metades — nenhuma palavra de recurso aposentado, e o que o operador
+> foi buscar presente (endereço, telas, diário). Sem a segunda metade, apagar o
+> bloco inteiro passaria. Rodado contra o código anterior, ele reprova em oito
+> pontos. Nenhum teste carregava o Registro até aqui, e foi por aí que os três
+> defeitos passaram.
+>
+> **Os registros que contradiziam o código** foram corrigidos no mesmo lote — e
+> o mais caro deles era um comentário: o `espelho/tela.js` ainda ARGUMENTAVA a
+> favor do `<style>` injetado ("uma folha a mais no `<head>` pesaria nos três
+> papéis"), com o parêntese da v5.205 anexado embaixo dizendo que as regras
+> tinham saído. Um argumento plausível e errado, pronto para reverter a correção
+> que acabara de custar duas versões. Junto: `.simple.locked` (a classe é
+> `.sem-tela`), o comentário do `#simpleConn` descrevendo o layout no fluxo que a
+> v5.203 içou para o centro, "O ENDEREÇO E O CÓDIGO" (o código saiu na v5.189), o
+> KDoc do `mirrorDiag` citando o `EspelhoDisplay.kt` apagado, o do
+> `WebViewFactory` justificando a subclasse pela mesa de som, o da CSP
+> justificando `blob:`/`data:` pelo cliente de pixels (as diretivas continuam
+> necessárias — OPFS e o `POSTER_VAZIO` —, as razões é que eram outras), e o
+> `?tela=1` como marcador único do papel `tela` (é a `<meta name="av-tela">`
+> desde a v1.92).
+>
+> **A paleta foi medida, não relida:** 44 dos 50 pares declarados em
+> `tokens.css` batem na segunda casa decimal. As seis divergências eram todas de
+> fundo com ALFA e tinham uma causa só — **toda medição "sobre o soft" usa o soft
+> composto sobre `--bg`**, e isso não estava escrito. Dentro de um cartão o valor
+> é outro (`--danger-text` sobre `--danger-soft`: 6,89:1 na página, 5,03:1 no
+> cartão; os dois passam AA). A base agora está dita no cabeçalho do arquivo.
+>
+> **E o texto de UI passou:** nenhuma frase estática acima de 70 caracteres e
+> nenhuma repetição no `index.html` — a poda das v5.194→v5.198 fez o serviço. O
+> excesso que restava era de COMENTÁRIO, nos blocos mortos acima, descrevendo
+> readback, perfil de encoder e `FLAG_NEVER_BLANK` no arquivo mais lido do
+> projeto.
+
+> **A v5.205: A CSP BLOQUEAVA O ESTILO DA ENTRADA — o overlay existia, sem
+> posição, DEBAIXO do wallpaper. OTA PURO. CONFIRMADO EM APARELHO:** *"funcionou,
+> a tela conectou"*. Relato de partida: *"não aparece o botão, cai direto no
+> wallpaper"*, no v1.92, com a marca do papel já funcionando.
+>
+> **O papel sempre esteve certo; quem não aparecia era o overlay.** O
+> `espelho/tela.js` montava a entrada e injetava as regras dela num
+> `document.createElement('style')`. A página servida às telas da rede leva
+> `default-src 'self'` **sem `style-src`** (`EspelhoHttp.CABECALHOS_PAGINA`), e
+> um `<style>` criado em runtime exige `'unsafe-inline'`: o navegador anexa o
+> elemento e **não aplica nada**. O `#telaEntrada` era criado, recebia
+> `display:flex` pelo CSSOM (que a CSP não barra) e virava um bloco sem posição
+> no fim do `<body>` — isto é, embaixo da camada fixa do wallpaper. Invisível e
+> inclicável.
+>
+> **É o pior tipo de falha: nada quebra, nada erra alto.** Ela resistiu a duas
+> correções que mexiam no lugar errado (a query do papel na v5.204 e a marca do
+> servidor no v1.92) porque o sintoma — "cai no wallpaper" — é idêntico ao de um
+> `tela.js` que não roda.
+>
+> **E o CI não tinha como vê-la**, pela mesma razão da v5.204 por outra porta: o
+> `tela-rede.test.mjs` servia a página **sem a CSP**, então ali o `<style>`
+> valia. Um harness mais permissivo que o servidor de verdade prova o percurso
+> num ambiente que não existe. Hoje ele manda a CSP verbatim, e o clique real no
+> botão (que já estava no teste) é o que falha quando as regras não são
+> aplicadas — reproduzido antes de consertar.
+>
+> Junto veio o IRMÃO do mesmo defeito, achado na mesma varredura: o
+> `shared/stage.js` injetava o CSS do indicador de espera do mesmo jeito, com o
+> argumento — bom até a v5.187 — de que "a animação é um `@keyframes` injetado
+> uma vez". Nas telas da rede ele era uma `div` vazia: a tela ficava em preto
+> durante a espera de um stream sem nada dizendo que o app estava trabalhando,
+> que é exatamente o que aquele indicador existe para evitar.
+>
+> Os dois viraram FOLHA — `espelho/tela.css` e `shared/stage.css` —, servidas do
+> próprio origin, sem relaxar a CSP em nada. **A regra que fica: nas telas da
+> rede não existe estilo embutido.** `element.style.x = y` (CSSOM) continua
+> valendo; `<style>` criado em runtime e atributo `style=` em HTML injetado, não.
+>
+> E o teste passou a AFIRMAR a garantia que a CSP existe para dar: a IFrame API
+> do YouTube é barrada — zero pixel de terceiro numa tela da rede (spec §1) —, em
+> vez de essa recusa virar ruído no console.
+
+> **A v5.204 (v1.92): O PAPEL `tela` DEIXA DE DEPENDER DA QUERY — e o teste que
+> devia ter pego isso estava mentindo. EXIGE APK.** Relato: *"a tela não está
+> conectando na rede"* mais *"no navegador ele pula a tela de ativar tela,
+> diretamente para o wallpaper"*. As duas frases são UM desfecho: sem o papel
+> `tela`, o `espelho/tela.js` é um no-op de uma guarda — a página abre como um
+> `/display/` comum, mostra o wallpaper, não desenha a entrada, não pede token e
+> nunca conecta.
+>
+> O papel vinha de `?tela=1`, e esse marcador chega por um 302 da rota `/`.
+> **É uma corrente de elos frágeis**, e basta um ceder: um navegador de TV que
+> não preserva a query no redirecionamento, o endereço guardado nos favoritos
+> sem ela, alguém digitando `/display/` direto. Lida a fonte inteira, o 302 é
+> bem-formado, o endereço publicado é a raiz e o token vencido se recupera
+> sozinho — não achei o elo que cede no aparelho do operador, e por isso a
+> correção não é consertar um elo: é **não depender da URL**. Quem serve a
+> página sabe o que ela é, e este servidor só serve o display
+> (`web/controle/` nunca entra em `PREFIXOS_BUNDLE`), então ele injeta
+> `<meta name="av-tela">` em toda página que entrega. É `<meta>` e não
+> `<script>` porque a CSP daquela resposta é `default-src 'self'` sem
+> `'unsafe-inline'` — um script embutido seria bloqueado, e em silêncio.
+> Degrada nos dois sentidos: shell antigo não injeta e a query resolve; bundle
+> antigo ignora a marca e a query resolve.
+>
+> **E o `tela-rede.test.mjs` provava o percurso pelo caminho errado.** Ele
+> carregava a página com `?tela=1` na mão e o servidor de mentira entregava o
+> HTML cru — isto é, testava um caminho que o aparelho pode não receber, e era
+> justamente essa divergência entre o servidor falso e o de verdade que deixava
+> o defeito passar. Agora o harness INJETA a marca como o servidor real, e o
+> percurso inteiro roda **sem query nenhuma**.
+>
+> **Junto, a instabilidade dele foi consertada** — ela falhava em duas de cada
+> três execuções e "passava na segunda tentativa". A corrida era do próprio
+> teste: ele esperava o servidor RECEBER o `POST /par` e lia a frase de erro no
+> instante seguinte, quando quem a escreve é o cliente, depois da resposta. Com
+> `continue-on-error` no CI, um teste assim não é rede de segurança — é ruído
+> que ensina a ignorar a cor vermelha. Quatro de quatro depois do conserto.
+>
+> **O Registro passou a dizer onde o pareamento parou:** cada página entregue e
+> cada `POST /par` **aceito ou recusado** viram linha. Até aqui só a tela que
+> CONECTAVA deixava rastro, e "a tela não conecta" tinha duas causas
+> indistinguíveis — nenhum navegador chegou a pedir, ou pediu e foi recusado —
+> que pedem ações opostas do operador.
+>
+> **E quatro rotas mortas saíram**: o mapa `ESTATICOS` apontava para
+> `espelho/index.html`, `cliente.js`, `fmp4.js` e `espelho.css`, os quatro
+> apagados na v5.187 com o espelho de pixels. Três só sabiam responder "faltou
+> no bundle" e a quarta (`/`) o `when` já interceptava antes.
+
+> **A v5.203: A CORTINA DO MODO FÁCIL VOLTA — e a v5.199 foi um diagnóstico
+> errado, não uma mudança de gosto. OTA PURO.** Pedido do operador: *"lembre que
+> lhe pedi para voltar a tela de blur do modo simples que bloqueia a tela
+> enquanto não fizerem a conexão com uma tela"*.
+>
+> **Ele já tinha dito isso, e eu li errado.** Duas mensagens antes: *"sobre a
+> tela de blur bloqueada, ESSA PARTE NÃO ERA O PROBLEMA — a questão era que ao
+> invés de aparecer a seção com opção de conectar TV ou ligar a rede, aparecia
+> ainda o botão antigo"*. Isto é: o que ele relatava era o `#simpleCastBtn` da
+> v5.192 reaparecendo (a base embutida no APK, servida por um recuo do watchdog
+> que não limpava o cache do WebView — a causa real, corrigida na v5.200/v1.91),
+> e eu tinha lido "o botão de conectar persiste em bloquear a tela" como se o
+> BLOQUEIO fosse a queixa. A v5.199 derrubou a cortina inteira por causa dessa
+> leitura, e o "priorizando a conexão" da mensagem seguinte foi lido de novo como
+> ordem na tela em vez de bloqueio.
+>
+> **A lição não é sobre CSS.** Quando o operador descreve um sintoma com o nome
+> de um elemento, o nome pode estar errado e o sintoma nunca está: a resposta é
+> ir medir o que ele está vendo — foi o que finalmente achou o cache do WebView
+> —, não redesenhar em cima do nome. E quando ele diz explicitamente "essa parte
+> não era o problema", isso vale mais que qualquer inferência.
+>
+> Voltaram: `#simpleVeil`, os tokens `--veil`/`--veil-solid` (nos dois temas), o
+> içamento de `.simple-actions` para o centro e o `closeHymnSearch()` do
+> bloqueio. **Não voltou** a liberação de teste de 5 s: a saída legítima é o
+> "Modo avançado" do cabeçalho, que fica por cima da cortina e é visível e
+> rotulado — um gesto secreto que destrava a projeção sem dizer que destravou é
+> pior que não ter saída nenhuma.
+>
+> O estado DESTRAVADO é o da v5.202 e não mudou: letra no topo, preview +
+> "Buscar música" lado a lado na zona de baixo, teclado por último.
+> `tools/boot-nativo.test.mjs` afirma agora as duas metades — com tela a página
+> destrava, sem tela a cortina cobre a tela inteira e a busca sai de cena.
+
+> **A v5.202: A CONEXÃO DESCE PARA A ZONA DE BAIXO — o topo é da LETRA, como
+> foi pedido. OTA PURO.** A v5.201 pôs a seção de conexão ACIMA da letra, e isso
+> contrariava a própria frase que a encomendou: *"deixe ele na zona de baixo
+> mesmo, com a parte superior para a letra da música"*. O operador leu a tela,
+> viu o cartão ocupando o alto e concluiu que **a atualização não tinha
+> chegado** — e o Registro que ele mandou junto provava o contrário (`Web
+> v5.201 · Shell v1.91`, "última busca há 11s: nada novo (publicada: v5.201)").
+> Fica a lição: quando a tela não bate com o pedido, o primeiro suspeito do
+> operador é o canal de entrega, não a decisão de desenho. Uma leitura errada do
+> pedido custa a confiança no OTA.
+>
+> Agora `#simpleConn` mora DENTRO da `.simple-actions`, na célula da preview:
+> sem tela a faixa vira uma coluna e sai conexão em cima, busca embaixo, as duas
+> com a largura inteira, logo acima do teclado; com tela ela some por inteiro e a
+> célula volta a ser a preview. O topo é da letra nos dois casos.
+>
+> Junto, uma linha do Registro que estava mentindo: o bloco da transmissão se
+> intitulava **"Espelho de pixels"**, o recurso que a v5.187 aposentou por
+> inteiro. Ele descreve o telão por comandos há catorze versões, e é lido
+> justamente quando alguma coisa não conecta — um título que nomeia um recurso
+> que não existe mais é a pior linha possível num diagnóstico que vai ser
+> repassado. Passou a ser **"Transmissão para navegador"**, o mesmo nome do
+> interruptor na folha de conexão.
+
+> **A v5.201: O MODO FÁCIL FICA COM A LETRA EM CIMA E O QUE SE OPERA EMBAIXO.
+> OTA PURO.** Pedido do operador, e ele desfaz metade da v5.200: *"pode voltar
+> ao design de preview + botão de pesquisar músicas, mas deixe ele na zona de
+> baixo mesmo, com a parte superior para a letra da música"*.
+>
+> A v5.199 fez a faixa de ações virar coluna sem tela, a v5.200 separou o par de
+> vez (busca larga embaixo, preview sozinha no alto), e a forma que ficou de pé
+> é a EMPARELHADA, embaixo:
+>
+> - **letra no topo** — é o que se lê durante o louvor, e é o que mais cresce;
+> - **preview + "Buscar música" lado a lado, na zona de baixo** — as duas coisas
+>   que se OPERAM, a busca a milímetros do ▶ que vem logo depois de escolher;
+> - **teclado por último**, como sempre.
+>
+> **Sem tela conectada a seção de conexão vai para o TOPO, acima da letra** — o
+> "priorizando a conexão" que o operador pediu na v5.199, agora sem disputar
+> espaço com a faixa de baixo: ali a preview simplesmente some e a grade vira
+> uma coluna, com a busca inteira. Com o par de volta na linha, o teto de altura
+> de 20vh da v5.200 saiu junto com a razão dele — quem limita a preview é a
+> largura da célula outra vez.
+
+> **A v5.200 (v1.91): O "RESQUÍCIO" ERA O CACHE DO WEBVIEW, e ele tem nome e
+> endereço. EXIGE APK.** O operador insistiu, e a insistência estava certa: o
+> que ele via não era a cortina da v5.199 — era **o botão único de conectar da
+> v5.192**, aquele que só abre o Smart View. Ele existe, com esse rótulo, na
+> base embutida no **APK v1.90**; e o app serve a embutida sempre que o
+> `beginSession` recua (watchdog descartando um bundle, ou APK novo atropelando
+> um OTA antigo). Como as URLs da base não mudam de nome entre versões e o
+> WebView roda em `LOAD_DEFAULT`, esse recuo montava a página com **metade de
+> cada bundle** — e a regra "trocou a base, limpa o cache" já estava escrita
+> neste repositório, aplicada em UM dos dois lugares em que a base troca. O
+> outro é o lançamento. Detalhes, incluindo por que o defeito se realimenta
+> (uma página remendada não confirma o boot, e o bundle seguinte também é
+> descartado), na seção do OTA — "Trocar a base servida OBRIGA a limpar o cache
+> do WebView".
+>
+> `SHELL_VERSION` **não sobe**: nenhum método da ponte nasceu, saiu ou mudou de
+> assinatura. Mas **sem a Release o operador continua com o defeito**, porque a
+> correção é Kotlin.
+>
+> Junto vieram dois pedidos de tela, os dois OTA:
+>
+> - **"Buscar música" desceu para entre a letra e o teclado**, largo, nos DOIS
+>   estados. Ele nasceu dividindo a faixa do alto com a preview e só apareceu
+>   com a largura inteira na v5.199, quando aquela faixa virou uma coluna — foi
+>   essa forma que o operador pediu para ficar. E o lugar é o certo: buscar é o
+>   começo de OPERAR, então pertence ao teclado, a milímetros do ▶ que vem logo
+>   depois de escolher, e não ao alto da tela, junto do que se resolve uma vez
+>   por culto. A faixa de cima ficou com uma decisão só (preview × conexão), e a
+>   preview ganhou um teto de altura de 20vh: sem o botão ao lado ela tomaria a
+>   largura inteira, e 16:9 num aparelho de 430px são ~242px tirados da letra.
+> - **A aba do Cronograma virou um RELÓGIO.** A família do TEMPO é o que separa
+>   essa lista da playlist em todo o app, mas quem dizia isso era só o
+>   `more_time` dos botões "Adicionar ao Cronograma"; a aba respondia com uma
+>   agenda — mesma ideia, outro desenho. Agora é o mesmo mostrador, sem o "+",
+>   porque a aba é um lugar e não um acréscimo. **SVG inline**, como a aba da
+>   Bíblia e pelo mesmo motivo: `schedule` (U+E8B5) não está no subset de
+>   `shared/fonts/material-symbols.woff2` (31 codepoints), e codepoint ausente é
+>   um retângulo vazio na barra de navegação — a armadilha da v5.184. Auditados
+>   os 32 codepoints em uso contra o cmap da fonte: nenhum outro falta.
+
+> **A v5.199: O BLOQUEIO DO MODO FÁCIL SAI — e é ele que o operador chamava de
+> "o botão de conectar". OTA PURO.** Relato, pela segunda vez depois de a v5.197
+> ter removido o botão único: *"o botão toque para conectar em uma tela ainda
+> persiste em existir e ficar bloqueando a tela do modo simples, e ele também
+> está causando bugs"*.
+>
+> **Medido no bundle publicado, o elemento não existia** — nem `#simpleCastBtn`
+> nem a frase "Toque para conectar uma tela" aparecem no v5.197 que o aparelho
+> estava rodando. **E o operador continuava certo.** O que ele descrevia não era
+> o elemento: desde a v5.193 quem ocupa aquele centro é a seção de conexão, e o
+> item dominante dela é o botão de espelhar — preenchido em `--accent-fill`, com
+> a largura útil da tela, no meio vertical dela, sobre uma cortina embaçada de
+> tela inteira. Mesma anatomia, mesmo lugar, mesmo efeito. **Trocar um botão
+> grande centrado por outro botão grande centrado não é remover o botão**, e a
+> lição é que o que incomodava nunca foi o ELEMENTO: era a tela inteira parar por
+> causa dele.
+>
+> O argumento do bloqueio ("sem tela este modo é inútil") vale para PROJETAR e
+> não para o resto — procurar um hino, montar a lista e conferir a letra são
+> exatamente o que se faz **antes** de a tela existir, na terça-feira. Agora a
+> faixa de ações só muda de EIXO: com tela é a grade de duas colunas de sempre
+> (preview + buscar); sem tela vira uma coluna — conexão em cima, busca embaixo —
+> no fluxo, no alto, sem cobrir a letra nem o transporte. O preço está dito em
+> vez de escondido: sem nada conectado o ▶ não produz imagem em lugar nenhum (nem
+> som, desde que a mesa saiu na v5.189), e quem responde a isso é a seção de
+> conexão, que é a primeira coisa que se lê na tela.
+>
+> **Saíram junto**: a cortina `#simpleVeil`, os tokens `--veil`/`--veil-solid`
+> (ela era o único consumidor que eles já tiveram) e a **liberação de teste de
+> 5 s** — cujo alvo mudou duas vezes em cinco versões (o botão único, a cortina,
+> nada) e cujo único trabalho era derrotar o bloqueio. Porta sem parede não é
+> porta.
+>
+> **E a "busca profunda" achou os dois defeitos que o relato prometia**, os dois
+> da mesma família — um dono a menos:
+>
+> - **A ENQUETE DE 2,5 s DO ESPELHO TINHA DOIS ACIONADORES E UM SÓ INTERRUPTOR.**
+>   Ela nasceu como enquete da FOLHA (`abrirCast` liga, `fecharCast` mata), e a
+>   v5.193 deu ao bloco uma segunda casa sem lhe dar um dono novo. As duas
+>   metades erradas: `hostCastConn` a acendia e **nunca** a apagava (uma tela
+>   entrando devolvia o bloco à folha e deixava a enquete batendo na ponte pelo
+>   resto da sessão), e `fecharCast` a apagava **mesmo quando quem a acendeu foi
+>   a TELA** — isto é, abrir e fechar a folha uma vez cegava o Modo Fácil
+>   justamente para o evento que ele espera, uma tela da rede entrando. Agora o
+>   dono é um só e é a VISIBILIDADE do bloco (`acertarEnqueteDaConexao`), que é a
+>   mesma pergunta que o `renderCast` já faz para decidir se vale desenhar.
+> - **`lastDisplays` e `reconferirTelas` SUBIRAM PARA O TOPO** — a família da
+>   zona morta temporal, pela quinta vez. Não explodiu, e é esse o ponto: os dois
+>   são lidos por TRÊS caminhos de render (`telaoConectado`, `simpleDisplay`,
+>   `renderCastBtn`) e eram declarados 14 mil linhas abaixo; só não quebravam
+>   porque o `setAppMode(appMode)` que os alcança na carga fica DEPOIS deles no
+>   arquivo. A corretude dependia da ordem relativa de duas linhas separadas por
+>   14 mil — que é exatamente a dependência que derrubou o app nas v5.184, v5.193
+>   e v5.195.
+>
+> `tools/boot-nativo.test.mjs` passou a afirmar o que o operador relatou, e não
+> uma classe CSS: **não há cortina no documento e a busca continua desenhada e
+> clicável sem tela nenhuma.**
+
+> **A v5.198: O INTERRUPTOR DA REDE PASSA A NOMEAR O DESTINO. OTA PURO.**
+> "Transmitir pela rede" descrevia o MEIO — por onde a coisa viaja —, e meio
+> nenhum ajuda a escolher. A opção de cima diz para onde vai ("Espelhar para
+> TV") e por isso se lê de primeira; esta ficava sem par, e o operador tinha de
+> deduzir o destino de "rede".
+>
+> Agora é **"Transmitir para navegador"**, e a palavra é a certa por ser
+> literalmente o requisito da outra ponta: um computador, um notebook, um tablet
+> ou a própria TV servem, desde que abram o endereço. É também a palavra que o
+> rótulo do endereço logo abaixo já usa ("Acesse este endereço no navegador"),
+> então as duas linhas passaram a completar uma à outra em vez de cada uma
+> nomear a coisa de um jeito.
+
+> **A v5.197: O BOTÃO ÚNICO DE CONECTAR SAI — e ele estava MORTO havia quatro
+> versões. OTA PURO.** O operador viu resquícios dele no Modo Fácil; medido, o
+> resquício era o botão inteiro.
+>
+> Ele estava escondido por **DOIS caminhos ao mesmo tempo**, e é por isso que
+> ninguém notou: `.simple:not(.locked) #simpleCastBtn { display: none }` (com
+> tela, quem ocupa a célula é a preview — v5.75) e
+> `.simple.locked #simpleCastBtn { display: none }` (sem tela, quem ocupa a tela
+> é a seção de conexão inteira — v5.193). Duas regras que juntas cobrem TODOS os
+> estados são um elemento que nunca aparece; e o CSS de um elemento que nunca
+> aparece não tem como ser notado errado.
+>
+> Ainda assim ele carregava rótulo, subtítulo, ícone, `title`, ~25 linhas de CSS
+> de destaque, três `getElementById` e metade do `renderSimpleCast` — que existia
+> para pintá-lo e ficou com três linhas depois de ele sair. **A regra que isto
+> ensina é sobre a forma de esconder**: `display: none` por estado é acumulável,
+> e dois deles não somam "escondido às vezes", somam "não existe".
+>
+> **E a barra de progresso do gesto de 5 s foi junto — descobrindo que ela nunca
+> tinha chegado ao novo dono.** A liberação de teste mudou de alvo na v5.193 (do
+> botão para a cortina) e a animação ficou para trás: eram **cinco segundos de
+> nada**, indistinguíveis de um toque que não pegou. Agora ela corre no TOPO da
+> cortina — embaixo ficaria atrás do teclado de transporte, que é o que a
+> cortina cobre.
+
+> **A v5.196: A FOLHA DE "AJUSTES AVANÇADOS" SAI INTEIRA. OTA PURO.**
+> Pedido do operador: *"nada ali é realmente útil, exceto pelo botão de
+> desconectar tela"*. Ele tinha razão sobre a folha e estava enganado sobre o
+> botão — e a diferença importa, porque é ela que decide onde o desconectar vai
+> parar.
+>
+> **O botão daquela folha era "Ligar/Desligar o espelho": a TRANSMISSÃO PELA
+> REDE, não o espelhamento para a TV.** E ele já era o mesmo estado do
+> interruptor "Transmitir pela rede", a dois centímetros dali, na folha de onde
+> aquela era aberta. Dois controles para um estado é a forma mais direta de eles
+> discordarem — some com a folha e o problema some junto.
+>
+> Foram três coisas, e nenhuma sobreviveu à pergunta "isto muda o que o operador
+> faz?": o parágrafo de ressalvas (já reduzido a uma linha na v5.194, e a linha
+> mora na folha de conexão), o botão duplicado, e o **certificado TLS**. Este
+> último é a única perda real e está dita: ele exige do operador um subdomínio
+> com wildcard por DNS-01, uma entrada estática de DNS no roteador da igreja e
+> renovação automática — três coisas que o app não adivinha e que ninguém aqui
+> montou. **Os três métodos da ponte continuam no shell**, então voltar atrás é
+> desenhar uma folha, não publicar uma Release.
+>
+> **E o desconectar foi para onde ele de fato pertence, em dois lugares
+> diferentes**, porque são duas coisas diferentes:
+>
+> - **tela da rede** → continua na lista de quem está vendo, com o botão
+>   "Desconectar" por linha, na folha de conexão;
+> - **TV** → o app NÃO TEM COMO derrubar um espelhamento (não existe API
+>   pública), e quem desconecta é o seletor do Android. O botão de espelhar leva
+>   exatamente para lá nos dois estados; o que mudou é ele **dizer qual TV está
+>   no ar** ("Espelhando em TV do templo", em verde de conectado). O rótulo NÃO
+>   vira "Desconectar" de propósito: um botão com esse nome que abre uma lista
+>   seria uma promessa que a tela seguinte não cumpre.
+>
+> **Uma armadilha do caminho, dita porque é da mesma família das outras:** o
+> bloco de ouvintes da seção de conexão era guardado por `if (mirrorOpenBtnEl)`
+> — o link "Ajustes avançados". Apagá-lo sem trocar a guarda desligaria em
+> silêncio tudo o que está dentro dela, **inclusive o interruptor da
+> transmissão**. A guarda passou a ser o botão de espelhar, que existe sempre.
+
+> **A v5.195: O PENTE NO RESTO DO APP — e a TELA PRETA que ele causou, com o
+> oráculo que faltava. OTA PURO.**
+>
+> **Primeiro o defeito, porque ele é a parte que importa.** O app passou a abrir
+> em PRETO, e o relato do operador descreve a sequência inteira: tela preta →
+> na segunda abertura o Modo Fácil só com "Espelhar para TV" → na terceira, o
+> botão grande antigo de volta. Três sintomas, uma causa: `MIRROR_POLL_MS` e
+> `MIRROR_SHELL` são lidos na CARGA do módulo (pelo `hostCastConn` da v5.193,
+> alcançado pelo `setAppMode` do fim do arquivo) e nasciam 14 mil linhas abaixo
+> — zona morta temporal, `ReferenceError`, `controle.js` abortado. O terceiro
+> sintoma é o watchdog do OTA funcionando exatamente como projetado: sem
+> confirmação de boot, ele descarta o bundle e o lançamento seguinte serve o
+> EMBUTIDO NO APK, que é a versão anterior.
+>
+> **É a terceira vez que esta armadilha morde** (`mirrorEstado` na v5.184,
+> `mirrorOcupado`/`mirrorTimer` na v5.193) e a primeira em que o CI não tinha
+> como vê-la: a leitura mora dentro de `if (espelhoDisponivel())`, que é FALSO
+> num navegador. **O `smoke.mjs` passava verde porque nunca executava a linha.**
+>
+> **Daí o `tools/boot-nativo.test.mjs`**, e ele é a peça que faltava neste
+> repositório desde sempre: sobe a base web com um `__AVBridge` DE MENTIRA
+> injetado antes da carga, e pergunta a MESMA coisa que o watchdog do OTA
+> pergunta (`otaAppIsUp`) — o app ficou de pé? Todo caminho guardado por
+> `window.__NATIVE__` — que é dizer: todo caminho que só roda no aparelho, onde
+> não há console para olhar — passou a ter execução em CI. Ele achou o segundo
+> TDZ (`MIRROR_SHELL`) na primeira execução, e o stub tem uma fidelidade que
+> precisa estar dita: o Kotlin resolve `__avResolve(id, VALOR)` com objeto já
+> pronto, não com string — passar `'[]'` faria `lastDisplays[0]` ser o
+> caractere `'['`, verdadeiro, e o app acharia que há um telão conectado.
+>
+> Junto veio uma correção do mesmo lote: o guard do `renderCast` usava
+> `offsetParent === null` para saber se o bloco estava aparecendo, e
+> `.popup-backdrop` esconde por **opacidade**, não por `display` — a guarda
+> nunca barrou nada. Perguntar por ESTADO (`.open` / `hidden`) funciona nas duas
+> casas do bloco.
+>
+> **E o pente propriamente dito**, com a régua que a v5.194 estabeleceu — cai o
+> que repete o rótulo, fica o que diz uma consequência que o rótulo não implica:
+>
+> - **Os três destinos perderam o subtítulo.** Playlist, Cronograma e Favoritos
+>   são NOMES DE ABA deste app; escrever embaixo de cada um o que ele é ("A
+>   lista do culto") é explicar a própria navegação para quem já está navegando
+>   nela — e era metade da altura da folha.
+> - **"Tocar agora" MANTEVE o dele**, e é o contraste que mostra a régua: ele é
+>   o único que não guarda nada, e isso o rótulo não diz ("Sem entrar em lista
+>   nenhuma"). No caminho de só-áudio o que ele não diz é outra coisa ("Sem
+>   mexer no telão").
+> - **"Instrumental, sem a voz"** saiu: playback é o termo que o app usa em toda
+>   parte, inclusive no seletor Cantada/Playback, que nunca teve explicação.
+> - **"Sem música e sem passagem automática de slides"** virou "Os slides não
+>   passam sozinhos" — a primeira metade repetia "Apenas a letra".
+> - **A linha de confirmação parou de listar os destinos escolhidos**: eles são
+>   as caixas marcadas, visíveis a três linhas dali. O contador responde
+>   "quantos?" sem repetir "quais?".
+> - **O cartão de conectar do Modo Fácil ficou só com o estado.** Ele tinha três
+>   frases de instrução ("Toque para escolher a tela") que repetiam o rótulo e o
+>   ícone ao lado — e, desde a v5.193, ele só existe COM tela conectada.
+> - **"Hinários e álbuns"** saiu do cartão de buscar: não há segunda busca neste
+>   modo para escolher entre elas.
+
+> **A v5.194: A FOLHA DE CONECTAR PERDE TRÊS QUARTOS DO TEXTO. OTA PURO.**
+> Relato do operador: "extremamente poluído e repetido e pouco claro".
+>
+> Contado, ele estava certo por um fator de quatro. Para DUAS decisões
+> (espelhar para a TV × transmitir pela rede) a tela trazia: um subtítulo
+> explicando o que é espelhamento, outro explicando o que é a transmissão, uma
+> frase mandando abrir o endereço no navegador, uma mensagem de sucesso
+> mandando a mesma coisa, e — atrás de "Ajustes avançados" — dois parágrafos
+> dizendo tudo pela quarta vez. **Cinco formas de dizer "abra o endereço no
+> navegador".**
+>
+> - **Os subtítulos saíram.** Eles descreviam o recurso para quem já tinha
+>   decidido usá-lo: ninguém abre "Conectar uma tela" para aprender o que é
+>   Smart View. O do interruptor era pior — ligado, ele dizia "N tela(s)
+>   recebendo", que é exatamente o que a LISTA logo abaixo mostra, com nome e
+>   tempo de cada uma.
+> - **A instrução virou o RÓTULO do endereço** ("Acesse este endereço no
+>   navegador"). Era uma linha separada abaixo dele, em duas versões que
+>   trocavam as palavras de lugar conforme houvesse ou não uma tela conectada. O
+>   "toque em Ativar esta tela" saiu junto: quem precisa dessa instrução está NA
+>   OUTRA TELA, e lá ela está escrita no botão — que é onde ela serve.
+> - **"Abre: Smart View" saiu do botão de espelhar.** Ninguém escolhe entre dois
+>   caminhos pelo NOME do seletor que vai abrir; quando o botão abre a tela
+>   errada, a resposta está no Registro, que é o que se copia para diagnosticar.
+>   O dado continua lá.
+> - **Os dois parágrafos dos ajustes viraram uma frase** — e eles ainda mandavam
+>   **digitar o código de três dígitos**, que saiu na v5.189. Texto grande é
+>   também texto que ninguém revisa. Ficou o que o operador não tem como
+>   adivinhar e que muda o que ele faz: o roteador pode bloquear isto sozinho, e
+>   há duas coisas que de propósito não vão para a rede.
+> - **O sucesso deixou de ter frase.** O endereço aparecendo, com o rótulo que
+>   diz o que fazer com ele, É o "deu certo". A falha continua falando, porque
+>   ali não há nada que apareça sozinho.
+
+> **A v5.193: CINCO AJUSTES DE USO, e um deles é a QUARTA correção do mesmo
+> mecanismo. OTA PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> - **O carrossel de abas parou de ignorar a navegação interna.** A guarda mais
+>   larga que ele tinha era "qualquer SUB-TELA" (botão voltar visível), sob o
+>   argumento de que ali o eixo horizontal pertence à navegação de dentro.
+>   Medido, o argumento é falso: com um capítulo da Bíblia aberto — o estado
+>   normal de quem usa a Bíblia num culto — NADA disputa o eixo horizontal
+>   (`.bible-half` rola só na vertical, e a folha declara `touch-action: pan-y`
+>   nela desde a v5.188). Pior, a própria `.bible-half` estava na lista de
+>   exclusão, proibindo um gesto que ela libera. Esta é a quarta correção deste
+>   mecanismo, e as três anteriores erraram do mesmo jeito: **mantendo à mão a
+>   lista do que o eixo não pode atravessar**. Agora a pergunta é medida — entre
+>   o alvo e a superfície que escuta, existe alguém que de fato ROLE na
+>   horizontal (`scrollWidth`, `overflow-x`)? Um trilho cheio responde sim; o
+>   mesmo trilho com três pílulas responde não, e nos dois casos a resposta é a
+>   verdadeira em vez da que alguém digitou meses atrás. `tools/smoke.mjs` trava
+>   as duas metades com toque de verdade (CDP) — e o contra-teste só vale porque
+>   o positivo passa: sem `hasTouch` no contexto, o toque não chega e os dois
+>   casos "passariam" por não medir nada.
+> - **Quem está conectado saiu de Configurações.** O rodapé daquela folha dizia
+>   "Telão conectado: X" e "Espelhar abre: Y" — as duas coisas que a folha de
+>   "Conectar uma tela" já diz, no lugar em que se decide sobre elas e só quando
+>   há o que dizer. Estado repetido em duas telas é a mesma classe de
+>   divergência que a paleta única existe para não ter. O Registro continua com
+>   as duas linhas, agora lidas de DADO e não do DOM: um diagnóstico que depende
+>   de um elemento de UI existir emudece no dia em que alguém o esconde.
+> - **O Modo Fácil sem tela mostra a SEÇÃO DE CONEXÃO, não um botão que a
+>   abre.** Havia ali um botão do tamanho da tela cujo único efeito era abrir a
+>   folha — um toque cobrado para chegar às duas escolhas que cabem na própria
+>   tela bloqueada. O bloco é o MESMO nó, movido entre a folha e a tela
+>   (`hostCastConn`, o padrão do `hostPreview`), porque duas marcações para a
+>   mesma decisão divergem no primeiro ajuste. Junto vieram duas correções que
+>   o pedido do operador expôs: **o bloqueio passou a contar as telas da REDE**
+>   (desde a v5.187, sem TV elas SÃO a projeção — o bloqueio não tinha
+>   acompanhado, e quem ligava a transmissão continuava atrás da cortina), e a
+>   folha **fecha sozinha quando alguma tela conecta**, por qualquer um dos dois
+>   caminhos. A liberação de teste de 5 s mudou de dono: ela vivia no botão que
+>   deixou de existir no estado bloqueado, isto é, sumia justamente de onde
+>   servia — agora é o toque longo na própria cortina.
+> - **O Modo Fácil não faz manutenção de álbum.** Peso, "Completo offline",
+>   "Verificar atualizações" e "Remover do dispositivo" respondem perguntas de
+>   quem ADMINISTRA o acervo; quem está no Modo Fácil procura um louvor para
+>   tocar agora. Some a INFORMAÇÃO e fica a AÇÃO — o botão de baixar (que
+>   durante um download é o CANCELAR) permanece. Por CSS, não por um ramo no
+>   construtor do card: a classe mora no `<body>` e o operador troca de modo com
+>   a lista já montada.
+> - **A entrada da tela da rede veste o app.** Ela nasceu na v5.189 como um
+>   botão de estilo inline com fallbacks escritos à mão — inclusive um
+>   `var(--accent-fill, #8a6d1d)` cujo valor de emergência é o âmbar que a
+>   v5.192 aposentou (invisível, porque o token resolvia). Mas o problema maior
+>   era o que a tela É: a PRIMEIRA coisa que alguém vê num televisor da igreja,
+>   e ela mostrava um botão solto num retângulo escuro sem dizer de que sistema
+>   era. Agora veste o wallpaper do telão (o símbolo oficial, fonte única), diz
+>   o nome do sistema e o que o toque faz, e usa a anatomia dos botões
+>   principais do app.
+>
+> **E uma armadilha que mordeu de novo, com a resposta já escrita no arquivo:**
+> o bloco de conexão ganhar uma segunda casa fez o `setAppMode` do fim do
+> `controle.js` — que roda durante a carga do módulo — alcançar o `renderCast`,
+> que lê `mirrorOcupado`, declarado 14 mil linhas abaixo. Zona morta temporal,
+> `ReferenceError` na carga, página inteira morta. O comentário do `mirrorEstado`
+> já contava essa história uma vez (v5.184) e o `smoke.mjs` a pegou nas duas.
+> A regra fica: **estado lido por qualquer caminho de render nasce no topo**,
+> junto do resto do estado de cena.
+
+> **A v5.192 (v1.89): A PALETA VIRA A IDENTIDADE OFICIAL DA IASD, E O APP GANHA
+> TEMA CLARO. METADE OTA, METADE APK.** Pedido do operador: um tema claro e um
+> escuro trocáveis em Configurações, padronizados pelas cores oficiais da
+> identidade visual adventista — a mesma fonte de que saiu o símbolo do
+> wallpaper na v5.188.
+>
+> - **O âmbar sai, e ele nunca foi oficial.** A v5.47 o adotou como "a marca
+>   IASD" por um argumento de CONTRASTE: a paleta azul anterior usava UM valor
+>   para os dois papéis (fundo preenchido e texto), e é esse par que reprovava —
+>   não o azul. A saída certa era separar os papéis, que é o que
+>   `--accent`/`--accent-fill`/`--on-accent` já fazem. Com eles no lugar, o
+>   **denim `#2F557F`** (PMS 302, o núcleo da identidade) entra como
+>   preenchimento verbatim, com 7,70:1 contra o branco que a própria identidade
+>   recomenda por cima, e o `bluejay` clareado vira o accent de texto do tema
+>   escuro (5,86:1 sobre o painel). `scarlett` é o vermelho de atenção,
+>   `campfire` o aviso, `treefrog` o concluído, `night`/`winter` os neutros.
+> - **Nem todo token é oficial, e os derivados estão marcados.** Os dezoito
+>   valores foram desenhados para fundo BRANCO — todos passam AA sobre branco, e
+>   NENHUM passa como texto sobre o quase-preto do tema escuro. Onde clarear (ou
+>   escurecer, no claro) foi preciso, `tokens.css` diz de qual oficial o valor
+>   saiu e preserva a matiz. Nos ladrilhos da Bíblia a conta é estrutural: a
+>   identidade tem SETE famílias de matiz e a tela de livros precisa de DEZ
+>   grupos separados por ≥20°, então cinco são oficiais e cinco preenchem os
+>   vãos — e o `scarlett` fica FORA da escala de propósito, porque vermelho é
+>   atenção neste app e um grupo de livros vermelho competiria com "está no ar".
+> - **O PALCO NÃO TEM TEMA, e é isso que faz o recurso valer.** `--stage-*`,
+>   `--wallpaper`, `--lyrics-frame-bg` e as sombras foram para um bloco
+>   compartilhado. O Display já ficaria escuro por omissão (ele nunca escreve o
+>   atributo); o que a separação garante é a PREVIEW do Controle, que roda no
+>   documento que TEM tema e existe para ESPELHAR o telão. Um telão claro cega a
+>   congregação, e uma preview clara deixaria de cumprir seu papel exatamente no
+>   tema em que o operador mais precisa dela.
+> - **O que o shell faz, e é só isto** (`temaClaro`, `SHELL_VERSION` **39**):
+>   os ÍCONES das barras de sistema e o `windowBackground`. As duas coisas que
+>   uma folha de estilo não alcança — com `targetSdk` 35 o Android ignora as
+>   CORES das barras (quem as pinta é o body, com o token), mas o relógio e os
+>   botões de navegação continuam sendo desenhados pelo sistema e ficariam
+>   brancos sobre branco; e o `windowBackground` é um recurso do APK, resolvido
+>   antes de existir JavaScript, então o shell guarda uma cópia da escolha e a
+>   aplica no lançamento seguinte. **Trocar de tema tem, portanto, um lançamento
+>   de atraso no fundo do splash — e só nele.** Num shell 38 o bundle novo
+>   funciona por inteiro e o app fica com as barras do escuro: é a degradação
+>   certa, e por isso `minShell` continua em 2.
+> - **E a v1.90 conserta o que a v1.89 derrubou: o app não abria.**
+>   `window.insetsController` é, no `PhoneWindow`, um
+>   `mDecor.getWindowInsetsController()` **sem verificação de nulo**, e o
+>   `mDecor` só nasce no `installDecor()` — isto é, no `setContentView()`. O
+>   tipo devolvido é anulável, então o `?.` do Kotlin dá a impressão de que a
+>   chamada é segura; ela não é, porque **quem lança é o RECEPTOR, não o
+>   retorno**. Chamada de um `onCreate` antes do `setContentView`, ela era uma
+>   `NullPointerException` em todo lançamento, com qualquer tema. Três coisas
+>   fecham o caso: a leitura da preferência e o `setTheme` passaram para ANTES
+>   do `super.onCreate` (é o único momento em que `setTheme` ainda pinta o
+>   `windowBackground`, e agora existe um `Theme.AvIasd.Claro` para ele
+>   apontar), o resto foi para DEPOIS do `setContentView`, e o
+>   `aplicarCromoDoTema` ganhou a guarda exata — `window.peekDecorView()`, que
+>   pergunta se a decor view existe sem CRIÁ-la, ao contrário do `decorView`.
+>   A lição para o próximo: **o CI compila e roda JUnit, não a Activity** — um
+>   erro de ciclo de vida atravessa build verde, teste verde e Release, e só
+>   aparece no aparelho.
+> - **Dois oráculos ficaram mais fortes.** `tools/tokens.test.mjs` passou a
+>   ignorar COMENTÁRIOS (um `var(--x)` citado na prosa que justifica a regra não
+>   é um uso) e ganhou um caso novo: **nenhum token pode existir só no tema
+>   claro**. O claro é um DELTA sobre o escuro, e um token declarado só lá não
+>   estaria definido no tema padrão — o `var()` computaria para o valor inicial
+>   da propriedade, sem aviso, e quem escreveu acabaria de ver a cor certa na
+>   tela porque estava com o claro ligado. `tools/smoke.mjs` trava o efeito
+>   RENDERIZADO: os dois temas mudam fundo e texto, o palco não muda uma
+>   vírgula, a superfície afunda dentro do cartão NOS DOIS, e a escolha
+>   sobrevive à recarga.
+
+> **A v5.191: O DOWNLOAD PASSA A TER SAÍDA — e a intenção deixa de ressuscitar.
+> OTA PURO.** Dois relatos do operador, e o segundo é o mais caro.
+>
+> - **"A notificação sobre o preview não tem forma de cancelar."** Verdade, e
+>   pior do que parecia: dos TRÊS lugares que mostram um download em curso, só
+>   a linha do resultado da busca sabia cancelar (v5.131) — e ela é justamente
+>   a que some quando o operador fecha a busca. O cartão sobre a preview e a
+>   linha provisória do Cronograma mostravam minutos de download sem oferecer
+>   saída nenhuma. Agora os dois têm botão, alimentados pela MESMA alça
+>   (`cancelarDownload`, um núcleo só para os três pontos de toque).
+> - **"Mesmo depois de fechar o app, e o vídeo já não indo para o player, ele
+>   fica sempre querendo baixar."** Era o resgate de intenção da v5.133 comendo
+>   a própria cauda: o `ytArquivo` REGISTRA a intenção ao começar, então cada
+>   resgate interrompido registrava outra, e o ciclo se repetia por seis horas.
+>   Três regras o fecham, e são a mesma do coletor de lixo do banco — **o que
+>   não está em lugar nenhum não é guardado**, aqui nem baixado: intenção sem
+>   destino VISÍVEL (`imports`/`playlist`/`favs` — a prateleira `avulsos` do
+>   "Tocar agora" não conta) é descartada e o download é CANCELADO no aparelho;
+>   há um teto de duas reclamações por intenção; e o cancelamento manual
+>   esquece a intenção, sem o que "parei o download" durava até o operador
+>   fechar o app.
+> - **E o resgate deixou de ser invisível**: ele nascia com `aviso: 'nenhum'`,
+>   isto é, dez minutos de download sem nada na tela e sem nada para tocar.
+>   Agora ele desenha a linha provisória na lista de destino — que é onde o
+>   botão de cancelar mora.
+
+> **A v5.190 (v1.88): UM CARTÃO SÓ NA GAVETA — a transmissão passa a viajar no
+> serviço da sessão de mídia. EXIGE APK, e é Kotlin puro.**
+>
+> Pergunta do operador: *"essa notificação pode ser mais útil com mais
+> ferramentas e botões? ou melhor ainda, fixar essa atividade à notificação de
+> player que já acontece durante uma reprodução?"* — e a resposta é sim, com um
+> ajuste de escopo que vale registrar.
+>
+> - **O que NÃO dava para fazer: mais botões.** O `MediaStyle` mostra 3 no modo
+>   compacto e até 5 no expandido, e o cartão já tinha exatamente 5 (⏮,
+>   play/pause, ⏭, Parar, cortina). Desde o Android 13 quem os desenha é o
+>   `PlaybackState`, não a notificação — a cicatriz da v1.18. Acrescentar ali é
+>   TROCAR, não somar.
+> - **O que dava, e é o pedido de verdade: um cartão só.** Num culto com
+>   transmissão ligada e mídia no ar a gaveta mostrava DOIS cartões do mesmo
+>   app — o player e o "Espelho no ar" —, e só um servia para alguma coisa. O
+>   `EspelhoService` deixou de existir: o `SessionService` virou o ÚNICO serviço
+>   em primeiro plano do culto, com o tipo `mediaPlayback|connectedDevice`
+>   (nenhum dos dois tem cota) e **duas razões independentes de viver** — cena
+>   no ar e transmissão ligada —, parando só quando as duas caem.
+> - **O cartão tem DUAS CARAS.** Com cena, o player de sempre. Sem cena e com a
+>   transmissão no ar, o endereço, quantas telas estão recebendo e o botão
+>   **Desligar transmissão** — que só aparece aí, e de propósito: ao lado do
+>   transporte, no escuro, ele seria um toque errado derrubando a projeção da
+>   igreja inteira. Sem cena não há transporte a mostrar, e sobra o espaço
+>   exato para ele.
+> - **A regra que isto desafia continua valendo, agora por escrito.** O KDoc do
+>   serviço antigo dizia "empilhar dono é o caminho para o cartão eterno", e
+>   estava certo: a fusão só é legítima porque a condição de parada virou um
+>   `if` explícito num lugar só (`pararSeNadaVivo`), com o `running`, o
+>   `foregrounded` e o `stopSelf(startId)` intactos. E sem cena a sessão de
+>   mídia é ZERADA (`STATE_NONE`), senão o sistema promoveria um player
+>   fantasma ao painel das configurações rápidas.
+> - **`EspelhoEnergia`** é o que sobrou do serviço: wake lock, Wi-Fi lock e
+>   térmica — as três coisas que nunca foram sobre notificação. Os canais
+>   `espelho`/`espelho2` são apagados na subida, para não ficar um interruptor
+>   órfão nas configurações de notificação do app.
+>
+> `SHELL_VERSION` **não sobe**: nenhum método da ponte nasceu, saiu ou mudou de
+> assinatura, e o `espelhoDiag` mantém a mesma FORMA (o campo `servico` passou a
+> responder "o serviço que carrega a proteção está de pé?", que é o que ele já
+> queria dizer). A base web não mudou uma linha — a versão sobe junto só para o
+> rodapé de Configurações não mentir sobre o que está instalado.
+
+> **A v5.189 (v1.87): A SEGUNDA RODADA EM APARELHO — a porta abre, o YouTube
+> volta a transmitir e a preview emudece. EXIGE APK.**
+>
+> - **"Tocar direto um link do YouTube não funciona, ele sempre baixa."** Era
+>   a política que a própria v5.187 escreveu: `pularTransmissao = espelho
+>   ligado && sem telão` — e transmissão ligada sem TV é o estado NORMAL do
+>   operador, então o recurso inteiro parou de acontecer. O motivo era real (o
+>   manifesto aponta para `/stream/` no origin do WebView, que a tela da rede
+>   não alcança), e a saída não foi relaxar a guarda: foi **tirar-lhe a razão
+>   de existir** fechando a dívida §7 do contrato. O servidor passou a servir
+>   as mesmas faixas em **`/s/<token>`** — um REPASSE ao googlevideo (o
+>   `Range` do cliente sobe cru, a resposta é espelhada de volta), com o UA que
+>   combina com a URL, o mesmo registro de token do `StreamProxy` e nenhuma
+>   segunda extração. O `telaEnriquecer` reescreve o manifesto para a tela.
+> - **A ENTRADA DA TELA PERDEU O CÓDIGO.** Argumento do operador: cada tela
+>   precisa do ENDEREÇO deste aparelho nesta rede para chegar aqui, e esse
+>   endereço já é a credencial — quem não configurou a tela não o tem. O
+>   overlay virou **um botão só, "Ativar esta tela"**, que gasta o gesto
+>   (tela cheia + som) e entra. O que segura o recurso continua sendo o teto de
+>   três sessões e o "Desconectar" do operador (com o castigo de 2 min, sem o
+>   qual o botão não faria nada visível). Saíram do `EspelhoPares`: o código,
+>   a rotação, o bloqueio crescente e o contador de recusas — e com eles os
+>   casos de JUnit que os cobriam, porque o que eles cobriam deixou de existir.
+> - **A TELA VOLTA A FICAR EM TELA CHEIA SEM RECARREGAR.** Sair da tela cheia
+>   é um toque na tecla errada de um controle remoto, e até aqui o único ponto
+>   do sistema que chamava `requestFullscreen` era o botão de entrada. Agora um
+>   botão discreto de canto aparece quando FALTA tela cheia (ou som), se
+>   recolhe em 5 s e volta com um toque — e o TOQUE DUPLO em qualquer lugar faz
+>   a mesma coisa, que é o gesto que todo mundo tenta primeiro num vídeo.
+> - **A QUEDA DE CONEXÃO NÃO COBRE MAIS A MÍDIA.** O overlay de reentrada
+>   aparecia por cima do louvor que continuava tocando — e continuava mesmo:
+>   a mídia da tela é LOCAL (o `<video>` toca o arquivo do `/m/`) e **a letra
+>   sincronizada anda pelo `timeupdate` dela**, não por comando, então a queda
+>   leva o fio e nada mais. Sem código a digitar, a reentrada não precisa de
+>   gente: virou um `POST /par` numa escada (1 s → 30 s), silencioso. O overlay
+>   cheio só existe na PRIMEIRA carga, quando não há nada por baixo dele.
+> - **A MESA DE SOM SAIU POR INTEIRO.** O som do sistema é o dos displays (a
+>   TV pela Presentation, as telas da rede pelo `<video>` delas), e o áudio da
+>   preview só tinha como disputar o foco de áudio do Android com a projeção —
+>   o defeito que a v5.141 já contornara escondendo o botão com telão
+>   conectado. Com o modo, saíram o botão, o `standalone`, o
+>   `AVNative.keepAudioAlive` e o `setAudioAlive` do shell (um método de ponte
+>   sem chamador é dívida).
+>
+> `SHELL_VERSION` **38**: o degrau é um ENCOLHIMENTO duplo — `espelhoEstado`
+> perdeu `codigo` e a ponte perdeu `keepAudioAlive`. A rota `/s/` não pesa nele
+> (é do servidor HTTP, não da ponte).
+
+> **A v5.188: A PRIMEIRA RODADA EM APARELHO DO TELÃO POR COMANDOS — três
+> relatos, uma identidade. OTA PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> - **"O carrossel na Bíblia não funciona, e depois as abas exigem DOIS
+>   toques."** As duas frases são UM defeito, e ele é a lição da v5.61 pela
+>   terceira vez: `.bible-half` rola sem `touch-action: pan-y`, então o
+>   WebView tomava o gesto horizontal para si e o fling residual engolia o
+>   toque seguinte — reproduzido em Chromium com toque real (CDP), não
+>   deduzido. E havia uma segunda metade de desenho: com um livro aberto (o
+>   estado normal de quem usa a Bíblia), a guarda de sub-tela matava o
+>   carrossel até NA FAIXA DE ABAS, onde o eixo horizontal não pertence a
+>   ninguém além dele — a faixa agora é sempre território do carrossel
+>   (`tabsEl.contains(target)` em `elegivel`).
+> - **"O telão não herdou o papel de parede."** O `__wp` só viajava na TROCA:
+>   quem conectasse depois ficava no padrão para sempre. O `display-ready` de
+>   uma tela (`__tela`) agora dispara `telaReenviarPreferencias` — wallpaper
+>   (token REUSADO; o funil não re-cunha comando que já chega com `__wp`),
+>   `lyricsbg` e `fit`, tudo ENDEREÇADO (`__para`). A remoção viaja como o
+>   sentinela `__wp:'padrao'` (anexar URL antes de saber se havia blob cunhava
+>   uma URL sem bytes), e a tela pré-carrega com retentativa curta — o
+>   comando pode vencer a corrida contra o empurrão dos bytes.
+> - **"As imagens de fundo dos slides das músicas não aparecem."** Era a
+>   exclusão declarada da E4.1, agora fechada: cada estrofe com
+>   `imageOpfsPath` ganha `imageUrl` (`/m/` por imagem DISTINTA, id estável
+>   `ly:`+caminho — o mesmo hino de novo custa zero re-empurrão), enfileirada
+>   DEPOIS da mídia principal (o som não espera as fotos), e o
+>   `applyLyricsImage` do display aceita a URL direto, com retentativa.
+> - **E o WALLPAPER PADRÃO virou o símbolo oficial da IASD** (pedido do
+>   operador, com o pacote oficial de SVGs em mãos): branco, cor sólida
+>   única, sobre denim profundo — as regras do identity.adventist.org. O
+>   desenho inteiro é UM arquivo (`shared/wallpaper-padrao.svg`), fonte única
+>   do Display, da preview e das telas da rede; a marca de texto
+>   "Audio Visual IASD" saiu com o gradiente verde da paleta antiga. No
+>   seletor, "Padrão" foi para a ESQUERDA. Duas armadilhas ficaram escritas
+>   nos arquivos: `url()` substituído por `var()` resolve contra a PÁGINA
+>   (a URL do SVG mora nas folhas consumidoras, não no token), e comentário
+>   de XML não aceita hífen duplo (um `--token` citado invalida o SVG
+>   inteiro, sem erro nenhum).
+>
+> Detalhes por seção: o carrossel em `docs/ARQUITETURA-WEB.md` (deslizar
+> troca de aba), o wallpaper em "Wallpaper personalizado" (mesmo doc), e as
+> duas dívidas fechadas no `docs/TELAO-POR-COMANDOS.md` (nota v5.188).
+
+> **A v5.187 (v1.86): O TELÃO POR COMANDOS SUBSTITUI O ESPELHO DE PIXELS POR
+> INTEIRO. EXIGE APK — e a primeira ligada em rede de verdade é numa
+> terça-feira.** Pedido do operador, literalmente: *"não gostei do sistema que
+> usamos hoje, acho muito inconstante. Vamos trocar absolutamente todo o
+> sistema para o command stream."*
+>
+> A tela da rede deixou de receber PIXELS (VirtualDisplay → MediaCodec H.264 →
+> fMP4 → MSE) e passou a rodar **o próprio `/web/display/`**, servido pelo
+> celular com a mesma resolução OTA→APK, recebendo **os comandos do barramento
+> verbatim por SSE** e a **mídia sob demanda por `/m/<token>`** (Range RFC 7233
+> de verdade — a inversão da invariante 8, agora com oráculo próprio). Todo o
+> mapa está na seção "Telão por comandos" e no contrato
+> `docs/TELAO-POR-COMANDOS.md`; o doc do espelho ficou como histórico, com o
+> aviso de aposentadoria no topo.
+>
+> O que SAIU do repositório, de uma vez: `EspelhoCodec.kt`, `EspelhoDisplay.kt`,
+> `EspelhoAudio.kt` (e o JUnit da deriva), `MirrorPresentation.kt`, o
+> `fmp4.js`, o `cliente.js`, a página própria do espelho e os testes
+> `fmp4.test.mjs`/`espelho-cliente.test.mjs` — mais ~600 linhas de maquinaria
+> de pixels dentro do `EspelhoServidor` e o dreno do papel `espelho` no
+> `native.js` (o dreno novo, de SUBIDA, mora em `espelho/tela.js`). Com eles
+> saíram por construção as famílias inteiras de defeito do §10-A: deriva de
+> áudio, GOP × janela, poda de MSE, borda ao vivo, batimento.
+>
+> O que ENTROU: `EspelhoMidiaCache.kt` + `EspelhoMidiaCanal.kt` (o cache da
+> rota `/m/` e o empurrão OPFS → cache por `ArrayBuffer`), o Range/SSE no
+> `EspelhoHttp` (puro, com JUnit), `espelho/tela.js` (a casca do papel `tela`,
+> carregada no próprio display), o enriquecimento `__rec` + a eleição de
+> referência no `controle.js`, e `tools/tela-rede.test.mjs` (26 casos em
+> Chromium de verdade, do código de entrada ao adeus). `SHELL_VERSION` **37**
+> pela mudança de FORMA do `espelhoEstado`/`espelhoDiag`; o canal de mídia é
+> detectado por presença. Exclusões declaradas do lote (dívida dita, não
+> esquecida): prefetch de playlist, imagem de fundo da letra e páginas de deck
+> não são empurradas ainda (a tela mostra a mídia principal e a letra sem o
+> fundo), e a rota `/stream/` do proxy não é servida às telas — YouTube sem
+> telão vai pelo download.
+
+> **A v5.186 (v1.85): A ENTRADA VIRA UM CÓDIGO DE TRÊS DÍGITOS, e o `av.local`
+> sai. EXIGE APK — é a maior remoção de superfície da história do projeto.**
+>
+> O pedido do operador, literalmente: *"vamos remover o uso do endereço com o
+> localhost, vamos usar apenas o endereço que usa IP. Vamos usar o sistema de
+> código na página web, um código de 3 dígitos, gerado quando se ativa a
+> disponibilidade online. E na web, teremos apenas o campo de digitar o código e
+> o botão de Conectar, pois assim o botão de conectar já vai fazer a função de
+> liberar o áudio e colocar em tela cheia."*
+>
+> **A última frase é a que governa tudo o mais.** `requestFullscreen()` e sair do
+> `muted` exigem *ativação transitória do usuário*, e um gesto vale por poucos
+> segundos. Para o botão "Conectar" fazer as três coisas, ele precisa gastar o
+> gesto ANTES de a rede responder — e isso torna impossível qualquer fila de
+> aprovação: quando o operador aprovasse, o gesto já teria passado, e a tela
+> entraria muda e em janela, com alguém tendo de atravessar o salão para tocar
+> nela. Daí a cascata de remoções, e nenhuma delas é oportunismo:
+>
+> - **a fila de aprovação** (`Pendencia`, `aprovar`, `recusar`, `consultar`,
+>   `pendentes`, a aprovação automática) — código certo ENTRA, na mesma
+>   resposta;
+> - **a porta aberta da v5.170** (`entrarAberto`) — agora há um código, e ele é
+>   exigido; isto é mais forte que a v5.170, não mais fraco;
+> - **o pareamento por QR inteiro** (`esperaQr`, `espelho/qr.js`,
+>   `tools/qr.test.mjs`, o leitor de câmera do Controle, `AVNative.requestCam` e
+>   a permissão `CAMERA` do manifest) — ele existia para INVERTER quem mostra e
+>   quem lê o segredo, e a inversão perdeu a razão de ser quando o segredo virou
+>   três dígitos que a TELA digita;
+> - **o responder mDNS** (`EspelhoMdns.kt`, `EspelhoMdnsPacote.kt` e o JUnit
+>   dele) — `av.local` não resolve no Chrome do Android nem na maioria das Smart
+>   TVs, que são exatamente as telas deste recurso, então o IP sempre foi o
+>   endereço que de fato funcionava.
+>
+> **O que SUSTENTA três dígitos não é o tamanho, é o bloqueio CRESCENTE** por
+> origem: 60 s dobrando a cada bloqueio novo, até 30 min. Com um minuto fixo,
+> mil combinações saem numa tarde; dobrando, a sétima rodada custa mais que o
+> culto. O contador de bloqueios **não zera quando o bloqueio vence** (quem
+> esperou e voltou a martelar é quem a rodada seguinte precisa segurar), e zera
+> inteiro na primeira tentativa CERTA. Mais o teto de três sessões, mais o fato
+> de o conteúdo ser o que a congregação já está vendo.
+>
+> **`CHANGE_WIFI_MULTICAST_STATE` FICA no manifest mesmo sem o mDNS**, e isso
+> precisa estar escrito porque a leitura natural é o contrário: quem a exige não
+> é o multicast, é o TIPO do serviço em primeiro plano (`connectedDevice`).
+> Removê-la faz `startForeground` lançar e derruba o app no instante em que o
+> operador liga a transmissão.
+>
+> `SHELL_VERSION` vai a **36** — o primeiro degrau deste contrato que ENCOLHE.
+>
+> **A v5.185 (v1.84): O EIXO DO SOM ERA UM LAÇO ABERTO — "o som fica para trás,
+> a imagem continua, a tela fica sem áudio". METADE APK.** As três frases do
+> relato não são três sintomas: são a sequência inteira de um defeito só, e a
+> última é literalmente o que o `cliente.js` escreve
+> (`soltarAudio('o som ficou para trás')`).
+>
+> **Os dois eixos são de naturezas diferentes por desenho** — o vídeo é relógio
+> monotônico e anda sozinho; o som é CONTAGEM DE AMOSTRAS e só anda quando chega
+> PCM. O que faltava é o que fecha isso: **nada, em lugar nenhum, conferia uma
+> coisa contra a outra.** Três produtores de deriva, todos reais, todos
+> permanentes e todos ACUMULATIVOS: o `AudioWorklet` engasgando (os três
+> WebViews dividem UM processo — é o fio que a v5.177 documenta sendo roubado),
+> o relógio do hardware de áudio (dezenas a centenas de ppm são décimos de
+> segundo por hora, e um culto tem duas), e **PCM perdido dentro do
+> `alimentar`** — este um defeito de verdade: a regra "o que não coube CONTA
+> assim mesmo" estava escrita e aplicada em `aoReceberPcm`, e **faltava em cinco
+> saídas** daquela função, cada uma recuando o eixo permanentemente.
+>
+> E o desfecho tinha um segundo andar, que é o que transforma "dessincronizado"
+> em **mudo**: soltar a faixa **não desfaz a deriva**, porque ela está no
+> celular. A tela remontava, `vigiarAudio` media o MESMO desvio no primeiro giro
+> e soltava de novo — três vezes em poucos segundos, o teto de remontagens se
+> esgotava, e renová-lo exige 45 s de som limpo que nunca iam acontecer.
+>
+> - **No shell (APK)**: `EspelhoAudio.corrigirDeriva` fecha o laço. Abaixo de
+>   250 ms não mexe em nada (a chegada dos blocos tem jitter próprio, e corrigir
+>   20 ms a cada bloco trocaria uma deriva por um serrilhado); daí até 3 s
+>   **insere SILÊNCIO**, que não é reancoragem — o eixo continua sendo contagem
+>   de amostras, o `buffered` continua colado e o muxer não estica amostra
+>   nenhuma; acima de 3 s **reancora**, e o limiar não é escolhido: é o
+>   `AUDIO_MUDO_MS` do cliente, isto é, o ponto em que a tela já soltou a faixa e
+>   não há continuidade a preservar. **A medida é contra o PCM RECEBIDO, nunca
+>   contra o consumido** — entre os dois há uma fila de até 64 × ~40 ms, e medir
+>   do lado do encoder leria um engasgo da main thread como "o som parou de ser
+>   produzido", enchendo de silêncio um buraco que os blocos empilhados fechariam
+>   sozinhos e jogando o som À FRENTE do vídeo. Que é o único erro que este
+>   desenho não tem como desfazer, porque a correção para trás é rebobinar o
+>   `tfdt`.
+> - **No web (OTA)**: `voltouOSom` não remonta enquanto o fio ainda mostrar o som
+>   mais de 1,5 s atrás. Ela não conserta a deriva — impede que os três créditos
+>   de remontagem sejam queimados ANTES de a correção chegar. `vigiarAudio` não
+>   servia para isso: ele mede `bv.end - ba.end`, e com a faixa solta não existe
+>   `ba`; os carimbos crus do fio existem sempre (`desvioDoFio`).
+> - **E o Registro ganhou a linha que faltava o tempo todo**: `som atrás do
+>   vídeo: agora N ms · pior M ms`, com as correções e o silêncio inserido. Até
+>   aqui "o som ficou para trás" era escrito pela TELA e o lado do celular não
+>   tinha UMA medida que o confirmasse — o operador via `24 blocos de PCM/s`,
+>   `7424 quadro(s)`, `0 descarte(s)`, tudo saudável, e uma tela muda.
+>
+> `SHELL_VERSION` **não sobe** — nenhum método da ponte nasceu nem mudou de
+> assinatura. Num shell antigo `derivaMs` vem `undefined` e a linha do Registro
+> não é desenhada, como manda a regra do bloco. A regra pura
+> (`EspelhoAudio.planoDeCorrecao`) tem JUnit, pelo motivo de sempre: o resto do
+> arquivo é `MediaCodec` e threads, e é a REGRA que decide se o culto fica com
+> som. Ver `docs/ESPELHO-DE-PIXELS.md` §10-A.13.
+
+> **A v5.184: A FOLHA DE CONECTAR LIGAVA O SERVIDOR PARA PODER MOSTRAR O
+> ESTADO — e isso é uma falha de FORMA, não de código. OTA PURO.** As duas
+> maneiras de conectar eram o mesmo cartão de escolha, e um cartão não sabe
+> dizer "ligado": daí o `abrirCast` da v5.171 subir um `ServerSocket` na rede da
+> igreja pelo simples fato de alguém ter aberto a tela para ler o endereço.
+> Agora são **um botão** (a ação, que sai do app) e **um interruptor** (o
+> estado, que dura o culto), com os dois endereços de acesso embaixo — e abrir a
+> folha voltou a ser só ler. Vieram junto três defeitos que a redação achou pelo
+> caminho, e os três estavam calados: a folha nunca era redesenhada pela enquete
+> de 2,5 s (uma tela que entrasse depois da abertura não aparecia), os dois
+> endereços tinham pesos tipográficos opostos ao que vale na prática, e **três
+> ícones desta UI nunca chegaram a existir na fonte** — codepoint no cmap,
+> contorno vazio, um vão do tamanho de um ícone e nenhum tofu que o denunciasse.
+> A seção do espelho tem os cinco itens, e `docs/ESPELHO-DE-PIXELS.md` §10-A.12
+> tem o porquê de cada um.
+
+> **A v5.183 (v1.73): AS TRÊS DE REDE — a metade que faltava, e a mais
+> arriscada. EXIGE APK, e exige ser ligada NUMA TERÇA-FEIRA.** Ela mexe no
+> único código do projeto que decide **se o socket sobe e onde**.
+>
+> - **TODA DECISÃO DE REDE PERGUNTAVA PELA REDE PADRÃO.** `getActiveNetwork()`
+>   é, por definição, a rede por onde o tráfego geral sai. Numa igreja com o AP
+>   no ar e o link de internet fora — que este documento descreve como o
+>   ambiente normal —, o Android marca a Wi-Fi como não validada e promove a
+>   **celular** a padrão, porque dados móveis estão ligados (o download do
+>   YouTube depende do IP do chip). O preço era duplo e silencioso: o operador
+>   tocava em "Mostrar numa tela da rede" e lia *"so liga em Wi-Fi — este
+>   aparelho esta em dados moveis"* com o celular associado à Wi-Fi e o IP na
+>   mão; e, com o espelho já no ar, a troca de padrão **derrubava a projeção
+>   inteira com a LAN intacta e o socket funcionando**. A §2.5 promete o oposto,
+>   com todas as letras. Agora a pergunta é "existe uma Wi-Fi neste aparelho?"
+>   (`wifiDe`), e o `registerDefaultNetworkCallback` virou um
+>   `registerNetworkCallback` de `TRANSPORT_WIFI`. **`NET_CAPABILITY_VALIDATED`
+>   fica DELIBERADAMENTE fora do filtro** — é justamente ele que falta numa
+>   igreja sem uplink, e exigi-lo seria reintroduzir o defeito com outro nome.
+>   A propriedade da §2.3 fica intacta: o socket segue ligado a um IPv4 de rede
+>   Wi-Fi, nunca em `0.0.0.0`, e VPN e celular seguem recusados — mas **a regra
+>   1 da §2.3 ("rede ativa") precisa ser relida como "rede Wi-Fi"**, senão a
+>   próxima leitura reintroduz isto. `getAllNetworks()` está deprecado desde a
+>   API 31 e é usado assim mesmo, com o motivo escrito: não existe substituto
+>   SÍNCRONO, e esta pergunta é feita no toque do operador, antes de existir
+>   callback nenhum.
+> - **O IP MUDANDO NA MESMA REDE DERRUBAVA TUDO.** O roteador reinicia às 19h40,
+>   ou o lease do DHCP não devolve o mesmo endereço: o código detectava
+>   **corretamente**, esperava 6 s, confirmava — e desligava servidor, tela
+>   virtual, encoder, janela, mDNS e serviço. Nenhum pacote se perdeu, o
+>   aparelho está no mesmo AP, e **as três telas caíam e nunca voltavam, porque
+>   não havia servidor**. Agora `confirmarRede` separa "trocou de endereço" de
+>   "sumiu": no primeiro caso `religarNoIp` fecha só o `ServerSocket`, refaz o
+>   bind no IP novo, **refaz a allowlist de `Host`** (sem isso o IP novo
+>   receberia o 404 idêntico — a mesma armadilha do `hostTls` e do nome mDNS,
+>   pela terceira vez) e reanuncia o `av.local`. **Não passa por `ligar()`**:
+>   aquele chama `desligar()`, que termina em `zerarPares()` — as três telas
+>   voltariam ao pareamento por uma troca de DHCP que elas nem viram. Teto de
+>   três religamentos por hora; batido, vale o desligamento de sempre.
+>
+>   **Isto tangencia o item 25 do §10 ("não deixar o espelho ligar sozinho"), e
+>   está declarado como inversão em vez de escorregar como conserto de
+>   esquecimento:** o espelho não *liga* sozinho — ele **continua** ligado por
+>   uma decisão que o operador já tomou, e cuja premissa (o socket serve a LAN
+>   deste aparelho) não mudou.
+> - **A VAGA FICAVA PRESA A UMA TELA FANTASMA POR ~5 MIN.** `ultimoUsoMs` é
+>   renovado a cada volta do vigia enquanto a conexão existir, então uma TV
+>   desligada na tomada às 10h00 e fechada pelo `TETO_SEM_RELATO_MS` às 10h01
+>   fica com carimbo de "1 min atrás" — e o critério de ociosidade só a soltava
+>   às ~10h05. Nesse intervalo a tela do saguão recebia `{estado:lotado}` **com
+>   a folha do operador listando duas telas**, e não havia em quem tocar em
+>   "Desconectar"; pior, a MESMA TV religada era recusada pelo fantasma dela
+>   própria, porque o token vive em `sessionStorage`. Agora o servidor avisa o
+>   pareamento (`marcarSemConexao`, no `finally` do fluxo, **com a mesma guarda
+>   de dois argumentos do `telas.remove`** — senão a thread velha marcaria como
+>   morta uma sessão cuja reconexão já assumiu) e a vaga abre em 45 s, que é uma
+>   volta inteira de recuperação do cliente. `marcarComConexao` desfaz a marca
+>   quando ela volta. Quatro casos de JUnit travam os dois lados.
+>
+>   E o Registro passou a publicar **sessões × telas conectadas** lado a lado:
+>   enquanto os dois números pudessem divergir sem aparecer, "lotado" com duas
+>   telas na lista era uma contradição sem leitura possível.
+>
+> **`EspelhoService.enderecoMudou` VOLTOU.** Ele saiu na v5.180 por não ter
+> chamador — e naquele momento a remoção estava certa, porque nenhum caminho
+> mudava o endereço em curso. O `religarNoIp` criou exatamente esse caminho. A
+> remoção estava certa e o retorno também: o que mudou foi o mundo, não a regra.
+>
+> `SHELL_VERSION` **não sobe** — nenhum método da ponte nasceu nem mudou de
+> assinatura.
+
+> **A v5.182 (v1.72): A ESTABILIDADE DO ESPELHO, SEGUNDA METADE — e esta
+> EXIGE INSTALAR O APK.** Três das seis falhas Kotlin da mesma varredura. As
+> outras três são de REDE e ficaram de fora de propósito: elas mexem no único
+> código que decide se o socket sobe e onde, e a regra de calendário deste
+> documento manda testar isso numa terça-feira.
+>
+> - **O ENCODER MORRENDO DESLIGAVA O ESPELHO PELA METADE.** `EspelhoDisplay` só
+>   sabe da tela virtual, do encoder e da janela; quem derruba servidor, mDNS,
+>   pareamento e serviço é o `desmontarEspelho` da `MainActivity`, e os três
+>   chamadores dele (`stopMirror`, `onDestroy`, `EspelhoService.onGone`) **não
+>   incluíam nenhum dos SEIS caminhos de auto-desligamento**. O que sobrava, num
+>   culto sem TV em que as telas da rede SÃO a projeção: socket escutando,
+>   `av.local` publicado, notificação dizendo "no ar", e três telas com o
+>   `GET /v` aberto recebendo zero byte — congelam, o vigia aborta aos 20 s,
+>   reconectam, e o pedido de IDR cai num `codec` nulo. **Telas pretas
+>   reconectando pelo resto do culto**, e religar falhava no bind porque o
+>   socket antigo seguia em LISTEN: irrecuperável sem matar o processo. Agora os
+>   seis passam por um funil (`desligarSozinho`) que avisa a Activity —
+>   `desmontarEspelho()`, **nunca `stopMirror()`**, que reentraria em
+>   `desligar()`. O callback é limpo no `onDestroy` porque `EspelhoDisplay` é um
+>   `object` que sobrevive à Activity: esquecê-lo lá reteria a Activity inteira.
+>   De brinde, os dois caminhos de falha do `startMirror` deixavam o `av.local`
+>   publicado apontando para uma porta que não atende.
+> - **O GOP NÃO TINHA TETO EM SEGUNDOS.** `KEY_I_FRAME_INTERVAL` é **contagem de
+>   quadros** (o framework o multiplica por `KEY_FRAME_RATE`), então `I_FRAME_S`
+>   = 2 são 60 quadros — o que só vira "2 segundos" quando a fonte entrega 30
+>   fps. E a fonte é o batimento do `display.js`, que **muda de cadência
+>   conforme a cena**: 8 Hz parada (7,5 s) e, desde a v5.168, um quarto disso
+>   quando há conteúdo apresentando quadros que não mudam pixel nenhum da tela
+>   virtual — **30 s**, contra a `JANELA_S` de 12 s do cliente. É a aritmética
+>   da §10-A.5 de volta por outra porta, e a v5.168 é a única mudança do espelho
+>   sem seção própria na §10-A, que é como ela atravessou. A correção não é
+>   mexer no batimento (já tentado duas vezes): é **parar de depender dele** —
+>   `garantirChavePorRelogio` pede uma chave passados 6 s de parede sem
+>   nenhuma. Em cena com movimento ela nunca dispara; em cena parada ela é o
+>   único motivo de existir uma chave. E imuniza contra a próxima vez que
+>   alguém mexer na cadência da fonte.
+> - **TODA REMONTAGEM DO WEBVIEW INJETAVA DEFASAGEM A/V PERMANENTE, E ELA
+>   ACUMULAVA.** Os dois eixos são de naturezas diferentes por desenho: o vídeo
+>   é relógio monotônico (anda sozinho) e o áudio é CONTAGEM DE AMOSTRAS (só
+>   anda com PCM chegando). Numa remontagem — OOM do renderer, `ERROR_RECLAIMED`
+>   — o `AudioWorklet` morre por alguns segundos enquanto o vídeo segue
+>   compondo; a página volta, `ligarEncoder` devolvia "ok" sem tocar em nada, e
+>   **todo quadro AAC dali em diante saía carimbado N segundos no passado**.
+>   Como a borda ao vivo do cliente é o MÍNIMO das duas faixas, a projeção
+>   inteira passava a ser exibida N segundos atrás; um segundo buraco somava, e
+>   cruzados os 3 s o cliente soltava a faixa, remontava contra a MESMA
+>   defasagem e ao terceiro desistia — **muda pelo resto do culto, com a imagem
+>   seguindo**. O KDoc de `ptsAgora` dizia "nunca há reancoragem" e estava certo
+>   sobre o caso dele (reancorar no MEIO do fluxo abre buraco no `buffered`);
+>   este é o oposto — o fluxo já foi interrompido, e o `fmp4.js` costura o salto
+>   esticando a amostra anterior. Os dois comentários que afirmavam o contrário
+>   (`ptsAgora` e o `pagehide` do `display.js`) foram corrigidos junto, senão a
+>   próxima leitura desfaz isto.
+>
+> `SHELL_VERSION` **não sobe**: nenhum método da ponte nasceu nem mudou de
+> assinatura. O que muda é comportamento nativo interno — e por isso a v5.182
+> **precisa de Release**, ou o operador fica com o bundle novo e o shell velho.
+
+> **A v5.181: A ESTABILIDADE DO ESPELHO, PRIMEIRA METADE (a que chega por
+> OTA).** Uma varredura de 36 agentes sobre o sistema de conexão — sete
+> revisores por dimensão, dois céticos por achado — devolveu 35 achados, dos
+> quais 14 foram à verificação adversarial e 9 sobreviveram por unanimidade. Os
+> três que vivem inteiros no `cliente.js` estão aqui; os outros são Kotlin e
+> **só chegam instalando o APK**. Os três, e o que cada um custava:
+>
+> - **O SEGMENTO DE INICIALIZAÇÃO ERA APPENDADO ATRÁS DOS FRAGMENTOS.** A
+>   retenção do `csd` de áudio mantém a `MediaSource` fechada por até 2,5 s, e o
+>   caminho de vídeo em `receber` **não pergunta por ela**: passada a guarda de
+>   `esperandoChave`, todo quadro vira fragmento e entra na fila. Quando a
+>   `MediaSource` enfim abria, o `push` do init o punha atrás do que já
+>   esperava — e o primeiro `appendBuffer` era um `moof+mdat` **sem init**, que
+>   o Chromium recusa. Bastava o `POST /r {do:'audio'}` atrasar 300 ms (uma
+>   retransmissão de Wi-Fi) para o IDR ganhar a corrida: ligar o som virava
+>   recomeço, e a três recusas a tela escrevia *"esta tela não está conseguindo
+>   decodificar o fluxo"* — **mandando o operador trocar a TV por um defeito
+>   nosso**. Pôr na frente é melhor que limpar a fila: os fragmentos acumulados
+>   começam no IDR desta conexão e são válidos para o init que entra; limpar
+>   custaria segundos de preto esperando o quadro-chave seguinte. A ordem virou
+>   função pura (`porInitNaFrente`) porque é a REGRA, e é ela que o teste afirma.
+> - **NENHUM `POST` DO CLIENTE TINHA PRAZO.** O `GET /v` sempre teve
+>   `AbortController` e vigia de fio; o canal de volta não tinha nada, e o
+>   buraco é o mesmo TCP meio-aberto por outra porta. O dano não é perder um
+>   relato: **o Chromium abre no máximo 6 conexões por host**, e `postar` usa URL
+>   relativa — o MESMO grupo de sockets do `fetch('/v')` da reconexão. Uma
+>   batida a cada 10 s durante o laço de reconexão enche os slots com zumbis e a
+>   **reconexão fica enfileirada atrás deles**, com a tela dizendo "tentando de
+>   novo em 0 s" enquanto o AP já voltou. Prazo de 15 s (nunca menos: o
+>   `PRAZO_LINHA_MS` do servidor é 10 s desde a §10-A.10, e um prazo curto aqui
+>   reabriria pelo outro lado o caso que aquele fecha) mais guarda de relato em
+>   voo — o relato é uma fotografia, e a mais nova é a única que interessa.
+> - **A ESCADA DE RECONEXÃO NÃO EXISTIA PARA OITO DOS NOVE CHAMADORES.**
+>   `recusasSeguidas` sobe num ponto só (o `error` do `SourceBuffer`); os outros
+>   oito `recomecar` zeram `tentativa` e não alimentam contador nenhum. Numa
+>   Smart TV que não dá conta de uma cena a 30 fps a fila de append estoura,
+>   recomeça em 500 ms, e o ciclo se repete: **pisca-pisca de ~5 s na projeção,
+>   indefinidamente**. E `tentativa` é estruturalmente incapaz de servir de
+>   escada ali, porque ela também zera a cada quadro aceito — e nesses casos os
+>   quadros CHEGAM, é justamente por isso que a fila estoura. Daí
+>   `recomecosSeguidos`, contado no funil e zerado pelo mesmo trecho longo sem
+>   incidente. `recusasSeguidas` fica: é ele que escolhe a FRASE, e "este
+>   navegador não aceita o fluxo" × "esta tela não está dando conta" pedem ações
+>   opostas do operador.
+>
+> **O que NÃO entrou, e por quê:** as seis falhas restantes são Kotlin (encoder
+> que morre desligando o espelho pela metade; IDR sem garantia de relógio de
+> parede; rede padrão virando a celular numa Wi-Fi sem internet; IP novo
+> derrubando tudo sem religar; defasagem A/V permanente a cada remontagem do
+> WebView; vaga presa a uma tela fantasma). Elas exigem APK, e duas delas mexem
+> no único código que decide se o socket sobe e onde — o que, pela regra de
+> calendário deste documento, se testa **numa terça-feira, não no culto**.
+>
+> **E uma lacuna estrutural que a varredura não nomeou e a revisão manual sim:
+> o laço de controle do espelho é ABERTO.** O servidor conta `descartes`, o
+> cliente reporta `dq`/`tq`/`vfim`, o Android estima a banda do enlace — e nada
+> disso é consumido por ninguém: os três só são impressos no Registro. O único
+> atuador que existe, `ajustarBitrate`, está ligado **exclusivamente ao sensor
+> térmico**. O produtor emite 3 Mbps fixos × 3 telas sobre um enlace de
+> capacidade variável, e a única resposta ao congestionamento é descartar quadro
+> e pedir IDR — que é um quadro **grande**, entregue num enlace que já não dava
+> conta. É um laço que se realimenta, e é a explicação mais econômica para
+> "pouco fluído".
+
+> **A v5.180: O COMANDO ATRASADO LEVAVA O ESTADO DE AGORA** — mais uma revisão
+> de varredura. A fila da preview (v5.162) atrasa a CÓPIA em até 2,5 s para ela
+> não responder antes das telas da rede, e `aplicarNaPreview` lia `currentItem`
+> no instante do **dreno**. Dois toques dentro dessa janela — trocar de música,
+> ou errar a linha e corrigir, que é o caso comum — faziam o `load` de A ser
+> aplicado com o item B na mão: a mídia certa entrava (ela vem pelo `mediaId`) e
+> **letra, YouTube e "mantém o texto?" eram decididos pelo item errado**. Um
+> comando da fila é do passado por construção; o estado que ele carrega tem de
+> ser o daquele passado também, então o item viaja COM ele. `pvTextActive`
+> continua sendo lido no dreno, e de propósito: ele é estado da própria preview,
+> que já vive na linha do tempo atrasada. Só aparece com o espelho no ar e sem
+> TV — que é exatamente a configuração de teste do operador. `tools/cena.test.mjs`
+> trava a regra.
+>
+> Da mesma varredura, mais três, todos pequenos e todos verificados:
+>
+> - **`ns` (o `networkState` da tela) atravessava o fio inteiro e ninguém o
+>   desenhava.** A tela media, o `medidasDe` do servidor o transportava desde a
+>   v5.156, e o Registro nunca o imprimia — bytes em cada batida de cada tela
+>   para um número invisível. Ele é a outra metade da pergunta que o `rs` faz:
+>   `rs` diz quanto dado o `<video>` tem, `ns` diz se ele ainda está ligado numa
+>   fonte, e `SEM FONTE` com `rs` em `SEM DADO` é a `MediaSource` desprendida —
+>   outro defeito e outra correção que "faminto". Agora sai ao lado do `rs`; com
+>   `-1` ("esta tela não informou") a linha some, como manda a regra do bloco.
+> - **`addSongVariant`** (controle.js) e **`EspelhoService.enderecoMudou`**
+>   (Kotlin) não tinham chamador nenhum. A primeira era o resto do lote da
+>   v5.141, que unificou as três funções de destino e removeu só duas; a segunda
+>   nunca teve caminho que a acionasse — importar um certificado com o espelho
+>   ligado **não** muda o endereço, porque o socket já está de pé, e a folha diz
+>   isso ao operador.
+>
+> E o que a varredura confirmou íntegro, porque também é resultado: a superfície
+> da ponte é **simétrica nos dois sentidos** (nenhum `@JavascriptInterface` sem
+> chamador em `native.js`, nenhum `B.x` sem método Kotlin), os objetos que
+> `native.js` remonta campo a campo (`nowPlaying`, `bgProgress`) batem com os
+> chamadores, a telemetria do espelho fecha nos três lados (cliente → servidor →
+> Registro) e a tabela `POPUPS` cobre todos os popups do HTML.
+>
+> **v5.180 é quase toda OTA**; a única linha de Kotlin é a remoção do método
+> morto, que não muda comportamento nenhum e não pede Release.
+
+> **A v5.179: O PARAR EXIGIA DOIS TOQUES, e a culpa era do ECO — não das
+> camadas.** O relato: no primeiro toque a mídia para, mas a barra fica a meio
+> caminho e o ▶ não aparece; o segundo toque resolve. A hipótese natural é um
+> sistema de camadas em que o Parar derruba a de cima primeiro, e ela está
+> errada — `stopClear` derruba mídia e Camada de Texto no MESMO toque, e o
+> `cena.test.mjs` já travava isso desde a v5.178.
+>
+> A causa é a mesma que a v5.142 documentou para o ▶, do outro lado do fio:
+> **`clear` e `media-clear` ESMAECEM antes de sair de cena** (~0,6 s,
+> `clearFaded`/`fadeOutToBlack`), e nesse intervalo o `<video>` do telão
+> **continua tocando** — a rampa é de volume, não de pausa. Cada `display-status`
+> do fade chegava ao Controle com `playing: true` e o tempo antigo e repintava, a
+> ~4 Hz, exatamente a UI que `pararMidia` acabara de zerar: a barra voltava ao
+> meio, o seek era reabilitado e o ícone voltava a ⏸. O segundo toque só
+> "funcionava" porque a essa altura a mídia já saíra e ninguém mais reportava
+> aquele `mediaId` — o filtro do handler é por `mediaId`, e `currentId` sobrevive
+> de propósito ao stop.
+>
+> **O caminho do YouTube já tinha a guarda desde sempre** (`yt.stopping`, cujo
+> comentário descreve palavra por palavra este defeito); o da mídia local nunca
+> teve. A correção fecha os dois lados, e é **OTA puro**:
+>
+> - **na FONTE** (`display.js`): o telão que está saindo de cena não reporta o
+>   fade, e diz UMA vez que o palco ficou vazio. É o que também conserta a
+>   **notificação de mídia**, onde não há segundo toque — o `snoopDisplayStatus`
+>   do Kotlin lê esse mesmo status de passagem e deixava o cartão anunciando
+>   "tocando" sobre um telão vazio até a cena seguinte.
+> - **no CONSUMIDOR** (`controle.js`): `midiaNoAr` guarda as **duas** fontes que
+>   pintam o transporte — o handler de `display-status`/`espelho-status` e o
+>   `previewTick`, que é quem manda **sem telão nem espelho**, e que sofria do
+>   mesmo mal porque `preview.getCurrent()` só fica nulo no FIM do fade.
+>
+> Nada foi tirado do Parar: ele continua sendo o ponto final que leva as duas
+> camadas, e as saídas por camada (`text-hide` e `media-clear`, v5.173/v5.178)
+> continuam sendo as portas de cada uma. `tools/cena.test.mjs` trava o lado do
+> Controle e `tools/display-smoke.mjs` o do telão.
+
+> **A v5.178: O STOP VIRA POR CAMADA, e agora as duas portas existem.** O botão
+> de Parar da linha no ar (v5.177) chamava `stopClear()` para uma mídia — que é
+> o **Parar do transporte**, e ele encerra a CENA INTEIRA. Com um louvor de
+> fundo sob a contagem regressiva de abertura (o uso normal, e o que a
+> independência áudio × texto existe para permitir), tirar a música do ar levava
+> o cronômetro junto, e a única saída era parar tudo e reprojetar a cena na
+> frente da congregação. Faltava o simétrico exato do `text-hide` que a v5.173
+> acrescentou: **`media-clear`**. Cada linha do Cronograma fala da **camada
+> daquela linha** — a da cena sai pela Camada de Texto e não toca na mídia, a da
+> mídia sai sozinha e não toca no texto —, e o Parar do transporte segue sendo o
+> ponto final que leva as duas.
+>
+> **Quem decide entre as duas saídas do palco é o DISPLAY, não o Controle.**
+> `textActive` é estado dele; duplicar a leitura do outro lado é garantir que os
+> dois divirjam num domingo. Recebido o `media-clear`, ele escolhe entre
+> `clear-media` (o `fadeOutToBlack` do `stage.js`, exposto agora: esmaece o
+> conteúdo **sem tocar na cortina**) e o `clear` de sempre. A distinção não é
+> estética: o cartão de texto vive **por baixo** da cortina do stage — é a mesma
+> razão do `instantCover(false)` do ramo de `view` —, então um `clearFaded` com
+> texto em cena fecharia o wallpaper por cima do versículo que continua no ar.
+>
+> E o ramo do `media-clear` vem **antes** do bloco de `textActive` em
+> `display.js`. Lá dentro, `clear` é justamente o que chama `hideText`; cair no
+> fluxo comum faria o comando atravessar até um `stage.handle` que não o
+> conhece — sem erro, sem log, com o cronômetro saindo do ar e nada em lugar
+> nenhum que o explicasse. **OTA puro.** `tools/cena.test.mjs` trava o lado do
+> Controle e `tools/display-smoke.mjs` o do telão, que é o que roda na frente da
+> congregação.
+>
+> **A v5.177: A PREVIEW ESCONDIDA ESTAVA ROUBANDO O SOM DO ESPELHO.** O
+> operador relatou a tela da rede ficando muda com a imagem seguindo, e o
+> Registro trazia a causa na própria linha do tempo: pares
+> `📱 play [oculto]` / `📱 PAUSA ESPONTÂNEA [oculto]` a ~4 Hz. Aqueles `📱` são
+> a **preview do Controle**, não o telão. A v5.173 passou a escutar o
+> `espelho-status` — que é o certo, porque sem TV o espelho É a projeção — e com
+> isso `resyncPreviewToDisplay` começou a chamar `preview.play()` numa página
+> oculta; o Chromium pausa um `<video>` de página escondida, o status seguinte
+> chega 250 ms depois e recomeça. **Os três WebViews dividem UM processo**, e
+> essa rotatividade de decodificador rouba justamente o fio que alimenta o
+> `AudioWorklet` do espelho: do lado da tela da rede isso vence o
+> `AUDIO_MUDO_MS` e a faixa de som é solta. A regra que faltava é a outra metade
+> da que a v5.173 já escreveu para o atraso — **com a página escondida não se
+> toca no transporte da preview** (`preverPodeMexer`): um `play()` que o
+> navegador desfaz no quadro seguinte não é sincronização, é ruído, e quem
+> realinha é a retomada, que já é EXATA. Junto veio a metade que faltava do
+> outro lado: **`soltarAudio` era uma porta de mão única** — a tela ficava muda
+> até alguém atravessar o salão para tocar nela. Agora, com o AAC voltando a
+> chegar por 2 s seguidos, o cliente **remonta sozinho** (`voltouOSom`), preso
+> ao mesmo teto de `REBUILDS_AUDIO`, que só se renova depois de a remontagem ter
+> dado certo.
+>
+> **E a tela receptora ganhou DOIS ícones no lugar do botão único.** "Ver em
+> tela cheia e ouvir" juntava duas decisões que não são a mesma: a tela do
+> saguão quer imagem cheia e SILÊNCIO (a PA está a 200 ms dali), a da sala anexa
+> quer som — e quem descobria o eco não tinha como desfazer sem recarregar a
+> página. Agora são um alto-falante e uma moldura, na mesma anatomia dos
+> `.pv-fab` da preview (traço, sem moldura, contorno por `drop-shadow`), e eles
+> **se recolhem sozinhos** depois de 4 s, voltam com um toque e somem com o
+> toque seguinte — o player de sempre, com uma carência de 400 ms porque num
+> notebook o ponteiro se mexe ANTES do clique. **O que NÃO dá para tirar, e está
+> dito em vez de escondido: o PRIMEIRO toque.** `requestFullscreen()` e sair do
+> `muted` exigem ativação transitória do usuário. O que muda é que o toque passa
+> a ser NAQUILO que se quer — e, do segundo em diante, o ícone do som é um mudo
+> de verdade (`muted` no elemento, sem remontar nada e sem falar com o
+> servidor). O som segue **opt-in** (invariante 10): o ícone nasce riscado.
+>
+> **E no Cronograma o Parar toma o lugar de mover e favoritar.** O segundo toque
+> já tirava do ar desde a v5.165 e o selo "● No ar" já dizia o estado, mas a
+> direita da linha seguia oferecendo arrastar-para-reordenar e favoritar — as
+> duas coisas que ninguém quer fazer com o item que está na frente da
+> congregação, a milímetros do gesto que o operador está mirando. Trocá-los é o
+> que faz QUALQUER toque naquela linha significar a mesma coisa. A troca é por
+> **classe CSS** (`.lib-item.no-ar`), nunca remontando a linha: quem liga e
+> desliga o estado é o `marcarNoAr`, que roda a cada `display-status`. **OTA
+> puro** — nenhuma linha de Kotlin em todo o lote.
+>
+> **A v5.176: O CARTÃO DO ESPELHO SAIU DA BARRA DE STATUS, e quem passou a
+> avisar é o ÍCONE.** Pedido do operador, e ele tem uma parte que **não dá para
+> atender**: a notificação do `EspelhoService` não pode ser removida. Um serviço
+> em primeiro plano é obrigado a publicar uma (`startForeground` sem ela derruba
+> o app inteiro), e é justamente esse serviço que impede o Android de congelar o
+> processo com o app minimizado — isto é, o que mantém o espelho no ar durante o
+> culto. O que dá para fazer é tirá-la da frente: o canal foi para
+> **`IMPORTANCE_MIN`**, o degrau em que o Android não desenha ícone na barra de
+> status e recolhe a entrada para o bloco silencioso da gaveta, mais
+> `FOREGROUND_SERVICE_DEFERRED` (o sistema segura o cartão por ~10 s, então
+> ligar e desligar para testar não pisca nada). **O canal é um id NOVO
+> (`espelho2`), e tem de ser**: a importância pertence ao usuário depois de
+> criada, e `createNotificationChannel` sobre um canal existente ignora a
+> mudança em silêncio — sem trocar o id, a correção não chegaria a ninguém que
+> já tivesse usado o recurso. O fato subiu para onde o operador olha: o ícone de
+> conectar veste `.connected` — **a mesma classe, a mesma cor e o mesmo efeito
+> do telão** — quando há telas da rede recebendo, e a dica diz quantas. Uma
+> convenção só para um fato só. Metade APK (o canal), metade OTA (o ícone).
+>
+> **A v5.175: A SEÇÃO DE CONEXÃO FORA DO PADRÃO — e o token que não existia.**
+> Os DOIS botões principais da folha "Conectar uma tela" pediam
+> `var(--radius-md)`, um token que **nunca existiu nesta base**. Um `var()`
+> inválido sem fallback computa para o valor INICIAL da propriedade: eram os
+> únicos cantos retos de um app inteiro arredondado, na primeira tela do recurso
+> mais novo, e nada reclamou em lugar nenhum — mesma família do `setInteger`
+> numa chave `long` e do `bytes` esquecido no `bgProgress`. Agora há um oráculo
+> (`tools/tokens.test.mjs`, Node puro, **sem `continue-on-error`**) que varre a
+> base inteira, mais a asserção RENDERIZADA no `smoke.mjs`.
+>
+> **E a simplificação da v5.156→v5.171 tinha deixado sobras.** O que a revisão
+> achou, e o que ficou: `.mirror-mode` (o seletor imagem × vídeo, morto desde que
+> o modo imagem saiu) e `.mirror-hint` eram CSS órfão; `#mirrorRow` era um
+> `<span hidden>` — a antiga linha de Configurações — que o `renderEspelho`
+> ainda alimentava a cada leitura com uma frase de estado que ninguém via, e que
+> ainda servia de SENTINELA de existência para a folha inteira (um elemento de UI
+> morto como guarda é a pior forma de guarda: parece intencional e some no
+> primeiro `hidden` que alguém mexer); o ENDEREÇO tinha duas anatomias
+> (`.cast-addr`/`.cast-url` e `.mirror-addr`/`.mirror-url`, raios, tamanhos e
+> paddings diferentes) e aparecia nas DUAS folhas; e as telas conectadas eram
+> listadas duas vezes, também com anatomias diferentes. Agora: a folha de
+> conectar tem o endereço e quem está vendo; a de Ajustes tem o PIN, o
+> certificado, a porta e **só a fila de aprovação**. Mais os literais que viraram
+> token (`999px` → `--radius-pill`, `4px`/`2px` → rem). OTA puro.
+>
+> **A v5.174: "ATUAL" E "NO AR" ERAM A MESMA MARCA, e não são a mesma coisa.**
+> A lista tinha um contorno em accent só, e ele significava `currentId` — o item
+> ATUAL, aquele que o ▶ repete e que sobrevive de propósito ao Parar. Depois de
+> um Parar a linha continuava marcada com o telão vazio; e com uma cena de
+> roteiro sobre um louvor de fundo (duas camadas no ar ao mesmo tempo) só uma das
+> duas aparecia. Ou seja: a marca não respondia "o que está sendo projetado?",
+> que é justamente a pergunta que o segundo toque exige responder antes de ser
+> tocado. Agora são duas — `.active` (atual) e `.no-ar` (projetando) —, e a
+> segunda usa **o mesmo desenho de "no ar" do resto do app**, com o selo
+> **"● No ar"** prefixado ao subtítulo, exatamente como a referência do versículo
+> central da Bíblia. O par `midiaNoArId`/`cueNoArId` é o que torna isso possível:
+> `midiaNoAr` dizia que HAVIA mídia no ar e `currentId` dizia qual era o item
+> atual, e nenhum dos dois dizia QUAL mídia estava no telão. OTA puro.
+>
+> **A v5.173: A PREVIEW ERA A RÉGUA, e a régua era a coisa que se deformava.**
+> O operador relatou a preview voltando "completamente dessincronizada" depois
+> de minimizar e reabrir o app. A causa não estava na preview: estava em não
+> haver mais nada. **Sem TV conectada, o único emissor de `display-status` é o
+> `/display/` do espelho — e o dreno do papel `espelho` o calava.** Restava a
+> preview como fonte de tempo, e ela é o único dos três WebViews que o Android
+> estrangula quando o app sai da frente. O status do espelho passou a sair
+> RENOMEADO (`espelho-status`, para nada que espera "o telão" recebê-lo por
+> engano), o telão tem precedência sobre ele nos dois consumidores, e a preview
+> voltou a ser o que ela é: uma ILUSTRAÇÃO. Ver "A referência da preview". Junto
+> vieram as três regras do atraso — mirar `projeção − atraso` em vez da projeção
+> (senão o resync desfaz o atraso a 4 Hz), tolerância de 0,5 s em vez de 1,6 s
+> (a preview não tem som, um seek não estala nada) e **0,15 s ao retomar**, e a
+> fila da preview deixou de atrasar com a página escondida. **É OTA puro** para
+> a sincronização — o `MessageBus` relaia qualquer tipo, então o bundle novo
+> conserta a preview num shell antigo; só a **notificação de mídia** (que também
+> congelava, e pelo mesmo motivo) precisa do APK.
+>
+> **E o SEGUNDO TOQUE do Cronograma passou a existir de verdade.** A v5.165
+> anunciou "tocar de novo no que está no ar = tirar do ar" e ele não funcionava,
+> por **três** motivos empilhados, todos silenciosos: (1) `retirarDoAr` chamava
+> só `clearManualText()`, que é BOOKKEEPING — ele zera a sessão e **não manda um
+> único comando ao telão**; o versículo continuava projetado. Faltava o
+> `text-hide`, que é o mesmo "tirar do ar" da Bíblia e da Mensagem e é
+> justamente o que o `clear` não é (o louvor de fundo segue tocando). (2) A
+> pergunta "está no ar?" era `item.id === currentId`, e `currentId` é o ÚLTIMO
+> item enviado: no instante em que o operador põe uma música por baixo do
+> versículo — o caso que justifica o recurso —, ele deixa de apontar para a
+> cena. Agora quem responde é `cueNoArId`. (3) `projetarMensagemCue` projetava o
+> texto guardado **sem sessão nenhuma** quando a mensagem original tinha sido
+> apagada, e uma cena sem sessão é invisível para todo o resto do app. O realce
+> da lista passou a marcar as DUAS camadas que podem estar no ar ao mesmo tempo,
+> porque marcar uma só escondia justamente a linha em que o toque tem efeito.
+> OTA puro.
+>
+> **A v5.172: A PORTA ABERTA NUNCA ABRIU — e mais sete.** O operador relatou o
+> espelho "funcionando, mas sem estabilidade nem confiabilidade na conexão", e a
+> revisão linha a linha achou **oito** defeitos. O primeiro explica sozinho a
+> maior parte da queixa: o `cliente.js` pedia a entrada assim que a página
+> abria — um `POST /par` com o relato e mais nada —, e o `when` do
+> `EspelhoServidor.parear` **não tinha ramo para esse corpo**. Caía no
+> `else -> 403`. A porta que a v5.170 anunciou e em volta da qual a v5.171
+> construiu a folha inteira nunca chegou a existir; e o custo maior não era o
+> atrito da estreia, era a RECUPERAÇÃO — toda queda de rede, toda religada do
+> espelho e toda expiração de token devolvem a tela ao pareamento, onde ela
+> ficava mostrando um QR que ninguém ia ler até alguém atravessar o salão.
+> Os outros sete, com o porquê de cada um, estão em
+> `docs/ESPELHO-DE-PIXELS.md` §10-A.10; os que mudam decisões deste documento:
+> **três recomeços trancavam o espelho por seis horas** (uma sessão só saía de
+> `vivas` por `encerrar`, `recusar` ou o prazo, e uma aba nova pede token novo —
+> agora a vaga OCIOSA é reaproveitada, o que só faz sessão morrer mais cedo e
+> deixa a invariante 3 intacta); **"Desconectar" era um botão que não fazia
+> nada** (a folha manda o RÓTULO da tela e ele ia parar num `recusar` que
+> procura id de espera — nunca casava, e um rótulo vazio ainda fechava a porta);
+> **o teto de conexões em voo contava os FLUXOS** (três telas ocupavam três dos
+> oito slots para sempre, e um navegador abre até seis conexões paralelas só
+> para carregar a página — a segunda tela a abrir o endereço já era recusada);
+> **nenhum dos dois lados detectava um TCP meio-aberto** (o `fetch` de `/v` fica
+> pendurado para sempre — nem `done`, nem erro —, e do lado do servidor a
+> escrita não trava enquanto o buffer do kernel couber); **uma oscilação da rede
+> PADRÃO derrubava o espelho inteiro** (`registerDefaultNetworkCallback` fala da
+> rede padrão, que pisca para a móvel numa revalidação da Wi-Fi — agora suspeita
+> não é veredito: o vigia confirma 6 s depois); e **o adeus era uma sentença**
+> (a página ficava morta até alguém recarregá-la à mão; agora ela volta a
+> oferecer entrada sozinha em 20 s). **Metade é APK e metade é OTA**, e as duas
+> degradam sozinhas: um bundle novo num shell antigo volta ao QR, e um bundle
+> antigo num shell novo entra pela porta assim mesmo, porque o corpo nu vale
+> como pedido. `SHELL_VERSION` **não sobe** — nenhum método da ponte nasceu nem
+> mudou de assinatura.
+>
 > **A v5.171: a folha de conectar vira UM DEGRAU.** Eram três (cast → espelho →
 > QR) para ler uma linha de texto. Agora **abrir a folha já liga o servidor**
 > (ninguém abre "Conectar uma tela" para não conectar, e a ordem "primeiro
@@ -2448,7 +5775,11 @@ controles), que **só chegam instalando o APK novo**, não pelo OTA.
 > ele que deixa o ▶ repetir o item, e quem responde "há algo no telão?" é
 > `midiaNoAr`. OTA puro.
 >
-> **A v5.164 dá um NOME ao espelho: `av.local`.** Dois arquivos novos —
+> **A v5.164 dá um NOME ao espelho: `av.local`. REVOGADA na v5.185** — o
+> responder inteiro saiu, porque `.local` não resolve no Chrome do Android nem
+> na maioria das Smart TVs, que são exatamente as telas deste recurso. O texto
+> abaixo fica pelo que ele ensina (a allowlist de `Host`, o `MulticastLock`, o
+> porquê de o `NsdManager` não servir). Dois arquivos novos —
 > `EspelhoMdnsPacote.kt` (**puro**, com JUnit, porque é o segundo ponto do
 > projeto que aceita bytes de um desconhecido, e aqui um erro vira **laço
 > infinito**: ponteiro de compressão de DNS é um grafo) e `EspelhoMdns.kt` (o

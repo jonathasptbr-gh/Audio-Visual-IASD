@@ -132,8 +132,16 @@ object WebViewFactory {
         keepVisible: Boolean = false,
         onRendererGone: (() -> Unit)? = null,
     ): WebView {
-        // SEMPRE a subclasse: o Controle também precisa poder manter-se vivo,
-        // sob demanda, quando a mesa de som está ligada.
+        // SEMPRE a subclasse, e hoje isso é uniformidade e não capacidade.
+        //
+        // O motivo original era a "mesa de som" — o modo em que o celular ERA a
+        // caixa de som e o WebView do CONTROLE não podia ser suspenso —, e ele
+        // saiu na v5.189 com o modo inteiro. Desde então `manterVisivel` só é
+        // escrito por este `keepVisible`, isto é, **só o telão**, exatamente
+        // como o KDoc do parâmetro já dizia. Com `false` a subclasse repassa o
+        // valor real de visibilidade e é indistinguível de um `WebView` comum,
+        // então construí-la aqui não muda comportamento nenhum: o que se ganha
+        // é um caminho de construção só.
         val web = KeepVisibleWebView(ctx).apply { manterVisivel = keepVisible }
         if (keepVisible) {
             // O renderer do telão NÃO pode ser rebaixado quando o app sai da
