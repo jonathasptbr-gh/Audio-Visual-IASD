@@ -2981,12 +2981,12 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.259** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.260** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
-> **A v5.259: A FOLHA PASSA A SER A FAIXA VISÍVEL — a barra de busca desceu na
+> **A v5.260: A FOLHA PASSA A SER A FAIXA VISÍVEL — a barra de busca desceu na
 > v5.258 e foi parar ATRÁS do teclado. OTA PURO** (nenhuma linha de Kotlin; sem
 > Release).
 >
@@ -3064,6 +3064,50 @@ controles), que **só chegam instalando o APK novo**, não pelo OTA.
 > `body` faça.** Toda vez que este app aprender alguma coisa sobre onde a tela
 > realmente está, as camadas fixas precisam ser avisadas à parte — e elas são
 > justamente as que hospedam os campos de texto.
+
+> **A v5.259: O PARAR VAI PARA A CAPA, e a faixa de ações para de cortar a
+> miniatura e de deixar o título aparecer atrás dela. OTA PURO** (nenhuma linha
+> de Kotlin; sem Release).
+>
+> Cinco correções do MESMO relato — a linha da v5.258 em uso de verdade —, e
+> quatro delas são de pixel porque foi em pixel que ele as viu.
+>
+> - **"O Parar deve ficar na própria thumbnail do item."** Ele nasceu na
+>   fileira da direita (v5.177) e passou uma versão dentro do `⋮` (v5.258); os
+>   dois lugares erram a mesma coisa. Enquanto a linha está no ar, tirá-la de
+>   lá é a ÚNICA decisão que ela oferece — e ela ficava atrás de um toque, ou
+>   disputando espaço com ações que ninguém quer ali. Na capa o alvo é o
+>   quadrado inteiro, não custa um pixel do nome, e fica sobre a única parte da
+>   linha que já dizia "é este item" — que, com a mídia no ar, é literalmente o
+>   que está projetado. **Nos Favoritos ele nem existia**, e era ali que o
+>   operador estava olhando: aquela lista mostrava "● No ar" e não oferecia
+>   nada que tirasse do ar.
+> - **A faixa CORTAVA a miniatura.** Ela partia de `--hit` (34px) onde quem
+>   ocupa o canto esquerdo é a capa (40px): comia 6px dela. A conta agora sai da
+>   mesma medida nos dois lados.
+> - **E o título aparecia ATRÁS dos botões.** `background: inherit` copia o
+>   VALOR do fundo da linha, e o valor de uma linha no ar é `--live-soft`, **que
+>   tem alfa .22** — a faixa pintava vermelho translúcido por cima do nome.
+>   Agora a base é opaca e o estado entra como CAMADA, que é exatamente como a
+>   `.row` se pinta. **A lição é a mesma da v5.192, num lugar novo: `inherit` de
+>   um valor com alfa não herda a APARÊNCIA, ele repete a tinta.**
+> - **A mira falhava** (*"acabando tocando no corpo do item e não nos botões"*).
+>   A miniatura media 40px e os botões vizinhos 34px — dois quadrados lado a
+>   lado com 6px de diferença que ninguém decidiu, e o alvo no PISO do app
+>   justamente na lista mais densa que ele tem. `--thumb` é uma medida só para a
+>   capa, os botões da linha e o `⋮` — e é ela que a faixa usa nas duas bordas,
+>   porque são as mesmas colunas: errar uma é errar a outra, que foi o defeito
+>   de cima. A linha não ficou um pixel mais alta (quem dita a altura é a capa).
+> - **O toque encolhia o MIOLO, não o cartão.** `transform` na `.row`, dentro de
+>   um `.lib-item` que é quem tem a BORDA: enquanto ela é transparente dá no
+>   mesmo, com ela visível (no ar, atual, selecionada) o miolo se afastava de
+>   uma moldura parada e abria uma fresta dos dois lados — *"as margens esquerda
+>   e direita ficam estranhas"*. Agora encolhe a peça inteira.
+>
+> Nove asserções novas, e as nove reprovam contra o código anterior (verificado):
+> a geometria e o feedback no `smoke.mjs`, o Parar na capa no `cena.test.mjs`, e
+> no `boot-nativo.test.mjs` o caso dos FAVORITOS — que é onde o relato nasceu e
+> onde o botão não existia.
 
 > **A v5.258: A LINHA FICA COM UM BOTÃO SÓ — o `⋮` — e a Biblioteca perde o
 > "baixar tudo" e ganha a busca na BASE. OTA PURO** (nenhuma linha de Kotlin;

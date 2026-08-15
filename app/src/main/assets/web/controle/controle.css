@@ -79,6 +79,17 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   --hit: 34px;
   --hit-nav: 38px;
   --hit-foot: 44px;
+  /* ---------- A CAIXA DA LINHA DE LISTA (v5.259) ----------
+     A miniatura media 40px e os botões da mesma linha, 34px — dois quadrados
+     lado a lado, com 6px de diferença, sem que nada dissesse por quê. Pior
+     que a assimetria era o alvo: o relato do operador foi "estou sentindo
+     muita falha, acabando tocando no corpo do item e não nos botões", e numa
+     lista densa 34px é justamente o piso, não a medida confortável.
+     Agora é UMA medida para as duas coisas — a miniatura, os botões da linha e
+     o `⋮` —, e é ela que a faixa de ações usa nas suas duas bordas: são as
+     mesmas colunas, então errar uma é errar a outra (foi o que fez a faixa
+     cortar a capa até aqui). `--hit` continua sendo o piso do resto do app. */
+  --thumb: 40px;
 
   /* Altura da faixa da preview na grade do .deck. É token porque a largura da
      preview é calculada a partir dela (altura × proporção do telão) — se as
@@ -248,7 +259,17 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    acima). Se o seletor de espelhamento demorasse a abrir, ele tocava de novo.
    `.mic-btn` e `.display-status` seguem FORA de propósito: o microfone tem
    feedback próprio (vira vermelho pulsante no pointerdown, e um `transform`
-   junto brigaria com a animação) e o indicador do telão é `disabled` no app. */
+   junto brigaria com a animação) e o indicador do telão é `disabled` no app.
+
+   NA LISTA QUEM ENCOLHE É O CARTÃO INTEIRO, não a `.row` de dentro (v5.259).
+   Eram a mesma coisa enquanto a borda do cartão era transparente; com ela
+   VISÍVEL — `.no-ar` (vermelho), `.active`/`.selected` (accent) — o miolo se
+   afastava de uma moldura parada e abria uma fresta de fundo dos dois lados.
+   Foi o relato do operador: "as margens esquerda e direita ficam estranhas
+   quando está no modo sinalizado de no ar". Encolher a peça inteira mantém a
+   mesma linguagem de toque do app inteiro e não separa nada do que a compõe.
+   (`:active` alcança os ancestrais, então tocar num botão de dentro sempre
+   encolheu a linha junto — isto não muda, só passa a incluir a borda.) */
 :is(
   .ctl-btn, .t-btn, .pv-fab, .settings-btn,
   .tab, .tab-add, .import-btn, .back-btn, .sel-btn,
@@ -257,7 +278,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   .bible-cell, .bible-ref-part, .bible-vsec, .bible-ver-row,
   .hymn-row, .hymn-play-thumb, .song-menu-btn, .msg-add-btn, .msg-item,
   .misc-tab, .misc-seg, .misc-chip, .chrono-btn, .misc-project, .draw-go,
-  .fit-opt, .dialog-btn, .lib-item .row, .coll-group-acao,
+  .fit-opt, .dialog-btn, .lib-item, .coll-group-acao,
   .cue-save-btn, .pl-pack, .yt-search-btn, .log-copy,
   .simple-key, .simple-action, .simple-key--big, .simple-key--vol
 ):active { transform: var(--press); }
@@ -1131,6 +1152,15 @@ main {
   display: flex; align-items: center; justify-content: center; cursor: pointer;
   appearance: none; -webkit-appearance: none;
 }
+/* ---------- E DENTRO DE UMA LINHA DE LISTA ELE MEDE A MINIATURA (v5.259) ----
+   Mesma caixa da capa (`--thumb`), pela razão do token: dois quadrados lado a
+   lado com 6px de diferença, e um alvo no PISO do app justamente na lista mais
+   densa que ele tem — o relato foi tocar no corpo do item em vez do botão.
+   Vale para os botões que vivem na linha, nas duas listas, e para o `⋮`. A
+   linha não fica um pixel mais alta: quem já ditava a altura era a capa. */
+.lib-item :is(.row-btn, .row-handle) {
+  width: var(--thumb); height: var(--thumb);
+}
 /* ---------- A engrenagem do Modo Fácil (v5.250) ----------
    Ela tomou o lugar do último `.mode-switch` do app — o "Modo avançado" daquele
    cabeçalho —, e com ele saiu a classe inteira: a troca de modo passou a morar
@@ -1541,15 +1571,29 @@ main {
    `marcarNoAr`, que roda a cada `display-status` (~4 Hz) e só mexe em classes —
    remontar botões nesse ritmo perderia listeners e trabalho à toa.
 
-   `.row-stop` herda `.row-btn` (o quadrado de ação das listas) e só troca a
-   cor: aqui ele é a AÇÃO destrutiva da linha, e a convenção do app para isso é
-   contornado em `--danger-text`, nunca preenchido — preenchido é "está no ar",
-   e é o que a própria linha já está dizendo em volta dele. */
-.row-stop { display: none; color: var(--danger-text); }
+   ELE MORA NA MINIATURA desde a v5.259 (pedido do operador). Os dois lugares
+   anteriores — a fileira da direita (v5.177) e o menu `⋮` (v5.258) — erravam a
+   mesma coisa: enquanto a linha está no ar, tirá-la de lá é a única decisão que
+   ela oferece, e ela ficava atrás de um toque ou disputando espaço com ações
+   que ninguém quer ali. Na miniatura o alvo é o quadrado inteiro (`--thumb`,
+   40px, contra os 34px de um botão de fileira), não custa um pixel do nome, e
+   fica sobre a única parte da linha que já dizia "é este item" — a capa, que
+   com a mídia no ar é exatamente o que está projetado.
+
+   O véu escuro por baixo do glifo não é enfeite: a capa pode ser clara, e o
+   `--danger-text` sobre uma foto de céu azul seria ilegível. Ele é preto a 55%,
+   o que devolve o contraste da mesma tinta que a linha usa em volta. */
+.row-stop {
+  display: none; position: absolute; inset: 0;
+  align-items: center; justify-content: center;
+  border: 0; padding: 0; border-radius: inherit;
+  background: rgba(0, 0, 0, .55); color: var(--danger-text);
+}
+.row-stop .msym { font-size: var(--icon-lg); }
 .lib-item.no-ar .row-stop { display: flex; }
 /* (As regras que ESCONDIAM a alça e a estrela na linha no ar saíram na v5.258:
-   os três moram dentro do menu `⋮` agora, e lá não há disputa de lugar — o
-   Parar simplesmente se junta aos outros quando a linha está no ar.) */
+   os outros três moram dentro do menu `⋮` agora, e lá não há disputa de
+   lugar.) */
 /* Na seleção múltipla nada disso vale: o alvo é o conjunto, e a linha volta a
    ser uma caixa de escolha. (O JS já não põe `.no-ar` ali — cinto e
    suspensório, como a regra de cima.) */
@@ -1562,30 +1606,44 @@ main {
 
    A caixa é ABSOLUTA sobre a `.row` (que já é `position: relative`) e vai da
    miniatura até o `⋮`: a thumb fica de fora de propósito — com o nome coberto,
-   ela é a única coisa que ainda diz de QUAL linha é este menu.
+   ela é a única coisa que ainda diz de QUAL linha é este menu. **A conta dela
+   estava errada até a v5.259**: ela partia de `--hit` (34px) onde quem ocupa o
+   canto esquerdo é a MINIATURA (`--thumb`, 40px), e o resultado era a faixa
+   comendo 6px da capa — o relato "ele corta a thumbnail".
 
-   `background: inherit` e não um token: a `.row` muda de fundo em quatro
-   estados (normal, atual/selecionada, no ar), e escrever o valor aqui seria
-   uma quinta cópia para divergir na próxima cor. Herdando, a faixa é sempre
-   exatamente a linha que ela cobre.
+   O FUNDO É COMPOSTO, e isto também é v5.259. Era `background: inherit`, com o
+   argumento de não copiar a cor da linha em cinco estados; só que `inherit`
+   copia o VALOR, e o valor de uma linha no ar é `--live-soft`, que tem alfa
+   .22 — a faixa pintava um vermelho translúcido POR CIMA do título, que
+   continuava legível atrás dos botões. Foi o relato, e nos favoritos era onde
+   se via, porque é a lista em que a linha no ar mais aparece. Agora a base é
+   opaca (`--panel`) e o estado entra como CAMADA por cima dela, que é
+   exatamente como a `.row` se pinta.
 
    Fechada ela é `visibility: hidden` — e não `display: none` — para a
    transição de opacidade existir; `visibility` já tira os botões do toque, do
    foco e do leitor de tela. */
 .row-acoes {
   position: absolute; top: 0; bottom: 0;
-  /* As duas medidas saem da própria linha, e é por isso que elas têm esta
-     forma: a `.row` tem `padding: .35rem .5rem` e `gap: .5rem`, então o `⋮`
-     ocupa `--hit` a `.5rem` da borda e o vizinho dele começa outros `.5rem`
-     antes — daí o `1rem` somado. À esquerda a conta é a mesma contra a
-     miniatura, que é a única coisa que fica de fora. */
-  left: calc(var(--hit) + .5rem);
-  right: calc(var(--hit) + 1rem);
-  display: flex; align-items: center; justify-content: flex-end; gap: .3rem;
-  padding-right: .3rem;
-  background: inherit;
+  /* As duas medidas saem da própria linha: a `.row` tem `padding: .35rem .5rem`
+     e `gap: .5rem`. À direita o `⋮` ocupa `--thumb` a `.5rem` da borda e o
+     vizinho dele começa outros `.5rem` antes — daí o `1rem` somado. À esquerda
+     a conta é contra a MINIATURA, que tem a mesma caixa e é a única coisa que
+     fica de fora. */
+  left: calc(var(--thumb) + 1rem);
+  right: calc(var(--thumb) + 1rem);
+  display: flex; align-items: center; justify-content: flex-end; gap: .35rem;
+  background: var(--panel);
   opacity: 0; visibility: hidden;
   transition: opacity .14s ease;
+}
+.lib-item.selected .row-acoes, .lib-item.active .row-acoes,
+.row-item.active .row-acoes { background: var(--panel-2); }
+/* O estado "no ar" é uma CAMADA sobre a base opaca — o mesmo empilhamento da
+   `.row` (painel + `--live-soft`), obtido com um gradiente de uma cor só, que é
+   como se pinta uma camada de cor lisa em CSS. */
+.lib-item.no-ar .row-acoes {
+  background-image: linear-gradient(var(--live-soft), var(--live-soft));
 }
 .lib-item.acoes-abertas .row-acoes { opacity: 1; visibility: visible; }
 /* O `⋮` é o único botão que fica na linha, e ele é DISCRETO: não é uma ação,
@@ -1599,7 +1657,9 @@ main {
    Era #060606 literal — mais escuro que o próprio fundo do app e fora de
    qualquer escala, então um ajuste de `--bg` deixaria a miniatura vazia
    destoando de tudo. */
-.thumb { width: 40px; height: 40px; flex-shrink: 0; border-radius: var(--radius-btn); overflow: hidden; background: var(--bg); display: flex; align-items: center; justify-content: center; }
+/* `position: relative` porque ela hospeda duas coisas por cima: o anel de
+   download (`.baixando`) e, desde a v5.259, o "Tirar do ar". */
+.thumb { position: relative; width: var(--thumb); height: var(--thumb); flex-shrink: 0; border-radius: var(--radius-btn); overflow: hidden; background: var(--bg); display: flex; align-items: center; justify-content: center; }
 .thumb--icon .msym { font-size: var(--icon-lg); color: var(--muted); }
 
 /* NOME + SUBTÍTULO, numa coluna (v5.118).
@@ -3119,7 +3179,7 @@ main {
 /* Barra de busca do Hinário ocupando toda a largura da bandeja: display:flex faz
    o input (.lib-search, flex:1) esticar de lado a lado (sem isso o input ficava
    no tamanho nativo, pequeno). Campo mais alto/legível que o de busca da pasta. */
-/* ---------- A BARRA DE BAIXO DA BIBLIOTECA (v5.258/v5.259) ----------
+/* ---------- A BARRA DE BAIXO DA BIBLIOTECA (v5.258/v5.260) ----------
    Ela era a faixa logo abaixo do cabeçalho, e o ✕ ficava no cabeçalho: as duas
    coisas que se toca o tempo todo nesta tela, no canto mais distante do polegar
    e a uma tela de rolagem do teclado que a própria busca abre. Agora as duas
