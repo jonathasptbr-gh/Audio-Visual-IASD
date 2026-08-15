@@ -209,7 +209,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.240';
+const WEB_VERSION = '5.241';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -6856,10 +6856,26 @@ function buildCollectionOptions(coll, collOptsEl) {
     // (`--p`, abaixo), que se lê sem ler.
     estado.textContent = '';
   } else if (ehSerie(coll)) {
-    estado.textContent = total ? total + ' episódios' : 'sem lista';
+    // A série não baixa por desenho, então não há fração: o número que importa
+    // é quantos episódios a lista tem. Sem a palavra ao lado — o rótulo do
+    // botão ("Atualizar a lista") já diz de que lista se trata.
+    estado.textContent = total ? String(total) : '';
   } else {
-    estado.textContent = complete ? '✓ completo'
-      : (total > 0 ? downloaded + '/' + total : 'sem lista');
+    // **SÓ A FRAÇÃO** (v5.241, pedido do operador: *"utilize apenas a fração
+    // limpa, sem o texto de completo que hoje tem uma grafia e design
+    // completamente diferente do padrão do app"*).
+    //
+    // Ele está certo por duas réguas de uma vez. "✓ completo" trazia um glifo
+    // que não é da fonte de ícones do app e uma palavra em caixa baixa no meio
+    // de uma linha de números; e ele dizia, por extenso, exatamente o que
+    // "24/24" já diz — com a cor verde ao lado dizendo a mesma coisa pela
+    // terceira vez. Quem carrega o estado neste app é a COR, e o texto fica com
+    // o que a cor não sabe dizer: quanto falta.
+    //
+    // Sem índice não há fração, e um "sem lista" seria repor o texto que acabou
+    // de sair: o botão ao lado já diz "Baixar", e um botão de baixar num álbum
+    // vazio é a própria mensagem.
+    estado.textContent = total > 0 ? downloaded + '/' + total : '';
   }
   if (estado.textContent) syncBtn.appendChild(estado);
 

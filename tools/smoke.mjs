@@ -772,6 +772,79 @@ try {
   checar(false, 'a medição da linha da faixa terminou sem exceção (' + (e && e.message) + ')');
 }
 
+// ── A ESCALA DE TONS DA BIBLIOTECA (v5.241) ──────────────────────────────
+// Relato do operador: *"todo o esquema de cores e design está inconsistente"*
+// nas coleções colapsadas, nos álbuns e nos itens do álbum.
+//
+// Medido no escuro, do fundo para dentro: folha 44 → barra de seção FECHADA ~69
+// → a mesma barra ABERTA 44 → card do álbum 59 → faixa 44. Subia, descia,
+// subia e descia, em cinco níveis aninhados.
+//
+// O que este caso trava são as três metades da regra, e nenhuma sozinha basta:
+// a barra de seção não troca de cor com o estado; contêiner é UM tom só (a
+// barra e o card do álbum); e a faixa não tem caixa. E trava nos DOIS TEMAS,
+// porque a causa raiz era justamente uma direção que se invertia entre eles.
+for (const tema of ['escuro', 'claro']) {
+  try {
+    const t = await pg.evaluate(async (tema) => {
+      document.documentElement.setAttribute('data-tema', tema);
+      setAppMode('full');
+      const c = allCollections().find((x) => x.kind === 'hymnal');
+      const songs = [];
+      for (let i = 1; i <= 3; i++) {
+        songs.push({ id_music: 'n' + i, name: 'Hino ' + i, track: i,
+          has_instrumental_music: false, duration: '3:47' });
+      }
+      collState[c.id] = { indexSyncedAt: Date.now(), songs, isHymnal: true };
+      gruposAbertos.clear(); gruposAbertos.add('Hinários'); gruposAbertos.add('Hinários e séries');
+      ui(c.id).expanded = true; ui(c.id).shown = 100;
+      const lista = document.createElement('ul');
+      lista.className = 'hymnal-list';
+      lista.style.width = '390px';
+      document.body.appendChild(lista);
+      renderCollectionsList(lista, () => {}, { semTotal: true });
+      const bg = (sel) => {
+        const el = lista.querySelector(sel);
+        return el ? getComputedStyle(el).backgroundColor : 'AUSENTE';
+      };
+      // A barra FECHADA precisa de um segundo grupo, que este não abriu.
+      const fechada = (() => {
+        const g = [...lista.querySelectorAll('.coll-group--drop:not(.aberto) > .coll-group-bar')];
+        return g.length ? getComputedStyle(g[0]).backgroundColor : null;
+      })();
+      const r = {
+        barraAberta: bg('.coll-group--drop.aberto > .coll-group-bar'),
+        barraFechada: fechada,
+        card: bg('.hymnal-card'),
+        faixa: bg('.coll-songs > .hymn-result'),
+        faixaRow: bg('.coll-songs > .hymn-result > .hymn-row'),
+        temCaixa: (() => {
+          const el = lista.querySelector('.coll-songs > .hymn-result');
+          if (!el) return true;
+          const cs = getComputedStyle(el);
+          return parseFloat(cs.borderRadius) > 0 || parseFloat(cs.borderTopWidth) > 1;
+        })(),
+      };
+      lista.remove(); delete collState[c.id]; gruposAbertos.clear();
+      document.documentElement.setAttribute('data-tema', 'escuro');
+      return r;
+    }, tema);
+    const transparente = (v) => /rgba\(0, 0, 0, 0\)/.test(v) || v === 'transparent';
+    checar(t.barraFechada === null || t.barraFechada === t.barraAberta,
+      '[' + tema + '] a barra de seção tem UM fundo só, aberta ou fechada — a peça '
+      + 'não troca de cor com o estado (' + t.barraAberta + ')');
+    checar(t.card === t.barraAberta,
+      '[' + tema + '] e o card do álbum usa o MESMO tom de contêiner que ela ('
+      + t.card + ')');
+    checar(transparente(t.faixa) && transparente(t.faixaRow) && !t.temCaixa,
+      '[' + tema + '] a faixa dentro do álbum é uma LINHA, não uma terceira caixa '
+      + 'aninhada (' + t.faixa + ')');
+  } catch (e) {
+    checar(false, 'a medição da escala de tons (' + tema + ') terminou sem exceção ('
+      + (e && e.message) + ')');
+  }
+}
+
 checar(erros.length === 0, 'nenhum erro de console' + (erros.length ? ':\n        ' + erros.join('\n        ') : ''));
 
 await navegador.close();

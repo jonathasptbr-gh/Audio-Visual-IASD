@@ -1719,12 +1719,18 @@ main {
 .hymnal-card {
   flex-shrink: 0;
   border-radius: var(--radius-card);
-  /* `--panel-2`, e não `--panel`: o acervo mora DENTRO da folha do popup, que já
-     é `--panel` — um cartão da mesma cor do que está atrás dele simplesmente
-     não existe aos olhos, e sem a moldura era só isso que sobrava. Um degrau
-     acima o cartão volta a ter corpo, e as músicas dentro dele (que são
-     `--panel`) passam a se ler como recessos, na mesma direção que o resto do
-     app usa. */
+  /* `--panel-2` = o tom de CONTÊINER da Biblioteca, o mesmo da barra de seção
+     (ver "A escala de tons", acima). A folha do popup é `--panel`: um cartão da
+     mesma cor do que está atrás dele não existe aos olhos.
+
+     A segunda metade do comentário antigo estava ERRADA nos dois temas, e era
+     ela que sustentava a faixa como caixa: "as músicas dentro dele (que são
+     `--panel`) passam a se ler como recessos". No escuro, `--panel` (44) sobre
+     `--panel-2` (59) de fato afunda; no CLARO, `--panel` é branco puro (255)
+     sobre 222 — ele ELEVA. A mesma declaração produzia direções opostas nos
+     dois temas, que é a lição da v5.192 aplicada ao aninhamento: **direção só
+     se preserva por overlay, nunca por token opaco.** Hoje a faixa não tem
+     caixa nenhuma. */
   background: var(--panel-2);
   padding: .55rem .7rem;
 }
@@ -1782,19 +1788,45 @@ main {
    logo abaixo dele. Sem isso, uma lista fechada seria uma pilha de rótulos que
    não se anunciam como tocáveis — e é justamente esse o único gesto da tela. */
 .coll-group--drop { display: block; padding: .45rem .2rem 0; }
+/* ---------- A ESCALA DE TONS DA BIBLIOTECA (v5.241) ----------
+   Relato do operador: *"todo o esquema de cores e design está inconsistente"*
+   nas coleções colapsadas, nos álbuns e nos itens do álbum.
+
+   Medido, no tema escuro, do fundo para dentro: a folha do popup era 44,52,60;
+   a barra de seção FECHADA compunha ~69,76,84 (o objeto mais claro da tela,
+   sendo o contêiner mais externo); a mesma barra ABERTA virava 44,52,60 (a cor
+   da folha, isto é, a peça trocava de cor conforme o estado); o card do álbum
+   dentro dela, 59,69,80; e a faixa dentro do card, 44,52,60 de novo. A elevação
+   subia, descia, subia e descia — 44 → 69 → 44 → 59 → 44 — em cinco níveis
+   aninhados. Não havia regra a aprender, e é isso que "imprevisível" quer
+   dizer.
+
+   A REGRA, uma só e verificável: **dentro da folha há DOIS tons, e o
+   aninhamento nunca inverte a direção.** `--panel-2` é o tom de CONTÊINER (a
+   barra da seção e o card do álbum — ele é o degrau de separação da folha, e o
+   token já muda de direção sozinho entre os temas: mais claro no escuro, mais
+   escuro no claro). Dentro de um contêiner, o conteúdo não ganha caixa
+   nenhuma: a faixa é uma LINHA, separada por filete. Estado (aberto, no ar,
+   selecionado) é overlay, nunca um tom novo.
+
+   Por que dois tons e não uma escada de quatro: só o overlay (`--surface-sunk`)
+   preserva a direção nos dois temas, e uma escada de overlays levaria o nível
+   mais interno a 180 no claro — mais escuro que a própria página. Dois tons
+   fecham a conta nos dois temas com a mesma regra. */
 .coll-group-bar {
   display: flex; align-items: center; gap: .5rem;
   padding: .5rem .35rem .5rem .6rem;
   min-height: var(--hit);
   border: 1px solid var(--line); border-radius: var(--radius-btn);
-  background: var(--surface); cursor: pointer;
+  background: var(--panel-2); cursor: pointer;
 }
-/* Aberto, o cabeçalho encosta no corpo: os cantos de baixo somem e a cor de
-   fundo passa a dizer "isto está aberto" — a mesma gramática do card. */
+/* Aberto, o cabeçalho encosta no corpo: os cantos de baixo somem. A COR NÃO
+   MUDA — quem diz "isto está aberto" é a seta e o corpo que apareceu, e trocar
+   o fundo da mesma peça entre dois estados era metade da inconsistência
+   medida. */
 .coll-group--drop.aberto > .coll-group-bar {
   border-bottom-left-radius: 0; border-bottom-right-radius: 0;
   border-bottom-color: transparent;
-  background: var(--panel);
 }
 /* A SETA APONTA PARA ONDE O TOQUE LEVA: para baixo quando fechado ("abre"),
    para cima quando aberto ("fecha"). O desenho é o mesmo `chevronUpIconSvg` do
@@ -1833,6 +1865,11 @@ main {
   display: flex; flex-direction: column;
   overflow: hidden;
 }
+/* O CORPO É O POÇO, não um terceiro tom: ele fica com a cor da folha e fecha a
+   moldura que a barra abriu. Barra (contêiner) + poço (folha) formam UMA caixa,
+   e o que está dentro do poço — o card do álbum, as linhas de favorito — volta
+   ao tom de contêiner. É a alternância de dois tons descrita em "A escala de
+   tons"; um fundo próprio aqui seria o terceiro. */
 .coll-group--drop.aberto > .coll-group-corpo {
   border: 1px solid var(--line); border-top: none;
   border-bottom-left-radius: var(--radius-btn); border-bottom-right-radius: var(--radius-btn);
@@ -1943,8 +1980,26 @@ main {
    rola é o pior jeito de folhear. */
 .coll-songs {
   list-style: none; margin: .4rem -.7rem 0; padding: .4rem .7rem 0;
-  display: flex; flex-direction: column; gap: .25rem;
+  display: flex; flex-direction: column;
 }
+/* A FAIXA É UMA LINHA, NÃO UMA CAIXA (v5.241). Ela era um `.lib-item` completo
+   — fundo próprio, raio de 10px e uma borda de 2px transparente — empilhado
+   dentro de um cartão que já é uma caixa, dentro de uma seção que é outra. Três
+   caixas arredondadas aninhadas, e a de dentro com a cor da folha que está
+   três níveis acima.
+   O que separa uma faixa da seguinte passa a ser o filete que separa qualquer
+   lista deste app. Fundo só quando há ESTADO — e aí ele é overlay. */
+.coll-songs > .hymn-result {
+  background: none; border: none; border-radius: 0;
+}
+.coll-songs > .hymn-result + .hymn-result { border-top: 1px solid var(--line); }
+.coll-songs > .hymn-result > .hymn-row { background: none; }
+/* Aberta, a faixa AFUNDA dentro do cartão (overlay: mesma direção nos dois
+   temas) e o filete de cima some, para a gaveta e a linha lerem como um bloco
+   só. */
+.coll-songs > .hymn-result.expanded,
+.coll-songs > .hymn-result.expanded > .hymn-row { background: var(--surface-sunk); }
+.coll-songs > .hymn-result.expanded { border-top-color: transparent; }
 
 /* A sentinela do fim da página (ver `fillSongList`). O objetivo é que ela NÃO
    seja vista: o observador dispara 300px antes, então na rolagem normal a
@@ -2121,7 +2176,14 @@ main {
    é a borda + o texto, porque o fundo passou a ser o PROGRESSO (abaixo). Um
    preenchimento em `--warn-soft` sobre um fundo `--warn-soft` seria uma barra
    invisível — o estado que ela existe para mostrar. */
-.coll-opts .new-folder-btn.cancel { color: var(--warn-text); border-color: var(--warn); }
+/* E O FUNDO VOLTA A SER NEUTRO enquanto ele cancela (v5.241): a base preenchida
+   passou a ser `--accent-soft`, e uma barra de progresso em `--warn-soft` sobre
+   ela seria duas tintas fracas uma na outra — o defeito que o parágrafo acima
+   descreve, com outras duas cores. Recesso, que é o que o conteúdo de um cartão
+   faz neste app, e o progresso pinta claro por cima. */
+.coll-opts .new-folder-btn.cancel {
+  color: var(--warn-text); border-color: var(--warn); background: var(--surface-sunk);
+}
 /* (`.hymnal-card-status` e suas variantes saíram na v5.73 junto com a linha de
    texto que vestiam: o estado parado virou parte do chip de sincronizados e o
    progresso já vive na barra do card, que é fixa no topo do aberto.) */
@@ -2152,6 +2214,10 @@ main {
 .coll-opt-estado {
   min-width: 0; overflow: hidden; text-overflow: ellipsis;
   font-size: .72rem; font-weight: 600; color: var(--muted);
+  /* Numeral tabular, como todo par de números deste app (`.coll-bar-sync`): a
+     fração é redesenhada a cada item baixado, e sem isto ela muda de largura a
+     cada dígito — o mesmo motivo pelo qual a barra do card já o usa. */
+  font-variant-numeric: tabular-nums;
 }
 .coll-opt-estado::before { content: '·'; margin-right: .3rem; opacity: .65; }
 .coll-opt-estado.done { color: var(--ok); }
@@ -2895,14 +2961,27 @@ main {
    e não `--accent-soft`: uma tinta âmbar CLAREIA a folha, e o rótulo em
    `--accent` sobre ela media 4,30:1 — reprovado para texto pequeno. Recuado,
    o mesmo rótulo vai a 7,3:1 sem perder a identidade, que é o contorno. */
+/* PREENCHIDO, E COM PESO (v5.241). Relato do operador sobre o botão de
+   verificação do álbum: *"o ícone e o texto estão muito finos e sem
+   preenchimento para encorpar"*. Ele estava em `--surface` (o branco a 12% que
+   é o "botão sobre o FUNDO do app") dentro de um cartão — e a regra escrita
+   deste projeto diz que ali a superfície se INVERTE, isto é, aquele token era o
+   errado para este lugar desde sempre. `--accent-soft` dá corpo ao
+   preenchimento e concorda com a cor do texto e do ícone; o peso 600 e o traço
+   de 2,4 no SVG tiram a fineza, que era a outra metade da queixa. */
 .new-folder-btn {
   width: 100%; padding: .6rem;
-  background: var(--surface); border: 1px solid var(--accent);
-  border-radius: var(--radius-btn); color: var(--accent); font-size: .9rem;
+  background: var(--accent-soft); border: 1px solid var(--accent);
+  border-radius: var(--radius-btn); color: var(--accent);
+  font-size: .9rem; font-weight: 600;
   display: flex; align-items: center; justify-content: center; gap: .4rem;
   cursor: pointer;
 }
 .new-folder-btn .msym { font-size: var(--icon-sm); }
+/* O traço do ícone acompanha o peso do texto. É por CSS e não no `syncIconSvg`
+   porque o mesmo desenho serve a linhas de lista, onde ele é secundário e o
+   traço fino está certo. */
+.new-folder-btn svg { stroke-width: 2.4; }
 
 /* Estado do telão (rodapé do popup de Exibição). No app é só um indicador
    (desabilitado); no navegador continua clicável, como atalho para a tela do

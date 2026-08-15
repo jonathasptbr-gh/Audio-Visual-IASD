@@ -2788,10 +2788,75 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.240** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.241** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.241: A BIBLIOTECA PASSA A TER UMA ESCALA DE TONS — dois tons, uma
+> regra, os dois temas. OTA PURO** (CSS mais uma linha de texto; sem Release).
+>
+> Relato do operador: *"a escolha de cores e temas das versões colapsadas das
+> coleções, dos álbuns e das músicas/itens do álbum… todo o esquema de cores e
+> design está inconsistente"*, mais duas queixas nomeadas sobre o painel de
+> opções.
+>
+> **Medido antes de mexer, no tema escuro, do fundo para dentro:** a folha do
+> popup era 44,52,60; a barra de seção **fechada** compunha ~69,76,84 — o objeto
+> mais claro da tela, sendo o contêiner mais externo —; a MESMA barra **aberta**
+> virava 44,52,60, isto é, a peça trocava de cor conforme o estado; o card do
+> álbum dentro dela, 59,69,80; e a faixa dentro do card, 44,52,60 outra vez. A
+> elevação subia, descia, subia e descia — **44 → 69 → 44 → 59 → 44**, cinco
+> níveis aninhados. Não havia regra a aprender, e é isso que "imprevisível"
+> quer dizer.
+>
+> **A regra que entra é uma só: dentro da folha há DOIS tons, e o aninhamento
+> nunca inverte a direção.** `--panel-2` é o tom de CONTÊINER — a barra da seção
+> **e** o card do álbum, os dois —, e ele é o token certo porque muda de direção
+> sozinho entre os temas (mais claro no escuro, mais escuro no claro). O corpo
+> aberto é o POÇO, com a cor da folha. E dentro de um contêiner o conteúdo não
+> ganha caixa: a faixa virou LINHA, separada pelo filete que separa qualquer
+> lista deste app. Estado (aberta, no ar, selecionada) é overlay, nunca um tom
+> novo.
+>
+> **A causa raiz estava escrita em prosa, e metade dela era falsa nos dois
+> temas.** O comentário do `.hymnal-card` justificava a faixa como caixa: "as
+> músicas dentro dele (que são `--panel`) passam a se ler como recessos". No
+> escuro `--panel` (44) sobre `--panel-2` (59) de fato afunda; no CLARO `--panel`
+> é branco puro (255) sobre 222 — ele **eleva**. A mesma declaração produzia
+> direções opostas nos dois temas. É a lição da v5.192 aplicada ao aninhamento:
+> **direção só se preserva por OVERLAY, nunca por token opaco.**
+>
+> **Por que dois tons e não uma escada de quatro:** uma escada de overlays
+> levaria o nível mais interno a ~180 no tema claro — mais escuro que a própria
+> página, um buraco no meio da lista. Dois tons fecham a conta nos dois temas
+> com a mesma regra.
+>
+> **O botão de verificação ganhou corpo** — *"o ícone e o texto estão muito
+> finos e sem preenchimento para encorpar"*. Ele estava em `--surface`, que é o
+> "botão sobre o FUNDO do app", **dentro de um cartão** — e a regra escrita deste
+> projeto diz que ali a superfície se INVERTE: era o token errado para aquele
+> lugar desde sempre. Agora `--accent-soft` (o preenchimento concorda com a cor
+> do texto e do ícone), peso 600 e traço de 2,4 no SVG. O cancelar volta ao
+> recesso enquanto roda, senão o progresso em `--warn-soft` seria uma tinta
+> fraca sobre outra — o mesmo defeito que a v5.232 já tinha corrigido com outras
+> duas cores.
+>
+> **E o estado virou só a FRAÇÃO** — *"sem o texto de completo que hoje tem uma
+> grafia e design completamente diferente do padrão do app"*. Ele está certo por
+> duas réguas: "✓ completo" trazia um glifo que não é da fonte de ícones do app
+> e uma palavra em caixa baixa no meio de uma linha de números, e dizia por
+> extenso o que "24/24" já diz — com o verde ao lado dizendo a mesma coisa pela
+> terceira vez. Quem carrega estado neste app é a COR; o texto fica com o que a
+> cor não sabe dizer, que é quanto falta. Numa série o número é a contagem de
+> episódios, sem a palavra; sem índice não há fração e a linha fica vazia, que
+> é o certo — o botão ao lado já diz "Baixar", e um botão de baixar num álbum
+> vazio é a própria mensagem.
+>
+> O oráculo (`tools/smoke.mjs`) trava as três metades da regra **nos dois
+> temas** — a barra não troca de cor com o estado, contêiner é um tom só, e a
+> faixa não tem caixa —, porque a causa raiz era justamente uma direção que se
+> invertia entre eles. Reprova em 4 asserções contra o CSS anterior.
 
 > **A v5.240: A LINHA DE UMA FAIXA DEIXA DE SER MAIS ALTA QUE O ÁLBUM QUE A
 > CONTÉM. OTA PURO** (só CSS; nenhuma linha de Kotlin, sem Release).

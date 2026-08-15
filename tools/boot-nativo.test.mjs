@@ -796,8 +796,12 @@ try {
   // estiveram na mesma linha dos botões, estavam ACIMA deles.
   checar(opcoes.umaLinha && opcoes.filhos.length === 1,
     'e o que sobrou divide UMA linha: verificação e remoção', JSON.stringify(opcoes.rotulos));
-  checar(opcoes.estado.length === 1 && /episódios|sem lista/.test(opcoes.estado[0]),
-    'o ESTADO não se perdeu: ele desceu para dentro do botão que ele qualifica ("'
+  // A FRAÇÃO LIMPA, E SÓ ELA (v5.241, pedido do operador). O estado é um NÚMERO —
+  // a fração num álbum, a contagem numa série — e nunca uma palavra: "✓ completo"
+  // trazia um glifo de fora da fonte de ícones e dizia por extenso o que "24/24"
+  // já diz, com a cor verde ao lado repetindo pela terceira vez.
+  checar(opcoes.estado.length === 1 && /^[\d/]+$/.test(opcoes.estado[0].trim()),
+    'o ESTADO não se perdeu, e é só NÚMERO: nem "completo", nem "episódios" ("'
     + (opcoes.estado[0] || '') + '")');
   // E ele fica NA MESMA LINHA do rótulo (v5.235). Uma segunda linha resolvia a
   // largura e desfazia metade do ganho: o painel voltava a ter duas alturas de
