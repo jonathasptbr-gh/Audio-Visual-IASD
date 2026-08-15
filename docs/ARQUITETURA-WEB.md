@@ -6170,9 +6170,40 @@ assim que o operador acrescentar itens a ela.
 ### Séries do YouTube — coleções que NÃO vêm do LouvorJA (v5.228)
 
 Uma **série** é um canal do YouTube que publica um episódio por semana e
-organiza o ano em uma playlist por mês. Ela vira um card da Biblioteca ao lado
+organiza o ano em playlists por período. Ela vira um card da Biblioteca ao lado
 dos hinários e dos álbuns, e usa a mesma casca: `collState`, `medirColecao`,
 barra de peso, `syncCollection`.
+
+**Há duas no catálogo** (v5.244): o **Provai e Vede 2026**
+(`@provaievedeoficial`) e o **Informativo Mundial das Missões 2026**
+(`@daniellocutor`). A segunda entrou com uma linha no catálogo e nenhum `if` por
+recurso — mas ela **desmentiu três suposições** que só pareciam regras porque
+havia uma série só, e as três viraram campo declarado:
+
+| Campo | Provai e Vede | Informativo | Por quê |
+|---|---|---|---|
+| `periodo` | `mes` — "Provai e Vede - Agosto 2026" | `trimestre` — "Informativo \| 3º Trimestre 2026" | `mesDaPlaylist` devolve o mês em que o PERÍODO começa: ele ordena as playlists e é o PISO de quem não declarar data. Quem dá o mês de cada item é sempre a data do TÍTULO |
+| `titulo` | `esquerda` — "Match point \| Provai e Vede 2026 (15/Ago)" | `nenhum` — "Informativo Mundial das Missões \| 15 AGOSTO 2026" | no segundo o título é a série + a data, e a história ("O Sonho de Enoc") vive na MINIATURA. Aplicar o padrão daria 52 linhas idênticas, que é o defeito que o padrão existe para corrigir — ao contrário |
+| (nenhum) | — | — | o **idioma** virou recusa GLOBAL, não campo: ver `ehOutroIdioma` abaixo |
+
+**O canal do Informativo publica a MESMA série em quatro idiomas**, lado a lado
+na aba Playlists: "Informativo \| 3º Trimestre 2026" (PT), "Misiones \| 3º
+Trimestre 2026" (ES), "Mission Stories \| 2º Quarter 2026" (EN) e "【聖工消息】
+2026 第三季" (ZH). O prefixo separa as **playlists** — e não separa os **vídeos**:
+em espanhol eles se chamam "Informativo Mundial **de las Misiones**", isto é,
+começam com a mesma palavra. Daí `ehOutroIdioma`, irmão do `ehLibras`, aplicado
+nos dois níveis: pela ESCRITA (cirílico, hebraico, árabe, tailandês, CJK,
+hangul — um caractere basta, porque "【聖工消息】" não tem sílaba que dê para
+procurar) e por MARCA (`misiones`/`mision`, `de las`, `missions?`), tudo contra
+o `normalizar`. **É a exceção declarada à regra de ouro** ("o título é só
+rótulo"): o erro que ela evita não é recuperável no sábado de manhã — é o
+testemunho projetado em espanhol na frente da congregação.
+
+> **O ÁUDIO em português é outra pergunta, e ela é do shell.** O YouTube dubla
+> vídeo sozinho, e a dublagem não muda o título: ela é uma faixa a mais dentro
+> do MESMO vídeo. Quem escolhe é `TrilhaAudio.kt` (v5.242), que decide pelo
+> idioma **antes** do cliente e torna o português exclusivo quando ele existe.
+> Nada do lado web tem como ver isso, e por isso nada aqui tenta.
 
 **Mas o ITEM não é uma faixa de hinário — é um vídeo do YouTube** (v5.230). A
 casca veio do LouvorJA e trouxe junto a premissa dele, "o toque baixa", que ali
@@ -6230,6 +6261,17 @@ nome **seja** um mês em vez de só começar como um — sem isso "3 marcos" vir
 3 de março. Quando nenhuma casa, o vídeo **entra do mesmo jeito**, sem
 identificador de data e no fim do mês: é a regra de ouro em ação, e é o erro
 recuperável em vez do episódio ausente.
+
+O Informativo escreve a mesma forma por extenso sem o dia da semana na frente
+("15 AGOSTO 2026") — e ela já era lida, sem uma linha nova. **O que ele expôs
+foi um defeito de v5.230 que ninguém tinha visto:** o ordinal opcional estava
+escrito `[ºo°]?` depois de um `\s*`, então em "03 outubro" ele casava o "o" do
+mês como ordinal e entregava "utubro". O regex ACERTAVA — a captura satisfaz
+tudo o que ele pede, logo não há retrocesso — e quem recusava era o `montarData`,
+lá fora e calado. O `o` do ordinal agora tem de estar **colado no dia** (`3o`), e
+a varredura tenta **todos** os candidatos do título em vez de só o primeiro.
+Outubro é o único mês que começa com "o", e é o primeiro do 4º trimestre: o mês
+inteiro teria entrado sem data e no fim da lista.
 
 O resto — as seis armadilhas de nomenclatura, por que a descoberta é a aba do
 canal e não uma busca, e a regra de ouro ("a playlist prova o pertencimento, o
