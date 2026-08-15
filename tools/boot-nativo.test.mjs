@@ -90,8 +90,19 @@ const ponteCom = (espelho, telas) => `(() => {
     // outras têm, e o marcador de Libras em duas formas (\`(Libras)\` na
     // playlist, \`- Libras\` no vídeo). Um harness que "limpasse" isso provaria
     // o percurso contra um canal que não existe — a lição da v5.204.
-    ytCanalPlaylists: (id) => {
-      const pls = [
+    //
+    // E ele responde POR CANAL (v5.244), porque agora há dois. O de baixo é o
+    // @daniellocutor, cuja aba Playlists põe a MESMA série em quatro idiomas
+    // lado a lado — é essa a armadilha 7, e um stub que devolvesse a mesma
+    // lista para os dois canais não teria como exercitá-la.
+    ytCanalPlaylists: (id, canal) => {
+      const pls = /daniellocutor/.test(String(canal)) ? [
+        { name: 'Misiones | 3º Trimestre 2026', url: 'd/es3', count: 6 },
+        { name: '【聖工消息】2026 第三季 (3 Quarter 26)', url: 'd/zh3', count: 9 },
+        { name: 'Informativo | 4º Trimestre 2026', url: 'd/pt4', count: 1 },
+        { name: 'Informativo | 3º Trimestre 2026', url: 'd/pt3', count: 3 },
+        { name: 'Mission Stories | 2º Quarter 2026', url: 'd/en2', count: 13 },
+      ] : [
         { name: 'Provai e Vede - Agosto 2026 (Libras)', url: 'p/ago-libras', count: 2 },
         { name: 'Provai e Vede Agosto 2026', url: 'p/ago', count: 2 },
         { name: 'Provai e Vede - Julho 2026', url: 'p/jul', count: 1 },
@@ -118,6 +129,18 @@ const ponteCom = (espelho, telas) => `(() => {
         ] },
         'p/jul': { name: 'Provai e Vede - Julho 2026', author: 'Provai e Vede | Oficial', items: [
           { id: 'aaaaaaaaaa4', url: 'y/4', name: 'Chamado em Silêncio | Provai e Vede 2026 (25/Jul)', seconds: 280 },
+        ] },
+        // O @daniellocutor. O título do vídeo é a SÉRIE + a data, sem nome de
+        // episódio — e o vídeo em espanhol começa com a mesma palavra que o em
+        // português, que é por que ele está aqui DENTRO da playlist de PT: é o
+        // único lugar em que a recusa por idioma pode ser exercitada.
+        'd/pt3': { name: 'Informativo | 3º Trimestre 2026', author: 'Daniel Gonçalves', items: [
+          { id: 'bbbbbbbbbb1', url: 'd/1', name: 'Informativo Mundial das Missões | 15 AGOSTO 2026', seconds: 155 },
+          { id: 'bbbbbbbbbb2', url: 'd/2', name: 'Informativo Mundial de las Misiones | 15 AGOSTO 2026', seconds: 155 },
+          { id: 'bbbbbbbbbb3', url: 'd/3', name: 'Informativo Mundial das Missões | 04 JULHO 2026', seconds: 184 },
+        ] },
+        'd/pt4': { name: 'Informativo | 4º Trimestre 2026', author: 'Daniel Gonçalves', items: [
+          { id: 'bbbbbbbbbb4', url: 'd/4', name: 'Informativo Mundial das Missões | 03 OUTUBRO 2026', seconds: 170 },
         ] },
       };
       setTimeout(() => {
@@ -245,6 +268,43 @@ try {
   checar((serie.itens || []).filter((n) => /Ago/.test(n)).length === 2,
     'a playlist SEM hífen entrou: os dois episódios de agosto estão na lista',
     JSON.stringify(serie.itens));
+
+  // ── A SEGUNDA SÉRIE (v5.244): o Informativo Mundial das Missões ─────────
+  // Ela existe para provar que o catálogo é catálogo — e o que ela de fato
+  // prova é que três suposições do Provai e Vede eram suposições: a playlist é
+  // do TRIMESTRE, o título não traz nome de episódio, e o canal publica a mesma
+  // série em quatro idiomas. A regra pura tem oráculo próprio
+  // (`serie.test.mjs`); o que só pode ser afirmado AQUI é que as duas séries
+  // convivem no mesmo provedor de coleção — cada uma indo ao SEU canal.
+  const info = await pg.evaluate(async () => {
+    const c = allCollections().find((x) => x.id === 'serie-informativo-missoes-2026');
+    if (!c) return { achou: false };
+    await fetchCollectionIndex(c);
+    return {
+      achou: true,
+      nome: c.name,
+      itens: collSongs(c.id).map((s) => s.name),
+      urls: collSongs(c.id).map((s) => s.ytUrl),
+      // As duas séries têm de ter índices INDEPENDENTES: um card sobrescrever o
+      // outro no `collState` é o modo de falhar deste lote, e ele seria mudo.
+      outra: collSongs('serie-provai-vede-2026').length,
+    };
+  });
+  checar(info.achou, 'o card da SEGUNDA série existe na Biblioteca');
+  checar(info.nome === 'Informativo Mundial das Missões 2026',
+    'e ele se chama "Informativo Mundial das Missões 2026"', info.nome);
+  checar((info.itens || []).join(' | ') === '04/Jul | 15/Ago | 03/Out',
+    'os episódios vêm em ordem CRONOLÓGICA e rotulados só pela DATA — o resto do '
+    + 'título é igual nos 52 e não distingue nada', JSON.stringify(info.itens));
+  checar((info.urls || []).join(',') === 'd/3,d/1,d/4',
+    'cada um carrega a URL do vídeo, que é o que a transmissão vai buscar', JSON.stringify(info.urls));
+  checar(!(info.urls || []).includes('d/2'),
+    'O VÍDEO EM ESPANHOL NÃO ENTROU — ele estava DENTRO da playlist de português, '
+    + 'com o mesmo prefixo no título, e iria ao telão sem nada que o denunciasse');
+  checar(info.itens && info.itens.length === 3,
+    'as 2 playlists em português dos 5 idiomas do canal viram 3 episódios', JSON.stringify(info.itens));
+  checar(info.outra === 3,
+    'e o índice da PRIMEIRA série continua de pé: os dois cards não se sobrescrevem', info.outra);
 
   // ── O CARD, DESENHADO (v5.229) ─────────────────────────────────────────
   // O relato do operador: "não estou achando nada para acessar esse provai e

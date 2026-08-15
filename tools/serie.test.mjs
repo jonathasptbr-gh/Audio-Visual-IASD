@@ -68,7 +68,7 @@ checar(SERIE && /@provaievedeoficial/.test(SERIE.canal),
   'o canal é o @provaievedeoficial (a ÚNICA constante da descoberta)', SERIE && SERIE.canal);
 
 // ── 1. As playlists, verbatim do print ──────────────────────────────────────
-const mes = (n) => S.mesDaPlaylist(n, SERIE.prefixo, SERIE.ano);
+const mes = (n) => S.mesDaPlaylist(n, SERIE);
 
 checar(mes('Provai e Vede - Setembro 2026') === 9, '[print] "- Setembro 2026" → mês 9', mes('Provai e Vede - Setembro 2026'));
 checar(mes('Provai e Vede - Agosto 2026') === 8, '[print] "- Agosto 2026" → mês 8', mes('Provai e Vede - Agosto 2026'));
@@ -212,6 +212,180 @@ checar(S.ehLibras('Provai e Vede - Julho 2026 (Libras)'), 'ARMADILHA 3a: "(Libra
 checar(S.ehLibras('Match point | Provai e Vede 2026 (01/Ago) - Libras'), 'ARMADILHA 3b: "- Libras" é detectado');
 checar(S.ehLibras('ALGO EM LIBRAS'), 'caixa alta é detectada');
 checar(!S.ehLibras('Palavras que libertam'), '"libertam" não é "libras" (a busca é pela PALAVRA)');
+
+// ── 7. A SEGUNDA SÉRIE: o Informativo Mundial das Missões (v5.244) ──────────
+//
+// @daniellocutor. Ela existe neste arquivo para provar que o catálogo é
+// catálogo — mas o que ela de fato prova é o contrário do que se esperava: três
+// suposições do Provai e Vede eram suposições, e não regras.
+//
+//   - a playlist é do TRIMESTRE, não do mês;
+//   - o título do vídeo NÃO tem nome de episódio (a história vive na miniatura);
+//   - o canal publica a MESMA série em quatro idiomas, lado a lado.
+//
+// **Sobre o que é verbatim aqui.** Os nomes das PLAYLISTS foram lidos inteiros
+// na aba Playlists. Os títulos dos VÍDEOS aparecem TRUNCADOS naquela lista
+// ("… | 15 AGO…"); um deles foi lido inteiro na página do vídeo — o de 15 de
+// agosto — e é dele que sai a forma completa. Os outros estão reconstruídos, e
+// por isso o mês é afirmado nas DUAS escritas possíveis (AGOSTO e AGO): não dá
+// para saber, do print, qual delas o canal usa nos demais, e a regra tem de
+// aguentar as duas. Fingir certeza aqui seria provar o código contra um canal
+// imaginado — a lição da v5.204.
+const INFO = S.SERIES.find((x) => x.id === 'serie-informativo-missoes-2026');
+checar(!!INFO, 'o catálogo traz a série do Informativo Mundial das Missões');
+checar(INFO && /@daniellocutor/.test(INFO.canal),
+  'o canal é o @daniellocutor', INFO && INFO.canal);
+checar(INFO && INFO.periodo === S.PERIODO_TRIMESTRE,
+  'as playlists dela são TRIMESTRAIS', INFO && INFO.periodo);
+checar(INFO && INFO.titulo === S.TITULO_NENHUM,
+  'e o título do vídeo não carrega nome de episódio', INFO && INFO.titulo);
+
+// ── 7a. A aba Playlists, verbatim do print — QUATRO idiomas lado a lado ─────
+const canalInfo = [
+  { name: 'Misiones | 3º Trimestre 2026', url: 'd/es3', count: 6 },
+  { name: '【聖工消息】2026 第三季 (3 Quarter 26)', url: 'd/zh3', count: 9 },
+  { name: 'Informativo | 4º Trimestre 2026', url: 'd/pt4', count: 12 },
+  { name: '【聖工消息】2026 第二季 (2 Quarter 26)', url: 'd/zh2', count: 12 },
+  { name: 'Informativo | 3º Trimestre 2026', url: 'd/pt3', count: 13 },
+  { name: 'Mission Stories | 2º Quarter 2026', url: 'd/en2', count: 13 },
+];
+const plsInfo = S.playlistsDaSerie(canalInfo, INFO);
+checar(plsInfo.length === 2,
+  '[print] das 6 playlists do canal, só as 2 em PORTUGUÊS entram', plsInfo.map((p) => p.name));
+checar(plsInfo.map((p) => p.url).join(',') === 'd/pt3,d/pt4',
+  '[print] e elas vêm em ordem cronológica (3º antes do 4º trimestre)', plsInfo.map((p) => p.url));
+checar(plsInfo.map((p) => p.mes).join(',') === '7,10',
+  'o trimestre vira o MÊS EM QUE ELE COMEÇA — é isso que ordena e serve de piso',
+  plsInfo.map((p) => p.mes));
+
+const mesI = (n) => S.mesDaPlaylist(n, INFO);
+checar(mesI('Informativo | 1º Trimestre 2026') === 1, '"1º Trimestre" → mês 1', mesI('Informativo | 1º Trimestre 2026'));
+checar(mesI('Informativo | 2º Trimestre 2026') === 4, '"2º Trimestre" → mês 4', mesI('Informativo | 2º Trimestre 2026'));
+checar(mesI('Informativo | 3º Trimestre 2026') === 7, '[print] "3º Trimestre" → mês 7', mesI('Informativo | 3º Trimestre 2026'));
+checar(mesI('Informativo | 4º Trimestre 2026') === 10, '[print] "4º Trimestre" → mês 10', mesI('Informativo | 4º Trimestre 2026'));
+checar(mesI('Informativo | 3o Trimestre 2026') === 7 && mesI('Informativo | 3 Trimestre 2026') === 7,
+  'o ordinal é opcional e vale nas três escritas ("3º", "3o", "3")');
+checar(mesI('INFORMATIVO  |  4º  TRIMESTRE  2026') === 10,
+  'caixa alta e espaço duplo não mudam nada aqui também');
+
+// As RECUSAS, que são a razão de a segunda série ser mais perigosa que a
+// primeira: elas não protegem o álbum de outra série, protegem de OUTRO IDIOMA
+// da MESMA série — e o par chega completo, semana a semana.
+checar(mesI('Misiones | 3º Trimestre 2026') === 0, '[print] a playlist em ESPANHOL é recusada');
+checar(mesI('Mission Stories | 2º Quarter 2026') === 0, '[print] a playlist em INGLÊS é recusada');
+checar(mesI('【聖工消息】2026 第三季 (3 Quarter 26)') === 0, '[print] a playlist em CHINÊS é recusada');
+checar(mesI('Informativo | 3º Trimestre 2025') === 0, 'outro ano é recusado');
+checar(mesI('Informativo | 3º Trimestre 2026 (Libras)') === 0, 'e Libras continua recusado nesta série também');
+checar(mesI('Informativo Mundial das Missões') === 0, 'sem trimestre e sem ano não é playlist de período');
+checar(S.mesDaPlaylist('Provai e Vede - Agosto 2026', INFO) === 0,
+  'e a playlist da OUTRA série não entra nesta (o prefixo separa)');
+
+// A trava do período, nos dois sentidos — sem ela, uma série mensal aceitaria
+// uma playlist trimestral e vice-versa, calada.
+checar(S.mesDaPlaylist('Informativo | Agosto 2026', INFO) === 0,
+  'numa série TRIMESTRAL, um nome de mês não vale como período', S.mesDaPlaylist('Informativo | Agosto 2026', INFO));
+checar(S.mesDaPlaylist('Provai e Vede - 3º Trimestre 2026', SERIE) === 0,
+  'e numa série MENSAL, um trimestre não vale como período');
+
+// ── 7b. Os vídeos: a data é o rótulo, porque o título não tem outro ─────────
+// [print] O de 15/Ago foi lido INTEIRO na página do vídeo. Os demais estão
+// reconstruídos do print truncado da lista (ver a nota no topo desta seção).
+const videosQ3 = [
+  { id: 'i1', url: 'd/i1', name: 'Informativo Mundial das Missões | 15 AGOSTO 2026', seconds: 155 },
+  { id: 'i2', url: 'd/i2', name: 'Informativo Mundial das Missões | 04 JULHO 2026', seconds: 184 },
+  { id: 'i3', url: 'd/i3', name: 'Informativo Mundial das Missões | 26 SETEMBRO 2026', seconds: 179 },
+];
+const itensInfo = S.ordenarItens(S.itensDaPlaylist(videosQ3, 7, INFO));
+checar(itensInfo.length === 3, 'os três episódios entram', itensInfo.length);
+checar(itensInfo.map((i) => i.mes + '/' + i.dia).join(',') === '7/4,8/15,9/26',
+  'a data do TÍTULO dá o mês de cada um — o trimestre da playlist é só o piso',
+  itensInfo.map((i) => i.mes + '/' + i.dia));
+checar(itensInfo.map((i) => S.nomeDoItem(i)).join(' | ') === '04/Jul | 15/Ago | 26/Set',
+  'o nome da lista é a DATA, e só ela: o título é igual nos 52 episódios',
+  itensInfo.map(S.nomeDoItem));
+checar(!itensInfo.some((i) => /Informativo Mundial/.test(S.nomeDoItem(i))),
+  'a metade constante do título NÃO ocupa a linha — era ela que não distinguia nada');
+
+// A abreviação de três letras, que é como o print TRUNCADO deixa em dúvida.
+const abrev = S.itensDaPlaylist(
+  [{ id: 'i4', url: 'd/i4', name: 'Informativo Mundial das Missões | 08 AGO 2026', seconds: 175 }], 7, INFO);
+checar(abrev.length === 1 && abrev[0].dia === 8 && abrev[0].mes === 8,
+  '"08 AGO 2026" (a forma abreviada) lê a mesma data que "08 AGOSTO 2026"', abrev[0]);
+checar(S.nomeDoItem(abrev[0]) === '08/Ago', 'e produz o mesmo rótulo', S.nomeDoItem(abrev[0]));
+
+// O ANO no fim do título NÃO pode virar dia de mês nenhum — é a armadilha que
+// esta forma de escrever a data cria, e ela não existia no Provai e Vede.
+checar(JSON.stringify(S.dataDoVideo('Informativo Mundial das Missões | 15 AGOSTO 2026')) === '{"dia":15,"mes":8}',
+  '[print] o "2026" logo depois do mês não desloca a leitura da data',
+  JSON.stringify(S.dataDoVideo('Informativo Mundial das Missões | 15 AGOSTO 2026')));
+checar(S.dataDoVideo('Informativo Mundial das Missões | 3º Trimestre 2026') === null,
+  '"3º Trimestre" não é uma data (o mês tem de SER um mês)');
+
+// OUTUBRO — o mês que o ordinal comia, e o defeito estava aqui desde a v5.230.
+// `[ºo°]?` depois de um `\s*` casava o "o" de "outubro" como ordinal e entregava
+// o mês "utubro"; o regex ACERTAVA e quem recusava era o `montarData`, calado. O
+// Provai e Vede nunca o exercitou (nenhum título de outubro caiu na forma por
+// extenso); o Informativo o exercita com um TRIMESTRE inteiro.
+checar(JSON.stringify(S.dataDoVideo('Informativo Mundial das Missões | 03 OUTUBRO 2026')) === '{"dia":3,"mes":10}',
+  'OUTUBRO: o ordinal não pode comer a primeira letra do mês',
+  JSON.stringify(S.dataDoVideo('Informativo Mundial das Missões | 03 OUTUBRO 2026')));
+checar(JSON.stringify(S.dataDoVideo('x | Provai e Vede 2026 sábado 3 outubro')) === '{"dia":3,"mes":10}',
+  'e a MESMA correção vale para a primeira série, que tinha o mesmo buraco');
+checar(JSON.stringify(S.dataDoVideo('x | y 2026 1º de outubro')) === '{"dia":1,"mes":10}',
+  'com o ordinal de verdade ("1º") em cima de outubro, os dois convivem');
+checar(JSON.stringify(S.dataDoVideo('x | y 2026 3o de outubro')) === '{"dia":3,"mes":10}',
+  'e o ordinal escrito com "o" COLADO no dia continua sendo ordinal');
+checar(JSON.stringify(S.dataDoVideo('Parte 2 | Informativo Mundial das Missões | 15 AGOSTO 2026')) === '{"dia":15,"mes":8}',
+  'um número ANTES da data não faz a data se perder: a varredura tenta todos os candidatos',
+  JSON.stringify(S.dataDoVideo('Parte 2 | Informativo Mundial das Missões | 15 AGOSTO 2026')));
+
+// ── 7c. A REGRA DE OURO com o título vazio: a linha NUNCA fica em branco ────
+const semNada = S.itensDaPlaylist(
+  [{ id: 'i9', url: 'd/i9', name: 'Especial de encerramento do trimestre', seconds: 300 }], 7, INFO);
+checar(semNada.length === 1, 'REGRA DE OURO: sem data e fora do padrão, o vídeo entra assim mesmo');
+checar(semNada[0].mes === 7 && semNada[0].dia === 0,
+  'sem data, ele cai no COMEÇO do trimestre da playlist', semNada[0]);
+checar(S.nomeDoItem(semNada[0]) === 'Especial de encerramento do trimestre',
+  'e o nome cai no título CRU — nunca numa linha vazia, que seria intocável na lista',
+  S.nomeDoItem(semNada[0]));
+
+// ── 7d. O IDIOMA DO VÍDEO — a recusa que o prefixo NÃO faz ──────────────────
+// Em espanhol o vídeo começa com a MESMA palavra ("Informativo Mundial de las
+// Misiones"), então dentro da playlist de português ele seria indistinguível.
+// Um só que passe vai ao telão do culto num idioma que a congregação não fala.
+const misturado = S.itensDaPlaylist([
+  { id: 'm1', url: 'd/m1', name: 'Informativo Mundial das Missões | 15 AGOSTO 2026', seconds: 155 },
+  { id: 'm2', url: 'd/m2', name: 'Informativo Mundial de las Misiones | 15 AGOSTO 2026', seconds: 155 },
+  { id: 'm3', url: 'd/m3', name: 'Mission Spotlight | 15 AUGUST 2026', seconds: 155 },
+  { id: 'm4', url: 'd/m4', name: '【聖工消息】2026年8月15日', seconds: 155 },
+], 7, INFO);
+checar(misturado.length === 1 && misturado[0].id === 'm1',
+  'dos 4 idiomas na MESMA playlist, só o português entra', misturado.map((i) => i.id));
+
+checar(S.ehOutroIdioma('Informativo Mundial de las Misiones | 15 AGOSTO 2026'), 'espanhol: "de las Misiones"');
+checar(S.ehOutroIdioma('Misión en la ciudad'), 'espanhol: "Misión" (o acento não escapa — tudo passa por normalizar)');
+checar(S.ehOutroIdioma('Mission Stories | 2º Quarter 2026'), 'inglês: "Mission"');
+checar(S.ehOutroIdioma('【聖工消息】2026 第三季'), 'chinês: pela ESCRITA, porque não há palavra que dê para procurar');
+checar(S.ehOutroIdioma('Миссия'), 'cirílico é reconhecido pela escrita');
+
+// E a metade NEGATIVA, que é a que impede a recusa de virar "só entra o que eu
+// imaginei": nenhum título legítimo dos DOIS canais pode ser recusado.
+checar(!S.ehOutroIdioma('Informativo Mundial das Missões | 15 AGOSTO 2026'),
+  'e o título em PORTUGUÊS não é recusado — "missões" nunca é "mission"');
+checar(!S.ehOutroIdioma('A missão de Enoc | Provai e Vede 2026 (15/Ago)'),
+  '"missão" no singular também passa');
+checar(!S.ehOutroIdioma('Ação, coração e São Paulo 🙏'),
+  'acentos e emoji não são "outro idioma" (as faixas param antes dos emoji)');
+checar(videosAgosto.every((v) => !S.ehOutroIdioma(v.name)) && doCanal.every((p) => !S.ehOutroIdioma(p.name)),
+  'e NENHUM nome do @provaievedeoficial é recusado pela regra nova — ela não pode cobrar da primeira série');
+
+// ── 7e. A IMPRESSÃO DIGITAL enxerga as recusas de idioma ────────────────────
+// Sem isto, corrigir uma marca de idioma deixaria de pé todo índice já escrito
+// — com o vídeo em espanhol dentro dele, para sempre. É o defeito da v5.233,
+// que custou uma versão inteira para ser diagnosticado.
+checar(/^r[0-9a-z]+$/.test(S.impressao()), 'a impressão é uma string curta e estável', S.impressao());
+checar(S.impressao() !== S.impressao('outra função'),
+  'e ela muda quando o montador da faixa muda (a fresta da v5.236)');
 
 console.log('\n' + (falhas.length ? falhas.length + ' FALHA(S)' : 'tudo certo'));
 process.exit(falhas.length ? 1 : 0);

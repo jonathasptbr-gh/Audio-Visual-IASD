@@ -1291,10 +1291,23 @@ está operando. O que este lote conserta é a CAUSA.
   a projeção e o hinário pela metade. **Instalar o APK, esse sim, continua
   esperando os três** (`horaRuimParaAtualizar`), porque derruba o app inteiro e
   leva o servidor da rede junto.
-- **"Deixar para depois" cala o diálogo, não o FATO.** O rótulo de versão ganha
-  um ponto e a cor de concluído enquanto houver algo esperando, e tocá-lo desfaz
-  o adiamento na hora. Um aviso que volta a cada dez segundos é ruído; um "não"
-  que apaga a informação é pior.
+- **"Deixar para depois" cala o diálogo, não o FATO.** O BOTÃO de atualização
+  do rodapé de Configurações (`#otaRow`) passa a dizer, por extenso, o que está
+  esperando — "Atualizar: base v5.245 e app v2.2" —, e tocá-lo aplica na hora.
+  Um aviso que volta a cada dez segundos é ruído; um "não" que apaga a
+  informação é pior. Até a v5.244 quem carregava esse fato era um PONTO no
+  rótulo de versão, com o toque nele como caminho de volta; ele saiu na v5.245
+  porque o botão diz a mesma coisa, é o alvo óbvio, e dois sinais para o mesmo
+  fato a dois centímetros um do outro são a mesma informação dita duas vezes.
+- **E UM TOQUE FORA DO DIÁLOGO NÃO RESPONDE POR ELE** (v5.245, `appDialogFixo`).
+  O padrão do app é o do navegador — tocar no fundo cancela —, e para quase tudo
+  ele está certo: é a saída barata de quem abriu a coisa errada. Esta pergunta
+  aparece SOZINHA, no meio do que o operador estava fazendo, e um toque em
+  qualquer lugar da tela a resolvia como "Deixar para depois", que a silencia
+  pelo resto da sessão. O operador perdia a atualização por um gesto que nem
+  sabia ter dado. O que NÃO muda: o "Deixar para depois" continua ali e o
+  Esc/voltar continua valendo — os dois são a recusa DELIBERADA. O que deixa de
+  existir é a recusa por acidente.
 - **O Registro diz POR QUE está esperando**, e as causas pedem ações opostas:
   ninguém foi perguntado ainda, o operador adiou, a pergunta espera a cena sair,
   ou o shell recusou o bundle. Ele é lido a distância — um "esperando…" genérico
@@ -1369,10 +1382,14 @@ seguinte concluiria de novo que há versão nova, **rebaixando o mesmo zip a cad
 cinco minutos** e apagando com `deleteRecursively` um diretório que o operador
 pode ter acabado de mandar aplicar ao vivo.
 
-E o operador tem como forçar: **tocar no rótulo de versão** (o do rodapé de
-Configurações) procura na hora, pulando o piso entre consultas — e desfaz a
-recusa desta sessão, porque "Depois" silencia o aviso automático, não quem
-voltou para pedir. O Registro ganhou a linha **"Procura:"** (`otaDiag`), que diz
+E o operador tem como forçar: o **botão de atualização** do rodapé de
+Configurações (`#otaRow`, v5.245) tem dois estados e nada mais — **"Procurar
+atualização"** quando não há nada esperando, e **"Atualizar: …"** quando há. A
+procura pula o piso entre consultas do shell (é o único chamador que o faz), e
+as duas desfazem a recusa desta sessão, porque "Depois" silencia o aviso
+automático, não quem voltou para pedir. Ele é o herdeiro da linha do APK
+(v5.167), que só existia quando havia um APK novo e deixava a PROCURA num toque
+escondido no próprio rótulo de versão — dois controles para uma conversa só. O Registro ganhou a linha **"Procura:"** (`otaDiag`), que diz
 quando foi a última busca e o que ela deu: "não apareceu aviso nenhum" tem
 quatro causas indistinguíveis da tela — não há versão nova, a busca falhou, o
 bundle exige um shell mais novo, ou a pergunta está esperando o telão esvaziar —
@@ -1793,11 +1810,15 @@ TV, as telas da rede SÃO o que a congregação vê.
 
 ## Séries do YouTube (o álbum "Provai e Vede 2026")
 
-Um canal que publica **um episódio por semana** e organiza o ano em **uma
-playlist por mês** vira um **álbum da Biblioteca**. O primeiro caso é o
-[Provai e Vede](https://www.youtube.com/@provaievedeoficial), mas nada no
-código é sobre ele: o catálogo em `assets/web/controle/serie.js` guarda
-`{ canal, prefixo, ano }`, e uma linha a mais dá uma série nova sem código novo.
+Um canal que publica **um episódio por semana** e organiza o ano em **playlists
+por período** vira um **álbum da Biblioteca**. O catálogo em
+`assets/web/controle/serie.js` guarda `{ canal, prefixo, ano, periodo, titulo }`,
+e uma linha a mais dá uma série nova sem código novo. São **duas** (v5.244):
+
+| Série | Canal | Playlists | Título do vídeo |
+|---|---|---|---|
+| **Provai e Vede 2026** | [@provaievedeoficial](https://www.youtube.com/@provaievedeoficial) | por MÊS — "Provai e Vede - Agosto 2026" | nome do episódio à ESQUERDA da barra |
+| **Informativo Mundial das Missões 2026** | [@daniellocutor](https://www.youtube.com/@daniellocutor) | por TRIMESTRE — "Informativo \| 3º Trimestre 2026" | **não há** nome de episódio: "Informativo Mundial das Missões \| 15 AGOSTO 2026" |
 
 ```
  canal @provaievedeoficial          celular                    Biblioteca
@@ -1809,6 +1830,25 @@ código é sobre ele: o catálogo em `assets/web/controle/serie.js` guarda
  └──────────────────────┘                      └───────────┘   syncCollection
 ```
 
+**A SEGUNDA SÉRIE PROVOU O CATÁLOGO E COBROU O PREÇO.** Ela entrou com uma linha
+e nenhum `if` por recurso — e desmentiu três coisas que só pareciam regras
+porque havia uma série só. Duas viraram **campo declarado** (`periodo` e
+`titulo`, com padrão igual ao comportamento antigo, e escritos também na linha
+do Provai e Vede: enquanto havia uma série, aquelas escolhas não pareciam
+escolhas) e a terceira virou **recusa global** (o idioma). O que NÃO virou campo
+é tão importante quanto: a data por extenso do Informativo ("15 AGOSTO 2026") já
+era lida pela regra da v5.230 sem uma linha nova — a leitura natural, diante de
+um canal novo, é supor que ele precisa de um ramo novo, e supor formato foi
+justamente o erro que a v5.230 corrigiu.
+
+**O MÊS DE UM ITEM VEM SEMPRE DA DATA DO TÍTULO, nunca da playlist.** Com
+playlists mensais os dois quase sempre concordam, e por isso a distinção não
+aparecia; com um trimestre ela é a diferença entre 13 episódios ordenados e 13
+episódios amontoados em julho. `mesDaPlaylist` devolve **o mês em que o período
+começa**, e esse valor tem dois usos, os dois honestos: ordenar as playlists
+entre si, e ser o PISO de um vídeo que não declare data — que cai no começo do
+trimestre dele, a coisa mais precisa que se pode afirmar sobre ele.
+
 **A divisão de trabalho é a decisão central, e é a invariante 5.** O shell
 entrega listas cruas — os dois métodos novos não olham para o conteúdo, e o
 título do vídeo sai **sem** o `tituloLimpo` que a busca aplica, porque é dele
@@ -1817,9 +1857,9 @@ que a regra tira a data e a marca de Libras. Quem decide é o lado web, e a raz�
 chega por OTA em minutos, com oráculo em Node — em Kotlin custaria um degrau de
 `SHELL_VERSION` e uma Release por vírgula.
 
-### A regra, e as seis armadilhas que ela carrega
+### A regra, e as sete armadilhas que ela carrega
 
-Nenhuma é hipótese: todas foram lidas nas abas Playlists e Vídeos do canal.
+Nenhuma é hipótese: todas foram lidas nas abas Playlists e Vídeos dos canais.
 
 1. **O hífen não é garantido.** As playlists são "Provai e Vede - Agosto 2026",
    e **uma delas é "Provai e Vede Agosto 2026"**. Um `^Provai e Vede - ` teria
@@ -1840,12 +1880,39 @@ Nenhuma é hipótese: todas foram lidas nas abas Playlists e Vídeos do canal.
    segunda. `dataDoVideo` tenta as duas, nessa ordem; a extensa aceita o "de"
    opcional e o ordinal ("1º"), e exige que o nome **seja** um mês em vez de só
    começar como um — sem essa última guarda, "3 marcos" viraria 3 de março.
+7. **UM CANAL PUBLICA A MESMA SÉRIE EM VÁRIOS IDIOMAS** (v5.244). A aba do
+   @daniellocutor põe os quatro lado a lado: "Informativo | 3º Trimestre 2026",
+   "Misiones | 3º Trimestre 2026", "Mission Stories | 2º Quarter 2026" e
+   "【聖工消息】2026 第三季". O prefixo separa as **playlists** — e **não separa
+   os vídeos**: em espanhol eles se chamam "Informativo Mundial **de las
+   Misiones**", isto é, começam com a mesma palavra. Daí `ehOutroIdioma`, irmão
+   do `ehLibras`, nos dois níveis: pela ESCRITA (cirílico, hebraico, árabe,
+   tailandês, CJK, hangul — um caractere basta, porque "【聖工消息】" não tem
+   sílaba que dê para procurar; emoji ficam de fora de propósito) e por MARCA
+   (`misiones`/`mision`, `de las`, `missions?`), tudo contra o `normalizar`,
+   que já tirou os acentos — "missões" nunca é "mission", e é essa distância que
+   torna o teste possível sem apagar português.
 
 O que a sexta ensina não é "existem duas formas": é que **supor UMA forma era a
 aposta errada desde o começo**, e é justamente por a regra de ouro deste arquivo
 já valer (o título é só rótulo) que o episódio entrou no álbum mesmo assim. O
 preço de errar a data é o que o operador relatou — um item sem identificador de
 data, fora de ordem, no fim de janeiro —, não um episódio ausente.
+
+**E a sétima é a exceção declarada à regra de ouro:** ela recusa pelo TÍTULO,
+contra tudo o que a regra de ouro diz. Está lá porque o erro que ela evita não é
+recuperável no sábado de manhã — é o testemunho projetado em espanhol, ou com o
+intérprete na tela, na frente de todo mundo. O preço é conhecido e está escrito
+no código: um episódio em português que CITE "mission" ou "misiones" no título é
+recusado, e volta à mão pela busca do YouTube.
+
+**O ÁUDIO em português é outra pergunta, e ela é do SHELL.** O YouTube dubla
+vídeo sozinho, e a dublagem não muda o título: ela é uma faixa a mais dentro do
+MESMO vídeo. Quem escolhe é `TrilhaAudio.kt` (v5.242) — idioma antes do cliente,
+e português EXCLUSIVO quando existe. Nada do lado web tem como ver isso, e por
+isso nada em `serie.js` tenta: as duas metades da garantia moram em lados
+diferentes da ponte, e o Registro imprime a trilha escolhida
+(`140@VISIONOS pt-BR`) justamente para a metade de baixo ser diagnosticável.
 
 ### As decisões que precisam estar ditas
 
@@ -1868,6 +1935,17 @@ data, fora de ordem, no fim de janeiro —, não um episódio ausente.
 - **O ano é EXPLÍCITO no catálogo.** "O ano corrente" faria o álbum trocar de
   conteúdo sozinho na virada de dezembro, no meio da programação de janeiro.
   2027 é uma linha nova e um push em `main`.
+- **O NOME DO ITEM pode ser SÓ A DATA, e no Informativo ele é** (v5.244). O
+  título daquele canal é a série mais a data, e a história ("O Sonho de Enoc")
+  vive na MINIATURA — aplicar ali o "o nome é o que vem antes da barra" daria 52
+  linhas idênticas dizendo "Informativo Mundial das Missões", que é exatamente o
+  defeito que aquela regra existe para corrigir, ao contrário. `titulo:
+  'nenhum'` no catálogo, e a linha vira "15/Ago": numa lista anual a data é
+  única, e é a pergunta inteira que aquele álbum responde. O que ela não diz —
+  de que história é o episódio — a gaveta responde com a miniatura e a duração
+  (v5.236). **`nomeDoItem` nunca devolve vazio**: sem data e sem título ele cai
+  no título CRU do YouTube, que é feio e é longo, e é infinitamente melhor que
+  uma linha em branco no meio da lista do culto.
 - **A assinatura das playlists evita doze extrações por retomada.** A aba do
   canal já diz quantos vídeos cada playlist tem; batendo com o que está
   guardado, as ~12 chamadas de `ytPlaylist` são puladas. Um episódio novo muda a
@@ -1936,9 +2014,11 @@ data, fora de ordem, no fim de janeiro —, não um episódio ausente.
 ### O tamanho, dito em vez de escondido
 
 São ~52 episódios de ~5 min por ano, ~300 MB cada em 1080p: o ano inteiro passa
-de 15 GB. É por isso que **não existe "baixar o álbum"** aqui — o uso normal é
-tocar o episódio do sábado, que TRANSMITE sem baixar nada, e guardar um episódio
-offline é mandá-lo ao Cronograma ou aos Favoritos pela folha, um a um.
+de 15 GB. O Informativo é metade disso (episódios de ~3 min), e metade de 15 GB
+continua sendo mais do que cabe num toque desavisado. É por isso que **não
+existe "baixar o álbum"** aqui — o uso normal é tocar o episódio do sábado, que
+TRANSMITE sem baixar nada, e guardar um episódio offline é mandá-lo ao
+Cronograma ou aos Favoritos pela folha, um a um.
 
 ---
 
@@ -2119,7 +2199,7 @@ contextos.
 | Resolução do download | — | **até 1080p, montando as duas faixas** (v1.44; pares por contêiner na v1.45). Acima de 720p o YouTube só entrega vídeo SEM som, com o som à parte — e por isso o app baixava a pior cópia: só sabia pegar o progressivo, que neste aparelho é UM, de 360p. `MuxMp4.kt` junta as duas com o `MediaMuxer` da PLATAFORMA: é cópia de amostras, não recodificação, então não há perda nem espera. Teto de 1080p de propósito (o telão da igreja é 1080p) e só quando o resultado for melhor que o progressivo — senão dois downloads e um muxer entregariam o mesmo de antes. Os pares são do MESMO contêiner (mp4+m4a → MP4, webm+webm → WebM, este só na API 29+): "a melhor de cada lado" produziria VP9 dentro de MP4, que o muxer recusa depois de tudo baixado. Falhando qualquer etapa, o progressivo segue como piso. **Da v1.44 à v1.48 isso não saía do papel: as faixas eram listadas (1080p) e o CDN respondia 403 a todas** — com os dois pares, os dois perfis de UA e `Range`. Era o SABR, que o YouTube passou a exigir de quem pede sem PO Token. A saída não era montar o token (o `getWebClientPoToken` da biblioteca não tem uma única chamada em versão nenhuma, e o token do cliente Android — o que ela de fato consome — exige o DroidGuard do Play Services): foi **atualizar o extrator para a v0.26.4** (v1.49), que busca o cliente **visionOS** sem token nenhum e volta a entregar as adaptativas. Como as listas passaram a chegar MISTURADAS (visionOS + o cliente antigo), a escolha virou uma **fila de candidatos** — ver "O cliente visionOS destrava o 1080p" em `docs/ARQUITETURA-WEB.md`. **CONFIRMADO em aparelho:** `clientes VISIONOS 17, ANDROID 1 → juntou 1080p (mp4, 137@VISIONOS/V)`, sem uma única recusa na fila. Diagnóstico no rodapé de Configurações, agora com o itag, o cliente e o motivo de cada tentativa |
 | **Só o ÁUDIO** em "Tocar agora" | **não toca** | **TRANSMITIDO também** (v5.130): o manifesto do shell já traz o par, e o lado web simplesmente DESCARTA a faixa de vídeo (`man.video = null`) — nenhum método novo, nenhum byte de 1080p baixado para ser jogado fora, e por isso chega por OTA. Entra como `kind: 'audio'` (o telão mantém o wallpaper) e o fallback, se a transmissão morrer, baixa a MESMA forma. O download de um m4a é rápido, mas "rápido" não é o pedido: o pedido é não esperar |
 | **Só o ÁUDIO** guardado (playlist · Cronograma · Favoritos) | — | **`ytFetchAudio`** (v5.112, shell ≥ 23; **exige o APK v1.41+** — ver abaixo): a faixa de áudio, sem vídeo. A escolha é o MESMO seletor de Cantada/Playback das músicas, no topo da folha de destinos, e vale para as quatro ações. Entra como `kind: 'audio'` e **sem miniatura** — é o kind que faz o telão manter o wallpaper em vez de trocar de imagem. É também o único caminho em que o teto de 720p do progressivo não existe: o áudio do YouTube já vem em faixa separada, então aqui ele vem inteiro. **E é justamente por ser faixa separada que ele pode não vir**: adaptativo é o que o YouTube protegeu com SABR quando o app pedia sem PO Token. Daí a fila de tentativas do shell — que na v1.49 deixou de ser "m4a → qualquer outro → progressivo" e passou a ser **três candidatos de áudio na ordem do cliente que funciona** (visionOS primeiro), com o progressivo ainda no fim. **CONFIRMADO em aparelho:** `→ veio m4a 140@VISIONOS` (AAC-LC 128 kbps, primeiro candidato, primeira requisição) — até a v1.48 este caminho caía no vídeo de 360p inteiro. O registro entra como `kind: 'audio'` em todos os casos: quem decide que o telão não muda de imagem é o kind, não o container |
-| **Séries do YouTube na Biblioteca** | **não existe** — sem ponte não há como enumerar playlist nem baixar vídeo | **um álbum por SÉRIE** (v5.228/shell 41), e o primeiro é **Provai e Vede 2026**. O canal (`@provaievedeoficial`) é a ÚNICA constante: o app lê a **aba Playlists** dele (`ytCanalPlaylists`), aceita as que casam com "prefixo + ano" e **recusa as de LIBRAS**, expande cada uma (`ytPlaylist`) e ordena os episódios pela data do título — a faixa se chama "15/Ago · Quando o evangelho sussurra", porque o operador procura pelo sábado, não pelo nome do episódio. O card fica no topo da Biblioteca, junto dos hinários — mas **o ITEM é um vídeo do YouTube, não uma faixa de hinário** (v5.230): o toque abre a MESMA folha do YouTube (sem "Só áudio"), o "Tocar agora" TRANSMITE sem baixar, e o download existe só nos destinos que guardam. E desde a v5.236 **a LINHA também sabe disso**: a gaveta que numa música abre a letra abre aqui a MINIATURA, a duração e o estado no aparelho — quem decide é o TIPO da coleção (`tipoDaColecao`), não um `if` por recurso. Não há "baixar o álbum": são ~300 MB por episódio. **A descoberta é pela ABA DO CANAL, nunca por busca de texto**: numa busca quem escolhe é o ranking do YouTube e qualquer pessoa pode nomear uma playlist "Provai e Vede 2026" — vindo do canal, o pior caso é uma playlist a menos, jamais o vídeo de um desconhecido na projeção. A regra vive em `controle/serie.js` (PURA) com oráculo em Node (`tools/serie.test.mjs`) e o percurso inteiro no `boot-nativo.test.mjs`. Ver "Séries do YouTube", abaixo |
+| **Séries do YouTube na Biblioteca** | **não existe** — sem ponte não há como enumerar playlist nem baixar vídeo | **um álbum por SÉRIE** (v5.228/shell 41), e são **duas** (v5.244): **Provai e Vede 2026** (`@provaievedeoficial`, playlists por MÊS) e **Informativo Mundial das Missões 2026** (`@daniellocutor`, playlists por TRIMESTRE). O canal é a ÚNICA constante: o app lê a **aba Playlists** dele (`ytCanalPlaylists`), aceita as que casam com "prefixo + ano" e **recusa as de LIBRAS**, expande cada uma (`ytPlaylist`) e ordena os episódios pela data do título — a faixa se chama "15/Ago · Quando o evangelho sussurra", porque o operador procura pelo sábado, não pelo nome do episódio. O card fica no topo da Biblioteca, junto dos hinários — mas **o ITEM é um vídeo do YouTube, não uma faixa de hinário** (v5.230): o toque abre a MESMA folha do YouTube (sem "Só áudio"), o "Tocar agora" TRANSMITE sem baixar, e o download existe só nos destinos que guardam. E desde a v5.236 **a LINHA também sabe disso**: a gaveta que numa música abre a letra abre aqui a MINIATURA, a duração e o estado no aparelho — quem decide é o TIPO da coleção (`tipoDaColecao`), não um `if` por recurso. Não há "baixar o álbum": são ~300 MB por episódio. **A descoberta é pela ABA DO CANAL, nunca por busca de texto**: numa busca quem escolhe é o ranking do YouTube e qualquer pessoa pode nomear uma playlist "Provai e Vede 2026" — vindo do canal, o pior caso é uma playlist a menos, jamais o vídeo de um desconhecido na projeção. **E O IDIOMA É GARANTIDO NAS DUAS METADES** (v5.244): o @daniellocutor publica a mesma série em quatro idiomas e os vídeos em espanhol começam com a MESMA palavra dos em português, então `ehOutroIdioma` os recusa pela escrita e por marca — e o ÁUDIO, que é outra coisa (o YouTube dubla sozinho, dentro do mesmo vídeo), quem escolhe é o `TrilhaAudio.kt` do shell, que põe o português na frente do cliente e o torna exclusivo. A regra vive em `controle/serie.js` (PURA) com oráculo em Node (`tools/serie.test.mjs`) e o percurso inteiro no `boot-nativo.test.mjs`. Ver "Séries do YouTube", abaixo |
 | Buscar no YouTube | não existe: o botão abre o YouTube numa aba | **a busca acontece DENTRO do acervo** — a tela que o rótulo chama de **Biblioteca** desde a v5.96, e que no código segue sendo o acervo — (`AVNative.ytSearch`, `YoutubeGrab.pesquisar`, em **português** — no padrão en-GB da biblioteca o YouTube devolve o título TRADUZIDO de vídeos que são originalmente em português, e passar a localização ao `NewPipe.init` NÃO resolve: o serviço filtra o idioma por uma lista de suportados que hoje só tem `en-GB`. Quem resolve é o `forceLocalization` do próprio `Extractor`): os resultados entram na mesma lista e o toque abre a mesma folha de escolhas das músicas (tocar · playlist · Cronograma · Favoritos), cada uma indo para o seu lugar — e, desde a v5.141, para mais de um de uma vez, com um download só. Um iframe da página de resultados é recusado pelo `X-Frame-Options` do YouTube, e a API oficial exigiria chave com cota compartilhada pela frota |
 | Link para fora do app ("Pesquisar … no YouTube") | `window.open` numa aba nova | **`AVNative.openExternal(url)`** → `ACTION_VIEW` numa tarefa própria. O WebView RECUSA navegar para outro origin (invariante 2), então sem esse método um link externo não faz absolutamente nada — nem erro no console |
 | "Conectar a tela" (modo simplificado) | abre a tela do Display (`window.open`) — e é ela que conta como "conectado" | mesmo `AVNative.openCast()`, com o nome da tela conectada no subtítulo |
@@ -2801,12 +2881,12 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.244** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.246** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
-> **A v5.244: A SETA VIRA A THUMBNAIL DAS RAÍZES — ícone só na folha da árvore.
+> **A v5.246: A SETA VIRA A THUMBNAIL DAS RAÍZES — ícone só na folha da árvore.
 > OTA PURO** (sem Release).
 >
 > Pedido do operador: *"adicione um ícone também como thumbnail e modelo nos
@@ -2846,6 +2926,138 @@ controles), que **só chegam instalando o APK novo**, não pelo OTA.
 > O oráculo (`tools/smoke.mjs`) compara a caixa da seção com a do card — a
 > mesma largura, altura e tom —, exige a seta nos DOIS estados do álbum e mede a
 > direção do giro. Reprova em 4 asserções contra o código anterior.
+
+> **A v5.245: A ATUALIZAÇÃO DEIXA DE SE PERDER NUM TOQUE FORA, e ganha um
+> BOTÃO em Configurações. OTA PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> Pedido do operador, em duas metades que são o mesmo problema: *"ela pode ser
+> ignorada tocando fora dela, e assim perdendo a atualização"* — e um botão que
+> *"sem atualização disponível, ativa a verificação para saber se há uma, e se
+> houver uma já esperando, o botão vira um botão de atualização"*.
+>
+> **1. O toque fora deixa de responder** (`appDialogFixo`). O padrão do app é o
+> do navegador: tocar no fundo cancela, e para quase tudo isso está certo — é a
+> saída barata de quem abriu a coisa errada. Para a atualização não estava: ela
+> aparece SOZINHA, no meio do que o operador estava fazendo, e um toque em
+> qualquer lugar da tela a resolvia como "Deixar para depois", que a silencia
+> pelo resto da sessão. **A atualização era perdida por um gesto que ele nem
+> sabia ter dado.** O que NÃO muda, e é o que impede isto de virar uma armadilha:
+> o "Deixar para depois" continua ali e o Esc/voltar continua valendo — os dois
+> são a recusa DELIBERADA. O que deixa de existir é a recusa por acidente. A
+> opção é por diálogo (`fixo: true`), não global: o resto do app continua com o
+> padrão, que ali é o certo.
+>
+> **2. O botão é o herdeiro da LINHA DO APK** (v5.167), e o que mudou é o
+> escopo. Aquela só existia quando havia um APK novo, e a única forma de
+> PROCURAR era um toque escondido no rótulo de versão — uma afordância que não
+> se anuncia, ao lado de um botão que aparecia metade das vezes. Eram dois
+> controles para uma conversa só. Agora é um, sempre visível no app, com dois
+> estados:
+>
+> | estado | rótulo | desenho |
+> |---|---|---|
+> | nada esperando | "Procurar atualização" | contornado (é uma consulta) |
+> | algo esperando | "Atualizar: base v… e app v…" | preenchido (é a ação) |
+>
+> **A hora ruim continua desabilitando, com o motivo escrito** — e as duas
+> réguas que já existiam continuam distintas: um lote com APK espera os três
+> (cena, download e transmissão), porque instalar derruba o app inteiro e leva o
+> servidor das telas junto; um lote só de base web espera dois, porque custa um
+> piscar.
+>
+> **E o PONTO do rótulo de versão saiu.** Ele existia porque não havia mais nada
+> no rodapé para dizer "há algo esperando" depois de a pergunta ser adiada.
+> Agora o botão diz isso por extenso e é o próprio alvo; um ponto discreto a
+> dois centímetros dele seria a mesma informação dita duas vezes — a régua que o
+> operador aplicou ao peso do álbum na v5.232. O rótulo voltou a ser o que ele
+> é: um indicador. Pelo mesmo motivo caiu a frase "Atualização adiada" que
+> aparecia por quatro segundos: ela ESCONDIA, no próprio botão, a resposta que
+> ele já estava dando.
+>
+> **O oráculo (`tools/ota.test.mjs`) ganhou quatro casos**, e reprova em **9
+> asserções** contra o código anterior (verificado). Um deles é o toque fora, e
+> os outros três são o botão nos três momentos em que ele importa: adiada,
+> aplicando, e sem nada a fazer. As leituras novas são **null-safe de
+> propósito** — num bundle sem o botão isso é um RESULTADO, não um acidente, e
+> um `evaluate` que lança ali abortaria o arquivo inteiro, escondendo tudo o que
+> vem depois. É a mesma disciplina do `empurrar` e do `tocar` do próprio
+> arquivo, e a lição da v5.213: a primeira versão destes casos abortava, e as
+> outras vinte e oito asserções sumiam com ela.
+
+> **A v5.244: A SEGUNDA SÉRIE — o Informativo Mundial das Missões vira um álbum,
+> e ela desmente três suposições da primeira. OTA PURO** (nenhuma linha de
+> Kotlin; sem Release).
+>
+> Pedido do operador: acrescentar, além do Provai e Vede, o **Informativo
+> Mundial das Missões** do canal `@daniellocutor` — *"você precisa analisar os
+> nomes para poder seguir a mesma lógica para separar por datas, garantir que o
+> vídeo é em português brasileiro e o áudio corretamente em português."*
+>
+> **O catálogo aguentou o peso — e é aí que está a lição.** A série entrou com
+> uma linha e nenhum `if` por recurso, mas três coisas que pareciam regras
+> universais eram suposições de quando havia uma série só. Duas viraram CAMPO
+> declarado, e as duas estão escritas também na linha do Provai e Vede, porque
+> enquanto ele era o único aquelas escolhas não pareciam escolhas:
+>
+> - **a playlist é do TRIMESTRE** ("Informativo | 3º Trimestre 2026", 13
+>   episódios de julho a setembro). `mesDaPlaylist` passou a devolver **o mês em
+>   que o período começa** — ele ordena as playlists e é o PISO de quem não
+>   declarar data. **Quem dá o mês de um item é sempre a data do TÍTULO**, e com
+>   playlists mensais os dois quase sempre concordavam: era por isso que a
+>   distinção não aparecia. Com um trimestre ela é a diferença entre 13
+>   episódios ordenados e 13 amontoados em julho.
+> - **o título não traz nome de episódio.** "Informativo Mundial das Missões |
+>   15 AGOSTO 2026" é a série mais a data, e a história ("O Sonho de Enoc") vive
+>   na MINIATURA. Herdar o "o nome é o que vem antes da barra" daria 52 linhas
+>   idênticas — a metade constante ocupando a lista inteira, que é exatamente o
+>   defeito que aquela regra existe para corrigir, ao contrário. A linha virou
+>   "15/Ago", e a gaveta do item (v5.236) responde o resto.
+>
+> **A terceira não virou campo, e não podia virar: o IDIOMA.** O canal publica a
+> MESMA série em quatro — "Informativo" (PT), "Misiones" (ES), "Mission Stories"
+> (EN) e "【聖工消息】" (ZH) —, e o prefixo separa as **playlists** mas **não
+> separa os vídeos**: em espanhol eles se chamam "Informativo Mundial **de las
+> Misiones**", isto é, começam com a mesma palavra. `ehOutroIdioma` é o irmão do
+> `ehLibras` e está pelo mesmo motivo — um único vídeo posto por engano na
+> playlist de português vai ao telão do culto sem que id, duração, miniatura ou
+> canal o denunciem. Ele é GLOBAL e não um campo, porque ligá-lo por série seria
+> escolher, a cada linha nova, se a proteção vale; e a resposta é sempre a
+> mesma. O @provaievedeoficial passa por ele sem uma recusa, e há oráculo para
+> essa metade negativa.
+>
+> **E o ÁUDIO é a outra metade da garantia, do outro lado da ponte.** O YouTube
+> dubla vídeo sozinho, e a dublagem não muda o título: ela é uma faixa a mais
+> dentro do MESMO vídeo, que nada do lado web tem como ver. Quem escolhe é o
+> `TrilhaAudio.kt` (v5.242, já instalado no v2.1) — idioma antes do cliente,
+> português exclusivo quando existe. As duas metades são independentes de
+> propósito, e o Registro imprime a trilha escolhida (`140@VISIONOS pt-BR`) para
+> a de baixo ser diagnosticável a distância.
+>
+> **O que a segunda série ACHOU de quebrado na primeira, e este é o achado mais
+> caro do lote:** o ordinal opcional da data por extenso estava escrito
+> `[ºo°]?` **depois** de um `\s*`, então em "03 outubro" ele casava o "o" do mês
+> como ordinal e entregava o mês "utubro". O regex ACERTAVA — a captura satisfaz
+> tudo o que ele pede, logo não há retrocesso — e quem recusava era o
+> `montarData`, lá fora e calado. O defeito estava lá desde a v5.230 e nunca
+> apareceu porque nenhum título de outubro do Provai e Vede caiu na forma por
+> extenso; o Informativo tem um TRIMESTRE inteiro começando em outubro, e o mês
+> teria entrado sem data e no fim da lista. O `o` agora tem de estar colado no
+> dia (`3o`), e a varredura tenta **todos** os candidatos do título em vez de só
+> o primeiro.
+>
+> **A data em si não custou uma linha**, e isso está registrado porque a leitura
+> natural diante de um canal novo é supor o contrário: "15 AGOSTO 2026" é a
+> forma por extenso da v5.230 sem o dia da semana na frente, e o `\b` do dia já
+> a alcançava. Supor formato foi justamente o erro que a v5.230 corrigiu.
+>
+> Os dois oráculos foram verificados por ISOLAMENTO, e não por ausência de
+> símbolo — desligar uma peça de cada vez, sem `ReferenceError` no caminho (a
+> régua da v5.237): sem a recusa por idioma **6** asserções reprovam, sem o
+> campo `titulo` **4**, sem o `periodo` **11**, e sem o recuo do `nomeDoItem`
+> **1**. No percurso de ponta a ponta (`boot-nativo.test.mjs`, o único que sobe
+> a base COM a ponte) o stub do canal responde **por URL de canal**, com os
+> quatro idiomas lado a lado e o vídeo em espanhol **dentro** da playlist de
+> português: é o único lugar em que essa recusa pode ser exercitada.
 
 > **A v5.243: A SETA DE FECHAR O ÁLBUM VESTE A THUMB — e a coluna da direita
 > para de se mexer. OTA PURO** (sem Release).
