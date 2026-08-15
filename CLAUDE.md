@@ -2981,10 +2981,44 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.256** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.257** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.257: O CHECK DO "TOCAR AGORA" NÃO ACENDIA — e o defeito era um
+> argumento esquecido. OTA PURO** (sem Release).
+>
+> Relato do operador: *"o seletivo de tocar agora, na seleção de um provai e
+> vede, ou talvez em todos, está com uma falha, pois se eu toco apenas nele, ele
+> não dá o feedback do check"*.
+>
+> **É meu, da v5.253, e o "talvez em todos" tinha resposta exata: era só ele.**
+> Marcar uma opção muda o desenho de DUAS coisas — a caixa daquela linha e o
+> rótulo do confirmar —, e quem as reconstrói é o redesenho da folha, passado
+> linha a linha num argumento (`aoMudar`). As três listas o recebiam desde a
+> v5.141; o "Tocar agora" nunca precisou dele, porque até a v5.253 o corpo dele
+> EXECUTAVA e fechava tudo. Quando aquela linha virou selecionável, o argumento
+> ficou para trás — o toque marcava o destino e a tela não mudava um pixel.
+>
+> **O modo de falhar é o pior que este app tem:** nada quebra, nada erra alto, e
+> o estado interno fica CERTO. Só o desenho não acompanha, e do lado de quem
+> opera isso se lê como "o check não funciona" — ou, pior, como "não marcou", e
+> aí o operador toca de novo e desmarca.
+>
+> **A correção tem duas metades, e a segunda é a que importa.** A primeira é o
+> argumento que faltava. A segunda é tirá-lo do caminho: o redesenho virou um
+> HOOK DE MÓDULO (`destRemontar`), definido UMA vez por folha ao lado do
+> `destExecutor` que já morava lá. Argumento que cada chamador precisa lembrar de
+> passar é a mesma classe de erro que o `native.js` cobra em outro lugar ("campo
+> novo no objeto = campo novo no `native.js`, sempre") — como hook, a linha nova
+> nasce funcionando, e o esquecimento deixa de ser possível. Verificado: com o
+> argumento explícito removido de propósito, o oráculo continua passando.
+>
+> `tools/destinos.test.mjs` ganhou o caso, e ele reprova em 2 asserções contra o
+> código anterior — exatamente as duas que o redesenho reconstrói. A terceira,
+> "marca-o e mantém a folha aberta", passava ANTES também: é a prova de que o
+> estado sempre esteve certo e só o desenho ficou para trás.
 
 > **A v5.256: O EPISÓDIO APARECE NA QUARTA, e a falha dentro da janela DIZ POR
 > QUÊ. OTA PURO** (nenhuma linha de Kotlin; sem Release).
