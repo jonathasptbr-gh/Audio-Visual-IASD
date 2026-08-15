@@ -1938,6 +1938,16 @@ diferentes da ponte, e o Registro imprime a trilha escolhida
 - **O ano é EXPLÍCITO no catálogo.** "O ano corrente" faria o álbum trocar de
   conteúdo sozinho na virada de dezembro, no meio da programação de janeiro.
   2027 é uma linha nova e um push em `main`.
+- **O QUE AINDA NÃO SAIU NÃO ENTRA NA LISTA** (v5.255, campo `futuros`). O
+  @daniellocutor sobe o trimestre inteiro e libera um episódio por sábado; os
+  que faltam ficam como "prioridade para membros" — aparecem na playlist e não
+  tocam. A régua é a DATA (o único sinal deste lado: o item de um vídeo restrito
+  chega idêntico ao de um liberado), o corte é INCLUSIVO no dia do culto, e um
+  vídeo SEM data nunca é escondido. **É campo e não regra global** porque o erro
+  é assimétrico e o Provai e Vede libera o mês inteiro de uma vez — medido: em
+  15 de agosto ele já tinha até 26 de setembro, e aqueles episódios tocam. O DIA
+  entra também na ASSINATURA das playlists, senão a economia devolveria a lista
+  de ontem no sábado de manhã (o sintoma da v5.233 por outra porta).
 - **O NOME DO ITEM pode ser SÓ A DATA, e no Informativo ele é** (v5.244). O
   título daquele canal é a série mais a data, e a história ("O Sonho de Enoc")
   vive na MINIATURA — aplicar ali o "o nome é o que vem antes da barra" daria 52
@@ -2958,10 +2968,67 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.254** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.255** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.255: O QUE AINDA NÃO SAIU SOME DA LISTA — o canal sobe o trimestre e
+> libera um sábado por vez. OTA PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> Relato do operador: *"o informativo mundial das missões só libera apenas o
+> informativo referente a aquela semana e dos passados. Exemplo: hoje é sábado
+> 15 de agosto, então eu só tenho o 15 de agosto e os anteriores… portanto, pode
+> fazer um bloqueio na exibição dos vídeos que não estão disponíveis ainda."*
+>
+> O canal sobe o TRIMESTRE INTEIRO de uma vez e libera um episódio por sábado;
+> os que ainda não saíram ficam na playlist como **prioridade para membros** —
+> têm título, miniatura e duração, aparecem na listagem e **não tocam**. Em 15 de
+> agosto a Biblioteca mostrava até 12 de dezembro: dezessete promessas que ela
+> não podia cumprir, e a mais cara delas no meio de um culto.
+>
+> **A régua é a DATA, porque é o único sinal que existe deste lado.** O que
+> decide de verdade é a liberação no YouTube, e o extrator não a publica: o item
+> de um vídeo restrito chega idêntico ao de um liberado. Três decisões cercam o
+> preço disso:
+>
+> - **É um CAMPO do catálogo, não uma regra global** (`futuros`). O erro é
+>   assimétrico: esconder cedo demais custa um episódio que já estava liberado —
+>   e ele volta sozinho no dia seguinte, sem nada a desfazer; mostrar de mais
+>   custa um item que o operador põe no roteiro e que não toca na hora, com a
+>   projeção parada na frente da congregação. O **Provai e Vede fica de fora**, e
+>   isso é medido, não suposto: no registro do aparelho, em 15 de agosto ele já
+>   tinha até 26 de setembro, e aqueles episódios TOCAM.
+> - **O corte é INCLUSIVO no dia**, que é o que o operador descreveu: o episódio
+>   de hoje é o do culto de hoje. A comparação é por DIA (`AAAAMMDD`), nunca por
+>   instante — um `>` sobre milissegundos o esconderia até a meia-noite.
+> - **Sem data no título, nunca é escondido.** Ele é o achado da regra de ouro
+>   (entra sem rótulo, no fim do mês), e esconder o que não se sabe julgar
+>   trocaria um item feio por um item ausente.
+>
+> **E o DIA entra em DOIS lugares, senão o recurso não funcionaria no sábado.**
+> A lista daquela série é função do dia, então: `indiceVencido` passa a vencer o
+> índice na virada do dia (só nessa série), e o DIA entra na **assinatura** das
+> playlists. O segundo é o que impede o sintoma da v5.233 por outra porta — o
+> canal não muda de um dia para o outro, então a assinatura bateria, a economia
+> devolveria a lista de ontem (sem o episódio de hoje) e o carimbo diria que ela
+> é de hoje. Custa uma varredura por dia; sem ela o episódio do culto só
+> apareceria quando o TTL de 12 h vencesse, que pode ser depois do culto.
+>
+> O Registro conta os escondidos numa linha só — dezessete linhas de recusa
+> afogariam as recusas de VERDADE, que são uma ou nenhuma — e mostra **o mais
+> próximo** com o título cru e a data do corte: a pergunta que se faz a esse
+> bloco é "o app está escondendo o episódio de amanhã?", e a resposta não pode
+> depender de eu adivinhar o relógio do aparelho.
+>
+> Verificado por ISOLAMENTO nas quatro peças: sem o corte, 6 asserções do
+> `serie.test.mjs` e 2 do percurso reprovam; com ele GLOBAL (ignorando o campo),
+> 1 — a que protege o Provai e Vede; com o corte exclusivo em vez de inclusivo,
+> 3 e 7; e sem o dia na assinatura, 1 no percurso. **Esta última só passou a
+> reprovar depois de o teste parar de apagar o índice antes de cada leitura** —
+> ele exercitava sempre o caminho da reconstrução, isto é, nunca o caminho em
+> que o defeito mora. O caso do corte roda numa página com **relógio fixo**: um
+> oráculo cujo resultado muda com o dia é o que ensina a ignorar vermelho.
 
 > **A v5.254: OS FAVORITOS VIRAM UMA LISTA SÓ — os atalhos de pasta saem, e a
 > ordem passa a ser do operador. OTA PURO** (nenhuma linha de Kotlin; sem
