@@ -73,6 +73,7 @@ const MIME = {
 const PREFIXOS = { '/display/': 'display', '/shared/': 'shared', '/espelho/': 'espelho' };
 
 let lotado = false;
+let atrasoDaLetraAte = 0;   // a rota /m/ da imagem de letra 404a até este instante
 const visto = { volta: [], gets: 0, pares: [], getsPor: {} };
 let sse = null;             // a resposta do GET /e em curso
 let aoAbrirSse = null;
@@ -150,6 +151,11 @@ const servidor = http.createServer(async (req, res) => {
   }
 
   if (req.method === 'GET' && u.pathname.startsWith('/m/')) {
+    // A IMAGEM DE FUNDO DA LETRA CHEGA ATRASADA, e isso é o desenho, não um
+    // acidente: `telaEmpurrarImagensLetra` a enfileira DEPOIS da mídia principal
+    // no mesmo canal serializado, porque o som não espera as fotos. Até os bytes
+    // atravessarem, a rota responde 404. `atrasoDaLetraAte` é o relógio disso.
+    if (u.pathname.includes('LENTA') && Date.now() < atrasoDaLetraAte) { json(res, 404, {}); return; }
     // Um PNG de 1×1 — o bastante para provar que a tela busca a mídia na URL
     // servida pelo celular (o resto do Range é provado por JUnit no shell).
     const png = Buffer.from(
@@ -398,6 +404,41 @@ checar(await pg.$eval('#text', (e) => e.hidden), 'text-hide tira a Camada de Tex
   const recLetra = await pg.evaluate(() => window.AVDB.getMedia('hino2'));
   checar(recLetra && recLetra.lyrics && recLetra.lyrics[0].imageUrl === '/m/tokly1111111111111111',
     'o imageUrl da estrofe atravessa o __rec e o getMedia embrulhado — é dele que o fundo da letra sai');
+
+  // ---------------------------------------------------------------------------
+  // A IMAGEM DE FUNDO QUE CHEGA ATRASADA (v5.219)
+  //
+  // O relato: numa tela recém-ativada, a primeira música toca com os slides em
+  // PRETO — e desligar e religar "imagens" nas Configurações conserta. O bloco
+  // acima só provava que o `imageUrl` sobrevive ao `__rec`; ninguém nunca
+  // afirmou que a imagem CHEGA À TELA, e era aí que o defeito morava.
+  //
+  // A causa não é a preferência (ela viaja certo, e o `lyricsbg` abaixo a
+  // reproduz): é que as imagens são enfileiradas DEPOIS da música inteira, no
+  // mesmo canal serializado, e a tela desistia de buscá-las em ~2,4 s — antes de
+  // existir qualquer possibilidade de sucesso. Desistir cedo demais deixava o
+  // slide preto PARA SEMPRE, porque nada reexamina uma estrofe já renderizada.
+  //
+  // Este caso mede exatamente isso: bytes que só existem depois da janela antiga.
+  {
+    evento({ type: 'lyricsbg', mode: 'image', __mid: 'm:7d' });
+    await espera(150);
+    atrasoDaLetraAte = Date.now() + 3000;      // > os ~2,4 s da ladeira antiga
+    evento({
+      type: 'load', mediaId: 'hino3', muted: true,
+      __rec: {
+        id: 'hino3', kind: 'audio', name: 'Hino', type: 'audio/mp4', url: '/m/tokhin111111111111111',
+        lyrics: [{ time: 0, text: 'Estrofe 1', imageUrl: '/m/tokLENTA11111111111111' }],
+      },
+      __mid: 'm:7e',
+    });
+    const temFundo = () => pg.$eval('#lyricsImg',
+      (e) => !e.hidden && (e.getAttribute('src') || '').includes('LENTA')).catch(() => false);
+    checar(await ate(temFundo, 12000),
+      'a imagem de fundo que chega ATRASADA ainda aparece — sem religar a opção',
+      'src=' + await pg.$eval('#lyricsImg', (e) => e.getAttribute('src') || '(sem src)'));
+    atrasoDaLetraAte = 0;
+  }
 
   evento({ type: 'tela-aviso', texto: 'Esta cena não aparece nas telas da rede.', __mid: 'm:8' });
   await ate(() => pg.$eval('#telaAviso', (e) => e.textContent.includes('não aparece')).catch(() => false), 4000);

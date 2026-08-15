@@ -72,6 +72,21 @@
 > fino delas (eco de __mid, atraso medido) é evolução futura sobre o campo
 > `eventos`/`pronta` que já viaja.
 >
+> **v5.219: a imagem de fundo da letra desistia antes de poder chegar.** Numa
+> tela recém-ativada os slides ficavam pretos mesmo com a opção ligada, e só
+> desligar/religar a opção consertava. A preferência viajava certa (o
+> `telaReenviarPreferencias` da v5.188 faz o serviço) — o problema eram os
+> BYTES: as imagens são enfileiradas DEPOIS da mídia principal no mesmo canal
+> serializado (§5.5, e a decisão continua certa: o som não espera as fotos), e a
+> tela as buscava com uma ladeira de 0/600/1800 ms, desistindo em ~2,4 s. Por
+> construção elas só podem chegar depois de a música inteira atravessar o canal:
+> a tela desistia antes de existir chance de sucesso, e nada reexamina uma
+> estrofe já renderizada. Agora a ladeira dobra até um platô de 2,5 s com teto
+> de 45 s, morrendo na guarda de sequência quando a estrofe muda. O
+> `tela-rede.test.mjs` passou a 404ar a imagem por 3 s de propósito e exigir que
+> ela apareça assim mesmo — antes ele só provava que o `imageUrl` sobrevivia ao
+> `__rec`, nunca que a imagem chegava à tela.
+>
 > **v5.218: a RECARGA volta para a entrada oficial, e o botão de canto sai.**
 > Decisão do operador, e ela revoga a metade da v5.189 que valia para o F5 — a
 > distinção é entre perder o FIO e perder a PÁGINA. Numa queda de conexão a

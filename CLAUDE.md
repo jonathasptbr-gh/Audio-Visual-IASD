@@ -2386,10 +2386,55 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.218** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
+**Versão atual: v5.219** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.219: A IMAGEM DE FUNDO DA LETRA DESISTIA ANTES DE PODER CHEGAR. OTA
+> PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> Relato: numa tela recém-ativada, tocar uma música da biblioteca deixa os
+> slides em PRETO, **mesmo com a opção de imagens ligada** — e desligar e religar
+> a opção nas Configurações conserta.
+>
+> **A preferência não era o problema**, e essa era a pista falsa embutida no
+> sintoma: `telaReenviarPreferencias` manda o `lyricsbg` no `display-ready` da
+> tela e ele chega certo. O problema são os BYTES.
+>
+> As imagens de fundo são enfileiradas **DEPOIS da mídia principal**
+> (`telaEmpurrarImagensLetra`, logo após `telaGarantirEnvio`), no MESMO canal
+> serializado — de propósito, e a decisão continua certa: o som não pode esperar
+> as fotos. Só que a tela buscava a imagem com uma ladeira de **0, 600 e
+> 1800 ms**, desistindo em ~2,4 s. Por construção, os bytes só podem começar a
+> chegar depois de a música inteira atravessar o canal — segundos para um hino.
+> **A tela desistia antes de existir qualquer possibilidade de sucesso**, e o
+> slide ficava preto PARA SEMPRE, porque nada reexamina uma estrofe já
+> renderizada. Religar a opção troca a chave efetiva e refaz o caminho com os
+> bytes já no lugar: era esse o conserto que o operador vinha fazendo a cada
+> música.
+>
+> Medido, com os bytes chegando aos 4 s: aos 2 s sem `src` (esperado), **aos 6 s
+> ainda sem `src`** — dois segundos depois de a imagem estar disponível —, e
+> visível logo após o desliga/religa. Os três estados do relato, reproduzidos.
+>
+> A ladeira agora dobra até um platô de 2,5 s com teto de 45 s, e é
+> auto-limitada pelo que já existia: **a guarda de sequência mata o laço no
+> instante em que a estrofe muda**, que é o caso comum muito antes do teto.
+> Repetir a mesma URL é seguro porque o servidor manda `Cache-Control: no-store`
+> em TODA resposta (`EspelhoHttp.CABECALHOS_SEMPRE`), 404 inclusive — não há 404
+> grudado em cache para envenenar a tentativa boa.
+>
+> **O oráculo mede o que faltava.** O `tela-rede` já afirmava que o `imageUrl`
+> sobrevive ao `__rec`; ninguém nunca afirmou que a imagem **chega à tela**, e
+> era exatamente nessa distância que o defeito vivia. Agora a rota `/m/` da
+> imagem 404a por 3 s de propósito — mais que a janela antiga — e o teste exige
+> que ela apareça assim mesmo. Reprova no código anterior (verificado).
+>
+> A régua que fica: **uma retentativa tem de durar mais que o processo que ela
+> está esperando.** Aqui o processo era conhecido e estava escrito duas funções
+> acima — a fila é serializada e a imagem vem depois da música —, e ainda assim
+> o prazo foi escolhido como se a imagem pudesse chegar sozinha.
 
 > **A v5.218: A RECARGA VOLTA PARA A ENTRADA OFICIAL, e o botão de canto sai.
 > OTA PURO** (nenhuma linha de Kotlin; sem Release).
