@@ -1048,6 +1048,8 @@ try {
     + 'o card crescer conforme o catálogo');
 } catch (e) {
   checar(false, 'a medição do peso como subtítulo terminou sem exceção (' + (e && e.message) + ')');
+}
+
 // ── A TROCA DE MODO É UMA SÓ (v5.247) ────────────────────────────────────
 //
 // Pedido do operador: *"como já temos nas configurações o botão de acesso ao
@@ -1087,7 +1089,8 @@ try {
   checar(modo.opcoes.includes('simple') && modo.opcoes.includes('full'),
     'e Configurações continua oferecendo os dois modos, que é o destino que substitui o botão');
 } catch (e) {
-  checar(false, 'a medição da troca de modo terminou sem exceção (' + (e && e.message) + ')');}
+  checar(false, 'a medição da troca de modo terminou sem exceção (' + (e && e.message) + ')');
+}
 
 checar(erros.length === 0, 'nenhum erro de console' + (erros.length ? ':\n        ' + erros.join('\n        ') : ''));
 
