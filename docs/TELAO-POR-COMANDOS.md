@@ -72,7 +72,7 @@
 > fino delas (eco de __mid, atraso medido) é evolução futura sobre o campo
 > `eventos`/`pronta` que já viaja.
 >
-> **v5.222: o `display-ready` da tela nunca levou `__tela`.** O Controle decide
+> **v5.223: o `display-ready` da tela nunca levou `__tela`.** O Controle decide
 > reenviar as preferências de quem conecta (wallpaper, `lyricsbg`, `fit`)
 > perguntando `if (msg.__tela)` — e o `tela.js` anexava o campo ao `tela-status`
 > e NUNCA ao `display-ready`. Medido no fio:

@@ -337,7 +337,7 @@ try {
 }
 
 // ---------------------------------------------------------------------------
-// A METADE CONSUMIDORA DO `__tela` (v5.222)
+// A METADE CONSUMIDORA DO `__tela` (v5.223)
 //
 // Uma tela da rede não tem o IndexedDB do celular: wallpaper, fundo da letra e
 // preenchimento têm de ser REENVIADOS a ela quando conecta, e quem faz isso é

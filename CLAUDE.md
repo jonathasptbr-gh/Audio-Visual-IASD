@@ -2411,12 +2411,12 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.222** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
+**Versão atual: v5.223** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
-> **A v5.222: O `display-ready` DA TELA NUNCA LEVOU `__tela` — e sem ele as TRÊS
+> **A v5.223: O `display-ready` DA TELA NUNCA LEVOU `__tela` — e sem ele as TRÊS
 > preferências jamais chegaram. OTA PURO** (nenhuma linha de Kotlin; sem
 > Release).
 >
@@ -2466,7 +2466,7 @@ controles), que **só chegam instalando o APK novo**, não pelo OTA.
 > **A v5.221: A IMAGEM DE FUNDO DA LETRA DESISTIA ANTES DE PODER CHEGAR. OTA
 > PURO** (nenhuma linha de Kotlin; sem Release).
 >
-> **CORREÇÃO DE ATRIBUIÇÃO, escrita pela v5.222:** o defeito descrito abaixo é
+> **CORREÇÃO DE ATRIBUIÇÃO, escrita pela v5.223:** o defeito descrito abaixo é
 > REAL e a correção fica — mas ele **não era a causa** do relato do operador,
 > e esta nota afirmou que era. A causa estava uma etapa antes: o `lyricsbg`
 > nunca chegava à tela, porque o `display-ready` dela não levava `__tela`
