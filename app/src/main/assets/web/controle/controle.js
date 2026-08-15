@@ -209,7 +209,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.223';
+const WEB_VERSION = '5.224';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -15637,7 +15637,7 @@ if (castMirrorBtnEl) {
   // ATIVAR (E DESLIGAR) A TRANSMISSÃO PELO SITE: este botão é a única coisa
   // desta folha que sobe ou derruba o servidor.
   //
-  // Ele é o IRMÃO do de espelhar desde a v5.223 — era um interruptor —, e a
+  // Ele é o IRMÃO do de espelhar desde a v5.224 — era um interruptor —, e a
   // diferença de mecânica é uma só: um `change` de caixa de marcação já vem com
   // a posição nova, e um clique não vem com nada. O que o operador pediu passa
   // a ser DERIVADO do estado atual (`!espelhoLigado()`), que é a mesma fonte que

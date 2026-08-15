@@ -236,7 +236,7 @@ try {
   // Um `#rrggbb` de token vira o `rgb(...)` que o `getComputedStyle` devolve —
   // as asserções comparam o RENDERIZADO com o token resolvido, nunca com um
   // literal copiado para cá. (Ele mora acima dos dois blocos que o usam: era
-  // declarado no segundo, e o primeiro passou a precisar dele na v5.223.)
+  // declarado no segundo, e o primeiro passou a precisar dele na v5.224.)
   const paraRgb = (hex) => {
     const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
     return m ? 'rgb(' + parseInt(m[1], 16) + ', ' + parseInt(m[2], 16) + ', ' + parseInt(m[3], 16) + ')' : hex;
@@ -261,7 +261,7 @@ try {
       const el = document.querySelector(sel);
       return el ? getComputedStyle(el)[prop] : '';
     };
-    // AS DUAS FORMAS DE CONECTAR SÃO BOTÕES IRMÃOS (v5.223) — a segunda era um
+    // AS DUAS FORMAS DE CONECTAR SÃO BOTÕES IRMÃOS (v5.224) — a segunda era um
     // interruptor. O que se mede aqui é que elas são a MESMA peça desligadas
     // (mesmo raio, mesmo preenchimento) e peças DIFERENTES ligadas, porque o
     // estado é a única coisa que as separa.

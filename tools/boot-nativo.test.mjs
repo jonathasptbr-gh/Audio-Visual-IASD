@@ -188,7 +188,7 @@ try {
     'sem tela, o bloco de conexão é o que fica legível (pai: ' + conn.pai + ')');
   checar(conn.redeVisivel,
     'e ele oferece as DUAS formas — espelhar para a TV e transmitir para navegador');
-  // E COM A TRANSMISSÃO DESLIGADA o botão dela nomeia o DESTINO (v5.223). O par
+  // E COM A TRANSMISSÃO DESLIGADA o botão dela nomeia o DESTINO (v5.224). O par
   // deste caso está na página de baixo, com a transmissão no ar.
   const redeOff = await pg.evaluate(() => ({
     ligado: document.getElementById('castNetBtn').classList.contains('ligado'),
@@ -339,7 +339,7 @@ try {
   checar(continuaAberta.conectado && continuaAberta.aberta,
     'e ela CONTINUA aberta com tela conectada — a enquete não a fecha sozinha');
 
-  // ---- LIGADA, A TRANSMISSÃO É O BOTÃO VERMELHO DE DESLIGAR (v5.223) -----
+  // ---- LIGADA, A TRANSMISSÃO É O BOTÃO VERMELHO DE DESLIGAR (v5.224) -----
   //
   // O par do caso da página de cima, e o único lugar em que ele pode ser
   // medido: aqui a ponte responde `ligado: true`, então é o `renderCast` — e

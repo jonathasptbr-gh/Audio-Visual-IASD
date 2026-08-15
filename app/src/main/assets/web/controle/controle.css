@@ -3607,7 +3607,7 @@ body.mode-simple .hymn-add-btn { display: none; }
    é o alvo do toque (`<label>`), porque um interruptor de 44px numa tela
    operada com o polegar no escuro é alvo pequeno demais. */
 /* LIGADA, a transmissão fica no VERMELHO CONTORNADO, e o rótulo passa a nomear
-   o desligamento (v5.223). É a mesma gramática do `.connected` acima — o
+   o desligamento (v5.224). É a mesma gramática do `.connected` acima — o
    preenchimento sai, fica o contorno na cor do estado —, e a cor é a única
    diferença: verde é "resolvido, e o app não mexe nisso" (a TV, que só o
    seletor do Android desconecta); vermelho é "está ligado, e o toque desliga".
@@ -3617,7 +3617,7 @@ body.mode-simple .hymn-add-btn { display: none; }
    preenchido em `--live` competiria com o que a congregação está vendo.
 
    (Aqui morava o INTERRUPTOR — `.cast-sw-row`, `.cast-sw-input`, `.cast-sw` e o
-   trilho com o botão deslizante. Ele saiu com a v5.223: as duas formas de
+   trilho com o botão deslizante. Ele saiu com a v5.224: as duas formas de
    conectar respondem à mesma pergunta e agora têm a mesma anatomia.) */
 .cast-acao.ligado {
   background: var(--danger-soft); color: var(--text);
