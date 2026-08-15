@@ -100,14 +100,36 @@ object SessionRemote {
  * [EspelhoEnergia] — e é ele que derruba a primeira Release de quem o remover
  * do manifest achando que sobrou do mDNS.
  *
- * ## O cartão tem DUAS CARAS
+ * ## O cartão tem DUAS CARAS — mas a transmissão aparece nas DUAS (v5.231)
  *
- * Com cena: o player de sempre (título, barra, cinco controles). Sem cena e com
- * a transmissão no ar: o endereço, quantas telas estão recebendo e o botão
- * **Desligar transmissão** — que só aparece aí, e de propósito. Ao lado do
- * transporte, no escuro, ele seria um toque errado derrubando a projeção da
- * igreja inteira; sem cena não há transporte a mostrar, e sobra o espaço exato
- * para ele.
+ * Com cena: o player (título, barra, controles). Sem cena e com a transmissão
+ * no ar: o endereço, quantas telas estão recebendo e o botão **Desligar
+ * transmissão** — que só aparece aí, e de propósito. Ao lado do transporte, no
+ * escuro, ele seria um toque errado derrubando a projeção da igreja inteira;
+ * sem cena não há transporte a mostrar, e sobra o espaço exato para ele.
+ *
+ * O que mudou na v5.231 é que a cara do PLAYER deixou de apagar a outra: com
+ * uma cena no ar, o endereço e a contagem de telas viram o SUBTEXTO do cartão
+ * (a linha do cabeçalho, que o `MediaStyle` desenha e que não disputa espaço
+ * com o título nem com os botões). Antes disso, pôr um louvor para tocar fazia
+ * a gaveta parar de dizer que havia um servidor no ar.
+ *
+ * **Um player LITERAL em tempo integral não é possível, e a razão é da
+ * plataforma.** Para o cartão sem cena virar `MediaStyle` seria preciso uma
+ * sessão de mídia com estado — e a partir do Android 13 os botões saem do
+ * `PlaybackState`, não das `Notification.Action`. Com `STATE_NONE` (o único
+ * honesto quando não há mídia) o sistema não desenha botão nenhum, e o
+ * "Desligar transmissão" sumiria justamente nas versões novas; com um estado
+ * PAUSADO ele seria desenhado, mas o sistema promoveria a sessão ao painel de
+ * mídia das configurações rápidas — um player fantasma, com transporte morto,
+ * para controlar coisa nenhuma. Duas caras num cartão só é o melhor que a
+ * plataforma permite sem inventar um desses dois defeitos.
+ *
+ * ## E os BOTÕES são escolhidos pelo lado web (v5.231 / shell 42)
+ *
+ * Ver [Scene.actions]. Cinco fixos serviam a uma cena só; a lista vem de fora
+ * pela invariante 5 — quem sabe se "próxima estrofe" faz sentido agora é o
+ * `controle.js`.
  */
 class SessionService : Service() {
 
@@ -294,17 +316,29 @@ class SessionService : Service() {
             // ignoradas nessas versões. Por isso "Parar" e a cortina precisam
             // ser CUSTOM ACTIONS da sessão: como Notification.Action elas
             // simplesmente não apareciam, e só sobravam os botões nativos.
+            // O CONJUNTO É O MESMO nos dois lugares — aqui e nas
+            // `Notification.Action` de `buildNotification`. A partir do Android
+            // 13 quem DESENHA é este `PlaybackState`; abaixo dele, as actions.
+            // Declarar um botão só de um lado é fazê-lo existir em metade dos
+            // aparelhos, que é o defeito da v1.17 com outro nome.
+            val acoes = if (s.actions.isEmpty()) ACOES_PADRAO else s.actions
+            var mascara = 0L
+            if (acoes.contains(SessionRemote.PLAY_PAUSE)) {
+                mascara = mascara or PlaybackState.ACTION_PLAY or
+                    PlaybackState.ACTION_PAUSE or PlaybackState.ACTION_PLAY_PAUSE
+            }
+            if (acoes.contains(SessionRemote.PREV)) {
+                mascara = mascara or PlaybackState.ACTION_SKIP_TO_PREVIOUS
+            }
+            if (acoes.contains(SessionRemote.NEXT)) {
+                mascara = mascara or PlaybackState.ACTION_SKIP_TO_NEXT
+            }
+            if (acoes.contains(SessionRemote.STOP)) mascara = mascara or PlaybackState.ACTION_STOP
             ms.setPlaybackState(
                 PlaybackState.Builder()
-                    .setActions(
-                        PlaybackState.ACTION_PLAY or
-                            PlaybackState.ACTION_PAUSE or
-                            PlaybackState.ACTION_PLAY_PAUSE or
-                            PlaybackState.ACTION_STOP or
-                            PlaybackState.ACTION_SKIP_TO_PREVIOUS or
-                            PlaybackState.ACTION_SKIP_TO_NEXT,
-                    )
-                    .addCustomAction(
+                    .setActions(mascara)
+                    .let { b ->
+                        if (!acoes.contains(SessionRemote.VIEW)) b else b.addCustomAction(
                         PlaybackState.CustomAction.Builder(
                             SessionRemote.VIEW,
                             if (s.wallpaper) "Mostrar mídia" else "Cobrir telão",
@@ -321,14 +355,17 @@ class SessionService : Service() {
                             // continua nomeando o que o toque faz.
                             if (s.wallpaper) R.drawable.ic_image_off else R.drawable.ic_image,
                         ).build(),
-                    )
-                    .addCustomAction(
+                        )
+                    }
+                    .let { b ->
+                        if (!acoes.contains(SessionRemote.STOP)) b else b.addCustomAction(
                         PlaybackState.CustomAction.Builder(
                             SessionRemote.STOP,
                             "Parar",
                             android.R.drawable.ic_menu_close_clear_cancel,
                         ).build(),
-                    )
+                        )
+                    }
                     .setState(
                         if (s.playing) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED,
                         s.positionMs,
@@ -419,6 +456,35 @@ class SessionService : Service() {
             val wallpaper: Boolean = false,
             val positionMs: Long = 0,
             val durationMs: Long = 0,
+            /**
+             * OS BOTÕES DESTA CENA, na ordem, escolhidos pelo LADO WEB (v5.231).
+             *
+             * Cinco botões fixos serviam a uma cena só — a de mídia tocando. Com
+             * um cronômetro no ar sem louvor nenhum, ⏮/⏭ e o play/pause não têm
+             * o que fazer: eles ficavam ali, ocupando o modo compacto e roubando
+             * o alvo de toque das duas ações que de fato existem (cobrir o telão
+             * e parar).
+             *
+             * A LISTA VEM DE FORA por invariante (a 5 do CLAUDE.md): quem sabe
+             * se "próxima estrofe" faz sentido agora é o `controle.js`, que tem
+             * a cena inteira na mão. Uma cópia dessa regra em Kotlin envelheceria
+             * à parte da de lá — foi por isso que o transporte nunca decidiu nada
+             * aqui, e o conjunto de botões é a mesma decisão.
+             *
+             * Vazia = o conjunto clássico ([ACOES_PADRAO]): é o que um BUNDLE
+             * ANTIGO num shell novo produz, e ele tem de continuar com os cinco
+             * botões de sempre.
+             */
+            val actions: List<String> = emptyList(),
+        )
+
+        /**
+         * O conjunto clássico — o que existia até a v5.231, e o que vale quando
+         * o lado web não manda nada (bundle antigo).
+         */
+        private val ACOES_PADRAO = listOf(
+            SessionRemote.PREV, SessionRemote.PLAY_PAUSE, SessionRemote.NEXT,
+            SessionRemote.STOP, SessionRemote.VIEW,
         )
 
         @Volatile
@@ -688,6 +754,14 @@ class SessionService : Service() {
                 actionIntent(ctx, action),
             ).build()
 
+        /** O que a transmissão tem a dizer numa linha — a mesma nos dois cartões. */
+        private fun linhaDaTransmissao(tx: Transmissao): String = when {
+            tx.endereco.isEmpty() -> "Preparando…"
+            tx.telas == 0 -> tx.endereco + " · nenhuma tela ainda"
+            tx.telas == 1 -> tx.endereco + " · 1 tela"
+            else -> tx.endereco + " · " + tx.telas + " telas"
+        }
+
         /**
          * O cartão quando NÃO há cena e a transmissão está no ar.
          *
@@ -710,12 +784,7 @@ class SessionService : Service() {
                 Intent(ctx, SessionService::class.java).setAction(ACTION_DESLIGAR_TX),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
-            val linha = when {
-                tx.endereco.isEmpty() -> "Preparando…"
-                tx.telas == 0 -> tx.endereco + " · nenhuma tela ainda"
-                tx.telas == 1 -> tx.endereco + " · 1 tela"
-                else -> tx.endereco + " · " + tx.telas + " telas"
-            }
+            val linha = linhaDaTransmissao(tx)
             val b = Notification.Builder(ctx, CHANNEL_ID)
                 // O mesmo símbolo que a cortina usa nos controles: aqui ele diz
                 // "há imagem saindo deste aparelho".
@@ -781,6 +850,40 @@ class SessionService : Service() {
             val rotuloPrev = if (s.slideMode) "Anterior ($unidade)" else "Anterior"
             val rotuloNext = if (s.slideMode) "Próxima ($unidade)" else "Próxima"
 
+            // O CONJUNTO DE BOTÕES vem do lado web (ver [Scene.actions]); aqui
+            // só se traduz id → ícone + rótulo. Um id desconhecido (bundle mais
+            // novo que o shell) é IGNORADO em vez de virar botão vazio.
+            val acoes = if (s.actions.isEmpty()) ACOES_PADRAO else s.actions
+            val montadas = acoes.mapNotNull { id ->
+                when (id) {
+                    SessionRemote.PREV ->
+                        acao(ctx, android.R.drawable.ic_media_previous, rotuloPrev, SessionRemote.PREV)
+                    SessionRemote.PLAY_PAUSE -> acao(
+                        ctx,
+                        if (s.playing) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
+                        if (s.playing) "Pausar" else "Reproduzir",
+                        SessionRemote.PLAY_PAUSE,
+                    )
+                    SessionRemote.NEXT ->
+                        acao(ctx, android.R.drawable.ic_media_next, rotuloNext, SessionRemote.NEXT)
+                    SessionRemote.STOP -> acao(
+                        ctx, android.R.drawable.ic_menu_close_clear_cancel, "Parar", SessionRemote.STOP,
+                    )
+                    // Cortina do wallpaper: a ação mais usada num culto depois
+                    // do play/pause — tirar a mídia do telão sem parar o áudio.
+                    // Ícone = estado, rótulo = ação (ver a custom action do
+                    // `publish`). Estas `Notification.Action` são decoração a
+                    // partir do Android 13, mas precisam concordar com ela.
+                    SessionRemote.VIEW -> acao(
+                        ctx,
+                        if (s.wallpaper) R.drawable.ic_image_off else R.drawable.ic_image,
+                        if (s.wallpaper) "Mostrar mídia" else "Cobrir telão",
+                        SessionRemote.VIEW,
+                    )
+                    else -> null
+                }
+            }
+
             val b = Notification.Builder(ctx, CHANNEL_ID)
                 // Ícone = ESTADO, a mesma convenção da cortina: fixo em "play"
                 // ele dizia "tocando" na barra de status com o louvor pausado.
@@ -806,32 +909,21 @@ class SessionService : Service() {
                 // painel de controle no meio do culto. Pausado ele é
                 // dispensável, como manda o comportamento normal de um player.
                 .setOngoing(s.playing)
-                .addAction(acao(ctx, android.R.drawable.ic_media_previous, rotuloPrev, SessionRemote.PREV))
-                .addAction(
-                    acao(
-                        ctx,
-                        if (s.playing) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
-                        if (s.playing) "Pausar" else "Reproduzir",
-                        SessionRemote.PLAY_PAUSE,
-                    ),
-                )
-                .addAction(acao(ctx, android.R.drawable.ic_media_next, rotuloNext, SessionRemote.NEXT))
-                .addAction(acao(ctx, android.R.drawable.ic_menu_close_clear_cancel, "Parar", SessionRemote.STOP))
-                // Cortina do wallpaper: a ação mais usada num culto depois do
-                // play/pause — tirar a mídia do telão sem parar o áudio.
-                .addAction(
-                    acao(
-                        ctx,
-                        // Ícone = estado, rótulo = ação (ver a custom action
-                        // acima). Estes `Notification.Action` são decoração a
-                        // partir do Android 13, mas precisam concordar com ela.
-                        if (s.wallpaper) R.drawable.ic_image_off else R.drawable.ic_image,
-                        if (s.wallpaper) "Mostrar mídia" else "Cobrir telão",
-                        SessionRemote.VIEW,
-                    ),
-                )
+            montadas.forEach { b.addAction(it) }
 
-            val style = Notification.MediaStyle().setShowActionsInCompactView(0, 1, 2)
+            // A TRANSMISSÃO APARECE AQUI TAMBÉM (v5.231). Com uma cena no ar
+            // este cartão substitui o da transmissão, e até aqui isso a
+            // apagava: o operador ligava as telas da rede, punha um louvor, e
+            // a gaveta deixava de dizer que havia um servidor no ar. Agora ela
+            // vira o SUBTEXTO — a linha do cabeçalho, que o `MediaStyle`
+            // desenha e que não disputa espaço com o título nem com os botões.
+            transmissao?.let { b.setSubText(linhaDaTransmissao(it)) }
+
+            // O modo compacto mostra TRÊS, e eles são os três primeiros do
+            // conjunto que de fato existe — com uma lista de dois, pedir o
+            // índice 2 lançaria.
+            val compactos = IntArray(minOf(3, montadas.size)) { it }
+            val style = Notification.MediaStyle().setShowActionsInCompactView(*compactos)
             if (ms != null) style.setMediaSession(ms.sessionToken)
             b.setStyle(style)
             return b.build()

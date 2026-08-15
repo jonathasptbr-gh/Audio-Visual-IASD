@@ -111,12 +111,28 @@ try {
       active: true, title: 'Hino 471', subtitle: 'Hinário', playing: true,
       slideMode: true, slideLabel: 'página', wallpaper: false,
       positionMs: 12_000, durationMs: 240_000,
+      actions: ['prev', 'playpause', 'next', 'view', 'stop'],
     });
     return JSON.parse(window.__recebido.nowPlaying);
   });
   checar(n.slideLabel === 'página',
     'nowPlaying leva o `slideLabel` — foi ele que ficou de fora da v5.97 à v5.102',
     JSON.stringify(n));
+  // O CONJUNTO DE BOTÕES (v5.231), pelo mesmo motivo e no mesmo lugar: é o
+  // campo mais novo deste objeto remontado campo a campo, e sem ele o Kotlin lê
+  // lista vazia — que é um valor LEGÍTIMO ("use os cinco de sempre"). O
+  // esquecimento não daria erro nenhum: daria a notificação de antes, para
+  // sempre.
+  checar(Array.isArray(n.actions) && n.actions.join(',') === 'prev,playpause,next,view,stop',
+    'e leva as `actions` — a lista de botões que o lado web escolheu',
+    JSON.stringify(n.actions));
+  const semAcoes = await pg.evaluate(() => {
+    AVNative.nowPlaying({ active: true, title: 'Cronômetro' });
+    return JSON.parse(window.__recebido.nowPlaying);
+  });
+  checar(Array.isArray(semAcoes.actions) && semAcoes.actions.length === 0,
+    'sem a lista, o campo viaja VAZIO — é assim que o shell sabe usar o padrão',
+    JSON.stringify(semAcoes.actions));
   checar(n.active === true && n.playing === true && n.slideMode === true,
     'e as três bandeiras de estado');
   checar(n.positionMs === 12_000 && n.durationMs === 240_000,

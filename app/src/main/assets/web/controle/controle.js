@@ -209,7 +209,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.230';
+const WEB_VERSION = '5.231';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -583,7 +583,7 @@ let albumCatalog = { categories: [], albums: [] };
 // Registro completo de coleções: hinários fixos + um card por álbum do catálogo.
 // `subtitle`/`order` NÃO entram aqui: são do pivô categoria↔álbum e só fazem
 // sentido no contexto de uma categoria (ver renderCollectionsList).
-// AS SÉRIES DO YOUTUBE (v5.228) — um card por série do catálogo de `serie.js`.
+// AS SÉRIES DO YOUTUBE (v5.231) — um card por série do catálogo de `serie.js`.
 // A primeira é "Provai e Vede 2026"; a regra que decide o que entra em cada uma
 // mora lá, e o que chega aqui é só o card.
 //
@@ -2669,6 +2669,47 @@ function applyTitleMarquee() {
 const POS_TOL_MS = 1500;
 let lastScene = '';
 let lastPosMs = 0, lastPosAt = 0, lastPosPlaying = false;
+/**
+ * QUAIS BOTÕES A NOTIFICAÇÃO MOSTRA NESTA CENA — e por que a decisão é daqui.
+ *
+ * Eram cinco fixos (⏮ · play/pause · ⏭ · parar · cortina), e eles serviam a UMA
+ * cena: mídia tocando. Nas outras eles não somem, eles MENTEM — com a contagem
+ * regressiva de abertura no ar, sem louvor nenhum, o play/pause não tem o que
+ * tocar e ⏮/⏭ não têm por onde andar; os três ficavam ocupando o modo compacto
+ * (que só mostra três) e roubando o alvo de toque das duas ações que de fato
+ * existem ali: cobrir o telão e parar.
+ *
+ * A escolha é do LADO WEB por invariante (a 5): a mesma razão que mantém toda
+ * decisão de transporte aqui. Quem sabe se "próxima estrofe" faz sentido agora
+ * é esta função, que tem a cena inteira na mão; uma cópia dessa regra em Kotlin
+ * envelheceria à parte desta.
+ *
+ * As três perguntas, e cada uma tem um dono claro:
+ *
+ *  - **play/pause** só existe com mídia que tenha TEMPO (`temTempo`, a mesma
+ *    régua da barra de progresso). Imagem, versículo, mensagem e cronômetro não
+ *    têm o que pausar.
+ *  - **⏮/⏭** existem quando há um EIXO para andar: uma cena com slides (`who`,
+ *    de `slideTarget`) ou uma mídia atual, que é o que faz o par trocar de item
+ *    na lista. Um cronômetro sozinho não tem nem um nem outro.
+ *  - **cortina e parar** existem sempre: qualquer coisa que esteja no telão
+ *    pode ser coberta, e qualquer cena pode ser encerrada.
+ *
+ * A ORDEM IMPORTA: o shell mostra os três primeiros no modo compacto (é ele que
+ * calcula os índices a partir desta lista). Com transporte, os três primeiros
+ * são o transporte; sem ele, sobem a cortina e o parar — que passam a ser os
+ * dois botões grandes do cartão.
+ */
+function acoesDaNotificacao(who, temTempo) {
+  const eixo = !!who || !!currentId;
+  const a = [];
+  if (eixo) a.push('prev');
+  if (temTempo) a.push('playpause');
+  if (eixo) a.push('next');
+  a.push('view', 'stop');
+  return a;
+}
+
 function pushNowPlaying() {
   if (!window.__NATIVE__) return;
   const who = slideTarget();
@@ -2704,6 +2745,8 @@ function pushNowPlaying() {
   // que não significa nada.
   const temTempo = !seekEl.disabled;
   const cena = {
+    // OS BOTÕES DA NOTIFICAÇÃO (v5.231). Ver `acoesDaNotificacao`.
+    actions: acoesDaNotificacao(who, temTempo),
     active,
     title: npNameInnerEl.textContent || '',
     subtitle,
@@ -2727,7 +2770,12 @@ function pushNowPlaying() {
   // (1x tocando), então reenviar a cada segundo só para mexer o cursor seria
   // desperdício. O que precisa chegar é toda MUDANÇA de estado.
   const chave = JSON.stringify([cena.active, cena.title, cena.subtitle,
-    cena.playing, cena.slideMode, cena.wallpaper, cena.durationMs]);
+    cena.playing, cena.slideMode, cena.wallpaper, cena.durationMs,
+    // O CONJUNTO DE BOTÕES entra na chave (v5.231): sem ele, uma cena que muda
+    // só de eixo — o cronômetro entrando por cima de uma imagem, por exemplo —
+    // seria deduplicada e o cartão ficaria com os botões da cena anterior. Um
+    // botão que sobrou é pior que um que faltou: ele responde.
+    cena.actions.join(',')]);
   const agora = Date.now();
   const extrapolado = lastPosAt
     ? lastPosMs + (lastPosPlaying ? agora - lastPosAt : 0)
@@ -8911,7 +8959,7 @@ async function autoRefreshCollections() {
     ]);
     // Fase 2: índice de cada álbum (só os que estão vazios ou vencidos pelo TTL).
     const now = Date.now();
-    // As SÉRIES entram nesta mesma fase (v5.228), e não na 1: o índice delas
+    // As SÉRIES entram nesta mesma fase (v5.231), e não na 1: o índice delas
     // custa uma extração do YouTube para a aba do canal — barato quando a
     // assinatura das playlists não mudou (ver `fetchSerieIndex`), e caro quando
     // mudou. O TTL é o mesmo dos álbuns porque a pergunta é a mesma ("a lista

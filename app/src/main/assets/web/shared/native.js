@@ -697,6 +697,17 @@
           // tempo, para a linha do tempo da sessão nunca andar para trás.
           positionMs: inteiro(s && s.positionMs),
           durationMs: inteiro(s && s.durationMs),
+          // OS BOTÕES DESTA CENA, na ordem (v5.231 / shell 42). Ver
+          // `acoesDaNotificacao` em controle.js: cinco fixos serviam à cena de
+          // mídia tocando, e com um cronômetro sozinho no ar ⏮/⏭ e o
+          // play/pause ocupavam o modo compacto sem ter o que fazer.
+          // Lista vazia = o conjunto clássico, que é o que o shell monta
+          // sozinho — e é o mesmo desfecho num shell 40, que ignora o campo.
+          // (CAMPO NOVO AQUI = CAMPO NOVO NO OBJETO DE `pushNowPlaying`,
+          // sempre: esta função remonta tudo campo a campo, e um esquecido
+          // some em silêncio — foi assim que o `slideLabel` acima passou cinco
+          // versões sem chegar ao Kotlin.)
+          actions: (s && Array.isArray(s.actions) ? s.actions : []).map(String).slice(0, 5),
         }));
       } catch (_) { /* ignorado */ }
     },

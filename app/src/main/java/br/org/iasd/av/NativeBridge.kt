@@ -149,7 +149,20 @@ class NativeBridge(
          * exijam mais do que o shell instalado oferece (ver [WebUpdater]).
          * Subir SEMPRE que a superfície da ponte mudar.
          *
-         * 41 (v5.228) — `ytPlaylist` e `ytCanalPlaylists`: as SÉRIES da
+         * 42 (v5.231) — `nowPlaying` ganhou **`actions`**: a lista de botões da
+         * notificação de controles, na ordem, escolhida pelo LADO WEB. É a
+         * invariante 5 aplicada ao cartão — quem sabe se "próxima estrofe" faz
+         * sentido agora é o `controle.js`, e cinco botões fixos serviam a uma
+         * cena só. Com um cronômetro no ar sem louvor nenhum, ⏮/⏭ e o
+         * play/pause não têm o que fazer e ocupavam o modo compacto.
+         *
+         * O degrau é obrigatório porque o campo muda o que o CARTÃO MOSTRA, e a
+         * degradação tem de ser nos dois sentidos: bundle antigo em shell 42
+         * manda a lista vazia e recebe os cinco de sempre (`ACOES_PADRAO`);
+         * bundle novo em shell 41 tem o campo ignorado pelo `optJSONArray` e
+         * também fica com os cinco. Nenhum dos dois vê botão faltando.
+
+         * 41 (v5.231) — `ytPlaylist` e `ytCanalPlaylists`: as SÉRIES da
          * Biblioteca (o álbum "Provai e Vede 2026" é a primeira delas).
          *
          * Os dois são TRANSPORTE, e a divisão de trabalho é o que importa aqui:
@@ -266,7 +279,7 @@ class NativeBridge(
          * novo NÃO chega por OTA, e um botão que não faz nada no meio de um
          * culto é pior que botão nenhum (a mesma regra do `appendYoutubeSearch`).
          */
-        const val SHELL_VERSION = 41
+        const val SHELL_VERSION = 42
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -646,6 +659,15 @@ class NativeBridge(
                 wallpaper = o.optBoolean("wallpaper"),
                 positionMs = o.optLong("positionMs"),
                 durationMs = o.optLong("durationMs"),
+                // OS BOTÕES DA NOTIFICAÇÃO, escolhidos pelo lado web (v5.231 /
+                // shell 41) — ver [SessionService.Companion.Scene.actions].
+                // Ausente ou vazio = o conjunto clássico de cinco, que é o que
+                // um bundle antigo neste shell tem de continuar produzindo.
+                actions = o.optJSONArray("actions")?.let { arr ->
+                    (0 until arr.length()).mapNotNull { i ->
+                        arr.optString(i, "").takeIf { it.isNotBlank() }
+                    }
+                } ?: emptyList(),
             ),
         )
     }

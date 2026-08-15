@@ -337,7 +337,9 @@ window.AVNative = {
   requestMic(),        // → bool: permissão RECORD_AUDIO (push-to-talk)
   keepAlive(bool),     // download em curso — ver "Trabalho em segundo plano"
   bgProgress({label, done, total, etaMs, items, idleMs, bytes}), // progresso na notificação
-  nowPlaying({active, title, subtitle, playing, slideMode, slideLabel, wallpaper, positionMs, durationMs}),
+  nowPlaying({active, title, subtitle, playing, slideMode, slideLabel, wallpaper, positionMs, durationMs, actions}),
+                       //   `actions`: os BOTÕES do cartão, na ordem, escolhidos
+                       //   pelo lado web — shell 42. Vazio = os cinco de sempre
   onRemote(cb),        // cb('play'|'pause'|'playpause'|'prev'|'next'|'stop'|'view')
   // ---- TELÃO POR COMANDOS (shell 32; forma atual = 37) — ver a seção ----
   espelhoLigar(modo),  // liga a transmissão (o argumento é IGNORADO desde a
@@ -437,7 +439,15 @@ esperam uma **pessoa** e ficam sem prazo, porque um timeout ali resolveria null
 com o operador ainda escolhendo a pasta.
 
 `NativeBridge.SHELL_VERSION` identifica a versão da casca — **subir sempre que
-a superfície da ponte mudar**. Hoje vale **41** — a v5.228 acrescenta
+a superfície da ponte mudar**. Hoje vale **42** — a v5.231 acrescenta o campo
+**`actions`** ao `nowPlaying`: a lista de botões da notificação de controles, na
+ordem, escolhida pelo LADO WEB. É a invariante 5 aplicada ao cartão — cinco
+botões fixos serviam a UMA cena (mídia tocando), e com um cronômetro no ar sem
+louvor nenhum o play/pause e ⏮/⏭ ocupavam o modo compacto sem ter o que fazer.
+O degrau é obrigatório porque o campo muda o que o cartão MOSTRA, e a degradação
+é dupla: bundle antigo em shell 42 manda a lista vazia e recebe os cinco de
+sempre; bundle novo em shell 41 tem o campo ignorado pelo `optJSONArray` e
+também fica com os cinco. O anterior, **41** — a v5.228 acrescenta
 `ytCanalPlaylists` e `ytPlaylist`, as SÉRIES da Biblioteca (ver a seção do
 recurso). Os dois são TRANSPORTE, e a divisão de trabalho é o ponto: eles
 devolvem o que o canal publica, verbatim e na ordem dele, sem opinião nenhuma
@@ -2569,10 +2579,71 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.230** (base web) · `SHELL_VERSION` **41**, e o bundle segue com
+**Versão atual: v5.231** (base web) · `SHELL_VERSION` **42**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.231 (v1.98): OS BOTÕES DA NOTIFICAÇÃO PASSAM A SER DA CENA, e a
+> transmissão deixa de sumir quando há mídia no ar. EXIGE APK.**
+>
+> Duas perguntas do operador, e a primeira precisa de uma correção de premissa
+> antes da resposta.
+>
+> **1. "Conseguimos centralizar a transmissão no player, removendo a notificação
+> individual dela?"** — **ela já é um cartão só desde a v5.190**: o
+> `EspelhoService` e a notificação dele foram removidos ali, e o que restou foi
+> UM cartão com DUAS CARAS (player com cena · endereço e telas sem cena). O que
+> o operador estava vendo como "a notificação exclusiva da transmissão" é a
+> segunda cara.
+>
+> O que de fato faltava, e este lote entrega: **com uma cena no ar, a
+> transmissão sumia**. Punha-se um louvor para tocar e a gaveta deixava de dizer
+> que havia um servidor no ar — a informação existia e era descartada. Agora ela
+> é o SUBTEXTO do player (a linha do cabeçalho que o `MediaStyle` desenha), que
+> não disputa espaço com o título nem com os botões.
+>
+> **Um player LITERAL em tempo integral não é possível, e a razão é da
+> plataforma, não de gosto.** Para o cartão sem cena virar `MediaStyle` seria
+> preciso uma sessão com estado — e a partir do Android 13 os botões saem do
+> `PlaybackState`, não das `Notification.Action`. Com `STATE_NONE` (o único
+> honesto sem mídia) o sistema não desenha botão nenhum e o "Desligar
+> transmissão" sumiria justamente nas versões novas; com um estado PAUSADO ele
+> apareceria, mas o sistema promoveria a sessão ao painel de mídia das
+> configurações rápidas — um player fantasma, com transporte morto, para
+> controlar coisa nenhuma. Duas caras num cartão só é o melhor que a plataforma
+> permite sem inventar um desses dois defeitos, e está escrito no KDoc do
+> `SessionService` para a próxima leitura não tentar de novo.
+>
+> **2. "Conseguimos mudar os botões conforme o estado?"** — sim, e é o outro
+> lado do lote (`SHELL_VERSION` **42**). O `nowPlaying` ganhou `actions`: a
+> lista, na ordem, escolhida pelo `controle.js`. As três perguntas que a
+> `acoesDaNotificacao` faz:
+>
+> - **play/pause** só existe com mídia que tenha TEMPO (a mesma régua da barra
+>   de progresso). Imagem, versículo, mensagem e cronômetro não têm o que pausar.
+> - **⏮/⏭** existem quando há EIXO: uma cena com slides ou uma mídia atual (é o
+>   que faz o par trocar de item na lista).
+> - **cortina e parar** existem sempre.
+>
+> Com o cronômetro de abertura sozinho no ar, o cartão passa a ter DOIS botões
+> grandes — cobrir e parar — em vez de cinco, três deles mortos ocupando o modo
+> compacto (que só mostra três).
+>
+> **A lista vem de fora pela invariante 5**, e não é formalidade: quem sabe se
+> "próxima estrofe" faz sentido agora é o lado web, e uma cópia dessa regra em
+> Kotlin envelheceria à parte da de lá. O conjunto entra também na CHAVE de
+> deduplicação do `pushNowPlaying` — sem isso, uma cena que muda só de eixo (o
+> cronômetro entrando por cima de uma imagem) seria deduplicada e o cartão
+> ficaria com os botões da cena anterior. **Um botão que sobrou é pior que um
+> que faltou: ele responde.**
+>
+> O conjunto é declarado nos DOIS lugares que o Android lê — o `PlaybackState`
+> (que desenha do 13 em diante) e as `Notification.Action` (abaixo dele) —,
+> porque declarar de um lado só é fazer o botão existir em metade dos aparelhos:
+> é o defeito da v1.17 com outro nome. E o `tools/ponte.test.mjs` afirma que o
+> campo VIAJA, que é o modo de falhar deste objeto remontado campo a campo (o
+> `slideLabel` passou cinco versões sem chegar ao Kotlin).
 
 > **A v5.230: O EPISÓDIO DE SÉRIE VIRA UM VÍDEO DO YOUTUBE, e a DATA passa a
 > ter DUAS formas. OTA PURO** (nenhuma linha de Kotlin; sem Release).
