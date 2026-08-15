@@ -500,7 +500,15 @@ checar(await pg.$eval('#text', (e) => e.hidden), 'text-hide tira a Camada de Tex
   await pg3.goto(base + '/display/index.html');
   await pg3.waitForSelector('#telaEntrada', { state: 'visible' });
   await pg3.click('#telaEntrar');
-  await ate(async () => pg3.$eval('#telaEntrada', (e) => e.style.display === 'none').catch(() => false), 5000);
+  // ESPERAR O FIO ABRIR, e não o overlay sumir. `ativar()` esconde o overlay
+  // ANTES de `pedirEntrada()` voltar (o gesto não espera a rede), e é a resposta
+  // do pareamento que grava o token no sessionStorage. Esperar o overlay era
+  // ganhar a corrida por acidente: num runner mais lento a recarga chegava antes
+  // do `guardar()`, o token não existia e o toque seguinte pedia vaga nova — a
+  // asserção de baixo reprovava culpando o app por uma corrida do teste. O
+  // `GET /e` só acontece depois do `guardar()`, então ele é o sinal honesto.
+  // (Mesma família da corrida que a v5.204 consertou neste arquivo.)
+  await ate(() => (visto.getsPor.recarga || 0) >= 1, 5000);
 
   const getsAntes = visto.getsPor.recarga || 0;
   await pg3.reload();
