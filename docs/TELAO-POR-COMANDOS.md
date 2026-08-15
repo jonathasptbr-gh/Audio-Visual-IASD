@@ -72,6 +72,23 @@
 > fino delas (eco de __mid, atraso medido) é evolução futura sobre o campo
 > `eventos`/`pronta` que já viaja.
 >
+> **v5.222: o `display-ready` da tela nunca levou `__tela`.** O Controle decide
+> reenviar as preferências de quem conecta (wallpaper, `lyricsbg`, `fit`)
+> perguntando `if (msg.__tela)` — e o `tela.js` anexava o campo ao `tela-status`
+> e NUNCA ao `display-ready`. Medido no fio:
+> `{"type":"display-ready","__de":"…","__mid":"…"}`. Logo,
+> `telaReenviarPreferencias` — criada na v5.188 exatamente para isto — nunca
+> rodou para uma tela de verdade, em versão nenhuma, e sem erro em lugar
+> nenhum: as três preferências simplesmente não existiam do outro lado. O fundo
+> da letra foi o que apareceu (preto é visível); wallpaper e preenchimento
+> estavam quebrados do mesmo jeito, calados. O carimbo passou a ter dono único
+> (`anuncio()`), porque há DOIS pontos de anúncio — o dreno e o `aoConectar` —
+> e quem entrega é quase sempre o segundo (o `display-ready` nasce antes de
+> existir token, e `subir` devolve cedo): a primeira tentativa de conserto
+> carimbou só o dreno e não mudou nada. Os dois lados do contrato ganharam
+> oráculo — o produtor no `tela-rede.test.mjs`, o consumidor no
+> `boot-nativo.test.mjs` —, e são dois porque ler cada lado isolado aprova ambos.
+>
 > **v5.221: a imagem de fundo da letra desistia antes de poder chegar.** Numa
 > tela recém-ativada os slides ficavam pretos mesmo com a opção ligada, e só
 > desligar/religar a opção consertava. A preferência viajava certa (o

@@ -80,7 +80,7 @@ const ponteCom = (espelho, telas) => `(() => {
     role: () => 'controle',
     appVersion: () => '1.93-teste',
     takeShare: () => '',
-    busPost: () => {},
+    busPost: (t) => { try { (window.__enviados = window.__enviados || []).push(JSON.parse(t)); } catch (_) {} },
     otaConfirm: () => {},
   };
   const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','castTarget',
@@ -103,6 +103,9 @@ const ponteCom = (espelho, telas) => `(() => {
       return undefined;
     };
   }
+  // O CANAL DE MÍDIA da tela (o shell o injeta quando a transmissão sobe): é a
+  // única condição de que o reenvio de preferências depende de verdade.
+  window.__avTelaMidia = { postMessage: () => {} };
   window.__AVBridge = B;
 })();`;
 
@@ -331,6 +334,62 @@ try {
     + (erros2.length ? ':\n        ' + erros2.join('\n        ') : ''));
 } catch (e) {
   checar(false, 'o percurso terminou sem exceção (' + (e && e.message) + ')');
+}
+
+// ---------------------------------------------------------------------------
+// A METADE CONSUMIDORA DO `__tela` (v5.222)
+//
+// Uma tela da rede não tem o IndexedDB do celular: wallpaper, fundo da letra e
+// preenchimento têm de ser REENVIADOS a ela quando conecta, e quem faz isso é
+// `telaReenviarPreferencias`, disparado por `if (msg.__tela)` no
+// `display-ready`. O produtor do campo é o `tela.js` e está travado no
+// `tela-rede.test.mjs`; esta é a outra ponta.
+//
+// As duas existem porque foi a DIVERGÊNCIA entre elas que passou despercebida
+// desde a v5.188: o consumidor exigia o campo, o produtor nunca o mandava, e
+// não havia erro em lugar nenhum — só três preferências que não chegavam.
+// Travar um lado só deixaria o par livre para divergir de novo.
+try {
+  const pg3 = await ctx.newPage();
+  await pg3.addInitScript(ponteCom(
+    { ligado: true, endereco: 'http://192.168.0.9:8787', erro: '',
+      telas: [{ rotulo: 'A', comando: true, conectadaMs: 5000, telaAcesaMin: 0,
+                aviso: '', eventos: 2, pronta: true, fila: 0 }] }, []));
+  await pg3.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
+  await pg3.waitForFunction(() => !!window.__avBack, null, { timeout: 20000 });
+  // O operador tem "imagens" ligado, persistido de um culto anterior.
+  await pg3.evaluate(() => window.AVDB.setState('lyricsBg', 'image'));
+  await pg3.reload({ waitUntil: 'domcontentloaded' });
+  await pg3.waitForFunction(() => !!window.__avBack, null, { timeout: 20000 });
+  await pg3.waitForTimeout(600);
+
+  // Uma tela da rede se anuncia — exatamente como o `tela.js` a anuncia.
+  await pg3.evaluate(() => {
+    window.__enviados = [];
+    new BroadcastChannel('av-iasd').postMessage(
+      { type: 'display-ready', __de: 'tela-1', __tela: 'tela-1', __mid: 'bn:1' });
+  });
+  await pg3.waitForTimeout(1200);
+  const mandados = await pg3.evaluate(() => (window.__enviados || []).map((m) => m.type));
+  checar(mandados.includes('lyricsbg'),
+    'o display-ready com __tela faz o Controle reenviar o fundo da letra',
+    'emitiu: ' + JSON.stringify(mandados));
+
+  // E o CONTRÁRIO: o telão de verdade (sem `__tela`) não recebe esse reenvio —
+  // ele lê tudo do IndexedDB sozinho, e mandar de novo seria ruído na conexão.
+  await pg3.evaluate(() => {
+    window.__enviados = [];
+    new BroadcastChannel('av-iasd').postMessage(
+      { type: 'display-ready', __de: 'telao-1', __mid: 'bn:2' });
+  });
+  await pg3.waitForTimeout(1000);
+  const semTela = await pg3.evaluate(() => (window.__enviados || []).map((m) => m.type));
+  checar(!semTela.includes('lyricsbg'),
+    'e o display-ready SEM __tela (o telão de verdade) não dispara o reenvio',
+    'emitiu: ' + JSON.stringify(semTela));
+  await pg3.close();
+} catch (e) {
+  checar(false, 'o percurso do __tela terminou sem exceção (' + (e && e.message) + ')');
 }
 
 checar(erros.length === 0, 'nenhum erro de console' + (erros.length ? ':\n        ' + erros.join('\n        ') : ''));
