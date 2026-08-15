@@ -1536,15 +1536,54 @@ main {
    cor: aqui ele é a AÇÃO destrutiva da linha, e a convenção do app para isso é
    contornado em `--danger-text`, nunca preenchido — preenchido é "está no ar",
    e é o que a própria linha já está dizendo em volta dele. */
-.row-stop { display: none; }
+.row-stop { display: none; color: var(--danger-text); }
 .lib-item.no-ar .row-stop { display: flex; }
-.lib-item.no-ar .row-handle,
-.lib-item.no-ar .fav-btn { display: none; }
-.row-stop { color: var(--danger-text); }
+/* (As regras que ESCONDIAM a alça e a estrela na linha no ar saíram na v5.257:
+   os três moram dentro do menu `⋮` agora, e lá não há disputa de lugar — o
+   Parar simplesmente se junta aos outros quando a linha está no ar.) */
 /* Na seleção múltipla nada disso vale: o alvo é o conjunto, e a linha volta a
    ser uma caixa de escolha. (O JS já não põe `.no-ar` ali — cinto e
    suspensório, como a regra de cima.) */
 .lib-item.selected .row-stop { display: none; }
+
+/* ---------- O MENU DA LINHA (v5.257) ----------
+   Pedido do operador: um botão de três pontos à direita, e as opções abrindo
+   "para a sua esquerda sobre o item, cobrindo o título e etc" — porque hoje o
+   título disputa a linha com todos os botões e sai cortado.
+
+   A caixa é ABSOLUTA sobre a `.row` (que já é `position: relative`) e vai da
+   miniatura até o `⋮`: a thumb fica de fora de propósito — com o nome coberto,
+   ela é a única coisa que ainda diz de QUAL linha é este menu.
+
+   `background: inherit` e não um token: a `.row` muda de fundo em quatro
+   estados (normal, atual/selecionada, no ar), e escrever o valor aqui seria
+   uma quinta cópia para divergir na próxima cor. Herdando, a faixa é sempre
+   exatamente a linha que ela cobre.
+
+   Fechada ela é `visibility: hidden` — e não `display: none` — para a
+   transição de opacidade existir; `visibility` já tira os botões do toque, do
+   foco e do leitor de tela. */
+.row-acoes {
+  position: absolute; top: 0; bottom: 0;
+  /* As duas medidas saem da própria linha, e é por isso que elas têm esta
+     forma: a `.row` tem `padding: .35rem .5rem` e `gap: .5rem`, então o `⋮`
+     ocupa `--hit` a `.5rem` da borda e o vizinho dele começa outros `.5rem`
+     antes — daí o `1rem` somado. À esquerda a conta é a mesma contra a
+     miniatura, que é a única coisa que fica de fora. */
+  left: calc(var(--hit) + .5rem);
+  right: calc(var(--hit) + 1rem);
+  display: flex; align-items: center; justify-content: flex-end; gap: .3rem;
+  padding-right: .3rem;
+  background: inherit;
+  opacity: 0; visibility: hidden;
+  transition: opacity .14s ease;
+}
+.lib-item.acoes-abertas .row-acoes { opacity: 1; visibility: visible; }
+/* O `⋮` é o único botão que fica na linha, e ele é DISCRETO: não é uma ação,
+   é a porta para elas. Aberto, ele veste o accent — é o que diz qual linha
+   está com o menu no ar quando a lista rola. */
+.row-mais { color: var(--muted); }
+.lib-item.acoes-abertas .row-mais { color: var(--accent); }
 
 /* A caixa da miniatura é o FUNDO DO APP dentro do cartão: um buraco na
    elevação, que é o que faz a capa (quando existe) parecer colada por cima.
@@ -2881,19 +2920,10 @@ main {
    inteira some — foi o que um status de lote com o nome do álbum fazia. */
 .popup-close { background: var(--surface-2); color: var(--muted); }
 .popup-close .msym { font-size: var(--icon-sm); }
-/* "Baixar todo o acervo" no cabeçalho: contador + botão, os MESMOS elementos
-   (`.coll-group-count` / `.coll-group-btn`) que a barra tinha na lista — só
-   que fixos no alto.
-   ELE É O QUE ENCOLHE nesta linha. O texto aqui não tem largura previsível (é
-   o status do lote), e o `flex-shrink: 0` que ele tinha transformava qualquer
-   frase comprida em espaço roubado do ✕ ao lado. Agora ele cede primeiro e o
-   texto corta em reticências — o `.coll-group-count` dentro dele já sabe fazer
-   isso, só faltava o pai deixar.
-   O `max-width` guarda a outra ponta: sem ele o status podia levar a linha
-   inteira e o TÍTULO do popup ("Acervo") é que sumia — o ✕ ficava salvo e a
-   tela perdia o nome. Nenhuma das frases de hoje chega perto do teto; ele é
-   para a próxima. */
-.popup-total { display: flex; align-items: center; gap: .4rem; flex: 0 1 auto; min-width: 0; max-width: 58%; }
+/* (O `.popup-total` — o contador de peso do acervo inteiro e o botão de baixar
+   tudo, no cabeçalho — saiu na v5.257, a pedido do operador. O `flex-shrink: 0`
+   do ✕ que ele justificava continua valendo: o cabeçalho é uma linha flex, e um
+   vizinho que se recusa a encolher empurra o último item para fora do sheet.) */
 
 .popup-list {
   flex: 1; overflow-y: auto;
@@ -3062,8 +3092,25 @@ main {
 /* Barra de busca do Hinário ocupando toda a largura da bandeja: display:flex faz
    o input (.lib-search, flex:1) esticar de lado a lado (sem isso o input ficava
    no tamanho nativo, pequeno). Campo mais alto/legível que o de busca da pasta. */
-.hymn-search-bar { display: flex; padding: .5rem .9rem .6rem; flex-shrink: 0; }
-#hymnSearchInput { width: 100%; padding: 11px 14px; font-size: .95rem; }
+/* ---------- A BARRA DE BAIXO DA BIBLIOTECA (v5.257) ----------
+   Ela era a faixa logo abaixo do cabeçalho, e o ✕ ficava no cabeçalho: as duas
+   coisas que se toca o tempo todo nesta tela, no canto mais distante do polegar
+   e a uma tela de rolagem do teclado que a própria busca abre. Agora as duas
+   moram no RODAPÉ, juntas.
+
+   Nenhuma regra de teclado aqui, e isso é o ponto: o sheet mede 100% de um
+   `<body>` que já desconta `--kb` (ver o handler de `visualViewport`), então a
+   barra encosta na borda de cima do teclado por construção. Uma segunda conta
+   de altura seria uma segunda chance de divergir da primeira.
+
+   A linha vai EM CIMA (era embaixo, no cabeçalho): ela separa a barra da lista
+   que rola, que agora é quem está do outro lado. */
+.hymn-search-bar {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .5rem .9rem calc(.6rem + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line); flex-shrink: 0;
+}
+#hymnSearchInput { flex: 1; min-width: 0; padding: 11px 14px; font-size: .95rem; }
 /* Resultado: linha compacta [▶] [nome / subtítulo] [+]. Dois botões, cada um
    abrindo a folha com as três coisas que ele faz (ver hymnResultRow); o toque
    na linha continua abrindo a letra. A lista precisa ser legível de relance no

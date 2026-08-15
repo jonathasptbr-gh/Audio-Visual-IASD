@@ -2981,10 +2981,79 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.256** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.257** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.257: A LINHA FICA COM UM BOTÃO SÓ — o `⋮` — e a Biblioteca perde o
+> "baixar tudo" e ganha a busca na BASE. OTA PURO** (nenhuma linha de Kotlin;
+> sem Release).
+>
+> Seis pedidos do operador no mesmo lote, e os dois primeiros são o mesmo
+> problema visto de dois ângulos: **o nome do item não cabe**.
+>
+> - **"Isole todos os botões de interação em um único botão à direita, que ao
+>   tocar abre as opções para a sua esquerda sobre o item… pois hoje o título
+>   disputa com todos os botões de acesso rápido, cortando o título e o
+>   subtítulo."** A conta que ele descreve: a coluna de texto é `flex: 1` entre
+>   a miniatura e uma fileira que **cresce com o estado do item** — estrela, `+`,
+>   alça, o download de um link do YouTube, o Parar quando está no ar. Agora há
+>   um `⋮` e uma gaveta absoluta que cobre da miniatura até ele. `montarAcoesDaLinha`
+>   é o funil único das DUAS listas (Cronograma e Favoritos), senão elas
+>   divergiriam no primeiro ajuste.
+>
+>   **Duas armadilhas de evento ficaram escritas no código, e as duas são de
+>   captura.** O fechamento de fora é `pointerdown` na fase de CAPTURA porque a
+>   alça mora dentro da gaveta e o arrasto captura o ponteiro — ele **nunca
+>   produz um `click`**, então um ouvinte de clique deixaria o menu aberto por
+>   cima da linha que acabou de se mover. E o "escolher fecha" também é de
+>   captura, por um motivo que não é preferência: **todo botão de linha deste
+>   app chama `stopPropagation`** no próprio `click` (senão o toque nele
+>   acionaria o corpo da linha atrás), e um ouvinte de bolha na gaveta não veria
+>   nenhum deles. A alça é a exceção declarada: ela não é uma decisão que
+>   termina, é um gesto que dura.
+>
+>   **Isto REVOGA metade da v5.177**: as regras que escondiam a estrela e a alça
+>   na linha no ar saíram. O argumento delas ("na direita, a milímetros do gesto
+>   mirado, ninguém quer arrastar nem favoritar o que está na frente da
+>   congregação") foi atendido de forma mais larga — não há mais nada na direita
+>   além do `⋮`, e dentro da gaveta o Parar simplesmente se junta aos outros.
+> - **O SUBTÍTULO passou a dizer o ÁLBUM** ("no caso das músicas, seu álbum",
+>   no Cronograma e nos Favoritos). É o `hymnAlbum` que a v5.219 criou para o
+>   slide de capa e a v5.220 passou a preencher no acervo já baixado — **nenhuma
+>   leitura nova**, que é a regra desta linha desde a v5.118. Numa lista com três
+>   "Ó Adorai o Senhor" de hinários diferentes, o álbum é literalmente o que
+>   distingue um do outro.
+> - **Os FAVORITOS se atualizam com a Biblioteca aberta.** Relato: *"se estou na
+>   biblioteca e adiciono algo aos favoritos, ele só aparece na lista após fechar
+>   e abrir novamente."* Eles têm **duas casas** desde a v5.237, e o `toggleFav`
+>   só redesenhava a de baixo. O conserto redesenha **só o corpo daquela seção**
+>   (achado por `data-fav-corpo` no próprio nó), e não a tela inteira: quem
+>   marcou uma estrela no meio de um hinário não pode perder a rolagem por isso.
+>   O oráculo cobra as duas metades.
+> - **O ícone de trazer pasta virou "pasta +".** A v5.254 pôs ali as setas
+>   circulares, que são o desenho de RE-SINCRONIZAR — o que a linha de cada
+>   pasta já trazida faz. Este botão não repete nada: ele acrescenta a primeira.
+> - **"Baixar toda a biblioteca" SAIU, com o peso total ao lado** — *"ele ficou
+>   muito grande e muito inconveniente"*. Um alvo do tamanho do cabeçalho para
+>   uma ação de dezenas de gigabytes, no topo da tela em que se procura UM
+>   louvor. Baixar coleção por coleção continua no card de cada uma. Saíram
+>   `renderAcervoTotal`, `#hymnSearchTotal`, `.popup-total` e o diálogo de
+>   confirmação que só ele abria.
+> - **A busca e o ✕ desceram para uma barra na BASE** — *"eles estão muito longe
+>   do teclado e do toque de acesso"*. Ela é a última coisa do sheet, e o sheet
+>   mede `100%` de um `<body>` cuja altura já desconta o teclado
+>   (`calc(100svh - var(--kb))`): **a barra encosta na borda de cima do teclado
+>   sem uma regra própria** — é o mesmo mecanismo que já mantém o transporte
+>   visível. O ✕ vem depois do campo, na ponta em que o polegar já está.
+>
+> Os oráculos se dividem pela natureza: o `smoke.mjs` mede a FORMA (a gaveta
+> fechada não mostra nada, aberta cobre o título sem invadir o `⋮`, o subtítulo
+> compõe com o álbum, a barra é o último filho e não há mais total no
+> cabeçalho), o `boot-nativo.test.mjs` mede o COMPORTAMENTO que só existe com a
+> ponte (a atualização ao vivo dos favoritos, com a rolagem preservada) e o
+> `cena.test.mjs` mede o que a v5.177 media, agora na forma nova.
 
 > **A v5.256: O EPISÓDIO APARECE NA QUARTA, e a falha dentro da janela DIZ POR
 > QUÊ. OTA PURO** (nenhuma linha de Kotlin; sem Release).

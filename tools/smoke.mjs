@@ -1131,6 +1131,143 @@ try {
   checar(false, 'a medição da troca de modo terminou sem exceção (' + (e && e.message) + ')');
 }
 
+// ── OS BOTÕES DA LINHA VIRAM UM SÓ (v5.257) ──────────────────────────────
+//
+// Relato do operador: *"hoje o título disputa com todos os botões de acesso
+// rápido, cortando o título e subtítulo. Então use um botão de 3 pontos para
+// indicar a abertura das opções."*
+//
+// As duas metades: a linha PARADA tem um botão só (e o nome cresce), e o toque
+// nele REVELA as ações por cima da linha. Sem a segunda, apagar os botões
+// passaria na primeira e deixaria o operador sem como favoritar nada.
+try {
+  const linha = await pg.evaluate(async () => {
+    setAppMode('full');
+    await AVDB.addMedia(new Blob(['x'], { type: 'audio/mpeg' }),
+      { name: '147. Ó Adorai o Senhor em a Beleza da Sua Santidade', list: 'imports' });
+    await load();
+    const li = document.querySelector('#library .lib-item');
+    if (!li) return null;
+    const nome = () => Math.round(li.querySelector('.row-name').getBoundingClientRect().width);
+    const caixa = li.querySelector('.row-acoes');
+    const mais = li.querySelector('.row-mais');
+    const vis = (el) => {
+      const cs = getComputedStyle(el);
+      return cs.visibility !== 'hidden' && cs.opacity !== '0';
+    };
+    const r = {
+      // A linha PARADA: um botão só, direto na `.row`.
+      botoesNaLinha: [...li.querySelectorAll('.row > button')].length,
+      temMais: !!mais,
+      nome: nome(),
+      fechadaInvisivel: !!caixa && !vis(caixa),
+      // As ações existem, guardadas: estrela e alça continuam lá.
+      dentroDoMenu: !!caixa && caixa.querySelectorAll('button').length >= 2,
+    };
+    // NULL-SAFE de propósito: num bundle sem o `⋮` isto é um RESULTADO, e um
+    // `evaluate` que lança aqui abortaria o arquivo inteiro, escondendo tudo o
+    // que vem depois (a lição da v5.213).
+    if (mais) mais.click();
+    return r;
+  });
+  // A ABERTURA É ANIMADA (.14s de opacidade), então medir no mesmo turno do
+  // clique leria o primeiro quadro — zero por definição. É a lição da v5.226:
+  // a espera é, ela própria, a afirmação de que a transição existe.
+  await pg.waitForTimeout(320);
+  const aberta = await pg.evaluate(() => {
+    const li = document.querySelector('#library .lib-item');
+    const caixa = li && li.querySelector('.row-acoes');
+    const mais = li && li.querySelector('.row-mais');
+    if (!li || !caixa || !mais) return {};
+    const vis = (el) => {
+      const cs = getComputedStyle(el);
+      return cs.visibility !== 'hidden' && cs.opacity !== '0';
+    };
+    const r = {};
+    const cr = caixa.getBoundingClientRect();
+    const mr = mais.getBoundingClientRect();
+    const nr = li.querySelector('.row-name').getBoundingClientRect();
+    r.abriu = vis(caixa);
+    // "para a sua esquerda sobre o item, cobrindo o título": a caixa termina
+    // antes do `⋮` e COBRE o nome.
+    r.aEsquerdaDoMais = cr.right <= mr.left + 1;
+    r.cobreONome = cr.left <= nr.left + 1 && cr.right >= nr.right - 1;
+    // E ela é OPACA: uma faixa translúcida por cima do título seria as duas
+    // coisas ilegíveis em vez de uma.
+    const bg = getComputedStyle(caixa).backgroundColor;
+    r.opaca = !/rgba\(.*,\s*0(\.\d+)?\)$/.test(bg) && bg !== 'transparent';
+    // Um toque em qualquer outro lugar fecha.
+    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    r.fechouForaDela = !vis(caixa);
+    return r;
+  });
+  checar(!!linha, 'a linha do Cronograma foi desenhada para medir');
+  checar(!!linha && linha.botoesNaLinha === 1 && linha.temMais,
+    'A LINHA TEM UM BOTÃO SÓ, o `⋮` — o resto saiu de cima do título',
+    JSON.stringify(linha));
+  checar(!!linha && linha.nome > 250,
+    'e o NOME ficou com a largura que os botões ocupavam ('
+    + (linha ? linha.nome : 0) + 'px, contra 194 antes)');
+  checar(!!linha && linha.fechadaInvisivel && linha.dentroDoMenu,
+    'as ações continuam existindo, guardadas e fora do toque enquanto o menu está fechado');
+  checar(aberta.abriu && aberta.aEsquerdaDoMais && aberta.cobreONome,
+    'o toque no `⋮` ABRE as ações à esquerda dele, cobrindo o título — o pedido, literal',
+    JSON.stringify(aberta));
+  checar(aberta.opaca,
+    'e a faixa é OPACA: título e botões na mesma tinta seriam os dois ilegíveis');
+  checar(aberta.fechouForaDela,
+    'e um toque em qualquer outro lugar fecha o menu');
+} catch (e) {
+  checar(false, 'a medição do menu da linha terminou sem exceção (' + (e && e.message) + ')');
+}
+
+// ── O SUBTÍTULO DIZ DE ONDE O ITEM VEIO (v5.257) ─────────────────────────
+try {
+  const sub = await pg.evaluate(() => ({
+    audio: subtituloItem({ kind: 'audio', seconds: 225, hymnAlbum: 'Hinário Adventista 2022' }),
+    video: subtituloItem({ kind: 'video', height: 1080, hymnAlbum: 'Provai e Vede 2026' }),
+    semAlbum: subtituloItem({ kind: 'audio', seconds: 225 }),
+  }));
+  checar(/Áudio · Hinário Adventista 2022/.test(sub.audio),
+    'o subtítulo de uma música traz o ÁLBUM, logo depois do tipo', sub.audio);
+  checar(sub.audio.indexOf('Hinário') < sub.audio.indexOf('3:45'),
+    'e ANTES da duração: numa linha que corta, o que sobrevive tem de identificar');
+  checar(/Provai e Vede/.test(sub.video),
+    'vale para vídeo também — um episódio de série vem de uma coleção do mesmo jeito', sub.video);
+  checar(sub.semAlbum === 'Áudio · 3:45',
+    'e um item sem coleção nenhuma continua exatamente como era', sub.semAlbum);
+} catch (e) {
+  checar(false, 'a medição do subtítulo terminou sem exceção (' + (e && e.message) + ')');
+}
+
+// ── A BIBLIOTECA: sem "baixar tudo", com a busca na BASE (v5.257) ────────
+try {
+  const bib = await pg.evaluate(() => {
+    const sheet = document.querySelector('#hymnSearchPopup .popup-sheet');
+    const barra = sheet.querySelector('.hymn-search-bar');
+    const lista = sheet.querySelector('#hymnResults');
+    return {
+      semTotal: !document.getElementById('hymnSearchTotal'),
+      semBotaoNoCabecalho: !sheet.querySelector('.popup-header .coll-group-btn'),
+      // A barra é o ÚLTIMO filho: é isso que a põe encostada na borda de baixo
+      // — e, com o teclado aberto, na borda dele (o sheet já desconta `--kb`).
+      barraPorUltimo: sheet.lastElementChild === barra,
+      abaixoDaLista: !!barra && !!lista
+        && [...sheet.children].indexOf(barra) > [...sheet.children].indexOf(lista),
+      fecharNaBarra: !!barra && !!barra.querySelector('#hymnSearchClose'),
+      campoNaBarra: !!barra && !!barra.querySelector('#hymnSearchInput'),
+    };
+  });
+  checar(bib.semTotal && bib.semBotaoNoCabecalho,
+    'o "Baixar toda a biblioteca" e o peso total SAÍRAM do cabeçalho', JSON.stringify(bib));
+  checar(bib.barraPorUltimo && bib.abaixoDaLista,
+    'e a barra de busca é o último elemento do sheet — na base, onde o teclado sobe');
+  checar(bib.campoNaBarra && bib.fecharNaBarra,
+    'com o campo E o fechar juntos nela, que é o pedido inteiro');
+} catch (e) {
+  checar(false, 'a medição da Biblioteca terminou sem exceção (' + (e && e.message) + ')');
+}
+
 checar(erros.length === 0, 'nenhum erro de console' + (erros.length ? ':\n        ' + erros.join('\n        ') : ''));
 
 await navegador.close();

@@ -847,7 +847,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.256</span>
+        <span id="appVersion" class="app-version">Controle v5.257</span>
         <!-- A ATUALIZAÇÃO (v5.245). Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso.
@@ -1099,19 +1099,31 @@
        uma faixa morta no topo. -->
   <div id="hymnSearchPopup" class="popup-backdrop popup-backdrop--full">
     <div class="popup-sheet popup-sheet--full">
+      <!-- O cabeçalho ficou só com o NOME da tela (v5.257): o "Baixar toda a
+           biblioteca" e o peso total saíram a pedido do operador, e o ✕ desceu
+           para a barra de baixo, junto da busca. -->
       <div class="popup-header">
         <span class="msym popup-header-icon" aria-hidden="true">&#xe3a1;</span>
         <span class="popup-title" id="hymnSearchTitle">Biblioteca</span>
-        <!-- "Baixar toda a biblioteca" mora AQUI, no título: é a ação de maior
-             alcance da tela e, dentro da lista, saía de vista ao primeiro
-             rolar. Preenchido por renderAcervoTotal. -->
-        <span id="hymnSearchTotal" class="popup-total"></span>
-        <button id="hymnSearchClose" class="popup-close" title="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
-      </div>
-      <div class="hymn-search-bar">
-        <input id="hymnSearchInput" class="lib-search" type="search" placeholder="Buscar por nome ou número…">
       </div>
       <ul id="hymnResults" class="popup-list"></ul>
+      <!-- A BARRA DE BAIXO (v5.257), pedido do operador: *"reposicione a barra
+           de buscas e o botão de fechar. Eles estão muito longe do teclado e do
+           toque de acesso. Faça com que haja uma barra com o campo de busca e o
+           botão de fechar biblioteca, justamente na base, seguindo a posição do
+           teclado."*
+
+           Ela é a última coisa do sheet, e o sheet mede `100%` de um `<body>`
+           que já desconta o teclado (`height: calc(100svh - var(--kb))`, ver o
+           handler de `visualViewport`): a barra encosta na borda de cima do
+           teclado sem uma regra própria — é o mesmo mecanismo que já mantém o
+           transporte visível com o teclado aberto.
+
+           O ✕ vem DEPOIS do campo, na ponta em que o polegar já está. -->
+      <div class="hymn-search-bar">
+        <input id="hymnSearchInput" class="lib-search" type="search" placeholder="Buscar por nome ou número…">
+        <button id="hymnSearchClose" class="popup-close" title="Fechar a Biblioteca" aria-label="Fechar a Biblioteca"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
+      </div>
     </div>
   </div>
 
