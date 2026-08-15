@@ -1938,6 +1938,19 @@ diferentes da ponte, e o Registro imprime a trilha escolhida
 - **O ano é EXPLÍCITO no catálogo.** "O ano corrente" faria o álbum trocar de
   conteúdo sozinho na virada de dezembro, no meio da programação de janeiro.
   2027 é uma linha nova e um push em `main`.
+- **MAS ELE APARECE TRÊS DIAS ANTES** (v5.256, `DIAS_DE_ANTECEDENCIA`). Pedido
+  do operador: *"a data de corte não pode ser o próprio dia, pois muitos
+  aproveitam para fazer a organização antes"* — o roteiro do culto é montado
+  durante a semana, e uma lista que só mostra o episódio no sábado de manhã
+  chega tarde para quem prepara. Três dias é **a quarta-feira antes do sábado**,
+  escrito como CONTAGEM e não como dia da semana (é o que sobrevive ao dia em
+  que o canal publicar num domingo). **O preço tem remédio e ele é a outra
+  metade do lote:** nesses três dias o vídeo pode ainda não estar público, e
+  falhando o download a resposta diz o que fazer — *"ainda não liberado pelo
+  canal — tente mais perto de 22/Ago"* —, em DOIS lugares, porque são dois
+  fluxos: no cartão sobre a preview ("Tocar agora" fecha a Biblioteca) e no card
+  da série (mandando ao Cronograma ela continua aberta por cima da preview).
+  Sem a frase, aquela falha é indistinguível de uma queda de rede.
 - **O QUE AINDA NÃO SAIU NÃO ENTRA NA LISTA** (v5.255, campo `futuros`). O
   @daniellocutor sobe o trimestre inteiro e libera um episódio por sábado; os
   que faltam ficam como "prioridade para membros" — aparecem na playlist e não
@@ -2968,10 +2981,60 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.255** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.256** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.256: O EPISÓDIO APARECE NA QUARTA, e a falha dentro da janela DIZ POR
+> QUÊ. OTA PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> Pedido do operador, sobre o corte da v5.255: *"a data de corte não pode ser o
+> próprio dia, pois muitos aproveitam para fazer a organização antes, então pode
+> deixar para que o acesso ao vídeo já fique disponível na quarta-feira antes do
+> sábado (caso o download em específico do informativo dê algum erro se feito na
+> quarta-feira, rode um aviso para que espere que chegue mais perto da data para
+> tentar novamente)."*
+>
+> Ele está corrigindo uma premissa minha, e a correção é sobre QUANDO o app é
+> usado: eu tratei a lista como se ela fosse lida no culto, e ela é lida na
+> semana. Um corte no próprio dia entrega o episódio no sábado de manhã — depois
+> de o roteiro estar pronto.
+>
+> **A janela é uma CONTAGEM de dias, não um dia da semana.** Três dias antes de
+> um sábado É a quarta-feira, e as duas formas descrevem o mesmo hoje; a
+> contagem é a que sobrevive ao dia em que o canal publicar num domingo. Ela é
+> uma constante nomeada (`DIAS_DE_ANTECEDENCIA`), e a conta que a sustenta
+> (`diasAte`) usa `Date.UTC` nas duas pontas: uma subtração de `Date` local
+> atravessa o horário de verão e erraria o vizinho exatamente uma vez por ano —
+> num sábado, sem reproduzir.
+>
+> **E o preço da janela vem com o remédio no mesmo lote**, que é a segunda
+> metade do pedido: nesses três dias o vídeo pode ainda não estar público, e o
+> download não vem. Sem uma frase, essa falha é idêntica a uma queda de rede — o
+> operador tenta de novo, falha de novo, e conclui que o app quebrou justamente
+> no item que ele acabou de ver aparecer. Agora a resposta diz o que fazer e até
+> quando: *"ainda não liberado pelo canal — tente mais perto de 22/Ago"*.
+>
+> Três decisões pequenas em volta dela:
+>
+> - **Ela só existe enquanto o sábado não chegou** (`diasAte > 0`, o mesmo
+>   primitivo da lista com outro limiar). Passado o dia, uma falha ali é uma
+>   falha de verdade, e a frase seria uma desculpa falsa.
+> - **Ela aparece em DOIS lugares porque são dois fluxos.** Com "Tocar agora" a
+>   Biblioteca FECHA e quem responde é o cartão sobre a preview; mandando ao
+>   Cronograma ela continua aberta por cima da preview, e a resposta tem de
+>   nascer onde o toque nasceu — ali, o card da própria série (`setCollStatus`).
+>   É a regra da v5.207 aplicada a um caminho que tinha só metade dela.
+> - **A DATA do episódio passou a viver no índice** (`serieData`). Ela já era
+>   lida do título; o que muda é que agora sobrevive — sem ela no registro não
+>   haveria como saber que aquela falha tem essa causa. Um campo novo no índice
+>   o obsoleta uma vez, e a impressão digital da regra já cuida disso.
+>
+> Verificado por isolamento: sem a antecedência (corte no próprio dia) 3+1
+> asserções reprovam; com ela larga demais (7 dias) 4+1; sem o aviso 3; e com o
+> aviso em TODO episódio 1. O percurso mede a fronteira nos quatro dias em volta
+> — terça não, quarta sim —, com relógio FIXO.
 
 > **A v5.255: O QUE AINDA NÃO SAIU SOME DA LISTA — o canal sobe o trimestre e
 > libera um sábado por vez. OTA PURO** (nenhuma linha de Kotlin; sem Release).

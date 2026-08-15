@@ -448,11 +448,17 @@ try {
         return { itens: collSongs(c.id).map((s) => s.name), futuros: (d && d.futuros || []).length };
       }, limpar);
       const antes = await ler(true);
+      // A TERÇA e a QUARTA antes do sábado 15 — a fronteira que o operador
+      // pediu, medida no percurso inteiro e não só na regra pura.
+      await pgC.clock.setFixedTime(new Date('2026-08-11T12:00:00'));
+      const naTerca = await ler(false);
+      await pgC.clock.setFixedTime(new Date('2026-08-12T12:00:00'));
+      const naQuarta = await ler(false);
       // O PRÓPRIO SÁBADO do episódio: ele passa a existir, sozinho e sem toque
       // nenhum. É o corte INCLUSIVO, que é o que o operador descreveu.
       await pgC.clock.setFixedTime(new Date('2026-08-15T12:00:00'));
       const noDia = await ler(false);
-      return { antes, noDia };
+      return { antes, naTerca, naQuarta, noDia };
     } finally { await pgC.close(); }
   })();
   checar(!(corte.antes.itens || []).includes('15/Ago'),
@@ -466,6 +472,40 @@ try {
   checar((corte.noDia.itens || []).includes('15/Ago'),
     'E NO PRÓPRIO SÁBADO ele aparece sozinho: o corte é inclusive no dia do culto',
     JSON.stringify(corte.noDia.itens));
+  checar((corte.naQuarta.itens || []).includes('15/Ago'),
+    'E JÁ NA QUARTA ANTES DELE, que é quando o roteiro do culto é montado',
+    JSON.stringify(corte.naQuarta.itens));
+  checar(!(corte.naTerca.itens || []).includes('15/Ago'),
+    'mas não na TERÇA: a janela é de 3 dias, não "o mês todo"',
+    JSON.stringify(corte.naTerca.itens));
+
+  // ── O AVISO QUANDO O DOWNLOAD FALHA NA JANELA (v5.256) ─────────────────
+  // O preço da antecedência: nesses três dias o vídeo pode ainda não estar
+  // público, e o download não vem. Sem uma frase, essa falha é indistinguível
+  // de uma queda de rede — o operador tenta de novo, falha de novo, e conclui
+  // que o app quebrou justamente no item que ele acabou de ver aparecer.
+  const aviso = await pg.evaluate(() => {
+    const c = allCollections().find((x) => x.id === 'serie-informativo-missoes-2026');
+    const songs = collSongs(c.id);
+    // O de HOJE (uma data que já passou no relógio real deste runner) e um
+    // FUTURO montado à mão: é o par que prova que a frase é da janela, e não
+    // um recado grudado em toda falha de série.
+    const passado = Object.assign({}, songs[0], { serieData: { dia: 1, mes: 1 } });
+    const futuro = Object.assign({}, songs[0], { serieData: { dia: 31, mes: 12 } });
+    return {
+      comFuturo: serieComoYoutube(c, futuro),
+      comPassado: serieComoYoutube(c, passado),
+      semData: serieComoYoutube(c, Object.assign({}, songs[0], { serieData: null })),
+    };
+  });
+  checar(/ainda não liberado pelo canal/.test(aviso.comFuturo.avisoSeFalhar || ''),
+    'um episódio da JANELA carrega a frase que explica a falha', aviso.comFuturo.avisoSeFalhar);
+  checar(/31\/Dez/.test(aviso.comFuturo.avisoSeFalhar || ''),
+    'e ela diz ATÉ QUANDO esperar, com a data do episódio', aviso.comFuturo.avisoSeFalhar);
+  checar(aviso.comFuturo.avisoOnde === 'serie-informativo-missoes-2026',
+    'com o card da série como endereço: mandando ao Cronograma, a Biblioteca fica aberta por cima da preview');
+  checar(!aviso.comPassado.avisoSeFalhar && !aviso.semData.avisoSeFalhar,
+    'e um episódio que JÁ SAIU não a carrega — ali a falha é falha, e a frase seria uma desculpa falsa');
 
   // O DIÁRIO É O QUE VENCE O ÍNDICE (v5.249). Um aparelho que já tinha a lista
   // antes desta versão a tem "fresca" pelo TTL de 12 h — e passaria essas 12 h

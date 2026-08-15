@@ -143,6 +143,25 @@
   const FUTUROS_MOSTRAR = 'mostrar';      // o padrão: a playlist só tem o que saiu
   const FUTUROS_ESCONDER = 'esconder';    // o canal sobe o trimestre e libera aos poucos
 
+  /**
+   * QUANTOS DIAS ANTES do sábado o episódio já aparece na lista (v5.256).
+   *
+   * Três, isto é: **a quarta-feira antes do sábado**, que foi o pedido do
+   * operador — *"a data de corte não pode ser o próprio dia, pois muitos
+   * aproveitam para fazer a organização antes"*. O roteiro do culto é montado
+   * durante a semana, e uma lista que só mostra o episódio no sábado de manhã
+   * chega tarde para quem prepara.
+   *
+   * É uma contagem de DIAS e não um dia da semana, e as duas coisas são a mesma
+   * aqui (os episódios são sempre de sábado) — a contagem é que sobrevive ao dia
+   * em que o canal publicar num domingo.
+   *
+   * **O preço está dito e tem remédio:** nesses três dias o vídeo pode ainda não
+   * estar público, e o download falha. Quem explica isso é o `controle.js`, com
+   * a frase que manda esperar chegar mais perto — ver `serieComoYoutube`.
+   */
+  const DIAS_DE_ANTECEDENCIA = 3;
+
   // O CATÁLOGO. Uma linha por série; o `id` é o `coll.id` do card e por isso
   // não pode mudar depois de publicado (é ele que nomeia a pasta no OPFS e
   // liga os downloads já feitos ao card). Ele começa com `serie-` porque é
@@ -443,11 +462,30 @@
    * julgar seria transformar um item feio num item ausente.
    */
   function aindaNaoSaiu(data, serie, hoje) {
-    const s = serie || {};
-    if (s.futuros !== FUTUROS_ESCONDER || !data) return false;
+    if ((serie || {}).futuros !== FUTUROS_ESCONDER || !data) return false;
+    return diasAte(data, serie, hoje) > DIAS_DE_ANTECEDENCIA;
+  }
+
+  /**
+   * QUANTOS DIAS FALTAM para o sábado deste episódio — negativo se já passou.
+   *
+   * Ela é o primitivo dos dois consumidores, e é por isso que existe separada:
+   * [aindaNaoSaiu] a compara com [DIAS_DE_ANTECEDENCIA] (o que a lista mostra) e
+   * o `controle.js` a compara com ZERO (o que já saiu de fato, para explicar uma
+   * falha de download). Duas contas de calendário escritas à mão divergiriam.
+   *
+   * **`Date.UTC` nas duas pontas, e não subtração de `Date` local.** A conta é
+   * de DIAS DE CALENDÁRIO, e um `getTime()` local atravessa o horário de verão:
+   * um dia de 23 h faria a diferença arredondar para o vizinho errado
+   * exatamente uma vez por ano — o tipo de defeito que aparece num sábado e não
+   * se reproduz.
+   */
+  function diasAte(data, serie, hoje) {
+    if (!data) return 0;
     const d = hoje instanceof Date ? hoje : new Date();
-    const limite = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
-    return (s.ano * 10000 + data.mes * 100 + data.dia) > limite;
+    const alvo = Date.UTC((serie || {}).ano || d.getFullYear(), data.mes - 1, data.dia);
+    const base = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+    return Math.round((alvo - base) / 86400000);
   }
 
   /** O mês escrito por extenso em qualquer posição do nome já normalizado. */
@@ -740,7 +778,7 @@
       String(itensDaPlaylist), String(ordenarItens), String(nomeDoItem),
       String(tituloDoEpisodio), String(ehLibras), String(normalizar),
       String(mesDoNome), String(mesDoTrimestre),
-      String(avaliarPlaylist), String(avaliarVideo), String(aindaNaoSaiu),
+      String(avaliarPlaylist), String(avaliarVideo), String(aindaNaoSaiu), String(diasAte),
       // As duas RECUSAS por idioma são DADOS e não código, e por isso entram
       // pelo valor: mudar uma marca (ou uma faixa de escrita) muda o que o
       // álbum contém, exatamente como mudar uma função — e sem isto o índice
@@ -760,10 +798,10 @@
   global.AVSerie = {
     SERIES,
     PERIODO_MES, PERIODO_TRIMESTRE, TITULO_ESQUERDA, TITULO_NENHUM,
-    FUTUROS_MOSTRAR, FUTUROS_ESCONDER,
+    FUTUROS_MOSTRAR, FUTUROS_ESCONDER, DIAS_DE_ANTECEDENCIA,
     MOTIVO_VAZIO, MOTIVO_PREFIXO, MOTIVO_LIBRAS, MOTIVO_IDIOMA,
     MOTIVO_ANO, MOTIVO_PERIODO, MOTIVO_SEM_ID, MOTIVO_FUTURO,
-    normalizar, ehLibras, ehOutroIdioma, aindaNaoSaiu,
+    normalizar, ehLibras, ehOutroIdioma, aindaNaoSaiu, diasAte,
     avaliarPlaylist, avaliarVideo,
     mesDaPlaylist, playlistsDaSerie,
     dataDoVideo, tituloDoEpisodio, rotuloData,
