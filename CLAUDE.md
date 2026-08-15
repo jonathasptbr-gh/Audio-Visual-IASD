@@ -2411,10 +2411,38 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.226** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
+**Versão atual: v5.227** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.227: O "DESLIGANDO…" VIRA O RÓTULO DO PRÓPRIO BOTÃO. OTA PURO**
+> (nenhuma linha de Kotlin; sem Release).
+>
+> Pedido do operador: que a informação rápida de "desligando…" não fique
+> minúscula abaixo do botão, e sim como texto dele.
+>
+> Ela saía no `#castMsg` — 0,78 rem, o MENOR texto da folha, logo abaixo do
+> botão que o dedo acabara de tocar, e no exato instante em que a folha inteira
+> está se reorganizando (v5.226). O olho estava no botão; a resposta aparecia
+> noutro lugar, no tamanho de uma nota de rodapé.
+>
+> Agora o rótulo é uma função de `(mirrorOcupado, ligado)`, pela MESMA leitura
+> de estado que já pintava a cor: ocupado com o servidor no ar → "Desligando…";
+> ocupado sem ele → "Ligando…"; livre → o rótulo de sempre. Não há um terceiro
+> lugar guardando "o que eu pedi" — que é justamente o que divergiria numa
+> resposta lenta do shell.
+>
+> Duas peças pequenas completam: `ligarEspelho`/`desligarEspelho` chamam
+> `renderCast()` no instante em que marcam `mirrorOcupado` (a enquete da folha é
+> de 2,5 s, e uma resposta que chega até 2,5 s depois do toque não é resposta),
+> e a opacidade do botão desabilitado subiu de .55 para .7 — **um recado a 55%
+> de opacidade é o defeito deste lote com outro nome**. Continua claramente
+> inerte; passou a ser legível.
+>
+> A linha de baixo ficou com o que ela sempre soube dizer melhor: a FALHA
+> ("só liga em Wi-Fi", "sem encoder livre agora"), que é uma frase inteira vinda
+> do shell e não caberia num botão.
 
 > **A v5.226: LIGAR A TRANSMISSÃO DEIXA DE SER UM SALTO — a folha cresce, e só
 > então o conteúdo entra. OTA PURO** (nenhuma linha de Kotlin; sem Release).

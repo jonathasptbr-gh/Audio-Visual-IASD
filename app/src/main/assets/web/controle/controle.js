@@ -209,7 +209,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.226';
+const WEB_VERSION = '5.227';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -15395,6 +15395,10 @@ async function ligarEspelho() {
   if (!(await confirmarEspelhoComTv())) return false;
   mirrorOcupado = true;
   acertarEnqueteDeFundo();
+  // O BOTÃO VIRA O RECADO agora, e não no próximo giro da enquete: é ele quem
+  // diz "Ligando…" (ver `renderCast`), e uma resposta que chega até 2,5 s
+  // depois do toque não é resposta.
+  renderCast();
   let r = null;
   try { r = await AVNative.espelhoLigar('video'); } catch (_) { r = null; }
   mirrorOcupado = false;
@@ -15420,6 +15424,7 @@ async function desligarEspelho() {
   if (mirrorOcupado) return;
   mirrorOcupado = true;
   acertarEnqueteDeFundo();
+  renderCast();   // "Desligando…" no próprio botão — ver `ligarEspelho`
   try { AVNative.espelhoDesligar(); } catch (_) { /* ponte */ }
   // `espelhoDesligar` volta na hora (escreve um campo e sai — ver o KDoc da
   // ponte): a demolição acontece logo depois, na main thread do shell. Sem esta
@@ -15541,7 +15546,20 @@ function renderCast() {
       // Ligado, o rótulo nomeia a AÇÃO (é o que o toque faz); desligado, ele
       // nomeia o DESTINO, que é o que ajuda a escolher entre as duas formas de
       // conectar. Ver o comentário do botão no HTML.
-      castNetLabelEl.textContent = ligado ? 'Desligar transmissão' : 'Transmitir para navegador';
+      //
+      // E ENQUANTO O SHELL RESPONDE ELE É O PRÓPRIO RECADO (v5.227). O "Ligando
+      // a transmissão…" saía numa linha de 0,78 rem ABAIXO do botão — o
+      // operador acabara de tocar ali, e a resposta aparecia noutro lugar, no
+      // menor texto da folha, ao mesmo tempo em que a folha inteira se
+      // reorganizava. O botão é onde o olho já está.
+      //
+      // `mirrorOcupado` com `ligado` FALSO é "ligando" (o servidor ainda não
+      // subiu); com `ligado` verdadeiro é "desligando". Os dois saem da mesma
+      // leitura de estado que pinta a cor — não há um terceiro lugar guardando
+      // "o que eu pedi", que é justamente o que divergiria numa resposta lenta.
+      castNetLabelEl.textContent = mirrorOcupado
+        ? (ligado ? 'Desligando…' : 'Ligando…')
+        : (ligado ? 'Desligar transmissão' : 'Transmitir para navegador');
     }
   }
   // O BOTÃO DE ESPELHAR DIZ QUAL TV ESTÁ NO AR (v5.196). Ele levava a folha de
@@ -15709,7 +15727,10 @@ if (castMirrorBtnEl) {
     // só porque o primeiro parecia não ter feito nada.
     castNetBtnEl.disabled = true;
     if (quer) {
-      texto2(castMsgEl, 'Ligando a transmissão…');
+      // (O "Ligando a transmissão…" saía aqui, no `#castMsg`. Ele virou o
+      // RÓTULO do botão na v5.227 — ver `renderCast`. A linha de baixo ficou
+      // com o que ela sempre soube dizer melhor: a FALHA, que é uma frase
+      // inteira vinda do shell e não caberia num botão.)
       const ok = await ligarEspelho();
       // A frase da falha já saiu pelo `avisar` (ela vem pronta do Kotlin).
       // Aqui fica a saída — e ela aponta para onde o operador pode agir.
@@ -15722,7 +15743,6 @@ if (castMirrorBtnEl) {
       // onde a mensagem deixou de estar — então ela só não sobrescreve.)
       if (ok) texto2(castMsgEl, '');
     } else {
-      texto2(castMsgEl, 'Desligando…');
       await desligarEspelho();
       texto2(castMsgEl, '');
     }
