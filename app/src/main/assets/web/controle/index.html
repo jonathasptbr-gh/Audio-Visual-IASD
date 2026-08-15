@@ -85,6 +85,20 @@
       <path d="M3 16.4a3.6 3.6 0 0 1 3.6 3.6"/>
       <path d="M3.1 20h.01"/>
     </symbol>
+    <!-- TRANSMITIR PARA NAVEGADOR: a janela de navegador (barra de título com
+         os dois pontinhos) com as ondas DENTRO dela. A moldura é o que diz
+         "navegador" — que é literalmente a palavra do rótulo e o que a outra
+         ponta precisa ter —, e as ondas dizem que o que chega ali vem pela
+         rede. Os pontinhos são `h.01` com ponta redonda, o mesmo truque do
+         `icoCast`. -->
+    <symbol id="icoNavegador" viewBox="0 0 24 24">
+      <rect x="2.5" y="4" width="19" height="16" rx="2.2"/>
+      <path d="M2.5 8.4h19"/>
+      <path d="M5.5 6.2h.01"/>
+      <path d="M8.1 6.2h.01"/>
+      <path d="M8.6 14.9a4.8 4.8 0 0 1 6.8 0"/>
+      <path d="M11 17.3a1.4 1.4 0 0 1 2 0"/>
+    </symbol>
     <!-- ESPELHAR PARA TV: a tela com a seta ENTRANDO nela. A seta é o que
          separa este do de cima — um é "que telas existem", o outro é "manda
          para lá agora". -->
@@ -898,25 +912,33 @@
           <span class="cast-acao-txt"><b id="castMirrorLabel">Espelhar para TV</b></span>
         </button>
 
-        <!-- O ESTADO. O interruptor é a ÚNICA coisa desta folha que liga e
-             desliga o servidor — abrir a folha não liga mais nada (v5.184).
-             Um interruptor que já nasce ligado toda vez que a tela abre não é
-             um interruptor: é um rótulo.
+        <!-- A SEGUNDA FORMA DE CONECTAR, e ela é o BOTÃO IRMÃO do de cima
+             (v5.223) — era um interruptor (`.cast-sw-row`) desde a v5.184.
+             As duas escolhas desta folha respondem à mesma pergunta ("para
+             onde vai o telão?"), e responder a metade dela com um trilho de
+             chave e a outra metade com um botão preenchido fazia a segunda
+             parecer uma preferência de configuração em vez de uma porta.
+             Mesma anatomia, mesmo tamanho de alvo, mesmo lugar do ícone.
+
+             O QUE O INTERRUPTOR DAVA DE GRAÇA — dizer o estado parado — o
+             botão diz pela COR e pelo RÓTULO: desligado ele é a chamada
+             preenchida ("Transmitir para navegador"); ligado ele fica no
+             vermelho contornado e passa a nomear o que o toque FAZ ("Desligar
+             transmissão"). É a mesma gramática do irmão, que fica no verde
+             contornado quando há TV no ar — e o vermelho é CONTORNADO de
+             propósito: preenchido, neste app, ele significa "está no ar
+             agora" e competiria com a projeção.
 
              O RÓTULO NOMEIA O DESTINO, não o meio (v5.198). Ele dizia
              "Transmitir pela rede", e "pela rede" descreve por ONDE a coisa
-             viaja — o que não ajuda ninguém a escolher. A opção de cima diz
-             para onde vai ("Espelhar para TV") e por isso se lê de primeira;
-             esta ficava sem par. "Navegador" é a palavra certa porque é
-             literalmente o que a outra ponta precisa ter: um computador, um
-             notebook, um tablet ou a própria TV, desde que abra o endereço
-             que aparece logo abaixo — e é esse mesmo endereço que completa a
-             frase, com o rótulo dele dizendo o que fazer. -->
-        <label class="cast-sw-row" id="castNetRow" hidden>
-          <span class="cast-sw-txt"><b>Transmitir para navegador</b></span>
-          <input type="checkbox" id="castNetToggle" class="cast-sw-input" role="switch">
-          <span class="cast-sw" aria-hidden="true"></span>
-        </label>
+             viaja — o que não ajuda ninguém a escolher. "Navegador" é a
+             palavra certa porque é literalmente o que a outra ponta precisa
+             ter: um computador, um notebook, um tablet ou a própria TV, desde
+             que abra o endereço que aparece logo abaixo. -->
+        <button type="button" id="castNetBtn" class="cast-acao" hidden>
+          <svg class="cast-acao-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoNavegador"/></svg>
+          <span class="cast-acao-txt"><b id="castNetLabel">Transmitir para navegador</b></span>
+        </button>
 
         <p class="mirror-lead" id="castMsg" role="status" aria-live="polite"></p>
 

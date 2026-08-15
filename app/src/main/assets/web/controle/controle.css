@@ -3606,50 +3606,29 @@ body.mode-simple .hymn-add-btn { display: none; }
    comum, texto normal, e o sinal fica todo no trilho à direita. A linha inteira
    é o alvo do toque (`<label>`), porque um interruptor de 44px numa tela
    operada com o polegar no escuro é alvo pequeno demais. */
-.cast-sw-row {
-  display: flex; align-items: center; gap: .75rem; width: 100%;
-  padding: .7rem .9rem;
-  color: var(--text);
-  background: var(--surface); border: 1px solid var(--line);
-  border-radius: var(--radius-card); cursor: pointer;
+/* LIGADA, a transmissão fica no VERMELHO CONTORNADO, e o rótulo passa a nomear
+   o desligamento (v5.223). É a mesma gramática do `.connected` acima — o
+   preenchimento sai, fica o contorno na cor do estado —, e a cor é a única
+   diferença: verde é "resolvido, e o app não mexe nisso" (a TV, que só o
+   seletor do Android desconecta); vermelho é "está ligado, e o toque desliga".
+
+   CONTORNADO, nunca preenchido: pela regra da paleta o vermelho CHEIO deste app
+   significa "está no ar agora" e pertence à mídia projetada. Um botão de folha
+   preenchido em `--live` competiria com o que a congregação está vendo.
+
+   (Aqui morava o INTERRUPTOR — `.cast-sw-row`, `.cast-sw-input`, `.cast-sw` e o
+   trilho com o botão deslizante. Ele saiu com a v5.223: as duas formas de
+   conectar respondem à mesma pergunta e agora têm a mesma anatomia.) */
+.cast-acao.ligado {
+  background: var(--danger-soft); color: var(--text);
+  border: 1px solid var(--danger-strong);
 }
-.cast-sw-txt { flex: 1; min-width: 0; }
-.cast-sw-txt b { font-size: .92rem; }
-/* O `<input>` some da vista mas CONTINUA no fluxo de foco e de acessibilidade —
-   `display: none` o tiraria dos dois. É ele que carrega o estado (`:checked`),
-   e o trilho abaixo é desenhado a partir dele. */
-.cast-sw-input {
-  position: absolute; width: 1px; height: 1px;
-  opacity: 0; pointer-events: none; margin: 0;
-}
-.cast-sw {
-  flex: 0 0 auto; position: relative;
-  width: 46px; height: 26px;
-  background: var(--surface-2); border: 1px solid var(--line);
-  border-radius: var(--radius-pill);
-  transition: background .16s ease, border-color .16s ease;
-}
-/* O botão do trilho. `--muted` desligado (é uma peça inerte) e `--on-accent`
-   ligado — o mesmo tom claro que o botão principal escreve sobre o âmbar. */
-.cast-sw::after {
-  content: ''; position: absolute; top: 3px; left: 3px;
-  width: 18px; height: 18px; border-radius: var(--radius-pill);
-  background: var(--muted);
-  transition: transform .16s ease, background .16s ease;
-}
-/* LIGADO: preenchimento em `--accent-fill` E borda em `--accent`. A borda não é
-   redundância — pela regra da paleta (ver tokens.css) quem diz "selecionado"
-   neste app é sempre a borda em `--accent`; o degrau de fundo é reforço. Num
-   celular com brilho baixo no salão, o âmbar escuro sozinho contra a superfície
-   comum é justamente o par que some. */
-.cast-sw-input:checked ~ .cast-sw { background: var(--accent-fill); border-color: var(--accent); }
-.cast-sw-input:checked ~ .cast-sw::after { transform: translateX(20px); background: var(--on-accent); }
-/* Enquanto o shell responde (ligar leva um instante e pode ser recusado) o
-   trilho apaga — e o toque na linha já não faz nada, porque um `<label>` de um
-   controle DESABILITADO não ativa coisa nenhuma. Um interruptor que aceita um
-   segundo toque no meio do caminho é como se ligam dois servidores. */
-.cast-sw-input:disabled ~ .cast-sw { opacity: .5; }
-.cast-sw-input:focus-visible ~ .cast-sw { outline: 2px solid var(--accent); outline-offset: 2px; }
+.cast-acao.ligado .cast-acao-ico { color: var(--danger-text); }
+/* Enquanto o shell responde (ligar leva um instante, pode pedir confirmação e
+   pode ser recusado) o botão apaga e para de aceitar toque. Um segundo toque no
+   meio do caminho é como se sobem dois servidores. */
+.cast-acao:disabled { opacity: .55; cursor: default; }
+.cast-acao:disabled:active { filter: none; }
 
 /* Ainda em uso: é o BLOCO DE CONEXÃO (`#castConn`). O nome vem da folha de
    ajustes que o hospedava e que saiu na v5.196; renomeá-lo custaria tocar em
