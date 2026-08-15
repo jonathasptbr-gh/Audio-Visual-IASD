@@ -2881,10 +2881,54 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.247** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.248** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.248: O MODO FÁCIL GANHA A ENGRENAGEM — e com ela some o último
+> `.mode-switch` do app. OTA PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> Pedido do operador, logo depois da v5.247: *"então crie um botão de
+> configurações no modo simples, que fica onde é hoje o botão de modo
+> avançado"*.
+>
+> **É a segunda metade de um movimento, e a ORDEM dele não era acidente.** A
+> v5.247 tirou a troca de modo do cabeçalho do avançado porque a mesma escolha
+> mora em Configurações; ela não podia tirar a do Modo Fácil no mesmo lote,
+> porque daquele modo **não havia como chegar a Configurações** — a engrenagem
+> vive na coluna do mixer, dentro da `.bottombar`, que aquele modo esconde por
+> inteiro. Tirar os dois de uma vez teria trancado o operador lá dentro.
+> Primeiro se cria o caminho, depois se remove o atalho.
+>
+> Agora o caminho é o mesmo nos dois modos — **engrenagem → "Modo do app"** —, e
+> ele é o melhor dos três que existiam: é o único que **guarda a escolha entre
+> aberturas** (v5.66). Os dois botões valiam só para a sessão.
+>
+> **O Modo Fácil ganhou junto tudo o mais que morava atrás da engrenagem**: o
+> tema, o wallpaper do telão, o preenchimento e o giro, o estado do telão, o
+> Registro e o botão de atualização. Aquele modo nunca teve acesso a nada disso
+> — a única saída dele era virar o app inteiro do avesso.
+>
+> **A engrenagem é CHAPADA e `--accent`**, e as duas metades são regra do app: o
+> chapado é "navegação/acesso não é operação" (a mesma receita do `#backBtn` e
+> da gêmea do mixer), e o accent é o que este app usa para dizer "isto leva a
+> outro lugar" — era exatamente onde ele vivia no botão que saiu, na seta. Ela
+> difere da gêmea do mixer no `--muted` porque lá ela é um acesso entre outros e
+> aqui é o ÚNICO. Fica acima da cortina do modo bloqueado sem regra nova: o
+> `.simple.sem-tela .simple-head` já iça o cabeçalho inteiro.
+>
+> **`.mode-switch` saiu inteira** — a classe, as duas menções nas listas
+> agrupadas de toque e de escala de ícone, e o `.simple-head .mode-switch`. Ela
+> ficou sem um único elemento no documento.
+>
+> O oráculo do `tools/smoke.mjs` cresceu para nove asserções e agora percorre o
+> CAMINHO, não só o DOM: no Modo Fácil a engrenagem está à vista, o toque abre
+> Configurações, e de lá o operador SAI do modo. Sem essa última, apagar o botão
+> passaria nas outras e trancaria o operador — que é precisamente o risco desta
+> sequência de dois lotes. Reprova em **5 asserções** contra o código anterior
+> (verificado), e a leitura da engrenagem é null-safe pelo motivo de sempre: um
+> `evaluate` que lança ali levaria junto as asserções seguintes.
 
 > **A v5.247: A TROCA DE MODO VIRA UMA SÓ — o botão do cabeçalho sai. OTA
 > PURO** (nenhuma linha de Kotlin; sem Release).

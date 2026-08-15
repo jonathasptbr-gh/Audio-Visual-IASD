@@ -23,7 +23,7 @@ const faderWrapEl = document.querySelector('.fader-wrap');
 const appModeSegEl = document.getElementById('appModeSeg');
 const temaSegEl = document.getElementById('temaSeg');
 const simpleModeEl = document.getElementById('simpleMode');
-const simpleFullBtnEl = document.getElementById('simpleFullBtn');
+const simpleSettingsBtnEl = document.getElementById('simpleSettingsBtn');
 const simpleSearchBtnEl = document.getElementById('simpleSearchBtn');
 const simpleVeilEl = document.getElementById('simpleVeil');
 const simpleStageEl = document.getElementById('simpleStage');
@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.247';
+const WEB_VERSION = '5.248';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -15509,7 +15509,9 @@ function openWebDisplay() {
     }, 1000);
 }
 
-simpleFullBtnEl.addEventListener('click', () => setAppMode('full'));
+// A engrenagem do Modo Fácil (v5.248) — o MESMO destino do gearbox do
+// avançado, e desde a v5.247 o único caminho para a troca de modo nos dois.
+simpleSettingsBtnEl.addEventListener('click', openFadePopup);
 appModeSegEl.addEventListener('click', (e) => {
   const btn = e.target.closest('.fit-opt');
   if (!btn) return;
