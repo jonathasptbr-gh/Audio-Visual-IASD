@@ -2440,6 +2440,20 @@ controles), que **só chegam instalando o APK novo**, não pelo OTA.
 > prova uma afirmação sobre UMA página: agora cada contexto manda um cabeçalho
 > que o identifica, e a contagem é por página. **Medição que não é atribuível
 > não é medição.**
+>
+> **E ele reprovou uma SEGUNDA vez, no CI, por uma corrida que a máquina local
+> escondia** — com o arranjo de dois passos da v5.213 mostrando serviço:
+> `11/12`, e o reprovado nomeado no resumo do run em vez de sumir atrás de um
+> painel verde. A asserção do token esperava **o overlay sumir** para então
+> recarregar, e `ativar()` esconde o overlay ANTES de o pareamento voltar (o
+> gesto não espera a rede) — quem grava o token é a resposta do `POST /par`. Num
+> runner mais lento a recarga chegava antes do `guardar()`, o token não existia,
+> e o teste acusava o app de pedir vaga nova. Reproduzido de propósito com 400 ms
+> de atraso no servidor de mentira e corrigido esperando o `GET /e`, que só
+> acontece DEPOIS do `guardar()`. É a segunda vez que este arquivo aprende isto
+> (a v5.204 foi a primeira): **espere o sinal que prova o que você precisa
+> afirmar, não um que costuma vir junto.**
+
 > **A v5.217: O BOTÃO DE CAST NÃO ABRIA NADA COM UMA TELA JÁ CONECTADA — o
 > fecho automático da folha era um NÍVEL onde a frase dizia BORDA. OTA PURO**
 > (nenhuma linha de Kotlin; sem Release).
