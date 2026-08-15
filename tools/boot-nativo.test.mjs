@@ -800,16 +800,47 @@ try {
       })(),
     };
     r.semRodape = r.rodape.length === 0;
-    // A FOLHA que o botão abre.
+    // A AÇÃO DA BARRA FAZ A COISA (v5.254). Ela abria uma folha com duas
+    // escolhas; a outra — criar um atalho de pasta — deixou de existir, e uma
+    // folha com uma opção é um toque cobrado para não escolher nada. O que se
+    // mede é o desfecho: nenhuma folha, e o pedido de pasta do aparelho saiu.
+    window.__pediuPasta = 0;
+    const syncOrig = window.syncDeviceFolder;
+    window.syncDeviceFolder = () => { window.__pediuPasta++; };
     grupo.querySelector('.coll-group-acao').click();
-    const pop = document.getElementById('songMenuPopup');
-    const linhas = [...pop.querySelectorAll('.song-menu-label')].map((e) => e.textContent.trim());
-    r.folha = {
-      linhas,
-      criar: linhas.some((t) => /Criar uma pasta/i.test(t)),
-      doAparelho: linhas.some((t) => /pasta do aparelho/i.test(t)),
+    r.acao = {
+      abriuFolha: document.getElementById('songMenuPopup').classList.contains('open'),
+      pediuPasta: window.__pediuPasta,
+      titulo: (grupo.querySelector('.coll-group-bar .coll-group-acao') || {}).title || '',
     };
+    window.syncDeviceFolder = syncOrig;
     closeSongMenu();
+    // ── A LISTA É ÚNICA, E A ORDEM É DO OPERADOR (v5.254) ────────────────
+    // Sem seções por tipo, e com alça de arrastar em cada item — as duas
+    // metades do pedido. A ordem medida é a da lista `favs`, que é ordem de
+    // chegada; o que a asserção prova é que ela é REORDENÁVEL.
+    const rec2 = await AVDB.addMedia(new Blob(['y'], { type: 'video/mp4' }),
+      { name: 'Vídeo favorito de teste', list: 'favs' });
+    await recarregarFavoritos();
+    const lista3 = document.createElement('ul');
+    document.body.appendChild(lista3);
+    favHost = lista3;
+    try { renderFolderList(); } finally { favHost = null; }
+    r.lista = {
+      secoes: lista3.querySelectorAll('.fav-section').length,
+      // Tipos diferentes (áudio e vídeo) na MESMA lista, sem nada entre eles.
+      nomes: [...lista3.querySelectorAll('.lib-item .row-name')].map((e) => e.textContent),
+      alcas: lista3.querySelectorAll('.lib-item .row-handle').length,
+      // O subtítulo voltou: sem cabeçalho de tipo, é ele que distingue.
+      subs: [...lista3.querySelectorAll('.lib-item .row-sub')]
+        .map((e) => getComputedStyle(e).display).filter((d) => d !== 'none').length,
+    };
+    lista3.remove();
+    // E O REORDENAR de verdade: o segundo item vai para a frente.
+    await reorder('favs', rec2.id, 0);
+    r.lista.ordemDepois = (await AVDB.listIds('favs')).indexOf(rec2.id);
+    await AVDB.listRemove('favs', rec2.id);
+    await recarregarFavoritos();
     // E O VAZIO: uma frase só. Medido com a lista de favoritos esvaziada.
     const guardados = favItems.slice();
     favItems = [];
@@ -852,9 +883,60 @@ try {
     JSON.stringify(favs.rodape) + ' · ' + JSON.stringify(favs.cabecalho));
   checar(favs.temAcaoNaBarra,
     'a ação mora na BARRA da seção, só com ícone', JSON.stringify(favs.cabecalho));
-  checar(favs.folha.criar && favs.folha.doAparelho,
-    'e o toque nela abre a folha com as DUAS origens: criar uma pasta ou trazer '
-    + 'uma do aparelho', JSON.stringify(favs.folha.linhas));
+  checar(!favs.acao.abriuFolha && favs.acao.pediuPasta === 1,
+    'e o toque nela TRAZ UMA PASTA DO APARELHO direto — sem folha, porque a '
+    + 'outra origem (o atalho de pasta) deixou de existir', JSON.stringify(favs.acao));
+  checar(/pasta do aparelho/i.test(favs.acao.titulo),
+    'e o rótulo dela diz o que ela faz', favs.acao.titulo);
+  checar(favs.lista.secoes === 0 && favs.lista.nomes.length === 2,
+    'A LISTA DE FAVORITOS É ÚNICA: tipos diferentes juntos, sem subdivisão nenhuma',
+    JSON.stringify(favs.lista.nomes));
+  checar(favs.lista.alcas === favs.lista.nomes.length,
+    'e cada item tem a ALÇA de arrastar — a ordem passou a ser decisão do operador');
+  checar(favs.lista.subs === favs.lista.nomes.length,
+    'e o subtítulo voltou a aparecer: sem cabeçalho de tipo, é ele que distingue');
+  checar(favs.lista.ordemDepois === 0,
+    'e o arrastar MOVE de verdade (o mesmo `reorder` do Cronograma)');
+  // ── A MIGRAÇÃO DOS ATALHOS DE PASTA (v5.254) ───────────────────────────
+  //
+  // Esta é a asserção que impede o lote de virar PERDA DE MÍDIA. Um item cujo
+  // único detentor era um atalho vira, no instante em que o atalho some, um
+  // registro que nenhuma lista aponta — e o coletor de lixo (que existe
+  // justamente para isso) o apaga na varredura seguinte. Um vídeo grande
+  // sumiria do app e do disco sem nada na tela que o explicasse.
+  //
+  // O caso reproduz o aparelho do operador: um atalho com um item que NÃO está
+  // nos favoritos, e outro que já está (para provar que ele não é duplicado).
+  const mig = await pg.evaluate(async () => {
+    const so = await AVDB.addMedia(new Blob(['a'], { type: 'audio/mpeg' }),
+      { name: 'Só no atalho', list: 'avulsos' });
+    const jaFav = await AVDB.addMedia(new Blob(['b'], { type: 'audio/mpeg' }),
+      { name: 'No atalho e nos favoritos', list: 'favs' });
+    await AVDB.setState('folders', [{ id: 'p1', name: 'Louvores especiais' }]);
+    await AVDB.listSet('folder_p1', [so.id, jaFav.id]);
+    await migrarPastasParaFavoritos();
+    const favsIds = await AVDB.listIds('favs');
+    return {
+      migrou: favsIds.includes(so.id),
+      // O blob SOBREVIVEU: é o que o `folderDrop` teria apagado se a ordem das
+      // duas metades estivesse invertida.
+      temBytes: !!(await AVDB.getMedia(so.id)),
+      // Sem duplicar quem já estava lá.
+      vezes: favsIds.filter((x) => x === jaFav.id).length,
+      // E o atalho não existe mais, nem o índice dele.
+      semPastas: (((await AVDB.getState('folders')) || []).length) === 0,
+      semIndice: (await AVDB.listIds('folder_p1')).length === 0,
+      // Idempotente: rodar de novo não faz nada e não explode.
+      denovo: await (async () => { await migrarPastasParaFavoritos(); return true; })(),
+    };
+  });
+  checar(mig.migrou && mig.temBytes,
+    'A MIGRAÇÃO leva o conteúdo do atalho para os favoritos — e a mídia SOBREVIVE '
+    + '(sem isso, o gc apagaria o que ficasse sem dono)', JSON.stringify(mig));
+  checar(mig.vezes === 1, 'e não duplica o que já estava favoritado');
+  checar(mig.semPastas && mig.semIndice, 'e o atalho sai do banco, com o índice dele');
+  checar(mig.denovo, 'e rodar de novo é um no-op (ela roda em toda abertura)');
+
   checar(favs.vazioUmaLinha,
     'e a lista vazia diz uma frase só — "Nenhum favorito ainda"',
     JSON.stringify(favs.vazioTexto));

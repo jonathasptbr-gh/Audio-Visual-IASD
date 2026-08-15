@@ -417,13 +417,13 @@
          passa a valer para VÁRIOS itens de uma vez, que é o que se faz ao
          montar a fila de um culto. -->
     <button id="selPlaylist" class="sel-btn" title="Acrescentar à playlist"><span class="msym" aria-hidden="true">&#xe03b;</span></button>
-    <!-- Duas ações que eram UMA só até a v5.103, e é essa fusão que fazia
-         "favoritar" custar seis passos: a estrela abria o seletor de atalho, e
-         sem nenhum atalho criado era preciso inventar um antes de marcar o
-         primeiro favorito. Agora a ESTRELA marca direto (`favs`), e a PASTA —
-         organização opcional — é que abre o seletor de atalho. -->
+    <!-- A ESTRELA marca direto, em `favs`. Ela dividia esta faixa com um botão
+         de PASTA (o seletor de atalho), e os dois saíram de uma fusão que a
+         v5.103 desfez porque "favoritar" custava seis passos. O botão de pasta
+         saiu por inteiro na v5.254: os atalhos deixaram de existir, e o que
+         sobrou é a lista única de favoritos — marcar é a ação, e ORDENAR é o
+         arrastar de cada linha. -->
     <button id="selFav" class="sel-btn" title="Favoritar"><span class="msym" aria-hidden="true">&#xe838;</span></button>
-    <button id="selFolder" class="sel-btn" title="Adicionar a uma pasta"><span class="msym" aria-hidden="true">&#xe2c7;</span></button>
     <button id="selRename" class="sel-btn" title="Renomear"><span class="msym" aria-hidden="true">&#xe150;</span></button>
     <button id="selDelete" class="sel-btn danger" title="Excluir"><span class="msym" aria-hidden="true">&#xe872;</span></button>
   </div>
@@ -847,7 +847,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.253</span>
+        <span id="appVersion" class="app-version">Controle v5.254</span>
         <!-- A ATUALIZAÇÃO (v5.245). Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso.
@@ -1139,22 +1139,10 @@
     </div>
   </div>
 
-  <!-- popup de seleção da pasta de favoritos (bottom sheet) -->
-  <div id="folderPopup" class="popup-backdrop">
-    <div class="popup-sheet">
-      <div class="popup-header">
-        <span class="msym popup-header-icon" aria-hidden="true">&#xe838;</span>
-        <span class="popup-title">Adicionar aos favoritos</span>
-        <button id="folderPopupClose" class="popup-close" title="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
-      </div>
-      <ul id="folderPickerList" class="popup-list"></ul>
-      <div class="popup-footer">
-        <button id="newFolderInPickerBtn" class="new-folder-btn">
-          <span class="msym" aria-hidden="true">&#xe2cc;</span> Nova pasta
-        </button>
-      </div>
-    </div>
-  </div>
+  <!-- (O popup de seleção de PASTA saiu na v5.254, com os atalhos de pasta: o
+       app guarda os favoritos numa lista única, e as únicas pastas que restam
+       são as sincronizadas do armazenamento do aparelho, que não recebem itens
+       um a um — elas vêm inteiras.) -->
 
   <!-- diálogo padrão do app (confirmações e prompts) — no tema do app, substitui
        os confirm()/prompt() nativos em todas as interações do tipo (excluir etc.) -->
