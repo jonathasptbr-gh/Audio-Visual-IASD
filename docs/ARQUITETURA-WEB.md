@@ -5013,6 +5013,42 @@ está aberto: não há mais botão para revelá-las.
   acervo para baixar de novo; "excluir" prometia um dano maior do que o que a
   ação faz.
 
+#### E o que a v5.231 tirou: a faixa de chips inteira
+
+Pedido do operador: *"o peso já não precisa existir ali, pois já está na barra
+principal antes mesmo de abrir… preciso ajustá-los para que fiquem apenas em uma
+linha, resumindo basicamente a verificação (com o indicador do progresso e
+resultado) ou remoção."*
+
+O painel virou **uma linha**: `[⟳ Verificar · ✓ completo] [🗑 Remover do
+dispositivo]`. O que saiu e para onde foi:
+
+- **O PESO** — `.hymnal-stat.right`, e com ele `hymnalStat()` e `fmtParBytes()`,
+  os dois sem outro chamador. Ele já está na **barra do card**, antes de abrir
+  (`fracaoPeso`, o mesmo par de números): quem abriu o álbum já leu aquele
+  número para decidir abrir. Repetir uma medida a dois centímetros da outra é a
+  mesma classe de defeito que a v5.73 veio tirar daqui — ela só tinha sobrado
+  porque a barra do card ganhou o peso DEPOIS (v5.70/v5.93), e ninguém releu o
+  painel contra ela.
+- **O ESTADO** (`4/4 · Completo offline`) **desceu para dentro do botão** de
+  verificação, como `.coll-opt-estado`. A gramática é a do resto do app — **o
+  rótulo nomeia a AÇÃO, o estado diz onde ela está**: "Verificar · ✓ completo",
+  "Baixar · 12/24", "Atualizar a lista · 52 episódios". Sozinho, o rótulo antigo
+  ("Verificar atualizações") não dizia sequer que o álbum estava inteiro.
+- **O PROGRESSO virou desenho.** Enquanto o download roda, o botão de cancelar
+  se preenche até `--p` (`::before` com `z-index: -1` sob `isolation: isolate` —
+  o rótulo é um nó de TEXTO e não recebe `z-index`, então quem desce é a barra).
+  Ele **não escreve nada**, e é essa a razão de existir: as palavras
+  ("Baixando 2 de 4…") são da barra do card, e uma segunda cópia delas aqui
+  seria exatamente o que a v5.73 removeu. Sem índice não há fração e não há
+  barra — uma proporção que não se conhece não se desenha.
+
+Os dois oráculos se dividem pela natureza, como sempre: o `boot-nativo` mede o
+ESTADO (o painel com um filho só, o peso ausente dele e presente na barra, o
+resultado dentro do botão) e o `smoke.mjs` mede a FORMA (o preenchimento é
+proporcional, fica atrás do rótulo e não é da cor do fundo). Verificados nos
+dois sentidos: 4 e 3 reprovados com o código anterior.
+
 #### O que a v5.73 tirou daqui, e por quê
 
 Eram **três chips e uma linha de status**, e três dos quatro repetiam algo que
@@ -5054,9 +5090,10 @@ de ser necessários — um painel não é uma camada.
   `u.expanded && (total > 0 || u.optsOpen)`.
 
 **O botão de sincronizar é o mesmo botão de CANCELAR.** Com o download em
-curso ele vira ✕ ("Cancelar o download", em `--warn` e **sem
+curso ele vira ✕ ("Cancelar", em `--warn` e **sem
 giro**: um ✕ girando não se lê como "toque para parar", e quem indica
-atividade é o status acima). Antes, um segundo toque caía num `return` mudo
+atividade é o preenchimento dele — desde a v5.231 o aviso é a BORDA e o texto,
+porque o fundo passou a ser o progresso). Antes, um segundo toque caía num `return` mudo
 por `u.syncBusy`: um álbum de centenas de faixas, uma vez começado, só parava
 fechando o app. O cancelamento **fecha a fila** — nenhuma música nova entra e
 as que já estão no ar (até `NET_CONCURRENCY`) terminam. Abortar no meio de um

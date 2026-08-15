@@ -2569,10 +2569,59 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.230** (base web) · `SHELL_VERSION` **41**, e o bundle segue com
+**Versão atual: v5.231** (base web) · `SHELL_VERSION` **41**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.231: AS OPÇÕES DO ÁLBUM VIRAM UMA LINHA — o peso sai porque já estava
+> na barra. OTA PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> Pedido do operador: *"o peso já não precisa existir ali, pois já está na barra
+> principal antes mesmo de abrir. quanto aos outros elementos, preciso ajustá-los
+> para que fiquem apenas em uma linha, resumindo basicamente a verificação (com o
+> indicador do progresso e resultado) ou remoção."*
+>
+> O painel aberto tinha **três linhas para duas ações**: uma faixa de chips
+> ("Sincronizados: 4/4 · Completo offline" e "Peso: 18 MB") e, abaixo, os dois
+> botões. Agora é uma: `[⟳ Verificar · ✓ completo] [🗑 Remover do dispositivo]`.
+>
+> **O peso era a mesma medida dita duas vezes, a dois centímetros.** Ele já vive
+> na barra do card — `fracaoPeso`, o mesmo par de números —, e é justamente por
+> lê-lo ali que o operador decide abrir. Saíram com ele o `hymnalStat()` e o
+> `fmtParBytes()`, que não tinham outro chamador. E vale registrar por que ele
+> sobreviveu tanto: a v5.73 fez esta mesma faxina, e o peso só passou a estar na
+> BARRA depois (v5.70/v5.93) — ninguém releu o painel contra ela.
+>
+> **O estado não se perdeu: ele desceu para dentro do botão que qualifica.** A
+> gramática é a mesma da cortina e do botão de transmitir — **o rótulo nomeia a
+> AÇÃO, o estado diz onde ela está**: "Verificar · ✓ completo", "Baixar · 12/24",
+> "Atualizar a lista · 52 episódios". Sozinho, o rótulo anterior ("Verificar
+> atualizações") não dizia nem que o álbum estava inteiro no aparelho.
+>
+> **E o progresso virou DESENHO, não uma segunda frase.** Enquanto o download
+> roda, o botão de cancelar se preenche até `--p`. Escrever "Baixando 2 de 4…"
+> aqui seria repor exatamente o que a v5.73 tirou deste painel — quem escreve
+> isso é a barra do card, fixa no topo do aberto e visível daqui. Duas
+> armadilhas de CSS ficaram escritas na folha: o preenchimento precisa de
+> `z-index: -1` **e** de `isolation: isolate` no botão (o rótulo é um nó de
+> TEXTO e não recebe `z-index`, então quem desce é a barra; sem o contexto de
+> empilhamento o -1 cairia atrás do fundo do próprio botão), e o aviso do
+> cancelar mudou de papel — era o fundo chapado, virou borda e texto, porque um
+> preenchimento em `--warn-soft` sobre um fundo `--warn-soft` seria uma barra
+> invisível.
+>
+> Os oráculos se dividem pela natureza: o `boot-nativo` mede o ESTADO (o painel
+> com um filho só, o peso ausente dele e PRESENTE na barra, o resultado dentro
+> do botão) e o `smoke.mjs` mede a FORMA (o preenchimento é proporcional, fica
+> atrás do rótulo e não é da cor do fundo). Verificados nos dois sentidos —
+> 4 e 3 reprovados com o código anterior.
+>
+> **E um falso negativo do próprio teste virou lição, de novo:** a primeira
+> versão da asserção não achava o painel, e o defeito era do harness —
+> `renderCollectionsList` **acrescenta** à lista, e o caso anterior já a tinha
+> desenhado, então o `find` achava o card VELHO, ainda fechado. Medir o primeiro
+> nó que casa não é medir o que está na tela.
 
 > **A v5.230: O EPISÓDIO DE SÉRIE VIRA UM VÍDEO DO YOUTUBE, e a DATA passa a
 > ter DUAS formas. OTA PURO** (nenhuma linha de Kotlin; sem Release).

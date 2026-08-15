@@ -209,7 +209,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.230';
+const WEB_VERSION = '5.231';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -1150,11 +1150,11 @@ function fracaoPeso(ids) {
   return fmtFracBytes(no, total);
 }
 
-// O miolo comum das duas formas de "tanto de tanto" (`fmtFracBytes` e
-// `fmtParBytes`): a unidade só aparece uma vez quando é a mesma nos dois
-// números; se divergirem (800 KB de ~1,2 GB), as duas ficam — omitir a
-// primeira seria simplesmente falso. O separador é o ÚNICO ponto em que as
-// formas diferem, então ele é o parâmetro.
+// O miolo do "tanto de tanto" (hoje só `fmtFracBytes` o usa; até a v5.231
+// havia uma segunda forma, por extenso): a unidade só aparece uma vez quando é
+// a mesma nos dois números; se divergirem (800 KB de ~1,2 GB), as duas ficam —
+// omitir a primeira seria simplesmente falso. O separador é o ÚNICO ponto em
+// que as formas diferiam, então ele é o parâmetro.
 function fmtBytesPar(a, b, sep) {
   const fa = fmtBytes(a);
   const fb = fmtBytes(b);
@@ -1162,8 +1162,9 @@ function fmtBytesPar(a, b, sep) {
   const ub = fb.split(' ')[1];
   return (ua === ub ? va : fa) + sep + fb;
 }
-// "3,7/~18 MB" — a forma curta, para as barras (ver `fmtParBytes`, a forma por
-// extenso do chip de opções, que tem largura para o "de").
+// "3,7/~18 MB" — a forma curta, e desde a v5.231 a única: é ela que a barra do
+// card mostra, e é justamente por ela já estar lá que o chip de peso do painel
+// aberto saiu.
 function fmtFracBytes(a, b) { return fmtBytesPar(a, b, '/~'); }
 
 // Downloads de música em andamento ("<coll.id>:<id_music>" -> Promise) — evita
@@ -6505,49 +6506,20 @@ function buildCollectionOptions(coll, collOptsEl) {
   const u = ui(coll.id);
 
   // A LINHA DE STATUS SAIU DAQUI (v5.73). Parada, ela repetia numa linha
-  // inteira o que o chip abaixo já diz ("Completo offline", "Parcial", "Não
-  // sincronizado"); em movimento, repetia PALAVRA POR PALAVRA o
+  // inteira o que o estado ao lado do botão já diz ("Completo offline",
+  // "Parcial", "Não sincronizado"); em movimento, repetia PALAVRA POR PALAVRA o
   // "Baixando 2 de 4…" que a barra do card mostra dois centímetros acima — e a
   // barra é fixa no topo do aberto, então ela nunca sai de vista enquanto se
   // lê o painel.
-
-  const stats = document.createElement('div'); stats.className = 'hymnal-card-stats';
-
-  // UM chip para as duas informações (v5.73): quantas faixas estão no aparelho
-  // e o que isso significa. Separadas, "4/4" e "Completo offline" eram a mesma
-  // frase dita duas vezes — e a segunda ainda ocupava a largura toda.
-  const sinc = document.createElement('div');
-  sinc.className = 'hymnal-stat sinc' + (complete ? ' done' : '');
-  const sLabel = document.createElement('label'); sLabel.textContent = 'Sincronizados';
-  const sVal = document.createElement('b');
-  if (complete) sVal.innerHTML = checkIconSvg();
-  // O texto num <span> porque o <b> é flex (por causa do ✓): num contêiner
-  // flex o texto solto vira item anônimo e o `text-overflow` do pai não o
-  // alcança — o nome de um álbum longo cortaria a seco em vez de reticências.
-  const sTxt = document.createElement('span');
-  sTxt.textContent = (total ? downloaded + '/' + total : '—') + ' · '
-    + (complete ? 'Completo offline' : (total > 0 ? 'Parcial' : 'Não sincronizado'));
-  sVal.appendChild(sTxt);
-  sinc.append(sLabel, sVal);
-  stats.appendChild(sinc);
-
-  // O peso à DIREITA: é o número curto e secundário da linha, e ancorá-lo na
-  // borda oposta dá ao chip de sincronização toda a largura de que ele precisa.
   //
-  // E ele diz as DUAS medidas (v5.93): o que está no aparelho e o que o álbum
-  // inteiro vai ocupar. Só o primeiro número não responde a pergunta que se faz
-  // antes de baixar — "quanto isto vai custar" —, e só o segundo esconde o que
-  // já foi gasto. Completo, os dois seriam o mesmo número dito duas vezes,
-  // então fica um só, sem o "~": ali a medida é exata.
-  const m = medirColecao(coll.id);
-  // Mesma definição de "completo" da barra do card (ver `fracaoPeso`): os dois
-  // números estão a dois centímetros um do outro na mesma tela.
-  const pesoTxt = (complete && m.noAparelho) ? fmtBytes(m.noAparelho)
-    : !m.total ? '—'
-      : m.noAparelho ? fmtParBytes(m.noAparelho, m.total)
-        : '~' + fmtBytes(m.total);
-  stats.appendChild(hymnalStat('Peso', pesoTxt, 'right'));
-  collOptsEl.appendChild(stats);
+  // E A FAIXA DE CHIPS SAIU TODA (v5.231, pedido do operador). Eram duas
+  // linhas — "Sincronizados: 4/4 · Completo offline" e "Peso: 18 MB" — para um
+  // painel cujas ações cabem numa. O PESO já está na barra do card, ANTES de
+  // abrir (`fracaoPeso`, o mesmo par de números): repeti-lo aqui era dizer duas
+  // vezes, a dois centímetros, a coisa que o operador já tinha lido para
+  // decidir abrir. O ESTADO não se perdeu — ele desceu para DENTRO do botão de
+  // verificação, que é a única coisa da tela que ele qualifica: o rótulo diz o
+  // que o toque faz e o estado diz por que ele faz isso.
 
   // OS DOIS BOTÕES DIVIDEM UMA LINHA (v5.95). Empilhados, eles ocupavam duas
   // faixas largas para duas ações curtas, e era esse tamanho que obrigava a
@@ -6578,8 +6550,42 @@ function buildCollectionOptions(coll, collOptsEl) {
   // ~15 GB atrás de uma palavra de três sílabas.
   syncBtn.appendChild(document.createTextNode(
     u.syncBusy ? 'Cancelar'
-      : (ehSerie(coll) ? 'Atualizar a lista' : (complete ? 'Verificar atualizações' : 'Baixar')),
+      : (ehSerie(coll) ? 'Atualizar a lista' : (complete ? 'Verificar' : 'Baixar')),
   ));
+
+  // O ESTADO VIVE DENTRO DO BOTÃO (v5.231) — é o que sobrou do chip de
+  // sincronização, reduzido ao que ele de fato acrescenta ao rótulo.
+  //
+  // A regra é a do resto do app (a cortina, o botão de transmitir): **o rótulo
+  // nomeia a AÇÃO, o estado diz onde ela está**. "Verificar" com um "✓ completo"
+  // ao lado responde as duas perguntas de uma vez; "Verificar atualizações"
+  // sozinho, num álbum inteiro no aparelho, não dizia nem que ele estava
+  // inteiro. Numa SÉRIE o número que importa não é quanto foi baixado (nada é,
+  // por desenho — ver `serieComoYoutube`): é quantos episódios a lista tem.
+  const estado = document.createElement('small');
+  estado.className = 'coll-opt-estado' + (complete && !ehSerie(coll) ? ' done' : '');
+  if (u.syncBusy) {
+    // Em movimento o estado é MUDO, e de propósito: quem escreve "Baixando 2 de
+    // 4…" é a barra do card, fixa no topo do aberto e visível daqui. O que este
+    // botão acrescenta é o que aquela linha não tem — o PROGRESSO desenhado
+    // (`--p`, abaixo), que se lê sem ler.
+    estado.textContent = '';
+  } else if (ehSerie(coll)) {
+    estado.textContent = total ? total + ' episódios' : 'sem lista';
+  } else {
+    estado.textContent = complete ? '✓ completo'
+      : (total > 0 ? downloaded + '/' + total : 'sem lista');
+  }
+  if (estado.textContent) syncBtn.appendChild(estado);
+
+  // O PROGRESSO É O PREENCHIMENTO DO PRÓPRIO BOTÃO. Uma segunda frase de
+  // "Baixando 2 de 4…" seria o defeito que a v5.73 tirou daqui; uma barra
+  // determinada não repete palavra nenhuma e responde "quanto falta?" no lugar
+  // em que o dedo já está — que é o botão de cancelar. Sem índice não há fração
+  // e não há barra: prometer uma proporção que não se conhece é pior que nada.
+  if (u.syncBusy && total > 0) {
+    syncBtn.style.setProperty('--p', Math.min(100, Math.round(downloaded * 100 / total)) + '%');
+  }
   syncBtn.addEventListener('click', () => syncCollection(coll, ehSerie(coll) ? { soIndice: true } : undefined));
   acoes.appendChild(syncBtn);
 
@@ -6598,15 +6604,9 @@ function buildCollectionOptions(coll, collOptsEl) {
   collOptsEl.appendChild(acoes);
 }
 
-// Monta um "chip" de estatística (rótulo em cima, valor embaixo).
-function hymnalStat(label, value, extraClass) {
-  const el = document.createElement('div');
-  el.className = 'hymnal-stat' + (extraClass ? ' ' + extraClass : '');
-  const l = document.createElement('label'); l.textContent = label;
-  const v = document.createElement('b'); v.textContent = value;
-  el.append(l, v);
-  return el;
-}
+// (`hymnalStat` — o construtor dos chips do painel — saiu na v5.231 com o
+// último chip que restava, o do peso: ele já estava na barra do card, antes
+// mesmo de abrir.)
 
 // Só re-renderiza os cards de coleção se a aba Álbuns estiver de fato visível —
 // evita custo de DOM à toa enquanto o operador está em outra aba durante o download.
@@ -6920,9 +6920,9 @@ function fmtBytes(n) {
   return n + ' B';
 }
 
-// "3,7 de ~18 MB" — a forma por extenso do chip de opções. O miolo (unidade
-// repetida só quando necessário) é o mesmo da forma curta: `fmtBytesPar`.
-function fmtParBytes(a, b) { return fmtBytesPar(a, b, ' de ~'); }
+// (`fmtParBytes` — a forma por extenso, "3,7 de ~18 MB" — saiu na v5.231 com o
+// chip de peso, seu único chamador. A forma curta, `fmtFracBytes`, é a das
+// barras e continua.)
 
 function renderSelbar() {
   hostSelbar();
