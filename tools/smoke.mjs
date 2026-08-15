@@ -1589,6 +1589,85 @@ try {
   checar(false, 'a medição da lupa terminou sem exceção (' + (e && e.message) + ')');
 }
 
+// ---------- A BARRA DE BUSCA SE DESTACA DO CORPO (v5.266) ----------
+// Pedido do operador: *"crie um contraste melhor entre a barra de buscas e o
+// corpo da tela de biblioteca, pois agora que ela é 'flutuante' ela precisa se
+// destacar."* Até aqui ela não tinha fundo nenhum — herdava a cor da folha.
+//
+// A régua NÃO é um número escrito aqui: é a `.bottombar` da tela principal, que
+// é a resposta que este app já deu para "separar duas caixas empilhadas" e cujo
+// comentário declara o degrau como o único separador (sem borda, sem sombra).
+// Ancorar nela mantém o caso verdadeiro se os tokens mudarem — e é o que
+// reprova o caminho errado óbvio, usar `--bar` aqui: no tema CLARO aquele token
+// é branco puro, a mesma cor da folha.
+//
+// NOS DOIS TEMAS, porque é justamente no claro que o atalho falharia.
+for (const tema of ['escuro', 'claro']) {
+  try {
+    const c = await pg.evaluate(async (tema) => {
+      document.documentElement.setAttribute('data-tema', tema);
+      setAppMode('full');
+      openHymnSearch();
+      await new Promise((r) => setTimeout(r, 400));
+      const fundo = (s) => {
+        const e = document.querySelector(s);
+        return e ? getComputedStyle(e).backgroundColor : '';
+      };
+      const barra = document.querySelector('#hymnSearchPopup .hymn-search-bar');
+      const r = {
+        folha: fundo('#hymnSearchPopup .popup-sheet'),
+        barra: fundo('#hymnSearchPopup .hymn-search-bar'),
+        campo: getComputedStyle(document.getElementById('hymnSearchInput')).backgroundColor,
+        sombra: getComputedStyle(barra).boxShadow,
+        // A RÉGUA do próprio app: o degrau da barra de baixo contra o fundo.
+        corpoPrincipal: fundo('body'),
+        barraPrincipal: fundo('.bottombar'),
+      };
+      closeHymnSearch();
+      return r;
+    }, tema);
+    // Compõe alfa sobre a base (o campo é um overlay) e devolve a razão de
+    // contraste — a mesma conta do `display-smoke.mjs`.
+    const rgb = (s) => (s.match(/[\d.]+/g) || []).map(Number);
+    const sobre = (frente, base) => {
+      const f = rgb(frente); const b = rgb(base);
+      const a = f.length > 3 ? f[3] : 1;
+      return [0, 1, 2].map((i) => f[i] * a + b[i] * (1 - a));
+    };
+    const lum = (v) => {
+      const l = v.map((x) => { const c = x / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
+      return 0.2126 * l[0] + 0.7152 * l[1] + 0.0722 * l[2];
+    };
+    const razao = (a, b) => {
+      const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
+      return (x + 0.05) / (y + 0.05);
+    };
+    const folha = rgb(c.folha);
+    const barra = sobre(c.barra, c.folha);
+    const campo = sobre(c.campo, c.barra.includes('rgba(0, 0, 0, 0)') ? c.folha : c.barra);
+    const regua = razao(sobre(c.barraPrincipal, c.corpoPrincipal), rgb(c.corpoPrincipal));
+    const passo = razao(barra, folha);
+    checar(c.barra !== c.folha && c.barra !== 'rgba(0, 0, 0, 0)',
+      '[' + tema + '] a barra de busca tem fundo PRÓPRIO — ela herdava a cor da folha',
+      c.barra + ' contra ' + c.folha);
+    checar(passo >= regua - 0.05,
+      '[' + tema + '] e o degrau é o do próprio app para separar duas caixas: '
+      + passo.toFixed(2) + ':1, contra os ' + regua.toFixed(2) + ':1 da barra de baixo');
+    checar(/-\d+px/.test(c.sombra) && c.sombra !== 'none',
+      '[' + tema + '] com a sombra para CIMA, que é o que o tom não diz: a lista '
+      + 'passa por baixo dela', c.sombra);
+    // E o CAMPO não se perdeu dentro do tom novo — a barra clareou (ou
+    // escureceu), e ele é um overlay sobre ela.
+    checar(razao(campo, barra) > 1.1,
+      '[' + tema + '] e o campo continua legível DENTRO dela ('
+      + razao(campo, barra).toFixed(2) + ':1)');
+  } catch (e) {
+    checar(false, '[' + tema + '] a medição do contraste da barra terminou sem exceção ('
+      + (e && e.message) + ')');
+  }
+}
+await pg.evaluate(() => document.documentElement.setAttribute('data-tema', 'escuro'));
+
 // ---------- O VERDE SAI DOS INDICADORES (v5.263) ----------
 // Pedido do operador: *"remova a cor verde dos indicadores de tamanho das
 // coleções e também dos itens sobre a conclusão das atualizações completas."*

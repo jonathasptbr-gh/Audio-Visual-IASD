@@ -3270,7 +3270,34 @@ main {
   padding: .5rem .9rem .6rem; flex-shrink: 0;
 }
 #hymnSearchPopup .hymn-search-bar {
-  border-top: 1px solid var(--line);
+  /* ---------- ELA PRECISA SE DESTACAR (v5.266) ----------
+     Pedido do operador: *"crie um contraste melhor entre a barra de buscas e o
+     corpo da tela de biblioteca, pois agora que ela é 'flutuante' ela precisa
+     se destacar."* Até aqui ela não tinha fundo NENHUM — herdava o `--panel` da
+     folha, e o que a separava do corpo era um filete de 1px.
+
+     São DOIS sinais, e os dois já existem neste app:
+
+     · O TOM. `--panel-2` é o tom de CONTÊINER da Biblioteca (v5.241), e o degrau
+       que ele dá contra a folha é o mesmo que a `.bottombar` usa contra o fundo
+       da tela principal — medido, 1,29:1 no escuro e 1,30:1 no claro, contra os
+       1,32/1,29 de lá. É a régua do próprio app para "separar duas caixas".
+       `--bar`, o token daquela barra, NÃO serve aqui: ele foi calibrado contra
+       `--bg`, e no tema claro ele é branco puro, isto é, exatamente a cor da
+       folha — 1,00:1, nenhum contraste.
+
+     · A SOMBRA, que é o que o tom sozinho não diz: *conteúdo passa por baixo
+       daqui*. Ela é a mesma receita da tampa do álbum aberto
+       (`.hymnal-card.expanded .coll-bar`), invertida — o precedente deste app
+       para uma barra sob a qual a lista rola. E ela é necessária mesmo com o
+       tom: as barras de seção e os cards de álbum TAMBÉM são `--panel-2`, então
+       um deles encostando na barra sem a sombra leria como uma peça só.
+
+     SEM `border-top`: entre dois tons e com a sombra, o filete vira um terceiro
+     separador na mesma junta — e borda somada a sombra é o filete duplo que a
+     v5.261 já tirou do `#favSearchBar`. */
+  background: var(--panel-2);
+  box-shadow: 0 -6px 12px -8px var(--shadow-ink);
   /* A área segura de baixo é a barra de gestos do Android, e com o teclado
      aberto ela está atrás dele — descontar `--kb` a zera, senão sobraria uma
      faixa morta entre a barra e o teclado. */

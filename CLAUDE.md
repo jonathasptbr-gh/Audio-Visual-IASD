@@ -2981,10 +2981,59 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.265** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.266** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.266: A BARRA DE BUSCA GANHA TOM E SOMBRA — agora que ela flutua, ela
+> precisa se destacar. OTA PURO** (só CSS; sem Release).
+>
+> Pedido do operador: *"crie um contraste melhor entre a barra de buscas e o
+> corpo da tela de biblioteca, pois agora que ela é 'flutuante' ela precisa se
+> destacar."*
+>
+> Ele está cobrando a consequência de três lotes: a barra desceu para o rodapé
+> (v5.258), a folha passou a ser a faixa visível para ela encostar no teclado
+> (v5.261) e a tela deixou de deslizar (v5.263). Ela virou uma barra fixa sobre
+> a qual a lista rola — e **não tinha fundo nenhum**: herdava o `--panel` da
+> folha, com um filete de 1px como único separador.
+>
+> São DOIS sinais, e os dois já existiam neste app:
+>
+> - **O TOM.** `--panel-2` é o tom de CONTÊINER da Biblioteca (v5.241), e o
+>   degrau que ele dá contra a folha é **o mesmo que a `.bottombar` usa contra o
+>   fundo da tela principal**: medido, 1,29:1 no escuro e 1,30:1 no claro, contra
+>   os 1,32/1,29 de lá. É a régua do próprio app para "separar duas caixas", e é
+>   nela que o oráculo ancora — um número escrito no teste apodreceria na
+>   primeira mudança de token.
+> - **A SOMBRA**, que é o que o tom sozinho não diz: *conteúdo passa por baixo
+>   daqui*. Mesma receita da tampa do álbum aberto
+>   (`.hymnal-card.expanded .coll-bar`), invertida — o precedente deste app para
+>   uma barra sob a qual a lista rola. E ela é necessária MESMO com o tom: as
+>   barras de seção e os cards de álbum também são `--panel-2`, então um deles
+>   encostando na barra sem a sombra leria como uma peça só.
+>
+> **O atalho plausível é errado, e o oráculo o reprova.** `--bar` é o token da
+> barra de baixo da tela principal — parece ser exatamente isto —, mas ele foi
+> calibrado contra `--bg`, e no tema CLARO ele é branco puro, **a mesma cor da
+> folha: 1,00:1**. Verificado: trocando `--panel-2` por `--bar`, 4 asserções
+> reprovam.
+>
+> O `border-top` saiu: entre dois tons e com a sombra, o filete é um terceiro
+> separador na mesma junta — borda somada a sombra é o filete duplo que a v5.261
+> já tinha tirado do `#favSearchBar`.
+>
+> **E o CAMPO foi medido junto**, porque a barra mudar de tom podia engoli-lo:
+> ele é um overlay (`--surface-sunk`, a superfície INVERTIDA de dentro de um
+> cartão), então clarear a base clareia os dois. Medido, ele não piorou —
+> 1,10 → 1,16:1 no escuro, 1,45 → 1,44:1 no claro —, e o oráculo o cobra ao lado
+> dos outros três: um destaque que apaga o que a barra existe para conter não é
+> destaque.
+>
+> Verificado por ISOLAMENTO: sem fundo e sem sombra (o estado anterior),
+> **6** asserções reprovam; com `--bar` no lugar do tom, **4**; com o tom mas sem
+> a sombra, **2**.
 
 > **A v5.265: O "~" SAI DAS CONTAGENS DE PESO. OTA PURO** (nenhuma linha de
 > Kotlin; sem Release).
