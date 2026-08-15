@@ -548,32 +548,56 @@ try {
     // de qualquer coleção só é CONSTRUÍDO quando o grupo dele abre. Este caso
     // fala do card, então ele abre o grupo primeiro — e o passo é, ele próprio,
     // a afirmação de que o grupo existe com esse nome.
-    gruposAbertos.add('Hinários e séries');
+    gruposAbertos.add('Hinários'); gruposAbertos.add('Arquivos oficiais');
     renderCollectionsList(lista, () => {}, { semTotal: true });
     const grupos = [...lista.querySelectorAll('.coll-group-name')].map((e) => e.textContent.trim());
     const linhas = [...lista.children].map((li) => (li.className.includes('coll-group')
       ? 'GRUPO: ' + li.textContent.trim().split('\n')[0]
       : 'card: ' + li.textContent.trim().split('\n')[0]));
-    gruposAbertos.delete('Hinários e séries');
+    gruposAbertos.delete('Hinários'); gruposAbertos.delete('Arquivos oficiais');
     return {
       texto: lista.textContent,
       grupos,
-      // O grupo em que o card da série de fato vive.
+      // O grupo em que cada card de fato vive. É a pergunta inteira da v5.260:
+      // a separação não é um cabeçalho a mais, é o card mudar de casa.
       grupoDaSerie: (() => {
         const card = [...lista.querySelectorAll('.hymnal-card')]
           .find((el) => /Provai e Vede 2026/.test(el.textContent));
         const g = card && card.closest('.coll-group');
-        return g ? (g.querySelector('.coll-group-name') || {}).textContent : '';
+        return g ? (g.querySelector('.coll-group-name') || {}).textContent.trim() : '';
+      })(),
+      grupoDoInformativo: (() => {
+        const card = [...lista.querySelectorAll('.hymnal-card')]
+          .find((el) => /Informativo Mundial das Missões 2026/.test(el.textContent));
+        const g = card && card.closest('.coll-group');
+        return g ? (g.querySelector('.coll-group-name') || {}).textContent.trim() : '';
+      })(),
+      grupoDoHinario: (() => {
+        const card = [...lista.querySelectorAll('.hymnal-card')]
+          .find((el) => /Hinário/.test(el.textContent));
+        const g = card && card.closest('.coll-group');
+        return g ? (g.querySelector('.coll-group-name') || {}).textContent.trim() : '';
       })(),
       posSerie: linhas.findIndex((l) => l.includes('Provai e Vede 2026')),
     };
   });
   checar(/Provai e Vede 2026/.test(naTela.texto),
     'O CARD DA SÉRIE APARECE NA BIBLIOTECA — era este o "não estou achando nada"');
-  checar(/Hinários e séries/.test(naTela.grupoDaSerie || ''),
-    'e ele fica no grupo das FIXAS, junto dos hinários', naTela.grupoDaSerie);
-  checar(naTela.grupos[0] === 'Favoritos' && naTela.grupos[1] === 'Hinários e séries',
-    'que vem logo abaixo dos Favoritos, antes de qualquer álbum — o topo é o topo',
+  // ── A SEPARAÇÃO DOS DOIS GRUPOS FIXOS (v5.260) ─────────────────────────
+  // Pedido do operador: "faça uma separação de coletânea entre os hinários e os
+  // Arquivos oficiais (que incluem o provai e vede e informativo mundial das
+  // missões)". As três asserções são a mesma pergunta por três lados, e nenhuma
+  // basta sozinha: um cabeçalho novo com os cards no lugar antigo passaria na
+  // primeira, e mover os cards sem separar os hinários passaria na segunda.
+  checar(naTela.grupoDaSerie === 'Arquivos oficiais'
+    && naTela.grupoDoInformativo === 'Arquivos oficiais',
+    'AS DUAS SÉRIES vivem no grupo "Arquivos oficiais"',
+    naTela.grupoDaSerie + ' / ' + naTela.grupoDoInformativo);
+  checar(naTela.grupoDoHinario === 'Hinários',
+    'e o hinário fica no grupo "Hinários", sozinho', naTela.grupoDoHinario);
+  checar(naTela.grupos[0] === 'Favoritos' && naTela.grupos[1] === 'Hinários'
+    && naTela.grupos[2] === 'Arquivos oficiais',
+    'nesta ordem, logo abaixo dos Favoritos e antes de qualquer álbum',
     JSON.stringify(naTela.grupos));
 
   // ── O ÍNDICE NÃO PODE FICAR PRESO NUMA REGRA VELHA (v5.233) ────────────
@@ -648,7 +672,7 @@ try {
   // O download EM LOTE não pode existir para a série: são ~52 vídeos.
   const semLote = await pg.evaluate(() => {
     const lista = document.getElementById('hymnResults');
-    gruposAbertos.add('Hinários e séries');   // fechados por padrão desde a v5.237
+    gruposAbertos.add('Hinários'); gruposAbertos.add('Arquivos oficiais');  // fechados desde a v5.237
     renderCollectionsList(lista, () => {}, { semTotal: true });
     const cards = [...lista.querySelectorAll('.hymnal-card')];
     const card = cards.find((el) => /Provai e Vede 2026/.test(el.textContent));
@@ -656,7 +680,7 @@ try {
       achou: !!card,
       temBotaoBaixar: !!(card && card.querySelector('.coll-bar-dl')),
     };
-    gruposAbertos.delete('Hinários e séries');
+    gruposAbertos.delete('Hinários'); gruposAbertos.delete('Arquivos oficiais');
     return r;
   });
   checar(semLote.achou, 'o card da série está na lista para ser medido');
@@ -811,11 +835,17 @@ try {
       // diria a mesma coisa.
       altura: lista.getBoundingClientRect().height,
     };
-    // O TOQUE no cabeçalho do grupo das fixas.
-    const barra = [...lista.querySelectorAll('.coll-group-bar')]
-      .find((b) => /Hinários/.test(b.textContent));
-    barra.click();
-    await new Promise((r) => setTimeout(r, 50));
+    // O TOQUE nos cabeçalhos dos DOIS grupos fixos (v5.260): os hinários e os
+    // Arquivos oficiais, que deixaram de ser um grupo só. Abrir os dois é o que
+    // mantém esta medição comparável com a de antes — e o caso continua sendo
+    // "fechado não constrói card, o toque constrói".
+    for (const nome of [/^Hinários/, /^Arquivos oficiais/]) {
+      const barra = [...lista.querySelectorAll('.coll-group-bar')]
+        .find((b) => nome.test(b.textContent.trim()));
+      if (barra) barra.click();
+      await new Promise((r) => setTimeout(r, 30));
+    }
+    await new Promise((r) => setTimeout(r, 20));
     const aberto = {
       cards: lista.querySelectorAll('.hymnal-card').length,
       temSerie: /Provai e Vede 2026/.test(lista.textContent),
@@ -1236,7 +1266,7 @@ try {
     lista.className = 'hymnal-list';
     lista.style.width = '390px';
     document.body.appendChild(lista);
-    gruposAbertos.add('Hinários e séries');   // fechados por padrão desde a v5.237
+    gruposAbertos.add('Hinários'); gruposAbertos.add('Arquivos oficiais');  // fechados desde a v5.237
     renderCollectionsList(lista, () => {}, { semTotal: true });
     const card = [...lista.querySelectorAll('.hymnal-card')]
       .find((el) => /Provai e Vede 2026/.test(el.textContent));
@@ -1328,7 +1358,7 @@ try {
     + (lx ? Math.round(lx.larg) + 'px contra ' + Math.round(lx.largVerificar) + 'px' : '?') + ')');
   await pg.evaluate(() => {
     allCollections().forEach((c) => { ui(c.id).expanded = false; });
-    gruposAbertos.delete('Hinários e séries');
+    gruposAbertos.delete('Hinários'); gruposAbertos.delete('Arquivos oficiais');
     redesenharAcervo();
   });
 
