@@ -568,6 +568,20 @@ mudo por construção:
   que ela precisa se recuperar sozinha: ligada no meio do culto, recarga da
   página e queda de rede. É seguro porque o reenvio é **endereçado** desde a
   v5.140 (`__de`/`__para`): o telão de verdade descarta o que não for dele.
+
+  **E o `__tela` é o que dispara o reenvio das PREFERÊNCIAS** (wallpaper, fundo
+  da letra, preenchimento — `telaReenviarPreferencias`), porque é a única coisa
+  que distingue uma tela da rede do telão de verdade, que lê tudo do IndexedDB
+  sozinho. **Esta linha descreveu por dezenas de versões um combinado que o
+  código não cumpria**: o campo era anexado ao `tela-status` e nunca ao
+  `display-ready`, então aquela função — criada na v5.188 justamente para isto —
+  nunca rodou para uma tela de verdade, sem erro em lugar nenhum (v5.222). Quem
+  monta o anúncio é `anuncio()`, dono ÚNICO do carimbo: há dois pontos que
+  anunciam (o dreno e o `aoConectar` do reanúncio) e o que entrega é quase
+  sempre o segundo, porque o `display-ready` nasce antes de existir token. Os
+  dois lados do contrato têm oráculo — o produtor no `tela-rede.test.mjs`, o
+  consumidor no `boot-nativo.test.mjs` —, e são dois porque ler cada lado
+  isolado aprova ambos.
 - **`display-status` sai RENOMEADO para `tela-status`** (o herdeiro do
   `espelho-status` da v5.173): **sem TV as telas da rede SÃO a projeção**, e
   calá-las deixaria o Controle sem referência de tempo nenhuma — sobraria a
@@ -2397,13 +2411,69 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.221** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
+**Versão atual: v5.222** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
+> **A v5.222: O `display-ready` DA TELA NUNCA LEVOU `__tela` — e sem ele as TRÊS
+> preferências jamais chegaram. OTA PURO** (nenhuma linha de Kotlin; sem
+> Release).
+>
+> Relato: numa tela recém-ativada os slides ficam pretos **mesmo com a opção de
+> imagens ligada**, e agora "nem depois da música tocar completa" — isto é, não
+> era espera. A v5.221 tinha atacado o sintoma pelo lado errado.
+>
+> **A causa é um campo que nunca foi escrito.** O Controle decide reenviar
+> wallpaper, fundo da letra e preenchimento a quem conecta perguntando
+> `if (msg.__tela)` no `display-ready` — é a única coisa que distingue uma TELA
+> DA REDE do telão de verdade, que lê tudo do IndexedDB sozinho. O `tela.js`
+> anexa `__tela` ao `tela-status`… e **nunca anexou ao `display-ready`**. Medido
+> no fio: `{"type":"display-ready","__de":"dsf1cu9p7","__mid":"70y95c:1"}`.
+>
+> Ou seja: `telaReenviarPreferencias` — a função que a **v5.188 criou para
+> exatamente isto** — nunca rodou para uma tela de verdade, em nenhuma versão.
+> Não havia erro em lugar nenhum; havia três preferências que simplesmente não
+> existiam do outro lado. O fundo da letra foi o que apareceu porque preto é
+> visível; o **wallpaper** e o **preenchimento** estavam quebrados do mesmo
+> jeito, calados, porque o padrão deles é aceitável e ninguém reparou.
+>
+> **E o conserto teve duas tentativas, o que é a outra metade da lição.** A
+> primeira carimbou o `__tela` no dreno — e não mudou nada, porque há DOIS
+> pontos que anunciam a tela e o que de fato entrega é o outro: o
+> `display-ready` do `display.js` nasce na carga da página, quando ainda não há
+> token, e o `subir` devolve cedo; quem anuncia é o `aoConectar`, no reanúncio.
+> **Uma correção aplicada no ponto que não é exercitado é uma correção que nunca
+> roda** — e ela teria passado num teste que olhasse só o dreno. O carimbo
+> passou a ter dono único (`anuncio()`), usado pelos dois pontos.
+>
+> **Os dois lados do contrato ficaram travados, e isso é deliberado.** O
+> `tela-rede.test.mjs` afirma que o `display-ready` no fio LEVA `__tela` (o
+> produtor — reprova no código anterior, verificado); o `boot-nativo.test.mjs`
+> afirma que o Controle reenvia ao receber o campo **e que não reenvia sem ele**
+> (o consumidor — passa nas duas versões, porque o consumidor sempre esteve
+> certo). Travar um lado só deixaria o par livre para divergir de novo, que é
+> precisamente o que aconteceu por dezenas de versões: **o consumidor exigia um
+> campo que o produtor não mandava, e a documentação descrevia o combinado em
+> vez do código** — o CLAUDE.md dizia, com todas as letras, "`display-ready`
+> passa, com `__tela`".
+>
+> A régua: **quando dois lados combinam um campo, o oráculo tem de olhar o FIO.**
+> Ler cada lado separadamente aprova os dois — foi o que fiz aqui na primeira
+> passada, com um probe que mandava o `__tela` à mão e concluía que o Controle
+> estava certo. Estava; a mensagem é que nunca teve o campo.
+
 > **A v5.221: A IMAGEM DE FUNDO DA LETRA DESISTIA ANTES DE PODER CHEGAR. OTA
 > PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> **CORREÇÃO DE ATRIBUIÇÃO, escrita pela v5.222:** o defeito descrito abaixo é
+> REAL e a correção fica — mas ele **não era a causa** do relato do operador,
+> e esta nota afirmou que era. A causa estava uma etapa antes: o `lyricsbg`
+> nunca chegava à tela, porque o `display-ready` dela não levava `__tela`
+> (v5.222). Com o modo em `black`, `applyLyricsImage` computa `key = null` e
+> **não chega a buscar imagem nenhuma** — a ladeira curta descrita aqui nunca
+> chegou a rodar. Por isso a v5.221 não mudou nada no aparelho, e por isso
+> ela passa a valer só agora, quando a preferência de fato chega.
 >
 > Relato: numa tela recém-ativada, tocar uma música da biblioteca deixa os
 > slides em PRETO, **mesmo com a opção de imagens ligada** — e desligar e religar

@@ -153,7 +153,28 @@
     if (msg.type === 'display-ready') {
       prontoUltimo = msg;
       telaId = msg.__de || '';
-      subir(msg);
+      // O `__tela` NÃO É ENFEITE: é a única coisa que distingue, do lado do
+      // Controle, o anúncio de uma TELA DA REDE do anúncio do telão de verdade
+      // — e é por ele que o `onCommand` decide chamar
+      // `telaReenviarPreferencias` (`if (msg.__tela)`), que é quem manda o
+      // wallpaper, o fundo da letra (`lyricsbg`) e o preenchimento (`fit`).
+      //
+      // Ele FALTAVA aqui desde a v5.188, a versão que criou aquele reenvio: o
+      // `tela-status` logo abaixo sempre o anexou, este nunca. O efeito não era
+      // um erro em lugar nenhum — era a função inteira NUNCA RODAR para uma tela
+      // de verdade, e as três preferências simplesmente não existirem nela. O
+      // relato que fechou o caso foi o fundo dos slides ficando preto com a
+      // opção ligada; o wallpaper e o preenchimento estavam quebrados do mesmo
+      // jeito, calados, porque o padrão deles é aceitável e ninguém reparou.
+      //
+      // E O CARIMBO TEM UM DONO SÓ (`anuncio`), que é a outra metade da lição.
+      // Há DOIS pontos que anunciam esta tela — este dreno e o `aoConectar` do
+      // reanúncio —, e o que de fato entrega é quase sempre o SEGUNDO: o
+      // `display-ready` do display.js nasce na carga da página, quando ainda não
+      // há token, e `subir` devolve cedo. Carimbar aqui, no ponto que não é
+      // exercitado, é escrever uma correção que nunca roda — foi exatamente o
+      // que aconteceu na primeira tentativa deste conserto.
+      subir(anuncio());
       return;
     }
     if (msg.type === 'display-status') {
@@ -168,8 +189,20 @@
   }
 
   function subir(msg) {
-    if (!token) return;
+    if (!token || !msg) return;
     postar({ do: 'st', st: msg });
+  }
+
+  /**
+   * O ANÚNCIO DESTA TELA, sempre com a marca do papel — o único lugar que o
+   * monta. Cópia, nunca mutação: `prontoUltimo` é reanunciado a cada reconexão,
+   * e carimbar o objeto guardado misturaria o estado de uma conexão com o da
+   * seguinte. O fallback do `__de` existe para um display de bundle antigo não
+   * devolver `''` e desligar as preferências em silêncio.
+   */
+  function anuncio() {
+    if (!prontoUltimo) return null;
+    return Object.assign({}, prontoUltimo, { __tela: telaId || '1' });
   }
 
   function entregar(msg) {
@@ -364,7 +397,7 @@
     esconderEntrada();
     // O REANÚNCIO: toda conexão (primeira ou reconexão) se apresenta e recebe
     // a cena endereçada de volta — o caminho do dongle que reconecta.
-    if (prontoUltimo) subir(prontoUltimo);
+    subir(anuncio());
   }
 
   async function laco() {
