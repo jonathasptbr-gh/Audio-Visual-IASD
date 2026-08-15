@@ -3263,11 +3263,23 @@ main {
    `--hit` é o alvo mínimo de toque do app: uma caixa desenhada com 20px seria
    um alvo de 20px dentro de um botão que já é grande, e errar nela dispararia a
    ação da linha — exatamente o que ela existe para evitar. */
+/* A CAIXA É INDICADOR, NÃO ALVO (v5.252). Quem alterna a marca é a LINHA
+   inteira — `pointer-events: none` garante que o toque que cai exatamente nos
+   20px dela chegue ao botão em volta, em vez de morrer num filho sem ouvinte.
+   Ela mantém o tamanho de `--hit` porque continua reservando a coluna da
+   direita: sem isso o desenho encostaria no texto. */
 .song-menu-check {
   flex: none; margin-left: auto; align-self: center;
   width: var(--hit); height: var(--hit);
   display: flex; align-items: center; justify-content: center;
-  cursor: pointer;
+  pointer-events: none;
+}
+/* A linha selecionável ganha o contorno do accent quando marcada — a mesma
+   gramática de `.lib-item.selected` e da aba ativa. Sem isso o único sinal
+   seria o quadradinho, e num alvo do tamanho da linha inteira o estado precisa
+   ser lido da linha inteira. */
+.song-menu-btn.song-menu-sel:has(.song-menu-check.on) {
+  border-color: var(--accent); background: var(--accent-soft);
 }
 /* O quadrado é um ::before para o alvo (acima) e o desenho (aqui) serem coisas
    independentes — a mesma separação do `.pv-fab`, em que o botão é grande e o
@@ -3292,9 +3304,11 @@ main {
   transform: translateY(-1.5px) rotate(-45deg);
 }
 .song-menu-check { position: relative; }
-/* A linha de confirmação: só aparece com algo marcado, e é a única da folha que
-   é um BOTÃO PRIMÁRIO — nas outras a hierarquia é toda igual, porque nenhuma é
-   "a" resposta. Aqui uma é: fechar a escolha. */
+/* A linha de confirmação: SEMPRE visível (v5.252), e é a única da folha que é um
+   BOTÃO PRIMÁRIO — nas outras a hierarquia é toda igual, porque nenhuma é "a"
+   resposta. Aqui uma é: fechar a escolha. Sem nada marcado ela fica
+   desabilitada e diz o que falta, em vez de sumir: uma folha cujo botão de
+   concluir só nasce depois do primeiro acerto não se explica sozinha. */
 .song-menu-go-row { padding-top: .35rem; }
 .song-menu-go {
   justify-content: center; text-align: center;

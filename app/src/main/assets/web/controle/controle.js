@@ -11920,14 +11920,13 @@ function destCheck(chave, aoMudar) {
   cx.className = 'song-menu-check' + (destMarcados.has(chave) ? ' on' : '');
   cx.setAttribute('role', 'checkbox');
   cx.setAttribute('aria-checked', destMarcados.has(chave) ? 'true' : 'false');
-  cx.title = destMarcados.has(chave) ? 'Marcado — tocar para desmarcar'
-    : 'Marcar para enviar a mais de um destino';
-  cx.addEventListener('click', (e) => {
-    e.stopPropagation();
-    e.preventDefault();
-    if (destMarcados.has(chave)) destMarcados.delete(chave); else destMarcados.add(chave);
-    aoMudar();
-  });
+  cx.title = destMarcados.has(chave) ? 'Marcado — tocar para desmarcar' : 'Tocar para marcar';
+  // ELA NÃO TEM MAIS OUVINTE PRÓPRIO (v5.252). Quem alterna é a LINHA, e a caixa
+  // é o indicador dentro dela: um `stopPropagation` aqui faria o toque que cai
+  // exatamente nos 20px da caixa não fazer nada, que é o pior lugar possível
+  // para um ponto morto — é o pedaço da linha que mais parece o alvo.
+  // `pointer-events: none` no CSS fecha isso pelo lado do navegador; este
+  // comentário fecha pelo lado de quem for reintroduzir o ouvinte.
   return cx;
 }
 
@@ -11951,24 +11950,52 @@ function songMenuItem(icone, rotulo, sub, acao, destino, aoMudar) {
     txt.appendChild(d);
   }
   btn.appendChild(txt);
-  // A caixa só aparece para destino de TABELA. O "Tocar agora" do YouTube passa
-  // por aqui com `destino = 'tocar'` para receber a união do que está marcado —
-  // mas ele não é uma lista, e uma caixa nele ofereceria "marcar o telão".
-  if (destino && destinoPorChave(destino)) btn.appendChild(destCheck(destino, aoMudar || (() => {})));
+  // ===== UMA LINHA DE DESTINO É SELECIONÁVEL, DE CORPO INTEIRO (v5.252) =====
+  //
+  // Pedido do operador: *"faça um método universal, o botão de confirmar sempre
+  // visível, e todas as outras opções (inclusive o tocar agora) são opções
+  // selecionáveis, não apenas tocando no check, mas de corpo inteiro."*
+  //
+  // A folha tinha DUAS gramáticas na mesma linha: o corpo EXECUTAVA (aquele
+  // destino mais o que estivesse marcado, fechando tudo) e a caixinha de 20px na
+  // borda apenas MARCAVA. Duas coisas diferentes a dois centímetros uma da
+  // outra, e a de marcar era o menor alvo da folha — quem quisesse dois destinos
+  // tinha de acertar a caixa do primeiro e o corpo do segundo, nessa ordem. E o
+  // botão de confirmar só existia depois de a primeira marca ter sido feita, o
+  // que o tornava invisível justamente para quem ainda não tinha entendido o
+  // mecanismo.
+  //
+  // Agora a folha é o que ela sempre pareceu ser: uma lista de opções que se
+  // marcam, e um botão que executa. A caixa fica como INDICADOR (é ela que diz
+  // o estado), e o alvo passa a ser a linha toda.
+  //
+  // Vale para TODA linha que tenha `destino` — inclusive o "Tocar agora" do
+  // YouTube, que ganhou caixa junto. Ele não é uma lista, e por dezenas de
+  // versões isso bastou para lhe negar a marca; com um confirmar único, negá-la
+  // seria manter a exceção que o pedido veio remover.
+  if (destino) {
+    btn.classList.add('song-menu-sel');
+    btn.appendChild(destCheck(destino, aoMudar || (() => {})));
+    const marcar = () => {
+      if (destMarcados.has(destino)) destMarcados.delete(destino); else destMarcados.add(destino);
+      if (aoMudar) aoMudar();
+    };
+    btn.addEventListener('click', marcar);
+    li.appendChild(btn);
+    return li;
+  }
   // A variante escolhida no seletor do topo é LIDA AQUI e passada para a ação:
   // `closeSongMenu()` zera `songMenuFor`, e uma ação que fosse consultá-lo
-  // depois disso encontraria null. Vale igual para os destinos marcados, que
-  // `destLimpar()` zera no mesmo ponto.
+  // depois disso encontraria null.
   btn.addEventListener('click', () => {
     const variante = songMenuFor ? songMenuFor.variant : 'full';
-    const alvos = destino ? destUniao(destino) : null;
     closeSongMenu();
     // O botão VAI com a ação mesmo assim: a folha fecha aqui (o download de uma
     // música ou de um vídeo leva de segundos a minutos, e uma folha aberta
     // durante isso é uma tela travada), então o `responder` cai na faixa de
     // aviso — mas se um dia alguma dessas ações deixar de fechar a folha, o
     // pulso passa a valer sem precisar lembrar de ligá-lo.
-    acao(variante, btn, alvos);
+    acao(variante, btn, null);
   });
   li.appendChild(btn);
   return li;
@@ -11977,8 +12004,14 @@ function songMenuItem(icone, rotulo, sub, acao, destino, aoMudar) {
 // A linha de confirmação, no fim da folha e só com algo marcado. Ela existe
 // para o caso em que já não há linha a tocar: marcados Playlist e Favoritos,
 // tocar numa terceira linha acrescentaria um destino que ninguém pediu.
+// O CONFIRMAR É SEMPRE VISÍVEL (v5.252). Ele só aparecia depois da primeira
+// marca — isto é, era invisível justamente para quem ainda não sabia que dava
+// para marcar, e a folha parecia não ter conclusão. Sem nada escolhido ele fica
+// desabilitado e DIZ o que falta, que é o mesmo desenho que o seletor de
+// destinos da importação (`renderDestPrompt`) já usava desde a v5.141: esta
+// mudança é as duas folhas convergindo num modelo só.
 function destConfirmRow() {
-  if (!destMarcados.size || !destExecutor) return null;
+  if (!destExecutor) return null;
   const alvos = destUniao(null);
   const li = document.createElement('li');
   li.className = 'song-menu-go-row';
@@ -11988,10 +12021,18 @@ function destConfirmRow() {
   const t = document.createElement('span'); t.className = 'song-menu-label';
   // SEM LISTAR OS NOMES (v5.195): eles são as caixas marcadas, visíveis a três
   // linhas daqui. O contador responde "quantos?" sem repetir "quais?".
-  t.textContent = alvos.length > 1 ? 'Enviar aos ' + alvos.length + ' destinos' : 'Enviar';
+  //
+  // "CONFIRMAR", e não mais "Enviar" (v5.252): com o "Tocar agora" selecionável
+  // ao lado das listas, nem toda opção marcada é um destino — "Enviar aos 2
+  // destinos" chamaria o telão de lista. O verbo neutro é o que cobre o
+  // conjunto, e é como o próprio operador nomeou este botão.
+  t.textContent = !alvos.length ? 'Escolha uma opção'
+    : (alvos.length > 1 ? 'Confirmar (' + alvos.length + ')' : 'Confirmar');
   txt.appendChild(t);
   btn.appendChild(txt);
+  btn.disabled = !alvos.length;
   btn.addEventListener('click', () => {
+    if (!alvos.length) return;
     const variante = songMenuFor ? songMenuFor.variant : 'full';
     const exec = destExecutor;
     closeSongMenu();
@@ -12053,31 +12094,16 @@ const DEST_ICONE = { playlist: 'queue', cronograma: 'cronoAdd', favoritos: 'star
 function renderDestPrompt() {
   songMenuListEl.innerHTML = '';
   const remontar = () => renderDestPrompt();
+  // AS MESMAS LINHAS DAS OUTRAS FOLHAS (v5.252). Até aqui esta função montava
+  // as suas próprias, e o comentário explicava por quê: lá o corpo da linha
+  // EXECUTAVA e fechava a folha, e aqui não há ação por trás dele. Essa razão
+  // deixou de existir — `songMenuItem` com `destino` agora MARCA, que sempre foi
+  // o que esta folha fazia. As duas convergiram, e vinte linhas de marcação
+  // duplicada saíram com a divergência.
   DESTINOS.forEach((d) => {
-    // Linhas PRÓPRIAS, e não `songMenuItem`: lá o corpo da linha EXECUTA e fecha
-    // a folha, e aqui não há ação nenhuma por trás dele — a linha inteira marca,
-    // que é o alvo que uma lista de opções pede. Reusar aquela função com uma
-    // ação vazia deixaria a folha fechando a cada marcação.
-    const li = document.createElement('li');
-    const btn = document.createElement('button');
-    btn.type = 'button'; btn.className = 'song-menu-btn';
-    // Mesma montagem do `songMenuItem`: a classe vai NO glifo, senão a escala
-    // de `.song-menu-icon.msym` não o alcança e o ícone sai menor que o das
-    // outras folhas.
-    const ic = msym(ICON[DEST_ICONE[d.chave]] || ICON.add);
-    ic.classList.add('song-menu-icon');
-    const txt = document.createElement('span'); txt.className = 'song-menu-text';
-    const t = document.createElement('span'); t.className = 'song-menu-label'; t.textContent = d.rotulo;
-    txt.appendChild(t);
-    // A caixa é a MESMA das outras folhas — ela para o borbulhar, então o
-    // listener da linha não roda duas vezes quando o toque cai exatamente nela.
-    btn.append(ic, txt, destCheck(d.chave, remontar));
-    btn.addEventListener('click', () => {
-      if (destMarcados.has(d.chave)) destMarcados.delete(d.chave); else destMarcados.add(d.chave);
-      remontar();
-    });
-    li.appendChild(btn);
-    songMenuListEl.appendChild(li);
+    songMenuListEl.appendChild(songMenuItem(
+      msym(ICON[DEST_ICONE[d.chave]] || ICON.add), d.rotulo, '',
+      () => {}, d.chave, remontar));
   });
   const li = document.createElement('li');
   li.className = 'song-menu-go-row';
@@ -12143,7 +12169,17 @@ function renderSongMenu(modo) {
   // vai para a playlist E para os Favoritos sem refazer a busca. O executor é o
   // mesmo dos três, porque a diferença entre eles sempre foi só a lista.
   const remontar = () => renderSongMenu('add');
-  destExecutor = (alvos, btn, vr) => addSongToDestinos(coll, s, vr, alvos, btn);
+  // O EXECUTOR ÚNICO desta folha. Ele separa os destinos de LISTA da cena de
+  // roteiro da letra: a letra não é o mesmo item noutra lista, é OUTRO item (uma
+  // cena, sem áudio). Ela é selecionável como as demais desde a v5.252 — com um
+  // confirmar único, marcar as duas coisas é uma decisão explícita do operador,
+  // e não mais "um toque criando duas coisas de uma vez", que era o que a
+  // mantinha fora da seleção.
+  destExecutor = async (alvos, btn, vr) => {
+    const listas = (alvos || []).filter((a) => a !== 'letra');
+    if (listas.length) await addSongToDestinos(coll, s, vr, listas, btn);
+    if ((alvos || []).includes('letra')) await addLyricCue(coll, s, btn);
+  };
   songMenuListEl.appendChild(songMenuItem(msym(ICON.queue), 'Adicionar à playlist', '',
     (vr, btn, alvos) => addSongToDestinos(coll, s, vr, alvos, btn), 'playlist', remontar));
   songMenuListEl.appendChild(songMenuItem(msym(ICON.cronoAdd), 'Adicionar ao Cronograma', '',
@@ -12159,10 +12195,7 @@ function renderSongMenu(modo) {
   // capela, ou o que toca da mesa de som enquanto o telão mostra a letra.
   songMenuListEl.appendChild(songMenuItem(lyricsOnlyIconSvg(), 'Só a letra, no Cronograma',
     'Sem baixar a música',
-    (vr, btn) => addLyricCue(coll, s, btn)));
-  // SEM caixa de marcação: a letra não é o mesmo item em outra lista, é OUTRO
-  // item (uma cena de roteiro, sem áudio). Misturá-la aos destinos faria um
-  // toque criar duas coisas diferentes de uma vez.
+    () => {}, 'letra', remontar));
   const go = destConfirmRow();
   if (go) songMenuListEl.appendChild(go);
 }

@@ -168,23 +168,60 @@ try {
     openYtMenu({ id: 'zzzzzzzzzzz', url: 'https://youtu.be/zzzzzzzzzzz', name: 'Vídeo de teste' });
   });
   await pg.waitForSelector('#songMenuPopup.open', { timeout: 5000 });
+  // ── O MÉTODO UNIVERSAL (v5.252) ──────────────────────────────────────────
+  // Pedido do operador: *"faça um método universal, o botão de confirmar sempre
+  // visível, e todas as outras opções (inclusive o tocar agora) são opções
+  // selecionáveis, não apenas tocando no check, mas de corpo inteiro."*
+  //
+  // Antes a folha tinha duas gramáticas: o CORPO da linha executava e fechava
+  // tudo, e a caixinha de 20px na borda apenas marcava. As asserções abaixo são
+  // a inversão disso, e cada uma nomeia a metade que ela trava.
   const caixas = await pg.$$eval('#songMenuList .song-menu-check', (els) => els.length);
-  checar(caixas === 3, 'a folha do YouTube tem uma caixa por DESTINO — e nenhuma no "Tocar agora"');
+  checar(caixas === 4,
+    'TODA opção da folha é selecionável — as três listas E o "Tocar agora"',
+    String(caixas));
 
-  // Marcar NÃO fecha a folha: se a caixa deixasse o clique borbulhar, o botão
-  // da linha executaria e a folha fecharia no primeiro toque.
-  await pg.evaluate(() => document.querySelectorAll('#songMenuList .song-menu-check')[0].click());
+  // O CORPO da linha marca. Antes ele executava: é a mudança inteira num toque.
+  await pg.evaluate(() => {
+    const linhas = [...document.querySelectorAll('#songMenuList .song-menu-btn')]
+      .filter((b) => b.querySelector('.song-menu-check'));
+    linhas[1].click();   // a segunda opção: "Adicionar à playlist"
+  });
   const aberta = await pg.$eval('#songMenuPopup', (el) => el.classList.contains('open'));
-  checar(aberta, 'marcar uma caixa NÃO dispara a ação da linha (a folha continua aberta)');
+  checar(aberta, 'e o toque no CORPO dela marca sem executar — a folha continua aberta');
   const marcado = await pg.evaluate(() => [...destMarcados]);
-  checar(marcado.length === 1 && marcado[0] === 'playlist', 'e o destino marcado é o da linha em que se tocou');
-  const pintou = await pg.$eval('#songMenuList .song-menu-check', (el) => el.classList.contains('on'));
-  checar(pintou, 'e a caixa mostra que está marcada');
+  checar(marcado.length === 1 && marcado[0] === 'playlist',
+    'com o destino da linha em que se tocou', JSON.stringify(marcado));
+  const pintou = await pg.$$eval('#songMenuList .song-menu-check',
+    (els) => els.filter((e) => e.classList.contains('on')).length);
+  checar(pintou === 1, 'e a caixa mostra que está marcada');
 
-  // Com algo marcado aparece a linha de confirmação — a saída para quando já
-  // não sobrou linha a tocar (todos os destinos desejados marcados).
+  // O toque na CAIXA faz a mesma coisa que o toque na linha — ela é indicador,
+  // e um ponto morto justamente no pedaço que mais parece o alvo seria o pior
+  // desfecho possível desta mudança.
+  await pg.evaluate(() => document.querySelectorAll('#songMenuList .song-menu-check')[1].click());
+  checar((await pg.evaluate(() => destMarcados.size)) === 0,
+    'e o toque na CAIXA alterna igual: ela é indicador, não um alvo à parte');
+  await pg.evaluate(() => {
+    const linhas = [...document.querySelectorAll('#songMenuList .song-menu-btn')]
+      .filter((b) => b.querySelector('.song-menu-check'));
+    linhas[1].click();
+  });
+
+  // O CONFIRMAR É SEMPRE VISÍVEL, marcado ou não — ele só nascia depois da
+  // primeira marca, isto é, era invisível justamente para quem ainda não sabia
+  // que dava para marcar.
   const temGo = await pg.$$eval('#songMenuList .song-menu-go', (els) => els.length);
-  checar(temGo === 1, 'e a linha de confirmação aparece');
+  checar(temGo === 1, 'e a linha de confirmação está lá');
+  const goVazio = await pg.evaluate(() => {
+    destMarcados.clear();
+    openYtMenu({ id: 'zzzzzzzzzzz', url: 'https://youtu.be/zzzzzzzzzzz', name: 'Vídeo de teste' });
+    const b = document.querySelector('#songMenuList .song-menu-go');
+    return { existe: !!b, desabilitado: !!(b && b.disabled), texto: b ? b.textContent.trim() : '' };
+  });
+  checar(goVazio.existe && goVazio.desabilitado && /Escolha uma opção/.test(goVazio.texto),
+    'SEM NADA MARCADO ela continua na tela, desabilitada, dizendo o que falta',
+    JSON.stringify(goVazio.texto));
 
   // Fechar a folha ZERA o conjunto: uma marcação que atravessasse itens
   // mandaria para os Favoritos, sem aviso, o vídeo seguinte.
@@ -200,22 +237,24 @@ try {
     const coll = { id: 'teste', name: 'Coleção' };
     const s = { id_music: 1, name: 'Hino', has_instrumental_music: false };
     openSongMenu(coll, s, 'add');
-    document.querySelectorAll('#songMenuList .song-menu-check')[2].click();  // Favoritos
     let capturado = null;
     const original = window.addSongToDestinos;
     window.addSongToDestinos = (c, m, v, destinos) => { capturado = destinos; };
-    // A LINHA do Cronograma (a segunda das três com caixa), pelo corpo do botão.
+    // Duas linhas MARCADAS pelo corpo, e só então o confirmar.
     const linhas = [...document.querySelectorAll('#songMenuList .song-menu-btn')]
       .filter((b) => b.querySelector('.song-menu-check'));
-    linhas[1].click();
+    linhas[1].click();   // Cronograma
+    linhas[2].click();   // Favoritos
+    document.querySelector('#songMenuList .song-menu-go').click();
     window.addSongToDestinos = original;
     return capturado;
   });
   checar(JSON.stringify(alvos) === JSON.stringify(['cronograma', 'favoritos']),
-    'no acervo, a ação recebe a união MESMO rodando depois de a folha fechar');
+    'no acervo, é o CONFIRMAR que entrega a união — e ela chega inteira mesmo '
+    + 'rodando depois de a folha fechar', JSON.stringify(alvos));
 
   checar(await pg.$eval('#songMenuPopup', (el) => !el.classList.contains('open')),
-    'e o toque na linha fecha a folha, como sempre fez');
+    'e quem fecha a folha é ele, não o toque numa opção');
 
   // ---- A SELEÇÃO MÚLTIPLA SOBREVIVE AO DESTINO ----
   // Os três botões da barra (playlist, favoritos, pasta) já eram destinos lado a

@@ -853,10 +853,12 @@ try {
       // Com Online não há forma a escolher: a faixa Vídeo × Só áudio sai.
       temForma: [...pop.querySelectorAll('.song-menu-seg button')].some((b) => /Só áudio/.test(b.textContent)),
     };
-    // E o CRONOGRAMA guarda o link.
+    // E o CRONOGRAMA guarda o link. Desde a v5.252 a linha MARCA e quem executa
+    // é o confirmar — a folha virou uma lista de opções com um botão só.
     const linha = [...pop.querySelectorAll('.song-menu-btn')]
       .find((b) => /Adicionar ao Cronograma/.test(b.textContent));
     linha.click();
+    pop.querySelector('.song-menu-go').click();
     for (let i = 0; i < 60; i++) {
       const it = await AVDB.listItems('imports');
       const achou = it.find((x) => x.youtubeId === 'zzzzzzzzzz9');
