@@ -2788,10 +2788,46 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.241** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.242** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.242: A SETA DE FECHAR O ÁLBUM VESTE A THUMB — e a coluna da direita
+> para de se mexer. OTA PURO** (sem Release).
+>
+> Pedido do operador: *"mova a seta de fechamento do acordeão do álbum para que
+> ele fique na thumb do álbum quando estiver aberto, não precisando mover os
+> números referentes ao tamanho do álbum que hoje ficam ao lado dessa seta que
+> surge."*
+>
+> **O defeito era assimétrico, e é isso que o tornava difícil de nomear.** A
+> seta ocupava o mesmo canto do botão de baixar. Num álbum COMPLETO aquele canto
+> está vazio — então abrir fazia a seta aparecer e empurrar o peso 34 px para a
+> esquerda. Num álbum INCOMPLETO o canto já tinha o botão de baixar, e a seta
+> apenas o substituía: nada se mexia. **O mesmo gesto movia ou não movia a tela
+> conforme o estado do download**, que é a pior forma de um layout ser
+> imprevisível — não há o que aprender.
+>
+> **A thumb é o lugar certo por eliminação.** Ela é um quadrado do mesmo tamanho
+> no lado oposto, e com o álbum aberto é o único elemento da barra sem função: o
+> ícone identifica uma coleção que o operador já está olhando por dentro. Fechada
+> ela volta a ser identidade.
+>
+> **E a coluna da direita passou a ser função de UMA pergunta só** — "há o que
+> baixar?" —, independente de aberto/fechado. Com o álbum aberto e parado o lugar
+> é **reservado**, não ocupado (`visibility: hidden`, o idioma do
+> `.mode-switch--vago`): quem baixa ali é o botão do painel, logo abaixo, que
+> carrega o estado e o progresso. Reservar mantém a coluna sem oferecer dois
+> botões para a mesma ação. O CANCELAR continua visível com o card aberto, que é
+> a exceção que a v5.72 já defendia: a barra gruda no topo, e um álbum de
+> centenas de faixas precisa poder parar num toque.
+>
+> Medido nos quatro estados: o peso fica a 11 px da borda num álbum completo e a
+> 54 px num incompleto — **o mesmo número aberto e fechado**, nos dois. O
+> oráculo (`tools/smoke.mjs`) mede essa distância, que é a coisa que o operador
+> viu se mexer, e cobra os DOIS pares: reservar o lugar num deles e esquecer o
+> outro passaria. Reprova em 2 asserções contra o código anterior.
 
 > **A v5.241: A BIBLIOTECA PASSA A TER UMA ESCALA DE TONS — dois tons, uma
 > regra, os dois temas. OTA PURO** (CSS mais uma linha de texto; sem Release).

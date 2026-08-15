@@ -209,7 +209,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.241';
+const WEB_VERSION = '5.242';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -6441,8 +6441,32 @@ function renderCollectionCard(coll, ctx) {
   // download moram atrás da engrenagem (openCollectionOptions), fora do
   // caminho de uso.
   const bar = document.createElement('div'); bar.className = 'coll-bar';
-  const barIcon = document.createElement('div'); barIcon.className = 'coll-bar-icon';
-  barIcon.appendChild(msym(ICON[coll.iconKey] || ICON.music));
+  // A THUMB É O BOTÃO DE FECHAR quando o álbum está aberto (v5.242 — ver a nota
+  // da coluna da direita, abaixo). Fechado ela é a identidade da coleção; aberto,
+  // essa identidade já está dita pelo conteúdo que se está olhando, e o quadrado
+  // fica livre para a única ação que a barra ainda oferece.
+  //
+  // A SETA FECHA O ÁLBUM (v5.95). Ela era uma engrenagem que abria um painel de
+  // opções dentro do card — mas com as opções encolhidas numa linha só, elas
+  // cabem SEMPRE que o álbum está aberto, e um botão para revelar duas ações que
+  // já caberiam na tela é cerimônia.
+  let barIcon;
+  if (u.expanded) {
+    barIcon = document.createElement('button');
+    barIcon.type = 'button';
+    barIcon.className = 'coll-bar-icon coll-bar-fechar';
+    barIcon.title = 'Fechar o álbum';
+    barIcon.setAttribute('aria-label', 'Fechar o álbum');
+    barIcon.innerHTML = chevronUpIconSvg();
+    barIcon.addEventListener('click', (e) => {
+      e.stopPropagation();   // divide a barra com o toque que também alterna
+      alternarAcordeao();
+    });
+  } else {
+    barIcon = document.createElement('div');
+    barIcon.className = 'coll-bar-icon';
+    barIcon.appendChild(msym(ICON[coll.iconKey] || ICON.music));
+  }
 
   const info = document.createElement('div'); info.className = 'coll-bar-info';
   const barName = document.createElement('span'); barName.className = 'coll-bar-name'; barName.textContent = coll.name;
@@ -6507,23 +6531,31 @@ function renderCollectionCard(coll, ctx) {
   // na barra mesmo com o card aberto. Um álbum de centenas de faixas, uma vez
   // começado, precisa poder parar num toque — esconder isso atrás da engrenagem
   // devolveria o problema que o botão de cancelar veio resolver.
-  if (u.expanded && !u.syncBusy) {
-    const cfg = document.createElement('button');
-    cfg.className = 'coll-bar-dl coll-bar-cfg';
-    cfg.title = 'Fechar o álbum';
-    // A SETA FECHA O ÁLBUM (v5.95). Ela era uma engrenagem que abria um painel
-    // de opções dentro do card — mas com as opções encolhidas numa linha só de
-    // dois botões, elas cabem SEMPRE que o álbum está aberto, e um botão para
-    // revelar duas ações que já caberiam na tela é cerimônia. O alvo continua
-    // sendo o mesmo canto de sempre; o que ele faz agora é o que a seta já
-    // dizia.
-    cfg.innerHTML = chevronUpIconSvg();
-    cfg.addEventListener('click', (e) => {
-      e.stopPropagation();   // divide a barra com o toque que também alterna
-      alternarAcordeao();
-    });
-    bar.appendChild(cfg);
-  } else if ((u.syncBusy || !complete) && !(ehLink(coll) && total > 0)) {
+  // ===== A COLUNA DA DIREITA NÃO SE MEXE (v5.242) =====
+  //
+  // Pedido do operador: *"mova a seta de fechamento do acordeão do álbum para
+  // que ele fique na thumb do álbum quando estiver aberto, não precisando mover
+  // os números referentes ao tamanho do álbum que hoje ficam ao lado dessa seta
+  // que surge."*
+  //
+  // A seta ocupava o mesmo canto do botão de baixar, e por isso o peso do álbum
+  // saltava ao abrir: num álbum COMPLETO não há botão de baixar, então o canto
+  // estava vazio e a seta o preenchia — empurrando o número 34 px para a
+  // esquerda no toque que abre. (Num álbum incompleto isso não acontecia, o que
+  // é pior: o mesmo gesto movia ou não movia a tela conforme o estado do
+  // download.)
+  //
+  // Agora a seta mora na THUMB, que já é um quadrado do mesmo tamanho no lado
+  // oposto e que, com o álbum aberto, é o único elemento da barra sem função —
+  // o ícone identifica uma coleção que o operador está olhando por dentro.
+  //
+  // E a coluna da direita passa a ser função de UMA pergunta só ("há o que
+  // baixar?"), independente de aberto/fechado. Quando o álbum está aberto e
+  // parado, o lugar é RESERVADO em vez de ocupado (`vago`): quem baixa ali é o
+  // botão do painel, logo abaixo, que carrega o estado e o progresso — e
+  // esconder por `visibility` mantém a coluna sem oferecer dois botões para a
+  // mesma ação. É o idioma que o `.mode-switch--vago` já usa neste arquivo.
+  if ((u.syncBusy || !complete) && !(ehLink(coll) && total > 0)) {
     // **O QUE É LINK NÃO BAIXA EM LOTE** (v5.230). São ~52 vídeos de ~300 MB — o
     // "download direto" que o operador pediu para não existir, na maior escala
     // que este app tem. Quem quiser um episódio offline o manda ao Cronograma
@@ -6536,6 +6568,11 @@ function renderCollectionCard(coll, ctx) {
       : (total > 0 ? 'Baixar esta coleção' : 'Sincronizar a lista');
     dl.innerHTML = u.syncBusy ? closeIconSvg() : downloadAllIconSvg();
     dl.addEventListener('click', (e) => { e.stopPropagation(); syncCollection(coll); });
+    // A exceção é o download EM CURSO: ali o botão é o CANCELAR, e ele continua
+    // VISÍVEL com o card aberto. Um álbum de centenas de faixas, uma vez
+    // começado, precisa poder parar num toque — e a barra é o que gruda no topo
+    // enquanto se percorre a lista.
+    if (u.expanded && !u.syncBusy) dl.classList.add('vago');
     bar.appendChild(dl);
   }
 

@@ -1956,16 +1956,27 @@ main {
   border-radius: var(--radius-card) var(--radius-card) 0 0;
   box-shadow: 0 6px 12px -8px var(--shadow-ink);
 }
-/* A ENGRENAGEM VOLTOU PARA A BARRA (v5.72), no lugar exato do botão de baixar —
-   mesma caixa, mesma coluna, e os dois nunca fazem falta ao mesmo tempo (ver
-   renderCollectionCard). Ela foi uma barra larga rotulada dentro do card por
-   duas versões; uma linha inteira gasta com o que cabe no canto que já existia.
-   Herda `.coll-bar-dl`, então aqui fica só o que difere: o tom apagado de quem
-   é manutenção, e o accent quando o painel dela está aberto — o mesmo "é este"
-   que o app usa em toda parte. */
-.coll-bar-cfg { background: var(--surface); color: var(--muted); }
-/* (`.coll-bar-cfg.on` saiu na v5.95: o botão não alterna mais um painel — ele
-   fecha o álbum, e um estado "ligado" não existe mais.) */
+/* A SETA DE FECHAR MUDOU DE LADO (v5.242) — ver a nota em `renderCollectionCard`.
+   Ela dividia a coluna da direita com o botão de baixar, e por isso o PESO do
+   álbum saltava 34px ao abrir um álbum completo (onde aquele canto estava
+   vazio). Agora ela veste a thumb, que é um quadrado do mesmo tamanho no lado
+   oposto e que, com o álbum aberto, é o único elemento da barra sem função.
+
+   `.coll-bar-icon` já dá a caixa, o tom e o raio: aqui fica só o que um botão
+   precisa a mais. O `--icon-sm` é o mesmo do glifo que ela substitui, para a
+   troca não mudar o peso visual daquele canto.
+   (`.coll-bar-cfg` saiu com o botão que a usava.) */
+.coll-bar-fechar {
+  border: none; appearance: none; -webkit-appearance: none;
+  cursor: pointer; padding: 0;
+}
+.coll-bar-fechar svg { width: var(--icon-sm); height: var(--icon-sm); }
+/* O LUGAR RESERVADO na coluna da direita: com o álbum aberto e parado, quem
+   baixa é o botão do painel logo abaixo — que tem o estado e o progresso. O
+   `visibility: hidden` tira o botão do toque, do foco e do leitor de tela e
+   MANTÉM a coluna, que é o que impede o peso de saltar. Mesmo idioma do
+   `.mode-switch--vago`. */
+.coll-bar-dl.vago { visibility: hidden; pointer-events: none; }
 /* O invólucro do que a abertura revela (engrenagem + músicas). Existe só para a
    animação de altura ter UM nó para recortar — sem ele o `overflow:hidden`
    teria de ir no card, e o card tem a barra grudada no topo (`position:sticky`),

@@ -845,6 +845,69 @@ for (const tema of ['escuro', 'claro']) {
   }
 }
 
+// ── A COLUNA DA DIREITA NÃO SE MEXE (v5.242) ─────────────────────────────
+// Pedido do operador: a seta de fechar o acordeão vai para a THUMB do álbum,
+// "não precisando mover os números referentes ao tamanho do álbum que hoje
+// ficam ao lado dessa seta que surge".
+//
+// A seta dividia a coluna da direita com o botão de baixar, e por isso o peso
+// saltava ao abrir um álbum COMPLETO — ali aquele canto está vazio, e a seta o
+// preenchia. Num álbum incompleto não saltava, o que é pior: o mesmo gesto
+// movia ou não movia a tela conforme o estado do download.
+//
+// O caso mede a DISTÂNCIA do peso até a borda do card nos quatro estados, que é
+// a coisa que o operador viu se mexer — e cobra os dois pares, senão reservar o
+// lugar num deles e esquecer o outro passaria.
+try {
+  const col = await pg.evaluate(() => {
+    setAppMode('full');
+    const c = allCollections().find((x) => x.kind === 'hymnal');
+    const medir = (completo, aberto) => {
+      const songs = [];
+      for (let i = 1; i <= 4; i++) {
+        songs.push({ id_music: 'p' + i, name: 'Hino ' + i, track: i,
+          has_instrumental_music: false, duration: '3:47',
+          fileIdFull: (completo || i < 3) ? 'f' + i : null });
+      }
+      collState[c.id] = { indexSyncedAt: Date.now(), songs, isHymnal: true };
+      gruposAbertos.clear(); gruposAbertos.add('Hinários'); gruposAbertos.add('Hinários e séries');
+      ui(c.id).expanded = aberto; ui(c.id).shown = 100;
+      const lista = document.createElement('ul');
+      lista.className = 'hymnal-list';
+      lista.style.width = '390px';
+      document.body.appendChild(lista);
+      renderCollectionsList(lista, () => {}, { semTotal: true });
+      const card = lista.querySelector('.hymnal-card');
+      const sync = card && card.querySelector('.coll-bar-sync');
+      const r = {
+        // A distância do peso até a borda direita do card: é ela que salta.
+        borda: (card && sync)
+          ? Math.round(card.getBoundingClientRect().right - sync.getBoundingClientRect().right) : -1,
+        naThumb: !!(card && card.querySelector('.coll-bar-icon.coll-bar-fechar')),
+        naDireita: !!(card && card.querySelector('.coll-bar-dl.coll-bar-cfg')),
+      };
+      lista.remove();
+      return r;
+    };
+    const r = {
+      completoFechado: medir(true, false), completoAberto: medir(true, true),
+      parcialFechado: medir(false, false), parcialAberto: medir(false, true),
+    };
+    delete collState[c.id]; gruposAbertos.clear();
+    return r;
+  });
+  checar(col.completoAberto.naThumb && !col.completoAberto.naDireita,
+    'a seta de fechar o álbum mora na THUMB, não na coluna da direita');
+  checar(col.completoFechado.borda > 0 && col.completoFechado.borda === col.completoAberto.borda,
+    'e o PESO de um álbum completo não se mexe ao abrir ('
+    + col.completoFechado.borda + 'px da borda, aberto e fechado)');
+  checar(col.parcialFechado.borda > 0 && col.parcialFechado.borda === col.parcialAberto.borda,
+    'nem o de um álbum incompleto, cujo lugar do botão fica RESERVADO ('
+    + col.parcialFechado.borda + 'px da borda, aberto e fechado)');
+} catch (e) {
+  checar(false, 'a medição da coluna da direita terminou sem exceção (' + (e && e.message) + ')');
+}
+
 checar(erros.length === 0, 'nenhum erro de console' + (erros.length ? ':\n        ' + erros.join('\n        ') : ''));
 
 await navegador.close();
