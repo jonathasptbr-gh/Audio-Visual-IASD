@@ -109,6 +109,15 @@
       <path d="M12 14.2V7.6"/>
       <path d="m9.2 10.4 2.8-2.8 2.8 2.8"/>
     </symbol>
+    <!-- LUPA. Ela já existia desenhada em JS (`searchIconSvg`, o botão de
+         pesquisar no YouTube); virou símbolo na v5.264, quando a barra de busca
+         da Biblioteca passou a precisar dela também. UM desenho e duas
+         referências — duas cópias do mesmo ícone divergiriam no primeiro
+         ajuste, que é a razão de este sprite existir. -->
+    <symbol id="icoLupa" viewBox="0 0 24 24">
+      <circle cx="11" cy="11" r="7"/>
+      <line x1="16.5" y1="16.5" x2="21" y2="21"/>
+    </symbol>
   </svg>
   <!-- MODO SIMPLIFICADO: conectar a tela, buscar a música, tocar. Os controles
        são os mesmos botões do modo completo acionados por `.click()` (ver
@@ -847,7 +856,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.263</span>
+        <span id="appVersion" class="app-version">Controle v5.264</span>
         <!-- A ATUALIZAÇÃO (v5.245). Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso.
@@ -1124,7 +1133,16 @@
 
            O ✕ vem DEPOIS do campo, na ponta em que o polegar já está. -->
       <div class="hymn-search-bar">
-        <input id="hymnSearchInput" class="lib-search" type="search" placeholder="Buscar por nome ou número…">
+        <!-- A LUPA DENTRO DO CAMPO (v5.264, pedido do operador: *"isso vai
+             indicar melhor o objetivo da barra"*). Ela é DECORAÇÃO — o toque
+             nela cai no campo (`pointer-events: none` no CSS), porque um ícone
+             que engole o toque no meio de um campo de texto é um ponto morto
+             exatamente onde o dedo mira. Referencia o mesmo `#icoLupa` do botão
+             de pesquisar no YouTube. -->
+        <div class="lib-search-campo">
+          <svg class="lib-search-lupa" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoLupa"/></svg>
+          <input id="hymnSearchInput" class="lib-search" type="search" placeholder="Buscar por nome ou número…">
+        </div>
         <button id="hymnSearchClose" class="popup-close" title="Fechar a Biblioteca" aria-label="Fechar a Biblioteca"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
       </div>
     </div>

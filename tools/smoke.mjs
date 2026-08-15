@@ -1496,6 +1496,99 @@ try {
   checar(false, 'a medição da abertura da Biblioteca terminou sem exceção (' + (e && e.message) + ')');
 }
 
+// ---------- A TELA VEM NUM TEMPO, O TECLADO NO SEGUINTE (v5.264) ----------
+// Pedido do operador: *"coloque um pequeno delay na abertura da biblioteca, em
+// um tempo a tela aparece e no segundo tempo o teclado. isso vai fazer a tela
+// piscar menos."*
+//
+// **O que este caso NÃO prova, e é preciso dizer:** que o teclado sobe. Num
+// Chromium de mesa não existe teclado virtual, então nenhum teste daqui alcança
+// isso — o que se mede é o FOCO, que é o gatilho dele. E a terceira asserção é
+// a que mais importa: fechar dentro da janela do adiamento não pode deixar um
+// `focus()` órfão, senão o teclado subiria sobre o app com a Biblioteca já fora
+// de cena.
+try {
+  const foco = await pg.evaluate(async () => {
+    const campo = document.getElementById('hymnSearchInput');
+    setAppMode('full');
+    closeHymnSearch();
+    await new Promise((r) => setTimeout(r, 60));
+    // `blur()` no campo, e não um `focus()` no `<body>`: o body não é focável
+    // sem `tabindex`, então aquilo era um no-op e o `activeElement` continuava
+    // sendo o campo de um caso anterior — a medição aprovaria os dois desenhos.
+    campo.blur();
+    openHymnSearch();
+    // MESMO TURNO: se o `focus()` tivesse ficado síncrono, ele já teria
+    // acontecido aqui — é esta leitura que distingue os dois desenhos.
+    const naHora = document.activeElement === campo;
+    await new Promise((r) => setTimeout(r, 500));
+    const depois = document.activeElement === campo;
+    closeHymnSearch();
+    // E o cancelamento: abrir e fechar dentro da janela não pode focar nada.
+    campo.blur();
+    openHymnSearch();
+    closeHymnSearch();
+    await new Promise((r) => setTimeout(r, 500));
+    const orfao = document.activeElement === campo;
+    return { naHora, depois, orfao };
+  });
+  checar(!foco.naHora,
+    'a Biblioteca abre SEM tomar o campo no mesmo tempo — a tela vem primeiro');
+  checar(foco.depois,
+    'e o campo é tomado no tempo seguinte, que é o que faz o teclado subir depois'
+    + ' de a tela estar parada');
+  checar(!foco.orfao,
+    'fechar dentro da janela CANCELA o foco adiado — senão o teclado subiria '
+    + 'sobre o app com a Biblioteca já fora de cena');
+} catch (e) {
+  checar(false, 'a medição do foco adiado terminou sem exceção (' + (e && e.message) + ')');
+}
+
+// ---------- A LUPA DENTRO DO CAMPO DE BUSCA (v5.264) ----------
+// Pedido do operador: *"adicione um ícone de lupa na barra de pesquisa da
+// biblioteca, isso vai indicar melhor o objetivo da barra."*
+//
+// Duas metades: ela está DENTRO do campo (não é mais um item da linha flex
+// disputando largura com o ✕), e o toque nela cai no campo — um ícone que
+// engole o toque no canto de um campo de texto é um ponto morto onde o dedo
+// mira.
+try {
+  const lupa = await pg.evaluate(async () => {
+    setAppMode('full');
+    openHymnSearch();
+    await new Promise((r) => setTimeout(r, 400));
+    const campo = document.getElementById('hymnSearchInput');
+    const ico = document.querySelector('#hymnSearchPopup .lib-search-lupa');
+    if (!ico) { closeHymnSearch(); return null; }
+    const ri = ico.getBoundingClientRect();
+    const rc = campo.getBoundingClientRect();
+    const r = {
+      // Dentro da caixa do campo, e antes do texto.
+      dentro: ri.left >= rc.left - 1 && ri.right <= rc.right + 1
+        && ri.top >= rc.top - 1 && ri.bottom <= rc.bottom + 1,
+      // O recuo do texto abre lugar para ela: o padding esquerdo passa da
+      // borda direita do ícone.
+      recuo: parseFloat(getComputedStyle(campo).paddingLeft) >= (ri.right - rc.left) - 1,
+      // O TOQUE atravessa: quem responde no centro da lupa é o campo.
+      alvo: document.elementFromPoint((ri.left + ri.right) / 2, (ri.top + ri.bottom) / 2) === campo,
+      // UM desenho só: ela referencia o mesmo símbolo do botão do YouTube.
+      simbolo: (ico.querySelector('use') || {}).getAttribute
+        ? ico.querySelector('use').getAttribute('href') : '',
+    };
+    closeHymnSearch();
+    return r;
+  });
+  checar(!!lupa && lupa.dentro && lupa.recuo,
+    'a LUPA fica dentro do campo de busca, com o texto recuado para dar lugar a ela');
+  checar(!!lupa && lupa.alvo,
+    'e o toque nela cai no CAMPO — decoração não pode virar ponto morto');
+  checar(!!lupa && lupa.simbolo === '#icoLupa',
+    'ela é o MESMO desenho do botão de pesquisar no YouTube, não uma segunda '
+    + 'cópia dele', lupa ? lupa.simbolo : 'sem lupa');
+} catch (e) {
+  checar(false, 'a medição da lupa terminou sem exceção (' + (e && e.message) + ')');
+}
+
 // ---------- O VERDE SAI DOS INDICADORES (v5.263) ----------
 // Pedido do operador: *"remova a cor verde dos indicadores de tamanho das
 // coleções e também dos itens sobre a conclusão das atualizações completas."*

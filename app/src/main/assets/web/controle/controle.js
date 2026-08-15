@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.263';
+const WEB_VERSION = '5.264';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -597,6 +597,18 @@ const GRUPO_OFICIAIS = 'Arquivos oficiais';
 // operador, e ela dura a sessão como a de qualquer outro grupo. Reabrir sozinha
 // a cada visita faria dela a única seção que desfaz o que ele acabou de fazer.
 gruposAbertos.add(GRUPO_FAVORITOS);
+// O TECLADO DA BIBLIOTECA SOBE UM TEMPO DEPOIS DA TELA (v5.264) — ver
+// `openHymnSearch`, que é onde a decisão está argumentada. 260 ms é o fade do
+// `.popup-backdrop` (.25s) mais um quadro: pedir o teclado antes disso o faria
+// subir por cima de uma folha ainda esmaecendo, remedindo a faixa visível
+// enquanto ela aparece, que é o "piscar" do relato.
+//
+// NASCEM NO TOPO, junto do resto do estado de tela: `closeHymnSearch` limpa
+// este prazo e é chamado por `renderSimpleGate`, que roda durante a CARGA do
+// módulo — um `let` declarado catorze mil linhas abaixo é a zona morta temporal
+// que já derrubou o app nas v5.184, v5.193, v5.195 e v5.199.
+const ABRIR_TECLADO_MS = 260;
+let hymnFocoTimer = null;
 let syncBusy = false;      // sincronização em andamento
 // Transições visuais são INERENTES ao sistema (sempre ligadas, duração fixa) —
 // não há opção de desligar nem ajustar. Fade in/out em toda troca visual:
@@ -10573,13 +10585,48 @@ function openHymnSearch() {
   // que já estava na tela. Folhear continua a um toque de distância: fechar o
   // teclado é o gesto mais conhecido do Android.
   //
-  // Síncrono e dentro do gesto: `focus()` adiado (um `setTimeout`) sai da
-  // interação do toque, e aí o WebView aceita o foco mas NÃO abre o teclado —
-  // o pior resultado possível, porque parece que funcionou.
-  hymnSearchInputEl.focus();
+  // ===== E ELE SOBE UM TEMPO DEPOIS DA TELA (v5.264) =====
+  //
+  // Pedido do operador: *"coloque um pequeno delay na abertura da biblioteca, em
+  // um tempo a tela aparece e no segundo tempo o teclado. isso vai fazer a tela
+  // piscar menos."*
+  //
+  // O que ele está descrevendo tem causa conhecida: a tela entra por um fade de
+  // .25s (v5.263) e o teclado, subindo ao mesmo tempo, ENCOLHE a faixa visível
+  // (`--kb`/`--vv-top`, v5.261) quadro a quadro. A folha é remedida enquanto
+  // ainda está aparecendo — dois movimentos sobre a mesma peça, que é o que se
+  // lê como piscar. Pedindo o teclado depois do fade, a remedição acontece uma
+  // vez, sobre uma tela já opaca e parada.
+  //
+  // **ISTO REVOGA UMA REGRA QUE ESTAVA ESCRITA AQUI, e o risco fica dito.** O
+  // comentário anterior dizia: *"síncrono e dentro do gesto: `focus()` adiado
+  // sai da interação do toque, e aí o WebView aceita o foco mas NÃO abre o
+  // teclado — o pior resultado possível, porque parece que funcionou."* Ele
+  // descreve um comportamento observado em aparelho, e não dá para verificá-lo
+  // daqui: num Chromium de mesa não existe teclado virtual, então nenhum teste
+  // deste repositório consegue provar que o teclado sobe.
+  //
+  // O que sustenta a mudança mesmo assim: o gatilho do teclado virtual no
+  // Chromium é a ATIVAÇÃO TRANSITÓRIA do usuário, cuja janela é de segundos —
+  // 260 ms cabem nela com folga. E o preço de estar errado é conhecido e
+  // pequeno: o campo fica focado sem teclado, e o operador toca nele uma vez,
+  // que é exatamente o comportamento anterior à v5.131. **Se o teclado parar de
+  // subir no aparelho, a causa é esta linha e a volta é uma só: chamar
+  // `hymnSearchInputEl.focus()` aqui, síncrono.**
+  clearTimeout(hymnFocoTimer);
+  hymnFocoTimer = setTimeout(() => {
+    hymnFocoTimer = null;
+    hymnSearchInputEl.focus();
+  }, ABRIR_TECLADO_MS);
 }
 
 function closeHymnSearch() {
+  // O FOCO PENDENTE MORRE COM A TELA, e isto não é higiene: fechar a Biblioteca
+  // dentro da janela do adiamento deixaria o `focus()` cair num campo que já
+  // saiu de cena — o teclado subiria sozinho por cima do app, sem nada na tela
+  // que o explicasse, e a única saída seria o voltar do Android.
+  clearTimeout(hymnFocoTimer);
+  hymnFocoTimer = null;
   hymnSearchPopupEl.classList.remove('open');
 }
 
@@ -11702,8 +11749,12 @@ function openYoutubeSearch(termo) {
 // do YouTube — o que este botão faz é uma BUSCA, e desenhar a marca de outro
 // app num botão do nosso promete que ele abre lá dentro em algum lugar
 // específico. Quem nomeia o destino é o texto ao lado.
+//
+// O DESENHO mora no sprite do `index.html` desde a v5.264 (`#icoLupa`), porque
+// a barra de busca da Biblioteca passou a usá-lo também: duas cópias do mesmo
+// ícone divergem no primeiro ajuste, e é para isso que aquele sprite existe.
 function searchIconSvg() {
-  return '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>';
+  return '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoLupa"/></svg>';
 }
 
 // Linha compacta: [▶] [nome / subtítulo] [+]. DOIS botões, e cada um abre uma

@@ -3276,7 +3276,25 @@ main {
      faixa morta entre a barra e o teclado. */
   padding-bottom: max(.6rem, env(safe-area-inset-bottom) - var(--kb, 0px));
 }
-#hymnSearchInput { flex: 1; min-width: 0; padding: 11px 14px; font-size: .95rem; }
+/* ---------- A LUPA DENTRO DO CAMPO (v5.264) ----------
+   Ela é o rótulo do campo: com a barra na base, sem cabeçalho por perto e com
+   um ✕ ao lado, o placeholder era a única coisa dizendo o que aquela caixa faz
+   — e ele some no primeiro caractere digitado.
+
+   DENTRO do campo, e não ao lado dele: ao lado ela seria mais um item da linha
+   flex, disputando largura com o campo e com o ✕; dentro, ela é do campo, que é
+   o que ela nomeia. Daí a casca relativa — o `.lib-search` é `flex: 1` e
+   precisa de um pai que ocupe o lugar dele na barra. */
+.lib-search-campo { position: relative; flex: 1; min-width: 0; display: flex; }
+.lib-search-lupa {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  width: 18px; height: 18px; color: var(--muted);
+  /* Decoração: o toque atravessa e cai no campo. Um ícone que engole o toque no
+     canto de um campo de texto é um ponto morto exatamente onde o dedo mira. */
+  pointer-events: none;
+}
+/* O recuo à esquerda abre o lugar dela: 12 (margem) + 18 (ícone) + 8 (respiro). */
+#hymnSearchInput { flex: 1; min-width: 0; padding: 11px 14px 11px 38px; font-size: .95rem; }
 /* Resultado: linha compacta [▶] [nome / subtítulo] [+]. Dois botões, cada um
    abrindo a folha com as três coisas que ele faz (ver hymnResultRow); o toque
    na linha continua abrindo a letra. A lista precisa ser legível de relance no

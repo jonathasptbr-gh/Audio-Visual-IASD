@@ -2981,10 +2981,58 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.263** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.264** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.264: A TELA VEM NUM TEMPO E O TECLADO NO SEGUINTE, e o campo de busca
+> ganha a lupa. OTA PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> - **O TECLADO É PEDIDO DEPOIS DO FADE** — *"coloque um pequeno delay na
+>   abertura da biblioteca, em um tempo a tela aparece e no segundo tempo o
+>   teclado. isso vai fazer a tela piscar menos."* O que ele descreve tem causa
+>   conhecida e ela é a soma de dois lotes: a tela entra por um fade de .25s
+>   (v5.263) e o teclado, subindo ao mesmo tempo, ENCOLHE a faixa visível
+>   (`--kb`/`--vv-top`, v5.261) quadro a quadro — a folha é remedida enquanto
+>   ainda está aparecendo. São dois movimentos sobre a mesma peça, e é isso que
+>   se lê como piscar. Com o `focus()` adiado em 260 ms (o fade mais um quadro),
+>   a remedição acontece uma vez, sobre uma tela já opaca e parada.
+>
+>   **ISTO REVOGA UMA REGRA QUE ESTAVA ESCRITA NO CÓDIGO, e o risco fica dito em
+>   vez de escondido.** O comentário anterior do `openHymnSearch` dizia:
+>   *"síncrono e dentro do gesto: `focus()` adiado sai da interação do toque, e
+>   aí o WebView aceita o foco mas NÃO abre o teclado — o pior resultado
+>   possível, porque parece que funcionou."* Ele descreve um comportamento
+>   observado em aparelho, e **nenhum teste deste repositório consegue
+>   contradizê-lo**: num Chromium de mesa não existe teclado virtual. O que
+>   sustenta a mudança é que o gatilho do teclado no Chromium é a ativação
+>   transitória do usuário, cuja janela é de segundos — 260 ms cabem nela com
+>   folga — e que **o preço de estar errado é conhecido e pequeno**: o campo fica
+>   focado sem teclado e o operador toca nele uma vez, que é o comportamento
+>   anterior à v5.131. Se o teclado parar de subir no aparelho, a causa é esta e
+>   a volta é uma linha, nomeada no próprio comentário.
+>
+>   **E fechar dentro da janela CANCELA o adiamento.** Sem isso o `focus()`
+>   cairia num campo já fora de cena e o teclado subiria sozinho por cima do app,
+>   sem nada na tela que o explicasse — é a asserção que mais importa das três,
+>   porque é a única cujo defeito não se percebe testando o caminho feliz.
+> - **A LUPA DENTRO DO CAMPO** — *"isso vai indicar melhor o objetivo da barra"*.
+>   Com a barra na base, sem cabeçalho por perto e com um ✕ ao lado, o
+>   placeholder era a única coisa dizendo o que aquela caixa faz — e ele some no
+>   primeiro caractere digitado. Ela vai **dentro** do campo, não ao lado: ao
+>   lado seria mais um item da linha flex disputando largura com o campo e com o
+>   ✕; dentro, ela é do campo, que é o que ela nomeia. É **decoração**
+>   (`pointer-events: none`), porque um ícone que engole o toque no canto de um
+>   campo de texto é um ponto morto exatamente onde o dedo mira.
+>
+>   **E o desenho é UM só:** ele já existia em JS (`searchIconSvg`, o botão de
+>   pesquisar no YouTube) e virou `<symbol id="icoLupa">` no sprite do
+>   `index.html`, com as duas pontas referenciando-o. Duas cópias do mesmo ícone
+>   divergem no primeiro ajuste, e é para isso que aquele sprite existe.
+>
+> Verificado por ISOLAMENTO: devolvendo o `focus()` síncrono, **2** asserções
+> reprovam; tirando só o cancelamento do fechar, **1**; tirando a lupa, **3**.
 
 > **A v5.263: A BIBLIOTECA VIRA UMA TELA — o slide sai por inteiro, e o verde
 > sai dos indicadores. OTA PURO** (nenhuma linha de Kotlin; sem Release).
