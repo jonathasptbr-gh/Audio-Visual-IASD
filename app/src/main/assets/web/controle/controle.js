@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.251';
+const WEB_VERSION = '5.252';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -9446,6 +9446,12 @@ async function fetchSerieIndex(coll) {
 
   await serieDiarioGravar(coll.id, {
     quandoVideos: Date.now(),
+    // O QUE O CANAL ANUNCIOU, somado das playlists aceitas. Ele é a única
+    // referência externa que este caminho tem, e é ele que torna visível o
+    // episódio que a extração NÃO trouxe — um vídeo só para membros, um
+    // removido, um engasgo do extrator. Sem esta soma, um sábado ausente é
+    // indistinguível de um sábado que o canal não publicou.
+    anunciados: playlists.reduce((n, p) => n + (p.count | 0), 0),
     vazias,
     total: vistos.length,
     recusados: vistos.filter((x) => x.motivo),
@@ -13041,9 +13047,34 @@ async function blocoSeries() {
     const aceitas = pls.filter((p) => !p.motivo);
     linhas.push('  aba do canal (' + serieHa(d.quandoCanal) + '): ' + pls.length
       + ' playlist(s), ' + aceitas.length + ' aceita(s)');
-    linhas.push(...serieLista(pls, (p) => (p.motivo
+    // O RECORTE É O ANO DA SÉRIE, e ele nasceu do primeiro registro real
+    // (v5.252): os dois canais publicam há anos, e a aba tem **94 e 145**
+    // playlists. Listadas por inteiro, as 9 aceitas do Provai e Vede ficavam
+    // enterradas sob oitenta linhas dizendo "não é de 2026" e "não começa com
+    // Provai e Vede" — e o teto de 60 cortava justamente o fim, que é onde o
+    // sinal poderia estar. Um log que ninguém termina de ler não é diagnóstico.
+    //
+    // **Some só o que traz OUTRO ano no nome.** É o único corte que não pode
+    // esconder o defeito que este bloco existe para achar: um mês do ano
+    // corrente que tenha sido renomeado ("Provai & Vede - Julho 2026") continua
+    // aparecendo, porque ele traz 2026; e uma playlist SEM ano nenhum aparece
+    // também, porque é justamente assim que uma renomeação se disfarça. O que
+    // sai é o arquivo dos anos anteriores, que não muda e não decide nada.
+    const doAno = new RegExp('\\b' + s.ano + '\\b');
+    const temAno = /\b(19|20)\d{2}\b/;
+    const perto = pls.filter((p) => !p.motivo || doAno.test(p.nome) || !temAno.test(p.nome));
+    linhas.push(...serieLista(perto, (p) => (p.motivo
       ? '    - "' + p.nome + '" → ' + serieMotivoFrase(p.motivo, s)
       : '    + "' + p.nome + '" → mês ' + p.mes + ' · ' + p.count + ' vídeo(s) no canal')));
+    // O QUE FOI ESCONDIDO É CONTADO, por motivo (nenhum corte silencioso).
+    const outras = pls.length - perto.length;
+    if (outras) {
+      const porMotivo = {};
+      pls.filter((p) => perto.indexOf(p) < 0)
+        .forEach((p) => { porMotivo[p.motivo] = (porMotivo[p.motivo] || 0) + 1; });
+      linhas.push('    (mais ' + outras + ' de outros anos: '
+        + Object.keys(porMotivo).map((m) => porMotivo[m] + ' ' + serieMotivoFrase(m, s)).join(' · ') + ')');
+    }
 
     if (!d.quandoVideos) {
       linhas.push('  vídeos: nenhuma varredura completa ainda');
@@ -13055,7 +13086,16 @@ async function blocoSeries() {
     const rec = d.recusados || [];
     const nomes = d.nomes || [];
     linhas.push('  vídeos (varredura ' + serieHa(d.quandoVideos) + '): '
-      + (d.total | 0) + ' vistos, ' + nomes.length + ' entraram, ' + rec.length + ' recusado(s)');
+      + (d.total | 0) + ' vistos'
+      + (d.anunciados ? ' de ' + d.anunciados + ' anunciados pelo canal' : '')
+      + ', ' + nomes.length + ' entraram, ' + rec.length + ' recusado(s)');
+    // A DIFERENÇA vira uma linha própria, e não uma conta para quem lê fazer.
+    // Ela é o achado mais silencioso deste caminho: nada errou, nada recusou —
+    // o vídeo simplesmente não veio, e o sábado dele não existe na lista.
+    if (d.anunciados && (d.total | 0) < d.anunciados) {
+      linhas.push('    ! ' + (d.anunciados - (d.total | 0)) + ' vídeo(s) que o canal conta '
+        + 'e a extração NÃO trouxe (só para membros? removido?) — o sábado deles não está na lista');
+    }
     if ((d.vazias || []).length) {
       linhas.push('    ! playlist(s) que voltaram vazias: ' + d.vazias.join(' · '));
     }

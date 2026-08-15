@@ -104,9 +104,19 @@ const ponteCom = (espelho, telas) => `(() => {
         { name: 'Mission Stories | 2º Quarter 2026', url: 'd/en2', count: 13 },
       ] : [
         { name: 'Provai e Vede - Agosto 2026 (Libras)', url: 'p/ago-libras', count: 2 },
-        { name: 'Provai e Vede Agosto 2026', url: 'p/ago', count: 2 },
+        // A CONTAGEM DIVERGE DA ENTREGA de propósito: o canal anuncia 4 e a
+        // extração traz 3. É o que os dois canais de verdade fazem (39×38 e
+        // 51×50 no primeiro registro real) — um vídeo só para membros, um
+        // removido —, e é o achado mais silencioso deste caminho: nada erra,
+        // nada recusa, e o sábado daquele episódio não existe na lista.
+        { name: 'Provai e Vede Agosto 2026', url: 'p/ago', count: 4 },
         { name: 'Provai e Vede - Julho 2026', url: 'p/jul', count: 1 },
         { name: 'Semana de Mordomia Cristã 2026', url: 'p/outra', count: 9 },
+        // O ARQUIVO DOS ANOS ANTERIORES. Ele existe aqui porque o canal de
+        // verdade tem 94 playlists e a maior parte é isto — listá-las por
+        // inteiro afogava as 9 aceitas sob oitenta linhas mortas (v5.252).
+        { name: 'Provai e Vede - Dezembro 2025', url: 'p/dez25', count: 4 },
+        { name: 'Provai e Vede - Novembro 2025 (Libras)', url: 'p/nov25l', count: 4 },
       ];
       setTimeout(() => { try { window.__avResolve(id, pls); } catch (_) {} }, 0);
     },
@@ -371,6 +381,31 @@ try {
     'as DUAS metades trazem a própria data — a assinatura pula a extração e só uma delas é de agora');
   checar(!/undefined|NaN|\[object Object\]/.test(reg),
     'e nada de "undefined" no meio de um log que vai ser repassado');
+
+  // ── O RECORTE POR ANO (v5.252) ─────────────────────────────────────────
+  // O primeiro registro de verdade veio com 94 e 145 playlists: os canais
+  // publicam há anos, e o arquivo enterrava as aceitas sob oitenta linhas
+  // dizendo "não é de 2026". As duas metades são inseparáveis — o que some é
+  // só o que traz OUTRO ano no nome, e um mês do ano corrente renomeado (o
+  // defeito que este bloco existe para achar) continua aparecendo.
+  checar(!/"Provai e Vede - Dezembro 2025"/.test(reg)
+    && !/"Provai e Vede - Novembro 2025 \(Libras\)"/.test(reg),
+    'as playlists de OUTROS ANOS saem da lista — elas não mudam e não decidem nada');
+  checar(/\(mais 2 de outros anos: /.test(reg),
+    'mas são CONTADAS, por motivo: nenhum corte silencioso', (reg.match(/\(mais [^\n]*/) || [])[0]);
+  checar(temLinha(/- "Semana de Mordomia Cristã 2026" → não começa com "Provai e Vede"/),
+    'e o que é do ANO CORRENTE fica, mesmo recusado — é ali que uma renomeação apareceria');
+
+  // ── O QUE O CANAL ANUNCIA E A EXTRAÇÃO NÃO TRAZ (v5.252) ───────────────
+  // No registro real: 39 anunciados × 38 vistos numa série, 51 × 50 na outra.
+  // Nada erra, nada recusa — o vídeo não vem, e o sábado dele não existe na
+  // lista. É o achado mais silencioso deste caminho, e a soma das contagens da
+  // aba do canal é a única referência externa que ele tem.
+  checar(/de \d+ anunciados pelo canal/.test(reg),
+    'a linha dos vídeos compara o que veio com o que o canal ANUNCIA',
+    (reg.match(/vídeos \(varredura[^\n]*/) || [])[0]);
+  checar(temLinha(/! \d+ vídeo\(s\) que o canal conta e a extração NÃO trouxe/),
+    'e a diferença vira uma linha própria, não uma conta para quem lê fazer');
 
   // O DIÁRIO É O QUE VENCE O ÍNDICE (v5.249). Um aparelho que já tinha a lista
   // antes desta versão a tem "fresca" pelo TTL de 12 h — e passaria essas 12 h
@@ -1424,6 +1459,20 @@ try {
   await pg4.reload({ waitUntil: 'domcontentloaded' });
   await pg4.waitForFunction(() => !!window.__avBack, null, { timeout: 20000 });
   const veio2 = await esperarCapitulos(12, 25000);
+  // ESPERA A LEITURA DO ESTADO, e isto é um conserto de INSTABILIDADE (v5.252):
+  // este caso reprovava em ~1 de cada 6 execuções. `bibleVersionId` é escrito
+  // durante o `init()`, que lê o IndexedDB; os capítulos começam a descer no
+  // mesmo `init()`, então esperar por eles NÃO garante que a leitura da
+  // preferência já tenha acontecido — são duas coisas que correm juntas, e o
+  // teste apostava numa ordem entre elas. Um teste que reprova sozinho de vez
+  // em quando é pior que teste nenhum: ele ensina a ignorar vermelho, que é a
+  // lição da v5.204.
+  //
+  // A espera falha em silêncio de propósito: se a preferência de fato não for
+  // respeitada, quem reprova é a asserção abaixo — com o valor real na mão.
+  try {
+    await pg4.waitForFunction((v) => bibleVersionId === v, OUTRA, { timeout: 8000 });
+  } catch (_) { /* a asserção abaixo dá o veredito */ }
   checar(await pg4.evaluate(() => bibleVersionId) === OUTRA,
     'a versão ESCOLHIDA pelo operador é outra (a seleção dele foi respeitada)');
   checar(veio2 > 0 && pedidos.every((p) => p.versao === ARA),

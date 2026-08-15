@@ -6278,7 +6278,15 @@ parâmetros do catálogo, cada playlist da aba do canal com o VEREDITO (aceita,
 com o mês do período; ou recusada, com o motivo), cada vídeo recusado, os que
 entraram SEM data no título — o achado que não é recusa — e os nomes
 resultantes, um por linha. Os nomes vão CRUS: o consumidor é quem ajusta a
-regra, a distância.
+regra, a distância — e a primeira varredura real já provou o ponto: ela achou um
+episódio em português recusado pelo marcador de inglês (v5.252).
+
+Dois recortes que os números reais impuseram: os canais têm **94 e 145**
+playlists, então some da lista o que traz OUTRO ano no nome (contado por motivo,
+nunca em silêncio) — um mês do ano corrente renomeado continua aparecendo, que é
+o defeito que o bloco existe para achar; e a linha dos vídeos compara o que veio
+com o que o canal **anuncia**, porque um episódio que a extração não traz não
+erra em lugar nenhum: ele só não existe na lista.
 
 A peça que o torna confiável é `AVSerie.avaliarPlaylist`/`avaliarVideo`: o
 motivo sai de quem DECIDE, e `mesDaPlaylist`/`itensDaPlaylist` são consumidores

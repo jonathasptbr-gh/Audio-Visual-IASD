@@ -362,6 +362,35 @@ const misturado = S.itensDaPlaylist([
 checar(misturado.length === 1 && misturado[0].id === 'm1',
   'dos 4 idiomas na MESMA playlist, só o português entra', misturado.map((i) => i.id));
 
+// ── 7d-1. O FALSO POSITIVO QUE CUSTOU UM EPISÓDIO (v5.252) ──────────────────
+// [registro] Primeira varredura em aparelho de verdade. A regra recusou este
+// título — um episódio em PORTUGUÊS, do canal certo, na playlist certa — porque
+// o marcador de inglês era a palavra solta `mission`. O sábado 27 de junho
+// simplesmente não estava na lista, que é o erro que este arquivo inteiro
+// existe para evitar.
+//
+// Ele está no topo desta seção de propósito: é o caso que decide a régua. Uma
+// marca de idioma tem de ser IMPOSSÍVEL na língua que se quer manter, não
+// apenas típica da que se quer recusar — e títulos em português usam palavras
+// em inglês o tempo todo.
+const REFOCUS = 'Mission Refocus | Provai e Vede  2026 (27/Jun)';
+checar(!S.ehOutroIdioma(REFOCUS),
+  '[registro] "Mission Refocus" é um episódio EM PORTUGUÊS e não pode ser recusado');
+const junho = S.itensDaPlaylist([{ id: 'r1', url: 'y/r1', name: REFOCUS, seconds: 300 }], 6, SERIE);
+checar(junho.length === 1 && junho[0].dia === 27 && junho[0].mes === 6,
+  '[registro] ele ENTRA, com a data de 27 de junho', JSON.stringify(junho[0] || null));
+checar(junho.length === 1 && S.nomeDoItem(junho[0]) === '27/Jun · Mission Refocus',
+  '[registro] e com o rótulo que o operador procura', junho.length && S.nomeDoItem(junho[0]));
+
+// E as recusas que continuam valendo, pelo NOME DO PROGRAMA — todos [registro],
+// lidos da aba de playlists do @daniellocutor.
+checar(S.ehOutroIdioma('Mission Stories | 2º Quarter 2026'), '[registro] inglês: "Mission Stories"');
+checar(S.ehOutroIdioma('World Mission | 1º Quarter 2025'), '[registro] inglês: "World Mission"');
+checar(S.ehOutroIdioma('Mission Spotlight | 15 AUGUST 2026'), 'inglês: "Mission Spotlight"');
+checar(S.ehOutroIdioma('Missionnaire - 1e Trimestre 2026'), '[registro] francês: "Missionnaire"');
+checar(!S.ehOutroIdioma('Missionário de fé | Provai e Vede 2026 (10/Mai)'),
+  'e "missionário" em português NÃO é "missionnaire"');
+
 checar(S.ehOutroIdioma('Informativo Mundial de las Misiones | 15 AGOSTO 2026'), 'espanhol: "de las Misiones"');
 checar(S.ehOutroIdioma('Misión en la ciudad'), 'espanhol: "Misión" (o acento não escapa — tudo passa por normalizar)');
 checar(S.ehOutroIdioma('Mission Stories | 2º Quarter 2026'), 'inglês: "Mission"');
@@ -378,6 +407,54 @@ checar(!S.ehOutroIdioma('Ação, coração e São Paulo 🙏'),
   'acentos e emoji não são "outro idioma" (as faixas param antes dos emoji)');
 checar(videosAgosto.every((v) => !S.ehOutroIdioma(v.name)) && doCanal.every((p) => !S.ehOutroIdioma(p.name)),
   'e NENHUM nome do @provaievedeoficial é recusado pela regra nova — ela não pode cobrar da primeira série');
+
+// ── 7f. A ABA REAL DOS DOIS CANAIS, verbatim do registro do aparelho ────────
+// A primeira varredura de verdade devolveu **94 playlists** no
+// @provaievedeoficial e **145** no @daniellocutor — números que nenhuma
+// suposição minha tinha alcançado, e que trouxeram nomenclaturas que eu não
+// teria inventado. Estas são as que ensinam alguma coisa:
+const ABA_REAL = [
+  // [registro] espaço duplo ANTES do hífen, no meio do nome (armadilha 2).
+  ['Provai e Vede  - Agosto 2025 (Libras)', 'pv', 0, 'espaço duplo antes do hífen'],
+  // [registro] "vede" em minúscula.
+  ['Provai e vede - Junho 2025 (Libras)', 'pv', 0, 'a caixa do nome varia no próprio canal'],
+  // [registro] ANO ANTES DO MÊS — a ordem que a regra não casa de propósito.
+  ['Provai e Vede 2024 - Março (Libras)', 'pv', 0, 'ano antes do mês, e ainda assim lido'],
+  // [registro] espaço duplo antes do parêntese.
+  ['Provai e Vede - Fevereiro 2026  (Libras)', 'pv', 0, 'Libras com espaço duplo antes'],
+  // [registro] as nove que de fato entraram.
+  ['Provai e Vede - Janeiro 2026', 'pv', 1, 'janeiro entra'],
+  ['Provai e Vede - Setembro 2026', 'pv', 9, 'setembro entra'],
+  // [registro] o mesmo mês de outro ano NÃO entra.
+  ['Provai e Vede - Setembro 2025', 'pv', 0, 'o mesmo mês de 2025 fica fora'],
+  // [registro] @daniellocutor: as quatro aceitas e as vizinhas perigosas.
+  ['Informativo | 1º Trimestre 2026', 'info', 1, '1º trimestre entra'],
+  ['Informativo | 4º Trimestre 2026', 'info', 10, '4º trimestre entra'],
+  ['Informativo | 2º Trimestre 2025', 'info', 0, 'o MESMO nome de 2025 fica fora'],
+  ['Missionnaire - 1e Trimestre 2026', 'info', 0, 'o francês fica fora'],
+  ['Mission Stories | 1º Quarter 2026', 'info', 0, 'o inglês fica fora'],
+  ['Misiones | 2º Trimestre 2026', 'info', 0, 'o espanhol fica fora'],
+  ['【聖工消息】2026 第三季 (3 Quarter 26)', 'info', 0, 'o chinês fica fora'],
+  ['时事通讯 - 2024 年第二季度 (2nd Quarter 24)', 'info', 0, 'o chinês simplificado também'],
+  ['Curso de Locução', 'info', 0, 'outra coisa do mesmo canal fica fora'],
+  ['Provai e Vede 2023', 'info', 0, 'e a OUTRA SÉRIE, que este canal também publica'],
+];
+let abaOk = 0;
+for (const [nome, qual, esperado, oque] of ABA_REAL) {
+  const alvo = qual === 'pv' ? SERIE : INFO;
+  const obtido = S.mesDaPlaylist(nome, alvo);
+  if (obtido === esperado) abaOk++;
+  else checar(false, '[registro] ' + oque + ' — "' + nome + '"', obtido);
+}
+checar(abaOk === ABA_REAL.length,
+  '[registro] as ' + ABA_REAL.length + ' playlists REAIS dos dois canais são classificadas como devem',
+  abaOk + '/' + ABA_REAL.length);
+
+// E a que mais importa das dezessete: o canal do Informativo publica o Provai e
+// Vede TAMBÉM. Sem o prefixo, uma série entraria na outra.
+checar(S.mesDaPlaylist('Provai e Vede 2023', INFO) === 0
+  && S.mesDaPlaylist('Informativo | 1º Trimestre 2026', SERIE) === 0,
+  '[registro] as duas séries convivem no mesmo canal sem se misturar');
 
 // ── 7e. A IMPRESSÃO DIGITAL enxerga as recusas de idioma ────────────────────
 // Sem isto, corrigir uma marca de idioma deixaria de pé todo índice já escrito
