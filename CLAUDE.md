@@ -2788,10 +2788,50 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.237** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.238** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.238: OS FAVORITOS DEIXAM DE TER DUAS PORTAS — a seção não colapsa, e a
+> gaveta vira só a tela de dentro de uma pasta. OTA PURO** (nenhuma linha de
+> Kotlin; sem Release).
+>
+> Três pedidos do operador, e os três fecham o movimento que a v5.237 começou:
+> *"mantenha os favoritos como uma seção sempre aberta. E também ajuste esses
+> favoritos na biblioteca para ter também o sistema de importar pastas que temos
+> nos favoritos original. E pode remover o botão de acesso ao local e sistemas
+> antigos dos favoritos, pois tudo agora será dentro da biblioteca."*
+>
+> **A seção não colapsa, e a razão é a mesma que a pôs no topo.** Os favoritos
+> são o atalho de quem já procurou antes; um atalho atrás de um toque a mais
+> deixa de ser atalho. O construtor de grupo ganhou `fixo`: sem seta, sem
+> ouvinte e sem cursor de toque — **um cabeçalho que parece tocável e não faz
+> nada é pior que um rótulo**, e essa é a única parte disto que o CSS decide.
+>
+> **"Pasta do aparelho" desceu do cabeçalho da gaveta para o rodapé da seção**,
+> ao lado de "Nova pasta". Não é realocação por gosto: aquele botão era ação da
+> RAIZ da gaveta, e a raiz deixou de ser alcançável — ele ficaria sem lugar
+> nenhum de onde ser tocado. No rodapé as duas formas de criar pasta se leem
+> juntas, que é a pergunta que elas de fato respondem ("de onde vem o que eu
+> quero ter à mão?"), e as duas são `.import-btn` na mesma `.import-row`, que já
+> era `flex` com `flex: 1` em cada — dividem a linha sem uma regra nova.
+>
+> **A gaveta sobrevive como a tela de DENTRO, e só isso.** `#favHeadBtn` saiu do
+> cabeçalho com o CSS dele; `#addDirBtn` saiu da gaveta. O único caminho para lá
+> é entrar numa pasta (`garantirGaveta`), e por isso **o voltar sempre FECHA**:
+> subir para uma "raiz" que ninguém mais alcança seria devolver o operador a uma
+> tela sem porta. A tela de trás é a Biblioteca, que continua aberta embaixo,
+> com a seção de onde ele veio.
+>
+> **O que se ganha é o que a v5.193 já tinha cobrado noutro lugar:** duas portas
+> para a mesma lista são dois lugares para ela divergir — e o cabeçalho tem
+> largura de celular, com um voltar, uma troca de modo e um título disputando-a.
+>
+> Os oráculos do `boot-nativo.test.mjs` cobram as duas metades de cada pedido: a
+> seção está aberta com todos os outros grupos fechados **e** não há como
+> fechá-la (sem seta, e o clique no cabeçalho não alterna); o rodapé tem as duas
+> formas de criar pasta **e** a gaveta continua desenhando a lista dela.
 
 > **A v5.237: A BIBLIOTECA VIRA UM ÍNDICE — as seções nascem fechadas e os
 > FAVORITOS são a primeira delas. OTA PURO** (nenhuma linha de Kotlin; sem

@@ -506,6 +506,17 @@ try {
     };
     desenhar();
     const grupos = [...lista.querySelectorAll('.coll-group-name')].map((e) => e.textContent.trim());
+    // A SEÇÃO FIXA, medida com todo o resto fechado.
+    const gFav = [...lista.querySelectorAll('.coll-group')]
+      .find((g) => /Favoritos/.test((g.querySelector('.coll-group-name') || {}).textContent || ''));
+    const barraFav = gFav && gFav.querySelector('.coll-group-bar');
+    const corpoFav = gFav && gFav.querySelector('.coll-group-corpo');
+    if (barraFav) barraFav.click();   // não pode fechar nada
+    const fixo = {
+      temSeta: !!(gFav && gFav.querySelector('.coll-group-seta')),
+      corpoVisivel: !!(corpoFav && corpoFav.getBoundingClientRect().height > 0),
+      cliqueNaoFecha: !!(gFav && gFav.classList.contains('aberto')),
+    };
     const fechado = {
       grupos,
       cards: lista.querySelectorAll('.hymnal-card').length,
@@ -529,7 +540,7 @@ try {
     };
     lista.remove();
     gruposAbertos.clear();
-    return { fechado, aberto };
+    return { fechado, aberto, fixo };
   });
   checar(indice.fechado.grupos.length >= 2 && indice.fechado.cards === 0,
     'A BIBLIOTECA ABRE COMO ÍNDICE: só os cabeçalhos de seção, nenhum card '
@@ -537,6 +548,16 @@ try {
   checar(indice.fechado.grupos[0] === 'Favoritos',
     'e o primeiro deles é FAVORITOS, no topo da listagem',
     JSON.stringify(indice.fechado.grupos));
+  // ── E OS FAVORITOS NÃO COLAPSAM (v5.238) ───────────────────────────────
+  // Pedido do operador: *"mantenha os favoritos como uma seção sempre aberta."*
+  // Eles são o atalho de quem já procurou antes, e um atalho atrás de um toque
+  // a mais deixa de ser atalho. As duas metades: o corpo está lá com todos os
+  // outros grupos fechados, **e** não há como fechá-lo por engano.
+  checar(indice.fixo.corpoVisivel,
+    'e a seção de FAVORITOS já vem aberta, com os outros grupos todos fechados');
+  checar(!indice.fixo.temSeta && indice.fixo.cliqueNaoFecha,
+    'sempre aberta: sem seta e sem alternar no toque — um cabeçalho que parece '
+    + 'tocável e não faz nada é pior que um rótulo');
   checar(indice.aberto.cards > 0 && indice.aberto.temSerie,
     'o toque no cabeçalho abre a seção e os cards aparecem',
     indice.aberto.cards + ' card(s)');
@@ -556,8 +577,7 @@ try {
     const rec = await AVDB.addMedia(new Blob(['x'], { type: 'audio/mpeg' }),
       { name: 'Louvor favorito de teste', list: 'favs' });
     await recarregarFavoritos();
-    gruposAbertos.clear();
-    gruposAbertos.add('Favoritos');
+    gruposAbertos.clear();   // a seção de Favoritos é FIXA: não depende disto
     const lista = document.createElement('ul');
     lista.className = 'hymnal-list';
     lista.style.width = '390px';
@@ -568,10 +588,16 @@ try {
     const corpo = grupo && grupo.querySelector('.coll-group-corpo');
     const r = {
       temItem: !!corpo && /Louvor favorito de teste/.test(corpo.textContent),
+      temNovaPasta: false, temPastaDoAparelho: false,
       // A linha de uso do disco é o rodapé da GAVETA: dentro da Biblioteca ela
       // já é desenhada uma vez pelo `renderSearchResults`, e duas no mesmo
       // `<ul>` seria a segunda apagando a primeira.
       semLinhaDeDisco: !!corpo && !corpo.querySelector('.storage-usage'),
+      // O RODAPÉ DA SEÇÃO. `syncDeviceFolder` era o botão do cabeçalho da
+      // gaveta, e a gaveta deixou de ter porta própria: sem esta linha a ação
+      // ficaria sem lugar nenhum de onde ser alcançada.
+      rodape: !corpo ? [] : [...corpo.querySelectorAll('.import-row .import-btn')]
+        .map((b) => b.textContent.trim()),
       // E a GAVETA continua inteira: o host é emprestado, não movido.
       naGaveta: (() => {
         document.getElementById('favList').innerHTML = '';
@@ -579,6 +605,8 @@ try {
         return /Louvor favorito de teste/.test(document.getElementById('favList').textContent);
       })(),
     };
+    r.temNovaPasta = r.rodape.some((t) => /Nova pasta/.test(t));
+    r.temPastaDoAparelho = r.rodape.some((t) => /Pasta do aparelho/.test(t));
     lista.remove();
     gruposAbertos.clear();
     await AVDB.listRemove('favs', rec.id);
@@ -592,6 +620,10 @@ try {
     'sem repetir ali a linha de uso do disco, que já é o rodapé da listagem');
   checar(favs.naGaveta,
     'e a GAVETA continua desenhando a dela — o host é emprestado, não movido');
+  checar(favs.temNovaPasta && favs.temPastaDoAparelho,
+    'com as DUAS formas de criar pasta no rodapé da seção: "Nova pasta" e '
+    + '"Pasta do aparelho" — esta desceu do cabeçalho da gaveta, que deixou de '
+    + 'ter porta', JSON.stringify(favs.rodape));
 
   // ── A FILA DE LETRAS NÃO PERGUNTA POR UM VÍDEO (v5.236) ────────────────
   // `syncLyrics` varria TODA coleção com itens e pedia `music_<id>` ao LouvorJA

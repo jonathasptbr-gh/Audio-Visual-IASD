@@ -242,14 +242,14 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    junto brigaria com a animação) e o indicador do telão é `disabled` no app. */
 :is(
   .ctl-btn, .t-btn, .pv-fab, .settings-btn,
-  .tab, .tab-add, .import-btn, .add-dir-btn, .back-btn, .sel-btn,
+  .tab, .tab-add, .import-btn, .back-btn, .sel-btn,
   .row-btn, .row-handle, .popup-close, .new-folder-btn, .folder-pick-btn,
   .coll-bar, .coll-bar-dl, .coll-group-btn, .coll-more-btn,
   .bible-cell, .bible-ref-part, .bible-vsec, .bible-ver-row,
   .hymn-row, .hymn-play-thumb, .song-menu-btn, .msg-add-btn, .msg-item,
   .misc-tab, .misc-seg, .misc-chip, .chrono-btn, .misc-project, .draw-go,
   .fit-opt, .dialog-btn, .lib-item .row,
-  .head-fav-btn, .cue-save-btn, .pl-pack, .yt-search-btn, .log-copy,
+  .cue-save-btn, .pl-pack, .yt-search-btn, .log-copy,
   .simple-key, .simple-action, .simple-key--big, .simple-key--vol, .mode-switch
 ):active { transform: var(--press); }
 
@@ -268,9 +268,9 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    ele o SVG é inline e ganha a folga de linha de base, que descentraliza o
    ícone dentro de um botão flex por 2-3px). */
 :is(
-  .row-btn, .row-handle, .back-btn, .add-dir-btn, .sel-btn, .popup-close,
+  .row-btn, .row-handle, .back-btn, .sel-btn, .popup-close,
   .coll-bar-dl, .coll-group-btn, .new-folder-btn,
-  .import-btn, .folder-pick-btn, .song-menu-icon, .mode-switch, .head-fav-btn
+  .import-btn, .folder-pick-btn, .song-menu-icon, .mode-switch
 ) svg { display: block; width: var(--icon-sm); height: var(--icon-sm); }
 :is(.tab, .tab-add, .t-btn, .ctl-btn, .misc-tab, .settings-btn) svg {
   display: block; width: var(--icon-md); height: var(--icon-md);
@@ -1142,16 +1142,15 @@ main {
    seis chances de a próxima divergir num detalhe que ninguém decidiu. O
    esqueleto fica aqui, ANTES de todas; em cada uma sobra só o que difere
    (fundo, cor e, no `.cue-save-btn`, a borda). O voltar tinha só ~20×20 px —
-   o menor alvo do app inteiro, e é a única saída da aba Pastas e da navegação
-   da Bíblia; errar o toque ali caía no #addDirBtn ao lado, que abre o SAF. */
-.add-dir-btn, .back-btn, .sel-btn, .row-btn, .row-handle,
+   o menor alvo do app inteiro, e é a única saída da gaveta de pasta e da
+   navegação da Bíblia. */
+.back-btn, .sel-btn, .row-btn, .row-handle,
 .cue-save-btn, .popup-close, .log-copy {
   flex-shrink: 0; width: var(--hit); height: var(--hit); padding: 0;
   border: none; border-radius: var(--radius-btn);
   display: flex; align-items: center; justify-content: center; cursor: pointer;
   appearance: none; -webkit-appearance: none;
 }
-.add-dir-btn { background: var(--accent-soft); color: var(--accent); }
 /* ---------- Troca de modo (o par de botões do canto superior direito) --------
    O MESMO componente nos dois modos — `#simpleFullBtn` no cabeçalho do
    simplificado e `#fullSimpleBtn` no da lista —, no mesmo canto, com a seta
@@ -1176,7 +1175,7 @@ main {
    no feedback de toque e no tamanho do ícone). O que as distingue é a COR do
    ícone — accent na seta do modo, ouro na estrela — e isso mora nas duas
    regras de svg logo abaixo de cada uma. */
-.mode-switch, .head-fav-btn {
+.mode-switch {
   flex-shrink: 0;
   display: inline-flex; align-items: center; gap: .3rem;
   /* SEM MOLDURA (v5.76). O contorno em `--accent` desenhava, nos dois
@@ -1202,25 +1201,13 @@ main {
 .mode-switch--vago { visibility: hidden; pointer-events: none; }
 /* O voltar continua "chapado" (sem fundo) — só o alvo cresceu. */
 .back-btn { background: none; color: var(--accent); }
-.add-dir-btn .msym, .back-btn .msym { font-size: var(--icon-sm); }
+.back-btn .msym { font-size: var(--icon-sm); }
 
-/* FAVORITOS no cabeçalho (v5.103), no CANTO DIREITO desde a v5.107: a ordem da
-   faixa é voltar · modo · título · favoritos, isto é, saída à esquerda, lugar no
-   meio, destino à direita. Os dois botões ficam nos cantos opostos porque levam
-   a lugares opostos; empilhados do mesmo lado (como estavam) eles se liam como
-   um par, e não são.
-   Em ouro, e não em `--muted`: ela é a única porta permanente para uma tela
-   inteira, e apagada seria lida como decoração do título. */
-/* COM RÓTULO (v5.104), e não só a estrela. O ícone sozinho, num cabeçalho que
-   já tem um voltar e uma troca de modo, era mais um símbolo a decifrar — e este
-   é a única porta para uma tela inteira. O espaço saiu do rótulo do modo, que
-   encolheu de "Modo simplificado" para "Modo Fácil".
-   Mesma caixa da troca de modo — LITERALMENTE: a declaração é uma só, na
-   regra agrupada `.mode-switch, .head-fav-btn` acima. O que as distingue é a
-   cor do ícone — ouro aqui, accent lá —, no mesmo lugar em que a
-   `.mode-switch` põe a seta; o tamanho dele vem da escala da folha
-   (`--icon-sm`, como o da seta), não mais dos 18px soltos do HTML. */
-.head-fav-btn svg { flex-shrink: 0; color: var(--brand); }
+/* (O botão de FAVORITOS do cabeçalho saiu na v5.238, com o `#favHeadBtn`: os
+   favoritos são a primeira seção da Biblioteca, sempre aberta, e uma segunda
+   porta para a mesma lista era um segundo lugar para ela divergir. A caixa dele
+   era literalmente a da troca de modo — a declaração era uma só, na regra
+   agrupada acima —, e o que os distinguia era a cor do ícone.) */
 
 /* ---------- Abas (ícones) ---------- */
 /* A faixa tem TRÊS abas em `flex:1` (Cronograma é o 1º filho) e, à direita, o
@@ -1820,6 +1807,10 @@ main {
   transform: rotate(180deg); transition: transform .2s ease;
 }
 .coll-group--drop.aberto > .coll-group-bar .coll-group-seta { transform: rotate(0deg); }
+/* A SEÇÃO FIXA (os Favoritos, v5.238) não colapsa: sem seta, sem ouvinte e sem
+   cursor de toque. Um cabeçalho que parece tocável e não faz nada é pior que um
+   rótulo — e o cursor é a única parte disso que o CSS decide. */
+.coll-group--drop.fixo > .coll-group-bar { cursor: default; }
 /* O corpo. `overflow: hidden` é requisito da animação de altura
    (`expandAccordion`), e a moldura fecha embaixo o que a barra abriu em cima. */
 .coll-group-corpo {

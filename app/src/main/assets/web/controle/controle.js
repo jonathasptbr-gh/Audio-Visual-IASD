@@ -180,7 +180,7 @@ const libraryEl = document.getElementById('library');
 // vista. Hospeda "Importar arquivos" e, durante a seleção múltipla, a `#selbar`
 // (ver `renderListFoot` e `hostSelbar`) — nunca os dois ao mesmo tempo.
 const listFootEl = document.getElementById('listFoot');
-// Favoritos: a gaveta do topo (ver `openFavorites`). A lista dela é um segundo
+// A gaveta de uma PASTA (ver `openFavorites`). A lista dela é um segundo
 // HOST para as MESMAS funções de render — não uma segunda implementação.
 const favPopupEl = document.getElementById('favPopup');
 const favSheetEl = document.getElementById('favSheet');
@@ -209,7 +209,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.237';
+const WEB_VERSION = '5.238';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -375,12 +375,10 @@ const selCancelEl = document.getElementById('selCancel');
 const selPlaylistEl = document.getElementById('selPlaylist');
 const selFavEl = document.getElementById('selFav');
 const selFolderEl = document.getElementById('selFolder');
-const favHeadBtnEl = document.getElementById('favHeadBtn');
 const selRenameEl = document.getElementById('selRename');
 const selDeleteEl = document.getElementById('selDelete');
 
 const backBtnEl = document.getElementById('backBtn');
-const addDirBtnEl = document.getElementById('addDirBtn');
 const libSearchEl = document.getElementById('libSearch');
 const fadePopupEl = document.getElementById('fadePopup');
 const fadePopupCloseEl = document.getElementById('fadePopupClose');
@@ -3011,9 +3009,6 @@ function renderFavHeader() {
   // só competiriam.
   favIconEl.hidden = inFolder;
   favTitleEl.textContent = inFolder ? currentFolder.name : 'Favoritos';
-  // Sincronizar é ação da RAIZ (escolher uma pasta do dispositivo); dentro de
-  // uma pasta a re-sincronização mora na própria linha dela, na raiz.
-  addDirBtnEl.hidden = !(activeTab === 'folders' && !inFolder);
   // A busca é do catálogo em memória de uma pasta do dispositivo — só existe lá.
   favSearchBarEl.hidden = !inOpfs;
   libSearchEl.value = inOpfs ? folderQuery : '';
@@ -6208,15 +6203,24 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
   // solução da `.coll-bar` do card, que também é uma `div` com ouvinte.
   const grupo = (text, colls, gOpts) => {
     any = true;
-    const aberto = gruposAbertos.has(text);
+    // `fixo` = a seção não colapsa: ela É a listagem, não um ramo dela. Hoje só
+    // os Favoritos (v5.238, pedido do operador), e a razão é a mesma que os pôs
+    // no topo: eles são o atalho de quem já procurou antes, e um atalho atrás de
+    // um toque a mais deixa de ser atalho. Sem seta e sem ouvinte — um
+    // cabeçalho que parece tocável e não faz nada é pior que um rótulo.
+    const fixo = !!(gOpts && gOpts.fixo);
+    const aberto = fixo || gruposAbertos.has(text);
     const li = document.createElement('li');
-    li.className = 'coll-group coll-group--drop' + (aberto ? ' aberto' : '');
+    li.className = 'coll-group coll-group--drop' + (aberto ? ' aberto' : '')
+      + (fixo ? ' fixo' : '');
 
     const bar = document.createElement('div');
     bar.className = 'coll-group-bar';
-    bar.setAttribute('role', 'button');
-    bar.setAttribute('tabindex', '0');
-    bar.setAttribute('aria-expanded', aberto ? 'true' : 'false');
+    if (!fixo) {
+      bar.setAttribute('role', 'button');
+      bar.setAttribute('tabindex', '0');
+      bar.setAttribute('aria-expanded', aberto ? 'true' : 'false');
+    }
     const name = document.createElement('span');
     name.className = 'coll-group-name';
     name.textContent = text;
@@ -6236,11 +6240,13 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
       info.textContent = fracaoPeso(colls.map((c) => c.id)) || '—';
       bar.appendChild(info);
     }
-    const seta = document.createElement('span');
-    seta.className = 'coll-group-seta';
-    seta.setAttribute('aria-hidden', 'true');
-    seta.innerHTML = chevronUpIconSvg();
-    bar.appendChild(seta);
+    if (!fixo) {
+      const seta = document.createElement('span');
+      seta.className = 'coll-group-seta';
+      seta.setAttribute('aria-hidden', 'true');
+      seta.innerHTML = chevronUpIconSvg();
+      bar.appendChild(seta);
+    }
     li.appendChild(bar);
 
     const corpo = document.createElement('ul');
@@ -6264,10 +6270,12 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
       if (!abrindo) { collapseAccordion(corpo, aplicar); return; }
       aplicar();
     };
-    bar.addEventListener('click', alternar);
-    bar.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); alternar(); }
-    });
+    if (!fixo) {
+      bar.addEventListener('click', alternar);
+      bar.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); alternar(); }
+      });
+    }
 
     alvo.appendChild(li);
     if (!aberto) return null;
@@ -6310,7 +6318,7 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
   // seção. `openFolder`/`openOpfsFolder` a abrem sozinhos quando o toque veio
   // daqui.
   const favN = favItems.length + folders.length + opfsFolders.length;
-  const favCorpo = grupo(GRUPO_FAVORITOS, null, { contagem: favN });
+  const favCorpo = grupo(GRUPO_FAVORITOS, null, { contagem: favN, fixo: true });
   if (favCorpo) {
     favHost = favCorpo;
     // `finally` obrigatório: um erro ao montar uma linha deixaria o host preso
@@ -6942,7 +6950,7 @@ function renderFoldersSeVisivel() {
   // mesma lista está na tela por outro caminho — e sem isto ela ficaria com a
   // contagem de uma pasta que acabou de sincronizar, ou com um favorito que já
   // saiu. `renderCollectionsNow` já confere sozinho se o acervo está à vista.
-  if (gruposAbertos.has(GRUPO_FAVORITOS)) renderCollectionsNow();
+  renderCollectionsNow();
 }
 
 // ===== OS FAVORITOS TÊM DUAS CASAS, E UMA IMPLEMENTAÇÃO SÓ (v5.237) =====
@@ -7146,22 +7154,57 @@ function renderVirtualFolders() {
   });
 }
 
-// Criar um atalho vazio direto na tela de Favoritos. Antes só existia o
-// caminho de trás para a frente (selecionar mídias → "salvar em pasta" → nova
-// pasta): uma seção de atalhos que não deixa criar um atalho é justamente o
-// que não se espera dela. Mesmo desenho do botão "Nova pasta" do seletor.
+// O RODAPÉ DA SEÇÃO: as duas formas de trazer coisa para cá.
+//
+// "Nova pasta" cria um atalho vazio. Antes só existia o caminho de trás para a
+// frente (selecionar mídias → "salvar em pasta" → nova pasta): uma seção de
+// atalhos que não deixa criar um atalho é justamente o que não se espera dela.
+//
+// "Pasta do aparelho" é a SINCRONIZAÇÃO com uma pasta do armazenamento
+// (`syncDeviceFolder`), e ela desceu para cá na v5.238. Era um botão no
+// cabeçalho da gaveta — e a gaveta deixou de ter porta própria, então a ação
+// ficaria sem lugar nenhum de onde ser alcançada. Aqui ela fica ao lado da
+// outra forma de criar pasta, que é a leitura certa: as duas respondem "de onde
+// vem o que eu quero ter à mão?".
+//
+// Os dois são `.import-btn` na mesma `.import-row`, que já é `flex` com
+// `flex: 1` em cada — eles dividem a linha sem uma regra nova.
 function appendNewFavoriteRow() {
   const li = document.createElement('li');
   li.className = 'import-row';
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'import-btn';
-  btn.appendChild(msym(ICON.folderNew));
-  const txt = document.createElement('span');
-  txt.textContent = 'Nova pasta';
-  btn.appendChild(txt);
-  btn.addEventListener('click', promptNewFavorite);
-  li.appendChild(btn);
+
+  const novo = document.createElement('button');
+  novo.type = 'button';
+  novo.className = 'import-btn';
+  novo.appendChild(msym(ICON.folderNew));
+  const t1 = document.createElement('span');
+  t1.textContent = 'Nova pasta';
+  novo.appendChild(t1);
+  novo.addEventListener('click', promptNewFavorite);
+  li.appendChild(novo);
+
+  // No app é o SAF; no navegador, `showDirectoryPicker` — e onde nenhum dos
+  // dois existe (Firefox, Safari) quem diz isso é `openFolderSource`, na hora,
+  // com a frase inteira. É a condição que o botão do cabeçalho já tinha, isto
+  // é, nenhuma: esconder a ação num navegador que só a suporta às vezes trocaria
+  // um aviso claro por um botão ausente sem explicação.
+  {
+    const dev = document.createElement('button');
+    dev.type = 'button';
+    dev.className = 'import-btn';
+    dev.title = 'Sincronizar uma pasta do armazenamento do aparelho';
+    // Setas circulares, o MESMO desenho de "sincronizar" dos cards de coleção e
+    // da linha de cada pasta do sistema — `folder_open` fica reservado à
+    // IDENTIDADE de pasta, nunca à ação (a regra da linha da pasta, aqui de
+    // novo).
+    dev.innerHTML = syncIconSvg();
+    const t2 = document.createElement('span');
+    t2.textContent = 'Pasta do aparelho';
+    dev.appendChild(t2);
+    dev.addEventListener('click', () => syncDeviceFolder(undefined, dev));
+    li.appendChild(dev);
+  }
+
   favAlvo().appendChild(li);
 }
 
@@ -8515,15 +8558,22 @@ function openFolder(folder) {
   load();
 }
 
-// ===== Favoritos: a gaveta do topo =====
+// ===== A gaveta de uma PASTA =====
 // Abrir é entrar no `activeTab === 'folders'` de sempre — a diferença é só
 // ONDE a lista é desenhada (ver `listHost`). Manter o activeTab é o que faz
 // toda a navegação interna (abrir pasta, buscar, selecionar, excluir) continuar
 // valendo sem uma segunda implementação.
-// A aba que estava embaixo quando a gaveta abriu. Ela é aberta de QUALQUER aba
-// desde a v5.103 (o botão do cabeçalho), então fechar tem de devolver o
-// operador ao lugar de onde ele veio: quem abriu os favoritos no meio de uma
-// leitura bíblica não espera cair no Cronograma ao fechá-los.
+//
+// **ELA NÃO TEM MAIS PORTA PRÓPRIA** (v5.238, pedido do operador: "tudo agora
+// será dentro da biblioteca"). O botão do cabeçalho saiu, e o único caminho
+// para cá é ENTRAR NUMA PASTA a partir da seção de Favoritos da Biblioteca —
+// por `garantirGaveta`. O que sobrou aqui é o que só existe dentro de uma
+// pasta: o voltar, a busca do catálogo e a seleção múltipla, que são uma tela
+// inteira e não uma seção.
+//
+// A aba que estava embaixo quando a gaveta abriu: fechar tem de devolver o
+// operador ao lugar de onde ele veio — quem entrou numa pasta no meio de uma
+// leitura bíblica não espera cair no Cronograma ao sair dela.
 let favVoltarPara = 'imports';
 
 function openFavorites() {
@@ -8533,10 +8583,11 @@ function openFavorites() {
   hostSelbar();
 }
 
-// Fechar volta para o Cronograma, que é a tela que estava atrás. E volta para a
-// RAIZ: uma gaveta reabre no topo — reaparecer dentro de um atalho que o
-// operador fechou há dois toques seria uma memória que ninguém pediu (a
-// posição de ROLAGEM, essa sim, continua guardada por `scrollPos`).
+// Fechar devolve a aba de onde o operador veio — e a tela que aparece é a
+// BIBLIOTECA, que continua aberta atrás desta gaveta (v5.238). E zera a pasta:
+// uma gaveta reabre no topo — reaparecer dentro de um atalho que o operador
+// fechou há dois toques seria uma memória que ninguém pediu (a posição de
+// ROLAGEM, essa sim, continua guardada por `scrollPos`).
 function closeFavorites() {
   favPopupEl.classList.remove('open');
   if (selectionMode) exitSelection();
@@ -8572,9 +8623,12 @@ function navigateBack() {
     else if (bibleScreen === 'chapters') gotoBibleScreen('books');
     return;
   }
-  // Na raiz dos Favoritos o voltar FECHA a gaveta (a tela de trás é o
-  // Cronograma); dentro de um atalho/pasta, sobe um nível primeiro.
-  if (activeTab === 'folders' && currentFolder === null) { closeFavorites(); return; }
+  // A GAVETA SÓ EXISTE COMO TELA DE DENTRO (v5.238): ela deixou de ter porta
+  // própria — os favoritos são a primeira seção da Biblioteca —, e o único jeito
+  // de chegar aqui é entrando numa pasta. Então o voltar sempre FECHA, e a tela
+  // de trás é a Biblioteca, com a seção de onde o operador veio. Subir para uma
+  // "raiz" que ninguém mais alcança seria devolvê-lo a uma tela sem porta.
+  if (activeTab === 'folders') { closeFavorites(); return; }
   rememberScroll();
   // A seleção pertence à lista que está sendo deixada — mesmo motivo do
   // `exitSelection` que `switchTab` faz ao trocar de aba.
@@ -15721,14 +15775,12 @@ selFavEl.addEventListener('click', favoritarSelecionados);
 selFolderEl.addEventListener('click', () => openFolderPicker());
 // A gaveta de qualquer aba: é o que faz dos Favoritos um acesso rápido de
 // verdade, e não uma sub-tela no fim do Cronograma.
-favHeadBtnEl.addEventListener('click', openFavorites);
 plPackEl.addEventListener('click', guardarPacote);
 selDeleteEl.addEventListener('click', deleteSelected);
 selRenameEl.addEventListener('click', renameSelected);
 
 backBtnEl.addEventListener('click', navigateBack);
 favBackEl.addEventListener('click', navigateBack);
-addDirBtnEl.addEventListener('click', () => syncDeviceFolder(undefined, addDirBtnEl));
 // Buscar redesenha a lista inteira (innerHTML = '' + um object URL novo por
 // miniatura). Numa pasta de igreja com centenas de arquivos, sem debounce isso
 // acontecia por TECLA — e nas primeiras letras a lista ainda é quase inteira.
