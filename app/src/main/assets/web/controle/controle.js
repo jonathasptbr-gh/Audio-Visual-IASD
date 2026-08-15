@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.262';
+const WEB_VERSION = '5.263';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -6313,7 +6313,9 @@ function montarResumoGrupo(host, key, text, colls, gOpts, aposClique) {
   const complete = grupoCompleto(colls);
 
   const info = document.createElement('span');
-  info.className = 'coll-group-count' + (g.busy ? ' busy' : (complete ? ' done' : ''));
+  // `busy` fica (ele diz que ALGO está acontecendo, que o número não diz);
+  // `done` saiu na v5.263 — ver "O verde sai dos indicadores" em controle.css.
+  info.className = 'coll-group-count' + (g.busy ? ' busy' : '');
   info.textContent = g.status || fracaoPeso(colls.map((c) => c.id)) || '—';
   host.appendChild(info);
 
@@ -6386,12 +6388,14 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
     } else if (colls && colls.length) {
       // Grupo SEM botão de lote (ver "Hinários"): o contador continua, porque
       // ele informa; o que sai é a ação que juntaria coleções grandes demais
-      // num download só. A régua do "verde" é a MESMA do ramo com botão
-      // (`grupoCompleto`, que conta VARIANTES): a conta anterior, por músicas
-      // com `fileIdFull`, ignorava Playbacks e pintava de completo um hinário
-      // com instrumentais faltando — a divergência que a v5.134 aboliu.
+      // num download só.
+      //
+      // SEM O VERDE desde a v5.263 (pedido do operador): a fração já diz que o
+      // grupo está inteiro, e pintá-la era a mesma coisa dita duas vezes. Com
+      // ele saiu a razão de perguntar `grupoCompleto` aqui — a conta continua
+      // viva no ramo de cima, onde ela decide se o BOTÃO de lote aparece.
       const info = document.createElement('span');
-      info.className = 'coll-group-count' + (grupoCompleto(colls) ? ' done' : '');
+      info.className = 'coll-group-count';
       info.textContent = fracaoPeso(colls.map((c) => c.id)) || '—';
       li.appendChild(info);
     }
@@ -6479,7 +6483,7 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
       montarResumoGrupo(bar, 'grp:' + text, text, colls, gOpts);
     } else if (colls && colls.length) {
       const info = document.createElement('span');
-      info.className = 'coll-group-count' + (grupoCompleto(colls) ? ' done' : '');
+      info.className = 'coll-group-count';   // sem o verde (v5.263)
       info.textContent = fracaoPeso(colls.map((c) => c.id)) || '—';
       bar.appendChild(info);
     }
@@ -7156,7 +7160,7 @@ function buildCollectionOptions(coll, collOptsEl) {
   // desfazia metade do ganho de ter condensado o painel. Numa SÉRIE o número que importa não é quanto foi baixado (nada é,
   // por desenho — ver `serieComoYoutube`): é quantos episódios a lista tem.
   const estado = document.createElement('small');
-  estado.className = 'coll-opt-estado' + (complete && !ehSerie(coll) ? ' done' : '');
+  estado.className = 'coll-opt-estado';   // sem o verde (v5.263)
   if (u.syncBusy) {
     // Em movimento o estado é MUDO, e de propósito: quem escreve "Baixando 2 de
     // 4…" é a barra do card, fixa no topo do aberto e visível daqui. O que este

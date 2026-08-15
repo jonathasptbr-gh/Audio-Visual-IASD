@@ -1817,7 +1817,7 @@ main {
 .coll-group {
   flex-shrink: 0;
   display: flex; align-items: center; gap: .5rem;
-  font-size: .8rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  font-size: .9rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
   color: var(--muted);
   /* A direita reserva o MESMO espaço que o card gasta depois do botão de
      baixar — hoje só o padding dele (.7rem), já que a moldura e a seta do
@@ -1835,7 +1835,9 @@ main {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .coll-group-name + .coll-group-count { flex: 0 1 auto; }
-.coll-group-count.done { color: var(--ok); }
+/* (`.coll-group-count.done` saiu na v5.263 — ver "O verde sai dos
+   indicadores", abaixo. O verde continua existindo no app; o que ele deixou de
+   fazer é repetir em cor um número que já se lê.) */
 .coll-group-count.busy { color: var(--accent); }
 .coll-group-btn {
   /* `--hit`, o mesmo alvo do `.coll-bar-dl` do card: alinhados na coluna, os
@@ -2045,7 +2047,9 @@ main {
   border-radius: var(--radius-btn);
   background: var(--accent-soft); color: var(--accent); cursor: pointer;
 }
-.coll-bar-dl.done { color: var(--ok); }
+/* (`.coll-bar-dl.done` saiu na v5.263: era código morto desde a v5.135, em que
+   o botão de baixar SAI da barra com a coleção completa — nada nunca voltou a
+   acrescentar `done` a ele.) */
 /* Baixando: o toque CANCELA. Mesma família de aviso dos outros dois botões de
    cancelar (ver `.coll-group-btn.busy`). O ícone estava em `--danger`, que é
    escuro por construção, sobre a superfície de um botão DENTRO de um cartão —
@@ -2344,7 +2348,6 @@ main {
   font-variant-numeric: tabular-nums;
 }
 .coll-opt-estado::before { content: '·'; margin-right: .3rem; opacity: .65; }
-.coll-opt-estado.done { color: var(--ok); }
 
 /* A REMOÇÃO É SÓ O ÍCONE (v5.235). O que ela perde na tela — "do dispositivo",
    que dizia o ALCANCE — está inteiro no diálogo que ela abre ("Excluir o que
@@ -3193,22 +3196,45 @@ main {
    estrela quando se está dentro de um atalho/pasta (ver renderFavHeader). */
 #favPopup .back-btn { margin-left: -.25rem; }
 
-/* ---------- A BIBLIOTECA SOBE DA BASE (v5.262) ---------- */
-/* Ela descia do TOPO, e o argumento escrito aqui era o teclado: *"a bandeja fica
-   no topo e os resultados abaixo, sem serem cobertos pelo teclado que sobe da
-   base."* Esse argumento MORREU em dois lotes — a busca desceu para o rodapé
-   (v5.258) e a folha passou a ser a faixa visível (v5.261), então nada nela é
-   coberto por nada. O que sobrou foi a única folha do app que se move ao
-   contrário de todas as outras, e é isso que o pedido do operador corrige.
-   Subindo, ela chega pelo mesmo lado em que estão o dedo, o teclado e a barra
-   de busca — o movimento aponta para onde a tela vai ser operada.
+/* ---------- A BIBLIOTECA É UMA TELA, NÃO UM POPUP (v5.263) ---------- */
+/* Pedido do operador: *"troque a animação de slide vertical, há muitos problemas
+   com ela por causa do teclado, então faça apenas um fade in e out para a
+   biblioteca, e faça dela uma tela inteira e não um tipo de pop up."*
 
-   Nada é declarado aqui além disso: o `translateY(100%)` de partida e o
-   `translateY(0)` de chegada são os do `.popup-sheet`, e os cantos retos são os
-   do `.popup-sheet--full` (que os argumenta: canto arredondado anuncia "há algo
-   atrás", e numa folha de tela cheia não há). Este bloco existia para
-   SOBRESCREVER os três. */
-#hymnSearchPopup .popup-sheet { padding-bottom: 0; }
+   **Ele está encerrando uma sequência de três lotes, e tem razão.** A v5.258
+   desceu a barra de busca para o rodapé, a v5.261 descobriu que a camada fixa
+   ignorava o teclado, e a v5.262 inverteu o sentido do slide — três correções
+   em volta de uma animação que só existia para dizer "isto é uma folha". Ela
+   nunca foi de graça: um `transform` na folha a torna o bloco-contêiner de tudo
+   que for `position: fixed` lá dentro, e ela é a ÚNICA superfície do app que
+   hospeda um campo de texto colado no teclado. Sem deslocamento não há o que
+   brigar com o teclado, e é por isso que a resposta é tirar o movimento em vez
+   de acertá-lo pela quarta vez.
+
+   O que fica: a opacidade do `.popup-backdrop`, que já é o fade de todas as
+   camadas deste app (.25s, o mesmo tempo dos scrims). Nada de novo — o que este
+   bloco faz é DESLIGAR o resto.
+
+   E o SCRIM sai: uma tela não é desenhada por cima de outra escurecida. Ele era
+   invisível de qualquer forma (a folha cobre 100%), mas durante os .25s do fade
+   ele existia, e era o último tique de popup que sobrava.
+
+   **O fundo continua sendo `--panel`, e isso é medido, não conservadorismo:**
+   `--bg` é a página, e no tema CLARO `--bg` (#dfe3e7) e `--panel-2` (#dee2e8)
+   diferem em UM ponto por canal. Trocar o fundo desta tela pela cor da página
+   faria as barras de seção e os cards de álbum — que são `--panel-2` — sumirem
+   dentro dela, que é exatamente o defeito que a v5.241 mediu e corrigiu. A
+   escala de tons da Biblioteca é relativa à folha, e a folha precisa continuar
+   sendo um tom acima do que ela contém. */
+#hymnSearchPopup { background: none; }
+#hymnSearchPopup .popup-sheet {
+  /* `none`, não `translateY(0)`: sem transform a folha deixa de ser o
+     bloco-contêiner dos descendentes fixos, que é a metade da armadilha que
+     este lote está removendo. Uma declaração só cobre os dois estados — ela
+     ganha do `.popup-backdrop.open .popup-sheet` por especificidade. */
+  transform: none;
+  padding-bottom: 0;
+}
 
 /* Barra de busca do Hinário ocupando toda a largura da bandeja: display:flex faz
    o input (.lib-search, flex:1) esticar de lado a lado (sem isso o input ficava
@@ -3389,10 +3415,22 @@ main {
 }
 .item-detalhe-txt { display: flex; flex-direction: column; gap: .25rem; min-width: 0; }
 .item-detalhe-linha { font-size: .84rem; color: var(--muted); }
-/* Verde é "concluído/já resolvido" em todo o app, e aqui ele diz exatamente
-   isso: os bytes já estão neste aparelho. Sem o modificador a linha fica em
-   `--muted`, que é o estado neutro ("toca sem baixar") e o caso comum. */
-.item-detalhe-estado.done { color: var(--ok); font-weight: 600; }
+/* ---------- O VERDE SAI DOS INDICADORES (v5.263) ----------
+   Pedido do operador: *"remova a cor verde dos indicadores de tamanho das
+   coleções e também dos itens sobre a conclusão das atualizações completas."*
+
+   Ele está aplicando aqui a régua que já tirou o peso do painel do álbum
+   (v5.232) e o contador dos Favoritos (v5.239): **a mesma coisa dita duas
+   vezes**. "24/24" já diz que o álbum está inteiro no aparelho, e "Já no
+   aparelho" já diz que os bytes estão aqui — o verde ao lado não acrescenta um
+   bit de informação, e gasta a única cor que este app reserva para
+   "concluído/conectado" em três lugares onde o texto sozinho basta.
+
+   O que NÃO sai é a ÊNFASE: `font-weight: 600` fica, porque ele distingue o
+   estado resolvido do neutro sem pintar nada. E o verde continua onde ele é o
+   único sinal — a linha de aviso da lista (`.row-nota--ok`), o pulso de
+   confirmação, a tela conectada. */
+.item-detalhe-estado.done { font-weight: 600; }
 
 /* ---------- A folha rápida de uma música (▶ e + da linha do acervo) ---------- */
 /* Linhas LARGAS e ROTULADAS, o oposto dos seis ícones mudos que substituíram:

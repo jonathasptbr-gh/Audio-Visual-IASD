@@ -2981,10 +2981,60 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.262** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.263** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.263: A BIBLIOTECA VIRA UMA TELA — o slide sai por inteiro, e o verde
+> sai dos indicadores. OTA PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> Três pedidos, e o primeiro **REVOGA a v5.262**: *"troque a animação de slide
+> vertical, há muitos problemas com ela por causa do teclado, então faça apenas
+> um fade in e out para a biblioteca, e faça dela uma tela inteira e não um tipo
+> de pop up."*
+>
+> - **O SLIDE SAI, e o operador está encerrando uma sequência de três lotes.** A
+>   v5.258 desceu a barra de busca para o rodapé, a v5.261 descobriu que a camada
+>   fixa ignorava o teclado, e a v5.262 inverteu o sentido do movimento — três
+>   correções em volta de uma animação que só existia para dizer "isto é uma
+>   folha". **Três lotes seguidos consertando o entorno de uma animação são a
+>   animação dizendo que não vale o preço**, e ele nunca foi só estético: um
+>   `transform` na folha a torna o bloco-contêiner de tudo que for
+>   `position: fixed` lá dentro, e ela é a única superfície do app que hospeda um
+>   campo de texto colado no teclado. Fica a opacidade do `.popup-backdrop`, que
+>   já é o fade de todas as camadas deste app — nada de novo; o bloco de CSS
+>   apenas DESLIGA o resto. O **scrim** sai junto: era invisível (a folha cobre
+>   100%), mas existia durante os .25s do fade, e era o último tique de popup.
+> - **MAS O FUNDO CONTINUA `--panel`, e isso é medido.** A leitura natural de
+>   "tela inteira e não popup" é trocar o fundo pela cor da página; no tema CLARO
+>   `--bg` (#dfe3e7) e `--panel-2` (#dee2e8) diferem em **um ponto por canal**,
+>   então as barras de seção e os cards de álbum sumiriam dentro da tela — o
+>   defeito exato que a v5.241 mediu e corrigiu. A escala de tons da Biblioteca é
+>   RELATIVA à folha, e a folha precisa continuar um tom acima do que contém.
+> - **O VERDE SAI DOS INDICADORES** — *"remova a cor verde dos indicadores de
+>   tamanho das coleções e também dos itens sobre a conclusão das atualizações
+>   completas."* É a régua que já tirou o peso do painel do álbum (v5.232) e o
+>   contador dos Favoritos (v5.239): **a mesma coisa dita duas vezes.** "24/24"
+>   já diz que o álbum está inteiro e "Já no aparelho" já diz que os bytes estão
+>   aqui; o verde ao lado não acrescenta um bit e gasta a única cor que este app
+>   reserva para "concluído/conectado". Saíram `.coll-group-count.done`,
+>   `.coll-opt-estado.done` e a cor de `.item-detalhe-estado.done` — **a ÊNFASE
+>   fica** (o negrito distingue o resolvido do neutro sem pintar nada), e o verde
+>   continua onde é o único sinal (a linha de aviso, o pulso, a tela conectada).
+>   Junto saiu `.coll-bar-dl.done`, CSS morto desde a v5.135, e as quatro
+>   atribuições de classe que agora não teriam regra.
+> - **E OS TÍTULOS DAS COLEÇÕES FICARAM MAIORES** (`.8rem` → `.9rem`). A v5.262
+>   se contentou com "a seção chega perto do álbum", e perto não é uma escala: a
+>   régua passou a ser **estritamente decrescente para dentro** — 14,4 > 14,08 >
+>   13,12px —, que é a única leitura que uma árvore oferece de graça.
+>
+> Verificado por ISOLAMENTO, uma peça de cada vez: devolvendo o slide e o scrim,
+> **2** asserções reprovam; devolvendo a seção a `.8rem`, **1**; devolvendo o
+> verde aos três indicadores, **1**. O caso do verde mede por ELEMENTO DE PROVA
+> e não pelo desenho: os três estados só existem com uma coleção inteira no
+> aparelho, e um fixture sem isso devolveria a cor herdada do `<body>` nos três
+> — uma desigualdade que passa sem medir nada (a lição da v5.208).
 
 > **A v5.262: A BIBLIOTECA SOBE DA BASE, os Favoritos ganham a seta que
 > faltava, e a escala de títulos passa a ser uma escala. OTA PURO** (nenhuma

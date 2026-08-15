@@ -846,9 +846,15 @@ try {
   checar(linha.fonteAlbum < 15,
     'e o teto da escala caiu: nada na Biblioteca é desenhado nos 15,2px de antes,'
     + ' que era o que cortava (' + linha.fonteAlbum + 'px)');
-  checar(linha.fonteSecao >= linha.fonteAlbum * 0.88,
-    'a seção deixou de ser o MENOR nível da árvore sendo o mais externo — ela era'
-    + ' 22% menor que o álbum (' + linha.fonteSecao + 'px contra ' + linha.fonteAlbum + 'px)');
+  // ESTRITAMENTE decrescente para dentro (v5.263, "pode deixar maior o tamanho
+  // dos títulos das coleções"): a v5.262 se contentou com "a seção chega perto
+  // do álbum", e perto não é uma escala. Agora os três degraus são ordenados, e
+  // o mais externo é o maior — que é a única leitura que uma árvore oferece de
+  // graça.
+  checar(linha.fonteSecao > linha.fonteAlbum,
+    'e a seção é o MAIOR dos três: a escala decresce para dentro, do mais externo'
+    + ' ao mais interno (' + linha.fonteSecao + ' > ' + linha.fonteAlbum + ' > '
+    + linha.fonteItem + 'px)');
   checar(linha.subAlbum === linha.subItem,
     'e "subtítulo da Biblioteca" é UM valor: o do card e o da faixa deixaram de '
     + 'diferir por meio ponto (' + linha.subItem + 'px)');
@@ -1442,33 +1448,90 @@ try {
   checar(false, 'a medição da Biblioteca terminou sem exceção (' + (e && e.message) + ')');
 }
 
-// ---------- A BIBLIOTECA SOBE DA BASE (v5.262) ----------
-// Pedido do operador: *"ajuste a animação de abertura da tela de biblioteca,
-// para que ela seja vertical de baixo para cima."*
+// ---------- A BIBLIOTECA É UMA TELA, E ELA SÓ ESMAECE (v5.263) ----------
+// Pedido do operador: *"troque a animação de slide vertical, há muitos
+// problemas com ela por causa do teclado, então faça apenas um fade in e out
+// para a biblioteca, e faça dela uma tela inteira e não um tipo de pop up."*
 //
-// Ela descia do topo, e o que se mede é o QUADRO INICIAL — a folha fechada tem
-// de estar ABAIXO da tela, nunca acima. Medir o estado final não distingue as
-// duas direções (as duas chegam em `translateY(0)`), que é exatamente o erro
-// que faria este caso passar sem provar nada.
+// São TRÊS metades, e nenhuma basta: não há deslocamento em nenhum dos dois
+// estados (tirar só o `translateY(100%)` do fechado deixaria a folha entrar com
+// um salto), o que muda entre eles é a OPACIDADE, e a camada não tem scrim —
+// que é o último tique de popup que sobrava.
+//
+// (Ele REVOGA a v5.262, que tinha invertido o sentido do slide. O diagnóstico
+// de lá continua correto e é a razão desta: três lotes seguidos corrigindo o
+// entorno de uma animação são a animação dizendo que não vale o preço.)
 try {
-  const dir = await pg.evaluate(() => {
-    const folha = document.querySelector('#hymnSearchPopup .popup-sheet');
+  const tela = await pg.evaluate(async () => {
+    const camada = document.getElementById('hymnSearchPopup');
+    const folha = camada && camada.querySelector('.popup-sheet');
     if (!folha) return null;
-    closeHymnSearch();
-    const fechada = getComputedStyle(folha).transform;
-    // `matrix(a,b,c,d,tx,ty)` — o ty é o sexto número. Positivo = a folha está
-    // guardada ABAIXO da tela, isto é, ela sobe para entrar.
-    const ty = (m) => {
-      const n = /matrix\(([^)]+)\)/.exec(m);
-      return n ? parseFloat(n[1].split(',')[5]) : 0;
+    // `matrix(a,b,c,d,tx,ty)`: qualquer deslocamento aparece em tx/ty.
+    const desloc = (el) => {
+      const m = /matrix\(([^)]+)\)/.exec(getComputedStyle(el).transform);
+      if (!m) return 0;   // 'none'
+      const n = m[1].split(',');
+      return Math.abs(parseFloat(n[4])) + Math.abs(parseFloat(n[5]));
     };
-    return { ty: ty(fechada), alturaTela: window.innerHeight };
+    closeHymnSearch();
+    await new Promise((r) => setTimeout(r, 350));
+    const fechada = { desloc: desloc(folha), opacidade: parseFloat(getComputedStyle(camada).opacity) };
+    setAppMode('full');
+    openHymnSearch();
+    await new Promise((r) => setTimeout(r, 350));
+    const aberta = { desloc: desloc(folha), opacidade: parseFloat(getComputedStyle(camada).opacity) };
+    const scrim = getComputedStyle(camada).backgroundColor;
+    closeHymnSearch();
+    return { fechada, aberta, scrim };
   });
-  checar(!!dir && dir.ty >= dir.alturaTela - 1,
-    'a Biblioteca FECHADA fica guardada abaixo da tela — ela sobe da base, como '
-    + 'as demais folhas', dir ? Math.round(dir.ty) + 'px' : 'sem folha');
+  checar(!!tela && tela.fechada.desloc === 0 && tela.aberta.desloc === 0,
+    'a Biblioteca não DESLIZA em estado nenhum — fechada e aberta ela está no '
+    + 'mesmo lugar', tela ? tela.fechada.desloc + ' / ' + tela.aberta.desloc : 'sem folha');
+  checar(!!tela && tela.fechada.opacidade === 0 && tela.aberta.opacidade === 1,
+    'o que a abre e a fecha é a OPACIDADE, e só ela');
+  checar(!!tela && /rgba\(0, 0, 0, 0\)|transparent/.test(tela.scrim),
+    'e ela não tem SCRIM: é uma tela, não um popup desenhado por cima de outra '
+    + 'escurecida', tela ? tela.scrim : '?');
 } catch (e) {
-  checar(false, 'a medição da direção de abertura terminou sem exceção (' + (e && e.message) + ')');
+  checar(false, 'a medição da abertura da Biblioteca terminou sem exceção (' + (e && e.message) + ')');
+}
+
+// ---------- O VERDE SAI DOS INDICADORES (v5.263) ----------
+// Pedido do operador: *"remova a cor verde dos indicadores de tamanho das
+// coleções e também dos itens sobre a conclusão das atualizações completas."*
+//
+// Medido por ELEMENTO DE PROVA, e não pelo desenho: os três estados só existem
+// com uma coleção inteira no aparelho, e um fixture sem isso devolveria a cor
+// herdada do `<body>` nos três — uma desigualdade que passa sem medir nada (a
+// lição da v5.208).
+try {
+  const verde = await pg.evaluate(() => {
+    const cor = (cls, estilo) => {
+      const e = document.createElement('span');
+      if (cls) e.className = cls;
+      if (estilo) e.style.color = estilo;
+      document.body.appendChild(e);
+      const c = getComputedStyle(e).color;
+      const p = getComputedStyle(e).fontWeight;
+      e.remove();
+      return { c, p };
+    };
+    const ok = cor(null, 'var(--ok)').c;
+    return {
+      ok,
+      secao: cor('coll-group-count done').c,
+      album: cor('coll-opt-estado done').c,
+      item: cor('item-detalhe-estado done'),
+    };
+  });
+  checar(verde.secao !== verde.ok && verde.album !== verde.ok && verde.item.c !== verde.ok,
+    'nenhum indicador de conclusão da Biblioteca é pintado de VERDE — a fração '
+    + 'já diz que está completo, e a cor dizia a mesma coisa outra vez');
+  checar(verde.item.p === '600',
+    'mas a ÊNFASE fica: "Já no aparelho" continua em negrito, que distingue o '
+    + 'estado resolvido do neutro sem gastar a cor', verde.item.p);
+} catch (e) {
+  checar(false, 'a medição do verde terminou sem exceção (' + (e && e.message) + ')');
 }
 
 // ---------- A BUSCA DA BIBLIOTECA E O TECLADO (v5.261) ----------
