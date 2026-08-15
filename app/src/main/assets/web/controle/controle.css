@@ -2029,12 +2029,17 @@ main {
   text-align: center; text-wrap: balance;
 }
 /* O mesmo botão vira "cancelar" enquanto o download roda (ver
-   renderCollectionOptions) — sem giro, e em AVISO para não se confundir nem
+   `buildCollectionOptions`) — sem giro, e em AVISO para não se confundir nem
    com a ação normal nem com excluir, que são os seus dois vizinhos imediatos
-   nesta mesma folha. Era `--brand`, e nesta paleta a cor da marca tem o
+   nesta mesma linha. Era `--brand`, e nesta paleta a cor da marca tem o
    mesmo valor do accent: ficaria idêntico à ação normal, que é exatamente o
-   que o raciocínio original queria evitar. */
-.coll-opts .new-folder-btn.cancel { color: var(--warn-text); background: var(--warn-soft); }
+   que o raciocínio original queria evitar.
+
+   O AVISO mudou de PAPEL na v5.232: ele era o fundo chapado do botão, e agora
+   é a borda + o texto, porque o fundo passou a ser o PROGRESSO (abaixo). Um
+   preenchimento em `--warn-soft` sobre um fundo `--warn-soft` seria uma barra
+   invisível — o estado que ela existe para mostrar. */
+.coll-opts .new-folder-btn.cancel { color: var(--warn-text); border-color: var(--warn); }
 /* (`.hymnal-card-status` e suas variantes saíram na v5.73 junto com a linha de
    texto que vestiam: o estado parado virou parte do chip de sincronizados e o
    progresso já vive na barra do card, que é fixa no topo do aberto.) */
@@ -2046,30 +2051,50 @@ main {
    botão de sincronizar do bottom-sheet NÃO gira enquanto baixa — ele vira
    "cancelar", e isso está dito no comentário de `.new-folder-btn.cancel`. */
 
-/* Faixa de estatísticas (chips): sincronização+offline à esquerda, peso à
-   direita. Eram TRÊS chips (sincronizados / peso / Rede) mais uma linha de
-   status repetindo o estado; desde a v5.73 são dois, e o peso é o único que
-   não cresce — daí ele ficar ancorado na borda oposta. */
-.hymnal-card-stats { display: flex; gap: .4rem; }
-.hymnal-stat {
-  flex: 1 1 auto; min-width: 0;
-  display: flex; flex-direction: column; gap: 1px;
-  background: var(--surface-2); border-radius: var(--radius-btn);
-  padding: .32rem .55rem;
+/* (A FAIXA DE CHIPS SAIU NA v5.232 — `.hymnal-card-stats` e `.hymnal-stat`,
+   com o chip de sincronização e o de peso. Eram duas linhas de INFORMAÇÃO
+   acima de uma linha de AÇÃO, num painel que hoje é a linha de ação e nada
+   mais: o peso já está na barra do card, antes de abrir, e o estado desceu
+   para dentro do botão que ele qualifica — ver `.coll-opt-estado`.) */
+
+/* O ESTADO, dentro do botão de verificação. Ele é o rodapé do rótulo: menor,
+   apagado, e SEM competir com a palavra que diz o que o toque faz. Por isso
+   `flex-basis: 100%` no botão que o contém — o estado quebra para a própria
+   linha em vez de disputar a horizontal com o ícone e o rótulo. */
+.coll-opts-acoes .new-folder-btn { flex-wrap: wrap; }
+.coll-opt-estado {
+  flex-basis: 100%; font-size: .68rem; font-weight: 600;
+  color: var(--muted); line-height: 1.1;
 }
-/* O peso é um número curto: `flex:0` para ele parar no próprio tamanho, e o
-   texto alinhado à direita para o valor bater com a borda do painel. */
-.hymnal-stat.right { flex: 0 0 auto; text-align: right; }
-.hymnal-stat label, .hymnal-stat b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hymnal-stat label { font-size: .56rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
-.hymnal-stat b { font-size: .82rem; font-weight: 700; color: var(--text); }
-.hymnal-stat.done b { color: var(--ok); }
-/* O chip de sincronização carrega duas coisas na mesma linha ("4/4 · Completo
-   offline"), com um ✓ à frente quando está completo: `flex` para o ícone não
-   ser espremido pelo `text-overflow` do texto ao lado. */
-.hymnal-stat.sinc b { display: flex; align-items: center; gap: .3rem; }
-.hymnal-stat.sinc b svg { flex-shrink: 0; }
-.hymnal-stat.sinc b span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* Completo é a MESMA cor de "concluído" do resto do app (`--ok`), e é o único
+   estado que ganha cor: os outros são contagens, não desfechos. */
+.coll-opt-estado.done { color: var(--ok); }
+
+/* O PROGRESSO DESENHADO (v5.232): enquanto o download roda, o próprio botão de
+   cancelar se preenche até `--p`. Ele não escreve nada — quem escreve
+   "Baixando 2 de 4…" é a barra do card, dois centímetros acima —, e é essa a
+   razão de ele existir: responder "quanto falta?" sem uma segunda frase.
+
+   `::before` com `inset` e `width`, atrás do conteúdo (`z-index: 0` nos
+   filhos): pintar o fundo do próprio botão exigiria um gradiente recalculado a
+   cada música, e um `background-size` animado não respeita o raio da borda.
+   Sem `--p` (coleção sem índice) a largura é 0 e não há barra nenhuma — uma
+   proporção que não se conhece não se desenha. */
+.coll-opts .new-folder-btn.cancel {
+  position: relative; overflow: hidden;
+  /* `isolation` NÃO é enfeite: sem um contexto de empilhamento próprio, o
+     `z-index: -1` do preenchimento cairia atrás do FUNDO do próprio botão e
+     nada apareceria. E o -1 é obrigatório porque o rótulo é um NÓ DE TEXTO —
+     texto solto não recebe `z-index`, então quem tem de descer é a barra:
+     com `z-index: 0` ela pintaria por cima da palavra "Cancelar". */
+  isolation: isolate;
+}
+.coll-opts .new-folder-btn.cancel::before {
+  content: ''; position: absolute; inset: 0 auto 0 0; z-index: -1;
+  width: var(--p, 0); background: var(--warn-soft);
+  transition: width .3s cubic-bezier(.22, .61, .36, 1);
+  pointer-events: none;
+}
 
 /* ---------- Bíblia: seleção em "tabela periódica" ---------- */
 /* Três telas de seleção (livros → capítulos → versículos), cada uma uma grade

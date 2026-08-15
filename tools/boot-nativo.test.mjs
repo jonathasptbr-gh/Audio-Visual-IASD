@@ -317,6 +317,67 @@ try {
   checar(!semLote.temBotaoBaixar,
     'e ele NÃO tem o botão de baixar a coleção — "não quero um download direto"');
 
+  // ── AS OPÇÕES DO ÁLBUM SÃO UMA LINHA SÓ (v5.232) ───────────────────────
+  // Pedido do operador: o PESO sai (ele já está na barra, antes de abrir) e o
+  // resto vira uma linha — a verificação (com progresso e resultado) ou a
+  // remoção. O que este caso trava é o par: os chips SUMIRAM **e** o estado que
+  // eles carregavam continua na tela. Sem a segunda metade, apagar o painel
+  // inteiro passaria — a mesma cobrança de duas metades do `registro.test.mjs`.
+  const opcoes = await pg.evaluate(() => {
+    const c = allCollections().find((x) => x.kind === 'serie');
+    // ABRE e redesenha NA MESMA lista que o caso anterior usou: o
+    // `openCollectionOptions` marca o estado e manda o acervo se redesenhar, e
+    // o acervo de verdade não é este `<ul>` de teste.
+    openCollectionOptions(c);
+    const lista = document.getElementById('hymnResults');
+    // ZERA a lista antes: `renderCollectionsList` ACRESCENTA, e o caso acima já
+    // desenhou uma vez — sem isto o `find` acharia o card VELHO, ainda fechado,
+    // e a asserção reprovaria por um card que não é o que está na tela.
+    lista.innerHTML = '';
+    renderCollectionsList(lista, () => {}, { semTotal: true });
+    const card = [...lista.querySelectorAll('.hymnal-card')]
+      .find((el) => /Provai e Vede 2026/.test(el.textContent));
+    const opts = card && card.querySelector('.coll-opts');
+    const filhos = opts ? [...opts.children].map((el) => el.className) : [];
+    const btns = opts ? [...opts.querySelectorAll('button')] : [];
+    // Uma LINHA: todos os controles do painel partilham o mesmo topo.
+    const topos = btns.map((b) => Math.round(b.getBoundingClientRect().top));
+    return {
+      achou: !!opts,
+      filhos,
+      chips: opts ? opts.querySelectorAll('.hymnal-stat, .hymnal-card-stats').length : -1,
+      // O peso da BARRA continua onde sempre esteve — é ele que torna o do
+      // painel redundante, então a asserção precisa vê-lo para valer.
+      pesoNaBarra: !!(card && /\d+(,\d+)?\s?(KB|MB|GB)/.test(
+        (card.querySelector('.coll-bar-sync') || {}).textContent || '')),
+      pesoNoPainel: opts ? /\d+(,\d+)?\s?(KB|MB|GB)/.test(opts.textContent) : true,
+      rotulos: btns.map((b) => b.textContent.trim().replace(/\s+/g, ' ')),
+      estado: opts ? [...opts.querySelectorAll('.coll-opt-estado')].map((e) => e.textContent) : [],
+      umaLinha: topos.length > 1 && Math.max(...topos) - Math.min(...topos) <= 2,
+    };
+  });
+  checar(opcoes.achou, 'o painel de opções do álbum abre');
+  checar(opcoes.chips === 0,
+    'e a faixa de CHIPS não existe mais nele', JSON.stringify(opcoes.filhos));
+  checar(opcoes.pesoNaBarra && !opcoes.pesoNoPainel,
+    'o PESO ficou só na barra do card, antes de abrir — no painel ele era a mesma '
+    + 'medida dita duas vezes');
+  // UMA linha é literal, e são DUAS medidas: o painel tem um filho só (não
+  // sobrou faixa nenhuma acima dos botões) e os botões partilham o mesmo topo.
+  // Sem a primeira, a asserção passaria com os chips de volta — eles nunca
+  // estiveram na mesma linha dos botões, estavam ACIMA deles.
+  checar(opcoes.umaLinha && opcoes.filhos.length === 1,
+    'e o que sobrou divide UMA linha: verificação e remoção', JSON.stringify(opcoes.rotulos));
+  checar(opcoes.estado.length === 1 && /episódios|sem lista/.test(opcoes.estado[0]),
+    'o ESTADO não se perdeu: ele desceu para dentro do botão que ele qualifica ("'
+    + (opcoes.estado[0] || '') + '")');
+  await pg.evaluate(() => {
+    const lista = document.getElementById('hymnResults');
+    allCollections().forEach((c) => { ui(c.id).expanded = false; });
+    lista.innerHTML = '';
+    renderCollectionsList(lista, () => {}, { semTotal: true });
+  });
+
   // E o bloco de conexão do Modo Fácil, que é o caminho que a v5.195 quebrou:
   // com shell >= 32 ele mostra as DUAS formas de conectar, não só o espelhar.
   const conn = await pg.evaluate(() => {
