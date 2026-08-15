@@ -149,7 +149,7 @@ class NativeBridge(
          * exijam mais do que o shell instalado oferece (ver [WebUpdater]).
          * Subir SEMPRE que a superfície da ponte mudar.
          *
-         * 41 (v5.228) — `nowPlaying` ganhou **`actions`**: a lista de botões da
+         * 42 (v5.231) — `nowPlaying` ganhou **`actions`**: a lista de botões da
          * notificação de controles, na ordem, escolhida pelo LADO WEB. É a
          * invariante 5 aplicada ao cartão — quem sabe se "próxima estrofe" faz
          * sentido agora é o `controle.js`, e cinco botões fixos serviam a uma
@@ -157,10 +157,30 @@ class NativeBridge(
          * play/pause não têm o que fazer e ocupavam o modo compacto.
          *
          * O degrau é obrigatório porque o campo muda o que o CARTÃO MOSTRA, e a
-         * degradação tem de ser nos dois sentidos: bundle antigo em shell 41
+         * degradação tem de ser nos dois sentidos: bundle antigo em shell 42
          * manda a lista vazia e recebe os cinco de sempre (`ACOES_PADRAO`);
-         * bundle novo em shell 40 tem o campo ignorado pelo `optJSONArray` e
+         * bundle novo em shell 41 tem o campo ignorado pelo `optJSONArray` e
          * também fica com os cinco. Nenhum dos dois vê botão faltando.
+
+         * 41 (v5.231) — `ytPlaylist` e `ytCanalPlaylists`: as SÉRIES da
+         * Biblioteca (o álbum "Provai e Vede 2026" é a primeira delas).
+         *
+         * Os dois são TRANSPORTE, e a divisão de trabalho é o que importa aqui:
+         * eles devolvem o que o canal publica, verbatim e na ordem dele, sem
+         * opinião nenhuma sobre o que presta. Quem decide qual playlist é da
+         * série, qual é a versão em LIBRAS e como o item se chama na lista é
+         * `assets/web/controle/serie.js` — invariante 5, com uma razão prática
+         * que não é teórica: a nomenclatura de um canal muda sem avisar
+         * ninguém (as playlists do @provaievedeoficial não são sequer
+         * consistentes entre si — uma delas não tem o hífen que todas as
+         * outras têm), e cada ajuste dessa regra custaria um degrau daqui e
+         * uma Release se ela morasse em Kotlin. Do lado web ela chega por OTA
+         * em minutos, e tem oráculo em Node puro (`tools/serie.test.mjs`).
+         *
+         * O bundle não desenha o card da série abaixo deste degrau, pela regra
+         * de sempre (`appendYoutubeSearch`, a linha do espelho): um método novo
+         * NÃO chega por OTA, e um card que não carrega nada é pior que card
+         * nenhum.
          *
          * 40 (v5.206) — A LIMPEZA QUE A v5.187 DEIXOU PELA METADE, e ela é um
          * ENCOLHIMENTO em duas formas de retorno:
@@ -259,7 +279,7 @@ class NativeBridge(
          * novo NÃO chega por OTA, e um botão que não faz nada no meio de um
          * culto é pior que botão nenhum (a mesma regra do `appendYoutubeSearch`).
          */
-        const val SHELL_VERSION = 41
+        const val SHELL_VERSION = 42
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -639,7 +659,7 @@ class NativeBridge(
                 wallpaper = o.optBoolean("wallpaper"),
                 positionMs = o.optLong("positionMs"),
                 durationMs = o.optLong("durationMs"),
-                // OS BOTÕES DA NOTIFICAÇÃO, escolhidos pelo lado web (v5.228 /
+                // OS BOTÕES DA NOTIFICAÇÃO, escolhidos pelo lado web (v5.231 /
                 // shell 41) — ver [SessionService.Companion.Scene.actions].
                 // Ausente ou vazio = o conjunto clássico de cinco, que é o que
                 // um bundle antigo neste shell tem de continuar produzindo.
@@ -984,6 +1004,44 @@ class NativeBridge(
         io.execute {
             val r = try { YoutubeGrab.pesquisar(termo) } catch (_: Exception) { JSONArray() }
             resolve(callId, r.toString())
+        }
+    }
+
+    /**
+     * As PLAYLISTS que um canal publica — `[{ name, url, count }]`.
+     *
+     * A metade de descoberta das SÉRIES da Biblioteca (shell 41). É a aba
+     * Playlists do canal, **não uma busca por texto**, e a diferença é de
+     * autoridade: numa busca quem escolhe é o ranking do YouTube, e qualquer
+     * pessoa pode nomear uma playlist "Provai e Vede 2026". Vindo do canal, o
+     * pior caso é uma playlist a menos — nunca o vídeo de um desconhecido na
+     * projeção do culto.
+     *
+     * Sem opinião sobre o conteúdo: quem lê os nomes é o `serie.js`.
+     */
+    @JavascriptInterface
+    fun ytCanalPlaylists(callId: String, canalUrl: String) {
+        if (host == null) { resolve(callId, "[]"); return }
+        io.execute {
+            val r = try { YoutubeGrab.playlistsDoCanal(canalUrl) } catch (_: Exception) { JSONArray() }
+            resolve(callId, r.toString())
+        }
+    }
+
+    /**
+     * Os vídeos de UMA playlist — `{ name, author, items:[…] }`.
+     *
+     * O `name` de cada item é o título CRU do YouTube, sem o `tituloLimpo` que
+     * a busca aplica: é dele que o `serie.js` tira a data do episódio
+     * (`(15/Ago)`) e a marca de Libras, e cortar antes de entregar seria
+     * decidir do lado errado do fio.
+     */
+    @JavascriptInterface
+    fun ytPlaylist(callId: String, url: String) {
+        if (host == null) { resolve(callId, "null"); return }
+        io.execute {
+            val r = try { YoutubeGrab.playlist(url) } catch (_: Exception) { null }
+            resolve(callId, r?.toString() ?: "null")
         }
     }
 

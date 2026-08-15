@@ -118,7 +118,7 @@ try {
   checar(n.slideLabel === 'página',
     'nowPlaying leva o `slideLabel` — foi ele que ficou de fora da v5.97 à v5.102',
     JSON.stringify(n));
-  // O CONJUNTO DE BOTÕES (v5.228), pelo mesmo motivo e no mesmo lugar: é o
+  // O CONJUNTO DE BOTÕES (v5.231), pelo mesmo motivo e no mesmo lugar: é o
   // campo mais novo deste objeto remontado campo a campo, e sem ele o Kotlin lê
   // lista vazia — que é um valor LEGÍTIMO ("use os cinco de sempre"). O
   // esquecimento não daria erro nenhum: daria a notificação de antes, para

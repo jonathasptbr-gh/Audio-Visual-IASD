@@ -100,7 +100,7 @@ object SessionRemote {
  * [EspelhoEnergia] — e é ele que derruba a primeira Release de quem o remover
  * do manifest achando que sobrou do mDNS.
  *
- * ## O cartão tem DUAS CARAS — mas a transmissão aparece nas DUAS (v5.228)
+ * ## O cartão tem DUAS CARAS — mas a transmissão aparece nas DUAS (v5.231)
  *
  * Com cena: o player (título, barra, controles). Sem cena e com a transmissão
  * no ar: o endereço, quantas telas estão recebendo e o botão **Desligar
@@ -108,7 +108,7 @@ object SessionRemote {
  * escuro, ele seria um toque errado derrubando a projeção da igreja inteira;
  * sem cena não há transporte a mostrar, e sobra o espaço exato para ele.
  *
- * O que mudou na v5.228 é que a cara do PLAYER deixou de apagar a outra: com
+ * O que mudou na v5.231 é que a cara do PLAYER deixou de apagar a outra: com
  * uma cena no ar, o endereço e a contagem de telas viram o SUBTEXTO do cartão
  * (a linha do cabeçalho, que o `MediaStyle` desenha e que não disputa espaço
  * com o título nem com os botões). Antes disso, pôr um louvor para tocar fazia
@@ -125,7 +125,7 @@ object SessionRemote {
  * para controlar coisa nenhuma. Duas caras num cartão só é o melhor que a
  * plataforma permite sem inventar um desses dois defeitos.
  *
- * ## E os BOTÕES são escolhidos pelo lado web (v5.228 / shell 41)
+ * ## E os BOTÕES são escolhidos pelo lado web (v5.231 / shell 42)
  *
  * Ver [Scene.actions]. Cinco fixos serviam a uma cena só; a lista vem de fora
  * pela invariante 5 — quem sabe se "próxima estrofe" faz sentido agora é o
@@ -457,7 +457,7 @@ class SessionService : Service() {
             val positionMs: Long = 0,
             val durationMs: Long = 0,
             /**
-             * OS BOTÕES DESTA CENA, na ordem, escolhidos pelo LADO WEB (v5.228).
+             * OS BOTÕES DESTA CENA, na ordem, escolhidos pelo LADO WEB (v5.231).
              *
              * Cinco botões fixos serviam a uma cena só — a de mídia tocando. Com
              * um cronômetro no ar sem louvor nenhum, ⏮/⏭ e o play/pause não têm
@@ -479,7 +479,7 @@ class SessionService : Service() {
         )
 
         /**
-         * O conjunto clássico — o que existia até a v5.228, e o que vale quando
+         * O conjunto clássico — o que existia até a v5.231, e o que vale quando
          * o lado web não manda nada (bundle antigo).
          */
         private val ACOES_PADRAO = listOf(
@@ -911,7 +911,7 @@ class SessionService : Service() {
                 .setOngoing(s.playing)
             montadas.forEach { b.addAction(it) }
 
-            // A TRANSMISSÃO APARECE AQUI TAMBÉM (v5.228). Com uma cena no ar
+            // A TRANSMISSÃO APARECE AQUI TAMBÉM (v5.231). Com uma cena no ar
             // este cartão substitui o da transmissão, e até aqui isso a
             // apagava: o operador ligava as telas da rede, punha um louvor, e
             // a gaveta deixava de dizer que havia um servidor no ar. Agora ela

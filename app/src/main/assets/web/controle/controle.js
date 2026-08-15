@@ -209,7 +209,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.227';
+const WEB_VERSION = '5.231';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -583,8 +583,34 @@ let albumCatalog = { categories: [], albums: [] };
 // Registro completo de coleções: hinários fixos + um card por álbum do catálogo.
 // `subtitle`/`order` NÃO entram aqui: são do pivô categoria↔álbum e só fazem
 // sentido no contexto de uma categoria (ver renderCollectionsList).
+// AS SÉRIES DO YOUTUBE (v5.231) — um card por série do catálogo de `serie.js`.
+// A primeira é "Provai e Vede 2026"; a regra que decide o que entra em cada uma
+// mora lá, e o que chega aqui é só o card.
+//
+// **Guardadas por SHELL 41**, e é a regra de sempre (`appendYoutubeSearch`, a
+// linha do espelho): `ytCanalPlaylists`/`ytPlaylist` não chegam por OTA, então
+// num shell antigo o card existiria sem ter como carregar item nenhum — pior
+// que card nenhum, ainda mais numa tela em que o operador procura o vídeo do
+// culto. Ele aparece sozinho depois que o APK novo for instalado. No navegador
+// `__SHELL_VERSION__` é `undefined`, o `| 0` o zera, e a série simplesmente não
+// existe — a base continua rodando fora do aparelho, como manda a regra.
+const SERIE_SHELL = 41;
+function serieDisponivel() {
+  return !!window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= SERIE_SHELL
+    && !!window.AVSerie;
+}
+function serieCollections() {
+  if (!serieDisponivel()) return [];
+  // `iconKey` só assume 'music' ou 'queue' (ver o comentário do `ICON`): um
+  // nome novo aqui seria um codepoint fora do subset da fonte, isto é, um
+  // retângulo vazio no card — a armadilha da v5.184 e da v5.200.
+  return AVSerie.SERIES.map((s) => ({
+    id: s.id, name: s.name, kind: 'serie', serie: s, source: s.canal, iconKey: 'queue',
+  }));
+}
+
 function allCollections() {
-  const cols = FIXED_COLLECTIONS.slice();
+  const cols = FIXED_COLLECTIONS.concat(serieCollections());
   for (const a of albumCatalog.albums) {
     cols.push({ id: 'album-' + a.id_album, name: a.name, kind: 'album',
       source: 'album_' + a.id_album, albumId: a.id_album, iconKey: 'queue',
@@ -926,6 +952,14 @@ let filaPeso = Promise.resolve();
 // álbum ainda vazio não teria tamanho nenhum a mostrar, que é exatamente
 // quando a informação é mais útil.
 const BPS_PADRAO = 16000;          // 128 kbps ≈ 16 KB/s
+// E a de VÍDEO, que é outra ordem de grandeza (v5.229). A escada acima
+// pressupõe áudio em todos os degraus: a constante é o bitrate do LouvorJA, e a
+// média global é dominada por hinário. Numa SÉRIE ainda vazia — que é
+// exatamente quando o número importa — os dois davam ~16 KB/s para um 1080p que
+// entrega ~600, e a tela prometia **~50 MB para um ano que pesa ~15 GB**.
+// Errar por 40× na única pergunta que essa conta existe para responder ("espero
+// o Wi-Fi?") é pior que não mostrar número nenhum.
+const BPS_VIDEO_PADRAO = 600000;   // ~4,8 Mbps ≈ 600 KB/s (1080p do YouTube)
 const SEG_PADRAO = 210;            // 3min30 — só para faixa sem duração no índice
 
 function segundosDaMusica(s) { return parseTimeToSeconds(s && s.duration) || 0; }
@@ -1021,15 +1055,37 @@ function grupoCompleto(colls) {
 }
 
 // Bytes por segundo medidos no aparelho (ver a escada acima).
+// As coleções cujo conteúdo é VÍDEO. A taxa delas não pode entrar na média de
+// áudio nem sair dela — são grandezas diferentes, e misturá-las estraga as duas
+// contas ao mesmo tempo: um ano de série baixado puxaria a estimativa de todo
+// álbum de louvor para cima, e a média de áudio puxaria a da série para baixo.
+function ehColecaoDeVideo(id) {
+  return String(id || '').startsWith('serie-');
+}
+
 function bytesPorSegundo(id) {
   const u = ui(id);
   const meu = levantarColecao(id);
   if (u.bytes && meu.segFeitos) return u.bytes / meu.segFeitos;
+  const video = ehColecaoDeVideo(id);
   // A taxa GLOBAL não depende do `id`: dentro de uma passada de render ela é
-  // a mesma para todo card sem taxa própria — calcular uma vez basta.
+  // a mesma para todo card sem taxa própria — calcular uma vez basta. Mas ela é
+  // a média do que já foi baixado, e o que já foi baixado é quase todo ÁUDIO:
+  // uma série ainda vazia não pode herdá-la (ver [BPS_VIDEO_PADRAO]).
+  if (video) {
+    for (const c of allCollections()) {
+      if (!ehColecaoDeVideo(c.id)) continue;
+      const cu = collUI[c.id];
+      if (!cu || !cu.bytes) continue;
+      const l = levantarColecao(c.id);
+      if (l.segFeitos) return cu.bytes / l.segFeitos;
+    }
+    return BPS_VIDEO_PADRAO;
+  }
   if (cacheColecoesAtivo && cacheBpsGlobal) return cacheBpsGlobal;
   let bytes = 0, seg = 0;
   for (const c of allCollections()) {
+    if (ehColecaoDeVideo(c.id)) continue;
     const cu = collUI[c.id];
     if (!cu || !cu.bytes) continue;
     const l = levantarColecao(c.id);
@@ -2689,7 +2745,7 @@ function pushNowPlaying() {
   // que não significa nada.
   const temTempo = !seekEl.disabled;
   const cena = {
-    // OS BOTÕES DA NOTIFICAÇÃO (v5.228). Ver `acoesDaNotificacao`.
+    // OS BOTÕES DA NOTIFICAÇÃO (v5.231). Ver `acoesDaNotificacao`.
     actions: acoesDaNotificacao(who, temTempo),
     active,
     title: npNameInnerEl.textContent || '',
@@ -2715,7 +2771,7 @@ function pushNowPlaying() {
   // desperdício. O que precisa chegar é toda MUDANÇA de estado.
   const chave = JSON.stringify([cena.active, cena.title, cena.subtitle,
     cena.playing, cena.slideMode, cena.wallpaper, cena.durationMs,
-    // O CONJUNTO DE BOTÕES entra na chave (v5.228): sem ele, uma cena que muda
+    // O CONJUNTO DE BOTÕES entra na chave (v5.231): sem ele, uma cena que muda
     // só de eixo — o cronômetro entrando por cima de uma imagem, por exemplo —
     // seria deduplicada e o cartão ficaria com os botões da cena anterior. Um
     // botão que sobrou é pior que um que faltou: ele responde.
@@ -6051,18 +6107,38 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
   // renderAcervoTotal) — é a ação de maior alcance da tela e estava rolando
   // junto com a lista, saindo de vista assim que se descia um pouco.
   if (!(opts && opts.semTotal)) {
-    const todas = allCollections().filter((c) => !isHymnalAlbum(c));
+    // A SÉRIE FICA DE FORA (v5.230): "Baixar toda a biblioteca" somaria ~52
+    // vídeos de ~300 MB a um botão que o operador aperta pensando em louvor. O
+    // contador dela também sai — um total que promete o que o botão não faz
+    // seria a pior das duas metades.
+    const todas = allCollections().filter((c) => !isHymnalAlbum(c) && !ehSerie(c));
     if (todas.length > 1) header('Toda a biblioteca', todas, true, { confirmScale: true });
   }
 
-  const fixed = FIXED_COLLECTIONS.filter((c) => byId.has(c.id));
+  // O GRUPO DO TOPO são as coleções FIXAS: os hinários e as séries (v5.229).
+  //
+  // A v5.228 acrescentou a série ao `allCollections()` e parou aí — e
+  // `allCollections()` alimenta as CONTAS (peso, "toda a biblioteca", busca),
+  // não o desenho. Os três grupos desenhados são estes: as fixas, as categorias
+  // de álbuns e os álbuns órfãos; uma coleção que não é `FIXED_COLLECTIONS` nem
+  // álbum do catálogo **não caía em nenhum**. O card era construído, entrava no
+  // `byId`, contava no peso — e não aparecia em lugar nenhum da tela.
+  //
+  // É a lição da v5.220 outra vez, num lugar novo: **acrescentar ao lugar em
+  // que o dado NASCE não o entrega a quem o MOSTRA.** O que fecha a classe é o
+  // grupo do topo passar a ser "as fixas", que é o que ele sempre quis dizer,
+  // em vez de uma lista literal.
+  const seriesFixas = serieCollections();
+  const fixed = FIXED_COLLECTIONS.concat(seriesFixas).filter((c) => byId.has(c.id));
   if (fixed.length) {
-    // **Os hinários NÃO baixam em lote.** São as duas maiores coleções do
-    // acervo (~1.100 músicas juntas): um botão só disparando as duas é um
-    // download que ninguém consegue dimensionar antes de tocar, e que não dá
-    // para parar pela metade sem perder o outro. Cada um baixa pelo próprio
-    // card (o botão na barra). O contador do grupo fica — ele informa.
-    header('Hinários', fixed, true, { semBotao: true });
+    // **Nem os hinários nem as séries baixam em lote.** São as maiores coleções
+    // do acervo (~1.100 músicas nos dois hinários; ~52 vídeos numa série, que
+    // em 1080p passam de vários GB): um botão só disparando tudo é um download
+    // que ninguém consegue dimensionar antes de tocar, e que não dá para parar
+    // pela metade sem perder o resto. Cada um baixa pelo próprio card (o botão
+    // na barra). O contador do grupo fica — ele informa.
+    const temSerie = fixed.some((c) => c.kind === 'serie');
+    header(temSerie ? 'Hinários e séries' : 'Hinários', fixed, true, { semBotao: true });
     fixed.forEach((coll) => { alvo.appendChild(renderCollectionCard(coll)); any = true; });
   }
 
@@ -6210,7 +6286,13 @@ function renderCollectionCard(coll, ctx) {
       alternarAcordeao();
     });
     bar.appendChild(cfg);
-  } else if (u.syncBusy || !complete) {
+  } else if ((u.syncBusy || !complete) && !(ehSerie(coll) && total > 0)) {
+    // **A SÉRIE NÃO BAIXA EM LOTE** (v5.230). São ~52 vídeos de ~300 MB — o
+    // "download direto" que o operador pediu para não existir, na maior escala
+    // que este app tem. Quem quiser um episódio offline o manda ao Cronograma
+    // ou aos Favoritos pela folha, que é o caminho do YouTube. O botão continua
+    // aparecendo enquanto NÃO há índice (`total === 0`): ali ele não baixa
+    // nada, ele busca a lista — que é justamente o que falta na tela.
     const dl = document.createElement('button');
     dl.className = 'coll-bar-dl' + (u.syncBusy ? ' busy' : '');
     dl.title = u.syncBusy ? 'Cancelar o download'
@@ -6538,10 +6620,15 @@ function buildCollectionOptions(coll, collOptsEl) {
   // baixar" era a mesma frase para os dois casos opostos: com o álbum inteiro
   // no aparelho não há o que baixar — só conferir se o catálogo mudou —, e com
   // ele vazio "atualizar" não descreve nada do que vai acontecer.
+  // Numa SÉRIE o rótulo é sempre "Atualizar a lista" (v5.230): o toque só
+  // busca as playlists do canal — os episódios são baixados um a um, pela
+  // folha, como um vídeo do YouTube. Prometer "Baixar" aqui seria oferecer
+  // ~15 GB atrás de uma palavra de três sílabas.
   syncBtn.appendChild(document.createTextNode(
-    u.syncBusy ? 'Cancelar' : (complete ? 'Verificar atualizações' : 'Baixar'),
+    u.syncBusy ? 'Cancelar'
+      : (ehSerie(coll) ? 'Atualizar a lista' : (complete ? 'Verificar atualizações' : 'Baixar')),
   ));
-  syncBtn.addEventListener('click', () => syncCollection(coll));
+  syncBtn.addEventListener('click', () => syncCollection(coll, ehSerie(coll) ? { soIndice: true } : undefined));
   acoes.appendChild(syncBtn);
 
   if (downloaded > 0 || total > 0) {
@@ -8696,7 +8783,84 @@ async function fetchAlbumCatalog() {
 // hinários, o arquivo de lista (coll.source) já é o índice; para álbuns, o
 // índice vem de album_{id}.musics. Lança em caso de falha (sem rede/resposta
 // inválida); quem chama decide se avisa o operador ou ignora silenciosamente.
+/**
+ * O ÍNDICE DE UMA SÉRIE — as playlists mensais do canal viram faixas do álbum.
+ *
+ * Duas etapas, e a segunda é sequencial de propósito: são ~12 playlists de 4-5
+ * itens, e disparar doze extrações do YouTube em paralelo é justamente o que o
+ * `NET_CONCURRENCY` existe para não fazer — aqui cada chamada é uma EXTRAÇÃO
+ * (segundos), não um GET.
+ *
+ * **A mutação é IN-PLACE**, pelo mesmo motivo do índice do LouvorJA: o
+ * `syncCollection` tira um snapshot do array e grava `fileIdFull` nos objetos
+ * DELE conforme baixa. Recriar os objetos deixaria o snapshot apontando para
+ * órfãos — os bytes iam para o OPFS e os ids eram descartados no `setState`
+ * seguinte, com o item aparecendo como não baixado e sendo rebaixado.
+ *
+ * Falha com EXCEÇÃO, e não com lista vazia: quem chama (`syncCollection`) já
+ * trata isso como "sem internet — falha ao atualizar" e PRESERVA o índice
+ * anterior. Devolver zero itens apagaria da tela a série inteira que o operador
+ * já tem baixada, por uma oscilação de rede.
+ */
+async function fetchSerieIndex(coll) {
+  const serie = coll.serie;
+  const doCanal = await AVNative.ytCanalPlaylists(serie.canal);
+  const playlists = AVSerie.playlistsDaSerie(doCanal, serie);
+  if (!playlists.length) throw new Error('Nenhuma playlist de "' + serie.name + '" no canal');
+
+  // A ASSINATURA DAS PLAYLISTS — url:contagem, na ordem. A aba do canal já
+  // publica quantos vídeos cada playlist tem, e é isso que torna a atualização
+  // barata: bate com o que está guardado, nada mudou, e as ~12 EXTRAÇÕES são
+  // puladas. Sem isto, toda retomada do app custaria doze idas ao YouTube para
+  // redescobrir uma lista que muda uma vez por semana — e a extração é a parte
+  // frágil deste caminho, a que não convém exercitar à toa.
+  //
+  // Um episódio novo muda a contagem do mês dele e a assinatura inteira é
+  // refeita: a decisão é "tudo ou nada" de propósito, porque casar item a item
+  // exigiria guardar de qual playlist veio cada faixa — estado a mais para
+  // poupar uma extração num caso que acontece uma vez por semana.
+  const assinatura = playlists.map((p) => p.url + ':' + p.count).join('|');
+  const guardado = collState[coll.id];
+  if (guardado && guardado.serieAssinatura === assinatura && (guardado.songs || []).length) {
+    guardado.indexSyncedAt = Date.now();
+    await AVDB.setState('coll:' + coll.id, guardado);
+    return;
+  }
+
+  const itens = [];
+  for (const pl of playlists) {
+    const info = await AVNative.ytPlaylist(pl.url);
+    if (!info || !Array.isArray(info.items)) continue;
+    itens.push(...AVSerie.itensDaPlaylist(info.items, pl.mes, serie));
+  }
+  if (!itens.length) throw new Error('As playlists de "' + serie.name + '" vieram vazias');
+
+  const byId = new Map(collSongs(coll.id).map((s) => [s.id_music, s]));
+  const songs = AVSerie.ordenarItens(itens).map((it) => {
+    const s = byId.get(it.id) || { id_music: it.id, fileIdFull: null, fileIdPlayback: null };
+    s.name = AVSerie.nomeDoItem(it);
+    s.ytUrl = it.url;
+    // `duration` como STRING "M:SS", que é a forma do LouvorJA — assim o
+    // `parseTimeToSeconds` e toda a conta de peso do álbum (`medirColecao`,
+    // `fracaoPeso`, a estimativa antes de baixar) valem sem uma linha nova.
+    s.duration = fmtDur(it.seconds);
+    // Um vídeo não tem Playback. Sem isto, `songVariantsNeeded` pediria uma
+    // segunda variante que nunca vai existir e o álbum nunca ficaria completo.
+    s.has_instrumental_music = false;
+    s._norm = normalizeForSearch(s.name);
+    return s;
+  });
+
+  collState[coll.id] = {
+    indexSyncedAt: Date.now(), songs, isHymnal: false, serieAssinatura: assinatura,
+  };
+  await AVDB.setState('coll:' + coll.id, collState[coll.id]);
+  refreshCollectionsIfVisible();
+  if (hymnSearchPopupEl.classList.contains('open')) renderSearchResults(hymnSearchInputEl.value);
+}
+
 async function fetchCollectionIndex(coll) {
+  if (coll.kind === 'serie') return fetchSerieIndex(coll);
   const raw = await Louvorja.fetchList(coll.source);
   const list = coll.kind === 'album'
     ? (raw && Array.isArray(raw.musics) ? raw.musics : null)
@@ -8795,8 +8959,13 @@ async function autoRefreshCollections() {
     ]);
     // Fase 2: índice de cada álbum (só os que estão vazios ou vencidos pelo TTL).
     const now = Date.now();
+    // As SÉRIES entram nesta mesma fase (v5.231), e não na 1: o índice delas
+    // custa uma extração do YouTube para a aba do canal — barato quando a
+    // assinatura das playlists não mudou (ver `fetchSerieIndex`), e caro quando
+    // mudou. O TTL é o mesmo dos álbuns porque a pergunta é a mesma ("a lista
+    // envelheceu?"), e a série publica um episódio por semana.
     const stale = allCollections().filter((c) => {
-      if (c.kind !== 'album' || !idle(c)) return false;
+      if ((c.kind !== 'album' && c.kind !== 'serie') || !idle(c)) return false;
       const st = collState[c.id];
       return !st || !st.songs.length || (now - (st.indexSyncedAt || 0)) > ALBUM_INDEX_TTL;
     });
@@ -8862,6 +9031,14 @@ async function syncCollection(coll, opts) {
     catch (_) {
       setCollStatus(coll.id, 'Sem internet — falha ao atualizar', 5000);
       return { ok: false, baixados: 0, falhou: 0 };
+    }
+    // SÓ O ÍNDICE (v5.230) — é o que o botão de uma SÉRIE faz. A lista chegou,
+    // e é só ela que foi pedida: os episódios são baixados um a um, pela folha
+    // de destinos, como um vídeo do YouTube. Cair no laço abaixo aqui seria
+    // exatamente o "download direto" que este lote existe para tirar.
+    if (opts && opts.soIndice) {
+      setCollStatus(coll.id, 'Lista atualizada', 4000);
+      return { ok: true, baixados: 0, falhou: 0 };
     }
     const songs = collSongs(coll.id);
 
@@ -8984,7 +9161,67 @@ async function syncCollection(coll, opts) {
 // Devolve `false` quando nem os metadados vieram (sem rede) — quem chama
 // precisa poder distinguir "baixou" de "desistiu em silêncio", senão o status
 // final conta como baixada uma música que não saiu do lugar.
+/**
+ * Baixa UM episódio de uma série e o grava na pasta do álbum.
+ *
+ * Não passa pelo `ytBaixarNativo`: aquele é o caminho de um download AVULSO —
+ * abre tarefa própria na notificação, desenha cartão na preview e registra
+ * intenção de resgate. Aqui quem já é dono de tudo isso é o `syncCollection`
+ * (a barra, o nome do item na notificação, o cancelamento, o `withBgWork`), e
+ * empilhar uma segunda tarefa por episódio faria a notificação disputar consigo
+ * mesma a cada um dos 52.
+ *
+ * O registro vai para `folder: coll.id`, como o de uma música de coleção — é
+ * isso que faz o card contar "completo offline", o peso somar e o coletor de
+ * lixo não recolher o arquivo. E `lyrics: null` **não é enfeite**: o
+ * `songVariantsNeeded` pergunta `fullRec.lyrics === undefined` para decidir se
+ * a faixa ainda falta, então um registro sem o campo seria rebaixado a cada
+ * sincronização, para sempre, sem nada na tela que o explicasse.
+ */
+async function downloadSerieItem(coll, s) {
+  if (!s.ytUrl) return false;
+  let r;
+  try { r = await AVNative.ytFetch(s.ytUrl, null, false, 0); }
+  catch (_) { return false; }
+  if (!r || !r.url) return false;
+  try {
+    const res = await fetch(r.url);
+    if (!res.ok) return false;
+    const blob = await res.blob();
+    if (!blob.size) return false;
+    const thumb = await makeThumb(blob, 'video');
+    const id = s.fileIdFull || uid();
+    const path = 'folders/' + coll.id + '/' + s.id_music + '.mp4';
+    try { await AVDB.opfsWriteFile(path, blob); } catch (_) { return false; }
+    await AVDB.fileAdd({
+      id, folder: coll.id, opfsPath: path,
+      srcName: s.id_music,
+      name: s.name,
+      // A procedência, como nas músicas do acervo (v5.219): é a segunda linha
+      // do slide de capa, e quem projeta é o Display, que não tem acesso a
+      // coleção nenhuma.
+      hymnName: s.name, hymnTrack: null, hymnAlbum: coll.name || '',
+      type: blob.type || 'video/mp4', kind: 'video',
+      height: (r.height | 0) || null,
+      // O id do vídeo GRAVADO: é ele que faz um "Tocar agora" do mesmo
+      // episódio, vindo da busca do YouTube, reaproveitar este arquivo.
+      youtubeId: s.id_music,
+      size: blob.size, mtime: Date.now(), thumb, lyrics: null,
+      blob: null, url: null, addedAt: Date.now(),
+    });
+    s.fileIdFull = id;
+    ui(coll.id).bytes += blob.size || 0;
+    salvarPesos();
+    return true;
+  } finally {
+    // No `finally`, como no caminho avulso: falhando a cópia, o arquivo do
+    // cache não pode ficar para trás — ninguém mais tem o token dele.
+    AVNative.ytDiscard(r.url);
+  }
+}
+
 async function downloadCollectionSong(coll, s) {
+  if (coll.kind === 'serie') return downloadSerieItem(coll, s);
   let meta;
   try { meta = await Louvorja.fetchList('music_' + s.id_music); }
   catch (_) { return false; } // sem rede agora; a próxima sincronização tenta de novo
@@ -9975,7 +10212,11 @@ function openYtMenu(r) {
   // Só aparece com shell ≥ 23 (`ytFetchAudio` na ponte). Num anterior o botão
   // não faria nada, e botão que não faz nada no meio de um culto é pior que
   // botão nenhum — mesma regra do botão de busca no YouTube.
-  if (window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= 23) {
+  //
+  // **E ele NÃO existe para um episódio de série** (`semSoAudio`, v5.230): um
+  // testemunho em vídeo não tem versão de áudio que faça sentido projetar, e
+  // uma escolha que não muda nada é pior que escolha nenhuma.
+  if (window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= 23 && !r.semSoAudio) {
     songMenuListEl.appendChild(ytSegRow(
       [[false, 'Vídeo'], [true, 'Só áudio']],
       !!songMenuFor.audio,
@@ -10820,7 +11061,35 @@ function destUniao(chave) {
   return ordem.concat([...alvo].filter((c) => !ordem.includes(c)));
 }
 
+/**
+ * UM EPISÓDIO DE SÉRIE É UM VÍDEO DO YOUTUBE, e a folha dele é a mesma (v5.230).
+ *
+ * Pedido do operador: *"o tratamento que deve ter os itens da lista do provai e
+ * vede, e suas opções, devem ser o mesmo dos vídeos do YouTube (sem a opção de
+ * apenas áudio). no caso eu não quero um download direto, e também quero a opção
+ * de tocar diretamente em stream pelo link sem o download"*.
+ *
+ * A v5.228 tratou a série como uma coleção do LouvorJA porque é dali que a
+ * casca do card veio — e naquele mundo o toque BAIXA (uma faixa de hinário são
+ * poucos MB e o acervo existe para ficar offline). Aqui a premissa não vale: são
+ * ~300 MB por episódio, e o vídeo do sábado é visto uma vez. Quem já resolvia
+ * isso é o caminho do YouTube, com a TRANSMISSÃO DIRETA no "Tocar agora" e o
+ * download só nos destinos que GUARDAM.
+ *
+ * `semSoAudio` é a única diferença: o seletor Vídeo × Só áudio some. Um
+ * testemunho em vídeo não tem versão de áudio que faça sentido projetar, e uma
+ * escolha que não muda nada é pior que escolha nenhuma.
+ */
+function serieComoYoutube(coll, s) {
+  return { id: s.id_music, url: s.ytUrl, name: s.name, semSoAudio: true };
+}
+function ehSerie(coll) { return !!coll && coll.kind === 'serie'; }
+
 function openSongMenu(coll, s, modo) {
+  // A série desvia para a folha do YouTube ANTES de qualquer coisa: o resto
+  // desta função monta o seletor Cantada/Playback e as ações que baixam, que
+  // são exatamente o que não se aplica aqui.
+  if (ehSerie(coll)) { openYtMenu(serieComoYoutube(coll, s)); return; }
   destLimpar();
   songMenuFor = { coll, s, variant: 'full' };
   songMenuTitleEl.textContent = songLabel(coll, s);
@@ -11228,6 +11497,12 @@ async function resolveSongMediaId(coll, s, variant) {
 // respondeu "baixar" já disse como quer que o app se comporte, e repetir a
 // pergunta a cada música viraria ruído no meio do culto.
 async function simplePlaySong(coll, s) {
+  // NO MODO FÁCIL A SÉRIE TAMBÉM TRANSMITE (v5.230), e aqui isso vale ainda
+  // mais: este modo existe para não perguntar nada, e a alternativa seria o
+  // operador esperar ~300 MB de download com o culto rodando. `ytAcao` com
+  // "tocar" e nenhum destino de guarda é exatamente o caminho da transmissão
+  // direta — e, falhando ela, o download de sempre, calado.
+  if (ehSerie(coll)) { await ytAcao(serieComoYoutube(coll, s), ['tocar'], null, false, 0); return; }
   const { needsFull } = await songVariantsNeeded(coll, s);
   if (needsFull && !(await ensureDownloadConsent())) return;
   playSongVariant(coll, s, 'full');

@@ -67,6 +67,7 @@ const ARQUIVOS = [
   ['display/display.js', 0],
   ['controle/controle.js', 0],
   ['controle/louvorja.js', 2],
+  ['controle/serie.js', 2],
   ['controle/bible.js', 2],
   ['shared/stage.js', 2],
   ['shared/native.js', 2],

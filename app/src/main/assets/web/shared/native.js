@@ -376,6 +376,26 @@
     ytSearch: (termo) => call((id) => B.ytSearch(id, String(termo)), CALL_TIMEOUT_MS)
       .then((r) => r || []),
 
+    // ---- SÉRIES (shell 41) — ver `controle/serie.js` ----
+    // Os dois são TRANSPORTE: entregam o que o canal publica, verbatim. Quem
+    // decide o que é da série, o que é Libras e como o item se chama é o
+    // `serie.js`, do lado web (invariante 5).
+    //
+    // COM prazo, como o `ytSearch` e o `ytStream`: há rede no meio (segundos),
+    // não um download de minutos. Num shell antigo o `call` resolve null e a
+    // lista vazia faz o card da série não ser desenhado — a degradação certa.
+
+    // As playlists da ABA do canal: `[{ name, url, count }]`.
+    ytCanalPlaylists: (canalUrl) => call(
+      (id) => B.ytCanalPlaylists(id, String(canalUrl)),
+      CALL_TIMEOUT_MS,
+    ).then((r) => r || []),
+
+    // Os vídeos de UMA playlist: `{ name, author, items:[…] }` ou null.
+    // O `name` de cada item é o título CRU (com "| Provai e Vede 2026 (15/Ago)"
+    // inteiro): é dele que o `serie.js` tira data e marca de Libras.
+    ytPlaylist: (url) => call((id) => B.ytPlaylist(id, String(url)), CALL_TIMEOUT_MS),
+
     // Apaga o arquivo intermediário depois que os bytes já foram para a
     // biblioteca — senão o vídeo fica DUAS vezes no aparelho.
     ytDiscard(url) { try { B.ytDiscard(String(url)); } catch (_) { /* shell antigo */ } },
@@ -677,7 +697,7 @@
           // tempo, para a linha do tempo da sessão nunca andar para trás.
           positionMs: inteiro(s && s.positionMs),
           durationMs: inteiro(s && s.durationMs),
-          // OS BOTÕES DESTA CENA, na ordem (v5.228 / shell 41). Ver
+          // OS BOTÕES DESTA CENA, na ordem (v5.231 / shell 42). Ver
           // `acoesDaNotificacao` em controle.js: cinco fixos serviam à cena de
           // mídia tocando, e com um cronômetro sozinho no ar ⏮/⏭ e o
           // play/pause ocupavam o modo compacto sem ter o que fazer.

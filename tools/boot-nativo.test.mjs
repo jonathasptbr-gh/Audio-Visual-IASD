@@ -76,20 +76,52 @@ const ponteCom = (espelho, telas) => `(() => {
     'espelhoEstado','espelhoDiag','espelhoCertEstado','espelhoCertImportar','espelhoCertApagar',
     'apkProcurar','apkInstalar','otaPending','otaApply','otaCheck','otaDiag','ytDiag']);
   const B = {
-    shellVersion: () => 40,
+    shellVersion: () => 41,
     role: () => 'controle',
-    appVersion: () => '1.93-teste',
+    appVersion: () => '1.98-teste',
     takeShare: () => '',
     busPost: (t) => { try { (window.__enviados = window.__enviados || []).push(JSON.parse(t)); } catch (_) {} },
     otaConfirm: () => {},
+    // AS SÉRIES (shell 41), com resposta POR URL — o genérico abaixo devolve um
+    // valor fixo por método, e aqui cada playlist precisa dos itens dela.
+    //
+    // As strings são VERBATIM do @provaievedeoficial, com as duas armadilhas
+    // que o \`serie.js\` documenta: a playlist de agosto SEM o hífen que as
+    // outras têm, e o marcador de Libras em duas formas (\`(Libras)\` na
+    // playlist, \`- Libras\` no vídeo). Um harness que "limpasse" isso provaria
+    // o percurso contra um canal que não existe — a lição da v5.204.
+    ytCanalPlaylists: (id) => {
+      const pls = [
+        { name: 'Provai e Vede - Agosto 2026 (Libras)', url: 'p/ago-libras', count: 2 },
+        { name: 'Provai e Vede Agosto 2026', url: 'p/ago', count: 2 },
+        { name: 'Provai e Vede - Julho 2026', url: 'p/jul', count: 1 },
+        { name: 'Semana de Mordomia Cristã 2026', url: 'p/outra', count: 9 },
+      ];
+      setTimeout(() => { try { window.__avResolve(id, pls); } catch (_) {} }, 0);
+    },
+    ytPlaylist: (id, url) => {
+      const porUrl = {
+        'p/ago': { name: 'Provai e Vede Agosto 2026', author: 'Provai e Vede | Oficial', items: [
+          { id: 'aaaaaaaaaa1', url: 'y/1', name: 'Match point | Provai e Vede 2026 (01/Ago)', seconds: 319 },
+          { id: 'aaaaaaaaaa2', url: 'y/2', name: 'Cada centavo conta | Provai e Vede 2026 (08/Ago) - Libras', seconds: 307 },
+          { id: 'aaaaaaaaaa3', url: 'y/3', name: 'Cada centavo conta | Provai e Vede 2026 (08/Ago)', seconds: 307 },
+        ] },
+        'p/jul': { name: 'Provai e Vede - Julho 2026', author: 'Provai e Vede | Oficial', items: [
+          { id: 'aaaaaaaaaa4', url: 'y/4', name: 'Chamado em Silêncio | Provai e Vede 2026 (25/Jul)', seconds: 280 },
+        ] },
+      };
+      setTimeout(() => {
+        try { window.__avResolve(id, porUrl[url] || null); } catch (_) {}
+      }, 0);
+    },
   };
   const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','castTarget',
     'deckDiscard','deckExportUrl','deckPages','displays','espelhoAprovar','espelhoCertApagar',
     'espelhoCertEstado','espelhoCertImportar','espelhoDesligar','espelhoDiag','espelhoEstado',
     'espelhoLigar','keepAlive','listFolder','nowPlaying','openCast','openExternal','otaApply',
     'otaCheck','otaDiag','otaPending','pickDoc','pickFolder','requestMic','systemVolume',
-    'temaClaro','ytCancel','ytDiag','ytDiscard','ytFetch','ytFetchAte','ytFetchAudio','ytSearch',
-    'ytStream'];
+    'temaClaro','ytCancel','ytCanalPlaylists','ytDiag','ytDiscard','ytFetch','ytFetchAte',
+    'ytFetchAudio','ytPlaylist','ytSearch','ytStream'];
   for (const n of nomes) {
     if (B[n]) continue;
     B[n] = (...args) => {
@@ -157,6 +189,133 @@ try {
     deuPe = true;
   } catch (_) { deuPe = false; }
   checar(deuPe, 'O APP FICOU DE PÉ com a ponte presente (o critério do watchdog do OTA)');
+
+  // ── A SÉRIE (v5.228) ───────────────────────────────────────────────────
+  // O card só existe com a ponte E com shell >= 41, então este é o ÚNICO teste
+  // que pode exercitá-lo — no `smoke.mjs` a série nem chega a ser construída.
+  // E o que se afirma aqui é o percurso INTEIRO, do canal até a lista: a regra
+  // pura já tem oráculo próprio (`serie.test.mjs`), o que faltava era provar
+  // que ela está de fato LIGADA ao provedor de coleção.
+  const serie = await pg.evaluate(async () => {
+    const c = allCollections().find((x) => x.kind === 'serie');
+    if (!c) return { achou: false };
+    await fetchCollectionIndex(c);
+    const st = collState[c.id];
+    return {
+      achou: true,
+      nome: c.name,
+      itens: collSongs(c.id).map((s) => s.name),
+      urls: collSongs(c.id).map((s) => s.ytUrl),
+      semPlayback: collSongs(c.id).every((s) => s.has_instrumental_music === false),
+      assinatura: !!(st && st.serieAssinatura),
+    };
+  });
+  checar(serie.achou, 'com shell 41 o card da SÉRIE existe na Biblioteca');
+  checar(serie.nome === 'Provai e Vede 2026', 'e ele se chama "Provai e Vede 2026"', serie.nome);
+  checar(serie.itens && serie.itens.length === 3,
+    'as 2 playlists em português viram 3 episódios (a de Libras e a outra série ficam fora)',
+    JSON.stringify(serie.itens));
+  checar(!(serie.itens || []).some((n) => /libras/i.test(n)),
+    'NENHUM episódio em Libras entrou — o par dobraria o álbum na projeção');
+  checar((serie.itens || []).join(' | ')
+      === '25/Jul · Chamado em Silêncio | 01/Ago · Match point | 08/Ago · Cada centavo conta',
+    'a lista vem em ordem CRONOLÓGICA e rotulada pela data, que é como se procura o sábado',
+    JSON.stringify(serie.itens));
+  checar((serie.urls || []).join(',') === 'y/4,y/1,y/3',
+    'cada episódio carrega a URL do vídeo — é ela que o download vai buscar', JSON.stringify(serie.urls));
+  checar(serie.semPlayback,
+    'nenhum episódio pede PLAYBACK: um vídeo não tem, e o álbum nunca ficaria completo');
+  checar(serie.assinatura,
+    'a assinatura das playlists é guardada — sem ela, toda retomada custa 12 extrações');
+
+  // A ARMADILHA 1 pelo caminho de ponta a ponta: a playlist de agosto do stub
+  // é "Provai e Vede Agosto 2026", SEM o hífen que todas as outras têm. Se a
+  // regra exigisse o separador, os dois episódios de agosto sumiriam — e a
+  // asserção de cima já reprovaria, mas sem dizer POR QUÊ.
+  checar((serie.itens || []).filter((n) => /Ago/.test(n)).length === 2,
+    'a playlist SEM hífen entrou: os dois episódios de agosto estão na lista',
+    JSON.stringify(serie.itens));
+
+  // ── O CARD, DESENHADO (v5.229) ─────────────────────────────────────────
+  // O relato do operador: "não estou achando nada para acessar esse provai e
+  // vede". A v5.228 acrescentou a série ao `allCollections()`, que alimenta as
+  // CONTAS — e a lista é desenhada em três grupos (fixas, categorias de álbum,
+  // álbuns órfãos), nenhum dos quais a alcançava. O card era construído,
+  // entrava no `byId`, contava no peso, e **não aparecia em lugar nenhum**.
+  //
+  // Todas as asserções acima passavam com esse defeito no lugar: elas mediam o
+  // ÍNDICE, e o que faltava era o DESENHO. É por isso que este bloco pergunta
+  // ao DOM, e não a uma função.
+  const naTela = await pg.evaluate(() => {
+    const lista = document.getElementById('hymnResults');
+    renderCollectionsList(lista, () => {}, { semTotal: true });
+    const nomes = [...lista.querySelectorAll('.coll-card .coll-name, .coll-card .coll-title')]
+      .map((e) => e.textContent.trim());
+    const linhas = [...lista.children].map((li) => (li.className.includes('coll-group')
+      ? 'GRUPO: ' + li.textContent.trim().split('\n')[0]
+      : 'card: ' + li.textContent.trim().split('\n')[0]));
+    return {
+      texto: lista.textContent,
+      nomes,
+      primeiroGrupo: (linhas.find((l) => l.startsWith('GRUPO:')) || ''),
+      // O índice do card da série contra o do primeiro card de ÁLBUM: é isso
+      // que "no topo, junto dos hinários" quer dizer, e um dia em que alguém
+      // reordenar os grupos isto reprova.
+      posSerie: linhas.findIndex((l) => l.includes('Provai e Vede 2026')),
+    };
+  });
+  checar(/Provai e Vede 2026/.test(naTela.texto),
+    'O CARD DA SÉRIE APARECE NA BIBLIOTECA — era este o "não estou achando nada"');
+  checar(/Hinários e séries/.test(naTela.primeiroGrupo || ''),
+    'e ele fica no grupo do TOPO, junto dos hinários', naTela.primeiroGrupo);
+  checar(naTela.posSerie >= 0 && naTela.posSerie <= 3,
+    'antes de qualquer álbum — o topo é o topo', String(naTela.posSerie));
+
+  // ── O EPISÓDIO É UM VÍDEO DO YOUTUBE (v5.230) ──────────────────────────
+  // Pedido do operador: as opções de um item da série devem ser as do YouTube
+  // (sem "só áudio"), sem download direto, e com transmissão no "Tocar agora".
+  // A v5.228 o tratava como faixa de hinário — o toque BAIXAVA ~300 MB.
+  const folha = await pg.evaluate(async () => {
+    const c = allCollections().find((x) => x.kind === 'serie');
+    const s = collSongs(c.id)[0];
+    openSongMenu(c, s, 'play');
+    const pop = document.getElementById('songMenuPopup');
+    const linhas = [...pop.querySelectorAll('.song-menu-item, .song-menu-list button')]
+      .map((b) => b.textContent.trim().split('\n')[0].trim()).filter(Boolean);
+    const r = {
+      aberta: pop.classList.contains('open'),
+      titulo: (document.getElementById('songMenuTitle') || {}).textContent || '',
+      texto: pop.textContent,
+      linhas,
+    };
+    closeSongMenu();
+    return r;
+  });
+  checar(folha.aberta, 'tocar num episódio abre a folha de destinos');
+  checar(/Tocar agora/.test(folha.texto),
+    'com "Tocar agora" — é ele que TRANSMITE, sem esperar o download', JSON.stringify(folha.linhas));
+  checar(/playlist/i.test(folha.texto) && /Cronograma/.test(folha.texto) && /Favoritar/.test(folha.texto),
+    'e os três destinos que GUARDAM, como num vídeo do YouTube', JSON.stringify(folha.linhas));
+  checar(!/Só áudio/.test(folha.texto),
+    'e SEM o seletor de só-áudio — um testemunho em vídeo não tem versão de áudio',
+    JSON.stringify(folha.linhas));
+  checar(!/Cantada|Playback/.test(folha.texto),
+    'nem o seletor Cantada/Playback do acervo — a folha é a do YouTube, não a das músicas');
+
+  // O download EM LOTE não pode existir para a série: são ~52 vídeos.
+  const semLote = await pg.evaluate(() => {
+    const lista = document.getElementById('hymnResults');
+    renderCollectionsList(lista, () => {}, { semTotal: true });
+    const cards = [...lista.querySelectorAll('.hymnal-card')];
+    const card = cards.find((el) => /Provai e Vede 2026/.test(el.textContent));
+    return {
+      achou: !!card,
+      temBotaoBaixar: !!(card && card.querySelector('.coll-bar-dl')),
+    };
+  });
+  checar(semLote.achou, 'o card da série está na lista para ser medido');
+  checar(!semLote.temBotaoBaixar,
+    'e ele NÃO tem o botão de baixar a coleção — "não quero um download direto"');
 
   // E o bloco de conexão do Modo Fácil, que é o caminho que a v5.195 quebrou:
   // com shell >= 32 ele mostra as DUAS formas de conectar, não só o espelhar.

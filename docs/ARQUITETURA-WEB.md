@@ -183,6 +183,9 @@ app/src/main/assets/web/
 │   ├── controle.css            # Estilos do Controle
 │   ├── controle.js             # Lógica do Controle
 │   ├── louvorja.js             # Cliente da API pública do LouvorJA (Coleções de mídia — ver seção própria)
+│   ├── serie.js                # A REGRA das SÉRIES do YouTube — PURA (sem DOM, sem
+│   │                           # rede), com oráculo em Node: decide quais playlists
+│   │                           # de um canal formam um álbum e o que é LIBRAS
 │   └── bible.js                # Cliente da parte bíblica do banco LouvorJA (livros/versões/capítulos — ver seção "Bíblia")
 ├── espelho/                    # o papel `tela` (telão nas telas da rede)
 │   ├── tela.js                 # a casca: SSE, dreno de subida, entrada, relógio
@@ -6113,6 +6116,77 @@ assim que o operador acrescentar itens a ela.
 | `all` | Avança para o próximo; ao fim da lista volta ao início |
 | `one` | Recarrega e reproduz o mesmo item |
 | `shuffle` | Avança para item aleatório (nunca repete o atual) |
+
+---
+
+### Séries do YouTube — coleções que NÃO vêm do LouvorJA (v5.228)
+
+Uma **série** é um canal do YouTube que publica um episódio por semana e
+organiza o ano em uma playlist por mês. Ela vira um card da Biblioteca ao lado
+dos hinários e dos álbuns, e usa a mesma casca: `collState`, `medirColecao`,
+barra de peso, `syncCollection`.
+
+**Mas o ITEM não é uma faixa de hinário — é um vídeo do YouTube** (v5.230). A
+casca veio do LouvorJA e trouxe junto a premissa dele, "o toque baixa", que ali
+está certa (poucos MB, e o acervo existe para ficar offline) e aqui é falsa por
+duas ordens de grandeza: ~300 MB por episódio, ~15 GB no ano, e o vídeo do
+sábado é visto uma vez. Então:
+
+| O que | Onde | Como |
+|---|---|---|
+| toque no item | `openSongMenu` → `openYtMenu(serieComoYoutube(coll, s))` | a folha do YouTube, com `semSoAudio: true` (o seletor Vídeo × Só áudio some) |
+| "Tocar agora" | `ytAcao(…, ['tocar'])` | **TRANSMISSÃO DIRETA** — `ytStream` → `shared/mse.js`, sem baixar |
+| Modo Fácil | `simplePlaySong` desvia para o mesmo `ytAcao` | aquele modo não pergunta nada, e esperar 300 MB com o culto rodando não é opção |
+| guardar offline | os destinos da folha (playlist · Cronograma · Favoritos) | um episódio por vez, pelo caminho de download do YouTube |
+| card | `renderCollectionCard` / `buildCollectionOptions` | **sem botão de baixar em lote** com índice na mão; o de opções é "Atualizar a lista" (`syncCollection(coll, { soIndice: true })`), e a série sai de "Baixar toda a biblioteca" |
+
+`downloadSerieItem` e o laço de `syncCollection` continuam existindo e corretos
+— o que mudou é que nenhum toque de UI os alcança hoje. O que muda em relação a
+uma coleção do LouvorJA é **de onde vem o índice e de onde vêm os bytes**.
+
+| Peça | Onde | O quê |
+|---|---|---|
+| catálogo + REGRA | `controle/serie.js` (`window.AVSerie`) | **PURO**: sem DOM, sem rede, sem conhecer o `controle.js`. Decide quais playlists do canal são da série, recusa as de LIBRAS, extrai a data do título e ordena. Oráculo: `tools/serie.test.mjs` |
+| descoberta | `AVNative.ytCanalPlaylists(canal)` | a **aba Playlists** do canal — `[{name,url,count}]` |
+| expansão | `AVNative.ytPlaylist(url)` | os vídeos de uma playlist, com o título **CRU** |
+| índice | `fetchSerieIndex` (controle.js) | monta `collState[id].songs` com `{ id_music, name, ytUrl, duration }` |
+| download | `downloadSerieItem` (controle.js) | `ytFetch` → OPFS → `fileAdd` com `folder: coll.id`, `kind: 'video'` |
+
+**Três pontos de integração que não são óbvios:**
+
+- **`duration` é uma STRING "M:SS"**, e não segundos. É a forma que o LouvorJA
+  publica, e adotá-la faz `parseTimeToSeconds`, `medirColecao`, `fracaoPeso` e a
+  estimativa de download valerem sem uma linha nova.
+- **`has_instrumental_music: false`, sempre.** Um vídeo não tem Playback; sem
+  isso o `songVariantsNeeded` pediria uma segunda variante que nunca vai existir
+  e o álbum jamais ficaria completo.
+- **`lyrics: null` no registro.** `songVariantsNeeded` pergunta
+  `fullRec.lyrics === undefined`: um registro sem o campo seria rebaixado a cada
+  sincronização, para sempre, sem nada na tela que o explicasse.
+
+**A mutação do índice é IN-PLACE**, pela mesma razão do `fetchCollectionIndex`
+do LouvorJA: o `syncCollection` tira um snapshot do array e grava `fileIdFull`
+nos objetos DELE conforme baixa. Recriar os objetos deixaria o snapshot
+apontando para órfãos — os bytes iriam para o OPFS e os ids seriam descartados
+no `setState` seguinte.
+
+**O índice falha com EXCEÇÃO, nunca com lista vazia.** Quem chama já trata isso
+como "sem internet — falha ao atualizar" e preserva o índice anterior; devolver
+zero itens apagaria da tela a série inteira que o operador já tem baixada, por
+uma oscilação de rede.
+
+**A DATA tem DUAS formas, e o mesmo episódio usa as duas** (v5.230): a compacta
+entre parênteses ("… 2026 (03/Jan)") e a por extenso ("… 2026 sábado 3
+janeiro"). `dataDoVideo` tenta as duas nessa ordem, e `montarData` exige que o
+nome **seja** um mês em vez de só começar como um — sem isso "3 marcos" viraria
+3 de março. Quando nenhuma casa, o vídeo **entra do mesmo jeito**, sem
+identificador de data e no fim do mês: é a regra de ouro em ação, e é o erro
+recuperável em vez do episódio ausente.
+
+O resto — as seis armadilhas de nomenclatura, por que a descoberta é a aba do
+canal e não uma busca, e a regra de ouro ("a playlist prova o pertencimento, o
+título é só rótulo") — está no topo do `serie.js` e na seção "Séries do YouTube"
+do `CLAUDE.md`.
 
 ---
 

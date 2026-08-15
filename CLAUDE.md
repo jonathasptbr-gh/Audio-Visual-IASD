@@ -23,10 +23,11 @@ espelhar o celular.
 7. [Notificação de controles (sessão de mídia)](#notificação-de-controles-sessão-de-mídia)
 8. [OTA da base web (atualização sem APK)](#ota-da-base-web-atualização-sem-apk)
 9. [Telão por comandos (o telão nas telas da rede local)](#telão-por-comandos-o-telão-nas-telas-da-rede-local)
-10. [A paleta](#a-paleta)
-11. [Divergências entre o caminho web e o nativo](#divergências-entre-o-caminho-web-e-o-nativo)
-12. [Build e distribuição](#build-e-distribuição)
-13. [Regras de desenvolvimento](#regras-de-desenvolvimento)
+10. [Séries do YouTube (o álbum "Provai e Vede 2026")](#séries-do-youtube-o-álbum-provai-e-vede-2026)
+11. [A paleta](#a-paleta)
+12. [Divergências entre o caminho web e o nativo](#divergências-entre-o-caminho-web-e-o-nativo)
+13. [Build e distribuição](#build-e-distribuição)
+14. [Regras de desenvolvimento](#regras-de-desenvolvimento)
 
 ---
 
@@ -80,6 +81,8 @@ app/src/main/
 │   │                            #    das telas da rede os bloqueava — v5.205)
 │   ├── espelho/tela.js          #   O TELÃO POR COMANDOS: a casca do papel
 │   │                            #   `tela` sobre o próprio /display/ (SSE)
+│   ├── controle/serie.js        #   as SÉRIES do YouTube: a REGRA que decide o
+│   │                            #   que entra num álbum (PURA, com oráculo Node)
 │   ├── controle/                #   (sem sw.js / manifest / icons — ver abaixo)
 │   └── display/                 #   (idem)
 ├── java/br/org/iasd/av/
@@ -320,6 +323,11 @@ window.AVNative = {
   ytStream(url, altura), // → manifesto DASH { video, audio, seconds, height } ou null
                        //   TRANSMITIR sem baixar — exige shell 26
   ytSearch(termo),     // → [{ id, url, name, author, seconds, thumb }] do YouTube
+  ytCanalPlaylists(canalUrl), // → [{ name, url, count }] da ABA do canal — shell 41
+  ytPlaylist(url),     // → { name, author, items:[{id,url,name,seconds,thumb}] }
+                       //   os dois são as SÉRIES da Biblioteca. TRANSPORTE puro:
+                       //   o `name` do item é o título CRU (sem `tituloLimpo`),
+                       //   e quem lê os nomes é `controle/serie.js`
   deckPages(origem, nome, onProg), // → { name, pages:[url] } ou { erro }: PDF em imagens
   deckExportUrl(link), // → URL de exportação PDF de um link do Google Apresentações
   deckDiscard(url),    //   e apaga as páginas depois da cópia
@@ -329,7 +337,9 @@ window.AVNative = {
   requestMic(),        // → bool: permissão RECORD_AUDIO (push-to-talk)
   keepAlive(bool),     // download em curso — ver "Trabalho em segundo plano"
   bgProgress({label, done, total, etaMs, items, idleMs, bytes}), // progresso na notificação
-  nowPlaying({active, title, subtitle, playing, slideMode, slideLabel, wallpaper, positionMs, durationMs}),
+  nowPlaying({active, title, subtitle, playing, slideMode, slideLabel, wallpaper, positionMs, durationMs, actions}),
+                       //   `actions`: os BOTÕES do cartão, na ordem, escolhidos
+                       //   pelo lado web — shell 42. Vazio = os cinco de sempre
   onRemote(cb),        // cb('play'|'pause'|'playpause'|'prev'|'next'|'stop'|'view')
   // ---- TELÃO POR COMANDOS (shell 32; forma atual = 37) — ver a seção ----
   espelhoLigar(modo),  // liga a transmissão (o argumento é IGNORADO desde a
@@ -355,7 +365,7 @@ window.AVNative = {
 }
 ```
 
-São **quarenta métodos**, e essa é a superfície inteira que o resto do
+São **quarenta e dois métodos**, e essa é a superfície inteira que o resto do
 lado web tem direito de usar: fora do `native.js`, tocar em `__AVBridge` direto é
 acoplamento indevido. O próprio `native.js` chama mais oito coisas no
 `__AVBridge`, e nenhuma delas é API para o app — duas são
@@ -429,7 +439,25 @@ esperam uma **pessoa** e ficam sem prazo, porque um timeout ali resolveria null
 com o operador ainda escolhendo a pasta.
 
 `NativeBridge.SHELL_VERSION` identifica a versão da casca — **subir sempre que
-a superfície da ponte mudar**. Hoje vale **40** — a v5.206 ENCOLHE duas formas
+a superfície da ponte mudar**. Hoje vale **42** — a v5.231 acrescenta o campo
+**`actions`** ao `nowPlaying`: a lista de botões da notificação de controles, na
+ordem, escolhida pelo LADO WEB. É a invariante 5 aplicada ao cartão — cinco
+botões fixos serviam a UMA cena (mídia tocando), e com um cronômetro no ar sem
+louvor nenhum o play/pause e ⏮/⏭ ocupavam o modo compacto sem ter o que fazer.
+O degrau é obrigatório porque o campo muda o que o cartão MOSTRA, e a degradação
+é dupla: bundle antigo em shell 42 manda a lista vazia e recebe os cinco de
+sempre; bundle novo em shell 41 tem o campo ignorado pelo `optJSONArray` e
+também fica com os cinco. O anterior, **41** — a v5.228 acrescenta
+`ytCanalPlaylists` e `ytPlaylist`, as SÉRIES da Biblioteca (ver a seção do
+recurso). Os dois são TRANSPORTE, e a divisão de trabalho é o ponto: eles
+devolvem o que o canal publica, verbatim e na ordem dele, sem opinião nenhuma
+sobre o que presta — quem decide qual playlist é da série, qual é a versão em
+LIBRAS e como o item se chama é `assets/web/controle/serie.js`. É a invariante 5
+com uma razão prática medida: a nomenclatura de um canal muda sem avisar (as
+playlists do `@provaievedeoficial` não são consistentes nem entre si — uma delas
+não tem o hífen que todas as outras têm), e cada ajuste dessa regra custaria um
+degrau daqui e uma Release se ela morasse em Kotlin. O anterior, **40** — a
+v5.206 ENCOLHE duas formas
 de retorno, e as duas são resto do espelho de pixels que a v5.187 não levou
 junto: `espelhoDiag` perdeu `ritmo` (o objeto continuava saindo ZERADO depois
 que o encoder que o alimentava morreu, e o lado web lia `kbps < 40` como
@@ -1606,6 +1634,133 @@ TV, as telas da rede SÃO o que a congregação vê.
 
 ---
 
+## Séries do YouTube (o álbum "Provai e Vede 2026")
+
+Um canal que publica **um episódio por semana** e organiza o ano em **uma
+playlist por mês** vira um **álbum da Biblioteca**. O primeiro caso é o
+[Provai e Vede](https://www.youtube.com/@provaievedeoficial), mas nada no
+código é sobre ele: o catálogo em `assets/web/controle/serie.js` guarda
+`{ canal, prefixo, ano }`, e uma linha a mais dá uma série nova sem código novo.
+
+```
+ canal @provaievedeoficial          celular                    Biblioteca
+ ┌──────────────────────┐   ytCanalPlaylists   ┌───────────┐   ┌──────────────┐
+ │ aba Playlists        │────────────────────► │ serie.js  │──►│ card da série│
+ │  · Set 2026 (Libras) │                      │  a REGRA  │   │ 52 episódios │
+ │  · Set 2026          │   ytPlaylist(url)    │  (PURA)   │   │ 15/Ago · …   │
+ │  · Ago 2026 ← s/hífen│────────────────────► │           │   └──────────────┘
+ └──────────────────────┘                      └───────────┘   syncCollection
+```
+
+**A divisão de trabalho é a decisão central, e é a invariante 5.** O shell
+entrega listas cruas — os dois métodos novos não olham para o conteúdo, e o
+título do vídeo sai **sem** o `tituloLimpo` que a busca aplica, porque é dele
+que a regra tira a data e a marca de Libras. Quem decide é o lado web, e a razão
+é prática: a nomenclatura de um canal muda sem avisar ninguém, e ali um ajuste
+chega por OTA em minutos, com oráculo em Node — em Kotlin custaria um degrau de
+`SHELL_VERSION` e uma Release por vírgula.
+
+### A regra, e as seis armadilhas que ela carrega
+
+Nenhuma é hipótese: todas foram lidas nas abas Playlists e Vídeos do canal.
+
+1. **O hífen não é garantido.** As playlists são "Provai e Vede - Agosto 2026",
+   e **uma delas é "Provai e Vede Agosto 2026"**. Um `^Provai e Vede - ` teria
+   descartado o mês inteiro, sem erro nenhum. Por isso a regra não casa
+   separador: pede o prefixo no começo e procura mês e ano **em qualquer
+   posição** — o hífen é opcional por construção, não por um `?` no lugar certo.
+2. **Espaço duplo** ("Provai e Vede␣␣2026 (15/Ago)"). Tudo passa por `normalizar`.
+3. **O marcador de LIBRAS muda de forma entre os níveis:** `(Libras)` na
+   playlist, `- Libras` no vídeo. O teste é pela **palavra**, sem acento e sem
+   caixa — testar qualquer uma das duas formas literais deixaria a outra passar.
+4. **A duração não separa nada:** 4:54 × 4:55 num par, 5:07 × 5:07 noutro.
+5. **O `uploaderName` não é o canal:** os vídeos vêm como "Provai e Vede |
+   Oficial **e Adventist…**" (colaboração). Filtrar por ele derrubaria tudo.
+6. **A DATA tem DUAS formas, e o mesmo episódio usa as duas** (v5.230). A
+   compacta entre parênteses — "… 2026 (03/Jan)" — e a **por extenso**: "Não há
+   órfãos de Deus | Provai e Vede 2026 **sábado 3 janeiro**". No dia 3 de
+   janeiro de 2026 a versão em Libras saiu na primeira e a de português na
+   segunda. `dataDoVideo` tenta as duas, nessa ordem; a extensa aceita o "de"
+   opcional e o ordinal ("1º"), e exige que o nome **seja** um mês em vez de só
+   começar como um — sem essa última guarda, "3 marcos" viraria 3 de março.
+
+O que a sexta ensina não é "existem duas formas": é que **supor UMA forma era a
+aposta errada desde o começo**, e é justamente por a regra de ouro deste arquivo
+já valer (o título é só rótulo) que o episódio entrou no álbum mesmo assim. O
+preço de errar a data é o que o operador relatou — um item sem identificador de
+data, fora de ordem, no fim de janeiro —, não um episódio ausente.
+
+### As decisões que precisam estar ditas
+
+- **A descoberta é a ABA DO CANAL, não uma busca por texto.** É uma diferença
+  de AUTORIDADE: numa busca quem escolhe o resultado é o ranking do YouTube, e
+  qualquer pessoa pode nomear uma playlist "Provai e Vede 2026". Vindo do canal
+  — o publicador —, o pior caso é uma playlist a menos, nunca o vídeo de um
+  desconhecido na projeção do culto.
+- **A PLAYLIST prova o pertencimento; o título é só RÓTULO.** Um vídeo entra
+  por estar numa playlist aceita, jamais por casar um padrão de título. A data
+  `(15/Ago)` ordena e nomeia, e quando ela não casa o vídeo **entra do mesmo
+  jeito**, com a ordem em que veio. Errar para o lado de um nome feio é
+  recuperável; errar para o lado de um episódio ausente é o operador descobrindo
+  no sábado que o vídeo do culto não está lá.
+- **A recusa de Libras existe DUAS vezes, e a segunda nunca dispara hoje.** As
+  playlists PT e Libras são espelhos 1:1, então a de português já vem só com
+  português — mas um único vídeo acrescentado por engano na playlist oficial
+  iria direto ao telão, e essa é a falha que não se pode correr por economia de
+  três linhas.
+- **O ano é EXPLÍCITO no catálogo.** "O ano corrente" faria o álbum trocar de
+  conteúdo sozinho na virada de dezembro, no meio da programação de janeiro.
+  2027 é uma linha nova e um push em `main`.
+- **A assinatura das playlists evita doze extrações por retomada.** A aba do
+  canal já diz quantos vídeos cada playlist tem; batendo com o que está
+  guardado, as ~12 chamadas de `ytPlaylist` são puladas. Um episódio novo muda a
+  contagem e a assinatura inteira é refeita — "tudo ou nada" de propósito, para
+  não guardar de qual playlist veio cada faixa.
+- **O índice falha com EXCEÇÃO, nunca com lista vazia.** `syncCollection` já
+  trata isso como "sem internet" e PRESERVA o índice anterior; devolver zero
+  itens apagaria da tela a série inteira que o operador já tem baixada, por uma
+  oscilação de rede.
+- **`lyrics: null` no registro não é enfeite.** `songVariantsNeeded` pergunta
+  `fullRec.lyrics === undefined` para decidir se a faixa falta — sem o campo, os
+  52 episódios seriam rebaixados a cada sincronização, para sempre e em silêncio.
+- **`aportuguesar` em todo extrator, e aqui ele não é cosmético.** No padrão
+  en-GB da biblioteca o YouTube devolve o título TRADUZIDO: `(15/Ago)` viraria
+  `(15/Aug)` e a marca de Libras mudaria de palavra — as duas coisas de que a
+  regra depende. A paginação sai do MESMO extrator (`ex.getPage`), e não do
+  `getMoreItems(service, …)`, que monta um extrator novo por dentro e nasceria
+  sem o `forceLocalization`: os meses do fim da lista voltariam em inglês
+  enquanto os do começo vêm em português.
+- **UM EPISÓDIO É UM VÍDEO DO YOUTUBE, e a folha dele é a mesma** (v5.230,
+  pedido do operador). A v5.228 tratou a série como coleção do LouvorJA porque
+  é dali que a casca do card veio — e **naquele mundo o toque BAIXA**, o que é
+  certo para uma faixa de hinário de poucos MB que existe para ficar offline.
+  Aqui a premissa não vale: são ~300 MB por episódio e o vídeo do sábado é visto
+  uma vez. `openSongMenu` desvia para `openYtMenu` antes de qualquer coisa, e
+  com isso o episódio ganha de graça a **transmissão direta** no "Tocar agora" e
+  o download só nos destinos que GUARDAM (playlist · Cronograma · Favoritos).
+  A única diferença é `semSoAudio`: o seletor Vídeo × Só áudio some, porque um
+  testemunho em vídeo não tem versão de áudio que faça sentido projetar — e uma
+  escolha que não muda nada é pior que escolha nenhuma.
+- **O card não baixa em lote, e o botão dele muda de verbo.** "Baixar" ali seria
+  o download direto que o operador pediu para não existir, na maior escala que
+  este app tem (~15 GB). O botão da barra some assim que HÁ índice — enquanto
+  não há ele fica, porque ali ele não baixa nada, busca a lista —, o item de
+  opções vira **"Atualizar a lista"** (`syncCollection(coll, { soIndice: true })`,
+  que devolve logo depois do índice) e a série sai de "Baixar toda a
+  biblioteca", peso incluído: um total que promete o que o botão não faz é a
+  pior das duas metades.
+- **O card não é desenhado abaixo do shell 41**, pela regra de sempre: um método
+  novo não chega por OTA, e um card que não carrega nada é pior que card nenhum.
+
+### O tamanho, dito em vez de escondido
+
+São ~52 episódios de ~5 min por ano, ~300 MB cada em 1080p: o ano inteiro passa
+de 15 GB. É por isso que **não existe "baixar o álbum"** aqui — o uso normal é
+tocar o episódio do sábado, que TRANSMITE sem baixar nada, e guardar um episódio
+offline é mandá-lo ao Cronograma ou aos Favoritos pela folha, um a um.
+
+---
+
 ## A paleta
 
 A paleta mora em **`assets/web/shared/tokens.css`**, fonte única carregada pelos
@@ -1783,6 +1938,7 @@ contextos.
 | Resolução do download | — | **até 1080p, montando as duas faixas** (v1.44; pares por contêiner na v1.45). Acima de 720p o YouTube só entrega vídeo SEM som, com o som à parte — e por isso o app baixava a pior cópia: só sabia pegar o progressivo, que neste aparelho é UM, de 360p. `MuxMp4.kt` junta as duas com o `MediaMuxer` da PLATAFORMA: é cópia de amostras, não recodificação, então não há perda nem espera. Teto de 1080p de propósito (o telão da igreja é 1080p) e só quando o resultado for melhor que o progressivo — senão dois downloads e um muxer entregariam o mesmo de antes. Os pares são do MESMO contêiner (mp4+m4a → MP4, webm+webm → WebM, este só na API 29+): "a melhor de cada lado" produziria VP9 dentro de MP4, que o muxer recusa depois de tudo baixado. Falhando qualquer etapa, o progressivo segue como piso. **Da v1.44 à v1.48 isso não saía do papel: as faixas eram listadas (1080p) e o CDN respondia 403 a todas** — com os dois pares, os dois perfis de UA e `Range`. Era o SABR, que o YouTube passou a exigir de quem pede sem PO Token. A saída não era montar o token (o `getWebClientPoToken` da biblioteca não tem uma única chamada em versão nenhuma, e o token do cliente Android — o que ela de fato consome — exige o DroidGuard do Play Services): foi **atualizar o extrator para a v0.26.4** (v1.49), que busca o cliente **visionOS** sem token nenhum e volta a entregar as adaptativas. Como as listas passaram a chegar MISTURADAS (visionOS + o cliente antigo), a escolha virou uma **fila de candidatos** — ver "O cliente visionOS destrava o 1080p" em `docs/ARQUITETURA-WEB.md`. **CONFIRMADO em aparelho:** `clientes VISIONOS 17, ANDROID 1 → juntou 1080p (mp4, 137@VISIONOS/V)`, sem uma única recusa na fila. Diagnóstico no rodapé de Configurações, agora com o itag, o cliente e o motivo de cada tentativa |
 | **Só o ÁUDIO** em "Tocar agora" | **não toca** | **TRANSMITIDO também** (v5.130): o manifesto do shell já traz o par, e o lado web simplesmente DESCARTA a faixa de vídeo (`man.video = null`) — nenhum método novo, nenhum byte de 1080p baixado para ser jogado fora, e por isso chega por OTA. Entra como `kind: 'audio'` (o telão mantém o wallpaper) e o fallback, se a transmissão morrer, baixa a MESMA forma. O download de um m4a é rápido, mas "rápido" não é o pedido: o pedido é não esperar |
 | **Só o ÁUDIO** guardado (playlist · Cronograma · Favoritos) | — | **`ytFetchAudio`** (v5.112, shell ≥ 23; **exige o APK v1.41+** — ver abaixo): a faixa de áudio, sem vídeo. A escolha é o MESMO seletor de Cantada/Playback das músicas, no topo da folha de destinos, e vale para as quatro ações. Entra como `kind: 'audio'` e **sem miniatura** — é o kind que faz o telão manter o wallpaper em vez de trocar de imagem. É também o único caminho em que o teto de 720p do progressivo não existe: o áudio do YouTube já vem em faixa separada, então aqui ele vem inteiro. **E é justamente por ser faixa separada que ele pode não vir**: adaptativo é o que o YouTube protegeu com SABR quando o app pedia sem PO Token. Daí a fila de tentativas do shell — que na v1.49 deixou de ser "m4a → qualquer outro → progressivo" e passou a ser **três candidatos de áudio na ordem do cliente que funciona** (visionOS primeiro), com o progressivo ainda no fim. **CONFIRMADO em aparelho:** `→ veio m4a 140@VISIONOS` (AAC-LC 128 kbps, primeiro candidato, primeira requisição) — até a v1.48 este caminho caía no vídeo de 360p inteiro. O registro entra como `kind: 'audio'` em todos os casos: quem decide que o telão não muda de imagem é o kind, não o container |
+| **Séries do YouTube na Biblioteca** | **não existe** — sem ponte não há como enumerar playlist nem baixar vídeo | **um álbum por SÉRIE** (v5.228/shell 41), e o primeiro é **Provai e Vede 2026**. O canal (`@provaievedeoficial`) é a ÚNICA constante: o app lê a **aba Playlists** dele (`ytCanalPlaylists`), aceita as que casam com "prefixo + ano" e **recusa as de LIBRAS**, expande cada uma (`ytPlaylist`) e ordena os episódios pela data do título — a faixa se chama "15/Ago · Quando o evangelho sussurra", porque o operador procura pelo sábado, não pelo nome do episódio. O card fica no topo da Biblioteca, junto dos hinários — mas **o ITEM é um vídeo do YouTube, não uma faixa de hinário** (v5.230): o toque abre a MESMA folha do YouTube (sem "Só áudio"), o "Tocar agora" TRANSMITE sem baixar, e o download existe só nos destinos que guardam. Não há "baixar o álbum": são ~300 MB por episódio. **A descoberta é pela ABA DO CANAL, nunca por busca de texto**: numa busca quem escolhe é o ranking do YouTube e qualquer pessoa pode nomear uma playlist "Provai e Vede 2026" — vindo do canal, o pior caso é uma playlist a menos, jamais o vídeo de um desconhecido na projeção. A regra vive em `controle/serie.js` (PURA) com oráculo em Node (`tools/serie.test.mjs`) e o percurso inteiro no `boot-nativo.test.mjs`. Ver "Séries do YouTube", abaixo |
 | Buscar no YouTube | não existe: o botão abre o YouTube numa aba | **a busca acontece DENTRO do acervo** — a tela que o rótulo chama de **Biblioteca** desde a v5.96, e que no código segue sendo o acervo — (`AVNative.ytSearch`, `YoutubeGrab.pesquisar`, em **português** — no padrão en-GB da biblioteca o YouTube devolve o título TRADUZIDO de vídeos que são originalmente em português, e passar a localização ao `NewPipe.init` NÃO resolve: o serviço filtra o idioma por uma lista de suportados que hoje só tem `en-GB`. Quem resolve é o `forceLocalization` do próprio `Extractor`): os resultados entram na mesma lista e o toque abre a mesma folha de escolhas das músicas (tocar · playlist · Cronograma · Favoritos), cada uma indo para o seu lugar — e, desde a v5.141, para mais de um de uma vez, com um download só. Um iframe da página de resultados é recusado pelo `X-Frame-Options` do YouTube, e a API oficial exigiria chave com cota compartilhada pela frota |
 | Link para fora do app ("Pesquisar … no YouTube") | `window.open` numa aba nova | **`AVNative.openExternal(url)`** → `ACTION_VIEW` numa tarefa própria. O WebView RECUSA navegar para outro origin (invariante 2), então sem esse método um link externo não faz absolutamente nada — nem erro no console |
 | "Conectar a tela" (modo simplificado) | abre a tela do Display (`window.open`) — e é ela que conta como "conectado" | mesmo `AVNative.openCast()`, com o nome da tela conectada no subtítulo |
@@ -2165,6 +2321,18 @@ lugar, o único achado era ele. (O caso da **despedida** — o `adeus` recebido
 faz a tela PARAR, nada de martelar uma porta fechada — nasceu ali e hoje vive
 no `tela-rede.test.mjs`.)
 
+A v5.228 acrescentou o **oráculo da SÉRIE** (`tools/serie.test.mjs`, Node puro,
+**sem `continue-on-error`**): quais playlists de um canal formam o álbum e quais
+vídeos entram nele. Os dois modos de errar são silenciosos e caros — aceitar
+demais põe a versão em LIBRAS em par com a de português (o álbum dobra, com o
+intérprete na projeção sem ninguém ter pedido) e aceitar de menos apaga um MÊS
+inteiro da Biblioteca sem erro no console. **As entradas são VERBATIM do canal**,
+incluindo a playlist que não tem o hífen que todas as outras têm: uma
+nomenclatura imaginada prova só que o código concorda com quem o escreveu. O
+percurso de ponta a ponta — canal → regra → card → lista ordenada — entrou no
+`boot-nativo.test.mjs`, que é o único que sobe a base COM a ponte e por isso o
+único capaz de exercitá-lo.
+
 A v5.175 acrescentou o **oráculo dos TOKENS** (`tools/tokens.test.mjs`, Node
 puro, **sem `continue-on-error`**): nenhum `var(--x)` **sem fallback** pode
 apontar para um token que não existe. Ele é o irmão do oráculo da sombra, e pela
@@ -2411,10 +2579,231 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.227** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
+**Versão atual: v5.231** (base web) · `SHELL_VERSION` **42**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.231 (v1.98): OS BOTÕES DA NOTIFICAÇÃO PASSAM A SER DA CENA, e a
+> transmissão deixa de sumir quando há mídia no ar. EXIGE APK.**
+>
+> Duas perguntas do operador, e a primeira precisa de uma correção de premissa
+> antes da resposta.
+>
+> **1. "Conseguimos centralizar a transmissão no player, removendo a notificação
+> individual dela?"** — **ela já é um cartão só desde a v5.190**: o
+> `EspelhoService` e a notificação dele foram removidos ali, e o que restou foi
+> UM cartão com DUAS CARAS (player com cena · endereço e telas sem cena). O que
+> o operador estava vendo como "a notificação exclusiva da transmissão" é a
+> segunda cara.
+>
+> O que de fato faltava, e este lote entrega: **com uma cena no ar, a
+> transmissão sumia**. Punha-se um louvor para tocar e a gaveta deixava de dizer
+> que havia um servidor no ar — a informação existia e era descartada. Agora ela
+> é o SUBTEXTO do player (a linha do cabeçalho que o `MediaStyle` desenha), que
+> não disputa espaço com o título nem com os botões.
+>
+> **Um player LITERAL em tempo integral não é possível, e a razão é da
+> plataforma, não de gosto.** Para o cartão sem cena virar `MediaStyle` seria
+> preciso uma sessão com estado — e a partir do Android 13 os botões saem do
+> `PlaybackState`, não das `Notification.Action`. Com `STATE_NONE` (o único
+> honesto sem mídia) o sistema não desenha botão nenhum e o "Desligar
+> transmissão" sumiria justamente nas versões novas; com um estado PAUSADO ele
+> apareceria, mas o sistema promoveria a sessão ao painel de mídia das
+> configurações rápidas — um player fantasma, com transporte morto, para
+> controlar coisa nenhuma. Duas caras num cartão só é o melhor que a plataforma
+> permite sem inventar um desses dois defeitos, e está escrito no KDoc do
+> `SessionService` para a próxima leitura não tentar de novo.
+>
+> **2. "Conseguimos mudar os botões conforme o estado?"** — sim, e é o outro
+> lado do lote (`SHELL_VERSION` **42**). O `nowPlaying` ganhou `actions`: a
+> lista, na ordem, escolhida pelo `controle.js`. As três perguntas que a
+> `acoesDaNotificacao` faz:
+>
+> - **play/pause** só existe com mídia que tenha TEMPO (a mesma régua da barra
+>   de progresso). Imagem, versículo, mensagem e cronômetro não têm o que pausar.
+> - **⏮/⏭** existem quando há EIXO: uma cena com slides ou uma mídia atual (é o
+>   que faz o par trocar de item na lista).
+> - **cortina e parar** existem sempre.
+>
+> Com o cronômetro de abertura sozinho no ar, o cartão passa a ter DOIS botões
+> grandes — cobrir e parar — em vez de cinco, três deles mortos ocupando o modo
+> compacto (que só mostra três).
+>
+> **A lista vem de fora pela invariante 5**, e não é formalidade: quem sabe se
+> "próxima estrofe" faz sentido agora é o lado web, e uma cópia dessa regra em
+> Kotlin envelheceria à parte da de lá. O conjunto entra também na CHAVE de
+> deduplicação do `pushNowPlaying` — sem isso, uma cena que muda só de eixo (o
+> cronômetro entrando por cima de uma imagem) seria deduplicada e o cartão
+> ficaria com os botões da cena anterior. **Um botão que sobrou é pior que um
+> que faltou: ele responde.**
+>
+> O conjunto é declarado nos DOIS lugares que o Android lê — o `PlaybackState`
+> (que desenha do 13 em diante) e as `Notification.Action` (abaixo dele) —,
+> porque declarar de um lado só é fazer o botão existir em metade dos aparelhos:
+> é o defeito da v1.17 com outro nome. E o `tools/ponte.test.mjs` afirma que o
+> campo VIAJA, que é o modo de falhar deste objeto remontado campo a campo (o
+> `slideLabel` passou cinco versões sem chegar ao Kotlin).
+
+> **A v5.230: O EPISÓDIO DE SÉRIE VIRA UM VÍDEO DO YOUTUBE, e a DATA passa a
+> ter DUAS formas. OTA PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> Dois pedidos do operador, e os dois derrubam uma suposição da v5.228.
+>
+> **1. "O tratamento dos itens deve ser o mesmo dos vídeos do YouTube (sem a
+> opção de apenas áudio). Não quero um download direto, e quero a opção de tocar
+> diretamente em stream pelo link."**
+>
+> A v5.228 tratou a série como uma coleção do LouvorJA porque **é dali que a
+> casca do card veio** — e naquele mundo o toque BAIXA, o que está certo para
+> uma faixa de hinário: poucos MB, e o acervo existe justamente para ficar
+> offline. Herdar a casca herdou a premissa junto, e aqui ela é falsa por duas
+> ordens de grandeza: são ~300 MB por episódio, ~15 GB no ano, e o vídeo do
+> sábado é visto **uma vez**. O "Baixar" do card oferecia isso atrás de uma
+> palavra de três sílabas.
+>
+> **O caminho certo já existia inteiro, e era o do YouTube.** `openSongMenu`
+> desvia para `openYtMenu` antes de montar qualquer coisa, e com um desvio de
+> uma linha o episódio ganha a **transmissão direta** no "Tocar agora"
+> (`ytStream` → `shared/mse.js`, sem esperar byte nenhum), o download só nos
+> destinos que GUARDAM, o cancelamento, o resgate de intenção e o teto de
+> resolução. Nada disso foi reimplementado — o item foi levado até onde a
+> resposta mora. No **Modo Fácil** o mesmo, e ali vale ainda mais: aquele modo
+> existe para não perguntar nada, e a alternativa era o operador esperar 300 MB
+> com o culto rodando.
+>
+> A única coisa a MENOS é o seletor Vídeo × Só áudio (`semSoAudio`): um
+> testemunho em vídeo não tem versão de áudio que faça sentido projetar, e uma
+> escolha que não muda nada é pior que escolha nenhuma.
+>
+> **E o card acompanhou, senão a promessa contradiria a folha:** o botão de
+> baixar da barra some assim que há índice (sem índice ele fica, porque ali ele
+> não baixa nada — busca a lista), o item de opções virou **"Atualizar a
+> lista"** (`syncCollection` com `soIndice`, que volta logo depois do índice) e
+> a série saiu de "Baixar toda a biblioteca", com peso e tudo. Um contador que
+> promete o que o botão não faz é a pior das duas metades.
+>
+> **2. "Ele reconheceu o vídeo, mas o nomeou apenas como 'não há órfãos de
+> deus', sem identificar a data e nem sequer colocar um identificador no padrão
+> dos outros, deixando o vídeo fora de ordem."**
+>
+> A sexta armadilha da nomenclatura, e ela é a mais direta de todas: **o mesmo
+> canal usa DUAS formas de data, no MESMO episódio.** Em 3 de janeiro de 2026 a
+> versão em Libras saiu como "… 2026 (03/Jan) - Libras" e a de português como
+> "… 2026 **sábado 3 janeiro**". `dataDoVideo` tenta a compacta e, falhando ela,
+> a extensa — com o "de" opcional, o ordinal ("1º") consumido, e a guarda que
+> exige que o nome **seja** um mês em vez de só começar como um, sem a qual
+> "3 marcos" viraria 3 de março.
+>
+> **O que salvou o episódio foi a regra de ouro deste arquivo**: quem prova
+> pertencimento é a PLAYLIST, o título é só rótulo. Por isso o vídeo estava lá —
+> feio e fora de ordem, que é o erro recuperável — em vez de ausente, que é o
+> erro que o operador só descobre no sábado.
+>
+> Os dois oráculos foram verificados nos dois sentidos: o `serie.test.mjs`
+> reprova em **7 pontos** com o `dataDoVideo` anterior, e o `boot-nativo`
+> reprova a folha do YouTube e o card sem botão de baixar com o `controle.js`
+> anterior.
+>
+> A régua que fica: **herdar a casca de um recurso herda as premissas dele.** O
+> card veio do LouvorJA e trouxe junto "o toque baixa", que nunca foi uma
+> decisão sobre séries — era o padrão de um acervo cujos itens custam poucos MB.
+
+> **A v5.229: O CARD DA SÉRIE ERA CONSTRUÍDO E NUNCA DESENHADO. OTA PURO**
+> (nenhuma linha de Kotlin; sem Release).
+>
+> Relato do operador, no dia seguinte à v5.228: *"não estou achando nada para
+> acessar esse provai e vede. e sim ele deve ficar no topo junto dos
+> hinários."*
+>
+> **Ele estava certo, e o card não existia na tela.** A v5.228 acrescentou a
+> série ao `allCollections()` — e `allCollections()` alimenta as CONTAS (peso,
+> "toda a biblioteca", busca), não o desenho. A lista da Biblioteca é montada em
+> TRÊS grupos: as fixas (`FIXED_COLLECTIONS`), as categorias de álbuns e os
+> álbuns órfãos do catálogo. Uma coleção que não é `FIXED_COLLECTIONS` nem álbum
+> **não cai em nenhum deles**. O card era construído, entrava no `byId`, contava
+> no peso do acervo — e não aparecia em lugar nenhum.
+>
+> **É a lição da v5.220 outra vez, num lugar novo:** *acrescentar ao lugar em
+> que o dado NASCE não o entrega a quem o MOSTRA.* E o que a torna cara aqui é
+> que **as doze asserções da v5.228 passavam com o defeito no lugar**: elas
+> mediam o ÍNDICE (playlists filtradas, ordem, Libras fora, URLs), e o que
+> faltava era o DESENHO. O oráculo novo pergunta ao DOM, não a uma função, e
+> reprova nos três pontos quando o grupo do topo volta a ser a lista literal.
+>
+> A correção não é acrescentar um quarto grupo: é o grupo do topo passar a ser
+> **"as coleções FIXAS"**, que é o que ele sempre quis dizer, em vez de uma
+> lista digitada à mão. Com série, o cabeçalho vira "Hinários e séries"; sem
+> ela — num shell < 41 —, continua "Hinários", e nada muda.
+>
+> **E o defeito escondia um segundo, que só apareceria depois:** o peso da
+> série era calculado pela escada de bitrate de ÁUDIO. A constante é o
+> 128 kbps do LouvorJA e a média global é dominada por hinário, então uma série
+> ainda vazia — que é exatamente quando o número importa — seria anunciada a
+> ~16 KB/s para um 1080p que entrega ~600. A tela prometeria **~50 MB para um
+> ano que pesa ~15 GB**: um erro de 40× na única pergunta que essa conta existe
+> para responder ("espero o Wi-Fi?"). Agora há `BPS_VIDEO_PADRAO`, e as duas
+> médias não se misturam nos dois sentidos — um ano de série baixado não infla
+> a estimativa de todo álbum de louvor, e a média de áudio não desinfla a da
+> série.
+
+> **A v5.228 (v1.98): AS SÉRIES DO YOUTUBE VIRAM ÁLBUNS DA BIBLIOTECA — e o
+> primeiro é o "Provai e Vede 2026". EXIGE APK** (`SHELL_VERSION` **41**).
+>
+> Pedido do operador: sincronizar os vídeos oficiais do Provai e Vede 2026, em
+> português, como um álbum da Biblioteca. A seção "Séries do YouTube" tem o
+> desenho inteiro; aqui ficam as três coisas que a investigação decidiu.
+>
+> **O LouvorJA não tinha, e não é falta de catálogo — é estrutural.** Pelo
+> contrato em `docs/FONTE-DE-DADOS-LOUVORJA.md`, o banco tem cinco famílias de
+> arquivo e **todo campo de mídia é áudio ou imagem** (`url_music`,
+> `url_instrumental_music`, `url_image`): não existe campo de vídeo em lugar
+> nenhum. Mesmo que aparecesse um álbum com esse nome, não haveria bytes para
+> buscar. O portal oficial da DSA (`downloads.adventistas.org`) publica os MP4
+> por trimestre e foi a alternativa considerada; o operador escolheu o YouTube
+> — com o argumento certo, de que "playlist vira álbum" é um recurso, e o Provai
+> e Vede é só a primeira instância dele.
+>
+> **A descoberta é automática, e ela é pela ABA DO CANAL.** A única constante é
+> `@provaievedeoficial`; meses e anos saem dos nomes das playlists. A alternativa
+> — busca por texto — foi recusada por AUTORIDADE, não por dificuldade: ali quem
+> escolhe o resultado é o ranking do YouTube, e qualquer pessoa pode nomear uma
+> playlist "Provai e Vede 2026". Num sistema de projeção de culto isso é um
+> reupload entrando no telão sem nada que o denuncie.
+>
+> **As cinco armadilhas da nomenclatura foram MEDIDAS nos prints do canal**, não
+> imaginadas, e duas delas quebrariam a regra óbvia em silêncio: uma playlist
+> **sem o hífen** que todas as outras têm (um `^Provai e Vede - ` apagaria o mês
+> inteiro) e o marcador de Libras em **duas formas diferentes** — `(Libras)` na
+> playlist e `- Libras` no vídeo. Estão as cinco no topo do `serie.js` e as cinco
+> viraram caso de teste, com as strings verbatim.
+>
+> **A regra mora no lado WEB, e isso é a invariante 5 com uma razão medida.** O
+> Kotlin ganhou dois métodos de TRANSPORTE (`ytCanalPlaylists`, `ytPlaylist`) que
+> devolvem o que o canal publica, verbatim — inclusive o título CRU, sem o
+> `tituloLimpo` da busca, porque é dele que saem a data e a marca de Libras.
+> A nomenclatura de um canal muda sem avisar; do lado web um ajuste chega por
+> OTA em minutos, com oráculo em Node, e em Kotlin custaria um degrau de shell e
+> uma Release por vírgula.
+>
+> **Uma armadilha que quase passou:** o `pesquisar` força português no extrator
+> porque no padrão en-GB o YouTube devolve o título TRADUZIDO. Sem o mesmo
+> `aportuguesar` aqui, `(15/Ago)` viraria `(15/Aug)` e "Libras" mudaria de
+> palavra — a regra inteira falharia calada. Pelo mesmo motivo a paginação sai
+> do MESMO extrator (`ex.getPage`) e não do `getMoreItems(service, …)`, que monta
+> um extrator novo por dentro: os meses do fim da lista voltariam em inglês
+> enquanto os do começo vêm em português.
+>
+> **E uma medida que evita doze extrações por retomada:** a aba do canal já diz
+> quantos vídeos cada playlist tem, então a assinatura `url:contagem` é guardada
+> e, batendo, as ~12 chamadas de `ytPlaylist` são puladas. A extração é a peça
+> frágil deste caminho — a que não convém exercitar à toa.
+>
+> **O que NÃO foi verificado, e está dito:** o Kotlin não foi compilado (o
+> ambiente desta sessão não resolve o plugin do Android nem baixa dependências).
+> Quem compila é o CI, que falha alto. A regra — a parte que decide o que vai ao
+> telão — não depende disso: são 42 casos em Node puro, verificados nos dois
+> sentidos, mais o percurso completo no `boot-nativo.test.mjs`.
 
 > **A v5.227: O "DESLIGANDO…" VIRA O RÓTULO DO PRÓPRIO BOTÃO. OTA PURO**
 > (nenhuma linha de Kotlin; sem Release).
