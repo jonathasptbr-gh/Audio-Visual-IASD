@@ -76,20 +76,52 @@ const ponteCom = (espelho, telas) => `(() => {
     'espelhoEstado','espelhoDiag','espelhoCertEstado','espelhoCertImportar','espelhoCertApagar',
     'apkProcurar','apkInstalar','otaPending','otaApply','otaCheck','otaDiag','ytDiag']);
   const B = {
-    shellVersion: () => 40,
+    shellVersion: () => 41,
     role: () => 'controle',
-    appVersion: () => '1.93-teste',
+    appVersion: () => '1.98-teste',
     takeShare: () => '',
     busPost: (t) => { try { (window.__enviados = window.__enviados || []).push(JSON.parse(t)); } catch (_) {} },
     otaConfirm: () => {},
+    // AS SÉRIES (shell 41), com resposta POR URL — o genérico abaixo devolve um
+    // valor fixo por método, e aqui cada playlist precisa dos itens dela.
+    //
+    // As strings são VERBATIM do @provaievedeoficial, com as duas armadilhas
+    // que o \`serie.js\` documenta: a playlist de agosto SEM o hífen que as
+    // outras têm, e o marcador de Libras em duas formas (\`(Libras)\` na
+    // playlist, \`- Libras\` no vídeo). Um harness que "limpasse" isso provaria
+    // o percurso contra um canal que não existe — a lição da v5.204.
+    ytCanalPlaylists: (id) => {
+      const pls = [
+        { name: 'Provai e Vede - Agosto 2026 (Libras)', url: 'p/ago-libras', count: 2 },
+        { name: 'Provai e Vede Agosto 2026', url: 'p/ago', count: 2 },
+        { name: 'Provai e Vede - Julho 2026', url: 'p/jul', count: 1 },
+        { name: 'Semana de Mordomia Cristã 2026', url: 'p/outra', count: 9 },
+      ];
+      setTimeout(() => { try { window.__avResolve(id, pls); } catch (_) {} }, 0);
+    },
+    ytPlaylist: (id, url) => {
+      const porUrl = {
+        'p/ago': { name: 'Provai e Vede Agosto 2026', author: 'Provai e Vede | Oficial', items: [
+          { id: 'aaaaaaaaaa1', url: 'y/1', name: 'Match point | Provai e Vede 2026 (01/Ago)', seconds: 319 },
+          { id: 'aaaaaaaaaa2', url: 'y/2', name: 'Cada centavo conta | Provai e Vede 2026 (08/Ago) - Libras', seconds: 307 },
+          { id: 'aaaaaaaaaa3', url: 'y/3', name: 'Cada centavo conta | Provai e Vede 2026 (08/Ago)', seconds: 307 },
+        ] },
+        'p/jul': { name: 'Provai e Vede - Julho 2026', author: 'Provai e Vede | Oficial', items: [
+          { id: 'aaaaaaaaaa4', url: 'y/4', name: 'Chamado em Silêncio | Provai e Vede 2026 (25/Jul)', seconds: 280 },
+        ] },
+      };
+      setTimeout(() => {
+        try { window.__avResolve(id, porUrl[url] || null); } catch (_) {}
+      }, 0);
+    },
   };
   const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','castTarget',
     'deckDiscard','deckExportUrl','deckPages','displays','espelhoAprovar','espelhoCertApagar',
     'espelhoCertEstado','espelhoCertImportar','espelhoDesligar','espelhoDiag','espelhoEstado',
     'espelhoLigar','keepAlive','listFolder','nowPlaying','openCast','openExternal','otaApply',
     'otaCheck','otaDiag','otaPending','pickDoc','pickFolder','requestMic','systemVolume',
-    'temaClaro','ytCancel','ytDiag','ytDiscard','ytFetch','ytFetchAte','ytFetchAudio','ytSearch',
-    'ytStream'];
+    'temaClaro','ytCancel','ytCanalPlaylists','ytDiag','ytDiscard','ytFetch','ytFetchAte',
+    'ytFetchAudio','ytPlaylist','ytSearch','ytStream'];
   for (const n of nomes) {
     if (B[n]) continue;
     B[n] = (...args) => {
@@ -157,6 +189,52 @@ try {
     deuPe = true;
   } catch (_) { deuPe = false; }
   checar(deuPe, 'O APP FICOU DE PÉ com a ponte presente (o critério do watchdog do OTA)');
+
+  // ── A SÉRIE (v5.228) ───────────────────────────────────────────────────
+  // O card só existe com a ponte E com shell >= 41, então este é o ÚNICO teste
+  // que pode exercitá-lo — no `smoke.mjs` a série nem chega a ser construída.
+  // E o que se afirma aqui é o percurso INTEIRO, do canal até a lista: a regra
+  // pura já tem oráculo próprio (`serie.test.mjs`), o que faltava era provar
+  // que ela está de fato LIGADA ao provedor de coleção.
+  const serie = await pg.evaluate(async () => {
+    const c = allCollections().find((x) => x.kind === 'serie');
+    if (!c) return { achou: false };
+    await fetchCollectionIndex(c);
+    const st = collState[c.id];
+    return {
+      achou: true,
+      nome: c.name,
+      itens: collSongs(c.id).map((s) => s.name),
+      urls: collSongs(c.id).map((s) => s.ytUrl),
+      semPlayback: collSongs(c.id).every((s) => s.has_instrumental_music === false),
+      assinatura: !!(st && st.serieAssinatura),
+    };
+  });
+  checar(serie.achou, 'com shell 41 o card da SÉRIE existe na Biblioteca');
+  checar(serie.nome === 'Provai e Vede 2026', 'e ele se chama "Provai e Vede 2026"', serie.nome);
+  checar(serie.itens && serie.itens.length === 3,
+    'as 2 playlists em português viram 3 episódios (a de Libras e a outra série ficam fora)',
+    JSON.stringify(serie.itens));
+  checar(!(serie.itens || []).some((n) => /libras/i.test(n)),
+    'NENHUM episódio em Libras entrou — o par dobraria o álbum na projeção');
+  checar((serie.itens || []).join(' | ')
+      === '25/Jul · Chamado em Silêncio | 01/Ago · Match point | 08/Ago · Cada centavo conta',
+    'a lista vem em ordem CRONOLÓGICA e rotulada pela data, que é como se procura o sábado',
+    JSON.stringify(serie.itens));
+  checar((serie.urls || []).join(',') === 'y/4,y/1,y/3',
+    'cada episódio carrega a URL do vídeo — é ela que o download vai buscar', JSON.stringify(serie.urls));
+  checar(serie.semPlayback,
+    'nenhum episódio pede PLAYBACK: um vídeo não tem, e o álbum nunca ficaria completo');
+  checar(serie.assinatura,
+    'a assinatura das playlists é guardada — sem ela, toda retomada custa 12 extrações');
+
+  // A ARMADILHA 1 pelo caminho de ponta a ponta: a playlist de agosto do stub
+  // é "Provai e Vede Agosto 2026", SEM o hífen que todas as outras têm. Se a
+  // regra exigisse o separador, os dois episódios de agosto sumiriam — e a
+  // asserção de cima já reprovaria, mas sem dizer POR QUÊ.
+  checar((serie.itens || []).filter((n) => /Ago/.test(n)).length === 2,
+    'a playlist SEM hífen entrou: os dois episódios de agosto estão na lista',
+    JSON.stringify(serie.itens));
 
   // E o bloco de conexão do Modo Fácil, que é o caminho que a v5.195 quebrou:
   // com shell >= 32 ele mostra as DUAS formas de conectar, não só o espelhar.

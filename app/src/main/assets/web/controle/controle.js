@@ -209,7 +209,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.227';
+const WEB_VERSION = '5.228';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -583,8 +583,34 @@ let albumCatalog = { categories: [], albums: [] };
 // Registro completo de coleções: hinários fixos + um card por álbum do catálogo.
 // `subtitle`/`order` NÃO entram aqui: são do pivô categoria↔álbum e só fazem
 // sentido no contexto de uma categoria (ver renderCollectionsList).
+// AS SÉRIES DO YOUTUBE (v5.228) — um card por série do catálogo de `serie.js`.
+// A primeira é "Provai e Vede 2026"; a regra que decide o que entra em cada uma
+// mora lá, e o que chega aqui é só o card.
+//
+// **Guardadas por SHELL 41**, e é a regra de sempre (`appendYoutubeSearch`, a
+// linha do espelho): `ytCanalPlaylists`/`ytPlaylist` não chegam por OTA, então
+// num shell antigo o card existiria sem ter como carregar item nenhum — pior
+// que card nenhum, ainda mais numa tela em que o operador procura o vídeo do
+// culto. Ele aparece sozinho depois que o APK novo for instalado. No navegador
+// `__SHELL_VERSION__` é `undefined`, o `| 0` o zera, e a série simplesmente não
+// existe — a base continua rodando fora do aparelho, como manda a regra.
+const SERIE_SHELL = 41;
+function serieDisponivel() {
+  return !!window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= SERIE_SHELL
+    && !!window.AVSerie;
+}
+function serieCollections() {
+  if (!serieDisponivel()) return [];
+  // `iconKey` só assume 'music' ou 'queue' (ver o comentário do `ICON`): um
+  // nome novo aqui seria um codepoint fora do subset da fonte, isto é, um
+  // retângulo vazio no card — a armadilha da v5.184 e da v5.200.
+  return AVSerie.SERIES.map((s) => ({
+    id: s.id, name: s.name, kind: 'serie', serie: s, source: s.canal, iconKey: 'queue',
+  }));
+}
+
 function allCollections() {
-  const cols = FIXED_COLLECTIONS.slice();
+  const cols = FIXED_COLLECTIONS.concat(serieCollections());
   for (const a of albumCatalog.albums) {
     cols.push({ id: 'album-' + a.id_album, name: a.name, kind: 'album',
       source: 'album_' + a.id_album, albumId: a.id_album, iconKey: 'queue',
@@ -8648,7 +8674,84 @@ async function fetchAlbumCatalog() {
 // hinários, o arquivo de lista (coll.source) já é o índice; para álbuns, o
 // índice vem de album_{id}.musics. Lança em caso de falha (sem rede/resposta
 // inválida); quem chama decide se avisa o operador ou ignora silenciosamente.
+/**
+ * O ÍNDICE DE UMA SÉRIE — as playlists mensais do canal viram faixas do álbum.
+ *
+ * Duas etapas, e a segunda é sequencial de propósito: são ~12 playlists de 4-5
+ * itens, e disparar doze extrações do YouTube em paralelo é justamente o que o
+ * `NET_CONCURRENCY` existe para não fazer — aqui cada chamada é uma EXTRAÇÃO
+ * (segundos), não um GET.
+ *
+ * **A mutação é IN-PLACE**, pelo mesmo motivo do índice do LouvorJA: o
+ * `syncCollection` tira um snapshot do array e grava `fileIdFull` nos objetos
+ * DELE conforme baixa. Recriar os objetos deixaria o snapshot apontando para
+ * órfãos — os bytes iam para o OPFS e os ids eram descartados no `setState`
+ * seguinte, com o item aparecendo como não baixado e sendo rebaixado.
+ *
+ * Falha com EXCEÇÃO, e não com lista vazia: quem chama (`syncCollection`) já
+ * trata isso como "sem internet — falha ao atualizar" e PRESERVA o índice
+ * anterior. Devolver zero itens apagaria da tela a série inteira que o operador
+ * já tem baixada, por uma oscilação de rede.
+ */
+async function fetchSerieIndex(coll) {
+  const serie = coll.serie;
+  const doCanal = await AVNative.ytCanalPlaylists(serie.canal);
+  const playlists = AVSerie.playlistsDaSerie(doCanal, serie);
+  if (!playlists.length) throw new Error('Nenhuma playlist de "' + serie.name + '" no canal');
+
+  // A ASSINATURA DAS PLAYLISTS — url:contagem, na ordem. A aba do canal já
+  // publica quantos vídeos cada playlist tem, e é isso que torna a atualização
+  // barata: bate com o que está guardado, nada mudou, e as ~12 EXTRAÇÕES são
+  // puladas. Sem isto, toda retomada do app custaria doze idas ao YouTube para
+  // redescobrir uma lista que muda uma vez por semana — e a extração é a parte
+  // frágil deste caminho, a que não convém exercitar à toa.
+  //
+  // Um episódio novo muda a contagem do mês dele e a assinatura inteira é
+  // refeita: a decisão é "tudo ou nada" de propósito, porque casar item a item
+  // exigiria guardar de qual playlist veio cada faixa — estado a mais para
+  // poupar uma extração num caso que acontece uma vez por semana.
+  const assinatura = playlists.map((p) => p.url + ':' + p.count).join('|');
+  const guardado = collState[coll.id];
+  if (guardado && guardado.serieAssinatura === assinatura && (guardado.songs || []).length) {
+    guardado.indexSyncedAt = Date.now();
+    await AVDB.setState('coll:' + coll.id, guardado);
+    return;
+  }
+
+  const itens = [];
+  for (const pl of playlists) {
+    const info = await AVNative.ytPlaylist(pl.url);
+    if (!info || !Array.isArray(info.items)) continue;
+    itens.push(...AVSerie.itensDaPlaylist(info.items, pl.mes, serie));
+  }
+  if (!itens.length) throw new Error('As playlists de "' + serie.name + '" vieram vazias');
+
+  const byId = new Map(collSongs(coll.id).map((s) => [s.id_music, s]));
+  const songs = AVSerie.ordenarItens(itens).map((it) => {
+    const s = byId.get(it.id) || { id_music: it.id, fileIdFull: null, fileIdPlayback: null };
+    s.name = AVSerie.nomeDoItem(it);
+    s.ytUrl = it.url;
+    // `duration` como STRING "M:SS", que é a forma do LouvorJA — assim o
+    // `parseTimeToSeconds` e toda a conta de peso do álbum (`medirColecao`,
+    // `fracaoPeso`, a estimativa antes de baixar) valem sem uma linha nova.
+    s.duration = fmtDur(it.seconds);
+    // Um vídeo não tem Playback. Sem isto, `songVariantsNeeded` pediria uma
+    // segunda variante que nunca vai existir e o álbum nunca ficaria completo.
+    s.has_instrumental_music = false;
+    s._norm = normalizeForSearch(s.name);
+    return s;
+  });
+
+  collState[coll.id] = {
+    indexSyncedAt: Date.now(), songs, isHymnal: false, serieAssinatura: assinatura,
+  };
+  await AVDB.setState('coll:' + coll.id, collState[coll.id]);
+  refreshCollectionsIfVisible();
+  if (hymnSearchPopupEl.classList.contains('open')) renderSearchResults(hymnSearchInputEl.value);
+}
+
 async function fetchCollectionIndex(coll) {
+  if (coll.kind === 'serie') return fetchSerieIndex(coll);
   const raw = await Louvorja.fetchList(coll.source);
   const list = coll.kind === 'album'
     ? (raw && Array.isArray(raw.musics) ? raw.musics : null)
@@ -8747,8 +8850,13 @@ async function autoRefreshCollections() {
     ]);
     // Fase 2: índice de cada álbum (só os que estão vazios ou vencidos pelo TTL).
     const now = Date.now();
+    // As SÉRIES entram nesta mesma fase (v5.228), e não na 1: o índice delas
+    // custa uma extração do YouTube para a aba do canal — barato quando a
+    // assinatura das playlists não mudou (ver `fetchSerieIndex`), e caro quando
+    // mudou. O TTL é o mesmo dos álbuns porque a pergunta é a mesma ("a lista
+    // envelheceu?"), e a série publica um episódio por semana.
     const stale = allCollections().filter((c) => {
-      if (c.kind !== 'album' || !idle(c)) return false;
+      if ((c.kind !== 'album' && c.kind !== 'serie') || !idle(c)) return false;
       const st = collState[c.id];
       return !st || !st.songs.length || (now - (st.indexSyncedAt || 0)) > ALBUM_INDEX_TTL;
     });
@@ -8936,7 +9044,67 @@ async function syncCollection(coll, opts) {
 // Devolve `false` quando nem os metadados vieram (sem rede) — quem chama
 // precisa poder distinguir "baixou" de "desistiu em silêncio", senão o status
 // final conta como baixada uma música que não saiu do lugar.
+/**
+ * Baixa UM episódio de uma série e o grava na pasta do álbum.
+ *
+ * Não passa pelo `ytBaixarNativo`: aquele é o caminho de um download AVULSO —
+ * abre tarefa própria na notificação, desenha cartão na preview e registra
+ * intenção de resgate. Aqui quem já é dono de tudo isso é o `syncCollection`
+ * (a barra, o nome do item na notificação, o cancelamento, o `withBgWork`), e
+ * empilhar uma segunda tarefa por episódio faria a notificação disputar consigo
+ * mesma a cada um dos 52.
+ *
+ * O registro vai para `folder: coll.id`, como o de uma música de coleção — é
+ * isso que faz o card contar "completo offline", o peso somar e o coletor de
+ * lixo não recolher o arquivo. E `lyrics: null` **não é enfeite**: o
+ * `songVariantsNeeded` pergunta `fullRec.lyrics === undefined` para decidir se
+ * a faixa ainda falta, então um registro sem o campo seria rebaixado a cada
+ * sincronização, para sempre, sem nada na tela que o explicasse.
+ */
+async function downloadSerieItem(coll, s) {
+  if (!s.ytUrl) return false;
+  let r;
+  try { r = await AVNative.ytFetch(s.ytUrl, null, false, 0); }
+  catch (_) { return false; }
+  if (!r || !r.url) return false;
+  try {
+    const res = await fetch(r.url);
+    if (!res.ok) return false;
+    const blob = await res.blob();
+    if (!blob.size) return false;
+    const thumb = await makeThumb(blob, 'video');
+    const id = s.fileIdFull || uid();
+    const path = 'folders/' + coll.id + '/' + s.id_music + '.mp4';
+    try { await AVDB.opfsWriteFile(path, blob); } catch (_) { return false; }
+    await AVDB.fileAdd({
+      id, folder: coll.id, opfsPath: path,
+      srcName: s.id_music,
+      name: s.name,
+      // A procedência, como nas músicas do acervo (v5.219): é a segunda linha
+      // do slide de capa, e quem projeta é o Display, que não tem acesso a
+      // coleção nenhuma.
+      hymnName: s.name, hymnTrack: null, hymnAlbum: coll.name || '',
+      type: blob.type || 'video/mp4', kind: 'video',
+      height: (r.height | 0) || null,
+      // O id do vídeo GRAVADO: é ele que faz um "Tocar agora" do mesmo
+      // episódio, vindo da busca do YouTube, reaproveitar este arquivo.
+      youtubeId: s.id_music,
+      size: blob.size, mtime: Date.now(), thumb, lyrics: null,
+      blob: null, url: null, addedAt: Date.now(),
+    });
+    s.fileIdFull = id;
+    ui(coll.id).bytes += blob.size || 0;
+    salvarPesos();
+    return true;
+  } finally {
+    // No `finally`, como no caminho avulso: falhando a cópia, o arquivo do
+    // cache não pode ficar para trás — ninguém mais tem o token dele.
+    AVNative.ytDiscard(r.url);
+  }
+}
+
 async function downloadCollectionSong(coll, s) {
+  if (coll.kind === 'serie') return downloadSerieItem(coll, s);
   let meta;
   try { meta = await Louvorja.fetchList('music_' + s.id_music); }
   catch (_) { return false; } // sem rede agora; a próxima sincronização tenta de novo
