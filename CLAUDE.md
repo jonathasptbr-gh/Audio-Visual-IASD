@@ -2788,10 +2788,49 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.239** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.240** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.240: A LINHA DE UMA FAIXA DEIXA DE SER MAIS ALTA QUE O ÁLBUM QUE A
+> CONTÉM. OTA PURO** (só CSS; nenhuma linha de Kotlin, sem Release).
+>
+> Relato do operador: os cards da lista de um álbum estão *"muito volumosos
+> verticalmente, limitando o número de itens na visualização da lista, e até
+> mesmo ficando muito diferente do tamanho que já são títulos dos álbuns"*.
+>
+> **Medido antes de mexer, e ele estava certo por um fator visível:** a barra do
+> álbum tinha **51,6 px** e a linha de uma faixa DENTRO dela, **66 px** — o item
+> era 28% mais alto que o cartão que o contém, e o passo de 71,6 px punha 12
+> faixas numa tela de 900 px. O nome da faixa ainda era desenhado MAIOR que o
+> título do álbum (1,02rem contra 0,95rem), isto é, a hierarquia estava
+> invertida nas duas dimensões ao mesmo tempo.
+>
+> **Quem forçava a altura era o botão de tocar**, 46 px — o tamanho que ele
+> herdou da miniatura que ele substituiu na v5.62. Num álbum aberto o conteúdo
+> da linha é UMA linha de texto de 19 px: sobravam 43 px de folga por faixa,
+> repetidos em 613 hinos.
+>
+> Agora o ▶ tem 38 px, o padding caiu de .5rem para .3rem e o nome entrou na
+> escala do título (0,95rem) — o que separa os dois passou a ser o PESO (700 no
+> álbum, 500 na faixa), que é a distinção certa. Medido depois: **linha de
+> 51,6 px contra barra de 51,6 px** (razão 1,00), passo de 55,6 px, **16 itens
+> na mesma tela**.
+>
+> **O piso de toque é a outra metade, e ela não é negociável:** encolher até o
+> texto trocaria um problema de densidade por um de mira no meio de um culto. O
+> ▶ para em 38 px, acima de `--hit` (34 px), que é exatamente a medida que esse
+> token existe para proteger.
+>
+> **A linha da BUSCA cresce com o conteúdo, como sempre:** com subtítulo ela dá
+> os mesmos 51,6 px (o texto ainda cabe atrás do botão), e com um trecho de
+> letra casado vai a 67,3 px — ali a altura é do conteúdo, não do enfeite.
+>
+> O oráculo (`tools/smoke.mjs`) trava a RAZÃO, nunca o pixel: escrever "51,6"
+> faria ele reprovar numa mudança legítima de fonte, e a queixa nunca foi sobre
+> um número — foi sobre a linha ser maior que o título. Ele reprova em 3
+> asserções contra o CSS anterior (verificado).
 
 > **A v5.239: A SEÇÃO DE FAVORITOS FICA SÓ COM A LISTA — as ações sobem para a
 > barra, viram UM ícone, e o rodapé de disco sai. OTA PURO** (nenhuma linha de

@@ -701,6 +701,77 @@ try {
   checar(false, 'a medição do progresso no botão terminou sem exceção (' + (e && e.message) + ')');
 }
 
+// ── A ALTURA DA LINHA DE UMA FAIXA (v5.240) ──────────────────────────────
+// Relato do operador: os cards da lista de um álbum estão "muito volumosos
+// verticalmente, limitando o número de itens na visualização" e "ficando muito
+// diferente do tamanho que já são títulos dos álbuns".
+//
+// Medido: a barra do álbum tinha 51,6 px e a linha de uma faixa DENTRO dele,
+// 66 px — 28% mais alta que o cartão que a contém, com um passo de 71,6 px.
+//
+// O que este caso trava é a RAZÃO, não o pixel: escrever "51,6" faria ele
+// reprovar numa mudança legítima de fonte, e a queixa nunca foi sobre um número
+// — foi sobre a linha ser maior que o título. E a outra metade é o piso de
+// toque: encolher até o texto trocaria densidade por erro de mira no meio de um
+// culto, então o alvo do ▶ não pode cair abaixo de `--hit`.
+try {
+  const linha = await pg.evaluate(() => {
+    setAppMode('full');
+    const c = allCollections().find((x) => x.kind === 'hymnal');
+    const songs = [];
+    for (let i = 1; i <= 4; i++) {
+      songs.push({ id_music: 'm' + i, name: 'Hino de exemplo número ' + i, track: i,
+        has_instrumental_music: false, duration: '3:47' });
+    }
+    collState[c.id] = { indexSyncedAt: Date.now(), songs, isHymnal: true };
+    gruposAbertos.add('Hinários'); gruposAbertos.add('Hinários e séries');
+    ui(c.id).expanded = true; ui(c.id).shown = 100;
+    // Uma lista PRÓPRIA e VISÍVEL, com a largura de um celular: dentro do popup
+    // fechado toda medida é zero, e zeros comparados com zeros passam sem medir
+    // nada (a lição da v5.208).
+    const lista = document.createElement('ul');
+    lista.className = 'hymnal-list';
+    lista.style.width = '390px';
+    document.body.appendChild(lista);
+    renderCollectionsList(lista, () => {}, { semTotal: true });
+    const bar = lista.querySelector('.coll-bar');
+    const linhas = [...lista.querySelectorAll('.coll-songs > .hymn-result')];
+    const alt = (el) => (el ? el.getBoundingClientRect().height : 0);
+    const piso = parseFloat(getComputedStyle(document.documentElement)
+      .getPropertyValue('--hit')) || 34;
+    const r = {
+      barra: alt(bar),
+      item: alt(linhas[0]),
+      toque: alt(linhas[0] && linhas[0].querySelector('.hymn-play-thumb')),
+      piso,
+      // O passo entre duas linhas é o que decide quantas cabem na tela.
+      passo: linhas.length > 1
+        ? linhas[1].getBoundingClientRect().top - linhas[0].getBoundingClientRect().top : 0,
+      // E a fonte: o item não pode ser desenhado maior que o título que o contém.
+      fonteItem: parseFloat(getComputedStyle(linhas[0].querySelector('.hymn-name')).fontSize),
+      fonteAlbum: parseFloat(getComputedStyle(bar.querySelector('.coll-bar-name')).fontSize),
+    };
+    lista.remove();
+    delete collState[c.id];
+    gruposAbertos.clear();
+    return r;
+  });
+  checar(linha.item > 0 && linha.item <= linha.barra * 1.05,
+    'a linha de uma faixa não é mais alta que a barra do álbum que a contém ('
+    + Math.round(linha.item) + 'px contra ' + Math.round(linha.barra) + 'px)');
+  checar(linha.passo > 0 && linha.passo < 60,
+    'e o passo entre faixas cabe numa lista densa — ' + Math.floor(900 / linha.passo)
+    + ' itens numa tela de 900px (eram 12)');
+  checar(linha.toque >= linha.piso,
+    'sem furar o piso de toque do app: o ▶ tem ' + Math.round(linha.toque)
+    + 'px, e o piso é ' + linha.piso + 'px');
+  checar(linha.fonteItem <= linha.fonteAlbum,
+    'e o nome da faixa não é desenhado MAIOR que o título do álbum ('
+    + linha.fonteItem + 'px contra ' + linha.fonteAlbum + 'px)');
+} catch (e) {
+  checar(false, 'a medição da linha da faixa terminou sem exceção (' + (e && e.message) + ')');
+}
+
 checar(erros.length === 0, 'nenhum erro de console' + (erros.length ? ':\n        ' + erros.join('\n        ') : ''));
 
 await navegador.close();

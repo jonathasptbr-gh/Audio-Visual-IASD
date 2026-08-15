@@ -1943,7 +1943,7 @@ main {
    rola é o pior jeito de folhear. */
 .coll-songs {
   list-style: none; margin: .4rem -.7rem 0; padding: .4rem .7rem 0;
-  display: flex; flex-direction: column; gap: .35rem;
+  display: flex; flex-direction: column; gap: .25rem;
 }
 
 /* A sentinela do fim da página (ver `fillSongList`). O objetivo é que ela NÃO
@@ -3014,17 +3014,33 @@ main {
    abrindo a folha com as três coisas que ele faz (ver hymnResultRow); o toque
    na linha continua abrindo a letra. A lista precisa ser legível de relance no
    meio do culto, e é por isso que a fonte é maior que a do resto. */
-.hymn-row { align-items: center; gap: .55rem; padding: .5rem .55rem; cursor: pointer; }
-/* O botão de tocar ocupa o lugar (e o tamanho) que era da miniatura — o maior
-   alvo livre da linha, antes gasto com um ícone decorativo repetido em todas as
-   faixas. Em accent-soft, que é como o app marca "isto é ação, não conteúdo". */
+/* ---------- A ALTURA DA LINHA (v5.240) ----------
+   Relato do operador: os cards da lista de um álbum estão "muito volumosos
+   verticalmente, limitando o número de itens na visualização" e "ficando muito
+   diferente do tamanho que já são títulos dos álbuns".
+
+   Medido antes de mexer, no viewport de um celular: a barra do álbum tinha
+   51,6 px e a linha de uma faixa DENTRO dele, 66 px — a linha era **28% mais
+   alta que o cartão que a contém**, e o passo de 71,6 px punha 12 itens na
+   tela. Quem forçava isso era o botão de tocar (46 px, o antigo lugar da
+   miniatura): o conteúdo da linha, num álbum aberto, é UMA linha de texto de
+   19 px, e sobravam 43 px de folga em cada faixa.
+
+   O alvo continua acima do piso do app (`--hit`, 34 px), que é o que essa
+   medida existe para proteger — encolher até o texto teria trocado um problema
+   de densidade por um de mira, no meio de um culto. Medido depois: linha de
+   50 px, passo de 54 px, 16 itens na mesma tela. */
+.hymn-row { align-items: center; gap: .5rem; padding: .3rem .5rem; cursor: pointer; }
+/* O botão de tocar ocupa o lugar que era da miniatura — o maior alvo livre da
+   linha, antes gasto com um ícone decorativo repetido em todas as faixas. Em
+   accent-soft, que é como o app marca "isto é ação, não conteúdo". */
 .hymn-play-thumb {
-  width: 46px; height: 46px; flex-shrink: 0;
+  width: 38px; height: 38px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
   border: none; border-radius: var(--radius-btn);
   background: var(--accent-soft); color: var(--accent); cursor: pointer;
 }
-.hymn-play-thumb .msym { font-size: var(--icon-lg); }
+.hymn-play-thumb .msym { font-size: var(--icon-md); }
 /* BAIXANDO ESTA MÚSICA. Adicionar a uma lista pode disparar um download de
    dezenas de segundos, e ali o acervo continua aberto de propósito (adicionar
    três músicas seguidas é o uso normal) — então o aviso é da LINHA, não da
@@ -3034,7 +3050,7 @@ main {
    baixando é esta faixa da lista.
    O ▶ some enquanto isso, mas o botão segue clicável: tocar uma música que já
    está baixando é legítimo, e o download é o mesmo (`songDownloadInFlight`). */
-.hymn-play-thumb .dl-ring { --dl-ring: 30px; display: none; }
+.hymn-play-thumb .dl-ring { --dl-ring: 26px; display: none; }
 .hymn-play-thumb.busy .dl-ring { display: flex; }
 .hymn-play-thumb.busy .msym { display: none; }
 /* O segundo botão herda `.row-btn` (o quadrado de ação das listas) — aqui fica
@@ -3042,7 +3058,12 @@ main {
 .hymn-add-btn { flex-shrink: 0; color: var(--accent); }
 /* `flex:none` desfaz o `flex:1` de .row-name: aqui o pai é uma coluna, e
    crescer significaria esticar na VERTICAL (o nome descolaria do subtítulo). */
-.hymn-name { flex: none; font-size: 1.02rem; font-weight: 500; }
+/* MESMA ESCALA DO TÍTULO DO ÁLBUM (v5.240): a faixa era 1.02rem e o cartão que
+   a contém, .95rem — o item lia como mais importante que a coleção, que é o
+   oposto da hierarquia. O que separa os dois passa a ser o PESO (700 no álbum,
+   500 aqui), que é a distinção certa: mesma altura de linha, quem manda é o
+   título. */
+.hymn-name { flex: none; font-size: .95rem; font-weight: 500; line-height: 1.3; }
 .hymn-sub { font-size: .78rem; color: var(--muted); }
 /* Trecho da letra que casou com a busca. Em itálico e com uma barra à esquerda
    para se ler como CITAÇÃO, não como mais um subtítulo do item — e assim não
