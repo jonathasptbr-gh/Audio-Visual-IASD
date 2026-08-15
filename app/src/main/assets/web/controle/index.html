@@ -961,16 +961,30 @@
              é o controle inteiro do operador — o dano de um curioso na rede não
              é ele ver o que a congregação já vê, é ele ocupar uma das três
              vagas. -->
-        <div id="castLive" hidden>
-          <!-- O RÓTULO É A INSTRUÇÃO (v5.194). Ele dizia "ENDEREÇO" e logo
-               abaixo uma frase mandava abrir esse endereço no navegador da TV —
-               duas linhas para um dado só. Dito no próprio rótulo, o bloco
-               inteiro se lê de uma vez: o que fazer, e com quê. -->
-          <div class="cast-addr">
-            <span class="cast-rot">Acesse este endereço no navegador</span>
-            <span class="cast-url" id="castUrl"></span>
+        <!-- ELE NÃO É MAIS `hidden`, e a casca de dentro existe por causa disso
+             (v5.225). Ligar e desligar a transmissão acrescenta e tira este
+             bloco inteiro, e com `hidden` isso era um SALTO: a folha mudava de
+             altura num quadro e o endereço aparecia do nada, no lugar onde um
+             segundo antes havia outra coisa. Agora quem o abre é a classe
+             `aberto`, e a altura é animada pelo par
+             `grid-template-rows: 0fr → 1fr` (a única forma de transicionar até
+             `auto` sem medir nada em JS) — a casca de dentro é o item de grade
+             que o `overflow: hidden` recorta enquanto a linha cresce.
+             A ordem é deliberada nos dois sentidos: ABRINDO, a folha cresce e o
+             conteúdo entra DEPOIS; FECHANDO, o conteúdo sai primeiro e a folha
+             se recolhe atrás dele. Ver `#castLive` em controle.css. -->
+        <div id="castLive">
+          <div class="cast-live-in">
+            <!-- O RÓTULO É A INSTRUÇÃO (v5.194). Ele dizia "ENDEREÇO" e logo
+                 abaixo uma frase mandava abrir esse endereço no navegador da TV —
+                 duas linhas para um dado só. Dito no próprio rótulo, o bloco
+                 inteiro se lê de uma vez: o que fazer, e com quê. -->
+            <div class="cast-addr">
+              <span class="cast-rot">Acesse este endereço no navegador</span>
+              <span class="cast-url" id="castUrl"></span>
+            </div>
+            <ul class="cast-telas" id="castTelas"></ul>
           </div>
-          <ul class="cast-telas" id="castTelas"></ul>
         </div>
 
       </div>

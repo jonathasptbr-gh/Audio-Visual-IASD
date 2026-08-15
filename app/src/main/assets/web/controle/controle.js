@@ -15566,7 +15566,11 @@ function renderCast() {
   // cada uma. Contar o que já está listado é dizer duas vezes.)
 
   // O ENDEREÇO E QUEM ESTÁ VENDO, nesta mesma folha.
-  if (castLiveEl) castLiveEl.hidden = !ligado;
+  // A CLASSE, e não `hidden`: é ela que dispara a expansão (ver `#castLive` em
+  // controle.css). Ela é escrita SEMPRE — inclusive no `return` de baixo —,
+  // senão desligar deixaria o bloco aberto com o endereço de um servidor que já
+  // caiu.
+  if (castLiveEl) castLiveEl.classList.toggle('aberto', ligado);
   if (!ligado) return;
   // UM ENDEREÇO SÓ (v5.185): o IP. O `av.local` saiu com o responder mDNS —
   // ele não resolve no Chrome do Android nem na maioria das Smart TVs, que são
@@ -15586,26 +15590,69 @@ function renderCast() {
 // controle de verdade: o dano de um curioso na rede não é ele ver o que a
 // congregação já vê, é ele ocupar uma das três vagas. Ver e poder derrubar é a
 // resposta a isso — e é por isso que a lista subiu para a folha principal.
+// A LISTA É UM DIFF, e não um `innerHTML = ''` (v5.225).
+//
+// Ela era refeita por inteiro a cada leitura do estado — e o estado é lido de
+// 2,5 em 2,5 segundos enquanto a folha está aberta. Duas consequências, e a
+// segunda é a que este lote existe para corrigir: o botão "Desconectar" era
+// recriado debaixo do dedo do operador (perdendo o `disabled` que o toque
+// acabara de escrever), e QUALQUER animação de entrada recomeçaria sozinha a
+// cada 2,5 s, para sempre.
+//
+// Com as linhas reaproveitadas por RÓTULO, só o que de fato mudou se mexe: uma
+// tela nova entra com a animação, uma que saiu se recolhe antes de ser removida
+// do documento, e as demais só têm o texto atualizado no lugar.
+const CAST_TELA_SAI_MS = 180;   // igual ao `castTelaSai` do CSS
 function renderCastTelas(telas) {
   if (!castTelasEl) return;
-  castTelasEl.innerHTML = '';
-  if (!telas.length) {
+  const vazia = !telas.length;
+  const chaves = new Set(vazia ? ['__vazia'] : telas.map((t, i) => t.rotulo || ('tela' + i)));
+  // O QUE SAIU: recolhe agora e some depois da animação. A marca `saindo` também
+  // o tira da conta de reaproveitamento — uma tela que volte a aparecer no
+  // meio da saída entra como linha nova, e não herda uma animação de despedida.
+  Array.from(castTelasEl.children).forEach((li) => {
+    if (chaves.has(li.dataset.chave) && !li.classList.contains('saindo')) return;
+    if (li.classList.contains('saindo')) return;
+    li.classList.add('saindo');
+    li.dataset.chave = '';
+    setTimeout(() => li.remove(), CAST_TELA_SAI_MS);
+  });
+  const achar = (chave) => Array.from(castTelasEl.children)
+    .find((li) => li.dataset.chave === chave && !li.classList.contains('saindo'));
+
+  if (vazia) {
+    if (achar('__vazia')) return;
     const li = document.createElement('li');
-    li.className = 'cast-tela cast-tela--vazia';
+    li.className = 'cast-tela cast-tela--vazia entrando';
+    li.dataset.chave = '__vazia';
     li.textContent = 'Nenhuma tela conectada ainda.';
+    limparEntrada(li);
     castTelasEl.appendChild(li);
     return;
   }
-  telas.forEach((t) => {
-    const li = document.createElement('li');
-    li.className = 'cast-tela';
-    const nome = document.createElement('span');
+
+  telas.forEach((t, i) => {
+    const chave = t.rotulo || ('tela' + i);
     // O RÓTULO é o do servidor ("tela B"), e não o User-Agent: numa lista de
     // três, o que o operador precisa é distinguir uma da outra, e um UA de 120
     // caracteres não distingue nada. O detalhe fica no Registro.
-    nome.className = 'cast-tela-nome';
-    nome.textContent = (t.rotulo || 'tela')
+    const texto = (t.rotulo || 'tela')
       + (t.conectadaMs ? ' · ' + mirrorDur(t.conectadaMs) : '');
+    const existente = achar(chave);
+    if (existente) {
+      // Só o texto, e só se mudou: reescrever um `textContent` igual a cada
+      // 2,5 s não muda um pixel, mas interrompe a seleção de quem estiver
+      // copiando o nome.
+      const alvo = existente.querySelector('.cast-tela-nome');
+      if (alvo && alvo.textContent !== texto) alvo.textContent = texto;
+      return;
+    }
+    const li = document.createElement('li');
+    li.className = 'cast-tela entrando';
+    li.dataset.chave = chave;
+    const nome = document.createElement('span');
+    nome.className = 'cast-tela-nome';
+    nome.textContent = texto;
     const fora = document.createElement('button');
     fora.type = 'button';
     fora.className = 'cast-tela-fora';
@@ -15616,8 +15663,17 @@ function renderCastTelas(telas) {
       lerEspelho();
     });
     li.append(nome, fora);
+    limparEntrada(li);
     castTelasEl.appendChild(li);
   });
+}
+
+// A MARCA DE ENTRADA SAI QUANDO A ANIMAÇÃO ACABA. Ela é `both`, então o estado
+// final dela GRUDA — e o estado final inclui um teto de altura (`max-height`)
+// que existe só para a animação ter de onde crescer. Deixá-lo ali recortaria a
+// linha no dia em que ela precisasse de duas linhas.
+function limparEntrada(li) {
+  li.addEventListener('animationend', () => li.classList.remove('entrando'), { once: true });
 }
 
 // Os ouvintes da seção de conexão. A guarda é o BOTÃO DE ESPELHAR (v5.196):

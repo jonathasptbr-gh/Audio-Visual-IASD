@@ -295,6 +295,37 @@ try {
   checar(padrao.netOn !== padrao.netOff && padrao.netOnBorda === paraRgb(padrao.dangerStrong),
     'LIGADA, a transmissão perde o preenchimento e ganha o contorno vermelho'
     + ' (' + padrao.netOn + ' / borda ' + padrao.netOnBorda + ')');
+
+  // ---- E A FOLHA CRESCE EM VEZ DE SALTAR (v5.225) ------------------------
+  //
+  // O bloco do endereço aparece e some com a transmissão. Medido aqui pelo que
+  // decide o salto: a ALTURA do bloco com e sem a classe que o abre. Recolhido
+  // ele tem de valer zero — se um dia alguém trocar o `grid-template-rows` por
+  // um `display: none`, o número continua zero mas a transição morre, e é por
+  // isso que a segunda metade da asserção pergunta pela propriedade.
+  const cresce = await pg.evaluate(async () => {
+    const cast = document.getElementById('castPopup');
+    cast.classList.add('open');
+    const bloco = document.getElementById('castLive');
+    bloco.classList.remove('aberto');
+    const fechado = bloco.getBoundingClientRect().height;
+    bloco.classList.add('aberto');
+    // A ESPERA É A PRÓPRIA AFIRMAÇÃO: medir no mesmo turno devolveria zero
+    // justamente PORQUE a altura é animada (a transição começa em 0fr). O
+    // primeiro rascunho deste caso reprovou por isso, e a leitura certa é que
+    // ele estava medindo o quadro inicial de uma animação que existe.
+    await new Promise((r) => setTimeout(r, 420));
+    const aberto = bloco.getBoundingClientRect().height;
+    bloco.classList.remove('aberto');
+    cast.classList.remove('open');
+    return { fechado, aberto, transicao: getComputedStyle(bloco).transitionProperty };
+  });
+  checar(cresce.fechado < 1 && cresce.aberto > 20,
+    'o bloco do endereço vale ZERO recolhido e tem altura aberto ('
+    + cresce.fechado.toFixed(1) + 'px → ' + cresce.aberto.toFixed(1) + 'px)');
+  checar(/grid-template-rows/.test(cresce.transicao),
+    'e o que muda entre os dois é uma propriedade ANIMÁVEL — a folha cresce, não salta',
+    cresce.transicao);
   checar(padrao.endereco > 0,
     'e o bloco do endereço também (raio ' + padrao.endereco + 'px)');
 

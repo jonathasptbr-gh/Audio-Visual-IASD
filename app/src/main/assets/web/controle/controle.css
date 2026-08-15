@@ -3648,8 +3648,20 @@ body.mode-simple .hymn-add-btn { display: none; }
 .mirror-lead {
   margin: 0; font-size: .78rem; line-height: 1.5; color: var(--muted);
   white-space: pre-line;
+  /* ELA ENTRA E SAI ESMAECENDO (v5.225), e não com um `display: none`. Ela é o
+     recado do ligar/desligar — o momento exato em que a folha inteira está se
+     reorganizando —, e um parágrafo que aparece e some num quadro somava um
+     terceiro salto aos dois que este lote foi corrigir. O teto de altura é
+     folgado para duas linhas; a margem negativa cancela o `gap` do corpo
+     enquanto ela está vazia, senão o vão continuaria lá com ela invisível
+     (era o que o `:empty { display: none }` resolvia). */
+  overflow: hidden; max-height: 4rem; opacity: 1;
+  transition: max-height .2s ease, opacity .16s ease .04s, margin-top .2s ease;
 }
-.mirror-lead:empty { display: none; }
+.mirror-lead:empty {
+  max-height: 0; opacity: 0; margin-top: -.55rem;
+  transition: max-height .2s ease .04s, opacity .12s ease, margin-top .2s ease .04s;
+}
 
 /* ---------- A linha do APK novo (v5.167) ----------
    Ela vive ao lado do rótulo de versão, no rodapé de Configurações, e só
@@ -3685,6 +3697,48 @@ body.mode-simple .hymn-add-btn { display: none; }
    O RÓTULO é o que os separa. Com dois blocos monoespaçados empilhados, "qual
    deles vai no navegador?" é uma pergunta real; duas palavras a respondem sem
    precisar de frase. */
+/* ---------- O BLOCO QUE APARECE COM A TRANSMISSÃO (v5.225) ----------
+   Ligar acrescenta o endereço e a lista de telas; desligar os tira. Com
+   `hidden` isso era uma troca instantânea de altura: a folha saltava e o
+   conteúdo aparecia do nada, no lugar onde um segundo antes havia outra coisa —
+   o operador perdia o foco e precisava reencontrar os elementos.
+
+   `grid-template-rows: 0fr → 1fr` é a única forma de transicionar até uma
+   altura `auto` sem medir nada em JS. O item de grade (`.cast-live-in`) precisa
+   de `min-height: 0` e `overflow: hidden`, senão ele se recusa a encolher
+   abaixo do conteúdo e não há animação nenhuma.
+
+   OS ATRASOS SÃO A ENCENAÇÃO, e eles são assimétricos de propósito:
+     abrindo  → a linha cresce JÁ, o conteúdo entra 0,2 s depois (o espaço nasce
+                antes do que vai ocupá-lo);
+     fechando → o conteúdo sai JÁ, a linha se recolhe 0,14 s depois (nada
+                desaparece por baixo de uma borda que está andando).
+   `visibility` fecha o caso que a opacidade não fecha: recolhido, o bloco ainda
+   teria os botões "Desconectar" no caminho do foco. Ela troca sem transição, no
+   fim de tudo (`.44s`), e volta no instante zero ao abrir. */
+#castLive {
+  display: grid; grid-template-rows: 0fr;
+  visibility: hidden;
+  /* Cancela o `gap` do corpo enquanto o bloco está recolhido: ele continua
+     sendo um item do flex, e um item de altura zero ainda soma um vão. */
+  margin-top: -.55rem;
+  transition: grid-template-rows .3s ease .14s, margin-top .3s ease .14s,
+              visibility 0s linear .44s;
+}
+#castLive.aberto {
+  grid-template-rows: 1fr; visibility: visible; margin-top: 0;
+  transition: grid-template-rows .3s ease, margin-top .3s ease, visibility 0s;
+}
+.cast-live-in {
+  min-height: 0; overflow: hidden;
+  opacity: 0; transform: translateY(-6px);
+  transition: opacity .16s ease, transform .16s ease;
+}
+#castLive.aberto .cast-live-in {
+  opacity: 1; transform: none;
+  transition: opacity .18s ease .2s, transform .18s ease .2s;
+}
+
 .cast-addr {
   display: flex; flex-direction: column; align-items: center; gap: .15rem;
   margin: .5rem 0 .2rem; padding: .6rem .6rem .7rem;
@@ -3713,6 +3767,27 @@ body.mode-simple .hymn-add-btn { display: none; }
   background: var(--surface); font-size: .82rem;
 }
 .cast-tela--vazia { color: var(--muted); justify-content: center; }
+/* UMA TELA QUE ENTRA (ou sai) NÃO PODE EMPURRAR A LISTA DE UM QUADRO PARA O
+   OUTRO (v5.225). O `margin-bottom` negativo no começo da entrada cancela o
+   `gap` da lista enquanto a linha ainda não tem altura — sem ele o vão nasce
+   inteiro no primeiro quadro e a animação começa com um salto de 6px. O teto de
+   3rem é folgado para a linha de uma linha que ela é; `overflow: hidden` é o
+   que faz o texto ser recortado em vez de vazar durante o crescimento.
+   Quem marca as linhas é o `renderCastTelas`, que passou a REAPROVEITAR as que
+   já estão na tela (v5.225) — sem isso a enquete de 2,5 s recriaria a lista
+   inteira e a animação recomeçaria sozinha, para sempre. */
+@keyframes castTelaEntra {
+  from { max-height: 0; opacity: 0; transform: translateY(-5px); margin-bottom: -.35rem; }
+  to   { max-height: 3rem; opacity: 1; transform: none; margin-bottom: 0; }
+}
+@keyframes castTelaSai {
+  from { max-height: 3rem; opacity: 1; margin-bottom: 0; }
+  to   { max-height: 0; opacity: 0; transform: translateY(-5px); margin-bottom: -.35rem;
+         padding-top: 0; padding-bottom: 0; }
+}
+.cast-tela { overflow: hidden; }
+.cast-tela.entrando { animation: castTelaEntra .22s ease both; }
+.cast-tela.saindo { animation: castTelaSai .18s ease both; pointer-events: none; }
 .cast-tela-nome { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Contornado, nunca preenchido: é ação destrutiva, e o preenchido em vermelho
    é "está no ar agora" neste app (ver a paleta). */
