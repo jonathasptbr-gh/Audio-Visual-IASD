@@ -358,6 +358,34 @@ try {
   checar(redeOn.ligado && /deslig/i.test(redeOn.rotulo),
     'LIGADA, o botão da transmissão veste o estado e passa a nomear o desligamento ("'
     + redeOn.rotulo + '")');
+
+  // ---- E ENQUANTO O SHELL RESPONDE, O BOTÃO É O RECADO (v5.227) ----------
+  //
+  // O "Ligando a transmissão…" saía numa linha de 0,78 rem ABAIXO do botão que
+  // o operador acabara de tocar — no menor texto da folha, e no exato momento
+  // em que a folha se reorganiza. O rótulo é derivado de `mirrorOcupado` mais o
+  // estado, pela mesma leitura que pinta a cor: ocupado com o servidor NO AR é
+  // "Desligando…"; ocupado sem ele é "Ligando…".
+  const emCurso = await pg2.evaluate(() => {
+    const ler = () => document.getElementById('castNetLabel').textContent;
+    mirrorOcupado = true;
+    renderCast();
+    const desligando = ler();
+    const estadoAntes = mirrorEstado;
+    mirrorEstado = { ligado: false, telas: [] };
+    renderCast();
+    const ligando = ler();
+    mirrorEstado = estadoAntes;
+    mirrorOcupado = false;
+    renderCast();
+    return { desligando, ligando, voltou: ler() };
+  });
+  checar(/deslig/i.test(emCurso.desligando) && /…$/.test(emCurso.desligando),
+    'ocupado com o servidor no ar, o próprio botão diz "' + emCurso.desligando + '"');
+  checar(/ligando/i.test(emCurso.ligando) && !/deslig/i.test(emCurso.ligando),
+    'e ocupado sem ele, "' + emCurso.ligando + '"');
+  checar(/deslig/i.test(emCurso.voltou) && !/…$/.test(emCurso.voltou),
+    'terminado, ele volta a nomear a ação (nada de recado grudado)', emCurso.voltou);
   checar(redeOn.semTrilho, 'e não sobrou interruptor nenhum na folha de conexão');
 
   // ---- LIGAR E DESLIGAR NÃO É UM SALTO (v5.226) --------------------------

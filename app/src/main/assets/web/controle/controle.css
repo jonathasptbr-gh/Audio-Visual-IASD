@@ -3645,8 +3645,12 @@ body.mode-simple .hymn-add-btn { display: none; }
 .cast-acao.ligado .cast-acao-ico { color: var(--danger-text); }
 /* Enquanto o shell responde (ligar leva um instante, pode pedir confirmação e
    pode ser recusado) o botão apaga e para de aceitar toque. Um segundo toque no
-   meio do caminho é como se sobem dois servidores. */
-.cast-acao:disabled { opacity: .55; cursor: default; }
+   meio do caminho é como se sobem dois servidores.
+   .7 e não .55 (v5.227): desde que o "Ligando…"/"Desligando…" passou a ser o
+   RÓTULO deste botão, ele é o recado — e um recado a 55% de opacidade é o
+   defeito que o lote veio corrigir, com outro nome. Continua claramente inerte;
+   passou a ser legível. */
+.cast-acao:disabled { opacity: .7; cursor: default; }
 .cast-acao:disabled:active { filter: none; }
 
 /* Ainda em uso: é o BLOCO DE CONEXÃO (`#castConn`). O nome vem da folha de
