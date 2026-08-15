@@ -1050,21 +1050,23 @@ try {
   checar(false, 'a medição do peso como subtítulo terminou sem exceção (' + (e && e.message) + ')');
 }
 
-// ── A TROCA DE MODO É UMA SÓ (v5.247) ────────────────────────────────────
+// ── A TROCA DE MODO É UMA SÓ, E MORA EM CONFIGURAÇÕES (v5.247 · v5.250) ──
 //
-// Pedido do operador: *"como já temos nas configurações o botão de acesso ao
-// modo simples, então pode remover o botão que temos no cabeçalho do app"*.
-// Ele estava certo por duas contas — o destino é o mesmo, e o de Configurações
-// é o que GUARDA a escolha entre aberturas —, e havia uma terceira que a
-// medição achou: com o botão fora, o título do cabeçalho passa a ficar de fato
-// CENTRADO. Ele nunca esteve: a caixa reservada do botão (que existia para o
-// título não saltar entre abas) o empurrava 63px para a direita o tempo todo.
+// Dois pedidos do operador, em sequência: tirar a troca de modo do cabeçalho do
+// avançado ("já temos nas configurações o botão de acesso ao modo simples"), e
+// então criar no Modo Fácil "um botão de configurações, que fica onde é hoje o
+// botão de modo avançado".
 //
-// As três asserções vêm em par com as duas metades negativas, e elas são o que
-// impede isto de virar "apaguei o cabeçalho": a saída do Modo Fácil continua
-// no cabeçalho DELE — lá a engrenagem não existe, porque aquele modo esconde a
-// coluna do mixer inteira, e sem o botão não haveria como sair —, e
-// Configurações continua oferecendo a mesma escolha.
+// A ORDEM IMPORTAVA: o botão do Modo Fácil não podia sair antes de existir a
+// engrenagem, porque daquele modo não havia como chegar a Configurações — a
+// outra engrenagem mora na coluna do mixer, dentro da `.bottombar`, que ele
+// esconde por inteiro. Tirar os dois de uma vez teria TRANCADO o operador no
+// Modo Fácil, e é isso que a asserção do caminho de saída guarda.
+//
+// A medição achou um efeito que não estava no pedido: sem a caixa reservada do
+// botão (que existia para o título não saltar entre abas), o título do
+// cabeçalho da lista passou a ficar de fato CENTRADO — ele nunca esteve, vivia
+// 63px à direita.
 try {
   const modo = await pg.evaluate(() => {
     setAppMode('full');
@@ -1072,10 +1074,12 @@ try {
     const faixa = t.parentElement.getBoundingClientRect();
     const r = t.getBoundingClientRect();
     const seg = document.getElementById('appModeSeg');
+    const eng = document.getElementById('simpleSettingsBtn');
     return {
       cabecalho: !document.getElementById('fullSimpleBtn'),
       desvio: Math.abs((r.left + r.width / 2) - (faixa.left + faixa.width / 2)),
-      saidaDoFacil: !!document.getElementById('simpleFullBtn'),
+      engrenagemNoFacil: !!eng && !!eng.closest('.simple-head'),
+      sobrouTrocaDeModo: !!document.querySelector('.mode-switch'),
       opcoes: seg ? [...seg.querySelectorAll('.fit-opt')].map((b) => b.dataset.mode) : [],
     };
   });
@@ -1084,10 +1088,42 @@ try {
   checar(modo.desvio <= 2,
     'e o TÍTULO passou a ficar centrado na faixa (a caixa reservada do botão o '
     + 'empurrava 63px para a direita) — desvio de ' + Math.round(modo.desvio) + 'px');
-  checar(modo.saidaDoFacil,
-    'mas o Modo Fácil MANTÉM a saída no cabeçalho dele: ali a engrenagem não existe');
+  checar(!modo.sobrouTrocaDeModo,
+    'e não sobrou nenhum `.mode-switch` no app: a troca de modo é UM controle, em Configurações');
+  checar(modo.engrenagemNoFacil,
+    'o Modo Fácil ganhou a ENGRENAGEM no cabeçalho, onde estava o botão que saiu');
   checar(modo.opcoes.includes('simple') && modo.opcoes.includes('full'),
-    'e Configurações continua oferecendo os dois modos, que é o destino que substitui o botão');
+    'e Configurações oferece os dois modos — o destino que substitui os dois botões');
+
+  // O CAMINHO DE SAÍDA, exercitado: no Modo Fácil, a engrenagem abre a folha e
+  // a folha troca o modo. Sem esta metade, apagar o botão passaria nas de cima
+  // e trancaria o operador — que é exatamente o risco desta sequência.
+  const saida = await pg.evaluate(async () => {
+    setAppMode('simple');
+    const eng = document.getElementById('simpleSettingsBtn');
+    const folha = document.getElementById('fadePopup');
+    // Null-safe pela disciplina do `ota.test.mjs`: num bundle sem a engrenagem
+    // isto é um RESULTADO, não um acidente — e um `evaluate` que lança aqui
+    // levaria junto as asserções seguintes, escondendo o que elas mediriam.
+    if (!eng) { setAppMode('full'); return { visivel: false, abriu: false, saiu: false }; }
+    // O toque é o do operador: a engrenagem tem de estar VISÍVEL e por cima da
+    // tela do Modo Fácil (a folha é z-index 200; o modo, 90).
+    const cs = getComputedStyle(eng);
+    const visivel = cs.display !== 'none' && cs.visibility !== 'hidden' && eng.offsetParent !== null;
+    eng.click();
+    await new Promise((r) => setTimeout(r, 60));
+    const abriu = folha.classList.contains('open');
+    document.querySelector('#appModeSeg .fit-opt[data-mode="full"]').click();
+    await new Promise((r) => setTimeout(r, 60));
+    const saiu = !document.body.classList.contains('mode-simple')
+      && !folha.classList.contains('open');
+    setAppMode('full');
+    return { visivel, abriu, saiu };
+  });
+  checar(saida.visivel, 'e ela está à vista no Modo Fácil, não escondida atrás dele');
+  checar(saida.abriu, 'o toque nela ABRE Configurações');
+  checar(saida.saiu,
+    'e de lá o operador SAI do Modo Fácil — o caminho que a engrenagem precisava existir para dar');
 } catch (e) {
   checar(false, 'a medição da troca de modo terminou sem exceção (' + (e && e.message) + ')');
 }

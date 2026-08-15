@@ -114,20 +114,27 @@
        são os mesmos botões do modo completo acionados por `.click()` (ver
        controle.js) — nenhuma regra de transporte é reescrita aqui. -->
   <div id="simpleMode" class="simple open">
-    <!-- A ÚNICA porta de saída do Modo Fácil, e por isso ela não sai daqui: a
-         engrenagem (o outro caminho para "Modo do app") mora na coluna do
-         mixer, que este modo esconde por inteiro. O gêmeo dele no cabeçalho do
-         avançado saiu na v5.247 — lá havia a engrenagem ao lado, aqui não há.
-         Até a v5.48 só existia a ida: quem tocasse aqui por curiosidade caía na
-         tela completa e a única saída era o popup de Exibição, um caminho que
-         ninguém adivinha. -->
+    <!-- A ENGRENAGEM, no lugar do antigo "Modo avançado" (v5.250, pedido do
+         operador). Ela fecha o que a v5.247 deixou em aberto: aquela versão
+         tirou a troca de modo do cabeçalho do avançado porque a MESMA escolha
+         mora em Configurações, e não podia tirar a daqui porque daqui não havia
+         como chegar a Configurações — a outra engrenagem vive na coluna do
+         mixer, dentro da `.bottombar`, que este modo esconde por inteiro.
+
+         Agora o caminho é um só nos dois modos: engrenagem → "Modo do app". E
+         é o caminho MELHOR, porque é ele que GUARDA a escolha entre aberturas
+         (v5.66) — o botão que saiu não guardava nada. De quebra, este modo
+         ganhou tudo o mais que morava atrás da engrenagem: tema, wallpaper,
+         preenchimento, o estado do telão, o Registro e a atualização.
+
+         Ela fica ACIMA da cortina do modo bloqueado sem regra nova: o
+         `.simple.sem-tela .simple-head` já iça o cabeçalho inteiro
+         (`z-index: 2`), e é isso que impede o operador de ficar preso quando
+         não há tela conectada. -->
     <div class="simple-head">
       <span class="simple-brand">Audio Visual <b>IASD</b></span>
-      <button type="button" id="simpleFullBtn" class="mode-switch" title="Ir para o modo avançado">
-        <span>Modo avançado</span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M5 12h13"/><path d="M13 6l6 6-6 6"/>
-        </svg>
+      <button type="button" id="simpleSettingsBtn" class="settings-btn" title="Configurações" aria-label="Configurações">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoGear"/></svg>
       </button>
     </div>
 
@@ -286,12 +293,12 @@
            Dois controles para uma decisão só, e o do cabeçalho ocupava a
            esquerda de uma faixa de largura de celular.
 
-           O CAMINHO DE IDA CONTINUA: o `#simpleFullBtn` da `.simple-head` NÃO
-           saiu, e não pode sair — a engrenagem mora na coluna do mixer, que o
-           Modo Fácil esconde por inteiro (`body.mode-simple .bottombar`), então
-           ele é a única porta de saída daquele modo. A simetria "mesmo botão ao
-           contrário" acabou aqui, e é ela que este comentário guarda para a
-           próxima leitura não tentar restaurá-la.) -->
+           E na v5.250 o gêmeo do Modo Fácil saiu também, substituído por uma
+           ENGRENAGEM no mesmo lugar: agora o caminho é o mesmo nos dois modos,
+           e não sobrou nenhum `.mode-switch` no app. Ele não podia sair antes
+           dela — daquele modo não havia como chegar a Configurações, porque a
+           outra engrenagem mora na coluna do mixer, que ele esconde por
+           inteiro (`body.mode-simple .bottombar`).) -->
       <span class="list-title" id="listTitle">Cronograma</span>
       <!-- (O botão de FAVORITOS saiu do cabeçalho na v5.238, a pedido do
            operador: "tudo agora será dentro da biblioteca". Os favoritos são a
@@ -694,12 +701,14 @@
         <button id="fadePopupClose" class="popup-close" title="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
       </div>
       <div class="fade-opts">
-        <!-- Modo de uso: a mesma escolha da abertura, para trocar sem fechar o
-             app. Nos dois modos o caminho curto é o botão do cabeçalho
-             (`.mode-switch`); esta linha é o mesmo destino, junto das demais
-             preferências. LEMBRADO entre aberturas desde a v5.66 — e é por isso
-             que ele mora aqui, entre as preferências, e não só nos dois botões
-             de ida e volta: escolher aqui é dizer como o app deve ABRIR. -->
+        <!-- Modo de uso, e desde a v5.250 este é o ÚNICO lugar em que ele se
+             troca: os dois botões de cabeçalho que faziam a ida e a volta
+             saíram (v5.247 o do avançado, v5.250 o do Fácil, substituído pela
+             engrenagem que abre esta folha). Ele sempre foi o caminho mais
+             completo dos três, porque é ele que é LEMBRADO entre aberturas
+             (v5.66) — escolher aqui é dizer como o app deve ABRIR, e os botões
+             valiam só para a sessão. É a primeira linha da folha porque é a
+             decisão mais larga que ela contém: ela troca a tela inteira. -->
         <div class="fade-row fade-row--fit">
           <span>Modo do app</span>
           <div class="fit-seg" id="appModeSeg">
@@ -838,7 +847,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.250</span>
+        <span id="appVersion" class="app-version">Controle v5.251</span>
         <!-- A ATUALIZAÇÃO (v5.245). Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso.

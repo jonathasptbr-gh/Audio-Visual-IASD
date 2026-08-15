@@ -250,7 +250,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   .misc-tab, .misc-seg, .misc-chip, .chrono-btn, .misc-project, .draw-go,
   .fit-opt, .dialog-btn, .lib-item .row, .coll-group-acao,
   .cue-save-btn, .pl-pack, .yt-search-btn, .log-copy,
-  .simple-key, .simple-action, .simple-key--big, .simple-key--vol, .mode-switch
+  .simple-key, .simple-action, .simple-key--big, .simple-key--vol
 ):active { transform: var(--press); }
 
 /* ---------- A escala de ícone vale para SVG também ----------
@@ -270,7 +270,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
 :is(
   .row-btn, .row-handle, .back-btn, .sel-btn, .popup-close,
   .coll-bar-dl, .coll-group-btn, .new-folder-btn,
-  .import-btn, .folder-pick-btn, .song-menu-icon, .mode-switch
+  .import-btn, .folder-pick-btn, .song-menu-icon
 ) svg { display: block; width: var(--icon-sm); height: var(--icon-sm); }
 :is(.tab, .tab-add, .t-btn, .ctl-btn, .misc-tab, .settings-btn) svg {
   display: block; width: var(--icon-md); height: var(--icon-md);
@@ -1122,39 +1122,25 @@ main {
   display: flex; align-items: center; justify-content: center; cursor: pointer;
   appearance: none; -webkit-appearance: none;
 }
-/* ---------- Troca de modo (a saída do Modo Fácil) ----------
-   ELA É UMA SÓ desde a v5.247: `#simpleFullBtn`, no cabeçalho do simplificado.
-   O gêmeo do cabeçalho da lista (`#fullSimpleBtn`) saiu a pedido do operador —
-   lá a mesma decisão já mora em Configurações, na engrenagem ao lado; aqui não,
-   porque este modo esconde a coluna do mixer inteira, e sem este botão não
-   haveria como sair.
-   Era texto `--muted` sobre `--surface` (5,4:1 — dentro do mínimo, mas lido
-   como LEGENDA: quem não sabia que existiam dois modos não a via como botão).
-   Texto pleno sobre a superfície mais clara mantém o discreto (não é a ação
-   principal de ninguém) e o anuncia como controle. A seta é o que faltava: sem
-   ela o rótulo nomeava um destino sem dizer que sair dali é ir para OUTRA
-   tela. */
-.mode-switch {
-  flex-shrink: 0;
-  display: inline-flex; align-items: center; gap: .3rem;
-  /* SEM MOLDURA (v5.76). O contorno em `--accent` desenhava, nos dois
-     cabeçalhos, a moldura mais forte da tela em volta do botão que menos se
-     usa num culto — trocar de modo é decisão de configuração, não de operação.
-     Quem o separa do fundo é a superfície (`--surface-2`), a mesma receita das
-     outras teclas; o accent fica onde ele informa, no ícone da seta, que é o
-     que diz para que lado se vai. */
-  border: none; border-radius: var(--radius-btn);
-  background: var(--surface-2); color: var(--text);
-  font-size: .8rem; font-weight: 600; font-family: inherit;
-  padding: .42rem .6rem; cursor: pointer;
-  appearance: none; -webkit-appearance: none;
+/* ---------- A engrenagem do Modo Fácil (v5.250) ----------
+   Ela tomou o lugar do último `.mode-switch` do app — o "Modo avançado" daquele
+   cabeçalho —, e com ele saiu a classe inteira: a troca de modo passou a morar
+   só em Configurações, nos DOIS modos (v5.247 tirou a do avançado; esta tirou a
+   daqui, que só podia sair depois de existir um caminho para lá).
+
+   CHAPADA, e é a regra do app: navegação/acesso é ícone solto, operação é
+   botão (a mesma razão do `#settingsBtn` do mixer e do `#backBtn`). Onde ela
+   difere do gêmeo do mixer é no essencial para este modo: ela é o ÚNICO acesso
+   a Configurações aqui, então o ícone é `--accent` em vez de `--muted` — o
+   accent é o que este app usa para dizer "isto leva a outro lugar", e era
+   exatamente onde ele vivia no botão que saiu (na seta). O alvo é `--hit`
+   cheio, e não o `flex: 1` da coluna do mixer, que aqui esticaria o botão pela
+   faixa inteira. */
+.simple-head .settings-btn {
+  flex: 0 0 auto; margin-left: auto;
+  width: var(--hit); height: var(--hit); min-height: 0;
+  color: var(--accent);
 }
-.mode-switch svg { color: var(--accent); }
-.simple-head .mode-switch { margin-left: auto; }
-/* (`.mode-switch--vago` saiu na v5.247, com o botão que a usava: ela reservava
-   o lugar dele no cabeçalho da lista para o título não saltar quando ele se
-   escondia nas outras abas. Sem o botão não há o que reservar. O IDIOMA
-   continua vivo no `.coll-bar-dl.vago`, que o cita.) */
 /* O voltar continua "chapado" (sem fundo) — só o alvo cresceu. */
 .back-btn { background: none; color: var(--accent); }
 .back-btn .msym { font-size: var(--icon-sm); }
