@@ -2881,10 +2881,50 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.246** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.247** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.247: A TROCA DE MODO VIRA UMA SÓ — o botão do cabeçalho sai. OTA
+> PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> Pedido do operador: *"como já temos nas configurações o botão de acesso ao
+> modo simples, então pode remover o botão que temos no cabeçalho do app"*.
+>
+> Ele está certo por duas contas e por uma terceira que a medição achou. O
+> destino é o MESMO (`setAppMode('simple')`), e o de Configurações é o que
+> **guarda a escolha entre aberturas** (v5.66) — o do cabeçalho não guardava
+> nada, isto é, dos dois controles o que sobrou é o que decide mais. E o do
+> cabeçalho ocupava a esquerda de uma faixa com largura de celular para uma
+> decisão que se toma uma vez por instalação.
+>
+> **A terceira: o título nunca esteve centrado.** A caixa do botão ficava
+> RESERVADA mesmo quando ele não aparecia (`.mode-switch--vago`, v5.111) — ela
+> existia para o título não saltar 60px a cada deslize entre abas —, e o preço
+> era o título ser empurrado para a direita o tempo todo. Medido numa tela de
+> 430: centro do título em **278px**, contra os 215 do centro da faixa. Sem o
+> botão não há o que reservar, e ele passa a ficar exatamente no meio, em todas
+> as abas. O único elemento que ainda o desloca é o voltar da Bíblia (19px), e
+> essa distância é a mesma de antes.
+>
+> **A SIMETRIA ACABOU, e ela era assimétrica de verdade.** Este documento
+> descrevia os dois botões como "o mesmo botão ao contrário", e por isso a
+> leitura natural do pedido seria tirar os dois. **O `#simpleFullBtn` do Modo
+> Fácil FICA**, e não por conservadorismo: a engrenagem mora na coluna do mixer,
+> dentro da `.bottombar`, que o Modo Fácil esconde por inteiro
+> (`body.mode-simple .bottombar { display: none }`). No avançado o outro caminho
+> está ali ao lado; no Fácil não existe caminho nenhum, e remover aquele botão
+> **trancaria o operador naquele modo**. É a razão pela qual a v5.48 o criou, e
+> ela continua valendo só de um lado.
+>
+> `tools/smoke.mjs` cobra as duas metades — o botão fora do cabeçalho da lista e
+> o título centrado, mas a saída do Modo Fácil ainda no cabeçalho dele e os dois
+> modos ainda em Configurações. Sem essas duas últimas, apagar o cabeçalho
+> inteiro passaria. Reprova em 2 asserções contra o código anterior (verificado).
+>
+> Saíram junto o `.mode-switch--vago` (o lugar reservado, sem dono agora) e a
+> regra de "só no Cronograma" do `renderListTitle`.
 
 > **A v5.246: A SETA VIRA A THUMBNAIL DAS RAÍZES — ícone só na folha da árvore.
 > OTA PURO** (sem Release).

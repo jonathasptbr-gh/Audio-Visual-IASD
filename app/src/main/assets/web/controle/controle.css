@@ -1122,30 +1122,18 @@ main {
   display: flex; align-items: center; justify-content: center; cursor: pointer;
   appearance: none; -webkit-appearance: none;
 }
-/* ---------- Troca de modo (o par de botões do canto superior direito) --------
-   O MESMO componente nos dois modos — `#simpleFullBtn` no cabeçalho do
-   simplificado e `#fullSimpleBtn` no da lista —, no mesmo canto, com a seta
-   apontando para onde o toque leva. Duas receitas visuais para a ida e a volta
-   fariam a volta parecer outra coisa; é o mesmo botão, ao contrário.
+/* ---------- Troca de modo (a saída do Modo Fácil) ----------
+   ELA É UMA SÓ desde a v5.247: `#simpleFullBtn`, no cabeçalho do simplificado.
+   O gêmeo do cabeçalho da lista (`#fullSimpleBtn`) saiu a pedido do operador —
+   lá a mesma decisão já mora em Configurações, na engrenagem ao lado; aqui não,
+   porque este modo esconde a coluna do mixer inteira, e sem este botão não
+   haveria como sair.
    Era texto `--muted` sobre `--surface` (5,4:1 — dentro do mínimo, mas lido
    como LEGENDA: quem não sabia que existiam dois modos não a via como botão).
-   Texto pleno sobre a superfície mais clara com contorno em accent mantém o
-   discreto (não é a ação principal de ninguém) e o anuncia como controle.
-   A seta é o que faltava: sem ela o rótulo nomeava um destino sem dizer que
-   sair dali é ir para OUTRA tela. */
-/* SEM `margin-left: auto` desde a v5.107: no cabeçalho da lista o botão foi
-   para a ESQUERDA — a seta dele aponta para lá, e um botão que aponta para fora
-   da tela precisa estar do lado para onde aponta. No modo Fácil ele continua à
-   direita (a seta é a inversa, apontando para o avançado), e ali quem o empurra
-   é a marca em `flex: 1`; a regra abaixo garante o canto mesmo se a marca um dia
-   deixar de crescer. */
-/* UMA declaração para as DUAS teclas do cabeçalho — a troca de modo e o botão
-   de Favoritos: elas são teclas de navegação da mesma faixa, e desenhá-las
-   diferente faria uma parecer mais importante que a outra (era exatamente o
-   que acontecia: duas cópias propriedade a propriedade que JÁ tinham divergido
-   no feedback de toque e no tamanho do ícone). O que as distingue é a COR do
-   ícone — accent na seta do modo, ouro na estrela — e isso mora nas duas
-   regras de svg logo abaixo de cada uma. */
+   Texto pleno sobre a superfície mais clara mantém o discreto (não é a ação
+   principal de ninguém) e o anuncia como controle. A seta é o que faltava: sem
+   ela o rótulo nomeava um destino sem dizer que sair dali é ir para OUTRA
+   tela. */
 .mode-switch {
   flex-shrink: 0;
   display: inline-flex; align-items: center; gap: .3rem;
@@ -1163,13 +1151,10 @@ main {
 }
 .mode-switch svg { color: var(--accent); }
 .simple-head .mode-switch { margin-left: auto; }
-/* A TROCA DE MODO SÓ APARECE NO CRONOGRAMA (v5.111) — ver `renderListTitle`.
-   Por `visibility` e não `display: none`: a caixa fica reservada, e é ela que
-   segura o TÍTULO no mesmo lugar em todas as abas (ele é centrado no espaço que
-   sobra, então sem a caixa pularia ~60px para a esquerda a cada deslize).
-   `visibility: hidden` já tira o botão do toque, do foco e do leitor de tela;
-   o `pointer-events` é cinto e suspensório. */
-.mode-switch--vago { visibility: hidden; pointer-events: none; }
+/* (`.mode-switch--vago` saiu na v5.247, com o botão que a usava: ela reservava
+   o lugar dele no cabeçalho da lista para o título não saltar quando ele se
+   escondia nas outras abas. Sem o botão não há o que reservar. O IDIOMA
+   continua vivo no `.coll-bar-dl.vago`, que o cita.) */
 /* O voltar continua "chapado" (sem fundo) — só o alvo cresceu. */
 .back-btn { background: none; color: var(--accent); }
 .back-btn .msym { font-size: var(--icon-sm); }
@@ -1961,8 +1946,7 @@ main {
 /* O LUGAR RESERVADO na coluna da direita: com o álbum aberto e parado, quem
    baixa é o botão do painel logo abaixo — que tem o estado e o progresso. O
    `visibility: hidden` tira o botão do toque, do foco e do leitor de tela e
-   MANTÉM a coluna, que é o que impede o peso de saltar. Mesmo idioma do
-   `.mode-switch--vago`. */
+   MANTÉM a coluna, que é o que impede o peso de saltar. */
 .coll-bar-dl.vago { visibility: hidden; pointer-events: none; }
 /* O invólucro do que a abertura revela (engrenagem + músicas). Existe só para a
    animação de altura ter UM nó para recortar — sem ele o `overflow:hidden`
