@@ -6123,9 +6123,26 @@ assim que o operador acrescentar itens a ela.
 
 Uma **série** é um canal do YouTube que publica um episódio por semana e
 organiza o ano em uma playlist por mês. Ela vira um card da Biblioteca ao lado
-dos hinários e dos álbuns, e a partir daí é uma coleção como as outras: o mesmo
-`syncCollection`, a mesma barra de peso, o mesmo "Completo offline", o mesmo
-cancelamento. O que muda é **de onde vem o índice e de onde vêm os bytes**.
+dos hinários e dos álbuns, e usa a mesma casca: `collState`, `medirColecao`,
+barra de peso, `syncCollection`.
+
+**Mas o ITEM não é uma faixa de hinário — é um vídeo do YouTube** (v5.230). A
+casca veio do LouvorJA e trouxe junto a premissa dele, "o toque baixa", que ali
+está certa (poucos MB, e o acervo existe para ficar offline) e aqui é falsa por
+duas ordens de grandeza: ~300 MB por episódio, ~15 GB no ano, e o vídeo do
+sábado é visto uma vez. Então:
+
+| O que | Onde | Como |
+|---|---|---|
+| toque no item | `openSongMenu` → `openYtMenu(serieComoYoutube(coll, s))` | a folha do YouTube, com `semSoAudio: true` (o seletor Vídeo × Só áudio some) |
+| "Tocar agora" | `ytAcao(…, ['tocar'])` | **TRANSMISSÃO DIRETA** — `ytStream` → `shared/mse.js`, sem baixar |
+| Modo Fácil | `simplePlaySong` desvia para o mesmo `ytAcao` | aquele modo não pergunta nada, e esperar 300 MB com o culto rodando não é opção |
+| guardar offline | os destinos da folha (playlist · Cronograma · Favoritos) | um episódio por vez, pelo caminho de download do YouTube |
+| card | `renderCollectionCard` / `buildCollectionOptions` | **sem botão de baixar em lote** com índice na mão; o de opções é "Atualizar a lista" (`syncCollection(coll, { soIndice: true })`), e a série sai de "Baixar toda a biblioteca" |
+
+`downloadSerieItem` e o laço de `syncCollection` continuam existindo e corretos
+— o que mudou é que nenhum toque de UI os alcança hoje. O que muda em relação a
+uma coleção do LouvorJA é **de onde vem o índice e de onde vêm os bytes**.
 
 | Peça | Onde | O quê |
 |---|---|---|
@@ -6158,7 +6175,15 @@ como "sem internet — falha ao atualizar" e preserva o índice anterior; devolv
 zero itens apagaria da tela a série inteira que o operador já tem baixada, por
 uma oscilação de rede.
 
-O resto — as cinco armadilhas de nomenclatura, por que a descoberta é a aba do
+**A DATA tem DUAS formas, e o mesmo episódio usa as duas** (v5.230): a compacta
+entre parênteses ("… 2026 (03/Jan)") e a por extenso ("… 2026 sábado 3
+janeiro"). `dataDoVideo` tenta as duas nessa ordem, e `montarData` exige que o
+nome **seja** um mês em vez de só começar como um — sem isso "3 marcos" viraria
+3 de março. Quando nenhuma casa, o vídeo **entra do mesmo jeito**, sem
+identificador de data e no fim do mês: é a regra de ouro em ação, e é o erro
+recuperável em vez do episódio ausente.
+
+O resto — as seis armadilhas de nomenclatura, por que a descoberta é a aba do
 canal e não uma busca, e a regra de ouro ("a playlist prova o pertencimento, o
 título é só rótulo") — está no topo do `serie.js` e na seção "Séries do YouTube"
 do `CLAUDE.md`.

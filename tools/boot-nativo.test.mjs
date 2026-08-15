@@ -271,6 +271,52 @@ try {
   checar(naTela.posSerie >= 0 && naTela.posSerie <= 3,
     'antes de qualquer álbum — o topo é o topo', String(naTela.posSerie));
 
+  // ── O EPISÓDIO É UM VÍDEO DO YOUTUBE (v5.230) ──────────────────────────
+  // Pedido do operador: as opções de um item da série devem ser as do YouTube
+  // (sem "só áudio"), sem download direto, e com transmissão no "Tocar agora".
+  // A v5.228 o tratava como faixa de hinário — o toque BAIXAVA ~300 MB.
+  const folha = await pg.evaluate(async () => {
+    const c = allCollections().find((x) => x.kind === 'serie');
+    const s = collSongs(c.id)[0];
+    openSongMenu(c, s, 'play');
+    const pop = document.getElementById('songMenuPopup');
+    const linhas = [...pop.querySelectorAll('.song-menu-item, .song-menu-list button')]
+      .map((b) => b.textContent.trim().split('\n')[0].trim()).filter(Boolean);
+    const r = {
+      aberta: pop.classList.contains('open'),
+      titulo: (document.getElementById('songMenuTitle') || {}).textContent || '',
+      texto: pop.textContent,
+      linhas,
+    };
+    closeSongMenu();
+    return r;
+  });
+  checar(folha.aberta, 'tocar num episódio abre a folha de destinos');
+  checar(/Tocar agora/.test(folha.texto),
+    'com "Tocar agora" — é ele que TRANSMITE, sem esperar o download', JSON.stringify(folha.linhas));
+  checar(/playlist/i.test(folha.texto) && /Cronograma/.test(folha.texto) && /Favoritar/.test(folha.texto),
+    'e os três destinos que GUARDAM, como num vídeo do YouTube', JSON.stringify(folha.linhas));
+  checar(!/Só áudio/.test(folha.texto),
+    'e SEM o seletor de só-áudio — um testemunho em vídeo não tem versão de áudio',
+    JSON.stringify(folha.linhas));
+  checar(!/Cantada|Playback/.test(folha.texto),
+    'nem o seletor Cantada/Playback do acervo — a folha é a do YouTube, não a das músicas');
+
+  // O download EM LOTE não pode existir para a série: são ~52 vídeos.
+  const semLote = await pg.evaluate(() => {
+    const lista = document.getElementById('hymnResults');
+    renderCollectionsList(lista, () => {}, { semTotal: true });
+    const cards = [...lista.querySelectorAll('.hymnal-card')];
+    const card = cards.find((el) => /Provai e Vede 2026/.test(el.textContent));
+    return {
+      achou: !!card,
+      temBotaoBaixar: !!(card && card.querySelector('.coll-bar-dl')),
+    };
+  });
+  checar(semLote.achou, 'o card da série está na lista para ser medido');
+  checar(!semLote.temBotaoBaixar,
+    'e ele NÃO tem o botão de baixar a coleção — "não quero um download direto"');
+
   // E o bloco de conexão do Modo Fácil, que é o caminho que a v5.195 quebrou:
   // com shell >= 32 ele mostra as DUAS formas de conectar, não só o espelhar.
   const conn = await pg.evaluate(() => {

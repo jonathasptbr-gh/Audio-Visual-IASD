@@ -174,11 +174,49 @@
    * o resultado só para ordenar e rotular (ver a regra de ouro no topo).
    */
   function dataDoVideo(titulo) {
-    const m = normalizar(titulo).match(/\((\d{1,2})\s*\/\s*([a-z]+)\s*\)/);
-    if (!m) return null;
-    const dia = parseInt(m[1], 10);
-    const mes = MESES_ABREV.indexOf(m[2].slice(0, 3)) + 1;
+    const n = normalizar(titulo);
+    // FORMA 1, a compacta entre parênteses: "(15/Ago)", "(03/Jan)".
+    const par = n.match(/\((\d{1,2})\s*\/\s*([a-z]+)\s*\)/);
+    if (par) {
+      const d = montarData(par[1], par[2]);
+      if (d) return d;
+    }
+    // FORMA 2, a POR EXTENSO: "sábado 3 janeiro", "3 de janeiro", "1º de
+    // fevereiro" (v5.230).
+    //
+    // **O MESMO CANAL usa as duas, no MESMO episódio.** No dia 03/Jan/2026 a
+    // versão em Libras saiu como "… 2026 (03/Jan) - Libras" e a de português
+    // como "… 2026 sábado 3 janeiro" — o operador achou o vídeo na lista sem
+    // data nenhuma, no fim de janeiro, fora de ordem. Supor um formato só era
+    // a aposta errada; o que este arquivo já sabia é que **o título é só
+    // rótulo**, e é por isso que o vídeo entrou mesmo assim.
+    //
+    // O dia opcionalmente traz o ordinal ("1º"): `normalizar` não o remove (o
+    // NFD não decompõe `º`, e ele não é diacrítico), então ele é consumido
+    // aqui. O "de" também é opcional — o canal escreve das duas maneiras.
+    const ext = n.match(/\b(\d{1,2})\s*[ºo°]?\s*(?:de\s+)?([a-z]{3,})\b/);
+    if (ext) {
+      const d = montarData(ext[1], ext[2]);
+      if (d) return d;
+    }
+    return null;
+  }
+
+  /**
+   * `("3", "janeiro")` → `{ dia: 3, mes: 1 }`; qualquer coisa fora, `null`.
+   *
+   * O mês casa pelas TRÊS primeiras letras, o que cobre "jan" e "janeiro" com
+   * uma comparação só — e recusa o que não é mês, que é o que impede o "2026"
+   * de um título virar dia de um mês inventado.
+   */
+  function montarData(diaTexto, mesTexto) {
+    const dia = parseInt(diaTexto, 10);
+    const mes = MESES_ABREV.indexOf(String(mesTexto).slice(0, 3)) + 1;
     if (!dia || dia > 31 || !mes) return null;
+    // O nome tem de SER um mês, não apenas começar como um: sem isto,
+    // "3 marcos" (um nome próprio) viraria 3 de março.
+    const nome = String(mesTexto);
+    if (nome.length > 3 && nome !== MESES[mes - 1]) return null;
     return { dia, mes };
   }
 
