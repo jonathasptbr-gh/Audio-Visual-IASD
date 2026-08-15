@@ -4014,6 +4014,23 @@ diz em volta dele) toma o lugar dos dois, **por classe CSS**:
 .lib-item.no-ar .row-stop { display: flex; }
 ```
 
+**E desde a v5.259 ele mora DENTRO da miniatura** (`porParar`, pedido do
+operador: *"o parar deve ficar na própria thumbnail do item"*). Os dois lugares
+anteriores — a fileira da direita e a gaveta do `⋮` — erravam a mesma coisa:
+enquanto a linha está no ar, tirá-la de lá é a única decisão que ela oferece, e
+ela ficava atrás de um toque ou disputando espaço com ações que ninguém quer
+ali. Na capa ele resolve três coisas de uma vez: o alvo passa a ser o quadrado
+inteiro (`--thumb`), não custa um pixel do nome, e fica sobre a única parte da
+linha que já dizia "é este item" — que, com a mídia no ar, é literalmente o que
+está projetado. O véu preto a 55% por baixo do glifo não é enfeite: a capa pode
+ser clara, e `--danger-text` sobre uma foto de céu seria ilegível.
+
+**Nos Favoritos ele nem existia**, e era exatamente ali que o operador o
+procurou: aquela lista mostrava o selo "● No ar" e não oferecia nada que
+tirasse do ar — restava o segundo toque no corpo, que não se anuncia. Uma
+função só (`porParar`) nas duas listas é o que impede duas anatomias iguais de
+terem desfechos diferentes.
+
 Por CSS, e não remontando a linha, porque **quem liga e desliga o estado é o
 `marcarNoAr`**, que roda a cada `display-status` (~4 Hz) e só troca classes —
 fazer cirurgia de DOM nesse ritmo recriaria botões e perderia listeners quatro
@@ -4043,10 +4060,21 @@ sempre o mesmo: o nome, que é a única coisa daquela linha que não se adivinha
 chamado tanto pelo `renderLibrary` quanto pelo `favItemRow`, para as duas listas
 não divergirem no primeiro ajuste. As decisões:
 
-- **A caixa é ABSOLUTA e cobre da miniatura até o `⋮`** (`left: calc(var(--hit)
-  + .5rem)` / `right: calc(var(--hit) + 1rem)`), com `background: inherit` —
-  ela precisa APAGAR o texto por baixo, e herdar o fundo é o que a mantém certa
-  na linha normal, na selecionada e na que está no ar sem uma regra por estado.
+- **A caixa é ABSOLUTA e cobre do fim da miniatura até o `⋮`**
+  (`left`/`right: calc(var(--thumb) + 1rem)` — `padding .5rem` + a caixa +
+  `gap .5rem`, a mesma conta dos dois lados). **Ela partia de `--hit` até a
+  v5.259**, onde quem ocupa o canto esquerdo é a miniatura, de `--thumb`: a
+  faixa comia 6px da capa, e foi o relato — *"ele deve ocupar apenas a barra do
+  título e subtítulo, não cortar a thumbnail"*.
+- **O fundo é COMPOSTO, não herdado.** Era `background: inherit`, com o
+  argumento de não copiar a cor da linha em cinco estados; só que `inherit`
+  copia o VALOR, e o valor de uma linha no ar é `--live-soft`, **que tem alfa
+  .22** — a faixa pintava um vermelho translúcido POR CIMA do título, que
+  continuava legível atrás dos botões. Agora a base é opaca (`--panel`,
+  `--panel-2` na atual/selecionada) e o estado entra como CAMADA por cima
+  (`linear-gradient` de uma cor só), que é exatamente como a `.row` se pinta.
+  Nos Favoritos era onde se via, porque é a lista em que a linha no ar mais
+  aparece.
 - **Uma aberta por vez** (`linhaAcoesAberta`). Duas seriam duas faixas cobrindo
   dois nomes, e o operador teria de fechar a errada para ler.
 - **O fechamento de fora é `pointerdown` na fase de CAPTURA**, não `click`: a
@@ -4069,6 +4097,31 @@ não divergirem no primeiro ajuste. As decisões:
   vazio, que é a armadilha da v5.200.
 - **Na seleção múltipla não há `⋮`**: ali o alvo é o conjunto, e a linha volta a
   ser uma caixa de escolha.
+- **UMA medida para os quadrados da linha** (`--thumb`, v5.259). A miniatura
+  media 40px e os botões ao lado dela, `--hit` (34px) — dois quadrados vizinhos
+  com 6px de diferença que ninguém decidiu, e um alvo no PISO do app justamente
+  na lista mais densa que ele tem. O relato foi de MIRA: *"estou sentindo muita
+  falha, acabando tocando no corpo do item e não nos botões"*. O token vale para
+  a capa, para os botões da linha e para o `⋮`, e é ele que a faixa usa nas duas
+  bordas — são as mesmas colunas, então errar uma é errar a outra (foi o que fez
+  a faixa cortar a capa). A linha não ficou um pixel mais alta: quem já ditava a
+  altura era a miniatura. `--hit` segue sendo o piso do resto do app.
+
+#### O toque encolhe o CARTÃO, não o miolo dele (v5.259)
+
+O feedback de toque das listas era `transform: scale(.96)` na `.row` — o miolo
+—, e não no `.lib-item`, que é quem carrega a BORDA. Enquanto ela é
+transparente os dois dão no mesmo; com ela visível (`.no-ar` em vermelho,
+`.active`/`.selected` em accent) o miolo se afastava de uma moldura parada e
+abria uma fresta de fundo dos dois lados. Foi o relato: *"um efeito de
+encurtamento que deixa as margens esquerda e direita estranhas quando está no
+modo sinalizado de no ar"*.
+
+Encolher a peça inteira mantém a linguagem de toque do app e não separa nada do
+que a compõe. `:active` alcança os ancestrais, então tocar num botão de dentro
+sempre encolheu a linha junto — isso não mudou, só passou a incluir a borda. E
+como `:active` não se simula por API, o oráculo afirma a REGRA: o alvo do
+`transform` tem de ser a peça com a borda, nunca a de dentro.
 
 #### O subtítulo diz DE ONDE o item veio (v5.258)
 

@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.258';
+const WEB_VERSION = '5.259';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -5804,33 +5804,8 @@ function renderLibrary() {
     // fora da seleção múltipla porque ali o alvo é o conjunto, não a linha.
     const star = selectionMode ? null : favBtn(item.id, item.name);
 
-    // O PARAR TOMA O LUGAR DE MOVER E FAVORITAR ENQUANTO A LINHA ESTIVER NO AR.
-    //
-    // O segundo toque no corpo da linha já tira do ar desde a v5.165, e o selo
-    // "● No ar" já diz que ela está — mas os dois botões da direita seguiam
-    // oferecendo outra coisa (arrastar para reordenar, favoritar) na única
-    // linha em que a decisão do operador é uma só. Trocá-los é o que faz
-    // QUALQUER toque naquela linha significar a mesma coisa, que é o pedido:
-    // não há mais como mirar o ✕ e acertar a estrela.
-    //
-    // A troca é por CSS (`.lib-item.no-ar`), e não por remontar a linha: quem
-    // liga e desliga o estado é `marcarNoAr`, que só troca classes — e é ele
-    // que roda a cada `display-status`. Fazer cirurgia de DOM ali seria
-    // recriar botões (e perder listeners) quatro vezes por segundo.
-    let stopBtn = null;
-    if (!selectionMode) {
-      stopBtn = document.createElement('button');
-      stopBtn.className = 'row-btn row-stop';
-      stopBtn.title = 'Tirar do ar';
-      // O MESMO glifo do Parar do transporte (`&#xe047;` no `index.html`),
-      // escrito por escape: é o único do app que nasce fora do mapa `ICON`,
-      // porque ele não é um símbolo NOVO — é o de lá, na linha.
-      stopBtn.appendChild(msym(''));
-      stopBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        retirarDoAr(item);
-      });
-    }
+    // O PARAR MORA NA MINIATURA (v5.259) — ver `porParar`.
+    if (!selectionMode) porParar(thumb, item);
 
     // Item que JÁ existe e está sendo baixado (converter um link em arquivo):
     // o aviso vai nele mesmo, não na preview.
@@ -5863,7 +5838,6 @@ function renderLibrary() {
     if (!selectionMode) {
       parts.push(...montarAcoesDaLinha(li, [
         (ytDl && !dl) ? ytDl : null,
-        stopBtn,
         star,
         addBtn,
         activeTab !== 'folders' ? handle : null,
@@ -6022,6 +5996,42 @@ function dotsIconSvg() {
   return '<svg viewBox="0 0 24 24" width="19" height="19" fill="currentColor" aria-hidden="true">'
     + '<circle cx="12" cy="5" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="12" cy="19" r="1.9"/>'
     + '</svg>';
+}
+
+/**
+ * O "Tirar do ar" DENTRO da miniatura da linha (v5.259, pedido do operador:
+ * *"o parar deve ficar na própria thumbnail do item"*).
+ *
+ * Ele nasceu na fileira da direita (v5.177) e passou uma versão dentro do menu
+ * `⋮` (v5.258) — os dois lugares erram a mesma coisa: enquanto a linha está no
+ * ar, tirá-la de lá é a ÚNICA decisão que ela oferece, e ela ficava atrás de um
+ * toque (abrir o menu) ou disputando espaço com ações que ninguém quer ali.
+ *
+ * Na miniatura ele resolve três coisas de uma vez: o alvo passa a ser o
+ * quadrado inteiro (40px, contra os 34px de um botão de fileira), ele não
+ * disputa um pixel com o nome, e fica sobre a única parte da linha que já
+ * estava dizendo "é este item aqui" — a capa, que com a mídia no ar é
+ * exatamente o que está projetado.
+ *
+ * Ele é construído SEMPRE e escondido por CSS (`.lib-item.no-ar .row-stop`),
+ * porque quem liga e desliga o estado é `marcarNoAr`, que roda a cada
+ * `display-status` (~4 Hz) e só troca classes: remontar botão nesse ritmo
+ * perderia listeners e trabalho à toa.
+ */
+function porParar(thumb, item) {
+  const b = document.createElement('button');
+  b.className = 'row-stop';
+  b.title = 'Tirar do ar';
+  b.setAttribute('aria-label', 'Tirar do ar');
+  // O MESMO glifo do Parar do transporte (`&#xe047;` no `index.html`), escrito
+  // por escape: ele não é um símbolo NOVO, é o de lá, na linha.
+  b.appendChild(msym(''));
+  b.addEventListener('click', (e) => {
+    e.stopPropagation();
+    retirarDoAr(item);
+  });
+  thumb.appendChild(b);
+  return b;
 }
 
 // A linha com o menu aberto — UMA por vez. Duas abertas seriam duas faixas
@@ -7386,7 +7396,14 @@ function favItemRow(item) {
   const handle = document.createElement('button');
   handle.className = 'row-handle'; handle.title = 'Arraste para reordenar';
   handle.appendChild(msym(ICON.drag));
-  const partes = [isCue(item) ? cueThumb(item) : thumbEl(item), textWrap];
+  // O PARAR NA MINIATURA (v5.259), como no Cronograma. Aqui ele simplesmente
+  // NÃO EXISTIA: uma linha de favorito no ar mostrava o selo "● No ar" e não
+  // oferecia nada que a tirasse de lá — restava o segundo toque no corpo, que
+  // não se anuncia. Duas listas com a mesma anatomia e desfechos diferentes é a
+  // divergência que `montarAcoesDaLinha` existe para não ter.
+  const miniatura = isCue(item) ? cueThumb(item) : thumbEl(item);
+  porParar(miniatura, item);
+  const partes = [miniatura, textWrap];
   // E OS TRÊS FICAM ATRÁS DO `⋮` (v5.258), como no Cronograma: era esta lista
   // que pagava mais caro — 152px de nome numa lista de 368 — porque é a única
   // com três botões.

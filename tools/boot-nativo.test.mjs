@@ -941,6 +941,29 @@ try {
       // O subtítulo voltou: sem cabeçalho de tipo, é ele que distingue.
       subs: [...lista3.querySelectorAll('.lib-item .row-sub')]
         .map((e) => getComputedStyle(e).display).filter((d) => d !== 'none').length,
+      // O PARAR (v5.259). Nesta lista ele simplesmente NÃO EXISTIA: uma linha de
+      // favorito no ar mostrava o selo "● No ar" e não oferecia nada que a
+      // tirasse de lá — e foi justamente aqui que o operador viu a faixa de
+      // ações por cima do título ("ele estava no ar"). Ele mora na CAPA, e a
+      // faixa tem de continuar OPACA nesse estado.
+      parar: (() => {
+        const li = lista3.querySelector('.lib-item');
+        if (!li) return null;
+        li.classList.add('no-ar');
+        const stop = li.querySelector('.row-stop');
+        const caixa = li.querySelector('.row-acoes');
+        const bg = caixa ? getComputedStyle(caixa).backgroundColor : '';
+        const m = bg.match(/rgba?\(([^)]+)\)/);
+        const p = m ? m[1].split(',').map((x) => parseFloat(x)) : [];
+        const r = {
+          naThumb: !!stop && !!stop.parentElement
+            && stop.parentElement.classList.contains('thumb'),
+          visivel: !!stop && getComputedStyle(stop).display !== 'none',
+          alfa: p.length === 4 ? p[3] : 1,
+        };
+        li.classList.remove('no-ar');
+        return r;
+      })(),
     };
     lista3.remove();
     // E O REORDENAR de verdade: o segundo item vai para a frente.
@@ -1006,6 +1029,12 @@ try {
     'e o subtítulo voltou a aparecer: sem cabeçalho de tipo, é ele que distingue');
   checar(favs.lista.ordemDepois === 0,
     'e o arrastar MOVE de verdade (o mesmo `reorder` do Cronograma)');
+  checar(!!favs.lista.parar && favs.lista.parar.naThumb && favs.lista.parar.visivel,
+    'UM FAVORITO NO AR também oferece o "Tirar do ar", na capa (v5.259) — aqui ele '
+    + 'nem existia', JSON.stringify(favs.lista.parar));
+  checar(!!favs.lista.parar && favs.lista.parar.alfa === 1,
+    'e a faixa de ações continua OPACA com a linha no ar — era este o título '
+    + 'aparecendo por trás dos botões', JSON.stringify(favs.lista.parar));
   // ── OS FAVORITOS SE ATUALIZAM COM A BIBLIOTECA ABERTA (v5.258) ─────────
   //
   // Relato do operador: *"se estou na biblioteca e adiciono algo aos favoritos,

@@ -1221,6 +1221,100 @@ try {
   checar(false, 'a medição do menu da linha terminou sem exceção (' + (e && e.message) + ')');
 }
 
+// ── A LINHA DEPOIS DO RELATO: uma caixa só, o Parar na capa (v5.259) ──────
+//
+// Quatro coisas do mesmo relato, e as quatro são medidas em pixel porque as
+// quatro FORAM VISTAS em pixel: *"ele deve ocupar apenas a barra do título e
+// subtítulo, não cortar a thumbnail"*, *"os botões surgem literalmente sobre o
+// título, com ele visível no fundo"*, *"verifique o tamanho e a área de toque…
+// a thumbnail e os botões devem ter os mesmos tamanhos"* e o encolhimento que
+// *"deixa as margens esquerda e direita estranhas quando está no ar"*.
+try {
+  const geo = await pg.evaluate(async () => {
+    setAppMode('full');
+    const li = document.querySelector('#library .lib-item');
+    if (!li) return null;
+    const cx = (el) => el.getBoundingClientRect();
+    const thumb = li.querySelector('.thumb');
+    const caixa = li.querySelector('.row-acoes');
+    const mais = li.querySelector('.row-mais');
+    const r = {};
+    // 1. A FAIXA COMEÇA DEPOIS DA CAPA. (Ela partia de `--hit`, 34px, onde quem
+    //    ocupa o canto é a miniatura, de 40px: comia 6px dela.)
+    r.thumbInteira = Math.round(cx(caixa).left) >= Math.round(cx(thumb).right);
+    // 2. TODOS OS QUADRADOS DA LINHA MEDEM O MESMO.
+    const alvos = [...li.querySelectorAll('.row-btn, .row-handle, .row-mais')];
+    const larguras = alvos.map((b) => Math.round(cx(b).width));
+    r.caixaDaThumb = Math.round(cx(thumb).width);
+    r.mesmaCaixa = larguras.length > 0 && larguras.every((w) => w === r.caixaDaThumb);
+    r.alvo = r.caixaDaThumb;
+    r.maisMede = Math.round(cx(mais).width);
+    // 3. O PARAR MORA DENTRO DA CAPA e a cobre inteira.
+    li.classList.add('no-ar');
+    const stop = li.querySelector('.row-stop');
+    r.stopNaThumb = !!stop && stop.parentElement === thumb;
+    const sr = stop && cx(stop);
+    r.stopCobreACapa = !!sr && Math.round(sr.width) === r.caixaDaThumb
+      && Math.round(sr.height) === r.caixaDaThumb;
+    r.stopVisivel = !!stop && getComputedStyle(stop).display !== 'none';
+    // 4. E A FAIXA CONTINUA OPACA COM A LINHA NO AR — era aqui que o título
+    //    aparecia atrás dos botões, porque `--live-soft` tem alfa .22.
+    const bg = getComputedStyle(caixa).backgroundColor;
+    const m = bg.match(/rgba?\(([^)]+)\)/);
+    const partes = m ? m[1].split(',').map((x) => parseFloat(x)) : [];
+    r.alfaNoAr = partes.length === 4 ? partes[3] : 1;
+    r.bgNoAr = bg;
+    li.classList.remove('no-ar');
+    return r;
+  });
+  checar(!!geo && geo.thumbInteira,
+    'a faixa de ações começa DEPOIS da miniatura — ela não corta a capa',
+    JSON.stringify(geo));
+  checar(!!geo && geo.mesmaCaixa && geo.alvo >= 40,
+    'e a miniatura e TODOS os botões da linha medem o mesmo (' + (geo ? geo.alvo : 0)
+    + 'px) — o alvo cresceu junto', JSON.stringify(geo));
+  checar(!!geo && geo.stopNaThumb && geo.stopCobreACapa && geo.stopVisivel,
+    'o "Tirar do ar" mora DENTRO da miniatura e a cobre inteira — o alvo é a capa',
+    JSON.stringify(geo));
+  checar(!!geo && geo.alfaNoAr === 1,
+    'e com a linha NO AR a faixa continua opaca (era o título aparecendo atrás dos botões)',
+    JSON.stringify(geo));
+} catch (e) {
+  checar(false, 'a medição da linha terminou sem exceção (' + (e && e.message) + ')');
+}
+
+// ── O TOQUE ENCOLHE O CARTÃO, NÃO O MIOLO DELE (v5.259) ──────────────────
+//
+// `:active` não se simula por API, então a asserção é sobre a REGRA: o alvo do
+// `transform` tem de ser a peça que carrega a BORDA. Enquanto ela era
+// transparente os dois davam no mesmo; com ela visível (no ar, atual,
+// selecionada) o miolo se afastava de uma moldura parada e abria uma fresta dos
+// dois lados — o relato, literal.
+try {
+  const press = await pg.evaluate(() => {
+    const alvos = [];
+    for (const folha of [...document.styleSheets]) {
+      let regras = [];
+      try { regras = [...folha.cssRules]; } catch { continue; }
+      for (const re of regras) {
+        if (!re.selectorText || !/:active/.test(re.selectorText)) continue;
+        if (!/transform/.test(re.style.cssText || '')) continue;
+        alvos.push(re.selectorText);
+      }
+    }
+    const txt = alvos.join(' | ');
+    return {
+      temCartao: /\.lib-item(?![\w-])(?!\s+\.row)/.test(txt),
+      temMiolo: /\.lib-item\s+\.row(?![\w-])/.test(txt),
+    };
+  });
+  checar(press.temCartao && !press.temMiolo,
+    'o feedback de toque de uma linha encolhe o CARTÃO (com a borda), não o miolo dentro dela',
+    JSON.stringify(press));
+} catch (e) {
+  checar(false, 'a medição do feedback de toque terminou sem exceção (' + (e && e.message) + ')');
+}
+
 // ── O SUBTÍTULO DIZ DE ONDE O ITEM VEIO (v5.258) ─────────────────────────
 try {
   const sub = await pg.evaluate(() => ({
