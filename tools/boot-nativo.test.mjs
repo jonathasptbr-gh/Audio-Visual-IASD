@@ -360,7 +360,7 @@ try {
     + redeOn.rotulo + '")');
   checar(redeOn.semTrilho, 'e não sobrou interruptor nenhum na folha de conexão');
 
-  // ---- LIGAR E DESLIGAR NÃO É UM SALTO (v5.225) --------------------------
+  // ---- LIGAR E DESLIGAR NÃO É UM SALTO (v5.226) --------------------------
   //
   // O relato: "há adição ou subtração de conteúdo nesse popup, isso move os
   // elementos irregularmente... os elementos surgem do nada e as coisas mudam

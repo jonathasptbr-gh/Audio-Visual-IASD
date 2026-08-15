@@ -261,7 +261,7 @@ try {
       const el = document.querySelector(sel);
       return el ? getComputedStyle(el)[prop] : '';
     };
-    // AS DUAS FORMAS DE CONECTAR SÃO BOTÕES IRMÃOS (v5.225) — a segunda era um
+    // AS DUAS FORMAS DE CONECTAR SÃO BOTÕES IRMÃOS (v5.226) — a segunda era um
     // interruptor. O que se mede aqui é que elas são a MESMA peça desligadas
     // (mesmo raio, mesmo preenchimento) e peças DIFERENTES ligadas, porque o
     // estado é a única coisa que as separa.
@@ -296,7 +296,7 @@ try {
     'LIGADA, a transmissão perde o preenchimento e ganha o contorno vermelho'
     + ' (' + padrao.netOn + ' / borda ' + padrao.netOnBorda + ')');
 
-  // ---- E A FOLHA CRESCE EM VEZ DE SALTAR (v5.225) ------------------------
+  // ---- E A FOLHA CRESCE EM VEZ DE SALTAR (v5.226) ------------------------
   //
   // O bloco do endereço aparece e some com a transmissão. Medido aqui pelo que
   // decide o salto: a ALTURA do bloco com e sem a classe que o abre. Recolhido
@@ -596,7 +596,7 @@ try {
 }
 
 // ---------------------------------------------------------------------------
-// O RESPIRO ENTRE ESTROFES — a leitura da letra, nos DOIS modos (v5.225)
+// O RESPIRO ENTRE ESTROFES — a leitura da letra, nos DOIS modos (v5.226)
 //
 // A estrutura de estrofes sempre esteve inteira (o banco entrega uma estrofe por
 // entrada de `lyric`, e `lvBuildSong` desenha assim desde a v5.42) — mas o

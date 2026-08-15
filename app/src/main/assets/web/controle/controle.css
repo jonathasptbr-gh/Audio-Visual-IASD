@@ -27,7 +27,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    as duas medidas de layout que o JS também lê.
    NÃO usar valores literais soltos na folha: sempre referenciar um token. */
 :root {
-  /* ---------- O RESPIRO ENTRE ESTROFES (v5.225) ----------
+  /* ---------- O RESPIRO ENTRE ESTROFES (v5.226) ----------
      UMA LINHA DA LETRA, e o valor não é escolhido por gosto: é literalmente o
      que a FONTE codifica. O banco separa estrofes com `<br><br>`, e uma linha
      em branco é o que o operador vê no LouvorJA e espera aqui.
@@ -3626,7 +3626,7 @@ body.mode-simple .hymn-add-btn { display: none; }
    é o alvo do toque (`<label>`), porque um interruptor de 44px numa tela
    operada com o polegar no escuro é alvo pequeno demais. */
 /* LIGADA, a transmissão fica no VERMELHO CONTORNADO, e o rótulo passa a nomear
-   o desligamento (v5.225). É a mesma gramática do `.connected` acima — o
+   o desligamento (v5.226). É a mesma gramática do `.connected` acima — o
    preenchimento sai, fica o contorno na cor do estado —, e a cor é a única
    diferença: verde é "resolvido, e o app não mexe nisso" (a TV, que só o
    seletor do Android desconecta); vermelho é "está ligado, e o toque desliga".
@@ -3667,7 +3667,7 @@ body.mode-simple .hymn-add-btn { display: none; }
 .mirror-lead {
   margin: 0; font-size: .78rem; line-height: 1.5; color: var(--muted);
   white-space: pre-line;
-  /* ELA ENTRA E SAI ESMAECENDO (v5.225), e não com um `display: none`. Ela é o
+  /* ELA ENTRA E SAI ESMAECENDO (v5.226), e não com um `display: none`. Ela é o
      recado do ligar/desligar — o momento exato em que a folha inteira está se
      reorganizando —, e um parágrafo que aparece e some num quadro somava um
      terceiro salto aos dois que este lote foi corrigir. O teto de altura é
@@ -3716,7 +3716,7 @@ body.mode-simple .hymn-add-btn { display: none; }
    O RÓTULO é o que os separa. Com dois blocos monoespaçados empilhados, "qual
    deles vai no navegador?" é uma pergunta real; duas palavras a respondem sem
    precisar de frase. */
-/* ---------- O BLOCO QUE APARECE COM A TRANSMISSÃO (v5.225) ----------
+/* ---------- O BLOCO QUE APARECE COM A TRANSMISSÃO (v5.226) ----------
    Ligar acrescenta o endereço e a lista de telas; desligar os tira. Com
    `hidden` isso era uma troca instantânea de altura: a folha saltava e o
    conteúdo aparecia do nada, no lugar onde um segundo antes havia outra coisa —
@@ -3787,13 +3787,13 @@ body.mode-simple .hymn-add-btn { display: none; }
 }
 .cast-tela--vazia { color: var(--muted); justify-content: center; }
 /* UMA TELA QUE ENTRA (ou sai) NÃO PODE EMPURRAR A LISTA DE UM QUADRO PARA O
-   OUTRO (v5.225). O `margin-bottom` negativo no começo da entrada cancela o
+   OUTRO (v5.226). O `margin-bottom` negativo no começo da entrada cancela o
    `gap` da lista enquanto a linha ainda não tem altura — sem ele o vão nasce
    inteiro no primeiro quadro e a animação começa com um salto de 6px. O teto de
    3rem é folgado para a linha de uma linha que ela é; `overflow: hidden` é o
    que faz o texto ser recortado em vez de vazar durante o crescimento.
    Quem marca as linhas é o `renderCastTelas`, que passou a REAPROVEITAR as que
-   já estão na tela (v5.225) — sem isso a enquete de 2,5 s recriaria a lista
+   já estão na tela (v5.226) — sem isso a enquete de 2,5 s recriaria a lista
    inteira e a animação recomeçaria sozinha, para sempre. */
 @keyframes castTelaEntra {
   from { max-height: 0; opacity: 0; transform: translateY(-5px); margin-bottom: -.35rem; }

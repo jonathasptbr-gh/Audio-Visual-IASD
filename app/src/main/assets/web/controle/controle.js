@@ -209,7 +209,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.225';
+const WEB_VERSION = '5.226';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -15590,7 +15590,7 @@ function renderCast() {
 // controle de verdade: o dano de um curioso na rede não é ele ver o que a
 // congregação já vê, é ele ocupar uma das três vagas. Ver e poder derrubar é a
 // resposta a isso — e é por isso que a lista subiu para a folha principal.
-// A LISTA É UM DIFF, e não um `innerHTML = ''` (v5.225).
+// A LISTA É UM DIFF, e não um `innerHTML = ''` (v5.226).
 //
 // Ela era refeita por inteiro a cada leitura do estado — e o estado é lido de
 // 2,5 em 2,5 segundos enquanto a folha está aberta. Duas consequências, e a
