@@ -133,11 +133,20 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   --icon-md: 22px;   /* abas e transporte (alvos maiores) */
   --icon-lg: 24px;   /* miniatura-ícone e dicas de deslize */
 
-  /* altura do teclado virtual (deslocamento com teclado) — atualizado pelo JS
-     via VisualViewport quando o navegador NÃO redimensiona o layout sozinho
-     (fallback ao interactive-widget=resizes-content do meta viewport). 0 quando
-     o teclado está fechado ou o layout já foi redimensionado. */
+  /* A FAIXA VISÍVEL: os dois números que descrevem onde a tela realmente está,
+     atualizados pelo JS via VisualViewport (ver `keyboardShift` em controle.js).
+     `--kb` é quanto o teclado virtual come EMBAIXO e `--vv-top` é quanto a
+     viewport visual foi rolada para baixo dentro da de layout. Os dois valem 0
+     no caso normal (teclado fechado, ou o navegador honrando o
+     `interactive-widget=resizes-content` do meta viewport e encolhendo o layout
+     sozinho), e é por isso que quem os consome não precisa de um `if`.
+
+     Eles existem porque `height: 100svh` NÃO é a área visível quando o teclado
+     está aberto e o layout não encolheu — que é o caso do WebView em
+     edge-to-edge do Android 15+, onde o `adjustResize` do manifest deixa de ter
+     efeito. */
   --kb: 0px;
+  --vv-top: 0px;
 }
 
 /* ---------- A superfície AFUNDA dentro de um cartão ----------
@@ -2850,7 +2859,18 @@ main {
 
 /* ---------- Popup de playlist (bottom sheet) ---------- */
 .popup-backdrop {
-  position: fixed; inset: 0; z-index: 200;
+  /* A CAMADA FIXA É A FAIXA VISÍVEL, NÃO A TELA (v5.258).
+     `inset: 0` é a viewport de LAYOUT, e com o teclado aberto ela inclui o
+     pedaço que o teclado está cobrindo — a folha continuava com a altura da
+     tela inteira e a lista terminava atrás do teclado. `body` já descontava
+     `--kb` desde sempre; uma camada `position: fixed` está FORA do fluxo do
+     body e nunca viu essa conta.
+     `--vv-top` é a outra metade: quando o navegador rola a viewport visual para
+     revelar o campo em foco, o que é fixo sai pelo TOPO da tela — a queixa do
+     operador, palavra por palavra ("deslocando todos os itens para cima,
+     ocultando eles por saírem no topo"). Descendo a camada junto, ela fica
+     colada na faixa que se vê. Os dois valem 0 sem teclado. */
+  position: fixed; inset: var(--vv-top, 0px) 0 var(--kb, 0px) 0; z-index: 200;
   /* (ver #songMenuPopup abaixo: um popup ABERTO DE DENTRO de outro precisa de
      um degrau próprio de empilhamento) */
   background: var(--scrim);
@@ -2868,7 +2888,10 @@ main {
   display: flex; flex-direction: column;
   transform: translateY(100%);
   transition: transform .3s ease;
-  padding-bottom: env(safe-area-inset-bottom);
+  /* A área segura de baixo é a barra de gestos do Android — e com o teclado
+     aberto ela está ATRÁS dele, então descontar `--kb` a zera. Sem isso a folha
+     ficaria com uma faixa morta de ~24px entre ela e o teclado. */
+  padding-bottom: max(0px, env(safe-area-inset-bottom) - var(--kb, 0px));
 }
 .popup-backdrop.open .popup-sheet { transform: translateY(0); }
 /* A folha rápida de uma música (▶/+ da linha) abre DE DENTRO do acervo, que é
@@ -2897,7 +2920,13 @@ main {
 .popup-sheet--full {
   max-height: 100%; height: 100%;
   border-radius: 0;
-  padding-top: env(safe-area-inset-top);
+  /* A área segura do topo só existe enquanto a folha ENCOSTA no topo da tela.
+     Com a viewport visual rolada (`--vv-top`), ela já começa abaixo da barra de
+     status, e reservar o espaço de novo abriria um vão no meio da tela.
+     Declarado UMA vez aqui: as duas folhas de tela cheia (`#favPopup` e
+     `#hymnSearchPopup`) repetiam esta linha à mão, que é a sincronização manual
+     que este projeto recusa em toda parte. */
+  padding-top: max(0px, env(safe-area-inset-top) - var(--vv-top, 0px));
 }
 .popup-backdrop--full { align-items: stretch; }
 
@@ -3060,7 +3089,6 @@ main {
 #favPopup .popup-sheet {
   border-radius: 0 0 var(--radius-sheet) var(--radius-sheet);
   transform: translateY(-100%);
-  padding-top: env(safe-area-inset-top);
   padding-bottom: 0;
 }
 #favPopup.open .popup-sheet { transform: translateY(0); }
@@ -3084,7 +3112,6 @@ main {
 #hymnSearchPopup .popup-sheet {
   border-radius: 0 0 var(--radius-sheet) var(--radius-sheet);
   transform: translateY(-100%);
-  padding-top: env(safe-area-inset-top);
   padding-bottom: 0;
 }
 #hymnSearchPopup.open .popup-sheet { transform: translateY(0); }
@@ -3092,23 +3119,42 @@ main {
 /* Barra de busca do Hinário ocupando toda a largura da bandeja: display:flex faz
    o input (.lib-search, flex:1) esticar de lado a lado (sem isso o input ficava
    no tamanho nativo, pequeno). Campo mais alto/legível que o de busca da pasta. */
-/* ---------- A BARRA DE BAIXO DA BIBLIOTECA (v5.258) ----------
+/* ---------- A BARRA DE BAIXO DA BIBLIOTECA (v5.258/v5.259) ----------
    Ela era a faixa logo abaixo do cabeçalho, e o ✕ ficava no cabeçalho: as duas
    coisas que se toca o tempo todo nesta tela, no canto mais distante do polegar
    e a uma tela de rolagem do teclado que a própria busca abre. Agora as duas
    moram no RODAPÉ, juntas.
 
-   Nenhuma regra de teclado aqui, e isso é o ponto: o sheet mede 100% de um
-   `<body>` que já desconta `--kb` (ver o handler de `visualViewport`), então a
-   barra encosta na borda de cima do teclado por construção. Uma segunda conta
-   de altura seria uma segunda chance de divergir da primeira.
+   **NÃO É DE GRAÇA, e a v5.258 achou que era.** O texto que estava aqui dizia
+   que a barra encostava no teclado "por construção", porque "o sheet mede 100%
+   de um `<body>` que já desconta `--kb`". Ele não mede: `.popup-backdrop` é
+   `position: fixed`, está FORA do fluxo do body e nunca viu aquela conta —
+   medido, com um teclado de 380px o body ia a 520 e esta folha continuava em
+   900, isto é, a barra recém-descida ficava ATRÁS do teclado, que é pior que o
+   alto da tela. Quem a encosta nele é o `inset` da camada fixa (ver
+   `.popup-backdrop`), e a segunda conta de altura que aquele parágrafo queria
+   evitar é justamente a que faltava.
 
    A linha vai EM CIMA (era embaixo, no cabeçalho): ela separa a barra da lista
-   que rola, que agora é quem está do outro lado. */
+   que rola, que agora é quem está do outro lado.
+
+   E ela é do RODAPÉ, não da classe: o `#favSearchBar` divide esta classe e
+   continua no ALTO da gaveta de uma pasta — a base DAQUELA folha pertence à
+   barra de seleção múltipla (`hostSelbar`), e duas barras disputando o mesmo
+   lugar conforme o modo é um rodapé que troca de conteúdo sem avisar. Herdando
+   as duas linhas de baixo, ele ganhava um filete colado no `border-bottom` do
+   cabeçalho (2px onde o app desenha 1) e um vão de área segura no meio da
+   tela. */
 .hymn-search-bar {
   display: flex; align-items: center; gap: .5rem;
-  padding: .5rem .9rem calc(.6rem + env(safe-area-inset-bottom));
-  border-top: 1px solid var(--line); flex-shrink: 0;
+  padding: .5rem .9rem .6rem; flex-shrink: 0;
+}
+#hymnSearchPopup .hymn-search-bar {
+  border-top: 1px solid var(--line);
+  /* A área segura de baixo é a barra de gestos do Android, e com o teclado
+     aberto ela está atrás dele — descontar `--kb` a zera, senão sobraria uma
+     faixa morta entre a barra e o teclado. */
+  padding-bottom: max(.6rem, env(safe-area-inset-bottom) - var(--kb, 0px));
 }
 #hymnSearchInput { flex: 1; min-width: 0; padding: 11px 14px; font-size: .95rem; }
 /* Resultado: linha compacta [▶] [nome / subtítulo] [+]. Dois botões, cada um
@@ -3449,7 +3495,12 @@ main {
    centralizado, para toda interação do tipo (excluir, renomear, avisos). Ver
    openAppDialog/appConfirm/appPrompt em controle.js. */
 .dialog-backdrop {
-  position: fixed; inset: 0; z-index: 300;
+  /* A faixa visível, pela mesma razão do `.popup-backdrop` — e aqui ela é
+     obrigatória, não um bônus: o `appPrompt` tem um CAMPO DE TEXTO, e um cartão
+     centrado na tela INTEIRA fica metade atrás do teclado que ele próprio abre.
+     Deixar uma das duas camadas fixas para trás seria consertar o defeito na
+     metade dos lugares em que ele existe. */
+  position: fixed; inset: var(--vv-top, 0px) 0 var(--kb, 0px) 0; z-index: 300;
   background: var(--scrim);
   display: flex; align-items: center; justify-content: center;
   padding: 1.2rem;

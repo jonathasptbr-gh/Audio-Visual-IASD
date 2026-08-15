@@ -67,6 +67,45 @@ const navegador = await chromium.launch(
 // este arquivo exercita) não teria como reagir, e o caso "passaria" por não
 // medir nada. É o aparelho que este teste imita; o padrão de mesa não é.
 const ctx = await navegador.newContext({ viewport: { width: 430, height: 900 }, hasTouch: true });
+// ---------- O TECLADO VIRTUAL, DE MENTIRA ----------
+// Não há como abrir um teclado de sistema num Chromium headless, e o que
+// interessa medir não é o teclado: é O QUE O NAVEGADOR REPORTA quando ele está
+// aberto. São dois mundos, e o app precisa acertar nos dois:
+//
+//   · o hint `interactive-widget=resizes-content` HONRADO → a viewport de
+//     LAYOUT encolhe, `window.innerHeight` diminui, e `visualViewport` a
+//     acompanha. É o `setViewportSize` do Playwright, e nada a simular.
+//   · o hint IGNORADO → a viewport de layout NÃO muda e só a visual encolhe (e
+//     pode ser rolada para revelar o campo em foco). É o caso do WebView em
+//     edge-to-edge do Android 15+, onde o `adjustResize` do manifest deixa de
+//     valer — isto é, o caso do aparelho do operador. É este que se simula.
+//
+// A troca é do OBJETO que o navegador expõe, não de um atalho no app: o
+// `keyboardShift` do `controle.js` lê `window.visualViewport` como leria no
+// aparelho. Sem `__teclado` chamado, o falso espelha a viewport de verdade —
+// então ele é inerte para todos os outros casos deste arquivo.
+await ctx.addInitScript(() => {
+  const alvo = new EventTarget();
+  const falso = {
+    height: 0, width: 0, offsetTop: 0, offsetLeft: 0, pageTop: 0, pageLeft: 0, scale: 1,
+    addEventListener: (...a) => alvo.addEventListener(...a),
+    removeEventListener: (...a) => alvo.removeEventListener(...a),
+  };
+  const espelhar = () => {
+    if (window.__kbAberto) return;
+    falso.height = window.innerHeight; falso.width = window.innerWidth; falso.offsetTop = 0;
+  };
+  window.addEventListener('resize', () => { espelhar(); alvo.dispatchEvent(new Event('resize')); });
+  Object.defineProperty(window, 'visualViewport', { get: () => { espelhar(); return falso; }, configurable: true });
+  window.__teclado = (px, rolagem) => {
+    window.__kbAberto = px > 0;
+    falso.width = window.innerWidth;
+    falso.height = window.innerHeight - px;
+    falso.offsetTop = rolagem || 0;
+    alvo.dispatchEvent(new Event('resize'));
+    alvo.dispatchEvent(new Event('scroll'));
+  };
+});
 // `localhost` já é contexto seguro, então a Clipboard API está disponível — é o
 // mesmo caminho que o app usa no aparelho (`https://appassets.…`).
 try { await ctx.grantPermissions(['clipboard-read', 'clipboard-write']); } catch (_) {}
@@ -1250,7 +1289,8 @@ try {
       semTotal: !document.getElementById('hymnSearchTotal'),
       semBotaoNoCabecalho: !sheet.querySelector('.popup-header .coll-group-btn'),
       // A barra é o ÚLTIMO filho: é isso que a põe encostada na borda de baixo
-      // — e, com o teclado aberto, na borda dele (o sheet já desconta `--kb`).
+      // da folha. Encostá-la no TECLADO é outra conta, e ela é da folha, não
+      // desta ordem — ver o caso da faixa visível, logo abaixo.
       barraPorUltimo: sheet.lastElementChild === barra,
       abaixoDaLista: !!barra && !!lista
         && [...sheet.children].indexOf(barra) > [...sheet.children].indexOf(lista),
@@ -1266,6 +1306,62 @@ try {
     'com o campo E o fechar juntos nela, que é o pedido inteiro');
 } catch (e) {
   checar(false, 'a medição da Biblioteca terminou sem exceção (' + (e && e.message) + ')');
+}
+
+// ---------- A BUSCA DA BIBLIOTECA E O TECLADO (v5.259) ----------
+// Relato do operador: a barra não fica "flutuante/fixa na base, logo acima do
+// teclado", e a listagem é "deslocada erroneamente na abertura do teclado",
+// ficando "oculta por sair no topo da tela".
+//
+// Medido antes de mexer, com o teclado de mentira acima: `body` encolhia de 900
+// para 520 px (o `--kb` já existia) e a folha da Biblioteca continuava em 900 —
+// ela é `position: fixed`, isto é, está FORA do fluxo do body e nunca viu essa
+// conta. 380 px de resultados terminavam atrás do teclado.
+//
+// As três asserções são a regra, nunca o pixel: um número escrito aqui
+// reprovaria numa mudança legítima de fonte ou de área segura, e a queixa nunca
+// foi sobre um número.
+try {
+  const geo = await pg.evaluate(async () => {
+    const caixa = (s) => { const e = document.querySelector(s); return e ? e.getBoundingClientRect() : null; };
+    const ler = () => ({
+      folha: caixa('#hymnSearchPopup .popup-sheet'),
+      barra: caixa('#hymnSearchPopup .hymn-search-bar'),
+      lista: caixa('#hymnResults'),
+      cabec: caixa('#hymnSearchPopup .popup-header'),
+    });
+    setAppMode('full');
+    openHymnSearch();
+    await new Promise((r) => setTimeout(r, 350));
+    const sem = ler();
+    // O teclado do aparelho, com a viewport de layout INALTERADA — e rolada,
+    // que é o mecanismo pelo qual o que é fixo sai pelo topo da tela.
+    const ALTURA = 380, ROLAGEM = 140;
+    window.__teclado(ALTURA, ROLAGEM);
+    await new Promise((r) => setTimeout(r, 120));
+    const com = ler();
+    const visivelTopo = ROLAGEM;
+    const visivelBase = window.innerHeight - (ALTURA - ROLAGEM);
+    window.__teclado(0);
+    await new Promise((r) => setTimeout(r, 60));
+    closeHymnSearch();
+    return { sem, com, visivelTopo, visivelBase };
+  });
+  const perto = (a, b) => Math.abs(a - b) <= 1;
+  checar(!!geo.sem.barra && !!geo.sem.lista && perto(geo.sem.barra.top, geo.sem.lista.bottom),
+    'sem teclado, a barra de busca é o RODAPÉ da folha: ela começa onde a lista termina');
+  checar(!!geo.sem.folha && perto(geo.sem.barra.bottom, geo.sem.folha.bottom),
+    'e ela encosta na base da folha — nada por baixo dela');
+  checar(!!geo.com.folha && perto(geo.com.folha.top, geo.visivelTopo)
+    && perto(geo.com.folha.bottom, geo.visivelBase),
+    'com o teclado aberto, a folha é a FAIXA VISÍVEL, não a tela inteira');
+  checar(!!geo.com.barra && perto(geo.com.barra.bottom, geo.visivelBase),
+    'a barra continua na base — agora encostada no teclado, e não atrás dele');
+  checar(!!geo.com.cabec && !!geo.com.lista
+    && perto(geo.com.cabec.top, geo.visivelTopo) && perto(geo.com.lista.top, geo.com.cabec.bottom),
+    'e a listagem NÃO é deslocada: ela começa logo abaixo do cabeçalho, que está no topo do que se vê');
+} catch (e) {
+  checar(false, 'a medição da busca com teclado terminou sem exceção (' + (e && e.message) + ')');
 }
 
 checar(erros.length === 0, 'nenhum erro de console' + (erros.length ? ':\n        ' + erros.join('\n        ') : ''));

@@ -847,7 +847,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.258</span>
+        <span id="appVersion" class="app-version">Controle v5.259</span>
         <!-- A ATUALIZAÇÃO (v5.245). Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso.
@@ -1113,11 +1113,14 @@
            botão de fechar biblioteca, justamente na base, seguindo a posição do
            teclado."*
 
-           Ela é a última coisa do sheet, e o sheet mede `100%` de um `<body>`
-           que já desconta o teclado (`height: calc(100svh - var(--kb))`, ver o
-           handler de `visualViewport`): a barra encosta na borda de cima do
-           teclado sem uma regra própria — é o mesmo mecanismo que já mantém o
-           transporte visível com o teclado aberto.
+           Ela é a última coisa do sheet, e o sheet mede `100%` da FOLHA — que
+           desde a v5.259 é a FAIXA VISÍVEL, não a tela. A versão anterior desta
+           nota dizia que ele media "um `<body>` que já desconta o teclado", e
+           isso era falso: `.popup-backdrop` é `position: fixed`, isto é, está
+           FORA do fluxo do body e nunca viu aquela conta — medido, com o teclado
+           aberto o body ia a 520px e esta folha continuava em 900, com a barra
+           ATRÁS do teclado. Quem a põe encostada nele é o `inset` da camada
+           (ver `.popup-backdrop` em controle.css), não este lugar no documento.
 
            O ✕ vem DEPOIS do campo, na ponta em que o polegar já está. -->
       <div class="hymn-search-bar">

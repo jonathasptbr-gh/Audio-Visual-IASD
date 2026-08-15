@@ -2981,10 +2981,89 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.258** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.259** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.259: A FOLHA PASSA A SER A FAIXA VISÍVEL — a barra de busca desceu na
+> v5.258 e foi parar ATRÁS do teclado. OTA PURO** (nenhuma linha de Kotlin; sem
+> Release).
+>
+> Relato do operador: *"a barra de buscas não está flutuante/fixa na base, logo
+> acima do teclado… ela deveria ficar sempre visível junto ao teclado. Outro
+> detalhe: já que a barra não é flutuante, para ela ficar na base junto ao
+> teclado, você está deslocando todos os itens para cima, ocultando eles por
+> saírem no topo da tela. Então verifique essas duas questões: da barra de busca
+> fixa sempre visível na base e junto ao teclado, e a questão de que a listagem
+> da biblioteca deve começar no topo da tela normal."*
+>
+> **O elemento já estava no lugar certo, e a folha inteira estava no tamanho
+> errado.** A v5.258 desceu a barra para o fim do sheet com um argumento
+> explícito de que isso bastava — *"nenhuma regra de teclado aqui, e isso é o
+> ponto: o sheet mede 100% de um `<body>` que já desconta `--kb`"*. Ele não mede.
+> `.popup-backdrop` é `position: fixed`, isto é, está **fora do fluxo do body** e
+> nunca viu aquela conta, que existe desde sempre e sempre valeu só para a tela
+> principal.
+>
+> **Medido**, num viewport de 430×900 com um teclado de 380 px: `body` ia a
+> 520 px e a folha da Biblioteca continuava em **900** — a barra recém-descida
+> ficava a 380 px atrás do teclado, e 380 px de resultados junto com ela. Descer
+> a barra sem isto foi trocar "longe do polegar" por "invisível".
+>
+> **A correção é uma linha, e ela vale para as duas metades do relato.** A camada
+> fixa deixou de ser a tela e passou a ser a FAIXA VISÍVEL:
+>
+> ```css
+> inset: var(--vv-top, 0px) 0 var(--kb, 0px) 0;
+> ```
+>
+> `--kb` já existia (quanto o teclado come embaixo). **`--vv-top` é o que
+> faltava**: quanto a viewport VISUAL foi rolada para baixo dentro da de layout.
+> É o navegador revelando o campo em foco — e como fixo é fixo em relação à
+> viewport de LAYOUT, é ele que arrasta a folha para fora do topo da tela. A
+> segunda queixa do operador, palavra por palavra.
+>
+> **E isto não é hipótese sobre um navegador exótico: é o aparelho dele.** Com
+> `targetSdk` 35 o app é edge-to-edge, e nessa condição o
+> `android:windowSoftInputMode="adjustResize"` do manifest **deixa de ter
+> efeito** — a janela do WebView não encolhe, então nem o
+> `interactive-widget=resizes-content` do meta viewport tem o que encolher. É
+> exatamente o mundo em que `--kb` foi escrito para servir, e em que ninguém o
+> tinha ligado às camadas fixas.
+>
+> Três consequências pequenas, e nenhuma é enfeite:
+>
+> - **O `.dialog-backdrop` recebeu a mesma linha.** Ele tem o `appPrompt`, que é
+>   um CAMPO DE TEXTO, e um cartão centrado na tela inteira fica metade atrás do
+>   teclado que ele próprio abre. Consertar uma das duas camadas fixas e deixar a
+>   outra seria o defeito da v5.220 outra vez.
+> - **As áreas seguras passaram a descontar.** `env(safe-area-inset-bottom)` é a
+>   barra de gestos, e com o teclado aberto ela está ATRÁS dele — sem descontar
+>   `--kb`, sobra uma faixa morta entre a barra de busca e o teclado. O mesmo em
+>   cima, com `--vv-top`: uma folha que já começa abaixo da barra de status não
+>   reserva espaço para ela de novo. E as duas folhas de tela cheia repetiam a
+>   linha do `padding-top` à mão — agora ela é declarada uma vez.
+> - **O `#favSearchBar` saiu da regra do rodapé.** Ele divide a classe
+>   `.hymn-search-bar` e continua no ALTO da gaveta de uma pasta (a base daquela
+>   folha pertence à barra de seleção múltipla), então herdar o `border-top`
+>   dava um filete colado no `border-bottom` do cabeçalho — 2px onde o app
+>   desenha 1 — e um vão de área segura no meio da tela.
+>
+> **O oráculo é o que faltava para os dois lotes.** `tools/smoke.mjs` ganhou um
+> TECLADO DE MENTIRA: ele troca `window.visualViewport` por um que encolhe e
+> rola sob comando, que é **o que o navegador reporta** no mundo em que o hint
+> não é honrado — o app o lê como leria no aparelho. Sem `__teclado` chamado ele
+> espelha a viewport de verdade, e por isso é inerte para todo o resto do
+> arquivo. As cinco asserções afirmam a REGRA e nunca o pixel (um número escrito
+> ali reprovaria numa mudança legítima de fonte, e a queixa nunca foi sobre um
+> número). Verificado por ISOLAMENTO: devolvendo `inset: 0`, **3** reprovam;
+> devolvendo a barra para o alto da folha, **4**.
+>
+> A régua que fica: **`position: fixed` não vê nenhuma conta de altura que o
+> `body` faça.** Toda vez que este app aprender alguma coisa sobre onde a tela
+> realmente está, as camadas fixas precisam ser avisadas à parte — e elas são
+> justamente as que hospedam os campos de texto.
 
 > **A v5.258: A LINHA FICA COM UM BOTÃO SÓ — o `⋮` — e a Biblioteca perde o
 > "baixar tudo" e ganha a busca na BASE. OTA PURO** (nenhuma linha de Kotlin;

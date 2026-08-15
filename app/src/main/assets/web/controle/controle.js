@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.258';
+const WEB_VERSION = '5.259';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -15505,16 +15505,32 @@ window.addEventListener('resize', () => {
   titleResizeTimer = setTimeout(applyTitleMarquee, 150);
 });
 
-// ===== Deslocamento com o teclado virtual =====
+// ===== A FAIXA VISÍVEL (deslocamento com o teclado virtual) =====
 // O meta viewport pede `interactive-widget=resizes-content` (index.html), o que
 // já faz o navegador encolher o layout quando o teclado abre — o app sobe
-// sozinho e nada fica escondido. Este handler é o FALLBACK para navegadores que
-// não honram esse hint: usa a VisualViewport API pra medir quanto o teclado
-// cobriu e escreve isso em `--kb` (usado por `body { height: calc(100svh - var(--kb)) }`
-// em controle.css). Quando o layout já é redimensionado pelo navegador (ou o
-// teclado está fechado), a conta dá ~0 e nada muda — os dois mecanismos convivem
-// sem brigar. Como o Controle roda sempre como PWA instalado no Android, a
-// VisualViewport API está disponível.
+// sozinho e nada fica escondido. Este handler é o FALLBACK para quando esse hint
+// não é honrado, e ele NÃO é hipotético: com `targetSdk` 35 o app é
+// edge-to-edge, e nessa condição o `android:windowSoftInputMode="adjustResize"`
+// do manifest deixa de ter efeito — a janela do WebView não encolhe, então a
+// viewport de LAYOUT continua do tamanho da tela inteira e só a VISUAL diminui.
+//
+// São DOIS números, e o segundo é o que faltava até a v5.258:
+//
+//   --kb      quanto o teclado come EMBAIXO (a conta de sempre).
+//   --vv-top  quanto a viewport VISUAL foi rolada para baixo dentro da de
+//             layout. É o que o navegador faz sozinho para revelar o campo em
+//             foco — e é ele que arrasta para fora do topo da tela tudo o que
+//             está em `position: fixed`, porque fixo é fixo em relação à
+//             viewport de LAYOUT, não à visível.
+//
+// Quem os consome: `body` (que desconta `--kb`) e as camadas fixas — as folhas
+// e o diálogo —, que sem eles ignoravam o teclado por completo: `inset: 0` é a
+// tela inteira, inclusive o pedaço que o teclado está cobrindo. Ver
+// `.popup-backdrop` em controle.css.
+//
+// Quando o layout já é redimensionado pelo navegador (ou o teclado está
+// fechado), as duas contas dão ~0 e nada muda — os dois mecanismos convivem sem
+// brigar, e por isso ninguém precisa perguntar em qual dos dois mundos está.
 (function keyboardShift() {
   const vv = window.visualViewport;
   if (!vv) return;
@@ -15524,6 +15540,7 @@ window.addEventListener('resize', () => {
     // Altura coberta pelo teclado = o que sobra abaixo da viewport visual.
     const kb = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
     document.documentElement.style.setProperty('--kb', kb + 'px');
+    document.documentElement.style.setProperty('--vv-top', Math.max(0, Math.round(vv.offsetTop)) + 'px');
   };
   const schedule = () => { if (!raf) raf = requestAnimationFrame(apply); };
   vv.addEventListener('resize', schedule);
