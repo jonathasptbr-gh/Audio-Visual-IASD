@@ -1459,6 +1459,20 @@ try {
   await pg4.reload({ waitUntil: 'domcontentloaded' });
   await pg4.waitForFunction(() => !!window.__avBack, null, { timeout: 20000 });
   const veio2 = await esperarCapitulos(12, 25000);
+  // ESPERA A LEITURA DO ESTADO, e isto é um conserto de INSTABILIDADE (v5.252):
+  // este caso reprovava em ~1 de cada 6 execuções. `bibleVersionId` é escrito
+  // durante o `init()`, que lê o IndexedDB; os capítulos começam a descer no
+  // mesmo `init()`, então esperar por eles NÃO garante que a leitura da
+  // preferência já tenha acontecido — são duas coisas que correm juntas, e o
+  // teste apostava numa ordem entre elas. Um teste que reprova sozinho de vez
+  // em quando é pior que teste nenhum: ele ensina a ignorar vermelho, que é a
+  // lição da v5.204.
+  //
+  // A espera falha em silêncio de propósito: se a preferência de fato não for
+  // respeitada, quem reprova é a asserção abaixo — com o valor real na mão.
+  try {
+    await pg4.waitForFunction((v) => bibleVersionId === v, OUTRA, { timeout: 8000 });
+  } catch (_) { /* a asserção abaixo dá o veredito */ }
   checar(await pg4.evaluate(() => bibleVersionId) === OUTRA,
     'a versão ESCOLHIDA pelo operador é outra (a seleção dele foi respeitada)');
   checar(veio2 > 0 && pedidos.every((p) => p.versao === ARA),
