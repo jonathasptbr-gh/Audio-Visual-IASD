@@ -213,6 +213,43 @@ try {
   // que dava para marcar.
   const temGo = await pg.$$eval('#songMenuList .song-menu-go', (els) => els.length);
   checar(temGo === 1, 'e a linha de confirmação está lá');
+  // ── O "TOCAR AGORA" SOZINHO (v5.254) ─────────────────────────────────────
+  // Relato do operador: *"o seletivo de tocar agora… se eu toco apenas nele, ele
+  // não dá o feedback do check"*.
+  //
+  // Ele era a única linha da folha que não recebia o redesenho: até a v5.253 o
+  // corpo dela EXECUTAVA e fechava tudo, então nunca precisou de um — quando ela
+  // virou selecionável, o argumento ficou para trás. O toque marcava o destino e
+  // a tela não mudava um pixel, nem na caixa nem no confirmar.
+  //
+  // O caso mede as DUAS coisas que o redesenho reconstrói, porque o defeito
+  // apagava as duas de uma vez.
+  const soTocar = await pg.evaluate(() => {
+    destMarcados.clear();
+    openYtMenu({ id: 'zzzzzzzzzzz', url: 'https://youtu.be/zzzzzzzzzzz', name: 'Vídeo de teste' });
+    const linha = [...document.querySelectorAll('#songMenuList .song-menu-btn')]
+      .find((b) => /Tocar agora/.test(b.textContent));
+    linha.click();
+    const depois = [...document.querySelectorAll('#songMenuList .song-menu-btn')]
+      .find((b) => /Tocar agora/.test(b.textContent));
+    const go = document.querySelector('#songMenuList .song-menu-go');
+    return {
+      marcado: [...destMarcados],
+      check: !!(depois && depois.querySelector('.song-menu-check.on')),
+      goAtivo: !!(go && !go.disabled),
+      goTexto: go ? go.textContent.trim() : '',
+      aberta: document.getElementById('songMenuPopup').classList.contains('open'),
+    };
+  });
+  checar(soTocar.marcado.length === 1 && soTocar.marcado[0] === 'tocar' && soTocar.aberta,
+    'tocar SÓ no "Tocar agora" marca-o e mantém a folha aberta',
+    JSON.stringify(soTocar.marcado));
+  checar(soTocar.check,
+    'e a CAIXA dele acende — era este o feedback que não vinha');
+  checar(soTocar.goAtivo && /Confirmar/.test(soTocar.goTexto),
+    'e o confirmar habilita junto: as duas coisas que o redesenho reconstrói',
+    JSON.stringify(soTocar.goTexto));
+
   const goVazio = await pg.evaluate(() => {
     destMarcados.clear();
     openYtMenu({ id: 'zzzzzzzzzzz', url: 'https://youtu.be/zzzzzzzzzzz', name: 'Vídeo de teste' });

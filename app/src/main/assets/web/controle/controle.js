@@ -10939,6 +10939,7 @@ function openYtMenu(r) {
   // então "marcar Cronograma + tocar agora" projeta e guarda no mesmo toque —
   // que é exatamente o que se faz com o louvor que acabou de chegar.
   const remontar = () => openYtMenu(r);
+  destRemontar = remontar;
   destExecutor = (alvos, btn) => ytAcao(r, alvos, btn, soAudio, altura);
   // "Tocar agora" é o único desta folha que GUARDA NADA, e é isso que o rótulo
   // não diz — daí ele manter subtítulo enquanto os três destinos perderam o
@@ -10946,7 +10947,7 @@ function openYtMenu(r) {
   // muda (o kind `audio` mantém o wallpaper).
   songMenuListEl.appendChild(songMenuItem(msym(ICON.play), 'Tocar agora',
     soAudio ? 'Sem mexer no telão' : 'Sem entrar em lista nenhuma',
-    (vr, btn, alvos) => ytAcao(r, alvos, null, soAudio, altura), 'tocar'));
+    (vr, btn, alvos) => ytAcao(r, alvos, null, soAudio, altura), 'tocar', remontar));
   // COM "ONLINE" os três destinos guardam o LINK, e isso precisa estar dito:
   // eles são as três linhas que, em toda outra qualidade, significam "espere o
   // download". O subtítulo é o mesmo nos três porque a diferença entre eles
@@ -11855,8 +11856,20 @@ const destMarcados = new Set();
 // definido por quem monta a folha (o acervo e o YouTube fazem coisas diferentes
 // com a mesma lista de destinos) e lido pela linha de confirmação.
 let destExecutor = null;
+// E quem sabe REDESENHÁ-LA. Ele existe por um defeito medido (v5.254): marcar
+// uma opção muda o desenho de DUAS coisas — a caixa daquela linha e o rótulo do
+// confirmar —, e quem as reconstrói é o redesenho da folha. Ele era um
+// argumento por linha (`aoMudar`), e a linha do "Tocar agora" foi a única que
+// não o recebeu quando ela virou selecionável: o toque marcava o destino e a
+// tela não mudava um pixel. Do lado de quem opera, "o check não funciona".
+//
+// Argumento que cada chamador precisa lembrar de passar é a mesma classe de
+// erro que o `native.js` já cobra em outro lugar (campo novo = campo novo lá).
+// Como hook de módulo, definido UMA vez por folha, a linha nova nasce
+// funcionando — e um esquecimento deixa de ser possível.
+let destRemontar = null;
 
-function destLimpar() { destMarcados.clear(); destExecutor = null; }
+function destLimpar() { destMarcados.clear(); destExecutor = null; destRemontar = null; }
 
 // A união do que está marcado com a linha em que se tocou, na ordem da tabela —
 // para o aviso sair sempre na mesma ordem, e não na ordem em que o operador
@@ -11921,7 +11934,7 @@ function closeSongMenu() {
 // A caixa de marcação de uma linha de destino. `stopPropagation` porque ela vive
 // DENTRO do botão da linha: sem isso, marcar dispararia a ação da linha e a
 // folha fecharia — o oposto exato do que a caixa existe para permitir.
-function destCheck(chave, aoMudar) {
+function destCheck(chave) {
   const cx = document.createElement('span');
   cx.className = 'song-menu-check' + (destMarcados.has(chave) ? ' on' : '');
   cx.setAttribute('role', 'checkbox');
@@ -11981,10 +11994,11 @@ function songMenuItem(icone, rotulo, sub, acao, destino, aoMudar) {
   // seria manter a exceção que o pedido veio remover.
   if (destino) {
     btn.classList.add('song-menu-sel');
-    btn.appendChild(destCheck(destino, aoMudar || (() => {})));
+    btn.appendChild(destCheck(destino));
     const marcar = () => {
       if (destMarcados.has(destino)) destMarcados.delete(destino); else destMarcados.add(destino);
-      if (aoMudar) aoMudar();
+      const redesenhar = aoMudar || destRemontar;
+      if (redesenhar) redesenhar();
     };
     btn.addEventListener('click', marcar);
     li.appendChild(btn);
@@ -12100,6 +12114,7 @@ const DEST_ICONE = { playlist: 'queue', cronograma: 'cronoAdd', favoritos: 'star
 function renderDestPrompt() {
   songMenuListEl.innerHTML = '';
   const remontar = () => renderDestPrompt();
+  destRemontar = remontar;
   // AS MESMAS LINHAS DAS OUTRAS FOLHAS (v5.252). Até aqui esta função montava
   // as suas próprias, e o comentário explicava por quê: lá o corpo da linha
   // EXECUTAVA e fechava a folha, e aqui não há ação por trás dele. Essa razão
@@ -12175,6 +12190,7 @@ function renderSongMenu(modo) {
   // vai para a playlist E para os Favoritos sem refazer a busca. O executor é o
   // mesmo dos três, porque a diferença entre eles sempre foi só a lista.
   const remontar = () => renderSongMenu('add');
+  destRemontar = remontar;
   // O EXECUTOR ÚNICO desta folha. Ele separa os destinos de LISTA da cena de
   // roteiro da letra: a letra não é o mesmo item noutra lista, é OUTRO item (uma
   // cena, sem áudio). Ela é selecionável como as demais desde a v5.252 — com um
