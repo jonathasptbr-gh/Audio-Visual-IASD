@@ -2252,7 +2252,7 @@ contextos.
 | Pastas do dispositivo | `showDirectoryPicker()` | **SAF** — a File System Access API **não existe no Android**; este recurso era letra morta no celular e passa a funcionar |
 | Compartilhamento | **não existe mais** — vinha do `share_target` do manifest com o POST interceptado pelo SW, e os dois saíram do bundle; a leitura remanescente do estado `pending-share` (que ninguém escrevia desde a v5.48) saiu na limpeza da auditoria de agosto/2026 | **`intent-filter` nativo** (`ShareIntake.kt`), que só aceita `content://` de outro app (ver abaixo) |
 | Link do YouTube compartilhado | vira item de LINK, que só o app resolve | **no avançado, as MESMAS quatro escolhas da busca** (v5.137): a folha de tocar · playlist · Cronograma · Favoritos, com vídeo/só-áudio e o teto de resolução. As duas portas de entrada de um vídeo do YouTube passaram a dar no mesmo lugar — antes o share decidia sozinho: sempre vídeo, sempre no Cronograma, sempre no padrão de qualidade. **No simplificado não há pergunta e há TRANSMISSÃO DIRETA** (v5.138): ali o link compartilhado É um "tocar agora" — vai direto ao telão, não entra em lista visível nenhuma e ninguém pediu para guardar —, então ele passa por `tentarTransmitir` antes do download, como o "Tocar agora" do avançado. Uma folha com destinos que aquela tela não tem seria pior que folha nenhuma; esperar centenas de MB para começar a projetar era a espera que a transmissão existe para acabar. Falhando a transmissão, cai no download e, falhando ele, vira um item de LINK — que não é mais um player embutido e sim uma dívida a resolver no próximo toque (`resolverLinkYoutube`, v5.212): um link compartilhado nunca se perde |
-| Destino de um item (acervo · YouTube · importação · share) | uma escolha por vez: a folha fechava no primeiro toque | **VÁRIOS destinos de uma vez** (v5.141): cada linha de destino ganhou uma caixa de marcação na borda. O toque no corpo da linha continua sendo a ação de um toque — agora para aquela linha MAIS o que estiver marcado —, e a caixa só marca, sem fechar a folha. Um vídeo do YouTube passa a ser baixado UMA vez para ir ao Cronograma e aos Favoritos (antes eram dois downloads de minutos, e o operador só descobria na segunda espera). A importação e o share de arquivo abrem a mesma folha como PERGUNTA, com o Cronograma já marcado; desistir dela entra no Cronograma, como sempre. Ver `docs/ARQUITETURA-WEB.md`, "UM item, VÁRIOS destinos" |
+| Destino de um item (acervo · YouTube · importação · share) | uma escolha por vez: a folha fechava no primeiro toque | **VÁRIOS destinos de uma vez** (v5.141), e desde a v5.253 por um MÉTODO ÚNICO: toda opção da folha — as três listas **e** o "Tocar agora" — é selecionável de CORPO INTEIRO, e um botão de confirmar sempre visível é quem executa. Até ali havia duas gramáticas na mesma linha (o corpo EXECUTAVA e fechava tudo; a caixinha de 20px na borda apenas marcava), e o confirmar só nascia depois da primeira marca — isto é, era invisível justamente para quem ainda não sabia que dava para marcar. Um vídeo do YouTube passa a ser baixado UMA vez para ir ao Cronograma e aos Favoritos (antes eram dois downloads de minutos, e o operador só descobria na segunda espera). A importação e o share de arquivo abrem a mesma folha como PERGUNTA, com o Cronograma já marcado; desistir dela entra no Cronograma, como sempre. Ver `docs/ARQUITETURA-WEB.md`, "UM item, VÁRIOS destinos" |
 | Onde o share ATERRISSA | idem ao nativo (o caminho é o mesmo `importShare`) | **`focarImportado`** (v5.77): fecha os popups abertos e a seleção, e então **projeta na hora** no simplificado ou **vai para o Cronograma** no avançado — e no simplificado o item NÃO entra em lista visível nenhuma (v5.89: vai para a prateleira `avulsos`), porque aquela tela não tem Cronograma nem playlist. A preview em tela cheia só é encerrada se houver telão — sem ele, ela É a projeção |
 | Estado do telão (rodapé de Configurações) | atalho `window.open('../display/')`, útil só para desenvolver | **indicador ao vivo** (desabilitado como botão) — a Presentation é criada sozinha |
 | Botão de cast da preview | oculto | `AVNative.openCast()` → seletor de **espelhamento de tela** (ver abaixo) |
@@ -2958,10 +2958,64 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.252** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.253** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.253: A FOLHA DE DESTINOS VIRA UM MÉTODO ÚNICO — tudo é selecionável, e
+> o confirmar não some. OTA PURO** (sem Release).
+>
+> Pedido do operador: *"faça um método universal, o botão de confirmar sempre
+> visível, e todas as outras opções (inclusive o tocar agora) são opções
+> selecionáveis, não apenas tocando no check, mas de corpo inteiro."*
+>
+> **A folha tinha DUAS gramáticas na mesma linha.** O corpo EXECUTAVA — aquele
+> destino mais o que estivesse marcado, fechando tudo — e a caixinha de 20 px na
+> borda apenas MARCAVA. Duas coisas diferentes a dois centímetros uma da outra, e
+> a de marcar era o menor alvo da folha: quem quisesse dois destinos tinha de
+> acertar a CAIXA do primeiro e o CORPO do segundo, nessa ordem. Errar a ordem
+> mandava o item para um destino só e fechava a folha.
+>
+> **E o confirmar só nascia depois da primeira marca** — ou seja, era invisível
+> exatamente para quem ainda não tinha entendido o mecanismo, e a folha parecia
+> não ter conclusão.
+>
+> Agora ela é o que sempre pareceu ser: **uma lista de opções que se marcam e um
+> botão que executa.** A caixa vira INDICADOR (`pointer-events: none`, senão o
+> toque que cai nos 20 px dela morreria num filho sem ouvinte — um ponto morto
+> justamente no pedaço que mais parece o alvo), a linha marcada ganha o contorno
+> em accent que o app usa para "é este", e o confirmar fica sempre na tela:
+> desabilitado e dizendo "Escolha uma opção" enquanto não há nada.
+>
+> **"Tocar agora" ganhou caixa junto.** Por dezenas de versões ele não a teve com
+> um argumento correto — "ele não é uma lista, e uma caixa nele ofereceria marcar
+> o telão". Com um confirmar único, negá-la seria manter a exceção que o pedido
+> veio remover. O rótulo do botão acompanhou: "Enviar aos 2 destinos" chamaria o
+> telão de lista, então ele virou **"Confirmar (N)"**, que é como o próprio
+> operador nomeou o botão.
+>
+> **"Só a letra, no Cronograma" também entrou na seleção.** Ela ficava de fora
+> porque "a letra não é o mesmo item noutra lista, é OUTRO item — misturá-la aos
+> destinos faria um toque criar duas coisas diferentes de uma vez". Com um
+> confirmar único isso deixou de ser um toque acidental e passou a ser uma
+> decisão explícita, então a exceção caiu.
+>
+> **E o seletor de destinos da IMPORTAÇÃO parou de ter marcação própria.** Ele
+> montava as linhas dele porque `songMenuItem` executava; agora que ela marca, as
+> duas folhas convergiram e vinte linhas de marcação duplicada saíram junto —
+> que é o "método universal" do pedido escrito em código, não só em
+> comportamento.
+>
+> **O que NÃO mudou:** a folha de TOCAR de uma música do acervo (cantada ·
+> playback · apenas a letra) continua sendo três ações imediatas. Ali não há
+> destino nenhum a acumular — são alternativas, e a primeira escolhida é a
+> resposta.
+>
+> `tools/destinos.test.mjs` foi reescrito para o modelo novo e reprova em **7
+> asserções** contra o anterior: as antigas travavam literalmente a gramática
+> que saiu (o corpo executando, a caixa parando o borbulhar, o confirmar
+> ausente).
 
 > **A v5.252: O REGISTRO ACHOU O PRIMEIRO DEFEITO — e ele era MEU. OTA PURO**
 > (nenhuma linha de Kotlin; sem Release).
