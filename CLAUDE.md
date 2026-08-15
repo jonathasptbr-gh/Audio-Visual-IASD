@@ -2587,10 +2587,56 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.233** (base web) · `SHELL_VERSION` **42**, e o bundle segue com
+**Versão atual: v5.234** (base web) · `SHELL_VERSION` **42**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.234: A LINHA DAS OPÇÕES ENCOLHE DE VERDADE — o estado sai da segunda
+> linha e a remoção vira só a lixeira. OTA PURO** (nenhuma linha de Kotlin; sem
+> Release).
+>
+> Pedido do operador sobre a v5.232: *"mude de lugar o subtítulo de completo ou
+> de progresso… não use linha dupla, pois a ideia já é justamente compactar os
+> elementos dessas opções. Apenas diminua o botão de remover apenas para um
+> botão de ícone de lixeira. Isso vai liberar mais espaço para o botão de
+> atualizar."*
+>
+> Ele está corrigindo uma meia-solução minha. A v5.232 tirou as duas faixas de
+> chips e pôs o estado DENTRO do botão — só que numa segunda linha, o que
+> devolvia ao painel a altura que condensá-lo tinha acabado de tirar. Agora o
+> estado divide a linha com o rótulo e, quando falta largura, é ELE que
+> encolhe com reticências: some o qualificador, nunca a palavra que diz o que o
+> toque faz.
+>
+> **A lixeira sem rótulo é uma decisão sobre CONFIRMAÇÃO, não sobre espaço.** O
+> que ela perde na tela — "do dispositivo", que dizia o alcance — está inteiro
+> no diálogo que ela abre ("Excluir o que foi baixado de X (áudios e capas) e a
+> lista offline?"), e é isso que permite um destrutivo ficar só com o ícone: ele
+> é confirmado, e a confirmação é quem nomeia o dano. A frase continua no
+> `title` e no `aria-label`. Medido: 44 px contra 316 px — a linha inteira é do
+> botão que carrega ação, estado e progresso.
+>
+> Com isso caiu também o argumento do `flex: 1 1 0` da v5.95 ("a ação destrutiva
+> não pode ser a maior das duas"): ela agora é, por construção, a menor.
+>
+> **E O ORÁCULO DA v5.232 ESTAVA MEDINDO ZEROS.** A asserção "os controles
+> dividem uma linha" comparava os topos dos botões dentro de um painel que, no
+> Modo Fácil, é `display: none` por regra — e num elemento escondido toda medida
+> é zero. Zeros comparados com zeros passam: ela aprovava um layout que nunca
+> tinha olhado. É a lição da v5.208 com outro nome (*"uma medição que não acha
+> nada parece uma medição que passou"*), e a correção é a mesma: **entrar no
+> modo em que a peça vive** (`setAppMode('full')`) e desenhar numa lista própria
+> e VISÍVEL, com a largura de um celular. Agora as quatro asserções novas
+> reprovam no código anterior (verificado).
+>
+> **Uma segunda armadilha do mesmo caso, e ela é do tipo que passa despercebido
+> para sempre:** "o botão não tem rótulo" não pode ser lido do `textContent`. O
+> ícone é uma LIGADURA da fonte, isto é, um caractere de uso privado dentro do
+> `<span class="msym">` — `trim()` não o remove e `JSON.stringify` o imprime sem
+> escapar, então o dump dizia `""` para uma string de comprimento 1. A pergunta
+> certa é pelos nós de TEXTO diretos do botão, que é o que "rótulo na tela"
+> significa.
 
 > **A v5.233: O ÍNDICE DA SÉRIE FICAVA PRESO NA REGRA VELHA — a correção da
 > v5.230 nunca chegou à lista. OTA PURO** (nenhuma linha de Kotlin; sem

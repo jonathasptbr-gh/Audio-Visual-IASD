@@ -209,7 +209,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.233';
+const WEB_VERSION = '5.234';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -6608,7 +6608,8 @@ function buildCollectionOptions(coll, collOptsEl) {
   // nomeia a AÇÃO, o estado diz onde ela está**. "Verificar" com um "✓ completo"
   // ao lado responde as duas perguntas de uma vez; "Verificar atualizações"
   // sozinho, num álbum inteiro no aparelho, não dizia nem que ele estava
-  // inteiro. Numa SÉRIE o número que importa não é quanto foi baixado (nada é,
+  // inteiro. Ele fica na MESMA linha do rótulo (v5.234): uma segunda linha
+  // desfazia metade do ganho de ter condensado o painel. Numa SÉRIE o número que importa não é quanto foi baixado (nada é,
   // por desenho — ver `serieComoYoutube`): é quantos episódios a lista tem.
   const estado = document.createElement('small');
   estado.className = 'coll-opt-estado' + (complete && !ehSerie(coll) ? ' done' : '');
@@ -6639,13 +6640,21 @@ function buildCollectionOptions(coll, collOptsEl) {
 
   if (downloaded > 0 || total > 0) {
     const rmBtn = document.createElement('button');
-    rmBtn.className = 'new-folder-btn danger';
-    rmBtn.appendChild(msym(ICON.del));
+    // SÓ O ÍCONE (v5.234, pedido do operador): a lixeira para no próprio
+    // tamanho e devolve a linha inteira ao botão que carrega ação, estado e
+    // progresso. A frase continua existindo onde ela é lida — no `title`, e
+    // sobretudo no DIÁLOGO que a ação abre, que nomeia o alcance ("o que foi
+    // baixado… e a lista offline"). É essa confirmação que permite um
+    // destrutivo sem rótulo; sem ela, o ícone sozinho seria uma aposta.
+    //
     // "Remover do dispositivo", e não "Excluir downloads do álbum": o que sai é
     // o que ocupa espaço NESTE aparelho, e o álbum continua no acervo para
     // baixar de novo quando quiser. "Excluir" prometia um dano maior do que o
     // que a ação faz.
-    rmBtn.appendChild(document.createTextNode('Remover do dispositivo'));
+    rmBtn.className = 'new-folder-btn danger icone';
+    rmBtn.title = 'Remover do dispositivo';
+    rmBtn.setAttribute('aria-label', 'Remover do dispositivo');
+    rmBtn.appendChild(msym(ICON.del));
     rmBtn.addEventListener('click', () => deleteCollection(coll));
     acoes.appendChild(rmBtn);
   }

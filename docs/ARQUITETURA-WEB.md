@@ -5020,8 +5020,8 @@ principal antes mesmo de abrir… preciso ajustá-los para que fiquem apenas em 
 linha, resumindo basicamente a verificação (com o indicador do progresso e
 resultado) ou remoção."*
 
-O painel virou **uma linha**: `[⟳ Verificar · ✓ completo] [🗑 Remover do
-dispositivo]`. O que saiu e para onde foi:
+O painel virou **uma linha**: `[⟳ Verificar · ✓ completo] [🗑]`. O que saiu e
+para onde foi:
 
 - **O PESO** — `.hymnal-stat.right`, e com ele `hymnalStat()` e `fmtParBytes()`,
   os dois sem outro chamador. Ele já está na **barra do card**, antes de abrir
@@ -5031,7 +5031,10 @@ dispositivo]`. O que saiu e para onde foi:
   porque a barra do card ganhou o peso DEPOIS (v5.70/v5.93), e ninguém releu o
   painel contra ela.
 - **O ESTADO** (`4/4 · Completo offline`) **desceu para dentro do botão** de
-  verificação, como `.coll-opt-estado`. A gramática é a do resto do app — **o
+  verificação, como `.coll-opt-estado` — na MESMA linha do rótulo desde a
+  v5.234 (ele nasceu quebrando para uma segunda, o que devolvia ao painel a
+  altura que condensá-lo tinha tirado; inline, quem encolhe com reticências é o
+  estado, nunca a palavra da ação). A gramática é a do resto do app — **o
   rótulo nomeia a AÇÃO, o estado diz onde ela está**: "Verificar · ✓ completo",
   "Baixar · 12/24", "Atualizar a lista · 52 episódios". Sozinho, o rótulo antigo
   ("Verificar atualizações") não dizia sequer que o álbum estava inteiro.
@@ -5042,6 +5045,14 @@ dispositivo]`. O que saiu e para onde foi:
   ("Baixando 2 de 4…") são da barra do card, e uma segunda cópia delas aqui
   seria exatamente o que a v5.73 removeu. Sem índice não há fração e não há
   barra — uma proporção que não se conhece não se desenha.
+
+**E A REMOÇÃO FICOU SÓ COM A LIXEIRA** (v5.234): 44 px contra 316 px, e a linha
+inteira passou a ser do botão que carrega ação, estado e progresso. Um
+destrutivo pode ficar sem rótulo aqui porque ele é CONFIRMADO, e o diálogo
+nomeia o alcance ("o que foi baixado… e a lista offline") — a frase segue no
+`title`/`aria-label`. Com isso caiu o `flex: 1 1 0` da v5.95, cujo argumento era
+que "a ação destrutiva não pode ser a maior das duas": ela agora é a menor por
+construção.
 
 Os dois oráculos se dividem pela natureza, como sempre: o `boot-nativo` mede o
 ESTADO (o painel com um filho só, o peso ausente dele e presente na barra, o
