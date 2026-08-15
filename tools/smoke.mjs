@@ -261,7 +261,7 @@ try {
       const el = document.querySelector(sel);
       return el ? getComputedStyle(el)[prop] : '';
     };
-    // AS DUAS FORMAS DE CONECTAR SÃO BOTÕES IRMÃOS (v5.224) — a segunda era um
+    // AS DUAS FORMAS DE CONECTAR SÃO BOTÕES IRMÃOS (v5.225) — a segunda era um
     // interruptor. O que se mede aqui é que elas são a MESMA peça desligadas
     // (mesmo raio, mesmo preenchimento) e peças DIFERENTES ligadas, porque o
     // estado é a única coisa que as separa.
@@ -562,6 +562,67 @@ try {
     'e ela sobrevive à recarga da página (' + depois.atributo + ' · ' + depois.bg + ')');
 } catch (e) {
   checar(false, 'o percurso terminou sem exceção (' + (e && e.message) + ')');
+}
+
+// ---------------------------------------------------------------------------
+// O RESPIRO ENTRE ESTROFES — a leitura da letra, nos DOIS modos (v5.225)
+//
+// A estrutura de estrofes sempre esteve inteira (o banco entrega uma estrofe por
+// entrada de `lyric`, e `lvBuildSong` desenha assim desde a v5.42) — mas o
+// ESPAÇAMENTO estava invertido, e é ele que decide se a letra respira: 8,8 px
+// (avançado) e 8,0 px (simples) entre estrofes DIFERENTES contra 11,4 px entre
+// dois blocos da MESMA. Duas estrofes ficavam mais juntas que o miolo de uma, e
+// a hierarquia se lia ao contrário.
+//
+// A asserção é a REGRA, não o número: uma fronteira de estrofe tem de valer o
+// mesmo nos três lugares onde existe (entre slides, dentro de um slide, nos dois
+// modos) e tem de ser pelo menos uma LINHA — que é literalmente o que a fonte
+// codifica com `<br><br>`. Escrever o pixel aqui faria o oráculo reprovar numa
+// mudança legítima de fonte; escrever a razão o mantém verdadeiro.
+try {
+  const gaps = await pg.evaluate(() => {
+    const medir = (cls) => {
+      const box = document.createElement('div');
+      box.className = cls;
+      box.style.cssText = 'position:fixed;left:0;top:0;width:380px;height:700px;';
+      const mk = (blocos) => {
+        const row = document.createElement('div');
+        row.className = 'lv-row';
+        for (const b of blocos) {
+          const t = document.createElement('div');
+          t.className = 'lv-text';
+          t.textContent = b;
+          row.appendChild(t);
+        }
+        return row;
+      };
+      const e1 = mk(['A1\nA2\nA3\nA4']);
+      const e2 = mk(['B1\nB2', 'C1\nC2']);   // duas estrofes DENTRO de um slide
+      box.appendChild(e1); box.appendChild(e2);
+      document.body.appendChild(box);
+      const d = e2.querySelectorAll('.lv-text');
+      const out = {
+        entre: e2.getBoundingClientRect().top - e1.getBoundingClientRect().bottom,
+        dentro: d[1].getBoundingClientRect().top - d[0].getBoundingClientRect().bottom,
+        linha: parseFloat(getComputedStyle(e1).lineHeight),
+      };
+      box.remove();
+      return out;
+    };
+    return { avancado: medir('lyricsview-body'), simples: medir('simple-lyrics') };
+  });
+  for (const [modo, g] of Object.entries(gaps)) {
+    const detalhe = ' (entre ' + g.entre.toFixed(1) + 'px · dentro ' + g.dentro.toFixed(1)
+      + 'px · linha ' + g.linha.toFixed(1) + 'px)';
+    checar(g.entre >= g.dentro - 0.5,
+      'no modo ' + modo + ', duas estrofes não ficam mais juntas que o miolo de uma' + detalhe);
+    checar(g.entre >= g.linha - 0.5,
+      'e a fronteira entre elas vale ao menos uma LINHA — a que a fonte codifica' + detalhe);
+  }
+  checar(Math.abs(gaps.avancado.entre - gaps.simples.entre) < 0.5,
+    'e o respiro é o MESMO nos dois modos — a mesma letra não muda de ritmo');
+} catch (e) {
+  checar(false, 'a medição do respiro entre estrofes terminou sem exceção (' + (e && e.message) + ')');
 }
 
 checar(erros.length === 0, 'nenhum erro de console' + (erros.length ? ':\n        ' + erros.join('\n        ') : ''));

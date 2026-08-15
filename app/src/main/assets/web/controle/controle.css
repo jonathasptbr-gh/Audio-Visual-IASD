@@ -27,6 +27,25 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    as duas medidas de layout que o JS também lê.
    NÃO usar valores literais soltos na folha: sempre referenciar um token. */
 :root {
+  /* ---------- O RESPIRO ENTRE ESTROFES (v5.225) ----------
+     UMA LINHA DA LETRA, e o valor não é escolhido por gosto: é literalmente o
+     que a FONTE codifica. O banco separa estrofes com `<br><br>`, e uma linha
+     em branco é o que o operador vê no LouvorJA e espera aqui.
+     `.lv-row` é .95rem com line-height 1.5 → 1.425rem = a altura de uma linha.
+
+     Ele vale nos TRÊS lugares em que uma estrofe termina, e é por isso que é um
+     token e não três literais: o `gap` da folha de leitura, o `gap` da zona de
+     letra do modo simplificado, e o `margin-top` entre dois blocos DENTRO de um
+     slide (a API às vezes empacota duas estrofes numa entrada só — v5.142).
+     Uma fronteira de estrofe é uma fronteira de estrofe: tem de parecer igual
+     nos três, senão a leitura ganha um ritmo que o texto não tem.
+
+     Até aqui os três divergiam, e na direção errada: 8,8 px (avançado) e 8,0 px
+     (simples) entre estrofes DIFERENTES contra 11,4 px entre blocos da MESMA —
+     medido. A hierarquia se lia ao contrário, e a letra não respirava apesar de
+     a estrutura por baixo estar inteira. */
+  --lv-estrofe-gap: 1.425rem;
+
   /* ---------- Raios ----------
      Dois degraus principais (controle × cartão) e três exceções, todas com
      nome próprio: um raio literal solto na folha é o que produzia dois botões
@@ -3091,7 +3110,7 @@ main {
   position: relative;         /* offsetParent das linhas — ver lvScrollToCurrent */
   flex: 1; overflow-y: auto;
   padding: .6rem .9rem 1rem;
-  display: flex; flex-direction: column; gap: .55rem;
+  display: flex; flex-direction: column; gap: var(--lv-estrofe-gap);
   overscroll-behavior: contain;
 }
 /* UM bloco de texto, não uma pilha de cartões. Cada estrofe/versículo é um
@@ -3111,11 +3130,11 @@ main {
    E é justamente por causa dele que a ESTROFE precisa ser um nó próprio: o
    `pre-line` colapsa sequências de espaço em branco, então a linha em branco que
    separa duas estrofes dentro do mesmo slide virava uma quebra simples e as duas
-   encostavam (ver `lvBuildSong`). O espaço entre parágrafos é o dobro da entre
-   linhas — o suficiente para a divisão se ler de relance, sem transformar a
-   letra numa pilha de cartões. */
+   encostavam (ver `lvBuildSong`). O espaço entre eles é o MESMO `--lv-estrofe-gap`
+   das estrofes de slides distintos: os dois casos são a mesma fronteira, e a
+   única diferença é que um deles também carrega o destaque e a posição. */
 .lv-row .lv-text { white-space: pre-line; }
-.lv-row .lv-text + .lv-text { margin-top: .75em; }
+.lv-row .lv-text + .lv-text { margin-top: var(--lv-estrofe-gap); }
 .lv-row--cover { color: var(--muted); font-size: .78rem; letter-spacing: .04em; text-transform: uppercase; }
 .lv-aux {
   font-size: .7rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
@@ -3397,7 +3416,7 @@ body.mode-simple .bottombar { display: none; }
 .simple-lyrics {
   position: relative;            /* offsetParent das linhas (ver lvScroll) */
   flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
-  display: flex; flex-direction: column; gap: .5rem;
+  display: flex; flex-direction: column; gap: var(--lv-estrofe-gap);
   /* Mesma regra das teclas: superfície sólida, sem contorno. */
   padding: .7rem .6rem; border: none; border-radius: var(--radius-card);
   background: var(--panel);
@@ -3607,7 +3626,7 @@ body.mode-simple .hymn-add-btn { display: none; }
    é o alvo do toque (`<label>`), porque um interruptor de 44px numa tela
    operada com o polegar no escuro é alvo pequeno demais. */
 /* LIGADA, a transmissão fica no VERMELHO CONTORNADO, e o rótulo passa a nomear
-   o desligamento (v5.224). É a mesma gramática do `.connected` acima — o
+   o desligamento (v5.225). É a mesma gramática do `.connected` acima — o
    preenchimento sai, fica o contorno na cor do estado —, e a cor é a única
    diferença: verde é "resolvido, e o app não mexe nisso" (a TV, que só o
    seletor do Android desconecta); vermelho é "está ligado, e o toque desliga".
