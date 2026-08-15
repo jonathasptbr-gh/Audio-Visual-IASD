@@ -119,5 +119,64 @@ checar(orfaos.length === 0,
     soNoClaro.join(', '));
 }
 
+// ---------- NENHUM CONTORNO EM LUGAR NENHUM (v5.267) ----------
+// Pedido do operador: *"não tenhamos itens usando linha de borda, tudo deve ser
+// com preenchimento sólido, e definição feita por puro e simples contraste entre
+// os elementos."*
+//
+// Ele é uma REGRA DA CASA agora, e regra de casa sem oráculo dura até o próximo
+// lote: uma borda é a coisa mais fácil de acrescentar em CSS quando duas caixas
+// não estão se separando o bastante — é literalmente o remendo que este lote veio
+// desfazer, e ele estava espalhado por 88 declarações. Um `border: 1px solid` a
+// mais não quebra nada, não erra alto e não aparece em teste de comportamento
+// nenhum; some dentro de uma folha de 4.300 linhas e volta a valer como
+// precedente para o próximo.
+//
+// A varredura é da FONTE e não do renderizado, e isso é deliberado: metade das
+// bordas que saíram morava em regras de ESTADO (`.active`, `.no-ar`,
+// `.expanded`) e em pseudo-elementos, que uma caminhada pelo DOM só alcançaria
+// se o teste soubesse encenar cada um dos estados.
+//
+// ## O que NÃO é contorno, e por isso passa
+//
+// `border` também é a forma idiomática de DESENHAR em CSS, e desenho não é o que
+// o pedido trata. Dois casos, os dois nomeados aqui em vez de detectados por
+// heurística — uma heurística deixaria a próxima borda entrar chamando-se
+// "desenho":
+//
+//   · o aro do `.dl-ring` (o anel que gira enquanto um download corre) e o do
+//     `.av-stage-busy` (o mesmo, no palco) — eles SÃO círculos, não a moldura
+//     de um elemento;
+//   · o ✓ do `.song-menu-check` (duas bordas em L, giradas 45°) — é o glifo que
+//     falta no subset da fonte de ícones.
+//
+// Largura zero e cor transparente também passam: os dois não desenham nada.
+{
+  // As regras dos DESENHOS, recortadas da fonte antes da varredura. Nomeadas
+  // uma a uma de propósito: uma heurística ("anéis podem") deixaria a próxima
+  // borda entrar chamando-se desenho.
+  const recortar = (s) => s
+    .replace(/\.dl-ring::before\s*\{[^}]*\}/g, '')
+    .replace(/\.av-stage-busy::after\s*\{[^}]*\}/g, '')
+    .replace(/\.song-menu-check\.on::after\s*\{[^}]*\}/g, '')
+    .replace(/@media[^{]*\{\s*\.dl-ring::before[^}]*\}/g, '');
+  const contornos = [];
+  for (const f of arquivos) {
+    const s = recortar(semComentarios(fonte.get(f) || ''));
+    for (const m of s.matchAll(/(^|[;{\s])(border(?:-(?:top|right|bottom|left))?(?:-(?:width|color|style))?|outline(?:-(?:width|color|style))?)\s*:\s*([^;}]+)/g)) {
+      const valor = m[3].trim();
+      // `border-radius` não é contorno (a regex acima já não o casa), e estes
+      // três valores não desenham: sem linha, sem largura, sem cor.
+      if (/^(none|0|0px|transparent|hidden)$/.test(valor)) continue;
+      if (/\btransparent\b/.test(valor) && !/\b(solid|dashed|dotted)\b/.test(valor)) continue;
+      contornos.push(path.relative(RAIZ, f) + ':' + (s.slice(0, m.index).split('\n').length)
+        + ' → ' + m[2] + ': ' + valor);
+    }
+  }
+  checar(contornos.length === 0,
+    'nenhuma regra desenha contorno: no app tudo se separa por PREENCHIMENTO',
+    contornos.join('\n        '));
+}
+
 console.log(falhas.length ? '\n' + falhas.length + ' FALHA(S)' : '\nTodos passaram.');
 process.exit(falhas.length ? 1 : 0);

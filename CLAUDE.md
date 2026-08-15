@@ -2122,6 +2122,36 @@ dois arquivos é uma classe de bug, não um processo: basta um ajuste entrar só
 num lado para o telão e a preview do Controle, que existe justamente para
 ESPELHAR o telão, mostrarem coisas diferentes.
 
+**E DESDE A v5.267 NÃO HÁ CONTORNO EM LUGAR NENHUM.** Pedido do operador:
+*"não tenhamos itens usando linha de borda, tudo deve ser com preenchimento
+sólido, e definição feita por puro e simples contraste entre os elementos"*.
+Saíram **82 declarações** de `border`/`outline` das folhas da base; sobrevivem
+dois DESENHOS (os aros que giram — `.dl-ring` e `.av-stage-busy` — e o ✓ do
+seletor de destinos), nomeados um a um no oráculo. **A regra tem oráculo**
+(`tools/tokens.test.mjs`, sem `continue-on-error`), e é ele que a faz durar: uma
+borda é a coisa mais fácil de acrescentar em CSS quando duas caixas não estão se
+separando o bastante — é literalmente o remendo que este lote desfez — e ela não
+quebra nada, não erra alto e não aparece em teste de comportamento nenhum.
+
+**As duas metades do pedido são o mesmo pedido**, e é por isso que vieram no
+mesmo lote: quando a linha some, o degrau de tom passa a ser a ÚNICA coisa que
+separa duas caixas. O par `--panel` × `--panel-2` valia 1,29:1 com o argumento
+escrito de que "ele não carrega o estado sozinho — quem diz 'selecionado' é
+sempre a BORDA em `--accent`"; abriu para **1,33:1** (escuro) e **1,41:1**
+(claro), e `--muted`/`--accent` acompanharam porque no valor antigo o accent
+caía a 4,40:1 sobre o painel-2 novo e reprovava AA.
+
+**E a regra do vermelho mudou de eixo.** Era "PREENCHIDO = está no ar ·
+CONTORNADO = destrutivo"; sem contorno, o que separa os dois é a INTENSIDADE do
+mesmo preenchimento — saturado (`--live`) é o que está no ar agora e não pode
+ter concorrente na tela, suave (`--live-fill` numa linha, `--danger-soft` num
+botão) é a ação destrutiva. Entraram três fundos de estado OPACOS
+(`--sel-fill`, `--live-fill`, `--ok-fill`), e serem opacos é medido:
+`--accent-soft` a 16% sobre o painel compõe `#3d4959`, que é o `--panel-2` desta
+paleta — uma linha SELECIONADA ficava com a cor exata do nível de baixo da
+árvore. Opacos, os três valem o mesmo em qualquer nível: um estado SAI da escada
+em vez de ocupar um degrau dela.
+
 **Desde a v5.192 ela é a IDENTIDADE OFICIAL DA IASD, e são DOIS TEMAS.** As
 matizes vêm do pacote oficial adventista — o mesmo de que saiu o símbolo do
 wallpaper padrão na v5.188 —, com o **denim `#2F557F`** (PMS 302) como núcleo. O
@@ -2197,7 +2227,35 @@ O essencial para não quebrar nada aqui:
   muda; por isso os dois valores viraram token (`--surface-sunk`) na v5.192, em
   vez de seguirem literais em `controle.css`: eram os últimos pedaços de cor
   fora da fonte única, e o tema claro herdaria um recesso de 24% de preto sobre
-  um cartão branco.
+  um cartão branco. **O par FLUTUANTE ganhou nome próprio na v5.267**
+  (`--surface-alta`/`--surface-2-alta`) porque passou a existir um caminho de
+  VOLTA: a folha da Biblioteca é nível 0, e um controle lá dentro flutua de
+  novo — coisa que um override do mesmo nome não daria, já que
+  `--surface: var(--surface)` é um ciclo que o CSS descarta.
+- **A ESCADA TEM TRÊS DEGRAUS, E O QUARTO É O ESPAÇO** (v5.267). Um quarto tom
+  obrigaria o nível mais interno a subir até ~`#4c5865` no tema escuro, onde
+  `--muted` mede 3,59:1 e `--accent` 3,37:1 — os dois reprovam AA para texto
+  pequeno, que é o tamanho do texto de uma linha de lista. Quem carrega o quarto
+  nível é o ESPAÇO: uma faixa dentro de um álbum aberto não tem caixa nenhuma, e
+  o que a separa da vizinha é o tom do próprio álbum aparecendo entre elas.
+  No tema CLARO a escada **não é monotônica**, e isso é aritmética: a página é
+  cinza e o nível 1 é branco (a convenção de toda UI clara), então o primeiro
+  degrau sobe e os seguintes só podem descer. Folha e card ficam a 1,09:1 e isso
+  não se lê como ambiguidade porque os dois nunca se encostam — entre eles há
+  sempre a moldura branca da seção. O oráculo mede os pares ADJACENTES e exige
+  só que nenhum par coincida; a primeira versão dele exigia monotonia e reprovava
+  um desenho correto.
+- **O TOM DE UM BLOCO É DECISÃO DO PAI** (`--camada`, v5.267). O mesmo
+  componente ocupa níveis diferentes conforme a tela — uma `.lib-item` está
+  sobre `--bg` na tela principal e sobre `--panel` dentro de uma folha —, e
+  pintava sempre a mesma cor, isto é, dois tons idênticos encostados. `--camada`
+  é uma propriedade com um significado só: *o tom que um bloco filho DESTE
+  contêiner deve vestir*. **Quem a declara é o contêiner, nunca quem pinta**: uma
+  propriedade escrita no próprio elemento vence na hora de ELE resolver
+  `var(--camada)`, então um bloco que reservasse o tom dos filhos em si mesmo
+  passaria a vestir aquele tom (a primeira versão da regra pôs a seção da
+  Biblioteca na lista e ela passou a vestir a cor do card — o defeito da v5.241
+  de volta, pego pelo oráculo nos dois temas).
 - **Nunca escrever branco literal.** Nenhum `#fff` sobrou como valor de cor em
   `controle.css`/`display.css`: o branco pleno era a maior fonte isolada de luz
   emitida do app, e o off-white da paleta (`--text`) é o que se usa. As únicas
@@ -2242,17 +2300,20 @@ vira a bandeira `APPEARANCE_LIGHT_STATUS_BARS` — que o Android 15+ NÃO ignora
 (ele ignora as CORES das barras, não a aparência dos ícones), e sem a qual o
 tema claro fica com o relógio e os botões de navegação brancos sobre branco.
 
-**Não há teste automatizado de contraste no repositório.** Os números nos
-comentários de `tokens.css` são medições feitas à mão, e os pares que ficam
+**Não há teste automatizado de contraste ABSOLUTO no repositório.** Os números
+nos comentários de `tokens.css` são medições feitas à mão, e os pares que ficam
 abaixo do piso estão declarados como tais no próprio comentário. Ao mexer num
-token, meça — nada no CI vai barrar uma regressão, **e agora são DOIS temas a
-medir**. O que o CI trava é outra coisa, e vale repetir para não confundir os
-dois: `tools/tokens.test.mjs` garante que todo `var(--x)` sem fallback aponta
-para um token que EXISTE (um `var()` inválido computa para o valor inicial da
-propriedade, sem aviso nenhum — foi assim que os dois botões da folha de
-conectar ficaram com cantos retos na v5.171) e que nenhum token exista só no
-tema claro; `tools/smoke.mjs` trava o efeito RENDERIZADO nos dois temas, o palco
-que não os segue e a escolha que sobrevive à recarga.
+token, meça — nada no CI vai barrar uma regressão de texto sobre fundo, **e são
+DOIS temas a medir**. O que o CI trava é outra coisa, e vale repetir para não
+confundir os dois: `tools/tokens.test.mjs` garante que todo `var(--x)` sem
+fallback aponta para um token que EXISTE (um `var()` inválido computa para o
+valor inicial da propriedade, sem aviso nenhum — foi assim que os dois botões da
+folha de conectar ficaram com cantos retos na v5.171), que nenhum token exista
+só no tema claro e, desde a v5.267, que **nenhuma regra desenhe contorno**;
+`tools/smoke.mjs` trava o efeito RENDERIZADO nos dois temas, o palco que não os
+segue, a escolha que sobrevive à recarga e a ESCADA DE CAMADAS da Biblioteca —
+esta última medindo o degrau ENTRE níveis, que é a única parte do contraste que
+tem oráculo.
 
 O raciocínio completo (cada par medido, os pisos adotados, os ladrilhos da
 Bíblia e as células de capítulo/versículo) está na seção de paleta de
@@ -2981,10 +3042,116 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.266** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.267** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.267: O CONTORNO SAI DO APP INTEIRO, e a Biblioteca ganha uma escada de
+> camadas de verdade. OTA PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> Pedido do operador, em duas metades que são a mesma metade: *"não tenhamos
+> itens usando linha de borda, tudo deve ser com preenchimento sólido, e
+> definição feita por puro e simples contraste entre os elementos"* e
+> *"reorganizar os degraus de tons em elementos vizinhos ou parentes… problema
+> que considero prioridade na biblioteca e suas seções, álbuns e listas, onde
+> elas funcionam em camadas de ramificações que visualmente se parecem muito,
+> dificultando discernir se estou em uma camada ou subcamada."*
+>
+> **Elas são a mesma porque quando a linha some, o degrau de tom vira a ÚNICA
+> coisa que separa duas caixas** — e o degrau que este app tinha foi calibrado
+> numa época em que ele era reforço. O comentário da escada dizia isso com todas
+> as letras: *"o par painel × painel-2 fica logo abaixo do piso de 1,3:1 — e é
+> assumido: ele não carrega o estado sozinho em lugar nenhum. Quem diz
+> 'selecionado' é sempre a BORDA em `--accent`."* Tirar a borda sem mexer no
+> degrau seria apagar o sinal e deixar o reforço no lugar dele.
+>
+> **O CONTORNO.** Saíram **82 declarações** de `border`/`outline`. Sobrevivem
+> dois DESENHOS — os aros que giram (`.dl-ring`, `.av-stage-busy`) e o ✓ do
+> seletor de destinos —, nomeados um a um no oráculo, porque uma heurística
+> ("anéis podem") deixaria a próxima borda entrar chamando-se desenho. O que
+> substituiu cada família está tabelado em `docs/ARQUITETURA-WEB.md`; as três
+> decisões que valem para além do lote:
+>
+> - **Os fundos de ESTADO viraram opacos** (`--sel-fill`, `--live-fill`,
+>   `--ok-fill`), e isso é medido, não gosto: `--accent-soft` a 16% sobre o
+>   painel compõe **#3d4959**, que é o `--panel-2` desta paleta. Uma linha
+>   SELECIONADA ficava com a cor exata do nível de baixo da árvore, e o que a
+>   distinguia era só a borda que saiu. Opacos, os três valem o mesmo em qualquer
+>   nível — um estado SAI da escada em vez de ocupar um degrau dela. E o sinal
+>   principal deles é a MATIZ: `--live-fill` fica a 1,03:1 do painel de
+>   propósito, porque uma linha vermelha entre linhas cinzas se acha sem precisar
+>   ser mais clara, e a matiz é o que sobrevive ao brilho baixo de um salão.
+> - **A régua do vermelho mudou de eixo.** Era "preenchido × contornado"; virou
+>   a INTENSIDADE do mesmo preenchimento — saturado é "está no ar agora" e não
+>   pode ter concorrente na tela, suave é a ação destrutiva.
+> - **A aresta de 1px do tema claro (`--control-edge`, v5.207) saiu**, e ela era
+>   exatamente o mecanismo que este lote veio remover. O diagnóstico dela
+>   continua certo (`--surface` dava 1,14:1 contra o painel branco — um botão
+>   invisível); o remédio virou outro: os dois overlays afundados foram a
+>   .14/.20 e devolvem **1,32:1** e **1,51:1** ao mesmo par, por preenchimento.
+>
+> **A BIBLIOTECA.** O defeito não era só o degrau. A folha dela era `--panel` —
+> um tom de CARTÃO —, então a árvore começava no nível 1 e gastava na raiz o
+> degrau que faltaria três níveis adiante; e o corpo da seção ficava com a cor
+> da FOLHA, de modo que o card de álbum pousava no mesmo fundo em que a barra da
+> seção pousa, isto é, lia-se como IRMÃO dela. A v5.241 chamou os dois de
+> "contêiner" e lhes deu o mesmo tom; são contêineres, e não são o MESMO
+> contêiner — um está dentro do outro.
+>
+> ```
+> folha de tela cheia   --bg          nível 0   (era --panel)
+>   └ seção             --panel       nível 1   (barra + corpo, UM bloco sólido)
+>       └ card do álbum --panel-2     nível 2
+>           └ faixa     (sem fundo)   separada da vizinha pelo ESPAÇO
+> ```
+>
+> **A v5.263 tinha recusado a troca da folha com um argumento MEDIDO, e ele
+> expirou junto com a paleta:** *"no tema CLARO `--bg` (#dfe3e7) e `--panel-2`
+> (#dee2e8) diferem em um ponto por canal, então as barras de seção e os cards
+> de álbum sumiriam dentro da tela."* Verdade naquela paleta — e hoje a seção
+> veste `--panel` (1,29:1 contra a página) e o álbum, `--panel-2` (1,41:1 contra
+> ela): os dois tons daquela frase deixaram de se encostar.
+>
+> **`--camada` é o mecanismo, e ele existe porque uma lista de seletores
+> descendentes não sobrevive à próxima tela.** Uma propriedade com um
+> significado só — *o tom que um bloco filho DESTE contêiner deve vestir* —, que
+> herda. Quem a declara é o CONTÊINER, nunca quem pinta: uma propriedade escrita
+> no próprio elemento vence na hora de ELE resolver `var(--camada)`, então um
+> bloco que reservasse o tom dos filhos em si mesmo passaria a vestir aquele tom.
+> A primeira versão desta regra pôs a seção na lista e ela passou a vestir a cor
+> do card — o defeito da v5.241 de volta, pego pelo oráculo nos dois temas.
+>
+> **A ESCADA PARA EM TRÊS DEGRAUS, e isso é aritmética.** Um quarto tom levaria
+> o nível mais interno a ~#4c5865 no escuro, onde `--muted` mede 3,59:1 e
+> `--accent` 3,37:1 — os dois reprovam AA para texto pequeno, que é o tamanho do
+> texto de uma linha de lista. Quem carrega o quarto nível é o ESPAÇO.
+>
+> **E o tema claro NÃO pode ser monotônico**, o que o oráculo descobriu contra a
+> versão correta do desenho: a página é cinza e o nível 1 é branco (a convenção
+> de toda UI clara), então o primeiro degrau sobe e os seguintes só podem descer.
+> Folha e card ficam a 1,09:1 e isso não se lê como ambiguidade porque os dois
+> **nunca se encostam** — entre eles há sempre a moldura branca da seção. A
+> asserção passou a medir os pares ADJACENTES (piso 1,28) e a exigir apenas que
+> nenhum par coincida (piso 1,05); a primeira versão dela exigia monotonia e
+> reprovava um desenho correto.
+>
+> **DUAS REGRESSÕES FORAM PEGAS POR MEDIÇÃO, e nenhuma teria aparecido lendo o
+> código.** A primeira: com a folha da Biblioteca virando nível 0, o campo de
+> busca da barra de baixo voltou a flutuar — `--surface-2` (branco a 92%) sobre
+> um `--panel` que no tema CLARO é branco puro, **1,00:1** medido. É o defeito
+> que a v5.207 corrigiu na barra da tela principal, reaberto por outra porta. A
+> segunda é o `--camada` na seção, acima.
+>
+> **E o oráculo da escada quase aprovou o defeito que ele existe para pegar:**
+> `lum()` lê `rgba(0, 0, 0, 0)` como PRETO, então um nível que não pinta nada
+> entrava na conta como o fundo mais escuro possível e produzia um degrau enorme.
+> Sem a guarda de opacidade, o caso APROVAVA a folha anterior — verificado. Um
+> teste que aprova o defeito que ele existe para pegar é pior que teste nenhum.
+>
+> Verificado por ISOLAMENTO, com os oráculos novos contra a folha anterior: o
+> `tokens.test.mjs` reprova em **82** contornos e o `smoke.mjs` em **8**
+> asserções.
 
 > **A v5.266: A BARRA DE BUSCA GANHA TOM E SOMBRA — agora que ela flutua, ela
 > precisa se destacar. OTA PURO** (só CSS; sem Release).
