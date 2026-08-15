@@ -1803,13 +1803,26 @@ GUARDA a escolha entre aberturas (v5.66) — o botão do cabeçalho não guardav
 nada. Eram dois controles para uma decisão só, e o do cabeçalho ocupava a
 esquerda de uma faixa com largura de celular.
 
-**A simetria "o mesmo botão ao contrário" acabou, e ela era assimétrica de
-verdade:** no avançado a engrenagem está ali ao lado, no mixer; no Modo Fácil
-não está, porque aquele modo esconde a `.bottombar` inteira. Por isso o
-`#simpleFullBtn` NÃO sai — ele é a única porta de saída daquele modo, e é a
-razão pela qual a v5.48 o criou (antes dela, quem tocasse em "Modo avançado" por
-curiosidade caía na tela completa e a saída estava atrás de uma engrenagem sobre
-a preview, um caminho que ninguém adivinha).
+**E NA v5.250 O BOTÃO DAQUI SAIU TAMBÉM**, substituído por uma **engrenagem**
+no mesmo lugar (`#simpleSettingsBtn`, `.settings-btn` — pedido do operador:
+*"crie um botão de configurações no modo simples, que fica onde é hoje o botão
+de modo avançado"*). Com ela o caminho é o MESMO nos dois modos: engrenagem →
+"Modo do app". Não sobrou nenhum `.mode-switch` no app, e a classe saiu com o
+último elemento que a usava.
+
+**A ORDEM DAS DUAS VERSÕES NÃO É ACIDENTE.** O botão daqui não podia sair na
+v5.247: no avançado a engrenagem está ali ao lado, no mixer; aqui não estava,
+porque este modo esconde a `.bottombar` inteira — tirar os dois de uma vez teria
+TRANCADO o operador no Modo Fácil. Primeiro se cria o caminho, depois se remove
+o atalho. É a mesma razão pela qual a v5.48 criou aquele botão: antes dela, quem
+tocasse em "Modo avançado" por curiosidade caía na tela completa e a saída
+estava atrás de uma engrenagem sobre a preview, um caminho que ninguém adivinha.
+
+A engrenagem fica **acima da cortina** do modo bloqueado sem regra nova — o
+`.simple.sem-tela .simple-head` já iça o cabeçalho inteiro —, e é `--accent` em
+vez do `--muted` da gêmea do mixer: lá ela é um acesso entre outros, aqui é o
+ÚNICO, e o accent é o que este app usa para dizer "isto leva a outro lugar"
+(era exatamente onde ele vivia no botão que saiu: na seta).
 
 **E o título do cabeçalho passou a ficar centrado.** Ele nunca esteve: a caixa
 reservada do botão (ver abaixo) o empurrava para a direita o tempo todo —
@@ -1890,7 +1903,7 @@ sem a borda — o mudo, aliás, passou ao vermelho **saturado**.
 | **Letra** (`#simpleLyrics`) | a letra INTEIRA da música em cena, com o mesmo destaque e o mesmo acompanhamento da leitura auxiliar do modo avançado |
 | **Play/pause, parar e mudo** | `.click()` em `#playpause` / `#stop` / `#muteToggle`. O **parar** entrou na v5.72, ao lado do play: é a outra metade do transporte, e sem ele tirar a mídia do telão obrigava a ir ao modo avançado — justamente o que se faz no fim de cada louvor. A fileira passou a ter três colunas |
 | **Volume** (`#simpleVolDown` / `#simpleVolUp`) | teclas **−** e **+** com o número no meio (`.simple-vol-read`), não um slider |
-| **Modo avançado** (`#simpleFullBtn`, `.mode-switch`) | `setAppMode('full')` — a tela completa de sempre. Era texto `--muted` sobre `--surface`: dentro do mínimo de contraste, mas lido como **legenda**, não como botão. Desde a v5.40 é texto pleno (`--text`) sobre `--surface-2` — **7,03:1** na paleta atual — e desde a v5.49 leva a **seta**. Ele era um PAR com o gêmeo do cabeçalho avançado (`#fullSimpleBtn`) até a v5.247, quando aquele saiu — lá a mesma escolha já mora em Configurações, aqui não há engrenagem nenhuma à vista. **A borda em `--accent` saiu na v5.76**: ela desenhava, nos dois cabeçalhos, a moldura mais forte da tela em volta do botão que menos se usa num culto — trocar de modo é decisão de configuração, não de operação. Quem separa o botão do fundo é a superfície; o accent ficou onde informa, na seta, que é o que diz para que lado se vai |
+| **Configurações** (`#simpleSettingsBtn`, `.settings-btn`, v5.250) | `openFadePopup()` — e é de lá que se troca de modo ("Modo do app"). Até a v5.247 este era o botão **Modo avançado**, que chamava `setAppMode('full')` direto; o registro dele fica porque a receita visual continua descrita aqui: era texto `--muted` sobre `--surface`: dentro do mínimo de contraste, mas lido como **legenda**, não como botão. Desde a v5.40 é texto pleno (`--text`) sobre `--surface-2` — **7,03:1** na paleta atual — e desde a v5.49 leva a **seta**. Ele era um PAR com o gêmeo do cabeçalho avançado (`#fullSimpleBtn`) até a v5.247, quando aquele saiu — lá a mesma escolha já mora em Configurações, aqui não há engrenagem nenhuma à vista. **A borda em `--accent` saiu na v5.76**: ela desenhava, nos dois cabeçalhos, a moldura mais forte da tela em volta do botão que menos se usa num culto — trocar de modo é decisão de configuração, não de operação. Quem separa o botão do fundo é a superfície; o accent ficou onde informa, na seta, que é o que diz para que lado se vai |
 
 **Sem escolha de variante.** No simplificado o toque na linha da busca — e o
 toque no ▶ dela — chamam `simplePlaySong()`, que toca o **Cantado** e pronto:
@@ -1944,7 +1957,8 @@ só duas:
   faixa: a preview e "Buscar música" somem, e o que resta é içado para o
   **centro exato da tela** em `position: absolute`. O cartão tem fundo próprio
   (`--panel`) porque a cortina embaçada por trás não é fundo de leitura;
-- **Modo avançado** (`#simpleFullBtn`), no cabeçalho. **Sem TV o app não fica
+- **Configurações** (`#simpleSettingsBtn`), no cabeçalho — e é por ela que se
+  volta ao avançado desde a v5.250. **Sem TV o app não fica
   inútil** — a projeção passa a ser a preview em tela cheia —, e trancar essa
   saída transformaria a falta de telão numa parede. O que se bloqueia é o modo
   simplificado, não o app.
