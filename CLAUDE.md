@@ -2397,7 +2397,7 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.221** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
+**Versão atual: v5.222** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
@@ -2446,6 +2446,36 @@ controles), que **só chegam instalando o APK novo**, não pelo OTA.
 > está esperando.** Aqui o processo era conhecido e estava escrito duas funções
 > acima — a fila é serializada e a imagem vem depois da música —, e ainda assim
 > o prazo foi escolhido como se a imagem pudesse chegar sozinha.
+
+> **A v5.222: O NÚMERO DO HINO ERA AZUL — 9,75:1 e ainda assim discreto. OTA
+> PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> Relato do operador, sobre a capa que a v5.219 desenhou: *"o número do hino
+> está aparecendo em azul no slide, esse azul fica muito discreto no fundo
+> escuro"*.
+>
+> **Ele está certo, e a medida não o contradiz — ela responde outra pergunta.**
+> `--stage-accent` sobre o preto dá 9,75:1, contraste de sobra em qualquer
+> régua; o oráculo da v5.219 mediu isso e aprovou. Só que **contraste é razão de
+> luminância, não legibilidade a dez metros**: num telão o que decide é o
+> conjunto **cor + corpo**, e aquele número tinha o MENOR corpo do cartão
+> (4,4cqmin contra os 8,4 do título) somado à única cor da tela que não era
+> branca. Num hinário o número é o que a congregação procura primeiro — ele não
+> é enfeite, e estava desenhado como se fosse.
+>
+> Agora ele é o MESMO branco do título (21:1) e maior (5,8cqmin). A cor de
+> identidade ficou nos FIOS que o flanqueiam, que é onde ela não precisa ser
+> lida: eles são decoração, e por isso o `background` deles passou a ser
+> explícito em vez de `currentColor` — sem essa troca, embranquecer o número
+> teria embranquecido os fios junto, calados.
+>
+> **O oráculo subiu de piso junto** (`display-smoke.mjs`): ele exigia 7:1 do
+> número, que é exatamente o que o azul entregava. Agora exige 15:1 **e** que a
+> cor seja a mesma do título — uma cor de identidade que volte para cá reprova.
+>
+> A régua que fica: **um piso de contraste aprova o que ele mede, e ele não mede
+> corpo.** Onde o consumidor é um projetor visto do fundo do salão, a asserção
+> tem de amarrar as duas coisas.
 
 > **A v5.220: A LINHA DO ÁLBUM NÃO CHEGAVA À BIBLIOTECA QUE JÁ EXISTE — os
 > dois pontos de escrita estavam certos e os dois erravam o alvo. OTA PURO**
