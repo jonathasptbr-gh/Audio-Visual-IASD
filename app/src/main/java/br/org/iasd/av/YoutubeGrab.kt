@@ -321,7 +321,7 @@ object YoutubeGrab {
                 (if (outros > 0) " +$outros manif." else "")
         }
         val semAltura = { _: Stream -> 0 }
-        return parte("áudio", info.audioStreams, semAltura) +
+        return parte("áudio", info.audioStreams, semAltura) + trilhas(info) +
             " · " + parte("vídeo-só", info.videoOnlyStreams) {
                 alturaDe((it as? VideoStream)?.getResolution())
             } +
@@ -329,6 +329,31 @@ object YoutubeGrab {
                 alturaDe((it as? VideoStream)?.getResolution())
             } +
             porCliente(info)
+    }
+
+    /**
+     * " {pt-BR 2, en 2 dublado}" — quantas faixas de áudio há em CADA trilha.
+     *
+     * Nasceu na v5.242 pelo mesmo motivo que o `porTipo` do [resumo] nasceu na
+     * v1.45: uma linha dizendo "áudio 4 [m4a 4]" diz exatamente a mesma coisa
+     * quando as quatro faixas são português e quando duas delas são a dublagem
+     * automática em inglês — e é a segunda leitura que explica um testemunho
+     * projetado no idioma errado.
+     *
+     * **Vazia num vídeo de faixa única**, que é o caso normal: sem metadado de
+     * trilha não há o que distinguir, e uma chave `{? 4}` em toda extração seria
+     * ruído no diagnóstico que o operador copia.
+     */
+    private fun trilhas(info: StreamInfo): String {
+        val contagem = info.audioStreams
+            .mapNotNull { faixaDe(it) }
+            .filter { it.idioma.isNotEmpty() }
+            .groupingBy { it.idioma + (if (it.tipoTrilha == TrilhaAudio.DUBLADA) " dublado" else "") }
+            .eachCount()
+        if (contagem.isEmpty()) return ""
+        return " {" + contagem.entries
+            .sortedByDescending { it.value }
+            .joinToString(", ") { "${it.key} ${it.value}" } + "}"
     }
 
     /**
@@ -1153,6 +1178,15 @@ object YoutubeGrab {
         val tamanho: Long = 0,
         /** `avc1.640028`, `mp4a.40.2` — o que o `MediaSource` exige saber. */
         val codec: String = "",
+        /**
+         * A TRILHA DE ÁUDIO desta faixa, quando o vídeo tem mais de uma
+         * (`"pt-BR"`, `"en"`) e o tipo que o YouTube carimbou nela
+         * (`ORIGINAL`, `DUBBED`, `DESCRIPTIVE`, `SECONDARY`). Vazios num vídeo
+         * de faixa única — que é a esmagadora maioria — e vazios sempre no
+         * vídeo-só e no progressivo.
+         */
+        val idioma: String = "",
+        val tipoTrilha: String = "",
     ) {
         val webm: Boolean = ext == "webm"
 
@@ -1179,8 +1213,23 @@ object YoutubeGrab {
         val dash: Boolean = initIni >= 0 && idxIni >= 0 &&
             idxFim > idxIni && initFim > initIni && codec.isNotEmpty()
 
-        /** "137@VISIONOS" — o formato exato e de quem ele veio. */
-        val etiqueta: String = (if (itag > 0) itag.toString() else ext) + "@" + cliente
+        /** A REGRA mora no [TrilhaAudio], que é puro e tem JUnit. Aqui é só a leitura. */
+        val ordemTrilha: Int = TrilhaAudio.ordem(idioma, tipoTrilha)
+
+        /**
+         * "137@VISIONOS" — o formato exato e de quem ele veio; com trilha,
+         * "140@VISIONOS pt-BR".
+         *
+         * O idioma entra aqui porque esta etiqueta é o que o Registro imprime
+         * ("→ veio m4a 140@VISIONOS"), e sem ele a linha de um download em
+         * inglês é indistinguível da de um em português.
+         */
+        val etiqueta: String = (if (itag > 0) itag.toString() else ext) + "@" + cliente +
+            (if (idioma.isEmpty()) "" else " $idioma") +
+            (
+                if (tipoTrilha.isEmpty() || tipoTrilha == TrilhaAudio.ORIGINAL) ""
+                else " " + tipoTrilha.lowercase()
+                )
     }
 
     /**
@@ -1199,12 +1248,13 @@ object YoutubeGrab {
         // O `ItagItem` é NULO fora do YouTube e pode faltar mesmo dentro dele;
         // a faixa continua valendo para DOWNLOAD, só não serve para transmitir.
         val it: ItagItem? = try { s.getItagItem() } catch (_: Exception) { null }
+        val a = s as? AudioStream
         return Faixa(
             url = url,
             ext = ext,
             mime = mime,
             altura = alturaDe((s as? VideoStream)?.getResolution()),
-            bitrate = (s as? AudioStream)?.averageBitrate ?: 0,
+            bitrate = a?.averageBitrate ?: 0,
             itag = itagDe(url),
             cliente = clienteDe(url),
             initIni = it?.getInitStart() ?: 0,
@@ -1213,6 +1263,10 @@ object YoutubeGrab {
             idxFim = it?.getIndexEnd() ?: 0,
             tamanho = it?.getContentLength() ?: 0L,
             codec = it?.getCodec().orEmpty(),
+            // Do `Locale`, e não do `audioTrackId` cru (`"pt-BR.4"`): quem sabe
+            // separar o idioma do sufixo é a biblioteca, que já o fez.
+            idioma = a?.getAudioLocale()?.toLanguageTag().orEmpty(),
+            tipoTrilha = a?.getAudioTrackType()?.name.orEmpty(),
         )
     }
 
@@ -1261,16 +1315,46 @@ object YoutubeGrab {
      * (é o que o muxer exige quando há vídeo do outro lado); `null` aceita
      * qualquer um, que é o caso do download "só áudio" — ali um Opus que toca
      * vale mais que um AAC que não veio.
+     *
+     * ## O IDIOMA VEM ANTES DO CLIENTE, e a inversão é deliberada
+     *
+     * A ordem por cliente existe porque uma faixa do cliente errado é **403**:
+     * ela não baixa. Uma faixa do idioma errado baixa perfeitamente — e vai ao
+     * telão, na frente da congregação, com o testemunho em inglês. **Um
+     * resultado errado entregue com sucesso é pior que uma tentativa perdida**,
+     * e uma tentativa perdida é justamente o que esta fila existe para
+     * absorver: abaixo dela ainda há os outros candidatos e, no fim de tudo, o
+     * progressivo.
+     *
+     * ## E O PORTUGUÊS, HAVENDO, É EXCLUSIVO
+     *
+     * Ordenar não bastaria. [TETO_AUDIO] é 2, e um 403 na primeira faixa faria
+     * a segunda — que pode ser a dublagem — descer calada. Então: **se o vídeo
+     * publica alguma trilha em português, só elas são candidatas**
+     * ([TrilhaAudio.soPortugues], onde a regra vive e tem JUnit). Não havendo
+     * nenhuma (o vídeo é mesmo de outro idioma, ou não declara trilha), nada
+     * muda em relação a antes.
+     *
+     * O preço está dito: um vídeo cuja única trilha em português seja recusada
+     * pelo CDN falha o caminho adaptativo em vez de baixar em inglês — e cai no
+     * progressivo, que carrega a trilha PADRÃO do vídeo, escolhida pelo YouTube
+     * sob o `forceLocalization("pt")` de [aportuguesar]. É a degradação certa
+     * nos dois passos.
      */
-    private fun candidatosAudio(info: StreamInfo, ext: String?, teto: Int): List<Faixa> =
-        info.audioStreams
+    private fun candidatosAudio(info: StreamInfo, ext: String?, teto: Int): List<Faixa> {
+        val todas = info.audioStreams
             .mapNotNull { faixaDe(it) }
             .filter { ext == null || it.ext.equals(ext, true) }
+        return TrilhaAudio.soPortugues(todas, { it.idioma }, { it.tipoTrilha })
             .sortedWith(
-                compareBy<Faixa>({ ordemCliente(it.cliente) }, { if (it.ext == "m4a") 0 else 1 })
-                    .thenByDescending { it.bitrate },
+                compareBy<Faixa>(
+                    { it.ordemTrilha },
+                    { ordemCliente(it.cliente) },
+                    { if (it.ext == "m4a") 0 else 1 },
+                ).thenByDescending { it.bitrate },
             )
             .take(teto)
+    }
 
     /**
      * Quem primeiro.

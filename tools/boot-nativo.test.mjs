@@ -1150,6 +1150,77 @@ try {
   checar(false, 'o percurso do __tela terminou sem exceção (' + (e && e.message) + ')');
 }
 
+// ── A BÍBLIA BASE, SEM NINGUÉM ABRIR A ABA (v5.242) ──────────────────────
+//
+// O download da versão INTEIRA sempre existiu — e só era disparado por alguém
+// ENTRAR na aba Bíblia. Quem nunca entrou ficava com o caminho sob demanda:
+// um capítulo por vez, conforme o uso, com a rede da igreja no meio do culto
+// como única rede disponível.
+//
+// O que se afirma aqui são as DUAS metades, e a segunda é o que impede a
+// correção de virar outra coisa: (1) a varredura começa sozinha, sem toque
+// nenhum na aba; (2) ela vai para a versão que o app GARANTE (a Almeida
+// Revista e Atualizada), não para a que o operador escolheu — quem escolheu
+// outra continua com a dele pelo caminho de sempre, e a base não vira refém
+// dessa escolha.
+//
+// O banco é de mentira e as versões vêm com a ARA em SEGUNDO lugar de
+// propósito: `pickDefaultBibleVersion` cai na primeira disponível quando não
+// acha a ARA, e uma lista com ela na frente aprovaria os dois comportamentos.
+try {
+  const pg4 = await ctx.newPage();
+  const ARA = 9, OUTRA = 7;
+  const pedidos = [];
+  const responder = (route, corpo) => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify(corpo),
+  }).catch(() => {});
+  await pg4.route('**/json_db/pt_bible_version*', (r) => responder(r, [
+    { id_bible_version: OUTRA, name: 'Nova Versão Internacional' },
+    { id_bible_version: ARA, name: 'Almeida Revista e Atualizada' },
+  ]));
+  await pg4.route('**/json_db/pt_bible_book*', (r) => responder(r,
+    Array.from({ length: 66 }, (_, i) => ({ id_bible_book: i + 1, name: 'Livro ' + (i + 1) }))));
+  await pg4.route('**/json_db/bible_*', (r) => {
+    const m = /bible_(\d+)_(\d+)_(\d+)/.exec(r.request().url());
+    if (m) pedidos.push({ versao: +m[1], livro: +m[2], cap: +m[3] });
+    responder(r, { 1: 'No princípio criou Deus os céus e a terra.' });
+  });
+  // Esperar em Node (o contador é daqui), não na página: uma dúzia de
+  // capítulos já prova que a varredura em massa está correndo — completar os
+  // 1189 seria pagar meio minuto de roteamento por nada.
+  const esperarCapitulos = async (quantos, ms) => {
+    const ate = Date.now() + ms;
+    while (pedidos.length < quantos && Date.now() < ate) await pg4.waitForTimeout(150);
+    return pedidos.length;
+  };
+
+  await pg4.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
+  await pg4.waitForFunction(() => !!window.__avBack, null, { timeout: 20000 });
+  const veio = await esperarCapitulos(30, 25000);
+  checar(veio >= 30,
+    'A BÍBLIA BAIXA SOZINHA NA ABERTURA — sem ninguém abrir a aba (' + veio + ' capítulo(s))');
+  checar(pedidos.length > 0 && pedidos.every((p) => p.versao === ARA),
+    'e ela é a versão que o app garante (Almeida Revista e Atualizada), não a primeira da lista');
+  // A aba nunca foi tocada: é isso que separa este caminho do `enterBibleTab`.
+  checar(await pg4.evaluate(() => activeTab !== 'bible'),
+    'e nada disso passou pela aba Bíblia — ela continua fechada');
+
+  // A ESCOLHA DO OPERADOR NÃO É A BASE. Ele troca de versão; a base continua
+  // sendo garantida, e a dele só desce quando ele abrir a aba.
+  await pg4.evaluate((v) => window.AVDB.setState('bibleVersion', v), OUTRA);
+  pedidos.length = 0;
+  await pg4.reload({ waitUntil: 'domcontentloaded' });
+  await pg4.waitForFunction(() => !!window.__avBack, null, { timeout: 20000 });
+  const veio2 = await esperarCapitulos(12, 25000);
+  checar(await pg4.evaluate(() => bibleVersionId) === OUTRA,
+    'a versão ESCOLHIDA pelo operador é outra (a seleção dele foi respeitada)');
+  checar(veio2 > 0 && pedidos.every((p) => p.versao === ARA),
+    'e mesmo assim quem baixa sozinha é a base — nenhum capítulo da escolhida sem abrir a aba');
+  await pg4.close();
+} catch (e) {
+  checar(false, 'o percurso da Bíblia base terminou sem exceção (' + (e && e.message) + ')');
+}
+
 checar(erros.length === 0, 'nenhum erro de console' + (erros.length ? ':\n        ' + erros.join('\n        ') : ''));
 
 await navegador.close();

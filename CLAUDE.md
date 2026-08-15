@@ -98,6 +98,8 @@ app/src/main/
 │   ├── ShellUpdater.kt          # OTA do APK: a Release nova, instalada de dentro do app
 │   ├── WebPathHandler.kt        # serve o bundle OTA, com fallback pro APK
 │   ├── YoutubeGrab.kt           # extrai e baixa o vídeo do YouTube NO APARELHO
+│   ├── TrilhaAudio.kt           # QUAL trilha de áudio vai ao telão (a dublagem
+│   │                            #   automática do YouTube) — PURO, com JUnit
 │   ├── MuxMp4.kt                # junta as faixas de vídeo e áudio (1080p) — MediaMuxer
 │   ├── StreamProxy.kt           # /stream/<token>: serve o googlevideo pelo NOSSO origin
 │   ├── SlideDeck.kt             # apresentação (PDF/Google) → uma imagem por página
@@ -2560,6 +2562,17 @@ fronteira de rede do projeto, e é o único lugar dele em que um erro vira
 controle de acesso quebrado em vez de pixel errado — ver a quarta exceção nas
 regras de desenvolvimento.
 
+**A v5.242 acrescentou o quinto, e ele é de outra família:**
+`TrilhaAudioTest.kt`, sobre `TrilhaAudio.kt` — **qual trilha de áudio vai ao
+telão** quando o YouTube dubla o vídeo sozinho. Ele não guarda uma fronteira de
+rede; guarda o defeito mais SILENCIOSO deste caminho: o download funciona, o
+vídeo entra em cena, a barra anda — e o testemunho está em inglês, na frente da
+congregação. O resto do `YoutubeGrab` é rede, biblioteca de terceiro e
+`MediaMuxer`, e nada disso se testa sem aparelho; a REGRA que decide o idioma
+cabe num arquivo puro, e é por isso que ela mora nele. Doze casos, em pares:
+o que a regra passou a recusar **e** o que ela não pode ter passado a recusar
+junto (um vídeo genuinamente estrangeiro continua tocando).
+
 Eles existem porque `node --check` prova que o arquivo é
 PARSEÁVEL, não que o app funciona — a v5.121 saiu com um botão chamando uma
 função apagada, sintaxe perfeita e CI verde. O canal OTA publica
@@ -2788,10 +2801,101 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.241** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.242** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.242 (v2.1): O VÍDEO DO PROVAI E VEDE IA AO TELÃO EM INGLÊS, e a
+> Bíblia passa a vir inteira sozinha. METADE APK, METADE OTA.** Dois relatos do
+> operador, e eles não se tocam — o primeiro é Kotlin e exige Release, o segundo
+> é a base web e chega por OTA.
+>
+> **1. "Vídeos do Provai e Vede estão sendo escolhidos os com áudio em inglês."**
+>
+> O YouTube dubla vídeo sozinho, e as dublagens chegam ao extrator **na mesma
+> lista** de faixas de áudio da trilha original — sem nada na altura, no bitrate
+> ou no contêiner que as distinga. A escolha era `cliente → contêiner → bitrate`,
+> e **nenhum desses três sabe de idioma**: bastava a faixa em inglês ter bitrate
+> maior (ou vir antes num empate) para ela ser a escolhida. Nada erra alto nesse
+> caminho — o download funciona, o vídeo entra em cena, a barra anda —, e o
+> operador descobre no sábado.
+>
+> A correção são DUAS metades, e a segunda é a que fecha o caso:
+>
+> - **O IDIOMA VEM ANTES DO CLIENTE**, invertendo a ordem que a v1.49
+>   estabeleceu. A razão é uma assimetria de custo: uma faixa do cliente errado
+>   é **403** — ela não baixa, e a fila de candidatos existe justamente para
+>   absorver isso. Uma faixa do idioma errado **baixa perfeitamente**, e vai ao
+>   telão. Um resultado errado entregue com sucesso é pior que uma tentativa
+>   perdida.
+> - **E o português, havendo, é EXCLUSIVO.** Ordenar não bastaria: `TETO_AUDIO`
+>   é 2, e um 403 na primeira faixa faria a segunda — que pode ser a dublagem —
+>   descer calada. Não havendo trilha em português (o vídeo é mesmo estrangeiro,
+>   ou não declara trilha nenhuma), **nada muda em relação a antes** — e essa
+>   metade negativa é a que impede a correção de virar "só baixa se for
+>   português", que apagaria da biblioteca todo vídeo estrangeiro.
+>
+> **A escala tem cinco degraus e o mais sutil é o segundo:** um vídeo SEM
+> metadado de trilha vem ANTES do ORIGINAL noutro idioma. Vídeo de faixa única é
+> a esmagadora maioria do acervo, e rebaixá-lo por não se declarar penalizaria
+> justamente o caminho que sempre funcionou. A DESCRITIVA é a última em qualquer
+> idioma — inclusive em português, e inclusive para efeito da exclusividade: ela
+> é a narração dos elementos visuais por cima do áudio, feita para quem não vê a
+> tela, e deixá-la excluir a original estrangeira trocaria um problema por outro.
+>
+> **A regra saiu do `YoutubeGrab` para um arquivo PURO** (`TrilhaAudio.kt`, zero
+> import) pelo mesmo motivo do `EspelhoHttp`: o resto daquele arquivo é rede,
+> biblioteca de terceiro e `MediaMuxer` — nada disso se testa sem aparelho —, e
+> o que decide se a congregação ouve português cabe em três funções com JUnit.
+> São doze casos; contra a regra antiga, **oito reprovam** (verificado).
+>
+> **E o Registro passou a dizer QUAL trilha veio**, que é a leitura que faltava
+> para este defeito ser diagnosticável: o resumo da extração ganhou
+> `{pt-BR 2, en 2 dublado}` e a etiqueta da faixa virou `140@VISIONOS pt-BR`.
+> Sem isso, a linha de um download em inglês é indistinguível da de um em
+> português — foi assim que ele atravessou sem sinal nenhum.
+>
+> **O que NÃO foi verificado, e está dito:** o Kotlin não foi compilado — o
+> ambiente desta sessão não resolve o plugin do Android (a mesma limitação da
+> v5.228 e da v5.234). O `TrilhaAudio.kt` e o teste dele foram compilados e
+> EXECUTADOS à parte (são puros); o `YoutubeGrab.kt` foi conferido só até onde
+> um compilador sem as dependências alcança — ele parseia, e nenhum erro de
+> sintaxe restou. Quem compila o resto é o CI, que falha alto. E há uma
+> incerteza que só o aparelho resolve: se o extrator não devolver metadado de
+> trilha nenhum para esses vídeos, todas as faixas empatam no degrau 1 e a
+> escolha volta a ser a de antes — o `{…}` novo do Registro é exatamente o que
+> diz em qual dos dois casos o aparelho está.
+>
+> **2. "Faça a Bíblia ser baixada inteira na versão ARA de forma automática."**
+>
+> O download da versão INTEIRA já existia desde sempre — e **só** era disparado
+> por alguém ENTRAR na aba Bíblia. Quem nunca entrou ficava com o caminho sob
+> demanda: um capítulo por vez, conforme o uso, com a rede da igreja no meio do
+> culto como única rede disponível. Era o relato, palavra por palavra, e o
+> oposto do que a aba faz assim que é aberta uma vez.
+>
+> `garantirBibliaBase()` entra no `init()` sem `await`, como o
+> `autoRefreshCollections`. **A versão é a que o app já escolheria**
+> (`pickDefaultBibleVersion` — a ARA, e a primeira disponível se ela não estiver
+> no banco), e **não** a que o operador selecionou: esta é a base que o app
+> garante, não a preferência de quem opera. Quem trocou de versão continua tendo
+> a dele pelo caminho de sempre, ao entrar na aba.
+>
+> **O freio de 25 falhas seguidas nasceu junto, e nasceu porque a automação o
+> exigiu.** Enquanto a varredura só começava por um toque na aba, insistir até o
+> fim era barato: havia alguém olhando. Automática na abertura, um lançamento
+> offline — ou com o Wi-Fi da igreja sem uplink, que este documento descreve
+> como o ambiente NORMAL — pagaria 1189 requisições fadadas ao erro, com serviço
+> em primeiro plano, wake lock e notificação, **a cada abertura**. Vinte e cinco
+> erros seguidos não são uma oscilação (a concorrência é de 6): são a rede fora.
+>
+> O oráculo entrou no `boot-nativo.test.mjs`, com um banco do LouvorJA de
+> mentira e a ARA em **segundo** lugar na lista de propósito — com ela na frente
+> o caso aprovaria os dois comportamentos. Ele cobra as duas metades: a
+> varredura começa sozinha, sem ninguém tocar na aba, **e** vai para a base
+> mesmo com outra versão escolhida pelo operador. Três asserções reprovam contra
+> o código anterior (verificado).
 
 > **A v5.241: A BIBLIOTECA PASSA A TER UMA ESCALA DE TONS — dois tons, uma
 > regra, os dois temas. OTA PURO** (CSS mais uma linha de texto; sem Release).
