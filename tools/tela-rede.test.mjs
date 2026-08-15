@@ -307,6 +307,23 @@ await ate(() => sts().some((s) => s && s.type === 'display-ready'), 5000);
 const pronto = sts().find((s) => s && s.type === 'display-ready');
 checar(!!pronto, 'o display-ready da tela SOBE pelo dreno (é ele que traz a cena de volta)');
 checar(!!(pronto && pronto.__de), 'e carrega o __de que endereça a resposta', JSON.stringify(pronto));
+// E O `__tela`, que é o campo que o Controle EXIGE para reenviar as
+// preferências (`if (msg.__tela) telaReenviarPreferencias(...)`): wallpaper,
+// fundo da letra (`lyricsbg`) e preenchimento (`fit`).
+//
+// Ele faltava desde a v5.188 — a versão que criou aquele reenvio. O
+// `tela-status` sempre o anexou; o `display-ready`, nunca. Não havia erro em
+// lugar nenhum: a função simplesmente NUNCA RODAVA para uma tela de verdade, e
+// as três preferências não existiam nela. O relato que fechou o caso foi o
+// fundo dos slides preto com a opção ligada; o wallpaper e o preenchimento
+// estavam quebrados do mesmo jeito, calados, porque o padrão deles é aceitável.
+//
+// Esta asserção é a metade PRODUTORA do contrato; a consumidora (o Controle
+// reagindo ao campo) está no `boot-nativo.test.mjs`. As duas juntas, porque foi
+// exatamente a divergência entre elas que ninguém viu.
+checar(!!(pronto && pronto.__tela),
+  'e o __tela — é ele que faz o Controle reenviar wallpaper, fundo da letra e preenchimento',
+  JSON.stringify(pronto));
 
 // ---------------------------------------------------------------------------
 // 2. Texto intacto, com acento
