@@ -2411,10 +2411,55 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.224** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
+**Versão atual: v5.225** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.225: A LEITURA DA LETRA TINHA A HIERARQUIA INVERTIDA — duas estrofes
+> mais juntas que o miolo de uma. OTA PURO** (nenhuma linha de Kotlin; sem
+> Release).
+>
+> Pergunta do operador, com um print do LouvorJA: dá para aplicar aquele modelo
+> de estrofes na nossa leitura de letras, nos dois modos, "já que há músicas com
+> 5 linhas, 6 linhas e diversos outros formatos"?
+>
+> **A resposta é que o modelo já estava aplicado, e a contagem de linhas nunca
+> foi o problema.** O banco do LouvorJA não entrega linhas soltas: cada entrada
+> de `music_{id}.lyric` **é uma estrofe**, com `order`, o texto (linhas internas
+> como `<br>`) e `aux_lyric`, que é o RÓTULO da seção. Guardamos assim desde a
+> v5.42 (`[{a, l}]`), e os DOIS modos desenham pela mesma função (`lvBuildSong`)
+> — inclusive tratando um caso que a origem tem e o app dela não separa: dois
+> blocos de estrofe empacotados numa entrada só (v5.142). Quatro, cinco ou doze
+> linhas são só o número de `\n` dentro de uma estrofe; não há formato a
+> adivinhar.
+>
+> **O que estava errado era o ESPAÇAMENTO, e ele foi medido:** 8,8 px (avançado)
+> e 8,0 px (simples) entre estrofes DIFERENTES, contra 11,4 px entre dois blocos
+> da MESMA. Duas estrofes ficavam mais juntas que o miolo de uma — a hierarquia
+> se lia ao contrário, e por isso a letra não respirava apesar de a estrutura
+> por baixo estar inteira. É o tipo de defeito que nenhuma leitura de código
+> acha, porque cada regra isolada parece razoável.
+>
+> Agora existe `--lv-estrofe-gap` (medida de LAYOUT, logo no `:root` de
+> `controle.css`, não em `tokens.css`), e o valor não é gosto: **uma linha da
+> letra** (1.425rem = .95rem × 1.5), que é literalmente o que a fonte codifica
+> com `<br><br>` e o que o operador vê no app de origem. Ele vale nos TRÊS
+> lugares em que uma estrofe termina — o `gap` da folha de leitura, o `gap` da
+> zona de letra do Modo Fácil e o `margin-top` entre blocos dentro de um slide —
+> porque **uma fronteira de estrofe é uma fronteira de estrofe**: tem de parecer
+> igual nos três, senão a leitura ganha um ritmo que o texto não tem.
+>
+> **O oráculo afirma a REGRA, não o pixel** (`tools/smoke.mjs`): entre estrofes
+> nunca menos que dentro de uma, nunca menos que uma linha, e o mesmo valor nos
+> dois modos. Escrever o número faria o teste reprovar numa mudança legítima de
+> fonte; escrever a razão o mantém verdadeiro. Reprova em 5 pontos no CSS
+> anterior (verificado).
+>
+> A régua que fica: **estrutura correta não é leitura correta.** Os dados
+> estavam certos desde a v5.42 e a função desenhava certo desde então — o que
+> desmentia os dois era um par de medidas que ninguém tinha comparado uma com a
+> outra.
 
 > **A v5.224: A TRANSMISSÃO VIRA O BOTÃO IRMÃO DO DE ESPELHAR — o interruptor
 > sai. OTA PURO** (nenhuma linha de Kotlin; sem Release).

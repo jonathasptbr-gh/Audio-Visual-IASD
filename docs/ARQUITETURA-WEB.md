@@ -2915,6 +2915,20 @@ mixer (`#lyricsViewBtn`, folha com linhas) abre um bottom-sheet **com scroll**
   acontece de verdade com um louvor de fundo durante a leitura. Com uma fonte
   só, ela abre direto, sem um seletor de uma opção. A escolha manual (`lvSource`)
   vale enquanto aquela fonte existir; sumindo, cai na disponível.
+- **O RESPIRO ENTRE ESTROFES É UMA LINHA EM BRANCO** (`--lv-estrofe-gap`, no
+  `:root` de `controle.css` — é medida de layout, não cor). O valor não é gosto:
+  é literalmente o que a fonte codifica (`<br><br>`) e vale nos TRÊS lugares em
+  que uma estrofe termina — o `gap` desta folha, o `gap` da zona de letra do
+  Modo Fácil e o `margin-top` entre dois blocos DENTRO de um slide (a API às
+  vezes empacota duas estrofes numa entrada só — v5.142). Uma fronteira de
+  estrofe é uma fronteira de estrofe: parece igual nos três, senão a leitura
+  ganha um ritmo que o texto não tem. Até a v5.225 os três divergiam e na
+  direção ERRADA — 8,8 px (avançado) e 8,0 px (simples) entre estrofes
+  diferentes contra 11,4 px entre blocos da mesma, medido: duas estrofes ficavam
+  mais juntas que o miolo de uma. A estrutura por baixo estava inteira desde a
+  v5.42; o que a desmentia era o par de medidas. `tools/smoke.mjs` trava a
+  REGRA (entre ≥ dentro, entre ≥ uma linha, igual nos dois modos), nunca o
+  pixel — escrever o número faria o oráculo reprovar numa mudança de fonte.
 - **É leitura, não operação.** Nenhuma linha projeta nada ao toque: o que vai
   ao telão continua saindo dos botões de estrofe/versículo (`stepSlide`) e da
   tela da Bíblia. Um popup de consulta que também projeta seria a pior hora
