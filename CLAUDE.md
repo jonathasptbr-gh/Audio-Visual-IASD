@@ -2955,10 +2955,53 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.249** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.250** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.250: "ONLINE" — a qualidade que não baixa. OTA PURO** (sem Release).
+>
+> Pedido do operador: *"adicione a opção nas qualidades de opções do download,
+> para que tenha o 'Online' que mesmo ao levar para o cronograma, levaria apenas
+> o link, ao invés de obrigar a baixar."*
+>
+> **A razão que obrigava o download estava escrita e era boa — só não era
+> universal.** O `ytAcao` diz, desde a v5.120, que os três destinos que GUARDAM
+> não podem transmitir porque "um manifesto de stream EXPIRA em algumas horas".
+> Verdade sobre o MANIFESTO; falsa sobre o LINK, que é o que um item
+> `kind: 'youtube'` guarda desde sempre e não expira. Um vídeo visto uma vez, num
+> culto com internet, não precisa dos ~300 MB no aparelho para entrar no roteiro
+> de sábado.
+>
+> **Ela mora no MESMO seletor das resoluções** (decisão do operador), porque é a
+> mesma pergunta — "quanto deste vídeo eu quero no aparelho?" — com **nada** na
+> ponta da escala: `Online · 1080p · 720p · 480p`. O sentinela é `-1` e não `0`:
+> zero já significa "sem teto, o padrão do shell", e reusá-lo faria "Online" e
+> "melhor qualidade" serem o mesmo valor.
+>
+> **O recurso não inventou item novo nem caminho novo.** O que ele guarda é o
+> `kind: 'youtube'` que o compartilhamento já cria quando transmissão e download
+> falham, e desde a v5.212 tocá-lo RESOLVE no toque (`resolverLinkYoutube`):
+> transmite, e **transmitir não troca o item** — então o link continua link no
+> domingo seguinte, que é exatamente o que "Online" promete. A recuperação
+> também já existia: falhando a transmissão, aquele mesmo caminho baixa e troca
+> o item na posição em que ele está, sem perder o lugar no Cronograma.
+>
+> **Duas coisas somem com ela escolhida, e as duas pela mesma régua** (uma
+> escolha que não muda nada é pior que escolha nenhuma): o seletor Vídeo × Só
+> áudio, porque a forma da faixa passa a ser decidida na hora de tocar; e a
+> espera — os três destinos ganham o subtítulo "Só o link, sem baixar", que é o
+> que eles significam em toda outra qualidade.
+>
+> **O preço está dito e é um só: sem internet no culto, não há o que projetar.**
+> Ele não é escondido atrás de um padrão — a qualidade continua nascendo em
+> 1080p a cada item, e "Online" é uma escolha deliberada por vídeo.
+>
+> O oráculo (`tools/boot-nativo.test.mjs`, o único que sobe a base com a ponte)
+> cobra as duas metades: o rótulo está no seletor **e** o que chega ao Cronograma
+> é um registro sem blob, com `kind: 'youtube'`. Sem a segunda, acrescentar a
+> palavra teria passado.
 
 > **A v5.249: O REGISTRO PASSA A CONTAR O QUE A REGRA DAS SÉRIES ACHOU. OTA
 > PURO** (nenhuma linha de Kotlin; sem Release).
