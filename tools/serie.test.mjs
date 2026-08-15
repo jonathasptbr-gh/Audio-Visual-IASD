@@ -479,18 +479,41 @@ const trimestreQ3 = [
   { id: 'q3', url: 'd/q3', name: 'Informativo Mundial das Missões | 22 AGOSTO 2026', seconds: 160 },
   { id: 'q4', url: 'd/q4', name: 'Informativo Mundial das Missões | 26 SETEMBRO 2026', seconds: 179 },
 ];
+const nomes = (arr) => arr.map((i) => S.nomeDoItem(i)).join(' ~ ');
 const ate15 = S.ordenarItens(S.itensDaPlaylist(trimestreQ3, 7, INFO, SABADO_15));
-checar(ate15.map((i) => S.nomeDoItem(i)).join(' ~ ') === '08/Ago ~ 15/Ago',
-  '[relato] em 15/Ago a lista vai até 15/Ago — o de hoje ENTRA, o de 22 não',
-  ate15.map((i) => S.nomeDoItem(i)));
+checar(nomes(ate15) === '08/Ago ~ 15/Ago',
+  '[relato] em 15/Ago a lista vai até 15/Ago — o de hoje ENTRA, o de 22 ainda não',
+  nomes(ate15));
 
-// O DIA SEGUINTE, e é ele que prova que nada se perde: o corte anda sozinho.
-const domingo16 = S.ordenarItens(S.itensDaPlaylist(trimestreQ3, 7, INFO, new Date(2026, 7, 16)));
-checar(domingo16.length === 2, 'no domingo 16 a lista ainda é a mesma (o de 22 não saiu)', domingo16.length);
+// ── A JANELA DE ANTECEDÊNCIA (v5.256) ───────────────────────────────────────
+// Pedido do operador: *"a data de corte não pode ser o próprio dia, pois muitos
+// aproveitam para fazer a organização antes, então pode deixar para que o
+// acesso ao vídeo já fique disponível na quarta-feira antes do sábado."*
+//
+// Os quatro dias em volta, porque a fronteira é o recurso inteiro: ela tem de
+// abrir na QUARTA e não antes.
+const terca18 = S.itensDaPlaylist(trimestreQ3, 7, INFO, new Date(2026, 7, 18));
+checar(nomes(S.ordenarItens(terca18)) === '08/Ago ~ 15/Ago',
+  'na TERÇA (4 dias antes) o episódio de 22/Ago ainda não aparece', nomes(S.ordenarItens(terca18)));
+const quarta19 = S.itensDaPlaylist(trimestreQ3, 7, INFO, new Date(2026, 7, 19));
+checar(nomes(S.ordenarItens(quarta19)) === '08/Ago ~ 15/Ago ~ 22/Ago',
+  '[relato] na QUARTA antes do sábado ele APARECE — é quando o roteiro é montado',
+  nomes(S.ordenarItens(quarta19)));
+checar(S.DIAS_DE_ANTECEDENCIA === 3,
+  'e a antecedência é uma constante nomeada, não um número solto', S.DIAS_DE_ANTECEDENCIA);
 const sabado22 = S.ordenarItens(S.itensDaPlaylist(trimestreQ3, 7, INFO, new Date(2026, 7, 22)));
-checar(sabado22.map((i) => S.nomeDoItem(i)).join(' ~ ') === '08/Ago ~ 15/Ago ~ 22/Ago',
-  'e no sábado 22 o episódio dele aparece sozinho — nada a desfazer',
-  sabado22.map((i) => S.nomeDoItem(i)));
+checar(nomes(sabado22) === '08/Ago ~ 15/Ago ~ 22/Ago',
+  'e no próprio sábado ele continua lá — a janela abre, não pisca', nomes(sabado22));
+
+// A CONTAGEM DE DIAS, isolada: é ela que os dois consumidores usam (a lista com
+// 3, e o aviso de falha com 0), e é ela que atravessa o fim do mês.
+checar(S.diasAte({ dia: 22, mes: 8 }, INFO, new Date(2026, 7, 19)) === 3, '19/Ago → 22/Ago são 3 dias');
+checar(S.diasAte({ dia: 1, mes: 9 }, INFO, new Date(2026, 7, 30)) === 2,
+  'a virada do MÊS não confunde a conta (30/Ago → 01/Set = 2 dias)',
+  S.diasAte({ dia: 1, mes: 9 }, INFO, new Date(2026, 7, 30)));
+checar(S.diasAte({ dia: 15, mes: 8 }, INFO, new Date(2026, 7, 22)) === -7,
+  'e o que já passou conta NEGATIVO — é assim que o aviso sabe que não é o caso',
+  S.diasAte({ dia: 15, mes: 8 }, INFO, new Date(2026, 7, 22)));
 
 // A VIRADA DO ANO, que é onde uma comparação por instante erraria: em 2027 o
 // álbum de 2026 está todo no passado.
@@ -527,7 +550,9 @@ checar(verFut.motivo === S.MOTIVO_FUTURO && verFut.data && verFut.data.mes === 9
   'o motivo é "futuro" e a DATA vem junto — é ela que o Registro ordena', JSON.stringify(verFut));
 checar(S.aindaNaoSaiu({ dia: 22, mes: 8 }, INFO, SABADO_15)
   && !S.aindaNaoSaiu({ dia: 15, mes: 8 }, INFO, SABADO_15),
-  'a fronteira, isolada: 22/Ago ainda não saiu e 15/Ago saiu');
+  'a fronteira, isolada: em 15/Ago o de 22 ainda não saiu e o de hoje saiu');
+checar(!S.aindaNaoSaiu({ dia: 22, mes: 8 }, INFO, new Date(2026, 7, 19)),
+  'e na quarta-feira ele passa a ter saído');
 
 // ── 7e. A IMPRESSÃO DIGITAL enxerga as recusas de idioma ────────────────────
 // Sem isto, corrigir uma marca de idioma deixaria de pé todo índice já escrito

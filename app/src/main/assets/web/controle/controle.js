@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.255';
+const WEB_VERSION = '5.256';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -9143,6 +9143,15 @@ async function fetchAlbumCatalog() {
 function serieFaixaDoItem(s, it) {
   s.name = AVSerie.nomeDoItem(it);
   s.ytUrl = it.url;
+  // A DATA DO EPISÓDIO, guardada no índice (v5.256). Ela já foi lida do título
+  // aqui em cima; o que muda é que agora ela SOBREVIVE — e sobrevive por um
+  // motivo só: a lista mostra o episódio três dias antes do sábado dele (a
+  // quarta-feira em que o roteiro é montado), e nesses três dias o vídeo pode
+  // ainda não estar público. Quando o download falha ali, quem explica é
+  // `serieComoYoutube`, e sem a data no registro não haveria como saber que
+  // aquela falha tem essa causa. `null` quando o título não declarou data — e
+  // aí não há nada a afirmar sobre ele.
+  s.serieData = it.dia ? { dia: it.dia, mes: it.mes } : null;
   // `duration` como STRING "M:SS", que é a forma do LouvorJA — assim o
   // `parseTimeToSeconds` e toda a conta de peso do álbum (`medirColecao`,
   // `fracaoPeso`, a estimativa antes de baixar) valem sem uma linha nova.
@@ -11297,7 +11306,12 @@ async function ytAcao(r, destinos, btn, somenteAudio, altura) {
     // download vinha se anunciando (`aviso: 'preview'`), e ele fica sobre a
     // preview, que é para onde o operador olha na tela principal. "Um download
     // de minutos que termina em nada" é o silêncio que este app não pode ter.
-    if (!ytLinhaVisivel(r.id)) previewBusy('Baixando', r.name || 'o vídeo').falhar('não foi possível baixar');
+    // A FRASE DA JANELA DE ANTECEDÊNCIA vem na frente de "não foi possível
+    // baixar" quando ela existe (v5.256): as duas descrevem o mesmo desfecho, e
+    // só uma delas diz o que fazer a respeito.
+    const porque = r.avisoSeFalhar || 'não foi possível baixar';
+    if (r.avisoOnde) setCollStatus(r.avisoOnde, porque, 8000);
+    if (!ytLinhaVisivel(r.id)) previewBusy('Baixando', r.name || 'o vídeo').falhar(porque);
     return;
   }
   setYtEstado(r.id, 'pronto');
@@ -11791,7 +11805,33 @@ function destUniao(chave) {
  * escolha que não muda nada é pior que escolha nenhuma.
  */
 function serieComoYoutube(coll, s) {
-  return { id: s.id_music, url: s.ytUrl, name: s.name, semSoAudio: true };
+  const r = { id: s.id_music, url: s.ytUrl, name: s.name, semSoAudio: true };
+  // O AVISO DA JANELA DE ANTECEDÊNCIA (v5.256).
+  //
+  // A lista mostra o episódio três dias antes do sábado dele — o pedido do
+  // operador, porque o roteiro do culto é montado durante a semana. O preço é
+  // que nesses dias o vídeo pode ainda não estar público (o canal sobe o
+  // trimestre e libera aos poucos), e aí o download simplesmente não vem.
+  //
+  // Sem esta frase, aquela falha é indistinguível de uma queda de rede: o
+  // operador tenta de novo, falha de novo, e conclui que o app está quebrado
+  // justamente no item que ele acabou de ver aparecer. Com ela, a resposta diz
+  // o que fazer — esperar chegar mais perto — e diz até QUANDO.
+  //
+  // Ela só é anexada enquanto o sábado não chegou: passado o dia, uma falha ali
+  // é uma falha de verdade e a frase seria uma desculpa falsa.
+  const dias = s.serieData ? AVSerie.diasAte(s.serieData, coll.serie) : 0;
+  if (dias > 0) {
+    r.avisoSeFalhar = 'ainda não liberado pelo canal — tente mais perto de '
+      + AVSerie.rotuloData(s.serieData);
+    // ONDE a frase aparece, e são DOIS lugares porque são dois fluxos. Com
+    // "Tocar agora" a Biblioteca FECHA (o `closeHymnSearch` no topo do
+    // `ytAcao`) e quem responde é o cartão sobre a preview; mandando para o
+    // Cronograma ela continua aberta por cima da preview, e a resposta tem de
+    // nascer onde o toque nasceu — que ali é o card da própria série.
+    r.avisoOnde = coll.id;
+  }
+  return r;
 }
 // (`ehSerie` mora com o resto do modelo de coleção, junto de `tipoDaColecao`.)
 
@@ -13061,8 +13101,10 @@ async function blocoSeries() {
       .sort((a, b) => (a.mes - b.mes) || (a.dia - b.dia));
     if (fut.length) {
       const p = fut[0];
-      linhas.push('    (' + fut.length + ' ainda não liberado(s) pelo canal, corte em '
-        + serieDiaBr(d.serieDiaEm || d.quandoVideos) + ' — o mais próximo é "' + p.nome + '")');
+      linhas.push('    (' + fut.length + ' ainda não liberado(s) pelo canal — a lista alcança '
+        + AVSerie.DIAS_DE_ANTECEDENCIA + ' dia(s) além de '
+        + serieDiaBr(d.serieDiaEm || d.quandoVideos)
+        + '; o mais próximo é "' + p.nome + '")');
     }
     // O ACHADO que não é recusa, e o mais valioso dos dois: o vídeo ENTROU (a
     // regra de ouro manda entrar) e ficou sem identificador de data, fora de
