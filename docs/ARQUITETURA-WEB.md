@@ -5733,9 +5733,53 @@ ganha campos extras, sem exigir bump de `DB_VERSION` (o `files`/`media` do
   `music_{id}` (filtrados por `show_slide`, tempo do campo certo — `time`
   para Cantado, `instrumental_time` para Playback — convertido pra segundos
   via `parseTimeToSeconds`, ordenados por tempo).
-- `hymnName`/`hymnTrack`: título limpo e número do hino (`s.name`/`s.track`,
-  sem o prefixo/sufixo que `name` carrega pra exibição na lista) — usados
-  pelo Display no slide de capa.
+- `hymnName`/`hymnTrack`/`hymnAlbum`: título limpo, número do hino
+  (`s.name`/`s.track`, sem o prefixo/sufixo que `name` carrega pra exibição na
+  lista) e o **álbum/coleção de onde a música veio** (`coll.name`, v5.219) — as
+  três peças do cartão de capa. `hymnAlbum` mora no REGISTRO, e não numa
+  consulta na hora de projetar, porque quem projeta é o Display: ele só recebe
+  o registro do arquivo e não tem acesso a coleção nenhuma. Registro antigo é
+  preenchido na varredura que a sincronização já faz (uma escrita por registro,
+  em `ensureSongVariant`) — sem isso a linha do álbum só apareceria em música
+  baixada depois da v5.219, isto é, nunca na biblioteca que o operador já tem.
+  **Não há campo de AUTOR na fonte**: o LouvorJA publica nome, faixa e álbuns
+  (ver `docs/FONTE-DE-DADOS-LOUVORJA.md` §5.1), e uma linha inventada na frente
+  da congregação é pior que uma linha a menos.
+
+#### O cartão de capa (v5.219)
+
+O primeiro slide de todo louvor sincronizado. Ele era **uma linha** — o título
+com o número colado na frente ("147. Ó ADORAI O SENHOR"), pintado em `--brand`,
+no lugar exato onde a estrofe apareceria um segundo depois. Hoje são três peças
+com pesos diferentes:
+
+```
+            ──── 147 ────        ← número, no acento do palco, entre dois fios
+        Ó ADORAI O SENHOR        ← título, BRANCO, 8,4cqmin, até 3 linhas
+        HINÁRIO ADVENTISTA       ← álbum, esmaecido, caixa alta espaçada
+```
+
+- **O título deixou de ser o elemento colorido da tela.** Num telão de igreja o
+  que precisa ser lido do fundo do salão é o NOME, e cor tirada de uma paleta de
+  UI nunca rende o que o branco pleno rende (21:1 medidos contra os 9,75:1 do
+  acento). O acento fica no que é secundário — o número e os fios.
+- **Cada peça só existe se houver o dado.** Um arquivo importado à mão não tem
+  número nem álbum, e a capa dele volta a ser o título centralizado, que é a
+  capa de sempre.
+- **A caixa da capa CRESCE com o conteúdo** — a única do sistema que faz isso. A
+  altura fixa (32cqh) existe para a moldura não pular de tamanho entre estrofes;
+  na capa ela produzia o defeito oposto, e ele foi fotografado antes de ser
+  corrigido: com o título em duas linhas, `num + título + álbum` somavam mais
+  que a caixa, o flex encolhia os itens e a linha do álbum era desenhada POR
+  CIMA da segunda linha do título. Aqui não há "próximo slide" com que casar a
+  altura, então a caixa se ajusta; o teto de 60cqh e o `overflow: hidden`
+  seguem sendo a garantia final, e `flex-shrink: 0` no número e no álbum faz o
+  título ser o único a absorver a falta de espaço (ele é o único que sabe se
+  cortar).
+- **A preview espelha o cartão peça a peça.** É na capa que o operador confere
+  se pegou o hino certo — uma capa diferente ali seria uma ilustração errada.
+  `tools/display-smoke.mjs` trava as três peças e a saída delas na estrofe
+  seguinte.
 
 **Quebras de linha vêm da própria API, como `<br>` literal** dentro de
 `lyric`/`aux_lyric` (confirmado no app-ja: ele usa `v-html` pra deixar o

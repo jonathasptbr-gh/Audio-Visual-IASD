@@ -1632,6 +1632,17 @@ O essencial para não quebrar nada aqui:
   Um telão claro num salão às escuras cega a congregação, e uma preview que
   clareasse junto com a UI deixaria de cumprir seu papel exatamente no tema em
   que o operador mais precisa dela. `tools/smoke.mjs` trava isso.
+- **E a regra vale para as REGRAS, não só para os tokens** (v5.219). Os tokens
+  do palco estavam certos e as folhas do palco liam `--brand`, `--live-strong`,
+  `--bg` e `--accent-glow` — quatro tokens de TEMA. No Display isso nunca doeu
+  (ele não escreve o atributo); na preview com o tema CLARO ligado, o título do
+  slide de capa era desenhado com o denim oficial sobre o preto do palco:
+  **2,73:1 medidos**, ilegível, e foi assim que o operador o encontrou. Daí
+  `--stage-accent`, `--stage-accent-glow`, `--stage-on-accent` e `--stage-alert`
+  no bloco compartilhado. **Nada pintado no palco pode ler um token redeclarado
+  em `[data-tema]`**, e o oráculo mudou de pergunta junto: `tools/smoke.mjs`
+  compara a COR COMPUTADA de cada camada do palco nos dois temas (o defeito
+  passava por baixo da versão que comparava quatro nomes de token).
 - **Três matizes, com papéis que não se misturam.** O azul denim é a marca IASD
   **e** o accent (navegação, seleção, progresso) — `--brand` e `--accent` têm o
   mesmo valor de propósito, e os dois nomes existem para distinguir na folha
@@ -2386,10 +2397,73 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.218** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
+**Versão atual: v5.219** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.219: O TÍTULO DO LOUVOR ERA AZUL-ESCURO SOBRE O PRETO — o palco lia
+> tokens de TEMA. E o slide de capa virou um CARTÃO. OTA PURO** (nenhuma linha
+> de Kotlin; sem Release).
+>
+> Relato do operador: os títulos das músicas estão em azul e ficam ilegíveis no
+> fundo escuro.
+>
+> **Medido: 2,73:1.** O slide de capa pintava o título com `--brand`, e
+> `--brand` é um token de TEMA — `#8fb1f3` no escuro (9,75:1 sobre o preto, o
+> que a TV mostrava) e o denim oficial `#2F557F` no CLARO. A preview do Controle
+> roda no documento que TEM tema: com o tema claro ligado — que é o que o
+> operador escolheu na v5.192 — ela desenhava o título em denim escuro sobre o
+> preto do palco, abaixo até do piso de 3:1 de texto grande.
+>
+> **É a regra do palco cometida do lado de fora.** Este documento diz, desde a
+> v5.192, que "o palco não tem tema"; e diz isso dos TOKENS. Os tokens estavam
+> certos — as REGRAS é que apontavam para tokens de tema, em quatro pontos:
+> `--brand` (título da capa, referência do versículo, número do sorteio
+> rolando), `--live-strong` (o cronômetro estourado), `--bg` e `--accent-glow`
+> (a pílula de entrada). Agora existem `--stage-accent`, `--stage-accent-glow`,
+> `--stage-on-accent` e `--stage-alert` no bloco compartilhado, e **nada pintado
+> no palco lê um token redeclarado em `[data-tema]`**.
+>
+> **O oráculo mudou de pergunta, e é por isso que ele não tinha visto.** O
+> `smoke.mjs` comparava quatro NOMES de token entre os dois temas; o defeito
+> passou por baixo porque os nomes estavam certos. Ele passou a comparar a COR
+> COMPUTADA de cada camada do palco (capa, letra, versículo, cronômetro
+> estourado, sorteio rolando, fundo) nos dois temas. Verificado nos dois
+> sentidos: com a regra antiga de volta, ele reprova.
+>
+> **E o cartão de capa** (o segundo pedido). Era uma linha só — "147. Ó ADORAI O
+> SENHOR" —, o número colado na frente do título, gastando a largura da linha
+> que mais precisa dela. Agora são três peças com pesos diferentes: o número no
+> acento entre dois fios, o TÍTULO em branco pleno (21:1 — num telão a
+> legibilidade vem de luminância máxima, e o acento fica no que é secundário) e
+> o ÁLBUM esmaecido embaixo. Cada peça só existe se houver o dado; sem número e
+> sem álbum, a capa é o título centralizado, que é a capa de sempre.
+>
+> **Não há AUTOR na fonte, e isso está dito em vez de inventado**: o LouvorJA
+> publica nome, faixa e álbuns (`docs/FONTE-DE-DADOS-LOUVORJA.md` §5.1). O que
+> entrou é `hymnAlbum` — a coleção de onde a música veio —, no REGISTRO, porque
+> quem projeta é o Display e ele não tem acesso a coleção nenhuma; e com
+> preenchimento na varredura que a sincronização já faz, senão a linha só
+> apareceria em música baixada depois desta versão, isto é, nunca na biblioteca
+> que o operador já tem.
+>
+> **A caixa da capa CRESCE com o conteúdo, e foi um defeito fotografado que
+> obrigou a isso**: com o título em duas linhas, número + título + álbum somavam
+> mais que a caixa de altura fixa, o flex encolhia os itens e o álbum era
+> desenhado POR CIMA da segunda linha do título. Na capa não há "próximo slide"
+> com que casar a altura — é a primeira coisa em cena —, então ela se ajusta,
+> com teto e `overflow: hidden` como garantia final.
+>
+> **A primeira medição de contraste do repositório entrou junto**
+> (`display-smoke.mjs`): este documento afirmava, desde a v5.47, que não havia
+> nenhuma. Ela cabe no palco e só nele — ali o piso não é "tela a 30 cm", é um
+> projetor visto do fundo do salão — e compõe o ALFA sobre o preto em vez de
+> ignorá-lo, senão `--stage-text-dim` (branco a 72%) sairia como 21:1 quando
+> rende 10,54:1.
+>
+> A régua que fica: **um oráculo que compara NOMES não protege o que a tela
+> PINTA.**
 
 > **A v5.218: A RECARGA VOLTA PARA A ENTRADA OFICIAL, e o botão de canto sai.
 > OTA PURO** (nenhuma linha de Kotlin; sem Release).

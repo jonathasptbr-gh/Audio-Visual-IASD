@@ -155,6 +155,7 @@ const pvLyricsImgEl = document.getElementById('pvLyricsImg');
 const pvLyricsContentEl = document.getElementById('pvLyricsContent');
 const pvLyricsLineEl = document.getElementById('pvLyricsLine');
 const pvLyricsAuxEl = document.getElementById('pvLyricsAux');
+const pvLyricsNumEl = document.getElementById('pvLyricsNum');
 const pvTextEl = document.getElementById('pvText');
 const pvTextContentEl = document.getElementById('pvTextContent');
 const pvTextMainEl = document.getElementById('pvTextMain');
@@ -208,7 +209,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.218';
+const WEB_VERSION = '5.219';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -1886,7 +1887,7 @@ const DRAW_FRAME_MS = createStage.DRAW_FRAME_MS;
 // sincronizada segue o mesmo princípio universal do sistema: o operador vê no
 // celular exatamente o que está sendo exibido no telão.
 let pvLyrics = null;
-let pvLyricsMeta = null; // { hymnName, hymnTrack } do item atual, pro slide de capa
+let pvLyricsMeta = null; // { hymnName, hymnTrack, hymnAlbum } do item atual, pro slide de capa
 let pvLyricSlideIdx = -1;
 let pvLyricLoadSeq = 0;
 let pvLyricImgKey = null;
@@ -1925,7 +1926,7 @@ function hidePvLyrics(fade) {
 
 function showPvLyrics(rec) {
   pvLyrics = rec.lyrics;
-  pvLyricsMeta = { hymnName: rec.hymnName, hymnTrack: rec.hymnTrack };
+  pvLyricsMeta = { hymnName: rec.hymnName, hymnTrack: rec.hymnTrack, hymnAlbum: rec.hymnAlbum };
   pvLyricSlideIdx = -1;
   pvLayerIn(pvLyricsEl);
   applyPvLyricsBgClass();
@@ -1949,18 +1950,29 @@ function renderPvLyricSlide(idx) {
 
   pvLyricsContentEl.classList.toggle('cover', !!slide.cover);
   if (slide.cover) {
+    // Espelha o cartão de capa do telão peça a peça (ver `renderLyricSlide` em
+    // display.js, que é onde o desenho está explicado). A preview existe para
+    // mostrar o que a congregação vê — uma capa diferente aqui seria uma
+    // ilustração errada, e é justamente na capa que o operador confere se
+    // pegou o hino certo.
     const meta = pvLyricsMeta || {};
-    pvLyricsLineEl.textContent = (meta.hymnTrack ? meta.hymnTrack + '. ' : '') + (meta.hymnName || '');
-    pvLyricsAuxEl.hidden = true;
+    pvLyricsNumEl.textContent = meta.hymnTrack ? String(meta.hymnTrack) : '';
+    pvLyricsNumEl.hidden = !pvLyricsNumEl.textContent;
+    pvLyricsLineEl.textContent = meta.hymnName || '';
+    pvLyricsAuxEl.textContent = meta.hymnAlbum || '';
+    pvLyricsAuxEl.hidden = !pvLyricsAuxEl.textContent;
   } else {
+    pvLyricsNumEl.hidden = true;
     pvLyricsLineEl.textContent = slide.text || '';
     pvLyricsAuxEl.textContent = slide.auxText || '';
     pvLyricsAuxEl.hidden = !slide.auxText;
   }
   // Trecho sem letra (solo, introdução, instrumental): a moldura esmaece e
   // some, deixando só a imagem de fundo — mesmo comportamento do telão.
-  pvLyricsContentEl.classList.toggle('nolyric', !pvLyricsLineEl.textContent.trim() && pvLyricsAuxEl.hidden);
+  pvLyricsContentEl.classList.toggle('nolyric',
+    !pvLyricsLineEl.textContent.trim() && pvLyricsAuxEl.hidden && pvLyricsNumEl.hidden);
   pvFadeIn(pvLyricsLineEl);
+  if (!pvLyricsNumEl.hidden) pvFadeIn(pvLyricsNumEl);
   if (!pvLyricsAuxEl.hidden) pvFadeIn(pvLyricsAuxEl);
 
   applyPvLyricsImage(slide);
@@ -8935,7 +8947,18 @@ async function ensureSongVariant(coll, s, fileKey, urlPath, variantLabel, meta, 
   if (s[semFonte]) delete s[semFonte];
   const existingId = s[fileKey];
   const existingRec = existingId ? await AVDB.fileGet(existingId) : null;
-  if (existingRec && existingRec.lyrics !== undefined) return; // já completo
+  if (existingRec && existingRec.lyrics !== undefined) {
+    // JÁ COMPLETO — mas pode ser anterior ao `hymnAlbum` (v5.218). Sem este
+    // preenchimento, a linha do álbum só apareceria em música baixada DEPOIS
+    // desta versão: a biblioteca que o operador já tem — que é justamente a
+    // que ele usa — ficaria sem ela para sempre. Uma escrita por registro, na
+    // varredura que a sincronização já faz, e nunca mais.
+    if (!existingRec.hymnAlbum && coll.name) {
+      existingRec.hymnAlbum = coll.name;
+      await AVDB.fileAdd(existingRec);
+    }
+    return;
+  }
 
   const lyrics = await buildLyricSlides(meta, timeField, resolveImage);
 
@@ -8943,6 +8966,7 @@ async function ensureSongVariant(coll, s, fileKey, urlPath, variantLabel, meta, 
     existingRec.lyrics = lyrics;
     existingRec.hymnName = s.name;
     existingRec.hymnTrack = s.track;
+    existingRec.hymnAlbum = coll.name || '';
     await AVDB.fileAdd(existingRec);
     invalidateLyricIndex();   // letra nova no aparelho: a busca precisa vê-la
     return;
@@ -8975,6 +8999,14 @@ async function downloadCollectionFile(coll, s, urlPath, variantLabel, thumb, lyr
     // nenhuma (nenhum deles tem acesso a ela — o Display, em especial, só
     // recebe o registro do arquivo).
     hymnName: s.name, hymnTrack: collNumbersSongs(coll) ? s.track : null,
+    // O ÁLBUM/COLEÇÃO de onde a música veio (v5.218) — a segunda linha do
+    // cartão de capa. É o único metadado de procedência que a fonte publica:
+    // o LouvorJA não tem campo de AUTOR (ver docs/FONTE-DE-DADOS-LOUVORJA.md),
+    // e o nome da coleção é o que o operador reconhece de qualquer jeito
+    // ("Hinário Adventista", "Vocal Livre"). Vai no REGISTRO, e não numa
+    // consulta na hora de projetar, porque quem projeta é o Display: ele só
+    // recebe o registro do arquivo e não tem acesso a coleção nenhuma.
+    hymnAlbum: coll.name || '',
     type: blob.type || 'audio/mpeg', kind: 'audio',
     size: blob.size, mtime: Date.now(), thumb, lyrics,
     blob: null, url: null, addedAt: Date.now(),
@@ -16293,6 +16325,7 @@ function telaSanearRec(it, token) {
   };
   if (it.hymnName) rec.hymnName = it.hymnName;
   if (it.hymnTrack) rec.hymnTrack = it.hymnTrack;
+  if (it.hymnAlbum) rec.hymnAlbum = it.hymnAlbum;
   if (Array.isArray(it.lyrics) && it.lyrics.length) {
     rec.lyrics = it.lyrics.map((sl) => ({
       time: sl.time, text: sl.text, auxText: sl.auxText,
