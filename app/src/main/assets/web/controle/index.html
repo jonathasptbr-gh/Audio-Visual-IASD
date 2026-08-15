@@ -832,7 +832,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.221</span>
+        <span id="appVersion" class="app-version">Controle v5.222</span>
         <!-- O APK NOVO, quando existir. Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso. `hidden`
@@ -1152,6 +1152,9 @@
   <script src="../shared/stage.js"></script>
   <script src="louvorja.js"></script>
   <script src="bible.js"></script>
+  <!-- ANTES do controle.js: `allCollections()` é alcançado durante a carga do
+       módulo (pelo `setAppMode` do fim do arquivo) e pergunta por `AVSerie`. -->
+  <script src="serie.js"></script>
   <script src="controle.js"></script>
 </body>
 </html>

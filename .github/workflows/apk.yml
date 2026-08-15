@@ -115,6 +115,15 @@ jobs:
           # como "travando e dessincronizando", nunca como uma exceção.
           # Determinístico, sem navegador: entra aqui, sem `continue-on-error`.
           node tools/sombra.test.mjs
+          # A REGRA DA SÉRIE: quais playlists do canal formam o álbum "Provai e
+          # Vede 2026" e quais vídeos entram nele. Os dois modos de errar são
+          # silenciosos e caros — aceitar demais põe a versão em LIBRAS em par
+          # com a de português (o álbum dobra, com o intérprete na projeção sem
+          # ninguém ter pedido), e aceitar de menos apaga um MÊS inteiro da
+          # Biblioteca sem erro no console. As entradas do teste são VERBATIM do
+          # canal, incluindo a playlist que não tem o hífen que todas as outras
+          # têm. Node puro, sem rede: sem `continue-on-error`.
+          node tools/serie.test.mjs
 
       - name: Tokens de CSS que não existem (Node puro)
         run: |
