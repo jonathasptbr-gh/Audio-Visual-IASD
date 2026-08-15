@@ -2411,10 +2411,57 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.225** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
+**Versão atual: v5.226** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.226: LIGAR A TRANSMISSÃO DEIXA DE SER UM SALTO — a folha cresce, e só
+> então o conteúdo entra. OTA PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> Relato do operador: *"tanto para ligar quanto para desligar a transmissão, há
+> adição ou subtração de conteúdo nesse popup, isso move os elementos
+> irregularmente… os elementos surgem do nada e as coisas mudam de lugar,
+> atrapalhando o foco e identificação dos elementos"*.
+>
+> Ele está descrevendo um `hidden`. O endereço e a lista de telas apareciam e
+> sumiam num quadro, e com eles a altura da folha inteira — o que estava sob o
+> polegar mudava de lugar sem aviso.
+>
+> **A encenação é assimétrica de propósito, e é ela que responde ao pedido:**
+> abrindo, a linha cresce JÁ e o conteúdo entra 0,2 s depois (o espaço nasce
+> antes do que vai ocupá-lo); fechando, o conteúdo sai JÁ e a folha se recolhe
+> 0,14 s atrás dele (nada desaparece por baixo de uma borda em movimento).
+> Medido, quadro a quadro: abrindo, o bloco vai de 24 a 101 px enquanto a
+> opacidade do conteúdo é ZERO, e só aos ~250 ms — com o espaço já pronto — ele
+> aparece (0,46 → 1). Fechando, o espelho exato: opacidade a 0 nos primeiros
+> 155 ms com o bloco ainda em 109 px, e o recolhimento depois.
+>
+> A altura é animada por `grid-template-rows: 0fr → 1fr`, que é a única forma de
+> transicionar até `auto` **sem medir nada em JS** — daí a casca de dentro
+> (`.cast-live-in`), que precisa de `min-height: 0` e `overflow: hidden` para
+> aceitar encolher. `visibility` fecha o que a opacidade não fecha: recolhido, o
+> bloco ainda teria os botões "Desconectar" no caminho do foco.
+>
+> **E a LISTA passou a ser um diff por rótulo** — sem isso nada disso valeria. Ela
+> era refeita por inteiro (`innerHTML = ''`) a cada leitura do estado, e o estado
+> é lido de 2,5 em 2,5 segundos com a folha aberta: qualquer animação de entrada
+> recomeçaria sozinha para sempre, e o botão "Desconectar" era recriado debaixo
+> do dedo de quem o estava tocando, perdendo o `disabled` que o toque acabara de
+> escrever. Agora uma tela nova entra com a animação, uma que saiu se recolhe
+> antes de deixar o documento, e as demais só têm o texto atualizado no lugar.
+>
+> Os oráculos se dividem pela natureza: o `smoke.mjs` mede a FORMA (o bloco vale
+> zero recolhido, tem altura aberto, e o que muda entre os dois é uma
+> propriedade ANIMÁVEL — um `display: none` de volta continuaria dando zero e
+> mataria a transição, então a asserção pergunta pela propriedade também), e o
+> `boot-nativo.test.mjs` mede o COMPORTAMENTO da lista, que só existe com a
+> ponte presente.
+>
+> **A primeira versão do caso do `smoke` reprovou**, e a leitura certa não era
+> "o teste está errado": ele media a altura no MESMO turno em que ligava a
+> classe, e a altura é animada — o quadro inicial é zero por definição. A espera
+> que ele ganhou é, ela própria, a afirmação de que a animação existe.
 
 > **A v5.225: A LEITURA DA LETRA TINHA A HIERARQUIA INVERTIDA — duas estrofes
 > mais juntas que o miolo de uma. OTA PURO** (nenhuma linha de Kotlin; sem

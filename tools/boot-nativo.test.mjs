@@ -359,6 +359,42 @@ try {
     'LIGADA, o botão da transmissão veste o estado e passa a nomear o desligamento ("'
     + redeOn.rotulo + '")');
   checar(redeOn.semTrilho, 'e não sobrou interruptor nenhum na folha de conexão');
+
+  // ---- LIGAR E DESLIGAR NÃO É UM SALTO (v5.226) --------------------------
+  //
+  // O relato: "há adição ou subtração de conteúdo nesse popup, isso move os
+  // elementos irregularmente... os elementos surgem do nada e as coisas mudam
+  // de lugar". Duas metades, e as duas se medem sem olhar para um pixel.
+  //
+  // 1. O BLOCO DO ENDEREÇO abre por CLASSE e não por `hidden` — é isso que
+  //    permite animar a altura. Um `hidden` de volta aqui é o salto de volta.
+  // 2. A LISTA REAPROVEITA as linhas. Ela era refeita por inteiro a cada
+  //    leitura do estado, e o estado é lido de 2,5 em 2,5 s: qualquer animação
+  //    de entrada recomeçaria sozinha para sempre, e o botão "Desconectar" era
+  //    recriado debaixo do dedo de quem o estava tocando.
+  const anim = await pg2.evaluate(() => {
+    const bloco = document.getElementById('castLive');
+    const ul = document.getElementById('castTelas');
+    const out = { porClasse: bloco.classList.contains('aberto') && !bloco.hidden,
+      temCasca: !!bloco.querySelector('.cast-live-in') };
+    const primeiro = ul.children[0];
+    if (primeiro) primeiro.dataset.marca = 'x';
+    renderCastTelas([{ rotulo: 'tela A', conectadaMs: 95000, pronta: true }]);
+    out.mesmaLinha = !!ul.children[0] && ul.children[0].dataset.marca === 'x';
+    renderCastTelas([{ rotulo: 'tela A' }, { rotulo: 'tela B' }]);
+    const nova = Array.from(ul.children).find((li) => li.dataset.chave === 'tela B');
+    out.entrou = !!nova && nova.classList.contains('entrando');
+    renderCastTelas([{ rotulo: 'tela B' }]);
+    const velha = Array.from(ul.children).find((li) => li.dataset.chave === '');
+    out.saiu = !!velha && velha.classList.contains('saindo');
+    return out;
+  });
+  checar(anim.porClasse && anim.temCasca,
+    'o bloco do endereço abre por CLASSE (é o que dá altura animável), não por `hidden`');
+  checar(anim.mesmaLinha,
+    'a lista REAPROVEITA a linha que já estava lá — a enquete não a recria a cada 2,5 s');
+  checar(anim.entrou, 'uma tela nova entra MARCADA para animar');
+  checar(anim.saiu, 'e uma que saiu se recolhe antes de ser removida do documento');
   checar(erros2.length === 0,
     'nenhum erro de console no percurso com a transmissão ligada'
     + (erros2.length ? ':\n        ' + erros2.join('\n        ') : ''));
