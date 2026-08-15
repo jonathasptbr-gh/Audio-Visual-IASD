@@ -209,7 +209,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.229';
+const WEB_VERSION = '5.230';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -6059,7 +6059,11 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
   // renderAcervoTotal) — é a ação de maior alcance da tela e estava rolando
   // junto com a lista, saindo de vista assim que se descia um pouco.
   if (!(opts && opts.semTotal)) {
-    const todas = allCollections().filter((c) => !isHymnalAlbum(c));
+    // A SÉRIE FICA DE FORA (v5.230): "Baixar toda a biblioteca" somaria ~52
+    // vídeos de ~300 MB a um botão que o operador aperta pensando em louvor. O
+    // contador dela também sai — um total que promete o que o botão não faz
+    // seria a pior das duas metades.
+    const todas = allCollections().filter((c) => !isHymnalAlbum(c) && !ehSerie(c));
     if (todas.length > 1) header('Toda a biblioteca', todas, true, { confirmScale: true });
   }
 
@@ -6234,7 +6238,13 @@ function renderCollectionCard(coll, ctx) {
       alternarAcordeao();
     });
     bar.appendChild(cfg);
-  } else if (u.syncBusy || !complete) {
+  } else if ((u.syncBusy || !complete) && !(ehSerie(coll) && total > 0)) {
+    // **A SÉRIE NÃO BAIXA EM LOTE** (v5.230). São ~52 vídeos de ~300 MB — o
+    // "download direto" que o operador pediu para não existir, na maior escala
+    // que este app tem. Quem quiser um episódio offline o manda ao Cronograma
+    // ou aos Favoritos pela folha, que é o caminho do YouTube. O botão continua
+    // aparecendo enquanto NÃO há índice (`total === 0`): ali ele não baixa
+    // nada, ele busca a lista — que é justamente o que falta na tela.
     const dl = document.createElement('button');
     dl.className = 'coll-bar-dl' + (u.syncBusy ? ' busy' : '');
     dl.title = u.syncBusy ? 'Cancelar o download'
@@ -6562,10 +6572,15 @@ function buildCollectionOptions(coll, collOptsEl) {
   // baixar" era a mesma frase para os dois casos opostos: com o álbum inteiro
   // no aparelho não há o que baixar — só conferir se o catálogo mudou —, e com
   // ele vazio "atualizar" não descreve nada do que vai acontecer.
+  // Numa SÉRIE o rótulo é sempre "Atualizar a lista" (v5.230): o toque só
+  // busca as playlists do canal — os episódios são baixados um a um, pela
+  // folha, como um vídeo do YouTube. Prometer "Baixar" aqui seria oferecer
+  // ~15 GB atrás de uma palavra de três sílabas.
   syncBtn.appendChild(document.createTextNode(
-    u.syncBusy ? 'Cancelar' : (complete ? 'Verificar atualizações' : 'Baixar'),
+    u.syncBusy ? 'Cancelar'
+      : (ehSerie(coll) ? 'Atualizar a lista' : (complete ? 'Verificar atualizações' : 'Baixar')),
   ));
-  syncBtn.addEventListener('click', () => syncCollection(coll));
+  syncBtn.addEventListener('click', () => syncCollection(coll, ehSerie(coll) ? { soIndice: true } : undefined));
   acoes.appendChild(syncBtn);
 
   if (downloaded > 0 || total > 0) {
@@ -8969,6 +8984,14 @@ async function syncCollection(coll, opts) {
       setCollStatus(coll.id, 'Sem internet — falha ao atualizar', 5000);
       return { ok: false, baixados: 0, falhou: 0 };
     }
+    // SÓ O ÍNDICE (v5.230) — é o que o botão de uma SÉRIE faz. A lista chegou,
+    // e é só ela que foi pedida: os episódios são baixados um a um, pela folha
+    // de destinos, como um vídeo do YouTube. Cair no laço abaixo aqui seria
+    // exatamente o "download direto" que este lote existe para tirar.
+    if (opts && opts.soIndice) {
+      setCollStatus(coll.id, 'Lista atualizada', 4000);
+      return { ok: true, baixados: 0, falhou: 0 };
+    }
     const songs = collSongs(coll.id);
 
     const pending = [];
@@ -10141,7 +10164,11 @@ function openYtMenu(r) {
   // Só aparece com shell ≥ 23 (`ytFetchAudio` na ponte). Num anterior o botão
   // não faria nada, e botão que não faz nada no meio de um culto é pior que
   // botão nenhum — mesma regra do botão de busca no YouTube.
-  if (window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= 23) {
+  //
+  // **E ele NÃO existe para um episódio de série** (`semSoAudio`, v5.230): um
+  // testemunho em vídeo não tem versão de áudio que faça sentido projetar, e
+  // uma escolha que não muda nada é pior que escolha nenhuma.
+  if (window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= 23 && !r.semSoAudio) {
     songMenuListEl.appendChild(ytSegRow(
       [[false, 'Vídeo'], [true, 'Só áudio']],
       !!songMenuFor.audio,
@@ -10986,7 +11013,35 @@ function destUniao(chave) {
   return ordem.concat([...alvo].filter((c) => !ordem.includes(c)));
 }
 
+/**
+ * UM EPISÓDIO DE SÉRIE É UM VÍDEO DO YOUTUBE, e a folha dele é a mesma (v5.230).
+ *
+ * Pedido do operador: *"o tratamento que deve ter os itens da lista do provai e
+ * vede, e suas opções, devem ser o mesmo dos vídeos do YouTube (sem a opção de
+ * apenas áudio). no caso eu não quero um download direto, e também quero a opção
+ * de tocar diretamente em stream pelo link sem o download"*.
+ *
+ * A v5.228 tratou a série como uma coleção do LouvorJA porque é dali que a
+ * casca do card veio — e naquele mundo o toque BAIXA (uma faixa de hinário são
+ * poucos MB e o acervo existe para ficar offline). Aqui a premissa não vale: são
+ * ~300 MB por episódio, e o vídeo do sábado é visto uma vez. Quem já resolvia
+ * isso é o caminho do YouTube, com a TRANSMISSÃO DIRETA no "Tocar agora" e o
+ * download só nos destinos que GUARDAM.
+ *
+ * `semSoAudio` é a única diferença: o seletor Vídeo × Só áudio some. Um
+ * testemunho em vídeo não tem versão de áudio que faça sentido projetar, e uma
+ * escolha que não muda nada é pior que escolha nenhuma.
+ */
+function serieComoYoutube(coll, s) {
+  return { id: s.id_music, url: s.ytUrl, name: s.name, semSoAudio: true };
+}
+function ehSerie(coll) { return !!coll && coll.kind === 'serie'; }
+
 function openSongMenu(coll, s, modo) {
+  // A série desvia para a folha do YouTube ANTES de qualquer coisa: o resto
+  // desta função monta o seletor Cantada/Playback e as ações que baixam, que
+  // são exatamente o que não se aplica aqui.
+  if (ehSerie(coll)) { openYtMenu(serieComoYoutube(coll, s)); return; }
   destLimpar();
   songMenuFor = { coll, s, variant: 'full' };
   songMenuTitleEl.textContent = songLabel(coll, s);
@@ -11394,6 +11449,12 @@ async function resolveSongMediaId(coll, s, variant) {
 // respondeu "baixar" já disse como quer que o app se comporte, e repetir a
 // pergunta a cada música viraria ruído no meio do culto.
 async function simplePlaySong(coll, s) {
+  // NO MODO FÁCIL A SÉRIE TAMBÉM TRANSMITE (v5.230), e aqui isso vale ainda
+  // mais: este modo existe para não perguntar nada, e a alternativa seria o
+  // operador esperar ~300 MB de download com o culto rodando. `ytAcao` com
+  // "tocar" e nenhum destino de guarda é exatamente o caminho da transmissão
+  // direta — e, falhando ela, o download de sempre, calado.
+  if (ehSerie(coll)) { await ytAcao(serieComoYoutube(coll, s), ['tocar'], null, false, 0); return; }
   const { needsFull } = await songVariantsNeeded(coll, s);
   if (needsFull && !(await ensureDownloadConsent())) return;
   playSongVariant(coll, s, 'full');

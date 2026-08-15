@@ -172,6 +172,41 @@ checar(S.dataDoVideo('x | y 2026 (32/Ago)') === null, 'dia impossível não é a
 checar(S.dataDoVideo('x | y 2026 (15/Xyz)') === null, 'mês inexistente não é aceito');
 checar(S.dataDoVideo('sem parênteses nenhum') === null, 'sem data devolve null (e não uma data inventada)');
 
+// ── 5b. A data POR EXTENSO — o MESMO canal usa as duas formas ───────────────
+// [print] O episódio de 03/Jan/2026 saiu em DUAS versões, e cada uma escreve a
+// data de um jeito: a de Libras usa "(03/Jan)" e a de PORTUGUÊS usa
+// "sábado 3 janeiro". Foi assim que ele chegou à lista sem data, no fim de
+// janeiro, fora de ordem — o relato do operador, palavra por palavra.
+const TIT_EXT = 'Não há órfãos de Deus | Provai e Vede 2026 sábado 3 janeiro';
+checar(JSON.stringify(S.dataDoVideo(TIT_EXT)) === '{"dia":3,"mes":1}',
+  '[print] "sábado 3 janeiro" → 3 de janeiro', JSON.stringify(S.dataDoVideo(TIT_EXT)));
+checar(S.tituloDoEpisodio(TIT_EXT) === 'Não há órfãos de Deus',
+  '[print] e o título continua sendo o que vem antes da barra', S.tituloDoEpisodio(TIT_EXT));
+checar(JSON.stringify(S.dataDoVideo('x | Provai e Vede 2026 (03/Jan) - Libras')) === '{"dia":3,"mes":1}',
+  '[print] e a versão em Libras do MESMO episódio usa a forma compacta');
+
+checar(JSON.stringify(S.dataDoVideo('x | y 2026 3 de janeiro')) === '{"dia":3,"mes":1}', '"3 de janeiro" com o "de"');
+checar(JSON.stringify(S.dataDoVideo('x | y 2026 1º de fevereiro')) === '{"dia":1,"mes":2}', 'o ordinal "1º" é consumido');
+checar(JSON.stringify(S.dataDoVideo('x | y 2026 sabado 28 marco')) === '{"dia":28,"mes":3}', 'sem acento, como o canal às vezes escreve');
+checar(JSON.stringify(S.dataDoVideo('x | y sábado 7 mar')) === '{"dia":7,"mes":3}', 'e a abreviação de três letras por extenso');
+
+// A forma por extenso NÃO pode inventar data onde não há.
+checar(S.dataDoVideo('Provai e Vede 2026') === null, 'só o ano não é data — "2026" não vira dia de mês nenhum');
+checar(S.dataDoVideo('Especial de 3 partes | Provai e Vede') === null, '"3 partes" não é uma data');
+checar(S.dataDoVideo('O sonho de 3 marcos | Provai e Vede') === null, '"3 marcos" é nome próprio, não 3 de março');
+checar(S.dataDoVideo('x | y 2026 sábado 32 janeiro') === null, 'dia impossível continua recusado na forma extensa');
+
+// E a ORDEM, que é o que o operador perdeu: com a data lida, o episódio de
+// janeiro volta para o lugar dele em vez de ir para o fim do mês.
+const jan = S.ordenarItens(S.itensDaPlaylist([
+  { id: 'j2', url: 'y/j2', name: 'Segundo | Provai e Vede 2026 (10/Jan)', seconds: 300 },
+  { id: 'j1', url: 'y/j1', name: TIT_EXT, seconds: 306 },
+], 1, SERIE));
+checar(jan.map((i) => i.dia).join(',') === '3,10',
+  'o episódio com data por extenso ORDENA junto com os outros', JSON.stringify(jan.map((i) => i.dia)));
+checar(S.nomeDoItem(jan[0]) === '03/Jan · Não há órfãos de Deus',
+  'e ganha o MESMO identificador de data dos outros', S.nomeDoItem(jan[0]));
+
 // ── 6. O marcador de Libras nas duas formas, isolado ─────────────────────────
 checar(S.ehLibras('Provai e Vede - Julho 2026 (Libras)'), 'ARMADILHA 3a: "(Libras)" é detectado');
 checar(S.ehLibras('Match point | Provai e Vede 2026 (01/Ago) - Libras'), 'ARMADILHA 3b: "- Libras" é detectado');

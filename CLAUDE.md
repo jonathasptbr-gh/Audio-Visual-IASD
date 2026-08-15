@@ -1650,7 +1650,7 @@ que a regra tira a data e a marca de Libras. Quem decide é o lado web, e a raz�
 chega por OTA em minutos, com oráculo em Node — em Kotlin custaria um degrau de
 `SHELL_VERSION` e uma Release por vírgula.
 
-### A regra, e as cinco armadilhas que ela carrega
+### A regra, e as seis armadilhas que ela carrega
 
 Nenhuma é hipótese: todas foram lidas nas abas Playlists e Vídeos do canal.
 
@@ -1666,6 +1666,19 @@ Nenhuma é hipótese: todas foram lidas nas abas Playlists e Vídeos do canal.
 4. **A duração não separa nada:** 4:54 × 4:55 num par, 5:07 × 5:07 noutro.
 5. **O `uploaderName` não é o canal:** os vídeos vêm como "Provai e Vede |
    Oficial **e Adventist…**" (colaboração). Filtrar por ele derrubaria tudo.
+6. **A DATA tem DUAS formas, e o mesmo episódio usa as duas** (v5.230). A
+   compacta entre parênteses — "… 2026 (03/Jan)" — e a **por extenso**: "Não há
+   órfãos de Deus | Provai e Vede 2026 **sábado 3 janeiro**". No dia 3 de
+   janeiro de 2026 a versão em Libras saiu na primeira e a de português na
+   segunda. `dataDoVideo` tenta as duas, nessa ordem; a extensa aceita o "de"
+   opcional e o ordinal ("1º"), e exige que o nome **seja** um mês em vez de só
+   começar como um — sem essa última guarda, "3 marcos" viraria 3 de março.
+
+O que a sexta ensina não é "existem duas formas": é que **supor UMA forma era a
+aposta errada desde o começo**, e é justamente por a regra de ouro deste arquivo
+já valer (o título é só rótulo) que o episódio entrou no álbum mesmo assim. O
+preço de errar a data é o que o operador relatou — um item sem identificador de
+data, fora de ordem, no fim de janeiro —, não um episódio ausente.
 
 ### As decisões que precisam estar ditas
 
@@ -1707,20 +1720,34 @@ Nenhuma é hipótese: todas foram lidas nas abas Playlists e Vídeos do canal.
   `getMoreItems(service, …)`, que monta um extrator novo por dentro e nasceria
   sem o `forceLocalization`: os meses do fim da lista voltariam em inglês
   enquanto os do começo vêm em português.
-- **O download não passa pelo `ytBaixarNativo`.** Aquele é o caminho AVULSO —
-  abre tarefa própria na notificação, desenha cartão na preview e registra
-  intenção de resgate. Aqui quem já é dono disso é o `syncCollection`, e
-  empilhar uma segunda tarefa por episódio faria a notificação disputar consigo
-  mesma a cada um dos 52.
+- **UM EPISÓDIO É UM VÍDEO DO YOUTUBE, e a folha dele é a mesma** (v5.230,
+  pedido do operador). A v5.228 tratou a série como coleção do LouvorJA porque
+  é dali que a casca do card veio — e **naquele mundo o toque BAIXA**, o que é
+  certo para uma faixa de hinário de poucos MB que existe para ficar offline.
+  Aqui a premissa não vale: são ~300 MB por episódio e o vídeo do sábado é visto
+  uma vez. `openSongMenu` desvia para `openYtMenu` antes de qualquer coisa, e
+  com isso o episódio ganha de graça a **transmissão direta** no "Tocar agora" e
+  o download só nos destinos que GUARDAM (playlist · Cronograma · Favoritos).
+  A única diferença é `semSoAudio`: o seletor Vídeo × Só áudio some, porque um
+  testemunho em vídeo não tem versão de áudio que faça sentido projetar — e uma
+  escolha que não muda nada é pior que escolha nenhuma.
+- **O card não baixa em lote, e o botão dele muda de verbo.** "Baixar" ali seria
+  o download direto que o operador pediu para não existir, na maior escala que
+  este app tem (~15 GB). O botão da barra some assim que HÁ índice — enquanto
+  não há ele fica, porque ali ele não baixa nada, busca a lista —, o item de
+  opções vira **"Atualizar a lista"** (`syncCollection(coll, { soIndice: true })`,
+  que devolve logo depois do índice) e a série sai de "Baixar toda a
+  biblioteca", peso incluído: um total que promete o que o botão não faz é a
+  pior das duas metades.
 - **O card não é desenhado abaixo do shell 41**, pela regra de sempre: um método
   novo não chega por OTA, e um card que não carrega nada é pior que card nenhum.
 
 ### O tamanho, dito em vez de escondido
 
-São ~52 episódios de ~5 min por ano. Baixar tudo em 1080p passa de vários GB —
-o card oferece o download do álbum inteiro, mas o uso normal é tocar o episódio
-do sábado, que baixa sozinho no toque. A transmissão direta continua valendo
-para quem não quer guardar.
+São ~52 episódios de ~5 min por ano, ~300 MB cada em 1080p: o ano inteiro passa
+de 15 GB. É por isso que **não existe "baixar o álbum"** aqui — o uso normal é
+tocar o episódio do sábado, que TRANSMITE sem baixar nada, e guardar um episódio
+offline é mandá-lo ao Cronograma ou aos Favoritos pela folha, um a um.
 
 ---
 
@@ -1901,7 +1928,7 @@ contextos.
 | Resolução do download | — | **até 1080p, montando as duas faixas** (v1.44; pares por contêiner na v1.45). Acima de 720p o YouTube só entrega vídeo SEM som, com o som à parte — e por isso o app baixava a pior cópia: só sabia pegar o progressivo, que neste aparelho é UM, de 360p. `MuxMp4.kt` junta as duas com o `MediaMuxer` da PLATAFORMA: é cópia de amostras, não recodificação, então não há perda nem espera. Teto de 1080p de propósito (o telão da igreja é 1080p) e só quando o resultado for melhor que o progressivo — senão dois downloads e um muxer entregariam o mesmo de antes. Os pares são do MESMO contêiner (mp4+m4a → MP4, webm+webm → WebM, este só na API 29+): "a melhor de cada lado" produziria VP9 dentro de MP4, que o muxer recusa depois de tudo baixado. Falhando qualquer etapa, o progressivo segue como piso. **Da v1.44 à v1.48 isso não saía do papel: as faixas eram listadas (1080p) e o CDN respondia 403 a todas** — com os dois pares, os dois perfis de UA e `Range`. Era o SABR, que o YouTube passou a exigir de quem pede sem PO Token. A saída não era montar o token (o `getWebClientPoToken` da biblioteca não tem uma única chamada em versão nenhuma, e o token do cliente Android — o que ela de fato consome — exige o DroidGuard do Play Services): foi **atualizar o extrator para a v0.26.4** (v1.49), que busca o cliente **visionOS** sem token nenhum e volta a entregar as adaptativas. Como as listas passaram a chegar MISTURADAS (visionOS + o cliente antigo), a escolha virou uma **fila de candidatos** — ver "O cliente visionOS destrava o 1080p" em `docs/ARQUITETURA-WEB.md`. **CONFIRMADO em aparelho:** `clientes VISIONOS 17, ANDROID 1 → juntou 1080p (mp4, 137@VISIONOS/V)`, sem uma única recusa na fila. Diagnóstico no rodapé de Configurações, agora com o itag, o cliente e o motivo de cada tentativa |
 | **Só o ÁUDIO** em "Tocar agora" | **não toca** | **TRANSMITIDO também** (v5.130): o manifesto do shell já traz o par, e o lado web simplesmente DESCARTA a faixa de vídeo (`man.video = null`) — nenhum método novo, nenhum byte de 1080p baixado para ser jogado fora, e por isso chega por OTA. Entra como `kind: 'audio'` (o telão mantém o wallpaper) e o fallback, se a transmissão morrer, baixa a MESMA forma. O download de um m4a é rápido, mas "rápido" não é o pedido: o pedido é não esperar |
 | **Só o ÁUDIO** guardado (playlist · Cronograma · Favoritos) | — | **`ytFetchAudio`** (v5.112, shell ≥ 23; **exige o APK v1.41+** — ver abaixo): a faixa de áudio, sem vídeo. A escolha é o MESMO seletor de Cantada/Playback das músicas, no topo da folha de destinos, e vale para as quatro ações. Entra como `kind: 'audio'` e **sem miniatura** — é o kind que faz o telão manter o wallpaper em vez de trocar de imagem. É também o único caminho em que o teto de 720p do progressivo não existe: o áudio do YouTube já vem em faixa separada, então aqui ele vem inteiro. **E é justamente por ser faixa separada que ele pode não vir**: adaptativo é o que o YouTube protegeu com SABR quando o app pedia sem PO Token. Daí a fila de tentativas do shell — que na v1.49 deixou de ser "m4a → qualquer outro → progressivo" e passou a ser **três candidatos de áudio na ordem do cliente que funciona** (visionOS primeiro), com o progressivo ainda no fim. **CONFIRMADO em aparelho:** `→ veio m4a 140@VISIONOS` (AAC-LC 128 kbps, primeiro candidato, primeira requisição) — até a v1.48 este caminho caía no vídeo de 360p inteiro. O registro entra como `kind: 'audio'` em todos os casos: quem decide que o telão não muda de imagem é o kind, não o container |
-| **Séries do YouTube na Biblioteca** | **não existe** — sem ponte não há como enumerar playlist nem baixar vídeo | **um álbum por SÉRIE** (v5.228/shell 41), e o primeiro é **Provai e Vede 2026**. O canal (`@provaievedeoficial`) é a ÚNICA constante: o app lê a **aba Playlists** dele (`ytCanalPlaylists`), aceita as que casam com "prefixo + ano" e **recusa as de LIBRAS**, expande cada uma (`ytPlaylist`) e ordena os episódios pela data do título — a faixa se chama "15/Ago · Quando o evangelho sussurra", porque o operador procura pelo sábado, não pelo nome do episódio. Daí para a frente é uma coleção como as outras: card na Biblioteca, download por item, "Completo offline", peso e o mesmo `syncCollection`. **A descoberta é pela ABA DO CANAL, nunca por busca de texto**: numa busca quem escolhe é o ranking do YouTube e qualquer pessoa pode nomear uma playlist "Provai e Vede 2026" — vindo do canal, o pior caso é uma playlist a menos, jamais o vídeo de um desconhecido na projeção. A regra vive em `controle/serie.js` (PURA) com oráculo em Node (`tools/serie.test.mjs`) e o percurso inteiro no `boot-nativo.test.mjs`. Ver "Séries do YouTube", abaixo |
+| **Séries do YouTube na Biblioteca** | **não existe** — sem ponte não há como enumerar playlist nem baixar vídeo | **um álbum por SÉRIE** (v5.228/shell 41), e o primeiro é **Provai e Vede 2026**. O canal (`@provaievedeoficial`) é a ÚNICA constante: o app lê a **aba Playlists** dele (`ytCanalPlaylists`), aceita as que casam com "prefixo + ano" e **recusa as de LIBRAS**, expande cada uma (`ytPlaylist`) e ordena os episódios pela data do título — a faixa se chama "15/Ago · Quando o evangelho sussurra", porque o operador procura pelo sábado, não pelo nome do episódio. O card fica no topo da Biblioteca, junto dos hinários — mas **o ITEM é um vídeo do YouTube, não uma faixa de hinário** (v5.230): o toque abre a MESMA folha do YouTube (sem "Só áudio"), o "Tocar agora" TRANSMITE sem baixar, e o download existe só nos destinos que guardam. Não há "baixar o álbum": são ~300 MB por episódio. **A descoberta é pela ABA DO CANAL, nunca por busca de texto**: numa busca quem escolhe é o ranking do YouTube e qualquer pessoa pode nomear uma playlist "Provai e Vede 2026" — vindo do canal, o pior caso é uma playlist a menos, jamais o vídeo de um desconhecido na projeção. A regra vive em `controle/serie.js` (PURA) com oráculo em Node (`tools/serie.test.mjs`) e o percurso inteiro no `boot-nativo.test.mjs`. Ver "Séries do YouTube", abaixo |
 | Buscar no YouTube | não existe: o botão abre o YouTube numa aba | **a busca acontece DENTRO do acervo** — a tela que o rótulo chama de **Biblioteca** desde a v5.96, e que no código segue sendo o acervo — (`AVNative.ytSearch`, `YoutubeGrab.pesquisar`, em **português** — no padrão en-GB da biblioteca o YouTube devolve o título TRADUZIDO de vídeos que são originalmente em português, e passar a localização ao `NewPipe.init` NÃO resolve: o serviço filtra o idioma por uma lista de suportados que hoje só tem `en-GB`. Quem resolve é o `forceLocalization` do próprio `Extractor`): os resultados entram na mesma lista e o toque abre a mesma folha de escolhas das músicas (tocar · playlist · Cronograma · Favoritos), cada uma indo para o seu lugar — e, desde a v5.141, para mais de um de uma vez, com um download só. Um iframe da página de resultados é recusado pelo `X-Frame-Options` do YouTube, e a API oficial exigiria chave com cota compartilhada pela frota |
 | Link para fora do app ("Pesquisar … no YouTube") | `window.open` numa aba nova | **`AVNative.openExternal(url)`** → `ACTION_VIEW` numa tarefa própria. O WebView RECUSA navegar para outro origin (invariante 2), então sem esse método um link externo não faz absolutamente nada — nem erro no console |
 | "Conectar a tela" (modo simplificado) | abre a tela do Display (`window.open`) — e é ela que conta como "conectado" | mesmo `AVNative.openCast()`, com o nome da tela conectada no subtítulo |
@@ -2542,10 +2569,74 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.229** (base web) · `SHELL_VERSION` **41**, e o bundle segue com
+**Versão atual: v5.230** (base web) · `SHELL_VERSION` **41**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.230: O EPISÓDIO DE SÉRIE VIRA UM VÍDEO DO YOUTUBE, e a DATA passa a
+> ter DUAS formas. OTA PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> Dois pedidos do operador, e os dois derrubam uma suposição da v5.228.
+>
+> **1. "O tratamento dos itens deve ser o mesmo dos vídeos do YouTube (sem a
+> opção de apenas áudio). Não quero um download direto, e quero a opção de tocar
+> diretamente em stream pelo link."**
+>
+> A v5.228 tratou a série como uma coleção do LouvorJA porque **é dali que a
+> casca do card veio** — e naquele mundo o toque BAIXA, o que está certo para
+> uma faixa de hinário: poucos MB, e o acervo existe justamente para ficar
+> offline. Herdar a casca herdou a premissa junto, e aqui ela é falsa por duas
+> ordens de grandeza: são ~300 MB por episódio, ~15 GB no ano, e o vídeo do
+> sábado é visto **uma vez**. O "Baixar" do card oferecia isso atrás de uma
+> palavra de três sílabas.
+>
+> **O caminho certo já existia inteiro, e era o do YouTube.** `openSongMenu`
+> desvia para `openYtMenu` antes de montar qualquer coisa, e com um desvio de
+> uma linha o episódio ganha a **transmissão direta** no "Tocar agora"
+> (`ytStream` → `shared/mse.js`, sem esperar byte nenhum), o download só nos
+> destinos que GUARDAM, o cancelamento, o resgate de intenção e o teto de
+> resolução. Nada disso foi reimplementado — o item foi levado até onde a
+> resposta mora. No **Modo Fácil** o mesmo, e ali vale ainda mais: aquele modo
+> existe para não perguntar nada, e a alternativa era o operador esperar 300 MB
+> com o culto rodando.
+>
+> A única coisa a MENOS é o seletor Vídeo × Só áudio (`semSoAudio`): um
+> testemunho em vídeo não tem versão de áudio que faça sentido projetar, e uma
+> escolha que não muda nada é pior que escolha nenhuma.
+>
+> **E o card acompanhou, senão a promessa contradiria a folha:** o botão de
+> baixar da barra some assim que há índice (sem índice ele fica, porque ali ele
+> não baixa nada — busca a lista), o item de opções virou **"Atualizar a
+> lista"** (`syncCollection` com `soIndice`, que volta logo depois do índice) e
+> a série saiu de "Baixar toda a biblioteca", com peso e tudo. Um contador que
+> promete o que o botão não faz é a pior das duas metades.
+>
+> **2. "Ele reconheceu o vídeo, mas o nomeou apenas como 'não há órfãos de
+> deus', sem identificar a data e nem sequer colocar um identificador no padrão
+> dos outros, deixando o vídeo fora de ordem."**
+>
+> A sexta armadilha da nomenclatura, e ela é a mais direta de todas: **o mesmo
+> canal usa DUAS formas de data, no MESMO episódio.** Em 3 de janeiro de 2026 a
+> versão em Libras saiu como "… 2026 (03/Jan) - Libras" e a de português como
+> "… 2026 **sábado 3 janeiro**". `dataDoVideo` tenta a compacta e, falhando ela,
+> a extensa — com o "de" opcional, o ordinal ("1º") consumido, e a guarda que
+> exige que o nome **seja** um mês em vez de só começar como um, sem a qual
+> "3 marcos" viraria 3 de março.
+>
+> **O que salvou o episódio foi a regra de ouro deste arquivo**: quem prova
+> pertencimento é a PLAYLIST, o título é só rótulo. Por isso o vídeo estava lá —
+> feio e fora de ordem, que é o erro recuperável — em vez de ausente, que é o
+> erro que o operador só descobre no sábado.
+>
+> Os dois oráculos foram verificados nos dois sentidos: o `serie.test.mjs`
+> reprova em **7 pontos** com o `dataDoVideo` anterior, e o `boot-nativo`
+> reprova a folha do YouTube e o card sem botão de baixar com o `controle.js`
+> anterior.
+>
+> A régua que fica: **herdar a casca de um recurso herda as premissas dele.** O
+> card veio do LouvorJA e trouxe junto "o toque baixa", que nunca foi uma
+> decisão sobre séries — era o padrão de um acervo cujos itens custam poucos MB.
 
 > **A v5.229: O CARD DA SÉRIE ERA CONSTRUÍDO E NUNCA DESENHADO. OTA PURO**
 > (nenhuma linha de Kotlin; sem Release).
