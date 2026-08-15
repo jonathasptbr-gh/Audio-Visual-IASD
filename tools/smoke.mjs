@@ -472,10 +472,43 @@ try {
       // Um cartão de verdade, para ver a superfície AFUNDADA em vigor.
       const cartao = document.querySelector('.fade-row');
       const sc = cartao ? getComputedStyle(cartao) : null;
+      // E O PALCO PINTADO, não só os tokens dele (v5.218).
+      //
+      // A versão anterior comparava QUATRO NOMES de token, e o defeito passou
+      // por baixo dela: os tokens do palco estavam certos, e as REGRAS do palco
+      // apontavam para tokens de TEMA (`--brand`, `--live-strong`, `--bg`,
+      // `--accent-glow`). No tema claro, o título do slide de capa da preview
+      // era desenhado em denim escuro sobre o preto — 2,73:1, ilegível, e foi
+      // assim que o operador o encontrou.
+      //
+      // Perguntar pela COR COMPUTADA de cada camada fecha a classe inteira: não
+      // importa por qual token ela chegou, ela tem de ser a mesma nos dois
+      // temas. As classes são as que o app de fato escreve (`cover`,
+      // `mode-chrono chrono-over`, `mode-draw draw-rolling`) e são desfeitas na
+      // mesma linha — o que se mede é a folha, não o estado da tela.
+      const cor = (sel) => getComputedStyle(document.querySelector(sel)).color;
+      const comClasse = (host, classes, sel) => {
+        const h = document.querySelector(host);
+        h.classList.add(...classes);
+        const c = cor(sel);
+        h.classList.remove(...classes);
+        return c;
+      };
+      const palcoPintado = [
+        comClasse('#pvLyricsContent', ['cover'], '#pvLyricsLine'),
+        comClasse('#pvLyricsContent', ['cover'], '#pvLyricsNum'),
+        comClasse('#pvLyricsContent', ['cover'], '#pvLyricsAux'),
+        cor('#pvLyricsLine'), cor('#pvLyricsAux'),
+        cor('#pvTextMain'), cor('#pvTextSub'),
+        comClasse('#pvTextContent', ['mode-chrono', 'chrono-over'], '#pvTextMain'),
+        comClasse('#pvTextContent', ['mode-draw', 'draw-rolling'], '#pvTextMain'),
+        getComputedStyle(document.querySelector('.pv-lyrics-bg')).backgroundColor,
+      ].join(' · ');
       return {
         bg: v('--bg'), texto: v('--text'), accent: v('--accent'), fill: v('--accent-fill'),
         palco: v('--stage-bg') + '|' + v('--stage-text') + '|' + v('--wallpaper')
           + '|' + v('--lyrics-frame-bg'),
+        palcoPintado,
         superficie: v('--surface'),
         afundada: sc ? sc.getPropertyValue('--surface').trim() : '',
         barra: meta ? meta.getAttribute('content') : '',
@@ -491,6 +524,9 @@ try {
   checar(tema.escuro.palco === tema.claro.palco,
     'e NÃO troca uma vírgula do palco — a preview continua espelhando o telão',
     tema.claro.palco);
+  checar(tema.escuro.palcoPintado === tema.claro.palcoPintado,
+    'nem uma vírgula do que o palco PINTA — nenhuma camada dele lê um token de tema',
+    'escuro: ' + tema.escuro.palcoPintado + '\n        claro:  ' + tema.claro.palcoPintado);
   checar(tema.escuro.superficie !== tema.escuro.afundada
     && tema.claro.superficie !== tema.claro.afundada,
     'a superfície afunda dentro do cartão NOS DOIS temas'

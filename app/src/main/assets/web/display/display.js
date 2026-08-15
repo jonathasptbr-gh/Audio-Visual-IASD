@@ -6,6 +6,7 @@ const lyricsImgEl = document.getElementById('lyricsImg');
 const lyricsContentEl = document.getElementById('lyricsContent');
 const lyricsLineEl = document.getElementById('lyricsLine');
 const lyricsAuxEl = document.getElementById('lyricsAux');
+const lyricsNumEl = document.getElementById('lyricsNum');
 const textEl = document.getElementById('text');
 const textContentEl = document.getElementById('textContent');
 const textMainEl = document.getElementById('textMain');
@@ -206,7 +207,7 @@ if (TELA) window.__telaSom = (on) => stage.setForceMuted(!on);
 // #lyrics vive no mesmo z-index dos demais layers de mídia, então a cortina
 // do wallpaper (z-index maior, já existente) cobre/revela-o de graça.
 let currentLyrics = null; // array de slides do item atual, ou null (sem letra)
-let currentLyricsMeta = null; // { hymnName, hymnTrack } do item atual — persistido à parte
+let currentLyricsMeta = null; // { hymnName, hymnTrack, hymnAlbum } do item atual — persistido à parte
                                // (não só passado ao showLyrics) pra o slide de capa mostrar o
                                // título certo mesmo quando renderizado de novo pelo tick de
                                // tempo (ex: operador volta pra estrofe 0 depois de já ter
@@ -279,7 +280,7 @@ function showLyrics(rec) {
   // reaparecer, deixando-a sobre preto até a próxima troca de estrofe.
   clearTimeout(lyricTeardownTimer);
   currentLyrics = rec.lyrics;
-  currentLyricsMeta = { hymnName: rec.hymnName, hymnTrack: rec.hymnTrack };
+  currentLyricsMeta = { hymnName: rec.hymnName, hymnTrack: rec.hymnTrack, hymnAlbum: rec.hymnAlbum };
   lyricSlideIdx = -1;
   fadeLayerIn(lyricsEl);
   renderLyricSlide(0);
@@ -299,11 +300,25 @@ function renderLyricSlide(idx) {
 
   lyricsContentEl.classList.toggle('cover', !!slide.cover);
   if (slide.cover) {
+    // A CAPA É UM CARTÃO DE ABERTURA, não uma estrofe com outra cor (v5.218).
+    // Três peças em vez de uma frase: o número (que vinha colado na frente do
+    // título, gastando a largura da linha que mais precisa dela), o TÍTULO
+    // sozinho, e o álbum de onde a música veio.
+    //
+    // Cada peça só existe se houver o dado — um registro importado à mão não
+    // tem número nem álbum, e a capa dele volta a ser o título centralizado,
+    // que é a capa de sempre. **Não há campo de AUTOR na fonte** (o LouvorJA
+    // publica nome, faixa e álbuns; ver docs/FONTE-DE-DADOS-LOUVORJA.md), e
+    // inventar um seria pior que a ausência: uma linha vazia na frente da
+    // congregação.
     const meta = currentLyricsMeta || {};
-    const title = (meta.hymnTrack ? meta.hymnTrack + '. ' : '') + (meta.hymnName || '');
-    lyricsLineEl.textContent = title;
-    lyricsAuxEl.hidden = true;
+    lyricsNumEl.textContent = meta.hymnTrack ? String(meta.hymnTrack) : '';
+    lyricsNumEl.hidden = !lyricsNumEl.textContent;
+    lyricsLineEl.textContent = meta.hymnName || '';
+    lyricsAuxEl.textContent = meta.hymnAlbum || '';
+    lyricsAuxEl.hidden = !lyricsAuxEl.textContent;
   } else {
+    lyricsNumEl.hidden = true;
     lyricsLineEl.textContent = slide.text || '';
     lyricsAuxEl.textContent = slide.auxText || '';
     lyricsAuxEl.hidden = !slide.auxText;
@@ -311,7 +326,8 @@ function renderLyricSlide(idx) {
   // Trecho sem letra (solo, introdução, instrumental): a moldura esmaece e
   // some, deixando só a imagem de fundo — uma caixa escura vazia no meio da
   // tela não tem função nenhuma. Volta sozinha quando houver o que cantar.
-  lyricsContentEl.classList.toggle('nolyric', !lyricsLineEl.textContent.trim() && lyricsAuxEl.hidden);
+  lyricsContentEl.classList.toggle('nolyric',
+    !lyricsLineEl.textContent.trim() && lyricsAuxEl.hidden && lyricsNumEl.hidden);
   animateFadeIn(lyricsLineEl);
   if (!lyricsAuxEl.hidden) animateFadeIn(lyricsAuxEl);
 

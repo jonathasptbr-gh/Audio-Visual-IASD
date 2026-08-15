@@ -52,7 +52,17 @@
     <div class="lyrics-bg"><img id="lyricsImg" alt="" hidden></div>
     <div class="lyrics-content" id="lyricsContent">
       <div class="lyrics-box">
+        <!-- O NÚMERO DO HINO, só no slide de CAPA (v5.218). Ele vinha colado na
+             frente do título ("147. NOME"), gastando a largura da linha que
+             mais precisa dela e obrigando o olho a separar duas informações de
+             pesos diferentes dentro da mesma frase. Fora da capa o elemento não
+             existe em cena — `hidden`, escrito por `renderLyricSlide`. -->
+        <div class="lyrics-num" id="lyricsNum" hidden></div>
         <div class="lyrics-line" id="lyricsLine"></div>
+        <!-- Na capa esta MESMA linha carrega o álbum/coleção (ver
+             `.lyrics-content.cover .lyrics-aux`): reusá-la é um elemento a
+             menos e uma regra de fade a menos, e os dois papéis nunca estão em
+             cena ao mesmo tempo. -->
         <div class="lyrics-aux" id="lyricsAux" hidden></div>
       </div>
     </div>

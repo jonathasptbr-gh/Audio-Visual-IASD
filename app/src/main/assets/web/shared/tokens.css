@@ -112,6 +112,30 @@
   --stage-text-soft: rgba(255, 255, 255, .9);  /* marca sobre o wallpaper */
   --stage-text-dim: rgba(255, 255, 255, .72);  /* linha auxiliar da letra */
 
+  /* O ACENTO DO PALCO, e ele precisa existir aqui por um defeito medido
+     (v5.218).
+     ---------------------------------------------------------------------
+     O palco pintava seus acentos com `--brand`, `--live-strong`, `--bg` e
+     `--accent-glow` — quatro tokens do TEMA. No Display isso nunca doeu (ele
+     não escreve `data-tema`, então lê sempre o bloco escuro), mas a PREVIEW do
+     Controle roda no documento que TEM tema: com o tema CLARO ligado, o título
+     do slide de capa passava a ser desenhado com o denim oficial (#2F557F)
+     sobre o preto do palco — **2,73:1 medidos**, abaixo até do piso de 3:1 de
+     texto grande. Era o relato do operador ("os títulos estão em azul,
+     ilegíveis no fundo escuro"): o telão mostrava um azul claro e a preview,
+     no tema claro, mostrava um azul escuro.
+     É o mesmo erro que o cabeçalho deste arquivo descreve — "o palco não tem
+     tema" — cometido do lado de fora: os TOKENS do palco estavam certos, e as
+     REGRAS do palco apontavam para tokens de tema. Estes quatro fecham o
+     buraco, e a regra que fica é: **nada pintado no palco pode ler um token
+     redeclarado em `[data-tema]`.** `tools/smoke.mjs` mede isso pelo
+     RENDERIZADO (a cor computada de cada camada do palco, nos dois temas),
+     não pelo nome do token. */
+  --stage-accent: #8fb1f3;               /* = o --brand do tema escuro; 9,75:1 sobre o preto */
+  --stage-accent-glow: rgba(143, 177, 243, .32);
+  --stage-on-accent: #0e1215;            /* texto SOBRE o acento preenchido; 8,65:1 */
+  --stage-alert: #f97a7e;                /* timer estourado; 5,8:1 sobre o preto */
+
   /* wallpaper (cortina do telão) — a cor de BASE por baixo do desenho padrão.
      Desde a v5.188 o desenho é o SÍMBOLO OFICIAL da IASD sobre denim profundo
      (`shared/wallpaper-padrao.svg`, fonte única) — mas a URL dele NÃO pode

@@ -738,9 +738,52 @@ body {
   color: var(--stage-text-dim); font-weight: 600; font-size: 4.2cqmin; line-height: 1.25; white-space: pre-line;
   display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
 }
+/* O SLIDE DE CAPA, espelhando o Display regra a regra (ver o bloco grande em
+   display.css para o porquê de cada peça). As duas folhas são separadas de
+   propósito — a preview é uma miniatura dentro de um documento COM tema —, e é
+   por isso que aqui, mais do que lá, nenhuma cor pode vir de um token de tema:
+   era exatamente esta regra que pintava o título em denim escuro sobre o preto
+   quando o operador estava no tema claro. */
 .pv-lyrics-content.cover .pv-lyrics-line {
-  color: var(--brand); font-size: 9.5cqmin;
+  color: var(--stage-text); font-size: 8.4cqmin; font-weight: 800;
+  letter-spacing: .01em;
+  /* TRÊS linhas na capa (a estrofe segue com duas): um título de álbum passa
+     fácil de duas — "Cristo, o Senhor, Ressuscitou Hoje na Manhã Gloriosa" — e
+     cortá-lo com reticências no cartão que existe para ANUNCIAR a música é
+     perder justamente a informação. `min-height: 0` porque um item de flex não
+     encolhe abaixo do conteúdo por padrão, e sem isso o clamp não tem efeito
+     dentro da caixa. */
+  -webkit-line-clamp: 3; min-height: 0;
 }
+.pv-lyrics-num {
+  display: flex; align-items: center; justify-content: center; gap: 2cqmin;
+  align-self: stretch;
+  color: var(--stage-accent); font-weight: 800;
+  font-size: 4.4cqmin; line-height: 1.2; letter-spacing: .16em;
+  font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
+}
+.pv-lyrics-num::before, .pv-lyrics-num::after {
+  content: ""; height: .2cqmin; flex: 0 1 12cqmin; min-width: 0;
+  background: currentColor; opacity: .55;
+}
+.pv-lyrics-content.cover .pv-lyrics-aux {
+  color: var(--stage-text-dim); font-weight: 600; text-transform: uppercase;
+  font-size: 3.4cqmin; letter-spacing: .14em;
+}
+/* A CAIXA DA CAPA CRESCE COM O CONTEÚDO, e é a única do sistema que faz isso.
+   A altura fixa (32cqh) existe para a moldura não pular de tamanho entre uma
+   estrofe e a seguinte — mas na capa ela produzia o defeito oposto, e ele foi
+   fotografado: com o título em duas linhas, num + título + álbum somam mais que
+   a caixa, o flex encolhe os itens e a linha do álbum era desenhada POR CIMA da
+   segunda linha do título. Aqui não há "próximo slide" com que casar a altura
+   (a capa é a primeira coisa em cena), então a caixa se ajusta e o teto +
+   `overflow: hidden` seguem sendo a garantia final. */
+.pv-lyrics-content.cover .pv-lyrics-box {
+  height: auto; max-height: 60cqh; padding: 3.5cqh 4cqw; gap: 1.4cqh;
+}
+/* O número e o álbum não encolhem: quem absorve a falta de espaço é o título,
+   que é o único dos três que sabe se cortar (clamp). */
+.pv-lyrics-content.cover .pv-lyrics-aux, .pv-lyrics-num { flex-shrink: 0; }
 
 /* (SAIU NA v5.212: `.pv-yt-frame`, a camada do player do YouTube na preview.
    Ela renderizava o iframe a 400% e o encolhia por transform, para a UI do
@@ -2390,8 +2433,8 @@ main {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   transition: opacity .18s ease, color .18s ease;
 }
-/* Rolando: esmaecido e dourado, como no telão — o contraste com o valor final
-   é o que anuncia o resultado. */
+/* Rolando: esmaecido e no accent, como no telão — o contraste com o valor
+   final é o que anuncia o resultado. */
 .draw-read.rolling { opacity: .55; color: var(--brand); }
 .draw-range { display: flex; gap: .6rem; }
 /* `min-width: 0` nos DOIS níveis: o padrão de um item flex é `min-width: auto`,
@@ -2523,7 +2566,7 @@ main {
   color: var(--stage-text); font-weight: 500; font-size: 6.4cqmin; line-height: 1.34; white-space: pre-line;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 8; overflow: hidden;
 }
-.pv-text-sub { color: var(--brand); font-weight: 700; font-size: 4.6cqmin; line-height: 1.2; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.pv-text-sub { color: var(--stage-accent); font-weight: 700; font-size: 4.6cqmin; line-height: 1.2; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .pv-text-content.mode-message .pv-text-main { font-size: 7.4cqmin; -webkit-line-clamp: 7; font-weight: 600; }
 /* Cronômetro/relógio/timer — espelha .mode-chrono do Display (display.css),
    inclusive o `tabular-nums`, sem o qual o número treme a cada segundo. */
@@ -2540,9 +2583,9 @@ main {
    mudaria a preview sem mudar a projeção — e a preview existe para ESPELHAR o
    telão. É essa divergência silenciosa que a folha compartilhada foi criada
    para matar. */
-.pv-text-content.mode-chrono.chrono-over .pv-text-main { color: var(--live-strong); }
+.pv-text-content.mode-chrono.chrono-over .pv-text-main { color: var(--stage-alert); }
 /* Sorteio — espelha .mode-draw do Display (display.css), inclusive o estado
-   "rolando" (esmaecido/dourado até assentar). */
+   "rolando" (esmaecido, no acento do palco, até assentar). */
 .pv-text-content.mode-draw .pv-text-main {
   font-size: min(24cqmin, calc(86cqw / var(--ch, 8) / 0.66));
   font-weight: 800; line-height: 1.05; letter-spacing: .01em;
@@ -2550,7 +2593,7 @@ main {
   transition: opacity .18s ease, transform .18s cubic-bezier(.2,1.5,.4,1), color .18s ease;
 }
 .pv-text-content.mode-draw.draw-rolling .pv-text-main {
-  opacity: .55; transform: scale(.94); color: var(--brand);
+  opacity: .55; transform: scale(.94); color: var(--stage-accent);
 }
 .pv-text-sub:empty { display: none; }
 

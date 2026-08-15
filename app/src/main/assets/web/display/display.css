@@ -14,11 +14,20 @@
    era "sincronização manual" — e bastava um ajuste entrar só de um lado para o
    telão e a preview do Controle (que existe justamente para ESPELHAR o telão)
    passarem a mostrar coisas diferentes.
-   O Display usa daí, e só daí: `--brand` (marca), `--wallpaper` (a cortina),
-   `--lyrics-frame-bg` (a faixa da letra), os tokens `--stage-*` (o preto de
-   verdade e o branco pleno da projeção), `--live-strong` (o timer estourado),
-   `--bg` (o texto sobre o dourado da pílula) e `--accent-glow` (o halo dessa
-   mesma pílula). A lista existe para ser conferida: se ela e o
+   O Display usa daí, e só daí, os tokens do PALCO — e **só** eles, desde a
+   v5.218: `--stage-bg`/`--stage-text`/`--stage-text-dim` (o preto de verdade e
+   o branco pleno da projeção), `--wallpaper` (a cortina), `--lyrics-frame-bg`
+   (a faixa da letra), `--stage-accent` (o número da capa, a referência do
+   versículo, a pílula de entrada), `--stage-accent-glow` (o halo dela),
+   `--stage-on-accent` (o que se escreve por cima dela) e `--stage-alert` (o
+   timer estourado).
+   **Nenhum token de TEMA entra aqui, e a regra vale para as regras gêmeas da
+   preview em `controle.css`**: os quatro últimos existem porque esta folha
+   lia `--brand`, `--live-strong`, `--bg` e `--accent-glow`, que o tema claro
+   redeclara — no Display isso nunca doeu (ele não tem tema), mas a preview,
+   que roda no documento que TEM, desenhava o título da capa em denim escuro
+   sobre o preto (2,73:1). Ver o bloco do palco em `tokens.css`.
+   A lista existe para ser conferida: se ela e o
    `grep var(--` desta folha divergirem, é a lista que está errada. (A única
    var() daqui que NÃO vem de tokens.css é `--ch`, escrita pelo display.js no
    próprio elemento para dimensionar o cronômetro — não é cor.) */
@@ -203,16 +212,80 @@ html, body {
   white-space: pre-line;
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden;
 }
-/* Slide de capa (título do hino): maior e na cor de destaque do app — mesma
-   caixa de tamanho fixo, só a fonte/cor mudam (aux fica escondido no slide
-   de capa, então as 2 linhas do clamp têm a caixa toda pra si). */
+/* ---------- O SLIDE DE CAPA (v5.218) ----------
+   Ele era UMA linha: o título com o número colado na frente ("147. NOME DO
+   HINO"), pintado em `--brand`, no lugar exato onde a estrofe apareceria um
+   segundo depois. Duas coisas estavam erradas nisso, e a segunda é a que o
+   operador viu:
+
+   1. **Uma capa não é uma estrofe.** É o cartão que abre o louvor, fica alguns
+      segundos no ar sozinho e é a única chance de dizer O QUE vai ser cantado.
+      Cabia informação ali — o número, o álbum — e ela estava espremida numa
+      frase só ou simplesmente ausente.
+   2. **O título era o elemento COLORIDO da tela.** Num telão de igreja, o que
+      tem de ser lido do fundo do salão é o NOME, e cor tirada de uma paleta de
+      UI (seja o denim, seja o azul claro) nunca vai render o que o branco pleno
+      rende. Agora o título é `--stage-text` — o mesmo branco da letra —, e o
+      acento fica no que é secundário: o número e o fio.
+
+   A hierarquia é: número (acento, pequeno, entre dois fios) → TÍTULO (branco,
+   grande) → álbum (esmaecido). Sem número e sem álbum, sobra o título
+   centralizado — que é exatamente a capa de antes, só branca.
+
+   As medidas somam MENOS que a caixa (32cqh) com o título em duas linhas:
+   4,4×1,2 + 2×(8,4×1,15) + 3,4×1,3 + 2 gaps ≈ 30cqh. O `overflow: hidden` da
+   caixa continua sendo a garantia final. */
 .lyrics-content.cover .lyrics-line {
-  color: var(--brand); font-size: 9.5cqmin;
+  color: var(--stage-text); font-size: 8.4cqmin; font-weight: 800;
+  letter-spacing: .01em;
+  /* TRÊS linhas na capa (a estrofe segue com duas): um título de álbum passa
+     fácil de duas — "Cristo, o Senhor, Ressuscitou Hoje na Manhã Gloriosa" — e
+     cortá-lo com reticências no cartão que existe para ANUNCIAR a música é
+     perder justamente a informação. `min-height: 0` porque um item de flex não
+     encolhe abaixo do conteúdo por padrão, e sem isso o clamp não tem efeito
+     dentro da caixa. */
+  -webkit-line-clamp: 3; min-height: 0;
 }
+/* O número entre dois fios — o "cartão de abertura" em uma linha só de
+   geometria: nada de moldura, nada de raio, nada que possa quebrar entre um
+   telão 1080p e a preview de 130px. Os fios são pseudo-elementos, então o
+   elemento continua sendo um `<div>` com um número dentro. */
+.lyrics-num {
+  display: flex; align-items: center; justify-content: center; gap: 2cqmin;
+  align-self: stretch;
+  color: var(--stage-accent); font-weight: 800;
+  font-size: 4.4cqmin; line-height: 1.2; letter-spacing: .16em;
+  font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
+}
+.lyrics-num::before, .lyrics-num::after {
+  content: ""; height: .2cqmin; flex: 0 1 12cqmin; min-width: 0;
+  background: currentColor; opacity: .55;
+}
+/* Na capa a linha auxiliar é o ÁLBUM (a coleção de onde a música veio), não o
+   rótulo de seção. Esmaecida e espaçada: ela responde "de onde é isto?", que é
+   uma pergunta de segunda ordem — quem a lê já leu o título. */
+.lyrics-content.cover .lyrics-aux {
+  color: var(--stage-text-dim); font-weight: 600; text-transform: uppercase;
+  font-size: 3.4cqmin; letter-spacing: .14em;
+}
+/* A CAIXA DA CAPA CRESCE COM O CONTEÚDO, e é a única do sistema que faz isso.
+   A altura fixa (32cqh) existe para a moldura não pular de tamanho entre uma
+   estrofe e a seguinte — mas na capa ela produzia o defeito oposto, e ele foi
+   fotografado: com o título em duas linhas, num + título + álbum somam mais que
+   a caixa, o flex encolhe os itens e a linha do álbum era desenhada POR CIMA da
+   segunda linha do título. Aqui não há "próximo slide" com que casar a altura
+   (a capa é a primeira coisa em cena), então a caixa se ajusta e o teto +
+   `overflow: hidden` seguem sendo a garantia final. */
+.lyrics-content.cover .lyrics-box {
+  height: auto; max-height: 60cqh; padding: 3.5cqh 4cqw; gap: 1.4cqh;
+}
+/* O número e o álbum não encolhem: quem absorve a falta de espaço é o título,
+   que é o único dos três que sabe se cortar (clamp). */
+.lyrics-content.cover .lyrics-aux, .lyrics-num { flex-shrink: 0; }
 
 /* ---------- Camada de TEXTO manual (Bíblia + Mensagens) ----------
-   Texto projetado no telão com uma linha secundária embaixo (a referência,
-   dourada, no modo versículo; oculta no modo mensagem). Mesmo modelo de
+   Texto projetado no telão com uma linha secundária embaixo (a referência, no
+   acento do palco, no modo versículo; oculta no modo mensagem). Mesmo modelo de
    redimensionamento por Container Queries da letra (`container-type:size` +
    `cq*`). É prosa (caixa-baixa, várias linhas).
 
@@ -266,9 +339,9 @@ html, body {
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 8; overflow: hidden;
 }
 /* Linha secundária ABAIXO do texto — a referência (ex: "João 3:16") no modo
-   versículo, dourada, 1 linha. Oculta no modo mensagem. */
+   versículo, no acento do palco, 1 linha. Oculta no modo mensagem. */
 .text-sub {
-  color: var(--brand); font-weight: 700;
+  color: var(--stage-accent); font-weight: 700;
   font-size: 4.6cqmin; line-height: 1.2; letter-spacing: .02em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
 }
@@ -309,7 +382,7 @@ html, body {
    fundo — como texto ele daria 3,72:1 contra o preto. O saturado dá 5,8:1 e,
    ao contrário do salmão que estava aqui até a v5.75, é inconfundivelmente
    vermelho a dez metros, que é a distância em que este número é lido. */
-.text-content.mode-chrono.chrono-over .text-main { color: var(--live-strong); }
+.text-content.mode-chrono.chrono-over .text-main { color: var(--stage-alert); }
 
 /* Sorteio: mesmo cartão, mesmo dimensionamento pelo conteúdo — um nome longo
    ("Maria Aparecida") e um número de dois dígitos não podem sair do mesmo
@@ -326,7 +399,7 @@ html, body {
    um quadro do rolo. */
 .text-content.mode-draw.draw-rolling .text-main {
   opacity: .55; transform: scale(.94);
-  color: var(--brand);
+  color: var(--stage-accent);
 }
 .text-content.mode-draw .text-main {
   transition: opacity .18s ease, transform .18s cubic-bezier(.2,1.5,.4,1), color .18s ease;
@@ -367,19 +440,20 @@ html, body {
   justify-content: center;
   padding: 1.1em 2.6em;
   border-radius: 999px;
-  /* Preenchido na cor da marca, com o texto no ESCURO do app: `--brand` é
-     um tom claro (existe para ser lido sobre fundo escuro), então quem vai por
-     cima dele tem de ser escuro — 8,65:1 medidos. O quase-preto literal que
-     estava aqui era um valor solto que nenhuma troca de paleta alcançaria.
+  /* Preenchido no acento do palco, com o texto no ESCURO do app:
+     `--stage-accent` é um tom claro (existe para ser lido sobre fundo escuro),
+     então quem vai por cima dele tem de ser escuro — 8,65:1 medidos. O
+     quase-preto literal que estava aqui era um valor solto que nenhuma troca de
+     paleta alcançaria.
      (O raio fica literal: este é o único elemento em cápsula do Display, e o
      :root dele é intencionalmente mínimo — não há escala de raio a respeitar.) */
-  background: var(--brand);
-  color: var(--bg);
+  background: var(--stage-accent);
+  color: var(--stage-on-accent);
   font-family: system-ui, sans-serif;
   font-size: clamp(1.1rem, 4vw, 1.8rem);
   font-weight: 700;
   letter-spacing: .04em;
-  box-shadow: 0 6px 28px var(--accent-glow);
+  box-shadow: 0 6px 28px var(--stage-accent-glow);
   transition: transform .12s ease;
 }
 .start-overlay:active .start-pill { transform: scale(.95); }
