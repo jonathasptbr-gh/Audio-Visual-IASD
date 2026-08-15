@@ -1889,9 +1889,12 @@ Nenhuma é hipótese: todas foram lidas nas abas Playlists e Vídeos dos canais.
    do `ehLibras`, nos dois níveis: pela ESCRITA (cirílico, hebraico, árabe,
    tailandês, CJK, hangul — um caractere basta, porque "【聖工消息】" não tem
    sílaba que dê para procurar; emoji ficam de fora de propósito) e por MARCA
-   (`misiones`/`mision`, `de las`, `missions?`), tudo contra o `normalizar`,
-   que já tirou os acentos — "missões" nunca é "mission", e é essa distância que
-   torna o teste possível sem apagar português.
+   (espanhol `misiones`/`mision`/`de las`, francês `missionnaire`, e o inglês
+   pelo NOME DO PROGRAMA — "Mission Stories", "World Mission", "Mission
+   Spotlight"), tudo contra o `normalizar`, que já tirou os acentos.
+   **O inglês era a palavra solta `mission` e isso custou um episódio** (v5.252,
+   "Mission Refocus"): uma marca de idioma tem de ser IMPOSSÍVEL na língua que
+   se quer manter, não apenas típica da que se quer recusar.
 
 O que a sexta ensina não é "existem duas formas": é que **supor UMA forma era a
 aposta errada desde o começo**, e é justamente por a regra de ouro deste arquivo
@@ -2955,10 +2958,63 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.251** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.252** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.252: O REGISTRO ACHOU O PRIMEIRO DEFEITO — e ele era MEU. OTA PURO**
+> (nenhuma linha de Kotlin; sem Release).
+>
+> O operador copiou o bloco novo do Registro (v5.249) e o repassou. Na primeira
+> varredura em aparelho de verdade, com **94 playlists** num canal e **145** no
+> outro, ele traz uma linha só de recusa de vídeo em toda a série do Provai e
+> Vede:
+>
+> ```
+> - "Mission Refocus | Provai e Vede  2026 (27/Jun)" → está em outro idioma
+> ```
+>
+> **É um episódio EM PORTUGUÊS**, do canal certo, dentro da playlist certa. O
+> marcador de inglês da v5.244 era a palavra solta `mission`, e o título deste
+> episódio a tem. O sábado 27 de junho simplesmente não estava na lista: **o
+> erro que o `serie.js` inteiro existe para evitar**, cometido pela guarda que
+> eu escrevi — com o custo declarado no KDoc dela como se fosse aceitável.
+>
+> Não era. "O operador vê na lista e resolve à mão" supõe que ele saiba que
+> falta alguma coisa, e entre 37 episódios ninguém percebe um ausente. **Quem
+> mostrou foi o Registro, dois dias depois de existir** — este é exatamente o
+> laço que ele foi criado para fechar, e ele o fechou na primeira volta.
+>
+> **A régua que estava errada, e é ela que fica:** uma palavra solta em inglês
+> não diz o idioma de um título — títulos em português usam palavras em inglês o
+> tempo todo. O que diz é o NOME DO PROGRAMA ("Mission Stories", "World
+> Mission", "Mission Spotlight", "Missionnaire"), e essas são expressões que um
+> título brasileiro não produz por acidente. O espanhol continua por PALAVRA
+> porque ali elas não se cruzam: "missões" nunca é "misiones", em flexão
+> nenhuma. **Uma marca de idioma tem de ser impossível na língua que se quer
+> manter, não apenas típica da que se quer recusar.**
+>
+> Duas outras coisas que só os números reais ensinaram:
+>
+> - **O recorte do bloco passou a ser o ANO.** Com 94 e 145 playlists, as 9
+>   aceitas ficavam enterradas sob oitenta linhas dizendo "não é de 2026", e o
+>   teto de 60 cortava justamente o fim. Some só o que traz OUTRO ano no nome —
+>   um mês do ano corrente renomeado ("Provai & Vede - Julho 2026") continua
+>   aparecendo, e uma playlist sem ano nenhum também, porque é assim que uma
+>   renomeação se disfarça. O que saiu é contado por motivo, nunca em silêncio.
+> - **O canal ANUNCIA mais vídeos do que a extração traz** — 39 × 38 numa série,
+>   51 × 50 na outra. Nada erra, nada recusa: o vídeo não vem (só para membros?
+>   removido?) e o sábado dele não existe na lista. A soma das contagens da aba
+>   do canal é a única referência externa que este caminho tem, e agora ela é uma
+>   linha do bloco.
+>
+> Os oráculos ganharam **dezessete nomes VERBATIM** dos dois canais, que
+> nenhuma suposição minha teria alcançado: espaço duplo antes do hífen, "vede"
+> em minúscula, o ano ANTES do mês ("Provai e Vede 2024 - Março"), o chinês
+> simplificado, e — a que mais importa — o fato de o @daniellocutor publicar
+> **o Provai e Vede também**, o que faz o prefixo ser a única coisa que impede
+> uma série de entrar na outra. Contra o código anterior, 4 asserções reprovam.
 
 > **A v5.251: "ONLINE" — a qualidade que não baixa. OTA PURO** (sem Release).
 >

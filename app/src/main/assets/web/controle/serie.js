@@ -246,10 +246,32 @@
    * `mision` e "Missões" é `missoes`. As duas palavras não se cruzam em
    * nenhuma flexão, e é isso que torna o teste possível sem apagar português.
    */
+  // A LIÇÃO ESTÁ NESTA LISTA, e ela custou um episódio (v5.252).
+  //
+  // O inglês era `\bmissions?\b`, e a primeira varredura em aparelho de verdade
+  // recusou **"Mission Refocus | Provai e Vede  2026 (27/Jun)"** — um episódio
+  // em PORTUGUÊS, do canal certo, dentro da playlist certa, cujo título tem uma
+  // palavra em inglês. O registro o mostrou como "está em outro idioma" e o
+  // sábado 27 de junho simplesmente não estava na lista: **o erro que este
+  // arquivo inteiro existe para evitar**, cometido pela guarda que eu havia
+  // escrito com o custo declarado no KDoc abaixo.
+  //
+  // O que estava errado não era o alvo, era a RÉGUA. Uma palavra solta em
+  // inglês não diz o idioma de um título — títulos em português usam palavras
+  // em inglês o tempo todo. O que diz é o NOME DO PROGRAMA: o mesmo material
+  // sai como "Mission Spotlight"/"Mission Stories"/"World Mission" em inglês e
+  // "Missionnaire" em francês, e essas são expressões que um título brasileiro
+  // não produz por acidente. Espanhol continua por PALAVRA porque ali as
+  // palavras não se cruzam: "missões" nunca é "misiones", em flexão nenhuma.
+  //
+  // A regra geral que fica: **uma marca de idioma tem de ser impossível na
+  // língua que se quer manter, não apenas típica da que se quer recusar.**
   const IDIOMAS_DE_FORA = [
-    /\bmision(es)?\b/,   // espanhol — "Informativo Mundial de las Misiones"
-    /\bde las\b/,        // espanhol — não existe em português, em posição nenhuma
-    /\bmissions?\b/,     // inglês — "Mission Stories", "Mission Spotlight"
+    /\bmision(es)?\b/,                        // espanhol — "…de las Misiones"
+    /\bde las\b/,                             // espanhol — impossível em português
+    /\bmissionnaire\b/,                       // francês — "Missionnaire - 1e Trimestre"
+    /\bmission (stories|spotlight|report)\b/, // inglês — pelo NOME do programa
+    /\bworld mission\b/,                      // inglês — o nome anterior dele
   ];
 
   /**
@@ -259,16 +281,25 @@
    * playlist de português vai ao telão sem que nada o denuncie — o id, a
    * duração, a miniatura e o canal são idênticos aos dos legítimos.
    *
-   * **O falso positivo possível está dito em vez de escondido:** um episódio
-   * em português que cite "mission" ou "misiones" no título — o nome de um
-   * projeto, uma citação — seria recusado. O custo é um vídeo a menos, que o
-   * operador vê na lista e resolve pela busca do YouTube; o custo do erro
-   * oposto é o testemunho do sábado projetado em espanhol.
+   * **O falso positivo que ELA JÁ COMETEU está escrito na lista acima**, e o
+   * KDoc que ele desmentiu ficava aqui: eu havia declarado o custo ("um vídeo
+   * a menos, que o operador vê na lista e resolve à mão") como se fosse
+   * aceitável. Não é — na primeira varredura real ele apagou o episódio de 27
+   * de junho, e "o operador vê na lista" supõe que ele saiba que falta alguma
+   * coisa. O que de fato mostrou foi o REGISTRO, que nasceu no mesmo dia.
+   *
+   * O custo residual continua declarado, agora do tamanho certo: um episódio
+   * cujo título contenha "Mission Spotlight", "World Mission" ou
+   * "Missionnaire" seria recusado. São nomes de PROGRAMA, não palavras — a
+   * chance de um episódio brasileiro se chamar assim é o preço, e ele é
+   * pequeno o bastante para caber na régua que o erro de junho estabeleceu.
    *
    * **Ela é GLOBAL, e não um campo do catálogo.** Uma série de um canal só em
    * português nunca casa nenhuma destas regras, então ligá-la por série seria
    * escolher, para cada linha nova, se a proteção vale — e a resposta é sempre
-   * a mesma. O @provaievedeoficial passa por ela sem uma recusa.
+   * a mesma. Medido: das 145 playlists e 50 vídeos do @daniellocutor e das 94
+   * playlists e 38 vídeos do @provaievedeoficial, ela recusa exatamente o que
+   * não é português — e nada mais.
    */
   function ehOutroIdioma(nome) {
     const bruto = String(nome == null ? '' : nome);
