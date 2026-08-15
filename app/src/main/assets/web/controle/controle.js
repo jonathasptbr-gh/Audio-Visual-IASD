@@ -10702,6 +10702,29 @@ function pintarYtLinha(li, reg) {
 // por sete versões. Acima de 1080p também não: o telão não mostra a diferença e
 // o aparelho ainda guarda hinário e Bíblia.
 const YT_ALTURAS = [1080, 720, 480];
+// ===== "ONLINE": A QUALIDADE QUE NÃO BAIXA (v5.249) =====
+//
+// Pedido do operador: *"adicione a opção nas qualidades de opções do download,
+// para que tenha o 'Online' que mesmo ao levar para o cronograma, levaria
+// apenas o link, ao invés de obrigar a baixar."*
+//
+// Até aqui, os três destinos que GUARDAM (playlist · Cronograma · Favoritos)
+// obrigavam o download, e a razão estava escrita no `ytAcao`: eles guardam o
+// item para depois, e um manifesto de transmissão expira em horas. O que ela
+// não considerava é que **o LINK não expira** — e é ele, não o manifesto, que o
+// item de `kind: 'youtube'` guarda desde sempre. Um vídeo que só vai ser visto
+// uma vez, num culto com internet, não precisa dos ~300 MB no aparelho para
+// entrar no roteiro de sábado.
+//
+// Ela mora no MESMO seletor das resoluções porque é a mesma pergunta ("quanto
+// deste vídeo eu quero no aparelho?"), com "nada" na ponta da escala — e um
+// segundo seletor para uma escolha de uma linha seria a cerimônia que a folha
+// de destinos existe para não ter.
+//
+// O sentinela é negativo de propósito: `0` já significa "sem teto, o padrão do
+// shell" em `ytFetch`/`ytAcao`, e reusá-lo faria "Online" e "melhor qualidade"
+// serem o mesmo valor.
+const YT_ONLINE = -1;
 
 // Uma linha de segmentos da folha de download — o MESMO desenho de
 // Cantada/Playback das músicas do acervo. Duas perguntas usam este formato
@@ -10749,7 +10772,11 @@ function openYtMenu(r) {
   // **E ele NÃO existe para um episódio de série** (`semSoAudio`, v5.230): um
   // testemunho em vídeo não tem versão de áudio que faça sentido projetar, e
   // uma escolha que não muda nada é pior que escolha nenhuma.
-  if (window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= 23 && !r.semSoAudio) {
+  // **E ele some com "Online" escolhido**: ali nada é baixado, e a forma da
+  // faixa é decidida na hora de tocar, pelo `resolverLinkYoutube` — oferecer a
+  // escolha aqui seria oferecer uma que não muda nada.
+  if (window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= 23 && !r.semSoAudio
+      && (songMenuFor.alt | 0) !== YT_ONLINE) {
     songMenuListEl.appendChild(ytSegRow(
       [[false, 'Vídeo'], [true, 'Só áudio']],
       !!songMenuFor.audio,
@@ -10764,9 +10791,13 @@ function openYtMenu(r) {
   // Shell ≥ 25, pelo método `ytFetchAte` da ponte. Num anterior a linha não
   // aparece e o download sai no padrão de sempre — que é exatamente o que este
   // app fazia até agora, então nada regride.
+  // "ONLINE" é o primeiro degrau da escala: nada no aparelho. Ele NÃO depende do
+  // shell 25 (não há teto a pedir — o item guardado é o link), mas a linha
+  // inteira só existe a partir dele; num shell anterior o operador continua com
+  // o download de sempre, que é o que este app fazia até agora.
   if (window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= 25 && !songMenuFor.audio) {
     songMenuListEl.appendChild(ytSegRow(
-      YT_ALTURAS.map((h) => [h, h + 'p']),
+      [[YT_ONLINE, 'Online']].concat(YT_ALTURAS.map((h) => [h, h + 'p'])),
       songMenuFor.alt | 0,
       (v) => { songMenuFor.alt = v; openYtMenu(r); },
     ));
@@ -10804,11 +10835,16 @@ function openYtMenu(r) {
   songMenuListEl.appendChild(songMenuItem(msym(ICON.play), 'Tocar agora',
     soAudio ? 'Sem mexer no telão' : 'Sem entrar em lista nenhuma',
     (vr, btn, alvos) => ytAcao(r, alvos, null, soAudio, altura), 'tocar'));
-  songMenuListEl.appendChild(songMenuItem(msym(ICON.queue), 'Adicionar à playlist', '',
+  // COM "ONLINE" os três destinos guardam o LINK, e isso precisa estar dito:
+  // eles são as três linhas que, em toda outra qualidade, significam "espere o
+  // download". O subtítulo é o mesmo nos três porque a diferença entre eles
+  // continua sendo só a lista.
+  const subGuardar = (songMenuFor.alt | 0) === YT_ONLINE ? 'Só o link, sem baixar' : '';
+  songMenuListEl.appendChild(songMenuItem(msym(ICON.queue), 'Adicionar à playlist', subGuardar,
     (vr, btn, alvos) => ytAcao(r, alvos, btn, soAudio, altura), 'playlist', remontar));
-  songMenuListEl.appendChild(songMenuItem(msym(ICON.cronoAdd), 'Adicionar ao Cronograma', '',
+  songMenuListEl.appendChild(songMenuItem(msym(ICON.cronoAdd), 'Adicionar ao Cronograma', subGuardar,
     (vr, btn, alvos) => ytAcao(r, alvos, btn, soAudio, altura), 'cronograma', remontar));
-  songMenuListEl.appendChild(songMenuItem(msym(ICON.star), 'Favoritar', '',
+  songMenuListEl.appendChild(songMenuItem(msym(ICON.star), 'Favoritar', subGuardar,
     (vr, btn, alvos) => ytAcao(r, alvos, btn, soAudio, altura), 'favoritos', remontar));
   const go = destConfirmRow();
   if (go) songMenuListEl.appendChild(go);
@@ -11134,6 +11170,76 @@ async function ytAcao(r, destinos, btn, somenteAudio, altura) {
   // em `/s/<token>` e o `telaEnriquecer` reescreve o manifesto (dívida §7,
   // fechada).
   if (tocar && !guardar.length && await tentarTransmitir(r, altura, soAudio)) return;
+
+  // ===== "ONLINE": GUARDA O LINK, NÃO O ARQUIVO (v5.249) =====
+  //
+  // Ele entra DEPOIS da transmissão e ANTES do download, e a ordem é o desenho
+  // inteiro: com "Tocar agora" sozinho não há o que guardar e o caminho de
+  // sempre já resolveu; daqui para baixo mora o download, que é justamente o
+  // que esta qualidade existe para não fazer.
+  //
+  // O item é o `kind: 'youtube'` que este app já conhece — o link sem bytes. Ele
+  // não é uma novidade nem um caso à parte: é o que o compartilhamento cria
+  // quando a transmissão e o download falham, e desde a v5.212 tocá-lo RESOLVE
+  // no toque (`resolverLinkYoutube`), transmitindo. **Transmitir não troca o
+  // item**, então o link continua link no domingo seguinte — que é o que
+  // "Online" promete.
+  //
+  // O que o operador paga por isso está dito na folha e é uma coisa só: sem
+  // internet no culto, não há o que projetar. O caminho de recuperação já
+  // existe e não precisou de linha nenhuma — falhando a transmissão,
+  // `resolverLinkYoutube` baixa e troca o item na posição em que ele está.
+  if (altura === YT_ONLINE) {
+    // Um link do MESMO vídeo já guardado é reaproveitado: dois registros para o
+    // mesmo endereço seriam duas linhas iguais na lista, e o segundo não
+    // acrescenta nada (não há bytes que os distingam).
+    let rec = r && r.id ? await AVDB.mediaByYoutube(r.id, 'youtube') : null;
+    if (!rec) {
+      rec = await AVDB.addUrlMedia(r.url || ('https://www.youtube.com/watch?v=' + r.id), {
+        kind: 'youtube',
+        type: 'video/youtube',
+        name: r.name || ('YouTube: ' + r.id),
+        thumb: 'https://img.youtube.com/vi/' + r.id + '/hqdefault.jpg',
+        youtubeId: r.id,
+        list: lista,
+      });
+    }
+    if (!rec) { setYtEstado(r.id, 'erro'); pulsar(btn, 'erro'); return; }
+    const novas = [];
+    for (const l of listas) {
+      if (!(await AVDB.listHas(l, rec.id))) novas.push(l);
+      await AVDB.listAdd(l, rec.id);
+    }
+    // Promovido a lista de verdade, sai do slot avulso — a mesma ordem do
+    // caminho do arquivo: primeiro entra, depois sai, senão o `listRemove`
+    // coletaria o registro.
+    if (guardar.length) await AVDB.listRemove('avulsos', rec.id);
+    setYtEstado(r.id, 'pronto');
+    pulsar(btn, novas.length ? 'ok' : 'dup');
+    if (!guardar.length) await fixarAvulso(rec.id);
+    if (listas.includes('playlist')) {
+      plItems = await AVDB.listItems('playlist');
+      renderPlaylist();
+    }
+    if (listas.includes('favs')) await recarregarFavoritos();
+    await load();
+    if (tocar) {
+      // `resolverLinkYoutube` TRANSMITE, e transmitir não troca o item — o link
+      // continua link depois de tocado, que é a promessa desta qualidade.
+      await send(rec.id);
+      return;
+    }
+    // Sem linha na tela e sem botão visível (o link compartilhado), os dois
+    // canais de sempre estão mudos — e aqui não há download que se anuncie na
+    // miniatura. A nota vai para a LINHA do item, como no caminho do arquivo.
+    if (!ytLinhaVisivel(r.id)) {
+      const onde = juntarFrases((novas.length ? novas : listas)
+        .map((l) => (LISTA_ROTULO[l] || ROTULO_PADRAO).em));
+      notaNoItem(rec.id, (novas.length ? 'link ' : 'já estava ') + onde,
+        novas.length ? 'ok' : 'dup');
+    }
+    return;
+  }
 
   const existente = r && r.id ? await AVDB.mediaByYoutube(r.id, soAudio ? 'audio' : 'video') : null;
   // "Já estava lá" é sobre o CONJUNTO: com mais de um destino, o que interessa

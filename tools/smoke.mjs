@@ -1048,6 +1048,8 @@ try {
     + 'o card crescer conforme o catálogo');
 } catch (e) {
   checar(false, 'a medição do peso como subtítulo terminou sem exceção (' + (e && e.message) + ')');
+}
+
 // ── A TROCA DE MODO É UMA SÓ (v5.247) ────────────────────────────────────
 //
 // Pedido do operador: *"como já temos nas configurações o botão de acesso ao

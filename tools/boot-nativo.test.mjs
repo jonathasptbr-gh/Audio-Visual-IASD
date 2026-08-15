@@ -733,6 +733,67 @@ try {
     'e a lista vazia diz uma frase só — "Nenhum favorito ainda"',
     JSON.stringify(favs.vazioTexto));
 
+  // ── "ONLINE": A QUALIDADE QUE NÃO BAIXA (v5.249) ───────────────────────
+  // Pedido do operador: uma qualidade "Online" que, mesmo levando ao Cronograma,
+  // guarda só o LINK em vez de obrigar o download.
+  //
+  // As duas metades: ela está no MESMO seletor das resoluções (é a mesma
+  // pergunta, com "nada" na ponta da escala) **e** o item que ela guarda é o
+  // link — sem bytes, sem download. Sem a segunda, acrescentar o rótulo teria
+  // passado.
+  const online = await pg.evaluate(async () => {
+    // O modo é GLOBAL: deixá-lo trocado quebra os casos seguintes (a lição que
+    // este arquivo já aprendeu duas vezes).
+    const modoAntes = document.body.classList.contains('mode-simple') ? 'simple' : 'full';
+    setAppMode('full');
+    const r = { id: 'zzzzzzzzzz9', url: 'https://www.youtube.com/watch?v=zzzzzzzzzz9',
+      name: 'Louvor de teste' };
+    openYtMenu(r);
+    const pop = document.getElementById('songMenuPopup');
+    const segs = [...pop.querySelectorAll('.song-menu-seg')].map((s) =>
+      [...s.querySelectorAll('button')].map((b) => b.textContent.trim()));
+    const qualidade = segs.find((g) => g.some((t) => /1080p/.test(t))) || [];
+    // Escolhe "Online" e mede o que a folha passa a dizer.
+    const btnOnline = [...pop.querySelectorAll('.song-menu-seg button')]
+      .find((b) => /^Online$/.test(b.textContent.trim()));
+    btnOnline.click();
+    const depois = {
+      subs: [...pop.querySelectorAll('.song-menu-sub')].map((e) => e.textContent.trim()),
+      // Com Online não há forma a escolher: a faixa Vídeo × Só áudio sai.
+      temForma: [...pop.querySelectorAll('.song-menu-seg button')].some((b) => /Só áudio/.test(b.textContent)),
+    };
+    // E o CRONOGRAMA guarda o link.
+    const linha = [...pop.querySelectorAll('.song-menu-btn')]
+      .find((b) => /Adicionar ao Cronograma/.test(b.textContent));
+    linha.click();
+    for (let i = 0; i < 60; i++) {
+      const it = await AVDB.listItems('imports');
+      const achou = it.find((x) => x.youtubeId === 'zzzzzzzzzz9');
+      if (achou) {
+        await AVDB.listRemove('imports', achou.id);
+        setAppMode(modoAntes);
+        return { qualidade, depois,
+          guardou: { kind: achou.kind, temBlob: !!achou.blob, url: achou.url } };
+      }
+      await new Promise((res) => setTimeout(res, 50));
+    }
+    closeSongMenu();
+    setAppMode(modoAntes);
+    return { qualidade, depois, guardou: null };
+  });
+  checar(online.qualidade[0] === 'Online' && online.qualidade.includes('1080p'),
+    '"ONLINE" é o primeiro degrau do MESMO seletor de qualidade',
+    JSON.stringify(online.qualidade));
+  checar(!online.depois.temForma,
+    'e com ela escolhida a forma (Vídeo × Só áudio) sai — nada é baixado, então '
+    + 'a escolha não mudaria coisa nenhuma');
+  checar(online.depois.subs.some((t) => /só o link/i.test(t)),
+    'os destinos que GUARDAM dizem o que mudou: "Só o link, sem baixar"',
+    JSON.stringify(online.depois.subs));
+  checar(!!online.guardou && online.guardou.kind === 'youtube' && !online.guardou.temBlob,
+    'e o Cronograma recebe o LINK, sem bytes — era isto que obrigava o download',
+    JSON.stringify(online.guardou));
+
   // ── A FILA DE LETRAS NÃO PERGUNTA POR UM VÍDEO (v5.236) ────────────────
   // `syncLyrics` varria TODA coleção com itens e pedia `music_<id>` ao LouvorJA
   // — e num episódio de série esse id é do YOUTUBE, uma pergunta que aquele
