@@ -4297,30 +4297,48 @@ indicados **só pelo realce** (`.lib-item.selected` — borda `--accent` + fundo
 reservada). Excluir dentro de pasta virtual só remove da pasta; nas demais abas
 usa `listRemove` (com gc).
 
-### Favoritos: a gaveta do topo (marcados + pastas + pastas do sistema)
+### Favoritos: uma lista só (marcados + pastas do aparelho)
 
-> **"Atalho" virou "pasta" (v5.112).** O nome vinha do modelo antigo (as
-> "pastas virtuais" renomeadas na v5.103) e descrevia errado o que a coisa é:
-> um atalho é um ponteiro para algo que mora em outro lugar, e estas são
-> agrupamentos que o operador CRIA aqui e enche com o que já marcou. A gaveta
-> passou a ter dois títulos que dizem de quem é cada grupo — **"Minhas pastas"**
-> e **"Pastas do sistema"** —, e é a segunda que de fato é um VÍNCULO: aponta
-> para uma pasta do armazenamento do aparelho e existe para ser
-> re-sincronizada, o que o `folder_open` e o botão de setas circulares já
-> mostravam sem que o rótulo acompanhasse. ("Coleção" foi descartado de
-> propósito: o acervo já chama de coleção os hinários e álbuns do LouvorJA, e
-> o mesmo nome para duas coisas diferentes seria pior que o nome errado.)
+> **AS PASTAS VIRTUAIS SAÍRAM (v5.254).** Pedido do operador: *"não vamos mais
+> usar o sistema de atalhos de pastas no app, apenas a versão de pastas
+> sincronizadas dentro do armazenamento do aparelho. Todos os salvos nos
+> favoritos vão diretamente para a lista geral com todos os arquivos juntos por
+> ordem de chegada, mas com a opção de mover eles de lugar; vamos remover as
+> subdivisões por tipo, manter uma lista única."*
+>
+> Com elas foram embora `folders`/`folder_<id>`, o seletor de pasta
+> (`#folderPopup`), o botão de pasta da seleção múltipla (`#selFolder`), o
+> `renderVirtualFolders`, o `addToFolder` e a folha de duas origens da v5.239 —
+> a pergunta ficou com uma resposta só, e a ação da barra da seção passou a
+> FAZER a coisa (trazer uma pasta do aparelho) em vez de abrir uma folha para
+> não escolher nada.
+>
+> **O conteúdo delas não se perdeu:** `migrarPastasParaFavoritos` sobe cada
+> item para `favs` e só então derruba o atalho. A ordem das duas metades é a
+> garantia — `folderDrop` apaga a mídia que ficou sem detentor, e depois do
+> `listAdd` ela tem um. Sem isso, um item cujo único dono era um atalho sumiria
+> do app e do disco, calado.
+>
+> **E a organização deixou de ser hierarquia: virou ORDEM.** Cada linha ganhou
+> a alça de arrastar do Cronograma (o mesmo `attachHandle`/`reorder`), e a
+> lista é a `favs`, que é ordem de chegada até alguém mexer nela.
 >
 > **E a listagem ficou densa** (`#favList` em controle.css). Ela herdava a
 > métrica da lista do Cronograma, e as duas não fazem a mesma coisa: no
 > Cronograma cada linha é um item que vai ao ar — ela é ALVO de toque no meio de
 > um culto, e o espaço em volta é o que evita o toque errado. A gaveta é o
-> oposto: o operador vem PROCURAR, dividido em cinco ou seis seções por tipo.
-> Encolheu a MOLDURA (miniatura 40→32px, respiro, espaço entre linhas e o
-> cabeçalho de seção), nunca o TEXTO nem os ALVOS — os botões da linha seguem em
-> `--hit` (34px). É esse piso que limita o resto: com 34px de botão mais os 2px
-> de borda de cada lado (a moldura do item selecionado), a gordura que sobrava
-> era só o respiro. Medido: o passo de uma linha cai de ~57px para ~48px.
+> oposto: o operador vem PROCURAR. Encolheu a MOLDURA (miniatura 40→32px,
+> respiro, espaço entre linhas), nunca o TEXTO nem os ALVOS — os botões da linha
+> seguem em `--hit` (34px). É esse piso que limita o resto: com 34px de botão
+> mais os 2px de borda de cada lado (a moldura do item selecionado), a gordura
+> que sobrava era só o respiro. Medido: o passo de uma linha cai de ~57px para
+> ~48px.
+>
+> **O preço da alça, medido e dito:** ela é o terceiro botão da linha, e o nome
+> perdeu os 34px dela mais o respiro — de **194px para 152px** numa lista de
+> 368px. Em troca, o SUBTÍTULO voltou a aparecer (ele era escondido por CSS
+> porque o cabeçalho de tipo já dizia o que ele diz), e é ele que agora
+> distingue um vídeo de um versículo.
 
 É o caminho curto para o que o operador usa toda semana. Desde a v5.53 ela é
 uma **gaveta que desce do topo** (`#favPopup`).
@@ -4347,8 +4365,9 @@ incômodos que o operador relatava:
 As três respostas: a lista plana **`favs`** (uma das `LISTS`, portanto detentora
 de referência de verdade), a **estrela em toda linha** e no cabeçalho fixo, e as
 **cenas de roteiro** (`kind: 'cue'`), que deram identidade de item ao que antes
-era só uma tela. As pastas continuam existindo — como **organização opcional**,
-não como pré-requisito.
+era só uma tela. As pastas viraram **organização opcional**, não pré-requisito
+— e na v5.254 saíram por inteiro, a pedido do operador: o que organiza a lista
+hoje é a ORDEM que ele dá a ela.
 
 Detalhes que caem de A, e que valem lembrar ao mexer aqui:
 
@@ -4359,11 +4378,12 @@ Detalhes que caem de A, e que valem lembrar ao mexer aqui:
   dúvida de "dourada quer dizer marcado ou quer dizer que dá para marcar?". A
   desmarcada é `--line`, e não `--muted`: discreta o bastante para o olho passar
   batido pela lista inteira, forte o bastante para ser encontrada.
-- **Estrela = favorito; pasta = grupo.** As pastas usavam estrela desde a
-  v5.53 (quando "Favoritos" era só o nome novo das pastas virtuais). Com a
-  estrela virando o marcador de cada linha, o mesmo símbolo passaria a dizer
-  duas coisas na mesma gaveta — então as pastas, o seletor de pasta e o botão
-  da seleção múltipla adotaram o glifo de pasta.
+- **Estrela = favorito; pasta = grupo.** As pastas virtuais usavam estrela
+  desde a v5.53 (quando "Favoritos" era só o nome novo delas). Com a estrela
+  virando o marcador de cada linha, o mesmo símbolo passaria a dizer duas
+  coisas na mesma gaveta — então elas, o seletor de pasta e o botão da seleção
+  múltipla adotaram o glifo de pasta. Os três saíram na v5.254; a estrela ficou
+  sendo o único símbolo de favorito, que era o ponto.
 - **A porta é o cabeçalho FIXO, com rótulo** (v5.104). O botão do fim do
   Cronograma saiu: ele era a única porta, e uma porta no fim de uma lista
   rolável não é acesso rápido — com trinta itens era preciso rolar tudo. O
@@ -4417,29 +4437,27 @@ O mecanismo por baixo continua usando as MESMAS chaves de state (renomear a
 leitura não pode custar a biblioteca de ninguém) — o que mudou é o
 enquadramento: não é "onde os arquivos moram", é "o que eu marquei".
 
-A lista tem **três** origens, cada uma sob um cabeçalho próprio
-(`appendFavSection`, `.fav-section`), porque todas se comportam igual ao toque e
-só uma delas sincroniza:
+A lista tem **duas** naturezas, e desde a v5.254 nenhum cabeçalho entre elas —
+é uma lista só:
 
-1. **Favoritos** (`favItemRow`) — os itens marcados, em lista plana (`favs`),
-   **separados por TIPO** (`FAV_GRUPOS`/`favGrupo`, v5.104): Músicas e áudios ·
-   Vídeos · YouTube · Imagens · Apresentações · Versículos · Letras · Mensagens
-   · Tempo · Sorteios · Pacotes · Outros. A ordem é FIXA e não segue o que tem
-   mais itens: uma lista que se reordena sozinha obriga a procurar de novo a
-   cada abertura, e o que se quer aqui é memória muscular. O tipo é a primeira
-   coisa que o operador sabe sobre o que procura ("era um vídeo"), então é por
-   ele que a lista se divide; o que não se encaixar cai em "Outros" em vez de
-   sumir. Cada linha faz as três coisas que se quer de um favorito e nenhuma
-   exige entrar em grupo: **tocar/projetar** (o mesmo `onTap` da biblioteca),
-   **desmarcar** (a estrela) e **mandar ao Cronograma** (o `+`).
-2. **Atalhos** (`renderVirtualFolders`) — grupos criados pelo operador, ícone de
-   **estrela**. Recebem itens pela seleção múltipla (`#selFolder`, hoje com
-   ícone de PASTA e rótulo "Adicionar a uma pasta" — a estrela ao lado dele
-   virou o `favs` direto) e podem ser criados na própria tela, pelo botão "Novo
-   pasta" (`appendNewFavoriteRow`). Excluir uma pasta não apaga mídia que tenha
-   outro dono — e o que ficar sem dono nenhum agora é coletado (`folderDrop`).
-3. **Pastas do dispositivo** — as pastas sincronizadas no OPFS, com o botão de
-   re-sync e o de excluir, exatamente como antes (detalhes abaixo).
+1. **Os itens marcados** (`favItemRow`), na ordem da lista `favs`, que é a
+   ordem de chegada até o operador arrastá-los. Cada linha faz as três coisas
+   que se quer de um favorito: **tocar/projetar** (o mesmo `onTap` da
+   biblioteca), **desmarcar** (a estrela) e **mandar ao Cronograma** (o `+`) —
+   mais a quarta, que a v5.254 acrescentou: **mover de lugar** (a alça).
+   O agrupamento por TIPO (`FAV_GRUPOS`, v5.104: Músicas · Vídeos · YouTube ·
+   Imagens · Apresentações · Versículos · Letras · Mensagens · Tempo · Sorteios
+   · Pacotes · Outros) saiu com ela, e o argumento dele caiu por si: ele supunha
+   que a primeira coisa que o operador sabe sobre o que procura é a CATEGORIA
+   ("era um vídeo"), e com o item onde ele mesmo o pôs a primeira coisa que ele
+   sabe é o LUGAR. Doze cabeçalhos ainda custavam altura — num acervo variado
+   eles empurravam metade dos favoritos para fora da primeira tela.
+2. **As pastas do aparelho** — as sincronizadas no OPFS, no fim da lista, com o
+   botão de re-sync e o de excluir (detalhes abaixo). Sem cabeçalho porque não
+   são uma subdivisão da lista: são outra coisa, e o desenho já diz isso (ícone
+   de pasta, contador, sincronizar e excluir na mesma linha). Elas não entram no
+   arrasto — a linha leva `data-fixa`, que é o que o `measureDrag` lê para não
+   contá-las como posição.
 
 - **Pastas sincronizadas (OPFS)** — o fluxo principal para bibliotecas grandes.
   `window.showDirectoryPicker()` pede permissão **uma única vez**, na
@@ -6207,6 +6225,7 @@ havia uma série só, e as três viraram campo declarado:
 |---|---|---|---|
 | `periodo` | `mes` — "Provai e Vede - Agosto 2026" | `trimestre` — "Informativo \| 3º Trimestre 2026" | `mesDaPlaylist` devolve o mês em que o PERÍODO começa: ele ordena as playlists e é o PISO de quem não declarar data. Quem dá o mês de cada item é sempre a data do TÍTULO |
 | `titulo` | `esquerda` — "Match point \| Provai e Vede 2026 (15/Ago)" | `nenhum` — "Informativo Mundial das Missões \| 15 AGOSTO 2026" | no segundo o título é a série + a data, e a história ("O Sonho de Enoc") vive na MINIATURA. Aplicar o padrão daria 52 linhas idênticas, que é o defeito que o padrão existe para corrigir — ao contrário |
+| `futuros` | `mostrar` — a playlist do mês só traz o que já saiu | `esconder` — o canal sobe o trimestre e libera um sábado por vez | os que faltam ficam como "prioridade para membros": aparecem e não tocam. Corte pela DATA, com **3 dias de antecedência** (a quarta antes do sábado, v5.256 — o roteiro é montado na semana); sem data no título, nunca esconde |
 | (nenhum) | — | — | o **idioma** virou recusa GLOBAL, não campo: ver `ehOutroIdioma` abaixo |
 
 **O canal do Informativo publica a MESMA série em quatro idiomas**, lado a lado
@@ -6294,6 +6313,18 @@ das mesmas funções. Um diagnóstico que reexplica por conta própria diverge n
 primeiro ajuste. A ordem das perguntas virou contrato porque é ela que o texto
 mostra; e as duas metades (aba do canal × varredura dos vídeos) trazem datas
 próprias, porque a assinatura pula a extração e só uma delas é de agora.
+
+**O preço da antecedência tem remédio** (v5.256): nesses três dias o vídeo pode
+ainda não estar público. `serieComoYoutube` anexa `avisoSeFalhar` (e o card da
+série como endereço) enquanto `AVSerie.diasAte(...) > 0`, e o caminho de falha do
+`ytAcao` a usa no lugar de "não foi possível baixar" — em dois lugares, porque
+"Tocar agora" fecha a Biblioteca e os destinos que guardam não.
+
+**A lista do Informativo é função do DIA** (v5.255), e isso entra em dois
+lugares: `indiceVencido` vence o índice na virada do dia (só nas séries com
+`futuros: 'esconder'`) e o dia entra na **assinatura** das playlists. Sem o
+segundo, a economia devolveria a lista de ontem — sem o episódio de hoje —
+carimbada como de hoje, que é o sintoma da v5.233 por outra porta.
 
 **O índice falha com EXCEÇÃO, nunca com lista vazia.** Quem chama já trata isso
 como "sem internet — falha ao atualizar" e preserva o índice anterior; devolver

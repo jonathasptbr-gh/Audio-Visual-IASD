@@ -295,7 +295,11 @@ const videosQ3 = [
   { id: 'i2', url: 'd/i2', name: 'Informativo Mundial das Missões | 04 JULHO 2026', seconds: 184 },
   { id: 'i3', url: 'd/i3', name: 'Informativo Mundial das Missões | 26 SETEMBRO 2026', seconds: 179 },
 ];
-const itensInfo = S.ordenarItens(S.itensDaPlaylist(videosQ3, 7, INFO));
+// O `hoje` é FIXO nos casos abaixo: o Informativo esconde o que ainda não saiu
+// (secção 7g), e sem uma data de referência este arquivo passaria ou reprovaria
+// conforme o dia em que fosse rodado — que é a definição de teste instável.
+const FIM_DE_ANO = new Date(2026, 11, 31);
+const itensInfo = S.ordenarItens(S.itensDaPlaylist(videosQ3, 7, INFO, FIM_DE_ANO));
 checar(itensInfo.length === 3, 'os três episódios entram', itensInfo.length);
 checar(itensInfo.map((i) => i.mes + '/' + i.dia).join(',') === '7/4,8/15,9/26',
   'a data do TÍTULO dá o mês de cada um — o trimestre da playlist é só o piso',
@@ -308,7 +312,8 @@ checar(!itensInfo.some((i) => /Informativo Mundial/.test(S.nomeDoItem(i))),
 
 // A abreviação de três letras, que é como o print TRUNCADO deixa em dúvida.
 const abrev = S.itensDaPlaylist(
-  [{ id: 'i4', url: 'd/i4', name: 'Informativo Mundial das Missões | 08 AGO 2026', seconds: 175 }], 7, INFO);
+  [{ id: 'i4', url: 'd/i4', name: 'Informativo Mundial das Missões | 08 AGO 2026', seconds: 175 }],
+  7, INFO, FIM_DE_ANO);
 checar(abrev.length === 1 && abrev[0].dia === 8 && abrev[0].mes === 8,
   '"08 AGO 2026" (a forma abreviada) lê a mesma data que "08 AGOSTO 2026"', abrev[0]);
 checar(S.nomeDoItem(abrev[0]) === '08/Ago', 'e produz o mesmo rótulo', S.nomeDoItem(abrev[0]));
@@ -341,7 +346,8 @@ checar(JSON.stringify(S.dataDoVideo('Parte 2 | Informativo Mundial das Missões 
 
 // ── 7c. A REGRA DE OURO com o título vazio: a linha NUNCA fica em branco ────
 const semNada = S.itensDaPlaylist(
-  [{ id: 'i9', url: 'd/i9', name: 'Especial de encerramento do trimestre', seconds: 300 }], 7, INFO);
+  [{ id: 'i9', url: 'd/i9', name: 'Especial de encerramento do trimestre', seconds: 300 }],
+  7, INFO, FIM_DE_ANO);
 checar(semNada.length === 1, 'REGRA DE OURO: sem data e fora do padrão, o vídeo entra assim mesmo');
 checar(semNada[0].mes === 7 && semNada[0].dia === 0,
   'sem data, ele cai no COMEÇO do trimestre da playlist', semNada[0]);
@@ -358,7 +364,7 @@ const misturado = S.itensDaPlaylist([
   { id: 'm2', url: 'd/m2', name: 'Informativo Mundial de las Misiones | 15 AGOSTO 2026', seconds: 155 },
   { id: 'm3', url: 'd/m3', name: 'Mission Spotlight | 15 AUGUST 2026', seconds: 155 },
   { id: 'm4', url: 'd/m4', name: '【聖工消息】2026年8月15日', seconds: 155 },
-], 7, INFO);
+], 7, INFO, FIM_DE_ANO);
 checar(misturado.length === 1 && misturado[0].id === 'm1',
   'dos 4 idiomas na MESMA playlist, só o português entra', misturado.map((i) => i.id));
 
@@ -455,6 +461,98 @@ checar(abaOk === ABA_REAL.length,
 checar(S.mesDaPlaylist('Provai e Vede 2023', INFO) === 0
   && S.mesDaPlaylist('Informativo | 1º Trimestre 2026', SERIE) === 0,
   '[registro] as duas séries convivem no mesmo canal sem se misturar');
+
+// ── 7g. O QUE AINDA NÃO SAIU NÃO ENTRA NA LISTA (v5.255) ────────────────────
+//
+// Relato do operador: *"o informativo mundial das missões só libera apenas o
+// informativo referente a aquela semana e dos passados. Exemplo: hoje é sábado
+// 15 de agosto, então eu só tenho o 15 de agosto e os anteriores."* O canal sobe
+// o trimestre inteiro e libera um sábado por vez; os que faltam ficam como
+// "prioridade para membros" — aparecem na playlist e não tocam.
+//
+// O caso é escrito com a data do relato, e o corte é INCLUSIVO nela: o episódio
+// de hoje é o do culto de hoje.
+const SABADO_15 = new Date(2026, 7, 15);
+const trimestreQ3 = [
+  { id: 'q1', url: 'd/q1', name: 'Informativo Mundial das Missões | 08 AGOSTO 2026', seconds: 175 },
+  { id: 'q2', url: 'd/q2', name: 'Informativo Mundial das Missões | 15 AGOSTO 2026', seconds: 155 },
+  { id: 'q3', url: 'd/q3', name: 'Informativo Mundial das Missões | 22 AGOSTO 2026', seconds: 160 },
+  { id: 'q4', url: 'd/q4', name: 'Informativo Mundial das Missões | 26 SETEMBRO 2026', seconds: 179 },
+];
+const nomes = (arr) => arr.map((i) => S.nomeDoItem(i)).join(' ~ ');
+const ate15 = S.ordenarItens(S.itensDaPlaylist(trimestreQ3, 7, INFO, SABADO_15));
+checar(nomes(ate15) === '08/Ago ~ 15/Ago',
+  '[relato] em 15/Ago a lista vai até 15/Ago — o de hoje ENTRA, o de 22 ainda não',
+  nomes(ate15));
+
+// ── A JANELA DE ANTECEDÊNCIA (v5.256) ───────────────────────────────────────
+// Pedido do operador: *"a data de corte não pode ser o próprio dia, pois muitos
+// aproveitam para fazer a organização antes, então pode deixar para que o
+// acesso ao vídeo já fique disponível na quarta-feira antes do sábado."*
+//
+// Os quatro dias em volta, porque a fronteira é o recurso inteiro: ela tem de
+// abrir na QUARTA e não antes.
+const terca18 = S.itensDaPlaylist(trimestreQ3, 7, INFO, new Date(2026, 7, 18));
+checar(nomes(S.ordenarItens(terca18)) === '08/Ago ~ 15/Ago',
+  'na TERÇA (4 dias antes) o episódio de 22/Ago ainda não aparece', nomes(S.ordenarItens(terca18)));
+const quarta19 = S.itensDaPlaylist(trimestreQ3, 7, INFO, new Date(2026, 7, 19));
+checar(nomes(S.ordenarItens(quarta19)) === '08/Ago ~ 15/Ago ~ 22/Ago',
+  '[relato] na QUARTA antes do sábado ele APARECE — é quando o roteiro é montado',
+  nomes(S.ordenarItens(quarta19)));
+checar(S.DIAS_DE_ANTECEDENCIA === 3,
+  'e a antecedência é uma constante nomeada, não um número solto', S.DIAS_DE_ANTECEDENCIA);
+const sabado22 = S.ordenarItens(S.itensDaPlaylist(trimestreQ3, 7, INFO, new Date(2026, 7, 22)));
+checar(nomes(sabado22) === '08/Ago ~ 15/Ago ~ 22/Ago',
+  'e no próprio sábado ele continua lá — a janela abre, não pisca', nomes(sabado22));
+
+// A CONTAGEM DE DIAS, isolada: é ela que os dois consumidores usam (a lista com
+// 3, e o aviso de falha com 0), e é ela que atravessa o fim do mês.
+checar(S.diasAte({ dia: 22, mes: 8 }, INFO, new Date(2026, 7, 19)) === 3, '19/Ago → 22/Ago são 3 dias');
+checar(S.diasAte({ dia: 1, mes: 9 }, INFO, new Date(2026, 7, 30)) === 2,
+  'a virada do MÊS não confunde a conta (30/Ago → 01/Set = 2 dias)',
+  S.diasAte({ dia: 1, mes: 9 }, INFO, new Date(2026, 7, 30)));
+checar(S.diasAte({ dia: 15, mes: 8 }, INFO, new Date(2026, 7, 22)) === -7,
+  'e o que já passou conta NEGATIVO — é assim que o aviso sabe que não é o caso',
+  S.diasAte({ dia: 15, mes: 8 }, INFO, new Date(2026, 7, 22)));
+
+// A VIRADA DO ANO, que é onde uma comparação por instante erraria: em 2027 o
+// álbum de 2026 está todo no passado.
+checar(S.itensDaPlaylist(trimestreQ3, 7, INFO, new Date(2027, 0, 1)).length === 4,
+  'no ano seguinte o álbum de 2026 aparece inteiro');
+// E o mês/dia sozinhos não bastam: 26 de SETEMBRO ainda é futuro em 26 de AGOSTO.
+checar(S.itensDaPlaylist(trimestreQ3, 7, INFO, new Date(2026, 7, 26)).length === 3,
+  'o mês entra na conta: 26/Set continua no futuro em 26/Ago');
+
+// A METADE NEGATIVA, e ela é a que impede isto de virar um apagador: a REGRA É
+// POR SÉRIE. O Provai e Vede libera o mês inteiro de uma vez — medido no
+// registro do aparelho, em 15 de agosto ele já tinha até 26 de setembro, e
+// aqueles episódios TOCAM. Ligar o corte lá apagaria um mês de vídeos que
+// existem, que é o erro que este arquivo mais teme.
+const pvSetembro = S.itensDaPlaylist(
+  [{ id: 's1', url: 'y/s1', name: 'Uma decisão difícil | Provai e Vede 2026 (05/Set)', seconds: 300 }],
+  9, SERIE, SABADO_15);
+checar(pvSetembro.length === 1,
+  'o Provai e Vede NÃO esconde nada: em 15/Ago o episódio de 05/Set continua na lista');
+checar(SERIE.futuros === S.FUTUROS_MOSTRAR && INFO.futuros === S.FUTUROS_ESCONDER,
+  'e a diferença é um CAMPO declarado no catálogo, não um `if` por série');
+
+// SEM DATA NO TÍTULO, NUNCA É ESCONDIDO. Ele é o achado da regra de ouro, e
+// esconder o que não se sabe julgar trocaria um item feio por um item ausente.
+const semDataFuturo = S.itensDaPlaylist(
+  [{ id: 'z1', url: 'd/z1', name: 'Informativo Mundial das Missões | especial', seconds: 200 }],
+  10, INFO, SABADO_15);
+checar(semDataFuturo.length === 1,
+  'um episódio SEM data entra mesmo com o corte ligado — não há como julgá-lo');
+
+// E o VEREDITO sai nomeado, que é o que o Registro imprime.
+const verFut = S.avaliarVideo(trimestreQ3[3], INFO, SABADO_15);
+checar(verFut.motivo === S.MOTIVO_FUTURO && verFut.data && verFut.data.mes === 9,
+  'o motivo é "futuro" e a DATA vem junto — é ela que o Registro ordena', JSON.stringify(verFut));
+checar(S.aindaNaoSaiu({ dia: 22, mes: 8 }, INFO, SABADO_15)
+  && !S.aindaNaoSaiu({ dia: 15, mes: 8 }, INFO, SABADO_15),
+  'a fronteira, isolada: em 15/Ago o de 22 ainda não saiu e o de hoje saiu');
+checar(!S.aindaNaoSaiu({ dia: 22, mes: 8 }, INFO, new Date(2026, 7, 19)),
+  'e na quarta-feira ele passa a ter saído');
 
 // ── 7e. A IMPRESSÃO DIGITAL enxerga as recusas de idioma ────────────────────
 // Sem isto, corrigir uma marca de idioma deixaria de pé todo índice já escrito

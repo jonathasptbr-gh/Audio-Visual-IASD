@@ -149,8 +149,13 @@ const ponteCom = (espelho, telas) => `(() => {
           { id: 'bbbbbbbbbb2', url: 'd/2', name: 'Informativo Mundial de las Misiones | 15 AGOSTO 2026', seconds: 155 },
           { id: 'bbbbbbbbbb3', url: 'd/3', name: 'Informativo Mundial das Missões | 04 JULHO 2026', seconds: 184 },
         ] },
+        // AS DATAS DESTE STUB SÃO PASSADAS de propósito: o Informativo esconde o
+        // que ainda não saiu (v5.255), e um episódio de outubro seria invisível
+        // em agosto — o caso do CORTE tem clock fixo, mais abaixo, e não pode
+        // contaminar as asserções de ordem e rótulo daqui. A playlist continua
+        // sendo a do 4º trimestre: quem dá o mês do item é a data do TÍTULO.
         'd/pt4': { name: 'Informativo | 4º Trimestre 2026', author: 'Daniel Gonçalves', items: [
-          { id: 'bbbbbbbbbb4', url: 'd/4', name: 'Informativo Mundial das Missões | 03 OUTUBRO 2026', seconds: 170 },
+          { id: 'bbbbbbbbbb4', url: 'd/4', name: 'Informativo Mundial das Missões | 07 FEVEREIRO 2026', seconds: 170 },
           // SEM DATA no título: ele ENTRA (regra de ouro) e o Registro tem de
           // NOMEÁ-LO — é o achado que a v5.230 custou uma versão para
           // descobrir, e é dele que sai o próximo ajuste da leitura de data.
@@ -307,13 +312,13 @@ try {
   checar(info.achou, 'o card da SEGUNDA série existe na Biblioteca');
   checar(info.nome === 'Informativo Mundial das Missões 2026',
     'e ele se chama "Informativo Mundial das Missões 2026"', info.nome);
-  checar((info.itens || []).slice(0, 3).join(' ~ ') === '04/Jul ~ 15/Ago ~ 03/Out',
+  checar((info.itens || []).slice(0, 3).join(' ~ ') === '07/Fev ~ 04/Jul ~ 15/Ago',
     'os episódios vêm em ordem CRONOLÓGICA e rotulados só pela DATA — o resto do '
     + 'título é igual nos 52 e não distingue nada', JSON.stringify(info.itens));
   checar((info.itens || [])[3] === 'Informativo Mundial das Missões | especial de encerramento',
     'o que não declarou data ENTRA, com o título CRU e no fim do trimestre dele — '
     + 'nunca uma linha em branco', JSON.stringify(info.itens));
-  checar((info.urls || []).join(',') === 'd/3,d/1,d/4,d/5',
+  checar((info.urls || []).join(',') === 'd/4,d/3,d/1,d/5',
     'cada um carrega a URL do vídeo, que é o que a transmissão vai buscar', JSON.stringify(info.urls));
   checar(!(info.urls || []).includes('d/2'),
     'O VÍDEO EM ESPANHOL NÃO ENTROU — ele estava DENTRO da playlist de português, '
@@ -406,6 +411,101 @@ try {
     (reg.match(/vídeos \(varredura[^\n]*/) || [])[0]);
   checar(temLinha(/! \d+ vídeo\(s\) que o canal conta e a extração NÃO trouxe/),
     'e a diferença vira uma linha própria, não uma conta para quem lê fazer');
+
+  // ── O QUE AINDA NÃO SAIU NÃO CHEGA À LISTA (v5.255) ────────────────────
+  // Relato do operador: o canal sobe o trimestre inteiro e libera um sábado por
+  // vez; os que faltam ficam como "prioridade para membros" — aparecem na
+  // playlist e não tocam. A REGRA tem oráculo próprio (`serie.test.mjs`, com
+  // datas fixas); o que só pode ser afirmado AQUI é que ela está LIGADA ao
+  // provedor de coleção, isto é, que o `fetchSerieIndex` de fato passa o dia.
+  //
+  // Página à parte, com RELÓGIO FIXO: sem isso a asserção mudaria de resposta
+  // conforme o dia em que rodasse — e um teste que muda sozinho é o que ensina
+  // a ignorar vermelho (v5.204). O clock fica preso a esta página para não
+  // contaminar nada do que já foi medido acima.
+  const corte = await (async () => {
+    const pgC = await ctx.newPage();
+    try {
+      // ANTES do sábado de 15/Ago, que é um episódio que o stub JÁ tem — assim
+      // o caso não precisa de um episódio futuro no stub, que ficaria no
+      // passado com o tempo e mudaria as asserções da página principal.
+      await pgC.clock.install({ time: new Date('2026-07-10T12:00:00') });
+      await pgC.addInitScript(PONTE);
+      await pgC.goto(base + '/controle/', { waitUntil: 'domcontentloaded' });
+      await pgC.waitForFunction(() => !!window.__avBack, null, { timeout: 25000 });
+      // `limpar` só na PRIMEIRA leitura. A segunda roda com o índice de ontem
+      // guardado, que é o caminho da ECONOMIA (a assinatura das playlists) — e é
+      // ali que o defeito moraria: o canal não muda de um dia para o outro,
+      // então sem o DIA dentro da assinatura a economia devolveria a lista de
+      // ontem, sem o episódio de hoje, e carimbaria que ela é de hoje. É o
+      // sintoma da v5.233 por outra porta, e apagar o índice aqui esconderia
+      // exatamente isso.
+      const ler = async (limpar) => pgC.evaluate(async (zerar) => {
+        const c = allCollections().find((x) => x.id === 'serie-informativo-missoes-2026');
+        if (zerar) delete collState[c.id];
+        await fetchCollectionIndex(c);
+        const d = await AVDB.getState('serieDiag:' + c.id);
+        return { itens: collSongs(c.id).map((s) => s.name), futuros: (d && d.futuros || []).length };
+      }, limpar);
+      const antes = await ler(true);
+      // A TERÇA e a QUARTA antes do sábado 15 — a fronteira que o operador
+      // pediu, medida no percurso inteiro e não só na regra pura.
+      await pgC.clock.setFixedTime(new Date('2026-08-11T12:00:00'));
+      const naTerca = await ler(false);
+      await pgC.clock.setFixedTime(new Date('2026-08-12T12:00:00'));
+      const naQuarta = await ler(false);
+      // O PRÓPRIO SÁBADO do episódio: ele passa a existir, sozinho e sem toque
+      // nenhum. É o corte INCLUSIVO, que é o que o operador descreveu.
+      await pgC.clock.setFixedTime(new Date('2026-08-15T12:00:00'));
+      const noDia = await ler(false);
+      return { antes, naTerca, naQuarta, noDia };
+    } finally { await pgC.close(); }
+  })();
+  checar(!(corte.antes.itens || []).includes('15/Ago'),
+    'EM 10/JUL o episódio de 15/Ago NÃO chega à lista — ele ainda não foi liberado',
+    JSON.stringify(corte.antes.itens));
+  checar((corte.antes.itens || []).includes('04/Jul'),
+    'e os que já saíram continuam lá — o corte é uma data, não um apagador',
+    JSON.stringify(corte.antes.itens));
+  checar(corte.antes.futuros > 0,
+    'o diário CONTA os que ficaram de fora, para o Registro poder dizê-lo', corte.antes.futuros);
+  checar((corte.noDia.itens || []).includes('15/Ago'),
+    'E NO PRÓPRIO SÁBADO ele aparece sozinho: o corte é inclusive no dia do culto',
+    JSON.stringify(corte.noDia.itens));
+  checar((corte.naQuarta.itens || []).includes('15/Ago'),
+    'E JÁ NA QUARTA ANTES DELE, que é quando o roteiro do culto é montado',
+    JSON.stringify(corte.naQuarta.itens));
+  checar(!(corte.naTerca.itens || []).includes('15/Ago'),
+    'mas não na TERÇA: a janela é de 3 dias, não "o mês todo"',
+    JSON.stringify(corte.naTerca.itens));
+
+  // ── O AVISO QUANDO O DOWNLOAD FALHA NA JANELA (v5.256) ─────────────────
+  // O preço da antecedência: nesses três dias o vídeo pode ainda não estar
+  // público, e o download não vem. Sem uma frase, essa falha é indistinguível
+  // de uma queda de rede — o operador tenta de novo, falha de novo, e conclui
+  // que o app quebrou justamente no item que ele acabou de ver aparecer.
+  const aviso = await pg.evaluate(() => {
+    const c = allCollections().find((x) => x.id === 'serie-informativo-missoes-2026');
+    const songs = collSongs(c.id);
+    // O de HOJE (uma data que já passou no relógio real deste runner) e um
+    // FUTURO montado à mão: é o par que prova que a frase é da janela, e não
+    // um recado grudado em toda falha de série.
+    const passado = Object.assign({}, songs[0], { serieData: { dia: 1, mes: 1 } });
+    const futuro = Object.assign({}, songs[0], { serieData: { dia: 31, mes: 12 } });
+    return {
+      comFuturo: serieComoYoutube(c, futuro),
+      comPassado: serieComoYoutube(c, passado),
+      semData: serieComoYoutube(c, Object.assign({}, songs[0], { serieData: null })),
+    };
+  });
+  checar(/ainda não liberado pelo canal/.test(aviso.comFuturo.avisoSeFalhar || ''),
+    'um episódio da JANELA carrega a frase que explica a falha', aviso.comFuturo.avisoSeFalhar);
+  checar(/31\/Dez/.test(aviso.comFuturo.avisoSeFalhar || ''),
+    'e ela diz ATÉ QUANDO esperar, com a data do episódio', aviso.comFuturo.avisoSeFalhar);
+  checar(aviso.comFuturo.avisoOnde === 'serie-informativo-missoes-2026',
+    'com o card da série como endereço: mandando ao Cronograma, a Biblioteca fica aberta por cima da preview');
+  checar(!aviso.comPassado.avisoSeFalhar && !aviso.semData.avisoSeFalhar,
+    'e um episódio que JÁ SAIU não a carrega — ali a falha é falha, e a frase seria uma desculpa falsa');
 
   // O DIÁRIO É O QUE VENCE O ÍNDICE (v5.249). Um aparelho que já tinha a lista
   // antes desta versão a tem "fresca" pelo TTL de 12 h — e passaria essas 12 h
@@ -800,16 +900,47 @@ try {
       })(),
     };
     r.semRodape = r.rodape.length === 0;
-    // A FOLHA que o botão abre.
+    // A AÇÃO DA BARRA FAZ A COISA (v5.254). Ela abria uma folha com duas
+    // escolhas; a outra — criar um atalho de pasta — deixou de existir, e uma
+    // folha com uma opção é um toque cobrado para não escolher nada. O que se
+    // mede é o desfecho: nenhuma folha, e o pedido de pasta do aparelho saiu.
+    window.__pediuPasta = 0;
+    const syncOrig = window.syncDeviceFolder;
+    window.syncDeviceFolder = () => { window.__pediuPasta++; };
     grupo.querySelector('.coll-group-acao').click();
-    const pop = document.getElementById('songMenuPopup');
-    const linhas = [...pop.querySelectorAll('.song-menu-label')].map((e) => e.textContent.trim());
-    r.folha = {
-      linhas,
-      criar: linhas.some((t) => /Criar uma pasta/i.test(t)),
-      doAparelho: linhas.some((t) => /pasta do aparelho/i.test(t)),
+    r.acao = {
+      abriuFolha: document.getElementById('songMenuPopup').classList.contains('open'),
+      pediuPasta: window.__pediuPasta,
+      titulo: (grupo.querySelector('.coll-group-bar .coll-group-acao') || {}).title || '',
     };
+    window.syncDeviceFolder = syncOrig;
     closeSongMenu();
+    // ── A LISTA É ÚNICA, E A ORDEM É DO OPERADOR (v5.254) ────────────────
+    // Sem seções por tipo, e com alça de arrastar em cada item — as duas
+    // metades do pedido. A ordem medida é a da lista `favs`, que é ordem de
+    // chegada; o que a asserção prova é que ela é REORDENÁVEL.
+    const rec2 = await AVDB.addMedia(new Blob(['y'], { type: 'video/mp4' }),
+      { name: 'Vídeo favorito de teste', list: 'favs' });
+    await recarregarFavoritos();
+    const lista3 = document.createElement('ul');
+    document.body.appendChild(lista3);
+    favHost = lista3;
+    try { renderFolderList(); } finally { favHost = null; }
+    r.lista = {
+      secoes: lista3.querySelectorAll('.fav-section').length,
+      // Tipos diferentes (áudio e vídeo) na MESMA lista, sem nada entre eles.
+      nomes: [...lista3.querySelectorAll('.lib-item .row-name')].map((e) => e.textContent),
+      alcas: lista3.querySelectorAll('.lib-item .row-handle').length,
+      // O subtítulo voltou: sem cabeçalho de tipo, é ele que distingue.
+      subs: [...lista3.querySelectorAll('.lib-item .row-sub')]
+        .map((e) => getComputedStyle(e).display).filter((d) => d !== 'none').length,
+    };
+    lista3.remove();
+    // E O REORDENAR de verdade: o segundo item vai para a frente.
+    await reorder('favs', rec2.id, 0);
+    r.lista.ordemDepois = (await AVDB.listIds('favs')).indexOf(rec2.id);
+    await AVDB.listRemove('favs', rec2.id);
+    await recarregarFavoritos();
     // E O VAZIO: uma frase só. Medido com a lista de favoritos esvaziada.
     const guardados = favItems.slice();
     favItems = [];
@@ -852,9 +983,60 @@ try {
     JSON.stringify(favs.rodape) + ' · ' + JSON.stringify(favs.cabecalho));
   checar(favs.temAcaoNaBarra,
     'a ação mora na BARRA da seção, só com ícone', JSON.stringify(favs.cabecalho));
-  checar(favs.folha.criar && favs.folha.doAparelho,
-    'e o toque nela abre a folha com as DUAS origens: criar uma pasta ou trazer '
-    + 'uma do aparelho', JSON.stringify(favs.folha.linhas));
+  checar(!favs.acao.abriuFolha && favs.acao.pediuPasta === 1,
+    'e o toque nela TRAZ UMA PASTA DO APARELHO direto — sem folha, porque a '
+    + 'outra origem (o atalho de pasta) deixou de existir', JSON.stringify(favs.acao));
+  checar(/pasta do aparelho/i.test(favs.acao.titulo),
+    'e o rótulo dela diz o que ela faz', favs.acao.titulo);
+  checar(favs.lista.secoes === 0 && favs.lista.nomes.length === 2,
+    'A LISTA DE FAVORITOS É ÚNICA: tipos diferentes juntos, sem subdivisão nenhuma',
+    JSON.stringify(favs.lista.nomes));
+  checar(favs.lista.alcas === favs.lista.nomes.length,
+    'e cada item tem a ALÇA de arrastar — a ordem passou a ser decisão do operador');
+  checar(favs.lista.subs === favs.lista.nomes.length,
+    'e o subtítulo voltou a aparecer: sem cabeçalho de tipo, é ele que distingue');
+  checar(favs.lista.ordemDepois === 0,
+    'e o arrastar MOVE de verdade (o mesmo `reorder` do Cronograma)');
+  // ── A MIGRAÇÃO DOS ATALHOS DE PASTA (v5.254) ───────────────────────────
+  //
+  // Esta é a asserção que impede o lote de virar PERDA DE MÍDIA. Um item cujo
+  // único detentor era um atalho vira, no instante em que o atalho some, um
+  // registro que nenhuma lista aponta — e o coletor de lixo (que existe
+  // justamente para isso) o apaga na varredura seguinte. Um vídeo grande
+  // sumiria do app e do disco sem nada na tela que o explicasse.
+  //
+  // O caso reproduz o aparelho do operador: um atalho com um item que NÃO está
+  // nos favoritos, e outro que já está (para provar que ele não é duplicado).
+  const mig = await pg.evaluate(async () => {
+    const so = await AVDB.addMedia(new Blob(['a'], { type: 'audio/mpeg' }),
+      { name: 'Só no atalho', list: 'avulsos' });
+    const jaFav = await AVDB.addMedia(new Blob(['b'], { type: 'audio/mpeg' }),
+      { name: 'No atalho e nos favoritos', list: 'favs' });
+    await AVDB.setState('folders', [{ id: 'p1', name: 'Louvores especiais' }]);
+    await AVDB.listSet('folder_p1', [so.id, jaFav.id]);
+    await migrarPastasParaFavoritos();
+    const favsIds = await AVDB.listIds('favs');
+    return {
+      migrou: favsIds.includes(so.id),
+      // O blob SOBREVIVEU: é o que o `folderDrop` teria apagado se a ordem das
+      // duas metades estivesse invertida.
+      temBytes: !!(await AVDB.getMedia(so.id)),
+      // Sem duplicar quem já estava lá.
+      vezes: favsIds.filter((x) => x === jaFav.id).length,
+      // E o atalho não existe mais, nem o índice dele.
+      semPastas: (((await AVDB.getState('folders')) || []).length) === 0,
+      semIndice: (await AVDB.listIds('folder_p1')).length === 0,
+      // Idempotente: rodar de novo não faz nada e não explode.
+      denovo: await (async () => { await migrarPastasParaFavoritos(); return true; })(),
+    };
+  });
+  checar(mig.migrou && mig.temBytes,
+    'A MIGRAÇÃO leva o conteúdo do atalho para os favoritos — e a mídia SOBREVIVE '
+    + '(sem isso, o gc apagaria o que ficasse sem dono)', JSON.stringify(mig));
+  checar(mig.vezes === 1, 'e não duplica o que já estava favoritado');
+  checar(mig.semPastas && mig.semIndice, 'e o atalho sai do banco, com o índice dele');
+  checar(mig.denovo, 'e rodar de novo é um no-op (ela roda em toda abertura)');
+
   checar(favs.vazioUmaLinha,
     'e a lista vazia diz uma frase só — "Nenhum favorito ainda"',
     JSON.stringify(favs.vazioTexto));

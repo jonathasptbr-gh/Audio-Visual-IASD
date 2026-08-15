@@ -1938,6 +1938,29 @@ diferentes da ponte, e o Registro imprime a trilha escolhida
 - **O ano é EXPLÍCITO no catálogo.** "O ano corrente" faria o álbum trocar de
   conteúdo sozinho na virada de dezembro, no meio da programação de janeiro.
   2027 é uma linha nova e um push em `main`.
+- **MAS ELE APARECE TRÊS DIAS ANTES** (v5.256, `DIAS_DE_ANTECEDENCIA`). Pedido
+  do operador: *"a data de corte não pode ser o próprio dia, pois muitos
+  aproveitam para fazer a organização antes"* — o roteiro do culto é montado
+  durante a semana, e uma lista que só mostra o episódio no sábado de manhã
+  chega tarde para quem prepara. Três dias é **a quarta-feira antes do sábado**,
+  escrito como CONTAGEM e não como dia da semana (é o que sobrevive ao dia em
+  que o canal publicar num domingo). **O preço tem remédio e ele é a outra
+  metade do lote:** nesses três dias o vídeo pode ainda não estar público, e
+  falhando o download a resposta diz o que fazer — *"ainda não liberado pelo
+  canal — tente mais perto de 22/Ago"* —, em DOIS lugares, porque são dois
+  fluxos: no cartão sobre a preview ("Tocar agora" fecha a Biblioteca) e no card
+  da série (mandando ao Cronograma ela continua aberta por cima da preview).
+  Sem a frase, aquela falha é indistinguível de uma queda de rede.
+- **O QUE AINDA NÃO SAIU NÃO ENTRA NA LISTA** (v5.255, campo `futuros`). O
+  @daniellocutor sobe o trimestre inteiro e libera um episódio por sábado; os
+  que faltam ficam como "prioridade para membros" — aparecem na playlist e não
+  tocam. A régua é a DATA (o único sinal deste lado: o item de um vídeo restrito
+  chega idêntico ao de um liberado), o corte é INCLUSIVO no dia do culto, e um
+  vídeo SEM data nunca é escondido. **É campo e não regra global** porque o erro
+  é assimétrico e o Provai e Vede libera o mês inteiro de uma vez — medido: em
+  15 de agosto ele já tinha até 26 de setembro, e aqueles episódios tocam. O DIA
+  entra também na ASSINATURA das playlists, senão a economia devolveria a lista
+  de ontem no sábado de manhã (o sintoma da v5.233 por outra porta).
 - **O NOME DO ITEM pode ser SÓ A DATA, e no Informativo ele é** (v5.244). O
   título daquele canal é a série mais a data, e a história ("O Sonho de Enoc")
   vive na MINIATURA — aplicar ali o "o nome é o que vem antes da barra" daria 52
@@ -2958,10 +2981,176 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.253** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.256** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.256: O EPISÓDIO APARECE NA QUARTA, e a falha dentro da janela DIZ POR
+> QUÊ. OTA PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> Pedido do operador, sobre o corte da v5.255: *"a data de corte não pode ser o
+> próprio dia, pois muitos aproveitam para fazer a organização antes, então pode
+> deixar para que o acesso ao vídeo já fique disponível na quarta-feira antes do
+> sábado (caso o download em específico do informativo dê algum erro se feito na
+> quarta-feira, rode um aviso para que espere que chegue mais perto da data para
+> tentar novamente)."*
+>
+> Ele está corrigindo uma premissa minha, e a correção é sobre QUANDO o app é
+> usado: eu tratei a lista como se ela fosse lida no culto, e ela é lida na
+> semana. Um corte no próprio dia entrega o episódio no sábado de manhã — depois
+> de o roteiro estar pronto.
+>
+> **A janela é uma CONTAGEM de dias, não um dia da semana.** Três dias antes de
+> um sábado É a quarta-feira, e as duas formas descrevem o mesmo hoje; a
+> contagem é a que sobrevive ao dia em que o canal publicar num domingo. Ela é
+> uma constante nomeada (`DIAS_DE_ANTECEDENCIA`), e a conta que a sustenta
+> (`diasAte`) usa `Date.UTC` nas duas pontas: uma subtração de `Date` local
+> atravessa o horário de verão e erraria o vizinho exatamente uma vez por ano —
+> num sábado, sem reproduzir.
+>
+> **E o preço da janela vem com o remédio no mesmo lote**, que é a segunda
+> metade do pedido: nesses três dias o vídeo pode ainda não estar público, e o
+> download não vem. Sem uma frase, essa falha é idêntica a uma queda de rede — o
+> operador tenta de novo, falha de novo, e conclui que o app quebrou justamente
+> no item que ele acabou de ver aparecer. Agora a resposta diz o que fazer e até
+> quando: *"ainda não liberado pelo canal — tente mais perto de 22/Ago"*.
+>
+> Três decisões pequenas em volta dela:
+>
+> - **Ela só existe enquanto o sábado não chegou** (`diasAte > 0`, o mesmo
+>   primitivo da lista com outro limiar). Passado o dia, uma falha ali é uma
+>   falha de verdade, e a frase seria uma desculpa falsa.
+> - **Ela aparece em DOIS lugares porque são dois fluxos.** Com "Tocar agora" a
+>   Biblioteca FECHA e quem responde é o cartão sobre a preview; mandando ao
+>   Cronograma ela continua aberta por cima da preview, e a resposta tem de
+>   nascer onde o toque nasceu — ali, o card da própria série (`setCollStatus`).
+>   É a regra da v5.207 aplicada a um caminho que tinha só metade dela.
+> - **A DATA do episódio passou a viver no índice** (`serieData`). Ela já era
+>   lida do título; o que muda é que agora sobrevive — sem ela no registro não
+>   haveria como saber que aquela falha tem essa causa. Um campo novo no índice
+>   o obsoleta uma vez, e a impressão digital da regra já cuida disso.
+>
+> Verificado por isolamento: sem a antecedência (corte no próprio dia) 3+1
+> asserções reprovam; com ela larga demais (7 dias) 4+1; sem o aviso 3; e com o
+> aviso em TODO episódio 1. O percurso mede a fronteira nos quatro dias em volta
+> — terça não, quarta sim —, com relógio FIXO.
+
+> **A v5.255: O QUE AINDA NÃO SAIU SOME DA LISTA — o canal sobe o trimestre e
+> libera um sábado por vez. OTA PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> Relato do operador: *"o informativo mundial das missões só libera apenas o
+> informativo referente a aquela semana e dos passados. Exemplo: hoje é sábado
+> 15 de agosto, então eu só tenho o 15 de agosto e os anteriores… portanto, pode
+> fazer um bloqueio na exibição dos vídeos que não estão disponíveis ainda."*
+>
+> O canal sobe o TRIMESTRE INTEIRO de uma vez e libera um episódio por sábado;
+> os que ainda não saíram ficam na playlist como **prioridade para membros** —
+> têm título, miniatura e duração, aparecem na listagem e **não tocam**. Em 15 de
+> agosto a Biblioteca mostrava até 12 de dezembro: dezessete promessas que ela
+> não podia cumprir, e a mais cara delas no meio de um culto.
+>
+> **A régua é a DATA, porque é o único sinal que existe deste lado.** O que
+> decide de verdade é a liberação no YouTube, e o extrator não a publica: o item
+> de um vídeo restrito chega idêntico ao de um liberado. Três decisões cercam o
+> preço disso:
+>
+> - **É um CAMPO do catálogo, não uma regra global** (`futuros`). O erro é
+>   assimétrico: esconder cedo demais custa um episódio que já estava liberado —
+>   e ele volta sozinho no dia seguinte, sem nada a desfazer; mostrar de mais
+>   custa um item que o operador põe no roteiro e que não toca na hora, com a
+>   projeção parada na frente da congregação. O **Provai e Vede fica de fora**, e
+>   isso é medido, não suposto: no registro do aparelho, em 15 de agosto ele já
+>   tinha até 26 de setembro, e aqueles episódios TOCAM.
+> - **O corte é INCLUSIVO no dia**, que é o que o operador descreveu: o episódio
+>   de hoje é o do culto de hoje. A comparação é por DIA (`AAAAMMDD`), nunca por
+>   instante — um `>` sobre milissegundos o esconderia até a meia-noite.
+> - **Sem data no título, nunca é escondido.** Ele é o achado da regra de ouro
+>   (entra sem rótulo, no fim do mês), e esconder o que não se sabe julgar
+>   trocaria um item feio por um item ausente.
+>
+> **E o DIA entra em DOIS lugares, senão o recurso não funcionaria no sábado.**
+> A lista daquela série é função do dia, então: `indiceVencido` passa a vencer o
+> índice na virada do dia (só nessa série), e o DIA entra na **assinatura** das
+> playlists. O segundo é o que impede o sintoma da v5.233 por outra porta — o
+> canal não muda de um dia para o outro, então a assinatura bateria, a economia
+> devolveria a lista de ontem (sem o episódio de hoje) e o carimbo diria que ela
+> é de hoje. Custa uma varredura por dia; sem ela o episódio do culto só
+> apareceria quando o TTL de 12 h vencesse, que pode ser depois do culto.
+>
+> O Registro conta os escondidos numa linha só — dezessete linhas de recusa
+> afogariam as recusas de VERDADE, que são uma ou nenhuma — e mostra **o mais
+> próximo** com o título cru e a data do corte: a pergunta que se faz a esse
+> bloco é "o app está escondendo o episódio de amanhã?", e a resposta não pode
+> depender de eu adivinhar o relógio do aparelho.
+>
+> Verificado por ISOLAMENTO nas quatro peças: sem o corte, 6 asserções do
+> `serie.test.mjs` e 2 do percurso reprovam; com ele GLOBAL (ignorando o campo),
+> 1 — a que protege o Provai e Vede; com o corte exclusivo em vez de inclusivo,
+> 3 e 7; e sem o dia na assinatura, 1 no percurso. **Esta última só passou a
+> reprovar depois de o teste parar de apagar o índice antes de cada leitura** —
+> ele exercitava sempre o caminho da reconstrução, isto é, nunca o caminho em
+> que o defeito mora. O caso do corte roda numa página com **relógio fixo**: um
+> oráculo cujo resultado muda com o dia é o que ensina a ignorar vermelho.
+
+> **A v5.254: OS FAVORITOS VIRAM UMA LISTA SÓ — os atalhos de pasta saem, e a
+> ordem passa a ser do operador. OTA PURO** (nenhuma linha de Kotlin; sem
+> Release).
+>
+> Pedido do operador: *"não vamos mais usar o sistema de atalhos de pastas no
+> app, apenas a versão de pastas sincronizadas dentro do armazenamento do
+> aparelho. Todos os salvos nos favoritos vão diretamente para a lista geral com
+> todos os arquivos juntos por ordem de chegada, mas com a opção de mover eles
+> de lugar; vamos remover as subdivisões por tipo, manter uma lista única."*
+>
+> **A parte que não estava no pedido e que decidia o lote: a MIGRAÇÃO.** Apagar
+> os atalhos e ir embora seria PERDER MÍDIA. Um item cujo único detentor era um
+> atalho vira, no instante em que ele some, um registro que nenhuma lista aponta
+> — e o coletor de lixo, que existe justamente para isso, o apaga na varredura
+> seguinte (que roda na mesma abertura, no `varrerRestos`). Um vídeo grande
+> sumiria do app **e do disco**, calado. Então `migrarPastasParaFavoritos` sobe
+> cada item para `favs` e só DEPOIS derruba o atalho pelo `folderDrop`; a ordem
+> das duas metades é a garantia inteira, e é ela que o oráculo mede.
+>
+> **O agrupamento por tipo caiu por um argumento que a própria ordenação
+> desmente.** Ele supunha (v5.104) que a primeira coisa que o operador sabe
+> sobre o que procura é a CATEGORIA — "era um vídeo". Com o item onde ele mesmo
+> o pôs, a primeira coisa que ele sabe é o LUGAR, e uma lista que se reorganiza
+> sozinha em doze seções é justamente o que impede memória de lugar. Os
+> cabeçalhos ainda custavam altura: num acervo variado eles empurravam metade
+> dos favoritos para fora da primeira tela.
+>
+> **A alça de arrastar é a do Cronograma**, não uma segunda — o mesmo
+> `attachHandle`/`reorder`, a mesma linha-guia, a mesma medição única no
+> `pointerdown`. O que ela exigiu foi um detalhe com nome: as pastas do aparelho
+> ficam na MESMA `<ul>` e não pertencem à lista `favs`, então contá-las como
+> posição deslocaria o índice de destino em relação ao array — a linha leva
+> `data-fixa`, e o `measureDrag` a pula.
+>
+> **O preço, medido e dito:** a alça é o terceiro botão da linha, e o nome caiu
+> de **194px para 152px** numa lista de 368px. Em troca o SUBTÍTULO voltou a
+> aparecer — ele era escondido por CSS porque o cabeçalho de tipo já dizia o que
+> ele diz —, e é ele que agora distingue um vídeo de um versículo.
+>
+> **A folha de duas origens da v5.239 também caiu, e pela regra dela mesma.**
+> Ela existia porque dois botões respondiam à mesma pergunta ("quero uma pasta
+> aqui") por caminhos diferentes; com um caminho só, uma folha de uma opção é um
+> toque cobrado para não escolher nada. A ação da barra passou a FAZER a coisa.
+>
+> Saíram junto: `folders`/`folder_<id>`, `renderVirtualFolders`, `createFolder`,
+> `deleteFolder`, `addToFolder`, `loadFolderMediaItems`, `openFolder`,
+> `promptNewFavorite`, `abrirFolhaDePasta`, `FAV_GRUPOS`, `favGrupo`,
+> `appendFavSection`, o popup `#folderPopup` inteiro, o `#selFolder` da seleção
+> múltipla, os glifos `folder`/`create_new_folder` e as classes `.fav-section` e
+> `.folder-pick-btn`.
+>
+> Os oráculos: o `boot-nativo.test.mjs` cobra a lista única, a alça, o
+> reordenar de verdade, a ação que traz a pasta sem folha — e as quatro
+> asserções da migração (o item sobe, **a mídia sobrevive**, não duplica quem já
+> estava lá, e rodar de novo é no-op). Reprova em **5 asserções** contra o
+> código anterior. O par `songMenuPopup`/`folderPopup` saiu da lista de popups
+> aninhados do `smoke.mjs`, que fica VAZIA de propósito: o próximo popup que
+> abrir de dentro de outro entra ali numa linha.
 
 > **A v5.253: A FOLHA DE DESTINOS VIRA UM MÉTODO ÚNICO — tudo é selecionável, e
 > o confirmar não some. OTA PURO** (sem Release).

@@ -243,7 +243,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
 :is(
   .ctl-btn, .t-btn, .pv-fab, .settings-btn,
   .tab, .tab-add, .import-btn, .back-btn, .sel-btn,
-  .row-btn, .row-handle, .popup-close, .new-folder-btn, .folder-pick-btn,
+  .row-btn, .row-handle, .popup-close, .new-folder-btn,
   .coll-bar, .coll-bar-dl, .coll-group-btn, .coll-more-btn,
   .bible-cell, .bible-ref-part, .bible-vsec, .bible-ver-row,
   .hymn-row, .hymn-play-thumb, .song-menu-btn, .msg-add-btn, .msg-item,
@@ -270,7 +270,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
 :is(
   .row-btn, .row-handle, .back-btn, .sel-btn, .popup-close,
   .coll-bar-dl, .coll-group-btn, .new-folder-btn,
-  .import-btn, .folder-pick-btn, .song-menu-icon
+  .import-btn, .song-menu-icon
 ) svg { display: block; width: var(--icon-sm); height: var(--icon-sm); }
 :is(.tab, .tab-add, .t-btn, .ctl-btn, .misc-tab, .settings-btn) svg {
   display: block; width: var(--icon-md); height: var(--icon-md);
@@ -1309,37 +1309,31 @@ main {
    última mídia; no rodapé quem dá o respiro é o `gap` do `<main>`. */
 .import-row { flex-shrink: 0; display: flex; gap: .5rem; margin-top: .85rem; }
 .list-foot > .import-row { margin-top: 0; }
-/* Cabeçalho de origem na gaveta de Favoritos ("Minhas pastas" / "Pastas do
-   sistema" / os tipos): rótulo discreto, não um item da lista — por isso sem
-   fundo, sem borda e sem feedback de toque. */
-.fav-section {
-  flex-shrink: 0; padding: .5rem .2rem .1rem;
-  font-size: .7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
-  color: var(--muted);
-}
-.fav-section + .lib-item { margin-top: 0; }
+/* (`.fav-section` saiu na v5.254: os favoritos são UMA lista, na ordem que o
+   operador der a ela. Os cabeçalhos por tipo eram doze rótulos disputando a
+   altura da primeira tela, e a ordenação manual desmente o pressuposto deles —
+   que o operador procura pela categoria, e não pelo lugar onde ele mesmo pôs o
+   item.) */
 
 /* ---------- A gaveta de Favoritos é uma LISTAGEM, e listagem é densa ---------- */
 /* (v5.112) Ela herdava a métrica da lista do Cronograma, e as duas não fazem a
    mesma coisa: no Cronograma cada linha é um item que vai ao ar — ela é ALVO de
    toque no meio de um culto, e o espaço em volta é o que evita o toque errado.
-   A gaveta é o oposto: o operador vem PROCURAR, dividida em cinco ou seis
-   seções por tipo, e cada linha de ar a mais é uma linha de conteúdo a menos —
-   com trinta favoritos, meia dúzia de nomes por tela vira rolagem para achar o
-   que se sabe que está lá.
+   A gaveta é o oposto: o operador vem PROCURAR numa lista única (as seções por
+   tipo saíram na v5.254), e cada linha de ar a mais é uma linha de conteúdo a
+   menos — com trinta favoritos, meia dúzia de nomes por tela vira rolagem para
+   achar o que se sabe que está lá.
    O que encolhe é a MOLDURA (miniatura, respiro, espaço entre linhas), nunca o
    TEXTO nem os ALVOS: o nome continua no mesmo corpo, porque é ele que se lê, e
    os botões da linha continuam em `--hit` (34px), que é o piso de toque do app.
    É esse piso que limita o resto — com 34px de botão mais os 2px de borda de
    cada lado (a moldura do item selecionado), a gordura que sobrava era só o
-   respiro. Medido: o passo de uma linha cai de ~57px para ~49px, e o cabeçalho
-   de cada seção encolhe junto; numa gaveta de trinta favoritos divididos em
-   cinco seções isso é mais de uma tela inteira de rolagem a menos. */
+   respiro. Medido: o passo de uma linha cai de ~57px para ~49px; numa gaveta de
+   trinta favoritos isso é mais de uma tela inteira de rolagem a menos. */
 #favList { gap: .22rem; padding-top: .35rem; }
 #favList .row { padding: .2rem .45rem; gap: .45rem; }
 #favList .thumb { width: 32px; height: 32px; }
 #favList .thumb--icon .msym { font-size: var(--icon-md); }
-#favList .fav-section { padding: .45rem .2rem .05rem; }
 /* ---------- A moldura TRACEJADA em accent: "espaço a preencher" ----------
    A MESMA receita nos quatro lugares em que uma lista oferece uma ação sobre
    si mesma — "Importar arquivos", a barra de seleção no rodapé, "+ Nova
@@ -1583,11 +1577,10 @@ main {
 .row-name { flex: 1; min-width: 0; font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row-text > .row-name { flex: none; }
 .row-sub { min-width: 0; font-size: .68rem; line-height: 1.25; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* A gaveta de Favoritos agrupa por tipo em SEÇÕES, então o cabeçalho já diz o
-   que o subtítulo diria — e ela é a lista que precisa ser compacta (miniatura
-   de 32px). Repetir a informação ali custaria os pixels que a compactação
-   ganhou, sem acrescentar nada. */
-#favList .row-sub { display: none; }
+/* (O `#favList .row-sub { display: none }` saiu na v5.254. Ele existia porque a
+   gaveta agrupava por tipo em seções e o cabeçalho já dizia o que o subtítulo
+   diria; sem as seções, ele é a única coisa da linha que distingue um vídeo de
+   um versículo.) */
 
 /* (Os selos de tipo `.url-badge`/`.yt-badge`/`.cue-badge` saíram de uso na
    v5.118, quando o tipo do item virou o subtítulo `.row-sub` — nenhum JS os
@@ -1846,11 +1839,6 @@ main {
    de fechamento precisa medir), então sem isto todo grupo fechado deixaria uma
    faixa de padding no meio do índice. */
 .coll-group--drop:not(.aberto) > .coll-group-corpo { display: none; }
-/* As linhas dos FAVORITOS dentro do grupo: elas vêm da gaveta, onde vivem num
-   `<ul class="popup-list">` que já dá o respiro. Aqui o corpo é mais estreito e
-   o cabeçalho de tipo ("Vídeos", "Minhas pastas") precisa do seu. */
-.coll-group-corpo > .fav-section:not(:first-child) { margin-top: .5rem; }
-
 .coll-bar { display: flex; align-items: center; gap: .55rem; cursor: pointer; }
 /* Coluna nome + subtítulo das linhas de lista (coleção, versão da Bíblia,
    resultado de busca): a mesma receita, num lugar só. */
@@ -2852,16 +2840,15 @@ main {
    (O `#collPopup` que dividia esta regra saiu na v5.72: as opções da coleção
    viraram um painel dentro do próprio card.) */
 #songMenuPopup { z-index: 210; }
-/* E o seletor de atalhos abre de dentro da folha da música — mais um degrau,
-   pelo mesmo motivo. Ele é declarado ANTES dela no documento, então sem isto a
-   ordem do documento o deixaria por baixo e o toque em "Adicionar aos
-   favoritos" pareceria não fazer nada. */
-#folderPopup { z-index: 220; }
+/* (O `#folderPopup` — o seletor de atalhos, que abria de dentro da folha da
+   música e por isso pedia mais um degrau (220) — saiu na v5.254 com os atalhos
+   de pasta. O 220 fica LIVRE: é o degrau do próximo popup que abrir de dentro
+   do `#songMenuPopup`.) */
 /* A GAVETA DE FAVORITOS abre de dentro da Biblioteca desde a v5.237 (entrar
    numa pasta é uma tela, não uma seção) — e ela é declarada ANTES dela no
    documento, então sem este degrau a ordem do documento a deixaria por baixo e
    o toque numa pasta pareceria não fazer nada. É a mesma armadilha, com o mesmo
-   remédio, do `#folderPopup` acima. */
+   remédio, do `#songMenuPopup` acima. */
 #favPopup { z-index: 205; }
 /* Folha de TELA CHEIA (o acervo). É a tela em que o operador passa mais tempo
    antes do culto — folhear álbuns, abrir letras, decidir o que baixar — e uma
@@ -3007,19 +2994,9 @@ main {
    espelhamento — as três coisas que se olha quando algo não está certo. */
 .popup-footer .app-version { display: block; width: fit-content; margin: .45rem auto 0; }
 
-/* ---------- Botão de pasta no picker ---------- */
-.folder-pick-btn {
-  width: 100%; padding: .55rem .6rem;
-  /* `--surface`, e não um quarto nível de superfície: o .04 literal que estava
-     aqui era um degrau fora da escala, invisível como alvo de toque numa lista
-     de pastas. Dentro do bottom-sheet o token já está invertido (ver
-     "superfície que afunda"), então o botão AFUNDA na folha em vez de flutuar. */
-  background: var(--surface); border: none; border-radius: var(--radius-btn);
-  color: var(--text); font-size: .9rem;
-  display: flex; align-items: center; gap: .55rem;
-  cursor: pointer;
-}
-.folder-pick-btn .msym { font-size: var(--icon-md); color: var(--accent); }
+/* (`.folder-pick-btn` saiu na v5.254, com o popup de seleção de pasta: os
+   atalhos de pasta deixaram de existir, e uma pasta do APARELHO não recebe
+   itens um a um — ela vem inteira.) */
 
 /* ---------- Busca (pasta e Hinário) ---------- */
 /* appearance:none mata o visual NATIVO do sistema que o `type="search"` ganha
