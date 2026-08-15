@@ -6258,6 +6258,21 @@ nos objetos DELE conforme baixa. Recriar os objetos deixaria o snapshot
 apontando para órfãos — os bytes iriam para o OPFS e os ids seriam descartados
 no `setState` seguinte.
 
+**O REGISTRO conta o que a varredura achou** (v5.249). O bloco "Séries do
+YouTube (o que a regra achou)", no Registro de Configurações, traz por série os
+parâmetros do catálogo, cada playlist da aba do canal com o VEREDITO (aceita,
+com o mês do período; ou recusada, com o motivo), cada vídeo recusado, os que
+entraram SEM data no título — o achado que não é recusa — e os nomes
+resultantes, um por linha. Os nomes vão CRUS: o consumidor é quem ajusta a
+regra, a distância.
+
+A peça que o torna confiável é `AVSerie.avaliarPlaylist`/`avaliarVideo`: o
+motivo sai de quem DECIDE, e `mesDaPlaylist`/`itensDaPlaylist` são consumidores
+das mesmas funções. Um diagnóstico que reexplica por conta própria diverge no
+primeiro ajuste. A ordem das perguntas virou contrato porque é ela que o texto
+mostra; e as duas metades (aba do canal × varredura dos vídeos) trazem datas
+próprias, porque a assinatura pula a extração e só uma delas é de agora.
+
 **O índice falha com EXCEÇÃO, nunca com lista vazia.** Quem chama já trata isso
 como "sem internet — falha ao atualizar" e preserva o índice anterior; devolver
 zero itens apagaria da tela a série inteira que o operador já tem baixada, por

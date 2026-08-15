@@ -277,13 +277,28 @@
     return IDIOMAS_DE_FORA.some((re) => re.test(n));
   }
 
+  // OS MOTIVOS DE RECUSA, como CÓDIGO e não como frase (v5.249).
+  //
+  // É a mesma divisão que o `otaDiag` e o `ytDiag` já fazem entre o Kotlin e o
+  // `controle.js`, aplicada aqui: **este arquivo devolve DADO, e quem monta a
+  // frase é quem desenha o Registro.** Uma regra pura que soubesse escrever
+  // "não começa com o prefixo" teria de conhecer o idioma da UI, e o oráculo
+  // passaria a comparar prosa.
+  const MOTIVO_VAZIO = 'vazio';       // sem nome nenhum
+  const MOTIVO_PREFIXO = 'prefixo';   // não começa com o prefixo da série
+  const MOTIVO_LIBRAS = 'libras';     // a tradução em Libras (armadilha 3)
+  const MOTIVO_IDIOMA = 'idioma';     // outro idioma do mesmo canal (armadilha 7)
+  const MOTIVO_ANO = 'ano';           // é da série, mas de outro ano
+  const MOTIVO_PERIODO = 'periodo';   // não declara mês nem trimestre
+  const MOTIVO_SEM_ID = 'sem-id';     // o extrator não devolveu id de vídeo
+
   /**
-   * O mês em que o PERÍODO da playlist começa (1..12), ou 0 quando ela não é
-   * desta série.
+   * O VEREDITO sobre uma playlist do canal: `{ mes, motivo }`.
    *
-   * Quatro perguntas, nesta ordem, e nenhuma delas casa separador (armadilha
-   * 1): o nome COMEÇA com o prefixo, não fala de Libras nem de outro idioma,
-   * traz o ano, e declara um período em qualquer posição.
+   * `motivo` vazio é a aceitação, e `mes` é o mês em que o PERÍODO começa
+   * (1..12). Quatro perguntas, nesta ordem, e nenhuma delas casa separador
+   * (armadilha 1): o nome COMEÇA com o prefixo, não fala de Libras nem de outro
+   * idioma, traz o ano, e declara um período em qualquer posição.
    *
    * **Ele devolve o PRIMEIRO mês do período, não "o mês da playlist"**, e é
    * essa a única concessão que o trimestre pediu. O valor tem dois usos, e os
@@ -292,17 +307,57 @@
    * data numa playlist de trimestre cai no começo daquele trimestre, que é a
    * coisa mais precisa que se pode afirmar sobre ele. Quem dá o mês de verdade
    * de cada item é a data do TÍTULO (ver [itensDaPlaylist]).
+   *
+   * **A ORDEM das perguntas é o que o Registro vai mostrar**, e por isso ela
+   * importa mais do que antes: uma playlist em espanhol de outro ano é
+   * reportada como "espanhol", não como "outro ano", porque o primeiro motivo
+   * é o que decide. Ela vai do mais estrutural (não é desta série) ao mais
+   * específico (é desta série e deste ano, mas não diz de que período é) — que
+   * é a ordem em que a resposta muda o que se faz a respeito.
    */
-  function mesDaPlaylist(nome, serie) {
+  function avaliarPlaylist(nome, serie) {
     const s = serie || {};
     const n = normalizar(nome);
-    if (!n || !s.prefixo || !s.ano) return 0;
-    if (!n.startsWith(normalizar(s.prefixo))) return 0;
-    if (ehLibras(n) || ehOutroIdioma(nome)) return 0;
+    if (!n || !s.prefixo || !s.ano) return { mes: 0, motivo: MOTIVO_VAZIO };
+    if (!n.startsWith(normalizar(s.prefixo))) return { mes: 0, motivo: MOTIVO_PREFIXO };
+    if (ehLibras(n)) return { mes: 0, motivo: MOTIVO_LIBRAS };
+    if (ehOutroIdioma(nome)) return { mes: 0, motivo: MOTIVO_IDIOMA };
     // O ano como PALAVRA: sem o `\b`, "2026" casaria dentro de "12026" e, pior,
     // o ano de uma série futura casaria pedaço do de outra.
-    if (!new RegExp('\\b' + String(s.ano) + '\\b').test(n)) return 0;
-    return s.periodo === PERIODO_TRIMESTRE ? mesDoTrimestre(n) : mesDoNome(n);
+    if (!new RegExp('\\b' + String(s.ano) + '\\b').test(n)) return { mes: 0, motivo: MOTIVO_ANO };
+    const mes = s.periodo === PERIODO_TRIMESTRE ? mesDoTrimestre(n) : mesDoNome(n);
+    return mes ? { mes, motivo: '' } : { mes: 0, motivo: MOTIVO_PERIODO };
+  }
+
+  /**
+   * O mês do período da playlist, ou 0 — a metade de [avaliarPlaylist] que a
+   * regra usa quando não está explicando nada a ninguém.
+   *
+   * **Ela DELEGA em vez de repetir, e essa é a decisão inteira.** Uma segunda
+   * escrita das mesmas quatro perguntas — uma para decidir, outra para contar
+   * o que decidiu — envelheceria à parte no primeiro ajuste, e o que sairia
+   * disso é um diagnóstico que discorda do aparelho: o pior artefato que este
+   * projeto pode produzir, porque ele é lido A DISTÂNCIA e por quem não tem
+   * como conferir.
+   */
+  function mesDaPlaylist(nome, serie) {
+    return avaliarPlaylist(nome, serie).mes;
+  }
+
+  /**
+   * O VEREDITO sobre um vídeo: `{ motivo, data }`.
+   *
+   * `motivo` vazio é a aceitação; `data` é o que o título declarou, ou `null`.
+   * **`data` nula NÃO é recusa** — é a regra de ouro em ação (o vídeo entra com
+   * o dia em branco). Ela sai daqui porque é o ACHADO que o Registro precisa
+   * nomear: um episódio sem data é um episódio fora de ordem e sem rótulo na
+   * lista do culto, e é o sintoma exato que o operador relatou na v5.230.
+   */
+  function avaliarVideo(v, serie) {
+    if (!v || !v.id) return { motivo: MOTIVO_SEM_ID, data: null };
+    if (ehLibras(v.name)) return { motivo: MOTIVO_LIBRAS, data: null };
+    if (ehOutroIdioma(v.name)) return { motivo: MOTIVO_IDIOMA, data: null };
+    return { motivo: '', data: dataDoVideo(v.name) };
   }
 
   /** O mês escrito por extenso em qualquer posição do nome já normalizado. */
@@ -471,7 +526,6 @@
   function itensDaPlaylist(videos, mesDaLista, serie) {
     const out = [];
     (Array.isArray(videos) ? videos : []).forEach((v, i) => {
-      if (!v || !v.id) return;
       // Segunda linha de defesa (armadilha 3). Hoje ela nunca dispara: as
       // playlists PT e Libras são espelhos 1:1, então a de português já vem só
       // com português. Ela fica porque um único vídeo acrescentado por engano
@@ -483,8 +537,13 @@
       // começam com a mesma palavra que os em português ("Informativo Mundial
       // de las Misiones"), então aqui embaixo é o único lugar em que eles têm
       // como ser recusados.
-      if (ehLibras(v.name) || ehOutroIdioma(v.name)) return;
-      const d = dataDoVideo(v.name);
+      //
+      // Quem responde é [avaliarVideo], e pela mesma razão do [mesDaPlaylist]:
+      // o Registro conta o que aconteceu com cada vídeo, e ele tem de contar a
+      // decisão que de fato foi tomada — não uma segunda escrita dela.
+      const ver = avaliarVideo(v, serie);
+      if (ver.motivo) return;
+      const d = ver.data;
       out.push({
         id: v.id,
         url: v.url,
@@ -586,6 +645,7 @@
       String(itensDaPlaylist), String(ordenarItens), String(nomeDoItem),
       String(tituloDoEpisodio), String(ehLibras), String(normalizar),
       String(mesDoNome), String(mesDoTrimestre),
+      String(avaliarPlaylist), String(avaliarVideo),
       // As duas RECUSAS por idioma são DADOS e não código, e por isso entram
       // pelo valor: mudar uma marca (ou uma faixa de escrita) muda o que o
       // álbum contém, exatamente como mudar uma função — e sem isto o índice
@@ -605,7 +665,10 @@
   global.AVSerie = {
     SERIES,
     PERIODO_MES, PERIODO_TRIMESTRE, TITULO_ESQUERDA, TITULO_NENHUM,
+    MOTIVO_VAZIO, MOTIVO_PREFIXO, MOTIVO_LIBRAS, MOTIVO_IDIOMA,
+    MOTIVO_ANO, MOTIVO_PERIODO, MOTIVO_SEM_ID,
     normalizar, ehLibras, ehOutroIdioma,
+    avaliarPlaylist, avaliarVideo,
     mesDaPlaylist, playlistsDaSerie,
     dataDoVideo, tituloDoEpisodio, rotuloData,
     itensDaPlaylist, ordenarItens, nomeDoItem,
