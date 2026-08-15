@@ -1089,7 +1089,8 @@ try {
   checar(modo.opcoes.includes('simple') && modo.opcoes.includes('full'),
     'e Configurações continua oferecendo os dois modos, que é o destino que substitui o botão');
 } catch (e) {
-  checar(false, 'a medição da troca de modo terminou sem exceção (' + (e && e.message) + ')');}
+  checar(false, 'a medição da troca de modo terminou sem exceção (' + (e && e.message) + ')');
+}
 
 checar(erros.length === 0, 'nenhum erro de console' + (erros.length ? ':\n        ' + erros.join('\n        ') : ''));
 

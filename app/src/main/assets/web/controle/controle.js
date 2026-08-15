@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.248';
+const WEB_VERSION = '5.249';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -236,7 +236,7 @@ function renderVersionLabel() {
   // __SHELL_NAME__ = versionName do APK (ver native.js). Vazio no navegador e
   // em shells anteriores ao `appVersion()` — aí sai só a versão da base web.
   const shell = window.__SHELL_NAME__;
-  // ELE VOLTOU A SER SÓ UM INDICADOR (v5.245). Até aqui ele carregava um ponto
+  // ELE VOLTOU A SER SÓ UM INDICADOR (v5.249). Até aqui ele carregava um ponto
   // ("há algo esperando") e o TOQUE que trazia a pergunta de volta — os dois
   // porque não havia mais nada no rodapé para fazer esse papel. Agora há o
   // botão de atualização logo abaixo, que diz a mesma coisa por extenso e é o
@@ -253,7 +253,7 @@ function renderVersionLabel() {
 
 renderVersionLabel();
 
-// ===== O BOTÃO DE ATUALIZAÇÃO, no rodapé de Configurações (v5.245) =====
+// ===== O BOTÃO DE ATUALIZAÇÃO, no rodapé de Configurações (v5.249) =====
 //
 // Ele é o herdeiro da LINHA DO APK (v5.167), e o que mudou é o escopo: aquela
 // só existia quando havia um APK novo, e a única forma de PROCURAR era um toque
@@ -9309,9 +9309,72 @@ function serieFaixaDoItem(s, it) {
   return s;
 }
 
+// ===== O DIÁRIO DA VARREDURA DE UMA SÉRIE (v5.249) =====
+//
+// Pedido do operador: *"adicione uma seção inteira nos registros para, após
+// verificar ambos os grupos, ele registrar os nomes, achados e dados
+// resultantes, assim eu posso lhe repassar e você verificar se precisa ajustar
+// os filtros ou métodos."*
+//
+// **O que ele descreve é o laço de manutenção deste recurso, e ele estava
+// aberto de um lado.** A regra decide a partir de NOMES que um canal muda sem
+// avisar ninguém, e os dois modos de errar são silenciosos por construção: uma
+// playlist recusada some da Biblioteca sem erro no console, e um vídeo aceito
+// sem data entra fora de ordem. O aparelho sabia as duas coisas no instante em
+// que decidia e as jogava fora — quem opera via o RESULTADO (uma lista) e nunca
+// o CAMINHO, então "está faltando o mês de julho" e "julho veio com outro nome"
+// chegavam a mim como a mesma frase.
+//
+// Três decisões, e as três são do jeito deste projeto:
+//
+//  - **Ele guarda o VEREDITO, não uma segunda opinião.** Os motivos saem de
+//    `AVSerie.avaliarPlaylist`/`avaliarVideo`, que são as MESMAS funções que
+//    decidem — ver o KDoc delas. Um diagnóstico que reexplica por conta própria
+//    diverge no primeiro ajuste, e um diagnóstico que discorda do aparelho é
+//    pior que nenhum: ele é lido a distância, por quem não tem como conferir.
+//  - **Ele sobrevive ao fechamento do app** (`state`, IndexedDB), porque a
+//    varredura acontece na abertura e o Registro é aberto quando o operador se
+//    lembra. Em memória, o texto estaria vazio justamente quando fosse buscado.
+//  - **Ele é gravado EM DUAS METADES, com datas próprias.** A aba do canal é
+//    lida em toda passada; as playlists, não — a assinatura pula as ~12
+//    extrações quando nada mudou (a economia da v5.228). Escrever as duas com
+//    um carimbo só faria o Registro anunciar como "de agora" uma lista de
+//    vídeos de três dias atrás. Cada metade diz quando foi.
+const SERIE_DIARIO_KEY = 'serieDiag:';
+
+async function serieDiarioLer(id) {
+  try { return (await AVDB.getState(SERIE_DIARIO_KEY + id)) || null; } catch (_) { return null; }
+}
+// Grava por MESCLA: escrever só a metade do canal preserva a metade dos vídeos
+// da última varredura completa, que é exatamente o que o bloco precisa dizer
+// quando a assinatura pulou a extração.
+async function serieDiarioGravar(id, campos) {
+  try {
+    const atual = (await serieDiarioLer(id)) || {};
+    await AVDB.setState(SERIE_DIARIO_KEY + id, Object.assign(atual, campos));
+  } catch (_) { /* diagnóstico não pode derrubar a sincronização */ }
+}
+
 async function fetchSerieIndex(coll) {
   const serie = coll.serie;
   const doCanal = await AVNative.ytCanalPlaylists(serie.canal);
+
+  // A METADE DO CANAL, gravada ANTES do `throw` logo abaixo — e essa ordem é o
+  // ponto. "Nenhuma playlist no canal" é justamente o caso em que o operador
+  // mais precisa saber POR QUÊ (o canal renomeou? o ano virou? é a versão em
+  // Libras?), e gravar depois deixaria o Registro mudo exatamente ali.
+  await serieDiarioGravar(coll.id, {
+    canal: serie.canal,
+    quandoCanal: Date.now(),
+    playlists: (Array.isArray(doCanal) ? doCanal : []).map((pl) => {
+      const v = AVSerie.avaliarPlaylist(pl && pl.name, serie);
+      return {
+        nome: String((pl && pl.name) || ''), count: (pl && pl.count) | 0,
+        mes: v.mes, motivo: v.motivo,
+      };
+    }),
+  });
+
   const playlists = AVSerie.playlistsDaSerie(doCanal, serie);
   if (!playlists.length) throw new Error('Nenhuma playlist de "' + serie.name + '" no canal');
 
@@ -9348,14 +9411,31 @@ async function fetchSerieIndex(coll) {
   const guardado = collState[coll.id];
   if (guardado && guardado.serieAssinatura === assinatura && (guardado.songs || []).length) {
     guardado.indexSyncedAt = Date.now();
+    // O CARIMBO DO DIÁRIO (v5.249) vale para os dois caminhos: ele é o que diz
+    // "este índice já passou por uma versão que registra o que achou". Sem ele
+    // no caminho da economia, um aparelho cuja assinatura bate ficaria sendo
+    // varrido a cada abertura, para sempre, pela guarda do `autoRefresh`.
+    guardado.serieDiarioEm = Date.now();
     await AVDB.setState('coll:' + coll.id, guardado);
     return;
   }
 
   const itens = [];
+  // A METADE DOS VÍDEOS do diário. Ela é acumulada AQUI, e não dentro do
+  // `itensDaPlaylist`, porque aquele é a REGRA e devolve os itens que entram —
+  // o que o diagnóstico precisa é justamente do que NÃO entrou, mais o título
+  // CRU de tudo, que a regra descarta ao formar o rótulo.
+  const vistos = [];
+  const vazias = [];
   for (const pl of playlists) {
     const info = await AVNative.ytPlaylist(pl.url);
-    if (!info || !Array.isArray(info.items)) continue;
+    if (!info || !Array.isArray(info.items)) { vazias.push(pl.name); continue; }
+    for (const v of info.items) {
+      const ver = AVSerie.avaliarVideo(v, serie);
+      vistos.push({
+        nome: String((v && v.name) || ''), motivo: ver.motivo, semData: !ver.motivo && !ver.data,
+      });
+    }
     itens.push(...AVSerie.itensDaPlaylist(info.items, pl.mes, serie));
   }
   if (!itens.length) throw new Error('As playlists de "' + serie.name + '" vieram vazias');
@@ -9364,8 +9444,18 @@ async function fetchSerieIndex(coll) {
   const songs = AVSerie.ordenarItens(itens).map((it) => serieFaixaDoItem(
     byId.get(it.id) || { id_music: it.id, fileIdFull: null, fileIdPlayback: null }, it));
 
+  await serieDiarioGravar(coll.id, {
+    quandoVideos: Date.now(),
+    vazias,
+    total: vistos.length,
+    recusados: vistos.filter((x) => x.motivo),
+    semData: vistos.filter((x) => x.semData).map((x) => x.nome),
+    nomes: songs.map((s) => s.name),
+  });
+
   collState[coll.id] = {
     indexSyncedAt: Date.now(), songs, isHymnal: false, serieAssinatura: assinatura,
+    serieDiarioEm: Date.now(),
   };
   await AVDB.setState('coll:' + coll.id, collState[coll.id]);
   refreshCollectionsIfVisible();
@@ -9456,6 +9546,25 @@ const ALBUM_INDEX_TTL = 12 * 60 * 60 * 1000; // 12 h
 //     mas sempre busca os novos/vazios). Uma falha (ex: sem rede) só mantém o
 //     que já está em cache.
 let collectionsRefreshing = false;
+// O ÍNDICE DE UMA COLEÇÃO PRECISA SER REFEITO?
+//
+// Ela é uma função nomeada, e não o corpo de um `filter`, porque o oráculo
+// precisa fazer a MESMA pergunta que o app faz — uma segunda escrita da regra
+// no teste provaria que o teste concorda consigo mesmo. É o mesmo argumento do
+// `avaliarPlaylist` do `serie.js`, um nível acima.
+function indiceVencido(c, agora) {
+  const st = collState[c.id];
+  if (!st || !st.songs.length) return true;
+  if ((agora - (st.indexSyncedAt || 0)) > ALBUM_INDEX_TTL) return true;
+  // UM ÍNDICE ANTERIOR AO DIÁRIO conta como vencido (v5.249). Sem isto, o bloco
+  // das séries no Registro diria "ainda não varrido" por até 12 h depois de a
+  // atualização chegar — e é justamente ali que o operador vai buscá-lo, porque
+  // foi a atualização que o fez olhar. Custa UMA varredura, uma vez, num
+  // aparelho que já tem o índice; o carimbo é escrito nos DOIS caminhos do
+  // `fetchSerieIndex`, senão ele voltaria a extrair o canal a cada abertura.
+  return c.kind === 'serie' && !st.serieDiarioEm;
+}
+
 async function autoRefreshCollections() {
   if (collectionsRefreshing) return;
   collectionsRefreshing = true;
@@ -9477,11 +9586,8 @@ async function autoRefreshCollections() {
     // assinatura das playlists não mudou (ver `fetchSerieIndex`), e caro quando
     // mudou. O TTL é o mesmo dos álbuns porque a pergunta é a mesma ("a lista
     // envelheceu?"), e a série publica um episódio por semana.
-    const stale = allCollections().filter((c) => {
-      if ((c.kind !== 'album' && c.kind !== 'serie') || !idle(c)) return false;
-      const st = collState[c.id];
-      return !st || !st.songs.length || (now - (st.indexSyncedAt || 0)) > ALBUM_INDEX_TTL;
-    });
+    const stale = allCollections().filter(
+      (c) => (c.kind === 'album' || c.kind === 'serie') && idle(c) && indiceVencido(c, now));
     await runLimited(stale, NET_CONCURRENCY, (c) => fetchCollectionIndex(c).catch(() => {}));
     // Fase 3: as LETRAS dos hinários, como informação padrão do acervo — o
     // índice sozinho não responde "qual hino fala em…". Fire-and-forget: é
@@ -12865,6 +12971,116 @@ function eventosDiag() {
     .join('\n');
 }
 
+// ===== O BLOCO DAS SÉRIES (v5.249) =====
+//
+// O que a regra achou nos dois canais, na forma em que ela achou. O consumidor
+// deste texto não é quem opera: é quem AJUSTA a regra, a distância, sem o
+// aparelho e sem o canal na frente — e é por isso que ele carrega os nomes
+// CRUS. Um rótulo já formado ("15/Ago") prova que a regra rodou; só o título
+// que entrou nela diz por que ela produziu aquilo.
+//
+// Ele é mais um BLOCO da caixa que rola, nunca uma faixa nova em outro canto
+// (regra do projeto), e o botão de copiar que já existe no cabeçalho o leva
+// junto.
+
+// "há 3 min", ou vazio quando nunca aconteceu. Vazio e não "nunca": a linha
+// inteira some, que é a regra deste Registro — o que não se sabe não vira
+// palavra.
+function serieHa(quando) {
+  return quando ? 'há ' + mirrorDur(Date.now() - quando) : '';
+}
+
+// O motivo vira FRASE aqui, e só aqui. Duas delas citam a série, e é isso que
+// as torna úteis: "não começa com Informativo" diz o que fazer; "prefixo", não.
+function serieMotivoFrase(motivo, serie) {
+  switch (motivo) {
+    case AVSerie.MOTIVO_PREFIXO: return 'não começa com "' + serie.prefixo + '"';
+    case AVSerie.MOTIVO_LIBRAS: return 'é a versão em Libras';
+    case AVSerie.MOTIVO_IDIOMA: return 'está em outro idioma';
+    case AVSerie.MOTIVO_ANO: return 'não é de ' + serie.ano;
+    case AVSerie.MOTIVO_PERIODO: return 'não diz de que '
+      + (serie.periodo === AVSerie.PERIODO_TRIMESTRE ? 'trimestre' : 'mês') + ' é';
+    case AVSerie.MOTIVO_SEM_ID: return 'veio sem id de vídeo';
+    case AVSerie.MOTIVO_VAZIO: return 'veio sem nome';
+    default: return motivo || '?';
+  }
+}
+
+// O TETO das listas longas, e ele é ANUNCIADO quando morde (regra do projeto:
+// nenhum corte silencioso). Ele nunca alcança um achado: recusas e episódios
+// sem data são o que este bloco existe para mostrar, e são poucos por natureza
+// — o que pode crescer é a lista de nomes, que tem 52 por ano e por série.
+const SERIE_DIARIO_TETO = 60;
+function serieLista(itens, formatar) {
+  const out = itens.slice(0, SERIE_DIARIO_TETO).map(formatar);
+  if (itens.length > SERIE_DIARIO_TETO) {
+    out.push('    …e mais ' + (itens.length - SERIE_DIARIO_TETO) + ' (cortados por este registro, não pela regra)');
+  }
+  return out;
+}
+
+async function blocoSeries() {
+  if (!serieDisponivel()) return '';
+  const linhas = [];
+  for (const coll of serieCollections()) {
+    const s = coll.serie;
+    const d = await serieDiarioLer(coll.id);
+    linhas.push('· ' + s.name + ' — ' + s.canal);
+    linhas.push('  prefixo "' + s.prefixo + '" · ' + s.ano + ' · playlists por '
+      + (s.periodo === AVSerie.PERIODO_TRIMESTRE ? 'trimestre' : 'mês')
+      + ' · rótulo ' + (s.titulo === AVSerie.TITULO_NENHUM ? 'pela data' : 'pelo título'));
+    if (!d) {
+      // O caso mais fácil de ler errado: card na tela, nada no Registro. Ele é
+      // normal (a lista só é buscada no primeiro toque ou na retomada) e
+      // precisa estar DITO, senão se lê como o recurso quebrado.
+      linhas.push('  ainda não varrido neste aparelho — abra o card na Biblioteca'
+        + ' (ou toque em "Atualizar a lista")');
+      continue;
+    }
+    const pls = d.playlists || [];
+    const aceitas = pls.filter((p) => !p.motivo);
+    linhas.push('  aba do canal (' + serieHa(d.quandoCanal) + '): ' + pls.length
+      + ' playlist(s), ' + aceitas.length + ' aceita(s)');
+    linhas.push(...serieLista(pls, (p) => (p.motivo
+      ? '    - "' + p.nome + '" → ' + serieMotivoFrase(p.motivo, s)
+      : '    + "' + p.nome + '" → mês ' + p.mes + ' · ' + p.count + ' vídeo(s) no canal')));
+
+    if (!d.quandoVideos) {
+      linhas.push('  vídeos: nenhuma varredura completa ainda');
+      continue;
+    }
+    // A segunda metade traz a PRÓPRIA data, e ela é o ponto: com a assinatura
+    // batendo, a aba do canal acima é de agora e isto aqui pode ser de dias
+    // atrás. Um carimbo só faria o bloco mentir sobre a metade barata.
+    const rec = d.recusados || [];
+    const nomes = d.nomes || [];
+    linhas.push('  vídeos (varredura ' + serieHa(d.quandoVideos) + '): '
+      + (d.total | 0) + ' vistos, ' + nomes.length + ' entraram, ' + rec.length + ' recusado(s)');
+    if ((d.vazias || []).length) {
+      linhas.push('    ! playlist(s) que voltaram vazias: ' + d.vazias.join(' · '));
+    }
+    linhas.push(...serieLista(rec, (r) => '    - "' + r.nome + '" → ' + serieMotivoFrase(r.motivo, s)));
+    // O ACHADO que não é recusa, e o mais valioso dos dois: o vídeo ENTROU (a
+    // regra de ouro manda entrar) e ficou sem identificador de data, fora de
+    // ordem. É o sintoma exato da v5.230, e é dele que sai o próximo ajuste do
+    // `dataDoVideo` — por isso o título vem CRU.
+    if ((d.semData || []).length) {
+      linhas.push('    ! ' + d.semData.length + ' entrou(entraram) SEM data no título:');
+      linhas.push(...serieLista(d.semData, (n) => '      "' + n + '"'));
+    }
+    // UM NOME POR LINHA, e não uma lista separada por algum caractere. Dois
+    // deles já são parte dos dados: o rótulo formado tem " · " no meio ("15/Ago
+    // · Match point") e o título cru — que é o que sobra quando não há data —
+    // tem " | ". Qualquer separador escolhido apareceria DENTRO de um item, e
+    // quem lê isto a distância não teria como saber onde um nome termina.
+    if (nomes.length) {
+      linhas.push('  nomes (' + nomes.length + '), na ordem em que a lista mostra:');
+      linhas.push(...serieLista(nomes, (n) => '    ' + n));
+    }
+  }
+  return linhas.length ? 'Séries do YouTube (o que a regra achou)\n' + linhas.join('\n') : '';
+}
+
 // O texto INTEIRO do registro — e é ele que o botão de copiar entrega. Guardado
 // aparte do `textContent` porque a caixa pode estar rolada: copiar o que está
 // VISÍVEL seria copiar meio log, que é o defeito que esta reforma corrigiu.
@@ -12917,6 +13133,13 @@ async function renderDiag() {
     const bloco = blocoEspelho(ed);
     if (bloco) blocos.push(bloco);
   }
+  // AS SÉRIES: o que a regra achou nos canais, com os nomes CRUS. Ele vem
+  // depois do estado da transmissão e antes da linha do tempo porque a ordem
+  // desta caixa é "quem eu sou → o que tentei → o que está no ar → o que
+  // aconteceu": este bloco responde à segunda pergunta.
+  const bs = await blocoSeries();
+  if (meu !== diagSeq) return;
+  if (bs) blocos.push(bs);
   if (meu !== diagSeq) return;   // outro render assumiu durante a espera
   blocos.push(eventosDiag());
   // O TEXTO MORA NA VARIÁVEL, e não num nó do DOM (v5.207). O visor `<pre>`
@@ -14716,7 +14939,7 @@ const appDialogInputEl = document.getElementById('appDialogInput');
 const appDialogOkEl = document.getElementById('appDialogOk');
 const appDialogCancelEl = document.getElementById('appDialogCancel');
 let appDialogResolve = null;
-// O DIÁLOGO QUE NÃO SE PERDE NUM TOQUE FORA (v5.245).
+// O DIÁLOGO QUE NÃO SE PERDE NUM TOQUE FORA (v5.249).
 //
 // O padrão do app é o do navegador: tocar no fundo cancela, e para quase tudo
 // isso está certo — é a saída barata de quem abriu a coisa errada. Para a
@@ -17496,7 +17719,7 @@ async function perguntarAtualizacao(lote) {
       okText: 'Atualizar agora',
       cancelText: 'Deixar para depois',
       input: false,
-      // Um toque fora NÃO responde por ele (v5.245, ver `appDialogFixo`): esta
+      // Um toque fora NÃO responde por ele (v5.249, ver `appDialogFixo`): esta
       // pergunta aparece sozinha, e a recusa acidental custava a atualização
       // pelo resto da sessão.
       fixo: true,
@@ -17509,7 +17732,7 @@ async function perguntarAtualizacao(lote) {
     // tocar no rótulo de versão a traz de volta agora — "depois" é o operador
     // escolhendo o momento, não desistindo da atualização.
     otaAdiadas.add(lote.chave);
-    // NENHUMA FRASE AQUI (v5.245). Ela existia porque o rótulo de versão só
+    // NENHUMA FRASE AQUI (v5.249). Ela existia porque o rótulo de versão só
     // sabia mostrar um ponto, e alguém precisava dizer onde tocar. Agora o
     // botão de Configurações já diz "Atualizar: base v… e app v…" — que é a
     // mesma informação e o próprio alvo. Uma frase por cima dele durante

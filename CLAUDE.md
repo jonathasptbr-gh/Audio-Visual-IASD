@@ -2011,6 +2011,70 @@ diferentes da ponte, e o Registro imprime a trilha escolhida
 - **O card não é desenhado abaixo do shell 41**, pela regra de sempre: um método
   novo não chega por OTA, e um card que não carrega nada é pior que card nenhum.
 
+### O REGISTRO da varredura — o laço de manutenção, fechado (v5.249)
+
+A regra decide a partir de NOMES que um canal muda sem avisar ninguém, e os dois
+modos de errar são silenciosos **por construção**: uma playlist recusada some da
+Biblioteca sem erro no console, e um vídeo aceito sem data entra fora de ordem.
+O aparelho sabia as duas coisas no instante em que decidia — e as jogava fora.
+Quem opera via o RESULTADO (uma lista) e nunca o CAMINHO, então *"está faltando
+julho"* e *"julho veio com outro nome"* chegavam como a mesma frase.
+
+O bloco **"Séries do YouTube (o que a regra achou)"** entra no Registro de
+Configurações — mais um bloco da caixa que rola, levado pelo botão de copiar que
+já existe — e diz, por série:
+
+```
+· Informativo Mundial das Missões 2026 — https://www.youtube.com/@daniellocutor
+  prefixo "Informativo" · 2026 · playlists por trimestre · rótulo pela data
+  aba do canal (há 2 min): 5 playlist(s), 2 aceita(s)
+    - "Misiones | 3º Trimestre 2026" → não começa com "Informativo"
+    + "Informativo | 3º Trimestre 2026" → mês 7 · 13 vídeo(s) no canal
+  vídeos (varredura há 2 min): 14 vistos, 13 entraram, 1 recusado(s)
+    - "Informativo Mundial de las Misiones | 15 AGOSTO 2026" → está em outro idioma
+    ! 1 entrou(entraram) SEM data no título:
+      "Informativo Mundial das Missões | especial de encerramento"
+  nomes (13), na ordem em que a lista mostra:
+    04/Jul
+    …
+```
+
+As decisões, e nenhuma é enfeite:
+
+- **O motivo sai de quem DECIDE.** `AVSerie.avaliarPlaylist`/`avaliarVideo`
+  devolvem `{ mes, motivo }` e `{ motivo, data }`; `mesDaPlaylist` e
+  `itensDaPlaylist` são consumidores delas. É a regra geral que este lote
+  acrescentou ao projeto (ver "Regras de desenvolvimento").
+- **A ORDEM das perguntas é o que o texto mostra**, e por isso ela virou
+  contrato: uma playlist em espanhol do @daniellocutor sai como *"não começa com
+  Informativo"* — o prefixo é a primeira pergunta e já a elimina —, e o motivo
+  por IDIOMA fica para quem passa do prefixo, que é o caso dos VÍDEOS. O nome
+  verbatim ao lado carrega o resto.
+- **Ele guarda o nome CRU.** Um rótulo já formado ("15/Ago") prova que a regra
+  rodou; só o título que entrou nela diz por que ela produziu aquilo — e é dele
+  que sai o ajuste seguinte do `dataDoVideo`.
+- **DUAS metades com datas próprias.** A aba do canal é lida em toda passada; as
+  playlists, não — a assinatura pula as ~12 extrações quando nada mudou. Um
+  carimbo só faria o bloco anunciar como "de agora" uma lista de vídeos de três
+  dias atrás.
+- **O que ENTROU sem data é um ACHADO, não uma recusa.** É a regra de ouro em
+  ação (o vídeo entra), e é o sintoma exato que o operador relatou na v5.230 —
+  um item sem identificador de data, fora de ordem. Ele é nomeado à parte, com
+  o título cru, porque é a única coisa deste caminho que erra em silêncio **e**
+  continua funcionando.
+- **UM NOME POR LINHA.** Os dois separadores óbvios já são parte dos dados: o
+  rótulo formado tem " · " no meio e o título cru — o que sobra quando não há
+  data — tem " | ".
+- **O diário VENCE o índice.** Um aparelho que já tinha a lista a tem "fresca"
+  pelo TTL de 12 h, e passaria essas 12 h com o bloco dizendo "ainda não
+  varrido" justamente enquanto o operador o procura (foi a atualização que o fez
+  olhar). Um índice sem o carimbo `serieDiarioEm` conta como vencido —
+  `indiceVencido`, uma varredura, uma vez —, e **o carimbo é escrito nos dois
+  caminhos** do `fetchSerieIndex`, senão o canal seria extraído a cada abertura.
+- **A metade do canal é gravada ANTES do primeiro `throw`.** "Nenhuma playlist
+  no canal" é justamente o caso em que a pergunta "por quê?" mais importa, e
+  gravar depois deixaria o Registro mudo exatamente ali.
+
 ### O tamanho, dito em vez de escondido
 
 São ~52 episódios de ~5 min por ano, ~300 MB cada em 1080p: o ano inteiro passa
@@ -2852,6 +2916,16 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK instalado).
   "Registro" de Configurações). Um log em espaço fixo esconde o fim quando o
   texto cresce — e o fim é onde está o desfecho. Diagnóstico novo entra como
   mais um BLOCO ali, nunca como uma faixa nova em outro canto.
+- **Um bloco de diagnóstico guarda o VEREDITO, nunca uma segunda opinião**
+  (v5.249). Quando o que se quer explicar é uma DECISÃO do app, o texto tem de
+  sair da mesma função que decidiu — `AVSerie.avaliarPlaylist` devolve
+  `{ mes, motivo }` e o `mesDaPlaylist` é a metade dela que a regra usa. Uma
+  segunda escrita das mesmas perguntas ("por que esta playlist não entrou?")
+  envelhece à parte no primeiro ajuste, e o que sai disso é um log que discorda
+  do aparelho — o pior artefato que este projeto sabe produzir, porque ele é
+  lido A DISTÂNCIA e por quem não tem como conferir. **E ele registra o dado
+  CRU**, não só o resultado: um rótulo já formado prova que a regra rodou; só a
+  entrada dela diz por que ela produziu aquilo.
 - **Todo campo de LOG nasce com um botão de copiar** (o cabeçalho `.log-head`
   com o botão `.log-copy` sobre a caixa `.diag-box` — ver `copiarTexto` em
   `controle.js`). Diagnóstico existe para ser REPASSADO, e
@@ -2881,10 +2955,63 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.248** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.249** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.249: O REGISTRO PASSA A CONTAR O QUE A REGRA DAS SÉRIES ACHOU. OTA
+> PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> Pedido do operador: *"adicione uma seção inteira nos registros para, após
+> verificar ambos os grupos de Provai e Vede e de Informativo Mundial das
+> Missões, ele registrar os nomes, achados e dados resultantes, assim eu posso
+> lhe repassar e você verificar se precisa ajustar os filtros ou métodos."*
+>
+> **O que ele descreve é o laço de manutenção deste recurso, e ele estava aberto
+> de um lado.** A regra decide a partir de nomes que um canal muda sem avisar, e
+> os dois modos de errar são silenciosos por construção: uma playlist recusada
+> some da Biblioteca sem erro no console, e um vídeo aceito sem data entra fora
+> de ordem. O aparelho sabia as duas coisas no instante em que decidia e as
+> jogava fora — quem opera vê o RESULTADO (uma lista) e nunca o CAMINHO, então
+> "está faltando julho" e "julho veio com outro nome" chegavam a mim como a
+> mesma frase. As duas versões anteriores deste recurso são a prova: a v5.229 e
+> a v5.233 foram diagnosticadas por relato e reprodução, não por leitura.
+>
+> O desenho inteiro está em "O REGISTRO da varredura", na seção das séries. As
+> três decisões que valem para além dele:
+>
+> - **O bloco guarda o VEREDITO, nunca uma segunda opinião.** `mesDaPlaylist`
+>   virou a metade de `avaliarPlaylist`, que devolve `{ mes, motivo }`; o mesmo
+>   para `avaliarVideo`. Uma segunda escrita das quatro perguntas — uma para
+>   decidir, outra para contar o que decidiu — envelheceria à parte no primeiro
+>   ajuste, e o que sai disso é um log que discorda do aparelho. Virou regra do
+>   projeto.
+> - **Ele registra o dado CRU.** O consumidor deste texto não é quem opera: é
+>   quem AJUSTA a regra, a distância, sem o aparelho e sem o canal na frente. Um
+>   rótulo já formado ("15/Ago") prova que a regra rodou; só o título que entrou
+>   nela diz por que ela produziu aquilo.
+> - **O que ENTROU sem data é um ACHADO, e é o mais valioso dos dois.** Recusa
+>   se percebe (o item some); o episódio sem data continua lá, funcionando, com
+>   o rótulo errado — foi assim que a v5.230 atravessou até o operador reparar
+>   num item fora de ordem no fim de janeiro.
+>
+> Mais duas peças pequenas e uma armadilha. O diário **vence o índice**
+> (`indiceVencido`): sem isso, um aparelho que já tinha a lista passaria 12 h com
+> o bloco dizendo "ainda não varrido" justamente enquanto o operador o procura —
+> e o carimbo é escrito nos DOIS caminhos do `fetchSerieIndex`, senão o canal
+> seria extraído a cada abertura. A metade do canal é gravada **antes** do
+> primeiro `throw`, porque "nenhuma playlist no canal" é o caso em que a pergunta
+> "por quê?" mais importa. E os nomes saem **um por linha**: os dois separadores
+> óbvios já são parte dos dados (" · " no rótulo formado, " | " no título cru).
+>
+> O oráculo entrou no `boot-nativo.test.mjs` — nenhum teste carregava este texto,
+> e o modo de falhar dele é o do `registro.test.mjs`: ele não quebra, ele
+> CONTINUA RESPONDENDO com uma frase errada, ou mudo, que é pior ("não achei nada
+> no Registro" se lê como "não há nada de errado"). Verificado por ISOLAMENTO,
+> sem erro de referência mascarando nada: sem o bloco **12** asserções reprovam,
+> sem a lista de recusados **1**, sem o achado de data **1**, sem o carimbo do
+> diário **1**.
 
 > **A v5.248: O PESO VIRA SUBTÍTULO DO CARD — e o card não cresce por isso.
 > OTA PURO** (sem Release).

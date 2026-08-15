@@ -141,6 +141,10 @@ const ponteCom = (espelho, telas) => `(() => {
         ] },
         'd/pt4': { name: 'Informativo | 4º Trimestre 2026', author: 'Daniel Gonçalves', items: [
           { id: 'bbbbbbbbbb4', url: 'd/4', name: 'Informativo Mundial das Missões | 03 OUTUBRO 2026', seconds: 170 },
+          // SEM DATA no título: ele ENTRA (regra de ouro) e o Registro tem de
+          // NOMEÁ-LO — é o achado que a v5.230 custou uma versão para
+          // descobrir, e é dele que sai o próximo ajuste da leitura de data.
+          { id: 'bbbbbbbbbb5', url: 'd/5', name: 'Informativo Mundial das Missões | especial de encerramento', seconds: 200 },
         ] },
       };
       setTimeout(() => {
@@ -293,18 +297,105 @@ try {
   checar(info.achou, 'o card da SEGUNDA série existe na Biblioteca');
   checar(info.nome === 'Informativo Mundial das Missões 2026',
     'e ele se chama "Informativo Mundial das Missões 2026"', info.nome);
-  checar((info.itens || []).join(' | ') === '04/Jul | 15/Ago | 03/Out',
+  checar((info.itens || []).slice(0, 3).join(' ~ ') === '04/Jul ~ 15/Ago ~ 03/Out',
     'os episódios vêm em ordem CRONOLÓGICA e rotulados só pela DATA — o resto do '
     + 'título é igual nos 52 e não distingue nada', JSON.stringify(info.itens));
-  checar((info.urls || []).join(',') === 'd/3,d/1,d/4',
+  checar((info.itens || [])[3] === 'Informativo Mundial das Missões | especial de encerramento',
+    'o que não declarou data ENTRA, com o título CRU e no fim do trimestre dele — '
+    + 'nunca uma linha em branco', JSON.stringify(info.itens));
+  checar((info.urls || []).join(',') === 'd/3,d/1,d/4,d/5',
     'cada um carrega a URL do vídeo, que é o que a transmissão vai buscar', JSON.stringify(info.urls));
   checar(!(info.urls || []).includes('d/2'),
     'O VÍDEO EM ESPANHOL NÃO ENTROU — ele estava DENTRO da playlist de português, '
     + 'com o mesmo prefixo no título, e iria ao telão sem nada que o denunciasse');
-  checar(info.itens && info.itens.length === 3,
-    'as 2 playlists em português dos 5 idiomas do canal viram 3 episódios', JSON.stringify(info.itens));
+  checar(info.itens && info.itens.length === 4,
+    'as 2 playlists em português dos 5 idiomas do canal viram 4 episódios', JSON.stringify(info.itens));
   checar(info.outra === 3,
     'e o índice da PRIMEIRA série continua de pé: os dois cards não se sobrescrevem', info.outra);
+
+  // ── O REGISTRO DAS SÉRIES (v5.249) ─────────────────────────────────────
+  // Pedido do operador: depois de verificar os dois grupos, registrar nomes,
+  // achados e dados resultantes — para ele repassar e eu ajustar os filtros.
+  //
+  // É o único artefato deste recurso cujo consumidor não está no aparelho, e o
+  // modo de falhar dele é o do `registro.test.mjs`: ele não quebra, ele
+  // CONTINUA RESPONDENDO com uma frase errada — ou muda, que é pior, porque
+  // "não achei nada no Registro" se lê como "não há nada de errado". Nenhum
+  // teste carregava este texto até aqui.
+  const reg = await pg.evaluate(async () => {
+    await renderDiag();
+    return diagTexto;
+  });
+  const temLinha = (re) => re.test(reg);
+  checar(/Séries do YouTube \(o que a regra achou\)/.test(reg),
+    'O REGISTRO GANHOU O BLOCO DAS SÉRIES');
+  checar(/Provai e Vede 2026 — https:\/\/www\.youtube\.com\/@provaievedeoficial/.test(reg)
+    && /Informativo Mundial das Missões 2026 — https:\/\/www\.youtube\.com\/@daniellocutor/.test(reg),
+    'e ele fala dos DOIS grupos, cada um com o canal de onde veio');
+  checar(/playlists por mês/.test(reg) && /playlists por trimestre/.test(reg),
+    'com os PARÂMETROS de cada série (é neles que o ajuste é feito)');
+
+  // As RECUSAS, com o nome VERBATIM e o motivo. É a metade que responde "por
+  // que sumiu o mês de julho?", e sem ela a única pista seria uma lista curta.
+  checar(temLinha(/- "Provai e Vede - Agosto 2026 \(Libras\)" → é a versão em Libras/),
+    'cada playlist RECUSADA aparece com o nome verbatim e o motivo (Libras)');
+  checar(temLinha(/- "Semana de Mordomia Cristã 2026" → não começa com "Provai e Vede"/),
+    'e o motivo cita a série: "não começa com X" diz o que fazer, "prefixo" não');
+  // AS OUTRAS LÍNGUAS DO @daniellocutor saem recusadas pelo PREFIXO, e não pelo
+  // idioma — porque o prefixo é a primeira pergunta, e ela já as elimina. Isso
+  // está afirmado de propósito: a ordem das perguntas é o que o Registro
+  // mostra, e trocá-la mudaria o texto que eu leio a distância. Aqui ela está
+  // certa (o NOME verbatim ao lado já diz "Misiones"), e o motivo por idioma
+  // fica para quem passa do prefixo — o vídeo em espanhol, logo abaixo.
+  checar(temLinha(/- "Misiones \| 3º Trimestre 2026" → não começa com "Informativo"/)
+    && temLinha(/- "【聖工消息】2026 第三季 \(3 Quarter 26\)" → não começa com "Informativo"/),
+    'as playlists dos outros idiomas aparecem com o NOME verbatim e o motivo (prefixo)');
+  checar(temLinha(/\+ "Informativo \| 3º Trimestre 2026" → mês 7/),
+    'e as ACEITAS mostram o mês em que o período começa — é o que ordena a lista');
+
+  // O vídeo em espanhol: a recusa que o prefixo NÃO faz, e a que só o Registro
+  // torna visível (ele some da lista sem deixar rastro em lugar nenhum).
+  checar(temLinha(/- "Informativo Mundial de las Misiones \| 15 AGOSTO 2026" → está em outro idioma/),
+    'O VÍDEO EM ESPANHOL aparece nomeado no registro, com o motivo');
+  checar(temLinha(/! 1 entrou\(entraram\) SEM data no título:/)
+    && temLinha(/"Informativo Mundial das Missões \| especial de encerramento"/),
+    'e o episódio SEM DATA é nomeado como ACHADO — ele entrou, e é dele que sai o próximo ajuste');
+
+  // Os nomes resultantes, que é a outra metade do pedido.
+  checar(/nomes \(4\), na ordem em que a lista mostra:/.test(reg)
+    && /nomes \(3\), na ordem em que a lista mostra:/.test(reg),
+    'os NOMES resultantes entram, com a contagem e na ordem da lista');
+  checar(/\n    04\/Jul\n/.test(reg) && /\n    15\/Ago\n/.test(reg),
+    'um por linha: o rótulo tem " · " e o título cru tem " | ", então nenhum separador serviria');
+  checar(/aba do canal \(há \d+ s\)/.test(reg) && /vídeos \(varredura há \d+ s\)/.test(reg),
+    'as DUAS metades trazem a própria data — a assinatura pula a extração e só uma delas é de agora');
+  checar(!/undefined|NaN|\[object Object\]/.test(reg),
+    'e nada de "undefined" no meio de um log que vai ser repassado');
+
+  // O DIÁRIO É O QUE VENCE O ÍNDICE (v5.249). Um aparelho que já tinha a lista
+  // antes desta versão a tem "fresca" pelo TTL de 12 h — e passaria essas 12 h
+  // com o bloco dizendo "ainda não varrido" justamente enquanto o operador o
+  // procura, porque foi a atualização que o fez olhar. As duas metades: sem
+  // carimbo a série entra na varredura, e COM carimbo ela para de entrar (senão
+  // seriam extrações do YouTube a cada abertura, para sempre).
+  const venc = await pg.evaluate(() => {
+    // `indiceVencido` é a MESMA função que o `autoRefreshCollections` chama —
+    // reescrevê-la aqui provaria só que o teste concorda consigo mesmo.
+    const c = allCollections().find((x) => x.kind === 'serie');
+    const st = collState[c.id];
+    const agora = Date.now();
+    st.indexSyncedAt = agora;               // fresco pelo TTL, que é o caso do relato
+    const comCarimbo = !!st.serieDiarioEm && !indiceVencido(c, agora);
+    delete st.serieDiarioEm;                // como o índice de quem já tinha a lista
+    const semCarimbo = indiceVencido(c, agora);
+    st.serieDiarioEm = agora;
+    return { comCarimbo, semCarimbo, deNovo: indiceVencido(c, agora) };
+  });
+  checar(venc.comCarimbo, 'a varredura carimba o índice como "já registrado"');
+  checar(venc.semCarimbo,
+    'um índice ANTERIOR ao diário conta como vencido — senão o bloco ficaria 12 h mudo');
+  checar(!venc.deNovo,
+    'e com o carimbo ele para de vencer: nada de extrair o canal a cada abertura');
 
   // ── O CARD, DESENHADO (v5.229) ─────────────────────────────────────────
   // O relato do operador: "não estou achando nada para acessar esse provai e
