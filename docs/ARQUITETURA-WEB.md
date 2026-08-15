@@ -1793,18 +1793,30 @@ A classe `mode-simple` **já vem no `<body>` do HTML** (e `.open` no
 `#simpleMode`), então a tela certa aparece sem esperar JS ou IndexedDB — era o
 mesmo motivo pelo qual o seletor nascia visível no documento.
 
-O **modo avançado** fica a um toque, no botão do cabeçalho ("Modo avançado"), e
-**a volta é o mesmo botão ao contrário**: `#fullSimpleBtn` ("Modo simplificado"
-— o rótulo completo, igual ao da ida; "Simplificado" sozinho, na v5.51, nomeava
-o destino sem dizer que ele é um MODO, e o par só se lê como par quando as duas
-metades falam a mesma língua), no
-mesmo canto do cabeçalho da lista, mesmo componente (`.mode-switch`), seta
-apontando para o outro lado. Até a v5.48 a volta só existia no segmento **Modo
-do app** do popup de Exibição — hoje **Configurações** — (`#appModeSeg`, que
-continua lá): quem tocasse em
-"Modo avançado" por curiosidade caía na mesa de som completa e a saída estava
-atrás de uma engrenagem sobre a preview — um caminho que ninguém adivinha. Sair
-tem de custar o mesmo tanto que entrar.
+O **modo avançado** fica a um toque, no botão do cabeçalho ("Modo avançado").
+
+**A VOLTA DEIXOU DE SER UM BOTÃO DE CABEÇALHO na v5.247**, a pedido do operador:
+*"como já temos nas configurações o botão de acesso ao modo simples, então pode
+remover o botão que temos no cabeçalho do app"*. Quem faz a volta é o segmento
+**Modo do app** de Configurações (`#appModeSeg`), que sempre esteve lá e é o que
+GUARDA a escolha entre aberturas (v5.66) — o botão do cabeçalho não guardava
+nada. Eram dois controles para uma decisão só, e o do cabeçalho ocupava a
+esquerda de uma faixa com largura de celular.
+
+**A simetria "o mesmo botão ao contrário" acabou, e ela era assimétrica de
+verdade:** no avançado a engrenagem está ali ao lado, no mixer; no Modo Fácil
+não está, porque aquele modo esconde a `.bottombar` inteira. Por isso o
+`#simpleFullBtn` NÃO sai — ele é a única porta de saída daquele modo, e é a
+razão pela qual a v5.48 o criou (antes dela, quem tocasse em "Modo avançado" por
+curiosidade caía na tela completa e a saída estava atrás de uma engrenagem sobre
+a preview, um caminho que ninguém adivinha).
+
+**E o título do cabeçalho passou a ficar centrado.** Ele nunca esteve: a caixa
+reservada do botão (ver abaixo) o empurrava para a direita o tempo todo —
+medido, **278px numa tela de 430**, contra os 215 do centro real. Sem o botão
+não há o que reservar, e o título fica onde ele diz estar. `tools/smoke.mjs`
+mede as duas metades: o botão fora do cabeçalho da lista, e a saída do Modo
+Fácil ainda no dele.
 
 #### O modo é LEMBRADO entre aberturas (v5.66)
 
@@ -1878,7 +1890,7 @@ sem a borda — o mudo, aliás, passou ao vermelho **saturado**.
 | **Letra** (`#simpleLyrics`) | a letra INTEIRA da música em cena, com o mesmo destaque e o mesmo acompanhamento da leitura auxiliar do modo avançado |
 | **Play/pause, parar e mudo** | `.click()` em `#playpause` / `#stop` / `#muteToggle`. O **parar** entrou na v5.72, ao lado do play: é a outra metade do transporte, e sem ele tirar a mídia do telão obrigava a ir ao modo avançado — justamente o que se faz no fim de cada louvor. A fileira passou a ter três colunas |
 | **Volume** (`#simpleVolDown` / `#simpleVolUp`) | teclas **−** e **+** com o número no meio (`.simple-vol-read`), não um slider |
-| **Modo avançado** (`#simpleFullBtn`, `.mode-switch`) | `setAppMode('full')` — a tela completa de sempre. Era texto `--muted` sobre `--surface`: dentro do mínimo de contraste, mas lido como **legenda**, não como botão. Desde a v5.40 é texto pleno (`--text`) sobre `--surface-2` — **7,03:1** na paleta atual — e desde a v5.49 leva a **seta** e divide a classe `.mode-switch` com o gêmeo do modo avançado (`#fullSimpleBtn`). **A borda em `--accent` saiu na v5.76**: ela desenhava, nos dois cabeçalhos, a moldura mais forte da tela em volta do botão que menos se usa num culto — trocar de modo é decisão de configuração, não de operação. Quem separa o botão do fundo é a superfície; o accent ficou onde informa, na seta, que é o que diz para que lado se vai |
+| **Modo avançado** (`#simpleFullBtn`, `.mode-switch`) | `setAppMode('full')` — a tela completa de sempre. Era texto `--muted` sobre `--surface`: dentro do mínimo de contraste, mas lido como **legenda**, não como botão. Desde a v5.40 é texto pleno (`--text`) sobre `--surface-2` — **7,03:1** na paleta atual — e desde a v5.49 leva a **seta**. Ele era um PAR com o gêmeo do cabeçalho avançado (`#fullSimpleBtn`) até a v5.247, quando aquele saiu — lá a mesma escolha já mora em Configurações, aqui não há engrenagem nenhuma à vista. **A borda em `--accent` saiu na v5.76**: ela desenhava, nos dois cabeçalhos, a moldura mais forte da tela em volta do botão que menos se usa num culto — trocar de modo é decisão de configuração, não de operação. Quem separa o botão do fundo é a superfície; o accent ficou onde informa, na seta, que é o que diz para que lado se vai |
 
 **Sem escolha de variante.** No simplificado o toque na linha da busca — e o
 toque no ▶ dela — chamam `simplePlaySong()`, que toca o **Cantado** e pronto:
@@ -2083,31 +2095,28 @@ no ícone de cast, o `@keyframes cast-hold` e o `.pv-fab.testing`.
 lista. `main` ganhou `padding-top` com `env(safe-area-inset-top)` (a antiga
 appbar cuidava do notch/status bar).
 
-**Cabeçalho da lista (`.list-header`):** QUATRO elementos, e a ordem é **saída ·
-lugar · destino** (v5.107):
+**Cabeçalho da lista (`.list-header`):** DOIS elementos, e é o que sobrou de uma
+faixa que já teve quatro — a ordem era **saída · lugar · destino** (v5.107), e
+os dois destinos saíram: os Favoritos na v5.238 (`#favHeadBtn`, porque eles são
+a primeira seção da Biblioteca e uma segunda porta era um segundo lugar para a
+lista divergir) e a troca de modo na v5.247 (`#fullSimpleBtn`, porque a mesma
+decisão mora em Configurações, que é onde ela é GUARDADA):
 
 | Posição | Elemento | Papel |
 |---|---|---|
-| esquerda | `#backBtn` (só na navegação da Bíblia) + `#fullSimpleBtn` (**só no Cronograma**) | sair — desta tela, ou do modo |
+| esquerda | `#backBtn` (só na navegação da Bíblia) | sair desta tela |
 | centro | `#listTitle` (`.list-title`) | onde eu estou |
-| direita | `#favHeadBtn` | ir para os Favoritos |
 
-**A troca de modo só existe no Cronograma** (v5.111, em `renderListTitle`). Ela
-é a saída do modo avançado, e sair de um modo pelo MEIO dele — da grade de
-livros da Bíblia, de dentro do sorteio — é pular dois degraus de uma vez. O
-Cronograma é a tela inicial e é onde o voltar desemboca (a escada de `__avBack`
-termina em "aba diferente do Cronograma → volta para ele"), então quem quer o
-Modo Fácil já passa por ali de qualquer jeito; nas outras abas o botão era
-sobretudo um alvo grande do lado esquerdo esperando um toque errado. Com a
-gaveta de Favoritos aberta ele CONTINUA visível: o `activeTab` é `'folders'`,
-mas a tela atrás da gaveta é o Cronograma.
+**A troca de modo SAIU deste cabeçalho na v5.247** (ver "Modo simplificado",
+acima). Com ela saíram a regra de "só no Cronograma" (v5.111) e o lugar
+reservado que a sustentava (`.mode-switch--vago`): aquela caixa existia para o
+título não saltar quando o botão se escondia nas outras abas, e um botão que não
+existe não tem lugar a reservar. O efeito medido é o oposto do temido — o título
+deixou de ser empurrado 63px para a direita e passou a ficar **exatamente no
+centro da faixa**, em todas as abas.
 
-Ele fica **vago, não removido** (`.mode-switch--vago`, `visibility: hidden`): a
-caixa reservada é o que segura o título no mesmo lugar em todas as abas —
-medido, o centro dele não sai de 212px numa tela de 412. Com `display: none` o
-título pularia ~60px para a esquerda a cada deslize entre abas, e um nome de
-tela que muda de lugar é o oposto do que ele existe para fazer. `visibility`
-já tira o botão do toque, do foco e do leitor de tela.
+O único elemento que ainda desloca o título é o **voltar** da Bíblia (19px,
+quando ele aparece), e essa distância é a mesma de antes: ela não nasceu daqui.
 
 Os dois botões ficam em cantos OPOSTOS porque levam a lugares opostos:
 empilhados do mesmo lado (como estavam até a v5.106) liam-se como um par, e não

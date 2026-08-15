@@ -1048,7 +1048,46 @@ try {
     + 'o card crescer conforme o catálogo');
 } catch (e) {
   checar(false, 'a medição do peso como subtítulo terminou sem exceção (' + (e && e.message) + ')');
-}
+// ── A TROCA DE MODO É UMA SÓ (v5.247) ────────────────────────────────────
+//
+// Pedido do operador: *"como já temos nas configurações o botão de acesso ao
+// modo simples, então pode remover o botão que temos no cabeçalho do app"*.
+// Ele estava certo por duas contas — o destino é o mesmo, e o de Configurações
+// é o que GUARDA a escolha entre aberturas —, e havia uma terceira que a
+// medição achou: com o botão fora, o título do cabeçalho passa a ficar de fato
+// CENTRADO. Ele nunca esteve: a caixa reservada do botão (que existia para o
+// título não saltar entre abas) o empurrava 63px para a direita o tempo todo.
+//
+// As três asserções vêm em par com as duas metades negativas, e elas são o que
+// impede isto de virar "apaguei o cabeçalho": a saída do Modo Fácil continua
+// no cabeçalho DELE — lá a engrenagem não existe, porque aquele modo esconde a
+// coluna do mixer inteira, e sem o botão não haveria como sair —, e
+// Configurações continua oferecendo a mesma escolha.
+try {
+  const modo = await pg.evaluate(() => {
+    setAppMode('full');
+    const t = document.getElementById('listTitle');
+    const faixa = t.parentElement.getBoundingClientRect();
+    const r = t.getBoundingClientRect();
+    const seg = document.getElementById('appModeSeg');
+    return {
+      cabecalho: !document.getElementById('fullSimpleBtn'),
+      desvio: Math.abs((r.left + r.width / 2) - (faixa.left + faixa.width / 2)),
+      saidaDoFacil: !!document.getElementById('simpleFullBtn'),
+      opcoes: seg ? [...seg.querySelectorAll('.fit-opt')].map((b) => b.dataset.mode) : [],
+    };
+  });
+  checar(modo.cabecalho,
+    'o cabeçalho da lista NÃO tem mais a troca de modo — ela é a mesma decisão de Configurações');
+  checar(modo.desvio <= 2,
+    'e o TÍTULO passou a ficar centrado na faixa (a caixa reservada do botão o '
+    + 'empurrava 63px para a direita) — desvio de ' + Math.round(modo.desvio) + 'px');
+  checar(modo.saidaDoFacil,
+    'mas o Modo Fácil MANTÉM a saída no cabeçalho dele: ali a engrenagem não existe');
+  checar(modo.opcoes.includes('simple') && modo.opcoes.includes('full'),
+    'e Configurações continua oferecendo os dois modos, que é o destino que substitui o botão');
+} catch (e) {
+  checar(false, 'a medição da troca de modo terminou sem exceção (' + (e && e.message) + ')');}
 
 checar(erros.length === 0, 'nenhum erro de console' + (erros.length ? ':\n        ' + erros.join('\n        ') : ''));
 

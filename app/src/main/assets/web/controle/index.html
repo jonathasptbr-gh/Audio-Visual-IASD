@@ -114,12 +114,13 @@
        são os mesmos botões do modo completo acionados por `.click()` (ver
        controle.js) — nenhuma regra de transporte é reescrita aqui. -->
   <div id="simpleMode" class="simple open">
-    <!-- A troca de modo é um PAR: este botão e o `#fullSimpleBtn` do cabeçalho
-         do modo avançado são o mesmo componente (`.mode-switch`), no mesmo
-         canto da tela, com a seta apontando para o lado em que o operador vai
-         cair. Até a v5.48 só existia a ida: quem tocasse aqui por curiosidade
-         caía na mesa de som completa e a única saída era o popup de Exibição —
-         um caminho que ninguém adivinha. -->
+    <!-- A ÚNICA porta de saída do Modo Fácil, e por isso ela não sai daqui: a
+         engrenagem (o outro caminho para "Modo do app") mora na coluna do
+         mixer, que este modo esconde por inteiro. O gêmeo dele no cabeçalho do
+         avançado saiu na v5.247 — lá havia a engrenagem ao lado, aqui não há.
+         Até a v5.48 só existia a ida: quem tocasse aqui por curiosidade caía na
+         tela completa e a única saída era o popup de Exibição, um caminho que
+         ninguém adivinha. -->
     <div class="simple-head">
       <span class="simple-brand">Audio Visual <b>IASD</b></span>
       <button type="button" id="simpleFullBtn" class="mode-switch" title="Ir para o modo avançado">
@@ -277,21 +278,20 @@
            ele apontava para o meio do próprio cabeçalho. O título ao centro é o
            que sobra: ele é o único elemento que não é ação, e no meio ele deixa
            de disputar a leitura com o botão que estivesse ao lado. -->
-      <!-- A volta para o modo simplificado. Mesmo componente e a seta invertida
-           do botão que traz o operador para cá (ver a `.simple-head`). Está no
-           CABEÇALHO, e não numa configuração, porque entrar no avançado é o
-           toque de curiosidade que qualquer um dá — e sair precisa custar o
-           mesmo tanto que entrar.
-           O indicador de versão saiu daqui e foi para o rodapé de
-           Configurações: ele é METADADO, o cabeçalho é navegação, e a faixa
-           não comportava os dois (o texto completo — "Web vX · Shell vY" —
-           come quase metade da largura de um celular). -->
-      <button id="fullSimpleBtn" class="mode-switch" title="Voltar ao Modo Fácil">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M19 12H6"/><path d="M11 6l-6 6 6 6"/>
-        </svg>
-        <span>Modo Fácil</span>
-      </button>
+      <!-- (A VOLTA PARA O MODO FÁCIL SAIU DAQUI na v5.247, a pedido do
+           operador: "como já temos nas configurações o botão de acesso ao modo
+           simples, então pode remover o botão que temos no cabeçalho do app".
+           A engrenagem → "Modo do app" é o mesmo destino, e é ela que GUARDA a
+           escolha entre aberturas — o botão do cabeçalho não guardava nada.
+           Dois controles para uma decisão só, e o do cabeçalho ocupava a
+           esquerda de uma faixa de largura de celular.
+
+           O CAMINHO DE IDA CONTINUA: o `#simpleFullBtn` da `.simple-head` NÃO
+           saiu, e não pode sair — a engrenagem mora na coluna do mixer, que o
+           Modo Fácil esconde por inteiro (`body.mode-simple .bottombar`), então
+           ele é a única porta de saída daquele modo. A simetria "mesmo botão ao
+           contrário" acabou aqui, e é ela que este comentário guarda para a
+           próxima leitura não tentar restaurá-la.) -->
       <span class="list-title" id="listTitle">Cronograma</span>
       <!-- (O botão de FAVORITOS saiu do cabeçalho na v5.238, a pedido do
            operador: "tudo agora será dentro da biblioteca". Os favoritos são a
@@ -838,7 +838,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.246</span>
+        <span id="appVersion" class="app-version">Controle v5.248</span>
         <!-- A ATUALIZAÇÃO (v5.245). Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso.

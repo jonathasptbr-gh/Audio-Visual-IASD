@@ -24,7 +24,6 @@ const appModeSegEl = document.getElementById('appModeSeg');
 const temaSegEl = document.getElementById('temaSeg');
 const simpleModeEl = document.getElementById('simpleMode');
 const simpleFullBtnEl = document.getElementById('simpleFullBtn');
-const fullSimpleBtnEl = document.getElementById('fullSimpleBtn');
 const simpleSearchBtnEl = document.getElementById('simpleSearchBtn');
 const simpleVeilEl = document.getElementById('simpleVeil');
 const simpleStageEl = document.getElementById('simpleStage');
@@ -209,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.246';
+const WEB_VERSION = '5.248';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -2989,30 +2988,15 @@ function moveTabIndicator(animar) {
   }
 }
 
-// O cabeçalho da LISTA (a faixa de cima da tela avançada). Ficou com três
-// elementos desde a v5.53 — voltar, título e a troca de modo — porque a busca
-// da pasta e o botão de sincronizar foram com os Favoritos para a gaveta, e
-// eram eles que faziam desta faixa a mais disputada do app. Quem cuida do
-// cabeçalho DA GAVETA é `renderFavHeader`.
+// O cabeçalho da LISTA (a faixa de cima da tela avançada). Desde a v5.247 ele
+// tem DOIS elementos — voltar e título —, e o que saiu foi a troca de modo: ela
+// é a mesma decisão do "Modo do app" em Configurações, a dois toques dali, e
+// aquela é a que GUARDA a escolha entre aberturas. Com ela foi embora também a
+// regra de "só no Cronograma" (v5.111) e o lugar reservado que a sustentava —
+// o botão que podia sumir e mover o título simplesmente não existe mais. Quem
+// cuida do cabeçalho DA GAVETA é `renderFavHeader`.
 function renderListTitle() {
   renderFavHeader();
-  // A TROCA DE MODO SÓ EXISTE NO CRONOGRAMA (v5.111). Ela é a saída do modo
-  // avançado, e sair de um modo pelo meio dele — da grade de livros da Bíblia,
-  // de dentro do sorteio — é pular dois degraus de uma vez. O Cronograma é a
-  // tela INICIAL e é onde o voltar desemboca (a escada de `__avBack` termina em
-  // "aba diferente do Cronograma → volta para ele"), então quem quer o Modo
-  // Fácil já passa por aqui de qualquer jeito. Nas outras abas o botão era
-  // sobretudo um alvo grande do lado esquerdo, esperando um toque errado.
-  // O 'folders' cai no ramo do Cronograma: com a gaveta aberta, a tela ATRÁS
-  // dela é o Cronograma, e é o cabeçalho dele que está por baixo.
-  //
-  // Ele fica VAGO, não `hidden`: a classe esconde por `visibility`, que preserva
-  // a caixa (e tira o botão do toque, do foco e da árvore de acessibilidade).
-  // Com `display: none` o título — que é centrado no espaço que sobra — pulava
-  // uns 60px para a esquerda a cada deslize entre abas, e um nome de tela que
-  // muda de lugar é o oposto do que ele existe para fazer.
-  fullSimpleBtnEl.classList.toggle('mode-switch--vago',
-    activeTab === 'mic' || activeTab === 'bible');
   if (activeTab === 'mic') {
     backBtnEl.hidden = true;
     // "Ferramentas" desde a v5.51 — "Diversos" nomeava a aba pelo que ela NÃO
@@ -6341,7 +6325,7 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
     if (fixo) {
       // A seção FIXA não abre nem fecha, e uma seta ali prometeria um gesto que
       // não existe. O lugar é RESERVADO só para os títulos de todas as seções
-      // começarem na mesma coluna (o idioma do `.mode-switch--vago`).
+      // começarem na mesma coluna (o idioma do `.coll-bar-dl.vago`).
       seta.setAttribute('aria-hidden', 'true');
     } else {
       seta.type = 'button';
@@ -6699,7 +6683,7 @@ function renderCollectionCard(coll, ctx) {
   // parado, o lugar é RESERVADO em vez de ocupado (`vago`): quem baixa ali é o
   // botão do painel, logo abaixo, que carrega o estado e o progresso — e
   // esconder por `visibility` mantém a coluna sem oferecer dois botões para a
-  // mesma ação. É o idioma que o `.mode-switch--vago` já usa neste arquivo.
+  // mesma ação. É o idioma que o `.coll-bar-dl.vago` já usa neste arquivo.
   if ((u.syncBusy || !complete) && !(ehLink(coll) && total > 0)) {
     // **O QUE É LINK NÃO BAIXA EM LOTE** (v5.230). São ~52 vídeos de ~300 MB — o
     // "download direto" que o operador pediu para não existir, na maior escala
@@ -15551,7 +15535,6 @@ function openWebDisplay() {
 }
 
 simpleFullBtnEl.addEventListener('click', () => setAppMode('full'));
-fullSimpleBtnEl.addEventListener('click', () => setAppMode('simple'));
 appModeSegEl.addEventListener('click', (e) => {
   const btn = e.target.closest('.fit-opt');
   if (!btn) return;

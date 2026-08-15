@@ -2881,10 +2881,92 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.246** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.248** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.248: O PESO VIRA SUBTÍTULO DO CARD — e o card não cresce por isso.
+> OTA PURO** (sem Release).
+>
+> Pedido do operador: *"ajuste o elemento que descreve o peso dos arquivos e
+> álbuns e coleções, para que ele seja um subtítulo abaixo do título, pois
+> atualmente ele está apertando o espaço disponível para o título dos álbuns.
+> Mas garanta que os cards não fiquem mais altos por causa disso."*
+>
+> **Medido, e o aperto era grande:** dividindo a linha com o nome, "~1,2 GB"
+> comia um terço da largura útil de um celular. O título de um álbum ia de
+> **196 px** para **264 px** (+35%), e no pior caso — o álbum que tem subtítulo
+> de categoria E "não sincron." — de **150 px** para 264 px, **+76%**. O nome é a
+> única coisa daquela barra que não se adivinha; o peso é um número curto que
+> ninguém lê de relance.
+>
+> **A segunda linha já existia** (o subtítulo do pivô categoria↔álbum), e o peso
+> entra NELA, não numa terceira: são duas peças do mesmo tipo — metadado curto
+> sobre a coleção — e uma linha por peça faria o card crescer conforme o
+> catálogo, que é exatamente o que a segunda metade do pedido proíbe. O ponto
+> separador vem do CSS, e as reticências caem no subtítulo: o peso é curto e não
+> deve encolher.
+>
+> **A altura não mudou: 51,6 px antes e depois.** Quem manda nela é a THUMB
+> (32 px), e as duas linhas de texto foram presas a esse número — 19,0 + 1 +
+> 11,8 = 31,8 px —, com as alturas de linha explícitas em vez de herdadas.
+> Foi por essa conta que o subtítulo do pivô desceu para `.7rem`, a mesma escala
+> do peso ao lado: meio ponto de diferença entre dois irmãos na mesma linha era
+> a inconsistência que a v5.241 tirou daqui, e era também o meio ponto que
+> estourava a thumb.
+>
+> **E o travessão saiu.** Ele era o marcador de "nada a dizer" numa COLUNA que
+> precisava existir para os cards se alinharem; como subtítulo ele vira um traço
+> solto embaixo do nome, dizendo menos que o silêncio. Sem ele o card fica com
+> uma linha só — e não encolhe, porque quem manda na altura continua sendo a
+> thumb.
+>
+> O oráculo (`tools/smoke.mjs`) não fixa pixel nenhum: ele compara a largura do
+> título ENTRE CARDS (com e sem subtítulo o nome tem de ter a mesma linha, que é
+> literalmente "o metadado não aperta mais o título") e trava a altura contra a
+> thumb. O caso da v5.243 foi re-ancorado no título, que agora é quem marca a
+> coluna da direita. Reprova em 3 asserções contra o código anterior.
+
+> **A v5.247: A TROCA DE MODO VIRA UMA SÓ — o botão do cabeçalho sai. OTA
+> PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> Pedido do operador: *"como já temos nas configurações o botão de acesso ao
+> modo simples, então pode remover o botão que temos no cabeçalho do app"*.
+>
+> Ele está certo por duas contas e por uma terceira que a medição achou. O
+> destino é o MESMO (`setAppMode('simple')`), e o de Configurações é o que
+> **guarda a escolha entre aberturas** (v5.66) — o do cabeçalho não guardava
+> nada, isto é, dos dois controles o que sobrou é o que decide mais. E o do
+> cabeçalho ocupava a esquerda de uma faixa com largura de celular para uma
+> decisão que se toma uma vez por instalação.
+>
+> **A terceira: o título nunca esteve centrado.** A caixa do botão ficava
+> RESERVADA mesmo quando ele não aparecia (`.mode-switch--vago`, v5.111) — ela
+> existia para o título não saltar 60px a cada deslize entre abas —, e o preço
+> era o título ser empurrado para a direita o tempo todo. Medido numa tela de
+> 430: centro do título em **278px**, contra os 215 do centro da faixa. Sem o
+> botão não há o que reservar, e ele passa a ficar exatamente no meio, em todas
+> as abas. O único elemento que ainda o desloca é o voltar da Bíblia (19px), e
+> essa distância é a mesma de antes.
+>
+> **A SIMETRIA ACABOU, e ela era assimétrica de verdade.** Este documento
+> descrevia os dois botões como "o mesmo botão ao contrário", e por isso a
+> leitura natural do pedido seria tirar os dois. **O `#simpleFullBtn` do Modo
+> Fácil FICA**, e não por conservadorismo: a engrenagem mora na coluna do mixer,
+> dentro da `.bottombar`, que o Modo Fácil esconde por inteiro
+> (`body.mode-simple .bottombar { display: none }`). No avançado o outro caminho
+> está ali ao lado; no Fácil não existe caminho nenhum, e remover aquele botão
+> **trancaria o operador naquele modo**. É a razão pela qual a v5.48 o criou, e
+> ela continua valendo só de um lado.
+>
+> `tools/smoke.mjs` cobra as duas metades — o botão fora do cabeçalho da lista e
+> o título centrado, mas a saída do Modo Fácil ainda no cabeçalho dele e os dois
+> modos ainda em Configurações. Sem essas duas últimas, apagar o cabeçalho
+> inteiro passaria. Reprova em 2 asserções contra o código anterior (verificado).
+>
+> Saíram junto o `.mode-switch--vago` (o lugar reservado, sem dono agora) e a
+> regra de "só no Cronograma" do `renderListTitle`.
 
 > **A v5.246: A SETA VIRA A THUMBNAIL DAS RAÍZES — ícone só na folha da árvore.
 > OTA PURO** (sem Release).
