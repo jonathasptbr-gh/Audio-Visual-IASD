@@ -1790,6 +1790,58 @@ main {
    toque. */
 .coll-group-btn.busy { background: var(--warn-soft); color: var(--warn); }
 
+/* ---------- O GRUPO COLAPSÁVEL (v5.237) ---------- */
+/* O cabeçalho vira um alvo, e por isso ele deixa de ser uma linha de texto
+   solta: ganha a superfície e a moldura de um controle, como as barras de card
+   logo abaixo dele. Sem isso, uma lista fechada seria uma pilha de rótulos que
+   não se anunciam como tocáveis — e é justamente esse o único gesto da tela. */
+.coll-group--drop { display: block; padding: .45rem .2rem 0; }
+.coll-group-bar {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .5rem .35rem .5rem .6rem;
+  min-height: var(--hit);
+  border: 1px solid var(--line); border-radius: var(--radius-btn);
+  background: var(--surface); cursor: pointer;
+}
+/* Aberto, o cabeçalho encosta no corpo: os cantos de baixo somem e a cor de
+   fundo passa a dizer "isto está aberto" — a mesma gramática do card. */
+.coll-group--drop.aberto > .coll-group-bar {
+  border-bottom-left-radius: 0; border-bottom-right-radius: 0;
+  border-bottom-color: transparent;
+  background: var(--panel);
+}
+/* A SETA APONTA PARA ONDE O TOQUE LEVA: para baixo quando fechado ("abre"),
+   para cima quando aberto ("fecha"). O desenho é o mesmo `chevronUpIconSvg` do
+   card — uma segunda arte para a mesma ideia era a divergência que a paleta
+   única existe para não ter —, girado por CSS. */
+.coll-group-seta {
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  width: var(--hit); height: var(--hit); color: var(--muted);
+  transform: rotate(180deg); transition: transform .2s ease;
+}
+.coll-group--drop.aberto > .coll-group-bar .coll-group-seta { transform: rotate(0deg); }
+/* O corpo. `overflow: hidden` é requisito da animação de altura
+   (`expandAccordion`), e a moldura fecha embaixo o que a barra abriu em cima. */
+.coll-group-corpo {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.coll-group--drop.aberto > .coll-group-corpo {
+  border: 1px solid var(--line); border-top: none;
+  border-bottom-left-radius: var(--radius-btn); border-bottom-right-radius: var(--radius-btn);
+  padding: .35rem .35rem .45rem;
+  gap: .3rem;
+}
+/* FECHADO ELE NÃO OCUPA NADA. O corpo é sempre montado (é ele que a animação
+   de fechamento precisa medir), então sem isto todo grupo fechado deixaria uma
+   faixa de padding no meio do índice. */
+.coll-group--drop:not(.aberto) > .coll-group-corpo { display: none; }
+/* As linhas dos FAVORITOS dentro do grupo: elas vêm da gaveta, onde vivem num
+   `<ul class="popup-list">` que já dá o respiro. Aqui o corpo é mais estreito e
+   o cabeçalho de tipo ("Vídeos", "Minhas pastas") precisa do seu. */
+.coll-group-corpo > .fav-section:not(:first-child) { margin-top: .5rem; }
+
 .coll-bar { display: flex; align-items: center; gap: .55rem; cursor: pointer; }
 /* Coluna nome + subtítulo das linhas de lista (coleção, versão da Bíblia,
    resultado de busca): a mesma receita, num lugar só. */
@@ -2735,6 +2787,12 @@ main {
    ordem do documento o deixaria por baixo e o toque em "Adicionar aos
    favoritos" pareceria não fazer nada. */
 #folderPopup { z-index: 220; }
+/* A GAVETA DE FAVORITOS abre de dentro da Biblioteca desde a v5.237 (entrar
+   numa pasta é uma tela, não uma seção) — e ela é declarada ANTES dela no
+   documento, então sem este degrau a ordem do documento a deixaria por baixo e
+   o toque numa pasta pareceria não fazer nada. É a mesma armadilha, com o mesmo
+   remédio, do `#folderPopup` acima. */
+#favPopup { z-index: 205; }
 /* Folha de TELA CHEIA (o acervo). É a tela em que o operador passa mais tempo
    antes do culto — folhear álbuns, abrir letras, decidir o que baixar — e uma
    folha de 80vh deixava uma faixa morta no topo enquanto a lista rolava

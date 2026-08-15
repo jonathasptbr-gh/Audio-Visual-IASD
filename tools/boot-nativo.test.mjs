@@ -258,28 +258,37 @@ try {
   // ao DOM, e não a uma função.
   const naTela = await pg.evaluate(() => {
     const lista = document.getElementById('hymnResults');
+    // OS GRUPOS NASCEM FECHADOS (v5.237): o índice é a primeira tela, e o card
+    // de qualquer coleção só é CONSTRUÍDO quando o grupo dele abre. Este caso
+    // fala do card, então ele abre o grupo primeiro — e o passo é, ele próprio,
+    // a afirmação de que o grupo existe com esse nome.
+    gruposAbertos.add('Hinários e séries');
     renderCollectionsList(lista, () => {}, { semTotal: true });
-    const nomes = [...lista.querySelectorAll('.coll-card .coll-name, .coll-card .coll-title')]
-      .map((e) => e.textContent.trim());
+    const grupos = [...lista.querySelectorAll('.coll-group-name')].map((e) => e.textContent.trim());
     const linhas = [...lista.children].map((li) => (li.className.includes('coll-group')
       ? 'GRUPO: ' + li.textContent.trim().split('\n')[0]
       : 'card: ' + li.textContent.trim().split('\n')[0]));
+    gruposAbertos.delete('Hinários e séries');
     return {
       texto: lista.textContent,
-      nomes,
-      primeiroGrupo: (linhas.find((l) => l.startsWith('GRUPO:')) || ''),
-      // O índice do card da série contra o do primeiro card de ÁLBUM: é isso
-      // que "no topo, junto dos hinários" quer dizer, e um dia em que alguém
-      // reordenar os grupos isto reprova.
+      grupos,
+      // O grupo em que o card da série de fato vive.
+      grupoDaSerie: (() => {
+        const card = [...lista.querySelectorAll('.hymnal-card')]
+          .find((el) => /Provai e Vede 2026/.test(el.textContent));
+        const g = card && card.closest('.coll-group');
+        return g ? (g.querySelector('.coll-group-name') || {}).textContent : '';
+      })(),
       posSerie: linhas.findIndex((l) => l.includes('Provai e Vede 2026')),
     };
   });
   checar(/Provai e Vede 2026/.test(naTela.texto),
     'O CARD DA SÉRIE APARECE NA BIBLIOTECA — era este o "não estou achando nada"');
-  checar(/Hinários e séries/.test(naTela.primeiroGrupo || ''),
-    'e ele fica no grupo do TOPO, junto dos hinários', naTela.primeiroGrupo);
-  checar(naTela.posSerie >= 0 && naTela.posSerie <= 3,
-    'antes de qualquer álbum — o topo é o topo', String(naTela.posSerie));
+  checar(/Hinários e séries/.test(naTela.grupoDaSerie || ''),
+    'e ele fica no grupo das FIXAS, junto dos hinários', naTela.grupoDaSerie);
+  checar(naTela.grupos[0] === 'Favoritos' && naTela.grupos[1] === 'Hinários e séries',
+    'que vem logo abaixo dos Favoritos, antes de qualquer álbum — o topo é o topo',
+    JSON.stringify(naTela.grupos));
 
   // ── O ÍNDICE NÃO PODE FICAR PRESO NUMA REGRA VELHA (v5.233) ────────────
   // Relato do operador, depois da v5.230: *"tentei limpar o cache e recarregar,
@@ -353,13 +362,16 @@ try {
   // O download EM LOTE não pode existir para a série: são ~52 vídeos.
   const semLote = await pg.evaluate(() => {
     const lista = document.getElementById('hymnResults');
+    gruposAbertos.add('Hinários e séries');   // fechados por padrão desde a v5.237
     renderCollectionsList(lista, () => {}, { semTotal: true });
     const cards = [...lista.querySelectorAll('.hymnal-card')];
     const card = cards.find((el) => /Provai e Vede 2026/.test(el.textContent));
-    return {
+    const r = {
       achou: !!card,
       temBotaoBaixar: !!(card && card.querySelector('.coll-bar-dl')),
     };
+    gruposAbertos.delete('Hinários e séries');
+    return r;
   });
   checar(semLote.achou, 'o card da série está na lista para ser medido');
   checar(!semLote.temBotaoBaixar,
@@ -473,6 +485,114 @@ try {
   checar(!gavetaMusica.temDetalhe,
     'sem a gaveta do vídeo no meio — cada tipo abre a sua, e só a sua');
 
+  // ── A BIBLIOTECA ABRE COMO ÍNDICE (v5.237) ─────────────────────────────
+  // Pedido do operador: *"tornar os agrupamentos de coleções… todas as
+  // coleções, em colapsados, assim a listagem das seções fica mais curta e a
+  // navegação se torna mais ramificada"* e *"coloque os favoritos dentro da
+  // biblioteca… no topo da listagem"*.
+  //
+  // As DUAS metades, e são inseparáveis: fechado NÃO CONSTRÓI card nenhum (senão
+  // "colapsado" seria só um `display: none`, e a tela continuaria pagando o DOM
+  // de dezenas de álbuns a cada redesenho) **e** o toque no cabeçalho abre.
+  const indice = await pg.evaluate(async () => {
+    gruposAbertos.clear();
+    const lista = document.createElement('ul');
+    lista.className = 'hymnal-list';
+    lista.style.width = '390px';
+    document.body.appendChild(lista);
+    const desenhar = () => {
+      lista.innerHTML = '';
+      renderCollectionsList(lista, desenhar, { semTotal: true });
+    };
+    desenhar();
+    const grupos = [...lista.querySelectorAll('.coll-group-name')].map((e) => e.textContent.trim());
+    const fechado = {
+      grupos,
+      cards: lista.querySelectorAll('.hymnal-card').length,
+      // A altura do índice inteiro contra a de um grupo aberto: é ela que o
+      // pedido chama de "listagem mais curta", e medir o número de nós não
+      // diria a mesma coisa.
+      altura: lista.getBoundingClientRect().height,
+    };
+    // O TOQUE no cabeçalho do grupo das fixas.
+    const barra = [...lista.querySelectorAll('.coll-group-bar')]
+      .find((b) => /Hinários/.test(b.textContent));
+    barra.click();
+    await new Promise((r) => setTimeout(r, 50));
+    const aberto = {
+      cards: lista.querySelectorAll('.hymnal-card').length,
+      temSerie: /Provai e Vede 2026/.test(lista.textContent),
+      altura: lista.getBoundingClientRect().height,
+      // O card vive DENTRO do corpo do grupo, não solto na lista: é isso que
+      // faz a árvore ser uma árvore.
+      dentroDoCorpo: !!lista.querySelector('.coll-group-corpo .hymnal-card'),
+    };
+    lista.remove();
+    gruposAbertos.clear();
+    return { fechado, aberto };
+  });
+  checar(indice.fechado.grupos.length >= 2 && indice.fechado.cards === 0,
+    'A BIBLIOTECA ABRE COMO ÍNDICE: só os cabeçalhos de seção, nenhum card '
+    + 'construído', JSON.stringify(indice.fechado.grupos));
+  checar(indice.fechado.grupos[0] === 'Favoritos',
+    'e o primeiro deles é FAVORITOS, no topo da listagem',
+    JSON.stringify(indice.fechado.grupos));
+  checar(indice.aberto.cards > 0 && indice.aberto.temSerie,
+    'o toque no cabeçalho abre a seção e os cards aparecem',
+    indice.aberto.cards + ' card(s)');
+  checar(indice.aberto.dentroDoCorpo,
+    'dentro do CORPO do grupo — a lista virou árvore, não uma pilha com títulos');
+  checar(indice.aberto.altura > indice.fechado.altura,
+    'e fechado ocupa MENOS tela que aberto, que é o pedido inteiro ('
+    + Math.round(indice.fechado.altura) + 'px contra ' + Math.round(indice.aberto.altura) + 'px)');
+
+  // ── OS FAVORITOS DENTRO DA BIBLIOTECA (v5.237) ─────────────────────────
+  // Uma implementação só, duas casas: o grupo é montado pelo MESMO
+  // `renderFolderList` da gaveta. O que se afirma é que ele desenha as linhas
+  // de verdade — e que a gaveta continua desenhando as dela, senão apontar o
+  // host para o lugar novo teria quebrado o antigo em silêncio.
+  const favs = await pg.evaluate(async () => {
+    // Um favorito de verdade, para a seção ter o que mostrar.
+    const rec = await AVDB.addMedia(new Blob(['x'], { type: 'audio/mpeg' }),
+      { name: 'Louvor favorito de teste', list: 'favs' });
+    await recarregarFavoritos();
+    gruposAbertos.clear();
+    gruposAbertos.add('Favoritos');
+    const lista = document.createElement('ul');
+    lista.className = 'hymnal-list';
+    lista.style.width = '390px';
+    document.body.appendChild(lista);
+    renderCollectionsList(lista, () => {}, { semTotal: true });
+    const grupo = [...lista.querySelectorAll('.coll-group')]
+      .find((g) => /Favoritos/.test((g.querySelector('.coll-group-name') || {}).textContent || ''));
+    const corpo = grupo && grupo.querySelector('.coll-group-corpo');
+    const r = {
+      temItem: !!corpo && /Louvor favorito de teste/.test(corpo.textContent),
+      // A linha de uso do disco é o rodapé da GAVETA: dentro da Biblioteca ela
+      // já é desenhada uma vez pelo `renderSearchResults`, e duas no mesmo
+      // `<ul>` seria a segunda apagando a primeira.
+      semLinhaDeDisco: !!corpo && !corpo.querySelector('.storage-usage'),
+      // E a GAVETA continua inteira: o host é emprestado, não movido.
+      naGaveta: (() => {
+        document.getElementById('favList').innerHTML = '';
+        renderFolderList();
+        return /Louvor favorito de teste/.test(document.getElementById('favList').textContent);
+      })(),
+    };
+    lista.remove();
+    gruposAbertos.clear();
+    await AVDB.listRemove('favs', rec.id);
+    await recarregarFavoritos();
+    return r;
+  });
+  checar(favs.temItem,
+    'OS FAVORITOS SÃO DESENHADOS DENTRO DA BIBLIOTECA, pelo mesmo '
+    + '`renderFolderList` da gaveta');
+  checar(favs.semLinhaDeDisco,
+    'sem repetir ali a linha de uso do disco, que já é o rodapé da listagem');
+  checar(favs.naGaveta,
+    'e a GAVETA continua desenhando a dela — o host é emprestado, não movido');
+
   // ── A FILA DE LETRAS NÃO PERGUNTA POR UM VÍDEO (v5.236) ────────────────
   // `syncLyrics` varria TODA coleção com itens e pedia `music_<id>` ao LouvorJA
   // — e num episódio de série esse id é do YOUTUBE, uma pergunta que aquele
@@ -526,6 +646,7 @@ try {
     lista.className = 'hymnal-list';
     lista.style.width = '390px';
     document.body.appendChild(lista);
+    gruposAbertos.add('Hinários e séries');   // fechados por padrão desde a v5.237
     renderCollectionsList(lista, () => {}, { semTotal: true });
     const card = [...lista.querySelectorAll('.hymnal-card')]
       .find((el) => /Provai e Vede 2026/.test(el.textContent));
@@ -613,6 +734,7 @@ try {
     + (lx ? Math.round(lx.larg) + 'px contra ' + Math.round(lx.largVerificar) + 'px' : '?') + ')');
   await pg.evaluate(() => {
     allCollections().forEach((c) => { ui(c.id).expanded = false; });
+    gruposAbertos.delete('Hinários e séries');
     redesenharAcervo();
   });
 

@@ -209,7 +209,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.236';
+const WEB_VERSION = '5.237';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -509,6 +509,35 @@ let favSet = new Set();
 let favItems = [];         // os registros, para a seção de Favoritos da gaveta
 let opfsFolders = [];      // [{id, name, count, syncedAt, handle?}] — pastas sincronizadas no OPFS
 let folderQuery = '';      // filtro de busca dentro de pasta OPFS
+// ===== OS GRUPOS DA BIBLIOTECA NASCEM FECHADOS (v5.237) =====
+//
+// Pedido do operador: *"aproveite para tornar os agrupamentos de coleções, como
+// diversos e cds do ano e etc… todas as coleções, em colapsados, assim a
+// listagem das seções fica mais curta e a navegação se torna mais ramificada,
+// para maior organização."*
+//
+// Eram cabeçalhos MUDOS com todos os cards despejados embaixo, um atrás do
+// outro: a Biblioteca abria numa lista de dezenas de álbuns em que o operador
+// rolava para achar a seção, não o álbum. Fechados, a primeira tela é o ÍNDICE
+// — meia dúzia de linhas com nome e contagem — e cada toque desce um nível.
+//
+// TRANSIENTE, e é a mesma regra do card de coleção ("cada abertura do app começa
+// colapsada"): estado de navegação guardado entre sessões faz a tela reabrir
+// numa forma que ninguém escolheu naquele momento. Ele é um `Set` de módulo, e
+// não uma classe no DOM, porque a lista inteira é reconstruída a cada redesenho
+// (o progresso de um download a refaz a cada 400 ms) — uma marca no nó morreria
+// junto com ele.
+//
+// NASCE NO TOPO junto do resto do estado de tela: ele é lido por um caminho de
+// RENDER, e um `Set` declarado catorze mil linhas abaixo é a zona morta temporal
+// que já derrubou o app nas v5.184, v5.193, v5.195 e v5.199.
+const gruposAbertos = new Set();
+// Quais grupos devem ANIMAR a abertura no próximo desenho. Só o toque que abriu
+// anima: um redesenho por outro motivo (o progresso de um download) reencontra
+// o grupo já aberto, e vê-lo "abrir" sozinho leria como se algo tivesse
+// acontecido — a mesma regra do `animarAbertura` do card.
+const gruposAnimar = new Set();
+const GRUPO_FAVORITOS = 'Favoritos';
 let syncBusy = false;      // sincronização em andamento
 // Transições visuais são INERENTES ao sistema (sempre ligadas, duração fixa) —
 // não há opção de desligar nem ajustar. Fade in/out em toda troca visual:
@@ -6164,6 +6193,94 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
     alvo.appendChild(li);
   };
 
+  // ===== UM GRUPO COLAPSÁVEL =====
+  //
+  // Devolve o `<ul>` em que os cards entram, ou **null** quando o grupo está
+  // fechado — e o `null` não é um detalhe de implementação: é ele que faz o
+  // fechado não CONSTRUIR os cards. Numa Biblioteca com dezenas de álbuns, e
+  // com o acervo redesenhado a cada 400 ms durante um download, montar o que
+  // não está à vista é o grosso do trabalho de DOM da tela.
+  //
+  // O cabeçalho continua sendo o `<li class="coll-group">` de sempre, com o
+  // mesmo nome e o mesmo resumo — o que ele ganha é uma barra clicável e uma
+  // seta. Não é um `<button>` por dentro porque o resumo já traz um botão (o
+  // de baixar o grupo), e botão dentro de botão é HTML inválido: é a mesma
+  // solução da `.coll-bar` do card, que também é uma `div` com ouvinte.
+  const grupo = (text, colls, gOpts) => {
+    any = true;
+    const aberto = gruposAbertos.has(text);
+    const li = document.createElement('li');
+    li.className = 'coll-group coll-group--drop' + (aberto ? ' aberto' : '');
+
+    const bar = document.createElement('div');
+    bar.className = 'coll-group-bar';
+    bar.setAttribute('role', 'button');
+    bar.setAttribute('tabindex', '0');
+    bar.setAttribute('aria-expanded', aberto ? 'true' : 'false');
+    const name = document.createElement('span');
+    name.className = 'coll-group-name';
+    name.textContent = text;
+    bar.appendChild(name);
+    // O RESUMO do grupo é o mesmo de antes, e ele importa mais agora: fechado,
+    // ele é a única coisa que o cabeçalho diz sobre o que há lá dentro.
+    if (gOpts && gOpts.contagem != null) {
+      const info = document.createElement('span');
+      info.className = 'coll-group-count';
+      info.textContent = String(gOpts.contagem);
+      bar.appendChild(info);
+    } else if (colls && colls.length && !(gOpts && gOpts.semBotao)) {
+      montarResumoGrupo(bar, 'grp:' + text, text, colls, gOpts);
+    } else if (colls && colls.length) {
+      const info = document.createElement('span');
+      info.className = 'coll-group-count' + (grupoCompleto(colls) ? ' done' : '');
+      info.textContent = fracaoPeso(colls.map((c) => c.id)) || '—';
+      bar.appendChild(info);
+    }
+    const seta = document.createElement('span');
+    seta.className = 'coll-group-seta';
+    seta.setAttribute('aria-hidden', 'true');
+    seta.innerHTML = chevronUpIconSvg();
+    bar.appendChild(seta);
+    li.appendChild(bar);
+
+    const corpo = document.createElement('ul');
+    corpo.className = 'coll-group-corpo';
+    li.appendChild(corpo);
+
+    // ABRIR NÃO FECHA OS OUTROS, ao contrário do acordeão de um álbum. Lá a
+    // razão é o tamanho (duas listas de centenas de músicas empurrariam o card
+    // que o operador mira para fora da tela); aqui os grupos são curtos, e
+    // comparar dois deles — "este álbum ou aquele?" — é justamente o que se faz
+    // numa tela de índice.
+    const alternar = () => {
+      const abrindo = !gruposAbertos.has(text);
+      const aplicar = () => {
+        if (abrindo) { gruposAbertos.add(text); gruposAnimar.add(text); }
+        else gruposAbertos.delete(text);
+        redesenhar();
+      };
+      // Fechando: anima ANTES de redesenhar. O redesenho apaga o nó, e um nó
+      // apagado não tem como sair deslizando (a mesma nota do card).
+      if (!abrindo) { collapseAccordion(corpo, aplicar); return; }
+      aplicar();
+    };
+    bar.addEventListener('click', alternar);
+    bar.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); alternar(); }
+    });
+
+    alvo.appendChild(li);
+    if (!aberto) return null;
+    if (gruposAnimar.has(text)) {
+      gruposAnimar.delete(text);
+      // O `li` ainda não está no documento quando esta função devolve: medir
+      // agora daria zero, então a animação espera o quadro seguinte — e a essa
+      // altura os cards já foram anexados pelo chamador.
+      requestAnimationFrame(() => expandAccordion(corpo));
+    }
+    return corpo;
+  };
+
   // Baixar TODO o acervo de uma vez: os hinários mais todos os álbuns de todas
   // as categorias.
   // `semTotal`: no popup do acervo esta barra subiu para o CABEÇALHO (ver
@@ -6178,7 +6295,31 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
     if (todas.length > 1) header('Toda a biblioteca', todas, true, { confirmScale: true });
   }
 
-  // O GRUPO DO TOPO são as coleções FIXAS: os hinários e as séries (v5.229).
+  // ===== FAVORITOS, O PRIMEIRO GRUPO (v5.237) =====
+  //
+  // Pedido do operador: *"coloque os favoritos dentro da biblioteca… Pode deixar
+  // a seção de favoritos no topo da listagem."* E o lugar é o certo por si: a
+  // Biblioteca é onde se procura o que projetar, e o favorito é justamente o
+  // atalho de quem já procurou antes — ele vinha uma tela ANTES do acervo, numa
+  // gaveta separada, quando é a primeira coisa a olhar dentro dele.
+  //
+  // Quem monta é `renderFolderList`, a MESMA função da gaveta, apontada para
+  // este corpo (ver `favHost`). A gaveta continua existindo, e não por
+  // esquecimento: ela é a tela de DENTRO — entrar numa pasta abre a navegação
+  // com voltar, busca e seleção múltipla, que é uma tela inteira e não uma
+  // seção. `openFolder`/`openOpfsFolder` a abrem sozinhos quando o toque veio
+  // daqui.
+  const favN = favItems.length + folders.length + opfsFolders.length;
+  const favCorpo = grupo(GRUPO_FAVORITOS, null, { contagem: favN });
+  if (favCorpo) {
+    favHost = favCorpo;
+    // `finally` obrigatório: um erro ao montar uma linha deixaria o host preso
+    // no corpo de um grupo que já saiu do documento, e a gaveta de verdade
+    // passaria a desenhar dentro de um nó órfão — sem erro nenhum na tela.
+    try { renderFolderList(); } finally { favHost = null; }
+  }
+
+  // O GRUPO DAS coleções FIXAS: os hinários e as séries (v5.229).
   //
   // A v5.228 acrescentou a série ao `allCollections()` e parou aí — e
   // `allCollections()` alimenta as CONTAS (peso, "toda a biblioteca", busca),
@@ -6201,15 +6342,15 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
     // pela metade sem perder o resto. Cada um baixa pelo próprio card (o botão
     // na barra). O contador do grupo fica — ele informa.
     const temSerie = fixed.some((c) => c.kind === 'serie');
-    header(temSerie ? 'Hinários e séries' : 'Hinários', fixed, true, { semBotao: true });
-    fixed.forEach((coll) => { alvo.appendChild(renderCollectionCard(coll)); any = true; });
+    const corpo = grupo(temSerie ? 'Hinários e séries' : 'Hinários', fixed, { semBotao: true });
+    if (corpo) fixed.forEach((coll) => corpo.appendChild(renderCollectionCard(coll)));
   }
 
   for (const cat of albumCatalog.categories) {
     const cards = categoryCards(cat);
     if (!cards.length) continue;
-    header(cat.name, cards.map((x) => x.coll), true);
-    cards.forEach(({ coll, ctx }) => { alvo.appendChild(renderCollectionCard(coll, ctx)); any = true; });
+    const corpo = grupo(cat.name, cards.map((x) => x.coll));
+    if (corpo) cards.forEach(({ coll, ctx }) => corpo.appendChild(renderCollectionCard(coll, ctx)));
   }
 
   // Álbuns conhecidos que nenhuma categoria reivindicou (catálogo antigo,
@@ -6220,8 +6361,8 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
     .map((a) => byId.get('album-' + a.id_album))
     .filter((c) => c && !claimed.has(c.id) && !isHymnalAlbum(c));
   if (orphans.length) {
-    header(albumCatalog.categories.length ? 'Outros álbuns' : 'Álbuns', orphans, true);
-    orphans.forEach((coll) => { alvo.appendChild(renderCollectionCard(coll)); any = true; });
+    const corpo = grupo(albumCatalog.categories.length ? 'Outros álbuns' : 'Álbuns', orphans);
+    if (corpo) orphans.forEach((coll) => corpo.appendChild(renderCollectionCard(coll)));
   }
 
   if (!any) {
@@ -6797,7 +6938,32 @@ function statusPasta(id, texto, ms) {
 // com a gaveta fechada não pode remontar a lista a cada arquivo.
 function renderFoldersSeVisivel() {
   if (activeTab === 'folders' && !currentFolder) renderLibrary();
+  // A OUTRA CASA (v5.237): com o grupo Favoritos aberto dentro da Biblioteca, a
+  // mesma lista está na tela por outro caminho — e sem isto ela ficaria com a
+  // contagem de uma pasta que acabou de sincronizar, ou com um favorito que já
+  // saiu. `renderCollectionsNow` já confere sozinho se o acervo está à vista.
+  if (gruposAbertos.has(GRUPO_FAVORITOS)) renderCollectionsNow();
 }
+
+// ===== OS FAVORITOS TÊM DUAS CASAS, E UMA IMPLEMENTAÇÃO SÓ (v5.237) =====
+//
+// Pedido do operador: *"coloque os favoritos dentro da biblioteca… Pode deixar
+// a seção de favoritos no topo da listagem."*
+//
+// A lista continua sendo montada por `renderFolderList`; o que muda é ONDE ela
+// é desenhada — a gaveta de tela cheia (`#favList`) ou o grupo do topo da
+// Biblioteca. É o mesmo padrão que `listHost()` e `renderStorageUsage(alvo)` já
+// usam neste arquivo, e a razão é a de sempre: duas marcações para a mesma
+// lista divergem no primeiro ajuste, e aqui divergiriam em gestos (o toque
+// longo que entra na seleção múltipla), no agrupamento por tipo e na estrela.
+//
+// Por VARIÁVEL DE MÓDULO e não por parâmetro em cada função: quem escreve na
+// lista são seis funções (as seções, os itens, os atalhos, as pastas do
+// sistema, a linha de criar), e enfiar um `alvo` em todas elas — e em todas as
+// futuras — é a mesma sincronização manual que este projeto recusa. Ela é
+// ligada e desligada num ponto só, num `try/finally`.
+let favHost = null;
+function favAlvo() { return favHost || favListEl; }
 
 function renderFolderList() {
   if (opfsFolders.length === 0 && folders.length === 0 && favItems.length === 0) {
@@ -6805,9 +6971,9 @@ function renderFolderList() {
     empty.className = 'empty';
     empty.innerHTML = 'Nenhum favorito ainda.<br>Toque na estrela de qualquer item para marcá-lo aqui'
       + '<br>— ou crie uma pasta para agrupar o que você mais usa.';
-    favListEl.appendChild(empty);
+    favAlvo().appendChild(empty);
     appendNewFavoriteRow();
-    renderStorageUsage();
+    if (!favHost) renderStorageUsage();
     return;
   }
   // OS MARCADOS VÊM PRIMEIRO: é o que a estrela promete e o que o operador vem
@@ -6823,7 +6989,7 @@ function renderFolderList() {
     const doGrupo = favItems.filter((it) => favGrupo(it) === g.id);
     if (!doGrupo.length) return;
     appendFavSection(g.nome);
-    doGrupo.forEach((item) => favListEl.appendChild(favItemRow(item)));
+    doGrupo.forEach((item) => favAlvo().appendChild(favItemRow(item)));
   });
   // "MINHAS PASTAS" × "PASTAS DO SISTEMA" (v5.112). Antes eram "Atalhos" e
   // "Pastas do dispositivo": "atalho" sugere um ponteiro para uma coisa que
@@ -6863,10 +7029,14 @@ function renderFolderList() {
     row.append(icon, nameEl, countEl, syncBtn, rmBtn);
     li.appendChild(row);
     li.addEventListener('click', () => openOpfsFolder(f));
-    favListEl.appendChild(li);
+    favAlvo().appendChild(li);
   });
   appendNewFavoriteRow();
-  renderStorageUsage();
+  // A linha de uso do disco é o RODAPÉ DA GAVETA. Dentro da Biblioteca ela já
+  // é desenhada uma vez, no fim da listagem (ver `renderSearchResults`): pedi-la
+  // aqui poria duas no mesmo `<ul>`, e a segunda apagaria a primeira num
+  // `estimate()` fora de ordem.
+  if (!favHost) renderStorageUsage();
 }
 
 // Os grupos da gaveta, NA ORDEM em que aparecem. A ordem é fixa (não segue o
@@ -6946,7 +7116,7 @@ function appendFavSection(title) {
   const li = document.createElement('li');
   li.className = 'fav-section';
   li.textContent = title;
-  favListEl.appendChild(li);
+  favAlvo().appendChild(li);
 }
 
 // Atalhos: grupos criados pelo operador (pastas virtuais). Excluir um atalho
@@ -6972,7 +7142,7 @@ function renderVirtualFolders() {
     row.append(icon, nameEl, countEl, rmBtn);
     li.appendChild(row);
     li.addEventListener('click', () => openFolder(folder));
-    favListEl.appendChild(li);
+    favAlvo().appendChild(li);
   });
 }
 
@@ -6992,7 +7162,7 @@ function appendNewFavoriteRow() {
   btn.appendChild(txt);
   btn.addEventListener('click', promptNewFavorite);
   li.appendChild(btn);
-  favListEl.appendChild(li);
+  favAlvo().appendChild(li);
 }
 
 async function promptNewFavorite() {
@@ -8328,7 +8498,18 @@ async function loadFolderMediaItems(folderId) {
   return items.filter(Boolean);
 }
 
+// ENTRAR NUMA PASTA É UMA TELA, NÃO UMA SEÇÃO (v5.237). O toque pode vir da
+// gaveta (onde ela já está aberta) ou do grupo Favoritos dentro da Biblioteca —
+// e lá dentro há voltar, busca e seleção múltipla, que só existem na gaveta.
+// Garantir a gaveta AQUI, e não no ouvinte de cada linha, é o que mantém uma
+// implementação só: as linhas são montadas pelo mesmo `renderFolderList` nas
+// duas casas.
+function garantirGaveta() {
+  if (!favPopupEl.classList.contains('open')) openFavorites();
+}
+
 function openFolder(folder) {
+  garantirGaveta();
   rememberScroll();
   currentFolder = folder;
   load();
@@ -8727,6 +8908,7 @@ async function syncDeviceFolder(existing, botao) {
 }
 
 function openOpfsFolder(f) {
+  garantirGaveta();
   rememberScroll();
   currentFolder = { id: f.id, name: f.name, _opfs: true };
   folderQuery = '';

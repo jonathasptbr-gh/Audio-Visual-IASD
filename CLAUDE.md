@@ -2788,10 +2788,69 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.236** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.237** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.237: A BIBLIOTECA VIRA UM ÍNDICE — as seções nascem fechadas e os
+> FAVORITOS são a primeira delas. OTA PURO** (nenhuma linha de Kotlin; sem
+> Release).
+>
+> Dois pedidos do operador, e eles são o mesmo movimento: *"coloque os favoritos
+> dentro da biblioteca"* e *"tornar os agrupamentos de coleções, como diversos e
+> cds do ano e etc… todas as coleções, em colapsados, assim a listagem das
+> seções fica mais curta e a navegação se torna mais ramificada, para maior
+> organização. Pode deixar a seção de favoritos no topo da listagem."*
+>
+> **O que a Biblioteca era: uma pilha com títulos.** Os cabeçalhos de grupo eram
+> rótulos mudos e todos os cards vinham despejados embaixo, um atrás do outro —
+> numa igreja com dezenas de álbuns, abrir a Biblioteca era rolar até achar a
+> SEÇÃO, e só então o álbum. Agora a primeira tela é o índice: meia dúzia de
+> linhas com nome e contagem, e cada toque desce um nível. Medido no viewport de
+> um celular: **114 px fechado contra 184 px** com uma única seção aberta, e
+> essa distância cresce com o tamanho do acervo.
+>
+> **Fechado NÃO CONSTRÓI os cards, e isso não é otimização de véspera:** o
+> acervo é redesenhado a cada 400 ms enquanto um download roda
+> (`COLL_REFRESH_MS`), então montar dezenas de cards que ninguém está vendo era
+> o grosso do trabalho de DOM da tela. Por isso o construtor de grupo devolve o
+> corpo **ou `null`** — quem recebe `null` não monta nada, em vez de montar e
+> esconder com `display: none`.
+>
+> **Abrir um grupo não fecha os outros**, ao contrário do acordeão de um álbum.
+> Lá a razão é o tamanho (duas listas de centenas de músicas empurrariam para
+> fora da tela o card que o operador mira); aqui os grupos são curtos, e
+> comparar dois — "este álbum ou aquele?" — é o que se faz numa tela de índice.
+>
+> **Os favoritos têm duas casas e UMA implementação.** O grupo do topo é montado
+> pelo MESMO `renderFolderList` da gaveta, apontado para outro host (`favHost`,
+> o padrão que `listHost()` e `renderStorageUsage(alvo)` já usavam neste
+> arquivo). Duas marcações para a mesma lista divergiriam no primeiro ajuste — e
+> divergiriam justamente nos gestos (o toque longo que entra na seleção
+> múltipla), no agrupamento por tipo e na estrela.
+>
+> **A gaveta continua existindo, e não por esquecimento: ela é a tela de
+> DENTRO.** Entrar numa pasta abre voltar, busca e seleção múltipla — isso é uma
+> tela, não uma seção, e reimplementá-la inline seria a duplicação que a decisão
+> acima existe para evitar. Quem garante a gaveta é `openFolder`/`openOpfsFolder`
+> (uma função, não um ouvinte por linha), e o `#favPopup` ganhou um degrau de
+> `z-index`: ele é declarado ANTES da Biblioteca no documento, e sem isso o
+> toque numa pasta abriria uma gaveta POR BAIXO — a mesma armadilha, com o mesmo
+> remédio, que o `#folderPopup` já documentava.
+>
+> **A linha de uso do disco não é repetida** dentro do grupo: ela já é o rodapé
+> da listagem, e duas no mesmo `<ul>` fariam a segunda apagar a primeira num
+> `estimate()` fora de ordem.
+>
+> Os oráculos entraram no `boot-nativo.test.mjs` e cobram as duas metades de
+> cada pedido: fechado não constrói card **e** o toque abre; os favoritos são
+> desenhados na Biblioteca **e** a gaveta continua desenhando os dela — sem essa
+> segunda metade, apontar o host para o lugar novo teria quebrado o antigo em
+> silêncio. Verificados por ISOLAMENTO, não por ausência de símbolo: com os
+> grupos nascendo abertos, 2 asserções reprovam; sem o grupo de favoritos, 5.
+> (A diferença importa — um `ReferenceError` reprova tudo sem discriminar nada,
+> que é a medição que a v5.233 recusou.)
 
 > **A v5.236: A BIBLIOTECA PASSA A TER TIPOS — a gaveta de um vídeo deixa de
 > prometer letra, e a fila de letras deixa de perguntar por ele. OTA PURO**
