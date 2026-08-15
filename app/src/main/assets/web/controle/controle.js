@@ -209,7 +209,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.232';
+const WEB_VERSION = '5.233';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -6601,7 +6601,7 @@ function buildCollectionOptions(coll, collOptsEl) {
       : (ehSerie(coll) ? 'Atualizar a lista' : (complete ? 'Verificar' : 'Baixar')),
   ));
 
-  // O ESTADO VIVE DENTRO DO BOTÃO (v5.232) — é o que sobrou do chip de
+  // O ESTADO VIVE DENTRO DO BOTÃO (v5.233) — é o que sobrou do chip de
   // sincronização, reduzido ao que ele de fato acrescenta ao rótulo.
   //
   // A regra é a do resto do app (a cortina, o botão de transmitir): **o rótulo
@@ -8819,7 +8819,16 @@ async function fetchSerieIndex(coll) {
   // refeita: a decisão é "tudo ou nada" de propósito, porque casar item a item
   // exigiria guardar de qual playlist veio cada faixa — estado a mais para
   // poupar uma extração num caso que acontece uma vez por semana.
-  const assinatura = playlists.map((p) => p.url + ':' + p.count).join('|');
+  //
+  // **E A REGRA ENTRA NA ASSINATURA** (`AVSerie.impressao`, v5.233). Isto não é
+  // zelo: sem ela o índice guardado — que tem os nomes JÁ FORMADOS e a ordem JÁ
+  // decidida — sobrevive a uma mudança da regra que os produziu, porque o canal
+  // não mudou nada e a contagem continua batendo. Foi o que aconteceu com a
+  // v5.230: o episódio de 3 de janeiro continuou sem data e fora de ordem
+  // depois da atualização, e nem limpar o cache resolvia (o índice mora no
+  // IndexedDB). Com a impressão na assinatura, mudar a regra refaz o índice UMA
+  // vez, sozinho, e não mudar não custa extração nenhuma.
+  const assinatura = AVSerie.impressao() + '|' + playlists.map((p) => p.url + ':' + p.count).join('|');
   const guardado = collState[coll.id];
   if (guardado && guardado.serieAssinatura === assinatura && (guardado.songs || []).length) {
     guardado.indexSyncedAt = Date.now();

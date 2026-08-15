@@ -100,6 +100,9 @@ const ponteCom = (espelho, telas) => `(() => {
       setTimeout(() => { try { window.__avResolve(id, pls); } catch (_) {} }, 0);
     },
     ytPlaylist: (id, url) => {
+      // Contador de EXTRAÇÕES: é ele que prova a economia da assinatura — e,
+      // do outro lado, que a economia não se transforma em índice preso.
+      window.__nPlaylist = (window.__nPlaylist || 0) + 1;
       const porUrl = {
         'p/ago': { name: 'Provai e Vede Agosto 2026', author: 'Provai e Vede | Oficial', items: [
           { id: 'aaaaaaaaaa1', url: 'y/1', name: 'Match point | Provai e Vede 2026 (01/Ago)', seconds: 319 },
@@ -271,6 +274,44 @@ try {
   checar(naTela.posSerie >= 0 && naTela.posSerie <= 3,
     'antes de qualquer álbum — o topo é o topo', String(naTela.posSerie));
 
+  // ── O ÍNDICE NÃO PODE FICAR PRESO NUMA REGRA VELHA (v5.233) ────────────
+  // Relato do operador, depois da v5.230: *"tentei limpar o cache e recarregar,
+  // mas a listagem ainda mantém o item do provai e vede que não identificava o
+  // 3 de janeiro"*. O índice guarda os nomes JÁ FORMADOS, e a assinatura que
+  // pula a atualização fala só do que o CANAL publicou — mudar a regra não
+  // mudava a assinatura, e o nome errado ficava para sempre (o índice mora no
+  // IndexedDB, que limpar o cache não toca).
+  //
+  // As DUAS metades, e são inseparáveis: a regra nova refaz o índice, e o que
+  // não mudou continua sem custar extração nenhuma. Sem a segunda, "refazer
+  // sempre" passaria — e seriam doze idas ao YouTube por retomada do app.
+  const preso = await pg.evaluate(async () => {
+    const c = allCollections().find((x) => x.kind === 'serie');
+    const st = collState[c.id];
+    const antes = window.__nPlaylist || 0;
+    // COMO O APARELHO DO OPERADOR ESTAVA, e a fidelidade aqui é o teste
+    // inteiro: a assinatura guardada é a que a versão ANTERIOR escrevia —
+    // só o canal, sem impressão nenhuma da regra —, e o canal não mudou uma
+    // vírgula desde então. Escrever aqui uma assinatura inventada ("rVELHA…")
+    // faria o caso passar nas DUAS versões, porque qualquer lixo difere do que
+    // o código calcula: seria uma medição que não discrimina, e foi a primeira
+    // versão deste caso.
+    st.serieAssinatura = st.serieAssinatura.replace(/^r[0-9a-z]+\|/, '');
+    st.songs[0].name = 'NOME DA REGRA VELHA';
+    await AVDB.setState('coll:' + c.id, st);
+    await syncCollection(c, { soIndice: true });
+    const refeito = window.__nPlaylist || 0;
+    const nomeDepois = collSongs(c.id)[0].name;
+    // E agora, com tudo em dia: a economia tem de continuar de pé.
+    await syncCollection(c, { soIndice: true });
+    return { antes, refeito, deNovo: window.__nPlaylist || 0, nomeDepois };
+  });
+  checar(preso.refeito > preso.antes && !/REGRA VELHA/.test(preso.nomeDepois),
+    'a regra nova REFAZ o índice guardado — era isto que deixava o episódio sem '
+    + 'data e fora de ordem ("' + preso.nomeDepois + '")');
+  checar(preso.deNovo === preso.refeito,
+    'e com a regra e o canal em dia nada é reextraído: a economia continua de pé');
+
   // ── O EPISÓDIO É UM VÍDEO DO YOUTUBE (v5.230) ──────────────────────────
   // Pedido do operador: as opções de um item da série devem ser as do YouTube
   // (sem "só áudio"), sem download direto, e com transmissão no "Tocar agora".
@@ -317,7 +358,7 @@ try {
   checar(!semLote.temBotaoBaixar,
     'e ele NÃO tem o botão de baixar a coleção — "não quero um download direto"');
 
-  // ── AS OPÇÕES DO ÁLBUM SÃO UMA LINHA SÓ (v5.232) ───────────────────────
+  // ── AS OPÇÕES DO ÁLBUM SÃO UMA LINHA SÓ (v5.233) ───────────────────────
   // Pedido do operador: o PESO sai (ele já está na barra, antes de abrir) e o
   // resto vira uma linha — a verificação (com progresso e resultado) ou a
   // remoção. O que este caso trava é o par: os chips SUMIRAM **e** o estado que

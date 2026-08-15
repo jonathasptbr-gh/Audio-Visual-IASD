@@ -1716,6 +1716,14 @@ data, fora de ordem, no fim de janeiro —, não um episódio ausente.
   guardado, as ~12 chamadas de `ytPlaylist` são puladas. Um episódio novo muda a
   contagem e a assinatura inteira é refeita — "tudo ou nada" de propósito, para
   não guardar de qual playlist veio cada faixa.
+- **E A REGRA ENTRA NESSA ASSINATURA** (`AVSerie.impressao`, v5.233). O índice
+  guarda os nomes JÁ FORMADOS e a ordem JÁ decidida; a assinatura do canal não
+  sabe nada sobre a regra que os produziu. Sem a impressão, mudar a regra deixa
+  o índice guardado de pé para sempre — foi o que prendeu o episódio de 3 de
+  janeiro sem data depois da v5.230, e nem limpar o cache resolvia (o índice
+  mora no IndexedDB). Ela é um hash do PRÓPRIO CÓDIGO das funções que decidem,
+  e não um número à mão: quem esquecesse de subir o número reproduziria o
+  defeito.
 - **O índice falha com EXCEÇÃO, nunca com lista vazia.** `syncCollection` já
   trata isso como "sem internet" e PRESERVA o índice anterior; devolver zero
   itens apagaria da tela a série inteira que o operador já tem baixada, por uma
@@ -2579,10 +2587,57 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.232** (base web) · `SHELL_VERSION` **42**, e o bundle segue com
+**Versão atual: v5.233** (base web) · `SHELL_VERSION` **42**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.233: O ÍNDICE DA SÉRIE FICAVA PRESO NA REGRA VELHA — a correção da
+> v5.230 nunca chegou à lista. OTA PURO** (nenhuma linha de Kotlin; sem
+> Release).
+>
+> Relato do operador: *"tentei limpar o cache e recarregar, mas a listagem ainda
+> mantém o item do provai e vede que não identificava o 3 de janeiro… verifique
+> se ele está atualizando a listagem ou se ele fica preso"*.
+>
+> **Ele fica preso, e a pergunta dele nomeia o defeito.** O índice da série é
+> guardado com os nomes JÁ FORMADOS e a ordem JÁ decidida, e a atualização é
+> pulada quando a assinatura das playlists bate com a guardada — a economia da
+> v5.228, que evita doze extrações do YouTube por retomada. Só que aquela
+> assinatura fala do que o **canal** publicou, e o canal não mudou uma vírgula:
+> a v5.230 mudou a REGRA que transforma títulos em nomes, e nada nessa conta
+> sabia disso. Toda atualização batia a assinatura e devolvia na hora, com o
+> índice de antes.
+>
+> **E limpar o cache não podia ajudar** — o índice mora no IndexedDB, não no
+> cache do WebView. Não havia caminho nenhum na tela que desfizesse isso.
+>
+> É a lição da v5.220 num lugar novo: **um valor DERIVADO que sobrevive à
+> mudança da regra que o derivou é um valor errado com carimbo de atual.**
+>
+> A correção é a impressão digital da regra entrar na assinatura
+> (`AVSerie.impressao`): um FNV-1a de 32 bits sobre o código das funções que
+> decidem, mais o catálogo. Mudou a regra, a impressão muda e o índice é refeito
+> **uma vez**; não mudou, nada é reextraído e a economia fica intacta. Ela é
+> tirada do próprio código de propósito — um contador que alguém precise lembrar
+> de subir é a mesma sincronização manual que este projeto recusa em toda parte,
+> e quem esquecesse de subi-lo reproduziria exatamente este defeito. O preço
+> está dito: se um dia a base web passar por um minificador, a impressão muda a
+> cada build e custa doze extrações por versão.
+>
+> **O oráculo teve DUAS versões, e a primeira era um falso positivo** — o que
+> aqui é a parte instrutiva. Ela escrevia uma assinatura inventada
+> (`"rVELHA|…"`) para simular o aparelho do operador, e qualquer lixo difere do
+> que o código calcula: ela passava nas DUAS versões, isto é, não media nada. A
+> que ficou reproduz o estado REAL — a assinatura que a versão anterior
+> escrevia, só o canal — e por isso reprova no código anterior (verificado). A
+> segunda metade é inseparável: com a regra e o canal em dia, **nenhuma**
+> extração acontece; sem ela, "refazer sempre" passaria no teste e custaria doze
+> idas ao YouTube por retomada.
+>
+> **No aparelho:** a lista se conserta sozinha na próxima atualização de índice
+> (o TTL é de 12 h, no abrir do app), e o "Atualizar a lista" do card força na
+> hora.
 
 > **A v5.232: AS OPÇÕES DO ÁLBUM VIRAM UMA LINHA — o peso sai porque já estava
 > na barra. OTA PURO** (nenhuma linha de Kotlin; sem Release).
