@@ -250,16 +250,27 @@ html, body {
    geometria: nada de moldura, nada de raio, nada que possa quebrar entre um
    telão 1080p e a preview de 130px. Os fios são pseudo-elementos, então o
    elemento continua sendo um `<div>` com um número dentro. */
+/* O NÚMERO É BRANCO, e não no acento (v5.221).
+   Ele nasceu em `--stage-accent` — 9,75:1 sobre o preto, contraste de sobra num
+   monitor — e o operador o descreveu como "muito discreto no fundo escuro". Ele
+   está certo, e a medida não contradiz: contraste é razão de luminância, não
+   legibilidade a dez metros. O que decide num telão é o conjunto **cor +
+   corpo**, e este número tinha a menor das duas (4,4cqmin contra os 8,4 do
+   título) somada à única cor da tela que não é branca. Num hinário o número é
+   o que a congregação procura primeiro — ele não é enfeite.
+   Branco (21:1) e um corpo maior. A cor de identidade fica nos FIOS, que é
+   onde ela não precisa ser lida: eles são decoração, e por isso o `background`
+   passou a ser explícito em vez de `currentColor`. */
 .lyrics-num {
   display: flex; align-items: center; justify-content: center; gap: 2cqmin;
   align-self: stretch;
-  color: var(--stage-accent); font-weight: 800;
-  font-size: 4.4cqmin; line-height: 1.2; letter-spacing: .16em;
+  color: var(--stage-text); font-weight: 800;
+  font-size: 5.8cqmin; line-height: 1.2; letter-spacing: .14em;
   font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
 }
 .lyrics-num::before, .lyrics-num::after {
-  content: ""; height: .2cqmin; flex: 0 1 12cqmin; min-width: 0;
-  background: currentColor; opacity: .55;
+  content: ""; height: .24cqmin; flex: 0 1 12cqmin; min-width: 0;
+  background: var(--stage-accent);
 }
 /* Na capa a linha auxiliar é o ÁLBUM (a coleção de onde a música veio), não o
    rótulo de seção. Esmaecida e espaçada: ela responde "de onde é isto?", que é

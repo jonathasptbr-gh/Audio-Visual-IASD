@@ -375,9 +375,16 @@ const cNum = contraste(capa.naCapa.corNum, 'rgb(0,0,0)');
 const cAux = contraste(capa.naCapa.corAux, 'rgb(0,0,0)');
 checar(cTitulo >= 15, 'o TÍTULO da capa é o branco da projeção, não uma cor de UI ('
   + cTitulo.toFixed(2) + ':1 contra o preto)');
-checar(cNum >= 7 && cAux >= 7,
-  'e o número e o álbum se leem do fundo do salão (' + cNum.toFixed(2) + ':1 · '
-  + cAux.toFixed(2) + ':1)');
+// O NÚMERO É BRANCO COMO O TÍTULO (v5.221). Ele nasceu no acento — 9,75:1, que
+// passa em qualquer régua de contraste — e o operador o leu como "muito
+// discreto no fundo escuro": num telão o que decide é cor MAIS corpo, e ele
+// tinha o menor corpo da capa somado à única cor não-branca da tela. O piso
+// alto é o que impede uma cor de identidade de voltar para cá.
+checar(cNum >= 15 && capa.naCapa.corNum === capa.naCapa.corTitulo,
+  'o NÚMERO do hino é o mesmo branco do título — num hinário é ele que se procura ('
+  + cNum.toFixed(2) + ':1)');
+checar(cAux >= 7,
+  'e o álbum se lê do fundo do salão (' + cAux.toFixed(2) + ':1)');
 // A base das três medições acima é o preto do palco. Afirmá-la em vez de
 // supô-la: o dia em que `--stage-bg` deixar de ser #000, os números mudam e
 // esta linha é que diz por quê.
