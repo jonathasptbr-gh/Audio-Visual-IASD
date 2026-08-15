@@ -209,7 +209,24 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.233';
+const WEB_VERSION = '5.234';
+
+// O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
+// regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
+// três vezes (`mirrorEstado` na v5.184, `mirrorOcupado` na v5.193,
+// `MIRROR_SHELL` na v5.195). **Estado lido por qualquer caminho de render nasce
+// junto do resto do estado de cena** — e estes quatro são lidos por
+// `renderVersionLabel()`, que roda na CARGA do módulo, dez mil linhas acima de
+// onde o resto do bloco de atualização mora. Declará-los lá embaixo daria um
+// `ReferenceError` na carga, isto é, tela preta e o watchdog do OTA
+// descartando o bundle no lançamento seguinte.
+//
+// O que cada um responde está no bloco "A ATUALIZAÇÃO PERGUNTA", que é onde
+// eles são escritos.
+let otaPendenteVersao = '';
+let otaDiagTexto = '';
+let apkNovo = null;
+let apkBaixando = false;
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -220,12 +237,26 @@ function renderVersionLabel() {
   // __SHELL_NAME__ = versionName do APK (ver native.js). Vazio no navegador e
   // em shells anteriores ao `appVersion()` — aí sai só a versão da base web.
   const shell = window.__SHELL_NAME__;
-  appVersionEl.textContent = shell
+  // O PONTO É O ÚNICO SINAL QUE SOBREVIVE À PERGUNTA ADIADA (v5.234).
+  //
+  // "Deixar para depois" silencia o diálogo pela sessão, e sem isto ele
+  // silenciaria também o FATO — o operador não teria como saber que ainda há
+  // algo esperando, nem que o rótulo é onde se toca para trazê-lo de volta. O
+  // mesmo vale enquanto a pergunta espera a cena sair do ar. Um ponto no rótulo
+  // que já fala de versão é o menor sinal possível para isso, e mora onde a
+  // resposta mora.
+  const esperando = !!(otaPendenteVersao || apkNovo);
+  const ponto = esperando ? ' ●' : '';
+  appVersionEl.textContent = (shell
     ? 'Web v' + WEB_VERSION + ' · Shell v' + shell
-    : 'Controle v' + WEB_VERSION;
-  appVersionEl.title = shell
+    : 'Controle v' + WEB_VERSION) + ponto;
+  appVersionEl.classList.toggle('tem-atualizacao', esperando);
+  const base = shell
     ? 'Base web v' + WEB_VERSION + ' (atualiza por OTA) · shell nativo v' + shell + ' (atualiza instalando o APK)'
     : 'Base web v' + WEB_VERSION;
+  appVersionEl.title = esperando
+    ? base + ' — atualização disponível, toque para ver'
+    : base;
 }
 
 // O PRÓPRIO RÓTULO RESPONDE (v5.207).
@@ -249,20 +280,21 @@ function falarNaVersao(texto, ms) {
 
 renderVersionLabel();
 
-// ===== O APK SE ATUALIZA SOZINHO (v5.167 · shell 35) =====
+// ===== A LINHA DO APK, no rodapé de Configurações (v5.167 · shell 35) =====
 //
-// A assimetria era o atrito: um ajuste de JS chegava por OTA e qualquer
-// mudança de Kotlin obrigava o operador a abrir o navegador, achar a Release no
-// GitHub e caçar o `.apk`. Numa semana de seis publicações, seis vezes.
+// Ela existia sozinha, com procura própria (uma consulta à API do GitHub a cada
+// meia hora) e desenho próprio. Desde a v5.234 quem procura é o canal ÚNICO de
+// atualização — o manifesto do OTA traz o bloco `shell` —, e esta linha ficou
+// sendo o que ela sempre quis ser: **o caminho de quem foi atrás**, ao lado do
+// rótulo de versão, para o caso de a pergunta ter sido adiada ou de o operador
+// simplesmente querer resolver isso agora.
 //
-// A linha só aparece quando HÁ versão nova — um "está em dia" permanente seria
-// ruído no rodapé de uma tela de diagnóstico —, e o botão só age quando a hora
-// é boa: instalar derruba o app inteiro, com a projeção junto, então aqui o
-// `horaRuimParaAtualizar()` vale POR INTEIRO (cena, download e espelho), ao
-// contrário do OTA da base web, cujo custo é um piscar.
+// Ela só aparece quando HÁ versão nova (um "está em dia" permanente seria ruído
+// no rodapé de uma tela de diagnóstico) e só age quando a hora é boa: instalar
+// derruba o app inteiro, com a projeção junto, então aqui o
+// `horaRuimParaAtualizar()` vale POR INTEIRO — cena, download e espelho —, ao
+// contrário da pergunta, cujo custo é um piscar.
 const apkRowEl = document.getElementById('apkRow');
-let apkNovo = null;
-let apkBaixando = false;
 
 function renderApkRow() {
   if (!apkRowEl) return;
@@ -274,50 +306,20 @@ function renderApkRow() {
   }
   const ruim = horaRuimParaAtualizar();
   apkRowEl.disabled = ruim;
-  const mb = apkNovo.bytes ? ' · ' + Math.round(apkNovo.bytes / 104857.6) / 10 + ' MB' : '';
+  const tamanho = apkNovo.bytes ? ' · ' + Math.round(apkNovo.bytes / 104857.6) / 10 + ' MB' : '';
   apkRowEl.textContent = ruim
-    ? 'Shell ' + apkNovo.versao + ' disponivel — espere a cena/download/espelho'
-    : 'Instalar o shell ' + apkNovo.versao + mb;
+    ? 'App v' + apkNovo.versao + ' disponível — espere a cena/download/espelho'
+    : 'Instalar o app v' + apkNovo.versao + tamanho;
 }
-
-async function procurarApk() {
-  if (!window.__NATIVE__ || (window.__SHELL_VERSION__ | 0) < 35) return;
-  let r = null;
-  try { r = await AVNative.apkProcurar(); } catch (_) { return; }
-  apkNovo = (r && r.versao) ? r : null;
-  renderApkRow();
-}
-
-// O PROGRESSO VEM POR EMPURRÃO do shell — o download roda na fila de IO dele e
-// daqui não há o que perguntar. Ver `NativeBridge.apkInstalar`.
-window.__avApk = (pct) => {
-  if (!apkRowEl || !apkBaixando) return;
-  apkRowEl.textContent = 'Baixando o shell ' + (apkNovo ? apkNovo.versao : '') + '… ' + (pct | 0) + '%';
-};
 
 if (apkRowEl) {
-  apkRowEl.addEventListener('click', async () => {
+  apkRowEl.addEventListener('click', () => {
     if (!apkNovo || apkBaixando) return;
-    apkBaixando = true;
-    renderApkRow();
-    apkRowEl.textContent = 'Baixando o shell ' + apkNovo.versao + '… 0%';
-    let erro = '';
-    try { erro = await AVNative.apkInstalar(); } catch (_) { erro = 'falha ao baixar'; }
-    apkBaixando = false;
-    // O ERRO MORA NO BOTÃO QUE FOI TOCADO (v5.207), e não numa faixa no topo:
-    // este botão é a única coisa nesta tela que fala de atualizar o shell, e o
-    // dedo acabou de sair de cima dele. `renderApkRow()` o reescreveria, então
-    // ele NÃO é chamado aqui — a linha fica com o motivo até a próxima procura.
-    if (erro) { apkRowEl.textContent = 'Não deu para atualizar: ' + erro; return; }
-    // Deu certo: o diálogo do sistema está na frente. A linha vira o convite a
-    // confirmar, porque o operador pode ter recusado o diálogo sem querer.
-    apkRowEl.textContent = 'Confirme a instalação na tela do sistema';
+    // O MESMO caminho da pergunta, e não uma segunda cópia dele: quem baixa,
+    // desenha o progresso, apaga a intenção e fala do erro é o `instalarApk`.
+    // Dois caminhos para uma instalação divergiriam no primeiro ajuste.
+    instalarApk(apkNovo.versao);
   });
-  // Uma procura na abertura e outra a cada meia hora. Devagar de propósito: uma
-  // Release nova é evento de dias, não de minutos, e a linha só existe para o
-  // operador não precisar ir ao navegador — não para avisá-lo no segundo.
-  setTimeout(procurarApk, 4000);
-  setInterval(procurarApk, 30 * 60 * 1000);
 }
 
 // TOCAR NA VERSÃO PROCURA ATUALIZAÇÃO (v5.136 · shell 31). Não é um botão novo:
@@ -350,17 +352,20 @@ if (appVersionEl && window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= 31) {
 // avisos para uma pergunta. (O parâmetro NÃO pode se chamar `avisar`: ele
 // sombrearia a função global de aviso, que é justamente quem fala aqui.)
 async function atualizarProcura(anunciar) {
-  try { otaDiagTexto = await AVNative.otaDiag(); } catch (_) { /* shell antigo */ }
-  // O TOQUE DESFAZ A RECUSA. "Depois" silencia o aviso AUTOMÁTICO desta sessão
-  // (regra 2 do bloco abaixo); ele não pode silenciar o operador que voltou
-  // para pedir a atualização de propósito.
+  // O TOQUE DESFAZ O ADIAMENTO. "Deixar para depois" silencia o diálogo
+  // AUTOMÁTICO desta sessão; ele não pode silenciar o operador que voltou para
+  // pedir a atualização de propósito — que é exatamente o que este toque é.
+  // `otaRecusadas` (o que o SHELL não conseguiu aplicar) também é limpo: pode
+  // ter sido um bundle pela metade que a procura de agora já substituiu.
+  otaAdiadas.clear();
   otaRecusadas.clear();
   await ofertarAtualizacao();
   // O DESFECHO VOLTA PARA O MESMO RÓTULO, e depois ele volta a ser a versão.
-  if (anunciar && !otaPendenteVersao) falarNaVersao('Você já está na versão mais recente.', 3200);
-  // E se HÁ algo novo, quem fala é a oferta (`ofertarAtualizacao`) — mas o
-  // rótulo não pode ficar preso em "Procurando…" enquanto ela decide.
-  else if (!anunciar && otaPendenteVersao) renderVersionLabel();
+  const lote = loteDaAtualizacao();
+  if (anunciar && !lote) falarNaVersao('Você já está na versão mais recente.', 3200);
+  // E se HÁ algo novo, quem fala é o diálogo — mas o rótulo não pode ficar
+  // preso em "Procurando…" enquanto ele decide.
+  else if (!anunciar && lote) renderVersionLabel();
 }
 
 
@@ -11878,17 +11883,34 @@ function cabecalhoDiag() {
   // primeira pergunta é se o WebView deste aparelho aceita os codecs — e a
   // resposta não se descobre de fora.
   l.push('Transmissão: ' + diagMse());
-  // A ATUALIZAÇÃO QUE AINDA NÃO ENTROU. Desde a v5.151 ela entra sozinha, na
-  // hora — então esta linha deixou de ser "esperando a tela livre" e passou a
-  // ser um ALARME: se ela aparece, alguma coisa impediu a aplicação, e o
-  // Registro é o único lugar que responde "por que ainda estou na versão
-  // antiga?". O `horaRuimParaAtualizar()` continua sendo LIDO aqui — não mais
-  // como portão, e sim como a explicação provável de um piscar que aconteceu
-  // numa hora ruim.
-  if (otaPendenteVersao) {
-    l.push('Atualização: v' + otaPendenteVersao + ' baixada e AINDA NÃO aplicada'
-      + (otaRecusadas.has(otaPendenteVersao) ? ' — o shell recusou aplicá-la' : ' — entrando…')
-      + (horaRuimParaAtualizar() ? ' (com cena/download/espelho no ar)' : ''));
+  // O LOTE QUE ESPERA, e POR QUE ele espera (v5.234).
+  //
+  // Desde que a pergunta voltou a existir, "por que ainda estou na versão
+  // antiga?" tem respostas que a tela não distingue: ninguém foi perguntado
+  // ainda, o operador adiou, a pergunta está esperando a cena sair do ar, ou o
+  // shell recusou o bundle. As quatro pedem ações diferentes do operador — e
+  // este Registro é lido A DISTÂNCIA, então um "esperando…" genérico manda
+  // quem o lê investigar a coisa errada.
+  const loteReg = loteDaAtualizacao();
+  if (loteReg) {
+    const oque = [
+      loteReg.web ? 'base v' + loteReg.web : '',
+      loteReg.shell ? 'app v' + loteReg.shell : '',
+    ].filter(Boolean).join(' + ');
+    let porque;
+    if (loteReg.web && otaRecusadas.has(loteReg.web)) porque = 'o shell RECUSOU aplicá-la';
+    else if (otaAdiadas.has(loteReg.chave)) porque = 'o operador adiou nesta sessão';
+    else if (apkBaixando) porque = 'baixando o app agora';
+    else if (otaPerguntando) porque = 'perguntando agora';
+    else if (horaRuimParaPerguntar()) porque = 'esperando a cena/download sair do ar';
+    else porque = 'a pergunta está prestes a aparecer';
+    l.push('Atualização: ' + oque + ' esperando — ' + porque);
+    // O peso do APK só interessa quando ele está no lote, e interessa muito:
+    // é a diferença entre "esperar meio minuto" e "esperar o Wi-Fi da igreja".
+    if (loteReg.bytes) l.push('  · o app pesa ' + mb(loteReg.bytes));
+    if (loteReg.shell && horaRuimParaAtualizar()) {
+      l.push('  · instalar está bloqueado (cena/download/espelho no ar)');
+    }
   }
   // A PROCURA em si (v5.136). "Não apareceu aviso nenhum" tem quatro causas
   // indistinguíveis da tela — não há versão nova, a busca falhou, o bundle
@@ -16512,57 +16534,102 @@ document.addEventListener('visibilitychange', () => {
   // acrescenta itens às listas, e antes de qualquer coisa demorada: se o shell
   // ainda tiver o arquivo guardado, o item aparece em segundos.
   resgatarDownloads();
-  // O AVISO DE ATUALIZAÇÃO. A primeira consulta é adiada porque o download do
-  // shell começa junto com a abertura (`checkAsync` no `onCreate`) e leva
-  // alguns segundos — perguntar agora seria perguntar antes de haver resposta.
-  // Depois é de minuto em minuto, e cada consulta custa a leitura de um JSON
-  // minúsculo: quem decide se há o que mostrar é `ofertarAtualizacao`.
-  setTimeout(ofertarAtualizacao, 8000);
-  setInterval(ofertarAtualizacao, OTA_POLL_MS);
-  // E A RETOMADA É UM GATILHO deste lado também. O shell já procura ao voltar
-  // do segundo plano, mas quem APLICA no caminho web é esta função — e é
-  // exatamente ao retomar que o operador encontra um bundle que chegou
-  // enquanto este WebView estava estrangulado.
+  // A ATUALIZAÇÃO QUE FICOU PELA METADE, retomada — e ela vem ANTES da
+  // procura, de propósito: se o operador já disse sim a um lote com APK e a
+  // recarga do OTA aconteceu, o que falta é instalar, não perguntar de novo.
+  // Ver `retomarAtualizacao`.
+  retomarAtualizacao();
+  // A PROCURA. A primeira consulta é adiada porque o download do bundle começa
+  // junto com a abertura (`checkAsync` no `onCreate`) e leva alguns segundos —
+  // perguntar agora seria perguntar antes de haver resposta. Ela é a rede de
+  // segurança: o caminho normal é o empurrão do shell (`__avAtualizacao`), que
+  // chega no segundo em que a resposta existe.
+  setTimeout(ofertarAtualizacao, 6000);
+  setInterval(() => { ofertarAtualizacao(); retomarAtualizacao(); }, OTA_POLL_MS);
+  // E A RETOMADA DO APP É UM GATILHO deste lado também. O shell já procura ao
+  // voltar do segundo plano, mas quem PERGUNTA é esta página — e é exatamente
+  // ao retomar que o operador encontra um lote que chegou enquanto este WebView
+  // estava estrangulado.
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') ofertarAtualizacao();
+    if (document.visibilityState !== 'visible') return;
+    ofertarAtualizacao();
+    retomarAtualizacao();
   });
 })();
 
 // ---------------------------------------------------------------------------
-// O AVISO DE ATUALIZAÇÃO (v5.132 · shell 29)
+// A ATUALIZAÇÃO PERGUNTA, E ELA É UM EVENTO SÓ (v5.234 · shell 43)
 //
-// Até aqui o OTA era invisível por completo: o bundle novo chegava calado e
-// entrava na abertura seguinte. Quem quisesse a correção do dia tinha de saber,
-// por fora, que precisava fechar e reabrir o app — e a correção mais urgente é
-// justamente a que ninguém quer esperar.
+// ## O que estava errado, e eram DUAS coisas em direções opostas
 //
-// Três regras, e as três protegem o culto:
+// **A detecção era lenta e desencontrada.** A base web era procurada de minuto
+// em minuto pelo shell, com piso de 15 s e espera de até 90 s depois de uma
+// falha — e o APK, por uma consulta à API do GitHub a cada MEIA HORA, cujo
+// resultado aparecia numa linha do rodapé de Configurações, tela que ninguém
+// abre no meio de um culto. Os dois canais viviam separados, então o operador
+// via metade de um lote funcionando e metade não, sem nada que explicasse a
+// diferença. É isso que "inconstante, demorada e quase aleatória" descreve.
 //
-// 1. **Não oferece com cena no ar.** Aplicar recarrega os DOIS WebViews, e o
-//    telão pisca. A garantia 1 do OTA ("nunca troca a base no meio de uma
-//    sessão") existe contra a troca ACIDENTAL; oferecer no meio de uma
-//    projeção seria transformá-la num acidente com convite. Sem cena, a mesma
-//    troca é só uma escolha — e a pergunta espera o telão esvaziar.
-// 2. **Recusar é definitivo nesta sessão.** Um aviso que volta a cada minuto
-//    vira ruído, e ruído no meio de um culto é pior que a versão antiga.
-// 3. **A pergunta diz que dá para não fazer nada.** A atualização entra sozinha
-//    na próxima abertura de qualquer jeito; oferecer "agora" sem dizer isso
-//    faria parecer que recusar significa ficar para trás.
+// **E a aplicação não perguntava.** A v5.151 tirou o diálogo porque ele quase
+// nunca aparecia: era suprimido com cena no ar, download em curso **ou espelho
+// ligado** — e o espelho fica ligado o culto inteiro, então a supressão era
+// permanente. O diagnóstico estava certo; o remédio, largo demais. Trocar a
+// base recarrega as duas páginas e o telão pisca, e a hora disso é decisão de
+// quem está operando.
+//
+// ## O desenho de agora
+//
+// 1. **Um lote, uma pergunta.** O manifesto do canal OTA carrega o bloco
+//    `shell` — o workflow SEGURA a publicação do bundle até a Release existir
+//    (ver `apk.yml`), então quando a base web chega, o link do APK chega junto.
+//    O diálogo fala do lote inteiro e o "Atualizar agora" leva os dois até o
+//    fim, um depois do outro.
+// 2. **A pergunta espera só o que ACABA.** Cena projetando e download em curso
+//    seguram o diálogo, porque nos dois casos o custo é real e temporário; o
+//    espelho NÃO segura mais, e era ele o elo que travava tudo. Enquanto
+//    espera, o rótulo de versão diz que há algo esperando.
+// 3. **"Deixar para depois" vale por esta sessão**, não para sempre: um aviso
+//    que volta a cada dez segundos é ruído, e ruído no meio de um culto é pior
+//    que a versão antiga. Ele volta a oferecer na próxima abertura, e o toque
+//    no rótulo de versão desfaz a recusa na hora.
+// 4. **A INTENÇÃO sobrevive à recarga.** Aplicar o OTA mata este documento, e
+//    com ele qualquer variável que soubesse que ainda falta instalar o APK. Ela
+//    é gravada no `state` do banco ANTES de aplicar — o mesmo lugar e o mesmo
+//    motivo da intenção de download do YouTube (v1.59) — e relida na abertura.
 // ---------------------------------------------------------------------------
-// A enquete do lado web. 20 s, e não os 60 s de antes: ela não custa rede —
-// `otaPending` lê o disco, e o `otaCheck` que ela dispara respeita o piso do
-// shell — e ela é a rede de segurança para quando o empurrão do shell se perde
-// (o WebView do Controle é estrangulado em segundo plano, e é justamente aí
-// que uma versão nova costuma chegar).
-const OTA_POLL_MS = 20000;
+
+// A enquete do lado web — a REDE DE SEGURANÇA, não o caminho principal.
+//
+// Quem põe a pergunta na tela no segundo em que ela existe é o empurrão do
+// shell (`window.__avAtualizacao`). Isto aqui cobre o caso em que o empurrão se
+// perde: o WebView do Controle é estrangulado em segundo plano, e é justamente
+// aí que uma versão nova costuma chegar. Ela não custa rede — lê o disco, e o
+// `otaCheck` que dispara respeita o piso do shell.
+const OTA_POLL_MS = 10000;
+
+// O que o operador mandou deixar para depois, POR LOTE (`web|shell`): recusar
+// uma base web não pode calar o APK que chegar amanhã junto com outra.
+const otaAdiadas = new Set();
+// O que o SHELL recusou aplicar (um bundle sem o index do Controle, por
+// exemplo). Sem esta guarda a enquete pediria a aplicação a cada dez segundos,
+// para sempre — e o operador veria a pergunta reaparecer sozinha depois de ter
+// dito sim.
 const otaRecusadas = new Set();
 let otaPerguntando = false;
-// O último diagnóstico da procura, lido do shell (shell 31+). Guardado aqui
-// porque o Registro é montado de forma síncrona e a ponte é assíncrona.
-let otaDiagTexto = '';
-// A versão que está esperando, para o Registro poder dizê-la mesmo quando a
-// pergunta não pode aparecer (cena no ar, download em curso, já recusada).
-let otaPendenteVersao = '';
+// (`otaDiagTexto`, `otaPendenteVersao`, `apkNovo` e `apkBaixando` nascem no
+// TOPO do arquivo, junto do `WEB_VERSION` — `renderVersionLabel()` os lê na
+// carga do módulo, e declará-los aqui seria zona morta temporal. Ver o
+// comentário de lá.)
+
+// A chave da INTENÇÃO no banco. Ela existe por um motivo estrutural: aplicar o
+// OTA substitui o documento, então nada em memória atravessa esse ponto — e é
+// exatamente depois dele que falta a metade nativa do lote.
+const OTA_INTENCAO = 'ota-intencao';
+// Intenção mais velha que isto é descartada. Um APK de ontem que ninguém
+// instalou não é uma tarefa pendente: é lixo, e retomá-lo sozinho na manhã de
+// domingo seria abrir o instalador do sistema por cima de quem está montando o
+// culto. (Mesmo raciocínio do teto de 6 h da intenção de download.)
+const OTA_INTENCAO_MAX_MS = 6 * 60 * 60 * 1000;
 
 // Há algo projetado agora? MESMA leitura de `pushNowPlaying` — se ela mudar de
 // ideia sobre o que é "cena", esta pergunta muda junto.
@@ -16575,106 +16642,317 @@ function cenaNoAr() {
     || drawProjecting();
 }
 
-// Momento ruim para recarregar as duas páginas: além da cena no ar, um download
-// em curso morre com o documento — os `fetch` são desta página, e o arquivo que
-// o shell terminar de baixar não teria mais quem o recebesse.
+// Momento ruim para PERGUNTAR — e ele é diferente do momento ruim para
+// INSTALAR, que é o `horaRuimParaAtualizar()` logo abaixo.
 //
-// E o ESPELHO NO AR é o terceiro caso (v5.141). Aplicar um bundle recarrega o
-// Controle e o telão — e o espelho, que é uma TERCEIRA página, ficaria servindo
-// o bundle ANTIGO, de um diretório que o `beginSession()` seguinte vai apagar.
-// Aqui as telas da rede são o que alguém está de fato assistindo: sem TV
-// conectada, elas são a projeção.
+// Aqui vale o que ACABA sozinho: uma cena sai do ar quando o louvor termina, um
+// download termina. O espelho não entra, e essa é a correção do lote: ele fica
+// ligado o culto inteiro, então incluí-lo (v5.141 → v5.151) transformava a
+// pergunta em algo que nunca aparecia — e foi por isso que a v5.151 desistiu de
+// perguntar. O espelho custa uma tela da rede com a página antiga em memória
+// até alguém recarregá-la; a cena e o download custam a projeção e o hinário
+// pela metade, que é outra ordem de grandeza.
+function horaRuimParaPerguntar() {
+  return cenaNoAr() || bgWorkCount > 0;
+}
+
+// Momento ruim para INSTALAR O APK: aqui o espelho volta a contar, porque
+// instalar derruba o app inteiro — o servidor da rede vai junto, e as telas
+// ficam sem nada. É o mesmo peso do `apkRow` desde a v5.167, e é o que o
+// Registro mostra.
 function horaRuimParaAtualizar() {
   return cenaNoAr() || bgWorkCount > 0 || espelhoLigado();
 }
 
-// O SHELL EMPURRA quando o bundle fica pronto (shell 31+): o aviso aparece no
-// segundo em que a atualização chega, em vez de esperar até um minuto pela
-// enquete. A enquete continua — ela é o piso, e cobre o caso de a página ter
-// carregado depois de o bundle já estar no disco.
+// O que está esperando, numa forma só. `null` quando não há nada.
+function loteDaAtualizacao() {
+  if (!otaPendenteVersao && !apkNovo) return null;
+  return {
+    web: otaPendenteVersao || '',
+    shell: apkNovo ? apkNovo.versao : '',
+    bytes: apkNovo ? (apkNovo.bytes | 0) : 0,
+    chave: (otaPendenteVersao || '-') + '|' + (apkNovo ? apkNovo.versao : '-'),
+  };
+}
+
+// ===== A LEITURA DO ESTADO =====
+//
+// Uma chamada no shell 43, três no shell 42. A degradação mora aqui, e não nos
+// chamadores, porque só este ponto sabe remontar a fotografia a partir do que
+// sobrou — e nenhum dos dois caminhos pode lançar: quem chama é uma enquete que
+// roda de dez em dez segundos e um `throw` a mataria em silêncio.
+async function lerAtualizacao() {
+  if (!window.__NATIVE__) return;
+  if ((window.__SHELL_VERSION__ | 0) >= 43) {
+    let e = null;
+    try { e = await AVNative.atualizacaoEstado(); } catch (_) { return; }
+    if (!e) return;
+    otaPendenteVersao = e.web || '';
+    otaDiagTexto = e.diag || '';
+    apkNovo = e.shell ? { versao: e.shell, bytes: e.shellBytes | 0 } : null;
+    return;
+  }
+  // Shell 41 e anteriores: os dois canais continuam existindo, só não chegam
+  // no mesmo instante. A pergunta é a mesma; o que se perde é a garantia de
+  // que ela nasce completa.
+  if ((window.__SHELL_VERSION__ | 0) >= 29) {
+    try { otaPendenteVersao = (await AVNative.otaPending()) || ''; } catch (_) { /* rede */ }
+  }
+  if ((window.__SHELL_VERSION__ | 0) >= 31) {
+    try { otaDiagTexto = await AVNative.otaDiag(); } catch (_) { /* shell antigo */ }
+  }
+  if ((window.__SHELL_VERSION__ | 0) >= 35) {
+    try {
+      const r = await AVNative.apkProcurar();
+      apkNovo = (r && r.versao) ? { versao: r.versao, bytes: r.bytes | 0 } : null;
+    } catch (_) { /* rede */ }
+  }
+}
+
+// ===== O EMPURRÃO DO SHELL =====
+//
+// Ele é o caminho PRINCIPAL: a pergunta aparece no segundo em que a resposta
+// existe, sem esperar enquete nenhuma. O objeto chega pronto (shell 43), então
+// aqui não há ida à ponte — o que importa é que o desenho aconteça no mesmo
+// quadro em que o dado chegou.
+window.__avAtualizacao = function (e) {
+  if (!e) return;
+  otaPendenteVersao = e.web || '';
+  otaDiagTexto = e.diag || '';
+  apkNovo = e.shell ? { versao: e.shell, bytes: e.shellBytes | 0 } : null;
+  decidirAtualizacao();
+};
+
+// O empurrão do shell 31-42, que só sabe falar da base web. Ele fica porque a
+// janela em que um shell antigo roda um bundle novo é real: ela é exatamente o
+// intervalo entre a Release sair e o operador instalá-la.
 window.__avOta = function (versao) {
   if (versao) otaPendenteVersao = String(versao);
   ofertarAtualizacao();
 };
 
-// A ATUALIZAÇÃO ENTRA SOZINHA, na hora, sem perguntar (v5.151).
-//
-// Era uma OFERTA — um diálogo "Atualizar agora?" — e ela quase nunca chegava a
-// aparecer, por dois motivos que se somavam. Do lado do shell, "entra no
-// próximo lançamento" era literal: a decisão é por PROCESSO, e o processo é
-// mantido vivo de propósito pelos serviços em primeiro plano, então reabrir o
-// app não reabria nada (ver `WebUpdater.aplicarSozinho`). Deste lado, a
-// pergunta era suprimida com cena no ar, download em curso ou espelho ligado —
-// e durante os testes do espelho ele estava ligado o tempo todo, então ela
-// nunca aparecia. O resultado prático era "o OTA não funciona".
-//
-// **O QUE ISSO CUSTA, dito por inteiro:** a base pode trocar no meio de um
-// culto, e as duas páginas recarregam. Esse custo é conhecido e recuperável — o
-// telão recarrega, dispara `display-ready`, e o Controle reenvia a cena com
-// POSIÇÃO e ESTADO DE REPRODUÇÃO (`resendSceneToDisplay`), que é o mesmo
-// caminho que a queda de um dongle já exercita: uma mídia tocando volta no
-// segundo em que estava. O que se vê é um piscar. Um lote de downloads em curso
-// recomeça o item que estava em voo, sem perder o que já baixou.
-//
-// O `horaRuimParaAtualizar()` continua existindo e continua sendo LIDO pelo
-// Registro — ele é a explicação de um piscar que aconteceu numa hora ruim, e
-// não mais um portão.
+// A enquete: relê e decide. Separada do `decidirAtualizacao` porque o empurrão
+// já vem com o estado na mão e reler seria uma ida à ponte por nada.
 async function ofertarAtualizacao() {
   if (!window.__NATIVE__ || (window.__SHELL_VERSION__ | 0) < 29) return;
-  if (otaPerguntando) return;
-  // PEDIR AO SHELL QUE PROCURE, e não só perguntar o que ele já tem (v5.136).
-  // Antes desta linha a enquete lia um valor que ninguém atualizava: o shell
-  // procurava UMA vez, no `onCreate`. Do shell 31 em diante ele procura sozinho
-  // (ronda, retomada, rede voltando), e este cutucão é a terceira rede. Sem
-  // `forcar`: o piso do shell é que decide se vale uma requisição, senão uma
-  // enquete de um minuto viraria uma consulta à rede por minuto, para sempre.
-  // Guarda própria (>= 31, e não o >= 29 do bloco): `otaCheck` só existe no
-  // shell 31 — nos shells 29-30 a chamada lançava e era engolida a cada
-  // minuto; o resto do fluxo (otaPending/otaApply, shell 29) continua valendo.
+  // CUTUCAR O SHELL, e não só perguntar o que ele já tem: sem `forcar`, porque
+  // o piso dele é que decide se vale uma requisição — senão uma enquete de dez
+  // segundos viraria seis consultas à rede por minuto, para sempre.
   if ((window.__SHELL_VERSION__ | 0) >= 31) {
     try { AVNative.otaCheck(false); } catch (_) { /* rede/ponte */ }
   }
-  let versao = '';
-  try { versao = (await AVNative.otaPending()) || ''; } catch (_) { return; }
-  otaPendenteVersao = versao;
-  if (!versao) return;
-  // `otaRecusadas` guarda o que JÁ TENTAMOS aplicar e não entrou — não mais uma
-  // recusa do operador, que não existe mais. Sem esta guarda, um bundle que o
-  // shell recusa (sem o index do Controle, por exemplo) faria a enquete pedir a
-  // aplicação a cada minuto, para sempre.
-  if (otaRecusadas.has(versao)) return;
-  // A ATUALIZAÇÃO ESPERA O DOWNLOAD TERMINAR — e só ele.
-  //
-  // Aplicar um bundle RECARREGA as duas páginas, e um laço de sincronização em
-  // curso (hinário, Bíblia, pasta) morre com o documento: ele não é um `fetch`
-  // que o shell retoma, é um `for` na página. O operador relatou exatamente
-  // isso — o hinário parando em 300 de 600 numa tarde em que várias versões
-  // foram publicadas.
-  //
-  // Só o download segura, e isso é deliberado: a v5.151 tirou as travas de
-  // "cena no ar" e "espelho ligado" porque elas eram permanentes num culto e
-  // faziam a atualização NUNCA chegar — que é o defeito oposto e igualmente
-  // ruim. Um download é limitado: ele acaba, e a enquete de 20 s aplica logo em
-  // seguida. `horaRuimParaAtualizar()` continua sendo o que o Registro mostra,
-  // com os três motivos; aqui vale só um.
-  if (bgWorkCount > 0) return;
+  await lerAtualizacao();
+  decidirAtualizacao();
+}
+
+// ===== A DECISÃO =====
+function decidirAtualizacao() {
+  renderVersionLabel();
+  renderApkRow();
+  const lote = loteDaAtualizacao();
+  if (!lote) return;
+  if (otaPerguntando || apkBaixando) return;
+  if (otaAdiadas.has(lote.chave)) return;
+  if (lote.web && otaRecusadas.has(lote.web)) return;
+  // A pergunta espera o que acaba (ver `horaRuimParaPerguntar`). Ela não se
+  // perde: a enquete de dez segundos volta, e o rótulo de versão já está
+  // dizendo que há algo esperando.
+  if (horaRuimParaPerguntar()) return;
+  perguntarAtualizacao(lote);
+}
+
+function mb(bytes) {
+  return bytes ? Math.round(bytes / 104857.6) / 10 + ' MB' : '';
+}
+
+// A FRASE muda com o lote, e cada uma diz a CONSEQUÊNCIA que o rótulo não diz.
+// Quem só vê "atualizar?" não sabe se vai perder a projeção por um instante ou
+// se o Android vai abrir um instalador em cima do culto.
+function textoDaAtualizacao(lote) {
+  const tamanho = lote.bytes ? ' (' + mb(lote.bytes) + ')' : '';
+  if (lote.web && lote.shell) {
+    return 'Base v' + lote.web + ' e app v' + lote.shell + tamanho + '.\n\n'
+      + 'A base entra primeiro e a projeção pisca por um instante. '
+      + 'Em seguida o Android vai pedir para confirmar a instalação do app.';
+  }
+  if (lote.shell) {
+    return 'App v' + lote.shell + tamanho + '.\n\n'
+      + 'Depois de baixar, o Android vai pedir para confirmar a instalação — '
+      + 'o app fecha durante ela.';
+  }
+  return 'Base v' + lote.web + '.\n\n'
+    + 'As duas telas recarregam e a projeção pisca por um instante. '
+    + 'Uma mídia tocando volta no ponto em que estava.';
+}
+
+async function perguntarAtualizacao(lote) {
   otaPerguntando = true;
-  // AVISAR, e não perguntar. A frase existe porque um piscar sem explicação no
-  // meio de um culto é pior que o piscar — e ela sai ANTES da recarga, que é o
-  // único instante em que ainda há uma página para mostrá-la.
-  // O RÓTULO DE VERSÃO É QUEM FALA (ver `falarNaVersao`): a frase é sobre a
-  // versão, e o rótulo é onde a versão mora. Sem prazo — as duas páginas
-  // recarregam em seguida e levam a mensagem junto.
-  try { falarNaVersao('Atualizando para a versão ' + versao + '…', 0); } catch (_) { /* cedo demais */ }
-  let aplicada = null;
+  let sim = false;
   try {
-    // Daqui não se volta: o documento é substituído pela recarga. Só quando NÃO
-    // houver o que aplicar a promise devolve null e a página segue viva.
-    aplicada = await AVNative.otaApply();
+    sim = await openAppDialog({
+      title: 'Atualização disponível',
+      message: textoDaAtualizacao(lote),
+      okText: 'Atualizar agora',
+      cancelText: 'Deixar para depois',
+      input: false,
+    });
   } finally {
     otaPerguntando = false;
   }
-  if (!aplicada) otaRecusadas.add(versao);
+  if (!sim) {
+    // ADIAR É POR LOTE E POR SESSÃO. Na próxima abertura a pergunta volta, e
+    // tocar no rótulo de versão a traz de volta agora — "depois" é o operador
+    // escolhendo o momento, não desistindo da atualização.
+    otaAdiadas.add(lote.chave);
+    falarNaVersao('Atualização adiada — toque aqui quando quiser', 4000);
+    return;
+  }
+  await aplicarAtualizacao(lote);
+}
+
+// ===== A APLICAÇÃO, nesta ordem e por esta razão =====
+//
+// A base web PRIMEIRO. Ela é rápida (o bundle já está no disco — o que se paga
+// é uma recarga) e é a metade que não depende de ninguém confirmar nada. O APK
+// exige um diálogo do sistema que o operador pode recusar, adiar ou perder; se
+// ele viesse antes, uma recusa ali deixaria o lote inteiro por aplicar.
+//
+// Entre os dois há uma morte de documento, e é por isso que a intenção é
+// GRAVADA antes: o que retoma a segunda metade é a abertura seguinte, lendo o
+// banco (ver `retomarAtualizacao`).
+async function aplicarAtualizacao(lote) {
+  if (lote.shell) {
+    try {
+      await AVDB.setState(OTA_INTENCAO, { shell: lote.shell, em: Date.now() });
+    } catch (_) {
+      // Sem intenção gravada, o APK não é retomado depois da recarga — então é
+      // melhor não recarregar: instala-se o APK agora e a base web entra na
+      // enquete seguinte, que continua funcionando.
+      await instalarApk(lote.shell);
+      return;
+    }
+  }
+  if (!lote.web) {
+    await instalarApk(lote.shell);
+    return;
+  }
+  falarNaVersao('Atualizando para a versão ' + lote.web + '…', 0);
+  let aplicada = null;
+  try {
+    // Daqui normalmente não se volta: o documento é substituído pela recarga.
+    // Só quando NÃO houver o que aplicar a promise devolve null e a página
+    // segue viva — e aí o APK ainda precisa acontecer, senão o operador teria
+    // dito sim para nada.
+    aplicada = await AVNative.otaApply();
+  } catch (_) { /* a recarga levou a página */ }
+  if (!aplicada) {
+    otaRecusadas.add(lote.web);
+    if (lote.shell) await instalarApk(lote.shell);
+    else falarNaVersao('Não deu para aplicar a versão ' + lote.web, 4000);
+  }
+}
+
+// ===== O APK: baixar e entregar ao instalador =====
+//
+// O progresso mora no MESMO diálogo, e não numa faixa nova: são dezenas de MB
+// numa rede de igreja, isto é, minutos — e uma tela parada sem número é
+// indistinguível de travamento. "Ocultar" fecha a janela e NÃO cancela nada; a
+// frase diz isso, porque um botão que parece cancelar e não cancela é pior que
+// não ter botão.
+async function instalarApk(versao) {
+  if (!versao || apkBaixando) return;
+  if ((window.__SHELL_VERSION__ | 0) < 35) return;
+  apkBaixando = true;
+  renderApkRow();
+  openAppDialog({
+    title: 'Baixando o app v' + versao,
+    message: 'Baixando… 0%\n\nOcultar não cancela o download: o instalador do '
+      + 'Android abre sozinho quando ele terminar.',
+    okText: 'Ocultar',
+    cancelText: null,
+    input: false,
+  });
+  let erro = '';
+  try { erro = await AVNative.apkInstalar(); } catch (_) { erro = 'falha ao baixar'; }
+  apkBaixando = false;
+  // A intenção morreu de qualquer jeito: ou o instalador está na frente do
+  // operador (e o que acontece dali em diante é dele), ou falhou e insistir
+  // sozinho a cada abertura seria um instalador aparecendo do nada. A procura
+  // continua, e a pergunta volta pelo caminho normal.
+  try { await AVDB.setState(OTA_INTENCAO, null); } catch (_) { /* banco */ }
+  if (erro) {
+    falarNaVersao('Não deu para atualizar: ' + erro, 6000);
+    if (appDialogResolve) closeAppDialog(true);
+    await appConfirm({
+      title: 'A atualização do app falhou',
+      message: erro + '\n\nDá para tentar de novo pelo rótulo de versão, em Configurações.',
+      okText: 'Entendi',
+      cancelText: null,
+    });
+    return;
+  }
+  if (appDialogResolve) closeAppDialog(true);
+  falarNaVersao('Confirme a instalação na tela do sistema', 8000);
+}
+
+// O PROGRESSO VEM POR EMPURRÃO do shell — o download roda na fila de IO dele e
+// daqui não há o que perguntar. Ele pinta os dois lugares que podem estar à
+// vista: o diálogo (se não foi ocultado) e a linha de Configurações.
+window.__avApk = (pct) => {
+  if (!apkBaixando) return;
+  const n = pct | 0;
+  if (appDialogResolve && appDialogMsgEl && !appDialogMsgEl.hidden) {
+    appDialogMsgEl.textContent = 'Baixando… ' + n + '%\n\nOcultar não cancela o '
+      + 'download: o instalador do Android abre sozinho quando ele terminar.';
+  }
+  if (apkRowEl && !apkRowEl.hidden) {
+    apkRowEl.textContent = 'Baixando o app v' + (apkNovo ? apkNovo.versao : '') + '… ' + n + '%';
+  }
+};
+
+// ===== A INTENÇÃO, relida na abertura =====
+//
+// É a outra metade do `aplicarAtualizacao`: ela grava, esta lê. Sem ela o
+// operador aceitaria um lote com APK, veria a base trocar e o app voltaria sem
+// nunca mencionar a segunda metade — o pior desfecho possível, porque tudo
+// PARECE ter funcionado.
+async function retomarAtualizacao() {
+  if (!window.__NATIVE__ || (window.__SHELL_VERSION__ | 0) < 35) return;
+  let i = null;
+  try { i = await AVDB.getState(OTA_INTENCAO); } catch (_) { return; }
+  if (!i || !i.shell) return;
+  if (!i.em || Date.now() - i.em > OTA_INTENCAO_MAX_MS) {
+    try { await AVDB.setState(OTA_INTENCAO, null); } catch (_) { /* banco */ }
+    return;
+  }
+  // O APK JÁ PODE TER SIDO INSTALADO. `__SHELL_NAME__` é o `versionName` do
+  // aparelho: alcançada a versão da intenção, ela cumpriu seu papel e o que
+  // sobra é apagá-la. Sem esta comparação, o instalador reabriria a cada
+  // abertura oferecendo a versão que já está rodando.
+  const atual = String(window.__SHELL_NAME__ || '0');
+  if (compararVersoes(atual, String(i.shell)) >= 0) {
+    try { await AVDB.setState(OTA_INTENCAO, null); } catch (_) { /* banco */ }
+    return;
+  }
+  // Esperar a hora boa vale aqui também, e mais que na pergunta: instalar
+  // derruba o app inteiro. A intenção não se perde — ela vive no banco, e esta
+  // função é chamada de novo pela enquete.
+  if (horaRuimParaAtualizar()) return;
+  await instalarApk(String(i.shell));
+}
+
+// Comparação NUMÉRICA por componente, a mesma regra do `WebUpdater` do shell:
+// "1.9" é MAIOR que "1.76" como texto e MENOR como versão, e é justamente essa
+// a faixa em que este app vive.
+function compararVersoes(a, b) {
+  const pa = String(a).replace(/^v/i, '').split('.');
+  const pb = String(b).replace(/^v/i, '').split('.');
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const x = parseInt(pa[i], 10) || 0;
+    const y = parseInt(pb[i], 10) || 0;
+    if (x !== y) return x > y ? 1 : -1;
+  }
+  return 0;
 }
 
 // Quantos restos a última faxina removeu — o Registro mostra, porque uma

@@ -431,6 +431,21 @@
     // procura segue sendo a da abertura.
     otaCheck(forcar) { try { B.otaCheck(!!forcar); } catch (_) { /* shell antigo */ } },
 
+    // OS DOIS CANAIS NUMA LEITURA SÓ (shell 43):
+    // `{ web, webAtual, shell, shellBytes, shellAtual, diag }`.
+    //
+    // Ele existe pela COERÊNCIA DE INSTANTE, não por economia de chamadas: com
+    // `otaPending`, `apkProcurar` e `otaDiag` separados, as três respostas
+    // chegam em três momentos e a pergunta na tela mudava de conteúdo depois de
+    // desenhada — "há uma base nova" virando "…e um APK junto" meio segundo
+    // depois, num diálogo que o operador já estava lendo.
+    //
+    // Resolve `null` num shell antigo, e é o chamador que cai nas três antigas
+    // — a degradação é dele porque só ele sabe montar a pergunta com o que
+    // sobrou.
+    atualizacaoEstado: () => call((id) => B.atualizacaoEstado(id), CALL_TIMEOUT_MS)
+      .catch(() => null),
+
     // ---- O APK SE ATUALIZA SOZINHO (shell 35) ----
     //
     // `apkProcurar` devolve `{}` quando não há nada, `{versao, bytes, notas}`

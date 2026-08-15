@@ -316,6 +316,24 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 .app-version.tocavel:active { background: var(--surface); }
+/* HÁ ATUALIZAÇÃO ESPERANDO (v5.234). O rótulo já é o lugar onde se toca para
+   trazer a pergunta de volta; o que faltava era ele DIZER que há o que trazer.
+   Sem isto, "Deixar para depois" silenciava o diálogo e, junto com ele, o fato
+   — o operador não teria como saber que ainda havia algo esperando.
+
+   A marca é a mesma gramática de "concluído/pronto" do resto do app (`--ok`,
+   contornado), e não a de "está no ar": o vermelho preenchido pertence à mídia
+   que a congregação está vendo, e um rótulo de rodapé competindo com ela seria
+   a paleta dizendo duas coisas opostas com a mesma cor.
+
+   A DIVISÃO DE TRABALHO com o `renderVersionLabel` importa: o ponto (`●`) é
+   TEXTO e some quando o `falarNaVersao` empresta o rótulo para uma frase; a
+   COR e a borda vêm da classe e ficam. É o que se quer — durante a frase ela
+   própria é o recado, e quando ela expira o ponto volta com a versão. */
+.app-version.tem-atualizacao {
+  color: var(--ok);
+  border: 1px solid color-mix(in srgb, var(--ok) 45%, transparent);
+}
 
 /* ---------- Barra de controles (base) ---------- */
 /* Desde a v5.54 ela começa na FAIXA DE ABAS e termina no transporte: um bloco
