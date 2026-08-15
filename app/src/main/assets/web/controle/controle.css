@@ -1886,7 +1886,34 @@ main {
 .coll-bar-info, .bible-ver-main, .hymn-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 /* Subtítulo do PIVÔ categoria↔álbum: o mesmo álbum pode ter subtítulos
    diferentes conforme a categoria em que aparece. */
-.coll-bar-sub { font-size: .74rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* `.7rem`, a MESMA escala do peso ao lado (v5.247): os dois são metadado curto
+   sobre a coleção e dividem a linha, e meio ponto de diferença entre irmãos na
+   mesma linha é a inconsistência que a auditoria da v5.241 existiu para tirar
+   daqui — além de ser o meio ponto que fazia o par estourar a altura da thumb. */
+.coll-bar-sub { font-size: .7rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* ---------- O METADADO DO CARD, EM UMA LINHA (v5.247) ----------
+   O subtítulo do pivô e o peso dividem a SEGUNDA linha do card — ver a nota em
+   `renderCollectionCard`. O ponto separador vem do CSS e não do dado: os dois
+   spans carregam texto e nada mais, cada um com o seu estado (o peso fica em
+   accent enquanto sincroniza), e pontuação embutida no texto seria ruído para
+   quem os lê.
+
+   `min-width: 0` no subtítulo é o que faz as reticências caírem NELE: o peso é
+   curto e não deve encolher, e sem isso o flex distribuiria o aperto entre os
+   dois — cortando o número, que é a única coisa ali que não se adivinha. */
+.coll-bar-meta { display: flex; align-items: baseline; gap: .3rem; min-width: 0; }
+.coll-bar-meta > .coll-bar-sub { min-width: 0; }
+.coll-bar-meta > .coll-bar-sub + .coll-bar-sync::before {
+  content: '·'; margin-right: .3rem; opacity: .65;
+}
+/* A ALTURA NÃO PODE CRESCER, e é a segunda metade do pedido. O card era do
+   tamanho da THUMB (32px de ícone + o padding), com uma linha de texto de 19px
+   sobrando folga; as duas linhas juntas têm de caber nesses mesmos 32px, senão
+   passam a mandar na altura. Medido: 19,4 + 1 + 11,6 = 32px cravados — daí as
+   duas alturas de linha serem explícitas aqui em vez de herdadas, que é o que
+   as prende ao número. */
+.coll-bar-name { line-height: 1.25; }
+.coll-bar-meta { line-height: 1.05; }
 /* (A caixa de `.coll-bar-icon` é declarada junto com a da seção — ver "A seta é
    a thumbnail das raízes". O `.msym` dela saiu com o glifo da coleção: a thumb
    do card é a seta desde a v5.244.) */
@@ -1895,12 +1922,15 @@ main {
    antes — e ele divide a linha com o NOME do álbum, que é a informação
    principal. Meio ponto de fonte a menos devolve um caractere de nome sem
    comprometer a leitura de um número secundário. */
-.coll-bar-sync { flex-shrink: 0; font-size: .73rem; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.coll-bar-sync { flex-shrink: 0; font-size: .7rem; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
 /* (`.coll-bar-sync.done` saiu na v5.70: com o álbum completo o resumo não é
    mais desenhado — ver renderCollectionCard. O verde de "concluído" continua
    nos CONTADORES DE GRUPO, que somam várias coleções e ali ainda respondem
    alguma coisa.) */
-.coll-bar-sync.busy { color: var(--accent); font-weight: 600; font-size: .7rem; max-width: 42%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Sincronizando: o resumo vira o progresso ao vivo. O teto de largura saiu com
+   a coluna da direita (v5.247) — aqui ele tem a linha inteira, e quem cede
+   espaço é o subtítulo ao lado. */
+.coll-bar-sync.busy { color: var(--accent); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* (`.coll-bar-peso` durou uma versão: na v5.94 o resumo da barra PASSOU A SER o
    peso em todos os estados — ver `fracaoPeso` —, e um segundo elemento só para
    o álbum completo virou a mesma coisa com outro nome.) */

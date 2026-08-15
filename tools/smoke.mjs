@@ -882,11 +882,13 @@ try {
       document.body.appendChild(lista);
       renderCollectionsList(lista, () => {}, { semTotal: true });
       const card = lista.querySelector('.hymnal-card');
-      const sync = card && card.querySelector('.coll-bar-sync');
+      // O TÍTULO é a régua desde a v5.247: o peso saiu da coluna da direita e
+      // virou subtítulo, então quem denuncia um deslocamento daquela coluna é a
+      // borda direita do nome — que ocupa a linha inteira e existe sempre.
+      const alvo = card && card.querySelector('.coll-bar-name');
       const r = {
-        // A distância do peso até a borda direita do card: é ela que salta.
-        borda: (card && sync)
-          ? Math.round(card.getBoundingClientRect().right - sync.getBoundingClientRect().right) : -1,
+        borda: (card && alvo)
+          ? Math.round(card.getBoundingClientRect().right - alvo.getBoundingClientRect().right) : -1,
         naThumb: !!(card && card.querySelector('.coll-bar-icon.coll-bar-fechar')),
         naDireita: !!(card && card.querySelector('.coll-bar-dl.coll-bar-cfg')),
       };
@@ -960,13 +962,92 @@ try {
     checar(false, 'a medição da thumb das raízes terminou sem exceção (' + (e && e.message) + ')');
   }
   checar(col.completoFechado.borda > 0 && col.completoFechado.borda === col.completoAberto.borda,
-    'e o PESO de um álbum completo não se mexe ao abrir ('
+    'e a coluna da direita de um álbum completo não se mexe ao abrir ('
     + col.completoFechado.borda + 'px da borda, aberto e fechado)');
   checar(col.parcialFechado.borda > 0 && col.parcialFechado.borda === col.parcialAberto.borda,
-    'nem o de um álbum incompleto, cujo lugar do botão fica RESERVADO ('
+    'nem a de um álbum incompleto, cujo lugar do botão fica RESERVADO ('
     + col.parcialFechado.borda + 'px da borda, aberto e fechado)');
 } catch (e) {
   checar(false, 'a medição da coluna da direita terminou sem exceção (' + (e && e.message) + ')');
+}
+
+// ── O PESO É SUBTÍTULO, E O CARD NÃO CRESCE (v5.247) ─────────────────────
+// Pedido do operador: o peso vira um subtítulo abaixo do título, "pois
+// atualmente ele está apertando o espaço disponível para o título dos álbuns.
+// Mas garanta que os cards não fiquem mais altos por causa disso."
+//
+// São duas metades, e a segunda é a que torna a primeira aceitável — por isso
+// as duas são medidas aqui. E nenhuma delas fixa um pixel: a altura é travada
+// pela THUMB (é ela que manda, e o texto tem de caber nela), e a largura do
+// título é comparada ENTRE CARDS — com e sem subtítulo o nome tem de ter a
+// mesma linha, que é literalmente "o metadado não aperta mais o título".
+try {
+  const peso = await pg.evaluate(() => {
+    setAppMode('full');
+    albumCatalog.categories = [{ name: 'CDs do ano',
+      albums: [{ id_album: 91, name: 'CD Jovem — Ao Vivo', subtitle: 'Coral e orquestra' }] }];
+    albumCatalog.albums = [{ id_album: 91, name: 'CD Jovem — Ao Vivo' }];
+    const c = allCollections().find((x) => x.kind === 'hymnal');
+    const songs = [];
+    for (let i = 1; i <= 4; i++) {
+      songs.push({ id_music: 'w' + i, name: 'Hino ' + i, track: i,
+        has_instrumental_music: false, duration: '3:47', fileIdFull: i < 3 ? 'f' + i : null });
+    }
+    collState[c.id] = { indexSyncedAt: Date.now(), songs, isHymnal: true };
+    gruposAbertos.clear();
+    gruposAbertos.add('Hinários'); gruposAbertos.add('Hinários e séries');
+    gruposAbertos.add('CDs do ano');
+    const lista = document.createElement('ul');
+    lista.className = 'hymnal-list';
+    lista.style.width = '390px';
+    document.body.appendChild(lista);
+    renderCollectionsList(lista, () => {}, { semTotal: true });
+    const cards = [...lista.querySelectorAll('.hymnal-card')];
+    const ler = (card) => {
+      const alt = (sel) => {
+        const el = card.querySelector(sel);
+        return el ? el.getBoundingClientRect().height : 0;
+      };
+      return {
+        // O peso saiu da BARRA (filho direto) e virou filho da coluna de texto.
+        naColuna: !!card.querySelector('.coll-bar-info .coll-bar-sync'),
+        naBarra: !!card.querySelector('.coll-bar > .coll-bar-sync'),
+        larguraNome: card.querySelector('.coll-bar-name').getBoundingClientRect().width,
+        alturaTexto: alt('.coll-bar-info'),
+        alturaThumb: alt('.coll-bar-icon'),
+        // Metadado numa linha só: o subtítulo e o peso são irmãos, não duas
+        // linhas empilhadas.
+        metaLinhas: card.querySelectorAll('.coll-bar-meta').length,
+        temSub: !!card.querySelector('.coll-bar-sub'),
+      };
+    };
+    const r = cards.map(ler);
+    lista.remove();
+    delete collState[c.id];
+    albumCatalog.categories = []; albumCatalog.albums = [];
+    gruposAbertos.clear();
+    return r;
+  });
+  const comSub = peso.find((c) => c.temSub);
+  const semSub = peso.find((c) => !c.temSub);
+  // Nem todo card TEM peso a dizer (um hinário sem índice não tem), e desde a
+  // v5.247 ele simplesmente não desenha a linha. A regra é sobre ONDE ele fica
+  // quando existe — e sobre nunca voltar a ser filho da barra.
+  checar(peso.some((c) => c.naColuna) && !peso.some((c) => c.naBarra),
+    'o PESO virou subtítulo: ele é filho da coluna de texto, nunca da barra');
+  checar(!!comSub && !!semSub && Math.round(comSub.larguraNome) === Math.round(semSub.larguraNome),
+    'e o título ocupa a linha inteira — a mesma largura com e sem subtítulo ('
+    + (comSub ? Math.round(comSub.larguraNome) : '?') + 'px), que é o aperto que ele causava');
+  checar(peso.every((c) => c.alturaTexto <= c.alturaThumb + 1),
+    'e O CARD NÃO CRESCE: as duas linhas cabem na altura da THUMB, que continua '
+    + 'sendo quem manda ('
+    + (peso[0] ? Math.round(peso[0].alturaTexto) + 'px de texto em '
+      + Math.round(peso[0].alturaThumb) + 'px de thumb' : '?') + ')');
+  checar(!!comSub && comSub.metaLinhas === 1,
+    'com o subtítulo do pivô e o peso na MESMA linha — uma linha por peça faria '
+    + 'o card crescer conforme o catálogo');
+} catch (e) {
+  checar(false, 'a medição do peso como subtítulo terminou sem exceção (' + (e && e.message) + ')');
 }
 
 checar(erros.length === 0, 'nenhum erro de console' + (erros.length ? ':\n        ' + erros.join('\n        ') : ''));

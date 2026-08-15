@@ -6591,11 +6591,28 @@ function renderCollectionCard(coll, ctx) {
   const info = document.createElement('div'); info.className = 'coll-bar-info';
   const barName = document.createElement('span'); barName.className = 'coll-bar-name'; barName.textContent = coll.name;
   info.appendChild(barName);
+  // ===== O PESO É SUBTÍTULO, NÃO UMA COLUNA (v5.247) =====
+  //
+  // Pedido do operador: *"ajuste o elemento que descreve o peso dos arquivos e
+  // álbuns e coleções, para que ele seja um subtítulo abaixo do título, pois
+  // atualmente ele está apertando o espaço disponível para o título dos
+  // álbuns. Mas garanta que os cards não fiquem mais altos por causa disso."*
+  //
+  // Ele dividia a LINHA com o nome, e numa tela de celular isso é caro: "~1,2 GB"
+  // come um terço da largura útil, e o nome de um álbum é a única coisa daquela
+  // barra que não se adivinha. Abaixo, o nome fica com a linha inteira e o peso
+  // não perde nada — ele é um número curto que ninguém lê de relance.
+  //
+  // A SEGUNDA LINHA JÁ EXISTIA (o subtítulo do pivô categoria↔álbum), e o peso
+  // entra NELA, não numa terceira: são duas peças do mesmo tipo — metadado curto
+  // sobre a coleção —, e uma linha por peça faria o card crescer conforme o
+  // catálogo, que é justamente o que a segunda metade do pedido proíbe.
+  const meta = document.createElement('div'); meta.className = 'coll-bar-meta';
   const subtitle = ctx && ctx.subtitle;
   if (subtitle) {
     const sub = document.createElement('span'); sub.className = 'coll-bar-sub';
     sub.textContent = subtitle;
-    info.appendChild(sub);
+    meta.appendChild(sub);
   }
   bar.append(barIcon, info);
 
@@ -6616,10 +6633,18 @@ function renderCollectionCard(coll, ctx) {
     summary.classList.add('busy'); summary.textContent = u.status;
   } else if (peso) {
     summary.textContent = peso;
-  } else {
-    summary.textContent = coll.kind === 'album' ? 'não sincron.' : '—';
+  } else if (coll.kind === 'album') {
+    summary.textContent = 'não sincron.';
   }
-  bar.appendChild(summary);
+  // O TRAVESSÃO SAIU (v5.247). Ele era o marcador de "nada a dizer" numa COLUNA
+  // que precisava existir para os cards se alinharem; como subtítulo ele vira um
+  // traço solto embaixo do nome, dizendo menos que o silêncio. Sem ele o card
+  // fica com uma linha só — e não encolhe, porque quem manda na altura é a
+  // thumb.
+  if (summary.textContent) meta.appendChild(summary);
+  // A linha do metadado só existe se houver o que pôr nela: um card sem
+  // subtítulo e sem peso não paga uma linha vazia de altura.
+  if (meta.childElementCount) info.appendChild(meta);
   // Reconferência do peso: uma vez por sessão e por álbum (ver a função — desde
   // a v5.134 ela vale para qualquer peso, não só o zerado).
   conferirPesoSeFaltar(coll.id);
