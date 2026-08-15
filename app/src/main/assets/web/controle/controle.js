@@ -192,7 +192,7 @@ const favSearchBarEl = document.getElementById('favSearchBar');
 
 // ONDE a lista da tela atual é desenhada. Os Favoritos viraram gaveta na v5.53,
 // e a única coisa que muda para o resto do código é esta: as funções de render
-// (`renderLibrary`, `renderFolderList`, `renderVirtualFolders`…) continuam as
+// (`renderLibrary`, `renderFolderList`…) continuam as
 // mesmas, escrevendo no host que esta função devolve. Duplicá-las para a gaveta
 // seria manter duas listas de favoritos que divergiriam no primeiro ajuste.
 function listHost() {
@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.253';
+const WEB_VERSION = '5.254';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -412,7 +412,6 @@ const selCountEl = document.getElementById('selCount');
 const selCancelEl = document.getElementById('selCancel');
 const selPlaylistEl = document.getElementById('selPlaylist');
 const selFavEl = document.getElementById('selFav');
-const selFolderEl = document.getElementById('selFolder');
 const selRenameEl = document.getElementById('selRename');
 const selDeleteEl = document.getElementById('selDelete');
 
@@ -449,10 +448,6 @@ const songMenuPopupEl = document.getElementById('songMenuPopup');
 const songMenuTitleEl = document.getElementById('songMenuTitle');
 const songMenuListEl = document.getElementById('songMenuList');
 const songMenuCloseEl = document.getElementById('songMenuClose');
-const folderPopupEl = document.getElementById('folderPopup');
-const folderPickerListEl = document.getElementById('folderPickerList');
-const folderPopupCloseEl = document.getElementById('folderPopupClose');
-const newFolderInPickerBtnEl = document.getElementById('newFolderInPickerBtn');
 
 const hymnSearchBtnEl = document.getElementById('hymnSearchBtn');
 const hymnSearchPopupEl = document.getElementById('hymnSearchPopup');
@@ -500,11 +495,12 @@ const ICON = {
   add: '',      // add          — "a uma lista" (a folha escolhe qual)
   plRemove: '', // playlist_remove
   queue: '', // queue_music
-  folder: '',    // folder
-  // Favoritos: os atalhos são marcados com estrela, não com pasta — a seção
-  // deixou de ser "onde os arquivos ficam" e passou a ser "o que eu marquei".
+  // Favoritos: o que está marcado leva ESTRELA, não pasta — a seção deixou de
+  // ser "onde os arquivos ficam" e passou a ser "o que eu marquei". (Os glifos
+  // `folder` e `create_new_folder` saíram na v5.254, com os atalhos de pasta:
+  // a única pasta que resta é a do aparelho, e ela usa o `import`
+  // (`folder_open`) como IDENTIDADE e as setas circulares como ação.)
   star: '',      // star
-  folderNew: '', // create_new_folder
   close: '',     // close — o MESMO glifo dos `.popup-close` (v5.191)
 };
 
@@ -537,8 +533,6 @@ const selected = new Set();
 const thumbUrlsPorHost = new Map(); // host -> [urls do último render dele]
 let thumbUrlsAtual = [];            // o balde do render em curso
 let currentFolder = null; // null | {id, name, _opfs?} — pasta aberta (persiste entre trocas de aba)
-let folders = [];          // [{id, name}, ...] — atalhos (organização opcional)
-let folderCounts = {};     // {folderId: count}
 // FAVORITOS: os ids marcados, numa lista plana. É um Set em memória porque a
 // pergunta que a tela faz o tempo todo é "este item está favoritado?", uma vez
 // por linha desenhada; no banco ele é a lista `favs` (ver LISTS em db.js), que
@@ -2501,12 +2495,6 @@ async function load() {
   const cur = await AVDB.getState('current');
   const repeatV = (await AVDB.getState('repeat')) || 'off';
   const plItemsV = await AVDB.listItems('playlist');
-  const foldersV = (await AVDB.getState('folders')) || [];
-  // Contagens das pastas em paralelo (antes era um await sequencial por pasta
-  // a cada micro-mudança — ex: uma simples adição à playlist relia tudo).
-  const folderIdArrays = await Promise.all(foldersV.map((f) => AVDB.getState('folder_' + f.id)));
-  const folderCountsV = {};
-  foldersV.forEach((f, i) => { folderCountsV[f.id] = (folderIdArrays[i] || []).length; });
   const opfsFoldersV = (await AVDB.getState('opfs-folders')) || [];
   // Os favoritos entram na FASE 1 como todo o resto: a estrela de cada linha é
   // desenhada por `renderLibrary`, e ela precisa do conjunto pronto — ler
@@ -2522,12 +2510,14 @@ async function load() {
   const downloadOkV = !!(await AVDB.getState('downloadOk'));
   let libItemsV;
   if (activeTab === 'folders') {
-    if (currentFolder && currentFolder._opfs) {
-      libItemsV = (await AVDB.filesByFolder(currentFolder.id))
-        .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
-    } else {
-      libItemsV = currentFolder ? await loadFolderMediaItems(currentFolder.id) : [];
-    }
+    // A ÚNICA pasta que se abre é a do APARELHO (v5.254): os atalhos saíram, e
+    // com eles o ramo que lia `folder_<id>`. `currentFolder` sem `_opfs` deixou
+    // de existir — a raiz da gaveta (sem pasta) continua sendo lista vazia,
+    // porque quem desenha os favoritos ali é o `renderFolderList`.
+    libItemsV = (currentFolder && currentFolder._opfs)
+      ? (await AVDB.filesByFolder(currentFolder.id))
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+      : [];
   } else if (activeTab === 'imports') {
     // Só a aba que é de fato lista de IDs de mídia. 'bible' e 'messages'
     // NÃO são listas de mídia — e 'messages' guarda
@@ -2552,8 +2542,6 @@ async function load() {
   volume = (cur && typeof cur.volume === 'number') ? cur.volume : 1;
   repeat = repeatV;
   plItems = plItemsV;
-  folders = foldersV;
-  folderCounts = folderCountsV;
   opfsFolders = opfsFoldersV;
   favSet = new Set(favIdsV);
   favItems = favItemsV;
@@ -3026,7 +3014,7 @@ function renderListTitle() {
 }
 
 // Cabeçalho da gaveta de Favoritos: quem ele mostra depende de estar na raiz
-// (atalhos + pastas) ou dentro de um atalho/pasta.
+// ou DENTRO de uma pasta do aparelho — a única que se abre desde a v5.254.
 function renderFavHeader() {
   const inFolder = activeTab === 'folders' && currentFolder !== null;
   const inOpfs = inFolder && !!currentFolder._opfs;
@@ -6447,10 +6435,16 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
   // peso do painel do álbum na v5.232.
   const favCorpo = grupo(GRUPO_FAVORITOS, null, {
     fixo: true,
+    // UMA AÇÃO, E ELA FAZ A COISA (v5.254): trazer uma pasta do aparelho. Até
+    // aqui o toque abria uma folha com duas escolhas, e a outra — criar um
+    // atalho de pasta — deixou de existir a pedido do operador. Setas
+    // circulares porque é SINCRONIZAR, o mesmo desenho dos cards de coleção e
+    // da linha de cada pasta já trazida; `folder_open` fica reservado à
+    // IDENTIDADE de pasta, nunca à ação.
     acoes: [{
-      icone: msym(ICON.folderNew),
-      titulo: 'Adicionar pasta',
-      aoTocar: (b) => abrirFolhaDePasta(b),
+      icone: syncIconSvg(),
+      titulo: 'Trazer uma pasta do aparelho',
+      aoTocar: (b) => syncDeviceFolder(undefined, b),
     }],
   });
   if (favCorpo) {
@@ -7114,15 +7108,15 @@ function renderCollectionsNow() {
   // parte.)
 }
 
-// A tela de FAVORITOS: uma seção de atalhos organizados, não um gerenciador de
-// arquivos. Tecnicamente é o mesmo mecanismo de sempre (pastas virtuais em
-// `folders`/`folder_<id>` + pastas do dispositivo sincronizadas no OPFS) — o
-// que mudou é a leitura: aqui estão os caminhos curtos para o que o operador
-// usa toda semana, e não "o lugar onde os arquivos moram".
+// A tela de FAVORITOS: os caminhos curtos para o que o operador usa toda
+// semana, e não "o lugar onde os arquivos moram".
 //
-// Duas origens, cada uma com seu cabeçalho, na ordem em que fazem sentido:
-// os atalhos criados pelo operador primeiro (é o que ele marcou), as pastas
-// do dispositivo depois (a origem bruta, que ele sincronizou uma vez).
+// UMA LISTA, e duas naturezas nela (v5.254): os itens marcados, na ordem que o
+// operador der a eles, e — no fim — as pastas do APARELHO, que ele sincronizou
+// uma vez e que trazem os arquivos inteiras. As pastas VIRTUAIS (`folders` /
+// `folder_<id>`), que ele criava aqui para agrupar o que já havia favoritado,
+// saíram a pedido dele; o conteúdo delas subiu para a lista por
+// `migrarPastasParaFavoritos`.
 // O ESTADO DE UMA PASTA MORA NA LINHA DELA (v5.207).
 //
 // A sincronização de uma pasta do dispositivo falava por uma faixa flutuante no
@@ -7170,23 +7164,22 @@ function renderFoldersSeVisivel() {
 // Biblioteca. É o mesmo padrão que `listHost()` já usa neste arquivo, e a razão
 // é a de sempre: duas marcações para a mesma
 // lista divergem no primeiro ajuste, e aqui divergiriam em gestos (o toque
-// longo que entra na seleção múltipla), no agrupamento por tipo e na estrela.
+// longo que entra na seleção múltipla), na alça de arrastar e na estrela.
 //
 // Por VARIÁVEL DE MÓDULO e não por parâmetro em cada função: quem escreve na
-// lista são seis funções (as seções, os itens, os atalhos, as pastas do
-// sistema, a linha de criar), e enfiar um `alvo` em todas elas — e em todas as
-// futuras — é a mesma sincronização manual que este projeto recusa. Ela é
-// ligada e desligada num ponto só, num `try/finally`.
+// lista são o item e a pasta do aparelho, e enfiar um `alvo` nas duas — e em
+// todas as futuras — é a mesma sincronização manual que este projeto recusa.
+// Ela é ligada e desligada num ponto só, num `try/finally`.
 let favHost = null;
 function favAlvo() { return favHost || favListEl; }
 
 function renderFolderList() {
-  if (opfsFolders.length === 0 && folders.length === 0 && favItems.length === 0) {
+  if (opfsFolders.length === 0 && favItems.length === 0) {
     // UMA LINHA, E SÓ (v5.239, pedido do operador: *"remova todo o texto e
     // explicações no corpo da lista dos favoritos, mantenha apenas um 'Nenhum
     // favorito ainda'"*). O que estava aqui explicava COMO favoritar e COMO
-    // criar pasta — duas instruções num corpo de lista, quando a ação de criar
-    // pasta agora está a um dedo dali, na barra da seção, e a estrela está em
+    // criar pasta — duas instruções num corpo de lista, quando a ação de trazer
+    // uma pasta está a um dedo dali, na barra da seção, e a estrela está em
     // cada linha do app inteiro. Instrução que descreve um botão visível é
     // ruído; o botão é a instrução.
     const empty = document.createElement('li');
@@ -7195,35 +7188,38 @@ function renderFolderList() {
     favAlvo().appendChild(empty);
     return;
   }
-  // OS MARCADOS VÊM PRIMEIRO: é o que a estrela promete e o que o operador vem
-  // buscar. Os atalhos são a organização de quem tem muita coisa, e as pastas
-  // do dispositivo são a origem bruta — as duas descem.
+  // ===== UMA LISTA SÓ, NA ORDEM DE CHEGADA (v5.254) =====
   //
-  // E vêm SEPARADOS POR TIPO (v5.104). Numa lista única, um versículo, um hino
-  // e um pacote são três linhas de texto com ícones diferentes, e achar "aquela
-  // mensagem" no meio de trinta favoritos vira leitura linha a linha. O tipo é
-  // a primeira coisa que o operador sabe sobre o que procura ("era um vídeo"),
-  // então é por ele que a lista se divide.
-  FAV_GRUPOS.forEach((g) => {
-    const doGrupo = favItems.filter((it) => favGrupo(it) === g.id);
-    if (!doGrupo.length) return;
-    appendFavSection(g.nome);
-    doGrupo.forEach((item) => favAlvo().appendChild(favItemRow(item)));
-  });
-  // "MINHAS PASTAS" × "PASTAS DO SISTEMA" (v5.112). Antes eram "Atalhos" e
-  // "Pastas do dispositivo": "atalho" sugere um ponteiro para uma coisa que
-  // mora em outro lugar, e não é isso que elas são — são PASTAS, agrupamentos
-  // que o operador cria aqui e enche com o que já favoritou. As do sistema, ao
-  // contrário, são exatamente um VÍNCULO: apontam para uma pasta do
-  // armazenamento do aparelho e existem para ser re-sincronizadas (daí o
-  // `folder_open` e o botão de setas circulares, que as separam das outras à
-  // primeira vista). O par de títulos diz de quem é cada uma.
-  if (folders.length) appendFavSection('Minhas pastas');
-  renderVirtualFolders();
-  if (opfsFolders.length) appendFavSection('Pastas do sistema');
+  // Pedido do operador: *"todos os salvos nos favoritos vão diretamente para a
+  // lista geral com todos os arquivos juntos por ordem de chegada, mas com a
+  // opção de mover eles de lugar, vamos remover as subdivisões por tipo,
+  // manter uma lista única."*
+  //
+  // O agrupamento por TIPO (v5.104) partia de um pressuposto que a ordenação
+  // manual desmente: que a primeira coisa que o operador sabe sobre o que
+  // procura é a categoria ("era um vídeo"). Com o item onde ELE o pôs, a
+  // primeira coisa que ele sabe é o LUGAR — e uma lista que se reorganiza
+  // sozinha em doze seções é justamente o que impede memória de lugar. Os
+  // cabeçalhos ainda custavam altura: doze deles num acervo variado empurravam
+  // metade dos favoritos para fora da primeira tela.
+  //
+  // A ordem é a da lista `favs`, que é ordem de chegada — e agora é editável,
+  // pelo mesmo arrastar do Cronograma (ver `favItemRow`).
+  favItems.forEach((item) => favAlvo().appendChild(favItemRow(item)));
+  // AS PASTAS DO APARELHO FICAM, e ficam no FIM: elas são a origem bruta, e o
+  // que a estrela promete são os itens. Não têm cabeçalho porque não são uma
+  // subdivisão da lista — são outra coisa, e o desenho já diz isso (ícone de
+  // pasta, contador, sincronizar e excluir na mesma linha).
+  //
+  // (As "minhas pastas" — os atalhos que o operador criava aqui — saíram na
+  // v5.254 a pedido dele. O conteúdo delas foi para os favoritos, um a um, por
+  // `migrarPastasParaFavoritos`.)
   opfsFolders.forEach((f) => {
     const li = document.createElement('li');
     li.className = 'lib-item folder-opfs';
+    // NÃO É ALVO DE ARRASTO: ela não pertence à lista `favs`, então não pode
+    // contar como posição quando um favorito é arrastado — ver `measureDrag`.
+    li.dataset.fixa = '1';
     const row = document.createElement('div'); row.className = 'row';
     const icon = document.createElement('div'); icon.className = 'thumb thumb--icon';
     icon.appendChild(msym(ICON.import));
@@ -7252,37 +7248,6 @@ function renderFolderList() {
   });
 }
 
-// Os grupos da gaveta, NA ORDEM em que aparecem. A ordem é fixa (não segue o
-// que tem mais itens): uma lista que se reordena sozinha obriga a procurar de
-// novo a cada abertura, e o que se quer aqui é memória muscular.
-//
-// Mídia primeiro, cenas de roteiro depois: o que se favorita mais é música e
-// vídeo, e um culto normal não tem trinta versículos marcados.
-const FAV_GRUPOS = [
-  { id: 'audio', nome: 'Músicas e áudios' },
-  { id: 'video', nome: 'Vídeos' },
-  { id: 'youtube', nome: 'YouTube' },
-  { id: 'image', nome: 'Imagens' },
-  { id: 'deck', nome: 'Apresentações' },
-  { id: 'verse', nome: 'Versículos' },
-  { id: 'songlyrics', nome: 'Letras' },
-  { id: 'message', nome: 'Mensagens' },
-  { id: 'chrono', nome: 'Tempo' },
-  { id: 'draw', nome: 'Sorteios' },
-  { id: 'group', nome: 'Pacotes' },
-  { id: 'other', nome: 'Outros' },
-];
-
-// A que grupo um favorito pertence. Uma CENA vale pelo subtipo dela (um
-// versículo não é "outro"); o resto vale pelo `kind` da mídia. O que não se
-// encaixar cai em "Outros" em vez de sumir — um favorito invisível seria pior
-// que um mal classificado.
-function favGrupo(item) {
-  if (isCue(item)) return CUES[item.cue] ? item.cue : 'other';
-  const k = item && item.kind;
-  return FAV_GRUPOS.some((g) => g.id === k) ? k : 'other';
-}
-
 // Uma linha da seção "Favoritos" — o item em si, não um grupo. Tocar faz o
 // MESMO que tocar nele no Cronograma (`onTap`: mídia toca, cena projeta), a
 // estrela desmarca e o `+` manda para a lista do culto. São as três coisas que
@@ -7294,10 +7259,10 @@ function favItemRow(item) {
   li.dataset.id = item.id;
   const row = document.createElement('div'); row.className = 'row';
   // A MESMA coluna nome+subtítulo da biblioteca, e de propósito: uma segunda
-  // anatomia de linha divergiria da primeira no próximo ajuste. Aqui o
-  // subtítulo é ESCONDIDO por CSS (ver `#favList .row-sub`) — a gaveta agrupa
-  // por tipo em seções, então o cabeçalho já diz o que a linha diria, e ela é a
-  // lista que precisa ser compacta.
+  // anatomia de linha divergiria da primeira no próximo ajuste. O subtítulo
+  // VOLTOU A APARECER na v5.254: ele era escondido por CSS porque a lista se
+  // dividia em seções por tipo e o cabeçalho já dizia o que ele diria — sem as
+  // seções, ele é a única coisa na linha que distingue um vídeo de um versículo.
   const textWrap = document.createElement('div'); textWrap.className = 'row-text';
   const nome = document.createElement('span'); nome.className = 'row-name'; nome.textContent = item.name;
   const sub = document.createElement('span'); sub.className = 'row-sub';
@@ -7310,96 +7275,37 @@ function favItemRow(item) {
     e.stopPropagation();
     await adicionarNaLista('imports', item.id, item.name, add);
   });
+  // A ALÇA DE ARRASTAR (v5.254). Sem as seções por tipo, a ordem da lista passou
+  // a ser uma DECISÃO do operador — e é ele quem a toma, pelo mesmo gesto e pela
+  // mesma máquina do Cronograma (`attachHandle` → `reorder`). Reusar em vez de
+  // escrever um segundo arrastar é o que mantém a linha-guia, a medição única do
+  // `pointerdown` e o comportamento na rolagem iguais nas duas listas.
+  const handle = document.createElement('button');
+  handle.className = 'row-handle'; handle.title = 'Arraste para reordenar';
+  handle.appendChild(msym(ICON.drag));
   const partes = [isCue(item) ? cueThumb(item) : thumbEl(item), textWrap];
-  partes.push(favBtn(item.id, item.name), add);
+  partes.push(favBtn(item.id, item.name), add, handle);
   row.append(...partes);
   li.appendChild(row);
   // Os mesmos gestos da biblioteca: toque projeta/toca, toque longo entra na
   // seleção múltipla. Uma segunda regra de gesto só para esta lista seria a
   // mesma divergência que a gaveta inteira existe para evitar.
   attachRowGestures(row, item);
+  attachHandle(handle, item.id, 'favs');
   return li;
 }
 
-// Cabeçalho de origem dentro dos Favoritos ("Favoritos" / "Atalhos" / "Pastas
-// do dispositivo"): as três coisas vivem na mesma lista e se comportam igual ao
-// toque, então sem um rótulo o operador não sabe qual é qual — e só uma delas
-// pede sincronização.
-function appendFavSection(title) {
-  const li = document.createElement('li');
-  li.className = 'fav-section';
-  li.textContent = title;
-  favAlvo().appendChild(li);
-}
-
-// Atalhos: grupos criados pelo operador (pastas virtuais). Excluir um atalho
-// não apaga mídia nenhuma — é só o caminho curto que some.
-function renderVirtualFolders() {
-  folders.forEach((folder) => {
-    const count = folderCounts[folder.id] || 0;
-    const li = document.createElement('li');
-    li.className = 'lib-item';
-
-    const row = document.createElement('div'); row.className = 'row';
-    // PASTA, não estrela (v5.104): a estrela virou o marcador de favorito em
-    // cada linha do app, e o mesmo símbolo não pode significar "isto está
-    // marcado" e "isto é um grupo" na mesma gaveta.
-    const icon = document.createElement('div'); icon.className = 'thumb thumb--icon';
-    icon.appendChild(msym(ICON.folder));
-    const nameEl = document.createElement('span'); nameEl.className = 'row-name'; nameEl.textContent = folder.name;
-    const countEl = document.createElement('span'); countEl.className = 'folder-count'; countEl.textContent = String(count);
-    const rmBtn = document.createElement('button'); rmBtn.className = 'row-btn'; rmBtn.title = 'Excluir pasta';
-    rmBtn.appendChild(msym(ICON.del));
-    rmBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteFolder(folder.id); });
-
-    row.append(icon, nameEl, countEl, rmBtn);
-    li.appendChild(row);
-    li.addEventListener('click', () => openFolder(folder));
-    favAlvo().appendChild(li);
-  });
-}
-
-// ===== "ADICIONAR PASTA": UM BOTÃO, DUAS ORIGENS (v5.239) =====
+// ===== "TRAZER UMA PASTA DO APARELHO" — UM BOTÃO, UMA ORIGEM (v5.254) =====
 //
-// Pedido do operador: *"unifique o botão de Adicionar pasta com o botão de
-// buscar no sistema. agora ao tocar ele, ele dá a opção de criar uma pasta, ou
-// trazer uma pasta e seus arquivos que já existem do sistema do celular."*
+// A v5.239 unificou dois botões numa folha de duas escolhas ("criar uma pasta"
+// × "trazer uma pasta do aparelho"), e o argumento era o certo: os dois
+// respondiam à MESMA pergunta por caminhos diferentes. Agora a pergunta tem uma
+// resposta só — o operador pediu para o app não ter mais atalhos de pasta,
+// apenas as pastas sincronizadas do armazenamento do aparelho —, e uma folha
+// com uma opção é um toque cobrado para não escolher nada.
 //
-// E a unificação é a leitura certa: os dois botões respondiam à MESMA pergunta
-// ("quero uma pasta aqui") por caminhos diferentes, e lado a lado no rodapé eles
-// obrigavam a ler dois rótulos para descobrir isso. Um alvo só, e a diferença —
-// que é o que de fato precisa ser lido — vai para a folha, escrita por extenso,
-// que é onde este app põe escolha desde a v5.62 ("o custo de errar aqui é uma
-// música errada no telão, e o que evita isso é o texto, não o desenho").
-//
-// A FOLHA É A MESMA do acervo e do YouTube (`#songMenuPopup`), pelo mesmo
-// motivo de sempre: uma segunda folha com a mesma anatomia divergiria no
-// primeiro ajuste. É o precedente do `escolherDestinos`, que já a reusa como
-// pergunta.
-function abrirFolhaDePasta(botao) {
-  destLimpar();
-  // `folha` marca o tipo desta abertura: `renderSongMenu` desiste em qualquer
-  // uma que não seja a do acervo (ele desestrutura `coll`/`s`, que aqui não
-  // existem), e o seletor de variante do topo é quem o chamaria de volta.
-  songMenuFor = { folha: 'pasta' };
-  songMenuTitleEl.textContent = 'Adicionar pasta';
-  songMenuListEl.innerHTML = '';
-  songMenuListEl.appendChild(songMenuItem(msym(ICON.folderNew), 'Criar uma pasta',
-    'Vazia, para agrupar o que você já favoritou',
-    () => promptNewFavorite()));
-  // Setas circulares = "sincronizar", o MESMO desenho dos cards de coleção e da
-  // linha de cada pasta do sistema. `folder_open` fica reservado à IDENTIDADE
-  // de pasta, nunca à ação.
-  songMenuListEl.appendChild(songMenuItem(syncIconSvg(), 'Trazer uma pasta do aparelho',
-    'Com os arquivos que já estão nela',
-    () => syncDeviceFolder(undefined, botao)));
-  songMenuPopupEl.classList.add('open');
-}
-
-async function promptNewFavorite() {
-  const name = await appPrompt({ title: 'Nova pasta', message: 'Nome da pasta:', okText: 'Criar', placeholder: 'Ex.: Louvores especiais' });
-  if (name && name.trim()) await createFolder(name.trim());
-}
+// (A folha `#songMenuPopup` continua sendo a de escolha do app; o que sai é
+// esta abertura dela.)
 
 // (`renderStorageUsage` saiu na v5.239 com os dois chamadores. `fmtBytes`
 // FICA: ele é o formatador de tamanho do app inteiro — o peso de cada coleção,
@@ -7440,9 +7346,10 @@ function renderSelbar() {
 //
 // Até a v5.102 favoritar era "escolher (ou criar) um atalho e pôr o item nele":
 // seis passos para o primeiro favorito, porque o modelo por baixo eram as
-// antigas PASTAS VIRTUAIS com um nome novo. Agora existe o ato simples — a
-// estrela da linha marca e desmarca na hora — e os atalhos continuam ali como
-// ORGANIZAÇÃO OPCIONAL, para quem quiser agrupar.
+// antigas PASTAS VIRTUAIS com um nome novo. A v5.102 criou o ato simples — a
+// estrela da linha marca e desmarca na hora — e deixou os atalhos como
+// organização opcional; a v5.254 os removeu, a pedido do operador. O que
+// organiza a lista hoje é a ORDEM, e quem a decide é ele, arrastando.
 //
 // A lista mora no banco (`favs`) e é um detentor de referência como qualquer
 // outra (ver LISTS em db.js): favoritar segura o blob, desfavoritar deixa o gc
@@ -8554,6 +8461,11 @@ function measureDrag(ul, draggedLi) {
   const items = [];
   for (const el of ul.children) {
     if (el === draggedLi || el.tagName !== 'LI') continue;
+    // `data-fixa`: a linha está na mesma `<ul>` e NÃO pertence à lista que se
+    // reordena (v5.254 — as pastas do aparelho, no fim dos Favoritos). Contá-la
+    // como posição deslocaria o índice de destino em relação ao array, e o item
+    // cairia num lugar diferente do que a linha-guia prometeu.
+    if (el.dataset && el.dataset.fixa) continue;
     const r = el.getBoundingClientRect();
     items.push({ mid: r.top + r.height / 2, top: r.top, bottom: r.bottom });
   }
@@ -8639,17 +8551,13 @@ async function deleteSelected() {
     }
     await purgeCatalogRecords(recs);
     await refreshOpfsFolderCount(currentFolder.id);
-  } else if (activeTab === 'folders' && currentFolder) {
-    // Pelo `listRemove`, que roda o gc na mesma transação — tirar do atalho o
-    // último detentor de um blob tem de liberar o espaço. O `setState` cru que
-    // havia aqui deixava o registro órfão e fora do alcance de qualquer faxina.
-    for (const id of selected) await AVDB.listRemove('folder_' + currentFolder.id, id);
   } else if (activeTab === 'folders') {
     // RAIZ da gaveta: o que está selecionado ali são FAVORITOS, e excluir é
     // desmarcar. Sem esta linha o `else` de baixo caía em
-    // `listRemove('folders', id)` — a chave do ÍNDICE de atalhos, que guarda
+    // `listRemove('folders', id)` — a chave do índice de atalhos, que guardava
     // objetos e não ids: um no-op silencioso, com o operador vendo o item
-    // continuar na lista depois de mandar excluí-lo.
+    // continuar na lista depois de mandar excluí-lo. (O ramo do meio, que
+    // tirava do atalho aberto, saiu na v5.254 com os atalhos.)
     for (const id of selected) {
       favSet.delete(id); await AVDB.listRemove('favs', id); await soltarAvulso(id);
     }
@@ -8699,30 +8607,17 @@ async function renameSelected() {
 }
 
 // ===== pastas =====
-async function loadFolderMediaItems(folderId) {
-  // Pela API de listas (`listIds`), como todo o resto do arquivo — o
-  // `getState` cru que havia aqui era o único acesso fora dela, e ainda
-  // devolvia o array compartilhado sem cópia.
-  const ids = await AVDB.listIds('folder_' + folderId);
-  const items = await Promise.all(ids.map((id) => AVDB.getMedia(id)));
-  return items.filter(Boolean);
-}
-
 // ENTRAR NUMA PASTA É UMA TELA, NÃO UMA SEÇÃO (v5.237). O toque pode vir da
 // gaveta (onde ela já está aberta) ou do grupo Favoritos dentro da Biblioteca —
 // e lá dentro há voltar, busca e seleção múltipla, que só existem na gaveta.
 // Garantir a gaveta AQUI, e não no ouvinte de cada linha, é o que mantém uma
 // implementação só: as linhas são montadas pelo mesmo `renderFolderList` nas
 // duas casas.
+//
+// (`loadFolderMediaItems` e `openFolder` saíram na v5.254 com os atalhos de
+// pasta: a única pasta que se abre hoje é a do APARELHO, por `openOpfsFolder`.)
 function garantirGaveta() {
   if (!favPopupEl.classList.contains('open')) openFavorites();
-}
-
-function openFolder(folder) {
-  garantirGaveta();
-  rememberScroll();
-  currentFolder = folder;
-  load();
 }
 
 // ===== A gaveta de uma PASTA =====
@@ -8806,90 +8701,47 @@ function navigateBack() {
   load();
 }
 
-async function createFolder(name) {
-  const id = uid();
-  folders.push({ id, name });
-  await AVDB.setState('folders', folders);
-  load();
-}
-
-// Excluir um atalho NÃO apaga mídia que tenha outro dono — mas o que ficar sem
-// dono nenhum precisa ser coletado, e é isso que `folderDrop` faz numa
-// transação só (índice + lista + gc).
+// ===== A MIGRAÇÃO DOS ATALHOS DE PASTA (v5.254) =====
 //
-// Antes eram dois `setState` crus, e isso VAZAVA em silêncio: uma mídia cujo
-// último detentor era aquele atalho virava um registro que nenhuma lista aponta
-// e que nenhum gc alcança (ele só roda dentro de `listRemove`). O blob ficava
-// no IndexedDB para sempre — um vídeo grande "sumia" da tela e continuava
-// ocupando o disco, sem tela nenhuma no app capaz de recuperá-lo.
-async function deleteFolder(folderId) {
-  const folder = folders.find((f) => f.id === folderId);
-  if (!(await appConfirm({ title: 'Excluir pasta', message: 'Excluir a pasta "' + (folder ? folder.name : '') + '"? As mídias não são apagadas.', okText: 'Excluir' }))) return;
-  await AVDB.folderDrop(folderId);
-  if (currentFolder && currentFolder.id === folderId) currentFolder = null;
-  load();
-}
-
-// `listSet(name, fn)`, e não um `setState` do array inteiro: a fn roda na
-// MESMA transação de "state" que grava o resultado (a garantia das listas
-// fixas). Com o array cru, um download que terminasse entre a leitura e
-// a escrita perdia a própria entrada — o registro ficava criado e fora de
-// qualquer lista, que é o vazamento que `addMediaToList` existe para impedir.
-async function addToFolder(folderId, ids, btn) {
-  const alvo = folders.find((f) => f.id === folderId);
-  const nomePasta = '"' + ((alvo && alvo.name) || 'pasta') + '"';
-  const onde = { em: 'em ' + nomePasta, para: 'a ' + nomePasta };
-  // Mesma forma atômica de `addSelectedToPlaylist`: uma transação para o lote
-  // inteiro, com os "novos" contados dentro da própria fn.
-  let novos = 0;
-  await AVDB.listSet('folder_' + folderId, (atual) => {
+// O operador pediu para o app não ter mais atalhos de pasta — só as pastas
+// sincronizadas do armazenamento do aparelho. Apagar o recurso e ir embora
+// seria PERDER MÍDIA: um item cujo único detentor era um atalho vira um
+// registro que nenhuma lista aponta, e o coletor de lixo (que existe
+// justamente para isso) o apagaria na varredura seguinte. Um vídeo grande
+// sumiria do app e do disco sem nada na tela que o explicasse.
+//
+// Então o conteúdo dos atalhos SOBE para os favoritos, na ordem em que estava,
+// e só depois os atalhos são derrubados. A ordem das duas metades é a garantia:
+// `folderDrop` apaga a mídia que ficou sem detentor, e depois do `listAdd` ela
+// tem um — a própria lista `favs`.
+//
+// Roda uma vez por aparelho, e é idempotente por construção: sem `folders` no
+// banco, ela devolve na primeira linha. Fire-and-forget na abertura, ANTES do
+// `load()` — a lista que o operador vê já é a migrada.
+async function migrarPastasParaFavoritos() {
+  let pastas = [];
+  try { pastas = (await AVDB.getState('folders')) || []; } catch (_) { return; }
+  if (!Array.isArray(pastas) || !pastas.length) return;
+  for (const p of pastas) {
+    if (!p || !p.id) continue;
+    let ids = [];
+    try { ids = await AVDB.listIds('folder_' + p.id); } catch (_) { continue; }
     for (const id of ids) {
-      if (atual.includes(id)) continue;
-      atual.push(id); novos++;
+      // `listHas` antes do `listAdd`: um item favoritado E guardado num atalho
+      // é o caso comum, e duplicá-lo na lista deixaria duas linhas iguais.
+      try { if (!(await AVDB.listHas('favs', id))) await AVDB.listAdd('favs', id); } catch (_) {}
     }
-    return atual;
-  });
-  responder(btn, tipoLote(novos, ids.length), textoLote(novos, ids.length, onde));
-  // A folha do seletor fecha depois do pulso, pelo mesmo motivo da barra. A
-  // SELEÇÃO fica (v5.141): os mesmos itens podem ir para uma segunda pasta, ou
-  // para a playlist e os Favoritos, sem serem selecionados de novo.
-  setTimeout(() => { closeFolderPicker(); load(); }, PULSO_MS);
-}
-
-// `ids` explícito = o alvo veio de fora da seleção múltipla (uma música do
-// acervo). Sem ele, o seletor age sobre `selected`, como sempre.
-let folderPickIds = null;
-
-function openFolderPicker(ids) {
-  folderPickIds = (ids && ids.length) ? ids : null;
-  renderFolderPicker();
-  folderPopupEl.classList.add('open');
-}
-
-function closeFolderPicker() {
-  folderPickIds = null;
-  folderPopupEl.classList.remove('open');
-}
-
-function renderFolderPicker() {
-  folderPickerListEl.innerHTML = '';
-  if (folders.length === 0) {
-    folderPickerListEl.innerHTML = '<li class="empty">Nenhuma pasta ainda.<br>Crie uma abaixo.</li>';
-    return;
   }
-  const selectedIds = folderPickIds || [...selected];
-  folders.forEach((folder) => {
-    const li = document.createElement('li');
-    const btn = document.createElement('button'); btn.className = 'folder-pick-btn';
-    btn.append(msym(ICON.folder), Object.assign(document.createElement('span'), { textContent: folder.name }));
-    btn.addEventListener('click', () => { addToFolder(folder.id, selectedIds, btn); });
-    li.appendChild(btn);
-    folderPickerListEl.appendChild(li);
-  });
+  // Só agora — e pelo `folderDrop`, que tira o atalho do índice, apaga a lista
+  // dele e coleta na MESMA transação o que de fato ficou sem dono.
+  for (const p of pastas) {
+    if (!p || !p.id) continue;
+    try { await AVDB.folderDrop(p.id); } catch (_) {}
+  }
 }
-
 
 // ===== pastas sincronizadas (OPFS) =====
+
 // A pasta do dispositivo é copiada para o Origin Private File System em uma
 // única operação com permissão (showDirectoryPicker). Depois disso o acesso é
 // permanente: nenhuma permissão é pedida para listar, buscar ou reproduzir —
@@ -12129,9 +11981,11 @@ function renderDestPrompt() {
 
 function renderSongMenu(modo) {
   // A folha é compartilhada com os resultados do YouTube (`openYtMenu`), com o
-  // seletor de destinos da importação (`escolherDestinos`) e com o "Adicionar
-  // pasta" dos Favoritos (`abrirFolhaDePasta`), que não têm `coll`/`s` — e o
-  // seletor de variante do topo chama isto de volta.
+  // seletor de destinos da importação (`escolherDestinos`), que não tem
+  // `coll`/`s` — e o seletor de variante do topo chama isto de volta.
+  // (`songMenuFor.folha` era a terceira: o "Adicionar pasta" dos Favoritos, que
+  // saiu na v5.254 com o atalho de pasta. A guarda fica: ela é a que impede
+  // qualquer abertura futura sem `coll` de desestruturar o que não existe.)
   if (!songMenuFor || songMenuFor.yt || songMenuFor.destPrompt || songMenuFor.folha) return;
   const { coll, s } = songMenuFor;
   const temPlayback = !!s.has_instrumental_music;
@@ -16361,12 +16215,6 @@ const TAB_SWIPE_RATIO = 1.5;  // quanto o eixo X precisa dominar o Y
 selCancelEl.addEventListener('click', exitSelection);
 selPlaylistEl.addEventListener('click', addSelectedToPlaylist);
 selFavEl.addEventListener('click', favoritarSelecionados);
-// Arrow de propósito: `openFolderPicker(ids)` interpreta o 1º argumento, e
-// passar a referência crua entregaria o MouseEvent como `ids` — funcionava por
-// acidente (o evento não tem `.length`).
-selFolderEl.addEventListener('click', () => openFolderPicker());
-// A gaveta de qualquer aba: é o que faz dos Favoritos um acesso rápido de
-// verdade, e não uma sub-tela no fim do Cronograma.
 plPackEl.addEventListener('click', guardarPacote);
 selDeleteEl.addEventListener('click', deleteSelected);
 selRenameEl.addEventListener('click', renameSelected);
@@ -17101,11 +16949,6 @@ if (castMirrorBtnEl) {
   acertarEnqueteDeFundo();
 }
 
-newFolderInPickerBtnEl.addEventListener('click', async () => {
-  const name = await appPrompt({ title: 'Nova pasta', message: 'Nome da pasta:', okText: 'Criar', placeholder: 'Ex.: Louvores especiais' });
-  if (name && name.trim()) { await createFolder(name.trim()); renderFolderPicker(); }
-});
-
 // Fechamento dos bottom-sheets: todos se comportam igual — o ✕ fecha e tocar
 // no fundo (fora da folha) também. O par de listeners estava copiado seis
 // vezes; aqui é uma tabela, e um popup novo entra com uma linha.
@@ -17139,11 +16982,10 @@ const POPUPS = [
   // Aqui a linha vale mais que nos outros: fechar este popup é DESLIGAR A
   // CÂMERA, e é esta tabela que garante que os três caminhos façam isso.
   [lyricsPopupEl, lyricsPopupCloseEl, closeLyricsPopup],
-  // A folha da música abre DE DENTRO do acervo, e o seletor de atalhos abre de
-  // dentro dela: o voltar percorre esta tabela de trás para a frente, então a
-  // ordem aqui é a ordem em que as camadas se empilham.
+  // A folha da música abre DE DENTRO do acervo: o voltar percorre esta tabela
+  // de trás para a frente, então a ordem aqui é a ordem em que as camadas se
+  // empilham. (O `#folderPopup`, o seletor de atalhos, saiu na v5.254.)
   [songMenuPopupEl, songMenuCloseEl, closeSongMenu],
-  [folderPopupEl, folderPopupCloseEl, closeFolderPicker],
 ];
 POPUPS.forEach(([backdrop, closeBtn, close]) => {
   closeBtn.addEventListener('click', close);
@@ -17501,6 +17343,11 @@ document.addEventListener('visibilitychange', () => {
   await loadCollections();
   await desnumerarAlbunsBaixados();
   await preencherAlbunsDosHinos();
+  // OS ATALHOS DE PASTA, migrados para os favoritos (v5.254). ANTES do `load()`
+  // porque a lista que o operador vê já tem de ser a migrada — e antes do
+  // `varrerRestos()` lá embaixo, que é quem apagaria o que ficasse sem dono.
+  // Uma vez por aparelho: sem `folders` no banco ela devolve na primeira linha.
+  await migrarPastasParaFavoritos();
   // ANTES do load(): é ele que lê `current` e monta a tela a partir dela.
   await clearCurrentSelection();
   await load();

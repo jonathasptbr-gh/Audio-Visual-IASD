@@ -2958,10 +2958,69 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.253** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.254** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.254: OS FAVORITOS VIRAM UMA LISTA SÓ — os atalhos de pasta saem, e a
+> ordem passa a ser do operador. OTA PURO** (nenhuma linha de Kotlin; sem
+> Release).
+>
+> Pedido do operador: *"não vamos mais usar o sistema de atalhos de pastas no
+> app, apenas a versão de pastas sincronizadas dentro do armazenamento do
+> aparelho. Todos os salvos nos favoritos vão diretamente para a lista geral com
+> todos os arquivos juntos por ordem de chegada, mas com a opção de mover eles
+> de lugar; vamos remover as subdivisões por tipo, manter uma lista única."*
+>
+> **A parte que não estava no pedido e que decidia o lote: a MIGRAÇÃO.** Apagar
+> os atalhos e ir embora seria PERDER MÍDIA. Um item cujo único detentor era um
+> atalho vira, no instante em que ele some, um registro que nenhuma lista aponta
+> — e o coletor de lixo, que existe justamente para isso, o apaga na varredura
+> seguinte (que roda na mesma abertura, no `varrerRestos`). Um vídeo grande
+> sumiria do app **e do disco**, calado. Então `migrarPastasParaFavoritos` sobe
+> cada item para `favs` e só DEPOIS derruba o atalho pelo `folderDrop`; a ordem
+> das duas metades é a garantia inteira, e é ela que o oráculo mede.
+>
+> **O agrupamento por tipo caiu por um argumento que a própria ordenação
+> desmente.** Ele supunha (v5.104) que a primeira coisa que o operador sabe
+> sobre o que procura é a CATEGORIA — "era um vídeo". Com o item onde ele mesmo
+> o pôs, a primeira coisa que ele sabe é o LUGAR, e uma lista que se reorganiza
+> sozinha em doze seções é justamente o que impede memória de lugar. Os
+> cabeçalhos ainda custavam altura: num acervo variado eles empurravam metade
+> dos favoritos para fora da primeira tela.
+>
+> **A alça de arrastar é a do Cronograma**, não uma segunda — o mesmo
+> `attachHandle`/`reorder`, a mesma linha-guia, a mesma medição única no
+> `pointerdown`. O que ela exigiu foi um detalhe com nome: as pastas do aparelho
+> ficam na MESMA `<ul>` e não pertencem à lista `favs`, então contá-las como
+> posição deslocaria o índice de destino em relação ao array — a linha leva
+> `data-fixa`, e o `measureDrag` a pula.
+>
+> **O preço, medido e dito:** a alça é o terceiro botão da linha, e o nome caiu
+> de **194px para 152px** numa lista de 368px. Em troca o SUBTÍTULO voltou a
+> aparecer — ele era escondido por CSS porque o cabeçalho de tipo já dizia o que
+> ele diz —, e é ele que agora distingue um vídeo de um versículo.
+>
+> **A folha de duas origens da v5.239 também caiu, e pela regra dela mesma.**
+> Ela existia porque dois botões respondiam à mesma pergunta ("quero uma pasta
+> aqui") por caminhos diferentes; com um caminho só, uma folha de uma opção é um
+> toque cobrado para não escolher nada. A ação da barra passou a FAZER a coisa.
+>
+> Saíram junto: `folders`/`folder_<id>`, `renderVirtualFolders`, `createFolder`,
+> `deleteFolder`, `addToFolder`, `loadFolderMediaItems`, `openFolder`,
+> `promptNewFavorite`, `abrirFolhaDePasta`, `FAV_GRUPOS`, `favGrupo`,
+> `appendFavSection`, o popup `#folderPopup` inteiro, o `#selFolder` da seleção
+> múltipla, os glifos `folder`/`create_new_folder` e as classes `.fav-section` e
+> `.folder-pick-btn`.
+>
+> Os oráculos: o `boot-nativo.test.mjs` cobra a lista única, a alça, o
+> reordenar de verdade, a ação que traz a pasta sem folha — e as quatro
+> asserções da migração (o item sobe, **a mídia sobrevive**, não duplica quem já
+> estava lá, e rodar de novo é no-op). Reprova em **5 asserções** contra o
+> código anterior. O par `songMenuPopup`/`folderPopup` saiu da lista de popups
+> aninhados do `smoke.mjs`, que fica VAZIA de propósito: o próximo popup que
+> abrir de dentro de outro entra ali numa linha.
 
 > **A v5.253: A FOLHA DE DESTINOS VIRA UM MÉTODO ÚNICO — tudo é selecionável, e
 > o confirmar não some. OTA PURO** (sem Release).
