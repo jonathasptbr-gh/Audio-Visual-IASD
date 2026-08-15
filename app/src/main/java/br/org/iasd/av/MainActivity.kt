@@ -298,40 +298,31 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // toa: quando o bundle fica pronto, o shell empurra. Um bundle antigo
         // (sem `__avOta`) simplesmente não tem a função e o empurrão vira
         // no-op — a enquete continua sendo o piso.
+        // O EMPURRÃO LEVA O ESTADO INTEIRO desde a v5.234, e não só a versão da
+        // base web: quem pergunta "tem atualização?" precisa saber, no mesmo
+        // instante, se ela vem com APK — senão a tela desenha a pergunta com
+        // metade do que ela tem a dizer e se corrige meio segundo depois.
+        //
+        // `__avOta` continua sendo chamado ao lado, e não é redundância: ele é o
+        // contrato de um bundle mais antigo que este shell, que existe de
+        // verdade na janela entre a Release e o OTA daquele lote.
         WebUpdater.aoChegar = { versao ->
-            val js = "window.__avOta && window.__avOta(${JSONObject.quote(versao)});"
+            val estado = WebUpdater.estado(this).toString()
+            val js = "window.__avAtualizacao && window.__avAtualizacao($estado);" +
+                "window.__avOta && window.__avOta(${JSONObject.quote(versao)});"
             runOnUiThread { web?.evaluateJavascript(js, null) }
         }
 
-        // E ELA ENTRA SOZINHA, no segundo em que fica pronta (v1.68).
-        //
-        // "Entra no próximo lançamento" era literal de um jeito que ninguém
-        // tinha medido: o `beginSession` decide uma vez por PROCESSO, e este
-        // processo quase nunca morre — os três serviços em primeiro plano o
-        // mantêm vivo de propósito, e fechar pelo Recentes derruba a Activity,
-        // não o processo. O operador reabria o app "várias e várias vezes" e
-        // continuava na versão velha. Ver o KDoc de `WebUpdater.aplicarSozinho`
-        // para a corrente inteira e para o que esta troca custa.
-        WebUpdater.aplicarSozinho = { versao ->
-            // ...MAS NÃO COM DOWNLOAD EM CURSO. Aplicar recarrega as duas
-            // páginas, e um laço de sincronização (hinário, Bíblia, pasta) morre
-            // com o documento — ele não é um `fetch` que o shell retoma, é um
-            // `for` na página. Foi o que parou o hinário em 300 de 600 numa
-            // tarde de várias publicações.
-            //
-            // Só o download segura, e é deliberado: a v5.151 tirou as travas de
-            // cena e espelho porque elas eram permanentes num culto e faziam a
-            // atualização nunca chegar. Um download acaba — e o empurrão volta
-            // pela ronda de um minuto, ou pela enquete do lado web.
-            if (backgroundWork) {
-                Log.i(TAG, "base web $versao esperando o download terminar")
-            } else {
-                applyWebUpdate { aplicada ->
-                    Log.i(TAG, if (aplicada != null) "base web $versao aplicada sozinha"
-                    else "base web $versao não pôde ser aplicada agora")
-                }
-            }
-        }
+        // (A APLICAÇÃO AUTOMÁTICA SAIU AQUI, na v5.234.) Da v1.68 até aqui este
+        // ponto tinha um `WebUpdater.aplicarSozinho` que trocava a base no
+        // instante em que ela ficava pronta, sem perguntar. Ele nasceu contra um
+        // defeito real — "entra no próximo lançamento" nunca chegava, porque o
+        // processo não morre — e o diagnóstico continua válido; o remédio é que
+        // era largo demais. Quem decide QUANDO o telão pisca é o operador, e
+        // agora ele é perguntado: o `controle.js` desenha o aviso e chama
+        // `otaApply()`. O que tornou isso possível foi consertar a CAUSA — a
+        // detecção ficou rápida e a supressão do lado web perdeu o espelho, que
+        // era permanente e travava tudo. Ver o KDoc de `WebUpdater.aoChegar`.
 
         // Notificação de controles / tela de bloqueio / botões de mídia: o
         // sistema entrega a ação aqui e ela vai para o MESMO caminho dos botões
@@ -524,7 +515,28 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // e é quando a rede costuma estar de volta (ele saiu, trocou de Wi-Fi,
         // ligou os dados). Rajadas de `onResume` — alternar entre dois apps
         // dispara um por toque — são absorvidas pelo piso do `checkAsync`.
-        WebUpdater.checkAsync(this, "retomada")
+        //
+        // `forcar`, e é a exceção que prova a regra do piso: a retomada é o
+        // único instante em que a resposta pode virar uma pergunta na tela, e
+        // chegar cinco segundos atrasada nela é chegar depois de o operador já
+        // ter olhado. Ela acontece no máximo uma vez por vinda ao app.
+        WebUpdater.emPrimeiroPlano = true
+        WebUpdater.checkAsync(this, "retomada", forcar = true)
+    }
+
+    /**
+     * O ritmo da ronda segue a atenção do operador (v5.234).
+     *
+     * Não é economia de bateria — a ronda é um JSON de trezentos bytes. É que o
+     * desfecho de uma detecção em segundo plano é uma pergunta que ninguém pode
+     * responder: o aviso mora no WebView do Controle, e é justamente ele que o
+     * Android estrangula quando o app sai da frente. A detecção continua
+     * acontecendo, mais espaçada, para que a resposta já esteja pronta na
+     * retomada — que é onde o gatilho acima a colhe.
+     */
+    override fun onPause() {
+        super.onPause()
+        WebUpdater.emPrimeiroPlano = false
     }
 
     /**
@@ -576,7 +588,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // E o empurrão do OTA, pelo mesmo motivo dos dois acima: ele captura
         // esta Activity, e a ronda do `WebUpdater` sobrevive à tela.
         WebUpdater.aoChegar = null
-        WebUpdater.aplicarSozinho = null
         try { SessionService.stop(this) } catch (_: Exception) { }
         // O ESPELHO NÃO SOBREVIVE AO FECHAMENTO DO APP — ele é auxiliar e
         // nasceu de um toque do operador nesta tela. Deixá-lo servindo com a

@@ -314,6 +314,10 @@ window.AVNative = {
   otaApply(),          // APLICA-a agora: as duas páginas recarregam — shell 29
   otaCheck(forcar),    // PROCURA agora; `forcar` pula o piso do shell — shell 31
   otaDiag(),           // → string: quando foi a última busca e o que ela deu
+  atualizacaoEstado(), // → { web, webAtual, shell, shellBytes, shellAtual, diag }
+                       //   OS DOIS CANAIS numa leitura só — shell 43. Ele não
+                       //   acrescenta poder: acrescenta COERÊNCIA DE INSTANTE
+                       //   (ver a seção do OTA)
   apkProcurar(),       // → { versao, url, notas } da Release nova, ou null — shell 35
   apkInstalar(),       // baixa e abre o diálogo de instalação do sistema — shell 35
                        //   (sem URL: quem a escolhe é o `ShellUpdater`, do
@@ -365,7 +369,7 @@ window.AVNative = {
 }
 ```
 
-São **quarenta e dois métodos**, e essa é a superfície inteira que o resto do
+São **quarenta e três métodos**, e essa é a superfície inteira que o resto do
 lado web tem direito de usar: fora do `native.js`, tocar em `__AVBridge` direto é
 acoplamento indevido. O próprio `native.js` chama mais oito coisas no
 `__AVBridge`, e nenhuma delas é API para o app — duas são
@@ -439,7 +443,19 @@ esperam uma **pessoa** e ficam sem prazo, porque um timeout ali resolveria null
 com o operador ainda escolhendo a pasta.
 
 `NativeBridge.SHELL_VERSION` identifica a versão da casca — **subir sempre que
-a superfície da ponte mudar**. Hoje vale **42** — a v5.231 acrescenta o campo
+a superfície da ponte mudar**. Hoje vale **43** — a v5.234 acrescenta
+`atualizacaoEstado`, os DOIS canais de atualização numa leitura só. Ele não
+acrescenta poder nenhum (tudo o que devolve já existia, espalhado por
+`otaPending`, `apkProcurar` e `otaDiag`); o que ele acrescenta é **coerência de
+instante**, e o degrau é por isso: três promessas independentes chegam em três
+momentos, e o diálogo se desenhava com metade do que tinha a dizer ("há uma base
+nova") para se corrigir meio segundo depois ("…e um APK junto"), debaixo do dedo
+de quem estava lendo. Ele é também o que torna a detecção agressiva possível sem
+estourar nada — o bloco `shell` vem do MANIFESTO do canal OTA, que é um asset de
+release e **não consome o limite de 60 requisições/hora da API do GitHub**, ao
+contrário de uma consulta por ronda. Num shell 42 o `controle.js` cai nas três
+chamadas antigas e mostra a mesma pergunta, só sem a coerência de instante. O
+anterior, **42** — a v5.231 acrescenta o campo
 **`actions`** ao `nowPlaying`: a lista de botões da notificação de controles, na
 ordem, escolhida pelo LADO WEB. É a invariante 5 aplicada ao cartão — cinco
 botões fixos serviam a UMA cena (mídia tocando), e com um cronômetro no ar sem
@@ -1175,11 +1191,117 @@ base web passaria a exigir baixar e instalar à mão a cada ajuste de JS/CSS —
 o OTA devolve o comportamento antigo, com mais controle.
 
 **Como funciona:** o job `web-ota` (em todo push para `main`) empacota
-`assets/web/` num `web-assets.zip` e publica, junto com um `version.json`, na
+`assets/web/` num `web-<versão>.zip` e publica, junto com um `version.json`, na
 release de tag fixa **`web-latest`** — URL estável, porque está compilada no
 shell. O app consulta esse `version.json`, baixa quando há versão nova e passa a
 servi-la. (O tamanho do zip sai no log do próprio job, no `echo "Bundle: …"` —
 número no doc envelhece a cada push.)
+
+### Os DOIS canais são UM evento (v5.234)
+
+Eles eram independentes, e essa independência era a queixa: *"a detecção de
+atualizações disponíveis é extremamente inconstante, demorada e quase
+aleatória"*. Um lote que mexia no Kotlin chegava pela metade — base web em
+minutos, APK quando o operador se lembrasse de ir ao GitHub — e o que ele via
+era metade do lote funcionando, sem nada que explicasse a diferença.
+
+```
+ push em main            Release v2.0 publicada         aparelho
+ ┌────────────┐          ┌────────────────────┐        ┌──────────────────┐
+ │ version.json│ shellTag │ audio-visual…apk   │        │ ronda de 15 s    │
+ │ "shellTag": │ ───────► │                    │ ─────► │ lê o MANIFESTO   │
+ │   "v2.0"    │  SEGURA  └────────────────────┘ gatilho│  ├─ web  5.234   │
+ └────────────┘  o OTA          release:published       │  └─ shell 2.0    │
+                                                        │ → UMA pergunta   │
+                                                        └──────────────────┘
+```
+
+**`shellTag` no `version.json` do repositório é o acoplamento.** Declarado, ele
+faz o `web-ota` **segurar a publicação do bundle** até a Release existir — o job
+termina verde e diz no resumo do run que está segurando, porque isso não é falha
+e sim o estado normal entre o merge e o disparo da Release. Quando ela sai, o
+gatilho `release: [published]` republica o bundle **com o bloco `shell`**
+(versão, URL do `.apk` e tamanho) dentro do manifesto. Sem `shellTag`, o
+manifesto ainda anuncia a Release mais recente que existir: `shellTag` responde
+"este lote PRECISA de uma Release?", e uma correção só de Kotlin não a declara
+em lugar nenhum — sem essa segunda metade, aquele APK nunca seria anunciado.
+
+**E é o manifesto que permite a detecção ser rápida.** A API do GitHub não
+autenticada dá **60 requisições por hora por IP**; uma ronda de 15 segundos são
+240. Perguntar o APK à API na ronda esgotaria o limite em quinze minutos e a
+detecção passaria a falhar com 403 pelo resto da hora — mais lenta e mais
+imprevisível do que a de meia hora que existia antes. O manifesto é um asset de
+release e **não consome limite nenhum**: a mesma requisição que já acontecia
+responde as duas perguntas, e as responde no MESMO instante, que é o que permite
+a tela falar de um lote em vez de dois eventos soltos.
+
+**O zip passou a ter o nome versionado, e isso fecha uma classe inteira.** Ele
+era `web-assets.zip`, substituído no lugar — e o comentário do `concurrency`
+deste workflow já reconhecia o desfecho: duas execuções intercaladas deixam o
+zip de uma com o `sha256` da outra, e a partir daí **todo aparelho baixa,
+confere o hash, reprova, e o OTA fica INERTE até o próximo push**, sem sinal
+nenhum. A fila reduzia a chance; ela não fechava a classe, porque nada impede a
+fila de ser furada por um `retag` ou por uma execução que morra entre os dois
+uploads. Com nome imutável por versão, um manifesto que fale da versão N sempre
+encontra o zip da versão N — e o único arquivo substituído no lugar passa a ser
+o manifesto, que é escrito por último. O job recolhe os zips antigos deixando os
+**três mais novos**: apagar o que alguém está baixando devolveria um 404 no meio
+do download.
+
+**E o `sha256` reprovado virou FALHA, não desfecho.** Devolver `null` ali
+carimbava a tentativa como bem-sucedida — `ultimoOk` renovado,
+`falhasSeguidas` zerado, sem espera crescente —, então a ronda seguinte baixava
+o mesmo zip, reprovava o mesmo hash e repetia, megabytes por minuto, para
+sempre, com o app dizendo apenas "nada aconteceu". O nome versionado fecha a
+causa; isto fecha o **modo de falhar**, que é o que precisa aguentar a próxima
+causa que ninguém previu.
+
+### A ATUALIZAÇÃO PERGUNTA de novo — e a v5.151 é revogada (v5.234)
+
+A v5.151 tirou o diálogo e passou a aplicar sozinha. O diagnóstico dela estava
+certo (a pergunta quase nunca aparecia) e o remédio era largo demais: trocar a
+base recarrega as duas páginas e o telão pisca, e a hora disso é decisão de quem
+está operando. O que este lote conserta é a CAUSA.
+
+- **A pergunta é uma só, e fala do lote.** Sem Release: *"Base v5.234 — as duas
+  telas recarregam e a projeção pisca por um instante."* Com Release: *"Base
+  v5.234 e app v2.0 (30 MB) — a base entra primeiro e a projeção pisca; em
+  seguida o Android vai pedir para confirmar a instalação do app."* Os dois
+  desfechos são **Atualizar agora** e **Deixar para depois**.
+- **A ordem é base → APK, e ela não é arbitrária.** A base é rápida (o bundle já
+  está no disco) e não depende de ninguém confirmar nada; o APK exige um diálogo
+  do sistema que pode ser recusado, adiado ou perdido. Se ele viesse antes, uma
+  recusa ali deixaria o lote inteiro por aplicar.
+- **A INTENÇÃO sobrevive à recarga.** Entre as duas metades há uma morte de
+  documento — `otaApply` substitui a página —, então nada em memória atravessa
+  esse ponto. A intenção é gravada no `state` do banco ANTES de aplicar (o mesmo
+  lugar e o mesmo motivo da intenção de download do YouTube, v1.59) e relida na
+  abertura seguinte, que retoma o download do APK sozinha. Ela é descartada
+  quando o `versionName` instalado alcança a versão pedida — sem essa
+  comparação o instalador reabriria a cada abertura oferecendo a versão que já
+  está rodando — e depois de 6 h, porque um APK de ontem que ninguém instalou
+  não é tarefa pendente.
+- **A pergunta espera só o que ACABA: cena projetando e download em curso.** O
+  **espelho não segura mais**, e era ele o elo que travava tudo — ele fica
+  ligado o culto inteiro, então incluí-lo tornava a supressão permanente, e foi
+  por isso que a v5.151 desistiu de perguntar. O espelho custa uma tela da rede
+  com a página antiga em memória até ser recarregada; a cena e o download custam
+  a projeção e o hinário pela metade. **Instalar o APK, esse sim, continua
+  esperando os três** (`horaRuimParaAtualizar`), porque derruba o app inteiro e
+  leva o servidor da rede junto.
+- **"Deixar para depois" cala o diálogo, não o FATO.** O rótulo de versão ganha
+  um ponto e a cor de concluído enquanto houver algo esperando, e tocá-lo desfaz
+  o adiamento na hora. Um aviso que volta a cada dez segundos é ruído; um "não"
+  que apaga a informação é pior.
+- **O Registro diz POR QUE está esperando**, e as causas pedem ações opostas:
+  ninguém foi perguntado ainda, o operador adiou, a pergunta espera a cena sair,
+  ou o shell recusou o bundle. Ele é lido a distância — um "esperando…" genérico
+  manda quem o lê investigar a coisa errada.
+
+Tudo isto tem oráculo: **`tools/ota.test.mjs`** sobe a base em Chromium com uma
+ponte de mentira e afirma os cinco pontos acima, incluindo a intenção
+atravessando um `reload()` de verdade. Ele reprova em 23 asserções contra o
+código anterior (verificado).
 
 ### A procura era UMA SÓ, e era esse o defeito (v1.60)
 
@@ -1194,27 +1316,48 @@ associar é o caso comum —, nada era retentado até o próximo lançamento.
 Agora são **quatro gatilhos**, e cada um cobre o que os outros não cobrem:
 
 1. **abertura** — o de sempre;
-2. **ronda periódica** de 5 min enquanto o processo viver;
+2. **ronda periódica** de **15 s** com o app na frente (120 s em segundo plano)
+   enquanto o processo viver;
 3. **retomada do app** (`onResume`) — é quando o operador agiria sobre o aviso, e
-   quando a rede costuma estar de volta;
+   quando a rede costuma estar de volta. Ela vem com `forcar` e é a exceção que
+   prova a regra do piso: é o único instante em que a resposta pode virar uma
+   pergunta na tela, e chegar cinco segundos atrasada nela é chegar depois de o
+   operador já ter olhado;
 4. **a rede voltando** (`registerDefaultNetworkCallback`) — fecha o caso do
    lançamento sem internet.
 
-Mais três peças, e nenhuma é enfeite:
+Mais quatro peças, e nenhuma é enfeite:
 
-- **Falha retenta sozinha**, com espera crescente (30 s → 1 → 2 → 5 min). "Sem
-  rede agora" quase nunca significa "sem rede daqui a meio minuto", e o custo de
-  perguntar de novo é um JSON.
+- **Falha retenta sozinha**, com espera crescente (5 s → 10 → 20 → 30 s). "Sem
+  rede agora" quase nunca significa "sem rede daqui a meio segundo", e o custo
+  de perguntar de novo é um JSON. O teto era de 90 s, e ele era o pior lugar
+  para ser generoso: acima de meio minuto a espera passa a durar MAIS que a
+  ronda normal, e uma falha transitória sairia punindo a detecção — deixando-a
+  mais lenta do que se ninguém tivesse tentado.
+- **O piso entre consultas (5 s) é MENOR que a ronda**, e isto não é folga: com
+  os dois em 15 s, uma batida que chegasse um milissegundo cedo era descartada
+  e a seguinte só viria 15 s depois — a ronda valendo 15 s ou 30 s conforme o
+  jitter do agendador. Um piso maior que a ronda é a receita exata da "detecção
+  inconstante e quase aleatória".
+- **A ronda é blindada contra exceção.** `scheduleWithFixedDelay` CANCELA todas
+  as execuções seguintes quando o `Runnable` lança — sem log e sem `Future` que
+  alguém consulte. O corpo do `checkAsync` já era protegido por dentro; o que
+  roda antes de a thread nascer, não era. O preço de errar aqui é a detecção
+  parar para sempre naquele aparelho, que é indistinguível de "o OTA não
+  funciona".
 - **Nada de cópia guardada.** O asset da release `web-latest` é SUBSTITUÍDO no
   lugar — mesma URL, conteúdo novo —, que é exatamente o caso em que um cache
   intermediário devolve o de ontem com toda a razão. Uma resposta guardada aqui
   não atrasa a atualização: ela a torna INVISÍVEL pelo tempo que o cache durar,
   sem sinal nenhum no aparelho. Daí os cabeçalhos `no-cache` **e** o `?t=` na
   URL (caches que ignoram o cabeçalho existem).
-- **O shell EMPURRA** (`window.__avOta`) quando o bundle fica pronto: o aviso
-  aparece no segundo em que a atualização chega, em vez de esperar até um minuto
-  pela enquete. Num bundle antigo a função não existe e o empurrão é no-op — a
-  enquete continua sendo o piso.
+- **O shell EMPURRA** (`window.__avAtualizacao`, com `window.__avOta` ao lado
+  para bundles anteriores ao shell 43) quando o estado muda: a pergunta aparece
+  no segundo em que a resposta existe, em vez de esperar a enquete. E ele sai
+  **também quando só o APK mudou** — uma Release pode ser publicada sem base web
+  nova, e amarrar o aviso ao bundle deixaria justamente esse caso mudo. Num
+  bundle antigo a função não existe e o empurrão é no-op; a enquete de 10 s
+  continua sendo o piso.
 
 **A comparação passou a ser contra o que o aparelho JÁ TEM, não contra o que ele
 está SERVINDO** (`versaoJaTemos`). Enquanto a procura era uma por lançamento os
@@ -1247,12 +1390,21 @@ de qualquer jeito) e custaria bateria e uma dependência.
 > `check()` engole tudo em `Log.i`, então um OTA morto não dá sinal nenhum no
 > aparelho.
 
-**A identidade do bundle é `assets/web/version.json`** (`version` +
-`minShell`), versionado no repositório: o bundle carrega a própria versão,
-seja ele o embutido ou o baixado. O workflow só acrescenta `sha256` e a URL.
-**Atualizar esse arquivo junto com os outros dois lugares de versão** — ver
-"Regras de desenvolvimento" — é o que dispara (ou não) uma atualização nos
-aparelhos.
+**A identidade do bundle é `assets/web/version.json`** (`version` + `minShell`
++ o `shellTag` opcional), versionado no repositório: o bundle carrega a própria
+versão, seja ele o embutido ou o baixado. O workflow acrescenta `sha256`, a URL
+e — quando há Release — o bloco `shell`. **Atualizar esse arquivo junto com os
+outros dois lugares de versão** — ver "Regras de desenvolvimento" — é o que
+dispara (ou não) uma atualização nos aparelhos.
+
+**E `shellTag` é o que impede a metade do lote de chegar sozinha.** Mexeu no
+shell? Declare a tag da Release que vai sair (`"shellTag": "v2.0"`) no mesmo
+commit. O `web-ota` SEGURA o bundle até ela existir, e então publica com o link
+do APK dentro — é isto que faz o aparelho perguntar uma vez sobre o lote inteiro
+em vez de duas vezes sobre metades. A forma é validada no CI (`v` + números):
+um `shellTag` malformado devolveria 404 na consulta, o job seguraria o OTA para
+sempre, e o sintoma no aparelho seria "a atualização não chega" — o modo de
+falhar mais mudo que este canal tem.
 
 **O OTA não muda o acesso ao nativo.** A ponte é injetada no WebView pelo
 Kotlin (`addJavascriptInterface`), não vem nos arquivos web: um bundle
@@ -1262,11 +1414,14 @@ SAF, Presentation e o serviço de segundo plano seguem idênticos.
 
 ### As três garantias (isto roda em culto)
 
-1. ~~**Nunca troca a base no meio de uma sessão.**~~ **REVOGADA A PEDIDO DO
-   OPERADOR (v1.68 / v5.151).** A base nova entra **sozinha, no segundo em que
-   fica pronta**, independentemente do que estiver acontecendo. Leia o resto
-   deste item mesmo assim: ele explica por que a garantia existia, e o parágrafo
-   final explica por que ela caiu e o que a substitui.
+1. ~~**Nunca troca a base no meio de uma sessão.**~~ **REVOGADA (v1.68 /
+   v5.151) e depois SUBSTITUÍDA POR UMA PERGUNTA (v5.234).** A base nova não
+   entra mais sozinha: o app AVISA e o operador escolhe entre "Atualizar agora"
+   e "Deixar para depois" (ver "A ATUALIZAÇÃO PERGUNTA de novo", acima). A
+   garantia original não voltou — quando o operador diz sim, a troca acontece na
+   hora, com cena no ar ou sem —, mas ela deixou de ser automática, que era o
+   ponto. Leia o resto deste item mesmo assim: ele explica por que a garantia
+   existia, e o parágrafo final explica por que ela caiu.
 
    **Por que ela caiu, e não foi por preguiça:** o que ela prometia nunca
    acontecia. "Entra no próximo lançamento" é literal — `beginSession()` decide
@@ -1958,7 +2113,8 @@ contextos.
 | Botão voltar | — | **fecha o que estiver aberto** (popup, sub-tela, aba) e só então manda a tarefa para segundo plano (ver abaixo) |
 | Controles fora do app | — | **notificação + tela de bloqueio + botões de mídia** via `MediaSession` (ver seção acima) |
 | Download com o app minimizado | a aba continua baixando | **foreground service + wake lock** — sem isso o processo é congelado (ver seção acima) |
-| Atualização da base web | recarregar a página | **OTA** — bundle publicado em `web-latest`, aplicado no próximo lançamento (ver seção acima) |
+| Atualização da base web | recarregar a página | **OTA** — bundle publicado em `web-latest`, detectado em segundos e aplicado quando o operador responde ao aviso (ver seção acima) |
+| Atualização do APP | — | **o próprio app baixa e instala** — o manifesto do OTA carrega o link da Release (`shellTag` segura o bundle até ela sair), então a pergunta é UMA e leva as duas metades; a instalação em si é o diálogo do Android, que é obrigatório e está certo que seja |
 | Tema claro × escuro | funciona igual: a escolha é CSS + `localStorage`, e o `theme-color` tinge a barra de endereço | idem, **mais o cromo do sistema**: `AVNative.temaClaro` vira os ÍCONES das barras (que o Android desenha, e que ficariam brancos sobre branco) e guarda a escolha para o `windowBackground` do PRÓXIMO lançamento — um recurso do APK é resolvido antes de existir JavaScript |
 | **Telão nas telas da rede** | **não existe** — um navegador não abre `ServerSocket` nem serve o bundle | **servidor HTTP no próprio celular** servindo o `/web/display/` de verdade (resolução OTA→APK) + comandos por SSE + mídia por `/m/<token>`: o telão inteiro em até três navegadores da rede, sem instalar nada neles e sem internet (ver a seção do recurso). Liga e desliga **só** por ação do operador |
 | Papel `__AV_ROLE__` | `'controle'` / `'display'` | **um TERCEIRO valor, `'tela'`** — o mesmo `/web/display/` num navegador da LAN, marcado por `?tela=1` na query (não há ponte lá; quem escreve a global é o próprio `tela.js`). Ele é seguro por construção: as leituras do papel no bundle comparam `!== 'controle'`, e **nenhum caminho testa `=== 'display'`**. O papel ativa o dreno de subida, o `forceMuted` inicial e o `__telaSom` do gesto de entrada |
@@ -2224,13 +2380,13 @@ produziria exatamente o mesmo estado, por isso a fila espera.
 todo `.js` de `assets/web`, uma validação de `version.json`, os testes de
 `tools/` — o parser `sidx`, o **oráculo do contrato de `shouldInterceptRequest`**
 (`webview-range.test.mjs`, que trava a invariante 8: Node puro, determinístico,
-sem `continue-on-error`) e doze testes **em Chromium de verdade**, em DOIS
+sem `continue-on-error`) e treze testes **em Chromium de verdade**, em DOIS
 PASSOS desde a v5.213 — `Preparar o Chromium` (o `npm i` e o
 `playwright install`, com `continue-on-error`) e `Oráculos em Chromium`, que
 depende do primeiro ter dado certo.
 
 > **A separação é o que dá sentido ao `continue-on-error`, e ela nasceu de um
-> defeito que o painel verde escondia.** Os doze rodavam num passo só, com
+> defeito que o painel verde escondia.** Eles rodavam num passo só, com
 > `set -euo pipefail`: o PRIMEIRO que reprovasse abortava os ONZE seguintes — e
 > como o passo era `continue-on-error`, o run ficava verde. Descobrir isso
 > exigia abrir o log e reparar em qual linha ele tinha parado. A justificativa
@@ -2282,7 +2438,17 @@ ISTO É UM RETÂNGULO PRETO" em todo culto, toda tela conectada acusada de rodar
 "bundle antigo", e um "modo: imagem (JPEG)" de um modo removido dez versões
 antes. Ele cobra as DUAS metades: nenhuma palavra de recurso aposentado, e o
 que o operador foi buscar presente — sem a segunda, apagar o bloco inteiro
-passaria).
+passaria) e **O FLUXO DE ATUALIZAÇÃO** (`ota.test.mjs`, v5.234 — o único
+caminho do app cujo defeito NÃO TEM SINTOMA: quando a atualização não chega,
+nada quebra e nada erra alto, e o operador só continua na versão de anteontem
+sem saber. Foi assim por dezenas de versões, e a v5.151 chegou a REMOVER a
+pergunta por concluir que ela "nunca aparecia" — era o espelho ligado
+suprimindo o diálogo, e isso levou meses para ser identificado. Nenhum teste o
+tocava: o `smoke` sobe sem ponte e todo o bloco é `window.__NATIVE__`, e o
+`boot-nativo` prova o boot, não o fluxo. Ele afirma a pergunta nos dois casos —
+com e sem Release —, o "Deixar para depois", o rótulo que continua marcando, e
+a INTENÇÃO atravessando um `reload()` de verdade para virar a instalação do
+APK).
 O telão nas telas da rede acrescentou mais dois: a **varredura de contexto
 seguro** (`contexto-seguro.test.mjs`, que procura `VideoDecoder`, `wakeLock`,
 `audioWorklet`, `randomUUID` e `crypto.subtle` fora de uma guarda
@@ -2493,17 +2659,36 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK instalado).
   comportar de um jeito no código e de outro no culto, porque lá o
   `SHELL_VERSION` ainda é o antigo.
 
-  Então o fluxo acima ganha uma última linha quando o diff tocou o shell:
+  **Desde a v5.234 isso tem uma primeira linha, e ela vem ANTES do merge:**
+  declarar a tag em `assets/web/version.json`.
+
+  ```jsonc
+  { "version": "5.234", "minShell": 2, "shellTag": "v2.0" }
+  ```
+
+  Com ela, o `web-ota` SEGURA o bundle até a Release `v2.0` existir — nenhum
+  aparelho recebe a metade web de um lote cuja metade nativa ainda não saiu — e,
+  quando ela sai, republica o manifesto **com o link do APK dentro**, para o app
+  perguntar uma vez sobre o lote inteiro. Sem `shellTag` o bundle sai na hora,
+  que é o certo para um lote só de web.
+
+  Então o fluxo ganha uma última linha quando o diff tocou o shell:
 
   ```bash
   # depois do push em main, com o Actions → "Build APK" → Run workflow,
-  # input `release_tag` = a próxima tag (v1.24 → v1.25 → v1.26 …)
+  # input `release_tag` = a MESMA tag declarada em version.json
   ```
 
   A tag é criada pelo próprio workflow a partir de `main` (ver "Build"), então
   não é preciso empurrar tag à mão. **Não esperar o operador pedir**: mudou o
-  shell, sai Release — e a mensagem que anuncia a mudança precisa dizer que ela
-  exige instalar o APK, porque o OTA não vai levá-la.
+  shell, sai Release. E a mensagem que anuncia a mudança já não precisa avisar
+  que ela exige instalar o APK — o app avisa sozinho, e instala.
+
+  **Um `shellTag` esquecido não quebra nada, mas desfaz o ganho**: o bundle sai
+  antes da Release e o aparelho recebe a metade web sozinha, como antes da
+  v5.234. Um `shellTag` apontando para uma tag que nunca será publicada é pior:
+  o canal OTA fica segurando para sempre, em silêncio, e a única pista é a linha
+  no resumo do run.
 
 - **Nunca perder funcionalidades existentes ao refatorar.** A base web tem
   todo o sistema de culto (coleções LouvorJA, letra sincronizada, Bíblia,
@@ -2587,10 +2772,80 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.233** (base web) · `SHELL_VERSION` **42**, e o bundle segue com
+**Versão atual: v5.234** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.234 (v2.0): O SISTEMA DE ATUALIZAÇÃO INTEIRO — os dois canais viram
+> um evento, a detecção fica autoritária e a pergunta volta. EXIGE APK**
+> (`SHELL_VERSION` **43**).
+>
+> Pedido do operador, e ele nomeia o defeito melhor do que qualquer diagnóstico
+> meu: *"a detecção de atualizações disponíveis é extremamente inconstante,
+> demorada e quase aleatória… precisamos de um sistema autoritário absoluto"*.
+> Mais o desenho de como ela deve terminar: um popup com "Atualizar agora" ou
+> "deixar para depois"; e havendo Release nova, *"o sistema aguarda a release
+> sair, para então liberar o ota, assim o ota já vem com o link da release"*.
+>
+> **Os DOIS canais passam a ser UM evento.** `shellTag` no `version.json`
+> declara a Release que o lote exige; o `web-ota` SEGURA a publicação do bundle
+> até ela existir, e o gatilho `release: [published]` a republica com o bloco
+> `shell` dentro do manifesto — versão, URL do `.apk` e tamanho. O aparelho lê
+> tudo numa requisição só e pergunta UMA vez sobre o lote inteiro.
+>
+> **E é o manifesto que permite a detecção ser rápida.** A ronda foi de 60 s
+> para **15 s**, o piso de 15 s para 5 s e o back-off de até 90 s para até 30 s.
+> Perguntar o APK à API do GitHub nessa cadência esgotaria as 60 requisições/hora
+> em quinze minutos e a detecção passaria a falhar com 403 pelo resto da hora —
+> mais lenta e mais imprevisível do que os 30 minutos de antes. Um asset de
+> release não consome limite nenhum.
+>
+> **Três defeitos de detecção foram achados no caminho, e os três são mudos:**
+> o piso entre consultas (15 s) era IGUAL à ronda, então uma batida que chegasse
+> um milissegundo cedo era descartada e a ronda valia 15 s ou 30 s conforme o
+> jitter do agendador — literalmente "quase aleatória"; a ronda morria em
+> silêncio para sempre se o `Runnable` lançasse (`scheduleWithFixedDelay`
+> cancela as execuções seguintes, sem log); e um **`sha256` reprovado era
+> carimbado como SUCESSO**, então a ronda seguinte rebaixava o mesmo zip,
+> reprovava o mesmo hash e repetia, megabytes por minuto, para sempre. Este
+> último tinha causa estrutural conhecida — os dois assets eram substituídos um
+> a um, sem transação, e o próprio comentário do `concurrency` já dizia que uma
+> intercalação deixa "o zip de uma com o sha256 da outra". O **nome versionado
+> do zip** fecha a causa; tratar o sha reprovado como falha retentável fecha o
+> modo de falhar.
+>
+> **A pergunta volta, e ela revoga a v5.151 pelo lado certo.** Aquela versão
+> tirou o diálogo porque ele "nunca aparecia" — era suprimido com cena, download
+> **ou espelho ligado**, e o espelho fica ligado o culto inteiro. O diagnóstico
+> estava certo e o remédio era largo demais: aplicar sem perguntar troca a base
+> no meio do que o operador estiver fazendo. Agora o espelho **não segura mais**
+> a pergunta (ele custa uma tela da rede com a página antiga em memória; a cena
+> e o download custam a projeção e o hinário pela metade), e instalar o APK —
+> que derruba o app inteiro — continua esperando os três.
+>
+> **A INTENÇÃO é a peça que faz o lote de duas metades funcionar.** `otaApply`
+> substitui o documento, então nada em memória atravessa esse ponto — e é
+> justamente depois dele que falta instalar o APK. Ela é gravada no `state` do
+> banco ANTES de aplicar (o mesmo lugar e o mesmo motivo da intenção de download
+> do YouTube, v1.59) e relida na abertura, que retoma sozinha. Descartada quando
+> o `versionName` instalado alcança a versão pedida, senão o instalador
+> reabriria a cada abertura oferecendo a versão que já está rodando.
+>
+> **O oráculo que faltava:** `tools/ota.test.mjs`, em Chromium com ponte de
+> mentira. Este era o único caminho do app cujo defeito **não tem sintoma** —
+> quando a atualização não chega, nada quebra e o operador só continua na versão
+> de anteontem sem saber —, e nenhum teste o tocava: o `smoke.mjs` sobe sem
+> ponte (todo o bloco é `window.__NATIVE__`) e o `boot-nativo` prova o boot, não
+> o fluxo. Ele reprova em **23 asserções** contra o código anterior (verificado),
+> e ele próprio quase repetiu o erro do `apk.yml` da v5.213: a primeira versão
+> abortava na primeira asserção e levava as outras vinte e duas junto.
+>
+> **O que NÃO foi verificado, e está dito:** o Kotlin não foi compilado — o
+> ambiente desta sessão não resolve o plugin do Android (a mesma limitação da
+> v5.228). Quem compila é o CI, que falha alto. As referências cruzadas foram
+> conferidas à mão, e a lógica do passo novo do workflow foi exercitada nos
+> **seis** caminhos possíveis com um `gh` de mentira.
 
 > **A v5.233: O ÍNDICE DA SÉRIE FICAVA PRESO NA REGRA VELHA — a correção da
 > v5.230 nunca chegou à lista. OTA PURO** (nenhuma linha de Kotlin; sem

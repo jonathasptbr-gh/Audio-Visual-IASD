@@ -149,6 +149,28 @@ class NativeBridge(
          * exijam mais do que o shell instalado oferece (ver [WebUpdater]).
          * Subir SEMPRE que a superfície da ponte mudar.
          *
+         * 43 (v5.234) — `atualizacaoEstado`: os DOIS canais de atualização
+         * numa leitura só.
+         *
+         * O método não acrescenta poder nenhum — tudo o que ele devolve já
+         * existia, espalhado por `otaPending`, `apkProcurar` e `otaDiag`. O que
+         * ele acrescenta é COERÊNCIA, e o degrau é por isso: três promessas
+         * independentes chegam em três instantes, e a tela desenhava a pergunta
+         * com metade do que ela tinha a dizer ("há uma base nova") para se
+         * corrigir meio segundo depois ("…e um APK junto"). Numa decisão que o
+         * operador toma uma vez e que recarrega as duas páginas, uma pergunta
+         * que muda de conteúdo debaixo do dedo é pior que uma pergunta lenta.
+         *
+         * E ele é o que torna a detecção agressiva possível sem estourar nada:
+         * o bloco `shell` vem do MANIFESTO do canal OTA (um asset de release,
+         * que não consome o limite de 60 requisições/hora da API do GitHub), e
+         * não de uma consulta à API por ronda — ver o cabeçalho do
+         * [ShellUpdater].
+         *
+         * Num shell 42 o `controle.js` cai nas três chamadas antigas e mostra a
+         * mesma pergunta, só sem a coerência de instante — a degradação certa, e
+         * a razão de `minShell` continuar em 2.
+         *
          * 42 (v5.231) — `nowPlaying` ganhou **`actions`**: a lista de botões da
          * notificação de controles, na ordem, escolhida pelo LADO WEB. É a
          * invariante 5 aplicada ao cartão — quem sabe se "próxima estrofe" faz
@@ -279,7 +301,7 @@ class NativeBridge(
          * novo NÃO chega por OTA, e um botão que não faz nada no meio de um
          * culto é pior que botão nenhum (a mesma regra do `appendYoutubeSearch`).
          */
-        const val SHELL_VERSION = 42
+        const val SHELL_VERSION = 43
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -468,6 +490,22 @@ class NativeBridge(
         io.execute {
             resolve(callId, JSONObject.quote(if (host == null) "" else WebUpdater.diag(ctx)))
         }
+    }
+
+    /**
+     * OS DOIS CANAIS DE ATUALIZAÇÃO, numa fotografia só (shell 43).
+     *
+     * `{ web, webAtual, shell, shellBytes, shellAtual, diag }` — ver
+     * [WebUpdater.estado] para o que cada campo responde e para por que eles
+     * precisam ser lidos no mesmo instante.
+     *
+     * Na fila de IO porque lê o `version.json` do bundle staged. Só o Controle,
+     * como os irmãos: o telão não pergunta por atualização.
+     */
+    @JavascriptInterface
+    fun atualizacaoEstado(callId: String) {
+        if (host == null) { resolve(callId, "null"); return }
+        io.execute { resolve(callId, WebUpdater.estado(ctx).toString()) }
     }
 
     // ---------- atualização do PRÓPRIO APK (shell 35) ----------

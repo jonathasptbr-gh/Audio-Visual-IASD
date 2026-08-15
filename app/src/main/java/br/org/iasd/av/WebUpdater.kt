@@ -432,13 +432,25 @@ object WebUpdater {
      * Intervalo da ronda com tudo indo bem — **um minuto**, e não os cinco de
      * antes.
      *
-     * A conta que justifica o número: o custo de uma ronda é um GET de ~120
-     * bytes de JSON, e a frota é de poucos aparelhos. Cinco minutos economizava
-     * quatro requisições por hora e custava, no pior caso, cinco minutos de
-     * atraso somados a cada elo da corrente — e a corrente era longa (ver
-     * [aplicarSozinho]).
+     * A conta que justifica o número: uma ronda é um GET de ~300 bytes de JSON,
+     * a frota é de poucos aparelhos, e o asset de uma release **não consome o
+     * limite de 60 requisições/hora da API do GitHub** — que é justamente por
+     * que o bloco `shell` viaja no manifesto em vez de ser perguntado à API
+     * (ver [ShellUpdater.anunciar]). Quatro requisições por minuto de um JSON
+     * minúsculo é um custo que não se mede; detecção demorada, sim.
      */
-    private const val RONDA_MS = 60_000L
+    private const val RONDA_MS = 15_000L
+
+    /**
+     * Em SEGUNDO PLANO a ronda rareia para este intervalo.
+     *
+     * Não por bateria — é um JSON —, mas porque o desfecho de uma detecção em
+     * segundo plano é uma pergunta que ninguém pode responder: o aviso mora no
+     * WebView do Controle, que o Android estrangula quando o app sai da frente.
+     * O que importa é a detecção estar em dia no instante da RETOMADA, e para
+     * isso existe o gatilho de retomada, que dispara com `forcar`.
+     */
+    private const val RONDA_FUNDO_MS = 120_000L
 
     /**
      * Piso entre duas verificações BEM-SUCEDIDAS. Os gatilhos de evento
@@ -446,18 +458,37 @@ object WebUpdater {
      * `onResume` a cada toque —, e sem o piso cada um viraria uma requisição.
      * Não vale para um pedido explícito (`forcar`), que é o operador esperando
      * resposta.
+     *
+     * Precisa ser MENOR que [RONDA_MS], e isto não é folga: com os dois em 15 s
+     * uma batida que chegasse um milissegundo cedo era descartada e a seguinte
+     * só viria 15 s depois — a ronda valendo 15 s ou 30 s conforme o jitter do
+     * agendador. Um piso maior que a ronda é a receita exata da "detecção
+     * inconstante e quase aleatória".
      */
-    private const val MIN_ENTRE_CHECKS_MS = 15_000
+    private const val MIN_ENTRE_CHECKS_MS = 5_000
 
     /**
-     * Espera crescente depois de uma falha: 10 s, 20 s, 45 s, 90 s.
+     * Espera crescente depois de uma falha: 5 s, 10 s, 20 s, 30 s.
      *
-     * O teto era de cinco minutos, e ele era o pior lugar para ser generoso: a
-     * falha típica aqui é o Wi-Fi da igreja ainda associando na abertura do
-     * app, que se resolve em segundos — e a espera longa transformava um
-     * tropeço de dez segundos em cinco minutos de atraso.
+     * O teto era de 90 s, e ele era o pior lugar para ser generoso: a falha
+     * típica aqui é o Wi-Fi da igreja ainda associando na abertura do app, que
+     * se resolve em segundos. Meio minuto é o teto porque acima disso a espera
+     * passa a durar MAIS que a ronda normal — uma falha transitória sairia
+     * punindo a detecção, deixando-a mais lenta do que se ninguém tivesse
+     * tentado.
      */
-    private val ESPERAS_FALHA_MS = longArrayOf(10_000, 20_000, 45_000, 90_000)
+    private val ESPERAS_FALHA_MS = longArrayOf(5_000, 10_000, 20_000, 30_000)
+
+    /**
+     * O app está na frente? Escrito pela `MainActivity` (`onResume`/`onPause`).
+     *
+     * Só o RITMO da ronda depende disto — nunca a decisão de procurar. Um
+     * gatilho de rede que chegue com o app em segundo plano continua valendo:
+     * baixar o bundle enquanto ninguém olha é exatamente o que faz a pergunta
+     * já estar pronta quando o operador voltar.
+     */
+    @Volatile
+    var emPrimeiroPlano = true
 
     // Os marcos abaixo são medidos em `SystemClock.elapsedRealtime()`, não em
     // `currentTimeMillis()`: os pisos da vigilância são INTERVALOS, e o relógio
@@ -472,53 +503,43 @@ object WebUpdater {
     @Volatile private var falhasSeguidas = 0
     @Volatile private var proximaEm = 0L
     @Volatile private var vigiando = false
+    @Volatile private var ultimaRonda = 0L
 
     /**
-     * Avisado quando um bundle NOVO acaba de ficar pronto no disco. É o que
-     * permite a atualização entrar no segundo em que ela chega, em vez de
-     * esperar a enquete de um minuto do lado web (ver `MainActivity`).
+     * Avisado quando a procura muda o que o aparelho SABE: um bundle novo
+     * ficou pronto no disco, ou o manifesto passou a anunciar um APK. É o que
+     * põe a pergunta na tela no segundo em que a resposta existe, em vez de
+     * esperar a enquete do lado web (ver `MainActivity`).
+     *
+     * ## Por que ele avisa em vez de APLICAR (v5.234)
+     *
+     * Da v1.68 até aqui havia ao lado deste um `aplicarSozinho`, e o bundle
+     * novo entrava sozinho, sem perguntar. Ele nasceu certo, contra um defeito
+     * real: "entra no próximo lançamento" era literal de um jeito que ninguém
+     * tinha medido — [beginSession] decide UMA vez por **processo**, e este
+     * processo quase nunca morre (os serviços em primeiro plano o mantêm vivo
+     * de propósito, e fechar pelo Recentes derruba a Activity, não o processo).
+     * O operador reabria o app "várias e várias vezes" e continuava na versão
+     * velha. Somado a isso, a oferta do lado web era suprimida com cena, com
+     * download **ou com o espelho ligado** — e o espelho ficava ligado o tempo
+     * todo. As duas coisas produziam "o OTA não funciona".
+     *
+     * O diagnóstico estava certo e o remédio era largo demais. Aplicar sem
+     * perguntar troca a base no meio do que o operador estiver fazendo, e a
+     * decisão de QUANDO piscar é dele. O que a v5.234 conserta é a causa, não o
+     * sintoma: a detecção passou a ser rápida ([RONDA_MS]) e a supressão do
+     * lado web ficou só com o que é temporário (cena e download), sem o espelho
+     * — que era permanente e era o elo que travava tudo.
+     *
+     * O custo de aplicar continua o mesmo, e continua recuperável: o telão
+     * recarrega, dispara `display-ready`, e o Controle reenvia a cena com
+     * posição e estado de reprodução — o mesmo caminho que a queda de um dongle
+     * já exercita. O que não volta sozinho, e está dito em vez de escondido: um
+     * lote de downloads recomeça o item em voo, e uma tela da rede segue com a
+     * página antiga até ser recarregada.
      */
     @Volatile
     var aoChegar: ((String) -> Unit)? = null
-
-    /**
-     * APLICAR SOZINHO, no instante em que o bundle fica pronto (v1.68).
-     *
-     * ## A corrente que não fechava
-     *
-     * Até aqui a base nova entrava "no próximo lançamento", e essa frase era
-     * literal de um jeito que ninguém tinha medido: [beginSession] decide UMA
-     * vez por **processo** ([sessionStarted]), e este processo quase nunca
-     * morre — ele é mantido vivo de propósito pelo `SessionService` (enquanto
-     * houver cena), pelo `SyncService` (enquanto houver download) e pelo
-     * `EspelhoService`. Fechar o app pelo Recentes também não basta: a Activity
-     * some, o processo fica. Na prática o operador reabria o app "várias e
-     * várias vezes" e continuava na versão velha, porque **reabrir a Activity
-     * não é reabrir o processo**.
-     *
-     * E havia um segundo elo, do lado web: a oferta de aplicar ao vivo era
-     * suprimida com cena no ar, download em curso **ou espelho ligado** — e
-     * durante os testes do espelho ele estava sempre ligado, então a pergunta
-     * nunca aparecia. As duas coisas juntas produziam "o OTA não funciona".
-     *
-     * ## O que isto muda, dito por inteiro
-     *
-     * A garantia escrita "nunca troca a base no meio de uma sessão" **deixa de
-     * valer por padrão**, a pedido do operador. Ela protegia contra uma troca
-     * ACIDENTAL; o custo real de uma troca é uma recarga dos dois WebViews, e
-     * esse custo é conhecido e recuperável: o telão recarrega, dispara
-     * `display-ready`, e o Controle reenvia a cena **com posição e estado de
-     * reprodução** (`resendSceneToDisplay`) — o mesmo caminho que a queda de um
-     * dongle já exercita. Uma mídia tocando volta no segundo em que estava. O
-     * que se vê é um piscar.
-     *
-     * O que NÃO é recuperável, e por isso está dito e não escondido: um lote de
-     * downloads em curso (hinário, Bíblia) recomeça o item que estava em voo, e
-     * o WebView do espelho continua com a página antiga em memória até alguém
-     * desligá-lo e ligá-lo. Nenhum dos dois perde dado.
-     */
-    @Volatile
-    var aplicarSozinho: ((String) -> Unit)? = null
 
     private val rondas by lazy {
         java.util.concurrent.Executors.newSingleThreadScheduledExecutor { r ->
@@ -544,7 +565,28 @@ object WebUpdater {
         // as duas — deixar o compilador escolher é convite a resolver para a
         // errada num refactor futuro.
         rondas.scheduleWithFixedDelay(
-            Runnable { checkAsync(app, "ronda") },
+            // A RONDA NÃO PODE MORRER, e `scheduleWithFixedDelay` a mata em
+            // silêncio: qualquer exceção que escape do `Runnable` CANCELA todas
+            // as execuções seguintes, sem log e sem `Future` que alguém
+            // consulte. O corpo do `checkAsync` já é protegido por dentro (a
+            // thread tem try/catch), mas o que roda ANTES de a thread nascer —
+            // `applicationContext`, o `SystemClock`, o próprio `thread {}` — não
+            // era. O preço de errar aqui é a detecção parar para sempre naquele
+            // aparelho, que é indistinguível de "o OTA não funciona".
+            Runnable {
+                try {
+                    if (!emPrimeiroPlano) {
+                        val agora = SystemClock.elapsedRealtime()
+                        if (agora - ultimaRonda < RONDA_FUNDO_MS) return@Runnable
+                        ultimaRonda = agora
+                    } else {
+                        ultimaRonda = SystemClock.elapsedRealtime()
+                    }
+                    checkAsync(app, "ronda")
+                } catch (e: Throwable) {
+                    Log.w(TAG, "ronda tropeçou (e continua)", e)
+                }
+            },
             RONDA_MS, RONDA_MS, java.util.concurrent.TimeUnit.MILLISECONDS,
         )
         vigiarRede(app)
@@ -620,14 +662,17 @@ object WebUpdater {
                 ultimoInstante = ultimoOk
                 falhasSeguidas = 0
                 proximaEm = 0
-                if (nova != null) {
-                    // O EMPURRÃO PRIMEIRO, a aplicação depois: o lado web fica
-                    // sabendo da versão (para o Registro) mesmo que a aplicação
-                    // falhe ou que ninguém a esteja ouvindo.
-                    aoChegar?.invoke(nova)
-                    // E ENTÃO ELA ENTRA, sozinha e agora. Ver [aplicarSozinho]
-                    // para por que "no próximo lançamento" nunca chegava.
-                    aplicarSozinho?.invoke(nova)
+                // O EMPURRÃO SAI TAMBÉM QUANDO SÓ O SHELL MUDOU, e é por isso
+                // que ele não está mais dentro do `if (nova != null)`.
+                //
+                // Uma Release pode ser publicada sem base web nova (uma
+                // correção só de Kotlin), e nesse caso `check` devolve null com
+                // toda a razão: não há bundle a baixar. Amarrar o aviso ao
+                // bundle deixaria justamente esse caso mudo — o APK existiria,
+                // o `ShellUpdater` já saberia dele, e nada na tela diria nada
+                // até o operador abrir Configurações por conta própria.
+                if (nova != null || ShellUpdater.temNovidade()) {
+                    aoChegar?.invoke(nova ?: "")
                 }
             } catch (e: Exception) {
                 ultimoInstante = SystemClock.elapsedRealtime()
@@ -668,10 +713,46 @@ object WebUpdater {
         val quando = if (ultimoInstante == 0L) "nunca"
         else "há " + ((agora - ultimoInstante) / 1000) + "s"
         val pend = pendingVersion(ctx)
+        // O APK entra na MESMA linha porque a pergunta é a mesma. Desde a
+        // v5.234 os dois canais são um só evento — o manifesto que traz a base
+        // web traz o link da Release —, e um diagnóstico que só falasse de um
+        // deles mandaria quem o lê procurar o outro em algum lugar que não
+        // existe.
+        val apk = ShellUpdater.novidade(ctx)
         return "web v" + currentVersion(ctx) +
             (pend?.let { " · v$it esperando" } ?: "") +
+            " · shell v" + ShellUpdater.versaoInstalada(ctx) +
+            (apk?.let { " · v${it.versao} publicada" } ?: "") +
             " · última busca $quando: $ultimoResultado" +
             (if (falhasSeguidas > 0) " · $falhasSeguidas falha(s) seguida(s)" else "")
+    }
+
+    /**
+     * O ESTADO DA ATUALIZAÇÃO INTEIRO, numa leitura só — os dois canais e o
+     * diagnóstico (v5.234).
+     *
+     * Existe porque a pergunta do operador é UMA ("tem atualização?") e a
+     * resposta morava em três chamadas assíncronas independentes
+     * (`otaPending`, `apkProcurar`, `otaDiag`). Três respostas que chegam em
+     * momentos diferentes não formam um estado: a tela desenhava "só web" e
+     * meio segundo depois virava "web + app", ou pior, desenhava a pergunta com
+     * metade do que ela precisava dizer. Aqui elas são lidas no mesmo instante,
+     * e o que a tela recebe é uma fotografia coerente.
+     *
+     * Campos: `web` (versão baixada e esperando, `""` = nada), `webAtual`,
+     * `shell` (versão publicada e mais nova que a instalada, `""` = nada),
+     * `shellBytes`, `shellAtual` e `diag`.
+     */
+    fun estado(ctx: Context): JSONObject {
+        val o = JSONObject()
+        o.put("web", pendingVersion(ctx) ?: "")
+        o.put("webAtual", currentVersion(ctx))
+        val achado = ShellUpdater.novidade(ctx)
+        o.put("shell", achado?.versao ?: "")
+        o.put("shellBytes", achado?.bytes ?: 0L)
+        o.put("shellAtual", ShellUpdater.versaoInstalada(ctx))
+        o.put("diag", diag(ctx))
+        return o
     }
 
     /** Devolve a versão baixada agora, ou `null` se não havia nada novo. */
@@ -679,6 +760,34 @@ object WebUpdater {
         val meta = JSONObject(fetchText(versionUrl()))
         val version = meta.getString("version")
         val minShell = meta.optInt("minShell", 0)
+
+        // ── O BLOCO `shell` VEM PRIMEIRO, e a ordem é a decisão ──────────────
+        //
+        // Ele é lido ANTES de qualquer conclusão sobre a base web, inclusive
+        // antes do "nada novo". Se ficasse depois, o caso que mais importa
+        // seria o único a não funcionar: **depois de o OTA ter sido aplicado**,
+        // a base web já é a publicada, todo `check` seguinte devolve "nada
+        // novo" logo na comparação — e o APK que acompanha o lote nunca seria
+        // anunciado. Ou seja, o operador aceitaria a atualização, veria a base
+        // trocar, e a metade nativa dela sumiria sem explicação.
+        //
+        // Isto é TRANSPORTE: quem decide se a versão é maior que a instalada é
+        // o [ShellUpdater], que é quem sabe a versão instalada.
+        val bloco = meta.optJSONObject("shell")
+        if (bloco != null) {
+            ShellUpdater.anunciar(
+                ctx,
+                bloco.optString("versao"),
+                bloco.optString("apk"),
+                bloco.optLong("bytes", 0L),
+            )
+        } else {
+            // Manifesto SEM o bloco é uma afirmação, não um silêncio: "esta
+            // base web não vem com APK". Esquecer de desfazer o anúncio
+            // anterior deixaria o aparelho oferecendo para sempre uma Release
+            // que o manifesto parou de mencionar.
+            ShellUpdater.esquecerAnuncio()
+        }
 
         // Válvula: um web que exige uma ponte mais nova que a do shell
         // instalado quebraria recursos no aparelho — melhor não atualizar.
@@ -739,9 +848,27 @@ object WebUpdater {
             download(url, tmpZip)
             val got = sha256Of(tmpZip)
             if (!got.equals(sha256, ignoreCase = true)) {
-                Log.w(TAG, "sha256 não confere — descartando download")
-                ultimoResultado = "v$version com sha256 que não confere"
-                return null
+                // SHA REPROVADO É FALHA, não desfecho — e essa distinção vale
+                // uma atualização inteira.
+                //
+                // Devolver `null` aqui carimbava a tentativa como
+                // BEM-SUCEDIDA: `ultimoOk` era renovado, `falhasSeguidas`
+                // zerava, e não havia espera crescente. A ronda seguinte
+                // baixava o MESMO zip, reprovava o MESMO hash e repetia —
+                // megabytes por minuto, para sempre, com o app dizendo apenas
+                // "nada aconteceu". E a causa comum era estrutural, não
+                // adversarial: os dois assets eram substituídos um a um, sem
+                // transação, então uma publicação intercalada deixava o zip de
+                // uma com o sha da outra e travava a frota até o push seguinte.
+                // O nome versionado do zip (v5.234) fecha a causa; isto fecha o
+                // MODO DE FALHAR, que é o que precisa aguentar a próxima causa
+                // que ninguém previu.
+                //
+                // A FRASE quem escreve é o `catch` do [checkAsync] ("falhou
+                // (…)"), e por isso ela não é escrita aqui: uma atribuição a
+                // `ultimoResultado` antes do `error()` seria sobrescrita no
+                // quadro seguinte — código morto com cara de diagnóstico.
+                error("sha256 de v$version não confere")
             }
 
             val staging = File(baseDir(ctx), "staging-$version-$stamp")
