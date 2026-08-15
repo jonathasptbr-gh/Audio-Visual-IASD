@@ -376,12 +376,37 @@ function applyLyricsImage(slide) {
     return;
   }
   if (!slide.imageOpfsPath) {
-    // TELA DA REDE: a chave É a URL. Pré-carrega com retentativa curta — o
-    // empurrão da imagem pode ainda estar chegando ao cache do celular, e um
-    // src que 404a não retenta nunca. Sem object URL: nada a revogar da nova,
-    // só da anterior (que pode ter sido um OPFS de outra era desta página).
-    const ESPERAS = [0, 600, 1800];
-    let tentativa = 0;
+    // TELA DA REDE: a chave É a URL. Pré-carrega com retentativa — o empurrão
+    // da imagem pode ainda estar chegando ao cache do celular, e um src que
+    // 404a não retenta nunca. Sem object URL: nada a revogar da nova, só da
+    // anterior (que pode ter sido um OPFS de outra era desta página).
+    //
+    // A ESPERA PRECISA DURAR MAIS QUE O EMPURRÃO DA MÚSICA (v5.221), e a
+    // ladeira anterior — 0, 600, 1800 ms, desistindo em ~2,4 s — não durava.
+    //
+    // Não é um número mal escolhido: é um número escolhido contra a premissa
+    // errada. As imagens de fundo são enfileiradas **DEPOIS da mídia principal**
+    // (`telaEmpurrarImagensLetra`, chamado logo após `telaGarantirEnvio`), no
+    // MESMO canal serializado — de propósito, porque o som não pode esperar as
+    // fotos. Logo, por construção, os bytes da imagem só podem começar a chegar
+    // quando a música inteira já tiver atravessado o canal: alguns segundos para
+    // um hino, mais para um louvor grande. A tela desistia antes de existir
+    // qualquer possibilidade de sucesso, e ficava no preto **para sempre** —
+    // até o operador desligar e religar "imagens" nas Configurações, que troca a
+    // chave efetiva e refaz este caminho com os bytes já no lugar. Era esse o
+    // "conserto" que o operador vinha fazendo a cada música.
+    //
+    // A ladeira agora dobra até um platô e tem um TETO de tempo, e ela é
+    // auto-limitada pelo que já existia: a guarda de sequência mata o laço no
+    // instante em que a estrofe muda — que é o caso comum muito antes do teto.
+    // Repetir a mesma URL é seguro porque o servidor manda `Cache-Control:
+    // no-store` em TODA resposta (`EspelhoHttp.CABECALHOS_SEMPRE`), 404
+    // inclusive: não há 404 grudado em cache para envenenar a tentativa boa.
+    const ESPERA_1 = 400;        // ms — a primeira espera depois da falha inicial
+    const ESPERA_MAX = 2500;     // ms — o platô: não adianta martelar
+    const TETO_MS = 45000;       // ms — desiste de vez (a estrofe já terá mudado)
+    const prazoFinal = Date.now() + TETO_MS;
+    let esperaMs = 0;
     const tentar = () => {
       if (seq !== lyricLoadSeq) return;
       const img = new Image();
@@ -395,9 +420,11 @@ function applyLyricsImage(slide) {
         if (prevUrl) URL.revokeObjectURL(prevUrl);
       };
       img.onerror = () => {
-        tentativa++;
-        if (seq === lyricLoadSeq && tentativa < ESPERAS.length) setTimeout(tentar, ESPERAS[tentativa]);
-        // esgotado: mantém a imagem anterior, como no caminho do OPFS
+        // esgotado (ou estrofe trocada): mantém a imagem anterior, como no
+        // caminho do OPFS.
+        if (seq !== lyricLoadSeq || Date.now() >= prazoFinal) return;
+        esperaMs = esperaMs ? Math.min(esperaMs * 2, ESPERA_MAX) : ESPERA_1;
+        setTimeout(tentar, esperaMs);
       };
       img.src = key;
     };
