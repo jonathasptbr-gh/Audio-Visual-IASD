@@ -1904,6 +1904,22 @@ data, fora de ordem, no fim de janeiro —, não um episódio ausente.
   A única diferença é `semSoAudio`: o seletor Vídeo × Só áudio some, porque um
   testemunho em vídeo não tem versão de áudio que faça sentido projetar — e uma
   escolha que não muda nada é pior que escolha nenhuma.
+- **E A LINHA TAMBÉM É A DO VÍDEO** (v5.236). A v5.230 desviou as duas FOLHAS e
+  parou ali: o toque na LINHA continuou abrindo o acordeão da LETRA, que
+  anunciava "Letra ainda não baixada" para uma coisa que nunca vai ter letra —
+  **desviar as portas de um recurso não desvia o que estava atrás delas**, que é
+  a lição da v5.229 outra vez. Agora quem decide é o TIPO da coleção
+  (`tipoDaColecao`, com as capacidades `temLetra` e `ehLink`), e a gaveta
+  responde a mesma pergunta — *"é este mesmo?"* — com o que o item de fato tem:
+  a **miniatura**, a duração e o estado no aparelho. Os dois primeiros o extrator
+  já entregava e o índice descartava; o terceiro é o que decide, porque "Tocar
+  agora" TRANSMITE e um episódio já guardado entra do disco.
+- **A LETRA nunca é pedida para um vídeo** (v5.236). `syncLyrics` varria toda
+  coleção com itens e pedia `music_<id>` ao LouvorJA — com um id que é do
+  YouTube. Como falha de rede não grava `LYRIC_NONE` de propósito, eram ~52
+  requisições perdidas **por abertura do app, para sempre**, infladas no total
+  da notificação "Letras das músicas". A guarda é `temLetra(coll)`, nos dois
+  consumidores (a fila e o índice da busca por trecho).
 - **O card não baixa em lote, e o botão dele muda de verbo.** "Baixar" ali seria
   o download direto que o operador pediu para não existir, na maior escala que
   este app tem (~15 GB). O botão da barra some assim que HÁ índice — enquanto
@@ -2101,7 +2117,7 @@ contextos.
 | Resolução do download | — | **até 1080p, montando as duas faixas** (v1.44; pares por contêiner na v1.45). Acima de 720p o YouTube só entrega vídeo SEM som, com o som à parte — e por isso o app baixava a pior cópia: só sabia pegar o progressivo, que neste aparelho é UM, de 360p. `MuxMp4.kt` junta as duas com o `MediaMuxer` da PLATAFORMA: é cópia de amostras, não recodificação, então não há perda nem espera. Teto de 1080p de propósito (o telão da igreja é 1080p) e só quando o resultado for melhor que o progressivo — senão dois downloads e um muxer entregariam o mesmo de antes. Os pares são do MESMO contêiner (mp4+m4a → MP4, webm+webm → WebM, este só na API 29+): "a melhor de cada lado" produziria VP9 dentro de MP4, que o muxer recusa depois de tudo baixado. Falhando qualquer etapa, o progressivo segue como piso. **Da v1.44 à v1.48 isso não saía do papel: as faixas eram listadas (1080p) e o CDN respondia 403 a todas** — com os dois pares, os dois perfis de UA e `Range`. Era o SABR, que o YouTube passou a exigir de quem pede sem PO Token. A saída não era montar o token (o `getWebClientPoToken` da biblioteca não tem uma única chamada em versão nenhuma, e o token do cliente Android — o que ela de fato consome — exige o DroidGuard do Play Services): foi **atualizar o extrator para a v0.26.4** (v1.49), que busca o cliente **visionOS** sem token nenhum e volta a entregar as adaptativas. Como as listas passaram a chegar MISTURADAS (visionOS + o cliente antigo), a escolha virou uma **fila de candidatos** — ver "O cliente visionOS destrava o 1080p" em `docs/ARQUITETURA-WEB.md`. **CONFIRMADO em aparelho:** `clientes VISIONOS 17, ANDROID 1 → juntou 1080p (mp4, 137@VISIONOS/V)`, sem uma única recusa na fila. Diagnóstico no rodapé de Configurações, agora com o itag, o cliente e o motivo de cada tentativa |
 | **Só o ÁUDIO** em "Tocar agora" | **não toca** | **TRANSMITIDO também** (v5.130): o manifesto do shell já traz o par, e o lado web simplesmente DESCARTA a faixa de vídeo (`man.video = null`) — nenhum método novo, nenhum byte de 1080p baixado para ser jogado fora, e por isso chega por OTA. Entra como `kind: 'audio'` (o telão mantém o wallpaper) e o fallback, se a transmissão morrer, baixa a MESMA forma. O download de um m4a é rápido, mas "rápido" não é o pedido: o pedido é não esperar |
 | **Só o ÁUDIO** guardado (playlist · Cronograma · Favoritos) | — | **`ytFetchAudio`** (v5.112, shell ≥ 23; **exige o APK v1.41+** — ver abaixo): a faixa de áudio, sem vídeo. A escolha é o MESMO seletor de Cantada/Playback das músicas, no topo da folha de destinos, e vale para as quatro ações. Entra como `kind: 'audio'` e **sem miniatura** — é o kind que faz o telão manter o wallpaper em vez de trocar de imagem. É também o único caminho em que o teto de 720p do progressivo não existe: o áudio do YouTube já vem em faixa separada, então aqui ele vem inteiro. **E é justamente por ser faixa separada que ele pode não vir**: adaptativo é o que o YouTube protegeu com SABR quando o app pedia sem PO Token. Daí a fila de tentativas do shell — que na v1.49 deixou de ser "m4a → qualquer outro → progressivo" e passou a ser **três candidatos de áudio na ordem do cliente que funciona** (visionOS primeiro), com o progressivo ainda no fim. **CONFIRMADO em aparelho:** `→ veio m4a 140@VISIONOS` (AAC-LC 128 kbps, primeiro candidato, primeira requisição) — até a v1.48 este caminho caía no vídeo de 360p inteiro. O registro entra como `kind: 'audio'` em todos os casos: quem decide que o telão não muda de imagem é o kind, não o container |
-| **Séries do YouTube na Biblioteca** | **não existe** — sem ponte não há como enumerar playlist nem baixar vídeo | **um álbum por SÉRIE** (v5.228/shell 41), e o primeiro é **Provai e Vede 2026**. O canal (`@provaievedeoficial`) é a ÚNICA constante: o app lê a **aba Playlists** dele (`ytCanalPlaylists`), aceita as que casam com "prefixo + ano" e **recusa as de LIBRAS**, expande cada uma (`ytPlaylist`) e ordena os episódios pela data do título — a faixa se chama "15/Ago · Quando o evangelho sussurra", porque o operador procura pelo sábado, não pelo nome do episódio. O card fica no topo da Biblioteca, junto dos hinários — mas **o ITEM é um vídeo do YouTube, não uma faixa de hinário** (v5.230): o toque abre a MESMA folha do YouTube (sem "Só áudio"), o "Tocar agora" TRANSMITE sem baixar, e o download existe só nos destinos que guardam. Não há "baixar o álbum": são ~300 MB por episódio. **A descoberta é pela ABA DO CANAL, nunca por busca de texto**: numa busca quem escolhe é o ranking do YouTube e qualquer pessoa pode nomear uma playlist "Provai e Vede 2026" — vindo do canal, o pior caso é uma playlist a menos, jamais o vídeo de um desconhecido na projeção. A regra vive em `controle/serie.js` (PURA) com oráculo em Node (`tools/serie.test.mjs`) e o percurso inteiro no `boot-nativo.test.mjs`. Ver "Séries do YouTube", abaixo |
+| **Séries do YouTube na Biblioteca** | **não existe** — sem ponte não há como enumerar playlist nem baixar vídeo | **um álbum por SÉRIE** (v5.228/shell 41), e o primeiro é **Provai e Vede 2026**. O canal (`@provaievedeoficial`) é a ÚNICA constante: o app lê a **aba Playlists** dele (`ytCanalPlaylists`), aceita as que casam com "prefixo + ano" e **recusa as de LIBRAS**, expande cada uma (`ytPlaylist`) e ordena os episódios pela data do título — a faixa se chama "15/Ago · Quando o evangelho sussurra", porque o operador procura pelo sábado, não pelo nome do episódio. O card fica no topo da Biblioteca, junto dos hinários — mas **o ITEM é um vídeo do YouTube, não uma faixa de hinário** (v5.230): o toque abre a MESMA folha do YouTube (sem "Só áudio"), o "Tocar agora" TRANSMITE sem baixar, e o download existe só nos destinos que guardam. E desde a v5.236 **a LINHA também sabe disso**: a gaveta que numa música abre a letra abre aqui a MINIATURA, a duração e o estado no aparelho — quem decide é o TIPO da coleção (`tipoDaColecao`), não um `if` por recurso. Não há "baixar o álbum": são ~300 MB por episódio. **A descoberta é pela ABA DO CANAL, nunca por busca de texto**: numa busca quem escolhe é o ranking do YouTube e qualquer pessoa pode nomear uma playlist "Provai e Vede 2026" — vindo do canal, o pior caso é uma playlist a menos, jamais o vídeo de um desconhecido na projeção. A regra vive em `controle/serie.js` (PURA) com oráculo em Node (`tools/serie.test.mjs`) e o percurso inteiro no `boot-nativo.test.mjs`. Ver "Séries do YouTube", abaixo |
 | Buscar no YouTube | não existe: o botão abre o YouTube numa aba | **a busca acontece DENTRO do acervo** — a tela que o rótulo chama de **Biblioteca** desde a v5.96, e que no código segue sendo o acervo — (`AVNative.ytSearch`, `YoutubeGrab.pesquisar`, em **português** — no padrão en-GB da biblioteca o YouTube devolve o título TRADUZIDO de vídeos que são originalmente em português, e passar a localização ao `NewPipe.init` NÃO resolve: o serviço filtra o idioma por uma lista de suportados que hoje só tem `en-GB`. Quem resolve é o `forceLocalization` do próprio `Extractor`): os resultados entram na mesma lista e o toque abre a mesma folha de escolhas das músicas (tocar · playlist · Cronograma · Favoritos), cada uma indo para o seu lugar — e, desde a v5.141, para mais de um de uma vez, com um download só. Um iframe da página de resultados é recusado pelo `X-Frame-Options` do YouTube, e a API oficial exigiria chave com cota compartilhada pela frota |
 | Link para fora do app ("Pesquisar … no YouTube") | `window.open` numa aba nova | **`AVNative.openExternal(url)`** → `ACTION_VIEW` numa tarefa própria. O WebView RECUSA navegar para outro origin (invariante 2), então sem esse método um link externo não faz absolutamente nada — nem erro no console |
 | "Conectar a tela" (modo simplificado) | abre a tela do Display (`window.open`) — e é ela que conta como "conectado" | mesmo `AVNative.openCast()`, com o nome da tela conectada no subtítulo |
@@ -2772,10 +2788,80 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.235** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.236** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.236: A BIBLIOTECA PASSA A TER TIPOS — a gaveta de um vídeo deixa de
+> prometer letra, e a fila de letras deixa de perguntar por ele. OTA PURO**
+> (nenhuma linha de Kotlin; sem Release).
+>
+> Pedido do operador: *"atualmente a biblioteca é estruturada para usar vídeos e
+> músicas, mas ela também vai ser usada para armazenar os materiais de eventos,
+> vídeos comuns e apresentações futuramente… mas por exemplo, o toque nele na
+> lista abre ainda a opção de ver a letra, mas ele não tem letra por não ser uma
+> música"*.
+>
+> **O diagnóstico é o da v5.229 numa terceira roupa: desviar as PORTAS de um
+> recurso não desvia o que estava atrás delas.** A Biblioteca nasceu com um
+> modelo de item só — a música do LouvorJA, que tem áudio, letra e uma segunda
+> variante —, e tudo o que a lista oferece saiu daí. A v5.230 desviou as duas
+> FOLHAS de um episódio de série para o caminho do YouTube e parou; a LINHA
+> continuou sendo a da música, e por isso o toque nela ainda abria a caixa da
+> letra para anunciar **"Letra ainda não baixada"** — a promessa de uma coisa
+> que nunca vai chegar.
+>
+> **O que entra não é um `if` a mais, é o TIPO** (`tipoDaColecao`, com as
+> capacidades `temLetra` e `ehLink`). Cada afordância passou a perguntar pela
+> capacidade de que ela depende, nunca por "é série?" — e a diferença é
+> justamente o que abre lugar para o terceiro modelo que o operador anuncia (os
+> materiais de evento, os vídeos avulsos e as apresentações): ele entra como mais
+> um tipo e um punhado de respostas, em vez de mais um `ehSerie` espalhado por
+> meia dúzia de funções que não se conhecem. **Por COLEÇÃO, e não por item**, e
+> isso está escrito como escolha: hoje toda coleção é homogênea, e o dia em que
+> uma não for, o que muda é `tipoDoItem(coll, s)` consultar o `s` primeiro.
+> Escrever esse desvio agora seria um ramo que nada alcança.
+>
+> **A gaveta responde a mesma pergunta com a resposta do tipo.** Ela existe para
+> dizer "é este mesmo?": numa música isso é a LETRA (e é dela que sai o trecho
+> marcado quando a busca casou no meio de uma estrofe); num vídeo é a
+> **MINIATURA**, a duração e o estado no aparelho. Os dois primeiros o extrator
+> já entregava em toda listagem de playlist e o índice **descartava**; o
+> terceiro é o que decide de verdade no domingo de manhã, porque "Tocar agora"
+> de um vídeo TRANSMITE e um episódio já guardado entra do disco — ~300 MB de
+> diferença.
+>
+> **E guardar um campo novo no índice obrigou a mexer na assinatura**, senão
+> este lote reproduziria o defeito da v5.233 pela porta de trás: `AVSerie.
+> impressao` conhece a regra que decide nome e ordem, e quem decide o que o
+> índice GUARDA é uma função do `controle.js`. Ela virou `serieFaixaDoItem`,
+> nomeada de propósito — é o CÓDIGO dela que entra na assinatura, e um `map`
+> anônimo não tem nome para passar. Índice velho é refeito uma vez, sozinho.
+>
+> **A correção mais cara do lote é a que ninguém veria.** `syncLyrics` varria
+> TODA coleção com itens e pedia `music_<id>` ao LouvorJA — e num episódio de
+> série esse id é do **YouTube**, uma pergunta que aquele banco não tem como
+> responder. Falha de rede não grava `LYRIC_NONE` de propósito, então as ~52
+> requisições de cada série voltavam **a cada abertura do app, para sempre**, e
+> ainda entravam no total da notificação "Letras das músicas", que o operador lê.
+> O modo de falhar é o mais silencioso que este projeto tem: um `catch` vazio
+> numa tarefa de segundo plano. O índice da busca por trecho varria o mesmo
+> nada, sem custo de rede.
+>
+> Os oráculos entraram no `boot-nativo.test.mjs` — o único que sobe a base COM a
+> ponte, logo o único capaz de exercitar a série — e cobram as DUAS metades: o
+> vídeo deixa de prometer letra **e** a música continua tendo a dela. Sem a
+> segunda, apagar a gaveta inteira passaria. Verificados nos dois sentidos: **6
+> asserções reprovam** contra o código anterior.
+>
+> **E a primeira versão deles reprovou por um defeito do próprio teste**, que é a
+> lição da v5.208 numa terceira roupa: ele clicava na linha sem entrar no modo
+> AVANÇADO, e no Modo Fácil o toque na linha TOCA em vez de abrir gaveta
+> nenhuma — a medição encontrava um container vazio e teria concluído o que
+> quisesse. O caso ao lado (a série é ordenada por data) escondia a segunda
+> armadilha: o primeiro item da lista é o de julho, e medir a miniatura nele
+> reprovaria uma gaveta que está certa.
 
 > **A v5.235: A LINHA DAS OPÇÕES ENCOLHE DE VERDADE — o estado sai da segunda
 > linha e a remoção vira só a lixeira. OTA PURO** (nenhuma linha de Kotlin; sem

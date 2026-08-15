@@ -209,7 +209,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.235';
+const WEB_VERSION = '5.236';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -624,6 +624,63 @@ function allCollections() {
   return cols;
 }
 function collSongs(id) { return (collState[id] && collState[id].songs) || []; }
+
+// ===== O TIPO DE UMA COLEÇÃO — quem governa a linha e as duas folhas =====
+//
+// A Biblioteca nasceu com UM modelo de item, e é dele que saiu tudo o que a
+// lista oferece: a música do LouvorJA. Ela tem áudio, tem LETRA e tem uma
+// segunda variante (Playback) — então o toque na linha abre a letra, o ▶
+// pergunta "cantada ou playback?" e o + oferece "só a letra, no Cronograma".
+//
+// A série (v5.228) trouxe o segundo modelo: um VÍDEO. Ele não tem letra, não
+// tem playback, não se baixa em lote (~300 MB por episódio) e nem sequer está
+// no aparelho — é um link. A v5.230 desviou as duas FOLHAS para o caminho do
+// YouTube e parou aí: a LINHA continuou sendo a da música, e por isso o toque
+// nela ainda abria a caixa da letra, que anunciava **"Letra ainda não
+// baixada"** para uma coisa que nunca vai ter letra. Foi o que o operador
+// relatou, e o defeito é o mesmo da v5.229 outra vez: **desviar as portas de
+// um recurso não desvia o que estava atrás delas.**
+//
+// Daí este bloco. O tipo é decidido UMA vez, num lugar só, e cada afordância
+// pergunta pela CAPACIDADE de que ela depende — nunca por "é série?". A
+// diferença não é de estilo: é ela que abre lugar para o TERCEIRO modelo (os
+// materiais de evento, os vídeos avulsos e as apresentações), que entrará como
+// mais um tipo e um punhado de respostas, em vez de mais um `if (ehSerie)`
+// espalhado por meia dúzia de funções que não se conhecem.
+//
+// **Por COLEÇÃO, e não por item, e isso é uma escolha e não um atalho.** Hoje
+// toda coleção é homogênea: um hinário só tem música, uma série só tem vídeo.
+// Uma coleção de materiais de evento não será — ela mistura vídeo, imagem e
+// apresentação —, e o dia em que ela existir o que muda aqui é `tipoDoItem(coll,
+// s)` consultar o `s` antes de cair no tipo da coleção. Escrever esse desvio
+// agora seria um ramo que nada alcança, isto é, código morto com aparência de
+// preparo.
+const TIPO_MUSICA = 'musica';   // faixa do LouvorJA: áudio no acervo, letra, variantes
+const TIPO_VIDEO = 'video';     // vídeo do YouTube: um LINK, sem letra e sem variante
+
+function tipoDaColecao(coll) {
+  return coll && coll.kind === 'serie' ? TIPO_VIDEO : TIPO_MUSICA;
+}
+function ehSerie(coll) { return !!coll && coll.kind === 'serie'; }
+
+// ----- As CAPACIDADES, que é o que os chamadores devem perguntar -----
+//
+// **A LETRA existe?** Governa quatro coisas que estavam todas presas ao mesmo
+// engano: o que o toque na linha abre, o que a busca por trecho varre, o que o
+// índice de letras indexa e — a mais cara — o que a fila de `syncLyrics` vai
+// BUSCAR NA REDE. Ela pedia `music_<id>` ao LouvorJA para os ~52 vídeos de cada
+// série, com um id que é do YouTube e que aquele banco nunca vai reconhecer:
+// 52 requisições perdidas por abertura, para sempre, porque falha de rede não
+// grava `LYRIC_NONE` de propósito (e aqui não é falha de rede — é uma pergunta
+// que não faz sentido). Elas ainda entravam no total da notificação "Letras das
+// músicas", inflando um contador que o operador lê.
+function temLetra(coll) { return tipoDaColecao(coll) === TIPO_MUSICA; }
+
+// **O item é um LINK?** Então os bytes não estão aqui, e três decisões mudam:
+// as folhas são as do YouTube (transmitir em "Tocar agora", baixar só nos
+// destinos que GUARDAM), o card não oferece download em lote, e o toque no
+// Modo Fácil transmite em vez de baixar.
+function ehLink(coll) { return tipoDaColecao(coll) === TIPO_VIDEO; }
 
 // ===== Bíblia (acervo online, baixado na 1ª vez que for usado) =====
 // Ver bible.js (window.Bible) e a seção "Bíblia" no CLAUDE.md. A seleção é uma
@@ -6292,8 +6349,8 @@ function renderCollectionCard(coll, ctx) {
       alternarAcordeao();
     });
     bar.appendChild(cfg);
-  } else if ((u.syncBusy || !complete) && !(ehSerie(coll) && total > 0)) {
-    // **A SÉRIE NÃO BAIXA EM LOTE** (v5.230). São ~52 vídeos de ~300 MB — o
+  } else if ((u.syncBusy || !complete) && !(ehLink(coll) && total > 0)) {
+    // **O QUE É LINK NÃO BAIXA EM LOTE** (v5.230). São ~52 vídeos de ~300 MB — o
     // "download direto" que o operador pediu para não existir, na maior escala
     // que este app tem. Quem quiser um episódio offline o manda ao Cronograma
     // ou aos Favoritos pela folha, que é o caminho do YouTube. O botão continua
@@ -8816,6 +8873,39 @@ async function fetchAlbumCatalog() {
  * anterior. Devolver zero itens apagaria da tela a série inteira que o operador
  * já tem baixada, por uma oscilação de rede.
  */
+
+/**
+ * O item da REGRA vira a faixa que o `collState` guarda.
+ *
+ * Ela é uma função nomeada, e não um `map` anônimo lá dentro, por uma razão só:
+ * é o CÓDIGO dela que entra na assinatura do índice (ver `AVSerie.impressao`).
+ * Guardar um campo novo aqui obsoleta todo índice já escrito, e a única forma
+ * de isso não virar o defeito mudo da v5.233 é a assinatura enxergar esta
+ * função. Um `map` anônimo não tem nome para passar.
+ *
+ * **A mutação é IN-PLACE** (recebe `s` e devolve `s`): ver o KDoc acima.
+ */
+function serieFaixaDoItem(s, it) {
+  s.name = AVSerie.nomeDoItem(it);
+  s.ytUrl = it.url;
+  // `duration` como STRING "M:SS", que é a forma do LouvorJA — assim o
+  // `parseTimeToSeconds` e toda a conta de peso do álbum (`medirColecao`,
+  // `fracaoPeso`, a estimativa antes de baixar) valem sem uma linha nova.
+  s.duration = fmtDur(it.seconds);
+  // A MINIATURA (v5.236). O extrator já a entrega em toda listagem de playlist
+  // e ela era descartada aqui — e é ela que responde, para um VÍDEO, a mesma
+  // pergunta que a letra responde para um hino: "é este mesmo?". É uma URL
+  // remota (a mesma forma que o resultado da busca do YouTube já desenha em
+  // `thumbEl`), então ela vale como ilustração e nunca como dado: sem internet
+  // a imagem não carrega, e o detalhe do item continua inteiro sem ela.
+  s.thumb = it.thumb || '';
+  // Um vídeo não tem Playback. Sem isto, `songVariantsNeeded` pediria uma
+  // segunda variante que nunca vai existir e o álbum nunca ficaria completo.
+  s.has_instrumental_music = false;
+  s._norm = normalizeForSearch(s.name);
+  return s;
+}
+
 async function fetchSerieIndex(coll) {
   const serie = coll.serie;
   const doCanal = await AVNative.ytCanalPlaylists(serie.canal);
@@ -8842,7 +8932,16 @@ async function fetchSerieIndex(coll) {
   // depois da atualização, e nem limpar o cache resolvia (o índice mora no
   // IndexedDB). Com a impressão na assinatura, mudar a regra refaz o índice UMA
   // vez, sozinho, e não mudar não custa extração nenhuma.
-  const assinatura = AVSerie.impressao() + '|' + playlists.map((p) => p.url + ':' + p.count).join('|');
+  //
+  // E O MONTADOR DA FAIXA ENTRA JUNTO (v5.236). `AVSerie.impressao` conhece a
+  // regra que decide NOME e ORDEM; quem decide o que o índice GUARDA é a função
+  // logo abaixo, que mora aqui porque é aqui que a coleção existe. Quando ela
+  // passou a guardar a miniatura, todo índice já escrito ficou obsoleto — e sem
+  // passá-la à impressão o sintoma seria o da v5.233 na íntegra: assinatura
+  // batendo, índice velho de pé para sempre, e o detalhe do episódio sem imagem
+  // sem nada que o explicasse.
+  const assinatura = AVSerie.impressao(serieFaixaDoItem) + '|'
+    + playlists.map((p) => p.url + ':' + p.count).join('|');
   const guardado = collState[coll.id];
   if (guardado && guardado.serieAssinatura === assinatura && (guardado.songs || []).length) {
     guardado.indexSyncedAt = Date.now();
@@ -8859,20 +8958,8 @@ async function fetchSerieIndex(coll) {
   if (!itens.length) throw new Error('As playlists de "' + serie.name + '" vieram vazias');
 
   const byId = new Map(collSongs(coll.id).map((s) => [s.id_music, s]));
-  const songs = AVSerie.ordenarItens(itens).map((it) => {
-    const s = byId.get(it.id) || { id_music: it.id, fileIdFull: null, fileIdPlayback: null };
-    s.name = AVSerie.nomeDoItem(it);
-    s.ytUrl = it.url;
-    // `duration` como STRING "M:SS", que é a forma do LouvorJA — assim o
-    // `parseTimeToSeconds` e toda a conta de peso do álbum (`medirColecao`,
-    // `fracaoPeso`, a estimativa antes de baixar) valem sem uma linha nova.
-    s.duration = fmtDur(it.seconds);
-    // Um vídeo não tem Playback. Sem isto, `songVariantsNeeded` pediria uma
-    // segunda variante que nunca vai existir e o álbum nunca ficaria completo.
-    s.has_instrumental_music = false;
-    s._norm = normalizeForSearch(s.name);
-    return s;
-  });
+  const songs = AVSerie.ordenarItens(itens).map((it) => serieFaixaDoItem(
+    byId.get(it.id) || { id_music: it.id, fileIdFull: null, fileIdPlayback: null }, it));
 
   collState[coll.id] = {
     indexSyncedAt: Date.now(), songs, isHymnal: false, serieAssinatura: assinatura,
@@ -9650,6 +9737,11 @@ async function buildLyricIndex() {
   } catch (_) { /* sem os arquivos ainda dá para indexar o lyricStore */ }
 
   for (const coll of allCollections()) {
+    // O índice da busca por TRECHO. Uma coleção sem letra não tem o que
+    // indexar, e varrê-la é percorrer ~52 itens por série a cada reconstrução
+    // para não achar nada — a mesma pergunta sem sentido do `syncLyrics`, aqui
+    // sem custo de rede.
+    if (!temLetra(coll)) continue;
     const store = lyricStore[coll.id] || null;
     for (const s of collSongs(coll.id)) {
       // O acervo de letras vem PRIMEIRO: é texto puro e completo. Os slides
@@ -9762,8 +9854,17 @@ async function syncLyrics() {
 
   // Hinários antes dos álbuns (ver acima). Dentro de cada grupo, a ordem do
   // acervo.
+  //
+  // **SÓ QUEM TEM LETRA** (v5.236). Sem esta guarda, os ~52 episódios de cada
+  // série entravam na fila e cada um virava um `music_<id>` pedido ao LouvorJA
+  // com um id que é do YOUTUBE — uma pergunta que aquele banco não tem como
+  // responder. Falha de rede não grava `LYRIC_NONE` de propósito (ver o
+  // `catch`), então elas eram repetidas a cada abertura do app, para sempre, e
+  // ainda infladas no total da notificação "Letras das músicas", que o operador
+  // lê. Ninguém percebia porque o modo de falhar é o mais silencioso que existe:
+  // um `catch` vazio numa tarefa de segundo plano.
   const cols = allCollections()
-    .filter((c) => collSongs(c.id).length)
+    .filter((c) => temLetra(c) && collSongs(c.id).length)
     .sort((a, b) => (a.kind === 'hymnal' ? 0 : 1) - (b.kind === 'hymnal' ? 0 : 1));
 
   // Agrupado por `id_music`, e não por (coleção, música): a MESMA faixa aparece
@@ -9925,9 +10026,11 @@ function renderSearchResults(query) {
     return;
   }
   if (matches.length === 0) {
-    // "no acervo" não é detalhe: logo abaixo vem o cabeçalho dos resultados do
-    // YouTube, e sem dizer ONDE não achou a frase parece negar a busca inteira.
-    hymnResultsEl.innerHTML = '<li class="empty">Nenhuma música encontrada na biblioteca.</li>';
+    // "na biblioteca" não é detalhe: logo abaixo vem o cabeçalho dos resultados
+    // do YouTube, e sem dizer ONDE não achou a frase parece negar a busca
+    // inteira. E não diz "música" (v5.236) — a Biblioteca também guarda vídeo, e
+    // negar o que não foi procurado manda o operador buscar noutro lugar.
+    hymnResultsEl.innerHTML = '<li class="empty">Nada encontrado na biblioteca.</li>';
     appendYoutubeSearch(query);
     return;
   }
@@ -10908,7 +11011,7 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
   anel.innerHTML = downloadArrowIconSvg();
   play.appendChild(anel);
   play.addEventListener('click', (e) => {
-    e.stopPropagation();   // divide a linha com o acordeão da letra
+    e.stopPropagation();   // divide a linha com o acordeão
     // No simplificado não há escolha: o toque toca o CANTADO. Abrir uma folha
     // com três opções seria devolver ao operador exatamente a decisão que este
     // modo poupa (é a mesma regra do toque na linha, abaixo).
@@ -10949,17 +11052,70 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
 
   row.append(play, info, add);
 
-  // Letra completa, abaixo da linha. Só é montada quando a linha ABRE (e uma
-  // vez só): montá-la para todos os resultados encheria a lista de centenas de
-  // nós de texto que ninguém pediu — e a lista é reconstruída a cada tecla.
-  const letra = document.createElement('div'); letra.className = 'hymn-lyrics';
-  let letraMontada = false;
+  // ===== A GAVETA DA LINHA: o que ela abre depende do TIPO =====
+  //
+  // Ela responde uma pergunta só — **"é este mesmo?"** —, e a resposta muda com
+  // o item. Numa música é a LETRA: é por ela que se reconhece o hino certo, e é
+  // dela que sai o trecho marcado quando a busca casou no meio de uma estrofe.
+  // Num VÍDEO não existe letra nenhuma, e até a v5.235 a gaveta abria assim
+  // mesmo, para anunciar "Letra ainda não baixada" — uma promessa de algo que
+  // nunca vai chegar, e o relato que abriu este lote. Ali a mesma pergunta é
+  // respondida pela MINIATURA e pela duração, que é o que o operador tem para
+  // reconhecer um episódio de que ele só sabe a data.
+  //
+  // Só é montada quando a linha ABRE (e uma vez só): montá-la para todos os
+  // resultados encheria a lista de centenas de nós que ninguém pediu — e a
+  // lista é reconstruída a cada tecla.
+  const gaveta = document.createElement('div');
+  gaveta.className = temLetra(coll) ? 'hymn-lyrics' : 'item-detalhe';
+  let gavetaMontada = false;
   let letraAlvo = null;   // a linha que casou com a busca, para rolar até ela
+
+  // A gaveta de um VÍDEO. Sem prometer nada que dependa de rede: a miniatura é
+  // ilustração (sai de cena sozinha se não carregar) e as duas linhas de texto
+  // valem offline.
+  async function montarDetalhe() {
+    gaveta.innerHTML = '';
+    if (s.thumb) {
+      const im = document.createElement('img');
+      im.className = 'item-detalhe-thumb';
+      im.src = s.thumb; im.alt = ''; im.loading = 'lazy';
+      // A imagem é de fora e pode simplesmente não vir (sem internet, canal que
+      // trocou a arte). Um retângulo quebrado no meio da gaveta é pior que
+      // gaveta sem imagem, e o resto dela continua verdadeiro sem a foto.
+      im.addEventListener('error', () => im.remove());
+      gaveta.appendChild(im);
+    }
+    const txt = document.createElement('div'); txt.className = 'item-detalhe-txt';
+    if (s.duration) {
+      const d = document.createElement('span'); d.className = 'item-detalhe-linha';
+      d.textContent = 'Duração ' + s.duration;
+      txt.appendChild(d);
+    }
+    // O ESTADO NO APARELHO, e ele é a informação que decide: "tocar agora" de um
+    // vídeo TRANSMITE (não espera download nenhum), mas um episódio que já foi
+    // guardado num destino entra do disco. São ~300 MB de diferença, e é a
+    // pergunta que o operador faz antes de escolher no domingo de manhã.
+    const est = document.createElement('span');
+    est.className = 'item-detalhe-linha item-detalhe-estado';
+    est.textContent = 'Toca sem baixar';
+    txt.appendChild(est);
+    gaveta.appendChild(txt);
+    // Assíncrono e DEPOIS de a gaveta já estar montada: a abertura mede a
+    // altura do que está em cena, e esperar o IndexedDB para desenhar deixaria
+    // a animação partir de uma caixa vazia.
+    try {
+      const recs = await AVDB.mediaByYoutube(s.id_music);
+      if (recs && recs.length) {
+        est.textContent = 'Já no aparelho';
+        est.classList.add('done');
+      }
+    } catch (_) { /* fica o texto de sempre: o padrão é o caso comum */ }
+  }
+
   async function montarLetra() {
-    if (letraMontada) return;
-    letraMontada = true;
     const estrofes = await songLyricStanzas(coll, s);
-    letra.innerHTML = '';
+    gaveta.innerHTML = '';
     if (!estrofes) {
       const vazio = document.createElement('div');
       vazio.className = 'hymn-lyrics-empty';
@@ -10968,7 +11124,7 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
       // nesta música (ou falhou). Duas mensagens diferentes sugeririam duas
       // causas diferentes onde só há uma.
       vazio.textContent = 'Letra ainda não baixada.';
-      letra.appendChild(vazio);
+      gaveta.appendChild(vazio);
       return;
     }
     const q = normalizeForSearch(hymnSearchInputEl.value).trim();
@@ -10999,7 +11155,7 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
         }
         bloco.appendChild(d);
       });
-      letra.appendChild(bloco);
+      gaveta.appendChild(bloco);
     });
     // Rolar até ela só faz sentido com a caixa JÁ visível — e agora a letra é
     // montada antes de a linha abrir (a animação precisa medir a altura). Quem
@@ -11008,7 +11164,7 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
   }
 
   row.addEventListener('click', async () => {
-    // No simplificado a linha TOCA (o cantado) — não abre letra nenhuma.
+    // No simplificado a linha TOCA — não abre gaveta nenhuma.
     if (appMode === 'simple') { simplePlaySong(coll, s); return; }
     const aberta = li.classList.contains('expanded');
     // Acordeão: abrir uma fecha a anterior — duas linhas abertas ao mesmo
@@ -11022,20 +11178,25 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
         if (el !== li) el.classList.remove('expanded');
       });
     }
-    if (aberta) { collapseAccordion(letra, () => li.classList.remove('expanded')); return; }
-    // A letra é montada ANTES de abrir: a animação mede a altura do que vai
-    // ficar em cena, e uma caixa ainda vazia mediria zero.
-    await montarLetra();
+    if (aberta) { collapseAccordion(gaveta, () => li.classList.remove('expanded')); return; }
+    // A gaveta é montada ANTES de abrir: a animação mede a altura do que vai
+    // ficar em cena, e uma caixa ainda vazia mediria zero. Uma vez só — a
+    // guarda vive AQUI, e não dentro de cada montador, para os dois não terem
+    // de repeti-la (e para o próximo tipo não poder esquecê-la).
+    if (!gavetaMontada) {
+      gavetaMontada = true;
+      await (temLetra(coll) ? montarLetra() : montarDetalhe());
+    }
     li.classList.add('expanded');
-    expandAccordion(letra);
+    expandAccordion(gaveta);
     if (letraAlvo) letraAlvo.scrollIntoView({ block: 'center' });
   });
 
-  li.append(row, letra);
+  li.append(row, gaveta);
   return li;
 }
 
-// ===== A folha rápida de uma música do acervo =====
+// ===== A folha rápida de um item do acervo =====
 // Dois botões na linha, duas folhas. Cada uma lista as três coisas que aquele
 // botão pode fazer, ESCRITAS — é o que os seis ícones mudos da versão anterior
 // não conseguiam dizer.
@@ -11106,13 +11267,13 @@ function destUniao(chave) {
 function serieComoYoutube(coll, s) {
   return { id: s.id_music, url: s.ytUrl, name: s.name, semSoAudio: true };
 }
-function ehSerie(coll) { return !!coll && coll.kind === 'serie'; }
+// (`ehSerie` mora com o resto do modelo de coleção, junto de `tipoDaColecao`.)
 
 function openSongMenu(coll, s, modo) {
-  // A série desvia para a folha do YouTube ANTES de qualquer coisa: o resto
-  // desta função monta o seletor Cantada/Playback e as ações que baixam, que
-  // são exatamente o que não se aplica aqui.
-  if (ehSerie(coll)) { openYtMenu(serieComoYoutube(coll, s)); return; }
+  // O item que é um LINK desvia para a folha do YouTube ANTES de qualquer
+  // coisa: o resto desta função monta o seletor Cantada/Playback e as ações que
+  // baixam, que são exatamente o que não se aplica a ele.
+  if (ehLink(coll)) { openYtMenu(serieComoYoutube(coll, s)); return; }
   destLimpar();
   songMenuFor = { coll, s, variant: 'full' };
   songMenuTitleEl.textContent = songLabel(coll, s);
@@ -11525,7 +11686,7 @@ async function simplePlaySong(coll, s) {
   // operador esperar ~300 MB de download com o culto rodando. `ytAcao` com
   // "tocar" e nenhum destino de guarda é exatamente o caminho da transmissão
   // direta — e, falhando ela, o download de sempre, calado.
-  if (ehSerie(coll)) { await ytAcao(serieComoYoutube(coll, s), ['tocar'], null, false, 0); return; }
+  if (ehLink(coll)) { await ytAcao(serieComoYoutube(coll, s), ['tocar'], null, false, 0); return; }
   const { needsFull } = await songVariantsNeeded(coll, s);
   if (needsFull && !(await ensureDownloadConsent())) return;
   playSongVariant(coll, s, 'full');

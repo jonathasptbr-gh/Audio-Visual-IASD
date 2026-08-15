@@ -105,7 +105,14 @@ const ponteCom = (espelho, telas) => `(() => {
       window.__nPlaylist = (window.__nPlaylist || 0) + 1;
       const porUrl = {
         'p/ago': { name: 'Provai e Vede Agosto 2026', author: 'Provai e Vede | Oficial', items: [
-          { id: 'aaaaaaaaaa1', url: 'y/1', name: 'Match point | Provai e Vede 2026 (01/Ago)', seconds: 319 },
+          // A MINIATURA é \`data:\` de propósito: o extrator devolve uma URL do
+          // YouTube, e uma imagem remota num teste é uma requisição que sai
+          // pela rede do runner — ou ela falha e vira ruído no console, ou ela
+          // dá certo e o caso passa a depender de um serviço de fora. O que se
+          // afirma aqui é que a gaveta DESENHA a miniatura que o índice
+          // guardou, e para isso a origem dos pixels é indiferente.
+          { id: 'aaaaaaaaaa1', url: 'y/1', name: 'Match point | Provai e Vede 2026 (01/Ago)', seconds: 319,
+            thumb: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7' },
           { id: 'aaaaaaaaaa2', url: 'y/2', name: 'Cada centavo conta | Provai e Vede 2026 (08/Ago) - Libras', seconds: 307 },
           { id: 'aaaaaaaaaa3', url: 'y/3', name: 'Cada centavo conta | Provai e Vede 2026 (08/Ago)', seconds: 307 },
         ] },
@@ -357,6 +364,139 @@ try {
   checar(semLote.achou, 'o card da série está na lista para ser medido');
   checar(!semLote.temBotaoBaixar,
     'e ele NÃO tem o botão de baixar a coleção — "não quero um download direto"');
+
+  // ── A GAVETA DA LINHA É DO TIPO DO ITEM (v5.236) ───────────────────────
+  // Relato do operador: *"o toque nele na lista abre ainda a opção de ver a
+  // letra, mas ele não tem letra por não ser uma música"*.
+  //
+  // A v5.230 desviou as duas FOLHAS de um episódio para o caminho do YouTube e
+  // parou aí — o toque na LINHA continuou abrindo a caixa da letra, que
+  // anunciava "Letra ainda não baixada" para algo que nunca vai ter letra. É o
+  // defeito da v5.229 outra vez: desviar as portas não desvia o que estava
+  // atrás delas.
+  //
+  // As DUAS metades, e são inseparáveis: o vídeo deixa de prometer letra **e** a
+  // música continua tendo a dela. Sem a segunda, apagar a gaveta inteira
+  // passaria — a mesma cobrança de duas metades do `registro.test.mjs`.
+  const gaveta = await pg.evaluate(async () => {
+    // O MODO AVANÇADO, e ele é pré-requisito da medição inteira: no Modo Fácil
+    // o toque na linha TOCA (não abre gaveta nenhuma), então o caso mediria um
+    // container vazio e concluiria o que quisesse. A primeira versão deste caso
+    // rodou assim e reprovou por isso — a lição da v5.208 numa terceira roupa.
+    const modoAntes = document.body.classList.contains('mode-simple') ? 'simple' : 'full';
+    setAppMode('full');
+    const c = allCollections().find((x) => x.kind === 'serie');
+    // O EPISÓDIO QUE TEM MINIATURA. A ordem do álbum é cronológica, e o
+    // primeiro item é o de julho, que no harness não tem `thumb` — medir nele
+    // reprovaria uma gaveta que está certa.
+    const s = collSongs(c.id).find((x) => x.id_music === 'aaaaaaaaaa1');
+    // Uma lista PRÓPRIA e VISÍVEL: o `#hymnResults` mora dentro do popup de
+    // busca, que está fechado, e num elemento escondido a classe `expanded`
+    // desenha o mesmo mas toda medida é zero (a lição da v5.208). Aqui não se
+    // medem pixels, mas o `.item-detalhe` só existe no DOM com o `display`
+    // resolvido — e é ele que a asserção procura.
+    const lista = document.createElement('ul');
+    lista.className = 'hymnal-list';
+    document.body.appendChild(lista);
+    const li = hymnResultRow(c, s, null, true);
+    lista.appendChild(li);
+    li.querySelector('.hymn-row').click();
+    // A montagem é assíncrona (o estado no aparelho vem do IndexedDB): dois
+    // turnos bastam, e esperar pelo TEXTO em vez de por um prazo fixo é o que
+    // impede o caso de virar intermitente num runner lento.
+    for (let i = 0; i < 40 && !li.querySelector('.item-detalhe-estado'); i++) {
+      await new Promise((r) => setTimeout(r, 25));
+    }
+    const det = li.querySelector('.item-detalhe');
+    const r = {
+      temDetalhe: !!det,
+      temCaixaDeLetra: !!li.querySelector('.hymn-lyrics'),
+      texto: li.textContent,
+      temThumb: !!li.querySelector('.item-detalhe-thumb'),
+      duracaoGuardada: s.duration || '',
+    };
+    lista.remove();
+    setAppMode(modoAntes);   // o modo é global: deixá-lo trocado quebra os casos seguintes
+    return r;
+  });
+  checar(gaveta.temDetalhe,
+    'o toque num EPISÓDIO abre a gaveta de detalhe do vídeo');
+  checar(!gaveta.temCaixaDeLetra && !/[Ll]etra/.test(gaveta.texto),
+    'e ela NÃO promete letra nenhuma — nem a caixa, nem a palavra',
+    JSON.stringify(gaveta.texto.slice(0, 120)));
+  checar(gaveta.temThumb,
+    'a MINIATURA está lá: num vídeo é ela que responde "é este mesmo?", que é o '
+    + 'que a letra responde num hino');
+  checar(gaveta.duracaoGuardada && gaveta.texto.includes(gaveta.duracaoGuardada),
+    'e a duração também — os dois campos que o extrator entregava e o índice '
+    + 'descartava', JSON.stringify(gaveta.duracaoGuardada));
+  checar(/Toca sem baixar|Já no aparelho/.test(gaveta.texto),
+    'mais o estado no aparelho, que é o que decide: transmitir agora ou ~300 MB',
+    JSON.stringify(gaveta.texto.slice(0, 120)));
+
+  // A OUTRA METADE: uma MÚSICA continua abrindo a letra. Sem coleção do
+  // LouvorJA neste harness (não há rede), a faixa e a letra são postas à mão —
+  // o que se afirma é o desvio de `hymnResultRow`, não o banco de origem.
+  const gavetaMusica = await pg.evaluate(async () => {
+    const modoAntes = document.body.classList.contains('mode-simple') ? 'simple' : 'full';
+    setAppMode('full');
+    const c = allCollections().find((x) => x.kind === 'hymnal');
+    const estadoAntes = collState[c.id];
+    const s = { id_music: 'zz1', name: 'Hino de teste', track: 1, has_instrumental_music: false };
+    collState[c.id] = { indexSyncedAt: Date.now(), songs: [s], isHymnal: true };
+    lyricStoreFor(c.id)[s.id_music] = [{ a: 'Refrão', l: ['a primeira linha', 'a segunda linha'] }];
+    const lista = document.createElement('ul');
+    lista.className = 'hymnal-list';
+    document.body.appendChild(lista);
+    const li = hymnResultRow(c, s, null, true);
+    lista.appendChild(li);
+    li.querySelector('.hymn-row').click();
+    for (let i = 0; i < 40 && !li.querySelector('.hymn-lyrics-line'); i++) {
+      await new Promise((r) => setTimeout(r, 25));
+    }
+    const r = {
+      temCaixaDeLetra: !!li.querySelector('.hymn-lyrics'),
+      temDetalhe: !!li.querySelector('.item-detalhe'),
+      linhas: [...li.querySelectorAll('.hymn-lyrics-line')].map((e) => e.textContent),
+    };
+    lista.remove();
+    setAppMode(modoAntes);
+    // E O ACERVO VOLTA COMO ESTAVA: a faixa de mentira existe para UMA medição,
+    // e deixá-la no `collState` faria os casos seguintes medirem um hinário que
+    // este harness não tem.
+    if (estadoAntes) collState[c.id] = estadoAntes; else delete collState[c.id];
+    return r;
+  });
+  checar(gavetaMusica.temCaixaDeLetra && gavetaMusica.linhas.length === 2,
+    'e o toque numa MÚSICA continua abrindo a LETRA, com as estrofes',
+    JSON.stringify(gavetaMusica.linhas));
+  checar(!gavetaMusica.temDetalhe,
+    'sem a gaveta do vídeo no meio — cada tipo abre a sua, e só a sua');
+
+  // ── A FILA DE LETRAS NÃO PERGUNTA POR UM VÍDEO (v5.236) ────────────────
+  // `syncLyrics` varria TODA coleção com itens e pedia `music_<id>` ao LouvorJA
+  // — e num episódio de série esse id é do YOUTUBE, uma pergunta que aquele
+  // banco não tem como responder. Falha de rede não grava `LYRIC_NONE` de
+  // propósito, então as ~52 requisições de cada série voltavam a cada abertura
+  // do app, para sempre, e ainda entravam no total da notificação "Letras das
+  // músicas". Nada disso aparece em lugar nenhum: é um `catch` vazio numa
+  // tarefa de segundo plano.
+  const letras = await pg.evaluate(async () => {
+    const pedidos = [];
+    const antes = Louvorja.fetchList;
+    Louvorja.fetchList = (nome) => { pedidos.push(nome); return Promise.reject(new Error('sem rede')); };
+    // O arranque pode ter deixado uma passada em voo; sem soltar a trava, a
+    // chamada abaixo voltaria na hora e o caso mediria zero por não ter rodado.
+    lyricSyncRunning = false;
+    try { await syncLyrics(); } catch (_) { /* o que interessa é o que ela PEDIU */ }
+    Louvorja.fetchList = antes;
+    const ids = new Set(collSongs(
+      (allCollections().find((x) => x.kind === 'serie') || {}).id).map((s) => s.id_music));
+    return { pedidos, deVideo: pedidos.filter((n) => ids.has(String(n).replace(/^music_/, ''))) };
+  });
+  checar(letras.deVideo.length === 0,
+    'a fila de letras NÃO pede letra ao LouvorJA para os vídeos da série',
+    JSON.stringify(letras.pedidos.slice(0, 5)));
 
   // ── AS OPÇÕES DO ÁLBUM SÃO UMA LINHA SÓ (v5.233) ───────────────────────
   // Pedido do operador: o PESO sai (ele já está na barra, antes de abrir) e o

@@ -3036,6 +3036,35 @@ main {
 }
 .hymn-lyrics-empty { font-size: .84rem; color: var(--muted); font-style: italic; }
 
+/* ---------- A gaveta de um VÍDEO (v5.236) ---------- */
+/* A mesma caixa da letra, com o mesmo recuo e a mesma moldura: as duas
+   respondem "é este mesmo?" e não há razão para parecerem coisas diferentes.
+   O que muda é o conteúdo — miniatura + duração + estado no aparelho. */
+.item-detalhe { display: none; }
+.hymn-result.expanded .item-detalhe {
+  display: flex; gap: .6rem; align-items: flex-start;
+  margin: 0 .55rem .55rem; padding: .5rem .6rem;
+  border: 1px solid var(--line); border-radius: var(--radius-btn);
+  background: var(--bg);
+}
+/* `aspect-ratio` com largura fixa RESERVA a altura antes de a imagem chegar, e
+   isso não é estética: o acordeão mede `offsetHeight` no instante em que abre
+   (ver `expandAccordion`), e uma imagem remota que só carrega depois faria a
+   animação terminar numa altura menor que a final — a gaveta "pulando" no fim
+   de cada abertura. Reservado, o layout já está certo quando a medida é
+   tirada. */
+.item-detalhe-thumb {
+  width: 7.5rem; aspect-ratio: 16 / 9; flex: 0 0 auto;
+  object-fit: cover; border-radius: var(--radius-xs);
+  background: var(--surface);
+}
+.item-detalhe-txt { display: flex; flex-direction: column; gap: .25rem; min-width: 0; }
+.item-detalhe-linha { font-size: .84rem; color: var(--muted); }
+/* Verde é "concluído/já resolvido" em todo o app, e aqui ele diz exatamente
+   isso: os bytes já estão neste aparelho. Sem o modificador a linha fica em
+   `--muted`, que é o estado neutro ("toca sem baixar") e o caso comum. */
+.item-detalhe-estado.done { color: var(--ok); font-weight: 600; }
+
 /* ---------- A folha rápida de uma música (▶ e + da linha do acervo) ---------- */
 /* Linhas LARGAS e ROTULADAS, o oposto dos seis ícones mudos que substituíram:
    o custo de errar aqui é uma música errada no telão no meio do culto, e o que

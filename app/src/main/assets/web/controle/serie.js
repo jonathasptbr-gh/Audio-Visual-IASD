@@ -332,14 +332,25 @@
    * (Se um dia este bundle passar por um minificador, a impressão muda a cada
    * build e o custo vira doze extrações por versão. Hoje ele não passa: a base
    * web é publicada como está escrita.)
+   *
+   * `extra` (v5.236) é o mesmo argumento visto do outro lado do arquivo: quem
+   * decide o que o índice GUARDA não é só a regra daqui — é também a função do
+   * `controle.js` que transforma o item desta regra na faixa que vai para o
+   * `collState`. Ela mora lá porque é lá que a coleção existe; se ela passar a
+   * guardar um campo novo (a miniatura, a duração), o índice antigo fica tão
+   * obsoleto quanto se a regra tivesse mudado — e sem esta fresta o defeito da
+   * v5.233 voltaria pela porta de trás, com o mesmo sintoma mudo. Quem chama
+   * passa o CÓDIGO daquela função, nunca um número: a razão é a do parágrafo
+   * acima, sem uma vírgula de diferença.
    */
-  function impressao() {
+  function impressao(extra) {
     const fonte = [
       JSON.stringify(SERIES),
       String(mesDaPlaylist), String(playlistsDaSerie),
       String(dataDoVideo), String(montarData), String(rotuloData),
       String(itensDaPlaylist), String(ordenarItens), String(nomeDoItem),
       String(tituloDoEpisodio), String(ehLibras), String(normalizar),
+      extra == null ? '' : String(extra),
     ].join('\u0000');
     let h = 0x811c9dc5;
     for (let i = 0; i < fonte.length; i++) {
