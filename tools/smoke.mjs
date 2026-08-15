@@ -898,6 +898,63 @@ try {
   });
   checar(col.completoAberto.naThumb && !col.completoAberto.naDireita,
     'a seta de fechar o álbum mora na THUMB, não na coluna da direita');
+  // ── A SETA É A THUMBNAIL DAS RAÍZES (v5.244) ───────────────────────────
+  // Pedido do operador: a seção ganha a mesma thumb do card, e nas duas ela
+  // carrega a seta — "nas raízes mais altas o ideal é a seta, pois ela
+  // representa que pode abrir mais listagens"; ícone fica na folha.
+  //
+  // As metades: a seta está lá nos DOIS estados do álbum (era o glifo da
+  // coleção com o card fechado), a seção tem a MESMA caixa, e a direção é
+  // legível — fechado ela aponta para baixo, aberto para cima.
+  checar(col.completoFechado.naThumb,
+    'e ela está lá com o álbum FECHADO também — a thumb é a seta, não o glifo '
+    + 'da coleção (que era o mesmo em todos os álbuns)');
+  try {
+    const raiz = await pg.evaluate(() => {
+      setAppMode('full');
+      const lista = document.createElement('ul');
+      lista.className = 'hymnal-list';
+      lista.style.width = '390px';
+      document.body.appendChild(lista);
+      gruposAbertos.clear();
+      renderCollectionsList(lista, () => {}, { semTotal: true });
+      const cx = (el) => (el ? getComputedStyle(el) : null);
+      const secao = lista.querySelector('.coll-group--drop:not(.fixo) > .coll-group-bar > .coll-group-icon');
+      const fixa = lista.querySelector('.coll-group--drop.fixo > .coll-group-bar > .coll-group-icon');
+      const s = cx(secao);
+      const r = {
+        temSeta: !!secao,
+        // A MESMA CAIXA do card: mesmo tamanho e mesmo tom.
+        caixa: s ? [s.width, s.height, s.backgroundColor].join(' ') : '',
+        // Fechada, ela aponta para BAIXO (girada meia volta).
+        girada: !!(s && /matrix\(-1, 0, 0, -1/.test(s.transform)),
+        // A seção FIXA reserva o lugar e não desenha seta nenhuma.
+        fixaReservada: !!(fixa && fixa.children.length === 0),
+        larguraFixa: fixa ? cx(fixa).width : '',
+      };
+      lista.remove();
+      return r;
+    });
+    const cardCaixa = await pg.evaluate(() => {
+      const el = document.createElement('div');
+      el.className = 'coll-bar-icon';
+      document.body.appendChild(el);
+      const s = getComputedStyle(el);
+      const v = [s.width, s.height, s.backgroundColor].join(' ');
+      el.remove();
+      return v;
+    });
+    checar(raiz.temSeta && raiz.caixa === cardCaixa,
+      'a SEÇÃO tem a mesma thumb do card do álbum — uma caixa só, um tom só ('
+      + raiz.caixa + ')');
+    checar(raiz.girada,
+      'e fechada ela aponta para BAIXO: a seta diz para onde o toque leva');
+    checar(raiz.fixaReservada && raiz.larguraFixa === cardCaixa.split(' ')[0],
+      'a seção FIXA reserva o lugar sem desenhar seta — ela não abre nem fecha, '
+      + 'e os títulos continuam alinhados', raiz.larguraFixa);
+  } catch (e) {
+    checar(false, 'a medição da thumb das raízes terminou sem exceção (' + (e && e.message) + ')');
+  }
   checar(col.completoFechado.borda > 0 && col.completoFechado.borda === col.completoAberto.borda,
     'e o PESO de um álbum completo não se mexe ao abrir ('
     + col.completoFechado.borda + 'px da borda, aberto e fechado)');

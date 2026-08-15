@@ -1828,16 +1828,40 @@ main {
   border-bottom-left-radius: 0; border-bottom-right-radius: 0;
   border-bottom-color: transparent;
 }
-/* A SETA APONTA PARA ONDE O TOQUE LEVA: para baixo quando fechado ("abre"),
-   para cima quando aberto ("fecha"). O desenho é o mesmo `chevronUpIconSvg` do
-   card — uma segunda arte para a mesma ideia era a divergência que a paleta
-   única existe para não ter —, girado por CSS. */
-.coll-group-seta {
-  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-  width: var(--hit); height: var(--hit); color: var(--muted);
-  transform: rotate(180deg); transition: transform .2s ease;
+/* ---------- A SETA É A THUMBNAIL DAS RAÍZES (v5.244) ----------
+   Pedido do operador: a seção ganha a mesma thumb do card do álbum, e nas duas
+   ela carrega a SETA — *"nas subdivisões uma thumbnail é meio inútil… nas
+   raízes mais altas o ideal é a seta, pois ela representa que pode abrir mais
+   listagens"*. Ícone fica na folha da árvore, onde ele distingue um item do
+   outro.
+
+   Mesma caixa do `.coll-bar-icon` (mesmo tamanho, mesmo tom, mesmo raio): duas
+   receitas para o mesmo quadrado divergiriam no primeiro ajuste.
+
+   A SETA APONTA PARA ONDE O TOQUE LEVA: para baixo fechado ("abre"), para cima
+   aberto ("fecha"). O desenho é o `chevronUpIconSvg`, girado por CSS — uma
+   segunda arte para a mesma ideia era a divergência que a fonte única existe
+   para não ter. */
+.coll-group-icon, .coll-bar-icon {
+  width: 32px; height: 32px; flex-shrink: 0;
+  border-radius: var(--radius-btn);
+  background: var(--accent-soft); color: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .2s ease;
 }
-.coll-group--drop.aberto > .coll-group-bar .coll-group-seta { transform: rotate(0deg); }
+.coll-group-icon, .coll-bar-fechar {
+  border: none; appearance: none; -webkit-appearance: none;
+  padding: 0; cursor: pointer;
+}
+.coll-group-icon svg, .coll-bar-fechar svg { width: var(--icon-sm); height: var(--icon-sm); }
+/* FECHADO ela aponta para baixo. O giro é da CAIXA e não do SVG porque a caixa
+   é quadrada e centrada: girá-la não desloca um pixel, e é uma propriedade só a
+   animar. */
+.coll-group--drop:not(.aberto) > .coll-group-bar > .coll-group-icon,
+.hymnal-card:not(.expanded) .coll-bar-fechar { transform: rotate(180deg); }
+/* A seção FIXA não abre nem fecha: o lugar é reservado para os títulos de todas
+   as seções começarem na mesma coluna, e nada é desenhado nele. */
+.coll-group-icon.vago { background: none; cursor: default; }
 /* A SEÇÃO FIXA (os Favoritos, v5.238) não colapsa: sem seta, sem ouvinte e sem
    cursor de toque. Um cabeçalho que parece tocável e não faz nada é pior que um
    rótulo — e o cursor é a única parte disso que o CSS decide. */
@@ -1892,13 +1916,9 @@ main {
 /* Subtítulo do PIVÔ categoria↔álbum: o mesmo álbum pode ter subtítulos
    diferentes conforme a categoria em que aparece. */
 .coll-bar-sub { font-size: .74rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.coll-bar-icon {
-  width: 32px; height: 32px; flex-shrink: 0;
-  border-radius: var(--radius-btn);
-  background: var(--accent-soft); color: var(--accent);
-  display: flex; align-items: center; justify-content: center;
-}
-.coll-bar-icon .msym { font-size: var(--icon-sm); }
+/* (A caixa de `.coll-bar-icon` é declarada junto com a da seção — ver "A seta é
+   a thumbnail das raízes". O `.msym` dela saiu com o glifo da coleção: a thumb
+   do card é a seta desde a v5.244.) */
 .coll-bar-name { font-size: .95rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* O resumo passou a ser o PESO (v5.94), que é bem mais largo que o "2/4" de
    antes — e ele divide a linha com o NOME do álbum, que é a informação
@@ -1966,11 +1986,7 @@ main {
    precisa a mais. O `--icon-sm` é o mesmo do glifo que ela substitui, para a
    troca não mudar o peso visual daquele canto.
    (`.coll-bar-cfg` saiu com o botão que a usava.) */
-.coll-bar-fechar {
-  border: none; appearance: none; -webkit-appearance: none;
-  cursor: pointer; padding: 0;
-}
-.coll-bar-fechar svg { width: var(--icon-sm); height: var(--icon-sm); }
+
 /* O LUGAR RESERVADO na coluna da direita: com o álbum aberto e parado, quem
    baixa é o botão do painel logo abaixo — que tem o estado e o progresso. O
    `visibility: hidden` tira o botão do toque, do foco e do leitor de tela e

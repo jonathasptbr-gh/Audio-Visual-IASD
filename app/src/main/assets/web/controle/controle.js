@@ -209,7 +209,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.243';
+const WEB_VERSION = '5.244';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -430,9 +430,11 @@ const bibleVerCloseEl = document.getElementById('bibleVerClose');
 // coll.id = lista de músicas de UMA coleção (toque no card do álbum).
 
 // Só entradas COM chamador (limpeza da auditoria 2026-08: saíram prev, stop,
-// next, edit, close, plAdd, schedule e back, todas sem um único uso — o único
-// acesso dinâmico é `ICON[coll.iconKey]`, e `iconKey` só assume 'music' ou
-// 'queue').
+// next, edit, close, plAdd, schedule e back, todas sem um único uso).
+// NÃO HÁ MAIS ACESSO DINÂMICO desde a v5.244: o único era `ICON[coll.iconKey]`,
+// do card de coleção, e a thumb daquele card virou a seta (o `iconKey` saiu do
+// catálogo junto). Toda leitura desta tabela é por nome literal, o que a torna
+// varrível — um nome que ninguém cita é código morto, e não um talvez.
 const ICON = {
   play: '', // play_arrow
   pause: '', // pause
@@ -588,8 +590,8 @@ const NET_CONCURRENCY = 6;
 
 const HYMNAL_2022_ID = 'hymnal-2022'; // == pasta OPFS legada; preserva downloads já feitos
 const FIXED_COLLECTIONS = [
-  { id: HYMNAL_2022_ID, name: 'Hinário Adventista 2022', kind: 'hymnal', source: Louvorja.HYMNAL_2022_FILE, iconKey: 'music' },
-  { id: 'hymnal-1996',  name: 'Hinário Adventista 1996', kind: 'hymnal', source: Louvorja.HYMNAL_1996_FILE, iconKey: 'music' },
+  { id: HYMNAL_2022_ID, name: 'Hinário Adventista 2022', kind: 'hymnal', source: Louvorja.HYMNAL_2022_FILE },
+  { id: 'hymnal-1996',  name: 'Hinário Adventista 1996', kind: 'hymnal', source: Louvorja.HYMNAL_1996_FILE },
 ];
 // Índice (metadados leves) de cada coleção, por coll.id → { indexSyncedAt,
 // songs:[{ id_music, track, name, duration, has_instrumental_music,
@@ -633,11 +635,8 @@ function serieDisponivel() {
 }
 function serieCollections() {
   if (!serieDisponivel()) return [];
-  // `iconKey` só assume 'music' ou 'queue' (ver o comentário do `ICON`): um
-  // nome novo aqui seria um codepoint fora do subset da fonte, isto é, um
-  // retângulo vazio no card — a armadilha da v5.184 e da v5.200.
   return AVSerie.SERIES.map((s) => ({
-    id: s.id, name: s.name, kind: 'serie', serie: s, source: s.canal, iconKey: 'queue',
+    id: s.id, name: s.name, kind: 'serie', serie: s, source: s.canal,
   }));
 }
 
@@ -645,7 +644,7 @@ function allCollections() {
   const cols = FIXED_COLLECTIONS.concat(serieCollections());
   for (const a of albumCatalog.albums) {
     cols.push({ id: 'album-' + a.id_album, name: a.name, kind: 'album',
-      source: 'album_' + a.id_album, albumId: a.id_album, iconKey: 'queue',
+      source: 'album_' + a.id_album, albumId: a.id_album,
       color: a.color || null });
   }
   return cols;
@@ -6282,6 +6281,36 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
       bar.setAttribute('tabindex', '0');
       bar.setAttribute('aria-expanded', aberto ? 'true' : 'false');
     }
+    // ===== A SETA É A THUMBNAIL DAS RAÍZES (v5.244) =====
+    //
+    // Pedido do operador: *"pode manter uma seta como 'thumbnail' padrão, pois
+    // nas subdivisões, uma thumbnail é meio inútil, deixe apenas nos arquivos os
+    // ícones, nas raízes mais altas o ideal é a seta, pois ela representa que
+    // pode abrir mais listagens."*
+    //
+    // A seção ganha o MESMO quadrado do card do álbum (`.coll-bar-icon`), e nos
+    // dois ele carrega a mesma coisa: a seta que abre e fecha. O que sobrava
+    // ali era identidade — e identidade de uma SEÇÃO ("Diversos", "CDs do ano")
+    // não é um desenho, é o nome ao lado. Ícone fica onde ele distingue um item
+    // do outro, que é a folha da árvore.
+    //
+    // E ela desceu da coluna da DIREITA (onde estava desde a v5.237): é a mesma
+    // razão da v5.243 — a direita é a coluna do peso e do botão de baixar, e uma
+    // seta que aparece ali empurra os números.
+    const seta = document.createElement(fixo ? 'span' : 'button');
+    seta.className = 'coll-group-icon' + (fixo ? ' vago' : '');
+    if (fixo) {
+      // A seção FIXA não abre nem fecha, e uma seta ali prometeria um gesto que
+      // não existe. O lugar é RESERVADO só para os títulos de todas as seções
+      // começarem na mesma coluna (o idioma do `.mode-switch--vago`).
+      seta.setAttribute('aria-hidden', 'true');
+    } else {
+      seta.type = 'button';
+      seta.title = aberto ? 'Fechar' : 'Abrir';
+      seta.setAttribute('aria-label', aberto ? 'Fechar' : 'Abrir');
+      seta.innerHTML = chevronUpIconSvg();
+    }
+    bar.appendChild(seta);
     const name = document.createElement('span');
     name.className = 'coll-group-name';
     name.textContent = text;
@@ -6316,13 +6345,6 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
       info.textContent = fracaoPeso(colls.map((c) => c.id)) || '—';
       bar.appendChild(info);
     }
-    if (!fixo) {
-      const seta = document.createElement('span');
-      seta.className = 'coll-group-seta';
-      seta.setAttribute('aria-hidden', 'true');
-      seta.innerHTML = chevronUpIconSvg();
-      bar.appendChild(seta);
-    }
     li.appendChild(bar);
 
     const corpo = document.createElement('ul');
@@ -6351,6 +6373,9 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
       bar.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); alternar(); }
       });
+      // A seta tem ouvinte PRÓPRIO, com `stopPropagation`: sem ele o clique nela
+      // borbulharia até a barra e alternaria duas vezes, isto é, não faria nada.
+      seta.addEventListener('click', (e) => { e.stopPropagation(); alternar(); });
     }
 
     alvo.appendChild(li);
@@ -6502,32 +6527,27 @@ function renderCollectionCard(coll, ctx) {
   // download moram atrás da engrenagem (openCollectionOptions), fora do
   // caminho de uso.
   const bar = document.createElement('div'); bar.className = 'coll-bar';
-  // A THUMB É O BOTÃO DE FECHAR quando o álbum está aberto (v5.242 — ver a nota
-  // da coluna da direita, abaixo). Fechado ela é a identidade da coleção; aberto,
-  // essa identidade já está dita pelo conteúdo que se está olhando, e o quadrado
-  // fica livre para a única ação que a barra ainda oferece.
+  // A THUMB É A SETA, ABERTO OU FECHADO (v5.244 — ver "A seta é a thumbnail das
+  // raízes", em `grupo()`). Ela era o ícone da coleção com o card fechado e a
+  // seta com ele aberto; agora é a seta nos dois, girada por CSS, e é o MESMO
+  // quadrado que a barra de seção acima usa. Um álbum é uma subdivisão: o que
+  // distingue um do outro é o nome, não um glifo repetido em todos eles (era a
+  // mesma nota musical em cada hinário e a mesma fila em cada álbum).
   //
   // A SETA FECHA O ÁLBUM (v5.95). Ela era uma engrenagem que abria um painel de
   // opções dentro do card — mas com as opções encolhidas numa linha só, elas
   // cabem SEMPRE que o álbum está aberto, e um botão para revelar duas ações que
   // já caberiam na tela é cerimônia.
-  let barIcon;
-  if (u.expanded) {
-    barIcon = document.createElement('button');
-    barIcon.type = 'button';
-    barIcon.className = 'coll-bar-icon coll-bar-fechar';
-    barIcon.title = 'Fechar o álbum';
-    barIcon.setAttribute('aria-label', 'Fechar o álbum');
-    barIcon.innerHTML = chevronUpIconSvg();
-    barIcon.addEventListener('click', (e) => {
-      e.stopPropagation();   // divide a barra com o toque que também alterna
-      alternarAcordeao();
-    });
-  } else {
-    barIcon = document.createElement('div');
-    barIcon.className = 'coll-bar-icon';
-    barIcon.appendChild(msym(ICON[coll.iconKey] || ICON.music));
-  }
+  const barIcon = document.createElement('button');
+  barIcon.type = 'button';
+  barIcon.className = 'coll-bar-icon coll-bar-fechar';
+  barIcon.title = u.expanded ? 'Fechar o álbum' : 'Abrir o álbum';
+  barIcon.setAttribute('aria-label', barIcon.title);
+  barIcon.innerHTML = chevronUpIconSvg();
+  barIcon.addEventListener('click', (e) => {
+    e.stopPropagation();   // divide a barra com o toque que também alterna
+    alternarAcordeao();
+  });
 
   const info = document.createElement('div'); info.className = 'coll-bar-info';
   const barName = document.createElement('span'); barName.className = 'coll-bar-name'; barName.textContent = coll.name;

@@ -2801,10 +2801,51 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.243** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.244** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.244: A SETA VIRA A THUMBNAIL DAS RAÍZES — ícone só na folha da árvore.
+> OTA PURO** (sem Release).
+>
+> Pedido do operador: *"adicione um ícone também como thumbnail e modelo nos
+> grupos das coleções, assim podemos colocar a mesma seta de colapsar e
+> descolapsar aqui… pode manter uma seta como 'thumbnail' padrão, pois nas
+> subdivisões, uma thumbnail é meio inútil, deixe apenas nos arquivos os ícones,
+> nas raízes mais altas o ideal é a seta, pois ela representa que pode abrir
+> mais listagens."*
+>
+> **O argumento é sobre o que um desenho ali pode significar.** A thumb de um
+> álbum era a mesma nota musical em cada hinário e a mesma fila em cada álbum —
+> um glifo repetido em toda linha não distingue nada, e o que distingue uma
+> coleção da outra é o nome ao lado. A seção nem isso tinha: começava com texto
+> solto. Na folha da árvore o ícone TRABALHA (um áudio, um vídeo, uma imagem,
+> uma miniatura de verdade), e é lá que ele fica.
+>
+> Agora a seção e o card do álbum têm o MESMO quadrado, com a MESMA seta: para
+> baixo fechado, para cima aberto, girada por CSS a partir de um desenho só. A
+> caixa é declarada uma vez para os dois — duas receitas para o mesmo quadrado
+> divergiriam no primeiro ajuste.
+>
+> **E ela desceu da coluna da direita**, onde a v5.237 a tinha posto: é a mesma
+> razão da v5.243 — a direita é a coluna do peso e do botão de baixar, e uma
+> seta que aparece ali empurra os números.
+>
+> **A seção FIXA (os Favoritos) reserva o lugar e não desenha nada.** Ela não
+> abre nem fecha, e uma seta ali prometeria um gesto que não existe; sem o
+> espaço, o título dela começaria numa coluna diferente da de todas as outras
+> seções. É o `visibility`-vago da v5.243 aplicado ao outro lado da barra.
+>
+> **`iconKey` saiu do catálogo com a thumb que ele alimentava** — ele era o
+> ÚNICO acesso dinâmico à tabela `ICON`, e sem ele toda leitura daquela tabela
+> passa a ser por nome literal. Isso não é limpeza cosmética: é o que torna a
+> tabela varrível, e um nome que ninguém cita vira código morto demonstrável em
+> vez de um talvez.
+>
+> O oráculo (`tools/smoke.mjs`) compara a caixa da seção com a do card — a
+> mesma largura, altura e tom —, exige a seta nos DOIS estados do álbum e mede a
+> direção do giro. Reprova em 4 asserções contra o código anterior.
 
 > **A v5.243: A SETA DE FECHAR O ÁLBUM VESTE A THUMB — e a coluna da direita
 > para de se mexer. OTA PURO** (sem Release).
