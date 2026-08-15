@@ -6409,7 +6409,7 @@ sábado é visto uma vez. Então:
 | "Tocar agora" | `ytAcao(…, ['tocar'])` | **TRANSMISSÃO DIRETA** — `ytStream` → `shared/mse.js`, sem baixar |
 | Modo Fácil | `simplePlaySong` desvia para o mesmo `ytAcao` | aquele modo não pergunta nada, e esperar 300 MB com o culto rodando não é opção |
 | guardar offline | os destinos da folha (playlist · Cronograma · Favoritos) | um episódio por vez, pelo caminho de download do YouTube |
-| card | `renderCollectionCard` / `buildCollectionOptions` | **sem botão de baixar em lote** com índice na mão; o de opções é "Atualizar a lista" (`syncCollection(coll, { soIndice: true })`), e a série sai de "Baixar toda a biblioteca" |
+| card | `renderCollectionCard` / `buildCollectionOptions` | no grupo **"Arquivos oficiais"** do índice (v5.260), separado dos hinários; **sem botão de baixar em lote** com índice na mão; o de opções é "Atualizar a lista" (`syncCollection(coll, { soIndice: true })`), e a série sai de "Baixar toda a biblioteca" |
 
 `downloadSerieItem` e o laço de `syncCollection` continuam existindo e corretos
 — o que mudou é que nenhum toque de UI os alcança hoje. O que muda em relação a

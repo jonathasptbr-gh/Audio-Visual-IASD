@@ -731,7 +731,7 @@ try {
         has_instrumental_music: false, duration: '3:47' });
     }
     collState[c.id] = { indexSyncedAt: Date.now(), songs, isHymnal: true };
-    gruposAbertos.add('Hinários'); gruposAbertos.add('Hinários e séries');
+    gruposAbertos.add('Hinários'); gruposAbertos.add('Arquivos oficiais');
     ui(c.id).expanded = true; ui(c.id).shown = 100;
     // Uma lista PRÓPRIA e VISÍVEL, com a largura de um celular: dentro do popup
     // fechado toda medida é zero, e zeros comparados com zeros passam sem medir
@@ -803,7 +803,7 @@ for (const tema of ['escuro', 'claro']) {
           has_instrumental_music: false, duration: '3:47' });
       }
       collState[c.id] = { indexSyncedAt: Date.now(), songs, isHymnal: true };
-      gruposAbertos.clear(); gruposAbertos.add('Hinários'); gruposAbertos.add('Hinários e séries');
+      gruposAbertos.clear(); gruposAbertos.add('Hinários'); gruposAbertos.add('Arquivos oficiais');
       ui(c.id).expanded = true; ui(c.id).shown = 100;
       const lista = document.createElement('ul');
       lista.className = 'hymnal-list';
@@ -877,7 +877,7 @@ try {
           fileIdFull: (completo || i < 3) ? 'f' + i : null });
       }
       collState[c.id] = { indexSyncedAt: Date.now(), songs, isHymnal: true };
-      gruposAbertos.clear(); gruposAbertos.add('Hinários'); gruposAbertos.add('Hinários e séries');
+      gruposAbertos.clear(); gruposAbertos.add('Hinários'); gruposAbertos.add('Arquivos oficiais');
       ui(c.id).expanded = aberto; ui(c.id).shown = 100;
       const lista = document.createElement('ul');
       lista.className = 'hymnal-list';
@@ -998,7 +998,7 @@ try {
     }
     collState[c.id] = { indexSyncedAt: Date.now(), songs, isHymnal: true };
     gruposAbertos.clear();
-    gruposAbertos.add('Hinários'); gruposAbertos.add('Hinários e séries');
+    gruposAbertos.add('Hinários'); gruposAbertos.add('Arquivos oficiais');
     gruposAbertos.add('CDs do ano');
     const lista = document.createElement('ul');
     lista.className = 'hymnal-list';
