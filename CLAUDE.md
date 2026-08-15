@@ -1511,15 +1511,24 @@ TV, as telas da rede SÃO o que a congregação vê.
   vencido e até o `adeus` do operador reentram em silêncio (um `POST /par` numa
   escada de 1 s a 30 s) — a mídia é local (`/m/`) e a letra anda pelo
   `timeupdate` do próprio `<video>`, então a queda leva o fio e mais nada. O
-  gesto perdido (tela cheia, som) é oferecido por um botão discreto de canto,
-  que se recolhe em 5 s; o toque duplo faz o mesmo. **E "se recolhe" tem de ser
-  verdade**: o par mostrar/esconder dele agenda três prazos (a opacidade um
-  quadro adiante, o recolhimento em 5 s, o `display:none` no fim do
-  esmaecimento) e precisa cancelar os TRÊS a cada chamada. Sem isso ele não é
-  idempotente — o quadro de opacidade órfão repunha `opacity: 1` depois de o
-  esconder ter rodado, a saída relia o estilo, encontrava `'1'` e desistia, e o
-  botão ficava opaco por cima da projeção **sem nenhum prazo vivo para
-  recolhê-lo** (v5.214).
+  gesto perdido (tela cheia) volta por **dois atalhos, e nenhum botão**
+  (v5.218): o TOQUE DUPLO e o **F11**. O botão discreto de canto que existia
+  aqui saiu — ele existia para devolver o gesto numa RECARGA, e a recarga passou
+  a voltar para a entrada oficial (abaixo), então ele virou um segundo controle,
+  com outro nome e outro desenho, para a mesma decisão.
+
+- **MAS A RECARGA VOLTA PARA A ENTRADA OFICIAL** (v5.218, decisão do operador —
+  ela REVOGA a metade da regra acima que valia para o F5). A distinção é entre
+  perder o FIO e perder a PÁGINA: numa queda de fio a mídia continua tocando e
+  cobrir a tela apagaria uma cena que o problema não atingiu; uma recarga já
+  derrubou tudo — documento, `<video>`, cena e, sobretudo, o GESTO, que não
+  sobrevive a uma navegação. Não há projeção a preservar, logo não há nada a
+  cobrir, e o certo é o botão que o visitante já conhece. **O token é carregado
+  adiante** ainda assim, e isso não contradiz "a recarga desconecta": o fio só
+  abre no toque. O que ele evita é o teto de três telas — `telasSse` é indexado
+  pelo TOKEN, então pedir pareamento novo a cada F5 deixaria a sessão anterior
+  ocupando vaga até o vigia notá-la, e a terceira recarga seguida receberia
+  "lotado".
 - **O tap é no `busPost`, e isso fecha o eco.** `NativeBridge.busPost` vê 100%
   dos comandos (o relay nativo roda sempre — ver o barramento), e é ali que o
   `tapLan` os copia para o fan-out SSE. A injeção de volta (o `st` do
@@ -2455,6 +2464,69 @@ controles), que **só chegam instalando o APK novo**, não pelo OTA.
 >
 > A régua que fica: **um oráculo que compara NOMES não protege o que a tela
 > PINTA.**
+
+> **A v5.218: A RECARGA VOLTA PARA A ENTRADA OFICIAL, e o botão de canto sai.
+> OTA PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> Decisão do operador depois da v5.216, e ela **revoga metade de uma regra da
+> v5.189**: *"após qualquer descarregamento da página, pode usar o botão
+> original de ativar tela, o mesmo que já se usa no primeiro acesso. Inclusive,
+> remova esse botão específico que desaparece em 5 segundos. Faça apenas a
+> lógica de aceitar o F11 como atalho, ou os dois cliques na tela."*
+>
+> **A regra da v5.189 estava certa para o caso dela e errada para este, e a
+> distinção é entre perder o FIO e perder a PÁGINA.** Numa queda de conexão a
+> mídia continua tocando — ela é local (`/m/`) e a letra anda pelo `timeupdate`
+> do próprio `<video>` —, então desenhar a entrada por cima apagaria uma cena
+> que o problema não tinha atingido; isso **não mudou**, e `cairToken`/
+> `reentrarSozinho` seguem silenciosos. Uma recarga é outra coisa: ela já
+> derrubou tudo, inclusive o gesto, porque ativação transitória não sobrevive a
+> uma navegação. A tela volta muda e em janela de qualquer jeito. **Não havendo
+> projeção a preservar, não há nada que a entrada esteja cobrindo** — e o que
+> estava lá no lugar dela era um botão de canto com outro nome ("Ativar som e
+> tela cheia"), outro desenho e cinco segundos de vida.
+>
+> **O que saiu:** `mostrarCanto`, `esconderCanto`, os três prazos, `oQueFalta`,
+> `oferecerGesto`, `emTelaCheia` e o `assentando` da v5.214 — este último era
+> apenas o guarda daquela pergunta, e some junto com ela. A regra que ele
+> protegia continua escrita, agora como comentário no `telaCheia`: **não se lê
+> `document.fullscreenElement` no mesmo turno em que se pede a tela cheia.**
+>
+> **O que ficou:** os dois gestos que já existem na cabeça de quem está ali — o
+> TOQUE DUPLO (o que se tenta primeiro num vídeo) e o **F11** (o de quem opera
+> num computador ligado ao projetor, que é o caso normal deste recurso). O
+> `preventDefault` no F11 é deliberado: sem ele o navegador entra na tela cheia
+> DELE ao mesmo tempo em que pedimos a da API, e sair passaria a exigir dois
+> comandos. Um dono só para o estado.
+>
+> **O token é carregado adiante na recarga, e isso não é uma exceção à decisão:**
+> o fio só abre quando alguém toca. O que ele evita é um defeito que a mudança
+> criaria — `telasSse` é indexado pelo TOKEN (`EspelhoServidor`), então pedir
+> pareamento novo a cada F5 deixaria a sessão anterior ocupando vaga até o vigia
+> notá-la, e a **terceira recarga seguida receberia "lotado"**. Com o token
+> reaproveitado o servidor reconhece a volta ("a mesma tela reabriu a página") e
+> a vaga é a mesma. Há oráculo para as duas metades.
+>
+> **E um falso positivo do próprio teste virou lição.** A asserção "não
+> reconecta sozinha" lia o contador GLOBAL de `GET /e` do servidor de mentira, e
+> reprovou culpando a página recarregada por um pedido que era de outra (a
+> principal, na escada de reentrada legítima do `adeus`). Um contador global não
+> prova uma afirmação sobre UMA página: agora cada contexto manda um cabeçalho
+> que o identifica, e a contagem é por página. **Medição que não é atribuível
+> não é medição.**
+>
+> **E ele reprovou uma SEGUNDA vez, no CI, por uma corrida que a máquina local
+> escondia** — com o arranjo de dois passos da v5.213 mostrando serviço:
+> `11/12`, e o reprovado nomeado no resumo do run em vez de sumir atrás de um
+> painel verde. A asserção do token esperava **o overlay sumir** para então
+> recarregar, e `ativar()` esconde o overlay ANTES de o pareamento voltar (o
+> gesto não espera a rede) — quem grava o token é a resposta do `POST /par`. Num
+> runner mais lento a recarga chegava antes do `guardar()`, o token não existia,
+> e o teste acusava o app de pedir vaga nova. Reproduzido de propósito com 400 ms
+> de atraso no servidor de mentira e corrigido esperando o `GET /e`, que só
+> acontece DEPOIS do `guardar()`. É a segunda vez que este arquivo aprende isto
+> (a v5.204 foi a primeira): **espere o sinal que prova o que você precisa
+> afirmar, não um que costuma vir junto.**
 
 > **A v5.217: O BOTÃO DE CAST NÃO ABRIA NADA COM UMA TELA JÁ CONECTADA — o
 > fecho automático da folha era um NÍVEL onde a frase dizia BORDA. OTA PURO**
