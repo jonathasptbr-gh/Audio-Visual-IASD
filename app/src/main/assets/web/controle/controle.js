@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.254';
+const WEB_VERSION = '5.255';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -9209,6 +9209,14 @@ async function serieDiarioGravar(id, campos) {
 
 async function fetchSerieIndex(coll) {
   const serie = coll.serie;
+  // O `hoje` DA VARREDURA, lido UMA vez e no TOPO. Duas razões, e as duas já
+  // morderam este projeto: a regra do corte (`AVSerie.aindaNaoSaiu`), o diário e
+  // o carimbo do índice têm de julgar contra o MESMO dia — duas leituras do
+  // relógio separadas por uma extração de rede podem cair em lados diferentes da
+  // meia-noite —, e o caminho da economia logo abaixo já o consome, isto é,
+  // declará-lo mais adiante seria zona morta temporal (a armadilha das v5.184,
+  // v5.193, v5.195 e v5.199).
+  const hoje = new Date();
   const doCanal = await AVNative.ytCanalPlaylists(serie.canal);
 
   // A METADE DO CANAL, gravada ANTES do `throw` logo abaixo — e essa ordem é o
@@ -9258,7 +9266,14 @@ async function fetchSerieIndex(coll) {
   // passá-la à impressão o sintoma seria o da v5.233 na íntegra: assinatura
   // batendo, índice velho de pé para sempre, e o detalhe do episódio sem imagem
   // sem nada que o explicasse.
+  // E O DIA ENTRA NA ASSINATURA quando a série esconde o que ainda não saiu
+  // (v5.255). Sem isto o defeito seria mudo e teria o sintoma exato da v5.233: a
+  // assinatura do canal bate (o canal não muda), o caminho da economia devolve o
+  // índice de ONTEM — que não tem o episódio de hoje — e o carimbo do dia diria
+  // que ele é de hoje. A lista daquela série é função do dia; a assinatura dela
+  // também tem de ser.
   const assinatura = AVSerie.impressao(serieFaixaDoItem) + '|'
+    + (serie.futuros === AVSerie.FUTUROS_ESCONDER ? serieDiaLocal(hoje) + '|' : '')
     + playlists.map((p) => p.url + ':' + p.count).join('|');
   const guardado = collState[coll.id];
   if (guardado && guardado.serieAssinatura === assinatura && (guardado.songs || []).length) {
@@ -9268,6 +9283,7 @@ async function fetchSerieIndex(coll) {
     // no caminho da economia, um aparelho cuja assinatura bate ficaria sendo
     // varrido a cada abertura, para sempre, pela guarda do `autoRefresh`.
     guardado.serieDiarioEm = Date.now();
+    guardado.serieDiaEm = serieDiaLocal(hoje);
     await AVDB.setState('coll:' + coll.id, guardado);
     return;
   }
@@ -9283,12 +9299,15 @@ async function fetchSerieIndex(coll) {
     const info = await AVNative.ytPlaylist(pl.url);
     if (!info || !Array.isArray(info.items)) { vazias.push(pl.name); continue; }
     for (const v of info.items) {
-      const ver = AVSerie.avaliarVideo(v, serie);
+      const ver = AVSerie.avaliarVideo(v, serie, hoje);
       vistos.push({
         nome: String((v && v.name) || ''), motivo: ver.motivo, semData: !ver.motivo && !ver.data,
+        // A data viaja com o veredito só para os que ainda não saíram: é ela
+        // que ordena o "o mais próximo" da linha do Registro.
+        dia: (ver.data && ver.data.dia) || 0, mes: (ver.data && ver.data.mes) || 0,
       });
     }
-    itens.push(...AVSerie.itensDaPlaylist(info.items, pl.mes, serie));
+    itens.push(...AVSerie.itensDaPlaylist(info.items, pl.mes, serie, hoje));
   }
   if (!itens.length) throw new Error('As playlists de "' + serie.name + '" vieram vazias');
 
@@ -9298,6 +9317,10 @@ async function fetchSerieIndex(coll) {
 
   await serieDiarioGravar(coll.id, {
     quandoVideos: Date.now(),
+    // O DIA em que o corte foi aplicado, para o Registro dizer contra o quê ele
+    // julgou. Um relógio errado no aparelho é uma causa possível de "sumiu o
+    // episódio de hoje", e sem esta linha ela seria indistinguível das outras.
+    serieDiaEm: serieDiaLocal(hoje),
     // O QUE O CANAL ANUNCIOU, somado das playlists aceitas. Ele é a única
     // referência externa que este caminho tem, e é ele que torna visível o
     // episódio que a extração NÃO trouxe — um vídeo só para membros, um
@@ -9306,7 +9329,13 @@ async function fetchSerieIndex(coll) {
     anunciados: playlists.reduce((n, p) => n + (p.count | 0), 0),
     vazias,
     total: vistos.length,
-    recusados: vistos.filter((x) => x.motivo),
+    // OS FUTUROS SAEM DA LISTA DE RECUSADOS, e não é cosmético: são dezessete
+    // por trimestre e afogariam as recusas de VERDADE, que são uma ou nenhuma.
+    // Eles não são um defeito — são o estado normal de um canal que sobe o
+    // trimestre e libera aos poucos —, e por isso viram uma linha de contagem.
+    recusados: vistos.filter((x) => x.motivo && x.motivo !== AVSerie.MOTIVO_FUTURO),
+    futuros: vistos.filter((x) => x.motivo === AVSerie.MOTIVO_FUTURO)
+      .map((x) => ({ nome: x.nome, dia: x.dia, mes: x.mes })),
     semData: vistos.filter((x) => x.semData).map((x) => x.nome),
     nomes: songs.map((s) => s.name),
   });
@@ -9314,6 +9343,10 @@ async function fetchSerieIndex(coll) {
   collState[coll.id] = {
     indexSyncedAt: Date.now(), songs, isHymnal: false, serieAssinatura: assinatura,
     serieDiarioEm: Date.now(),
+    // O DIA em que esta lista foi decidida. Ver `indiceVencido`: quando a série
+    // esconde o que ainda não saiu, a lista é função do DIA — e um índice de
+    // ontem esconde o episódio de hoje, que é o do culto.
+    serieDiaEm: serieDiaLocal(hoje),
   };
   await AVDB.setState('coll:' + coll.id, collState[coll.id]);
   refreshCollectionsIfVisible();
@@ -9404,6 +9437,15 @@ const ALBUM_INDEX_TTL = 12 * 60 * 60 * 1000; // 12 h
 //     mas sempre busca os novos/vazios). Uma falha (ex: sem rede) só mantém o
 //     que já está em cache.
 let collectionsRefreshing = false;
+// O DIA CORRENTE como 'AAAA-MM-DD', no fuso do aparelho. É a chave de
+// validade do índice de uma série que esconde o que ainda não saiu — e é local
+// de propósito: o sábado do operador é o do relógio dele, não o de UTC.
+function serieDiaLocal(d) {
+  const x = d instanceof Date ? d : new Date();
+  return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0')
+    + '-' + String(x.getDate()).padStart(2, '0');
+}
+
 // O ÍNDICE DE UMA COLEÇÃO PRECISA SER REFEITO?
 //
 // Ela é uma função nomeada, e não o corpo de um `filter`, porque o oráculo
@@ -9420,7 +9462,14 @@ function indiceVencido(c, agora) {
   // foi a atualização que o fez olhar. Custa UMA varredura, uma vez, num
   // aparelho que já tem o índice; o carimbo é escrito nos DOIS caminhos do
   // `fetchSerieIndex`, senão ele voltaria a extrair o canal a cada abertura.
-  return c.kind === 'serie' && !st.serieDiarioEm;
+  if (c.kind !== 'serie') return false;
+  if (!st.serieDiarioEm) return true;
+  // E O DIA VENCE O ÍNDICE quando a série esconde o que ainda não saiu (v5.255).
+  // Ali a lista é função do DIA: o episódio do culto de hoje estava escondido
+  // ontem, e sem isto ele só apareceria quando o TTL de 12 h vencesse — que
+  // pode ser depois do culto. Custa uma varredura por dia, e só nessa série.
+  return c.serie && c.serie.futuros === AVSerie.FUTUROS_ESCONDER
+    && st.serieDiaEm !== serieDiaLocal(new Date(agora));
 }
 
 async function autoRefreshCollections() {
@@ -12879,6 +12928,18 @@ function eventosDiag() {
 // "há 3 min", ou vazio quando nunca aconteceu. Vazio e não "nunca": a linha
 // inteira some, que é a regra deste Registro — o que não se sabe não vira
 // palavra.
+// 'AAAA-MM-DD' → '15/08' (o dia do corte, como o operador o lê). Recebendo um
+// carimbo de tempo em vez da string — um diário anterior à v5.255 —, ela ainda
+// responde, que é a regra deste bloco: toda linha é opcional, nenhuma mente.
+function serieDiaBr(dia) {
+  const t = String(dia || '');
+  const m = t.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return m[3] + '/' + m[2];
+  const d = new Date(Number(dia) || 0);
+  return Number(dia) ? String(d.getDate()).padStart(2, '0') + '/'
+    + String(d.getMonth() + 1).padStart(2, '0') : '?';
+}
+
 function serieHa(quando) {
   return quando ? 'há ' + mirrorDur(Date.now() - quando) : '';
 }
@@ -12987,6 +13048,22 @@ async function blocoSeries() {
       linhas.push('    ! playlist(s) que voltaram vazias: ' + d.vazias.join(' · '));
     }
     linhas.push(...serieLista(rec, (r) => '    - "' + r.nome + '" → ' + serieMotivoFrase(r.motivo, s)));
+    // O QUE AINDA NÃO SAIU (v5.255): uma linha de contagem, e não dezessete de
+    // recusa. Eles não são um defeito — são o estado normal de um canal que sobe
+    // o trimestre inteiro e libera um sábado por vez —, e listá-los afogaria as
+    // recusas de verdade, que são uma ou nenhuma.
+    //
+    // **O MAIS PRÓXIMO vem junto, e é ele que se confere.** A pergunta que este
+    // bloco precisa responder é uma só: "o app está escondendo o episódio do
+    // culto de amanhã?". O nome cru dele ao lado da data de corte responde sem
+    // depender de eu adivinhar o relógio do aparelho.
+    const fut = (d.futuros || []).slice()
+      .sort((a, b) => (a.mes - b.mes) || (a.dia - b.dia));
+    if (fut.length) {
+      const p = fut[0];
+      linhas.push('    (' + fut.length + ' ainda não liberado(s) pelo canal, corte em '
+        + serieDiaBr(d.serieDiaEm || d.quandoVideos) + ' — o mais próximo é "' + p.nome + '")');
+    }
     // O ACHADO que não é recusa, e o mais valioso dos dois: o vídeo ENTROU (a
     // regra de ouro manda entrar) e ficou sem identificador de data, fora de
     // ordem. É o sintoma exato da v5.230, e é dele que sai o próximo ajuste do

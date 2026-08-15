@@ -138,6 +138,11 @@
   const TITULO_ESQUERDA = 'esquerda';     // "Match point | Provai e Vede 2026 (01/Ago)"
   const TITULO_NENHUM = 'nenhum';         // "Informativo Mundial das Missões | 15 AGOSTO 2026"
 
+  // O que fazer com um episódio cujo sábado ainda não chegou. Ver [aindaNaoSaiu]
+  // e o campo `futuros` no catálogo.
+  const FUTUROS_MOSTRAR = 'mostrar';      // o padrão: a playlist só tem o que saiu
+  const FUTUROS_ESCONDER = 'esconder';    // o canal sobe o trimestre e libera aos poucos
+
   // O CATÁLOGO. Uma linha por série; o `id` é o `coll.id` do card e por isso
   // não pode mudar depois de publicado (é ele que nomeia a pasta no OPFS e
   // liga os downloads já feitos ao card). Ele começa com `serie-` porque é
@@ -163,6 +168,11 @@
       ano: 2026,
       periodo: PERIODO_MES,
       titulo: TITULO_ESQUERDA,
+      // A playlist do mês só traz o que já saiu — nada a esconder, e a medição
+      // é do registro do aparelho: em 15 de agosto ela tinha até 26 de
+      // setembro, e aqueles episódios TOCAM. Ligar isto aqui apagaria da
+      // Biblioteca um mês inteiro de vídeos que existem.
+      futuros: FUTUROS_MOSTRAR,
     },
     {
       id: 'serie-informativo-missoes-2026',
@@ -176,6 +186,17 @@
       ano: 2026,
       periodo: PERIODO_TRIMESTRE,
       titulo: TITULO_NENHUM,
+      // O CANAL SOBE O TRIMESTRE INTEIRO e libera um sábado por vez (v5.255).
+      // Os que ainda não saíram ficam na playlist como "prioridade para
+      // membros": aparecem, e não tocam.
+      //
+      // **O erro possível é assimétrico, e é por isso que o campo existe em vez
+      // de a regra ser global.** Esconder cedo demais custa um episódio que já
+      // estava liberado — e ele volta sozinho no dia seguinte, sem nada a
+      // desfazer. Mostrar de mais custa um item que o operador põe no roteiro
+      // do culto e que não toca na hora: o custo é a projeção parada, na frente
+      // da congregação, sem o que fazer.
+      futuros: FUTUROS_ESCONDER,
     },
   ];
 
@@ -322,6 +343,7 @@
   const MOTIVO_ANO = 'ano';           // é da série, mas de outro ano
   const MOTIVO_PERIODO = 'periodo';   // não declara mês nem trimestre
   const MOTIVO_SEM_ID = 'sem-id';     // o extrator não devolveu id de vídeo
+  const MOTIVO_FUTURO = 'futuro';     // o sábado dele ainda não chegou (v5.255)
 
   /**
    * O VEREDITO sobre uma playlist do canal: `{ mes, motivo }`.
@@ -384,11 +406,48 @@
    * nomear: um episódio sem data é um episódio fora de ordem e sem rótulo na
    * lista do culto, e é o sintoma exato que o operador relatou na v5.230.
    */
-  function avaliarVideo(v, serie) {
+  function avaliarVideo(v, serie, hoje) {
     if (!v || !v.id) return { motivo: MOTIVO_SEM_ID, data: null };
     if (ehLibras(v.name)) return { motivo: MOTIVO_LIBRAS, data: null };
     if (ehOutroIdioma(v.name)) return { motivo: MOTIVO_IDIOMA, data: null };
-    return { motivo: '', data: dataDoVideo(v.name) };
+    const data = dataDoVideo(v.name);
+    if (aindaNaoSaiu(data, serie, hoje)) return { motivo: MOTIVO_FUTURO, data };
+    return { motivo: '', data };
+  }
+
+  /**
+   * O episódio é de um sábado que AINDA NÃO CHEGOU? (v5.255)
+   *
+   * Relato do operador: *"o informativo mundial das missões só libera apenas o
+   * informativo referente a aquela semana e dos passados. Exemplo: hoje é
+   * sábado 15 de agosto, então eu só tenho o 15 de agosto e os anteriores."*
+   *
+   * O canal sobe o TRIMESTRE INTEIRO de uma vez e o libera um sábado por vez —
+   * os que ainda não saíram ficam na playlist como **prioridade para membros**:
+   * têm título, miniatura e duração, aparecem na listagem, e não tocam. A lista
+   * do app mostrava até 12 de dezembro em agosto, isto é, dezessete promessas
+   * que ela não podia cumprir, e a mais cara delas no meio de um culto.
+   *
+   * **A régua é a DATA, porque é o único sinal que existe deste lado.** O que
+   * decide de verdade é a liberação no YouTube, e o extrator não a publica: o
+   * item de um vídeo restrito vem idêntico ao de um liberado. Errar por data é
+   * o preço, e ele é assimétrico — ver o campo [futuros] no catálogo.
+   *
+   * **A comparação é por DIA, nunca por instante.** O episódio de hoje É de
+   * hoje, e um `>` sobre milissegundos o esconderia até a meia-noite. As três
+   * partes viram um inteiro (`AAAAMMDD`) e a ordem lexicográfica é a
+   * cronológica, sem fuso, sem horário de verão e sem `Date` no meio.
+   *
+   * **Sem data no título, o vídeo NUNCA é escondido.** Ele é o achado da regra
+   * de ouro (entra sem rótulo, no fim do mês) e esconder o que não se sabe
+   * julgar seria transformar um item feio num item ausente.
+   */
+  function aindaNaoSaiu(data, serie, hoje) {
+    const s = serie || {};
+    if (s.futuros !== FUTUROS_ESCONDER || !data) return false;
+    const d = hoje instanceof Date ? hoje : new Date();
+    const limite = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+    return (s.ano * 10000 + data.mes * 100 + data.dia) > limite;
   }
 
   /** O mês escrito por extenso em qualquer posição do nome já normalizado. */
@@ -553,8 +612,13 @@
    * Quando as duas discordam (um vídeo de 01/Ago pendurado na playlist de
    * julho, que acontece quando a semana vira no meio), vale a **data do
    * título**: é ela que o operador lê no telão e no cronograma.
+   *
+   * `hoje` (um `Date`, ou nada) é o que decide o corte dos episódios que ainda
+   * não saíram — ver [aindaNaoSaiu]. Ele é PARÂMETRO e não `new Date()` lá
+   * dentro por uma razão só: uma regra que lê o relógio não tem oráculo, e o
+   * que ela decide é o que aparece na lista do culto.
    */
-  function itensDaPlaylist(videos, mesDaLista, serie) {
+  function itensDaPlaylist(videos, mesDaLista, serie, hoje) {
     const out = [];
     (Array.isArray(videos) ? videos : []).forEach((v, i) => {
       // Segunda linha de defesa (armadilha 3). Hoje ela nunca dispara: as
@@ -572,7 +636,7 @@
       // Quem responde é [avaliarVideo], e pela mesma razão do [mesDaPlaylist]:
       // o Registro conta o que aconteceu com cada vídeo, e ele tem de contar a
       // decisão que de fato foi tomada — não uma segunda escrita dela.
-      const ver = avaliarVideo(v, serie);
+      const ver = avaliarVideo(v, serie, hoje);
       if (ver.motivo) return;
       const d = ver.data;
       out.push({
@@ -676,7 +740,7 @@
       String(itensDaPlaylist), String(ordenarItens), String(nomeDoItem),
       String(tituloDoEpisodio), String(ehLibras), String(normalizar),
       String(mesDoNome), String(mesDoTrimestre),
-      String(avaliarPlaylist), String(avaliarVideo),
+      String(avaliarPlaylist), String(avaliarVideo), String(aindaNaoSaiu),
       // As duas RECUSAS por idioma são DADOS e não código, e por isso entram
       // pelo valor: mudar uma marca (ou uma faixa de escrita) muda o que o
       // álbum contém, exatamente como mudar uma função — e sem isto o índice
@@ -696,9 +760,10 @@
   global.AVSerie = {
     SERIES,
     PERIODO_MES, PERIODO_TRIMESTRE, TITULO_ESQUERDA, TITULO_NENHUM,
+    FUTUROS_MOSTRAR, FUTUROS_ESCONDER,
     MOTIVO_VAZIO, MOTIVO_PREFIXO, MOTIVO_LIBRAS, MOTIVO_IDIOMA,
-    MOTIVO_ANO, MOTIVO_PERIODO, MOTIVO_SEM_ID,
-    normalizar, ehLibras, ehOutroIdioma,
+    MOTIVO_ANO, MOTIVO_PERIODO, MOTIVO_SEM_ID, MOTIVO_FUTURO,
+    normalizar, ehLibras, ehOutroIdioma, aindaNaoSaiu,
     avaliarPlaylist, avaliarVideo,
     mesDaPlaylist, playlistsDaSerie,
     dataDoVideo, tituloDoEpisodio, rotuloData,
