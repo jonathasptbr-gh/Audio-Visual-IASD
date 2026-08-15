@@ -21,6 +21,14 @@
 //  5. o ESPELHO LIGADO não segura mais a pergunta — era ele o elo que fazia a
 //     v5.151 desistir de perguntar.
 //
+// E, desde a v5.245 (o segundo relato do operador sobre este mesmo fluxo):
+//
+//  6. um toque FORA do diálogo não responde por ele — a recusa acidental
+//     custava a atualização pelo resto da sessão;
+//  7. o BOTÃO de Configurações procura quando não há nada e atualiza quando
+//     há, que é o caminho de quem adiou a pergunta ou quem simplesmente foi
+//     atrás.
+//
 //   node tools/ota.test.mjs
 import { chromium } from 'playwright';
 import http from 'node:http';
@@ -160,6 +168,25 @@ async function tocar(pg, id) {
   return true;
 }
 
+// O BOTÃO MORA EM CONFIGURAÇÕES, e é assim que o operador chega nele: pela
+// engrenagem. Clicar nele com a folha fechada seria clicar num elemento fora do
+// viewport — e o Playwright, com razão, recusa.
+// Mesma tolerância do `tocar`: sem o botão, isto é um resultado — o arquivo
+// segue e as asserções seguintes continuam valendo.
+async function tocarBotao(pg) {
+  if (!(await pg.evaluate(() => !!document.getElementById('otaRow')))) {
+    checar(false, 'havia um botão #otaRow para tocar');
+    return false;
+  }
+  await pg.click('#otaRow', { timeout: 5000 }).catch(() => {});
+  return true;
+}
+
+async function abrirConfig(pg) {
+  await pg.evaluate(() => { try { openFadePopup(); } catch (_) { /* bundle antigo */ } });
+  await pg.waitForTimeout(200);
+}
+
 const dialogo = (pg) => pg.evaluate(() => {
   const d = document.getElementById('appDialog');
   if (!d || !d.classList.contains('open')) return null;
@@ -275,19 +302,86 @@ try {
       'e NADA é aplicado à revelia (o desfecho que a v5.151 tinha tornado impossível recusar)');
     // O FATO continua na tela: sem isto, "depois" apagaria também a informação
     // de que há algo esperando, e o operador não teria como trazê-la de volta.
-    const rotulo = await pg.evaluate(() => {
-      const e = document.getElementById('appVersion');
-      return { txt: e.textContent, marcado: e.classList.contains('tem-atualizacao') };
+    // Desde a v5.245 quem carrega esse fato é o BOTÃO, por extenso, e não mais
+    // um ponto no rótulo de versão — o botão diz a mesma coisa e é onde se
+    // toca, e os dois juntos eram a mesma informação a dois centímetros.
+    // Null-safe de propósito: num bundle SEM o botão isto é um RESULTADO
+    // ("não há botão"), não um acidente — e um `evaluate` que lança aqui
+    // abortaria o arquivo inteiro, escondendo tudo o que vem depois. É a mesma
+    // disciplina do `empurrar` e do `tocar`, e a lição da v5.213.
+    const botao = await pg.evaluate(() => {
+      const e = document.getElementById('otaRow');
+      return e ? { txt: e.textContent, oculto: e.hidden, apagado: e.disabled } : null;
     });
-    checar(rotulo.marcado && /●/.test(rotulo.txt),
-      'mas o RÓTULO DE VERSÃO segue marcando que há atualização esperando');
-    // E o toque no rótulo desfaz o adiamento — é o caminho de volta.
-    await pg.evaluate(() => document.getElementById('appVersion').click());
-    await pg.waitForTimeout(200);
-    await pg.evaluate(() => { try { otaAdiadas.clear(); } catch (_) { /* bundle antigo */ } });
-    await denovo();
+    checar(!!botao && !botao.oculto && /Atualizar/.test(botao.txt) && /5\.999/.test(botao.txt),
+      'mas o BOTÃO segue dizendo que há atualização esperando, e qual é');
+    checar(!!botao && !botao.apagado, 'e ele está tocável — a hora é boa (sem cena, sem download)');
+    await ctx.close();
+  }
+
+  // ── 4b. O BOTÃO É O CAMINHO DE VOLTA ─────────────────────────────────────
+  //
+  // "Deixar para depois" cala o diálogo desta sessão; ele não pode calar o
+  // operador que voltou para pedir a atualização de propósito. Antes da v5.245
+  // esse caminho era um toque no rótulo de versão — uma afordância que não se
+  // anuncia; agora é o botão, e ele APLICA direto, sem repetir a pergunta que
+  // acabou de ser adiada.
+  {
+    const { ctx, pg } = await abrir({ web: '5.999' });
+    await empurrar(pg, { web: '5.999' });
+    checar(!!(await dialogo(pg)), 'a pergunta apareceu');
+    await tocar(pg, 'appDialogCancel');
+    await abrirConfig(pg);
+    await tocarBotao(pg);
+    await pg.waitForFunction(() => window.__chamadas.includes('otaApply'), null, { timeout: 5000 })
+      .catch(() => {});
+    checar(await pg.evaluate(() => window.__chamadas.includes('otaApply')),
+      'e o BOTÃO aplica a atualização adiada — "depois" não é "nunca"');
+    await ctx.close();
+  }
+
+  // ── 4c. O DIÁLOGO NÃO SE PERDE NUM TOQUE FORA (v5.245) ───────────────────
+  //
+  // O pedido do operador, palavra por palavra: a notificação "pode ser ignorada
+  // tocando fora dela, e assim perdendo a atualização". Um toque no fundo
+  // resolvia como "Deixar para depois", que silencia a pergunta pela sessão —
+  // e ele nem sabia ter respondido. Os dois botões continuam ali; o que deixa
+  // de existir é a recusa por acidente.
+  {
+    const { ctx, pg } = await abrir({ web: '5.999' });
+    await empurrar(pg, { web: '5.999' });
+    checar(!!(await dialogo(pg)), 'a pergunta apareceu');
+    // O toque é no BACKDROP (o próprio `#appDialog`), que é o que o dedo
+    // encontra fora da caixa — e é um clique de verdade, no canto da tela.
+    await pg.mouse.click(10, 10);
+    await pg.waitForTimeout(300);
     checar(!!(await dialogo(pg)),
-      'e desfeito o adiamento a pergunta volta — "depois" não é "nunca"');
+      'e um toque FORA dela não a fecha — a atualização não se perde num gesto solto');
+    checar(!(await pg.evaluate(() => window.__chamadas.includes('otaApply'))),
+      'e nada foi aplicado à revelia por causa desse toque');
+    // E ela continua respondível: o "Deixar para depois" é a recusa
+    // DELIBERADA, e ela não foi tirada de ninguém.
+    await tocar(pg, 'appDialogCancel');
+    checar(!(await dialogo(pg)), 'o "Deixar para depois" continua fechando — a saída não sumiu');
+    await ctx.close();
+  }
+
+  // ── 4d. SEM NADA ESPERANDO, O BOTÃO É A PROCURA ──────────────────────────
+  {
+    const { ctx, pg } = await abrir({ web: '' });
+    const inicial = await pg.evaluate(() => {
+      const e = document.getElementById('otaRow');
+      return e ? { txt: e.textContent, oculto: e.hidden } : null;
+    });
+    checar(!!inicial && !inicial.oculto && /Procurar atualiza/i.test(inicial.txt),
+      'sem nada esperando, o botão é "Procurar atualização"');
+    await abrirConfig(pg);
+    await tocarBotao(pg);
+    await pg.waitForTimeout(200);
+    checar(await pg.evaluate(() => window.__chamadas.includes('otaCheck')),
+      'e o toque PROCURA de verdade (otaCheck no shell), pulando o piso entre consultas');
+    checar(await pg.evaluate(() => /Procurando/i.test(document.getElementById('otaRow').textContent)),
+      'e o próprio botão responde — a resposta nasce onde o toque nasceu');
     await ctx.close();
   }
 
