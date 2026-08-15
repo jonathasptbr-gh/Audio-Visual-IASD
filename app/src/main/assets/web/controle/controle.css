@@ -306,35 +306,6 @@ body {
   font-size: .7rem; color: var(--muted);
   background: var(--surface-2); border-radius: var(--radius-pill); padding: 2px .55rem;
 }
-/* Tocável no app (v5.136): o mesmo rótulo que diz QUE versão é procura uma
-   nova. Só a marca de que dá para tocar — a cor de accent e o alvo maior —,
-   sem virar um botão: ele continua sendo primeiro um indicador, e um segundo
-   botão preenchido no rodapé competiria com o de copiar o Registro. */
-.app-version.tocavel {
-  color: var(--accent); cursor: pointer;
-  padding: 6px .7rem;
-  -webkit-tap-highlight-color: transparent;
-}
-.app-version.tocavel:active { background: var(--surface); }
-/* HÁ ATUALIZAÇÃO ESPERANDO (v5.234). O rótulo já é o lugar onde se toca para
-   trazer a pergunta de volta; o que faltava era ele DIZER que há o que trazer.
-   Sem isto, "Deixar para depois" silenciava o diálogo e, junto com ele, o fato
-   — o operador não teria como saber que ainda havia algo esperando.
-
-   A marca é a mesma gramática de "concluído/pronto" do resto do app (`--ok`,
-   contornado), e não a de "está no ar": o vermelho preenchido pertence à mídia
-   que a congregação está vendo, e um rótulo de rodapé competindo com ela seria
-   a paleta dizendo duas coisas opostas com a mesma cor.
-
-   A DIVISÃO DE TRABALHO com o `renderVersionLabel` importa: o ponto (`●`) é
-   TEXTO e some quando o `falarNaVersao` empresta o rótulo para uma frase; a
-   COR e a borda vêm da classe e ficam. É o que se quer — durante a frase ela
-   própria é o recado, e quando ela expira o ponto volta com a versão. */
-.app-version.tem-atualizacao {
-  color: var(--ok);
-  border: 1px solid color-mix(in srgb, var(--ok) 45%, transparent);
-}
-
 /* ---------- Barra de controles (base) ---------- */
 /* Desde a v5.54 ela começa na FAIXA DE ABAS e termina no transporte: um bloco
    só. A faixa era o último elemento do `<main>` e flutuava sobre o fundo do
@@ -3943,12 +3914,18 @@ body.mode-simple .hymn-add-btn { display: none; }
   transition: max-height .2s ease .04s, opacity .12s ease, margin-top .2s ease .04s;
 }
 
-/* ---------- A linha do APK novo (v5.167) ----------
-   Ela vive ao lado do rótulo de versão, no rodapé de Configurações, e só
-   aparece quando há uma Release mais nova. Em `--accent` porque é navegação
-   ("vá para lá"), nunca em `--live` nem em `--danger`: instalar não é destrutivo
-   e não é o que está no ar — as duas cores têm dono neste app. */
-.apk-row {
+/* ---------- O botão de atualização (v5.243, `.apk-row` até a v5.242) ----------
+   Ele vive ao lado do rótulo de versão, no rodapé de Configurações. Em
+   `--accent` porque é navegação ("vá para lá"), nunca em `--live` nem em
+   `--danger`: atualizar não é destrutivo e não é o que está no ar — as duas
+   cores têm dono neste app.
+
+   O BOTÃO DE ATUALIZAÇÃO (v5.243, herdeiro do `.apk-row` da v5.167).
+   A gramática é a do resto do app: CONTORNADO é a consulta ("Procurar
+   atualização"), PREENCHIDO é a ação que muda alguma coisa ("Atualizar: base
+   v… e app v…"). Desabilitado ele perde as duas — é o estado em que a hora é
+   ruim, e o próprio rótulo diz o que ele está esperando. */
+.ota-row {
   display: block; width: 100%;
   margin-top: 6px; padding: 8px 10px;
   border: 1px solid var(--accent); border-radius: var(--radius-btn);
@@ -3956,7 +3933,14 @@ body.mode-simple .hymn-add-btn { display: none; }
   font-size: .82rem; font-weight: 600; text-align: center;
   cursor: pointer;
 }
-.apk-row:disabled { border-color: var(--line); color: var(--muted); cursor: default; }
+.ota-row--agora {
+  background: var(--accent-fill); border-color: var(--accent-fill);
+  color: var(--on-accent);
+}
+.ota-row:disabled {
+  background: transparent; border-color: var(--line); color: var(--muted);
+  cursor: default;
+}
 
 /* Preenchimento + giro na mesma linha (v5.169). O seletor toma o espaço que
    sobrar e o botão de girar mantém o tamanho do conteúdo: são duas coisas de

@@ -1291,10 +1291,23 @@ está operando. O que este lote conserta é a CAUSA.
   a projeção e o hinário pela metade. **Instalar o APK, esse sim, continua
   esperando os três** (`horaRuimParaAtualizar`), porque derruba o app inteiro e
   leva o servidor da rede junto.
-- **"Deixar para depois" cala o diálogo, não o FATO.** O rótulo de versão ganha
-  um ponto e a cor de concluído enquanto houver algo esperando, e tocá-lo desfaz
-  o adiamento na hora. Um aviso que volta a cada dez segundos é ruído; um "não"
-  que apaga a informação é pior.
+- **"Deixar para depois" cala o diálogo, não o FATO.** O BOTÃO de atualização
+  do rodapé de Configurações (`#otaRow`) passa a dizer, por extenso, o que está
+  esperando — "Atualizar: base v5.243 e app v2.2" —, e tocá-lo aplica na hora.
+  Um aviso que volta a cada dez segundos é ruído; um "não" que apaga a
+  informação é pior. Até a v5.242 quem carregava esse fato era um PONTO no
+  rótulo de versão, com o toque nele como caminho de volta; ele saiu na v5.243
+  porque o botão diz a mesma coisa, é o alvo óbvio, e dois sinais para o mesmo
+  fato a dois centímetros um do outro são a mesma informação dita duas vezes.
+- **E UM TOQUE FORA DO DIÁLOGO NÃO RESPONDE POR ELE** (v5.243, `appDialogFixo`).
+  O padrão do app é o do navegador — tocar no fundo cancela —, e para quase tudo
+  ele está certo: é a saída barata de quem abriu a coisa errada. Esta pergunta
+  aparece SOZINHA, no meio do que o operador estava fazendo, e um toque em
+  qualquer lugar da tela a resolvia como "Deixar para depois", que a silencia
+  pelo resto da sessão. O operador perdia a atualização por um gesto que nem
+  sabia ter dado. O que NÃO muda: o "Deixar para depois" continua ali e o
+  Esc/voltar continua valendo — os dois são a recusa DELIBERADA. O que deixa de
+  existir é a recusa por acidente.
 - **O Registro diz POR QUE está esperando**, e as causas pedem ações opostas:
   ninguém foi perguntado ainda, o operador adiou, a pergunta espera a cena sair,
   ou o shell recusou o bundle. Ele é lido a distância — um "esperando…" genérico
@@ -1369,10 +1382,14 @@ seguinte concluiria de novo que há versão nova, **rebaixando o mesmo zip a cad
 cinco minutos** e apagando com `deleteRecursively` um diretório que o operador
 pode ter acabado de mandar aplicar ao vivo.
 
-E o operador tem como forçar: **tocar no rótulo de versão** (o do rodapé de
-Configurações) procura na hora, pulando o piso entre consultas — e desfaz a
-recusa desta sessão, porque "Depois" silencia o aviso automático, não quem
-voltou para pedir. O Registro ganhou a linha **"Procura:"** (`otaDiag`), que diz
+E o operador tem como forçar: o **botão de atualização** do rodapé de
+Configurações (`#otaRow`, v5.243) tem dois estados e nada mais — **"Procurar
+atualização"** quando não há nada esperando, e **"Atualizar: …"** quando há. A
+procura pula o piso entre consultas do shell (é o único chamador que o faz), e
+as duas desfazem a recusa desta sessão, porque "Depois" silencia o aviso
+automático, não quem voltou para pedir. Ele é o herdeiro da linha do APK
+(v5.167), que só existia quando havia um APK novo e deixava a PROCURA num toque
+escondido no próprio rótulo de versão — dois controles para uma conversa só. O Registro ganhou a linha **"Procura:"** (`otaDiag`), que diz
 quando foi a última busca e o que ela deu: "não apareceu aviso nenhum" tem
 quatro causas indistinguíveis da tela — não há versão nova, a busca falhou, o
 bundle exige um shell mais novo, ou a pergunta está esperando o telão esvaziar —
@@ -2801,10 +2818,67 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.242** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.243** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.243: A ATUALIZAÇÃO DEIXA DE SE PERDER NUM TOQUE FORA, e ganha um
+> BOTÃO em Configurações. OTA PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> Pedido do operador, em duas metades que são o mesmo problema: *"ela pode ser
+> ignorada tocando fora dela, e assim perdendo a atualização"* — e um botão que
+> *"sem atualização disponível, ativa a verificação para saber se há uma, e se
+> houver uma já esperando, o botão vira um botão de atualização"*.
+>
+> **1. O toque fora deixa de responder** (`appDialogFixo`). O padrão do app é o
+> do navegador: tocar no fundo cancela, e para quase tudo isso está certo — é a
+> saída barata de quem abriu a coisa errada. Para a atualização não estava: ela
+> aparece SOZINHA, no meio do que o operador estava fazendo, e um toque em
+> qualquer lugar da tela a resolvia como "Deixar para depois", que a silencia
+> pelo resto da sessão. **A atualização era perdida por um gesto que ele nem
+> sabia ter dado.** O que NÃO muda, e é o que impede isto de virar uma armadilha:
+> o "Deixar para depois" continua ali e o Esc/voltar continua valendo — os dois
+> são a recusa DELIBERADA. O que deixa de existir é a recusa por acidente. A
+> opção é por diálogo (`fixo: true`), não global: o resto do app continua com o
+> padrão, que ali é o certo.
+>
+> **2. O botão é o herdeiro da LINHA DO APK** (v5.167), e o que mudou é o
+> escopo. Aquela só existia quando havia um APK novo, e a única forma de
+> PROCURAR era um toque escondido no rótulo de versão — uma afordância que não
+> se anuncia, ao lado de um botão que aparecia metade das vezes. Eram dois
+> controles para uma conversa só. Agora é um, sempre visível no app, com dois
+> estados:
+>
+> | estado | rótulo | desenho |
+> |---|---|---|
+> | nada esperando | "Procurar atualização" | contornado (é uma consulta) |
+> | algo esperando | "Atualizar: base v… e app v…" | preenchido (é a ação) |
+>
+> **A hora ruim continua desabilitando, com o motivo escrito** — e as duas
+> réguas que já existiam continuam distintas: um lote com APK espera os três
+> (cena, download e transmissão), porque instalar derruba o app inteiro e leva o
+> servidor das telas junto; um lote só de base web espera dois, porque custa um
+> piscar.
+>
+> **E o PONTO do rótulo de versão saiu.** Ele existia porque não havia mais nada
+> no rodapé para dizer "há algo esperando" depois de a pergunta ser adiada.
+> Agora o botão diz isso por extenso e é o próprio alvo; um ponto discreto a
+> dois centímetros dele seria a mesma informação dita duas vezes — a régua que o
+> operador aplicou ao peso do álbum na v5.232. O rótulo voltou a ser o que ele
+> é: um indicador. Pelo mesmo motivo caiu a frase "Atualização adiada" que
+> aparecia por quatro segundos: ela ESCONDIA, no próprio botão, a resposta que
+> ele já estava dando.
+>
+> **O oráculo (`tools/ota.test.mjs`) ganhou quatro casos**, e reprova em **9
+> asserções** contra o código anterior (verificado). Um deles é o toque fora, e
+> os outros três são o botão nos três momentos em que ele importa: adiada,
+> aplicando, e sem nada a fazer. As leituras novas são **null-safe de
+> propósito** — num bundle sem o botão isso é um RESULTADO, não um acidente, e
+> um `evaluate` que lança ali abortaria o arquivo inteiro, escondendo tudo o que
+> vem depois. É a mesma disciplina do `empurrar` e do `tocar` do próprio
+> arquivo, e a lição da v5.213: a primeira versão destes casos abortava, e as
+> outras vinte e oito asserções sumiam com ela.
 
 > **A v5.242 (v2.1): O VÍDEO DO PROVAI E VEDE IA AO TELÃO EM INGLÊS, e a
 > Bíblia passa a vir inteira sozinha. METADE APK, METADE OTA.** Dois relatos do

@@ -191,10 +191,14 @@ try {
     linha: typeof notaNoItem === 'function',
     botao: typeof pulsar === 'function',
     pasta: typeof statusPasta === 'function',
-    versao: typeof falarNaVersao === 'function',
+    // `falarNoOta` desde a v5.243: o rótulo de versão deixou de ser o alvo
+    // (ele voltou a ser só um indicador) e quem responde é o botão de
+    // atualização, no mesmo rodapé. O canal continua sendo o mesmo idioma —
+    // a resposta nasce onde o toque nasceu.
+    ota: typeof falarNoOta === 'function',
   }));
-  checar(canais.linha && canais.botao && canais.pasta && canais.versao,
-    'e os canais que responderam no lugar dela estão de pé (linha, botão, pasta, rótulo)');
+  checar(canais.linha && canais.botao && canais.pasta && canais.ota,
+    'e os canais que responderam no lugar dela estão de pé (linha, botão, pasta, botão de atualização)');
 
   const copiado = await pg.evaluate(() => navigator.clipboard.readText().catch(() => ''));
   checar(copiado.includes('Linha do tempo'), 'e o texto do Registro foi para a área de transferência');
