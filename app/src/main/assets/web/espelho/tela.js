@@ -629,7 +629,6 @@
   async function ativar() {
     gastarGesto();
     esconderEntrada();
-    esconderCanto();
     if (token) { if (!vivo) laco(); return; }
     frase('Conectando…');
     var erro = await pedirEntrada();
@@ -668,176 +667,56 @@
     return 'O celular recusou esta tela. O operador pode tê-la desconectado.';
   }
 
-  // --------------------------------------------------------------------------
-  // O GESTO É UM SÓ — E "O QUE FALTA?" NÃO PODE SER PERGUNTADO DENTRO DELE
-  // (v5.214).
-  //
-  // `requestFullscreen()` é ASSÍNCRONO: devolve uma Promise, e o
-  // `document.fullscreenElement` só passa a valer alguns milissegundos depois.
-  // O clique que gasta o gesto, porém, BORBULHA até o `document` no MESMO
-  // instante — e era ali que `oferecerGesto()` perguntava o que faltava. Medido
-  // em Chromium: o ouvinte do documento roda com `fullscreenElement=false` e o
-  // `fullscreenchange` chega 9 ms depois. A resposta era portanto sempre a
-  // mesma e sempre falsa — "falta tela cheia", medida antes de existir a tela
-  // cheia que aquele mesmo clique acabara de pedir.
-  //
-  // O desfecho é o que o operador relatou: ele toca em "Ativar esta tela", a
-  // tela ativa POR INTEIRO (pareia, solta o som e entra em tela cheia) e um
-  // segundo botão nasce por cima dela oferecendo justamente o que ele acabou de
-  // fazer — a ativação unificada parecendo exigir uma segunda interação.
-  //
-  // Daí `assentando`: entre o gesto e o desfecho dele não se pergunta nada.
-  // Quem responde é o PRÓPRIO pedido de tela cheia — a Promise resolve quando
-  // ela entrou e rejeita quando o navegador recusou —, que é a única fonte que
-  // sabe a verdade. O prazo é a rede de segurança do `webkitRequestFullscreen`
-  // antigo, que não devolve Promise nenhuma e cujo evento de mudança tem outro
-  // nome, que esta casca não escuta.
-  // --------------------------------------------------------------------------
-  var assentando = false;
-  var assentaTimer = null;
-  var ASSENTA_MS = 1500;
-
   function gastarGesto() {
     gestoGasto = true;
-    assentando = true;
-    if (assentaTimer) clearTimeout(assentaTimer);
-    assentaTimer = setTimeout(assentar, ASSENTA_MS);
     // Tela cheia: no documento inteiro — o display É a página.
-    var p = telaCheia();
+    telaCheia();
     // Som: o display nasce com forceMuted no papel tela; o gancho o solta.
     // O som continua OPT-IN por tela (invariante 10) — este É o opt-in.
     try { if (global.__telaSom) global.__telaSom(true); } catch (e) { /* mudo */ }
     vigilia();
-    // Os DOIS desfechos assentam: entrou (nada falta) ou foi recusada (aí sim
-    // o botão de canto tem o que oferecer, e agora é verdade).
-    if (p && p.then) p.then(assentar, assentar);
   }
 
-  /** O gesto assentou: a partir daqui "o que falta?" tem resposta verdadeira. */
-  function assentar() {
-    if (assentaTimer) { clearTimeout(assentaTimer); assentaTimer = null; }
-    if (!assentando) return;
-    assentando = false;
-    oferecerGesto();
-  }
-
-  /** Devolve a Promise do pedido quando o navegador a oferece (senão, `null`). */
   function telaCheia() {
     try {
       var raiz = doc.documentElement;
       var f = raiz.requestFullscreen || raiz.webkitRequestFullscreen;
-      if (f) {
-        var p = f.call(raiz);
-        // A recusa é tratada por quem chamou (`gastarGesto` assenta nos dois
-        // desfechos); este `catch` só garante que ela não vire uma rejeição sem
-        // dono quando ninguém encadeou nada — o caso do duplo-toque já em tela
-        // cheia.
-        if (p && p.catch) p.catch(function () {});
-        return p || null;
-      }
+      // A recusa é engolida de propósito: alguns navegadores negam e a tela
+      // continua funcionando em janela. O que NÃO se faz é ler
+      // `document.fullscreenElement` no mesmo turno para decidir alguma coisa —
+      // o pedido é assíncrono, e essa leitura responderia o passado (v5.214).
+      if (f) { var p = f.call(raiz); if (p && p.catch) p.catch(function () {}); }
     } catch (e) { /* alguns navegadores recusam: a tela funciona em janela */ }
-    return null;
-  }
-
-  function emTelaCheia() {
-    return !!(doc.fullscreenElement || doc.webkitFullscreenElement);
   }
 
   // --------------------------------------------------------------------------
-  // O BOTÃO DE CANTO — o caminho de volta à tela cheia (v5.189)
+  // OS DOIS ATALHOS DE TELA CHEIA (v5.218)
   //
-  // Sair da tela cheia é UM toque na tecla errada de um controle remoto, e até
-  // aqui a única forma de voltar era recarregar a página: o gesto de entrada
-  // era o único ponto do sistema que chamava `requestFullscreen`. Ele
-  // aparece só quando FALTA tela cheia (ou som), se recolhe sozinho em 5 s e
-  // volta com qualquer toque — o player de sempre. E um TOQUE DUPLO em
-  // qualquer lugar da página faz a mesma coisa, que é o gesto que todo mundo
-  // já tenta primeiro num vídeo.
+  // Sair da tela cheia é UM toque na tecla errada de um controle remoto, e a
+  // tela precisa de um caminho de volta que NÃO derrube a projeção. São dois, e
+  // os dois são gestos que já existem na cabeça de quem está ali: o TOQUE DUPLO
+  // (o que todo mundo tenta primeiro num vídeo) e o F11 (o que todo mundo usa
+  // num navegador de computador — e este recurso roda, quase sempre, num PC
+  // ligado ao projetor).
+  //
+  // O QUE SAIU DAQUI, e por quê: até a v5.216 havia um botão discreto de canto
+  // que aparecia quando faltava som ou tela cheia e se recolhia em 5 s. Ele
+  // existia para devolver o gesto perdido numa RECARGA — e a recarga passou a
+  // voltar para a entrada oficial (ver `iniciar`), que é o mesmo botão do
+  // primeiro acesso e diz o que faz. Com isso o botão de canto ficou sem razão
+  // de existir: um segundo controle, com outro nome e outro desenho, para a
+  // mesma decisão. Saíram com ele o `oQueFalta`/`oferecerGesto` (a pergunta que
+  // ninguém mais faz) e o `assentando` da v5.214, que era só o guarda daquela
+  // pergunta — a regra que ele protegia continua escrita no `telaCheia` acima.
+  //
+  // `preventDefault` no F11 é deliberado: sem ele o navegador entra na tela
+  // cheia DELE (a de janela) ao mesmo tempo em que nós pedimos a da API, e sair
+  // passa a exigir dois comandos. Um dono só para o estado.
   // --------------------------------------------------------------------------
-  // OS TRÊS PRAZOS SÃO NOMEADOS, e isso não é arrumação (v5.214).
-  //
-  // O par mostrar/esconder não era idempotente, e o preço era o botão ficar na
-  // tela PARA SEMPRE. `mostrarCanto` agendava a opacidade num quadro adiante
-  // (+16 ms) e o recolhimento automático em 5 s; `esconderCanto`, chamado no
-  // meio disso, matava o de 5 s, escrevia `opacity: 0` e agendava a saída para
-  // +260 ms — e então o quadro de +16 ms, que ninguém tinha cancelado, repunha
-  // `opacity: 1`. A saída conferia `opacity === '0'`, encontrava `'1'` e
-  // desistia de esconder. Resultado: opaco, sem nenhum prazo vivo para
-  // recolhê-lo, exatamente por cima da projeção.
-  //
-  // Com os três prazos cancelados em bloco, o último a ser chamado é o que
-  // vale — que é a única regra que um par assim pode ter —, e a saída deixa de
-  // precisar reler o estilo para adivinhar se ainda vale.
-  var cantoTimer = null;   // o recolher sozinho, 5 s
-  var cantoFade = null;    // o quadro de espera da transição de opacidade
-  var cantoSaida = null;   // o `display:none` no fim do esmaecimento
-  function limparPrazosDoCanto() {
-    if (cantoTimer) { clearTimeout(cantoTimer); cantoTimer = null; }
-    if (cantoFade) { clearTimeout(cantoFade); cantoFade = null; }
-    if (cantoSaida) { clearTimeout(cantoSaida); cantoSaida = null; }
-  }
-  function mostrarCanto(rotulo) {
-    if (!el.canto) {
-      var b = doc.createElement('button');
-      b.id = 'telaCanto';
-      b.style.cssText = 'position:fixed;right:1.2rem;bottom:1.2rem;z-index:9998;' +
-        'font-size:.95rem;padding:.5rem 1.1rem;border:none;opacity:0;transition:opacity .25s;' +
-        'border-radius:var(--radius-pill,999px);background:rgba(0,0,0,.66);color:var(--text,#f2efe9);' +
-        'font-family:system-ui,sans-serif';
-      b.addEventListener('click', function (ev) {
-        ev.stopPropagation();
-        gastarGesto();
-        esconderCanto();
-      });
-      doc.body.appendChild(b);
-      el.canto = b;
-    }
-    limparPrazosDoCanto();
-    el.canto.textContent = rotulo;
-    el.canto.style.display = '';
-    // Um quadro depois, para a transição de opacidade acontecer.
-    cantoFade = setTimeout(function () {
-      cantoFade = null;
-      if (el.canto) el.canto.style.opacity = '1';
-    }, 16);
-    cantoTimer = setTimeout(esconderCanto, 5000);
-  }
-  function esconderCanto() {
-    limparPrazosDoCanto();
-    if (!el.canto) return;
-    el.canto.style.opacity = '0';
-    cantoSaida = setTimeout(function () {
-      cantoSaida = null;
-      if (el.canto) el.canto.style.display = 'none';
-    }, 260);
-  }
-  /** O que falta nesta tela, como frase de botão — ou '' quando nada falta. */
-  function oQueFalta() {
-    var semSom = !gestoGasto;
-    if (!emTelaCheia() && semSom) return 'Ativar som e tela cheia';
-    if (!emTelaCheia()) return 'Voltar à tela cheia';
-    if (semSom) return 'Ativar o som';
-    return '';
-  }
-  function oferecerGesto() {
-    // Dentro do gesto não se pergunta: a tela cheia pedida agora ainda não
-    // existe, e a resposta seria o passado (ver `assentando`, acima).
-    if (assentando) return;
-    var falta = oQueFalta();
-    if (falta) mostrarCanto(falta);
-  }
-
   function ligarGestosDeTela() {
-    // Toque/clique: mostra o botão quando há o que oferecer. O duplo faz na
-    // hora, sem passar pelo botão.
-    doc.addEventListener('click', function () { oferecerGesto(); });
-    doc.addEventListener('dblclick', function () {
-      if (oQueFalta()) { gastarGesto(); esconderCanto(); } else { telaCheia(); }
-    });
-    // Sair da tela cheia (o ESC, o botão do controle remoto) OFERECE a volta na
-    // hora: é o instante em que o operador percebe o problema.
-    doc.addEventListener('fullscreenchange', function () {
-      if (!emTelaCheia()) oferecerGesto(); else esconderCanto();
+    doc.addEventListener('dblclick', function () { gastarGesto(); });
+    doc.addEventListener('keydown', function (ev) {
+      if (ev.key === 'F11') { ev.preventDefault(); gastarGesto(); }
     });
   }
 
@@ -913,26 +792,40 @@
   // --------------------------------------------------------------------------
   // Boot
   // --------------------------------------------------------------------------
+  // TODA CARGA COMEÇA NA ENTRADA OFICIAL (v5.218) — decisão do operador, e ela
+  // REVOGA a metade da v5.189 que mandava a recarga reconectar por trás.
+  //
+  // O argumento da v5.189 era bom para o caso dele: numa QUEDA DE FIO a mídia
+  // continua tocando (ela é local, `/m/`, e a letra anda pelo `timeupdate` do
+  // próprio `<video>`), então cobrir a projeção com um cartaz apagaria uma cena
+  // que o problema não tinha atingido. **Isso continua valendo e não mudou** —
+  // `cairToken`/`reentrarSozinho` seguem silenciosos.
+  //
+  // Uma RECARGA é outra coisa: ela já derrubou tudo. O documento morreu, o
+  // `<video>` morreu, a cena saiu da tela e — o que importa aqui — o GESTO
+  // morreu com eles, porque ativação transitória não sobrevive a uma navegação.
+  // A tela volta muda e em janela de qualquer jeito. Não há projeção a
+  // preservar, e portanto não há nada que a entrada esteja cobrindo.
+  //
+  // Sendo assim, o certo é o botão que o visitante já conhece — o MESMO do
+  // primeiro acesso, que diz o que faz e devolve as três coisas num toque — e
+  // não um segundo controle, de canto, com outro nome (era o que fazia o
+  // "Ativar som e tela cheia" ser um estranho na tela).
+  //
+  // O TOKEN É CARREGADO ADIANTE, e isso não contradiz "a recarga desconecta":
+  // o fio só é aberto quando o visitante toca. O que ele evita é o teto de três
+  // telas — `telasSse` é indexado pelo TOKEN (`EspelhoServidor`), então pedir
+  // pareamento novo a cada F5 deixaria a sessão anterior ocupando vaga até o
+  // vigia notá-la, e a terceira recarga seguida receberia "lotado". Com o token
+  // reaproveitado, o servidor reconhece a volta ("a mesma tela reabriu a
+  // página") e a vaga é a mesma. Se ele tiver morrido, o `laco()` recebe 404 e
+  // a reentrada silenciosa pede outro — o caminho que já existia.
   function iniciar() {
     // O AVDB já existe (db.js carrega antes do DOM pronto) — o embrulho do
     // acervo entra aqui, uma vez.
     embrulharAcervo();
     ligarGestosDeTela();
-    var t = guardado();
-    if (t) {
-      // RECARGA COM SESSÃO VIVA (o culto está no ar). O fluxo recomeça na
-      // hora, e o overlay NÃO é desenhado: cobrir a projeção com um cartaz
-      // por causa de um F5 seria o mesmo defeito que a v5.189 tirou do
-      // caminho da queda de conexão. O que se perdeu com a página foi o
-      // gesto — o som volta forçado-mudo e a tela em janela —, e ele é
-      // oferecido pelo botão de canto, que se recolhe sozinho.
-      token = t;
-      laco();
-      oferecerGesto();
-      return;
-    }
-    // PRIMEIRA CARGA: não há nada por baixo, e o overlay cheio é a forma certa
-    // de dizer "esta tela ainda não foi ativada".
+    token = guardado();
     mostrarEntrada('');
   }
 
