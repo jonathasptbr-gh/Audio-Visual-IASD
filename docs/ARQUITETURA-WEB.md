@@ -5012,9 +5012,17 @@ São quatro estados, e a leitura continua por eliminação:
 | Estado | Barra |
 |---|---|
 | sem índice | `não sincron.` |
-| nada baixado | `~230 MB` — só o que vai custar |
-| parcial | `19/~249 MB` |
-| completo | `2,3 GB`, exato (soma do catálogo, sem `~`) |
+| nada baixado | `230 MB` — só o que vai custar |
+| parcial | `19/249 MB` |
+| completo | `2,3 GB`, exato (soma do catálogo) |
+
+> **O `~` saiu na v5.265** (pedido do operador). O total continua sendo uma
+> ESTIMATIVA — por duração × a taxa medida no aparelho —; o que saiu é o símbolo
+> que a anunciava. O argumento anterior era que o til "é parte da informação,
+> não enfeite", e ele supunha que o número fosse lido como exato sem ele:
+> `fmtBytes` já arredonda para uma casa, então "18 MB" nunca prometeu
+> 18.874.368 bytes. Ele pagava um caractere em cada contagem da tela mais densa
+> do app para dizer o que a precisão do próprio número já diz.
 
 Enquanto o download roda, o resumo dá lugar ao progresso ao vivo. A contagem de
 faixas não se perde: ela continua no chip **Sincronizados** das opções do
@@ -5178,12 +5186,11 @@ está aberto: não há mais botão para revelá-las.
 - **`Peso`** (`medirColecao`), à direita (`.hymnal-stat.right`,
   `flex: 0 0 auto`): é o número curto e secundário da linha, e ancorá-lo na
   borda oposta dá ao chip de sincronização a largura de que ele precisa. Ele diz
-  as DUAS medidas (v5.93) — `3,7 de ~18 MB`: só o que está no aparelho não
+  as DUAS medidas (v5.93) — `3,7 de 18 MB`: só o que está no aparelho não
   responde "quanto isto vai custar", e só o total esconde o que já foi gasto.
-  Completo, os dois seriam o mesmo número dito duas vezes, então fica um só e
-  sem "~". A unidade aparece uma vez quando é a mesma nos dois (`fmtParBytes`);
-  se divergirem (`800 KB de ~1,2 GB`), as duas ficam — "800 de ~1,2 GB" seria
-  falso.
+  Completo, os dois seriam o mesmo número dito duas vezes, então fica um só. A
+  unidade aparece uma vez quando é a mesma nos dois (`fmtParBytes`); se
+  divergirem (`800 KB de 1,2 GB`), as duas ficam — "800 de 1,2 GB" seria falso.
 - **Os dois botões dividem UMA LINHA** (`.coll-opts-acoes`, v5.95). Empilhados,
   eram duas faixas largas para duas ações curtas — e era esse tamanho que
   obrigava a esconder o painel atrás de uma engrenagem. `flex: 1 1 0` nos dois:

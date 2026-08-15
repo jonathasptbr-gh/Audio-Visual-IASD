@@ -2981,10 +2981,48 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.264** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.265** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.265: O "~" SAI DAS CONTAGENS DE PESO. OTA PURO** (nenhuma linha de
+> Kotlin; sem Release).
+>
+> Pedido do operador: *"pode remover o símbolo de aproximado/estimativa que usa
+> nas contagens de peso dos arquivos e coletâneas da biblioteca."*
+>
+> **O número continua sendo uma estimativa; o que sai é o símbolo.** O total de
+> um álbum é calculado por duração × a taxa medida no próprio aparelho, e isso
+> não mudou — a Biblioteca segue respondendo "quanto isto vai custar" com um
+> palpite, como sempre respondeu.
+>
+> O argumento anterior estava escrito no `medirColecao` e era este: *"o `~` na
+> tela é parte da informação, não enfeite"*. Ele supõe que, sem o til, o número
+> seja lido como EXATO — e não é: `fmtBytes` arredonda para uma casa decimal por
+> desenho (o comentário dele diz, com todas as letras, que "148,3 MB é uma
+> precisão que a medida não tem"). "18 MB" nunca prometeu 18.874.368 bytes. O
+> til pagava um caractere em cada contagem da tela mais densa do app — e são
+> três por linha em alguns cabeçalhos — para dizer o que a precisão do próprio
+> número já diz.
+>
+> Com ele fora, os dois ramos de `fracaoPeso` (nada baixado × parcial) passaram
+> a ter a mesma FORMA e a diferir só no número. Isso não afrouxa nada: é
+> justamente por eles serem indistinguíveis na tela que a definição de
+> "completo" tinha de ser uma só (`colecaoCompleta`), que é o que aquele bloco
+> já garantia desde a v5.134.
+>
+> **E `fmtBytesPar` sumiu por consequência.** Ela recebia o separador em
+> parâmetro porque as duas formas de "tanto de tanto" diferiam só nele; a forma
+> por extenso saiu na v5.232 e o "~" saiu agora — sobrou um chamador com um
+> valor, isto é, uma constante disfarçada de parâmetro. O corpo dela virou o
+> `fmtFracBytes`.
+>
+> O oráculo entrou no `acervo.test.mjs`, que é onde as contas da Biblioteca já
+> moram, e cobra as DUAS metades: o "~" some **e o par de números continua** —
+> era ele que respondia "quanto já tenho / quanto vai custar" numa leitura só, e
+> uma remoção que o levasse junto seria uma subtração, não uma limpeza. Reprova
+> em 3 asserções contra o código anterior.
 
 > **A v5.264: A TELA VEM NUM TEMPO E O TECLADO NO SEGUINTE, e o campo de busca
 > ganha a lupa. OTA PURO** (nenhuma linha de Kotlin; sem Release).

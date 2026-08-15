@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.264';
+const WEB_VERSION = '5.265';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -1065,7 +1065,13 @@ let filaPeso = Promise.resolve();
 //      imagens de fundo não viram registro de mídia, então a soma do catálogo
 //      deixava de fora justamente a parte que ninguém consegue estimar.
 //   2. quanto pesa o ÁLBUM INTEIRO — o que falta ainda não veio, então é
-//      ESTIMATIVA. O "~" na tela é parte da informação, não enfeite.
+//      ESTIMATIVA. Ela CONTINUA sendo uma estimativa; o que saiu na v5.265, a
+//      pedido do operador, foi o "~" que a anunciava na tela. O argumento
+//      anterior ("o til é parte da informação, não enfeite") supunha que o
+//      número fosse lido como exato sem ele, e não é: `fmtBytes` já arredonda
+//      para uma casa, então "18 MB" nunca prometeu 18.874.368 bytes. O til
+//      pagava um caractere em cada contagem da tela mais densa do app para
+//      dizer o que a própria precisão do número já diz.
 //
 // A estimativa é por DURAÇÃO, não por contagem de faixas (que era o método até
 // a v5.92). Áudio é bytes por segundo: num hinário as faixas têm durações
@@ -1277,31 +1283,37 @@ function fracaoPeso(ids) {
   }
   if (!temIndice || !total) return null;      // sem índice não há o que medir
   // "Completo" é a MESMA definição do resto da tela (`colecaoCompleta`), senão
-  // a barra escreveria "~" ao lado de um chip dizendo "Completo offline" —
-  // divergem quando um Playback falhou, e duas respostas para a mesma pergunta
-  // na mesma tela é pior do que a imprecisão que isso esconde. Com o peso ainda
-  // desconhecido (a recontagem de fundo não terminou), cai na estimativa.
+  // a barra daria o peso ESTIMADO ao lado de um chip dizendo "Completo offline"
+  // — as duas contas divergem quando um Playback falhou, e duas respostas para
+  // a mesma pergunta na mesma tela é pior do que a imprecisão que isso esconde.
+  // Com o peso ainda desconhecido (a recontagem de fundo não terminou), cai na
+  // estimativa. (Ela deixou de ser marcada com "~" na v5.265 — ver o bloco de
+  // `medirColecao`, acima —, então este ramo e o de baixo passaram a ter a
+  // mesma FORMA e a diferir só no número: é justamente por isso que a
+  // definição de "completo" tinha de ser uma só.)
   if (completo && no > 0) return fmtBytes(no);
-  if (!no) return '~' + fmtBytes(total);      // nada baixado: só o que vai custar
+  if (!no) return fmtBytes(total);            // nada baixado: só o que vai custar
   return fmtFracBytes(no, total);
 }
 
-// O miolo do "tanto de tanto" (hoje só `fmtFracBytes` o usa; até a v5.232
-// havia uma segunda forma, por extenso): a unidade só aparece uma vez quando é
-// a mesma nos dois números; se divergirem (800 KB de ~1,2 GB), as duas ficam —
-// omitir a primeira seria simplesmente falso. O separador é o ÚNICO ponto em
-// que as formas diferiam, então ele é o parâmetro.
-function fmtBytesPar(a, b, sep) {
+// "3,7/18 MB" — o "tanto de tanto" da barra do card e dos cabeçalhos de seção,
+// e desde a v5.232 a única forma (havia uma segunda, por extenso). É justamente
+// por ela já estar na barra que o chip de peso do painel aberto saiu.
+//
+// A unidade só aparece uma vez quando é a mesma nos dois números; se divergirem
+// (800 KB/1,2 GB), as duas ficam — omitir a primeira seria simplesmente falso.
+//
+// (Ela era `fmtBytesPar(a, b, sep)`, com o separador em parâmetro porque as
+// duas formas diferiam só nele. A forma por extenso saiu na v5.232 e o "~" saiu
+// na v5.265: sobrou UM chamador com UM valor, isto é, uma constante disfarçada
+// de parâmetro.)
+function fmtFracBytes(a, b) {
   const fa = fmtBytes(a);
   const fb = fmtBytes(b);
   const [va, ua] = fa.split(' ');
   const ub = fb.split(' ')[1];
-  return (ua === ub ? va : fa) + sep + fb;
+  return (ua === ub ? va : fa) + '/' + fb;
 }
-// "3,7/~18 MB" — a forma curta, e desde a v5.232 a única: é ela que a barra do
-// card mostra, e é justamente por ela já estar lá que o chip de peso do painel
-// aberto saiu.
-function fmtFracBytes(a, b) { return fmtBytesPar(a, b, '/~'); }
 
 // Downloads de música em andamento ("<coll.id>:<id_music>" -> Promise) — evita
 // disparar dois downloads da mesma música em paralelo (tocar duas vezes rápido).
@@ -7502,7 +7514,7 @@ function fmtBytes(n) {
   return n + ' B';
 }
 
-// (`fmtParBytes` — a forma por extenso, "3,7 de ~18 MB" — saiu na v5.232 com o
+// (`fmtParBytes` — a forma por extenso, "3,7 de 18 MB" — saiu na v5.232 com o
 // chip de peso, seu único chamador. A forma curta, `fmtFracBytes`, é a das
 // barras e continua.)
 

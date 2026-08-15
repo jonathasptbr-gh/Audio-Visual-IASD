@@ -140,6 +140,29 @@ try {
   const semPasta = await pg.evaluate(() => AVDB.opfsFolderSize('folders/naoExiste'));
   checar(semPasta === 0, 'pasta inexistente: 0, sem estourar', semPasta);
 
+  // ---- e SEM O "~" (v5.265) ------------------------------------------------
+  // Pedido do operador: tirar o símbolo de aproximado das contagens de peso da
+  // Biblioteca. O total continua sendo uma ESTIMATIVA (por duração × a taxa
+  // medida no aparelho) — o que sai é o símbolo que a anunciava, e `fmtBytes` já
+  // arredonda para uma casa, então o número nunca prometeu precisão de byte.
+  //
+  // As duas metades, e a segunda é a que impede a correção de virar uma
+  // subtração: o "~" some **e o par de números continua lá**. Era ele que
+  // respondia "quanto já tenho / quanto vai custar" numa leitura só.
+  const par = await pg.evaluate(() => ({
+    parcial: fmtFracBytes(3.7 * 1048576, 18 * 1048576),
+    unidades: fmtFracBytes(800 * 1024, 1.2 * 1073741824),
+  }));
+  checar(!/~/.test(par.parcial) && !/~/.test(par.unidades),
+    'nenhuma contagem de peso da Biblioteca traz o "~" de estimativa',
+    par.parcial + ' · ' + par.unidades);
+  checar(/^3,7\/18 MB$/.test(par.parcial),
+    'e o PAR continua: "já tenho / vai custar" numa leitura só, com a unidade '
+    + 'uma vez quando ela é a mesma nos dois', par.parcial);
+  checar(/^800 KB\/1,2 GB$/.test(par.unidades),
+    'e as duas unidades ficam quando divergem — omitir a primeira seria falso',
+    par.unidades);
+
   // ---- O ÁLBUM DA CAPA CHEGA À BIBLIOTECA QUE JÁ EXISTE (v5.220) ----------
   //
   // A v5.219 escrevia `hymnAlbum` no download e na varredura da sincronização —
