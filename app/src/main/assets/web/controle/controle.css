@@ -3179,7 +3179,7 @@ main {
 /* Barra de busca do Hinário ocupando toda a largura da bandeja: display:flex faz
    o input (.lib-search, flex:1) esticar de lado a lado (sem isso o input ficava
    no tamanho nativo, pequeno). Campo mais alto/legível que o de busca da pasta. */
-/* ---------- A BARRA DE BAIXO DA BIBLIOTECA (v5.258/v5.260) ----------
+/* ---------- A BARRA DE BAIXO DA BIBLIOTECA (v5.258/v5.261) ----------
    Ela era a faixa logo abaixo do cabeçalho, e o ✕ ficava no cabeçalho: as duas
    coisas que se toca o tempo todo nesta tela, no canto mais distante do polegar
    e a uma tela de rolagem do teclado que a própria busca abre. Agora as duas

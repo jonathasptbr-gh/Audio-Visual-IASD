@@ -2289,7 +2289,7 @@ contextos.
 | Resolução do download | — | **até 1080p, montando as duas faixas** (v1.44; pares por contêiner na v1.45). Acima de 720p o YouTube só entrega vídeo SEM som, com o som à parte — e por isso o app baixava a pior cópia: só sabia pegar o progressivo, que neste aparelho é UM, de 360p. `MuxMp4.kt` junta as duas com o `MediaMuxer` da PLATAFORMA: é cópia de amostras, não recodificação, então não há perda nem espera. Teto de 1080p de propósito (o telão da igreja é 1080p) e só quando o resultado for melhor que o progressivo — senão dois downloads e um muxer entregariam o mesmo de antes. Os pares são do MESMO contêiner (mp4+m4a → MP4, webm+webm → WebM, este só na API 29+): "a melhor de cada lado" produziria VP9 dentro de MP4, que o muxer recusa depois de tudo baixado. Falhando qualquer etapa, o progressivo segue como piso. **Da v1.44 à v1.48 isso não saía do papel: as faixas eram listadas (1080p) e o CDN respondia 403 a todas** — com os dois pares, os dois perfis de UA e `Range`. Era o SABR, que o YouTube passou a exigir de quem pede sem PO Token. A saída não era montar o token (o `getWebClientPoToken` da biblioteca não tem uma única chamada em versão nenhuma, e o token do cliente Android — o que ela de fato consome — exige o DroidGuard do Play Services): foi **atualizar o extrator para a v0.26.4** (v1.49), que busca o cliente **visionOS** sem token nenhum e volta a entregar as adaptativas. Como as listas passaram a chegar MISTURADAS (visionOS + o cliente antigo), a escolha virou uma **fila de candidatos** — ver "O cliente visionOS destrava o 1080p" em `docs/ARQUITETURA-WEB.md`. **CONFIRMADO em aparelho:** `clientes VISIONOS 17, ANDROID 1 → juntou 1080p (mp4, 137@VISIONOS/V)`, sem uma única recusa na fila. Diagnóstico no rodapé de Configurações, agora com o itag, o cliente e o motivo de cada tentativa |
 | **Só o ÁUDIO** em "Tocar agora" | **não toca** | **TRANSMITIDO também** (v5.130): o manifesto do shell já traz o par, e o lado web simplesmente DESCARTA a faixa de vídeo (`man.video = null`) — nenhum método novo, nenhum byte de 1080p baixado para ser jogado fora, e por isso chega por OTA. Entra como `kind: 'audio'` (o telão mantém o wallpaper) e o fallback, se a transmissão morrer, baixa a MESMA forma. O download de um m4a é rápido, mas "rápido" não é o pedido: o pedido é não esperar |
 | **Só o ÁUDIO** guardado (playlist · Cronograma · Favoritos) | — | **`ytFetchAudio`** (v5.112, shell ≥ 23; **exige o APK v1.41+** — ver abaixo): a faixa de áudio, sem vídeo. A escolha é o MESMO seletor de Cantada/Playback das músicas, no topo da folha de destinos, e vale para as quatro ações. Entra como `kind: 'audio'` e **sem miniatura** — é o kind que faz o telão manter o wallpaper em vez de trocar de imagem. É também o único caminho em que o teto de 720p do progressivo não existe: o áudio do YouTube já vem em faixa separada, então aqui ele vem inteiro. **E é justamente por ser faixa separada que ele pode não vir**: adaptativo é o que o YouTube protegeu com SABR quando o app pedia sem PO Token. Daí a fila de tentativas do shell — que na v1.49 deixou de ser "m4a → qualquer outro → progressivo" e passou a ser **três candidatos de áudio na ordem do cliente que funciona** (visionOS primeiro), com o progressivo ainda no fim. **CONFIRMADO em aparelho:** `→ veio m4a 140@VISIONOS` (AAC-LC 128 kbps, primeiro candidato, primeira requisição) — até a v1.48 este caminho caía no vídeo de 360p inteiro. O registro entra como `kind: 'audio'` em todos os casos: quem decide que o telão não muda de imagem é o kind, não o container |
-| **Séries do YouTube na Biblioteca** | **não existe** — sem ponte não há como enumerar playlist nem baixar vídeo | **um álbum por SÉRIE** (v5.228/shell 41), e são **duas** (v5.244): **Provai e Vede 2026** (`@provaievedeoficial`, playlists por MÊS) e **Informativo Mundial das Missões 2026** (`@daniellocutor`, playlists por TRIMESTRE). O canal é a ÚNICA constante: o app lê a **aba Playlists** dele (`ytCanalPlaylists`), aceita as que casam com "prefixo + ano" e **recusa as de LIBRAS**, expande cada uma (`ytPlaylist`) e ordena os episódios pela data do título — a faixa se chama "15/Ago · Quando o evangelho sussurra", porque o operador procura pelo sábado, não pelo nome do episódio. O card fica no topo da Biblioteca, junto dos hinários — mas **o ITEM é um vídeo do YouTube, não uma faixa de hinário** (v5.230): o toque abre a MESMA folha do YouTube (sem "Só áudio"), o "Tocar agora" TRANSMITE sem baixar, e o download existe só nos destinos que guardam. E desde a v5.236 **a LINHA também sabe disso**: a gaveta que numa música abre a letra abre aqui a MINIATURA, a duração e o estado no aparelho — quem decide é o TIPO da coleção (`tipoDaColecao`), não um `if` por recurso. Não há "baixar o álbum": são ~300 MB por episódio. **A descoberta é pela ABA DO CANAL, nunca por busca de texto**: numa busca quem escolhe é o ranking do YouTube e qualquer pessoa pode nomear uma playlist "Provai e Vede 2026" — vindo do canal, o pior caso é uma playlist a menos, jamais o vídeo de um desconhecido na projeção. **E O IDIOMA É GARANTIDO NAS DUAS METADES** (v5.244): o @daniellocutor publica a mesma série em quatro idiomas e os vídeos em espanhol começam com a MESMA palavra dos em português, então `ehOutroIdioma` os recusa pela escrita e por marca — e o ÁUDIO, que é outra coisa (o YouTube dubla sozinho, dentro do mesmo vídeo), quem escolhe é o `TrilhaAudio.kt` do shell, que põe o português na frente do cliente e o torna exclusivo. A regra vive em `controle/serie.js` (PURA) com oráculo em Node (`tools/serie.test.mjs`) e o percurso inteiro no `boot-nativo.test.mjs`. Ver "Séries do YouTube", abaixo |
+| **Séries do YouTube na Biblioteca** | **não existe** — sem ponte não há como enumerar playlist nem baixar vídeo | **um álbum por SÉRIE** (v5.228/shell 41), e são **duas** (v5.244): **Provai e Vede 2026** (`@provaievedeoficial`, playlists por MÊS) e **Informativo Mundial das Missões 2026** (`@daniellocutor`, playlists por TRIMESTRE). O canal é a ÚNICA constante: o app lê a **aba Playlists** dele (`ytCanalPlaylists`), aceita as que casam com "prefixo + ano" e **recusa as de LIBRAS**, expande cada uma (`ytPlaylist`) e ordena os episódios pela data do título — a faixa se chama "15/Ago · Quando o evangelho sussurra", porque o operador procura pelo sábado, não pelo nome do episódio. O card fica no topo da Biblioteca, no grupo **"Arquivos oficiais"** (v5.260, separado dos hinários a pedido do operador) — mas **o ITEM é um vídeo do YouTube, não uma faixa de hinário** (v5.230): o toque abre a MESMA folha do YouTube (sem "Só áudio"), o "Tocar agora" TRANSMITE sem baixar, e o download existe só nos destinos que guardam. E desde a v5.236 **a LINHA também sabe disso**: a gaveta que numa música abre a letra abre aqui a MINIATURA, a duração e o estado no aparelho — quem decide é o TIPO da coleção (`tipoDaColecao`), não um `if` por recurso. Não há "baixar o álbum": são ~300 MB por episódio. **A descoberta é pela ABA DO CANAL, nunca por busca de texto**: numa busca quem escolhe é o ranking do YouTube e qualquer pessoa pode nomear uma playlist "Provai e Vede 2026" — vindo do canal, o pior caso é uma playlist a menos, jamais o vídeo de um desconhecido na projeção. **E O IDIOMA É GARANTIDO NAS DUAS METADES** (v5.244): o @daniellocutor publica a mesma série em quatro idiomas e os vídeos em espanhol começam com a MESMA palavra dos em português, então `ehOutroIdioma` os recusa pela escrita e por marca — e o ÁUDIO, que é outra coisa (o YouTube dubla sozinho, dentro do mesmo vídeo), quem escolhe é o `TrilhaAudio.kt` do shell, que põe o português na frente do cliente e o torna exclusivo. A regra vive em `controle/serie.js` (PURA) com oráculo em Node (`tools/serie.test.mjs`) e o percurso inteiro no `boot-nativo.test.mjs`. Ver "Séries do YouTube", abaixo |
 | Buscar no YouTube | não existe: o botão abre o YouTube numa aba | **a busca acontece DENTRO do acervo** — a tela que o rótulo chama de **Biblioteca** desde a v5.96, e que no código segue sendo o acervo — (`AVNative.ytSearch`, `YoutubeGrab.pesquisar`, em **português** — no padrão en-GB da biblioteca o YouTube devolve o título TRADUZIDO de vídeos que são originalmente em português, e passar a localização ao `NewPipe.init` NÃO resolve: o serviço filtra o idioma por uma lista de suportados que hoje só tem `en-GB`. Quem resolve é o `forceLocalization` do próprio `Extractor`): os resultados entram na mesma lista e o toque abre a mesma folha de escolhas das músicas (tocar · playlist · Cronograma · Favoritos), cada uma indo para o seu lugar — e, desde a v5.141, para mais de um de uma vez, com um download só. Um iframe da página de resultados é recusado pelo `X-Frame-Options` do YouTube, e a API oficial exigiria chave com cota compartilhada pela frota |
 | Link para fora do app ("Pesquisar … no YouTube") | `window.open` numa aba nova | **`AVNative.openExternal(url)`** → `ACTION_VIEW` numa tarefa própria. O WebView RECUSA navegar para outro origin (invariante 2), então sem esse método um link externo não faz absolutamente nada — nem erro no console |
 | "Conectar a tela" (modo simplificado) | abre a tela do Display (`window.open`) — e é ela que conta como "conectado" | mesmo `AVNative.openCast()`, com o nome da tela conectada no subtítulo |
@@ -2981,12 +2981,12 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.260** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.261** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
-> **A v5.260: A FOLHA PASSA A SER A FAIXA VISÍVEL — a barra de busca desceu na
+> **A v5.261: A FOLHA PASSA A SER A FAIXA VISÍVEL — a barra de busca desceu na
 > v5.258 e foi parar ATRÁS do teclado. OTA PURO** (nenhuma linha de Kotlin; sem
 > Release).
 >
@@ -3064,6 +3064,45 @@ controles), que **só chegam instalando o APK novo**, não pelo OTA.
 > `body` faça.** Toda vez que este app aprender alguma coisa sobre onde a tela
 > realmente está, as camadas fixas precisam ser avisadas à parte — e elas são
 > justamente as que hospedam os campos de texto.
+
+> **A v5.260: A BIBLIOTECA SEPARA OS HINÁRIOS DOS ARQUIVOS OFICIAIS. OTA PURO**
+> (nenhuma linha de Kotlin; sem Release).
+>
+> Pedido do operador: *"faça uma separação de coletânea entre os hinários e os
+> Arquivos oficiais (que incluem o provai e vede e informativo mundial das
+> missões)"*.
+>
+> **O nome do grupo já denunciava o problema: "Hinários e séries".** Um grupo
+> que precisa de uma conjunção para se nomear está juntando duas coisas — e o
+> "e" estava lá desde a v5.229, quando havia UMA série e o cabeçalho foi
+> remendado para caber nela.
+>
+> E as duas coisas já divergiam em tudo o que decide um toque (é o `tipoDaColecao`
+> da v5.236): um hino é ÁUDIO com letra, que se baixa para ficar offline e que a
+> igreja canta; um episódio é um VÍDEO de ~300 MB que se transmite, se vê uma vez
+> e vem pronto da denominação. O índice de duas linhas separa as duas perguntas —
+> *"que hino é?"* e *"qual é o material do sábado?"* — antes de custar um toque,
+> que é a razão de o índice existir (v5.237).
+>
+> **"Arquivos oficiais" é o nome do operador, e ele nomeia a ORIGEM** — que
+> separa melhor que "séries", uma palavra de implementação que não diz nada a
+> quem opera.
+>
+> O que NÃO mudou, e é o que mantém o lote pequeno: o construtor de grupo é o
+> mesmo, chamado duas vezes; os dois continuam nascendo fechados, sem botão de
+> baixar em lote (nenhum dos dois baixa por lote — são as maiores coleções do
+> acervo), e o corpo de cada um só é construído quando ele abre. Os nomes
+> viraram constantes (`GRUPO_HINARIOS`/`GRUPO_OFICIAIS`) porque eles não são
+> rótulo: são a CHAVE de `gruposAbertos`, e um literal repetido entre o
+> construtor e um chamador divergiria calado — o grupo abriria e o estado ficaria
+> noutro nome, isto é, o toque deixaria de alternar.
+>
+> O oráculo pergunta ao DOM em três pontos, e nenhum basta sozinho: as duas
+> séries vivem em "Arquivos oficiais", o hinário vive em "Hinários", e a ordem é
+> Favoritos → Hinários → Arquivos oficiais → álbuns. Um cabeçalho novo com os
+> cards no lugar antigo passaria no primeiro; mover os cards sem separar os
+> hinários passaria no segundo. Com tudo num grupo só (o estado anterior), 2
+> asserções reprovam.
 
 > **A v5.259: O PARAR VAI PARA A CAPA, e a faixa de ações para de cortar a
 > miniatura e de deixar o título aparecer atrás dela. OTA PURO** (nenhuma linha
@@ -3178,7 +3217,7 @@ controles), que **só chegam instalando o APK novo**, não pelo OTA.
 > ponte (a atualização ao vivo dos favoritos, com a rolagem preservada) e o
 > `cena.test.mjs` mede o que a v5.177 media, agora na forma nova.
 
-> **A v5.257: O CHECK DO "TOCAR AGORA" NÃO ACENDIA — e o defeito era um
+> **A v5.259: O CHECK DO "TOCAR AGORA" NÃO ACENDIA — e o defeito era um
 > argumento esquecido. OTA PURO** (sem Release).
 >
 > Relato do operador: *"o seletivo de tocar agora, na seleção de um provai e
@@ -4691,7 +4730,10 @@ controles), que **só chegam instalando o APK novo**, não pelo OTA.
 > A correção não é acrescentar um quarto grupo: é o grupo do topo passar a ser
 > **"as coleções FIXAS"**, que é o que ele sempre quis dizer, em vez de uma
 > lista digitada à mão. Com série, o cabeçalho vira "Hinários e séries"; sem
-> ela — num shell < 41 —, continua "Hinários", e nada muda.
+> ela — num shell < 41 —, continua "Hinários", e nada muda. **(O cabeçalho único
+> durou até a v5.260, que separou os dois: "Hinários" e "Arquivos oficiais". O
+> que continua valendo desta nota é a armadilha — uma coleção fixa que não caia
+> em nenhum grupo desenhado some da tela sem erro nenhum.)**
 >
 > **E o defeito escondia um segundo, que só apareceria depois:** o peso da
 > série era calculado pela escada de bitrate de ÁUDIO. A constante é o

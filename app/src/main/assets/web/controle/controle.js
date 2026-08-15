@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.260';
+const WEB_VERSION = '5.261';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -570,7 +570,17 @@ const gruposAbertos = new Set();
 // o grupo já aberto, e vê-lo "abrir" sozinho leria como se algo tivesse
 // acontecido — a mesma regra do `animarAbertura` do card.
 const gruposAnimar = new Set();
+// OS NOMES DOS GRUPOS FIXOS da Biblioteca, num lugar só. Eles não são rótulo:
+// são a CHAVE de `gruposAbertos`/`gruposAnimar`, e um literal repetido entre o
+// construtor e um chamador divergiria calado — o grupo abriria e o estado
+// ficaria noutro nome, isto é, o toque deixaria de alternar.
 const GRUPO_FAVORITOS = 'Favoritos';
+const GRUPO_HINARIOS = 'Hinários';
+// "ARQUIVOS OFICIAIS" são as SÉRIES (v5.260): o Provai e Vede e o Informativo
+// Mundial das Missões, que a igreja recebe prontos da denominação. O nome é o
+// do operador, e ele nomeia a ORIGEM — que é o que separa este grupo do de
+// cima muito melhor que "séries", uma palavra de implementação.
+const GRUPO_OFICIAIS = 'Arquivos oficiais';
 let syncBusy = false;      // sincronização em andamento
 // Transições visuais são INERENTES ao sistema (sempre ligadas, duração fixa) —
 // não há opção de desligar nem ajustar. Fade in/out em toda troca visual:
@@ -6564,32 +6574,45 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
     try { renderFolderList(); } finally { favHost = null; }
   }
 
-  // O GRUPO DAS coleções FIXAS: os hinários e as séries (v5.229).
+  // OS DOIS GRUPOS FIXOS DO TOPO: os HINÁRIOS e os ARQUIVOS OFICIAIS (v5.260).
   //
-  // A v5.228 acrescentou a série ao `allCollections()` e parou aí — e
-  // `allCollections()` alimenta as CONTAS (peso, "toda a biblioteca", busca),
-  // não o desenho. Os três grupos desenhados são estes: as fixas, as categorias
-  // de álbuns e os álbuns órfãos; uma coleção que não é `FIXED_COLLECTIONS` nem
-  // álbum do catálogo **não caía em nenhum**. O card era construído, entrava no
-  // `byId`, contava no peso — e não aparecia em lugar nenhum da tela.
+  // Eles eram um só — "Hinários e séries" —, e o nome com "e" no meio era o
+  // sintoma: um grupo que precisa de uma conjunção para se nomear está juntando
+  // duas coisas. Pedido do operador: *"faça uma separação de coletânea entre os
+  // hinários e os Arquivos oficiais (que incluem o provai e vede e informativo
+  // mundial das missões)"*, e ele está certo pelo que o toque em cada card faz.
+  // São dois modelos de item que já divergem em tudo o que importa (ver
+  // `tipoDaColecao`): um hino é ÁUDIO com letra, que se baixa para ficar
+  // offline; um episódio é um VÍDEO de ~300 MB que se transmite e se vê uma
+  // vez. Um índice de duas linhas separa as duas perguntas — "que hino é?" e
+  // "qual é o material do sábado?" — antes de custar um toque.
   //
-  // É a lição da v5.220 outra vez, num lugar novo: **acrescentar ao lugar em
-  // que o dado NASCE não o entrega a quem o MOSTRA.** O que fecha a classe é o
-  // grupo do topo passar a ser "as fixas", que é o que ele sempre quis dizer,
-  // em vez de uma lista literal.
-  const seriesFixas = serieCollections();
-  const fixed = FIXED_COLLECTIONS.concat(seriesFixas).filter((c) => byId.has(c.id));
-  if (fixed.length) {
-    // **Nem os hinários nem as séries baixam em lote.** São as maiores coleções
-    // do acervo (~1.100 músicas nos dois hinários; ~52 vídeos numa série, que
-    // em 1080p passam de vários GB): um botão só disparando tudo é um download
-    // que ninguém consegue dimensionar antes de tocar, e que não dá para parar
-    // pela metade sem perder o resto. Cada um baixa pelo próprio card (o botão
-    // na barra). O contador do grupo fica — ele informa.
-    const temSerie = fixed.some((c) => c.kind === 'serie');
-    const corpo = grupo(temSerie ? 'Hinários e séries' : 'Hinários', fixed, { semBotao: true });
-    if (corpo) fixed.forEach((coll) => corpo.appendChild(renderCollectionCard(coll)));
-  }
+  // **O construtor é UM só, chamado duas vezes.** Cada grupo continua com a
+  // mesma anatomia (seta, contagem, corpo que só é montado quando abre) e a
+  // mesma regra: nem hinário nem série baixam em LOTE (`semBotao`). São as
+  // maiores coleções do acervo — ~1.100 músicas nos dois hinários, ~52 vídeos
+  // numa série que em 1080p passam de vários GB —, e um botão só disparando
+  // tudo é um download que ninguém dimensiona antes de tocar e que não dá para
+  // parar pela metade sem perder o resto. Cada um baixa pelo próprio card.
+  //
+  // A v5.229 fica registrada porque a armadilha continua valendo: a v5.228
+  // acrescentou a série ao `allCollections()` — que alimenta as CONTAS (peso,
+  // "toda a biblioteca", busca) e não o DESENHO —, e o card era construído,
+  // entrava no `byId`, contava no peso e não aparecia em lugar nenhum. É a
+  // lição da v5.220 num lugar novo: **acrescentar ao lugar em que o dado NASCE
+  // não o entrega a quem o MOSTRA.** Uma coleção fixa nova tem de entrar num
+  // destes dois grupos, ou ela some da tela sem erro nenhum.
+  const grupoFixo = (nome, colecoes) => {
+    const lista = colecoes.filter((c) => byId.has(c.id));
+    if (!lista.length) return;
+    const corpo = grupo(nome, lista, { semBotao: true });
+    if (corpo) lista.forEach((coll) => corpo.appendChild(renderCollectionCard(coll)));
+  };
+  grupoFixo(GRUPO_HINARIOS, FIXED_COLLECTIONS);
+  // O grupo dos oficiais só existe quando há série: num shell < 41 ele seria um
+  // cabeçalho vazio — e `grupoFixo` já devolve cedo, mas dizê-lo aqui é o que
+  // impede a próxima leitura de "consertar" a ausência.
+  grupoFixo(GRUPO_OFICIAIS, serieCollections());
 
   for (const cat of albumCatalog.categories) {
     const cards = categoryCards(cat);
