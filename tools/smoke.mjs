@@ -796,6 +796,25 @@ try {
       // E a fonte: o item não pode ser desenhado maior que o título que o contém.
       fonteItem: parseFloat(getComputedStyle(linhas[0].querySelector('.hymn-name')).fontSize),
       fonteAlbum: parseFloat(getComputedStyle(bar.querySelector('.coll-bar-name')).fontSize),
+      // A ESCALA INTEIRA (v5.262). Os três níveis e os dois subtítulos, medidos
+      // no mesmo desenho — é a única forma de afirmar uma RELAÇÃO em vez de
+      // cinco números soltos, cada um verdadeiro sozinho.
+      fonteSecao: parseFloat(getComputedStyle(
+        lista.querySelector('.coll-group-name') || document.body).fontSize),
+      // Os dois SUBTÍTULOS por um elemento de prova, e não pelo desenho: eles só
+      // existem quando há metadado, e um fixture sem subtítulo devolveria o
+      // tamanho herdado do `<body>` — 16px nos dois, isto é, uma igualdade que
+      // passa sem medir nada (a lição da v5.208).
+      subAlbum: (() => {
+        const e = document.createElement('span'); e.className = 'coll-bar-sub';
+        document.body.appendChild(e);
+        const v = parseFloat(getComputedStyle(e).fontSize); e.remove(); return v;
+      })(),
+      subItem: (() => {
+        const e = document.createElement('span'); e.className = 'hymn-sub';
+        document.body.appendChild(e);
+        const v = parseFloat(getComputedStyle(e).fontSize); e.remove(); return v;
+      })(),
     };
     lista.remove();
     delete collState[c.id];
@@ -811,9 +830,28 @@ try {
   checar(linha.toque >= linha.piso,
     'sem furar o piso de toque do app: o ▶ tem ' + Math.round(linha.toque)
     + 'px, e o piso é ' + linha.piso + 'px');
-  checar(linha.fonteItem <= linha.fonteAlbum,
-    'e o nome da faixa não é desenhado MAIOR que o título do álbum ('
+  // ── A ESCALA DE TÍTULOS (v5.262) ────────────────────────────────────────
+  // Relato do operador: *"há uma desproporção, onde o título das coleções está
+  // pequeno, o dos álbuns maior e o dos items diferente… o texto dos itens
+  // precisa dar uma leve reduzida."*
+  //
+  // O que se afirma são RELAÇÕES, e cada uma responde a um pedaço da frase.
+  // Números soltos aqui reprovariam numa mudança legítima de fonte e, pior,
+  // seriam verdadeiros um a um enquanto a escala continuasse sem sistema — que
+  // era exatamente o estado anterior (11,84 · 15,2 · 15,2).
+  checar(linha.fonteItem < linha.fonteAlbum,
+    'o nome da faixa é MENOR que o título do álbum que a contém — eles EMPATAVAM,'
+    + ' e é o empate que fazia o item não ler nível nenhum ('
     + linha.fonteItem + 'px contra ' + linha.fonteAlbum + 'px)');
+  checar(linha.fonteAlbum < 15,
+    'e o teto da escala caiu: nada na Biblioteca é desenhado nos 15,2px de antes,'
+    + ' que era o que cortava (' + linha.fonteAlbum + 'px)');
+  checar(linha.fonteSecao >= linha.fonteAlbum * 0.88,
+    'a seção deixou de ser o MENOR nível da árvore sendo o mais externo — ela era'
+    + ' 22% menor que o álbum (' + linha.fonteSecao + 'px contra ' + linha.fonteAlbum + 'px)');
+  checar(linha.subAlbum === linha.subItem,
+    'e "subtítulo da Biblioteca" é UM valor: o do card e o da faixa deixaram de '
+    + 'diferir por meio ponto (' + linha.subItem + 'px)');
 } catch (e) {
   checar(false, 'a medição da linha da faixa terminou sem exceção (' + (e && e.message) + ')');
 }
@@ -967,8 +1005,7 @@ try {
       gruposAbertos.clear();
       renderCollectionsList(lista, () => {}, { semTotal: true });
       const cx = (el) => (el ? getComputedStyle(el) : null);
-      const secao = lista.querySelector('.coll-group--drop:not(.fixo) > .coll-group-bar > .coll-group-icon');
-      const fixa = lista.querySelector('.coll-group--drop.fixo > .coll-group-bar > .coll-group-icon');
+      const secao = lista.querySelector('.coll-group--drop > .coll-group-bar > .coll-group-icon');
       const s = cx(secao);
       const r = {
         temSeta: !!secao,
@@ -976,9 +1013,11 @@ try {
         caixa: s ? [s.width, s.height, s.backgroundColor].join(' ') : '',
         // Fechada, ela aponta para BAIXO (girada meia volta).
         girada: !!(s && /matrix\(-1, 0, 0, -1/.test(s.transform)),
-        // A seção FIXA reserva o lugar e não desenha seta nenhuma.
-        fixaReservada: !!(fixa && fixa.children.length === 0),
-        larguraFixa: fixa ? cx(fixa).width : '',
+        // TODA seção tem a seta, e todas são botões (v5.262). Até aqui os
+        // Favoritos eram um `<span class="vago">` — um lugar reservado, sem
+        // seta e sem gesto —, e essa exceção saiu com o `fixo`.
+        setas: lista.querySelectorAll('.coll-group--drop > .coll-group-bar > button.coll-group-icon').length,
+        secoes: lista.querySelectorAll('.coll-group--drop').length,
       };
       lista.remove();
       return r;
@@ -997,9 +1036,10 @@ try {
       + raiz.caixa + ')');
     checar(raiz.girada,
       'e fechada ela aponta para BAIXO: a seta diz para onde o toque leva');
-    checar(raiz.fixaReservada && raiz.larguraFixa === cardCaixa.split(' ')[0],
-      'a seção FIXA reserva o lugar sem desenhar seta — ela não abre nem fecha, '
-      + 'e os títulos continuam alinhados', raiz.larguraFixa);
+    checar(raiz.secoes > 1 && raiz.setas === raiz.secoes,
+      'e TODA seção tem a dela, botão e não enfeite — não sobrou nenhuma que '
+      + 'reserve o lugar sem oferecer o gesto',
+      raiz.setas + ' seta(s) em ' + raiz.secoes + ' seção(ões)');
   } catch (e) {
     checar(false, 'a medição da thumb das raízes terminou sem exceção (' + (e && e.message) + ')');
   }
@@ -1400,6 +1440,35 @@ try {
     'com o campo E o fechar juntos nela, que é o pedido inteiro');
 } catch (e) {
   checar(false, 'a medição da Biblioteca terminou sem exceção (' + (e && e.message) + ')');
+}
+
+// ---------- A BIBLIOTECA SOBE DA BASE (v5.262) ----------
+// Pedido do operador: *"ajuste a animação de abertura da tela de biblioteca,
+// para que ela seja vertical de baixo para cima."*
+//
+// Ela descia do topo, e o que se mede é o QUADRO INICIAL — a folha fechada tem
+// de estar ABAIXO da tela, nunca acima. Medir o estado final não distingue as
+// duas direções (as duas chegam em `translateY(0)`), que é exatamente o erro
+// que faria este caso passar sem provar nada.
+try {
+  const dir = await pg.evaluate(() => {
+    const folha = document.querySelector('#hymnSearchPopup .popup-sheet');
+    if (!folha) return null;
+    closeHymnSearch();
+    const fechada = getComputedStyle(folha).transform;
+    // `matrix(a,b,c,d,tx,ty)` — o ty é o sexto número. Positivo = a folha está
+    // guardada ABAIXO da tela, isto é, ela sobe para entrar.
+    const ty = (m) => {
+      const n = /matrix\(([^)]+)\)/.exec(m);
+      return n ? parseFloat(n[1].split(',')[5]) : 0;
+    };
+    return { ty: ty(fechada), alturaTela: window.innerHeight };
+  });
+  checar(!!dir && dir.ty >= dir.alturaTela - 1,
+    'a Biblioteca FECHADA fica guardada abaixo da tela — ela sobe da base, como '
+    + 'as demais folhas', dir ? Math.round(dir.ty) + 'px' : 'sem folha');
+} catch (e) {
+  checar(false, 'a medição da direção de abertura terminou sem exceção (' + (e && e.message) + ')');
 }
 
 // ---------- A BUSCA DA BIBLIOTECA E O TECLADO (v5.261) ----------

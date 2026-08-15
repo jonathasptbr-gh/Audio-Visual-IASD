@@ -1783,10 +1783,41 @@ main {
    dezenas de álbuns em ordem de descoberta. */
 /* Cabeçalho de grupo — deixou de ser só um rótulo: é onde mora a ação de
    baixar a COLEÇÃO COMPLETA (todos os álbuns da categoria de uma vez). */
+/* ---------- A ESCALA DE TÍTULOS DA BIBLIOTECA (v5.262) ----------
+   Relato do operador: *"há uma desproporção, onde o título das coleções está
+   pequeno, o dos álbuns maior e o dos items diferente… o texto dos itens
+   precisa dar uma leve reduzida para garantir a visualização do texto
+   completo."*
+
+   MEDIDO antes de mexer, numa lista de 390px:
+
+     seção  11,84px (.74rem, 700, caixa alta)   263px de espaço, 263 de texto
+     álbum  15,20px (.95rem, 700)               264px de espaço, 264 de texto
+     item   15,20px (.95rem, 500)               238px de espaço, **541 de texto**
+
+   Duas coisas de uma vez. A hierarquia estava INVERTIDA nas pontas — o nível
+   mais externo era o MENOR e os dois de dentro EMPATAVAM, e é o empate que faz
+   o item "parecer diferente": ele não é maior nem menor que o álbum, só tem
+   outro peso, então o olho não lê nível nenhum. E o item é o único que de fato
+   corta, com a menor largura disponível dos três (238px contra 264) para o
+   nome mais longo do app.
+
+   A escala passa a ter três degraus deliberados, do mais externo ao mais
+   interno — .8rem · .88rem · .82rem —, e a caixa alta é o que os concilia: um
+   rótulo em maiúsculas com espaçamento ocupa opticamente bem mais que a mesma
+   medida em caixa baixa, então a seção sobe em número e fica À ALTURA do álbum
+   sem virar um título. Dentro dele, o item cai abaixo do que o contém, que é a
+   única relação que o olho precisa ler de graça.
+
+   **O preço está dito, não escondido:** reduzir 15,2 → 13,1px faz o exemplo de
+   541px caber em 466 — cerca de 15% mais caracteres. Ele continua não cabendo
+   em 238px, e nenhum tamanho legível faria caber. O que este lote conserta por
+   inteiro é a desproporção; o corte de um título de 54 caracteres ele apenas
+   adia. */
 .coll-group {
   flex-shrink: 0;
   display: flex; align-items: center; gap: .5rem;
-  font-size: .74rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  font-size: .8rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
   color: var(--muted);
   /* A direita reserva o MESMO espaço que o card gasta depois do botão de
      baixar — hoje só o padding dele (.7rem), já que a moldura e a seta do
@@ -1902,13 +1933,10 @@ main {
    animar. */
 .coll-group--drop:not(.aberto) > .coll-group-bar > .coll-group-icon,
 .hymnal-card:not(.expanded) .coll-bar-fechar { transform: rotate(180deg); }
-/* A seção FIXA não abre nem fecha: o lugar é reservado para os títulos de todas
-   as seções começarem na mesma coluna, e nada é desenhado nele. */
-.coll-group-icon.vago { background: none; cursor: default; }
-/* A SEÇÃO FIXA (os Favoritos, v5.238) não colapsa: sem seta, sem ouvinte e sem
-   cursor de toque. Um cabeçalho que parece tocável e não faz nada é pior que um
-   rótulo — e o cursor é a única parte disso que o CSS decide. */
-.coll-group--drop.fixo > .coll-group-bar { cursor: default; }
+/* (`.coll-group-icon.vago` e `.coll-group--drop.fixo` saíram na v5.262: a seção
+   dos Favoritos deixou de ser a única que não colapsa — ela nasce aberta por
+   `gruposAbertos`, e a partir daí é uma seção como as outras. Um lugar
+   reservado sem seta não existe mais nesta lista.) */
 /* As AÇÕES da seção, na barra dela (v5.239). O espaçador empurra os botões para
    a direita — o nome fica com `flex: 1` só quando há um contador ao lado, e num
    cabeçalho sem contador ele encolhe ao próprio texto. */
@@ -1984,7 +2012,9 @@ main {
 /* (A caixa de `.coll-bar-icon` é declarada junto com a da seção — ver "A seta é
    a thumbnail das raízes". O `.msym` dela saiu com o glifo da coleção: a thumb
    do card é a seta desde a v5.244.) */
-.coll-bar-name { font-size: .95rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* O DEGRAU DO MEIO da escala (ver "A escala de títulos da Biblioteca"): era
+   .95rem, o mesmo do item que ele contém. */
+.coll-bar-name { font-size: .88rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* O resumo passou a ser o PESO (v5.94), que é bem mais largo que o "2/4" de
    antes — e ele divide a linha com o NOME do álbum, que é a informação
    principal. Meio ponto de fonte a menos devolve um caractere de nome sem
@@ -3163,18 +3193,22 @@ main {
    estrela quando se está dentro de um atalho/pasta (ver renderFavHeader). */
 #favPopup .back-btn { margin-left: -.25rem; }
 
-/* ---------- popup de busca no Hinário 2022 ---------- */
-/* Bandeja da busca do Hinário: desliza a partir do TOPO (não da base como os
-   demais bottom-sheets). Além de ser o pedido de UX, casa melhor com o teclado
-   — a bandeja fica no topo e os resultados abaixo, sem serem cobertos pelo
-   teclado que sobe da base. */
-#hymnSearchPopup { align-items: flex-start; }
-#hymnSearchPopup .popup-sheet {
-  border-radius: 0 0 var(--radius-sheet) var(--radius-sheet);
-  transform: translateY(-100%);
-  padding-bottom: 0;
-}
-#hymnSearchPopup.open .popup-sheet { transform: translateY(0); }
+/* ---------- A BIBLIOTECA SOBE DA BASE (v5.262) ---------- */
+/* Ela descia do TOPO, e o argumento escrito aqui era o teclado: *"a bandeja fica
+   no topo e os resultados abaixo, sem serem cobertos pelo teclado que sobe da
+   base."* Esse argumento MORREU em dois lotes — a busca desceu para o rodapé
+   (v5.258) e a folha passou a ser a faixa visível (v5.261), então nada nela é
+   coberto por nada. O que sobrou foi a única folha do app que se move ao
+   contrário de todas as outras, e é isso que o pedido do operador corrige.
+   Subindo, ela chega pelo mesmo lado em que estão o dedo, o teclado e a barra
+   de busca — o movimento aponta para onde a tela vai ser operada.
+
+   Nada é declarado aqui além disso: o `translateY(100%)` de partida e o
+   `translateY(0)` de chegada são os do `.popup-sheet`, e os cantos retos são os
+   do `.popup-sheet--full` (que os argumenta: canto arredondado anuncia "há algo
+   atrás", e numa folha de tela cheia não há). Este bloco existia para
+   SOBRESCREVER os três. */
+#hymnSearchPopup .popup-sheet { padding-bottom: 0; }
 
 /* Barra de busca do Hinário ocupando toda a largura da bandeja: display:flex faz
    o input (.lib-search, flex:1) esticar de lado a lado (sem isso o input ficava
@@ -3270,8 +3304,11 @@ main {
    oposto da hierarquia. O que separa os dois passa a ser o PESO (700 no álbum,
    500 aqui), que é a distinção certa: mesma altura de linha, quem manda é o
    título. */
-.hymn-name { flex: none; font-size: .95rem; font-weight: 500; line-height: 1.3; }
-.hymn-sub { font-size: .78rem; color: var(--muted); }
+.hymn-name { flex: none; font-size: .82rem; font-weight: 500; line-height: 1.3; }
+/* UM VALOR SÓ para "subtítulo da Biblioteca": este era .78rem e o do card,
+   .7rem — dois irmãos com meio ponto de diferença, que é a inconsistência que a
+   v5.248 já tinha tirado de dentro da barra do álbum. */
+.hymn-sub { font-size: .7rem; color: var(--muted); }
 /* Trecho da letra que casou com a busca. Em itálico e com uma barra à esquerda
    para se ler como CITAÇÃO, não como mais um subtítulo do item — e assim não
    se confunde com o nome da coleção, que fica logo acima. Uma linha só: a

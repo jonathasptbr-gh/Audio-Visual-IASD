@@ -2981,10 +2981,83 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.261** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.262** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.262: A BIBLIOTECA SOBE DA BASE, os Favoritos ganham a seta que
+> faltava, e a escala de títulos passa a ser uma escala. OTA PURO** (nenhuma
+> linha de Kotlin; sem Release).
+>
+> Quatro pedidos do operador no mesmo lote, e o último precisou de medição antes
+> de qualquer linha.
+>
+> - **A ANIMAÇÃO INVERTEU** — *"que ela seja vertical de baixo para cima"*. Ela
+>   descia do topo desde sempre, e o argumento estava escrito aqui: *"a bandeja
+>   fica no topo e os resultados abaixo, sem serem cobertos pelo teclado que sobe
+>   da base"*. **Esse argumento morreu em dois lotes** — a busca desceu para o
+>   rodapé (v5.258) e a folha passou a ser a faixa visível (v5.261), então nada
+>   nela é coberto por nada. O que restava era a única folha do app que se movia
+>   ao contrário de todas as outras. Subindo, ela chega pelo mesmo lado em que
+>   estão o dedo, o teclado e a barra de busca. O bloco de CSS **saiu inteiro**:
+>   ele existia só para sobrescrever o `translateY(100%)` e os cantos retos que o
+>   `.popup-sheet--full` já argumenta.
+> - **OS FAVORITOS COLAPSAM, e continuam abrindo abertos.** A v5.238 os fez
+>   `fixo` — sem seta e sem ouvinte — com o argumento de que *"um atalho atrás de
+>   um toque a mais deixa de ser atalho"*. Ele continua valendo, e é exatamente o
+>   que sobrevive: **o padrão é ABERTO**, agora como uma linha de `gruposAbertos`
+>   no topo do arquivo em vez de uma exceção espalhada pelo construtor. O que ele
+>   não justificava era a seção ser a ÚNICA da tela que não responde ao gesto que
+>   todas as outras respondem — quem tem trinta favoritos não tinha como
+>   recolhê-los para chegar aos álbuns. A opção `fixo` saiu do `grupo()`, e com
+>   ela `.coll-group-icon.vago` e `.coll-group--drop.fixo`. Fechar dura a sessão,
+>   como em qualquer outro grupo: reabrir sozinha a cada visita faria dela a
+>   única seção que desfaz o que o operador acabou de fazer.
+> - **OS ARQUIVOS OFICIAIS VÊM ANTES DOS HINÁRIOS.** A ordem anterior era a da
+>   IDADE dos dois grupos, não a do uso: o hinário é o acervo permanente, a que
+>   se chega pela busca, pelo número ou pelo nome; os oficiais são o material
+>   DATADO do sábado que vem, e é a eles que se volta toda semana.
+> - **A ESCALA DE TÍTULOS, e aqui a medição desmentiu metade do diagnóstico
+>   natural.** Relato: *"o título das coleções está pequeno, o dos álbuns maior e
+>   o dos items diferente… o texto dos itens precisa dar uma leve reduzida para
+>   garantir a visualização do texto completo."* Medido numa lista de 390px:
+>
+>   | nível | fonte | espaço | texto |
+>   |---|---|---|---|
+>   | seção | 11,84px (700, caixa alta) | 263px | 263px |
+>   | álbum | 15,20px (700) | 264px | 264px |
+>   | item | **15,20px** (500) | **238px** | **541px** |
+>
+>   São duas coisas de uma vez. A hierarquia estava INVERTIDA nas pontas — o
+>   nível mais externo era o menor e os dois de dentro EMPATAVAM —, e **é o
+>   empate que faz o item "parecer diferente"**: ele não é maior nem menor que o
+>   álbum, só tem outro peso, então o olho não lê nível nenhum. E o item é o
+>   único que de fato corta, com a MENOR largura disponível dos três para o nome
+>   mais longo do app. A escala passa a ter três degraus deliberados
+>   (`.8rem · .88rem · .82rem`), e a caixa alta é o que os concilia: um rótulo em
+>   maiúsculas ocupa opticamente mais que a mesma medida em caixa baixa, então a
+>   seção sobe em número e fica à altura do álbum sem virar um título. Os dois
+>   subtítulos viraram **um valor** (`.7rem`): eles diferiam por meio ponto, que
+>   é a inconsistência que a v5.248 já tinha tirado de dentro da barra do álbum.
+>
+>   **O preço está dito:** 15,2 → 13,1px leva o exemplo de 541px para 466 — cerca
+>   de 15% mais caracteres. Ele continua não cabendo em 238px, e nenhum tamanho
+>   legível faria caber. O que este lote conserta por inteiro é a desproporção; o
+>   corte de um título de 54 caracteres ele apenas adia.
+>
+> Os oráculos afirmam RELAÇÕES e nunca pixels — um número escrito ali reprovaria
+> numa mudança legítima de fonte e, pior, seria verdadeiro sozinho enquanto a
+> escala continuasse sem sistema, que era o estado anterior. Verificado por
+> ISOLAMENTO, uma peça de cada vez: a animação antiga reprova **1**, a escala
+> antiga **4**, os Favoritos fixos **3**, a ordem antiga **1**.
+>
+> **E um caso do `boot-nativo` passava por sorte de relógio.** O dos favoritos ao
+> vivo (v5.258) rodava no Modo Fácil, onde o `renderSimpleGate` FECHA a
+> Biblioteca sem tela conectada — e a enquete do espelho o chama sozinha durante
+> a espera do pulso. Ele só não reprovava porque a janela era curta; os 800 ms
+> que este lote acrescentou antes dele bastaram para expor isso. É a armadilha da
+> v5.236 outra vez: **medir uma tela no modo em que ela não vive.**
 
 > **A v5.261: A FOLHA PASSA A SER A FAIXA VISÍVEL — a barra de busca desceu na
 > v5.258 e foi parar ATRÁS do teclado. OTA PURO** (nenhuma linha de Kotlin; sem

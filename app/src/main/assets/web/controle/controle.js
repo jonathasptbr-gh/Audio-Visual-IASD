@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.261';
+const WEB_VERSION = '5.262';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -581,6 +581,22 @@ const GRUPO_HINARIOS = 'Hinários';
 // do operador, e ele nomeia a ORIGEM — que é o que separa este grupo do de
 // cima muito melhor que "séries", uma palavra de implementação.
 const GRUPO_OFICIAIS = 'Arquivos oficiais';
+// OS FAVORITOS NASCEM ABERTOS, e agora isso é um VALOR e não uma exceção
+// (v5.262, pedido do operador: *"que continue em aberto como padrão ao abrir a
+// aba de buscas, mas que assim como as outras, tenha uma thumb/botão para
+// colapsar ela"*).
+//
+// Da v5.238 até aqui a seção era `fixo` — sem seta e sem ouvinte —, e o
+// argumento era que um atalho atrás de um toque a mais deixa de ser atalho. Ele
+// continua valendo, e é exatamente o que esta linha preserva: o padrão é
+// ABERTO. O que ele não justificava era a seção ser a ÚNICA da tela que não
+// responde ao gesto que todas as outras respondem — quem tem trinta favoritos
+// e quer chegar aos álbuns não tinha como recolhê-los.
+//
+// Semeado aqui, e não a cada abertura da Biblioteca: fechá-la é uma decisão do
+// operador, e ela dura a sessão como a de qualquer outro grupo. Reabrir sozinha
+// a cada visita faria dela a única seção que desfaz o que ele acabou de fazer.
+gruposAbertos.add(GRUPO_FAVORITOS);
 let syncBusy = false;      // sincronização em andamento
 // Transições visuais são INERENTES ao sistema (sempre ligadas, duração fixa) —
 // não há opção de desligar nem ajustar. Fade in/out em toda troca visual:
@@ -6397,24 +6413,19 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
   // solução da `.coll-bar` do card, que também é uma `div` com ouvinte.
   const grupo = (text, colls, gOpts) => {
     any = true;
-    // `fixo` = a seção não colapsa: ela É a listagem, não um ramo dela. Hoje só
-    // os Favoritos (v5.238, pedido do operador), e a razão é a mesma que os pôs
-    // no topo: eles são o atalho de quem já procurou antes, e um atalho atrás de
-    // um toque a mais deixa de ser atalho. Sem seta e sem ouvinte — um
-    // cabeçalho que parece tocável e não faz nada é pior que um rótulo.
-    const fixo = !!(gOpts && gOpts.fixo);
-    const aberto = fixo || gruposAbertos.has(text);
+    // TODA seção colapsa, inclusive a dos Favoritos (v5.262). A exceção `fixo`
+    // da v5.238 saiu: o que ela protegia — os favoritos ABERTOS por padrão — é
+    // hoje uma linha de `gruposAbertos` no topo do arquivo, e nada mais nesta
+    // função precisa saber que aquela seção é especial.
+    const aberto = gruposAbertos.has(text);
     const li = document.createElement('li');
-    li.className = 'coll-group coll-group--drop' + (aberto ? ' aberto' : '')
-      + (fixo ? ' fixo' : '');
+    li.className = 'coll-group coll-group--drop' + (aberto ? ' aberto' : '');
 
     const bar = document.createElement('div');
     bar.className = 'coll-group-bar';
-    if (!fixo) {
-      bar.setAttribute('role', 'button');
-      bar.setAttribute('tabindex', '0');
-      bar.setAttribute('aria-expanded', aberto ? 'true' : 'false');
-    }
+    bar.setAttribute('role', 'button');
+    bar.setAttribute('tabindex', '0');
+    bar.setAttribute('aria-expanded', aberto ? 'true' : 'false');
     // ===== A SETA É A THUMBNAIL DAS RAÍZES (v5.244) =====
     //
     // Pedido do operador: *"pode manter uma seta como 'thumbnail' padrão, pois
@@ -6431,19 +6442,12 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
     // E ela desceu da coluna da DIREITA (onde estava desde a v5.237): é a mesma
     // razão da v5.243 — a direita é a coluna do peso e do botão de baixar, e uma
     // seta que aparece ali empurra os números.
-    const seta = document.createElement(fixo ? 'span' : 'button');
-    seta.className = 'coll-group-icon' + (fixo ? ' vago' : '');
-    if (fixo) {
-      // A seção FIXA não abre nem fecha, e uma seta ali prometeria um gesto que
-      // não existe. O lugar é RESERVADO só para os títulos de todas as seções
-      // começarem na mesma coluna (o idioma do `.coll-bar-dl.vago`).
-      seta.setAttribute('aria-hidden', 'true');
-    } else {
-      seta.type = 'button';
-      seta.title = aberto ? 'Fechar' : 'Abrir';
-      seta.setAttribute('aria-label', aberto ? 'Fechar' : 'Abrir');
-      seta.innerHTML = chevronUpIconSvg();
-    }
+    const seta = document.createElement('button');
+    seta.className = 'coll-group-icon';
+    seta.type = 'button';
+    seta.title = aberto ? 'Fechar' : 'Abrir';
+    seta.setAttribute('aria-label', aberto ? 'Fechar' : 'Abrir');
+    seta.innerHTML = chevronUpIconSvg();
     bar.appendChild(seta);
     const name = document.createElement('span');
     name.className = 'coll-group-name';
@@ -6483,10 +6487,6 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
 
     const corpo = document.createElement('ul');
     corpo.className = 'coll-group-corpo';
-    // A MARCA que o redesenho no lugar procura (v5.258, ver
-    // `redesenharFavoritosNaBiblioteca`). Só a seção FIXA a leva porque só ela
-    // é os Favoritos; as demais são coleções, e quem as redesenha é o acervo.
-    if (fixo) corpo.dataset.favCorpo = '1';
     li.appendChild(corpo);
 
     // ABRIR NÃO FECHA OS OUTROS, ao contrário do acordeão de um álbum. Lá a
@@ -6506,15 +6506,13 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
       if (!abrindo) { collapseAccordion(corpo, aplicar); return; }
       aplicar();
     };
-    if (!fixo) {
-      bar.addEventListener('click', alternar);
-      bar.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); alternar(); }
-      });
-      // A seta tem ouvinte PRÓPRIO, com `stopPropagation`: sem ele o clique nela
-      // borbulharia até a barra e alternaria duas vezes, isto é, não faria nada.
-      seta.addEventListener('click', (e) => { e.stopPropagation(); alternar(); });
-    }
+    bar.addEventListener('click', alternar);
+    bar.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); alternar(); }
+    });
+    // A seta tem ouvinte PRÓPRIO, com `stopPropagation`: sem ele o clique nela
+    // borbulharia até a barra e alternaria duas vezes, isto é, não faria nada.
+    seta.addEventListener('click', (e) => { e.stopPropagation(); alternar(); });
 
     alvo.appendChild(li);
     if (!aberto) return null;
@@ -6546,12 +6544,13 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
   // com voltar, busca e seleção múltipla, que é uma tela inteira e não uma
   // seção. `openFolder`/`openOpfsFolder` a abrem sozinhos quando o toque veio
   // daqui.
-  // SEM CONTADOR (v5.239, pedido do operador): a seção está sempre aberta e a
-  // lista inteira está logo abaixo — um número dizendo quantos itens há a dois
+  // SEM CONTADOR (v5.239, pedido do operador): a seção nasce aberta e a lista
+  // inteira está logo abaixo — um número dizendo quantos itens há a dois
   // centímetros deles é a mesma medida dita duas vezes, que foi o que tirou o
-  // peso do painel do álbum na v5.232.
+  // peso do painel do álbum na v5.232. (Fechada ela passa a não dizer quantos
+  // são, e isso é aceito: o operador que a fechou sabe o que há lá dentro —
+  // fechar é justamente o gesto de quem não está procurando ali agora.)
   const favCorpo = grupo(GRUPO_FAVORITOS, null, {
-    fixo: true,
     // UMA AÇÃO, E ELA FAZ A COISA (v5.254): trazer uma pasta do aparelho.
     //
     // PASTA + (v5.258, pedido do operador). A v5.254 pôs aqui as setas
@@ -6567,6 +6566,13 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
     }],
   });
   if (favCorpo) {
+    // A MARCA que o redesenho no lugar procura (v5.258, ver
+    // `redesenharFavoritosNaBiblioteca`). Ela mora AQUI, no dono, e não no
+    // `grupo()`: quem sabe que este corpo é o dos Favoritos é este trecho, e
+    // como `grupo()` só devolve o corpo quando a seção está ABERTA, a marca
+    // deixa de existir com ela fechada — que é exatamente quando não há o que
+    // redesenhar.
+    favCorpo.dataset.favCorpo = '1';
     favHost = favCorpo;
     // `finally` obrigatório: um erro ao montar uma linha deixaria o host preso
     // no corpo de um grupo que já saiu do documento, e a gaveta de verdade
@@ -6608,11 +6614,20 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
     const corpo = grupo(nome, lista, { semBotao: true });
     if (corpo) lista.forEach((coll) => corpo.appendChild(renderCollectionCard(coll)));
   };
-  grupoFixo(GRUPO_HINARIOS, FIXED_COLLECTIONS);
+  // OS OFICIAIS VÊM PRIMEIRO (v5.262, pedido do operador). A ordem anterior era
+  // a da idade dos dois grupos, não a do uso: o hinário é o acervo PERMANENTE —
+  // ele não muda de conteúdo de um mês para o outro e se chega a ele pela busca,
+  // pelo número ou pelo nome —, enquanto os Arquivos oficiais são o material
+  // DATADO do sábado que vem, e é a eles que se volta toda semana. O que se
+  // procura com mais frequência fica mais perto do topo.
+  //
   // O grupo dos oficiais só existe quando há série: num shell < 41 ele seria um
   // cabeçalho vazio — e `grupoFixo` já devolve cedo, mas dizê-lo aqui é o que
-  // impede a próxima leitura de "consertar" a ausência.
+  // impede a próxima leitura de "consertar" a ausência. É também por isso que a
+  // ordem é escrita como DUAS chamadas, e não como uma lista ordenada: a
+  // primeira pode simplesmente não existir.
   grupoFixo(GRUPO_OFICIAIS, serieCollections());
+  grupoFixo(GRUPO_HINARIOS, FIXED_COLLECTIONS);
 
   for (const cat of albumCatalog.categories) {
     const cards = categoryCards(cat);

@@ -595,9 +595,14 @@ try {
     naTela.grupoDaSerie + ' / ' + naTela.grupoDoInformativo);
   checar(naTela.grupoDoHinario === 'Hinários',
     'e o hinário fica no grupo "Hinários", sozinho', naTela.grupoDoHinario);
-  checar(naTela.grupos[0] === 'Favoritos' && naTela.grupos[1] === 'Hinários'
-    && naTela.grupos[2] === 'Arquivos oficiais',
-    'nesta ordem, logo abaixo dos Favoritos e antes de qualquer álbum',
+  // A ORDEM INVERTEU na v5.262 (pedido do operador: "os arquivos oficiais ficam
+  // antes dos hinários"). Ela é medida, e não só o pertencimento: os dois grupos
+  // são construídos por chamadas separadas — a dos oficiais pode nem acontecer
+  // (shell < 41) —, então "quem vem primeiro" é uma decisão que só existe na
+  // ordem das duas linhas e some se alguém as reordenar sem querer.
+  checar(naTela.grupos[0] === 'Favoritos' && naTela.grupos[1] === 'Arquivos oficiais'
+    && naTela.grupos[2] === 'Hinários',
+    'nesta ordem — Favoritos, os OFICIAIS e depois os hinários —, antes de qualquer álbum',
     JSON.stringify(naTela.grupos));
 
   // ── O ÍNDICE NÃO PODE FICAR PRESO NUMA REGRA VELHA (v5.233) ────────────
@@ -805,7 +810,12 @@ try {
   // "colapsado" seria só um `display: none`, e a tela continuaria pagando o DOM
   // de dezenas de álbuns a cada redesenho) **e** o toque no cabeçalho abre.
   const indice = await pg.evaluate(async () => {
-    gruposAbertos.clear();
+    // O ESTADO PADRÃO, VERBATIM. Ele não é montado aqui de propósito: o que se
+    // afirma é o que o app trouxe da carga do módulo — os Favoritos abertos e
+    // mais nada. Um `clear()` seguido de um `add('Favoritos')` mediria a
+    // suposição do teste, não a decisão do app; e este `[...]` ainda serve de
+    // guarda de que os casos acima devolveram o que tomaram emprestado.
+    const padrao = [...gruposAbertos];
     const lista = document.createElement('ul');
     lista.className = 'hymnal-list';
     lista.style.width = '390px';
@@ -816,17 +826,37 @@ try {
     };
     desenhar();
     const grupos = [...lista.querySelectorAll('.coll-group-name')].map((e) => e.textContent.trim());
-    // A SEÇÃO FIXA, medida com todo o resto fechado.
-    const gFav = [...lista.querySelectorAll('.coll-group')]
+    // A SEÇÃO DOS FAVORITOS: aberta por padrão, e COLAPSÁVEL como as outras.
+    const acharFav = () => [...lista.querySelectorAll('.coll-group')]
       .find((g) => /Favoritos/.test((g.querySelector('.coll-group-name') || {}).textContent || ''));
-    const barraFav = gFav && gFav.querySelector('.coll-group-bar');
+    const gFav = acharFav();
     const corpoFav = gFav && gFav.querySelector('.coll-group-corpo');
-    if (barraFav) barraFav.click();   // não pode fechar nada
-    const fixo = {
-      temSeta: !!(gFav && gFav.querySelector('.coll-group-seta')),
+    const fav = {
+      padrao,
+      // A MESMA seta das outras seções, no mesmo lugar (a thumb da barra).
+      temSeta: !!(gFav && gFav.querySelector('.coll-group-bar > button.coll-group-icon')),
       corpoVisivel: !!(corpoFav && corpoFav.getBoundingClientRect().height > 0),
-      cliqueNaoFecha: !!(gFav && gFav.classList.contains('aberto')),
     };
+    // E ela FECHA no toque. O recolhimento é animado antes de o nó ser
+    // redesenhado (`collapseAccordion`), então a leitura espera o desfecho — e a
+    // espera é, ela própria, a afirmação de que a animação existe.
+    const setaFav = gFav && gFav.querySelector('.coll-group-bar > button.coll-group-icon');
+    if (setaFav) setaFav.click();
+    await new Promise((r) => setTimeout(r, 400));
+    const depois = acharFav();
+    fav.fechaNoToque = !!(depois && !depois.classList.contains('aberto'))
+      && !gruposAbertos.has('Favoritos');
+    // E volta a abrir, senão "colapsável" seria uma porta de mão única.
+    const setaFav2 = depois && depois.querySelector('.coll-group-bar > button.coll-group-icon');
+    if (setaFav2) setaFav2.click();
+    await new Promise((r) => setTimeout(r, 400));
+    fav.reabre = !!(acharFav() || {}).classList
+      && acharFav().classList.contains('aberto');
+    // Daqui para baixo o caso é o do ÍNDICE, que fala dos grupos de coleção:
+    // tudo fechado, inclusive os Favoritos, para a altura de "fechado" ser
+    // comparável com a de "aberto".
+    gruposAbertos.clear();
+    desenhar();
     const fechado = {
       grupos,
       cards: lista.querySelectorAll('.hymnal-card').length,
@@ -855,8 +885,12 @@ try {
       dentroDoCorpo: !!lista.querySelector('.coll-group-corpo .hymnal-card'),
     };
     lista.remove();
+    // Devolve o estado PADRÃO do app, não um `Set` vazio: os casos abaixo
+    // desenham a Biblioteca de verdade, e deixá-la sem os Favoritos abertos
+    // seria emprestar a este arquivo um comportamento que o app não tem.
     gruposAbertos.clear();
-    return { fechado, aberto, fixo };
+    gruposAbertos.add('Favoritos');
+    return { fechado, aberto, fav };
   });
   checar(indice.fechado.grupos.length >= 2 && indice.fechado.cards === 0,
     'A BIBLIOTECA ABRE COMO ÍNDICE: só os cabeçalhos de seção, nenhum card '
@@ -864,16 +898,22 @@ try {
   checar(indice.fechado.grupos[0] === 'Favoritos',
     'e o primeiro deles é FAVORITOS, no topo da listagem',
     JSON.stringify(indice.fechado.grupos));
-  // ── E OS FAVORITOS NÃO COLAPSAM (v5.238) ───────────────────────────────
-  // Pedido do operador: *"mantenha os favoritos como uma seção sempre aberta."*
-  // Eles são o atalho de quem já procurou antes, e um atalho atrás de um toque
-  // a mais deixa de ser atalho. As duas metades: o corpo está lá com todos os
-  // outros grupos fechados, **e** não há como fechá-lo por engano.
-  checar(indice.fixo.corpoVisivel,
-    'e a seção de FAVORITOS já vem aberta, com os outros grupos todos fechados');
-  checar(!indice.fixo.temSeta && indice.fixo.cliqueNaoFecha,
-    'sempre aberta: sem seta e sem alternar no toque — um cabeçalho que parece '
-    + 'tocável e não faz nada é pior que um rótulo');
+  // ── OS FAVORITOS: ABERTOS POR PADRÃO, E COLAPSÁVEIS (v5.238 → v5.262) ───
+  // Pedido do operador: *"que continue em aberto como padrão ao abrir a aba de
+  // buscas, mas que assim como as outras, tenha uma thumb/botão para colapsar
+  // ela."* São TRÊS metades, e nenhuma basta: o padrão (senão a seção nasceria
+  // fechada como qualquer outra), a seta (senão não há como recolher) e o toque
+  // que de fato recolhe **e** reabre — a v5.238 tinha a primeira e negava as
+  // outras duas.
+  checar(indice.fav.padrao.length === 1 && indice.fav.padrao[0] === 'Favoritos',
+    'o PADRÃO do app é uma seção aberta e uma só: os Favoritos',
+    JSON.stringify(indice.fav.padrao));
+  checar(indice.fav.corpoVisivel,
+    'e é assim que a Biblioteca abre — os favoritos à vista, o resto fechado');
+  checar(indice.fav.temSeta,
+    'ela tem a MESMA seta das outras seções, na thumb da barra');
+  checar(indice.fav.fechaNoToque && indice.fav.reabre,
+    'e o toque nela RECOLHE — e reabre, senão "colapsável" seria mão única');
   checar(indice.aberto.cards > 0 && indice.aberto.temSerie,
     'o toque no cabeçalho abre a seção e os cards aparecem',
     indice.aberto.cards + ' card(s)');
@@ -893,7 +933,10 @@ try {
     const rec = await AVDB.addMedia(new Blob(['x'], { type: 'audio/mpeg' }),
       { name: 'Louvor favorito de teste', list: 'favs' });
     await recarregarFavoritos();
-    gruposAbertos.clear();   // a seção de Favoritos é FIXA: não depende disto
+    // Só os Favoritos abertos — o PADRÃO do app (v5.262). Antes a linha era um
+    // `clear()` seco, com a nota "a seção é FIXA: não depende disto"; ela passou
+    // a depender, e um `clear()` a deixaria fechada e sem corpo para medir.
+    gruposAbertos.clear(); gruposAbertos.add('Favoritos');
     const lista = document.createElement('ul');
     lista.className = 'hymnal-list';
     lista.style.width = '390px';
@@ -1016,7 +1059,7 @@ try {
     lista2.remove();
     favItems = guardados;
     lista.remove();
-    gruposAbertos.clear();
+    gruposAbertos.clear(); gruposAbertos.add('Favoritos');
     await AVDB.listRemove('favs', rec.id);
     await recarregarFavoritos();
     return r;
@@ -1077,6 +1120,13 @@ try {
   // O teste usa a tela DE VERDADE (o popup aberto), e não um `<ul>` de mentira:
   // o defeito era exatamente a distância entre o estado e aquela tela.
   const favVivo = await pg.evaluate(async () => {
+    // NO MODO AVANÇADO, e isto não é cerimônia: no Modo Fácil sem tela
+    // conectada o `renderSimpleGate` FECHA a Biblioteca (a cortina a esconde),
+    // e a enquete do espelho o chama sozinha durante a espera do pulso. O caso
+    // passava por sorte de relógio — e é a mesma armadilha da v5.236: medir uma
+    // tela no modo em que ela não vive.
+    const modoAntes = appMode;
+    setAppMode('full');
     openHymnSearch();
     await new Promise((r) => setTimeout(r, 250));
     const secao = () => document.querySelector('#hymnResults [data-fav-corpo]');
@@ -1097,6 +1147,7 @@ try {
     await AVDB.listRemove('favs', rec.id);
     await recarregarFavoritos();
     closeHymnSearch();
+    setAppMode(modoAntes);   // o modo é global: deixá-lo trocado quebra os casos seguintes
     return { antes, depois, rolagemAntes, rolagemDepois };
   });
   checar(!favVivo.antes && favVivo.depois,
