@@ -209,7 +209,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.223';
+const WEB_VERSION = '5.224';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -397,8 +397,8 @@ const castMirrorBtnEl = document.getElementById('castMirrorBtn');
 // a forma de um estado: uma linha com interruptor, no lugar do segundo cartão
 // de escolha. O rótulo dela nomeia o DESTINO desde a v5.198 — ver o comentário
 // no `index.html`.
-const castNetRowEl = document.getElementById('castNetRow');
-const castNetToggleEl = document.getElementById('castNetToggle');
+const castNetBtnEl = document.getElementById('castNetBtn');
+const castNetLabelEl = document.getElementById('castNetLabel');
 const castMsgEl = document.getElementById('castMsg');
 const castMirrorLabelEl = document.getElementById('castMirrorLabel');
 const castLiveEl = document.getElementById('castLive');
@@ -14499,7 +14499,7 @@ function hostCastConn(naTela) {
   if (naTela) {
     // Ele passa a ser conteúdo de tela, não de folha: o estado precisa estar
     // certo sem ninguém ter aberto nada.
-    if (castNetRowEl) castNetRowEl.hidden = !espelhoDisponivel();
+    if (castNetBtnEl) castNetBtnEl.hidden = !espelhoDisponivel();
     renderCast();
   }
   acertarEnqueteDaConexao();
@@ -15469,7 +15469,7 @@ function abrirCast() {
   texto2(castMsgEl, '');
   // O espelho na rede só existe no app, e só num shell que tenha os métodos.
   // No navegador a folha degrada para uma escolha só, que é a honesta.
-  if (castNetRowEl) castNetRowEl.hidden = !espelhoDisponivel();
+  if (castNetBtnEl) castNetBtnEl.hidden = !espelhoDisponivel();
   renderCast();
   if (espelhoDisponivel()) {
     // ABRIR A FOLHA NÃO LIGA MAIS NADA (v5.184), e isto DESFAZ a decisão da
@@ -15529,9 +15529,20 @@ function renderCast() {
   // com uma frase — então quem escreve `checked` é sempre a leitura do estado,
   // e o toque só PEDE. Sem isto, uma recusa deixaria a chave na posição de uma
   // coisa que não aconteceu.
-  if (castNetToggleEl) {
-    castNetToggleEl.checked = ligado;
-    castNetToggleEl.disabled = mirrorOcupado;
+  if (castNetBtnEl) {
+    // O BOTÃO REFLETE O SHELL, nunca o toque — a mesma regra que valia para o
+    // interruptor: ligar é assíncrono, pode pedir confirmação (o custo dobrado
+    // com o telão no ar) e pode ser recusado com uma frase. Quem escreve o
+    // estado é sempre a leitura, e o toque só PEDE; senão uma recusa deixaria o
+    // botão vermelho de uma coisa que não aconteceu.
+    castNetBtnEl.classList.toggle('ligado', ligado);
+    castNetBtnEl.disabled = mirrorOcupado;
+    if (castNetLabelEl) {
+      // Ligado, o rótulo nomeia a AÇÃO (é o que o toque faz); desligado, ele
+      // nomeia o DESTINO, que é o que ajuda a escolher entre as duas formas de
+      // conectar. Ver o comentário do botão no HTML.
+      castNetLabelEl.textContent = ligado ? 'Desligar transmissão' : 'Transmitir para navegador';
+    }
   }
   // O BOTÃO DE ESPELHAR DIZ QUAL TV ESTÁ NO AR (v5.196). Ele levava a folha de
   // "Ajustes avançados" a existir com um botão de desligar dentro; agora o
@@ -15623,25 +15634,24 @@ if (castMirrorBtnEl) {
     if (window.__NATIVE__) AVNative.openCast();
     else openWebDisplay();
   });
-  // ATIVAR A TRANSMISSÃO PELO SITE: o interruptor, e ele é a única coisa desta
-  // folha que sobe ou derruba o servidor.
+  // ATIVAR (E DESLIGAR) A TRANSMISSÃO PELO SITE: este botão é a única coisa
+  // desta folha que sobe ou derruba o servidor.
   //
-  // O `change` de uma caixa de marcação já vem com a posição NOVA, e é ela que
-  // diz o que o operador pediu — mas quem decide o desfecho é o shell: ligar
-  // pode ser recusado ("só liga em Wi-Fi", "sem encoder livre agora") e pode
-  // pedir confirmação antes (o custo dobrado com o telão no ar). Por isso o
-  // `renderCast()` do fim reescreve `checked` a partir do ESTADO, e não da
-  // posição em que o dedo deixou a chave.
-  castNetToggleEl.addEventListener('change', async () => {
+  // Ele é o IRMÃO do de espelhar desde a v5.224 — era um interruptor —, e a
+  // diferença de mecânica é uma só: um `change` de caixa de marcação já vem com
+  // a posição nova, e um clique não vem com nada. O que o operador pediu passa
+  // a ser DERIVADO do estado atual (`!espelhoLigado()`), que é a mesma fonte que
+  // o `renderCast` usa para pintar o botão — então não há duas versões da
+  // verdade a divergirem no meio de uma resposta lenta.
+  castNetBtnEl.addEventListener('click', async () => {
     if (!espelhoDisponivel()) return;
-    const quer = castNetToggleEl.checked;
-    if (quer === espelhoLigado()) return;    // já está como se pediu
-    // A CHAVE FECHA ENQUANTO O SHELL RESPONDE. Ligar espera uma confirmação e
+    const quer = !espelhoLigado();
+    // O BOTÃO FECHA ENQUANTO O SHELL RESPONDE. Ligar espera uma confirmação e
     // uma resposta da ponte; um segundo toque nesse intervalo cairia na guarda
     // de `mirrorOcupado` e voltaria `false` — indistinguível, na tela, de uma
     // recusa de verdade ("não deu para ligar") por um toque que o operador deu
     // só porque o primeiro parecia não ter feito nada.
-    castNetToggleEl.disabled = true;
+    castNetBtnEl.disabled = true;
     if (quer) {
       texto2(castMsgEl, 'Ligando a transmissão…');
       const ok = await ligarEspelho();

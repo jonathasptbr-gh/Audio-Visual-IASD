@@ -2411,10 +2411,54 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.223** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
+**Versão atual: v5.224** (base web) · `SHELL_VERSION` **40**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.224: A TRANSMISSÃO VIRA O BOTÃO IRMÃO DO DE ESPELHAR — o interruptor
+> sai. OTA PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> Pedido do operador: que a segunda forma de conectar tenha o mesmo desenho da
+> primeira, e que ligada ela fique **vermelha, nomeando o desligamento** — a
+> mesma função de liga-desliga, sem trilho de chave.
+>
+> **As duas escolhas da folha respondem à MESMA pergunta** ("para onde vai o
+> telão?"), e respondê-la metade com um botão preenchido e metade com um
+> interruptor fazia a segunda parecer uma preferência de configuração em vez de
+> uma porta. Agora são dois `.cast-acao` — mesma anatomia, mesmo alvo de toque,
+> mesmo lugar do ícone —, e o botão novo ganhou símbolo próprio (`icoNavegador`:
+> a janela de navegador com as ondas dentro; a moldura é literalmente a palavra
+> do rótulo, e o irmão já tinha a tela com a seta).
+>
+> **O que o interruptor dava de graça — dizer o estado parado — o botão diz pela
+> COR e pelo RÓTULO**, que é a gramática que o irmão já usava: desligado ele é a
+> chamada preenchida ("Transmitir para navegador"); ligado, perde o
+> preenchimento, ganha o contorno e passa a nomear a ação ("Desligar
+> transmissão"). Verde é "resolvido, e o app não mexe nisso" (a TV, que só o
+> seletor do Android desconecta); vermelho é "está ligado, e o toque desliga".
+>
+> **O vermelho é CONTORNADO, e isso não é timidez:** pela regra da paleta o
+> vermelho CHEIO deste app significa "está no ar agora" e pertence à mídia
+> projetada. Um botão de folha preenchido em `--live` competiria com o que a
+> congregação está vendo.
+>
+> A mecânica mudou num ponto só, e ele merece nota: um `change` de caixa de
+> marcação chega com a posição NOVA, um clique não chega com nada. O que o
+> operador pediu passou a ser DERIVADO do estado (`!espelhoLigado()`) — a mesma
+> fonte que o `renderCast` usa para pintar o botão —, então não há duas versões
+> da verdade para divergirem no meio de uma resposta lenta do shell. O resto da
+> disciplina é intacto: **quem escreve o estado é sempre a LEITURA**, nunca o
+> toque, senão uma recusa deixaria o botão vermelho de uma coisa que não
+> aconteceu.
+>
+> Dois oráculos, e eles se dividem pela natureza: o `smoke.mjs` mede a FORMA
+> (desligados os dois são a mesma peça — mesmo raio, mesmo preenchimento; ligada
+> a transmissão perde o fundo e ganha o contorno em `--danger-strong`), e o
+> `boot-nativo.test.mjs` mede o ESTADO, que é o único lugar onde ele pode ser
+> medido de verdade: lá a ponte responde `ligado: true` e quem pinta o botão é o
+> `renderCast`, não uma classe posta à mão pelo teste. Ele afirma também que
+> **não sobrou interruptor nenhum** na folha.
 
 > **A v5.223: O `display-ready` DA TELA NUNCA LEVOU `__tela` — e sem ele as TRÊS
 > preferências jamais chegaram. OTA PURO** (nenhuma linha de Kotlin; sem
@@ -2462,6 +2506,36 @@ controles), que **só chegam instalando o APK novo**, não pelo OTA.
 > Ler cada lado separadamente aprova os dois — foi o que fiz aqui na primeira
 > passada, com um probe que mandava o `__tela` à mão e concluía que o Controle
 > estava certo. Estava; a mensagem é que nunca teve o campo.
+
+> **A v5.222: O NÚMERO DO HINO ERA AZUL — 9,75:1 e ainda assim discreto. OTA
+> PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> Relato do operador, sobre a capa que a v5.219 desenhou: *"o número do hino
+> está aparecendo em azul no slide, esse azul fica muito discreto no fundo
+> escuro"*.
+>
+> **Ele está certo, e a medida não o contradiz — ela responde outra pergunta.**
+> `--stage-accent` sobre o preto dá 9,75:1, contraste de sobra em qualquer
+> régua; o oráculo da v5.219 mediu isso e aprovou. Só que **contraste é razão de
+> luminância, não legibilidade a dez metros**: num telão o que decide é o
+> conjunto **cor + corpo**, e aquele número tinha o MENOR corpo do cartão
+> (4,4cqmin contra os 8,4 do título) somado à única cor da tela que não era
+> branca. Num hinário o número é o que a congregação procura primeiro — ele não
+> é enfeite, e estava desenhado como se fosse.
+>
+> Agora ele é o MESMO branco do título (21:1) e maior (5,8cqmin). A cor de
+> identidade ficou nos FIOS que o flanqueiam, que é onde ela não precisa ser
+> lida: eles são decoração, e por isso o `background` deles passou a ser
+> explícito em vez de `currentColor` — sem essa troca, embranquecer o número
+> teria embranquecido os fios junto, calados.
+>
+> **O oráculo subiu de piso junto** (`display-smoke.mjs`): ele exigia 7:1 do
+> número, que é exatamente o que o azul entregava. Agora exige 15:1 **e** que a
+> cor seja a mesma do título — uma cor de identidade que volte para cá reprova.
+>
+> A régua que fica: **um piso de contraste aprova o que ele mede, e ele não mede
+> corpo.** Onde o consumidor é um projetor visto do fundo do salão, a asserção
+> tem de amarrar as duas coisas.
 
 > **A v5.221: A IMAGEM DE FUNDO DA LETRA DESISTIA ANTES DE PODER CHEGAR. OTA
 > PURO** (nenhuma linha de Kotlin; sem Release).
@@ -2516,36 +2590,6 @@ controles), que **só chegam instalando o APK novo**, não pelo OTA.
 > está esperando.** Aqui o processo era conhecido e estava escrito duas funções
 > acima — a fila é serializada e a imagem vem depois da música —, e ainda assim
 > o prazo foi escolhido como se a imagem pudesse chegar sozinha.
-
-> **A v5.222: O NÚMERO DO HINO ERA AZUL — 9,75:1 e ainda assim discreto. OTA
-> PURO** (nenhuma linha de Kotlin; sem Release).
->
-> Relato do operador, sobre a capa que a v5.219 desenhou: *"o número do hino
-> está aparecendo em azul no slide, esse azul fica muito discreto no fundo
-> escuro"*.
->
-> **Ele está certo, e a medida não o contradiz — ela responde outra pergunta.**
-> `--stage-accent` sobre o preto dá 9,75:1, contraste de sobra em qualquer
-> régua; o oráculo da v5.219 mediu isso e aprovou. Só que **contraste é razão de
-> luminância, não legibilidade a dez metros**: num telão o que decide é o
-> conjunto **cor + corpo**, e aquele número tinha o MENOR corpo do cartão
-> (4,4cqmin contra os 8,4 do título) somado à única cor da tela que não era
-> branca. Num hinário o número é o que a congregação procura primeiro — ele não
-> é enfeite, e estava desenhado como se fosse.
->
-> Agora ele é o MESMO branco do título (21:1) e maior (5,8cqmin). A cor de
-> identidade ficou nos FIOS que o flanqueiam, que é onde ela não precisa ser
-> lida: eles são decoração, e por isso o `background` deles passou a ser
-> explícito em vez de `currentColor` — sem essa troca, embranquecer o número
-> teria embranquecido os fios junto, calados.
->
-> **O oráculo subiu de piso junto** (`display-smoke.mjs`): ele exigia 7:1 do
-> número, que é exatamente o que o azul entregava. Agora exige 15:1 **e** que a
-> cor seja a mesma do título — uma cor de identidade que volte para cá reprova.
->
-> A régua que fica: **um piso de contraste aprova o que ele mede, e ele não mede
-> corpo.** Onde o consumidor é um projetor visto do fundo do salão, a asserção
-> tem de amarrar as duas coisas.
 
 > **A v5.220: A LINHA DO ÁLBUM NÃO CHEGAVA À BIBLIOTECA QUE JÁ EXISTE — os
 > dois pontos de escrita estavam certos e os dois erravam o alvo. OTA PURO**

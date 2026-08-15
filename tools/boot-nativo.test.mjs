@@ -162,7 +162,7 @@ try {
   // com shell >= 32 ele mostra as DUAS formas de conectar, não só o espelhar.
   const conn = await pg.evaluate(() => {
     const c = document.getElementById('castConn');
-    const rede = document.getElementById('castNetRow');
+    const rede = document.getElementById('castNetBtn');
     const sm = document.getElementById('simpleMode');
     const busca = document.getElementById('simpleSearchBtn');
     const bb = busca && busca.getBoundingClientRect();
@@ -188,6 +188,15 @@ try {
     'sem tela, o bloco de conexão é o que fica legível (pai: ' + conn.pai + ')');
   checar(conn.redeVisivel,
     'e ele oferece as DUAS formas — espelhar para a TV e transmitir para navegador');
+  // E COM A TRANSMISSÃO DESLIGADA o botão dela nomeia o DESTINO (v5.224). O par
+  // deste caso está na página de baixo, com a transmissão no ar.
+  const redeOff = await pg.evaluate(() => ({
+    ligado: document.getElementById('castNetBtn').classList.contains('ligado'),
+    rotulo: document.getElementById('castNetLabel').textContent,
+  }));
+  checar(!redeOff.ligado && /navegador/i.test(redeOff.rotulo),
+    'desligada, a transmissão é a chamada preenchida e diz para onde vai ("'
+    + redeOff.rotulo + '")');
   // O BLOQUEIO (v5.203, de volta a pedido do operador). Sem tela este modo não
   // projeta nada — nem imagem nem som —, e a cortina é o que diz isso.
   checar(conn.cortinaNoAr && !conn.buscaVisivel,
@@ -329,6 +338,27 @@ try {
   checar(abriuNaHora, 'o toque no ícone de cast ABRE a folha de conexão');
   checar(continuaAberta.conectado && continuaAberta.aberta,
     'e ela CONTINUA aberta com tela conectada — a enquete não a fecha sozinha');
+
+  // ---- LIGADA, A TRANSMISSÃO É O BOTÃO VERMELHO DE DESLIGAR (v5.224) -----
+  //
+  // O par do caso da página de cima, e o único lugar em que ele pode ser
+  // medido: aqui a ponte responde `ligado: true`, então é o `renderCast` — e
+  // não uma classe posta à mão pelo teste — quem pinta o botão e escreve o
+  // rótulo. É a regra que o interruptor tinha e que o botão precisa manter:
+  // quem diz o estado é a LEITURA do shell, nunca o toque.
+  const redeOn = await pg2.evaluate(() => {
+    const b = document.getElementById('castNetBtn');
+    return {
+      ligado: b.classList.contains('ligado'),
+      rotulo: document.getElementById('castNetLabel').textContent,
+      // Nenhum interruptor sobrou na folha: a decisão inteira é o par de botões.
+      semTrilho: !document.querySelector('.cast-sw, .cast-sw-row, #castNetToggle'),
+    };
+  });
+  checar(redeOn.ligado && /deslig/i.test(redeOn.rotulo),
+    'LIGADA, o botão da transmissão veste o estado e passa a nomear o desligamento ("'
+    + redeOn.rotulo + '")');
+  checar(redeOn.semTrilho, 'e não sobrou interruptor nenhum na folha de conexão');
   checar(erros2.length === 0,
     'nenhum erro de console no percurso com a transmissão ligada'
     + (erros2.length ? ':\n        ' + erros2.join('\n        ') : ''));
