@@ -5760,15 +5760,25 @@ no lugar exato onde a estrofe apareceria um segundo depois. Hoje são três peç
 com pesos diferentes:
 
 ```
-            ──── 147 ────        ← número, no acento do palco, entre dois fios
+            ──── 147 ────        ← número, BRANCO, 5,8cqmin, entre dois fios
         Ó ADORAI O SENHOR        ← título, BRANCO, 8,4cqmin, até 3 linhas
         HINÁRIO ADVENTISTA       ← álbum, esmaecido, caixa alta espaçada
 ```
 
+- **O número é branco, e os FIOS é que levam o acento** (v5.222). Ele nasceu em
+  `--stage-accent` — 9,75:1 sobre o preto, aprovado por qualquer régua de
+  contraste — e o operador o descreveu como "muito discreto no fundo escuro". As
+  duas coisas são verdadeiras ao mesmo tempo, e é o que a régua não pega:
+  contraste é razão de luminância, e num telão quem decide é **cor + corpo**. O
+  número tinha o menor corpo do cartão somado à única cor não-branca da tela.
+  A cor ficou onde não precisa ser lida — os dois fios —, com `background`
+  explícito, porque com `currentColor` embranquecer o número teria embranquecido
+  os fios junto.
+
 - **O título deixou de ser o elemento colorido da tela.** Num telão de igreja o
   que precisa ser lido do fundo do salão é o NOME, e cor tirada de uma paleta de
   UI nunca rende o que o branco pleno rende (21:1 medidos contra os 9,75:1 do
-  acento). O acento fica no que é secundário — o número e os fios.
+  acento). O acento ficou nos fios (ver o item seguinte).
 - **Cada peça só existe se houver o dado.** Um arquivo importado à mão não tem
   número nem álbum, e a capa dele volta a ser o título centralizado, que é a
   capa de sempre.
