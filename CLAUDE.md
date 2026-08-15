@@ -2542,10 +2542,48 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.228** (base web) · `SHELL_VERSION` **41**, e o bundle segue com
+**Versão atual: v5.229** (base web) · `SHELL_VERSION` **41**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.229: O CARD DA SÉRIE ERA CONSTRUÍDO E NUNCA DESENHADO. OTA PURO**
+> (nenhuma linha de Kotlin; sem Release).
+>
+> Relato do operador, no dia seguinte à v5.228: *"não estou achando nada para
+> acessar esse provai e vede. e sim ele deve ficar no topo junto dos
+> hinários."*
+>
+> **Ele estava certo, e o card não existia na tela.** A v5.228 acrescentou a
+> série ao `allCollections()` — e `allCollections()` alimenta as CONTAS (peso,
+> "toda a biblioteca", busca), não o desenho. A lista da Biblioteca é montada em
+> TRÊS grupos: as fixas (`FIXED_COLLECTIONS`), as categorias de álbuns e os
+> álbuns órfãos do catálogo. Uma coleção que não é `FIXED_COLLECTIONS` nem álbum
+> **não cai em nenhum deles**. O card era construído, entrava no `byId`, contava
+> no peso do acervo — e não aparecia em lugar nenhum.
+>
+> **É a lição da v5.220 outra vez, num lugar novo:** *acrescentar ao lugar em
+> que o dado NASCE não o entrega a quem o MOSTRA.* E o que a torna cara aqui é
+> que **as doze asserções da v5.228 passavam com o defeito no lugar**: elas
+> mediam o ÍNDICE (playlists filtradas, ordem, Libras fora, URLs), e o que
+> faltava era o DESENHO. O oráculo novo pergunta ao DOM, não a uma função, e
+> reprova nos três pontos quando o grupo do topo volta a ser a lista literal.
+>
+> A correção não é acrescentar um quarto grupo: é o grupo do topo passar a ser
+> **"as coleções FIXAS"**, que é o que ele sempre quis dizer, em vez de uma
+> lista digitada à mão. Com série, o cabeçalho vira "Hinários e séries"; sem
+> ela — num shell < 41 —, continua "Hinários", e nada muda.
+>
+> **E o defeito escondia um segundo, que só apareceria depois:** o peso da
+> série era calculado pela escada de bitrate de ÁUDIO. A constante é o
+> 128 kbps do LouvorJA e a média global é dominada por hinário, então uma série
+> ainda vazia — que é exatamente quando o número importa — seria anunciada a
+> ~16 KB/s para um 1080p que entrega ~600. A tela prometeria **~50 MB para um
+> ano que pesa ~15 GB**: um erro de 40× na única pergunta que essa conta existe
+> para responder ("espero o Wi-Fi?"). Agora há `BPS_VIDEO_PADRAO`, e as duas
+> médias não se misturam nos dois sentidos — um ano de série baixado não infla
+> a estimativa de todo álbum de louvor, e a média de áudio não desinfla a da
+> série.
 
 > **A v5.228 (v1.98): AS SÉRIES DO YOUTUBE VIRAM ÁLBUNS DA BIBLIOTECA — e o
 > primeiro é o "Provai e Vede 2026". EXIGE APK** (`SHELL_VERSION` **41**).

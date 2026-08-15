@@ -209,7 +209,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.228';
+const WEB_VERSION = '5.229';
 
 // Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
 // a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
@@ -952,6 +952,14 @@ let filaPeso = Promise.resolve();
 // álbum ainda vazio não teria tamanho nenhum a mostrar, que é exatamente
 // quando a informação é mais útil.
 const BPS_PADRAO = 16000;          // 128 kbps ≈ 16 KB/s
+// E a de VÍDEO, que é outra ordem de grandeza (v5.229). A escada acima
+// pressupõe áudio em todos os degraus: a constante é o bitrate do LouvorJA, e a
+// média global é dominada por hinário. Numa SÉRIE ainda vazia — que é
+// exatamente quando o número importa — os dois davam ~16 KB/s para um 1080p que
+// entrega ~600, e a tela prometia **~50 MB para um ano que pesa ~15 GB**.
+// Errar por 40× na única pergunta que essa conta existe para responder ("espero
+// o Wi-Fi?") é pior que não mostrar número nenhum.
+const BPS_VIDEO_PADRAO = 600000;   // ~4,8 Mbps ≈ 600 KB/s (1080p do YouTube)
 const SEG_PADRAO = 210;            // 3min30 — só para faixa sem duração no índice
 
 function segundosDaMusica(s) { return parseTimeToSeconds(s && s.duration) || 0; }
@@ -1047,15 +1055,37 @@ function grupoCompleto(colls) {
 }
 
 // Bytes por segundo medidos no aparelho (ver a escada acima).
+// As coleções cujo conteúdo é VÍDEO. A taxa delas não pode entrar na média de
+// áudio nem sair dela — são grandezas diferentes, e misturá-las estraga as duas
+// contas ao mesmo tempo: um ano de série baixado puxaria a estimativa de todo
+// álbum de louvor para cima, e a média de áudio puxaria a da série para baixo.
+function ehColecaoDeVideo(id) {
+  return String(id || '').startsWith('serie-');
+}
+
 function bytesPorSegundo(id) {
   const u = ui(id);
   const meu = levantarColecao(id);
   if (u.bytes && meu.segFeitos) return u.bytes / meu.segFeitos;
+  const video = ehColecaoDeVideo(id);
   // A taxa GLOBAL não depende do `id`: dentro de uma passada de render ela é
-  // a mesma para todo card sem taxa própria — calcular uma vez basta.
+  // a mesma para todo card sem taxa própria — calcular uma vez basta. Mas ela é
+  // a média do que já foi baixado, e o que já foi baixado é quase todo ÁUDIO:
+  // uma série ainda vazia não pode herdá-la (ver [BPS_VIDEO_PADRAO]).
+  if (video) {
+    for (const c of allCollections()) {
+      if (!ehColecaoDeVideo(c.id)) continue;
+      const cu = collUI[c.id];
+      if (!cu || !cu.bytes) continue;
+      const l = levantarColecao(c.id);
+      if (l.segFeitos) return cu.bytes / l.segFeitos;
+    }
+    return BPS_VIDEO_PADRAO;
+  }
   if (cacheColecoesAtivo && cacheBpsGlobal) return cacheBpsGlobal;
   let bytes = 0, seg = 0;
   for (const c of allCollections()) {
+    if (ehColecaoDeVideo(c.id)) continue;
     const cu = collUI[c.id];
     if (!cu || !cu.bytes) continue;
     const l = levantarColecao(c.id);
@@ -6033,14 +6063,30 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
     if (todas.length > 1) header('Toda a biblioteca', todas, true, { confirmScale: true });
   }
 
-  const fixed = FIXED_COLLECTIONS.filter((c) => byId.has(c.id));
+  // O GRUPO DO TOPO são as coleções FIXAS: os hinários e as séries (v5.229).
+  //
+  // A v5.228 acrescentou a série ao `allCollections()` e parou aí — e
+  // `allCollections()` alimenta as CONTAS (peso, "toda a biblioteca", busca),
+  // não o desenho. Os três grupos desenhados são estes: as fixas, as categorias
+  // de álbuns e os álbuns órfãos; uma coleção que não é `FIXED_COLLECTIONS` nem
+  // álbum do catálogo **não caía em nenhum**. O card era construído, entrava no
+  // `byId`, contava no peso — e não aparecia em lugar nenhum da tela.
+  //
+  // É a lição da v5.220 outra vez, num lugar novo: **acrescentar ao lugar em
+  // que o dado NASCE não o entrega a quem o MOSTRA.** O que fecha a classe é o
+  // grupo do topo passar a ser "as fixas", que é o que ele sempre quis dizer,
+  // em vez de uma lista literal.
+  const seriesFixas = serieCollections();
+  const fixed = FIXED_COLLECTIONS.concat(seriesFixas).filter((c) => byId.has(c.id));
   if (fixed.length) {
-    // **Os hinários NÃO baixam em lote.** São as duas maiores coleções do
-    // acervo (~1.100 músicas juntas): um botão só disparando as duas é um
-    // download que ninguém consegue dimensionar antes de tocar, e que não dá
-    // para parar pela metade sem perder o outro. Cada um baixa pelo próprio
-    // card (o botão na barra). O contador do grupo fica — ele informa.
-    header('Hinários', fixed, true, { semBotao: true });
+    // **Nem os hinários nem as séries baixam em lote.** São as maiores coleções
+    // do acervo (~1.100 músicas nos dois hinários; ~52 vídeos numa série, que
+    // em 1080p passam de vários GB): um botão só disparando tudo é um download
+    // que ninguém consegue dimensionar antes de tocar, e que não dá para parar
+    // pela metade sem perder o resto. Cada um baixa pelo próprio card (o botão
+    // na barra). O contador do grupo fica — ele informa.
+    const temSerie = fixed.some((c) => c.kind === 'serie');
+    header(temSerie ? 'Hinários e séries' : 'Hinários', fixed, true, { semBotao: true });
     fixed.forEach((coll) => { alvo.appendChild(renderCollectionCard(coll)); any = true; });
   }
 

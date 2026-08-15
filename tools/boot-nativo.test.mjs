@@ -236,6 +236,41 @@ try {
     'a playlist SEM hífen entrou: os dois episódios de agosto estão na lista',
     JSON.stringify(serie.itens));
 
+  // ── O CARD, DESENHADO (v5.229) ─────────────────────────────────────────
+  // O relato do operador: "não estou achando nada para acessar esse provai e
+  // vede". A v5.228 acrescentou a série ao `allCollections()`, que alimenta as
+  // CONTAS — e a lista é desenhada em três grupos (fixas, categorias de álbum,
+  // álbuns órfãos), nenhum dos quais a alcançava. O card era construído,
+  // entrava no `byId`, contava no peso, e **não aparecia em lugar nenhum**.
+  //
+  // Todas as asserções acima passavam com esse defeito no lugar: elas mediam o
+  // ÍNDICE, e o que faltava era o DESENHO. É por isso que este bloco pergunta
+  // ao DOM, e não a uma função.
+  const naTela = await pg.evaluate(() => {
+    const lista = document.getElementById('hymnResults');
+    renderCollectionsList(lista, () => {}, { semTotal: true });
+    const nomes = [...lista.querySelectorAll('.coll-card .coll-name, .coll-card .coll-title')]
+      .map((e) => e.textContent.trim());
+    const linhas = [...lista.children].map((li) => (li.className.includes('coll-group')
+      ? 'GRUPO: ' + li.textContent.trim().split('\n')[0]
+      : 'card: ' + li.textContent.trim().split('\n')[0]));
+    return {
+      texto: lista.textContent,
+      nomes,
+      primeiroGrupo: (linhas.find((l) => l.startsWith('GRUPO:')) || ''),
+      // O índice do card da série contra o do primeiro card de ÁLBUM: é isso
+      // que "no topo, junto dos hinários" quer dizer, e um dia em que alguém
+      // reordenar os grupos isto reprova.
+      posSerie: linhas.findIndex((l) => l.includes('Provai e Vede 2026')),
+    };
+  });
+  checar(/Provai e Vede 2026/.test(naTela.texto),
+    'O CARD DA SÉRIE APARECE NA BIBLIOTECA — era este o "não estou achando nada"');
+  checar(/Hinários e séries/.test(naTela.primeiroGrupo || ''),
+    'e ele fica no grupo do TOPO, junto dos hinários', naTela.primeiroGrupo);
+  checar(naTela.posSerie >= 0 && naTela.posSerie <= 3,
+    'antes de qualquer álbum — o topo é o topo', String(naTela.posSerie));
+
   // E o bloco de conexão do Modo Fácil, que é o caminho que a v5.195 quebrou:
   // com shell >= 32 ele mostra as DUAS formas de conectar, não só o espelhar.
   const conn = await pg.evaluate(() => {
