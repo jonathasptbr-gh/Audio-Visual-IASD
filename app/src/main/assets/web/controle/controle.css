@@ -2040,11 +2040,17 @@ main {
    destrutiva não pode ser a maior das duas. O rótulo QUEBRA em duas linhas em
    vez de virar reticências: "Remover do disposi…" esconde justamente a palavra
    que diz o alcance da ação. */
-.coll-opts-acoes { display: flex; gap: .5rem; }
+/* A v5.235 desfez o `flex: 1 1 0` de metade a metade: com o rótulo do
+   destrutivo reduzido ao ÍCONE, dividir a linha ao meio daria a um alvo de um
+   símbolo o mesmo peso do controle que carrega ação, estado e progresso.
+   Agora a verificação CRESCE e a lixeira para no próprio tamanho — o inverso
+   do argumento antigo pelo mesmo motivo dele: o peso visual acompanha o que a
+   peça faz, e a ação destrutiva continua sendo a menor das duas. */
+.coll-opts-acoes { display: flex; gap: .5rem; align-items: stretch; }
 .coll-opts-acoes .new-folder-btn {
-  flex: 1 1 0; min-width: 0; width: auto;
-  padding: .55rem .4rem; font-size: .82rem; line-height: 1.2;
-  text-align: center; text-wrap: balance;
+  flex: 1 1 auto; min-width: 0; width: auto;
+  padding: .55rem .6rem; font-size: .82rem; line-height: 1.2;
+  text-align: center; white-space: nowrap;
 }
 /* O mesmo botão vira "cancelar" enquanto o download roda (ver
    `buildCollectionOptions`) — sem giro, e em AVISO para não se confundir nem
@@ -2075,18 +2081,33 @@ main {
    mais: o peso já está na barra do card, antes de abrir, e o estado desceu
    para dentro do botão que ele qualifica — ver `.coll-opt-estado`.) */
 
-/* O ESTADO, dentro do botão de verificação. Ele é o rodapé do rótulo: menor,
-   apagado, e SEM competir com a palavra que diz o que o toque faz. Por isso
-   `flex-basis: 100%` no botão que o contém — o estado quebra para a própria
-   linha em vez de disputar a horizontal com o ícone e o rótulo. */
-.coll-opts-acoes .new-folder-btn { flex-wrap: wrap; }
+/* O ESTADO, dentro do botão de verificação e NA MESMA LINHA do rótulo (v5.235,
+   pedido do operador: *"não use linha dupla, pois a ideia já é justamente
+   compactar"*). Ele nasceu quebrando para uma segunda linha — o que resolvia a
+   largura e desfazia metade do ganho, porque o painel voltava a ter duas
+   alturas de texto. Inline, quem cede espaço é ele: `min-width: 0` mais
+   reticências, então o rótulo (a AÇÃO) nunca é o que some.
+
+   O ponto separador vem do CSS e não do dado: o `.coll-opt-estado` carrega o
+   estado e nada mais — quem o lê é o oráculo, e pontuação no texto seria
+   ruído para ele. */
 .coll-opt-estado {
-  flex-basis: 100%; font-size: .68rem; font-weight: 600;
-  color: var(--muted); line-height: 1.1;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  font-size: .72rem; font-weight: 600; color: var(--muted);
 }
-/* Completo é a MESMA cor de "concluído" do resto do app (`--ok`), e é o único
-   estado que ganha cor: os outros são contagens, não desfechos. */
+.coll-opt-estado::before { content: '·'; margin-right: .3rem; opacity: .65; }
 .coll-opt-estado.done { color: var(--ok); }
+
+/* A REMOÇÃO É SÓ O ÍCONE (v5.235). O que ela perde na tela — "do dispositivo",
+   que dizia o ALCANCE — está inteiro no diálogo que ela abre ("Excluir o que
+   foi baixado de X (áudios e capas) e a lista offline?"), e essa é a condição
+   para um destrutivo ficar sem rótulo: ele é confirmado, e a confirmação é
+   quem nomeia o dano. O `title`/`aria-label` mantém a frase para quem passa o
+   ponteiro e para o leitor de tela. */
+.coll-opts-acoes .new-folder-btn.icone {
+  flex: 0 0 auto; min-width: calc(var(--hit) + .6rem); padding: .55rem;
+}
+.coll-opts-acoes .new-folder-btn.icone .msym { font-size: var(--icon-md); }
 
 /* O PROGRESSO DESENHADO (v5.232): enquanto o download roda, o próprio botão de
    cancelar se preenche até `--p`. Ele não escreve nada — quem escreve

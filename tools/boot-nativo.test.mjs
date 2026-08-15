@@ -366,15 +366,26 @@ try {
   // inteiro passaria — a mesma cobrança de duas metades do `registro.test.mjs`.
   const opcoes = await pg.evaluate(() => {
     const c = allCollections().find((x) => x.kind === 'serie');
-    // ABRE e redesenha NA MESMA lista que o caso anterior usou: o
-    // `openCollectionOptions` marca o estado e manda o acervo se redesenhar, e
-    // o acervo de verdade não é este `<ul>` de teste.
+    // O MODO AVANÇADO, e ele é pré-requisito da medição inteira: no Modo Fácil
+    // o painel de opções é `display: none` por regra (`.mode-simple
+    // .coll-opts`), e num elemento escondido TODA medida é zero — larguras,
+    // topos, centros. Zeros comparados com zeros passam, e foi assim que a
+    // primeira versão deste caso aprovou um layout que ela não tinha medido
+    // (a lição da v5.208, aqui de novo).
+    const modoAntes = document.body.classList.contains('mode-simple') ? 'simple' : 'full';
+    setAppMode('full');
+    // ABRE o card: o `openCollectionOptions` marca o estado e manda o acervo se
+    // redesenhar, e o acervo de verdade não é o `<ul>` de teste criado abaixo.
     openCollectionOptions(c);
-    const lista = document.getElementById('hymnResults');
-    // ZERA a lista antes: `renderCollectionsList` ACRESCENTA, e o caso acima já
-    // desenhou uma vez — sem isto o `find` acharia o card VELHO, ainda fechado,
-    // e a asserção reprovaria por um card que não é o que está na tela.
-    lista.innerHTML = '';
+    // UMA LISTA PRÓPRIA E VISÍVEL, e isto é o teste inteiro: o `#hymnResults`
+    // mora dentro do popup de busca, que está FECHADO — ali todo
+    // `getBoundingClientRect()` devolve zero, e uma medição de larguras e
+    // linhas contra zeros PASSA sem medir nada (a lição da v5.208). A largura
+    // é a de um celular comum, porque é ela que decide se a linha cabe.
+    const lista = document.createElement('ul');
+    lista.className = 'hymnal-list';
+    lista.style.width = '390px';
+    document.body.appendChild(lista);
     renderCollectionsList(lista, () => {}, { semTotal: true });
     const card = [...lista.querySelectorAll('.hymnal-card')]
       .find((el) => /Provai e Vede 2026/.test(el.textContent));
@@ -383,7 +394,7 @@ try {
     const btns = opts ? [...opts.querySelectorAll('button')] : [];
     // Uma LINHA: todos os controles do painel partilham o mesmo topo.
     const topos = btns.map((b) => Math.round(b.getBoundingClientRect().top));
-    return {
+    const r = {
       achou: !!opts,
       filhos,
       chips: opts ? opts.querySelectorAll('.hymnal-stat, .hymnal-card-stats').length : -1,
@@ -395,7 +406,42 @@ try {
       rotulos: btns.map((b) => b.textContent.trim().replace(/\s+/g, ' ')),
       estado: opts ? [...opts.querySelectorAll('.coll-opt-estado')].map((e) => e.textContent) : [],
       umaLinha: topos.length > 1 && Math.max(...topos) - Math.min(...topos) <= 2,
+      // ── A FORMA DA LINHA (v5.235) ──────────────────────────────────────
+      // O estado na MESMA linha do rótulo: os dois centros verticais coincidem.
+      // Medir a ALTURA do botão não serviria — `align-items: stretch` iguala os
+      // dois, então um botão que quebrasse em duas linhas esticaria a lixeira
+      // junto e a diferença sumiria.
+      estadoNaLinha: (() => {
+        const b = opts && opts.querySelector('.coll-opts-acoes .new-folder-btn');
+        const e = b && b.querySelector('.coll-opt-estado');
+        if (!b || !e) return false;
+        const rb = b.getBoundingClientRect(), re = e.getBoundingClientRect();
+        return Math.abs((re.top + re.bottom) / 2 - (rb.top + rb.bottom) / 2) <= 3;
+      })(),
+      // A largura de referência: sem ela, zeros passariam por medidas.
+      largLista: lista.getBoundingClientRect().width,
+      lixeira: (() => {
+        const rm = opts && opts.querySelector('.new-folder-btn.danger');
+        const ver = opts && opts.querySelector('.new-folder-btn:not(.danger)');
+        if (!rm || !ver) return null;
+        return {
+          // O RÓTULO são os nós de TEXTO do botão, não o `textContent` — este
+          // traz o CODEPOINT do ícone junto (o `.msym` é uma ligadura da fonte,
+          // um caractere de uso privado que `trim()` não remove e que
+          // `JSON.stringify` imprime sem escapar: a primeira versão desta
+          // asserção reprovava contra um "texto vazio" que tinha um caractere.
+          texto: [...rm.childNodes].filter((n) => n.nodeType === 3)
+            .map((n) => n.textContent).join('').trim(),
+          temIcone: !!rm.querySelector('.msym, svg'),
+          rotuloAssistivo: rm.getAttribute('aria-label') || rm.title || '',
+          larg: rm.getBoundingClientRect().width,
+          largVerificar: ver.getBoundingClientRect().width,
+        };
+      })(),
     };
+    lista.remove();
+    setAppMode(modoAntes);
+    return r;
   });
   checar(opcoes.achou, 'o painel de opções do álbum abre');
   checar(opcoes.chips === 0,
@@ -412,11 +458,22 @@ try {
   checar(opcoes.estado.length === 1 && /episódios|sem lista/.test(opcoes.estado[0]),
     'o ESTADO não se perdeu: ele desceu para dentro do botão que ele qualifica ("'
     + (opcoes.estado[0] || '') + '")');
+  // E ele fica NA MESMA LINHA do rótulo (v5.235). Uma segunda linha resolvia a
+  // largura e desfazia metade do ganho: o painel voltava a ter duas alturas de
+  // texto, que é justamente o que condensá-lo veio tirar.
+  checar(opcoes.estadoNaLinha,
+    'e ele divide a linha com o rótulo, sem quebrar para uma segunda');
+  const lx = opcoes.lixeira;
+  checar(!!lx && lx.texto === '' && lx.temIcone,
+    'a REMOÇÃO é só a lixeira, sem rótulo na tela', lx ? JSON.stringify(lx.texto) : 'sem botão');
+  checar(!!lx && /Remover do dispositivo/.test(lx.rotuloAssistivo),
+    'com a frase inteira no `aria-label` — quem não vê o ícone continua sabendo o alcance');
+  checar(!!lx && lx.larg < lx.largVerificar * 0.6,
+    'e ela para no próprio tamanho: o espaço liberado é do botão de atualizar ('
+    + (lx ? Math.round(lx.larg) + 'px contra ' + Math.round(lx.largVerificar) + 'px' : '?') + ')');
   await pg.evaluate(() => {
-    const lista = document.getElementById('hymnResults');
     allCollections().forEach((c) => { ui(c.id).expanded = false; });
-    lista.innerHTML = '';
-    renderCollectionsList(lista, () => {}, { semTotal: true });
+    redesenharAcervo();
   });
 
   // E o bloco de conexão do Modo Fácil, que é o caminho que a v5.195 quebrou:
