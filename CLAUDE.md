@@ -2584,8 +2584,17 @@ mão.
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
-> **A v5.231 (v1.98): OS BOTÕES DA NOTIFICAÇÃO PASSAM A SER DA CENA, e a
+> **A v5.231 (v1.99): OS BOTÕES DA NOTIFICAÇÃO PASSAM A SER DA CENA, e a
 > transmissão deixa de sumir quando há mídia no ar. EXIGE APK.**
+>
+> > **A TAG É A v1.99 E NÃO A v1.98, e o registro fica porque o erro é
+> > instrutivo:** a v1.98 já tinha sido publicada pelo lote paralelo (as séries,
+> > shell 41), e disparar a Release com aquele nome não moveu a tag — o
+> > `action-gh-release` não move tag existente — mas SUBSTITUIU o `.apk` dela por
+> > um compilado de `main`. Isto é, por alguns minutos a página da v1.98 serviu
+> > um binário que não era o código da v1.98. A regra que faltava está escrita no
+> > "Build": **tag nova para binário novo**; mover uma já publicada é o que o
+> > input `retag` existe para fazer, de propósito atrás de um input próprio.
 >
 > Duas perguntas do operador, e a primeira precisa de uma correção de premissa
 > antes da resposta.
