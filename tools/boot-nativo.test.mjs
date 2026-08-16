@@ -1254,9 +1254,12 @@ try {
     const deFora = () => {
       const c = corpo();
       if (!c) return -1;
-      const fundo = c.getBoundingClientRect().bottom;
-      return [...c.children].filter((el) => !el.classList.contains('empty')
-        && el.getBoundingClientRect().bottom > fundo + 1).length;
+      const caixa = c.getBoundingClientRect();
+      return [...c.children].filter((el) => {
+        if (el.classList.contains('empty')) return false;
+        const b = el.getBoundingClientRect();
+        return b.bottom > caixa.bottom + 1 || b.top < caixa.top - 1;
+      }).length;
     };
     renderCollectionsList(hymnResultsEl, () => {}, { semTotal: true });
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -1293,6 +1296,33 @@ try {
     // A medição do transbordo é adiada um quadro de propósito (ver
     // `acertarVaoDosFavoritos`), então a leitura espera dois.
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    // ===== O CORPO ROLA POR DENTRO no modo compacto (v5.278) =====
+    // Pedido do operador. As DUAS metades: ele rola de verdade, **e** o botão
+    // continua na tela depois de a rolagem chegar ao fim — a contagem de itens
+    // de fora olhava só para baixo, e no fim da lista não há nada lá; o botão
+    // sumiria de quem mais precisa dele.
+    const rolagem = (() => {
+      const c = corpo();
+      if (!c) return { pode: false, chegou: 0, botaoNoFim: false };
+      const antes = c.scrollTop;
+      c.scrollTop = c.scrollHeight;
+      const chegou = c.scrollTop;
+      return {
+        // O `overflow-y` COMPUTADO é a metade que decide, e ela não é
+        // cerimônia: uma caixa `overflow: hidden` continua rolando por SCRIPT
+        // (`scrollTop` funciona nela), então medir só o `scrollTop` aprovaria o
+        // estado anterior — verificado, reprovava em 0. Quem não rola nela é o
+        // DEDO, e é isso que o valor computado responde.
+        overflow: getComputedStyle(c).overflowY,
+        temMais: c.scrollHeight > c.clientHeight + 1,
+        chegou, andou: chegou > antes,
+      };
+    })();
+    acertarVaoDosFavoritos();
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    rolagem.botaoNoFim = !!botao();
+    rolagem.deForaNoFim = deFora();
+    corpo().scrollTop = 0;
     const muitos = {
       temBotao: !!botao(),
       cortado: cortado(),
@@ -1313,7 +1343,7 @@ try {
     await recarregarFavoritos();
     closeHymnSearch();
     setAppMode(modoAntes);
-    return { vazio, poucos, muitos, aberto };
+    return { vazio, poucos, muitos, rolagem, aberto };
   });
   checar(vao.vazio.secoes >= 8,
     'a Biblioteca do caso tem as OITO seções do relato — é o que torna o vão '
@@ -1340,6 +1370,16 @@ try {
   checar(vao.aberto.rotulo && vao.aberto.rotulo !== vao.muitos.rotulo,
     'com o caminho de volta no mesmo botão, que troca de verbo',
     vao.muitos.rotulo + ' → ' + vao.aberto.rotulo);
+  checar(/^(auto|scroll)$/.test(vao.rolagem.overflow) && vao.rolagem.temMais
+    && vao.rolagem.andou,
+    'e no modo COMPACTO o corpo rola por dentro: chegar ao quinto favorito '
+    + 'deixou de exigir expandir a lista inteira',
+    'overflow-y ' + vao.rolagem.overflow + ', rolou até '
+    + Math.round(vao.rolagem.chegou) + 'px');
+  checar(vao.rolagem.botaoNoFim && vao.rolagem.deForaNoFim > 0,
+    'e o botão CONTINUA lá com a rolagem no fim — a contagem olha os dois '
+    + 'lados, senão ele sumiria de quem chegou ao fim da lista',
+    vao.rolagem.deForaNoFim + ' item(ns) fora da faixa visível');
 
   // ── A COLEÇÃO ABRE PARA BAIXO, ALINHADA PELO TOPO (v5.277) ─────────────
   //

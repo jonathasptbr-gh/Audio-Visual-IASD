@@ -3053,10 +3053,40 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.278** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.279** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.279: O CORPO DOS FAVORITOS ROLA POR DENTRO no modo compacto. OTA PURO**
+> (sem Release).
+>
+> Pedido do operador. O vão é uma altura fixa (v5.277) e o que passava dela era
+> simplesmente CORTADO: para chegar ao quinto favorito era preciso expandir a
+> lista inteira, isto é, empurrar todas as coleções para fora da tela por causa
+> de um item.
+>
+> **Ele NÃO substitui o "Ver todos"**, e as duas coisas respondem a perguntas
+> diferentes: rolar é folhear alguns atalhos sem mexer no resto da tela;
+> expandir é abrir mão do índice para ver a lista inteira de uma vez.
+>
+> **E O BOTÃO QUASE SUMIU JUSTAMENTE DE QUEM PRECISAVA DELE.** A contagem de
+> itens de fora (v5.276) olhava só para BAIXO — o que era exato enquanto o corpo
+> era um recorte imóvel. Com a rolagem, no fim da lista não há nada abaixo, e a
+> régua devolveria zero: o "Ver todos" desapareceria para quem acabou de rolar
+> até o fim e quer ver tudo. Ela passou a olhar os DOIS lados da faixa visível.
+>
+> `overscroll-behavior: contain` é o que impede a rolagem de VAZAR para a
+> Biblioteca ao chegar no fim — sem ele, continuar arrastando dentro dos
+> favoritos rola a lista de trás e o operador perde de vista a seção em que
+> estava.
+>
+> **E o oráculo mediu a coisa errada na primeira versão.** Ele afirmava a
+> rolagem escrevendo `scrollTop` — e uma caixa `overflow: hidden` **continua
+> rolando por SCRIPT**: com a regra removida, ele passava (verificado, reprovava
+> em 0). Quem não rola nela é o DEDO, e é o `overflow-y` COMPUTADO que responde
+> por isso. Com a régua corrigida, a remoção reprova em 1; e contar um lado só,
+> em 5.
 
 > **A v5.278: A BARRA DE CIMA VOLTA A SEGUIR O QUE SE VÊ, o ícone do título sai,
 > e o alvo dos botões da faixa passa a ser a linha inteira. OTA PURO** (sem
