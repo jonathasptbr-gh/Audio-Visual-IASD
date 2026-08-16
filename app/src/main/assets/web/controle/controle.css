@@ -2039,20 +2039,22 @@ main {
   background: var(--camada);
   border-radius: var(--radius-card);
 }
-/* ---------- A SEÇÃO ABERTA OCUPA O VÃO (v5.273) ----------
+/* ---------- QUEM OCUPA O VÃO É A SEÇÃO DOS FAVORITOS (v5.273/v5.276) --------
    Pedido do operador: *"a visão comum inicial vai ser as listas de coleções
    empilhadas na base, e quando elas acabam, toda a parte da tela que sobrou
    pra cima, sobra para a seção dos favoritos"*.
 
-   O que torna isto uma regra de UMA linha é a decisão do `controle.js`: com
-   UMA seção aberta por vez, "quem se estica" não precisa ser escolhido — é
-   sempre a única que tem conteúdo, e as fechadas são barras de altura fixa que
-   sobram empilhadas embaixo dela.
+   **E SÓ ELA** (v5.276). A v5.273 fez a seção ABERTA crescer, seja ela qual
+   for, e o operador achou o preço: *"coleções com menos itens como o hinário,
+   ou os arquivos oficiais… expandem mais do que precisaria em relação à
+   quantidade e altura necessária para os itens atuais, pois eles estavam com
+   um tipo de altura flex que ao fechar os favoritos ocupa o que sobra"*. Uma
+   seção com dois cards ficava com meia tela de fundo vazio embaixo deles.
 
-   `flex: 1 0 auto` — CRESCE para preencher o vão e **nunca encolhe abaixo do
-   próprio conteúdo**: uma seção com mais álbuns do que cabe empurra as de
-   baixo e quem rola é a Biblioteca inteira, como sempre foi. O único caso que
-   encolhe é o dos favoritos, logo abaixo, e lá há um botão que desfaz o corte.
+   Uma coleção aberta passa a medir o CONTEÚDO dela e nada mais — é a regra
+   normal de uma lista —, e o vão continua sendo dos Favoritos, que são a única
+   seção com razão para tê-lo: eles são o atalho, e uma lista de atalhos vazia
+   ainda é o lugar em que o próximo entra.
 
    O `li` vira COLUNA FLEX só aqui: fechado ele continua sendo o bloco de
    antes, e a barra é o único filho visível.
@@ -2068,7 +2070,6 @@ main {
 #hymnResults > .coll-group--drop.aberto {
   display: flex; flex-direction: column;
   align-items: stretch; gap: 0;
-  flex: 1 0 auto;
 }
 /* O corpo NÃO cresce (`flex-grow: 0`): o vão que sobra fica embaixo dele,
    dentro da seção, e é o tom dela que o preenche. Fazê-lo crescer também
@@ -2080,10 +2081,12 @@ main {
 #hymnResults > .coll-group--drop.aberto > .coll-group-corpo {
   flex: 0 1 auto; min-height: 0;
 }
-/* OS FAVORITOS SÃO RECORTADOS NO VÃO, e só eles. `overflow: hidden` o corpo já
-   tem (é requisito da animação de altura), então basta deixar a seção encolher.
-   O que passa do vão é cortado e o botão da base o traz de volta — ver
-   `acertarVaoDosFavoritos`, que MEDE o transborda em vez de contar itens.
+/* OS FAVORITOS TOMAM O VÃO E SÃO RECORTADOS NELE, e são a única seção que faz
+   as duas coisas. `flex-grow: 1` os estica até o que sobra; `flex-shrink: 1` +
+   `min-height: 0` deixa o corpo ser cortado quando a lista é maior que isso — o
+   `overflow: hidden` ele já tem, por ser requisito da animação de altura. O
+   botão da base desfaz o corte (ver `acertarVaoDosFavoritos`, que conta os
+   ITENS que ficaram de fora em vez de medir o transbordo da caixa).
 
    Expandida, ela volta a ser uma seção como as outras: cresce com o conteúdo e
    empurra as fechadas para baixo, com a Biblioteca rolando. */

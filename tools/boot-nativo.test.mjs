@@ -840,10 +840,10 @@ try {
   const indice = await pg.evaluate(async () => {
     // O ESTADO PADRÃO, VERBATIM. Ele não é montado aqui de propósito: o que se
     // afirma é o que o app trouxe da carga do módulo — os Favoritos abertos e
-    // mais nada. Um `clear()` seguido de um `add('Favoritos')` mediria a
-    // suposição do teste, não a decisão do app; e este `[...]` ainda serve de
-    // guarda de que os casos acima devolveram o que tomaram emprestado.
-    const padrao = grupoAberto;
+    // NENHUMA coleção. Escrevê-lo aqui mediria a suposição do teste, não a
+    // decisão do app; e esta leitura ainda serve de guarda de que os casos
+    // acima devolveram o que tomaram emprestado.
+    const padrao = { fav: favAberto, colecao: grupoAberto };
     const lista = document.createElement('ul');
     lista.className = 'hymnal-list';
     lista.style.width = '390px';
@@ -865,17 +865,23 @@ try {
       temSeta: !!(gFav && gFav.querySelector('.coll-group-bar > button.coll-group-icon')),
       corpoVisivel: !!(corpoFav && corpoFav.getBoundingClientRect().height > 0),
     };
-    // ELA NÃO FECHA NO PRÓPRIO TOQUE (v5.273) — *"sempre deixe uma aberta, no
-    // caso a dos favoritos, onde ela só fecha se outra for aberta"*. O toque
-    // nela aberta é um no-op declarado: fechá-la para reabri-la seria um piscar
-    // sem desfecho. A espera é generosa de propósito — o recolhimento das
-    // outras é animado (`collapseAccordion`), e ler cedo aprovaria uma seção
-    // que fecha meio segundo depois.
-    const setaFav = gFav && gFav.querySelector('.coll-group-bar > button.coll-group-icon');
-    if (setaFav) setaFav.click();
-    await new Promise((r) => setTimeout(r, 400));
-    fav.seguraNoProprioToque = !!(acharFav() || {}).classList
-      && acharFav().classList.contains('aberto') && grupoAberto === 'Favoritos';
+    // ELA RESPONDE AO PRÓPRIO TOQUE, e só a ele (v5.276). A v5.273 a tinha feito
+    // um no-op — ela era o piso do rodízio, e fechá-la deixaria a tela sem
+    // nenhuma seção aberta. Fora do rodízio, o gesto volta a ser o de qualquer
+    // outra: fecha e reabre. A espera é generosa de propósito — o recolhimento é
+    // animado (`collapseAccordion`), e ler cedo aprovaria uma seção que fecha
+    // meio segundo depois.
+    const tocarFav = async () => {
+      const seta = (acharFav() || {}).querySelector
+        && acharFav().querySelector('.coll-group-bar > button.coll-group-icon');
+      if (seta) seta.click();
+      await new Promise((r) => setTimeout(r, 400));
+    };
+    await tocarFav();
+    fav.fechaNoProprioToque = !!acharFav()
+      && !acharFav().classList.contains('aberto') && favAberto === false;
+    await tocarFav();
+    fav.reabre = !!acharFav() && acharFav().classList.contains('aberto') && favAberto === true;
     // Daqui para baixo o caso é o do ÍNDICE, que fala dos grupos de coleção. A
     // referência de "fechado" é a tela como ela ABRE: os Favoritos (que não têm
     // card nenhum) e todas as coleções recolhidas.
@@ -888,10 +894,9 @@ try {
       // diria a mesma coisa.
       altura: lista.getBoundingClientRect().height,
     };
-    // O TOQUE no cabeçalho dos Arquivos oficiais. Ele responde DUAS perguntas
-    // de uma vez desde a v5.273: "fechado não constrói card, o toque constrói"
-    // (v5.237) e "abrir uma FECHA a que estava aberta" — que aqui é a dos
-    // Favoritos, isto é, a única forma que existe de fechá-la.
+    // O TOQUE no cabeçalho dos Arquivos oficiais. Ele responde a pergunta da
+    // v5.237 ("fechado não constrói card, o toque constrói") e, desde a v5.276,
+    // a que a substituiu: abrir uma coleção **não** mexe nos Favoritos.
     const tocar = async (re) => {
       const barra = [...lista.querySelectorAll('.coll-group-bar')]
         .find((b) => re.test(b.textContent.trim()));
@@ -906,21 +911,29 @@ try {
       // O card vive DENTRO do corpo do grupo, não solto na lista: é isso que
       // faz a árvore ser uma árvore.
       dentroDoCorpo: !!lista.querySelector('.coll-group-corpo .hymnal-card'),
-      // E a que estava aberta se fechou — uma por vez, medida no DOM.
-      favFechou: !!(acharFav() && !acharFav().classList.contains('aberto')),
+      // OS FAVORITOS CONTINUAM ABERTOS (v5.276): eles não estão no rodízio.
+      favSegue: !!(acharFav() && acharFav().classList.contains('aberto')),
       abertas: lista.querySelectorAll('.coll-group--drop.aberto').length,
     };
-    // E FECHAR A ABERTA VOLTA AOS FAVORITOS, que é o "sempre uma aberta" pelo
-    // outro lado: sem isto a tela poderia ficar sem nenhuma.
-    await tocar(/^Arquivos oficiais/);
-    fav.voltaAoFechar = !!(acharFav() && acharFav().classList.contains('aberto'))
-      && grupoAberto === 'Favoritos';
+    // E O RODÍZIO VALE ENTRE AS COLEÇÕES: abrir os Hinários fecha os Oficiais,
+    // sem tocar nos Favoritos.
+    await tocar(/^Hinários/);
+    const trocou = {
+      abertas: lista.querySelectorAll('.coll-group--drop.aberto').length,
+      colecao: grupoAberto,
+      favSegue: !!(acharFav() && acharFav().classList.contains('aberto')),
+    };
+    // E FECHAR A COLEÇÃO ABERTA deixa a tela sem nenhuma — que deixou de ser um
+    // estado a evitar: quem fechou o hinário está olhando os favoritos.
+    await tocar(/^Hinários/);
+    fav.semColecao = grupoAberto === '' && !!acharFav()
+      && acharFav().classList.contains('aberto');
     lista.remove();
     // Devolve o estado PADRÃO do app: os casos abaixo desenham a Biblioteca de
     // verdade, e deixá-la noutra seção seria emprestar a este arquivo um
     // comportamento que o app não tem.
-    grupoAberto = 'Favoritos';
-    return { fechado, aberto, fav };
+    grupoAberto = ''; favAberto = true;
+    return { fechado, aberto, trocou, fav };
   });
   checar(indice.fechado.grupos.length >= 2 && indice.fechado.cards === 0,
     'A BIBLIOTECA ABRE COMO ÍNDICE: só os cabeçalhos de seção, nenhum card '
@@ -928,30 +941,35 @@ try {
   checar(indice.fechado.grupos[0] === 'Favoritos',
     'e o primeiro deles é FAVORITOS, no topo da listagem',
     JSON.stringify(indice.fechado.grupos));
-  // ── UMA ABERTA POR VEZ, E SEMPRE UMA (v5.238 → v5.262 → v5.273) ────────
-  // Pedido do operador: *"só permita uma coleção aberta por vez e sempre deixe
-  // uma aberta, no caso a dos favoritos, onde ela só fecha se outra for
-  // aberta"*. São QUATRO metades, e nenhuma basta: o padrão (senão a seção
-  // nasceria fechada como qualquer outra), o toque nela própria que NÃO a fecha
-  // (senão a tela ficaria sem nenhuma), abrir outra que a fecha (senão seriam
-  // duas), e fechar a outra que a traz de volta.
+  // ── AS COLEÇÕES FAZEM RODÍZIO; OS FAVORITOS, NÃO (v5.262 → v5.273 → v5.276) ─
+  // Pedido do operador: *"agora não mais são concorrentes com os favoritos… o
+  // tamanho da seção de favoritos segue sendo o tamanho que sobra… e ela segue
+  // sendo a seção aberta de nascença, mas agora ela não se fecha quando outro
+  // se abre; as coleções são concorrentes entre si, mas não com os favoritos"*.
   //
-  // A v5.262 tinha o contrário da segunda — o toque nela recolhia —, e esta
-  // versão a revoga: a seta continua ali, e o que ela faz é abrir as outras.
-  checar(indice.fav.padrao === 'Favoritos',
-    'o PADRÃO do app é uma seção aberta e uma só: os Favoritos',
+  // São CINCO metades, e nenhuma basta sozinha: o padrão (senão a seção
+  // nasceria fechada como qualquer outra), o toque nela própria que a fecha E
+  // reabre (senão "colapsável" seria mão única), abrir uma coleção que NÃO a
+  // toca, o rodízio valendo entre coleções, e fechar a coleção aberta deixando
+  // a tela sem nenhuma — que a v5.273 proibia e agora é o estado normal.
+  checar(indice.fav.padrao.fav === true && indice.fav.padrao.colecao === '',
+    'o PADRÃO do app são os Favoritos abertos e NENHUMA coleção',
     JSON.stringify(indice.fav.padrao));
   checar(indice.fav.corpoVisivel,
     'e é assim que a Biblioteca abre — os favoritos à vista, o resto fechado');
   checar(indice.fav.temSeta,
     'ela tem a MESMA seta das outras seções, na thumb da barra');
-  checar(indice.fav.seguraNoProprioToque,
-    'o toque NELA não a fecha: a tela nunca fica sem nenhuma seção aberta');
-  checar(indice.aberto.favFechou && indice.aberto.abertas === 1,
-    'abrir outra é que a fecha — e fica UMA aberta, nunca duas',
-    indice.aberto.abertas + ' aberta(s)');
-  checar(indice.fav.voltaAoFechar,
-    'e fechar essa outra devolve os Favoritos, que é o piso da tela');
+  checar(indice.fav.fechaNoProprioToque && indice.fav.reabre,
+    'o toque NELA a recolhe — e reabre, senão "colapsável" seria mão única');
+  checar(indice.aberto.favSegue && indice.aberto.abertas === 2,
+    'abrir uma COLEÇÃO não a fecha: as duas ficam abertas, porque elas não '
+    + 'disputam o mesmo interruptor', indice.aberto.abertas + ' aberta(s)');
+  checar(indice.trocou.abertas === 2 && indice.trocou.colecao === 'Hinários'
+    && indice.trocou.favSegue,
+    'e o rodízio vale ENTRE as coleções: abrir os Hinários fecha os Oficiais e '
+    + 'não toca nos Favoritos', JSON.stringify(indice.trocou));
+  checar(indice.fav.semColecao,
+    'fechar a coleção aberta deixa a tela sem nenhuma — e os favoritos seguem lá');
   checar(indice.aberto.cards > 0 && indice.aberto.temSerie,
     'o toque no cabeçalho abre a seção e os cards aparecem',
     indice.aberto.cards + ' card(s)');
@@ -974,7 +992,7 @@ try {
     // Só os Favoritos abertos — o PADRÃO do app (v5.262). Antes a linha era um
     // `clear()` seco, com a nota "a seção é FIXA: não depende disto"; ela passou
     // a depender, e um `clear()` a deixaria fechada e sem corpo para medir.
-    grupoAberto = 'Favoritos';
+    grupoAberto = ''; favAberto = true;
     const lista = document.createElement('ul');
     lista.className = 'hymnal-list';
     lista.style.width = '390px';
@@ -1097,7 +1115,7 @@ try {
     lista2.remove();
     favItems = guardados;
     lista.remove();
-    grupoAberto = 'Favoritos';
+    grupoAberto = ''; favAberto = true;
     await AVDB.listRemove('favs', rec.id);
     await recarregarFavoritos();
     return r;
@@ -1212,13 +1230,44 @@ try {
     setAppMode('full');
     openHymnSearch();
     await new Promise((r) => setTimeout(r, 250));
+    // A BIBLIOTECA DO OPERADOR, e a fidelidade aqui é o caso inteiro: são OITO
+    // seções nos prints dele, e é isso que torna o vão pequeno o bastante para a
+    // seção dos favoritos ser ESPREMIDA. Num fixture com duas seções sobra tela
+    // à vontade, nada é recortado, e a versão anterior deste caso passava com o
+    // defeito relatado no lugar (verificado).
+    albumCatalog.categories = ['CDs oficiais/ano', 'Adoradores', 'Cantores',
+      'Celebra SP', 'Diversas', 'Especiais'].map((nome, i) => ({
+      name: nome,
+      albums: [{ id_album: 500 + i, name: 'Álbum ' + nome }],
+    }));
+    albumCatalog.albums = albumCatalog.categories.map((c) => c.albums[0]);
     const corpo = () => document.querySelector('#hymnResults [data-fav-corpo]');
     const botao = () => document.querySelector('#hymnResults .coll-group-mais');
+    // A CAIXA transbordou (a régua ANTIGA) e os ITENS que ficaram de fora (a
+    // régua nova). As duas são medidas em toda leitura de propósito: a
+    // equivalência "botão ⟺ item de fora" é a regra, e a caixa ao lado é o que
+    // mostra que ela não é a mesma pergunta.
     const cortado = () => {
       const c = corpo();
       return !!c && c.scrollHeight > c.clientHeight + 1;
     };
-    const vazio = { temBotao: !!botao(), cortado: cortado() };
+    const deFora = () => {
+      const c = corpo();
+      if (!c) return -1;
+      const fundo = c.getBoundingClientRect().bottom;
+      return [...c.children].filter((el) => !el.classList.contains('empty')
+        && el.getBoundingClientRect().bottom > fundo + 1).length;
+    };
+    renderCollectionsList(hymnResultsEl, () => {}, { semTotal: true });
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const vazio = {
+      temBotao: !!botao(), cortado: cortado(),
+      // Quantas seções a tela tem, e quanto do corpo dos favoritos sobrou: é
+      // este par que prova que a medição aconteceu com a seção ESPREMIDA, isto
+      // é, na condição do relato.
+      secoes: document.querySelectorAll('#hymnResults .coll-group--drop').length,
+      deFora: deFora(),
+    };
     // POUCOS, MAS NÃO ZERO — e é este o caso do relato do operador: *"que ele
     // apenas apareça quando a lista de favoritos for maior que a área de
     // visualização disponível"*. Com a lista vazia é fácil acertar; o que
@@ -1231,7 +1280,7 @@ try {
     }
     await recarregarFavoritos();
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-    const poucos = { temBotao: !!botao(), cortado: cortado() };
+    const poucos = { temBotao: !!botao(), cortado: cortado(), deFora: deFora() };
     // Favoritos que MOLHAM a régua: bastam mais do que cabe no vão, e trinta
     // passam de qualquer tela de celular.
     const ids = [...poucosIds];
@@ -1247,6 +1296,7 @@ try {
     const muitos = {
       temBotao: !!botao(),
       cortado: cortado(),
+      deFora: deFora(),
       rotulo: botao() ? botao().textContent.trim() : '',
       alturaCorpo: corpo() ? corpo().getBoundingClientRect().height : 0,
     };
@@ -1258,16 +1308,29 @@ try {
       alturaCorpo: corpo() ? corpo().getBoundingClientRect().height : 0,
     };
     if (botao()) botao().click();   // devolve o estado recolhido aos casos seguintes
+    albumCatalog.categories = []; albumCatalog.albums = [];
     for (const id of ids) await AVDB.listRemove('favs', id);
     await recarregarFavoritos();
     closeHymnSearch();
     setAppMode(modoAntes);
     return { vazio, poucos, muitos, aberto };
   });
-  checar(!vao.vazio.temBotao && !vao.vazio.cortado,
-    'sem favorito nenhum não há botão: nada foi cortado, nada a expandir');
-  checar(!vao.poucos.temBotao && !vao.poucos.cortado,
-    'e com POUCOS ele continua fora — a régua é o vão, não a existência da lista');
+  checar(vao.vazio.secoes >= 8,
+    'a Biblioteca do caso tem as OITO seções do relato — é o que torna o vão '
+    + 'pequeno e a seção dos favoritos espremida', vao.vazio.secoes + ' seção(ões)');
+  checar(!vao.vazio.temBotao,
+    'e sem favorito NENHUM não há botão, mesmo com a seção espremida: quem conta '
+    + 'é o item que ficou de fora, não o transbordo da caixa'
+    + (vao.vazio.cortado ? ' (a caixa transbordava)' : ''));
+  // A REGRA, nos três estados: o botão existe EXATAMENTE quando algum item
+  // ficou de fora. Ela é o pedido do operador escrito como equivalência —
+  // *"apenas quando há mais itens do que a altura disponível"* — e é ela que
+  // sobrevive a qualquer arranjo de seções, altura de tela ou teclado.
+  const regra = (e) => e.temBotao === (e.deFora > 0);
+  checar(regra(vao.vazio) && regra(vao.poucos) && regra(vao.muitos),
+    'e a régua é UMA em todos os estados: o botão existe exatamente quando há '
+    + 'item de fora — sem lista, com poucos e com muitos',
+    JSON.stringify({ vazio: vao.vazio.deFora, poucos: vao.poucos.deFora, muitos: vao.muitos.deFora }));
   checar(vao.muitos.temBotao && vao.muitos.cortado,
     'com mais do que cabe no vão, a lista é RECORTADA e o botão aparece na base',
     vao.muitos.rotulo);
@@ -1530,7 +1593,7 @@ try {
     + (lx ? Math.round(lx.larg) + 'px contra ' + Math.round(lx.largVerificar) + 'px' : '?') + ')');
   await pg.evaluate(() => {
     allCollections().forEach((c) => { ui(c.id).expanded = false; });
-    grupoAberto = 'Favoritos';
+    grupoAberto = ''; favAberto = true;
     redesenharAcervo();
   });
 

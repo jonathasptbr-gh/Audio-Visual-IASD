@@ -879,7 +879,7 @@ try {
     };
     lista.remove();
     delete collState[c.id];
-    grupoAberto = 'Favoritos';
+    grupoAberto = ''; favAberto = true;
     return r;
   });
   checar(linha.item > 0 && linha.item <= linha.barra * 1.05,
@@ -985,11 +985,15 @@ for (const tema of ['escuro', 'claro']) {
       const faixa = lista.querySelector('.coll-songs > .hymn-result');
       const r = {
         folha: getComputedStyle(folha).backgroundColor,
-        secao: bg('.coll-group--drop.aberto'),
+        // A seção de COLEÇÃO aberta. Nunca a dos Favoritos: desde a v5.273 ela
+        // tem tom PRÓPRIO e desde a v5.276 está sempre aberta, então ela é a
+        // primeira do documento — medi-la aqui compararia a escada com uma peça
+        // que de propósito não está nela.
+        secao: bg('.coll-group--drop.aberto:not(.coll-group--fav)'),
         secaoFechada: fechada,
         // A barra e o corpo são faixas do bloco da seção, sem fundo próprio.
-        barra: bg('.coll-group--drop.aberto > .coll-group-bar'),
-        corpo: bg('.coll-group--drop.aberto > .coll-group-corpo'),
+        barra: bg('.coll-group--drop.aberto:not(.coll-group--fav) > .coll-group-bar'),
+        corpo: bg('.coll-group--drop.aberto:not(.coll-group--fav) > .coll-group-corpo'),
         card: bg('.hymnal-card'),
         faixa: faixa ? getComputedStyle(faixa).backgroundColor : 'AUSENTE',
         faixaFilete: faixa ? getComputedStyle(faixa).borderTopWidth : 'AUSENTE',
@@ -999,7 +1003,7 @@ for (const tema of ['escuro', 'claro']) {
           return ul ? parseFloat(getComputedStyle(ul).rowGap) : -1;
         })(),
       };
-      lista.remove(); delete collState[c.id]; grupoAberto = 'Favoritos';
+      lista.remove(); delete collState[c.id]; grupoAberto = ''; favAberto = true;
       document.documentElement.setAttribute('data-tema', 'escuro');
       return r;
     }, tema);
@@ -1089,7 +1093,7 @@ for (const tema of ['escuro', 'claro']) {
       document.documentElement.setAttribute('data-tema', tema);
       setAppMode('full');
       openHymnSearch();
-      grupoAberto = 'Favoritos';
+      grupoAberto = ''; favAberto = true;
       renderCollectionsList(hymnResultsEl, () => {}, { semTotal: true });
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
       const secoes = [...hymnResultsEl.querySelectorAll('.coll-group--drop')];
@@ -1170,30 +1174,35 @@ for (const tema of ['escuro', 'claro']) {
           return g;
         })(),
       };
-      // E A REGRA VALE PARA QUALQUER SEÇÃO, não só para a dos Favoritos: eles
-      // têm um `flex-grow` PRÓPRIO (o que encolhe), então medir só a tela como
-      // ela abre aprovaria uma regra geral morta — foi o que aconteceu quando
-      // um comentário mal fechado engoliu o bloco inteiro (verificado).
+      // E UMA COLEÇÃO ABERTA MEDE O CONTEÚDO DELA, nada mais (v5.276). A v5.273
+      // fazia a seção ABERTA crescer, qualquer que fosse, e o operador achou o
+      // preço: *"coleções com menos itens como o hinário… expandem mais do que
+      // precisaria em relação à quantidade e altura necessária para os itens"*.
+      // O vão é dos Favoritos; uma coleção que o tomasse ficaria com meia tela
+      // de fundo vazio embaixo de dois cards.
       grupoAberto = 'Hinários';
       hymnResultsEl.innerHTML = '';   // `renderCollectionsList` ACRESCENTA (v5.232)
       renderCollectionsList(hymnResultsEl, () => {}, { semTotal: true });
       await new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f)));
-      const abertas = [...hymnResultsEl.querySelectorAll('.coll-group--drop')];
-      const outraAberta = abertas.find((x) => x.classList.contains('aberto'));
-      const fechadas = abertas.filter((x) => !x.classList.contains('aberto'));
+      const todas = [...hymnResultsEl.querySelectorAll('.coll-group--drop')];
+      const colecao = todas.find((x) => x.classList.contains('aberto')
+        && !x.classList.contains('coll-group--fav'));
+      const favSecao = todas.find((x) => x.classList.contains('coll-group--fav'));
+      const sobra = (el) => (el ? el.getBoundingClientRect().height
+        - [...el.children].reduce((n, c) => n + c.getBoundingClientRect().height, 0) : -1);
       r.outra = {
-        cresceu: outraAberta ? outraAberta.getBoundingClientRect().height
-          - [...outraAberta.children].reduce((n, el) => n + el.getBoundingClientRect().height, 0) : -1,
-        altFechada: fechadas.length ? fechadas[0].getBoundingClientRect().height : 0,
-        // A ÚLTIMA SEÇÃO da lista, aberta ou fechada: quando a aberta é a
-        // própria última, não há nenhuma empilhada abaixo dela. O que vale nos
-        // dois arranjos é que a lista termine cheia.
-        fundoUltima: abertas.length
-          ? abertas[abertas.length - 1].getBoundingClientRect().bottom : 0,
+        // O VAZIO que cada uma absorveu. A coleção não pode absorver nada além
+        // do padding próprio; os favoritos absorvem o vão inteiro.
+        sobraColecao: sobra(colecao),
+        sobraFav: sobra(favSecao),
+        // E a lista continua terminando CHEIA: quem a preenche é a seção dos
+        // Favoritos, que vem antes de todas as coleções.
+        fundoUltima: todas.length
+          ? todas[todas.length - 1].getBoundingClientRect().bottom : 0,
         fundoLista: hymnResultsEl.getBoundingClientRect().bottom
           - parseFloat(cx(hymnResultsEl).paddingBottom),
       };
-      grupoAberto = 'Favoritos';
+      grupoAberto = ''; favAberto = true;
       closeHymnSearch();
       document.documentElement.setAttribute('data-tema', 'escuro');
       return r;
@@ -1238,13 +1247,15 @@ for (const tema of ['escuro', 'claro']) {
     checar(!!L && L.linha > 0 && L.linha <= L.secao + 1 && L.esqBarra >= L.esqSecao - 1,
       '[' + tema + '] e uma linha de dentro não vaza para fora dela ('
       + (L ? Math.round(L.linha) + 'px numa seção de ' + Math.round(L.secao) : '?') + 'px)');
-    // A prova de que ela CRESCEU é a base: se ela não tivesse tomado o vão,
-    // sobraria espaço vazio DEPOIS da última seção fechada. O tamanho do vão
-    // depende do acervo do fixture e não pode virar número aqui.
-    checar(v.outra.cresceu > 0 && Math.abs(v.outra.fundoUltima - v.outra.fundoLista) <= 1,
-      '[' + tema + '] e a regra é de QUALQUER seção aberta, não só a dos '
-      + 'Favoritos: a de um hinário também toma o vão, e a lista termina cheia (' + Math.round(v.outra.cresceu) + 'px de vazio absorvido, '
-      + Math.round(v.outra.fundoUltima) + ' contra ' + Math.round(v.outra.fundoLista) + ')');
+    // A DIVISÃO DO VÃO (v5.276): a coleção aberta mede o conteúdo dela — o
+    // vazio dentro dela é só o padding próprio — e quem absorve o resto da tela
+    // é a seção dos Favoritos. A comparação é ENTRE as duas, e não contra um
+    // número: o tamanho do vão depende do acervo do fixture.
+    checar(v.outra.sobraColecao >= 0 && v.outra.sobraFav > v.outra.sobraColecao * 3
+      && Math.abs(v.outra.fundoUltima - v.outra.fundoLista) <= 1,
+      '[' + tema + '] uma COLEÇÃO aberta mede o conteúdo dela e o vão fica com os '
+      + 'FAVORITOS — e a lista termina cheia (' + Math.round(v.outra.sobraColecao)
+      + 'px contra ' + Math.round(v.outra.sobraFav) + 'px de vazio absorvido)');
     checar(v.gapSecoes > v.gapLista,
       '[' + tema + '] e uma SEÇÃO respira mais que uma linha de lista ('
       + v.gapSecoes + 'px contra ' + v.gapLista + 'px)');
@@ -1304,7 +1315,7 @@ try {
       completoFechado: medir(true, false), completoAberto: medir(true, true),
       parcialFechado: medir(false, false), parcialAberto: medir(false, true),
     };
-    delete collState[c.id]; grupoAberto = 'Favoritos';
+    delete collState[c.id]; grupoAberto = ''; favAberto = true;
     return r;
   });
   checar(col.completoAberto.naThumb && !col.completoAberto.naDireita,
@@ -1327,10 +1338,13 @@ try {
       lista.className = 'hymnal-list';
       lista.style.width = '390px';
       document.body.appendChild(lista);
-      grupoAberto = 'Hinários';
+      grupoAberto = '';   // nenhuma coleção aberta: é do estado FECHADO que este caso fala
       renderCollectionsList(lista, () => {}, { semTotal: true });
       const cx = (el) => (el ? getComputedStyle(el) : null);
-      const secao = lista.querySelector('.coll-group--drop > .coll-group-bar > .coll-group-icon');
+      // Uma seção FECHADA: desde a v5.276 os Favoritos nascem abertos e são a
+      // primeira do documento, então o `:not(.aberto)` é o que faz esta medida
+      // continuar falando do estado que ela nomeia.
+      const secao = lista.querySelector('.coll-group--drop:not(.aberto) > .coll-group-bar > .coll-group-icon');
       const s = cx(secao);
       const r = {
         temSeta: !!secao,
@@ -1439,7 +1453,7 @@ try {
     lista.remove();
     delete collState[c.id];
     albumCatalog.categories = []; albumCatalog.albums = [];
-    grupoAberto = 'Favoritos';
+    grupoAberto = ''; favAberto = true;
     return r;
   });
   const comSub = peso.find((c) => c.temSub);

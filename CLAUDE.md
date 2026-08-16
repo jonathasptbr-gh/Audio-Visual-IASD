@@ -3053,10 +3053,55 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.275** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.276** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.276: OS FAVORITOS SAEM DO RODÍZIO, a coleção aberta para de inchar, e
+> o "Ver todos" passa a contar ITENS. OTA PURO** (sem Release).
+>
+> Três correções do mesmo relato, e a terceira é a que mais ensina.
+>
+> - **O BOTÃO CONTAVA A CAIXA, e a caixa não é a pergunta.** Relato: ele aparece
+>   *"literalmente sem nenhum item na lista"*. `scrollHeight > clientHeight` é a
+>   medida certa para "esta caixa transbordou" e a errada para o que o operador
+>   pediu — *"apenas quando há mais itens do que a altura disponível"*. Numa
+>   Biblioteca com OITO seções (a dele) o vão é pequeno, a seção dos favoritos é
+>   a única que encolhe, e o que sobra do corpo recorta até a linha de "Nenhum
+>   favorito ainda": a caixa transborda com a lista VAZIA. Agora ele conta os
+>   filhos cujo rodapé passa do corpo, ignorando o `.empty` — com zero itens a
+>   resposta é zero, e não há medida de caixa que a produza.
+> - **OS FAVORITOS SAEM DO RODÍZIO** — *"agora não mais são concorrentes com os
+>   favoritos… as coleções são concorrentes entre si, mas não com os
+>   favoritos"*. A v5.273 pôs as duas coisas no mesmo nome, e o preço é que
+>   abrir um hinário custava o atalho que estava aberto, e reabri-lo custava
+>   fechar o hinário: duas decisões diferentes disputando um interruptor. São
+>   dois estados agora (`grupoAberto` para as coleções, `favAberto` para eles), e
+>   o `''` virou um valor legítimo — nenhuma coleção aberta é o estado normal de
+>   quem está olhando os favoritos. O toque na seção deles volta a fechá-la e a
+>   reabri-la, que é o que a v5.262 pedia e a v5.273 tinha tirado ao torná-los o
+>   piso.
+> - **E SÓ ELES CRESCEM.** *"Coleções com menos itens como o hinário, ou os
+>   arquivos oficiais… expandem mais do que precisaria em relação à quantidade e
+>   altura necessária para os itens atuais, pois eles estavam com um tipo de
+>   altura flex que ao fechar os favoritos ocupa o que sobra"* — dois cards com
+>   meia tela de fundo vazio embaixo. Uma coleção aberta passou a medir o
+>   conteúdo dela e nada mais; o vão continua sendo dos Favoritos, que são a
+>   única seção com razão para tê-lo (uma lista de atalhos vazia ainda é o lugar
+>   em que o próximo entra).
+>
+> **O ORÁCULO NÃO PEGAVA O DEFEITO DO BOTÃO, e a razão é a lição do lote:** o
+> fixture tinha DUAS seções e sobrava tela à vontade, então nada era recortado e
+> a régua velha dava a mesma resposta que a nova. Ele passou a montar as OITO
+> seções do relato — é a condição, não o número de favoritos, que produz o
+> defeito — e a asserção virou uma EQUIVALÊNCIA medida nos três estados: o botão
+> existe exatamente quando há item de fora, sem lista, com poucos e com muitos.
+> Com a régua antiga de volta, reprova em 2 (verificado); antes, em 0.
+>
+> Verificado por ISOLAMENTO nas outras duas: devolvendo os favoritos ao rodízio,
+> **3** asserções do `boot-nativo.test.mjs` reprovam; fazendo toda seção aberta
+> crescer, **2** do `smoke.mjs`.
 
 > **A v5.275: A BARRA DE BUSCA DA BIBLIOTECA VOLTA AO TOPO. OTA PURO** (só HTML,
 > CSS e os oráculos; sem Release).
@@ -3159,6 +3204,11 @@ controles), que **só chegam instalando o APK novo**, não pelo OTA.
 > para: deixar a cor de fundo da coleção dos favoritos em uma cor diferente, um
 > tom mais escuro. E aproveite também para aumentar ligeiramente o espaço entre
 > as outras coleções, elas estão muito coladas entre si"*.
+>
+> *(A v5.276 REVOGOU duas metades desta nota: os Favoritos saíram do rodízio —
+> abrir uma coleção não os fecha, e o toque neles volta a recolher — e o
+> crescimento passou a ser só deles, porque uma coleção curta inchava até o
+> tamanho do vão. O que fica é o rodízio ENTRE as coleções e a régua do vão.)*
 >
 > - **O ESTADO VIROU UM NOME, e é ele que faz a regra valer.** `gruposAbertos`
 >   era um `Set`, isto é, sabia escrever exatamente os dois estados que o pedido
