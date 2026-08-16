@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.270';
+const WEB_VERSION = '5.271';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -1382,6 +1382,27 @@ let midiaNoAr = false;
 // passa a ser a cena e a música continua tocando sem que nada aponte para ela.
 // Sem este campo, o realce de "no ar" mudaria de linha sozinho.
 let midiaNoArId = '';
+
+// QUAL LINHA DA LISTA pôs esta mídia no ar, quando ela não é a própria mídia.
+//
+// Um item `kind: 'youtube'` é um LINK sem bytes, e desde a v5.212 ele não vai
+// ao telão como link: o toque o RESOLVE (`resolverLinkYoutube`) e quem projeta
+// é o registro que sair daí. Pelo caminho do DOWNLOAD isso não se nota, porque
+// o arquivo toma o lugar do link em posição e a linha passa a ter o id novo.
+// Pela TRANSMISSÃO DIRETA, não: a mídia é um avulso com id próprio (o id do
+// vídeo), o link continua na lista com o id dele, e `midiaNoArId` aponta para
+// um registro que não está em lista nenhuma.
+//
+// O efeito era o relato do operador: *"um arquivo do tipo YouTube… pode ser
+// tocado diretamente online no player, mas o respectivo elemento da lista do
+// cronograma ou favorito não entra no modo 'no ar'"*. E não era só o realce —
+// `noArAgora` responde pela MESMA pergunta, então o SEGUNDO TOQUE (que retira
+// do ar) também não alcançava aquela linha: ela reprojetava em vez de retirar,
+// que é o defeito que a v5.165 existiu para consertar, aqui por outra porta.
+//
+// É o mesmo formato do `cueNoArId`, e pela mesma razão: quem está no ar e quem
+// PÔS no ar podem ser dois registros diferentes, e a lista fala do segundo.
+let midiaNoArOrigem = '';
 
 // QUAL cena de roteiro está no ar — e por que isto NÃO pode ser o `currentId`.
 //
@@ -7704,6 +7725,11 @@ async function send(id) {
   // que o ▶ pode retomar em vez de recarregar (ver `midiaNoAr`).
   midiaNoAr = true;
   midiaNoArId = id;
+  // E a ORIGEM cai aqui, sempre: `send` é o ponto por onde todo play passa, e
+  // uma origem que sobrevivesse a um play normal deixaria a linha do link
+  // marcada como "no ar" enquanto outra mídia toca. Quem a repõe é o único
+  // caminho que precisa dela (`resolverLinkYoutube`), DEPOIS de projetar.
+  midiaNoArOrigem = '';
   // re-render leve de estados ativos
   marcarNoAr();
   renderNowPlaying();
@@ -8157,6 +8183,7 @@ function resetAfterEnd() {
   // o "ele tenta exibir a primeira tela/thumbnail" do relato.
   midiaNoAr = false;
   midiaNoArId = '';
+  midiaNoArOrigem = '';
   setPlaying(false);
   seekEl.value = 0;
   curTimeEl.textContent = '0:00';
@@ -8241,6 +8268,7 @@ async function pararMidia(tipo) {
   // durante todo o esmaecimento do `clearFaded` (ver `midiaNoAr`).
   midiaNoAr = false;
   midiaNoArId = '';
+  midiaNoArOrigem = '';
   setPlaying(false);
   // Item de LINK: o `clear` derruba a cena, e o próximo ▶ precisa passar pelo
   // `send` (que hoje o RESOLVE — ver `resolverLinkYoutube`), não só reenviar
@@ -8418,7 +8446,7 @@ function marcarNoAr() {
  */
 function linhaNoAr(id) {
   if (!id) return false;
-  if (midiaNoAr && id === midiaNoArId) return true;
+  if (midiaNoAr && (id === midiaNoArId || id === midiaNoArOrigem)) return true;
   return !!cueNoArId && id === cueNoArId && cenaDeRoteiroNoAr();
 }
 
@@ -8513,6 +8541,10 @@ function pintarSubNoAr(sub, noAr) {
 function linhaAtiva(id) {
   if (!id) return false;
   if (id === currentId) return true;
+  // A linha que RESOLVEU um link é a atual enquanto a mídia dela estiver no ar
+  // (ver `midiaNoArOrigem`). Sem isto ela alternaria entre "no ar" e nada,
+  // porque as duas marcas saem de campos diferentes.
+  if (midiaNoAr && id === midiaNoArOrigem) return true;
   return !!cueNoArId && id === cueNoArId && cenaDeRoteiroNoAr();
 }
 
@@ -8528,6 +8560,11 @@ function linhaAtiva(id) {
 function noArAgora(item) {
   if (!item) return false;
   if (isCue(item)) return !!cueNoArId && item.id === cueNoArId && cenaDeRoteiroNoAr();
+  // A ORIGEM entra aqui pelo mesmo motivo que entra no `linhaNoAr`: sem ela a
+  // linha do link ganhava o selo "● No ar" e o segundo toque continuava
+  // reprojetando — o realce dizendo uma coisa e o gesto fazendo outra, que é
+  // pior que o defeito inteiro.
+  if (midiaNoAr && item.id === midiaNoArOrigem) return true;
   return item.id === currentId && midiaNoAr;
 }
 
@@ -11302,7 +11339,20 @@ async function resolverLinkYoutube(rec) {
   // de volta. (Um item de link nasce como `youtube`; a leitura fica dita para o
   // dia em que houver um link só de áudio.)
   const soAudio = rec.kind === 'audio';
-  if (await tentarTransmitir(alvo, 0, soAudio)) return true;
+  if (await tentarTransmitir(alvo, 0, soAudio)) {
+    // A LINHA QUE RESOLVEU O LINK É A QUE ESTÁ NO AR (v5.269, pedido do
+    // operador). `tentarTransmitir` termina em `send(<id do avulso>)`, e é ele
+    // que zera a origem — então ela é escrita AQUI, depois, e não antes: um
+    // `send` no meio do caminho apagaria a marca que ela existe para pôr.
+    //
+    // O caminho do DOWNLOAD, logo abaixo, não precisa disto: o arquivo toma o
+    // lugar do link EM POSIÇÃO (`trocarLinkPeloArquivo`), então a linha passa a
+    // ser a mídia e o `midiaNoArId` de sempre já a alcança.
+    midiaNoArOrigem = rec.id;
+    marcarNoAr();
+    renderNowPlaying();
+    return true;
+  }
   const novo = await ytArquivo(alvo, { lista: 'avulsos', aviso: 'preview', somenteAudio: soAudio });
   if (!novo) {
     notaNoItem(rec.id, 'Não foi possível transmitir nem baixar este vídeo.');

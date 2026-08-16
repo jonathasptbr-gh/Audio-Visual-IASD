@@ -1385,7 +1385,7 @@ try {
   // clique leria o primeiro quadro — zero por definição. É a lição da v5.226:
   // a espera é, ela própria, a afirmação de que a transição existe.
   await pg.waitForTimeout(320);
-  const aberta = await pg.evaluate(() => {
+  const aberta = await pg.evaluate(async () => {
     const li = document.querySelector('#library .lib-item');
     const caixa = li && li.querySelector('.row-acoes');
     const mais = li && li.querySelector('.row-mais');
@@ -1407,8 +1407,13 @@ try {
     // coisas ilegíveis em vez de uma.
     const bg = getComputedStyle(caixa).backgroundColor;
     r.opaca = !/rgba\(.*,\s*0(\.\d+)?\)$/.test(bg) && bg !== 'transparent';
-    // Um toque em qualquer outro lugar fecha.
+    // Um toque em qualquer outro lugar fecha. **A ESPERA É OBRIGATÓRIA desde a
+    // v5.270**: a gaveta passou a SAIR animada (o `visibility` entrou na
+    // transição, e sem ele o fechamento nunca chegava a ser visto), então medir
+    // no mesmo turno lê o quadro zero — a caixa ainda opaca e ainda visível.
+    // O caso continua afirmando a mesma coisa; o que mudou é quando ele olha.
     document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    await new Promise((f) => setTimeout(f, 320));
     r.fechouForaDela = !vis(caixa);
     return r;
   });

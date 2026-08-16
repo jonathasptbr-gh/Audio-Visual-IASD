@@ -299,10 +299,25 @@ try {
       return true;
     };
     const stop = el.querySelector('.row-stop');
+    const thumb = el.querySelector('.thumb');
     return {
       mais: vis('.row-mais'), stop: vis('.row-stop'),
       naThumb: !!stop && !!stop.parentElement
         && stop.parentElement.classList.contains('thumb'),
+      // O que MAIS a miniatura está desenhando por baixo do Parar (v5.269).
+      // Zero é a resposta certa: ele ocupa o lugar da capa, não fica por cima
+      // dela. Conta os irmãos que ainda têm caixa de layout.
+      sobrouNaThumb: thumb
+        ? [...thumb.children].filter((n) => !n.classList.contains('row-stop')
+            && getComputedStyle(n).display !== 'none').length
+        : -1,
+      // E o véu preto que existia para neutralizar a arte por baixo saiu com
+      // ela. O fundo do botão é o dos outros botões da linha.
+      fundoStop: stop ? getComputedStyle(stop).backgroundColor : '',
+      fundoMais: (() => {
+        const b = el.querySelector('.row-mais');
+        return b ? getComputedStyle(b).backgroundColor : '';
+      })(),
       estrela: vis('.fav-btn'), arrasta: vis('.row-handle'),
     };
   }, id);
@@ -320,9 +335,109 @@ try {
   checar(!!fechada && fechada.naThumb,
     'e ele mora DENTRO da miniatura: o alvo é a capa, não um quadrado ao lado do nome',
     JSON.stringify(fechada));
+  // ---- ELE TOMA O LUGAR DA CAPA, NÃO FICA POR CIMA (v5.269) --------------
+  // Pedido do operador: *"atualmente ele cria por cima dela, faça com que seja
+  // apenas o botão de stop sem ser por cima, para que fique menos poluído."*
+  //
+  // As duas metades: nada mais é desenhado dentro da miniatura, e o fundo do
+  // botão deixou de ser o véu preto (que só existia para neutralizar a arte por
+  // baixo) e passou a ser o MESMO dos outros botões da linha. Medir só a
+  // primeira deixaria passar um véu sobre um quadrado vazio; medir só a segunda
+  // deixaria passar a capa reaparecendo atrás de um fundo translúcido.
+  checar(!!fechada && fechada.sobrouNaThumb === 0,
+    'e a miniatura não desenha mais NADA por baixo dele — ele é o botão, não um '
+    + 'véu sobre a capa', JSON.stringify(fechada && fechada.sobrouNaThumb));
+  checar(!!fechada && fechada.fundoStop === fechada.fundoMais && !!fechada.fundoStop,
+    'e o preenchimento dele é o dos outros botões da linha, não um preto a 55%',
+    fechada && (fechada.fundoStop + ' × ' + fechada.fundoMais));
   checar(!!fechada && !fechada.estrela && !fechada.arrasta,
     'o resto continua guardado — nada disputa o título',
     JSON.stringify(fechada));
+  // ---- O ⋮ NÃO MEXE O CARTÃO, E OS BOTÕES ENTRAM DA DIREITA (v5.269) ----
+  //
+  // Pedido do operador: *"remova o feedback para o card inteiro quando o toque
+  // for apenas para esse botão, pois como ele abre uma visualização, o movimento
+  // da caixa polui o conjunto"* e *"aplique uma animação de deslize para o
+  // surgimento dos botões, para que eles surjam da direita para a esquerda"*.
+  //
+  // O primeiro é medido com o dedo AINDA EM CIMA: `:active` é o estado do toque,
+  // e um `click()` já terminou quando o próximo turno mede. Daí o `mouse.down()`
+  // sem `up`, com o `up` no `finally` — sem ele o botão fica preso e todo caso
+  // abaixo herda uma gaveta aberta.
+  //
+  // As duas metades do primeiro: o CARTÃO parado E o BOTÃO encolhendo. Medir só
+  // a primeira aprovaria um toque completamente mudo, que é o defeito que a
+  // regra de feedback do app existe para não ter.
+  try {
+    const pressao = await (async () => {
+      const cx = await pg.evaluate((x) => {
+        const b = document.querySelector('.lib-item[data-id="' + x + '"] .row-mais');
+        if (!b) return null;
+        const r = b.getBoundingClientRect();
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      }, audioId);
+      if (!cx) return null;
+      await pg.mouse.move(cx.x, cx.y);
+      await pg.mouse.down();
+      try {
+        await pg.waitForTimeout(60);
+        return await pg.evaluate((x) => {
+          const el = document.querySelector('.lib-item[data-id="' + x + '"]');
+          const b = el.querySelector('.row-mais');
+          return {
+            cartao: getComputedStyle(el).transform,
+            botao: getComputedStyle(b).transform,
+          };
+        }, audioId);
+      } finally {
+        await pg.mouse.up();
+        // O press completo É UM CLIQUE, e o clique no `⋮` ABRE a gaveta. Sem
+        // desfazer, o `abrirGaveta` logo abaixo a FECHARIA e o caso seguinte
+        // mediria o estado invertido (verificado: foi o que aconteceu).
+        await pg.evaluate(() => fecharAcoesDaLinha());
+        await pg.waitForTimeout(120);
+      }
+    })();
+    const parado = (v) => v === 'none' || v === 'matrix(1, 0, 0, 1, 0, 0)';
+    checar(!!pressao && parado(pressao.cartao),
+      'com o dedo no ⋮ o CARTÃO não se mexe — a resposta ao toque é a gaveta que '
+      + 'abre, não a caixa encolhendo por baixo dela',
+      pressao && pressao.cartao);
+    checar(!!pressao && !parado(pressao.botao),
+      'e o BOTÃO encolhe: o toque continua respondendo, só parou de arrastar a '
+      + 'linha junto', pressao && pressao.botao);
+  } catch (e) {
+    checar(false, 'a medição da pressão no ⋮ terminou sem exceção (' + (e && e.message) + ')');
+  }
+  // O DESLIZE, medido pela REGRA e não pelo pixel: fechada a gaveta, os botões
+  // estão deslocados para a DIREITA (x positivo) e o deslocamento zera quando
+  // ela abre. Escrever "14px" aqui reprovaria num ajuste legítimo da distância.
+  try {
+    const desliza = await pg.evaluate(async (x) => {
+      const el = document.querySelector('.lib-item[data-id="' + x + '"]');
+      const b = el && el.querySelector('.row-acoes > *');
+      if (!b) return null;
+      const dx = (n) => {
+        const m = new DOMMatrixReadOnly(getComputedStyle(n).transform);
+        return Math.round(m.m41);
+      };
+      const antes = dx(b);
+      el.classList.add('acoes-abertas');
+      // A ESPERA É A METADE QUE IMPORTA: o computado no mesmo turno devolve o
+      // valor de PARTIDA (a transição acabou de começar), então medir ali
+      // aprovaria uma gaveta sem animação nenhuma — e reprovaria a que existe.
+      await new Promise((r) => setTimeout(r, 420));
+      const depois = dx(b);
+      el.classList.remove('acoes-abertas');
+      return { antes, depois };
+    }, audioId);
+    checar(!!desliza && desliza.antes > 0 && desliza.depois === 0,
+      'e eles entram DA DIREITA: fechados estão deslocados para lá, abertos '
+      + 'chegam ao lugar', desliza && (desliza.antes + 'px → ' + desliza.depois + 'px'));
+  } catch (e) {
+    checar(false, 'a medição do deslize terminou sem exceção (' + (e && e.message) + ')');
+  }
+
   await abrirGaveta(audioId);
   const aberta = await botoes(audioId);
   checar(!!aberta && aberta.estrela && aberta.arrasta,

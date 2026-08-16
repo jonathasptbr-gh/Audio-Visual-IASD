@@ -329,7 +329,17 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    quando está no modo sinalizado de no ar". Encolher a peça inteira mantém a
    mesma linguagem de toque do app inteiro e não separa nada do que a compõe.
    (`:active` alcança os ancestrais, então tocar num botão de dentro sempre
-   encolheu a linha junto — isto não muda, só passa a incluir a borda.) */
+   encolheu a linha junto — isto não muda, só passa a incluir a borda.)
+
+   COM UMA EXCEÇÃO, e ela é do `⋮` (v5.269). Pedido do operador: *"remova o
+   feedback para o card inteiro quando o toque for apenas para esse botão, pois
+   como ele abre uma visualização, o movimento da caixa polui o conjunto."*
+   Ele está certo pela régua do próprio parágrafo acima: a linha encolhe para
+   dizer "o toque pegou" quando não há outra resposta — e aqui HÁ, e ela é
+   grande: uma gaveta que cobre o título inteiro. Duas respostas ao mesmo toque,
+   uma delas mexendo a caixa por baixo da outra que está entrando. O botão
+   continua encolhendo (é ele que foi tocado); o cartão, não. */
+.lib-item:has(.row-mais:active) { transform: none; }
 :is(
   .ctl-btn, .t-btn, .pv-fab, .settings-btn,
   .tab, .tab-add, .import-btn, .back-btn, .sel-btn,
@@ -701,6 +711,10 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .dl-ring::before { animation: none; border-color: var(--accent); }
   .mic-btn.live, .mute-btn.blocked, .simple-key--big.blocked { animation: none; }
+  /* A gaveta da linha aparece no lugar, sem deslizar (v5.269). O que ela
+     comunica — "estas são as opções deste item" — está no conteúdo, não no
+     movimento. */
+  .row-acoes > * { transform: none; transition: none; }
 }
 .pv-busy-text { display: flex; flex-direction: column; min-width: 0; }
 /* A AÇÃO em caixa alta miúda e o NOME embaixo, em vez de uma frase só. Numa
@@ -1683,14 +1697,28 @@ main {
    fica sobre a única parte da linha que já dizia "é este item" — a capa, que
    com a mídia no ar é exatamente o que está projetado.
 
-   O véu escuro por baixo do glifo não é enfeite: a capa pode ser clara, e o
-   `--danger-text` sobre uma foto de céu azul seria ilegível. Ele é preto a 55%,
-   o que devolve o contraste da mesma tinta que a linha usa em volta. */
+   ELE TOMA O LUGAR DA CAPA, e não fica por cima dela (v5.269, pedido do
+   operador: *"atualmente ele cria por cima dela, faça com que seja apenas o
+   botão de stop sem ser por cima, para que fique menos poluído visualmente"*).
+
+   Era um véu preto a 55% sobre a arte, com o glifo por cima — três camadas
+   empilhadas num quadrado de 40px, e a de baixo (a capa) só atrapalhava: ela
+   não é legível atrás do véu e não decide nada, porque a linha já diz de que
+   item se trata pelo nome e pelo selo "● No ar". Escondendo o conteúdo da
+   miniatura, o que sobra é um botão, com o mesmo preenchimento dos outros
+   botões da mesma linha (`--surface`, que aqui dentro AFUNDA — ver a regra do
+   topo desta folha). O véu sai junto com a razão dele: sem foto por baixo, não
+   há o que neutralizar.
+
+   Medido: o glifo em `--danger-text` dá 6,02:1 no tema escuro e 4,09:1 no
+   claro sobre essa base — acima do piso de 3:1 de um ícone que carrega
+   informação, nos dois. */
+.lib-item.no-ar .thumb > :not(.row-stop) { display: none; }
 .row-stop {
   display: none; position: absolute; inset: 0;
   align-items: center; justify-content: center;
-  border: 0; padding: 0; border-radius: inherit;
-  background: rgba(0, 0, 0, .55); color: var(--danger-text);
+  padding: 0; border-radius: inherit;
+  background: var(--surface); color: var(--danger-text);
 }
 .row-stop .msym { font-size: var(--icon-lg); }
 .lib-item.no-ar .row-stop { display: flex; }
@@ -1738,8 +1766,34 @@ main {
   display: flex; align-items: center; justify-content: flex-end; gap: .35rem;
   background: var(--linha);
   opacity: 0; visibility: hidden;
-  transition: opacity .14s ease;
+  /* `visibility` ENTRA na transição, e sem ela o fechamento nunca foi visto: a
+     propriedade é discreta, então fora da lista ela vira `hidden` no primeiro
+     quadro e a gaveta some antes de o `opacity` sair do lugar. O comentário
+     acima já dizia que o `visibility` existe "para a transição de opacidade
+     existir" — ele valia só para a ABERTURA. */
+  transition: opacity .14s ease, visibility .14s;
 }
+/* ---------- E OS BOTÕES ENTRAM DA DIREITA (v5.269) ----------
+   Pedido do operador: *"aplique uma animação de deslize para o surgimento dos
+   botões, para que eles surjam da direita para a esquerda"*.
+
+   Quem desliza são os BOTÕES, não a faixa: a faixa é a tampa opaca que cobre o
+   título, e movê-la descobriria o nome por baixo durante toda a animação — o
+   defeito que a v5.259 já corrigiu uma vez, por outro caminho.
+
+   O escalonamento é pelo FIM da lista (`nth-last-child`), então o primeiro a
+   chegar é o mais à direita, que é a borda de onde eles vêm — e por isso ele
+   funciona igual com dois botões ou com cinco, que é quanto a linha tem
+   conforme o estado do item. */
+.row-acoes > * {
+  transform: translateX(14px);
+  transition: transform .2s cubic-bezier(.22, .61, .36, 1);
+}
+.lib-item.acoes-abertas .row-acoes > * { transform: none; }
+.row-acoes > :nth-last-child(2) { transition-delay: .03s; }
+.row-acoes > :nth-last-child(3) { transition-delay: .06s; }
+.row-acoes > :nth-last-child(4) { transition-delay: .09s; }
+.row-acoes > :nth-last-child(5) { transition-delay: .12s; }
 .lib-item.acoes-abertas .row-acoes { opacity: 1; visibility: visible; }
 /* O `⋮` é o único botão que fica na linha, e ele é DISCRETO: não é uma ação,
    é a porta para elas. Aberto, ele veste o accent — é o que diz qual linha
