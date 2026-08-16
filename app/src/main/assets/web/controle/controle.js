@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.279';
+const WEB_VERSION = '5.280';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -454,7 +454,6 @@ const hymnSearchPopupEl = document.getElementById('hymnSearchPopup');
 const hymnSearchCloseEl = document.getElementById('hymnSearchClose');
 const hymnSearchInputEl = document.getElementById('hymnSearchInput');
 const hymnResultsEl = document.getElementById('hymnResults');
-const hymnSearchTitleEl = document.getElementById('hymnSearchTitle');
 const bibleVerPopupEl = document.getElementById('bibleVerPopup');
 const bibleVerListEl = document.getElementById('bibleVerList');
 const bibleVerCloseEl = document.getElementById('bibleVerClose');
@@ -7911,10 +7910,13 @@ function acertarVaoDosFavoritos(corpoDado) {
     // seção espremida ela é justamente o que sobra cortado, e contá-la punha o
     // botão na tela para expandir uma lista vazia.
     //
-    // OS DOIS LADOS, e não só o de baixo (v5.278): o corpo ROLA por dentro
-    // desde que o modo compacto ganhou scroll, e no fim da rolagem não há mais
-    // nada abaixo — uma contagem de um lado só faria o botão SUMIR justamente
-    // de quem chegou ao fim da lista e quer vê-la inteira.
+    // OS DOIS LADOS, e não só o de baixo. Hoje o corpo é um RECORTE imóvel (a
+    // v5.280 tirou o scroll interno que a v5.279 tinha dado), então nada fica
+    // ACIMA da faixa e essa metade nunca dispara — ela fica porque custa uma
+    // comparação e porque a v5.279 mostrou o que acontece sem ela: com o corpo
+    // rolando, no fim da lista não há mais nada abaixo, e uma contagem de um
+    // lado só faz o botão SUMIR justamente de quem chegou ao fim e quer vê-la
+    // inteira.
     const caixa = corpo.getBoundingClientRect();
     const deFora = [...corpo.children].filter((el) => {
       if (el.classList.contains('empty')) return false;
@@ -10922,11 +10924,23 @@ async function syncLyrics() {
 
 // Busca GLOBAL (botão de lupa): escopo null = varre todas as coleções.
 function openHymnSearch() {
-  hymnSearchTitleEl.textContent = 'Biblioteca';
   hymnSearchInputEl.placeholder = 'Nome, número ou trecho da letra…';
   hymnSearchInputEl.value = '';
   renderSearchResults('');
   hymnSearchPopupEl.classList.add('open');
+  // ===== A LISTA ABRE NO TOPO (v5.280) =====
+  //
+  // Decisão do operador: *"ao invés de ter um scroll de tela inteira, deixar
+  // apenas os itens abaixo da barra de pesquisa ficarem dentro de um scroll, e
+  // apenas rolar esse scroll para o topo quando a biblioteca é aberta"*.
+  //
+  // A rolagem SEMPRE foi só da lista — a barra e o ✕ vivem fora dela —, e o
+  // que faltava é esta linha: `#hymnResults` é o mesmo nó entre uma abertura e
+  // a seguinte, então ele guardava a posição de rolagem da vez anterior e a
+  // Biblioteca reabria no meio de um hinário. Isto REVOGA o mecanismo da
+  // v5.278 (a camada fixa seguindo a viewport visual): com a barra no topo da
+  // folha e nada rolando além da lista, não há o que acompanhar.
+  hymnResultsEl.scrollTop = 0;
   // **O TECLADO SOBE NOS DOIS MODOS** (v5.131).
   //
   // No simplificado isso vale desde a v5.90: ali o acervo é aberto por um botão

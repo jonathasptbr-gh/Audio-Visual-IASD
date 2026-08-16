@@ -2115,38 +2115,20 @@ main {
    único filho que pode absorvê-lo — e é ele que precisa ser o recorte, com o
    botão "Ver todos" logo abaixo.
 
-   ---------- E ELE ROLA POR DENTRO (v5.278) ----------
-   Pedido do operador: *"faça o interior da seção de favoritos ter um scroll
-   interno enquanto no modo compacto"*. O vão é uma altura fixa, e até aqui o
-   que passava dela era simplesmente CORTADO: para chegar ao quinto favorito era
-   preciso expandir a lista inteira, isto é, empurrar todas as coleções para
-   fora da tela por causa de um item.
+   ---------- E ELE NÃO ROLA POR DENTRO (v5.279 → v5.280) ----------
+   A v5.279 lhe deu `overflow-y: auto` no modo compacto, e o operador recusou:
+   *"remova o scroll interno dos favoritos, não ficou bom, deixe ele fixo, e
+   qualquer visualização dos itens completos nos favoritos deve ser pelo botão
+   de ver mais"*.
 
-   Ele NÃO substitui o "Ver todos" — as duas coisas respondem a perguntas
-   diferentes: rolar é folhear alguns atalhos sem mexer no resto da tela;
-   expandir é abrir mão do índice para ver a lista inteira de uma vez. O botão
-   continua aparecendo pela mesma régua (há item de fora), que é o que ele
-   sempre mediu.
-
-   `overflow-y: auto` só neste estado: o `overflow: hidden` do `.coll-group-corpo`
-   é requisito da animação de altura (`expandAccordion` o escreve inline durante
-   a animação e o devolve no fim, então esta regra só assume depois dela) e
-   EXPANDIDA a seção não tem altura própria para rolar por dentro.
-
-   `overscroll-behavior: contain` é o que impede a rolagem de VAZAR para a
-   Biblioteca ao chegar no fim: sem ele, continuar arrastando dentro dos
-   favoritos rola a lista de trás, e o operador perde de vista a seção em que
-   estava. */
+   Ele está fechando uma porta que eu tinha aberto ao lado de outra: com a
+   rolagem, chegar ao fim da lista tinha DOIS caminhos, e um deles — arrastar
+   dentro de uma caixa encaixada numa tela que também rola — é o gesto ambíguo
+   que o `overscroll-behavior` existia para remendar. O corpo volta a ser um
+   RECORTE imóvel (o `overflow: hidden` do `.coll-group-corpo`, que ele nunca
+   deixou de ter), e o caminho para a lista inteira é UM: o botão. */
 #hymnResults > .coll-group--fav.aberto:not(.expandido) > .coll-group-corpo {
   flex: 1 1 auto; min-height: 0;
-  overflow-y: auto; overscroll-behavior: contain;
-  scrollbar-width: thin; scrollbar-color: var(--accent) transparent;
-}
-#hymnResults > .coll-group--fav.aberto:not(.expandido) > .coll-group-corpo::-webkit-scrollbar {
-  width: 5px;
-}
-#hymnResults > .coll-group--fav.aberto:not(.expandido) > .coll-group-corpo::-webkit-scrollbar-thumb {
-  background: var(--accent); border-radius: var(--radius-pill);
 }
 /* O botão que abre a lista além do vão. Ele é a última faixa do bloco da seção
    — sem fundo próprio, como a barra — e fica FORA do corpo de propósito: dentro
@@ -3308,23 +3290,20 @@ main {
      existir: o `appPrompt` é um cartão CENTRADO com um campo de texto, e ali a
      metade de baixo é justamente onde o teclado sobe.
 
-     ---------- MAS O TOPO CONTINUA SEGUINDO O QUE SE VÊ (v5.278) ----------
-     Relato do operador: *"ajuste também para que essa barra do topo seja fixa
-     independente da rolagem da tela"*. A v5.277 tirou `--vv-top` JUNTO com
-     `--kb`, e as duas não são a mesma conta: `--kb` ENCOLHE a camada (era o
-     "deslocada inteira para cima" que ele pediu para tirar) e `--vv-top` só a
-     DESLOCA para acompanhar a viewport visual, que o navegador rola sozinho ao
-     revelar o campo em foco. Sem ela, medido com uma rolagem de 140px: o
-     cabeçalho fica em `top: 0` da viewport de LAYOUT, isto é, **140px acima do
-     que se vê** — a barra sai pelo topo da tela.
+     ---------- E A CAMADA NÃO PERSEGUE MAIS NADA (v5.280) ----------
+     A v5.278 pôs `top: var(--vv-top)` aqui para a barra de cima não sair pela
+     borda quando o navegador rolasse a viewport visual. O operador recusou o
+     mecanismo e nomeou o certo: *"ao invés de ter um scroll de tela inteira,
+     deixar apenas os itens abaixo da barra de pesquisa ficarem dentro de um
+     scroll, e apenas rolar esse scroll para o topo quando a biblioteca é
+     aberta"*.
 
-     `top` + `height: 100%` em vez de `inset`: a camada desce inteira, com a
-     MESMA altura. Encolher é o que ela não pode fazer — seria reflow da lista,
-     que é a queixa da v5.277 —, e o pedaço que passa a sobrar embaixo está
-     debaixo do teclado, que o cobre de qualquer forma. */
-  position: fixed;
-  top: var(--vv-top, 0px); left: 0; right: 0; height: 100%;
-  z-index: 200;
+     Ele está certo pela raiz: quem rola é a LISTA, e a barra está fora dela.
+     Uma camada que persegue a viewport visual é um conserto para um scroll de
+     tela que não devia existir — e desde a v5.280 não existe mesmo, porque o
+     cabeçalho saiu e a barra é o primeiro elemento da folha. `inset: 0`: a
+     camada é a tela, e nada nela se move. */
+  position: fixed; inset: 0; z-index: 200;
   /* (ver #songMenuPopup abaixo: um popup ABERTO DE DENTRO de outro precisa de
      um degrau próprio de empilhamento) */
   background: var(--scrim);
@@ -3394,13 +3373,13 @@ main {
      (branco, 1,29:1 contra a página) e o álbum, `--panel-2` (#d4dae2, 1,41:1
      contra ela) — os dois tons daquela frase deixaram de se encostar. */
   background: var(--bg);
-  /* A área segura do topo só existe enquanto a folha ENCOSTA no topo da tela.
-     Com a viewport visual rolada (`--vv-top`, v5.278), ela já começa abaixo da
-     barra de status, e reservar o espaço de novo abriria um vão no meio da
-     tela. Declarado UMA vez aqui: as duas folhas de tela cheia (`#favPopup` e
+  /* A área segura do topo. A conta com `--vv-top` que esteve aqui (v5.261,
+     v5.278) existia enquanto a camada fixa descia junto com a viewport visual;
+     com ela parada (v5.280), a folha encosta no topo da tela sempre. Declarado
+     UMA vez aqui: as duas folhas de tela cheia (`#favPopup` e
      `#hymnSearchPopup`) repetiam esta linha à mão, que é a sincronização manual
      que este projeto recusa em toda parte. */
-  padding-top: max(0px, env(safe-area-inset-top) - var(--vv-top, 0px));
+  padding-top: env(safe-area-inset-top);
 }
 .popup-backdrop--full { align-items: stretch; }
 
