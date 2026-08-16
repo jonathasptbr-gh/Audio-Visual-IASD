@@ -856,7 +856,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.274</span>
+        <span id="appVersion" class="app-version">Controle v5.275</span>
         <!-- A ATUALIZAÇÃO (v5.245). Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso.
@@ -1115,23 +1115,26 @@
         <span class="msym popup-header-icon" aria-hidden="true">&#xe3a1;</span>
         <span class="popup-title" id="hymnSearchTitle">Biblioteca</span>
       </div>
-      <ul id="hymnResults" class="popup-list"></ul>
-      <!-- A BARRA DE BAIXO (v5.258), pedido do operador: *"reposicione a barra
-           de buscas e o botão de fechar. Eles estão muito longe do teclado e do
-           toque de acesso. Faça com que haja uma barra com o campo de busca e o
-           botão de fechar biblioteca, justamente na base, seguindo a posição do
-           teclado."*
+      <!-- A BARRA VOLTOU AO TOPO (v5.275), decisão do operador: *"vamos fazer
+           um ajuste e colocar a barra de buscas da biblioteca no topo
+           novamente, ela na base está dando muitos problemas de design"*.
 
-           Ela é a última coisa do sheet, e o sheet mede `100%` da FOLHA — que
-           desde a v5.261 é a FAIXA VISÍVEL, não a tela. A versão anterior desta
-           nota dizia que ele media "um `<body>` que já desconta o teclado", e
-           isso era falso: `.popup-backdrop` é `position: fixed`, isto é, está
-           FORA do fluxo do body e nunca viu aquela conta — medido, com o teclado
-           aberto o body ia a 520px e esta folha continuava em 900, com a barra
-           ATRÁS do teclado. Quem a põe encostada nele é o `inset` da camada
-           (ver `.popup-backdrop` em controle.css), não este lugar no documento.
+           Ela desceu na v5.258 por um argumento de ALCANCE ("eles estão muito
+           longe do teclado e do toque de acesso") e passou quatro lotes
+           seguidos consertando o entorno: a folha que não via o teclado
+           (v5.261), o teclado que subia durante o fade (v5.264), o tom e a
+           sombra que faltavam (v5.266) e o degrau no tema claro (v5.270).
+           Quatro lotes em volta de uma posição são a posição dizendo que não
+           se paga — o mesmo veredito que a v5.263 deu à animação de slide.
 
-           O ✕ vem DEPOIS do campo, na ponta em que o polegar já está. -->
+           **No topo ela não tem entorno**: nada a empurra, nada a cobre, e ela
+           é o primeiro elemento sob o cabeçalho — que é onde o rótulo da tela
+           está e onde a lupa faz sentido. O que ela PERDE está dito: com o
+           teclado aberto o polegar percorre a tela inteira para corrigir a
+           busca. É a troca que o operador escolheu, sabendo dos dois lados.
+
+           O ✕ continua DEPOIS do campo: ele é o fim da linha em toda folha
+           deste app, e o cabeçalho ao lado não tem mais nenhum. -->
       <div class="hymn-search-bar">
         <!-- A LUPA DENTRO DO CAMPO (v5.264, pedido do operador: *"isso vai
              indicar melhor o objetivo da barra"*). Ela é DECORAÇÃO — o toque
@@ -1145,6 +1148,7 @@
         </div>
         <button id="hymnSearchClose" class="popup-close" title="Fechar a Biblioteca" aria-label="Fechar a Biblioteca"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
       </div>
+      <ul id="hymnResults" class="popup-list"></ul>
     </div>
   </div>
 

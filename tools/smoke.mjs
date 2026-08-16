@@ -1750,7 +1750,7 @@ try {
   checar(false, 'a medição do subtítulo terminou sem exceção (' + (e && e.message) + ')');
 }
 
-// ── A BIBLIOTECA: sem "baixar tudo", com a busca na BASE (v5.258) ────────
+// ── A BIBLIOTECA: sem "baixar tudo", com a busca no TOPO (v5.258 → v5.275) ──
 try {
   const bib = await pg.evaluate(() => {
     const sheet = document.querySelector('#hymnSearchPopup .popup-sheet');
@@ -1759,20 +1759,20 @@ try {
     return {
       semTotal: !document.getElementById('hymnSearchTotal'),
       semBotaoNoCabecalho: !sheet.querySelector('.popup-header .coll-group-btn'),
-      // A barra é o ÚLTIMO filho: é isso que a põe encostada na borda de baixo
-      // da folha. Encostá-la no TECLADO é outra conta, e ela é da folha, não
-      // desta ordem — ver o caso da faixa visível, logo abaixo.
-      barraPorUltimo: sheet.lastElementChild === barra,
-      abaixoDaLista: !!barra && !!lista
-        && [...sheet.children].indexOf(barra) > [...sheet.children].indexOf(lista),
+      // A ORDEM da folha (v5.275): cabeçalho, barra, lista. A lista é o último
+      // filho e é ela que rola; a barra é a faixa fixa acima dela.
+      listaPorUltimo: sheet.lastElementChild === lista,
+      acimaDaLista: !!barra && !!lista
+        && [...sheet.children].indexOf(barra) < [...sheet.children].indexOf(lista),
       fecharNaBarra: !!barra && !!barra.querySelector('#hymnSearchClose'),
       campoNaBarra: !!barra && !!barra.querySelector('#hymnSearchInput'),
     };
   });
   checar(bib.semTotal && bib.semBotaoNoCabecalho,
     'o "Baixar toda a biblioteca" e o peso total SAÍRAM do cabeçalho', JSON.stringify(bib));
-  checar(bib.barraPorUltimo && bib.abaixoDaLista,
-    'e a barra de busca é o último elemento do sheet — na base, onde o teclado sobe');
+  checar(bib.listaPorUltimo && bib.acimaDaLista,
+    'e a barra de busca voltou ao TOPO (v5.275): quem termina a folha é a lista, '
+    + 'que rola por baixo dela');
   checar(bib.campoNaBarra && bib.fecharNaBarra,
     'com o campo E o fechar juntos nela, que é o pedido inteiro');
 } catch (e) {
@@ -1994,8 +1994,12 @@ for (const tema of ['escuro', 'claro']) {
     checar(passo >= regua - 0.05,
       '[' + tema + '] e o degrau é o do próprio app para separar duas caixas: '
       + passo.toFixed(2) + ':1, contra os ' + regua.toFixed(2) + ':1 da barra de baixo');
-    checar(/-\d+px/.test(c.sombra) && c.sombra !== 'none',
-      '[' + tema + '] com a sombra para CIMA, que é o que o tom não diz: a lista '
+    // A SOMBRA APONTA PARA BAIXO desde a v5.275, e a direção é a afirmação: ela
+    // diz de que lado o conteúdo passa, e com a barra de volta ao topo a lista
+    // rola por baixo dela em vez de por cima. Uma sombra que ficasse apontando
+    // para cima é a marca de quem moveu a barra e esqueceu o que ela dizia.
+    checar(/(^|\s)0px 6px/.test(c.sombra) && c.sombra !== 'none',
+      '[' + tema + '] com a sombra para BAIXO, que é o que o tom não diz: a lista '
       + 'passa por baixo dela', c.sombra);
     // E o CAMPO se separa da barra POR TOM (v5.270). Até aqui, no tema claro,
     // ele não se separava de jeito nenhum — barra e campo eram os dois brancos
@@ -2080,10 +2084,12 @@ try {
   checar(false, 'a medição do verde terminou sem exceção (' + (e && e.message) + ')');
 }
 
-// ---------- A BUSCA DA BIBLIOTECA E O TECLADO (v5.261) ----------
-// Relato do operador: a barra não fica "flutuante/fixa na base, logo acima do
-// teclado", e a listagem é "deslocada erroneamente na abertura do teclado",
-// ficando "oculta por sair no topo da tela".
+// ---------- A BUSCA DA BIBLIOTECA E O TECLADO (v5.261, refeito na v5.275) ----------
+// Relato do operador na v5.261: a barra não fica "flutuante/fixa na base, logo
+// acima do teclado", e a listagem é "deslocada erroneamente na abertura do
+// teclado", ficando "oculta por sair no topo da tela". A barra voltou ao TOPO
+// na v5.275 e a segunda metade do relato é o que continua valendo aqui: a folha
+// tem de ser a faixa visível, senão o cabeçalho e a barra saem pelo topo.
 //
 // Medido antes de mexer, com o teclado de mentira acima: `body` encolhia de 900
 // para 520 px (o `--kb` já existia) e a folha da Biblioteca continuava em 900 —
@@ -2120,18 +2126,25 @@ try {
     return { sem, com, visivelTopo, visivelBase };
   });
   const perto = (a, b) => Math.abs(a - b) <= 1;
-  checar(!!geo.sem.barra && !!geo.sem.lista && perto(geo.sem.barra.top, geo.sem.lista.bottom),
-    'sem teclado, a barra de busca é o RODAPÉ da folha: ela começa onde a lista termina');
-  checar(!!geo.sem.folha && perto(geo.sem.barra.bottom, geo.sem.folha.bottom),
-    'e ela encosta na base da folha — nada por baixo dela');
+  // A BARRA VOLTOU AO TOPO (v5.275, decisão do operador). O que este caso trava
+  // desde a v5.261 continua sendo o mesmo — a folha é a FAIXA VISÍVEL, e a
+  // listagem não é empurrada para fora do topo —, e o que muda é de que lado da
+  // lista a barra está. As duas primeiras asserções são a ORDEM da folha:
+  // cabeçalho, barra, lista; sem elas, uma barra que voltasse para a base
+  // passaria pelo resto do caso sem reprovar nada.
+  checar(!!geo.sem.barra && !!geo.sem.cabec && perto(geo.sem.barra.top, geo.sem.cabec.bottom),
+    'sem teclado, a barra de busca fica no TOPO, logo abaixo do cabeçalho');
+  checar(!!geo.sem.lista && perto(geo.sem.lista.top, geo.sem.barra.bottom)
+    && geo.sem.lista.bottom > geo.sem.barra.bottom,
+    'e a lista começa onde ela termina — a rolagem passa por BAIXO dela');
   checar(!!geo.com.folha && perto(geo.com.folha.top, geo.visivelTopo)
     && perto(geo.com.folha.bottom, geo.visivelBase),
     'com o teclado aberto, a folha é a FAIXA VISÍVEL, não a tela inteira');
-  checar(!!geo.com.barra && perto(geo.com.barra.bottom, geo.visivelBase),
-    'a barra continua na base — agora encostada no teclado, e não atrás dele');
+  checar(!!geo.com.barra && perto(geo.com.barra.top, geo.com.cabec.bottom),
+    'a barra continua no topo, logo abaixo do cabeçalho — nada a empurra');
   checar(!!geo.com.cabec && !!geo.com.lista
-    && perto(geo.com.cabec.top, geo.visivelTopo) && perto(geo.com.lista.top, geo.com.cabec.bottom),
-    'e a listagem NÃO é deslocada: ela começa logo abaixo do cabeçalho, que está no topo do que se vê');
+    && perto(geo.com.cabec.top, geo.visivelTopo) && perto(geo.com.lista.top, geo.com.barra.bottom),
+    'e a listagem NÃO é deslocada: ela começa logo abaixo da barra, que está no topo do que se vê');
 } catch (e) {
   checar(false, 'a medição da busca com teclado terminou sem exceção (' + (e && e.message) + ')');
 }

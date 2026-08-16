@@ -4136,7 +4136,7 @@ nova**: é o registro respondendo o que já sabe, que é a regra desta linha des
 a v5.118. Numa lista de culto com três "Ó Adorai o Senhor" de hinários
 diferentes, o álbum é literalmente o que distingue um do outro.
 
-#### A Biblioteca: sem "baixar tudo", com a busca na BASE (v5.258)
+#### A Biblioteca: sem "baixar tudo" (v5.258), com a busca de volta ao TOPO (v5.275)
 
 Duas podas do mesmo pedido, e as duas são sobre a barra do topo:
 
@@ -4149,12 +4149,29 @@ Duas podas do mesmo pedido, e as duas são sobre a barra do topo:
   aquela tela existe para fazer. Baixar coleção por coleção continua onde
   sempre esteve: no card de cada uma.
 - **A busca e o ✕ desceram para uma barra na BASE** — *"eles estão muito longe
-  do teclado e do toque de acesso"*. Ela é a última coisa do sheet, e o sheet
-  mede `100%` de um `<body>` cuja altura já desconta o teclado
-  (`calc(100svh - var(--kb))`, do handler de `visualViewport`): **a barra encosta
-  na borda de cima do teclado sem uma regra própria**, pelo mesmo mecanismo que
-  já mantém o transporte visível. O ✕ vem DEPOIS do campo, na ponta em que o
-  polegar já está.
+  do teclado e do toque de acesso"* —, e **voltaram ao TOPO na v5.275**, decisão
+  do operador: *"ela na base está dando muitos problemas de design"*.
+
+  O argumento do alcance continua verdadeiro, e o preço está dito: no topo,
+  corrigir a busca com o teclado aberto custa a tela inteira de percurso do
+  polegar. O que decidiu foi o PREÇO DA POSIÇÃO, e ele está no registro deste
+  documento — **quatro lotes seguidos consertando o entorno dela**: a folha que
+  não via o teclado (v5.261, e é dela que veio a descoberta de que
+  `.popup-backdrop` é `position: fixed` e nunca viu a conta de altura do
+  `<body>`), o teclado subindo durante o fade (v5.264), o tom e a sombra que
+  faltavam (v5.266) e o degrau do tema claro (v5.270). Quatro lotes em volta de
+  uma posição são a posição dizendo que não se paga — o mesmo veredito que a
+  v5.263 deu à animação de slide desta mesma tela.
+
+  **O que fica da era da base, porque nunca foi sobre estar embaixo:** o ✕
+  DEPOIS do campo (é o fim da linha em toda folha deste app, e o cabeçalho ao
+  lado não tem mais nenhum), a LUPA dentro do campo (o placeholder some no
+  primeiro caractere digitado) e o TOM próprio com a SOMBRA — esta última
+  INVERTIDA, porque ela diz de que lado o conteúdo passa e a lista deixou de
+  rolar por cima da barra para rolar por baixo dela. O que sai é a conta do
+  teclado no `padding-bottom` da barra, e volta a área segura no
+  `padding-bottom` da FOLHA: quem termina a folha passou a ser a lista, e sem
+  ela o último item ficaria debaixo da barra de gestos.
 
 #### Uma seção aberta por vez, e os Favoritos ocupam o vão (v5.273)
 
