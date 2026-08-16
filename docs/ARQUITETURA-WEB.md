@@ -4268,6 +4268,17 @@ propriedade inteira. `flex: 0 0 auto` impede o flex de mexer nela nos dois
 sentidos, e o corpo dentro dela é quem cresce (`flex: 1 1 auto`) e é recortado,
 com o botão logo abaixo.
 
+**E ESSE CORPO ROLA POR DENTRO no modo compacto** (v5.279). O que passava do vão
+era simplesmente cortado: chegar ao quinto favorito exigia expandir a lista
+inteira, isto é, empurrar todas as coleções para fora da tela por causa de um
+item. A rolagem interna **não substitui** o "Ver todos" — rolar é folhear alguns
+atalhos sem mexer no resto da tela; expandir é abrir mão do índice para ver tudo
+de uma vez. `overscroll-behavior: contain` impede a rolagem de vazar para a
+Biblioteca ao chegar no fim (sem ele, continuar arrastando rola a lista de trás
+e o operador perde de vista a seção em que estava). E a contagem do botão passou
+a olhar os DOIS lados da faixa visível: com a rolagem no fim não há nada abaixo,
+e uma régua de um lado só faria o "Ver todos" sumir de quem mais precisa dele.
+
 **A coleção que abre rola até o topo dela** (`alinharGrupoNoTopo`, v5.277). O
 "abrindo para cima" que o operador relatou era o encolhimento acima; o que
 faltava depois de corrigi-lo é que uma coleção aberta no fim da lista cresce

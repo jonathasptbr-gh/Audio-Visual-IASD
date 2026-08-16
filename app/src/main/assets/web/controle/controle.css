@@ -2113,9 +2113,40 @@ main {
 /* E o CORPO preenche o que sobra dentro dessa altura fixa. Aqui ele CRESCE (nas
    coleções, não), porque a caixa de fora tem tamanho definido e o corpo é o
    único filho que pode absorvê-lo — e é ele que precisa ser o recorte, com o
-   botão "Ver todos" logo abaixo. */
+   botão "Ver todos" logo abaixo.
+
+   ---------- E ELE ROLA POR DENTRO (v5.278) ----------
+   Pedido do operador: *"faça o interior da seção de favoritos ter um scroll
+   interno enquanto no modo compacto"*. O vão é uma altura fixa, e até aqui o
+   que passava dela era simplesmente CORTADO: para chegar ao quinto favorito era
+   preciso expandir a lista inteira, isto é, empurrar todas as coleções para
+   fora da tela por causa de um item.
+
+   Ele NÃO substitui o "Ver todos" — as duas coisas respondem a perguntas
+   diferentes: rolar é folhear alguns atalhos sem mexer no resto da tela;
+   expandir é abrir mão do índice para ver a lista inteira de uma vez. O botão
+   continua aparecendo pela mesma régua (há item de fora), que é o que ele
+   sempre mediu.
+
+   `overflow-y: auto` só neste estado: o `overflow: hidden` do `.coll-group-corpo`
+   é requisito da animação de altura (`expandAccordion` o escreve inline durante
+   a animação e o devolve no fim, então esta regra só assume depois dela) e
+   EXPANDIDA a seção não tem altura própria para rolar por dentro.
+
+   `overscroll-behavior: contain` é o que impede a rolagem de VAZAR para a
+   Biblioteca ao chegar no fim: sem ele, continuar arrastando dentro dos
+   favoritos rola a lista de trás, e o operador perde de vista a seção em que
+   estava. */
 #hymnResults > .coll-group--fav.aberto:not(.expandido) > .coll-group-corpo {
   flex: 1 1 auto; min-height: 0;
+  overflow-y: auto; overscroll-behavior: contain;
+  scrollbar-width: thin; scrollbar-color: var(--accent) transparent;
+}
+#hymnResults > .coll-group--fav.aberto:not(.expandido) > .coll-group-corpo::-webkit-scrollbar {
+  width: 5px;
+}
+#hymnResults > .coll-group--fav.aberto:not(.expandido) > .coll-group-corpo::-webkit-scrollbar-thumb {
+  background: var(--accent); border-radius: var(--radius-pill);
 }
 /* O botão que abre a lista além do vão. Ele é a última faixa do bloco da seção
    — sem fundo próprio, como a barra — e fica FORA do corpo de propósito: dentro

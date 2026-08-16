@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.278';
+const WEB_VERSION = '5.279';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -7910,9 +7910,17 @@ function acertarVaoDosFavoritos(corpoDado) {
     // `.empty` é a linha de "Nenhum favorito ainda", e ela não é um item: numa
     // seção espremida ela é justamente o que sobra cortado, e contá-la punha o
     // botão na tela para expandir uma lista vazia.
-    const fundo = corpo.getBoundingClientRect().bottom;
-    const deFora = [...corpo.children].filter((el) => !el.classList.contains('empty')
-      && el.getBoundingClientRect().bottom > fundo + 1).length;
+    //
+    // OS DOIS LADOS, e não só o de baixo (v5.278): o corpo ROLA por dentro
+    // desde que o modo compacto ganhou scroll, e no fim da rolagem não há mais
+    // nada abaixo — uma contagem de um lado só faria o botão SUMIR justamente
+    // de quem chegou ao fim da lista e quer vê-la inteira.
+    const caixa = corpo.getBoundingClientRect();
+    const deFora = [...corpo.children].filter((el) => {
+      if (el.classList.contains('empty')) return false;
+      const b = el.getBoundingClientRect();
+      return b.bottom > caixa.bottom + 1 || b.top < caixa.top - 1;
+    }).length;
     mostrar(deFora > 0);
   });
 }
