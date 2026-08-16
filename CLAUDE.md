@@ -3053,10 +3053,49 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.277** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.278** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.278: A BARRA DE CIMA VOLTA A SEGUIR O QUE SE VÊ, o ícone do título sai,
+> e o alvo dos botões da faixa passa a ser a linha inteira. OTA PURO** (sem
+> Release).
+>
+> - **`--kb` E `--vv-top` NÃO SÃO A MESMA CONTA, e a v5.277 tirou as duas de uma
+>   vez.** Relato: *"ajuste também para que essa barra do topo seja fixa
+>   independente da rolagem da tela"*. `--kb` ENCOLHE a camada fixa (era o
+>   *"deslocada inteira para cima"* que ele mandou tirar) e `--vv-top` apenas a
+>   DESLOCA junto com a viewport visual, que o navegador rola sozinho ao revelar
+>   o campo em foco. Sem a segunda, medido com uma rolagem de 140px: o cabeçalho
+>   fica em `top: 0` da viewport de LAYOUT, isto é, **140px acima do que se vê** —
+>   a barra sai pelo topo da tela. Voltou como `top` + `height: 100%`, e essa
+>   forma é a decisão: a camada desce inteira, com a MESMA altura. Encolher é o
+>   que ela não pode fazer — seria o reflow da queixa anterior —, e o pedaço que
+>   sobra embaixo está debaixo do teclado, que o cobre de qualquer jeito.
+> - **O ÍCONE DO TÍTULO SAI.** Com o cabeçalho e a barra fundidos numa peça só
+>   (v5.277), a nota musical virou o terceiro símbolo de uma faixa que já tem a
+>   lupa dentro do campo e o ✕ ao lado — sem distinguir nada, porque a tela é
+>   uma só. A grade de três colunas que centrava o título saiu junto: filho
+>   único num flex centrado já fica no meio.
+> - **ERRAR POR TRÊS PIXELS NÃO DEVOLVE "NADA ACONTECEU".** Relato: *"é
+>   extremamente comum tentar clicar em adicionar e acabar tocando no corpo do
+>   card, abrindo os detalhes da letra"*. O botão tem 40px numa linha de 50 e
+>   para a 8px da borda: sobram faixas mortas de ~5px acima e abaixo e 8px ao
+>   lado — e elas não são neutras, porque o corpo da linha tem uma ação PRÓPRIA.
+>   O alvo cresce por um `::after` até as bordas da linha e **o desenho não muda
+>   um pixel**: encorpar o botão empurraria o nome, que é a única coisa da linha
+>   que não se adivinha. Vale para os DOIS botões da faixa — o ▶ tem 38px na
+>   mesma linha, isto é, a mesma faixa morta e o mesmo desfecho.
+>
+> **O oráculo do alvo mede o que o DEDO encontra** (`elementFromPoint`), não a
+> caixa do botão: a queixa é sobre os pixels ao redor dele, e uma asserção de
+> largura e altura passaria com as faixas mortas intactas. Ele cobra também a
+> metade negativa — o meio da linha continua abrindo a gaveta da letra —, senão
+> um alvo que engolisse a linha inteira passaria.
+>
+> Verificado por ISOLAMENTO: sem a expansão do alvo, **2** asserções reprovam;
+> sem o `--vv-top` no topo, **1**.
 
 > **A v5.277: O VÃO DOS FAVORITOS VIRA UMA MEDIDA DE TELA, a coleção rola até o
 > topo dela, o teclado volta a SOBREPOR, e a barra de título vira uma peça só.

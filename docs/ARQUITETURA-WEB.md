@@ -4173,8 +4173,8 @@ Duas podas do mesmo pedido, e as duas são sobre a barra do topo:
   `padding-bottom` da FOLHA: quem termina a folha passou a ser a lista, e sem
   ela o último item ficaria debaixo da barra de gestos.
 
-  **E o TECLADO voltou a SOBREPOR** (v5.277): `.popup-backdrop` é `inset: 0` de
-  novo. O `inset` da v5.261 descia a camada fixa até a faixa visível para que a
+  **E o TECLADO voltou a SOBREPOR** (v5.277/v5.278): `.popup-backdrop` deixou de
+  descontar `--kb`. O `inset` da v5.261 descia a camada fixa até a faixa visível para que a
   barra, que morava na BASE, encostasse no teclado em vez de ficar atrás dele;
   com ela no topo não há nada embaixo que precise ser revelado, e o que sobrava
   daquele conserto era o efeito colateral — a folha inteira encolhendo e subindo
@@ -4183,13 +4183,23 @@ Duas podas do mesmo pedido, e as duas são sobre a barra do topo:
   dela: o `appPrompt` é um cartão CENTRADO com campo de texto, e ali a metade de
   baixo é justamente onde o teclado sobe.
 
+  **MAS O TOPO CONTINUA SEGUINDO O QUE SE VÊ** (v5.278). `--kb` e `--vv-top` não
+  são a mesma conta, e a v5.277 tirou as duas de uma vez: a primeira ENCOLHE a
+  camada (o reflow da queixa) e a segunda apenas a DESLOCA junto com a viewport
+  visual, que o navegador rola sozinho ao revelar o campo em foco. Sem ela,
+  medido com uma rolagem de 140px, o cabeçalho fica em `top: 0` da viewport de
+  LAYOUT — 140px acima do que se vê, isto é, fora da tela. A forma é
+  `top: var(--vv-top)` + `height: 100%`: a camada desce inteira, com a MESMA
+  altura, e o pedaço que sobra embaixo está debaixo do teclado.
+
   **O cabeçalho e a barra são UMA peça** (v5.277): mesmo `--field-bar` nas duas
   faixas, porque duas faixas fixas empilhadas sobre a mesma lista são uma barra
-  só. O TÍTULO centra numa grade de três colunas (ícone · título · vão do mesmo
-  tamanho) — centrar a linha flex centraria o PAR ícone+título e deixaria a
-  palavra 14px fora do meio, medidos. E o ✕ virou QUADRADO por um número com
-  nome (`--campo-alt`), que é a altura do campo e o lado do botão: dentro de um
-  contêiner flex o `aspect-ratio` não resolve, porque a largura é resolvida
+  só. O TÍTULO fica centrado e **sem ícone** (v5.278): a nota musical virou o
+  terceiro símbolo de uma faixa que já tem a lupa dentro do campo e o ✕ ao lado,
+  sem distinguir nada — e com ela saiu a grade de três colunas que a v5.277
+  precisou para centrar o texto ao lado dela. E o ✕ virou QUADRADO por um número
+  com nome (`--campo-alt`), que é a altura do campo e o lado do botão: dentro de
+  um contêiner flex o `aspect-ratio` não resolve, porque a largura é resolvida
   ANTES de o `stretch` dar uma altura definida — a primeira versão colapsou o
   botão na largura do glifo, 20px.
 
@@ -5980,6 +5990,17 @@ abre, trocam seis adivinhações por duas leituras.
   letra. (Antes as ações eram **irmãs** de `.hymn-row` dentro do `<li>`, e por
   isso não borbulhavam; agora estão DENTRO da linha, que é o que as põe sempre
   à vista.)
+- **E O ALVO DELES É A LINHA INTEIRA** (v5.278). Relato do operador: *"é
+  extremamente comum tentar clicar em adicionar e acabar tocando no corpo do
+  card, abrindo os detalhes da letra"*. O botão tem 40px numa linha de 50 e para
+  a 8px da borda: sobram faixas MORTAS de ~5px acima e abaixo e 8px ao lado — e
+  elas não são neutras, porque o corpo da linha tem uma ação PRÓPRIA. **Errar
+  por três pixels não devolve "nada aconteceu": devolve outra coisa
+  acontecendo.** O alvo cresce por um `::after` até as bordas do `<li>` (que o
+  recorta, e é onde ele deve mesmo parar) e o DESENHO não muda um pixel —
+  encorpar o botão empurraria o nome, que é a única coisa da linha que não se
+  adivinha. O oráculo mede o que o DEDO encontra (`elementFromPoint`) e cobra a
+  metade negativa: o meio da linha continua abrindo a gaveta.
 - **O acordeão da letra fecha as irmãs no escopo da PRÓPRIA `<ul>`**, não em
   `hymnResultsEl`: as linhas de dentro do card de um álbum vivem noutra lista, e
   ali a regra simplesmente não valia — abrir a terceira faixa deixava as duas
