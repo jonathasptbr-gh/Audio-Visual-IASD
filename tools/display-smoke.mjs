@@ -282,23 +282,41 @@ checar(depoisDoClear, 'e o `clear` segue encerrando a CENA INTEIRA — ele não 
 //    controla: enquanto ela não resolver, o telão está saindo de cena, e um
 //    `sendStatus()` (que é literalmente o que o `onTime` do stage chama a cada
 //    quadro) não pode produzir mensagem nenhuma.
+//    O CASO É MEDIDO EM DUAS METADES SEPARADAS, e não numa contagem no fim. A
+//    primeira versão dele armava a guarda, resolvia, e afirmava "viajou UM
+//    status" — o que supõe que nada mais estivesse em voo. Mas o `clear` do
+//    passo anterior tem um fade de ~0,6 s e um `aoSairDeCena` próprio, cujo
+//    `then` emite o status final DEPOIS de o caso ter zerado o espião: chegavam
+//    dois, os dois corretos (palco vazio, `playing: false`), e o teste reprovava
+//    um app que estava certo. Medir cada metade no seu instante diz também QUAL
+//    delas quebrou, que uma contagem no fim nunca diz.
+//
+//    A espera por `saindoDeCena === 0` é a outra metade da correção: sem ela o
+//    caso começaria a contar com o fade anterior ainda aberto.
+await telao.waitForFunction(() => saindoDeCena === 0, null, { timeout: 4000 }).catch(() => {});
 await espiao.evaluate(() => { window.__vistos.length = 0; });
-const mecanismo = await telao.evaluate(async () => {
+const mecanismo = await telao.evaluate(() => {
   if (typeof aoSairDeCena !== 'function') return 'sem a guarda';
-  let soltar;
-  aoSairDeCena(new Promise((r) => { soltar = r; }));
+  window.__soltarFade = null;
+  aoSairDeCena(new Promise((r) => { window.__soltarFade = r; }));
   sendStatus();                       // o quadro do meio do fade
-  await new Promise((r) => setTimeout(r, 150));
-  soltar();                           // o fade acabou: o palco está limpo
-  await new Promise((r) => setTimeout(r, 150));
   return 'ok';
 });
+await new Promise((r) => setTimeout(r, 200));
+const durante = await espiao.evaluate(
+  () => window.__vistos.filter((c) => c && c.type === 'display-status'),
+);
+await telao.evaluate(() => window.__soltarFade());   // o fade acabou: o palco está limpo
+await new Promise((r) => setTimeout(r, 200));
 const doFade = await espiao.evaluate(
   () => window.__vistos.filter((c) => c && c.type === 'display-status'),
 );
 checar(mecanismo === 'ok', 'o telão sabe dizer que está SAINDO de cena (`aoSairDeCena`)', mecanismo);
+checar(durante.length === 0,
+  'o `sendStatus` do meio do fade NÃO VIAJA — era ele que dizia "tocando" sobre '
+  + 'uma cena que o operador acabara de encerrar', JSON.stringify(durante));
 checar(doFade.length === 1 && !doFade[0].mediaId && !doFade[0].playing,
-  'e o `sendStatus` do meio do fade não viaja: sai UM status só, o do palco VAZIO',
+  'e no fim sai UM status, o do palco VAZIO',
   JSON.stringify(doFade));
 
 // 5-C. O CARTÃO DE CAPA DO LOUVOR (v5.218) — e a cor dele, MEDIDA.
