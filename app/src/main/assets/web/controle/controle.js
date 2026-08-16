@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.271';
+const WEB_VERSION = '5.272';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -5912,6 +5912,12 @@ function renderLibrary() {
         star,
         addBtn,
         activeTab !== 'folders' ? handle : null,
+        // NA PASTA DO APARELHO ELE NÃO ENTRA (v5.271): ali "excluir" apaga o
+        // ARQUIVO físico, e essa limpeza tem donos próprios (`deleteSelected`,
+        // com o `opfsDeleteFile` e o `purgeCatalogRecords`). Um mesmo ícone com
+        // dois alcances diferentes conforme a tela é a pior forma de oferecer
+        // um destrutivo.
+        activeTab !== 'folders' ? botaoExcluirDaLinha(item, activeTab, () => load()) : null,
       ]));
     }
     row.append(...parts);
@@ -6140,6 +6146,55 @@ document.addEventListener('pointerdown', (e) => {
  * Uma linha sem ação nenhuma (não há, hoje) não ganha `⋮`: um botão que abre
  * uma caixa vazia é pior que botão nenhum.
  */
+/**
+ * EXCLUIR ESTE ITEM DA LISTA — a ação que faltava no `⋮` (v5.271).
+ *
+ * Pedido do operador: *"adicione a opção de excluir nas opções nos itens
+ * individuais das listas de cronograma e favoritos"*.
+ *
+ * Até aqui excluir era um caminho só, e era o de LOTE: toque longo → seleção
+ * múltipla → a lixeira do rodapé. Para tirar UM item isso é três gestos e um
+ * modo, e nos Favoritos aquele modo nem chegava a se desenhar (ver
+ * `favItemRow`). O `⋮` já é a gaveta de decisões daquela linha; a exclusão é
+ * uma delas.
+ *
+ * A SEMÂNTICA É A MESMA DO LOTE, e de propósito: sai da LISTA (`listRemove`) e
+ * o coletor decide o resto — se o item também estiver nos Favoritos, ou na
+ * playlist, ele continua lá e os bytes ficam. Duas definições de "excluir" no
+ * mesmo app seriam a divergência que `deleteSelected` já evitou uma vez.
+ *
+ * A CONFIRMAÇÃO não é zelo: é a condição para um destrutivo caber num ícone. O
+ * diálogo nomeia o que sai e de onde — sem ele, a lixeira sozinha seria uma
+ * aposta (a mesma regra que o "Remover do dispositivo" do álbum já segue).
+ *
+ * E ele TIRA DO AR antes de remover: um item que sai da lista enquanto está
+ * projetado deixaria o telão com uma cena que nenhuma linha da tela explica.
+ */
+function botaoExcluirDaLinha(item, lista, depois) {
+  const b = document.createElement('button');
+  b.className = 'row-btn row-excluir';
+  b.title = 'Excluir da lista';
+  b.setAttribute('aria-label', 'Excluir da lista');
+  b.appendChild(msym('\ue872'));   // o MESMO glifo da lixeira do rodapé
+  b.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const nome = item.name ? '"' + item.name + '"' : 'este item';
+    const ok = await appConfirm({
+      title: 'Excluir da lista',
+      message: 'Tirar ' + nome + ' desta lista? Os arquivos só são apagados se '
+        + 'ele não estiver em mais nenhuma.',
+      okText: 'Excluir',
+    });
+    if (!ok) return;
+    if (noArAgora(item)) await retirarDoAr(item);
+    if (lista === 'favs') favSet.delete(item.id);
+    await AVDB.listRemove(lista, item.id);
+    await soltarAvulso(item.id);
+    await depois();
+  });
+  return b;
+}
+
 function montarAcoesDaLinha(li, botoes) {
   const uteis = botoes.filter(Boolean);
   if (!uteis.length) return [];
@@ -7494,13 +7549,33 @@ function favItemRow(item) {
   // E OS TRÊS FICAM ATRÁS DO `⋮` (v5.258), como no Cronograma: era esta lista
   // que pagava mais caro — 152px de nome numa lista de 368 — porque é a única
   // com três botões.
-  partes.push(...montarAcoesDaLinha(li, [favBtn(item.id, item.name), add, handle]));
+  partes.push(...montarAcoesDaLinha(li, [
+    favBtn(item.id, item.name), add, handle,
+    botaoExcluirDaLinha(item, 'favs', () => recarregarFavoritos()),
+  ]));
   row.append(...partes);
   li.appendChild(row);
-  // Os mesmos gestos da biblioteca: toque projeta/toca, toque longo entra na
-  // seleção múltipla. Uma segunda regra de gesto só para esta lista seria a
-  // mesma divergência que a gaveta inteira existe para evitar.
-  attachRowGestures(row, item);
+  // O TOQUE PROJETA. O TOQUE LONGO NÃO FAZ MAIS NADA AQUI (v5.271).
+  //
+  // Relato do operador: *"ao segurar em um item da lista de favoritos, ele entra
+  // no modo de multiseleção, mas as opções aparecem na tela do cronograma e não
+  // nos favoritos"*. Ele está descrevendo um modo que NUNCA existiu nesta
+  // lista, e o sintoma é a metade visível disso: `enterSelection` liga o modo e
+  // chama `renderLibrary()` — que redesenha o CRONOGRAMA —, enquanto esta
+  // função nunca leu `selectionMode`, isto é, a linha não ganhava caixa de
+  // marcação nem realce. O que aparecia na outra tela era a barra de um modo
+  // que aqui não tinha o que operar.
+  //
+  // E o buraco era mais fundo que o desenho: as ações da barra são keyadas pelo
+  // `activeTab` (ver `deleteSelected`), que aqui aponta para a lista ATRÁS da
+  // Biblioteca — a lixeira teria apagado itens do Cronograma. Desenhar o modo
+  // seria consertar a metade que se vê de um defeito cuja outra metade destrói.
+  //
+  // O que ele daria a esta lista — excluir sem sair dela — passou a morar no
+  // `⋮`, um toque, na própria linha (ver `botaoExcluirDaLinha`). O toque longo
+  // continua valendo onde o modo de fato funciona: as listas da tela principal
+  // e o conteúdo de uma pasta do aparelho.
+  attachRowGestures(row, item, { semSelecao: true });
   attachHandle(handle, item.id, 'favs');
   return li;
 }
@@ -8309,12 +8384,16 @@ async function stopClear() {
 // item.
 const MOVE = 10, LONGPRESS = 450;
 
-function attachRowGestures(row, item) {
+function attachRowGestures(row, item, opts) {
   let startX = 0, startY = 0, startT = 0, longFired = false, lp = null, pid = null;
+  // `semSelecao`: a lista não tem seleção múltipla (os Favoritos — ver
+  // `favItemRow`). O toque curto continua igual; o que não existe é o modo.
+  const semSelecao = !!(opts && opts.semSelecao);
 
   row.addEventListener('pointerdown', (e) => {
     if (e.target.closest('.row-handle') || e.target.closest('.row-btn')) return;
     pid = e.pointerId; startX = e.clientX; startY = e.clientY; startT = Date.now(); longFired = false;
+    if (semSelecao) return;
     lp = setTimeout(() => { longFired = true; enterSelection(item.id); }, LONGPRESS);
   });
   row.addEventListener('pointermove', (e) => {
@@ -8741,7 +8820,23 @@ function dropIndex(ul, draggedLi, y) {
 }
 
 // linha-guia azul mostrando onde o item vai cair
+//
+// ELA É `position: absolute` E MORA DENTRO DA `<ul>`, então a `<ul>` precisa ser
+// o BLOCO CONTENDOR dela. Isso valia por acidente: o Cronograma é uma
+// `.lib-list`, que declara `position: relative` desde sempre — e os Favoritos
+// são uma `.popup-list`, que não declara. Ali a guia se posicionava contra o
+// primeiro ancestral posicionado, que é o `.popup-backdrop` FIXO, usando
+// coordenadas calculadas em relação à lista: o relato do operador, palavra por
+// palavra ("as linhas de guia para a posição final dos itens está completamente
+// fora de sincronia e posição com a lista").
+//
+// A garantia vem daqui, e não de uma regra de CSS por lista, porque o conjunto
+// de listas que hospedam um arrasto cresce (a v5.237 acrescentou a seção dos
+// Favoritos DENTRO da Biblioteca, uma terceira `<ul>` com outra classe): uma
+// lista de seletores envelheceria no próximo host, e o modo de falhar é este —
+// silencioso, e só visível com o dedo em cima.
 function showDropLine(ul, draggedLi, y) {
+  if (getComputedStyle(ul).position === 'static') ul.style.position = 'relative';
   let line = ul.querySelector('.drop-line');
   if (!line) { line = document.createElement('div'); line.className = 'drop-line'; ul.appendChild(line); }
   if (!dragGeom || dragGeom.ul !== ul) measureDrag(ul, draggedLi);

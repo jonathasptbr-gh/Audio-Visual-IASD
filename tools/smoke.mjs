@@ -1052,9 +1052,17 @@ for (const tema of ['escuro', 'claro']) {
     checar(opaco(t.card) && dPula >= 1.05,
       '[' + tema + '] e nenhum par de níveis coincide — nem os que se pulam',
       'folha × card ' + dPula.toFixed(2) + ':1');
-    checar(transparente(t.faixa) && parseFloat(t.faixaFilete) === 0 && t.faixaGap > 0,
-      '[' + tema + '] a faixa dentro do álbum não tem caixa NEM filete: o que a '
-      + 'separa da vizinha é o espaço (' + t.faixa + ', gap ' + t.faixaGap + 'px)');
+    // v5.271: a faixa GANHOU preenchimento. A v5.267 tirou o filete e pôs o
+    // espaço no lugar, mas deixou a faixa sem fundo — e um vão da mesma cor dos
+    // dois lados não separa nada, que foi o relato do operador ("os itens ficam
+    // soltos no mesmo ambiente, dificultando a visualização de sua área de
+    // toque"). O que este caso trava agora são as três metades: ela PINTA, ela
+    // não desenha filete, e o espaço entre duas continua existindo — sem o
+    // último, um bloco colado no outro volta a não ter área de toque legível.
+    checar(!transparente(t.faixa) && parseFloat(t.faixaFilete) === 0 && t.faixaGap > 0,
+      '[' + tema + '] a faixa dentro do álbum tem PREENCHIMENTO próprio e nenhum '
+      + 'filete: o que a separa da vizinha é o espaço entre dois blocos que se '
+      + 'veem (' + t.faixa + ', gap ' + t.faixaGap + 'px)');
   } catch (e) {
     checar(false, 'a medição da escada de camadas (' + tema + ') terminou sem exceção ('
       + (e && e.message) + ')');

@@ -312,12 +312,19 @@ try {
   checar(info.achou, 'o card da SEGUNDA série existe na Biblioteca');
   checar(info.nome === 'Informativo Mundial das Missões 2026',
     'e ele se chama "Informativo Mundial das Missões 2026"', info.nome);
-  checar((info.itens || []).slice(0, 3).join(' ~ ') === '07/Fev ~ 04/Jul ~ 15/Ago',
-    'os episódios vêm em ordem CRONOLÓGICA e rotulados só pela DATA — o resto do '
-    + 'título é igual nos 52 e não distingue nada', JSON.stringify(info.itens));
-  checar((info.itens || [])[3] === 'Informativo Mundial das Missões | especial de encerramento',
-    'o que não declarou data ENTRA, com o título CRU e no fim do trimestre dele — '
-    + 'nunca uma linha em branco', JSON.stringify(info.itens));
+  // v5.271: o rótulo passou a levar a SÉRIE junto da data. Dentro do álbum isso
+  // é repetição — e foi por isso que a v5.244 escolheu só a data —, mas o item
+  // SAI do álbum: no Cronograma e nos Favoritos ele perde o cabeçalho que dizia
+  // qual série é, e "15/Ago · YouTube" não identifica nada. O caso mede a ordem
+  // (que não mudou) e a identificação (que é o pedido).
+  checar((info.itens || []).slice(0, 3).join(' ~ ')
+    === '07/Fev · Informativo Mundial das Missões ~ 04/Jul · Informativo Mundial das Missões'
+      + ' ~ 15/Ago · Informativo Mundial das Missões',
+    'os episódios vêm em ordem CRONOLÓGICA e cada um DIZ de que série é — a data '
+    + 'ordena, a série identifica quando o item sai do álbum', JSON.stringify(info.itens));
+  checar((info.itens || [])[3] === 'Informativo Mundial das Missões',
+    'o que não declarou data ENTRA, com o nome da série e no fim do trimestre '
+    + 'dele — nunca uma linha em branco', JSON.stringify(info.itens));
   checar((info.urls || []).join(',') === 'd/4,d/3,d/1,d/5',
     'cada um carrega a URL do vídeo, que é o que a transmissão vai buscar', JSON.stringify(info.urls));
   checar(!(info.urls || []).includes('d/2'),
@@ -380,7 +387,8 @@ try {
   checar(/nomes \(4\), na ordem em que a lista mostra:/.test(reg)
     && /nomes \(3\), na ordem em que a lista mostra:/.test(reg),
     'os NOMES resultantes entram, com a contagem e na ordem da lista');
-  checar(/\n    04\/Jul\n/.test(reg) && /\n    15\/Ago\n/.test(reg),
+  checar(/\n    04\/Jul · Informativo Mundial das Missões\n/.test(reg)
+    && /\n    15\/Ago · Informativo Mundial das Missões\n/.test(reg),
     'um por linha: o rótulo tem " · " e o título cru tem " | ", então nenhum separador serviria');
   checar(/aba do canal \(há \d+ s\)/.test(reg) && /vídeos \(varredura há \d+ s\)/.test(reg),
     'as DUAS metades trazem a própria data — a assinatura pula a extração e só uma delas é de agora');
@@ -458,7 +466,13 @@ try {
       // nenhum. É o corte INCLUSIVO, que é o que o operador descreveu.
       await pgC.clock.setFixedTime(new Date('2026-08-15T12:00:00'));
       const noDia = await ler(false);
-      return { antes, naTerca, naQuarta, noDia };
+      // SÓ A DATA entra na comparação (v5.271): estes casos falam da JANELA, e
+      // comparar o nome inteiro os faria reprovar a cada ajuste de nomenclatura
+      // — foi o que aconteceu quando o rótulo passou a levar a série junto.
+      const soData = (o) => Object.assign({}, o,
+        { itens: (o.itens || []).map((n) => String(n).split(' · ')[0]) });
+      return { antes: soData(antes), naTerca: soData(naTerca),
+        naQuarta: soData(naQuarta), noDia: soData(noDia) };
     } finally { await pgC.close(); }
   })();
   checar(!(corte.antes.itens || []).includes('15/Ago'),
@@ -1931,6 +1945,110 @@ try {
   await pg5.close();
 } catch (e) {
   checar(false, 'o percurso do link do YouTube terminou sem exceção (' + (e && e.message) + ')');
+}
+
+// ── OS FAVORITOS: EXCLUIR NA LINHA, GUIA NO LUGAR, SEM MULTISSELEÇÃO ─────
+// Três relatos do operador, e os três moram nesta lista:
+//
+//   · *"adicione a opção de excluir nas opções nos itens individuais das listas
+//     de cronograma e favoritos"*;
+//   · *"as linhas de guia para a posição final dos itens está completamente
+//     fora de sincronia e posição com a lista"*;
+//   · *"ao segurar em um item da lista de favoritos, ele entra no modo de
+//     multiseleção, mas as opções aparecem na tela do cronograma"*.
+//
+// O caso mora aqui porque a lista dos Favoritos é desenhada DENTRO da
+// Biblioteca (v5.237), e a Biblioteca é a tela que só existe com a ponte.
+try {
+  const pg6 = await ctx.newPage();
+  await pg6.addInitScript(PONTE);
+  await pg6.goto(`http://127.0.0.1:${porta}/controle/`, { waitUntil: 'load' });
+  await pg6.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function',
+    null, { timeout: 20000 });
+
+  const fav = await pg6.evaluate(async () => {
+    setAppMode('full');
+    const ids = [];
+    for (let i = 1; i <= 4; i++) {
+      const m = await AVDB.addMedia(new Blob([new Uint8Array(8)], { type: 'audio/mpeg' }),
+        { name: 'Favorito ' + i, type: 'audio/mpeg', kind: 'audio', list: 'imports' });
+      await AVDB.listAdd('favs', m.id);
+      ids.push(m.id);
+    }
+    await load();
+    openHymnSearch();
+    await new Promise((r) => setTimeout(r, 400));
+    const corpo = document.querySelector('[data-fav-corpo]');
+    const li = corpo && corpo.querySelector('.lib-item[data-id="' + ids[0] + '"]');
+    const ul = li && li.parentElement;
+    if (!ul) return { erro: 'a lista dos favoritos não foi desenhada' };
+
+    // ---- A LINHA-GUIA cai onde a conta promete ----
+    // `showDropLine` posiciona por `absolute` DENTRO da `<ul>`, então a `<ul>`
+    // precisa ser o bloco contendor. Isso valia por acidente no Cronograma
+    // (`.lib-list` é `position: relative`) e não valia aqui.
+    const alvo = ul.children[2].getBoundingClientRect();
+    measureDrag(ul, li);
+    showDropLine(ul, li, alvo.top + 2);
+    const guia = ul.querySelector('.drop-line').getBoundingClientRect();
+    const erroGuia = Math.round(guia.top - alvo.top);
+    hideDropLine(ul);
+
+    // ---- O TOQUE LONGO não liga modo nenhum ----
+    const row = li.querySelector('.row');
+    const ev = (t) => row.dispatchEvent(new PointerEvent(t,
+      { bubbles: true, clientX: 10, clientY: 10, pointerId: 1 }));
+    ev('pointerdown');
+    await new Promise((r) => setTimeout(r, 900));   // bem além do LONGPRESS
+    const modo = selectionMode;
+    ev('pointercancel');
+
+    return {
+      erroGuia,
+      posUl: getComputedStyle(ul).position,
+      modo,
+      temExcluir: !!li.querySelector('.row-excluir'),
+      ids,
+    };
+  });
+  checar(!fav.erro, 'a lista dos Favoritos foi desenhada na Biblioteca', fav.erro);
+  checar(Math.abs(fav.erroGuia) <= 1,
+    'a linha-guia do reordenar cai EXATAMENTE onde a conta promete — a `<ul>` é '
+    + 'o bloco contendor dela', fav.erroGuia + 'px de erro, ul ' + fav.posUl);
+  checar(fav.modo === false,
+    'e o toque longo NÃO liga a seleção múltipla aqui: ela nunca se desenhou '
+    + 'nesta lista, e a barra dela ia parar na tela do Cronograma');
+  checar(fav.temExcluir,
+    'o que aquele modo daria — excluir sem sair da lista — está no `⋮`, um toque');
+
+  // ---- E O EXCLUIR TIRA DA LISTA, sem levar o que está em outra ----
+  const saiu = await pg6.evaluate(async (ids) => {
+    // O primeiro está SÓ nos favoritos; o segundo está também no Cronograma.
+    const alvo = ids[0];
+    const corpo = document.querySelector('[data-fav-corpo]');
+    const li = corpo.querySelector('.lib-item[data-id="' + alvo + '"]');
+    li.querySelector('.row-mais').click();
+    await new Promise((r) => setTimeout(r, 250));
+    li.querySelector('.row-excluir').click();
+    await new Promise((r) => setTimeout(r, 200));
+    document.getElementById('appDialogOk').click();
+    await new Promise((r) => setTimeout(r, 400));
+    return {
+      naLista: !!document.querySelector('[data-fav-corpo] .lib-item[data-id="' + alvo + '"]'),
+      nosFavs: (await AVDB.listIds('favs')).includes(alvo),
+      // Ele estava no Cronograma também (`imports`), e de lá NÃO sai: excluir é
+      // desta lista, e o gc só apaga o que não está em mais nenhuma.
+      noCronograma: (await AVDB.listIds('imports')).includes(alvo),
+    };
+  }, fav.ids);
+  checar(!saiu.naLista && !saiu.nosFavs,
+    'o excluir do `⋮` tira o item DESTA lista', JSON.stringify(saiu));
+  checar(saiu.noCronograma,
+    'e NÃO o tira das outras — "excluir" aqui é sair da lista, não apagar os '
+    + 'bytes de quem ainda os segura', JSON.stringify(saiu));
+  await pg6.close();
+} catch (e) {
+  checar(false, 'o percurso dos Favoritos terminou sem exceção (' + (e && e.message) + ')');
 }
 
 checar(erros.length === 0, 'nenhum erro de console' + (erros.length ? ':\n        ' + erros.join('\n        ') : ''));
