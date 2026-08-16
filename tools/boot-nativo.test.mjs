@@ -1207,10 +1207,23 @@ try {
       const c = corpo();
       return !!c && c.scrollHeight > c.clientHeight + 1;
     };
+    const vazio = { temBotao: !!botao(), cortado: cortado() };
+    // POUCOS, MAS NÃO ZERO — e é este o caso do relato do operador: *"que ele
+    // apenas apareça quando a lista de favoritos for maior que a área de
+    // visualização disponível"*. Com a lista vazia é fácil acertar; o que
+    // precisa estar certo é a régua no meio do caminho.
+    const poucosIds = [];
+    for (let i = 1; i <= 3; i++) {
+      const r = await AVDB.addMedia(new Blob(['q' + i], { type: 'audio/mpeg' }),
+        { name: 'Favorito curto ' + i, list: 'favs' });
+      poucosIds.push(r.id);
+    }
+    await recarregarFavoritos();
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     const poucos = { temBotao: !!botao(), cortado: cortado() };
     // Favoritos que MOLHAM a régua: bastam mais do que cabe no vão, e trinta
     // passam de qualquer tela de celular.
-    const ids = [];
+    const ids = [...poucosIds];
     for (let i = 1; i <= 30; i++) {
       const r = await AVDB.addMedia(new Blob(['v' + i], { type: 'audio/mpeg' }),
         { name: 'Favorito de lote ' + i, list: 'favs' });
@@ -1238,10 +1251,12 @@ try {
     await recarregarFavoritos();
     closeHymnSearch();
     setAppMode(modoAntes);
-    return { poucos, muitos, aberto };
+    return { vazio, poucos, muitos, aberto };
   });
+  checar(!vao.vazio.temBotao && !vao.vazio.cortado,
+    'sem favorito nenhum não há botão: nada foi cortado, nada a expandir');
   checar(!vao.poucos.temBotao && !vao.poucos.cortado,
-    'com poucos favoritos não há botão nenhum: nada foi cortado, nada a expandir');
+    'e com POUCOS ele continua fora — a régua é o vão, não a existência da lista');
   checar(vao.muitos.temBotao && vao.muitos.cortado,
     'com mais do que cabe no vão, a lista é RECORTADA e o botão aparece na base',
     vao.muitos.rotulo);

@@ -2055,9 +2055,19 @@ main {
    encolhe é o dos favoritos, logo abaixo, e lá há um botão que desfaz o corte.
 
    O `li` vira COLUNA FLEX só aqui: fechado ele continua sendo o bloco de
-   antes, e a barra é o único filho visível. */
+   antes, e a barra é o único filho visível.
+
+   E o `align-items`/`gap` NÃO são cosméticos aqui, são a correção de um defeito
+   relatado: `.coll-group` (a classe base) é `display: flex; align-items:
+   center; gap: .5rem`, e o `--drop` a neutralizava com `display: block`.
+   Voltar a `display: flex` RESSUSCITOU as duas — a barra passou a ser
+   centrada e a encolher ao próprio texto, e as linhas mais largas que o card
+   vazavam pelos DOIS lados. **Trocar o `display` de um elemento reativa toda
+   propriedade de flex que estava dormindo nele**, e nenhuma delas erra alto:
+   é a mesma família do `border` da folha do UA (v5.269). */
 #hymnResults > .coll-group--drop.aberto {
   display: flex; flex-direction: column;
+  align-items: stretch; gap: 0;
   flex: 1 0 auto;
 }
 /* O corpo NÃO cresce (`flex-grow: 0`): o vão que sobra fica embaixo dele,
