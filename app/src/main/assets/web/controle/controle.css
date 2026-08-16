@@ -2285,7 +2285,23 @@ main {
    seções na Biblioteca e dois itens no Cronograma, uma escala acima. Fundo só
    quando há ESTADO — e aí é `--linha`, como em qualquer outra linha do app. */
 .coll-songs { gap: .2rem; }
-.coll-songs > .hymn-result { border-radius: var(--radius-btn); }
+/* ---------- E CADA FAIXA TEM CORPO (v5.271) ----------
+   Relato do operador: dentro de um álbum os itens ficam *"soltos no mesmo
+   ambiente, dificultando a visualização de sua área de toque"*.
+   Ele está certo, e a causa é o degrau que a v5.267 não deu: aquela versão
+   tirou o filete e pôs o ESPAÇO no lugar, mas deixou a faixa sem fundo — então
+   o que separava duas linhas era um vão da MESMA cor que elas, isto é, nada. Um
+   espaço só separa quando os dois lados dele têm cor.
+   O preenchimento é o RECESSO do cartão (`--surface`, que aqui dentro afunda),
+   e não um quarto tom da escada: um tom novo levaria o nível mais interno a
+   onde `--muted` reprova AA (a conta está em `tokens.css`), e um overlay
+   preserva a direção nos dois temas. Cada faixa passa a ser um bloco com borda
+   arredondada e área de toque legível — sem uma linha desenhada em lugar
+   nenhum, que é a regra da casa desde a v5.267. */
+.coll-songs > .hymn-result {
+  border-radius: var(--radius-btn);
+  --linha: var(--surface);
+}
 
 /* A sentinela do fim da página (ver `fillSongList`). O objetivo é que ela NÃO
    seja vista: o observador dispara 300px antes, então na rolagem normal a
@@ -3652,6 +3668,9 @@ main {
    dizer um número que não decide nada — ver hymnResultRow. O lugar é do botão
    de adicionar. As regras `.hymn-actions`/`.hymn-variant`/`.hymn-time` que
    descreviam os seis botões antigos saíram junto.) */
+/* E A ABERTA AFUNDA MAIS UM DEGRAU (v5.271): com a faixa fechada já recuada,
+   o overlay da aberta empilha sobre ela e continua sendo o degrau que diz
+   "esta é a que está aberta". */
 /* ABERTA, A FAIXA AFUNDA — e é a mesma regra nos dois lugares em que ela existe
    (v5.267). Ela era `border-color: --accent` + `background: --panel-2` na lista
    de busca e um overlay dentro do álbum: duas gramáticas para o mesmo estado, e

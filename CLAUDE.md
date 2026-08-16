@@ -3053,10 +3053,72 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.271** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.272** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.272: CINCO RELATOS DA LISTA — e dois deles eram recursos que nunca
+> chegaram a existir. OTA PURO** (sem Release).
+>
+> - **EXCLUIR ENTRA NO `⋮`**, nas duas listas (Cronograma e Favoritos). Até aqui
+>   excluir era um caminho só, e era o de LOTE: toque longo → seleção múltipla →
+>   a lixeira do rodapé. Para tirar UM item isso é três gestos e um modo. **A
+>   semântica é a mesma do lote, e de propósito:** sai da LISTA (`listRemove`) e
+>   o coletor decide o resto — se o item também estiver noutra lista, ele fica lá
+>   e os bytes ficam. Duas definições de "excluir" no mesmo app seriam a
+>   divergência que o `deleteSelected` já evitou uma vez. Na PASTA DO APARELHO
+>   ele não entra: ali excluir apaga o arquivo físico, e um mesmo ícone com dois
+>   alcances conforme a tela é a pior forma de oferecer um destrutivo.
+> - **A LINHA-GUIA DO REORDENAR ESTAVA FORA DE LUGAR NOS FAVORITOS**, e a causa é
+>   de uma linha: ela é `position: absolute` e mora dentro da `<ul>`, então a
+>   `<ul>` precisa ser o BLOCO CONTENDOR — o que valia por ACIDENTE, porque o
+>   Cronograma é uma `.lib-list` (que declara `position: relative` desde sempre)
+>   e os Favoritos são uma `.popup-list` (que não declara). Lá a guia se
+>   posicionava contra o `.popup-backdrop` FIXO usando coordenadas medidas em
+>   relação à lista: *"completamente fora de sincronia e posição"*, palavra por
+>   palavra. A garantia passou a vir do JS e não de uma regra por lista, porque o
+>   conjunto de listas que hospedam um arrasto cresce — a v5.237 já acrescentou
+>   uma terceira, e o modo de falhar é silencioso e só visível com o dedo em cima.
+> - **AS FAIXAS DO ÁLBUM GANHARAM CORPO** — *"os itens ficam soltos no mesmo
+>   ambiente, dificultando a visualização de sua área de toque"*. É o degrau que
+>   a v5.267 não deu: ela tirou o filete e pôs o ESPAÇO no lugar, mas deixou a
+>   faixa sem fundo, e **um vão da mesma cor dos dois lados não separa nada**. O
+>   preenchimento é o RECESSO do cartão (overlay, que preserva a direção nos dois
+>   temas), e não um quarto tom da escada — aquele levaria o nível mais interno a
+>   onde `--muted` reprova AA.
+> - **O INFORMATIVO VOLTA A DIZER QUE SÉRIE É.** Relato: os itens saem *"apenas
+>   com o nome com a data, mas sem a identificação de 'Informativo Mundial das
+>   Missões'"*. A v5.244 escolheu só a data com um argumento que era verdadeiro
+>   DENTRO do álbum (o cabeçalho já diz a série; repetir o nome em 52 linhas é a
+>   metade constante ocupando a lista). **O que ele não viu é que o item SAI do
+>   álbum:** no Cronograma ou nos Favoritos ele perde o cabeçalho e vira
+>   "15/Ago · YouTube", sem nada em tela nenhuma que o identifique. Entrou o modo
+>   `TITULO_SERIE`, com um `rotulo` SEM o ano — o ano já está na data ao lado.
+> - **E O TOQUE LONGO SAI DOS FAVORITOS.** Relato: *"ao segurar em um item da
+>   lista de favoritos, ele entra no modo de multiseleção, mas as opções aparecem
+>   na tela do cronograma"*. Ele está descrevendo um modo que **nunca existiu
+>   nesta lista**: `enterSelection` liga o estado e chama `renderLibrary()` — que
+>   redesenha o CRONOGRAMA —, enquanto o `favItemRow` nunca leu `selectionMode`,
+>   isto é, a linha não ganhava caixa de marcação nem realce. O que aparecia na
+>   outra tela era a barra de um modo que aqui não tinha o que operar.
+>
+>   **E o buraco era mais fundo que o desenho:** as ações daquela barra são
+>   keyadas pelo `activeTab` (ver `deleteSelected`), que aqui aponta para a lista
+>   ATRÁS da Biblioteca — a lixeira teria apagado itens do Cronograma. Desenhar o
+>   modo seria consertar a metade que se VÊ de um defeito cuja outra metade
+>   DESTRÓI. O que ele daria a esta lista — excluir sem sair dela — é o primeiro
+>   item deste lote, e está a um toque na própria linha.
+>
+> Verificado por ISOLAMENTO: sem as três correções dos Favoritos, **4** asserções
+> do `boot-nativo.test.mjs` reprovam; sem o preenchimento da faixa, **2** do
+> `smoke.mjs`.
+>
+> **E o oráculo dos Favoritos quase mediu a lista errada.** Os itens do caso
+> nascem no Cronograma (é de lá que se favorita), então um `querySelector` de
+> documento acha a linha DE LÁ — que é posicionada e tem seleção múltipla. Ele
+> teria passado pelo motivo errado, aprovando o defeito; a busca é escopada ao
+> `[data-fav-corpo]`.
 
 > **A v5.271: TRÊS AJUSTES DA LISTA — o Parar toma o lugar da capa, o `⋮` para
 > de mexer o cartão, e o LINK do YouTube entra no ar como qualquer outro item.

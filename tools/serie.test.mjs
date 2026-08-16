@@ -237,8 +237,16 @@ checar(INFO && /@daniellocutor/.test(INFO.canal),
   'o canal é o @daniellocutor', INFO && INFO.canal);
 checar(INFO && INFO.periodo === S.PERIODO_TRIMESTRE,
   'as playlists dela são TRIMESTRAIS', INFO && INFO.periodo);
-checar(INFO && INFO.titulo === S.TITULO_NENHUM,
-  'e o título do vídeo não carrega nome de episódio', INFO && INFO.titulo);
+// v5.271: o modo era `TITULO_NENHUM` (só a data). O relato do operador é que o
+// item SAI do álbum — mandado ao Cronograma ou aos Favoritos, ele perde o
+// cabeçalho que dizia qual é a série e vira "15/Ago · YouTube", sem nada em
+// lugar nenhum que o identifique. `TITULO_SERIE` põe o nome da série no lugar
+// do nome de episódio que aquele canal não publica.
+checar(INFO && INFO.titulo === S.TITULO_SERIE,
+  'e o nome do episódio é a PRÓPRIA SÉRIE — aquele canal não publica um',
+  INFO && INFO.titulo);
+checar(INFO && INFO.rotulo === 'Informativo Mundial das Missões',
+  'com o rótulo SEM o ano: ele já está na data ao lado', INFO && INFO.rotulo);
 
 // ── 7a. A aba Playlists, verbatim do print — QUATRO idiomas lado a lado ─────
 const canalInfo = [
@@ -304,11 +312,14 @@ checar(itensInfo.length === 3, 'os três episódios entram', itensInfo.length);
 checar(itensInfo.map((i) => i.mes + '/' + i.dia).join(',') === '7/4,8/15,9/26',
   'a data do TÍTULO dá o mês de cada um — o trimestre da playlist é só o piso',
   itensInfo.map((i) => i.mes + '/' + i.dia));
-checar(itensInfo.map((i) => S.nomeDoItem(i)).join(' | ') === '04/Jul | 15/Ago | 26/Set',
-  'o nome da lista é a DATA, e só ela: o título é igual nos 52 episódios',
-  itensInfo.map(S.nomeDoItem));
-checar(!itensInfo.some((i) => /Informativo Mundial/.test(S.nomeDoItem(i))),
-  'a metade constante do título NÃO ocupa a linha — era ela que não distinguia nada');
+checar(itensInfo.map((i) => S.nomeDoItem(i)).join(' | ')
+  === '04/Jul · Informativo Mundial das Missões | 15/Ago · Informativo Mundial das Missões'
+    + ' | 26/Set · Informativo Mundial das Missões',
+  'o nome da lista é a DATA e a SÉRIE — a data ordena, a série identifica quando '
+  + 'o item sai do álbum', itensInfo.map(S.nomeDoItem));
+checar(itensInfo.every((i) => /Informativo Mundial/.test(S.nomeDoItem(i))),
+  'e ela está em TODOS: dentro do álbum é repetição, no Cronograma é a única '
+  + 'coisa que distingue aquele item de outro vídeo qualquer');
 
 // A abreviação de três letras, que é como o print TRUNCADO deixa em dúvida.
 const abrev = S.itensDaPlaylist(
@@ -316,7 +327,8 @@ const abrev = S.itensDaPlaylist(
   7, INFO, FIM_DE_ANO);
 checar(abrev.length === 1 && abrev[0].dia === 8 && abrev[0].mes === 8,
   '"08 AGO 2026" (a forma abreviada) lê a mesma data que "08 AGOSTO 2026"', abrev[0]);
-checar(S.nomeDoItem(abrev[0]) === '08/Ago', 'e produz o mesmo rótulo', S.nomeDoItem(abrev[0]));
+checar(S.nomeDoItem(abrev[0]) === '08/Ago · Informativo Mundial das Missões',
+  'e produz o mesmo rótulo', S.nomeDoItem(abrev[0]));
 
 // O ANO no fim do título NÃO pode virar dia de mês nenhum — é a armadilha que
 // esta forma de escrever a data cria, e ela não existia no Provai e Vede.
@@ -351,8 +363,10 @@ const semNada = S.itensDaPlaylist(
 checar(semNada.length === 1, 'REGRA DE OURO: sem data e fora do padrão, o vídeo entra assim mesmo');
 checar(semNada[0].mes === 7 && semNada[0].dia === 0,
   'sem data, ele cai no COMEÇO do trimestre da playlist', semNada[0]);
-checar(S.nomeDoItem(semNada[0]) === 'Especial de encerramento do trimestre',
-  'e o nome cai no título CRU — nunca numa linha vazia, que seria intocável na lista',
+// Sem data, sobra a SÉRIE — e é ela que o `nomeDoItem` usa, não o título cru.
+// A regra de ouro continua intacta: o vídeo ENTRA, e com uma linha que se lê.
+checar(S.nomeDoItem(semNada[0]) === 'Informativo Mundial das Missões',
+  'e o nome cai na SÉRIE — nunca numa linha vazia, que seria intocável na lista',
   S.nomeDoItem(semNada[0]));
 
 // ── 7d. O IDIOMA DO VÍDEO — a recusa que o prefixo NÃO faz ──────────────────
@@ -479,7 +493,10 @@ const trimestreQ3 = [
   { id: 'q3', url: 'd/q3', name: 'Informativo Mundial das Missões | 22 AGOSTO 2026', seconds: 160 },
   { id: 'q4', url: 'd/q4', name: 'Informativo Mundial das Missões | 26 SETEMBRO 2026', seconds: 179 },
 ];
-const nomes = (arr) => arr.map((i) => S.nomeDoItem(i)).join(' ~ ');
+// Estes casos falam da JANELA DE DATAS, não do nome: comparar o nome inteiro os
+// faria reprovar a cada ajuste de nomenclatura (foi o que a v5.271 provocou).
+// A DATA é o que eles medem, e é só ela que entra na comparação.
+const nomes = (arr) => arr.map((i) => S.rotuloData({ dia: i.dia, mes: i.mes })).join(' ~ ');
 const ate15 = S.ordenarItens(S.itensDaPlaylist(trimestreQ3, 7, INFO, SABADO_15));
 checar(nomes(ate15) === '08/Ago ~ 15/Ago',
   '[relato] em 15/Ago a lista vai até 15/Ago — o de hoje ENTRA, o de 22 ainda não',

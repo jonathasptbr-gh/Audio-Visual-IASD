@@ -136,7 +136,11 @@
   // Onde mora o NOME do episódio dentro do título do vídeo. Ver a suposição 2
   // no topo e o KDoc de [tituloDoEpisodio].
   const TITULO_ESQUERDA = 'esquerda';     // "Match point | Provai e Vede 2026 (01/Ago)"
-  const TITULO_NENHUM = 'nenhum';         // "Informativo Mundial das Missões | 15 AGOSTO 2026"
+  const TITULO_NENHUM = 'nenhum';         // (sem consumidor desde a v5.271 — ver TITULO_SERIE)
+  // A SÉRIE É O NOME DO EPISÓDIO (v5.271). Vale quando o canal não põe nome de
+  // episódio nenhum no título ("Informativo Mundial das Missões | 15 AGOSTO
+  // 2026"): em vez de deixar a linha só com a data, ela leva o nome da série.
+  const TITULO_SERIE = 'serie';
 
   // O que fazer com um episódio cujo sábado ainda não chegou. Ver [aindaNaoSaiu]
   // e o campo `futuros` no catálogo.
@@ -204,7 +208,29 @@
       prefixo: 'Informativo',
       ano: 2026,
       periodo: PERIODO_TRIMESTRE,
-      titulo: TITULO_NENHUM,
+      // ---------- O ITEM PRECISA DIZER DE QUE SÉRIE ELE É (v5.271) ----------
+      // Relato do operador: os vídeos do Informativo saem *"apenas com o nome
+      // com a data, mas sem a identificação de 'Informativo Mundial das
+      // Missões' em cada item"*.
+      //
+      // A v5.244 escolheu `TITULO_NENHUM` com um argumento que era verdadeiro
+      // DENTRO do álbum: ali o cabeçalho já diz qual é a série, e repetir o
+      // nome em 52 linhas seria a metade constante ocupando a lista inteira —
+      // "exatamente o defeito que aquela regra existe para corrigir, ao
+      // contrário".
+      //
+      // **O que ele não viu é que o item SAI do álbum.** Mandado ao Cronograma
+      // ou aos Favoritos, ele perde o cabeçalho que o explicava e vira uma
+      // linha "15/Ago" com o subtítulo "YouTube" — e não há nada na tela, em
+      // lugar nenhum, que diga de que série ele é. Nas listas do culto é o
+      // contrário do álbum: o nome da série é a única coisa que distingue
+      // aquele item de qualquer outro vídeo.
+      //
+      // O `rotulo` é o nome SEM o ano, e não o `name` da série: o ano já está
+      // na data ao lado ("15/Ago"), e repeti-lo gastaria a largura que a lista
+      // do Cronograma tem de sobra para o resto.
+      titulo: TITULO_SERIE,
+      rotulo: 'Informativo Mundial das Missões',
       // O CANAL SOBE O TRIMESTRE INTEIRO e libera um sábado por vez (v5.255).
       // Os que ainda não saíram ficam na playlist como "prioridade para
       // membros": aparecem, e não tocam.
@@ -633,6 +659,10 @@
     const t = String(titulo == null ? '' : titulo).replace(/\s+/g, ' ').trim();
     if (!t) return '';
     if (serie && serie.titulo === TITULO_NENHUM) return '';
+    // A SÉRIE COMO NOME: o título do vídeo é ignorado (ele é a série mais a
+    // data, e a data já vem do `nomeDoItem`), e o que fica é o rótulo da série.
+    // Ele NÃO sai do `name` por padrão porque aquele carrega o ano.
+    if (serie && serie.titulo === TITULO_SERIE) return serie.rotulo || serie.name || '';
     const i = t.indexOf('|');
     const esq = i > 0 ? t.slice(0, i).trim() : '';
     return esq || t;
@@ -712,10 +742,10 @@
    *
    * Os três casos degenerados, e nenhum deles pode devolver linha vazia:
    *
-   *  - **só a data** (`TITULO_NENHUM`, o Informativo): "15/Ago". Numa lista de
-   *    52 episódios anuais a data é única, e é a pergunta inteira que aquele
-   *    álbum responde. O que ela não diz — de que história é o episódio — a
-   *    gaveta do item responde com a miniatura e a duração.
+   *  - **só a data** (`TITULO_NENHUM`): "15/Ago". Nenhuma série usa este modo
+   *    desde a v5.271 — o Informativo passou a `TITULO_SERIE`, porque o item
+   *    SAI do álbum e lá fora a data sozinha não diz de que série ele é. O modo
+   *    fica porque a próxima série pode ser um caso em que ele esteja certo.
    *  - **só o título**: o vídeo não declarou data nenhuma (a regra de ouro
    *    mandou ele entrar assim mesmo).
    *  - **nem um nem outro**: sobra o título CRU do YouTube. É feio e é longo,
@@ -797,7 +827,7 @@
 
   global.AVSerie = {
     SERIES,
-    PERIODO_MES, PERIODO_TRIMESTRE, TITULO_ESQUERDA, TITULO_NENHUM,
+    PERIODO_MES, PERIODO_TRIMESTRE, TITULO_ESQUERDA, TITULO_NENHUM, TITULO_SERIE,
     FUTUROS_MOSTRAR, FUTUROS_ESCONDER, DIAS_DE_ANTECEDENCIA,
     MOTIVO_VAZIO, MOTIVO_PREFIXO, MOTIVO_LIBRAS, MOTIVO_IDIOMA,
     MOTIVO_ANO, MOTIVO_PERIODO, MOTIVO_SEM_ID, MOTIVO_FUTURO,
