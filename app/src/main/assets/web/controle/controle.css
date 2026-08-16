@@ -269,6 +269,13 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
 :root { --camada: var(--panel); }
 .popup-sheet, .dialog-card, .simple-conn { --camada: var(--panel-2); }
 .coll-group-corpo { --camada: var(--panel-2); }
+/* A SEÇÃO DOS FAVORITOS DESCEU UM TOM (v5.273) e o degrau de dentro dela desce
+   junto — senão as linhas ficariam a 1,74:1 no escuro e a 1,05:1 no CLARO
+   (`--panel-2` sobre um `--fav-bg` quase igual a ele: elas sumiriam). É a
+   mesma disciplina de sempre: um nível que muda arrasta o de dentro, e o
+   contêiner é quem declara o tom dos filhos. Medido: 1,30:1 no escuro e
+   1,48:1 no claro, os dois acima do piso da escada. */
+.coll-group--fav > .coll-group-corpo { --camada: var(--panel); }
 .coll-songs { --camada: transparent; }
 /* A folha de TELA CHEIA é uma TELA, não um cartão: ela pinta o `--bg` (ver
    `.popup-sheet--full`), então o nível de dentro dela volta a ser o nível 1 —
@@ -2032,6 +2039,72 @@ main {
   background: var(--camada);
   border-radius: var(--radius-card);
 }
+/* ---------- A SEÇÃO ABERTA OCUPA O VÃO (v5.273) ----------
+   Pedido do operador: *"a visão comum inicial vai ser as listas de coleções
+   empilhadas na base, e quando elas acabam, toda a parte da tela que sobrou
+   pra cima, sobra para a seção dos favoritos"*.
+
+   O que torna isto uma regra de UMA linha é a decisão do `controle.js`: com
+   UMA seção aberta por vez, "quem se estica" não precisa ser escolhido — é
+   sempre a única que tem conteúdo, e as fechadas são barras de altura fixa que
+   sobram empilhadas embaixo dela.
+
+   `flex: 1 0 auto` — CRESCE para preencher o vão e **nunca encolhe abaixo do
+   próprio conteúdo**: uma seção com mais álbuns do que cabe empurra as de
+   baixo e quem rola é a Biblioteca inteira, como sempre foi. O único caso que
+   encolhe é o dos favoritos, logo abaixo, e lá há um botão que desfaz o corte.
+
+   O `li` vira COLUNA FLEX só aqui: fechado ele continua sendo o bloco de
+   antes, e a barra é o único filho visível. */
+#hymnResults > .coll-group--drop.aberto {
+  display: flex; flex-direction: column;
+  flex: 1 0 auto;
+}
+/* O corpo NÃO cresce (`flex-grow: 0`): o vão que sobra fica embaixo dele,
+   dentro da seção, e é o tom dela que o preenche. Fazê-lo crescer também
+   mataria a animação de abertura, que anima a ALTURA dele — com `flex-grow` a
+   altura usada deixa de vir do que a animação escreve.
+
+   `flex-shrink: 1` + `min-height: 0` é o que permite o recorte dos favoritos:
+   sem os dois, um filho flex se recusa a ficar menor que o conteúdo. */
+#hymnResults > .coll-group--drop.aberto > .coll-group-corpo {
+  flex: 0 1 auto; min-height: 0;
+}
+/* OS FAVORITOS SÃO RECORTADOS NO VÃO, e só eles. `overflow: hidden` o corpo já
+   tem (é requisito da animação de altura), então basta deixar a seção encolher.
+   O que passa do vão é cortado e o botão da base o traz de volta — ver
+   `acertarVaoDosFavoritos`, que MEDE o transborda em vez de contar itens.
+
+   Expandida, ela volta a ser uma seção como as outras: cresce com o conteúdo e
+   empurra as fechadas para baixo, com a Biblioteca rolando. */
+#hymnResults > .coll-group--fav.aberto:not(.expandido) {
+  flex: 1 1 auto; min-height: 0;
+}
+/* O botão que abre a lista além do vão. Ele é a última faixa do bloco da seção
+   — sem fundo próprio, como a barra — e fica FORA do corpo de propósito: dentro
+   dele seria a primeira coisa a ser cortada. */
+.coll-group-mais {
+  flex-shrink: 0;
+  appearance: none; -webkit-appearance: none;
+  background: none; padding: .45rem .55rem .55rem;
+  font: inherit; font-size: .78rem; font-weight: 600;
+  color: var(--accent); text-align: center; cursor: pointer;
+}
+/* O TOM PRÓPRIO DA SEÇÃO DOS FAVORITOS (v5.273) — as medições estão em
+   `tokens.css`. Ela vale ABERTA E FECHADA: fechada ela é uma barra entre
+   outras barras, e é aí que o tom mais trabalha, dizendo qual delas é antes de
+   o nome ser lido. */
+.coll-group--fav { background: var(--fav-bg); }
+/* ---------- AS SEÇÕES RESPIRAM (v5.273) ----------
+   Pedido do operador: *"aumentar ligeiramente o espaço entre as outras
+   coleções, elas estão muito coladas entre si"*. Elas herdavam o `gap` de
+   .35rem do `.popup-list`, que é a distância entre LINHAS de uma lista — e uma
+   seção não é uma linha: ela é um bloco que contém linhas, e usar a mesma
+   medida para os dois níveis é o que os fazia se ler como uma pilha só.
+
+   Escopado em `#hymnResults`, nunca no `.popup-list`: a mesma classe é a fila
+   da playlist e os itens de uma pasta, onde .35rem é a medida certa. */
+#hymnResults { gap: .6rem; }
 /* ---------- A ESCALA DE TONS DA BIBLIOTECA (v5.241) ----------
    Relato do operador: *"todo o esquema de cores e design está inconsistente"*
    nas coleções colapsadas, nos álbuns e nos itens do álbum.
@@ -2100,8 +2173,10 @@ main {
 .hymnal-card:not(.expanded) .coll-bar-fechar { transform: rotate(180deg); }
 /* (`.coll-group-icon.vago` e `.coll-group--drop.fixo` saíram na v5.262: a seção
    dos Favoritos deixou de ser a única que não colapsa — ela nasce aberta por
-   `gruposAbertos`, e a partir daí é uma seção como as outras. Um lugar
-   reservado sem seta não existe mais nesta lista.) */
+   `grupoAberto`, e a partir daí é uma seção como as outras. Um lugar reservado
+   sem seta não existe mais nesta lista. Desde a v5.273 o toque nela ABERTA não
+   a fecha: ela só se recolhe quando outra abre — e a seta continua ali, e
+   continua sendo a mesma, porque é ela que abre as outras.) */
 /* As AÇÕES da seção, na barra dela (v5.239). O espaçador empurra os botões para
    a direita — o nome fica com `flex: 1` só quando há um contador ao lado, e num
    cabeçalho sem contador ele encolhe ao próprio texto. */

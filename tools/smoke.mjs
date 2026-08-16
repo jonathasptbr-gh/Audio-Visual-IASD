@@ -831,7 +831,7 @@ try {
         has_instrumental_music: false, duration: '3:47' });
     }
     collState[c.id] = { indexSyncedAt: Date.now(), songs, isHymnal: true };
-    gruposAbertos.add('Hinários'); gruposAbertos.add('Arquivos oficiais');
+    grupoAberto = 'Hinários';
     ui(c.id).expanded = true; ui(c.id).shown = 100;
     // Uma lista PRÓPRIA e VISÍVEL, com a largura de um celular: dentro do popup
     // fechado toda medida é zero, e zeros comparados com zeros passam sem medir
@@ -879,7 +879,7 @@ try {
     };
     lista.remove();
     delete collState[c.id];
-    gruposAbertos.clear();
+    grupoAberto = 'Favoritos';
     return r;
   });
   checar(linha.item > 0 && linha.item <= linha.barra * 1.05,
@@ -959,7 +959,7 @@ for (const tema of ['escuro', 'claro']) {
           has_instrumental_music: false, duration: '3:47' });
       }
       collState[c.id] = { indexSyncedAt: Date.now(), songs, isHymnal: true };
-      gruposAbertos.clear(); gruposAbertos.add('Hinários'); gruposAbertos.add('Arquivos oficiais');
+      grupoAberto = 'Hinários';
       ui(c.id).expanded = true; ui(c.id).shown = 100;
       // A LISTA PRECISA MORAR NA FOLHA DE VERDADE (v5.267): o tom de cada nível
       // é herdado do contêiner (`--camada`), então medir a árvore num `<ul>`
@@ -974,9 +974,12 @@ for (const tema of ['escuro', 'claro']) {
         const el = lista.querySelector(sel);
         return el ? getComputedStyle(el).backgroundColor : 'AUSENTE';
       };
-      // A barra FECHADA precisa de um segundo grupo, que este não abriu.
+      // A barra FECHADA precisa de um segundo grupo, que este não abriu — e ele
+      // não pode ser o dos FAVORITOS, que desde a v5.273 tem tom PRÓPRIO de
+      // propósito: medi-lo aqui compararia duas peças diferentes e chamaria
+      // isso de "trocou de cor com o estado".
       const fechada = (() => {
-        const g = [...lista.querySelectorAll('.coll-group--drop:not(.aberto)')];
+        const g = [...lista.querySelectorAll('.coll-group--drop:not(.aberto):not(.coll-group--fav)')];
         return g.length ? getComputedStyle(g[0]).backgroundColor : null;
       })();
       const faixa = lista.querySelector('.coll-songs > .hymn-result');
@@ -996,7 +999,7 @@ for (const tema of ['escuro', 'claro']) {
           return ul ? parseFloat(getComputedStyle(ul).rowGap) : -1;
         })(),
       };
-      lista.remove(); delete collState[c.id]; gruposAbertos.clear();
+      lista.remove(); delete collState[c.id]; grupoAberto = 'Favoritos';
       document.documentElement.setAttribute('data-tema', 'escuro');
       return r;
     }, tema);
@@ -1069,6 +1072,121 @@ for (const tema of ['escuro', 'claro']) {
   }
 }
 
+// ── OS FAVORITOS OCUPAM O VÃO, E TÊM TOM PRÓPRIO (v5.273) ────────────────
+// Pedido do operador: *"a seção dos favoritos ocupa a altura que sobra além do
+// espaço das outras seções no formato colapsado (mesmo que não haja nenhum
+// favorito), dessa forma a visão comum inicial vai ser as listas de coleções
+// empilhadas na base"*, mais o tom próprio e *"aumentar ligeiramente o espaço
+// entre as outras coleções, elas estão muito coladas entre si"*.
+//
+// A medição é na LISTA DE VERDADE (`#hymnResults`, dentro da folha) e com a
+// folha em altura FIXA: as três regras deste lote são de layout, e um `<ul>`
+// solto no `<body>` não tem vão nenhum a repartir — ele cresce com o conteúdo,
+// e "a seção ocupa o que sobra" seria verdade por vacuidade.
+for (const tema of ['escuro', 'claro']) {
+  try {
+    const v = await pg.evaluate(async (tema) => {
+      document.documentElement.setAttribute('data-tema', tema);
+      setAppMode('full');
+      openHymnSearch();
+      grupoAberto = 'Favoritos';
+      renderCollectionsList(hymnResultsEl, () => {}, { semTotal: true });
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const secoes = [...hymnResultsEl.querySelectorAll('.coll-group--drop')];
+      const fav = secoes.find((s) => s.classList.contains('coll-group--fav'));
+      const outras = secoes.filter((s) => !s.classList.contains('coll-group--fav'));
+      const cx = (el) => getComputedStyle(el);
+      const r = {
+        // A seção aberta (a dos favoritos, no estado em que a tela abre) mede
+        // muito mais que uma barra fechada: é ela que come o vão.
+        altFav: fav ? fav.getBoundingClientRect().height : 0,
+        altOutra: outras.length ? outras[0].getBoundingClientRect().height : 0,
+        // O que ela mediria SEM crescer: a barra mais o corpo, que é todo o
+        // conteúdo dela. Sem esta referência a asserção passaria por acidente —
+        // uma seção aberta é naturalmente mais alta que uma barra fechada, e
+        // foi o que a primeira versão deste caso mediu (verificado: ela não
+        // reprovava com o `flex-grow` removido).
+        altConteudoFav: fav ? [...fav.children]
+          .reduce((n, el) => n + el.getBoundingClientRect().height, 0) : 0,
+        // E as fechadas ficam EMPILHADAS NA BASE: a última delas termina onde a
+        // lista termina (descontado o padding de baixo).
+        fundoUltima: outras.length
+          ? outras[outras.length - 1].getBoundingClientRect().bottom : 0,
+        fundoLista: hymnResultsEl.getBoundingClientRect().bottom
+          - parseFloat(cx(hymnResultsEl).paddingBottom),
+        // O TOM PRÓPRIO, e o das outras ao lado para a comparação ser relativa.
+        corFav: fav ? cx(fav).backgroundColor : 'AUSENTE',
+        corOutra: outras.length ? cx(outras[0]).backgroundColor : 'AUSENTE',
+        // E o que as LINHAS dentro dela vestem: um nível que desce arrasta o de
+        // dentro, senão elas sumiriam no tema claro.
+        corLinha: (() => {
+          const corpo = fav && fav.querySelector('.coll-group-corpo');
+          if (!corpo) return 'AUSENTE';
+          const p = document.createElement('div');
+          p.className = 'lib-item';
+          corpo.appendChild(p);
+          const c = cx(p).backgroundColor;
+          p.remove();
+          return c;
+        })(),
+        // O ESPAÇO entre seções, contra o das linhas de uma lista comum: a
+        // relação é a afirmação (um número aqui envelheceria na primeira troca
+        // de medida), e ela é o pedido — uma seção não é uma linha.
+        gapSecoes: parseFloat(cx(hymnResultsEl).rowGap),
+        gapLista: (() => {
+          const u = document.createElement('ul');
+          u.className = 'popup-list';
+          document.body.appendChild(u);
+          const g = parseFloat(getComputedStyle(u).rowGap);
+          u.remove();
+          return g;
+        })(),
+      };
+      closeHymnSearch();
+      document.documentElement.setAttribute('data-tema', 'escuro');
+      return r;
+    }, tema);
+    const lum = (s) => {
+      const m = s.match(/[\d.]+/g) || [];
+      const c = m.slice(0, 3).map((x) => {
+        const n = Number(x) / 255;
+        return n <= 0.03928 ? n / 12.92 : Math.pow((n + 0.055) / 1.055, 2.4);
+      });
+      return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    };
+    const razao = (a, b) => {
+      const x = lum(a); const y = lum(b);
+      return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+    };
+    // O VAZIO QUE ELA ABSORVEU tem de ser maior que uma seção fechada inteira.
+    // Uma folga pequena não prova nada — a seção tem padding próprio, e sem o
+    // crescimento ela já sobra ~12px sobre o conteúdo (medido).
+    checar(v.altFav - v.altConteudoFav > v.altOutra,
+      '[' + tema + '] a seção dos FAVORITOS ocupa o vão que sobra, mesmo sem '
+      + 'nenhum favorito (' + Math.round(v.altFav) + 'px, contra '
+      + Math.round(v.altConteudoFav) + 'px do conteúdo dela e '
+      + Math.round(v.altOutra) + 'px de uma seção fechada)');
+    checar(Math.abs(v.fundoUltima - v.fundoLista) <= 1,
+      '[' + tema + '] e as fechadas ficam EMPILHADAS NA BASE — a última termina '
+      + 'onde a lista termina (' + Math.round(v.fundoUltima) + ' contra '
+      + Math.round(v.fundoLista) + ')');
+    const dTom = razao(v.corFav, v.corOutra);
+    checar(dTom >= 1.15,
+      '[' + tema + '] ela tem TOM PRÓPRIO, distinto do das outras seções ('
+      + dTom.toFixed(2) + ':1)');
+    const dLinha = razao(v.corLinha, v.corFav);
+    checar(dLinha >= 1.28,
+      '[' + tema + '] e o degrau de dentro dela desce junto: a linha continua a '
+      + 'se ler sobre o tom novo (' + dLinha.toFixed(2) + ':1)');
+    checar(v.gapSecoes > v.gapLista,
+      '[' + tema + '] e uma SEÇÃO respira mais que uma linha de lista ('
+      + v.gapSecoes + 'px contra ' + v.gapLista + 'px)');
+  } catch (e) {
+    checar(false, 'a medição do vão dos favoritos (' + tema + ') terminou sem exceção ('
+      + (e && e.message) + ')');
+  }
+}
+
 // ── A COLUNA DA DIREITA NÃO SE MEXE (v5.242) ─────────────────────────────
 // Pedido do operador: a seta de fechar o acordeão vai para a THUMB do álbum,
 // "não precisando mover os números referentes ao tamanho do álbum que hoje
@@ -1094,7 +1212,7 @@ try {
           fileIdFull: (completo || i < 3) ? 'f' + i : null });
       }
       collState[c.id] = { indexSyncedAt: Date.now(), songs, isHymnal: true };
-      gruposAbertos.clear(); gruposAbertos.add('Hinários'); gruposAbertos.add('Arquivos oficiais');
+      grupoAberto = 'Hinários';
       ui(c.id).expanded = aberto; ui(c.id).shown = 100;
       const lista = document.createElement('ul');
       lista.className = 'hymnal-list';
@@ -1119,7 +1237,7 @@ try {
       completoFechado: medir(true, false), completoAberto: medir(true, true),
       parcialFechado: medir(false, false), parcialAberto: medir(false, true),
     };
-    delete collState[c.id]; gruposAbertos.clear();
+    delete collState[c.id]; grupoAberto = 'Favoritos';
     return r;
   });
   checar(col.completoAberto.naThumb && !col.completoAberto.naDireita,
@@ -1142,7 +1260,7 @@ try {
       lista.className = 'hymnal-list';
       lista.style.width = '390px';
       document.body.appendChild(lista);
-      gruposAbertos.clear();
+      grupoAberto = 'Hinários';
       renderCollectionsList(lista, () => {}, { semTotal: true });
       const cx = (el) => (el ? getComputedStyle(el) : null);
       const secao = lista.querySelector('.coll-group--drop > .coll-group-bar > .coll-group-icon');
@@ -1216,15 +1334,10 @@ try {
         has_instrumental_music: false, duration: '3:47', fileIdFull: i < 3 ? 'f' + i : null });
     }
     collState[c.id] = { indexSyncedAt: Date.now(), songs, isHymnal: true };
-    gruposAbertos.clear();
-    gruposAbertos.add('Hinários'); gruposAbertos.add('Arquivos oficiais');
-    gruposAbertos.add('CDs do ano');
     const lista = document.createElement('ul');
     lista.className = 'hymnal-list';
     lista.style.width = '390px';
     document.body.appendChild(lista);
-    renderCollectionsList(lista, () => {}, { semTotal: true });
-    const cards = [...lista.querySelectorAll('.hymnal-card')];
     const ler = (card) => {
       const alt = (sel) => {
         const el = card.querySelector(sel);
@@ -1243,11 +1356,23 @@ try {
         temSub: !!card.querySelector('.coll-bar-sub'),
       };
     };
-    const r = cards.map(ler);
+    // DUAS PASSADAS, uma por seção (v5.273): o caso precisa de um card COM
+    // subtítulo (o álbum de "CDs do ano") e de um SEM (o hinário), e desde
+    // aquele lote só uma seção fica aberta por vez — abrir as duas de uma vez
+    // deixou de ser representável, que é justamente o ponto dele. E a LEITURA
+    // acontece dentro de cada passada: um card medido depois de a lista ser
+    // refeita está fora do documento, e ali toda medida é zero.
+    const r = [];
+    for (const secao of ['Hinários', 'CDs do ano']) {
+      grupoAberto = secao;
+      lista.innerHTML = '';
+      renderCollectionsList(lista, () => {}, { semTotal: true });
+      r.push(...[...lista.querySelectorAll('.hymnal-card')].map(ler));
+    }
     lista.remove();
     delete collState[c.id];
     albumCatalog.categories = []; albumCatalog.albums = [];
-    gruposAbertos.clear();
+    grupoAberto = 'Favoritos';
     return r;
   });
   const comSub = peso.find((c) => c.temSub);

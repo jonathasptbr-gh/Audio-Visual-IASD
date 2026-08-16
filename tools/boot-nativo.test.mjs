@@ -562,36 +562,38 @@ try {
     // de qualquer coleção só é CONSTRUÍDO quando o grupo dele abre. Este caso
     // fala do card, então ele abre o grupo primeiro — e o passo é, ele próprio,
     // a afirmação de que o grupo existe com esse nome.
-    gruposAbertos.add('Hinários'); gruposAbertos.add('Arquivos oficiais');
+    //
+    // UMA PASSADA POR GRUPO desde a v5.273: só uma seção fica aberta por vez,
+    // e este caso precisa dos cards de DUAS. Os NOMES dos grupos (e a ordem
+    // deles) valem em qualquer passada — a barra é desenhada aberta ou fechada.
+    const grupoDoCard = (re) => {
+      const card = [...lista.querySelectorAll('.hymnal-card')]
+        .find((el) => re.test(el.textContent));
+      const g = card && card.closest('.coll-group');
+      return g ? (g.querySelector('.coll-group-name') || {}).textContent.trim() : '';
+    };
+    const guardado = grupoAberto;
+    // `renderCollectionsList` ACRESCENTA à lista (a lição da v5.232): sem
+    // limpar entre as passadas, a segunda mediria os cards da primeira.
+    grupoAberto = 'Arquivos oficiais';
+    lista.innerHTML = '';
     renderCollectionsList(lista, () => {}, { semTotal: true });
     const grupos = [...lista.querySelectorAll('.coll-group-name')].map((e) => e.textContent.trim());
     const linhas = [...lista.children].map((li) => (li.className.includes('coll-group')
       ? 'GRUPO: ' + li.textContent.trim().split('\n')[0]
       : 'card: ' + li.textContent.trim().split('\n')[0]));
-    gruposAbertos.delete('Hinários'); gruposAbertos.delete('Arquivos oficiais');
+    const texto = lista.textContent;
+    // O grupo em que cada card de fato vive. É a pergunta inteira da v5.260: a
+    // separação não é um cabeçalho a mais, é o card mudar de casa.
+    const grupoDaSerie = grupoDoCard(/Provai e Vede 2026/);
+    const grupoDoInformativo = grupoDoCard(/Informativo Mundial das Missões 2026/);
+    grupoAberto = 'Hinários';
+    lista.innerHTML = '';
+    renderCollectionsList(lista, () => {}, { semTotal: true });
+    const grupoDoHinario = grupoDoCard(/Hinário/);
+    grupoAberto = guardado;
     return {
-      texto: lista.textContent,
-      grupos,
-      // O grupo em que cada card de fato vive. É a pergunta inteira da v5.260:
-      // a separação não é um cabeçalho a mais, é o card mudar de casa.
-      grupoDaSerie: (() => {
-        const card = [...lista.querySelectorAll('.hymnal-card')]
-          .find((el) => /Provai e Vede 2026/.test(el.textContent));
-        const g = card && card.closest('.coll-group');
-        return g ? (g.querySelector('.coll-group-name') || {}).textContent.trim() : '';
-      })(),
-      grupoDoInformativo: (() => {
-        const card = [...lista.querySelectorAll('.hymnal-card')]
-          .find((el) => /Informativo Mundial das Missões 2026/.test(el.textContent));
-        const g = card && card.closest('.coll-group');
-        return g ? (g.querySelector('.coll-group-name') || {}).textContent.trim() : '';
-      })(),
-      grupoDoHinario: (() => {
-        const card = [...lista.querySelectorAll('.hymnal-card')]
-          .find((el) => /Hinário/.test(el.textContent));
-        const g = card && card.closest('.coll-group');
-        return g ? (g.querySelector('.coll-group-name') || {}).textContent.trim() : '';
-      })(),
+      texto, grupos, grupoDaSerie, grupoDoInformativo, grupoDoHinario,
       posSerie: linhas.findIndex((l) => l.includes('Provai e Vede 2026')),
     };
   });
@@ -691,7 +693,8 @@ try {
   // O download EM LOTE não pode existir para a série: são ~52 vídeos.
   const semLote = await pg.evaluate(() => {
     const lista = document.getElementById('hymnResults');
-    gruposAbertos.add('Hinários'); gruposAbertos.add('Arquivos oficiais');  // fechados desde a v5.237
+    const guardado = grupoAberto;
+    grupoAberto = 'Arquivos oficiais';  // fechado desde a v5.237, e um por vez desde a v5.273
     renderCollectionsList(lista, () => {}, { semTotal: true });
     const cards = [...lista.querySelectorAll('.hymnal-card')];
     const card = cards.find((el) => /Provai e Vede 2026/.test(el.textContent));
@@ -699,7 +702,7 @@ try {
       achou: !!card,
       temBotaoBaixar: !!(card && card.querySelector('.coll-bar-dl')),
     };
-    gruposAbertos.delete('Hinários'); gruposAbertos.delete('Arquivos oficiais');
+    grupoAberto = guardado;
     return r;
   });
   checar(semLote.achou, 'o card da série está na lista para ser medido');
@@ -829,7 +832,7 @@ try {
     // mais nada. Um `clear()` seguido de um `add('Favoritos')` mediria a
     // suposição do teste, não a decisão do app; e este `[...]` ainda serve de
     // guarda de que os casos acima devolveram o que tomaram emprestado.
-    const padrao = [...gruposAbertos];
+    const padrao = grupoAberto;
     const lista = document.createElement('ul');
     lista.className = 'hymnal-list';
     lista.style.width = '390px';
@@ -851,25 +854,20 @@ try {
       temSeta: !!(gFav && gFav.querySelector('.coll-group-bar > button.coll-group-icon')),
       corpoVisivel: !!(corpoFav && corpoFav.getBoundingClientRect().height > 0),
     };
-    // E ela FECHA no toque. O recolhimento é animado antes de o nó ser
-    // redesenhado (`collapseAccordion`), então a leitura espera o desfecho — e a
-    // espera é, ela própria, a afirmação de que a animação existe.
+    // ELA NÃO FECHA NO PRÓPRIO TOQUE (v5.273) — *"sempre deixe uma aberta, no
+    // caso a dos favoritos, onde ela só fecha se outra for aberta"*. O toque
+    // nela aberta é um no-op declarado: fechá-la para reabri-la seria um piscar
+    // sem desfecho. A espera é generosa de propósito — o recolhimento das
+    // outras é animado (`collapseAccordion`), e ler cedo aprovaria uma seção
+    // que fecha meio segundo depois.
     const setaFav = gFav && gFav.querySelector('.coll-group-bar > button.coll-group-icon');
     if (setaFav) setaFav.click();
     await new Promise((r) => setTimeout(r, 400));
-    const depois = acharFav();
-    fav.fechaNoToque = !!(depois && !depois.classList.contains('aberto'))
-      && !gruposAbertos.has('Favoritos');
-    // E volta a abrir, senão "colapsável" seria uma porta de mão única.
-    const setaFav2 = depois && depois.querySelector('.coll-group-bar > button.coll-group-icon');
-    if (setaFav2) setaFav2.click();
-    await new Promise((r) => setTimeout(r, 400));
-    fav.reabre = !!(acharFav() || {}).classList
-      && acharFav().classList.contains('aberto');
-    // Daqui para baixo o caso é o do ÍNDICE, que fala dos grupos de coleção:
-    // tudo fechado, inclusive os Favoritos, para a altura de "fechado" ser
-    // comparável com a de "aberto".
-    gruposAbertos.clear();
+    fav.seguraNoProprioToque = !!(acharFav() || {}).classList
+      && acharFav().classList.contains('aberto') && grupoAberto === 'Favoritos';
+    // Daqui para baixo o caso é o do ÍNDICE, que fala dos grupos de coleção. A
+    // referência de "fechado" é a tela como ela ABRE: os Favoritos (que não têm
+    // card nenhum) e todas as coleções recolhidas.
     desenhar();
     const fechado = {
       grupos,
@@ -879,17 +877,17 @@ try {
       // diria a mesma coisa.
       altura: lista.getBoundingClientRect().height,
     };
-    // O TOQUE nos cabeçalhos dos DOIS grupos fixos (v5.260): os hinários e os
-    // Arquivos oficiais, que deixaram de ser um grupo só. Abrir os dois é o que
-    // mantém esta medição comparável com a de antes — e o caso continua sendo
-    // "fechado não constrói card, o toque constrói".
-    for (const nome of [/^Hinários/, /^Arquivos oficiais/]) {
+    // O TOQUE no cabeçalho dos Arquivos oficiais. Ele responde DUAS perguntas
+    // de uma vez desde a v5.273: "fechado não constrói card, o toque constrói"
+    // (v5.237) e "abrir uma FECHA a que estava aberta" — que aqui é a dos
+    // Favoritos, isto é, a única forma que existe de fechá-la.
+    const tocar = async (re) => {
       const barra = [...lista.querySelectorAll('.coll-group-bar')]
-        .find((b) => nome.test(b.textContent.trim()));
+        .find((b) => re.test(b.textContent.trim()));
       if (barra) barra.click();
-      await new Promise((r) => setTimeout(r, 30));
-    }
-    await new Promise((r) => setTimeout(r, 20));
+      await new Promise((r) => setTimeout(r, 400));
+    };
+    await tocar(/^Arquivos oficiais/);
     const aberto = {
       cards: lista.querySelectorAll('.hymnal-card').length,
       temSerie: /Provai e Vede 2026/.test(lista.textContent),
@@ -897,13 +895,20 @@ try {
       // O card vive DENTRO do corpo do grupo, não solto na lista: é isso que
       // faz a árvore ser uma árvore.
       dentroDoCorpo: !!lista.querySelector('.coll-group-corpo .hymnal-card'),
+      // E a que estava aberta se fechou — uma por vez, medida no DOM.
+      favFechou: !!(acharFav() && !acharFav().classList.contains('aberto')),
+      abertas: lista.querySelectorAll('.coll-group--drop.aberto').length,
     };
+    // E FECHAR A ABERTA VOLTA AOS FAVORITOS, que é o "sempre uma aberta" pelo
+    // outro lado: sem isto a tela poderia ficar sem nenhuma.
+    await tocar(/^Arquivos oficiais/);
+    fav.voltaAoFechar = !!(acharFav() && acharFav().classList.contains('aberto'))
+      && grupoAberto === 'Favoritos';
     lista.remove();
-    // Devolve o estado PADRÃO do app, não um `Set` vazio: os casos abaixo
-    // desenham a Biblioteca de verdade, e deixá-la sem os Favoritos abertos
-    // seria emprestar a este arquivo um comportamento que o app não tem.
-    gruposAbertos.clear();
-    gruposAbertos.add('Favoritos');
+    // Devolve o estado PADRÃO do app: os casos abaixo desenham a Biblioteca de
+    // verdade, e deixá-la noutra seção seria emprestar a este arquivo um
+    // comportamento que o app não tem.
+    grupoAberto = 'Favoritos';
     return { fechado, aberto, fav };
   });
   checar(indice.fechado.grupos.length >= 2 && indice.fechado.cards === 0,
@@ -912,22 +917,30 @@ try {
   checar(indice.fechado.grupos[0] === 'Favoritos',
     'e o primeiro deles é FAVORITOS, no topo da listagem',
     JSON.stringify(indice.fechado.grupos));
-  // ── OS FAVORITOS: ABERTOS POR PADRÃO, E COLAPSÁVEIS (v5.238 → v5.262) ───
-  // Pedido do operador: *"que continue em aberto como padrão ao abrir a aba de
-  // buscas, mas que assim como as outras, tenha uma thumb/botão para colapsar
-  // ela."* São TRÊS metades, e nenhuma basta: o padrão (senão a seção nasceria
-  // fechada como qualquer outra), a seta (senão não há como recolher) e o toque
-  // que de fato recolhe **e** reabre — a v5.238 tinha a primeira e negava as
-  // outras duas.
-  checar(indice.fav.padrao.length === 1 && indice.fav.padrao[0] === 'Favoritos',
+  // ── UMA ABERTA POR VEZ, E SEMPRE UMA (v5.238 → v5.262 → v5.273) ────────
+  // Pedido do operador: *"só permita uma coleção aberta por vez e sempre deixe
+  // uma aberta, no caso a dos favoritos, onde ela só fecha se outra for
+  // aberta"*. São QUATRO metades, e nenhuma basta: o padrão (senão a seção
+  // nasceria fechada como qualquer outra), o toque nela própria que NÃO a fecha
+  // (senão a tela ficaria sem nenhuma), abrir outra que a fecha (senão seriam
+  // duas), e fechar a outra que a traz de volta.
+  //
+  // A v5.262 tinha o contrário da segunda — o toque nela recolhia —, e esta
+  // versão a revoga: a seta continua ali, e o que ela faz é abrir as outras.
+  checar(indice.fav.padrao === 'Favoritos',
     'o PADRÃO do app é uma seção aberta e uma só: os Favoritos',
     JSON.stringify(indice.fav.padrao));
   checar(indice.fav.corpoVisivel,
     'e é assim que a Biblioteca abre — os favoritos à vista, o resto fechado');
   checar(indice.fav.temSeta,
     'ela tem a MESMA seta das outras seções, na thumb da barra');
-  checar(indice.fav.fechaNoToque && indice.fav.reabre,
-    'e o toque nela RECOLHE — e reabre, senão "colapsável" seria mão única');
+  checar(indice.fav.seguraNoProprioToque,
+    'o toque NELA não a fecha: a tela nunca fica sem nenhuma seção aberta');
+  checar(indice.aberto.favFechou && indice.aberto.abertas === 1,
+    'abrir outra é que a fecha — e fica UMA aberta, nunca duas',
+    indice.aberto.abertas + ' aberta(s)');
+  checar(indice.fav.voltaAoFechar,
+    'e fechar essa outra devolve os Favoritos, que é o piso da tela');
   checar(indice.aberto.cards > 0 && indice.aberto.temSerie,
     'o toque no cabeçalho abre a seção e os cards aparecem',
     indice.aberto.cards + ' card(s)');
@@ -950,7 +963,7 @@ try {
     // Só os Favoritos abertos — o PADRÃO do app (v5.262). Antes a linha era um
     // `clear()` seco, com a nota "a seção é FIXA: não depende disto"; ela passou
     // a depender, e um `clear()` a deixaria fechada e sem corpo para medir.
-    gruposAbertos.clear(); gruposAbertos.add('Favoritos');
+    grupoAberto = 'Favoritos';
     const lista = document.createElement('ul');
     lista.className = 'hymnal-list';
     lista.style.width = '390px';
@@ -1073,7 +1086,7 @@ try {
     lista2.remove();
     favItems = guardados;
     lista.remove();
-    gruposAbertos.clear(); gruposAbertos.add('Favoritos');
+    grupoAberto = 'Favoritos';
     await AVDB.listRemove('favs', rec.id);
     await recarregarFavoritos();
     return r;
@@ -1170,6 +1183,74 @@ try {
   checar(favVivo.rolagemAntes === 0 || favVivo.rolagemDepois === favVivo.rolagemAntes,
     'e o redesenho é da SEÇÃO, não da Biblioteca inteira: a rolagem não volta ao topo',
     JSON.stringify(favVivo));
+
+  // ── O BOTÃO QUE ABRE A LISTA ALÉM DO VÃO (v5.273) ──────────────────────
+  //
+  // Pedido do operador: *"caso tenha mais itens do que cabe nesse vão, vai ter
+  // um botão na sua base que permite a expansão total da lista"*.
+  //
+  // As TRÊS metades, e nenhuma basta sozinha: com poucos favoritos o botão NÃO
+  // existe (senão ele seria um controle permanente oferecendo o que já está à
+  // vista), com muitos ele aparece, e o toque nele mostra de fato o que estava
+  // cortado — sem a terceira, um botão que só troca de rótulo passaria.
+  //
+  // A medição é na Biblioteca DE VERDADE: o recorte é uma consequência de a
+  // seção ter um vão finito, e num `<ul>` solto no `<body>` não há vão nenhum.
+  const vao = await pg.evaluate(async () => {
+    const modoAntes = appMode;
+    setAppMode('full');
+    openHymnSearch();
+    await new Promise((r) => setTimeout(r, 250));
+    const corpo = () => document.querySelector('#hymnResults [data-fav-corpo]');
+    const botao = () => document.querySelector('#hymnResults .coll-group-mais');
+    const cortado = () => {
+      const c = corpo();
+      return !!c && c.scrollHeight > c.clientHeight + 1;
+    };
+    const poucos = { temBotao: !!botao(), cortado: cortado() };
+    // Favoritos que MOLHAM a régua: bastam mais do que cabe no vão, e trinta
+    // passam de qualquer tela de celular.
+    const ids = [];
+    for (let i = 1; i <= 30; i++) {
+      const r = await AVDB.addMedia(new Blob(['v' + i], { type: 'audio/mpeg' }),
+        { name: 'Favorito de lote ' + i, list: 'favs' });
+      ids.push(r.id);
+    }
+    await recarregarFavoritos();
+    // A medição do transbordo é adiada um quadro de propósito (ver
+    // `acertarVaoDosFavoritos`), então a leitura espera dois.
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const muitos = {
+      temBotao: !!botao(),
+      cortado: cortado(),
+      rotulo: botao() ? botao().textContent.trim() : '',
+      alturaCorpo: corpo() ? corpo().getBoundingClientRect().height : 0,
+    };
+    if (botao()) botao().click();
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const aberto = {
+      cortado: cortado(),
+      rotulo: botao() ? botao().textContent.trim() : '',
+      alturaCorpo: corpo() ? corpo().getBoundingClientRect().height : 0,
+    };
+    if (botao()) botao().click();   // devolve o estado recolhido aos casos seguintes
+    for (const id of ids) await AVDB.listRemove('favs', id);
+    await recarregarFavoritos();
+    closeHymnSearch();
+    setAppMode(modoAntes);
+    return { poucos, muitos, aberto };
+  });
+  checar(!vao.poucos.temBotao && !vao.poucos.cortado,
+    'com poucos favoritos não há botão nenhum: nada foi cortado, nada a expandir');
+  checar(vao.muitos.temBotao && vao.muitos.cortado,
+    'com mais do que cabe no vão, a lista é RECORTADA e o botão aparece na base',
+    vao.muitos.rotulo);
+  checar(!vao.aberto.cortado && vao.aberto.alturaCorpo > vao.muitos.alturaCorpo,
+    'e o toque nele mostra a lista inteira — o corpo cresce além do vão ('
+    + Math.round(vao.muitos.alturaCorpo) + 'px → ' + Math.round(vao.aberto.alturaCorpo) + 'px)');
+  checar(vao.aberto.rotulo && vao.aberto.rotulo !== vao.muitos.rotulo,
+    'com o caminho de volta no mesmo botão, que troca de verbo',
+    vao.muitos.rotulo + ' → ' + vao.aberto.rotulo);
 
   // ── A MIGRAÇÃO DOS ATALHOS DE PASTA (v5.254) ───────────────────────────
   //
@@ -1331,7 +1412,7 @@ try {
     lista.className = 'hymnal-list';
     lista.style.width = '390px';
     document.body.appendChild(lista);
-    gruposAbertos.add('Hinários'); gruposAbertos.add('Arquivos oficiais');  // fechados desde a v5.237
+    grupoAberto = 'Arquivos oficiais';  // fechado desde a v5.237, e um por vez desde a v5.273
     renderCollectionsList(lista, () => {}, { semTotal: true });
     const card = [...lista.querySelectorAll('.hymnal-card')]
       .find((el) => /Provai e Vede 2026/.test(el.textContent));
@@ -1423,7 +1504,7 @@ try {
     + (lx ? Math.round(lx.larg) + 'px contra ' + Math.round(lx.largVerificar) + 'px' : '?') + ')');
   await pg.evaluate(() => {
     allCollections().forEach((c) => { ui(c.id).expanded = false; });
-    gruposAbertos.delete('Hinários'); gruposAbertos.delete('Arquivos oficiais');
+    grupoAberto = 'Favoritos';
     redesenharAcervo();
   });
 
