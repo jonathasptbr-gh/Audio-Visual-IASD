@@ -1159,19 +1159,17 @@ for (const tema of ['escuro', 'claro']) {
             esqSecao: alvo.getBoundingClientRect().left,
           };
         })(),
-        // ===== O CABEÇALHO E A BARRA (v5.277) =====
+        // ===== A BARRA É O TOPO DA FOLHA (v5.280) =====
         barra: (() => {
-          const cab = document.querySelector('#hymnSearchPopup .popup-header');
+          const folha = document.querySelector('#hymnSearchPopup .popup-sheet');
           const bar = document.querySelector('#hymnSearchPopup .hymn-search-bar');
-          const tit = document.getElementById('hymnSearchTitle');
           const fechar = document.getElementById('hymnSearchClose');
           const campo = document.getElementById('hymnSearchInput');
           const cx2 = (el) => el.getBoundingClientRect();
           return {
-            corCabec: cx(cab).backgroundColor,
-            corBarra: cx(bar).backgroundColor,
-            centroTitulo: cx2(tit).left + cx2(tit).width / 2,
-            centroTela: cx2(cab).left + cx2(cab).width / 2,
+            semCabecalho: !document.querySelector('#hymnSearchPopup .popup-header'),
+            semTitulo: !document.getElementById('hymnSearchTitle'),
+            primeira: folha.firstElementChild === bar,
             fecharL: cx2(fechar).width, fecharA: cx2(fechar).height,
             campoA: cx2(campo).height,
           };
@@ -1268,14 +1266,11 @@ for (const tema of ['escuro', 'claro']) {
     checar(v.outra.sobraColecao >= 0 && v.outra.sobraColecao < v.altOutra,
       '[' + tema + '] e a COLEÇÃO aberta mede o conteúdo dela, sem inchar ('
       + Math.round(v.outra.sobraColecao) + 'px de vazio dentro dela)');
-    checar(v.barra.corCabec === v.barra.corBarra,
-      '[' + tema + '] o cabeçalho e a barra de busca são UMA peça: mesmo fundo, '
-      + 'duas faixas fixas sobre a mesma lista', v.barra.corCabec);
-    // O TÍTULO no centro da TELA, não o par ícone+título: centrar a linha flex
-    // deslocaria a palavra pela metade da largura do ícone (14px, medidos).
-    checar(Math.abs(v.barra.centroTitulo - v.barra.centroTela) <= 1,
-      '[' + tema + '] e o título fica exatamente no centro ('
-      + Math.round(v.barra.centroTitulo) + ' contra ' + Math.round(v.barra.centroTela) + ')');
+    // O CABEÇALHO SAIU (v5.280): a barra é o primeiro elemento da folha, e é
+    // isso — e não um mecanismo de posicionamento — que a mantém no topo.
+    checar(v.barra.semCabecalho && v.barra.semTitulo && v.barra.primeira,
+      '[' + tema + '] a barra de busca é o TOPO da folha: sem cabeçalho, sem '
+      + 'título, nada acima dela');
     // QUADRADO. `aspect-ratio` não resolve isto dentro de um flex (a largura é
     // resolvida antes de o `stretch` dar altura), e a primeira versão colapsou
     // o botão na largura do glifo — 20px, medidos.
@@ -2212,7 +2207,6 @@ try {
       folha: caixa('#hymnSearchPopup .popup-sheet'),
       barra: caixa('#hymnSearchPopup .hymn-search-bar'),
       lista: caixa('#hymnResults'),
-      cabec: caixa('#hymnSearchPopup .popup-header'),
     });
     setAppMode('full');
     openHymnSearch();
@@ -2232,39 +2226,29 @@ try {
     return { sem, com, visivelTopo, visivelBase };
   });
   const perto = (a, b) => Math.abs(a - b) <= 1;
-  // A BARRA VOLTOU AO TOPO (v5.275, decisão do operador). O que este caso trava
-  // desde a v5.261 continua sendo o mesmo — a folha é a FAIXA VISÍVEL, e a
-  // listagem não é empurrada para fora do topo —, e o que muda é de que lado da
-  // lista a barra está. As duas primeiras asserções são a ORDEM da folha:
-  // cabeçalho, barra, lista; sem elas, uma barra que voltasse para a base
-  // passaria pelo resto do caso sem reprovar nada.
-  checar(!!geo.sem.barra && !!geo.sem.cabec && perto(geo.sem.barra.top, geo.sem.cabec.bottom),
-    'sem teclado, a barra de busca fica no TOPO, logo abaixo do cabeçalho');
+  // A BARRA VOLTOU AO TOPO (v5.275) e, desde a v5.280, ela É o topo: o
+  // cabeçalho saiu. As duas primeiras asserções são a ORDEM da folha — barra,
+  // lista —; sem elas, uma barra que voltasse para a base passaria pelo resto
+  // do caso sem reprovar nada.
+  checar(!!geo.sem.barra && !!geo.sem.folha && perto(geo.sem.barra.top, geo.sem.folha.top),
+    'sem teclado, a barra de busca É o topo da folha');
   checar(!!geo.sem.lista && perto(geo.sem.lista.top, geo.sem.barra.bottom)
     && geo.sem.lista.bottom > geo.sem.barra.bottom,
     'e a lista começa onde ela termina — a rolagem passa por BAIXO dela');
-  // O TECLADO SOBREPÕE, MAS O TOPO ACOMPANHA O QUE SE VÊ (v5.277 → v5.278).
-  // São DUAS contas, e a v5.277 tirou as duas de uma vez por engano: `--kb`
-  // ENCOLHE a camada (o *"deslocada inteira para cima"* que o operador pediu
-  // para tirar) e `--vv-top` só a DESLOCA junto com a viewport visual, que o
-  // navegador rola sozinho ao revelar o campo em foco. Sem a segunda, o
-  // cabeçalho fica em `top: 0` da viewport de LAYOUT — 140px acima do que se vê
-  // neste caso, isto é, fora da tela.
-  //
-  // As duas metades: a folha DESCE até o topo visível **e** a altura dela não
-  // muda. Sem a primeira a barra sai pelo topo; sem a segunda a lista é
-  // remedida, que é o reflow da queixa anterior.
-  checar(!!geo.com.folha && perto(geo.com.folha.top, geo.visivelTopo),
-    'com o teclado aberto a folha acompanha o TOPO VISÍVEL: a barra de cima '
-    + 'nunca sai da tela');
+  // O TECLADO SOBREPÕE E A CAMADA NÃO PERSEGUE NADA (v5.280). A v5.278 fazia a
+  // folha descer junto com a viewport visual para a barra não sair pelo topo; o
+  // operador recusou o mecanismo e nomeou o certo — quem rola é a LISTA, e a
+  // barra está fora dela, então não há scroll de tela a compensar. As duas
+  // metades: a folha não se mexe e não encolhe.
+  checar(!!geo.com.folha && perto(geo.com.folha.top, geo.sem.folha.top),
+    'com o teclado aberto a folha NÃO SE MEXE: ele sobrepõe a tela');
   checar(!!geo.com.folha && perto(geo.com.folha.height, geo.sem.folha.height),
-    'e ela NÃO ENCOLHE: o teclado sobrepõe, não reflui a lista ('
+    'e ela NÃO ENCOLHE: o teclado não reflui a lista ('
     + Math.round(geo.sem.folha.height) + 'px → ' + Math.round(geo.com.folha.height) + 'px)');
-  checar(!!geo.com.cabec && !!geo.com.barra && !!geo.com.lista
-    && perto(geo.com.cabec.top, geo.com.folha.top)
-    && perto(geo.com.barra.top, geo.com.cabec.bottom)
+  checar(!!geo.com.barra && !!geo.com.lista
+    && perto(geo.com.barra.top, geo.com.folha.top)
     && perto(geo.com.lista.top, geo.com.barra.bottom),
-    'e a ordem de cima continua colada: folha → cabeçalho → barra → lista');
+    'e a ordem de cima continua colada: folha → barra → lista');
 } catch (e) {
   checar(false, 'a medição da busca com teclado terminou sem exceção (' + (e && e.message) + ')');
 }

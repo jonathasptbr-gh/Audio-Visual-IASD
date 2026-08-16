@@ -4183,23 +4183,25 @@ Duas podas do mesmo pedido, e as duas são sobre a barra do topo:
   dela: o `appPrompt` é um cartão CENTRADO com campo de texto, e ali a metade de
   baixo é justamente onde o teclado sobe.
 
-  **MAS O TOPO CONTINUA SEGUINDO O QUE SE VÊ** (v5.278). `--kb` e `--vv-top` não
-  são a mesma conta, e a v5.277 tirou as duas de uma vez: a primeira ENCOLHE a
-  camada (o reflow da queixa) e a segunda apenas a DESLOCA junto com a viewport
-  visual, que o navegador rola sozinho ao revelar o campo em foco. Sem ela,
-  medido com uma rolagem de 140px, o cabeçalho fica em `top: 0` da viewport de
-  LAYOUT — 140px acima do que se vê, isto é, fora da tela. A forma é
-  `top: var(--vv-top)` + `height: 100%`: a camada desce inteira, com a MESMA
-  altura, e o pedaço que sobra embaixo está debaixo do teclado.
+  **E A CAMADA NÃO PERSEGUE NADA** (v5.280). A v5.278 pôs `top: var(--vv-top)`
+  aqui para a barra não sair pela borda quando o navegador rolasse a viewport
+  visual; o operador recusou o mecanismo e nomeou o certo — *"ao invés de ter um
+  scroll de tela inteira, deixar apenas os itens abaixo da barra de pesquisa
+  ficarem dentro de um scroll, e apenas rolar esse scroll para o topo quando a
+  biblioteca é aberta"*. Quem rola é a LISTA e a barra está fora dela: uma
+  camada que persegue a viewport é um conserto para um scroll de tela que não
+  devia existir. `inset: 0`, mais um `hymnResultsEl.scrollTop = 0` no
+  `openHymnSearch` — o nó é o MESMO entre uma abertura e a seguinte, então ele
+  guardava a rolagem da vez anterior e a Biblioteca reabria no meio de um
+  hinário.
 
-  **O cabeçalho e a barra são UMA peça** (v5.277): mesmo `--field-bar` nas duas
-  faixas, porque duas faixas fixas empilhadas sobre a mesma lista são uma barra
-  só. O TÍTULO fica centrado e **sem ícone** (v5.278): a nota musical virou o
-  terceiro símbolo de uma faixa que já tem a lupa dentro do campo e o ✕ ao lado,
-  sem distinguir nada — e com ela saiu a grade de três colunas que a v5.277
-  precisou para centrar o texto ao lado dela. E o ✕ virou QUADRADO por um número
-  com nome (`--campo-alt`), que é a altura do campo e o lado do botão: dentro de
-  um contêiner flex o `aspect-ratio` não resolve, porque a largura é resolvida
+  **O CABEÇALHO SAIU** (v5.280): ele foi encolhendo por partes — o "Baixar toda
+  a biblioteca" e o peso na v5.258, o ✕ para a barra no mesmo lote, o ícone na
+  v5.278 — e chegou a uma faixa inteira repetindo o nome do botão que abre a
+  tela. A barra é o topo da folha, e é isso (e não um mecanismo de
+  posicionamento) que a mantém lá. O ✕ dentro dela é QUADRADO por um número com
+  nome (`--campo-alt`, a altura do campo e o lado do botão): dentro de um
+  contêiner flex o `aspect-ratio` não resolve, porque a largura é resolvida
   ANTES de o `stretch` dar uma altura definida — a primeira versão colapsou o
   botão na largura do glifo, 20px.
 
@@ -4268,16 +4270,18 @@ propriedade inteira. `flex: 0 0 auto` impede o flex de mexer nela nos dois
 sentidos, e o corpo dentro dela é quem cresce (`flex: 1 1 auto`) e é recortado,
 com o botão logo abaixo.
 
-**E ESSE CORPO ROLA POR DENTRO no modo compacto** (v5.279). O que passava do vão
-era simplesmente cortado: chegar ao quinto favorito exigia expandir a lista
-inteira, isto é, empurrar todas as coleções para fora da tela por causa de um
-item. A rolagem interna **não substitui** o "Ver todos" — rolar é folhear alguns
-atalhos sem mexer no resto da tela; expandir é abrir mão do índice para ver tudo
-de uma vez. `overscroll-behavior: contain` impede a rolagem de vazar para a
-Biblioteca ao chegar no fim (sem ele, continuar arrastando rola a lista de trás
-e o operador perde de vista a seção em que estava). E a contagem do botão passou
-a olhar os DOIS lados da faixa visível: com a rolagem no fim não há nada abaixo,
-e uma régua de um lado só faria o "Ver todos" sumir de quem mais precisa dele.
+**E ESSE CORPO NÃO ROLA POR DENTRO** (v5.279 → v5.280). A v5.279 lhe deu
+`overflow-y: auto` no modo compacto e o operador recusou — *"não ficou bom,
+deixe ele fixo, e qualquer visualização dos itens completos nos favoritos deve
+ser pelo botão de ver mais"*. Com a rolagem, chegar ao fim da lista tinha DOIS
+caminhos, e um deles era arrastar dentro de uma caixa encaixada numa tela que
+também rola: o gesto ambíguo que o `overscroll-behavior` existia para remendar.
+O corpo é um recorte imóvel e o caminho para a lista inteira é UM, o botão.
+
+O que sobrevive daquele lote é a **contagem dos dois lados** no botão: hoje nada
+pode estar acima da faixa e essa metade nunca dispara, mas ela custa uma
+comparação e guarda o defeito que a v5.279 mostrou — com o corpo rolando, uma
+régua de um lado só faz o "Ver todos" sumir de quem chegou ao fim da lista.
 
 **A coleção que abre rola até o topo dela** (`alinharGrupoNoTopo`, v5.277). O
 "abrindo para cima" que o operador relatou era o encolhimento acima; o que

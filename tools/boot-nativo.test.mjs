@@ -1296,33 +1296,18 @@ try {
     // A medição do transbordo é adiada um quadro de propósito (ver
     // `acertarVaoDosFavoritos`), então a leitura espera dois.
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-    // ===== O CORPO ROLA POR DENTRO no modo compacto (v5.278) =====
-    // Pedido do operador. As DUAS metades: ele rola de verdade, **e** o botão
-    // continua na tela depois de a rolagem chegar ao fim — a contagem de itens
-    // de fora olhava só para baixo, e no fim da lista não há nada lá; o botão
-    // sumiria de quem mais precisa dele.
-    const rolagem = (() => {
-      const c = corpo();
-      if (!c) return { pode: false, chegou: 0, botaoNoFim: false };
-      const antes = c.scrollTop;
-      c.scrollTop = c.scrollHeight;
-      const chegou = c.scrollTop;
-      return {
-        // O `overflow-y` COMPUTADO é a metade que decide, e ela não é
-        // cerimônia: uma caixa `overflow: hidden` continua rolando por SCRIPT
-        // (`scrollTop` funciona nela), então medir só o `scrollTop` aprovaria o
-        // estado anterior — verificado, reprovava em 0. Quem não rola nela é o
-        // DEDO, e é isso que o valor computado responde.
-        overflow: getComputedStyle(c).overflowY,
-        temMais: c.scrollHeight > c.clientHeight + 1,
-        chegou, andou: chegou > antes,
-      };
-    })();
-    acertarVaoDosFavoritos();
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-    rolagem.botaoNoFim = !!botao();
-    rolagem.deForaNoFim = deFora();
-    corpo().scrollTop = 0;
+    // ===== O CORPO NÃO ROLA POR DENTRO (v5.279 → v5.280) =====
+    // A v5.279 lhe deu `overflow-y: auto` no modo compacto e o operador
+    // recusou: *"remova o scroll interno dos favoritos… qualquer visualização
+    // dos itens completos deve ser pelo botão de ver mais"*. O caminho para a
+    // lista inteira volta a ser UM.
+    //
+    // A régua é o `overflow-y` COMPUTADO, e ela não é cerimônia: uma caixa
+    // `overflow: hidden` continua rolando por SCRIPT (`scrollTop` funciona
+    // nela), então medir o `scrollTop` aprovaria os dois estados — foi o que a
+    // primeira versão deste caso fez, na v5.279, e ela não discriminava nada.
+    // Quem não rola aqui é o DEDO.
+    const rolagem = { overflow: getComputedStyle(corpo()).overflowY };
     const muitos = {
       temBotao: !!botao(),
       cortado: cortado(),
@@ -1370,16 +1355,53 @@ try {
   checar(vao.aberto.rotulo && vao.aberto.rotulo !== vao.muitos.rotulo,
     'com o caminho de volta no mesmo botão, que troca de verbo',
     vao.muitos.rotulo + ' → ' + vao.aberto.rotulo);
-  checar(/^(auto|scroll)$/.test(vao.rolagem.overflow) && vao.rolagem.temMais
-    && vao.rolagem.andou,
-    'e no modo COMPACTO o corpo rola por dentro: chegar ao quinto favorito '
-    + 'deixou de exigir expandir a lista inteira',
-    'overflow-y ' + vao.rolagem.overflow + ', rolou até '
-    + Math.round(vao.rolagem.chegou) + 'px');
-  checar(vao.rolagem.botaoNoFim && vao.rolagem.deForaNoFim > 0,
-    'e o botão CONTINUA lá com a rolagem no fim — a contagem olha os dois '
-    + 'lados, senão ele sumiria de quem chegou ao fim da lista',
-    vao.rolagem.deForaNoFim + ' item(ns) fora da faixa visível');
+  checar(vao.rolagem.overflow === 'hidden',
+    'e no modo COMPACTO o corpo NÃO rola por dentro: o vão é um recorte, e o '
+    + 'caminho para a lista inteira é UM, o botão',
+    'overflow-y ' + vao.rolagem.overflow);
+
+  // ── A BIBLIOTECA ABRE COM A LISTA NO TOPO (v5.280) ─────────────────────
+  //
+  // Decisão do operador: *"ao invés de ter um scroll de tela inteira, deixar
+  // apenas os itens abaixo da barra de pesquisa ficarem dentro de um scroll, e
+  // apenas rolar esse scroll para o topo quando a biblioteca é aberta"*.
+  //
+  // A rolagem sempre foi só da lista; o que faltava é o reset. `#hymnResults` é
+  // o MESMO nó entre uma abertura e a seguinte, então ele guardava a posição da
+  // vez anterior e a Biblioteca reabria no meio de um hinário.
+  const noTopo = await pg.evaluate(async () => {
+    const modoAntes = appMode;
+    setAppMode('full');
+    openHymnSearch();
+    await new Promise((r) => setTimeout(r, 250));
+    // Conteúdo que dê o que rolar, e uma rolagem de verdade.
+    albumCatalog.categories = ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((n, i) => ({
+      name: 'Categoria ' + n,
+      albums: [{ id_album: 900 + i, name: 'Álbum ' + n }],
+    }));
+    albumCatalog.albums = albumCatalog.categories.map((c) => c.albums[0]);
+    // E uma COLEÇÃO ABERTA: com tudo colapsado a lista nunca transborda (o vão
+    // dos favoritos é justamente o que sobra), então não haveria rolagem a
+    // afirmar — é uma propriedade do desenho, não um detalhe do fixture.
+    grupoAberto = 'Hinários';
+    renderSearchResults('');
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    hymnResultsEl.scrollTop = hymnResultsEl.scrollHeight;
+    const rolou = hymnResultsEl.scrollTop;
+    closeHymnSearch();
+    openHymnSearch();
+    await new Promise((r) => setTimeout(r, 250));
+    const aoReabrir = hymnResultsEl.scrollTop;
+    albumCatalog.categories = []; albumCatalog.albums = [];
+    grupoAberto = ''; favAberto = true;
+    closeHymnSearch();
+    setAppMode(modoAntes);
+    return { rolou, aoReabrir };
+  });
+  checar(noTopo.rolou > 0 && noTopo.aoReabrir === 0,
+    'A BIBLIOTECA REABRE COM A LISTA NO TOPO — ela guardava a rolagem da vez '
+    + 'anterior e voltava no meio de um hinário',
+    'rolou ' + Math.round(noTopo.rolou) + 'px, reabriu em ' + noTopo.aoReabrir);
 
   // ── A COLEÇÃO ABRE PARA BAIXO, ALINHADA PELO TOPO (v5.277) ─────────────
   //

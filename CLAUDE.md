@@ -3053,10 +3053,56 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.279** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.280** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.280: O CABEÇALHO DA BIBLIOTECA SAI, a camada para de perseguir a
+> viewport, a lista abre no topo, e o scroll interno dos favoritos é revogado.
+> OTA PURO** (sem Release).
+>
+> Quatro decisões do operador, e três delas desfazem mecanismo meu.
+>
+> - **O TÍTULO SAI, e com ele o cabeçalho.** Ele foi encolhendo por partes e
+>   chegou vazio de função: o "Baixar toda a biblioteca" e o peso total saíram
+>   na v5.258, o ✕ desceu para a barra no mesmo lote, e o ícone saiu na v5.278.
+>   O que sobrava era uma faixa inteira repetindo o nome do botão que abre a
+>   tela — e a barra logo abaixo já diz o que ela é, pela lupa e pelo
+>   placeholder.
+> - **A CAMADA PARA DE PERSEGUIR A VIEWPORT VISUAL**, e o operador nomeou o
+>   método certo: *"ao invés de ter um scroll de tela inteira, deixar apenas os
+>   itens abaixo da barra de pesquisa ficarem dentro de um scroll, e apenas
+>   rolar esse scroll para o topo quando a biblioteca é aberta"*. A v5.278 pôs
+>   `top: var(--vv-top)` no `.popup-backdrop` para a barra não sair pela borda
+>   quando o navegador rolasse a viewport visual — um conserto para um scroll de
+>   TELA que não devia existir. Com o cabeçalho fora, a barra é o primeiro
+>   elemento da folha e a única coisa que rola é a lista: não há o que
+>   acompanhar. `inset: 0`, e a camada volta a ser a tela.
+> - **E A LISTA ABRE NO TOPO.** `#hymnResults` é o MESMO nó entre uma abertura e
+>   a seguinte, então ele guardava a rolagem da vez anterior e a Biblioteca
+>   reabria no meio de um hinário. Uma linha no `openHymnSearch`.
+> - **O SCROLL INTERNO DOS FAVORITOS É REVOGADO** — *"não ficou bom, deixe ele
+>   fixo, e qualquer visualização dos itens completos deve ser pelo botão de ver
+>   mais"*. A v5.279 tinha aberto uma segunda porta ao lado da que já existia:
+>   com a rolagem, chegar ao fim da lista tinha DOIS caminhos, e um deles era
+>   arrastar dentro de uma caixa encaixada numa tela que também rola — o gesto
+>   ambíguo que o `overscroll-behavior` existia para remendar. O corpo volta a
+>   ser um recorte imóvel e o caminho é UM.
+>
+> **O que FICA da v5.279 é a contagem dos dois lados** do botão "Ver todos", e
+> ela fica com o comentário corrigido: hoje nada pode estar ACIMA da faixa, e
+> aquela metade nunca dispara. Custa uma comparação e guarda o defeito que a
+> v5.279 mostrou — com o corpo rolando, uma contagem de um lado só faz o botão
+> sumir de quem chegou ao fim da lista.
+>
+> **E o caso da rolagem só discrimina com uma COLEÇÃO ABERTA**, que é uma
+> propriedade do desenho e não do fixture: com tudo colapsado a lista nunca
+> transborda, porque o vão dos favoritos é justamente o que sobra.
+>
+> Verificado por ISOLAMENTO: sem o reset da rolagem, **1** asserção reprova; com
+> o scroll interno de volta, **1**; com a camada perseguindo a viewport, **1**;
+> e o cabeçalho de volta reprova o caso da ordem da folha.
 
 > **A v5.279: O CORPO DOS FAVORITOS ROLA POR DENTRO no modo compacto. OTA PURO**
 > (sem Release).

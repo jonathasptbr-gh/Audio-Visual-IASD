@@ -856,7 +856,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.279</span>
+        <span id="appVersion" class="app-version">Controle v5.280</span>
         <!-- A ATUALIZAÇÃO (v5.245). Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso.
@@ -1108,19 +1108,18 @@
        uma faixa morta no topo. -->
   <div id="hymnSearchPopup" class="popup-backdrop popup-backdrop--full">
     <div class="popup-sheet popup-sheet--full">
-      <!-- O cabeçalho ficou só com o NOME da tela (v5.258): o "Baixar toda a
-           biblioteca" e o peso total saíram a pedido do operador, e o ✕ desceu
-           para a barra de baixo, junto da busca. -->
-      <!-- SEM ÍCONE (v5.278, decisão do operador). Ele era a nota musical de
-           `.popup-header-icon`, e com o cabeçalho e a barra de busca fundidos
-           numa peça só (v5.277) ele passou a ser o terceiro símbolo de uma
-           faixa que já tem a lupa dentro do campo e o ✕ ao lado — sem
-           distinguir nada, porque esta tela é uma só. O título ficou com a
-           faixa inteira, e a grade de três colunas que o centrava saiu junto:
-           filho único num flex `justify-content: center` já fica no meio. -->
-      <div class="popup-header">
-        <span class="popup-title" id="hymnSearchTitle">Biblioteca</span>
-      </div>
+      <!-- SEM CABEÇALHO (v5.280, decisão do operador: *"remova o título
+           'biblioteca'"*). Ele foi encolhendo por partes e chegou aqui vazio de
+           função: o "Baixar toda a biblioteca" e o peso total saíram na v5.258,
+           o ✕ desceu para a barra junto da busca no mesmo lote, e o ícone saiu
+           na v5.278. O que sobrava era uma faixa inteira para repetir o nome do
+           botão que abriu a tela — e a barra logo abaixo já diz o que ela é,
+           pela lupa e pelo placeholder.
+
+           Com ele fora, a BARRA é o topo da folha, que é o que o pedido desta
+           versão quer dizer por "manter a barra de pesquisa no topo": ela não
+           precisa de mecanismo nenhum para isso, precisa de não ter nada em
+           cima dela e de a rolagem ser só da lista. -->
       <!-- A BARRA VOLTOU AO TOPO (v5.275), decisão do operador: *"vamos fazer
            um ajuste e colocar a barra de buscas da biblioteca no topo
            novamente, ela na base está dando muitos problemas de design"*.
