@@ -3404,13 +3404,14 @@ main {
 
      São DOIS sinais, e os dois já existem neste app:
 
-     · O TOM. **`--camada` (v5.267), e não mais `--panel-2` à mão.** A barra é um
-       bloco de PRIMEIRO nível sobre a tela da Biblioteca, exatamente como uma
-       seção — e desde que a folha virou nível 0 (`--bg`), esse degrau é
-       1,49:1 no escuro e 1,29:1 no claro, contra os 1,29/1,30 que ela tinha
-       quando pousava sobre um `--panel`. `--bar`, o token da barra de baixo da
-       tela principal, continua NÃO servindo: ele foi calibrado contra `--bg` e
-       no tema claro é branco puro.
+     · O TOM. **`--field-bar` (v5.269), e não mais `--camada`.** Ela FOI um bloco
+       de nível 1 como qualquer seção — e essa era a falha: no tema CLARO o
+       nível 1 é o branco, exatamente a cor do campo que ela contém, e o campo
+       sumia dentro dela (1,00:1). A barra é o único bloco de nível 1 do app que
+       hospeda uma superfície SEM TEMA, então ela é a única que não pode vestir o
+       tom do nível — a exceção está declarada no token, em tokens.css. Medido
+       agora: 1,49:1 contra o corpo no escuro (o valor do nível 1, intacto) e
+       1,95:1 no claro, onde ela ESCURECEU a pedido do operador.
 
      · A SOMBRA, que é o que o tom sozinho não diz: *conteúdo passa por baixo
        daqui*. Ela é a mesma receita da tampa do álbum aberto
@@ -3418,7 +3419,7 @@ main {
        para uma barra sob a qual a lista rola. E ela continua necessária: as
        seções da Biblioteca vestem o MESMO nível 1, então uma delas encostando
        na barra sem a sombra leria como uma peça só. */
-  background: var(--camada);
+  background: var(--field-bar);
   box-shadow: 0 -6px 12px -8px var(--shadow-ink);
   /* A área segura de baixo é a barra de gestos do Android, e com o teclado
      aberto ela está atrás dele — descontar `--kb` a zera, senão sobraria uma
@@ -3444,6 +3445,27 @@ main {
 }
 /* O recuo à esquerda abre o lugar dela: 12 (margem) + 18 (ícone) + 8 (respiro). */
 #hymnSearchInput { flex: 1; min-width: 0; padding: 11px 14px 11px 38px; font-size: .95rem; }
+/* ---------- O ✕ TEM A ALTURA DO CAMPO (v5.269) ----------
+   Pedido do operador. Ele vinha do esqueleto de botão de ícone do app (`--hit`
+   quadrado, 34px) e o campo tem 41 — dois vizinhos na mesma linha com sete
+   pixels de diferença que ninguém decidiu.
+
+   `align-self: stretch` em vez de uma altura escrita: quem manda na linha é o
+   campo, e um número aqui divergiria dele no primeiro ajuste de padding ou de
+   fonte. A LARGURA continua sendo `--hit` — o alvo horizontal não tem por que
+   crescer —, e o raio passa a ser o do campo, senão um retângulo alto com o
+   raio de um quadrado de 34px pareceria uma pílula cortada.
+
+   E ELE É CLARO, como o campo (a outra metade do pedido): a barra escureceu no
+   tema claro, e um botão em `--surface-2`/`--muted` ali daria 2,09:1 no ícone.
+   Vestindo `--field-*` ele vira o irmão do campo — as duas peças claras sobre a
+   faixa —, e o glifo volta a 8,4:1. */
+#hymnSearchClose {
+  align-self: stretch; height: auto;
+  border-radius: var(--radius-btn);
+  background: var(--field-bg); color: var(--field-text);
+  box-shadow: 0 1px 3px -1px var(--shadow-ink);
+}
 /* ---------- E O CAMPO É BRANCO NOS DOIS TEMAS (v5.268) ----------
    Pedido do operador. Ele era `--surface-2`, isto é, um OVERLAY: dentro da
    folha, que pinta `--panel`, a superfície se INVERTE (a regra no topo deste

@@ -3053,10 +3053,55 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.268** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.269** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.269: A BARRA DA BUSCA ESCURECE NO TEMA CLARO, e o ✕ vira o irmão do
+> campo. OTA PURO** (só CSS; sem Release).
+>
+> Pedido do operador, em três partes: *"ajuste o botão de fechar biblioteca para
+> que tenha a mesma altura da caixa de texto de buscas. e faça com que o fundo
+> atrás da caixa de texto fique mais escuro no tema claro, aproveitando para pôr
+> o botão em cor clara também."*
+>
+> - **A BARRA DEIXA DE SER NÍVEL 1, e isso é o conserto que a v5.268 contornou.**
+>   Ela vestia `--camada` — e no tema CLARO esse nível É o branco, exatamente a
+>   cor do campo que ela contém: **1,00:1**. A v5.268 sustentou a distinção pela
+>   ELEVAÇÃO, que funciona e é meia resposta; o operador pediu o degrau de tom, e
+>   ele está certo. `--field-bar` é a exceção declarada à escada de camadas: **a
+>   barra é o único bloco de nível 1 do app que hospeda uma superfície SEM TEMA**,
+>   logo é o único que não pode ler o tom do nível. Medido no claro: o campo
+>   passou de 1,00 para **2,51:1** contra ela, e ela dá 1,95:1 contra o corpo (era
+>   1,29). No ESCURO nada muda — o token repete o valor de hoje, porque ali o
+>   campo branco já contrastava 12,6:1 e não havia o que consertar.
+>
+>   O valor do claro é `#97a5b4`, o mesmo de `--line`, e isso é reuso e não
+>   coincidência: é o cinza estrutural que esta paleta já calibrou para separar
+>   coisas no tema claro.
+> - **O ✕ TEM A ALTURA DO CAMPO.** Ele vinha do esqueleto de botão de ícone do
+>   app (`--hit` quadrado, 34px) e o campo tem 40 — dois vizinhos na mesma linha
+>   com seis pixels de diferença que ninguém decidiu. `align-self: stretch`, e
+>   não uma altura escrita: quem manda na linha é o campo, e um número aqui
+>   divergiria dele no primeiro ajuste de padding ou de fonte. A LARGURA continua
+>   `--hit` (o alvo horizontal não tem por que crescer) e o raio passa a ser o do
+>   campo.
+> - **E ELE É CLARO, como o campo** — a outra metade do mesmo pedido, e ela é
+>   consequência da primeira: com a barra escurecida, um botão em
+>   `--surface-2`/`--muted` daria **2,09:1** no glifo. Vestindo `--field-*` ele
+>   vira o irmão do campo, as duas peças claras sobre a faixa, e o glifo volta a
+>   8,86:1.
+>
+> **A elevação da v5.268 FICA**, agora como reforço em vez de único sinal: com o
+> degrau de tom no lugar, ela é o que faz as duas peças se lerem como papel
+> pousado na faixa em vez de recortes dela. O oráculo mudou de pergunta junto —
+> onde ele aceitava "tom OU elevação", ele passou a exigir o TOM (> 1,5:1) e a
+> cobrar a elevação em separado.
+>
+> Verificado por ISOLAMENTO: devolvendo a barra ao `--camada`, **1** asserção
+> reprova (e é a do tema claro, em 1,00:1); devolvendo o ✕ ao esqueleto de 34px e
+> ao chip translúcido, **5** — entre elas o glifo em 1,75:1.
 
 > **A v5.268: O CAMPO DE BUSCA FICA BRANCO NOS DOIS TEMAS. OTA PURO** (só CSS;
 > sem Release).

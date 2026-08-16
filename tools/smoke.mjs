@@ -1696,6 +1696,11 @@ for (const tema of ['escuro', 'claro']) {
         ph: getComputedStyle(document.getElementById('hymnSearchInput'), '::placeholder').color,
         lupa: getComputedStyle(document.querySelector('#hymnSearchPopup .lib-search-lupa')).color,
         sombraCampo: getComputedStyle(document.getElementById('hymnSearchInput')).boxShadow,
+        // O ✕ da barra (v5.269): altura, fundo e glifo.
+        hCampo: document.getElementById('hymnSearchInput').getBoundingClientRect().height,
+        hBtn: document.getElementById('hymnSearchClose').getBoundingClientRect().height,
+        btn: getComputedStyle(document.getElementById('hymnSearchClose')).backgroundColor,
+        glifo: getComputedStyle(document.getElementById('hymnSearchClose')).color,
       };
       closeHymnSearch();
       return r;
@@ -1730,14 +1735,14 @@ for (const tema of ['escuro', 'claro']) {
     checar(/-\d+px/.test(c.sombra) && c.sombra !== 'none',
       '[' + tema + '] com a sombra para CIMA, que é o que o tom não diz: a lista '
       + 'passa por baixo dela', c.sombra);
-    // E o CAMPO não se perdeu dentro da barra. A regra é a mesma que a própria
-    // barra usa contra as seções: **duas superfícies do mesmo tom se separam
-    // por PROFUNDIDADE**. No tema claro a barra é branca (nível 1) e o campo
-    // também é, então ali o tom não pode ser o separador — e um contorno está
-    // fora desde que a linha saiu do app inteiro.
-    checar(razao(campo, barra) > 1.1 || (c.sombraCampo && c.sombraCampo !== 'none'),
-      '[' + tema + '] e o campo se separa da barra — por tom ('
-      + razao(campo, barra).toFixed(2) + ':1) ou, sendo a mesma cor dela, por elevação');
+    // E o CAMPO se separa da barra POR TOM (v5.269). Até aqui, no tema claro,
+    // ele não se separava de jeito nenhum — barra e campo eram os dois brancos
+    // (1,00:1), e a v5.268 sustentou a distinção só pela elevação. O operador
+    // pediu o conserto de verdade: a barra escureceu, e o degrau passou a ser a
+    // primeira linha de defesa nos DOIS temas.
+    checar(razao(campo, barra) > 1.5,
+      '[' + tema + '] o campo se separa da barra POR TOM ('
+      + razao(campo, barra).toFixed(2) + ':1)');
     // ── O CAMPO É BRANCO NOS DOIS TEMAS (v5.268) ─────────────────────────
     // Pedido do operador. A primeira metade é o fundo; a SEGUNDA é a que não se
     // percebe pedindo "o campo branco" e que reprovaria calada: as três coisas
@@ -1747,8 +1752,22 @@ for (const tema of ['escuro', 'claro']) {
       '[' + tema + '] o CAMPO é branco — o mesmo nos dois temas, como o palco',
       c.campo);
     checar(!!c.sombraCampo && c.sombraCampo !== 'none',
-      '[' + tema + '] e ele tem ELEVAÇÃO, que é o que o separa da barra quando o '
-      + 'tom não pode (no claro os dois são brancos)', c.sombraCampo);
+      '[' + tema + '] e a elevação FICA, agora como reforço: ele é uma folha de '
+      + 'papel pousada na faixa, não um recorte dela', c.sombraCampo);
+    // ── O ✕ TEM A ALTURA DO CAMPO, E É CLARO COMO ELE (v5.269) ───────────
+    // As duas metades do pedido. A altura vinha do esqueleto de botão de ícone
+    // (`--hit`, 34px) contra os 40 do campo — dois vizinhos na mesma linha com
+    // sete pixels de diferença que ninguém decidiu. E a cor: com a barra
+    // escurecida, um botão em `--surface-2`/`--muted` daria 2,09:1 no glifo.
+    checar(Math.abs(c.hBtn - c.hCampo) <= 1,
+      '[' + tema + '] o ✕ tem a MESMA altura do campo (' + Math.round(c.hBtn)
+      + 'px contra ' + Math.round(c.hCampo) + 'px)');
+    checar(c.btn === c.campo,
+      '[' + tema + '] e o mesmo fundo CLARO dele — as duas peças claras sobre a '
+      + 'faixa, não um chip translúcido ao lado de uma folha de papel', c.btn);
+    checar(razao(sobre(c.glifo, c.btn), sobre(c.btn, c.barra)) >= 4.5,
+      '[' + tema + '] com o glifo legível sobre ele ('
+      + razao(sobre(c.glifo, c.btn), sobre(c.btn, c.barra)).toFixed(2) + ':1)');
     for (const [nome, cor] of [['texto', c.texto], ['placeholder', c.ph], ['lupa', c.lupa]]) {
       const r = razao(sobre(cor, c.campo), campo);
       checar(r >= 4.5,
