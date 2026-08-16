@@ -1293,6 +1293,70 @@ for (const tema of ['escuro', 'claro']) {
   }
 }
 
+// ── O ALVO DOS BOTÕES DA FAIXA (v5.278) ──────────────────────────────────
+// Relato do operador: *"é extremamente comum tentar clicar em adicionar e
+// acabar tocando no corpo do card, abrindo os detalhes da letra"*.
+//
+// O que se mede é o que o DEDO encontra (`elementFromPoint`), não a caixa do
+// botão: a queixa é sobre os pixels ao redor dele, e uma asserção de largura e
+// altura passaria com as faixas mortas intactas. Os pontos são os do relato —
+// as bordas da linha em cima, embaixo e à direita do botão — e o do MEIO, que
+// é a metade negativa: o corpo da linha tem uma ação própria (a gaveta da
+// letra) e ela não pode ter sido engolida.
+try {
+  const alvo = await pg.evaluate(() => {
+    setAppMode('full');
+    const c = allCollections().find((x) => x.kind === 'hymnal');
+    collState[c.id] = { indexSyncedAt: Date.now(), isHymnal: true,
+      songs: [1, 2, 3].map((i) => ({ id_music: 'q' + i, name: 'Hino ' + i, track: i,
+        has_instrumental_music: false, duration: '3:47' })) };
+    ui(c.id).expanded = true; ui(c.id).shown = 100;
+    const lista = document.createElement('ul');
+    lista.className = 'hymnal-list';
+    lista.style.width = '390px';
+    document.body.appendChild(lista);
+    grupoAberto = 'Hinários';
+    renderCollectionsList(lista, () => {}, { semTotal: true });
+    const linha = lista.querySelector('.coll-songs > .hymn-result');
+    const add = linha.querySelector('.hymn-add-btn');
+    const lb = linha.getBoundingClientRect();
+    const ab = add.getBoundingClientRect();
+    const quem = (x, y) => {
+      const e = document.elementFromPoint(x, y);
+      if (!e) return 'nada';
+      if (e.closest('.hymn-add-btn')) return 'ADD';
+      if (e.closest('.hymn-play-thumb')) return 'PLAY';
+      return 'linha';
+    };
+    const r = {
+      linhaH: lb.height, addH: ab.height,
+      topo: quem(ab.left + ab.width / 2, lb.top + 2),
+      base: quem(ab.left + ab.width / 2, lb.bottom - 2),
+      direita: quem(lb.right - 2, lb.top + lb.height / 2),
+      canto: quem(lb.right - 2, lb.top + 2),
+      meio: quem(lb.left + lb.width / 2, lb.top + lb.height / 2),
+      topoDoPlay: quem(lb.left + 20, lb.top + 2),
+    };
+    lista.remove(); delete collState[c.id]; grupoAberto = '';
+    return r;
+  });
+  checar(alvo.linhaH > alvo.addH,
+    'a faixa é mais alta que o botão — é dessa diferença que a faixa morta vinha ('
+    + Math.round(alvo.linhaH) + 'px contra ' + Math.round(alvo.addH) + 'px)');
+  checar(alvo.topo === 'ADD' && alvo.base === 'ADD' && alvo.direita === 'ADD'
+    && alvo.canto === 'ADD',
+    'e o toque nas bordas em volta do + cai NO BOTÃO, não no corpo da linha',
+    JSON.stringify({ topo: alvo.topo, base: alvo.base, direita: alvo.direita, canto: alvo.canto }));
+  checar(alvo.topoDoPlay === 'PLAY',
+    'o mesmo vale para o ▶: a faixa morta dele levava ao mesmo lugar errado');
+  checar(alvo.meio === 'linha',
+    'e o CORPO da linha continua respondendo no meio dela — a gaveta da letra '
+    + 'não foi engolida pelos alvos dos botões');
+} catch (e) {
+  checar(false, 'a medição do alvo dos botões da faixa terminou sem exceção ('
+    + (e && e.message) + ')');
+}
+
 // ── A COLUNA DA DIREITA NÃO SE MEXE (v5.242) ─────────────────────────────
 // Pedido do operador: a seta de fechar o acordeão vai para a THUMB do álbum,
 // "não precisando mover os números referentes ao tamanho do álbum que hoje
@@ -2179,21 +2243,28 @@ try {
   checar(!!geo.sem.lista && perto(geo.sem.lista.top, geo.sem.barra.bottom)
     && geo.sem.lista.bottom > geo.sem.barra.bottom,
     'e a lista começa onde ela termina — a rolagem passa por BAIXO dela');
-  // O TECLADO SOBREPÕE (v5.277, decisão do operador: *"a tela está sendo
-  // deslocada inteira para cima… ajuste apenas para o teclado ficar sobreposto
-  // à tela e não deslocar ela"*). Isto INVERTE o que a v5.261 travava aqui, e a
-  // razão dela morreu com a barra na base: não há mais nada embaixo que precise
-  // ser revelado. A afirmação é que a folha NÃO SE MEXE — mesma caixa com e sem
-  // teclado —, que é a queixa escrita como medida.
-  checar(!!geo.com.folha && perto(geo.com.folha.top, geo.sem.folha.top)
-    && perto(geo.com.folha.bottom, geo.sem.folha.bottom),
-    'com o teclado aberto a folha NÃO SE MEXE: ele sobrepõe a tela, não a desloca');
-  checar(!!geo.com.barra && perto(geo.com.barra.top, geo.sem.barra.top),
-    'a barra continua exatamente onde estava, logo abaixo do cabeçalho');
-  checar(!!geo.com.cabec && !!geo.com.lista
-    && perto(geo.com.cabec.top, geo.sem.cabec.top)
+  // O TECLADO SOBREPÕE, MAS O TOPO ACOMPANHA O QUE SE VÊ (v5.277 → v5.278).
+  // São DUAS contas, e a v5.277 tirou as duas de uma vez por engano: `--kb`
+  // ENCOLHE a camada (o *"deslocada inteira para cima"* que o operador pediu
+  // para tirar) e `--vv-top` só a DESLOCA junto com a viewport visual, que o
+  // navegador rola sozinho ao revelar o campo em foco. Sem a segunda, o
+  // cabeçalho fica em `top: 0` da viewport de LAYOUT — 140px acima do que se vê
+  // neste caso, isto é, fora da tela.
+  //
+  // As duas metades: a folha DESCE até o topo visível **e** a altura dela não
+  // muda. Sem a primeira a barra sai pelo topo; sem a segunda a lista é
+  // remedida, que é o reflow da queixa anterior.
+  checar(!!geo.com.folha && perto(geo.com.folha.top, geo.visivelTopo),
+    'com o teclado aberto a folha acompanha o TOPO VISÍVEL: a barra de cima '
+    + 'nunca sai da tela');
+  checar(!!geo.com.folha && perto(geo.com.folha.height, geo.sem.folha.height),
+    'e ela NÃO ENCOLHE: o teclado sobrepõe, não reflui a lista ('
+    + Math.round(geo.sem.folha.height) + 'px → ' + Math.round(geo.com.folha.height) + 'px)');
+  checar(!!geo.com.cabec && !!geo.com.barra && !!geo.com.lista
+    && perto(geo.com.cabec.top, geo.com.folha.top)
+    && perto(geo.com.barra.top, geo.com.cabec.bottom)
     && perto(geo.com.lista.top, geo.com.barra.bottom),
-    'e a listagem NÃO é deslocada: nem para cima nem para baixo');
+    'e a ordem de cima continua colada: folha → cabeçalho → barra → lista');
 } catch (e) {
   checar(false, 'a medição da busca com teclado terminou sem exceção (' + (e && e.message) + ')');
 }

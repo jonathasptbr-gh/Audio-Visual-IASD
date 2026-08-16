@@ -3275,8 +3275,25 @@ main {
 
      O `.dialog-backdrop` FICA com a conta, e a diferença é a razão de ela
      existir: o `appPrompt` é um cartão CENTRADO com um campo de texto, e ali a
-     metade de baixo é justamente onde o teclado sobe. */
-  position: fixed; inset: 0; z-index: 200;
+     metade de baixo é justamente onde o teclado sobe.
+
+     ---------- MAS O TOPO CONTINUA SEGUINDO O QUE SE VÊ (v5.278) ----------
+     Relato do operador: *"ajuste também para que essa barra do topo seja fixa
+     independente da rolagem da tela"*. A v5.277 tirou `--vv-top` JUNTO com
+     `--kb`, e as duas não são a mesma conta: `--kb` ENCOLHE a camada (era o
+     "deslocada inteira para cima" que ele pediu para tirar) e `--vv-top` só a
+     DESLOCA para acompanhar a viewport visual, que o navegador rola sozinho ao
+     revelar o campo em foco. Sem ela, medido com uma rolagem de 140px: o
+     cabeçalho fica em `top: 0` da viewport de LAYOUT, isto é, **140px acima do
+     que se vê** — a barra sai pelo topo da tela.
+
+     `top` + `height: 100%` em vez de `inset`: a camada desce inteira, com a
+     MESMA altura. Encolher é o que ela não pode fazer — seria reflow da lista,
+     que é a queixa da v5.277 —, e o pedaço que passa a sobrar embaixo está
+     debaixo do teclado, que o cobre de qualquer forma. */
+  position: fixed;
+  top: var(--vv-top, 0px); left: 0; right: 0; height: 100%;
+  z-index: 200;
   /* (ver #songMenuPopup abaixo: um popup ABERTO DE DENTRO de outro precisa de
      um degrau próprio de empilhamento) */
   background: var(--scrim);
@@ -3346,13 +3363,13 @@ main {
      (branco, 1,29:1 contra a página) e o álbum, `--panel-2` (#d4dae2, 1,41:1
      contra ela) — os dois tons daquela frase deixaram de se encostar. */
   background: var(--bg);
-  /* A área segura do topo. Ela era descontada de `--vv-top` enquanto a camada
-     fixa descia junto com a viewport visual (v5.261); com o teclado voltando a
-     SOBREPOR (v5.277), a folha encosta no topo da tela sempre, e a conta volta
-     a ser a simples. Declarado UMA vez aqui: as duas folhas de tela cheia
-     (`#favPopup` e `#hymnSearchPopup`) repetiam esta linha à mão, que é a
-     sincronização manual que este projeto recusa em toda parte. */
-  padding-top: env(safe-area-inset-top);
+  /* A área segura do topo só existe enquanto a folha ENCOSTA no topo da tela.
+     Com a viewport visual rolada (`--vv-top`, v5.278), ela já começa abaixo da
+     barra de status, e reservar o espaço de novo abriria um vão no meio da
+     tela. Declarado UMA vez aqui: as duas folhas de tela cheia (`#favPopup` e
+     `#hymnSearchPopup`) repetiam esta linha à mão, que é a sincronização manual
+     que este projeto recusa em toda parte. */
+  padding-top: max(0px, env(safe-area-inset-top) - var(--vv-top, 0px));
 }
 .popup-backdrop--full { align-items: stretch; }
 
@@ -3598,19 +3615,17 @@ main {
    lote. `flex: 1` num item sozinho o encosta à esquerda; o par
    `justify-content: center` + `flex: 0` o põe no meio com o ícone junto, como
    um rótulo de tela.
-   E o TÍTULO CENTRA DE VERDADE, não o par ícone+título: o cabeçalho vira uma
-   grade de três colunas com o ícone na primeira, o título na do meio e uma
-   coluna VAZIA do mesmo tamanho na terceira. É o layout clássico de barra de
-   título, e é a única forma de o texto ficar no centro da tela com um ícone ao
-   lado — centrar a linha flex centraria os DOIS, deixando a palavra deslocada
-   pela metade da largura do ícone (14px, medidos). */
+   E o TÍTULO CENTRA. A v5.277 precisou de uma grade de três colunas para isso —
+   com o ícone ao lado, centrar a linha flex centraria os DOIS e deixaria a
+   palavra 14px fora do meio (medidos). O ícone saiu na v5.278 e a grade saiu
+   com ele: filho único num flex centrado já fica no centro, e o `flex: 1` do
+   `.popup-title` (que o encostaria à esquerda) é o único que precisa ser
+   desfeito. */
 #hymnSearchPopup .popup-header {
   background: var(--field-bar);
-  display: grid;
-  grid-template-columns: var(--icon-sm) 1fr var(--icon-sm);
-  align-items: center;
+  justify-content: center;
 }
-#hymnSearchPopup .popup-title { text-align: center; }
+#hymnSearchPopup .popup-title { flex: 0 1 auto; text-align: center; }
 /* ---------- A BARRA DA BIBLIOTECA VOLTOU AO TOPO (v5.275) ----------
    Decisão do operador: *"vamos fazer um ajuste e colocar a barra de buscas da
    biblioteca no topo novamente, ela na base está dando muitos problemas de
@@ -3817,6 +3832,32 @@ main {
 /* O segundo botão herda `.row-btn` (o quadrado de ação das listas) — aqui fica
    só a cor, que o distingue do tocar: adicionar é o gesto secundário. */
 .hymn-add-btn { flex-shrink: 0; color: var(--accent); }
+/* ---------- O ALVO DOS DOIS BOTÕES É A LINHA INTEIRA (v5.278) ----------
+   Relato do operador: *"é extremamente comum tentar clicar em adicionar e
+   acabar tocando no corpo do card, abrindo os detalhes da letra"*.
+
+   O botão tem 40px numa linha de 50 e para a 8px da borda direita: sobram
+   faixas MORTAS de ~5px acima e abaixo dele e 8px ao lado — e elas não são
+   neutras, porque o corpo da linha tem uma ação PRÓPRIA (a gaveta da letra).
+   Errar por três pixels não devolve "nada aconteceu": devolve outra coisa
+   acontecendo, e é isso que o operador descreve.
+
+   O alvo cresce por um `::after` e o DESENHO não muda um pixel — encorpar o
+   botão de verdade empurraria o nome, que é a única coisa da linha que não se
+   adivinha. Ele vai até as bordas da linha: 6px em cima e embaixo (a linha tem
+   50, o botão 40, e o resto é recortado pelo `overflow: hidden` do `li`, que é
+   onde o alvo deve mesmo parar) e 8px para fora nos lados, que é o padding da
+   `.hymn-row`.
+
+   Vale para os DOIS botões da faixa, e não só para o que foi relatado: o de
+   tocar tem 38px na mesma linha de 50, isto é, a mesma faixa morta e o mesmo
+   desfecho — o toque que erra abre a letra em vez de tocar o louvor.
+
+   `position: relative` nos dois é o que faz o `::after` se medir por eles. */
+.hymn-play-thumb, .hymn-add-btn { position: relative; }
+.hymn-play-thumb::after, .hymn-add-btn::after {
+  content: ''; position: absolute; inset: -6px -8px;
+}
 /* `flex:none` desfaz o `flex:1` de .row-name: aqui o pai é uma coluna, e
    crescer significaria esticar na VERTICAL (o nome descolaria do subtítulo). */
 /* MESMA ESCALA DO TÍTULO DO ÁLBUM (v5.240): a faixa era 1.02rem e o cartão que
