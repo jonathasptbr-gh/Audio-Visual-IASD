@@ -4173,6 +4173,26 @@ Duas podas do mesmo pedido, e as duas são sobre a barra do topo:
   `padding-bottom` da FOLHA: quem termina a folha passou a ser a lista, e sem
   ela o último item ficaria debaixo da barra de gestos.
 
+  **E o TECLADO voltou a SOBREPOR** (v5.277): `.popup-backdrop` é `inset: 0` de
+  novo. O `inset` da v5.261 descia a camada fixa até a faixa visível para que a
+  barra, que morava na BASE, encostasse no teclado em vez de ficar atrás dele;
+  com ela no topo não há nada embaixo que precise ser revelado, e o que sobrava
+  daquele conserto era o efeito colateral — a folha inteira encolhendo e subindo
+  no instante em que o teclado aparece (*"a tela está sendo deslocada inteira
+  para cima"*). O `.dialog-backdrop` FICA com a conta, e a diferença é a razão
+  dela: o `appPrompt` é um cartão CENTRADO com campo de texto, e ali a metade de
+  baixo é justamente onde o teclado sobe.
+
+  **O cabeçalho e a barra são UMA peça** (v5.277): mesmo `--field-bar` nas duas
+  faixas, porque duas faixas fixas empilhadas sobre a mesma lista são uma barra
+  só. O TÍTULO centra numa grade de três colunas (ícone · título · vão do mesmo
+  tamanho) — centrar a linha flex centraria o PAR ícone+título e deixaria a
+  palavra 14px fora do meio, medidos. E o ✕ virou QUADRADO por um número com
+  nome (`--campo-alt`), que é a altura do campo e o lado do botão: dentro de um
+  contêiner flex o `aspect-ratio` não resolve, porque a largura é resolvida
+  ANTES de o `stretch` dar uma altura definida — a primeira versão colapsou o
+  botão na largura do glifo, 20px.
+
 #### O rodízio das coleções, e os Favoritos ocupando o vão (v5.273/v5.276)
 
 Pedido do operador: *"só permita uma coleção aberta por vez e sempre deixe uma
@@ -4226,9 +4246,28 @@ nada mais, que é a regra normal de uma lista; o vão continua sendo dos
 Favoritos, que são a única seção com razão para tê-lo (uma lista de atalhos
 vazia ainda é o lugar em que o próximo entra).
 
-**Eles são também a única seção que ENCOLHE** (`flex: 1 1 auto; min-height: 0`):
-o corpo recorta o que passa do vão — o `overflow: hidden` já era requisito da
-animação de altura — e o botão da base o traz de volta.
+**E O VÃO É FIXO, não repartido** (v5.277). Ele era `flex: 1 1 auto`, e **flex
+REPARTE**: com uma coleção aberta, o que sobrava passava a ser dividido entre as
+duas e os favoritos encolhiam para dar espaço a ela — *"ao abrir uma coleção,
+ele encolhe os favoritos… eu quero que o espaço dos favoritos seja fixo, mas
+seja o espaço proporcional que sobrou após listar as outras coleções abaixo"*.
+`--fav-vao` é uma altura em PIXELS, medida em JS (`medirVaoDosFavoritos`) a
+partir das BARRAS das outras seções, isto é, do que sobra da tela com todas elas
+colapsadas — a conta **não depende de qual coleção está aberta**, que é a
+propriedade inteira. `flex: 0 0 auto` impede o flex de mexer nela nos dois
+sentidos, e o corpo dentro dela é quem cresce (`flex: 1 1 auto`) e é recortado,
+com o botão logo abaixo.
+
+**A coleção que abre rola até o topo dela** (`alinharGrupoNoTopo`, v5.277). O
+"abrindo para cima" que o operador relatou era o encolhimento acima; o que
+faltava depois de corrigi-lo é que uma coleção aberta no fim da lista cresce
+para fora da tela, e quem a abriu fica olhando a barra dela sem ver um item.
+**O alinhamento espera a animação do acordeão** (`ACC_MS + 30`, e não um
+`requestAnimationFrame`): durante os 220 ms da abertura o conteúdo ainda não
+existe e a lista não tem para onde rolar — uma versão em rAF mediu o layout
+COLAPSADO e rolou 7px de 59 possíveis (verificado). Quando não há conteúdo
+abaixo que leve a seção até o topo, a lista rola até o fim, que é o mais perto
+que existe.
 
 **E o botão CONTA ITENS que ficaram de fora, não pixels que transbordaram**
 (`acertarVaoDosFavoritos`, v5.276). A primeira versão perguntava

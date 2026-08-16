@@ -3053,10 +3053,57 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.276** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.277** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.277: O VÃO DOS FAVORITOS VIRA UMA MEDIDA DE TELA, a coleção rola até o
+> topo dela, o teclado volta a SOBREPOR, e a barra de título vira uma peça só.
+> OTA PURO** (sem Release).
+>
+> Quatro relatos, e os dois primeiros são o mesmo defeito visto de dois ângulos.
+>
+> - **FLEX REPARTE, e era isso que encolhia os favoritos.** *"Ao abrir uma
+>   coleção, ele encolhe os favoritos para dar espaço à coleção aberta,
+>   dividindo os espaços… eu quero que o espaço dos favoritos seja fixo, mas
+>   seja o espaço proporcional que sobrou após listar as outras coleções
+>   abaixo."* `flex: 1 1 auto` é uma regra de PARTILHA — dois itens que crescem
+>   dividem o que sobra —, e a lista de atalhos passava a mudar de tamanho
+>   conforme o que o operador abrisse noutro lugar da tela. `--fav-vao` é agora
+>   uma altura em PIXELS, medida em JS a partir das BARRAS das outras seções,
+>   isto é, do que sobra da tela com todas elas COLAPSADAS: a conta **não
+>   depende de qual coleção está aberta**, que é a propriedade inteira.
+> - **E O "ABRINDO PARA CIMA" ERA ESSE ENCOLHIMENTO.** Com o vão fixo, o que
+>   faltava é a outra metade do pedido: uma coleção aberta no fim da lista
+>   cresce para fora da tela, e quem a abriu fica olhando a barra dela sem ver um
+>   item. `alinharGrupoNoTopo` rola a lista até o topo da seção — **depois da
+>   animação do acordeão**, e essa espera é o achado: durante os 220 ms da
+>   abertura o conteúdo ainda não existe e a lista não tem para onde rolar. A
+>   primeira versão usava `requestAnimationFrame`, mediu o layout COLAPSADO e
+>   rolou **7px de 59 possíveis** (verificado). Quando não há conteúdo abaixo que
+>   leve a seção até o topo, ela rola até o fim, que é o mais perto que existe.
+> - **O TECLADO VOLTA A SOBREPOR** — *"a tela está sendo deslocada inteira para
+>   cima… ajuste apenas para o teclado ficar sobreposto à tela e não deslocar
+>   ela"*. Isto REVOGA o `inset` da v5.261 no `.popup-backdrop`, e o argumento
+>   dele morreu junto com a barra na base: ele descia a camada fixa até a faixa
+>   visível para a busca encostar no teclado em vez de ficar atrás dele. Com a
+>   barra no topo (v5.275) não há nada embaixo que precise ser revelado, e o que
+>   sobrava era só o efeito colateral. **O `.dialog-backdrop` FICA com a conta**,
+>   e a diferença é a razão dela: o `appPrompt` é um cartão CENTRADO com campo de
+>   texto, e ali a metade de baixo é onde o teclado sobe.
+> - **O CABEÇALHO E A BARRA VIRAM UMA PEÇA.** Mesmo fundo (`--field-bar`),
+>   porque duas faixas fixas empilhadas sobre a mesma lista são uma barra só. O
+>   TÍTULO centra numa grade de três colunas — centrar a linha flex centraria o
+>   PAR ícone+título e deixaria a palavra 14px fora do meio, medidos. E o ✕ ficou
+>   QUADRADO por um número com nome (`--campo-alt`, a altura do campo e o lado do
+>   botão): **`aspect-ratio` não resolve isso dentro de um flex**, porque a
+>   largura é resolvida ANTES de o `stretch` dar uma altura definida — a primeira
+>   versão colapsou o botão na largura do glifo, 20px.
+>
+> Verificado por ISOLAMENTO, uma peça de cada vez: devolvendo o vão ao flex,
+> **2 + 2** asserções reprovam; sem o alinhamento, **1**; com o teclado
+> deslocando de novo, **3**; com o cabeçalho e o ✕ antigos, **8**.
 
 > **A v5.276: OS FAVORITOS SAEM DO RODÍZIO, a coleção aberta para de inchar, e
 > o "Ver todos" passa a contar ITENS. OTA PURO** (sem Release).

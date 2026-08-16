@@ -104,6 +104,11 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   --hit: 34px;
   --hit-nav: 38px;
   --hit-foot: 44px;
+  /* A LINHA DA BUSCA DA BIBLIOTECA (v5.277): a altura do campo e o LADO do
+     botão de fechar ao lado dele, que o operador pediu quadrado. Um número
+     para as duas peças, e não um por peça — ver `#hymnSearchClose`, onde está
+     por que `aspect-ratio` não serve dentro de um contêiner flex. */
+  --campo-alt: 40px;
   /* ---------- A CAIXA DA LINHA DE LISTA (v5.259) ----------
      A miniatura media 40px e os botões da mesma linha, 34px — dois quadrados
      lado a lado, com 6px de diferença, sem que nada dissesse por quê. Pior
@@ -2081,16 +2086,35 @@ main {
 #hymnResults > .coll-group--drop.aberto > .coll-group-corpo {
   flex: 0 1 auto; min-height: 0;
 }
-/* OS FAVORITOS TOMAM O VÃO E SÃO RECORTADOS NELE, e são a única seção que faz
-   as duas coisas. `flex-grow: 1` os estica até o que sobra; `flex-shrink: 1` +
-   `min-height: 0` deixa o corpo ser cortado quando a lista é maior que isso — o
-   `overflow: hidden` ele já tem, por ser requisito da animação de altura. O
-   botão da base desfaz o corte (ver `acertarVaoDosFavoritos`, que conta os
-   ITENS que ficaram de fora em vez de medir o transbordo da caixa).
+/* ---------- O VÃO DOS FAVORITOS É FIXO (v5.277) ----------
+   Ele era `flex: 1 1 auto`, e **flex REPARTE**: com uma coleção aberta, o que
+   sobrava passava a ser dividido entre as duas e os favoritos ENCOLHIAM para
+   dar espaço a ela. Relato do operador: *"ao abrir uma coleção, ele encolhe os
+   favoritos para dar espaço à coleção aberta, dividindo os espaços… eu quero
+   que o espaço dos favoritos seja fixo, mas seja o espaço proporcional que
+   sobrou após listar as outras coleções abaixo"*.
+
+   `--fav-vao` é uma ALTURA EM PIXELS, medida em JS a partir das barras das
+   outras seções (ver `medirVaoDosFavoritos`) — isto é, do que sobra da tela com
+   todas elas COLAPSADAS. Ela não depende de qual coleção está aberta, que é a
+   propriedade inteira: a lista de atalhos para de mudar de tamanho conforme o
+   que o operador abre noutro lugar da tela.
+
+   `flex: 0 0 auto` é o que impede o flex de mexer nela nos dois sentidos — sem
+   o `grow` ela não reparte, sem o `shrink` ela não é espremida por uma coleção
+   grande logo abaixo.
 
    Expandida, ela volta a ser uma seção como as outras: cresce com o conteúdo e
    empurra as fechadas para baixo, com a Biblioteca rolando. */
 #hymnResults > .coll-group--fav.aberto:not(.expandido) {
+  height: var(--fav-vao, auto);
+  flex: 0 0 auto;
+}
+/* E o CORPO preenche o que sobra dentro dessa altura fixa. Aqui ele CRESCE (nas
+   coleções, não), porque a caixa de fora tem tamanho definido e o corpo é o
+   único filho que pode absorvê-lo — e é ele que precisa ser o recorte, com o
+   botão "Ver todos" logo abaixo. */
+#hymnResults > .coll-group--fav.aberto:not(.expandido) > .coll-group-corpo {
   flex: 1 1 auto; min-height: 0;
 }
 /* O botão que abre a lista além do vão. Ele é a última faixa do bloco da seção
@@ -3236,18 +3260,23 @@ main {
 
 /* ---------- Popup de playlist (bottom sheet) ---------- */
 .popup-backdrop {
-  /* A CAMADA FIXA É A FAIXA VISÍVEL, NÃO A TELA (v5.258).
-     `inset: 0` é a viewport de LAYOUT, e com o teclado aberto ela inclui o
-     pedaço que o teclado está cobrindo — a folha continuava com a altura da
-     tela inteira e a lista terminava atrás do teclado. `body` já descontava
-     `--kb` desde sempre; uma camada `position: fixed` está FORA do fluxo do
-     body e nunca viu essa conta.
-     `--vv-top` é a outra metade: quando o navegador rola a viewport visual para
-     revelar o campo em foco, o que é fixo sai pelo TOPO da tela — a queixa do
-     operador, palavra por palavra ("deslocando todos os itens para cima,
-     ocultando eles por saírem no topo"). Descendo a camada junto, ela fica
-     colada na faixa que se vê. Os dois valem 0 sem teclado. */
-  position: fixed; inset: var(--vv-top, 0px) 0 var(--kb, 0px) 0; z-index: 200;
+  /* ---------- O TECLADO SOBREPÕE, NÃO DESLOCA (v5.277) ----------
+     Decisão do operador: *"após abrir a biblioteca, e o teclado aparecer,
+     infelizmente a tela está sendo deslocada inteira para cima. Então ajuste
+     apenas para o teclado ficar sobreposto à tela e não deslocar ela."*
+
+     Isto REVOGA o `inset` da v5.261 nesta camada, e o argumento dela morreu
+     junto com a barra: ela descia a folha até a faixa visível para que a barra
+     de busca, que morava na BASE, encostasse no teclado em vez de ficar atrás
+     dele. Com a barra no topo (v5.275) não há nada embaixo que precise ser
+     revelado — o campo, o ✕ e o cabeçalho estão todos acima da metade da tela —
+     e o que sobrava daquele conserto era o efeito colateral: a folha inteira
+     encolhendo e subindo no instante em que o teclado aparece.
+
+     O `.dialog-backdrop` FICA com a conta, e a diferença é a razão de ela
+     existir: o `appPrompt` é um cartão CENTRADO com um campo de texto, e ali a
+     metade de baixo é justamente onde o teclado sobe. */
+  position: fixed; inset: 0; z-index: 200;
   /* (ver #songMenuPopup abaixo: um popup ABERTO DE DENTRO de outro precisa de
      um degrau próprio de empilhamento) */
   background: var(--scrim);
@@ -3317,13 +3346,13 @@ main {
      (branco, 1,29:1 contra a página) e o álbum, `--panel-2` (#d4dae2, 1,41:1
      contra ela) — os dois tons daquela frase deixaram de se encostar. */
   background: var(--bg);
-  /* A área segura do topo só existe enquanto a folha ENCOSTA no topo da tela.
-     Com a viewport visual rolada (`--vv-top`), ela já começa abaixo da barra de
-     status, e reservar o espaço de novo abriria um vão no meio da tela.
-     Declarado UMA vez aqui: as duas folhas de tela cheia (`#favPopup` e
-     `#hymnSearchPopup`) repetiam esta linha à mão, que é a sincronização manual
-     que este projeto recusa em toda parte. */
-  padding-top: max(0px, env(safe-area-inset-top) - var(--vv-top, 0px));
+  /* A área segura do topo. Ela era descontada de `--vv-top` enquanto a camada
+     fixa descia junto com a viewport visual (v5.261); com o teclado voltando a
+     SOBREPOR (v5.277), a folha encosta no topo da tela sempre, e a conta volta
+     a ser a simples. Declarado UMA vez aqui: as duas folhas de tela cheia
+     (`#favPopup` e `#hymnSearchPopup`) repetiam esta linha à mão, que é a
+     sincronização manual que este projeto recusa em toda parte. */
+  padding-top: env(safe-area-inset-top);
 }
 .popup-backdrop--full { align-items: stretch; }
 
@@ -3553,6 +3582,35 @@ main {
 /* Barra de busca do Hinário ocupando toda a largura da bandeja: display:flex faz
    o input (.lib-search, flex:1) esticar de lado a lado (sem isso o input ficava
    no tamanho nativo, pequeno). Campo mais alto/legível que o de busca da pasta. */
+/* ---------- O CABEÇALHO E A BARRA SÃO UMA PEÇA SÓ (v5.277) ----------
+   Pedido do operador: *"mescle a barra de título da biblioteca com a cor de
+   fundo da barra de pesquisa e centralize o título"*.
+
+   Com a busca de volta ao topo (v5.275), o cabeçalho e ela viraram duas faixas
+   coladas com fundos diferentes — a do título herdando o `--bg` da folha e a de
+   baixo com o `--field-bar`. Duas faixas fixas empilhadas sobre a mesma lista
+   são UMA barra, e pintá-las igual é dizer isso. O que as separava era só a
+   cor; a distinção que interessa — o que é rótulo e o que se toca — continua
+   dita pelo conteúdo.
+
+   O TÍTULO CENTRA porque o cabeçalho da Biblioteca não tem mais nada além dele
+   e do ícone: o ✕ desceu para a barra na v5.258 e o "Baixar tudo" saiu no mesmo
+   lote. `flex: 1` num item sozinho o encosta à esquerda; o par
+   `justify-content: center` + `flex: 0` o põe no meio com o ícone junto, como
+   um rótulo de tela.
+   E o TÍTULO CENTRA DE VERDADE, não o par ícone+título: o cabeçalho vira uma
+   grade de três colunas com o ícone na primeira, o título na do meio e uma
+   coluna VAZIA do mesmo tamanho na terceira. É o layout clássico de barra de
+   título, e é a única forma de o texto ficar no centro da tela com um ícone ao
+   lado — centrar a linha flex centraria os DOIS, deixando a palavra deslocada
+   pela metade da largura do ícone (14px, medidos). */
+#hymnSearchPopup .popup-header {
+  background: var(--field-bar);
+  display: grid;
+  grid-template-columns: var(--icon-sm) 1fr var(--icon-sm);
+  align-items: center;
+}
+#hymnSearchPopup .popup-title { text-align: center; }
 /* ---------- A BARRA DA BIBLIOTECA VOLTOU AO TOPO (v5.275) ----------
    Decisão do operador: *"vamos fazer um ajuste e colocar a barra de buscas da
    biblioteca no topo novamente, ela na base está dando muitos problemas de
@@ -3643,8 +3701,10 @@ main {
      canto de um campo de texto é um ponto morto exatamente onde o dedo mira. */
   pointer-events: none;
 }
-/* O recuo à esquerda abre o lugar dela: 12 (margem) + 18 (ícone) + 8 (respiro). */
-#hymnSearchInput { flex: 1; min-width: 0; padding: 11px 14px 11px 38px; font-size: .95rem; }
+/* O recuo à esquerda abre o lugar dela: 12 (margem) + 18 (ícone) + 8 (respiro).
+   A ALTURA é `--campo-alt` (v5.277): ela era consequência do padding, e virou
+   uma medida com nome porque o ✕ ao lado precisa dela para ser quadrado. */
+#hymnSearchInput { flex: 1; min-width: 0; height: var(--campo-alt); padding: 11px 14px 11px 38px; font-size: .95rem; }
 /* ---------- O ✕ TEM A ALTURA DO CAMPO (v5.270) ----------
    Pedido do operador. Ele vinha do esqueleto de botão de ícone do app (`--hit`
    quadrado, 34px) e o campo tem 41 — dois vizinhos na mesma linha com sete
@@ -3661,7 +3721,19 @@ main {
    Vestindo `--field-*` ele vira o irmão do campo — as duas peças claras sobre a
    faixa —, e o glifo volta a 8,4:1. */
 #hymnSearchClose {
-  align-self: stretch; height: auto;
+  /* QUADRADO (v5.277, pedido do operador: *"ele deve ser um botão quadrado"*).
+     A v5.270 lhe deu a ALTURA do campo (`align-self: stretch`) e deixou a
+     largura em `--hit` — 34px contra os 40 do campo, isto é, um retângulo em pé
+     que ninguém decidiu.
+
+     `aspect-ratio` NÃO resolve isto, e a razão é do algoritmo: num contêiner
+     flex a largura (o eixo principal) é resolvida ANTES de o `stretch` dar uma
+     altura definida, então a proporção não tem de que partir e o botão colapsa
+     na largura do glifo — 20px, medidos. O que resolve é UM NÚMERO em UM lugar:
+     `--campo-alt` é a altura do campo E o lado do quadrado, e é dele que as
+     duas peças da linha partem. Um valor por peça é a sincronização manual que
+     este projeto recusa; um valor para as duas é a medida da linha. */
+  width: var(--campo-alt); height: var(--campo-alt); flex-shrink: 0;
   border-radius: var(--radius-btn);
   background: var(--field-bg); color: var(--field-text);
   box-shadow: 0 1px 3px -1px var(--shadow-ink);

@@ -1094,6 +1094,7 @@ for (const tema of ['escuro', 'claro']) {
       setAppMode('full');
       openHymnSearch();
       grupoAberto = ''; favAberto = true;
+      hymnResultsEl.innerHTML = '';   // `renderCollectionsList` ACRESCENTA (v5.232)
       renderCollectionsList(hymnResultsEl, () => {}, { semTotal: true });
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
       const secoes = [...hymnResultsEl.querySelectorAll('.coll-group--drop')];
@@ -1105,13 +1106,6 @@ for (const tema of ['escuro', 'claro']) {
         // muito mais que uma barra fechada: é ela que come o vão.
         altFav: fav ? fav.getBoundingClientRect().height : 0,
         altOutra: outras.length ? outras[0].getBoundingClientRect().height : 0,
-        // O que ela mediria SEM crescer: a barra mais o corpo, que é todo o
-        // conteúdo dela. Sem esta referência a asserção passaria por acidente —
-        // uma seção aberta é naturalmente mais alta que uma barra fechada, e
-        // foi o que a primeira versão deste caso mediu (verificado: ela não
-        // reprovava com o `flex-grow` removido).
-        altConteudoFav: fav ? [...fav.children]
-          .reduce((n, el) => n + el.getBoundingClientRect().height, 0) : 0,
         // E as fechadas ficam EMPILHADAS NA BASE: a última delas termina onde a
         // lista termina (descontado o padding de baixo).
         fundoUltima: outras.length
@@ -1165,6 +1159,23 @@ for (const tema of ['escuro', 'claro']) {
             esqSecao: alvo.getBoundingClientRect().left,
           };
         })(),
+        // ===== O CABEÇALHO E A BARRA (v5.277) =====
+        barra: (() => {
+          const cab = document.querySelector('#hymnSearchPopup .popup-header');
+          const bar = document.querySelector('#hymnSearchPopup .hymn-search-bar');
+          const tit = document.getElementById('hymnSearchTitle');
+          const fechar = document.getElementById('hymnSearchClose');
+          const campo = document.getElementById('hymnSearchInput');
+          const cx2 = (el) => el.getBoundingClientRect();
+          return {
+            corCabec: cx(cab).backgroundColor,
+            corBarra: cx(bar).backgroundColor,
+            centroTitulo: cx2(tit).left + cx2(tit).width / 2,
+            centroTela: cx2(cab).left + cx2(cab).width / 2,
+            fecharL: cx2(fechar).width, fecharA: cx2(fechar).height,
+            campoA: cx2(campo).height,
+          };
+        })(),
         gapLista: (() => {
           const u = document.createElement('ul');
           u.className = 'popup-list';
@@ -1191,16 +1202,12 @@ for (const tema of ['escuro', 'claro']) {
       const sobra = (el) => (el ? el.getBoundingClientRect().height
         - [...el.children].reduce((n, c) => n + c.getBoundingClientRect().height, 0) : -1);
       r.outra = {
-        // O VAZIO que cada uma absorveu. A coleção não pode absorver nada além
-        // do padding próprio; os favoritos absorvem o vão inteiro.
+        // O VAZIO dentro da coleção aberta: ela não pode absorver nada além do
+        // padding próprio.
         sobraColecao: sobra(colecao),
-        sobraFav: sobra(favSecao),
-        // E a lista continua terminando CHEIA: quem a preenche é a seção dos
-        // Favoritos, que vem antes de todas as coleções.
-        fundoUltima: todas.length
-          ? todas[todas.length - 1].getBoundingClientRect().bottom : 0,
-        fundoLista: hymnResultsEl.getBoundingClientRect().bottom
-          - parseFloat(cx(hymnResultsEl).paddingBottom),
+        // E A ALTURA DOS FAVORITOS, para comparar com a de antes: é ela que a
+        // v5.277 fixa.
+        altFav: favSecao ? favSecao.getBoundingClientRect().height : -1,
       };
       grupoAberto = ''; favAberto = true;
       closeHymnSearch();
@@ -1219,13 +1226,12 @@ for (const tema of ['escuro', 'claro']) {
       const x = lum(a); const y = lum(b);
       return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
     };
-    // O VAZIO QUE ELA ABSORVEU tem de ser maior que uma seção fechada inteira.
-    // Uma folga pequena não prova nada — a seção tem padding próprio, e sem o
-    // crescimento ela já sobra ~12px sobre o conteúdo (medido).
-    checar(v.altFav - v.altConteudoFav > v.altOutra,
+    // ELA OCUPA O VÃO: muitas vezes uma seção fechada, sem nenhum favorito na
+    // lista. O "quanto" não pode virar número aqui — depende do acervo do
+    // fixture —, e a comparação com a barra fechada é a régua da própria tela.
+    checar(v.altFav > v.altOutra * 2,
       '[' + tema + '] a seção dos FAVORITOS ocupa o vão que sobra, mesmo sem '
-      + 'nenhum favorito (' + Math.round(v.altFav) + 'px, contra '
-      + Math.round(v.altConteudoFav) + 'px do conteúdo dela e '
+      + 'nenhum favorito (' + Math.round(v.altFav) + 'px contra '
       + Math.round(v.altOutra) + 'px de uma seção fechada)');
     checar(Math.abs(v.fundoUltima - v.fundoLista) <= 1,
       '[' + tema + '] e as fechadas ficam EMPILHADAS NA BASE — a última termina '
@@ -1247,15 +1253,37 @@ for (const tema of ['escuro', 'claro']) {
     checar(!!L && L.linha > 0 && L.linha <= L.secao + 1 && L.esqBarra >= L.esqSecao - 1,
       '[' + tema + '] e uma linha de dentro não vaza para fora dela ('
       + (L ? Math.round(L.linha) + 'px numa seção de ' + Math.round(L.secao) : '?') + 'px)');
-    // A DIVISÃO DO VÃO (v5.276): a coleção aberta mede o conteúdo dela — o
-    // vazio dentro dela é só o padding próprio — e quem absorve o resto da tela
-    // é a seção dos Favoritos. A comparação é ENTRE as duas, e não contra um
-    // número: o tamanho do vão depende do acervo do fixture.
-    checar(v.outra.sobraColecao >= 0 && v.outra.sobraFav > v.outra.sobraColecao * 3
-      && Math.abs(v.outra.fundoUltima - v.outra.fundoLista) <= 1,
-      '[' + tema + '] uma COLEÇÃO aberta mede o conteúdo dela e o vão fica com os '
-      + 'FAVORITOS — e a lista termina cheia (' + Math.round(v.outra.sobraColecao)
-      + 'px contra ' + Math.round(v.outra.sobraFav) + 'px de vazio absorvido)');
+    // ===== O VÃO É FIXO (v5.277) =====
+    // A asserção CENTRAL deste lote, e ela é a queixa escrita como medida: a
+    // altura da seção dos Favoritos é a MESMA com uma coleção aberta e com
+    // nenhuma. Com o `flex-grow` de antes ela encolhia para repartir o vão com
+    // a coleção — *"ao abrir uma coleção, ele encolhe os favoritos para dar
+    // espaço à coleção aberta"*.
+    checar(Math.abs(v.outra.altFav - v.altFav) <= 1,
+      '[' + tema + '] e essa altura NÃO MUDA quando uma coleção abre: o vão é '
+      + 'fixo, não repartido (' + Math.round(v.altFav) + 'px → '
+      + Math.round(v.outra.altFav) + 'px)');
+    // E a coleção aberta mede o CONTEÚDO dela: o vazio dentro dela é só o
+    // padding próprio, nunca metade da tela.
+    checar(v.outra.sobraColecao >= 0 && v.outra.sobraColecao < v.altOutra,
+      '[' + tema + '] e a COLEÇÃO aberta mede o conteúdo dela, sem inchar ('
+      + Math.round(v.outra.sobraColecao) + 'px de vazio dentro dela)');
+    checar(v.barra.corCabec === v.barra.corBarra,
+      '[' + tema + '] o cabeçalho e a barra de busca são UMA peça: mesmo fundo, '
+      + 'duas faixas fixas sobre a mesma lista', v.barra.corCabec);
+    // O TÍTULO no centro da TELA, não o par ícone+título: centrar a linha flex
+    // deslocaria a palavra pela metade da largura do ícone (14px, medidos).
+    checar(Math.abs(v.barra.centroTitulo - v.barra.centroTela) <= 1,
+      '[' + tema + '] e o título fica exatamente no centro ('
+      + Math.round(v.barra.centroTitulo) + ' contra ' + Math.round(v.barra.centroTela) + ')');
+    // QUADRADO. `aspect-ratio` não resolve isto dentro de um flex (a largura é
+    // resolvida antes de o `stretch` dar altura), e a primeira versão colapsou
+    // o botão na largura do glifo — 20px, medidos.
+    checar(v.barra.fecharL > 0 && Math.abs(v.barra.fecharL - v.barra.fecharA) <= 1
+      && Math.abs(v.barra.fecharA - v.barra.campoA) <= 1,
+      '[' + tema + '] o ✕ é QUADRADO e do tamanho do campo ('
+      + Math.round(v.barra.fecharL) + '×' + Math.round(v.barra.fecharA)
+      + ', campo ' + Math.round(v.barra.campoA) + 'px de altura)');
     checar(v.gapSecoes > v.gapLista,
       '[' + tema + '] e uma SEÇÃO respira mais que uma linha de lista ('
       + v.gapSecoes + 'px contra ' + v.gapLista + 'px)');
@@ -2151,14 +2179,21 @@ try {
   checar(!!geo.sem.lista && perto(geo.sem.lista.top, geo.sem.barra.bottom)
     && geo.sem.lista.bottom > geo.sem.barra.bottom,
     'e a lista começa onde ela termina — a rolagem passa por BAIXO dela');
-  checar(!!geo.com.folha && perto(geo.com.folha.top, geo.visivelTopo)
-    && perto(geo.com.folha.bottom, geo.visivelBase),
-    'com o teclado aberto, a folha é a FAIXA VISÍVEL, não a tela inteira');
-  checar(!!geo.com.barra && perto(geo.com.barra.top, geo.com.cabec.bottom),
-    'a barra continua no topo, logo abaixo do cabeçalho — nada a empurra');
+  // O TECLADO SOBREPÕE (v5.277, decisão do operador: *"a tela está sendo
+  // deslocada inteira para cima… ajuste apenas para o teclado ficar sobreposto
+  // à tela e não deslocar ela"*). Isto INVERTE o que a v5.261 travava aqui, e a
+  // razão dela morreu com a barra na base: não há mais nada embaixo que precise
+  // ser revelado. A afirmação é que a folha NÃO SE MEXE — mesma caixa com e sem
+  // teclado —, que é a queixa escrita como medida.
+  checar(!!geo.com.folha && perto(geo.com.folha.top, geo.sem.folha.top)
+    && perto(geo.com.folha.bottom, geo.sem.folha.bottom),
+    'com o teclado aberto a folha NÃO SE MEXE: ele sobrepõe a tela, não a desloca');
+  checar(!!geo.com.barra && perto(geo.com.barra.top, geo.sem.barra.top),
+    'a barra continua exatamente onde estava, logo abaixo do cabeçalho');
   checar(!!geo.com.cabec && !!geo.com.lista
-    && perto(geo.com.cabec.top, geo.visivelTopo) && perto(geo.com.lista.top, geo.com.barra.bottom),
-    'e a listagem NÃO é deslocada: ela começa logo abaixo da barra, que está no topo do que se vê');
+    && perto(geo.com.cabec.top, geo.sem.cabec.top)
+    && perto(geo.com.lista.top, geo.com.barra.bottom),
+    'e a listagem NÃO é deslocada: nem para cima nem para baixo');
 } catch (e) {
   checar(false, 'a medição da busca com teclado terminou sem exceção (' + (e && e.message) + ')');
 }
