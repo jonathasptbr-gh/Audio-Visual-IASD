@@ -3114,6 +3114,21 @@ controles), que **só chegam instalando o APK novo**, não pelo OTA.
 > do `boot-nativo.test.mjs` reprovam; sem o preenchimento da faixa, **2** do
 > `smoke.mjs`.
 >
+> **E o `display-smoke` voltou ao verde — ele reprovava um app que estava certo.**
+> Aquele caso (v5.179) arma a guarda que cala o `sendStatus` do meio do fade,
+> resolve, e afirmava "viajou UM status". A afirmação supõe que nada mais
+> estivesse em voo, e havia: o `clear` do passo ANTERIOR tem fade de ~0,6 s e um
+> `aoSairDeCena` próprio, cujo `then` emite o status final depois de o caso ter
+> zerado o espião. Chegavam dois, **os dois corretos** (palco vazio,
+> `playing: false`), e a contagem reprovava. Agora ele espera o fade anterior
+> assentar (`saindoDeCena === 0`) e mede as DUAS metades no instante de cada uma
+> — nada viaja durante o fade; um status sai no fim —, o que também diz QUAL
+> delas quebrou, coisa que uma contagem no fim nunca diz. Verificado nos dois
+> sentidos: tirando a guarda do `display.js`, as duas reprovam; e cinco execuções
+> seguidas passam, que era a outra metade do problema (um teste que reprova de
+> vez em quando ensina a ignorar vermelho). Nenhuma linha da base web mudou —
+> este conserto é do oráculo, e por isso não há versão nova.
+>
 > **E o oráculo dos Favoritos quase mediu a lista errada.** Os itens do caso
 > nascem no Cronograma (é de lá que se favorita), então um `querySelector` de
 > documento acha a linha DE LÁ — que é posicionada e tem seleção múltipla. Ele
