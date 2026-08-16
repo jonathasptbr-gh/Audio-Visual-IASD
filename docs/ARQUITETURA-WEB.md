@@ -4156,6 +4156,72 @@ Duas podas do mesmo pedido, e as duas são sobre a barra do topo:
   já mantém o transporte visível. O ✕ vem DEPOIS do campo, na ponta em que o
   polegar já está.
 
+#### Uma seção aberta por vez, e os Favoritos ocupam o vão (v5.273)
+
+Pedido do operador: *"só permita uma coleção aberta por vez e sempre deixe uma
+aberta, no caso a dos favoritos, onde ela só fecha se outra for aberta. Ajuste
+para que a seção dos favoritos ocupe a altura que sobra além do espaço das
+outras seções no formato colapsado (mesmo que não haja nenhum favorito)… caso
+tenha mais itens do que cabe nesse vão, vai ter um botão na sua base que
+permite a expansão total da lista."*
+
+```
+ ┌───────────────────────────┐   ┌───────────────────────────┐
+ │ ★ Favoritos          ▲    │   │ ★ Favoritos          ▼    │  ← tom próprio
+ │   Louvor de abertura      │   ├───────────────────────────┤
+ │   Vídeo do testemunho     │   │ Arquivos oficiais    ▲    │
+ │   …                       │   │   [Provai e Vede 2026]    │
+ │   ── Ver todos ──         │   │   [Informativo …]         │
+ │                           │   │                           │
+ │        (o vão)            │   │        (o vão)            │
+ ├───────────────────────────┤   ├───────────────────────────┤
+ │ Arquivos oficiais    ▼    │   │ Hinários             ▼    │
+ │ Hinários             ▼    │   │ Diversos             ▼    │
+ └───────────────────────────┘   └───────────────────────────┘
+   a tela como ela ABRE            outra aberta: os favoritos
+                                   recolhem e ela toma o vão
+```
+
+**O estado é um NOME, não um conjunto** (`grupoAberto`, no topo do
+`controle.js`). Isto REVOGA a decisão da v5.237 — *"abrir um grupo não fecha os
+outros: aqui os grupos são curtos, e comparar dois deles é o que se faz numa
+tela de índice"* —, e a revogação é sobre uma premissa: aquele argumento supunha
+que a tela cabe. Com um nome só, "duas abertas" e "nenhuma aberta" deixam de ser
+estados que alguma guarda precisa impedir: são frases que não dá para escrever.
+Fechar a aberta escreve `GRUPO_FAVORITOS`, nunca o vazio, e tocar nos Favoritos
+abertos é um **no-op declarado** — fechá-los para reabri-los seria um piscar sem
+desfecho.
+
+**Quem se estica é a seção ABERTA**, e é a decisão acima que torna isso uma
+regra de uma linha (`#hymnResults > .coll-group--drop.aberto { flex: 1 0 auto }`):
+com uma por vez, não há o que escolher — é sempre a única que tem conteúdo, e as
+fechadas são barras de altura fixa que sobram empilhadas na base. `flex-shrink`
+é **zero** ali: uma seção com mais álbuns do que cabe empurra as de baixo e quem
+rola é a Biblioteca inteira, como sempre foi.
+
+**Os Favoritos são a exceção, e é deles que o botão fala.** Só eles encolhem
+(`flex: 1 1 auto; min-height: 0`), o corpo recorta o que passa do vão (o
+`overflow: hidden` já era requisito da animação de altura) e o botão da base o
+traz de volta. A pergunta "transbordou?" é **MEDIDA** e nunca deduzida da
+contagem (`acertarVaoDosFavoritos`): quantos favoritos cabem depende de quantas
+seções existem, de haver ou não pasta do aparelho, da altura da tela e do
+teclado — um número escrito no código estaria errado no primeiro aparelho
+diferente. E ela é feita num `requestAnimationFrame`, porque no instante em que
+a lista é montada o `li` ainda não foi disposto e as duas medidas seriam iguais.
+
+**O tom próprio** (`--fav-bg`, com `--camada` descendo junto para as linhas de
+dentro) vale **aberta e fechada**: fechada ela é uma barra entre outras barras, e
+é aí que ele mais trabalha. As medições estão em `tokens.css`; a que decide é
+1,30:1 (escuro) e 1,48:1 (claro) contra o `--panel` das outras seções — e o
+degrau de dentro tem de descer junto, senão no tema claro as linhas ficariam a
+1,05:1 do fundo novo e sumiriam.
+
+**E o `gap` das seções deixou de ser o das linhas** (`#hymnResults { gap: .6rem }`,
+contra os .35rem do `.popup-list`): uma seção não é uma linha — ela é um bloco
+que contém linhas —, e usar a mesma medida para os dois níveis era o que os fazia
+se ler como uma pilha só. Escopado no id, nunca na classe: o mesmo
+`.popup-list` é a fila da playlist e o conteúdo de uma pasta.
+
 #### Os favoritos se atualizam com a Biblioteca ABERTA (v5.258)
 
 Relato: *"se estou na biblioteca e adiciono algo aos favoritos, ele só aparece

@@ -3053,10 +3053,73 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.272** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.273** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.273: A BIBLIOTECA FICA COM UMA SEÇÃO ABERTA POR VEZ, e a dos Favoritos
+> ocupa o vão que sobra. OTA PURO** (nenhuma linha de Kotlin; sem Release).
+>
+> Pedido do operador, em quatro partes: *"só permita uma coleção aberta por vez
+> e sempre deixe uma aberta, no caso a dos favoritos, onde ela só fecha se outra
+> for aberta. Ajuste para que a seção dos favoritos ocupe a altura que sobra
+> além do espaço das outras seções no formato colapsado (mesmo que não haja
+> nenhum favorito)… caso tenha mais itens do que cabe nesse vão, vai ter um
+> botão na sua base que permite a expansão total da lista. Inclusive aproveite
+> para: deixar a cor de fundo da coleção dos favoritos em uma cor diferente, um
+> tom mais escuro. E aproveite também para aumentar ligeiramente o espaço entre
+> as outras coleções, elas estão muito coladas entre si"*.
+>
+> - **O ESTADO VIROU UM NOME, e é ele que faz a regra valer.** `gruposAbertos`
+>   era um `Set`, isto é, sabia escrever exatamente os dois estados que o pedido
+>   proíbe — duas abertas e nenhuma aberta —, e mantê-los fora do alcance
+>   exigiria uma guarda em cada ponto que o escreve. Com `grupoAberto` sendo um
+>   nome só, "duas abertas" deixa de ser uma regra que alguém precisa lembrar:
+>   é uma frase que não dá para escrever. Fechar a aberta escreve
+>   `GRUPO_FAVORITOS` e nunca o vazio — o "sempre uma aberta" pelo outro lado —,
+>   e tocar nos Favoritos abertos é um NO-OP declarado, porque fechá-los para
+>   reabri-los seria um piscar sem desfecho. **Isto REVOGA a v5.237**
+>   (*"abrir um grupo não fecha os outros: aqui os grupos são curtos, e comparar
+>   dois deles é o que se faz numa tela de índice"*) e metade da v5.262 (o toque
+>   nos Favoritos recolhia). O argumento da v5.237 supunha que a tela cabe; o
+>   pedido é sobre o que fazer quando ela não cabe.
+> - **QUEM SE ESTICA É A ABERTA**, e isso é consequência da decisão de cima, não
+>   uma segunda regra: com uma por vez não há o que escolher — é sempre a única
+>   com conteúdo, e as fechadas viram barras de altura fixa empilhadas na base.
+>   `flex-shrink` é ZERO ali: uma seção com mais álbuns do que cabe empurra as
+>   de baixo e quem rola é a Biblioteca, como sempre foi. **Os Favoritos são a
+>   exceção** — só eles encolhem, e é dessa exceção que o botão fala.
+> - **O TRANSBORDO É MEDIDO, nunca deduzido da contagem.** Quantos favoritos
+>   cabem no vão depende de quantas seções existem, de haver ou não pasta do
+>   aparelho, da altura da tela e do teclado; um número no código estaria errado
+>   no primeiro aparelho diferente. `scrollHeight > clientHeight` responde pelo
+>   que de fato aconteceu no layout — num `requestAnimationFrame`, porque no
+>   instante em que a lista é montada o `li` ainda não foi disposto e as duas
+>   medidas seriam iguais (o botão nunca apareceria).
+> - **O TOM PRÓPRIO VALE ABERTA E FECHADA**, e arrasta o degrau de dentro. As
+>   medições estão em `tokens.css`; a que decide é 1,30:1 (escuro) e 1,48:1
+>   (claro) contra o `--panel` das outras seções. `--camada` desce junto porque,
+>   no tema CLARO, deixar as linhas em `--panel-2` sobre o `--fav-bg` novo daria
+>   **1,05:1** — elas sumiriam. É a disciplina de sempre: um nível que muda
+>   arrasta o de dentro.
+> - **E O `gap` DAS SEÇÕES DEIXOU DE SER O DAS LINHAS** (.6rem contra .35rem):
+>   uma seção não é uma linha, é um bloco que contém linhas, e usar a mesma
+>   medida nos dois níveis era o que os fazia se ler como uma pilha só. Escopado
+>   em `#hymnResults` e nunca na classe — o mesmo `.popup-list` é a fila da
+>   playlist e o conteúdo de uma pasta.
+>
+> Verificado por ISOLAMENTO: sem o crescimento, **4** asserções do `smoke.mjs`
+> reprovam; sem o tom próprio, **2**; sem o espaço, **2**; sem a medição do vão,
+> **3** do `boot-nativo.test.mjs`; e sem o piso dos Favoritos (fechando-os no
+> próprio toque), **2**.
+>
+> **E a primeira versão do caso do vão passava sem medir a regra.** Ela comparava
+> a altura da seção aberta com a de uma barra fechada — e uma seção aberta é
+> naturalmente mais alta que uma barra, com ou sem `flex-grow`. O que ela precisa
+> comparar é o VAZIO que a seção absorveu (altura menos o conteúdo dela) contra
+> uma seção fechada inteira: com o crescimento removido sobram ~12px de padding
+> próprio, que é uma folga, não um vão.
 
 > **A v5.272: CINCO RELATOS DA LISTA — e dois deles eram recursos que nunca
 > chegaram a existir. OTA PURO** (sem Release).
@@ -3647,8 +3710,10 @@ controles), que **só chegam instalando o APK novo**, não pelo OTA.
 > - **OS FAVORITOS COLAPSAM, e continuam abrindo abertos.** A v5.238 os fez
 >   `fixo` — sem seta e sem ouvinte — com o argumento de que *"um atalho atrás de
 >   um toque a mais deixa de ser atalho"*. Ele continua valendo, e é exatamente o
->   que sobrevive: **o padrão é ABERTO**, agora como uma linha de `gruposAbertos`
->   no topo do arquivo em vez de uma exceção espalhada pelo construtor. O que ele
+>   que sobrevive: **o padrão é ABERTO**, agora como uma linha de `grupoAberto`
+>   no topo do arquivo em vez de uma exceção espalhada pelo construtor. (E a
+>   v5.273 revogou a outra metade: o toque NELA deixou de recolhê-la — ela só
+>   fecha quando outra seção abre.) O que ele
 >   não justificava era a seção ser a ÚNICA da tela que não responde ao gesto que
 >   todas as outras respondem — quem tem trinta favoritos não tinha como
 >   recolhê-los para chegar aos álbuns. A opção `fixo` saiu do `grupo()`, e com
@@ -3807,7 +3872,7 @@ controles), que **só chegam instalando o APK novo**, não pelo OTA.
 > baixar em lote (nenhum dos dois baixa por lote — são as maiores coleções do
 > acervo), e o corpo de cada um só é construído quando ele abre. Os nomes
 > viraram constantes (`GRUPO_HINARIOS`/`GRUPO_OFICIAIS`) porque eles não são
-> rótulo: são a CHAVE de `gruposAbertos`, e um literal repetido entre o
+> rótulo: são a CHAVE de `grupoAberto`, e um literal repetido entre o
 > construtor e um chamador divergiria calado — o grupo abriria e o estado ficaria
 > noutro nome, isto é, o toque deixaria de alternar.
 >
