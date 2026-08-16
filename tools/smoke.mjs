@@ -1748,6 +1748,11 @@ for (const tema of ['escuro', 'claro']) {
         // A RÉGUA do próprio app: o degrau da barra de baixo contra o fundo.
         corpoPrincipal: fundo('body'),
         barraPrincipal: fundo('.bottombar'),
+        // O que mora DENTRO do campo (v5.267).
+        texto: getComputedStyle(document.getElementById('hymnSearchInput')).color,
+        ph: getComputedStyle(document.getElementById('hymnSearchInput'), '::placeholder').color,
+        lupa: getComputedStyle(document.querySelector('#hymnSearchPopup .lib-search-lupa')).color,
+        sombraCampo: getComputedStyle(document.getElementById('hymnSearchInput')).boxShadow,
       };
       closeHymnSearch();
       return r;
@@ -1782,11 +1787,30 @@ for (const tema of ['escuro', 'claro']) {
     checar(/-\d+px/.test(c.sombra) && c.sombra !== 'none',
       '[' + tema + '] com a sombra para CIMA, que é o que o tom não diz: a lista '
       + 'passa por baixo dela', c.sombra);
-    // E o CAMPO não se perdeu dentro do tom novo — a barra clareou (ou
-    // escureceu), e ele é um overlay sobre ela.
-    checar(razao(campo, barra) > 1.1,
-      '[' + tema + '] e o campo continua legível DENTRO dela ('
-      + razao(campo, barra).toFixed(2) + ':1)');
+    // E o CAMPO não se perdeu dentro da barra. A regra é a mesma que a própria
+    // barra usa contra as seções: **duas superfícies do mesmo tom se separam
+    // por PROFUNDIDADE**. No tema claro a barra é branca (nível 1) e o campo
+    // também é, então ali o tom não pode ser o separador — e um contorno está
+    // fora desde que a linha saiu do app inteiro.
+    checar(razao(campo, barra) > 1.1 || (c.sombraCampo && c.sombraCampo !== 'none'),
+      '[' + tema + '] e o campo se separa da barra — por tom ('
+      + razao(campo, barra).toFixed(2) + ':1) ou, sendo a mesma cor dela, por elevação');
+    // ── O CAMPO É BRANCO NOS DOIS TEMAS (v5.268) ─────────────────────────
+    // Pedido do operador. A primeira metade é o fundo; a SEGUNDA é a que não se
+    // percebe pedindo "o campo branco" e que reprovaria calada: as três coisas
+    // que moram dentro dele (o texto, o placeholder e a lupa) precisam parar de
+    // seguir o tema junto com ele — no escuro, `--text` sobre branco dá 1,17:1.
+    checar(campo.every((v) => Math.round(v) === 255),
+      '[' + tema + '] o CAMPO é branco — o mesmo nos dois temas, como o palco',
+      c.campo);
+    checar(!!c.sombraCampo && c.sombraCampo !== 'none',
+      '[' + tema + '] e ele tem ELEVAÇÃO, que é o que o separa da barra quando o '
+      + 'tom não pode (no claro os dois são brancos)', c.sombraCampo);
+    for (const [nome, cor] of [['texto', c.texto], ['placeholder', c.ph], ['lupa', c.lupa]]) {
+      const r = razao(sobre(cor, c.campo), campo);
+      checar(r >= 4.5,
+        '[' + tema + '] e o ' + nome + ' é legível sobre ele (' + r.toFixed(2) + ':1)');
+    }
   } catch (e) {
     checar(false, '[' + tema + '] a medição do contraste da barra terminou sem exceção ('
       + (e && e.message) + ')');

@@ -218,6 +218,27 @@
   --shadow-cap: rgba(0, 0, 0, .5);
   --shadow-card: rgba(0, 0, 0, .55);
   --shadow-ink: rgba(0, 0, 0, .9);
+
+  /* ---------- O CAMPO DE BUSCA NÃO TEM TEMA (v5.268) ----------
+     Pedido do operador: a caixa de texto da Biblioteca branca nos DOIS temas.
+     Ela mora aqui, no bloco compartilhado, pelo mesmo motivo que o palco: uma
+     superfície que não segue o tema não pode ler tokens que seguem — no escuro,
+     `--text` é um off-white e sobre branco daria 1,17:1, ilegível. É a regra da
+     v5.219 num lugar novo, e é ela que torna o fundo branco possível em vez de
+     apenas claro.
+
+     `--field-bg` é BRANCO LITERAL, e é a segunda exceção declarada à regra "não
+     escrever branco fora do palco" (a primeira é `--stage-text`). O argumento
+     daquela regra continua de pé e o preço está dito: num salão escuro este é o
+     retângulo mais luminoso da tela. Ele é pequeno, existe só com a Biblioteca
+     aberta, e é uma escolha explícita de quem opera.
+
+     O texto e o esmaecido são os valores do TEMA CLARO — `night` oficial e o
+     cinza dele —, que é onde eles foram calibrados contra branco: 8,86:1 e
+     6,08:1 medidos sobre `--panel` branco, isto é, exatamente esta base. */
+  --field-bg: #ffffff;
+  --field-text: #4a4a4a;
+  --field-muted: #5c636c;
 }
 
 /* ======================================================================

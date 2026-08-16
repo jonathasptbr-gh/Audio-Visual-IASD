@@ -2259,11 +2259,22 @@ O essencial para não quebrar nada aqui:
 - **Nunca escrever branco literal.** Nenhum `#fff` sobrou como valor de cor em
   `controle.css`/`display.css`: o branco pleno era a maior fonte isolada de luz
   emitida do app, e o off-white da paleta (`--text`) é o que se usa. As únicas
-  exceções são **o palco**: `--stage-text: #fff`, porque num telão a
-  legibilidade vem de luminância máxima, não de um off-white calibrado para uma
-  tela a 30 cm do rosto. No tema CLARO o `--panel` é branco pleno, e ali a regra
-  não se aplica pelo motivo dela: uma página clara é a escolha explícita de quem
-  não está no escuro.
+  exceções são DUAS, e as duas são declaradas em `tokens.css`. **O palco**
+  (`--stage-text: #fff`), porque num telão a legibilidade vem de luminância
+  máxima, não de um off-white calibrado para uma tela a 30 cm do rosto. E **o
+  campo de busca da Biblioteca** (`--field-bg`, v5.268, pedido do operador):
+  ali o argumento da regra continua de pé e o preço está dito — num salão
+  escuro aquele é o retângulo mais luminoso da tela —, mas ele é pequeno, só
+  existe com a Biblioteca aberta, e é uma escolha explícita de quem opera. No
+  tema CLARO o `--panel` é branco pleno, e ali a regra não se aplica pelo motivo
+  dela: uma página clara é a escolha explícita de quem não está no escuro.
+
+  **E uma superfície sem tema arrasta o que vive DENTRO dela** — é a regra do
+  palco (v5.219) num lugar novo. `--field-bg` vem com `--field-text` e
+  `--field-muted`, no bloco compartilhado: o texto, o placeholder e a lupa moram
+  dentro do campo, e no tema escuro `--text` sobre branco dá **1,17:1**. Trocar
+  só o fundo apaga o que se digita, e é o meio-conserto que o oráculo do
+  `smoke.mjs` reprova.
 - **O ÍCONE DO APP também é a paleta** (v1.34). Ele era um PNG com um botão
 azul QUALQUER — sobra de uma paleta azul aposentada — sobre um fundo verde
 copiado do wallpaper, que é a cortina da TV e nunca aparece no celular: nenhuma
@@ -3042,13 +3053,15 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.268** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.269** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
-> **A v5.268: TIRAR A BORDA NÃO É REMOVER A BORDA — o `<button>` já vem com uma
-> do navegador. OTA PURO** (só CSS e o oráculo; sem Release).
+> **A v5.269: TIRAR A BORDA NÃO É REMOVER A BORDA — o `<button>` já vem com uma
+> do navegador. OTA PURO** (só CSS e o oráculo; sem Release). *(O número saltou
+> o 5.268: um lote paralelo o tomou enquanto este era escrito — ver a nota
+> abaixo. O relato é sobre a v5.267 no aparelho.)*
 >
 > Relato do operador, sobre a v5.267 no aparelho: *"os botões agora estão usando
 > o sistema de sombras nativo padrão do sistema, isso está criando um contorno
@@ -3090,6 +3103,50 @@ controles), que **só chegam instalando o APK novo**, não pelo OTA.
 >
 > Verificado por isolamento: tirando só o `border: 0` do reset, a varredura do
 > renderizado reprova sozinha.
+> **A v5.268: O CAMPO DE BUSCA FICA BRANCO NOS DOIS TEMAS. OTA PURO** (só CSS;
+> sem Release).
+>
+> Pedido do operador: *"coloque a caixa de texto em branco, para o tema claro e
+> o escuro."*
+>
+> Ele era um OVERLAY — a superfície INVERTIDA de dentro de um bloco, isto é, um
+> recesso preto a 14%/20%: o desenho de um botão afundado, para a única peça da
+> tela em que se DIGITA. Branco, ele deixa de ser um degrau da base e passa a ser
+> uma folha de papel sobre a barra.
+>
+> **Três metades, e só a primeira está no pedido.**
+>
+> - **O FUNDO.** `--field-bg`, branco literal, e é a SEGUNDA exceção declarada à
+>   regra "não escrever branco fora do palco". O argumento daquela regra continua
+>   de pé e o preço está dito: num salão escuro este é o retângulo mais luminoso
+>   da tela. Ele é pequeno, só existe com a Biblioteca aberta, e é uma escolha
+>   explícita de quem opera.
+> - **O QUE MORA DENTRO DELE, que reprovaria calado.** O texto, o placeholder e a
+>   lupa. No tema escuro `--text` é um off-white e sobre branco dá **1,17:1** —
+>   invisível. Então os três param de seguir o tema junto com o fundo:
+>   `--field-text` e `--field-muted` vivem no bloco COMPARTILHADO de
+>   `tokens.css`, pelo mesmo motivo que os `--stage-*` — **uma superfície que não
+>   segue o tema não pode ler tokens que seguem** (a regra da v5.219 num lugar
+>   novo). Medido nos dois temas: texto 8,86:1, placeholder e lupa 6,08:1.
+> - **A ELEVAÇÃO, que a v5.267 tornou obrigatória.** Aquele lote fez da barra um
+>   bloco de nível 1 (`--camada`) — e no tema CLARO esse nível É o branco. Campo
+>   branco sobre barra branca dá **1,00:1**: o campo não existe. Não há tom que
+>   resolva sem desfazer uma das duas decisões, e contorno está fora desde que a
+>   linha saiu do app inteiro. Sobra a profundidade, que é o argumento que esta
+>   mesma tela já usa duas vezes: a barra tem sombra porque as seções vestem o
+>   nível dela, e a tampa do álbum aberto tem a dela pelo mesmo motivo. **Duas
+>   superfícies do mesmo tom se separam por profundidade.** No escuro ela é
+>   invisível (o campo contrasta 12,6:1 com a barra) e não custa nada.
+>
+> O oráculo mudou de pergunta junto: onde ele exigia um degrau de tom entre campo
+> e barra, ele passou a exigir **tom OU elevação** — que é a regra de verdade — e
+> a cobrar a elevação em separado, senão o "ou" a deixaria opcional.
+>
+> Verificado por ISOLAMENTO, e os dois últimos casos são os que importam:
+> devolvendo o recesso, **6** asserções reprovam; pintando **só o fundo** de
+> branco e deixando as três cores de dentro seguirem o tema, **3** (todas no
+> escuro, com o texto em 1,33:1); e branco **sem a elevação**, **3** — das quais
+> duas no tema claro, onde o campo simplesmente some.
 
 > **A v5.267: O CONTORNO SAI DO APP INTEIRO, e a Biblioteca ganha uma escada de
 > camadas de verdade. OTA PURO** (nenhuma linha de Kotlin; sem Release).
