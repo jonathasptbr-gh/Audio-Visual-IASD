@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.275';
+const WEB_VERSION = '5.276';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -562,22 +562,28 @@ let folderQuery = '';      // filtro de busca dentro de pasta OPFS
 // junto com ele.
 //
 // É UM NOME, NÃO UM CONJUNTO (v5.273, pedido do operador: *"só permita uma
-// coleção aberta por vez e sempre deixe uma aberta, no caso a dos favoritos,
-// onde ela só fecha se outra for aberta"*). Um `Set` representava estados que a
-// regra proíbe — duas abertas, nenhuma aberta —, e mantê-los fora do alcance
-// exigiria uma guarda em cada ponto que escreve. Com um nome só, "duas abertas"
-// não é uma regra que alguém precise lembrar: é uma frase que não dá para
-// escrever. E o padrão VOLTA a ser os favoritos quando o grupo aberto se fecha,
-// que é o "sempre deixe uma aberta" com nome próprio.
+// coleção aberta por vez"*). Um `Set` sabia escrever "duas abertas", e mantê-lo
+// longe disso exigiria uma guarda em cada ponto que escreve; com um nome só,
+// aquele estado deixa de ser uma regra que alguém precisa lembrar — é uma frase
+// que não dá para escrever.
 //
-// A v5.262 tinha ido do lado oposto — a seção de favoritos deixou de ser `fixo`
-// para responder ao mesmo gesto das outras. O gesto continua: o que muda é que
-// fechá-la exige ABRIR outra, porque a tela nunca fica sem nenhuma.
+// E ELE FALA SÓ DAS COLEÇÕES (v5.276): *"agora não mais são concorrentes com os
+// favoritos… as coleções são concorrentes entre si, mas não com os
+// favoritos"*. Os Favoritos saíram deste nome e ganharam estado PRÓPRIO
+// (`favAberto`, logo abaixo) — eles não são uma coleção, são o atalho de quem
+// já procurou antes, e tratá-los como mais uma linha do rodízio fazia abrir um
+// hinário custar o atalho. `''` é um valor legítimo aqui: nenhuma coleção
+// aberta é o estado normal de quem está olhando os favoritos.
 //
 // NASCE NO TOPO junto do resto do estado de tela: ele é lido por um caminho de
 // RENDER, e um `let` declarado catorze mil linhas abaixo é a zona morta temporal
 // que já derrubou o app nas v5.184, v5.193, v5.195 e v5.199.
 let grupoAberto = '';
+// A SEÇÃO DOS FAVORITOS ESTÁ ABERTA? Nasce ABERTA e é INDEPENDENTE do rodízio
+// acima (v5.276) — abrir uma coleção não a fecha, e fechá-la é uma decisão do
+// operador, que dura a sessão como qualquer outra. É um booleano e não um nome
+// porque ela é uma só: não há "qual favorito está aberto".
+let favAberto = true;
 // Quais grupos devem ANIMAR a abertura no próximo desenho. Só o toque que abriu
 // anima: um redesenho por outro motivo (o progresso de um download) reencontra
 // o grupo já aberto, e vê-lo "abrir" sozinho leria como se algo tivesse
@@ -600,19 +606,14 @@ const GRUPO_HINARIOS = 'Hinários';
 // do operador, e ele nomeia a ORIGEM — que é o que separa este grupo do de
 // cima muito melhor que "séries", uma palavra de implementação.
 const GRUPO_OFICIAIS = 'Arquivos oficiais';
-// OS FAVORITOS SÃO O GRUPO PADRÃO, e desde a v5.273 isso é mais que o estado
-// inicial: é o piso para onde a tela VOLTA quando o grupo aberto se fecha. Ele
-// nasce aqui, ao lado das constantes, porque `grupoAberto` é declarado antes
-// delas (é a ordem que a zona morta temporal impõe: o estado no topo, os nomes
-// logo abaixo) e uma inicialização na declaração não teria como citá-las.
-//
-// Da v5.238 à v5.262 a seção era `fixo` — sem seta e sem ouvinte —, e o
-// argumento era que um atalho atrás de um toque a mais deixa de ser atalho. Ele
-// continua valendo, e é exatamente o que esta linha preserva: o padrão é
-// ABERTO. O que ele não justificava era a seção ser a ÚNICA da tela que não
-// responde ao gesto que todas as outras respondem — quem tem trinta favoritos
-// e quer chegar aos álbuns não tinha como recolhê-los.
-grupoAberto = GRUPO_FAVORITOS;
+// (O padrão dos Favoritos é o `favAberto = true` lá em cima. Da v5.238 à v5.262
+// a seção era `fixo` — sem seta e sem ouvinte —, e o argumento era que um atalho
+// atrás de um toque a mais deixa de ser atalho. Ele continua valendo, e é
+// exatamente o que aquele `true` preserva: o padrão é ABERTO. O que ele não
+// justificava era a seção ser a ÚNICA da tela que não responde ao gesto que
+// todas as outras respondem — quem tem trinta favoritos e quer chegar aos
+// álbuns não tinha como recolhê-los. A v5.273 tirou esse gesto de volta ao
+// torná-los o piso do rodízio; a v5.276 o devolve, agora sem rodízio nenhum.)
 // O TECLADO DA BIBLIOTECA SOBE UM TEMPO DEPOIS DA TELA (v5.264) — ver
 // `openHymnSearch`, que é onde a decisão está argumentada. 260 ms é o fade do
 // `.popup-backdrop` (.25s) mais um quadro: pedir o teclado antes disso o faria
@@ -6535,9 +6536,13 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
     any = true;
     // TODA seção colapsa, inclusive a dos Favoritos (v5.262). A exceção `fixo`
     // da v5.238 saiu: o que ela protegia — os favoritos ABERTOS por padrão — é
-    // hoje uma linha de `grupoAberto` no topo do arquivo, e nada mais nesta
-    // função precisa saber que aquela seção é especial.
-    const aberto = grupoAberto === text;
+    // hoje o `favAberto` no topo do arquivo.
+    //
+    // DOIS ESTADOS, e não um (v5.276): as coleções fazem rodízio entre si
+    // (`grupoAberto`) e os Favoritos respondem só a si mesmos (`favAberto`).
+    // Esta linha é o lugar inteiro em que essa diferença existe.
+    const ehFav = text === GRUPO_FAVORITOS;
+    const aberto = ehFav ? favAberto : grupoAberto === text;
     const li = document.createElement('li');
     li.className = 'coll-group coll-group--drop' + (aberto ? ' aberto' : '');
     // A SEÇÃO ABERTA OCUPA O VÃO (v5.273) — a regra em si é do CSS
@@ -6550,8 +6555,10 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
     // operador: *"deixar a cor de fundo da coleção dos favoritos em uma cor
     // diferente, um tom mais escuro"*): fechada ela é uma barra entre outras
     // barras, e é aí que o tom próprio mais trabalha — ele diz qual delas é a
-    // dos favoritos antes de o nome ser lido.
-    if (text === GRUPO_FAVORITOS) li.classList.add('coll-group--fav');
+    // dos favoritos antes de o nome ser lido. Ela é também a única que CRESCE
+    // (v5.276), e as duas coisas moram nesta classe porque são a mesma: esta
+    // seção não é uma coleção.
+    if (ehFav) li.classList.add('coll-group--fav');
 
     const bar = document.createElement('div');
     bar.className = 'coll-group-bar';
@@ -6621,26 +6628,30 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
     corpo.className = 'coll-group-corpo';
     li.appendChild(corpo);
 
-    // ===== ABRIR UMA FECHA A OUTRA (v5.273) =====
+    // ===== UMA COLEÇÃO POR VEZ, E OS FAVORITOS À PARTE (v5.273 → v5.276) =====
     //
-    // Isto REVOGA a decisão da v5.237, que era o contrário — *"abrir um grupo
-    // não fecha os outros, ao contrário do acordeão de um álbum: aqui os grupos
-    // são curtos, e comparar dois deles é o que se faz numa tela de índice"*. O
-    // argumento supunha que a tela cabe; o pedido do operador é sobre o que
-    // acontece quando ela não cabe, e a resposta dele é uma seção por vez, com
-    // a aberta ocupando o vão que sobra.
+    // A v5.273 REVOGOU a decisão da v5.237 (*"abrir um grupo não fecha os
+    // outros, ao contrário do acordeão de um álbum: aqui os grupos são curtos,
+    // e comparar dois deles é o que se faz numa tela de índice"*), porque
+    // aquele argumento supunha que a tela cabe. O rodízio FICA; o que sai dele
+    // são os FAVORITOS.
     //
-    // FECHAR A ABERTA VOLTA AOS FAVORITOS, e é isso que faz "sempre uma aberta"
-    // valer sem uma guarda em cada ouvinte: a única coisa que este bloco sabe
-    // escrever em `grupoAberto` é um nome, nunca o vazio. Tocar nos Favoritos
-    // abertos é um NO-OP declarado — fechá-los para reabri-los seria um piscar
-    // sem desfecho.
+    // Pedido do operador: *"agora não mais são concorrentes com os favoritos…
+    // as coleções são concorrentes entre si, mas não com os favoritos"*. Ele
+    // está corrigindo uma consequência que a v5.273 não pesou: com os Favoritos
+    // no mesmo rodízio, abrir um hinário custava o atalho que o operador tinha
+    // deixado aberto — e reabri-lo custava fechar o hinário. Duas decisões
+    // diferentes disputando o mesmo interruptor.
+    //
+    // FECHAR UMA COLEÇÃO deixa `grupoAberto` VAZIO, e isso deixou de ser um
+    // estado a evitar: quem fechou o hinário está olhando os favoritos, que
+    // continuam abertos por conta própria.
     const alternar = () => {
-      const abrindo = grupoAberto !== text;
-      if (!abrindo && text === GRUPO_FAVORITOS) return;
+      const abrindo = !aberto;
       const aplicar = () => {
-        grupoAberto = abrindo ? text : GRUPO_FAVORITOS;
-        gruposAnimar.add(grupoAberto);
+        if (ehFav) favAberto = abrindo;
+        else grupoAberto = abrindo ? text : '';
+        if (abrindo) gruposAnimar.add(text);
         redesenhar();
       };
       // Fechando: anima ANTES de redesenhar. O redesenho apaga o nó, e um nó
@@ -7759,21 +7770,28 @@ function redesenharFavoritosNaBiblioteca() {
 
 // ===== O BOTÃO QUE ABRE A LISTA DE FAVORITOS ALÉM DO VÃO (v5.273) =====
 //
-// A seção aberta ocupa o que sobra da tela, e a dos favoritos pode ter mais
-// itens do que cabe ali. O corpo é RECORTADO (o CSS lhe dá `overflow: hidden`),
-// e este botão troca esse recorte pela lista inteira — a partir daí quem rola é
-// a Biblioteca, e as seções fechadas descem com ela.
+// A seção dos favoritos ocupa o que sobra da tela, e a lista pode ter mais itens
+// do que cabe ali. O corpo é RECORTADO (o CSS lhe dá `overflow: hidden`), e este
+// botão troca esse recorte pela lista inteira — a partir daí quem rola é a
+// Biblioteca, e as seções fechadas descem com ela.
 //
-// **A pergunta é MEDIDA, nunca deduzida da contagem.** Quantos favoritos cabem
-// no vão depende de quantas seções existem, de haver ou não pasta do aparelho e
-// da altura da tela e do teclado — um número escrito aqui estaria errado no
-// primeiro aparelho diferente. `scrollHeight > clientHeight` responde pelo que
-// de fato aconteceu no layout.
+// **ELE CONTA ITENS QUE FICARAM DE FORA, não pixels que transbordaram** (v5.276).
+// A primeira versão perguntava `scrollHeight > clientHeight`, e ela aparecia
+// *"literalmente sem nenhum item na lista"*: numa Biblioteca com oito seções o
+// vão é pequeno, a seção dos favoritos é a única que encolhe, e o que sobra do
+// corpo recorta até a linha de "Nenhum favorito ainda". A caixa transbordava, e
+// a caixa não é a pergunta — a pergunta é a do operador, *"apenas quando há mais
+// itens do que a altura disponível"*. Com zero itens a resposta é zero, e não há
+// medida de caixa que a produza.
 //
-// E ela é feita num `requestAnimationFrame` porque no instante em que a lista é
-// montada o `li` ainda não foi disposto: as duas medidas seriam iguais, e o
+// A ordem entre elas continua sendo MEDIDA e nunca deduzida de uma contagem
+// fixa: quantos cabem depende de quantas seções existem, de haver ou não pasta
+// do aparelho, da altura da tela e do teclado.
+//
+// E a leitura é feita num `requestAnimationFrame` porque no instante em que a
+// lista é montada os `li` ainda não foram dispostos: todos mediriam zero, e o
 // botão nunca apareceria. Expandido ele NÃO é medido — ali não há recorte, logo
-// não há transbordo, e a única leitura possível seria "não precisa mais dele",
+// não há item de fora, e a única leitura possível seria "não precisa mais dele",
 // que tiraria da tela o caminho de volta.
 function acertarVaoDosFavoritos(corpoDado) {
   const corpo = corpoDado || hymnResultsEl.querySelector('[data-fav-corpo]');
@@ -7801,7 +7819,13 @@ function acertarVaoDosFavoritos(corpoDado) {
     // O redesenho é a cada 400 ms durante um download: reconferir que o corpo
     // ainda é o do documento evita medir um nó que já foi substituído.
     if (!li.isConnected) return;
-    mostrar(corpo.scrollHeight > corpo.clientHeight + 1);
+    // `.empty` é a linha de "Nenhum favorito ainda", e ela não é um item: numa
+    // seção espremida ela é justamente o que sobra cortado, e contá-la punha o
+    // botão na tela para expandir uma lista vazia.
+    const fundo = corpo.getBoundingClientRect().bottom;
+    const deFora = [...corpo.children].filter((el) => !el.classList.contains('empty')
+      && el.getBoundingClientRect().bottom > fundo + 1).length;
+    mostrar(deFora > 0);
   });
 }
 

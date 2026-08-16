@@ -4173,7 +4173,7 @@ Duas podas do mesmo pedido, e as duas são sobre a barra do topo:
   `padding-bottom` da FOLHA: quem termina a folha passou a ser a lista, e sem
   ela o último item ficaria debaixo da barra de gestos.
 
-#### Uma seção aberta por vez, e os Favoritos ocupam o vão (v5.273)
+#### O rodízio das coleções, e os Favoritos ocupando o vão (v5.273/v5.276)
 
 Pedido do operador: *"só permita uma coleção aberta por vez e sempre deixe uma
 aberta, no caso a dos favoritos, onde ela só fecha se outra for aberta. Ajuste
@@ -4184,47 +4184,63 @@ permite a expansão total da lista."*
 
 ```
  ┌───────────────────────────┐   ┌───────────────────────────┐
- │ ★ Favoritos          ▲    │   │ ★ Favoritos          ▼    │  ← tom próprio
- │   Louvor de abertura      │   ├───────────────────────────┤
- │   Vídeo do testemunho     │   │ Arquivos oficiais    ▲    │
- │   …                       │   │   [Provai e Vede 2026]    │
- │   ── Ver todos ──         │   │   [Informativo …]         │
- │                           │   │                           │
- │        (o vão)            │   │        (o vão)            │
- ├───────────────────────────┤   ├───────────────────────────┤
- │ Arquivos oficiais    ▼    │   │ Hinários             ▼    │
- │ Hinários             ▼    │   │ Diversos             ▼    │
+ │ ★ Favoritos          ▲    │   │ ★ Favoritos          ▲    │  ← tom próprio
+ │   Louvor de abertura      │   │   Louvor de abertura      │
+ │   Vídeo do testemunho     │   │   …                       │
+ │   …                       │   │   ── Ver todos ──         │
+ │   ── Ver todos ──         │   │        (o vão)            │
+ │                           │   ├───────────────────────────┤
+ │        (o vão)            │   │ Arquivos oficiais    ▲    │
+ │                           │   │   [Provai e Vede 2026]    │
+ ├───────────────────────────┤   │   [Informativo …]         │
+ │ Arquivos oficiais    ▼    │   ├───────────────────────────┤
+ │ Hinários             ▼    │   │ Hinários             ▼    │
  └───────────────────────────┘   └───────────────────────────┘
-   a tela como ela ABRE            outra aberta: os favoritos
-                                   recolhem e ela toma o vão
+   a tela como ela ABRE            uma coleção aberta: ela mede
+                                   o conteúdo dela, e os favoritos
+                                   continuam abertos (v5.276)
 ```
 
-**O estado é um NOME, não um conjunto** (`grupoAberto`, no topo do
-`controle.js`). Isto REVOGA a decisão da v5.237 — *"abrir um grupo não fecha os
-outros: aqui os grupos são curtos, e comparar dois deles é o que se faz numa
-tela de índice"* —, e a revogação é sobre uma premissa: aquele argumento supunha
-que a tela cabe. Com um nome só, "duas abertas" e "nenhuma aberta" deixam de ser
-estados que alguma guarda precisa impedir: são frases que não dá para escrever.
-Fechar a aberta escreve `GRUPO_FAVORITOS`, nunca o vazio, e tocar nos Favoritos
-abertos é um **no-op declarado** — fechá-los para reabri-los seria um piscar sem
-desfecho.
+**São DOIS estados, e não um** (v5.276). `grupoAberto` é o rodízio das
+COLEÇÕES e `favAberto` é a seção dos Favoritos, que responde só a si mesma. A
+v5.273 tinha posto as duas coisas no mesmo nome, e o operador achou o preço:
+*"agora não mais são concorrentes com os favoritos… as coleções são
+concorrentes entre si, mas não com os favoritos"* — abrir um hinário custava o
+atalho que ele tinha deixado aberto, e reabri-lo custava fechar o hinário. Duas
+decisões diferentes disputando o mesmo interruptor.
 
-**Quem se estica é a seção ABERTA**, e é a decisão acima que torna isso uma
-regra de uma linha (`#hymnResults > .coll-group--drop.aberto { flex: 1 0 auto }`):
-com uma por vez, não há o que escolher — é sempre a única que tem conteúdo, e as
-fechadas são barras de altura fixa que sobram empilhadas na base. `flex-shrink`
-é **zero** ali: uma seção com mais álbuns do que cabe empurra as de baixo e quem
-rola é a Biblioteca inteira, como sempre foi.
+O rodízio das coleções FICA, e ele é o que REVOGA a v5.237 (*"abrir um grupo não
+fecha os outros: aqui os grupos são curtos, e comparar dois deles é o que se faz
+numa tela de índice"*): aquele argumento supunha que a tela cabe. Com um nome
+só, "duas coleções abertas" deixa de ser um estado que alguma guarda precisa
+impedir — é uma frase que não dá para escrever. **`''` é legítimo**: nenhuma
+coleção aberta é o estado normal de quem está olhando os favoritos.
 
-**Os Favoritos são a exceção, e é deles que o botão fala.** Só eles encolhem
-(`flex: 1 1 auto; min-height: 0`), o corpo recorta o que passa do vão (o
-`overflow: hidden` já era requisito da animação de altura) e o botão da base o
-traz de volta. A pergunta "transbordou?" é **MEDIDA** e nunca deduzida da
-contagem (`acertarVaoDosFavoritos`): quantos favoritos cabem depende de quantas
-seções existem, de haver ou não pasta do aparelho, da altura da tela e do
-teclado — um número escrito no código estaria errado no primeiro aparelho
-diferente. E ela é feita num `requestAnimationFrame`, porque no instante em que
-a lista é montada o `li` ainda não foi disposto e as duas medidas seriam iguais.
+**Quem ocupa o vão são os Favoritos, e SÓ eles** (v5.276). A v5.273 fazia a
+seção ABERTA crescer, qualquer que fosse, e o preço apareceu na primeira
+coleção curta: *"coleções com menos itens como o hinário, ou os arquivos
+oficiais, expandem mais do que precisaria… pois eles estavam com um tipo de
+altura flex que ao fechar os favoritos ocupa o que sobra"* — dois cards com meia
+tela de fundo vazio embaixo. Uma coleção aberta passou a medir o conteúdo dela e
+nada mais, que é a regra normal de uma lista; o vão continua sendo dos
+Favoritos, que são a única seção com razão para tê-lo (uma lista de atalhos
+vazia ainda é o lugar em que o próximo entra).
+
+**Eles são também a única seção que ENCOLHE** (`flex: 1 1 auto; min-height: 0`):
+o corpo recorta o que passa do vão — o `overflow: hidden` já era requisito da
+animação de altura — e o botão da base o traz de volta.
+
+**E o botão CONTA ITENS que ficaram de fora, não pixels que transbordaram**
+(`acertarVaoDosFavoritos`, v5.276). A primeira versão perguntava
+`scrollHeight > clientHeight` e ele aparecia *"literalmente sem nenhum item na
+lista"*: numa Biblioteca com oito seções o vão é pequeno, a seção dos favoritos
+é a única que encolhe, e o que sobra do corpo recorta até a linha de "Nenhum
+favorito ainda". A caixa transbordava — e a caixa não é a pergunta. Com zero
+itens a resposta é zero, e não há medida de caixa que a produza. A ordem entre
+os itens continua sendo MEDIDA e nunca deduzida de uma contagem fixa (quantos
+cabem depende de quantas seções existem, da pasta do aparelho, da tela e do
+teclado), num `requestAnimationFrame` porque no instante em que a lista é
+montada os `li` ainda não foram dispostos e todos mediriam zero.
 
 **O tom próprio** (`--fav-bg`, com `--camada` descendo junto para as linhas de
 dentro) vale **aberta e fechada**: fechada ela é uma barra entre outras barras, e
