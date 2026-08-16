@@ -3053,12 +3053,12 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.269** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.270** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
-> **A v5.269: A BARRA DA BUSCA ESCURECE NO TEMA CLARO, e o ✕ vira o irmão do
+> **A v5.270: A BARRA DA BUSCA ESCURECE NO TEMA CLARO, e o ✕ vira o irmão do
 > campo. OTA PURO** (só CSS; sem Release).
 >
 > Pedido do operador, em três partes: *"ajuste o botão de fechar biblioteca para
@@ -3103,6 +3103,52 @@ controles), que **só chegam instalando o APK novo**, não pelo OTA.
 > reprova (e é a do tema claro, em 1,00:1); devolvendo o ✕ ao esqueleto de 34px e
 > ao chip translúcido, **5** — entre elas o glifo em 1,75:1.
 
+
+> **A v5.269: TIRAR A BORDA NÃO É REMOVER A BORDA — o `<button>` já vem com uma
+> do navegador. OTA PURO** (só CSS e o oráculo; sem Release). *(O número saltou
+> o 5.268: um lote paralelo o tomou enquanto este era escrito — ver a nota
+> abaixo. O relato é sobre a v5.267 no aparelho.)*
+>
+> Relato do operador, sobre a v5.267 no aparelho: *"os botões agora estão usando
+> o sistema de sombras nativo padrão do sistema, isso está criando um contorno
+> bicolor no geral nos botões que foi removido as linha de borda… a exemplo
+> seriam os botões do controle do modo avançado."*
+>
+> **Ele está certo, e o diagnóstico dele é literal: aquilo é o desenho nativo.**
+> A folha do UA dá a todo `<button>` um `border: 2px outset` e a todo
+> `<input>`/`<textarea>` um `2px inset` — e `outset` é um BISEL, isto é, duas
+> cores. Ao tirar as ~80 declarações de `border` da v5.267 eu não removi borda
+> nenhuma daqueles controles: **deixei passar a do navegador.** Medido no
+> renderizado: `2px outset rgb(0, 0, 0)` no transporte, no mixer, no "Guardar a
+> fila", no estado do telão, no botão de atualização e nos dois da folha de
+> conectar. O `appearance: none` que muitos deles já declaravam não cobre isso —
+> ele desliga o desenho nativo do CONTROLE, não a borda da folha do UA.
+>
+> A correção é uma linha, e o lugar dela é a decisão: **`border: 0` no reset
+> universal**, não `border: none` em cada regra. Escrever componente a
+> componente seria a mesma sincronização manual que este projeto recusa em toda
+> parte, com um modo de falhar pior — o esquecimento não aparece na folha,
+> aparece no aparelho, que é exatamente como este chegou. `*` não alcança
+> pseudo-elemento, então os dois DESENHOS feitos de borda (o aro do `.dl-ring`,
+> o ✓ do seletor de destinos) sobrevivem sem precisar de exceção.
+>
+> **E o oráculo que faltava é o do RENDERIZADO.** `tools/tokens.test.mjs` varre
+> a FONTE e prova que nenhuma regra NOSSA desenha contorno — ele é cego POR
+> CONSTRUÇÃO para este defeito, porque o defeito é a AUSÊNCIA de uma declaração.
+> O caso novo do `smoke.mjs` mede a cor e a largura computadas de todo elemento,
+> e ABRE cada tela em que os controles moram (transporte, mixer, Ferramentas,
+> Bíblia, Biblioteca, Exibição, Modo Fácil) antes de medir: os botões que o
+> operador viu e os que só existem numa aba nunca estão na mesma tela, e um caso
+> que medisse só a tela inicial teria passado com o defeito inteiro no lugar.
+>
+> A régua que fica, e ela é mais larga que CSS: **remover a nossa declaração de
+> uma propriedade não a zera — devolve o valor de quem estava embaixo.** É a
+> mesma família do `optBoolean` lendo campo ausente como `false` e do `ritmo`
+> zerado da v5.206: a ausência não produz silêncio, produz um padrão que alguém
+> interpreta.
+>
+> Verificado por isolamento: tirando só o `border: 0` do reset, a varredura do
+> renderizado reprova sozinha.
 > **A v5.268: O CAMPO DE BUSCA FICA BRANCO NOS DOIS TEMAS. OTA PURO** (só CSS;
 > sem Release).
 >

@@ -1,5 +1,30 @@
 * {
   margin: 0; padding: 0; box-sizing: border-box; touch-action: manipulation;
+  /* ---------- E BORDA NENHUMA, AQUI (v5.267) ----------
+     A regra da casa é que nada se separa por linha (ver "Só preenchimento,
+     nenhum contorno" em `docs/ARQUITETURA-WEB.md`), e ela precisa morar no
+     RESET — não em cada componente — porque o padrão do navegador não é "sem
+     borda": a folha do UA dá a todo `<button>` um `border: 2px outset`, e a
+     todo `<input>`/`<textarea>` um `2px inset`. `outset` é um BISEL, isto é,
+     duas cores.
+
+     Foi exatamente isso que o primeiro corte da v5.267 causou: tirar as ~80
+     declarações de `border` não removeu borda nenhuma desses controles — apenas
+     deixou passar a do navegador, e o operador viu "um contorno bicolor no
+     geral nos botões que foi removido as linha de borda". O `appearance: none`
+     que muitos deles já declaravam NÃO cobre isso: ele desliga o desenho
+     nativo do controle, não a borda da folha do UA.
+
+     Escrever `border: none` em cada regra seria a mesma sincronização manual
+     que este projeto recusa em toda parte, e com um modo de falhar pior: o
+     esquecimento não aparece na folha, aparece no aparelho.
+
+     `*` NÃO alcança pseudo-elementos, então os dois DESENHOS feitos de borda
+     sobrevivem intactos — o aro do `.dl-ring::before` e o ✓ do
+     `.song-menu-check.on::after`. O `outline` fica de fora de propósito: ele é
+     o anel de foco do teclado, e o app não tem mais nenhum outline próprio a
+     apagar (medido). */
+  border: 0;
   /* Sem seleção de texto/callout/realce de toque em lugar nenhum — é um
      controle remoto, não um documento; um toque comprido em qualquer botão
      ou linha da lista não deve abrir menu de seleção/copiar. `!important`
@@ -3404,7 +3429,7 @@ main {
 
      São DOIS sinais, e os dois já existem neste app:
 
-     · O TOM. **`--field-bar` (v5.269), e não mais `--camada`.** Ela FOI um bloco
+     · O TOM. **`--field-bar` (v5.270), e não mais `--camada`.** Ela FOI um bloco
        de nível 1 como qualquer seção — e essa era a falha: no tema CLARO o
        nível 1 é o branco, exatamente a cor do campo que ela contém, e o campo
        sumia dentro dela (1,00:1). A barra é o único bloco de nível 1 do app que
@@ -3445,7 +3470,7 @@ main {
 }
 /* O recuo à esquerda abre o lugar dela: 12 (margem) + 18 (ícone) + 8 (respiro). */
 #hymnSearchInput { flex: 1; min-width: 0; padding: 11px 14px 11px 38px; font-size: .95rem; }
-/* ---------- O ✕ TEM A ALTURA DO CAMPO (v5.269) ----------
+/* ---------- O ✕ TEM A ALTURA DO CAMPO (v5.270) ----------
    Pedido do operador. Ele vinha do esqueleto de botão de ícone do app (`--hit`
    quadrado, 34px) e o campo tem 41 — dois vizinhos na mesma linha com sete
    pixels de diferença que ninguém decidiu.

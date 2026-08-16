@@ -8559,8 +8559,20 @@ chamando-se desenho:
 - o ✓ do `.song-menu-check` (duas bordas em L, giradas 45°) — é o glifo que
   falta no subset da fonte de ícones.
 
-**A regra tem oráculo, e é ele que a faz durar** (`tools/tokens.test.mjs`, Node
-puro, sem `continue-on-error`). Uma borda é a coisa mais fácil de acrescentar em
+**São DOIS oráculos, e nenhum basta sozinho.** `tools/tokens.test.mjs` (Node
+puro, sem `continue-on-error`) varre a FONTE e prova que nenhuma regra NOSSA
+desenha contorno; `tools/smoke.mjs` mede o RENDERIZADO e prova que nada desenha
+borda na tela. O segundo existe porque o primeiro é cego por construção para o
+defeito que este lote de fato produziu: **o padrão do navegador não é "sem
+borda"**. A folha do UA dá a todo `<button>` um `border: 2px outset` e a todo
+campo um `2px inset` — `outset` é um bisel, duas cores —, então tirar a nossa
+declaração não removia borda nenhuma daqueles controles, deixava passar a dele.
+O `appearance: none` que muitos já declaravam não cobre isso: ele desliga o
+desenho nativo do controle, não a borda do UA. A correção é `border: 0` no
+reset universal, e ela mora ali e não em cada componente porque o esquecimento
+não aparece na folha — aparece no aparelho.
+
+**E é ele que a faz durar.** Uma borda é a coisa mais fácil de acrescentar em
 CSS quando duas caixas não estão se separando o bastante — é literalmente o
 remendo que este lote veio desfazer — e ela não quebra nada, não erra alto e não
 aparece em teste de comportamento nenhum. A varredura é da FONTE e não do

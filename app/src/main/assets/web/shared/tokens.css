@@ -239,7 +239,7 @@
   --field-bg: #ffffff;
   --field-text: #4a4a4a;
   --field-muted: #5c636c;
-  /* A BARRA QUE HOSPEDA O CAMPO (v5.269, pedido do operador: *"faça com que o
+  /* A BARRA QUE HOSPEDA O CAMPO (v5.270, pedido do operador: *"faça com que o
      fundo atrás da caixa de texto fique mais escuro no tema claro"*).
 
      Ela era `--camada`, isto é, o nível 1 da escada — e no tema CLARO esse
@@ -566,7 +566,7 @@
      sempre DENTRO de um nível 1, que é branco. */
   --panel-2: #d4dae2;
   --line: #97a5b4;                       /* 1,95:1 contra o fundo · 2,51:1 contra o painel */
-  /* A BARRA DA BUSCA, mais escura que o nível 1 (v5.269) — ver o bloco
+  /* A BARRA DA BUSCA, mais escura que o nível 1 (v5.270) — ver o bloco
      compartilhado. Medido: o campo BRANCO dá **2,51:1** contra ela (era 1,00:1,
      isto é, a mesma cor), e ela dá 1,95:1 contra a página, então a faixa se lê
      como uma peça própria e não como um pedaço do corpo. É o mesmo valor de

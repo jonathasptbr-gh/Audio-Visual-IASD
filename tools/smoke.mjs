@@ -224,6 +224,63 @@ try {
   checar(flutuantes.length === 0,
     'nenhuma camada flutuante sobrou por cima da interface' + (flutuantes.length ? ' (achei: ' + flutuantes.join(', ') + ')' : ''));
 
+// ── NENHUM CONTORNO, MEDIDO NO RENDERIZADO (v5.267) ──────────────────────
+// A metade que faltava, e ela é a que o operador encontrou primeiro: *"os
+// botões agora estão usando o sistema de sombras nativo padrão do sistema, isso
+// está criando um contorno bicolor no geral nos botões que foi removido as
+// linha de borda"*.
+//
+// `tools/tokens.test.mjs` varre a FONTE e prova que nenhuma regra NOSSA desenha
+// contorno. Isso não basta, e o primeiro corte da v5.267 provou por quê: **o
+// padrão do navegador não é "sem borda"**. A folha do UA dá a todo `<button>`
+// um `border: 2px outset` e a todo campo um `2px inset` — e `outset` é um
+// bisel, isto é, DUAS cores. Tirar a nossa declaração não removia borda
+// nenhuma; deixava passar a dele. Um oráculo de fonte é estruturalmente cego
+// para isso, porque o defeito é a AUSÊNCIA de uma declaração.
+//
+// A varredura é do computado, sobre as telas que o arquivo já abriu, e conta
+// só o que DESENHA: largura > 0 com cor não transparente. Os dois desenhos de
+// borda do app são pseudo-elementos (`.dl-ring::before`, o ✓ do seletor), e
+// `querySelectorAll` não os alcança — eles ficam de fora sem precisar de
+// exceção.
+try {
+  const contornos = await pg.evaluate(async () => {
+    const achados = new Set();
+    const varrer = () => {
+      for (const el of document.querySelectorAll('*')) {
+        const c = getComputedStyle(el);
+        const w = ['Top', 'Right', 'Bottom', 'Left'].map((s) => parseFloat(c['border' + s + 'Width']) || 0);
+        if (!w.some((x) => x > 0)) continue;
+        if (/rgba\(0, 0, 0, 0\)/.test(c.borderTopColor)) continue;
+        achados.add((el.tagName.toLowerCase() + '.' + [...el.classList].join('.')).slice(0, 48)
+          + ' → ' + w[0] + 'px ' + c.borderTopStyle);
+      }
+    };
+    // As telas em que moram os controles — é aqui que a cobertura mora, e é por
+    // isso que o caso ABRE cada uma em vez de medir só a inicial: os botões que
+    // o operador viu (transporte, mixer) e os que só existem numa aba
+    // (segmentados, chips, campos das Ferramentas) nunca estão na mesma tela.
+    setAppMode('full'); varrer();
+    for (const aba of ['bible', 'misc', 'playlist']) {
+      try { switchTab(aba); } catch (e) { /* aba que não existe neste bundle */ }
+      await new Promise((r) => setTimeout(r, 60));
+      varrer();
+    }
+    openHymnSearch(); await new Promise((r) => setTimeout(r, 200)); varrer();
+    closeHymnSearch(); await new Promise((r) => setTimeout(r, 100));
+    openFadePopup(); await new Promise((r) => setTimeout(r, 150)); varrer();
+    setAppMode('simple'); await new Promise((r) => setTimeout(r, 100)); varrer();
+    setAppMode('full');
+    return [...achados];
+  });
+  checar(contornos.length === 0,
+    'e nenhum elemento RENDERIZADO desenha borda — nem a que o navegador põe '
+    + 'sozinha em todo <button>',
+    contornos.join('\n        '));
+} catch (e) {
+  checar(false, 'a varredura de contorno terminou sem exceção (' + (e && e.message) + ')');
+}
+
   // E O CONTRÁRIO — os canais in-place existem. Sem esta metade, apagar o
   // feedback inteiro passaria no teste acima.
   const canais = await pg.evaluate(() => ({
@@ -1696,7 +1753,7 @@ for (const tema of ['escuro', 'claro']) {
         ph: getComputedStyle(document.getElementById('hymnSearchInput'), '::placeholder').color,
         lupa: getComputedStyle(document.querySelector('#hymnSearchPopup .lib-search-lupa')).color,
         sombraCampo: getComputedStyle(document.getElementById('hymnSearchInput')).boxShadow,
-        // O ✕ da barra (v5.269): altura, fundo e glifo.
+        // O ✕ da barra (v5.270): altura, fundo e glifo.
         hCampo: document.getElementById('hymnSearchInput').getBoundingClientRect().height,
         hBtn: document.getElementById('hymnSearchClose').getBoundingClientRect().height,
         btn: getComputedStyle(document.getElementById('hymnSearchClose')).backgroundColor,
@@ -1735,7 +1792,7 @@ for (const tema of ['escuro', 'claro']) {
     checar(/-\d+px/.test(c.sombra) && c.sombra !== 'none',
       '[' + tema + '] com a sombra para CIMA, que é o que o tom não diz: a lista '
       + 'passa por baixo dela', c.sombra);
-    // E o CAMPO se separa da barra POR TOM (v5.269). Até aqui, no tema claro,
+    // E o CAMPO se separa da barra POR TOM (v5.270). Até aqui, no tema claro,
     // ele não se separava de jeito nenhum — barra e campo eram os dois brancos
     // (1,00:1), e a v5.268 sustentou a distinção só pela elevação. O operador
     // pediu o conserto de verdade: a barra escureceu, e o degrau passou a ser a
@@ -1754,7 +1811,7 @@ for (const tema of ['escuro', 'claro']) {
     checar(!!c.sombraCampo && c.sombraCampo !== 'none',
       '[' + tema + '] e a elevação FICA, agora como reforço: ele é uma folha de '
       + 'papel pousada na faixa, não um recorte dela', c.sombraCampo);
-    // ── O ✕ TEM A ALTURA DO CAMPO, E É CLARO COMO ELE (v5.269) ───────────
+    // ── O ✕ TEM A ALTURA DO CAMPO, E É CLARO COMO ELE (v5.270) ───────────
     // As duas metades do pedido. A altura vinha do esqueleto de botão de ícone
     // (`--hit`, 34px) contra os 40 do campo — dois vizinhos na mesma linha com
     // sete pixels de diferença que ninguém decidiu. E a cor: com a barra
