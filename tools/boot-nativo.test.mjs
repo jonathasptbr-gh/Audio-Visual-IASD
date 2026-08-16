@@ -1826,6 +1826,113 @@ try {
   checar(false, 'o percurso da Bíblia base terminou sem exceção (' + (e && e.message) + ')');
 }
 
+// ── O LINK DO YOUTUBE ENTRA NO AR COMO QUALQUER OUTRO ITEM (v5.269) ──────
+// Relato do operador: *"um arquivo do tipo YouTube, que seria apenas um link,
+// quando está no cronograma ou favoritos, pode ser tocado diretamente online no
+// player, mas o respectivo elemento da lista não entra no modo 'no ar'."*
+//
+// A causa é uma assimetria entre os dois caminhos de `resolverLinkYoutube`
+// (v5.212). Pelo DOWNLOAD o arquivo toma o lugar do link EM POSIÇÃO, então a
+// linha passa a ter o id da mídia e o `midiaNoArId` de sempre a alcança. Pela
+// TRANSMISSÃO DIRETA, não: a mídia é um avulso com id próprio, o link continua
+// na lista com o id dele, e nada ligava os dois.
+//
+// E não era só o realce: `noArAgora` responde pela MESMA pergunta, então o
+// SEGUNDO TOQUE (que retira do ar) também não alcançava aquela linha — ela
+// reprojetava em vez de retirar, que é o defeito que a v5.165 existiu para
+// consertar, reaberto por outra porta. Por isso as duas metades são medidas.
+//
+// Este caso mora AQUI, e não no `cena.test.mjs`, por uma razão dura:
+// `resolverLinkYoutube` devolve na primeira linha quando não há ponte
+// (`window.__NATIVE__`), e o `cena` sobe a base sem ela.
+//
+// O `tentarTransmitir` é SUBSTITUÍDO por um que faz o que o de verdade faz no
+// fim — `send(<id do avulso>)` —, porque é justamente essa chamada que zera a
+// origem: um teste que pulasse o `send` aprovaria uma ordem de atribuição
+// errada, que é o único jeito de errar isto.
+try {
+  const pg5 = await ctx.newPage();
+  await pg5.addInitScript(PONTE);
+  await pg5.goto(`http://127.0.0.1:${porta}/controle/`, { waitUntil: 'load' });
+  await pg5.waitForFunction(() => window.AVDB && typeof window.__avBack === 'function',
+    null, { timeout: 20000 });
+  await pg5.evaluate(() => setAppMode('full'));
+
+  const r = await pg5.evaluate(async () => {
+    // O AVULSO que a transmissão criaria, e o LINK que fica na lista.
+    const avulso = await AVDB.addMedia(new Blob([new Uint8Array(8)], { type: 'video/mp4' }),
+      { name: 'Vídeo transmitido', type: 'video/mp4', kind: 'video', list: 'avulsos' });
+    // O link é criado como o app o cria (`addUrlMedia`, ver `ytAcao` com
+    // `YT_ONLINE`): um registro SEM bytes. Foi essa a primeira versão errada
+    // deste caso — `addMedia(null, …)` lê `blob.type` e estoura.
+    const link = await AVDB.addUrlMedia('https://www.youtube.com/watch?v=abc12345678', {
+      kind: 'youtube', type: 'video/youtube', name: 'Link do YouTube',
+      youtubeId: 'abc12345678', list: 'imports',
+    });
+    await load();
+    // eslint-disable-next-line no-func-assign
+    window.tentarTransmitir = async () => { await send(avulso.id); return true; };
+    const rec = await AVDB.getMedia(link.id);
+    await resolverLinkYoutube(rec);
+    await new Promise((x) => setTimeout(x, 250));
+    const li = document.querySelector('.lib-item[data-id="' + link.id + '"]');
+    return {
+      linkId: link.id, avulsoId: avulso.id,
+      // A mídia no ar é o AVULSO — a origem não pode ter trocado isso.
+      noArId: midiaNoArId,
+      realce: linhaNoAr(link.id),
+      // O segundo toque: ele decide entre projetar e retirar.
+      segundoToque: noArAgora(rec),
+      classe: !!li && li.classList.contains('no-ar'),
+      selo: !!li && !!li.querySelector('.row-live'),
+      // E o AVULSO continua sendo o que está no ar de fato.
+      avulsoTambem: linhaNoAr(avulso.id),
+    };
+  });
+  checar(r.noArId === r.avulsoId,
+    'a mídia no ar continua sendo o AVULSO da transmissão — a origem não troca '
+    + 'quem está no telão', r.noArId);
+  checar(r.realce && r.classe,
+    'e a LINHA DO LINK entra em "no ar", como qualquer outro item que foi ao '
+    + 'telão', JSON.stringify({ realce: r.realce, classe: r.classe }));
+  checar(r.selo,
+    'com o selo "● No ar" junto — o estado que se LÊ, não só a cor');
+  checar(r.segundoToque,
+    'e o SEGUNDO TOQUE nela retira do ar em vez de reprojetar — sem esta metade '
+    + 'o realce diria uma coisa e o gesto faria outra');
+
+  // ---- E A ORIGEM CAI COM A MÍDIA -------------------------------------
+  // Sem isto a linha do link ficaria marcada para sempre: `midiaNoArOrigem` só
+  // é escrita neste caminho, e quem a limparia é justamente quem tira do ar.
+  const depois = await pg5.evaluate(async (x) => {
+    await pararMidia('media-clear');
+    marcarNoAr();
+    const li = document.querySelector('.lib-item[data-id="' + x + '"]');
+    return { realce: linhaNoAr(x), classe: !!li && li.classList.contains('no-ar') };
+  }, r.linkId);
+  checar(!depois.realce && !depois.classe,
+    'e ela SAI do ar quando a mídia sai — a marca não sobrevive ao Parar',
+    JSON.stringify(depois));
+
+  // ---- E UM PLAY NORMAL NÃO A HERDA -----------------------------------
+  // `send` zera a origem, e é ele que todo play atravessa. Sem essa linha, uma
+  // música tocada depois deixaria a linha do link marcada como "no ar".
+  const outro = await pg5.evaluate(async (x) => {
+    const m = await AVDB.addMedia(new Blob([new Uint8Array(8)], { type: 'audio/mpeg' }),
+      { name: 'Outra música', type: 'audio/mpeg', kind: 'audio', list: 'imports' });
+    await load();
+    await send(m.id);
+    await new Promise((r2) => setTimeout(r2, 150));
+    return { link: linhaNoAr(x), nova: linhaNoAr(m.id) };
+  }, r.linkId);
+  checar(!outro.link && outro.nova,
+    'e um play NORMAL depois dela não herda a origem — quem está no ar é a '
+    + 'mídia nova', JSON.stringify(outro));
+  await pg5.close();
+} catch (e) {
+  checar(false, 'o percurso do link do YouTube terminou sem exceção (' + (e && e.message) + ')');
+}
+
 checar(erros.length === 0, 'nenhum erro de console' + (erros.length ? ':\n        ' + erros.join('\n        ') : ''));
 
 await navegador.close();

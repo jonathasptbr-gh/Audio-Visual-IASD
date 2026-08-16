@@ -3053,10 +3053,75 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.269** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.270** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.270: TRÊS AJUSTES DA LISTA — o Parar toma o lugar da capa, o `⋮` para
+> de mexer o cartão, e o LINK do YouTube entra no ar como qualquer outro item.
+> OTA PURO** (sem Release).
+>
+> Os dois primeiros são de desenho e o terceiro é de comportamento — e é ele que
+> importa mais, porque estava mentindo na tela.
+>
+> - **O PARAR OCUPA A MINIATURA, e não fica por cima dela.** Pedido do operador:
+>   *"ele cria por cima dela, faça com que seja apenas o botão de stop sem ser
+>   por cima, para que fique menos poluído visualmente"*. Ele era um véu preto a
+>   55% sobre a arte com o glifo em cima — três camadas num quadrado de 40px, e a
+>   de baixo só atrapalhava: a capa não é legível atrás do véu e não decide nada,
+>   porque a linha já diz de que item se trata pelo nome e pelo selo. Escondido o
+>   conteúdo da miniatura, o que sobra é um botão com o MESMO preenchimento dos
+>   outros da linha (`--surface`, que ali dentro afunda). O véu sai junto com a
+>   razão dele: sem foto por baixo, não há o que neutralizar. Medido, o glifo dá
+>   6,02:1 no escuro e 4,09:1 no claro — acima do piso de 3:1 de um ícone.
+> - **O `⋮` NÃO ENCOLHE MAIS O CARTÃO** — *"como ele abre uma visualização, o
+>   movimento da caixa polui o conjunto"*. Ele está certo pela régua do próprio
+>   app: a linha encolhe para dizer "o toque pegou" quando não há outra resposta,
+>   e aqui HÁ, e ela é grande — uma gaveta que cobre o título inteiro. Duas
+>   respostas ao mesmo toque, uma mexendo a caixa por baixo da outra que está
+>   entrando. O BOTÃO continua encolhendo (é ele que foi tocado); o cartão, não.
+>   **E os botões entram DA DIREITA**, escalonados pelo FIM da lista
+>   (`nth-last-child`), então o primeiro a chegar é o mais à direita — a borda de
+>   onde eles vêm — e a regra vale igual com dois botões ou com cinco. Quem
+>   desliza são os BOTÕES e não a faixa: a faixa é a tampa opaca que cobre o
+>   título, e movê-la o descobriria durante toda a animação, que é o defeito que
+>   a v5.259 já corrigiu por outro caminho. De brinde, o `visibility` entrou na
+>   transição: fora dela a propriedade é discreta e virava `hidden` no primeiro
+>   quadro, então o FECHAMENTO nunca foi visto em versão nenhuma.
+> - **O LINK DO YOUTUBE ENTRA NO AR.** Relato: *"um arquivo do tipo YouTube… pode
+>   ser tocado diretamente online no player, mas o respectivo elemento da lista
+>   do cronograma ou favorito não entra no modo 'no ar'"*. A causa é uma
+>   assimetria entre os dois caminhos do `resolverLinkYoutube` (v5.212): pelo
+>   DOWNLOAD o arquivo toma o lugar do link EM POSIÇÃO, então a linha passa a ter
+>   o id da mídia; pela TRANSMISSÃO DIRETA, não — a mídia é um avulso com id
+>   próprio, o link continua na lista com o dele, e nada ligava os dois.
+>
+>   **E não era só o realce.** `noArAgora` responde pela MESMA pergunta, então o
+>   SEGUNDO TOQUE (que retira do ar) também não alcançava aquela linha: ela
+>   reprojetava em vez de retirar — o defeito que a v5.165 existiu para
+>   consertar, reaberto por outra porta. Um realce que dissesse uma coisa e um
+>   gesto que fizesse outra seria pior que o defeito inteiro.
+>
+>   `midiaNoArOrigem` é o campo que faltava, e ele é o mesmo formato do
+>   `cueNoArId` pela mesma razão: **quem está no ar e quem PÔS no ar podem ser
+>   dois registros diferentes, e a lista fala do segundo.** Ele é escrito só
+>   naquele caminho e DEPOIS do `tentarTransmitir` — que termina em `send()`, e é
+>   o `send` que o zera. Essa ordem é a única forma de errar isto, e é o que o
+>   oráculo exercita: ele substitui o `tentarTransmitir` por um que faz o que o
+>   de verdade faz no fim, em vez de pular a chamada.
+>
+> Os oráculos foram verificados por ISOLAMENTO, uma peça de cada vez: sem a
+> origem, **3** asserções do `boot-nativo.test.mjs` reprovam; devolvendo o véu e
+> a capa, o feedback no cartão e o deslize, **4** do `cena.test.mjs`.
+>
+> **E dois defeitos foram do próprio teste, os dois da mesma família — medir no
+> turno errado.** O caso do deslize lia o `transform` no mesmo turno em que
+> acrescentava a classe, e ali o computado ainda é o valor de PARTIDA: ele
+> aprovaria uma gaveta sem animação nenhuma e reprovaria a que existe. E o caso
+> da pressão no `⋮` derrubava o caso seguinte, porque um `mouse.down` + `up`
+> completo É UM CLIQUE — ele abria a gaveta, e o `abrirGaveta` de baixo a
+> fechava.
 
 > **A v5.269: TIRAR A BORDA NÃO É REMOVER A BORDA — o `<button>` já vem com uma
 > do navegador. OTA PURO** (só CSS e o oráculo; sem Release). *(O número saltou
