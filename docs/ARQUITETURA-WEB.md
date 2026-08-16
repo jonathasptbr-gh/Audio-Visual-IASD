@@ -4183,6 +4183,18 @@ Duas podas do mesmo pedido, e as duas são sobre a barra do topo:
   dela: o `appPrompt` é um cartão CENTRADO com campo de texto, e ali a metade de
   baixo é justamente onde o teclado sobe.
 
+  **E A ROLAGEM PARA DENTRO DA LISTA** (v5.281). Relato: *"a barra de pesquisa
+  no topo não fica fixa durante a rolagem do corpo da biblioteca"*. A estrutura
+  está certa e sempre esteve — medido, rolar `#hymnResults` 116px não move um
+  pixel da barra —, e o que se mexe no aparelho é a PÁGINA: a rolagem que chega
+  ao fim de um scroller encadeia para trás, e do Android 12 em diante o excesso
+  é o efeito STRETCH, que estica e desloca a camada inteira, barra fixa
+  incluída. `overscroll-behavior: contain` no `.popup-list` corta o
+  encadeamento — os outros três scrollers do app (`.lib-list`, `.lv-body`,
+  `.simple-lyrics`) já o tinham; este era o único sem —, mais
+  `overscroll-behavior: none` na raiz para um gesto que comece fora de qualquer
+  lista.
+
   **E A CAMADA NÃO PERSEGUE NADA** (v5.280). A v5.278 pôs `top: var(--vv-top)`
   aqui para a barra não sair pela borda quando o navegador rolasse a viewport
   visual; o operador recusou o mecanismo e nomeou o certo — *"ao invés de ter um

@@ -3053,10 +3053,45 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.280** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.281** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.281: A BARRA NÃO SE MEXIA — QUEM SE MEXIA ERA A PÁGINA INTEIRA. OTA
+> PURO** (só CSS e o oráculo; sem Release).
+>
+> Pergunta do operador: *"a barra de pesquisa no topo não fica fixa durante a
+> rolagem do corpo da biblioteca, você colocou um scroll no corpo deixando a
+> barra fixa no topo?"*
+>
+> **Sim, e a estrutura estava certa — foi a primeira coisa medida.** A barra é
+> irmã da lista, `flex-shrink: 0`, e a lista é `flex: 1; overflow-y: auto`:
+> rolar `#hymnResults` 116px não move um pixel dela, em Chromium. Se a estrutura
+> está certa e o operador vê a barra andar, o que se mexe não é a barra.
+>
+> **É a PÁGINA.** A rolagem que chega ao fim dentro de um scroller **encadeia**
+> para o contêiner de trás, e do Android 12 em diante o excesso deixou de ser um
+> brilho na borda e passou a ser o efeito STRETCH — a camada inteira é esticada
+> e deslocada, barra fixa incluída. O dedo continua dentro da lista e a tela toda
+> se mexe, que é exatamente a descrição.
+>
+> `overscroll-behavior: contain` no `.popup-list` corta o encadeamento, e ele não
+> é novidade nenhuma neste app: `.lib-list`, `.lv-body` e `.simple-lyrics` — os
+> outros três scrollers — já o têm. **O `.popup-list` era o único que não**, e
+> ficou sendo desde que a Biblioteca virou uma tela cheia com uma barra fixa em
+> cima. Mais `overscroll-behavior: none` na raiz, que fecha o caso pelo outro
+> lado: um gesto que comece FORA de qualquer lista ainda produziria o stretch, e
+> a página deste app nunca rola — ela é uma coluna de altura fixa com listas que
+> rolam por dentro.
+>
+> **O que o oráculo pode e o que não pode.** Um navegador de mesa não reproduz o
+> stretch do Android, então o caso afirma as duas coisas que ele alcança: a
+> rolagem de VERDADE não move a barra (a estrutura), e a regra que desliga o
+> encadeamento está no lugar (a causa). E ele precisou ser medido **depois** de
+> uma coleção abrir — com tudo colapsado o vão dos favoritos é justamente o que
+> sobra, a lista cabe inteira e não há rolagem a afirmar. É a segunda vez que
+> essa propriedade do desenho aparece num caso deste arquivo.
 
 > **A v5.280: O CABEÇALHO DA BIBLIOTECA SAI, a camada para de perseguir a
 > viewport, a lista abre no topo, e o scroll interno dos favoritos é revogado.
