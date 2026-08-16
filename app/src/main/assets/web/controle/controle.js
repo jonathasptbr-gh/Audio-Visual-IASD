@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.276';
+const WEB_VERSION = '5.277';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -6559,6 +6559,10 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
     // (v5.276), e as duas coisas moram nesta classe porque são a mesma: esta
     // seção não é uma coleção.
     if (ehFav) li.classList.add('coll-group--fav');
+    // O nome no nó: o redesenho APAGA este `li`, e quem quiser reencontrar a
+    // seção depois (o alinhamento da abertura, logo abaixo) não tem outro
+    // caminho — a referência viraria um nó órfão.
+    li.dataset.grupo = text;
 
     const bar = document.createElement('div');
     bar.className = 'coll-group-bar';
@@ -6658,6 +6662,30 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
       // apagado não tem como sair deslizando (a mesma nota do card).
       if (!abrindo) { collapseAccordion(corpo, aplicar); return; }
       aplicar();
+      // ===== A COLEÇÃO ABRE PARA BAIXO, ALINHADA PELO TOPO (v5.277) =====
+      //
+      // Pedido do operador: *"as coleções estão abrindo estendendo para cima,
+      // mas elas devem sempre abrir para baixo e rolar/alinhar a tela sempre
+      // com o início da lista da coleção, alinhando com o topo dela"*.
+      //
+      // O "para cima" era a seção dos Favoritos ENCOLHENDO para dar espaço (ver
+      // `--fav-vao`, que este mesmo lote tornou fixo) — o conteúdo acima subia,
+      // e o que se via era a coleção crescendo na direção errada. Com o vão
+      // fixo, o que falta é a segunda metade: uma coleção que abre lá embaixo
+      // cresce para fora da tela, e quem a abriu fica olhando a barra dela sem
+      // ver um item. Rolar até o topo dela é o que faz "abrir" e "ver o que
+      // abriu" serem a mesma coisa.
+      //
+      // Nos Favoritos não: eles têm posição fixa no alto da lista, e rolar até
+      // eles seria rolar até onde a tela já está.
+      //
+      // DEPOIS DA ANIMAÇÃO, e não no quadro seguinte: `expandAccordion` anima a
+      // altura do corpo de 0 até o valor natural, então durante esses 220 ms o
+      // conteúdo abaixo ainda não existe e a lista não tem para onde rolar. Uma
+      // versão em `requestAnimationFrame` mediu o layout COLAPSADO e rolou
+      // 7px de 59 possíveis (verificado) — o número certo para uma tela que
+      // ainda não tinha crescido.
+      if (!ehFav) setTimeout(() => alinharGrupoNoTopo(alvo, text), ACC_MS + 30);
     };
     bar.addEventListener('click', alternar);
     bar.addEventListener('keydown', (e) => {
@@ -7793,6 +7821,63 @@ function redesenharFavoritosNaBiblioteca() {
 // botão nunca apareceria. Expandido ele NÃO é medido — ali não há recorte, logo
 // não há item de fora, e a única leitura possível seria "não precisa mais dele",
 // que tiraria da tela o caminho de volta.
+// Rola `lista` até o topo da seção `nome` ficar no topo da área visível dela.
+// O `li` é reencontrado pelo `data-grupo` porque o redesenho que acabou de
+// rodar apagou o nó que o chamador tinha na mão.
+function alinharGrupoNoTopo(lista, nome) {
+  if (!lista || !lista.isConnected) return;
+  const el = [...lista.children].find((n) => n.dataset && n.dataset.grupo === nome);
+  if (!el) return;
+  const topoLista = lista.getBoundingClientRect().top
+    + parseFloat(getComputedStyle(lista).paddingTop || 0);
+  const dy = el.getBoundingClientRect().top - topoLista;
+  // Um pixel de folga: o arredondamento do layout produz sobras minúsculas, e
+  // uma rolagem de meio pixel é um tranco sem destino.
+  if (Math.abs(dy) <= 1) return;
+  lista.scrollTo({ top: lista.scrollTop + dy, behavior: semMovimento() ? 'auto' : 'smooth' });
+}
+
+// ===== O VÃO DOS FAVORITOS É FIXO, E ELE É UMA MEDIDA DE TELA (v5.277) =====
+//
+// Pedido do operador: *"eu quero que o espaço dos favoritos seja fixo, mas seja
+// o espaço proporcional que sobrou após listar as outras coleções abaixo. É uma
+// questão de medida de tela, que considera a medida da tela na abertura da
+// biblioteca."*
+//
+// A v5.273 tinha feito a seção crescer por `flex-grow`, e o preço é o relato:
+// **flex reparte**. Com uma coleção aberta, o vão que sobrava passava a ser
+// dividido entre as duas, e os favoritos ENCOLHIAM para dar espaço a ela — a
+// lista de atalhos mudava de tamanho conforme o que o operador abrisse noutro
+// lugar da tela.
+//
+// Fixo, ele é o que sobra da TELA depois das outras seções COLAPSADAS: uma
+// altura em pixels, escrita numa custom property da lista. A conta usa a altura
+// da BARRA de cada seção — que é exatamente a altura dela fechada, já que o
+// corpo é `display: none` nesse estado —, então ela **não depende de qual
+// coleção está aberta**, que é a propriedade inteira. Abrir um álbum passa a
+// empurrar a lista para baixo e a rolar, como qualquer lista.
+function medirVaoDosFavoritos(lista) {
+  if (!lista || !lista.isConnected) return;
+  const secoes = [...lista.children].filter((n) => n.classList
+    && n.classList.contains('coll-group--drop'));
+  const fav = secoes.find((n) => n.classList.contains('coll-group--fav'));
+  if (!fav) return;
+  const cs = getComputedStyle(lista);
+  const gap = parseFloat(cs.rowGap) || 0;
+  const util = lista.clientHeight - (parseFloat(cs.paddingTop) || 0)
+    - (parseFloat(cs.paddingBottom) || 0) - gap * Math.max(0, secoes.length - 1);
+  let fechadas = 0;
+  for (const s of secoes) {
+    if (s === fav) continue;
+    const barra = s.querySelector('.coll-group-bar');
+    fechadas += barra ? barra.getBoundingClientRect().height : 0;
+  }
+  const vao = Math.max(0, Math.round(util - fechadas));
+  // Escrito na LISTA e não no `li`: o `li` é refeito a cada redesenho, e a
+  // propriedade herda daqui sem que ninguém precise reaplicá-la.
+  lista.style.setProperty('--fav-vao', vao + 'px');
+}
+
 function acertarVaoDosFavoritos(corpoDado) {
   const corpo = corpoDado || hymnResultsEl.querySelector('[data-fav-corpo]');
   const li = corpo && corpo.parentElement;
@@ -7819,6 +7904,9 @@ function acertarVaoDosFavoritos(corpoDado) {
     // O redesenho é a cada 400 ms durante um download: reconferir que o corpo
     // ainda é o do documento evita medir um nó que já foi substituído.
     if (!li.isConnected) return;
+    // O VÃO ANTES DOS ITENS: é ele que decide a altura do corpo, e contar quem
+    // ficou de fora antes de a altura estar certa contaria contra a régua velha.
+    medirVaoDosFavoritos(li.parentElement);
     // `.empty` é a linha de "Nenhum favorito ainda", e ela não é um item: numa
     // seção espremida ela é justamente o que sobra cortado, e contá-la punha o
     // botão na tela para expandir uma lista vazia.

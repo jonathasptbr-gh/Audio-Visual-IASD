@@ -1341,6 +1341,82 @@ try {
     'com o caminho de volta no mesmo botão, que troca de verbo',
     vao.muitos.rotulo + ' → ' + vao.aberto.rotulo);
 
+  // ── A COLEÇÃO ABRE PARA BAIXO, ALINHADA PELO TOPO (v5.277) ─────────────
+  //
+  // Pedido do operador: *"as coleções estão abrindo estendendo para cima, mas
+  // elas devem sempre abrir para baixo e rolar/alinhar a tela sempre com o
+  // início da lista da coleção, alinhando com o topo dela"*.
+  //
+  // São DUAS metades, e a segunda é a que o relato descreve: o topo da seção
+  // aberta encosta no topo da área visível (a lista rolou até ele), **e** os
+  // favoritos não mudaram de tamanho — era o encolhimento deles que fazia o
+  // conteúdo subir e a coleção parecer crescer para cima.
+  const alinhado = await pg.evaluate(async () => {
+    const modoAntes = appMode;
+    setAppMode('full');
+    openHymnSearch();
+    await new Promise((r) => setTimeout(r, 250));
+    // As oito seções do relato outra vez: sem elas a lista cabe inteira na tela
+    // e não há rolagem nenhuma a afirmar.
+    albumCatalog.categories = ['CDs oficiais/ano', 'Adoradores', 'Cantores',
+      'Celebra SP', 'Diversas', 'Especiais'].map((nome, i) => ({
+      name: nome,
+      albums: [{ id_album: 700 + i, name: 'Álbum ' + nome }],
+    }));
+    albumCatalog.albums = albumCatalog.categories.map((c) => c.albums[0]);
+    grupoAberto = ''; favAberto = true;
+    hymnResultsEl.innerHTML = '';   // `renderCollectionsList` ACRESCENTA (v5.232)
+    renderCollectionsList(hymnResultsEl, () => renderSearchResults(''), { semTotal: true });
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const secao = (nome) => [...hymnResultsEl.children]
+      .find((n) => n.dataset && n.dataset.grupo === nome);
+    const altFavAntes = secao('Favoritos').getBoundingClientRect().height;
+    // A ÚLTIMA seção da lista: é a que mais precisa da rolagem, porque abrir
+    // uma coleção lá embaixo cresce para fora da tela.
+    const alvo = 'Especiais';
+    const barra = secao(alvo).querySelector('.coll-group-bar');
+    const desvioAntes = secao(alvo).getBoundingClientRect().top
+      - (hymnResultsEl.getBoundingClientRect().top
+        + parseFloat(getComputedStyle(hymnResultsEl).paddingTop || 0));
+    barra.click();
+    // A rolagem é suave: a leitura espera ela assentar.
+    await new Promise((r) => setTimeout(r, 700));
+    const el = secao(alvo);
+    const topoLista = hymnResultsEl.getBoundingClientRect().top
+      + parseFloat(getComputedStyle(hymnResultsEl).paddingTop || 0);
+    const r = {
+      desvio: el.getBoundingClientRect().top - topoLista,
+      desvioAntes,
+      rolou: hymnResultsEl.scrollTop,
+      // O quanto a lista PODE rolar: quando a seção aberta é a última e o que
+      // ela abre é curto, não há conteúdo abaixo para levá-la até o topo — e
+      // rolar até o fim é o mais perto que existe.
+      maximo: hymnResultsEl.scrollHeight - hymnResultsEl.clientHeight,
+      altFavAntes,
+      altFavDepois: secao('Favoritos').getBoundingClientRect().height,
+    };
+    albumCatalog.categories = []; albumCatalog.albums = [];
+    grupoAberto = ''; favAberto = true;
+    closeHymnSearch();
+    setAppMode(modoAntes);
+    return r;
+  });
+  // A REGRA tem dois desfechos possíveis, e os dois são o mesmo pedido: o topo
+  // da seção encosta no topo da lista, OU a lista rolou até o fim tentando —
+  // quando a seção aberta é a última e o que ela abre é curto, não existe
+  // conteúdo abaixo que a leve mais para cima. O que não pode acontecer é a
+  // lista ficar parada, que era o estado anterior a este lote.
+  checar(alinhado.rolou > 0 && alinhado.desvio < alinhado.desvioAntes
+    && (Math.abs(alinhado.desvio) <= 2 || alinhado.rolou >= alinhado.maximo - 1),
+    'ABRIR UMA COLEÇÃO rola a lista até o topo dela — ela abre para baixo e a '
+    + 'tela vai ao início dos itens',
+    'rolou ' + Math.round(alinhado.rolou) + 'px de ' + Math.round(alinhado.maximo)
+    + ' possíveis; o topo subiu ' + Math.round(alinhado.desvioAntes - alinhado.desvio) + 'px');
+  checar(Math.abs(alinhado.altFavDepois - alinhado.altFavAntes) <= 1,
+    'e a seção dos Favoritos não muda de tamanho por causa disso — era o '
+    + 'encolhimento dela que fazia a coleção parecer crescer para cima',
+    Math.round(alinhado.altFavAntes) + 'px → ' + Math.round(alinhado.altFavDepois) + 'px');
+
   // ── A MIGRAÇÃO DOS ATALHOS DE PASTA (v5.254) ───────────────────────────
   //
   // Esta é a asserção que impede o lote de virar PERDA DE MÍDIA. Um item cujo
