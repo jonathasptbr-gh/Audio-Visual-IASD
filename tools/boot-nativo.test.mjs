@@ -650,14 +650,25 @@ try {
     const refeito = window.__nPlaylist || 0;
     const nomeDepois = collSongs(c.id)[0].name;
     // E agora, com tudo em dia: a economia tem de continuar de pé.
+    //
+    // A PAUSA ANTES DA LINHA DE BASE não é cerimônia: o `autoRefreshCollections`
+    // da abertura roda SEM `await` e pode ter uma extração em voo, que cairia no
+    // intervalo medido e seria lida como "a economia não valeu" — reprovado uma
+    // vez em ~11 execuções, sem nenhuma relação com o que o caso afirma. Com o
+    // laço assentado, o contador de partida é o de um sistema parado. E a
+    // asserção continua discriminando: uma economia quebrada custaria a dúzia
+    // de playlists da série, não uma unidade.
+    await new Promise((r) => setTimeout(r, 400));
+    const base = window.__nPlaylist || 0;
     await syncCollection(c, { soIndice: true });
-    return { antes, refeito, deNovo: window.__nPlaylist || 0, nomeDepois };
+    return { antes, refeito, base, deNovo: window.__nPlaylist || 0, nomeDepois };
   });
   checar(preso.refeito > preso.antes && !/REGRA VELHA/.test(preso.nomeDepois),
     'a regra nova REFAZ o índice guardado — era isto que deixava o episódio sem '
     + 'data e fora de ordem ("' + preso.nomeDepois + '")');
-  checar(preso.deNovo === preso.refeito,
-    'e com a regra e o canal em dia nada é reextraído: a economia continua de pé');
+  checar(preso.deNovo === preso.base,
+    'e com a regra e o canal em dia nada é reextraído: a economia continua de pé',
+    preso.base + ' → ' + preso.deNovo);
 
   // ── O EPISÓDIO É UM VÍDEO DO YOUTUBE (v5.230) ──────────────────────────
   // Pedido do operador: as opções de um item da série devem ser as do YouTube

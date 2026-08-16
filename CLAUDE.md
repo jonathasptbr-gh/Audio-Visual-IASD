@@ -3053,10 +3053,56 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.274** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.275** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.275: A BARRA DE BUSCA DA BIBLIOTECA VOLTA AO TOPO. OTA PURO** (só HTML,
+> CSS e os oráculos; sem Release).
+>
+> Decisão do operador: *"vamos fazer um ajuste e colocar a barra de buscas da
+> biblioteca no topo novamente, ela na base está dando muitos problemas de
+> design"*. Isto REVOGA a segunda metade da v5.258.
+>
+> **O argumento daquele lote continua verdadeiro, e o preço está dito.** Ele era
+> de ALCANCE — *"eles estão muito longe do teclado e do toque de acesso"* —, e
+> no topo corrigir a busca com o teclado aberto custa a tela inteira de percurso
+> do polegar. O que o desmentiu foi o PREÇO DA POSIÇÃO, e ele está escrito neste
+> arquivo em quatro notas seguidas: **quatro lotes consertando o entorno dela**
+> — a folha que não via o teclado (v5.261), o teclado subindo durante o fade
+> (v5.264), o tom e a sombra que faltavam (v5.266) e o degrau do tema claro
+> (v5.270). Quatro lotes em volta de uma posição são a posição dizendo que não
+> se paga, que é o mesmo veredito que a v5.263 deu à animação de slide desta
+> mesma tela. **No topo ela não tem entorno**: nada a empurra, nada a cobre, e
+> ela não precisa saber onde o teclado está.
+>
+> **O que FICA da era da base, porque nunca foi sobre estar embaixo:** o ✕
+> depois do campo (é o fim da linha em toda folha deste app, e o cabeçalho ao
+> lado não tem mais nenhum), a LUPA dentro do campo (o placeholder some no
+> primeiro caractere digitado) e o TOM próprio com a SOMBRA. Esta última
+> **inverte**: ela diz de que lado o conteúdo passa, e a lista deixou de rolar
+> por cima da barra para rolar por baixo dela. Uma sombra que ficasse apontando
+> para cima é a marca de quem moveu a peça e esqueceu o que ela dizia — daí ela
+> ter asserção própria.
+>
+> **E a área segura trocou de dono.** `#hymnSearchPopup .popup-sheet` zerava o
+> `padding-bottom` porque quem terminava a folha era a barra, e a conta estava
+> nela; agora quem termina é a LISTA, e sem devolver a conta à folha o último
+> item ficaria debaixo da barra de gestos do Android.
+>
+> Os dois casos do `smoke.mjs` mudaram de lado junto — a ORDEM da folha
+> (cabeçalho → barra → lista) e a geometria com o teclado de mentira. Eles
+> continuam travando o que a v5.261 descobriu, que não era sobre a barra: a
+> folha tem de ser a FAIXA VISÍVEL, senão o que é fixo sai pelo topo da tela.
+>
+> **Um caso instável foi consertado no caminho, e ele não é deste lote.** O da
+> assinatura da série (v5.233) reprovava em ~1 de 11 execuções: ele conta
+> extrações do YouTube, e o `autoRefreshCollections` da abertura roda SEM
+> `await` — uma extração em voo caía no intervalo medido e era lida como "a
+> economia não valeu". A linha de base passou a ser tomada com o laço assentado,
+> e a asserção continua discriminando (uma economia quebrada custaria a dúzia de
+> playlists da série, não uma unidade). Onze execuções seguidas no verde.
 
 > **A v5.274: A SEÇÃO ABERTA CENTRAVA E ESPREMIA O QUE HAVIA DENTRO DELA — e
 > a causa foi trocar o `display` de um elemento. OTA PURO** (só CSS e os

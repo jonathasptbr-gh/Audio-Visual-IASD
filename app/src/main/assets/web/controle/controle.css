@@ -3539,38 +3539,53 @@ main {
      este lote está removendo. Uma declaração só cobre os dois estados — ela
      ganha do `.popup-backdrop.open .popup-sheet` por especificidade. */
   transform: none;
-  padding-bottom: 0;
+  /* O `padding-bottom: 0` que estava aqui SAIU na v5.275, e ele era da era da
+     barra na base: quem terminava a folha era ela, e a área segura já estava
+     no `padding-bottom` DELA (zerar aqui evitava contá-la duas vezes). Com a
+     barra de volta ao topo, quem termina a folha é a LISTA — e sem a conta do
+     `.popup-sheet` o último item dela ficaria debaixo da barra de gestos do
+     Android. */
 }
 
 /* Barra de busca do Hinário ocupando toda a largura da bandeja: display:flex faz
    o input (.lib-search, flex:1) esticar de lado a lado (sem isso o input ficava
    no tamanho nativo, pequeno). Campo mais alto/legível que o de busca da pasta. */
-/* ---------- A BARRA DE BAIXO DA BIBLIOTECA (v5.258/v5.261) ----------
-   Ela era a faixa logo abaixo do cabeçalho, e o ✕ ficava no cabeçalho: as duas
-   coisas que se toca o tempo todo nesta tela, no canto mais distante do polegar
-   e a uma tela de rolagem do teclado que a própria busca abre. Agora as duas
-   moram no RODAPÉ, juntas.
+/* ---------- A BARRA DA BIBLIOTECA VOLTOU AO TOPO (v5.275) ----------
+   Decisão do operador: *"vamos fazer um ajuste e colocar a barra de buscas da
+   biblioteca no topo novamente, ela na base está dando muitos problemas de
+   design"*. Isto REVOGA a segunda metade da v5.258.
 
-   **NÃO É DE GRAÇA, e a v5.258 achou que era.** O texto que estava aqui dizia
-   que a barra encostava no teclado "por construção", porque "o sheet mede 100%
-   de um `<body>` que já desconta `--kb`". Ele não mede: `.popup-backdrop` é
-   `position: fixed`, está FORA do fluxo do body e nunca viu aquela conta —
-   medido, com um teclado de 380px o body ia a 520 e esta folha continuava em
-   900, isto é, a barra recém-descida ficava ATRÁS do teclado, que é pior que o
-   alto da tela. Quem a encosta nele é o `inset` da camada fixa (ver
-   `.popup-backdrop`), e a segunda conta de altura que aquele parágrafo queria
-   evitar é justamente a que faltava.
+   O argumento daquele lote era de ALCANCE — *"eles estão muito longe do teclado
+   e do toque de acesso"* —, e ele continua verdadeiro: no topo, corrigir a
+   busca com o teclado aberto custa a tela inteira de percurso do polegar. O que
+   o desmentiu foi o PREÇO da posição, e ele está no registro deste arquivo:
+   quatro lotes seguidos consertando o entorno dela — a folha que não via o
+   teclado (v5.261), o teclado subindo durante o fade (v5.264), o tom e a sombra
+   que faltavam (v5.266) e o degrau do tema claro (v5.270). **Quatro lotes em
+   volta de uma posição são a posição dizendo que não se paga**, que é o mesmo
+   veredito que a v5.263 deu à animação de slide desta mesma tela.
 
-   A linha vai EM CIMA (era embaixo, no cabeçalho): ela separa a barra da lista
-   que rola, que agora é quem está do outro lado.
+   No topo ela não tem entorno: nada a empurra, nada a cobre, ela não precisa
+   saber onde o teclado está, e o único vizinho é o cabeçalho.
 
-   E ela é do RODAPÉ, não da classe: o `#favSearchBar` divide esta classe e
-   continua no ALTO da gaveta de uma pasta — a base DAQUELA folha pertence à
-   barra de seleção múltipla (`hostSelbar`), e duas barras disputando o mesmo
-   lugar conforme o modo é um rodapé que troca de conteúdo sem avisar. Herdando
-   as duas linhas de baixo, ele ganhava um filete colado no `border-bottom` do
-   cabeçalho (2px onde o app desenha 1) e um vão de área segura no meio da
-   tela. */
+   O QUE FICA da era da base, porque nunca foi sobre estar embaixo:
+
+   · o ✕ DEPOIS do campo (v5.258) — ele é o fim da linha em toda folha deste
+     app, e o cabeçalho ao lado não tem mais nenhum;
+   · a LUPA dentro do campo (v5.264) — o placeholder some no primeiro caractere
+     digitado, e ela não;
+   · o TOM próprio e a SOMBRA (v5.266/v5.270) — a lista continua rolando por
+     baixo dela, só que agora para cima. A sombra apontava para CIMA e passou a
+     apontar para BAIXO: ela diz de que lado o conteúdo passa, e esse lado
+     inverteu.
+
+   O que SAI é a conta do teclado no `padding-bottom`: no topo não há área
+   segura de baixo a descontar, e `--kb` não tem nada que ver com esta faixa.
+
+   E o `#favSearchBar` continua fora daqui: ele divide esta classe e vive no
+   alto da gaveta de uma pasta. Ele era a razão de estas regras serem escopadas
+   em `#hymnSearchPopup` e continua sendo — a diferença é que agora as duas
+   barras estão no mesmo lugar da folha, e nada nele precisa ser desfeito. */
 .hymn-search-bar {
   display: flex; align-items: center; gap: .5rem;
   padding: .5rem .9rem .6rem; flex-shrink: 0;
@@ -3600,16 +3615,18 @@ main {
        seções da Biblioteca vestem o MESMO nível 1, então uma delas encostando
        na barra sem a sombra leria como uma peça só. */
   background: var(--field-bar);
-  box-shadow: 0 -6px 12px -8px var(--shadow-ink);
-  /* A área segura de baixo é a barra de gestos do Android, e com o teclado
-     aberto ela está atrás dele — descontar `--kb` a zera, senão sobraria uma
-     faixa morta entre a barra e o teclado. */
-  padding-bottom: max(.6rem, env(safe-area-inset-bottom) - var(--kb, 0px));
+  /* PARA BAIXO desde a v5.275: a sombra diz de que lado o conteúdo passa, e a
+     lista deixou de rolar por cima da barra para rolar por baixo dela. Mesma
+     receita da tampa do álbum aberto (`.hymnal-card.expanded .coll-bar`), que é
+     o precedente deste app para uma faixa fixa sobre uma lista que rola. */
+  box-shadow: 0 6px 12px -8px var(--shadow-ink);
 }
 /* ---------- A LUPA DENTRO DO CAMPO (v5.264) ----------
-   Ela é o rótulo do campo: com a barra na base, sem cabeçalho por perto e com
-   um ✕ ao lado, o placeholder era a única coisa dizendo o que aquela caixa faz
-   — e ele some no primeiro caractere digitado.
+   Ela é o rótulo do campo: o placeholder é a única outra coisa que diz o que
+   aquela caixa faz, e ele some no primeiro caractere digitado. (Ela nasceu com
+   a barra na base, longe de qualquer cabeçalho; com a barra de volta ao topo o
+   argumento encolheu mas não caiu — o rótulo da tela diz "Biblioteca", não
+   "busque aqui".)
 
    DENTRO do campo, e não ao lado dele: ao lado ela seria mais um item da linha
    flex, disputando largura com o campo e com o ✕; dentro, ela é do campo, que é
