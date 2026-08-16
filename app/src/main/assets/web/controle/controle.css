@@ -395,6 +395,13 @@ html, body { height: 100%; overflow: hidden; }
    Garante que o layout sempre caiba na área visível, evitando que o rodapé
    fique sob a barra de navegação do Chrome. */
 html { height: 100svh; }
+/* E A PÁGINA NÃO ESTICA (v5.281). O `contain` de cada scroller impede a rolagem
+   de vazar para cá; esta linha fecha o caso pelo outro lado — um gesto que
+   comece FORA de qualquer lista (na barra, num cabeçalho, numa faixa de fundo)
+   ainda produziria o stretch do Android 12+, que desloca tudo o que é fixo. A
+   página deste app nunca rola: ela é uma coluna de altura fixa com listas que
+   rolam por dentro, então não há nada que este `none` tire. */
+html { overscroll-behavior: none; }
 body {
   background: var(--bg);
   color: var(--text);
@@ -3413,8 +3420,29 @@ main {
    do ✕ que ele justificava continua valendo: o cabeçalho é uma linha flex, e um
    vizinho que se recusa a encolher empurra o último item para fora do sheet.) */
 
+/* ---------- A ROLAGEM PARA AQUI DENTRO (v5.281) ----------
+   Relato do operador: *"a barra de pesquisa no topo não fica fixa durante a
+   rolagem do corpo da biblioteca"*.
+
+   Medido em Chromium, a estrutura está certa e sempre esteve: a barra é irmã da
+   lista, `flex-shrink: 0`, e rolar `#hymnResults` 116px não move um pixel dela.
+   O que se mexe no APARELHO é outra coisa — a rolagem que CHEGA AO FIM aqui
+   dentro **encadeia para a página**, e do Android 12 em diante o excesso não é
+   mais um brilho na borda: é o efeito STRETCH, que estica e desloca a camada
+   inteira, barra fixa incluída. O dedo continua dentro da lista e a tela toda
+   se mexe.
+
+   `overscroll-behavior: contain` é o que corta o encadeamento, e ele não é
+   novidade neste app: `.lib-list`, `.lv-body` e `.simple-lyrics` — todos os
+   outros scrollers — já o têm. O `.popup-list` era o único que não, e ficou
+   sendo desde que a Biblioteca virou uma tela cheia com uma barra fixa em cima.
+
+   (`min-height: 0` seria a outra guarda clássica de um filho flex que rola, e
+   aqui ela é dispensável: um item com `overflow` diferente de `visible` já tem
+   tamanho mínimo automático ZERO, pela própria especificação. Medido: a lista
+   encolhe e rola por dentro sem ela.) */
 .popup-list {
-  flex: 1; overflow-y: auto;
+  flex: 1; overflow-y: auto; overscroll-behavior: contain;
   list-style: none; padding: .5rem .7rem .8rem;
   display: flex; flex-direction: column; gap: .35rem;
 }

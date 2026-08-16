@@ -1159,21 +1159,6 @@ for (const tema of ['escuro', 'claro']) {
             esqSecao: alvo.getBoundingClientRect().left,
           };
         })(),
-        // ===== A BARRA É O TOPO DA FOLHA (v5.280) =====
-        barra: (() => {
-          const folha = document.querySelector('#hymnSearchPopup .popup-sheet');
-          const bar = document.querySelector('#hymnSearchPopup .hymn-search-bar');
-          const fechar = document.getElementById('hymnSearchClose');
-          const campo = document.getElementById('hymnSearchInput');
-          const cx2 = (el) => el.getBoundingClientRect();
-          return {
-            semCabecalho: !document.querySelector('#hymnSearchPopup .popup-header'),
-            semTitulo: !document.getElementById('hymnSearchTitle'),
-            primeira: folha.firstElementChild === bar,
-            fecharL: cx2(fechar).width, fecharA: cx2(fechar).height,
-            campoA: cx2(campo).height,
-          };
-        })(),
         gapLista: (() => {
           const u = document.createElement('ul');
           u.className = 'popup-list';
@@ -1207,6 +1192,37 @@ for (const tema of ['escuro', 'claro']) {
         // v5.277 fixa.
         altFav: favSecao ? favSecao.getBoundingClientRect().height : -1,
       };
+    // ===== A BARRA É O TOPO DA FOLHA (v5.280/v5.281) =====
+    // MEDIDA DEPOIS do bloco acima, e de propósito: a rolagem só existe com
+    // uma COLEÇÃO ABERTA — com tudo colapsado o vão dos favoritos é
+    // justamente o que sobra, a lista cabe inteira e não haveria rolagem a
+    // afirmar (a mesma propriedade do desenho que o caso do reset da
+    // Biblioteca já tinha encontrado).
+    r.barra = (() => {
+        const folha = document.querySelector('#hymnSearchPopup .popup-sheet');
+        const bar = document.querySelector('#hymnSearchPopup .hymn-search-bar');
+        const fechar = document.getElementById('hymnSearchClose');
+        const campo = document.getElementById('hymnSearchInput');
+        const cx2 = (el) => el.getBoundingClientRect();
+        // Uma rolagem de VERDADE na lista, com o conteúdo que este caso já
+        // montou (a seção aberta transborda). `scrollTop` aqui é legítimo: o
+        // que se mede é se a BARRA acompanha, não se a lista aceita o dedo.
+        const barraAntes = cx2(bar).top;
+        hymnResultsEl.scrollTop = 200;
+        const rolou = hymnResultsEl.scrollTop;
+        const barraDepois = cx2(bar).top;
+        hymnResultsEl.scrollTop = 0;
+        return {
+          semCabecalho: !document.querySelector('#hymnSearchPopup .popup-header'),
+          semTitulo: !document.getElementById('hymnSearchTitle'),
+          primeira: folha.firstElementChild === bar,
+          fecharL: cx2(fechar).width, fecharA: cx2(fechar).height,
+          campoA: cx2(campo).height,
+          barraAntes, barraDepois, rolou,
+          overscroll: cx(hymnResultsEl).overscrollBehaviorY,
+          overscrollRaiz: cx(document.documentElement).overscrollBehaviorY,
+        };
+      })();
       grupoAberto = ''; favAberto = true;
       closeHymnSearch();
       document.documentElement.setAttribute('data-tema', 'escuro');
@@ -1271,6 +1287,22 @@ for (const tema of ['escuro', 'claro']) {
     checar(v.barra.semCabecalho && v.barra.semTitulo && v.barra.primeira,
       '[' + tema + '] a barra de busca é o TOPO da folha: sem cabeçalho, sem '
       + 'título, nada acima dela');
+    // ===== E A LISTA ROLA SEM LEVAR A BARRA JUNTO (v5.281) =====
+    // O relato do operador era que a barra não fica fixa durante a rolagem. A
+    // estrutura sempre esteve certa — e é isso que a primeira metade mede, com
+    // uma rolagem de verdade. A segunda é a causa do que ele viu no APARELHO:
+    // sem `overscroll-behavior`, a rolagem que chega ao fim ENCADEIA para a
+    // página, e do Android 12 em diante isso é o efeito STRETCH, que desloca a
+    // camada inteira — barra fixa incluída. Um navegador de mesa não reproduz o
+    // stretch, então o que se afirma aqui é a regra que o desliga.
+    checar(v.barra.rolou > 0 && Math.abs(v.barra.barraDepois - v.barra.barraAntes) <= 1,
+      '[' + tema + '] e a lista rola SEM levar a barra junto ('
+      + Math.round(v.barra.rolou) + 'px de rolagem, a barra parada em '
+      + Math.round(v.barra.barraDepois) + ')');
+    checar(v.barra.overscroll === 'contain' && v.barra.overscrollRaiz === 'none',
+      '[' + tema + '] e a rolagem PARA na lista: sem o encadeamento, o stretch '
+      + 'do Android não desloca a camada inteira',
+      'lista ' + v.barra.overscroll + ' · raiz ' + v.barra.overscrollRaiz);
     // QUADRADO. `aspect-ratio` não resolve isto dentro de um flex (a largura é
     // resolvida antes de o `stretch` dar altura), e a primeira versão colapsou
     // o botão na largura do glifo — 20px, medidos.
