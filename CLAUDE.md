@@ -3053,10 +3053,53 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.273** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.274** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.274: A SEÇÃO ABERTA CENTRAVA E ESPREMIA O QUE HAVIA DENTRO DELA — e
+> a causa foi trocar o `display` de um elemento. OTA PURO** (só CSS e os
+> oráculos; sem Release).
+>
+> Relato do operador sobre a v5.273: *"os cards ficaram com seus elementos
+> centralizados de forma incorreta, desalinhando e espremendo cabeçalhos e
+> listas"* — com prints em que "HINÁRIOS 3,2/8,9 GB" aparece centrado na barra e
+> as linhas do Informativo vazam pelos DOIS lados do card.
+>
+> **A causa é de uma linha, e ela é a mesma família da v5.269.** `.coll-group`
+> (a classe base) é `display: flex; align-items: center; gap: .5rem` — e o
+> `.coll-group--drop` a neutralizava com `display: block`. Pôr a seção ABERTA em
+> `display: flex` para ela poder crescer **ressuscitou as duas propriedades que
+> estavam dormindo ali**: `align-items: center` fez cada filho encolher ao
+> próprio texto e se centrar (a barra), e vazar pelos dois lados quando o texto
+> era maior que o card (as linhas); o `gap` acrescentou 8px entre a barra e o
+> corpo. Medido: a barra tinha **204px** e o corpo **251px** dentro de uma seção
+> de 408. A régua que fica é maior que este defeito: **trocar o `display` de um
+> elemento não acrescenta um comportamento — ele ATIVA todas as propriedades de
+> layout que já estavam escritas nele.** Remover uma declaração devolve o valor
+> de quem estava embaixo (v5.269); trocar o `display` acorda o que estava mudo.
+>
+> **E o botão "Ver todos" era vítima do mesmo defeito.** Ele mede o transbordo
+> do corpo (`scrollHeight > clientHeight`), e um corpo cujos filhos vazam pelos
+> lados e ganham 8px de folga transborda sem ter conteúdo demais — daí ele
+> aparecer com uma lista que cabia. O caso do oráculo passou a exercitar a régua
+> no MEIO do caminho (três favoritos, não zero), que é o que o operador
+> descreveu: *"apenas apareça quando a lista de favoritos for maior que a área
+> de visualização disponível"*.
+>
+> **DOIS buracos de cobertura foram fechados no caminho, e o segundo é a lição
+> do lote.** O primeiro é a asserção que faltava: as LARGURAS dentro da seção
+> aberta — um filho que se recusa a esticar mede menos que o contêiner, e um que
+> vaza mede mais, então uma medida só pega os dois. O segundo apareceu porque eu
+> escrevi a prosa desta nota FORA do comentário de CSS (o `*/` ficou antes
+> dela): o parser descartou o bloco inteiro, a regra geral da seção aberta
+> **morreu**, e nenhuma das cinco asserções do lote reprovou — os Favoritos têm
+> um `flex-grow` PRÓPRIO, então a única seção que o oráculo media continuava
+> crescendo. Uma regra geral só provada pelo caso que tem exceção própria não
+> está provada. Agora há uma asserção que abre uma seção QUALQUER e exige que a
+> lista termine cheia; com a regra morta, ela reprova nos dois temas
+> (verificado).
 
 > **A v5.273: A BIBLIOTECA FICA COM UMA SEÇÃO ABERTA POR VEZ, e a dos Favoritos
 > ocupa o vão que sobra. OTA PURO** (nenhuma linha de Kotlin; sem Release).

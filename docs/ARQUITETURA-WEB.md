@@ -4216,6 +4216,17 @@ dentro) vale **aberta e fechada**: fechada ela é uma barra entre outras barras,
 degrau de dentro tem de descer junto, senão no tema claro as linhas ficariam a
 1,05:1 do fundo novo e sumiriam.
 
+**Trocar o `display` acorda o que estava dormindo** (v5.274). `.coll-group` — a
+classe base — é `display: flex; align-items: center; gap: .5rem`, e o
+`.coll-group--drop` a neutralizava com `display: block`. Pôr a seção aberta em
+`display: flex` para ela poder crescer ressuscitou as duas: a barra passou a
+encolher ao próprio texto e a se centrar (medido: **204px** numa seção de 408) e
+as linhas mais largas que o card vazavam pelos DOIS lados — que é o relato
+*"cabeçalhos e listas espremidos"*. Daí o `align-items: stretch; gap: 0` na
+mesma regra. A régua é a irmã da v5.269: **remover uma declaração devolve o
+valor de quem estava embaixo; trocar o `display` ATIVA o que já estava escrito e
+não fazia nada.**
+
 **E o `gap` das seções deixou de ser o das linhas** (`#hymnResults { gap: .6rem }`,
 contra os .35rem do `.popup-list`): uma seção não é uma linha — ela é um bloco
 que contém linhas —, e usar a mesma medida para os dois níveis era o que os fazia

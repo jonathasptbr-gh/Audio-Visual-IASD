@@ -1133,6 +1133,34 @@ for (const tema of ['escuro', 'claro']) {
         // relação é a afirmação (um número aqui envelheceria na primeira troca
         // de medida), e ela é o pedido — uma seção não é uma linha.
         gapSecoes: parseFloat(cx(hymnResultsEl).rowGap),
+        // ===== A BARRA E AS LINHAS PREENCHEM A SEÇÃO (v5.273) =====
+        // Relato do operador: *"os cards ficaram com seus elementos
+        // centralizados de forma incorreta, desalinhando e espremendo
+        // cabeçalhos e listas"*. A causa: `.coll-group` é `display: flex;
+        // align-items: center`, e o `--drop` a neutralizava com
+        // `display: block` — pôr a seção aberta em `display: flex` RESSUSCITOU
+        // aquele `align-items`, e a barra passou a encolher ao próprio texto
+        // (centrada) enquanto as linhas mais largas vazavam pelos dois lados.
+        // A largura é a asserção: um filho que se recusa a esticar mede menos
+        // que o contêiner, e um que vaza mede mais.
+        larguras: (() => {
+          const abertas = secoes.filter((x) => x.classList.contains('aberto'));
+          const alvo = abertas[0] || fav;
+          if (!alvo) return null;
+          const dentro = alvo.getBoundingClientRect().width;
+          const barra = alvo.querySelector('.coll-group-bar');
+          const corpo = alvo.querySelector('.coll-group-corpo');
+          const linha = corpo && corpo.firstElementChild;
+          return {
+            secao: dentro,
+            barra: barra ? barra.getBoundingClientRect().width : 0,
+            corpo: corpo ? corpo.getBoundingClientRect().width : 0,
+            linha: linha ? linha.getBoundingClientRect().width : 0,
+            // E o texto do cabeçalho começa na ESQUERDA, junto da seta.
+            esqBarra: barra ? barra.getBoundingClientRect().left : 0,
+            esqSecao: alvo.getBoundingClientRect().left,
+          };
+        })(),
         gapLista: (() => {
           const u = document.createElement('ul');
           u.className = 'popup-list';
@@ -1142,6 +1170,30 @@ for (const tema of ['escuro', 'claro']) {
           return g;
         })(),
       };
+      // E A REGRA VALE PARA QUALQUER SEÇÃO, não só para a dos Favoritos: eles
+      // têm um `flex-grow` PRÓPRIO (o que encolhe), então medir só a tela como
+      // ela abre aprovaria uma regra geral morta — foi o que aconteceu quando
+      // um comentário mal fechado engoliu o bloco inteiro (verificado).
+      grupoAberto = 'Hinários';
+      hymnResultsEl.innerHTML = '';   // `renderCollectionsList` ACRESCENTA (v5.232)
+      renderCollectionsList(hymnResultsEl, () => {}, { semTotal: true });
+      await new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f)));
+      const abertas = [...hymnResultsEl.querySelectorAll('.coll-group--drop')];
+      const outraAberta = abertas.find((x) => x.classList.contains('aberto'));
+      const fechadas = abertas.filter((x) => !x.classList.contains('aberto'));
+      r.outra = {
+        cresceu: outraAberta ? outraAberta.getBoundingClientRect().height
+          - [...outraAberta.children].reduce((n, el) => n + el.getBoundingClientRect().height, 0) : -1,
+        altFechada: fechadas.length ? fechadas[0].getBoundingClientRect().height : 0,
+        // A ÚLTIMA SEÇÃO da lista, aberta ou fechada: quando a aberta é a
+        // própria última, não há nenhuma empilhada abaixo dela. O que vale nos
+        // dois arranjos é que a lista termine cheia.
+        fundoUltima: abertas.length
+          ? abertas[abertas.length - 1].getBoundingClientRect().bottom : 0,
+        fundoLista: hymnResultsEl.getBoundingClientRect().bottom
+          - parseFloat(cx(hymnResultsEl).paddingBottom),
+      };
+      grupoAberto = 'Favoritos';
       closeHymnSearch();
       document.documentElement.setAttribute('data-tema', 'escuro');
       return r;
@@ -1178,6 +1230,21 @@ for (const tema of ['escuro', 'claro']) {
     checar(dLinha >= 1.28,
       '[' + tema + '] e o degrau de dentro dela desce junto: a linha continua a '
       + 'se ler sobre o tom novo (' + dLinha.toFixed(2) + ':1)');
+    const L = v.larguras;
+    checar(!!L && Math.abs(L.barra - L.secao) <= 1 && Math.abs(L.corpo - L.secao) <= 1,
+      '[' + tema + '] a barra e o corpo PREENCHEM a seção aberta — nada é centrado '
+      + 'nem encolhido ao próprio texto (' + (L ? Math.round(L.barra) + '/'
+      + Math.round(L.corpo) + ' de ' + Math.round(L.secao) : '?') + 'px)');
+    checar(!!L && L.linha > 0 && L.linha <= L.secao + 1 && L.esqBarra >= L.esqSecao - 1,
+      '[' + tema + '] e uma linha de dentro não vaza para fora dela ('
+      + (L ? Math.round(L.linha) + 'px numa seção de ' + Math.round(L.secao) : '?') + 'px)');
+    // A prova de que ela CRESCEU é a base: se ela não tivesse tomado o vão,
+    // sobraria espaço vazio DEPOIS da última seção fechada. O tamanho do vão
+    // depende do acervo do fixture e não pode virar número aqui.
+    checar(v.outra.cresceu > 0 && Math.abs(v.outra.fundoUltima - v.outra.fundoLista) <= 1,
+      '[' + tema + '] e a regra é de QUALQUER seção aberta, não só a dos '
+      + 'Favoritos: a de um hinário também toma o vão, e a lista termina cheia (' + Math.round(v.outra.cresceu) + 'px de vazio absorvido, '
+      + Math.round(v.outra.fundoUltima) + ' contra ' + Math.round(v.outra.fundoLista) + ')');
     checar(v.gapSecoes > v.gapLista,
       '[' + tema + '] e uma SEÇÃO respira mais que uma linha de lista ('
       + v.gapSecoes + 'px contra ' + v.gapLista + 'px)');
