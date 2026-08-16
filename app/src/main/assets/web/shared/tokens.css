@@ -95,7 +95,52 @@
 
    `tools/tokens.test.mjs` garante que todo `var(--x)` sem fallback aponta para
    um token existente NOS DOIS TEMAS; ele não mede contraste — para isso não há
-   oráculo, e mexer num valor daqui continua pedindo medição à mão. */
+   oráculo, e mexer num valor daqui continua pedindo medição à mão.
+
+   ================ SÓ PREENCHIMENTO, NENHUM CONTORNO (v5.267) ================
+   Pedido do operador: *"não tenhamos itens usando linha de borda, tudo deve ser
+   com preenchimento sólido, e definição feita por puro e simples contraste
+   entre os elementos"* — e, em especial, *"reorganizar os degraus de tons em
+   elementos vizinhos ou parentes… problema que considero prioridade na
+   biblioteca e suas seções, álbuns e listas, onde elas funcionam em camadas de
+   ramificações que visualmente se parecem muito, dificultando discernir se
+   estou em uma camada ou subcamada."*
+
+   As duas metades do pedido são o mesmo pedido, e é por isso que elas vieram no
+   mesmo lote: **quando a linha some, o degrau de tom passa a ser a ÚNICA coisa
+   que separa duas caixas** — e o degrau que este arquivo tinha foi calibrado
+   numa época em que ele era só reforço. O próprio comentário da escada dizia
+   isso com todas as letras: *"o par painel × painel-2 fica logo abaixo do piso
+   de 1,3:1 — e é assumido: ele não carrega o estado sozinho em lugar nenhum.
+   Quem diz 'selecionado' é sempre a BORDA em --accent."* Tirar a borda sem
+   mexer no degrau seria apagar o sinal e deixar o reforço no lugar dele.
+
+   O QUE MUDOU, medido:
+
+   · O degrau painel × painel-2 abriu — 1,29 → **1,33** no escuro e 1,30 →
+     **1,41** no claro. É o degrau que separa uma seção da Biblioteca do card de
+     álbum DENTRO dela, e agora ele é o único.
+   · `--muted` e `--accent` acompanharam, porque um degrau maior empurra o
+     nível 2 para mais perto do texto: no escuro `--muted` sobre o painel-2
+     caía a 4,68:1 e `--accent` a **4,40:1**, que reprova AA. Clareados um
+     degrau, vão a 5,00 e 4,60. No claro a conta é espelhada e `--muted`
+     escureceu (4,32 → 4,73).
+   · Entraram DOIS fundos de ESTADO opacos (`--sel-fill`, `--live-fill`). Eles
+     substituem o par "contorno + tinta com alfa", e a razão de serem opacos é
+     medida: `--accent-soft` a 16% sobre o painel compunha **#3d4959**, que é o
+     `--panel-2` — isto é, uma linha SELECIONADA ficava com a cor exata do
+     nível de baixo, e o que a distinguia era só a borda que saiu. Opacos, os
+     dois valem o MESMO em qualquer nível da árvore, que é o que um estado
+     precisa fazer: sair da escada em vez de ocupar um degrau dela.
+   · `--surface`/`--surface-2` ganharam os irmãos `-alta`, e o motivo é a
+     Biblioteca: a folha dela virou nível 0 (`--bg`), então os controles lá
+     dentro voltaram a FLUTUAR e precisavam de um caminho de volta ao valor de
+     origem — que um override do mesmo nome não daria.
+   · `--control-edge` SAIU. Ela era a aresta de 1px do tema claro (v5.207), isto
+     é, exatamente o mecanismo que este lote veio remover; o que a substitui é
+     `--surface-sunk`/`--surface-2-sunk` mais fundos (.10/.16 → **.14/.20**),
+     que devolvem o degrau por preenchimento: 1,14 → **1,32:1** contra o painel
+     branco. */
 
 /* ======================================================================
    O QUE NÃO MUDA COM O TEMA
@@ -174,7 +219,7 @@
   --shadow-card: rgba(0, 0, 0, .55);
   --shadow-ink: rgba(0, 0, 0, .9);
 
-  /* ---------- O CAMPO DE BUSCA NÃO TEM TEMA (v5.267) ----------
+  /* ---------- O CAMPO DE BUSCA NÃO TEM TEMA (v5.268) ----------
      Pedido do operador: a caixa de texto da Biblioteca branca nos DOIS temas.
      Ela mora aqui, no bloco compartilhado, pelo mesmo motivo que o palco: uma
      superfície que não segue o tema não pode ler tokens que seguem — no escuro,
@@ -205,15 +250,24 @@
      celular, com brilho baixo no salão, uma escala quase plana faz botão e
      fundo virarem a mesma mancha escura.
      Medido nesta paleta: fundo × barra 1,32:1, fundo × painel 1,49:1,
-     painel × painel-2 1,29:1, fundo × linha 2,65:1, painel × linha 1,78:1 —
-     os MESMOS degraus da escala âmbar anterior, agora sobre a matiz do denim
-     (211°) em vez da matiz quente. O cinza não é neutro de propósito: um cinza
-     puro ao lado de um accent azul lê como esverdeado, e a matiz da marca no
-     próprio nanquim é o que costura a escada ao resto da identidade.
-     O par painel × painel-2 fica logo abaixo do piso de 1,3:1 — e é assumido:
-     ele não carrega o estado sozinho em lugar nenhum. Quem diz "selecionado"
-     é sempre a BORDA em --accent (5,86:1 sobre o painel); o degrau de fundo é
-     reforço, não o sinal.
+     painel × painel-2 **1,33:1**, fundo × painel-2 1,98:1 — sobre a matiz do
+     denim (211°). O cinza não é neutro de propósito: um cinza puro ao lado de
+     um accent azul lê como esverdeado, e a matiz da marca no próprio nanquim é
+     o que costura a escada ao resto da identidade.
+
+     O par painel × painel-2 ERA 1,29:1, logo abaixo do piso de 1,3:1, e o
+     comentário que estava aqui assumia isso com um argumento que a v5.267
+     revogou: *"ele não carrega o estado sozinho em lugar nenhum — quem diz
+     'selecionado' é sempre a BORDA."* Sem borda em lugar nenhum, este degrau
+     passou a ser o único separador entre uma seção da Biblioteca e o card de
+     álbum dentro dela, e um piso não se cumpre "quase".
+
+     **A escada tem TRÊS degraus, e não quatro, e isso é aritmética.** Um quarto
+     tom obrigaria o nível mais interno a subir até ~#4c5865, onde `--muted` cai
+     a 3,59:1 e `--accent` a 3,37:1 — os dois reprovam AA para texto pequeno, que
+     é justamente o tamanho do texto de uma linha de lista. Com três, quem
+     carrega o quarto nível é o ESPAÇO: a faixa de um álbum não ganha caixa
+     nenhuma, e o que a separa da vizinha é o tom do álbum aparecendo entre elas.
 
      `--surface`/`--surface-2` são branco com alfa de propósito: um botão
      mantém o mesmo degrau relativo esteja ele sobre o fundo do app ou sobre a
@@ -226,10 +280,25 @@
   --bg: #0e1215;
   --bar: #252b33;
   --panel: #2c343c;
-  --panel-2: #3b4550;
-  --line: #4f5966;                       /* separadores/bordas — 2,65:1 contra o fundo */
-  --surface: rgba(255, 255, 255, .12);   /* botão SOBRE o fundo do app */
-  --surface-2: rgba(255, 255, 255, .18); /* chip/campo/badge SOBRE o fundo do app */
+  --panel-2: #3c4753;
+  /* `--line` PERDEU O PAPEL QUE LHE DEU O NOME (v5.267): não há mais separador
+     nem contorno em lugar nenhum do app. Ele sobrevive como TINTA de um
+     desenho — a estrela vazada de favorito, que precisa ser discreta o
+     bastante para o olho passar batido pela lista e forte o bastante para ser
+     encontrada quando se procura por ela — e como cor da barra de rolagem das
+     grades da Bíblia. Renomeá-lo custaria mais do que o nome vale; o que ele
+     NÃO pode voltar a ser é um filete. */
+  --line: #4f5966;                       /* 2,65:1 contra o fundo */
+  /* O par FLUTUANTE, com nome próprio (v5.267). `--surface` continua sendo "o
+     valor que vale AQUI" — quem o troca por `--surface-sunk` é a regra do
+     cartão, em controle.css. Estes dois existem para o caminho de VOLTA: a
+     folha da Biblioteca virou nível 0 (`--bg`), e um controle lá dentro precisa
+     flutuar de novo. Um override do próprio nome não daria isso (`--surface:
+     var(--surface)` é um ciclo, que o CSS resolve como inválido). */
+  --surface-alta: rgba(255, 255, 255, .12);   /* botão SOBRE o fundo do app */
+  --surface-2-alta: rgba(255, 255, 255, .18); /* chip/campo/badge SOBRE o fundo do app */
+  --surface: var(--surface-alta);
+  --surface-2: var(--surface-2-alta);
   /* ...e o par AFUNDADO, para dentro de um cartão. Ele saiu de controle.css e
      virou token na v5.192 pelo motivo de sempre: com dois temas, o valor
      literal que morava lá seria o único pedaço de cor do app fora deste
@@ -239,31 +308,56 @@
   --surface-sunk: rgba(0, 0, 0, .24);
   --surface-2-sunk: rgba(0, 0, 0, .14);
 
-  /* A ARESTA DO CONTROLE — transparente aqui, e é isso que ela tem de ser.
-     No tema escuro um controle se anuncia pelo PREENCHIMENTO: ele é mais claro
-     que a base, e o degrau faz o trabalho sozinho. No claro esse mecanismo não
-     existe, porque não há "mais claro que branco" — ver o par no bloco do tema
-     claro. O token existe nos DOIS temas de propósito: `tools/tokens.test.mjs`
-     reprova token que só exista no claro, e com razão — ele computaria para o
-     valor inicial da propriedade no tema padrão, sem aviso nenhum. */
-  --control-edge: transparent;
+  /* ---------- OS DOIS FUNDOS DE ESTADO, e eles são OPACOS (v5.267) ----------
+     Uma linha de lista tem dois estados que precisam ser lidos de relance:
+     ESCOLHIDA (a atual, a marcada na seleção múltipla) e NO AR (o que está
+     sendo projetado agora). Até aqui os dois eram "contorno de 2px + tinta com
+     alfa por baixo", e com o contorno fora sobrava a tinta — que não basta, e
+     não por pouco: `--accent-soft` a 16% sobre o painel compõe **#3d4959**, que
+     é o `--panel-2` deste arquivo. Uma linha selecionada ficava, literalmente,
+     com a cor do nível de baixo da árvore.
+
+     Opacos, os dois valem o mesmo em QUALQUER nível — que é o que um estado
+     precisa fazer: sair da escada, em vez de ocupar um degrau dela. E o sinal
+     principal deles é a MATIZ, não a claridade: `--live-fill` fica a 1,03:1 do
+     painel de propósito (uma linha vermelha entre linhas cinzas se acha sem
+     precisar ser mais clara que elas), e é a matiz que sobrevive ao brilho
+     baixo de um salão escuro, onde meio degrau de luminância não sobrevive.
+     Medido — `--sel-fill`: 7,64:1 com o texto, 5,35:1 com o `--muted`, 4,92:1
+     com o `--accent`. `--live-fill`: 9,21:1 com o texto e 4,72:1 com o
+     `--live-strong`, que é a tinta do selo "● No ar" e do nome da linha. */
+  --sel-fill: #2e4262;
+  --live-fill: #54282e;
+  /* O terceiro da família, e ele é do RESOLVIDO: a TV já conectada, a pasta já
+     em dia. Ele existe pela mesma razão dos outros dois — o `--ok-soft` a 20%
+     sobre um painel é uma tinta que só se distinguia porque havia um contorno
+     verde por cima dela. Medido: 1,21:1 contra o painel, 7,85:1 com o texto e
+     4,65:1 com o `--ok`. */
+  --ok-fill: #2a4630;
 
   /* texto — off-white com a matiz do denim, nunca branco pleno (ver "A paleta"
      no CLAUDE.md: fora do palco, o branco pleno é a maior fonte isolada de luz
-     emitida do app). DERIVADO de `white`, escurecido e tingido. */
-  --text: #dce0e5;                       /* 14,19:1 sobre o fundo · 9,52:1 sobre painel */
-  --muted: #b0b7bf;                      /*  9,29:1 sobre o fundo · 6,23:1 sobre painel */
+     emitida do app). DERIVADO de `white`, escurecido e tingido.
+     `--muted` clareou um degrau na v5.267 (#b0b7bf → #b6bdc6): com o painel-2
+     mais claro, o valor antigo dava 4,68:1 ali — passava AA por 4 centésimos, e
+     passava porque ninguém tinha medido depois de mexer no degrau. */
+  --text: #dce0e5;                       /* 14,19:1 sobre o fundo · 9,52:1 sobre painel · 7,24:1 sobre painel-2 */
+  --muted: #b6bdc6;                      /*  9,93:1 sobre o fundo · 6,66:1 sobre painel · 5,00:1 sobre painel-2 */
 
   /* ---------- AZUL: a marca IASD E o accent, numa família só ----------
      Uma cor só não serve aos dois papéis, e isso é aritmética, não gosto: para
      ser legível COMO TEXTO sobre o fundo escuro ela precisa ser clara; para
      receber TEXTO por cima precisa ser escura. Daí três tokens, um por papel:
 
-     `--accent`      → texto, ícone e borda sobre fundo escuro. DERIVADO de
-                       `bluejay` (#2E6DE7, matiz 220° preservada), clareado:
-                       o oficial dá 3,97:1 sobre o fundo e reprova como texto.
-                       Aqui: 5,86:1 sobre o painel · 8,74:1 sobre o fundo ·
-                       6,62:1 sobre a barra · 4,53:1 sobre painel-2.
+     `--accent`      → texto e ícone sobre fundo escuro. DERIVADO de `bluejay`
+                       (#2E6DE7, matiz 220° preservada), clareado: o oficial dá
+                       3,97:1 sobre o fundo e reprova como texto.
+                       Aqui: 6,13:1 sobre o painel · 9,13:1 sobre o fundo ·
+                       6,93:1 sobre a barra · **4,60:1 sobre painel-2**. Este
+                       último é o que o fez clarear mais um degrau na v5.267
+                       (#8fb1f3 → #95b5f4): com o painel-2 aberto para 1,33:1,
+                       o valor antigo caía a 4,40:1 e reprovava AA justamente
+                       no nível em que mora o card de álbum da Biblioteca.
      `--accent-fill` → FUNDO de elemento preenchido (aba ativa, botão primário).
                        É o `denim` OFICIAL, sem uma vírgula de ajuste — o núcleo
                        da identidade adventista, e o mesmo denim do wallpaper.
@@ -281,19 +375,19 @@
      chamavam `--gold*` até a v5.192 — um token chamado "gold" guardando um azul
      é exatamente a divergência que o cabeçalho deste arquivo existe para
      impedir, então eles foram RENOMEADOS junto com a cor. */
-  --accent: #8fb1f3;
+  --accent: #95b5f4;
   --accent-fill: #2f557f;                /* denim OFICIAL */
-  --accent-soft: rgba(143, 177, 243, .16);
+  --accent-soft: rgba(149, 181, 244, .16);
   --on-accent: #e8edf3;
   /* Halo da pílula "Ligar Sistema" do Display (`.start-pill`) — o ÚNICO
      consumidor. Segue a MATIZ do accent, não o --accent-fill: um halo na cor do
      preenchimento (escuro por definição) sobre o preto do palco seria
      invisível — a sombra existe para descolar a pílula do fundo. */
-  --accent-glow: rgba(143, 177, 243, .32);
+  --accent-glow: rgba(149, 181, 244, .32);
 
   /* marca (o denim "IASD") — mesma família do accent, ver acima */
-  --brand: #8fb1f3;
-  --brand-soft: rgba(143, 177, 243, .16);
+  --brand: #95b5f4;
+  --brand-soft: rgba(149, 181, 244, .16);
   --brand-text: #c2d4f8;
 
   /* ---------- VERMELHO: atenção, em dois papéis que NÃO se misturam ----------
@@ -304,9 +398,17 @@
      clareado (`--live-strong` / `--danger-strong`) — ou, sem fundo da própria
      família, o salmão `--danger-text`.
 
-     PREENCHIDO = "está no ar agora" (microfone aberto, ponto de projetando).
-     CONTORNADO = ação destrutiva (excluir, cancelar) — nunca preenchida, para
-     não competir com o que está de fato no telão. */
+     A REGRA MUDOU DE EIXO NA v5.267, porque a antiga era "preenchido ×
+     contornado" e o contorno saiu do app inteiro. O que a substitui é a
+     INTENSIDADE do mesmo preenchimento:
+
+       SATURADO (`--live` + `--on-live`) = "está no ar agora", e só isso — o
+         microfone aberto, o ponto de projetando. É o vermelho que não pode ter
+         concorrente na tela.
+       SUAVE (`--danger-soft` + `--danger-strong`) = ação destrutiva (excluir,
+         cancelar). Continua sendo vermelho, continua sendo lido como vermelho,
+         e continua sem competir com o que está de fato no telão — porque é a
+         mesma matiz numa fração da força. */
   --live: #d0021b;                       /* scarlett OFICIAL — só preenchimento */
   --on-live: #f6eeef;                    /* 4,96:1 sobre --live */
   --live-soft: rgba(208, 2, 27, .22);
@@ -316,13 +418,13 @@
      MEDIDO: 7,27:1 sobre `--bg`, 6,50:1 sobre `--live-soft`/`--danger-soft`
      (o soft sobre a PÁGINA — ver "como ler as medições"; dentro de um cartão o
      mesmo par dá 4,75:1, que ainda passa AA),
-     4,88:1 sobre `--panel` e **3,77:1 sobre `--panel-2`** — este último passa o
-     piso de 3:1 de uma borda mas REPROVA o de 4,5:1 de texto pequeno.
+     4,88:1 sobre `--panel` e **3,66:1 sobre `--panel-2`** — este último reprova
+     o piso de 4,5:1 de texto pequeno.
      A consequência prática é uma regra, não uma exceção: quem veste este
-     vermelho veste junto o fundo suave da própria família (`--live-soft` /
-     `--danger-soft`). Foi o que a mensagem no ar e o versículo no ar passaram
-     a fazer na v5.76, e é o que `.misc-project.live` e os botões destrutivos já
-     faziam.
+     vermelho veste junto o fundo da própria família — `--live-fill` numa linha
+     de lista (4,72:1) ou `--live-soft`/`--danger-soft` num chip ou num botão.
+     Foi o que a mensagem no ar e o versículo no ar passaram a fazer na v5.76, e
+     é o que `.misc-project.live` e os botões destrutivos já faziam.
      INVENTÁRIO (por grep, não de memória): o clareado é o padrão, e o salmão
      `--danger-text` tem TRÊS consumidores, todos casos em que ele não serve —
      a falha na miniatura do YouTube (`.yt-result .yt-err`) e o pulso de erro
@@ -427,21 +529,28 @@
    Escurecer só foi preciso onde a cor pousa sobre o CINZA da página em vez de
    sobre branco — e ali a matiz oficial é preservada, com o derivado declarado.
 
-   O DEGRAU DE ELEVAÇÃO SE INVERTE, e a régua muda junto. No escuro, "mais alto"
-   é "mais claro"; aqui o painel já é branco e não há para onde subir, então
-   `--panel-2` desce (um campo dentro de um cartão é um recesso, que é a
-   convenção de toda UI clara). A consequência é que `--panel-2` e `--bg` ficam
-   praticamente na mesma luminância (1,01:1) — deliberado, e o mesmo que Material
-   e iOS fazem: um campo dentro de um cartão branco parece a cor da página, e
-   quem separa o cartão da página é a linha e a sombra, não a luminância.
-   O piso de 1,30:1 entre superfícies grandes foi escrito para um salão no
-   ESCURO, onde sombra não se vê; ele vale aqui só para o par que importa,
-   fundo × painel (1,29:1), e é dispensado no resto por essa razão. */
+   O DEGRAU DE ELEVAÇÃO SE INVERTE, e a régua muda junto. No escuro, "mais
+   fundo na árvore" é "mais claro"; aqui o painel já é branco e não há para onde
+   subir, então `--panel-2` DESCE (um campo dentro de um cartão é um recesso,
+   que é a convenção de toda UI clara). A direção é oposta e a REGRA é a mesma —
+   cada nível se afasta do anterior —, e é por isso que a folha não precisa
+   saber em qual tema está.
+   A consequência é que `--panel-2` fica perto do `--bg` (1,09:1). Deliberado, e
+   sem custo: os dois nunca se encostam, porque um nível 2 está sempre DENTRO de
+   um nível 1, que aqui é branco.
+   O piso de 1,30:1 entre superfícies grandes vale hoje para os dois pares que
+   importam — fundo × painel (1,29:1, um centésimo abaixo e assumido desde a
+   v5.192) e painel × painel-2 (**1,41:1**). */
 :root[data-tema="claro"] {
   --bg: #dfe3e7;
   --bar: #ffffff;
   --panel: #ffffff;
-  --panel-2: #dee2e8;
+  /* 1,41:1 contra o painel (era #dee2e8, 1,30:1). Ele desceu na v5.267 pela
+     mesma razão do escuro: é o degrau entre a seção da Biblioteca e o card de
+     álbum dentro dela, e virou o único. Ele fica 1,09:1 do `--bg`, e isso não
+     é acidente nem problema — os dois nunca se encostam, porque um nível 2 está
+     sempre DENTRO de um nível 1, que é branco. */
+  --panel-2: #d4dae2;
   --line: #97a5b4;                       /* 1,95:1 contra o fundo · 2,51:1 contra o painel */
   /* O SINAL é o mesmo do tema escuro: o controle FLUTUA sobre a página e
      AFUNDA dentro do cartão. O que muda é o lado do branco em que cada um
@@ -450,35 +559,40 @@
      Medido: 1,23:1 do botão contra a página e 1,14:1 / 1,25:1 dos afundados
      contra o painel. São degraus pequenos, e é a linha em `--line` que anuncia
      o controle aqui — ver a nota sobre o piso de 1,30:1, acima. */
-  --surface: rgba(255, 255, 255, .70);
-  --surface-2: rgba(255, 255, 255, .92);
+  --surface-alta: rgba(255, 255, 255, .70);
+  --surface-2-alta: rgba(255, 255, 255, .92);
+  --surface: var(--surface-alta);
+  --surface-2: var(--surface-2-alta);
   /* Os afundados subiram de .06/.10 na v5.207, e o motivo está medido: sobre o
      painel BRANCO, .06 dava #f0f0f0 — **1,14:1**, um controle que não se
      distingue do cartão. Era o relato do operador ("botões com fundo branco no
-     branco"), e ele estava certo. Agora .10/.16 dão #e6e6e6 (1,19:1) e #d9d9d9
-     (1,35:1). O degrau ainda é pequeno, e é por isso que ele não trabalha
-     sozinho — quem fecha a conta é `--control-edge`, abaixo. */
-  --surface-sunk: rgba(0, 0, 0, .10);
-  --surface-2-sunk: rgba(0, 0, 0, .16);
+     branco"), e ele estava certo.
+     SUBIRAM DE NOVO na v5.267 (.10/.16 → .14/.20), e agora eles trabalham
+     sozinhos: a `--control-edge` que fechava a conta com uma aresta de 1px saiu
+     com todo o resto do contorno. Medido sobre o painel branco: #dbdbdb dá
+     **1,32:1** e #cccccc dá **1,51:1** — os dois acima do piso de 1,30:1, que é
+     onde o par nunca tinha chegado. Texto: `--text` 6,32:1 e `--muted` 5,02:1
+     sobre o primeiro. */
+  --surface-sunk: rgba(0, 0, 0, .14);
+  --surface-2-sunk: rgba(0, 0, 0, .20);
 
-  /* A ARESTA DO CONTROLE, e aqui ela é o mecanismo principal.
-     O cabeçalho deste bloco já dizia que "é a linha em `--line` que anuncia o
-     controle aqui" — só que NENHUM controle a desenhava, e a frase era uma
-     intenção, não uma descrição. Isto a torna verdadeira: um controle que no
-     escuro se anuncia pelo preenchimento ganha, no claro, uma aresta de 1px na
-     linha da casa (2,51:1 sobre o painel).
-     Ela é aplicada por `box-shadow: inset`, nunca por `border` — ver a regra em
-     controle.css: sombra não ocupa espaço de layout, então a aresta entra em
-     controles já medidos sem mover um pixel de nada. */
-  --control-edge: var(--line);
+  /* Os dois fundos de ESTADO, espelhando o escuro (ver lá o porquê de serem
+     opacos). `--sel-fill` dá 1,31:1 contra o painel branco, 6,76:1 com o texto e
+     5,87:1 com o accent; `--live-fill`, 1,32:1 contra o painel e 5,17:1 com o
+     `--live-strong`. Aqui a claridade ajuda mais que no escuro, mas o sinal
+     continua sendo a MATIZ — é ela que sobrevive a uma tela sob luz forte. */
+  --sel-fill: #d5e2f4;
+  --live-fill: #f7d9d9;
+  --ok-fill: #d2e9cc;                    /* 1,29:1 painel · 6,87:1 texto · 5,27:1 --ok */
 
   /* texto: `night` e um derivado dele. O `winter` OFICIAL (#717171) seria o
      secundário natural e dá 4,88:1 sobre BRANCO — mas sobre o cinza da página
      cai para 3,81:1 e reprova AA, e `--muted` aparece nos dois lugares. O
      derivado é o mesmo cinza com a matiz do denim e um degrau a menos de
-     luminância. */
+     luminância. Ele ESCURECEU mais um degrau na v5.267 (#5c636c → #565d66):
+     com o painel-2 mais fundo, o valor antigo dava 4,32:1 ali e reprovava. */
   --text: #4a4a4a;                       /* night OFICIAL — 8,86:1 painel · 6,87:1 fundo */
-  --muted: #5c636c;                      /* 6,08:1 painel · 4,71:1 fundo */
+  --muted: #565d66;                      /* 6,66:1 painel · 5,16:1 fundo · 4,73:1 painel-2 */
 
   /* denim OFICIAL nos três papéis do accent: como texto/borda ele dá 7,70:1
      sobre o painel e 5,97:1 sobre a página; como preenchimento recebe o BRANCO
@@ -503,12 +617,19 @@
      sobre a página, 6,84:1 sobre o painel. */
   --live: #d0021b;
   --on-live: #ffffff;
-  --live-soft: rgba(208, 2, 27, .08);
+  /* Os dois SOFT subiram de .08 para .14 na v5.267, e a razão é a mesma da
+     `--surface-sunk` logo acima: eles vestiam controles que tinham um contorno
+     vermelho por cima, e sem ele .08 sobre um painel branco dá **1,15:1** — uma
+     tinta que não se distingue do cartão. Em .14 o par vai a **1,29:1**, e o
+     texto sobre ele continua com folga: `--danger-text` 5,73:1 e
+     `--danger-strong` 5,31:1. (No tema escuro eles já eram .22 e não mudaram —
+     ali o overlay pousa sobre um fundo escuro e nunca teve esse problema.) */
+  --live-soft: rgba(208, 2, 27, .14);
   --live-strong: #b80419;
   --danger-strong: #b80419;
   --danger: #d0021b;
-  --danger-text: #93382e;                /* 4,99:1 sobre o soft · 7,38:1 sobre o painel */
-  --danger-soft: rgba(208, 2, 27, .08);
+  --danger-text: #93382e;                /* 5,73:1 sobre o soft · 7,38:1 sobre o painel */
+  --danger-soft: rgba(208, 2, 27, .14);
 
   /* campfire e treefrog escurecidos pelo mesmo motivo: o oficial passa sobre
      BRANCO (4,62:1 e 4,71:1) e reprova sobre a página cinza. Matizes 21° e 101°

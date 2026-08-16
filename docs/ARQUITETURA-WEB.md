@@ -8543,6 +8543,73 @@ sistema e sim o EIXO do botão: `.slide-mode` (contorno em accent) significa "o
 toque curto passa estrofe", e `.axis-end` (esmaecido) significa "esse caminho
 acabou; o toque longo ainda troca de mídia". Ver "Um par de botões, dois eixos".
 
+### Só preenchimento, nenhum contorno (v5.267)
+
+Pedido do operador: *"não tenhamos itens usando linha de borda, tudo deve ser
+com preenchimento sólido, e definição feita por puro e simples contraste entre
+os elementos."*
+
+Saíram **82 declarações** de `border`/`outline` das folhas da base. O que
+sobrevive são dois DESENHOS, e eles estão nomeados um a um no oráculo — não
+detectados por heurística, porque uma heurística deixaria a próxima borda entrar
+chamando-se desenho:
+
+- o aro do `.dl-ring` e o do `.av-stage-busy` (os anéis que giram enquanto o app
+  espera) — eles **são** círculos, não a moldura de um elemento;
+- o ✓ do `.song-menu-check` (duas bordas em L, giradas 45°) — é o glifo que
+  falta no subset da fonte de ícones.
+
+**A regra tem oráculo, e é ele que a faz durar** (`tools/tokens.test.mjs`, Node
+puro, sem `continue-on-error`). Uma borda é a coisa mais fácil de acrescentar em
+CSS quando duas caixas não estão se separando o bastante — é literalmente o
+remendo que este lote veio desfazer — e ela não quebra nada, não erra alto e não
+aparece em teste de comportamento nenhum. A varredura é da FONTE e não do
+renderizado de propósito: metade das bordas que saíram morava em regras de
+ESTADO (`.active`, `.no-ar`, `.expanded`) e em pseudo-elementos, que uma
+caminhada pelo DOM só alcançaria se o teste soubesse encenar cada estado.
+
+#### O que substituiu cada contorno
+
+| Era | Virou |
+|---|---|
+| linha `.active`/`.selected` de uma linha de lista | `--sel-fill`, um fundo OPACO |
+| linha `.no-ar` (vermelha) | `--live-fill`, idem |
+| `--ok` contornando "já conectado" | `--ok-fill`, idem |
+| tracejado de "espaço a preencher" (`.import-btn`, `.selbar`, `.pl-pack`) | preenchimento em `--accent-soft` |
+| segmentado/chip marcado (`--accent-soft` + borda) | `--accent-fill` + `--on-accent`, o par que a aba ativa já usava |
+| filetes separadores (cabeçalho e rodapé de folha, faixas de álbum, metades da Bíblia) | ESPAÇO |
+| faixa lateral do grupo na Bíblia e da estrofe no ar | `linear-gradient` — os mesmos pixels, declarados como o preenchimento que sempre foram |
+| anel externo da célula ativa da Bíblia (`outline`) | a célula inteira em `--accent-fill` |
+| moldura da preview (`outline`) | `box-shadow: 0 0 0 2px var(--camada)` — uma faixa preenchida que não entra no `aspect-ratio` |
+| anel do eco (`.btn-eco`) | `box-shadow` de mesma espessura |
+| aresta de 1px do tema claro (`--control-edge`, v5.207) | `--surface-sunk`/`--surface-2-sunk` mais fundos (.14/.20): **1,32:1** e **1,51:1** contra o painel branco, contra os 1,14:1 que motivaram a aresta |
+
+#### Os três fundos de ESTADO são OPACOS, e a razão é medida
+
+`--sel-fill`, `--live-fill` e `--ok-fill` substituíram o par "contorno + tinta
+com alfa". Serem opacos não é preferência: **`--accent-soft` a 16% sobre o
+painel compõe `#3d4959`, que é o `--panel-2` desta paleta** — isto é, uma linha
+SELECIONADA ficava com a cor exata do nível de baixo da árvore, e o que a
+distinguia era só a borda que saiu. Opacos, os três valem o mesmo em qualquer
+nível: um estado **sai** da escada em vez de ocupar um degrau dela.
+
+E o sinal principal deles é a MATIZ, não a claridade — `--live-fill` fica a
+1,03:1 do painel de propósito. Uma linha vermelha entre linhas cinzas se acha
+sem precisar ser mais clara que elas, e é a matiz que sobrevive ao brilho baixo
+de um salão escuro, onde meio degrau de luminância não sobrevive.
+
+#### A regra do vermelho mudou de eixo
+
+Era "PREENCHIDO = está no ar · CONTORNADO = ação destrutiva". Sem contorno, o
+que separa os dois é a INTENSIDADE do mesmo preenchimento:
+
+- **saturado** (`--live` + `--on-live`) = está no ar agora, e só isso — o
+  microfone aberto, o ponto de projetando. É o vermelho que não pode ter
+  concorrente na tela;
+- **suave** (`--live-fill` numa linha, `--danger-soft` num chip ou botão) = ação
+  destrutiva, ou "no ar" numa lista. Continua sendo vermelho e continua sem
+  competir com o que está de fato no telão.
+
 ### Escada de elevação, e a regra que faltava
 
 O que separa duas camadas não é a cor de cada uma, é o **degrau** entre elas:
@@ -8552,18 +8619,42 @@ virarem a mesma mancha escura. Degraus da paleta atual:
 | Par | Razão | Piso |
 |---|---|---|
 | fundo × barra de abas | **1,32:1** | 1,30 |
-| fundo × painel | **1,48:1** | 1,30 |
-| painel × painel ativo (`--panel-2`) | 1,28:1 | 1,30 — assumido, ver abaixo |
+| fundo × painel (nível 1) | **1,49:1** | 1,30 |
+| painel × painel-2 (nível 2) | **1,33:1** | 1,30 |
 | fundo × `--surface` (botão sobre o fundo) | **1,38:1** | 1,30 |
-| fundo × `--line` | **2,64:1** | 1,60 |
-| painel × `--line` | **1,78:1** | 1,60 |
 | painel × `--surface` recuada (botão DENTRO do cartão) | 1,18:1 | assumido |
 | painel × `--surface-2` recuada (chip dentro do cartão) | 1,11:1 | assumido |
 
-**`--panel` × `--panel-2` fica logo abaixo do piso, e isso é assumido**: ele
-não carrega o estado sozinho em lugar nenhum. Quem diz "selecionado" é sempre a
-**borda em `--accent`** (5,84:1 sobre o painel); o degrau de fundo é reforço,
-não o sinal.
+**O par `--panel` × `--panel-2` cumpre o piso desde a v5.267, e a mudança tem
+causa.** Ele valia 1,28:1 e o texto que estava aqui assumia isso com um
+argumento que caiu junto com as bordas: *"ele não carrega o estado sozinho em
+lugar nenhum — quem diz 'selecionado' é sempre a borda em `--accent`"*. Sem
+borda em lugar nenhum do app, este degrau passou a ser o ÚNICO separador entre
+uma seção da Biblioteca e o card de álbum dentro dela, e um piso não se cumpre
+"quase". `--muted` e `--accent` foram clareados um degrau na mesma conta — no
+valor antigo o accent caía a **4,40:1** sobre o painel-2 novo, e reprova AA.
+
+`--line` saiu da tabela porque saiu do papel: não há mais filete nem contorno em
+lugar nenhum. Ele sobrevive como TINTA de dois desenhos (a estrela vazada de
+favorito, a barra de rolagem das grades da Bíblia).
+
+#### R0 — a escada tem TRÊS degraus, e o quarto é o espaço
+
+Um quarto tom obrigaria o nível mais interno a subir até ~`#4c5865` no tema
+escuro, onde `--muted` mede **3,59:1** e `--accent` **3,37:1** — os dois
+reprovam AA para texto pequeno, que é exatamente o tamanho do texto de uma linha
+de lista. Então a árvore para em três, e quem carrega o quarto nível é o
+ESPAÇO: uma faixa dentro de um álbum aberto não tem caixa nenhuma, e o que a
+separa da vizinha é o tom do próprio álbum aparecendo entre elas.
+
+No tema CLARO a escada **não é monotônica**, e isso é aritmética e não descuido:
+a página é cinza e o nível 1 é branco (a convenção de toda UI clara), então o
+primeiro degrau sobe e os seguintes só podem descer — `#dfe3e7` → `#ffffff` →
+`#d4dae2`. Folha e card ficam a 1,09:1 um do outro e isso não se lê como
+ambiguidade, porque os dois **nunca se encostam**: entre eles há sempre a
+moldura branca da seção. `tools/smoke.mjs` mede os pares ADJACENTES (piso 1,28)
+e exige apenas que nenhum par coincida (piso 1,05) — a primeira versão daquele
+caso exigia monotonia e reprovava um desenho correto.
 
 #### R1 — a superfície AFUNDA dentro de um cartão
 
@@ -8588,15 +8679,64 @@ correta de UI escura (o cartão já está elevado, então o controle dentro dele
 
 ```css
 .row-item, .lib-item, .hymnal-card, .msg-item, .bible-vsec,
-.dialog-card, .popup-sheet, .fade-row, .simple-lyrics, .simple-key {
-  --surface:   rgba(0, 0, 0, .24);
-  --surface-2: rgba(0, 0, 0, .14);
+.dialog-card, .popup-sheet, .fade-row, .simple-lyrics, .simple-key,
+.coll-group--drop, #hymnSearchPopup .hymn-search-bar {
+  --surface:   var(--surface-sunk);
+  --surface-2: var(--surface-2-sunk);
 }
 ```
 
 Como custom properties **herdam**, essa regra só precisa marcar os elementos
 que de fato pintam `--panel` de fundo: toda a descendência vem junto, não há
 componente a ajustar, e um componente novo nasce coberto.
+
+Os VALORES saíram daqui na v5.192 e viraram `--surface-sunk`/`--surface-2-sunk`
+em `tokens.css` (o tema claro precisa de outros dois alfas). E o par FLUTUANTE
+ganhou nome próprio na v5.267 — `--surface-alta`/`--surface-2-alta` — porque
+passou a existir um caminho de VOLTA: a folha da Biblioteca é nível 0, então os
+controles lá dentro flutuam de novo, e um override do mesmo nome não daria isso
+(`--surface: var(--surface-alta)` funciona; `--surface: var(--surface)` é um
+ciclo, que o CSS descarta).
+
+#### R1.1 — `--camada`: o tom que um bloco veste é decisão do PAI (v5.267)
+
+Pedido do operador: as ramificações da Biblioteca *"visualmente se parecem
+muito, dificultando discernir se estou em uma camada ou subcamada"*.
+
+O degrau de tom era só metade do defeito. A outra era que **o mesmo componente
+ocupava níveis diferentes da árvore conforme a tela, e pintava sempre a mesma
+cor**: uma `.lib-item` na tela principal está sobre `--bg`; a mesma `.lib-item`
+dentro da folha da playlist está sobre `--panel` — e pintava `--panel` também,
+dois tons idênticos encostados. Escrever isso como seletores descendentes daria
+uma regra por combinação, e a próxima tela nasceria com a combinação faltando.
+
+`--camada` é UMA propriedade com um significado só: **o tom que um bloco filho
+DESTE contêiner deve vestir.**
+
+```css
+:root { --camada: var(--panel); }                    /* página → nível 1 */
+.popup-sheet, .dialog-card, .simple-conn { --camada: var(--panel-2); }
+.popup-sheet--full { --camada: var(--panel); }       /* é uma TELA, não um cartão */
+.coll-group-corpo { --camada: var(--panel-2); }
+.coll-songs { --camada: transparent; }               /* não há nível 3 */
+```
+
+**Quem a declara é o CONTÊINER, nunca quem pinta**, e isso não é estilo: uma
+propriedade escrita no próprio elemento vence na hora de ELE resolver
+`var(--camada)`, então um bloco que reservasse o tom dos filhos em si mesmo
+passaria a vestir aquele tom. A primeira versão desta regra pôs
+`.coll-group--drop` na lista e a seção passou a vestir a cor do card — isto é, o
+defeito da v5.241 de volta, e foi o oráculo da escada que o pegou, nos dois
+temas.
+
+A árvore da Biblioteca fica assim, e é a mesma da tela principal um nível acima:
+
+```
+folha de tela cheia   --bg          nível 0   (era --panel até a v5.267)
+  └ seção             --panel       nível 1   (barra + corpo, UM bloco sólido)
+      └ card do álbum --panel-2     nível 2
+          └ faixa     (sem fundo)   separada da vizinha pelo ESPAÇO
+```
 
 **O preço, medido e assumido:** o degrau recuado contra o cartão cai para
 1,18:1 (botão) e 1,11:1 (chip). Ali, diferente do fundo do app, o degrau não é

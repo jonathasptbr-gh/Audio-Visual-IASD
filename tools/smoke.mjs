@@ -313,16 +313,14 @@ try {
     // estado é a única coisa que as separa.
     const net = document.getElementById('castNetBtn');
     const fundoNet = () => getComputedStyle(net).backgroundColor;
-    const bordaNet = () => getComputedStyle(net).borderTopColor;
     const netOff = net ? fundoNet() : '';
     if (net) net.classList.add('ligado');
     const netOn = net ? fundoNet() : '';
-    const netOnBorda = net ? bordaNet() : '';
     if (net) net.classList.remove('ligado');
     const r = {
       acao: raio('.cast-acao'), interruptor: raio('#castNetBtn'), endereco: raio('.cast-addr'),
-      netOff, netOn, netOnBorda,
-      dangerStrong: getComputedStyle(document.documentElement).getPropertyValue('--danger-strong').trim(),
+      netOff, netOn,
+      liveFill: getComputedStyle(document.documentElement).getPropertyValue('--live-fill').trim(),
       acaoFundo: cor('.cast-acao', 'backgroundColor'), acaoTexto: cor('.cast-acao', 'color'),
       // O valor do token, resolvido pelo navegador — a asserção compara o
       // RENDERIZADO com ele, e não com um literal copiado para cá.
@@ -338,9 +336,12 @@ try {
   checar(padrao.acao === padrao.interruptor && padrao.netOff === padrao.acaoFundo,
     'e DESLIGADOS eles são a mesma peça — mesmo raio, mesmo preenchimento',
     padrao.netOff + ' × ' + padrao.acaoFundo);
-  checar(padrao.netOn !== padrao.netOff && padrao.netOnBorda === paraRgb(padrao.dangerStrong),
-    'LIGADA, a transmissão perde o preenchimento e ganha o contorno vermelho'
-    + ' (' + padrao.netOn + ' / borda ' + padrao.netOnBorda + ')');
+  // v5.267: o contorno vermelho virou PREENCHIMENTO vermelho. O que a asserção
+  // afirma não mudou de sentido — ligada, a peça troca de cor e passa a vestir a
+  // família do "está no ar" —, e continua sendo lida do token, não de um literal.
+  checar(padrao.netOn !== padrao.netOff && padrao.netOn === paraRgb(padrao.liveFill),
+    'LIGADA, a transmissão troca o preenchimento pelo VERMELHO de "no ar"'
+    + ' (' + padrao.netOn + ')');
 
   // ---- E A FOLHA CRESCE EM VEZ DE SALTAR (v5.226) ------------------------
   //
@@ -443,14 +444,17 @@ try {
     const glifo = b.querySelector('.msym');
     const visivel = glifo ? getComputedStyle(glifo).visibility : 'sem glifo';
     const tem = b.classList.contains('btn-eco');
-    const anel = tem ? getComputedStyle(b, '::before').borderTopWidth : '';
+    // v5.267: o anel virou `box-shadow` — a folha não tem mais uma única
+    // declaração de contorno, e ele era a última que sobrava fora de um desenho.
+    // O que se mede continua sendo "há um anel desenhado", não como ele é feito.
+    const anel = tem ? getComputedStyle(b, '::before').boxShadow : '';
     await new Promise((r) => setTimeout(r, 700));
     return { achou: true, tem, visivel, anel, sumiu: !b.classList.contains('btn-eco') };
   });
   checar(eco.achou && eco.tem, 'um toque no transporte responde na hora (classe `btn-eco`)');
   checar(eco.visivel === 'visible',
     'e o eco NÃO esconde o ícone do botão — ele é anel, não ✓', eco.visivel);
-  checar(!!eco.anel && eco.anel !== '0px', 'o anel do eco é de fato desenhado', eco.anel);
+  checar(!!eco.anel && eco.anel !== 'none', 'o anel do eco é de fato desenhado', eco.anel);
   checar(eco.sumiu, 'e ele sai sozinho, sem deixar o botão marcado');
 
   // ---- O CARROSSEL VALE DENTRO DA NAVEGAÇÃO INTERNA (v5.193) ------------
@@ -862,18 +866,30 @@ try {
   checar(false, 'a medição da linha da faixa terminou sem exceção (' + (e && e.message) + ')');
 }
 
-// ── A ESCALA DE TONS DA BIBLIOTECA (v5.241) ──────────────────────────────
-// Relato do operador: *"todo o esquema de cores e design está inconsistente"*
-// nas coleções colapsadas, nos álbuns e nos itens do álbum.
+// ── A ESCADA DE CAMADAS DA BIBLIOTECA (v5.241, refeita na v5.267) ────────
+// Relato do operador na v5.241: *"todo o esquema de cores e design está
+// inconsistente"*. Medido no escuro, do fundo para dentro: folha 44 → barra de
+// seção FECHADA ~69 → a mesma barra ABERTA 44 → card do álbum 59 → faixa 44.
+// Subia, descia, subia e descia, em cinco níveis aninhados.
 //
-// Medido no escuro, do fundo para dentro: folha 44 → barra de seção FECHADA ~69
-// → a mesma barra ABERTA 44 → card do álbum 59 → faixa 44. Subia, descia,
-// subia e descia, em cinco níveis aninhados.
+// A v5.241 respondeu com DOIS tons alternados, e a v5.267 revoga essa metade
+// porque o operador voltou com o mesmo sintoma por outra porta: *"elas funcionam
+// em camadas de ramificações que visualmente se parecem muito, dificultando
+// discernir se estou em uma camada ou subcamada"*. Alternar dois tons faz um
+// AVÔ e um NETO terem a mesma cor — e era literalmente o caso, porque a barra
+// da seção e o card do álbum dividiam o `--panel-2` "de contêiner" enquanto o
+// corpo da seção ficava com a cor da FOLHA. O card pousava no mesmo fundo em que
+// a barra da seção pousa, isto é, lia-se como irmão dela.
 //
-// O que este caso trava são as três metades da regra, e nenhuma sozinha basta:
-// a barra de seção não troca de cor com o estado; contêiner é UM tom só (a
-// barra e o card do álbum); e a faixa não tem caixa. E trava nos DOIS TEMAS,
-// porque a causa raiz era justamente uma direção que se invertia entre eles.
+// A regra nova é uma ESCADA de três degraus, e é ela que este caso trava, nos
+// DOIS TEMAS (a causa raiz da v5.241 era justamente uma direção que se invertia
+// entre eles):
+//
+//   folha (tela cheia) → seção → card do álbum, cada um distinto do anterior;
+//   a direção é a MESMA nos três degraus (sobe no escuro, desce no claro);
+//   a seção não troca de cor com o estado;
+//   a faixa dentro do álbum não tem caixa nem filete — o que a separa da vizinha
+//   é o espaço, com o tom do álbum aparecendo no meio.
 for (const tema of ['escuro', 'claro']) {
   try {
     const t = await pg.evaluate(async (tema) => {
@@ -888,10 +904,14 @@ for (const tema of ['escuro', 'claro']) {
       collState[c.id] = { indexSyncedAt: Date.now(), songs, isHymnal: true };
       gruposAbertos.clear(); gruposAbertos.add('Hinários'); gruposAbertos.add('Arquivos oficiais');
       ui(c.id).expanded = true; ui(c.id).shown = 100;
+      // A LISTA PRECISA MORAR NA FOLHA DE VERDADE (v5.267): o tom de cada nível
+      // é herdado do contêiner (`--camada`), então medir a árvore num `<ul>`
+      // solto no `<body>` mediria uma árvore que não existe no app.
+      const folha = document.querySelector('#hymnSearchPopup .popup-sheet--full');
       const lista = document.createElement('ul');
-      lista.className = 'hymnal-list';
+      lista.className = 'popup-list';
       lista.style.width = '390px';
-      document.body.appendChild(lista);
+      folha.appendChild(lista);
       renderCollectionsList(lista, () => {}, { semTotal: true });
       const bg = (sel) => {
         const el = lista.querySelector(sel);
@@ -899,20 +919,24 @@ for (const tema of ['escuro', 'claro']) {
       };
       // A barra FECHADA precisa de um segundo grupo, que este não abriu.
       const fechada = (() => {
-        const g = [...lista.querySelectorAll('.coll-group--drop:not(.aberto) > .coll-group-bar')];
+        const g = [...lista.querySelectorAll('.coll-group--drop:not(.aberto)')];
         return g.length ? getComputedStyle(g[0]).backgroundColor : null;
       })();
+      const faixa = lista.querySelector('.coll-songs > .hymn-result');
       const r = {
-        barraAberta: bg('.coll-group--drop.aberto > .coll-group-bar'),
-        barraFechada: fechada,
+        folha: getComputedStyle(folha).backgroundColor,
+        secao: bg('.coll-group--drop.aberto'),
+        secaoFechada: fechada,
+        // A barra e o corpo são faixas do bloco da seção, sem fundo próprio.
+        barra: bg('.coll-group--drop.aberto > .coll-group-bar'),
+        corpo: bg('.coll-group--drop.aberto > .coll-group-corpo'),
         card: bg('.hymnal-card'),
-        faixa: bg('.coll-songs > .hymn-result'),
-        faixaRow: bg('.coll-songs > .hymn-result > .hymn-row'),
-        temCaixa: (() => {
-          const el = lista.querySelector('.coll-songs > .hymn-result');
-          if (!el) return true;
-          const cs = getComputedStyle(el);
-          return parseFloat(cs.borderRadius) > 0 || parseFloat(cs.borderTopWidth) > 1;
+        faixa: faixa ? getComputedStyle(faixa).backgroundColor : 'AUSENTE',
+        faixaFilete: faixa ? getComputedStyle(faixa).borderTopWidth : 'AUSENTE',
+        // O espaço entre duas faixas — é ele que substitui o filete.
+        faixaGap: (() => {
+          const ul = lista.querySelector('.coll-songs');
+          return ul ? parseFloat(getComputedStyle(ul).rowGap) : -1;
         })(),
       };
       lista.remove(); delete collState[c.id]; gruposAbertos.clear();
@@ -920,17 +944,62 @@ for (const tema of ['escuro', 'claro']) {
       return r;
     }, tema);
     const transparente = (v) => /rgba\(0, 0, 0, 0\)/.test(v) || v === 'transparent';
-    checar(t.barraFechada === null || t.barraFechada === t.barraAberta,
-      '[' + tema + '] a barra de seção tem UM fundo só, aberta ou fechada — a peça '
-      + 'não troca de cor com o estado (' + t.barraAberta + ')');
-    checar(t.card === t.barraAberta,
-      '[' + tema + '] e o card do álbum usa o MESMO tom de contêiner que ela ('
-      + t.card + ')');
-    checar(transparente(t.faixa) && transparente(t.faixaRow) && !t.temCaixa,
-      '[' + tema + '] a faixa dentro do álbum é uma LINHA, não uma terceira caixa '
-      + 'aninhada (' + t.faixa + ')');
+    // Luminância relativa, para afirmar a DIREÇÃO da escada sem escrever cor
+    // nenhuma aqui: um literal copiado para o teste envelhece na primeira troca
+    // de paleta, e envelhece parecendo correto.
+    const lum = (v) => {
+      const m = v.match(/\d+(\.\d+)?/g) || [];
+      const c = m.slice(0, 3).map((x) => {
+        const n = Number(x) / 255;
+        return n <= 0.03928 ? n / 12.92 : Math.pow((n + 0.055) / 1.055, 2.4);
+      });
+      return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    };
+    const razao = (a, b) => {
+      const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
+      return (x + 0.05) / (y + 0.05);
+    };
+    checar(t.secaoFechada === null || t.secaoFechada === t.secao,
+      '[' + tema + '] a seção tem UM fundo só, aberta ou fechada — a peça não '
+      + 'troca de cor com o estado (' + t.secao + ')');
+    checar(transparente(t.barra) && transparente(t.corpo),
+      '[' + tema + '] e a barra e o corpo dela não têm fundo próprio: a seção é '
+      + 'UM bloco, não três peças costuradas (' + t.barra + ' / ' + t.corpo + ')');
+    // O piso é o mesmo do projeto para duas superfícies grandes encostadas.
+    //
+    // A GUARDA DE OPACIDADE NÃO É ZELO: `lum()` lê "rgba(0, 0, 0, 0)" como
+    // PRETO, então um nível que não pinta nada entra na conta como o fundo mais
+    // escuro possível e produz um degrau enorme. Verificado — sem ela, este caso
+    // APROVAVA a folha anterior à v5.267, em que a seção não tinha fundo próprio
+    // e o card tinha a cor da barra dela. Um teste que aprova o defeito que ele
+    // existe para pegar é pior que teste nenhum.
+    const opaco = (v) => !transparente(v) && v !== 'AUSENTE';
+    const d1 = razao(t.folha, t.secao), d2 = razao(t.secao, t.card);
+    checar(opaco(t.folha) && opaco(t.secao) && opaco(t.card) && d1 >= 1.28 && d2 >= 1.28,
+      '[' + tema + '] os três níveis PINTAM, e a escada tem degrau de verdade nos '
+      + 'dois: folha → seção → card', d1.toFixed(2) + ':1 e ' + d2.toFixed(2) + ':1');
+    // ...e NENHUM par de níveis pode coincidir, adjacente ou não — o "avô com a
+    // cor do neto" é o defeito que a alternância de dois tons produzia por
+    // construção, e ele reapareceria numa refatoração que voltasse a ela.
+    //
+    // O piso deste par é 1,05:1 e não os 1,28:1 dos adjacentes, e a razão é
+    // aritmética, não preguiça: no tema CLARO a escada NÃO pode ser monotônica.
+    // A página é cinza e o nível 1 é branco (a convenção de toda UI clara, e a
+    // que a paleta adota desde a v5.192), então o primeiro degrau sobe e os
+    // seguintes só podem descer — folha #dfe3e7 → seção #ffffff → card #d4dae2,
+    // com folha × card em 1,09:1. Isso não se lê como ambiguidade porque os dois
+    // NUNCA se encostam: entre eles há sempre a moldura branca da seção. Exigir
+    // monotonia aqui reprovaria um desenho correto (verificado: foi o que a
+    // primeira versão deste caso fez).
+    const dPula = razao(t.folha, t.card);
+    checar(opaco(t.card) && dPula >= 1.05,
+      '[' + tema + '] e nenhum par de níveis coincide — nem os que se pulam',
+      'folha × card ' + dPula.toFixed(2) + ':1');
+    checar(transparente(t.faixa) && parseFloat(t.faixaFilete) === 0 && t.faixaGap > 0,
+      '[' + tema + '] a faixa dentro do álbum não tem caixa NEM filete: o que a '
+      + 'separa da vizinha é o espaço (' + t.faixa + ', gap ' + t.faixaGap + 'px)');
   } catch (e) {
-    checar(false, 'a medição da escala de tons (' + tema + ') terminou sem exceção ('
+    checar(false, 'a medição da escada de camadas (' + tema + ') terminou sem exceção ('
       + (e && e.message) + ')');
   }
 }
@@ -1626,6 +1695,7 @@ for (const tema of ['escuro', 'claro']) {
         texto: getComputedStyle(document.getElementById('hymnSearchInput')).color,
         ph: getComputedStyle(document.getElementById('hymnSearchInput'), '::placeholder').color,
         lupa: getComputedStyle(document.querySelector('#hymnSearchPopup .lib-search-lupa')).color,
+        sombraCampo: getComputedStyle(document.getElementById('hymnSearchInput')).boxShadow,
       };
       closeHymnSearch();
       return r;
@@ -1660,12 +1730,15 @@ for (const tema of ['escuro', 'claro']) {
     checar(/-\d+px/.test(c.sombra) && c.sombra !== 'none',
       '[' + tema + '] com a sombra para CIMA, que é o que o tom não diz: a lista '
       + 'passa por baixo dela', c.sombra);
-    // E o CAMPO não se perdeu dentro do tom novo — a barra clareou (ou
-    // escureceu), e ele é um overlay sobre ela.
-    checar(razao(campo, barra) > 1.1,
-      '[' + tema + '] e o campo continua legível DENTRO dela ('
-      + razao(campo, barra).toFixed(2) + ':1)');
-    // ── O CAMPO É BRANCO NOS DOIS TEMAS (v5.267) ─────────────────────────
+    // E o CAMPO não se perdeu dentro da barra. A regra é a mesma que a própria
+    // barra usa contra as seções: **duas superfícies do mesmo tom se separam
+    // por PROFUNDIDADE**. No tema claro a barra é branca (nível 1) e o campo
+    // também é, então ali o tom não pode ser o separador — e um contorno está
+    // fora desde que a linha saiu do app inteiro.
+    checar(razao(campo, barra) > 1.1 || (c.sombraCampo && c.sombraCampo !== 'none'),
+      '[' + tema + '] e o campo se separa da barra — por tom ('
+      + razao(campo, barra).toFixed(2) + ':1) ou, sendo a mesma cor dela, por elevação');
+    // ── O CAMPO É BRANCO NOS DOIS TEMAS (v5.268) ─────────────────────────
     // Pedido do operador. A primeira metade é o fundo; a SEGUNDA é a que não se
     // percebe pedindo "o campo branco" e que reprovaria calada: as três coisas
     // que moram dentro dele (o texto, o placeholder e a lupa) precisam parar de
@@ -1673,6 +1746,9 @@ for (const tema of ['escuro', 'claro']) {
     checar(campo.every((v) => Math.round(v) === 255),
       '[' + tema + '] o CAMPO é branco — o mesmo nos dois temas, como o palco',
       c.campo);
+    checar(!!c.sombraCampo && c.sombraCampo !== 'none',
+      '[' + tema + '] e ele tem ELEVAÇÃO, que é o que o separa da barra quando o '
+      + 'tom não pode (no claro os dois são brancos)', c.sombraCampo);
     for (const [nome, cor] of [['texto', c.texto], ['placeholder', c.ph], ['lupa', c.lupa]]) {
       const r = razao(sobre(cor, c.campo), campo);
       checar(r >= 4.5,

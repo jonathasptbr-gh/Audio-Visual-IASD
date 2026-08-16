@@ -194,9 +194,66 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    24% de preto e todo cartão viraria um bloco cinza. A regra continua sendo
    esta lista de seletores; o VALOR mora com as outras cores. */
 .row-item, .lib-item, .hymnal-card, .msg-item, .bible-vsec,
-.dialog-card, .popup-sheet, .fade-row, .simple-lyrics, .simple-key {
+.dialog-card, .popup-sheet, .fade-row, .simple-lyrics, .simple-key,
+/* Os dois blocos de nível 1 da Biblioteca (v5.267). Eles pintam `--camada`, que
+   dentro da folha de tela cheia resolve para `--panel` — isto é, são cartões
+   pela definição desta regra, e o que mora dentro deles precisa afundar. Sem a
+   barra de busca aqui, o campo dela ficava `--surface-2` (branco a 92%) sobre
+   um `--panel` que no tema CLARO é branco puro: **1,00:1**, medido — o mesmo
+   defeito que a v5.207 corrigiu na barra de baixo da tela principal, reaberto
+   por outra porta assim que a folha da Biblioteca virou nível 0. */
+.coll-group--drop, #hymnSearchPopup .hymn-search-bar {
   --surface: var(--surface-sunk);
   --surface-2: var(--surface-2-sunk);
+}
+/* ---------- A CAMADA: um bloco veste o tom que o PAI lhe reserva (v5.267) ----
+   Pedido do operador: as ramificações da Biblioteca "visualmente se parecem
+   muito, dificultando discernir se estou em uma camada ou subcamada".
+
+   O defeito não era só o degrau de tom (esse foi aberto em `tokens.css`): era
+   que o MESMO componente ocupava níveis diferentes da árvore conforme a tela, e
+   pintava sempre a mesma cor. Uma `.lib-item` na tela principal está sobre o
+   `--bg`; a mesma `.lib-item` dentro da folha da playlist está sobre `--panel`,
+   e pintava `--panel` também — dois tons idênticos encostados, sem nada entre
+   eles. Escrever isso como uma lista de seletores descendentes daria uma regra
+   por combinação, e a próxima tela nasceria com a combinação faltando.
+
+   `--camada` é UMA propriedade com um significado só: **o tom que um bloco
+   filho DESTE contêiner deve vestir.** Ela herda, então basta declará-la nos
+   contêineres de verdade; quem pinta apenas lê `var(--camada)`.
+
+     página (`--bg`)      → --camada: --panel      (nível 1)
+     bloco `--panel`      → --camada: --panel-2    (nível 2)
+     bloco `--panel-2`    → --camada: transparent  (não há nível 3)
+
+   O `transparent` do último degrau não é desistência, é a regra: a escada tem
+   três degraus porque um quarto reprovaria AA (a conta está em `tokens.css`), e
+   o que separa duas faixas dentro de um álbum passa a ser o ESPAÇO entre elas,
+   com o tom do álbum aparecendo no meio.
+
+   QUEM A DECLARA É O CONTÊINER, NUNCA QUEM PINTA — e isso não é estilo, é o que
+   impede a regra de se sabotar: uma propriedade escrita no próprio elemento
+   vence na hora de ELE resolver `var(--camada)`, então um bloco que reservasse
+   o tom dos filhos em si mesmo passaria a vestir aquele tom. Daí a seção da
+   Biblioteca LER `--camada` e quem reserva o degrau seguinte ser a
+   `.coll-group-corpo` — e o `.hymnal-card` LER de novo, com a `.coll-songs`
+   zerando o último. Quem paga por errar isto é a leitura, e em silêncio: a
+   primeira versão desta regra pôs `.coll-group--drop` na lista, e a seção
+   passou a vestir o tom do card, o que é exatamente o defeito da v5.241 de
+   volta — medido pelo oráculo da escada, que reprovou nos dois temas. */
+:root { --camada: var(--panel); }
+.popup-sheet, .dialog-card, .simple-conn { --camada: var(--panel-2); }
+.coll-group-corpo { --camada: var(--panel-2); }
+.coll-songs { --camada: transparent; }
+/* A folha de TELA CHEIA é uma TELA, não um cartão: ela pinta o `--bg` (ver
+   `.popup-sheet--full`), então o nível de dentro dela volta a ser o nível 1 —
+   e os controles voltam a FLUTUAR, desfazendo a inversão que a regra do cartão
+   acabou de aplicar por `.popup-sheet`. Sem esta segunda metade, um botão da
+   Biblioteca ficaria com o recesso de um cartão sobre um fundo de página. */
+.popup-sheet--full {
+  --camada: var(--panel);
+  --surface: var(--surface-alta);
+  --surface-2: var(--surface-2-alta);
 }
 /* ---------- A BARRA DE BAIXO AFUNDA, e SÓ NO TEMA CLARO (v5.207) ----------
    Aqui a inversão não é uma escolha de estilo, é aritmética. No tema claro
@@ -217,34 +274,12 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   --surface-2: var(--surface-2-sunk);
 }
 
-/* ---------- A ARESTA DO CONTROLE, e ela só aparece no tema claro ----------
-   O tema escuro tem um mecanismo que o claro não tem: um controle se anuncia
-   por ser MAIS CLARO que a base. No claro a base já é branca, e não existe
-   "mais claro que branco" — então o mesmo `--surface` que no escuro dá um
-   degrau confortável aqui dá **1,14:1**, que é um botão invisível. Foi o relato
-   do operador, e ele estava certo: eram os segmentados de Configurações
-   (`.fit-opt`), oito deles, mais o ✕ das folhas e o copiar do Registro.
-
-   A saída é a que o `tokens.css` já afirmava e não cumpria: no claro quem
-   anuncia o controle é a LINHA. `--control-edge` é `transparent` no escuro,
-   então esta regra vale para os dois temas e só DESENHA em um.
-
-   `box-shadow: inset` e NÃO `border`: estes controles têm caixa medida (`--hit`
-   nos botões de ícone, a grade dos segmentados), e um `border` de 1px mudaria a
-   altura de todos eles nos DOIS temas para resolver um problema que existe em
-   um. Sombra não ocupa espaço de layout.
-
-   A lista é dos controles cujo fundo é `--surface`/`--surface-2` e que NÃO têm
-   borda própria — os que já trazem `1px solid var(--line)` (`.pill`, `.seg`, os
-   campos) não entram aqui, senão ganhariam duas linhas sobrepostas. */
-:is(.fit-opt, .popup-close, .log-copy, .dialog-btn, .simple-key, .sel-btn, .row-btn,
-    .t-btn, .ctl-btn) {
-  box-shadow: inset 0 0 0 1px var(--control-edge);
-}
-/* O PREENCHIDO NÃO LEVA ARESTA: `.fit-opt.active` e `.dialog-btn.primary` são
-   fundo `--accent-fill`, que dá 7,70:1 contra o painel — a linha só sujaria a
-   borda de uma peça que já se distingue com folga. */
-.fit-opt.active, .dialog-btn.primary, .ctl-btn.vol-btn { box-shadow: none; }
+/* (A ARESTA DO CONTROLE saiu na v5.267, com todo o resto do contorno. Ela era
+   um `box-shadow: inset 0 0 0 1px var(--control-edge)` em nove controles, e
+   existia porque no tema claro `--surface` dava 1,14:1 contra o painel branco —
+   um botão invisível. O diagnóstico continua certo e o remédio virou outro: os
+   dois overlays afundados foram a .14/.20 e devolvem **1,32:1** e **1,51:1** ao
+   mesmo par, por preenchimento. Ver `--surface-sunk` em `tokens.css`.) */
 
 /* ---------- Feedback de toque (regra única) ----------
    Como o `*` acima zera o -webkit-tap-highlight-color, um controle SEM
@@ -437,19 +472,25 @@ body {
   min-width: 0;
   align-self: center;
   background: var(--stage-bg); border-radius: var(--radius-card); overflow: hidden;
-  /* `outline` (com offset negativo) no lugar de `border`: a borda entra no
-     border-box e, com `box-sizing:border-box`, o `aspect-ratio` passa a valer
-     para a caixa COM a borda — 1px em 128px de altura já desloca a proporção
-     ~0,8%, e é justamente a proporção que faz a preview ser fiel. Outline não
-     ocupa layout, então a área útil fica exatamente na proporção do telão. */
-  outline: 1px solid var(--line); outline-offset: -1px;
+  /* A MOLDURA É PREENCHIDA, não uma linha (v5.267). Ela existe por um motivo
+     medido: o palco é preto de verdade e a página do tema escuro é #0e1215 —
+     **1,13:1**, isto é, sem nada em volta a preview não tem borda visível
+     justamente no tema em que ela mais é usada. O que a delimita agora é uma
+     faixa de 2px no tom de nível 1 (`--camada`), que dá 1,49:1 contra a página
+     e 1,67:1 contra o preto do palco.
+     Por `box-shadow` e não por `border`, e a razão é a mesma que antes escolheu
+     o `outline`: a borda entra no border-box e, com `box-sizing: border-box`, o
+     `aspect-ratio` passaria a valer para a caixa COM ela — 1px em 128px de
+     altura já desloca a proporção ~0,8%, e é justamente a proporção que faz a
+     preview ser fiel. Sombra não ocupa layout. */
+  box-shadow: 0 0 0 2px var(--camada);
 }
 /* Preview em tela cheia (projeção direta pelo Controle): preenche a tela,
    cantos retos e sem borda; as camadas internas (pv-layers, wallpaper) já são
    inset:0 e a mídia usa object-fit, então preenchem/letterboxam sozinhas. */
 .preview:fullscreen, .preview:-webkit-full-screen {
   width: 100%; height: 100%; max-width: none; max-height: none; aspect-ratio: auto;
-  border: none; border-radius: 0; background: var(--stage-bg);
+  border-radius: 0; box-shadow: none; background: var(--stage-bg);
   /* superfície de gestos invisíveis: captura toques/deslizes sem o navegador
      interpretar como rolagem/zoom (ver setupPreviewGestures em controle.js) */
   touch-action: none;
@@ -581,7 +622,6 @@ body {
   max-width: 100%; min-width: 0;
   padding: .4rem .6rem .4rem .45rem;
   border-radius: var(--radius-btn);
-  border: 1px solid var(--accent-soft);
   background: var(--bg);
   box-shadow: 0 4px 14px var(--shadow-card);
 }
@@ -866,12 +906,12 @@ body {
 
 /* Botões de transporte */
 .transport { display: flex; gap: .35rem; }
-/* Botão-bloco que divide a largura da linha. A borda de 1px transparente é a
-   mesma reserva de espaço do `.tab`: `.slide-mode` a pinta sem que o botão
-   mude de tamanho ao entrar/sair do estado. */
+/* Botão-bloco que divide a largura da linha. (A borda de 1px transparente que
+   reservava espaço para o `.slide-mode` saiu na v5.267: o estado virou
+   preenchimento, e preenchimento não muda a caixa de nada.) */
 .t-btn {
   flex: 1; padding: .45rem 0;
-  border: 1px solid transparent; border-radius: var(--radius-btn);
+  border-radius: var(--radius-btn);
   background: var(--surface); color: var(--text); cursor: pointer;
   display: flex; align-items: center; justify-content: center;
 }
@@ -885,7 +925,7 @@ body {
    rótulo não cabe, então quem diz é a cor — contorno em accent, o mesmo
    recurso que marca a aba ativa, porque a pergunta é a mesma: em que modo eu
    estou. Sem sinal nenhum, o operador só descobriria o eixo depois de tocar. */
-.t-btn.slide-mode { border-color: var(--accent); color: var(--accent); }
+.t-btn.slide-mode { background: var(--accent-soft); color: var(--accent); }
 /* Fim do eixo de estrofe (última estrofe, última mensagem): o toque curto não
    tem para onde ir, mas o LONGO ainda troca de mídia — então esmaece em vez de
    desabilitar. É a leitura que o botão de estrofe cinza dava antes de sair da
@@ -1041,7 +1081,7 @@ body {
 }
 
 .ctl-btn {
-  border: 2px solid transparent; border-radius: var(--radius-btn); background: var(--surface);
+  border-radius: var(--radius-btn); background: var(--surface);
   color: var(--text); cursor: pointer; display: flex; align-items: center; justify-content: center;
 }
 .ctl-btn .msym { font-size: var(--icon-md); }
@@ -1061,14 +1101,14 @@ body {
    mede 4,68:1 — passa como texto — e é o único dos dois que se lê como
    VERMELHO num rótulo de botão. */
 .view-btn.view-blocked, .mute-btn.muted, .coll-opts .new-folder-btn.danger {
-  border-color: var(--danger-strong); background: var(--danger-soft); color: var(--danger-strong);
+  background: var(--danger-soft); color: var(--danger-strong);
 }
 /* Sem áudio no Display (bloqueio do navegador): AVISO pulsante; o clique pede
    a liberação do som (comando audio-retry). Em `--warn`, e não mais em
    `--brand`: nesta paleta a cor da marca É o accent (mesmo valor), então
    "áudio bloqueado" pintado de gold ficaria idêntico a "ação normal". */
 .mute-btn.blocked {
-  border-color: var(--warn); background: var(--warn-soft); color: var(--warn-text);
+  background: var(--warn-soft); color: var(--warn-text);
   animation: mute-blocked-pulse 1.2s ease-in-out infinite;
 }
 @keyframes mute-blocked-pulse {
@@ -1382,8 +1422,16 @@ main {
    accent: o valor literal que já esteve aqui era o azul #2f81f7 aposentado há
    versões — o mesmo papel do token, congelado numa cópia que nenhuma troca de
    paleta alcançaria. */
+/* O TRACEJADO VIROU PREENCHIMENTO (v5.267). A moldura pontilhada em `--accent`
+   era a convenção deste app para "espaço a preencher", e ela cai com todas as
+   outras linhas. O que a substitui diz a mesma coisa por contraste: uma
+   superfície em `--accent-soft`, que é justamente o "isto é ação, não conteúdo"
+   que os botões de baixar da Biblioteca já usam. E o argumento da v5.108
+   sobrevive intacto — o que fazia a barra de seleção parecer um ITEM
+   SELECIONADO era a silhueta "preenchimento + contorno sólido", e continua não
+   havendo contorno nenhum aqui. */
 .import-btn, .list-foot > .selbar, .msg-add-btn, .pl-pack {
-  border: 1px dashed var(--accent);
+  background: var(--accent-soft);
   border-radius: var(--radius-btn);
 }
 /* `min-height: var(--hit-foot)` e não só o padding: é ele que fixa a altura da
@@ -1391,7 +1439,10 @@ main {
    caixa quando toma o lugar dele. */
 .import-btn {
   flex: 1; min-width: 0; min-height: var(--hit-foot); padding: .5rem;
-  background: transparent; color: var(--accent); font-size: .9rem;
+  /* O PREENCHIMENTO VEM DA REGRA AGRUPADA (v5.267). Estava `transparent` aqui
+     porque quem desenhava a caixa era o tracejado; sem contorno, isso deixaria
+     o botão como uma frase solta no meio da tela — verificado no renderizado. */
+  color: var(--accent); font-size: .9rem;
   display: flex; align-items: center; justify-content: center; gap: .45rem;
   cursor: pointer;
 }
@@ -1427,25 +1478,25 @@ main {
    uma cor de texto, não uma placa. */
 .selbar {
   flex-shrink: 0; display: flex; align-items: center; gap: .6rem;
-  background: var(--bg); border: none; border-radius: var(--radius-card);
+  background: var(--bg); border-radius: var(--radius-card);
   padding: .35rem .6rem;
 }
 /* NO RODAPÉ DA LISTA (v5.107) ela ocupa exatamente a fatia do "Importar
-   arquivos" que substitui — e desde a v5.108 veste a MESMA MOLDURA dele: o
-   tracejado em `--accent`, mesma altura (`--hit-foot`), mesmo raio. As duas são
-   a mesma caixa do rodapé com inquilinos diferentes, e o contorno é o que diz
-   isso: o que muda de uma para a outra é o conteúdo, não o lugar.
-   O tracejado não recria o problema que a v5.105 resolveu — o que fazia a barra
-   parecer mais um ITEM SELECIONADO era o conjunto "preenchimento âmbar +
-   contorno sólido", a silhueta exata de `.lib-item.selected`. Uma linha
-   PONTILHADA sobre fundo do corpo não se parece com item nenhum da lista: é a
-   convenção que o app já usa para "espaço a preencher".
+   arquivos" que substitui — e desde a v5.108 veste a MESMA CAIXA dele: mesmo
+   preenchimento, mesma altura (`--hit-foot`), mesmo raio. As duas são a mesma
+   fatia do rodapé com inquilinos diferentes, e é isso que o desenho diz: o que
+   muda de uma para a outra é o conteúdo, não o lugar.
+   O preenchimento em `--accent-soft` (v5.267, no lugar do tracejado) não recria
+   o problema que a v5.105 resolveu — o que fazia a barra parecer mais um ITEM
+   SELECIONADO era o conjunto "preenchimento + contorno sólido", a silhueta
+   exata de `.lib-item.selected`. Sem contorno em lugar nenhum do app, essa
+   silhueta não existe mais para ser confundida com nada.
    Sem a altura fixa a caixa da lista mudava de tamanho ao entrar e sair da
    seleção, e a lista inteira dava um pulo debaixo do dedo que estava segurando
    um item. */
 .list-foot > .selbar {
-  /* A moldura tracejada vem da regra agrupada, junto de "Importar arquivos" —
-     e vence o `border: none` da `.selbar` base por especificidade, não pela
+  /* O preenchimento vem da regra agrupada, junto de "Importar arquivos" — e
+     vence o `background` da `.selbar` base por especificidade, não pela
      ordem. */
   min-height: var(--hit-foot);
   padding: 0 .5rem;
@@ -1503,13 +1554,36 @@ main {
 }
 .empty { color: var(--muted); text-align: center; padding: 1.6rem 0; line-height: 1.6; font-size: .9rem; }
 
-.row-item, .lib-item { position: relative; border-radius: var(--radius-card); background: var(--panel); border: 2px solid transparent; overflow: hidden; flex-shrink: 0; }
-.row-item.active, .lib-item.active { border-color: var(--accent); }
-.lib-item.selected { border-color: var(--accent); background: var(--panel-2); }
+/* ---------- A LINHA DE LISTA, e o ESTADO dela é um PREENCHIMENTO (v5.267) ----
+   Ela tinha `border: 2px solid transparent` de reserva e três estados pintados
+   NA BORDA — `.active` e `.selected` em accent, `.no-ar` em `--live-strong` —,
+   com um fundo suave por baixo como reforço. O contorno saiu do app inteiro, e
+   aqui ele levaria junto o sinal se o reforço tivesse ficado sozinho: medido,
+   `--accent-soft` a 16% sobre o painel compõe #3d4959, que é o `--panel-2`
+   deste app. Uma linha selecionada ficaria com a cor exata do nível de baixo da
+   árvore, e uma linha no ar com a de um cartão de álbum.
+
+   `--linha` é o preenchimento DESTA linha, e é ele que os três estados trocam.
+   Existe como propriedade e não como três regras de `background` porque a `.row`
+   e a faixa de ações (`.row-acoes`) precisam da MESMA cor opaca por baixo — era
+   isso que o `background: inherit` da v5.258 tentava fazer e que a v5.259 teve
+   de trocar por um gradiente, porque `inherit` copia o VALOR e o valor de uma
+   linha no ar tinha alfa. Com um token opaco, os três leem a mesma coisa e não
+   há camada a compor.
+
+   A seleção múltipla VENCE o "no ar", e continua vencendo: ali a tela fala de
+   escolha, e o conjunto marcado é o que o operador está usando naquele
+   instante. */
+.row-item, .lib-item {
+  position: relative; border-radius: var(--radius-card);
+  --linha: var(--camada);
+  background: var(--linha);
+  overflow: hidden; flex-shrink: 0;
+}
+.row-item.active, .lib-item.active, .lib-item.selected { --linha: var(--sel-fill); }
 .dragging { z-index: 5; opacity: .92; box-shadow: 0 6px 18px rgba(0,0,0,.6); }
 
-.row { position: relative; z-index: 1; display: flex; align-items: center; gap: .5rem; padding: .35rem .5rem; background: var(--panel); touch-action: pan-y; }
-.lib-item.selected .row, .lib-item.active .row, .row-item.active .row { background: var(--panel-2); }
+.row { position: relative; z-index: 1; display: flex; align-items: center; gap: .5rem; padding: .35rem .5rem; background: var(--linha); touch-action: pan-y; }
 
 /* ---------- NO AR: a linha que está no telão AGORA ---------- */
 /* `.active` e `.no-ar` são coisas diferentes, e confundi-las é o defeito que
@@ -1519,18 +1593,22 @@ main {
    sobre ele seria mentir na única linha da tela que existe para não mentir.
    Ver `linhaAtiva`/`linhaNoAr` em `controle.js`.
 
-   O desenho é o MESMO "no ar" do resto do app — a família do vermelho, com o
-   fundo suave da própria família por baixo do saturado (o mesmo raciocínio de
-   `.msg-item.active` e `.bible-vsec.cur.live`: `--live` é escuro por construção
-   e como contorno sobre fundo escuro sumiria; `--live-soft` dá ao `--live-strong`
-   a base que ele precisa, 4,68:1).
+   O desenho é o MESMO "no ar" do resto do app — a família do vermelho —, agora
+   como PREENCHIMENTO opaco (`--live-fill`, v5.267) em vez de contorno saturado
+   sobre tinta com alfa. A troca não perde sinal e ganha um: a cor é a mesma em
+   qualquer nível da árvore, e o `--live-strong` do selo e do nome mede 4,72:1
+   sobre ela.
 
    E ele vem com TEXTO, não só com cor: duas camadas podem estar no ar ao mesmo
    tempo (um louvor de fundo sob um versículo), e é justamente nessas linhas que
    o segundo toque retira do ar. Uma cor a mais numa tela que já tem várias não
-   ensina isso; "● No ar" ensina. */
-.row-item.no-ar, .lib-item.no-ar { border-color: var(--live-strong); }
-.lib-item.no-ar .row, .row-item.no-ar .row { background: var(--live-soft); }
+   ensina isso; "● No ar" ensina.
+
+   E O NOME ENTRA NA COR (v5.267). Antes só o subtítulo entrava, porque o
+   contorno vermelho já gritava por cima da linha inteira; sem ele, o nome —
+   que é o maior texto da linha — era a única coisa que continuava neutra. */
+.row-item.no-ar, .lib-item.no-ar { --linha: var(--live-fill); }
+.lib-item.no-ar .row-name { color: var(--live-strong); font-weight: 600; }
 /* O selo mora na linha do subtítulo, prefixado — exatamente como a referência
    do versículo central da Bíblia (`● No ar · Salmo 23:1`). */
 .row-live { color: var(--live-strong); font-weight: 800; letter-spacing: .03em; }
@@ -1556,8 +1634,8 @@ main {
    projeção, e o contorno de seleção é o que o operador está usando naquele
    instante. (O JS já não põe `.no-ar` durante a seleção; esta linha é o
    cinto e suspensório de quem reordenar as classes um dia.) */
-.lib-item.selected.no-ar { border-color: var(--accent); }
-.lib-item.selected.no-ar .row { background: var(--panel-2); }
+.lib-item.selected.no-ar { --linha: var(--sel-fill); }
+.lib-item.selected.no-ar .row-name { color: var(--text); font-weight: 400; }
 
 /* ---------- e os BOTÕES DA LINHA trocam junto (v5.177) ----------
    No ar, a única decisão que aquela linha oferece é tirá-la do ar: o toque no
@@ -1611,14 +1689,14 @@ main {
    canto esquerdo é a MINIATURA (`--thumb`, 40px), e o resultado era a faixa
    comendo 6px da capa — o relato "ele corta a thumbnail".
 
-   O FUNDO É COMPOSTO, e isto também é v5.259. Era `background: inherit`, com o
-   argumento de não copiar a cor da linha em cinco estados; só que `inherit`
-   copia o VALOR, e o valor de uma linha no ar é `--live-soft`, que tem alfa
-   .22 — a faixa pintava um vermelho translúcido POR CIMA do título, que
-   continuava legível atrás dos botões. Foi o relato, e nos favoritos era onde
-   se via, porque é a lista em que a linha no ar mais aparece. Agora a base é
-   opaca (`--panel`) e o estado entra como CAMADA por cima dela, que é
-   exatamente como a `.row` se pinta.
+   O FUNDO É O DA PRÓPRIA LINHA, e isso ficou simples na v5.267. A v5.258
+   escreveu `background: inherit` para não copiar a cor da linha em cinco
+   estados, e `inherit` copia o VALOR — o valor de uma linha no ar tinha alfa
+   .22, então a faixa pintava um vermelho translúcido POR CIMA do título, que
+   continuava legível atrás dos botões (o relato da v5.259). A correção de lá
+   foi uma base opaca mais um `linear-gradient` de uma cor só por cima, para
+   repetir o empilhamento da `.row`. Com os estados virando preenchimento
+   OPACO, os dois lados leem o mesmo `--linha` e não há mais nada a compor.
 
    Fechada ela é `visibility: hidden` — e não `display: none` — para a
    transição de opacidade existir; `visibility` já tira os botões do toque, do
@@ -1633,17 +1711,9 @@ main {
   left: calc(var(--thumb) + 1rem);
   right: calc(var(--thumb) + 1rem);
   display: flex; align-items: center; justify-content: flex-end; gap: .35rem;
-  background: var(--panel);
+  background: var(--linha);
   opacity: 0; visibility: hidden;
   transition: opacity .14s ease;
-}
-.lib-item.selected .row-acoes, .lib-item.active .row-acoes,
-.row-item.active .row-acoes { background: var(--panel-2); }
-/* O estado "no ar" é uma CAMADA sobre a base opaca — o mesmo empilhamento da
-   `.row` (painel + `--live-soft`), obtido com um gradiente de uma cor só, que é
-   como se pinta uma camada de cor lisa em CSS. */
-.lib-item.no-ar .row-acoes {
-  background-image: linear-gradient(var(--live-soft), var(--live-soft));
 }
 .lib-item.acoes-abertas .row-acoes { opacity: 1; visibility: visible; }
 /* O `⋮` é o único botão que fica na linha, e ele é DISCRETO: não é uma ação,
@@ -1706,11 +1776,13 @@ main {
    como ícone no outro era o mesmo par com duas caras. O ícone em `--brand` é o
    que os distingue dos botões neutros ao redor: é a cor que o app usa para
    "guardado" (a estrela do favorito), não para navegação.
-   Contornados e não preenchidos: quem vem à tela da Bíblia vem para PROJETAR, e
-   projetar é o toque no versículo do meio — guardar é a ação secundária e tem
-   de parecer uma. */
+   SECUNDÁRIOS, e agora isso se diz sem contorno (v5.267): quem vem à tela da
+   Bíblia vem para PROJETAR, e projetar é o toque no versículo do meio. O que
+   os mantém em segundo plano é o preenchimento neutro (`--surface-2`) ao lado
+   de um versículo central que veste a cor do estado — antes era o contorno em
+   `--line`, e ele foi a linha que mais ficou no caminho do pulso de
+   confirmação (ver `.btn-pulso`, que precisava de uma regra só para apagá-la). */
 .cue-save-btn {
-  border: 1px solid var(--line);
   background: var(--surface-2); color: var(--muted);
 }
 .cue-save-btn .msym { font-size: var(--icon-sm); color: var(--brand); }
@@ -1762,19 +1834,14 @@ main {
 .hymnal-card {
   flex-shrink: 0;
   border-radius: var(--radius-card);
-  /* `--panel-2` = o tom de CONTÊINER da Biblioteca, o mesmo da barra de seção
-     (ver "A escala de tons", acima). A folha do popup é `--panel`: um cartão da
-     mesma cor do que está atrás dele não existe aos olhos.
-
-     A segunda metade do comentário antigo estava ERRADA nos dois temas, e era
-     ela que sustentava a faixa como caixa: "as músicas dentro dele (que são
-     `--panel`) passam a se ler como recessos". No escuro, `--panel` (44) sobre
-     `--panel-2` (59) de fato afunda; no CLARO, `--panel` é branco puro (255)
-     sobre 222 — ele ELEVA. A mesma declaração produzia direções opostas nos
-     dois temas, que é a lição da v5.192 aplicada ao aninhamento: **direção só
-     se preserva por overlay, nunca por token opaco.** Hoje a faixa não tem
-     caixa nenhuma. */
-  background: var(--panel-2);
+  /* O CARD NÃO ESCOLHE O PRÓPRIO TOM (v5.267): ele lê o degrau que o pai lhe
+     reservou (ver "A CAMADA", no topo desta folha). Dentro de uma seção da
+     Biblioteca isso dá `--panel-2`, um degrau acima do tom da seção; e é o
+     mecanismo, não o valor, que garante que ele nunca coincida com o que está
+     atrás dele — que era o defeito da v5.241, em que a barra da seção e o card
+     dividiam o mesmo `--panel-2` porque os dois eram chamados de "contêiner".
+     São contêineres, e não são o MESMO contêiner: um está dentro do outro. */
+  background: var(--camada);
   padding: .55rem .7rem;
 }
 
@@ -1863,7 +1930,29 @@ main {
    solta: ganha a superfície e a moldura de um controle, como as barras de card
    logo abaixo dele. Sem isso, uma lista fechada seria uma pilha de rótulos que
    não se anunciam como tocáveis — e é justamente esse o único gesto da tela. */
-.coll-group--drop { display: block; padding: .45rem .2rem 0; }
+/* ---------- A SEÇÃO É UM BLOCO SÓ (v5.267) ----------
+   Ela era três coisas soltas: uma barra com fundo e moldura, um corpo com outra
+   moldura e, entre eles, um truque para os cantos se encontrarem
+   (`border-bottom-color: transparent`). Pior que a costura era o TOM: o corpo
+   ficava com a cor da FOLHA, não com a da seção, então o card de álbum lá
+   dentro pousava sobre o mesmo fundo em que a barra da seção pousa — e passava
+   a se ler como IRMÃO dela, não como filho. Era isso que o operador descrevia
+   ("dificultando discernir se estou em uma camada ou subcamada"), e o degrau de
+   tom sozinho não teria consertado.
+
+   Agora o `<li>` inteiro é a caixa: um preenchimento, um raio, e barra e corpo
+   por dentro dele sem fundo próprio. O que abre e fecha continua sendo a seta e
+   o corpo aparecendo — nada troca de cor com o estado.
+
+   SEM `overflow: hidden`, e isso é deliberado: a barra de um álbum ABERTO é
+   `position: sticky`, e um ancestral com overflow recortado a prenderia (a
+   mesma armadilha que o `.coll-open` documenta). Não é preciso — os filhos são
+   recuados pelo padding e nenhum deles chega perto do canto arredondado. */
+.coll-group--drop {
+  display: block; padding: 0;
+  background: var(--camada);
+  border-radius: var(--radius-card);
+}
 /* ---------- A ESCALA DE TONS DA BIBLIOTECA (v5.241) ----------
    Relato do operador: *"todo o esquema de cores e design está inconsistente"*
    nas coleções colapsadas, nos álbuns e nos itens do álbum.
@@ -1889,20 +1978,15 @@ main {
    preserva a direção nos dois temas, e uma escada de overlays levaria o nível
    mais interno a 180 no claro — mais escuro que a própria página. Dois tons
    fecham a conta nos dois temas com a mesma regra. */
+/* A barra não tem fundo NEM moldura própria: ela é a primeira faixa do bloco da
+   seção (acima), e o que a separa do corpo é o corpo ter conteúdo. A COR NÃO
+   MUDA com o estado — quem diz "isto está aberto" é a seta e o que apareceu
+   embaixo dela. */
 .coll-group-bar {
   display: flex; align-items: center; gap: .5rem;
-  padding: .5rem .35rem .5rem .6rem;
+  padding: .5rem .45rem .5rem .55rem;
   min-height: var(--hit);
-  border: 1px solid var(--line); border-radius: var(--radius-btn);
-  background: var(--panel-2); cursor: pointer;
-}
-/* Aberto, o cabeçalho encosta no corpo: os cantos de baixo somem. A COR NÃO
-   MUDA — quem diz "isto está aberto" é a seta e o corpo que apareceu, e trocar
-   o fundo da mesma peça entre dois estados era metade da inconsistência
-   medida. */
-.coll-group--drop.aberto > .coll-group-bar {
-  border-bottom-left-radius: 0; border-bottom-right-radius: 0;
-  border-bottom-color: transparent;
+  cursor: pointer;
 }
 /* ---------- A SETA É A THUMBNAIL DAS RAÍZES (v5.244) ----------
    Pedido do operador: a seção ganha a mesma thumb do card do álbum, e nas duas
@@ -1962,16 +2046,15 @@ main {
   display: flex; flex-direction: column;
   overflow: hidden;
 }
-/* O CORPO É O POÇO, não um terceiro tom: ele fica com a cor da folha e fecha a
-   moldura que a barra abriu. Barra (contêiner) + poço (folha) formam UMA caixa,
-   e o que está dentro do poço — o card do álbum, as linhas de favorito — volta
-   ao tom de contêiner. É a alternância de dois tons descrita em "A escala de
-   tons"; um fundo próprio aqui seria o terceiro. */
+/* O CORPO NÃO TEM FUNDO PRÓPRIO: ele é a segunda faixa do bloco da seção, então
+   fica com o tom DELA — e é essa a correção da v5.267. Ele ficava com a cor da
+   FOLHA (`--panel`), e um card de álbum pousado ali estava, para o olho, no
+   mesmo plano da barra da seção, não dentro dela. Agora o card sobe um degrau
+   (`--camada` = `--panel-2`) sobre o tom da seção, e o aninhamento se lê sem
+   nenhuma linha. */
 .coll-group--drop.aberto > .coll-group-corpo {
-  border: 1px solid var(--line); border-top: none;
-  border-bottom-left-radius: var(--radius-btn); border-bottom-right-radius: var(--radius-btn);
-  padding: .35rem .35rem .45rem;
-  gap: .3rem;
+  padding: 0 .4rem .45rem;
+  gap: .35rem;
 }
 /* FECHADO ELE NÃO OCUPA NADA. O corpo é sempre montado (é ele que a animação
    de fechamento precisa medir), então sem isto todo grupo fechado deixaria uma
@@ -2073,7 +2156,7 @@ main {
    eu estou?". */
 .hymnal-card.expanded .coll-bar {
   position: sticky; top: 0; z-index: 3;
-  background: var(--panel-2);   /* o mesmo do cartão: ela é a tampa dele */
+  background: var(--camada);   /* o mesmo do cartão: ela é a tampa dele */
   margin: -.55rem -.7rem 0; padding: .55rem .7rem;
   border-radius: var(--radius-card) var(--radius-card) 0 0;
   box-shadow: 0 6px 12px -8px var(--shadow-ink);
@@ -2098,36 +2181,32 @@ main {
    animação de altura ter UM nó para recortar — sem ele o `overflow:hidden`
    teria de ir no card, e o card tem a barra grudada no topo (`position:sticky`),
    que um ancestral com overflow recortado prende.
-   As margens negativas repetem as da lista de músicas, que sangra até a borda do
-   card para o filete do topo atravessar a largura toda: o recorte acontece na
-   borda do PADDING, então esse par margem/padding põe a linha de corte
-   exatamente na borda do card, e não .7rem para dentro dela. */
-.coll-open { margin: 0 -.7rem; padding: 0 .7rem; }
+   (As margens negativas que havia aqui existiam para a lista de músicas sangrar
+   até a borda do card, e isso era pelo FILETE do topo — que precisava
+   atravessar a largura toda. Sem filete nenhum (v5.267), o que separa as faixas
+   é o espaço, e sangrar até a borda só faria a primeira e a última faixa
+   encostarem no canto arredondado do cartão.) */
+.coll-open { margin: 0; padding: 0; }
 /* As músicas, dentro do card. Sem teto de altura: quem abriu um álbum quer
    percorrê-lo inteiro, e uma segunda barra de rolagem dentro da lista que já
    rola é o pior jeito de folhear. */
 .coll-songs {
-  list-style: none; margin: .4rem -.7rem 0; padding: .4rem .7rem 0;
+  list-style: none; margin: .4rem 0 0; padding: 0;
   display: flex; flex-direction: column;
 }
-/* A FAIXA É UMA LINHA, NÃO UMA CAIXA (v5.241). Ela era um `.lib-item` completo
-   — fundo próprio, raio de 10px e uma borda de 2px transparente — empilhado
-   dentro de um cartão que já é uma caixa, dentro de uma seção que é outra. Três
-   caixas arredondadas aninhadas, e a de dentro com a cor da folha que está
-   três níveis acima.
-   O que separa uma faixa da seguinte passa a ser o filete que separa qualquer
-   lista deste app. Fundo só quando há ESTADO — e aí ele é overlay. */
-.coll-songs > .hymn-result {
-  background: none; border: none; border-radius: 0;
-}
-.coll-songs > .hymn-result + .hymn-result { border-top: 1px solid var(--line); }
-.coll-songs > .hymn-result > .hymn-row { background: none; }
-/* Aberta, a faixa AFUNDA dentro do cartão (overlay: mesma direção nos dois
-   temas) e o filete de cima some, para a gaveta e a linha lerem como um bloco
-   só. */
-.coll-songs > .hymn-result.expanded,
-.coll-songs > .hymn-result.expanded > .hymn-row { background: var(--surface-sunk); }
-.coll-songs > .hymn-result.expanded { border-top-color: transparent; }
+/* A FAIXA É UMA LINHA, NÃO UMA CAIXA (v5.241) — e o que a separa da vizinha é o
+   ESPAÇO, não mais um filete (v5.267). Ela era um `.lib-item` completo — fundo
+   próprio, raio de 10px e uma borda de 2px transparente — empilhado dentro de
+   um cartão que já é uma caixa, dentro de uma seção que é outra: três caixas
+   arredondadas aninhadas, a de dentro com a cor da folha três níveis acima.
+
+   Aqui a escada acaba: a `.coll-songs` zera o `--camada` (não há nível 3 — a
+   conta está em `tokens.css`), então a faixa é transparente e quem aparece
+   entre duas delas é o tom do PRÓPRIO álbum. É o mesmo recurso que separa duas
+   seções na Biblioteca e dois itens no Cronograma, uma escala acima. Fundo só
+   quando há ESTADO — e aí é `--linha`, como em qualquer outra linha do app. */
+.coll-songs { gap: .2rem; }
+.coll-songs > .hymn-result { border-radius: var(--radius-btn); }
 
 /* A sentinela do fim da página (ver `fillSongList`). O objetivo é que ela NÃO
    seja vista: o observador dispara 300px antes, então na rolagem normal a
@@ -2222,8 +2301,7 @@ main {
 .yt-head {
   --dl-ring: 15px;
   display: flex; align-items: center; gap: .45rem;
-  margin-top: .5rem; padding: .85rem .15rem .3rem;
-  border-top: 1px solid var(--line);
+  margin-top: .9rem; padding: .3rem .15rem .3rem;
   color: var(--muted); font-size: .82rem; font-weight: 700;
   text-align: left;
 }
@@ -2310,7 +2388,7 @@ main {
    descreve, com outras duas cores. Recesso, que é o que o conteúdo de um cartão
    faz neste app, e o progresso pinta claro por cima. */
 .coll-opts .new-folder-btn.cancel {
-  color: var(--warn-text); border-color: var(--warn); background: var(--surface-sunk);
+  color: var(--warn-text); background: var(--surface-sunk);
 }
 /* (`.hymnal-card-status` e suas variantes saíram na v5.73 junto com a linha de
    texto que vestiam: o estado parado virou parte do chip de sincronizados e o
@@ -2339,9 +2417,16 @@ main {
    O ponto separador vem do CSS e não do dado: o `.coll-opt-estado` carrega o
    estado e nada mais — quem o lê é o oráculo, e pontuação no texto seria
    ruído para ele. */
+/* A COR É HERDADA DO BOTÃO, não `--muted` (v5.267). Ele mora DENTRO do
+   `.new-folder-btn`, que passou a ser preenchido em `--accent-fill` quando o
+   contorno saiu — e `--muted` é um cinza calibrado contra as superfícies do
+   app, não contra o denim: medido no tema claro, o "· 3/6" ao lado de "Baixar"
+   ficava praticamente ilegível. Herdando com alfa, ele acompanha o rótulo em
+   qualquer variante do botão (normal, cancelar, destrutiva) sem uma regra por
+   variante. */
 .coll-opt-estado {
   min-width: 0; overflow: hidden; text-overflow: ellipsis;
-  font-size: .72rem; font-weight: 600; color: var(--muted);
+  font-size: .72rem; font-weight: 600; color: inherit; opacity: .78;
   /* Numeral tabular, como todo par de números deste app (`.coll-bar-sync`): a
      fração é redesenhada a cada item baixado, e sem isto ela muda de largura a
      cada dígito — o mesmo motivo pelo qual a barra do card já o usa. */
@@ -2420,8 +2505,12 @@ main {
    o fling residual ENGOLE o toque seguinte: era o "dois toques nos botões das
    abas" relatado depois de tentar o carrossel na Bíblia (v5.188). */
 .bible-half { min-height: 0; overflow-y: auto; touch-action: pan-y; }
-/* Separador entre as duas metades — deixa claro que são dois níveis. */
-.bible-half + .bible-half { border-top: 1px solid var(--line); padding-top: .5rem; }
+/* Separador entre as duas metades — deixa claro que são dois níveis. É o ESPAÇO
+   e a TEMPERATURA das células, não mais um filete (v5.267): as duas grades já
+   têm tons próprios (`--cell-chapter` frio × `--cell-verse` quente) justamente
+   porque são iguais em forma e conteúdo, e é essa diferença que responde "em
+   qual metade estou tocando". */
+.bible-half + .bible-half { padding-top: .55rem; }
 /* Barra de rolagem SEMPRE VISÍVEL nestas duas grades. No Android a barra é
    "overlay": só aparece durante o gesto e some, então nada indicava que havia
    mais capítulos/versículos abaixo. Declarar largura em `::-webkit-scrollbar`
@@ -2464,12 +2553,15 @@ main {
 /* Bloco de livro: TINTA ESCURA do grupo + faixa lateral com a matiz dele (ver
    .bg-<g> abaixo e o campo `g` em bible.js) — sem número de índice.
    Capítulos/versículos (.bible-cell--num) ficam neutros (superfície).
-   A faixa é declarada AQUI, transparente: `border: none` no bloco base
-   deixaria as regras de grupo sem onde pintar a borda esquerda, e cada uma
-   teria de redeclarar a largura. */
+   A FAIXA É PINTADA, não uma borda (v5.267): mesmos 3px, mesma cor, declarada
+   como o preenchimento que ela sempre foi. Ela mora aqui num `--faixa`
+   transparente para cada grupo trocar só a COR — que era exatamente o papel do
+   `border-left: 3px solid transparent` que estava neste lugar. */
 .bible-cell {
   position: relative; aspect-ratio: 1; min-width: 0;
-  border: none; border-left: 3px solid transparent; border-radius: var(--radius-btn);
+  --faixa: transparent;
+  background-image: linear-gradient(to right, var(--faixa) 0 3px, transparent 3px);
+  border-radius: var(--radius-btn);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   cursor: pointer; overflow: hidden; padding: 2px; text-align: center;
   color: var(--text);
@@ -2481,14 +2573,16 @@ main {
 .bible-cell--num { background: var(--panel-2); color: var(--text); }
 .bible-grid--chapters .bible-cell--num { background: var(--cell-chapter); color: var(--cell-chapter-text); }
 .bible-grid--verses .bible-cell--num { background: var(--cell-verse); color: var(--cell-verse-text); }
-/* Célula selecionada agora — o capítulo aberto e o versículo em leitura. É o
-   que faz voltar da leitura já mostrar onde se está, sem procurar. O anel
-   externo destaca mesmo quando a grade rola e a célula fica meio cortada. */
-.bible-cell.active { outline: 2px solid var(--text); outline-offset: -2px; }
+/* Célula selecionada agora — o livro aberto, o capítulo aberto e o versículo em
+   leitura. É o que faz voltar da leitura já mostrar onde se está, sem procurar.
+   ELA É PREENCHIDA (v5.267), e não mais um anel de 2px: o livro ativo troca a
+   tinta do grupo pelo `--accent-fill`, e a FAIXA do grupo continua ali,
+   dizendo de qual divisão ele é. Uma célula inteira pintada destaca mais que um
+   anel — inclusive quando a grade rola e ela fica meio cortada, que era o
+   argumento do anel. */
+.bible-cell.active { background-color: var(--accent-fill); color: var(--on-accent); }
 .bible-cell--num.active {
-  background: var(--accent-fill); color: var(--on-accent);
-  outline: 2px solid var(--on-accent); outline-offset: -2px;
-  box-shadow: 0 0 0 2px var(--accent-soft);
+  background-color: var(--accent-fill); color: var(--on-accent);
   font-weight: 800;
 }
 .bible-cell-sym { font-size: 1.05rem; font-weight: 800; line-height: 1; }
@@ -2511,17 +2605,19 @@ main {
    faz um comentário deixar de ser verificável. As matizes foram
    redistribuídas para 18° de separação mínima. A informação passa a ser
    carregada pela FAIXA (3px), que é o bastante para agrupar visualmente uma
-   grade de 66 células sem transformar a tela numa lanterna. */
-.bg-lei        { background: var(--b-lei);        border-left-color: var(--bt-lei); }        /* Pentateuco      */
-.bg-historicos { background: var(--b-historicos); border-left-color: var(--bt-historicos); } /* Históricos      */
-.bg-poeticos   { background: var(--b-poeticos);   border-left-color: var(--bt-poeticos); }   /* Poéticos        */
-.bg-pmaiores   { background: var(--b-pmaiores);   border-left-color: var(--bt-pmaiores); }   /* Prof. Maiores   */
-.bg-pmenores   { background: var(--b-pmenores);   border-left-color: var(--bt-pmenores); }   /* Prof. Menores   */
-.bg-evangelhos { background: var(--b-evangelhos); border-left-color: var(--bt-evangelhos); } /* Evangelhos      */
-.bg-atos       { background: var(--b-atos);       border-left-color: var(--bt-atos); }       /* Atos            */
-.bg-paulinas   { background: var(--b-paulinas);   border-left-color: var(--bt-paulinas); }   /* Cartas Paulinas */
-.bg-gerais     { background: var(--b-gerais);     border-left-color: var(--bt-gerais); }     /* Cartas Gerais   */
-.bg-apocalipse { background: var(--b-apocalipse); border-left-color: var(--bt-apocalipse); } /* Apocalipse      */
+   grade de 66 células sem transformar a tela numa lanterna.
+   `background-color` e não a abreviação `background`: a faixa mora no
+   `background-image` do bloco base, e a abreviação a apagaria. */
+.bg-lei        { background-color: var(--b-lei);        --faixa: var(--bt-lei); }        /* Pentateuco      */
+.bg-historicos { background-color: var(--b-historicos); --faixa: var(--bt-historicos); } /* Históricos      */
+.bg-poeticos   { background-color: var(--b-poeticos);   --faixa: var(--bt-poeticos); }   /* Poéticos        */
+.bg-pmaiores   { background-color: var(--b-pmaiores);   --faixa: var(--bt-pmaiores); }   /* Prof. Maiores   */
+.bg-pmenores   { background-color: var(--b-pmenores);   --faixa: var(--bt-pmenores); }   /* Prof. Menores   */
+.bg-evangelhos { background-color: var(--b-evangelhos); --faixa: var(--bt-evangelhos); } /* Evangelhos      */
+.bg-atos       { background-color: var(--b-atos);       --faixa: var(--bt-atos); }       /* Atos            */
+.bg-paulinas   { background-color: var(--b-paulinas);   --faixa: var(--bt-paulinas); }   /* Cartas Paulinas */
+.bg-gerais     { background-color: var(--b-gerais);     --faixa: var(--bt-gerais); }     /* Cartas Gerais   */
+.bg-apocalipse { background-color: var(--b-apocalipse); --faixa: var(--bt-apocalipse); } /* Apocalipse      */
 
 /* ---------- Bíblia: tela de leitura (versículo anterior/atual/próximo) ---------- */
 /* A leitura cabe na tela SEM SCROLL: as quatro seções repartem entre si a
@@ -2547,7 +2643,7 @@ main {
 .bible-ref-nav { display: flex; align-items: stretch; gap: 1px; min-width: 0; max-width: 100%; }
 .bible-ref-part {
   display: flex; flex-direction: column; align-items: center; gap: 1px;
-  border: 1px solid var(--line); background: var(--surface-2); color: var(--text);
+  background: var(--surface-2); color: var(--text);
   padding: .3rem .55rem; cursor: pointer; appearance: none; -webkit-appearance: none;
   min-width: 0; flex-shrink: 0;
 }
@@ -2585,8 +2681,7 @@ main {
 .mic-wrap {
   flex-shrink: 0;
   display: flex; flex-direction: column; align-items: stretch;
-  gap: .4rem; padding: .55rem 0 .1rem;
-  border-top: 1px solid var(--line);
+  gap: .4rem; padding: .75rem 0 .1rem;
 }
 /* BARRA, não mais disco. Fixa na base da aba, fora do acordeão: push-to-talk é
    o único controle daqui que pode ser preciso no meio de uma frase, e ter que
@@ -2596,13 +2691,13 @@ main {
 .mic-btn {
   width: 100%; height: var(--misc-bar-h); flex-shrink: 0;
   border-radius: var(--radius-btn);
-  border: 2px solid var(--line); background: var(--panel); color: var(--text);
+  background: var(--surface-2); color: var(--text);
   display: flex; flex-direction: row; align-items: center; justify-content: center; gap: .6rem;
   cursor: pointer; appearance: none; -webkit-appearance: none;
   /* O dedo fica parado em cima: nada de rolagem ou menu de contexto durante
      o push-to-talk. */
   touch-action: none;
-  transition: background .12s ease, border-color .12s ease, color .12s ease;
+  transition: background .12s ease, color .12s ease;
 }
 .mic-btn-label { font-size: .95rem; font-weight: 800; letter-spacing: .02em; }
 /* NO AR: preenchido e pulsante — quem está falando precisa ver de longe que o
@@ -2610,7 +2705,7 @@ main {
    usa o par `--live`/`--on-live` (o vermelho da paleta é escuro justamente
    para receber texto por cima). */
 .mic-btn.live {
-  background: var(--live); border-color: var(--live); color: var(--on-live);
+  background: var(--live); color: var(--on-live);
   animation: mic-pulse 1.1s ease-in-out infinite;
 }
 /* O halo cresce e some. O quadro final é `transparent`, e não o vermelho com
@@ -2699,12 +2794,12 @@ main {
 .misc-modes { display: flex; gap: .35rem; }
 .misc-seg {
   flex: 1; padding: .5rem .3rem;
-  border: 1px solid var(--line); border-radius: var(--radius-btn);
+  border-radius: var(--radius-btn);
   background: var(--surface); color: var(--muted);
   font-size: .84rem; font-weight: 700; cursor: pointer;
   appearance: none; -webkit-appearance: none;
 }
-.misc-seg.active { background: var(--accent-soft); border-color: var(--accent); color: var(--text); }
+.misc-seg.active { background: var(--accent-fill); color: var(--on-accent); }
 /* O número no Controle. `tabular-nums` pelo mesmo motivo do telão: sem ele a
    linha se desloca a cada segundo e o número parece tremer. */
 .chrono-read {
@@ -2717,12 +2812,12 @@ main {
 .chrono-presets, .misc-opts { display: flex; flex-wrap: wrap; gap: .35rem; justify-content: center; }
 .misc-chip {
   padding: .34rem .7rem;
-  border: 1px solid var(--line); border-radius: var(--radius-pill);
+  border-radius: var(--radius-pill);
   background: var(--surface-2); color: var(--muted);
   font-size: .8rem; font-weight: 700; cursor: pointer;
   appearance: none; -webkit-appearance: none;
 }
-.misc-chip.active { background: var(--accent-soft); border-color: var(--accent); color: var(--text); }
+.misc-chip.active { background: var(--accent-fill); color: var(--on-accent); }
 .misc-row { display: flex; align-items: center; gap: .55rem; }
 .misc-row-label { font-size: .82rem; font-weight: 700; color: var(--muted); flex-shrink: 0; }
 /* "Guardar esta contagem / este sorteio" (v5.103): o rótulo à esquerda e os
@@ -2735,7 +2830,7 @@ main {
 .misc-save-btns { display: flex; gap: .35rem; margin-left: auto; }
 .misc-num, .misc-text {
   flex: 1; min-width: 0; padding: .42rem .55rem;
-  border: 1px solid var(--line); border-radius: var(--radius-btn);
+  border-radius: var(--radius-btn);
   background: var(--surface-2); color: var(--text);
   font-size: .9rem; font-family: inherit;
 }
@@ -2743,30 +2838,31 @@ main {
 .chrono-actions { display: flex; gap: .45rem; }
 .chrono-btn {
   flex: 1; padding: .6rem .4rem;
-  border: 1px solid var(--line); border-radius: var(--radius-btn);
+  border-radius: var(--radius-btn);
   background: var(--surface); color: var(--text);
   font-size: .9rem; font-weight: 700; cursor: pointer;
   appearance: none; -webkit-appearance: none;
 }
-.chrono-btn.primary { background: var(--accent-soft); border-color: var(--accent); }
+.chrono-btn.primary { background: var(--accent-fill); color: var(--on-accent); }
 /* Projetar: a ação com efeito no TELÃO, por isso destacada. No ar vira
    vermelha — a cor mostra o ESTADO, o rótulo a AÇÃO. */
 .misc-project {
   height: var(--misc-bar-h); padding: .4rem;
-  border: 1px solid var(--accent); border-radius: var(--radius-btn);
-  background: var(--accent-soft); color: var(--text);
+  border-radius: var(--radius-btn);
+  background: var(--accent-fill); color: var(--on-accent);
   font-size: .95rem; font-weight: 800; cursor: pointer;
   appearance: none; -webkit-appearance: none;
 }
-/* No ar: a família do "está no telão agora". Borda em `--live-strong` porque
-   `--live` é escuro por construção e como contorno sobre fundo escuro
-   sumiria — e o preenchimento suave da mesma família é o que dá ao saturado a
-   base que ele precisa (4,68:1). */
-.misc-project.live { background: var(--live-soft); border-color: var(--live-strong); color: var(--live-strong); }
+/* No ar: a família do "está no telão agora", como PREENCHIMENTO (v5.267). É o
+   MESMO `--live-fill` das linhas de lista que estão no ar, e não o `--live`
+   saturado: aquele fica reservado ao microfone aberto, que é o único estado
+   desta aba que precisa ser visto do outro lado do salão. Duas intensidades da
+   mesma matiz, e a mais forte é a mais urgente. */
+.misc-project.live { background: var(--live-fill); color: var(--live-strong); }
 /* Sem mensagem selecionada não há o que projetar daqui — a escolha é na lista.
    Desabilitado e não escondido: o botão é um ponto fixo da tela, e sumir faria
    o microfone pular de largura a cada troca de ferramenta. */
-.misc-project:disabled { opacity: .4; border-color: var(--line); background: var(--surface); color: var(--muted); cursor: default; }
+.misc-project:disabled { opacity: .4; background: var(--surface); color: var(--muted); cursor: default; }
 
 /* ---------- Sorteio (aba Ferramentas) ---------- */
 /* O resultado. Sem `tabular-nums` (ao contrário do cronômetro): aqui o valor
@@ -2791,7 +2887,7 @@ main {
 .draw-range-field .misc-num { flex: 1; min-width: 0; max-width: none; }
 .draw-pool {
   width: 100%; padding: .5rem .6rem; resize: vertical;
-  border: 1px solid var(--line); border-radius: var(--radius-btn);
+  border-radius: var(--radius-btn);
   background: var(--surface-2); color: var(--text);
   font-size: .9rem; font-family: inherit; line-height: 1.5;
 }
@@ -2814,45 +2910,50 @@ main {
 .draw-hist-chip.last { background: var(--accent-soft); color: var(--text); }
 .draw-go {
   padding: .8rem .4rem;
-  border: 1px solid var(--brand); border-radius: var(--radius-btn);
-  background: var(--brand-soft); color: var(--brand-text);
+  border-radius: var(--radius-btn);
+  background: var(--accent-fill); color: var(--on-accent);
   font-size: 1rem; font-weight: 800; letter-spacing: .02em; cursor: pointer;
   appearance: none; -webkit-appearance: none;
 }
-.draw-go:disabled { opacity: .45; border-color: var(--line); background: var(--surface); color: var(--muted); }
+.draw-go:disabled { opacity: .45; background: var(--surface); color: var(--muted); }
 
 /* ---------- Mensagens (texto puro) ---------- */
 /* Vivem numa das ferramentas da aba Ferramentas (o painel `.misc-panel--msg`),
    não numa aba própria: um aviso de texto é uma interrupção rápida, não uma
    seção da biblioteca que se navega. */
 .msg-add-btn {
-  align-self: stretch; background: var(--surface); color: var(--accent);
+  /* Idem: o fundo é o `--accent-soft` da regra agrupada, e não o `--surface`
+     neutro que estava aqui — as três ações de "espaço a preencher" do app
+     passaram a ter a MESMA caixa, que é o que aquela regra existe para dar. */
+  align-self: stretch; color: var(--accent);
   padding: .7rem; font-size: .9rem; font-weight: 700;
   cursor: pointer; appearance: none; -webkit-appearance: none;
 }
 .msg-item {
-  display: flex; align-items: center; gap: .5rem; border: 2px solid transparent;
-  border-radius: var(--radius-card); background: var(--panel); padding: .5rem .6rem;
+  display: flex; align-items: center; gap: .5rem;
+  border-radius: var(--radius-card); background: var(--camada); padding: .5rem .6rem;
 }
 /* NO AR — e por isso vermelho, não verde. Até a v5.47 esta linha e o versículo
    central (`.bible-vsec.cur.live`) diziam "está no telão" em VERDE enquanto
    outros quatro componentes diziam a mesma coisa em vermelho, na mesma tela;
    e verde, neste mesmo app, também significa "download concluído" e "telão
    conectado". Não havia regra que o operador pudesse aprender. */
-/* O fundo é `--live-soft`, não `--panel-2` (v5.76). Sobre o painel elevado, o
-   vermelho saturado media 2,96:1 — abaixo do piso de 3:1 de uma borda —, e
-   pintar a borda de pálido devolveria o "tom quente" que a v5.76 veio tirar. O
-   fundo suave da PRÓPRIA família resolve os dois: ele escurece a base (4,68:1
-   para a borda e para o texto) e ainda alinha esta linha com o resto do "no
-   ar" (`.misc-project.live` já era assim). */
-.msg-item.active { border-color: var(--live-strong); background: var(--live-soft); }
+/* O fundo é o `--live-fill` das linhas de lista (v5.267), e o texto o
+   `--live-strong` por cima dele (4,72:1). Antes eram borda saturada + tinta com
+   alfa por baixo: o argumento da v5.76 era que sobre o painel elevado o
+   vermelho saturado media 2,96:1 e precisava de uma base própria — continua
+   valendo, e agora essa base é opaca e igual em toda a tela. */
+.msg-item.active { background: var(--live-fill); }
 .msg-item.active .msg-text { color: var(--live-strong); }
 .msg-text {
   flex: 1; min-width: 0; font-size: .92rem; line-height: 1.4; cursor: pointer; white-space: pre-line;
   overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
 }
-/* indicador de salto pro capítulo/livro vizinho (preview anterior/próximo) */
-.bible-vsec.cross { border-style: dashed; }
+/* Indicador de salto pro capítulo/livro vizinho (preview anterior/próximo). A
+   moldura TRACEJADA saiu na v5.267: quem diz que aquela seção é de outro
+   capítulo é o rótulo `.bible-vsec-cross` em `--brand` — uma palavra, que é
+   mais do que um estilo de linha jamais disse — somada ao `.adj`, que já
+   esmaece as duas seções de contexto. */
 .bible-vsec-cross { font-size: .6rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--brand); }
 /* `flex: 1 1 0` com `min-height: 0`: as seções dividem a altura disponível em
    vez de somarem a altura do próprio texto (que é imprevisível — um versículo
@@ -2860,17 +2961,17 @@ main {
    abaixo do conteúdo; sem ele voltariam a empurrar a tela e a exigir scroll. */
 .bible-vsec {
   flex: 1 1 0; min-height: 0; overflow: hidden;
-  border: 1px solid var(--line); border-radius: var(--radius-card); background: var(--panel);
+  border-radius: var(--radius-card); background: var(--camada);
   padding: .5rem .65rem; cursor: pointer; display: flex; flex-direction: column; gap: .15rem;
 }
 /* O central é o que vai ao telão: recebe metade a mais de altura que os de
    contexto, então é o último a apertar quando o versículo é longo. */
 .bible-vsec.cur { flex: 1.5 1 0; }
 .bible-vsec.adj { opacity: .6; }             /* anterior / próximo (contexto) */
-.bible-vsec.cur { border-color: var(--accent); background: var(--panel-2); opacity: 1; }
+.bible-vsec.cur { background: var(--sel-fill); opacity: 1; }
 /* central EM EXIBIÇÃO ("no ar") — a MESMA cor de "no ar" do resto do app (ver
    `.msg-item.active`); era verde, que aqui é a cor de concluído/conectado. */
-.bible-vsec.cur.live { border-color: var(--live-strong); background: var(--live-soft); }
+.bible-vsec.cur.live { background: var(--live-fill); }
 .bible-vsec.cur.live .bible-vsec-ref { color: var(--live-strong); }
 .bible-vsec.empty { opacity: .4; cursor: default; font-style: italic; }
 .bible-vsec-ref { font-size: .64rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
@@ -3013,6 +3114,26 @@ main {
 .popup-sheet--full {
   max-height: 100%; height: 100%;
   border-radius: 0;
+  /* ---------- ELA É UMA TELA, ENTÃO É O NÍVEL 0 (v5.267) ----------
+     A v5.263 já tinha decidido isto por fora ("uma tela inteira e não um tipo
+     de pop up") e parado no meio do caminho: o fundo continuou `--panel`, o
+     mesmo tom de um cartão. Com isso a Biblioteca começava a árvore no nível 1
+     e gastava, logo na raiz, o degrau que faltaria três níveis adiante — a
+     seção e o card de álbum acabavam no MESMO tom, que é literalmente o relato
+     do operador ("dificultando discernir se estou em uma camada ou subcamada").
+
+     Pintá-la de `--bg` devolve o degrau inteiro: página → seção → álbum, e a
+     faixa do álbum separada por espaço. É a mesma escada da tela principal, e é
+     por isso que uma linha de busca aqui e uma linha do Cronograma lá pintam a
+     mesma cor sem nenhuma regra que as ligue.
+
+     A v5.263 recusou esta troca com um argumento MEDIDO, e ele expirou junto com
+     a paleta: *"no tema CLARO `--bg` (#dfe3e7) e `--panel-2` (#dee2e8) diferem
+     em um ponto por canal, então as barras de seção e os cards de álbum sumiriam
+     dentro da tela."* Verdade naquela paleta. Hoje a seção veste `--panel`
+     (branco, 1,29:1 contra a página) e o álbum, `--panel-2` (#d4dae2, 1,41:1
+     contra ela) — os dois tons daquela frase deixaram de se encostar. */
+  background: var(--bg);
   /* A área segura do topo só existe enquanto a folha ENCOSTA no topo da tela.
      Com a viewport visual rolada (`--vv-top`), ela já começa abaixo da barra de
      status, e reservar o espaço de novo abriria um vão no meio da tela.
@@ -3023,10 +3144,16 @@ main {
 }
 .popup-backdrop--full { align-items: stretch; }
 
+/* O CABEÇALHO NÃO TEM FILETE (v5.267). Ele tinha um `border-bottom` em `--line`
+   e o rodapé (`.popup-footer`), um `border-top` — os dois eram a moldura de uma
+   folha que já se separa do que está atrás dela pelo scrim. O que separa o
+   cabeçalho da lista é o ESPAÇO e o fato de a lista rolar por baixo dele: o
+   fundo da folha é opaco, então o conteúdo desaparece na borda, que é a mesma
+   coisa que o filete dizia — sem desenhar. */
 .popup-header {
   display: flex; align-items: center; gap: .5rem;
-  padding: .8rem 1rem .6rem;
-  border-bottom: 1px solid var(--line); flex-shrink: 0;
+  padding: .8rem 1rem .7rem;
+  flex-shrink: 0;
 }
 .popup-header-icon { font-size: var(--icon-sm); color: var(--accent); }
 .popup-title { font-size: .95rem; font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -3063,7 +3190,7 @@ main {
   flex-shrink: 0; margin: 0 .7rem .8rem;
   display: flex; align-items: center; justify-content: center; gap: .45rem;
   padding: .7rem .5rem;
-  background: transparent; color: var(--accent);
+  color: var(--accent);
   font-size: .86rem; font-weight: 600; font-family: inherit; cursor: pointer;
   appearance: none; -webkit-appearance: none;
 }
@@ -3087,7 +3214,6 @@ main {
 /* ---------- Rodapé do popup (Nova pasta) ---------- */
 .popup-footer {
   padding: .6rem .7rem;
-  border-top: 1px solid var(--line);
   flex-shrink: 0;
 }
 /* Botão largo genérico do bottom-sheet (nova pasta, sincronizar, cancelar,
@@ -3108,8 +3234,8 @@ main {
    de 2,4 no SVG tiram a fineza, que era a outra metade da queixa. */
 .new-folder-btn {
   width: 100%; padding: .6rem;
-  background: var(--accent-soft); border: 1px solid var(--accent);
-  border-radius: var(--radius-btn); color: var(--accent);
+  background: var(--accent-fill);
+  border-radius: var(--radius-btn); color: var(--on-accent);
   font-size: .9rem; font-weight: 600;
   display: flex; align-items: center; justify-content: center; gap: .4rem;
   cursor: pointer;
@@ -3125,7 +3251,7 @@ main {
    Display. Verde quando há TV recebendo a Presentation. */
 .display-status {
   width: 100%; padding: .6rem;
-  background: var(--surface); border: 1px solid var(--line);
+  background: var(--surface);
   border-radius: var(--radius-btn); color: var(--muted); font-size: .85rem;
   display: flex; align-items: center; justify-content: center; gap: .4rem;
   cursor: pointer; appearance: none; -webkit-appearance: none;
@@ -3138,7 +3264,7 @@ main {
    onde é a ação de abrir a tela do Display — e o dia em que ela quiser dizer
    "já está aberta" o desenho já existe. */
 .display-status.connected {
-  background: var(--ok-soft); border-color: var(--ok); color: var(--ok);
+  background: var(--ok-fill); color: var(--ok);
 }
 /* Alvo do botão de cast da preview — informativo, discreto. */
 /* A versão desceu do cabeçalho da lista para cá (ver o comentário no HTML): no
@@ -3278,25 +3404,21 @@ main {
 
      São DOIS sinais, e os dois já existem neste app:
 
-     · O TOM. `--panel-2` é o tom de CONTÊINER da Biblioteca (v5.241), e o degrau
-       que ele dá contra a folha é o mesmo que a `.bottombar` usa contra o fundo
-       da tela principal — medido, 1,29:1 no escuro e 1,30:1 no claro, contra os
-       1,32/1,29 de lá. É a régua do próprio app para "separar duas caixas".
-       `--bar`, o token daquela barra, NÃO serve aqui: ele foi calibrado contra
-       `--bg`, e no tema claro ele é branco puro, isto é, exatamente a cor da
-       folha — 1,00:1, nenhum contraste.
+     · O TOM. **`--camada` (v5.267), e não mais `--panel-2` à mão.** A barra é um
+       bloco de PRIMEIRO nível sobre a tela da Biblioteca, exatamente como uma
+       seção — e desde que a folha virou nível 0 (`--bg`), esse degrau é
+       1,49:1 no escuro e 1,29:1 no claro, contra os 1,29/1,30 que ela tinha
+       quando pousava sobre um `--panel`. `--bar`, o token da barra de baixo da
+       tela principal, continua NÃO servindo: ele foi calibrado contra `--bg` e
+       no tema claro é branco puro.
 
      · A SOMBRA, que é o que o tom sozinho não diz: *conteúdo passa por baixo
        daqui*. Ela é a mesma receita da tampa do álbum aberto
        (`.hymnal-card.expanded .coll-bar`), invertida — o precedente deste app
-       para uma barra sob a qual a lista rola. E ela é necessária mesmo com o
-       tom: as barras de seção e os cards de álbum TAMBÉM são `--panel-2`, então
-       um deles encostando na barra sem a sombra leria como uma peça só.
-
-     SEM `border-top`: entre dois tons e com a sombra, o filete vira um terceiro
-     separador na mesma junta — e borda somada a sombra é o filete duplo que a
-     v5.261 já tirou do `#favSearchBar`. */
-  background: var(--panel-2);
+       para uma barra sob a qual a lista rola. E ela continua necessária: as
+       seções da Biblioteca vestem o MESMO nível 1, então uma delas encostando
+       na barra sem a sombra leria como uma peça só. */
+  background: var(--camada);
   box-shadow: 0 -6px 12px -8px var(--shadow-ink);
   /* A área segura de baixo é a barra de gestos do Android, e com o teclado
      aberto ela está atrás dele — descontar `--kb` a zera, senão sobraria uma
@@ -3322,7 +3444,7 @@ main {
 }
 /* O recuo à esquerda abre o lugar dela: 12 (margem) + 18 (ícone) + 8 (respiro). */
 #hymnSearchInput { flex: 1; min-width: 0; padding: 11px 14px 11px 38px; font-size: .95rem; }
-/* ---------- E O CAMPO É BRANCO NOS DOIS TEMAS (v5.267) ----------
+/* ---------- E O CAMPO É BRANCO NOS DOIS TEMAS (v5.268) ----------
    Pedido do operador. Ele era `--surface-2`, isto é, um OVERLAY: dentro da
    folha, que pinta `--panel`, a superfície se INVERTE (a regra no topo deste
    arquivo) e ele saía como um recesso preto a 14%/16% — o mesmo desenho de um
@@ -3336,8 +3458,23 @@ main {
    "o campo branco":** o texto, o placeholder e a lupa moram DENTRO dele. No
    tema escuro `--text` é um off-white — sobre branco ele dá 1,17:1, isto é,
    invisível —, então os três vêm dos tokens sem tema (`--field-*`, em
-   tokens.css). Trocar só o fundo teria apagado o que se digita. */
-#hymnSearchInput { background: var(--field-bg); color: var(--field-text); }
+   tokens.css). Trocar só o fundo teria apagado o que se digita.
+
+   **E ELE PRECISA DE ELEVAÇÃO, porque no tema CLARO a barra também é branca.**
+   A barra é um bloco de nível 1 (`--camada`), e no claro esse nível É o branco:
+   campo branco sobre barra branca dá **1,00:1** — o campo simplesmente não
+   existe. Não há tom que resolva isso sem desfazer uma das duas decisões (a
+   barra no nível 1, ou o campo branco), e contorno está fora de questão desde
+   que a linha saiu do app inteiro. Sobra a ELEVAÇÃO, que é exatamente o
+   argumento que este arquivo já usa duas vezes na mesma tela: a barra tem
+   sombra porque as seções vestem o mesmo nível dela, e a tampa do álbum aberto
+   tem a dela pelo mesmo motivo. **Duas superfícies do mesmo tom se separam por
+   profundidade.** No escuro ela é invisível (o campo já contrasta 12,6:1) e não
+   custa nada. */
+#hymnSearchInput {
+  background: var(--field-bg); color: var(--field-text);
+  box-shadow: 0 1px 3px -1px var(--shadow-ink);
+}
 #hymnSearchInput::placeholder { color: var(--field-muted); }
 #hymnSearchPopup .lib-search-lupa { color: var(--field-muted); }
 /* Resultado: linha compacta [▶] [nome / subtítulo] [+]. Dois botões, cada um
@@ -3404,15 +3541,28 @@ main {
    lista é varrida de relance no meio do culto. */
 .hymn-lyric-hit {
   font-size: .8rem; font-style: italic; color: var(--brand-text);
-  border-left: 2px solid var(--brand); padding-left: .4rem; margin-top: .12rem;
+  /* A barra de citação é uma FAIXA PINTADA, não uma borda (v5.267): mesmos
+     pixels, declarada como o preenchimento que ela sempre foi. */
+  background: linear-gradient(to right, var(--brand) 0 2px, transparent 2px);
+  padding-left: .4rem; margin-top: .12rem;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
 }
 /* (A duração saiu da linha na v5.63: ela ocupava a única sobra de largura para
    dizer um número que não decide nada — ver hymnResultRow. O lugar é do botão
    de adicionar. As regras `.hymn-actions`/`.hymn-variant`/`.hymn-time` que
    descreviam os seis botões antigos saíram junto.) */
-.hymn-result.expanded { border-color: var(--accent); background: var(--panel-2); }
-.hymn-result.expanded .hymn-row { background: var(--panel-2); }
+/* ABERTA, A FAIXA AFUNDA — e é a mesma regra nos dois lugares em que ela existe
+   (v5.267). Ela era `border-color: --accent` + `background: --panel-2` na lista
+   de busca e um overlay dentro do álbum: duas gramáticas para o mesmo estado, e
+   a primeira usava o tom de um NÍVEL da árvore para dizer algo que não é nível
+   nenhum. Agora é overlay nos dois — que é também a única forma de a direção
+   ("isto recuou") sobreviver à troca de tema, e a única que funciona sobre um
+   fundo que pode ser `--panel`, `--panel-2` ou transparente conforme a tela.
+   `background-image` e não `background`: ele EMPILHA sobre o `--linha` que a
+   linha já pinta, em vez de substituí-lo. */
+.hymn-result.expanded {
+  background-image: linear-gradient(var(--surface-sunk), var(--surface-sunk));
+}
 /* Letra completa, abaixo da linha aberta. Rola por DENTRO, com teto de altura:
    um hino tem 20-40 linhas e, solto, empurraria os resultados seguintes para
    fora da tela — o operador perderia de vista a lista que ele estava justamente
@@ -3424,7 +3574,7 @@ main {
 .hymn-result.expanded .hymn-lyrics {
   display: block; max-height: 40vh; overflow-y: auto;
   margin: 0 .55rem .55rem; padding: .5rem .6rem;
-  border: 1px solid var(--line); border-radius: var(--radius-btn);
+  border-radius: var(--radius-btn);
   background: var(--bg);
 }
 /* Uma ESTROFE por bloco. O espaço entre blocos é o que a divide — mais
@@ -3462,7 +3612,7 @@ main {
 .hymn-result.expanded .item-detalhe {
   display: flex; gap: .6rem; align-items: flex-start;
   margin: 0 .55rem .55rem; padding: .5rem .6rem;
-  border: 1px solid var(--line); border-radius: var(--radius-btn);
+  border-radius: var(--radius-btn);
   background: var(--bg);
 }
 /* `aspect-ratio` com largura fixa RESERVA a altura antes de a imagem chegar, e
@@ -3502,7 +3652,7 @@ main {
 .song-menu-list { padding: .4rem .6rem .8rem; }
 .song-menu-btn {
   width: 100%; display: flex; align-items: center; gap: .7rem; text-align: left;
-  border: 1px solid var(--line); border-radius: var(--radius-btn);
+  border-radius: var(--radius-btn);
   background: var(--surface); color: var(--text);
   font-family: inherit; padding: .6rem .7rem; cursor: pointer;
 }
@@ -3542,28 +3692,33 @@ main {
   display: flex; align-items: center; justify-content: center;
   pointer-events: none;
 }
-/* A linha selecionável ganha o contorno do accent quando marcada — a mesma
-   gramática de `.lib-item.selected` e da aba ativa. Sem isso o único sinal
+/* A linha selecionável ganha o PREENCHIMENTO de escolhido quando marcada — o
+   mesmo `--sel-fill` de `.lib-item.selected` (v5.267). Sem isso o único sinal
    seria o quadradinho, e num alvo do tamanho da linha inteira o estado precisa
    ser lido da linha inteira. */
 .song-menu-btn.song-menu-sel:has(.song-menu-check.on) {
-  border-color: var(--accent); background: var(--accent-soft);
+  background: var(--sel-fill);
 }
 /* O quadrado é um ::before para o alvo (acima) e o desenho (aqui) serem coisas
    independentes — a mesma separação do `.pv-fab`, em que o botão é grande e o
-   ícone é pequeno. */
+   ícone é pequeno.
+   DESMARCADO ELE É UM RECESSO, não um contorno (v5.267): a caixa vazia era o
+   último lugar do app em que uma linha de 2px carregava informação, e o buraco
+   escuro diz a mesma coisa — "aqui cabe uma marca" — por preenchimento. */
 .song-menu-check::before {
   content: ''; display: block;
   width: 20px; height: 20px; border-radius: var(--radius-xs);
-  border: 2px solid var(--muted); background: transparent;
-  transition: background .12s ease, border-color .12s ease;
+  background: var(--surface-2-sunk);
+  transition: background .12s ease;
 }
-/* Marcado = âmbar preenchido com o ✓ desenhado por cima, a mesma convenção do
-   accent em todo o app (navegação, seleção, progresso). O ✓ é uma máscara CSS —
-   um SVG a mais só para isto seria um arquivo para manter, e a fonte de ícones
-   é um subset em que ele não entrou. */
+/* Marcado = preenchido no accent com o ✓ desenhado por cima, a mesma convenção
+   do accent em todo o app (navegação, seleção, progresso). O ✓ é uma máscara
+   CSS — um SVG a mais só para isto seria um arquivo para manter, e a fonte de
+   ícones é um subset em que ele não entrou; ele é um DESENHO, e é por isso que
+   as duas bordas que o traçam sobrevivem à varredura de contornos da v5.267,
+   como o aro do `.dl-ring`. */
 .song-menu-check.on::before {
-  background: var(--accent); border-color: var(--accent);
+  background: var(--accent);
 }
 .song-menu-check.on::after {
   content: ''; position: absolute;
@@ -3580,10 +3735,10 @@ main {
 .song-menu-go-row { padding-top: .35rem; }
 .song-menu-go {
   justify-content: center; text-align: center;
-  border-color: var(--accent); background: var(--accent-soft);
+  background: var(--accent-fill);
 }
 .song-menu-go .song-menu-text { align-items: center; }
-.song-menu-go .song-menu-label { color: var(--accent); }
+.song-menu-go .song-menu-label { color: var(--on-accent); }
 .song-menu-go:disabled { opacity: .5; cursor: default; }
 
 /* ---------- popup de Exibição (preenchimento da mídia) ---------- */
@@ -3659,7 +3814,11 @@ main {
    texto não se desloque quando a estrofe muda. */
 .lv-row {
   flex-shrink: 0;
-  border-left: 2px solid transparent; padding-left: .55rem;
+  /* A barra é uma FAIXA PINTADA (v5.267), e o `padding-left` fixo continua
+     garantindo que o texto não se desloque quando a estrofe muda — a faixa
+     nasce transparente e só ganha cor no `.current`. */
+  background: linear-gradient(to right, transparent 0 2px, transparent 2px);
+  padding-left: .55rem;
   font-size: .95rem; line-height: 1.5; color: var(--text);
 }
 /* A quebra de linha da própria letra (\n vindo dos <br> da API) é intencional
@@ -3681,7 +3840,10 @@ main {
 .lv-row--verse .lv-num { font-size: .78rem; font-weight: 700; color: var(--accent); margin-right: .3rem; }
 /* No ar agora: barra na margem + texto em acento. Sem cartão, o contraste da
    cor é o que separa — e continua legível de relance. */
-.lv-row.current { border-left-color: var(--accent); color: var(--accent); font-weight: 600; }
+.lv-row.current {
+  background: linear-gradient(to right, var(--accent) 0 2px, transparent 2px);
+  color: var(--accent); font-weight: 600;
+}
 .lv-row.current .lv-aux { color: var(--accent); }
 
 /* Nota: o antigo "toast" flutuante foi removido — as informações agora são
@@ -3709,7 +3871,7 @@ main {
 .dialog-backdrop.open { opacity: 1; pointer-events: auto; }
 .dialog-card {
   width: 100%; max-width: 360px;
-  background: var(--panel); border: 1px solid var(--line);
+  background: var(--panel);
   border-radius: var(--radius-card);
   padding: 1rem 1rem .8rem;
   display: flex; flex-direction: column; gap: .7rem;
@@ -3906,7 +4068,7 @@ body.mode-simple .bottombar { display: none; }
    porque a lista de quem está recebendo cresce com a transmissão ligada — no
    centro da tela ela empurraria o cartão para fora dos dois lados. */
 .simple-conn {
-  background: var(--panel); border: 1px solid var(--line);
+  background: var(--panel);
   border-radius: var(--radius-card); padding: .9rem;
   max-height: 46vh; overflow-y: auto;
 }
@@ -4028,11 +4190,11 @@ body.mode-simple .hymn-add-btn { display: none; }
    marca vem num `::after` absoluto: assim vale igual para um botão de ícone só
    (`.row-btn`, `.cue-save-btn`) e para um com texto (`.misc-chip`), sem nenhum
    pular de largura durante o pulso.
-   A cor do pulso precisa vencer a BORDA de quem tem uma (`.cue-save-btn`): sem
-   isso, o contorno em `--line` continuava desenhado por cima do verde e o sinal
-   saía com uma moldura que não é dele. */
+   (A linha `border-color: transparent` que morava aqui existia para o pulso
+   vencer a BORDA do `.cue-save-btn` — sem ela o contorno em `--line` continuava
+   desenhado por cima do verde. Ela saiu na v5.267 junto com aquele contorno, e
+   com todos os outros: não há mais borda nenhuma a apagar.) */
 .btn-pulso { position: relative; transition: background-color .15s ease, color .15s ease; }
-.btn-pulso { border-color: transparent; }
 .btn-pulso > * { visibility: hidden; }
 /* O ✓ e o ✕ vêm da FONTE DE ÍCONES, não do texto (v5.112). Os caracteres
    Unicode `✓`/`✕` são desenhados pela fonte do sistema, que num Android
@@ -4080,7 +4242,11 @@ body.mode-simple .hymn-add-btn { display: none; }
   content: '';
   position: absolute; inset: 0;
   border-radius: inherit;
-  border: 2px solid var(--accent);
+  /* Anel por SOMBRA e não por `border` (v5.267): visualmente idêntico — a
+     sombra acompanha o `scale` da animação como a borda acompanhava — e mantém
+     a folha sem uma única declaração de contorno. Ele não ocupa layout, o que
+     também dispensa o `inset` negativo que uma borda pediria. */
+  box-shadow: 0 0 0 2px var(--accent);
   pointer-events: none;
   animation: eco-anel .42s ease-out forwards;
 }
@@ -4131,7 +4297,6 @@ body.mode-simple .hymn-add-btn { display: none; }
   text-align: left;
   color: var(--on-accent);
   background: var(--accent-fill);
-  border: 1px solid var(--accent);
   border-radius: var(--radius-card); cursor: pointer;
 }
 /* O toque escurece em vez de clarear: o preenchido já é a camada mais alta da
@@ -4143,8 +4308,7 @@ body.mode-simple .hymn-add-btn { display: none; }
    desconecta) — o que muda é ele parar de disputar atenção com o que ainda
    falta fazer na folha. */
 .cast-acao.connected {
-  background: var(--ok-soft); color: var(--text);
-  border: 1px solid var(--ok);
+  background: var(--ok-fill); color: var(--text);
 }
 .cast-acao.connected .cast-acao-ico { color: var(--ok); }
 /* O ícone é SVG, não glifo (ver o comentário dos símbolos no HTML): os três da
@@ -4181,8 +4345,7 @@ body.mode-simple .hymn-add-btn { display: none; }
    trilho com o botão deslizante. Ele saiu com a v5.224: as duas formas de
    conectar respondem à mesma pergunta e agora têm a mesma anatomia.) */
 .cast-acao.ligado {
-  background: var(--danger-soft); color: var(--text);
-  border: 1px solid var(--danger-strong);
+  background: var(--live-fill); color: var(--text);
 }
 .cast-acao.ligado .cast-acao-ico { color: var(--danger-text); }
 /* Enquanto o shell responde (ligar leva um instante, pode pedir confirmação e
@@ -4242,17 +4405,17 @@ body.mode-simple .hymn-add-btn { display: none; }
 .ota-row {
   display: block; width: 100%;
   margin-top: 6px; padding: 8px 10px;
-  border: 1px solid var(--accent); border-radius: var(--radius-btn);
-  background: transparent; color: var(--accent);
+  border-radius: var(--radius-btn);
+  background: var(--accent-soft); color: var(--accent);
   font-size: .82rem; font-weight: 600; text-align: center;
   cursor: pointer;
 }
 .ota-row--agora {
-  background: var(--accent-fill); border-color: var(--accent-fill);
+  background: var(--accent-fill);
   color: var(--on-accent);
 }
 .ota-row:disabled {
-  background: transparent; border-color: var(--line); color: var(--muted);
+  background: var(--surface); color: var(--muted);
   cursor: default;
 }
 
@@ -4367,12 +4530,13 @@ body.mode-simple .hymn-add-btn { display: none; }
 .cast-tela.entrando { animation: castTelaEntra .22s ease both; }
 .cast-tela.saindo { animation: castTelaSai .18s ease both; pointer-events: none; }
 .cast-tela-nome { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* Contornado, nunca preenchido: é ação destrutiva, e o preenchido em vermelho
-   é "está no ar agora" neste app (ver a paleta). */
+/* SUAVE, nunca saturado: é ação destrutiva, e o vermelho CHEIO deste app é
+   "está no ar agora" (ver a paleta — a régua deixou de ser "preenchido ×
+   contornado" na v5.267 e passou a ser a INTENSIDADE do mesmo preenchimento). */
 .cast-tela-fora {
   flex: 0 0 auto; padding: .3rem .6rem; font-size: .75rem;
-  background: transparent; color: var(--danger-text);
-  border: 1px solid var(--danger-text); border-radius: var(--radius-pill); cursor: pointer;
+  background: var(--danger-soft); color: var(--danger-text);
+  border-radius: var(--radius-pill); cursor: pointer;
 }
 .cast-tela-fora:disabled { opacity: .5; cursor: default; }
 /* O acesso aos ajustes que sobraram — um link, não um cartão: ele não é o
