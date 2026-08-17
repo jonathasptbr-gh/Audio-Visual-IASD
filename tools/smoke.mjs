@@ -1519,6 +1519,200 @@ try {
     + (e && e.message) + ')');
 }
 
+// ── A GAVETA DE OPÇÕES DA FAIXA (v5.286) ─────────────────────────────────
+// Sete pedidos do operador sobre a gaveta que a v5.285 criou, e dois deles são
+// defeitos que ela introduziu — o caso cobre os dois grupos porque eles vivem
+// na mesma peça e um conserto pode desfazer o outro.
+try {
+  const g = await pg.evaluate(async () => {
+    setAppMode('full');
+    const c = allCollections().find((x) => x.kind === 'hymnal');
+    collState[c.id] = { indexSyncedAt: Date.now(), isHymnal: true,
+      songs: [{ id_music: 'g1', name: 'Meu Lugar no Mundo', track: 1,
+        has_instrumental_music: true, duration: '3:47' }] };
+    ui(c.id).expanded = true; ui(c.id).shown = 100;
+    const lista = document.createElement('ul');
+    lista.className = 'hymnal-list'; lista.style.width = '390px';
+    document.body.appendChild(lista);
+    grupoAberto = 'Hinários';
+    renderCollectionsList(lista, () => {}, { semTotal: true });
+    const li = lista.querySelector('.coll-songs > .hymn-result');
+    li.querySelector('.row').click();
+    await new Promise((r) => setTimeout(r, 350));
+    const op = li.querySelector('.hymn-opcoes');
+    const efetiva = (el) => {
+      if (!el) return null;
+      const pilha = [];
+      for (let n = el; n; n = n.parentElement) {
+        const m = getComputedStyle(n).backgroundColor.match(/[\d.]+/g);
+        if (!m) continue;
+        const a = m.length > 3 ? Number(m[3]) : 1;
+        if (a === 0) continue;
+        pilha.push([Number(m[0]), Number(m[1]), Number(m[2]), a]);
+        if (a === 1) break;
+      }
+      let c2 = [0, 0, 0];
+      for (let k = pilha.length - 1; k >= 0; k--) {
+        const [vr, vg, vb, va] = pilha[k];
+        c2 = [vr * va + c2[0] * (1 - va), vg * va + c2[1] * (1 - va), vb * va + c2[2] * (1 - va)];
+      }
+      return c2.map(Math.round).join(', ');
+    };
+    const rotulos = () => [...op.querySelectorAll('.song-menu-label')].map((e) => e.textContent);
+    const r = {
+      // 1 · OS MARCADORES DE LISTA (defeito da v5.285): a `<ul>` do corpo não
+      // herdava `list-style: none` de ninguém, e o navegador desenhava os
+      // quadradinhos que o operador viu à esquerda dos cards.
+      marcador: getComputedStyle(op).listStyleType,
+      // 2 · O SELETOR tem TRÊS segmentos, e "Letra" é um deles.
+      seg: [...op.querySelectorAll('.song-menu-seg .fit-opt')].map((e) => e.textContent),
+      // 3 · "Tocar agora" é a PRIMEIRA selecionável, e as linhas "Tocar música
+      // cantada"/"Tocar playback" não existem mais: elas repetiam o seletor.
+      rotulos: rotulos(),
+      // O RÓTULO, e não o `textContent` do botão: ele traz o subtítulo colado
+      // (as duas `<span>` não têm quebra entre elas), e a comparação sairia
+      // sempre falsa por um motivo que não é o do caso.
+      primeiraSel: (() => {
+        const b = [...op.querySelectorAll('.song-menu-btn')]
+          .find((x) => x.querySelector('.song-menu-check'));
+        const t = b && b.querySelector('.song-menu-label');
+        return t ? t.textContent.trim() : null;
+      })(),
+      // 4 · TODA opção tem caixa, e ela se vê SEM estar marcada.
+      quantasCaixas: op.querySelectorAll('.song-menu-check').length,
+      quantosBotoesSel: [...op.querySelectorAll('.song-menu-btn')]
+        .filter((x) => x.querySelector('.song-menu-check')).length,
+      // A CAIXA VAZIA, COMPOSTA sobre o botão em que ela mora. `backgroundColor`
+      // de um `::before` com alfa devolve o alfa — medir a string crua compararia
+      // PRETO com o botão e daria uma razão enorme em qualquer estado, isto é,
+      // passaria sem medir nada (a mesma armadilha da v5.283, um nível abaixo).
+      caixaVazia: (() => {
+        const bruto = getComputedStyle(
+          op.querySelector('.song-menu-check'), '::before').backgroundColor;
+        const m = (bruto.match(/[\d.]+/g) || []).map(Number);
+        if (m.length < 3) return null;
+        const a = m.length > 3 ? m[3] : 1;
+        const base = (efetiva(op.querySelector('.song-menu-btn')) || '0, 0, 0')
+          .split(', ').map(Number);
+        return m.slice(0, 3).map((v, k) => Math.round(v * a + base[k] * (1 - a))).join(', ');
+      })(),
+      fundoBotao: efetiva(op.querySelector('.song-menu-btn')),
+      // 5 · O FUNDO da gaveta é o da folha antiga (`--panel`).
+      fundoGaveta: efetiva(li.querySelector('.hymn-gaveta')),
+      // A COR DA FOLHA ANTIGA, medida NELA e não no token: o pedido é "a cor
+      // que era o popup", e o popup ainda existe (ele serve o YouTube e a
+      // importação). Comparar com a peça de verdade é o que sobrevive a uma
+      // troca de token dos dois lados.
+      fundoFolha: getComputedStyle(
+        document.querySelector('#songMenuPopup .popup-sheet')).backgroundColor,
+      // 6 · A LETRA está atrás de um botão, LADO A LADO com o confirmar.
+      letra: getComputedStyle(li.querySelector('.hymn-lyrics')).display,
+      ladoALado: (() => {
+        const go = op.querySelector('.song-menu-go');
+        const ver = op.querySelector('.song-menu-letra');
+        if (!go || !ver) return null;
+        return Math.abs(go.getBoundingClientRect().top - ver.getBoundingClientRect().top) <= 2;
+      })(),
+      letraDepois: (() => {
+        const ver = op.querySelector('.song-menu-letra');
+        if (!ver) return null;
+        ver.click();
+        return getComputedStyle(li.querySelector('.hymn-lyrics')).display;
+      })(),
+    };
+    // Deixa a lista NO DOCUMENTO para a pressão de verdade lá fora; quem a
+    // remove é o segundo `evaluate`.
+    window.__gaveta = { lista, li, op };
+    return r;
+  });
+  // ===== O FEEDBACK NÃO ENCOLHE A SEÇÃO INTEIRA (v5.286) =====
+  // Relato do operador: *"o feedback de toque está encolhendo toda a seção de
+  // opções do item, ao tocar em apenas uma das opções"*. A causa é o `:active`
+  // do `.lib-item` sendo satisfeito por um botão DENTRO dele — e o que se mexe
+  // é a linha mais a gaveta, meia tela por causa de um toque de 40px.
+  //
+  // A pressão é de VERDADE (`mouse.down`), porque `:active` não se simula com
+  // classe: o que se mede é o `transform` computado da linha ENQUANTO o botão
+  // está pressionado, que é exatamente o instante do relato.
+  const press = await (async () => {
+    const cx = await pg.evaluate(() => {
+      const b = window.__gaveta.op.querySelector('.song-menu-btn');
+      const r2 = b.getBoundingClientRect();
+      return { x: Math.round(r2.left + r2.width / 2), y: Math.round(r2.top + r2.height / 2) };
+    });
+    await pg.mouse.move(cx.x, cx.y);
+    await pg.mouse.down();
+    const durante = await pg.evaluate(() => ({
+      linha: getComputedStyle(window.__gaveta.li).transform,
+      botao: getComputedStyle(
+        window.__gaveta.op.querySelector('.song-menu-btn')).transform,
+    }));
+    await pg.mouse.up();
+    return durante;
+  })();
+  await pg.evaluate(() => {
+    window.__gaveta.lista.remove();
+    delete window.__gaveta;
+    grupoAberto = ''; songMenuFor = null;
+  });
+  checar(press.linha === 'none',
+    'o toque numa OPÇÃO não encolhe a linha nem a gaveta — o feedback é do botão '
+    + 'tocado, não da caixa de meia tela em volta dele',
+    'transform da linha: ' + press.linha);
+  checar(press.botao !== 'none',
+    'e o BOTÃO continua encolhendo: o toque não deixou de responder',
+    'transform do botão: ' + press.botao);
+  // `razao` mora dentro do laço de temas lá em cima; aqui a medição é de um
+  // tema só (o padrão), e o par local basta.
+  const lum2 = (str) => {
+    const m = (str.match(/[\d.]+/g) || []).slice(0, 3).map((x) => {
+      const n = Number(x) / 255;
+      return n <= 0.03928 ? n / 12.92 : Math.pow((n + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * m[0] + 0.7152 * m[1] + 0.0722 * m[2];
+  };
+  const razao2 = (a, b) => {
+    const x = lum2(a); const y = lum2(b);
+    return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+  };
+  checar(g.marcador === 'none',
+    'a lista de opções não desenha MARCADOR de lista — os "pontos à esquerda dos '
+    + 'cards" eram o `<ul>` do corpo sem `list-style` (defeito da v5.285)',
+    'list-style-type: ' + g.marcador);
+  checar(g.seg.join(' · ') === 'Cantada · Playback · Letra',
+    'o seletor tem as TRÊS variantes — "Apenas a letra" virou uma delas',
+    JSON.stringify(g.seg));
+  checar(g.primeiraSel === 'Tocar agora'
+    && !g.rotulos.some((t) => /Tocar música cantada|Tocar playback/.test(t)),
+    'e "Tocar agora" é a PRIMEIRA selecionável, no lugar das duas linhas que '
+    + 'repetiam o seletor', JSON.stringify(g.rotulos));
+  checar(g.quantasCaixas === g.quantosBotoesSel && g.quantasCaixas === 4,
+    'as QUATRO opções são selecionáveis, e cada uma tem a sua caixa',
+    g.quantasCaixas + ' caixas para ' + g.quantosBotoesSel + ' opções');
+  // A caixa VAZIA precisa se ver contra o botão em que ela mora — era este o
+  // pedido ("para entender que não são botões, mas selecionáveis"), e o piso é
+  // o mesmo degrau que o app usa para separar duas superfícies.
+  const dCaixa = g.caixaVazia
+    ? razao2('rgb(' + g.caixaVazia + ')', 'rgb(' + g.fundoBotao + ')') : 0;
+  // O PISO É 1,25 e não 1,3, e a diferença tem causa: no tema escuro o recesso
+  // pousa sobre um botão JÁ escuro, e a razão WCAG comprime no pé da escala. O
+  // que a asserção guarda é a melhora medida — era 1,13:1 com o
+  // `--surface-2-sunk` da v5.285, que é o "não dá para ver" do relato.
+  checar(dCaixa >= 1.25,
+    'e a caixa VAZIA se vê contra o botão, sem estar marcada ('
+    + dCaixa.toFixed(2) + ':1 — rgb(' + g.caixaVazia + ') sobre rgb(' + g.fundoBotao + '))');
+  checar(!!g.fundoGaveta
+    && razao2('rgb(' + g.fundoGaveta + ')', g.fundoFolha) < 1.02,
+    'o fundo da gaveta é o da FOLHA antiga — é a base para a qual os botões '
+    + 'dela foram calibrados (' + g.fundoGaveta + ')');
+  checar(g.letra === 'none' && g.ladoALado === true && g.letraDepois === 'block',
+    'e a LETRA fica atrás de um botão lado a lado com o confirmar, que a revela',
+    JSON.stringify({ antes: g.letra, ladoALado: g.ladoALado, depois: g.letraDepois }));
+} catch (e) {
+  checar(false, 'a medição da gaveta de opções terminou sem exceção ('
+    + (e && e.message) + ')');
+}
+
 // ── A COLUNA DA DIREITA NÃO SE MEXE (v5.242) ─────────────────────────────
 // Pedido do operador: a seta de fechar o acordeão vai para a THUMB do álbum,
 // "não precisando mover os números referentes ao tamanho do álbum que hoje

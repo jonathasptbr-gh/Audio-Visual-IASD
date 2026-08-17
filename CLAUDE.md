@@ -3053,10 +3053,77 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.285** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.286** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.286: A GAVETA DE OPÇÕES, EM SETE PONTOS — e dois deles são defeitos que
+> a v5.285 introduziu. OTA PURO** (sem Release).
+>
+> O operador usou a gaveta nova e devolveu sete apontamentos sobre a mesma peça.
+> Eles vieram num lote só porque vivem um dentro do outro: um conserto de
+> qualquer um deles mexe no que o vizinho mede.
+>
+> **Os dois DEFEITOS, e os dois são meus:**
+>
+> - **"Verifique o que são esses pontos ou marcadores à esquerda dos cards."**
+>   São marcadores de LISTA. A `<ul>` das opções nasceu no corpo da linha e não
+>   herdou `list-style: none` de ninguém — a do popup é `.popup-list`, que já o
+>   declarava. Eles não vinham de regra nenhuma do app, e é por isso que não
+>   havia o que procurar: era a **ausência** de uma. (Quadrados, e não bolinhas,
+>   porque o navegador troca o marcador conforme a profundidade do aninhamento —
+>   o que os tornava ainda menos reconhecíveis como o que eram.)
+> - **"O feedback de toque está encolhendo toda a seção de opções."** É o
+>   `:active` do `.lib-item` sendo satisfeito por um botão DENTRO dele. O app já
+>   conhecia esta armadilha — a v5.269 a desligou para o `⋮` com o argumento de
+>   que "o movimento da caixa polui o conjunto" —, e a gaveta a reabriu num
+>   alcance maior: o que se mexia era a linha MAIS a gaveta, meia tela por causa
+>   de um toque num botão de 40px.
+>
+> **Os cinco AJUSTES:**
+>
+> - **"Tocar agora" vira a primeira opção da lista de check**, e as linhas
+>   "Tocar música cantada"/"Tocar playback" saem. O operador nomeou a razão:
+>   *"já que nessa seção de check já temos os alternadores entre cantado e
+>   playback"* — a variante aparecia DUAS vezes, uma como segmento e outra como
+>   linha. Agora o seletor responde **o quê** e as quatro opções respondem
+>   **onde**.
+> - **E "Letra" é o terceiro segmento**, ao lado de Cantada e Playback. Isso
+>   torna "Só a letra, no Cronograma" redundante — ela era exatamente `Letra` +
+>   `Cronograma` —, e a linha saiu. `addLyricCue` passou a aceitar VÁRIAS listas
+>   (um registro só, como qualquer item multi-destino), porque a cena de letra
+>   deixou de ser exclusiva do Cronograma. O seletor agora aparece SEMPRE: antes
+>   ele dependia de haver playback, e toda música tem letra.
+> - **As caixas de marcação se veem sem estar marcadas** — *"para entender que
+>   não são botões, mas selecionáveis"*. Medido: o recesso antigo dava
+>   **1,08:1** contra o botão em que mora, que é o "não dá para ver" do relato;
+>   `--check-vazio` o leva a **1,28:1**. Ele é um token com TEMA, e não o
+>   `--scrim` compartilhado: no claro aquele .6 seria uma lápide sobre um botão
+>   claro. Continua sendo um RECESSO — a regra da v5.267 vale —, e o teto é o do
+>   próprio tema escuro: preto sobre um botão já escuro comprime a razão por
+>   construção.
+> - **O fundo da gaveta volta a ser o da folha antiga** (`--panel`). O pedido
+>   cobra a consequência de mudar a lista de lugar: na folha ela pousava em
+>   `--panel` e os botões dela são um RECESSO; trazida para o corpo da linha,
+>   passou a pousar na faixa, que já é um recesso do card. Recesso sobre recesso,
+>   e o degrau que separava o botão do fundo encolheu.
+> - **A letra fica atrás de um botão lado a lado com o confirmar.** Ela é a mais
+>   alta das duas metades da gaveta, e aberta por padrão empurrava as opções para
+>   longe do dedo em toda abertura — quando o que se abre a gaveta para fazer é
+>   DECIDIR. O botão é fornecido pelo dono da lista (`songMenuFor.aoLado`), então
+>   a folha, que não tem letra nenhuma a esconder, não muda.
+>
+> **Duas armadilhas de medição no caminho, e as duas são a mesma:** a asserção da
+> caixa vazia media `backgroundColor` de um `::before` com ALFA — isto é,
+> comparava PRETO com o botão e passava em qualquer estado. É a armadilha da
+> v5.283 um nível abaixo, e a correção é a mesma (compor sobre a base). E o
+> `razao` do arquivo mora dentro do laço de temas; usá-lo fora dele derrubava o
+> caso inteiro por `ReferenceError`, escondendo tudo o que vinha depois.
+>
+> Verificado por ISOLAMENTO, peça a peça: os marcadores de volta reprovam **1**,
+> o fundo antigo **1**, a letra aberta **1**, a caixa antiga **1** (imprimindo o
+> 1,08:1 do relato) e o feedback sem a guarda **1**.
 
 > **A v5.285: O ARRASTO SAI DO APP, os botões saem da faixa, e as opções descem
 > para o corpo da linha. OTA PURO** (sem Release).

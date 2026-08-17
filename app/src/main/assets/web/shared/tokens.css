@@ -326,6 +326,18 @@
      arquivo — e o tema claro precisa de outros dois alfas. O SINAL é o mesmo
      nos dois temas (flutua sobre a página, afunda dentro do cartão); o que
      muda é a intensidade. */
+  /* A CAIXA DE MARCAÇÃO VAZIA (v5.286). Pedido do operador: *"deixe as caixas
+     de check sempre visíveis, para entender que não são botões, mas
+     selecionáveis"*. Ela era `--surface-2-sunk` (.20), e composta sobre o botão
+     em que mora isso dava **1,13:1** — um degrau que o olho não acha de
+     relance, e a linha continuava se lendo como botão. Mais fundo, o mesmo par
+     vai a ~1,3:1, que é o degrau que este app usa para separar duas
+     superfícies.
+     **Ela é um RECESSO, não um contorno** (a regra da v5.267 continua valendo),
+     e por isso o teto é o do próprio tema escuro: preto sobre um botão já
+     escuro comprime a razão por construção. É o mais fundo que dá, e é uma
+     melhora medida sobre o que havia. */
+  --check-vazio: rgba(0, 0, 0, .6);   /* 1,28:1 sobre o botão (era 1,13) */
   --surface-sunk: rgba(0, 0, 0, .24);
   --surface-2-sunk: rgba(0, 0, 0, .14);
 
@@ -605,6 +617,10 @@
      **1,32:1** e #cccccc dá **1,51:1** — os dois acima do piso de 1,30:1, que é
      onde o par nunca tinha chegado. Texto: `--text` 6,32:1 e `--muted` 5,02:1
      sobre o primeiro. */
+  /* No claro o mesmo recesso pousa sobre um botão CLARO, então ele precisa de
+     muito menos alfa para o mesmo efeito — e o `--scrim` (.6, compartilhado)
+     seria uma lápide no meio da linha. */
+  --check-vazio: rgba(0, 0, 0, .3);
   --surface-sunk: rgba(0, 0, 0, .14);
   --surface-2-sunk: rgba(0, 0, 0, .20);
 
