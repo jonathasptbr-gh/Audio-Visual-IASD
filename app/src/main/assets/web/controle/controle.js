@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.281';
+const WEB_VERSION = '5.282';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -588,12 +588,13 @@ let favAberto = true;
 // o grupo já aberto, e vê-lo "abrir" sozinho leria como se algo tivesse
 // acontecido — a mesma regra do `animarAbertura` do card.
 const gruposAnimar = new Set();
-// A LISTA DE FAVORITOS ESTÁ EXPANDIDA ALÉM DO VÃO? (v5.273, pedido do operador:
-// *"caso tenha mais itens do que cabe nesse vão, vai ter um botão na sua base
-// que permite a expansão total da lista"*.) Transiente pela mesma razão do
-// `grupoAberto`: é estado de navegação, e ele nasce recolhido a cada abertura
-// do app — que é a forma em que as outras seções ficam visíveis.
-let favExpandido = false;
+// (`favExpandido` viveu aqui da v5.273 à v5.281, com o botão "Ver todos" que
+// ele governava. Os dois saíram na v5.282: *"ajuste o funcionamento interno
+// dela para que não tenha mais o sistema de ver mais. Agora quando aberta ela
+// mostra toda a listagem"*. O vão deixou de ser uma altura EXATA e virou um
+// PISO (`min-height`, em `controle.css`), então não há mais recorte — e sem
+// recorte não há o que expandir. Uma seção aberta que mostra tudo é o que as
+// outras já fazem; era esta que tinha um segundo estado a mais.)
 // OS NOMES DOS GRUPOS FIXOS da Biblioteca, num lugar só. Eles não são rótulo:
 // são a CHAVE de `grupoAberto`/`gruposAnimar`, e um literal repetido entre o
 // construtor e um chamador divergiria calado — o grupo abriria e o estado
@@ -6550,13 +6551,11 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
     // ser escolhido — é sempre a única que tem conteúdo. As fechadas são barras
     // de altura fixa e sobram empilhadas na base, que é o pedido do operador.
     //
-    // A MARCA DOS FAVORITOS é do NOME e não do estado (v5.273, pedido do
-    // operador: *"deixar a cor de fundo da coleção dos favoritos em uma cor
-    // diferente, um tom mais escuro"*): fechada ela é uma barra entre outras
-    // barras, e é aí que o tom próprio mais trabalha — ele diz qual delas é a
-    // dos favoritos antes de o nome ser lido. Ela é também a única que CRESCE
-    // (v5.276), e as duas coisas moram nesta classe porque são a mesma: esta
-    // seção não é uma coleção.
+    // A MARCA DOS FAVORITOS é do NOME e não do estado. Ela responde a UMA
+    // pergunta desde a v5.282: quem ocupa o vão que sobra da tela (o
+    // `min-height` do CSS). O TOM PRÓPRIO que ela carregou da v5.273 à v5.281
+    // saiu — *"ajuste as cores dela para que ela fique igual as outras
+    // coleções"* —, e a classe fica porque o vão continua sendo só dela.
     if (ehFav) li.classList.add('coll-group--fav');
     // O nome no nó: o redesenho APAGA este `li`, e quem quiser reencontrar a
     // seção depois (o alinhamento da abertura, logo abaixo) não tem outro
@@ -7795,31 +7794,17 @@ function redesenharFavoritosNaBiblioteca() {
   acertarVaoDosFavoritos();
 }
 
-// ===== O BOTÃO QUE ABRE A LISTA DE FAVORITOS ALÉM DO VÃO (v5.273) =====
-//
-// A seção dos favoritos ocupa o que sobra da tela, e a lista pode ter mais itens
-// do que cabe ali. O corpo é RECORTADO (o CSS lhe dá `overflow: hidden`), e este
-// botão troca esse recorte pela lista inteira — a partir daí quem rola é a
-// Biblioteca, e as seções fechadas descem com ela.
-//
-// **ELE CONTA ITENS QUE FICARAM DE FORA, não pixels que transbordaram** (v5.276).
-// A primeira versão perguntava `scrollHeight > clientHeight`, e ela aparecia
-// *"literalmente sem nenhum item na lista"*: numa Biblioteca com oito seções o
-// vão é pequeno, a seção dos favoritos é a única que encolhe, e o que sobra do
-// corpo recorta até a linha de "Nenhum favorito ainda". A caixa transbordava, e
-// a caixa não é a pergunta — a pergunta é a do operador, *"apenas quando há mais
-// itens do que a altura disponível"*. Com zero itens a resposta é zero, e não há
-// medida de caixa que a produza.
-//
-// A ordem entre elas continua sendo MEDIDA e nunca deduzida de uma contagem
-// fixa: quantos cabem depende de quantas seções existem, de haver ou não pasta
-// do aparelho, da altura da tela e do teclado.
-//
-// E a leitura é feita num `requestAnimationFrame` porque no instante em que a
-// lista é montada os `li` ainda não foram dispostos: todos mediriam zero, e o
-// botão nunca apareceria. Expandido ele NÃO é medido — ali não há recorte, logo
-// não há item de fora, e a única leitura possível seria "não precisa mais dele",
-// que tiraria da tela o caminho de volta.
+// (O BOTÃO "VER TODOS" viveu aqui da v5.273 à v5.281 e SAIU na v5.282, com o
+// `favExpandido` que ele governava — *"não tenha mais o sistema de ver mais.
+// Agora quando aberta ela mostra toda a listagem"*. Ele existia porque o vão
+// era uma altura EXATA e o corpo era um RECORTE; com o vão virando um PISO
+// (`min-height`), a seção cresce com a lista e não há mais nada cortado para
+// um botão revelar. Com ele foram embora a régua de "quantos itens ficaram de
+// fora" e a leitura adiada um quadro que ela exigia — o que restou desta
+// família é a MEDIDA do vão, logo abaixo, que continua sendo medida e nunca
+// deduzida de uma contagem fixa: quantos favoritos cabem depende de quantas
+// seções existem, de haver ou não pasta do aparelho, da altura da tela e do
+// teclado.)
 // Rola `lista` até o topo da seção `nome` ficar no topo da área visível dela.
 // O `li` é reencontrado pelo `data-grupo` porque o redesenho que acabou de
 // rodar apagou o nó que o chamador tinha na mão.
@@ -7836,7 +7821,7 @@ function alinharGrupoNoTopo(lista, nome) {
   lista.scrollTo({ top: lista.scrollTop + dy, behavior: semMovimento() ? 'auto' : 'smooth' });
 }
 
-// ===== O VÃO DOS FAVORITOS É FIXO, E ELE É UMA MEDIDA DE TELA (v5.277) =====
+// ===== O VÃO DOS FAVORITOS É UMA MEDIDA DE TELA (v5.277 → v5.282) =====
 //
 // Pedido do operador: *"eu quero que o espaço dos favoritos seja fixo, mas seja
 // o espaço proporcional que sobrou após listar as outras coleções abaixo. É uma
@@ -7849,12 +7834,18 @@ function alinharGrupoNoTopo(lista, nome) {
 // lista de atalhos mudava de tamanho conforme o que o operador abrisse noutro
 // lugar da tela.
 //
-// Fixo, ele é o que sobra da TELA depois das outras seções COLAPSADAS: uma
-// altura em pixels, escrita numa custom property da lista. A conta usa a altura
-// da BARRA de cada seção — que é exatamente a altura dela fechada, já que o
-// corpo é `display: none` nesse estado —, então ela **não depende de qual
-// coleção está aberta**, que é a propriedade inteira. Abrir um álbum passa a
-// empurrar a lista para baixo e a rolar, como qualquer lista.
+// Ele é o que sobra da TELA depois das outras seções COLAPSADAS: uma altura em
+// pixels, escrita numa custom property da lista. A conta usa a altura da BARRA
+// de cada seção — que é exatamente a altura dela fechada, já que o corpo é
+// `display: none` nesse estado —, então ela **não depende de qual coleção está
+// aberta**, que é a propriedade inteira. Abrir um álbum passa a empurrar a
+// lista para baixo e a rolar, como qualquer lista.
+//
+// **O QUE ELE É PARA O CSS mudou na v5.282: de `height` para `min-height`** —
+// *"agora esse é apenas o tamanho mínimo, que cresce conforme a lista dos
+// favoritos requerir mais que esse espaço disponível"*. Esta função não mudou
+// uma linha, e é isso que o registro guarda: a MEDIDA é a mesma pergunta ("o
+// que sobra da tela?"); o que mudou é a seção deixar de ser presa a ela.
 function medirVaoDosFavoritos(lista) {
   if (!lista || !lista.isConnected) return;
   const secoes = [...lista.children].filter((n) => n.classList
@@ -7877,53 +7868,20 @@ function medirVaoDosFavoritos(lista) {
   lista.style.setProperty('--fav-vao', vao + 'px');
 }
 
+// A MEDIÇÃO É ADIADA UM QUADRO, e não é cerimônia: quem chama isto durante a
+// montagem da lista (o `renderCollectionsList`) ainda vai anexar as outras
+// seções na mesma passada síncrona, e a conta soma a barra de CADA uma delas —
+// medir na hora leria uma tela com metade das seções e devolveria um vão grande
+// demais.
 function acertarVaoDosFavoritos(corpoDado) {
   const corpo = corpoDado || hymnResultsEl.querySelector('[data-fav-corpo]');
   const li = corpo && corpo.parentElement;
   if (!li) return;
-  li.classList.toggle('expandido', favExpandido);
-  const mostrar = (sim) => {
-    let b = li.querySelector('.coll-group-mais');
-    if (!sim) { if (b) b.remove(); return; }
-    if (!b) {
-      b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'coll-group-mais';
-      b.addEventListener('click', (e) => {
-        e.stopPropagation();
-        favExpandido = !favExpandido;
-        acertarVaoDosFavoritos();
-      });
-      li.appendChild(b);
-    }
-    b.textContent = favExpandido ? 'Ver menos' : 'Ver todos';
-  };
-  if (favExpandido) { mostrar(true); return; }
   requestAnimationFrame(() => {
-    // O redesenho é a cada 400 ms durante um download: reconferir que o corpo
+    // O redesenho é a cada 400 ms durante um download: reconferir que o `li`
     // ainda é o do documento evita medir um nó que já foi substituído.
     if (!li.isConnected) return;
-    // O VÃO ANTES DOS ITENS: é ele que decide a altura do corpo, e contar quem
-    // ficou de fora antes de a altura estar certa contaria contra a régua velha.
     medirVaoDosFavoritos(li.parentElement);
-    // `.empty` é a linha de "Nenhum favorito ainda", e ela não é um item: numa
-    // seção espremida ela é justamente o que sobra cortado, e contá-la punha o
-    // botão na tela para expandir uma lista vazia.
-    //
-    // OS DOIS LADOS, e não só o de baixo. Hoje o corpo é um RECORTE imóvel (a
-    // v5.280 tirou o scroll interno que a v5.279 tinha dado), então nada fica
-    // ACIMA da faixa e essa metade nunca dispara — ela fica porque custa uma
-    // comparação e porque a v5.279 mostrou o que acontece sem ela: com o corpo
-    // rolando, no fim da lista não há mais nada abaixo, e uma contagem de um
-    // lado só faz o botão SUMIR justamente de quem chegou ao fim e quer vê-la
-    // inteira.
-    const caixa = corpo.getBoundingClientRect();
-    const deFora = [...corpo.children].filter((el) => {
-      if (el.classList.contains('empty')) return false;
-      const b = el.getBoundingClientRect();
-      return b.bottom > caixa.bottom + 1 || b.top < caixa.top - 1;
-    }).length;
-    mostrar(deFora > 0);
   });
 }
 

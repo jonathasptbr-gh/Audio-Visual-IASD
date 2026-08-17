@@ -1213,28 +1213,33 @@ try {
     'e o redesenho é da SEÇÃO, não da Biblioteca inteira: a rolagem não volta ao topo',
     JSON.stringify(favVivo));
 
-  // ── O BOTÃO QUE ABRE A LISTA ALÉM DO VÃO (v5.273) ──────────────────────
+  // ── O VÃO É UM PISO, E A SEÇÃO CRESCE ALÉM DELE (v5.273 → v5.282) ──────
   //
-  // Pedido do operador: *"caso tenha mais itens do que cabe nesse vão, vai ter
-  // um botão na sua base que permite a expansão total da lista"*.
+  // Pedido do operador: *"não tenha mais o sistema de ver mais. Agora quando
+  // aberta ela mostra toda a listagem"* e *"mantenha o tamanho mínimo dela,
+  // mesmo vazia, como o tamanho flexível que ocupa o que sobra das outras
+  // coleções… mas agora esse é apenas o tamanho mínimo, que cresce conforme a
+  // lista dos favoritos requerir mais que esse espaço disponível"*.
   //
-  // As TRÊS metades, e nenhuma basta sozinha: com poucos favoritos o botão NÃO
-  // existe (senão ele seria um controle permanente oferecendo o que já está à
-  // vista), com muitos ele aparece, e o toque nele mostra de fato o que estava
-  // cortado — sem a terceira, um botão que só troca de rótulo passaria.
+  // Isto REVOGA o caso do botão "Ver todos" (v5.273/v5.276), que media a régua
+  // do recorte — quantos itens ficavam de fora da caixa. Não há mais recorte, e
+  // é isso que as DUAS metades afirmam, porque nenhuma basta sozinha: com a
+  // lista vazia a seção ainda RESERVA o vão (senão a Biblioteca abriria com as
+  // coleções coladas no topo, que é o desenho que o operador mandou manter), e
+  // com a lista cheia ela PASSA dele sem cortar um item.
   //
-  // A medição é na Biblioteca DE VERDADE: o recorte é uma consequência de a
-  // seção ter um vão finito, e num `<ul>` solto no `<body>` não há vão nenhum.
+  // A medição é na Biblioteca DE VERDADE: o vão é uma consequência de a lista
+  // ter altura finita, e num `<ul>` solto no `<body>` não há vão nenhum.
   const vao = await pg.evaluate(async () => {
     const modoAntes = appMode;
     setAppMode('full');
     openHymnSearch();
     await new Promise((r) => setTimeout(r, 250));
     // A BIBLIOTECA DO OPERADOR, e a fidelidade aqui é o caso inteiro: são OITO
-    // seções nos prints dele, e é isso que torna o vão pequeno o bastante para a
-    // seção dos favoritos ser ESPREMIDA. Num fixture com duas seções sobra tela
-    // à vontade, nada é recortado, e a versão anterior deste caso passava com o
-    // defeito relatado no lugar (verificado).
+    // seções nos prints dele, e é isso que torna o vão pequeno o bastante para
+    // uma lista de favoritos passar dele. Num fixture com duas seções sobra
+    // tela à vontade, a lista nunca alcança o piso, e a metade que importa
+    // deste caso seria verdadeira por vacuidade.
     albumCatalog.categories = ['CDs oficiais/ano', 'Adoradores', 'Cantores',
       'Celebra SP', 'Diversas', 'Especiais'].map((nome, i) => ({
       name: nome,
@@ -1242,15 +1247,18 @@ try {
     }));
     albumCatalog.albums = albumCatalog.categories.map((c) => c.albums[0]);
     const corpo = () => document.querySelector('#hymnResults [data-fav-corpo]');
-    const botao = () => document.querySelector('#hymnResults .coll-group-mais');
-    // A CAIXA transbordou (a régua ANTIGA) e os ITENS que ficaram de fora (a
-    // régua nova). As duas são medidas em toda leitura de propósito: a
-    // equivalência "botão ⟺ item de fora" é a regra, e a caixa ao lado é o que
-    // mostra que ela não é a mesma pergunta.
-    const cortado = () => {
+    const secao = () => {
       const c = corpo();
-      return !!c && c.scrollHeight > c.clientHeight + 1;
+      return c ? c.parentElement : null;
     };
+    // O PISO, lido de onde o JS o escreve — a custom property da lista. Comparar
+    // a altura contra ele é o que separa "cresceu" de "está grande": um número
+    // fixo aqui dependeria da altura da tela do runner.
+    const piso = () => parseFloat(
+      getComputedStyle(hymnResultsEl).getPropertyValue('--fav-vao')) || 0;
+    // ITENS FORA DA CAIXA do corpo. Era a régua do botão; agora é a afirmação
+    // de que NADA fica de fora, em nenhum tamanho de lista. `.empty` é a linha
+    // de "Nenhum favorito ainda" e não é um item.
     const deFora = () => {
       const c = corpo();
       if (!c) return -1;
@@ -1261,104 +1269,82 @@ try {
         return b.bottom > caixa.bottom + 1 || b.top < caixa.top - 1;
       }).length;
     };
+    const ler = () => ({
+      piso: piso(),
+      altura: secao() ? secao().getBoundingClientRect().height : 0,
+      deFora: deFora(),
+      // O BOTÃO não pode existir em estado nenhum (v5.282).
+      temBotao: !!document.querySelector('#hymnResults .coll-group-mais'),
+    });
     renderCollectionsList(hymnResultsEl, () => {}, { semTotal: true });
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     const vazio = {
-      temBotao: !!botao(), cortado: cortado(),
-      // Quantas seções a tela tem, e quanto do corpo dos favoritos sobrou: é
-      // este par que prova que a medição aconteceu com a seção ESPREMIDA, isto
-      // é, na condição do relato.
+      ...ler(),
+      // Quantas seções a tela tem: é isto que prova que a medição aconteceu na
+      // condição do relato, com o vão pequeno.
       secoes: document.querySelectorAll('#hymnResults .coll-group--drop').length,
-      deFora: deFora(),
     };
-    // POUCOS, MAS NÃO ZERO — e é este o caso do relato do operador: *"que ele
-    // apenas apareça quando a lista de favoritos for maior que a área de
-    // visualização disponível"*. Com a lista vazia é fácil acertar; o que
-    // precisa estar certo é a régua no meio do caminho.
-    const poucosIds = [];
-    for (let i = 1; i <= 3; i++) {
-      const r = await AVDB.addMedia(new Blob(['q' + i], { type: 'audio/mpeg' }),
-        { name: 'Favorito curto ' + i, list: 'favs' });
-      poucosIds.push(r.id);
-    }
-    await recarregarFavoritos();
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-    const poucos = { temBotao: !!botao(), cortado: cortado(), deFora: deFora() };
-    // Favoritos que MOLHAM a régua: bastam mais do que cabe no vão, e trinta
-    // passam de qualquer tela de celular.
-    const ids = [...poucosIds];
+    // Favoritos que passam de qualquer tela de celular.
+    const ids = [];
     for (let i = 1; i <= 30; i++) {
       const r = await AVDB.addMedia(new Blob(['v' + i], { type: 'audio/mpeg' }),
         { name: 'Favorito de lote ' + i, list: 'favs' });
       ids.push(r.id);
     }
     await recarregarFavoritos();
-    // A medição do transbordo é adiada um quadro de propósito (ver
+    // A medição do vão é adiada um quadro de propósito (ver
     // `acertarVaoDosFavoritos`), então a leitura espera dois.
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-    // ===== O CORPO NÃO ROLA POR DENTRO (v5.279 → v5.280) =====
-    // A v5.279 lhe deu `overflow-y: auto` no modo compacto e o operador
-    // recusou: *"remova o scroll interno dos favoritos… qualquer visualização
-    // dos itens completos deve ser pelo botão de ver mais"*. O caminho para a
-    // lista inteira volta a ser UM.
-    //
-    // A régua é o `overflow-y` COMPUTADO, e ela não é cerimônia: uma caixa
-    // `overflow: hidden` continua rolando por SCRIPT (`scrollTop` funciona
-    // nela), então medir o `scrollTop` aprovaria os dois estados — foi o que a
-    // primeira versão deste caso fez, na v5.279, e ela não discriminava nada.
-    // Quem não rola aqui é o DEDO.
-    const rolagem = { overflow: getComputedStyle(corpo()).overflowY };
     const muitos = {
-      temBotao: !!botao(),
-      cortado: cortado(),
-      deFora: deFora(),
-      rotulo: botao() ? botao().textContent.trim() : '',
-      alturaCorpo: corpo() ? corpo().getBoundingClientRect().height : 0,
+      ...ler(),
+      // E a BIBLIOTECA passa a rolar: a seção que cresceu empurra as fechadas
+      // para baixo, que é o que qualquer outra seção aberta já faz. Sem isto,
+      // uma seção que crescesse para fora da tela sem a lista rolar passaria.
+      rola: hymnResultsEl.scrollHeight > hymnResultsEl.clientHeight + 1,
+      // O corpo continua sem rolagem PRÓPRIA (o `overflow: hidden` de que a
+      // animação de abertura depende). O operador recusou o scroll interno na
+      // v5.280, e a régua é o `overflow-y` COMPUTADO: uma caixa `hidden`
+      // continua rolando por SCRIPT, então medir `scrollTop` aprovaria os dois
+      // estados — quem não rola aqui é o DEDO.
+      overflow: corpo() ? getComputedStyle(corpo()).overflowY : 'AUSENTE',
     };
-    if (botao()) botao().click();
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-    const aberto = {
-      cortado: cortado(),
-      rotulo: botao() ? botao().textContent.trim() : '',
-      alturaCorpo: corpo() ? corpo().getBoundingClientRect().height : 0,
-    };
-    if (botao()) botao().click();   // devolve o estado recolhido aos casos seguintes
     albumCatalog.categories = []; albumCatalog.albums = [];
     for (const id of ids) await AVDB.listRemove('favs', id);
     await recarregarFavoritos();
     closeHymnSearch();
     setAppMode(modoAntes);
-    return { vazio, poucos, muitos, rolagem, aberto };
+    return { vazio, muitos };
   });
   checar(vao.vazio.secoes >= 8,
     'a Biblioteca do caso tem as OITO seções do relato — é o que torna o vão '
-    + 'pequeno e a seção dos favoritos espremida', vao.vazio.secoes + ' seção(ões)');
-  checar(!vao.vazio.temBotao,
-    'e sem favorito NENHUM não há botão, mesmo com a seção espremida: quem conta '
-    + 'é o item que ficou de fora, não o transbordo da caixa'
-    + (vao.vazio.cortado ? ' (a caixa transbordava)' : ''));
-  // A REGRA, nos três estados: o botão existe EXATAMENTE quando algum item
-  // ficou de fora. Ela é o pedido do operador escrito como equivalência —
-  // *"apenas quando há mais itens do que a altura disponível"* — e é ela que
-  // sobrevive a qualquer arranjo de seções, altura de tela ou teclado.
-  const regra = (e) => e.temBotao === (e.deFora > 0);
-  checar(regra(vao.vazio) && regra(vao.poucos) && regra(vao.muitos),
-    'e a régua é UMA em todos os estados: o botão existe exatamente quando há '
-    + 'item de fora — sem lista, com poucos e com muitos',
-    JSON.stringify({ vazio: vao.vazio.deFora, poucos: vao.poucos.deFora, muitos: vao.muitos.deFora }));
-  checar(vao.muitos.temBotao && vao.muitos.cortado,
-    'com mais do que cabe no vão, a lista é RECORTADA e o botão aparece na base',
-    vao.muitos.rotulo);
-  checar(!vao.aberto.cortado && vao.aberto.alturaCorpo > vao.muitos.alturaCorpo,
-    'e o toque nele mostra a lista inteira — o corpo cresce além do vão ('
-    + Math.round(vao.muitos.alturaCorpo) + 'px → ' + Math.round(vao.aberto.alturaCorpo) + 'px)');
-  checar(vao.aberto.rotulo && vao.aberto.rotulo !== vao.muitos.rotulo,
-    'com o caminho de volta no mesmo botão, que troca de verbo',
-    vao.muitos.rotulo + ' → ' + vao.aberto.rotulo);
-  checar(vao.rolagem.overflow === 'hidden',
-    'e no modo COMPACTO o corpo NÃO rola por dentro: o vão é um recorte, e o '
-    + 'caminho para a lista inteira é UM, o botão',
-    'overflow-y ' + vao.rolagem.overflow);
+    + 'pequeno e a lista de favoritos capaz de passar dele',
+    vao.vazio.secoes + ' seção(ões)');
+  // A PRIMEIRA METADE: vazia, ela RESERVA o vão. É o desenho de abertura da
+  // Biblioteca — coleções empilhadas na base, o que sobra em cima é dos
+  // favoritos — e é o que o operador mandou manter.
+  checar(vao.vazio.piso > 0 && Math.abs(vao.vazio.altura - vao.vazio.piso) <= 2,
+    'sem favorito NENHUM a seção ainda ocupa o vão que sobra das outras: o piso '
+    + 'é o tamanho dela (' + Math.round(vao.vazio.altura) + 'px para um vão de '
+    + Math.round(vao.vazio.piso) + 'px)');
+  // A SEGUNDA: cheia, ela PASSA do vão. Sem ela, um `height` fixo de volta
+  // passaria na de cima.
+  checar(vao.muitos.altura > vao.muitos.piso + 2,
+    'e com mais favoritos do que cabe nele ela CRESCE além do piso — o vão é um '
+    + 'mínimo, não uma altura (' + Math.round(vao.muitos.altura) + 'px para um '
+    + 'vão de ' + Math.round(vao.muitos.piso) + 'px)');
+  checar(vao.muitos.deFora === 0 && vao.vazio.deFora === 0,
+    'e a lista inteira aparece: nenhum item fica cortado fora da caixa, em '
+    + 'tamanho de lista nenhum',
+    'de fora: ' + vao.vazio.deFora + ' (vazia) / ' + vao.muitos.deFora + ' (cheia)');
+  checar(vao.muitos.rola,
+    'quem rola é a BIBLIOTECA, como em qualquer outra seção aberta');
+  checar(!vao.vazio.temBotao && !vao.muitos.temBotao,
+    'e não há mais "Ver todos" em estado nenhum: aberta, a seção mostra toda a '
+    + 'listagem');
+  checar(vao.muitos.overflow === 'hidden',
+    'o corpo continua sem rolagem própria — não há um segundo caminho para o '
+    + 'fim da lista',
+    'overflow-y ' + vao.muitos.overflow);
 
   // ── A BIBLIOTECA ABRE COM A LISTA NO TOPO (v5.280) ─────────────────────
   //

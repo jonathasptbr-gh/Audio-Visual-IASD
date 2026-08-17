@@ -3053,10 +3053,63 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.281** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.282** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.282: OS FAVORITOS VOLTAM A SER UMA SEÇÃO COMO AS OUTRAS — o tom próprio
+> sai, o "Ver todos" sai, e o vão vira um PISO. OTA PURO** (nenhuma linha de
+> Kotlin; sem Release).
+>
+> Três pedidos do operador, e os três desfazem mecanismo meu — o terceiro é o que
+> torna o segundo possível.
+>
+> - **O TOM PRÓPRIO SAI** — *"estávamos ajustando para que ela fosse mais
+>   diferente que os demais, mas não ficou bom. Ajuste as cores dela para que ela
+>   fique igual as outras coleções"*. O argumento da v5.273 era que a seção não é
+>   uma coleção e que só ela ocupa o vão; ele continua verdadeiro nas duas
+>   metades, e **nenhuma delas se lê como COR**: o nome no cabeçalho diz a
+>   primeira e o vão reservado diz a segunda, sozinho. O que a cor acrescentava
+>   era um QUARTO tom numa escada de três, e a v5.267 já tinha medido o preço de
+>   um quarto degrau. Saíram o `--fav-bg` dos dois temas e o `--camada` próprio
+>   que ele arrastava — **os dois no mesmo lote, porque um nível que muda arrasta
+>   o de dentro**: repintar só a seção deixaria as linhas num tom que nenhuma
+>   outra coleção tem, e uma medida da seção sozinha não pegaria isso.
+> - **O "VER TODOS" SAI** — *"ajuste o funcionamento interno dela para que não
+>   tenha mais o sistema de ver mais. Agora quando aberta ela mostra toda a
+>   listagem"*. Com ele foram embora o `favExpandido`, a classe `.expandido`, o
+>   CSS do botão e a régua de "quantos itens ficaram de fora" com a leitura
+>   adiada um quadro que ela exigia. É a terceira porta que este mesmo lugar
+>   perde em quatro versões (a v5.279 abriu o scroll interno, a v5.280 o
+>   revogou), e agora não sobra nenhuma: **a lista inteira está na tela.**
+> - **E O VÃO VIRA `min-height`** — *"mantenha o tamanho mínimo dela, mesmo
+>   vazia, como o tamanho flexível que ocupa o que sobra das outras coleções…
+>   mas agora esse é apenas o tamanho mínimo, que cresce conforme a lista dos
+>   favoritos requerir mais que esse espaço disponível"*. É esta linha que
+>   sustenta a de cima: era o `height` EXATO que produzia o recorte, e do recorte
+>   vinha o botão. Como piso, a seção continua reservando o vão com a lista vazia
+>   — o desenho de abertura da Biblioteca, coleções empilhadas na base e o que
+>   sobra em cima para os favoritos — e passa a crescer com o conteúdo,
+>   empurrando as fechadas para baixo com a Biblioteca rolando, que é o que
+>   qualquer outra seção aberta já faz. O `flex-shrink: 0` é o que faz o piso
+>   valer: um `min-height` num filho que encolhe seria só uma sugestão.
+>
+> **`medirVaoDosFavoritos` não mudou uma linha, e o registro guarda isso**: a
+> MEDIDA é a mesma pergunta ("o que sobra da tela depois das outras seções
+> colapsadas?"); o que mudou é a seção deixar de ser presa a ela. E o padrão
+> ABERTO continua sendo o `favAberto = true` do topo do arquivo, como desde a
+> v5.276 — fechá-la segue sendo uma decisão do operador que dura a sessão.
+>
+> Os oráculos se dividem pela natureza: o `smoke.mjs` mede a COR (nos dois temas,
+> e por igualdade de string em vez de razão de luminância — "igual" é igual, e um
+> piso baixo aprovaria dois tons ligeiramente diferentes, que é a queixa) e o
+> `boot-nativo.test.mjs` mede o TAMANHO, porque é o único que sabe pôr favoritos
+> no banco. As DUAS metades do piso, e nenhuma basta sozinha: vazia a seção ainda
+> reserva o vão, cheia ela passa dele sem cortar um item.
+>
+> Verificado por ISOLAMENTO: devolvendo o `height` no lugar do `min-height`,
+> **2** asserções reprovam; devolvendo o tom próprio e o degrau de dentro, **4**.
 
 > **A v5.281: A BARRA NÃO SE MEXIA — QUEM SE MEXIA ERA A PÁGINA INTEIRA. OTA
 > PURO** (só CSS e o oráculo; sem Release).
@@ -3405,7 +3458,10 @@ controles), que **só chegam instalando o APK novo**, não pelo OTA.
 > *(A v5.276 REVOGOU duas metades desta nota: os Favoritos saíram do rodízio —
 > abrir uma coleção não os fecha, e o toque neles volta a recolher — e o
 > crescimento passou a ser só deles, porque uma coleção curta inchava até o
-> tamanho do vão. O que fica é o rodízio ENTRE as coleções e a régua do vão.)*
+> tamanho do vão. E a v5.282 revogou as outras duas: o BOTÃO "Ver todos" e o TOM
+> PRÓPRIO saíram, com o vão virando um `min-height` — "não ficou bom". O que
+> fica desta nota é o rodízio ENTRE as coleções, a régua do vão e o espaço entre
+> seções.)*
 >
 > - **O ESTADO VIROU UM NOME, e é ele que faz a regra valer.** `gruposAbertos`
 >   era um `Set`, isto é, sabia escrever exatamente os dois estados que o pedido

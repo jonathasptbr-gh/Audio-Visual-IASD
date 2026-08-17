@@ -295,19 +295,13 @@
   --bar: #252b33;
   --panel: #2c343c;
   --panel-2: #3c4753;
-  /* A SEÇÃO DOS FAVORITOS TEM TOM PRÓPRIO (v5.273, pedido do operador:
-     *"deixar a cor de fundo da coleção dos favoritos em uma cor diferente, um
-     tom mais escuro"*). Ela é a única seção da Biblioteca que não é uma
-     coleção — é o atalho de quem já procurou antes —, e desde a v5.273 é
-     também a única que ocupa o vão que sobra da tela. Um tom próprio é o que
-     diz as duas coisas antes de o nome ser lido.
-
-     Medido: **1,30:1 contra `--panel`**, que é o tom das outras seções e o
-     par que de fato importa (elas são vizinhas na mesma lista), e 1,14:1
-     contra a página — perto dela de propósito, porque "mais escuro" aqui
-     significa recuar em direção ao fundo. A extensão da seção continua legível
-     pelo que ela contém: a barra e as linhas, que sobem um degrau inteiro. */
-  --fav-bg: #182029;
+  /* (`--fav-bg`, o tom próprio da seção dos Favoritos, viveu da v5.273 à
+     v5.281 e SAIU na v5.282: *"ajuste as cores dela para que ela fique igual
+     as outras coleções"*. O argumento dele era que a seção não é uma coleção e
+     que só ela ocupa o vão — verdade nas duas metades, e nenhuma delas se lê
+     como COR: o nome no cabeçalho diz a primeira e o vão reservado diz a
+     segunda, sozinho. O que a cor acrescentava era um quarto tom numa escada
+     de três, e a v5.267 já tinha medido o preço de um quarto degrau.) */
   /* `--line` PERDEU O PAPEL QUE LHE DEU O NOME (v5.267): não há mais separador
      nem contorno em lugar nenhum do app. Ele sobrevive como TINTA de um
      desenho — a estrela vazada de favorito, que precisa ser discreta o
@@ -578,15 +572,7 @@
      é acidente nem problema — os dois nunca se encostam, porque um nível 2 está
      sempre DENTRO de um nível 1, que é branco. */
   --panel-2: #d4dae2;
-  /* O tom próprio da seção dos Favoritos (v5.273), no claro. "Mais escuro" é
-     literal nos dois temas, e aqui ele custa menos: **1,48:1 contra o painel**
-     branco das outras seções, 1,15:1 contra a página. As linhas dentro dela
-     são brancas (`--fav-camada` = `--panel`), o mesmo 1,48:1 — o degrau para
-     dentro é maior que o das outras seções, e isso é consequência de o nível
-     externo ter descido, não uma segunda regra. Texto 5,98:1 e `--muted`
-     4,50:1 sobre ela: o segundo é o piso de AA na unha, e é a linha
-     "Nenhum favorito ainda" que o gasta. */
-  --fav-bg: #cdd5df;
+  /* (`--fav-bg` saiu na v5.282, nos dois temas — ver o bloco do escuro.) */
   --line: #97a5b4;                       /* 1,95:1 contra o fundo · 2,51:1 contra o painel */
   /* A BARRA DA BUSCA, mais escura que o nível 1 (v5.270) — ver o bloco
      compartilhado. Medido: o campo BRANCO dá **2,51:1** contra ela (era 1,00:1,
