@@ -3053,10 +3053,61 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.283** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.284** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.284: A PASTA SINCRONIZADA CONTINUA SENDO UM ÁLBUM — e a estrutura que
+> faltava aparece. OTA PURO** (sem Release).
+>
+> Pedido do operador: *"mantenha apenas as pastas sincronizadas dos favoritos
+> como cores de álbum"*. Uma pasta guarda muitos arquivos — ela é um CONTÊINER,
+> como um álbum —, e um favorito é um item. O **"apenas"** é o que faz disto uma
+> regra em vez de duas cores: o item desce, a pasta não.
+>
+> **É a v5.283 cobrando o preço de uma peça com dois papéis.** Aquele lote pintou
+> o CORPO INTEIRO da seção no nível de card para os itens poderem ser um recesso
+> dele — e ali dentro não sobra como desenhar uma pasta com cor de álbum: ela
+> ficaria com a cor exata do corpo, **1,00:1**, invisível. A saída não é um `if`
+> de cor, é a estrutura que faltava, e ela se lê nas duas medições:
+>
+> - o **ITEM** precisa de uma placa de card atrás dele — sobre o tom da SEÇÃO ele
+>   mede 1,03:1 no escuro, isto é, some;
+> - a **PASTA** precisa do tom da seção atrás dela — sobre a placa ela mediria
+>   1,00:1, que é o mesmo defeito ao contrário.
+>
+> Duas bases diferentes não cabem numa `<ul>` só. Daí a **placa própria dos
+> itens** (`.fav-itens`), e com ela o par volta a ser o MESMO do álbum, em dois
+> elementos: `.hymnal-card` PINTA e `.coll-songs` zera o degrau seguinte. A
+> v5.283 acumulava os dois papéis numa peça, e o resíduo disso era a armadilha de
+> "A CAMADA" com a assinatura invertida — o reset tinha de morar na regra da
+> LINHA, senão venceria na hora de o corpo resolver o próprio `background` e o
+> bloco sairia transparente. Com a placa, o reset volta ao lugar natural.
+>
+> **AS PASTAS NÃO GANHARAM REGRA NENHUMA**, e isso é o desenho e não economia:
+> elas continuam sendo filhas diretas do corpo, que já reserva `--panel-2` para
+> os filhos dele. A cor de álbum é o PADRÃO ali — o que precisava de regra era o
+> item. E a placa só nasce quando há item, senão ela seria uma faixa colorida
+> anunciando uma lista que não existe.
+>
+> O arrasto não custou uma linha: `attachHandle` mede `li.parentElement`, então
+> ele passa a operar na placa sozinho, e a linha-guia já garante o bloco
+> contendor pelo JS desde a v5.272.
+>
+> **O oráculo mede a cor EFETIVA e a ESTRUTURA dos dois lados** — o item dentro
+> da placa, a pasta irmã dela —, porque sem a segunda metade uma pasta empurrada
+> para dentro da placa passaria na medida de cor no dia em que a placa e o corpo
+> voltassem a ter o mesmo tom. **E a sonda do item não cita a placa de
+> propósito:** um seletor que só existe na forma nova reprova por "não achei" em
+> qualquer forma antiga, e uma asserção que falha por seletor ausente não mediu
+> cor nenhuma — ela diria a mesma coisa com o item pintado certo. Pelo que ele
+> NÃO é (uma pasta), ela mede em qualquer arranjo.
+>
+> Verificado por ISOLAMENTO: voltando à forma da v5.283, **4** asserções
+> reprovam — todas sobre a pasta, e todas medindo (ela sai a 1,00:1 do item ao
+> lado). As do item continuam passando, que é a leitura certa: a v5.283 acertou o
+> item e este lote só mexe na pasta.
 
 > **A v5.283: UM FAVORITO É UM ITEM, NÃO UM ÁLBUM — a linha passa a pintar a
 > cor da faixa dentro do álbum. OTA PURO** (só CSS e o oráculo; sem Release).

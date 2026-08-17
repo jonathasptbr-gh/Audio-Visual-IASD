@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.283';
+const WEB_VERSION = '5.284';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -7538,7 +7538,36 @@ function renderFolderList() {
   //
   // A ordem é a da lista `favs`, que é ordem de chegada — e agora é editável,
   // pelo mesmo arrastar do Cronograma (ver `favItemRow`).
-  favItems.forEach((item) => favAlvo().appendChild(favItemRow(item)));
+  //
+  // ===== OS ITENS MORAM NUMA PLACA, AS PASTAS NÃO (v5.284) =====
+  //
+  // Pedido do operador: *"mantenha apenas as pastas sincronizadas dos favoritos
+  // como cores de álbum"*. Uma pasta é um CONTÊINER — ela guarda muitos
+  // arquivos, como um álbum —, e um favorito é um ITEM. A v5.283 tinha pintado
+  // o corpo inteiro no nível de card para os itens poderem ser um RECESSO dele,
+  // e o preço, que só aparece com este pedido, é que ali dentro não sobra como
+  // desenhar uma pasta com cor de álbum: ela ficaria com a cor exata do corpo,
+  // isto é, invisível.
+  //
+  // A saída não é um `if` de cor: é a ESTRUTURA que faltava. Os dois níveis
+  // querem bases DIFERENTES — o item precisa de uma placa de card atrás dele
+  // (sobre o tom da seção ele mede 1,03:1 no escuro, ou seja, some), e a pasta
+  // precisa do tom da seção atrás dela (sobre a placa ela mediria 1,00:1). Uma
+  // `<ul>` só não tem como oferecer as duas, e a placa própria dos itens é
+  // exatamente o par que o álbum já usa: `.hymnal-card` PINTA e `.coll-songs`
+  // zera o degrau seguinte.
+  //
+  // Ela só nasce quando há item: uma placa vazia seria uma faixa colorida
+  // anunciando uma lista que não existe. E as pastas continuam sendo filhas
+  // diretas do corpo, isto é, irmãs da placa e do mesmo nível dela — que é o
+  // que as faz vestir a cor de álbum sem uma linha de CSS própria, pela regra
+  // do `--camada` que o corpo já declara.
+  if (favItems.length) {
+    const placa = document.createElement('ul');
+    placa.className = 'fav-itens';
+    favItems.forEach((item) => placa.appendChild(favItemRow(item)));
+    favAlvo().appendChild(placa);
+  }
   // AS PASTAS DO APARELHO FICAM, e ficam no FIM: elas são a origem bruta, e o
   // que a estrela promete são os itens. Não têm cabeçalho porque não são uma
   // subdivisão da lista — são outra coisa, e o desenho já diz isso (ícone de

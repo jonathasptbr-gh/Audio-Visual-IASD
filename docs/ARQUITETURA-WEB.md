@@ -4366,9 +4366,11 @@ dela não são — numa coleção são ÁLBUNS, aqui são ITENS.
 
 ```
  seção (--panel)                    seção (--panel)
-   └ card do álbum (--panel-2)        └ corpo dos favoritos (--panel-2)
-       └ faixa: RECESSO ─────────┐        └ linha: RECESSO ────────┘
-                                 └──── a MESMA cor, por construção
+   └ card do álbum (--panel-2)        ├ placa dos itens (--panel-2)
+       └ faixa: RECESSO ─────────┐    │   └ favorito: RECESSO ─────┘
+                                 └────┤        a MESMA cor, por construção
+                                      └ pasta sincronizada (--panel-2)
+                                          IRMÃ da placa: cor de ÁLBUM (v5.284)
 ```
 
 A receita é a da faixa (`.coll-songs > .hymn-result`): um recesso (`--surface`,
@@ -4380,13 +4382,35 @@ do card — o defeito relatado, de volta. Com a base de card por baixo a
 composição é a mesma da faixa e o valor bate exatamente: `rgb(46,54,63)` no
 escuro, `rgb(182,188,194)` no claro, a 1,29:1 e 1,37:1 do card.
 
-Daí o corpo PINTAR `var(--camada)` e virar o contêiner de nível 2 desta seção —
-o lugar que num hinário é do card de álbum. Ele é a única peça do arquivo que
-acumula os dois papéis que lá são de dois elementos (`.hymnal-card` pinta,
-`.coll-songs` zera o degrau seguinte), e **por isso o reset de `--camada` mora
-na regra da LINHA e não no corpo**: escrito no corpo, ele venceria na hora de o
-corpo resolver o próprio `background` e o bloco sairia transparente — a
-armadilha de "A CAMADA" com a assinatura invertida.
+**E A PASTA SINCRONIZADA CONTINUA SENDO UM ÁLBUM** (v5.284): *"mantenha apenas
+as pastas sincronizadas dos favoritos como cores de álbum"*. Uma pasta guarda
+muitos arquivos — ela é um contêiner —, e o "apenas" é o que faz do par uma
+regra em vez de duas cores.
+
+A v5.283 tinha pintado o CORPO INTEIRO no nível de card, e o preço só apareceu
+com este pedido: ali dentro a pasta ficaria com a cor exata do corpo (1,00:1,
+invisível). Os dois níveis querem bases DIFERENTES — o item precisa de uma placa
+de card atrás dele (sobre o tom da seção ele mede 1,03:1 no escuro e some), e a
+pasta precisa do tom da seção atrás dela (sobre a placa ela mediria 1,00:1) —, e
+uma `<ul>` só não tem como oferecer as duas.
+
+Daí a **placa dos itens** (`.fav-itens`, criada em `renderFolderList` e só
+quando há item), que PINTA `var(--camada)` e vira o contêiner de nível 2 desta
+seção — o lugar que num hinário é do card de álbum. Com ela o par volta a ser o
+MESMO do álbum, em dois elementos: `.hymnal-card` pinta e `.coll-songs` zera o
+degrau seguinte. **As pastas não ganharam regra nenhuma**: elas continuam filhas
+diretas do corpo, que já reserva `--panel-2` para os filhos dele — a cor de
+álbum é o PADRÃO ali, e o que precisava de regra era o item.
+
+*(Da v5.283 à v5.284 o corpo acumulou os dois papéis, e o resíduo disso era a
+armadilha de "A CAMADA" com a assinatura invertida: o reset de `--camada` tinha
+de morar na regra da LINHA, senão venceria na hora de o corpo resolver o próprio
+`background` e o bloco sairia transparente. Com a placa, o reset volta ao lugar
+natural.)*
+
+O arrasto não custou uma linha: `attachHandle` mede `li.parentElement`, então ele
+passa a operar na placa sozinho, e a linha-guia já garante o bloco contendor pelo
+JS desde a v5.272.
 
 **E o oráculo mede a COR EFETIVA, nunca a declarada.** Os recessos deste app são
 overlays com ALFA, e `getComputedStyle` devolve o alfa: uma asserção sobre o

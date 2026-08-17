@@ -1242,16 +1242,33 @@ for (const tema of ['escuro', 'claro']) {
       }
       const favRec = await AVDB.addMedia(new Blob(['f'], { type: 'audio/mpeg' }),
         { name: 'Louvor favorito', list: 'favs' });
+      // E UMA PASTA SINCRONIZADA na mesma lista (v5.284): ela é o outro lado do
+      // par, e sem ela este caso mediria metade da regra. A lista `opfsFolders`
+      // é o que `renderFolderList` lê — não há banco a montar.
+      opfsFolders.push({ id: 'pasta-smoke', name: 'Vídeos do culto', count: 12 });
       await recarregarFavoritos();
       hymnResultsEl.innerHTML = '';
       renderCollectionsList(hymnResultsEl, () => {}, { semTotal: true });
       await new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f)));
       const favCorpo = hymnResultsEl.querySelector('[data-fav-corpo]');
       r.item = {
-        favLinha: efetiva(favCorpo && favCorpo.querySelector('.lib-item')),
+        // A SONDA DO ITEM não cita a placa DE PROPÓSITO: um seletor que só
+        // existe na forma nova falha por "não achei" em qualquer forma antiga,
+        // e uma asserção que reprova por seletor ausente não mediu cor nenhuma
+        // — ela diria a mesma coisa se o item estivesse com a cor certa. Pelo
+        // que ele NÃO é (uma pasta), ela mede em qualquer arranjo.
+        favLinha: efetiva(favCorpo && favCorpo.querySelector('.lib-item:not(.folder-opfs)')),
         faixa: efetiva(hymnResultsEl.querySelector('.coll-songs > .hymn-result')),
         cardAlbum: efetiva(hymnResultsEl.querySelector('.hymnal-card')),
+        pasta: efetiva(favCorpo && favCorpo.querySelector('.folder-opfs')),
+        // E A ESTRUTURA, dos DOIS lados: o item DENTRO da placa, a pasta IRMÃ
+        // dela. É o que dá a cada um a base que o faz aparecer, e sem os dois
+        // uma pasta empurrada para dentro da placa passaria na medida de cor no
+        // dia em que a placa e o corpo voltassem a ter o mesmo tom.
+        itemNaPlaca: !!(favCorpo && favCorpo.querySelector('.fav-itens > .lib-item')),
+        pastaSolta: !!(favCorpo && favCorpo.querySelector(':scope > .folder-opfs')),
       };
+      opfsFolders.length = 0;
       await AVDB.listRemove('favs', favRec.id);
       await recarregarFavoritos();
       if (hin) {
@@ -1341,6 +1358,21 @@ for (const tema of ['escuro', 'claro']) {
     checar(dCard >= 1.28,
       '[' + tema + '] e ela se separa do CARD de álbum, que era a queixa: '
       + dCard.toFixed(2) + ':1 (era 1,00:1 — a mesma cor)');
+    // ===== MAS A PASTA SINCRONIZADA CONTINUA SENDO UM ÁLBUM (v5.284) =====
+    // Pedido do operador: *"mantenha apenas as pastas sincronizadas dos
+    // favoritos como cores de álbum"*. Uma pasta guarda muitos arquivos — ela é
+    // um contêiner —, e é o "apenas" que faz deste par uma REGRA em vez de duas
+    // cores: o item desce, a pasta não.
+    checar(!!it.pasta && it.pasta === it.cardAlbum,
+      '[' + tema + '] mas a PASTA sincronizada continua com a cor de álbum ('
+      + it.pasta + ' contra ' + it.cardAlbum + ')');
+    const dPasta = it.pasta && it.favLinha
+      ? razao('rgb(' + it.pasta + ')', 'rgb(' + it.favLinha + ')') : 0;
+    checar(dPasta >= 1.28 && it.pastaSolta && it.itemNaPlaca,
+      '[' + tema + '] e ela se separa do ITEM ao lado — a pasta é IRMÃ da placa '
+      + 'e o item mora DENTRO dela (' + dPasta.toFixed(2) + ':1'
+      + (it.pastaSolta ? '' : ', mas a pasta está dentro da placa')
+      + (it.itemNaPlaca ? '' : ', mas o item está fora dela') + ')');
     const L = v.larguras;
     checar(!!L && Math.abs(L.barra - L.secao) <= 1 && Math.abs(L.corpo - L.secao) <= 1,
       '[' + tema + '] a barra e o corpo PREENCHEM a seção aberta — nada é centrado '

@@ -2158,26 +2158,40 @@ main {
      valor bate exatamente: rgb(46,54,63) no escuro e rgb(182,188,194) no claro,
      a **1,29:1** e **1,37:1** do card nos dois temas.
 
-   Daí o corpo PINTAR `var(--camada)` — o `--panel-2` que ele próprio reserva —
-   e virar o contêiner de nível 2 desta seção, no lugar que num hinário é
-   ocupado por um card de álbum. É a única peça deste arquivo que acumula os
-   dois papéis que lá são de dois elementos (`.hymnal-card` pinta, `.coll-songs`
-   zera o degrau seguinte), e por isso o reset de `--camada` mora na REGRA DA
-   LINHA e não aqui: escrito no corpo, ele venceria na hora de o corpo resolver
-   o próprio `background` e o bloco sairia transparente — a armadilha que o
-   cabeçalho de "A CAMADA" descreve.
+   ---------- E A PASTA NÃO É UM ITEM (v5.284) ----------
+   Pedido do operador: *"mantenha apenas as pastas sincronizadas dos favoritos
+   como cores de álbum"*. Uma pasta guarda muitos arquivos — ela é um
+   CONTÊINER, como um álbum —, e um favorito é um item.
 
-   O `padding` deixa de ser assimétrico porque agora ele é margem interna de um
-   bloco que se vê, e não o vão de uma faixa transparente — e o seletor precisa
-   do `#hymnResults` para alcançá-lo: a regra geral do corpo aberto, logo acima,
-   também carrega o id, e sem ele esta perderia por especificidade em silêncio.
-   */
-#hymnResults > .coll-group--fav.aberto > .coll-group-corpo {
+   A v5.283 pintou o CORPO INTEIRO no nível de card para os itens serem um
+   recesso dele, e o preço só apareceu com este pedido: ali dentro não há como
+   desenhar uma pasta com cor de álbum, porque ela ficaria com a cor exata do
+   corpo (1,00:1 — invisível). Os dois níveis querem bases DIFERENTES, e uma
+   `<ul>` só não tem como oferecer as duas:
+
+     · o ITEM precisa de uma placa de card atrás dele — sobre o tom da SEÇÃO ele
+       mede 1,03:1 no escuro, isto é, some;
+     · a PASTA precisa do tom da seção atrás dela — sobre a placa ela mediria
+       1,00:1, que é o defeito de cima ao contrário.
+
+   Daí a placa própria dos itens (`.fav-itens`, criada em `renderFolderList`), e
+   com ela o par volta a ser o MESMO do álbum, em dois elementos: `.hymnal-card`
+   PINTA e `.coll-songs` zera o degrau seguinte. A v5.283 acumulava os dois
+   papéis numa peça só, e o que sobrava disso era a armadilha de "A CAMADA" com
+   a assinatura invertida — o reset tinha de morar na regra da LINHA, senão ele
+   venceria na hora de o corpo resolver o próprio `background` e o bloco sairia
+   transparente. Com a placa, o reset volta ao lugar natural.
+
+   AS PASTAS NÃO TÊM REGRA NENHUMA, e isso é o desenho e não economia: elas são
+   filhas diretas do corpo, que já reserva `--panel-2` para os filhos dele. A
+   cor de álbum é o PADRÃO ali — o que precisava de regra era o item. */
+#hymnResults > .coll-group--fav.aberto .fav-itens {
+  list-style: none; margin: 0; padding: .4rem;
+  display: flex; flex-direction: column; gap: .35rem;
   background: var(--camada);
   border-radius: var(--radius-card);
-  padding: .4rem;
 }
-#hymnResults > .coll-group--fav.aberto > .coll-group-corpo > .lib-item {
+#hymnResults > .coll-group--fav.aberto .fav-itens > .lib-item {
   --linha: var(--surface);
   --camada: transparent;
 }
