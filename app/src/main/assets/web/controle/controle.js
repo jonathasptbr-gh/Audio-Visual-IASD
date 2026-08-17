@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.284';
+const WEB_VERSION = '5.285';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -483,7 +483,6 @@ const ICON = {
   repeatAll: '', // repeat
   repeatOne: '', // repeat_one
   shuffle: '', // shuffle
-  drag: '', // drag_indicator
   // ADICIONAR AO CRONOGRAMA fica na família do TEMPO (`more_time`, um
   // relógio com "+", v5.110): o `playlist_add` que o botão usava era um
   // borrão ao lado do `queue_music` da playlist — a mesma pilha de linhas
@@ -3131,7 +3130,7 @@ function renderPlaylist() {
       + '<br>e toque em "Acrescentar à playlist".</li>';
     return;
   }
-  plItems.forEach((item) => {
+  plItems.forEach((item, i) => {
     const li = document.createElement('li');
     li.className = 'row-item' + (linhaAtiva(item.id) ? ' active' : '')
       + (linhaNoAr(item.id) ? ' no-ar' : '');
@@ -3143,10 +3142,13 @@ function renderPlaylist() {
     const rm = document.createElement('button'); rm.className = 'row-btn'; rm.title = 'Tirar da playlist';
     rm.appendChild(msym(ICON.plRemove));
     rm.addEventListener('click', async (e) => { e.stopPropagation(); await AVDB.listRemove('playlist', item.id); load(); });
-    const handle = document.createElement('button'); handle.className = 'row-handle'; handle.title = 'Arraste para reordenar';
-    handle.appendChild(msym(ICON.drag));
-
-    row.append(name, rm, handle);
+    // A GAVETA DO `⋮` CHEGOU AQUI NA v5.285, e ela é o que torna o par ↑↓
+    // possível nesta lista: até então a fila era a única com alça de arrastar e
+    // sem botão de opções. Tirar o gesto sem dar a gaveta deixaria a fila como a
+    // única lista do app sem como reordenar.
+    row.append(name, ...montarAcoesDaLinha(li, [
+      rm, ...botoesDeOrdem('playlist', item.id, i, plItems.length),
+    ], 'playlist:' + item.id));
     li.appendChild(row);
     // O SEGUNDO TOQUE RETIRA DO AR (ver `retirarDoAr`) — mas o item da
     // playlist NÃO passa por `onTap`: aqui o toque é `send` direto, porque
@@ -3154,11 +3156,10 @@ function renderPlaylist() {
     // é o que `onTap` faz para a biblioteca. Só a metade do desligamento é
     // compartilhada.
     row.addEventListener('click', (e) => {
-      if (e.target.closest('.row-btn,.row-handle')) return;
+      if (e.target.closest('.row-btn,.row-acoes')) return;
       if (noArAgora(item)) { retirarDoAr(item); return; }
       send(item.id);
     });
-    attachHandle(handle, item.id, 'playlist');
     playlistEl.appendChild(li);
   });
 }
@@ -5793,7 +5794,7 @@ function renderLibrary() {
     return;
   }
 
-  items.forEach((item) => {
+  items.forEach((item, i) => {
     const li = document.createElement('li');
     // Bug fix: active highlight only when not in selection mode
     const isActive = !selectionMode && linhaAtiva(item.id);
@@ -5869,9 +5870,6 @@ function renderLibrary() {
         });
       }
     }
-    const handle = document.createElement('button'); handle.className = 'row-handle'; handle.title = 'Arraste para reordenar';
-    handle.appendChild(msym(ICON.drag));
-
     // Botão para entrar no Cronograma sem cópia (mesmo id nas listas; os bytes
     // continuam onde estão). Vale para QUALQUER item fora do Cronograma —
     // arquivo de pasta do dispositivo, favorito, item de atalho. Até a v5.102 só
@@ -5928,19 +5926,20 @@ function renderLibrary() {
         (ytDl && !dl) ? ytDl : null,
         star,
         addBtn,
-        activeTab !== 'folders' ? handle : null,
+        // O PAR ↑↓ (v5.285), no lugar da alça de arrastar. Só onde há ordem a
+        // mexer: a pasta do aparelho não é uma lista reordenável.
+        ...(activeTab !== 'folders' ? botoesDeOrdem(activeTab, item.id, i, items.length) : []),
         // NA PASTA DO APARELHO ELE NÃO ENTRA (v5.271): ali "excluir" apaga o
         // ARQUIVO físico, e essa limpeza tem donos próprios (`deleteSelected`,
         // com o `opfsDeleteFile` e o `purgeCatalogRecords`). Um mesmo ícone com
         // dois alcances diferentes conforme a tela é a pior forma de oferecer
         // um destrutivo.
         activeTab !== 'folders' ? botaoExcluirDaLinha(item, activeTab, () => load()) : null,
-      ]));
+      ], activeTab + ':' + item.id));
     }
     row.append(...parts);
     li.appendChild(row);
     attachRowGestures(row, item);
-    if (activeTab !== 'folders') attachHandle(handle, item.id, activeTab);
     host.appendChild(li);
   });
 
@@ -6131,6 +6130,16 @@ function porParar(thumb, item) {
 // A linha com o menu aberto — UMA por vez. Duas abertas seriam duas faixas
 // cobrindo dois nomes, e o operador teria de fechar a errada para ler.
 let linhaAcoesAberta = null;
+// Qual linha deve REABRIR a gaveta no próximo desenho (v5.285). `moverNaLista`
+// a escreve porque `load()` reconstrói a lista inteira: o `li` que tinha a
+// gaveta aberta deixa de existir, e sem isto cada casa de reordenação custaria
+// reabrir a gaveta à mão. É consumida UMA vez, por quem a encontra.
+//
+// A chave é `lista:id`, e não o id sozinho: o MESMO item aparece em mais de uma
+// lista ao mesmo tempo (um favorito que também está no Cronograma é o caso
+// normal), e com o id nu o redesenho do Cronograma consumiria a marca e abriria
+// a gaveta na linha errada, noutra tela.
+let reabrirAcoesEm = null;
 function fecharAcoesDaLinha() {
   if (linhaAcoesAberta) linhaAcoesAberta.classList.remove('acoes-abertas');
   linhaAcoesAberta = null;
@@ -6212,17 +6221,100 @@ function botaoExcluirDaLinha(item, lista, depois) {
   return b;
 }
 
-function montarAcoesDaLinha(li, botoes) {
+// ===== REORDENAR É UM PAR DE BOTÕES, NÃO UM ARRASTO (v5.285) =====
+//
+// Pedido do operador: *"mude o sistema de reordenação tanto da lista de
+// favoritos como da lista do cronograma. Agora ao invés de arrastar, use um
+// sistema de botões para cima e para baixo que ficam na seção de opções que
+// aparece ao clicar no botão de opções"* — e, perguntado, as TRÊS listas (a
+// fila da playlist junto), para o app não ficar com dois idiomas de reordenar.
+//
+// O que sai com o arrasto é uma máquina inteira: `attachHandle`, a medição
+// única do `pointerdown`, a linha-guia absoluta, o `data-fixa` das pastas e o
+// bloco contendor garantido pelo JS. O que entra são dois botões que movem UMA
+// casa, e a diferença que importa não é de gosto: um arrasto é um gesto CONTÍNUO
+// com captura de ponteiro, disputando o eixo vertical com a lista que rola por
+// baixo — dentro de uma gaveta que já é um alvo pequeno, num culto, com o
+// aparelho no suporte. Dois toques discretos não têm corrida com nada.
+//
+// O PREÇO está dito: mover um item dez posições passou de um gesto a dez
+// toques. É o caso raro (a ordem se ajusta em um ou dois lugares depois de
+// montada), e a lista redesenha entre um toque e o outro — o botão continua sob
+// o dedo porque a gaveta reabre no item que se moveu (ver `moverNaLista`).
+//
+// `pos`/`total` vêm de quem itera a lista, e são eles que desabilitam as pontas:
+// um botão que não faz nada é pior que botão nenhum, e no topo/base ele não tem
+// para onde ir. Sem eles (uma lista que não os passe), os dois nascem ativos e
+// `moverNaLista` recusa a borda em silêncio — degradação segura.
+function botoesDeOrdem(listName, id, pos, total) {
+  if (!listName || typeof pos !== 'number' || total <= 1) return [];
+  const faz = (delta, titulo, inerte) => {
+    const b = document.createElement('button');
+    b.className = 'row-btn row-ordem';
+    b.title = titulo;
+    b.setAttribute('aria-label', titulo);
+    b.innerHTML = chevronDirSvg(delta < 0);
+    if (inerte) b.disabled = true;
+    else b.addEventListener('click', (e) => { e.stopPropagation(); moverNaLista(listName, id, delta); });
+    return b;
+  };
+  return [
+    faz(-1, 'Mover para cima', pos === 0),
+    faz(1, 'Mover para baixo', pos === total - 1),
+  ];
+}
+
+// Move UMA casa. A troca é no array de ids e o desfecho é o mesmo `load()` que
+// o arrasto usava — o resto do app não sabe que o gesto mudou.
+//
+// `reabrirAcoesEm` é o que faz o segundo toque cair no mesmo lugar: `load()`
+// reconstrói a lista inteira, o `li` que tinha a gaveta aberta deixa de existir,
+// e sem isso cada casa custaria reabrir a gaveta à mão.
+async function moverNaLista(listName, id, delta) {
+  const ids = await AVDB.listIds(listName);
+  const de = ids.indexOf(id);
+  if (de === -1) return;
+  const para = de + delta;
+  if (para < 0 || para >= ids.length) return;
+  ids.splice(de, 1);
+  ids.splice(para, 0, id);
+  await AVDB.listSet(listName, ids);
+  reabrirAcoesEm = listName + ':' + id;
+  await load();
+  // A SEÇÃO DOS FAVORITOS NÃO É REDESENHADA POR `load()`: `renderLibrary` só
+  // chega ao `renderFolderList` quando a aba é a da pasta do aparelho, e a
+  // lista `favs` mora dentro da BIBLIOTECA (v5.237). Sem esta linha o item
+  // mudava de lugar no banco e a tela ficava exatamente igual — o pior desfecho
+  // possível para um botão de reordenar. (`load()` já releu `favItems`; o que
+  // falta é pintar.)
+  if (listName === 'favs') redesenharFavoritosNaBiblioteca();
+}
+
+function montarAcoesDaLinha(li, botoes, chave) {
   const uteis = botoes.filter(Boolean);
   if (!uteis.length) return [];
+  // A REABERTURA depois de uma casa de reordenação (v5.285). Ela mora aqui, e
+  // não em cada chamador, para a próxima lista que ganhar a gaveta não poder
+  // esquecê-la — e o `li` ainda não está no documento, o que não importa: o que
+  // reabre é a classe.
+  if (chave && chave === reabrirAcoesEm) {
+    reabrirAcoesEm = null;
+    fecharAcoesDaLinha();
+    li.classList.add('acoes-abertas');
+    linhaAcoesAberta = li;
+  }
   const caixa = document.createElement('div');
   caixa.className = 'row-acoes';
   caixa.append(...uteis);
   // ESCOLHIDA a opção, a caixa fecha — ela cobre o nome, e um menu que fica
   // aberto por cima do item depois de já ter feito o que se pediu é o defeito
-  // que ele existe para corrigir. A ALÇA é a exceção, e a única: ela não é uma
-  // decisão que termina, é um gesto que dura (e um `click` residual dela
-  // fecharia o menu no fim de cada arrasto).
+  // que ele existe para corrigir. O PAR ↑↓ é a exceção, e a única: reordenar é
+  // uma decisão que se REPETE (mover três casas são três toques), e fechar a
+  // gaveta no primeiro deles obrigaria a reabri-la a cada casa. Ele já se
+  // sustenta sozinho — a lista redesenha e `reabrirAcoesEm` põe a gaveta de
+  // volta no item que se moveu, com o botão sob o mesmo dedo.
+  // (Até a v5.284 a exceção era a ALÇA de arrastar, pelo motivo oposto: ela não
+  // era uma decisão que termina, era um gesto que dura.)
   //
   // O VAZIO da caixa fecha pelo mesmo motivo, e é o que dá uma saída barata a
   // quem só queria ler a linha: sem ele o único caminho de volta seria acertar
@@ -6235,7 +6327,7 @@ function montarAcoesDaLinha(li, botoes) {
   // só tira uma classe.
   caixa.addEventListener('click', (e) => {
     const alvo = e.target === caixa ? caixa : (e.target.closest && e.target.closest('button'));
-    if (!alvo || (alvo !== caixa && alvo.classList.contains('row-handle'))) return;
+    if (!alvo || (alvo !== caixa && alvo.classList.contains('row-ordem'))) return;
     if (alvo === caixa) e.stopPropagation();
     fecharAcoesDaLinha();
   }, true);
@@ -6284,6 +6376,15 @@ function checkIconSvg() {
 // abertas" só pela cor; a seta diz o que o toque FAZ, que é recolher o painel
 // que está logo abaixo dela. É a convenção de qualquer gaveta, e aqui o alvo é
 // literalmente o teto do painel que ela fecha.
+// As setas do par de reordenar (v5.285). SVG inline, e NÃO um glifo da fonte:
+// `material-symbols.woff2` é um subset ESTÁTICO de ~32 codepoints, e um
+// codepoint que não está nele desenha um retângulo vazio sem erro nenhum — a
+// armadilha da v5.184, em que três ícones "existiam" no cmap com o contorno
+// vazio. O desenho é o mesmo chevron da seta das seções, virado.
+function chevronDirSvg(paraCima) {
+  return '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="'
+    + (paraCima ? '18 15 12 9 6 15' : '6 9 12 15 18 9') + '"/></svg>';
+}
 function chevronUpIconSvg() {
   return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="18 15 12 9 6 15"/></svg>';
 }
@@ -7562,16 +7663,13 @@ function renderFolderList() {
   // diretas do corpo, isto é, irmãs da placa e do mesmo nível dela — que é o
   // que as faz vestir a cor de álbum sem uma linha de CSS própria, pela regra
   // do `--camada` que o corpo já declara.
-  if (favItems.length) {
-    const placa = document.createElement('ul');
-    placa.className = 'fav-itens';
-    favItems.forEach((item) => placa.appendChild(favItemRow(item)));
-    favAlvo().appendChild(placa);
-  }
-  // AS PASTAS DO APARELHO FICAM, e ficam no FIM: elas são a origem bruta, e o
-  // que a estrela promete são os itens. Não têm cabeçalho porque não são uma
-  // subdivisão da lista — são outra coisa, e o desenho já diz isso (ícone de
-  // pasta, contador, sincronizar e excluir na mesma linha).
+  // AS PASTAS DO APARELHO VÊM PRIMEIRO (v5.285, pedido do operador: *"faça as
+  // pastas sincronizadas serem posicionadas no topo da lista dos favoritos"*).
+  // Elas ficaram no FIM da v5.254 até aqui, com o argumento de que "são a origem
+  // bruta, e o que a estrela promete são os itens" — o que continua verdadeiro e
+  // não é o que decide a ordem: uma pasta é um punhado de arquivos atrás de UMA
+  // linha, e a lista de favoritos cresce por baixo dela. No fim, cada favorito
+  // novo empurrava as pastas para longe; no topo elas têm endereço fixo.
   //
   // (As "minhas pastas" — os atalhos que o operador criava aqui — saíram na
   // v5.254 a pedido dele. O conteúdo delas foi para os favoritos, um a um, por
@@ -7579,9 +7677,6 @@ function renderFolderList() {
   opfsFolders.forEach((f) => {
     const li = document.createElement('li');
     li.className = 'lib-item folder-opfs';
-    // NÃO É ALVO DE ARRASTO: ela não pertence à lista `favs`, então não pode
-    // contar como posição quando um favorito é arrastado — ver `measureDrag`.
-    li.dataset.fixa = '1';
     const row = document.createElement('div'); row.className = 'row';
     const icon = document.createElement('div'); icon.className = 'thumb thumb--icon';
     icon.appendChild(msym(ICON.import));
@@ -7608,13 +7703,20 @@ function renderFolderList() {
     li.addEventListener('click', () => openOpfsFolder(f));
     favAlvo().appendChild(li);
   });
+
+  if (favItems.length) {
+    const placa = document.createElement('ul');
+    placa.className = 'fav-itens';
+    favItems.forEach((item, i) => placa.appendChild(favItemRow(item, i, favItems.length)));
+    favAlvo().appendChild(placa);
+  }
 }
 
 // Uma linha da seção "Favoritos" — o item em si, não um grupo. Tocar faz o
 // MESMO que tocar nele no Cronograma (`onTap`: mídia toca, cena projeta), a
 // estrela desmarca e o `+` manda para a lista do culto. São as três coisas que
 // se quer de um favorito, sem entrar em pasta nenhuma.
-function favItemRow(item) {
+function favItemRow(item, pos, total) {
   const li = document.createElement('li');
   li.className = 'lib-item' + (linhaAtiva(item.id) ? ' active' : '')
     + (linhaNoAr(item.id) ? ' no-ar' : '');
@@ -7637,14 +7739,9 @@ function favItemRow(item) {
     e.stopPropagation();
     await adicionarNaLista('imports', item.id, item.name, add);
   });
-  // A ALÇA DE ARRASTAR (v5.254). Sem as seções por tipo, a ordem da lista passou
-  // a ser uma DECISÃO do operador — e é ele quem a toma, pelo mesmo gesto e pela
-  // mesma máquina do Cronograma (`attachHandle` → `reorder`). Reusar em vez de
-  // escrever um segundo arrastar é o que mantém a linha-guia, a medição única do
-  // `pointerdown` e o comportamento na rolagem iguais nas duas listas.
-  const handle = document.createElement('button');
-  handle.className = 'row-handle'; handle.title = 'Arraste para reordenar';
-  handle.appendChild(msym(ICON.drag));
+  // (A ALÇA DE ARRASTAR viveu aqui da v5.254 à v5.284. Ela saiu na v5.285 com o
+  // arrasto do app inteiro — quem reordena agora é o par ↑↓ da gaveta, pela
+  // mesma `botoesDeOrdem` das outras duas listas.)
   // O PARAR NA MINIATURA (v5.259), como no Cronograma. Aqui ele simplesmente
   // NÃO EXISTIA: uma linha de favorito no ar mostrava o selo "● No ar" e não
   // oferecia nada que a tirasse de lá — restava o segundo toque no corpo, que
@@ -7657,9 +7754,10 @@ function favItemRow(item) {
   // que pagava mais caro — 152px de nome numa lista de 368 — porque é a única
   // com três botões.
   partes.push(...montarAcoesDaLinha(li, [
-    favBtn(item.id, item.name), add, handle,
+    favBtn(item.id, item.name), add,
+    ...botoesDeOrdem('favs', item.id, pos, total),
     botaoExcluirDaLinha(item, 'favs', () => recarregarFavoritos()),
-  ]));
+  ], 'favs:' + item.id));
   row.append(...partes);
   li.appendChild(row);
   // O TOQUE PROJETA. O TOQUE LONGO NÃO FAZ MAIS NADA AQUI (v5.271).
@@ -7683,7 +7781,6 @@ function favItemRow(item) {
   // continua valendo onde o modo de fato funciona: as listas da tela principal
   // e o conteúdo de uma pasta do aparelho.
   attachRowGestures(row, item, { semSelecao: true });
-  attachHandle(handle, item.id, 'favs');
   return li;
 }
 
@@ -8590,7 +8687,7 @@ function attachRowGestures(row, item, opts) {
   const semSelecao = !!(opts && opts.semSelecao);
 
   row.addEventListener('pointerdown', (e) => {
-    if (e.target.closest('.row-handle') || e.target.closest('.row-btn')) return;
+    if (e.target.closest('.row-btn') || e.target.closest('.row-acoes')) return;
     pid = e.pointerId; startX = e.clientX; startY = e.clientY; startT = Date.now(); longFired = false;
     if (semSelecao) return;
     lp = setTimeout(() => { longFired = true; enterSelection(item.id); }, LONGPRESS);
@@ -8944,123 +9041,17 @@ function textoLote(novos, total, onde) {
   return novos + ' de ' + total + ' adicionados ' + onde.para + ' — o resto já estava lá';
 }
 
-// ===== arrastar para reordenar =====
-function attachHandle(handle, id, listName) {
-  let pid = null, startY = 0, li = null, scrollHost = null;
-  const onDragScroll = () => { if (li) measureDrag(li.parentElement, li); };
-  const stopDrag = () => {
-    if (scrollHost) scrollHost.removeEventListener('scroll', onDragScroll);
-    scrollHost = null;
-    endDrag();
-  };
-  handle.addEventListener('pointerdown', (e) => {
-    e.preventDefault(); e.stopPropagation();
-    pid = e.pointerId; startY = e.clientY; li = handle.closest('li');
-    li.classList.add('dragging');
-    // Mede a lista aqui, uma vez — durante o arrasto não se lê mais layout.
-    // A rolagem da lista é o único evento que invalida as medidas.
-    measureDrag(li.parentElement, li);
-    scrollHost = li.parentElement;
-    scrollHost.addEventListener('scroll', onDragScroll, { passive: true });
-    try { handle.setPointerCapture(pid); } catch (_) {}
-  });
-  handle.addEventListener('pointermove', (e) => {
-    if (pid === null) return;
-    li.style.transform = `translateY(${e.clientY - startY}px)`;
-    showDropLine(li.parentElement, li, e.clientY);
-  });
-  async function drop(e) {
-    if (pid === null) return;
-    const ul = li.parentElement;
-    const target = dropIndex(ul, li, e.clientY);
-    li.style.transform = ''; li.classList.remove('dragging');
-    hideDropLine(ul);
-    pid = null;
-    stopDrag();
-    await reorder(listName, id, target);
-  }
-  handle.addEventListener('pointerup', drop);
-  handle.addEventListener('pointercancel', () => { if (li) { li.style.transform = ''; li.classList.remove('dragging'); hideDropLine(li.parentElement); } pid = null; stopDrag(); });
-}
-
-// Medidas dos itens, capturadas UMA vez no início do arrasto.
+// (===== ARRASTAR PARA REORDENAR — REMOVIDO NA v5.285 =====
 //
-// Antes, cada `pointermove` (60–120 eventos por segundo) fazia um
-// querySelectorAll da lista inteira e um getBoundingClientRect por item —
-// logo depois de escrever `li.style.transform`, o que força um reflow
-// SÍNCRONO a cada evento. Num Cronograma de 200 itens isso é o suficiente
-// para o arrasto engasgar. As posições não mudam durante o arrasto (o item
-// arrastado se move por transform, que não altera o layout), então basta
-// medir no pointerdown e refazer se a lista rolar.
-let dragGeom = null;
-function measureDrag(ul, draggedLi) {
-  const items = [];
-  for (const el of ul.children) {
-    if (el === draggedLi || el.tagName !== 'LI') continue;
-    // `data-fixa`: a linha está na mesma `<ul>` e NÃO pertence à lista que se
-    // reordena (v5.254 — as pastas do aparelho, no fim dos Favoritos). Contá-la
-    // como posição deslocaria o índice de destino em relação ao array, e o item
-    // cairia num lugar diferente do que a linha-guia prometeu.
-    if (el.dataset && el.dataset.fixa) continue;
-    const r = el.getBoundingClientRect();
-    items.push({ mid: r.top + r.height / 2, top: r.top, bottom: r.bottom });
-  }
-  dragGeom = { ul, items, ulTop: ul.getBoundingClientRect().top, scroll: ul.scrollTop };
-}
-function endDrag() { dragGeom = null; }
-
-// Índice de destino a partir de uma coordenada Y — a MESMA conta usada pela
-// linha-guia, para que o que o operador vê seja onde o item cai.
-function dropIndex(ul, draggedLi, y) {
-  if (!dragGeom || dragGeom.ul !== ul) measureDrag(ul, draggedLi);
-  const items = dragGeom.items;
-  for (let i = 0; i < items.length; i++) if (y < items[i].mid) return i;
-  return items.length;
-}
-
-// linha-guia azul mostrando onde o item vai cair
+// Saiu inteiro a pedido do operador: `attachHandle`, `measureDrag`,
+// `dropIndex`, `showDropLine`/`hideDropLine`, `endDrag`, `dragGeom` e o
+// `reorder` por índice de destino. Quem reordena agora é `botoesDeOrdem` →
+// `moverNaLista`, um par ↑↓ dentro da gaveta do `⋮`.
 //
-// ELA É `position: absolute` E MORA DENTRO DA `<ul>`, então a `<ul>` precisa ser
-// o BLOCO CONTENDOR dela. Isso valia por acidente: o Cronograma é uma
-// `.lib-list`, que declara `position: relative` desde sempre — e os Favoritos
-// são uma `.popup-list`, que não declara. Ali a guia se posicionava contra o
-// primeiro ancestral posicionado, que é o `.popup-backdrop` FIXO, usando
-// coordenadas calculadas em relação à lista: o relato do operador, palavra por
-// palavra ("as linhas de guia para a posição final dos itens está completamente
-// fora de sincronia e posição com a lista").
-//
-// A garantia vem daqui, e não de uma regra de CSS por lista, porque o conjunto
-// de listas que hospedam um arrasto cresce (a v5.237 acrescentou a seção dos
-// Favoritos DENTRO da Biblioteca, uma terceira `<ul>` com outra classe): uma
-// lista de seletores envelheceria no próximo host, e o modo de falhar é este —
-// silencioso, e só visível com o dedo em cima.
-function showDropLine(ul, draggedLi, y) {
-  if (getComputedStyle(ul).position === 'static') ul.style.position = 'relative';
-  let line = ul.querySelector('.drop-line');
-  if (!line) { line = document.createElement('div'); line.className = 'drop-line'; ul.appendChild(line); }
-  if (!dragGeom || dragGeom.ul !== ul) measureDrag(ul, draggedLi);
-  const { items, ulTop, scroll } = dragGeom;
-  const idx = dropIndex(ul, draggedLi, y);
-  let top;
-  if (idx < items.length) top = items[idx].top - ulTop;
-  else if (items.length) top = items[items.length - 1].bottom - ulTop;
-  else top = 0;
-  line.style.top = (top + scroll) + 'px';
-}
-function hideDropLine(ul) {
-  const line = ul && ul.querySelector('.drop-line');
-  if (line) line.remove();
-}
-
-async function reorder(listName, id, toIndex) {
-  const ids = await AVDB.listIds(listName);
-  const from = ids.indexOf(id);
-  if (from === -1) return;
-  ids.splice(from, 1);
-  ids.splice(toIndex, 0, id);
-  await AVDB.listSet(listName, ids);
-  load();
-}
+// O que a remoção leva junto, e vale saber que sumiu: a linha-guia absoluta
+// (com o bloco contendor garantido pelo JS, v5.272), a medição ÚNICA no
+// `pointerdown` com re-medição na rolagem, e o `data-fixa` das pastas do
+// aparelho — que existia só para elas não contarem como posição no arrasto.)
 
 // ===== seleção múltipla =====
 function enterSelection(id) {
@@ -11363,22 +11354,26 @@ function ytSegRow(opcoes, atual, onPick) {
   return li;
 }
 
-function openYtMenu(r) {
+function openYtMenu(r, alvoDado) {
   // A qualidade nasce no padrão A CADA ITEM, como a forma e como a variante das
   // músicas. Deliberado: um teto que grudasse faria o operador escolher 480p
   // numa rede ruim e receber, sem aviso, o vídeo principal do domingo seguinte
   // em 480p no telão. O atrito de dois toques é visível; a regressão silenciosa
   // não seria.
   if (!songMenuFor || songMenuFor.yt !== r) {
-    songMenuFor = { yt: r, variant: 'full', audio: false, alt: YT_ALTURAS[0] };
+    songMenuFor = { yt: r, variant: 'full', audio: false, alt: YT_ALTURAS[0], alvo: alvoDado || null };
     // Item novo, folha nova: os destinos marcados são da FOLHA ABERTA e não
     // atravessam de um vídeo para o outro. (Os toques nos seletores de forma e
     // qualidade remontam a folha para o MESMO `r` e passam por aqui sem zerar
     // nada, que é o que preserva o que já foi marcado.)
     destLimpar();
   }
-  songMenuTitleEl.textContent = r.name || 'Vídeo do YouTube';
-  songMenuListEl.innerHTML = '';
+  // O ALVO pode ser o corpo da linha (v5.285) em vez da folha — ver a nota em
+  // `renderSongMenu`. Ele mora em `songMenuFor` porque os seletores de forma e
+  // qualidade remontam a lista, e precisam refazê-la no mesmo lugar.
+  const alvo = songMenuFor.alvo || songMenuListEl;
+  if (!songMenuFor.alvo) songMenuTitleEl.textContent = r.name || 'Vídeo do YouTube';
+  alvo.innerHTML = '';
   // VÍDEO × SÓ ÁUDIO, no MESMO seletor de Cantada/Playback das músicas do
   // acervo — é a mesma pergunta ("qual faixa deste item?") e não havia por que
   // inventar um segundo desenho para ela. A escolha vale para as quatro ações
@@ -11396,7 +11391,7 @@ function openYtMenu(r) {
   // escolha aqui seria oferecer uma que não muda nada.
   if (window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= 23 && !r.semSoAudio
       && (songMenuFor.alt | 0) !== YT_ONLINE) {
-    songMenuListEl.appendChild(ytSegRow(
+    alvo.appendChild(ytSegRow(
       [[false, 'Vídeo'], [true, 'Só áudio']],
       !!songMenuFor.audio,
       (v) => { songMenuFor.audio = v; openYtMenu(r); },
@@ -11415,7 +11410,7 @@ function openYtMenu(r) {
   // inteira só existe a partir dele; num shell anterior o operador continua com
   // o download de sempre, que é o que este app fazia até agora.
   if (window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= 25 && !songMenuFor.audio) {
-    songMenuListEl.appendChild(ytSegRow(
+    alvo.appendChild(ytSegRow(
       [[YT_ONLINE, 'Online']].concat(YT_ALTURAS.map((h) => [h, h + 'p'])),
       songMenuFor.alt | 0,
       (v) => { songMenuFor.alt = v; openYtMenu(r); },
@@ -11452,7 +11447,7 @@ function openYtMenu(r) {
   // não diz — daí ele manter subtítulo enquanto os três destinos perderam o
   // deles. No caminho de só-áudio o que ele não diz é outra coisa: o telão não
   // muda (o kind `audio` mantém o wallpaper).
-  songMenuListEl.appendChild(songMenuItem(msym(ICON.play), 'Tocar agora',
+  alvo.appendChild(songMenuItem(msym(ICON.play), 'Tocar agora',
     soAudio ? 'Sem mexer no telão' : 'Sem entrar em lista nenhuma',
     (vr, btn, alvos) => ytAcao(r, alvos, null, soAudio, altura), 'tocar', remontar));
   // COM "ONLINE" os três destinos guardam o LINK, e isso precisa estar dito:
@@ -11460,15 +11455,16 @@ function openYtMenu(r) {
   // download". O subtítulo é o mesmo nos três porque a diferença entre eles
   // continua sendo só a lista.
   const subGuardar = (songMenuFor.alt | 0) === YT_ONLINE ? 'Só o link, sem baixar' : '';
-  songMenuListEl.appendChild(songMenuItem(msym(ICON.queue), 'Adicionar à playlist', subGuardar,
+  alvo.appendChild(songMenuItem(msym(ICON.queue), 'Adicionar à playlist', subGuardar,
     (vr, btn, alvos) => ytAcao(r, alvos, btn, soAudio, altura), 'playlist', remontar));
-  songMenuListEl.appendChild(songMenuItem(msym(ICON.cronoAdd), 'Adicionar ao Cronograma', subGuardar,
+  alvo.appendChild(songMenuItem(msym(ICON.cronoAdd), 'Adicionar ao Cronograma', subGuardar,
     (vr, btn, alvos) => ytAcao(r, alvos, btn, soAudio, altura), 'cronograma', remontar));
-  songMenuListEl.appendChild(songMenuItem(msym(ICON.star), 'Favoritar', subGuardar,
+  alvo.appendChild(songMenuItem(msym(ICON.star), 'Favoritar', subGuardar,
     (vr, btn, alvos) => ytAcao(r, alvos, btn, soAudio, altura), 'favoritos', remontar));
   const go = destConfirmRow();
-  if (go) songMenuListEl.appendChild(go);
-  songMenuPopupEl.classList.add('open');
+  if (go) alvo.appendChild(go);
+  // Só a FOLHA abre; no corpo da linha quem abre é o acordeão do chamador.
+  if (!songMenuFor.alvo) songMenuPopupEl.classList.add('open');
 }
 
 // Baixa e faz o que foi escolhido.
@@ -12125,22 +12121,33 @@ function searchIconSvg() {
   return '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoLupa"/></svg>';
 }
 
-// Linha compacta: [▶] [nome / subtítulo] [+]. DOIS botões, e cada um abre uma
-// folha rápida com as três escolhas que ele governa (ver openSongMenu): tocar
-// (cantado / playback / só a letra) e adicionar (playlist / Cronograma /
-// favoritos). O toque na LINHA continua sendo o acordeão da letra.
+// ===== UMA LINHA, UM TOQUE, UMA GAVETA (v5.285) =====
 //
-// Até a v5.62 as ações eram seis botões mudos que só apareciam com a linha
-// aberta — dois grupos de três (Cantado e Playback), cada um com tocar,
-// +Cronograma e +Playlist. Seis ícones dividindo a largura de um celular não
-// cabem com rótulo, então nenhum tinha: a diferença entre "+ playlist" e
-// "+ cronograma" era um desenho de 19px, e a escolha errada no meio do culto
-// só aparecia depois. Dois alvos grandes e sempre à vista, com as opções
-// ESCRITAS na folha, trocam seis adivinhações por duas leituras.
+// Pedido do operador: *"centralize a ação de adicionar em listas e a ação do
+// botão play que tem nos itens da biblioteca. Agora o toque vai ser geral no
+// card, sem um botão específico para play ou outro para adicionar nas listas.
+// Tocar no corpo vai abrir as opções completas. E não apenas isso, mas não será
+// mais um popup, será uma lista de opções que surge no corpo onde atualmente
+// surge a letra ou detalhes do item."*
 //
-// O botão de tocar ocupa o lugar da miniatura. Ali havia um ícone decorativo
-// (a mesma nota musical em todas as faixas do álbum) num quadrado de 46px — o
-// maior alvo livre da linha, gasto com o único elemento que não informava nada.
+// A linha era `[▶] [nome / subtítulo] [+]` — dois botões, cada um abrindo uma
+// FOLHA com a metade das escolhas que lhe dizia respeito (v5.62). O que o
+// operador está desfazendo é a divisão: com dois alvos, decidir "o que fazer com
+// este hino?" exigia primeiro decidir QUAL DOS DOIS botões é o dono da pergunta
+// — e essa é uma pergunta sobre a UI, não sobre o culto. Um alvo só, e a lista
+// inteira do outro lado.
+//
+// **O que se ganha em largura é medido, e é grande**: os dois botões custavam
+// 40 + 34 px numa linha de celular, mais os vãos. O nome — a única coisa da
+// linha que não se adivinha — recebe tudo isso de volta.
+//
+// **E a gaveta não perdeu a letra** (decisão do operador, perguntado): ela abre
+// com as OPÇÕES em cima e a letra (ou o detalhe do vídeo) logo abaixo, na mesma
+// abertura. A letra é o que responde "é este mesmo?", e é dela que sai o trecho
+// marcado quando a busca casou no meio de uma estrofe — trocá-la pelas opções
+// teria tirado da Biblioteca a única leitura que o operador faz ANTES de
+// escolher.
+//
 // `semColecao` = a linha já está DENTRO do card da coleção (acordeão do
 // acervo): repetir "Album 1" em cada uma das dez faixas é ruído.
 function hymnResultRow(coll, s, lyricHit, semColecao) {
@@ -12153,11 +12160,17 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
   li.dataset.song = chave;
 
   const row = document.createElement('div'); row.className = 'row hymn-row';
-  const play = document.createElement('button');
+  // O QUADRADO DA ESQUERDA DEIXOU DE SER UM BOTÃO (v5.285) e virou um
+  // INDICADOR. Ele fica porque carrega o ANEL DE DOWNLOAD — a única coisa que
+  // aquele canto sempre informou de verdade — e porque é ele que dá à faixa a
+  // altura e a coluna que a lista inteira alinha. `<span>`, sem `title` e sem
+  // ouvinte: um alvo que não é alvo, num canto onde o dedo mira, seria pior que
+  // não ter nada. Quem responde ao toque agora é a linha inteira.
+  const play = document.createElement('span');
   play.className = 'hymn-play-thumb' + (songRowBusy.has(chave) ? ' busy' : '');
-  play.title = 'Tocar "' + songLabel(coll, s) + '"';
+  play.setAttribute('aria-hidden', 'true');
   play.appendChild(msym(ICON.play));
-  // O anel de download convive com o ▶ no mesmo botão: a classe `busy` troca
+  // O anel de download convive com o ▶ no mesmo lugar: a classe `busy` troca
   // qual dos dois aparece. Montá-lo aqui, e não na hora, é o que faz a marca
   // sobreviver ao redesenho da lista (o progresso da sincronização redesenha o
   // acervo a cada 400 ms).
@@ -12165,14 +12178,6 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
   anel.className = 'dl-ring'; anel.setAttribute('aria-hidden', 'true');
   anel.innerHTML = downloadArrowIconSvg();
   play.appendChild(anel);
-  play.addEventListener('click', (e) => {
-    e.stopPropagation();   // divide a linha com o acordeão
-    // No simplificado não há escolha: o toque toca o CANTADO. Abrir uma folha
-    // com três opções seria devolver ao operador exatamente a decisão que este
-    // modo poupa (é a mesma regra do toque na linha, abaixo).
-    if (appMode === 'simple') { simplePlaySong(coll, s); return; }
-    openSongMenu(coll, s, 'play');
-  });
 
   const info = document.createElement('div'); info.className = 'hymn-info';
   const name = document.createElement('span'); name.className = 'row-name hymn-name';
@@ -12194,18 +12199,11 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
     info.appendChild(hit);
   }
 
-  // A DURAÇÃO SAIU DA LINHA. Ela ocupava a coluna da direita — a única sobra de
-  // largura numa linha de celular — para dizer "3:47", que não decide nada:
-  // ninguém escolhe o louvor pelo tempo dele, e quem precisa do número o tem na
-  // barra de progresso assim que a música entra. Esse lugar agora é do segundo
-  // botão, que decide.
-  const add = document.createElement('button');
-  add.className = 'hymn-add-btn row-btn';
-  add.title = 'Adicionar "' + songLabel(coll, s) + '" a uma lista';
-  add.appendChild(msym(ICON.add));
-  add.addEventListener('click', (e) => { e.stopPropagation(); openSongMenu(coll, s, 'add'); });
-
-  row.append(play, info, add);
+  // A COLUNA DA DIREITA ESTÁ VAZIA, e é a segunda vez que ela esvazia. A
+  // DURAÇÃO saiu dela na v5.62 ("ninguém escolhe o louvor pelo tempo dele") e o
+  // lugar foi para o `+`; o `+` saiu na v5.285, e agora quem recebe a largura é
+  // o NOME — a única coisa da linha que não se adivinha, e a que mais cortava.
+  row.append(play, info);
 
   // ===== A GAVETA DA LINHA: o que ela abre depende do TIPO =====
   //
@@ -12221,16 +12219,48 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
   // Só é montada quando a linha ABRE (e uma vez só): montá-la para todos os
   // resultados encheria a lista de centenas de nós que ninguém pediu — e a
   // lista é reconstruída a cada tecla.
+  // A GAVETA TEM DUAS METADES (v5.285): as OPÇÕES em cima e o conteúdo de
+  // reconhecimento embaixo — a letra numa música, a miniatura e o estado num
+  // vídeo. A ordem não é arbitrária: quem abre a gaveta acabou de tocar na
+  // linha para DECIDIR alguma coisa, e a decisão tem de estar sob o dedo; a
+  // letra é a conferência, e ela pode rolar.
   const gaveta = document.createElement('div');
-  gaveta.className = temLetra(coll) ? 'hymn-lyrics' : 'item-detalhe';
+  gaveta.className = 'hymn-gaveta';
+  const opcoes = document.createElement('ul');
+  opcoes.className = 'song-menu-list hymn-opcoes';
+  const conteudo = document.createElement('div');
+  conteudo.className = temLetra(coll) ? 'hymn-lyrics' : 'item-detalhe';
+  gaveta.append(opcoes, conteudo);
   let gavetaMontada = false;
   let letraAlvo = null;   // a linha que casou com a busca, para rolar até ela
 
   // A gaveta de um VÍDEO. Sem prometer nada que dependa de rede: a miniatura é
   // ilustração (sai de cena sozinha se não carregar) e as duas linhas de texto
   // valem offline.
+  // AS OPÇÕES DA LINHA. Elas são exatamente as da folha que existia até a
+  // v5.284 — os mesmos executores, os mesmos destinos marcáveis, o mesmo
+  // confirmar —, escritas no corpo em vez de num popup. O que muda é o ALVO, e
+  // é por isso que nada aqui reimplementa nada: `renderSongMenu`/`openYtMenu`
+  // ganharam para onde escrever (`songMenuFor.alvo`).
+  //
+  // UM EPISÓDIO DE SÉRIE desvia para a lista do YouTube, como a folha já fazia
+  // desde a v5.230 (`openSongMenu` → `openYtMenu`): ali as escolhas são outras
+  // — transmitir sem baixar, o teto de qualidade — e o resto desta função monta
+  // justamente o que não se aplica a ele.
+  //
+  // `destLimpar()` a cada abertura: os destinos marcados são DESTA linha e não
+  // atravessam de um item para o outro. O acordeão fecha a linha anterior, então
+  // há no máximo uma gaveta aberta — é isso que deixa `songMenuFor`,
+  // `destExecutor` e `destRemontar` continuarem sendo um só.
+  function montarOpcoes() {
+    destLimpar();
+    if (ehLink(coll)) { openYtMenu(serieComoYoutube(coll, s), opcoes); return; }
+    songMenuFor = { coll, s, variant: 'full', alvo: opcoes };
+    renderSongMenu('tudo');
+  }
+
   async function montarDetalhe() {
-    gaveta.innerHTML = '';
+    conteudo.innerHTML = '';
     if (s.thumb) {
       const im = document.createElement('img');
       im.className = 'item-detalhe-thumb';
@@ -12239,7 +12269,7 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
       // trocou a arte). Um retângulo quebrado no meio da gaveta é pior que
       // gaveta sem imagem, e o resto dela continua verdadeiro sem a foto.
       im.addEventListener('error', () => im.remove());
-      gaveta.appendChild(im);
+      conteudo.appendChild(im);
     }
     const txt = document.createElement('div'); txt.className = 'item-detalhe-txt';
     if (s.duration) {
@@ -12255,7 +12285,7 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
     est.className = 'item-detalhe-linha item-detalhe-estado';
     est.textContent = 'Toca sem baixar';
     txt.appendChild(est);
-    gaveta.appendChild(txt);
+    conteudo.appendChild(txt);
     // Assíncrono e DEPOIS de a gaveta já estar montada: a abertura mede a
     // altura do que está em cena, e esperar o IndexedDB para desenhar deixaria
     // a animação partir de uma caixa vazia.
@@ -12270,7 +12300,7 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
 
   async function montarLetra() {
     const estrofes = await songLyricStanzas(coll, s);
-    gaveta.innerHTML = '';
+    conteudo.innerHTML = '';
     if (!estrofes) {
       const vazio = document.createElement('div');
       vazio.className = 'hymn-lyrics-empty';
@@ -12279,7 +12309,7 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
       // nesta música (ou falhou). Duas mensagens diferentes sugeririam duas
       // causas diferentes onde só há uma.
       vazio.textContent = 'Letra ainda não baixada.';
-      gaveta.appendChild(vazio);
+      conteudo.appendChild(vazio);
       return;
     }
     const q = normalizeForSearch(hymnSearchInputEl.value).trim();
@@ -12310,7 +12340,7 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
         }
         bloco.appendChild(d);
       });
-      gaveta.appendChild(bloco);
+      conteudo.appendChild(bloco);
     });
     // Rolar até ela só faz sentido com a caixa JÁ visível — e agora a letra é
     // montada antes de a linha abrir (a animação precisa medir a altura). Quem
@@ -12340,6 +12370,7 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
     // de repeti-la (e para o próximo tipo não poder esquecê-la).
     if (!gavetaMontada) {
       gavetaMontada = true;
+      montarOpcoes();
       await (temLetra(coll) ? montarLetra() : montarDetalhe());
     }
     li.classList.add('expanded');
@@ -12462,17 +12493,12 @@ function serieComoYoutube(coll, s) {
 }
 // (`ehSerie` mora com o resto do modelo de coleção, junto de `tipoDaColecao`.)
 
-function openSongMenu(coll, s, modo) {
-  // O item que é um LINK desvia para a folha do YouTube ANTES de qualquer
-  // coisa: o resto desta função monta o seletor Cantada/Playback e as ações que
-  // baixam, que são exatamente o que não se aplica a ele.
-  if (ehLink(coll)) { openYtMenu(serieComoYoutube(coll, s)); return; }
-  destLimpar();
-  songMenuFor = { coll, s, variant: 'full' };
-  songMenuTitleEl.textContent = songLabel(coll, s);
-  renderSongMenu(modo);
-  songMenuPopupEl.classList.add('open');
-}
+// (`openSongMenu` — a FOLHA de um item do acervo — saiu na v5.285: os dois
+// botões que a abriam deixaram de existir, e a mesma lista passa a ser montada
+// no corpo da linha por `montarOpcoes`. A folha `#songMenuPopup` continua de
+// pé, com os dois donos que sobraram: os resultados do YouTube (`openYtMenu`) e
+// o seletor de destinos da importação (`escolherDestinos`) — por isso
+// `closeSongMenu` fica.)
 
 function closeSongMenu() {
   // A folha é reusada como SELETOR DE DESTINOS da importação (ver
@@ -12707,15 +12733,30 @@ function renderSongMenu(modo) {
   if (!songMenuFor || songMenuFor.yt || songMenuFor.destPrompt || songMenuFor.folha) return;
   const { coll, s } = songMenuFor;
   const temPlayback = !!s.has_instrumental_music;
-  songMenuListEl.innerHTML = '';
+  // ===== O ALVO PODE NÃO SER A FOLHA (v5.285) =====
+  //
+  // Pedido do operador: as opções do item da Biblioteca deixam de ser um popup e
+  // passam a abrir NO CORPO da linha, onde hoje abre a letra. A folha continua
+  // existindo para quem ainda a usa — os resultados do YouTube e o seletor de
+  // destinos da importação —, então o que muda é só PARA ONDE isto escreve.
+  // O alvo viaja em `songMenuFor` porque o `remontar` (o seletor Cantada/
+  // Playback e cada marca de destino) refaz a lista, e ele precisa refazê-la no
+  // mesmo lugar.
+  const alvo = songMenuFor.alvo || songMenuListEl;
+  alvo.innerHTML = '';
+  // `tudo` é a lista COMPLETA — tocar e adicionar, uma abaixo da outra. Ela só
+  // existe no corpo da linha: na folha, cada botão abria a metade que lhe dizia
+  // respeito, e ali a metade era a pergunta. Sem botão nenhum, a pergunta passou
+  // a ser "o que dá para fazer com este item?", e a resposta é as duas.
+  const tudo = modo === 'tudo';
 
-  if (modo === 'play') {
-    songMenuListEl.appendChild(songMenuItem(voiceIconSvg(), 'Tocar música cantada', '',
+  if (modo === 'play' || tudo) {
+    alvo.appendChild(songMenuItem(voiceIconSvg(), 'Tocar música cantada', '',
       () => playSongVariant(coll, s, 'full')));
     if (temPlayback) {
       // "Playback" é o termo que este app usa em toda parte, inclusive no
       // seletor Cantada/Playback que nunca teve explicação nenhuma ao lado.
-      songMenuListEl.appendChild(songMenuItem(noteIconSvg(), 'Tocar playback', '',
+      alvo.appendChild(songMenuItem(noteIconSvg(), 'Tocar playback', '',
         () => playSongVariant(coll, s, 'playback')));
     }
     // "Só a letra" NÃO é uma variante de áudio: nenhum arquivo é tocado (nem
@@ -12723,10 +12764,10 @@ function renderSongMenu(modo) {
     // ela mora aqui e não numa terceira variante de `playSongVariant`.
     // "Sem música" repetia o rótulo; o que ele NÃO diz é que os slides param de
     // virar sozinhos, e é isso que muda o que o operador faz durante o louvor.
-    songMenuListEl.appendChild(songMenuItem(lyricsOnlyIconSvg(), 'Apenas a letra',
+    alvo.appendChild(songMenuItem(lyricsOnlyIconSvg(), 'Apenas a letra',
       'Os slides não passam sozinhos',
       () => projectSongLyricsOnly(coll, s)));
-    return;
+    if (!tudo) return;
   }
 
   // Adicionar. A escolha Cantada/Playback vira um seletor no topo em vez de
@@ -12736,17 +12777,17 @@ function renderSongMenu(modo) {
     // O MESMO `ytSegRow` das folhas do YouTube — é a função que existe para
     // este desenho ("escrevê-lo duas vezes era garantir que a segunda
     // divergisse"), e esta era a segunda cópia.
-    songMenuListEl.appendChild(ytSegRow(
+    alvo.appendChild(ytSegRow(
       [['full', 'Cantada'], ['playback', 'Playback']],
       songMenuFor.variant,
-      (v) => { songMenuFor.variant = v; renderSongMenu('add'); }));
+      (v) => { songMenuFor.variant = v; renderSongMenu(modo); }));
   }
 
   // OS TRÊS DESTINOS SÃO MARCÁVEIS (v5.141): o toque na linha continua sendo a
   // ação completa de um toque só, e a caixa da borda acumula — a mesma música
   // vai para a playlist E para os Favoritos sem refazer a busca. O executor é o
   // mesmo dos três, porque a diferença entre eles sempre foi só a lista.
-  const remontar = () => renderSongMenu('add');
+  const remontar = () => renderSongMenu(modo);
   destRemontar = remontar;
   // O EXECUTOR ÚNICO desta folha. Ele separa os destinos de LISTA da cena de
   // roteiro da letra: a letra não é o mesmo item noutra lista, é OUTRO item (uma
@@ -12759,24 +12800,24 @@ function renderSongMenu(modo) {
     if (listas.length) await addSongToDestinos(coll, s, vr, listas, btn);
     if ((alvos || []).includes('letra')) await addLyricCue(coll, s, btn);
   };
-  songMenuListEl.appendChild(songMenuItem(msym(ICON.queue), 'Adicionar à playlist', '',
+  alvo.appendChild(songMenuItem(msym(ICON.queue), 'Adicionar à playlist', '',
     (vr, btn, alvos) => addSongToDestinos(coll, s, vr, alvos, btn), 'playlist', remontar));
-  songMenuListEl.appendChild(songMenuItem(msym(ICON.cronoAdd), 'Adicionar ao Cronograma', '',
+  alvo.appendChild(songMenuItem(msym(ICON.cronoAdd), 'Adicionar ao Cronograma', '',
     (vr, btn, alvos) => addSongToDestinos(coll, s, vr, alvos, btn), 'cronograma', remontar));
   // "Escolha o atalho" saiu do subtítulo (v5.103): favoritar virou o ato
   // simples, sem seletor no meio. Organizar em atalho continua possível — pela
   // seleção múltipla, dentro da gaveta, para quem tem muita coisa marcada.
-  songMenuListEl.appendChild(songMenuItem(msym(ICON.star), 'Favoritar', '',
+  alvo.appendChild(songMenuItem(msym(ICON.star), 'Favoritar', '',
     (vr, btn, alvos) => addSongToDestinos(coll, s, vr, alvos, btn), 'favoritos', remontar));
   // A LETRA como cena de roteiro: entra no Cronograma sem baixar áudio nenhum,
   // e projetá-la é o mesmo "Apenas a letra" da folha de tocar. É o item de
   // roteiro mais pedido depois do versículo — o hino que a congregação canta a
   // capela, ou o que toca da mesa de som enquanto o telão mostra a letra.
-  songMenuListEl.appendChild(songMenuItem(lyricsOnlyIconSvg(), 'Só a letra, no Cronograma',
+  alvo.appendChild(songMenuItem(lyricsOnlyIconSvg(), 'Só a letra, no Cronograma',
     'Sem baixar a música',
     () => {}, 'letra', remontar));
   const go = destConfirmRow();
-  if (go) songMenuListEl.appendChild(go);
+  if (go) alvo.appendChild(go);
 }
 
 // Cena de roteiro da LETRA de uma música do acervo.

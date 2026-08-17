@@ -90,7 +90,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
 
   /* ---------- Alvos de toque ----------
      Dois degraus, e agora eles são TOKENS: o piso de 34px estava escrito
-     literal em sete lugares (`.row-btn`, `.row-handle`, `.popup-close`,
+     literal em sete lugares (`.row-btn`, `.popup-close`,
      `.back-btn`, `.add-dir-btn`, `.coll-bar-dl`, `.coll-group-btn`) e ainda
      assim dois controles ficavam fora da escala por descuido — `.sel-btn` com
      36px e o botão do acervo com 42×38. Sete literais é o que faz uma escala
@@ -355,7 +355,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
 :is(
   .ctl-btn, .t-btn, .pv-fab, .settings-btn,
   .tab, .tab-add, .import-btn, .back-btn, .sel-btn,
-  .row-btn, .row-handle, .popup-close, .new-folder-btn,
+  .row-btn, .popup-close, .new-folder-btn,
   .coll-bar, .coll-bar-dl, .coll-group-btn, .coll-more-btn,
   .bible-cell, .bible-ref-part, .bible-vsec, .bible-ver-row,
   .hymn-row, .hymn-play-thumb, .song-menu-btn, .msg-add-btn, .msg-item,
@@ -380,7 +380,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    ele o SVG é inline e ganha a folga de linha de base, que descentraliza o
    ícone dentro de um botão flex por 2-3px). */
 :is(
-  .row-btn, .row-handle, .back-btn, .sel-btn, .popup-close,
+  .row-btn, .back-btn, .sel-btn, .popup-close,
   .coll-bar-dl, .coll-group-btn, .new-folder-btn,
   .import-btn, .song-menu-icon
 ) svg { display: block; width: var(--icon-sm); height: var(--icon-sm); }
@@ -1243,7 +1243,7 @@ main {
    (fundo, cor e, no `.cue-save-btn`, a borda). O voltar tinha só ~20×20 px —
    o menor alvo do app inteiro, e é a única saída da gaveta de pasta e da
    navegação da Bíblia. */
-.back-btn, .sel-btn, .row-btn, .row-handle,
+.back-btn, .sel-btn, .row-btn,
 .cue-save-btn, .popup-close, .log-copy {
   flex-shrink: 0; width: var(--hit); height: var(--hit); padding: 0;
   border: none; border-radius: var(--radius-btn);
@@ -1256,7 +1256,7 @@ main {
    densa que ele tem — o relato foi tocar no corpo do item em vez do botão.
    Vale para os botões que vivem na linha, nas duas listas, e para o `⋮`. A
    linha não fica um pixel mais alta: quem já ditava a altura era a capa. */
-.lib-item :is(.row-btn, .row-handle) {
+.lib-item .row-btn {
   width: var(--thumb); height: var(--thumb);
 }
 /* ---------- A engrenagem do Modo Fácil (v5.250) ----------
@@ -1639,7 +1639,6 @@ main {
   overflow: hidden; flex-shrink: 0;
 }
 .row-item.active, .lib-item.active, .lib-item.selected { --linha: var(--sel-fill); }
-.dragging { z-index: 5; opacity: .92; box-shadow: 0 6px 18px rgba(0,0,0,.6); }
 
 .row { position: relative; z-index: 1; display: flex; align-items: center; gap: .5rem; padding: .35rem .5rem; background: var(--linha); touch-action: pan-y; }
 
@@ -1863,9 +1862,17 @@ main {
    desenhava mais, e com eles os tokens `--yt`/`--yt-soft` perderam o único
    consumidor e saíram de tokens.css.) */
 
-.row-btn, .row-handle { background: var(--surface); color: var(--text); }
-.row-btn .msym, .row-handle .msym { font-size: var(--icon-sm); }
-.row-handle { background: transparent; color: var(--muted); touch-action: none; cursor: grab; }
+.row-btn { background: var(--surface); color: var(--text); }
+.row-btn .msym { font-size: var(--icon-sm); }
+/* ---------- O PAR ↑↓ DE REORDENAR (v5.285) ----------
+   Ele tomou o lugar da alça de arrastar, e é um botão de linha como os outros —
+   o que ele acrescenta é a PONTA INERTE: no topo da lista o ↑ não tem para onde
+   ir, e um botão que não faz nada é pior que botão nenhum. Desabilitado ele
+   continua ocupando o lugar (`visibility` seria pior: a fileira mudaria de
+   largura conforme o item, e os outros botões dançariam de posição a cada
+   linha) — o que ele perde é a tinta e o alvo. */
+.row-ordem svg { display: block; }
+.row-ordem:disabled { opacity: .3; cursor: default; }
 
 /* GUARDAR UMA CENA DE ROTEIRO: "ao Cronograma" e "favoritar", o par que existe
    na Bíblia e nas Ferramentas (v5.109). Mesma caixa dos botões de linha e da
@@ -3317,9 +3324,7 @@ main {
    o próprio gesto: ver "gestos da biblioteca" em controle.js. O eixo horizontal
    da lista pertence agora ao carrossel de abas.) */
 
-/* Linha-guia de reordenação, no accent (o comentário dizia "azul" — cor da
-   paleta anterior; quem manda é `--accent`). */
-.drop-line { position: absolute; left: 6px; right: 6px; height: 3px; margin-top: -1.5px; background: var(--accent); border-radius: var(--radius-xs); box-shadow: 0 0 6px var(--accent); pointer-events: none; z-index: 6; }
+/* (A linha-guia de reordenação saiu na v5.285, com o arrasto inteiro.) */
 
 /* ---------- Popup de playlist (bottom sheet) ---------- */
 .popup-backdrop {
@@ -3888,14 +3893,17 @@ main {
    de densidade por um de mira, no meio de um culto. Medido depois: linha de
    50 px, passo de 54 px, 16 itens na mesma tela. */
 .hymn-row { align-items: center; gap: .5rem; padding: .3rem .5rem; cursor: pointer; }
-/* O botão de tocar ocupa o lugar que era da miniatura — o maior alvo livre da
-   linha, antes gasto com um ícone decorativo repetido em todas as faixas. Em
-   accent-soft, que é como o app marca "isto é ação, não conteúdo". */
+/* O QUADRADO DA ESQUERDA DEIXOU DE SER UM BOTÃO (v5.285). Ele era o ▶, em
+   `--accent-soft` — a marca que este app usa para "isto é ação, não conteúdo".
+   Sem ação, a marca sai junto: ele volta ao recesso neutro das superfícies e
+   perde o `cursor: pointer`, senão continuaria prometendo um alvo que não
+   existe mais. O que ele ainda faz é REAL e é a razão de ele ficar: hospedar o
+   anel de download e segurar a coluna que alinha a lista inteira. */
 .hymn-play-thumb {
   width: 38px; height: 38px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  border: none; border-radius: var(--radius-btn);
-  background: var(--accent-soft); color: var(--accent); cursor: pointer;
+  border-radius: var(--radius-btn);
+  background: var(--surface); color: var(--muted);
 }
 .hymn-play-thumb .msym { font-size: var(--icon-md); }
 /* BAIXANDO ESTA MÚSICA. Adicionar a uma lista pode disparar um download de
@@ -3905,40 +3913,15 @@ main {
    desenho que a preview usa no caminho de tocar (ver `.dl-ring`), no lugar que
    corresponde àquela tela: lá a mídia vai aparecer na preview, aqui o que está
    baixando é esta faixa da lista.
-   O ▶ some enquanto isso, mas o botão segue clicável: tocar uma música que já
-   está baixando é legítimo, e o download é o mesmo (`songDownloadInFlight`). */
+   O ▶ some enquanto isso — e desde a v5.285 nada aqui é clicável de qualquer
+   forma: quem recebe o toque é a linha inteira. */
 .hymn-play-thumb .dl-ring { --dl-ring: 26px; display: none; }
 .hymn-play-thumb.busy .dl-ring { display: flex; }
 .hymn-play-thumb.busy .msym { display: none; }
-/* O segundo botão herda `.row-btn` (o quadrado de ação das listas) — aqui fica
-   só a cor, que o distingue do tocar: adicionar é o gesto secundário. */
-.hymn-add-btn { flex-shrink: 0; color: var(--accent); }
-/* ---------- O ALVO DOS DOIS BOTÕES É A LINHA INTEIRA (v5.278) ----------
-   Relato do operador: *"é extremamente comum tentar clicar em adicionar e
-   acabar tocando no corpo do card, abrindo os detalhes da letra"*.
-
-   O botão tem 40px numa linha de 50 e para a 8px da borda direita: sobram
-   faixas MORTAS de ~5px acima e abaixo dele e 8px ao lado — e elas não são
-   neutras, porque o corpo da linha tem uma ação PRÓPRIA (a gaveta da letra).
-   Errar por três pixels não devolve "nada aconteceu": devolve outra coisa
-   acontecendo, e é isso que o operador descreve.
-
-   O alvo cresce por um `::after` e o DESENHO não muda um pixel — encorpar o
-   botão de verdade empurraria o nome, que é a única coisa da linha que não se
-   adivinha. Ele vai até as bordas da linha: 6px em cima e embaixo (a linha tem
-   50, o botão 40, e o resto é recortado pelo `overflow: hidden` do `li`, que é
-   onde o alvo deve mesmo parar) e 8px para fora nos lados, que é o padding da
-   `.hymn-row`.
-
-   Vale para os DOIS botões da faixa, e não só para o que foi relatado: o de
-   tocar tem 38px na mesma linha de 50, isto é, a mesma faixa morta e o mesmo
-   desfecho — o toque que erra abre a letra em vez de tocar o louvor.
-
-   `position: relative` nos dois é o que faz o `::after` se medir por eles. */
-.hymn-play-thumb, .hymn-add-btn { position: relative; }
-.hymn-play-thumb::after, .hymn-add-btn::after {
-  content: ''; position: absolute; inset: -6px -8px;
-}
+/* (O ALVO EXPANDIDO DOS DOIS BOTÕES, v5.278, saiu na v5.285 com os botões. Ele
+   existia porque errar por três pixels não devolvia "nada aconteceu" — devolvia
+   a gaveta abrindo no lugar da ação. Hoje o alvo é a LINHA e não há como errar:
+   os dois desfechos viraram um.) */
 /* `flex:none` desfaz o `flex:1` de .row-name: aqui o pai é uma coluna, e
    crescer significaria esticar na VERTICAL (o nome descolaria do subtítulo). */
 /* MESMA ESCALA DO TÍTULO DO ÁLBUM (v5.240): a faixa era 1.02rem e o cartão que
@@ -3989,8 +3972,18 @@ main {
    A entrada NÃO é uma keyframe: a altura é medida e animada em JS
    (expandAccordion), porque `auto` não é um valor animável em CSS e um teto
    fixo cortaria a letra de um hino longo. */
-.hymn-lyrics { display: none; }
-.hymn-result.expanded .hymn-lyrics {
+/* ---------- A GAVETA TEM DUAS METADES (v5.285) ----------
+   As OPÇÕES em cima e a conferência embaixo (a letra, ou o detalhe do vídeo).
+   Quem some fechado é o ENVELOPE, e não cada metade: a animação do acordeão
+   mede `offsetHeight` de UM elemento, e com duas caixas irmãs aparecendo por
+   conta própria a medida seria de meia gaveta. */
+.hymn-gaveta { display: none; }
+.hymn-result.expanded .hymn-gaveta { display: block; }
+/* A lista de opções no corpo da linha reusa o desenho da folha (`.song-menu-*`)
+   — é a MESMA lista, noutro lugar. O que muda é o recuo: aqui ela mora dentro
+   de uma linha, e não de um popup de largura inteira. */
+.hymn-opcoes { padding: .1rem .55rem .45rem; display: flex; flex-direction: column; gap: .3rem; }
+.hymn-lyrics {
   display: block; max-height: 40vh; overflow-y: auto;
   margin: 0 .55rem .55rem; padding: .5rem .6rem;
   border-radius: var(--radius-btn);
@@ -4027,8 +4020,7 @@ main {
 /* A mesma caixa da letra, com o mesmo recuo e a mesma moldura: as duas
    respondem "é este mesmo?" e não há razão para parecerem coisas diferentes.
    O que muda é o conteúdo — miniatura + duração + estado no aparelho. */
-.item-detalhe { display: none; }
-.hymn-result.expanded .item-detalhe {
+.item-detalhe {
   display: flex; gap: .6rem; align-items: flex-start;
   margin: 0 .55rem .55rem; padding: .5rem .6rem;
   border-radius: var(--radius-btn);
@@ -4586,7 +4578,6 @@ body.mode-simple .bottombar { display: none; }
    a versão CANTADA (ver simplePlaySong). O botão de adicionar some: playlist,
    Cronograma e favoritos pertencem ao fluxo do sonoplasta, e escolher variante
    é justamente a decisão que este modo poupa. */
-body.mode-simple .hymn-add-btn { display: none; }
 
 /* ---------- O botão de COPIAR o Registro (v5.117) ---------- */
 /* Um diagnóstico existe para ser REPASSADO: sem o botão, a alternativa é

@@ -1905,13 +1905,13 @@ sem a borda — o mudo, aliás, passou ao vermelho **saturado**.
 | **Volume** (`#simpleVolDown` / `#simpleVolUp`) | teclas **−** e **+** com o número no meio (`.simple-vol-read`), não um slider |
 | **Configurações** (`#simpleSettingsBtn`, `.settings-btn`, v5.250) | `openFadePopup()` — e é de lá que se troca de modo ("Modo do app"). Até a v5.247 este era o botão **Modo avançado**, que chamava `setAppMode('full')` direto; o registro dele fica porque a receita visual continua descrita aqui: era texto `--muted` sobre `--surface`: dentro do mínimo de contraste, mas lido como **legenda**, não como botão. Desde a v5.40 é texto pleno (`--text`) sobre `--surface-2` — **7,03:1** na paleta atual — e desde a v5.49 leva a **seta**. Ele era um PAR com o gêmeo do cabeçalho avançado (`#fullSimpleBtn`) até a v5.247, quando aquele saiu — lá a mesma escolha já mora em Configurações, aqui não há engrenagem nenhuma à vista. **A borda em `--accent` saiu na v5.76**: ela desenhava, nos dois cabeçalhos, a moldura mais forte da tela em volta do botão que menos se usa num culto — trocar de modo é decisão de configuração, não de operação. Quem separa o botão do fundo é a superfície; o accent ficou onde informa, na seta, que é o que diz para que lado se vai |
 
-**Sem escolha de variante.** No simplificado o toque na linha da busca — e o
-toque no ▶ dela — chamam `simplePlaySong()`, que toca o **Cantado** e pronto:
-abrir a folha com cantada/playback/só a letra seria devolver ao operador
-exatamente a decisão que este modo existe para poupar. O botão de adicionar some
-(`body.mode-simple .hymn-add-btn`), porque playlist, Cronograma e favoritos são
-do fluxo do sonoplasta; no modo avançado a mesma linha continua abrindo a letra
-em acordeão.
+**Sem escolha de variante.** No simplificado o toque na linha da busca chama
+`simplePlaySong()`, que toca o **Cantado** e pronto: abrir a lista com
+cantada/playback/só a letra seria devolver ao operador exatamente a decisão que
+este modo existe para poupar. No modo avançado a mesma linha abre a gaveta — as
+opções completas e a letra (v5.285). (Até a v5.284 a linha tinha um ▶ e um `+`,
+e o `+` era escondido por CSS aqui, porque playlist, Cronograma e favoritos são
+do fluxo do sonoplasta; os dois botões saíram, e com eles a regra.)
 
 **A pergunta do download aparece UMA vez.** Se a música ainda não está no
 aparelho, `ensureDownloadConsent()` pergunta antes de gastar internet e grava a
@@ -4051,8 +4051,9 @@ item, cobrindo o título e etc… pois hoje o título disputa com todos os botõ
 acesso rápido, cortando o título e o subtítulo."*
 
 Ele está descrevendo uma conta: a coluna de texto é `flex: 1` entre a miniatura
-e uma fileira de botões que **cresce com o estado do item** — estrela, `+`,
-alça, o download de um link do YouTube, o Parar quando está no ar. Num item do
+e uma fileira de botões que **cresce com o estado do item** — estrela, `+`, o
+par ↑↓ de reordenar (a alça, até a v5.284), o download de um link do YouTube, o
+Parar quando está no ar. Num item do
 Cronograma isso chega a quatro alvos de `--hit` mais os `gap`, e quem paga é
 sempre o mesmo: o nome, que é a única coisa daquela linha que não se adivinha.
 
@@ -4077,15 +4078,20 @@ não divergirem no primeiro ajuste. As decisões:
   aparece.
 - **Uma aberta por vez** (`linhaAcoesAberta`). Duas seriam duas faixas cobrindo
   dois nomes, e o operador teria de fechar a errada para ler.
-- **O fechamento de fora é `pointerdown` na fase de CAPTURA**, não `click`: a
-  alça mora dentro da caixa e o arrasto captura o ponteiro, então ele **nunca
-  produz um `click`** — sem isso, arrastar um item deixaria o menu aberto por
-  cima da linha que acabou de se mover.
+- **O fechamento de fora é `pointerdown` na fase de CAPTURA**, não `click`. A
+  razão original era a ALÇA, que morava dentro da caixa: o arrasto captura o
+  ponteiro e **nunca produz um `click`**, então um ouvinte de clique deixaria o
+  menu aberto por cima da linha que acabou de se mover. A alça saiu na v5.285 e
+  a escolha fica — `pointerdown` fecha ANTES do clique, que é o que impede o
+  menu de piscar por cima do que está sendo tocado.
 - **Escolher uma opção FECHA**, e esse ouvinte também é de CAPTURA — por um
   motivo que não é preferência: todo botão de linha deste app chama
   `stopPropagation` no próprio `click` (senão o toque nele acionaria o corpo da
-  linha atrás), e um ouvinte de bolha na caixa **não veria nenhum deles**. A
-  **alça é a exceção**: ela não é uma decisão que termina, é um gesto que dura.
+  linha atrás), e um ouvinte de bolha na caixa **não veria nenhum deles**. O
+  **par ↑↓ é a exceção** (v5.285): reordenar é uma decisão que se REPETE — mover
+  três casas são três toques —, e fechar a gaveta na primeira obrigaria a
+  reabri-la a cada casa. (Até a v5.284 a exceção era a alça, pelo motivo oposto:
+  ela não era uma decisão que termina, era um gesto que dura.)
 - **O vazio da caixa fecha também.** Ela cobre o nome; sem isso o único caminho
   de volta seria acertar o `⋮` outra vez — um alvo de 34px ao lado de uma faixa
   inteira inerte.
@@ -4658,8 +4664,18 @@ Itens sem blob local exibem badge `URL` ou `YT`.
 | Gesto | Ação |
 |---|---|
 | Toque simples | **Substitui a playlist por este item** e o exibe no Display |
-| Segurar e arrastar (⠿) | Reordena o item na lista |
+| `⋮` → ↑ / ↓ | Reordena o item na lista, uma casa por toque (v5.285) |
 | Pressionar e segurar | Entra no modo de seleção múltipla |
+
+**O ARRASTAR SAIU NA v5.285**, das três listas de uma vez (Cronograma,
+Favoritos e a fila da playlist), a pedido do operador. Com ele saíram
+`attachHandle`, a medição única do `pointerdown`, a linha-guia absoluta e o
+`data-fixa` das pastas. O argumento: um arrasto é um gesto CONTÍNUO com captura
+de ponteiro, disputando o eixo vertical com a lista que rola por baixo. O preço
+está dito — mover dez posições passou de um gesto a dez toques —, e
+`reabrirAcoesEm` (a chave `lista:id`, nunca o id nu, porque o mesmo item vive em
+duas listas) devolve a gaveta ao item que se moveu, com o botão sob o mesmo
+dedo.
 
 **O deslize lateral da linha saiu na v5.50.** Ele adicionava o item à playlist
 (`dx <= -SWIPE`), e a única pista de que existia era um ícone a 22% de opacidade
@@ -4746,9 +4762,18 @@ usa `listRemove` (com gc).
 > `listAdd` ela tem um. Sem isso, um item cujo único dono era um atalho sumiria
 > do app e do disco, calado.
 >
-> **E a organização deixou de ser hierarquia: virou ORDEM.** Cada linha ganhou
-> a alça de arrastar do Cronograma (o mesmo `attachHandle`/`reorder`), e a
-> lista é a `favs`, que é ordem de chegada até alguém mexer nela.
+> **E a organização deixou de ser hierarquia: virou ORDEM.** Cada linha ganhou o
+> mesmo mecanismo de reordenar do Cronograma — a alça de arrastar até a v5.284, o
+> par ↑↓ da gaveta desde a v5.285 —, e a lista é a `favs`, que é ordem de chegada
+> até alguém mexer nela.
+>
+> **E AS PASTAS SINCRONIZADAS FORAM PARA O TOPO (v5.285.)** Elas ficavam no fim
+> desde este lote, com o argumento de que "são a origem bruta, e o que a estrela
+> promete são os itens" — verdadeiro, e não é o que decide a ordem: uma pasta é
+> um punhado de arquivos atrás de UMA linha, e a lista de favoritos cresce por
+> baixo dela. No fim, cada favorito novo empurrava as pastas para longe; no topo
+> elas têm endereço fixo. (Elas continuam FORA da placa dos itens — ver a nota
+> da v5.284 —, e é isso que lhes dá a cor de álbum.)
 >
 > **E a listagem ficou densa** (`#favList` em controle.css). Ela herdava a
 > métrica da lista do Cronograma, e as duas não fazem a mesma coisa: no
@@ -6097,64 +6122,74 @@ desenho de 19px, e a escolha errada no meio do culto só aparecia depois. Dois
 alvos grandes, sempre à vista, com as opções **escritas** na folha que cada um
 abre, trocam seis adivinhações por duas leituras.
 
-- **O ▶ ocupa o lugar da miniatura** (`.hymn-play-thumb`, 46px, `accent-soft`).
-  Ali havia um ícone decorativo — a mesma nota musical em todas as faixas do
-  álbum — no maior alvo livre da linha, gasto com o único elemento que não
-  informava nada.
-- **A DURAÇÃO SAIU** (`.hymn-time`, removida). Ela ocupava a única sobra de
-  largura da linha para dizer "3:47", que não decide nada: ninguém escolhe o
-  louvor pelo tempo dele, e quem precisa do número o tem na barra de progresso
-  assim que a música entra. Esse lugar é do botão de adicionar
-  (`.hymn-add-btn`), que decide.
-- Os dois botões dão `stopPropagation` — eles dividem a linha com o acordeão da
-  letra. (Antes as ações eram **irmãs** de `.hymn-row` dentro do `<li>`, e por
-  isso não borbulhavam; agora estão DENTRO da linha, que é o que as põe sempre
-  à vista.)
-- **E O ALVO DELES É A LINHA INTEIRA** (v5.278). Relato do operador: *"é
-  extremamente comum tentar clicar em adicionar e acabar tocando no corpo do
-  card, abrindo os detalhes da letra"*. O botão tem 40px numa linha de 50 e para
-  a 8px da borda: sobram faixas MORTAS de ~5px acima e abaixo e 8px ao lado — e
-  elas não são neutras, porque o corpo da linha tem uma ação PRÓPRIA. **Errar
-  por três pixels não devolve "nada aconteceu": devolve outra coisa
-  acontecendo.** O alvo cresce por um `::after` até as bordas do `<li>` (que o
-  recorta, e é onde ele deve mesmo parar) e o DESENHO não muda um pixel —
-  encorpar o botão empurraria o nome, que é a única coisa da linha que não se
-  adivinha. O oráculo mede o que o DEDO encontra (`elementFromPoint`) e cobra a
-  metade negativa: o meio da linha continua abrindo a gaveta.
-- **O acordeão da letra fecha as irmãs no escopo da PRÓPRIA `<ul>`**, não em
-  `hymnResultsEl`: as linhas de dentro do card de um álbum vivem noutra lista, e
-  ali a regra simplesmente não valia — abrir a terceira faixa deixava as duas
-  anteriores abertas.
+> **⚠️ A v5.285 REVOGOU esta anatomia inteira.** O que está descrito acima e
+> abaixo — os dois botões, o alvo expandido de cada um, a folha rápida que eles
+> abriam — vale até a v5.284. Leia mesmo assim: as decisões que sobrevivem
+> (o acordeão escopado à própria `<ul>`, o seletor Cantada/Playback, os destinos
+> marcáveis, a leitura da variante no clique) continuam sendo estas, e o que
+> mudou foi o ENDEREÇO delas.
 
-**A folha rápida** (`openSongMenu(coll, s, modo)` → `#songMenuPopup`) é a mesma
-para os dois botões, com listas diferentes (`renderSongMenu`):
+#### UMA LINHA, UM TOQUE, UMA GAVETA (v5.285)
 
-| Botão | Opções |
-|---|---|
-| ▶ | **Tocar música cantada** · **Tocar playback** (só com `has_instrumental_music`) · **Apenas a letra** |
-| ➕ | (seletor **Cantada \| Playback**, só com playback) · **Adicionar à playlist** · **Adicionar ao Cronograma** · **Adicionar aos favoritos** |
+Pedido do operador: *"centralize a ação de adicionar em listas e a ação do botão
+play que tem nos itens da biblioteca. Agora o toque vai ser geral no card, sem um
+botão específico para play ou outro para adicionar nas listas. Tocar no corpo vai
+abrir as opções completas. E não apenas isso, mas não será mais um popup, será
+uma lista de opções que surge no corpo onde atualmente surge a letra ou detalhes
+do item."*
 
-- A escolha Cantada/Playback do ➕ é um **seletor no topo** (`.fit-seg`) em vez
-  de dobrar a lista de destinos: com playback, seis linhas diriam três coisas.
-  Sem playback ele nem aparece — não há o que escolher.
-- A variante é lida **no clique**, antes de `closeSongMenu()` zerar
-  `songMenuFor` — uma ação que fosse consultá-lo depois encontraria `null`. O
-  mesmo vale para os **destinos marcados** (v5.141, ver "UM item, VÁRIOS
-  destinos"): as três linhas do ➕ ganharam uma caixa de marcação, o toque na
-  linha executa para ela **mais o que estiver marcado**, e a união é lida no
-  mesmo ponto.
-- **Favoritos reusa o seletor de pastas** da barra de seleção múltipla:
-  `openFolderPicker([id])` passa o id explícito, e sem argumento ele age sobre
-  `selected`, como sempre. Uma segunda lista de pastas só para o acervo
-  divergiria da primeira no dia em que alguém criasse uma pasta nova.
-- **Empilhamento:** `#songMenuPopup` em `z-index: 210` (abre de dentro do
-  acervo) e `#folderPopup` em `220` (abre de dentro dela) —
-  o seletor é declarado ANTES no documento, então sem o degrau a ordem do
-  documento o deixaria por baixo. Na tabela `POPUPS` os dois entram nessa mesma
-  ordem, porque o voltar a percorre de trás para a frente.
-- No **simplificado** o ➕ some (`body.mode-simple .hymn-add-btn`) e o ▶ chama
-  `simplePlaySong` direto: escolher variante e destino é justamente a decisão
-  que este modo poupa.
+O que ele desfaz é a DIVISÃO da v5.62. Com dois alvos, decidir *"o que fazer com
+este hino?"* exigia primeiro decidir **qual dos dois botões era o dono da
+pergunta** — e essa é uma pergunta sobre a UI, não sobre o culto. Um alvo só, e a
+lista inteira do outro lado.
+
+```
+ ANTES (v5.62 → v5.284)              DEPOIS (v5.285)
+ ┌────────────────────────┐          ┌────────────────────────┐
+ │ [▶] Ó Adorai o Senhor  [+]│       │ [·] Ó Adorai o Senhor    │ ← 83% da linha
+ └────────────────────────┘          ├────────────────────────┤
+   ↓ toque no ▶    ↓ toque no +      │  Tocar música cantada  │
+   ┌─── folha ───┐ ┌─── folha ───┐   │  Tocar playback        │  as OPÇÕES
+   │ cantada     │ │ playlist    │   │  Apenas a letra        │
+   │ playback    │ │ Cronograma  │   │  [Cantada|Playback]    │
+   │ só a letra  │ │ Favoritar   │   │  Adicionar à playlist  │
+   └─────────────┘ └─────────────┘   │  … + Confirmar         │
+   ↓ toque no corpo → a LETRA        ├────────────────────────┤
+                                     │  1ª ESTROFE            │  a LETRA
+                                     │  Ó adorai o Senhor…    │
+                                     └────────────────────────┘
+```
+
+- **A gaveta tem DUAS metades, e a letra FICA** (decisão do operador,
+  perguntado): as opções em cima, a letra — ou o detalhe do vídeo — logo abaixo,
+  na mesma abertura. A ordem não é arbitrária: quem abre a gaveta acabou de tocar
+  na linha para DECIDIR, e a decisão tem de estar sob o dedo; a letra é a
+  conferência, e ela pode rolar. Quem some fechado é o ENVELOPE (`.hymn-gaveta`),
+  e não cada metade — a animação do acordeão mede `offsetHeight` de UM elemento,
+  e com duas caixas irmãs aparecendo por conta própria a medida seria de meia
+  gaveta.
+- **Nada de menu foi reimplementado.** `renderSongMenu` e `openYtMenu` ganharam
+  PARA ONDE escrever (`songMenuFor.alvo`, que viaja no estado porque cada
+  remontagem — o seletor Cantada/Playback, cada marca de destino — precisa
+  refazer a lista no mesmo lugar), e o modo **`tudo`** empilha tocar e adicionar
+  numa lista só. A folha `#songMenuPopup` continua de pé com os dois donos que
+  sobraram: os resultados do YouTube e o seletor de destinos da importação.
+  `openSongMenu` saiu por não ter mais chamador.
+- **Um episódio de SÉRIE continua desviando para a lista do YouTube**, como a
+  folha já fazia desde a v5.230 — o que muda é o endereço, não a regra.
+- **O quadrado da esquerda deixou de ser botão e virou INDICADOR.** Ele fica
+  porque hospeda o anel de download — a única coisa que aquele canto sempre
+  informou de verdade — e porque segura a coluna que alinha a lista inteira.
+  Perdeu o `--accent-soft` (a marca de "isto é ação, não conteúdo") e o
+  `cursor: pointer`: um alvo que não é alvo, num canto onde o dedo mira, é pior
+  que não ter nada.
+- **O oráculo do ALVO (v5.278) ficou mais forte, não obsoleto.** Ele media se as
+  bordas em volta dos botões caíam no botão; agora afirma que **todo ponto da
+  linha leva ao mesmo lugar** — cantos, bordas e o quadrado onde o ▶ vivia — e
+  conta `button` sem conhecer os nomes dos que saíram, para valer contra o
+  próximo que aparecer. Medido: o nome passou a ocupar **83% da linha**.
+- **No simplificado nada disso aparece:** o toque na linha continua chamando
+  `simplePlaySong` direto, que é a decisão que aquele modo poupa.
 
 Tocar (`playSongVariant`) e os três destinos (`addSongToDestinos` →
 `adicionarNasListas`) baixam a música na hora se ainda não estiver offline (ver
@@ -9262,9 +9297,10 @@ com as outras, nomeava a lista pelo que ela era antes da v5.103: hoje o
 Cronograma guarda versículo, mensagem e contagem, não só arquivos com bytes.
 
 O botão de adicionar da linha do acervo (`.hymn-add-btn`) virou o **`add`
-neutro**: ele não escolhe destino nenhum, abre a folha que pergunta qual — e
-carregar o ícone de um dos três destinos era prometer um caminho que o toque
-não faz.
+neutro**: ele não escolhia destino nenhum, abria a folha que perguntava qual — e
+carregar o ícone de um dos três destinos era prometer um caminho que o toque não
+faz. (Ele SAIU na v5.285 com o ▶; o princípio migrou intacto para a gaveta, onde
+os três destinos aparecem escritos em vez de adivinhados.)
 
 #### Como regerar o subset
 

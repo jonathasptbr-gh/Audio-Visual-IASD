@@ -3053,10 +3053,86 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.284** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.285** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.285: O ARRASTO SAI DO APP, os botões saem da faixa, e as opções descem
+> para o corpo da linha. OTA PURO** (sem Release).
+>
+> Quatro pedidos do operador, e os dois últimos são o mesmo movimento.
+>
+> - **AS PASTAS SINCRONIZADAS VÃO PARA O TOPO** dos Favoritos. Elas ficavam no
+>   fim desde a v5.254, com o argumento de que *"são a origem bruta, e o que a
+>   estrela promete são os itens"* — o que continua verdadeiro e não é o que
+>   decide a ordem: uma pasta é um punhado de arquivos atrás de UMA linha, e a
+>   lista de favoritos cresce por baixo dela. No fim, cada favorito novo
+>   empurrava as pastas para longe; no topo elas têm endereço fixo.
+> - **REORDENAR VIRA UM PAR ↑↓ DENTRO DA GAVETA DO `⋮`**, e o arrasto sai do app
+>   inteiro — as TRÊS listas (Favoritos, Cronograma e a fila da playlist, esta
+>   última perguntada e confirmada), para não sobrarem dois idiomas de
+>   reordenar. Com ele saem `attachHandle`, a medição única do `pointerdown`, a
+>   linha-guia absoluta (e o bloco contendor que a v5.272 garantia pelo JS), o
+>   `data-fixa` das pastas e o `reorder` por índice de destino. **A fila da
+>   playlist ganhou a gaveta do `⋮` no mesmo lote** — ela era a única lista sem
+>   botão de opções, e tirar o gesto sem dar a gaveta a deixaria sem como
+>   reordenar.
+>
+>   O que justifica a troca não é gosto: um arrasto é um gesto CONTÍNUO com
+>   captura de ponteiro, disputando o eixo vertical com a lista que rola por
+>   baixo, dentro de uma gaveta que já é um alvo pequeno. **O preço está dito:**
+>   mover dez posições passou de um gesto a dez toques. É o caso raro, e
+>   `reabrirAcoesEm` o torna suportável — a lista redesenha entre um toque e o
+>   outro, e a gaveta volta no item que se moveu, com o botão sob o mesmo dedo.
+>   **A chave dessa reabertura é `lista:id` e não o id nu**: o mesmo item está em
+>   duas listas ao mesmo tempo (um favorito que também está no Cronograma é o
+>   caso normal), e com o id sozinho o redesenho do Cronograma consumiria a marca
+>   e abriria a gaveta na linha errada, noutra tela.
+>
+>   E `moverNaLista` **redesenha a seção dos Favoritos à mão**: `renderLibrary`
+>   só chega ao `renderFolderList` quando a aba é a da pasta do aparelho, e a
+>   lista `favs` mora dentro da Biblioteca desde a v5.237 — sem essa linha o item
+>   mudava de lugar no banco e a tela ficava idêntica, que é o pior desfecho
+>   possível para um botão de reordenar.
+> - **A FAIXA DA BIBLIOTECA PERDE OS DOIS BOTÕES** (o ▶ e o `+`) e **as opções
+>   completas descem para o corpo da linha**, onde antes abria só a letra. O que
+>   o operador desfaz é a DIVISÃO da v5.62: com dois alvos, decidir "o que fazer
+>   com este hino?" exigia primeiro decidir qual dos dois botões era o dono da
+>   pergunta — e essa é uma pergunta sobre a UI, não sobre o culto. Medido, o
+>   nome passou a ocupar **83% da linha**.
+>
+>   **A gaveta tem duas metades, e a letra FICA** (decisão do operador,
+>   perguntado): as opções em cima, a letra (ou o detalhe do vídeo) logo abaixo.
+>   A ordem não é arbitrária — quem abre a gaveta acabou de tocar para DECIDIR, e
+>   a decisão tem de estar sob o dedo; a letra é a conferência, e ela pode rolar.
+>
+>   **Nada de menu foi reimplementado.** `renderSongMenu` e `openYtMenu` ganharam
+>   PARA ONDE escrever (`songMenuFor.alvo`), e o modo `tudo` empilha tocar e
+>   adicionar numa lista só. A folha `#songMenuPopup` continua de pé com os dois
+>   donos que sobraram — os resultados do YouTube e o seletor de destinos da
+>   importação —, e `openSongMenu` saiu por não ter mais chamador. Um episódio de
+>   série continua desviando para a lista do YouTube, como a folha já fazia desde
+>   a v5.230; o que muda é o endereço.
+>
+> **O quadrado da esquerda deixou de ser botão e virou INDICADOR** — ele hospeda
+> o anel de download, que é a única coisa que aquele canto sempre informou de
+> verdade, e segura a coluna que alinha a lista. Perdeu o `--accent-soft` (a
+> marca de "isto é ação") e o `cursor: pointer`: um alvo que não é alvo, num
+> canto onde o dedo mira, é pior que nada.
+>
+> **As setas do par ↑↓ são SVG inline, nunca glifo da fonte** — o subset é
+> estático e um codepoint ausente desenha um retângulo vazio sem erro nenhum,
+> que é a armadilha da v5.184.
+>
+> Os oráculos mudaram de pergunta junto, e um deles ficou mais forte: o caso do
+> ALVO dos botões (v5.278) media se as bordas em volta deles caíam no botão; com
+> os botões fora, ele passou a afirmar que **todo ponto da linha leva ao mesmo
+> lugar** — cantos, bordas e o quadrado onde o ▶ vivia —, e conta `button` sem
+> conhecer os nomes dos que saíram, para valer contra o próximo que aparecer.
+>
+> Verificado por ISOLAMENTO: devolvendo as pastas ao fim, **1** asserção
+> reprova; devolvendo um botão à faixa, **1**.
 
 > **A v5.284: A PASTA SINCRONIZADA CONTINUA SENDO UM ÁLBUM — e a estrutura que
 > faltava aparece. OTA PURO** (sem Release).
