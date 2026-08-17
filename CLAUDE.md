@@ -3053,11 +3053,64 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.282** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.283** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
+> **A v5.283: UM FAVORITO É UM ITEM, NÃO UM ÁLBUM — a linha passa a pintar a
+> cor da faixa dentro do álbum. OTA PURO** (só CSS e o oráculo; sem Release).
+>
+> Pedido do operador: *"torne os itens na lista de favoritos, com sua cor de card
+> igual as cores dos itens individuais dentro dos álbuns, para diferenciar entre
+> álbum e item"*.
+>
+> **MEDIDO antes de mexer, nos dois temas: 1,00:1.** A linha de favorito e o card
+> de álbum pintavam a MESMA cor, literalmente — os dois são filhos diretos do
+> corpo de uma seção, e o corpo reserva `--panel-2` para os filhos dele. Nada
+> distinguia "um álbum inteiro" de "um louvor solto" além do que estava escrito
+> na linha. É a v5.282 cobrando o degrau seguinte: aquele lote tirou o tom
+> próprio da SEÇÃO com o argumento de que ela é uma seção como as outras, e a
+> consequência que ele não pesou é que os FILHOS dela não são como os das outras
+> — lá são álbuns, aqui são itens.
+>
+> A correção é dar ao favorito a MESMA RECEITA da faixa dentro do álbum: um
+> RECESSO (`--surface`, que dentro de uma seção da Biblioteca é o par `sunk`)
+> sobre uma base de nível de card. **As duas metades são inseparáveis, e a
+> segunda foi imposta pela medição, não escolhida:**
+>
+> - **Só o recesso, sobre o tom da SEÇÃO, não resolve.** Ele resolve no escuro
+>   (1,58:1 contra o card) e FALHA no claro, onde a seção é BRANCA e o recesso
+>   compõe `#dbdbdb`, a **1,02:1** do card — isto é, no tema claro o favorito
+>   voltaria a ser indistinguível de um álbum, que é o defeito relatado. Isto
+>   não é hipótese: está exercitado por isolamento, e reprova em 3.
+> - **Com a base de card por baixo, a composição é a mesma da faixa e o valor
+>   bate exatamente:** `rgb(46,54,63)` no escuro e `rgb(182,188,194)` no claro, a
+>   **1,29:1** e **1,37:1** do card nos dois temas.
+>
+> Daí o corpo da seção PINTAR `var(--camada)` — o `--panel-2` que ele próprio
+> reserva — e virar o contêiner de nível 2 desta seção, no lugar que num hinário
+> é ocupado por um card de álbum. Ele é a única peça do arquivo que acumula os
+> dois papéis que lá são de dois elementos (`.hymnal-card` pinta, `.coll-songs`
+> zera o degrau seguinte), e **por isso o reset de `--camada` mora na regra da
+> LINHA e não no corpo**: escrito no corpo, ele venceria na hora de o corpo
+> resolver o próprio `background` e o bloco sairia transparente — a armadilha que
+> o cabeçalho de "A CAMADA" descreve, com a assinatura invertida.
+>
+> **O oráculo mede a COR EFETIVA, e essa distinção é o caso inteiro.** Os
+> recessos deste app são overlays com ALFA, e `getComputedStyle` devolve o alfa,
+> não a composição: uma asserção sobre o valor declarado compararia
+> `rgba(0,0,0,.24)` com um `#3c4753` opaco e diria que eles "diferem" sem ter
+> medido cor nenhuma — passaria com o defeito no lugar e reprovaria a correção.
+> Ele sobe a árvore compondo até o primeiro fundo opaco, que é o que o navegador
+> pinta. E a FAIXA do álbum é desenhada pelo app (`collState` + `expanded`), não
+> montada à mão pelo teste: marcação inventada num oráculo mede a marcação de
+> quem o escreveu.
+>
+> Verificado por ISOLAMENTO: sem a regra inteira (o código anterior), **4**
+> asserções reprovam, imprimindo o 1,00:1 do relato; com o meio-conserto (o
+> recesso sem a base), **3**.
+>
 > **A v5.282: OS FAVORITOS VOLTAM A SER UMA SEÇÃO COMO AS OUTRAS — o tom próprio
 > sai, o "Ver todos" sai, e o vão vira um PISO. OTA PURO** (nenhuma linha de
 > Kotlin; sem Release).

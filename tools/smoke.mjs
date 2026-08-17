@@ -1125,25 +1125,11 @@ for (const tema of ['escuro', 'claro']) {
         // que os dois são IGUAIS.
         corFav: fav ? cx(fav).backgroundColor : 'AUSENTE',
         corOutra: outras.length ? cx(outras[0]).backgroundColor : 'AUSENTE',
-        // E o que as LINHAS dentro dela vestem, contra o mesmo nível numa
-        // coleção. É o degrau de DENTRO, e ele precisa ser medido à parte: o
-        // tom que saiu arrastava um `--camada` próprio junto, e uma seção
-        // repintada por fora com o degrau antigo por dentro passaria na medida
-        // acima. A sonda é um `.lib-item` de verdade — o que se afirma é a cor
-        // RENDERIZADA, não o valor do token.
-        corLinha: (() => {
-          const linhaDe = (secao) => {
-            const corpo = secao && secao.querySelector('.coll-group-corpo');
-            if (!corpo) return 'AUSENTE';
-            const p = document.createElement('div');
-            p.className = 'lib-item';
-            corpo.appendChild(p);
-            const c = cx(p).backgroundColor;
-            p.remove();
-            return c;
-          };
-          return { fav: linhaDe(fav), outra: linhaDe(outras[0]) };
-        })(),
+        // (O par "linha dos favoritos × linha de uma coleção" foi medido aqui
+        // na v5.282 e saiu na v5.283: a linha de favorito DEIXOU de vestir o
+        // tom de card, que era o defeito seguinte. Quem afirma o degrau de
+        // dentro agora é o bloco `item`, montado logo abaixo com uma FAIXA de
+        // álbum de verdade ao lado.)
         // O ESPAÇO entre seções, contra o das linhas de uma lista comum: a
         // relação é a afirmação (um número aqui envelheceria na primeira troca
         // de medida), e ela é o pedido — uma seção não é uma linha.
@@ -1209,6 +1195,69 @@ for (const tema of ['escuro', 'claro']) {
         // v5.277 fixa.
         altFav: favSecao ? favSecao.getBoundingClientRect().height : -1,
       };
+      // ===== UM FAVORITO É UM ITEM, NÃO UM ÁLBUM (v5.283) =====
+      //
+      // Pedido do operador: *"torne os itens na lista de favoritos, com sua cor
+      // de card igual as cores dos itens individuais dentro dos álbuns, para
+      // diferenciar entre álbum e item"*. Medido antes de mexer, nos dois
+      // temas: linha de favorito e card de álbum pintavam **1,00:1** — a mesma
+      // cor, literalmente.
+      //
+      // A COR EFETIVA, e não o `backgroundColor` declarado: os recessos deste
+      // app são overlays com ALFA, e `getComputedStyle` devolve o alfa, não a
+      // composição — uma asserção sobre o valor declarado compararia
+      // `rgba(0,0,0,.24)` com um `#3c4753` opaco e diria que eles "diferem"
+      // sem ter medido cor nenhuma. Subir a árvore compondo até o primeiro
+      // fundo opaco é exatamente o que o navegador pinta.
+      const efetiva = (el) => {
+        if (!el) return null;
+        const pilha = [];
+        for (let n = el; n; n = n.parentElement) {
+          const m = getComputedStyle(n).backgroundColor.match(/[\d.]+/g);
+          if (!m) continue;
+          const a = m.length > 3 ? Number(m[3]) : 1;
+          if (a === 0) continue;
+          pilha.push([Number(m[0]), Number(m[1]), Number(m[2]), a]);
+          if (a === 1) break;
+        }
+        let c = [0, 0, 0];
+        for (let k = pilha.length - 1; k >= 0; k--) {
+          const [vr, vg, vb, va] = pilha[k];
+          c = [vr * va + c[0] * (1 - va), vg * va + c[1] * (1 - va), vb * va + c[2] * (1 - va)];
+        }
+        return c.map(Math.round).join(', ');
+      };
+      // Uma FAIXA de álbum de verdade, no MESMO documento — o hinário do
+      // fixture não traz faixas, e a comparação inteira é entre dois pontos da
+      // árvore real. Montar a marcação à mão mediria a minha marcação; o que se
+      // monta aqui é o ESTADO (`collState` + `expanded`) de que o app precisa
+      // para desenhar as faixas ele mesmo.
+      const hin = allCollections().find((x) => x.kind === 'hymnal');
+      const songsAntes = hin ? collState[hin.id] : null;
+      if (hin) {
+        collState[hin.id] = { indexSyncedAt: Date.now(), isHymnal: true,
+          songs: [{ id_music: 'f1', name: 'Hino 1', track: 1,
+            has_instrumental_music: false, duration: '3:47' }] };
+        ui(hin.id).expanded = true; ui(hin.id).shown = 100;
+      }
+      const favRec = await AVDB.addMedia(new Blob(['f'], { type: 'audio/mpeg' }),
+        { name: 'Louvor favorito', list: 'favs' });
+      await recarregarFavoritos();
+      hymnResultsEl.innerHTML = '';
+      renderCollectionsList(hymnResultsEl, () => {}, { semTotal: true });
+      await new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f)));
+      const favCorpo = hymnResultsEl.querySelector('[data-fav-corpo]');
+      r.item = {
+        favLinha: efetiva(favCorpo && favCorpo.querySelector('.lib-item')),
+        faixa: efetiva(hymnResultsEl.querySelector('.coll-songs > .hymn-result')),
+        cardAlbum: efetiva(hymnResultsEl.querySelector('.hymnal-card')),
+      };
+      await AVDB.listRemove('favs', favRec.id);
+      await recarregarFavoritos();
+      if (hin) {
+        if (songsAntes) collState[hin.id] = songsAntes; else delete collState[hin.id];
+        ui(hin.id).expanded = false;
+      }
     // ===== A BARRA É O TOPO DA FOLHA (v5.280/v5.281) =====
     // MEDIDA DEPOIS do bloco acima, e de propósito: a rolagem só existe com
     // uma COLEÇÃO ABERTA — com tudo colapsado o vão dos favoritos é
@@ -1276,13 +1325,22 @@ for (const tema of ['escuro', 'claro']) {
     checar(v.corFav !== 'AUSENTE' && v.corFav === v.corOutra,
       '[' + tema + '] ela veste o MESMO tom das outras seções, sem cor própria ('
       + v.corFav + ' contra ' + v.corOutra + ')');
-    // E O DEGRAU DE DENTRO VOLTOU JUNTO. Sem esta segunda metade, repintar só a
-    // seção e deixar o `--camada` antigo no corpo passaria na medida acima e
-    // deixaria as linhas num tom que nenhuma outra coleção tem.
-    checar(v.corLinha.fav !== 'AUSENTE' && v.corLinha.fav === v.corLinha.outra,
-      '[' + tema + '] e o degrau de DENTRO dela também: a linha veste o mesmo '
-      + 'tom que veste numa coleção (' + v.corLinha.fav + ' contra '
-      + v.corLinha.outra + ')');
+    // ===== E A LINHA DE FAVORITO É UM ITEM, NÃO UM ÁLBUM (v5.283) =====
+    // A primeira metade é o pedido escrito como IGUALDADE de cor efetiva — de
+    // string, e não de razão de luminância, porque "igual" é igual. A segunda é
+    // o PROPÓSITO dele ("para diferenciar entre álbum e item"), e ela é o que
+    // impede a correção de passar sem resolver nada: era exatamente 1,00:1
+    // antes, e só a igualdade acima não teria como distinguir "virou faixa" de
+    // "continua card" no dia em que a faixa mudar de receita.
+    const it = v.item || {};
+    checar(!!it.favLinha && it.favLinha === it.faixa,
+      '[' + tema + '] a linha de favorito pinta a MESMA cor da faixa dentro de '
+      + 'um álbum (' + it.favLinha + ' contra ' + it.faixa + ')');
+    const dCard = it.favLinha && it.cardAlbum
+      ? razao('rgb(' + it.favLinha + ')', 'rgb(' + it.cardAlbum + ')') : 0;
+    checar(dCard >= 1.28,
+      '[' + tema + '] e ela se separa do CARD de álbum, que era a queixa: '
+      + dCard.toFixed(2) + ':1 (era 1,00:1 — a mesma cor)');
     const L = v.larguras;
     checar(!!L && Math.abs(L.barra - L.secao) <= 1 && Math.abs(L.corpo - L.secao) <= 1,
       '[' + tema + '] a barra e o corpo PREENCHEM a seção aberta — nada é centrado '

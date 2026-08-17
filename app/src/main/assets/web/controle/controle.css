@@ -2125,14 +2125,61 @@ main {
    grande logo abaixo (e é o `shrink: 0` que faz o piso valer de verdade: um
    `min-height` num filho que encolhe seria só uma sugestão).
 
-   O CORPO não ganha regra própria: ele cai no `flex: 0 1 auto` das outras
-   seções logo acima. Ele não precisa mais crescer para preencher a caixa —
-   não há mais caixa de tamanho fixo a preencher, nem recorte a produzir —, e o
-   que sobrar do vão fica embaixo dele, dentro da seção, como em qualquer
-   outra. */
+   O CORPO não ganha regra de FLEX própria: ele cai no `flex: 0 1 auto` das
+   outras seções logo acima. Ele não precisa mais crescer para preencher a
+   caixa — não há mais caixa de tamanho fixo a preencher, nem recorte a
+   produzir —, e o que sobrar do vão fica embaixo dele, dentro da seção, como em
+   qualquer outra. */
 #hymnResults > .coll-group--fav.aberto {
   min-height: var(--fav-vao, auto);
   flex: 0 0 auto;
+}
+/* ---------- UM FAVORITO É UM ITEM, NÃO UM ÁLBUM (v5.283) ----------
+   Pedido do operador: *"torne os itens na lista de favoritos, com sua cor de
+   card igual as cores dos itens individuais dentro dos álbuns, para diferenciar
+   entre álbum e item"*.
+
+   MEDIDO antes de mexer, nos dois temas: a linha de favorito e o card de álbum
+   pintavam **1,00:1** — a MESMA cor, literalmente. Os dois são filhos diretos
+   do corpo de uma seção, e o corpo reserva `--panel-2` para os filhos dele;
+   nada distinguia "um álbum inteiro" de "um louvor solto" além do que estava
+   escrito na linha.
+
+   A correção é dar ao favorito a MESMA RECEITA da faixa dentro do álbum (ver
+   `.coll-songs > .hymn-result`): um RECESSO (`--surface`, que dentro de uma
+   seção da Biblioteca é o par `sunk`) sobre uma base de nível de card. As duas
+   metades são inseparáveis, e a segunda é o que a medição obrigou:
+
+   · SÓ o recesso, sobre o tom da SEÇÃO, não resolve — ele resolve no escuro
+     (1,58:1 contra o card) e FALHA no claro, onde a seção é BRANCA e o recesso
+     compõe #dbdbdb, a **1,02:1** do card. Isto é: no tema claro o favorito
+     voltaria a ser indistinguível de um álbum, que é o defeito relatado.
+   · Com a base de card por baixo, a composição é a MESMA da faixa do álbum e o
+     valor bate exatamente: rgb(46,54,63) no escuro e rgb(182,188,194) no claro,
+     a **1,29:1** e **1,37:1** do card nos dois temas.
+
+   Daí o corpo PINTAR `var(--camada)` — o `--panel-2` que ele próprio reserva —
+   e virar o contêiner de nível 2 desta seção, no lugar que num hinário é
+   ocupado por um card de álbum. É a única peça deste arquivo que acumula os
+   dois papéis que lá são de dois elementos (`.hymnal-card` pinta, `.coll-songs`
+   zera o degrau seguinte), e por isso o reset de `--camada` mora na REGRA DA
+   LINHA e não aqui: escrito no corpo, ele venceria na hora de o corpo resolver
+   o próprio `background` e o bloco sairia transparente — a armadilha que o
+   cabeçalho de "A CAMADA" descreve.
+
+   O `padding` deixa de ser assimétrico porque agora ele é margem interna de um
+   bloco que se vê, e não o vão de uma faixa transparente — e o seletor precisa
+   do `#hymnResults` para alcançá-lo: a regra geral do corpo aberto, logo acima,
+   também carrega o id, e sem ele esta perderia por especificidade em silêncio.
+   */
+#hymnResults > .coll-group--fav.aberto > .coll-group-corpo {
+  background: var(--camada);
+  border-radius: var(--radius-card);
+  padding: .4rem;
+}
+#hymnResults > .coll-group--fav.aberto > .coll-group-corpo > .lib-item {
+  --linha: var(--surface);
+  --camada: transparent;
 }
 /* ---------- AS SEÇÕES RESPIRAM (v5.273) ----------
    Pedido do operador: *"aumentar ligeiramente o espaço entre as outras
