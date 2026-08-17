@@ -6191,6 +6191,43 @@ lista inteira do outro lado.
 - **No simplificado nada disso aparece:** o toque na linha continua chamando
   `simplePlaySong` direto, que é a decisão que aquele modo poupa.
 
+##### Os sete pontos da v5.286
+
+O operador usou a gaveta e devolveu sete apontamentos. **Dois são defeitos que a
+v5.285 introduziu**, e os dois têm a mesma natureza — algo que a lista ganhou ao
+mudar de casa:
+
+| Relato | Causa |
+|---|---|
+| *"pontos ou marcadores à esquerda dos cards"* | a `<ul>` nova não herdou `list-style: none` de ninguém (a do popup é `.popup-list`, que já o tinha). Não vinham de regra do app: era a **ausência** de uma |
+| *"o feedback de toque está encolhendo toda a seção de opções"* | o `:active` do `.lib-item` satisfeito por um botão DENTRO dele — a armadilha que a v5.269 já tinha desligado para o `⋮`, agora com a gaveta inteira no alcance |
+
+Os cinco ajustes, e o primeiro governa os outros:
+
+- **O SELETOR DECIDE O QUÊ; AS OPÇÕES, ONDE.** "Tocar música cantada" e "Tocar
+  playback" eram duas linhas dizendo o que o seletor ao lado já dizia — a
+  variante aparecia duas vezes, uma como segmento e outra como linha. Elas viram
+  um **"Tocar agora"** selecionável, e o seletor ganha um terceiro segmento,
+  **Letra**. Com isso a lista do acervo converge com a do YouTube: um seletor de
+  forma e quatro destinos marcáveis, um deles o telão.
+- **"Só a letra, no Cronograma" SAIU**, porque virou `Letra` + `Cronograma`.
+  `addLyricCue` passou a aceitar várias listas (um registro só, como qualquer
+  item multi-destino), e o seletor passou a aparecer SEMPRE — ele dependia de
+  haver playback, e toda música tem letra.
+- **A caixa de marcação se vê sem estar marcada** (`--check-vazio`). Medido:
+  **1,08:1** contra o botão em que mora, que é o "não dá para ver" do relato →
+  **1,28:1**. Token com TEMA e não o `--scrim` compartilhado (no claro aquele .6
+  seria uma lápide), e ainda um RECESSO — a regra da v5.267 vale. O teto é do
+  tema escuro: preto sobre um botão já escuro comprime a razão por construção.
+- **O fundo da gaveta é o da folha antiga** (`--panel`). Na folha a lista pousava
+  ali e os botões dela são um recesso; no corpo da linha ela passou a pousar na
+  faixa, que já é um recesso do card — recesso sobre recesso, e o degrau
+  encolheu.
+- **A letra fica atrás de um botão irmão do confirmar.** Ela é a mais alta das
+  duas metades e empurrava as opções para longe do dedo em toda abertura, quando
+  o que se abre a gaveta para fazer é decidir. Quem o fornece é o dono da lista
+  (`songMenuFor.aoLado`) — a folha não tem letra a esconder, e não muda.
+
 Tocar (`playSongVariant`) e os três destinos (`addSongToDestinos` →
 `adicionarNasListas`) baixam a música na hora se ainda não estiver offline (ver
 "Resolução do id de mídia por variante" abaixo) — e o download é **um só** por

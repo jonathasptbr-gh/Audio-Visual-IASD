@@ -352,6 +352,14 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    uma delas mexendo a caixa por baixo da outra que está entrando. O botão
    continua encolhendo (é ele que foi tocado); o cartão, não. */
 .lib-item:has(.row-mais:active) { transform: none; }
+/* E O MESMO VALE PARA A GAVETA INTEIRA (v5.286). Relato do operador: *"o
+   feedback de toque está encolhendo toda a seção de opções do item, ao tocar em
+   apenas uma das opções"*. A causa é a mesma do `⋮`, com um alcance maior: as
+   opções vivem DENTRO do `<li>`, então o `:active` de qualquer uma delas
+   satisfaz o `:active` dele — e o que encolhe é a linha e a gaveta juntas, que
+   é uma caixa de meia tela se mexendo por causa de um toque num botão de 40px.
+   O botão continua encolhendo (é ele que foi tocado); o cartão, não. */
+.lib-item:has(.hymn-gaveta :active) { transform: none; }
 :is(
   .ctl-btn, .t-btn, .pv-fab, .settings-btn,
   .tab, .tab-add, .import-btn, .back-btn, .sel-btn,
@@ -3978,11 +3986,49 @@ main {
    mede `offsetHeight` de UM elemento, e com duas caixas irmãs aparecendo por
    conta própria a medida seria de meia gaveta. */
 .hymn-gaveta { display: none; }
-.hymn-result.expanded .hymn-gaveta { display: block; }
+/* ---------- O FUNDO É O DA FOLHA ANTIGA (v5.286) ----------
+   Pedido do operador: *"troque a cor de fundo dessa seção aberta para que fique
+   na cor que era o popup antigo, ou algo do tipo para melhorar o contraste dos
+   botões"*.
+
+   Ele está cobrando a consequência de mudar a lista de lugar. Na folha ela
+   pousava em `--panel` (o `.popup-sheet`), e os botões dela são um RECESSO —
+   `--surface`, que dentro de uma seção da Biblioteca é o par `sunk`. Trazida
+   para o corpo da linha, ela passou a pousar na faixa, que já é um recesso do
+   card: recesso sobre recesso, e o degrau que separava o botão do fundo
+   encolheu. Devolver `--panel` devolve exatamente a base para a qual aqueles
+   botões foram calibrados.
+
+   `--camada: var(--panel)` junto, pela regra da casa: o tom de um bloco filho é
+   decisão do PAI, e sem isto o que for desenhado aqui dentro por herança
+   continuaria lendo o nível da faixa. */
+.hymn-result.expanded .hymn-gaveta {
+  display: block;
+  background: var(--panel);
+  --camada: var(--panel);
+  border-radius: var(--radius-btn);
+  margin: .1rem .35rem .35rem;
+}
 /* A lista de opções no corpo da linha reusa o desenho da folha (`.song-menu-*`)
    — é a MESMA lista, noutro lugar. O que muda é o recuo: aqui ela mora dentro
    de uma linha, e não de um popup de largura inteira. */
-.hymn-opcoes { padding: .1rem .55rem .45rem; display: flex; flex-direction: column; gap: .3rem; }
+/* `list-style: none` NÃO É DETALHE, é a correção de um defeito da v5.285:
+   relato do operador sobre *"pontos ou marcadores à esquerda dos cards das
+   opções"*. Esta `<ul>` nasceu no corpo da linha e não herdou nada — a do popup
+   é `.popup-list`, que já o declarava, e a nova ficou com os marcadores padrão
+   do navegador (quadrados, por ser um `<ul>` aninhado em terceiro nível). Eles
+   não vinham de regra nenhuma do app, e é por isso que não havia o que
+   procurar: era a AUSÊNCIA de uma. */
+.hymn-opcoes {
+  list-style: none; margin: 0;
+  padding: .45rem .5rem .5rem;
+  display: flex; flex-direction: column; gap: .3rem;
+}
+/* A METADE DE BAIXO da gaveta só aparece com `vendo-letra` (v5.286) — ver o
+   botão irmão do confirmar em `montarOpcoes`. Ela é a mais alta das duas, e
+   aberta por padrão empurrava as opções para longe do dedo em toda abertura,
+   quando o que se abre a gaveta para fazer é decidir. */
+.hymn-result:not(.vendo-letra) :is(.hymn-lyrics, .item-detalhe) { display: none; }
 .hymn-lyrics {
   display: block; max-height: 40vh; overflow-y: auto;
   margin: 0 .55rem .55rem; padding: .5rem .6rem;
@@ -4115,11 +4161,19 @@ main {
    ícone é pequeno.
    DESMARCADO ELE É UM RECESSO, não um contorno (v5.267): a caixa vazia era o
    último lugar do app em que uma linha de 2px carregava informação, e o buraco
-   escuro diz a mesma coisa — "aqui cabe uma marca" — por preenchimento. */
+   escuro diz a mesma coisa — "aqui cabe uma marca" — por preenchimento.
+
+   E ELE PRECISA SER VISTO SEM ESTAR MARCADO (v5.286). Pedido do operador:
+   *"deixe as caixas de check sempre visíveis, para entender que não são botões,
+   mas selecionáveis"*. O recesso a .20 sobre o `--surface` da própria linha era
+   um degrau pequeno demais para ser notado de relance: a linha se lia como
+   botão, e o operador só descobria que ela ACUMULA depois de marcar a primeira.
+   Um recesso mais fundo (`--check-vazio`, medido em `tokens.css`) o põe à vista
+   sem inventar contorno nenhum, que continua fora de questão desde a v5.267. */
 .song-menu-check::before {
   content: ''; display: block;
   width: 20px; height: 20px; border-radius: var(--radius-xs);
-  background: var(--surface-2-sunk);
+  background: var(--check-vazio);
   transition: background .12s ease;
 }
 /* Marcado = preenchido no accent com o ✓ desenhado por cima, a mesma convenção
@@ -4143,7 +4197,20 @@ main {
    resposta. Aqui uma é: fechar a escolha. Sem nada marcado ela fica
    desabilitada e diz o que falta, em vez de sumir: uma folha cujo botão de
    concluir só nasce depois do primeiro acerto não se explica sozinha. */
-.song-menu-go-row { padding-top: .35rem; }
+/* A FAIXA DE FECHO. Ela era o confirmar sozinho; desde a v5.286 pode ter um
+   IRMÃO à direita — "Ver a letra", no corpo da linha (a folha não o fornece, e
+   ali o flex de um filho só é um no-op). O confirmar CRESCE e o irmão fica com
+   o que precisa: a decisão principal é a que se acha sem mirar, e o outro é uma
+   conferência. */
+.song-menu-go-row { padding-top: .35rem; display: flex; gap: .4rem; }
+.song-menu-go { flex: 1; min-width: 0; }
+/* O IRMÃO é SECUNDÁRIO por construção: recesso em vez do preenchimento em
+   accent, e sem crescer. Ele não decide nada — revela. */
+.song-menu-letra {
+  flex: none; width: auto; justify-content: center; text-align: center;
+  background: var(--surface); color: var(--accent);
+  white-space: nowrap;
+}
 .song-menu-go {
   justify-content: center; text-align: center;
   background: var(--accent-fill);

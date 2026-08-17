@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.285';
+const WEB_VERSION = '5.286';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -12254,9 +12254,42 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
   // `destExecutor` e `destRemontar` continuarem sendo um só.
   function montarOpcoes() {
     destLimpar();
-    if (ehLink(coll)) { openYtMenu(serieComoYoutube(coll, s), opcoes); return; }
-    songMenuFor = { coll, s, variant: 'full', alvo: opcoes };
-    renderSongMenu('tudo');
+    // O BOTÃO IRMÃO do confirmar (v5.286): quem revela a metade de baixo da
+    // gaveta. Ele é recriado a cada remontagem da lista (o seletor de variante,
+    // cada marca de destino), então o ESTADO não pode morar nele — mora na
+    // classe do `li`, que sobrevive.
+    const aoLado = () => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'song-menu-btn song-menu-letra';
+      const t = document.createElement('span');
+      t.className = 'song-menu-label';
+      const vendo = li.classList.contains('vendo-letra');
+      // O rótulo nomeia o que o TOQUE faz, e o substantivo muda com o tipo: numa
+      // música é a letra, num vídeo é o que a gaveta tem a dizer sobre ele.
+      const nome = temLetra(coll) ? 'a letra' : 'os detalhes';
+      t.textContent = (vendo ? 'Ocultar ' : 'Ver ') + nome;
+      b.appendChild(t);
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        li.classList.toggle('vendo-letra');
+        t.textContent = (li.classList.contains('vendo-letra') ? 'Ocultar ' : 'Ver ') + nome;
+      });
+      return b;
+    };
+    if (ehLink(coll)) {
+      // O MESMO `r` nas duas chamadas, e isso é o que faz a segunda funcionar:
+      // `openYtMenu` só rearma o estado quando o item MUDA (`songMenuFor.yt !==
+      // r`), então repetir com o mesmo objeto preserva o `aoLado` que acabou de
+      // ser posto e apenas redesenha a lista com ele. Um `serieComoYoutube`
+      // novo seria outro objeto — o estado seria zerado e o irmão sumiria.
+      const r = serieComoYoutube(coll, s);
+      openYtMenu(r, opcoes);
+      if (songMenuFor) { songMenuFor.aoLado = aoLado; openYtMenu(r, opcoes); }
+      return;
+    }
+    songMenuFor = { coll, s, variant: 'full', alvo: opcoes, aoLado };
+    renderSongMenu();
   }
 
   async function montarDetalhe() {
@@ -12643,6 +12676,24 @@ function destConfirmRow() {
     if (exec) exec(alvos, btn, variante);
   });
   li.appendChild(btn);
+  // ===== O BOTÃO IRMÃO (v5.286) =====
+  //
+  // Pedido do operador: *"faça a letra escrita ficar escondida atrás de um
+  // botão que fica lado a lado com o 'escolha uma opção'"*. No corpo da linha a
+  // gaveta tem duas metades (opções + letra), e a letra é a mais alta das duas:
+  // ela empurrava as opções para longe do dedo em toda abertura, quando o que
+  // se abre a gaveta para fazer é DECIDIR. Atrás de um botão ela continua a um
+  // toque, e o toque é de quem quer conferir.
+  //
+  // Ele vive aqui, e não numa faixa própria abaixo: "lado a lado" é o pedido, e
+  // um segundo controle numa linha só sua seria mais uma faixa entre as opções
+  // e a letra. Quem o fornece é o dono da lista (`songMenuFor.aoLado`), porque
+  // a FOLHA não tem letra nenhuma a esconder — ali o campo não existe e nada
+  // muda.
+  if (songMenuFor && typeof songMenuFor.aoLado === 'function') {
+    const irmao = songMenuFor.aoLado();
+    if (irmao) li.appendChild(irmao);
+  }
   return li;
 }
 
@@ -12723,7 +12774,7 @@ function renderDestPrompt() {
   songMenuListEl.appendChild(li);
 }
 
-function renderSongMenu(modo) {
+function renderSongMenu() {
   // A folha é compartilhada com os resultados do YouTube (`openYtMenu`), com o
   // seletor de destinos da importação (`escolherDestinos`), que não tem
   // `coll`/`s` — e o seletor de variante do topo chama isto de volta.
@@ -12744,88 +12795,97 @@ function renderSongMenu(modo) {
   // mesmo lugar.
   const alvo = songMenuFor.alvo || songMenuListEl;
   alvo.innerHTML = '';
-  // `tudo` é a lista COMPLETA — tocar e adicionar, uma abaixo da outra. Ela só
-  // existe no corpo da linha: na folha, cada botão abria a metade que lhe dizia
-  // respeito, e ali a metade era a pergunta. Sem botão nenhum, a pergunta passou
-  // a ser "o que dá para fazer com este item?", e a resposta é as duas.
-  const tudo = modo === 'tudo';
+  // (O PARÂMETRO `modo` saiu na v5.286. Ele escolhia entre a metade de TOCAR e a
+  // de ADICIONAR, porque cada botão da linha abria a sua — e a v5.285 já tinha
+  // acrescentado um terceiro valor, `tudo`, para o corpo da linha. Sem os
+  // botões, a pergunta deixou de ter metades: é uma lista só, e o parâmetro
+  // virou uma constante disfarçada.)
 
-  if (modo === 'play' || tudo) {
-    alvo.appendChild(songMenuItem(voiceIconSvg(), 'Tocar música cantada', '',
-      () => playSongVariant(coll, s, 'full')));
-    if (temPlayback) {
-      // "Playback" é o termo que este app usa em toda parte, inclusive no
-      // seletor Cantada/Playback que nunca teve explicação nenhuma ao lado.
-      alvo.appendChild(songMenuItem(noteIconSvg(), 'Tocar playback', '',
-        () => playSongVariant(coll, s, 'playback')));
-    }
-    // "Só a letra" NÃO é uma variante de áudio: nenhum arquivo é tocado (nem
-    // precisa estar baixado — a letra vem do acervo de letras). É por isso que
-    // ela mora aqui e não numa terceira variante de `playSongVariant`.
-    // "Sem música" repetia o rótulo; o que ele NÃO diz é que os slides param de
-    // virar sozinhos, e é isso que muda o que o operador faz durante o louvor.
-    alvo.appendChild(songMenuItem(lyricsOnlyIconSvg(), 'Apenas a letra',
-      'Os slides não passam sozinhos',
-      () => projectSongLyricsOnly(coll, s)));
-    if (!tudo) return;
-  }
+  // ===== O SELETOR DECIDE O QUÊ; AS OPÇÕES, ONDE (v5.286) =====
+  //
+  // Pedido do operador: *"coloque o 'tocar música cantada' e o tocar playback
+  // como a primeira opção da lista de check, como um 'Tocar agora', já que
+  // nessa seção de check já temos os alternadores entre cantado e playback"* e
+  // *"coloque a versão 'apenas letra' como uma das opções como 'cantada',
+  // 'playback', 'letra'"*.
+  //
+  // As duas frases são a mesma decisão, e ela desfaz uma duplicação que a
+  // v5.285 tornou visível ao juntar as duas metades numa lista só: com o
+  // seletor Cantada/Playback logo ali, "Tocar música cantada" e "Tocar
+  // playback" eram DUAS linhas dizendo o que o seletor já dizia — a variante
+  // aparecia duas vezes, uma como segmento e outra como linha. Agora o seletor
+  // responde **o quê** (cantada · playback · letra) e as quatro opções
+  // respondem **onde** (o telão, e as três listas).
+  //
+  // "LETRA" É UMA VARIANTE, e não um destino: ela é a mesma música sem áudio
+  // nenhum, e é por isso que ela cabe no seletor. Com ela escolhida, "Tocar
+  // agora" projeta a letra (`projectSongLyricsOnly`) e cada lista recebe a CENA
+  // de letra (`addLyricCue`) — o que torna a linha "Só a letra, no Cronograma"
+  // redundante: ela era exatamente `Letra` + `Cronograma`, e saiu.
+  //
+  // O SELETOR APARECE SEMPRE, e antes só existia com playback: sem ele não
+  // havia o que escolher. Agora há — toda música tem letra —, e o segmento do
+  // meio é o único que depende do acervo.
+  const variantes = [['full', 'Cantada']];
+  if (temPlayback) variantes.push(['playback', 'Playback']);
+  variantes.push(['letra', 'Letra']);
+  if (!variantes.some(([v]) => v === songMenuFor.variant)) songMenuFor.variant = 'full';
+  alvo.appendChild(ytSegRow(variantes, songMenuFor.variant,
+    (v) => { songMenuFor.variant = v; renderSongMenu(); }));
 
-  // Adicionar. A escolha Cantada/Playback vira um seletor no topo em vez de
-  // dobrar a lista de destinos: com playback, seis linhas diriam três coisas.
-  // Sem playback ele nem aparece — não há o que escolher.
-  if (temPlayback) {
-    // O MESMO `ytSegRow` das folhas do YouTube — é a função que existe para
-    // este desenho ("escrevê-lo duas vezes era garantir que a segunda
-    // divergisse"), e esta era a segunda cópia.
-    alvo.appendChild(ytSegRow(
-      [['full', 'Cantada'], ['playback', 'Playback']],
-      songMenuFor.variant,
-      (v) => { songMenuFor.variant = v; renderSongMenu(modo); }));
-  }
-
-  // OS TRÊS DESTINOS SÃO MARCÁVEIS (v5.141): o toque na linha continua sendo a
-  // ação completa de um toque só, e a caixa da borda acumula — a mesma música
-  // vai para a playlist E para os Favoritos sem refazer a busca. O executor é o
-  // mesmo dos três, porque a diferença entre eles sempre foi só a lista.
-  const remontar = () => renderSongMenu(modo);
+  const remontar = () => renderSongMenu();
   destRemontar = remontar;
-  // O EXECUTOR ÚNICO desta folha. Ele separa os destinos de LISTA da cena de
-  // roteiro da letra: a letra não é o mesmo item noutra lista, é OUTRO item (uma
-  // cena, sem áudio). Ela é selecionável como as demais desde a v5.252 — com um
-  // confirmar único, marcar as duas coisas é uma decisão explícita do operador,
-  // e não mais "um toque criando duas coisas de uma vez", que era o que a
-  // mantinha fora da seleção.
+  // O EXECUTOR ÚNICO. Ele separa o TELÃO das listas (a chave `tocar` não é um
+  // destino de `DESTINOS`, é o "sem entrar em lista nenhuma") e a variante
+  // `letra` do resto: uma cena de letra não é a música noutra lista, é outro
+  // registro — sem áudio, e sem baixar nada.
+  //
+  // O TELÃO VEM PRIMEIRO quando marcado: ele é a única metade que o operador
+  // está esperando ver acontecer, e as listas podem terminar depois.
   destExecutor = async (alvos, btn, vr) => {
-    const listas = (alvos || []).filter((a) => a !== 'letra');
+    const marcados = alvos || [];
+    const listas = marcados.filter((a) => a !== 'tocar');
+    const tocar = marcados.includes('tocar');
+    if (vr === 'letra') {
+      if (tocar) projectSongLyricsOnly(coll, s);
+      if (listas.length) await addLyricCue(coll, s, btn, listasDosDestinos(listas));
+      return;
+    }
+    if (tocar) await playSongVariant(coll, s, vr);
     if (listas.length) await addSongToDestinos(coll, s, vr, listas, btn);
-    if ((alvos || []).includes('letra')) await addLyricCue(coll, s, btn);
   };
+  // "Tocar agora" é o único que NÃO guarda nada, e é isso que o rótulo não diz
+  // — daí ele manter subtítulo enquanto os três destinos perderam o deles
+  // (v5.195). É a mesma linha, com o mesmo texto, da folha do YouTube.
+  alvo.appendChild(songMenuItem(msym(ICON.play), 'Tocar agora',
+    'Sem entrar em lista nenhuma',
+    (vr, btn, alvos) => destExecutor(alvos, btn, vr), 'tocar', remontar));
   alvo.appendChild(songMenuItem(msym(ICON.queue), 'Adicionar à playlist', '',
-    (vr, btn, alvos) => addSongToDestinos(coll, s, vr, alvos, btn), 'playlist', remontar));
+    (vr, btn, alvos) => destExecutor(alvos, btn, vr), 'playlist', remontar));
   alvo.appendChild(songMenuItem(msym(ICON.cronoAdd), 'Adicionar ao Cronograma', '',
-    (vr, btn, alvos) => addSongToDestinos(coll, s, vr, alvos, btn), 'cronograma', remontar));
-  // "Escolha o atalho" saiu do subtítulo (v5.103): favoritar virou o ato
-  // simples, sem seletor no meio. Organizar em atalho continua possível — pela
-  // seleção múltipla, dentro da gaveta, para quem tem muita coisa marcada.
+    (vr, btn, alvos) => destExecutor(alvos, btn, vr), 'cronograma', remontar));
   alvo.appendChild(songMenuItem(msym(ICON.star), 'Favoritar', '',
-    (vr, btn, alvos) => addSongToDestinos(coll, s, vr, alvos, btn), 'favoritos', remontar));
-  // A LETRA como cena de roteiro: entra no Cronograma sem baixar áudio nenhum,
-  // e projetá-la é o mesmo "Apenas a letra" da folha de tocar. É o item de
-  // roteiro mais pedido depois do versículo — o hino que a congregação canta a
-  // capela, ou o que toca da mesa de som enquanto o telão mostra a letra.
-  alvo.appendChild(songMenuItem(lyricsOnlyIconSvg(), 'Só a letra, no Cronograma',
-    'Sem baixar a música',
-    () => {}, 'letra', remontar));
+    (vr, btn, alvos) => destExecutor(alvos, btn, vr), 'favoritos', remontar));
   const go = destConfirmRow();
   if (go) alvo.appendChild(go);
 }
 
 // Cena de roteiro da LETRA de uma música do acervo.
-async function addLyricCue(coll, s, btn) {
+// A CENA DE LETRA pode ir para MAIS DE UMA LISTA (v5.286). Ela nasceu presa ao
+// Cronograma porque era uma linha própria da folha ("Só a letra, no
+// Cronograma"); com "Letra" virando uma VARIANTE, ela passa a valer para os
+// mesmos três destinos das outras duas — é a mesma música, sem áudio.
+//
+// UM registro para todas: `criarCue` o cria na primeira lista e as demais
+// recebem o mesmo id, como qualquer item multi-destino deste app. Criar um por
+// lista daria três cenas idênticas que o operador teria de apagar uma a uma.
+async function addLyricCue(coll, s, btn, listas) {
+  const alvo = (listas && listas.length) ? listas : ['imports'];
   const rec = await criarCue('songlyrics',
     { collId: coll.id, songId: s.id_music },
-    songLabel(coll, s), 'imports', btn);
-  if (!rec) responder(btn, 'erro', 'Não foi possível adicionar');
+    songLabel(coll, s), alvo[0], btn);
+  if (!rec) { responder(btn, 'erro', 'Não foi possível adicionar'); return; }
+  for (const l of alvo.slice(1)) await AVDB.listAdd(l, rec.id);
 }
 
 // A seta de download dentro do `.dl-ring` — o mesmo desenho que o `#pvBusy`
