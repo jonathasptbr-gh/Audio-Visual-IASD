@@ -4351,10 +4351,48 @@ cor acrescentava era um QUARTO tom numa escada de três, e a v5.267 já tinha
 medido o preço de um quarto degrau.
 
 Saíram os tokens dos DOIS temas **e** o `--camada` próprio que eles arrastavam,
-no mesmo lote — porque um nível que muda arrasta o de dentro. Repintar só a
-seção deixaria as linhas num tom que nenhuma outra coleção tem, e uma medida da
-seção sozinha não pegaria isso: daí o `smoke.mjs` medir os dois níveis. A classe
-`.coll-group--fav` fica, respondendo a uma pergunta só — quem ocupa o vão.
+no mesmo lote — porque um nível que muda arrasta o de dentro. A classe
+`.coll-group--fav` fica, e desde a v5.283 ela responde a duas perguntas: quem
+ocupa o vão, e quem pinta os FILHOS como itens em vez de álbuns.
+
+**E OS FILHOS DELA NÃO SÃO COMO OS DAS OUTRAS SEÇÕES** (v5.283). Pedido do
+operador: *"torne os itens na lista de favoritos, com sua cor de card igual as
+cores dos itens individuais dentro dos álbuns, para diferenciar entre álbum e
+item"*. Medido antes de mexer, nos dois temas: a linha de favorito e o card de
+álbum pintavam **1,00:1** — a mesma cor, literalmente. É a v5.282 cobrando o
+degrau seguinte: aquele lote tirou o tom da SEÇÃO com o argumento de que ela é
+uma seção como as outras, e a consequência que ele não pesou é que os filhos
+dela não são — numa coleção são ÁLBUNS, aqui são ITENS.
+
+```
+ seção (--panel)                    seção (--panel)
+   └ card do álbum (--panel-2)        └ corpo dos favoritos (--panel-2)
+       └ faixa: RECESSO ─────────┐        └ linha: RECESSO ────────┘
+                                 └──── a MESMA cor, por construção
+```
+
+A receita é a da faixa (`.coll-songs > .hymn-result`): um recesso (`--surface`,
+que dentro de uma seção da Biblioteca é o par `sunk`) sobre uma base de nível de
+card. **As duas metades são inseparáveis, e a segunda foi imposta pela medição:**
+só o recesso, sobre o tom da SEÇÃO, resolve no escuro (1,58:1 contra o card) e
+FALHA no claro, onde a seção é BRANCA e o recesso compõe `#dbdbdb`, a **1,02:1**
+do card — o defeito relatado, de volta. Com a base de card por baixo a
+composição é a mesma da faixa e o valor bate exatamente: `rgb(46,54,63)` no
+escuro, `rgb(182,188,194)` no claro, a 1,29:1 e 1,37:1 do card.
+
+Daí o corpo PINTAR `var(--camada)` e virar o contêiner de nível 2 desta seção —
+o lugar que num hinário é do card de álbum. Ele é a única peça do arquivo que
+acumula os dois papéis que lá são de dois elementos (`.hymnal-card` pinta,
+`.coll-songs` zera o degrau seguinte), e **por isso o reset de `--camada` mora
+na regra da LINHA e não no corpo**: escrito no corpo, ele venceria na hora de o
+corpo resolver o próprio `background` e o bloco sairia transparente — a
+armadilha de "A CAMADA" com a assinatura invertida.
+
+**E o oráculo mede a COR EFETIVA, nunca a declarada.** Os recessos deste app são
+overlays com ALFA, e `getComputedStyle` devolve o alfa: uma asserção sobre o
+valor declarado compararia `rgba(0,0,0,.24)` com um `#3c4753` opaco, diria que
+eles "diferem" sem ter medido cor nenhuma, passaria com o defeito no lugar e
+reprovaria a correção. Ele sobe a árvore compondo até o primeiro fundo opaco.
 
 **Trocar o `display` acorda o que estava dormindo** (v5.274). `.coll-group` — a
 classe base — é `display: flex; align-items: center; gap: .5rem`, e o
