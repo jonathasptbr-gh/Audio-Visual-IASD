@@ -338,6 +338,29 @@
      escuro comprime a razão por construção. É o mais fundo que dá, e é uma
      melhora medida sobre o que havia. */
   --check-vazio: rgba(0, 0, 0, .6);   /* 1,28:1 sobre o botão (era 1,13) */
+  /* ---------- A GAVETA DE OPÇÕES DA BIBLIOTECA (v5.287) ----------
+     Relato do operador: *"ainda está pouco o contraste entre os botões e pior,
+     toda a seção das opções de play estão se mesclando com a lista dos outros
+     itens abaixo, dificultando a percepção da seção e a qual item ela
+     pertence"*.
+
+     MEDIDO antes de mexer, no tema ESCURO: a gaveta pousava em `--panel`
+     (rgb 44,52,60) e a faixa de uma linha VIZINHA compõe rgb(46,54,63) — o
+     recesso do card. **1,03:1**: a seção aberta e as linhas de baixo eram,
+     literalmente, a mesma cor. E os botões dentro dela, afundados sobre esse
+     painel, davam 1,18:1.
+
+     A saída é a gaveta deixar de ser um painel e virar um POÇO — e a direção
+     dele muda com o tema, como já muda em `--surface`/`--surface-sunk`: no
+     escuro o único caminho é DESCER (subir levaria a `--panel-2`, que é a cor
+     do próprio card do álbum, isto é, a cor que aparece nos vãos entre as
+     linhas); no claro, descer para `--bg` deixaria a gaveta a 1,09:1 do card,
+     e quem sobe é ela.
+
+     Medido depois — gaveta × faixa vizinha e botão × gaveta:
+     escuro **1,54:1** e **1,49:1**; claro **1,93:1** e **1,41:1**. */
+  --gaveta-bg: var(--bg);
+  --gaveta-btn: var(--panel);
   --surface-sunk: rgba(0, 0, 0, .24);
   --surface-2-sunk: rgba(0, 0, 0, .14);
 
@@ -621,6 +644,11 @@
      muito menos alfa para o mesmo efeito — e o `--scrim` (.6, compartilhado)
      seria uma lápide no meio da linha. */
   --check-vazio: rgba(0, 0, 0, .3);
+  /* A gaveta da Biblioteca, ao contrário (ver o escuro): aqui ela SOBE, porque
+     o poço em `--bg` ficaria a 1,09:1 do card do álbum. O par é o de cima da
+     escada — folha branca com os botões um degrau abaixo. */
+  --gaveta-bg: var(--panel);
+  --gaveta-btn: var(--panel-2);
   --surface-sunk: rgba(0, 0, 0, .14);
   --surface-2-sunk: rgba(0, 0, 0, .20);
 

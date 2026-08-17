@@ -4664,7 +4664,7 @@ Itens sem blob local exibem badge `URL` ou `YT`.
 | Gesto | Ação |
 |---|---|
 | Toque simples | **Substitui a playlist por este item** e o exibe no Display |
-| `⋮` → ↑ / ↓ | Reordena o item na lista, uma casa por toque (v5.285) |
+| `⋮` → ↑ / ↓ | Reordena o item na lista, uma casa por toque (v5.285). **Nos Favoritos o `⋮` saiu na v5.287**: o par mora na faixa de ações da gaveta, que abre no corpo da linha |
 | Pressionar e segurar | Entra no modo de seleção múltipla |
 
 **O ARRASTAR SAIU NA v5.285**, das três listas de uma vez (Cronograma,
@@ -4774,6 +4774,46 @@ usa `listRemove` (com gc).
 > baixo dela. No fim, cada favorito novo empurrava as pastas para longe; no topo
 > elas têm endereço fixo. (Elas continuam FORA da placa dos itens — ver a nota
 > da v5.284 —, e é isso que lhes dá a cor de álbum.)
+>
+> **E DESDE A v5.287 O TOQUE NA LINHA NÃO PROJETA MAIS: ele abre a gaveta da
+> Biblioteca.** Dois pedidos do operador que são o mesmo movimento — *"verifique
+> a sobreposição das opções dos itens na lista de favoritos, pois estão
+> novamente abrindo a sua gaveta de opções sobre o título de cada item"* e
+> *"trate a lista de favoritos com o mesmo sistema de opções de play que temos
+> no resto da biblioteca, ao invés de tratar ela como toque direto no player"*.
+>
+> **O segundo RESOLVE o primeiro.** O `⋮` e a faixa `.row-acoes` que ele abre
+> existem para caber numa linha que responde ao toque com OUTRA coisa (no
+> Cronograma, projetar): sem lugar embaixo, a gaveta só tinha para onde ir por
+> CIMA do título. Com o corpo da linha livre, ela desce para onde desce em toda
+> a Biblioteca — e a sobreposição deixa de existir por construção, não por um
+> reposicionamento.
+>
+> **Esta lista mora DENTRO da Biblioteca desde a v5.237**, e é isso que decide o
+> lado da regra em que ela cai: a Biblioteca é a tela em que se PREPARA (o toque
+> abre opções) e o Cronograma é a lista com que se OPERA (o toque projeta). O
+> `⋮` continua inteiro lá e na fila da playlist.
+>
+> `renderItemMenu` é a MESMA maquinaria de destinos (`songMenuItem` com
+> `destino`, `destExecutor`, `destRemontar`, `destConfirmRow`) apontada para a
+> `<ul>` do corpo da linha. O que ela não tem:
+>
+> - **seletor de variante** — o registro já existe, não há cantada × playback a
+>   escolher;
+> - **"Favoritar"** — o item É um favorito, e quem o tira de lá é a estrela.
+>
+> As ações da linha (estrela, ↑↓, excluir) descem para uma faixa no PÉ da
+> gaveta, com os mesmos botões e os mesmos ouvintes de antes. **O Parar na capa
+> continua sendo um toque direto**: tirar do ar é a decisão que não pode custar
+> uma gaveta. E o **preço está dito**: projetar um favorito passou de um toque a
+> três (abrir, marcar, confirmar) — em troca, as três listas passam a estar a um
+> toque do mesmo lugar, e mandar um favorito à playlist não tinha caminho nenhum
+> nesta tela.
+>
+> As regras da gaveta deixaram de ser keyadas em `.hymn-result` e passaram a ser
+> em `.lib-item`: o mesmo envelope serve as duas listas, e uma segunda anatomia
+> divergiria da primeira no próximo ajuste. Com ela saiu a opção `semSelecao` do
+> `attachRowGestures`, que ficou sem chamador.
 >
 > **E a listagem ficou densa** (`#favList` em controle.css). Ela herdava a
 > métrica da lista do Cronograma, e as duas não fazem a mesma coisa: no
@@ -6222,11 +6262,63 @@ Os cinco ajustes, e o primeiro governa os outros:
 - **O fundo da gaveta é o da folha antiga** (`--panel`). Na folha a lista pousava
   ali e os botões dela são um recesso; no corpo da linha ela passou a pousar na
   faixa, que já é um recesso do card — recesso sobre recesso, e o degrau
-  encolheu.
+  encolheu. **(REVOGADO na v5.287 — ver abaixo: `--panel` era a base certa para
+  aqueles botões e a cor errada para aquele lugar.)**
 - **A letra fica atrás de um botão irmão do confirmar.** Ela é a mais alta das
   duas metades e empurrava as opções para longe do dedo em toda abertura, quando
   o que se abre a gaveta para fazer é decidir. Quem o fornece é o dono da lista
   (`songMenuFor.aoLado`) — a folha não tem letra a esconder, e não muda.
+
+##### A gaveta é um POÇO, soldado à sua linha (v5.287)
+
+Relato do operador: *"ainda está pouco o contraste entre os botões e pior, toda
+a seção das opções de play estão se mesclando com a lista dos outros itens
+abaixo, dificultando a percepção da seção e a qual item ela pertence"*.
+
+São DUAS queixas com uma causa só, e a medição a nomeia. No tema **escuro**:
+
+| par | v5.286 | v5.287 |
+|---|---|---|
+| botão × fundo da gaveta | 1,18:1 | **1,49:1** |
+| gaveta × faixa da linha vizinha | **1,03:1** | **1,54:1** |
+| gaveta × card do álbum | 1,33:1 | 1,99:1 |
+
+`--panel` compõe rgb(44,52,60) e a faixa de uma linha vizinha compõe
+rgb(46,54,63): a seção aberta tinha, literalmente, a cor das linhas de baixo. E
+a margem em volta dela (`.1rem .35rem .35rem`) deixava passar, como moldura, a
+faixa da própria linha — três tons indistinguíveis empilhados.
+
+**O tom novo é um par por tema** (`--gaveta-bg`/`--gaveta-btn`), e a inversão é
+aritmética, não gosto:
+
+- **escuro** — só dá para DESCER. Subir levaria a `--panel-2`, que é a cor do
+  próprio card do álbum, isto é, a que aparece nos vãos entre as linhas: a
+  gaveta ficaria invisível contra o fundo em que ela mora. O par é
+  `--bg` × `--panel`, os dois degraus de baixo da escada.
+- **claro** — só dá para SUBIR. Descer para `--bg` deixaria a gaveta a 1,09:1
+  do card. O par é `--panel` (branco) × `--panel-2`, os dois de cima.
+
+É o precedente do `--field-bar` (v5.270) num lugar novo: **uma superfície cuja
+direção não acompanha a escada precisa de um token próprio em cada tema.** E os
+BLOCOS que descansam nela (as opções e a metade de baixo) vestem `--gaveta-btn`
+em vez do `--surface` de fábrica, porque aquele é um OVERLAY — dentro de uma
+seção da Biblioteca ele resolve para o par SUNK, e preto sobre um poço que já é
+o tom mais escuro do app não produz degrau nenhum.
+
+**A segunda queixa é de FORMA, e ela custa uma linha:** a gaveta perdeu as
+margens. Ela é filha do `.lib-item`, que já pinta a linha inteira e recorta pelo
+`border-radius` com `overflow: hidden` — coladas, faixa e gaveta viram UM bloco
+com o título em cima e o poço embaixo. O respiro que a margem dava vem do
+`padding` da lista de opções, que já existia.
+
+##### A largura do "Ver/Ocultar a letra" (v5.287)
+
+"Ocultar" é mais longo que "Ver": o botão crescia ao ser tocado (110px → 143px,
+medidos) e o CONFIRMAR ao lado encolhia junto. As duas frases passaram a ocupar
+a MESMA célula de uma grade 1×1 — a largura é a da maior e a troca só alterna
+qual delas se vê. **`visibility` e não `display`**, porque a escondida precisa
+continuar MEDINDO: é ela que reserva o espaço. Um `min-width` em `ch` seria um
+número a manter contra a fonte e contra a tradução; isto não tem número nenhum.
 
 Tocar (`playSongVariant`) e os três destinos (`addSongToDestinos` →
 `adicionarNasListas`) baixam a música na hora se ainda não estiver offline (ver

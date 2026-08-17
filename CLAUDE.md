@@ -3053,10 +3053,93 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.286** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.287** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.287: A GAVETA PARA DE SE MESCLAR COM A LISTA, e a linha de favorito
+> ganha o mesmo sistema da Biblioteca. OTA PURO** (sem Release).
+>
+> Quatro pedidos do operador, e os dois últimos são o mesmo movimento.
+>
+> - **A LARGURA DO "VER/OCULTAR A LETRA" NÃO MUDA MAIS COM O ESTADO.**
+>   "Ocultar" é mais longo que "Ver", então o botão crescia debaixo do dedo e o
+>   CONFIRMAR ao lado encolhia junto — 110px → 143px, medidos. As duas frases
+>   passaram a ocupar a MESMA célula de uma grade 1×1 e a troca só alterna qual
+>   se vê: a largura é a da maior, sempre. `visibility` e não `display`, porque
+>   a escondida precisa continuar MEDINDO — é ela que reserva o espaço. Um
+>   `min-width` em `ch` seria um número a manter contra a fonte e contra a
+>   tradução; isto não tem número nenhum.
+> - **A GAVETA VIRA UM POÇO, E A DIREÇÃO DELE MUDA COM O TEMA.** Relato:
+>   *"ainda está pouco o contraste entre os botões e pior, toda a seção das
+>   opções de play estão se mesclando com a lista dos outros itens abaixo,
+>   dificultando a percepção da seção e a qual item ela pertence"*.
+>
+>   **MEDIDO antes de mexer, no tema ESCURO: 1,03:1.** A v5.286 devolveu à
+>   gaveta o `--panel` da folha antiga — que era a base certa para aqueles
+>   botões e é a cor errada AQUI: `--panel` compõe rgb(44,52,60) e a faixa de
+>   uma linha vizinha compõe rgb(46,54,63). A seção aberta tinha, literalmente,
+>   a cor das linhas de baixo, e os botões dentro dela davam 1,18:1.
+>
+>   `--gaveta-bg`/`--gaveta-btn` são um par por tema, e a inversão é aritmética:
+>   no escuro o único caminho é DESCER (subir levaria a `--panel-2`, que é a cor
+>   do próprio card do álbum — a que aparece nos vãos entre as linhas); no
+>   claro, descer para `--bg` deixaria a gaveta a 1,09:1 do card, e quem sobe é
+>   ela. Medido depois — botão × gaveta e gaveta × faixa vizinha: escuro
+>   **1,49** e **1,54**; claro **1,41** e **1,93**. É o mesmo precedente do
+>   `--field-bar` (v5.270): uma superfície cuja direção não acompanha a escada
+>   precisa de um token próprio em cada tema.
+>
+>   **A SEGUNDA metade da queixa é de FORMA, e ela custa uma linha:** a gaveta
+>   perdeu as margens. Ela é filha do `.lib-item`, que já pinta a linha inteira
+>   e recorta pelo `border-radius` com `overflow: hidden` — coladas, faixa e
+>   gaveta viram UM bloco com o título em cima e o poço embaixo. Com a margem, o
+>   poço era uma ilha flutuando sobre um frame da cor das linhas de baixo, e
+>   nada dizia de quem ele era.
+> - **A LINHA DE FAVORITO ABRE A GAVETA DA BIBLIOTECA, e o `⋮` sai.** Os dois
+>   últimos pedidos: *"verifique a sobreposição das opções dos itens na lista de
+>   favoritos, pois estão novamente abrindo a sua gaveta de opções sobre o
+>   título de cada item"* e *"trate a lista de favoritos com o mesmo sistema de
+>   opções de play que temos no resto da biblioteca, ao invés de tratar ela como
+>   toque direto no player"*.
+>
+>   **O segundo RESOLVE o primeiro, e é por isso que eles vieram juntos.** O `⋮`
+>   e a faixa que ele abre existem para caber numa linha que responde ao toque
+>   com OUTRA coisa (no Cronograma, projetar): sem lugar embaixo, a gaveta só
+>   tinha para onde ir por CIMA do título. Aqui o toque deixa de projetar, o
+>   corpo da linha fica livre, e a sobreposição deixa de existir por construção
+>   — não por um reposicionamento.
+>
+>   **Esta lista mora DENTRO da Biblioteca desde a v5.237**, e é isso que decide
+>   o lado da regra em que ela cai: a Biblioteca é a tela em que se PREPARA (o
+>   toque abre opções) e o Cronograma é a lista com que se OPERA (o toque
+>   projeta). O `⋮` continua inteiro lá, e na fila da playlist.
+>
+>   **Nada de menu foi reimplementado.** `renderItemMenu` é a mesma maquinaria
+>   de destinos — `songMenuItem` com `destino`, `destExecutor`, `destRemontar`,
+>   `destConfirmRow` — apontada para a `<ul>` do corpo da linha. O que ela NÃO
+>   tem é seletor de variante (o registro já existe; não há cantada × playback a
+>   escolher) nem "Favoritar" (o item É um favorito, e quem o tira de lá é a
+>   estrela). As ações da linha — estrela, ↑↓, excluir — descem para uma faixa
+>   no PÉ da gaveta, com os mesmos botões e os mesmos ouvintes de antes.
+>
+>   **O PREÇO está dito:** projetar um favorito passou de um toque a três
+>   (abrir, marcar, confirmar). Em troca, as três listas passam a estar a um
+>   toque do mesmo lugar — antes, mandar um favorito ao Cronograma era o `+` e
+>   mandá-lo à playlist não tinha caminho nenhum nesta tela. O **Parar na capa**
+>   continua sendo um toque direto: tirar do ar é a decisão que não pode custar
+>   uma gaveta.
+>
+> **As regras da gaveta deixaram de ser keyadas em `.hymn-result` e passaram a
+> ser em `.lib-item`** — o mesmo envelope serve as duas listas, e uma segunda
+> anatomia divergiria da primeira no próximo ajuste. Com ela saiu a opção
+> `semSelecao` do `attachRowGestures`, que ficou sem chamador.
+>
+> Verificado por ISOLAMENTO: devolvendo o `--panel` e o `--surface` da v5.286,
+> **2** asserções reprovam (e imprimem o 1,18 e o 1,03 do relato); devolvendo o
+> `display: none` no botão da letra, **1**; devolvendo o toque que projeta na
+> linha de favorito, **4**.
 
 > **A v5.286: A GAVETA DE OPÇÕES, EM SETE PONTOS — e dois deles são defeitos que
 > a v5.285 introduziu. OTA PURO** (sem Release).
