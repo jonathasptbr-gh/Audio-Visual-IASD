@@ -1099,11 +1099,12 @@ try {
       })(),
       // Tipos diferentes (áudio e vídeo) na MESMA lista, sem nada entre eles.
       nomes: [...lista3.querySelectorAll('.fav-itens .row-name')].map((e) => e.textContent),
-      // O PAR ↑↓ tomou o lugar da alça de arrastar (v5.285), e mora no MESMO
-      // lugar em que ela morava desde a v5.258: DENTRO do menu `⋮`. Medir só a
-      // presença aprovaria os botões soltos em cima do título.
+      // O PAR ↑↓ tomou o lugar da alça de arrastar (v5.285). Ele morava dentro
+      // do menu `⋮`; desde a v5.287 mora na FAIXA DE AÇÕES da gaveta, que abre
+      // ABAIXO da linha em vez de por cima do título. Medir só a presença
+      // aprovaria os botões soltos na faixa do nome.
       ordem: [...lista3.querySelectorAll('.fav-itens .row-ordem')]
-        .filter((b) => b.closest('.row-acoes')).length,
+        .filter((b) => b.closest('.hymn-gaveta .fav-acoes')).length,
       // E AS PONTAS SÃO INERTES: o primeiro item não sobe, o último não desce.
       // Sem isto, dois botões mortos ficariam oferecendo o que não fazem.
       pontas: (() => {
@@ -1112,9 +1113,13 @@ try {
         const ord = (li) => [...li.querySelectorAll('.row-ordem')].map((b) => b.disabled);
         return { primeiro: ord(ls[0]), ultimo: ord(ls[ls.length - 1]) };
       })(),
-      soUmBotaoNaLinha: [...lista3.querySelectorAll('.fav-itens > .lib-item')]
-        .every((li) => li.querySelectorAll('.row > button').length === 1
-          && !!li.querySelector('.row > .row-mais')),
+      // ===== A FAIXA DO NOME FICOU SEM BOTÃO NENHUM (v5.287) =====
+      // O `⋮` era o último, e ele saiu com a faixa que ele abria: o corpo da
+      // linha deixou de projetar, então a gaveta tem para onde descer. O que
+      // sobra na `.row` é a miniatura (que hospeda o Parar) e o texto.
+      semBotaoNaLinha: [...lista3.querySelectorAll('.fav-itens > .lib-item')]
+        .every((li) => li.querySelectorAll('.row > button').length === 0
+          && !li.querySelector('.row-acoes') && !li.querySelector('.row-mais')),
       // O subtítulo voltou: sem cabeçalho de tipo, é ele que distingue.
       subs: [...lista3.querySelectorAll('.fav-itens .row-sub')]
         .map((e) => getComputedStyle(e).display).filter((d) => d !== 'none').length,
@@ -1128,20 +1133,64 @@ try {
         if (!li) return null;
         li.classList.add('no-ar');
         const stop = li.querySelector('.row-stop');
-        const caixa = li.querySelector('.row-acoes');
-        const bg = caixa ? getComputedStyle(caixa).backgroundColor : '';
-        const m = bg.match(/rgba?\(([^)]+)\)/);
-        const p = m ? m[1].split(',').map((x) => parseFloat(x)) : [];
         const r = {
           naThumb: !!stop && !!stop.parentElement
             && stop.parentElement.classList.contains('thumb'),
           visivel: !!stop && getComputedStyle(stop).display !== 'none',
-          alfa: p.length === 4 ? p[3] : 1,
         };
         li.classList.remove('no-ar');
         return r;
       })(),
     };
+    // ===== A LINHA DE FAVORITO ABRE A GAVETA DA BIBLIOTECA (v5.287) =====
+    //
+    // Pedido do operador, em duas frases: a gaveta de opções não pode abrir
+    // SOBRE o título, e a lista tem de ter *"o mesmo sistema de opções de play
+    // que temos no resto da biblioteca, ao invés de tratar ela como toque
+    // direto no player"*.
+    //
+    // As duas são medidas juntas porque a segunda é o que torna a primeira
+    // possível: enquanto o toque projetava, a gaveta não tinha para onde descer.
+    // Daí as asserções serem TRÊS e não uma — que ela abriu, que ela abriu
+    // ABAIXO da faixa do nome, e que o toque NÃO projetou (a playlist não foi
+    // trocada, que é o efeito observável do caminho antigo).
+    {
+      const li = lista3.querySelector('.fav-itens > .lib-item');
+      const plAntes = (await AVDB.listIds('playlist')).join(',');
+      li.querySelector('.row').click();
+      await new Promise((res) => setTimeout(res, 400));
+      const gav = li.querySelector('.hymn-gaveta');
+      const cx = li.querySelector('.row').getBoundingClientRect();
+      const cg = gav ? gav.getBoundingClientRect() : null;
+      r.gaveta = {
+        abriu: li.classList.contains('expanded'),
+        // A régua da SOBREPOSIÇÃO: o topo da gaveta não pode entrar na faixa do
+        // nome. A faixa de ações antiga era `position: absolute` COM `top: 0` —
+        // ela media exatamente o contrário disto.
+        abaixo: !!cg && cg.top >= cx.bottom - 1 && cg.height > 0,
+        // Só as MARCÁVEIS: o confirmar mora na mesma `<ul>` e tem o mesmo
+        // rótulo de classe, e contá-lo aqui somaria uma "opção" que não é uma.
+        opcoes: [...gav.querySelectorAll('.hymn-opcoes .song-menu-sel .song-menu-label')]
+          .map((e) => e.textContent),
+        marcaveis: gav.querySelectorAll('.hymn-opcoes .song-menu-check').length,
+        confirmar: ((gav.querySelector('.song-menu-go .song-menu-label') || {}).textContent) || '',
+        acoesNaGaveta: !!gav.querySelector('.fav-acoes .row-ordem')
+          && !!gav.querySelector('.fav-acoes .fav-btn'),
+        naoProjetou: (await AVDB.listIds('playlist')).join(',') === plAntes,
+      };
+      // E O CONFIRMAR FAZ O QUE DIZ: marcar "Cronograma" e confirmar põe o item
+      // na lista. Sem esta metade, uma gaveta bonita e inerte passaria.
+      const alvoCrono = [...gav.querySelectorAll('.hymn-opcoes .song-menu-btn')]
+        .find((b) => /Cronograma/.test(b.textContent));
+      if (alvoCrono) alvoCrono.click();
+      await new Promise((res) => setTimeout(res, 60));
+      const go = gav.querySelector('.song-menu-go');
+      r.gaveta.confirmarAtivo = !!go && !go.disabled;
+      if (go && !go.disabled) go.click();
+      await new Promise((res) => setTimeout(res, 300));
+      r.gaveta.foiPraCrono = (await AVDB.listIds('imports')).includes(li.dataset.id);
+      await AVDB.listRemove('imports', li.dataset.id);
+    }
     lista3.remove();
     opfsFolders.length = 0;
     // E O REORDENAR de verdade, pelo BOTÃO: o segundo item sobe uma casa.
@@ -1211,8 +1260,32 @@ try {
     && favs.lista.pontas.primeiro[1] === false && favs.lista.pontas.ultimo[0] === false,
     'e as PONTAS são inertes: o primeiro não sobe, o último não desce — e os '
     + 'outros dois continuam vivos', JSON.stringify(favs.lista.pontas));
-  checar(favs.lista.soUmBotaoNaLinha,
-    'e a linha ficou com um botão só: o `⋮` — o resto saiu de cima do título');
+  checar(favs.lista.semBotaoNaLinha,
+    'e a faixa do nome ficou SEM BOTÃO NENHUM (v5.287): o `⋮` saiu com a faixa '
+    + 'que ele abria, e o nome fica com a linha inteira');
+  // ===== A GAVETA DA BIBLIOTECA NA LINHA DE FAVORITO (v5.287) =====
+  checar(favs.gaveta.abriu && favs.gaveta.naoProjetou,
+    'O TOQUE NA LINHA DE FAVORITO ABRE AS OPÇÕES e não projeta mais nada — '
+    + 'a lista mora dentro da Biblioteca, e ali o toque prepara',
+    JSON.stringify(favs.gaveta));
+  checar(favs.gaveta.abaixo,
+    'e a gaveta abre ABAIXO da faixa do nome, nunca por cima dele — era a '
+    + 'sobreposição relatada, e ela some por construção quando o corpo da linha '
+    + 'deixa de ter outra ação',
+    'abaixo: ' + favs.gaveta.abaixo);
+  checar(favs.gaveta.opcoes.length === 3
+    && /Tocar agora/.test(favs.gaveta.opcoes[0])
+    && favs.gaveta.marcaveis === 3
+    && /Escolha uma opção/.test(favs.gaveta.confirmar),
+    'e são as MESMAS opções marcáveis da Biblioteca — telão, playlist e '
+    + 'Cronograma —, com o confirmar sempre visível',
+    JSON.stringify(favs.gaveta.opcoes) + ' · ' + favs.gaveta.confirmar);
+  checar(favs.gaveta.confirmarAtivo && favs.gaveta.foiPraCrono,
+    'e o confirmar FAZ o que diz: marcado o Cronograma, o item entra nele',
+    JSON.stringify([favs.gaveta.confirmarAtivo, favs.gaveta.foiPraCrono]));
+  checar(favs.gaveta.acoesNaGaveta,
+    'e as ações da linha (estrela, ↑↓, excluir) descem para a faixa de baixo da '
+    + 'gaveta, em vez de cobrirem o título');
   checar(favs.lista.subs === favs.lista.nomes.length,
     'e o subtítulo voltou a aparecer: sem cabeçalho de tipo, é ele que distingue');
   checar(favs.lista.ordemDepois === 0,
@@ -1220,9 +1293,10 @@ try {
   checar(!!favs.lista.parar && favs.lista.parar.naThumb && favs.lista.parar.visivel,
     'UM FAVORITO NO AR também oferece o "Tirar do ar", na capa (v5.259) — aqui ele '
     + 'nem existia', JSON.stringify(favs.lista.parar));
-  checar(!!favs.lista.parar && favs.lista.parar.alfa === 1,
-    'e a faixa de ações continua OPACA com a linha no ar — era este o título '
-    + 'aparecendo por trás dos botões', JSON.stringify(favs.lista.parar));
+  // (A asserção da FAIXA OPACA viveu aqui da v5.259 à v5.286: a `.row-acoes`
+  // cobria o título, e com a linha no ar o `--linha` dela tinha alfa — o nome
+  // aparecia por trás dos botões. Ela saiu na v5.287 com a faixa: nesta lista
+  // não há mais nada por cima do título para ser opaco.)
   // ── OS FAVORITOS SE ATUALIZAM COM A BIBLIOTECA ABERTA (v5.258) ─────────
   //
   // Relato do operador: *"se estou na biblioteca e adiciono algo aos favoritos,
@@ -2354,7 +2428,11 @@ try {
     // sequência de toques insuportável. Medido aqui, e não no caso da lista
     // solta: `redesenharFavoritosNaBiblioteca` desiste com a Biblioteca fechada,
     // e é só aqui que ela está aberta de verdade.
-    const reaberta = document.querySelector('[data-fav-corpo] .lib-item.acoes-abertas');
+    // A REABERTURA é da GAVETA desde a v5.287 (`.expanded`), e não mais da
+    // faixa `⋮` (`.acoes-abertas`) — o par ↑↓ mudou de casa junto com o resto
+    // das ações da linha.
+    await new Promise((r) => setTimeout(r, 200));
+    const reaberta = document.querySelector('[data-fav-corpo] .lib-item.expanded');
     const reabriu = !!reaberta && reaberta.dataset.id === ids[0];
 
     // ---- O TOQUE LONGO não liga modo nenhum ----
@@ -2384,7 +2462,7 @@ try {
     'e o toque longo NÃO liga a seleção múltipla aqui: ela nunca se desenhou '
     + 'nesta lista, e a barra dela ia parar na tela do Cronograma');
   checar(fav.temExcluir,
-    'o que aquele modo daria — excluir sem sair da lista — está no `⋮`, um toque');
+    'o que aquele modo daria — excluir sem sair da lista — está na gaveta, um toque');
 
   // ---- E O EXCLUIR TIRA DA LISTA, sem levar o que está em outra ----
   const saiu = await pg6.evaluate(async (ids) => {
@@ -2392,7 +2470,10 @@ try {
     const alvo = ids[0];
     const corpo = document.querySelector('[data-fav-corpo]');
     const li = corpo.querySelector('.lib-item[data-id="' + alvo + '"]');
-    li.querySelector('.row-mais').click();
+    // O EXCLUIR MORA NA GAVETA desde a v5.287 — quem a abre é o corpo da linha,
+    // e não mais um `⋮`. (A faixa de ações é montada com a linha, então o botão
+    // já existe; abrir é o que o operador de fato faz.)
+    li.querySelector('.row').click();
     await new Promise((r) => setTimeout(r, 250));
     li.querySelector('.row-excluir').click();
     await new Promise((r) => setTimeout(r, 200));
@@ -2407,7 +2488,7 @@ try {
     };
   }, fav.ids);
   checar(!saiu.naLista && !saiu.nosFavs,
-    'o excluir do `⋮` tira o item DESTA lista', JSON.stringify(saiu));
+    'o excluir da gaveta tira o item DESTA lista', JSON.stringify(saiu));
   checar(saiu.noCronograma,
     'e NÃO o tira das outras — "excluir" aqui é sair da lista, não apagar os '
     + 'bytes de quem ainda os segura', JSON.stringify(saiu));

@@ -1527,16 +1527,24 @@ try {
   const g = await pg.evaluate(async () => {
     setAppMode('full');
     const c = allCollections().find((x) => x.kind === 'hymnal');
+    // DUAS músicas, e a segunda não é enfeite: a queixa da v5.287 é que a
+    // gaveta se mescla com "a lista dos outros itens abaixo", e sem uma linha
+    // VIZINHA não há o que comparar.
     collState[c.id] = { indexSyncedAt: Date.now(), isHymnal: true,
-      songs: [{ id_music: 'g1', name: 'Meu Lugar no Mundo', track: 1,
-        has_instrumental_music: true, duration: '3:47' }] };
+      songs: [
+        { id_music: 'g1', name: 'Meu Lugar no Mundo', track: 1,
+          has_instrumental_music: true, duration: '3:47' },
+        { id_music: 'g2', name: 'Vem, Senhor Jesus', track: 2,
+          has_instrumental_music: true, duration: '4:02' },
+      ] };
     ui(c.id).expanded = true; ui(c.id).shown = 100;
     const lista = document.createElement('ul');
     lista.className = 'hymnal-list'; lista.style.width = '390px';
     document.body.appendChild(lista);
     grupoAberto = 'Hinários';
     renderCollectionsList(lista, () => {}, { semTotal: true });
-    const li = lista.querySelector('.coll-songs > .hymn-result');
+    const linhas = [...lista.querySelectorAll('.coll-songs > .hymn-result')];
+    const li = linhas[0];
     li.querySelector('.row').click();
     await new Promise((r) => setTimeout(r, 350));
     const op = li.querySelector('.hymn-opcoes');
@@ -1597,14 +1605,26 @@ try {
         return m.slice(0, 3).map((v, k) => Math.round(v * a + base[k] * (1 - a))).join(', ');
       })(),
       fundoBotao: efetiva(op.querySelector('.song-menu-btn')),
-      // 5 · O FUNDO da gaveta é o da folha antiga (`--panel`).
-      fundoGaveta: efetiva(li.querySelector('.hymn-gaveta')),
-      // A COR DA FOLHA ANTIGA, medida NELA e não no token: o pedido é "a cor
-      // que era o popup", e o popup ainda existe (ele serve o YouTube e a
-      // importação). Comparar com a peça de verdade é o que sobrevive a uma
-      // troca de token dos dois lados.
-      fundoFolha: getComputedStyle(
-        document.querySelector('#songMenuPopup .popup-sheet')).backgroundColor,
+      // 5 · O CONTRASTE DA GAVETA (v5.287), nos DOIS TEMAS — e são dois porque
+      // o tom dela INVERTE de direção entre eles (poço no escuro, folha no
+      // claro; a medição está em `tokens.css`). Medir um só aprovaria metade do
+      // desenho, e foi justamente o tema escuro que reprovou no aparelho.
+      cores: (() => {
+        const antes = document.documentElement.getAttribute('data-tema');
+        const out = {};
+        for (const tema of ['escuro', 'claro']) {
+          document.documentElement.setAttribute('data-tema', tema);
+          out[tema] = {
+            gaveta: efetiva(li.querySelector('.hymn-gaveta')),
+            botao: efetiva(op.querySelector('.song-menu-btn')),
+            vizinha: efetiva(linhas[1]),
+            card: efetiva(lista.querySelector('.hymnal-card')),
+          };
+        }
+        if (antes) document.documentElement.setAttribute('data-tema', antes);
+        else document.documentElement.removeAttribute('data-tema');
+        return out;
+      })(),
       // 6 · A LETRA está atrás de um botão, LADO A LADO com o confirmar.
       letra: getComputedStyle(li.querySelector('.hymn-lyrics')).display,
       ladoALado: (() => {
@@ -1613,12 +1633,20 @@ try {
         if (!go || !ver) return null;
         return Math.abs(go.getBoundingClientRect().top - ver.getBoundingClientRect().top) <= 2;
       })(),
-      letraDepois: (() => {
+      // ===== A LARGURA DO BOTÃO NÃO MUDA COM O ESTADO (v5.287) =====
+      // Pedido do operador. "Ocultar" é mais longo que "Ver", então o botão
+      // crescia ao ser tocado e o CONFIRMAR ao lado encolhia junto. Medido nos
+      // dois estados, com o MESMO nó — recriá-lo mediria outra coisa.
+      larguras: (() => {
         const ver = op.querySelector('.song-menu-letra');
         if (!ver) return null;
+        const antes = Math.round(ver.getBoundingClientRect().width);
         ver.click();
-        return getComputedStyle(li.querySelector('.hymn-lyrics')).display;
+        const depois = Math.round(
+          op.querySelector('.song-menu-letra').getBoundingClientRect().width);
+        return { antes, depois };
       })(),
+      letraDepois: getComputedStyle(li.querySelector('.hymn-lyrics')).display,
     };
     // Deixa a lista NO DOCUMENTO para a pressão de verdade lá fora; quem a
     // remove é o segundo `evaluate`.
@@ -1701,13 +1729,43 @@ try {
   checar(dCaixa >= 1.25,
     'e a caixa VAZIA se vê contra o botão, sem estar marcada ('
     + dCaixa.toFixed(2) + ':1 — rgb(' + g.caixaVazia + ') sobre rgb(' + g.fundoBotao + '))');
-  checar(!!g.fundoGaveta
-    && razao2('rgb(' + g.fundoGaveta + ')', g.fundoFolha) < 1.02,
-    'o fundo da gaveta é o da FOLHA antiga — é a base para a qual os botões '
-    + 'dela foram calibrados (' + g.fundoGaveta + ')');
+  // ===== A GAVETA SE SEPARA DA LISTA, E OS BOTÕES DELA (v5.287) =====
+  //
+  // Relato do operador: *"ainda está pouco o contraste entre os botões e pior,
+  // toda a seção das opções de play estão se mesclando com a lista dos outros
+  // itens abaixo, dificultando a percepção da seção e a qual item ela
+  // pertence"*.
+  //
+  // MEDIDO com o código anterior, no tema ESCURO: a gaveta ficava a **1,03:1**
+  // da faixa de uma linha vizinha (as duas em torno de rgb(45,53,61)) e os
+  // botões a 1,18:1 dela. O piso aqui é o mesmo 1,28 que este app usa para
+  // separar duas superfícies em qualquer outro lugar.
+  //
+  // Os TRÊS pares, e nenhum basta sozinho: contra a VIZINHA é a queixa
+  // literal; contra o CARD é o que impede a saída fácil no escuro (subir para
+  // `--panel-2` daria a cor exata do fundo do álbum, que aparece nos vãos entre
+  // as linhas); e o BOTÃO contra a gaveta é a primeira metade do relato.
+  for (const tema of ['escuro', 'claro']) {
+    const t = g.cores[tema];
+    const par = (a, b) => razao2('rgb(' + a + ')', 'rgb(' + b + ')');
+    checar(par(t.botao, t.gaveta) >= 1.28,
+      '[' + tema + '] os BOTÕES da gaveta se separam do fundo dela ('
+      + par(t.botao, t.gaveta).toFixed(2) + ':1)');
+    checar(par(t.gaveta, t.vizinha) >= 1.28,
+      '[' + tema + '] e a GAVETA se separa da faixa das linhas vizinhas — era o '
+      + '"se mesclando com a lista dos outros itens abaixo" ('
+      + par(t.gaveta, t.vizinha).toFixed(2) + ':1)');
+    checar(par(t.gaveta, t.card) >= 1.28,
+      '[' + tema + '] e do CARD do álbum, que é a cor que aparece nos vãos entre '
+      + 'as linhas (' + par(t.gaveta, t.card).toFixed(2) + ':1)');
+  }
   checar(g.letra === 'none' && g.ladoALado === true && g.letraDepois === 'block',
     'e a LETRA fica atrás de um botão lado a lado com o confirmar, que a revela',
     JSON.stringify({ antes: g.letra, ladoALado: g.ladoALado, depois: g.letraDepois }));
+  checar(!!g.larguras && g.larguras.antes === g.larguras.depois && g.larguras.antes > 0,
+    'e ele tem a MESMA LARGURA nos dois estados: "Ocultar" é mais longo que '
+    + '"Ver", e o botão crescia debaixo do dedo levando o confirmar junto ('
+    + JSON.stringify(g.larguras) + ')');
 } catch (e) {
   checar(false, 'a medição da gaveta de opções terminou sem exceção ('
     + (e && e.message) + ')');

@@ -3970,7 +3970,7 @@ main {
    fundo que pode ser `--panel`, `--panel-2` ou transparente conforme a tela.
    `background-image` e não `background`: ele EMPILHA sobre o `--linha` que a
    linha já pinta, em vez de substituí-lo. */
-.hymn-result.expanded {
+.lib-item.expanded {
   background-image: linear-gradient(var(--surface-sunk), var(--surface-sunk));
 }
 /* Letra completa, abaixo da linha aberta. Rola por DENTRO, com teto de altura:
@@ -3986,28 +3986,36 @@ main {
    mede `offsetHeight` de UM elemento, e com duas caixas irmãs aparecendo por
    conta própria a medida seria de meia gaveta. */
 .hymn-gaveta { display: none; }
-/* ---------- O FUNDO É O DA FOLHA ANTIGA (v5.286) ----------
-   Pedido do operador: *"troque a cor de fundo dessa seção aberta para que fique
-   na cor que era o popup antigo, ou algo do tipo para melhorar o contraste dos
-   botões"*.
+/* ---------- A GAVETA É UM POÇO SOLDADO À SUA LINHA (v5.287) ----------
+   Relato do operador: *"ainda está pouco o contraste entre os botões e pior,
+   toda a seção das opções de play estão se mesclando com a lista dos outros
+   itens abaixo, dificultando a percepção da seção e a qual item ela
+   pertence"*.
 
-   Ele está cobrando a consequência de mudar a lista de lugar. Na folha ela
-   pousava em `--panel` (o `.popup-sheet`), e os botões dela são um RECESSO —
-   `--surface`, que dentro de uma seção da Biblioteca é o par `sunk`. Trazida
-   para o corpo da linha, ela passou a pousar na faixa, que já é um recesso do
-   card: recesso sobre recesso, e o degrau que separava o botão do fundo
-   encolheu. Devolver `--panel` devolve exatamente a base para a qual aqueles
-   botões foram calibrados.
+   São DUAS queixas e elas têm a mesma causa. A v5.286 devolveu à gaveta o
+   `--panel` da folha antiga — que era a base certa para aqueles botões e é a
+   cor errada aqui: medido no escuro, `--panel` compõe rgb(44,52,60) e a faixa
+   de uma linha vizinha compõe rgb(46,54,63). **1,03:1.** A seção aberta tinha
+   a cor das linhas de baixo, e a margem em volta dela deixava passar a moldura
+   da própria faixa — três tons indistinguíveis empilhados.
 
-   `--camada: var(--panel)` junto, pela regra da casa: o tom de um bloco filho é
-   decisão do PAI, e sem isto o que for desenhado aqui dentro por herança
-   continuaria lendo o nível da faixa. */
-.hymn-result.expanded .hymn-gaveta {
+   O tom novo é `--gaveta-bg` (a medição e a inversão por tema estão em
+   `tokens.css`), e ele resolve a primeira queixa. A SEGUNDA é de forma:
+
+   **A gaveta perde as margens.** Ela é filha do `.lib-item`, que já pinta a
+   linha inteira e recorta pelo `border-radius` com `overflow: hidden` — então,
+   coladas, faixa e gaveta viram UM bloco com o título em cima e o poço embaixo.
+   Com a margem, o poço era uma ilha flutuando sobre um frame da cor das linhas
+   de baixo, e nada dizia de quem ele era. O respiro que a margem dava vem do
+   padding da lista de opções, que já existia.
+
+   `--camada: var(--gaveta-btn)` pela regra da casa: quem declara o tom dos
+   filhos é o PAI, e os filhos aqui são os botões e a caixa da letra. */
+.lib-item.expanded .hymn-gaveta {
   display: block;
-  background: var(--panel);
-  --camada: var(--panel);
-  border-radius: var(--radius-btn);
-  margin: .1rem .35rem .35rem;
+  background: var(--gaveta-bg);
+  --camada: var(--gaveta-btn);
+  margin: 0;
 }
 /* A lista de opções no corpo da linha reusa o desenho da folha (`.song-menu-*`)
    — é a MESMA lista, noutro lugar. O que muda é o recuo: aqui ela mora dentro
@@ -4024,11 +4032,40 @@ main {
   padding: .45rem .5rem .5rem;
   display: flex; flex-direction: column; gap: .3rem;
 }
+/* Os BLOCOS que descansam no poço — os botões de opção e a metade de baixo
+   (letra ou detalhe) — vestem `--gaveta-btn`, e não o `--surface` da folha. A
+   diferença é que `--surface` é um OVERLAY: no escuro ele afunda (a gaveta está
+   dentro de um cartão), e afundar sobre um poço que já é o tom mais escuro do
+   app não produz degrau nenhum. Um tom opaco vale o mesmo nos dois temas.
+
+   `.song-menu-go` fica de fora: ele é o único botão primário da faixa e o
+   preenchimento em accent é o que o torna a resposta. */
+.hymn-opcoes .song-menu-btn:not(.song-menu-go) { background: var(--gaveta-btn); }
+.hymn-gaveta :is(.hymn-lyrics, .item-detalhe) {
+  background: var(--gaveta-btn);
+  margin: 0 .5rem .5rem;
+}
+/* ---------- A FAIXA DE AÇÕES DA LINHA DE FAVORITO (v5.287) ----------
+   O conteúdo do `⋮` de antes, agora DENTRO da gaveta. Ela fica à direita e
+   embaixo porque as opções acima são a pergunta ("onde este item deve estar?")
+   e estas são o que se faz com a LINHA — favoritar, mover, excluir. Os botões
+   são os mesmos `.row-btn`, e vestem `--gaveta-btn` como as opções acima: o
+   `--surface` que eles trazem de fábrica é um OVERLAY, e aqui dentro ele
+   resolve para o par SUNK (a gaveta mora numa seção da Biblioteca) — preto
+   sobre o poço, que já é o tom mais escuro do app, não produz degrau nenhum. A
+   estrela é a exceção que ela já era em toda linha: transparente, porque quem
+   carrega o estado dela é a COR do desenho. */
+.fav-acoes {
+  display: flex; align-items: center; justify-content: flex-end; gap: .35rem;
+  padding: 0 .5rem .5rem;
+}
+.fav-acoes .row-btn { background: var(--gaveta-btn); }
+.fav-acoes .fav-btn { background: transparent; }
 /* A METADE DE BAIXO da gaveta só aparece com `vendo-letra` (v5.286) — ver o
    botão irmão do confirmar em `montarOpcoes`. Ela é a mais alta das duas, e
    aberta por padrão empurrava as opções para longe do dedo em toda abertura,
    quando o que se abre a gaveta para fazer é decidir. */
-.hymn-result:not(.vendo-letra) :is(.hymn-lyrics, .item-detalhe) { display: none; }
+.lib-item:not(.vendo-letra) :is(.hymn-lyrics, .item-detalhe) { display: none; }
 .hymn-lyrics {
   display: block; max-height: 40vh; overflow-y: auto;
   margin: 0 .55rem .55rem; padding: .5rem .6rem;
@@ -4210,6 +4247,24 @@ main {
   flex: none; width: auto; justify-content: center; text-align: center;
   background: var(--surface); color: var(--accent);
   white-space: nowrap;
+}
+/* ---------- A LARGURA NÃO MUDA COM O ESTADO (v5.287) ----------
+   Pedido do operador: *"fixe a largura do botão de ver/ocultar letra, para que
+   tenha o mesmo tamanho nos dois estados"*. "Ocultar" é mais longo que "Ver",
+   então o botão crescia ao ser tocado e o CONFIRMAR ao lado encolhia junto —
+   um toque que muda a largura do vizinho é o que mais parece defeito numa faixa
+   de dois botões.
+
+   AS DUAS FRASES OCUPAM A MESMA CÉLULA de uma grade 1×1: a largura passa a ser
+   a da MAIOR e a troca só alterna qual delas se vê. `visibility` e não
+   `display`, porque a escondida precisa continuar MEDINDO — é ela que reserva a
+   largura. Um `min-width` em `ch` seria um número a manter contra a fonte e
+   contra a tradução; isto não tem número nenhum. */
+.song-menu-letra-cx { display: grid; }
+.song-menu-letra-cx > span { grid-area: 1 / 1; }
+.lib-item:not(.vendo-letra) .song-menu-letra-cx > span:last-child,
+.lib-item.vendo-letra .song-menu-letra-cx > span:first-child {
+  visibility: hidden;
 }
 .song-menu-go {
   justify-content: center; text-align: center;

@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.286';
+const WEB_VERSION = '5.287';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -7732,56 +7732,150 @@ function favItemRow(item, pos, total) {
   const sub = document.createElement('span'); sub.className = 'row-sub';
   sub.textContent = subtituloItem(item);
   textWrap.append(nome, sub);
-  const add = document.createElement('button');
-  add.className = 'row-btn'; add.title = 'Adicionar ao Cronograma';
-  add.appendChild(msym(ICON.cronoAdd));
-  add.addEventListener('click', async (e) => {
-    e.stopPropagation();
-    await adicionarNaLista('imports', item.id, item.name, add);
-  });
   // (A ALÇA DE ARRASTAR viveu aqui da v5.254 à v5.284. Ela saiu na v5.285 com o
-  // arrasto do app inteiro — quem reordena agora é o par ↑↓ da gaveta, pela
-  // mesma `botoesDeOrdem` das outras duas listas.)
+  // arrasto do app inteiro — quem reordena agora é o par ↑↓, pela mesma
+  // `botoesDeOrdem` das outras duas listas.)
   // O PARAR NA MINIATURA (v5.259), como no Cronograma. Aqui ele simplesmente
   // NÃO EXISTIA: uma linha de favorito no ar mostrava o selo "● No ar" e não
-  // oferecia nada que a tirasse de lá — restava o segundo toque no corpo, que
-  // não se anuncia. Duas listas com a mesma anatomia e desfechos diferentes é a
-  // divergência que `montarAcoesDaLinha` existe para não ter.
+  // oferecia nada que a tirasse de lá. Ele CONTINUA sendo um toque direto,
+  // e é a única coisa desta linha que continua: tirar do ar é a decisão que não
+  // pode custar uma gaveta.
   const miniatura = isCue(item) ? cueThumb(item) : thumbEl(item);
   porParar(miniatura, item);
-  const partes = [miniatura, textWrap];
-  // E OS TRÊS FICAM ATRÁS DO `⋮` (v5.258), como no Cronograma: era esta lista
-  // que pagava mais caro — 152px de nome numa lista de 368 — porque é a única
-  // com três botões.
-  partes.push(...montarAcoesDaLinha(li, [
-    favBtn(item.id, item.name), add,
+  row.append(miniatura, textWrap);
+  li.appendChild(row);
+
+  // ===== A LINHA DOS FAVORITOS GANHA A GAVETA DA BIBLIOTECA (v5.287) =====
+  //
+  // Pedido do operador, em duas frases que são o mesmo movimento: *"verifique a
+  // sobreposição das opções dos itens na lista de favoritos, pois estão
+  // novamente abrindo a sua gaveta de opções sobre o título de cada item"* e
+  // *"trate a lista de favoritos com o mesmo sistema de opções de play que
+  // temos no resto da biblioteca, ao invés de tratar ela como toque direto no
+  // player"*.
+  //
+  // A segunda RESOLVE a primeira, e é por isso que elas vieram juntas. O `⋮` e
+  // a faixa que ele abre existem para caber numa linha que responde ao toque
+  // com OUTRA coisa (no Cronograma, projetar): sem lugar embaixo, a gaveta só
+  // tinha para onde ir por CIMA do título. Aqui o toque deixa de projetar, e
+  // com ele o corpo da linha fica livre — a gaveta desce para onde ela desce em
+  // toda a Biblioteca, e a sobreposição deixa de existir por construção.
+  //
+  // **Esta lista mora DENTRO da Biblioteca desde a v5.237**, e é isso que
+  // decide o lado da regra em que ela cai: a Biblioteca é a tela em que se
+  // PREPARA (o toque abre opções), e o Cronograma é a lista com que se OPERA (o
+  // toque projeta). O `⋮` continua inteiro lá.
+  //
+  // O PREÇO está dito: projetar um favorito passou de um toque a três (abrir,
+  // marcar, confirmar). Em troca, as três listas passam a estar a um toque do
+  // mesmo lugar — antes, mandar um favorito ao Cronograma era o `+` e mandá-lo
+  // à playlist não tinha caminho nenhum nesta tela.
+  const gaveta = document.createElement('div');
+  gaveta.className = 'hymn-gaveta';
+  const opcoes = document.createElement('ul');
+  opcoes.className = 'song-menu-list hymn-opcoes';
+  // A FAIXA DE AÇÕES é o conteúdo do `⋮` de antes, verbatim: os mesmos botões,
+  // com os mesmos ouvintes. Ela fica FORA da `<ul>` porque `renderItemMenu`
+  // reescreve a lista a cada marca — dentro, ela seria remontada a cada toque
+  // numa caixa de seleção.
+  const acoes = document.createElement('div');
+  acoes.className = 'fav-acoes';
+  acoes.append(...[
+    favBtn(item.id, item.name),
     ...botoesDeOrdem('favs', item.id, pos, total),
     botaoExcluirDaLinha(item, 'favs', () => recarregarFavoritos()),
-  ], 'favs:' + item.id));
-  row.append(...partes);
-  li.appendChild(row);
-  // O TOQUE PROJETA. O TOQUE LONGO NÃO FAZ MAIS NADA AQUI (v5.271).
-  //
-  // Relato do operador: *"ao segurar em um item da lista de favoritos, ele entra
-  // no modo de multiseleção, mas as opções aparecem na tela do cronograma e não
-  // nos favoritos"*. Ele está descrevendo um modo que NUNCA existiu nesta
-  // lista, e o sintoma é a metade visível disso: `enterSelection` liga o modo e
-  // chama `renderLibrary()` — que redesenha o CRONOGRAMA —, enquanto esta
-  // função nunca leu `selectionMode`, isto é, a linha não ganhava caixa de
-  // marcação nem realce. O que aparecia na outra tela era a barra de um modo
-  // que aqui não tinha o que operar.
-  //
-  // E o buraco era mais fundo que o desenho: as ações da barra são keyadas pelo
-  // `activeTab` (ver `deleteSelected`), que aqui aponta para a lista ATRÁS da
-  // Biblioteca — a lixeira teria apagado itens do Cronograma. Desenhar o modo
-  // seria consertar a metade que se vê de um defeito cuja outra metade destrói.
-  //
-  // O que ele daria a esta lista — excluir sem sair dela — passou a morar no
-  // `⋮`, um toque, na própria linha (ver `botaoExcluirDaLinha`). O toque longo
-  // continua valendo onde o modo de fato funciona: as listas da tela principal
-  // e o conteúdo de uma pasta do aparelho.
-  attachRowGestures(row, item, { semSelecao: true });
+  ].filter(Boolean));
+  gaveta.append(opcoes, acoes);
+  let gavetaMontada = false;
+
+  function abrir() {
+    const lista = li.parentElement;
+    if (lista) {
+      lista.querySelectorAll(':scope > .lib-item.expanded').forEach((el) => {
+        if (el !== li) el.classList.remove('expanded');
+      });
+    }
+    if (!gavetaMontada) { gavetaMontada = true; renderItemMenu(item, opcoes); }
+    li.classList.add('expanded');
+    expandAccordion(gaveta);
+  }
+
+  row.addEventListener('click', (e) => {
+    if (e.target.closest('.row-btn')) return;
+    // O SEGUNDO TOQUE RETIRA DO AR continua valendo (v5.165): com o item
+    // projetado, a pergunta que a linha responde não é "o que fazer com ele?" —
+    // é "tira isto do telão". A gaveta só abre quando não há nada a desfazer.
+    if (noArAgora(item)) { retirarDoAr(item); return; }
+    if (li.classList.contains('expanded')) {
+      collapseAccordion(gaveta, () => li.classList.remove('expanded'));
+      return;
+    }
+    abrir();
+  });
+
+  // A REABERTURA depois de uma casa de reordenação (v5.285), agora na gaveta:
+  // `moverNaLista` redesenha a lista inteira e o `li` que estava aberto deixa de
+  // existir. Sem isto, mover três casas custaria três aberturas.
+  if (reabrirAcoesEm === 'favs:' + item.id) {
+    reabrirAcoesEm = null;
+    // Depois de o `li` entrar no documento: `expandAccordion` mede altura, e
+    // fora da árvore toda medida é zero.
+    setTimeout(() => { if (li.isConnected) abrir(); }, 0);
+  }
+
+  li.appendChild(gaveta);
   return li;
+}
+
+// ===== AS OPÇÕES DE UM ITEM QUE JÁ EXISTE (v5.287) =====
+//
+// A gaveta da Biblioteca (`renderSongMenu`) fala de uma MÚSICA DO ACERVO: ela
+// tem variantes (cantada · playback · letra) e o item ainda não existe no banco
+// — cada destino o cria. Aqui o registro já está pronto, e é o mesmo em todas as
+// listas: o que sobra é ONDE ele deve estar.
+//
+// Daí não haver seletor de variante e não haver "Favoritar": o item É um
+// favorito, e quem o tira de lá é a estrela da faixa de ações logo abaixo.
+//
+// O resto é a MESMA maquinaria — `songMenuItem` com `destino`, `destExecutor`,
+// `destRemontar` e `destConfirmRow` —, pelo motivo de sempre: uma segunda lista
+// de destinos com a mesma anatomia divergiria da primeira no próximo ajuste.
+function renderItemMenu(item, alvo) {
+  destLimpar();
+  songMenuFor = { item, alvo };
+  const desenhar = () => {
+    alvo.innerHTML = '';
+    destRemontar = desenhar;
+    destExecutor = async (alvos, btn) => {
+      const marcados = alvos || [];
+      const listas = marcados.filter((a) => a !== 'tocar');
+      // O TELÃO VEM PRIMEIRO quando marcado, como em `renderSongMenu`: é a
+      // única metade que o operador está esperando ver acontecer.
+      if (marcados.includes('tocar')) await projetarItem(item);
+      if (listas.length) {
+        await adicionarNasListas(listasDosDestinos(listas), item.id, item.name, btn);
+      }
+    };
+    alvo.appendChild(songMenuItem(msym(ICON.play), 'Tocar agora',
+      'Sem entrar em lista nenhuma',
+      (vr, btn, alvos) => destExecutor(alvos, btn), 'tocar', desenhar));
+    alvo.appendChild(songMenuItem(msym(ICON.queue), 'Adicionar à playlist', '',
+      (vr, btn, alvos) => destExecutor(alvos, btn), 'playlist', desenhar));
+    alvo.appendChild(songMenuItem(msym(ICON.cronoAdd), 'Adicionar ao Cronograma', '',
+      (vr, btn, alvos) => destExecutor(alvos, btn), 'cronograma', desenhar));
+    const go = destConfirmRow();
+    if (go) alvo.appendChild(go);
+  };
+  desenhar();
+}
+
+// Projetar um item que já existe — o que o toque na linha fazia até a v5.287.
+// A distinção entre cena e mídia é a mesma do `onTap`, e mora numa função só
+// para as duas portas (a lista principal e a gaveta) nunca divergirem.
+async function projetarItem(item) {
+  if (isCue(item)) { await send(item.id); return; }
+  await replacePlaylistWith(item);
+  send(item.id);
 }
 
 // ===== "TRAZER UMA PASTA DO APARELHO" — UM BOTÃO, UMA ORIGEM (v5.254) =====
@@ -8680,11 +8774,13 @@ async function stopClear() {
 // item.
 const MOVE = 10, LONGPRESS = 450;
 
-function attachRowGestures(row, item, opts) {
+function attachRowGestures(row, item) {
   let startX = 0, startY = 0, startT = 0, longFired = false, lp = null, pid = null;
-  // `semSelecao`: a lista não tem seleção múltipla (os Favoritos — ver
-  // `favItemRow`). O toque curto continua igual; o que não existe é o modo.
-  const semSelecao = !!(opts && opts.semSelecao);
+  // (A opção `semSelecao` viveu aqui da v5.271 à v5.286, para os Favoritos: a
+  // lista não tem seleção múltipla, e o toque longo ligava um modo que ali não
+  // tinha o que operar. Ela saiu na v5.287 com o último chamador — a linha de
+  // favorito deixou de responder a estes gestos e passou a abrir a gaveta da
+  // Biblioteca. Quem usa isto agora é só a lista principal, que TEM o modo.)
 
   row.addEventListener('pointerdown', (e) => {
     if (e.target.closest('.row-btn') || e.target.closest('.row-acoes')) return;
@@ -12262,18 +12358,30 @@ function hymnResultRow(coll, s, lyricHit, semColecao) {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'song-menu-btn song-menu-letra';
-      const t = document.createElement('span');
-      t.className = 'song-menu-label';
-      const vendo = li.classList.contains('vendo-letra');
       // O rótulo nomeia o que o TOQUE faz, e o substantivo muda com o tipo: numa
       // música é a letra, num vídeo é o que a gaveta tem a dizer sobre ele.
       const nome = temLetra(coll) ? 'a letra' : 'os detalhes';
-      t.textContent = (vendo ? 'Ocultar ' : 'Ver ') + nome;
-      b.appendChild(t);
+      // ===== A LARGURA NÃO MUDA COM O ESTADO (v5.287) =====
+      //
+      // Pedido do operador: *"fixe a largura do botão de ver/ocultar letra, para
+      // que tenha o mesmo tamanho nos dois estados"*. "Ocultar" é mais longo que
+      // "Ver", então o botão crescia ao ser tocado e o CONFIRMAR ao lado
+      // encolhia junto — um toque que muda a largura do vizinho é a coisa que
+      // mais parece defeito numa faixa de dois botões.
+      //
+      // As DUAS frases entram, empilhadas na mesma célula de uma grade 1×1: a
+      // largura passa a ser a da MAIOR e a troca só alterna qual delas se vê.
+      // Um `min-width` em `ch` seria um número a manter contra a fonte e contra
+      // a tradução; isto não tem número nenhum.
+      const cx2 = document.createElement('span');
+      cx2.className = 'song-menu-label song-menu-letra-cx';
+      const ver = document.createElement('span'); ver.textContent = 'Ver ' + nome;
+      const ocultar = document.createElement('span'); ocultar.textContent = 'Ocultar ' + nome;
+      cx2.append(ver, ocultar);
+      b.appendChild(cx2);
       b.addEventListener('click', (e) => {
         e.stopPropagation();
         li.classList.toggle('vendo-letra');
-        t.textContent = (li.classList.contains('vendo-letra') ? 'Ocultar ' : 'Ver ') + nome;
       });
       return b;
     };
@@ -12781,7 +12889,8 @@ function renderSongMenu() {
   // (`songMenuFor.folha` era a terceira: o "Adicionar pasta" dos Favoritos, que
   // saiu na v5.254 com o atalho de pasta. A guarda fica: ela é a que impede
   // qualquer abertura futura sem `coll` de desestruturar o que não existe.)
-  if (!songMenuFor || songMenuFor.yt || songMenuFor.destPrompt || songMenuFor.folha) return;
+  if (!songMenuFor || songMenuFor.yt || songMenuFor.destPrompt || songMenuFor.folha
+      || songMenuFor.item) return;
   const { coll, s } = songMenuFor;
   const temPlayback = !!s.has_instrumental_music;
   // ===== O ALVO PODE NÃO SER A FOLHA (v5.285) =====
