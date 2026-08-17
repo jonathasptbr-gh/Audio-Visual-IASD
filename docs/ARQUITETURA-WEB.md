@@ -4217,32 +4217,38 @@ Duas podas do mesmo pedido, e as duas são sobre a barra do topo:
   ANTES de o `stretch` dar uma altura definida — a primeira versão colapsou o
   botão na largura do glifo, 20px.
 
-#### O rodízio das coleções, e os Favoritos ocupando o vão (v5.273/v5.276)
+#### O rodízio das coleções, e os Favoritos ocupando o vão (v5.273 → v5.282)
 
 Pedido do operador: *"só permita uma coleção aberta por vez e sempre deixe uma
 aberta, no caso a dos favoritos, onde ela só fecha se outra for aberta. Ajuste
 para que a seção dos favoritos ocupe a altura que sobra além do espaço das
-outras seções no formato colapsado (mesmo que não haja nenhum favorito)… caso
-tenha mais itens do que cabe nesse vão, vai ter um botão na sua base que
-permite a expansão total da lista."*
+outras seções no formato colapsado (mesmo que não haja nenhum favorito)."*
+
+A frase que fechava aquele pedido — *"caso tenha mais itens do que cabe nesse
+vão, vai ter um botão na sua base que permite a expansão total da lista"* — foi
+**revogada na v5.282**, com o tom próprio que o mesmo lote lhe tinha dado: *"não
+ficou bom"*. Leia o resto mesmo assim, porque o rodízio, o vão e a razão de cada
+um continuam de pé; o que mudou é o vão ser um PISO em vez de uma altura, e a
+seção vestir o tom das outras.
 
 ```
  ┌───────────────────────────┐   ┌───────────────────────────┐
- │ ★ Favoritos          ▲    │   │ ★ Favoritos          ▲    │  ← tom próprio
+ │ ★ Favoritos          ▲    │   │ ★ Favoritos          ▲    │
  │   Louvor de abertura      │   │   Louvor de abertura      │
- │   Vídeo do testemunho     │   │   …                       │
- │   …                       │   │   ── Ver todos ──         │
- │   ── Ver todos ──         │   │        (o vão)            │
+ │   Vídeo do testemunho     │   │   Vídeo do testemunho     │
+ │                           │   │   … (a lista INTEIRA,     │
+ │        (o vão)            │   │      passando do vão)     │
+ │                           │   │   …                       │
  │                           │   ├───────────────────────────┤
- │        (o vão)            │   │ Arquivos oficiais    ▲    │
- │                           │   │   [Provai e Vede 2026]    │
- ├───────────────────────────┤   │   [Informativo …]         │
- │ Arquivos oficiais    ▼    │   ├───────────────────────────┤
- │ Hinários             ▼    │   │ Hinários             ▼    │
- └───────────────────────────┘   └───────────────────────────┘
-   a tela como ela ABRE            uma coleção aberta: ela mede
-                                   o conteúdo dela, e os favoritos
-                                   continuam abertos (v5.276)
+ │                           │   │ Arquivos oficiais    ▼    │
+ │                           │   │ Hinários             ▼    │
+ ├───────────────────────────┤   └───────────────────────────┘
+ │ Arquivos oficiais    ▼    │     ↓ e a BIBLIOTECA rola
+ │ Hinários             ▼    │
+ └───────────────────────────┘
+   a tela como ela ABRE: o vão      com mais favoritos do que cabe
+   é o PISO da seção, mesmo         no piso, a seção CRESCE e empurra
+   com a lista vazia                as fechadas para baixo (v5.282)
 ```
 
 **São DOIS estados, e não um** (v5.276). `grupoAberto` é o rodízio das
@@ -4270,7 +4276,7 @@ nada mais, que é a regra normal de uma lista; o vão continua sendo dos
 Favoritos, que são a única seção com razão para tê-lo (uma lista de atalhos
 vazia ainda é o lugar em que o próximo entra).
 
-**E O VÃO É FIXO, não repartido** (v5.277). Ele era `flex: 1 1 auto`, e **flex
+**E O VÃO NÃO É REPARTIDO** (v5.277). Ele era `flex: 1 1 auto`, e **flex
 REPARTE**: com uma coleção aberta, o que sobrava passava a ser dividido entre as
 duas e os favoritos encolhiam para dar espaço a ela — *"ao abrir uma coleção,
 ele encolhe os favoritos… eu quero que o espaço dos favoritos seja fixo, mas
@@ -4279,21 +4285,36 @@ seja o espaço proporcional que sobrou após listar as outras coleções abaixo"
 partir das BARRAS das outras seções, isto é, do que sobra da tela com todas elas
 colapsadas — a conta **não depende de qual coleção está aberta**, que é a
 propriedade inteira. `flex: 0 0 auto` impede o flex de mexer nela nos dois
-sentidos, e o corpo dentro dela é quem cresce (`flex: 1 1 auto`) e é recortado,
-com o botão logo abaixo.
+sentidos.
 
-**E ESSE CORPO NÃO ROLA POR DENTRO** (v5.279 → v5.280). A v5.279 lhe deu
+**E ELE É UM PISO, NÃO UMA ALTURA** (v5.282, `min-height`). Pedido do operador:
+*"mantenha o tamanho mínimo dela, mesmo vazia, como o tamanho flexível que ocupa
+o que sobra das outras coleções… mas agora esse é apenas o tamanho mínimo, que
+cresce conforme a lista dos favoritos requerir mais que esse espaço
+disponível"*. Era um `height` EXATO, e é dele que vinha o recorte do corpo — e
+do recorte vinha o botão "Ver todos", que saiu no mesmo lote. Como piso, a seção
+continua reservando o vão com a lista vazia (o desenho de abertura da Biblioteca)
+e passa a crescer com o conteúdo, empurrando as fechadas para baixo com a
+Biblioteca rolando, que é o que qualquer outra seção aberta já faz. O
+`flex-shrink: 0` é o que faz o piso valer de verdade: um `min-height` num filho
+que encolhe seria só uma sugestão. **`medirVaoDosFavoritos` não mudou uma
+linha** — a medida é a mesma pergunta; o que mudou é a seção deixar de ser presa
+a ela.
+
+O corpo perdeu a regra própria que o fazia crescer e ser recortado: ele cai no
+`flex: 0 1 auto` das outras seções, e o que sobrar do vão fica embaixo dele,
+dentro da seção. O `overflow: hidden` continua ali — ele é requisito da animação
+de abertura —, mas não corta mais nada, porque a caixa cresce com o conteúdo.
+
+**E O CORPO NUNCA ROLOU POR DENTRO** (v5.279 → v5.280). A v5.279 lhe deu
 `overflow-y: auto` no modo compacto e o operador recusou — *"não ficou bom,
 deixe ele fixo, e qualquer visualização dos itens completos nos favoritos deve
 ser pelo botão de ver mais"*. Com a rolagem, chegar ao fim da lista tinha DOIS
 caminhos, e um deles era arrastar dentro de uma caixa encaixada numa tela que
 também rola: o gesto ambíguo que o `overscroll-behavior` existia para remendar.
-O corpo é um recorte imóvel e o caminho para a lista inteira é UM, o botão.
-
-O que sobrevive daquele lote é a **contagem dos dois lados** no botão: hoje nada
-pode estar acima da faixa e essa metade nunca dispara, mas ela custa uma
-comparação e guarda o defeito que a v5.279 mostrou — com o corpo rolando, uma
-régua de um lado só faz o "Ver todos" sumir de quem chegou ao fim da lista.
+A decisão sobrevive à v5.282 pelo mesmo motivo, com um caminho a menos: hoje não
+há botão nem rolagem interna, porque **não há mais nada escondido** — quem rola
+é a Biblioteca, como em qualquer outra seção.
 
 **A coleção que abre rola até o topo dela** (`alinharGrupoNoTopo`, v5.277). O
 "abrindo para cima" que o operador relatou era o encolhimento acima; o que
@@ -4306,24 +4327,34 @@ COLAPSADO e rolou 7px de 59 possíveis (verificado). Quando não há conteúdo
 abaixo que leve a seção até o topo, a lista rola até o fim, que é o mais perto
 que existe.
 
-**E o botão CONTA ITENS que ficaram de fora, não pixels que transbordaram**
-(`acertarVaoDosFavoritos`, v5.276). A primeira versão perguntava
-`scrollHeight > clientHeight` e ele aparecia *"literalmente sem nenhum item na
-lista"*: numa Biblioteca com oito seções o vão é pequeno, a seção dos favoritos
-é a única que encolhe, e o que sobra do corpo recorta até a linha de "Nenhum
-favorito ainda". A caixa transbordava — e a caixa não é a pergunta. Com zero
-itens a resposta é zero, e não há medida de caixa que a produza. A ordem entre
-os itens continua sendo MEDIDA e nunca deduzida de uma contagem fixa (quantos
-cabem depende de quantas seções existem, da pasta do aparelho, da tela e do
-teclado), num `requestAnimationFrame` porque no instante em que a lista é
-montada os `li` ainda não foram dispostos e todos mediriam zero.
+**O BOTÃO "VER TODOS" SAIU** (v5.282): *"ajuste o funcionamento interno dela
+para que não tenha mais o sistema de ver mais. Agora quando aberta ela mostra
+toda a listagem"*. Com ele foram embora o `favExpandido`, a classe `.expandido`,
+o CSS do botão e a régua que o governava — *quantos itens ficaram de fora da
+caixa*, contados num `requestAnimationFrame` porque no instante em que a lista é
+montada os `li` ainda não foram dispostos. Ele existia só enquanto havia
+recorte; sem recorte, não há o que revelar.
 
-**O tom próprio** (`--fav-bg`, com `--camada` descendo junto para as linhas de
-dentro) vale **aberta e fechada**: fechada ela é uma barra entre outras barras, e
-é aí que ele mais trabalha. As medições estão em `tokens.css`; a que decide é
-1,30:1 (escuro) e 1,48:1 (claro) contra o `--panel` das outras seções — e o
-degrau de dentro tem de descer junto, senão no tema claro as linhas ficariam a
-1,05:1 do fundo novo e sumiriam.
+O que SOBREVIVE daquela régua é o `requestAnimationFrame` — agora em volta da
+MEDIDA do vão, e pela mesma razão dobrada: quem chama `acertarVaoDosFavoritos`
+durante a montagem da lista ainda vai anexar as outras seções na mesma passada
+síncrona, e a conta soma a barra de cada uma delas. Medir na hora leria uma tela
+com metade das seções e devolveria um vão grande demais.
+
+**O TOM PRÓPRIO TAMBÉM SAIU** (v5.282): *"estávamos ajustando para que ela fosse
+mais diferente que os demais, mas não ficou bom. Ajuste as cores dela para que
+ela fique igual as outras coleções"*. O `--fav-bg` viveu da v5.273 à v5.281 com
+o argumento de que a seção não é uma coleção e de que só ela ocupa o vão — as
+duas metades continuam verdadeiras, e **nenhuma delas se lê como COR**: o nome
+no cabeçalho diz a primeira e o vão reservado diz a segunda, sozinho. O que a
+cor acrescentava era um QUARTO tom numa escada de três, e a v5.267 já tinha
+medido o preço de um quarto degrau.
+
+Saíram os tokens dos DOIS temas **e** o `--camada` próprio que eles arrastavam,
+no mesmo lote — porque um nível que muda arrasta o de dentro. Repintar só a
+seção deixaria as linhas num tom que nenhuma outra coleção tem, e uma medida da
+seção sozinha não pegaria isso: daí o `smoke.mjs` medir os dois níveis. A classe
+`.coll-group--fav` fica, respondendo a uma pergunta só — quem ocupa o vão.
 
 **Trocar o `display` acorda o que estava dormindo** (v5.274). `.coll-group` — a
 classe base — é `display: flex; align-items: center; gap: .5rem`, e o

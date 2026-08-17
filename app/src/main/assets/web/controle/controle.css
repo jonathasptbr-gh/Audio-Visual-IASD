@@ -274,13 +274,13 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
 :root { --camada: var(--panel); }
 .popup-sheet, .dialog-card, .simple-conn { --camada: var(--panel-2); }
 .coll-group-corpo { --camada: var(--panel-2); }
-/* A SEÇÃO DOS FAVORITOS DESCEU UM TOM (v5.273) e o degrau de dentro dela desce
-   junto — senão as linhas ficariam a 1,74:1 no escuro e a 1,05:1 no CLARO
-   (`--panel-2` sobre um `--fav-bg` quase igual a ele: elas sumiriam). É a
-   mesma disciplina de sempre: um nível que muda arrasta o de dentro, e o
-   contêiner é quem declara o tom dos filhos. Medido: 1,30:1 no escuro e
-   1,48:1 no claro, os dois acima do piso da escada. */
-.coll-group--fav > .coll-group-corpo { --camada: var(--panel); }
+/* (A SEÇÃO DOS FAVORITOS TINHA UM TOM PRÓPRIO da v5.273 à v5.281, e com ele um
+   degrau de dentro que descia junto. Os dois saíram na v5.282 a pedido do
+   operador — *"ajuste as cores dela para que ela fique igual as outras
+   coleções"* —, e a escada volta a ter um valor por NÍVEL em vez de um por
+   seção: `--panel` na seção, `--panel-2` no que ela contém, aqui e em todas as
+   outras. A classe `.coll-group--fav` fica, porque ela ainda responde a outra
+   pergunta: quem ocupa o vão que sobra da tela.) */
 .coll-songs { --camada: transparent; }
 /* A folha de TELA CHEIA é uma TELA, não um cartão: ela pinta o `--bg` (ver
    `.popup-sheet--full`), então o nível de dentro dela volta a ser o nível 1 —
@@ -2093,7 +2093,7 @@ main {
 #hymnResults > .coll-group--drop.aberto > .coll-group-corpo {
   flex: 0 1 auto; min-height: 0;
 }
-/* ---------- O VÃO DOS FAVORITOS É FIXO (v5.277) ----------
+/* ---------- O VÃO DOS FAVORITOS É UM PISO (v5.277 → v5.282) ----------
    Ele era `flex: 1 1 auto`, e **flex REPARTE**: com uma coleção aberta, o que
    sobrava passava a ser dividido entre as duas e os favoritos ENCOLHIAM para
    dar espaço a ela. Relato do operador: *"ao abrir uma coleção, ele encolhe os
@@ -2107,51 +2107,33 @@ main {
    propriedade inteira: a lista de atalhos para de mudar de tamanho conforme o
    que o operador abre noutro lugar da tela.
 
+   ---------- E ELE É `min-height`, NÃO `height` (v5.282) ----------
+   Pedido do operador: *"mantenha o tamanho mínimo dela, mesmo vazia, como o
+   tamanho flexível que ocupa o que sobra das outras coleções… mas agora esse é
+   apenas o tamanho mínimo, que cresce conforme a lista dos favoritos requerir
+   mais que esse espaço disponível"*.
+
+   Era uma altura EXATA, e é dela que vinha o recorte — e do recorte vinha o
+   botão "Ver todos", que saiu neste mesmo lote. Como piso, a seção continua
+   reservando o vão com a lista vazia (o desenho de abertura da Biblioteca:
+   coleções empilhadas na base, o que sobra em cima é dos favoritos) e passa a
+   crescer com o conteúdo, empurrando as fechadas para baixo e rolando a
+   Biblioteca — que é o que qualquer outra seção aberta já faz.
+
    `flex: 0 0 auto` é o que impede o flex de mexer nela nos dois sentidos — sem
    o `grow` ela não reparte, sem o `shrink` ela não é espremida por uma coleção
-   grande logo abaixo.
+   grande logo abaixo (e é o `shrink: 0` que faz o piso valer de verdade: um
+   `min-height` num filho que encolhe seria só uma sugestão).
 
-   Expandida, ela volta a ser uma seção como as outras: cresce com o conteúdo e
-   empurra as fechadas para baixo, com a Biblioteca rolando. */
-#hymnResults > .coll-group--fav.aberto:not(.expandido) {
-  height: var(--fav-vao, auto);
+   O CORPO não ganha regra própria: ele cai no `flex: 0 1 auto` das outras
+   seções logo acima. Ele não precisa mais crescer para preencher a caixa —
+   não há mais caixa de tamanho fixo a preencher, nem recorte a produzir —, e o
+   que sobrar do vão fica embaixo dele, dentro da seção, como em qualquer
+   outra. */
+#hymnResults > .coll-group--fav.aberto {
+  min-height: var(--fav-vao, auto);
   flex: 0 0 auto;
 }
-/* E o CORPO preenche o que sobra dentro dessa altura fixa. Aqui ele CRESCE (nas
-   coleções, não), porque a caixa de fora tem tamanho definido e o corpo é o
-   único filho que pode absorvê-lo — e é ele que precisa ser o recorte, com o
-   botão "Ver todos" logo abaixo.
-
-   ---------- E ELE NÃO ROLA POR DENTRO (v5.279 → v5.280) ----------
-   A v5.279 lhe deu `overflow-y: auto` no modo compacto, e o operador recusou:
-   *"remova o scroll interno dos favoritos, não ficou bom, deixe ele fixo, e
-   qualquer visualização dos itens completos nos favoritos deve ser pelo botão
-   de ver mais"*.
-
-   Ele está fechando uma porta que eu tinha aberto ao lado de outra: com a
-   rolagem, chegar ao fim da lista tinha DOIS caminhos, e um deles — arrastar
-   dentro de uma caixa encaixada numa tela que também rola — é o gesto ambíguo
-   que o `overscroll-behavior` existia para remendar. O corpo volta a ser um
-   RECORTE imóvel (o `overflow: hidden` do `.coll-group-corpo`, que ele nunca
-   deixou de ter), e o caminho para a lista inteira é UM: o botão. */
-#hymnResults > .coll-group--fav.aberto:not(.expandido) > .coll-group-corpo {
-  flex: 1 1 auto; min-height: 0;
-}
-/* O botão que abre a lista além do vão. Ele é a última faixa do bloco da seção
-   — sem fundo próprio, como a barra — e fica FORA do corpo de propósito: dentro
-   dele seria a primeira coisa a ser cortada. */
-.coll-group-mais {
-  flex-shrink: 0;
-  appearance: none; -webkit-appearance: none;
-  background: none; padding: .45rem .55rem .55rem;
-  font: inherit; font-size: .78rem; font-weight: 600;
-  color: var(--accent); text-align: center; cursor: pointer;
-}
-/* O TOM PRÓPRIO DA SEÇÃO DOS FAVORITOS (v5.273) — as medições estão em
-   `tokens.css`. Ela vale ABERTA E FECHADA: fechada ela é uma barra entre
-   outras barras, e é aí que o tom mais trabalha, dizendo qual delas é antes de
-   o nome ser lido. */
-.coll-group--fav { background: var(--fav-bg); }
 /* ---------- AS SEÇÕES RESPIRAM (v5.273) ----------
    Pedido do operador: *"aumentar ligeiramente o espaço entre as outras
    coleções, elas estão muito coladas entre si"*. Elas herdavam o `gap` de

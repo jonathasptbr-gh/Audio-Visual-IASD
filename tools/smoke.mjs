@@ -974,10 +974,12 @@ for (const tema of ['escuro', 'claro']) {
         const el = lista.querySelector(sel);
         return el ? getComputedStyle(el).backgroundColor : 'AUSENTE';
       };
-      // A barra FECHADA precisa de um segundo grupo, que este não abriu — e ele
-      // não pode ser o dos FAVORITOS, que desde a v5.273 tem tom PRÓPRIO de
-      // propósito: medi-lo aqui compararia duas peças diferentes e chamaria
-      // isso de "trocou de cor com o estado".
+      // A barra FECHADA precisa de um segundo grupo, que este não abriu. A dos
+      // FAVORITOS fica de fora porque ela está SEMPRE aberta (v5.276) — ela
+      // nunca seria uma barra fechada, e o `:not` só torna isso explícito.
+      // (Da v5.273 à v5.281 o motivo era outro, e mais forte: ela tinha tom
+      // próprio, então medi-la aqui compararia duas peças diferentes e chamaria
+      // isso de "trocou de cor com o estado". O tom saiu na v5.282.)
       const fechada = (() => {
         const g = [...lista.querySelectorAll('.coll-group--drop:not(.aberto):not(.coll-group--fav)')];
         return g.length ? getComputedStyle(g[0]).backgroundColor : null;
@@ -985,10 +987,10 @@ for (const tema of ['escuro', 'claro']) {
       const faixa = lista.querySelector('.coll-songs > .hymn-result');
       const r = {
         folha: getComputedStyle(folha).backgroundColor,
-        // A seção de COLEÇÃO aberta. Nunca a dos Favoritos: desde a v5.273 ela
-        // tem tom PRÓPRIO e desde a v5.276 está sempre aberta, então ela é a
-        // primeira do documento — medi-la aqui compararia a escada com uma peça
-        // que de propósito não está nela.
+        // A seção de COLEÇÃO aberta. A dos Favoritos está sempre aberta (ela é
+        // a primeira do documento), e o `:not` é o que garante que esta escada
+        // seja medida numa coleção de verdade — desde a v5.282 as duas vestem o
+        // mesmo tom, e o caso ao lado é quem afirma isso.
         secao: bg('.coll-group--drop.aberto:not(.coll-group--fav)'),
         secaoFechada: fechada,
         // A barra e o corpo são faixas do bloco da seção, sem fundo próprio.
@@ -1076,12 +1078,19 @@ for (const tema of ['escuro', 'claro']) {
   }
 }
 
-// ── OS FAVORITOS OCUPAM O VÃO, E TÊM TOM PRÓPRIO (v5.273) ────────────────
+// ── OS FAVORITOS OCUPAM O VÃO, E VESTEM O TOM DAS OUTRAS (v5.273 → v5.282) ─
 // Pedido do operador: *"a seção dos favoritos ocupa a altura que sobra além do
 // espaço das outras seções no formato colapsado (mesmo que não haja nenhum
 // favorito), dessa forma a visão comum inicial vai ser as listas de coleções
-// empilhadas na base"*, mais o tom próprio e *"aumentar ligeiramente o espaço
-// entre as outras coleções, elas estão muito coladas entre si"*.
+// empilhadas na base"*, mais *"aumentar ligeiramente o espaço entre as outras
+// coleções, elas estão muito coladas entre si"*.
+//
+// E O TOM PRÓPRIO SAIU (v5.282): *"ajuste as cores dela para que ela fique
+// igual as outras coleções"*. A asserção INVERTEU — de "distinto" para
+// "idêntico" —, e ela é medida nos DOIS níveis (a seção e a linha dentro dela),
+// porque o tom que saiu arrastava um degrau de dentro junto: pintar só o nível
+// externo de volta ao padrão deixaria as linhas num tom que não é o das outras,
+// e nenhuma medida da seção sozinha pegaria isso.
 //
 // A medição é na LISTA DE VERDADE (`#hymnResults`, dentro da folha) e com a
 // folha em altura FIXA: as três regras deste lote são de layout, e um `<ul>`
@@ -1112,20 +1121,28 @@ for (const tema of ['escuro', 'claro']) {
           ? outras[outras.length - 1].getBoundingClientRect().bottom : 0,
         fundoLista: hymnResultsEl.getBoundingClientRect().bottom
           - parseFloat(cx(hymnResultsEl).paddingBottom),
-        // O TOM PRÓPRIO, e o das outras ao lado para a comparação ser relativa.
+        // O TOM DA SEÇÃO, e o das outras ao lado: desde a v5.282 a afirmação é
+        // que os dois são IGUAIS.
         corFav: fav ? cx(fav).backgroundColor : 'AUSENTE',
         corOutra: outras.length ? cx(outras[0]).backgroundColor : 'AUSENTE',
-        // E o que as LINHAS dentro dela vestem: um nível que desce arrasta o de
-        // dentro, senão elas sumiriam no tema claro.
+        // E o que as LINHAS dentro dela vestem, contra o mesmo nível numa
+        // coleção. É o degrau de DENTRO, e ele precisa ser medido à parte: o
+        // tom que saiu arrastava um `--camada` próprio junto, e uma seção
+        // repintada por fora com o degrau antigo por dentro passaria na medida
+        // acima. A sonda é um `.lib-item` de verdade — o que se afirma é a cor
+        // RENDERIZADA, não o valor do token.
         corLinha: (() => {
-          const corpo = fav && fav.querySelector('.coll-group-corpo');
-          if (!corpo) return 'AUSENTE';
-          const p = document.createElement('div');
-          p.className = 'lib-item';
-          corpo.appendChild(p);
-          const c = cx(p).backgroundColor;
-          p.remove();
-          return c;
+          const linhaDe = (secao) => {
+            const corpo = secao && secao.querySelector('.coll-group-corpo');
+            if (!corpo) return 'AUSENTE';
+            const p = document.createElement('div');
+            p.className = 'lib-item';
+            corpo.appendChild(p);
+            const c = cx(p).backgroundColor;
+            p.remove();
+            return c;
+          };
+          return { fav: linhaDe(fav), outra: linhaDe(outras[0]) };
         })(),
         // O ESPAÇO entre seções, contra o das linhas de uma lista comum: a
         // relação é a afirmação (um número aqui envelheceria na primeira troca
@@ -1251,14 +1268,21 @@ for (const tema of ['escuro', 'claro']) {
       '[' + tema + '] e as fechadas ficam EMPILHADAS NA BASE — a última termina '
       + 'onde a lista termina (' + Math.round(v.fundoUltima) + ' contra '
       + Math.round(v.fundoLista) + ')');
-    const dTom = razao(v.corFav, v.corOutra);
-    checar(dTom >= 1.15,
-      '[' + tema + '] ela tem TOM PRÓPRIO, distinto do das outras seções ('
-      + dTom.toFixed(2) + ':1)');
-    const dLinha = razao(v.corLinha, v.corFav);
-    checar(dLinha >= 1.28,
-      '[' + tema + '] e o degrau de dentro dela desce junto: a linha continua a '
-      + 'se ler sobre o tom novo (' + dLinha.toFixed(2) + ':1)');
+    // ===== ELA VESTE O TOM DAS OUTRAS (v5.282) =====
+    // A afirmação INVERTEU: da v5.273 à v5.281 este par era "distinto", com um
+    // piso de 1,15:1. A comparação é de STRING e não de razão de luminância —
+    // "igual" é igual, e uma razão com piso baixo aprovaria dois tons
+    // ligeiramente diferentes, que é exatamente a queixa ("não ficou bom").
+    checar(v.corFav !== 'AUSENTE' && v.corFav === v.corOutra,
+      '[' + tema + '] ela veste o MESMO tom das outras seções, sem cor própria ('
+      + v.corFav + ' contra ' + v.corOutra + ')');
+    // E O DEGRAU DE DENTRO VOLTOU JUNTO. Sem esta segunda metade, repintar só a
+    // seção e deixar o `--camada` antigo no corpo passaria na medida acima e
+    // deixaria as linhas num tom que nenhuma outra coleção tem.
+    checar(v.corLinha.fav !== 'AUSENTE' && v.corLinha.fav === v.corLinha.outra,
+      '[' + tema + '] e o degrau de DENTRO dela também: a linha veste o mesmo '
+      + 'tom que veste numa coleção (' + v.corLinha.fav + ' contra '
+      + v.corLinha.outra + ')');
     const L = v.larguras;
     checar(!!L && Math.abs(L.barra - L.secao) <= 1 && Math.abs(L.corpo - L.secao) <= 1,
       '[' + tema + '] a barra e o corpo PREENCHEM a seção aberta — nada é centrado '
@@ -1267,15 +1291,21 @@ for (const tema of ['escuro', 'claro']) {
     checar(!!L && L.linha > 0 && L.linha <= L.secao + 1 && L.esqBarra >= L.esqSecao - 1,
       '[' + tema + '] e uma linha de dentro não vaza para fora dela ('
       + (L ? Math.round(L.linha) + 'px numa seção de ' + Math.round(L.secao) : '?') + 'px)');
-    // ===== O VÃO É FIXO (v5.277) =====
-    // A asserção CENTRAL deste lote, e ela é a queixa escrita como medida: a
-    // altura da seção dos Favoritos é a MESMA com uma coleção aberta e com
-    // nenhuma. Com o `flex-grow` de antes ela encolhia para repartir o vão com
-    // a coleção — *"ao abrir uma coleção, ele encolhe os favoritos para dar
-    // espaço à coleção aberta"*.
+    // ===== O VÃO NÃO É REPARTIDO (v5.277) =====
+    // A queixa daquele lote escrita como medida: a altura da seção dos
+    // Favoritos é a MESMA com uma coleção aberta e com nenhuma. Com o
+    // `flex-grow` de antes ela encolhia para repartir o vão com a coleção —
+    // *"ao abrir uma coleção, ele encolhe os favoritos para dar espaço à
+    // coleção aberta"*.
+    //
+    // Ela continua verdadeira depois de o vão virar um PISO (v5.282) porque
+    // aqui a lista de favoritos está VAZIA: nada empurra a seção além do
+    // mínimo. Quem afirma o outro lado — que ela CRESCE quando a lista pede
+    // mais — é o `boot-nativo.test.mjs`, que é o único que sabe pôr favoritos
+    // no banco.
     checar(Math.abs(v.outra.altFav - v.altFav) <= 1,
       '[' + tema + '] e essa altura NÃO MUDA quando uma coleção abre: o vão é '
-      + 'fixo, não repartido (' + Math.round(v.altFav) + 'px → '
+      + 'do vizinho, não repartido (' + Math.round(v.altFav) + 'px → '
       + Math.round(v.outra.altFav) + 'px)');
     // E a coleção aberta mede o CONTEÚDO dela: o vazio dentro dela é só o
     // padding próprio, nunca metade da tela.
