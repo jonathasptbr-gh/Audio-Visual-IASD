@@ -274,7 +274,8 @@ try {
   // ---- O PARAR MORA NA MINIATURA (v5.177 → v5.258 → v5.259) ----
   //
   // A v5.177 tinha feito o botão de parar TOMAR O LUGAR da estrela e do
-  // arrastar na linha no ar; a v5.258 o pôs na gaveta do `⋮` com os outros. Os
+  // arrastar na linha no ar; a v5.258 o pôs na gaveta do `⋮` com os outros, e a
+  // v5.285 trocou o arrasto pelo par ↑↓ — que mora no mesmo lugar. Os
   // dois lugares erram a mesma coisa, e o operador a nomeou: enquanto a linha
   // está no ar, tirá-la de lá é a ÚNICA decisão que ela oferece — e ficava
   // atrás de um toque, ou disputando espaço com ações que ninguém quer ali.
@@ -318,7 +319,7 @@ try {
         const b = el.querySelector('.row-mais');
         return b ? getComputedStyle(b).backgroundColor : '';
       })(),
-      estrela: vis('.fav-btn'), arrasta: vis('.row-handle'),
+      estrela: vis('.fav-btn'), arrasta: vis('.row-ordem'),
     };
   }, id);
   const abrirGaveta = async (id) => {
@@ -441,7 +442,7 @@ try {
   await abrirGaveta(audioId);
   const aberta = await botoes(audioId);
   checar(!!aberta && aberta.estrela && aberta.arrasta,
-    'a gaveta aberta traz a estrela e o arrastar (o Parar não está nela: ele é da capa)',
+    'a gaveta aberta traz a estrela e o par ↑↓ de reordenar (o Parar não está nela: ele é da capa)',
     JSON.stringify(aberta));
   await pg.evaluate(() => { if (typeof fecharAcoesDaLinha === 'function') fecharAcoesDaLinha(); });
   // E o botão faz o que diz: é o mesmo `retirarDoAr` do segundo toque.

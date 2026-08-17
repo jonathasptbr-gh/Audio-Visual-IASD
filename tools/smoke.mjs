@@ -849,7 +849,10 @@ try {
     const r = {
       barra: alt(bar),
       item: alt(linhas[0]),
-      toque: alt(linhas[0] && linhas[0].querySelector('.hymn-play-thumb')),
+      // O ALVO DE TOQUE é a LINHA INTEIRA desde a v5.285 — o ▶ que ficava
+      // aqui deixou de ser botão. Medir o quadrado seria medir um indicador; o
+      // piso vale para o que de fato recebe o dedo.
+      toque: alt(linhas[0]),
       piso,
       // O passo entre duas linhas é o que decide quantas cabem na tela.
       passo: linhas.length > 1
@@ -889,8 +892,8 @@ try {
     'e o passo entre faixas cabe numa lista densa — ' + Math.floor(900 / linha.passo)
     + ' itens numa tela de 900px (eram 12)');
   checar(linha.toque >= linha.piso,
-    'sem furar o piso de toque do app: o ▶ tem ' + Math.round(linha.toque)
-    + 'px, e o piso é ' + linha.piso + 'px');
+    'sem furar o piso de toque do app: a LINHA (que é o alvo desde a v5.285) tem '
+    + Math.round(linha.toque) + 'px, e o piso é ' + linha.piso + 'px');
   // ── A ESCALA DE TÍTULOS (v5.262) ────────────────────────────────────────
   // Relato do operador: *"há uma desproporção, onde o título das coleções está
   // pequeno, o dos álbuns maior e o dos items diferente… o texto dos itens
@@ -1440,16 +1443,17 @@ for (const tema of ['escuro', 'claro']) {
   }
 }
 
-// ── O ALVO DOS BOTÕES DA FAIXA (v5.278) ──────────────────────────────────
-// Relato do operador: *"é extremamente comum tentar clicar em adicionar e
-// acabar tocando no corpo do card, abrindo os detalhes da letra"*.
+// ── A LINHA INTEIRA É O ALVO (v5.278 → v5.285) ───────────────────────────
+// Relato que abriu o caso, na v5.278: *"é extremamente comum tentar clicar em
+// adicionar e acabar tocando no corpo do card, abrindo os detalhes da letra"*.
+// Aquela versão cresceu o alvo dos DOIS botões por um `::after` até as bordas
+// da linha; a v5.285 removeu os botões, a pedido do operador, e com eles a
+// classe inteira de erro: não há mais dois desfechos a confundir.
 //
-// O que se mede é o que o DEDO encontra (`elementFromPoint`), não a caixa do
-// botão: a queixa é sobre os pixels ao redor dele, e uma asserção de largura e
-// altura passaria com as faixas mortas intactas. Os pontos são os do relato —
-// as bordas da linha em cima, embaixo e à direita do botão — e o do MEIO, que
-// é a metade negativa: o corpo da linha tem uma ação própria (a gaveta da
-// letra) e ela não pode ter sido engolida.
+// O caso continua medindo o que o DEDO encontra (`elementFromPoint`), e a
+// afirmação ficou mais forte: TODO ponto da linha — os quatro cantos, as
+// bordas e o meio — leva ao mesmo lugar. Um botão que voltasse a aparecer ali
+// reprova aqui, que é exatamente o que este caso existe para impedir.
 try {
   const alvo = await pg.evaluate(() => {
     setAppMode('full');
@@ -1465,42 +1469,53 @@ try {
     grupoAberto = 'Hinários';
     renderCollectionsList(lista, () => {}, { semTotal: true });
     const linha = lista.querySelector('.coll-songs > .hymn-result');
-    const add = linha.querySelector('.hymn-add-btn');
     const lb = linha.getBoundingClientRect();
-    const ab = add.getBoundingClientRect();
+    // O que o toque encontra: a própria linha, ou um alvo CONCORRENTE dentro
+    // dela. Qualquer `button` conta como concorrente — o caso não conhece os
+    // nomes dos que saíram, e é isso que o faz valer para o próximo que
+    // aparecer.
     const quem = (x, y) => {
       const e = document.elementFromPoint(x, y);
       if (!e) return 'nada';
-      if (e.closest('.hymn-add-btn')) return 'ADD';
-      if (e.closest('.hymn-play-thumb')) return 'PLAY';
-      return 'linha';
+      if (!linha.contains(e)) return 'fora';
+      return e.closest('button') ? 'BOTÃO' : 'linha';
+    };
+    const pontos = {
+      meio: quem(lb.left + lb.width / 2, lb.top + lb.height / 2),
+      esquerda: quem(lb.left + 4, lb.top + lb.height / 2),
+      direita: quem(lb.right - 2, lb.top + lb.height / 2),
+      topo: quem(lb.left + lb.width / 2, lb.top + 2),
+      base: quem(lb.left + lb.width / 2, lb.bottom - 2),
+      cantoDir: quem(lb.right - 2, lb.top + 2),
+      // O quadrado da esquerda é onde o ▶ vivia: é o ponto que mais precisa
+      // levar à linha agora, porque é onde o dedo aprendeu a mirar.
+      quadrado: quem(lb.left + 20, lb.top + lb.height / 2),
     };
     const r = {
-      linhaH: lb.height, addH: ab.height,
-      topo: quem(ab.left + ab.width / 2, lb.top + 2),
-      base: quem(ab.left + ab.width / 2, lb.bottom - 2),
-      direita: quem(lb.right - 2, lb.top + lb.height / 2),
-      canto: quem(lb.right - 2, lb.top + 2),
-      meio: quem(lb.left + lb.width / 2, lb.top + lb.height / 2),
-      topoDoPlay: quem(lb.left + 20, lb.top + 2),
+      pontos,
+      botoesNaLinha: linha.querySelectorAll('.row button').length,
+      // E a LARGURA do nome, que é o que a remoção devolve: ela não vira número
+      // fixo aqui (depende da fonte), mas a fração da linha é a afirmação.
+      fracaoDoNome: linha.querySelector('.hymn-name').getBoundingClientRect().width / lb.width,
     };
     lista.remove(); delete collState[c.id]; grupoAberto = '';
     return r;
   });
-  checar(alvo.linhaH > alvo.addH,
-    'a faixa é mais alta que o botão — é dessa diferença que a faixa morta vinha ('
-    + Math.round(alvo.linhaH) + 'px contra ' + Math.round(alvo.addH) + 'px)');
-  checar(alvo.topo === 'ADD' && alvo.base === 'ADD' && alvo.direita === 'ADD'
-    && alvo.canto === 'ADD',
-    'e o toque nas bordas em volta do + cai NO BOTÃO, não no corpo da linha',
-    JSON.stringify({ topo: alvo.topo, base: alvo.base, direita: alvo.direita, canto: alvo.canto }));
-  checar(alvo.topoDoPlay === 'PLAY',
-    'o mesmo vale para o ▶: a faixa morta dele levava ao mesmo lugar errado');
-  checar(alvo.meio === 'linha',
-    'e o CORPO da linha continua respondendo no meio dela — a gaveta da letra '
-    + 'não foi engolida pelos alvos dos botões');
+  checar(alvo.botoesNaLinha === 0,
+    'a faixa da Biblioteca não tem BOTÃO nenhum na linha: o ▶ e o + saíram, e o '
+    + 'toque é do corpo inteiro (v5.285)',
+    alvo.botoesNaLinha + ' botão(ões)');
+  const todos = Object.entries(alvo.pontos);
+  const errados = todos.filter(([, v]) => v !== 'linha');
+  checar(errados.length === 0,
+    'e TODO ponto dela leva ao mesmo lugar — cantos, bordas e meio, inclusive o '
+    + 'quadrado onde o ▶ vivia: não há dois desfechos a confundir',
+    errados.length ? JSON.stringify(Object.fromEntries(errados)) : todos.length + ' pontos');
+  checar(alvo.fracaoDoNome > 0.6,
+    'e o NOME recebeu a largura que os dois botões ocupavam ('
+    + Math.round(alvo.fracaoDoNome * 100) + '% da linha)');
 } catch (e) {
-  checar(false, 'a medição do alvo dos botões da faixa terminou sem exceção ('
+  checar(false, 'a medição do alvo da faixa terminou sem exceção ('
     + (e && e.message) + ')');
 }
 

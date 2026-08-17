@@ -674,23 +674,44 @@ try {
   // Pedido do operador: as opções de um item da série devem ser as do YouTube
   // (sem "só áudio"), sem download direto, e com transmissão no "Tocar agora".
   // A v5.228 o tratava como faixa de hinário — o toque BAIXAVA ~300 MB.
+  //
+  // E DESDE A v5.285 ELA NÃO É MAIS UMA FOLHA: as opções abrem no CORPO da
+  // linha. O caso passou a percorrer o caminho de verdade — desenhar a lista,
+  // tocar na faixa, ler a gaveta — em vez de chamar a função do menu à mão: é a
+  // única forma de continuar provando que um episódio recebe as opções do
+  // YouTube, agora que quem decide isso é `montarOpcoes`.
   const folha = await pg.evaluate(async () => {
     const c = allCollections().find((x) => x.kind === 'serie');
     const s = collSongs(c.id)[0];
-    openSongMenu(c, s, 'play');
-    const pop = document.getElementById('songMenuPopup');
-    const linhas = [...pop.querySelectorAll('.song-menu-item, .song-menu-list button')]
+    // O modo é GLOBAL: deixá-lo trocado quebra os casos seguintes (o do Modo
+    // Fácil mede a cortina). Restaurado no fim, como os outros casos fazem.
+    const modoAntes = appMode;
+    setAppMode('full');
+    ui(c.id).expanded = true; ui(c.id).shown = 100;
+    const lista = document.createElement('ul');
+    lista.className = 'hymnal-list';
+    lista.style.width = '390px';
+    document.body.appendChild(lista);
+    const li = hymnResultRow(c, s, null, true);
+    lista.appendChild(li);
+    li.querySelector('.row').click();
+    await new Promise((r) => setTimeout(r, 400));
+    const op = li.querySelector('.hymn-opcoes');
+    const linhas = [...op.querySelectorAll('.song-menu-btn')]
       .map((b) => b.textContent.trim().split('\n')[0].trim()).filter(Boolean);
     const r = {
-      aberta: pop.classList.contains('open'),
-      titulo: (document.getElementById('songMenuTitle') || {}).textContent || '',
-      texto: pop.textContent,
+      aberta: li.classList.contains('expanded') && !!op && op.children.length > 0,
+      naFolha: document.getElementById('songMenuPopup').classList.contains('open'),
+      texto: op.textContent,
       linhas,
     };
-    closeSongMenu();
+    lista.remove(); ui(c.id).expanded = false; songMenuFor = null;
+    setAppMode(modoAntes);
     return r;
   });
-  checar(folha.aberta, 'tocar num episódio abre a folha de destinos');
+  checar(folha.aberta && !folha.naFolha,
+    'tocar num episódio abre as opções NO CORPO da linha, não numa folha (v5.285)',
+    JSON.stringify({ gaveta: folha.aberta, folha: folha.naFolha }));
   checar(/Tocar agora/.test(folha.texto),
     'com "Tocar agora" — é ele que TRANSMITE, sem esperar o download', JSON.stringify(folha.linhas));
   checar(/playlist/i.test(folha.texto) && /Cronograma/.test(folha.texto) && /Favoritar/.test(folha.texto),
@@ -1050,6 +1071,9 @@ try {
     // chegada; o que a asserção prova é que ela é REORDENÁVEL.
     const rec2 = await AVDB.addMedia(new Blob(['y'], { type: 'video/mp4' }),
       { name: 'Vídeo favorito de teste', list: 'favs' });
+    // UMA PASTA SINCRONIZADA, para a ORDEM ter o que provar (v5.285): sem ela
+    // "as pastas vêm primeiro" seria verdade por vacuidade.
+    opfsFolders.push({ id: 'pasta-ordem', name: 'Vídeos do culto', count: 9 });
     await recarregarFavoritos();
     const lista3 = document.createElement('ul');
     document.body.appendChild(lista3);
@@ -1057,18 +1081,42 @@ try {
     try { renderFolderList(); } finally { favHost = null; }
     r.lista = {
       secoes: lista3.querySelectorAll('.fav-section').length,
+      // AS SONDAS DOS ITENS SÃO ESCOPADAS À PLACA (`.fav-itens`), e não à lista
+      // inteira: desde a v5.285 há uma PASTA no topo, que também é um
+      // `.lib-item` e não é um favorito — contá-la aqui mediria outra coisa
+      // (ela não tem par ↑↓, nem subtítulo, nem estrela).
+      // ===== AS PASTAS VÊM PRIMEIRO (v5.285) =====
+      // Pedido do operador. A régua é a POSIÇÃO no documento, e não o índice
+      // dentro de uma `<ul>`: desde a v5.284 os itens moram numa placa própria
+      // (`.fav-itens`) e as pastas são irmãs dela, então "primeiro" é uma
+      // relação entre dois nós de níveis diferentes — que é justamente o que
+      // uma comparação de índices não veria.
+      pastaAntes: (() => {
+        const pasta = lista3.querySelector('.folder-opfs');
+        const placa = lista3.querySelector('.fav-itens');
+        if (!pasta || !placa) return null;
+        return !!(pasta.compareDocumentPosition(placa) & Node.DOCUMENT_POSITION_FOLLOWING);
+      })(),
       // Tipos diferentes (áudio e vídeo) na MESMA lista, sem nada entre eles.
-      nomes: [...lista3.querySelectorAll('.lib-item .row-name')].map((e) => e.textContent),
-      // A ALÇA continua existindo — e desde a v5.258 ela mora DENTRO do menu
-      // `⋮`, com a estrela e o `+`. Medir só a presença dela aprovaria a linha
-      // antiga, com os três botões em cima do título.
-      alcas: [...lista3.querySelectorAll('.lib-item .row-handle')]
-        .filter((h) => h.closest('.row-acoes')).length,
-      soUmBotaoNaLinha: [...lista3.querySelectorAll('.lib-item')]
+      nomes: [...lista3.querySelectorAll('.fav-itens .row-name')].map((e) => e.textContent),
+      // O PAR ↑↓ tomou o lugar da alça de arrastar (v5.285), e mora no MESMO
+      // lugar em que ela morava desde a v5.258: DENTRO do menu `⋮`. Medir só a
+      // presença aprovaria os botões soltos em cima do título.
+      ordem: [...lista3.querySelectorAll('.fav-itens .row-ordem')]
+        .filter((b) => b.closest('.row-acoes')).length,
+      // E AS PONTAS SÃO INERTES: o primeiro item não sobe, o último não desce.
+      // Sem isto, dois botões mortos ficariam oferecendo o que não fazem.
+      pontas: (() => {
+        const ls = [...lista3.querySelectorAll('.fav-itens > .lib-item')];
+        if (ls.length < 2) return null;
+        const ord = (li) => [...li.querySelectorAll('.row-ordem')].map((b) => b.disabled);
+        return { primeiro: ord(ls[0]), ultimo: ord(ls[ls.length - 1]) };
+      })(),
+      soUmBotaoNaLinha: [...lista3.querySelectorAll('.fav-itens > .lib-item')]
         .every((li) => li.querySelectorAll('.row > button').length === 1
           && !!li.querySelector('.row > .row-mais')),
       // O subtítulo voltou: sem cabeçalho de tipo, é ele que distingue.
-      subs: [...lista3.querySelectorAll('.lib-item .row-sub')]
+      subs: [...lista3.querySelectorAll('.fav-itens .row-sub')]
         .map((e) => getComputedStyle(e).display).filter((d) => d !== 'none').length,
       // O PARAR (v5.259). Nesta lista ele simplesmente NÃO EXISTIA: uma linha de
       // favorito no ar mostrava o selo "● No ar" e não oferecia nada que a
@@ -1076,7 +1124,7 @@ try {
       // ações por cima do título ("ele estava no ar"). Ele mora na CAPA, e a
       // faixa tem de continuar OPACA nesse estado.
       parar: (() => {
-        const li = lista3.querySelector('.lib-item');
+        const li = lista3.querySelector('.fav-itens > .lib-item');
         if (!li) return null;
         li.classList.add('no-ar');
         const stop = li.querySelector('.row-stop');
@@ -1095,8 +1143,9 @@ try {
       })(),
     };
     lista3.remove();
-    // E O REORDENAR de verdade: o segundo item vai para a frente.
-    await reorder('favs', rec2.id, 0);
+    opfsFolders.length = 0;
+    // E O REORDENAR de verdade, pelo BOTÃO: o segundo item sobe uma casa.
+    await moverNaLista('favs', rec2.id, -1);
     r.lista.ordemDepois = (await AVDB.listIds('favs')).indexOf(rec2.id);
     await AVDB.listRemove('favs', rec2.id);
     await recarregarFavoritos();
@@ -1150,14 +1199,24 @@ try {
   checar(favs.lista.secoes === 0 && favs.lista.nomes.length === 2,
     'A LISTA DE FAVORITOS É ÚNICA: tipos diferentes juntos, sem subdivisão nenhuma',
     JSON.stringify(favs.lista.nomes));
-  checar(favs.lista.alcas === favs.lista.nomes.length,
-    'e cada item tem a ALÇA de arrastar, agora DENTRO do menu `⋮` (v5.258)');
+  checar(favs.lista.pastaAntes === true,
+    'AS PASTAS SINCRONIZADAS VÊM NO TOPO da lista de favoritos (v5.285) — no fim '
+    + 'elas eram empurradas para longe por cada favorito novo',
+    'pasta antes da placa: ' + favs.lista.pastaAntes);
+  checar(favs.lista.ordem === favs.lista.nomes.length * 2,
+    'e cada item tem o PAR ↑↓ de reordenar, DENTRO do menu `⋮` (v5.285)',
+    favs.lista.ordem + ' botão(ões) para ' + favs.lista.nomes.length + ' item(ns)');
+  checar(!!favs.lista.pontas && favs.lista.pontas.primeiro[0] === true
+    && favs.lista.pontas.ultimo[1] === true
+    && favs.lista.pontas.primeiro[1] === false && favs.lista.pontas.ultimo[0] === false,
+    'e as PONTAS são inertes: o primeiro não sobe, o último não desce — e os '
+    + 'outros dois continuam vivos', JSON.stringify(favs.lista.pontas));
   checar(favs.lista.soUmBotaoNaLinha,
     'e a linha ficou com um botão só: o `⋮` — o resto saiu de cima do título');
   checar(favs.lista.subs === favs.lista.nomes.length,
     'e o subtítulo voltou a aparecer: sem cabeçalho de tipo, é ele que distingue');
   checar(favs.lista.ordemDepois === 0,
-    'e o arrastar MOVE de verdade (o mesmo `reorder` do Cronograma)');
+    'e o botão MOVE de verdade — uma casa, na lista de verdade');
   checar(!!favs.lista.parar && favs.lista.parar.naThumb && favs.lista.parar.visivel,
     'UM FAVORITO NO AR também oferece o "Tirar do ar", na capa (v5.259) — aqui ele '
     + 'nem existia', JSON.stringify(favs.lista.parar));
@@ -2277,16 +2336,26 @@ try {
     const ul = li && li.parentElement;
     if (!ul) return { erro: 'a lista dos favoritos não foi desenhada' };
 
-    // ---- A LINHA-GUIA cai onde a conta promete ----
-    // `showDropLine` posiciona por `absolute` DENTRO da `<ul>`, então a `<ul>`
-    // precisa ser o bloco contendor. Isso valia por acidente no Cronograma
-    // (`.lib-list` é `position: relative`) e não valia aqui.
-    const alvo = ul.children[2].getBoundingClientRect();
-    measureDrag(ul, li);
-    showDropLine(ul, li, alvo.top + 2);
-    const guia = ul.querySelector('.drop-line').getBoundingClientRect();
-    const erroGuia = Math.round(guia.top - alvo.top);
-    hideDropLine(ul);
+    // ---- O PAR ↑↓ MOVE, E A ORDEM É A DA LISTA (v5.285) ----
+    // O caso da LINHA-GUIA do arrasto (v5.272) morava aqui e saiu com ele: não
+    // há mais posicionamento absoluto a conferir. O que ficou é a pergunta que
+    // importa e que sobrevive à troca de gesto — o item foi para onde o botão
+    // prometeu —, medida na lista de VERDADE e pelo botão de verdade.
+    const descer = () => {
+      const alvo2 = corpo.querySelector('.lib-item[data-id="' + ids[0] + '"]');
+      const bs = alvo2.querySelectorAll('.row-ordem');
+      bs[1].click();
+    };
+    descer();
+    await new Promise((r) => setTimeout(r, 300));
+    const ordemDepois = (await AVDB.listIds('favs')).indexOf(ids[0]);
+    // E A GAVETA REABRE no item que se moveu, com o ↓ de novo sob o dedo — sem
+    // isto cada casa custaria reabrir o menu à mão, que é o que tornaria uma
+    // sequência de toques insuportável. Medido aqui, e não no caso da lista
+    // solta: `redesenharFavoritosNaBiblioteca` desiste com a Biblioteca fechada,
+    // e é só aqui que ela está aberta de verdade.
+    const reaberta = document.querySelector('[data-fav-corpo] .lib-item.acoes-abertas');
+    const reabriu = !!reaberta && reaberta.dataset.id === ids[0];
 
     // ---- O TOQUE LONGO não liga modo nenhum ----
     const row = li.querySelector('.row');
@@ -2298,17 +2367,19 @@ try {
     ev('pointercancel');
 
     return {
-      erroGuia,
-      posUl: getComputedStyle(ul).position,
+      ordemDepois, reabriu,
       modo,
       temExcluir: !!li.querySelector('.row-excluir'),
       ids,
     };
   });
   checar(!fav.erro, 'a lista dos Favoritos foi desenhada na Biblioteca', fav.erro);
-  checar(Math.abs(fav.erroGuia) <= 1,
-    'a linha-guia do reordenar cai EXATAMENTE onde a conta promete — a `<ul>` é '
-    + 'o bloco contendor dela', fav.erroGuia + 'px de erro, ul ' + fav.posUl);
+  checar(fav.ordemDepois === 1,
+    'o ↓ da gaveta MOVE o item uma casa na lista de verdade (v5.285)',
+    'o primeiro foi para o índice ' + fav.ordemDepois);
+  checar(fav.reabriu,
+    'e a gaveta REABRE no item que se moveu: o botão continua sob o mesmo dedo '
+    + 'para a casa seguinte');
   checar(fav.modo === false,
     'e o toque longo NÃO liga a seleção múltipla aqui: ela nunca se desenhou '
     + 'nesta lista, e a barra dela ia parar na tela do Cronograma');
