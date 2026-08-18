@@ -1042,12 +1042,14 @@ try {
       cabecalho: !grupo ? '' : (grupo.querySelector('.coll-group-bar') || {}).textContent,
       temAcaoNaBarra: !!(grupo && grupo.querySelector('.coll-group-bar .coll-group-acao')),
       semContagem: !!grupo && !grupo.querySelector('.coll-group-count'),
-      // E a GAVETA continua inteira: o host é emprestado, não movido.
-      naGaveta: (() => {
-        document.getElementById('favList').innerHTML = '';
-        renderFolderList();
-        return /Louvor favorito de teste/.test(document.getElementById('favList').textContent);
-      })(),
+      // E ESTA É A ÚNICA CASA (v5.293). Até aqui a asserção era "a gaveta
+      // continua desenhando a dela — o host é emprestado, não movido"; a
+      // gaveta saiu do documento junto com o último caminho que levava a ela,
+      // então a pergunta forte passou a ser a inversa: não sobrou nó nenhum
+      // do subsistema antigo, e o corpo da seção é o único lugar em que esta
+      // lista aparece.
+      semGaveta: !document.getElementById('favPopup')
+        && !document.getElementById('favList'),
     };
     r.semRodape = r.rodape.length === 0;
     // A AÇÃO DA BARRA FAZ A COISA (v5.254). Ela abria uma folha com duas
@@ -1231,8 +1233,9 @@ try {
   checar(favs.semLinhaDeDisco,
     'e a Biblioteca não tem mais rodapé de uso do disco — número que a medida '
     + 'não sustenta, disputando com o peso que os cabeçalhos já dizem');
-  checar(favs.naGaveta,
-    'e a GAVETA continua desenhando a dela — o host é emprestado, não movido');
+  checar(favs.semGaveta,
+    'e não sobrou nó nenhum da gaveta de tela cheia no documento (v5.293): a '
+    + 'seção da Biblioteca é a ÚNICA casa desta lista');
   // ── UM BOTÃO, DUAS ORIGENS (v5.239) ────────────────────────────────────
   // Pedido do operador: as ações da seção vão para a BARRA dela, só com ícone,
   // e "Adicionar pasta" se unifica com "buscar no sistema" — um toque, e a
@@ -1335,8 +1338,10 @@ try {
       nomes: [...li.querySelectorAll('.folder-itens > .lib-item .row-name')]
         .map((e) => e.textContent),
       // A METADE QUE IMPORTA: nenhuma gaveta de tela cheia entrou em cena, e a
-      // Biblioteca continua aberta por baixo.
-      popup: favPopupEl.classList.contains('open'),
+      // Biblioteca continua aberta por baixo. Desde a v5.293 a gaveta não existe
+      // mais no documento — a asserção passa a ser sobre isso, que é a forma
+      // mais forte da mesma pergunta.
+      popup: !!document.getElementById('favPopup'),
       biblioteca: hymnSearchPopupEl.classList.contains('open'),
     };
     // E cada arquivo abre as MESMAS opções do resto da Biblioteca — com
@@ -2866,23 +2871,44 @@ try {
     // ---- E A PASTA DO APARELHO, com linhas de verdade ----
     // Uma asserção "não achei o lápis" numa lista VAZIA passaria sem medir
     // nada, que é o pior artefato que este repositório sabe produzir. Daí o
-    // fixture: uma pasta ABERTA com um arquivo dentro, desenhada pelo mesmo
-    // `renderLibrary` — e medida no host daquela aba (`#favList`), que é outro.
-    activeTab = 'folders';
-    currentFolder = { id: 'pasta-teste', name: 'Pasta de teste', _opfs: true };
-    libItems = [{ id: 'arq-teste', name: 'Arquivo da pasta', type: 'audio/mpeg',
-      kind: 'audio', folder: 'pasta-teste' }];
-    renderLibrary();
-    await new Promise((res) => setTimeout(res, 150));
-    const hostPasta = document.getElementById('favList');
-    r.linhasPasta = hostPasta.querySelectorAll('.lib-item').length;
-    const maisPasta = hostPasta.querySelector('.lib-item .row-mais');
-    if (maisPasta) { maisPasta.click(); await new Promise((res) => setTimeout(res, 200)); }
-    r.naPasta = r.linhasPasta > 0 && !hostPasta.querySelector('.row-renomear');
-    // E a metade NEGATIVA da metade negativa: a gaveta daquela linha existe, e
-    // tem outros botões — sem isto, uma gaveta que não abrisse passaria.
-    r.pastaTemGaveta = !!hostPasta.querySelector('.row-acoes .row-btn');
-    currentFolder = null; libItems = []; activeTab = 'imports';
+    // fixture.
+    //
+    // PELO CAMINHO DE VERDADE (v5.293). Até aqui ele escrevia `activeTab =
+    // 'folders'` e um `currentFolder` à mão — um estado que o app não alcança
+    // desde a v5.290 e que deixou de existir na v5.293. Um oráculo que monta um
+    // estado impossível prova o comportamento de um app que não existe: agora
+    // ele abre a pasta INLINE na Biblioteca, como o operador abre.
+    // O FIXTURE É PRÓPRIO desta página: `pg6` nasceu depois dos casos da pasta,
+    // e depender do que outra página deixou no banco faria a asserção medir
+    // zero linha — que é uma lista VAZIA passando por "não achei o lápis".
+    for (const n of ['B video.mp4', 'A audio.mp3']) {
+      await AVDB.fileAdd({ id: 'rn-' + n, name: n, type: 'audio/mpeg', kind: 'audio',
+        folder: 'pasta-renomear', opfsPath: 'folders/pasta-renomear/' + n, size: 4, mtime: 1 });
+    }
+    await AVDB.setState('opfs-folders',
+      [{ id: 'pasta-renomear', name: 'Vídeos do culto', count: 2 }]);
+    await load();
+    if (!hymnSearchPopupEl.classList.contains('open')) openHymnSearch();
+    await new Promise((res) => setTimeout(res, 400));
+    const corpoFav = document.querySelector('[data-fav-corpo]');
+    const liPasta = corpoFav && corpoFav.querySelector('.folder-opfs');
+    if (liPasta && !liPasta.classList.contains('expanded')) {
+      liPasta.querySelector('.row').click();
+      await new Promise((res) => setTimeout(res, 450));
+    }
+    const arqPasta = liPasta && liPasta.querySelector('.folder-itens > .lib-item');
+    r.linhasPasta = liPasta ? liPasta.querySelectorAll('.folder-itens > .lib-item').length : 0;
+    if (arqPasta) {
+      // A GAVETA de um arquivo de pasta abre pelo CORPO da linha (v5.285), não
+      // por um `⋮`: aquela faixa é do Cronograma e da fila da playlist.
+      arqPasta.querySelector('.row').click();
+      await new Promise((res) => setTimeout(res, 350));
+      r.naPasta = !arqPasta.querySelector('.row-renomear');
+      // E a metade NEGATIVA da metade negativa: a gaveta daquela linha ABRIU e
+      // tem opções — sem isto, uma gaveta que não abrisse passaria.
+      r.pastaTemGaveta = arqPasta.querySelectorAll('.hymn-opcoes .song-menu-sel').length > 0;
+    }
+    closeHymnSearch();
     await load();
     return r;
   });
