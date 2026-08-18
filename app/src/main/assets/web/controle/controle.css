@@ -1906,12 +1906,24 @@ main {
    *Outlined* (sem o eixo `FILL` da variável), então o glifo `star` desenha
    sempre a mesma estrela vazada, e a cor sozinha deixava a dúvida de "dourada
    quer dizer marcado ou quer dizer que dá para marcar?".
-   Chapada como a alça de arrastar: numa linha que já tem miniatura, nome, selo
-   e às vezes dois botões, mais um fundo sólido viraria ruído.
-   Desmarcada fica em `--line`, e não em `--muted`: precisa ser discreta o
-   bastante para o olho passar batido pela lista inteira e forte o bastante para
-   ser encontrada quando se procura por ela. */
-.fav-btn { background: transparent; color: var(--line); }
+
+   ---------- ELA DEIXOU DE SER CHAPADA (v5.288) ----------
+   Pedido do operador: *"verifique o design do favoritar no cronograma, para que
+   seja um botão quadrado igual as outras opções"*.
+
+   O `background: transparent` tinha um argumento escrito, e ele EXPIROU com a
+   mudança de casa: *"numa linha que já tem miniatura, nome, selo e às vezes
+   dois botões, mais um fundo sólido viraria ruído"* — verdade quando ela morava
+   NA LINHA, ao lado do nome. Desde a v5.258 ela mora dentro da gaveta do `⋮`,
+   onde TODOS os vizinhos são `.row-btn` preenchidos: chapada ali, ela era a
+   única peça da fileira sem caixa, e a exceção não dizia nada. (O par que o
+   argumento citava — a alça de arrastar — nem existe mais desde a v5.285.)
+
+   O que NÃO muda é o que a estrela sempre disse: o ESTADO é o desenho
+   (preenchida × vazada) mais a cor. Desmarcada fica em `--line`, e não em
+   `--muted`: discreta o bastante para o olho passar batido pela lista inteira e
+   forte o bastante para ser encontrada quando se procura por ela. */
+.fav-btn { color: var(--line); }
 .fav-btn.on { color: var(--brand); }
 
 /* A miniatura da CENA DE ROTEIRO em ouro: ela diz "isto não é mídia, é uma
@@ -1955,7 +1967,29 @@ main {
      dividiam o mesmo `--panel-2` porque os dois eram chamados de "contêiner".
      São contêineres, e não são o MESMO contêiner: um está dentro do outro. */
   background: var(--camada);
-  padding: .55rem .7rem;
+  /* ---------- O CARD NÃO TEM PADDING PRÓPRIO (v5.288) ----------
+     Relato do operador: *"nos álbuns há um toque em uma margem à esquerda da
+     seta que abre o álbum, que encolhe os itens dentro do card mas não abre o
+     álbum"*.
+
+     Medido: o card tinha `padding: .55rem .7rem`, e a `.coll-bar` começava
+     11,2px depois da borda dele. Aquela faixa era do CARD, não da barra —
+     `elementFromPoint` ali devolve `.hymnal-card`, que não tem ouvinte nenhum:
+     o toque simplesmente não abria. E ela envolvia a barra pelos QUATRO lados,
+     não só à esquerda.
+
+     A pista de que isto era um resíduo estava no próprio arquivo: a barra do
+     card ABERTO já desfazia esse padding com margens negativas
+     (`margin: -.55rem -.7rem`), para grudar no topo como tampa — isto é, com o
+     álbum aberto a faixa funcionava e com ele fechado, não. **O mesmo pixel
+     respondia ou não conforme o estado**, que é a pior forma de um alvo ser
+     imprevisível.
+
+     Agora o recuo mora em quem PINTA (a barra e o corpo aberto), e o card é só
+     a caixa: colapsado, ele mede exatamente a barra, e cada pixel dele abre o
+     álbum. As margens negativas da tampa saíram junto — elas existiam só para
+     desfazer isto. */
+  padding: 0;
 }
 
 /* Cabeçalho de grupo: o nome da CATEGORIA do banco. A aba Álbuns reproduz a
@@ -2329,7 +2363,12 @@ main {
    de fechamento precisa medir), então sem isto todo grupo fechado deixaria uma
    faixa de padding no meio do índice. */
 .coll-group--drop:not(.aberto) > .coll-group-corpo { display: none; }
-.coll-bar { display: flex; align-items: center; gap: .55rem; cursor: pointer; }
+/* O RECUO É DA BARRA, e não do card (v5.288 — ver `.hymnal-card`): é o que faz
+   a faixa em volta dela ser ALVO em vez de margem morta. */
+.coll-bar {
+  display: flex; align-items: center; gap: .55rem; cursor: pointer;
+  padding: .55rem .7rem;
+}
 /* Coluna nome + subtítulo das linhas de lista (coleção, versão da Bíblia,
    resultado de busca): a mesma receita, num lugar só. */
 .coll-bar-info, .bible-ver-main, .hymn-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
@@ -2426,7 +2465,10 @@ main {
 .hymnal-card.expanded .coll-bar {
   position: sticky; top: 0; z-index: 3;
   background: var(--camada);   /* o mesmo do cartão: ela é a tampa dele */
-  margin: -.55rem -.7rem 0; padding: .55rem .7rem;
+  /* (As margens negativas que havia aqui saíram na v5.288: elas desfaziam o
+     padding do card para a tampa sangrar até a borda — e o padding do card
+     saiu, porque era ele que fazia a faixa em volta da barra não abrir o
+     álbum.) */
   border-radius: var(--radius-card) var(--radius-card) 0 0;
   box-shadow: 0 6px 12px -8px var(--shadow-ink);
 }
@@ -2455,7 +2497,10 @@ main {
    atravessar a largura toda. Sem filete nenhum (v5.267), o que separa as faixas
    é o espaço, e sangrar até a borda só faria a primeira e a última faixa
    encostarem no canto arredondado do cartão.) */
-.coll-open { margin: 0; padding: 0; }
+/* O RECUO DO CONTEÚDO ABERTO (v5.288): ele vinha do padding do card, que saiu
+   para a faixa em volta da barra deixar de ser margem morta. Aqui ele volta
+   como o que sempre foi — o inset das músicas e o rodapé do cartão. */
+.coll-open { margin: 0; padding: 0 .7rem .55rem; }
 /* As músicas, dentro do card. Sem teto de altura: quem abriu um álbum quer
    percorrê-lo inteiro, e uma segunda barra de rolagem dentro da lista que já
    rola é o pior jeito de folhear. */
@@ -4052,15 +4097,16 @@ main {
    são os mesmos `.row-btn`, e vestem `--gaveta-btn` como as opções acima: o
    `--surface` que eles trazem de fábrica é um OVERLAY, e aqui dentro ele
    resolve para o par SUNK (a gaveta mora numa seção da Biblioteca) — preto
-   sobre o poço, que já é o tom mais escuro do app, não produz degrau nenhum. A
-   estrela é a exceção que ela já era em toda linha: transparente, porque quem
-   carrega o estado dela é a COR do desenho. */
+   sobre o poço, que já é o tom mais escuro do app, não produz degrau nenhum.
+
+   (A ESTRELA saiu desta faixa na v5.288: nesta lista ela e a lixeira faziam a
+   mesma coisa — ver `favItemRow`. Ela continua inteira nas outras listas, onde
+   alterna de verdade.) */
 .fav-acoes {
   display: flex; align-items: center; justify-content: flex-end; gap: .35rem;
   padding: 0 .5rem .5rem;
 }
 .fav-acoes .row-btn { background: var(--gaveta-btn); }
-.fav-acoes .fav-btn { background: transparent; }
 /* A METADE DE BAIXO da gaveta só aparece com `vendo-letra` (v5.286) — ver o
    botão irmão do confirmar em `montarOpcoes`. Ela é a mais alta das duas, e
    aberta por padrão empurrava as opções para longe do dedo em toda abertura,

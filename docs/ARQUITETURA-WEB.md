@@ -4665,6 +4665,7 @@ Itens sem blob local exibem badge `URL` ou `YT`.
 |---|---|
 | Toque simples | **Substitui a playlist por este item** e o exibe no Display |
 | `⋮` → ↑ / ↓ | Reordena o item na lista, uma casa por toque (v5.285). **Nos Favoritos o `⋮` saiu na v5.287**: o par mora na faixa de ações da gaveta, que abre no corpo da linha |
+| `⋮` → ✏️ | **Renomear** o item, um toque (v5.288). Ele existia só para UM item de cada vez e atrás de quatro gestos (toque longo → seleção → botão do rodapé → diálogo). **Não entra na pasta do aparelho**, com a mesma guarda do excluir: ali o nome vem do arquivo, e um nome só no registro seria desfeito na varredura seguinte. O lápis é SVG inline — `edit` não está no subset da fonte, e codepoint ausente desenha um retângulo vazio |
 | Pressionar e segurar | Entra no modo de seleção múltipla |
 
 **O ARRASTAR SAIU NA v5.285**, das três listas de uma vez (Cronograma,
@@ -4802,8 +4803,20 @@ usa `listRemove` (com gc).
 >   escolher;
 > - **"Favoritar"** — o item É um favorito, e quem o tira de lá é a estrela.
 >
-> As ações da linha (estrela, ↑↓, excluir) descem para uma faixa no PÉ da
-> gaveta, com os mesmos botões e os mesmos ouvintes de antes. **O Parar na capa
+> As ações da linha (↑↓, excluir) descem para uma faixa no PÉ da gaveta, com os
+> mesmos botões e os mesmos ouvintes de antes.
+>
+> **E A ESTRELA SAIU DELA NA v5.288** — pedido do operador: *"remova ou a opção
+> de excluir ou a opção de desfavoritar, pois tecnicamente ambas fazem a mesma
+> coisa"*. Nesta lista fazem: as duas terminam num `listRemove('favs', id)`.
+> Fica a LIXEIRA, e isto REVOGA a frase da v5.287 que dizia "quem o tira de lá é
+> a estrela". Três razões: **(1)** aqui a estrela é um alternador de UMA
+> direção — todo item já é favorito, ela nasce sempre acesa, e o único toque
+> possível é o que apaga (um botão de excluir vestido de alternador, que nunca
+> chega a dizer "favoritar"); **(2)** a lixeira PERGUNTA, e a linha some de uma
+> lista curada à mão; **(3)** ela solta a prateleira invisível
+> (`soltarAvulso`) — a diferença entre "a linha sumiu" e "os bytes saíram".
+> Nas outras listas a estrela fica, e ali ela alterna de verdade. **O Parar na capa
 > continua sendo um toque direto**: tirar do ar é a decisão que não pode custar
 > uma gaveta. E o **preço está dito**: projetar um favorito passou de um toque a
 > três (abrir, marcar, confirmar) — em troca, as três listas passam a estar a um
@@ -5310,6 +5323,35 @@ sincroniza) + **baixar/cancelar** (`.coll-bar-dl`) + a **seta de acordeão**
 (`ui(coll.id).expanded`), com a lista de músicas dentro; sem índice ainda, o
 toque leva às **opções**, que é justamente onde está o sincronizar que resolve
 isso.
+
+> **O OUVINTE É DO CARD, E NÃO DA BARRA (v5.288)** — e a razão é um defeito que
+> só aparece com o dedo. Relato do operador: *"nos álbuns há um toque em uma
+> margem à esquerda da seta que abre o álbum, que ENCOLHE os itens dentro do
+> card, mas não abre o álbum"*.
+>
+> **O feedback de toque tirava o alvo de baixo do dedo.** `.coll-bar` está na
+> lista do `:active`, cujo `--press` é `scale(.96)`: numa barra de ~395px isso a
+> encolhe ~8px de cada lado. O `pointerdown` acerta a barra e dispara o
+> encolhimento; no `pointerup` ela já não está ali, e o navegador entrega o
+> `click` ao ancestral que sobrou — o card, que não tinha ouvinte nenhum. Medido
+> por varredura: até ~7px da borda o toque não abre, de 8px em diante abre, e a
+> fronteira é exatamente o que a animação vaga. A margem existe nos quatro
+> lados, não só à esquerda.
+>
+> Subir o ouvinte para o CARD fecha a classe inteira — ele é o elemento que não
+> se mexe, então qualquer retargeting causado pelo encolhimento cai em quem sabe
+> responder. A **guarda** é o `.coll-open` (o invólucro de tudo que não é a
+> barra): sem ela, com o álbum aberto um toque numa faixa borbulharia até aqui e
+> fecharia o álbum debaixo do dedo. Ela pergunta pelo INVÓLUCRO e não por uma
+> lista de filhos, para o próximo bloco que nascer lá dentro já nascer
+> protegido.
+>
+> **E o `padding` saiu do card**, indo para quem PINTA (a barra e o corpo
+> aberto). Ele era um resíduo com a pista escrita no próprio arquivo: a barra do
+> álbum ABERTO já o desfazia com margens negativas para grudar como tampa —
+> isto é, com o álbum aberto aquela faixa funcionava e com ele fechado, não. O
+> mesmo pixel respondendo ou não conforme o estado é a pior forma de um alvo ser
+> imprevisível.
 
 > **Sem molduras, sem seta, sem faixa de cor (v5.71).** O card tinha um contorno
 > de 1px em `--line`, uma faixa de 3px com a `color` do álbum no banco e uma

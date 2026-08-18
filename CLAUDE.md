@@ -3053,10 +3053,97 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.287** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.288** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.288: O FEEDBACK DE TOQUE TIRAVA O ALVO DE BAIXO DO DEDO — e mais três.
+> OTA PURO** (sem Release).
+>
+> Quatro pedidos do operador, e o terceiro é o achado do lote.
+>
+> - **O CARD DO ÁLBUM NÃO ABRIA PERTO DA BORDA.** Relato: *"nos álbuns há um
+>   toque em uma margem à esquerda da seta que abre o álbum, que ENCOLHE os
+>   itens dentro do card, mas não abre o álbum"*.
+>
+>   **A causa não é o pixel, é o próprio FEEDBACK.** `.coll-bar` está na lista
+>   do `:active` do app, cujo `--press` é `scale(.96)` — numa barra de ~395px
+>   isso a encolhe ~8px de cada lado. O `pointerdown` acerta a barra e dispara o
+>   encolhimento; no `pointerup` ela já não está mais ali, e o navegador entrega
+>   o `click` ao ancestral que sobrou: o card, que não tinha ouvinte nenhum.
+>   Medido por varredura, com o card de 395px: **até ~7px da borda o toque não
+>   abre; de 8px em diante abre** — e a fronteira é exatamente o que a animação
+>   vaga. A "margem à esquerda da seta" existe também à direita, em cima e
+>   embaixo.
+>
+>   A correção não é caçar pixels: o ouvinte sobe para o **CARD**, que é o
+>   elemento que não se mexe — qualquer retargeting causado pelo encolhimento
+>   passa a cair em quem sabe responder, e a classe inteira fecha. A GUARDA é o
+>   `.coll-open` (o invólucro de tudo que não é a barra): sem ela, com o álbum
+>   aberto um toque numa faixa borbulharia até o card e o fecharia debaixo do
+>   dedo. Perguntar pelo invólucro, e não por uma lista de filhos, é o que faz o
+>   próximo bloco que nascer lá dentro já nascer protegido.
+>
+>   **E o padding saiu do card** (`.hymnal-card { padding: 0 }`), indo para quem
+>   PINTA — a barra e o corpo aberto. Ele era um resíduo com pista no próprio
+>   arquivo: a barra do álbum ABERTO já o desfazia com margens negativas para
+>   grudar como tampa, isto é, **com o álbum aberto aquela faixa funcionava e
+>   com ele fechado, não** — o mesmo pixel respondendo ou não conforme o estado.
+> - **RENOMEAR ENTRA NA GAVETA DA LINHA DO CRONOGRAMA.** Ele existia só para UM
+>   item de cada vez e atrás de quatro gestos (toque longo → seleção múltipla →
+>   botão do rodapé → diálogo), que é a mesma correção que o excluir recebeu na
+>   v5.272. **Na pasta do aparelho ele NÃO entra**, com a mesma guarda do
+>   excluir: ali o nome vem do arquivo, e um nome só no registro seria desfeito
+>   na varredura seguinte. O lápis é **SVG inline** e nunca um glifo — a fonte é
+>   um subset estático e `edit` não está nele; codepoint ausente desenha um
+>   retângulo vazio, sem erro em lugar nenhum (a armadilha da v5.184 e da
+>   v5.200).
+>
+> E os dois primeiros pedidos, os dois sobre a estrela em telas diferentes.
+>
+> - **NOS FAVORITOS, A ESTRELA SAI E A LIXEIRA FICA.** *"Remova ou a opção de
+>   excluir ou a opção de desfavoritar, pois tecnicamente ambas fazem a mesma
+>   coisa."* Nesta lista fazem: as duas terminam num `listRemove('favs', id)`, e
+>   o que se vê é a mesma linha sumindo.
+>
+>   **Isto REVOGA meia frase da v5.287** — ela dizia "quem o tira de lá é a
+>   estrela". Três razões, na ordem em que pesam: **(1)** aqui a estrela é um
+>   alternador de UMA direção — todo item desta lista já é favorito, então ela
+>   nasce sempre acesa e o único toque possível é o que apaga, isto é, um botão
+>   de excluir vestido de alternador que nunca chega a dizer "favoritar";
+>   **(2)** a lixeira PERGUNTA, e a linha some de uma lista que o operador
+>   montou à mão — o texto do diálogo ainda explica a semântica exata ("os
+>   arquivos só são apagados se ele não estiver em mais nenhuma"); **(3)** ela
+>   solta a prateleira invisível (`soltarAvulso`), que é a diferença entre "a
+>   linha sumiu" e "os bytes saíram" — a estrela não faz isso, porque
+>   desfavoritar não é uma declaração de intenção de apagar.
+>
+>   Nas outras listas a estrela continua inteira, e ali ela alterna de verdade.
+> - **E NO CRONOGRAMA ELA VIRA UM BOTÃO COMO OS OUTROS.** *"Verifique o design
+>   do favoritar no cronograma, para que seja um botão quadrado igual as outras
+>   opções."* O `background: transparent` dela tinha um argumento escrito, e ele
+>   EXPIROU com uma mudança de casa: *"numa linha que já tem miniatura, nome,
+>   selo e às vezes dois botões, mais um fundo sólido viraria ruído"* — verdade
+>   quando ela morava NA LINHA. Desde a v5.258 ela mora dentro da gaveta do `⋮`,
+>   onde todos os vizinhos são `.row-btn` preenchidos: chapada ali, ela era a
+>   única peça da fileira sem caixa, e a exceção não dizia nada. (O par que o
+>   argumento citava — a alça de arrastar — nem existe mais desde a v5.285.) O
+>   ESTADO continua sendo o desenho (preenchida × vazada) mais a cor, que é o
+>   que a estrela sempre disse.
+>
+> A régua do oráculo da estrela é a dos VIZINHOS, e não um valor escrito: ele
+> exige que todos os `.row-btn` da faixa tenham o MESMO fundo e que ele não seja
+> transparente — um token novo do dia seguinte não pode reprovar isto. E o do
+> card mede um CLIQUE DE VERDADE (`mouse.click`, porque um `el.click()`
+> sintético não passa por hit-test nenhum e aprovaria o defeito inteiro), nas
+> três metades: fechado a borda abre, aberto a mesma borda fecha, e um toque
+> numa faixa não fecha nada.
+>
+> Verificado por ISOLAMENTO: devolvendo o `transparent`, **1** asserção reprova;
+> devolvendo a estrela à faixa dos favoritos, **1**; devolvendo o ouvinte à
+> barra e o padding ao card, **3**; tirando só a guarda do `.coll-open`, **1**;
+> tirando o renomear, **4**.
 
 > **A v5.287: A GAVETA PARA DE SE MESCLAR COM A LISTA, e a linha de favorito
 > ganha o mesmo sistema da Biblioteca. OTA PURO** (sem Release).

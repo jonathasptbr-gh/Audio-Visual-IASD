@@ -1175,7 +1175,14 @@ try {
         marcaveis: gav.querySelectorAll('.hymn-opcoes .song-menu-check').length,
         confirmar: ((gav.querySelector('.song-menu-go .song-menu-label') || {}).textContent) || '',
         acoesNaGaveta: !!gav.querySelector('.fav-acoes .row-ordem')
-          && !!gav.querySelector('.fav-acoes .fav-btn'),
+          && !!gav.querySelector('.fav-acoes .row-excluir'),
+        // ===== UMA SAÍDA SÓ, E ELA PERGUNTA (v5.288) =====
+        // Pedido do operador: *"remova ou a opção de excluir ou a opção de
+        // desfavoritar, pois tecnicamente ambas fazem a mesma coisa"*. Nesta
+        // lista faziam — as duas terminam num `listRemove('favs', id)`. Fica a
+        // LIXEIRA, porque aqui a estrela é um alternador de uma direção só
+        // (todo item já é favorito) e porque ela pergunta antes.
+        semEstrela: !gav.querySelector('.fav-btn') && !li.querySelector('.fav-btn'),
         naoProjetou: (await AVDB.listIds('playlist')).join(',') === plAntes,
       };
       // E O CONFIRMAR FAZ O QUE DIZ: marcar "Cronograma" e confirmar põe o item
@@ -1284,8 +1291,11 @@ try {
     'e o confirmar FAZ o que diz: marcado o Cronograma, o item entra nele',
     JSON.stringify([favs.gaveta.confirmarAtivo, favs.gaveta.foiPraCrono]));
   checar(favs.gaveta.acoesNaGaveta,
-    'e as ações da linha (estrela, ↑↓, excluir) descem para a faixa de baixo da '
-    + 'gaveta, em vez de cobrirem o título');
+    'e as ações da linha (↑↓, excluir) descem para a faixa de baixo da gaveta, '
+    + 'em vez de cobrirem o título');
+  checar(favs.gaveta.semEstrela,
+    'e a linha de favorito tem UMA saída só (v5.288): a estrela saiu — aqui ela '
+    + 'e a lixeira faziam a mesma coisa, e só a lixeira pergunta antes');
   checar(favs.lista.subs === favs.lista.nomes.length,
     'e o subtítulo voltou a aparecer: sem cabeçalho de tipo, é ele que distingue');
   checar(favs.lista.ordemDepois === 0,
@@ -2492,6 +2502,91 @@ try {
   checar(saiu.noCronograma,
     'e NÃO o tira das outras — "excluir" aqui é sair da lista, não apagar os '
     + 'bytes de quem ainda os segura', JSON.stringify(saiu));
+
+  // ===== RENOMEAR NA GAVETA DA LINHA DO CRONOGRAMA (v5.288) =====
+  //
+  // Pedido do operador: *"adicione renomear nas opções individuais dos itens do
+  // cronograma"*. Ele existia só para UM item de cada vez e atrás de quatro
+  // gestos (toque longo → seleção → botão do rodapé → diálogo), que é a mesma
+  // correção que o excluir recebeu na v5.272.
+  //
+  // Medido no CRONOGRAMA (`activeTab = 'imports'`), que é a lista do pedido, e
+  // pelo caminho de verdade: abrir a gaveta, tocar no lápis, escrever e
+  // confirmar. As duas metades — o nome muda no BANCO e a linha o mostra —,
+  // porque um rename que só reescrevesse o registro deixaria a tela mentindo
+  // até o próximo `load()`.
+  const ren = await pg6.evaluate(async () => {
+    const m = await AVDB.addMedia(new Blob([new Uint8Array(8)], { type: 'audio/mpeg' }),
+      { name: 'Nome antigo', type: 'audio/mpeg', kind: 'audio', list: 'imports' });
+    activeTab = 'imports';
+    await load();
+    const li = document.querySelector('#library .lib-item[data-id="' + m.id + '"]');
+    if (!li) return { erro: 'a linha não foi desenhada no Cronograma' };
+    li.querySelector('.row-mais').click();
+    await new Promise((r) => setTimeout(r, 200));
+    const lapis = li.querySelector('.row-renomear');
+    const temLapis = !!lapis;
+    // E ELE É UM DESENHO, nunca um glifo da fonte: o subset é ESTÁTICO e `edit`
+    // não está nele — um codepoint ausente desenha um retângulo vazio, sem erro
+    // nenhum (a armadilha da v5.184 e da v5.200).
+    const svg = temLapis && !!lapis.querySelector('svg');
+    if (!temLapis) return { erro: 'sem o botão de renomear', temLapis, svg };
+    lapis.click();
+    await new Promise((r) => setTimeout(r, 250));
+    const campo = document.getElementById('appDialogInput');
+    const valorInicial = campo.value;
+    campo.value = 'Nome novo';
+    document.getElementById('appDialogOk').click();
+    await new Promise((r) => setTimeout(r, 450));
+    const rec = await AVDB.getMedia(m.id);
+    const linha = document.querySelector('#library .lib-item[data-id="' + m.id + '"] .row-name');
+    const r = {
+      temLapis, svg, valorInicial,
+      noBanco: rec ? rec.name : null,
+      naTela: linha ? linha.textContent : null,
+      // E NA PASTA DO APARELHO ELE NÃO ENTRA: ali o nome vem do arquivo, e um
+      // nome só no registro seria desfeito na varredura seguinte.
+      naPasta: null,
+    };
+    await AVDB.listRemove('imports', m.id);
+    // ---- E A PASTA DO APARELHO, com linhas de verdade ----
+    // Uma asserção "não achei o lápis" numa lista VAZIA passaria sem medir
+    // nada, que é o pior artefato que este repositório sabe produzir. Daí o
+    // fixture: uma pasta ABERTA com um arquivo dentro, desenhada pelo mesmo
+    // `renderLibrary` — e medida no host daquela aba (`#favList`), que é outro.
+    activeTab = 'folders';
+    currentFolder = { id: 'pasta-teste', name: 'Pasta de teste', _opfs: true };
+    libItems = [{ id: 'arq-teste', name: 'Arquivo da pasta', type: 'audio/mpeg',
+      kind: 'audio', folder: 'pasta-teste' }];
+    renderLibrary();
+    await new Promise((res) => setTimeout(res, 150));
+    const hostPasta = document.getElementById('favList');
+    r.linhasPasta = hostPasta.querySelectorAll('.lib-item').length;
+    const maisPasta = hostPasta.querySelector('.lib-item .row-mais');
+    if (maisPasta) { maisPasta.click(); await new Promise((res) => setTimeout(res, 200)); }
+    r.naPasta = r.linhasPasta > 0 && !hostPasta.querySelector('.row-renomear');
+    // E a metade NEGATIVA da metade negativa: a gaveta daquela linha existe, e
+    // tem outros botões — sem isto, uma gaveta que não abrisse passaria.
+    r.pastaTemGaveta = !!hostPasta.querySelector('.row-acoes .row-btn');
+    currentFolder = null; libItems = []; activeTab = 'imports';
+    await load();
+    return r;
+  });
+  checar(!ren.erro && ren.temLapis && ren.svg,
+    'A LINHA DO CRONOGRAMA GANHOU RENOMEAR na gaveta (v5.288), e o ícone é um '
+    + 'DESENHO — `edit` não está no subset da fonte, e um codepoint ausente sai '
+    + 'como retângulo vazio', JSON.stringify(ren));
+  checar(ren.valorInicial === 'Nome antigo',
+    'e o diálogo abre com o nome ATUAL, para trocar uma palavra não custar '
+    + 'redigitar a frase', 'campo: ' + JSON.stringify(ren.valorInicial));
+  checar(ren.noBanco === 'Nome novo' && ren.naTela === 'Nome novo',
+    'e o nome muda NO BANCO e NA TELA — sem a segunda metade a lista mentiria '
+    + 'até o próximo redesenho', JSON.stringify([ren.noBanco, ren.naTela]));
+  checar(ren.naPasta && ren.pastaTemGaveta,
+    'e ele NÃO entra na pasta do aparelho (com ' + ren.linhasPasta + ' linha(s) '
+    + 'de verdade na tela e a gaveta aberta): ali o nome vem do arquivo, e um '
+    + 'nome só no registro seria desfeito na varredura seguinte',
+    JSON.stringify([ren.linhasPasta, ren.naPasta, ren.pastaTemGaveta]));
   await pg6.close();
 } catch (e) {
   checar(false, 'o percurso dos Favoritos terminou sem exceção (' + (e && e.message) + ')');
