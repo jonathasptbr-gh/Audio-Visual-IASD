@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.287';
+const WEB_VERSION = '5.288';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -5928,6 +5928,10 @@ function renderLibrary() {
         addBtn,
         // O PAR ↑↓ (v5.285), no lugar da alça de arrastar. Só onde há ordem a
         // mexer: a pasta do aparelho não é uma lista reordenável.
+        // RENOMEAR (v5.288), com a mesma guarda do excluir logo abaixo: na
+        // pasta do aparelho o nome vem do arquivo, e um nome só no registro
+        // seria desfeito na varredura seguinte.
+        activeTab !== 'folders' ? botaoRenomearDaLinha(item, () => load()) : null,
         ...(activeTab !== 'folders' ? botoesDeOrdem(activeTab, item.id, i, items.length) : []),
         // NA PASTA DO APARELHO ELE NÃO ENTRA (v5.271): ali "excluir" apaga o
         // ARQUIVO físico, e essa limpeza tem donos próprios (`deleteSelected`,
@@ -6089,6 +6093,53 @@ function dotsIconSvg() {
   return '<svg viewBox="0 0 24 24" width="19" height="19" fill="currentColor" aria-hidden="true">'
     + '<circle cx="12" cy="5" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="12" cy="19" r="1.9"/>'
     + '</svg>';
+}
+
+// O LÁPIS de renomear. SVG inline, e nunca um glifo: a fonte é um SUBSET
+// ESTÁTICO de pouco mais de trinta codepoints, e `edit` não está nele — um
+// codepoint ausente desenha um RETÂNGULO VAZIO, sem erro em lugar nenhum (a
+// armadilha da v5.184 e da v5.200).
+function pencilIconSvg() {
+  return '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" '
+    + 'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    + '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>'
+    + '</svg>';
+}
+
+/**
+ * RENOMEAR UM ITEM, na gaveta da própria linha (v5.288).
+ *
+ * Pedido do operador: *"adicione renomear nas opções individuais dos itens do
+ * cronograma"*. Renomear já existia, e só para UM item de cada vez — atrás do
+ * toque longo, do modo de seleção múltipla e de um botão no rodapé
+ * (`renameSelected`), isto é, quatro gestos para trocar uma palavra. É a mesma
+ * correção que o excluir recebeu na v5.272, pela mesma razão.
+ *
+ * NA PASTA DO APARELHO ELE NÃO ENTRA, como o excluir: ali a lista é derivada do
+ * sistema de arquivos a cada sincronização, e um nome escrito só no registro
+ * seria desfeito na próxima varredura — sem erro, e sem nada que o explicasse.
+ */
+function botaoRenomearDaLinha(item, depois) {
+  const b = document.createElement('button');
+  b.className = 'row-btn row-renomear';
+  b.title = 'Renomear';
+  b.setAttribute('aria-label', 'Renomear');
+  b.innerHTML = pencilIconSvg();
+  b.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const nome = await appPrompt({
+      title: 'Renomear',
+      message: 'Novo nome:',
+      value: item.name || '',
+      okText: 'Renomear',
+    });
+    // Cancelou, ou apagou tudo: o nome VAZIO não é um nome. Deixar passar
+    // devolveria uma linha em branco no meio da lista do culto.
+    if (!nome || !nome.trim() || nome.trim() === item.name) return;
+    await AVDB.renameMedia(item.id, nome.trim());
+    await depois();
+  });
+  return b;
 }
 
 /**
@@ -7157,7 +7208,38 @@ function renderCollectionCard(coll, ctx) {
     if (!abrindo && aberto) { collapseAccordion(aberto, aplicar); return; }
     aplicar();
   };
-  bar.addEventListener('click', alternarAcordeao);
+  // ===== O ALVO É O CARD, E NÃO A BARRA (v5.288) =====
+  //
+  // Relato do operador: *"nos álbuns há um toque em uma margem à esquerda da
+  // seta que abre o álbum, que encolhe os itens dentro do card, mas não abre o
+  // álbum"*.
+  //
+  // **O FEEDBACK DE TOQUE TIRAVA O ALVO DE BAIXO DO DEDO.** `.coll-bar` está na
+  // lista do `:active` do app, cujo `--press` é `scale(.96)` — numa barra de
+  // 395px isso a encolhe ~8px de cada lado. O `pointerdown` acerta a barra (e é
+  // ele que dispara o encolhimento); no `pointerup`, a barra já não está mais
+  // ali, e o navegador entrega o `click` ao ANCESTRAL que sobrou: o card. Que
+  // não tinha ouvinte nenhum.
+  //
+  // Medido, com o card de 395px: até ~7px da borda o toque não abre; de 8px em
+  // diante abre. É a distância que a própria animação abriu — e é a "margem à
+  // esquerda da seta" do relato, que também existe à direita, em cima e
+  // embaixo.
+  //
+  // A correção não é caçar pixels: é o ouvinte subir para o CARD, que é o
+  // elemento que não se mexe. Assim qualquer retargeting causado pelo
+  // encolhimento continua caindo em quem sabe responder — a classe inteira
+  // fecha, não só o caso medido.
+  //
+  // A GUARDA é o corpo aberto: com o álbum aberto, um toque numa FAIXA ou nas
+  // opções borbulharia até aqui e fecharia o álbum debaixo do dedo. `.coll-open`
+  // é o invólucro de tudo que não é a barra — e é por ele que se pergunta, e não
+  // por uma lista de filhos, para o próximo bloco que nascer lá dentro já
+  // entrar protegido.
+  li.addEventListener('click', (e) => {
+    if (e.target.closest && e.target.closest('.coll-open')) return;
+    alternarAcordeao();
+  });
   li.appendChild(bar);
 
   // ----- Aberto: as opções (se pedidas) + as músicas da coleção -----
@@ -7778,10 +7860,32 @@ function favItemRow(item, pos, total) {
   // com os mesmos ouvintes. Ela fica FORA da `<ul>` porque `renderItemMenu`
   // reescreve a lista a cada marca — dentro, ela seria remontada a cada toque
   // numa caixa de seleção.
+  //
+  // ===== A ESTRELA SAIU DAQUI (v5.288) =====
+  //
+  // Pedido do operador: *"remova ou a opção de excluir ou a opção de
+  // desfavoritar, pois tecnicamente ambas fazem a mesma coisa"*. Nesta lista
+  // elas fazem: as duas terminam num `listRemove('favs', id)`, e o que o
+  // operador vê é a mesma linha sumindo.
+  //
+  // **Quem fica é a LIXEIRA, e a estrela é a que sai** — ao contrário do que a
+  // v5.287 escreveu ("quem o tira de lá é a estrela"). Três razões, na ordem em
+  // que pesam:
+  //
+  //  1. **Aqui a estrela é um alternador de UMA direção.** Todo item desta
+  //     lista já é favorito, então ela nasce sempre acesa e o único toque
+  //     possível é o que apaga — um botão de excluir vestido de alternador, que
+  //     nunca chega a dizer "favoritar". Nas outras listas ela alterna de
+  //     verdade, e por isso continua inteira lá.
+  //  2. **A lixeira PERGUNTA.** A linha some de uma lista que o operador montou
+  //     à mão; um diálogo é barato, e o texto dele já explica a semântica exata
+  //     ("os arquivos só são apagados se ele não estiver em mais nenhuma").
+  //  3. **Ela solta a prateleira invisível** (`soltarAvulso`), que é a
+  //     diferença entre "a linha sumiu" e "os bytes saíram" — a estrela não faz
+  //     isso, porque desfavoritar não é uma declaração de intenção de apagar.
   const acoes = document.createElement('div');
   acoes.className = 'fav-acoes';
   acoes.append(...[
-    favBtn(item.id, item.name),
     ...botoesDeOrdem('favs', item.id, pos, total),
     botaoExcluirDaLinha(item, 'favs', () => recarregarFavoritos()),
   ].filter(Boolean));

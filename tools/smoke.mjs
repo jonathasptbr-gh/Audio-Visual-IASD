@@ -1771,6 +1771,91 @@ try {
     + (e && e.message) + ')');
 }
 
+// ── O CARD DO ÁLBUM ABRE POR QUALQUER PIXEL (v5.288) ─────────────────────
+//
+// Relato do operador: *"nos álbuns há um toque em uma margem à esquerda da seta
+// que abre o álbum, que encolhe os itens dentro do card, mas não abre o
+// álbum"*.
+//
+// A causa não é o pixel, é o FEEDBACK: `.coll-bar` está na lista do `:active`,
+// cujo `--press` é `scale(.96)` — numa barra de ~395px isso a encolhe ~8px de
+// cada lado. O `pointerdown` acerta a barra (e dispara o encolhimento); no
+// `pointerup` ela já não está ali, e o `click` é entregue ao ancestral que
+// sobrou, o card, que não tinha ouvinte nenhum.
+//
+// O caso mede o que o operador mediu com o dedo: um CLIQUE DE VERDADE
+// (`mouse.click`, porque um `el.click()` sintético não passa por hit-test
+// nenhum e aprovaria o defeito inteiro) a 2px da borda do card. E cobra as duas
+// metades — com o álbum ABERTO, o mesmo toque na tampa FECHA, e um toque numa
+// FAIXA não fecha nada.
+try {
+  const prep = async (aberto) => pg.evaluate(async (ab) => {
+    setAppMode('full');
+    if (!hymnSearchPopupEl.classList.contains('open')) openHymnSearch();
+    const c = allCollections().find((x) => x.kind === 'hymnal');
+    window.__cid = c.id;
+    collState[c.id] = { indexSyncedAt: Date.now(), isHymnal: true,
+      songs: [1, 2, 3].map((i) => ({ id_music: 'a' + i, name: 'Hino ' + i, track: i,
+        has_instrumental_music: false, duration: '3:47' })) };
+    grupoAberto = 'Hinários'; favAberto = false;
+    ui(c.id).expanded = !!ab; ui(c.id).shown = 100;
+    redesenharAcervo();
+    await new Promise((r) => setTimeout(r, 500));
+    const card = document.querySelector('#hymnResults .hymnal-card');
+    card.scrollIntoView({ block: 'center' });
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const cr = card.getBoundingClientRect();
+    const ico = card.querySelector('.coll-bar-icon').getBoundingClientRect();
+    const faixa = card.querySelector('.coll-songs > .hymn-result');
+    const fr = faixa ? faixa.getBoundingClientRect() : null;
+    return {
+      borda: { x: Math.round(cr.left + 2), y: Math.round(ico.top + ico.height / 2) },
+      faixa: fr ? { x: Math.round(fr.left + fr.width / 2), y: Math.round(fr.top + fr.height / 2) } : null,
+      antes: ui(c.id).expanded,
+    };
+  }, aberto);
+  const estado = () => pg.evaluate(() => !!ui(window.__cid).expanded);
+  const alvo = () => pg.evaluate(() => {
+    const p2 = document.querySelector('#hymnResults .hymnal-card');
+    return p2 ? getComputedStyle(p2).paddingLeft : null;
+  });
+  // 1. FECHADO: 2px da borda abre.
+  const a = await prep(false);
+  await pg.mouse.click(a.borda.x, a.borda.y);
+  await pg.waitForTimeout(400);
+  const abriuNaBorda = await estado();
+  const padCard = await alvo();
+  // 2. ABERTO: a mesma borda (agora a tampa) FECHA.
+  const b = await prep(true);
+  await pg.mouse.click(b.borda.x, b.borda.y);
+  await pg.waitForTimeout(400);
+  const fechouNaBorda = !(await estado());
+  // 3. ABERTO: um toque numa FAIXA não fecha o álbum.
+  const c2 = await prep(true);
+  await pg.mouse.click(c2.faixa.x, c2.faixa.y);
+  await pg.waitForTimeout(400);
+  const faixaNaoFecha = await estado();
+  await pg.evaluate(() => {
+    ui(window.__cid).expanded = false; grupoAberto = ''; favAberto = true;
+    closeHymnSearch();
+  });
+  checar(abriuNaBorda,
+    'O CARD DO ÁLBUM ABRE a 2px da borda (v5.288) — era a "margem à esquerda da '
+    + 'seta" que o encolhimento do `:active` deixava sem alvo');
+  checar(padCard === '0px',
+    'e o card não tem padding próprio: o recuo é de quem PINTA (a barra e o '
+    + 'corpo aberto), senão a faixa em volta da barra volta a ser margem morta',
+    'padding-left do card: ' + padCard);
+  checar(fechouNaBorda,
+    'e com o álbum aberto o mesmo ponto FECHA — a tampa responde na borda dela');
+  checar(faixaNaoFecha,
+    'mas um toque numa FAIXA não fecha o álbum: a guarda é o `.coll-open`, e sem '
+    + 'ela subir o ouvinte para o card teria fechado o álbum debaixo do dedo');
+} catch (e) {
+  checar(false, 'a medição do alvo do card de álbum terminou sem exceção ('
+    + (e && e.message) + ')');
+}
+
 // ── A COLUNA DA DIREITA NÃO SE MEXE (v5.242) ─────────────────────────────
 // Pedido do operador: a seta de fechar o acordeão vai para a THUMB do álbum,
 // "não precisando mover os números referentes ao tamanho do álbum que hoje
@@ -2201,11 +2286,27 @@ try {
     r.alfaNoAr = partes.length === 4 ? partes[3] : 1;
     r.bgNoAr = bg;
     li.classList.remove('no-ar');
+    // 5. E A ESTRELA É UM BOTÃO COMO OS OUTROS (v5.288). Pedido do operador:
+    //    *"verifique o design do favoritar no cronograma, para que seja um
+    //    botão quadrado igual as outras opções"*. Ela era `background:
+    //    transparent` — a única peça da fileira sem caixa —, com um argumento
+    //    que valia quando ela morava NA LINHA e expirou quando ela desceu para
+    //    a gaveta do `⋮` (v5.258). A régua é a dos VIZINHOS, e não um valor
+    //    escrito: um token novo do dia seguinte não pode reprovar isto.
+    r.fundosDaFaixa = [...caixa.querySelectorAll('.row-btn')]
+      .map((b) => getComputedStyle(b).backgroundColor);
+    r.temEstrela = !!caixa.querySelector('.fav-btn');
     return r;
   });
   checar(!!geo && geo.thumbInteira,
     'a faixa de ações começa DEPOIS da miniatura — ela não corta a capa',
     JSON.stringify(geo));
+  checar(!!geo && geo.temEstrela && geo.fundosDaFaixa.length > 1
+    && new Set(geo.fundosDaFaixa).size === 1
+    && !/rgba\([^)]*,\s*0\)/.test(geo.fundosDaFaixa[0]),
+    'e a ESTRELA é um botão preenchido como os vizinhos dela (v5.288) — chapada '
+    + 'ela era a única peça da fileira sem caixa',
+    JSON.stringify(geo && geo.fundosDaFaixa));
   checar(!!geo && geo.mesmaCaixa && geo.alvo >= 40,
     'e a miniatura e TODOS os botões da linha medem o mesmo (' + (geo ? geo.alvo : 0)
     + 'px) — o alvo cresceu junto', JSON.stringify(geo));
