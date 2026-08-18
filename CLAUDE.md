@@ -3053,10 +3053,64 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.288** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.289** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.289: A GUARDA PERGUNTAVA À ÁRVORE DE AGORA, e o handler já a tinha
+> desmontado. OTA PURO** (sem Release).
+>
+> Três coisas: uma REGRESSÃO da v5.288 e dois pedidos do operador.
+>
+> - **TOCAR NUMA OPÇÃO DE PLAY FECHAVA O ÁLBUM INTEIRO.** Relato, no dia
+>   seguinte ao lote: *"agora ele está fechando o álbum ao tocar nos botões de
+>   check das opções de play"*.
+>
+>   A v5.288 subiu o ouvinte do acordeão para o CARD e o guardou com
+>   `e.target.closest('.coll-open')` — uma consulta à árvore VIVA. Só que o botão
+>   de destino é apagado pelo próprio handler que roda antes desta linha: marcar
+>   uma opção chama `renderSongMenu`, que faz `alvo.innerHTML = ''` e reconstrói
+>   a lista. Quando o evento chega ao card, o `e.target` está **desanexado** —
+>   `closest` sobe por um trecho de árvore que não tem mais pai nenhum, devolve
+>   `null`, a guarda falha e o álbum fecha. Medido: a marca nem chegava a pegar,
+>   porque o card era reconstruído por baixo.
+>
+>   **A régua que fica é mais larga que este arquivo:** um ouvinte que decide
+>   pela POSIÇÃO do alvo na árvore está perguntando "onde este nó está agora", e
+>   *agora* é depois de todos os handlers que rodaram antes dele. A pergunta que
+>   ele quer fazer é sobre o CAMINHO — *este clique nasceu dentro do corpo
+>   aberto?* —, e o caminho é fixado no DISPARO: `e.composedPath()` sobrevive ao
+>   apagamento; `closest` não.
+>
+>   Os irmãos que rebuildam do mesmo jeito foram medidos junto e passam: o
+>   seletor de variante, o "Ver a letra" e as opções do próprio álbum.
+> - **FAVORITAR NÃO FECHA MAIS A GAVETA DO CRONOGRAMA**, e ela fechava por DOIS
+>   caminhos independentes — consertar um só teria deixado o defeito de pé. O
+>   ouvinte de captura da caixa fecha em qualquer botão (a estrela virou exceção,
+>   ao lado do par ↑↓, pela mesma régua: **a ação que não TERMINA a conversa com
+>   aquele item** — a estrela é um alternador, e o desfecho dela é o próprio
+>   botão mudando de desenho sob o dedo); e o `renderLibrary` que `toggleFav`
+>   agenda depois do pulso reconstrói a linha inteira, apagando o `li` aberto.
+>   Daí `manterAcoesAbertas()`, que reusa o `reabrirAcoesEm` do par ↑↓ e a CHAVE
+>   que `montarAcoesDaLinha` passou a carimbar no `li` — sem ela não haveria como
+>   reencontrar a linha, porque o mesmo item vive em duas listas ao mesmo tempo.
+> - **O EXCLUIR É O PRIMEIRO DA FAIXA**, isto é, o mais longe do `⋮`. Pedido do
+>   operador: *"excluir deve ficar o mais longe de um acidente de clique de
+>   fechar opções"*. O `⋮` fica colado na ponta direita e é o alvo tocado
+>   repetidamente (abre e fecha) — errá-lo por alguns pixels caía justamente no
+>   destrutivo. Do outro lado o vizinho é o VAZIO da caixa, que também fecha, e a
+>   diferença é que ele é uma área larga em que ninguém mira a borda. Isto
+>   inverte a ordem que valia desde a v5.258 ("o que se usa mais fica mais perto
+>   do dedo"); ela continua valendo para o resto da fileira.
+>
+> Verificado por ISOLAMENTO: devolvendo o `closest`, **1** asserção reprova (e é
+> a que exercita a desanexação de verdade); devolvendo a estrela ao fecho, **1**
+> — e ela continua reprovando com só metade do conserto (o ouvinte sem o
+> `manterAcoesAbertas`), que é o que prova que os dois caminhos existem;
+> devolvendo o excluir ao fim da fileira, **1**. A metade NEGATIVA está travada
+> junto: um botão que TERMINA a conversa (o renomear) continua fechando — sem
+> ela, calar o ouvinte inteiro passaria.
 
 > **A v5.288: O FEEDBACK DE TOQUE TIRAVA O ALVO DE BAIXO DO DEDO — e mais três.
 > OTA PURO** (sem Release).

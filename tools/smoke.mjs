@@ -1851,6 +1851,48 @@ try {
   checar(faixaNaoFecha,
     'mas um toque numa FAIXA não fecha o álbum: a guarda é o `.coll-open`, e sem '
     + 'ela subir o ouvinte para o card teria fechado o álbum debaixo do dedo');
+  // ===== E NEM UMA CAIXA DE MARCAÇÃO DAS OPÇÕES (v5.288, correção) =====
+  //
+  // Relato do operador logo depois do lote: tocar numa opção de play fechava o
+  // álbum inteiro. A guarda perguntava `e.target.closest('.coll-open')` — uma
+  // consulta à árvore VIVA —, e o botão de destino é apagado pelo próprio
+  // handler que roda antes: marcar uma opção chama `renderSongMenu`, que faz
+  // `alvo.innerHTML = ''`. Quando o evento chega ao card, o `e.target` está
+  // DESANEXADO, `closest` devolve `null`, e o álbum fecha.
+  //
+  // O caso exercita a DETACHMENT de verdade — abrir a gaveta de uma faixa e
+  // clicar numa opção marcável —, porque uma guarda escrita com `closest`
+  // passaria em qualquer clique que não apagasse o alvo.
+  await prep(true);
+  const marcou = await pg.evaluate(async () => {
+    const li = document.querySelector('#hymnResults .coll-songs > .hymn-result');
+    li.querySelector('.row').click();
+    await new Promise((r) => setTimeout(r, 450));
+    const b = li.querySelector('.hymn-opcoes .song-menu-sel');
+    if (!b) return null;
+    b.scrollIntoView({ block: 'center' });
+    const r2 = b.getBoundingClientRect();
+    return { x: Math.round(r2.left + r2.width / 2), y: Math.round(r2.top + r2.height / 2) };
+  });
+  let opcaoNaoFecha = null; let opcaoMarcou = null;
+  if (marcou) {
+    await pg.mouse.click(marcou.x, marcou.y);
+    await pg.waitForTimeout(400);
+    const dep = await pg.evaluate(() => ({
+      album: !!ui(window.__cid).expanded,
+      marcado: !!document.querySelector('#hymnResults .song-menu-check.on'),
+    }));
+    opcaoNaoFecha = dep.album; opcaoMarcou = dep.marcado;
+  }
+  await pg.evaluate(() => {
+    ui(window.__cid).expanded = false; grupoAberto = ''; favAberto = true;
+    songMenuFor = null; closeHymnSearch();
+  });
+  checar(opcaoNaoFecha === true && opcaoMarcou === true,
+    'e um toque numa CAIXA DE MARCAÇÃO das opções não fecha o álbum — a guarda '
+    + 'pergunta pelo CAMINHO do evento (fixado no disparo) e não pela árvore de '
+    + 'agora, que o próprio handler acabou de desmontar',
+    JSON.stringify({ album: opcaoNaoFecha, marcado: opcaoMarcou, ponto: marcou }));
 } catch (e) {
   checar(false, 'a medição do alvo do card de álbum terminou sem exceção ('
     + (e && e.message) + ')');
@@ -2298,6 +2340,97 @@ try {
     r.temEstrela = !!caixa.querySelector('.fav-btn');
     return r;
   });
+// ── A GAVETA DA LINHA: o que fecha e o que não fecha (v5.288) ────────────
+//
+// Dois pedidos do operador: *"no cronograma, favoritar um item faz a gaveta de
+// opções fechar, mantenha ela aberta"* e *"coloque o botão de excluir mais à
+// esquerda na lista de opções, já que excluir deve ficar o mais longe de um
+// acidente de clique de fechar opções"*.
+//
+// A ESTRELA fechava por DOIS caminhos independentes, e consertar um só teria
+// deixado o defeito de pé: o ouvinte de captura da caixa (que fecha em qualquer
+// botão) e o `renderLibrary` que `toggleFav` agenda depois do pulso — este
+// último reconstrói a linha inteira. Daí a medição ser em dois tempos.
+try {
+  const gav = await pg.evaluate(async () => {
+    setAppMode('full');
+    activeTab = 'imports';
+    const m = await AVDB.addMedia(new Blob([new Uint8Array(8)], { type: 'audio/mpeg' }),
+      { name: 'Item da gaveta', type: 'audio/mpeg', kind: 'audio', list: 'imports' });
+    await load();
+    const li = document.querySelector('#library .lib-item[data-id="' + m.id + '"]');
+    if (!li) return { erro: 'a linha não foi desenhada' };
+    li.querySelector('.row-mais').click();
+    await new Promise((r) => setTimeout(r, 200));
+    const caixa = li.querySelector('.row-acoes');
+    // ---- A ORDEM: o excluir é o PRIMEIRO da faixa ----
+    const botoes = [...caixa.querySelectorAll('.row-btn')];
+    const ordem = botoes.map((b) => b.className.replace('row-btn ', ''));
+    const excluiPrimeiro = botoes.length > 1 && botoes[0].classList.contains('row-excluir');
+    // E ele é o mais LONGE do `⋮`, que é o alvo que se toca repetidamente.
+    const mais = li.querySelector('.row-mais').getBoundingClientRect();
+    const dExcluir = Math.abs(mais.left - botoes[0].getBoundingClientRect().right);
+    const dUltimo = Math.abs(mais.left
+      - botoes[botoes.length - 1].getBoundingClientRect().right);
+    // ---- A ESTRELA NÃO FECHA: no ato, e depois do redesenho ----
+    const estrela = caixa.querySelector('.fav-btn');
+    estrela.click();
+    await new Promise((r) => setTimeout(r, 120));
+    const logoDepois = !!document.querySelector('#library .lib-item.acoes-abertas');
+    // O `renderLibrary` de `toggleFav` é agendado em PULSO_MS (1100ms): é ele
+    // que apaga o `li`, e é a segunda metade do defeito.
+    await new Promise((r) => setTimeout(r, 1500));
+    const alvo2 = document.querySelector('#library .lib-item[data-id="' + m.id + '"]');
+    const r = {
+      ordem, excluiPrimeiro, dExcluir: Math.round(dExcluir), dUltimo: Math.round(dUltimo),
+      logoDepois,
+      depoisDoRedesenho: !!(alvo2 && alvo2.classList.contains('acoes-abertas')),
+      // E a marca de fato pegou — sem isto, "a gaveta continua aberta" poderia
+      // significar apenas que o toque não fez nada.
+      favoritou: !!(alvo2 && alvo2.querySelector('.fav-btn.on')),
+      // A METADE NEGATIVA: um botão que TERMINA a conversa continua fechando.
+      // Sem ela, calar o ouvinte inteiro passaria.
+      renomearFecha: null,
+    };
+    const li2 = document.querySelector('#library .lib-item[data-id="' + m.id + '"]');
+    if (li2 && !li2.classList.contains('acoes-abertas')) li2.querySelector('.row-mais').click();
+    await new Promise((res) => setTimeout(res, 150));
+    const add = document.querySelector('#library .lib-item.acoes-abertas .row-acoes .row-renomear');
+    if (add) {
+      // O renomear abre um diálogo; o que se mede é só o FECHO da gaveta, e ele
+      // acontece no clique, antes de o diálogo responder.
+      add.click();
+      await new Promise((res) => setTimeout(res, 120));
+      r.renomearFecha = !document.querySelector('#library .lib-item.acoes-abertas');
+      const cancel = document.getElementById('appDialogCancel');
+      if (cancel) cancel.click();
+      await new Promise((res) => setTimeout(res, 150));
+    }
+    await AVDB.listRemove('favs', m.id);
+    await AVDB.listRemove('imports', m.id);
+    await load();
+    return r;
+  });
+  checar(!gav.erro && gav.excluiPrimeiro,
+    'O EXCLUIR É O PRIMEIRO da faixa de ações (v5.288) — o mais longe do `⋮`, '
+    + 'que é o alvo tocado repetidamente e cujo erro caía no destrutivo',
+    JSON.stringify(gav.ordem));
+  checar(!gav.erro && gav.dExcluir > gav.dUltimo,
+    'e a distância confirma: ele é o mais afastado do `⋮` da fileira ('
+    + gav.dExcluir + 'px contra ' + gav.dUltimo + 'px do último)');
+  checar(!gav.erro && gav.logoDepois && gav.depoisDoRedesenho && gav.favoritou,
+    'FAVORITAR NÃO FECHA A GAVETA (v5.288), nem no ato nem depois do redesenho '
+    + 'que `toggleFav` agenda — e a estrela de fato acendeu',
+    JSON.stringify([gav.logoDepois, gav.depoisDoRedesenho, gav.favoritou]));
+  checar(!gav.erro && gav.renomearFecha === true,
+    'mas um botão que TERMINA a conversa continua fechando (o renomear) — a '
+    + 'exceção é da estrela e do par ↑↓, não do ouvinte inteiro',
+    'renomear fechou: ' + gav.renomearFecha);
+} catch (e) {
+  checar(false, 'a medição da gaveta da linha terminou sem exceção ('
+    + (e && e.message) + ')');
+}
+
   checar(!!geo && geo.thumbInteira,
     'a faixa de ações começa DEPOIS da miniatura — ela não corta a capa',
     JSON.stringify(geo));
