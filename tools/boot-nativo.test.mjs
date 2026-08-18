@@ -1042,7 +1042,7 @@ try {
       cabecalho: !grupo ? '' : (grupo.querySelector('.coll-group-bar') || {}).textContent,
       temAcaoNaBarra: !!(grupo && grupo.querySelector('.coll-group-bar .coll-group-acao')),
       semContagem: !!grupo && !grupo.querySelector('.coll-group-count'),
-      // E ESTA É A ÚNICA CASA (v5.293). Até aqui a asserção era "a gaveta
+      // E ESTA É A ÚNICA CASA (v5.294). Até aqui a asserção era "a gaveta
       // continua desenhando a dela — o host é emprestado, não movido"; a
       // gaveta saiu do documento junto com o último caminho que levava a ela,
       // então a pergunta forte passou a ser a inversa: não sobrou nó nenhum
@@ -1234,7 +1234,7 @@ try {
     'e a Biblioteca não tem mais rodapé de uso do disco — número que a medida '
     + 'não sustenta, disputando com o peso que os cabeçalhos já dizem');
   checar(favs.semGaveta,
-    'e não sobrou nó nenhum da gaveta de tela cheia no documento (v5.293): a '
+    'e não sobrou nó nenhum da gaveta de tela cheia no documento (v5.294): a '
     + 'seção da Biblioteca é a ÚNICA casa desta lista');
   // ── UM BOTÃO, DUAS ORIGENS (v5.239) ────────────────────────────────────
   // Pedido do operador: as ações da seção vão para a BARRA dela, só com ícone,
@@ -1338,7 +1338,7 @@ try {
       nomes: [...li.querySelectorAll('.folder-itens > .lib-item .row-name')]
         .map((e) => e.textContent),
       // A METADE QUE IMPORTA: nenhuma gaveta de tela cheia entrou em cena, e a
-      // Biblioteca continua aberta por baixo. Desde a v5.293 a gaveta não existe
+      // Biblioteca continua aberta por baixo. Desde a v5.294 a gaveta não existe
       // mais no documento — a asserção passa a ser sobre isso, que é a forma
       // mais forte da mesma pergunta.
       popup: !!document.getElementById('favPopup'),
@@ -2873,9 +2873,9 @@ try {
     // nada, que é o pior artefato que este repositório sabe produzir. Daí o
     // fixture.
     //
-    // PELO CAMINHO DE VERDADE (v5.293). Até aqui ele escrevia `activeTab =
+    // PELO CAMINHO DE VERDADE (v5.294). Até aqui ele escrevia `activeTab =
     // 'folders'` e um `currentFolder` à mão — um estado que o app não alcança
-    // desde a v5.290 e que deixou de existir na v5.293. Um oráculo que monta um
+    // desde a v5.290 e que deixou de existir na v5.294. Um oráculo que monta um
     // estado impossível prova o comportamento de um app que não existe: agora
     // ele abre a pasta INLINE na Biblioteca, como o operador abre.
     // O FIXTURE É PRÓPRIO desta página: `pg6` nasceu depois dos casos da pasta,

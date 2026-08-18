@@ -3053,10 +3053,36 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.294** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.295** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.295: OS COMENTÁRIOS QUE DESCREVIAM A GAVETA COMO SE ELA EXISTISSE.
+> OTA PURO** (nenhuma linha de código; sem Release).
+>
+> A faxina da v5.294 removeu a gaveta `#favPopup` e deixou de pé quatro
+> comentários que continuavam falando dela **no presente**: o bloco do
+> `index.html` que explicava que *"o `activeTab` CONTINUA sendo `'folders'`
+> enquanto ela está aberta"* e mandava ver `listHost()`, a nota do
+> `renderListTitle` que apontava para um `renderFavHeader` que não existe mais,
+> e a lápide do `openOpfsFolder` que remetia a outra lápide (`openFavorites`)
+> que também tinha saído. Mais os carimbos de versão: as lápides diziam v5.293,
+> e a faxina saiu na v5.294 — o número de um lote que fez outra coisa.
+>
+> **Isto é um defeito pela régua deste projeto, e é a mesma da v5.212:** um
+> comentário que contradiz o código não é ruído, é uma armadilha — ele descreve
+> um mecanismo plausível, e quem o ler depois vai procurar (ou reintroduzir) o
+> que ele promete. Aqui o preço seria concreto: o do `index.html` manda ler uma
+> função apagada para entender onde a lista é desenhada.
+>
+> **E o lote é um NÚMERO NOVO, não um republicar do 5.294**, de propósito. O
+> zip do canal OTA é **imutável por versão** desde a v5.234 — foi essa
+> imutabilidade que fechou a classe inteira de "o manifesto fala de um zip com
+> outro `sha256` e o OTA fica inerte". Reescrever `web-5.294.zip` no lugar
+> reabriria exatamente essa janela para um aparelho que tivesse lido o manifesto
+> anterior. Um número novo custa uma pergunta a mais na tela; o outro caminho
+> custa a classe de defeito de volta.
 
 > **A v5.294 (v2.2): A ABA `folders` SAI POR INTEIRO, e a fila de IO da ponte
 > vira TRÊS. METADE OTA, METADE APK** (a fila é Kotlin — sem a Release ela não

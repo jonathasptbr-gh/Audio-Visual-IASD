@@ -179,7 +179,7 @@ const libraryEl = document.getElementById('library');
 // vista. Hospeda "Importar arquivos" e, durante a seleção múltipla, a `#selbar`
 // (ver `renderListFoot` e `hostSelbar`) — nunca os dois ao mesmo tempo.
 const listFootEl = document.getElementById('listFoot');
-// ===== A GAVETA `#favPopup` SAIU POR INTEIRO (v5.293) =====
+// ===== A GAVETA `#favPopup` SAIU POR INTEIRO (v5.294) =====
 //
 // Ela era a tela de DENTRO de uma pasta do aparelho, e a v5.290 — ao fazer a
 // pasta abrir INLINE, como um álbum — tirou o último caminho até ela:
@@ -213,7 +213,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.294';
+const WEB_VERSION = '5.295';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -3082,8 +3082,8 @@ function moveTabIndicator(animar) {
 // é a mesma decisão do "Modo do app" em Configurações, a dois toques dali, e
 // aquela é a que GUARDA a escolha entre aberturas. Com ela foi embora também a
 // regra de "só no Cronograma" (v5.111) e o lugar reservado que a sustentava —
-// o botão que podia sumir e mover o título simplesmente não existe mais. Quem
-// cuida do cabeçalho DA GAVETA é `renderFavHeader`.
+// o botão que podia sumir e mover o título simplesmente não existe mais.
+// (O cabeçalho DA GAVETA — `renderFavHeader` — saiu com ela na v5.294.)
 function renderListTitle() {
   if (activeTab === 'mic') {
     backBtnEl.hidden = true;
@@ -5949,7 +5949,7 @@ function renderLibrary() {
     // para a lista do culto, que é justamente o que um favorito existe para
     // fazer (o caminho era toque longo → seleção → e ali só havia playlist).
     // (O botão de "Adicionar ao Cronograma" desta linha só existia na gaveta de
-    // Favoritos, que saiu na v5.293. Na pasta INLINE quem oferece os destinos é
+    // Favoritos, que saiu na v5.294. Na pasta INLINE quem oferece os destinos é
     // a gaveta de opções da própria linha — ver `linhaDeItem`.)
     const addBtn = null;
 
@@ -7799,7 +7799,7 @@ function renderFoldersSeVisivel() {
 // Ela é ligada e desligada num ponto só, num `try/finally`.
 let favHost = null;
 // Sem `favHost` não há onde desenhar: a seção de Favoritos é a ÚNICA casa desta
-// lista desde que a gaveta saiu (v5.293), e ela é montada dentro do corpo do
+// lista desde que a gaveta saiu (v5.294), e ela é montada dentro do corpo do
 // grupo pelo `comBaldeDeMiniaturas`. Devolver `null` aqui é o certo — quem
 // chama `renderFolderList` fora daquele `try/finally` está enganado, e um host
 // de emergência esconderia o engano desenhando num nó que ninguém vê.
@@ -9595,7 +9595,7 @@ async function deleteSelected() {
     const it = libItems.find((m) => m.id === id) || await AVDB.getMedia(id);
     if (it && it.youtubeId) setYtEstado(it.youtubeId, null);
   }
-  // (Os DOIS ramos de `'folders'` saíram na v5.293, com a gaveta: um apagava o
+  // (Os DOIS ramos de `'folders'` saíram na v5.294, com a gaveta: um apagava o
   // ARQUIVO FÍSICO dos selecionados dentro de uma pasta do aparelho, o outro
   // desmarcava favoritos na raiz dela. Nenhum dos dois era alcançável — a
   // seleção múltipla só existe na lista principal desde a v5.290. Quem apaga
@@ -9648,7 +9648,7 @@ async function renameSelected() {
 // ===== pastas =====
 //
 // (`garantirGaveta`, `openFavorites`, `closeFavorites`, `favVoltarPara` e o
-// `hostSelbar` de duas casas saíram na v5.293, com a gaveta `#favPopup` — ver o
+// `hostSelbar` de duas casas saíram na v5.294, com a gaveta `#favPopup` — ver o
 // bloco no topo do arquivo. A pasta do aparelho abre INLINE dentro da seção de
 // Favoritos da Biblioteca desde a v5.290, e era ela a única tela que a gaveta
 // ainda servia.)
@@ -9970,8 +9970,8 @@ async function syncDeviceFolder(existing, botao) {
 
 // (`openOpfsFolder` saiu na v5.290: a pasta do aparelho passou a abrir INLINE,
 // no corpo da própria linha, como um álbum — ver `renderFolderList`. Ele era o
-// ÚNICO caminho para a gaveta `#favPopup`, então ela ficou sem porta; a lápide
-// está em `openFavorites`.)
+// ÚNICO caminho para a gaveta `#favPopup`, e a v5.294 a removeu por inteiro —
+// a lápide está no topo deste arquivo, junto da lista do que saiu com ela.)
 
 // Remove uma leva de registros do catálogo OPFS (store "files") e limpa as
 // referências que tenham sobrado nas listas. Usado ao excluir uma pasta OPFS
@@ -17224,7 +17224,7 @@ plBtnEl.addEventListener('click', openPlPopup);
 // direita, e vice-versa).
 //
 // (Havia um `'folders'` entre `imports` e `bible`, a posição reservada para a
-// gaveta de Favoritos. Ela saiu na v5.293 com a gaveta: uma posição fantasma
+// gaveta de Favoritos. Ela saiu na v5.294 com a gaveta: uma posição fantasma
 // numa lista que só serve para comparar índices não muda a direção de nada,
 // mas manda quem lê procurar uma aba que não existe.)
 const TAB_ORDER = ['imports', 'bible', 'mic'];
@@ -18326,7 +18326,7 @@ window.__avBack = function () {
     return true;
   }
   // (O passo 1.5 — a hierarquia DE DENTRO da gaveta de Favoritos — saiu na
-  //    v5.293 com a própria gaveta. O passo 5, genérico, continua cuidando da
+  //    v5.294 com a própria gaveta. O passo 5, genérico, continua cuidando da
   //    seleção múltipla feita na lista.)
   // 2. Bottom-sheets. Fecha o ÚLTIMO da tabela que estiver aberto — normalmente
   //    há um só, mas se houver dois o de cima é o que o operador vê.
