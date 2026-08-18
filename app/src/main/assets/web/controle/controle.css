@@ -359,7 +359,17 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    satisfaz o `:active` dele — e o que encolhe é a linha e a gaveta juntas, que
    é uma caixa de meia tela se mexendo por causa de um toque num botão de 40px.
    O botão continua encolhendo (é ele que foi tocado); o cartão, não. */
-.lib-item:has(.hymn-gaveta :active) { transform: none; }
+/* E O MESMO VALE PARA UM BLOCO QUE ELA APENAS CONTÉM (v5.291). A pasta do
+   aparelho passou a abrir INLINE (v5.290), e com isso um `.lib-item` passou a
+   conter OUTROS `.lib-item` — o primeiro aninhamento desse tipo no app. Pressionar
+   um arquivo lá dentro encolhia a PASTA inteira junto, que é o relato do
+   operador: *"o efeito incorreto de encolhimento inteiro do grupo ao tocar em
+   itens individuais"*.
+
+   A regra, escrita de uma vez para os três blocos: **uma linha não dá feedback
+   de toque por um toque que aconteceu dentro de um bloco que ela só hospeda.**
+   Quem encolhe é a peça tocada — o botão, a opção, o arquivo. */
+.lib-item:has(:is(.hymn-gaveta, .folder-itens) :active) { transform: none; }
 :is(
   .ctl-btn, .t-btn, .pv-fab, .settings-btn,
   .tab, .tab-add, .import-btn, .back-btn, .sel-btn,
@@ -1952,9 +1962,20 @@ main {
   display: none; flex-direction: column; gap: .2rem;
   --camada: transparent;
 }
+/* ---------- O CORPO É RECUADO, COMO O DO ÁLBUM (v5.291) ----------
+   Relato do operador: *"o posicionamento incorreto do design dos itens da
+   pasta"*. Medido: o arquivo começava em x=18 — colado na borda do cartão da
+   pasta, com a miniatura dele na MESMA coluna da miniatura da própria pasta,
+   isto é, lendo-se como irmão dela em vez de conteúdo. O favorito ao lado
+   começa em 24 (a placa `.fav-itens` o recua .4rem), e o álbum recua as faixas
+   dele pelo padding do `.coll-open`.
+
+   O mesmo `.4rem` da placa, e nos quatro lados: é ele que põe o arquivo um
+   degrau para dentro e alinha a miniatura dele com a do favorito logo abaixo. */
 .folder-opfs.expanded .folder-itens {
   display: flex;
-  margin: .4rem 0 .1rem;
+  margin: .3rem 0 0;
+  padding: 0 .4rem .4rem;
 }
 /* A pasta ABERTA é a mesma tampa do álbum aberto: o nome em accent diz "é esta",
    com o mesmo recurso que o app usa para marcar em toda parte. */
@@ -4081,7 +4102,22 @@ main {
 
    `--camada: var(--gaveta-btn)` pela regra da casa: quem declara o tom dos
    filhos é o PAI, e os filhos aqui são os botões e a caixa da letra. */
-.lib-item.expanded .hymn-gaveta {
+/* ---------- `>` E NÃO DESCENDENTE, E ISSO É UMA REGRA (v5.291) ----------
+   Relato do operador sobre a v5.290: os itens de dentro de uma pasta aberta
+   apareciam com uma faixa preta embaixo de cada um, e as opções de um item NÃO
+   FECHAVAM.
+
+   As duas coisas são a mesma: com a pasta abrindo inline, `.folder-opfs` é um
+   `.lib-item` que CONTÉM outros `.lib-item` — o primeiro aninhamento desse tipo
+   no app —, e `.lib-item.expanded .hymn-gaveta` é um seletor DESCENDENTE. A
+   pasta aberta satisfazia o `.expanded`, e a gaveta de TODO arquivo lá dentro
+   passava a `display: block`: a faixa era a gaveta vazia de cada item fechado, e
+   fechar um item tirava a classe dele sem esconder nada, porque quem a mantinha
+   visível era a pasta.
+
+   **A gaveta é do item que a POSSUI.** Toda regra dela é `>`, e é assim que ela
+   deixa de depender de nenhum `.lib-item` existir acima. */
+.lib-item.expanded > .hymn-gaveta {
   display: block;
   background: var(--gaveta-bg);
   --camada: var(--gaveta-btn);
@@ -4136,7 +4172,7 @@ main {
    botão irmão do confirmar em `montarOpcoes`. Ela é a mais alta das duas, e
    aberta por padrão empurrava as opções para longe do dedo em toda abertura,
    quando o que se abre a gaveta para fazer é decidir. */
-.lib-item:not(.vendo-letra) :is(.hymn-lyrics, .item-detalhe) { display: none; }
+.lib-item:not(.vendo-letra) > .hymn-gaveta > :is(.hymn-lyrics, .item-detalhe) { display: none; }
 .hymn-lyrics {
   display: block; max-height: 40vh; overflow-y: auto;
   margin: 0 .55rem .55rem; padding: .5rem .6rem;
@@ -4333,8 +4369,8 @@ main {
    contra a tradução; isto não tem número nenhum. */
 .song-menu-letra-cx { display: grid; }
 .song-menu-letra-cx > span { grid-area: 1 / 1; }
-.lib-item:not(.vendo-letra) .song-menu-letra-cx > span:last-child,
-.lib-item.vendo-letra .song-menu-letra-cx > span:first-child {
+.lib-item:not(.vendo-letra) > .hymn-gaveta .song-menu-letra-cx > span:last-child,
+.lib-item.vendo-letra > .hymn-gaveta .song-menu-letra-cx > span:first-child {
   visibility: hidden;
 }
 .song-menu-go {

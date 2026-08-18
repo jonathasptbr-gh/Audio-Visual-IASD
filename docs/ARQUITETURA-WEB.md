@@ -4923,6 +4923,38 @@ da pasta redesenha a seção: sem essa memória, cada ação fecharia a pasta.
 Os arquivos saem ordenados por **nome**: a ordem do disco é a de gravação, e não
 diz nada a quem está montando um culto.
 
+##### O aninhamento cobrou o preço na v5.291
+
+`.folder-opfs` virou o primeiro `.lib-item` deste app que **contém outros
+`.lib-item`**, e todo seletor DESCENDENTE keyado em `.lib-item` vazou para
+dentro. Três relatos do operador, uma causa:
+
+| selector | o que ele passou a alcançar |
+|---|---|
+| `.lib-item.expanded .hymn-gaveta` | a pasta ABERTA satisfaz o `.expanded`, então a gaveta de TODO arquivo lá dentro virava `display: block` |
+| `.lib-item:not(.vendo-letra) :is(.hymn-lyrics, .item-detalhe)` | a pasta nunca tem `.vendo-letra`, então ela escondia o detalhe de um arquivo que TEM |
+| `.lib-item:has(.hymn-gaveta :active)` | não alcançava `.folder-itens`, e o `--press` da pasta encolhia com o toque num arquivo |
+
+A primeira linha explica dois relatos de uma vez — *"o posicionamento incorreto
+do design dos itens"* (a faixa preta embaixo de cada arquivo era a gaveta vazia
+dele) e *"não permite fechar as opções de play"* (o segundo toque tirava a
+classe do item **sem esconder nada**, porque quem as mantinha visíveis era a
+pasta). Medido: `display: block, altura 19px` nos arquivos fechados, e
+`classe: false, display: block, altura 293px` depois do segundo toque.
+
+**A regra: a gaveta é do item que a POSSUI, então toda regra dela é `>`.** Um
+seletor descendente responde *"existe algum ancestral assim?"*, e a resposta
+muda no dia em que alguém aninha o componente — sem erro em lugar nenhum, e num
+lugar que não é o da causa. O feedback de toque virou uma linha só para os três
+blocos que uma linha apenas HOSPEDA (`.row-acoes`, `.hymn-gaveta`,
+`.folder-itens`): quem encolhe é a peça tocada.
+
+E o quarto item era de geometria: o arquivo começava colado na borda do cartão
+da pasta (x=18), com a miniatura na mesma coluna da miniatura DA PASTA — lendo-se
+como irmão dela em vez de conteúdo. Com o recuo de `.4rem` no corpo ele passa a
+ocupar a coluna do favorito logo abaixo (24 e 24; miniaturas em 32 e 32), que é o
+que o álbum já fazia pelo padding do `.coll-open`.
+
 #### O que a v5.103 corrigiu: era uma PASTA com nome de favorito
 
 Até ali, "Favoritos" era o antigo recurso de **pastas virtuais** renomeado — o
