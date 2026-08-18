@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.289';
+const WEB_VERSION = '5.290';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -582,6 +582,16 @@ let grupoAberto = '';
 // operador, que dura a sessão como qualquer outra. É um booleano e não um nome
 // porque ela é uma só: não há "qual favorito está aberto".
 let favAberto = true;
+// QUAL PASTA DO APARELHO está aberta (v5.290) — o id, ou `null`. Ela abre INLINE
+// desde este lote, como um álbum, e por isso precisa de um estado que sobreviva
+// ao redesenho da seção: favoritar um arquivo de dentro dela redesenha os
+// Favoritos, e sem esta memória a pasta fecharia a cada ação.
+//
+// Um NOME e não um conjunto, pela mesma razão do `grupoAberto`: "duas pastas
+// abertas" é uma frase que não dá para escrever, em vez de uma regra que alguém
+// precisa lembrar. E no topo pelo mesmo motivo dele — é lido por um caminho de
+// render.
+let pastaAberta = null;
 // Quais grupos devem ANIMAR a abertura no próximo desenho. Só o toque que abriu
 // anima: um redesenho por outro motivo (o progresso de um download) reencontra
 // o grupo já aberto, e vê-lo "abrir" sozinho leria como se algo tivesse
@@ -7853,7 +7863,87 @@ function renderFolderList() {
     rmBtn.addEventListener('click', (e) => { e.stopPropagation(); deleteOpfsFolder(f); });
     row.append(icon, nameEl, countEl, syncBtn, rmBtn);
     li.appendChild(row);
-    li.addEventListener('click', () => openOpfsFolder(f));
+    // ===== A PASTA ABRE INLINE, COMO UM ÁLBUM (v5.290) =====
+    //
+    // Pedido do operador: *"ajuste o sistema de pastas dos favoritos, para que
+    // ele abra a lista de arquivos das pastas de forma visual sem ser um popup,
+    // para que abra a lista assim como abrem os álbuns com seus itens"*.
+    //
+    // Ela abria uma GAVETA de tela cheia (`#favPopup`), que desde a v5.238 só
+    // existia para isto — o botão de porta dela já tinha saído. Uma pasta é um
+    // CONTÊINER de arquivos, exatamente como um álbum é um contêiner de faixas,
+    // e o app já sabe desenhar isso: o mesmo acordeão, no mesmo lugar, com as
+    // mesmas linhas de item.
+    //
+    // O corpo é montado UMA vez, e só quando a pasta abre: o catálogo de uma
+    // pasta sincronizada tem centenas de arquivos, e montá-los para todas as
+    // pastas a cada redesenho da seção seria o trabalho de DOM da tela inteira
+    // por algo que ninguém está vendo. (É a mesma decisão do corpo de um grupo
+    // da Biblioteca, v5.237.)
+    const corpo = document.createElement('ul');
+    corpo.className = 'folder-itens';
+    li.appendChild(corpo);
+    let montado = false;
+
+    async function montarCorpo() {
+      corpo.innerHTML = '';
+      let arquivos = [];
+      try { arquivos = (await AVDB.filesByFolder(f.id)) || []; } catch (_) { arquivos = []; }
+      // Por NOME, que é a ordem em que o operador procura — a do disco é a de
+      // gravação, e não diz nada a quem está montando um culto.
+      arquivos.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
+      if (!arquivos.length) {
+        const vazio = document.createElement('li');
+        vazio.className = 'empty';
+        vazio.textContent = 'Pasta vazia.';
+        corpo.appendChild(vazio);
+        return;
+      }
+      // SEM `lista`: aqui não há ordem a mexer (ela vem do disco) nem excluir a
+      // oferecer — apagar um arquivo desta pasta é apagar o ARQUIVO, e isso tem
+      // dono próprio na linha da pasta ("Excluir pasta e arquivos
+      // sincronizados"). Um excluir por linha ainda seria desfeito pela
+      // sincronização seguinte, que é o mesmo argumento que mantém o renomear
+      // fora daqui (v5.288).
+      arquivos.forEach((a) => corpo.appendChild(linhaDeItem(a, {
+        destinos: ['playlist', 'cronograma', 'favoritos'],
+      })));
+    }
+
+    row.addEventListener('click', async (e) => {
+      if (e.target.closest('.row-btn')) return;
+      if (li.classList.contains('expanded')) {
+        pastaAberta = null;
+        collapseAccordion(corpo, () => li.classList.remove('expanded'));
+        return;
+      }
+      // Uma pasta aberta por vez, como um álbum: duas listas de centenas de
+      // arquivos empurrariam para fora da tela justamente a que o operador mira.
+      const irmas = li.parentElement;
+      if (irmas) {
+        irmas.querySelectorAll(':scope > .folder-opfs.expanded').forEach((el) => {
+          if (el !== li) el.classList.remove('expanded');
+        });
+      }
+      if (!montado) { montado = true; await montarCorpo(); }
+      pastaAberta = f.id;
+      li.classList.add('expanded');
+      expandAccordion(corpo);
+    });
+
+    // A pasta ABERTA continua aberta depois de um redesenho da seção (favoritar
+    // um arquivo de dentro dela redesenha os Favoritos). Sem isto, cada ação
+    // dentro da pasta a fecharia — que é o defeito que a v5.289 corrigiu na
+    // gaveta da linha, um nível acima.
+    // (Sem animação: quem anima é o TOQUE. Um redesenho por outro motivo — o
+    // progresso de uma sincronização, uma estrela marcada — reencontra a pasta
+    // já aberta, e vê-la "abrir" de novo sozinha leria como se algo tivesse
+    // acontecido. É a mesma regra do `animarAbertura` do card de álbum.)
+    if (pastaAberta === f.id) {
+      montado = true;
+      li.classList.add('expanded');
+      montarCorpo();
+    }
     favAlvo().appendChild(li);
   });
 
@@ -7870,6 +7960,35 @@ function renderFolderList() {
 // estrela desmarca e o `+` manda para a lista do culto. São as três coisas que
 // se quer de um favorito, sem entrar em pasta nenhuma.
 function favItemRow(item, pos, total) {
+  return linhaDeItem(item, {
+    lista: 'favs', pos, total, destinos: ['playlist', 'cronograma'],
+    depoisDeExcluir: () => recarregarFavoritos(),
+  });
+}
+
+/**
+ * A LINHA DE UM ITEM QUE JÁ EXISTE, com a gaveta de opções no corpo dela.
+ *
+ * Ela nasceu como `favItemRow` (v5.287) e virou geral na v5.290, quando a pasta
+ * do aparelho passou a abrir INLINE: as duas listas mostram registros prontos e
+ * respondem ao toque do mesmo jeito, e uma segunda anatomia divergiria da
+ * primeira no primeiro ajuste — foi por essa razão que a linha de favorito
+ * copiou a da Biblioteca, e ela continua valendo um nível acima.
+ *
+ * O que MUDA entre as duas mora em `opts`, e nada mais:
+ *
+ *  · `lista` — a lista a que a linha pertence, e de onde o excluir a tira. A
+ *    pasta do aparelho NÃO tem uma (`null`): ali "excluir" apagaria o arquivo
+ *    físico, que tem dono próprio (o "Excluir pasta e arquivos sincronizados"
+ *    da própria pasta), e reordenar não faz sentido — a ordem vem do disco.
+ *  · `destinos` — quais linhas marcáveis a gaveta oferece. Num favorito
+ *    "Favoritar" não muda nada; num arquivo da pasta ela é justamente o caminho
+ *    de promovê-lo.
+ */
+function linhaDeItem(item, opts) {
+  const cfg = opts || {};
+  const lista = cfg.lista || null;
+  const pos = cfg.pos; const total = cfg.total;
   const li = document.createElement('li');
   li.className = 'lib-item' + (linhaAtiva(item.id) ? ' active' : '')
     + (linhaNoAr(item.id) ? ' no-ar' : '');
@@ -7956,11 +8075,14 @@ function favItemRow(item, pos, total) {
   //     isso, porque desfavoritar não é uma declaração de intenção de apagar.
   const acoes = document.createElement('div');
   acoes.className = 'fav-acoes';
-  acoes.append(...[
-    ...botoesDeOrdem('favs', item.id, pos, total),
-    botaoExcluirDaLinha(item, 'favs', () => recarregarFavoritos()),
-  ].filter(Boolean));
-  gaveta.append(opcoes, acoes);
+  acoes.append(...(lista ? [
+    ...botoesDeOrdem(lista, item.id, pos, total),
+    botaoExcluirDaLinha(item, lista, cfg.depoisDeExcluir || (() => load())),
+  ] : []).filter(Boolean));
+  gaveta.append(opcoes);
+  // Sem lista não há faixa de ações: um bloco vazio no pé da gaveta seria um
+  // vão que não anuncia nada.
+  if (acoes.childElementCount) gaveta.appendChild(acoes);
   let gavetaMontada = false;
 
   function abrir() {
@@ -7970,7 +8092,7 @@ function favItemRow(item, pos, total) {
         if (el !== li) el.classList.remove('expanded');
       });
     }
-    if (!gavetaMontada) { gavetaMontada = true; renderItemMenu(item, opcoes); }
+    if (!gavetaMontada) { gavetaMontada = true; renderItemMenu(item, opcoes, cfg.destinos); }
     li.classList.add('expanded');
     expandAccordion(gaveta);
   }
@@ -7991,7 +8113,7 @@ function favItemRow(item, pos, total) {
   // A REABERTURA depois de uma casa de reordenação (v5.285), agora na gaveta:
   // `moverNaLista` redesenha a lista inteira e o `li` que estava aberto deixa de
   // existir. Sem isto, mover três casas custaria três aberturas.
-  if (reabrirAcoesEm === 'favs:' + item.id) {
+  if (lista && reabrirAcoesEm === lista + ':' + item.id) {
     reabrirAcoesEm = null;
     // Depois de o `li` entrar no documento: `expandAccordion` mede altura, e
     // fora da árvore toda medida é zero.
@@ -8015,9 +8137,15 @@ function favItemRow(item, pos, total) {
 // O resto é a MESMA maquinaria — `songMenuItem` com `destino`, `destExecutor`,
 // `destRemontar` e `destConfirmRow` —, pelo motivo de sempre: uma segunda lista
 // de destinos com a mesma anatomia divergiria da primeira no próximo ajuste.
-function renderItemMenu(item, alvo) {
+function renderItemMenu(item, alvo, destinos) {
   destLimpar();
   songMenuFor = { item, alvo };
+  // QUAIS destinos, e por que isto é parâmetro (v5.290): numa linha de FAVORITO
+  // "Favoritar" seria uma opção que não muda nada — o item já está lá —, e numa
+  // linha de arquivo da PASTA DO APARELHO ela é justamente o caminho de promover
+  // o arquivo para os favoritos. Uma escolha que não faz nada é pior que escolha
+  // nenhuma, e por isso quem sabe a resposta é quem monta a linha.
+  const quais = destinos || ['playlist', 'cronograma'];
   const desenhar = () => {
     alvo.innerHTML = '';
     destRemontar = desenhar;
@@ -8034,10 +8162,17 @@ function renderItemMenu(item, alvo) {
     alvo.appendChild(songMenuItem(msym(ICON.play), 'Tocar agora',
       'Sem entrar em lista nenhuma',
       (vr, btn, alvos) => destExecutor(alvos, btn), 'tocar', desenhar));
-    alvo.appendChild(songMenuItem(msym(ICON.queue), 'Adicionar à playlist', '',
-      (vr, btn, alvos) => destExecutor(alvos, btn), 'playlist', desenhar));
-    alvo.appendChild(songMenuItem(msym(ICON.cronoAdd), 'Adicionar ao Cronograma', '',
-      (vr, btn, alvos) => destExecutor(alvos, btn), 'cronograma', desenhar));
+    const LINHA = {
+      playlist: [ICON.queue, 'Adicionar à playlist'],
+      cronograma: [ICON.cronoAdd, 'Adicionar ao Cronograma'],
+      favoritos: [ICON.star, 'Favoritar'],
+    };
+    quais.forEach((d) => {
+      const [ico, rot] = LINHA[d] || [];
+      if (!rot) return;
+      alvo.appendChild(songMenuItem(msym(ico), rot, '',
+        (vr, btn, alvos) => destExecutor(alvos, btn), d, desenhar));
+    });
     const go = destConfirmRow();
     if (go) alvo.appendChild(go);
   };
@@ -9456,6 +9591,28 @@ function garantirGaveta() {
 // leitura bíblica não espera cair no Cronograma ao sair dela.
 let favVoltarPara = 'imports';
 
+// ===== ⚠️ A GAVETA FICOU SEM PORTA NA v5.290 =====
+//
+// Ela era a tela de DENTRO de uma pasta do aparelho, e nada mais (a v5.238 tinha
+// tirado o botão do cabeçalho que a abria pela raiz). Com a pasta abrindo inline
+// — pedido do operador, *"que abra a lista assim como abrem os álbuns com seus
+// itens"* —, `openOpfsFolder` saiu e ninguém mais chama `openFavorites`: o
+// `activeTab` nunca mais vale `'folders'`, e o carrossel de abas já o pulava.
+//
+// O subsistema continua aqui INTEIRO e inerte, e isso é uma decisão declarada,
+// não esquecimento: removê-lo alcança ~28 ramos de `activeTab === 'folders'`
+// espalhados por `load`, `renderListTitle`, `renderLibrary`, `deleteSelected`,
+// `switchTab`, `hostSelbar`, `listHost`, o carrossel e a pilha do voltar. É uma
+// faxina que merece a própria passada de verificação, e não o mesmo lote da
+// mudança de comportamento.
+//
+// **O que a gaveta levava junto, e que hoje não existe em lugar nenhum:**
+//  · a BUSCA dentro de uma pasta (`folderQuery`/`#libSearch`) — a barra da
+//    Biblioteca varre `allCollections()` e não alcança o catálogo de pastas;
+//  · a SELEÇÃO MÚLTIPLA dentro de uma pasta, que era onde morava o excluir de
+//    ARQUIVO FÍSICO por item. (Este segundo é menos perda do que parece: um
+//    arquivo apagado de uma pasta sincronizada volta na próxima sincronização —
+//    o mesmo argumento que mantém o renomear fora dali, v5.288.)
 function openFavorites() {
   if (activeTab !== 'folders') favVoltarPara = activeTab;
   favPopupEl.classList.add('open');
@@ -9798,14 +9955,10 @@ async function syncDeviceFolder(existing, botao) {
   load();
 }
 
-function openOpfsFolder(f) {
-  garantirGaveta();
-  rememberScroll();
-  currentFolder = { id: f.id, name: f.name, _opfs: true };
-  folderQuery = '';
-  libSearchEl.value = '';
-  load();
-}
+// (`openOpfsFolder` saiu na v5.290: a pasta do aparelho passou a abrir INLINE,
+// no corpo da própria linha, como um álbum — ver `renderFolderList`. Ele era o
+// ÚNICO caminho para a gaveta `#favPopup`, então ela ficou sem porta; a lápide
+// está em `openFavorites`.)
 
 // Remove uma leva de registros do catálogo OPFS (store "files") e limpa as
 // referências que tenham sobrado nas listas. Usado ao excluir uma pasta OPFS

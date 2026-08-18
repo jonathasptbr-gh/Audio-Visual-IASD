@@ -1936,6 +1936,31 @@ main {
 /* pastas sincronizadas (OPFS) */
 .folder-opfs .msym { color: var(--accent); }
 .folder-opfs .folder-count { color: var(--accent); opacity: .7; }
+/* ---------- A PASTA ABRE INLINE, COMO UM ÁLBUM (v5.290) ----------
+   Pedido do operador: *"que ele abra a lista de arquivos das pastas de forma
+   visual sem ser um popup, para que abra a lista assim como abrem os álbuns com
+   seus itens"*. Ela abria uma gaveta de tela cheia; agora é o mesmo acordeão do
+   card de álbum, e por isso a receita é a DELE — `.coll-songs`: a lista zera o
+   degrau seguinte (`--camada: transparent`), então cada arquivo é um recesso do
+   tom da pasta e o que separa dois deles é o espaço com a cor dela por trás.
+
+   `display: none` fechada é o que faz a medida do acordeão ser a do conteúdo:
+   `expandAccordion` mede `offsetHeight`, e uma caixa com altura zero mas
+   conteúdo dentro mediria o conteúdo já visível. */
+.folder-itens {
+  list-style: none; margin: 0; padding: 0;
+  display: none; flex-direction: column; gap: .2rem;
+  --camada: transparent;
+}
+.folder-opfs.expanded .folder-itens {
+  display: flex;
+  margin: .4rem 0 .1rem;
+}
+/* A pasta ABERTA é a mesma tampa do álbum aberto: o nome em accent diz "é esta",
+   com o mesmo recurso que o app usa para marcar em toda parte. */
+.folder-opfs.expanded > .row .row-name { color: var(--accent); }
+.folder-itens > .lib-item { --linha: var(--surface); }
+.folder-itens > .empty { padding: .5rem .6rem; }
 
 /* (Não há mais indicador de rede em lugar nenhum do acervo: as regras
    `.net-badge`/`.net-badge--warn` que viviam aqui já eram inalcançáveis, e o

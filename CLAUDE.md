@@ -3053,10 +3053,75 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.289** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.290** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.290: A PASTA DO APARELHO ABRE COMO UM ÁLBUM — e a gaveta de tela cheia
+> fica sem porta. OTA PURO** (sem Release).
+>
+> Pedido do operador: *"ajuste o sistema de pastas dos favoritos, para que ele
+> abra a lista de arquivos das pastas de forma visual sem ser um popup, para que
+> abra a lista assim como abrem os álbuns com seus itens"*.
+>
+> **Uma pasta é um CONTÊINER de arquivos, exatamente como um álbum é um
+> contêiner de faixas**, e o app já sabia desenhar isso. Ela abria uma folha de
+> tela cheia (`#favPopup`) — a única sobrevivente de um modelo em que os
+> favoritos eram uma gaveta própria — e agora é o mesmo acordeão, no mesmo
+> lugar, com as mesmas linhas de item. O corpo é montado **uma vez, e só quando
+> a pasta abre**: uma pasta sincronizada tem centenas de arquivos, e montá-los
+> para todas elas a cada redesenho da seção seria o trabalho de DOM da tela
+> inteira por algo que ninguém está vendo (a decisão da v5.237, um nível
+> acima).
+>
+> **Uma anatomia só para as duas listas.** `favItemRow` virou `linhaDeItem`, e o
+> que muda entre um favorito e um arquivo de pasta viaja em `opts` — nada mais:
+>
+> | | favorito | arquivo da pasta |
+> |---|---|---|
+> | `lista` | `'favs'` (↑↓ e excluir) | **nenhuma** — a ordem vem do disco, e apagar aqui seria apagar o ARQUIVO |
+> | `destinos` | playlist · Cronograma | playlist · Cronograma · **Favoritar** |
+>
+> A segunda linha é a régua de sempre: numa lista de favoritos "Favoritar" não
+> muda nada, e numa pasta ela é justamente o caminho de promover o arquivo. Uma
+> escolha que não faz nada é pior que escolha nenhuma — daí ser parâmetro, e não
+> um `if` dentro do menu.
+>
+> **`pastaAberta` é um NOME e não um conjunto**, pela mesma razão do
+> `grupoAberto` (v5.273): "duas pastas abertas" deixa de ser uma regra que
+> alguém precisa lembrar e passa a ser uma frase que não dá para escrever. E ele
+> nasce no topo do arquivo, porque é lido por um caminho de render — a zona
+> morta temporal que já derrubou o app quatro vezes. Ele existe porque favoritar
+> um arquivo de dentro da pasta redesenha a seção: sem essa memória, cada ação
+> fecharia a pasta.
+>
+> **⚠️ E A GAVETA `#favPopup` FICOU SEM PORTA.** Ela era a tela de DENTRO de uma
+> pasta e nada mais (a v5.238 já tinha tirado o botão que a abria pela raiz), e
+> `openOpfsFolder` era o único caminho para lá. O subsistema continua no arquivo
+> INTEIRO e inerte, com a lápide em `openFavorites`, e isso é uma decisão
+> declarada: removê-lo alcança ~28 ramos de `activeTab === 'folders'` espalhados
+> por `load`, `renderListTitle`, `renderLibrary`, `deleteSelected`, `switchTab`,
+> `hostSelbar`, `listHost`, o carrossel e a pilha do voltar — uma faxina que
+> merece a própria passada de verificação, e não o mesmo lote de uma mudança de
+> comportamento. O `activeTab` nunca mais vale `'folders'` (o carrossel já o
+> pulava), então os ramos são inertes, não perigosos.
+>
+> **O que a gaveta levava junto, e está dito em vez de escondido:**
+>
+> - a **BUSCA dentro de uma pasta** (`folderQuery`/`#libSearch`) — e ela não tem
+>   substituto: a barra da Biblioteca varre `allCollections()`, que não alcança
+>   o catálogo de pastas;
+> - a **SELEÇÃO MÚLTIPLA** dentro de uma pasta, que era onde morava o excluir de
+>   ARQUIVO FÍSICO por item. Esta é menos perda do que parece: um arquivo
+>   apagado de uma pasta sincronizada volta na sincronização seguinte — o mesmo
+>   argumento que mantém o renomear fora dali (v5.288) — e quem apaga de
+>   verdade é o "Excluir pasta e arquivos sincronizados" da própria linha.
+>
+> Verificado por ISOLAMENTO: devolvendo o toque que abria o popup, **3**
+> asserções reprovam — e reprovam MEDINDO (a sonda é null-safe de propósito:
+> sem `.folder-itens` uma exceção abortaria o caso e o que sobraria seria
+> "terminou com erro" em vez de "a lista não abriu inline").
 
 > **A v5.289: A GUARDA PERGUNTAVA À ÁRVORE DE AGORA, e o handler já a tinha
 > desmontado. OTA PURO** (sem Release).

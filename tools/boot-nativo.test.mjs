@@ -1296,6 +1296,98 @@ try {
   checar(favs.gaveta.semEstrela,
     'e a linha de favorito tem UMA saída só (v5.288): a estrela saiu — aqui ela '
     + 'e a lixeira faziam a mesma coisa, e só a lixeira pergunta antes');
+
+  // ===== A PASTA DO APARELHO ABRE INLINE, COMO UM ÁLBUM (v5.290) =====
+  //
+  // Pedido do operador: *"ajuste o sistema de pastas dos favoritos, para que ele
+  // abra a lista de arquivos das pastas de forma visual sem ser um popup, para
+  // que abra a lista assim como abrem os álbuns com seus itens"*.
+  //
+  // O caso mede as DUAS metades: a lista aparece no corpo da própria linha **e**
+  // a gaveta de tela cheia não abre. Sem a segunda, desenhar a lista inline e
+  // continuar abrindo o popup por cima passaria.
+  const pasta = await pg.evaluate(async () => {
+    // O MODO É RESTAURADO NO FIM: os casos seguintes medem o Modo Fácil (o
+    // bloco de conexão e a cortina), e deixá-los com o avançado ligado os
+    // reprovaria por um motivo que não é o deles. A Biblioteca só existe no
+    // avançado — `renderSimpleGate` a fecha sem tela conectada.
+    const modoAntes = appMode;
+    setAppMode('full');
+    for (const n of ['B video.mp4', 'A audio.mp3']) {
+      await AVDB.fileAdd({ id: 'fx-' + n, name: n, type: 'audio/mpeg', kind: 'audio',
+        folder: 'pasta-inline', opfsPath: 'folders/pasta-inline/' + n, size: 4, mtime: 1 });
+    }
+    await AVDB.setState('opfs-folders', [{ id: 'pasta-inline', name: 'Vídeos do culto', count: 2 }]);
+    await load();
+    if (!hymnSearchPopupEl.classList.contains('open')) openHymnSearch();
+    await new Promise((r) => setTimeout(r, 400));
+    const corpo = document.querySelector('[data-fav-corpo]');
+    const li = corpo && corpo.querySelector('.folder-opfs');
+    if (!li) return { erro: 'a pasta não foi desenhada na Biblioteca' };
+    const fechada = li.querySelectorAll('.folder-itens .lib-item').length;
+    li.querySelector('.row').click();
+    await new Promise((r) => setTimeout(r, 450));
+    const r = {
+      fechada,
+      aberta: li.classList.contains('expanded'),
+      // ORDENADA POR NOME: a do disco é a de gravação, e não diz nada a quem
+      // está montando um culto.
+      nomes: [...li.querySelectorAll('.folder-itens > .lib-item .row-name')]
+        .map((e) => e.textContent),
+      // A METADE QUE IMPORTA: nenhuma gaveta de tela cheia entrou em cena, e a
+      // Biblioteca continua aberta por baixo.
+      popup: favPopupEl.classList.contains('open'),
+      biblioteca: hymnSearchPopupEl.classList.contains('open'),
+    };
+    // E cada arquivo abre as MESMAS opções do resto da Biblioteca — com
+    // "Favoritar", que numa linha de favorito não existe (lá o item já é um), e
+    // SEM excluir nem reordenar: a ordem vem do disco, e apagar aqui seria
+    // apagar o arquivo, que tem dono próprio na linha da pasta.
+    // NULL-SAFE de propósito: com o comportamento ANTIGO (o popup) não existe
+    // `.folder-itens`, e uma exceção aqui abortaria o caso inteiro — as outras
+    // asserções sumiriam com ela, e o que sobraria seria "terminou com erro" em
+    // vez de "a lista não abriu inline". A lição da v5.245.
+    const arq = li.querySelector('.folder-itens > .lib-item');
+    if (arq) {
+      arq.querySelector('.row').click();
+      await new Promise((res) => setTimeout(res, 400));
+      r.opcoes = [...arq.querySelectorAll('.hymn-opcoes .song-menu-sel .song-menu-label')]
+        .map((e) => e.textContent);
+      r.semExcluir = !arq.querySelector('.row-excluir') && !arq.querySelector('.row-ordem');
+    } else {
+      r.opcoes = []; r.semExcluir = false;
+    }
+    // E FECHAR é o mesmo toque que abriu.
+    li.querySelector('.row').click();
+    await new Promise((res) => setTimeout(res, 450));
+    r.fechouDeNovo = !li.classList.contains('expanded');
+    // O caso deixa a tela como a encontrou: os que vêm depois medem o Modo
+    // Fácil e a cortina, e uma Biblioteca aberta por cima os reprovaria por um
+    // motivo que não é o deles.
+    pastaAberta = null;
+    for (const n of ['B video.mp4', 'A audio.mp3']) await AVDB.fileDelete('fx-' + n);
+    await AVDB.setState('opfs-folders', []);
+    closeHymnSearch();
+    setAppMode(modoAntes);
+    await load();
+    await new Promise((res) => setTimeout(res, 250));
+    return r;
+  });
+  checar(!pasta.erro && pasta.aberta && pasta.popup === false && pasta.biblioteca === true,
+    'A PASTA DO APARELHO ABRE INLINE (v5.290): a lista entra no corpo da própria '
+    + 'linha, e nenhuma gaveta de tela cheia sobe por cima da Biblioteca',
+    JSON.stringify(pasta));
+  checar(!pasta.erro && pasta.fechada === 0 && pasta.nomes.length === 2
+    && pasta.nomes[0] === 'A audio.mp3',
+    'e o corpo só é montado ao ABRIR (fechada não desenha arquivo nenhum), em '
+    + 'ordem de NOME', JSON.stringify([pasta.fechada, pasta.nomes]));
+  checar(!pasta.erro && pasta.opcoes.length === 4
+    && pasta.opcoes[pasta.opcoes.length - 1] === 'Favoritar' && pasta.semExcluir,
+    'e cada arquivo abre as MESMAS opções da Biblioteca — com "Favoritar", que é '
+    + 'o caminho de promovê-lo, e sem excluir nem reordenar',
+    JSON.stringify(pasta.opcoes));
+  checar(!pasta.erro && pasta.fechouDeNovo,
+    'e o mesmo toque fecha — é o acordeão do álbum, com a mesma gramática');
   checar(favs.lista.subs === favs.lista.nomes.length,
     'e o subtítulo voltou a aparecer: sem cabeçalho de tipo, é ele que distingue');
   checar(favs.lista.ordemDepois === 0,
