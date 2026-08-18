@@ -1516,6 +1516,100 @@ try {
     'e o arquivo da pasta ocupa a MESMA coluna do favorito abaixo — ele começava '
     + 'colado na borda do cartão, com a miniatura na coluna da própria pasta',
     JSON.stringify(fechou.colunas));
+
+  // ===== A SEÇÃO NÃO FICA PARA TRÁS DO BANCO (v5.292) =====
+  //
+  // Relato do operador: *"verifique a atualização da lista de favoritos em
+  // relação a excluir itens comuns e a excluir pastas, que não desaparecem
+  // apenas fechando e reabrindo a biblioteca"*.
+  //
+  // `deleteOpfsFolder` e `syncDeviceFolder` terminam em `load()` — o funil onde
+  // `favItems`/`favSet`/`opfsFolders` são reaplicados —, e `load()` redesenhava
+  // o Cronograma e mais nada. A seção da Biblioteca é desenhada por
+  // `renderFolderList` com `favHost`, que ele nunca chamava.
+  //
+  // O caso mede as DUAS metades, e a segunda é a que impede o conserto de virar
+  // um redesenho incondicional: excluir a pasta tira da tela a pasta E o
+  // favorito que ela levava junto (`purgeCatalogRecords` mexe em `favs`), **e**
+  // uma gaveta ABERTA sobrevive a um `load()` que não mudou a seção — mandar um
+  // item ao Cronograma chama `load()`, e refazer a seção ali a fecharia debaixo
+  // do dedo.
+  const stale = await pg.evaluate(async () => {
+    // O MODO É LIDO ANTES de trocar: os casos seguintes medem o Modo Fácil, e
+    // restaurar 'full' os reprovaria por um motivo que não é o deles.
+    const modoAntes = appMode;
+    setAppMode('full');
+    await AVDB.fileAdd({ id: 'fw1', name: 'W.mp3', type: 'audio/mpeg', kind: 'audio',
+      folder: 'pw1', opfsPath: 'folders/pw1/W.mp3', size: 4, mtime: 1 });
+    await AVDB.listAdd('favs', 'fw1');
+    const solto = await AVDB.addMedia(new Blob([new Uint8Array(4)], { type: 'audio/mpeg' }),
+      { name: 'Favorito solto', type: 'audio/mpeg', kind: 'audio', list: 'favs' });
+    await AVDB.setState('opfs-folders', [{ id: 'pw1', name: 'Pasta W', count: 1 }]);
+    await load();
+    if (!hymnSearchPopupEl.classList.contains('open')) openHymnSearch();
+    await new Promise((r) => setTimeout(r, 450));
+    const corpo = () => document.querySelector('[data-fav-corpo]');
+    const nomes = () => [...corpo().querySelectorAll('.fav-itens > .lib-item .row-name')]
+      .map((e) => e.textContent);
+    const pastas = () => [...corpo().querySelectorAll('.folder-opfs .row-name')]
+      .map((e) => e.textContent);
+    const antes = { itens: nomes(), pastas: pastas() };
+    // ---- excluir a PASTA, pelo botão da linha e pelo diálogo de verdade ----
+    corpo().querySelector('.folder-opfs .row-btn:last-child').click();
+    await new Promise((r) => setTimeout(r, 250));
+    document.getElementById('appDialogOk').click();
+    await new Promise((r) => setTimeout(r, 900));
+    const depois = {
+      itens: nomes(), pastas: pastas(),
+      noEstado: ((await AVDB.getState('opfs-folders')) || []).length,
+      noBanco: (await AVDB.listIds('favs')).length,
+    };
+    // ---- e a METADE NEGATIVA, medida no `load()` DIRETO ----
+    // Ela é o que impede o conserto de virar um redesenho incondicional. O
+    // `load()` é chamado por dezenas de caminhos com a Biblioteca aberta (uma
+    // sincronização que termina, o coletor de lixo, uma troca de aba por baixo),
+    // e refazer a seção em todos eles fecharia a gaveta que o operador acabou de
+    // abrir. Medido no `load()` CRU e não por um caminho de UI: um caminho que
+    // não chegue a chamá-lo mediria outra coisa — e foi assim que a primeira
+    // versão desta asserção passou sem exercitar nada.
+    const alvo = [...corpo().querySelectorAll('.fav-itens > .lib-item')]
+      .find((x) => x.querySelector('.row-name').textContent === 'Favorito solto');
+    alvo.querySelector('.row').click();
+    await new Promise((r) => setTimeout(r, 450));
+    const abriu = alvo.classList.contains('expanded');
+    await load();
+    await new Promise((r) => setTimeout(r, 300));
+    const gaveta = {
+      abriu,
+      continuaAberta: !!document.querySelector('[data-fav-corpo] .fav-itens > .lib-item.expanded'),
+      // E o `load()` de fato passou pela seção: sem esta metade, um `load()`
+      // que devolvesse cedo por outro motivo faria a asserção passar de graça.
+      foi: !!corpo().querySelector('.fav-itens > .lib-item'),
+    };
+    // limpeza
+    await AVDB.listRemove('favs', solto.id);
+    await AVDB.setState('opfs-folders', []);
+    closeHymnSearch();
+    setAppMode(modoAntes);
+    await load();
+    await new Promise((r) => setTimeout(r, 250));
+    return { antes, depois, gaveta };
+  });
+  checar(stale.antes.pastas.length === 1 && stale.antes.itens.length === 2,
+    'o fixture da seção tem a pasta e os dois favoritos na tela',
+    JSON.stringify(stale.antes));
+  checar(stale.depois.pastas.length === 0 && stale.depois.noEstado === 0,
+    'EXCLUIR UMA PASTA A TIRA DA TELA NA HORA (v5.292) — ela só sumia fechando e '
+    + 'reabrindo a Biblioteca, porque `load()` redesenhava o Cronograma e não a '
+    + 'seção de Favoritos', JSON.stringify(stale.depois));
+  checar(stale.depois.itens.length === 1 && stale.depois.noBanco === 1,
+    'e o FAVORITO que ela levava junto sai com ela — `purgeCatalogRecords` mexe '
+    + 'em `favs`, e a tela tem de dizer o mesmo que o banco',
+    JSON.stringify(stale.depois.itens));
+  checar(stale.gaveta.abriu && stale.gaveta.continuaAberta && stale.gaveta.foi,
+    'mas uma gaveta ABERTA sobrevive a um `load()` que não mudou a seção — um '
+    + 'redesenho incondicional a fecharia debaixo do dedo, e `load()` roda por '
+    + 'dezenas de caminhos com a Biblioteca aberta', JSON.stringify(stale.gaveta));
   checar(favs.lista.subs === favs.lista.nomes.length,
     'e o subtítulo voltou a aparecer: sem cabeçalho de tipo, é ele que distingue');
   checar(favs.lista.ordemDepois === 0,
