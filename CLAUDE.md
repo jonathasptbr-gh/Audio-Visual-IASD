@@ -3053,10 +3053,104 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.293** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.294** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.294 (v2.2): A ABA `folders` SAI POR INTEIRO, e a fila de IO da ponte
+> vira TRÊS. METADE OTA, METADE APK** (a fila é Kotlin — sem a Release ela não
+> chega ao aparelho).
+>
+> Os dois lotes que o operador escolheu depois da revisão profunda. Eles não se
+> tocam, e vieram juntos por serem os dois que sobraram dela.
+>
+> **1. A FAXINA DA ABA `folders`.** A v5.290 fez a pasta do aparelho abrir
+> INLINE, dentro da linha, e com isso a gaveta de tela cheia (`#favPopup`) ficou
+> **sem porta**: `openFavorites` deixou de ter chamador e `currentFolder` nunca
+> mais recebeu um valor não-nulo — as únicas atribuições que sobraram eram
+> `= null`. A nota da v5.290 declarou isso e deixou o subsistema de pé, com o
+> argumento (correto) de que a faxina merecia a própria passada de verificação.
+> Esta é ela.
+>
+> Saíram ~170 linhas: o popup `#favPopup` e o `#favList` do documento,
+> `renderFavHeader`, `garantirGaveta`, `openFavorites`, `closeFavorites`,
+> `favVoltarPara`, `folderQuery`, `currentFolder`, `listHost()` (as duas casas
+> viraram uma — `libraryEl`), o `hostSelbar` de duas casas, a entrada da tabela
+> `POPUPS`, o degrau 1.5 da escada do voltar, e **todos** os ramos de
+> `activeTab === 'folders'` espalhados por `load`, `renderLibrary`,
+> `renderTabs`, `scrollKey`, `deleteSelected`, `navigateBack`, `switchTab`,
+> `temImport` e `addSongToDestinos`. `TAB_ORDER` ficou com três abas, que é o
+> que o carrossel já percorria.
+>
+> **O PREÇO ESTÁ DITO, e o operador o aceitou explicitamente:** com a gaveta vão
+> embora a **busca DENTRO de uma pasta** (`#libSearch` — e ela não tem
+> substituto, porque a barra da Biblioteca varre `allCollections()`, que não
+> alcança o catálogo de pastas) e a **seleção múltipla** dentro de uma pasta,
+> que era onde morava o excluir de ARQUIVO FÍSICO por item. A segunda é menos
+> perda do que parece: um arquivo apagado de uma pasta sincronizada volta na
+> varredura seguinte, e quem apaga de verdade é o "Excluir pasta e arquivos
+> sincronizados" da própria linha.
+>
+> **E O ORÁCULO FINGIA O ESTADO IMPOSSÍVEL.** O caso do renomear escrevia
+> `activeTab = 'folders'` e um `currentFolder` à mão para provar que o lápis não
+> entra na pasta do aparelho — isto é, media o comportamento de um app que não
+> existe desde a v5.290. Ele passou a abrir a pasta INLINE, como o operador
+> abre, com fixture PRÓPRIO (`pg6` nasce depois dos casos da pasta, e depender do
+> que outra página deixou no banco fazia a asserção medir **zero linha**, que é
+> uma lista vazia passando por "não achei o lápis"). Verificado por ISOLAMENTO:
+> pondo um `botaoRenomearDaLinha` incondicional no `linhaDeItem`, a asserção
+> reprova. A asserção da gaveta mudou de pergunta junto — onde ela exigia "a
+> gaveta continua desenhando a dela", ela passou a exigir que **não sobrou nó
+> nenhum** do subsistema no documento, que é a forma forte da mesma pergunta.
+>
+> **2. A FILA DE IO DA PONTE VIRA TRÊS** (`NativeBridge`). Ela era
+> `newSingleThreadExecutor`, e é dela que saem o download do YouTube (minutos),
+> o download do APK (minutos), a busca no YouTube, as playlists de um canal, o
+> manifesto da transmissão, a rasterização de um PDF **e** `listFolder`,
+> `otaPending`, `otaDiag`, `atualizacaoEstado`, `apkProcurar`.
+>
+> Uma thread só para tudo isso significa que, com um vídeo de 300 MB baixando,
+> **toda a outra metade da ponte vence pelo prazo**: o `native.js` desiste em
+> 60 s (`CALL_TIMEOUT_MS`) e resolve `null`. Nenhuma delas ERRA — todas mentem
+> baixinho: `otaPending` diz que não há atualização, `atualizacaoEstado` não
+> responde nada, e o pior, `listFolder` devolve lista vazia, que o `controle.js`
+> lê como *"a pasta sumiu do aparelho"*. É o modo de falhar que este projeto
+> mais teme, num lugar onde ninguém tinha olhado.
+>
+> As três, e a divisão é por ORDEM DE GRANDEZA do trabalho:
+>
+> | fila | o quê | duração |
+> |---|---|---|
+> | `av-bridge-io` | `version.json`, estado do OTA, `listFolder` | milissegundos |
+> | `av-bridge-transf` | download do YouTube, download do APK, `ytDiscard` | minutos |
+> | `av-bridge-extr` | busca, playlists, manifesto, `deckPages` | segundos |
+>
+> **Cada uma continua sendo UMA THREAD, e isso é invariante e não economia.** O
+> resgate de download do `YoutubeGrab` é um slot ÚNICO e o mapa de parciais supõe
+> **um download por vez** — dois comentários daquele arquivo citam a fila única
+> da ponte como a garantia disso, e é por isso que `ytDiscard` mora na fila da
+> transferência: ele mexe nesse mesmo estado, e fora dali poderia apagar o
+> parcial de um download em curso. As extrações são serializadas entre si pela
+> mesma razão prática: elas dividem a inicialização global do NewPipe.
+>
+> **E `garantirInit` virou `@Synchronized`.** O par "testa `pronto`, então
+> inicializa" não é atômico, e agora há DUAS threads que podem chegar ali ao
+> mesmo tempo — a da transferência e a da extração. `NewPipe.init` duas vezes
+> provavelmente não faria mal; "provavelmente" não é o que se quer de uma
+> inicialização global.
+>
+> **O que NÃO colide, conferido campo a campo:** `diagnostico` é escrito só pelo
+> caminho do download e `diagnosticoStream` só pelo do manifesto (é justamente
+> por isso que eles são dois campos); `adaptativoBloqueadoEm`, `baixandoLink`,
+> `cancelarLink`, `resgate` e `parciais` vivem inteiros no caminho do download;
+> os registros de token do `StreamProxy` já são `ConcurrentHashMap`; e o
+> `NpDownloader` é sem estado. `ytCancel` continua **fora de fila nenhuma**, pelo
+> motivo de sempre — a fila que ele quer parar é justamente a que está ocupada.
+>
+> `SHELL_VERSION` **não sobe**: nenhum método da ponte nasceu, saiu ou mudou de
+> assinatura, e nenhum retorno mudou de forma. O que muda é quando eles
+> respondem.
 
 > **A v5.293: A REVISÃO PROFUNDA — doze defeitos, e dois deles tinham derrubado
 > um recurso inteiro em silêncio. METADE OTA, METADE APK** (as duas correções

@@ -2307,19 +2307,19 @@ try {
     }
     await load({ restaurarScroll: true });
     await new Promise((f) => setTimeout(f, 150));
-    const host = listHost();
+    const host = libraryEl;
     host.scrollTop = 300;
     const antes = host.scrollTop;
     if (!antes) return { erro: 'a lista não rolou (fixture curto demais)' };
     await load();                       // um redesenho no LUGAR
     await new Promise((f) => setTimeout(f, 150));
-    const r = { antes, depoisDoRedesenho: listHost().scrollTop };
+    const r = { antes, depoisDoRedesenho: libraryEl.scrollTop };
     // …e a NAVEGAÇÃO continua restaurando a posição daquela aba.
     await switchTab('bible');
     await new Promise((f) => setTimeout(f, 400));
     await switchTab('imports');
     await new Promise((f) => setTimeout(f, 400));
-    r.depoisDaVolta = listHost().scrollTop;
+    r.depoisDaVolta = libraryEl.scrollTop;
     return r;
   });
   checar(!rol.erro && rol.depoisDoRedesenho === rol.antes,

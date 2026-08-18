@@ -179,25 +179,30 @@ const libraryEl = document.getElementById('library');
 // vista. Hospeda "Importar arquivos" e, durante a seleção múltipla, a `#selbar`
 // (ver `renderListFoot` e `hostSelbar`) — nunca os dois ao mesmo tempo.
 const listFootEl = document.getElementById('listFoot');
-// A gaveta de uma PASTA (ver `openFavorites`). A lista dela é um segundo
-// HOST para as MESMAS funções de render — não uma segunda implementação.
-const favPopupEl = document.getElementById('favPopup');
-const favSheetEl = document.getElementById('favSheet');
-const favListEl = document.getElementById('favList');
-const favTitleEl = document.getElementById('favTitle');
-const favIconEl = document.getElementById('favIcon');
-const favBackEl = document.getElementById('favBack');
-const favCloseEl = document.getElementById('favClose');
-const favSearchBarEl = document.getElementById('favSearchBar');
-
-// ONDE a lista da tela atual é desenhada. Os Favoritos viraram gaveta na v5.53,
-// e a única coisa que muda para o resto do código é esta: as funções de render
-// (`renderLibrary`, `renderFolderList`…) continuam as
-// mesmas, escrevendo no host que esta função devolve. Duplicá-las para a gaveta
-// seria manter duas listas de favoritos que divergiriam no primeiro ajuste.
-function listHost() {
-  return activeTab === 'folders' ? favListEl : libraryEl;
-}
+// ===== A GAVETA `#favPopup` SAIU POR INTEIRO (v5.293) =====
+//
+// Ela era a tela de DENTRO de uma pasta do aparelho, e a v5.290 — ao fazer a
+// pasta abrir INLINE, como um álbum — tirou o último caminho até ela:
+// `openOpfsFolder` saiu, ninguém mais chamava `openFavorites`, o `activeTab`
+// nunca mais valia `'folders'` e **`currentFolder` nunca mais recebia valor
+// não-nulo em lugar nenhum do app** (as únicas atribuições eram `= null`).
+// Aquele lote declarou a dívida em vez de pagá-la, e com razão: eram ~30 ramos
+// espalhados por `load`, `renderListTitle`, `renderLibrary`, `deleteSelected`,
+// `switchTab`, `hostSelbar`, `listHost`, o carrossel e a pilha do voltar —
+// uma faxina que merecia a própria passada de verificação. É esta.
+//
+// **O QUE ELA LEVOU JUNTO, e continua sem substituto** (era assim desde a
+// v5.290; o que muda agora é que o código deixa de fingir que existe): a BUSCA
+// dentro de uma pasta do aparelho (`folderQuery`/`#libSearch` — a barra da
+// Biblioteca varre `allCollections()` e não alcança o catálogo de pastas) e a
+// SELEÇÃO MÚLTIPLA lá dentro, que era onde morava o excluir de ARQUIVO FÍSICO
+// por item. O segundo é menos perda do que parece — um arquivo apagado de uma
+// pasta sincronizada volta na sincronização seguinte, o mesmo argumento que
+// mantém o renomear fora dali —, e quem apaga de verdade é o "Excluir pasta e
+// arquivos sincronizados" da própria linha da pasta.
+//
+// Sobra UM host de lista, e por isso `listHost()` deixou de existir: ele
+// respondia uma pergunta que só tinha uma resposta.
 const listTitleEl = document.getElementById('listTitle');
 const appVersionEl = document.getElementById('appVersion');
 
@@ -208,7 +213,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.293';
+const WEB_VERSION = '5.294';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -417,7 +422,6 @@ const selRenameEl = document.getElementById('selRename');
 const selDeleteEl = document.getElementById('selDelete');
 
 const backBtnEl = document.getElementById('backBtn');
-const libSearchEl = document.getElementById('libSearch');
 const fadePopupEl = document.getElementById('fadePopup');
 const fadePopupCloseEl = document.getElementById('fadePopupClose');
 const fitSegEl = document.getElementById('fitSeg');
@@ -532,7 +536,6 @@ const selected = new Set();
 // redesenho dele (ver renderLibrary).
 const thumbUrlsPorHost = new Map(); // host -> [urls do último render dele]
 let thumbUrlsAtual = [];            // o balde do render em curso
-let currentFolder = null; // null | {id, name, _opfs?} — pasta aberta (persiste entre trocas de aba)
 // FAVORITOS: os ids marcados, numa lista plana. É um Set em memória porque a
 // pergunta que a tela faz o tempo todo é "este item está favoritado?", uma vez
 // por linha desenhada; no banco ele é a lista `favs` (ver LISTS em db.js), que
@@ -540,7 +543,6 @@ let currentFolder = null; // null | {id, name, _opfs?} — pasta aberta (persist
 let favSet = new Set();
 let favItems = [];         // os registros, para a seção de Favoritos da gaveta
 let opfsFolders = [];      // [{id, name, count, syncedAt, handle?}] — pastas sincronizadas no OPFS
-let folderQuery = '';      // filtro de busca dentro de pasta OPFS
 // ===== OS GRUPOS DA BIBLIOTECA NASCEM FECHADOS (v5.237) =====
 //
 // Pedido do operador: *"aproveite para tornar os agrupamentos de coleções, como
@@ -2596,7 +2598,7 @@ async function load(opts) {
   // Medido ANTES da reconstrução — depois de `host.innerHTML = ''` a rolagem
   // já é zero.
   const restaurar = !!(opts && opts.restaurarScroll);
-  const topoAntes = restaurar ? 0 : listHost().scrollTop;
+  const topoAntes = restaurar ? 0 : libraryEl.scrollTop;
   const myseq = ++loadSeqCtl;
 
   // ---- FASE 1: só leituras do IDB, em locais (nada de estado/DOM ainda) ----
@@ -2617,16 +2619,7 @@ async function load(opts) {
   const lyricsBgV = (await AVDB.getState('lyricsBg')) === 'image' ? 'image' : 'black';
   const downloadOkV = !!(await AVDB.getState('downloadOk'));
   let libItemsV;
-  if (activeTab === 'folders') {
-    // A ÚNICA pasta que se abre é a do APARELHO (v5.254): os atalhos saíram, e
-    // com eles o ramo que lia `folder_<id>`. `currentFolder` sem `_opfs` deixou
-    // de existir — a raiz da gaveta (sem pasta) continua sendo lista vazia,
-    // porque quem desenha os favoritos ali é o `renderFolderList`.
-    libItemsV = (currentFolder && currentFolder._opfs)
-      ? (await AVDB.filesByFolder(currentFolder.id))
-        .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
-      : [];
-  } else if (activeTab === 'imports') {
+  if (activeTab === 'imports') {
     // Só a aba que é de fato lista de IDs de mídia. 'bible' e 'messages'
     // NÃO são listas de mídia — e 'messages' guarda
     // objetos {id,text} no mesmo state key, então passar isso por listItems
@@ -2697,15 +2690,15 @@ async function load(opts) {
 
   // A posição: a GUARDADA quando isto é navegação, a de ANTES quando é um
   // redesenho no lugar.
-  listHost().scrollTop = restaurar ? (scrollPos[scrollKey()] || 0) : topoAntes;
+  libraryEl.scrollTop = restaurar ? (scrollPos[scrollKey()] || 0) : topoAntes;
 }
 
 // chave de posição de scroll: aba (+ pasta aberta, se houver)
 function scrollKey() {
-  return activeTab + (currentFolder ? '/' + currentFolder.id : '');
+  return activeTab;
 }
 function rememberScroll() {
-  scrollPos[scrollKey()] = listHost().scrollTop;
+  scrollPos[scrollKey()] = libraryEl.scrollTop;
 }
 
 // CONVENÇÃO (v5.50): o ÍCONE RISCADO mostra o CORTE — o estado em que a coisa
@@ -3048,12 +3041,7 @@ function resyncScene() {
 }
 
 function renderTabs() {
-  // Favoritos não tem aba própria (o `activeTab` continua sendo 'folders'): é
-  // uma sub-tela do Cronograma (entra-se pelo botão no fim da lista, e o voltar
-  // retorna pra lá). Manter o Cronograma aceso enquanto se está nela evita uma
-  // faixa de abas sem nada marcado.
-  const shown = activeTab === 'folders' ? 'imports' : activeTab;
-  tabsEl.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === shown));
+  tabsEl.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === activeTab));
   moveTabIndicator();
 }
 
@@ -3097,7 +3085,6 @@ function moveTabIndicator(animar) {
 // o botão que podia sumir e mover o título simplesmente não existe mais. Quem
 // cuida do cabeçalho DA GAVETA é `renderFavHeader`.
 function renderListTitle() {
-  renderFavHeader();
   if (activeTab === 'mic') {
     backBtnEl.hidden = true;
     // "Ferramentas" desde a v5.51 — "Diversos" nomeava a aba pelo que ela NÃO
@@ -3117,29 +3104,9 @@ function renderListTitle() {
     listTitleEl.hidden = false; listTitleEl.textContent = 'Bíblia';
     return;
   }
-  // Com a gaveta aberta o `activeTab` é 'folders', mas a tela ATRÁS dela
-  // continua sendo o Cronograma — e é o nome dele que o cabeçalho de baixo tem
-  // de mostrar. Mesmo raciocínio do `renderTabs`, que mantém a aba Cronograma
-  // acesa enquanto os Favoritos estão em cena.
   backBtnEl.hidden = true;
   listTitleEl.hidden = false;
   listTitleEl.textContent = 'Cronograma';
-}
-
-// Cabeçalho da gaveta de Favoritos: quem ele mostra depende de estar na raiz
-// ou DENTRO de uma pasta do aparelho — a única que se abre desde a v5.254.
-function renderFavHeader() {
-  const inFolder = activeTab === 'folders' && currentFolder !== null;
-  const inOpfs = inFolder && !!currentFolder._opfs;
-  favBackEl.hidden = !inFolder;
-  // O ícone de estrela é a IDENTIDADE da gaveta; dentro de uma pasta quem
-  // ocupa aquele lugar é o voltar, e dois símbolos lado a lado no mesmo canto
-  // só competiriam.
-  favIconEl.hidden = inFolder;
-  favTitleEl.textContent = inFolder ? currentFolder.name : 'Favoritos';
-  // A busca é do catálogo em memória de uma pasta do dispositivo — só existe lá.
-  favSearchBarEl.hidden = !inOpfs;
-  libSearchEl.value = inOpfs ? folderQuery : '';
 }
 
 // ---- thumb element ----
@@ -4414,8 +4381,7 @@ async function criarCue(cue, data, nome, destino, btn) {
   // Redesenha só quando a tela em cena é justamente a que acabou de receber o
   // item — guardar um versículo estando na aba da Bíblia não precisa remontar
   // o Cronograma, que ainda vai ser carregado ao voltar para ele.
-  if ((lista === 'imports' && activeTab === 'imports' && !currentFolder)
-    || (lista === 'favs' && activeTab === 'folders' && !currentFolder)) await load();
+  if (lista === 'imports' && activeTab === 'imports') await load();
   return rec;
 }
 
@@ -5857,7 +5823,7 @@ function renderLibrary() {
   // O menu de uma linha (v5.258) não sobrevive ao redesenho — ver
   // `renderFolderList`, mesmo motivo.
   fecharAcoesDaLinha();
-  const host = listHost();
+  const host = libraryEl;
   // Revoga SÓ as URLs que este host criou no render anterior — as do outro
   // host continuam em cena e continuam válidas (ver `thumbUrlsPorHost`).
   (thumbUrlsPorHost.get(host) || []).forEach((u) => URL.revokeObjectURL(u));
@@ -5885,34 +5851,18 @@ function renderLibrary() {
     return;
   }
 
-  if (activeTab === 'folders' && !currentFolder) {
-    renderFolderList();
-    return;
-  }
-
-  // Filtro de busca dentro de pasta OPFS (catálogo em memória — instantâneo).
-  let items = libItems;
-  const fq = folderQuery.toLowerCase().trim();
-  if (fq && activeTab === 'folders' && currentFolder && currentFolder._opfs) {
-    items = libItems.filter((m) => m.name.toLowerCase().includes(fq));
-  }
+  const items = libItems;
 
   // Lista vazia MAS com download em curso: a linha provisória é a única coisa
   // que existe, e ela precisa aparecer — é justamente o primeiro item chegando.
   // Sem isto o operador via "Cronograma vazio" durante todo o download do
   // primeiro vídeo, que é o pior momento possível para essa frase.
-  const provisorias = (activeTab === 'imports' && !currentFolder)
+  const provisorias = activeTab === 'imports'
     ? [...libBaixando.entries()].filter(([chave]) => !libItems.some((m) => m.id === chave))
     : [];
 
   if (items.length === 0 && !provisorias.length) {
-    host.innerHTML = activeTab === 'folders'
-      ? (fq ? '<li class="empty">Nenhum arquivo encontrado.</li>'
-        : (currentFolder && currentFolder._opfs
-          ? '<li class="empty">Pasta vazia.</li>'
-          : '<li class="empty">Pasta vazia.<br>Segure itens no Cronograma para selecioná-los'
-            + '<br>e use "Adicionar a uma pasta".</li>'))
-      : '<li class="empty">Cronograma vazio.</li>';
+    host.innerHTML = '<li class="empty">Cronograma vazio.</li>';
     return;
   }
 
@@ -5998,15 +5948,10 @@ function renderLibrary() {
     // a pasta OPFS o tinha: de dentro de um Favorito não havia como mandar nada
     // para a lista do culto, que é justamente o que um favorito existe para
     // fazer (o caminho era toque longo → seleção → e ali só havia playlist).
-    let addBtn = null;
-    if (activeTab === 'folders') {
-      addBtn = document.createElement('button'); addBtn.className = 'row-btn'; addBtn.title = 'Adicionar ao Cronograma';
-      addBtn.appendChild(msym(ICON.cronoAdd));
-      addBtn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        await adicionarNaLista('imports', item.id, item.name, addBtn);
-      });
-    }
+    // (O botão de "Adicionar ao Cronograma" desta linha só existia na gaveta de
+    // Favoritos, que saiu na v5.293. Na pasta INLINE quem oferece os destinos é
+    // a gaveta de opções da própria linha — ver `linhaDeItem`.)
+    const addBtn = null;
 
     // A ESTRELA, em toda linha: é ela que torna favoritar um toque só. Fica
     // fora da seleção múltipla porque ali o alvo é o conjunto, não a linha.
@@ -6061,7 +6006,7 @@ function renderLibrary() {
         // fica mais perto do dedo que acabou de tocar no `⋮`". Ela continua
         // valendo para o resto da fileira: o que muda é que o destrutivo deixa
         // de disputar essa vizinhança.)
-        activeTab !== 'folders' ? botaoExcluirDaLinha(item, activeTab, () => load()) : null,
+        botaoExcluirDaLinha(item, activeTab, () => load()),
         (ytDl && !dl) ? ytDl : null,
         star,
         addBtn,
@@ -6070,8 +6015,8 @@ function renderLibrary() {
         // RENOMEAR (v5.288), com a mesma guarda do excluir logo abaixo: na
         // pasta do aparelho o nome vem do arquivo, e um nome só no registro
         // seria desfeito na varredura seguinte.
-        activeTab !== 'folders' ? botaoRenomearDaLinha(item, () => load()) : null,
-        ...(activeTab !== 'folders' ? botoesDeOrdem(activeTab, item.id, i, items.length) : []),
+        botaoRenomearDaLinha(item, () => load()),
+        ...botoesDeOrdem(activeTab, item.id, i, items.length),
         // (O EXCLUIR subiu para o começo desta lista na v5.288 — ver a nota lá.
         // NA PASTA DO APARELHO ELE NÃO ENTRA, desde a v5.271: ali "excluir"
         // apaga o ARQUIVO físico, e essa limpeza tem donos próprios
@@ -6114,7 +6059,7 @@ function renderListFoot() {
   // pelo `hidden`), então o rodapé nunca fica de fato vazio — e um filho de
   // altura zero ainda consome o `gap` do `<main>`, que viraria uma faixa de ar
   // acima da caixa de controles em toda aba sem rodapé.
-  const temImport = activeTab === 'imports' && !currentFolder && !selectionMode;
+  const temImport = activeTab === 'imports' && !selectionMode;
   const temSelbar = selectionMode && selbarEl.parentElement === listFootEl;
   listFootEl.hidden = !temImport && !temSelbar;
   if (!temImport) return;
@@ -7820,7 +7765,6 @@ function statusPasta(id, texto, ms) {
 // do `refreshCollectionsIfVisible`: uma sincronização de 600 arquivos rodando
 // com a gaveta fechada não pode remontar a lista a cada arquivo.
 function renderFoldersSeVisivel() {
-  if (activeTab === 'folders' && !currentFolder) renderLibrary();
   // A OUTRA CASA (v5.237): com o grupo Favoritos aberto dentro da Biblioteca, a
   // mesma lista está na tela por outro caminho — e sem isto ela ficaria com a
   // contagem de uma pasta que acabou de sincronizar, ou com um favorito que já
@@ -7844,7 +7788,7 @@ function renderFoldersSeVisivel() {
 //
 // A lista continua sendo montada por `renderFolderList`; o que muda é ONDE ela
 // é desenhada — a gaveta de tela cheia (`#favList`) ou o grupo do topo da
-// Biblioteca. É o mesmo padrão que `listHost()` já usa neste arquivo, e a razão
+// Biblioteca. É o mesmo padrão do `favHost` logo acima, e a razão
 // é a de sempre: duas marcações para a mesma
 // lista divergem no primeiro ajuste, e aqui divergiriam em gestos (o toque
 // longo que entra na seleção múltipla), na alça de arrastar e na estrela.
@@ -7854,7 +7798,12 @@ function renderFoldersSeVisivel() {
 // todas as futuras — é a mesma sincronização manual que este projeto recusa.
 // Ela é ligada e desligada num ponto só, num `try/finally`.
 let favHost = null;
-function favAlvo() { return favHost || favListEl; }
+// Sem `favHost` não há onde desenhar: a seção de Favoritos é a ÚNICA casa desta
+// lista desde que a gaveta saiu (v5.293), e ela é montada dentro do corpo do
+// grupo pelo `comBaldeDeMiniaturas`. Devolver `null` aqui é o certo — quem
+// chama `renderFolderList` fora daquele `try/finally` está enganado, e um host
+// de emergência esconderia o engano desenhando num nó que ninguém vê.
+function favAlvo() { return favHost; }
 
 /**
  * O BALDE DE `object-URL` DA TERCEIRA CASA.
@@ -9646,32 +9595,13 @@ async function deleteSelected() {
     const it = libItems.find((m) => m.id === id) || await AVDB.getMedia(id);
     if (it && it.youtubeId) setYtEstado(it.youtubeId, null);
   }
-  if (activeTab === 'folders' && currentFolder && currentFolder._opfs) {
-    // Pasta OPFS: apaga o arquivo físico e delega o registro + referências a
-    // `purgeCatalogRecords` — a MESMA limpeza da exclusão de pasta/Hinário
-    // (duas cópias da lista de detentores divergiriam no primeiro que alguém
-    // esquecesse). Só o `opfsDeleteFile` é daqui: numa seleção avulsa não há
-    // diretório inteiro a remover em bloco.
-    const recs = [];
-    for (const id of selected) {
-      const rec = await AVDB.fileGet(id);
-      if (rec && rec.opfsPath) await AVDB.opfsDeleteFile(rec.opfsPath);
-      recs.push(rec || { id });
-    }
-    await purgeCatalogRecords(recs);
-    await refreshOpfsFolderCount(currentFolder.id);
-  } else if (activeTab === 'folders') {
-    // RAIZ da gaveta: o que está selecionado ali são FAVORITOS, e excluir é
-    // desmarcar. Sem esta linha o `else` de baixo caía em
-    // `listRemove('folders', id)` — a chave do índice de atalhos, que guardava
-    // objetos e não ids: um no-op silencioso, com o operador vendo o item
-    // continuar na lista depois de mandar excluí-lo. (O ramo do meio, que
-    // tirava do atalho aberto, saiu na v5.254 com os atalhos.)
-    for (const id of selected) {
-      favSet.delete(id); await AVDB.listRemove('favs', id); await soltarAvulso(id);
-    }
-    await recarregarFavoritos();
-  } else {
+  // (Os DOIS ramos de `'folders'` saíram na v5.293, com a gaveta: um apagava o
+  // ARQUIVO FÍSICO dos selecionados dentro de uma pasta do aparelho, o outro
+  // desmarcava favoritos na raiz dela. Nenhum dos dois era alcançável — a
+  // seleção múltipla só existe na lista principal desde a v5.290. Quem apaga
+  // arquivos de uma pasta hoje é o "Excluir pasta e arquivos sincronizados" da
+  // linha da própria pasta.)
+  {
     for (const id of selected) { await AVDB.listRemove(activeTab, id); await soltarAvulso(id); }
   }
   exitSelection(); load();
@@ -9716,97 +9646,28 @@ async function renameSelected() {
 }
 
 // ===== pastas =====
-// ENTRAR NUMA PASTA É UMA TELA, NÃO UMA SEÇÃO (v5.237). O toque pode vir da
-// gaveta (onde ela já está aberta) ou do grupo Favoritos dentro da Biblioteca —
-// e lá dentro há voltar, busca e seleção múltipla, que só existem na gaveta.
-// Garantir a gaveta AQUI, e não no ouvinte de cada linha, é o que mantém uma
-// implementação só: as linhas são montadas pelo mesmo `renderFolderList` nas
-// duas casas.
 //
-// (`loadFolderMediaItems` e `openFolder` saíram na v5.254 com os atalhos de
-// pasta: a única pasta que se abre hoje é a do APARELHO, por `openOpfsFolder`.)
-function garantirGaveta() {
-  if (!favPopupEl.classList.contains('open')) openFavorites();
-}
+// (`garantirGaveta`, `openFavorites`, `closeFavorites`, `favVoltarPara` e o
+// `hostSelbar` de duas casas saíram na v5.293, com a gaveta `#favPopup` — ver o
+// bloco no topo do arquivo. A pasta do aparelho abre INLINE dentro da seção de
+// Favoritos da Biblioteca desde a v5.290, e era ela a única tela que a gaveta
+// ainda servia.)
 
-// ===== A gaveta de uma PASTA =====
-// Abrir é entrar no `activeTab === 'folders'` de sempre — a diferença é só
-// ONDE a lista é desenhada (ver `listHost`). Manter o activeTab é o que faz
-// toda a navegação interna (abrir pasta, buscar, selecionar, excluir) continuar
-// valendo sem uma segunda implementação.
-//
-// **ELA NÃO TEM MAIS PORTA PRÓPRIA** (v5.238, pedido do operador: "tudo agora
-// será dentro da biblioteca"). O botão do cabeçalho saiu, e o único caminho
-// para cá é ENTRAR NUMA PASTA a partir da seção de Favoritos da Biblioteca —
-// por `garantirGaveta`. O que sobrou aqui é o que só existe dentro de uma
-// pasta: o voltar, a busca do catálogo e a seleção múltipla, que são uma tela
-// inteira e não uma seção.
-//
-// A aba que estava embaixo quando a gaveta abriu: fechar tem de devolver o
-// operador ao lugar de onde ele veio — quem entrou numa pasta no meio de uma
-// leitura bíblica não espera cair no Cronograma ao sair dela.
-let favVoltarPara = 'imports';
-
-// ===== ⚠️ A GAVETA FICOU SEM PORTA NA v5.290 =====
-//
-// Ela era a tela de DENTRO de uma pasta do aparelho, e nada mais (a v5.238 tinha
-// tirado o botão do cabeçalho que a abria pela raiz). Com a pasta abrindo inline
-// — pedido do operador, *"que abra a lista assim como abrem os álbuns com seus
-// itens"* —, `openOpfsFolder` saiu e ninguém mais chama `openFavorites`: o
-// `activeTab` nunca mais vale `'folders'`, e o carrossel de abas já o pulava.
-//
-// O subsistema continua aqui INTEIRO e inerte, e isso é uma decisão declarada,
-// não esquecimento: removê-lo alcança ~28 ramos de `activeTab === 'folders'`
-// espalhados por `load`, `renderListTitle`, `renderLibrary`, `deleteSelected`,
-// `switchTab`, `hostSelbar`, `listHost`, o carrossel e a pilha do voltar. É uma
-// faxina que merece a própria passada de verificação, e não o mesmo lote da
-// mudança de comportamento.
-//
-// **O que a gaveta levava junto, e que hoje não existe em lugar nenhum:**
-//  · a BUSCA dentro de uma pasta (`folderQuery`/`#libSearch`) — a barra da
-//    Biblioteca varre `allCollections()` e não alcança o catálogo de pastas;
-//  · a SELEÇÃO MÚLTIPLA dentro de uma pasta, que era onde morava o excluir de
-//    ARQUIVO FÍSICO por item. (Este segundo é menos perda do que parece: um
-//    arquivo apagado de uma pasta sincronizada volta na próxima sincronização —
-//    o mesmo argumento que mantém o renomear fora dali, v5.288.)
-function openFavorites() {
-  if (activeTab !== 'folders') favVoltarPara = activeTab;
-  favPopupEl.classList.add('open');
-  switchTab('folders');
-  hostSelbar();
-}
-
-// Fechar devolve a aba de onde o operador veio — e a tela que aparece é a
-// BIBLIOTECA, que continua aberta atrás desta gaveta (v5.238). E zera a pasta:
-// uma gaveta reabre no topo — reaparecer dentro de um atalho que o operador
-// fechou há dois toques seria uma memória que ninguém pediu (a posição de
-// ROLAGEM, essa sim, continua guardada por `scrollPos`).
-function closeFavorites() {
-  favPopupEl.classList.remove('open');
-  if (selectionMode) exitSelection();
-  currentFolder = null;
-  folderQuery = '';
-  libSearchEl.value = '';
-  hostSelbar();
-  switchTab(favVoltarPara || 'imports', true);
-}
-
-// A barra de seleção múltipla vive no RODAPÉ DA LISTA, e some atrás da gaveta
-// de Favoritos quando ela abre — selecionar itens dentro de uma pasta deixaria
-// a barra invisível. Então ela MUDA de casa junto com a lista, pelo mesmo
-// padrão que o `<input type="file">` já usa (ver renderListFoot): um nó só,
-// movido, em vez de dois que divergem.
+// A barra de seleção múltipla vive no RODAPÉ DA LISTA, fora do `<ul>` rolável e
+// por isso sempre à vista. Ela MUDA de casa com o `<input type="file">` que
+// ocupa a mesma fatia (ver `renderListFoot`): um nó só, movido, em vez de dois
+// que divergem.
 //
 // A casa dela era a caixa de controles, no lugar da faixa de ABAS (v5.107 tirou
 // de lá). As ações são da LISTA; trocar a navegação de lugar para mostrá-las
 // mexe no que não é da seleção, e some com as abas justamente quando o operador
-// pode querer sair da tela. No rodapé ela ocupa a fatia do "Importar arquivos",
-// que é a única coisa da tela que a seleção múltipla de fato substitui.
+// pode querer sair da tela.
+//
+// (Até a v5.292 esta função escolhia entre DUAS casas — o rodapé e a folha da
+// gaveta de Favoritos —, porque selecionar itens dentro de uma pasta deixaria a
+// barra invisível atrás dela. A gaveta saiu; sobrou uma casa, e a função ficou
+// para o `<input type="file">` não voltar a disputar a fatia com a `#selbar`.)
 function hostSelbar() {
-  if (favPopupEl.classList.contains('open')) {
-    if (selbarEl.parentElement !== favSheetEl) favSheetEl.appendChild(selbarEl);
-    return;
-  }
   if (selbarEl.parentElement !== listFootEl) listFootEl.appendChild(selbarEl);
 }
 
@@ -9821,14 +9682,10 @@ function navigateBack() {
   // de chegar aqui é entrando numa pasta. Então o voltar sempre FECHA, e a tela
   // de trás é a Biblioteca, com a seção de onde o operador veio. Subir para uma
   // "raiz" que ninguém mais alcança seria devolvê-lo a uma tela sem porta.
-  if (activeTab === 'folders') { closeFavorites(); return; }
   rememberScroll();
   // A seleção pertence à lista que está sendo deixada — mesmo motivo do
   // `exitSelection` que `switchTab` faz ao trocar de aba.
   if (selectionMode) exitSelection();
-  currentFolder = null;
-  folderQuery = '';
-  libSearchEl.value = '';
   load({ restaurarScroll: true });
 }
 
@@ -10138,7 +9995,6 @@ async function deleteOpfsFolder(f) {
   await AVDB.opfsDeleteDir('folders/' + f.id);
   opfsFolders = opfsFolders.filter((x) => x.id !== f.id);
   await AVDB.setState('opfs-folders', opfsFolders);
-  if (currentFolder && currentFolder.id === f.id) currentFolder = null;
   load();
 }
 
@@ -11121,7 +10977,6 @@ async function deleteCollection(coll) {
   const u = ui(coll.id); u.bytes = 0;
   pesoConferido.add(coll.id);   // zerado por exclusão, não por falta de medida
   salvarPesos();
-  if (currentFolder && currentFolder.id === coll.id) currentFolder = null;
   load();
 }
 
@@ -13879,7 +13734,7 @@ async function addSongToDestinos(coll, s, variant, destinos, btn) {
   // estrela de cada linha do acervo, e o Cronograma só precisa ser remontado se
   // ele for a lista em cena.
   if (alvos.includes('favoritos')) renderLibrary();
-  if (alvos.includes('cronograma') && activeTab === 'imports' && !currentFolder) load();
+  if (alvos.includes('cronograma') && activeTab === 'imports') load();
 }
 
 // (`addSongToFavorites` e `addSongToPlaylist` saíram na v5.141: eram três
@@ -15687,9 +15542,8 @@ async function sairDasCamadas() {
     try { await document.exitFullscreen(); } catch (_) {}
   }
 
-  // 3. Fora do Cronograma, volta para ele — inclusive de dentro de uma pasta
-  //    dos Favoritos, que é um `activeTab` próprio ('folders'). No simplificado
-  //    não há abas: basta redesenhar.
+  // 3. Fora do Cronograma, volta para ele. No simplificado não há abas: basta
+  //    redesenhar.
   if (appMode !== 'simple' && activeTab !== 'imports') await switchTab('imports');
   else await load();
 }
@@ -17368,10 +17222,12 @@ plBtnEl.addEventListener('click', openPlPopup);
 // Ordem das abas (esquerda→direita) — define a DIREÇÃO do deslize na animação
 // de troca de aba (ir pra uma aba à direita desliza a lista entrando pela
 // direita, e vice-versa).
-// Favoritos e Mensagens não têm aba, mas Favoritos ainda é uma TELA
-// (activeTab 'folders') e precisa de posição aqui para a direção do deslize
-// sair certa.
-const TAB_ORDER = ['imports', 'folders', 'bible', 'mic'];
+//
+// (Havia um `'folders'` entre `imports` e `bible`, a posição reservada para a
+// gaveta de Favoritos. Ela saiu na v5.293 com a gaveta: uma posição fantasma
+// numa lista que só serve para comparar índices não muda a direção de nada,
+// mas manda quem lê procurar uma aba que não existe.)
+const TAB_ORDER = ['imports', 'bible', 'mic'];
 const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 // Duração e curva da troca de aba. Vivem em DOIS lugares por necessidade — o
 // vazado da faixa é uma transição CSS (`--tab-move`) e a lista é Web Animations
@@ -17441,14 +17297,8 @@ function animateTabSwitch(dir, ghost) {
     [{ transform: 'translateX(' + (dir * 100) + '%)' }, { transform: 'none' }], opts);
 }
 
-// Troca de tela da lista. Nem toda tela tem aba: **Favoritos** é alcançada
-// pelo botão no fim do Cronograma (ver renderListFoot), e o botão voltar dali
-// retorna ao Cronograma — mas continua sendo um `activeTab` ('folders'), com a
-// mesma navegação interna (atalhos, pastas do dispositivo, busca).
-// `semAnim` para as trocas que NÃO são um passo lateral entre abas: fechar a
-// gaveta de Favoritos volta para o Cronograma, mas o movimento que o operador
-// vê ali é a gaveta subindo — um carrossel por baixo dela seria um segundo
-// movimento contando outra história.
+// Troca de tela da lista. `semAnim` para as trocas que NÃO são um passo lateral
+// entre abas — ali o carrossel contaria uma história que o operador não fez.
 async function switchTab(tab, semAnim) {
   if (tab === activeTab) return;
   // Direção do deslize: +1 se a tela nova está à direita da atual, -1 se à esquerda.
@@ -17463,10 +17313,7 @@ async function switchTab(tab, semAnim) {
   // estado, e a projeção tem laço próprio). Sem isto sobraria um timer de 5 Hz
   // reescrevendo um nó que o `innerHTML = ''` da lista já descartou.
   if (activeTab === 'mic') { stopChronoPanelTimer(); stopDrawPanelTimer(); }
-  // Os Favoritos são a gaveta, não uma aba: nem sai deslizando nem entra.
-  const anima = !semAnim && !prefersReducedMotion && !!libraryEl.animate
-    && activeTab !== 'folders' && tab !== 'folders'
-    && !favPopupEl.classList.contains('open');
+  const anima = !semAnim && !prefersReducedMotion && !!libraryEl.animate;
   // O fantasma é feito ANTES do render: ele leva embora os nós que ainda estão
   // na tela, e é ele que o operador continua vendo enquanto o `load()` monta a
   // lista nova (leituras de IndexedDB — poucos ms, mas não zero).
@@ -17696,14 +17543,6 @@ selDeleteEl.addEventListener('click', deleteSelected);
 selRenameEl.addEventListener('click', renameSelected);
 
 backBtnEl.addEventListener('click', navigateBack);
-favBackEl.addEventListener('click', navigateBack);
-// Buscar redesenha a lista inteira (innerHTML = '' + um object URL novo por
-// miniatura). Numa pasta de igreja com centenas de arquivos, sem debounce isso
-// acontecia por TECLA — e nas primeiras letras a lista ainda é quase inteira.
-libSearchEl.addEventListener('input', debounce(() => {
-  folderQuery = libSearchEl.value;
-  renderLibrary();
-}, SEARCH_DEBOUNCE_MS));
 
 hymnSearchBtnEl.addEventListener('click', openHymnSearch);
 hymnSearchInputEl.addEventListener('input', debounce(() => renderSearchResults(hymnSearchInputEl.value), SEARCH_DEBOUNCE_MS));
@@ -18440,10 +18279,6 @@ if (castMirrorBtnEl) {
 // mesmo toque na engrenagem que o abriu, ou o toque na barra que fecha o card.)
 const POPUPS = [
   [plPopupEl, plPopupCloseEl, closePlPopup],
-  // A gaveta de Favoritos vem CEDO na tabela (o voltar percorre de trás para a
-  // frente): o seletor de atalhos e o diálogo de confirmação são abertos DE
-  // DENTRO dela e precisam fechar primeiro.
-  [favPopupEl, favCloseEl, closeFavorites],
   [hymnSearchPopupEl, hymnSearchCloseEl, closeHymnSearch],
   [bibleVerPopupEl, bibleVerCloseEl, closeBibleVerPopup],
   [fadePopupEl, fadePopupCloseEl, closeFadePopup],
@@ -18490,16 +18325,9 @@ window.__avBack = function () {
     closeAppDialog(appDialogInputEl.hidden ? false : null);
     return true;
   }
-  // 1.5. A hierarquia DE DENTRO da gaveta de Favoritos vem antes da própria
-  //    gaveta — como já vale para as telas da Bíblia (passo 6). Primeiro a
-  //    seleção múltipla, depois a pasta aberta: a seleção é do conteúdo da
-  //    pasta, então sair da pasta com ela de pé deixaria itens marcados numa
-  //    lista que não é mais a deles. (O passo 5, genérico, continua valendo
-  //    para a seleção feita na lista de baixo, sem gaveta nenhuma aberta.)
-  if (favPopupEl.classList.contains('open')) {
-    if (selectionMode) { exitSelection(); return true; }
-    if (currentFolder) { navigateBack(); return true; }
-  }
+  // (O passo 1.5 — a hierarquia DE DENTRO da gaveta de Favoritos — saiu na
+  //    v5.293 com a própria gaveta. O passo 5, genérico, continua cuidando da
+  //    seleção múltipla feita na lista.)
   // 2. Bottom-sheets. Fecha o ÚLTIMO da tabela que estiver aberto — normalmente
   //    há um só, mas se houver dois o de cima é o que o operador vê.
   for (let i = POPUPS.length - 1; i >= 0; i--) {
