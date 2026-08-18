@@ -4865,8 +4865,63 @@ usa `listRemove` (com gc).
 > porque o cabeçalho de tipo já dizia o que ele diz), e é ele que agora
 > distingue um vídeo de um versículo.
 
-É o caminho curto para o que o operador usa toda semana. Desde a v5.53 ela é
-uma **gaveta que desce do topo** (`#favPopup`).
+É o caminho curto para o que o operador usa toda semana. Desde a v5.53 ela era
+uma **gaveta que desce do topo** (`#favPopup`) — e desde a v5.237 os favoritos
+são a primeira SEÇÃO da Biblioteca, o que reduziu a gaveta à tela de DENTRO de
+uma pasta do aparelho.
+
+> **⚠️ E NA v5.290 ELA FICOU SEM PORTA.** Pedido do operador: *"que ele abra a
+> lista de arquivos das pastas de forma visual sem ser um popup, para que abra a
+> lista assim como abrem os álbuns com seus itens"*. Uma pasta é um CONTÊINER de
+> arquivos, exatamente como um álbum é um contêiner de faixas, e o app já sabia
+> desenhar isso — o mesmo acordeão, no mesmo lugar, com as mesmas linhas de item
+> (ver "A pasta abre inline", abaixo). `openOpfsFolder` era o único caminho para
+> a gaveta, então ninguém mais chama `openFavorites`.
+>
+> O subsistema continua no arquivo, inteiro e inerte, com a lápide em
+> `openFavorites`: removê-lo alcança ~28 ramos de `activeTab === 'folders'`
+> espalhados por `load`, `renderListTitle`, `renderLibrary`, `deleteSelected`,
+> `switchTab`, `hostSelbar`, `listHost`, o carrossel e a pilha do voltar — uma
+> faxina que merece a própria passada de verificação. O `activeTab` nunca mais
+> vale `'folders'` (o carrossel já o pulava), então os ramos são inertes.
+>
+> **O que a gaveta levava junto, dito em vez de escondido:** a BUSCA dentro de
+> uma pasta (`folderQuery`/`#libSearch`), que não tem substituto — a barra da
+> Biblioteca varre `allCollections()` e não alcança o catálogo de pastas —, e a
+> SELEÇÃO MÚLTIPLA dentro de uma pasta, que era onde morava o excluir de ARQUIVO
+> FÍSICO por item (menos perda do que parece: um arquivo apagado de uma pasta
+> sincronizada volta na sincronização seguinte, e quem apaga de verdade é o
+> "Excluir pasta e arquivos sincronizados" da própria linha).
+
+#### A pasta abre INLINE, como um álbum (v5.290)
+
+O corpo é montado **uma vez, e só quando a pasta abre**: uma pasta sincronizada
+tem centenas de arquivos, e montá-los para todas elas a cada redesenho da seção
+seria o trabalho de DOM da tela inteira por algo que ninguém está vendo — é a
+mesma decisão do corpo de um grupo da Biblioteca (v5.237).
+
+**Uma anatomia só para as duas listas.** `favItemRow` virou `linhaDeItem`, e o
+que muda entre um favorito e um arquivo de pasta viaja em `opts`:
+
+| | favorito | arquivo da pasta |
+|---|---|---|
+| `lista` | `'favs'` — a faixa de ações tem ↑↓ e excluir | **nenhuma** — a ordem vem do disco, e apagar aqui seria apagar o ARQUIVO |
+| `destinos` | playlist · Cronograma | playlist · Cronograma · **Favoritar** |
+
+A segunda linha é a régua de sempre: numa lista de favoritos "Favoritar" não
+muda nada, e numa pasta ela é justamente o caminho de promover o arquivo. Uma
+escolha que não faz nada é pior que escolha nenhuma — daí ser parâmetro, e não
+um `if` dentro do menu.
+
+**`pastaAberta` é um NOME e não um conjunto**, pela mesma razão do `grupoAberto`
+(v5.273): "duas pastas abertas" deixa de ser uma regra que alguém precisa
+lembrar e passa a ser uma frase que não dá para escrever. Ele nasce no topo do
+arquivo, porque é lido por um caminho de render — a zona morta temporal que já
+derrubou o app quatro vezes. E ele existe porque favoritar um arquivo de dentro
+da pasta redesenha a seção: sem essa memória, cada ação fecharia a pasta.
+
+Os arquivos saem ordenados por **nome**: a ordem do disco é a de gravação, e não
+diz nada a quem está montando um culto.
 
 #### O que a v5.103 corrigiu: era uma PASTA com nome de favorito
 
