@@ -1148,7 +1148,16 @@ AVDB.onCommand(async (cmd) => {
     // NA TELA DA REDE a imagem não está no IDB (que é por-aparelho): ela vem
     // pela URL /m/ que o Controle anexou ao próprio comando (telão por
     // comandos, E4). No telão e no espelho, o caminho de sempre.
-    if (TELA && cmd.__wp) {
+    if (TELA) {
+      // SEM `__wp` A TELA NÃO FAZ NADA — e antes ela APAGAVA. O caminho de
+      // baixo lê o wallpaper do IndexedDB, que é POR APARELHO: no navegador da
+      // rede ele está vazio, então `applyWallpaper()` ali só pode desfazer o
+      // inline que o `__wp` tinha acabado de pintar. E o Controle emite os dois:
+      // `setWallpaper` manda o aviso NU ("mudou, releiam o estado") e o
+      // enriquecimento manda o `__wp` num segundo tempo, depois de ler o blob —
+      // então toda troca de wallpaper piscava o desenho padrão nas telas da
+      // rede, e ficava NELE se o segundo comando se perdesse.
+      if (!cmd.__wp) return;
       // `'padrao'` é o sentinela de "voltou ao padrão": a tela desfaz o
       // inline e o desenho padrão do CSS volta a valer (v5.188).
       if (cmd.__wp === 'padrao') telaWallpaperPadrao(); else telaAplicarWallpaper(cmd.__wp);
