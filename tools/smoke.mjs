@@ -2284,6 +2284,172 @@ try {
   checar(false, 'a medição do menu da linha terminou sem exceção (' + (e && e.message) + ')');
 }
 
+// ── UM REDESENHO NO LUGAR MANTÉM O LUGAR ─────────────────────────────────
+//
+// A última linha de `load()` restaurava `scrollPos[scrollKey()]` em TODO
+// redesenho — e o único produtor daquele mapa é o `rememberScroll()` da troca
+// de aba. Isto é: acrescentar um item, favoritar, o progresso de um download
+// ou a chegada de um share jogavam a lista de volta para onde o operador
+// estava da última vez que TROCOU DE ABA (quase sempre o topo). Ele rolava
+// até o meio do Cronograma, mandava um louvor para lá, e a lista voltava
+// para o começo.
+//
+// As duas metades: o redesenho no lugar PRESERVA, e a navegação continua
+// RESTAURANDO — sem a segunda, "nunca restaurar" passaria e a volta para uma
+// aba perderia a posição.
+try {
+  const rol = await pg.evaluate(async () => {
+    setAppMode('full');
+    activeTab = 'imports';
+    for (let i = 0; i < 24; i++) {
+      await AVDB.addMedia(new Blob(['r' + i], { type: 'audio/mpeg' }),
+        { name: 'Louvor de rolagem ' + i, type: 'audio/mpeg', kind: 'audio', list: 'imports' });
+    }
+    await load({ restaurarScroll: true });
+    await new Promise((f) => setTimeout(f, 150));
+    const host = listHost();
+    host.scrollTop = 300;
+    const antes = host.scrollTop;
+    if (!antes) return { erro: 'a lista não rolou (fixture curto demais)' };
+    await load();                       // um redesenho no LUGAR
+    await new Promise((f) => setTimeout(f, 150));
+    const r = { antes, depoisDoRedesenho: listHost().scrollTop };
+    // …e a NAVEGAÇÃO continua restaurando a posição daquela aba.
+    await switchTab('bible');
+    await new Promise((f) => setTimeout(f, 400));
+    await switchTab('imports');
+    await new Promise((f) => setTimeout(f, 400));
+    r.depoisDaVolta = listHost().scrollTop;
+    return r;
+  });
+  checar(!rol.erro && rol.depoisDoRedesenho === rol.antes,
+    'um redesenho NO LUGAR mantém a rolagem da lista (antes: ' + rol.antes
+    + ' → depois: ' + rol.depoisDoRedesenho + ')', JSON.stringify(rol));
+  checar(!rol.erro && rol.depoisDaVolta === rol.antes,
+    'e a NAVEGAÇÃO continua restaurando a posição guardada daquela aba',
+    JSON.stringify(rol));
+} catch (e) {
+  checar(false, 'a medição da rolagem terminou sem exceção (' + (e && e.message) + ')');
+}
+
+// ── A GAVETA DA FILA DA PLAYLIST TAMBÉM ABRE ─────────────────────────────
+//
+// A faixa de acoes era revelada por `.lib-item.acoes-abertas .row-acoes`, e a
+// linha da FILA e `.row-item` — ela nunca recebe `lib-item`. Como a v5.285
+// tirou o arrasto e mudou o "Tirar da playlist" e o par ↑↓ para DENTRO dessa
+// faixa, a fila do culto ficou sem como ser editada: o `⋮` respondia ao toque
+// (a classe entrava no `li`) e nada aparecia.
+//
+// Medido pelo que o DEDO encontra, e não pela caixa do elemento: `visibility`
+// e `opacity` sao o que o seletor errado deixava para tras, e um `getBounding`
+// devolveria a mesma largura nos dois casos.
+try {
+  const fila = await pg.evaluate(async () => {
+    setAppMode('full');
+    const m = await AVDB.addMedia(new Blob(['q'], { type: 'audio/mpeg' }),
+      { name: 'Louvor da fila', type: 'audio/mpeg', kind: 'audio', list: 'playlist' });
+    plItems = await AVDB.listItems('playlist');
+    renderPlaylist();
+    if (typeof openPlPopup === 'function') openPlPopup();
+    await new Promise((f) => setTimeout(f, 200));
+    const li = document.querySelector('#playlist .row-item');
+    if (!li) return { erro: 'a linha da fila não foi desenhada' };
+    const mais = li.querySelector('.row-mais');
+    if (!mais) return { erro: 'a linha da fila não tem o botão ⋮' };
+    mais.click();
+    await new Promise((f) => setTimeout(f, 320));
+    const caixa = li.querySelector('.row-acoes');
+    if (!caixa) return { erro: 'a linha da fila não montou a gaveta' };
+    const cs = getComputedStyle(caixa);
+    const b = caixa.getBoundingClientRect();
+    const alvo = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+    const r = {
+      visivel: cs.visibility === 'visible' && cs.opacity === '1',
+      // e ela RECEBE O TOQUE: `visibility: hidden` tira do hit-test, então esta
+      // é a metade que prova que os botões de dentro são alcançáveis.
+      recebeToque: !!alvo && !!alvo.closest('.row-acoes'),
+      temBotao: caixa.querySelectorAll('button').length >= 1,
+    };
+    await AVDB.listRemove('playlist', m.id);
+    plItems = await AVDB.listItems('playlist');
+    renderPlaylist();
+    if (typeof closePlPopup === 'function') closePlPopup();
+    await new Promise((f) => setTimeout(f, 120));
+    return r;
+  });
+  checar(!fila.erro && fila.visivel && fila.temBotao,
+    'a gaveta `⋮` da FILA DA PLAYLIST fica visível ao toque — o seletor que a '
+    + 'revela é a CLASSE, não a lista em que a linha mora', JSON.stringify(fila));
+  checar(!fila.erro && fila.recebeToque,
+    'e ela recebe o toque: os botões de tirar da fila e de reordenar são '
+    + 'alcançáveis (era o único caminho por item que a fila tem)',
+    JSON.stringify(fila));
+} catch (e) {
+  checar(false, 'a medição da gaveta da fila terminou sem exceção (' + (e && e.message) + ')');
+}
+
+// ── O TOQUE LONGO AINDA ENTRA NA SELEÇÃO MÚLTIPLA ────────────────────────
+//
+// **Nenhum teste deste repositório tinha tocado numa linha da lista**, e foi
+// por aí que passou o defeito que este caso existe para prender: a v5.287 tirou
+// o parâmetro `semSelecao` de `attachRowGestures` e deixou o `if (semSelecao)
+// return` no corpo. Num script clássico, LER um identificador não declarado
+// lança `ReferenceError` — só a atribuição criaria uma global —, então todo
+// `pointerdown` numa linha estourava ANTES de armar o `setTimeout`.
+//
+// O modo de falhar é o pior que esta base sabe produzir: o `pid` já tinha sido
+// escrito na linha acima, então o toque CURTO continuava projetando e nada na
+// tela mudava. O que sumia era a seleção múltipla inteira — e com ela o
+// `deleteSelected`, que é o único excluir em lote do app.
+//
+// São DUAS metades, e a negativa não é enfeite: sem ela, um toque longo que
+// ligasse a seleção em QUALQUER duração passaria — e aí o toque comum de
+// projetar teria virado um seletor.
+try {
+  const sel = await pg.evaluate(async () => {
+    setAppMode('full');
+    activeTab = 'imports';
+    await load();
+    const li = document.querySelector('#library .lib-item');
+    if (!li) return { erro: 'a linha do Cronograma não foi desenhada' };
+    const corpo = li.querySelector('.row-name') || li;
+    const bateu = (tipo, extra) => corpo.dispatchEvent(new PointerEvent(tipo,
+      Object.assign({ pointerId: 7, clientX: 40, clientY: 40, bubbles: true }, extra || {})));
+    const r = {};
+    // ---- a metade NEGATIVA primeiro: um toque curto NÃO seleciona ----
+    bateu('pointerdown');
+    await new Promise((f) => setTimeout(f, 90));
+    bateu('pointerup');
+    await new Promise((f) => setTimeout(f, 60));
+    r.curtoNaoSeleciona = selectionMode === false;
+    // ---- e o toque LONGO entra na seleção, com o item marcado ----
+    bateu('pointerdown');
+    await new Promise((f) => setTimeout(f, 700));
+    r.longoSeleciona = selectionMode === true;
+    r.itemMarcado = selected instanceof Set ? selected.has(li.dataset.id) : null;
+    bateu('pointerup');
+    await new Promise((f) => setTimeout(f, 60));
+    // E a barra de seleção — a porta do excluir em lote — está na tela.
+    const barra = document.getElementById('selbar');
+    r.barraVisivel = !!barra && !barra.hidden
+      && getComputedStyle(barra).display !== 'none';
+    if (selectionMode) exitSelection();
+    await new Promise((f) => setTimeout(f, 60));
+    return r;
+  });
+  checar(!sel.erro && sel.curtoNaoSeleciona,
+    'um toque CURTO na linha não entra na seleção múltipla', JSON.stringify(sel));
+  checar(!sel.erro && sel.longoSeleciona && sel.itemMarcado === true,
+    'e o TOQUE LONGO entra, com o item já marcado — o único caminho para o '
+    + 'excluir em lote (a v5.287 o tinha derrubado com um `ReferenceError` '
+    + 'mudo em todo `pointerdown`)', JSON.stringify(sel));
+  checar(!sel.erro && sel.barraVisivel,
+    'e a barra de seleção aparece: é ela que hospeda o excluir em lote',
+    JSON.stringify(sel));
+} catch (e) {
+  checar(false, 'a medição do toque longo terminou sem exceção (' + (e && e.message) + ')');
+}
+
 // ── A LINHA DEPOIS DO RELATO: uma caixa só, o Parar na capa (v5.259) ──────
 //
 // Quatro coisas do mesmo relato, e as quatro são medidas em pixel porque as

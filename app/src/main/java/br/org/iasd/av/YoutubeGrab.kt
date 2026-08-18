@@ -492,7 +492,16 @@ object YoutubeGrab {
         // já terminado — chegou depois do teste do `finally` — ficaria armado e
         // mataria ESTE no primeiro bloco copiado, que é justamente o download
         // que o operador pediria em seguida.
-        cancelarLink = null
+        //
+        // MAS SÓ O QUE NOMEIA OUTRO LINK. `cancelar()` é o único método da ponte
+        // que NÃO passa pela fila de IO, e de propósito: a fila é de uma thread
+        // só e está ocupada justamente pelo download que se quer parar. Só que
+        // ela também é a fila em que o download ESPERA — e um cancel que chegue
+        // enquanto ele ainda está enfileirado era apagado aqui, no instante em
+        // que a vez dele chegava. O operador tocava em cancelar, nada acontecia,
+        // e os ~300 MB baixavam assim mesmo. Preservar o pedido que nomeia ESTE
+        // link honra as duas coisas: o resto continua sendo descartado.
+        if (cancelarLink != link) cancelarLink = null
         return try {
             garantirInit()
             // Pelo EXTRATOR, e não pelo atalho `getInfo(service, url)`: é o

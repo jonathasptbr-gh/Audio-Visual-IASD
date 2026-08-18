@@ -3053,10 +3053,134 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.291** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.292** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.292: A REVISÃO PROFUNDA — doze defeitos, e dois deles tinham derrubado
+> um recurso inteiro em silêncio. METADE OTA, METADE APK** (as duas correções
+> Kotlin exigem uma Release; as dez de base web chegam sozinhas e não dependem
+> delas).
+>
+> Uma varredura do repositório inteiro pedida pelo operador — *"bugs, código
+> morto, otimizações e padronizações… e a questão funcional por falhas de
+> conceito"*, com o aviso que governou o método: **confie no código, não na
+> documentação**. E foi literal: três dos achados abaixo são comentários que
+> descrevem um mecanismo que o código não tem mais.
+>
+> **OS DOIS QUE APAGARAM UM RECURSO, e os dois pelo mesmo modo de falhar:** o
+> app continuava respondendo, nada errava alto, e o que sumiu foi um caminho
+> que não se usa todo dia.
+>
+> - **`ReferenceError` mudo em TODO toque numa linha do Cronograma.** A v5.287
+>   tirou o parâmetro `semSelecao` de `attachRowGestures` e deixou o
+>   `if (semSelecao) return` no corpo. Num script clássico, LER um identificador
+>   não declarado lança — só a atribuição criaria uma global. O `pointerdown`
+>   estourava ANTES de armar o `setTimeout`, e com ele foram embora o toque
+>   longo, a **seleção múltipla** e o `deleteSelected`, que é o único excluir em
+>   lote do app. O toque CURTO continuava projetando (o `pid` já tinha sido
+>   escrito na linha acima), então nada na tela mudava. Medido em Chromium:
+>   `Uncaught ReferenceError: semSelecao is not defined`, `selectionMode` nunca
+>   liga. **`eslint --rule no-undef` sobre a base inteira devolve exatamente UM
+>   erro**, e era este — vale como portão barato para a próxima vez.
+> - **A gaveta `⋮` da FILA DA PLAYLIST nunca ficava visível.** As três regras que
+>   revelam a faixa eram `.lib-item.acoes-abertas …`, e a linha da fila é
+>   `.row-item`. Como a v5.285 tirou o arrasto e moveu o "Tirar da playlist" e o
+>   par ↑↓ para DENTRO dessa faixa, a fila do culto ficou sem como ser editada
+>   nem reordenada: o `⋮` respondia (a classe entrava no `li`) e nada aparecia.
+>   Medido: `visibility: hidden` e o `elementFromPoint` no meio da faixa
+>   devolvendo o TÍTULO da linha. **Quem revela a gaveta passa a ser a CLASSE,
+>   não a lista em que a linha por acaso mora** — assim a próxima lista que
+>   ganhar a gaveta já nasce funcionando, que é exatamente o que faltou aqui.
+>
+> **A CAMADA DE TEXTO, em três frentes.** (1) `cenaDeRoteiroNoAr()` testava a
+> EXISTÊNCIA da sessão, e os quatro `hide*` existem justamente para tirar da tela
+> SEM matá-la: depois de "Tirar do telão" a linha da cena seguia com o selo
+> "● No ar" e o toque nela caía em `retirarDoAr` — reprojetar custava dois
+> toques, e o primeiro não fazia nada visível. (2) Cada projetor limpava as
+> outras camadas à mão e a conta não fechava: **ninguém limpava a letra avulsa**,
+> e como `lyricProjecting()` tem precedência no `slideTarget` e no
+> `renderNowPlaying`, uma `lyricSession` órfã sequestrava ⏮/⏭ e o título da
+> notificação de mídia. Agora há `soUmProvedorDeTexto(quem)`: cinco listas
+> mantidas à mão eram cinco lugares para a sexta camada ser esquecida. (3) **A
+> cortina do wallpaper ENGOLIA o cartão** — o stage reavalia a cortina em três
+> pontos que não sabiam dele (o fim natural da mídia, o `play()` e o fim de um
+> `load`), e o wallpaper está ACIMA do texto. O caso é o que a independência
+> áudio × texto existe para permitir: um louvor de fundo com a contagem
+> regressiva por cima. A música acabava e o cronômetro sumia, com `textActive`
+> ainda true e a lista ainda dizendo "● No ar". O remendo que existia era
+> pontual; agora o stage tem `setOverlay`, declarado por quem põe o cartão no ar.
+>
+> **E o resto, em uma linha cada:**
+>
+> - **`mse.js`**: o seek do `startAt` era DESCARTADO quando o índice da faixa
+>   ainda não tinha chegado (`aoBuscar` começa com `if (!f.segs) return`, e o
+>   `loadedmetadata` da MSE dispara com o áudio ainda sem `segs`). O vídeo
+>   reposicionava e o áudio baixava do segundo ZERO — a projeção ficava parada
+>   até ele percorrer o trecho inteiro. Morde no caminho mais caro que existe: a
+>   reconexão do telão e a aplicação de um OTA com a cena no ar.
+> - **`stage.js`**: parar um ÁUDIO SEM LETRA cortava o som no talo. A rampa de
+>   volume vivia dentro da animação da cortina, e para esse tipo a cortina já
+>   está fechada o tempo todo (`semVisual`) — `coverIn` devolvia na hora e o
+>   `clear()` cortava. É o defeito que só se ouve: nenhum pixel muda.
+> - **A rolagem**: `load()` restaurava `scrollPos` em TODO redesenho, e o único
+>   produtor daquele mapa é a troca de aba. Acrescentar um item, favoritar ou o
+>   progresso de um download jogavam a lista de volta para o topo. Agora só a
+>   NAVEGAÇÃO restaura; um redesenho no lugar mantém o lugar.
+> - **As miniaturas da Biblioteca** eram criadas no balde de `object-URL` de
+>   OUTRO host e o `renderLibrary` seguinte (que roda a cada 400 ms durante um
+>   download) as revogava EM CENA.
+> - **O funil de destinos** redesenhava favoritos e playlist e deixava o
+>   Cronograma por conta do chamador — dos dois que existem, só um lembrava.
+> - **O timer da procura de atualização** apagava o "Deixar para depois" e o
+>   diálogo modal reabria sozinho oito segundos depois.
+> - **`bibleGotoChapter`** é o outro ponto que escreve `bibleChapterData` e não
+>   fazia nada do que `changeBibleVersion` documenta como obrigatório.
+> - **O preset de sorteio** reescrevia `kind`/`min`/`max`/`pool` sem zerar
+>   `used`: o roteiro podia abrir um sorteio sem números para sortear.
+> - **A letra avulsa** não tinha guarda de sequência em volta do download.
+> - **A sincronização de pasta** redesenhava a Biblioteca inteira uma vez POR
+>   ARQUIVO, pulando o coalescimento de 400 ms que já existia e tem nome.
+> - **O wallpaper da tela da rede** desistia em ~6 s, e os bytes dele vêm depois
+>   da mídia inteira na mesma fila serializada — agora usa a mesma ladeira do
+>   fundo da letra.
+> - **A caixa-preta** carimbava "PAUSA ESPONTÂNEA" em toda parada comandada: a
+>   janela era de 400 ms contra um fade de 600 ms, e `media-clear` não estava na
+>   lista.
+> - **O erro de mídia da preview** era engolido sem registro nenhum — e o
+>   comentário afirmava que ele ia para o Registro. Agora vai.
+> - **`refFonte`** era escrito a cada status e NENHUMA linha o lia. Virou a linha
+>   "Referência de tempo" do Registro, com a recência junto (ele não zera
+>   sozinho, e sem a guarda diria "o telão" com o palco vazio há meia hora).
+>
+> **KOTLIN (exige Release):** a remontagem por morte de renderer zerava
+> `backgroundWork` e `captureVolumeKeys` e **não desfazia a TELA CHEIA** — o
+> WebView novo era acrescentado a um `webContainer` que continuava `GONE`, com a
+> View órfã por cima. É o culto SEM TV, em que a preview em tela cheia É a
+> projeção. E `buscarInterno` apagava `cancelarLink` incondicionalmente na
+> entrada: um cancelamento que chegasse com o download ainda ENFILEIRADO era
+> descartado no instante em que a vez dele chegava — o operador tocava em
+> cancelar e os ~300 MB baixavam assim mesmo.
+>
+> **CÓDIGO MORTO REMOVIDO** (confirmado por `eslint --rule no-unused-vars` mais
+> conferência à mão): `COLLECTION_LOCALE`, `nowYoutube`, `voiceIconSvg`,
+> `noteIconSvg`, `lyricsOnlyIconSvg`, `mirrorTvConfirmado`, o construtor de
+> cabeçalho de grupo `header` (~30 linhas de UI paralela e inerte) e o
+> `countDownloaded` calculado e descartado em cada card, a cada redesenho.
+>
+> **O QUE FICA MAPEADO E NÃO FOI MEXIDO, de propósito:** a aba `'folders'` e a
+> gaveta `#favPopup` são **inalcançáveis** — `openFavorites` não tem chamador e
+> **`currentFolder` nunca mais recebe valor não-nulo em lugar nenhum do app**
+> (as únicas atribuições são `= null`). São ~30 ramos, e com eles foram-se, sem
+> aviso, a BUSCA dentro de uma pasta do aparelho e a seleção múltipla lá dentro.
+> A faxina merece o próprio lote — e o oráculo que hoje monta `activeTab =
+> 'folders'` à mão prova um comportamento num estado que o app não alcança.
+>
+> Todos os oráculos passam (19/19), e **cada correção foi verificada por
+> ISOLAMENTO** — devolvendo o defeito e conferindo que o caso novo reprova. O
+> Kotlin **não foi compilado** aqui (o ambiente não tem o SDK do Android): quem
+> o compila é o CI.
 
 > **A v5.291: UMA `.lib-item` DENTRO DE OUTRA — todo seletor DESCENDENTE vazou.
 > OTA PURO** (só CSS e o oráculo; sem Release).
