@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.288';
+const WEB_VERSION = '5.289';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -5923,6 +5923,23 @@ function renderLibrary() {
     // com meia lista marcada nunca foi uma operação que alguém quisesse.)
     if (!selectionMode) {
       parts.push(...montarAcoesDaLinha(li, [
+        // ===== O EXCLUIR É O PRIMEIRO, isto é, o MAIS LONGE do `⋮` (v5.288) =====
+        //
+        // Pedido do operador: *"coloque o botão de excluir mais à esquerda na
+        // lista de opções, já que excluir deve ficar o mais longe de um
+        // acidente de clique de fechar opções"*.
+        //
+        // O `⋮` fica colado na ponta direita da faixa e é o alvo que se toca
+        // repetidamente (abre e fecha) — errá-lo por alguns pixels caía
+        // justamente no destrutivo. Do outro lado o vizinho é o VAZIO da caixa,
+        // que também fecha; a diferença é que ele é uma área larga em que
+        // ninguém mira a borda, e não um botão de 40px que se procura.
+        //
+        // (Isto inverte a ordem que valia desde a v5.258 — "o que se usa mais
+        // fica mais perto do dedo que acabou de tocar no `⋮`". Ela continua
+        // valendo para o resto da fileira: o que muda é que o destrutivo deixa
+        // de disputar essa vizinhança.)
+        activeTab !== 'folders' ? botaoExcluirDaLinha(item, activeTab, () => load()) : null,
         (ytDl && !dl) ? ytDl : null,
         star,
         addBtn,
@@ -5933,12 +5950,12 @@ function renderLibrary() {
         // seria desfeito na varredura seguinte.
         activeTab !== 'folders' ? botaoRenomearDaLinha(item, () => load()) : null,
         ...(activeTab !== 'folders' ? botoesDeOrdem(activeTab, item.id, i, items.length) : []),
-        // NA PASTA DO APARELHO ELE NÃO ENTRA (v5.271): ali "excluir" apaga o
-        // ARQUIVO físico, e essa limpeza tem donos próprios (`deleteSelected`,
-        // com o `opfsDeleteFile` e o `purgeCatalogRecords`). Um mesmo ícone com
-        // dois alcances diferentes conforme a tela é a pior forma de oferecer
-        // um destrutivo.
-        activeTab !== 'folders' ? botaoExcluirDaLinha(item, activeTab, () => load()) : null,
+        // (O EXCLUIR subiu para o começo desta lista na v5.288 — ver a nota lá.
+        // NA PASTA DO APARELHO ELE NÃO ENTRA, desde a v5.271: ali "excluir"
+        // apaga o ARQUIVO físico, e essa limpeza tem donos próprios
+        // (`deleteSelected`, com o `opfsDeleteFile` e o `purgeCatalogRecords`).
+        // Um mesmo ícone com dois alcances conforme a tela é a pior forma de
+        // oferecer um destrutivo.)
       ], activeTab + ':' + item.id));
     }
     row.append(...parts);
@@ -6195,6 +6212,25 @@ function fecharAcoesDaLinha() {
   if (linhaAcoesAberta) linhaAcoesAberta.classList.remove('acoes-abertas');
   linhaAcoesAberta = null;
 }
+/**
+ * "A gaveta que está aberta AGORA continua aberta depois do próximo redesenho."
+ *
+ * (v5.288) Uma ação da faixa pode redesenhar a lista inteira — favoritar o faz
+ * (`toggleFav` → `renderLibrary`, depois do pulso) —, e um redesenho apaga o
+ * `li` que tinha a gaveta. Sem isto, marcar uma estrela fechava as opções: o
+ * operador precisava reabri-las para fazer a segunda coisa que ele tinha ido
+ * fazer ali.
+ *
+ * Ela reusa o `reabrirAcoesEm` do par ↑↓ e a CHAVE que `montarAcoesDaLinha`
+ * carimbou no `li` — sem a chave não haveria como reencontrar a linha, porque o
+ * mesmo item vive em duas listas ao mesmo tempo (um favorito que também está no
+ * Cronograma é o caso normal).
+ */
+function manterAcoesAbertas() {
+  if (linhaAcoesAberta && linhaAcoesAberta.dataset.acoesChave) {
+    reabrirAcoesEm = linhaAcoesAberta.dataset.acoesChave;
+  }
+}
 function alternarAcoesDaLinha(li) {
   const abrir = linhaAcoesAberta !== li;
   fecharAcoesDaLinha();
@@ -6348,6 +6384,11 @@ function montarAcoesDaLinha(li, botoes, chave) {
   // não em cada chamador, para a próxima lista que ganhar a gaveta não poder
   // esquecê-la — e o `li` ainda não está no documento, o que não importa: o que
   // reabre é a classe.
+  // A CHAVE FICA NO `li` (v5.288): é por ela que `manterAcoesAbertas` reencontra
+  // esta linha depois de um redesenho disparado por uma ação de dentro da
+  // gaveta. Guardá-la só na closure não bastaria — quem precisa dela é código
+  // de fora, que só tem o nó na mão.
+  if (chave) li.dataset.acoesChave = chave;
   if (chave && chave === reabrirAcoesEm) {
     reabrirAcoesEm = null;
     fecharAcoesDaLinha();
@@ -6359,11 +6400,19 @@ function montarAcoesDaLinha(li, botoes, chave) {
   caixa.append(...uteis);
   // ESCOLHIDA a opção, a caixa fecha — ela cobre o nome, e um menu que fica
   // aberto por cima do item depois de já ter feito o que se pediu é o defeito
-  // que ele existe para corrigir. O PAR ↑↓ é a exceção, e a única: reordenar é
-  // uma decisão que se REPETE (mover três casas são três toques), e fechar a
-  // gaveta no primeiro deles obrigaria a reabri-la a cada casa. Ele já se
-  // sustenta sozinho — a lista redesenha e `reabrirAcoesEm` põe a gaveta de
-  // volta no item que se moveu, com o botão sob o mesmo dedo.
+  // que ele existe para corrigir.
+  //
+  // SÃO DUAS EXCEÇÕES, e as duas pela mesma régua — a ação que NÃO TERMINA a
+  // conversa com aquele item:
+  //
+  //  · o PAR ↑↓: reordenar é uma decisão que se REPETE (mover três casas são
+  //    três toques), e fechar no primeiro obrigaria a reabrir a cada casa;
+  //  · a ESTRELA (v5.288, pedido do operador: *"no cronograma, favoritar um
+  //    item faz a gaveta de opções fechar, mantenha ela aberta"*). Ela é um
+  //    ALTERNADOR: o desfecho dela é o próprio botão mudando de desenho, ali,
+  //    sob o dedo — fechar a gaveta esconde a resposta e ainda cobra uma
+  //    reabertura de quem tinha ido fazer duas coisas.
+  //
   // (Até a v5.284 a exceção era a ALÇA de arrastar, pelo motivo oposto: ela não
   // era uma decisão que termina, era um gesto que dura.)
   //
@@ -6378,7 +6427,8 @@ function montarAcoesDaLinha(li, botoes, chave) {
   // só tira uma classe.
   caixa.addEventListener('click', (e) => {
     const alvo = e.target === caixa ? caixa : (e.target.closest && e.target.closest('button'));
-    if (!alvo || (alvo !== caixa && alvo.classList.contains('row-ordem'))) return;
+    if (!alvo || (alvo !== caixa
+      && (alvo.classList.contains('row-ordem') || alvo.classList.contains('fav-btn')))) return;
     if (alvo === caixa) e.stopPropagation();
     fecharAcoesDaLinha();
   }, true);
@@ -7236,8 +7286,29 @@ function renderCollectionCard(coll, ctx) {
   // é o invólucro de tudo que não é a barra — e é por ele que se pergunta, e não
   // por uma lista de filhos, para o próximo bloco que nascer lá dentro já
   // entrar protegido.
+  //
+  // ===== E A PERGUNTA É SOBRE O CAMINHO, NÃO SOBRE A ÁRVORE DE AGORA =====
+  //
+  // Relato do operador, logo depois da v5.288: tocar numa CAIXA DE MARCAÇÃO das
+  // opções de uma faixa fechava o álbum inteiro.
+  //
+  // A guarda perguntava `e.target.closest('.coll-open')` — uma consulta à árvore
+  // VIVA. Só que o botão de destino é apagado pelo próprio handler que roda
+  // antes desta linha: marcar uma opção chama `renderSongMenu`, que faz
+  // `alvo.innerHTML = ''` e reconstrói a lista. Quando o evento chega aqui, o
+  // `e.target` está DESANEXADO — `closest` sobe por um trecho de árvore que não
+  // tem mais pai nenhum, devolve `null`, e o álbum fecha.
+  //
+  // O caminho de propagação é fixado no DISPARO e sobrevive ao apagamento, que é
+  // exatamente a pergunta que esta guarda quer fazer: *este clique NASCEU dentro
+  // do corpo aberto?* Um `closest` responde "onde este nó está agora", e agora é
+  // tarde demais.
   li.addEventListener('click', (e) => {
-    if (e.target.closest && e.target.closest('.coll-open')) return;
+    const caminho = typeof e.composedPath === 'function' ? e.composedPath() : null;
+    const deDentro = caminho && caminho.length
+      ? caminho.some((n) => n !== li && n.classList && n.classList.contains('coll-open'))
+      : !!(e.target.closest && e.target.closest('.coll-open'));
+    if (deDentro) return;
     alternarAcordeao();
   });
   li.appendChild(bar);
@@ -8074,6 +8145,10 @@ async function toggleFav(id, nome, btn) {
     btn.title = marcado ? 'Remover dos favoritos' : 'Favoritar';
     btn.innerHTML = starSvg(marcado);
   }
+  // A GAVETA SOBREVIVE AO REDESENHO (v5.288): este `renderLibrary` reconstrói a
+  // linha inteira, e sem esta marca a estrela fecharia as opções pela porta de
+  // trás — mesmo com o ouvinte da caixa já a poupando.
+  manterAcoesAbertas();
   setTimeout(renderLibrary, PULSO_MS);
 }
 

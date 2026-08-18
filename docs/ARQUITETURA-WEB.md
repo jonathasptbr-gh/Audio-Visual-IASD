@@ -4665,6 +4665,26 @@ Itens sem blob local exibem badge `URL` ou `YT`.
 |---|---|
 | Toque simples | **Substitui a playlist por este item** e o exibe no Display |
 | `⋮` → ↑ / ↓ | Reordena o item na lista, uma casa por toque (v5.285). **Nos Favoritos o `⋮` saiu na v5.287**: o par mora na faixa de ações da gaveta, que abre no corpo da linha |
+
+**O QUE FECHA A FAIXA, E O QUE NÃO FECHA.** Escolhida a opção, a caixa fecha —
+ela cobre o nome, e um menu aberto por cima do item depois de já ter feito o que
+se pediu é o defeito que ele existe para corrigir. **São duas exceções**, e as
+duas pela mesma régua — *a ação que não TERMINA a conversa com aquele item*:
+
+- o **par ↑↓**, porque reordenar é uma decisão que se REPETE (mover três casas
+  são três toques) e fechar no primeiro obrigaria a reabrir a cada casa;
+- a **estrela** (v5.289, pedido do operador: *"favoritar um item faz a gaveta de
+  opções fechar, mantenha ela aberta"*), porque ela é um ALTERNADOR: o desfecho
+  dela é o próprio botão mudando de desenho, ali, sob o dedo.
+
+A estrela fechava por **dois caminhos independentes**, e consertar um só deixaria
+o defeito de pé: o ouvinte de captura da caixa, e o `renderLibrary` que
+`toggleFav` agenda depois do pulso — este reconstrói a linha inteira. Daí
+`manterAcoesAbertas()`, que reusa o `reabrirAcoesEm` do par ↑↓ e a CHAVE que
+`montarAcoesDaLinha` carimba no `li` (`data-acoes-chave`). Sem a chave não
+haveria como reencontrar a linha: o mesmo item vive em duas listas ao mesmo
+tempo.
+| `⋮` → 🗑 | **Excluir da lista.** É o PRIMEIRO botão da faixa desde a v5.289 — o mais longe do `⋮`, que fica colado na ponta direita e é o alvo tocado repetidamente (abre e fecha): errá-lo por alguns pixels caía no destrutivo. Do outro lado o vizinho é o VAZIO da caixa, que também fecha, mas é uma área larga em que ninguém mira a borda |
 | `⋮` → ✏️ | **Renomear** o item, um toque (v5.288). Ele existia só para UM item de cada vez e atrás de quatro gestos (toque longo → seleção → botão do rodapé → diálogo). **Não entra na pasta do aparelho**, com a mesma guarda do excluir: ali o nome vem do arquivo, e um nome só no registro seria desfeito na varredura seguinte. O lápis é SVG inline — `edit` não está no subset da fonte, e codepoint ausente desenha um retângulo vazio |
 | Pressionar e segurar | Entra no modo de seleção múltipla |
 
@@ -5352,6 +5372,20 @@ isso.
 > isto é, com o álbum aberto aquela faixa funcionava e com ele fechado, não. O
 > mesmo pixel respondendo ou não conforme o estado é a pior forma de um alvo ser
 > imprevisível.
+>
+> **E A GUARDA PERGUNTA PELO CAMINHO, NÃO PELA ÁRVORE (v5.289).** A primeira
+> versão dela era `e.target.closest('.coll-open')`, e isso reprovou em aparelho
+> no dia seguinte: tocar numa CAIXA DE MARCAÇÃO das opções de uma faixa fechava
+> o álbum inteiro. O botão de destino é apagado pelo próprio handler que roda
+> antes — marcar uma opção chama `renderSongMenu`, que faz `alvo.innerHTML = ''`
+> — então, quando o evento chega ao card, o `e.target` está **desanexado**:
+> `closest` sobe por um trecho de árvore sem pai nenhum e devolve `null`.
+>
+> A régua, e ela vale para qualquer ouvinte de contêiner deste app: **decidir
+> pela POSIÇÃO do alvo na árvore é perguntar "onde este nó está agora", e agora
+> é depois de todos os handlers que rodaram antes.** A pergunta que a guarda
+> quer fazer é sobre o caminho — *este clique nasceu aqui dentro?* —, e o
+> caminho é fixado no disparo: `e.composedPath()` sobrevive ao apagamento.
 
 > **Sem molduras, sem seta, sem faixa de cor (v5.71).** O card tinha um contorno
 > de 1px em `--line`, uma faixa de 3px com a `color` do álbum no banco e uma
