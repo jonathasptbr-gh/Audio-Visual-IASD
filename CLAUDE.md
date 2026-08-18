@@ -3053,10 +3053,61 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.290** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.291** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.291: UMA `.lib-item` DENTRO DE OUTRA — todo seletor DESCENDENTE vazou.
+> OTA PURO** (só CSS e o oráculo; sem Release).
+>
+> Relato do operador sobre a v5.290, com prints: *"há diversos bugs, como o
+> posicionamento incorreto do design dos itens da pasta. além de ter novamente o
+> efeito incorreto de encolhimento inteiro do grupo ao tocar em itens
+> individuais. também temos uma falha, que não permite fechar as opções de play
+> dos itens."*
+>
+> **Três sintomas, UMA causa.** A pasta abrindo inline fez `.folder-opfs` virar o
+> primeiro `.lib-item` deste app que CONTÉM outros `.lib-item` — e as regras da
+> gaveta são descendentes, escritas numa época em que esse aninhamento não
+> existia:
+>
+> | selector | o que ele passou a alcançar |
+> |---|---|
+> | `.lib-item.expanded .hymn-gaveta` | a pasta ABERTA satisfaz o `.expanded`, então a gaveta de TODO arquivo lá dentro virava `display: block` |
+> | `.lib-item:not(.vendo-letra) :is(.hymn-lyrics, .item-detalhe)` | a pasta nunca tem `.vendo-letra`, então ela escondia o detalhe de um arquivo que TEM |
+> | `.lib-item:has(.hymn-gaveta :active)` | não alcançava `.folder-itens`, e o `--press` da pasta encolhia com o toque num arquivo |
+>
+> A primeira linha explica DOIS dos três relatos de uma vez: a faixa preta
+> embaixo de cada arquivo era a gaveta vazia dele, e fechar as opções tirava a
+> classe do item **sem esconder nada**, porque quem as mantinha visíveis era a
+> pasta. Medido: `exp: false, display: block, altura: 19px` nos três arquivos
+> fechados, e `classe: false, display: block, altura: 293px` depois do segundo
+> toque.
+>
+> **A regra que fica, e ela é mais larga que este arquivo: a gaveta é do item que
+> a POSSUI, então toda regra dela é `>`.** Um seletor descendente responde "existe
+> algum ancestral assim?", e a resposta muda no dia em que alguém aninha o
+> componente — sem erro em lugar nenhum, e num lugar que não é o da causa. O
+> mesmo vale para o feedback de toque, agora escrito de uma vez para os três
+> blocos que uma linha apenas HOSPEDA (`.row-acoes`, `.hymn-gaveta`,
+> `.folder-itens`): quem encolhe é a peça tocada.
+>
+> **E o quarto item do relato era de geometria**, medido: o arquivo começava em
+> x=18 — colado na borda do cartão da pasta, com a miniatura dele na MESMA coluna
+> da miniatura da própria pasta, lendo-se como irmão dela em vez de conteúdo. O
+> favorito ao lado começa em 24. Com o recuo de `.4rem` no corpo, os dois passam
+> a ocupar a mesma coluna (24 e 24; miniaturas em 32 e 32), que é o que o álbum
+> já fazia pelo padding do `.coll-open`.
+>
+> Verificado por ISOLAMENTO, uma regra de cada vez: o seletor descendente de
+> volta reprova **2** asserções, a guarda do encolhimento **1**, o recuo **1**.
+>
+> **E o oráculo quase passou pelo motivo errado.** A asserção das gavetas
+> fechadas clicava na pasta *uma vez* para abri-la, isto é, dependia do estado
+> que o caso anterior deixou — com ela fechada as gavetas estão escondidas de
+> qualquer jeito, e a asserção passaria sem medir nada. Ela passou a GARANTIR o
+> estado (`if (!expanded) click`), e só então o defeito reprova.
 
 > **A v5.290: A PASTA DO APARELHO ABRE COMO UM ÁLBUM — e a gaveta de tela cheia
 > fica sem porta. OTA PURO** (sem Release).

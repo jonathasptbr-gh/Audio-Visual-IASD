@@ -1361,16 +1361,8 @@ try {
     li.querySelector('.row').click();
     await new Promise((res) => setTimeout(res, 450));
     r.fechouDeNovo = !li.classList.contains('expanded');
-    // O caso deixa a tela como a encontrou: os que vêm depois medem o Modo
-    // Fácil e a cortina, e uma Biblioteca aberta por cima os reprovaria por um
-    // motivo que não é o deles.
-    pastaAberta = null;
-    for (const n of ['B video.mp4', 'A audio.mp3']) await AVDB.fileDelete('fx-' + n);
-    await AVDB.setState('opfs-folders', []);
-    closeHymnSearch();
-    setAppMode(modoAntes);
-    await load();
-    await new Promise((res) => setTimeout(res, 250));
+    // (A limpeza mora no bloco seguinte — ele continua nesta mesma tela.)
+    window.__modoAntes = modoAntes;
     return r;
   });
   checar(!pasta.erro && pasta.aberta && pasta.popup === false && pasta.biblioteca === true,
@@ -1388,6 +1380,142 @@ try {
     JSON.stringify(pasta.opcoes));
   checar(!pasta.erro && pasta.fechouDeNovo,
     'e o mesmo toque fecha — é o acordeão do álbum, com a mesma gramática');
+
+  // ===== O ANINHAMENTO: uma `.lib-item` dentro de outra (v5.291) =====
+  //
+  // Relato do operador sobre a v5.290, com prints: *"há diversos bugs, como o
+  // posicionamento incorreto do design dos itens da pasta. além de ter novamente
+  // o efeito incorreto de encolhimento inteiro do grupo ao tocar em itens
+  // individuais. também temos uma falha, que não permite fechar as opções de
+  // play dos itens."*
+  //
+  // As três têm UMA causa: `.folder-opfs` é o primeiro `.lib-item` deste app que
+  // CONTÉM outros `.lib-item`, e todo seletor descendente keyado em `.lib-item`
+  // vazava para dentro. O caso mede as quatro consequências separadamente —
+  // uma regra `>` esquecida reprova só a sua.
+  const nin = await pg.evaluate(async () => {
+    const li = document.querySelector('[data-fav-corpo] .folder-opfs');
+    // GARANTE ABERTA, e não "clica uma vez": um toque que dependa do estado que
+    // o caso anterior deixou mede a pasta FECHADA metade das vezes — e com ela
+    // fechada as gavetas dos arquivos estão escondidas de qualquer jeito, isto
+    // é, a asserção passaria sem medir nada.
+    if (!li.classList.contains('expanded')) {
+      li.querySelector('.row').click();
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    const itens = [...li.querySelectorAll('.folder-itens > .lib-item')];
+    const alt = (el) => Math.round(el.getBoundingClientRect().height);
+    const r = {
+      // 1. A GAVETA DE UM ITEM FECHADO NÃO APARECE. Era a faixa preta embaixo de
+      //    cada arquivo: `.lib-item.expanded .hymn-gaveta` é descendente, e a
+      //    PASTA aberta satisfazia o `.expanded`.
+      fechadas: itens.map((x) => ({
+        exp: x.classList.contains('expanded'),
+        disp: getComputedStyle(x.querySelector('.hymn-gaveta')).display,
+        h: alt(x.querySelector('.hymn-gaveta')),
+      })),
+    };
+    // (O ALINHAMENTO é medido no bloco final, com o DOM assentado: aqui o corpo
+    // da pasta ainda está sendo remontado por uma promessa.)
+    const m = await AVDB.addMedia(new Blob([new Uint8Array(4)], { type: 'audio/mpeg' }),
+      { name: 'Louvor favorito', type: 'audio/mpeg', kind: 'audio', list: 'favs' });
+    window.__favTmp = m.id;
+    await recarregarFavoritos();
+    return r;
+  });
+  // 2. O ENCOLHIMENTO: pressão de VERDADE, porque `:active` não se simula com
+  //    classe — o que se mede é o `transform` computado da PASTA enquanto o
+  //    dedo está sobre um arquivo dela.
+  const pressPasta = await (async () => {
+    // `recarregarFavoritos` redesenha a seção e o corpo da pasta é remontado por
+    // uma promessa (`montarCorpo`): esperar o NÓ, e não um prazo, é o que faz o
+    // caso medir em vez de correr contra o relógio.
+    await pg.evaluate(async () => {
+      const li = document.querySelector('[data-fav-corpo] .folder-opfs');
+      if (li && !li.classList.contains('expanded')) {
+        li.querySelector('.row').click();
+        await new Promise((r) => setTimeout(r, 500));
+      }
+    });
+    await pg.waitForFunction(
+      () => !!document.querySelector('[data-fav-corpo] .folder-opfs .folder-itens > .lib-item'),
+      null, { timeout: 8000 });
+    const pt = await pg.evaluate(() => {
+      const a = document.querySelector('[data-fav-corpo] .folder-opfs .folder-itens > .lib-item');
+      a.scrollIntoView({ block: 'center' });
+      const r2 = a.querySelector('.row').getBoundingClientRect();
+      return { x: Math.round(r2.left + r2.width / 2), y: Math.round(r2.top + r2.height / 2) };
+    });
+    await pg.mouse.move(pt.x, pt.y);
+    await pg.mouse.down();
+    const dur = await pg.evaluate(() => ({
+      pasta: getComputedStyle(document.querySelector('[data-fav-corpo] .folder-opfs')).transform,
+      item: getComputedStyle(document.querySelector('[data-fav-corpo] .folder-opfs .folder-itens > .lib-item')).transform,
+    }));
+    await pg.mouse.up();
+    await pg.waitForTimeout(500);
+    return dur;
+  })();
+  // 3. FECHAR AS OPÇÕES: o segundo toque tem de ESCONDER, e não só tirar a
+  //    classe — era a pasta que as mantinha visíveis.
+  const fechou = await pg.evaluate(async () => {
+    const a = document.querySelector('[data-fav-corpo] .folder-opfs .folder-itens > .lib-item');
+    const toque = async () => {
+      a.querySelector('.row').click();
+      await new Promise((r) => setTimeout(r, 500));
+    };
+    // Parte de FECHADO, sem supor nada: a pressão do bloco anterior é um clique
+    // completo, e ela pode ter deixado a gaveta aberta.
+    if (a.classList.contains('expanded')) await toque();
+    await toque();
+    const g = a.querySelector('.hymn-gaveta');
+    const abriu = a.classList.contains('expanded')
+      && g.getBoundingClientRect().height > 10;
+    await toque();
+    const r = {
+      abriu,
+      classe: a.classList.contains('expanded'),
+      disp: getComputedStyle(g).display,
+      h: Math.round(g.getBoundingClientRect().height),
+    };
+    // 4. O ALINHAMENTO, agora com tudo assentado: o arquivo da pasta ocupa a
+    //    MESMA coluna do favorito logo abaixo. Ele começava colado na borda do
+    //    cartão da pasta, com a miniatura na coluna da miniatura DA PASTA.
+    const corpo = document.querySelector('[data-fav-corpo]');
+    const fav = corpo.querySelector('.fav-itens > .lib-item');
+    const cx = (e) => (e ? Math.round(e.getBoundingClientRect().left) : null);
+    r.colunas = [cx(a), cx(fav)];
+    r.alinhado = !!fav && cx(a) === cx(fav)
+      && cx(a.querySelector('.thumb')) === cx(fav.querySelector('.thumb'));
+    // Limpeza: a tela volta como estava, para os casos do Modo Fácil que vêm
+    // depois não reprovarem por um motivo que não é o deles.
+    pastaAberta = null;
+    if (window.__favTmp) { await AVDB.listRemove('favs', window.__favTmp); delete window.__favTmp; }
+    for (const n of ['B video.mp4', 'A audio.mp3']) await AVDB.fileDelete('fx-' + n);
+    await AVDB.setState('opfs-folders', []);
+    closeHymnSearch();
+    setAppMode(window.__modoAntes);
+    await load();
+    await new Promise((res) => setTimeout(res, 250));
+    return r;
+  });
+  checar(nin.fechadas.length > 1
+    && nin.fechadas.every((x) => !x.exp && x.disp === 'none' && x.h === 0),
+    'A GAVETA DE UM ARQUIVO FECHADO NÃO APARECE com a pasta aberta (v5.291) — a '
+    + 'faixa preta embaixo de cada item era `.lib-item.expanded .hymn-gaveta` '
+    + 'casando com a PASTA, que também é uma `.lib-item`',
+    JSON.stringify(nin.fechadas));
+  checar(pressPasta.pasta === 'none' && pressPasta.item !== 'none',
+    'e pressionar um arquivo NÃO encolhe a pasta inteira — quem responde ao '
+    + 'toque é a peça tocada', JSON.stringify(pressPasta));
+  checar(fechou.abriu && !fechou.classe && fechou.disp === 'none' && fechou.h === 0,
+    'e o segundo toque FECHA as opções de verdade: era a pasta que as mantinha '
+    + 'visíveis, então tirar a classe do item não escondia nada',
+    JSON.stringify(fechou));
+  checar(fechou.alinhado,
+    'e o arquivo da pasta ocupa a MESMA coluna do favorito abaixo — ele começava '
+    + 'colado na borda do cartão, com a miniatura na coluna da própria pasta',
+    JSON.stringify(fechou.colunas));
   checar(favs.lista.subs === favs.lista.nomes.length,
     'e o subtítulo voltou a aparecer: sem cabeçalho de tipo, é ele que distingue');
   checar(favs.lista.ordemDepois === 0,
