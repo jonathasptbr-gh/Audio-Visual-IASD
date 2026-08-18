@@ -856,7 +856,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.294</span>
+        <span id="appVersion" class="app-version">Controle v5.295</span>
         <!-- A ATUALIZAÇÃO (v5.245). Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso.
@@ -1060,21 +1060,7 @@
        para ver o peso de um álbum que já estava aberto na tela. Ver
        `buildCollectionOptions` em controle.js.) -->
 
-  <!-- FAVORITOS: a GAVETA que desce do topo (v5.53). Era uma tela da lista
-       (`activeTab === 'folders'`) alcançada pelo botão no fim do Cronograma, e
-       isso a fazia disputar o cabeçalho com o resto do app: ela era a única
-       que precisava de voltar, título, busca E botão de sincronizar ao mesmo
-       tempo — quatro coisas numa faixa que também carrega a troca de modo. Como
-       gaveta ela traz o próprio cabeçalho e devolve o de baixo para o que ele
-       é, um rótulo de aba.
-       O `activeTab` CONTINUA sendo `'folders'` enquanto ela está aberta: toda a
-       navegação interna (abrir atalho/pasta, buscar, seleção múltipla, excluir)
-       segue funcionando como sempre — o que mudou foi o CONTAINER em que a
-       lista é desenhada (ver `listHost()` em controle.js).
-       Desce do topo como a bandeja do acervo, e pelo mesmo motivo: com o
-       teclado aberto (a busca dentro de uma pasta), uma folha que sobe da base
-       ficaria coberta por ele. -->
-  <!-- (A GAVETA `#favPopup` SAIU na v5.293. Ela era a tela de DENTRO de uma
+  <!-- (A GAVETA `#favPopup` SAIU na v5.294. Ela era a tela de DENTRO de uma
        pasta do aparelho, e a v5.290 — ao fazer a pasta abrir INLINE, como um
        álbum — tirou o último caminho até ela. Com ela foram o `#favList`, o
        `#favSearchBar` e o `#libSearch`: a busca dentro de uma pasta não existe

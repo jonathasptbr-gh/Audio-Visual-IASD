@@ -3535,7 +3535,7 @@ main {
      com ela parada (v5.280), a folha encosta no topo da tela sempre. Declarado
      UMA vez aqui: as duas folhas de tela cheia repetiam esta linha à mão, que
      é a sincronização manual que este projeto recusa em toda parte. (Uma delas,
-     a gaveta `#favPopup`, saiu na v5.293 — sobrou o `#hymnSearchPopup`.) */
+     a gaveta `#favPopup`, saiu na v5.294 — sobrou o `#hymnSearchPopup`.) */
   padding-top: env(safe-area-inset-top);
 }
 .popup-backdrop--full { align-items: stretch; }
@@ -3713,7 +3713,7 @@ main {
 .lib-search::-webkit-search-results-button,
 .lib-search::-webkit-search-results-decoration { -webkit-appearance: none; appearance: none; display: none; }
 
-/* (A GAVETA DOS FAVORITOS saiu na v5.293, com as regras que a desciam do topo,
+/* (A GAVETA DOS FAVORITOS saiu na v5.294, com as regras que a desciam do topo,
    o degrau de `z-index` que a punha acima da Biblioteca e a margem da `.selbar`
    movida para dentro dela. Ela era a tela de DENTRO de uma pasta do aparelho, e
    a v5.290 — ao fazer a pasta abrir INLINE, como um álbum — tirou o último
@@ -3828,7 +3828,7 @@ main {
 
    O ESCOPO EM `#hymnSearchPopup` FICA. Ele existia porque o `#favSearchBar`
    dividia esta classe e vivia no alto da gaveta de uma pasta; a gaveta saiu na
-   v5.293 e hoje há uma barra só — mas a classe continua sendo o nome de "barra
+   v5.294 e hoje há uma barra só — mas a classe continua sendo o nome de "barra
    de busca de uma folha", e escopar é o que impede a próxima a nascer herdando
    a geometria desta. */
 .hymn-search-bar {
