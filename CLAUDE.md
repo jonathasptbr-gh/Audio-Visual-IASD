@@ -3053,12 +3053,12 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.292** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.293** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
-> **A v5.292: A REVISÃO PROFUNDA — doze defeitos, e dois deles tinham derrubado
+> **A v5.293: A REVISÃO PROFUNDA — doze defeitos, e dois deles tinham derrubado
 > um recurso inteiro em silêncio. METADE OTA, METADE APK** (as duas correções
 > Kotlin exigem uma Release; as dez de base web chegam sozinhas e não dependem
 > delas).
@@ -3181,6 +3181,54 @@ controles), que **só chegam instalando o APK novo**, não pelo OTA.
 > ISOLAMENTO** — devolvendo o defeito e conferindo que o caso novo reprova. O
 > Kotlin **não foi compilado** aqui (o ambiente não tem o SDK do Android): quem
 > o compila é o CI.
+>
+> (Ela nasceu como v5.292 e foi renumerada no merge: uma sessão paralela
+> publicou outra v5.292 em `main` enquanto esta rodava. Os dois lotes tocam
+> `load()` e não se anulam — o de lá acrescenta a sincronização da seção de
+> Favoritos, o daqui muda a restauração da ROLAGEM e a assinatura. O merge foi
+> conferido com a suíte inteira depois de juntos.)
+
+> **A v5.292: A SEÇÃO DE FAVORITOS FICAVA PARA TRÁS DO BANCO. OTA PURO** (sem
+> Release).
+>
+> Relato do operador: *"verifique a atualização da lista de favoritos em relação
+> a excluir itens comuns e a excluir pastas, que não desaparecem apenas fechando
+> e reabrindo a biblioteca"*.
+>
+> **A causa é estrutural, e não daquele botão.** `deleteOpfsFolder`,
+> `syncDeviceFolder` e a limpeza de catálogo terminam em `load()` — o funil onde
+> `favItems`, `favSet` e `opfsFolders` são reaplicados ao estado do módulo —, e
+> `load()` redesenhava o Cronograma (`renderLibrary`) e mais nada. A seção de
+> Favoritos tem DUAS casas desde a v5.237, e desde a v5.290 a de dentro da
+> Biblioteca é a única alcançável: quem a desenha é `renderFolderList` com
+> `favHost`, que `load()` nunca chamava. É o mesmo defeito que a v5.258 corrigiu
+> para o FAVORITAR, numa porta que aquele lote não tinha.
+>
+> Medido: excluir a pasta a tirava do banco (`opfs-folders` vazio) e a deixava na
+> tela; o mesmo com o favorito que ela leva junto, porque `purgeCatalogRecords`
+> mexe em `favs`.
+>
+> **A guarda é uma ASSINATURA, e não um redesenho incondicional.** `load()` roda
+> por dezenas de caminhos com a Biblioteca aberta — uma sincronização que
+> termina, o coletor de lixo, uma troca de aba por baixo —, e refazer a seção em
+> todos eles fecharia a gaveta de opções que o operador acabou de abrir. Ela só é
+> reconstruída quando o que ela DESENHA mudou (os ids dos favoritos e os
+> id:contagem das pastas).
+>
+> **E o redesenho explícito do `moverNaLista` saiu junto**, porque virou o
+> SEGUNDO: `reabrirAcoesEm` é consumido pelo primeiro, então o segundo
+> reconstruía a linha sem a gaveta aberta — o botão saía de baixo do dedo, que é
+> exatamente o que aquele mecanismo existe para evitar. O oráculo do par ↑↓ pegou
+> isso na primeira execução.
+>
+> **E a metade negativa quase passou de graça.** A primeira versão dela mandava o
+> item ao Cronograma e afirmava que a gaveta sobrevivia — só que aquele caminho
+> **não chega a chamar `load()`** (a guarda de lá compara chaves de DESTINO com
+> nomes de LISTA), isto é, ela nunca exercitava o redesenho. Medida no `load()`
+> cru, ela reprova o redesenho incondicional.
+>
+> Verificado por ISOLAMENTO: sem a sincronização, **2** asserções reprovam; com
+> ela incondicional, **1**.
 
 > **A v5.291: UMA `.lib-item` DENTRO DE OUTRA — todo seletor DESCENDENTE vazou.
 > OTA PURO** (só CSS e o oráculo; sem Release).

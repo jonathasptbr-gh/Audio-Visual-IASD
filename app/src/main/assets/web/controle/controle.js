@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.292';
+const WEB_VERSION = '5.293';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -2676,6 +2676,10 @@ async function load(opts) {
   renderListTitle();
   renderPlaylist();
   renderLibrary();
+  // A seção de Favoritos da Biblioteca é a OUTRA lista que este `load()` acabou
+  // de reaplicar (`favItems`/`favSet`/`opfsFolders`), e ninguém a redesenhava —
+  // ver `sincronizarFavoritosNaBiblioteca`.
+  sincronizarFavoritosNaBiblioteca();
   renderSelbar();
   renderSlideNav();
 
@@ -6486,13 +6490,13 @@ async function moverNaLista(listName, id, delta) {
   await AVDB.listSet(listName, ids);
   reabrirAcoesEm = listName + ':' + id;
   await load();
-  // A SEÇÃO DOS FAVORITOS NÃO É REDESENHADA POR `load()`: `renderLibrary` só
-  // chega ao `renderFolderList` quando a aba é a da pasta do aparelho, e a
-  // lista `favs` mora dentro da BIBLIOTECA (v5.237). Sem esta linha o item
-  // mudava de lugar no banco e a tela ficava exatamente igual — o pior desfecho
-  // possível para um botão de reordenar. (`load()` já releu `favItems`; o que
-  // falta é pintar.)
-  if (listName === 'favs') redesenharFavoritosNaBiblioteca();
+  // (O REDESENHO EXPLÍCITO DA SEÇÃO saiu na v5.292: `load()` passou a fazê-lo
+  // sozinho, para toda porta que mexe nos favoritos — ver
+  // `sincronizarFavoritosNaBiblioteca`. Mantê-lo aqui seria um SEGUNDO
+  // redesenho, e ele custava o recurso desta função: `reabrirAcoesEm` é
+  // CONSUMIDO pelo primeiro, então o segundo reconstruía a linha sem a gaveta
+  // aberta — o botão saía de baixo do dedo, que é exatamente o que ele existe
+  // para evitar.)
 }
 
 function montarAcoesDaLinha(li, botoes, chave) {
@@ -8435,6 +8439,36 @@ function redesenharFavoritosNaBiblioteca() {
   favHost = corpo;
   try { comBaldeDeMiniaturas('fav-biblioteca', renderFolderList); } finally { favHost = null; }
   acertarVaoDosFavoritos();
+  favAssinatura = assinaturaDosFavoritos();
+}
+
+// ===== A SEÇÃO NÃO PODE FICAR PARA TRÁS DO BANCO (v5.292) =====
+//
+// Relato do operador: excluir uma PASTA (e os itens que ela leva junto) não
+// tirava nada da tela — a linha só sumia fechando e reabrindo a Biblioteca.
+//
+// A causa é estrutural e não daquele botão: `deleteOpfsFolder`, `syncDeviceFolder`
+// e a limpeza de catálogo terminam em `load()`, que é o funil onde `favItems`,
+// `favSet` e `opfsFolders` são reaplicados ao estado do módulo — e `load()`
+// redesenhava o Cronograma (`renderLibrary`) e mais nada. A seção de Favoritos
+// tem DUAS casas desde a v5.237, e desde a v5.290 a de dentro da Biblioteca é a
+// única alcançável: quem a desenha é `renderFolderList` com `favHost`, que
+// `load()` nunca chamava. É o mesmo defeito que a v5.258 corrigiu para o
+// favoritar, numa porta que aquele lote não tinha.
+//
+// A guarda é uma ASSINATURA e não um redesenho incondicional, e a razão é
+// concreta: `load()` roda também ao mandar um item para o Cronograma, e ali a
+// gaveta de opções da linha está ABERTA — refazer a seção a fecharia debaixo do
+// dedo. Assim ela só é reconstruída quando o que ela DESENHA mudou.
+let favAssinatura = '';
+function assinaturaDosFavoritos() {
+  return favItems.map((m) => m.id).join(',')
+    + '|' + opfsFolders.map((f) => f.id + ':' + (f.count || 0)).join(',');
+}
+function sincronizarFavoritosNaBiblioteca() {
+  if (!hymnSearchPopupEl.classList.contains('open')) return;
+  if (assinaturaDosFavoritos() === favAssinatura) return;
+  redesenharFavoritosNaBiblioteca();
 }
 
 // (O BOTÃO "VER TODOS" viveu aqui da v5.273 à v5.281 e SAIU na v5.282, com o

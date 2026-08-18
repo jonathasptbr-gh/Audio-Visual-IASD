@@ -4923,6 +4923,31 @@ da pasta redesenha a seção: sem essa memória, cada ação fecharia a pasta.
 Os arquivos saem ordenados por **nome**: a ordem do disco é a de gravação, e não
 diz nada a quem está montando um culto.
 
+##### A seção não pode ficar para trás do banco (v5.292)
+
+Relato do operador: excluir uma pasta (e os itens que ela leva junto) não tirava
+nada da tela — a linha só sumia fechando e reabrindo a Biblioteca.
+
+`deleteOpfsFolder`, `syncDeviceFolder` e a limpeza de catálogo terminam em
+`load()`, que é o funil onde `favItems`, `favSet` e `opfsFolders` são reaplicados
+ao estado do módulo. E `load()` redesenhava o Cronograma (`renderLibrary`) e mais
+nada: a seção de Favoritos é desenhada por `renderFolderList` com `favHost`, que
+ele nunca chamava. **É o mesmo defeito que a v5.258 corrigiu para o favoritar,
+numa porta que aquele lote não tinha** — e a v5.290 o tornou visível, porque a
+gaveta de tela cheia (a outra casa da lista) deixou de existir.
+
+`sincronizarFavoritosNaBiblioteca()` entra no fim do `load()`, e a guarda é uma
+**assinatura** e não um redesenho incondicional: `load()` roda por dezenas de
+caminhos com a Biblioteca aberta — uma sincronização que termina, o coletor de
+lixo, uma troca de aba por baixo —, e refazer a seção em todos eles fecharia a
+gaveta de opções que o operador acabou de abrir. Ela é reconstruída só quando o
+que ela DESENHA mudou: os ids dos favoritos e os `id:contagem` das pastas.
+
+Com isso, o redesenho explícito que o `moverNaLista` fazia **saiu**: ele virou o
+SEGUNDO, e `reabrirAcoesEm` é consumido pelo primeiro — o segundo reconstruía a
+linha sem a gaveta aberta, tirando o botão de baixo do dedo, que é exatamente o
+que aquele mecanismo existe para evitar.
+
 ##### O aninhamento cobrou o preço na v5.291
 
 `.folder-opfs` virou o primeiro `.lib-item` deste app que **contém outros
