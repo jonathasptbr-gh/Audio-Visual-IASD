@@ -137,6 +137,22 @@
 
     let current = null;
     let view = 'visual';
+    // A CAMADA POR CIMA DO PALCO, e o stage precisava saber dela.
+    //
+    // null | 'visual' | 'wallpaper'. Quem a escreve é o Display (`showText` /
+    // `hideText` / o ramo de `view` com texto em cena): o cartão de texto vive
+    // ACIMA da mídia e ABAIXO do wallpaper, então enquanto ele está no ar quem
+    // decide a cortina é ELE, não a mídia que segue tocando por baixo.
+    //
+    // Sem isto o stage reavaliava a cortina por conta própria em três pontos
+    // que não sabiam do cartão — o fim natural da mídia, o `play()` e o fim do
+    // `loadInner` — e o wallpaper ENGOLIA o versículo (ou o cronômetro) sem
+    // que nada mudasse do lado do Controle: `textActive` continuava true, o
+    // `display-status` seguinte continuava dizendo `view: 'visual'`, e a lista
+    // continuava desenhando a cena como "● No ar". O remendo que existia era
+    // pontual (um `instantCover(false)` depois do `view`), e os outros três
+    // caminhos ficaram de fora.
+    let overlay = null;
     let muted = false;
     let volume = 1;
     let fit = 'contain'; // object-fit: 'contain' (ajustar) | 'cover' (preencher) | 'fill' (esticar)
@@ -229,6 +245,17 @@
       wallpaper.style.display = show ? 'flex' : 'none';
     }
 
+    // A RAMPA DE SAÍDA DO SOM, num lugar só. Ela vivia DENTRO da animação da
+    // cortina, e por isso não acontecia justamente onde ela é a única coisa que
+    // o operador percebe: no ÁUDIO SEM LETRA a cortina já está fechada durante
+    // toda a reprodução (`semVisual`), então `coverIn` devolvia na hora e o
+    // `clear()` cortava o som no talo. Ver `clearFaded`.
+    function rampAudioParaZero() {
+      if (forceMuted || !current || video.muted) return;
+      if (current.kind !== 'video' && current.kind !== 'audio') return;
+      rampVolume(video.volume, 0, fadeTime);
+    }
+
     function coverIn(rampAudio) {
       if (coveredNow) return Promise.resolve();
       const seq = ++coverSeq;
@@ -240,10 +267,7 @@
         void wallpaper.offsetWidth; // força reflow para a transição valer
         wallpaper.style.transition = 'opacity ' + fadeTime + 's ease';
         wallpaper.style.opacity = '1';
-        if (rampAudio && !forceMuted && current
-            && (current.kind === 'video' || current.kind === 'audio') && !video.muted) {
-          rampVolume(video.volume, 0, fadeTime);
-        }
+        if (rampAudio) rampAudioParaZero();
         setTimeout(() => {
           if (seq !== coverSeq) { resolve(); return; }
           coveredNow = true;
@@ -302,7 +326,16 @@
     // A cortina deve cobrir sempre que não há mídia, ela "terminou" (ended:
     // aguardando replay), o operador pediu view='wallpaper' — ou o que entrou
     // não tem imagem nenhuma para mostrar.
-    function computeCover() { return !current || ended || view === 'wallpaper' || semVisual(); }
+    function computeCover() {
+      // O OVERLAY TEM PRECEDÊNCIA: com um cartão de texto em cena, a cortina
+      // responde à view DELE — nada do que a mídia faça por baixo pode
+      // descobrir ou cobrir o palco por conta própria.
+      if (overlay) return overlay === 'wallpaper';
+      return !current || ended || view === 'wallpaper' || semVisual();
+    }
+
+    // Declarado pelo Display quando o cartão de texto entra e sai de cena.
+    function setOverlay(v) { overlay = (v === 'visual' || v === 'wallpaper') ? v : null; }
 
     // Elemento de mídia atualmente visível (alvo do fade de CONTEÚDO, ao
     // trocar de item) — só existe quando a cortina não está cobrindo; se
@@ -919,7 +952,10 @@
       // E o caminho inverso: uma IMAGEM em cena, seguida de um áudio sem letra.
       // Ali a cortina estava aberta (havia o que ver), então ninguém a fecharia
       // — e o telão ficaria no preto do palco em vez de voltar ao wallpaper.
-      if (semVisual() && !coveredNow) {
+      // `computeCover()` E NÃO `semVisual()`: é a mesma pergunta, com o overlay
+      // dentro. Trocar o áudio de fundo com um versículo no ar caía aqui e
+      // fechava a cortina sobre ele.
+      if (computeCover() && !coveredNow) {
         await coverIn(false);
         if (seq !== loadSeq) return;
       }
@@ -956,6 +992,17 @@
     // aqui o wallpaper É o destino certo (ponto final explícito).
     async function clearFaded() {
       const seq = ++loadSeq;
+      // COM A CORTINA JÁ FECHADA o `coverIn` devolve na hora — e é esse o caso
+      // do áudio sem letra, o louvor de fundo: a cortina está fechada o tempo
+      // todo, a rampa que mora lá dentro nunca rodava, e o `clear()` logo
+      // abaixo cortava o som no meio. Aqui a rampa acontece à parte e o
+      // `clear()` espera por ela, que é o mesmo tempo (e o mesmo desfecho) de
+      // qualquer outra mídia saindo de cena.
+      if (coveredNow && fadeOut) {
+        rampAudioParaZero();
+        await new Promise((r) => setTimeout(r, fadeTime * 1000));
+        if (seq !== loadSeq) return;
+      }
       await coverIn(true);
       if (seq !== loadSeq) return;
       clear();
@@ -1039,7 +1086,12 @@
       clearFadeStyle(video);
       applyMedia();
       setTimeout(() => {
-        if (seq === loadSeq && ended) instantCover(true);
+        // `computeCover()` E NÃO `true`: sem mídia a cortina de fato cobre, mas
+        // com um cartão de texto em cena (um cronômetro projetado sobre um
+        // louvor de fundo — o caso que a independência áudio × texto existe
+        // para permitir) o fim natural da música fechava a cortina POR CIMA do
+        // cartão, e nada a devolvia.
+        if (seq === loadSeq && ended) instantCover(computeCover());
       }, 400);
     });
 
@@ -1086,7 +1138,7 @@
       handle, load, clear, play, pause, seek, page, setView, setMute, setVolume, setFade, setFit,
       setRotate, getRotate: () => rot,
       setForceMuted,
-      coverIn, coverOut, instantCover, fadeOutToBlack,
+      coverIn, coverOut, instantCover, fadeOutToBlack, setOverlay,
       getCurrent: () => current,
       getView: () => view,
       isPlaying: isPlayingNow,

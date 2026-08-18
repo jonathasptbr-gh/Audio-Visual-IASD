@@ -208,7 +208,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.292';
+const WEB_VERSION = '5.293';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -389,13 +389,14 @@ renderOtaRow();
 // avisos para uma pergunta. (O parâmetro NÃO pode se chamar `avisar`: ele
 // sombrearia a função global de aviso, que é justamente quem fala aqui.)
 async function atualizarProcura(anunciar) {
-  // O TOQUE DESFAZ O ADIAMENTO. "Deixar para depois" silencia o diálogo
-  // AUTOMÁTICO desta sessão; ele não pode silenciar o operador que voltou para
-  // pedir a atualização de propósito — que é exatamente o que este toque é.
-  // `otaRecusadas` (o que o SHELL não conseguiu aplicar) também é limpo: pode
-  // ter sido um bundle pela metade que a procura de agora já substituiu.
-  otaAdiadas.clear();
-  otaRecusadas.clear();
+  // QUEM DESFAZ O ADIAMENTO É O TOQUE, e ele já o desfez (ver o ouvinte do
+  // botão). Aqui isto era um `clear` a mais — e não inofensivo: esta função
+  // NÃO é chamada por toque nenhum, ela é o desfecho agendado do toque, em 4 s
+  // e em 12 s. Entre as duas, a pergunta pode ter aparecido e o operador pode
+  // ter respondido "Deixar para depois"; a batida de 12 s apagava essa resposta
+  // e `ofertarAtualizacao` reabria o diálogo MODAL sozinho, no meio do que ele
+  // estivesse fazendo. Um "não" que o app desfaz oito segundos depois é pior
+  // que não perguntar.
   await ofertarAtualizacao();
   // O DESFECHO VOLTA PARA O MESMO BOTÃO, e depois ele volta a ser o que era.
   const lote = loteDaAtualizacao();
@@ -659,8 +660,11 @@ const fadeCfg = createStage.FADE; // fonte única, compartilhada com o Display
 //    acervo mesmo sem nada baixado.
 //
 // O himnário em espanhol e demais idiomas ficam de fora naturalmente: só
-// consumimos arquivos 'pt_*' (ver COLLECTION_LOCALE).
-const COLLECTION_LOCALE = 'pt';
+// consumimos arquivos 'pt_*' — os nomes vêm literais de `Louvorja` e do
+// catálogo, e não há um seletor de idioma a parametrizar. (Havia aqui um
+// `COLLECTION_LOCALE = 'pt'` que NENHUMA linha lia: uma constante que promete
+// um eixo de configuração inexistente é pior que o literal, porque manda quem
+// for acrescentar um idioma mexer nela e concluir que não fez efeito.)
 // Quantas requisições manter em voo ao mesmo tempo.
 //
 // 6 não é chute: é o teto de conexões simultâneas POR HOST do motor do WebView
@@ -858,6 +862,15 @@ let msgSession = null;   // { idx, projecting } | null
 // baixadas. A passagem de estrofe é do operador, pelos mesmos ⏮/⏭ que já
 // passam mensagem e versículo (ver slideTarget).
 let lyricSession = null;  // { title, stanzas: [string], idx, projecting } | null
+// A guarda de sequência da LETRA AVULSA. Entre o toque e a projeção há o
+// download do ÁUDIO da música (a letra vem com ele), e na rede da igreja isso
+// vai de segundos a minutos — tempo de sobra para o operador desistir e
+// projetar outra coisa. Sem ela, a estrofe 1 entrava em cena quando o download
+// terminasse, por cima do que já estivesse no ar, e encerrando as outras
+// camadas de texto no caminho. É o mesmo papel do `bibleLoadSeq` e do `loadSeq`
+// do stage; nasce aqui, junto do resto do estado de cena, pela regra da zona
+// morta temporal.
+let lyricLoadSeq = 0;
 // id_bible_book real do livro no índice `idx` de Bible.BOOKS: usa o id da lista
 // online (mesma ordem canônica) quando baixada; senão cai no índice+1.
 function bibleBookId(idx) {
@@ -1558,10 +1571,15 @@ const preview = createStage({
     autoAdvance();
   },
   onError: (e) => {
+    // ELE ERA MUDO, e o comentário aqui afirmava o contrário. Os dois valores
+    // abaixo eram calculados e DESCARTADOS — o `flash` que os consumia virou
+    // no-op quando o primeiro toast saiu, e a linha que prometia o Registro
+    // nunca chamou `diagC`. Um `<video>` que falha na preview não deixava
+    // rastro em lugar nenhum: nem console, nem Registro, nem tela. E é
+    // justamente a preview que É a projeção quando não há tela conectada.
     const code = e.target.error ? e.target.error.code : '?';
     const src = e.target.src ? e.target.src.slice(-60) : '(sem src)';
-    // (O `flash` era no-op desde que o primeiro toast saiu; o diagnóstico de
-    //  verdade deste erro vive no Registro, por `diagC`.)
+    diagC('ERRO DE MÍDIA na preview (código ' + code + ') ' + src);
   },
 });
 
@@ -2033,7 +2051,8 @@ function aplicarNaPreview(obj, item) {
   // Texto manual (Bíblia/Mensagem): overlay independente — espelha na preview.
   if (obj.type === 'text') { showPvText(obj); return; }
   if (obj.type === 'text-hide') { hidePvText(); return; }
-  const nowYoutube = !!(item && item.kind === 'youtube');
+  // (Aqui havia um `nowYoutube` calculado e nunca lido — resto do player do
+  // YouTube que a v5.212 tirou da preview.)
   if (obj.type === 'load') {
     // Esconde a letra incondicionalmente (como o Display). O texto manual é um
     // overlay independente: só some ao carregar VISUAL; ÁUDIO toca por baixo e
@@ -2558,7 +2577,26 @@ async function prepararMidia(file, kind) {
 // ordem e a mais antiga sobrescreveria o estado/render da mais nova. Só o
 // último load() aplica seu resultado (mesmo padrão do loadSeq do stage.js).
 let loadSeqCtl = 0;
-async function load() {
+/**
+ * Redesenha a lista da aba atual.
+ *
+ * `opts.restaurarScroll` — só a NAVEGAÇÃO o passa. A última linha desta função
+ * escrevia `scrollPos[scrollKey()]` incondicionalmente, e o único produtor
+ * daquele mapa é `rememberScroll()`, chamado em DOIS lugares: a troca de aba e
+ * o voltar. Isto é: em todo redesenho que não fosse navegação — acrescentar um
+ * item, favoritar, o progresso de um download, a chegada de um share — a lista
+ * saltava de volta para onde o operador estava da última vez que TROCOU DE ABA,
+ * quase sempre o topo. Ele rolava até o meio do Cronograma, mandava um louvor
+ * para lá, e a lista voltava para o começo.
+ *
+ * Sem a flag, o padrão passa a ser o certo: um redesenho no lugar mantém o
+ * lugar. A navegação continua restaurando a posição guardada daquela aba.
+ */
+async function load(opts) {
+  // Medido ANTES da reconstrução — depois de `host.innerHTML = ''` a rolagem
+  // já é zero.
+  const restaurar = !!(opts && opts.restaurarScroll);
+  const topoAntes = restaurar ? 0 : listHost().scrollTop;
   const myseq = ++loadSeqCtl;
 
   // ---- FASE 1: só leituras do IDB, em locais (nada de estado/DOM ainda) ----
@@ -2657,8 +2695,9 @@ async function load() {
   preview.setRotate(mediaRot);
   renderRotBtn();
 
-  // restaura a posição de scroll da aba/pasta atual
-  listHost().scrollTop = scrollPos[scrollKey()] || 0;
+  // A posição: a GUARDADA quando isto é navegação, a de ANTES quando é um
+  // redesenho no lugar.
+  listHost().scrollTop = restaurar ? (scrollPos[scrollKey()] || 0) : topoAntes;
 }
 
 // chave de posição de scroll: aba (+ pasta aberta, se houver)
@@ -3692,7 +3731,7 @@ function hideBibleVerse() {
 function projectBibleVerse(idx) {
   const s = bibleSession;
   if (!s || idx < 0 || idx >= s.verses.length) return;
-  clearChronoSession(); clearDrawSession();   // cartão único: um provedor por vez
+  soUmProvedorDeTexto('bible');   // cartão único: um provedor por vez
   s.idx = idx;
   s.projecting = true;
   const v = s.verses[idx];
@@ -3828,6 +3867,16 @@ async function bibleGotoChapter(bookIdx, chapter, want) {
   };
   // A seleção acompanha a leitura (grid de versículos e título seguem o capítulo).
   bibleSel = { bookIdx, chapter };
+  // A MESMA INVALIDAÇÃO do `changeBibleVersion`, e pelo mesmo motivo escrito
+  // lá: este é o OUTRO ponto que escreve `bibleChapterData` fora do
+  // `loadBibleChapter`. Sem o bump, um capítulo lento pedido antes desta
+  // navegação volta DEPOIS, passa na guarda de sequência (que não mudou) e
+  // sobrescreve a grade com os versículos do capítulo antigo sob o rótulo do
+  // novo. E sem zerar o par erro/carregando, um "Não foi possível baixar este
+  // capítulo" de antes seguia na metade de baixo da tela com o capítulo novo
+  // já no ar.
+  ++bibleLoadSeq;
+  bibleChapterError = ''; bibleChapterLoading = false;
   bibleChapterData = { verses };
   renderListTitle();
   // Exibe o novo versículo só se já estava exibindo; senão apenas move o central.
@@ -4274,6 +4323,13 @@ async function adicionarNasListas(listas, id, nome, btn) {
   responder(btn, novas.length ? (antigas.length ? 'dup' : 'ok') : 'dup', texto);
   if (alvos.includes('favs')) await recarregarFavoritos();
   if (alvos.includes('playlist')) { plItems = await AVDB.listItems('playlist'); renderPlaylist(); }
+  // E O CRONOGRAMA TAMBÉM — ele ficava por conta do chamador, e dos dois que
+  // existem só um lembrava. Pelo outro (a gaveta de um item da Biblioteca), o
+  // item entrava no banco e a lista de trás continuava sem ele até o próximo
+  // redesenho por outro motivo: do lado de quem opera, "adicionei e não
+  // apareceu". Um funil que cuida de dois dos três destinos é um convite a
+  // isto no terceiro chamador que aparecer.
+  if (alvos.includes('imports') && activeTab === 'imports') await load();
   return novas.length;
 }
 
@@ -4487,6 +4543,13 @@ function projetarSorteioCue(d) {
   if (typeof d.max === 'number') draw.max = d.max;
   if (Array.isArray(d.pool)) draw.pool = d.pool.map(String);
   if (typeof d.label === 'string') draw.label = d.label;
+  // O HISTÓRICO SAI JUNTO. Este preset reescreve `kind`, `min`, `max` e `pool`
+  // — exatamente os campos que invalidam o que já foi sorteado —, e o caminho
+  // MANUAL já zera `used` ao trocar a natureza do sorteio pelo mesmo motivo.
+  // Sem isto, um cue de "1 a 60" herdava os já sorteados de um sorteio anterior
+  // e o `noRepeat` podia filtrar o conjunto inteiro: o roteiro abria um sorteio
+  // sem números para sortear, na frente da congregação.
+  draw.used = [];
   draw.value = null; draw.rollUntil = 0;
   saveDrawPrefs();
   projectDraw();
@@ -4526,17 +4589,21 @@ async function projectSongLyricsOnly(coll, s) {
   // A RESPOSTA VEM PRIMEIRO — mesma regra de `playSongVariant`.
   closeSongMenu();
   closeHymnSearch();
+  const seq = ++lyricLoadSeq;
   const bg = previewBusy('Baixando a letra', songLabel(coll, s));
   try {
     let stanzas = await lyricStanzaTexts(coll, s);
+    if (seq !== lyricLoadSeq) return;
     if (!stanzas.length) {
       await ensureSongDownloaded(coll, s);
+      if (seq !== lyricLoadSeq) return;
       stanzas = await lyricStanzaTexts(coll, s);
+      if (seq !== lyricLoadSeq) return;
     }
     // O MESMO CARTÃO que estava dizendo "Baixando…" diz por que não deu — ele
     // é sobre a preview, que é onde a letra apareceria.
     if (!stanzas.length) { bg.falhar('esta música não tem letra'); return; }
-    clearBibleSession(); clearMsgSession(); clearChronoSession(); clearDrawSession();
+    soUmProvedorDeTexto('songlyrics');
     lyricSession = { title: songLabel(coll, s), stanzas, idx: 0, projecting: true };
     projectLyricStanza(0);
   } finally {
@@ -4576,6 +4643,35 @@ function lyricStep(delta) {
 
 // Encerra QUALQUER texto manual em cena (Bíblia, Mensagem, letra avulsa,
 // cronômetro ou sorteio) — só um por vez.
+/**
+ * UM PROVEDOR DE TEXTO POR VEZ — e a lista mora aqui, não em cada projetor.
+ *
+ * O cartão de texto é UM, e cada `project*` limpava as outras camadas à mão.
+ * A conta não fechava, e nenhum caminho errava alto: `projectBibleVerse`
+ * limpava só cronômetro e sorteio, `projectMessage`/`projectChrono`/
+ * `projectDraw` esqueciam a LETRA AVULSA nos três, e ninguém zerava o
+ * `textoAvulsoNoAr`. Como `lyricProjecting()` tem PRECEDÊNCIA sobre mensagem e
+ * Bíblia no `slideTarget` e no `renderNowPlaying`, uma `lyricSession` órfã com
+ * `projecting: true` sequestrava ⏮/⏭ e o título publicado na notificação de
+ * mídia: o telão mostrava o aviso e o transporte continuava dizendo "147. Ó
+ * Adorai o Senhor · 1/5", passando estrofes de um hino que não estava em cena.
+ *
+ * Cinco listas mantidas à mão são cinco lugares para a próxima camada ser
+ * esquecida. Aqui é um: quem entra diz QUEM É, e o resto sai.
+ */
+function soUmProvedorDeTexto(quem) {
+  if (quem !== 'bible') clearBibleSession();
+  if (quem !== 'message') clearMsgSession();
+  if (quem !== 'songlyrics') clearLyricSession();
+  if (quem !== 'chrono') clearChronoSession();
+  if (quem !== 'draw') clearDrawSession();
+  // O AVULSO não tem sessão (é a mensagem de roteiro cuja original foi
+  // apagada), e por isso ele não estava em lista nenhuma — mas ele responde
+  // `cenaDeRoteiroNoAr()`, então deixá-lo de pé fazia a lista continuar
+  // dizendo "● No ar" sobre um texto que outro provedor já tinha substituído.
+  if (quem !== 'avulso') textoAvulsoNoAr = false;
+}
+
 function clearManualText() {
   clearBibleSession(); clearMsgSession(); clearLyricSession();
   clearChronoSession(); clearDrawSession();
@@ -4586,7 +4682,24 @@ function clearManualText() {
 }
 
 /**
- * Há uma Camada de Texto no ar? As cinco sessões — mais o texto AVULSO.
+ * Há uma Camada de Texto NO AR? A pergunta é sobre PROJEÇÃO, não sobre a
+ * existência da sessão — e por dezenas de versões ela foi sobre a existência.
+ *
+ * Os quatro `hide*` (`hideBibleVerse`, `hideMessage`, `hideChrono`, `hideDraw`)
+ * existem justamente para tirar da tela SEM matar a sessão: o operador pode
+ * reexibir, e o cronômetro segue correndo por baixo. Eles escrevem
+ * `projecting = false` e deixam a sessão de pé — então, testando a existência,
+ * esta função continuava respondendo "está no ar" com o telão já limpo. O
+ * preço aparecia na LISTA: a linha da cena seguia com o selo "● No ar", e o
+ * toque nela caía em `retirarDoAr` (que tira do ar o que já saiu) em vez de
+ * projetar. Reprojetar do Cronograma custava DOIS toques, e o primeiro não
+ * fazia nada visível — é exatamente o defeito que o `cueNoArId` foi criado
+ * para corrigir, reaberto pela porta do `projecting`.
+ *
+ * O AVULSO continua entrando por um booleano: ele é a mensagem de roteiro cuja
+ * mensagem original foi apagada — `projetarMensagemCue` projeta o texto
+ * guardado sem sessão de navegação (não há lista para percorrer), e sem esta
+ * bandeira ele ficaria projetado e invisível para o resto do app.
  *
  * O avulso é a mensagem de roteiro cuja mensagem original foi apagada da lista:
  * `projetarMensagemCue` projeta o texto guardado e, de propósito, **sem sessão
@@ -4598,17 +4711,16 @@ function clearManualText() {
  * `currentId`, por outra porta.
  */
 function cenaDeRoteiroNoAr() {
-  return !!(bibleSession || msgSession || lyricSession || chronoSession
-    || drawSession || textoAvulsoNoAr);
+  return !!((bibleSession && bibleSession.projecting) || msgProjecting()
+    || lyricProjecting() || chronoProjecting() || drawProjecting()
+    || textoAvulsoNoAr);
 }
 
 // Projeta a mensagem de índice `idx` (Display + preview). Encerra a Bíblia (só
 // um texto manual por vez).
 function projectMessage(idx) {
   if (idx < 0 || idx >= messages.length) return;
-  clearBibleSession();
-  clearChronoSession();
-  clearDrawSession();
+  soUmProvedorDeTexto('message');
   msgSession = { idx, projecting: true };
   view = 'visual';
   persistCurrent();
@@ -4922,9 +5034,7 @@ function pushChrono() {
 // Projeta (Display + preview). Encerra Bíblia e Mensagem: a Camada de Texto é
 // um cartão só, e só um provedor por vez (mesma regra de projectMessage).
 function projectChrono() {
-  clearBibleSession();
-  clearMsgSession();
-  clearDrawSession();
+  soUmProvedorDeTexto('chrono');
   chronoSession = { projecting: true };
   view = 'visual';
   persistCurrent();
@@ -5357,9 +5467,7 @@ function drawReset() {
 }
 
 function projectDraw() {
-  clearBibleSession();
-  clearMsgSession();
-  clearChronoSession();
+  soUmProvedorDeTexto('draw');
   drawSession = { projecting: true };
   view = 'visual';
   persistCurrent();
@@ -6507,14 +6615,10 @@ function chevronUpIconSvg() {
 // aparecem sozinhas com o álbum aberto, e o único símbolo daquele canto é a
 // seta que fecha. O mesmo desenho continua no botão de Configurações que
 // flutua sobre a preview, que tem o seu.)
-// SVG inline de "voz" (microfone) — botão de tocar a variante CANTADO (vocal).
-function voiceIconSvg() {
-  return '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg>';
-}
-// SVG inline de "nota musical" — botão de tocar a variante PLAYBACK (instrumental).
-function noteIconSvg() {
-  return '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l10-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg>';
-}
+// (Os desenhos de "voz" e "nota musical" — `voiceIconSvg`/`noteIconSvg` —
+// saíram com o último chamador: eles marcavam os botões de tocar CANTADA e
+// PLAYBACK na linha, e desde a v5.286 a variante é um SEGMENTO da gaveta, com
+// rótulo escrito. Um ícone sem chamador é um desenho que ninguém revisa.)
 
 // Lista de cards da aba Álbuns: hinários (fixos) + um card por álbum do
 // catálogo. Cada card é um "check do sistema" (não abre como pasta): símbolo,
@@ -6695,45 +6799,13 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
   const byId = new Map(allCollections().map((c) => [c.id, c]));
   let any = false;
 
-  // Cabeçalho de grupo: nome + resumo (baixados/total do grupo inteiro) + o
-  // botão que baixa a COLEÇÃO COMPLETA — ele deixou de ser só um rótulo e
-  // passou a ser onde mora a ação. (`showName === false` existia para o caso
-  // de um filtro ativo, quando a pílula selecionada já dizia o nome do grupo;
-  // as pílulas saíram na v5.70, e o último a usá-lo — "Todo o acervo" — saiu
-  // na v5.258.)
-  // O parâmetro se chama `gOpts`, e não `opts`, para não sombrear o `opts` de
-  // `renderCollectionsList` — o de fora é lido DENTRO desta função de render, e
-  // o shadowing esconderia o engano em silêncio.
-  const header = (text, colls, showName, gOpts) => {
-    const li = document.createElement('li');
-    li.className = 'coll-group';
-    if (showName !== false) {
-      const name = document.createElement('span');
-      name.className = 'coll-group-name';
-      name.textContent = text;
-      li.appendChild(name);
-    }
-    if (colls && colls.length && !(gOpts && gOpts.semBotao)) {
-      // Contador + botão de lote: o miolo compartilhado (`montarResumoGrupo`,
-      // acima) — a regra de o botão sumir com o grupo completo, o cancelar
-      // durante o download e a régua do verde moram lá.
-      montarResumoGrupo(li, 'grp:' + text, text, colls, gOpts);
-    } else if (colls && colls.length) {
-      // Grupo SEM botão de lote (ver "Hinários"): o contador continua, porque
-      // ele informa; o que sai é a ação que juntaria coleções grandes demais
-      // num download só.
-      //
-      // SEM O VERDE desde a v5.263 (pedido do operador): a fração já diz que o
-      // grupo está inteiro, e pintá-la era a mesma coisa dita duas vezes. Com
-      // ele saiu a razão de perguntar `grupoCompleto` aqui — a conta continua
-      // viva no ramo de cima, onde ela decide se o BOTÃO de lote aparece.
-      const info = document.createElement('span');
-      info.className = 'coll-group-count';
-      info.textContent = fracaoPeso(colls.map((c) => c.id)) || '—';
-      li.appendChild(info);
-    }
-    alvo.appendChild(li);
-  };
+  // (Aqui morava `header`, o cabeçalho de grupo NÃO colapsável: um `<li
+  // class="coll-group">` com nome, resumo e o botão de lote. Ele ficou sem
+  // chamador quando a v5.237 fez toda seção da Biblioteca virar um GRUPO
+  // COLAPSÁVEL — o `grupo()` logo abaixo desenha a mesma barra, agora clicável,
+  // pelo mesmo `montarResumoGrupo`. Um construtor de UI paralelo e inerte é a
+  // pior forma de duplicação: ele parece a implementação de referência para
+  // quem chega, e nada na tela o desmente.)
 
   // ===== UM GRUPO COLAPSÁVEL =====
   //
@@ -6972,7 +7044,7 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
     // `finally` obrigatório: um erro ao montar uma linha deixaria o host preso
     // no corpo de um grupo que já saiu do documento, e a gaveta de verdade
     // passaria a desenhar dentro de um nó órfão — sem erro nenhum na tela.
-    try { renderFolderList(); } finally { favHost = null; }
+    try { comBaldeDeMiniaturas('fav-biblioteca', renderFolderList); } finally { favHost = null; }
     // A medição do vão é agendada aqui e roda no quadro seguinte — quando as
     // outras seções já foram anexadas e a altura que sobra é a de verdade.
     acertarVaoDosFavoritos(favCorpo);
@@ -7068,7 +7140,11 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
 // subtitle/order). Nulo para hinários e órfãos.
 function renderCollectionCard(coll, ctx) {
   const total = songsBaixaveis(coll.id).length;
-  const downloaded = countDownloaded(coll.id);
+  // (Havia aqui um `countDownloaded(coll.id)` calculado e nunca lido — resto de
+  // quando a fração vinha dele. Quem responde "quanto já está no aparelho?" é
+  // `fracaoPeso`, e "está inteiro?" é `colecaoCompleta`. A varredura custava
+  // um `filter` sobre TODAS as faixas do álbum, por card, e o acervo é
+  // redesenhado a cada 400 ms enquanto um download corre.)
   // UMA definição só, e ela conta VARIANTES (ver `levantarColecao`): a antiga
   // comparava músicas com `fileIdFull`, ignorando os Playbacks que o download
   // busca — e nunca ficava completa numa coleção com música sem áudio na
@@ -7748,8 +7824,17 @@ function renderFoldersSeVisivel() {
   // A OUTRA CASA (v5.237): com o grupo Favoritos aberto dentro da Biblioteca, a
   // mesma lista está na tela por outro caminho — e sem isto ela ficaria com a
   // contagem de uma pasta que acabou de sincronizar, ou com um favorito que já
-  // saiu. `renderCollectionsNow` já confere sozinho se o acervo está à vista.
-  renderCollectionsNow();
+  // saiu.
+  //
+  // COALESCIDO, e não imediato. O único chamador de verdade é o `statusPasta`
+  // do laço de cópia de uma pasta do aparelho — UMA VEZ POR ARQUIVO —, e a
+  // versão imediata redesenhava a Biblioteca inteira (todas as seções abertas,
+  // todos os cards, todas as linhas) a cada arquivo copiado: numa pasta de
+  // centenas de vídeos, centenas de reconstruções de DOM enquanto o operador
+  // rola a mesma tela. O coalescimento de 400 ms já existia e tem nome; o que
+  // faltava era este caminho passar por ele. O número que ele mostra é
+  // informativo — é o mesmo argumento que criou o coalescimento.
+  refreshCollectionsIfVisible();
 }
 
 // ===== OS FAVORITOS TÊM DUAS CASAS, E UMA IMPLEMENTAÇÃO SÓ (v5.237) =====
@@ -7770,6 +7855,30 @@ function renderFoldersSeVisivel() {
 // Ela é ligada e desligada num ponto só, num `try/finally`.
 let favHost = null;
 function favAlvo() { return favHost || favListEl; }
+
+/**
+ * O BALDE DE `object-URL` DA TERCEIRA CASA.
+ *
+ * `thumbEl` cria as URLs das miniaturas e as empurra em `thumbUrlsAtual` — o
+ * balde do render EM CURSO. Quem troca esse balde e revoga o anterior é só o
+ * `renderLibrary`, e ele o faz por HOST (`libraryEl` × `favListEl`). A seção de
+ * Favoritos DENTRO da Biblioteca é uma terceira casa, desenhada pelo mesmo
+ * `renderFolderList` por outro caminho: as URLs que ela criava caíam no balde
+ * de OUTRO host, e o `renderLibrary` seguinte — que roda a cada 400 ms enquanto
+ * um download corre — as revogava COM ELAS EM CENA. As miniaturas da Biblioteca
+ * simplesmente sumiam, e nada explicava por quê.
+ *
+ * A chave é uma STRING e não o elemento: o corpo da seção é recriado a cada
+ * render completo da Biblioteca, e um `Map` keyado pelo nó nunca reencontraria
+ * o balde do render anterior — trocaria a revogação prematura por um vazamento.
+ */
+function comBaldeDeMiniaturas(chave, fn) {
+  const anterior = thumbUrlsAtual;
+  (thumbUrlsPorHost.get(chave) || []).forEach((u) => URL.revokeObjectURL(u));
+  thumbUrlsAtual = [];
+  thumbUrlsPorHost.set(chave, thumbUrlsAtual);
+  try { fn(); } finally { thumbUrlsAtual = anterior; }
+}
 
 function renderFolderList() {
   // O menu de uma linha não sobrevive ao redesenho: o `li` que a classe marcava
@@ -8328,7 +8437,7 @@ function redesenharFavoritosNaBiblioteca() {
   if (!corpo) return;
   corpo.innerHTML = '';
   favHost = corpo;
-  try { renderFolderList(); } finally { favHost = null; }
+  try { comBaldeDeMiniaturas('fav-biblioteca', renderFolderList); } finally { favHost = null; }
   acertarVaoDosFavoritos();
   favAssinatura = assinaturaDosFavoritos();
 }
@@ -9124,16 +9233,29 @@ const MOVE = 10, LONGPRESS = 450;
 
 function attachRowGestures(row, item) {
   let startX = 0, startY = 0, startT = 0, longFired = false, lp = null, pid = null;
-  // (A opção `semSelecao` viveu aqui da v5.271 à v5.286, para os Favoritos: a
+  // A opção `semSelecao` viveu aqui da v5.271 à v5.286, para os Favoritos: a
   // lista não tem seleção múltipla, e o toque longo ligava um modo que ali não
   // tinha o que operar. Ela saiu na v5.287 com o último chamador — a linha de
   // favorito deixou de responder a estes gestos e passou a abrir a gaveta da
-  // Biblioteca. Quem usa isto agora é só a lista principal, que TEM o modo.)
+  // Biblioteca. Quem usa isto agora é só a lista principal, que TEM o modo.
+  //
+  // **E A GUARDA DELA FICOU PARA TRÁS, lendo um nome que deixou de existir.**
+  // O parâmetro saiu da assinatura e o `if (semSelecao) return` continuou no
+  // corpo: num script clássico (sem `type=module` e sem `'use strict'`), LER um
+  // identificador não declarado lança `ReferenceError` — só a ATRIBUIÇÃO é que
+  // criaria uma global. Então todo `pointerdown` numa linha do Cronograma
+  // estourava ali, ANTES do `setTimeout`, e o toque longo simplesmente deixou
+  // de existir: com ele, a seleção múltipla — e o `deleteSelected`, que é o
+  // único excluir em lote do app — ficaram sem porta nenhuma.
+  //
+  // O modo de falhar é o pior desta base: o `pid` já tinha sido escrito na
+  // linha anterior, então o TOQUE CURTO continuava projetando normalmente e
+  // nada na tela mudava. O que sumia era só o gesto que ninguém usa todo dia —
+  // e um toque um pouco mais demorado que 450 ms passou a não fazer NADA.
 
   row.addEventListener('pointerdown', (e) => {
     if (e.target.closest('.row-btn') || e.target.closest('.row-acoes')) return;
     pid = e.pointerId; startX = e.clientX; startY = e.clientY; startT = Date.now(); longFired = false;
-    if (semSelecao) return;
     lp = setTimeout(() => { longFired = true; enterSelection(item.id); }, LONGPRESS);
   });
   row.addEventListener('pointermove', (e) => {
@@ -9707,7 +9829,7 @@ function navigateBack() {
   currentFolder = null;
   folderQuery = '';
   libSearchEl.value = '';
-  load();
+  load({ restaurarScroll: true });
 }
 
 // ===== A MIGRAÇÃO DOS ATALHOS DE PASTA (v5.254) =====
@@ -13400,14 +13522,9 @@ function setSongRowBusy(coll, s, on) {
   });
 }
 
-// SVG inline de "só a letra" (linhas de texto). O Material Symbols embarcado é
-// um SUBCONJUNTO: um glifo que não foi incluído sai como retângulo vazio.
-function lyricsOnlyIconSvg() {
-  return '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">'
-    + '<line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="11" x2="16" y2="11"/>'
-    + '<line x1="4" y1="16" x2="20" y2="16"/><line x1="4" y1="21" x2="12" y2="21"/>'
-    + '</svg>';
-}
+// (O desenho de "só a letra" — `lyricsOnlyIconSvg` — saiu com o chamador: a
+// v5.286 transformou "Só a letra, no Cronograma" no terceiro SEGMENTO do
+// seletor de variante, e o segmento é rótulo escrito, não ícone.)
 
 // Verifica quais variantes de uma música ainda precisam ser baixadas: o
 // arquivo não existe no catálogo (nunca baixado ou apagado por fora) OU existe
@@ -13844,6 +13961,22 @@ function cabecalhoDiag() {
   // desde sempre: um diagnóstico que depende de um elemento de UI existir
   // emudece no dia em que alguém o esconde, e emudece em silêncio.
   l.push('Telão: ' + descreverTelao());
+  // QUEM É A RÉGUA DO TEMPO agora. A preview ILUSTRA e nunca mede (v5.173), e
+  // "a preview voltou dessincronizada" tem causas opostas conforme a projeção
+  // seja o telão, uma tela da rede, ou ninguém — este bloco é lido a distância,
+  // e sem a linha a pergunta não tem resposta. (`refFonte` já era escrito a
+  // cada status e NENHUMA linha o lia: um diagnóstico que ninguém publica é a
+  // mesma dívida que um produtor sem consumidor, do outro lado.)
+  // E ela é lida com a RECÊNCIA junto: `refFonte` guarda quem reportou por
+  // último e não zera sozinho (o status para de chegar quando a mídia sai), então
+  // sem esta guarda a linha continuaria dizendo "o telão" com o palco vazio há
+  // meia hora — um diagnóstico que envelhece calado é o que este Registro existe
+  // para não produzir. O prazo é o mesmo `DISPLAY_TIMEOUT` com que a preview
+  // decide assumir.
+  const refVelha = !displayStatusAt || (Date.now() - displayStatusAt) > DISPLAY_TIMEOUT;
+  l.push('Referência de tempo: ' + (refVelha
+    ? 'a preview — nenhuma projeção reportando agora'
+    : (refFonte === 'telao' ? 'o telão' : 'uma tela da rede')));
   if (castAlvo) l.push('Espelhar abre: ' + castAlvo);
   // ONDE O SOM ESTÁ SAINDO (v5.215). "Não sai som" tem causas que a tela não
   // separa — mudo, fader em zero, tela conectada sem volume, ou este aparelho
@@ -17341,7 +17474,8 @@ async function switchTab(tab, semAnim) {
   activeTab = tab;
   if (selectionMode) exitSelection();
   try {
-    await load();
+    // NAVEGAÇÃO: aqui a posição guardada daquela aba é a resposta certa.
+    await load({ restaurarScroll: true });
   } finally {
     // No `finally` porque um `load()` que falhe não pode deixar o fantasma
     // congelado sobre a lista para sempre.
@@ -17823,10 +17957,11 @@ function espelhoDisponivel() {
 
 // (`mirrorEstado`, `mirrorTimer` e `mirrorOcupado` são declarados lá em cima,
 // junto do resto do estado de cena — ver o comentário de lá para o porquê.)
-// A confirmação de ligar COM A TV NO AR, lembrada pela SESSÃO: perguntar de
-// novo a cada toque viraria ruído, e quem já respondeu "sim" uma vez naquele
-// culto não muda de ideia por causa do segundo toque.
-let mirrorTvConfirmado = false;
+// (Aqui morava `mirrorTvConfirmado`, a lembrança de "já respondi sim a ligar
+// com a TV no ar". A PERGUNTA saiu — ligar a transmissão com o telão conectado
+// deixou de ser um caso a confirmar —, e a lembrança ficou: um `let` escrito
+// uma vez e nunca lido. Um estado sem leitor não guarda nada; ele só faz a
+// próxima leitura supor que existe uma regra que já não existe.)
 function espelhoLigado() { return !!(mirrorEstado && mirrorEstado.ligado); }
 
 async function lerEspelho() {

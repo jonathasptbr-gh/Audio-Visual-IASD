@@ -754,6 +754,75 @@ try {
   checar(false, 'o percurso terminou sem exceção (' + (e && e.message) + ')');
 }
 
+// ===== A CAMADA DE TEXTO: "no ar" é PROJEÇÃO, e o provedor é UM =====
+//
+// Duas metades do mesmo desenho, e as duas falhavam em silêncio.
+//
+// (1) `cenaDeRoteiroNoAr()` testava a EXISTÊNCIA da sessão. Os quatro `hide*`
+//     existem para tirar da tela sem matar a sessão (o operador pode reexibir,
+//     e o cronômetro segue correndo), então depois de "Tirar do telão" a linha
+//     da cena no Cronograma continuava com o selo "● No ar" e o toque nela caía
+//     em `retirarDoAr` em vez de projetar: reprojetar custava DOIS toques, e o
+//     primeiro não fazia nada visível.
+//
+// (2) Cada projetor limpava as OUTRAS camadas à mão, e a conta não fechava:
+//     ninguém limpava a LETRA AVULSA. Como `lyricProjecting()` tem precedência
+//     sobre mensagem e Bíblia no `slideTarget` e no `renderNowPlaying`, uma
+//     `lyricSession` órfã sequestrava ⏮/⏭ e o título da notificação de mídia.
+try {
+  const camada = await pg.evaluate(async () => {
+    setAppMode('full');
+    const r = {};
+    // CADA PASSO É PROTEGIDO. Com o defeito de volta, um dos renders estoura —
+    // e uma exceção que aborta o `evaluate` inteiro reprova TUDO com uma frase
+    // genérica, isto é, não mede nada. Protegido, cada asserção continua
+    // respondendo pelo que ela existe para medir.
+    const passo = (f) => { try { f(); } catch (e) { r.erros = (r.erros || []).concat(String(e && e.message)); } };
+    // ---- (1) tirar do telão tira do "no ar" ----
+    passo(() => {
+      projectChrono();
+      r.noArDepoisDeProjetar = cenaDeRoteiroNoAr();
+      hideChrono();
+      r.sessaoSobrevive = !!chronoSession;          // ela TEM de sobreviver
+      r.noArDepoisDeEsconder = cenaDeRoteiroNoAr(); // e isto TEM de ser false
+      clearChronoSession();
+    });
+    // ---- (2) um provedor por vez, a letra avulsa inclusive ----
+    // Uma mensagem de VERDADE na lista: `projectMessage` devolve cedo com a
+    // lista vazia, e aí o caso passaria por não ter exercitado nada — que é o
+    // pior artefato que este repositório sabe produzir.
+    messages = [{ id: 'msg-teste', text: 'Desliguem o celular' }];
+    const comLetra = () => { lyricSession = { coll: null, s: null, slides: ['a', 'b'], idx: 0, projecting: true }; };
+    passo(() => { comLetra(); r.letraAntes = lyricProjecting(); projectMessage(0);
+      r.letraDepoisDeMensagem = lyricProjecting(); clearManualText(); });
+    passo(() => { comLetra(); projectChrono();
+      r.letraDepoisDeCronometro = lyricProjecting(); clearManualText(); });
+    passo(() => { comLetra(); projectDraw();
+      r.letraDepoisDeSorteio = lyricProjecting(); clearManualText(); });
+    // ---- e o texto AVULSO também sai quando outro provedor entra ----
+    passo(() => { textoAvulsoNoAr = true; projectChrono();
+      r.avulsoDepoisDeOutro = textoAvulsoNoAr; clearManualText(); });
+    messages = [];
+    return r;
+  });
+  checar(camada.noArDepoisDeProjetar === true,
+    'projetar uma cena de roteiro a põe no ar', JSON.stringify(camada));
+  checar(camada.sessaoSobrevive === true && camada.noArDepoisDeEsconder === false,
+    'e "Tirar do telão" a tira do AR mantendo a sessão viva — a lista precisa '
+    + 'parar de dizer "● No ar", senão o toque seguinte não reprojeta',
+    JSON.stringify(camada));
+  checar(camada.letraAntes === true && camada.letraDepoisDeMensagem === false
+    && camada.letraDepoisDeCronometro === false && camada.letraDepoisDeSorteio === false,
+    'UM PROVEDOR POR VEZ: mensagem, cronômetro e sorteio encerram a LETRA '
+    + 'AVULSA — sem isso ela sequestra ⏮/⏭ e o título da notificação',
+    JSON.stringify(camada));
+  checar(camada.avulsoDepoisDeOutro === false,
+    'e o texto AVULSO (a mensagem de roteiro sem sessão) também sai quando '
+    + 'outro provedor entra', JSON.stringify(camada));
+} catch (e) {
+  checar(false, 'a medição da Camada de Texto terminou sem exceção (' + (e && e.message) + ')');
+}
+
 checar(erros.length === 0, 'nenhum erro de console' + (erros.length ? ':\n        ' + erros.join('\n        ') : ''));
 
 await navegador.close();

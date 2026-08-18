@@ -603,6 +603,10 @@ function showText(cmd) {
   textSubEl.textContent = cmd.sub || '';
   textSubEl.hidden = !cmd.sub;
   textView = wallpaper ? 'wallpaper' : 'visual';
+  // O STAGE PRECISA SABER QUE HÁ UM CARTÃO POR CIMA DELE. Sem isto ele
+  // reavalia a cortina sozinho no fim natural da mídia, no `play()` e no fim de
+  // um `load`, e o wallpaper engole o texto sem nenhum sinal. Ver `setOverlay`.
+  if (stage.setOverlay) stage.setOverlay(textView);
   if (textActive) {
     // Já em cena (troca de versículo/mensagem): fade-in do texto, sem mexer na moldura.
     animateFadeIn(textMainEl); if (!textSubEl.hidden) animateFadeIn(textSubEl);
@@ -631,6 +635,10 @@ function showText(cmd) {
 function hideText(restore = true) {
   if (!textActive) return;
   textActive = false;
+  // ANTES do `restoreSceneAfterText`: ele decide a cortina por `shouldCover()`,
+  // que é o mesmo `computeCover` — deixá-lo com o overlay ainda declarado faria
+  // a cena voltar sem a cortina que a mídia pede.
+  if (stage.setOverlay) stage.setOverlay(null);
   // O laço do texto vivo para JUNTO com o cartão: fora de cena ele só gastaria
   // bateria reescrevendo um nó invisível. O descritor fica (o texto também não
   // é limpo — ver abaixo), então o valor segue certo durante o fade.
@@ -894,9 +902,20 @@ function telaAplicarWallpaper(url) {
   // quando há imagem de verdade — o gradiente padrão nunca é coberto por nada
   // quebrado. `telaWpSeq` descarta a retentativa de um wallpaper que outro já
   // substituiu.
+  // A LADEIRA DOBRA ATÉ UM PLATÔ, com teto de TEMPO — a mesma do fundo da letra
+  // (ver `ESPERA_MAX`/`TETO_MS` acima), e pela mesma razão medida. As quatro
+  // tentativas fixas somavam ~6 s, e os bytes do wallpaper entram na MESMA fila
+  // serializada dos empurrões de mídia do Controle: com um louvor de 300 MB na
+  // frente, eles só começam a chegar minutos depois. A tela desistia ANTES de
+  // existir qualquer possibilidade de sucesso e ficava no desenho padrão para
+  // sempre — nada reexamina um wallpaper já desistido. O `telaWpSeq` continua
+  // matando a retentativa de um wallpaper que outro já substituiu, e é ele que
+  // mantém isto barato: o laço morre no instante em que a preferência muda.
   const seq = ++telaWpSeq;
-  const ESPERAS = [0, 500, 1500, 4000];
-  let tentativa = 0;
+  const ESPERA_MAX = 2500;   // ms — o platô: não adianta martelar
+  const TETO_MS = 45000;     // ms — desiste de vez
+  const inicio = Date.now();
+  let espera = 250;
   const tentar = () => {
     if (seq !== telaWpSeq) return;
     const img = new Image();
@@ -907,9 +926,9 @@ function telaAplicarWallpaper(url) {
       } catch (e) { /* fica o desenho padrão */ }
     };
     img.onerror = () => {
-      tentativa++;
-      if (seq !== telaWpSeq || tentativa >= ESPERAS.length) return;
-      setTimeout(tentar, ESPERAS[tentativa]);
+      if (seq !== telaWpSeq || Date.now() - inicio > TETO_MS) return;
+      setTimeout(tentar, espera);
+      espera = Math.min(espera * 2, ESPERA_MAX);
     };
     img.src = url;
   };
@@ -1057,7 +1076,13 @@ let pausaComandada = 0;
   const v = document.getElementById('video');
   if (!v) return;
   v.addEventListener('pause', () => {
-    const meu = Date.now() - pausaComandada < 400;
+    // A JANELA TEM DE COBRIR O FADE. O `pausaComandada` é armado quando o
+    // COMANDO chega, e o `video.pause()` correspondente só acontece depois da
+    // saída de cena — `clear` esmaece por `fadeCfg.time` antes de parar o
+    // elemento. Com 400 ms fixos contra um fade de 600 ms, TODA parada pedida
+    // pelo operador era carimbada "PAUSA ESPONTÂNEA" no Registro, que é o
+    // artefato lido a distância justamente para separar as duas coisas.
+    const meu = Date.now() - pausaComandada < (fadeCfg.time * 1000 + 400);
     diag(meu ? 'pausa (comando)' : 'PAUSA ESPONTÂNEA', { t2: Math.round(v.currentTime) });
   });
   v.addEventListener('play', () => diag('play', { t2: Math.round(v.currentTime) }));
@@ -1081,7 +1106,11 @@ AVDB.onCommand(async (cmd) => {
   // é para todos, que é o caso de TODOS os comandos de operação: só o reenvio
   // de cena endereça.
   if (cmd.__para && cmd.__para !== INSTANCIA) return;
-  if (cmd.type === 'pause' || cmd.type === 'clear' || cmd.type === 'load') pausaComandada = Date.now();
+  // `media-clear` ENTRA: ele é o "tirar a mídia do ar" com a Camada de Texto em
+  // cena (v5.178), e por não estar nesta lista toda parada por ele saía como
+  // espontânea.
+  if (cmd.type === 'pause' || cmd.type === 'clear' || cmd.type === 'media-clear'
+    || cmd.type === 'load') pausaComandada = Date.now();
   // O Controle pede a caixa-preta ao abrir Configurações.
   if (cmd.type === 'diag-ask') {
     AVDB.sendCommand({ type: 'diag-dump', linhas: diario.slice(-DIAG_MAX) });
@@ -1119,7 +1148,16 @@ AVDB.onCommand(async (cmd) => {
     // NA TELA DA REDE a imagem não está no IDB (que é por-aparelho): ela vem
     // pela URL /m/ que o Controle anexou ao próprio comando (telão por
     // comandos, E4). No telão e no espelho, o caminho de sempre.
-    if (TELA && cmd.__wp) {
+    if (TELA) {
+      // SEM `__wp` A TELA NÃO FAZ NADA — e antes ela APAGAVA. O caminho de
+      // baixo lê o wallpaper do IndexedDB, que é POR APARELHO: no navegador da
+      // rede ele está vazio, então `applyWallpaper()` ali só pode desfazer o
+      // inline que o `__wp` tinha acabado de pintar. E o Controle emite os dois:
+      // `setWallpaper` manda o aviso NU ("mudou, releiam o estado") e o
+      // enriquecimento manda o `__wp` num segundo tempo, depois de ler o blob —
+      // então toda troca de wallpaper piscava o desenho padrão nas telas da
+      // rede, e ficava NELE se o segundo comando se perdesse.
+      if (!cmd.__wp) return;
       // `'padrao'` é o sentinela de "voltou ao padrão": a tela desfaz o
       // inline e o desenho padrão do CSS volta a valer (v5.188).
       if (cmd.__wp === 'padrao') telaWallpaperPadrao(); else telaAplicarWallpaper(cmd.__wp);
@@ -1163,6 +1201,8 @@ AVDB.onCommand(async (cmd) => {
     if (cmd.type === 'view') {
       const v = cmd.view === 'wallpaper' ? 'wallpaper' : 'visual';
       textView = v;
+      // A cortina passa a ser do CARTÃO enquanto ele estiver no ar.
+      if (stage.setOverlay) stage.setOverlay(v);
       // Delega a mudança a QUEM É DONO do estado (o stage), em vez de mexer
       // na cortina por fora. Chamar coverIn/coverOut direto daqui movia a
       // cortina deixando `stage.view`

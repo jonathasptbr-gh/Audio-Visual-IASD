@@ -466,6 +466,21 @@ class MainActivity : ComponentActivity(), BridgeHost {
             // consumindo as teclas e entregando o passo a um `__avVolumeKey`
             // que não existe: o aparelho ficava sem NENHUM controle de volume.
             captureVolumeKeys = false
+            // E A TELA CHEIA, que é a terceira peça da mesma classe — e a mais
+            // cara das três. `onShowCustomView` guarda estado que vive na
+            // ACTIVITY (`customView`, `customCallback`, a visibilidade dos dois
+            // containers e a trava de paisagem), e o único ponto que o desfazia
+            // era `onHideCustomView` — um método do WebChromeClient do WebView
+            // que acabou de morrer, que portanto nunca mais será chamado.
+            //
+            // Sem isto, `buildControleWebView` logo abaixo acrescenta o WebView
+            // NOVO a um `webContainer` que continua `GONE`, com a View de tela
+            // cheia órfã ainda visível por cima. E este é justamente o caso do
+            // culto SEM TV, em que a preview em tela cheia É a projeção: o
+            // renderer morre por OOM (dois WebViews e um vídeo grande no mesmo
+            // processo), o app remonta tudo certo por dentro e a tela fica
+            // congelada, sem caminho de volta.
+            sairDaTelaCheia(false)
             webContainer.post { buildControleWebView() }
         }
         w.webChromeClient = ControleChromeClient()
@@ -1625,22 +1640,40 @@ class MainActivity : ComponentActivity(), BridgeHost {
             setSystemBarsHidden(true)
         }
 
-        override fun onHideCustomView() {
-            val v = customView ?: return
-            fullscreenContainer.removeView(v)
-            fullscreenContainer.visibility = View.GONE
-            webContainer.visibility = View.VISIBLE
-            customView = null
-            customCallback?.onCustomViewHidden()
-            customCallback = null
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-            setSystemBarsHidden(false)
-        }
+        override fun onHideCustomView() = sairDaTelaCheia(true)
 
         override fun onConsoleMessage(msg: ConsoleMessage): Boolean {
             Log.d(TAG, "[web] ${msg.message()} (${msg.sourceId()}:${msg.lineNumber()})")
             return true
         }
+    }
+
+    /**
+     * Desfaz a TELA CHEIA da preview e devolve a Activity ao retrato.
+     *
+     * `avisarWebView` distingue os dois donos possíveis do pedido. Pelo caminho
+     * normal (`onHideCustomView`) é o próprio documento que está saindo, e o
+     * `CustomViewCallback` precisa ser avisado; na REMONTAGEM por morte de
+     * renderer o dono daquele callback já não existe, e invocá-lo seria falar
+     * com um WebView destruído — daí o `false`, com o `try` como cinto e
+     * suspensório para o caminho normal.
+     */
+    private fun sairDaTelaCheia(avisarWebView: Boolean) {
+        val v = customView ?: return
+        fullscreenContainer.removeView(v)
+        fullscreenContainer.visibility = View.GONE
+        webContainer.visibility = View.VISIBLE
+        customView = null
+        if (avisarWebView) {
+            try {
+                customCallback?.onCustomViewHidden()
+            } catch (e: Exception) {
+                Log.w(TAG, "onCustomViewHidden falhou", e)
+            }
+        }
+        customCallback = null
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        setSystemBarsHidden(false)
     }
 
     @Suppress("DEPRECATION")

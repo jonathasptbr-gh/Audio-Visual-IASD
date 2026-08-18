@@ -455,7 +455,25 @@
             return;
           }
         }
-        bombear();
+        // `aoBuscar()` E NÃO `bombear()` — ela termina chamando `bombear()`, e o
+        // que ela acrescenta é reaplicar a POSIÇÃO CORRENTE do elemento agora
+        // que TODOS os `f.segs` existem.
+        //
+        // O seek do `startAt` cai exatamente na janela em que eles não existem.
+        // O `stage` registra a posição num `loadedmetadata` `{once:true}`, e com
+        // duas faixas o `loadedmetadata` da MSE dispara assim que os DOIS
+        // segmentos de inicialização foram appendados — isto é, no meio da
+        // segunda volta deste `for`, quando a faixa de vídeo já tem `segs` e a
+        // de áudio ainda não. `aoBuscar` começa com `if (!f.segs) return`, então
+        // aquele seek era DESCARTADO em silêncio para a faixa atrasada: o vídeo
+        // reposicionava e o áudio baixava do segundo ZERO. Como o elemento só
+        // sai de HAVE_METADATA com dado em TODAS as faixas na posição corrente,
+        // a projeção ficava parada até o áudio percorrer o trecho inteiro.
+        //
+        // Ele morde no caminho mais caro que este player tem: a reconexão do
+        // telão (`resendSceneToDisplay` reenvia `load` com `time`) e a aplicação
+        // de um OTA, que recarrega as duas páginas com a cena no ar.
+        aoBuscar();
         tick = setInterval(bombear, TICK_MS);
       } catch (e) {
         morrer((e && e.message) || 'início');

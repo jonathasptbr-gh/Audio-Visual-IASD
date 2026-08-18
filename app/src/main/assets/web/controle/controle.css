@@ -1825,17 +1825,30 @@ main {
   transform: translateX(14px);
   transition: transform .2s cubic-bezier(.22, .61, .36, 1);
 }
-.lib-item.acoes-abertas .row-acoes > * { transform: none; }
+/* ---------- A GAVETA É DE QUEM TEM A CLASSE, NÃO DE UMA LISTA ----------
+   Estas três regras eram keyadas em `.lib-item.acoes-abertas`, e a linha da
+   FILA DA PLAYLIST é `.row-item` (ver `renderPlaylist`) — ela nunca recebe
+   `lib-item`. A v5.285 tirou o arrasto e moveu o "Tirar da playlist" e o par
+   ↑↓ para DENTRO desta faixa; com o seletor preso à outra lista, a faixa
+   ficava em `opacity: 0; visibility: hidden` para sempre, e a fila do culto
+   passou a não ter como ser editada nem reordenada. Medido em Chromium: com o
+   `⋮` já marcado `acoes-abertas`, a caixa saía `visibility: hidden` e o
+   `elementFromPoint` no meio dela devolvia o TÍTULO da linha.
+
+   Quem revela a gaveta é a CLASSE que o `montarAcoesDaLinha` escreve — não a
+   lista em que a linha por acaso mora. Escrito assim, a próxima lista que
+   ganhar a gaveta já nasce funcionando, que é exatamente o que faltou aqui. */
+.acoes-abertas .row-acoes > * { transform: none; }
 .row-acoes > :nth-last-child(2) { transition-delay: .03s; }
 .row-acoes > :nth-last-child(3) { transition-delay: .06s; }
 .row-acoes > :nth-last-child(4) { transition-delay: .09s; }
 .row-acoes > :nth-last-child(5) { transition-delay: .12s; }
-.lib-item.acoes-abertas .row-acoes { opacity: 1; visibility: visible; }
+.acoes-abertas .row-acoes { opacity: 1; visibility: visible; }
 /* O `⋮` é o único botão que fica na linha, e ele é DISCRETO: não é uma ação,
    é a porta para elas. Aberto, ele veste o accent — é o que diz qual linha
    está com o menu no ar quando a lista rola. */
 .row-mais { color: var(--muted); }
-.lib-item.acoes-abertas .row-mais { color: var(--accent); }
+.acoes-abertas .row-mais { color: var(--accent); }
 
 /* A caixa da miniatura é o FUNDO DO APP dentro do cartão: um buraco na
    elevação, que é o que faz a capa (quando existe) parecer colada por cima.
