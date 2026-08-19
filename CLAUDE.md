@@ -128,7 +128,7 @@ docs/
 └── FONTE-DE-DADOS-LOUVORJA.md   # referência do banco LouvorJA (hinos/Bíblia)
 ```
 
-**Vinte e cinco arquivos Kotlin, uma dependência de terceiros no shell** — o
+**Vinte e seis arquivos Kotlin, uma dependência de terceiros no shell** — o
 resto é AndroidX oficial (`core-ktx`, `activity-ktx`, `webkit`). A troca do
 espelho de pixels pelo telão por comandos (v5.187) **removeu** quatro arquivos
 nativos inteiros (encoder, tela virtual, segunda Presentation, ponte de áudio)
@@ -528,10 +528,14 @@ Controle** (`host != null`, invariante 9) e os cinco ficam **FORA da fila de
 IO**: ela é uma thread única e é onde roda o download do YouTube, então "ligar o
 espelho" no meio de um download não aconteceria — a Promise venceria pelo prazo
 de 60 s do `native.js` e resolveria `null`, um "erro" sem causa. Quem faz o
-trabalho é a **main thread**, e isso não é preferência: uma `Presentation` é um
-`Dialog`, e um `Dialog` criado na fila de IO (uma `Thread` daemon sem `Looper`)
-lança `Can't create handler inside thread that has not called Looper.prepare()`
-no primeiro toque. A v5.136 acrescentou
+trabalho é a **main thread**. A razão ORIGINAL disso morreu e a regra ficou com
+outra: até a v5.187 o espelho abria uma `MirrorPresentation`, e uma
+`Presentation` é um `Dialog` — um `Dialog` criado na fila de IO (uma `Thread`
+daemon sem `Looper`) lança `Can't create handler inside thread that has not
+called Looper.prepare()` no primeiro toque. Não há mais janela nenhuma ali; o
+que sustenta a main thread hoje é a frase anterior (ficar FORA da fila de IO) e
+a serialização de `espelhoSrv`/`espelhoMidia`, que são escritos no `startMirror`
+e lidos no `mirrorState`. Ver o KDoc de `MainActivity.startMirror`. A v5.136 acrescentou
 `otaCheck`/`otaDiag` (a procura de atualização agressiva). A v5.133 (shell 30)
 não acrescentou método nenhum, mas mudou o **comportamento do `ytFetch`**: pedir
 o mesmo download outra vez passou a RECLAMAR o desfecho guardado no shell
@@ -2653,7 +2657,8 @@ depende do primeiro ter dado certo.
 > do `continue-on-error` sempre foi INFRAESTRUTURA (download do Chromium, runner
 > sem rede), e infraestrutura agora é o primeiro passo, sozinho; o segundo ficou
 > com uma causa só de falhar, roda os doze SEMPRE (nenhum aborta o próximo),
-> emite `::error::` por reprovado e escreve o placar (`N/12 passaram`) no
+> emite `::error::` por reprovado e escreve o placar (`N/M passaram`, os dois
+> CONTADOS — eram doze quando este parágrafo foi escrito e são treze hoje) no
 > **resumo do run**, onde se lê sem abrir log nenhum. `N` é CONTADO, nunca
 > digitado: um número fixo ali envelheceria no primeiro oráculo novo — e
 > envelheceria mentindo. O segundo passo SEGUE com `continue-on-error`, e isso é
@@ -3053,10 +3058,123 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.295** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.296** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.296: A REVISÃO PROFUNDA DA DOCUMENTAÇÃO — uma seção inteira do doc de
+> arquitetura descrevia um player apagado, e o `MainActivity` descrevia o
+> espelho de PIXELS no presente em treze pontos. OTA PURO** (o diff de Kotlin é
+> 100% comentário — nenhuma linha de código; sem Release).
+>
+> Uma varredura do repositório inteiro pedida pelo operador: *"revisando o
+> código por completo, atualizando a documentação dele que deve estar
+> desatualizada… pode buscar otimizações, código morto, falhas de padrões ou
+> problemas de conceito"*.
+>
+> **O MÉTODO, porque ele é o que se repete da próxima vez.** Cada identificador
+> citado entre crases — no CLAUDE.md, nos docs e nos COMENTÁRIOS do código — foi
+> confrontado com a existência dele no projeto, e cada achado foi lido para
+> separar **lápide** (passado, valiosa, é a disciplina desta base) de **defeito**
+> (presente, descreve mecanismo que não existe). São 1.331 identificadores no
+> CLAUDE.md, 1.461 no doc de arquitetura e 145 nos comentários.
+>
+> **O que a varredura ABSOLVEU, e vale registrar tanto quanto o resto:** a ponte
+> é simétrica (48 `@JavascriptInterface` × 48 chamadas em `native.js`, nenhum
+> método sem chamador dos dois lados), os 43 métodos do `AVNative` batem com o
+> doc, o CSS **não tem uma classe morta** (o primeiro scan acusou 33 e estava
+> contando nomes dentro dos comentários-lápide — o falso positivo é a prova de
+> que as lápides funcionam), `eslint --rule no-undef` sobre a base inteira
+> devolve ZERO erros, o Kotlin não tem função morta, e a seção NORMATIVA do
+> CLAUDE.md não tem um único identificador obsoleto: os 66 achados dele estão
+> todos dentro das notas de versão, onde descrever o que saiu é o trabalho.
+>
+> **OS DEFEITOS, e o maior deles é de doc:**
+>
+> - **`docs/ARQUITETURA-WEB.md` tinha uma seção INTEIRA — "### YouTube (IFrame
+>   Player API oficial)", 95 linhas — escrita no presente sobre o player que a
+>   v5.212 apagou.** `loadYtApi`, `ytApiPromise`, `YT.Player`, `playerVars`,
+>   `createYtHost`, `ytKillCaptions` com `unloadModule`, o escudo anti-UI e o
+>   vigia `ytWatchResume`: cada nome ali manda o leitor procurar um símbolo que
+>   não existe. Mais a **lista de dependências** do topo, que ainda dizia "duas
+>   exceções" e contava a IFrame API como VIVA — contradizendo o CLAUDE.md e o
+>   código, que têm uma só (o renderizador de `.pptx`). Ela foi substituída pelo
+>   que sobrevive: por que o embed saiu (a ponte COMPLETA exposta a script de
+>   terceiro na preview do Controle — `addJavascriptInterface` injeta em todas as
+>   frames, e a invariante 9 protegia a metade errada), o que saiu junto, quem
+>   toca YouTube hoje, e a lição de método das v5.75–v5.77.
+> - **`MainActivity.kt` descrevia o espelho de PIXELS no presente em treze
+>   pontos**, e o pior deles era um comentário ÓRFÃO: "A JANELA DO ESPELHO
+>   RENASCE COM A ACTIVITY… o gatilho é a existência da tela virtual" em cima do
+>   pedido de permissão de notificação, que não tem nada a ver com ele — a
+>   chamada que ele explicava (`EspelhoDisplay.sincronizarJanela`) saiu na v5.187
+>   e o parágrafo ficou. Junto: o KDoc do `startMirror` prometendo a ordem "rede
+>   → servidor → **tela/encoder** → …" e "nenhum cliente vê nada antes do
+>   primeiro IDR"; o passo 2 dizendo que "`pedirIdr` fecha o ciclo com o
+>   encoder"; o `stopMirror` explicando-se por um `EspelhoDisplay.desligar()`; o
+>   `aoEsquentar` justificando "cai bitrate, nunca resolução" por uma densidade
+>   de tela virtual; e o `telasExternas` inteiro argumentando com um
+>   `VirtualDisplay` que este aparelho não cria mais.
+>
+>   **E uma dessas correções mudou uma REGRA deste documento, não só a redação.**
+>   A razão escrita para os métodos do espelho rodarem na MAIN THREAD era de
+>   framework — "uma `Presentation` é um `Dialog`, e um `Dialog` criado na fila
+>   de IO lança `Looper.prepare()`". Não há mais `Presentation` nenhuma ali. O
+>   que sustenta a regra hoje são outras duas coisas, e a primeira continua
+>   valendo inteira: **ficar FORA da fila de IO** (senão "ligar a transmissão" no
+>   meio de um download vence pelo prazo de 60 s do `native.js` e resolve `null`,
+>   um erro sem causa) e a serialização de `espelhoSrv`/`espelhoMidia`.
+> - **`display.js` explicava o mudo inicial por um handshake inexistente:**
+>   "enquanto o grafo de Web Audio não estiver de pé E o encoder do lado Kotlin
+>   não tiver confirmado… quem libera é `espelhoAudioIniciar()`, e só depois do
+>   `{"ok":true}`". Os três saíram na v5.187. A razão que RESTA é suficiente
+>   sozinha e é a que ficou escrita: o som é **opt-in por tela** — não é o app
+>   que decide o volume da sala em que aquela tela está.
+> - **`controle.js`, três:** um comentário afirmando que a gaveta `#favPopup`
+>   "continua existindo" e citando `openFolder`/`openOpfsFolder` (os três saíram
+>   entre a v5.254 e a v5.294 — é a v5.295 outra vez, no mesmo arquivo que ela
+>   varreu); uma citação a um `telaReenviarWallpaper` que se chama
+>   `telaReenviarPreferencias`; e a justificativa do fechamento por
+>   `pointerdown` em fase de captura, que argumentava com a ALÇA de arrastar
+>   removida na v5.285 — a propriedade que a alça apenas exemplificava (um gesto
+>   que não termina em `click` fecha o menu do mesmo jeito) ficou no lugar dela.
+>
+> **CÓDIGO MORTO REMOVIDO**, e o primeiro tem uma lição própria:
+>
+> - **`adicionarNaLista`** — a "forma de UM destino", cujo comentário dizia ser
+>   "o que a maior parte do app ainda usa" **sem um único chamador**. Quem a
+>   mantinha viva era o `tools/destinos.test.mjs`, montando o fixture por ela: um
+>   oráculo que exercita um caminho que o app não percorre não é rede de
+>   segurança, é uma segunda API mantida por engano. Ele passou a chamar
+>   `adicionarNasListas`, que é a porta que os dois chamadores reais usam.
+> - **`refreshOpfsFolderCount`** — zero referências; quem mantém a contagem de
+>   uma pasta é o `syncDeviceFolder`, no mesmo ponto em que grava o catálogo.
+> - **`.fade-row--col`** (CSS) — metade de um par cujo irmão `--fit` é o único
+>   que o HTML escreve.
+>
+> **E os números que o próprio documento manda medir estavam velhos:** "vinte e
+> cinco arquivos Kotlin" são **vinte e seis**, e o placar do CI foi fixado como
+> `N/M` (os dois contados pelo workflow) em vez de `N/12`, que era verdade
+> quando o parágrafo foi escrito e são treze hoje.
+>
+> **O QUE FICA MAPEADO E NÃO FOI MEXIDO, com o motivo:** `EspelhoServidor.relatoDe`
+> lê SEIS campos que nenhum produtor emite desde a v5.187 — `seguro`, `mse`,
+> `mms`, `fetchStream`, `videoDecoder`, `wakeLock`. O `espelho/cliente.js` que os
+> mandava foi apagado; o `tela.js` manda `{ua, w, h}` e mais nada. Todos caem no
+> padrão `false` do `optBoolean`, que é um valor LEGÍTIMO — a armadilha exata da
+> v5.206 —, e `relatoJson` os publica em `espelhoEstado()` a cada 2,5 s para um
+> consumidor que a v5.206 removeu do `controle.js`. Hoje ninguém os lê, então
+> não há defeito visível; o que há é um produtor que sobreviveu ao consumidor,
+> pronto para ser mal interpretado por quem repuser uma leitura. **Encolher a
+> forma de `espelhoEstado` é mudar a superfície da ponte** (a régua da v5.206),
+> logo custa um degrau de `SHELL_VERSION`, um `shellTag` e uma Release — e é por
+> isso que ficou de fora de um lote que é OTA puro, não por esquecimento.
+>
+> Os 19 oráculos passam, e cada remoção foi verificada com a suíte inteira
+> depois. O Kotlin **não foi compilado** aqui (o ambiente não tem o SDK do
+> Android); o diff dele foi conferido linha a linha para não conter uma única
+> linha de código, e quem o compila é o CI.
 
 > **A v5.295: OS COMENTÁRIOS QUE DESCREVIAM A GAVETA COMO SE ELA EXISTISSE.
 > OTA PURO** (nenhuma linha de código; sem Release).

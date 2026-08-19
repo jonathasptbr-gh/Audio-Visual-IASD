@@ -265,14 +265,15 @@ class MainActivity : ComponentActivity(), BridgeHost {
         displayManager = getSystemService(DisplayManager::class.java)
         displayManager?.registerDisplayListener(displayListener, null)
 
-        // A JANELA DO ESPELHO RENASCE COM A ACTIVITY. `android:configChanges`
-        // não cobre `fontScale` nem `locale`, e este repositório já documenta
-        // duas vezes que isso recria a Activity e que já causou defeito real.
-        // Com o serviço mantendo o processo vivo, a Activity pode morrer sozinha
-        // enquanto a tela virtual e o encoder do espelho continuam: o resultado
-        // seria H.264 impecável de um RETÂNGULO PRETO, com todos os contadores
-        // subindo e nada no Registro. O gatilho é a existência da tela virtual,
-        // não a desta Activity — sem espelho no ar isto é um no-op.
+        // (Aqui morava a RECONSTRUÇÃO DA JANELA DO ESPELHO — um
+        // `EspelhoDisplay.sincronizarJanela(this)`, que reatava a janela do
+        // espelho de PIXELS à Activity recriada. A janela, a tela virtual e o
+        // encoder saíram na v5.187 com o espelho inteiro; a chamada saiu junto
+        // e o comentário ficou, órfão, em cima do pedido de permissão de
+        // notificação logo abaixo — que não tem nada a ver com ele. A
+        // transmissão de hoje não tem janela nenhuma a reatar: as telas da rede
+        // rodam o próprio `/display/`, e o que sobrevive à recriação da Activity
+        // é o `EspelhoServidor` no companion, que é onde ele já mora.)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) !=
@@ -570,14 +571,14 @@ class MainActivity : ComponentActivity(), BridgeHost {
     override fun onStop() {
         super.onStop()
         presentation?.keepPlaying()
-        // O ESPELHO é projeção como o telão, e pela mesma razão: as telas da
-        // rede continuam olhando para ele com o app minimizado — que é o estado
-        // NORMAL deste app no meio do culto. Sem isto o Chromium suspende o
-        // WebView dele no instante exato em que ninguém mais está olhando o
-        // celular, e a primeira coisa a ser estrangulada é o batimento de 1 Hz
-        // que mantém o encoder produzindo numa cena parada. É o mesmo contrato
-        // que o KDoc do `MirrorPresentation.keepPlaying` já declara ("chamado do
-        // `onStop` da Activity"). No-op quando não há espelho no ar.
+        // (Aqui havia um segundo `keepPlaying`, o da `MirrorPresentation` — a
+        // janela oculta que o espelho de PIXELS mantinha para o encoder ter o
+        // que capturar com o app minimizado. Ela saiu na v5.187, e com ela a
+        // razão: uma tela da rede não olha mais para uma janela deste aparelho,
+        // ela roda o próprio `/display/` no navegador dela e recebe COMANDOS.
+        // O que a mantém viva com o app minimizado é o `SessionService`, que
+        // segura o processo, e o wake lock do `EspelhoEnergia` — nenhum dos
+        // dois passa por aqui.)
         // (Saiu na v5.189 o despertar do WebView do Controle pela MESA DE SOM.
         // Ela existia para o caso em que o celular ERA a caixa de som, e esse
         // caso deixou de existir: o som é dos displays. O WebView do Controle
@@ -604,21 +605,24 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // esta Activity, e a ronda do `WebUpdater` sobrevive à tela.
         WebUpdater.aoChegar = null
         try { SessionService.stop(this) } catch (_: Exception) { }
-        // O ESPELHO NÃO SOBREVIVE AO FECHAMENTO DO APP — ele é auxiliar e
-        // nasceu de um toque do operador nesta tela. Deixá-lo servindo com a
-        // Activity morta manteria um `ServerSocket` na rede da igreja e um
-        // encoder ligado sem ninguém para desligá-los, e a janela dele já teria
-        // ido junto: o que sobraria na rede seria um retângulo preto.
+        // A TRANSMISSÃO NÃO SOBREVIVE AO FECHAMENTO DO APP — ela é auxiliar e
+        // nasceu de um toque do operador nesta tela. Deixá-la servindo com a
+        // Activity morta manteria um `ServerSocket` na rede da igreja sem
+        // ninguém capaz de desligá-lo, e as telas continuariam recebendo
+        // comandos de um Controle que não existe mais: a última cena congelada
+        // na frente da congregação, sem transporte e sem quem a tire de lá.
         //
         // **`!isChangingConfigurations` NÃO É ZELO.** `android:configChanges`
         // não cobre `fontScale` nem `locale`, e este repositório já documenta
         // duas vezes que mudar o tamanho da fonte RECRIA esta Activity. Sem a
-        // guarda, esse `onDestroy` derrubaria o espelho no meio do culto por uma
-        // preferência do sistema — e o `onCreate` seguinte não o traria de
-        // volta, porque `sincronizarJanela` só remonta a JANELA sobre uma tela
-        // virtual que ainda exista. Numa recriação quem mantém tudo vivo é o
-        // serviço, e é o `sincronizarJanela` do `onCreate` que reata a janela à
-        // Activity nova.
+        // guarda, esse `onDestroy` derrubaria a transmissão no meio do culto por
+        // uma preferência do sistema — e o `onCreate` seguinte NÃO a traria de
+        // volta: nada neste caminho religa um servidor que o operador não
+        // mandou religar, e o `ligar()` do `EspelhoServidor` zera o pareamento,
+        // isto é, as três telas voltariam para o botão de entrada. Numa
+        // recriação quem mantém tudo vivo é o serviço em primeiro plano, e a
+        // referência do servidor está no COMPANION justamente por isto (ver o
+        // KDoc de `espelhoSrv`, lá embaixo).
         if (!isChangingConfigurations) {
             try {
                 desmontarEspelho()
@@ -661,38 +665,36 @@ class MainActivity : ComponentActivity(), BridgeHost {
     }
 
     /**
-     * As telas de apresentação **externas** — a TV, o dongle. A tela virtual
-     * PRIVADA que o espelho de pixels cria para si fica de fora, e os DOIS
-     * pontos que perguntam "há telão?" ([syncPresentation] e [listDisplays])
-     * passam por aqui. Filtrar na fonte cobre de uma vez o
-     * `renderDisplayStatus`, o `applyPreviewAspect` e o `simpleDisplay` do lado
-     * web, que leem todos o mesmo `lastDisplays`.
+     * As telas de apresentação **externas** — a TV, o dongle. Os DOIS pontos que
+     * perguntam "há telão?" ([syncPresentation] e [listDisplays]) passam por
+     * aqui. Filtrar na fonte cobre de uma vez o `renderDisplayStatus`, o
+     * `applyPreviewAspect` e o `simpleDisplay` do lado web, que leem todos o
+     * mesmo `lastDisplays`.
      *
-     * **ISTO É CINTO E SUSPENSÓRIO PARA UMA FLAG QUE NÃO ESTAMOS PASSANDO**, e
-     * precisa estar escrito ou o próximo leitor apaga o filtro como código morto
-     * e leva a proteção junto: `DISPLAY_CATEGORY_PRESENTATION` devolve só
-     * display com `FLAG_PRESENTATION`, e o espelho cria o `VirtualDisplay` com
-     * `flags = 0` — que nunca a põe. Ou seja, HOJE nenhum dos dois chamadores
-     * consegue enxergar o espelho. O filtro existe porque o custo de a premissa
-     * mudar é desproporcional ao dele: sem TV conectada, [syncPresentation]
-     * acharia a nossa tela virtual e criaria uma `StagePresentation` DENTRO do
-     * próprio espelho — um terceiro `/display/` e, porque
-     * `StagePresentation.buildWebView` instala o [MicChromeClient], um WebView
-     * habilitado a abrir o microfone do templo numa janela que o operador não vê.
+     * **HOJE ELE NÃO EXCLUI NADA, e precisa estar escrito**, ou o próximo leitor
+     * o apaga como código morto e leva a proteção junto. O filtro nasceu para
+     * manter fora a tela virtual PRIVADA do espelho de pixels; aquele
+     * `VirtualDisplay` saiu na v5.187 e este aparelho não cria mais display
+     * nenhum — a transmissão de hoje não tem tela, tem sockets. O que ficou é a
+     * garantia de que **nenhum display privado vira telão**, seja de quem for:
+     * sem ela, [syncPresentation] criaria uma `StagePresentation` numa janela
+     * que o operador não vê e que, porque `StagePresentation.buildWebView`
+     * instala o [MicChromeClient], estaria habilitada a abrir o microfone do
+     * templo.
      *
      * O predicado é **estrutural** (`Display.FLAG_PRIVATE`), nunca um nome nem
-     * um id adivinhado, mais a exclusão explícita do nosso `displayId` quando
-     * ele já é conhecido. E o risco que ele fecha **não é uma janela de
-     * corrida**: no Android 14+ a ordenação de `getDisplays` por tipo foi
-     * removida — hoje é ordem de `displayId` —, enquanto o javadoc público
-     * continua prometendo "sorted by order of preference". É determinístico, e
-     * é por isso que a resposta é um filtro e não um `firstOrNull` mais esperto.
+     * um id adivinhado. E o risco que ele fecha **não é uma janela de corrida**:
+     * no Android 14+ a ordenação de `getDisplays` por tipo foi removida — hoje é
+     * ordem de `displayId` —, enquanto o javadoc público continua prometendo
+     * "sorted by order of preference". É determinístico, e é por isso que a
+     * resposta é um filtro e não um `firstOrNull` mais esperto.
      */
     private fun telasExternas(): List<Display> {
         val dm = displayManager ?: return emptyList()
-        // A exclusão por displayId da tela virtual saiu com o espelho de
-        // pixels (E6/E7); o filtro de FLAG_PRIVATE fica — é o cinto contra o
-        // Android 14+ ter removido a ordenação por tipo de getDisplays.
+        // A exclusão por displayId saiu com a tela virtual do espelho de pixels
+        // (E6/E7); o filtro de FLAG_PRIVATE fica — é o cinto contra o Android
+        // 14+ ter removido a ordenação por tipo de getDisplays, e contra
+        // qualquer display privado que apareça aqui no futuro.
         return dm.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION).filter { d ->
             (d.flags and Display.FLAG_PRIVATE) == 0
         }
@@ -880,9 +882,11 @@ class MainActivity : ComponentActivity(), BridgeHost {
 
     /**
      * As telas que o lado web vê. É o escritor ÚNICO de `lastDisplays`, então o
-     * filtro de [telasExternas] aqui é o que impede a tela virtual do espelho de
+     * filtro de [telasExternas] aqui é o que impede um display PRIVADO de
      * aparecer no app como se fosse uma TV — inclusive destravando o modo
      * simplificado, que se considera "conectado" pela primeira entrada da lista.
+     * (Quem o produzia era a tela virtual do espelho de pixels, removida na
+     * v5.187; ver o KDoc de [telasExternas] para por que o filtro fica.)
      */
     override fun listDisplays(): JSONArray {
         val out = JSONArray()
@@ -1254,45 +1258,64 @@ class MainActivity : ComponentActivity(), BridgeHost {
 
     override fun takePendingShare(): JSONObject? = pendingShare.getAndSet(null)
 
-    // ---------- espelho de pixels ----------
+    // ---------- transmissão para as telas da rede ----------
     //
-    // A Activity é a COSTURA do recurso, e só isso. Ela é o dono porque a
-    // `MirrorPresentation` precisa de um `Context` de UI e de uma thread com
-    // `Looper` — a mesma razão pela qual a `StagePresentation` nasce aqui —, e
-    // porque as quatro peças (tela virtual, encoder, servidor, serviço) não se
-    // conhecem de propósito: `EspelhoDisplay` recebe por parâmetro para onde
-    // mandar os quadros e `EspelhoServidor` recebe por parâmetro como pedir um
-    // IDR. Costurar isso é uma dúzia de linhas; fundir os dois seria um arquivo
-    // que ninguém consegue testar.
+    // (O cabeçalho anterior chamava este bloco de "espelho de PIXELS" e
+    // descrevia quatro peças — tela virtual, encoder, servidor, serviço — que a
+    // v5.187 removeu. Ele ficou porque nada quebra quando um comentário
+    // envelhece; o preço é o leitor seguinte procurar um `EspelhoDisplay` e um
+    // `pedirIdr` que não existem em lugar nenhum do projeto.)
     //
-    // Fora isso ela não sabe nada do espelho: sockets, PIN, densidade, encoder
-    // e sonda vivem nos `Espelho*.kt`, como `WebUpdater` e `YoutubeGrab` guardam
-    // OTA e YouTube. É a mesma disciplina que impede esta classe de crescer com
-    // o app.
+    // A Activity é a COSTURA do recurso, e só isso. Ela é o dono por UMA razão,
+    // e ela é de thread: os métodos abaixo precisam da MAIN THREAD (ver o KDoc
+    // de [startMirror]), e a fila de IO da ponte não a tem. As peças de hoje são
+    // três e continuam sem se conhecer — `EspelhoServidor` (sockets e rotas),
+    // `EspelhoPares` (a porta e as sessões) e `EspelhoEnergia` (wake lock,
+    // Wi-Fi lock e térmica) —, e costurá-las é uma dúzia de linhas.
+    //
+    // Fora isso ela não sabe nada da transmissão: sockets, tokens, densidade e
+    // diagnóstico vivem nos `Espelho*.kt`, como `WebUpdater` e `YoutubeGrab`
+    // guardam OTA e YouTube. É a mesma disciplina que impede esta classe de
+    // crescer com o app.
 
     /**
-     * LIGAR — na MAIN THREAD, sempre, e é por isso que este método existe em vez
-     * de a ponte falar direto com o `EspelhoDisplay`: uma `Presentation` é um
-     * `Dialog`, e um `Dialog` criado numa thread sem `Looper` lança
-     * `Can't create handler inside thread that has not called Looper.prepare()`
-     * — a fila de IO da ponte é exatamente isso.
+     * LIGAR — na MAIN THREAD, sempre.
      *
-     * **A ORDEM é rede → servidor → tela/encoder → pareamento → serviço**, e ela
-     * é escolhida pelo custo de desfazer cada passo. A rede é a primeira porque
-     * é a recusa mais provável e a mais barata (dados móveis, VPN, sem Wi-Fi):
-     * descobrir isso DEPOIS de alocar um encoder e uma tela virtual seria pagar
-     * o caro para descobrir o barato. O servidor vem antes da tela porque ele
-     * também pode recusar (porta ocupada) e desfazê-lo é fechar um socket; a
-     * tela e o encoder vêm por último entre os que podem falhar, e são os que
-     * custam memória de verdade. Nenhum cliente vê nada antes do primeiro IDR,
-     * então subir o servidor primeiro não mostra tela preta a ninguém.
+     * **A RAZÃO ORIGINAL MORREU E A REGRA FICOU, com outra.** Até a v5.187 ela
+     * era de framework: o espelho abria uma `MirrorPresentation`, uma
+     * `Presentation` é um `Dialog`, e um `Dialog` criado numa thread sem
+     * `Looper` lança `Can't create handler inside thread that has not called
+     * Looper.prepare()`. Não há mais janela nenhuma aqui. O que sustenta a main
+     * thread hoje são duas coisas, e a primeira não é negociável: este caminho
+     * **não pode entrar na fila de IO da ponte** — ela é de uma thread só e é
+     * onde roda o download do YouTube, então "ligar a transmissão" no meio de um
+     * download venceria pelo prazo de 60 s do `native.js` e resolveria `null`,
+     * um erro sem causa (v5.141, e a divisão em três filas da v5.294 não mudou
+     * isto: nenhuma delas é este trabalho). A segunda é serialização —
+     * `espelhoSrv` e `espelhoMidia` são escritos aqui e lidos pelo
+     * [mirrorState], e a main thread é a trava que este arquivo já usa.
+     *
+     * **A ORDEM é rede → servidor → cache de mídia → pareamento → serviço**, e
+     * ela é escolhida pelo custo de desfazer cada passo. A rede é a primeira
+     * porque é a recusa mais provável e a mais barata (dados móveis, VPN, sem
+     * Wi-Fi): descobrir isso depois de abrir socket e diretório seria pagar o
+     * caro para descobrir o barato. O servidor vem em seguida porque ele é o
+     * outro que pode RECUSAR (porta ocupada) e desfazê-lo é fechar um socket.
+     * O pareamento nasce do zero por último entre os que guardam estado — é o
+     * que faz nenhum token sobreviver ao culto anterior — e o serviço fecha a
+     * fila, quando já há endereço para a notificação mostrar.
+     *
+     * (A ordem antiga dizia "rede → servidor → tela/encoder → …" e argumentava
+     * com o custo de alocar um encoder; os dois saíram na v5.187. Hoje o passo
+     * caro deste caminho não existe: uma tela da rede só vê alguma coisa depois
+     * de abrir o `/display/` e pedir entrada, e nada é renderizado aqui.)
      *
      * Devolve o estado resultante (o mesmo objeto do [mirrorState]), com `erro`
      * preenchido quando não deu: a folha do Controle desenha os dois casos com o
      * mesmo código, e **a frase da falha vem PRONTA de quem sabe o motivo** —
-     * "só liga em Wi-Fi — este aparelho está em dados móveis", "o aparelho não
-     * tem encoder livre agora". A especificação proíbe degradar calado em todos
-     * os pontos deste caminho.
+     * "só liga em Wi-Fi — este aparelho está em dados móveis", "o servidor do
+     * espelho não subiu". A especificação proíbe degradar calado em todos os
+     * pontos deste caminho.
      */
     override fun startMirror(modo: String, onResult: (JSONObject) -> Unit) {
         runOnUiThread {
@@ -1306,11 +1329,11 @@ class MainActivity : ComponentActivity(), BridgeHost {
                 return@runOnUiThread
             }
 
-            // 2. O SERVIDOR. `pedirIdr` fecha o ciclo com o encoder sem que um
-            //    arquivo conheça o outro; `aoPerderRede` é a Wi-Fi sumindo com o
-            //    espelho no ar — o servidor se derruba sozinho, e aqui a tela
-            //    virtual e o encoder precisam cair junto, senão sobra um encoder
-            //    codificando para ninguém.
+            // 2. O SERVIDOR. `aoPerderRede` é a Wi-Fi sumindo com a transmissão
+            //    no ar: o servidor confirma a queda sozinho (v5.183 — suspeita
+            //    não é veredito) e chama de volta, e é aqui que o resto cai
+            //    junto, senão sobrariam o pareamento e o serviço em primeiro
+            //    plano anunciando um endereço que não atende mais.
             val srv = EspelhoServidor(
                 applicationContext,
                 WebPathHandler(applicationContext),
@@ -1379,18 +1402,21 @@ class MainActivity : ComponentActivity(), BridgeHost {
     /**
      * DESLIGAR — e este é o único do bloco que **não** salta para a main thread.
      *
-     * O ponto é justamente esse: `EspelhoDisplay.desligar()` escreve um campo
-     * `@Volatile` e volta, e quem responde são os laços que o consultam (a
-     * drenagem do encoder, as threads de cliente). Enfileirar a desistência
-     * atrás do trabalho que se quer parar é o oposto de parar — a mesma lição
-     * do `ytCancel`. A demolição de verdade cada peça posta para a main sozinha.
+     * O ponto é justamente esse: quem responde ao desligamento são as threads
+     * de cliente do [EspelhoServidor], que consultam um campo `@Volatile` e um
+     * socket fechado. Enfileirar a desistência atrás do trabalho que se quer
+     * parar é o oposto de parar — a mesma lição do `ytCancel`.
+     *
+     * (O KDoc anterior citava um `EspelhoDisplay.desligar()` e "a drenagem do
+     * encoder": os dois saíram na v5.187, e o argumento de thread sobreviveu
+     * intacto a eles.)
      */
     override fun stopMirror() {
         desmontarEspelho()
     }
 
     /**
-     * Solta o que não é do `EspelhoDisplay`: servidor, pareamento e serviço.
+     * Solta as três peças da transmissão: servidor, pareamento e serviço.
      *
      * Separado do [stopMirror] porque ele tem DOIS chamadores com origens
      * opostas — o operador desligando, e o serviço morrendo por conta própria
@@ -1411,16 +1437,20 @@ class MainActivity : ComponentActivity(), BridgeHost {
     }
 
     /**
-     * O aparelho esquentou. **Cai bitrate, nunca resolução** — mudar a resolução
-     * mudaria a densidade da tela virtual, e a densidade define o viewport CSS:
-     * o `/display/` refaria a quebra de estrofe na frente da congregação. E cai
-     * com uma frase no Registro, para "ficou ruim" ter causa.
+     * O aparelho esquentou, e **não há mais nada a baixar** — só a frase no
+     * Registro, para "ficou ruim" ter causa.
+     *
+     * (Este método existia para reagir à térmica cortando o BITRATE do encoder,
+     * e o KDoc explicava por que nunca a resolução: ela mudaria a densidade da
+     * tela virtual, e a densidade define o viewport CSS — o `/display/` refaria
+     * a quebra de estrofe na frente da congregação. Encoder e tela virtual
+     * saíram na v5.187, e com eles a única qualidade que este aparelho
+     * produzia: hoje as telas renderizam localmente e o custo térmico da
+     * transmissão é o de servir comandos e bytes.)
      */
     private fun aoEsquentar(grau: Int) {
-        // Sem encoder não há qualidade a reduzir (o corte, E6): as telas
-        // renderizam localmente e o custo térmico do celular é o de sempre.
-        // A linha fica — térmica alta durante a transmissão continua sendo
-        // leitura de Registro.
+        // A linha fica: térmica alta durante a transmissão continua sendo
+        // leitura de Registro, mesmo sem atuador nenhum deste lado.
         if (grau >= 3) espelhoDiag.registrar("aparelho quente (grau " + grau + ")")
     }
 
@@ -1744,12 +1774,13 @@ class MainActivity : ComponentActivity(), BridgeHost {
         )
 
         /**
-         * O servidor do espelho e o modo escolhido — **no companion porque são
-         * do PROCESSO, não desta Activity**.
+         * O servidor da transmissão — **no companion porque ele é do PROCESSO,
+         * não desta Activity**.
          *
-         * O espelho sobrevive a uma recriação de tela de propósito (o serviço
-         * mantém o processo, e o `EspelhoDisplay.sincronizarJanela` do
-         * `onCreate` reata a janela à Activity nova). Se a referência do
+         * A transmissão sobrevive a uma recriação de tela de propósito: o
+         * serviço em primeiro plano mantém o processo, o `ServerSocket` nunca
+         * chega a fechar e as telas da rede não veem nada (o SSE delas está
+         * ligado ao servidor, não a esta janela). Se a referência do
          * servidor morresse com a Activity, um simples ajuste de tamanho de
          * fonte deixaria um `ServerSocket` servindo o culto sem ninguém capaz de
          * desligá-lo — e a folha do Controle diria "Desligado" com telas

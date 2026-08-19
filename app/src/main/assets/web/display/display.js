@@ -145,18 +145,24 @@ const stage = createStage({
   wallpaper: wallpaperEl,
   img: imgEl,
   video: videoEl,
-  // O ESPELHO NASCE MUDO, e isso é a falha segura do §3.9 (invariante 4), não
-  // uma preferência: enquanto o grafo de Web Audio não estiver de pé E o
-  // encoder do lado Kotlin não tiver confirmado, o áudio deste documento não
-  // pode sair em lugar nenhum. Quem libera é `espelhoAudioIniciar()`, lá
-  // embaixo, e só depois do `{"ok":true}`. Se qualquer passo falhar, fica
-  // mudo — o cliente da rede diz "esta tela está sem som" e o salão continua
-  // em silêncio. NUNCA o contrário: um espelho que toca alto por engano é um
-  // culto interrompido.
-  // ...e a TELA DA REDE TAMBÉM NASCE MUDA, por outra razão com a mesma forma:
-  // o som é OPT-IN por tela (invariante 10 do espelho, que sobrevive à troca
-  // de transporte), e quem o liga é o gesto do visitante — o botão de
-  // conectar do tela.js, que chama o gancho `__telaSom` logo abaixo.
+  // A TELA DA REDE NASCE MUDA, e isso é a falha segura — não uma preferência.
+  //
+  // (O parágrafo que estava aqui descrevia a razão do ESPELHO DE PIXELS: um
+  // grafo de Web Audio que precisava estar de pé e um encoder do lado Kotlin
+  // que precisava confirmar `{"ok":true}` antes de `espelhoAudioIniciar()`
+  // liberar o som. Os três foram apagados na v5.187, com o espelho inteiro, e
+  // o comentário ficou catorze versões dizendo que o mudo inicial dependia de
+  // um handshake que já não existia — quem o lesse iria procurar uma função e
+  // um `{"ok":true}` que não estão em lugar nenhum.)
+  //
+  // O que RESTA é a razão que sobreviveu à troca de transporte, e ela é
+  // suficiente sozinha: o som é OPT-IN POR TELA (invariante 10 do espelho).
+  // Nenhum navegador toca com som sem gesto do visitante, e mesmo onde tocasse
+  // não é o app que decide o volume da sala em que aquela tela está — a do
+  // saguão quer imagem cheia e SILÊNCIO, com a PA a 200 ms dali. Quem libera é
+  // o gesto do visitante: o botão "Ativar esta tela" do `tela.js`, que chama o
+  // gancho `__telaSom` logo abaixo. NUNCA o contrário — uma tela que toca alto
+  // por engano é um culto interrompido.
   forceMuted: TELA,
   onTime: sendStatus,
   // O TELÃO NÃO RECUPERA SOZINHO uma transmissão que falhou, e não é omissão:

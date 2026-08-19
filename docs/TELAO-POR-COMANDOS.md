@@ -440,6 +440,12 @@ Cada etapa: testes verdes, Estado atualizado, commit na branch, merge em
   header `Range` (política de duplicata: recusa, como os quatro campos que
   já lê). JUnit: as formas malformadas, limites, duplicata, e o caso
   `bytes=a-` / `bytes=-n` / além-do-fim. Nada fiado.
+  *(Os nomes finais divergiram do plano, e é este documento que fica errado se
+  não disser: `parsearRange` virou **`alcanceDe`**, `respostaParcial` virou
+  **`cabecalhoParcial`** e `respostaSse` virou **`cabecalhoSse`** — a mudança é
+  de nome e de forma, porque as três devolvem o CABEÇALHO e o corpo é escrito
+  em seguida no socket, o que é obrigatório num arquivo em crescimento.
+  `resposta416`, `eventoSse` e `pingSse` saíram com o nome do plano.)*
 - **E2 — bundle + SSE + tap.** Prefixo-allowlist no servidor
   (`web/display/`, `web/shared/`, `web/espelho/` — jamais `web/controle/`)
   usando a resolução do `WebPathHandler` (sessionRoot OTA → assets APK, por

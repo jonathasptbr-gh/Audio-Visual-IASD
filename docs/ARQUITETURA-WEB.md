@@ -75,12 +75,14 @@ git push origin main
   da v5.101 (ver "Documento em cena"). Ao mexer em qualquer render de cena,
   repita o teste com uma imagem em cena, não só com uma música.
 - Não introduzir dependências externas — JavaScript puro no cliente, Kotlin puro
-  + AndroidX oficial no shell. **Duas exceções deste lado, e as duas carregam sob
+  + AndroidX oficial no shell. **UMA exceção deste lado, e ela carrega sob
   demanda:**
-  - a **IFrame Player API do YouTube** (`<script src="https://www.youtube.com/iframe_api">`,
-    em runtime, no Display **e** no Controle) — não é dependência de build/npm, e
-    o recurso YouTube já depende de rede/youtube.com para tocar o vídeo mesmo sem
-    ela. O Controle a usa na preview — ver a seção do YouTube;
+  - (a **IFrame Player API do YouTube** era a segunda e SAIU na v5.212, com o
+    embed inteiro — ver "YouTube — o EMBED SAIU". Ela executava no MESMO
+    documento em que o shell publica `__AVBridge`, e `addJavascriptInterface`
+    injeta a ponte em todas as frames: no Controle isso era a ponte COMPLETA à
+    disposição de um script de terceiro. Hoje o YouTube toca por transmissão
+    direta ou pelo arquivo baixado, nos dois casos num `<video>` comum;)
   - o **renderizador de `.pptx`** (`vendor/pptx-renderer.js`, Apache-2.0, por
     `import()` dinâmico) — existe porque o Android **não desenha PowerPoint** e
     as alternativas eram todas piores: bibliotecas nativas comerciais, um
@@ -751,12 +753,14 @@ O "Tocar agora" de um resultado do YouTube tinha dois caminhos, e os dois
 cobravam caro:
 
 - **Baixar antes** — centenas de MB de espera antes do primeiro quadro.
-- **O player embutido** — que traz a UI dele junto. E aqui vale ser exato: o
-  embed deste app já está no limite do que a IFrame API permite (`controls: 0`,
+- **O player embutido** — que traz a UI dele junto, e é por isso que ele não
+  existe mais (v5.212). Vale ser exato sobre o teto que ele tinha: o embed deste
+  app já estava no limite do que a IFrame API permite (`controls: 0`,
   `disablekb: 1`, `fs: 0`, `iv_load_policy: 3`, `rel: 0`, `pointer-events: none`,
-  escudo anti-UI e legendas removidas por `unloadModule`). O que ainda aparece —
-  a rodinha de carregamento, o botão grande na pausa, a tela final — **não tem
-  parâmetro que desligue**, porque não são *controles*.
+  escudo anti-UI e legendas removidas por `unloadModule`). O que ainda aparecia —
+  a rodinha de carregamento, o botão grande na pausa, a tela final — **não tinha
+  parâmetro que desligasse**, porque não são *controles*. Um `<video>` comum não
+  tem nada disso, e essa é metade do ganho da transmissão direta.
 
 Agora o vídeo vira um `<video>` COMUM alimentado por `MediaSource`. Daí para a
 frente ele é mídia como qualquer outra: fade, cortina, `MediaSession`, barra de
@@ -1436,11 +1440,13 @@ seguida → `wallpaper: flex`, `<img>` e `<video>` ocultos; áudio COM letra →
   renderizando/tocando por baixo mesmo com a cortina fechada (é assim que o
   áudio do YouTube ou de um vídeo local continua audível com "wallpaper on").
 - **`stage.coverIn`/`coverOut`/`instantCover` são expostos publicamente** —
-  o Display os chama diretamente para a cortina do YouTube (`ytSetView()`,
-  `onPlayerStateChange()`), já que é o **mesmo elemento físico** de wallpaper
-  compartilhado. `coverIn(rampAudio=true)` mexe no volume do `<video>` do
-  próprio stage — o YouTube **nunca** deve chamá-lo com `rampAudio=true` (sua
-  própria rampa de áudio é feita externamente, via `setVolume` do player).
+  o Display os chama diretamente quando precisa mexer na cortina sem passar por
+  um `load`, já que ela é o **mesmo elemento físico** de wallpaper compartilhado.
+  `coverIn(rampAudio=true)` mexe no volume do `<video>` do próprio stage.
+  (A superfície nasceu pública para a cortina do EMBED do YouTube, que tinha um
+  `<video>` fora do stage e uma rampa de áudio própria — `ytSetView()`,
+  `onPlayerStateChange()`. O embed saiu na v5.212 e hoje só há um `<video>`, o do
+  stage; a exposição fica porque os pontos acima continuam existindo.)
 
 ### Opções de criação
 
@@ -1667,9 +1673,11 @@ um `setMute()`/`load()` mais recente pode ter mudado a intenção enquanto a
 rampa corria, e a aplicação atrasada não deve "ressuscitar" um mudo já
 desfeito. `setVolume()` (o operador arrastando o fader) cancela qualquer
 rampa de mudo em andamento, senão o volume ajustado manualmente seria
-sobrescrito pelo `muteApplyTimer` pendente. O YouTube no Display usa a mesma
-lógica, em paralelo: rampa via `player.setVolume()` (`ytRampVolume`) e só
-chama `player.mute()`/`unMute()` no início/fim da rampa, pelos mesmos motivos.
+sobrescrito pelo `muteApplyTimer` pendente. (Havia uma SEGUNDA implementação
+desta mesma lógica, em paralelo, para o embed do YouTube — `ytRampVolume` no
+Display e `ytPreviewRampVolume` no Controle, com `player.mute()`/`unMute()` nas
+pontas. As duas saíram na v5.212 com o embed: hoje há um `<video>` só, e a
+rampa é uma só.)
 
 **Fonte única da rampa de volume** (`createStage.rampSteps` /
 `createStage.MUTE_RAMP_TIME`): o passo-a-passo do fade sonoro
@@ -2034,12 +2042,14 @@ que a mudança de pai obriga:
 - **A troca acontece só na mudança de MODO**, não ao conectar/desconectar. Sem
   tela a preview some por CSS (`.simple.sem-tela .simple-stage`), e um
   `display:none` não custa nada.
-- **Um `<video>` sobrevive à mudança de pai**; um **iframe, não** — ele recarrega
-  e leva o player do YouTube junto. Por isso `hostPreview` remonta a preview do
-  YouTube depois de mover, e **no segundo em que ela estava**: `loadYtPreview`
-  ganhou um `startAt`, mesmo nome e mesmo papel do `startAt` de `loadYoutube` no
-  Display. Sem ele a miniatura voltaria ao início de um vídeo que segue tocando
-  no telão.
+- **Um `<video>` sobrevive à mudança de pai** — e como o embed saiu (v5.212), é
+  só isso que a preview tem hoje: `hostPreview` move o nó e nada mais precisa ser
+  refeito. (Enquanto o iframe existia ele NÃO sobrevivia: mudar de pai o
+  recarregava e levava o player do YouTube junto, então `hostPreview` remontava a
+  preview depois de mover, **no segundo em que ela estava** — `loadYtPreview`
+  tinha um `startAt` pelo mesmo motivo do `startAt` de `loadYoutube` no Display.
+  Isto é a diferença de custo entre as duas eras, não uma nota histórica solta:
+  qualquer coisa que volte a pôr um iframe na preview repõe esse trabalho.)
 - **`appendChild` de um nó já anexado é remoção e inserção atômicas**, então o
   "removido do documento" que pausaria o vídeo nunca chega a valer.
 
@@ -2257,7 +2267,8 @@ cada vez) preenchem a fatia inteira; mid (3 botões) a divide em partes iguais.
 terço direito da preview em tela cheia e os **botões físicos de volume** (no
 app) passam todos pela mesma função — que aplica o clamp, desliga o mudo se o
 volume subir de 0, envia o comando e atualiza o fader. Antes a lógica estava
-duplicada entre o `input` do fader e o `gSetVolume` do gesto.
+duplicada entre o `input` do fader e o gesto; hoje os três caminhos (fader,
+arrasto e botões físicos) entram por `applyVolume`.
 
 **Botões físicos** (só no app; `window.__avVolumeKey`): a Activity intercepta
 `KEYCODE_VOLUME_UP/DOWN` e entrega o passo aqui, em vez de deixar o Android
@@ -2408,7 +2419,7 @@ local comanda a barra de progresso e o avanço automático da playlist. Para ite
 YouTube, `cmd()` também dirige um segundo `YT.Player` próprio da preview (mudo,
 qualidade mínima) — ver seção do YouTube no Display para os detalhes.
 
-**Controles sobre a preview** (`#pvFabs`, `setupPreviewGestures`): **dois**
+**Controles sobre a preview** (`.pv-fabs`, `setupPreviewGestures`): **dois**
 ícones, um em cada canto da direita — **cast em cima, tela cheia embaixo** —,
 sempre visíveis (ver "Layout de player", abaixo). Cada um ocupa uma caixa de
 `--hit`, e o tamanho do ícone vem do CSS (`24px`), não do atributo do `<svg>`.
@@ -2527,7 +2538,7 @@ letra):
 | Deslize **→** (horizontal) | Mídia anterior | `prevEl` |
 | Deslize **↑** (esq/central) | Wallpaper on/off | `viewToggleEl` |
 | Deslize **↓** (esq/central) | Sair da tela cheia | `document.exitFullscreen()` |
-| **Arrastar na vertical** no terço **direito** | Volume (cima=+, baixo=−) | `gSetVolume` (mesma lógica do fader `#volSlider`) |
+| **Arrastar na vertical** no terço **direito** | Volume (cima=+, baixo=−) | `applyVolume` (a MESMA função do fader `#volSlider` e dos botões físicos) |
 
 Limiares: toque `<14px`, deslize `>45px`, volume vertical `>12px` (relativo,
 `-dy/(altura*0.6)`). `setPointerCapture` no `pointerdown` garante o rastreio do
@@ -2600,8 +2611,9 @@ fica neutro (branco).
 
 Não há mais **toast flutuante**. As informações são transmitidas pela própria
 interface (estados de botão, contadores, listas). `flash()`/`dismissFlash()` em
-`controle.js` viraram **no-ops** na remoção do toast — e a armadilha de um
-no-op com cara de canal cobrou o preço: as v5.136/v5.137 voltaram a usá-lo como
+`controle.js` viraram **no-ops** na remoção do toast e foram APAGADOS na v5.207,
+com os três chamadores que ainda escreviam frases que ninguém via — e a armadilha
+de um no-op com cara de canal já tinha cobrado o preço antes disso: as v5.136/v5.137 voltaram a usá-lo como
 o ÚNICO aviso de fluxos novos (o desfecho de um share, a procura de OTA, a
 sincronização de pastas), e essas mensagens simplesmente não apareciam. A
 auditoria de agosto/2026 religou esses pontos ao `avisar()` (a faixa
@@ -2645,8 +2657,9 @@ Três detalhes que o mecanismo não pode dispensar:
   próprio botão no lugar (classe `on`, `title`, `starSvg`) e adia o
   `renderLibrary` em `PULSO_MS` — chamar o render na hora destruiria o nó que
   está pulsando e o sinal duraria um quadro. Mesmo padrão em `refreshDiversos`,
-  `exitSelection` (via `sairDaSelecaoDepois()`), `closeFolderPicker` e
-  `closePlPopup`: a folha só fecha depois de o operador ver a cor.
+  `exitSelection` (via `sairDaSelecaoDepois()`) e `closePlPopup`: a folha só
+  fecha depois de o operador ver a cor. (`closeFolderPicker` era o quarto e saiu
+  na v5.254, com as pastas virtuais e a folha de duas origens.)
 - **As regras do pulso ficam no FIM de `controle.css`.** `.btn-pulso--ok` tem a
   mesma especificidade de `.row-btn`/`.sel-btn` (0-1-0), então quem decide é a
   ordem. Declaradas antes, elas simplesmente não pintam nada.
@@ -3816,8 +3829,11 @@ naturezas opostas dentro da MESMA folha de Configurações:
 
 | Onde | O quê | O problema |
 |---|---|---|
-| `#diagBox` (`<pre>`, rola) | a caixa-preta do telão | nenhum |
+| `#diagBox` (`<pre>`, rolava) | a caixa-preta do telão | nenhum |
 | `#ytDiagBox` (rodapé) | a última extração do YouTube | **conteúdo de tamanho variável em espaço fixo** |
+
+*(Os dois elementos são história: o `#ytDiagBox` foi absorvido aqui na v5.121 e
+o `#diagBox` saiu na v5.207 — ver "O visor saiu", no fim desta seção.)*
 
 O segundo era o defeito. Uma extração com várias tentativas — e a fila de
 candidatos da v1.49 produz exatamente isso — transbordava a faixa do rodapé, e a
@@ -3825,7 +3841,7 @@ parte de baixo ficava **inalcançável**: sem rolagem, sem "ver mais", sem nada.
 Um log que esconde o fim é pior que um log curto, porque o fim é justamente onde
 está o desfecho (`→ juntou 1080p`, `→ NADA baixou`).
 
-Agora é **um registro só**, dentro da caixa que já rolava, com quatro blocos:
+Agora é **um registro só**, com quatro blocos:
 
 1. **Identificação** — versões da base web, do shell e da ponte; estado do
    telão; alvo de espelhamento; e o `User-Agent` do aparelho.
@@ -3836,17 +3852,22 @@ Agora é **um registro só**, dentro da caixa que já rolava, com quatro blocos:
 3. **A última extração do YouTube** — o que era a faixa do rodapé.
 4. **A linha do tempo** dos dois processos, em ordem de relógio.
 
-Três detalhes que decidem se isso funciona na prática:
+**O VISOR SAIU (v5.207), e é o que sobrou que importa.** A caixa `<pre>` tinha
+240 px no meio de Configurações e empurrava para fora da tela as linhas que o
+operador de fato ajusta — para exibir, em 0,68 rem, um log cujo consumidor é um
+humano A DISTÂNCIA: ele é COPIADO, não lido ali. Ficaram a linha e o botão que a
+copia, e o texto vive em `diagTexto`, **não num nó do DOM**.
 
-- **`white-space: pre-wrap`, não `pre`.** A linha do YouTube tem centenas de
-  caracteres; com `pre` ela virava rolagem HORIZONTAL, e ninguém encontra isso
-  num celular. Com quebra, a coluna de horário das linhas curtas continua
-  alinhada e as longas dobram.
-- **O botão de copiar fica FORA do `<pre>`.** Dentro de uma área que rola, ele
-  sairia de cena junto com o texto — exatamente o problema que se está
-  corrigindo.
-- **Ele copia o registro MONTADO, não o visível.** A caixa rola; copiar a janela
-  entregaria um pedaço do meio. O texto completo fica guardado em `diagTexto`.
+Dois detalhes daquela era continuam valendo, e o segundo virou a regra inteira:
+
+- (**`white-space: pre-wrap`, não `pre`** era o que impedia a linha do YouTube —
+  centenas de caracteres — de virar rolagem HORIZONTAL dentro do visor. Sem
+  visor não há o que quebrar; a observação fica para quem for repor uma caixa de
+  log neste app.)
+- **Copia-se o registro MONTADO, nunca o visível.** Isto nasceu porque a caixa
+  rolava e copiar a janela entregaria um pedaço do meio; hoje é mais forte do que
+  isso — não existe "visível", e `diagTexto` é a ÚNICA fonte. Um botão de copiar
+  que lesse o DOM emudeceria por inteiro.
 
 O cabeçalho existe por uma razão prática: um log colado sem contexto obriga a
 primeira resposta a ser sempre a mesma pergunta ("qual versão? tem
@@ -5451,7 +5472,9 @@ total do lote), `ensureBibleVersionDownloaded` (por capítulo) e
 (`.coll-bar`) é uma **linha só**: símbolo + nome (+ subtítulo da categoria) +
 **resumo de sincronização** (`baixados/total`, ou o progresso ao vivo enquanto
 sincroniza) + **baixar/cancelar** (`.coll-bar-dl`) + a **seta de acordeão**
-(`.coll-bar-chev`). Tocar na barra **expande o card ali mesmo**
+(hoje a `.coll-bar-icon` da THUMB, virada por CSS — v5.246; até lá havia uma
+`.coll-bar-chev` própria na coluna da direita, e ela empurrava o peso quando
+aparecia). Tocar na barra **expande o card ali mesmo**
 (`ui(coll.id).expanded`), com a lista de músicas dentro; sem índice ainda, o
 toque leva às **opções**, que é justamente onde está o sincronizar que resolve
 isso.
@@ -5825,10 +5848,12 @@ de ser necessários — um painel não é uma camada.
   `refreshCollectionsIfVisible` — não sobrou um popup com vida própria para
   sincronizar à parte.
 - **Uma coleção SEM índice abre direto nas opções**: `openCollectionOptions`
-  liga `expanded` **e** `optsOpen`. Ali não há lista para folhear, e o que
-  resolve isso (sincronizar) está no painel — é para onde o toque na barra leva
-  quando `total === 0`. Por isso a condição de abertura do card passou a ser
-  `u.expanded && (total > 0 || u.optsOpen)`.
+  liga `expanded` e mais nada. Ali não há lista para folhear, e o que resolve
+  isso (sincronizar) está no painel — é para onde o toque na barra leva quando
+  `total === 0`. (O estado `optsOpen` era o segundo interruptor desse par e saiu
+  na v5.95, com o botão de engrenagem do card: as opções passaram a aparecer
+  sozinhas com o álbum aberto, então a condição do card voltou a ser só
+  `u.expanded`.)
 
 **O botão de sincronizar é o mesmo botão de CANCELAR.** Com o download em
 curso ele vira ✕ ("Cancelar", em `--warn` e **sem
@@ -6514,8 +6539,11 @@ Tocar (`playSongVariant`) e os três destinos (`addSongToDestinos` →
 toque, mesmo com os três destinos marcados: o caro é resolver o id, e o item
 resultante é o MESMO em todas as listas. (`addSongVariant`, `addSongToPlaylist` e
 `addSongToFavorites` eram três funções que diferiam apenas na lista; o
-multi-destino as unificou na v5.141, e só `addSongVariant` ficou, como o atalho
-de um destino que os chamadores de fora da folha usam.) **"Apenas a letra"** baixa
+multi-destino as unificou na v5.141. `addSongVariant`, o atalho de um destino
+que sobreviveu àquele lote, ficou sem chamador e saiu na v5.180 — e o mesmo
+aconteceu com o `adicionarNaLista` genérico, cujo comentário ainda dizia ser "o
+que a maior parte do app ainda usa" quando ninguém o chamava. Hoje há um funil
+só: `listasDosDestinos` → `adicionarNasListas`.) **"Apenas a letra"** baixa
 também, mas só quando precisa: a letra costuma já estar no acervo de textos (ver
 "Letra avulsa", na Camada de Texto).
 
@@ -7361,7 +7389,7 @@ slides. O índice de busca (`buildLyricIndex`) lê os **dois**, chaveado por
     (`stanzasFromSlides`) sempre tiveram a divisão, com `auxText` por slide — ela
     só era descartada. Por isso `songLyricStanzas` prefere os slides quando o
     acervo de texto ainda está no formato antigo.
-- Roda como fase 3 do `refreshCollections`, fire-and-forget, com o progresso na
+- Roda como fase 3 do `autoRefreshCollections`, fire-and-forget, com o progresso na
   notificação pelo mesmo `withBgWork` do resto do trabalho de massa.
 
 ### O acervo É o estado padrão da busca (v5.43)
@@ -7526,8 +7554,10 @@ linha, e o acordeão guarda só a letra.)
 - **Sem letra, explica por quê.** Desde a v5.38 a letra cobre todo o acervo, e
   a ausência passou a significar sempre a mesma coisa — a fila do arranque
   ainda não chegou nesta música (ou falhou). A mensagem é única.
-- A fonte é `songLyricLines`, que lê os mesmos dois acervos da busca (texto
-  primeiro, slides do arquivo baixado como complemento).
+- A fonte é `songLyricStanzas`, que lê os mesmos dois acervos da busca (texto
+  primeiro, slides do arquivo baixado como complemento) e devolve ESTROFES, não
+  linhas soltas — é o formato em que o LouvorJA publica e em que o app guarda
+  (ver "A letra é uma lista de ESTROFES").
 
 ### Busca dentro da LETRA (v5.35)
 
@@ -8188,7 +8218,7 @@ esconder a camada e o toggle de wallpaper usam a cortina com fade
 sincronizada. O `#npName` mostra a referência atual; `play`/`pause` **NÃO** são
 mais no-op — controlam o **áudio de fundo** quando há um tocando (ver
 "Independência do áudio" na seção Camada de Texto); só viram no-op sem áudio de
-fundo (`playPause` checa `!preview.getCurrent()`). Uma **mídia comum** (visual)
+fundo (o ouvinte de `playPauseEl` checa `!preview.getCurrent()`). Uma **mídia comum** (visual)
 assumindo a cena (`send`) ou o **stop** (`stopClear`) encerram a leitura
 (`clearManualText` = `clearBibleSession` + `clearMsgSession` + o Display/preview
 escondem a camada). Um `send` de **áudio** com sessão de texto ativa **mantém** a
@@ -8491,101 +8521,48 @@ chegar até ela agora significa que as três tentativas falharam.
 > persistir, o Registro do telão passa a dizer qual das três tentativas caiu e
 > com que nome, que é o que faltava para responder isso sem adivinhação.
 
-### YouTube (IFrame Player API oficial)
+### YouTube — o EMBED SAIU (v5.212), e o que ficou no lugar
 
-Ao receber `load` de um item `kind='youtube'` vindo de mídia comum, o Display
-esmaece o stage até o **preto** (`stage.fadeOutToBlack()` — nunca a cortina do
-wallpaper: é troca de conteúdo, não um stop/clear do operador) e cria um
-player usando a **IFrame Player API oficial do YouTube**
-(`https://www.youtube.com/iframe_api`, carregada por `loadYtApi()`) em vez de
-falar diretamente com o protocolo interno do embed via `postMessage` cru. A
-API expõe um objeto `YT.Player` de verdade — eventos garantidos
-(`onReady`/`onStateChange`) e métodos reais (`playVideo`, `pauseVideo`,
-`seekTo`, `setVolume`, `mute`/`unMute`, `destroy`) — eliminando uma classe
-inteira de bugs de timing que a reimplementação manual do protocolo (versão
-anterior) sofria.
+**Aqui havia ~95 linhas descrevendo, no presente, um player que não existe
+mais.** Elas documentavam a IFrame Player API oficial (`loadYtApi`,
+`ytApiPromise`, `YT.Player`, `playerVars`, `createYtHost`, `ytKillCaptions` com
+`unloadModule`, o escudo anti-UI, o vigia `ytWatchResume`), e cada uma delas
+mandava o leitor procurar um símbolo apagado. Ficam o que foi APRENDIDO e o
+endereço do que existe hoje.
 
-- **Fetch do script adiantado para a abertura do Display** (`restore()` chama
-  `loadYtApi()` sem esperar, antes de enviar `display-ready`): o Cronograma é,
-  na prática, sempre usado na sessão em curso, então esse fetch de rede vai
-  acontecer de qualquer forma — adiantá-lo tira essa etapa do caminho crítico
-  do primeiro vídeo do YouTube tocado (que antes só disparava o fetch no
-  próprio `loadYoutube()`). `loadYtApi()` é idempotente e cacheia a promise
-  (`ytApiPromise`), então chamadas seguintes em `loadYoutube()` reaproveitam
-  o mesmo carregamento sem custo extra. **Não cria nenhum player** — só busca
-  o script; não viola a regra de "nenhuma mídia inicia sozinha ao abrir".
-  - **Pré-carregar os próprios vídeos (criar players com antecedência) foi
-    descartado**: o Cronograma não é a fila de reprodução real (isso é a
-    `playlist`, cuja ordem só é previsível em `repeat='all'`/`'one'` — em
-    `'shuffle'` ou uso ad-hoc não há "próximo" confiável), e manter múltiplos
-    `YT.Player` vivos ao mesmo tempo consome memória/CPU/rede em paralelo no
-    mesmo aparelho que já faz o Miracast — risco maior que o ganho, já que o
-    `cueVideoById()` tende a só buscar metadados (não bufferizar vídeo de
-    verdade) antes do play de qualquer forma.
-  - **Não é "só um `<script>`", e isso está registrado de propósito.** Não é
-    dependência de *build* (não entra npm nenhum, e o recurso já depende de
-    rede/youtube.com para tocar o vídeo), mas ele executa **no mesmo
-    documento** em que o shell publica `__AVBridge` via
-    `addJavascriptInterface`, com acesso same-origin ao IndexedDB, ao OPFS e à
-    ponte nativa. Não há CSP em nenhuma das duas páginas, então o risco de
-    supply-chain neste endpoint é **aceito conscientemente**; a mitigação (um
-    header `Content-Security-Policy` servido pelo `WebPathHandler`, ou o player
-    dentro de um iframe de outro origin) está fora do alcance da base web e
-    ainda não foi feita.
+**Por que ele saiu.** O KDoc do `display.js` dizia que o risco de
+supply-chain do `<script src="https://www.youtube.com/iframe_api">` era
+"ACEITO conscientemente" — e descrevia METADE do problema.
+`addJavascriptInterface` injeta o objeto em **todas as frames**, iframes de
+outra origem inclusive; no telão a ponte nasce com `host = null` e o estrago
+seria limitado, mas **o mesmo embed era criado no CONTROLE**, para a preview, e
+lá a ponte é a completa (`pickFolder`, `listFolder`, `pickDoc`, `openExternal`,
+`espelhoLigar`, `apkInstalar`). A invariante 9 protegia a metade errada.
 
-- **`loadYoutube(rec, view, muted, volume, startAt, autoplay)`** aceita os
-  mesmos dois campos do `load` do stage, pelo mesmo motivo (reconexão do
-  telão) — sem eles o vídeo recomeçava do zero **e tocando** depois de um blip
-  do dongle. Duas diferenças em relação à mídia local:
-  - a posição entra em `playerVars.start`, não num `seekTo` posterior: é o
-    único jeito de o embed **abrir já na posição** — um `seekTo` depois do
-    `onReady` aparece como salto no telão. Só aceita inteiro (segundos).
-  - `autoplay === false` vira `playerVars.autoplay: 0` **e** um `pauseVideo()`
-    no `onPlayerReady`, seguido de `ytShow()` + `ytStartTimeLoop()`: o quadro
-    precisa aparecer, mas o vídeo não pode sair andando sozinho na frente da
-    congregação. `ytWatchStart` também não corre nesse caminho — ele existe
-    para empurrar um play que não pegou, e aqui não há play a empurrar.
+**O que saiu junto, e é o argumento inteiro:** um segundo motor de transporte
+(`ytHandle` ao lado do `stage.handle`), um segundo emissor de status, uma
+segunda máquina de mudo que ignorava o `forceMuted` do stage, uma cortina
+própria e um `if (yt)` em quinze pontos — ~540 linhas no `display.js` e ~180 no
+`controle.js`. Com eles saíram também a dependência de rede/youtube.com **em
+cena**, o `document.hidden` que pausava o player com o app minimizado, e a cena
+que ia MUDA para as telas da rede porque o Web Audio não alcança um iframe
+alheio.
 
-- **`#youtube` é só um wrapper** (`<div class="layer yt-frame" hidden>`); a
-  API cria o `<iframe>` real **dentro** dele a cada vídeo, via um elemento
-  host descartável (`createYtHost()` — id incremental `yt-host-N`). O CSS
-  (`.yt-frame iframe { width/height:100% }`) estiliza qualquer iframe filho,
-  então o wrapper nunca precisa conhecer detalhes do iframe da API.
-- **UI mínima**: `playerVars` pede `controls:0`, `disablekb:1`, `fs:0`,
-  `iv_load_policy:3`, `rel:0` — sem barra de controles, teclado, fullscreen,
-  anotações ou vídeos relacionados ao final.
-- **LEGENDA NUNCA** (v5.77). Num telão de culto ela cobre a parte de baixo do
-  vídeo — exatamente onde a Camada de Texto escreve — e vem no idioma e no
-  gosto da CONTA logada no WebView, não numa escolha do operador.
-  `cc_load_policy: 0` é só metade: ele diz "não force a legenda" e **perde**
-  para o "sempre mostrar legendas" da conta. A outra metade é `ytKillCaptions`,
-  que chama `unloadModule('cc')` (player HTML5) e `unloadModule('captions')`
-  (o legado) — descarrega o módulo em vez de pedir educadamente. Roda no
-  `onReady` **e de novo no primeiro `PLAYING`**: o módulo de legenda costuma
-  entrar junto com a faixa de vídeo, ou seja, depois do ready — descarregar só
-  ali deixava a legenda voltar no primeiro quadro.
-- **O vídeo não para porque o app saiu da frente** (`ytWatchResume`, v5.77 —
-  **não resolveu; ver "A via do arquivo baixado", abaixo**).
-  Com o app minimizado o telão segue projetando (a `Presentation` não morre com
-  a Activity) e um `<video>` local continua tocando; o embed do YouTube, não —
-  o player dele **pausa sozinho** quando a página passa a "oculta", que é o que
-  o Android reporta ao WebView quando o app vai para segundo plano. O louvor
-  parava no meio.
-  Aqui isso é sempre um engano, e dá para AFIRMAR: com `controls:0`,
-  `disablekb:1`, `pointer-events:none` no wrapper e o escudo anti-UI,
-  **ninguém pausa este vídeo pelo telão**. Então toda pausa que o app não pediu
-  (`yt.wantPlaying`, a intenção de transporte, escrita pelos comandos
-  `play`/`pause`) veio do próprio YouTube, e a resposta é mandar tocar de novo,
-  700 ms depois, conferindo antes se ele já não saiu da pausa sozinho.
-  **Limitado a 4 tentativas**, e não um laço eterno: se o vídeo parar por um
-  motivo real e permanente (um erro do embed), insistir para sempre seria uma
-  briga invisível com o player. A cota zera a cada `PLAYING`, então uma sessão
-  longa com várias idas ao segundo plano é recuperada todas as vezes.
-  **Em aparelho, não resolveu.** O `playVideo()` chega, e o player do YouTube
-  pausa de novo — ele não obedece enquanto a página estiver oculta. O vigia
-  ficou: ele não custa nada e continua sendo a resposta certa para uma pausa
-  espúria por qualquer outro motivo. Mas a solução do problema é outra, abaixo.
+**Quem toca YouTube hoje** é o caminho PRÓPRIO, que já era o preferido:
+transmissão direta (`AVNative.ytStream` → `shared/mse.js`, um `MediaSource`
+alimentado pelo `StreamProxy`) e, falhando ela, o arquivo baixado pelo
+`YoutubeGrab`. Nos dois casos o telão toca um `<video>` COMUM, com fade,
+cortina, `MediaSession` e barra de graça — e **zero pixel de YouTube na
+projeção**. Um registro `kind: 'youtube'` (o link sem bytes) deixou de ser
+tocável como link e passa a ser RESOLVIDO no toque, dentro do `send`
+(`resolverLinkYoutube`). Ver "A via do arquivo baixado", abaixo, e a seção da
+transmissão direta.
 
+**A lição de método, que é o que sobrevive a qualquer transporte:** três
+versões (v5.75–v5.77) atacaram "o telão para ao minimizar" supondo que o
+problema era do YouTube — vigia de pausa, `ytWatchResume`, cota de tentativas —
+e as três erraram. A prova veio quando uma mídia **local** parou do mesmo
+jeito. A causa real está na seção seguinte.
 ### O telão parava ao minimizar o app — a causa real (v1.28)
 
 Três versões atacaram isto por hipótese, e as três erraram, porque todas
