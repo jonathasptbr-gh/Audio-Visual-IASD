@@ -1,20 +1,18 @@
-// "Palco" de reprodução reutilizável: aplica os mesmos comandos no Display e
-// na pré-visualização do Controle, garantindo que mostrem exatamente a mesma
-// coisa (wallpaper / imagem / vídeo + view + mudo + volume + play/seek).
+// "Palco" de reprodução reutilizável: aplica os mesmos comandos no Display e na
+// preview do Controle, garantindo que mostrem a mesma coisa (wallpaper / imagem
+// / vídeo + view + mudo + volume + play/seek).
 //
 // Uso: const stage = createStage({ wallpaper, img, video, forceMuted, onEnded, onTime, onBlocked });
 // e depois stage.handle(cmd) para cada comando.
-// Suporta blobs locais, arquivos do OPFS (opfsPath), itens de URL direta
-// (blob=null, url=string) e itens youtube (kind='youtube').
+// Suporta blobs locais, OPFS (opfsPath), URL direta (blob=null, url=string) e
+// itens youtube (kind='youtube').
 //
-// Modelo de camadas: o wallpaper é uma cortina que fica POR CIMA de toda
-// mídia (CSS z-index) — img/video (e, no Display, o iframe do YouTube,
-// gerenciado externamente) tocam/trocam de conteúdo livremente por baixo,
-// sem precisar saber se estão "visíveis"; o wallpaper só liga/desliga essa
-// cortina, com fade quando configurado. Isso evita a classe de bug em que
-// uma mídia carregada com o wallpaper ligado nunca aprendia a se revelar
-// depois — agora revelar é sempre só "esconder a cortina", nunca depende de
-// em que estado a mídia foi carregada.
+// MODELO DE CAMADAS: o wallpaper é uma cortina POR CIMA de toda mídia (z-index)
+// — img/video tocam e trocam de conteúdo livremente por baixo, sem saber se
+// estão visíveis; o wallpaper só liga/desliga a cortina, com fade quando
+// configurado. Isso evita a classe de bug em que uma mídia carregada com o
+// wallpaper ligado nunca aprendia a se revelar depois: revelar é sempre
+// "esconder a cortina", nunca depende do estado em que a mídia foi carregada.
 
 (function (global) {
   'use strict';
@@ -287,24 +285,19 @@
     /**
      * ÁUDIO PURO NÃO TEM O QUE MOSTRAR (v5.112).
      *
-     * Um registro de áudio sem letra sincronizada — um mp3 importado, o
-     * instrumental de fundo, o áudio baixado de um vídeo do YouTube — não põe
-     * nada no `<img>` nem no `<video>` (ver `applyMedia`). Sem esta pergunta a
-     * cortina ABRIA para ele: o telão saía do wallpaper e ficava no PRETO do
-     * palco, com o louvor tocando por trás de um retângulo vazio. Não era uma
-     * capa errada, era a ausência de qualquer coisa — e no meio de um culto
-     * isso se lê como projetor apagado.
+     * Um áudio sem letra sincronizada não põe nada no `<img>` nem no `<video>`
+     * (ver `applyMedia`). Sem esta pergunta a cortina ABRIA para ele: o telão
+     * saía do wallpaper e ficava no PRETO do palco com o louvor tocando por trás
+     * de um retângulo vazio — no meio de um culto isso se lê como projetor
+     * apagado.
      *
-     * A letra é a exceção que confirma: quando o áudio TEM letra, a cortina
-     * precisa sair da frente, porque a `.lyrics-layer` fica por baixo dela (o
-     * wallpaper tem z-index maior, e é assim que ele cobre/revela as camadas de
-     * graça — ver display/index.html). Por isso a pergunta é feita ao PRÓPRIO
-     * registro, que é quem carrega a letra, e não à camada, que o stage não
-     * conhece.
+     * A letra é a exceção que confirma: com letra, a cortina precisa sair da
+     * frente, porque a `.lyrics-layer` fica por baixo dela (o wallpaper tem
+     * z-index maior — ver display/index.html). Por isso a pergunta é feita ao
+     * REGISTRO, que carrega a letra, e não à camada, que o stage não conhece.
      *
-     * A Camada de Texto (mensagem/versículo sobre um áudio de fundo) não passa
-     * por aqui: quem abre a cortina para ela é o `showText` do Display, de
-     * propósito e por conta própria.
+     * A Camada de Texto (mensagem/versículo sobre áudio de fundo) não passa por
+     * aqui: quem abre a cortina para ela é o `showText` do Display.
      */
     function semVisual() {
       return !!current && current.kind === 'audio'
@@ -576,22 +569,20 @@
 
     // ===== GIRAR A MÍDIA (v5.142) =====
     //
-    // Vídeo gravado de lado no celular chega DEITADO no telão, e não havia nada
-    // a fazer sobre isso — a mídia é do operador, não há reencode possível no
-    // meio de um culto, e "vire o celular" não vale para um arquivo já pronto.
+    // Vídeo gravado de lado chega DEITADO no telão: a mídia é do operador, não
+    // há reencode possível no meio de um culto.
     //
     // A caixa TROCA DE EIXO antes de girar, e é isso que separa este código de
     // um `transform: rotate()` solto. Um `<video>` ocupa o palco inteiro (W×H) e
     // o `object-fit` encaixa a mídia NESSE retângulo; girar só o transform
     // deixaria o encaixe calculado para o retângulo errado — um vídeo retrato
-    // girado para paisagem apareceria minúsculo no meio, com o dobro de barras.
-    // Trocando `width`/`height` primeiro, o `object-fit` faz a conta no
-    // retângulo em que a mídia vai de fato aparecer, e a rotação só o põe de pé.
+    // girado apareceria minúsculo, com o dobro de barras. Trocando
+    // `width`/`height` primeiro, a conta é feita no retângulo em que a mídia vai
+    // de fato aparecer, e a rotação só o põe de pé.
     //
-    // Por isso ele depende do TAMANHO do palco, que muda (rotação do aparelho,
-    // resolução da TV, a preview trocando de casa entre os dois modos) — daí o
-    // `ResizeObserver`. Sem ele o giro ficaria certo até a primeira mudança de
-    // tamanho e errado a partir dali, em silêncio.
+    // Por isso depende do TAMANHO do palco, que muda (rotação do aparelho,
+    // resolução da TV, a preview trocando de casa) — daí o `ResizeObserver`.
+    // Sem ele o giro ficaria certo até a primeira mudança de tamanho.
     let rot = 0;
     function aplicarGiro(el) {
       if (!el) return;
@@ -1047,21 +1038,17 @@
     // desse prazo — a cortina não pisca entre os itens da playlist.
     video.addEventListener('ended', async () => {
       // UM LOAD EM VOO GANHA DO FIM NATURAL. O `++loadSeq` abaixo é uma AÇÃO
-      // EXCLUSIVA — e o contrato do loadSeq (ver setViewFaded) é que só ações
-      // do OPERADOR (load/clear) cancelam um load em curso. O `ended` não é
-      // uma ação do operador: é o vídeo velho acabando sozinho, e ele acabava
-      // de vencer justamente o caso real — o operador toca o próximo hino nos
-      // últimos ~600 ms do vídeo atual, o vídeo termina durante o fade de
-      // saída do load novo, o bump daqui descartava esse load em silêncio no
-      // checkpoint seguinte e, sem repeat, o item pedido nunca entrava.
-      // Retornar cedo deixa o load em voo fazer a transição — ele já vai
-      // trocar a fonte, resetar `ended` e decidir a cortina.
+      // EXCLUSIVA, e o contrato do loadSeq (ver setViewFaded) é que só ações do
+      // OPERADOR (load/clear) cancelam um load em curso. O `ended` não é uma:
+      // é o vídeo velho acabando sozinho, e ele vencia o caso real — o operador
+      // toca o próximo hino nos últimos ~600 ms, o vídeo termina durante o fade
+      // de saída, o bump descartava o load novo em silêncio e, sem repeat, o
+      // item pedido nunca entrava. Retornar cedo deixa o load em voo fazer a
+      // transição: ele já troca a fonte, reseta `ended` e decide a cortina.
       //
-      // O avanço automático de playlist NÃO passa por aqui: no instante do
-      // `ended` dele não há load nenhum em voo (`loadsEmVoo == 0`) — o load do
-      // avanço só nasce DEPOIS, quando o `media-ended` chega ao Controle — e
-      // a coreografia de sempre (ended dispara → Controle manda load → load
-      // assume via loadSeq) segue intacta.
+      // O avanço automático de playlist NÃO passa por aqui: no `ended` dele não
+      // há load em voo (`loadsEmVoo == 0`) — o load do avanço nasce DEPOIS,
+      // quando o `media-ended` chega ao Controle.
       if (loadsEmVoo > 0) return;
       const seq = ++loadSeq;
       await runFadeOut(false);
@@ -1161,19 +1148,17 @@
   createStage.findSlideIndex = findSlideIndex;
 
   // ===== Cronômetro / Relógio / Timer (aba Ferramentas) =====
-  // O descritor é um OBJETO PEQUENO E ESTÁVEL, e não um fluxo de ticks: quem
-  // conta o tempo é cada lado, localmente, a partir de uma ORIGEM comum
-  // (`startAt`, em epoch ms). Mandar o texto pronto a cada segundo colocaria
-  // ~3.600 comandos/hora no barramento só para mexer dois dígitos, e ainda
-  // deixaria o telão parado se um deles se perdesse.
+  // O descritor é um OBJETO PEQUENO E ESTÁVEL, não um fluxo de ticks: quem
+  // conta é cada lado, localmente, a partir de uma ORIGEM comum (`startAt`, em
+  // epoch ms). Texto pronto a cada segundo seriam ~3.600 comandos/hora no
+  // barramento para mexer dois dígitos, e o telão pararia se um se perdesse.
   //
-  // A consequência importante é a RECONEXÃO: como o valor é derivado do
-  // descritor, `resendSceneToDisplay` reenviar o mesmo objeto devolve o
-  // cronômetro no segundo certo — sem estado nenhum a ressincronizar. É o
-  // mesmo princípio do `load` + posição já usado para a mídia.
+  // Consequência: na RECONEXÃO, `resendSceneToDisplay` reenviando o mesmo
+  // objeto devolve o cronômetro no segundo certo, sem estado a ressincronizar.
+  // Mesmo princípio do `load` + posição.
   //
   // Os dois WebViews são o MESMO processo no MESMO aparelho, então `Date.now()`
-  // é a mesma base dos dois lados; no navegador, idem (duas abas da máquina).
+  // é a mesma base dos dois lados (no navegador, duas abas da máquina).
   //
   // Descritor:
   //   { mode:'clock'|'stopwatch'|'timer',
