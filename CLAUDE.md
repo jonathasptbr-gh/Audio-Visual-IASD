@@ -9,7 +9,8 @@ espelhar o celular.
 > foi copiada do PWA original e **agora vive aqui**: não há checkout cruzado,
 > submódulo nem qualquer dependência de build do repositório do PWA. A
 > arquitetura completa dessa base está em
-> [`docs/ARQUITETURA-WEB.md`](docs/ARQUITETURA-WEB.md) — **leia antes de mexer
+> [`docs/ARQUITETURA-WEB.md`](docs/ARQUITETURA-WEB.md) (o hub, com um capítulo
+> por arquivo em `docs/arquitetura/`) — **leia antes de mexer
 > em qualquer coisa dentro de `assets/web/`.**
 
 ## Índice
@@ -31,7 +32,8 @@ espelhar o celular.
 | 13 | [Build e distribuição](#build-e-distribuição) | CI, oráculos, assinatura, backup |
 | 14 | [Regras de desenvolvimento](#regras-de-desenvolvimento) | **antes de commitar** |
 
-**Fora daqui:** `docs/ARQUITETURA-WEB.md` (a base web), `docs/TELAO-POR-COMANDOS.md`
+**Fora daqui:** `docs/ARQUITETURA-WEB.md` (o HUB da base web: regras gerais e o
+mapa dos capítulos em `docs/arquitetura/`), `docs/TELAO-POR-COMANDOS.md`
 (o contrato das telas da rede), `docs/FONTE-DE-DADOS-LOUVORJA.md` (hinos/Bíblia)
 e `docs/HISTORICO.md` (**apêndice**: a nota de cada versão, para consultar por
 `grep`, nunca por leitura integral).
@@ -129,7 +131,16 @@ app/src/main/
     ├── values/themes.xml        # tema sem action bar; tema preto da Presentation
     └── xml/                     # backup_rules + data_extraction_rules (ver "Build")
 docs/
-├── ARQUITETURA-WEB.md           # arquitetura da base web — ler antes de mexer em assets/web/
+├── ARQUITETURA-WEB.md           # HUB da base web: regras gerais + mapa dos capítulos
+├── arquitetura/                 # um capítulo por arquivo — abrir SÓ o que a pergunta pede
+│   ├── CONTROLE.md              #   layout, transporte, mixer, Biblioteca, coleções, YouTube
+│   ├── MODELO-DE-DADOS.md       #   shared/db.js: IDB, OPFS, BroadcastChannel, coletor
+│   ├── MOTOR-STAGE.md           #   shared/stage.js: cortina, fades, concorrência de load
+│   ├── CAMADA-DE-TEXTO.md       #   Bíblia, Mensagens, letra, cronômetro, sorteio
+│   ├── BIBLIA.md                #   a aba `bible`
+│   ├── DISPLAY.md               #   wallpaper, microfone, o telão
+│   ├── DESIGN-SYSTEM.md         #   ANTES DE ESCREVER COR: tokens, dois temas, contraste
+│   └── DOCUMENTO-EM-CENA.md     #   PDF, PowerPoint, Google Apresentações
 ├── TELAO-POR-COMANDOS.md        # o CONTRATO do telão por comandos — ler antes de mexer nele
 ├── FONTE-DE-DADOS-LOUVORJA.md   # referência do banco LouvorJA (hinos/Bíblia)
 ├── HISTORICO.md                 # APÊNDICE: as notas de todas as versões — usar por grep
@@ -1483,7 +1494,7 @@ Mora em **`assets/web/shared/tokens.css`**, fonte única carregada pelos dois
 `index.html` **antes** da folha do app. Ela é a **identidade oficial da IASD**,
 em **DOIS TEMAS**, com o denim `#2F557F` (PMS 302) como núcleo. O raciocínio
 completo (cada par medido, os pisos, os ladrilhos da Bíblia) está na seção de
-paleta de `docs/ARQUITETURA-WEB.md`.
+paleta de `docs/arquitetura/DESIGN-SYSTEM.md`.
 
 **NÃO HÁ CONTORNO EM LUGAR NENHUM.** Nenhuma regra desenha `border`/`outline`;
 sobrevivem dois DESENHOS (os aros que giram — `.dl-ring`, `.av-stage-busy`) e o
@@ -1759,7 +1770,7 @@ passo a `window.__avVolumeKey(±1)` → `applyVolume()`, a mesma função do fad
   `openVolume()`/`closeVolume()` — não uma segunda UI), inclusive quando o passo
   vai para o sistema: ver o fader no fim do curso é a resposta para "por que o
   volume não muda?". As três regras de convivência com o toque estão em
-  `docs/ARQUITETURA-WEB.md`, seção do Mixer.
+  `docs/arquitetura/CONTROLE.md`, seção do Mixer.
 
 ### Espelhamento de tela ≠ Google Cast
 
@@ -2000,7 +2011,7 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
 ### Código
 
 - **Nunca perder funcionalidades ao refatorar.** A base web tem o sistema de
-  culto inteiro — ver `docs/ARQUITETURA-WEB.md`.
+  culto inteiro — ver `docs/ARQUITETURA-WEB.md` e os capítulos em `docs/arquitetura/`.
 - **Todo código novo em `assets/web/` continua rodando no navegador**: caminhos
   nativos entram como `if (!window.__NATIVE__) { …web… }`.
 - **Toda operação IDB multi-passo que precise de atomicidade usa `storeTx()`.**
@@ -2064,8 +2075,8 @@ trabalho. Prosa custa contexto que não sobra para o código.
   descrevê-lo por extenso.
 
 **Ao atualizar o código:** atualizar este arquivo se a mudança afetar
-arquitetura, protocolo de comandos ou a ponte; `docs/ARQUITETURA-WEB.md` se
-afetar a arquitetura de `assets/web/`.
+arquitetura, protocolo de comandos ou a ponte; o CAPÍTULO certo de
+`docs/arquitetura/` se afetar a arquitetura de `assets/web/`.
 
 ### A versão mora em TRÊS lugares, e os três precisam andar juntos
 
@@ -2089,7 +2100,7 @@ que **só chegam instalando o APK**.
 
 | pergunta | onde |
 |---|---|
-| como isto funciona? | aqui, ou `docs/ARQUITETURA-WEB.md` |
+| como isto funciona? | aqui, ou o capítulo certo de `docs/arquitetura/` (mapa em `docs/ARQUITETURA-WEB.md`) |
 | por que é assim? / já foi tentado? / foi revogado? | `grep -n "<termo>" docs/HISTORICO.md` |
 | o contrato do telão nas telas da rede | `docs/TELAO-POR-COMANDOS.md` |
 | o banco de hinos e Bíblia | `docs/FONTE-DE-DADOS-LOUVORJA.md` |
