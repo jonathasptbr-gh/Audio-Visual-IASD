@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v5.301** — A CONFIRMAÇÃO DE EXCLUIR SAI DO POPUP E VOLTA PARA A LINHA — e a fileira da gaveta, medida a 360px, já estava cheia. OTA PURO
 - **v5.298** (APK v2.3) — A REVISÃO PROFUNDA — uma seção inteira do doc de arquitetura descrevia um player apagado, e o espelhoEstado publicava seis medições que n…
 - **v5.297** — NÃO HAVIA COR DE TEXTO QUE RESOLVESSE — o defeito era a SUPERFÍCIE, e a Biblioteca inteira estava em MAIÚSCULAS. OTA PURO
 - **v5.296** — O NOME DA FAIXA SAÍA NA COR DE UM CABEÇALHO — e no tema claro isso reprovava AA. OTA PURO
@@ -169,6 +170,168 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v5.301
+
+**A v5.301: A CONFIRMAÇÃO DE EXCLUIR SAI DO POPUP E VOLTA PARA A LINHA — e a
+fileira da gaveta, medida a 360px, já estava cheia. OTA PURO** (base web,
+oráculos e docs; sem Release, `SHELL_VERSION` continua **44**).
+
+Seis pedidos do operador num lote só, e o último trouxe junto um defeito de
+layout que nenhum oráculo via.
+
+**1. O MODAL TIRAVA O ALVO DE CENA.** *"Remova os popups de confirmar exclusão,
+para que todas essas confirmações sejam inseridas direto na UI… no cronograma,
+coloque a confirmação na própria gaveta de opções, com um botão de cancelar e
+confirmar; durante o processo de exclusão pode trocar o ícone da thumbnail pela
+lixeira."*
+
+A pergunta era "excluir este item?" e a tela que a fazia não mostrava mais item
+nenhum — o operador confirmava **de memória**, numa lista de trinta linhas com
+nomes parecidos. É a mesma correção da v5.207 (*"o feedback mora na interface de
+origem"*), aplicada agora à PERGUNTA em vez de à resposta.
+
+`pedirConfirmacaoNaLinha(botao, {ok, dica, aoConfirmar})` é o funil único, e ele
+**não conhece nenhuma faixa por nome**: pergunta ao próprio botão quem é o pai
+dele. Por isso vale de graça nas três listas — a caixa do `⋮` (Cronograma e fila
+da playlist) e a `.fav-acoes` (Favoritos) —, e a próxima que ganhar um excluir já
+nasce com a confirmação certa.
+
+- **O par entra no COMEÇO da faixa.** A `.row-acoes` escalona a entrada dos
+  botões por `nth-last-child` (v5.269), que conta a partir do FIM: um irmão
+  acrescentado depois deles deslocaria o índice de todos, e a animação que o
+  operador pediu sairia trocada.
+- **A miniatura vira a LIXEIRA** pelo mecanismo que já existia para o "Tirar do
+  ar": o conteúdo da capa é escondido por CSS e o desenho novo entra por cima, na
+  mesma caixa. Ela é a única parte da linha que a faixa não cobre — logo, a única
+  que ainda pode dizer de QUAL item é a pergunta. Vence o `.row-stop` por
+  especificidade: uma linha no ar também pode ser excluída.
+- **Tudo que fecha a gaveta CANCELA** — o `⋮` outra vez, o toque fora, o
+  redesenho da lista, o fechamento da gaveta de um favorito. O erro possível aqui
+  é o seguro: perder a pergunta custa um toque, herdar um "sim" pendente não tem
+  volta.
+- **A frase que o diálogo dizia** ("os arquivos só são apagados se ele não
+  estiver em mais nenhuma lista") não cabe nos ~250px da faixa e não sumiu: virou
+  o `title`/`aria-label` do botão que executa.
+- **O diálogo FICA para o que apaga BYTES** — excluir uma pasta do aparelho ou o
+  que foi baixado de um álbum. A régua: o modal é para o destrutivo que precisa
+  dizer QUANTOS bytes saem; sair de uma lista se confirma onde a lista está.
+- **O excluir passou a NÃO FECHAR a caixa**, e com ele a lista de exceções virou
+  `ACOES_QUE_NAO_FECHAM` — uma constante nomeada com a razão de cada entrada, em
+  vez de uma cadeia de `||` dentro do `if`. Eram duas (↑↓ e a estrela); são
+  quatro.
+
+**2. E A FILEIRA JÁ ESTAVA CHEIA — 222,4px em 222px.** *"Nas opções dos itens do
+cronograma, especificamente na gaveta de opções, adicione o botão de 'Adicionar a
+playlist'."*
+
+O botão é fácil; o que ele revelou não. A caixa do `⋮` é um retângulo FIXO — a
+largura da tela menos duas colunas de 56px —, e os cinco botões que a v5.288
+deixou lá ocupam **222,4px** em qualquer aparelho. Com o sexto a fileira passa a
+**268px**, e a caixa fixa dava isto, medido por largura de viewport:
+
+| viewport | caixa | com 6 botões |
+|---|---|---|
+| 360px | 222,4px | avança **37,6px** sobre a capa |
+| 384px | 246,4px | avança 13,6px |
+| 393px | 255,4px | avança 4,6px |
+| 400px | 262,4px | não toca (sobram 2,4px) |
+| 412px | 274,4px | não toca (a folga de 8px de sempre) |
+
+**Abaixo de ~400px a fileira não cabia**, e como `.row-btn` é `flex-shrink: 0` o
+excedente era desenhado **por cima da miniatura**. Acima disso nada aparece — e é
+exatamente essa a armadilha: **os quatro oráculos de Chromium medem a 430px**,
+onde cabia, então o defeito publicaria VERDE. Também não é caso de aparelho
+antigo: 360px e 384px são larguras correntes de Android, e qualquer aparelho cai
+nelas quando o operador aumenta o **tamanho da tela** nas configurações do
+sistema.
+
+A caixa passou a **abraçar o conteúdo, entre um piso e um teto**: o `left` virou
+`min-width` (a largura de sempre, para um grupo curto continuar cobrindo o título
+inteiro — sem ele, metade do nome apareceria à esquerda dos botões, com uma borda
+dura no meio da linha) e ela cresce só para a esquerda e só o que precisa, até
+`.5rem` da borda do cartão. Do SÉTIMO botão em diante os quadrados caem para
+`--hit` (34px), que é o piso de toque deste app e nunca menos — o sétimo é a
+linha de LINK DO YOUTUBE, a única que traz o "baixar o vídeo". O escalonamento da
+entrada, que ia só até o quinto, foi até o sétimo: sem isso os dois mais à
+esquerda (o excluir entre eles) chegavam ANTES dos vizinhos da direita.
+
+O botão em si ACRESCENTA à fila — quem SUBSTITUI é o toque no corpo da linha —, e
+**não aparece numa cena de roteiro**: o `onTap` já desvia um cue para longe da
+playlist (*"um versículo não é uma fila de reprodução"*), e o Cronograma é
+justamente a lista cheia de cues. Ele também não fecha a caixa: a resposta dele é
+o ✓ de `responder()` no próprio botão, e `pulsar` pintaria um nó que a caixa
+fechada (`visibility: hidden`) já tirou da tela.
+
+**3. A LINHA CONTINUAVA VERMELHA DEPOIS DO FIM DA MÍDIA.** *"Ao encerrar a mídia
+no player, a demarcação em vermelho do próprio item no cronograma não desaparece,
+parecendo que o item ainda está no ar."*
+
+`resetAfterEnd` zerava `midiaNoAr` e **não repintava a lista**. Era o único dos
+caminhos que baixam a bandeira sem chamar `marcarNoAr` — `stopClear` e
+`retirarDoAr` sempre chamaram, e `pararMidia` é o corpo dos dois. O estado estava
+certo e a tela mentia, o que para quem opera é indistinguível do defeito inteiro.
+
+**Só `marcarNoAr`, e isto é a metade que importa da correção.** `renderNowPlaying`
+termina em `seekEl.disabled = !isTimed`, com `isTimed` saindo de um `cur` que pode
+ser nulo (item fora das duas listas): chamá-lo aqui desfaria a linha logo acima,
+que devolve a barra de propósito para o ▶ poder repetir a faixa.
+
+**4. O CONFIRMAR ERA 17px MAIS BAIXO QUE OS VIZINHOS.** *"Verifique a altura do
+botão de confirmar que temos em toda a biblioteca nas opções de play, ele parece
+menor que o padrão dos seus botões vizinhos."*
+
+Estava — 36px contra 53px —, e por OMISSÃO. Quem dita a altura de uma linha de
+opção não é o `padding` do `.song-menu-btn` (o mesmo para todas), é o
+`.song-menu-check`, que reserva `--hit`. O confirmar não tem check (não há o que
+marcar nele) nem ícone, então sobrava só a linha de texto. A correção é o MESMO
+número dito no mesmo lugar: o conteúdo dele reserva `--hit`. Não um `min-height`
+na caixa, que teria de somar o padding à mão e envelheceria junto com ele.
+
+**5. RENOMEAR CHEGOU AOS FAVORITOS.** *"Adicione o botão de renomear nas opções
+dos itens individuais dos favoritos."* Ele existia só na linha do Cronograma
+(v5.288), e o favorito é onde o nome importa mais: a lista é a que o operador
+MONTA para reencontrar coisas, e um arquivo importado chega com o nome que o
+aparelho deu a ele. Entra pela mesma porta do excluir — DENTRO do `lista ?`, não
+ao lado dele —, e é essa guarda que o mantém fora da pasta do aparelho, onde o
+nome vem do arquivo e um nome só no registro seria desfeito na varredura
+seguinte.
+
+**6. E A FILA TINHA UMA LIXEIRA SÓ DELA.** *"Na playlist, ajuste o botão de
+excluir para que represente o mesmo ícone de excluir que já usamos no resto do
+sistema."* Era `playlist_remove`, o único destrutivo do app desenhado por um
+símbolo próprio: o mesmo gesto com dois desenhos conforme a lista em que a linha
+por acaso morava. Com o ícone veio a confirmação, pela régua que o excluir da
+linha já segue — um mesmo desenho com dois alcances conforme a tela é a pior
+forma de oferecer um destrutivo. O que NÃO mudou é a semântica: sair da FILA não
+é sair de uma lista de acervo, então ali não há `retirarDoAr` (o item pode estar
+no Cronograma e seguir projetando, e a linha de lá o explica) nem `soltarAvulso`
+— a fila não é detentora de bytes. `ICON.plRemove` saiu da tabela com o último
+chamador, que é o contrato escrito nela.
+
+**A LIÇÃO QUE FICA: um oráculo que mede numa só largura não mede layout.** O
+excedente da fileira existia abaixo de ~400px — e era invisível nos 430px em que
+os quatro oráculos rodam, e também no aparelho do operador, que é mais largo que
+o limiar. `smoke.mjs`
+passou a redimensionar para 360px e afirmar a SOMA dos botões contra a largura da
+caixa, e não um número de pixel escrito no teste: assim ele continua valendo no
+dia em que um botão a mais entrar na fileira, que é exatamente quando precisa
+valer.
+
+**O que os oráculos passaram a travar:** a pergunta na faixa e a lixeira na
+miniatura, com a metade negativa junto (o primeiro toque não tira nada e o
+Cancelar devolve a fileira — sem ela, uma confirmação de enfeite sobre uma
+exclusão imediata passaria); o renomear na faixa dos Favoritos, nas duas metades
+(banco e tela); a fileira que cabe a 360px, o piso de toque de cada quadrado e a
+caixa que não invade a coluna do `⋮`; o "à playlist" que acrescenta sem
+substituir, não aparece num cue e não fecha a caixa; a lixeira da fila comparada
+por CODEPOINT com a das outras listas (nunca contra um literal no teste); a marca
+vermelha que sai da linha quando a mídia acaba, com a barra de progresso
+continuando habilitada; e a IGUALDADE das alturas na folha de destinos — jamais
+um piso em pixel, que aprovaria os dois errados juntos no dia em que `--hit`
+mudar.
 
 ---
 

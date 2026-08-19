@@ -213,6 +213,29 @@ try {
   // que dava para marcar.
   const temGo = await pg.$$eval('#songMenuList .song-menu-go', (els) => els.length);
   checar(temGo === 1, 'e a linha de confirmação está lá');
+  // ── E ELE TEM A ALTURA DAS LINHAS QUE FECHA (v5.301) ─────────────────────
+  // Relato do operador: *"verifique a altura do botão de confirmar que temos em
+  // toda a biblioteca nas opções de play, ele parece menor que o padrão dos
+  // seus botões vizinhos"*. Estava, por OMISSÃO: quem dita a altura de uma
+  // linha de opção não é o `padding` (igual para todas), é o `.song-menu-check`,
+  // que reserva `--hit`. O confirmar não tem check nem ícone, então sobrava só
+  // a linha de texto — ~19px contra os 34px dos vizinhos.
+  //
+  // Medido no RENDERIZADO e como IGUALDADE, nunca contra um número escrito
+  // aqui: um piso em pixel aprovaria os dois errados juntos no dia em que
+  // `--hit` mudar.
+  const alturas = await pg.evaluate(() => {
+    const alt = (el) => Math.round(el.getBoundingClientRect().height);
+    const go = document.querySelector('#songMenuList .song-menu-go');
+    const opcoes = [...document.querySelectorAll('#songMenuList .song-menu-btn')]
+      .filter((b) => b.querySelector('.song-menu-check'));
+    return { go: alt(go), opcoes: opcoes.map(alt) };
+  });
+  checar(alturas.opcoes.length > 0 && alturas.go === alturas.opcoes[0]
+      && alturas.opcoes.every((h) => h === alturas.opcoes[0]),
+    'e ele tem a MESMA altura das opções que fecha (' + alturas.go + 'px) — sem '
+    + 'check nem ícone, ele nascia mais baixo que todos os vizinhos',
+    JSON.stringify(alturas));
   // ── O "TOCAR AGORA" SOZINHO (v5.254) ─────────────────────────────────────
   // Relato do operador: *"o seletivo de tocar agora… se eu toco apenas nele, ele
   // não dá o feedback do check"*.

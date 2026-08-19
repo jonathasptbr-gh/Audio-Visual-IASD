@@ -1434,6 +1434,74 @@ main {
    suspensório, como a regra de cima.) */
 .lib-item.selected .row-stop { display: none; }
 
+/* ---------- A PERGUNTA DA EXCLUSÃO MORA NA LINHA (v5.301) ----------
+   Pedido do operador: *"remova os popups de confirmar exclusão… coloque a
+   confirmação na própria gaveta de opções, com um botão de cancelar e
+   confirmar; durante o processo de exclusão pode trocar o ícone da thumbnail
+   pela lixeira"*. Ver `pedirConfirmacaoNaLinha` em `controle.js`.
+
+   A FAIXA TROCA DE CONTEÚDO, não de lugar: os botões de opção somem e o par
+   entra no lugar deles, na mesma caixa e com o mesmo fundo. Um bloco novo
+   empurraria a linha e a lista inteira embaixo dela — no meio de um culto, por
+   uma pergunta de dois toques.
+
+   `display: none` nos irmãos, e não `visibility`: aqui não há transição a
+   preservar (a caixa já está no ar) e um botão de 40px invisível continuaria
+   reservando a largura que o par precisa. */
+.linha-confirma { display: none; }
+:is(.row-acoes, .fav-acoes).confirmando > .linha-confirma {
+  display: flex; flex: 1; min-width: 0;
+  align-items: center; justify-content: flex-end; gap: .35rem;
+}
+:is(.row-acoes, .fav-acoes).confirmando > :not(.linha-confirma) { display: none; }
+/* O par é de TEXTO, não de ícone, e é a única exceção à regra dos quadrados da
+   linha: um destrutivo confirmado por dois desenhos parecidos seria pior que o
+   modal que ele substitui. Daí o reset completo aqui — ele não entra na lista
+   de `.row-btn` logo acima, que impõe `--hit` de largura. */
+.linha-confirma-btn {
+  flex: none; min-height: var(--hit); padding: 0 .75rem;
+  border: none; border-radius: var(--radius-btn);
+  appearance: none; -webkit-appearance: none;
+  font-family: inherit; font-size: .82rem; font-weight: 600;
+  white-space: nowrap; cursor: pointer;
+  background: var(--surface); color: var(--text);
+}
+/* O SIM veste o par destrutivo da paleta (`--danger-soft` + `--danger-strong`),
+   o mesmo do "Remover do dispositivo" de um álbum: vermelho SUAVE é ação
+   destrutiva, e o saturado fica reservado para "está no ar agora". */
+.linha-sim { background: var(--danger-soft); color: var(--danger-strong); }
+/* Dentro da gaveta de um Favorito o `--surface` é um OVERLAY que AFUNDA, e
+   afundar sobre o poço (já o tom mais escuro do app) não produz degrau nenhum —
+   a mesma correção que `.fav-acoes .row-btn` recebeu na v5.287. */
+.fav-acoes .linha-nao { background: var(--gaveta-btn); }
+
+/* ---------- E A MINIATURA VIRA A LIXEIRA ----------
+   O MESMO mecanismo do "Tirar do ar": o conteúdo da capa é escondido e o
+   desenho novo entra por cima, dentro da mesma caixa. É a única parte da linha
+   que a faixa de ações não cobre — logo, a única que ainda pode dizer de QUAL
+   item é a pergunta —, e trocar o que ela mostra é o que transforma "dois
+   botões apareceram" em "este item aqui está para sair".
+
+   Ele VENCE o `.row-stop`: uma linha no ar também pode ser excluída, e ali as
+   duas regras disputam a mesma caixa. A conta de especificidade é 0,5,0 contra
+   os 0,2,0 de `.lib-item.no-ar .row-stop`.
+
+   O par é o DESTRUTIVO da paleta (`--danger-soft` + `--danger-strong`), e o
+   fundo dele compõe sobre `--bg` — a `.thumb` tem cor própria, então a medida
+   não depende do estado da linha. MEDIDO: **6,50:1** no tema escuro e
+   **4,18:1** no claro, acima do piso de 3:1 de um ícone que carrega informação.
+
+   Sem `pointer-events`: é um `<span>`, não um botão — ilustra, não decide. */
+.row-lixo {
+  display: none; position: absolute; inset: 0;
+  align-items: center; justify-content: center;
+  border-radius: inherit;
+  background: var(--danger-soft); color: var(--danger-strong);
+}
+.row-lixo .msym { font-size: var(--icon-lg); }
+.lib-item.excluindo > .row > .thumb > .row-lixo { display: flex; }
+.lib-item.excluindo > .row > .thumb > :not(.row-lixo) { display: none; }
+
 /* ---------- O MENU DA LINHA ----------
    Caixa ABSOLUTA sobre a `.row` (que já é `position: relative`), da MINIATURA
    até o `⋮`. A thumb fica de fora de propósito: com o nome coberto, ela é a
@@ -1454,9 +1522,15 @@ main {
      e `gap: .5rem`. À direita o `⋮` ocupa `--thumb` a `.5rem` da borda e o
      vizinho dele começa outros `.5rem` antes — daí o `1rem` somado. À esquerda
      a conta é contra a MINIATURA, que tem a mesma caixa e é a única coisa que
-     fica de fora. */
-  left: calc(var(--thumb) + 1rem);
+     fica de fora.
+     A ESQUERDA VIROU UM PISO, NÃO UMA POSIÇÃO (v5.301) — ver o bloco logo
+     abaixo. O `min-width` é a mesma conta de sempre escrita como largura
+     (`100%` menos as duas colunas), então uma linha com poucos botões continua
+     cobrindo o título inteiro, como sempre cobriu. */
   right: calc(var(--thumb) + 1rem);
+  width: max-content;
+  min-width: calc(100% - 2 * var(--thumb) - 2rem);
+  max-width: calc(100% - var(--thumb) - 1.5rem);
   display: flex; align-items: center; justify-content: flex-end; gap: .35rem;
   background: var(--linha);
   opacity: 0; visibility: hidden;
@@ -1497,7 +1571,66 @@ main {
 .row-acoes > :nth-last-child(3) { transition-delay: .06s; }
 .row-acoes > :nth-last-child(4) { transition-delay: .09s; }
 .row-acoes > :nth-last-child(5) { transition-delay: .12s; }
+/* Até o SÉTIMO (v5.301): a fileira passou de cinco a sete botões, e sem estas
+   duas linhas os dois mais à esquerda — o excluir entre eles — entravam sem
+   atraso nenhum, isto é, chegavam ANTES dos vizinhos da direita. A escada
+   invertida no destrutivo é justamente o que a v5.269 desenhou para evitar. */
+.row-acoes > :nth-last-child(6) { transition-delay: .15s; }
+.row-acoes > :nth-last-child(7) { transition-delay: .18s; }
 .acoes-abertas .row-acoes { opacity: 1; visibility: visible; }
+
+/* ---------- A FILEIRA CRESCEU E A CAIXA NÃO (v5.301) ----------
+   A caixa era um retângulo FIXO (`left` e `right` em `--thumb + 1rem`), então a
+   largura dela é a da tela menos duas colunas de 56px — e cinco botões de
+   `--thumb` com `gap: .35rem` ocupam **222,4px**, em qualquer aparelho. Com o
+   sexto botão desta versão a fileira passa a **268px**, e a caixa fixa dá isto,
+   MEDIDO por largura de viewport:
+
+     360px → caixa 222,4px · avança 37,6px sobre a capa
+     384px → caixa 246,4px · avança 13,6px
+     393px → caixa 255,4px · avança  4,6px
+     400px → caixa 262,4px · NÃO toca (sobram 2,4px)
+     412px → caixa 274,4px · NÃO toca (a folga de 8px de sempre)
+
+   Isto é: **abaixo de ~400px de largura a fileira não cabe**, e como `.row-btn`
+   é `flex-shrink: 0` o excedente era DESENHADO POR CIMA DA MINIATURA. Num
+   aparelho de 400px ou mais nada disso aparece — e é justamente por isso que
+   o defeito publicaria verde: os quatro oráculos de Chromium medem a 430px.
+
+   Não é caso de aparelho antigo. 360px e 384px são larguras correntes de
+   Android, e QUALQUER aparelho cai nelas quando o operador aumenta o tamanho da
+   tela nas configurações do sistema — a viewport em CSS px encolhe junto.
+
+   A CAIXA PASSOU A ABRAÇAR O CONTEÚDO, entre um piso e um teto:
+
+   · **piso** (`min-width`) = a largura de sempre. Uma linha de poucos botões
+     continua cobrindo o título inteiro, que é para que a caixa existe — sem
+     ele, um grupo curto deixaria metade do nome aparecendo à esquerda dos
+     botões, com uma borda dura no meio da linha.
+   · **teto** (`max-width`) = até `.5rem` da borda do cartão, isto é, tudo menos
+     a coluna do `⋮`.
+   · entre os dois ela cresce **só para a esquerda e só o que precisa**, e na
+     maior parte dos aparelhos isso é ZERO: de 400px para cima a fileira já cabe
+     no piso e a capa continua intocada. A 360px ela avança 37,6px — o mínimo
+     para os botões caberem —, e não a coluna inteira. O argumento original
+     para deixar a miniatura de fora — *"com o nome coberto, ela é a única coisa
+     que ainda diz de QUAL linha é este menu"* — vale enquanto a alternativa for
+     cobrir o nome; contra botões desenhados pela METADE sobre a capa ele se
+     inverte, e nesse ponto a identidade continua dita pelo gesto que abriu a
+     caixa (o `⋮` daquela linha, aceso em `--accent`).
+
+   E do SÉTIMO em diante os quadrados caem para `--hit` (34px), que é o PISO de
+   toque deste app e nunca menos: 262px contra os 270,4px do teto. O sétimo é a
+   linha de LINK DO YOUTUBE, a única que traz o "baixar o vídeo" — e é
+   justamente a que nenhum oráculo abria.
+
+   A confirmação de exclusão não precisa de exceção nenhuma aqui: com dois
+   filhos visíveis a caixa desce ao piso sozinha, e a lixeira da miniatura fica
+   à vista. */
+.row-acoes:has(> :nth-child(7)) { gap: .25rem; }
+.lib-item .row-acoes:has(> :nth-child(7)) .row-btn {
+  width: var(--hit); height: var(--hit);
+}
 /* O `⋮` é o único botão que fica na linha, e ele é DISCRETO: não é uma ação,
    é a porta para elas. Aberto, ele veste o accent — é o que diz qual linha
    está com o menu no ar quando a lista rola. */
@@ -3835,7 +3968,21 @@ main {
   justify-content: center; text-align: center;
   background: var(--accent-fill);
 }
-.song-menu-go .song-menu-text { align-items: center; }
+/* ---------- ELE TEM A ALTURA DAS LINHAS QUE FECHA (v5.301) ----------
+   Relato do operador: *"a altura do botão de confirmar … parece menor que o
+   padrão dos seus botões vizinhos"*. Estava — e por OMISSÃO, não por escolha.
+   Quem dita a altura de uma linha de opção não é o `padding` do `.song-menu-btn`
+   (que é o mesmo para todas), é o `.song-menu-check`, que reserva `--hit` na
+   coluna da direita. O confirmar não tem check (não há o que marcar nele) nem
+   ícone, então sobrava só a linha de texto: ~19px contra os 34px dos vizinhos.
+
+   A correção é o MESMO número, dito no mesmo lugar: o conteúdo reserva `--hit`,
+   como o check reserva — e não um `min-height` na caixa, que teria de somar o
+   padding à mão e envelheceria junto com ele. O irmão "Ver a letra" acompanha
+   de graça: a faixa é um flex com `align-items: stretch`. */
+.song-menu-go .song-menu-text {
+  align-items: center; justify-content: center; min-height: var(--hit);
+}
 .song-menu-go .song-menu-label { color: var(--on-accent); }
 .song-menu-go:disabled { opacity: .5; cursor: default; }
 

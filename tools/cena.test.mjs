@@ -134,9 +134,39 @@ try {
   // ---- FIM NATURAL: mesma regra ----
   await pg.evaluate(async () => { await send(currentId); });
   checar(await pg.evaluate(() => midiaNoAr), 'tocar de novo recoloca a cena no ar');
+  // A LINHA TAMBÉM PRECISA SABER (v5.301), e este é o outro lado do relato:
+  // *"ao encerrar a mídia no player, a demarcação em vermelho do próprio item
+  // no cronograma não desaparece"*. `midiaNoAr` já caía; quem não era chamado
+  // era `marcarNoAr`, e o estado certo com a tela errada é indistinguível do
+  // defeito inteiro para quem opera. Medido na CLASSE e no SELO, que são as
+  // duas metades que o operador vê.
+  const marcaAntes = await pg.evaluate((i) => {
+    const li = document.querySelector('#library .lib-item[data-id="' + i + '"]');
+    return { classe: !!li && li.classList.contains('no-ar'), selo: !!(li && li.querySelector('.row-live')) };
+  }, id);
+  checar(marcaAntes.classe && marcaAntes.selo,
+    'e a linha dele fica marcada como no ar, com o selo "● No ar"',
+    JSON.stringify(marcaAntes));
   await pg.evaluate(() => { repeat = 'off'; resetAfterEnd(); });
   checar(!(await pg.evaluate(() => midiaNoAr)),
     'a música que ACABA também deixa o telão vazio (o wallpaper é o repouso)');
+  const marcaDepois = await pg.evaluate((i) => {
+    const li = document.querySelector('#library .lib-item[data-id="' + i + '"]');
+    return {
+      classe: !!li && li.classList.contains('no-ar'),
+      selo: !!(li && li.querySelector('.row-live')),
+      // A BARRA CONTINUA HABILITADA: `resetAfterEnd` a devolve de propósito,
+      // para o ▶ poder repetir a faixa. Um `renderNowPlaying` acrescentado aqui
+      // a desfaria pelo `seekEl.disabled = !isTimed`.
+      barra: !document.getElementById('seek').disabled,
+    };
+  }, id);
+  checar(!marcaDepois.classe && !marcaDepois.selo,
+    'e a MARCA VERMELHA da linha sai junto (v5.301) — o estado caía e a tela '
+    + 'continuava dizendo que o item estava no ar', JSON.stringify(marcaDepois));
+  checar(marcaDepois.barra,
+    'sem desfazer a barra de progresso, que volta habilitada para o ▶ repetir',
+    JSON.stringify(marcaDepois));
   tipos = await cena(async () => { resendSceneToDisplay('telao-3'); });
   checar(!tipos.includes('load'),
     'e reconectar depois do fim não traz a faixa de volta (a "primeira tela/thumbnail" do relato)');

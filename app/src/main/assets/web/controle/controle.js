@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '5.300';
+const WEB_VERSION = '5.301';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -403,7 +403,6 @@ const ICON = {
   // com outra marquinha. O relógio diz o que a lista é — a ORDEM do culto.
   cronoAdd: '', // more_time    — ao Cronograma
   add: '',      // add          — "a uma lista" (a folha escolhe qual)
-  plRemove: '', // playlist_remove
   queue: '', // queue_music
   // Favoritos levam ESTRELA, não pasta: a seção é "o que eu marquei", não "onde
   // os arquivos ficam". `create_new_folder` é o botão de TRAZER uma pasta do
@@ -2797,9 +2796,37 @@ function renderPlaylist() {
     const row = document.createElement('div');
     row.className = 'row';
     const name = document.createElement('span'); name.className = 'row-name'; name.textContent = item.name;
-    const rm = document.createElement('button'); rm.className = 'row-btn'; rm.title = 'Tirar da playlist';
-    rm.appendChild(msym(ICON.plRemove));
-    rm.addEventListener('click', async (e) => { e.stopPropagation(); await AVDB.listRemove('playlist', item.id); load(); });
+    // ===== A LIXEIRA DO APP, E NÃO UMA SÓ DESTA LISTA (v5.301) =====
+    //
+    // Pedido do operador: *"na playlist, ajuste o botão de excluir para que
+    // represente o mesmo ícone de excluir que já usamos no resto do sistema"*.
+    // Era `playlist_remove` — a pilha de linhas com um "−" —, o único
+    // destrutivo do app desenhado por um símbolo próprio: o mesmo gesto tinha
+    // dois desenhos conforme a lista em que a linha por acaso morava.
+    //
+    // E COM O ÍCONE VEM A CONFIRMAÇÃO, pela régua que o excluir da linha já
+    // segue: um mesmo desenho com dois alcances conforme a tela (aqui apaga no
+    // toque, ali pergunta) é a pior forma de oferecer um destrutivo. A classe
+    // `row-excluir` é o que o inscreve em `ACOES_QUE_NAO_FECHAM`.
+    //
+    // O QUE NÃO MUDA É A SEMÂNTICA, e por isso ele não é um
+    // `botaoExcluirDaLinha`: sair da FILA não é sair de uma lista de acervo.
+    // Sem `retirarDoAr` (o item pode estar no Cronograma e seguir projetando, e
+    // a linha de lá o explica) e sem `soltarAvulso` — a fila não é detentora de
+    // bytes, e tratá-la como tal apagaria mídia por um gesto de reordenação.
+    const rm = document.createElement('button');
+    rm.className = 'row-btn row-excluir';
+    rm.title = 'Tirar da playlist';
+    rm.setAttribute('aria-label', 'Tirar da playlist');
+    rm.appendChild(msym(ICON.del));
+    rm.addEventListener('click', (e) => {
+      e.stopPropagation();
+      pedirConfirmacaoNaLinha(rm, {
+        ok: 'Tirar',
+        dica: 'Tirar da fila. O item continua onde estiver guardado.',
+        aoConfirmar: async () => { await AVDB.listRemove('playlist', item.id); await load(); },
+      });
+    });
     // A GAVETA DO `⋮` CHEGOU AQUI NA v5.285, e ela é o que torna o par ↑↓
     // possível nesta lista: até então a fila era a única com alça de arrastar e
     // sem botão de opções. Tirar o gesto sem dar a gaveta deixaria a fila como a
@@ -5536,16 +5563,43 @@ function renderLibrary() {
         });
       }
     }
-    // Botão para entrar no Cronograma sem cópia (mesmo id nas listas; os bytes
-    // continuam onde estão). Vale para QUALQUER item fora do Cronograma —
-    // arquivo de pasta do dispositivo, favorito, item de atalho. Até a v5.102 só
-    // a pasta OPFS o tinha: de dentro de um Favorito não havia como mandar nada
-    // para a lista do culto, que é justamente o que um favorito existe para
-    // fazer (o caminho era toque longo → seleção → e ali só havia playlist).
-    // (O botão de "Adicionar ao Cronograma" desta linha só existia na gaveta de
-    // Favoritos, que saiu na v5.294. Na pasta INLINE quem oferece os destinos é
-    // a gaveta de opções da própria linha — ver `linhaDeItem`.)
-    const addBtn = null;
+    // ===== "ADICIONAR À PLAYLIST", NA GAVETA DA LINHA (v5.301) =====
+    //
+    // Pedido do operador: *"nas opções dos itens do cronograma, especificamente
+    // na gaveta de opções, adicione o botão de 'Adicionar a playlist'"*.
+    //
+    // O Cronograma é a ORDEM do culto; a playlist é a FILA do momento — o bloco
+    // de louvores que toca em sequência. Mandar um item de uma para a outra era
+    // o único trajeto entre as três listas sem caminho curto: o Favorito já
+    // oferece o destino na gaveta dele (`renderItemMenu`), e daqui só se chegava
+    // lá por toque longo → seleção múltipla → botão do rodapé.
+    //
+    // ACRESCENTA, nunca substitui — quem TROCA a fila por este item é o toque no
+    // corpo da linha (`onTap` → `replacePlaylistWith`), e são ações opostas.
+    // `adicionarNasListas` é o mesmo funil da folha de destinos: responde "já
+    // está na playlist" em vez de duplicar, e é ele que refaz `plItems` e
+    // redesenha a fila.
+    //
+    // NÃO ENTRA NUMA CENA DE ROTEIRO (`isCue`), e a regra já estava escrita no
+    // `onTap`: *"um versículo não é uma fila de reprodução"* — ali um cue projeta
+    // sem tocar na playlist. Oferecer o destino aqui contradiria aquele desvio na
+    // mesma linha, e o Cronograma é justamente a lista cheia de cues.
+    //
+    // (O `+` de "Adicionar ao Cronograma" não tem par nesta fileira: aqui o item
+    // JÁ está no Cronograma. Ele continua na gaveta de um Favorito e na de um
+    // arquivo da pasta do aparelho, que é onde a pergunta faz sentido.)
+    let addBtn = null;
+    if (!selectionMode && !isCue(item)) {
+      addBtn = document.createElement('button');
+      addBtn.className = 'row-btn row-playlist';
+      addBtn.title = 'Adicionar à playlist';
+      addBtn.setAttribute('aria-label', 'Adicionar à playlist');
+      addBtn.appendChild(msym(ICON.queue));
+      addBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        adicionarNasListas(listasDosDestinos(['playlist']), item.id, item.name, addBtn);
+      });
+    }
 
     // A ESTRELA, em toda linha: é ela que torna favoritar um toque só. Fica
     // fora da seleção múltipla porque ali o alvo é o conjunto, não a linha.
@@ -5851,6 +5905,11 @@ function porParar(thumb, item) {
 // A linha com o menu aberto — UMA por vez. Duas abertas seriam duas faixas
 // cobrindo dois nomes, e o operador teria de fechar a errada para ler.
 let linhaAcoesAberta = null;
+// A confirmação de exclusão aberta — UMA por vez, pelo mesmo motivo, e guardada
+// como a função que a DESFAZ (ver `pedirConfirmacaoNaLinha`). Declarada aqui, ao
+// lado da irmã, e não junto da função: `fecharAcoesDaLinha` a lê e é escrita
+// antes dela — um `let` só existe depois da linha que o declara.
+let desfazerConfirmacao = null;
 // Qual linha deve REABRIR a gaveta no próximo desenho (v5.285). `moverNaLista`
 // a escreve porque `load()` reconstrói a lista inteira: o `li` que tinha a
 // gaveta aberta deixa de existir, e sem isto cada casa de reordenação custaria
@@ -5862,6 +5921,9 @@ let linhaAcoesAberta = null;
 // a gaveta na linha errada, noutra tela.
 let reabrirAcoesEm = null;
 function fecharAcoesDaLinha() {
+  // A confirmação vive DENTRO da faixa: fechá-la sem desfazer a pergunta
+  // deixaria a linha com a miniatura de lixeira e nenhum botão que a explique.
+  fecharConfirmacaoNaLinha();
   if (linhaAcoesAberta) linhaAcoesAberta.classList.remove('acoes-abertas');
   linhaAcoesAberta = null;
 }
@@ -5907,16 +5969,115 @@ document.addEventListener('pointerdown', (e) => {
 }, true);
 
 /**
- * Os botões de uma linha, guardados atrás do `⋮`.
+ * ===== A CONFIRMAÇÃO DE EXCLUIR MORA NA PRÓPRIA LINHA (v5.301) =====
  *
- * Devolve `[caixa, botão]` na ordem em que entram na linha — a caixa é
- * absoluta e cobre da miniatura até o `⋮`, então a posição dela no DOM não
- * importa para o layout, mas importa para a ORDEM DE LEITURA de quem usa
- * leitor de tela: as ações vêm antes do botão que as abre.
+ * Pedido do operador: *"remova os popups de confirmar exclusão, para que todas
+ * essas confirmações sejam inseridas direto na UI… no cronograma, coloque a
+ * confirmação na própria gaveta de opções, com um botão de cancelar e
+ * confirmar; durante o processo de exclusão pode trocar o ícone da thumbnail
+ * pela lixeira, para ilustrar que está confirmando uma exclusão"*.
  *
- * Uma linha sem ação nenhuma (não há, hoje) não ganha `⋮`: um botão que abre
- * uma caixa vazia é pior que botão nenhum.
+ * O modal fazia o que todo modal faz: TIRAVA O ALVO DE CENA. A pergunta era
+ * "excluir este item?" e a tela que a fazia não mostrava mais item nenhum — o
+ * operador confirmava de memória, num app cuja lista tem trinta linhas com
+ * nomes parecidos. É a mesma correção que a faixa flutuante recebeu na v5.207
+ * (*"o feedback mora na interface de origem"*), aplicada agora à PERGUNTA.
+ *
+ * O par nasce NA FAIXA que hospeda o botão que o pediu — a caixa do `⋮` no
+ * Cronograma e na fila, a `.fav-acoes` na gaveta dos Favoritos. Ele não conhece
+ * nenhuma das duas por nome: pergunta ao próprio botão quem é o pai dele, e por
+ * isso a próxima lista que ganhar um excluir já nasce com a confirmação certa.
+ *
+ * DECISÕES QUE PRECISAM ESTAR DITAS:
+ *
+ *  · **Ele entra no COMEÇO da faixa**, não no fim. A `.row-acoes` escalona a
+ *    entrada dos botões por `nth-last-child` (v5.269), que conta a partir do
+ *    FIM: um irmão acrescentado depois deles deslocaria o índice de todos, e a
+ *    animação que o operador pediu sairia trocada.
+ *  · **A miniatura vira uma LIXEIRA**, pelo mesmo mecanismo do "Tirar do ar"
+ *    (`.row-stop`): o conteúdo dela é escondido por CSS e o desenho novo entra
+ *    por cima. É a única parte da linha que a faixa não cobre, e por isso a
+ *    única que ainda pode dizer de QUAL item é a pergunta. A fila da playlist
+ *    não tem miniatura — ali a linha é só o nome, e o `if` cobre isso.
+ *  · **UMA por vez**, como a gaveta: duas linhas perguntando ao mesmo tempo
+ *    seriam duas lixeiras e quatro botões numa lista de trinta nomes.
+ *  · **Tudo que fecha a gaveta CANCELA**: o `⋮` outra vez, o toque fora, o
+ *    redesenho da lista (todos passam por `fecharAcoesDaLinha`) e o fechamento
+ *    da gaveta de um favorito. O erro possível aqui é o seguro — perder a
+ *    pergunta custa um toque; herdar um "sim" pendente não tem volta.
+ *  · **A frase que o diálogo dizia** ("os arquivos só são apagados se ele não
+ *    estiver em mais nenhuma lista") não cabe nos ~250px da faixa e não sumiu:
+ *    ela é o `title`/`aria-label` do botão que a executa, que é onde o toque
+ *    longo e o leitor de tela a procuram.
  */
+function fecharConfirmacaoNaLinha() {
+  const desfazer = desfazerConfirmacao;
+  desfazerConfirmacao = null;
+  if (desfazer) desfazer();
+}
+
+/**
+ * Abre a pergunta na faixa do `botao`. `opts`:
+ *
+ *  · `ok` — o rótulo do botão que executa ("Excluir", "Tirar").
+ *  · `dica` — a frase inteira, no `title` desse botão.
+ *  · `aoConfirmar` — o que fazer. Só é chamado depois de a pergunta sair da
+ *    tela: ele costuma redesenhar a lista, e um redesenho com a faixa ainda
+ *    montada deixaria o par pendurado num nó fora do documento.
+ */
+function pedirConfirmacaoNaLinha(botao, opts) {
+  const faixa = botao.parentElement;
+  if (!faixa) return;
+  // Uma segunda pergunta desfaz a primeira — inclusive a DESTA mesma linha, que
+  // é o caso do toque repetido na lixeira.
+  fecharConfirmacaoNaLinha();
+  const li = botao.closest('.lib-item,.row-item');
+  const thumb = li ? li.querySelector(':scope > .row > .thumb') : null;
+
+  let lixeira = null;
+  if (thumb) {
+    lixeira = document.createElement('span');
+    lixeira.className = 'row-lixo';
+    lixeira.setAttribute('aria-hidden', 'true');
+    lixeira.appendChild(msym(ICON.del));
+    thumb.appendChild(lixeira);
+  }
+
+  const cx = document.createElement('div');
+  cx.className = 'linha-confirma';
+  const nao = document.createElement('button');
+  nao.type = 'button';
+  nao.className = 'linha-confirma-btn linha-nao';
+  nao.textContent = 'Cancelar';
+  const sim = document.createElement('button');
+  sim.type = 'button';
+  sim.className = 'linha-confirma-btn linha-sim';
+  sim.textContent = opts.ok;
+  if (opts.dica) { sim.title = opts.dica; sim.setAttribute('aria-label', opts.dica); }
+  cx.append(nao, sim);
+  faixa.insertBefore(cx, faixa.firstChild);
+  faixa.classList.add('confirmando');
+  if (li) li.classList.add('excluindo');
+
+  desfazerConfirmacao = () => {
+    cx.remove();
+    if (lixeira) lixeira.remove();
+    faixa.classList.remove('confirmando');
+    if (li) li.classList.remove('excluindo');
+  };
+
+  nao.addEventListener('click', (e) => { e.stopPropagation(); fecharConfirmacaoNaLinha(); });
+  sim.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    // Um segundo toque enquanto o `await` corre executaria duas vezes — e o
+    // segundo cairia sobre uma lista já redesenhada.
+    if (sim.disabled) return;
+    sim.disabled = true;
+    fecharConfirmacaoNaLinha();
+    await opts.aoConfirmar();
+  });
+}
+
 /**
  * EXCLUIR ESTE ITEM DA LISTA — a ação que faltava no `⋮` (v5.271).
  *
@@ -5934,9 +6095,11 @@ document.addEventListener('pointerdown', (e) => {
  * playlist, ele continua lá e os bytes ficam. Duas definições de "excluir" no
  * mesmo app seriam a divergência que `deleteSelected` já evitou uma vez.
  *
- * A CONFIRMAÇÃO não é zelo: é a condição para um destrutivo caber num ícone. O
- * diálogo nomeia o que sai e de onde — sem ele, a lixeira sozinha seria uma
- * aposta (a mesma regra que o "Remover do dispositivo" do álbum já segue).
+ * A CONFIRMAÇÃO não é zelo: é a condição para um destrutivo caber num ícone —
+ * sem ela, a lixeira sozinha seria uma aposta. Desde a v5.301 ela mora NA
+ * PRÓPRIA LINHA (`pedirConfirmacaoNaLinha`), e não num modal: a pergunta
+ * "excluir este item?" feita por cima de uma tela sem o item era respondida de
+ * memória, numa lista de trinta nomes parecidos.
  *
  * E ele TIRA DO AR antes de remover: um item que sai da lista enquanto está
  * projetado deixaria o telão com uma cena que nenhuma linha da tela explica.
@@ -5946,22 +6109,22 @@ function botaoExcluirDaLinha(item, lista, depois) {
   b.className = 'row-btn row-excluir';
   b.title = 'Excluir da lista';
   b.setAttribute('aria-label', 'Excluir da lista');
-  b.appendChild(msym('\ue872'));   // o MESMO glifo da lixeira do rodapé
-  b.addEventListener('click', async (e) => {
+  b.appendChild(msym(ICON.del));   // o MESMO glifo da lixeira do rodapé
+  b.addEventListener('click', (e) => {
     e.stopPropagation();
     const nome = item.name ? '"' + item.name + '"' : 'este item';
-    const ok = await appConfirm({
-      title: 'Excluir da lista',
-      message: 'Tirar ' + nome + ' desta lista? Os arquivos só são apagados se '
+    pedirConfirmacaoNaLinha(b, {
+      ok: 'Excluir',
+      dica: 'Tirar ' + nome + ' desta lista. Os arquivos só são apagados se '
         + 'ele não estiver em mais nenhuma.',
-      okText: 'Excluir',
+      aoConfirmar: async () => {
+        if (noArAgora(item)) await retirarDoAr(item);
+        if (lista === 'favs') favSet.delete(item.id);
+        await AVDB.listRemove(lista, item.id);
+        await soltarAvulso(item.id);
+        await depois();
+      },
     });
-    if (!ok) return;
-    if (noArAgora(item)) await retirarDoAr(item);
-    if (lista === 'favs') favSet.delete(item.id);
-    await AVDB.listRemove(lista, item.id);
-    await soltarAvulso(item.id);
-    await depois();
   });
   return b;
 }
@@ -6025,6 +6188,35 @@ async function moverNaLista(listName, id, delta) {
   // para evitar.)
 }
 
+// OS BOTÕES DA FAIXA QUE NÃO A FECHAM. A régua é a mesma desde a v5.289 — *a
+// ação que NÃO TERMINA a conversa com aquele item* —, e cada linha diz por quê:
+//
+//  · `row-ordem` — o par ↑↓ REPETE (mover três casas são três toques), e fechar
+//    no primeiro obrigaria a reabrir a cada casa;
+//  · `fav-btn`  — a estrela é ALTERNADOR: o desfecho dela é o próprio botão
+//    mudando de desenho sob o dedo;
+//  · `row-excluir` — desde a v5.301 ele não exclui, PERGUNTA: a resposta nasce
+//    dentro desta caixa, e fechá-la a levaria junto;
+//  · `row-playlist` — a resposta dele é o ✓ de `responder()` no próprio botão, e
+//    `pulsar` pinta um nó que a caixa fechada (`visibility: hidden`) já tirou da
+//    tela: o toque ficaria sem resposta nenhuma.
+//
+// O `linha-nao` (o Cancelar da confirmação) entra pelo primeiro motivo, ao
+// contrário: cancelar devolve a fileira de opções, e fechar a caixa junto
+// cobraria dois toques de quem só desistiu.
+const ACOES_QUE_NAO_FECHAM = ['row-ordem', 'fav-btn', 'row-excluir', 'row-playlist', 'linha-nao'];
+
+/**
+ * Os botões de uma linha, guardados atrás do `⋮`.
+ *
+ * Devolve `[caixa, botão]` na ordem em que entram na linha — a caixa é
+ * absoluta e cobre da miniatura até o `⋮`, então a posição dela no DOM não
+ * importa para o layout, mas importa para a ORDEM DE LEITURA de quem usa
+ * leitor de tela: as ações vêm antes do botão que as abre.
+ *
+ * Uma linha sem ação nenhuma (não há, hoje) não ganha `⋮`: um botão que abre
+ * uma caixa vazia é pior que botão nenhum.
+ */
 function montarAcoesDaLinha(li, botoes, chave) {
   const uteis = botoes.filter(Boolean);
   if (!uteis.length) return [];
@@ -6050,10 +6242,9 @@ function montarAcoesDaLinha(li, botoes, chave) {
   // cima do item depois de já ter feito o que se pediu é o defeito que ele
   // existe para corrigir.
   //
-  // DUAS EXCEÇÕES, pela mesma régua — a ação que NÃO TERMINA a conversa com
-  // aquele item: o PAR ↑↓ (reordenar se REPETE, e fechar no primeiro obrigaria
-  // a reabrir a cada casa) e a ESTRELA (alternador: o desfecho dela é o próprio
-  // botão mudando de desenho sob o dedo).
+  // AS EXCEÇÕES estão em `ACOES_QUE_NAO_FECHAM`, logo abaixo — uma lista
+  // nomeada, e não uma cadeia de `||` no meio do `if`: elas passaram de duas a
+  // quatro na v5.301, e a régua que as separa é longa demais para caber ali.
   //
   // O VAZIO da caixa fecha pelo mesmo motivo, e é a saída barata de quem só
   // queria ler a linha — sem ele o único caminho de volta seria acertar o `⋮`
@@ -6066,8 +6257,8 @@ function montarAcoesDaLinha(li, botoes, chave) {
   // uma classe.
   caixa.addEventListener('click', (e) => {
     const alvo = e.target === caixa ? caixa : (e.target.closest && e.target.closest('button'));
-    if (!alvo || (alvo !== caixa
-      && (alvo.classList.contains('row-ordem') || alvo.classList.contains('fav-btn')))) return;
+    if (!alvo) return;
+    if (alvo !== caixa && ACOES_QUE_NAO_FECHAM.some((c) => alvo.classList.contains(c))) return;
     if (alvo === caixa) e.stopPropagation();
     fecharAcoesDaLinha();
   }, true);
@@ -7550,16 +7741,30 @@ function linhaDeItem(item, opts) {
   //  1. aqui a estrela é alternador de UMA direção (todo item já é favorito,
   //     então ela nasce acesa e o único toque possível é o que apaga) — nas
   //     outras listas ela alterna de verdade e continua inteira lá;
-  //  2. a lixeira PERGUNTA, e o diálogo explica a semântica ("os arquivos só
-  //     são apagados se ele não estiver em mais nenhuma lista");
+  //  2. a lixeira PERGUNTA — e desde a v5.301 a pergunta nasce nesta mesma
+  //     faixa, com o par Cancelar/Excluir no lugar dos botões e a miniatura
+  //     virando lixeira (ver `pedirConfirmacaoNaLinha`);
   //  3. ela solta a prateleira invisível (`soltarAvulso`) — a diferença entre
   //     "a linha sumiu" e "os bytes saíram". Desfavoritar não é declaração de
   //     intenção de apagar.
+  //
+  // O RENOMEAR ENTROU AQUI NA v5.301 (pedido do operador: *"adicione o botão de
+  // renomear nas opções dos itens individuais dos favoritos"*). Ele existia só
+  // na linha do Cronograma desde a v5.288, e o favorito é justamente onde o nome
+  // importa mais: a lista é a que o operador MONTA para reencontrar coisas, e um
+  // arquivo importado chega com o nome que o aparelho deu a ele.
+  //
+  // ELE ENTRA PELA MESMA PORTA DO EXCLUIR — dentro do `lista ?`, e não ao lado
+  // dele —, e essa guarda é o que o mantém FORA da pasta do aparelho: ali o nome
+  // vem do arquivo, e um nome só no registro seria desfeito na varredura
+  // seguinte, sem erro em lugar nenhum.
+  const depoisDeMexer = cfg.depoisDeExcluir || (() => load());
   const acoes = document.createElement('div');
   acoes.className = 'fav-acoes';
   acoes.append(...(lista ? [
     ...botoesDeOrdem(lista, item.id, pos, total),
-    botaoExcluirDaLinha(item, lista, cfg.depoisDeExcluir || (() => load())),
+    botaoRenomearDaLinha(item, depoisDeMexer),
+    botaoExcluirDaLinha(item, lista, depoisDeMexer),
   ] : []).filter(Boolean));
   gaveta.append(opcoes);
   // Sem lista não há faixa de ações: um bloco vazio no pé da gaveta seria um
@@ -7568,6 +7773,9 @@ function linhaDeItem(item, opts) {
   let gavetaMontada = false;
 
   function abrir() {
+    // A gaveta que se fecha aqui pode estar PERGUNTANDO (v5.301) — e um "sim"
+    // pendurado numa linha que saiu de cena é o que nenhum destrutivo pode ter.
+    fecharConfirmacaoNaLinha();
     const lista = li.parentElement;
     if (lista) {
       lista.querySelectorAll(':scope > .lib-item.expanded').forEach((el) => {
@@ -7586,6 +7794,7 @@ function linhaDeItem(item, opts) {
     // é "tira isto do telão". A gaveta só abre quando não há nada a desfazer.
     if (noArAgora(item)) { retirarDoAr(item); return; }
     if (li.classList.contains('expanded')) {
+      fecharConfirmacaoNaLinha();
       collapseAccordion(gaveta, () => li.classList.remove('expanded'));
       return;
     }
@@ -8455,6 +8664,22 @@ function resetAfterEnd() {
   curTimeEl.textContent = '0:00';
   seekEl.disabled = false;
   durTimeEl.textContent = fmtTime(preview.getDuration());
+  // E A LISTA PRECISA SABER (v5.301, relato do operador: *"ao encerrar a mídia no
+  // player, a demarcação em vermelho do próprio item no cronograma não
+  // desaparece, parecendo que o item ainda está no ar"*).
+  //
+  // Zerar `midiaNoAr` é só ESTADO; quem apaga o preenchimento e o selo "● No ar"
+  // da linha é `marcarNoAr` — e este era o único dos caminhos que baixam a
+  // bandeira sem chamá-lo (`stopClear` e `retirarDoAr` sempre chamaram, e
+  // `pararMidia` é o corpo dos dois). A faixa terminava, o telão voltava ao
+  // wallpaper e a linha continuava vermelha até um redesenho por outro motivo,
+  // que num culto pode nunca vir.
+  //
+  // SÓ ELE. `renderNowPlaying` termina em `seekEl.disabled = !isTimed`, com
+  // `isTimed` saindo de um `cur` que pode ser nulo (item fora das duas listas):
+  // ele desfaria a linha acima, que devolve a barra de propósito para o ▶ poder
+  // repetir a faixa. O cartão do player já é republicado pelo `setPlaying`.
+  marcarNoAr();
 }
 
 function autoAdvance() {

@@ -749,10 +749,17 @@ neutro. É **assíncrono** (retorna uma Promise): `appConfirm({title, message,
 okText, cancelText})` → `true`/`false`; `appPrompt({title, message, value,
 placeholder, okText})` → string (OK) ou `null` (cancelar/fora/Esc). Um só
 diálogo reutilizável (o DOM é estático no `index.html`); abrir um novo enquanto
-outro está aberto resolve o anterior como cancelado. **Toda interação do tipo
-usa isto**: excluir pasta sincronizada/virtual/Hinário, renomear, nova pasta e o
-aviso de "sem Wi-Fi" da sincronização em massa. (A exclusão de **pasta virtual**,
-que antes não confirmava nada, agora também passa por este diálogo.)
+outro está aberto resolve o anterior como cancelado. Usam isto: **renomear**,
+excluir uma **pasta do aparelho** ou o que foi baixado de um **álbum** (as duas
+apagam BYTES, e a frase é o que diz quantos), o aviso de "sem Wi-Fi" da
+sincronização em massa, o cancelamento de um download em curso e a pergunta do
+OTA.
+
+**O QUE SAIU DELE NA v5.301: a exclusão de um ITEM de lista.** Ela vale para as
+três (Cronograma, Favoritos e a fila da playlist) e agora pergunta na PRÓPRIA
+LINHA — ver "A confirmação de excluir mora na linha", abaixo. A régua que ficou:
+o modal é para o que **apaga bytes** e precisa dizer QUANTOS; sair de uma lista
+se confirma onde a lista está.
 
 ### Deslocamento com o teclado virtual
 
@@ -1090,6 +1097,18 @@ listas E o "Tocar agora" — é SELECIONÁVEL de corpo inteiro, e um botão de
 confirmar sempre visível é quem executa. A caixa de marcação é INDICADOR
 (`pointer-events: none`), senão o toque que cai nos 20px dela morreria num filho
 sem ouvinte. Desabilitado, o confirmar diz "Escolha uma opção".
+
+**E O CONFIRMAR TEM A ALTURA DAS LINHAS QUE FECHA** (v5.301, relato do operador:
+*"parece menor que o padrão dos seus botões vizinhos"*). Estava, e por OMISSÃO:
+quem dita a altura de uma linha de opção não é o `padding` do `.song-menu-btn`
+(igual para todas), é o `.song-menu-check`, que reserva `--hit`. O confirmar não
+tem check — não há o que marcar nele — nem ícone, então sobrava só a linha de
+texto: 36px contra os 53px dos vizinhos. A correção é o MESMO número dito no
+mesmo lugar (o conteúdo dele reserva `--hit`), nunca um `min-height` na caixa que
+teria de somar o padding à mão. O irmão "Ver a letra" acompanha de graça — a
+faixa é um flex com `align-items: stretch`. `destinos.test.mjs` mede a IGUALDADE
+das alturas, jamais um número: um piso em pixel aprovaria os dois errados juntos
+no dia em que `--hit` mudar.
 
 **O conjunto é da FOLHA ABERTA, não do item** (`destMarcados`, zerado por
 `destLimpar()` na abertura e no fechamento). Pelo mesmo motivo que o teto de
@@ -1530,6 +1549,32 @@ divergirem. As decisões:
   `⋮`. Miniatura de 40px com botões de 34px são dois quadrados vizinhos com 6px
   de diferença que ninguém decidiu, e um alvo no PISO do app justamente na lista
   mais densa. A linha não fica mais alta — quem já ditava a altura era a capa.
+- **A CAIXA ABRAÇA O CONTEÚDO, entre um piso e um teto** (v5.301). A caixa era um
+  retângulo FIXO, então a largura dela é a da tela menos duas colunas de 56px — e
+  cinco botões de 40px com `gap: .35rem` ocupam **222,4px** em qualquer aparelho.
+  Com o sexto botão a fileira passa a **268px**, e a caixa fixa dava isto:
+
+  | viewport | caixa | com 6 botões |
+  |---|---|---|
+  | 360px | 222,4px | avança **37,6px** sobre a capa |
+  | 384px | 246,4px | avança 13,6px |
+  | 393px | 255,4px | avança 4,6px |
+  | 400px | 262,4px | não toca (sobram 2,4px) |
+  | 412px | 274,4px | não toca (a folga de 8px de sempre) |
+
+  **Abaixo de ~400px a fileira não cabia**, e como `.row-btn` é `flex-shrink: 0`
+  o excedente era desenhado POR CIMA DA MINIATURA. Não é caso de aparelho antigo:
+  360px e 384px são larguras correntes de Android, e qualquer aparelho cai nelas
+  quando o operador aumenta o **tamanho da tela** nas configurações do sistema.
+
+  Hoje o `left` virou um PISO (`min-width`, a largura de sempre, para um grupo
+  curto continuar cobrindo o título inteiro) e a caixa cresce **só para a
+  esquerda e só o que precisa** — de 400px para cima, zero —, até um teto de
+  `.5rem` da borda do cartão. Do SÉTIMO botão em diante os quadrados caem para
+  `--hit` (34px), nunca menos; o sétimo é a linha de LINK DO YOUTUBE, a única que
+  traz o "baixar o vídeo". `smoke.mjs` mede a 360px de propósito: os quatro
+  oráculos de Chromium rodam a 430px, onde cabia, e era essa a razão de o defeito
+  publicar verde.
 
 #### O toque encolhe o CARTÃO, não o miolo dele
 
@@ -1904,8 +1949,59 @@ o defeito de pé: o ouvinte de captura da caixa, e o `renderLibrary` que
 `montarAcoesDaLinha` carimba no `li` (`data-acoes-chave`). Sem a chave não
 haveria como reencontrar a linha: o mesmo item vive em duas listas ao mesmo
 tempo.
-| `⋮` → 🗑 | **Excluir da lista.** É o PRIMEIRO botão da faixa desde a v5.289 — o mais longe do `⋮`, que fica colado na ponta direita e é o alvo tocado repetidamente (abre e fecha): errá-lo por alguns pixels caía no destrutivo. Do outro lado o vizinho é o VAZIO da caixa, que também fecha, mas é uma área larga em que ninguém mira a borda |
+
+**As exceções passaram de duas a quatro na v5.301, e viraram uma LISTA NOMEADA**
+(`ACOES_QUE_NAO_FECHAM`, em `controle.js`) em vez de uma cadeia de `||` dentro do
+`if` — cada entrada com a sua razão escrita. Entraram o **excluir** (que agora
+PERGUNTA: a resposta nasce dentro da caixa, e fechá-la a levaria junto), o
+**"à playlist"** (a resposta é o ✓ no próprio botão) e o **Cancelar** da
+confirmação (que devolve a fileira de opções — fechar a caixa junto cobraria dois
+toques de quem só desistiu).
+
+#### A confirmação de excluir mora na linha (v5.301)
+
+Pedido do operador: *"remova os popups de confirmar exclusão, para que todas
+essas confirmações sejam inseridas direto na UI… no cronograma, coloque a
+confirmação na própria gaveta de opções, com um botão de cancelar e confirmar;
+durante o processo de exclusão pode trocar o ícone da thumbnail pela lixeira"*.
+
+O modal fazia o que todo modal faz: TIRAVA O ALVO DE CENA. A pergunta era
+"excluir este item?" e a tela que a fazia não mostrava mais item nenhum — o
+operador confirmava de memória, numa lista de trinta linhas com nomes parecidos.
+É a mesma correção da v5.207 (*"o feedback mora na interface de origem"*),
+aplicada agora à PERGUNTA.
+
+`pedirConfirmacaoNaLinha(botao, {ok, dica, aoConfirmar})` é o funil único, e ele
+não conhece nenhuma das faixas por nome: pergunta ao próprio botão quem é o pai
+dele. Por isso vale de graça nas três listas — a caixa do `⋮` (Cronograma e fila
+da playlist) e a `.fav-acoes` (Favoritos) —, e a próxima que ganhar um excluir já
+nasce com a confirmação certa.
+
+- **O par entra no COMEÇO da faixa**, nunca no fim: a `.row-acoes` escalona a
+  entrada dos botões por `nth-last-child`, que conta a partir do FIM, e um irmão
+  acrescentado depois deles deslocaria o índice de todos.
+- **A miniatura vira uma LIXEIRA** (`.row-lixo`), pelo mesmo mecanismo do "Tirar
+  do ar": o conteúdo da capa é escondido por CSS e o desenho novo entra por cima,
+  na mesma caixa. É a única parte da linha que a faixa não cobre, logo a única
+  que ainda diz de QUAL item é a pergunta. Ele VENCE o `.row-stop` — uma linha no
+  ar também pode ser excluída. A fila da playlist não tem miniatura, e o código
+  cobre isso.
+- **UMA por vez**, como a gaveta. E **tudo que fecha a gaveta CANCELA**: o `⋮`
+  outra vez, o toque fora, o redesenho da lista (todos passam por
+  `fecharAcoesDaLinha`) e o fechamento da gaveta de um favorito. O erro possível
+  aqui é o seguro — perder a pergunta custa um toque; herdar um "sim" pendente
+  não tem volta.
+- **A frase que o diálogo dizia** ("os arquivos só são apagados se ele não
+  estiver em mais nenhuma lista") não cabe nos ~250px da faixa e não sumiu: é o
+  `title`/`aria-label` do botão que executa.
+- **A SEMÂNTICA de cada lista continua a dela.** Na fila da playlist o botão
+  **não** é um `botaoExcluirDaLinha`: sair da FILA não é sair de uma lista de
+  acervo, então nada de `retirarDoAr` (o item pode estar no Cronograma e seguir
+  projetando, e a linha de lá o explica) e nada de `soltarAvulso` — a fila não é
+  detentora de bytes.
+| `⋮` → 🗑 | **Excluir da lista.** É o PRIMEIRO botão da faixa desde a v5.289 — o mais longe do `⋮`, que fica colado na ponta direita e é o alvo tocado repetidamente (abre e fecha): errá-lo por alguns pixels caía no destrutivo. Do outro lado o vizinho é o VAZIO da caixa, que também fecha, mas é uma área larga em que ninguém mira a borda. Desde a v5.301 ele **pergunta na própria faixa**, e por isso não a fecha |
 | `⋮` → ✏️ | **Renomear** o item, um toque (v5.288). Ele existia só para UM item de cada vez e atrás de quatro gestos (toque longo → seleção → botão do rodapé → diálogo). **Não entra na pasta do aparelho**, com a mesma guarda do excluir: ali o nome vem do arquivo, e um nome só no registro seria desfeito na varredura seguinte. O lápis é SVG inline — `edit` não está no subset da fonte, e codepoint ausente desenha um retângulo vazio |
+| `⋮` → ♫+ | **Adicionar à playlist** (v5.301). ACRESCENTA à fila; quem SUBSTITUI a fila por este item é o toque no corpo da linha (`onTap` → `replacePlaylistWith`), e são ações opostas. Passa pelo mesmo `adicionarNasListas` da folha de destinos, que responde "já está na playlist" em vez de duplicar. **Não aparece numa cena de roteiro** — o `onTap` já desvia um cue para longe da fila (*"um versículo não é uma fila de reprodução"*), e o Cronograma é justamente a lista cheia de cues. **Não fecha a caixa**: a resposta dele é o ✓ de `responder()` no próprio botão, e `pulsar` pintaria um nó que a caixa fechada (`visibility: hidden`) já tirou da tela |
 | Pressionar e segurar | Entra no modo de seleção múltipla |
 
 **O ARRASTAR SAIU NA v5.285**, das três listas de uma vez (Cronograma,
@@ -2024,10 +2120,20 @@ da linha. O que ela não tem: **seletor de variante** (o registro já existe) e
 **A ESTRELA NÃO ENTRA NA FAIXA DE AÇÕES; fica a LIXEIRA.** Nesta lista as duas
 terminam num `listRemove('favs', id)`, e: (1) aqui a estrela é alternador de UMA
 direção — todo item já é favorito, ela nasce acesa, e o único toque possível é o
-que apaga; (2) a lixeira PERGUNTA, e a linha some de uma lista curada à mão;
-(3) ela solta a prateleira invisível (`soltarAvulso`), que é a diferença entre "a
-linha sumiu" e "os bytes saíram". Nas outras listas a estrela fica, e ali ela
-alterna de verdade.
+que apaga; (2) a lixeira PERGUNTA — e desde a v5.301 a pergunta nasce na PRÓPRIA
+faixa, com o par Cancelar/Excluir no lugar dos botões e a miniatura virando
+lixeira; (3) ela solta a prateleira invisível (`soltarAvulso`), que é a diferença
+entre "a linha sumiu" e "os bytes saíram". Nas outras listas a estrela fica, e
+ali ela alterna de verdade.
+
+**O RENOMEAR CHEGOU A ESTA FAIXA NA v5.301** (pedido do operador: *"adicione o
+botão de renomear nas opções dos itens individuais dos favoritos"*). Ele existia
+só na linha do Cronograma desde a v5.288, e o favorito é justamente onde o nome
+importa mais: a lista é a que o operador MONTA para reencontrar coisas, e um
+arquivo importado chega com o nome que o aparelho deu a ele. Ele entra pela mesma
+porta do excluir — dentro do `lista ?`, não ao lado dele —, e é essa guarda que o
+mantém FORA da pasta do aparelho, onde o nome vem do arquivo e um nome só no
+registro seria desfeito na varredura seguinte.
 
 **O Parar na capa continua sendo um toque direto**: tirar do ar é a decisão que
 não pode custar uma gaveta. E o preço está dito: projetar um favorito passou de
@@ -2057,7 +2163,7 @@ que muda entre um favorito e um arquivo de pasta viaja em `opts`:
 
 | | favorito | arquivo da pasta |
 |---|---|---|
-| `lista` | `'favs'` — a faixa de ações tem ↑↓ e excluir | **nenhuma** — a ordem vem do disco, e apagar aqui seria apagar o ARQUIVO |
+| `lista` | `'favs'` — a faixa de ações tem ↑↓, renomear e excluir | **nenhuma** — a ordem vem do disco, e apagar (ou renomear) aqui seria mexer no ARQUIVO |
 | `destinos` | playlist · Cronograma | playlist · Cronograma · **Favoritar** |
 
 A segunda linha é a régua de sempre: numa lista de favoritos "Favoritar" não muda
