@@ -638,32 +638,29 @@ class EspelhoServidor(
     /**
      * A TRANSMISSÃO DIRETA nas telas da rede (v5.189, a dívida §7 do contrato).
      *
-     * Enquanto esta rota não existia, "Tocar agora" num link do YouTube com a
-     * transmissão ligada e sem TV era obrigado a BAIXAR o vídeo inteiro antes
-     * de projetar — o `pularTransmissao` do `controle.js`. O motivo estava
-     * certo: o manifesto aponta para `/stream/<token>` no origin do WebView, e
-     * uma tela da rede não tem WebView nenhum no caminho. A saída é servir a
-     * MESMA faixa por aqui, e é isso que esta rota faz.
+     * Sem esta rota, "Tocar agora" num link do YouTube com a transmissão ligada
+     * e sem TV era obrigado a BAIXAR o vídeo inteiro antes de projetar (o
+     * `pularTransmissao` do `controle.js`). O motivo estava certo: o manifesto
+     * aponta para `/stream/<token>` no origin do WebView, e uma tela da rede não
+     * tem WebView no caminho. A saída é servir a MESMA faixa por aqui.
      *
      * ## Ela é um REPASSE, não um servidor de faixas
      *
-     * O `Range` do cliente sobe CRU para o googlevideo e a resposta dele é
-     * espelhada de volta (status, `Content-Type`, `Content-Length`,
-     * `Content-Range`). Não se usa o [EspelhoHttp.alcanceDe] aqui, e isso não é
-     * inconsistência com o `/m/`: lá o recurso é um arquivo NOSSO, cujo tamanho
-     * conhecemos; aqui o dono da faixa é o CDN, e reimplementar a aritmética
-     * dele sobre um corpo que chega por streaming seria inventar um segundo
-     * contrato para errar. (Também não vale o molde do [StreamProxy]: aquele
-     * devolve a fatia como se fosse o todo porque o WebView aplica o `Range`
-     * por cima — a armadilha da invariante 8, que num socket não existe.)
+     * O `Range` do cliente sobe CRU para o googlevideo e a resposta é espelhada
+     * de volta (status, `Content-Type`, `Content-Length`, `Content-Range`). Não
+     * se usa [EspelhoHttp.alcanceDe] aqui, e não é inconsistência com o `/m/`:
+     * lá o recurso é um arquivo NOSSO, de tamanho conhecido; aqui o dono é o
+     * CDN, e reimplementar a aritmética dele sobre um corpo que chega por
+     * streaming seria inventar um segundo contrato para errar. (Nem vale o molde
+     * do [StreamProxy]: aquele devolve a fatia como se fosse o todo porque o
+     * WebView aplica o `Range` por cima — armadilha que num socket não existe.)
      *
      * ## O UA importa e o token é a capacidade
      *
-     * Pedir uma faixa do visionOS anunciando um Chrome de Android é o caminho
-     * conhecido para um 403 — o mesmo cuidado do download e do `StreamProxy`,
-     * e por isso o UA sai do [StreamProxy.uaDaUrl], num ponto só. O token é
-     * opaco (128 bits) e vive só enquanto o processo viver; a URL por trás dele
-     * expira sozinha em horas, e é ela que manda.
+     * Pedir uma faixa do visionOS anunciando um Chrome de Android é caminho
+     * conhecido para 403, e por isso o UA sai do [StreamProxy.uaDaUrl], num
+     * ponto só. O token é opaco (128 bits) e vive enquanto o processo viver; a
+     * URL por trás expira sozinha em horas, e é ela que manda.
      */
     private fun servirTransmissao(token: String, r: EspelhoHttp.Req, saida: OutputStream) {
         if (!EspelhoMidiaCache.tokenValido(token)) return responder(saida, naoAchei())
@@ -905,25 +902,22 @@ class EspelhoServidor(
             if (tipo.isEmpty()) return responder(saida, naoAchei())
             // A LISTA DE PERMISSÃO MORA AQUI, e não só no `espelho/tela.js`.
             //
-            // O dreno de subida é documentado como "uma lista de PERMISSÃO de
-            // dois itens" desde a E3 — e estava escrito apenas no CLIENTE, que
-            // é o lado que um desconhecido controla. A fronteira de confiança é
-            // este socket: sem a guarda, `tipo` só precisava ser não-vazio e
-            // QUALQUER comando do barramento subia daqui para os dois WebViews
-            // (o [MessageBus] entrega a todos), incluindo `load`, `clear`,
-            // `text` e `mic` — isto é, a projeção da igreja e o microfone do
-            // celular, alcançáveis por quem estiver na Wi-Fi. A porta do
-            // pareamento nasce ABERTA desde a v5.189 (o conteúdo é público, e
-            // essa decisão continua certa), então "estar pareado" nunca foi uma
-            // credencial: é exatamente por isso que a filtragem não pode
-            // depender do cliente se comportar.
+            // O dreno de subida é documentado como lista de PERMISSÃO desde a
+            // E3 — e estava escrito só no CLIENTE, que é o lado que um
+            // desconhecido controla. A fronteira de confiança é este socket:
+            // sem a guarda, `tipo` só precisava ser não-vazio e QUALQUER comando
+            // subia daqui para os dois WebViews (o [MessageBus] entrega a
+            // todos), incluindo `load`, `clear`, `text` e `mic` — a projeção da
+            // igreja e o microfone do celular, alcançáveis por quem estiver na
+            // Wi-Fi. A porta nasce ABERTA desde a v5.189 (conteúdo público, e a
+            // decisão continua certa), então "estar pareado" nunca foi
+            // credencial: por isso a filtragem não pode depender do cliente.
             //
-            // Os dois tipos são os mesmos que o `tela.js` deixa subir, e a
-            // razão de cada um está lá: `display-ready` é o que faz o Controle
-            // reenviar a cena (e ele é ENDEREÇADO desde a v5.140, então o telão
-            // de verdade descarta o que não é dele), e `tela-status` tem nome
-            // próprio justamente para que nada que espera "o telão" o receba
-            // por engano. Tipo novo nasce mudo dos DOIS lados.
+            // Os dois tipos são os mesmos que o `tela.js` deixa subir:
+            // `display-ready` faz o Controle reenviar a cena (ENDEREÇADO desde a
+            // v5.140, então o telão descarta o que não é dele) e `tela-status`
+            // tem nome próprio para que nada que espera "o telão" o receba por
+            // engano. Tipo novo nasce mudo dos DOIS lados.
             if (tipo !in TIPOS_QUE_SOBEM) {
                 registrar("relato recusado: uma tela tentou subir '${EspelhoPares.sanear(tipo, 40)}'")
                 return responder(saida, naoAchei())
@@ -1291,30 +1285,26 @@ class EspelhoServidor(
     /**
      * RELIGA O SOCKET NUM ENDEREÇO NOVO, sem desmontar o resto (v5.183).
      *
-     * **Não passa por [ligar]**, e a razão é dura: aquele chama [desligar]
-     * quando há servidor de pé, e `desligar` termina em `zerarPares()` — as três
-     * telas voltariam ao pareamento por uma troca de DHCP que elas nem viram.
-     * O que morre aqui é exatamente um `ServerSocket`; o pareamento, o encoder,
-     * a tela virtual, o `csd` e as sessões ficam.
+     * **Não passa por [ligar]**: aquele chama [desligar] quando há servidor de
+     * pé, e `desligar` termina em `zerarPares()` — as três telas voltariam ao
+     * pareamento por uma troca de DHCP que elas nem viram. O que morre aqui é
+     * exatamente um `ServerSocket`.
      *
-     * **A allowlist de `Host` é refeita**, e isso não é detalhe: ela guarda
-     * `ip:porta`, e um `Host` fora dela recebe o 404 IDÊNTICO de toda requisição
-     * recusada — "com o IP novo o espelho para de funcionar", sem uma linha no
-     * Registro que o explicasse. É a mesma armadilha que o `hostTls` já
-     * documenta em [ligar], agora valendo uma segunda vez.
+     * **A allowlist de `Host` é refeita**: ela guarda `ip:porta`, e um `Host`
+     * fora dela recebe o 404 IDÊNTICO de toda requisição recusada — "com o IP
+     * novo o espelho para de funcionar", sem uma linha no Registro. É a mesma
+     * armadilha que o `hostTls` já documenta em [ligar].
      *
-     * As telas conectadas caem: os sockets delas estão no IP velho e já estão
-     * mortos, e o endereço que elas guardaram deixou de atender. **Nenhuma
-     * volta sozinha** — desde que o `av.local` saiu (v5.185) não há nome que as
-     * reencontre —, então o endereço novo precisa CHEGAR AO OPERADOR: é para
-     * isso que ele é anunciado ([aoTrocarEndereco], que reescreve a notificação)
-     * além de ir para o Registro e para a folha.
+     * As telas conectadas caem (os sockets estão no IP velho) e **nenhuma volta
+     * sozinha** — sem o `av.local` (removido na v5.185) não há nome que as
+     * reencontre. Por isso o endereço novo precisa CHEGAR AO OPERADOR:
+     * [aoTrocarEndereco] reescreve a notificação, além do Registro e da folha.
      *
-     * **Isto tangencia o item 25 do doc ("não deixar o espelho ligar sozinho"),
-     * e a distinção que o sustenta é esta: o espelho não LIGA sozinho — ele
-     * CONTINUA ligado por uma decisão que o operador já tomou, e cuja premissa
-     * (o socket serve a LAN deste aparelho) não mudou.** O teto de tentativas
-     * existe para que uma rede instável não vire um laço de rebind.
+     * **Tangencia o item 25 do doc ("não deixar o espelho ligar sozinho"), e a
+     * distinção é: ele não LIGA sozinho — CONTINUA ligado por uma decisão que o
+     * operador já tomou, cuja premissa (o socket serve a LAN deste aparelho)
+     * não mudou.** O teto de tentativas evita que uma rede instável vire um
+     * laço de rebind.
      */
     private fun religarNoIp(ipNovo: Inet4Address): Boolean {
         val agora = SystemClock.elapsedRealtime()
