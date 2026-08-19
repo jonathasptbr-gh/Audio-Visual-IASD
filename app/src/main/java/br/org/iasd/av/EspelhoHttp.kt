@@ -9,67 +9,65 @@ import java.io.InputStream
  *
  * ## Por que este arquivo é puro
  *
- * É o primeiro código do projeto que aceita entrada de um DESCONHECIDO — todo o
- * resto vem do operador (SAF, share) ou de uma URL que o próprio app cunhou — e
- * o único lugar em que um erro não vira pixel errado: vira **controle de acesso
- * quebrado**. O mesmo argumento que fez este projeto recusar o RFC 6455 ("~150
- * linhas de protocolo SEM ORÁCULO") vale contra um parser HTTP com
- * autenticação; daí ele e o [EspelhoPares] serem puros, e daí o JUnit ser a
- * QUARTA EXCEÇÃO declarada à regra de zero dependência.
+ * É o primeiro código do projeto que aceita entrada de um DESCONHECIDO (todo o
+ * resto vem do operador ou de uma URL que o próprio app cunhou) e o único em que
+ * um erro não vira pixel errado: vira **controle de acesso quebrado**. O mesmo
+ * argumento que fez este projeto recusar o RFC 6455 ("~150 linhas de protocolo
+ * SEM ORÁCULO") vale contra um parser HTTP com autenticação — daí ele e o
+ * [EspelhoPares] serem puros, e daí o JUnit ser a QUARTA EXCEÇÃO declarada à
+ * regra de zero dependência.
  *
- * Bytes entram, uma [Req] validada sai; uma decisão entra, bytes de resposta
- * saem. Nada aqui abre socket nem sabe o que é uma rota. O `EspelhoServidor` tem
- * threads e sockets e **não decide nada que este arquivo decida**.
+ * Bytes entram, uma [Req] validada sai; uma decisão entra, bytes saem. Nada aqui
+ * abre socket nem sabe o que é uma rota, e o `EspelhoServidor` não decide nada
+ * que este arquivo decida.
  *
  * ## A invariante 8 do `CLAUDE.md` SE INVERTE aqui
  *
  * No `shouldInterceptRequest` o `InputStream` devolvido é o recurso INTEIRO e
- * quem aplica o `Range` é o **próprio WebView** (ver [StreamProxy]). **Num
- * `ServerSocket` quem o aplica somos NÓS** — é o que [alcanceDe] faz, com a
- * gramática do RFC 7233 e JUnit próprio. **Copiar o [StreamProxy] para cá é o
- * erro exato**, porque aquele devolve a fatia como se fosse o todo justamente
- * para o WebView refatiar por cima.
+ * quem aplica o `Range` é o WebView (ver [StreamProxy]). **Num `ServerSocket`
+ * quem o aplica somos NÓS** — é o que [alcanceDe] faz, com a gramática do RFC
+ * 7233 e JUnit próprio. Copiar o [StreamProxy] para cá é o erro exato: aquele
+ * devolve a fatia como se fosse o todo para o WebView refatiar por cima.
  *
  * ## As oito invariantes
  *
- * 1. **Tetos duros, todos** — [TETO_LINHA], [TETO_CABECALHOS], [TETO_CABECALHO],
+ * 1. **Tetos duros** — [TETO_LINHA], [TETO_CABECALHOS], [TETO_CABECALHO],
  *    [TETO_CORPO]. Fora do teto ⇒ resposta curta e `close`, sem drenar o resto:
- *    [Erro.CorpoLongo] é lançado ANTES de ler um byte do corpo, então quem manda
- *    `Content-Length: 4000000` não consegue nos fazer ler 4 MB. (O
- *    `setSoTimeout` é do servidor, porque é do socket.)
+ *    [Erro.CorpoLongo] é lançado ANTES de ler um byte do corpo, então
+ *    `Content-Length: 4000000` não nos faz ler 4 MB. (O `setSoTimeout` é do
+ *    servidor, porque é do socket.)
  * 2. **`read()` NUNCA é tratado como se entregasse a mensagem inteira** — toda
- *    leitura passa pelo laço de [Fonte]. Sem isso o parser desanda **só quando a
- *    rede está ruim**, que é o pior modo de falha: nunca acontece na bancada e
- *    sempre acontece no salão.
+ *    leitura passa pelo laço de [Fonte]. Sem isso o parser desanda só quando a
+ *    rede está ruim: nunca na bancada, sempre no salão.
  * 3. **Allowlist EXATA de `Host`** (`<ip>:<porta>`, mais o nome TLS quando
  *    existir), montada em runtime pelo servidor; qualquer outro ⇒ 404. É a
- *    defesa contra **DNS rebinding**: uma página qualquer da internet, aberta
- *    por um visitante NA REDE DA IGREJA, pode fazer `evil.com` resolver para o
- *    nosso IP privado e virar same-origin. O LNA do Chromium mitiga a partir de
- *    origem pública; Safari e Firefox não, e o navegador de uma smart TV menos.
- * 4. **`Origin` ausente ou igual ao próprio** — qualquer outra ⇒ 404. E **nunca**
- *    emitir `Access-Control-Allow-Origin`: nem `*`, nem eco. Há teste que confere
- *    isso em toda resposta que sai daqui.
+ *    defesa contra **DNS rebinding**: uma página da internet aberta por um
+ *    visitante NA REDE DA IGREJA pode fazer `evil.com` resolver para o nosso IP
+ *    privado e virar same-origin. O LNA do Chromium mitiga a partir de origem
+ *    pública; Safari, Firefox e o navegador de uma smart TV, não.
+ * 4. **`Origin` ausente ou igual ao próprio** — qualquer outra ⇒ 404. E
+ *    **nunca** emitir `Access-Control-Allow-Origin`: nem `*`, nem eco. Há teste
+ *    que confere isso em toda resposta.
  * 5. **404 IDÊNTICO** para rota inexistente, token inválido, `Host` recusado e
  *    `Origin` estranha — mesmo status, mesmo corpo, byte a byte: não vazar
  *    existência. [Erro] distingue os casos para o **Registro** (um diagnóstico
- *    que não separa "tentativa de rebinding" de "lixo na linha" não serve), e
+ *    que não separa "rebinding" de "lixo na linha" não serve) e
  *    [respostaDeErro] os colapsa.
  * 6. **Cabeçalhos em TODA resposta** — [CABECALHOS_SEMPRE], mais
  *    [CABECALHOS_PAGINA] na página.
  * 7. **Sem keep-alive, sem `Content-Encoding`**: uma requisição por conexão,
  *    `Connection: close`. O `nosniff` não é enfeite — sem ele o navegador segura
  *    os primeiros ~512 B para adivinhar o tipo, atrasando o primeiro quadro.
- *    **`Range` existe** (a rota de mídia o exige) e é NOSSO: [alcanceDe]
- *    interpreta com a semântica do RFC 7233 — malformado é IGNORADO e vira 200
- *    inteiro; só a faixa válida que não cabe leva 416.
- * 8. **Uma conexão, uma requisição**, e é isso que apaga a classe inteira do
- *    *request smuggling*: sem keep-alive não existe "próxima mensagem" no mesmo
- *    socket, e `Transfer-Encoding` em requisição é recusado de saída. Ainda
- *    assim as ambiguidades clássicas são recusadas uma a uma (dois
- *    `Content-Length`, dois `Host`, espaço antes do dois-pontos, continuação de
- *    linha) — custa uma linha cada, e o dia em que alguém puser um proxy na
- *    frente disto não vai vir com aviso.
+ *    **`Range` existe** (a rota de mídia o exige) e é NOSSO: [alcanceDe] segue
+ *    o RFC 7233 — malformado é IGNORADO e vira 200 inteiro; só a faixa válida
+ *    que não cabe leva 416.
+ * 8. **Uma conexão, uma requisição**, o que apaga a classe inteira do *request
+ *    smuggling*: sem keep-alive não existe "próxima mensagem" no mesmo socket, e
+ *    `Transfer-Encoding` em requisição é recusado de saída. Ainda assim as
+ *    ambiguidades clássicas são recusadas uma a uma (dois `Content-Length`, dois
+ *    `Host`, espaço antes do dois-pontos, continuação de linha) — custa uma
+ *    linha cada, e o dia em que alguém puser um proxy na frente não vem com
+ *    aviso.
  */
 object EspelhoHttp {
 

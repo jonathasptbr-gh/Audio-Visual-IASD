@@ -63,7 +63,7 @@ object SessionRemote {
  * 2. **A projeção deixa de ser descartável.** Sem ele o único serviço em
  *    primeiro plano era o [SyncService], que só sobe DURANTE downloads: num
  *    culto normal não havia nenhum, e o processo seguia candidato a ser morto
- *    sob pressão de memória — levando a `Presentation` junto.
+ *    sob pressão de memória, levando a `Presentation` junto.
  *
  * ## DUAS RAZÕES DE VIVER, e é isso que torna a fusão legítima
  *
@@ -75,10 +75,9 @@ object SessionRemote {
  * Ele só para quando **as duas** caem. A transmissão já teve serviço próprio, e
  * o argumento da separação ("empilhar dono é o caminho para o cartão eterno")
  * estava certo sobre ciclo de vida e errado sobre o preço: a gaveta mostrava
- * DOIS cartões do mesmo app, e só um servia para alguma coisa. A mesma
- * disciplina fica — `running`, `foregrounded`, `stopSelf(startId)` —, agora com
- * a condição de parada num `if` explícito em vez de espalhada por dois arquivos
- * que não se conhecem.
+ * DOIS cartões do mesmo app, e só um servia para alguma coisa. A disciplina
+ * fica (`running`, `foregrounded`, `stopSelf(startId)`), agora com a condição de
+ * parada num `if` explícito em vez de espalhada por dois arquivos.
  *
  * ## O TIPO é a união dos dois, e nenhum deles tem cota
  *
@@ -93,18 +92,16 @@ object SessionRemote {
  * Com cena: o player. Sem cena e com a transmissão no ar: o endereço, quantas
  * telas recebem e o botão **Desligar transmissão** — que só aparece aí, de
  * propósito (ao lado do transporte, no escuro, seria um toque errado derrubando
- * a projeção da igreja inteira). Com cena no ar, o endereço e a contagem viram o
- * SUBTEXTO do cartão, que o `MediaStyle` desenha sem disputar espaço com o
- * título nem com os botões.
+ * a projeção da igreja). Com cena, endereço e contagem viram o SUBTEXTO, que o
+ * `MediaStyle` desenha sem disputar espaço com título nem botões.
  *
  * **Um player LITERAL em tempo integral não é possível, e a razão é da
  * plataforma.** O cartão sem cena viraria `MediaStyle` só com uma sessão com
  * estado, e do Android 13 em diante os botões saem do `PlaybackState`: com
  * `STATE_NONE` (o único honesto sem mídia) o sistema não desenha botão nenhum e
- * o "Desligar transmissão" sumiria justamente nas versões novas; com estado
- * PAUSADO ele apareceria, mas o sistema promoveria a sessão ao painel de mídia
- * das configurações rápidas — um player fantasma, com transporte morto, para
- * controlar coisa nenhuma.
+ * o "Desligar transmissão" sumiria nas versões novas; com estado PAUSADO ele
+ * apareceria, mas a sessão seria promovida ao painel de mídia das configurações
+ * rápidas — um player fantasma, com transporte morto.
  *
  * ## E os BOTÕES são escolhidos pelo lado web
  *
