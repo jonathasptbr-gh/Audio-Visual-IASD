@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '5.301';
+const WEB_VERSION = '5.302';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -2768,6 +2768,10 @@ function thumbEl(item) {
 
 // ---- Playlist (sequência) ----
 function renderPlaylist() {
+  // O ESTADO DOS BOTÕES DE PLAYLIST DAS OUTRAS LISTAS anda com esta função
+  // (v5.302) — ver `marcarNaPlaylist`. Ela é o ponto por onde TODA mudança da
+  // fila passa, e é isso que dispensa cada porta de lembrar do repintor.
+  marcarNaPlaylist();
   const count = plItems.length;
   // O badge (e a cor do ícone) não devem chamar atenção quando a playlist é só
   // a mídia atual (1 item); conta apenas os itens além do primeiro (2 itens →
@@ -5576,9 +5580,8 @@ function renderLibrary() {
     //
     // ACRESCENTA, nunca substitui — quem TROCA a fila por este item é o toque no
     // corpo da linha (`onTap` → `replacePlaylistWith`), e são ações opostas.
-    // `adicionarNasListas` é o mesmo funil da folha de destinos: responde "já
-    // está na playlist" em vez de duplicar, e é ele que refaz `plItems` e
-    // redesenha a fila.
+    //
+    // E ELE É UM ALTERNADOR QUE MOSTRA O ESTADO (v5.302) — ver `plBtnDaLinha`.
     //
     // NÃO ENTRA NUMA CENA DE ROTEIRO (`isCue`), e a regra já estava escrita no
     // `onTap`: *"um versículo não é uma fila de reprodução"* — ali um cue projeta
@@ -5588,18 +5591,7 @@ function renderLibrary() {
     // (O `+` de "Adicionar ao Cronograma" não tem par nesta fileira: aqui o item
     // JÁ está no Cronograma. Ele continua na gaveta de um Favorito e na de um
     // arquivo da pasta do aparelho, que é onde a pergunta faz sentido.)
-    let addBtn = null;
-    if (!selectionMode && !isCue(item)) {
-      addBtn = document.createElement('button');
-      addBtn.className = 'row-btn row-playlist';
-      addBtn.title = 'Adicionar à playlist';
-      addBtn.setAttribute('aria-label', 'Adicionar à playlist');
-      addBtn.appendChild(msym(ICON.queue));
-      addBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        adicionarNasListas(listasDosDestinos(['playlist']), item.id, item.name, addBtn);
-      });
-    }
+    const addBtn = (!selectionMode && !isCue(item)) ? plBtnDaLinha(item) : null;
 
     // A ESTRELA, em toda linha: é ela que torna favoritar um toque só. Fica
     // fora da seleção múltipla porque ali o alvo é o conjunto, não a linha.
@@ -5654,16 +5646,31 @@ function renderLibrary() {
         // fica mais perto do dedo que acabou de tocar no `⋮`". Ela continua
         // valendo para o resto da fileira: o que muda é que o destrutivo deixa
         // de disputar essa vizinhança.)
+        //
+        // ===== E A ORDEM DO RESTO É A QUE O OPERADOR DITOU (v5.302) =====
+        //
+        // *"Ajuste a ordem dos botões de opções do cronograma para, da esquerda
+        // para a direita: excluir, renomear, favoritar, adicionar à playlist,
+        // subir e descer."*
+        //
+        // Ela agrupa por NATUREZA, que é o que a ordem anterior não fazia: o que
+        // mexe no ITEM (excluir, renomear), o que mexe em ONDE ele está
+        // (favoritar, playlist) e o que mexe na POSIÇÃO dele (↑↓). Antes o
+        // renomear caía entre a playlist e o par de ordem, separando os dois
+        // pares que se parecem.
         botaoExcluirDaLinha(item, activeTab, () => load()),
-        (ytDl && !dl) ? ytDl : null,
+        // RENOMEAR (v5.288), com a mesma guarda do excluir: na pasta do aparelho
+        // o nome vem do arquivo, e um nome só no registro seria desfeito na
+        // varredura seguinte.
+        botaoRenomearDaLinha(item, () => load()),
         star,
         addBtn,
+        // O "baixar o vídeo" de uma linha de LINK não está na ordem pedida — ele
+        // só existe nessa linha. Entra DEPOIS dela, para não partir ao meio a
+        // sequência que o operador ditou.
+        (ytDl && !dl) ? ytDl : null,
         // O PAR ↑↓ (v5.285), no lugar da alça de arrastar. Só onde há ordem a
         // mexer: a pasta do aparelho não é uma lista reordenável.
-        // RENOMEAR (v5.288), com a mesma guarda do excluir logo abaixo: na
-        // pasta do aparelho o nome vem do arquivo, e um nome só no registro
-        // seria desfeito na varredura seguinte.
-        botaoRenomearDaLinha(item, () => load()),
         ...botoesDeOrdem(activeTab, item.id, i, items.length),
         // (O EXCLUIR subiu para o começo desta lista na v5.288 — ver a nota lá.
         // NA PASTA DO APARELHO ELE NÃO ENTRA, desde a v5.271: ali "excluir"
@@ -6197,9 +6204,9 @@ async function moverNaLista(listName, id, delta) {
 //    mudando de desenho sob o dedo;
 //  · `row-excluir` — desde a v5.301 ele não exclui, PERGUNTA: a resposta nasce
 //    dentro desta caixa, e fechá-la a levaria junto;
-//  · `row-playlist` — a resposta dele é o ✓ de `responder()` no próprio botão, e
-//    `pulsar` pinta um nó que a caixa fechada (`visibility: hidden`) já tirou da
-//    tela: o toque ficaria sem resposta nenhuma.
+//  · `row-playlist` — como a estrela, é ALTERNADOR desde a v5.302: o desfecho
+//    dele é o próprio botão trocando `+` por `✓` sob o dedo, e a caixa fechada
+//    (`visibility: hidden`) tiraria da tela a única resposta que o toque tem.
 //
 // O `linha-nao` (o Cancelar da confirmação) entra pelo primeiro motivo, ao
 // contrário: cancelar devolve a fileira de opções, e fechar a caixa junto
@@ -7732,9 +7739,10 @@ function linhaDeItem(item, opts) {
   gaveta.className = 'hymn-gaveta';
   const opcoes = document.createElement('ul');
   opcoes.className = 'song-menu-list hymn-opcoes';
-  // A FAIXA DE AÇÕES é o conteúdo do `⋮` de antes, verbatim. Ela fica FORA da
-  // `<ul>` porque `renderItemMenu` reescreve a lista a cada marca — dentro, ela
-  // seria remontada a cada toque numa caixa de seleção.
+  // A FAIXA DE AÇÕES é o conteúdo do `⋮` de antes, verbatim. Desde a v5.302 ela
+  // mora DENTRO da `<ul>`, na linha do confirmar — e o que a protege do
+  // `alvo.innerHTML = ''` que `renderItemMenu` faz a cada marca é ser o MESMO
+  // nó a cada remontagem: o `appendChild` a move de volta em vez de recriá-la.
   //
   // A ESTRELA NÃO ENTRA AQUI, e quem fica é a LIXEIRA. Nesta lista as duas
   // terminam num `listRemove('favs', id)`, e:
@@ -7758,18 +7766,43 @@ function linhaDeItem(item, opts) {
   // dele —, e essa guarda é o que o mantém FORA da pasta do aparelho: ali o nome
   // vem do arquivo, e um nome só no registro seria desfeito na varredura
   // seguinte, sem erro em lugar nenhum.
+  // A ORDEM É A MESMA DA FILEIRA DO CRONOGRAMA (v5.302), *"com a ressalva de não
+  // contar com os itens que não existem naquela lista"*: excluir · renomear ·
+  // ↑ · ↓. Faltam a ESTRELA (nesta lista ela e a lixeira terminam no mesmo
+  // `listRemove('favs')` — ver acima) e o botão da PLAYLIST, que aqui é uma
+  // LINHA da folha de destinos logo acima, com caixa de marcação.
   const depoisDeMexer = cfg.depoisDeExcluir || (() => load());
   const acoes = document.createElement('div');
   acoes.className = 'fav-acoes';
   acoes.append(...(lista ? [
-    ...botoesDeOrdem(lista, item.id, pos, total),
-    botaoRenomearDaLinha(item, depoisDeMexer),
     botaoExcluirDaLinha(item, lista, depoisDeMexer),
+    botaoRenomearDaLinha(item, depoisDeMexer),
+    ...botoesDeOrdem(lista, item.id, pos, total),
   ] : []).filter(Boolean));
   gaveta.append(opcoes);
-  // Sem lista não há faixa de ações: um bloco vazio no pé da gaveta seria um
-  // vão que não anuncia nada.
-  if (acoes.childElementCount) gaveta.appendChild(acoes);
+  // ===== A FAIXA DIVIDE A LINHA COM O CONFIRMAR (v5.302) =====
+  //
+  // Pedido do operador: *"ponha o botão de confirmar as escolhas do play dos
+  // favoritos para que ele fique lado a lado, à esquerda das opções, ajustado
+  // com a altura dos botões"*.
+  //
+  // Ela era um bloco PRÓPRIO no pé da gaveta, logo abaixo da linha do confirmar
+  // — duas faixas empilhadas para o que cabe numa, e a gaveta inteira mais alta
+  // por isso, num acordeão cuja regra é manter a decisão sob o dedo.
+  //
+  // Quem a leva para lá é o hook `aoLado` que a v5.286 abriu para o "Ver a
+  // letra": a `.song-menu-go-row` já é um flex de dois filhos em que o confirmar
+  // CRESCE e o irmão fica com o que precisa. Nenhum mecanismo novo.
+  //
+  // O NÓ É O MESMO A CADA REMONTAGEM, e isto não é economia: `renderItemMenu`
+  // refaz a lista a cada marca (`alvo.innerHTML = ''`), e devolver uma faixa
+  // NOVA perderia os ouvintes e, pior, apagaria uma confirmação de exclusão
+  // aberta — deixando a lixeira na miniatura sem nenhum botão que a explique.
+  // Devolvendo o mesmo nó, o `appendChild` apenas o MOVE.
+  //
+  // Sem lista não há faixa: `null` faz o confirmar ocupar a linha sozinho, que é
+  // o desenho de sempre (a pasta do aparelho não tem o que oferecer aqui).
+  const aoLado = () => (acoes.childElementCount ? acoes : null);
   let gavetaMontada = false;
 
   function abrir() {
@@ -7782,7 +7815,15 @@ function linhaDeItem(item, opts) {
         if (el !== li) el.classList.remove('expanded');
       });
     }
-    if (!gavetaMontada) { gavetaMontada = true; renderItemMenu(item, opcoes, cfg.destinos); }
+    if (!gavetaMontada) { gavetaMontada = true; renderItemMenu(item, opcoes, cfg.destinos, aoLado); }
+    // REABRIR REAPONTA O GLOBAL (v5.302). A folha é montada uma vez só, então sem
+    // esta linha `songMenuFor` continuaria descrevendo a ÚLTIMA gaveta montada, e
+    // a invariante que todo leitor assume — *"ele descreve a gaveta ABERTA"* —
+    // seria falsa em silêncio. (O irmão do confirmar já não depende dela: ele vai
+    // por argumento, ver `destConfirmRow`. Isto fecha o resto.) Sem `destLimpar()`:
+    // as marcas desta linha são dela, e zerá-las ao reabrir apagaria a escolha que
+    // o operador acabou de fazer.
+    else songMenuFor = { item, alvo: opcoes, aoLado };
     li.classList.add('expanded');
     expandAccordion(gaveta);
   }
@@ -7823,14 +7864,19 @@ function linhaDeItem(item, opts) {
 // listas: o que sobra é ONDE ele deve estar.
 //
 // Daí não haver seletor de variante e não haver "Favoritar": o item É um
-// favorito, e quem o tira de lá é a estrela da faixa de ações logo abaixo.
+// favorito, e quem o tira de lá é a LIXEIRA da faixa de ações (a estrela saiu
+// dela na v5.288 — nesta lista as duas terminavam no mesmo `listRemove`).
 //
 // O resto é a MESMA maquinaria — `songMenuItem` com `destino`, `destExecutor`,
 // `destRemontar` e `destConfirmRow` —, pelo motivo de sempre: uma segunda lista
 // de destinos com a mesma anatomia divergiria da primeira no próximo ajuste.
-function renderItemMenu(item, alvo, destinos) {
+function renderItemMenu(item, alvo, destinos, aoLado) {
   destLimpar();
-  songMenuFor = { item, alvo };
+  // `aoLado` é o irmão do confirmar (v5.286, hoje a faixa de ações da linha —
+  // ver `linhaDeItem`). Ele viaja no ESTADO, e não como argumento de
+  // `destConfirmRow`, porque quem monta a linha de fecho é a folha e ela não
+  // conhece o dono da gaveta.
+  songMenuFor = { item, alvo, aoLado };
   // QUAIS destinos, e por que isto é parâmetro (v5.290): numa linha de FAVORITO
   // "Favoritar" seria uma opção que não muda nada — o item já está lá —, e numa
   // linha de arquivo da PASTA DO APARELHO ela é justamente o caminho de promover
@@ -7864,7 +7910,8 @@ function renderItemMenu(item, alvo, destinos) {
       alvo.appendChild(songMenuItem(msym(ico), rot, '',
         (vr, btn, alvos) => destExecutor(alvos, btn), d, desenhar));
     });
-    const go = destConfirmRow();
+    // O IRMÃO VEM DO FECHO, nunca do global — ver a nota em `destConfirmRow`.
+    const go = destConfirmRow(aoLado);
     if (go) alvo.appendChild(go);
   };
   desenhar();
@@ -8144,6 +8191,132 @@ function starSvg(cheia) {
       ? ' fill="currentColor" stroke="none">'
       : ' fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">')
     + '<path d="' + STAR_PATH + '"/></svg>';
+}
+
+/**
+ * ===== O BOTÃO DA PLAYLIST DIZ SE O ITEM ESTÁ NELA (v5.302) =====
+ *
+ * Pedido do operador: *"faça com que o estado de adicionado à playlist seja um
+ * botão que visualmente responda se aquele item está ou não na playlist, não
+ * apenas a confirmação de 'enviado para playlist'"*.
+ *
+ * Ele nasceu na v5.301 como uma AÇÃO: tocava, respondia com o ✓ do `pulsar` e
+ * voltava ao mesmo desenho. Um segundo depois a linha não dizia mais nada — e a
+ * pergunta que o operador faz montando o culto não é "eu mandei?", é "**está
+ * lá?**". Sem resposta na linha, conferir custava abrir a fila.
+ *
+ * Agora ele é o que a ESTRELA já era: um ALTERNADOR com estado à vista. Mesma
+ * anatomia (`favBtn`/`toggleFav`), mesma dupla de cores (`--line` apagado,
+ * `--accent` aceso) e a mesma exceção no fecho da caixa — o desfecho dele é o
+ * próprio botão mudando de desenho sob o dedo.
+ *
+ * E o SEGUNDO toque TIRA da fila, que é a metade que faz dele um estado em vez
+ * de um contador: um botão que só acende nunca se apaga, e a única forma de
+ * desfazer seria abrir a playlist e procurar a linha lá dentro.
+ */
+function plBtnDaLinha(item) {
+  const b = document.createElement('button');
+  b.className = 'row-btn row-playlist';
+  vestirPlBtn(b, naPlaylist(item.id));
+  b.addEventListener('click', (e) => { e.stopPropagation(); togglePlaylist(item, b); });
+  return b;
+}
+
+// "Este id está na fila AGORA?" — lido de `plItems`, que é o espelho em memória
+// da lista `playlist` e é refeito em todo caminho que a muda.
+function naPlaylist(id) { return !!id && plItems.some((m) => m.id === id); }
+
+// Ícone e rótulo NUM LUGAR SÓ: ele é escrito na construção da linha e outra vez
+// no toque, e duas cópias divergiriam no primeiro ajuste de texto.
+function vestirPlBtn(b, dentro) {
+  b.classList.toggle('on', dentro);
+  const t = dentro ? 'Tirar da playlist' : 'Adicionar à playlist';
+  b.title = t;
+  b.setAttribute('aria-label', t);
+  b.setAttribute('aria-pressed', dentro ? 'true' : 'false');
+  b.innerHTML = playlistIconSvg(dentro);
+}
+
+/**
+ * A FILA, em dois estados. SVG inline e NUNCA um glifo: a fonte é um subset
+ * estático de pouco mais de trinta codepoints, `playlist_add_check` não está
+ * nele, e um codepoint ausente desenha um RETÂNGULO VAZIO sem erro em lugar
+ * nenhum (a armadilha da v5.184 e da v5.200).
+ *
+ * A diferença entre os estados é o SÍMBOLO, não só a cor: `+` = "cabe aqui",
+ * `✓` = "já está". Cor sozinha não sobrevive a um salão escuro nem a quem não
+ * distingue os dois tons, e é a única coisa que a estrela tem de sobra (ela
+ * também troca vazada por cheia).
+ */
+function playlistIconSvg(dentro) {
+  return '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor"'
+    + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    + '<line x1="3" y1="6" x2="15" y2="6"/><line x1="3" y1="11.5" x2="15" y2="11.5"/>'
+    + '<line x1="3" y1="17" x2="10" y2="17"/>'
+    + (dentro
+      ? '<polyline points="13.2 17.4 15.8 20 20.8 14.6"/>'
+      : '<line x1="17.5" y1="13.5" x2="17.5" y2="21"/><line x1="13.75" y1="17.25" x2="21.25" y2="17.25"/>')
+    + '</svg>';
+}
+
+/**
+ * Entra ou sai da fila, com o desfecho no próprio botão.
+ *
+ * `listAdd`/`listRemove` e não um `listSet`: é o `listRemove` que roda o coletor
+ * na MESMA transação, e a fila é detentora de referência como qualquer outra
+ * lista (ver LISTS em `db.js`). Tirar da fila algo que não está em mais lugar
+ * nenhum tem de liberar o espaço, não deixar um registro invisível para trás.
+ *
+ * `renderPlaylist()` é quem repinta os outros botões (`marcarNaPlaylist`), então
+ * este não precisa saber que existem — e continua certo quando a fila muda por
+ * outra porta.
+ */
+async function togglePlaylist(item, btn) {
+  if (!item || !item.id) return;
+  const dentro = naPlaylist(item.id);
+  if (dentro) await AVDB.listRemove('playlist', item.id);
+  else await AVDB.listAdd('playlist', item.id);
+  plItems = await AVDB.listItems('playlist');
+  const agora = naPlaylist(item.id);
+  // `'ok'` NAS DUAS DIREÇÕES, como em `toggleFav`: o pulso diz que o toque
+  // valeu, e QUAL das duas coisas aconteceu quem diz é o ícone que fica. O
+  // âmbar (`'dup'`) é reservado para "já estava lá", que aqui não existe — este
+  // botão nunca repete a ação que acabou de fazer.
+  responder(btn, 'ok');
+  vestirPlBtn(btn, agora);
+  renderPlaylist();
+}
+
+/**
+ * O ESTADO DOS BOTÕES DE PLAYLIST, repintado no lugar — o irmão do `marcarNoAr`.
+ *
+ * A fila muda por MUITAS portas e quase nenhuma redesenha a lista: o toque no
+ * corpo de uma linha a SUBSTITUI por aquele item (`replacePlaylistWith`), a
+ * folha de destinos acrescenta, o avanço automático não muda nada mas o "Guardar
+ * pacote" e o `plPopup` mudam. Sem este repintor, o botão de toda OUTRA linha
+ * ficaria dizendo o que era verdade antes do último toque — que é pior que não
+ * dizer nada, porque agora ele promete um estado.
+ *
+ * Ele mora em `renderPlaylist()`, e não em cada porta: todo caminho que REFAZ
+ * `plItems` chama `renderPlaylist()` logo depois (é o redesenho da fila), então
+ * a próxima porta que aparecer já nasce coberta. A régua é essa, e não "toda
+ * escrita na lista `playlist`" — `criarCue` grava direto no banco sem refazer o
+ * espelho, mas o que ele grava é uma CENA DE ROTEIRO, e um cue nunca ganha este
+ * botão (a guarda `!isCue` de `renderLibrary`).
+ *
+ * E na PRIMEIRA linha dela, nunca no fim: `renderPlaylist` volta cedo quando a
+ * fila fica vazia (o ramo do `count === 0`), e no fim ele não rodaria justamente
+ * no caso em que TODOS os botões precisam apagar.
+ *
+ * Só mexe no que MUDOU — reescrever o `innerHTML` de botões que já estão certos
+ * é trabalho de DOM à toa a cada redesenho da fila.
+ */
+function marcarNaPlaylist() {
+  document.querySelectorAll('.row-playlist').forEach((b) => {
+    const li = b.closest('.lib-item,.row-item');
+    const dentro = naPlaylist(li && li.dataset.id);
+    if (dentro !== b.classList.contains('on')) vestirPlBtn(b, dentro);
+  });
 }
 
 function favBtn(id, nome) {
@@ -12589,7 +12762,7 @@ function songMenuItem(icone, rotulo, sub, acao, destino, aoMudar) {
 // desabilitado e DIZ o que falta, que é o mesmo desenho que o seletor de
 // destinos da importação (`renderDestPrompt`) já usava desde a v5.141: esta
 // mudança é as duas folhas convergindo num modelo só.
-function destConfirmRow() {
+function destConfirmRow(aoLado) {
   if (!destExecutor) return null;
   const alvos = destUniao(null);
   const li = document.createElement('li');
@@ -12632,11 +12805,33 @@ function destConfirmRow() {
   //
   // Ele vive aqui, e não numa faixa própria abaixo: "lado a lado" é o pedido, e
   // um segundo controle numa linha só sua seria mais uma faixa entre as opções
-  // e a letra. Quem o fornece é o dono da lista (`songMenuFor.aoLado`), porque
-  // a FOLHA não tem letra nenhuma a esconder — ali o campo não existe e nada
-  // muda.
-  if (songMenuFor && typeof songMenuFor.aoLado === 'function') {
-    const irmao = songMenuFor.aoLado();
+  // e a letra. Quem o fornece é o DONO da lista, porque a folha não tem letra
+  // nenhuma a esconder — ali o campo não existe e nada muda.
+  //
+  // ===== ELE VEM POR ARGUMENTO, E ISSO NÃO É ESTILO (v5.302) =====
+  //
+  // `songMenuFor` é um slot GLOBAL e quem chama esta função é o `desenhar()` de
+  // UMA linha — um fecho que sobrevive ao global por dois caminhos que já
+  // existiam: a gaveta do acordeão é montada UMA vez (`gavetaMontada`), então
+  // REABRIR uma linha não reescreve `songMenuFor`; e `closeSongMenu()` o ANULA
+  // com a gaveta ainda aberta.
+  //
+  // Enquanto o irmão era um botão NOVO a cada chamada ("Ver a letra"), a
+  // divergência era invisível. Desde que ele passou a ser um NÓ VIVO ligado a um
+  // item (a faixa de ações de um Favorito), lê-lo do global produzia as duas
+  // coisas que um destrutivo não pode ter: a faixa de uma linha MOVIDA para
+  // dentro da gaveta de outra — com a lixeira de uma excluindo o item da outra —
+  // e, depois de um Confirmar, a faixa simplesmente não reanexada, deixando uma
+  // exclusão em curso com a lixeira na miniatura e nenhum botão que a responda.
+  //
+  // O fallback para o global é o caminho da BIBLIOTECA (`renderSongMenu` e
+  // `openYtMenu`), que continua pondo o irmão em `songMenuFor` — ali ele é uma
+  // fábrica, e não tem alvo a trocar.
+  const dono = typeof aoLado === 'function'
+    ? aoLado
+    : (songMenuFor && typeof songMenuFor.aoLado === 'function' ? songMenuFor.aoLado : null);
+  if (dono) {
+    const irmao = dono();
     if (irmao) li.appendChild(irmao);
   }
   return li;

@@ -2880,6 +2880,40 @@ try {
     r.naoSubstituiu = depois.includes(a.id) && depois.length === r.antes + 1;
     r.caixaSegueAberta = !!document.querySelector(
       '#library .lib-item[data-id="' + m.id + '"].acoes-abertas');
+    // ---- O BOTÃO DIZ O ESTADO, e o segundo toque TIRA (v5.302) ----
+    // A parte que erra em silêncio é a última: um alternador que só acende
+    // nunca se apaga, e a única forma de desfazer seria abrir a fila e procurar
+    // a linha lá dentro.
+    const pb = document.querySelector(
+      '#library .lib-item[data-id="' + m.id + '"] .row-playlist');
+    r.acendeu = !!pb && pb.classList.contains('on');
+    r.viroucheck = !!pb && /polyline/.test(pb.innerHTML);
+    r.tituloAceso = pb ? pb.title : '';
+    // A METADE ACESSÍVEL do "ele diz o estado": cor e símbolo não chegam a quem
+    // usa leitor de tela, e `aria-pressed` é o que nomeia um alternador.
+    r.pressedAceso = pb ? pb.getAttribute('aria-pressed') : null;
+    pb.click();
+    await new Promise((f) => setTimeout(f, 400));
+    r.saiu = !(await AVDB.listHas('playlist', m.id));
+    const pb2 = document.querySelector(
+      '#library .lib-item[data-id="' + m.id + '"] .row-playlist');
+    r.apagou = !!pb2 && !pb2.classList.contains('on');
+    r.voltouAoMais = !!pb2 && !/polyline/.test(pb2.innerHTML);
+    r.pressedApagado = pb2 ? pb2.getAttribute('aria-pressed') : null;
+    // ---- E O REPINTOR: a fila muda por OUTRA porta e a linha acompanha ----
+    // `replacePlaylistWith` é o toque no corpo de uma linha, e ele SUBSTITUI a
+    // fila. Sem `marcarNaPlaylist` o botão de toda outra linha ficaria dizendo
+    // o que era verdade antes — pior que não dizer nada, porque promete estado.
+    await AVDB.listAdd('playlist', m.id);
+    plItems = await AVDB.listItems('playlist');
+    renderPlaylist();
+    await new Promise((f) => setTimeout(f, 120));
+    r.repintouPorFora = document.querySelector(
+      '#library .lib-item[data-id="' + m.id + '"] .row-playlist').classList.contains('on');
+    await replacePlaylistWith({ id: a.id, name: 'Primeiro da fila' });
+    await new Promise((f) => setTimeout(f, 120));
+    r.substituirApagou = !document.querySelector(
+      '#library .lib-item[data-id="' + m.id + '"] .row-playlist').classList.contains('on');
     for (const id of await AVDB.listIds('playlist')) await AVDB.listRemove('playlist', id);
     await AVDB.listRemove('imports', m.id);
     if (cue) await AVDB.listRemove('imports', cue.id);
@@ -2898,6 +2932,53 @@ try {
   checar(!pl.erro && pl.caixaSegueAberta === true,
     'a caixa NÃO fecha nele: a resposta é o ✓ no próprio botão, e `pulsar` '
     + 'pintaria um nó que a caixa fechada já tirou da tela', JSON.stringify(pl));
+  checar(!pl.erro && pl.acendeu && pl.viroucheck && /Tirar/.test(pl.tituloAceso)
+      && pl.pressedAceso === 'true' && pl.pressedApagado === 'false',
+    'e ELE DIZ O ESTADO (v5.302): aceso, com `+` virando `✓`, o rótulo virando '
+    + '"Tirar da playlist" e o `aria-pressed` acompanhando — a pergunta de quem '
+    + 'monta o culto é "está lá?", não "eu mandei?", e cor e símbolo não chegam '
+    + 'a quem usa leitor de tela', JSON.stringify(pl));
+  checar(!pl.erro && pl.saiu && pl.apagou && pl.voltouAoMais,
+    'e o SEGUNDO toque tira da fila: um alternador que só acende nunca se apaga',
+    JSON.stringify(pl));
+  checar(!pl.erro && pl.repintouPorFora && pl.substituirApagou,
+    'e o estado acompanha a fila mudada por OUTRA porta — inclusive o toque no '
+    + 'corpo de uma linha, que a SUBSTITUI (`marcarNaPlaylist`)',
+    JSON.stringify(pl));
+
+  // ── A ORDEM DA FILEIRA É A QUE O OPERADOR DITOU (v5.302) ──────────────────
+  //
+  // *"Excluir, renomear, favoritar, adicionar à playlist, subir e descer."*
+  // Ela agrupa por natureza — o que mexe no ITEM, o que mexe em ONDE ele está,
+  // o que mexe na POSIÇÃO —, e é a mesma nos Favoritos, sem os que não existem
+  // naquela lista. Afirmada como SEQUÊNCIA e não por posições soltas: o defeito
+  // aqui é um botão que troca de vizinho, e só a lista inteira o pega.
+  const ordem = await pg.evaluate(async () => {
+    setAppMode('full');
+    activeTab = 'imports';
+    const ids = [];
+    for (let i = 0; i < 3; i++) {
+      const m = await AVDB.addMedia(new Blob([new Uint8Array(8)], { type: 'audio/mpeg' }),
+        { name: 'Ordem ' + i, type: 'audio/mpeg', kind: 'audio', list: 'imports' });
+      ids.push(m.id);
+    }
+    await load();
+    const li = document.querySelector('#library .lib-item[data-id="' + ids[1] + '"]');
+    if (!li) return { erro: 'a linha não foi desenhada' };
+    li.querySelector('.row-mais').click();
+    await new Promise((f) => setTimeout(f, 240));
+    const nomes = (raiz) => [...raiz.querySelectorAll('.row-btn')]
+      .map((b) => (b.className.match(/row-(excluir|renomear|playlist|ordem)|fav-btn/) || [''])[0]);
+    const r = { cronograma: nomes(li.querySelector('.row-acoes')) };
+    for (const id of ids) await AVDB.listRemove('imports', id);
+    await load();
+    return r;
+  });
+  checar(!ordem.erro && JSON.stringify(ordem.cronograma)
+      === JSON.stringify(['row-excluir', 'row-renomear', 'fav-btn', 'row-playlist',
+        'row-ordem', 'row-ordem']),
+    'A ORDEM DA FILEIRA DO CRONOGRAMA é a ditada (v5.302): excluir · renomear · '
+    + 'favoritar · playlist · ↑ · ↓', JSON.stringify(ordem.cronograma));
 } catch (e) {
   checar(false, 'a medição do "à playlist" terminou sem exceção ('
     + (e && e.message) + ')');

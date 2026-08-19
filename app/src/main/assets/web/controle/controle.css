@@ -1724,6 +1724,17 @@ main {
    olho passar batido pela lista e forte o bastante para ser achada. */
 .fav-btn { color: var(--line); }
 .fav-btn.on { color: var(--brand); }
+/* ---------- A FILA TAMBÉM É UM ESTADO (v5.302) ----------
+   O mesmo par da estrela, e de propósito: são os dois alternadores da fileira, e
+   dois vocabulários de "ligado" na mesma linha fariam o operador aprender duas
+   vezes. Apagado é `--line` (o mesmo cinza de "cabe aqui"), aceso é o accent —
+   `--accent` e não `--brand` porque aqui a marca não tem nada a dizer: é estado
+   de navegação, e os dois tokens têm o mesmo valor de propósito.
+   A COR NÃO ESTÁ SOZINHA: o desenho troca `+` por `✓` (ver `playlistIconSvg`).
+   Num salão escuro, e para quem não separa os dois tons, é o símbolo que
+   responde. */
+.row-playlist { color: var(--line); }
+.row-playlist.on { color: var(--accent); }
 
 /* A miniatura da CENA DE ROTEIRO em ouro: ela diz "isto não é mídia, é uma
    cena" numa lista onde todo o resto tem bytes. (O selo `.cue-badge` saiu com
@@ -3767,11 +3778,54 @@ main {
    (A ESTRELA saiu desta faixa na v5.288: nesta lista ela e a lixeira faziam a
    mesma coisa — ver `favItemRow`. Ela continua inteira nas outras listas, onde
    alterna de verdade.) */
+/* ---------- ELA DIVIDE A LINHA COM O CONFIRMAR (v5.302) ----------
+   Pedido do operador: *"ponha o botão de confirmar … lado a lado, à esquerda das
+   opções, ajustado com a altura dos botões"*. A faixa era um bloco próprio no pé
+   da gaveta, logo abaixo da linha do confirmar — duas faixas empilhadas para o
+   que cabe numa. Hoje ela é o IRMÃO do confirmar dentro da `.song-menu-go-row`
+   (o hook `aoLado`, ver `linhaDeItem`), então:
+
+   · o `padding` sai — quem o dá agora é a `<ul>` das opções, que já recua tudo;
+   · `flex: none` porque quem CRESCE é o confirmar: a decisão principal é a que
+     se acha sem mirar, e estas são o que se faz com a linha.
+
+   E A ALTURA É UMA SÓ. A linha é um flex com `align-items: stretch`, e o
+   confirmar mede `--hit` mais o padding dele (53px); os botões traziam
+   `--thumb` fixo (40px) e ficariam boiando no meio, que é justamente o
+   desalinhamento que o pedido nomeia. `height: auto` desarma o valor fixo — sem
+   ele o `stretch` não tem efeito — e a faixa vira uma banda sólida. A LARGURA
+   continua `--thumb`: o que se pediu foi a altura, e encolher o alvo horizontal
+   seria trocar um acerto por um erro. */
 .fav-acoes {
-  display: flex; align-items: center; justify-content: flex-end; gap: .35rem;
-  padding: 0 .5rem .5rem;
+  display: flex; align-items: stretch; justify-content: flex-end; gap: .35rem;
+  flex: none; min-width: 0;
 }
-.fav-acoes .row-btn { background: var(--gaveta-btn); }
+.fav-acoes .row-btn { background: var(--gaveta-btn); height: auto; align-self: stretch; }
+/* ---------- ENQUANTO A LINHA PERGUNTA, A FOLHA CALA (v5.302) ----------
+   Com a faixa dentro da linha do confirmar, uma exclusão em curso punha DOIS
+   botões de confirmar lado a lado dizendo coisas opostas — o azul da folha de
+   destinos ("mande este item para onde eu marquei") e o vermelho da linha
+   ("tire este item da lista"). O primeiro sai de cena: enquanto a pergunta é
+   "excluir?", para onde o item vai não é decisão nenhuma. Ele volta inteiro no
+   Cancelar, porque as marcas continuam onde estavam. */
+.song-menu-go-row:has(> .fav-acoes.confirmando) > .song-menu-go { display: none; }
+.fav-acoes.confirmando { flex: 1; }
+/* E O PAR VESTE A RECEITA DE ALTURA DO BOTÃO QUE ELE SUBSTITUI, não um número:
+   `--hit` de conteúdo mais o `padding` vertical de um `.song-menu-btn`
+   (`.6rem` de cada lado — o `1.2rem` é a soma, e é a única duplicação aqui).
+   Com `box-sizing: border-box` o `min-height` inclui o padding, então é ele que
+   precisa carregar a conta inteira.
+   Sem isto a linha ENCOLHE ao perguntar: com o confirmar fora de cena nada mais
+   segura os 53px, e a gaveta dava um pulo de 19px sob o dedo no exato instante
+   em que o operador mira um destrutivo.
+   (Na fileira do `⋮` o par continua nos 34px: lá quem dita a altura é a caixa,
+   que é a da linha, e os vizinhos são quadrados de `--thumb`.)
+   Quem centra os dois verticalmente continua sendo a regra de `.confirmando` lá
+   em cima — um `align-items` repetido aqui seria letra morta, porque aquela é
+   mais específica. */
+.fav-acoes > .linha-confirma > .linha-confirma-btn {
+  min-height: calc(var(--hit) + 1.2rem);
+}
 /* A METADE DE BAIXO da gaveta só aparece com `vendo-letra` (v5.286) — ver o
    botão irmão do confirmar em `montarOpcoes`. Ela é a mais alta das duas, e
    aberta por padrão empurrava as opções para longe do dedo em toda abertura,
