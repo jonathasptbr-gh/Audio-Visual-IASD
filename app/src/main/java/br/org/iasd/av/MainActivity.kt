@@ -265,16 +265,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
         displayManager = getSystemService(DisplayManager::class.java)
         displayManager?.registerDisplayListener(displayListener, null)
 
-        // (Aqui morava a RECONSTRUÇÃO DA JANELA DO ESPELHO — um
-        // `EspelhoDisplay.sincronizarJanela(this)`, que reatava a janela do
-        // espelho de PIXELS à Activity recriada. A janela, a tela virtual e o
-        // encoder saíram na v5.187 com o espelho inteiro; a chamada saiu junto
-        // e o comentário ficou, órfão, em cima do pedido de permissão de
-        // notificação logo abaixo — que não tem nada a ver com ele. A
-        // transmissão de hoje não tem janela nenhuma a reatar: as telas da rede
-        // rodam o próprio `/display/`, e o que sobrevive à recriação da Activity
-        // é o `EspelhoServidor` no companion, que é onde ele já mora.)
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
@@ -561,15 +551,11 @@ class MainActivity : ComponentActivity(), BridgeHost {
     override fun onStop() {
         super.onStop()
         presentation?.keepPlaying()
-        // (Aqui houve dois `keepPlaying` que saíram: o da `MirrorPresentation`,
-        // a janela oculta que o espelho de PIXELS mantinha para o encoder ter o
-        // que capturar — uma tela da rede roda o próprio `/display/` e recebe
-        // COMANDOS, e quem a mantém viva com o app minimizado é o
-        // `SessionService` mais o wake lock do `EspelhoEnergia`; e o despertar
-        // do WebView do Controle pela MESA DE SOM, cujo caso deixou de existir
-        // quando o som passou a ser dos displays. O WebView do Controle volta a
-        // ser estrangulado em segundo plano sempre, que é o certo para uma mesa
-        // de comando.)
+        // O WebView do Controle volta a ser estrangulado em segundo plano
+        // sempre, que é o certo para uma mesa de comando: quem mantém a
+        // projeção viva com o app minimizado é o telão (`keepPlaying` acima) e,
+        // nas telas da rede, o `SessionService` mais o wake lock do
+        // `EspelhoEnergia`.
     }
 
     override fun onDestroy() {
@@ -1347,10 +1333,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * de cliente do [EspelhoServidor], que consultam um campo `@Volatile` e um
      * socket fechado. Enfileirar a desistência atrás do trabalho que se quer
      * parar é o oposto de parar — a mesma lição do `ytCancel`.
-     *
-     * (O KDoc anterior citava um `EspelhoDisplay.desligar()` e "a drenagem do
-     * encoder": os dois saíram na v5.187, e o argumento de thread sobreviveu
-     * intacto a eles.)
      */
     override fun stopMirror() {
         desmontarEspelho()
@@ -1432,13 +1414,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * que só o servidor sabe (endereço, sessões, telas, cache de mídia) e o que
      * só a proteção sabe (wake lock, Wi-Fi lock, térmica). Cada um devolve DADO;
      * quem escreve as frases é o `blocoEspelho` do `controle.js`.
-     *
-     * O KDoc anterior descrevia "o anel do `EspelhoDisplay` (tela virtual,
-     * viewport, encoder, readback, ritmo)" — cinco fontes que morreram com o
-     * espelho de pixels na v5.187, num arquivo que não existe mais. A parte
-     * `ritmo` daquela lista não era só documentação velha: ela continuou sendo
-     * PUBLICADA, zerada, e o lado web a lia como alarme. Ver o KDoc do
-     * [EspelhoDiag].
      */
     override fun mirrorDiag(onResult: (JSONObject) -> Unit) {
         runOnUiThread {
@@ -1717,9 +1692,8 @@ class MainActivity : ComponentActivity(), BridgeHost {
         @Volatile
         private var espelhoSrv: EspelhoServidor? = null
 
-        /** O anel de diagnóstico da transmissão — morava no EspelhoDisplay e
-         *  foi REALOCADO no corte (E6): o dono do Registro é quem liga o
-         *  servidor, não a tela virtual que deixou de existir. */
+        /** O anel de diagnóstico da transmissão. O dono do Registro é quem liga
+         *  o servidor. */
         val espelhoDiag = EspelhoDiag()
 
         /** O cache da rota /m/ (E4) — vive com a transmissão, não com a
