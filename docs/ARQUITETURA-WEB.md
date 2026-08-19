@@ -4620,94 +4620,101 @@ download é **um só** por toque, mesmo com os três destinos marcados: o caro �
 resolver o id, e o item resultante é o MESMO em todas as listas. O funil é um:
 `listasDosDestinos` → `adicionarNasListas`. **"Letra"** baixa também, mas só
 quando precisa: a letra costuma já estar no acervo de textos.
-### O download vira estado da tela (v5.64-65)
+### O download vira estado da tela
 
 Tocar uma música que ainda não está no aparelho abre um download de dezenas de
-segundos. Até a v5.63 o toque não mudava **nada** na tela: o acervo continuava
-aberto na mesma lista — ele só fechava depois que o arquivo chegava — e o único
-sinal era um toast na tela principal, **atrás** do popup. Do lado de quem opera,
-"toquei e não aconteceu nada", e o reflexo é tocar de novo.
+segundos, e o toque precisa mudar a tela AGORA. Duas metades:
 
-A correção tem duas metades, e a primeira é a que resolve o problema:
-
-1. **A resposta é imediata e igual à de uma música já baixada.** `closeSongMenu()`
-   e `closeHymnSearch()` passaram para o **começo** de `playSongVariant` (e de
-   `projectSongLyricsOnly`), antes do `await`. O toque fecha o acervo na hora;
-   se o download falhar, o erro chega por toast, que é o mesmo caminho de
-   qualquer outra falha.
-2. **A espera aparece na miniatura da preview**, não na tela principal
-   (`previewBusy` → `#pvBusy`). É ali que a mídia vai aparecer, então é ali que
-   se anuncia que ela está a caminho; um aviso na tela principal seria mais um
-   cartaz avulso a interpretar.
-
-Os detalhes que não são óbvios:
+1. **A resposta é imediata e igual à de uma música já baixada.**
+   `closeSongMenu()` e `closeHymnSearch()` ficam no **começo** de
+   `playSongVariant` (e de `projectSongLyricsOnly`), ANTES do `await`.
+2. **A espera aparece na miniatura da preview** (`previewBusy` → `#pvBusy`): é
+   ali que a mídia vai aparecer, então é ali que se anuncia que ela está a
+   caminho. Um aviso na tela principal seria mais um cartaz avulso a interpretar.
 
 - **É um CARTÃO no meio, não uma cortina.** A preview espelha o telão e precisa
   continuar espelhando enquanto a próxima música baixa: o louvor de fundo segue
-  tocando ali, e cobri-lo por trinta segundos tiraria a única janela para o que
-  está no ar. O cartão é opaco por conta própria — com um véu translúcido a
+  tocando ali. O cartão é opaco por conta própria — com um véu translúcido a
   marca do wallpaper atravessava o texto.
 - **Só acende depois de `PV_BUSY_DELAY_MS` (180 ms).** Uma música já baixada
-  resolve em poucos milissegundos, e um cartão que pisca é pior que nenhum: lê-se
-  como falha.
-- **O contador é um número, não um booleano** (`pvBusyCount`). O operador pode
-  disparar dois downloads (tocar um hino e, enquanto ele baixa, projetar a letra
-  de outro) — o primeiro a terminar não pode apagar o indicador do outro.
+  resolve em poucos ms, e um cartão que pisca é pior que nenhum: lê-se como
+  falha.
+- **O contador é um número, não um booleano** (`pvBusyCount`): o operador pode
+  disparar dois downloads, e o primeiro a terminar não pode apagar o indicador
+  do outro.
 - **A ação e o nome são campos separados** (`Baixando` em caixa alta miúda, o
-  nome embaixo). Numa caixa de ~250px `Baixando "Ó Adorai o Senhor"…` vira uma
-  linha que estoura; separados, a ação se lê de relance e o nome fica com a
-  largura toda, com clamp de duas linhas.
-- **O cartão desvia dos `.pv-fab`** (padding-right de 38px): tela cheia
-  e cast continuam alcançáveis durante o download.
-- **Fora da tela cheia** (mesma regra dos `.pv-fabs`): ali a preview **é** a
-  projeção, e o cartão iria para o telão.
-- **No simplificado o indicador não existe** — a preview não está na tela. Por
-  isso `previewBusy` devolve `{ visivel, soltar }`: o chamador usa `visivel` para
-  decidir se `ensureSongDownloaded` ainda deve mostrar o toast
-  (`opts.toast`). Dois avisos para o mesmo download é ruído; **nenhum** é o
-  defeito que isto conserta.
+  nome embaixo): numa caixa de ~250px a frase inteira estoura a linha.
+- **O cartão desvia dos `.pv-fab`** (padding-right de 38px) e **não aparece na
+  tela cheia**, onde a preview É a projeção e ele iria para o telão.
+- **No simplificado sem tela conectada ele não existe** — a preview não está na
+  tela —, e por isso `previewBusy` devolve `{ visivel, soltar }`.
 
-#### Adicionar a uma lista: a marca vai para a LINHA (v5.65)
+#### Adicionar a uma lista: a marca vai para a LINHA
 
-Adicionar também pode disparar o download, e ali a preview é o lugar errado: o
-acervo **continua aberto de propósito** (adicionar três músicas seguidas é o uso
-normal) e nada vai para a preview. O indicador vai então para a miniatura da
-própria música — o botão `.hymn-play-thumb`, que é o quadrado de 46px que era a
-miniatura. O ▶ some e o anel entra no lugar; o botão segue clicável, porque
-tocar uma faixa que já está baixando é legítimo e o download é o mesmo
-(`songDownloadInFlight` dedupa).
+Adicionar também dispara download, e ali a preview é o lugar errado: a Biblioteca
+**continua aberta de propósito** (adicionar três músicas seguidas é o uso normal)
+e nada vai para a preview. O indicador vai para o quadrado da própria linha.
 
-- **É o MESMO anel** (`.dl-ring`, com `--dl-ring` dando o tamanho): um aro
-  girando com a seta de download parada dentro. Dois spinners diferentes para a
-  mesma espera fariam o operador perguntar se são coisas diferentes. Cada lugar
-  só escolhe onde ele mora — a preview quando a mídia vai aparecer ali, a linha
-  quando o que baixa é aquela faixa da lista.
+- **É o MESMO anel** (`.dl-ring`, com `--dl-ring` dando o tamanho): dois
+  spinners diferentes para a mesma espera fariam o operador perguntar se são
+  coisas diferentes. Cada lugar só escolhe onde ele mora.
 - **Quem acende é `ensureSongDownloaded`**, logo DEPOIS da checagem
   `needsFull || needsPlayback` — o único ponto que já sabe que existe download de
-  verdade. Acender no chamador exigiria repetir a checagem (e piscar em toda
-  música já baixada, que é o defeito que o atraso de 180 ms evita na preview).
-  Como efeito, **todo caminho que baixa sob demanda ganha a marca sem precisar
-  lembrar dela**.
-- **O estado vive num `Map`, não só na classe do botão** (`songRowBusy`, contado
-  por música). A lista do acervo é **reconstruída** durante o download — o
-  progresso redesenha a cada 400 ms —, e uma classe escrita no nó sumia no
-  redesenho seguinte: a linha voltava a mostrar ▶ com o download ainda correndo.
-  `hymnResultRow` relê o Map ao montar (a linha carrega `data-song`) e
-  `setSongRowBusy` cuida das que já estão na tela. Contado, e não booleano:
-  adicionar a mesma faixa à playlist e ao Cronograma abre dois pedidos, e o
-  primeiro a terminar não pode apagar a marca do outro.
-- **Os três caminhos de adicionar passam `toast: false`.** O toast que sobra é o
-  do RESULTADO ("Adicionado à playlist"), que é outra informação.
+  verdade. Acender no chamador exigiria repetir a checagem e piscar em toda
+  música já baixada. Como efeito, **todo caminho que baixa sob demanda ganha a
+  marca sem precisar lembrar dela**.
+- **O estado vive num `Map`, não na classe do botão** (`songRowBusy`, contado por
+  música). A lista é RECONSTRUÍDA durante o download (o progresso redesenha a
+  cada 400 ms), e uma classe escrita no nó sumia no redesenho seguinte: a linha
+  voltava ao estado ocioso com o download ainda correndo. `hymnResultRow` relê o
+  Map ao montar (a linha carrega `data-song`). Contado e não booleano: adicionar
+  a mesma faixa a dois destinos abre dois pedidos.
 
 **Resolução do id de mídia por variante** (`resolveSongMediaId`) é
-**offline-first com download sob demanda**: se a variante já foi baixada
-(fase 2 acima), usa o id do catálogo OPFS direto (zero-cópia, mesmo padrão do
-botão ➕ das pastas); senão, `ensureSongDownloaded` baixa a música **de
-verdade** ali mesmo (mesma `downloadCollectionSong` da sincronização em massa —
-áudio + capa + letra, pronto pra tocar 100% offline dali em diante), não um
-registro temporário/streaming. `songDownloadInFlight` (Map por
-`<coll.id>:<id_music>`, sessão) evita disparar dois downloads da mesma música em
-paralelo se o operador tocar/adicionar duas vezes rápido antes do primeiro
+**offline-first com download sob demanda**: variante já baixada → id do catálogo
+OPFS direto (zero-cópia); senão, `ensureSongDownloaded` baixa a música **de
+verdade** ali mesmo (a mesma `downloadCollectionSong` da sincronização em massa —
+áudio + capa + letra, pronto para tocar offline dali em diante), nunca um
+registro temporário. `songDownloadInFlight` (Map por `<coll.id>:<id_music>`,
+sessão) evita dois downloads da mesma música em paralelo.
+
+> **Nota de rede**: a API de produção precisa aceitar CORS para a origin em que a
+> base roda — no aparelho, `https://appassets.androidplatform.net`. Não
+> verificado em produção: a rede das sessões de desenvolvimento não alcança
+> `api.louvorja.com.br`. Se o `fetch` falhar por CORS, a sincronização e a busca
+> ao vivo param — mas não a busca no índice já baixado, que é toda em memória.
+
+#### Letra sincronizada (slides + temporizador)
+
+Cada variante baixada (registro em `files`, criado por `downloadCollectionFile`)
+ganha campos extras, sem exigir bump de `DB_VERSION` (o `files`/`media` guarda
+objetos livres de schema):
+
+- `lyrics`: `Array<{ time, text, auxText, cover, imageOpfsPath, imagePosition }>
+  | null | undefined` — **sentinela de 3 estados**: `undefined` = nunca
+  processado (dispara reprocessamento na próxima sincronização mesmo com o áudio
+  já baixado — é o que dá BACKFILL aos hinos sincronizados antes de a
+  funcionalidade existir, sem rebaixar áudio); `null` = já processado e sem
+  estrofes com tempo utilizável (não tenta de novo à toa); array = o primeiro
+  item é sempre o slide de capa (`cover: true`, `text: null`, `time: 0`), os
+  demais vêm do mapa `lyric` de `music_{id}` (filtrados por `show_slide`, tempo
+  do campo certo — `time` para Cantado, `instrumental_time` para Playback —
+  convertido por `parseTimeToSeconds` e ordenado).
+- `hymnName`/`hymnTrack`/`hymnAlbum`: título limpo, número do hino e o
+  **álbum/coleção de onde a música veio** (`coll.name`) — as três peças do cartão
+  de capa. `hymnAlbum` mora no REGISTRO, e não numa consulta na hora de projetar,
+  porque quem projeta é o Display: ele só recebe o registro do arquivo e não tem
+  acesso a coleção nenhuma. Registro antigo é preenchido na varredura que a
+  sincronização já faz (`ensureSongVariant`) e, para a biblioteca que JÁ ESTÁ
+  PRONTA, por uma passagem única no lançamento (`preencherAlbunsDosHinos`, no
+  molde do `desnumerarAlbunsBaixados`): **os dois pontos de escrita cobrem uma
+  biblioteca sendo MONTADA, e nenhum deles alcança a que já existe** — música
+  baixada não é baixada de novo, e coleção completa não é re-sincronizada. A
+  ligação que a passagem lê já existia (o `folder` de todo registro baixado de
+  uma coleção é o id dela), e ela CORRIGE além de preencher, para uma coleção
+  renomeada na origem não deixar capas com o nome velho.
+  **Não há campo de AUTOR na fonte**: o LouvorJA publica nome, faixa e álbuns —
+  e uma linha inventada na frente da congregação é pior que uma linha a menos.
 terminar. Ver
 "Wi-Fi vs dados móveis" abaixo para a política de quando cada tipo de
 download é permitido.
