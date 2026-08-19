@@ -1357,243 +1357,172 @@ TV, as telas da rede SÃO o que a congregação vê.
 
 Um canal que publica **um episódio por semana** e organiza o ano em **playlists
 por período** vira um **álbum da Biblioteca**. O catálogo em
-`assets/web/controle/serie.js` guarda `{ canal, prefixo, ano, periodo, titulo }`,
-e uma linha a mais dá uma série nova sem código novo. São **duas** (v5.244):
+`assets/web/controle/serie.js` guarda `{ canal, prefixo, ano, periodo, titulo,
+futuros }` — uma linha a mais dá uma série nova sem código novo. São **duas**:
 
 | Série | Canal | Playlists | Título do vídeo |
 |---|---|---|---|
-| **Provai e Vede 2026** | [@provaievedeoficial](https://www.youtube.com/@provaievedeoficial) | por MÊS — "Provai e Vede - Agosto 2026" | nome do episódio à ESQUERDA da barra |
-| **Informativo Mundial das Missões 2026** | [@daniellocutor](https://www.youtube.com/@daniellocutor) | por TRIMESTRE — "Informativo \| 3º Trimestre 2026" | **não há** nome de episódio: "Informativo Mundial das Missões \| 15 AGOSTO 2026" |
+| **Provai e Vede 2026** | @provaievedeoficial | por MÊS — "Provai e Vede - Agosto 2026" | nome do episódio à ESQUERDA da barra |
+| **Informativo Mundial das Missões 2026** | @daniellocutor | por TRIMESTRE — "Informativo \| 3º Trimestre 2026" | **não há** nome de episódio: "… \| 15 AGOSTO 2026" |
 
 ```
- canal @provaievedeoficial          celular                    Biblioteca
- ┌──────────────────────┐   ytCanalPlaylists   ┌───────────┐   ┌──────────────┐
- │ aba Playlists        │────────────────────► │ serie.js  │──►│ card da série│
- │  · Set 2026 (Libras) │                      │  a REGRA  │   │ 52 episódios │
- │  · Set 2026          │   ytPlaylist(url)    │  (PURA)   │   │ 15/Ago · …   │
- │  · Ago 2026 ← s/hífen│────────────────────► │           │   └──────────────┘
- └──────────────────────┘                      └───────────┘   syncCollection
+ aba Playlists do canal   ytCanalPlaylists   serie.js      Biblioteca
+   · Set 2026 (Libras) ──────────────────►  a REGRA  ──►  card da série
+   · Set 2026             ytPlaylist(url)   (PURA)        "15/Ago · …"
+   · Ago 2026 ← sem hífen ─────────────────►               syncCollection
 ```
 
-**A SEGUNDA SÉRIE PROVOU O CATÁLOGO E COBROU O PREÇO.** Ela entrou com uma linha
-e nenhum `if` por recurso — e desmentiu três coisas que só pareciam regras
-porque havia uma série só. Duas viraram **campo declarado** (`periodo` e
-`titulo`, com padrão igual ao comportamento antigo, e escritos também na linha
-do Provai e Vede: enquanto havia uma série, aquelas escolhas não pareciam
-escolhas) e a terceira virou **recusa global** (o idioma). O que NÃO virou campo
-é tão importante quanto: a data por extenso do Informativo ("15 AGOSTO 2026") já
-era lida pela regra da v5.230 sem uma linha nova — a leitura natural, diante de
-um canal novo, é supor que ele precisa de um ramo novo, e supor formato foi
-justamente o erro que a v5.230 corrigiu.
+**A divisão de trabalho é a invariante 5.** O shell entrega listas CRUAS — os
+dois métodos não olham para o conteúdo, e o título sai **sem** o `tituloLimpo`
+da busca, porque é dele que a regra tira a data e a marca de Libras. A
+nomenclatura de um canal muda sem avisar: no web um ajuste chega por OTA em
+minutos com oráculo em Node; em Kotlin custaria um degrau de `SHELL_VERSION` e
+uma Release por vírgula.
+
+**A regra de ouro: a PLAYLIST prova o pertencimento, o título é só RÓTULO.** Um
+vídeo entra por estar numa playlist aceita, jamais por casar um padrão de
+título; não casando a data, ele **entra do mesmo jeito**, na ordem em que veio.
+Errar para um nome feio é recuperável; errar para um episódio ausente é o
+operador descobrindo no sábado que o vídeo do culto não está lá.
 
 **O MÊS DE UM ITEM VEM SEMPRE DA DATA DO TÍTULO, nunca da playlist.** Com
-playlists mensais os dois quase sempre concordam, e por isso a distinção não
-aparecia; com um trimestre ela é a diferença entre 13 episódios ordenados e 13
-episódios amontoados em julho. `mesDaPlaylist` devolve **o mês em que o período
-começa**, e esse valor tem dois usos, os dois honestos: ordenar as playlists
-entre si, e ser o PISO de um vídeo que não declare data — que cai no começo do
-trimestre dele, a coisa mais precisa que se pode afirmar sobre ele.
+playlists mensais os dois quase sempre concordam; com um trimestre é a diferença
+entre 13 episódios ordenados e 13 amontoados em julho. `mesDaPlaylist` devolve
+**o mês em que o período começa**, e isso tem dois usos honestos: ordenar as
+playlists entre si e ser o PISO de um vídeo sem data.
 
-**A divisão de trabalho é a decisão central, e é a invariante 5.** O shell
-entrega listas cruas — os dois métodos novos não olham para o conteúdo, e o
-título do vídeo sai **sem** o `tituloLimpo` que a busca aplica, porque é dele
-que a regra tira a data e a marca de Libras. Quem decide é o lado web, e a razão
-é prática: a nomenclatura de um canal muda sem avisar ninguém, e ali um ajuste
-chega por OTA em minutos, com oráculo em Node — em Kotlin custaria um degrau de
-`SHELL_VERSION` e uma Release por vírgula.
+### As sete armadilhas da nomenclatura
 
-### A regra, e as sete armadilhas que ela carrega
+Nenhuma é hipótese — todas foram lidas nas abas Playlists e Vídeos dos canais.
 
-Nenhuma é hipótese: todas foram lidas nas abas Playlists e Vídeos dos canais.
-
-1. **O hífen não é garantido.** As playlists são "Provai e Vede - Agosto 2026",
-   e **uma delas é "Provai e Vede Agosto 2026"**. Um `^Provai e Vede - ` teria
-   descartado o mês inteiro, sem erro nenhum. Por isso a regra não casa
-   separador: pede o prefixo no começo e procura mês e ano **em qualquer
-   posição** — o hífen é opcional por construção, não por um `?` no lugar certo.
-2. **Espaço duplo** ("Provai e Vede␣␣2026 (15/Ago)"). Tudo passa por `normalizar`.
+1. **O hífen não é garantido.** Uma playlist é "Provai e Vede Agosto 2026", sem o
+   hífen que todas as outras têm. A regra não casa separador: pede o prefixo no
+   começo e procura mês e ano **em qualquer posição**.
+2. **Espaço duplo.** Tudo passa por `normalizar`.
 3. **O marcador de LIBRAS muda de forma entre os níveis:** `(Libras)` na
    playlist, `- Libras` no vídeo. O teste é pela **palavra**, sem acento e sem
-   caixa — testar qualquer uma das duas formas literais deixaria a outra passar.
+   caixa — testar uma das formas literais deixaria a outra passar.
 4. **A duração não separa nada:** 4:54 × 4:55 num par, 5:07 × 5:07 noutro.
-5. **O `uploaderName` não é o canal:** os vídeos vêm como "Provai e Vede |
-   Oficial **e Adventist…**" (colaboração). Filtrar por ele derrubaria tudo.
-6. **A DATA tem DUAS formas, e o mesmo episódio usa as duas** (v5.230). A
-   compacta entre parênteses — "… 2026 (03/Jan)" — e a **por extenso**: "Não há
-   órfãos de Deus | Provai e Vede 2026 **sábado 3 janeiro**". No dia 3 de
-   janeiro de 2026 a versão em Libras saiu na primeira e a de português na
-   segunda. `dataDoVideo` tenta as duas, nessa ordem; a extensa aceita o "de"
-   opcional e o ordinal ("1º"), e exige que o nome **seja** um mês em vez de só
-   começar como um — sem essa última guarda, "3 marcos" viraria 3 de março.
-7. **UM CANAL PUBLICA A MESMA SÉRIE EM VÁRIOS IDIOMAS** (v5.244). A aba do
-   @daniellocutor põe os quatro lado a lado: "Informativo | 3º Trimestre 2026",
-   "Misiones | 3º Trimestre 2026", "Mission Stories | 2º Quarter 2026" e
-   "【聖工消息】2026 第三季". O prefixo separa as **playlists** — e **não separa
-   os vídeos**: em espanhol eles se chamam "Informativo Mundial **de las
-   Misiones**", isto é, começam com a mesma palavra. Daí `ehOutroIdioma`, irmão
-   do `ehLibras`, nos dois níveis: pela ESCRITA (cirílico, hebraico, árabe,
-   tailandês, CJK, hangul — um caractere basta, porque "【聖工消息】" não tem
-   sílaba que dê para procurar; emoji ficam de fora de propósito) e por MARCA
-   (espanhol `misiones`/`mision`/`de las`, francês `missionnaire`, e o inglês
-   pelo NOME DO PROGRAMA — "Mission Stories", "World Mission", "Mission
-   Spotlight"), tudo contra o `normalizar`, que já tirou os acentos.
-   **O inglês era a palavra solta `mission` e isso custou um episódio** (v5.252,
-   "Mission Refocus"): uma marca de idioma tem de ser IMPOSSÍVEL na língua que
-   se quer manter, não apenas típica da que se quer recusar.
+5. **`uploaderName` não é o canal:** os vídeos vêm como "Provai e Vede | Oficial
+   **e Adventist…**" (colaboração). Filtrar por ele derrubaria tudo.
+6. **A DATA tem DUAS formas, e o mesmo episódio usa as duas:** compacta entre
+   parênteses ("… 2026 (03/Jan)") e por extenso ("… **sábado 3 janeiro**").
+   `dataDoVideo` tenta as duas nessa ordem; a extensa aceita o "de" opcional e o
+   ordinal ("1º"), e exige que o nome **seja** um mês em vez de só começar como
+   um — sem essa guarda, "3 marcos" viraria 3 de março. Supor UMA forma era a
+   aposta errada desde o começo.
+7. **UM CANAL PUBLICA A MESMA SÉRIE EM VÁRIOS IDIOMAS.** O prefixo separa as
+   **playlists** e **não separa os vídeos** — em espanhol eles começam com a
+   mesma palavra ("Informativo Mundial **de las Misiones**"). Daí `ehOutroIdioma`,
+   irmão do `ehLibras`, nos dois níveis: pela **ESCRITA** (cirílico, hebraico,
+   árabe, tailandês, CJK, hangul — um caractere basta, porque "【聖工消息】" não
+   tem sílaba que dê para procurar; emoji ficam de fora de propósito) e por
+   **MARCA** (espanhol `misiones`/`mision`/`de las`, francês `missionnaire`, e o
+   inglês pelo NOME DO PROGRAMA: "Mission Stories", "World Mission", "Mission
+   Spotlight"), tudo contra o `normalizar`.
+   **Uma marca de idioma tem de ser IMPOSSÍVEL na língua que se quer manter, não
+   apenas típica da que se quer recusar** — o inglês era a palavra solta
+   `mission` e isso custou um episódio ("Mission Refocus").
 
-O que a sexta ensina não é "existem duas formas": é que **supor UMA forma era a
-aposta errada desde o começo**, e é justamente por a regra de ouro deste arquivo
-já valer (o título é só rótulo) que o episódio entrou no álbum mesmo assim. O
-preço de errar a data é o que o operador relatou — um item sem identificador de
-data, fora de ordem, no fim de janeiro —, não um episódio ausente.
+A sétima é a **exceção declarada à regra de ouro**: ela recusa pelo TÍTULO. Está
+lá porque o erro que evita não é recuperável no sábado de manhã — é o testemunho
+projetado em espanhol na frente de todo mundo. O preço está escrito no código: um
+episódio em português que CITE "mission"/"misiones" é recusado, e volta à mão
+pela busca.
 
-**E a sétima é a exceção declarada à regra de ouro:** ela recusa pelo TÍTULO,
-contra tudo o que a regra de ouro diz. Está lá porque o erro que ela evita não é
-recuperável no sábado de manhã — é o testemunho projetado em espanhol, ou com o
-intérprete na tela, na frente de todo mundo. O preço é conhecido e está escrito
-no código: um episódio em português que CITE "mission" ou "misiones" no título é
-recusado, e volta à mão pela busca do YouTube.
-
-**O ÁUDIO em português é outra pergunta, e ela é do SHELL.** O YouTube dubla
-vídeo sozinho, e a dublagem não muda o título: ela é uma faixa a mais dentro do
-MESMO vídeo. Quem escolhe é `TrilhaAudio.kt` (v5.242) — idioma antes do cliente,
-e português EXCLUSIVO quando existe. Nada do lado web tem como ver isso, e por
-isso nada em `serie.js` tenta: as duas metades da garantia moram em lados
-diferentes da ponte, e o Registro imprime a trilha escolhida
-(`140@VISIONOS pt-BR`) justamente para a metade de baixo ser diagnosticável.
+**O ÁUDIO em português é outra pergunta, e é do SHELL.** O YouTube dubla sozinho,
+e a dublagem não muda o título — é uma faixa a mais dentro do MESMO vídeo. Quem
+escolhe é `TrilhaAudio.kt`: idioma antes do cliente, português EXCLUSIVO quando
+existe. Nada no web tem como ver isso, e por isso nada em `serie.js` tenta; o
+Registro imprime a trilha escolhida (`140@VISIONOS pt-BR`) para a metade de baixo
+ser diagnosticável.
 
 ### As decisões que precisam estar ditas
 
-- **A descoberta é a ABA DO CANAL, não uma busca por texto.** É uma diferença
-  de AUTORIDADE: numa busca quem escolhe o resultado é o ranking do YouTube, e
-  qualquer pessoa pode nomear uma playlist "Provai e Vede 2026". Vindo do canal
-  — o publicador —, o pior caso é uma playlist a menos, nunca o vídeo de um
-  desconhecido na projeção do culto.
-- **A PLAYLIST prova o pertencimento; o título é só RÓTULO.** Um vídeo entra
-  por estar numa playlist aceita, jamais por casar um padrão de título. A data
-  `(15/Ago)` ordena e nomeia, e quando ela não casa o vídeo **entra do mesmo
-  jeito**, com a ordem em que veio. Errar para o lado de um nome feio é
-  recuperável; errar para o lado de um episódio ausente é o operador descobrindo
-  no sábado que o vídeo do culto não está lá.
-- **A recusa de Libras existe DUAS vezes, e a segunda nunca dispara hoje.** As
-  playlists PT e Libras são espelhos 1:1, então a de português já vem só com
-  português — mas um único vídeo acrescentado por engano na playlist oficial
-  iria direto ao telão, e essa é a falha que não se pode correr por economia de
-  três linhas.
-- **O ano é EXPLÍCITO no catálogo.** "O ano corrente" faria o álbum trocar de
-  conteúdo sozinho na virada de dezembro, no meio da programação de janeiro.
-  2027 é uma linha nova e um push em `main`.
-- **MAS ELE APARECE TRÊS DIAS ANTES** (v5.256, `DIAS_DE_ANTECEDENCIA`). Pedido
-  do operador: *"a data de corte não pode ser o próprio dia, pois muitos
-  aproveitam para fazer a organização antes"* — o roteiro do culto é montado
-  durante a semana, e uma lista que só mostra o episódio no sábado de manhã
-  chega tarde para quem prepara. Três dias é **a quarta-feira antes do sábado**,
-  escrito como CONTAGEM e não como dia da semana (é o que sobrevive ao dia em
-  que o canal publicar num domingo). **O preço tem remédio e ele é a outra
-  metade do lote:** nesses três dias o vídeo pode ainda não estar público, e
-  falhando o download a resposta diz o que fazer — *"ainda não liberado pelo
-  canal — tente mais perto de 22/Ago"* —, em DOIS lugares, porque são dois
-  fluxos: no cartão sobre a preview ("Tocar agora" fecha a Biblioteca) e no card
-  da série (mandando ao Cronograma ela continua aberta por cima da preview).
-  Sem a frase, aquela falha é indistinguível de uma queda de rede.
-- **O QUE AINDA NÃO SAIU NÃO ENTRA NA LISTA** (v5.255, campo `futuros`). O
-  @daniellocutor sobe o trimestre inteiro e libera um episódio por sábado; os
-  que faltam ficam como "prioridade para membros" — aparecem na playlist e não
-  tocam. A régua é a DATA (o único sinal deste lado: o item de um vídeo restrito
-  chega idêntico ao de um liberado), o corte é INCLUSIVO no dia do culto, e um
-  vídeo SEM data nunca é escondido. **É campo e não regra global** porque o erro
-  é assimétrico e o Provai e Vede libera o mês inteiro de uma vez — medido: em
-  15 de agosto ele já tinha até 26 de setembro, e aqueles episódios tocam. O DIA
-  entra também na ASSINATURA das playlists, senão a economia devolveria a lista
-  de ontem no sábado de manhã (o sintoma da v5.233 por outra porta).
-- **O NOME DO ITEM pode ser SÓ A DATA, e no Informativo ele é** (v5.244). O
-  título daquele canal é a série mais a data, e a história ("O Sonho de Enoc")
-  vive na MINIATURA — aplicar ali o "o nome é o que vem antes da barra" daria 52
-  linhas idênticas dizendo "Informativo Mundial das Missões", que é exatamente o
-  defeito que aquela regra existe para corrigir, ao contrário. `titulo:
-  'nenhum'` no catálogo, e a linha vira "15/Ago": numa lista anual a data é
-  única, e é a pergunta inteira que aquele álbum responde. O que ela não diz —
-  de que história é o episódio — a gaveta responde com a miniatura e a duração
-  (v5.236). **`nomeDoItem` nunca devolve vazio**: sem data e sem título ele cai
-  no título CRU do YouTube, que é feio e é longo, e é infinitamente melhor que
-  uma linha em branco no meio da lista do culto.
-- **A assinatura das playlists evita doze extrações por retomada.** A aba do
-  canal já diz quantos vídeos cada playlist tem; batendo com o que está
-  guardado, as ~12 chamadas de `ytPlaylist` são puladas. Um episódio novo muda a
-  contagem e a assinatura inteira é refeita — "tudo ou nada" de propósito, para
-  não guardar de qual playlist veio cada faixa.
-- **E A REGRA ENTRA NESSA ASSINATURA** (`AVSerie.impressao`, v5.233). O índice
-  guarda os nomes JÁ FORMADOS e a ordem JÁ decidida; a assinatura do canal não
-  sabe nada sobre a regra que os produziu. Sem a impressão, mudar a regra deixa
-  o índice guardado de pé para sempre — foi o que prendeu o episódio de 3 de
-  janeiro sem data depois da v5.230, e nem limpar o cache resolvia (o índice
-  mora no IndexedDB). Ela é um hash do PRÓPRIO CÓDIGO das funções que decidem,
-  e não um número à mão: quem esquecesse de subir o número reproduziria o
-  defeito.
-- **O índice falha com EXCEÇÃO, nunca com lista vazia.** `syncCollection` já
-  trata isso como "sem internet" e PRESERVA o índice anterior; devolver zero
-  itens apagaria da tela a série inteira que o operador já tem baixada, por uma
-  oscilação de rede.
-- **`lyrics: null` no registro não é enfeite.** `songVariantsNeeded` pergunta
-  `fullRec.lyrics === undefined` para decidir se a faixa falta — sem o campo, os
-  52 episódios seriam rebaixados a cada sincronização, para sempre e em silêncio.
-- **`aportuguesar` em todo extrator, e aqui ele não é cosmético.** No padrão
-  en-GB da biblioteca o YouTube devolve o título TRADUZIDO: `(15/Ago)` viraria
-  `(15/Aug)` e a marca de Libras mudaria de palavra — as duas coisas de que a
-  regra depende. A paginação sai do MESMO extrator (`ex.getPage`), e não do
-  `getMoreItems(service, …)`, que monta um extrator novo por dentro e nasceria
-  sem o `forceLocalization`: os meses do fim da lista voltariam em inglês
-  enquanto os do começo vêm em português.
-- **UM EPISÓDIO É UM VÍDEO DO YOUTUBE, e a folha dele é a mesma** (v5.230,
-  pedido do operador). A v5.228 tratou a série como coleção do LouvorJA porque
-  é dali que a casca do card veio — e **naquele mundo o toque BAIXA**, o que é
-  certo para uma faixa de hinário de poucos MB que existe para ficar offline.
-  Aqui a premissa não vale: são ~300 MB por episódio e o vídeo do sábado é visto
-  uma vez. `openSongMenu` desvia para `openYtMenu` antes de qualquer coisa, e
-  com isso o episódio ganha de graça a **transmissão direta** no "Tocar agora" e
-  o download só nos destinos que GUARDAM (playlist · Cronograma · Favoritos).
-  A única diferença é `semSoAudio`: o seletor Vídeo × Só áudio some, porque um
-  testemunho em vídeo não tem versão de áudio que faça sentido projetar — e uma
-  escolha que não muda nada é pior que escolha nenhuma.
-- **E A LINHA TAMBÉM É A DO VÍDEO** (v5.236). A v5.230 desviou as duas FOLHAS e
-  parou ali: o toque na LINHA continuou abrindo o acordeão da LETRA, que
-  anunciava "Letra ainda não baixada" para uma coisa que nunca vai ter letra —
-  **desviar as portas de um recurso não desvia o que estava atrás delas**, que é
-  a lição da v5.229 outra vez. Agora quem decide é o TIPO da coleção
-  (`tipoDaColecao`, com as capacidades `temLetra` e `ehLink`), e a gaveta
-  responde a mesma pergunta — *"é este mesmo?"* — com o que o item de fato tem:
-  a **miniatura**, a duração e o estado no aparelho. Os dois primeiros o extrator
-  já entregava e o índice descartava; o terceiro é o que decide, porque "Tocar
-  agora" TRANSMITE e um episódio já guardado entra do disco.
-- **A LETRA nunca é pedida para um vídeo** (v5.236). `syncLyrics` varria toda
-  coleção com itens e pedia `music_<id>` ao LouvorJA — com um id que é do
-  YouTube. Como falha de rede não grava `LYRIC_NONE` de propósito, eram ~52
-  requisições perdidas **por abertura do app, para sempre**, infladas no total
-  da notificação "Letras das músicas". A guarda é `temLetra(coll)`, nos dois
-  consumidores (a fila e o índice da busca por trecho).
-- **O card não baixa em lote, e o botão dele muda de verbo.** "Baixar" ali seria
-  o download direto que o operador pediu para não existir, na maior escala que
-  este app tem (~15 GB). O botão da barra some assim que HÁ índice — enquanto
-  não há ele fica, porque ali ele não baixa nada, busca a lista —, o item de
-  opções vira **"Atualizar a lista"** (`syncCollection(coll, { soIndice: true })`,
-  que devolve logo depois do índice) e a série sai de "Baixar toda a
-  biblioteca", peso incluído: um total que promete o que o botão não faz é a
-  pior das duas metades.
-- **O card não é desenhado abaixo do shell 41**, pela regra de sempre: um método
-  novo não chega por OTA, e um card que não carrega nada é pior que card nenhum.
+- **A descoberta é a ABA DO CANAL, nunca busca por texto.** É AUTORIDADE: numa
+  busca quem escolhe é o ranking do YouTube, e qualquer um pode nomear uma
+  playlist "Provai e Vede 2026". Vindo do publicador, o pior caso é uma playlist
+  a menos — nunca o vídeo de um desconhecido na projeção do culto.
+- **A recusa de Libras existe DUAS vezes**, e a segunda nunca dispara hoje (as
+  playlists PT e Libras são espelhos 1:1). Um único vídeo acrescentado por engano
+  na playlist oficial iria direto ao telão.
+- **O ano é EXPLÍCITO no catálogo** — "o ano corrente" trocaria o conteúdo do
+  álbum sozinho na virada de dezembro, no meio da programação de janeiro.
+- **O episódio aparece TRÊS DIAS ANTES** (`DIAS_DE_ANTECEDENCIA`): o roteiro é
+  montado durante a semana. É **contagem**, não dia da semana — sobrevive ao
+  canal que publicar num domingo. Nesses três dias o vídeo pode não estar
+  público, e falhando o download a resposta diz o que fazer ("ainda não liberado
+  pelo canal — tente mais perto de 22/Ago"), em **dois lugares**, porque são dois
+  fluxos: o cartão sobre a preview ("Tocar agora" fecha a Biblioteca) e o card da
+  série (pelo Cronograma ela continua aberta). Sem a frase, é indistinguível de
+  queda de rede.
+- **O QUE AINDA NÃO SAIU NÃO ENTRA NA LISTA** (campo `futuros`). O @daniellocutor
+  sobe o trimestre inteiro e libera um por sábado; os que faltam aparecem na
+  playlist e **não tocam**. A régua é a DATA (único sinal deste lado — o item de
+  um vídeo restrito chega idêntico ao de um liberado), o corte é INCLUSIVO no dia
+  do culto, e vídeo SEM data nunca é escondido. **É campo e não regra global**: o
+  Provai e Vede libera o mês inteiro de uma vez (medido: em 15/ago já tinha até
+  26/set, e aqueles tocam). O DIA entra também na ASSINATURA das playlists,
+  senão a economia devolveria a lista de ontem no sábado de manhã.
+- **O NOME DO ITEM pode ser SÓ A DATA** (`titulo: 'nenhum'`): no Informativo o
+  título é a série mais a data, e "o nome é o que vem antes da barra" daria 52
+  linhas idênticas. Numa lista anual a data é única. **`nomeDoItem` nunca devolve
+  vazio** — sem data e sem título ele cai no título CRU, que é feio e longo, e é
+  infinitamente melhor que uma linha em branco na lista do culto.
+- **A assinatura das playlists evita doze extrações por retomada** (a aba do canal
+  já diz quantos vídeos cada uma tem). Um episódio novo muda a contagem e a
+  assinatura inteira é refeita — "tudo ou nada" de propósito.
+- **E A REGRA ENTRA NESSA ASSINATURA** (`AVSerie.impressao`): o índice guarda os
+  nomes JÁ FORMADOS e a ordem JÁ decidida, e a assinatura do canal não sabe nada
+  sobre a regra que os produziu — sem a impressão, mudar a regra deixa o índice
+  de pé para sempre, e nem limpar o cache resolve (ele mora no IndexedDB). É um
+  hash do PRÓPRIO CÓDIGO das funções que decidem, e não um número à mão: quem
+  esquecesse de subir o número reproduziria o defeito.
+- **O índice falha com EXCEÇÃO, nunca com lista vazia.** `syncCollection` trata
+  exceção como "sem internet" e PRESERVA o índice; zero itens apagaria da tela a
+  série inteira que o operador já tem baixada, por uma oscilação de rede.
+- **`lyrics: null` no registro não é enfeite:** `songVariantsNeeded` pergunta
+  `fullRec.lyrics === undefined`, e sem o campo os 52 episódios seriam rebaixados
+  a cada sincronização, para sempre e em silêncio.
+- **`aportuguesar` em TODO extrator.** No padrão en-GB o YouTube devolve o título
+  TRADUZIDO: `(15/Ago)` viraria `(15/Aug)` e a marca de Libras mudaria de
+  palavra — as duas coisas de que a regra depende. A paginação sai do MESMO
+  extrator (`ex.getPage`), nunca de `getMoreItems(service, …)`, que monta um
+  extrator novo por dentro e nasceria sem o `forceLocalization`.
+- **UM EPISÓDIO É UM VÍDEO DO YOUTUBE**, não uma faixa de hinário: `openSongMenu`
+  desvia para `openYtMenu`, e com isso ganha de graça a transmissão direta no
+  "Tocar agora" e o download só nos destinos que GUARDAM. `semSoAudio` tira o
+  seletor Vídeo × Só áudio (um testemunho em vídeo não tem versão de áudio que
+  faça sentido projetar).
+- **E A LINHA TAMBÉM É A DO VÍDEO.** Quem decide é o TIPO da coleção
+  (`tipoDaColecao`, com `temLetra` e `ehLink`), não um `if` por recurso: a gaveta
+  que numa música abre a letra abre aqui a MINIATURA, a duração e o estado no
+  aparelho — este último é o que decide, porque "Tocar agora" TRANSMITE e um
+  episódio já guardado entra do disco. *Desviar as portas de um recurso não
+  desvia o que estava atrás delas.*
+- **A LETRA nunca é pedida para um vídeo** (`temLetra(coll)`, nos dois
+  consumidores). `syncLyrics` varria toda coleção e pedia `music_<id>` ao
+  LouvorJA com um id do YouTube; como falha de rede não grava `LYRIC_NONE` de
+  propósito, eram ~52 requisições perdidas **por abertura, para sempre**,
+  infladas no total da notificação.
+- **O card não baixa em lote, e o botão muda de verbo.** "Baixar" ali seria o
+  download direto que o operador pediu para não existir, na maior escala do app
+  (~15 GB). O botão da barra some assim que HÁ índice (sem índice ele fica —
+  ali ele busca a lista, não baixa), o item de opções vira **"Atualizar a
+  lista"** (`syncCollection(coll, { soIndice: true })`) e a série sai de "Baixar
+  toda a biblioteca", peso incluído.
+- **O card não é desenhado abaixo do shell 41** — um card que não carrega nada é
+  pior que card nenhum.
 
-### O REGISTRO da varredura — o laço de manutenção, fechado (v5.249)
+### O REGISTRO da varredura — o laço de manutenção, fechado
 
-A regra decide a partir de NOMES que um canal muda sem avisar ninguém, e os dois
-modos de errar são silenciosos **por construção**: uma playlist recusada some da
-Biblioteca sem erro no console, e um vídeo aceito sem data entra fora de ordem.
-O aparelho sabia as duas coisas no instante em que decidia — e as jogava fora.
-Quem opera via o RESULTADO (uma lista) e nunca o CAMINHO, então *"está faltando
-julho"* e *"julho veio com outro nome"* chegavam como a mesma frase.
-
-O bloco **"Séries do YouTube (o que a regra achou)"** entra no Registro de
-Configurações — mais um bloco da caixa que rola, levado pelo botão de copiar que
-já existe — e diz, por série:
+A regra decide a partir de NOMES que um canal muda sem avisar, e os dois modos de
+errar são silenciosos por construção: playlist recusada some da Biblioteca sem
+erro no console, vídeo aceito sem data entra fora de ordem. O bloco **"Séries do
+YouTube (o que a regra achou)"** entra no Registro de Configurações e diz, por
+série: o catálogo, a leitura da aba do canal (playlists aceitas e recusadas, com
+o MOTIVO), a varredura dos vídeos (vistos, entraram, recusados) e os nomes na
+ordem em que a lista mostra.
 
 ```
 · Informativo Mundial das Missões 2026 — https://www.youtube.com/@daniellocutor
@@ -1603,57 +1532,38 @@ já existe — e diz, por série:
     + "Informativo | 3º Trimestre 2026" → mês 7 · 13 vídeo(s) no canal
   vídeos (varredura há 2 min): 14 vistos, 13 entraram, 1 recusado(s)
     - "Informativo Mundial de las Misiones | 15 AGOSTO 2026" → está em outro idioma
-    ! 1 entrou(entraram) SEM data no título:
-      "Informativo Mundial das Missões | especial de encerramento"
-  nomes (13), na ordem em que a lista mostra:
-    04/Jul
-    …
+    ! 1 entrou(entraram) SEM data no título: "… | especial de encerramento"
 ```
-
-As decisões, e nenhuma é enfeite:
 
 - **O motivo sai de quem DECIDE.** `AVSerie.avaliarPlaylist`/`avaliarVideo`
   devolvem `{ mes, motivo }` e `{ motivo, data }`; `mesDaPlaylist` e
-  `itensDaPlaylist` são consumidores delas. É a regra geral que este lote
-  acrescentou ao projeto (ver "Regras de desenvolvimento").
-- **A ORDEM das perguntas é o que o texto mostra**, e por isso ela virou
-  contrato: uma playlist em espanhol do @daniellocutor sai como *"não começa com
-  Informativo"* — o prefixo é a primeira pergunta e já a elimina —, e o motivo
-  por IDIOMA fica para quem passa do prefixo, que é o caso dos VÍDEOS. O nome
-  verbatim ao lado carrega o resto.
-- **Ele guarda o nome CRU.** Um rótulo já formado ("15/Ago") prova que a regra
-  rodou; só o título que entrou nela diz por que ela produziu aquilo — e é dele
-  que sai o ajuste seguinte do `dataDoVideo`.
-- **DUAS metades com datas próprias.** A aba do canal é lida em toda passada; as
-  playlists, não — a assinatura pula as ~12 extrações quando nada mudou. Um
-  carimbo só faria o bloco anunciar como "de agora" uma lista de vídeos de três
-  dias atrás.
-- **O que ENTROU sem data é um ACHADO, não uma recusa.** É a regra de ouro em
-  ação (o vídeo entra), e é o sintoma exato que o operador relatou na v5.230 —
-  um item sem identificador de data, fora de ordem. Ele é nomeado à parte, com
-  o título cru, porque é a única coisa deste caminho que erra em silêncio **e**
-  continua funcionando.
-- **UM NOME POR LINHA.** Os dois separadores óbvios já são parte dos dados: o
-  rótulo formado tem " · " no meio e o título cru — o que sobra quando não há
-  data — tem " | ".
-- **O diário VENCE o índice.** Um aparelho que já tinha a lista a tem "fresca"
-  pelo TTL de 12 h, e passaria essas 12 h com o bloco dizendo "ainda não
-  varrido" justamente enquanto o operador o procura (foi a atualização que o fez
-  olhar). Um índice sem o carimbo `serieDiarioEm` conta como vencido —
-  `indiceVencido`, uma varredura, uma vez —, e **o carimbo é escrito nos dois
-  caminhos** do `fetchSerieIndex`, senão o canal seria extraído a cada abertura.
-- **A metade do canal é gravada ANTES do primeiro `throw`.** "Nenhuma playlist
-  no canal" é justamente o caso em que a pergunta "por quê?" mais importa, e
-  gravar depois deixaria o Registro mudo exatamente ali.
+  `itensDaPlaylist` são consumidores delas.
+- **A ORDEM das perguntas é o que o texto mostra**, e por isso virou contrato:
+  uma playlist em espanhol sai como "não começa com Informativo" — o prefixo já
+  a elimina —, e o motivo por IDIOMA fica para os VÍDEOS.
+- **Guarda o nome CRU.** Um rótulo já formado prova que a regra rodou; só a
+  entrada dela diz por que ela produziu aquilo.
+- **DUAS metades com datas próprias**: a aba do canal é lida em toda passada, as
+  playlists não (a assinatura pula as ~12 extrações). Um carimbo só anunciaria
+  como "de agora" uma lista de três dias atrás.
+- **O que ENTROU sem data é um ACHADO, não uma recusa** — é a única coisa deste
+  caminho que erra em silêncio **e** continua funcionando.
+- **UM NOME POR LINHA**: os dois separadores óbvios já são parte dos dados (" · "
+  no rótulo formado, " | " no título cru).
+- **O diário VENCE o índice.** Índice sem o carimbo `serieDiarioEm` conta como
+  vencido (`indiceVencido`) — senão um aparelho que já tinha a lista passaria as
+  12 h do TTL dizendo "ainda não varrido" justamente enquanto o operador olha. O
+  carimbo é escrito nos **dois** caminhos do `fetchSerieIndex`, senão o canal
+  seria extraído a cada abertura.
+- **A metade do canal é gravada ANTES do primeiro `throw`**: "nenhuma playlist no
+  canal" é o caso em que a pergunta "por quê?" mais importa.
 
 ### O tamanho, dito em vez de escondido
 
-São ~52 episódios de ~5 min por ano, ~300 MB cada em 1080p: o ano inteiro passa
-de 15 GB. O Informativo é metade disso (episódios de ~3 min), e metade de 15 GB
-continua sendo mais do que cabe num toque desavisado. É por isso que **não
-existe "baixar o álbum"** aqui — o uso normal é tocar o episódio do sábado, que
-TRANSMITE sem baixar nada, e guardar um episódio offline é mandá-lo ao
-Cronograma ou aos Favoritos pela folha, um a um.
+~52 episódios/ano de ~300 MB em 1080p: o ano passa de **15 GB**. Por isso **não
+existe "baixar o álbum"** — o uso normal é tocar o episódio do sábado, que
+TRANSMITE sem baixar nada; guardar offline é mandá-lo ao Cronograma ou aos
+Favoritos pela folha, um a um.
 
 ---
 
@@ -2053,290 +1963,152 @@ invisíveis) e todas as guardas `if (!window.__NATIVE__)`.
 
 ## Build e distribuição
 
-`.github/workflows/apk.yml` — o runner `ubuntu-latest` já traz JDK e Android
-SDK; nenhuma infraestrutura externa.
+`.github/workflows/apk.yml` — o runner `ubuntu-latest` já traz JDK e Android SDK;
+nenhuma infraestrutura externa.
 
 | Rota | Como | Observação |
 |---|---|---|
 | Artifact | Actions → run → *Artifacts* | vem como **.zip**; precisa descompactar no celular |
-| **Release** ⭐ | `git tag v1.0 && git push --tags` | **link direto para o .apk**; instala pelo Chrome do celular |
-| Release (sem push de tag) | Actions → *Build APK* → *Run workflow*, com `release_tag` | mesma coisa pelo disparo manual — a tag é criada pelo próprio workflow |
+| **Release** ⭐ | `git tag v1.0 && git push --tags` | **link direto para o .apk** |
+| Release manual | Actions → *Build APK* → *Run workflow*, com `release_tag` | a tag é criada pelo próprio workflow |
 
 **O `web-ota` roda com fila, sem cancelamento** (`concurrency: web-ota`,
-`cancel-in-progress: false`). Os dois assets da release `web-latest` (o zip e o
-`version.json` que carrega o `sha256` dele) são substituídos um a um, sem
-transação: duas execuções em paralelo — o merge da branch seguido de um push de
-correção é o caso normal — podem intercalar e deixar o zip de uma com o `sha256`
-da outra, e a partir daí todo aparelho baixa, confere o hash e o OTA fica INERTE
-até o próximo push em `main`, sem nenhum sinal. Cancelar no meio do upload
-produziria exatamente o mesmo estado, por isso a fila espera.
+`cancel-in-progress: false`). Os assets de `web-latest` são substituídos um a um,
+sem transação: duas execuções em paralelo (o merge seguido de um push de
+correção é o caso normal) intercalariam, e cancelar no meio do upload produz o
+mesmo estado. Ver "OTA" para o que o nome versionado do zip fecha.
 
-**Antes de publicar, o job confere a sanidade do bundle:** `node --check` em
-todo `.js` de `assets/web`, uma validação de `version.json`, os testes de
-`tools/` — o parser `sidx`, o **oráculo do contrato de `shouldInterceptRequest`**
-(`webview-range.test.mjs`, que trava a invariante 8: Node puro, determinístico,
-sem `continue-on-error`) e treze testes **em Chromium de verdade**, em DOIS
-PASSOS desde a v5.213 — `Preparar o Chromium` (o `npm i` e o
-`playwright install`, com `continue-on-error`) e `Oráculos em Chromium`, que
-depende do primeiro ter dado certo.
+### Os oráculos
 
-> **A separação é o que dá sentido ao `continue-on-error`, e ela nasceu de um
-> defeito que o painel verde escondia.** Eles rodavam num passo só, com
-> `set -euo pipefail`: o PRIMEIRO que reprovasse abortava os ONZE seguintes — e
-> como o passo era `continue-on-error`, o run ficava verde. Descobrir isso
-> exigia abrir o log e reparar em qual linha ele tinha parado. A justificativa
-> do `continue-on-error` sempre foi INFRAESTRUTURA (download do Chromium, runner
-> sem rede), e infraestrutura agora é o primeiro passo, sozinho; o segundo ficou
-> com uma causa só de falhar, roda os doze SEMPRE (nenhum aborta o próximo),
-> emite `::error::` por reprovado e escreve o placar (`N/M passaram`, os dois
-> CONTADOS — eram doze quando este parágrafo foi escrito e são treze hoje) no
-> **resumo do run**, onde se lê sem abrir log nenhum. `N` é CONTADO, nunca
-> digitado: um número fixo ali envelheceria no primeiro oráculo novo — e
-> envelheceria mentindo. O segundo passo SEGUE com `continue-on-error`, e isso é
-> a política intacta e não esquecimento: barrar o canal OTA por um teste de
-> navegador continua sendo trocar um risco raro por um bloqueio frequente. O que
-> mudou é que agora essa escolha é uma linha só.
+Antes de publicar: `node --check` em todo `.js` de `assets/web`, validação do
+`version.json`, e a suíte abaixo.
 
-Os doze: a **fumaça** que sobe a base web e usa a tela
-(`smoke.mjs`), o **BOOT COM A PONTE PRESENTE** (`boot-nativo.test.mjs`, v5.195 —
-o `smoke` sobe a base SEM `__AVBridge`, e por isso todo caminho guardado por
-`window.__NATIVE__` nunca era executado por teste nenhum: são justamente os que
-só rodam no aparelho. A v5.195 saiu com um `const` em zona morta temporal dentro
-de um `if (espelhoDisponivel())` — verde no CI, tela PRETA no celular, e o
-watchdog do OTA descartando o bundle no lançamento seguinte. Ele injeta uma
-ponte de mentira e pergunta o que o watchdog pergunta: o app ficou de pé?), as **mensagens de falha** da transmissão direta
-(`mse.test.mjs`), a **transição de entrada do palco** (`stage-fade.test.mjs`),
-o **coletor de lixo do banco** (`db-gc.test.mjs` — o único código do app que
-apaga mídia do operador), as **contas da biblioteca** (`acervo.test.mjs`:
-"completa?" e "quanto ocupa?", que eram respondidas por fórmulas diferentes na
-mesma tela) e **o que a ponte de fato entrega** (`ponte.test.mjs` — `native.js`
-REMONTA campo a campo os objetos que manda ao Kotlin, e um campo esquecido some
-em silêncio: `optBoolean`/`optLong` leem ausente como `false`/`0`, que são
-valores legítimos) e **o TELÃO** (`display-smoke.mjs`, v5.140 — até ele
-**nenhum** teste carregava `/display/`: a fumaça abre o Controle e o
-`stage-fade` monta o palco à mão, então a metade que roda na frente da
-congregação era a metade que a CI nunca executou, e é justamente a que menos
-rede de segurança tem, porque o watchdog do OTA também não a valida. Ele trava
-também o endereçamento do reenvio de cena) e **os DESTINOS das folhas de
-escolha** (`destinos.test.mjs`, v5.141 — o que está marcado tem de atravessar o
-fechamento da folha: a ação roda depois de `closeSongMenu()`, que zera o
-conjunto, e uma leitura tarde demais mandaria o item para UM destino em vez de
-dois, sem erro nenhum) e **A CENA** (`cena.test.mjs`, v5.142 — o que o telão
-mostra ao RECONECTAR. `currentId` sobrevive de propósito ao stop e ao fim
-natural, então reenviar a cena por ele fazia o telão acordar tocando o que o
-operador tinha parado; e a reconexão do dongle é o caminho menos testável à mão,
-porque exige TV, dongle e o timing de derrubá-lo) e **O REGISTRO**
-(`registro.test.mjs`, v5.206 — o único artefato do app cujo consumidor é um
-HUMANO A DISTÂNCIA: todo o resto falha na frente de quem pode ver, e ele falha
-CONTINUANDO A RESPONDER com uma frase errada. Nenhum teste o carregava, e por
-aí passaram três defeitos ao mesmo tempo — o `ritmo` zerado imprimindo "ALARME:
-ISTO É UM RETÂNGULO PRETO" em todo culto, toda tela conectada acusada de rodar
-"bundle antigo", e um "modo: imagem (JPEG)" de um modo removido dez versões
-antes. Ele cobra as DUAS metades: nenhuma palavra de recurso aposentado, e o
-que o operador foi buscar presente — sem a segunda, apagar o bloco inteiro
-passaria) e **O FLUXO DE ATUALIZAÇÃO** (`ota.test.mjs`, v5.234 — o único
-caminho do app cujo defeito NÃO TEM SINTOMA: quando a atualização não chega,
-nada quebra e nada erra alto, e o operador só continua na versão de anteontem
-sem saber. Foi assim por dezenas de versões, e a v5.151 chegou a REMOVER a
-pergunta por concluir que ela "nunca aparecia" — era o espelho ligado
-suprimindo o diálogo, e isso levou meses para ser identificado. Nenhum teste o
-tocava: o `smoke` sobe sem ponte e todo o bloco é `window.__NATIVE__`, e o
-`boot-nativo` prova o boot, não o fluxo. Ele afirma a pergunta nos dois casos —
-com e sem Release —, o "Deixar para depois", o rótulo que continua marcando, e
-a INTENÇÃO atravessando um `reload()` de verdade para virar a instalação do
-APK).
-O telão nas telas da rede acrescentou mais dois: a **varredura de contexto
-seguro** (`contexto-seguro.test.mjs`, que procura `VideoDecoder`, `wakeLock`,
-`audioWorklet`, `randomUUID` e `crypto.subtle` fora de uma guarda
-`isSecureContext` dentro de `assets/web/espelho/` **e de
-`assets/web/display/`** — desde a v5.187 o display INTEIRO roda em `http://`
-nas telas da rede, e ali essas APIs vêm `undefined`) e **a TELA DA REDE de
-ponta a ponta** (`tela-rede.test.mjs`, v5.187, Chromium de verdade contra um
-servidor de mentira que fala o protocolo do `EspelhoServidor`: o código de
-entrada certo e o errado, o token que NUNCA aparece numa URL, o
-`display-ready` endereçado, versículo com acento intacto, o cronômetro com o
-relógio da tela 90 s errado — corrigido pela mediana dos pings —, o dreno de
-subida, a mídia por `/m/` via `__rec`, o wallpaper por `__wp`, o `tela-aviso`,
-a reconexão que se re-anuncia e o `adeus` que NÃO martela). A lição da v5.145
-fica escrita porque continua valendo: **teste que não está no workflow é
-documentação, não rede de segurança** — o `tela-rede` entrou no `apk.yml` no
-mesmo commit em que nasceu.
+**Node puro, SEM `continue-on-error`** — reprovar aqui barra o build:
 
-> **E ELE PRECISA SER TÃO RESTRITO QUANTO O SERVIDOR DE VERDADE** (v5.204/v5.205,
-> a lição mais cara da primeira ligada em rede real). Ele entregava o HTML **sem
-> a CSP** e carregava a página com `?tela=1` **na mão** — isto é, provava o
-> percurso num ambiente mais permissivo e por um caminho que o aparelho pode não
-> receber. As duas divergências esconderam dois defeitos ao mesmo tempo: o estilo
-> da entrada bloqueado (`<style>` em runtime × `default-src 'self'`) e o papel
-> dependendo de uma query que se perde. Hoje ele injeta a marca do papel como o
-> servidor injeta, manda a CSP verbatim, roda **sem query nenhuma** e AFIRMA a
-> garantia que a CSP existe para dar (a IFrame API do YouTube barrada). **Um
-> servidor de mentira que diverge do de verdade não prova nada.**
->
-> E a instabilidade dele foi consertada no mesmo lote: falhava em duas de cada
-> três execuções e "passava na segunda tentativa", porque esperava o servidor
-> RECEBER o `POST /par` e lia a frase de erro no instante seguinte, quando quem a
-> escreve é o cliente, depois da resposta. Com `continue-on-error` no `apk.yml`,
-> um teste assim não é rede de segurança: é ruído que ensina a ignorar vermelho.
+| oráculo | o que trava |
+|---|---|
+| `webview-range.test.mjs` | a **invariante 8**: o `InputStream` de `shouldInterceptRequest` é o recurso INTEIRO |
+| `sombra.test.mjs` | nenhuma função da base pode redeclarar um nome de módulo — `node --check` APROVA um `const ms` que sombreia a `ms` do módulo, e o que sai é `ReferenceError` por zona morta temporal |
+| `tokens.test.mjs` | nenhum `var(--x)` **sem fallback** aponta para token inexistente (um `var()` inválido computa para o valor INICIAL, sem aviso); nenhum token só no tema claro; **nenhuma regra desenha contorno**. `var(--x, fallback)` é legítimo (valores que o JS entrega em runtime) |
+| `serie.test.mjs` | quais playlists e vídeos entram no álbum. **Entradas VERBATIM do canal** — nomenclatura imaginada prova só que o código concorda com quem o escreveu |
+| `sidx.test.mjs` | o parser `sidx` |
 
-A v5.154 acrescentou o **oráculo da SOMBRA** (`tools/sombra.test.mjs`, Node puro,
-**sem `continue-on-error`**): nenhuma função da base web pode redeclarar um nome
-de módulo. Ele existe porque `node --check` **aprova** um `const ms = …` dentro
-de uma função que lê a `ms` do módulo na primeira linha, e o que sai disso é um
-`ReferenceError` por zona morta temporal — no espelho, a cada 500 ms, só nas
-telas que tinham ligado o som (ver a auditoria na seção do recurso). A varredura
-é por indentação, o que este código consegue por ser uniformemente formatado, e
-a medição diz que ela não é ruidosa: nos onze arquivos da base, com o defeito no
-lugar, o único achado era ele. (O caso da **despedida** — o `adeus` recebido
-faz a tela PARAR, nada de martelar uma porta fechada — nasceu ali e hoje vive
-no `tela-rede.test.mjs`.)
+**Chromium de verdade, em DOIS PASSOS:** `Preparar o Chromium` (o `npm i` e o
+`playwright install`, **com** `continue-on-error` — infraestrutura) e `Oráculos
+em Chromium`, que depende do primeiro. O segundo **segue** com
+`continue-on-error` (barrar o canal OTA por um teste de navegador é trocar um
+risco raro por um bloqueio frequente), mas roda **todos SEMPRE** — nenhum aborta
+o próximo —, emite `::error::` por reprovado e escreve o placar `N/M` no **resumo
+do run**. `N` e `M` são CONTADOS, nunca digitados: um número fixo envelheceria no
+primeiro oráculo novo, e envelheceria mentindo.
 
-A v5.228 acrescentou o **oráculo da SÉRIE** (`tools/serie.test.mjs`, Node puro,
-**sem `continue-on-error`**): quais playlists de um canal formam o álbum e quais
-vídeos entram nele. Os dois modos de errar são silenciosos e caros — aceitar
-demais põe a versão em LIBRAS em par com a de português (o álbum dobra, com o
-intérprete na projeção sem ninguém ter pedido) e aceitar de menos apaga um MÊS
-inteiro da Biblioteca sem erro no console. **As entradas são VERBATIM do canal**,
-incluindo a playlist que não tem o hífen que todas as outras têm: uma
-nomenclatura imaginada prova só que o código concorda com quem o escreveu. O
-percurso de ponta a ponta — canal → regra → card → lista ordenada — entrou no
-`boot-nativo.test.mjs`, que é o único que sobe a base COM a ponte e por isso o
-único capaz de exercitá-lo.
+> Eles rodavam num passo só com `set -euo pipefail`: o PRIMEIRO reprovado
+> abortava os outros, e como o passo era `continue-on-error` o run ficava
+> **verde**. Descobrir isso exigia abrir o log e reparar onde ele parou.
 
-A v5.175 acrescentou o **oráculo dos TOKENS** (`tools/tokens.test.mjs`, Node
-puro, **sem `continue-on-error`**): nenhum `var(--x)` **sem fallback** pode
-apontar para um token que não existe. Ele é o irmão do oráculo da sombra, e pela
-mesma razão — um `var()` inválido sem fallback não é erro em lugar nenhum: a
-declaração inteira computa para o valor INICIAL da propriedade, sem aviso no
-console e sem sintoma no lugar da causa. Na v5.171 isso deixou os DOIS botões
-principais da folha "Conectar uma tela" com `border-radius: 0`, os únicos cantos
-retos de um app inteiro arredondado, e foi preciso um par de olhos no aparelho
-para vê-lo. `var(--x, fallback)` **não** é reprovado: é o idioma legítimo dos
-valores que o JS entrega em tempo de execução (`--vol`, `--ch`, `--tab-w`).
+| oráculo | o que cobre, e por que existe |
+|---|---|
+| `smoke.mjs` | sobe a base e usa a tela; mede o RENDERIZADO nos dois temas (palco sem tema, escada de camadas, contorno) |
+| `boot-nativo.test.mjs` | **o boot COM a ponte presente** — o `smoke` sobe SEM `__AVBridge`, então todo caminho `window.__NATIVE__` (justamente os que só rodam no aparelho) nunca era executado. Injeta uma ponte de mentira e pergunta o que o watchdog pergunta: o app ficou de pé? |
+| `display-smoke.mjs` | **o TELÃO** — a metade que roda na frente da congregação, e a que menos rede de segurança tem (o watchdog do OTA não a valida). Viewport fixo em 961×540, explicitamente. Trava o endereçamento do reenvio de cena |
+| `ota.test.mjs` | **o fluxo de atualização** — o único caminho cujo defeito NÃO TEM SINTOMA: nada quebra, o operador só continua na versão de anteontem. Afirma a pergunta com e sem Release, o "depois", e a INTENÇÃO atravessando um `reload()` de verdade |
+| `registro.test.mjs` | **o Registro** — o único artefato cujo consumidor é um HUMANO A DISTÂNCIA: ele não falha calado, falha CONTINUANDO A RESPONDER com frase errada. Cobra as duas metades: nenhuma palavra de recurso aposentado **e** o que o operador foi buscar presente |
+| `tela-rede.test.mjs` | **a tela da rede de ponta a ponta**, contra um servidor de mentira que fala o protocolo do `EspelhoServidor` |
+| `ponte.test.mjs` | **o que a ponte de fato ENTREGA** — `native.js` REMONTA campo a campo, e um campo esquecido some em silêncio. Afirma também que ele não drena papel nenhum e que o display emite as quatro mensagens (`display-ready`, `display-status`, `media-ended`, `mic-status`) — quem filtra é o `tela.js`, nunca a fonte |
+| `cena.test.mjs` | o que o telão mostra ao RECONECTAR (o caminho menos testável à mão: exige TV, dongle e o timing de derrubá-lo) |
+| `destinos.test.mjs` | o que está marcado atravessa o fechamento da folha — a ação roda depois de `closeSongMenu()`, que zera o conjunto |
+| `db-gc.test.mjs` | o coletor de lixo — o único código do app que APAGA mídia do operador |
+| `acervo.test.mjs` | as contas da Biblioteca ("completa?" e "quanto ocupa?"), que já foram respondidas por fórmulas diferentes na mesma tela |
+| `contexto-seguro.test.mjs` | `VideoDecoder`, `wakeLock`, `audioWorklet`, `randomUUID`, `crypto.subtle` fora de guarda `isSecureContext` em `espelho/` **e `display/`** — o display INTEIRO roda em `http://` nas telas da rede, e lá essas APIs vêm `undefined` |
+| `mse.test.mjs` · `stage-fade.test.mjs` | mensagens de falha da transmissão direta · a transição de entrada do palco |
 
-O `ponte.test.mjs` afirma desde a v5.187 que **o `native.js` não drena papel
-nenhum** (o dreno de subida mora em `tela.js`, e o relay nativo repassa tudo em
-qualquer papel — inclusive no `display`, o par negativo que impede o dreno de
-vazar para o telão de verdade) e que o **display emite as quatro mensagens**
-(`display-ready`, `display-status`, `media-ended`, `mic-status`) — é o
-`tela.js` quem filtra, nunca a fonte. O `display-smoke.mjs` fixa o viewport em
-**961×540**, explicitamente: ele rodava no default do Playwright por acidente,
-e fixado ali ele prova o layout do telão numa tela pequena sem aparelho.
+> **Um servidor de mentira que diverge do de verdade não prova nada.** O
+> `tela-rede` já entregou o HTML **sem a CSP** e com `?tela=1` na mão — provando
+> o percurso num ambiente mais permissivo e por um caminho que o aparelho pode
+> não receber. Isso escondeu dois defeitos ao mesmo tempo. Hoje ele injeta a
+> marca do papel como o servidor injeta, manda a CSP verbatim e roda **sem query
+> nenhuma**.
 
-**E há um passo de JUnit no CI desde a v5.143:** `./gradlew testDebugUnitTest`,
-**sem `continue-on-error`**, antes do `assembleRelease`, cobrindo os arquivos
-PUROS do espelho (`app/src/test/.../EspelhoHttpTest.kt` e
-`EspelhoParesTest.kt`): tetos do parser, `read()` parcial, `Host` fora da
-allowlist, `Origin` estranha, 404 uniforme, o código de três dígitos, prazo,
-bloqueio CRESCENTE por origem, teto de sessões e saneamento. **A v5.187
-acrescentou dois oráculos à mesma família**: `EspelhoHttpRangeTest.kt` (a
-gramática RFC 7233 inteira do `alcanceDe` — malformado é IGNORADO e vira 200,
-nunca adivinhado; `Range` duplicado é malformado; sufixo, cauda aberta e 416 —
-que é a inversão da invariante 8 escrita como código, e por isso não podia
-ficar sem oráculo) e `EspelhoMidiaCacheTest.kt` (o token-capacidade da rota
-`/m/`: mesmo id + mesmo token = mesmo item, token novo substitui e MATA o
-velho, cancelado nunca é servível, LRU por bytes só de completos). É a
-fronteira de rede do projeto, e é o único lugar dele em que um erro vira
-controle de acesso quebrado em vez de pixel errado — ver a quarta exceção nas
-regras de desenvolvimento.
+**JUnit** (`./gradlew testDebugUnitTest`, **sem `continue-on-error`**, antes do
+`assembleRelease`) — os arquivos PUROS: `EspelhoHttpTest` (tetos do parser,
+`read()` parcial, `Host` fora da allowlist, `Origin` estranha, 404 uniforme),
+`EspelhoParesTest` (prazo, teto de sessões, saneamento), `EspelhoHttpRangeTest`
+(a gramática RFC 7233 do `alcanceDe` — malformado é IGNORADO e vira 200, nunca
+adivinhado; é a **inversão da invariante 8** escrita como código),
+`EspelhoMidiaCacheTest` (o token-capacidade da rota `/m/`) e `TrilhaAudioTest`
+(qual trilha de áudio vai ao telão — o defeito mais silencioso deste caminho:
+tudo funciona, e o testemunho está em inglês na frente da congregação; doze casos
+**em pares**, o que a regra passou a recusar e o que ela não pode ter recusado
+junto).
 
-**A v5.242 acrescentou o quinto, e ele é de outra família:**
-`TrilhaAudioTest.kt`, sobre `TrilhaAudio.kt` — **qual trilha de áudio vai ao
-telão** quando o YouTube dubla o vídeo sozinho. Ele não guarda uma fronteira de
-rede; guarda o defeito mais SILENCIOSO deste caminho: o download funciona, o
-vídeo entra em cena, a barra anda — e o testemunho está em inglês, na frente da
-congregação. O resto do `YoutubeGrab` é rede, biblioteca de terceiro e
-`MediaMuxer`, e nada disso se testa sem aparelho; a REGRA que decide o idioma
-cabe num arquivo puro, e é por isso que ela mora nele. Doze casos, em pares:
-o que a regra passou a recusar **e** o que ela não pode ter passado a recusar
-junto (um vídeo genuinamente estrangeiro continua tocando).
+**Duas regras de método que ficam:**
 
-Eles existem porque `node --check` prova que o arquivo é
-PARSEÁVEL, não que o app funciona — a v5.121 saiu com um botão chamando uma
-função apagada, sintaxe perfeita e CI verde. O canal OTA publica
-direto para a frota, e o watchdog de boot **não evita o primeiro estrago** —
-`beginSession()` arma o `pending` e SERVE o bundle; só o lançamento seguinte o
-descarta. Ou seja: um lançamento quebrado por aparelho, garantido, e se for o do
-culto o operador fica sem sistema até fechar e reabrir o app. Não substitui teste
-de comportamento; garante que o bundle carrega.
+- **Teste que não está no workflow é documentação, não rede de segurança.**
+- `node --check` prova que o arquivo é PARSEÁVEL, não que o app funciona — a
+  v5.121 saiu com um botão chamando função apagada, sintaxe perfeita e CI verde.
+  O canal OTA publica direto para a frota e o watchdog **não evita o primeiro
+  estrago** (`beginSession()` arma o `pending` e SERVE o bundle; só o lançamento
+  seguinte descarta): um lançamento quebrado por aparelho, garantido.
 
-**Assinatura.** As Releases saem **assinadas com keystore fixa**, guardada nos
-secrets do repositório (`KEYSTORE_B64` — o `.jks` em base64 —, `KEY_ALIAS` e
-`KEY_PASSWORD`). É isso que permite **atualizar por cima sem desinstalar**, e
-por consequência **sem perder a biblioteca do app**: o Cronograma, as pastas
-sincronizadas, os hinos do LouvorJA e a Bíblia baixada vivem em IndexedDB/OPFS,
-que o Android apaga junto com o app numa desinstalação.
+### Assinatura
 
-- O `.jks` **nunca é versionado** (`.gitignore`); o build o materializa a
-  partir do secret e o descarta com o runner. A decodificação usa
-  `Base64.getMimeDecoder()`, e não o BASIC: o `base64` do GNU coreutils quebra a
-  linha a cada 76 caracteres por padrão, e quem for rotacionar a keystore cola
-  exatamente essa saída no secret — o decodificador BASIC lança diante de
-  qualquer `\n`, e `trim()` só limpa as pontas.
-- Sem os secrets (build local, PR de terceiro, clone), o `build.gradle.kts` cai
-  na assinatura de **debug** e tudo continua compilando — só não serve para
-  atualizar por cima.
-- **Publicar exige a chave, e agora isso é dito em vez de deduzido.** O passo de
-  Release passa `-PrequireSigning=true`, e o próprio Gradle reprova a ausência da
-  keystore: quem sabe se ela existe é ele. A guarda anterior era **código
-  morto** — deduzia da existência de `app-release.apk`, mas o AGP só acrescenta
-  o sufixo `-unsigned` quando a variante não tem signingConfig NENHUM, e o
-  fallback de debug atribui um. O arquivo existia sempre, a etapa era pulada, e
-  o que saía era uma Release assinada com a `debug.keystore` gerada pelo runner
-  **naquela execução** — chave diferente a cada run,
-  `INSTALL_FAILED_UPDATE_INCOMPATIBLE` no aparelho, e como única saída
-  desinstalar, apagando IndexedDB/OPFS.
-- **Cinto e suspensório:** depois do build, o CI pergunta ao `apksigner` QUEM
-  assinou o APK que vai ser publicado e falha se encontrar `CN=Android Debug`
-  (que é fixo na chave de debug do Android, então o teste é exato e não depende
-  de conhecer o CN da keystore de produção).
-- **`versionCode` vem da CONTAGEM DE COMMITS** (`git rev-list --count HEAD`),
-  mais um deslocamento de 100000 — daí o `fetch-depth: 0` no checkout, senão um
-  clone raso devolveria 1. Não vem mais do número da execução: `github.run_number`
-  conta por WORKFLOW, e renomear o `apk.yml` reinicia a contagem em 1, o que
-  derrubaria o `versionCode` e forçaria desinstalar. O deslocamento existe para o
-  primeiro APK desta regra ficar acima do último publicado pela regra antiga —
-  se um dia um `versionCode` já publicado chegar perto dele, **aumente** o
-  deslocamento, nunca o diminua. O `versionName` vem da tag.
-- **Num disparo manual com `release_tag` o checkout usa `main`.** A tag nasce lá
-  (`target_commitish: main`), e sem isso o APK podia ser compilado de uma branch
-  de trabalho enquanto a tag apontava para `main`: binário publicado ≠ commit da
-  tag. Vale a ressalva: `target_commitish` só é usado pela API do GitHub para
-  CRIAR a ref quando ela ainda não existe — no fluxo documentado
-  (`git tag && git push --tags`) a tag já existe e o campo não faz nada. Quem
-  garante a coerência no disparo manual é o `ref: main` do checkout.
-- O input **`retag`** (desligado por padrão) apaga a Release e a tag antes de
-  recriá-las — é o único jeito de MOVER uma tag já publicada, já que o
-  `action-gh-release` não move tag existente. Fica atrás de um input próprio de
-  propósito: mover tag é destrutivo e não pode ser efeito colateral de uma
-  publicação comum.
-- Perder a keystore é irreversível: sem ela, toda atualização futura volta a
-  exigir desinstalação. Guarde com backup.
+Releases saem **assinadas com keystore fixa** (secrets `KEYSTORE_B64`,
+`KEY_ALIAS`, `KEY_PASSWORD`). É isso que permite **atualizar por cima sem
+desinstalar** — e sem perder a biblioteca, que vive em IndexedDB/OPFS e o Android
+apaga junto com o app.
 
-**Backup com regras** (`res/xml/backup_rules.xml` e
-`res/xml/data_extraction_rules.xml`). `allowBackup="true"` sozinho leva tudo o
-que está no diretório de dados, e duas coisas não podem ir:
+- O `.jks` **nunca é versionado**; o build o materializa do secret. Decodificação
+  com `Base64.getMimeDecoder()`, **não** o BASIC: o `base64` do GNU quebra linha
+  a cada 76 caracteres, e o BASIC lança diante de qualquer `\n` (`trim()` só
+  limpa as pontas).
+- Sem os secrets (build local, PR de terceiro), cai na assinatura de **debug** e
+  tudo compila — só não serve para atualizar por cima.
+- **Publicar exige a chave:** o passo de Release passa `-PrequireSigning=true` e o
+  Gradle reprova a ausência. A guarda anterior deduzia da existência de
+  `app-release.apk` e era **código morto** — o AGP só acrescenta `-unsigned`
+  quando a variante não tem signingConfig NENHUM, e o fallback de debug atribui
+  um. Saía uma Release assinada com a `debug.keystore` do runner **daquela
+  execução**: `INSTALL_FAILED_UPDATE_INCOMPATIBLE`, com desinstalar como única
+  saída.
+- **Cinto e suspensório:** o CI pergunta ao `apksigner` quem assinou e falha se
+  achar `CN=Android Debug` (fixo na chave de debug, então o teste é exato).
+- **`versionCode` vem da CONTAGEM DE COMMITS** (`git rev-list --count HEAD`) mais
+  um deslocamento de 100000 — daí o `fetch-depth: 0` (clone raso devolveria 1).
+  Não vem de `github.run_number`, que conta por WORKFLOW: renomear o `apk.yml`
+  reiniciaria em 1 e forçaria desinstalar. Se um `versionCode` publicado chegar
+  perto do deslocamento, **aumente**-o, nunca o diminua. O `versionName` vem da
+  tag.
+- **No disparo manual, o checkout usa `main`** — senão o APK sairia de uma branch
+  de trabalho enquanto a tag aponta para `main`. (`target_commitish` só é usado
+  para CRIAR a ref quando ela não existe; no fluxo com `git push --tags` ele não
+  faz nada.)
+- **`retag`** (desligado por padrão) apaga Release e tag antes de recriá-las — é o
+  único jeito de MOVER uma tag publicada. Fica atrás de input próprio de
+  propósito: mover tag é destrutivo e não pode ser efeito colateral.
+- Perder a keystore é irreversível.
 
-- `files/web-ota/` e `shared_prefs/web-ota.xml` são o bundle OTA extraído e o
-  ponteiro para ele — **CÓDIGO** que roda no origin privilegiado, com acesso a
-  `__AVBridge`. Restaurar um backup adulterado plantaria JavaScript arbitrário
-  sem passar por nenhuma das três garantias: não há download, não há conferência
-  de `sha256`, e a válvula `minShell` só existe no caminho do download. Nada ali
-  precisa sobreviver à troca de aparelho — o APK traz a base web embutida e o
-  `check()` seguinte rebaixa o bundle de novo.
-- `app_webview/` é IndexedDB/OPFS, a biblioteca do app, que passa facilmente de
-  gigabytes.
+### Backup com regras
 
-A diferença entre os dois destinos é deliberada: o backup em **nuvem** tem cota
-de 25 MB por app, então com `app_webview` dentro ele não protegia a biblioteca
-(não cabe) e ainda arriscava reprovar o backup inteiro; a **transferência direta**
-entre aparelhos não tem essa cota, e ali copiar a biblioteca é justamente o que o
-operador quer ao trocar de celular. Por isso `app_webview` só sai da nuvem. São
-**dois arquivos porque o Android mudou o formato** (o antigo vale da API 26 à 30,
-o novo da 31 em diante), não porque as decisões sejam diferentes — qualquer
-exclusão nova precisa entrar nos dois.
+`res/xml/backup_rules.xml` e `res/xml/data_extraction_rules.xml` —
+`allowBackup="true"` sozinho leva tudo, e duas coisas não podem ir:
 
-Rodar local: `./gradlew assembleDebug` (exige Android SDK instalado).
+- **`files/web-ota/` e `shared_prefs/web-ota.xml`** — o bundle extraído e o
+  ponteiro para ele, isto é, **CÓDIGO** que roda no origin privilegiado com
+  acesso a `__AVBridge`. Um backup adulterado plantaria JS arbitrário sem passar
+  por nenhuma das três garantias (não há download, nem `sha256`, e `minShell` só
+  existe no caminho do download). Nada ali precisa sobreviver à troca de
+  aparelho.
+- **`app_webview/`** — IndexedDB/OPFS, que passa de gigabytes.
+
+A diferença entre os destinos é deliberada: o backup em **nuvem** tem cota de
+25 MB (com `app_webview` dentro ele não protegia a biblioteca e ainda arriscava
+reprovar o backup inteiro); a **transferência direta** não tem cota, e ali copiar
+a biblioteca é o que o operador quer ao trocar de celular. Por isso `app_webview`
+só sai da nuvem. **São dois arquivos porque o Android mudou o formato** (o antigo
+vale da API 26 à 30, o novo da 31 em diante) — qualquer exclusão nova entra nos
+dois.
+
+Rodar local: `./gradlew assembleDebug` (exige Android SDK).
 
 ---
 
