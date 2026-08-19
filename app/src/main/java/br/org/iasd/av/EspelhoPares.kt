@@ -5,102 +5,68 @@ import java.security.SecureRandom
 import java.util.Base64
 
 /**
- * O controle de acesso do telão por comandos: os tokens, o prazo e o castigo
- * de quem foi derrubado. **ZERO import de Android**, pelo mesmo
- * motivo do [EspelhoHttp] — este e aquele são as duas peças em que um erro não
- * vira pixel errado, e sim porta aberta, e são as duas que o JUnit cobre (ver a
- * QUARTA EXCEÇÃO declarada no `dependencies` de `app/build.gradle.kts`).
+ * O controle de acesso do telão por comandos: tokens, prazo e o castigo de quem
+ * foi derrubado. **ZERO import de Android**, pelo mesmo motivo do [EspelhoHttp]:
+ * este e aquele são as duas peças em que um erro não vira pixel errado e sim
+ * porta aberta, e são as duas que o JUnit cobre.
  *
- * O `EspelhoServidor` (P5) faz sockets e threads e **não decide nada que este
- * arquivo decida**: ele pergunta e obedece, exatamente como o
- * `MainActivity.handleBack()` pergunta ao `window.__avBack`.
+ * O `EspelhoServidor` faz sockets e threads e **não decide nada que este arquivo
+ * decida** — ele pergunta e obedece.
  *
- * ## As nove invariantes
+ * ## As invariantes
  *
  * 1. **Token de 128 bits em base64url, `SecureRandom`** — aleatório, não
- *    contador, opaco. É o mesmo desenho do `SafRegistry`
- *    (`SafPathHandler.kt`), e o mesmo motivo: um contador é adivinhável por
- *    construção.
- * 2. **O token NUNCA viaja numa URL.** Nem em `?t=`, nem em fragmento.
- *    Ele vive no `sessionStorage` do cliente e sobe em `Authorization: Bearer` —
- *    e é por isso que [validar] recebe o cabeçalho CRU e faz ela mesma a leitura
- *    do esquema: deixar o servidor fatiar uma string vinda da rede é exatamente o
- *    tipo de decisão que esta separação existe para impedir. URL vaza para
- *    histórico, para cache, para captura de tela e para compartilhamento de tela;
- *    e é por isso que todo pedido do cliente é `fetch` — um `<img src>` ou um
- *    `<video src>` não mandariam `Authorization`.
- * 3. **O token tem prazo e morre com a sessão.** [desligar] zera tudo; não existe
- *    token que sobreviva ao culto. O prazo é FIXO a partir da aprovação
- *    ([PRAZO_SESSAO_MS]) e **não é renovado pelo uso**: uma janela deslizante
- *    nunca expira enquanto alguém a usar, o que é precisamente o caso do token
- *    vazado sendo usado por outro. O uso é CARIMBADO ([Sessao.ultimoUsoMs]) e
- *    isso não é uma janela deslizante disfarçada: o carimbo só faz uma sessão
- *    morrer MAIS CEDO — ele é o que permite a [liberarVagaOciosa] tomar a vaga
- *    de quem já foi embora, e nunca estende o prazo de ninguém.
- * 4. **Comparação em tempo constante** (`MessageDigest.isEqual`) para o token.
- *    E, pelo mesmo motivo, as sessões vivem numa LISTA percorrida
- *    inteira: um `HashMap[token]` compara por hash e sai na primeira diferença —
- *    seria jogar fora, no lookup, o cuidado tomado na comparação. Com teto de
- *    três sessões, percorrer é de graça.
- * 5. **A PORTA É O ENDEREÇO, e quem o abre ENTRA — sem código, sem fila**
- *    (v5.189).
- *
- *    São quatro desenhos até aqui, e este é o segundo a chegar na porta aberta —
- *    agora por uma razão que os outros três não tinham. O primeiro era "seis
- *    dígitos ⇒ a tela vira PENDENTE e o operador aprova numa lista"; o segundo
- *    (v5.170) abriu a porta com o QR e os seis dígitos como plano B; o terceiro
- *    (v5.185) exigiu três dígitos, porque o gesto único do visitante torna
- *    impossível qualquer fila de aprovação. Este remove o código.
- *
- *    **O argumento é do operador, e é sobre o que o segredo protegia:** cada
- *    tela precisa do ENDEREÇO deste aparelho nesta rede para chegar aqui, e
- *    esse endereço já é, na prática, a credencial — quem não configurou a tela
- *    não o tem, e ele muda de rede para rede e de sessão para sessão. Somado ao
- *    que já valia (o conteúdo é o que a congregação inteira está vendo; o dano
- *    de um curioso é ocupar uma das três vagas, nunca ver a projeção), o
- *    código cobrava um degrau de digitação em todo culto para proteger algo que
- *    o endereço já protege.
- *
- *    O que SEGURA o recurso continua no lugar, e é o que sempre foi o controle
- *    real: o teto de [MAX_SESSOES], o [derrubar] do operador com o castigo de
- *    [BLOQUEIO_DERRUBADA_MS] — sem ele o botão "Desconectar" seria um botão que
- *    não faz nada, porque a tela derrubada voltaria em dois segundos — e o
+ *    contador, opaco (o mesmo desenho do `SafRegistry`: um contador é
+ *    adivinhável por construção).
+ * 2. **O token NUNCA viaja numa URL** — nem em `?t=`, nem em fragmento. URL vaza
+ *    para histórico, cache, captura e compartilhamento de tela. Ele vive no
+ *    `sessionStorage` e sobe em `Authorization: Bearer`, e é por isso que todo
+ *    pedido do cliente é `fetch`: um `<img src>` ou `<video src>` não mandariam
+ *    o cabeçalho. [validar] recebe o cabeçalho CRU e faz ela mesma a leitura do
+ *    esquema — deixar o servidor fatiar string vinda da rede é o tipo de decisão
+ *    que esta separação existe para impedir.
+ * 3. **O token tem prazo FIXO e morre com a sessão** ([PRAZO_SESSAO_MS];
+ *    [desligar] zera tudo). **Não é renovado pelo uso:** uma janela deslizante
+ *    nunca expira enquanto alguém a usar, que é precisamente o caso do token
+ *    vazado. O carimbo de uso ([Sessao.ultimoUsoMs]) só faz uma sessão morrer
+ *    MAIS CEDO — é o que permite a [liberarVagaOciosa] tomar a vaga de quem foi
+ *    embora, e nunca estende o prazo de ninguém.
+ * 4. **Comparação em tempo constante** (`MessageDigest.isEqual`) — e, pelo mesmo
+ *    motivo, as sessões vivem numa LISTA percorrida inteira: um `HashMap[token]`
+ *    compara por hash e sai na primeira diferença, jogando fora no lookup o
+ *    cuidado tomado na comparação. Com teto de três, percorrer é de graça.
+ * 5. **A PORTA É O ENDEREÇO, e quem o abre ENTRA — sem código, sem fila.** O
+ *    endereço deste aparelho nesta rede já é a credencial (quem não configurou a
+ *    tela não o tem, e ele muda de rede para rede); o conteúdo é o que a
+ *    congregação inteira está vendo, e o dano de um curioso é ocupar uma das
+ *    três vagas, nunca ver a projeção. O que SEGURA o recurso é o teto de
+ *    [MAX_SESSOES], o [derrubar] com o castigo de [BLOQUEIO_DERRUBADA_MS] (sem
+ *    ele "Desconectar" não faria nada — a tela voltaria em dois segundos) e o
  *    fato de o servidor só existir enquanto o operador o mantiver ligado.
- * 6. **A ENTRADA É ANÔNIMA E IMEDIATA, e o único freio é o castigo.** Não há
- *    tentativa errada a contar (não há segredo a errar), então não há bloqueio
- *    crescente: o mapa de castigos guarda **só** quem o operador derrubou, por
- *    [BLOQUEIO_DERRUBADA_MS]. Uma tela que chega e encontra as três vagas
- *    ocupadas recebe [Veredito.Lotada] — que é uma FRASE, não a recusa
- *    genérica, porque a saída dela é fechar uma das outras.
- * 7. **A página de pareamento é ANÔNIMA** — sem versão do app, sem nome do
- *    aparelho, sem SSID, sem nome da igreja. Este arquivo colabora não tendo nada
- *    disso para dar: o único dado que ele devolve a quem não provou nada é um id
- *    opaco.
- * 8. **Teto de [MAX_SESSOES] sessões.** Atingido, [entrar] devolve
- *    [Veredito.Lotada], e o operador precisa
- *    [derrubar] uma — o recurso é auxiliar e finito de propósito. (O teto de
- *    CONEXÕES em voo, e a regra de que um `GET /v` com token repetido fecha a
- *    conexão anterior, são do servidor: são sobre sockets, não sobre
+ * 6. **A entrada é anônima e imediata**, e o único freio é o castigo: não há
+ *    segredo a errar, logo não há bloqueio crescente. O mapa de castigos guarda
+ *    **só** quem o operador derrubou. Sem vaga, [Veredito.Lotada] — uma FRASE, e
+ *    não a recusa genérica, porque a saída dela é fechar uma das outras.
+ * 7. **A página de pareamento é ANÔNIMA** — sem versão, nome do aparelho, SSID
+ *    ou nome da igreja. Este arquivo colabora não tendo isso para dar: a quem
+ *    não provou nada ele devolve um id opaco.
+ * 8. **Teto de [MAX_SESSOES].** (O teto de CONEXÕES em voo e a regra de que um
+ *    `GET /v` com token repetido fecha a anterior são do servidor: sockets, não
  *    pareamento.)
  * 9. **Todo texto vindo da rede é saneado AQUI**, não no JS: `[\x20-\x7E]`, corte
- *    duro em [TETO_TEXTO] caracteres, `\n`/`\r` impossíveis, aspas trocadas. O
- *    `ua` do relato vai para o **Registro** — que é justamente o artefato que o
- *    projeto manda copiar e repassar (`copiarTexto`, em `controle.js`) —, e um
- *    `\n` ali injetaria linhas falsas num diagnóstico. **Um diagnóstico que mente
- *    é pior que diagnóstico nenhum.** *(E vale registrar por escrito: o
- *    `controle.js` monta o Registro com `textContent`, não `innerHTML`. Aquela
- *    linha é a diferença entre um espelho e a execução de JavaScript de um
- *    desconhecido no origin privilegiado que injeta `__AVBridge`. Ela passa a ser
- *    load-bearing.)*
+ *    duro em [TETO_TEXTO], `\n`/`\r` impossíveis, aspas trocadas. O `ua` vai para
+ *    o **Registro**, que o projeto manda copiar e repassar — um `\n` ali injeta
+ *    linhas falsas, e **um diagnóstico que mente é pior que diagnóstico nenhum**.
+ *    (O `controle.js` monta o Registro com `textContent`, nunca `innerHTML`:
+ *    aquela linha é a diferença entre um espelho e a execução de JavaScript de
+ *    um desconhecido no origin que injeta `__AVBridge`. Ela é load-bearing.)
  *
- * ## Por que um `object` com estado, e não uma classe
+ * ## Por que um `object` com estado
  *
- * A especificação o desenha como `object` e o servidor é único por processo, mas
- * a razão de ficar assim é outra: [ligar] **zera tudo**, o que torna "há
- * exatamente uma transmissão, e ela começa limpa" uma
- * propriedade verificável em vez de uma convenção. Todo método público é
- * `@Synchronized` (o servidor é multithread — uma thread por cliente) e **todo
- * relógio entra por parâmetro** (`agora: Long`): nada aqui chama
+ * [ligar] **zera tudo**, o que torna "há exatamente uma transmissão, e ela começa
+ * limpa" uma propriedade verificável em vez de uma convenção. Todo método
+ * público é `@Synchronized` (o servidor é multithread, uma thread por cliente) e
+ * **todo relógio entra por parâmetro** (`agora: Long`) — nada aqui chama
  * `System.currentTimeMillis()`, que é o que torna prazo, bloqueio e expiração
  * testáveis sem esperar um minuto de verdade.
  */
