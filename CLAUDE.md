@@ -293,9 +293,9 @@ notificação congelada no último progresso e um wake lock de 2 h, e a guarda d
 
 ## A ponte `window.AVNative`
 
-Definida em `shared/native.js` (lado web) sobre `__AVBridge` (lado Kotlin,
+Definida em `shared/native.js` (web) sobre `__AVBridge` (Kotlin,
 `NativeBridge.kt`). **Só existe quando `window.__AVBridge` existe** — no
-navegador a IIFE retorna logo na entrada e nada é definido, nem `__NATIVE__`.
+navegador a IIFE retorna na entrada e nada é definido, nem `__NATIVE__`.
 
 ```js
 window.AVNative = {
@@ -371,225 +371,108 @@ window.AVNative = {
                        //   desenhar uma folha, não publicar uma Release.
 }
 ```
+São **43 métodos**, e essa é a superfície inteira que o resto do lado web tem
+direito de usar — fora do `native.js`, tocar em `__AVBridge` direto é
+acoplamento indevido. O próprio `native.js` chama mais oito coisas lá, e nenhuma
+é API para o app: `ytFetchAudio` e `ytFetchAte` (não são métodos a mais, são os
+outros dois DESTINOS do `ytFetch` — só-áudio e teto de resolução),
+`shellVersion()`/`role()`/`appVersion()` (viram as globais abaixo), `busPost()`
+(relay do barramento), `otaConfirm()` (watchdog do OTA) e `takeShare()` (consumo
+do share pendente, que alimenta o `onShare`).
 
-São **quarenta e três métodos**, e essa é a superfície inteira que o resto do
-lado web tem direito de usar: fora do `native.js`, tocar em `__AVBridge` direto é
-acoplamento indevido. O próprio `native.js` chama mais oito coisas no
-`__AVBridge`, e nenhuma delas é API para o app — duas são
-`ytFetchAudio` e `ytFetchAte`, que não são métodos a mais da ponte web e sim os
-outros dois DESTINOS do `ytFetch`: um quando se pede só o áudio, outro quando se
-pede um teto de resolução menor que o padrão (ver "Divergências") — `shellVersion()`, `role()` e
-`appVersion()` viram as globais logo abaixo, `busPost()` é o relay do barramento,
-`otaConfirm()` é o watchdog do OTA e `takeShare()` é o consumo do
-compartilhamento pendente (é ele que alimenta o `onShare`).
+**Quatro globais lidas direto, sem Promise:** `window.__NATIVE__`, `__AV_ROLE__`
+(`'controle'`/`'display'`; o terceiro valor, `'tela'`, é escrito por
+`espelho/tela.js`, não pela ponte), `__SHELL_VERSION__` (o inteiro do contrato) e
+`__SHELL_NAME__` (o `versionName` do APK — o índice de versão exibido ao
+operador, que **não** se confunde com `__SHELL_VERSION__`: base web e shell
+atualizam por caminhos independentes, e o rodapé de Configurações mostra os dois
+via `renderVersionLabel`). Sem `appVersion()` a string vem vazia e a UI cai em só
+a versão web.
 
-Além disso, `native.js` publica **quatro globais** lidas direto (sem Promise):
-`window.__NATIVE__`, `__AV_ROLE__` (`'controle'`/`'display'` — o terceiro
-valor, `'tela'`, é escrito por `espelho/tela.js`, não pela ponte),
-`__SHELL_VERSION__` (o inteiro do contrato, ver abaixo) e **`__SHELL_NAME__`** —
-o `versionName` do APK, que é o **índice de versão do shell exibido ao
-operador**. Ele não se confunde com `__SHELL_VERSION__`: base web e shell
-atualizam por caminhos independentes (OTA × instalar APK), então o rodapé de
-**Configurações** mostra os dois (`Web v5.98 · Shell v<versionName do APK>`,
-montado em `renderVersionLabel`; até a v5.48 ficava no cabeçalho do Cronograma —
-saiu de lá porque metadado de diagnóstico pertence à mesma tela do estado do
-telão, não a uma faixa de navegação). Num shell antigo (sem
-`appVersion()`) a string vem vazia e a UI cai em só a versão web — mesma
-degradação do navegador.
+**Princípio: a ponte entrega URLs SERVÍVEIS, não bytes.** Arquivos do aparelho e
+compartilhamentos chegam como `https://appassets.androidplatform.net/saf/<token>`
+e o web usa `fetch()` + `Blob` como já faz com o OPFS — nenhuma função de
+importação precisou ser reescrita, e **um vídeo de 2 GB nunca passa por base64**.
 
-**Princípio: a ponte entrega URLs SERVÍVEIS, não bytes.** Arquivos do
-dispositivo e compartilhamentos chegam como
-`https://appassets.androidplatform.net/saf/<token>` e o lado web usa `fetch()`
-+ `Blob` exatamente como já faz com o OPFS — nenhuma função de importação
-precisou ser reescrita, e **um vídeo de 2 GB nunca passa por base64**.
+O token (`SafRegistry`, em `SafPathHandler.kt`):
 
-Sobre o token (`SafRegistry`, em `SafPathHandler.kt`):
+- **Opaco**, não o URI codificado: o `PathHandler` recebe o caminho já
+  decodificado, e um `content://` com barras viraria segmentos de rota.
+- **Aleatório** (128 bits base64url, `SecureRandom`), não um contador — as
+  entradas nunca expiram, e não custa nada deixar `/saf/1..N` fora do alcance de
+  quem enumerar.
+- **É uma URL `https://`, do MESMO origin da base.** Quem recebe uma delas de
+  parâmetro e pergunta `origem.startsWith("https://")` para decidir "é da rede ou
+  é local?" manda **todo arquivo do aparelho** para o caminho de download — foi o
+  que deixou o PDF quebrado da v5.97 à v5.99, indistinguível de "PDF com senha".
+  A pergunta certa é pelo **host** (`u.host == ORIGIN_HOST`), invariante 2.
+- **O mesmo URI devolve sempre o mesmo token.** Sem isso, cada `listFolder` de
+  uma pasta de 500 arquivos acrescentava 500 entradas novas a cada
+  re-sincronização, num processo mantido vivo durante todo o culto.
 
-- Ele é **opaco**, e não o URI codificado, porque o `PathHandler` recebe o
-  caminho já decodificado: um `content://` com barras viraria segmentos de rota
-  e quebraria o roteamento.
-- É **aleatório** (128 bits em base64url, `SecureRandom`), e não um contador.
-  Um contador é adivinhável por construção, e as entradas **nunca expiram** —
-  não custa nada deixar `/saf/1..N` fora do alcance de quem enumerar.
-- **`/saf/<token>` é uma URL `https://`** — `https://appassets.androidplatform.
-  net/saf/<token>`, o mesmo origin da base web. Parece óbvio escrito assim, e
-  não é: quem recebe uma dessas de parâmetro e pergunta
-  `origem.startsWith("https://")` para decidir "é da rede ou é local?" acerta a
-  pergunta errada e manda **todo arquivo do aparelho** para o caminho de
-  download. Foi exatamente isso que deixou o PDF sem funcionar da v5.97 à
-  v5.99 — falha silenciosa, indistinguível de "PDF com senha". A pergunta certa
-  é pelo **host** (`u.host == ORIGIN_HOST`), como manda a invariante 2.
-- O mesmo URI devolve **sempre o mesmo token**. Sem esse reaproveitamento, cada
-  `listFolder` de uma pasta de 500 arquivos acrescentava 500 entradas novas para
-  os MESMOS arquivos, a cada re-sincronização, num processo mantido vivo de
-  propósito durante todo o culto.
+**Superfície nativa é privilégio do Controle.** O WebView do telão recebe a ponte
+com `host = null` e o loader dele é montado **sem** o handler `/saf/`.
+`listFolder` honra a mesma regra e devolve lista vazia sem host — era a exceção,
+porque lê o `ContentResolver` direto, e sem a guarda qualquer script no documento
+do Display lia o índice inteiro (nome, tamanho e token servível) de toda pasta
+concedida. Os dois consumidores de arquivo do aparelho (`importShare`,
+`syncDeviceFolder`) rodam no Controle e copiam para o OPFS antes de qualquer
+coisa chegar ao telão; o Display nunca busca um `/saf/`.
 
-**Superfície nativa é privilégio do Controle.** O WebView do telão recebe a
-ponte com `host = null` justamente para não ter poderes de Activity, e o loader
-dele é montado **sem** o handler `/saf/`. `listFolder` honra a mesma regra e
-devolve lista vazia sem host: era a exceção, porque lê o `ContentResolver`
-direto, e sem a guarda qualquer script rodando no documento do Display lia o
-índice inteiro — nome, tamanho e token servível — de toda pasta que o operador
-já concedeu. Os
-dois consumidores de arquivo do dispositivo (`importShare` e `syncDeviceFolder`)
-rodam no Controle e copiam os bytes para o OPFS antes de qualquer coisa chegar
-ao telão; o Display nunca busca um `/saf/`.
+**As Promises têm época por carregamento.** O id é `EPOCH + ':' + seq`, com
+`EPOCH` aleatório a cada carga. O renderer pode morrer com uma chamada em voo: a
+página recarrega, o contador volta a zero, mas o `resolve` do Kotlin aponta para
+o WebView ATUAL — com ids "1", "2", "3" a resposta atrasada da página velha
+resolvia a promise homônima da NOVA. Chamadas que dependem de **máquina** têm
+prazo de 60 s; `pickFolder` e `requestMic` esperam uma **pessoa** e ficam sem
+prazo (um timeout ali resolveria null com o operador ainda escolhendo a pasta).
 
-**As Promises têm época por carregamento.** O id de chamada é
-`EPOCH + ':' + seq`, com `EPOCH` aleatório a cada carga da página. O renderer
-pode morrer com uma chamada em voo: a página recarrega, o contador volta a zero,
-mas o `resolve` do Kotlin aponta para o WebView ATUAL — com ids "1", "2", "3" a
-resposta atrasada de um `listFolder` da página velha resolvia a promise homônima
-da página NOVA. As chamadas que dependem de **máquina** têm prazo de 60 s (rede
-de segurança contra promise pendente para sempre); `pickFolder` e `requestMic`
-esperam uma **pessoa** e ficam sem prazo, porque um timeout ali resolveria null
-com o operador ainda escolhendo a pasta.
+### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-`NativeBridge.SHELL_VERSION` identifica a versão da casca — **subir sempre que
-a superfície da ponte mudar**. Hoje vale **44** — a v5.298 ENCOLHE a forma do
-`espelhoEstado`: cada tela perdeu os seis campos de CAPACIDADE do relato
-(`seguro`, `mse`, `mms`, `fetchStream`, `videoDecoder`, `wakeLock`). Eles eram o
-autorrelato que o `espelho/cliente.js` mandava na era dos pixels; aquele arquivo
-saiu na v5.187 e nenhum produtor os emite desde então — o `espelho/tela.js`
-manda `{ua, w, h}` e mais nada. Como `optBoolean` lê ausente como `false`, um
-valor legítimo, o servidor publicava seis negativas sobre TODA tela conectada, a
-cada leitura. O consumidor delas saiu na v5.206; o produtor é este degrau. É o
-40 pelo outro lado do fio, com a mesma régua — e não há defeito visível hoje
-(ninguém as lê), o que é exatamente por que o degrau importa: um produtor sem
-consumidor é a armadilha de quem repuser a leitura amanhã e receber `false` como
-se fosse medição. O anterior, **43** — a v5.234 acrescenta
-`atualizacaoEstado`, os DOIS canais de atualização numa leitura só. Ele não
-acrescenta poder nenhum (tudo o que devolve já existia, espalhado por
-`otaPending`, `apkProcurar` e `otaDiag`); o que ele acrescenta é **coerência de
-instante**, e o degrau é por isso: três promessas independentes chegam em três
-momentos, e o diálogo se desenhava com metade do que tinha a dizer ("há uma base
-nova") para se corrigir meio segundo depois ("…e um APK junto"), debaixo do dedo
-de quem estava lendo. Ele é também o que torna a detecção agressiva possível sem
-estourar nada — o bloco `shell` vem do MANIFESTO do canal OTA, que é um asset de
-release e **não consome o limite de 60 requisições/hora da API do GitHub**, ao
-contrário de uma consulta por ronda. Num shell 42 o `controle.js` cai nas três
-chamadas antigas e mostra a mesma pergunta, só sem a coerência de instante. O
-anterior, **42** — a v5.231 acrescenta o campo
-**`actions`** ao `nowPlaying`: a lista de botões da notificação de controles, na
-ordem, escolhida pelo LADO WEB. É a invariante 5 aplicada ao cartão — cinco
-botões fixos serviam a UMA cena (mídia tocando), e com um cronômetro no ar sem
-louvor nenhum o play/pause e ⏮/⏭ ocupavam o modo compacto sem ter o que fazer.
-O degrau é obrigatório porque o campo muda o que o cartão MOSTRA, e a degradação
-é dupla: bundle antigo em shell 42 manda a lista vazia e recebe os cinco de
-sempre; bundle novo em shell 41 tem o campo ignorado pelo `optJSONArray` e
-também fica com os cinco. O anterior, **41** — a v5.228 acrescenta
-`ytCanalPlaylists` e `ytPlaylist`, as SÉRIES da Biblioteca (ver a seção do
-recurso). Os dois são TRANSPORTE, e a divisão de trabalho é o ponto: eles
-devolvem o que o canal publica, verbatim e na ordem dele, sem opinião nenhuma
-sobre o que presta — quem decide qual playlist é da série, qual é a versão em
-LIBRAS e como o item se chama é `assets/web/controle/serie.js`. É a invariante 5
-com uma razão prática medida: a nomenclatura de um canal muda sem avisar (as
-playlists do `@provaievedeoficial` não são consistentes nem entre si — uma delas
-não tem o hífen que todas as outras têm), e cada ajuste dessa regra custaria um
-degrau daqui e uma Release se ela morasse em Kotlin. O anterior, **40** — a
-v5.206 ENCOLHE duas formas
-de retorno, e as duas são resto do espelho de pixels que a v5.187 não levou
-junto: `espelhoDiag` perdeu `ritmo` (o objeto continuava saindo ZERADO depois
-que o encoder que o alimentava morreu, e o lado web lia `kbps < 40` como
-"retângulo preto" — o Registro imprimia um ALARME em todo culto com vídeo no
-ar) e `espelhoEstado` perdeu `modo` (o seletor imagem × vídeo, removido na
-v5.156, que viajava como `"comandos"` e era desenhado como "modo: imagem
-(JPEG)"). A lição está escrita no KDoc do `EspelhoDiag` e vale para a próxima
-aposentadoria: **apagar o produtor de um campo e deixar o consumidor de pé não
-produz silêncio — produz um zero, e zero é um valor legítimo que o consumidor
-interpreta.** O anterior, **39** (v5.192), acrescentou
-`temaClaro`, o único pedaço do tema claro que o CSS não alcança: os ÍCONES das
-barras de sistema (que o Android desenha, e que ficariam brancos sobre um fundo
-quase branco) e o `windowBackground`, resolvido antes de existir JavaScript. Num
-shell 38 o bundle novo funciona por inteiro — a cor de tudo vem do CSS e chega
-por OTA —, e o app fica com as barras do tema escuro. O anterior, **38**
-(v5.189), ENCOLHE duas vezes:
-`espelhoEstado` perdeu `codigo` (a entrada da tela deixou de ter segredo — a
-porta é o endereço) e saiu `keepAudioAlive`, que só existia para a mesa de som.
-Um bundle antigo num shell 38 desenharia um teclado de três dígitos pedindo um
-número que ninguém mais publica, e é isso que o degrau impede. O anterior, **37**
-(v5.187, o telão por comandos, E7), não acrescentou método nenhum, mas mudou a **FORMA do que
-`espelhoEstado` e `espelhoDiag` devolvem**: as telas passaram a ser as da
-transmissão por comandos (`comando: true`, `conectadaMs`, `telaAcesaMin`,
-`pronta`, `fila`) e o diagnóstico perdeu o bloco inteiro de encoder/tela
-virtual/readback — forma mudada é superfície mudada, pelo mesmo raciocínio da
-v5.133. É também o degrau em que o canal `__avTelaMidia` (o empurrão de mídia
-do Controle para o cache da rota `/m/`) passou a existir; ele é detectado por
-**presença** (`window.__avTelaMidia`), não por versão, de propósito — a guarda
-certa para um objeto injetado é perguntar por ele. O degrau anterior, **36**
-(v5.185/v5.186), foi o primeiro deste contrato que **ENCOLHE**: saiu
-`requestCam` (com o pareamento por QR e a permissão `CAMERA` do manifest),
-`espelhoEstado` trocou `pin` por `codigo` (os TRÊS dígitos, como STRING) e
-perdeu `autoAprovar`, `pendentes`, `qrEsperando`, `nomeLocal` e `nomeErro`, e
-`espelhoAprovar` passou a fazer uma coisa só — derrubar a tela cujo rótulo ele
-recebe (o lado web o chama de `espelhoDerrubar`). O bump é o que impede um
-bundle antigo de ler `pin` num shell que só publica `codigo`: ele mostraria o
-campo vazio, e o operador ficaria sem o número que a tela precisa digitar, sem
-nada que o explicasse. A v5.167 (35) acrescentou
-`apkProcurar`/`apkInstalar`. A v5.152 acrescentou os três
-métodos do CERTIFICADO do espelho (`espelhoCertImportar`, `espelhoCertEstado`,
-`espelhoCertApagar`), o degrau opcional de TLS. Abaixo do 34 a linha do
-certificado não é desenhada e o espelho segue em HTTP claro, que é o que ele
-sempre foi. A v5.145 acrescentou
-`requestCam`, a permissão de CÂMERA do pareamento por QR — **os dois saíram na
-v5.185**, com a câmera e com o `qr.js`.
-A v5.141 acrescentou os cinco
-métodos do ESPELHO DE PIXELS (`espelhoLigar`, `espelhoDesligar`,
-`espelhoEstado`, `espelhoDiag`, `espelhoAprovar`). Os cinco são **privilégio do
-Controle** (`host != null`, invariante 9) e os cinco ficam **FORA da fila de
-IO**: ela é uma thread única e é onde roda o download do YouTube, então "ligar o
-espelho" no meio de um download não aconteceria — a Promise venceria pelo prazo
-de 60 s do `native.js` e resolveria `null`, um "erro" sem causa. Quem faz o
-trabalho é a **main thread**. A razão ORIGINAL disso morreu e a regra ficou com
-outra: até a v5.187 o espelho abria uma `MirrorPresentation`, e uma
-`Presentation` é um `Dialog` — um `Dialog` criado na fila de IO (uma `Thread`
-daemon sem `Looper`) lança `Can't create handler inside thread that has not
-called Looper.prepare()` no primeiro toque. Não há mais janela nenhuma ali; o
-que sustenta a main thread hoje é a frase anterior (ficar FORA da fila de IO) e
-a serialização de `espelhoSrv`/`espelhoMidia`, que são escritos no `startMirror`
-e lidos no `mirrorState`. Ver o KDoc de `MainActivity.startMirror`. A v5.136 acrescentou
-`otaCheck`/`otaDiag` (a procura de atualização agressiva). A v5.133 (shell 30)
-não acrescentou método nenhum, mas mudou o **comportamento do `ytFetch`**: pedir
-o mesmo download outra vez passou a RECLAMAR o desfecho guardado no shell
-(`YoutubeGrab.resgatar`, chamado no caminho do `ytFetch` — ver "E o download
-SOBREVIVE À MORTE DA PÁGINA"), e é dessa promessa que depende a guarda `>= 30`
-de `resgatarDownloads` em `controle.js` — comportamento mudado é superfície
-mudada, pelo mesmo raciocínio da v5.127 abaixo. A v5.132 acrescentou
-`otaPending`/`otaApply` (o aviso de atualização e o "aplicar agora"). A v5.131 acrescentou
-`ytCancel` (parar o download em curso). Ele é o único método da ponte que **não
-vai para a fila de IO**, e não poderia: a fila é de uma thread só e está ocupada
-justamente pelo download que se quer parar. Ele escreve um campo `@Volatile` e
-volta; quem responde é o laço de cópia do `YoutubeGrab`, que o consulta a cada
-bloco de 64 kB. A v5.127 não acrescentou
-método nenhum, mas mudou o **contrato das URLs que o `ytStream` devolve**: a
-faixa de bytes passou a viajar na QUERY (`/stream/<token>?r=<ini>-<fim>`) e o
-cabeçalho `Range` sumiu do caminho nativo, porque dentro de um WebView ele é
-fatal (invariante 8). Contrato mudado é superfície mudada, e sem o bump o lado
-web não teria como perguntar por onde a faixa deve ir. A v5.120 acrescentou `ytStream`
-(o manifesto da transmissão direta), a v5.118 acrescentou
-`ytFetchAte` (teto de resolução escolhido pelo operador) e o campo `bytes` do
-`bgProgress` (que sozinho não exigiria bump, porque só acrescenta um campo a um
-JSON, mas o lado Kotlin passou a formatá-lo e a web precisa saber se ele o
-entende), a v5.115 acrescentou `ytDiag`
-(diagnóstico da extração do YouTube), a v5.112 acrescentou
-`ytFetchAudio` (só a faixa de áudio de um vídeo do YouTube), a v5.100 fez `deckPages`
-devolver o MOTIVO da falha (`{ erro }`) em vez de `null`, a v5.99 mudou a ASSINATURA do
-`pickDoc` (que passou a receber os mimes e a devolver uma LISTA, porque virou a
-importação inteira do app e não só o seletor de PDF), a v5.98 o acrescentou, a
-v5.97 os três métodos da
-APRESENTAÇÃO (`deckPages`/`deckExportUrl`/`deckDiscard`), a v5.85 acrescentou
-`ytSearch`, a v5.83 `keepAudioAlive`, a v5.81 `ytFetch`/`ytDiscard` e a v5.76
-`openExternal`. (A v5.48 não a mexeu: nenhum método foi acrescentado ou teve
-assinatura alterada, e as mudanças do lote foram restrições de quem pode chamar
-o quê, que nunca exigem shell mais novo.)
+Hoje vale **44**. "Superfície" inclui **forma de retorno** e **comportamento**,
+não só assinatura: um campo que some, um contrato de URL que muda ou um método
+que passa a fazer outra coisa exigem o degrau do mesmo jeito.
+
+| shell | o que mudou |
+|---|---|
+| **44** | `espelhoEstado` ENCOLHE: cada tela perdeu os seis campos de capacidade (`seguro`, `mse`, `mms`, `fetchStream`, `videoDecoder`, `wakeLock`) — sem produtor desde a v5.187, e `optBoolean` os publicava como `false`, que é valor legítimo |
+| 43 | `+ atualizacaoEstado` — os dois canais numa leitura só. Não acrescenta poder, acrescenta **coerência de instante** (três promessas independentes desenhavam o diálogo pela metade) |
+| 42 | `+ actions` no `nowPlaying` — os botões do cartão, escolhidos pelo web (invariante 5) |
+| 41 | `+ ytCanalPlaylists`, `+ ytPlaylist` — TRANSPORTE puro; quem decide é `controle/serie.js` |
+| 40 | ENCOLHE: `espelhoDiag` perde `ritmo`, `espelhoEstado` perde `modo` — restos do espelho de pixels que saíam ZERADOS e eram lidos como medição |
+| 39 | `+ temaClaro` — ícones das barras e `windowBackground`, o que o CSS não alcança |
+| 38 | ENCOLHE: `espelhoEstado` perde `codigo` (a porta é o endereço); sai `keepAudioAlive` |
+| 37 | forma do `espelhoEstado`/`espelhoDiag` vira a do telão por comandos. Nasce o canal `__avTelaMidia`, detectado por **presença**, não por versão |
+| 36 | primeiro degrau que ENCOLHE: sai `requestCam`; `espelhoAprovar` passa a só derrubar |
+| 35 | `+ apkProcurar`, `+ apkInstalar` |
+| 34 | `+` os três métodos do certificado TLS |
+| 33 | `+ requestCam` (saiu no 36) |
+| 32 | `+` os cinco métodos do espelho |
+| 31 | `+ otaCheck`, `+ otaDiag` |
+| 30 | **comportamento**: `ytFetch` repetido RECLAMA o desfecho guardado (`YoutubeGrab.resgatar`) |
+| 29 | `+ otaPending`, `+ otaApply` |
+| 28 | `+ ytCancel` |
+| 27 | **contrato**: a faixa de bytes do `ytStream` viaja na QUERY, nunca em `Range` (invariante 8) |
+| 26 | `+ ytStream` · 25 `+ ytFetchAte` e `bytes` no `bgProgress` · 23 `+ ytFetchAudio` |
+| ≤ 22 | `ytDiag`, `ytSearch`, os três de deck, `pickDoc`, `openExternal`, `ytFetch`/`ytDiscard` |
+
+Duas regras de thread que vieram com o espelho e continuam valendo:
+
+- **Os cinco métodos do espelho ficam FORA da fila de IO** e rodam na main
+  thread. A fila é de uma thread só e é onde roda o download do YouTube: "ligar a
+  transmissão" no meio de um download venceria pelo prazo de 60 s do `native.js`
+  e resolveria `null` — um erro sem causa. (A razão ORIGINAL morreu com a
+  `MirrorPresentation`; o que sustenta hoje é isto mais a serialização de
+  `espelhoSrv`/`espelhoMidia`. Ver o KDoc de `MainActivity.startMirror`.)
+- **`ytCancel` não vai para fila nenhuma**, e não poderia: a fila está ocupada
+  justamente pelo download que se quer parar. Ele escreve um `@Volatile` e volta;
+  quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de 64 kB.
 
 **Um método novo NÃO chega por OTA.** O bundle segue com `minShell: 2` de
-propósito — subi-lo recusaria a atualização inteira em todo aparelho com shell
-antigo, que é muito pior do que um recurso a menos. Quem depende de um método
-novo pergunta antes: `appendYoutubeSearch` não desenha o botão quando
-`__SHELL_VERSION__ < 15`, porque um botão que não faz nada no meio de um culto é
-pior que botão nenhum. Ele aparece sozinho depois que o APK novo for instalado.
-A linha do espelho em Configurações segue a mesma regra, com `< 32`.
+propósito — subi-lo recusaria a atualização inteira num shell antigo, o que é
+pior que um recurso a menos. Quem depende de método novo **pergunta antes**
+(`__SHELL_VERSION__ < N`): um botão que não faz nada no meio de um culto é pior
+que botão nenhum. Ele aparece sozinho quando o APK novo for instalado.
 
 ---
 
@@ -758,298 +641,175 @@ a cada `timeupdate` do vídeo (além de `play`, `pause`, `loadedmetadata`,
 
 ## Trabalho em segundo plano (downloads com o app minimizado)
 
-Ao minimizar o app, o Android trata o processo como descartável e pode
-**congelá-lo** — a sincronização de hinos, álbuns, Bíblia ou pastas parava no
-meio. Isso acontecia no uso normal, já que ninguém fica olhando a tela
-enquanto um hinário inteiro baixa.
-
-A correção declara o trabalho ao sistema: enquanto há download, o
-[`SyncService`](app/src/main/java/br/org/iasd/av/SyncService.kt) roda em
-primeiro plano (com a notificação que o Android exige) e segura um wake lock
-parcial — o processo não é congelado e o WebView continua baixando.
+Minimizado, o Android trata o processo como descartável e pode **congelá-lo** —
+a sincronização de hinos, álbuns, Bíblia ou pastas parava no meio. Enquanto há
+download, o [`SyncService`](app/src/main/java/br/org/iasd/av/SyncService.kt) roda
+em primeiro plano (com a notificação que o Android exige) e segura um wake lock
+parcial, com timeout de 2 h.
 
 **Quem liga e desliga é o lado web**, que é quem sabe o que está em curso:
-`bgWorkBegin()`/`bgWorkEnd()` em `controle.js` contam as tarefas ativas e só
-acionam `AVNative.keepAlive()` no **primeiro** início e no **último** término —
-dois downloads simultâneos não podem fazer o primeiro a terminar desligar a
-proteção do outro. O `finally` de `withBgWork()` é o ponto crítico: uma falha
-de rede não pode deixar o serviço e o wake lock ligados.
+`bgWorkBegin()`/`bgWorkEnd()` contam as tarefas ativas e só acionam
+`AVNative.keepAlive()` no **primeiro** início e no **último** término — dois
+downloads simultâneos não podem fazer o primeiro a terminar desligar a proteção
+do outro. O `finally` de `withBgWork()` é o ponto crítico: uma falha de rede não
+pode deixar serviço e wake lock ligados.
 
-Pontos cobertos: `syncGroup` (o lote de coleções), `syncCollection` (massa),
-`ensureSongDownloaded` (avulso), `syncLyrics`, `ensureBibleVersionDownloaded`
-(1189 capítulos) e `syncDeviceFolder` (pastas — o único que chama
-`bgWorkBegin`/`bgWorkEnd` direto, em vez de passar por `withBgWork`; o `finally`
-dele já existia para outra coisa). O wake lock tem timeout de 2 h, para um
-download travado nunca consumir bateria indefinidamente. No navegador tudo isso
-é no-op.
+Pontos cobertos: `syncGroup`, `syncCollection`, `ensureSongDownloaded`,
+`syncLyrics`, `ensureBibleVersionDownloaded` e `syncDeviceFolder` (o único que
+chama `bgWorkBegin`/`bgWorkEnd` direto). No navegador é tudo no-op.
 
-### O download RETOMA de onde parou (v1.58)
+### O download RETOMA de onde parou
 
-Enquanto o app estiver vivo — na frente ou em segundo plano —, um download só
-deve terminar de duas formas: concluído, ou cancelado pelo operador. Faltava a
-parte da rede.
+Vivo o app, um download só termina de duas formas: concluído, ou cancelado pelo
+operador. `YoutubeGrab.baixar` é um laço de retomada:
 
-Até aqui, uma oscilação de 20 segundos no meio de um louvor de 380 MB derrubava
-o download inteiro: a tentativa seguinte recomeçava do **byte zero** (com outro
-perfil de UA), e esgotados os três perfis ele falhava. Numa rede de igreja isso
-é indistinguível de "o app não baixa".
+- **`Range: bytes=<o que já está no disco>-`**, arquivo aberto em APÊNDICE. Uma
+  queda custa os segundos da reconexão, não o download.
+- **Oito tentativas com espera crescente** (1 s → 30 s, ~2 min). A espera acorda
+  a cada 250 ms para ver se o operador cancelou — um cancelar notado 30 s depois
+  não é um cancelar.
+- **4xx não é retentado** (`RecusaDoCdn`): a URL expirou ou a faixa foi negada;
+  quem tem outras cartas é a fila de candidatos de quem chamou.
+- **Servidor que IGNORA a faixa** (200 em vez de 206) faz o arquivo recomeçar do
+  zero em vez de acrescentar — continuar daria o começo repetido no meio, uma
+  corrupção que só apareceria na hora de tocar.
 
-Agora `YoutubeGrab.baixar` é um laço de retomada:
+### E o download SOBREVIVE À MORTE DA PÁGINA
 
-- **`Range: bytes=<o que já está no disco>-`**, e o arquivo é aberto em modo
-  APÊNDICE. Uma queda custa os segundos da reconexão, não o download.
-- **Oito tentativas com espera crescente** (1 s → 30 s, ~2 min de tolerância).
-  A espera acorda a cada 250 ms para ver se o operador cancelou — um cancelar
-  que só fosse notado 30 s depois não seria um cancelar.
-- **4xx não é retentado** (`RecusaDoCdn`): a URL expirou ou a faixa foi negada,
-  e insistir nela é perder tempo — quem tem outras cartas é a fila de
-  candidatos de quem chamou.
-- **O servidor que ignora a faixa** (responde 200 em vez de 206 a um pedido com
-  `Range`) faz o arquivo recomeçar do zero em vez de acrescentar: continuar
-  daria um arquivo com o começo repetido no meio — corrupção que só apareceria
-  na hora de tocar.
-
-### E o download SOBREVIVE À MORTE DA PÁGINA (v1.59)
-
-O download roda no shell; quem o espera é um `fetch` da PÁGINA. Quando o
-renderer morre — dois WebViews, um vídeo grande e o player do YouTube dividem o
-mesmo processo, e o OOM é evento conhecido —, o arquivo terminava de baixar e
-não sobrava ninguém para recebê-lo. Dez minutos viravam nada, sem explicação.
-
-A recuperação é uma dobradiça de duas metades, e nenhuma funciona sozinha:
+O download roda no shell; quem o espera é um `fetch` da PÁGINA, e o renderer
+morre (dois WebViews e um vídeo grande dividem o processo). A recuperação é uma
+dobradiça de duas metades, e nenhuma funciona sozinha:
 
 - **O shell guarda o desfecho** (`YoutubeGrab.resgatar`) num slot único — a fila
-  de IO é de uma thread só, então há no máximo um download por vez, a mesma
-  premissa do cancelamento. Ele é conferido por link **e pela forma** (só áudio,
-  teto): devolver o m4a para quem pediu o vídeo seria pior que não guardar nada.
-  Quem o descarta é o `descartar()`, o mesmo ponto em que os bytes já foram
-  copiados para a biblioteca.
-- **A página registra a INTENÇÃO** antes do primeiro byte, no `state` do banco
-  (o único lugar que sobrevive à morte dela), e a apaga no `finally`. Uma
-  intenção que sobrevive a um lançamento é, por definição, um download que
-  ninguém recebeu.
+  de IO da transferência é de uma thread só, então há no máximo um download por
+  vez. Conferido por link **e pela forma** (só-áudio, teto): devolver o m4a a
+  quem pediu o vídeo seria pior que não guardar nada. Descartado no
+  `descartar()`, o mesmo ponto em que os bytes já foram copiados.
+- **A página registra a INTENÇÃO** antes do primeiro byte, no `state` do banco (o
+  único lugar que sobrevive à morte dela), e a apaga no `finally`. Intenção que
+  sobrevive a um lançamento é, por definição, um download que ninguém recebeu.
 
-Reclamar é **pedir o mesmo download outra vez**: o shell devolve o resultado
-guardado na hora, sem rede. Se o processo inteiro tiver morrido (e com ele o
-slot), o pedido vira um download normal — que agora retoma do parcial em disco,
-se ele for da mesma faixa. O destino original é honrado: quem pediu "para o
-Cronograma" recebe no Cronograma.
+Reclamar é **pedir o mesmo download outra vez**: o shell devolve o guardado na
+hora, sem rede; morto o processo, vira download normal (que retoma do parcial em
+disco). O destino original é honrado. Intenção com mais de 6 h é descartada — as
+URLs do YouTube expiram.
 
-Intenção com mais de 6 h é descartada: as URLs do YouTube expiram, e reviver na
-manhã de domingo o download de anteontem é gastar rede por algo que ninguém
-está esperando.
+**A retomada só vale para a MESMA faixa**, e isso é trava, não detalhe: o destino
+é nomeado por vídeo + contêiner, então dois itags do mesmo contêiner (137 e 136,
+ambos mp4) escrevem no mesmo caminho. Sem a conferência (`parciais`, mapa em
+memória caminho → URL), um parcial do 137 seria "retomado" por um download do
+136 — dois vídeos emendados, sem erro, aparecendo só na hora de projetar. O mapa
+morre com o processo de propósito.
 
-**A retomada só vale para a MESMA faixa**, e isso é uma trava, não um detalhe: o
-arquivo de destino é nomeado por vídeo + contêiner, então dois itags do mesmo
-contêiner (137 e 136, ambos mp4) escrevem no mesmo caminho. Sem a conferência
-(`parciais`, um mapa em memória de caminho → URL), um parcial do 137 deixado por
-um app morto seria "retomado" por um download do 136 — e o arquivo teria dois
-vídeos emendados, sem erro nenhum, aparecendo só na hora de projetar. O mapa
-morre com o processo de propósito: retomar entre execuções exigiria gravar qual
-faixa era, e o ganho não paga o risco de errar essa conta.
-
-> **A TRANSMISSÃO viaja no MESMO serviço da sessão de mídia desde a v5.190.**
-> Da v5.141 à v5.189 ela tinha um serviço próprio (`EspelhoService`), e o
-> argumento era bom — "nunca um campo a mais no `SyncService` ou no
-> `SessionService`: ciclos de vida diferentes, e empilhar dono é o caminho para
-> o cartão eterno". Ele estava certo sobre ciclo de vida e errado sobre o preço:
-> num culto com transmissão ligada e mídia no ar, a gaveta mostrava DOIS cartões
-> do mesmo app, e só um servia para alguma coisa. Agora o [`SessionService`] tem
-> **duas razões independentes de viver** (cena · transmissão) e só para quando
-> as duas caem — a mesma disciplina, num `if` explícito em vez de espalhada por
-> dois arquivos que não se conhecem. O tipo é a UNIÃO
-> (`mediaPlayback|connectedDevice`), e nenhum dos dois tem cota — o teto de 6 h
-> em 24 h é do `dataSync`, que o `SyncService` gasta com hinário, Bíblia e
-> pastas. O pré-requisito que derruba a primeira Release continua valendo: além
+> **A TRANSMISSÃO viaja no serviço da sessão de mídia** (não tem serviço
+> próprio): o `SessionService` tem **duas razões independentes de viver** (cena ·
+> transmissão) e só para quando as duas caem. O tipo é a UNIÃO
+> `mediaPlayback|connectedDevice`, e nenhum dos dois tem cota — o teto de 6 h/24 h
+> é do `dataSync`, do `SyncService`. **Pré-requisito que derruba a Release:** além
 > de `FOREGROUND_SERVICE_CONNECTED_DEVICE`, o tipo exige **uma** de
-> `CHANGE_NETWORK_STATE`/`CHANGE_WIFI_STATE`/`CHANGE_WIFI_MULTICAST_STATE`/
-> `NFC`/`TRANSMIT_IR` — e `INTERNET`/`ACCESS_NETWORK_STATE`, as duas que o app
-> tem, **não estão na lista**. Sem declarar `CHANGE_WIFI_MULTICAST_STATE`
-> (nível *normal*, sem diálogo), `startForeground` lança. O que sobrou no
-> `EspelhoEnergia` é o que nunca foi sobre notificação: o wake lock (renovado
-> por progresso REAL de entrega, nunca por tique de relógio), o Wi-Fi lock e a
-> leitura térmica.
+> `CHANGE_NETWORK_STATE`/`CHANGE_WIFI_STATE`/`CHANGE_WIFI_MULTICAST_STATE`/`NFC`/
+> `TRANSMIT_IR` — e `INTERNET`/`ACCESS_NETWORK_STATE` **não estão na lista**. Sem
+> `CHANGE_WIFI_MULTICAST_STATE` (nível *normal*), `startForeground` lança. O
+> `EspelhoEnergia` ficou com o que nunca foi notificação: wake lock (renovado por
+> progresso REAL de entrega, nunca por tique de relógio), Wi-Fi lock e térmica.
 
-### O ciclo de vida do serviço tem duas armadilhas, e as duas matam o app
+### O ciclo de vida do serviço tem três armadilhas, e as três matam o app
 
 - **`startForeground` SEMPRE, antes de qualquer decisão de parar.** Um serviço
-  iniciado por `startForegroundService` que morre sem ter chamado
-  `startForeground` faz o sistema derrubar o app inteiro ("did not then call
-  Service.startForeground()") — e o processo é o dos dois WebViews e da
-  `Presentation` na TV. Publicar primeiro custa uma notificação de alguns
-  milissegundos; a alternativa custa o culto. Só depois disso o
-  `onStartCommand` verifica se o download já acabou enquanto o serviço subia
-  (um item já baixado liga e desliga a proteção em poucos ms) e se despede
-  sozinho com `stopSelf(startId)`.
-- **A notificação segue o serviço, e não o contrário.** `updateProgress` usa
-  `NotificationManager.notify`, que é independente do ciclo de vida de um
-  `Service`: sem a guarda de `running`, um cartão "Baixando mídias" com
-  `setOngoing(true)` ficava na gaveta para sempre, sem download nenhum por
-  trás. O `onDestroy` zera a flag antes de tudo e cancela o cartão
-  explicitamente.
-- **Cota de FGS do Android 15** (`onTimeout`): com `targetSdk` 35 um serviço
-  `dataSync` tem teto de 6 h acumuladas em 24 h, e o acumulado não é
-  hipotético — configurar um aparelho novo soma hinário completo, uma versão da
-  Bíblia e a cópia de pastas de vídeo. Atingido o teto, o sistema dá poucos
-  segundos para parar, ou derruba o processo por ANR. Parar é a única resposta
-  possível, mas o lado Kotlin precisa **esquecer** que estava protegendo
-  (`SyncService.onGone` → `backgroundWork = false`): senão o
+  iniciado por `startForegroundService` que morre sem chamá-lo derruba o app
+  inteiro ("did not then call Service.startForeground()") — e o processo é o dos
+  dois WebViews e da `Presentation`. Só depois disso o `onStartCommand` verifica
+  se o download já acabou enquanto o serviço subia e se despede com
+  `stopSelf(startId)`.
+- **A notificação segue o serviço, não o contrário.** `updateProgress` usa
+  `NotificationManager.notify`, independente do ciclo de vida do `Service`: sem a
+  guarda de `running`, um cartão `setOngoing(true)` ficava na gaveta para sempre.
+  O `onDestroy` zera a flag antes de tudo e cancela o cartão explicitamente.
+- **Cota de FGS do Android 15** (`onTimeout`): `dataSync` tem teto de 6 h em 24 h,
+  e o acumulado não é hipotético (configurar um aparelho novo soma hinário,
+  Bíblia e pastas). Atingido, o sistema dá segundos para parar ou mata por ANR.
+  Parar é a única resposta — mas o Kotlin precisa **esquecer** que protegia
+  (`SyncService.onGone` → `backgroundWork = false`), senão o
   `if (on == backgroundWork)` da Activity trata o próximo `keepAlive(true)` como
   repetido e o download seguinte fica sem proteção nenhuma, calado.
 
 ### A notificação mostra o progresso real
 
-Com o app minimizado ela é a ÚNICA janela para o download, e era um texto fixo
-("Baixando mídias") — não dizia quanto falta nem se ainda anda. Quem sabe o
-progresso é o lado web, então é ele que reporta, por
-`AVNative.bgProgress({label, done, total, etaMs, items, idleMs, bytes})`:
-`bgTaskStart`/`bgTaskStep` em `controle.js` alimentam
-`SyncService.updateProgress`, que refaz a notificação com barra, "N de M",
-percentual e o tempo restante.
+Minimizado, ela é a ÚNICA janela para o download. Quem sabe o progresso é o web:
+`bgTaskStart`/`bgTaskStep` → `AVNative.bgProgress({label, done, total, etaMs,
+items, idleMs, bytes})` → `SyncService.updateProgress`.
 
-- **A unidade pode ser BYTES, e não itens** (`bytes`, v5.118). O registro nasceu
-  contando itens — 54 músicas, 1189 capítulos —, e para um lote é a unidade
-  certa. Mas o download de UM vídeo do YouTube abria a tarefa com `total = 1`, e
-  aí os dois números que a notificação existe para dar simplesmente não
-  existiam: a barra ficava em 0% do começo ao fim e a ETA era **zero**, porque
-  `bgTaskEta` precisa de pelo menos um item concluído para ter média. Ou seja, o
-  caso em que a notificação é a ÚNICA janela — app minimizado, centenas de MB,
-  minutos de espera — era o caso em que ela não dizia nada. Os bytes sempre
-  estiveram à mão (o shell os reporta a cada MB); faltava um canal. Como
-  percentual e ETA são RAZÕES, toda a matemática vale sem mudar uma linha —
-  trocar a unidade é só isto, e o que muda é a APRESENTAÇÃO (`formatBytes` no
-  `SyncService`). A bandeira mora no REGISTRO da tarefa, não no envio: um lote
-  de músicas pode estar rodando ao lado de um download de vídeo, e a unidade é
-  de cada tarefa.
-- **E ela NÃO CHEGAVA a viajar, desde a versão que a criou** (corrigido na
-  v5.137). `native.js` não repassa o objeto que recebe — ele o REMONTA campo a
-  campo antes de serializar —, e `bytes` simplesmente não estava na lista. Do
-  lado Kotlin, `optBoolean` lê ausente como `false`, que é um valor legítimo:
-  sem exceção, sem log, sem nada. O efeito era a notificação apresentar BYTES
-  como se fossem ITENS — "0 de 398458880" para um vídeo de 380 MB, que se lê
-  como quatrocentos milhões de músicas. É o mesmo modo de falhar do
-  `slideLabel` no `nowPlaying` (v5.97 → v5.102), e agora há um teste que o
-  prende: `tools/ponte.test.mjs`. **Campo novo no objeto = campo novo no
-  `native.js`**, sempre.
-- `Long`, e não `Int`, do `optLong` da ponte até o `Progress`: um vídeo de 1080p
-  passa dos 2 GB que o `Int` comporta, e o estouro sairia como uma barra andando
-  para trás. Pelo mesmo motivo `setProgress` recebe **milésimos** em vez das
-  unidades cruas — ele é `Int` por assinatura, e 1/1000 é muito além do que uma
-  barra de notificação distingue. **E o `Long` do Kotlin não bastava**: o
-  `native.js` truncava com `| 0` — um Int32 COM SINAL — antes de o número
-  chegar lá, então um vídeo acima de 2 GB virava negativo e o `Math.max(0, …)`
-  o zerava. A truncagem acontecia do lado de cá o tempo todo (v5.137).
-- **O PERCENTUAL VEM NA FRENTE** (v1.61). Ele fechava uma linha que já trazia
-  dois tamanhos e um tempo restante, dentro do subtexto — que é o pedaço que o
-  Android encurta primeiro. O número que responde "quanto falta?" numa leitura
-  era o primeiro a sumir; os tamanhos são o detalhe que o qualifica, não o
-  contrário.
-- **O nome do que está baixando vale também para um item só.** `ytArquivo` chama
-  `bgItemOnly` com o título do vídeo: "Baixando vídeo" sozinho não diz QUAL, e
-  com o app minimizado não há outra tela para perguntar.
-- **`(lidos, total)` é BYTES, e o caminho de 1080p mentia** (corrigido na
-  v1.58). Ele reportava uma escala de 0 a 100 (`lidos * 10 / total, 100` no
-  áudio, `10 + lidos * 88 / total` no vídeo) para ter uma barra só que não
-  voltava ao zero entre as duas faixas. Só que o outro lado trata os dois
-  números como bytes: a notificação anunciava **"0 B de 100 B"** para um vídeo
-  de 380 MB — que se lê como CEM ITENS. Agora as duas fases reportam bytes de
-  verdade, e os dois números são sempre verdadeiros, que é a única coisa que
-  essa notificação existe para dizer.
-- **E a fase do áudio já conta a soma das DUAS faixas** (v1.62). A v1.58 deixou
-  o total crescer no meio do caminho — o áudio reportava o tamanho dele, e o
-  vídeo passava a somar os dois —, e o preço disso foi aceito como "a barra
-  recua uma vez". Não era isso que o operador via: o áudio são poucos MB e baixa
-  em segundos, então **todo download começava marcando 100%** por alguns
-  instantes (o fim da primeira fase) para só então recomeçar do zero. A primeira
-  coisa que aparecia na tela dizia o oposto do que estava acontecendo. Agora a
-  fase do áudio já soma o `contentLength` da faixa de vídeo que vem a seguir —
-  o extrator o entrega antes do primeiro byte —, e a barra sobe de 0 a 100 uma
-  vez só. Quando o YouTube não informa esse campo (ele vem `-1`), nada muda: o
-  comportamento é o de antes. Vale para a barra da notificação e para o
-  percentual na linha do item, que leem o MESMO par de números.
+**Números e unidades**
 
-- **A notificação diz O QUE está baixando, não só quantos.** `bgItemStart`/
-  `bgItemEnd` (e `bgItemOnly`, para fluxos sequenciais) registram os itens em
-  voo — nome da música, "Gênesis 3", nome do arquivo. "23 de 54" é abstrato;
-  "002. Ó Adorai o Senhor" é o que o operador reconhece, e vê-lo trocar é o
-  que mostra movimento.
-- **A lista é uma FILA, não um espelho do que está no ar.** A concorrência
-  existe para reduzir o tempo PROPORCIONAL de cada item: se os 6 juntos levam
-  X, cada um custou X/6 — e a exibição segue essa mesma conta, dando X/6 de
-  tela a cada nome, um depois do outro. É deliberadamente **ilustrativo e não
-  em tempo real**: os nomes saem de um buffer (`t.fila`) do que já entrou em
-  download. O contador, a barra e a estimativa continuam sendo os números
-  reais.
-- **Fila, e não rodízio entre os itens em voo.** O rodízio trazia o mesmo
-  nome de volta várias vezes — repetitivo, e a lista não ia a lugar nenhum. A
-  fila consome cada nome UMA vez, em ordem.
-- **O ritmo é MEDIDO, não chutado** (`bgSpinMs`): `decorrido / concluídos` é
-  o tempo médio por item — exatamente o X/6. Se a fila acumula (a rede
-  acelerou), o escoamento acelera junto, para a lista não ficar exibindo um
-  passado cada vez mais velho.
-- **Sem o buffer a lista engasgava.** Os 6 workers andam em lockstep — entram
-  e saem quase juntos —, então os eventos chegam em rajada (meia dúzia em
-  poucos ms) seguida de segundos de silêncio. Sem fila, a rajada rendia UMA
-  troca de nome e o resto era descartado: o nome ficava parado até a rajada
-  seguinte, que é exatamente a sensação de travado.
-- **O compasso PARA quando o download trava.** Animar durante uma queda de
-  rede esconderia justamente o que precisa ser visto — e ali não há novidade
-  nenhuma a mostrar, só passado. Passando `BG_STALL_MS` (90 s) sem nenhum
-  evento real, a lista congela e o `idleMs` cresce na tela: os dois sinais
-  concordam.
-- **`idleMs` separa "travado" de "esta faixa é grande"**, que na tela são a
-  mesma coisa parada. Passado o limiar, a notificação **para de prometer
-  tempo restante** e passa a dizer "sem resposta há X": uma ETA calculada
-  sobre um ritmo que não existe mais é a promessa mais enganosa que essa
-  notificação pode fazer. E `formatIdle` não usa degraus (ao contrário de
-  `formatEta`) — aqui o número PRECISA subir a cada atualização, é vê-lo
-  crescer que diz "isto não está andando".
-- **O freio é UM só, e vale só para a rotina.** O Android limita a taxa de
-  updates de notificação e passa a descartar o excesso — sem freio a barra
-  PARECE travada. `BG_NOTIF_MIN_MS` (700 ms) segura a atualização de rotina
-  (`bgTaskStep`, em que só o contador andou); tudo o que precisa chegar na hora
-  passa `force`: o primeiro nome de uma tarefa, cada troca de nome na linha e o
-  estado final. Houve um segundo piso ("250 ms para o item que acabou de entrar
-  em download", escolhido pelo chamador num parâmetro `destaque`); ele saiu na
-  v5.48 porque **nenhum chamador o passava** — era código morto, e
-  mexer na constante não produzia efeito nenhum no aparelho. Quem de fato dá o
-  ritmo do item que entra é o compasso (`bgPacerTick`, `BG_TICK_MS` = 250 ms),
-  que envia com `force` sempre que o nome troca. Repor o piso curto seria pior
-  que o `force`: o primeiro nome nasce a poucos ms do envio de abertura da
-  tarefa e ficaria retido até o batimento de reenvio (`BG_REENVIO_MS`, 2 s).
-- **É um REGISTRO de tarefas, não um slot único.** O app tem downloads
-  simultâneos — é por isso que `bgWorkCount` conta em vez de ser um booleano —,
-  e entrar na aba Bíblia enquanto um lote de álbuns baixa dispara os dois ao
-  mesmo tempo. Com um slot só, as duas escreviam uma por cima da outra: o
-  `done` de uma aparecia com o `total` e o `startedAt` da outra, e a estimativa
-  pulava de 1h30 para 2h40 e voltava. Cada tarefa tem seu registro; a
-  notificação mostra a **dominante** (maior tempo restante — é ela que decide
-  quando tudo acaba) e sinaliza as outras com `(+N)`. Somar tarefas de
-  naturezas diferentes (capítulos + músicas) num total único daria um número
-  sem significado.
-- **A estimativa vem do ritmo MÉDIO desde o PRIMEIRO item concluído** (não
-  desde o `start`: antes dele corre o preparo — índice, varredura do que falta
-  — e contá-lo como tempo de download inflava a primeira estimativa, que depois
-  despencava). Média, não taxa instantânea: faixas têm tamanhos muito
-  diferentes e a instantânea faria o número pular a cada música.
-- **Suavização assimétrica e por CONSTANTE DE TEMPO** (`ETA_TAU_DOWN` 2,5 s /
+- **A unidade pode ser BYTES** (`bytes`), e a bandeira mora no REGISTRO da
+  tarefa, não no envio — um lote de músicas pode rodar ao lado de um vídeo. Um
+  download único abria a tarefa com `total = 1`: barra em 0% do começo ao fim e
+  ETA **zero** (`bgTaskEta` precisa de um item concluído para ter média). Como
+  percentual e ETA são RAZÕES, a matemática não muda; muda a APRESENTAÇÃO
+  (`formatBytes`).
+- **`Long`, não `Int`**, do `optLong` até o `Progress` — 1080p passa dos 2 GB. Por
+  isso `setProgress` recebe **milésimos** (ele é `Int` por assinatura). E o
+  `native.js` truncava com `| 0` (Int32 COM SINAL): acima de 2 GB o número virava
+  negativo e o `Math.max(0, …)` o zerava.
+- **`(lidos, total)` é BYTES nas duas fases.** O caminho de 1080p já reportou uma
+  escala 0–100 e a notificação anunciava "0 B de 100 B" para um vídeo de 380 MB.
+- **A fase do áudio já soma o `contentLength` do vídeo que vem a seguir** (o
+  extrator o entrega antes do primeiro byte), senão a barra fecha em 100% nos
+  primeiros segundos e recomeça do zero. Vindo `-1`, nada muda.
+- **O PERCENTUAL VEM NA FRENTE** do subtexto — é o pedaço que o Android encurta
+  primeiro, e o número que responde "quanto falta?" era o primeiro a sumir.
+- **Campo novo no objeto = campo novo no `native.js`, sempre.** Ele REMONTA o
+  objeto campo a campo, e do lado Kotlin `optBoolean`/`optLong` leem ausente como
+  `false`/`0` — valores legítimos, sem exceção e sem log. Foi assim que `bytes`
+  passou versões sem viajar, e a notificação mostrava BYTES como se fossem ITENS.
+  `tools/ponte.test.mjs` prende isso.
+
+**A lista de nomes**
+
+- **Diz O QUE está baixando** (`bgItemStart`/`bgItemEnd`, e `bgItemOnly` para
+  fluxos sequenciais): "23 de 54" é abstrato, "002. Ó Adorai o Senhor" é o que o
+  operador reconhece, e vê-lo trocar é o que mostra movimento. Vale também para
+  um item só — `ytArquivo` chama `bgItemOnly` com o título do vídeo.
+- **É uma FILA, deliberadamente ilustrativa**, não um espelho do que está no ar:
+  os 6 workers andam em lockstep, os eventos chegam em rajada e sem buffer
+  (`t.fila`) a rajada rendia UMA troca de nome, com o resto descartado — a
+  sensação de travado. A fila consome cada nome UMA vez, em ordem (rodízio
+  trazia o mesmo nome de volta). Contador, barra e estimativa continuam reais.
+- **O ritmo é MEDIDO** (`bgSpinMs` = `decorrido / concluídos`): se a fila
+  acumula, o escoamento acelera junto.
+- **O compasso PARA quando trava.** Passando `BG_STALL_MS` (90 s) sem evento
+  real, a lista congela e o `idleMs` cresce: os dois sinais concordam.
+
+**Ritmo, freio e estimativa**
+
+- **`idleMs` separa "travado" de "esta faixa é grande"**: passado o limiar, a
+  notificação **para de prometer tempo restante** e diz "sem resposta há X". E
+  `formatIdle` **não** usa degraus (ao contrário de `formatEta`) — aqui o número
+  precisa subir a cada atualização, é vê-lo crescer que diz "não está andando".
+- **O freio é UM só e vale só para a rotina.** O Android limita a taxa de updates
+  e descarta o excesso (a barra PARECE travada). `BG_NOTIF_MIN_MS` (700 ms) segura
+  o `bgTaskStep`; tudo que precisa chegar na hora passa `force` — primeiro nome,
+  troca de nome, estado final. Quem dá o ritmo do item que entra é o compasso
+  (`bgPacerTick`, `BG_TICK_MS` 250 ms), com `force` a cada troca.
+- **É um REGISTRO de tarefas, não um slot único** (daí `bgWorkCount` contar em vez
+  de ser booleano): entrar na Bíblia enquanto um lote de álbuns baixa dispara as
+  duas, e com um slot só o `done` de uma aparecia com o `total` da outra. A
+  notificação mostra a **dominante** (maior tempo restante) e sinaliza as outras
+  com `(+N)`. Somar naturezas diferentes num total único não significaria nada.
+- **A estimativa vem do ritmo MÉDIO desde o PRIMEIRO item concluído** — não desde
+  o `start`, porque antes dele corre o preparo (índice, varredura), que inflava a
+  primeira estimativa. Média, não taxa instantânea: faixas têm tamanhos muito
+  diferentes.
+- **Suavização assimétrica por CONSTANTE DE TEMPO** (`ETA_TAU_DOWN` 2,5 s /
   `ETA_TAU_UP` 10 s): cai rápido, sobe devagar — uma contagem regressiva que
-  aumenta parece quebrada, mesmo quando o número novo está certo. Por tempo, e
-  não por chamada, porque o compasso de 1 s pede a estimativa muito mais vezes
-  que antes: um fator fixo por chamada colaria o valor exibido no bruto e o
-  número voltaria a pular, que é o defeito que a suavização existe para
-  evitar.
-- **Arredondamento em degraus** no lado nativo (1 min perto do fim, 5 min
-  abaixo de 1 h, 10 min acima): a incerteza cresce com o horizonte, e mostrar
-  "2h03" quando o erro real é de meia hora promete uma precisão que não
-  existe — além de fazer o número mudar a cada atualização, o que se lê como
-  instabilidade mesmo quando a estimativa está convergindo.
-- **Num lote (`syncGroup`) a barra acompanha o LOTE**, não cada álbum: o total
-  é a soma das músicas pendentes de todos eles, contada uma vez. Reiniciar a
-  barra a cada álbum daria doze barras curtas em vez de uma que informa quanto
-  falta de verdade.
-- Num shell antigo `bgProgress` não existe; o `try` de `native.js` engole e a
-  notificação segue estática — exatamente o comportamento anterior.
+  aumenta parece quebrada. Por tempo e não por chamada, senão o compasso de 1 s
+  colaria o valor exibido no bruto.
+- **Arredondamento em degraus no lado nativo** (1 min perto do fim, 5 min abaixo
+  de 1 h, 10 min acima): "2h03" com erro real de meia hora promete precisão que
+  não existe, e faz o número mudar a cada atualização.
+- **Num lote (`syncGroup`) a barra acompanha o LOTE**, não cada álbum.
+- Shell antigo: `bgProgress` não existe, o `try` engole, a notificação fica
+  estática.
 
 ---
 
