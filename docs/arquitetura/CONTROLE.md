@@ -277,7 +277,7 @@ cortava o próprio título com reticências.
 O título é `.84rem` (em .72rem o único texto que responde "onde eu estou" era
 menor que o subtítulo de qualquer linha).
 
-**A FAIXA É UMA GRADE DE TRÊS TRILHAS FIXAS** (v5.307) — `--hit`, `minmax(0,1fr)`
+**A FAIXA É UMA GRADE DE TRÊS TRILHAS FIXAS** (v5.309) — `--hit`, `minmax(0,1fr)`
 e `--hit` —, com as três posições declaradas uma a uma. Como flex ela centrava o
 título no espaço que SOBRAVA, e o voltar entra e sai do fluxo conforme a tela da
 Bíblia: o nome da tela pulava ~19px para a direita toda vez que o operador
@@ -2015,7 +2015,7 @@ nasce com a confirmação certa.
 - **A frase que o diálogo dizia** ("os arquivos só são apagados se ele não
   estiver em mais nenhuma lista") não cabe nos ~250px da faixa e não sumiu: é o
   `title`/`aria-label` do botão que executa.
-- **O par DIVIDE A FAIXA AO MEIO** (v5.307, a pedido do operador): `flex: 1 1 0`
+- **O par DIVIDE A FAIXA AO MEIO** (v5.309, a pedido do operador): `flex: 1 1 0`
   em cada botão, um na metade esquerda e outro na direita. Eles eram do tamanho
   do próprio rótulo e encostados à direita, então "Cancelar" e "Excluir" ficavam
   colados um no outro na metade direita de uma faixa vazia — dois alvos de um
@@ -2105,7 +2105,7 @@ indicados **só pelo realce** (`.lib-item.selected` — borda `--accent` + fundo
 reservada). Excluir dentro de pasta virtual só remove da pasta; nas demais abas
 usa `listRemove` (com gc).
 
-#### O rodapé da folha da playlist: guardar e LIMPAR (v5.307)
+#### O rodapé da folha da playlist: guardar e LIMPAR (v5.309)
 
 A folha `#plPopup` fecha com duas ações sobre a FILA, fora do `.popup-list`
 rolável (numa fila de dez itens elas têm de continuar à vista): **"Guardar como
@@ -2208,10 +2208,10 @@ com caixa de marcação.
 #### E ela divide a linha com o CONFIRMAR (v5.302)
 
 Pedido do operador: *"ponha o botão de confirmar as escolhas do play dos
-favoritos para que ele fique lado a lado, à esquerda das opções, ajustado com a
-altura dos botões"*. A faixa era um bloco próprio no pé da gaveta, logo abaixo da
-linha do confirmar — duas faixas empilhadas para o que cabe numa, e a gaveta
-inteira mais alta por isso, num acordeão cuja regra é manter a decisão sob o dedo.
+favoritos para que ele fique lado a lado … ajustado com a altura dos botões"*. A
+faixa era um bloco próprio no pé da gaveta, logo abaixo da linha do confirmar —
+duas faixas empilhadas para o que cabe numa, e a gaveta inteira mais alta por
+isso, num acordeão cuja regra é manter a decisão sob o dedo.
 
 Quem a leva para lá é o hook **`aoLado`** que a v5.286 abriu para o "Ver a letra":
 a `.song-menu-go-row` já é um flex de dois filhos em que o confirmar CRESCE e o
@@ -2236,6 +2236,14 @@ a linha de fecho é a folha, e ela não conhece o dono da gaveta.
   simplesmente não reanexada. `destConfirmRow(aoLado)` recebe; o global ficou só
   como caminho da Biblioteca, onde ele é fábrica. E reabrir uma gaveta reaponta
   `songMenuFor`, para *"ele descreve a gaveta ABERTA"* voltar a ser verdade.
+- **DE QUE LADO O IRMÃO ENTRA É DECISÃO DE QUEM O FORNECE** (v5.307, pedido do
+  operador): a faixa de ações de um Favorito vem **antes** do confirmar, o "Ver a
+  letra" da Biblioteca continua **depois**. O sinal viaja no próprio nó
+  (`data-antes`) e o `destConfirmRow` só o consulta — ele não conhece nenhum dos
+  dois. **É DOM, não `order`/`row-reverse`:** os dois dariam o mesmo desenho com a
+  ordem de FOCO invertida, numa faixa cujo primeiro botão é a LIXEIRA. O oráculo
+  (`boot-nativo.test.mjs`) mede a geometria **e** exige que o DOM concorde com
+  ela, senão a próxima inversão volta por um `order` e passa.
 - **Uma altura só.** O confirmar mede `--hit` mais o padding dele (53px); os
   botões traziam `--thumb` fixo (40px) e boiariam no meio. `height: auto` desarma
   o valor fixo e o `stretch` da linha os iguala. A LARGURA continua `--thumb`: o
@@ -3174,6 +3182,42 @@ intermediária e sem ninguém conferir a lista antes.
 | **pastas do aparelho e Favoritos** | eles não são coleções, são LISTAS: `allCollections()` não os conhece |
 | **faixa sem a variante pedida** | `semAudio` / `has_instrumental_music && !semPlayback` — sem essa guarda a faixa entra, o download não acha URL, e o cartão responde *"sem internet para baixar"*, que é a frase errada |
 | **o hinário**, se o operador pedir | `collNumbersSongs(coll)`. É OPÇÃO, não regra — foi assim que ele pediu |
+
+#### A palavra é MOMENTÂNEA; os filtros são AJUSTES (v5.308)
+
+A caixa é **limpa a cada fechamento** e a palavra **não é gravada** — só as
+outras cinco escolhas são (modo, variante, os dois filtros, quantidade). A
+diferença é o que cada uma significa: aquelas são *como o recurso deve se
+comportar*, e a palavra é uma *pergunta*, feita uma vez. Reencontrá-la em
+fevereiro é um filtro silencioso sobre o primeiro sorteio de quem só queria
+abrir e tocar.
+
+A limpeza mora em `fecharSorteio`, e é ali porque essa é a única função que os
+**três** caminhos de fechamento alcançam (o ✕, o toque no fundo e o voltar do
+aparelho) — é o que a tabela `POPUPS` garante.
+
+**Vazia, a caixa sorteia do acervo INTEIRO**, e a frase o diz liderando com o
+escopo em vez do número: com o campo em branco é o escopo que está em dúvida.
+Ela é honesta sobre os dois filtros que encolhem o "tudo" — dizer "toda a
+biblioteca" com o hinário fora seria uma frase errada, e frase errada é pior que
+nenhuma:
+
+| Filtros | A frase |
+|---|---|
+| nenhum | `Toda a biblioteca — 58 músicas` |
+| sem hinário | `Toda a biblioteca, sem o hinário — 18 músicas` |
+| só no aparelho | `Só o que já está no aparelho — 17 músicas` |
+| os dois | `Só o que já está no aparelho, sem o hinário — 5 músicas` |
+
+A **variante** (Cantada × Playback) fica de fora dessa conta de propósito: ela
+não encolhe um acervo, escolhe QUAL faixa de cada música — e o segmento logo
+acima já a mostra. O placeholder responde a mesma pergunta antes de o operador
+tocar em nada: *"Palavra tema (vazio = toda a biblioteca)"*.
+
+**A palavra vale no MESMO toque.** O `debounce` cobria a atribuição também, e
+digitar e tocar no botão dentro dos 130 ms sorteava com a palavra ANTERIOR — sem
+erro e com a conta mostrando o número certo, porque ela e o sorteio liam a mesma
+variável defasada. Hoje só o RECONTAR é adiado.
 
 A palavra tema casa em **três lugares, do mais específico ao mais amplo**: nome
 da faixa → nome do ÁLBUM → letra. O álbum no meio é a diferença entre "busca" e

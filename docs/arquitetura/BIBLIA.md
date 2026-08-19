@@ -230,7 +230,7 @@ lido — **Livro · Capítulo · Versículo · Versão** —, cada uma levando a
 próprio seletor. Emendados, continuam lendo como uma referência
 ("João · 3 · 16 · ARA") em vez de quatro ações soltas.
 
-**A VERSÃO É A ÚLTIMA** (v5.307). As três primeiras são a referência que se lê
+**A VERSÃO É A ÚLTIMA** (v5.309). As três primeiras são a referência que se lê
 em voz alta, na ordem em que ela é dita e na ordem em que o operador acabou de
 escolhê-las (livro → capítulo → versículo); a versão não é coordenada do texto,
 é em que edição ele está sendo lido, e trocá-la é a decisão mais rara das

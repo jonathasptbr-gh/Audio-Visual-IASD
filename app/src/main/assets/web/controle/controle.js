@@ -167,7 +167,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '5.307';
+const WEB_VERSION = '5.309';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -3657,7 +3657,7 @@ function renderBibleReading(wrap) {
   // seleção de livro de novo. Capítulo e versículo levam à mesma tela porque
   // as duas grades convivem nela (ver "Seleção em tabela periódica").
   //
-  // A VERSÃO É A ÚLTIMA (v5.307), a pedido do operador. As três primeiras são
+  // A VERSÃO É A ÚLTIMA (v5.309), a pedido do operador. As três primeiras são
   // a referência que se lê em voz alta, na ordem em que ela é dita e na ordem
   // em que o operador acabou de escolhê-las (livro → capítulo → versículo); a
   // versão não é coordenada do texto, é em que edição ele está sendo lido, e
@@ -7793,6 +7793,15 @@ function linhaDeItem(item, opts) {
   const depoisDeMexer = cfg.depoisDeExcluir || (() => load());
   const acoes = document.createElement('div');
   acoes.className = 'fav-acoes';
+  // ELA FICA À ESQUERDA DO CONFIRMAR (v5.307). Pedido do operador: *"o botão de
+  // confirmar as opções de play fica à esquerda dos botões; deixe-o à direita,
+  // com as outras opções à esquerda"*. Quem escolhe o lado é o DONO da faixa, e
+  // não o `destConfirmRow`: a mesma linha serve o "Ver a letra" da Biblioteca,
+  // que continua à direita porque ali o confirmar é o que se acha sem mirar. O
+  // sinal viaja no próprio nó (`data-antes`) porque é ele que atravessa as
+  // remontagens da lista — um segundo argumento no hook seria estado a mais para
+  // manter em sincronia com um nó que já diz tudo.
+  acoes.dataset.antes = '1';
   acoes.append(...(lista ? [
     botaoExcluirDaLinha(item, lista, depoisDeMexer),
     botaoRenomearDaLinha(item, depoisDeMexer),
@@ -7802,8 +7811,8 @@ function linhaDeItem(item, opts) {
   // ===== A FAIXA DIVIDE A LINHA COM O CONFIRMAR (v5.302) =====
   //
   // Pedido do operador: *"ponha o botão de confirmar as escolhas do play dos
-  // favoritos para que ele fique lado a lado, à esquerda das opções, ajustado
-  // com a altura dos botões"*.
+  // favoritos para que ele fique lado a lado … ajustado com a altura dos
+  // botões"*. (O LADO se inverteu na v5.307 — ver `data-antes` acima.)
   //
   // Ela era um bloco PRÓPRIO no pé da gaveta, logo abaixo da linha do confirmar
   // — duas faixas empilhadas para o que cabe numa, e a gaveta inteira mais alta
@@ -12860,7 +12869,13 @@ function destConfirmRow(aoLado) {
     : (songMenuFor && typeof songMenuFor.aoLado === 'function' ? songMenuFor.aoLado : null);
   if (dono) {
     const irmao = dono();
-    if (irmao) li.appendChild(irmao);
+    // O LADO É DECISÃO DO IRMÃO (v5.307), dita em `data-antes`: a faixa de ações
+    // de um Favorito entra ANTES do confirmar, o "Ver a letra" da Biblioteca
+    // continua depois. Esta função não conhece nenhum dos dois — pergunta.
+    if (irmao) {
+      if (irmao.dataset && irmao.dataset.antes) li.insertBefore(irmao, btn);
+      else li.appendChild(irmao);
+    }
   }
   return li;
 }
@@ -13537,9 +13552,15 @@ async function lerSorteioPrefs() {
   sorteioPrefsLidas = true;
   try { applySorteioPrefs(await AVDB.getState('sorteioPrefs')); } catch (_) { /* o padrão serve */ }
 }
+// A PALAVRA TEMA NÃO É GRAVADA (v5.307), e as outras cinco escolhas são. A
+// diferença é o que cada uma significa: modo, variante, filtros e quantidade são
+// AJUSTES — como o operador quer que este recurso se comporte —, e a palavra é
+// uma PERGUNTA, feita uma vez. Reencontrar "natal" no campo em fevereiro é o
+// recurso lembrando de algo que não é para ser lembrado; pior, é um filtro
+// silencioso sobre o primeiro sorteio de quem só queria abrir e tocar.
 function saveSorteioPrefs() {
   return AVDB.setState('sorteioPrefs', {
-    modo: sorteioPrefs.modo, tema: sorteioPrefs.tema, variante: sorteioPrefs.variante,
+    modo: sorteioPrefs.modo, variante: sorteioPrefs.variante,
     semHinario: sorteioPrefs.semHinario, soNoAparelho: sorteioPrefs.soNoAparelho,
     quantos: sorteioPrefs.quantos,
   });
@@ -13595,8 +13616,16 @@ async function abrirSorteio() {
 function fecharSorteio() {
   sorteioPopupEl.classList.remove('open');
   calarSorteio();
-  // A palavra tema é gravada AQUI, e não a cada tecla: `input` persistido é uma
-  // escrita no IndexedDB por caractere digitado.
+  // A CAIXA DA PALAVRA É LIMPA A CADA FECHAMENTO (v5.307, pedido do operador).
+  // A folha é reaberta em outro momento do culto, para outra coisa — e o campo
+  // preenchido a espera com um filtro que ela não pediu, que é o pior estado
+  // possível para um recurso cujo botão dispara sem tela intermediária. Fechar
+  // sem sortear é o gesto de quem desistiu daquela palavra.
+  //
+  // AQUI e não no `abrirSorteio`: os dois pontos limpariam o mesmo campo, e este
+  // é o único que também vale para o ✕, o toque no fundo e o botão voltar do
+  // aparelho — os três caminhos que a tabela `POPUPS` liga a esta função.
+  sorteioPrefs.tema = '';
   saveSorteioPrefs();
 }
 
@@ -13655,6 +13684,32 @@ function pintarContaSorteio(conta, pool) {
   }
 }
 
+// ===== SEM PALAVRA, O ACERVO INTEIRO ENTRA — E A FRASE O DIZ (v5.307) =====
+//
+// Pedido do operador: *"permita (e descreva/identifique) que ao não filtrar por
+// nenhuma palavra, o sistema considere todo o acervo disponível para sortear (é
+// claro, considerando os outros filtros e configurações)"*.
+//
+// A REGRA já permitia — `AVSorteio.ondeCasa` devolve `CASOU_SEM_TEMA` com a
+// busca vazia, e o pool sai com o acervo inteiro. O que faltava era DIZÊ-LO: a
+// frase era "28 músicas na biblioteca", que informa o tamanho e não o ESCOPO, e
+// deixava a pergunta "então ele vai sortear de tudo?" sem resposta na tela.
+//
+// A frase LIDERA COM O ESCOPO em vez do número, porque com a caixa vazia é o
+// escopo que está em dúvida. E ela é HONESTA sobre os dois filtros que
+// encolhem o "tudo": dizer "toda a biblioteca" com o hinário fora seria uma
+// frase errada — e uma frase errada é pior que nenhuma, porque produz a decisão
+// errada. A VARIANTE (Cantada × Playback) fica de fora desta conta de
+// propósito: ela não encolhe um acervo, ela escolhe QUAL faixa de cada música,
+// e o segmento acima já a mostra.
+function escopoSemPalavra(n) {
+  const base = sorteioPrefs.soNoAparelho
+    ? 'Só o que já está no aparelho'
+    : 'Toda a biblioteca';
+  const menos = sorteioPrefs.semHinario ? ', sem o hinário' : '';
+  return base + menos + ' — ' + numeroPt(n) + (n === 1 ? ' música' : ' músicas');
+}
+
 // Números do acervo passam de mil (os dois hinários somam ~1.100): sem o
 // separador, "1243" se lê como um código.
 function numeroPt(n) {
@@ -13676,7 +13731,7 @@ function frasesDaContaSorteio(pool) {
   const forte = palavra
     ? numeroPt(n) + (n === 1 ? ' música relacionada a ' : ' músicas relacionadas a ')
       + '“' + palavra + '”'
-    : numeroPt(n) + (n === 1 ? ' música na biblioteca' : ' músicas na biblioteca');
+    : escopoSemPalavra(n);
 
   const baixadas = pool.noAparelho;
   const jaTem = baixadas === 0 ? 'nenhuma baixada ainda'
@@ -13712,7 +13767,11 @@ function fraseDoVazioSorteio(pool) {
   }
   const r = pool.recusas;
   if (sorteioPrefs.soNoAparelho && r[AVSorteio.MOTIVO_FORA]) {
-    return 'Nada do que combina está baixado. Desligue “Só no aparelho” para baixar na hora.';
+    // Sem palavra não há "o que combina" — o que falta é download, e a frase
+    // tem de dizer isso em vez de culpar um tema que não existe.
+    return sorteioPrefs.tema.trim()
+      ? 'Nada do que combina está baixado. Desligue “Só no aparelho” para baixar na hora.'
+      : 'Nada baixado ainda. Desligue “Só no aparelho” para baixar na hora.';
   }
   if (sorteioPrefs.variante === AVSorteio.VARIANTE_PLAYBACK && r[AVSorteio.MOTIVO_VARIANTE]) {
     return 'Nenhuma delas tem playback. Troque para Cantada.';
@@ -13771,22 +13830,28 @@ function renderSorteio() {
   const inp = document.createElement('input');
   inp.className = 'lib-search';
   inp.type = 'search';
-  inp.placeholder = 'Palavra tema (natal, cruz, gratidão…)';
+  // O PLACEHOLDER DIZ O QUE O VAZIO SIGNIFICA. É a única superfície em que essa
+  // pergunta é feita — "e se eu não escrever nada?" — e responder ali custa uma
+  // linha; responder na conta obrigaria o operador a tocar no botão para
+  // descobrir. Ele some no primeiro caractere, que é exatamente quando a
+  // resposta deixa de valer.
+  inp.placeholder = 'Palavra tema (vazio = toda a biblioteca)';
   inp.value = sorteioPrefs.tema;
   inp.setAttribute('aria-label', 'Palavra tema');
-  // `input` só mexe na MEMÓRIA e na conta; quem grava é o `change` (e o fechar
-  // da folha). Persistir por tecla é uma escrita no IndexedDB por caractere.
+  // A PALAVRA É ASSINADA NA HORA; SÓ A CONTA ESPERA.
   //
-  // E A CONTA É ADIADA pelo MESMO prazo da busca da Biblioteca: recontar varre
-  // os dois hinários mais todos os álbuns indexados e, para cada faixa que não
-  // casa pelo título, o texto inteiro da letra — a mesma varredura que o campo
-  // ao lado já paga com `debounce`. Digitar depressa não pode custar uma
-  // passada pelo acervo por tecla.
-  inp.addEventListener('input', debounce(() => {
-    sorteioPrefs.tema = inp.value;
-    atualizarContaSorteio();
-  }, SEARCH_DEBOUNCE_MS));
-  inp.addEventListener('change', () => { sorteioPrefs.tema = inp.value; saveSorteioPrefs(); });
+  // O `debounce` cobria a atribuição TAMBÉM, e isso era um defeito latente:
+  // digitar "natal" e tocar no botão dentro dos 130 ms sorteava com a palavra
+  // ANTERIOR — sem erro, sem sinal, e com a conta ainda por cima mostrando o
+  // número certo, porque ela e o sorteio liam a mesma variável defasada.
+  //
+  // O que precisa do atraso é só o RECONTAR: ele varre os dois hinários mais
+  // todos os álbuns indexados e, para cada faixa que não casa pelo título, o
+  // texto inteiro da letra — a mesma varredura que o campo ao lado já paga com
+  // `debounce`. Digitar depressa não pode custar uma passada pelo acervo por
+  // tecla; escrever uma string, pode.
+  const recontar = debounce(atualizarContaSorteio, SEARCH_DEBOUNCE_MS);
+  inp.addEventListener('input', () => { sorteioPrefs.tema = inp.value; recontar(); });
   campo.appendChild(inp);
   liCampo.appendChild(campo);
   alvo.appendChild(liCampo);
@@ -16639,7 +16704,7 @@ async function guardarPacote() {
 }
 
 /**
- * ESVAZIAR A FILA (v5.307), a pedido do operador: *"faça um botão para limpar
+ * ESVAZIAR A FILA (v5.309), a pedido do operador: *"faça um botão para limpar
  * toda a playlist tocando agora"*. Tirar item a item era o único caminho, e uma
  * fila de culto tem oito ou dez linhas — cada uma com a própria pergunta.
  *

@@ -24,7 +24,9 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
-- **v5.307** — QUATRO AJUSTES PEDIDOS: o título parava de pular, a versão foi para o fim da referência, o par de confirmar divide a faixa ao meio e a fila ganhou um LIMPAR. OTA PURO
+- **v5.309** — QUATRO AJUSTES PEDIDOS: o título parava de pular, a versão foi para o fim da referência, o par de confirmar divide a faixa ao meio e a fila ganhou um LIMPAR. OTA PURO
+- **v5.308** — A PALAVRA TEMA É MOMENTÂNEA, e sem ela o sorteio DIZ que pega o acervo inteiro. OTA PURO
+- **v5.307** — O CONFIRMAR DOS FAVORITOS PASSA PARA A DIREITA, e o lado do irmão vira decisão de quem o fornece. OTA PURO
 - **v5.306** — DOIS DESFECHOS PARA A FILA SORTEADA, e a conta passa a falar de MÚSICA em vez de varredura. OTA PURO
 - **v5.305** — O BOTÃO DA PLAYLIST ABRE A BARRA, e o ícone dele estava a 2,06:1 sobre o campo branco. OTA PURO
 - **v5.304** — O BOTÃO DA PLAYLIST AUTOMÁTICA ESTAVA INVISÍVEL — o glifo não existe no subset da fonte, e agora isso tem oráculo. OTA PURO
@@ -179,9 +181,9 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
-## v5.307
+## v5.309
 
-**A v5.307: QUATRO AJUSTES PEDIDOS — o título parava de pular, a versão foi para
+**A v5.309: QUATRO AJUSTES PEDIDOS — o título parava de pular, a versão foi para
 o fim da referência, o par de confirmar divide a faixa ao meio e a fila ganhou um
 LIMPAR. OTA PURO** (base web, oráculos e docs; sem Release, `SHELL_VERSION`
 continua **44**).
@@ -273,6 +275,104 @@ Um efeito colateral bom: o `desvio <= 2` que o bloco da troca de modo já media 
 `smoke.mjs` passa a ser guardado por construção, e o comentário dele foi
 corrigido — ele dizia que o título só ficava centrado por NÃO haver vizinhos, o
 que a partir daqui é falso.
+
+**O lote nasceu como v5.307 e virou v5.309 no merge**: a v5.307 (o confirmar dos
+favoritos à direita) e a v5.308 (a palavra do sorteio) saíram enquanto ele era
+escrito. As duas mexem na mesma faixa deste lote e o encaixe é limpo — a
+inversão delas é do DOM (`data-antes`), a divisão ao meio é do par
+(`.linha-confirma-btn`) —, mas o `justify-content: flex-end` da `.fav-acoes`
+deixou de pesar no estado `.confirmando`: quem preenche a faixa passou a ser a
+`.linha-confirma`, e o comentário de lá foi corrigido no mesmo lote em que
+deixou de valer.
+
+---
+
+## v5.308
+
+**A v5.308: A PALAVRA TEMA É MOMENTÂNEA, e sem ela o sorteio DIZ que pega o
+acervo inteiro. OTA PURO** (base web, oráculos e docs; sem Release,
+`SHELL_VERSION` continua **44**).
+
+Dois pedidos do operador: *"limpe a caixa de referência do sorteio a cada vez
+que fechar o popup"* e *"permita (e descreva/identifique) que ao não filtrar por
+nenhuma palavra, o sistema considere todo o acervo disponível para sortear (é
+claro, considerando os outros filtros e configurações)"*.
+
+**A PALAVRA É UMA PERGUNTA; OS FILTROS SÃO AJUSTES.** A caixa passa a ser limpa
+a cada fechamento e a palavra deixa de ser gravada — as outras cinco escolhas
+continuam. A diferença é o que cada uma significa: modo, variante, filtros e
+quantidade são *como o recurso deve se comportar*; a palavra é feita uma vez.
+Reencontrar "natal" no campo em fevereiro é o recurso lembrando de algo que não
+é para ser lembrado — pior, é um filtro silencioso sobre o primeiro sorteio de
+quem só queria abrir e tocar.
+
+A limpeza mora em `fecharSorteio` e não em `abrirSorteio`: os dois limpariam o
+mesmo campo, e só o primeiro vale para os TRÊS caminhos de fechamento que a
+tabela `POPUPS` liga a ele — o ✕, o toque no fundo e o botão voltar do aparelho.
+O oráculo mede os três.
+
+**SEM PALAVRA, O ACERVO INTEIRO — e agora a frase o DIZ.** A regra já permitia
+(`AVSorteio.ondeCasa` devolve `CASOU_SEM_TEMA` com a busca vazia); o que faltava
+era dizê-lo. A frase era "28 músicas na biblioteca", que informa o TAMANHO e não
+o ESCOPO, e deixava "então ele vai sortear de tudo?" sem resposta na tela.
+
+Ela passou a liderar com o escopo, porque com o campo em branco é o escopo que
+está em dúvida — e é HONESTA sobre os dois filtros que encolhem o "tudo":
+
+```
+Toda a biblioteca — 58 músicas
+Toda a biblioteca, sem o hinário — 18 músicas
+Só o que já está no aparelho — 17 músicas
+Só o que já está no aparelho, sem o hinário — 5 músicas
+```
+
+Dizer "toda a biblioteca" com o hinário fora seria uma frase ERRADA, e frase
+errada é pior que nenhuma: ela produz a decisão errada. A VARIANTE fica de fora
+dessa conta de propósito — ela não encolhe um acervo, escolhe QUAL faixa de cada
+música, e o segmento logo acima já a mostra. E o placeholder responde a mesma
+pergunta antes de o operador tocar em nada: *"Palavra tema (vazio = toda a
+biblioteca)"* — a única superfície em que ela nasce.
+
+**E UM DEFEITO LATENTE SAIU JUNTO.** O `debounce` do campo cobria a ATRIBUIÇÃO
+além da recontagem: digitar "natal" e tocar no botão dentro dos 130 ms sorteava
+com a palavra ANTERIOR — sem erro, sem sinal, e com a conta ainda por cima
+mostrando o número certo, porque ela e o sorteio liam a mesma variável defasada.
+Hoje a palavra é assinada na hora e só o RECONTAR espera (é ele que varre os dois
+hinários mais os álbuns, e a letra inteira de cada faixa que não casa pelo
+título). O oráculo digita e lê `sorteioPrefs.tema` no mesmo instante.
+
+---
+
+## v5.307
+
+**A v5.307: O CONFIRMAR DOS FAVORITOS PASSA PARA A DIREITA, e o lado do irmão
+vira decisão de quem o fornece. OTA PURO** (base web, oráculo e docs; sem
+Release, `SHELL_VERSION` continua **44**).
+
+Pedido do operador: *"nos favoritos, o botão de confirmar as opções de play fica
+a esquerda dos botões, deixe-o na direita, com as outras opções a esquerda"*.
+
+**A INVERSÃO É DE DOM, NÃO DE CSS.** Um `order` ou um `row-reverse` daria o
+mesmo desenho e deixaria a ordem de FOCO ao contrário — numa faixa cujo primeiro
+botão é a LIXEIRA de um item. O sinal viaja no próprio nó (`data-antes`, posto
+por quem monta a faixa em `linhaDeItem`) e o `destConfirmRow` só o consulta: ele
+não conhece nem a faixa de ações de um Favorito nem o "Ver a letra" da
+Biblioteca, que continua **depois** do confirmar. O lado é decisão de quem
+fornece o irmão, e é por isso que uma das duas mudou sem que a outra se mexesse.
+
+O nó carrega o sinal em vez de um segundo argumento no hook `aoLado` porque é o
+NÓ que atravessa as remontagens da lista (`renderItemMenu` refaz a `<ul>` a cada
+marca, e o `appendChild`/`insertBefore` apenas o MOVE) — um argumento a mais
+seria estado a manter em sincronia com algo que já diz tudo.
+
+O estado `.confirmando` não muda: ali o confirmar sai de cena e a faixa ocupa a
+linha inteira, então de que lado ela estava é indiferente.
+
+**O ORÁCULO SEGUIU O PEDIDO, e ganhou uma pergunta.** O
+`boot-nativo.test.mjs` afirmava o confirmar à esquerda; agora afirma o
+contrário — **e** que a ordem do DOM concorda com a da tela. É essa segunda
+metade que faz a regra durar: sem ela, a próxima inversão pode voltar por um
+`order` e passar.
 
 ---
 

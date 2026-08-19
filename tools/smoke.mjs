@@ -2254,7 +2254,7 @@ try {
 //
 // A medição achou um efeito que não estava no pedido: com o botão de troca de
 // modo fora do cabeçalho, o título da lista passou a ficar de fato CENTRADO —
-// ele nunca esteve, vivia 63px à direita. Desde a v5.307 quem o mantém no eixo
+// ele nunca esteve, vivia 63px à direita. Desde a v5.309 quem o mantém no eixo
 // é a grade de três trilhas da faixa, e não a ausência de vizinhos: ver "O NOME
 // DA TELA NÃO SE MEXE", que mede o mesmo eixo com o voltar EM CENA.
 try {
@@ -2463,7 +2463,7 @@ try {
 
 // ── O NOME DA TELA NÃO SE MEXE ───────────────────────────────────────────
 //
-// Pedido do operador (v5.307): *"ajuste o título da aba Bíblia, que está se
+// Pedido do operador (v5.309): *"ajuste o título da aba Bíblia, que está se
 // deslocando durante o processo de escolher o capítulo e versículo"*.
 //
 // O título era centrado no espaço que SOBRAVA de uma faixa flex, e o voltar
@@ -2588,7 +2588,7 @@ try {
       r.aindaNaFila = await AVDB.listHas('playlist', m.id);
       const dlg = document.getElementById('appDialog');
       r.semModal = !dlg || !dlg.classList.contains('open');
-      // E O PAR DIVIDE A FAIXA AO MEIO (v5.307). Ele era do tamanho do próprio
+      // E O PAR DIVIDE A FAIXA AO MEIO (v5.309). Ele era do tamanho do próprio
       // rótulo e encostado à direita: "Cancelar" e "Excluir" ficavam colados um
       // ao outro na metade direita de uma faixa vazia, com 8px entre dois alvos
       // de um destrutivo. Medido no RENDERIZADO e em duas metades, porque cada
@@ -2630,7 +2630,7 @@ try {
     + 'um mesmo desenho com dois alcances conforme a tela é a pior forma de '
     + 'oferecer um destrutivo', JSON.stringify(fila));
   checar(!fila.erro && fila.parIgual === true && fila.parEnche === true,
-    'e o par DIVIDE A FAIXA AO MEIO (v5.307): um na metade esquerda, outro na '
+    'e o par DIVIDE A FAIXA AO MEIO (v5.309): um na metade esquerda, outro na '
     + 'direita — encostados à direita, os dois alvos de um destrutivo ficavam a '
     + '8px um do outro (' + fila.parLarguras + 'px)', JSON.stringify(fila));
 } catch (e) {
@@ -2639,7 +2639,7 @@ try {
 
 // ── LIMPAR A FILA INTEIRA ────────────────────────────────────────────────
 //
-// O botão que a v5.307 acrescentou ao rodapé da folha da playlist, a pedido do
+// O botão que a v5.309 acrescentou ao rodapé da folha da playlist, a pedido do
 // operador. Ele é o destrutivo de maior ALCANCE do app por toque — os outros
 // tiram um item, este tira a fila do culto —, e o que o torna aceitável é a
 // pergunta na própria caixa. Cada asserção cai por um motivo próprio: a pergunta

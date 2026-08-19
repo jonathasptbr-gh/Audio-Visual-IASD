@@ -2964,9 +2964,14 @@ try {
       // 1. MESMA LINHA — a faixa é irmã do confirmar, não um bloco solto no pé.
       mesmaLinha: true,
       soltaNaGaveta: !!li.querySelector(':scope > .hymn-gaveta > .fav-acoes'),
-      // 2. O CONFIRMAR VEM ANTES, e cresce: a decisão principal é a que se acha
-      //    sem mirar.
-      confirmarAEsquerda: Math.round(cx(go).right) <= Math.round(cx(bs[0]).left),
+      // 2. O CONFIRMAR VEM DEPOIS (v5.307 — era antes), e cresce: ele é a
+      //    decisão principal, e a que se acha sem mirar é a do CANTO. A medida é
+      //    de GEOMETRIA e não de ordem no DOM de propósito: um `order` ou um
+      //    `row-reverse` passaria numa checagem de índice e continuaria com a
+      //    ordem de FOCO invertida numa faixa que tem um destrutivo.
+      confirmarADireita: Math.round(cx(go).left) >= Math.round(cx(bs[bs.length - 1]).right),
+      // E A ORDEM DO DOM CONCORDA com a da tela.
+      domConcorda: [...linhaGo.children].indexOf(fx) < [...linhaGo.children].indexOf(go),
       confirmarCresce: Math.round(cx(go).width) > Math.round(cx(bs[0]).width),
       // 3. UMA ALTURA SÓ.
       alturaGo: Math.round(cx(go).height),
@@ -3009,9 +3014,10 @@ try {
     'A FAIXA DE AÇÕES DIVIDE A LINHA COM O CONFIRMAR (v5.302) — ela era um bloco '
     + 'próprio no pé da gaveta, duas faixas empilhadas para o que cabe numa',
     JSON.stringify(faixa));
-  checar(!faixa.erro && faixa.confirmarAEsquerda && faixa.confirmarCresce,
-    'com o confirmar À ESQUERDA dela e crescendo: a decisão principal é a que se '
-    + 'acha sem mirar', JSON.stringify(faixa));
+  checar(!faixa.erro && faixa.confirmarADireita && faixa.domConcorda && faixa.confirmarCresce,
+    'com o confirmar À DIREITA dela (v5.307) e crescendo — e a ordem do DOM '
+    + 'concordando com a da tela, senão o foco anda ao contrário numa faixa que '
+    + 'tem um destrutivo', JSON.stringify(faixa));
   checar(!faixa.erro && faixa.alturasBotoes.length > 0
       && faixa.alturasBotoes.every((h) => h === faixa.alturaGo),
     'e TODOS na mesma altura (' + (faixa.alturaGo || 0) + 'px) — os botões traziam '
