@@ -4029,173 +4029,123 @@ começado, precisa poder parar num toque. Nesse estado o álbum se fecha pelo to
 na barra.
 ### Os acordeões abrem animados
 
-Um acordeão que troca `display` aparece **pronto**, e num toque a lista inteira
-abaixo dá um salto — o operador perde de vista onde estava. Animar a altura
-mostra de onde o conteúdo saiu, que é a única informação que o salto destrói.
-Vale para os dois acordeões do acervo: o **card do álbum** e a **letra** de cada
-linha de música.
+Um acordeão que troca `display` aparece **pronto**, e num toque a lista abaixo
+dá um salto — o operador perde de vista onde estava. Animar a altura mostra de
+onde o conteúdo saiu, que é a informação que o salto destrói. Vale para os dois
+acordeões do acervo: o **card do álbum** e a **letra** de cada linha.
 
 - **A altura é MEDIDA e animada em JS** (`expandAccordion`/`collapseAccordion`,
   Web Animations API, `ACC_MS` = 220 ms). `auto` não é animável em CSS, e um
-  teto fixo cortaria a letra de um hino de 40 linhas ou deixaria um vão enorme
-  depois de um refrão de duas.
+  teto fixo cortaria a letra de um hino de 40 linhas.
 - **`offsetHeight`, não `scrollHeight`.** A caixa da letra tem teto
-  (`max-height: 40vh`) e rola por dentro: o conteúdo de um hino longo passa
-  muito do que ela de fato ocupa, e animar até lá abriria um vão e depois
-  recuaria.
-- **O `overflow: hidden` é devolvido no fim** (`finish` **e** `cancel`). Sem
-  isso a lista de músicas ficaria presa à altura do instante em que a animação
-  foi montada — e a letra que uma linha abrisse depois seria cortada.
-- **O card ganhou um invólucro** (`.coll-open`, com o painel de opções e a lista
-  dentro) só para a animação ter UM nó a recortar. O `overflow` não podia ir no
-  card: a barra dele é `position: sticky`, e um ancestral com overflow recortado
-  a prende. As margens negativas do invólucro repetem as de `.coll-songs` (que
-  sangra até a borda do card para o filete do topo atravessar a largura toda) —
-  o recorte acontece na borda do **padding**, então esse par margem/padding põe
-  a linha de corte exatamente na borda do card.
-- **A abertura do álbum é sinalizada pelo render, não pelo clique**
-  (`ui(coll.id).animarAbertura`): o card só existe depois de `redesenharAcervo()`
-  reconstruir a lista inteira, e a bandeira é consumida ali. Só o toque que
-  ABRIU anima — um redesenho por outro motivo (o progresso de um download)
-  reencontra o card já aberto, e vê-lo "abrir" sozinho leria como se algo
-  tivesse acontecido.
+  (`max-height: 40vh`) e rola por dentro: animar até o `scrollHeight` abriria um
+  vão e depois recuaria.
+- **O `overflow: hidden` é devolvido no fim** (`finish` **e** `cancel`), senão a
+  lista fica presa à altura do instante em que a animação foi montada.
+- **O card tem um invólucro** (`.coll-open`, com o painel de opções e a lista)
+  só para a animação ter UM nó a recortar. O `overflow` não podia ir no card: a
+  barra dele é `position: sticky`, e um ancestral com overflow recortado a
+  prende. As margens negativas do invólucro repetem as de `.coll-songs` — o
+  recorte acontece na borda do padding, e esse par põe a linha de corte
+  exatamente na borda do card.
+- **A abertura é sinalizada pelo render, não pelo clique**
+  (`ui(coll.id).animarAbertura`): o card só existe depois de
+  `redesenharAcervo()`, e a bandeira é consumida ali. Só o toque que ABRIU anima
+  — um redesenho por outro motivo (o progresso de um download) reencontra o card
+  já aberto, e vê-lo "abrir" sozinho leria como se algo tivesse acontecido.
 - **Fechar anima ANTES de redesenhar**: o redesenho apaga o nó, e um nó apagado
-  não tem como sair deslizando.
-- **A letra é montada antes de a linha abrir.** `montarLetra()` é assíncrona, e
-  uma caixa ainda vazia mediria zero. Quem rola até a linha que casou com a
-  busca passou a ser o chamador, depois de abrir — `scrollIntoView` numa caixa
-  `display:none` é no-op.
-- **`prefers-reduced-motion: reduce` desliga tudo** (`semMovimento()`): quem
-  pediu menos movimento no sistema pediu isso para o app inteiro. Sem animação o
-  acordeão abre e fecha como antes, instantâneo.
-
-> O card já foi um **acordeão de "check do sistema"**: expandia um painel de
-> status, e as músicas só eram alcançáveis por um botão "Ver músicas" ou pela
-> busca. O toque natural no álbum fazia a coisa menos útil. Depois virou um
-> atalho para uma **segunda tela** com a lista (`openCollectionSongs`, com
-> voltar próprio e um degrau em `__avBack`) — e entrar e sair para ver o que
-> tem dentro é caro quando a pergunta é "em qual deles está aquela música?".
-> Hoje o acordeão voltou, mas expandindo a **lista**, não o status: o mecanismo
-> antigo com um conteúdo novo. `openCollectionSongs` e o `searchScope` que a
-> acompanhava não existem mais.
+  não sai deslizando.
+- **A letra é montada antes de a linha abrir.** `montarLetra()` é assíncrona e
+  uma caixa vazia mediria zero. Quem rola até a linha que casou com a busca é o
+  chamador, depois de abrir — `scrollIntoView` numa caixa `display:none` é no-op.
+- **`prefers-reduced-motion: reduce` desliga tudo** (`semMovimento()`).
 
 > **Vocabulário: na TELA ela se chama "Biblioteca"** (v5.96). No código e neste
-> documento ela continua sendo o **acervo** — `hymnSearchPopup`,
-> `renderAcervoTotal`, `openHymnSearch` —, e renomear centenas de símbolos e
-> parágrafos para acompanhar um rótulo seria um diff enorme sem nada em troca.
-> A tradução é esta: *acervo* (código) = *Biblioteca* (rótulo). Cuidado com o
-> outro sentido de "biblioteca" que já existia por aqui — o IndexedDB/OPFS com
-> tudo o que o operador baixou (ver as regras de backup em CLAUDE.md); nos
-> textos VISÍVEIS ele passou a ser chamado de "os dados do app", para as duas
-> coisas não dividirem a mesma palavra na frente de quem usa.
+> documento continua sendo o **acervo** (`hymnSearchPopup`, `renderAcervoTotal`,
+> `openHymnSearch`). Cuidado com o outro sentido de "biblioteca" que já existia
+> aqui — o IndexedDB/OPFS com tudo o que o operador baixou; nos textos VISÍVEIS
+> ele é "os dados do app", para as duas coisas não dividirem a mesma palavra.
 
 **Opções da coleção** (`buildCollectionOptions` → painel `.coll-opts--inline`,
 dentro do card): tudo que é manutenção, numa LINHA — `[⟳ Verificar · ✓ completo]
-[🗑]`. Elas aparecem **sempre** que o álbum está aberto; não há botão para
-revelá-las, e não há "Ver músicas" (a lista é o toque no card).
+[🗑]`. Aparecem **sempre** que o álbum está aberto; não há botão para revelá-las
+nem "Ver músicas" (a lista é o toque no card).
 
-- **Sincronizar** (`syncCollection`), rotulado pelo que ESTE toque vai fazer
-  neste álbum: **"Verificar atualizações"** com o álbum inteiro no aparelho (não
-  há o que baixar — só conferir se o catálogo mudou), **"Baixar"** em qualquer
-  outro caso, **"Cancelar"** enquanto roda.
-- **O ESTADO fica DENTRO do botão**, na mesma linha do rótulo
-  (`.coll-opt-estado`): a gramática do resto do app é **o rótulo nomeia a AÇÃO,
-  o estado diz onde ela está** — "Verificar · ✓ completo", "Baixar · 12/24",
-  "Atualizar a lista · 52 episódios". Quem encolhe com reticências é o estado,
-  nunca a palavra da ação. Sozinho, "Verificar atualizações" não dizia sequer que
-  o álbum estava inteiro.
-- **O PROGRESSO é DESENHO, não texto.** Enquanto o download roda o botão de
-  cancelar se preenche até `--p` (`::before` com `z-index: -1` sob
-  `isolation: isolate` — o rótulo é um nó de TEXTO e não recebe `z-index`, então
-  quem desce é a barra). Ele não escreve nada de propósito: as palavras
-  ("Baixando 2 de 4…") são da barra do card, e uma segunda cópia aqui é a mesma
-  classe de defeito que já esvaziou este painel duas vezes. Sem índice não há
-  fração e não há barra — uma proporção que não se conhece não se desenha.
-- **A remoção é só a LIXEIRA** (`deleteCollection`): 44px contra 316px, e a linha
-  inteira passa a ser do botão que carrega ação, estado e progresso. Um
-  destrutivo pode ficar sem rótulo aqui porque ele é CONFIRMADO, e o diálogo
-  nomeia o alcance ("o que foi baixado… e a lista offline") — a frase segue no
-  `title`/`aria-label`.
+- **Sincronizar** (`syncCollection`), rotulado pelo que ESTE toque vai fazer:
+  **"Verificar atualizações"** com o álbum inteiro no aparelho, **"Baixar"** em
+  qualquer outro caso, **"Cancelar"** enquanto roda.
+- **O ESTADO fica DENTRO do botão** (`.coll-opt-estado`): o rótulo nomeia a
+  AÇÃO, o estado diz onde ela está — "Verificar · ✓ completo", "Baixar · 12/24",
+  "Atualizar a lista · 52 episódios". Quem encolhe com reticências é o estado.
+- **O PROGRESSO é DESENHO, não texto.** O botão de cancelar se preenche até
+  `--p` (`::before` com `z-index: -1` sob `isolation: isolate` — o rótulo é um
+  nó de TEXTO e não recebe `z-index`, então quem desce é a barra). As palavras
+  são da barra do card; uma segunda cópia aqui é a classe de defeito que já
+  esvaziou este painel duas vezes. Sem índice não há fração nem barra.
+- **A remoção é só a LIXEIRA** (`deleteCollection`): 44px contra 316px. Um
+  destrutivo pode ficar sem rótulo porque é CONFIRMADO, e o diálogo nomeia o
+  alcance; a frase segue no `title`/`aria-label`.
 
 > **A REGRA QUE ESTE PAINEL ENSINOU, DUAS VEZES: nada aqui repete o que a barra
-> do card já diz.** Ele já teve três chips e uma linha de status, e depois um
-> chip de peso: o peso está na barra ANTES de abrir (é ele que faz o operador
-> decidir abrir), e o "Baixando 2 de 4…" está na barra `sticky` dois centímetros
-> acima, que nunca sai de vista enquanto se lê o painel. Um chip permanente de
-> REDE também saiu — quem decide se a sincronização pergunta antes de usar dados
-> móveis é `isConfirmedWifi()`, e ela o diz **na hora, no diálogo**, que é onde a
-> informação tem consequência.
-
-Ele já foi um **bottom-sheet** (`#collPopup`, com degrau próprio de `z-index` e
-uma linha em `POPUPS`): um popup sobre o acervo — que já é um popup de tela
-cheia — para ver o estado de um álbum **que já estava aberto na tela**. Como
-painel, fechar é o mesmo toque que abriu e o `POPUPS`/`z-index` deixaram de ser
-necessários. Ele é redesenhado junto com o acervo, e o progresso da sincronização
-já dispara `refreshCollectionsIfVisible` — não sobrou popup com vida própria a
-sincronizar à parte.
+> do card já diz.** Ele já teve três chips, uma linha de status e um chip de
+> peso — e o peso está na barra ANTES de abrir (é ele que faz o operador decidir
+> abrir), e o "Baixando 2 de 4…" está na barra `sticky` dois centímetros acima.
+> Um chip permanente de REDE também saiu: quem decide se a sincronização
+> pergunta antes de usar dados móveis é `isConfirmedWifi()`, e ela o diz **na
+> hora, no diálogo**.
 
 **Uma coleção SEM índice abre direto nas opções**: `openCollectionOptions` liga
-`expanded` e mais nada. Ali não há lista para folhear, e o que resolve isso
-(sincronizar) está no painel.
+`expanded` e mais nada — ali não há lista para folhear.
 
 **O botão de sincronizar é o mesmo botão de CANCELAR.** Com o download em curso
-ele vira ✕ ("Cancelar", com o aviso na BORDA e no texto — o fundo é o
-progresso — e **sem giro**: um ✕ girando não se lê como "toque para parar"). Sem
-isso, um segundo toque caía num `return` mudo por `u.syncBusy`, e um álbum de
-centenas de faixas só parava fechando o app. O cancelamento **fecha a fila** —
-nenhuma música nova entra e as que já estão no ar (até `NET_CONCURRENCY`)
-terminam: abortar no meio deixaria um arquivo truncado catalogado como completo,
-e o custo de esperar é uma faixa, não um álbum. `u.cancel` também é conferido na
-VARREDURA do que falta (`songVariantsNeeded` por música), que num álbum grande já
-é demorada por si só.
+ele vira ✕ (aviso na BORDA e no texto, porque o fundo é o progresso, e **sem
+giro**: um ✕ girando não se lê como "toque para parar"). Sem isso um segundo
+toque caía num `return` mudo por `u.syncBusy`. O cancelamento **fecha a fila** —
+nada novo entra e o que está no ar termina: abortar no meio deixaria um arquivo
+truncado catalogado como completo. `u.cancel` também é conferido na VARREDURA
+(`songVariantsNeeded` por música), que num álbum grande já é demorada.
+
 #### "Esta coleção está completa?" — uma pergunta, UMA resposta
 
-**`levantarColecao(id)` é a fonte única**, e três funções finas em cima dela:
+**`levantarColecao(id)` é a fonte única**, com três funções finas em cima:
 
-- **`colecaoCompleta(id)`** — a pergunta da tela inteira, num lugar só. Conta
-  VARIANTES (Cantado + Playback quando a origem declara
-  `has_instrumental_music`), nunca músicas. Sem índice não há resposta: um álbum
-  que nunca sincronizou não está completo nem incompleto, e o botão ali serve
-  para buscar a lista.
+- **`colecaoCompleta(id)`** — a pergunta da tela inteira. Conta VARIANTES
+  (Cantado + Playback quando a origem declara `has_instrumental_music`), nunca
+  músicas. Sem índice não há resposta: um álbum que nunca sincronizou não está
+  completo nem incompleto.
 - **`faltamNaColecao(id)`** — quantas variantes faltam, para os diálogos e a
-  barra da notificação. Prometer "12 músicas" e baixar 10 é a forma mais barata
-  de parecer quebrado.
+  notificação. Prometer "12 músicas" e baixar 10 é a forma mais barata de
+  parecer quebrado.
 - **`songsBaixaveis(id)`** — o DENOMINADOR do "N de M músicas".
 
 A pergunta já foi respondida em QUATRO lugares por `countDownloaded(id) >=
 collSongs(id).length` — uma conta de MÚSICAS —, enquanto o download busca
-VARIANTES e a medida de peso já contava variantes: um Playback que faltasse
-deixava a barra escrevendo um número EXATO ao lado de um card que ainda mostrava
-o botão de baixar. **Duas réguas para a mesma pergunta divergem sozinhas, na
-mesma tela.**
+VARIANTES: um Playback faltando deixava a barra escrevendo um número EXATO ao
+lado de um card que ainda mostrava o botão de baixar. **Duas réguas para a mesma
+pergunta divergem sozinhas, na mesma tela.**
 
 **"NÃO EXISTE" não é "não baixei ainda".** Uma música cuja origem não tem o
 arquivo (`url_music` vazio) nunca ganha `fileIdFull`, e o efeito era permanente:
-a coleção nunca ficava completa, o botão nunca sumia, e **cada sincronização
-voltava a buscar o metadado dela** só para redescobrir que não há o que baixar.
-`ensureSongVariant` marca (`semAudio`/`semPlayback`) e apaga a marca se a URL
-aparecer depois — o índice é reaproveitado in-place pelo `fetchCollectionIndex`,
-então a marca sobrevive à atualização da lista de graça. A partir daí
+a coleção nunca ficava completa e **cada sincronização voltava a buscar o
+metadado dela**. `ensureSongVariant` marca (`semAudio`/`semPlayback`) e apaga a
+marca se a URL aparecer depois — o índice é reaproveitado in-place pelo
+`fetchCollectionIndex`, então a marca sobrevive à atualização de graça. Daí
 `levantarColecao` a conta como `semFonte`, `songVariantsNeeded` para de pedir o
-metadado dela, e ela sai **dos dois lados** da fração (um contador travado em
-53/54 ao lado de um "Completo offline" seria a mesma contradição, só que menor).
+metadado, e ela sai **dos dois lados** da fração.
 
 **O botão de GRUPO segue a mesma régua** (`grupoCompleto(colls)` =
-`colls.every(colecaoCompleta)`, e não uma soma de músicas do grupo, que
-responderia diferente da linha logo abaixo). O custo do toque ali é bem maior que
-num card: `syncGroup` percorre álbum por álbum, cada um buscando o índice na REDE
-e conferindo variante por variante — minutos, num acervo grande — para terminar
-escrevendo "Completo" e deixar o mesmo botão convidando a repetir tudo.
+`colls.every(colecaoCompleta)`, e não uma soma de músicas, que responderia
+diferente da linha logo abaixo). O custo do toque ali é maior: `syncGroup`
+percorre álbum por álbum buscando índice na REDE — minutos, num acervo grande.
 
 E é `grupoCompleto` que impede o "Baixar toda a biblioteca" de MENTIR num acervo
 recém-instalado: o atalho `songs === 0 → "Já completo"` é verdadeiro para um
-álbum SEM ÍNDICE, que tem zero variantes faltando **porque não tem lista
-nenhuma** — na janela em que o `autoRefreshCollections` ainda não indexou, o
-botão de maior alcance da tela respondia "Já completo" e não fazia nada.
+álbum SEM ÍNDICE, que tem zero variantes faltando **porque não tem lista** — na
+janela em que o `autoRefreshCollections` ainda não indexou, o botão de maior
+alcance da tela respondia "Já completo" e não fazia nada.
 
-`tools/acervo.test.mjs` prende as três contas (completude de coleção, de grupo e
-peso) num Chromium de verdade: conta errada não estoura em lugar nenhum, ela só
-mostra o número errado — a classe de defeito que nenhum `node --check` pega.
+`tools/acervo.test.mjs` prende as três contas num Chromium de verdade: conta
+errada não estoura em lugar nenhum, ela só mostra o número errado.
 
 #### A medição do peso
 
