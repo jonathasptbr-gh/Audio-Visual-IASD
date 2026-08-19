@@ -1602,9 +1602,13 @@ resto desta seção.
   de quem opera; num salão escuro é o retângulo mais luminoso da tela). No tema
   CLARO o `--panel` é branco pleno e a regra não se aplica pelo motivo dela.
 - **Uma superfície sem tema arrasta o que vive DENTRO dela** — a regra do palco
-  num lugar novo. `--field-bg` vem com `--field-text` e `--field-muted`, no bloco
-  compartilhado: no tema escuro `--text` sobre branco dá **1,17:1**. Trocar só o
-  fundo apaga o que se digita, e é o meio-conserto que o `smoke.mjs` reprova.
+  num lugar novo. `--field-bg` vem com `--field-text`, `--field-muted` **e
+  `--field-accent`**, no bloco compartilhado: no tema escuro `--text` sobre
+  branco dá **1,17:1** e `--accent` dá **2,06:1** (ele é o azul CLARO desenhado
+  para o fundo quase-preto do app). Trocar só o fundo apaga o que se digita, e é
+  o meio-conserto que o `smoke.mjs` reprova. O terceiro token nasceu quando um
+  botão de AÇÃO passou a morar sobre o campo — cada consumidor novo da superfície
+  refaz a pergunta, e o nome `--field-*` é o que impede a resposta errada.
 
 ### O que vive FORA do CSS e tem de andar junto
 
@@ -2123,7 +2127,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v5.304** (base web) · `SHELL_VERSION` **44** · bundle com
+**Versão atual: v5.305** (base web) · `SHELL_VERSION` **44** · bundle com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos nativos
 por construção (escada do voltar, botões de volume, notificação de controles),
 que **só chegam instalando o APK**.

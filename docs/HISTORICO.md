@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v5.305** — O BOTÃO DA PLAYLIST ABRE A BARRA, e o ícone dele estava a 2,06:1 sobre o campo branco. OTA PURO
 - **v5.304** — O BOTÃO DA PLAYLIST AUTOMÁTICA ESTAVA INVISÍVEL — o glifo não existe no subset da fonte, e agora isso tem oráculo. OTA PURO
 - **v5.303** — A PLAYLIST AUTOMÁTICA: sortear por tema, uma só ou uma fila — e a regra é um arquivo PURO com dois oráculos. OTA PURO
 - **v5.302** — A ORDEM DA FILEIRA, DITADA — e o botão da playlist deixa de ser um recibo para virar um ESTADO. OTA PURO
@@ -173,6 +174,55 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v5.305
+
+**A v5.305: O BOTÃO DA PLAYLIST ABRE A BARRA, e o ícone dele estava a 2,06:1
+sobre o campo branco. OTA PURO** (base web, oráculos e docs; sem Release,
+`SHELL_VERSION` continua **44**).
+
+Pedido do operador: *"coloque o botão desse sistema de playlist a esquerda da
+barra de buscas, e ajuste a cor do ícone dele para ter mais contraste, pois está
+fora de padrão de cores"*.
+
+**A POSIÇÃO.** Ele abre a linha; o ✕ continua fechando-a. A barra passa a ser
+lida como uma frase — *sortear · procurar · sair*. Entre o campo e o ✕ ele era
+um terceiro elemento no canto em que o app inteiro põe a SAÍDA, e a vizinhança
+dizia "mais um jeito de fechar isto". A regra do ✕ (*o fim da linha em toda
+folha deste app*) fica intacta: ela nunca foi sobre o que vem ANTES dele.
+
+**A COR era um DEFEITO MEDIDO, não uma questão de gosto.** O ícone saiu em
+`--accent`, e o botão vive sobre o CAMPO — que é branco literal e **sem tema**.
+`--accent` é redeclarado por tema: no escuro ele vale `#95b5f4`, o azul CLARO
+desenhado para o fundo quase-preto do app. Sobre branco isso mede **2,06:1**,
+abaixo até do piso de 3:1 de componente. No tema claro os mesmos tokens davam
+7,70:1 — o defeito existia em METADE dos temas, que é o pior lugar para ele
+estar.
+
+É a armadilha que o `CLAUDE.md` já descreve (*"uma superfície sem tema arrasta o
+que vive DENTRO dela"*) e que `--field-text` e `--field-muted` já resolviam para
+o texto e o placeholder. O acento era o **terceiro consumidor**, e ele apareceu
+quando um botão de AÇÃO passou a morar sobre o campo. Daí `--field-accent` no
+bloco compartilhado de `tokens.css`, com nome próprio em vez de a folha citar
+`--accent-fill`: o nome diz a que superfície ele pertence, e é isso que impede o
+próximo controle sobre o campo de repetir a conta.
+
+O valor é o denim OFICIAL (`#2f557f`, o mesmo que `--accent-fill` vale nos dois
+temas) — o par para o qual a paleta foi desenhada, porque os dezoito valores
+oficiais foram calibrados sobre fundo BRANCO. Medido: **7,70:1**, ao lado dos
+8,86:1 do `--field-text` do ✕ e dos 6,08:1 da lupa.
+
+**E ISSO TEM ORÁCULO.** O `sorteio-tela.test.mjs` passou a medir a cor
+**COMPUTADA** do ícone contra o fundo computado do botão, **nos dois temas** —
+comparar NOMES de token deixaria o defeito passar por baixo, que é a lição que o
+`smoke.mjs` já carregava para a escada de camadas. Provado mordendo: com
+`--accent` de volta ele reprova imprimindo `{"escuro":2.06,"claro":7.7}`.
+
+A ordem da barra também virou oráculo, e é medida pela POSIÇÃO NA TELA e não
+pela ordem no documento: um `order` de flex acrescentado por engano divorciaria
+as duas sem que nada reclamasse.
 
 ---
 
