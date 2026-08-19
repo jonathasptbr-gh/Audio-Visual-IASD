@@ -222,28 +222,23 @@ object YoutubeGrab {
      * nunca. Enquanto a marca é recente ([adaptativoBloqueado]), o caminho
      * adaptativo nem tenta.
      *
-     * Enquanto a biblioteca só sabia pedir sem token, o 403 era a regra e não a
-     * exceção: as doze faixas de vídeo-só e as cinco de áudio eram listadas e o
-     * CDN recusava todas. Sem esta memória, todo download refazia as mesmas
-     * requisições condenadas antes de cair no progressivo — alguns segundos de
-     * espera, por download, para chegar sempre à mesma conclusão.
+     * Enquanto a biblioteca só sabia pedir sem token, o 403 era a regra: todas
+     * as faixas eram listadas e o CDN recusava todas. Sem esta memória, todo
+     * download refazia as mesmas requisições condenadas antes de cair no
+     * progressivo.
      *
-     * **Com o cliente visionOS (v1.49) a bandeira ficou muito mais difícil de
-     * levantar, e tinha de ficar.** A lista agora é MISTA: uma faixa
-     * envenenada pode ter uma boa logo atrás na fila, e desligar o caminho
-     * inteiro por causa do primeiro 403 seria jogar fora justamente o 1080p que
-     * o bump veio buscar. Só liga quando **todos** os candidatos tentados
-     * morreram com 403, e no mínimo dois — e o caminho do ÁUDIO alimenta a
-     * marca com a mesma régua ([baixarAudio]): antes só a montagem de vídeo
-     * contava, e com todo áudio adaptativo recusado a sessão refazia as sondas
-     * condenadas a cada download.
+     * **Com o visionOS (v1.49) ela ficou muito mais difícil de levantar, e
+     * tinha de ficar**: a lista é MISTA, uma faixa envenenada pode ter uma boa
+     * atrás na fila, e desligar o caminho pelo primeiro 403 jogaria fora o
+     * 1080p que o bump veio buscar. Só liga quando TODOS os candidatos tentados
+     * morreram com 403, no mínimo dois — e o caminho do ÁUDIO alimenta a marca
+     * com a mesma régua ([baixarAudio]).
      *
-     * Com PRAZO ([BLOQUEIO_ADAPTATIVO_MS]), e não pela execução inteira: uma
-     * recusa unânime é evidência sobre UM vídeo agora, não sobre o YouTube até
-     * o app fechar — sem a expiração, dois 403 do vídeo problemático da manhã
-     * desligavam o 1080p de todos os downloads do dia. Por `elapsedRealtime`,
-     * imune a acerto de relógio; em memória e não persistido, porque um estado
-     * em disco transformaria uma recusa de um dia numa desistência permanente.
+     * Com PRAZO ([BLOQUEIO_ADAPTATIVO_MS]), não pela execução inteira: uma
+     * recusa unânime é evidência sobre UM vídeo agora, e sem expiração dois 403
+     * da manhã desligavam o 1080p do dia. Por `elapsedRealtime` (imune a acerto
+     * de relógio) e em memória, porque em disco uma recusa de um dia viraria
+     * desistência permanente.
      */
     @Volatile
     private var adaptativoBloqueadoEm = 0L
@@ -971,30 +966,21 @@ object YoutubeGrab {
         for (a in candidatos) {
             try {
                 // BYTES DE VERDADE, e não uma escala de 0 a 100 (v1.58).
+                // Este caminho reportava porcentagem enquanto o lado web trata
+                // os dois números como BYTES: a notificação — única janela do
+                // download com o app minimizado — anunciava "0 de 100" para um
+                // vídeo de 380 MB, que se lê como CEM ITENS.
                 //
-                // Este caminho reportava porcentagem (`lidos * 10 / total`,
-                // `100`) enquanto o lado web trata os dois números como BYTES —
-                // e a notificação, que é a única janela do download com o app
-                // minimizado, anunciava "0 de 100" para um vídeo de 380 MB. Do
-                // lado do operador isso se lê como CEM ITENS.
-                //
-                // E O TOTAL JÁ É O DAS DUAS FAIXAS (v1.62).
-                //
-                // Até aqui a fase do áudio reportava o tamanho DELE, e o total
-                // só crescia para a soma real quando o vídeo entrava (ver
-                // `montar`). Os dois números eram verdadeiros e mesmo assim a
-                // tela mentia: o áudio são poucos MB e baixa em segundos, então
-                // o download começava marcando **100%** por alguns instantes —
-                // o fim da primeira fase — para só então recomeçar do zero. Era
-                // a primeira coisa que o operador via, e ela dizia o oposto do
-                // que estava acontecendo.
+                // E O TOTAL JÁ É O DAS DUAS FAIXAS (v1.62). A fase do áudio
+                // reportava o tamanho DELE e o total só crescia quando o vídeo
+                // entrava: os números eram verdadeiros e a tela mentia — o áudio
+                // baixa em segundos, então todo download começava marcando 100%
+                // para só então recomeçar do zero.
                 //
                 // A previsão vem do `contentLength` da faixa de vídeo, que o
-                // extrator já entrega antes do primeiro byte. Ela pode faltar
-                // (o YouTube nem sempre informa, e aí o campo vem -1 ou 0): sem
-                // ela nada muda, e o comportamento é o de antes. Com ela, o
-                // total da fase do áudio já é a conta inteira e a barra sobe de
-                // 0 a 100 uma vez só.
+                // extrator entrega antes do primeiro byte. Faltando (o YouTube
+                // manda -1 ou 0), nada muda; havendo, a barra sobe de 0 a 100
+                // uma vez só.
                 baixarTentando(a.url, destino) { lidos, total ->
                     onProgresso(
                         lidos,
@@ -1291,34 +1277,28 @@ object YoutubeGrab {
 
     /**
      * Os candidatos de ÁUDIO, na mesma lógica de ordem. [ext] fixa o contêiner
-     * (é o que o muxer exige quando há vídeo do outro lado); `null` aceita
-     * qualquer um, que é o caso do download "só áudio" — ali um Opus que toca
-     * vale mais que um AAC que não veio.
+     * (o que o muxer exige quando há vídeo do outro lado); `null` aceita
+     * qualquer um — o caso do download "só áudio", onde um Opus que toca vale
+     * mais que um AAC que não veio.
      *
      * ## O IDIOMA VEM ANTES DO CLIENTE, e a inversão é deliberada
      *
-     * A ordem por cliente existe porque uma faixa do cliente errado é **403**:
-     * ela não baixa. Uma faixa do idioma errado baixa perfeitamente — e vai ao
-     * telão, na frente da congregação, com o testemunho em inglês. **Um
-     * resultado errado entregue com sucesso é pior que uma tentativa perdida**,
-     * e uma tentativa perdida é justamente o que esta fila existe para
-     * absorver: abaixo dela ainda há os outros candidatos e, no fim de tudo, o
-     * progressivo.
+     * Uma faixa do cliente errado é **403**: não baixa. Uma faixa do idioma
+     * errado baixa perfeitamente e vai ao telão com o testemunho em inglês. Um
+     * resultado errado entregue com sucesso é pior que uma tentativa perdida —
+     * e tentativa perdida é o que esta fila existe para absorver.
      *
      * ## E O PORTUGUÊS, HAVENDO, É EXCLUSIVO
      *
-     * Ordenar não bastaria. [TETO_AUDIO] é 2, e um 403 na primeira faixa faria
-     * a segunda — que pode ser a dublagem — descer calada. Então: **se o vídeo
-     * publica alguma trilha em português, só elas são candidatas**
-     * ([TrilhaAudio.soPortugues], onde a regra vive e tem JUnit). Não havendo
-     * nenhuma (o vídeo é mesmo de outro idioma, ou não declara trilha), nada
-     * muda em relação a antes.
+     * Ordenar não bastaria: [TETO_AUDIO] é 2, e um 403 na primeira faria a
+     * segunda (que pode ser a dublagem) descer calada. Havendo qualquer trilha
+     * em português, só elas são candidatas ([TrilhaAudio.soPortugues], onde a
+     * regra vive e tem JUnit). Não havendo, nada muda.
      *
-     * O preço está dito: um vídeo cuja única trilha em português seja recusada
-     * pelo CDN falha o caminho adaptativo em vez de baixar em inglês — e cai no
-     * progressivo, que carrega a trilha PADRÃO do vídeo, escolhida pelo YouTube
-     * sob o `forceLocalization("pt")` de [aportuguesar]. É a degradação certa
-     * nos dois passos.
+     * O preço: um vídeo cuja única trilha em português seja recusada pelo CDN
+     * falha o caminho adaptativo em vez de baixar em inglês — e cai no
+     * progressivo, que carrega a trilha PADRÃO sob o `forceLocalization("pt")`
+     * de [aportuguesar]. Degradação certa nos dois passos.
      */
     private fun candidatosAudio(info: StreamInfo, ext: String?, teto: Int): List<Faixa> {
         val todas = info.audioStreams
