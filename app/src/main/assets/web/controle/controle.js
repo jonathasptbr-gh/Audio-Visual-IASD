@@ -48,14 +48,11 @@ const simpleVolDownEl = document.getElementById('simpleVolDown');
 const simpleVolValueEl = document.getElementById('simpleVolValue');
 
 // ===== O modo LEMBRADO =====
-// Em `localStorage`, e NÃO no IndexedDB como todo o resto do estado, por um
-// motivo: esta chave é lida ANTES DO PRIMEIRO QUADRO. O `<body>` nasce
-// `mode-simple` para a tela certa aparecer sem esperar JS, e uma leitura do IDB
-// é assíncrona — quem tivesse deixado o avançado veria a tela errada trocar
-// embaixo do dedo. `localStorage` é síncrono e vive no mesmo `app_webview/`:
-// mesma durabilidade, mesma regra de backup.
-// UMA fonte, não duas: gravar nos dois "por garantia" só cria o dia em que eles
-// discordam e ninguém sabe qual vale.
+// Em `localStorage`, e NÃO no IndexedDB como o resto do estado: esta chave é
+// lida ANTES DO PRIMEIRO QUADRO (o `<body>` nasce `mode-simple` para a tela
+// certa aparecer sem esperar JS, e uma leitura do IDB é assíncrona — quem
+// deixou o avançado veria a tela errada trocar embaixo do dedo). `localStorage`
+// é síncrono e vive no mesmo `app_webview/`. UMA fonte, nunca duas.
 const APP_MODE_KEY = 'av.appMode';
 function storedAppMode() {
   // `localStorage` lança com o armazenamento bloqueado (aba anônima). O padrão
@@ -71,19 +68,17 @@ document.body.classList.toggle('mode-simple', appMode === 'simple');
 simpleModeEl.classList.toggle('open', appMode === 'simple');
 
 // ===== O TEMA (claro × escuro) — mesma gaveta, mesma razão =====
+// ===== O TEMA (claro × escuro) — mesma gaveta, mesma razão =====
 // Vale o parágrafo do `APP_MODE_KEY`, e aqui o preço de errar é maior: o modo
-// troca a TELA, o tema troca a COR DE TUDO — um flash do app inteiro em preto
-// antes de virar claro se vê a cada abertura.
+// troca a TELA, o tema troca a COR DE TUDO.
 //
-// O ESCURO É O PADRÃO (o app sem atributo nenhum), e não por inércia: isto é
-// operado num salão às escuras. O claro é escolha explícita, para o ensaio de
-// sábado de manhã.
+// O ESCURO É O PADRÃO (o app sem atributo nenhum): isto é operado num salão às
+// escuras, e o claro é escolha explícita para o ensaio de sábado de manhã.
 //
-// **O PALCO NÃO SEGUE O TEMA** — `--stage-*`, `--wallpaper` e
-// `--lyrics-frame-bg` moram num bloco à parte de tokens.css justamente por
-// isto. O Display nem carrega este arquivo, mas a PREVIEW roda aqui dentro: sem
-// a separação, o tema claro faria a preview parar de espelhar o telão, que é a
-// única coisa que ela existe para fazer.
+// O PALCO NÃO SEGUE O TEMA — `--stage-*`, `--wallpaper` e `--lyrics-frame-bg`
+// moram num bloco à parte de tokens.css por isto. O Display nem carrega este
+// arquivo, mas a PREVIEW roda aqui dentro: sem a separação, o tema claro faria
+// a preview parar de espelhar o telão, que é o que ela existe para fazer.
 const TEMA_KEY = 'av.tema';
 function storedTema() {
   try { return localStorage.getItem(TEMA_KEY) === 'claro' ? 'claro' : 'escuro'; }
@@ -95,12 +90,10 @@ function pintarTema() {
   const raiz = document.documentElement;
   raiz.dataset.tema = tema;
   // A cor da barra de endereço do NAVEGADOR (no app quem pinta atrás das barras
-  // é o body, com este mesmo token). Ela é LIDA do `--bg` já resolvido, e não de
-  // uma tabela de hexadecimais aqui: a folha entra no `<head>` e este script no
-  // fim do `<body>`, então o estilo já está aplicado e o atributo acabou de ser
-  // escrito. Copiá-los para cá seria um TERCEIRO lugar para a cor de fundo
-  // divergir (o segundo é `res/values/colors.xml`, que não tem escapatória —
-  // recurso de Android não enxerga custom property).
+  // é o body, com este mesmo token). LIDA do `--bg` já resolvido, nunca de uma
+  // tabela de hexadecimais aqui: copiá-los seria um TERCEIRO lugar para a cor de
+  // fundo divergir (o segundo é `res/values/colors.xml`, que não tem
+  // escapatória — recurso de Android não enxerga custom property).
   if (temaMetaEl) {
     const bg = getComputedStyle(raiz).getPropertyValue('--bg').trim();
     if (bg) temaMetaEl.setAttribute('content', bg);
