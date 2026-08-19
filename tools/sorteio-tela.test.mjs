@@ -1,4 +1,4 @@
-// A PLAYLIST AUTOMÁTICA, DA FOLHA ATÉ A FILA (v5.302).
+// A PLAYLIST AUTOMÁTICA, DA FOLHA ATÉ A FILA (v5.303).
 //
 // ## Por que ele existe, tendo o `sorteio.test.mjs` ao lado
 //
