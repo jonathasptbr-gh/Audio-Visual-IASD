@@ -118,6 +118,29 @@
       <circle cx="11" cy="11" r="7"/>
       <line x1="16.5" y1="16.5" x2="21" y2="21"/>
     </symbol>
+    <!-- SORTEIO: o DADO. Ele nasceu como o glifo `casino` (e30c) e saiu na
+         tela SEM DESENHO NENHUM — o subset da fonte tem 31 codepoints e aquele
+         não está entre eles. É a mesma armadilha do `edit` (ver o comentário
+         acima e `pencilIconSvg`), e a partir daqui ela tem oráculo:
+         `tools/glifos.test.mjs` varre todo `.msym` do bundle contra a fonte.
+
+         DADO e não as SETAS CRUZADAS: `shuffle` já é o "Aleatório" do botão de
+         repetição, a poucos centímetros daqui na mesma tela, e dois desenhos
+         iguais prometendo coisas diferentes é o defeito que nenhuma legenda
+         conserta. O dado diz SORTEIO — que é o que o botão faz — sem disputar
+         com ele.
+
+         Os três pontos são `h.01` com ponta redonda, o mesmo truque do
+         `icoCast` e do `icoNavegador`: o consumidor pinta com `fill="none"`,
+         então um `<circle>` cheio sairia vazado. A espessura deles é declarada
+         no próprio traço porque uma pinta de dado com a largura da moldura
+         (2) fica pequena demais para se ler a 20px. -->
+    <symbol id="icoSorteio" viewBox="0 0 24 24">
+      <rect x="3.5" y="3.5" width="17" height="17" rx="3.2"/>
+      <path d="M8.6 15.4h.01" stroke-width="3.4"/>
+      <path d="M12 12h.01" stroke-width="3.4"/>
+      <path d="M15.4 8.6h.01" stroke-width="3.4"/>
+    </symbol>
   </svg>
   <!-- MODO SIMPLIFICADO: conectar a tela, buscar a música, tocar. Os controles
        são os mesmos botões do modo completo acionados por `.click()` (ver
@@ -856,7 +879,7 @@
              METADADO de diagnóstico e o lugar onde se procura diagnóstico é
              junto do estado do telão e do alvo de espelhamento, não numa faixa
              de navegação. Preenchido por `renderVersionLabel`. -->
-        <span id="appVersion" class="app-version">Controle v5.303</span>
+        <span id="appVersion" class="app-version">Controle v5.304</span>
         <!-- A ATUALIZAÇÃO (v5.245). Ele mora ao lado do rótulo de versão
              porque é a MESMA conversa ("que versão eu tenho?" / "tem uma mais
              nova?"), e porque é ali que o operador já procura isso.
@@ -1130,7 +1153,7 @@
              "Aleatório" do botão de repetição, a três centímetros daqui, e dois
              desenhos iguais prometendo coisas diferentes na mesma tela é o
              defeito que nenhuma legenda conserta. -->
-        <button id="sorteioBtn" class="popup-close" title="Playlist automática — sortear por tema" aria-label="Playlist automática"><span class="msym" aria-hidden="true">&#xe30c;</span></button>
+        <button id="sorteioBtn" class="popup-close" title="Playlist automática — sortear por tema" aria-label="Playlist automática"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSorteio"/></svg></button>
         <button id="hymnSearchClose" class="popup-close" title="Fechar a Biblioteca" aria-label="Fechar a Biblioteca"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
       </div>
       <ul id="hymnResults" class="popup-list"></ul>
@@ -1170,7 +1193,9 @@
   <div id="sorteioPopup" class="popup-backdrop">
     <div class="popup-sheet">
       <div class="popup-header">
-        <span class="msym popup-header-icon" aria-hidden="true">&#xe30c;</span>
+        <span class="popup-header-icon">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoSorteio"/></svg>
+        </span>
         <span class="popup-title">Playlist automática</span>
         <button id="sorteioClose" class="popup-close" title="Fechar" aria-label="Fechar"><span class="msym" aria-hidden="true">&#xe14c;</span></button>
       </div>

@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v5.304** — O BOTÃO DA PLAYLIST AUTOMÁTICA ESTAVA INVISÍVEL — o glifo não existe no subset da fonte, e agora isso tem oráculo. OTA PURO
 - **v5.303** — A PLAYLIST AUTOMÁTICA: sortear por tema, uma só ou uma fila — e a regra é um arquivo PURO com dois oráculos. OTA PURO
 - **v5.302** — A ORDEM DA FILEIRA, DITADA — e o botão da playlist deixa de ser um recibo para virar um ESTADO. OTA PURO
 - **v5.301** — A CONFIRMAÇÃO DE EXCLUIR SAI DO POPUP E VOLTA PARA A LINHA — e a fileira da gaveta, medida a 360px, já estava cheia. OTA PURO
@@ -172,6 +173,59 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v5.304
+
+**A v5.304: O BOTÃO DA PLAYLIST AUTOMÁTICA ESTAVA INVISÍVEL — o glifo não
+existe no subset da fonte, e agora isso tem oráculo. OTA PURO** (base web,
+oráculos e docs; sem Release, `SHELL_VERSION` continua **44**).
+
+Relato do operador: *"o botão dele está sem ícone ou texto"*.
+
+**O DEFEITO.** O botão nasceu com o glifo `casino` (`&#xe30c;`), e
+`shared/fonts/material-symbols.woff2` é um **subset de 31 codepoints** — aquele
+não está entre eles. Um codepoint ausente **não desenha nada**: sem erro no
+console, sem requisição falhando, só um vão do tamanho de um ícone. O botão
+existia, era tocável, fazia o que prometia, e era invisível.
+
+Não era a primeira vez: `edit`, `folder_open` e `create_new_folder` já tinham
+dado o mesmo vão, e a resposta foi desenhá-los à mão (`pencilIconSvg`, o sprite
+`#ico*`). O que faltava era a pergunta ser feita por uma MÁQUINA.
+
+**O CONSERTO** é o mecanismo que o projeto já tinha: um `<symbol id="icoSorteio">`
+no sprite do `index.html` — UMA definição, DUAS referências (a barra da
+Biblioteca e o cabeçalho da folha). Um DADO, e não as setas cruzadas: `shuffle`
+já é o "Aleatório" do botão de repetição, a três centímetros dali. As três
+pintas são `h.01` com ponta redonda, o truque do `icoCast`, com a espessura
+declarada no próprio traço — a largura da moldura (2) some a 19px.
+
+**E AGORA ISSO TEM ORÁCULO.** `tools/glifos.test.mjs` lê o `cmap` do próprio
+`.woff2` e cobra todo `.msym` do bundle contra ele. Node puro no passo que
+BARRA o build, e não um teste de Chromium, porque a régua é a consequência: um
+ícone invisível chega à frota pelo canal OTA e só é descoberto por quem opera —
+ali a reprovação seria um aviso.
+
+Ele não precisa de dependência nenhuma: woff2 é cabeçalho + diretório de
+tabelas + um blob brotli com as tabelas em sequência, `glyf`/`loca` são as
+únicas transformadas, e o `zlib.brotliDecompressSync` vem no Node. A varredura
+é da base INTEIRA, não dos dois arquivos que hoje têm glifo — só o Controle usa
+`.msym` neste momento, e um oráculo que confia nisso deixa de cobrir o dia em
+que deixar de ser verdade. Ele foi provado MORDENDO: com o `casino` de volta,
+reprova nomeando o arquivo e a linha.
+
+**E o `sorteio-tela.test.mjs` cobre a outra metade**, que aquele não alcança:
+um `<use href="#icoX">` apontando para um símbolo que não existe no sprite dá
+exatamente o mesmo vão, e o href é uma string.
+
+**A CONTA VAZIA PERDEU O VERMELHO.** Ela saía em `--danger-strong`, e isso
+contraria a gramática de cor do próprio app: vermelho é "está no ar agora"
+(saturado) ou "ação destrutiva" (suave). "Nada casa a palavra tema" é o desfecho
+normal de quem acabou de digitar uma palavra, e "nenhuma coleção com índice" é
+um aparelho recém-configurado. Quem já diz que nada vai acontecer é o confirmar
+desabilitado logo abaixo; à linha basta sair do `--muted` para `--text` com peso
+600 — ênfase, não alarme.
 
 ---
 

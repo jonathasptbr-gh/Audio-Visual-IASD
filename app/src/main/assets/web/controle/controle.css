@@ -4098,7 +4098,14 @@ main {
   padding: .1rem .1rem .2rem;
   font-size: .78rem; line-height: 1.35; color: var(--muted);
 }
-.sorteio-conta.vazio { color: var(--danger-strong); font-weight: 600; }
+/* VAZIA ELA GANHA ÊNFASE, NÃO ALARME. `--danger-strong` estava errado pela
+   gramática de cor do próprio app: vermelho é "está no ar agora" (saturado) ou
+   "ação destrutiva" (suave), e nenhuma das duas é o caso — "nada casa a palavra
+   tema" é um desfecho normal de quem acabou de digitar uma palavra, e "nenhuma
+   coleção com índice" é um aparelho recém-configurado. Quem já diz que nada vai
+   acontecer é o confirmar desabilitado logo abaixo; esta linha diz POR QUÊ, e
+   para isso lhe basta sair do `--muted` do estado normal. */
+.sorteio-conta.vazio { color: var(--text); font-weight: 600; }
 
 /* ---------- popup de Exibição (preenchimento da mídia) ---------- */
 /* As transições (fade) são inerentes ao sistema — não há mais controles delas

@@ -168,6 +168,34 @@ try {
   checar(!barra.erro && barra.antesDoX,
     'o botão está na barra da Biblioteca, ANTES do ✕', barra);
 
+  // ---- E ELE TEM DESENHO ---------------------------------------------------
+  // O botão saiu ao ar MUDO: o glifo `casino` não está no subset da fonte, e um
+  // codepoint ausente não desenha nada — sem erro, sem requisição falhando, só
+  // um vão do tamanho de um ícone. Quem impede a reincidência por CODEPOINT é
+  // o `tools/glifos.test.mjs`; esta linha cobre a outra metade, que ele não
+  // alcança: um `<use href="#icoX">` apontando para um símbolo que não existe
+  // no sprite dá exatamente o mesmo vão, e o href é uma string.
+  const desenho = await pg.evaluate(() => {
+    const b = document.getElementById('sorteioBtn');
+    const uso = b && b.querySelector('svg use');
+    const alvo = uso && document.querySelector(uso.getAttribute('href'));
+    const r = uso ? uso.getBoundingClientRect() : null;
+    return {
+      temSvg: !!uso,
+      href: uso ? uso.getAttribute('href') : '',
+      simboloExiste: !!alvo,
+      // O símbolo precisa ter GEOMETRIA: um `<symbol>` vazio resolve o href e
+      // continua não desenhando nada.
+      formas: alvo ? alvo.children.length : 0,
+      largura: r ? Math.round(r.width) : 0,
+    };
+  });
+  checar(desenho.temSvg && desenho.simboloExiste,
+    'o botão desenha um SVG e o `<use>` aponta para um símbolo QUE EXISTE no sprite',
+    desenho);
+  checar(desenho.formas >= 2 && desenho.largura >= 12,
+    'e o símbolo tem geometria e é pintado com tamanho de ícone', desenho);
+
   await pg.click('#sorteioBtn');
   await assentada('#sorteioPopup');
   const folha = await pg.evaluate(() => ({

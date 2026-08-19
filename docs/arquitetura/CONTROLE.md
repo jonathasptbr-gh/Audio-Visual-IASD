@@ -3187,6 +3187,12 @@ operador lê o que vai acontecer. Vazia, ela diz o **motivo dominante** — sem 
 "nenhuma faixa casa" tem cinco causas que pedem ações opostas (trocar a palavra,
 desligar um filtro, trocar a variante, abrir um álbum para o índice chegar).
 
+Vazia, a linha do contador ganha **ênfase, não alarme**: `--muted` → `--text`
+com peso 600, e nunca a família do vermelho. "Nada casa a palavra tema" é o
+desfecho normal de quem acabou de digitar uma palavra, e "nenhuma coleção com
+índice" é um aparelho recém-configurado — nenhum dos dois é "está no ar agora"
+nem "ação destrutiva", que é o que o vermelho significa neste app.
+
 O veredito completo vai para o **Registro** (`blocoSorteio`), ao lado do bloco
 das séries: coleções vistas × usadas e as recusas por motivo, faixas vistas ×
 sorteáveis, onde cada uma casou, e os nomes escolhidos na ordem em que foram para
@@ -3201,9 +3207,23 @@ já explicou uma busca que "não achava nada".
   não significa nada e não marcar nenhum precisa significar alguma coisa. Como
   segmento a escolha é sempre uma — e é o mesmo par, com os mesmos rótulos, que a
   folha de uma música do acervo já oferece.
-- **O glifo é `casino`, nunca `shuffle`.** Aquele já é o "Aleatório" do botão de
-  repetição, a três centímetros daqui: dois desenhos iguais prometendo coisas
-  diferentes na mesma tela é o defeito que nenhuma legenda conserta.
+- **O ícone é um DADO DESENHADO, nunca as setas cruzadas.** As setas já são o
+  "Aleatório" do botão de repetição, a três centímetros daqui: dois desenhos
+  iguais prometendo coisas diferentes na mesma tela é o defeito que nenhuma
+  legenda conserta.
+
+  Ele nasceu como o **glifo** `casino` (e30c) e saiu ao ar **sem desenho
+  nenhum** — o subset da fonte tem 31 codepoints e aquele não está entre eles.
+  Um codepoint ausente não desenha nada: sem erro no console, sem requisição
+  falhando, só um vão do tamanho de um ícone. É a mesma armadilha do `edit`
+  (ver `pencilIconSvg`), e a resposta é a mesma: um `<symbol id="icoSorteio">`
+  no sprite do `index.html`, com UMA definição e duas referências (a barra e o
+  cabeçalho da folha).
+
+  **A partir daqui ela tem oráculo**: `tools/glifos.test.mjs` lê o `cmap` do
+  próprio `.woff2` e cobra todo `.msym` do bundle contra ele — Node puro, no
+  passo que BARRA o build, porque um ícone invisível chega à frota pelo OTA e
+  só é descoberto por quem opera.
 
 ### "Pesquisar <texto> no YouTube", no fim da busca
 
