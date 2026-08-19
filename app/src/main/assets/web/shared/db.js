@@ -39,27 +39,24 @@
   const STORE_STATE = 'state';
   const STORE_FILES = 'files';
   const CHANNEL_NAME = 'av-iasd';
-  // As listas FIXAS. NÃO é a lista completa de quem referencia um id de mídia
-  // — os Favoritos moram em chaves dinâmicas (`folder_<id>`). Quem decide se
-  // um blob pode ser apagado é `isReferenced`, não esta constante.
+  // As listas FIXAS. NÃO é a lista completa de quem referencia um id de mídia —
+  // os Favoritos moram em chaves dinâmicas (`folder_<id>`). Quem decide se um
+  // blob pode ser apagado é `isReferenced`, não esta constante.
   //
-  // "avulsos" (v5.87) é a única que o operador NÃO vê: é o detentor da mídia
-  // que está em cena sem pertencer a lista nenhuma — "Tocar agora" num
-  // resultado do YouTube não tem nada a ver com o Cronograma, mas um registro
-  // em NENHUMA lista é vazamento permanente (o gc só alcança o que uma lista
-  // já segurou; ver o comentário das funções removidas na v5.48). Ela é
-  // PEQUENA e de tamanho fixo (`AVULSO_MAX`, no Controle): quem entra empurra
-  // o mais antigo para fora, e aí o gc decide — o blob some se ninguém mais o
-  // quiser, e fica inteiro se o Cronograma, a playlist ou um Favorito também o
-  // tiverem.
+  // "avulsos" (v5.87) é a única que o operador NÃO vê: é o detentor da mídia em
+  // cena sem pertencer a lista nenhuma — "Tocar agora" num resultado do YouTube
+  // não tem nada a ver com o Cronograma, mas um registro em NENHUMA lista é
+  // vazamento permanente (o gc só alcança o que uma lista já segurou). Ela é
+  // PEQUENA e de tamanho fixo (`AVULSO_MAX`, no Controle): quem entra empurra o
+  // mais antigo para fora, e aí o gc decide.
   //
   // "favs" (v5.103) é a marcação de UM TOQUE: um id está favoritado ou não, sem
   // pertencer a grupo nenhum. Ela entra aqui — e não numa chave à parte — porque
   // é isto que a torna um DETENTOR DE REFERÊNCIA de verdade: `isReferenced`
   // varre esta constante, então favoritar passa a segurar o blob e desfavoritar
   // passa a poder coletá-lo, sem uma linha nova de gc. Os atalhos
-  // (`folder_<id>`) continuam existindo ao lado dela, como organização
-  // OPCIONAL — ver `folderDrop`.
+  // (`folder_<id>`) existem ao lado dela como organização OPCIONAL — ver
+  // `folderDrop`.
   const LISTS = ['imports', 'playlist', 'avulsos', 'favs'];
 
   let dbPromise = null;
@@ -544,50 +541,42 @@
     if (ids == null && name === 'imports') ids = await getState('order');
     return Array.isArray(ids) ? ids.slice() : [];
   }
-  // Duas formas, e a diferença entre elas é atomicidade:
+  // Duas formas, e a diferença entre elas é ATOMICIDADE:
   //
   //   listSet(name, [ids])   grava o array como veio. O chamador leu a lista
   //                          ANTES, fora de transação, então é um
   //                          read-modify-write partido: um `listAdd` que
-  //                          commite entre a leitura e esta escrita é perdido
-  //                          (o item some da lista, e o registro que
-  //                          `addMediaToList` criou em "media" fica órfão para
-  //                          sempre — nunca esteve em lista nenhuma, e o gc só
-  //                          roda dentro de `listRemove`). Hoje isso não
-  //                          acontece: nenhum escritor de fundo mexe em listas
-  //                          (a sincronização usa `fileAdd`). É fragilidade
+  //                          commite no meio é perdido, e o registro que o
+  //                          `addMediaToList` criou fica órfão para sempre.
+  //                          Hoje nenhum escritor de fundo mexe em listas (a
+  //                          sincronização usa `fileAdd`), então é fragilidade
   //                          estrutural, não defeito em operação — mas o
-  //                          primeiro escritor de fundo que alguém acrescentar
-  //                          sobre `listAdd` a transforma em perda de item.
+  //                          primeiro escritor de fundo sobre `listAdd` a
+  //                          transforma em perda de item.
   //
   //   listSet(name, fn)      forma ATÔMICA: `fn(listaAtual)` roda dentro da
-  //                          MESMA transação de "state" que grava o resultado,
-  //                          igual ao `listAdd`. `fn` precisa ser SÍNCRONA —
-  //                          um await dentro dela deixaria a transação
-  //                          autocommitar antes do `put`.
+  //                          MESMA transação que grava o resultado, igual ao
+  //                          `listAdd`. `fn` precisa ser SÍNCRONA — um await
+  //                          deixaria a transação autocommitar antes do `put`.
   //
-  // Prefira a forma com função ao escrever código novo (ex.: reordenar é
-  // `listSet(name, (ids) => …)` em vez de ler, mexer e devolver o array).
-  // ELE TAMBÉM COLETA (v5.131), e esta era a fonte de órfãos que faltava.
+  // Prefira a forma com função ao escrever código novo.
   //
-  // Até aqui o `listSet` gravava a lista nova e ia embora: todo id que SAÍSSE
-  // dela virava um registro em "media" que nenhuma lista aponta — e que nenhum
-  // gc alcança, porque o gc só rodava dentro de `listRemove`/`folderDrop`. É o
-  // mesmo defeito que o `folderDrop` tinha até a v5.103, no outro escritor de
-  // listas.
+  // ELE TAMBÉM COLETA (v5.131), e esta era a fonte de órfãos que faltava. Até
+  // aqui o `listSet` gravava a lista nova e ia embora: todo id que SAÍSSE dela
+  // virava um registro que nenhuma lista aponta e que nenhum gc alcança (ele só
+  // rodava dentro de `listRemove`/`folderDrop`) — o mesmo defeito que o
+  // `folderDrop` tinha até a v5.103.
   //
-  // Não é hipotético: `listSet('playlist', [rec.id])` (tocar um item do acervo
-  // "só ele") substitui a playlist INTEIRA, e cada item que ela tinha e que não
-  // estivesse no Cronograma ou nos Favoritos ficava para trás. O sintoma que
-  // chegou do aparelho foi o do lado de fora: um resultado do YouTube marcado
-  // como "download pronto" — porque `mediaByYoutube` acha o registro pelo
-  // índice — sem o item existir em nenhuma seção usável do app. O blob junto,
-  // ocupando disco para sempre.
+  // Não é hipotético: `listSet('playlist', [rec.id])` (tocar um item "só ele")
+  // substitui a playlist INTEIRA, e cada item que ela tinha e que não estivesse
+  // no Cronograma ou nos Favoritos ficava para trás. O sintoma que chegou do
+  // aparelho: um resultado do YouTube marcado como "download pronto" — porque
+  // `mediaByYoutube` acha o registro pelo índice — sem o item existir em seção
+  // usável nenhuma, com o blob ocupando disco para sempre.
   //
-  // A varredura é sobre o que SAIU, e pela mesma `isReferenced` de todo o
-  // resto: reordenar (mesmo conjunto, outra ordem) não apaga nada, e um id que
-  // saiu daqui mas está no Cronograma, num Favorito ou no slot avulso continua
-  // inteiro.
+  // A varredura é sobre o que SAIU, pela mesma `isReferenced` de todo o resto:
+  // reordenar não apaga nada, e um id que saiu daqui mas está no Cronograma, num
+  // Favorito ou no slot avulso continua inteiro.
   async function listSet(name, ids) {
     const db = await openDB();
     const tx = db.transaction([STORE_STATE, STORE_MEDIA], 'readwrite');
@@ -633,30 +622,27 @@
   // TODOS os detentores de referência a um id de "media" — a pergunta que o gc
   // precisa acertar antes de destruir um blob.
   //
-  // Até a v5.48 o gc só olhava LISTS, e os Favoritos ficaram de fora: o
-  // Controle guarda cada atalho em `state['folder_<id>']` (índice dos atalhos
-  // em `state['folders']`), que são listas de ids de mídia como qualquer
-  // outra, só que em chaves que o gc não conhecia. O resultado era destrutivo
-  // e silencioso: importar um vídeo, adicioná-lo a um Favorito e depois
-  // excluí-lo do Cronograma apagava o BLOB — o Favorito continuava com o id,
-  // `getMedia` devolvia undefined, o `filter(Boolean)` do Controle descartava
-  // sem avisar e o item sumia do atalho para sempre (um blob importado não
-  // existe em lugar nenhum além do IDB).
+  // Até a v5.48 o gc só olhava LISTS, e os Favoritos ficaram de fora: o Controle
+  // guarda cada atalho em `state['folder_<id>']` (índice em `state['folders']`),
+  // que são listas de ids como qualquer outra, em chaves que o gc não conhecia.
+  // O resultado era destrutivo e silencioso: importar um vídeo, pô-lo num
+  // Favorito e excluí-lo do Cronograma apagava o BLOB — o Favorito continuava
+  // com o id, `getMedia` devolvia undefined, o `filter(Boolean)` do Controle
+  // descartava sem avisar, e o item sumia do atalho para sempre.
   //
-  // Roda DENTRO da transação de quem chamou (recebe o objectStore de "state"
-  // já aberto), porque a decisão de apagar precisa enxergar o mesmo instante
-  // da remoção — ver o TOCTOU descrito em listRemove.
+  // Roda DENTRO da transação de quem chamou (recebe o objectStore de "state" já
+  // aberto), porque a decisão de apagar precisa enxergar o mesmo instante da
+  // remoção — ver o TOCTOU descrito em listRemove.
   //
-  // NOTA para quem acrescentar um detentor novo: qualquer chave de `state` que
-  // passe a guardar ids de mídia precisa entrar AQUI. É este o ponto único.
+  // NOTA: qualquer chave de `state` que passe a guardar ids de mídia precisa
+  // entrar AQUI. É o ponto único.
   //
-  // Devolve um Set com TODOS os ids detidos, lendo cada lista UMA vez. É a
-  // forma que os laços multi-id (listSet, folderDrop, gcOrfaos) consomem:
-  // reperguntar por id, como era, relia todas as listas + `folders` + cada
-  // `folder_<id>` a CADA mídia varrida — O(mídias × detentores) dentro de uma
-  // transação só, e o gcOrfaos varre o banco inteiro. Ler os detentores uma
-  // vez no início vale o mesmo (a transação readwrite é exclusiva: nada
-  // escreve nas listas entre a leitura e a decisão) e vira passada linear.
+  // Devolve um Set com TODOS os ids detidos, lendo cada lista UMA vez — a forma
+  // que os laços multi-id (listSet, folderDrop, gcOrfaos) consomem. Reperguntar
+  // por id, como era, relia todas as listas + `folders` + cada `folder_<id>` a
+  // CADA mídia varrida: O(mídias × detentores) numa transação só, e o gcOrfaos
+  // varre o banco inteiro. Ler uma vez vale o mesmo (a transação readwrite é
+  // exclusiva) e vira passada linear.
   async function lerDetentores(stateStore, exceptList) {
     const donos = new Set();
     for (const l of LISTS) {
