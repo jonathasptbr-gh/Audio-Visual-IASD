@@ -3,6 +3,27 @@
 
 ## Controle
 
+### Índice do capítulo
+
+| seção | assunto |
+|---|---|
+| [Layout geral](#layout-geral) | a coluna, a preview, o transporte, a barra de baixo |
+| [Modos de uso](#modos-de-uso-modo-fácil-padrão--avançado) | Modo Fácil × avançado |
+| [O tema](#o-tema-claro--escuro-em-configurações) · [Wallpaper](#wallpaper-personalizado) · [Girar a mídia](#girar-a-mídia-v5142) | Configurações |
+| [Abas e biblioteca](#abas-e-biblioteca) | Cronograma, playlist, busca, gaveta de opções, destinos |
+| [Gestos nos itens](#gestos-nos-itens-da-biblioteca) | toque, toque longo, reordenar |
+| [Coleções de mídia (LouvorJA)](#coleções-de-mídia-louvorja) | álbuns, índice, sincronização, peso |
+| [Os acordeões](#os-acordeões-abrem-animados) | card do álbum, letra, opções da coleção, completude |
+| [O download vira estado da tela](#o-download-vira-estado-da-tela) | espera na preview, anel na linha, letra sincronizada |
+| [Séries do YouTube](#séries-do-youtube--coleções-que-não-vêm-do-louvorja-v5228) | Provai e Vede, Informativo |
+| [Buscar no YouTube](#pesquisar-texto-no-youtube-no-fim-da-busca) | busca, download, transmissão direta |
+| [Favoritos](#favoritos-uma-lista-só-marcados--pastas-do-aparelho) | lista única, pastas do aparelho |
+| [A saída de áudio](#a-saída-de-áudio-os-displays-ou-este-aparelho-v5215) | quando o som sai do celular |
+| [Feedback](#feedback-sem-alerta-flutuante--e-a-exceção-do-salvamento) | a resposta nasce onde o toque nasceu |
+| [Compartilhamento](#compartilhamento) · [Diálogo padrão](#diálogo-padrão-do-app-confirmações--prompts) | entradas e confirmações |
+| [O que o telão retoma](#o-que-o-telão-retoma-ao-reconectar-midianoar-v5142) | reconexão |
+
+
 ### O tema (claro × escuro), em Configurações
 
 Uma linha segmentada logo abaixo de "Modo do app", e a proximidade é
