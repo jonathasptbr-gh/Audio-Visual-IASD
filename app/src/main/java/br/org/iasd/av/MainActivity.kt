@@ -392,31 +392,23 @@ class MainActivity : ComponentActivity(), BridgeHost {
     /**
      * Botão VOLTAR do aparelho.
      *
-     * Sair do app por engano durante o culto derrubaria a projeção, então o
-     * voltar **nunca** encerra a Activity — no fim da fila ele apenas manda a
-     * tarefa para segundo plano, com a sessão (e a `Presentation` na TV) viva.
+     * Ele NUNCA encerra a Activity — no fim da fila apenas manda a tarefa para
+     * segundo plano, com a sessão (e a `Presentation` na TV) viva. Quem sabe se
+     * há popup, pasta aberta ou preview em tela cheia é o lado web
+     * (`window.__avBack`): invariante 5, nenhuma hierarquia reimplementada aqui.
      *
-     * O que mudou na v5.32 é o que vem ANTES disso: quem sabe se há um popup,
-     * uma pasta aberta ou a preview em tela cheia é o lado web, então a decisão
-     * é dele (`window.__avBack`, em `controle.js`) — invariante 5, nenhuma
-     * hierarquia de navegação reimplementada aqui. Kotlin só pergunta e obedece.
+     * A RESPOSTA É ASSÍNCRONA, e por isso há um prazo: `evaluateJavascript`
+     * devolve por callback, e com o renderer morto, travado, ou num bundle sem
+     * `__avBack`, esse callback pode nunca chegar — um voltar que não faz NADA é
+     * pior que um que minimiza. O `postDelayed` garante a resposta padrão.
      *
-     * **A resposta é assíncrona, e por isso há um prazo.** `evaluateJavascript`
-     * devolve pelo callback; se o renderer morreu, está travado ou o bundle é
-     * antigo demais para ter `__avBack`, esse callback pode simplesmente nunca
-     * chegar — e um botão voltar que não faz NADA é pior que um que minimiza.
-     * O `postDelayed` garante a resposta padrão.
-     *
-     * O que o `AtomicBoolean` garante, exatamente: que `moveTaskToBack` roda no
-     * MÁXIMO uma vez por toque. Ele **não** garante que o app não minimize
-     * depois de o web já ter fechado um popup — `__avBack()` executa a ação de
-     * forma síncrona e só então retorna, então o que chega tarde é a RESPOSTA,
-     * não a ação. Com o renderer ocupado (sincronização pesada, decodificação
-     * de vídeo), o prazo pode vencer com o popup já fechado e o operador vê as
-     * duas coisas num toque só. Fechar isso de verdade exige um token de
-     * corrida devolvido pelo lado web (`__avBack(token)` → `__avResolve`), o
-     * que é mudança de contrato da ponte; enquanto não existe, o prazo é curto
-     * justamente para o caso comum nunca chegar perto dele.
+     * O `AtomicBoolean` garante que `moveTaskToBack` roda no MÁXIMO uma vez por
+     * toque. Ele NÃO garante que o app não minimize depois de o web já ter
+     * fechado um popup: `__avBack()` executa de forma síncrona e o que chega
+     * tarde é a RESPOSTA, não a ação — com o renderer ocupado o prazo pode
+     * vencer com o popup já fechado. Fechar isso exigiria um token de corrida
+     * (`__avBack(token)` → `__avResolve`), mudança de contrato da ponte; o prazo
+     * é curto justamente para o caso comum nunca chegar perto dele.
      */
     private fun handleBack() {
         val w = web
@@ -467,20 +459,18 @@ class MainActivity : ComponentActivity(), BridgeHost {
             // consumindo as teclas e entregando o passo a um `__avVolumeKey`
             // que não existe: o aparelho ficava sem NENHUM controle de volume.
             captureVolumeKeys = false
-            // E A TELA CHEIA, que é a terceira peça da mesma classe — e a mais
-            // cara das três. `onShowCustomView` guarda estado que vive na
-            // ACTIVITY (`customView`, `customCallback`, a visibilidade dos dois
-            // containers e a trava de paisagem), e o único ponto que o desfazia
-            // era `onHideCustomView` — um método do WebChromeClient do WebView
-            // que acabou de morrer, que portanto nunca mais será chamado.
+            // E A TELA CHEIA, a peça mais cara das três. `onShowCustomView`
+            // guarda estado que vive na ACTIVITY (`customView`,
+            // `customCallback`, a visibilidade dos dois containers e a trava de
+            // paisagem), e o único ponto que o desfazia era `onHideCustomView` —
+            // um método do WebChromeClient do WebView que acabou de morrer, e
+            // que portanto nunca mais será chamado.
             //
-            // Sem isto, `buildControleWebView` logo abaixo acrescenta o WebView
-            // NOVO a um `webContainer` que continua `GONE`, com a View de tela
-            // cheia órfã ainda visível por cima. E este é justamente o caso do
-            // culto SEM TV, em que a preview em tela cheia É a projeção: o
-            // renderer morre por OOM (dois WebViews e um vídeo grande no mesmo
-            // processo), o app remonta tudo certo por dentro e a tela fica
-            // congelada, sem caminho de volta.
+            // Sem isto, `buildControleWebView` acrescenta o WebView NOVO a um
+            // `webContainer` que continua `GONE`, com a View de tela cheia órfã
+            // por cima. E este é o culto SEM TV, em que a preview em tela cheia
+            // É a projeção: o renderer morre por OOM, o app remonta tudo certo
+            // por dentro, e a tela fica congelada sem caminho de volta.
             sairDaTelaCheia(false)
             webContainer.post { buildControleWebView() }
         }
@@ -571,19 +561,15 @@ class MainActivity : ComponentActivity(), BridgeHost {
     override fun onStop() {
         super.onStop()
         presentation?.keepPlaying()
-        // (Aqui havia um segundo `keepPlaying`, o da `MirrorPresentation` — a
-        // janela oculta que o espelho de PIXELS mantinha para o encoder ter o
-        // que capturar com o app minimizado. Ela saiu na v5.187, e com ela a
-        // razão: uma tela da rede não olha mais para uma janela deste aparelho,
-        // ela roda o próprio `/display/` no navegador dela e recebe COMANDOS.
-        // O que a mantém viva com o app minimizado é o `SessionService`, que
-        // segura o processo, e o wake lock do `EspelhoEnergia` — nenhum dos
-        // dois passa por aqui.)
-        // (Saiu na v5.189 o despertar do WebView do Controle pela MESA DE SOM.
-        // Ela existia para o caso em que o celular ERA a caixa de som, e esse
-        // caso deixou de existir: o som é dos displays. O WebView do Controle
-        // volta a ser estrangulado em segundo plano sempre — que é o certo
-        // quando ele é só a mesa de comando.)
+        // (Aqui houve dois `keepPlaying` que saíram: o da `MirrorPresentation`,
+        // a janela oculta que o espelho de PIXELS mantinha para o encoder ter o
+        // que capturar — uma tela da rede roda o próprio `/display/` e recebe
+        // COMANDOS, e quem a mantém viva com o app minimizado é o
+        // `SessionService` mais o wake lock do `EspelhoEnergia`; e o despertar
+        // do WebView do Controle pela MESA DE SOM, cujo caso deixou de existir
+        // quando o som passou a ser dos displays. O WebView do Controle volta a
+        // ser estrangulado em segundo plano sempre, que é o certo para uma mesa
+        // de comando.)
     }
 
     override fun onDestroy() {
@@ -606,23 +592,20 @@ class MainActivity : ComponentActivity(), BridgeHost {
         WebUpdater.aoChegar = null
         try { SessionService.stop(this) } catch (_: Exception) { }
         // A TRANSMISSÃO NÃO SOBREVIVE AO FECHAMENTO DO APP — ela é auxiliar e
-        // nasceu de um toque do operador nesta tela. Deixá-la servindo com a
-        // Activity morta manteria um `ServerSocket` na rede da igreja sem
-        // ninguém capaz de desligá-lo, e as telas continuariam recebendo
-        // comandos de um Controle que não existe mais: a última cena congelada
-        // na frente da congregação, sem transporte e sem quem a tire de lá.
+        // nasceu de um toque do operador. Deixá-la servindo com a Activity morta
+        // manteria um `ServerSocket` na rede da igreja sem ninguém capaz de
+        // desligá-lo, e as telas ficariam com a última cena congelada na frente
+        // da congregação, sem transporte e sem quem a tire de lá.
         //
-        // **`!isChangingConfigurations` NÃO É ZELO.** `android:configChanges`
-        // não cobre `fontScale` nem `locale`, e este repositório já documenta
-        // duas vezes que mudar o tamanho da fonte RECRIA esta Activity. Sem a
-        // guarda, esse `onDestroy` derrubaria a transmissão no meio do culto por
-        // uma preferência do sistema — e o `onCreate` seguinte NÃO a traria de
-        // volta: nada neste caminho religa um servidor que o operador não
-        // mandou religar, e o `ligar()` do `EspelhoServidor` zera o pareamento,
-        // isto é, as três telas voltariam para o botão de entrada. Numa
-        // recriação quem mantém tudo vivo é o serviço em primeiro plano, e a
-        // referência do servidor está no COMPANION justamente por isto (ver o
-        // KDoc de `espelhoSrv`, lá embaixo).
+        // `!isChangingConfigurations` NÃO É ZELO: `android:configChanges` não
+        // cobre `fontScale` nem `locale`, e mudar o tamanho da fonte RECRIA esta
+        // Activity. Sem a guarda, este `onDestroy` derrubaria a transmissão no
+        // meio do culto por uma preferência do sistema — e o `onCreate` seguinte
+        // NÃO a traria de volta (nada aqui religa um servidor que o operador não
+        // mandou religar, e o `ligar()` zera o pareamento: as três telas
+        // voltariam ao botão de entrada). Numa recriação quem mantém tudo vivo é
+        // o serviço em primeiro plano, e a referência do servidor está no
+        // COMPANION justamente por isto.
         if (!isChangingConfigurations) {
             try {
                 desmontarEspelho()
@@ -665,29 +648,24 @@ class MainActivity : ComponentActivity(), BridgeHost {
     }
 
     /**
-     * As telas de apresentação **externas** — a TV, o dongle. Os DOIS pontos que
-     * perguntam "há telão?" ([syncPresentation] e [listDisplays]) passam por
-     * aqui. Filtrar na fonte cobre de uma vez o `renderDisplayStatus`, o
-     * `applyPreviewAspect` e o `simpleDisplay` do lado web, que leem todos o
-     * mesmo `lastDisplays`.
+     * As telas de apresentação EXTERNAS. Os dois pontos que perguntam "há
+     * telão?" ([syncPresentation] e [listDisplays]) passam por aqui; filtrar na
+     * fonte cobre de uma vez o `renderDisplayStatus`, o `applyPreviewAspect` e o
+     * `simpleDisplay` do lado web, que leem todos o mesmo `lastDisplays`.
      *
-     * **HOJE ELE NÃO EXCLUI NADA, e precisa estar escrito**, ou o próximo leitor
-     * o apaga como código morto e leva a proteção junto. O filtro nasceu para
-     * manter fora a tela virtual PRIVADA do espelho de pixels; aquele
-     * `VirtualDisplay` saiu na v5.187 e este aparelho não cria mais display
-     * nenhum — a transmissão de hoje não tem tela, tem sockets. O que ficou é a
-     * garantia de que **nenhum display privado vira telão**, seja de quem for:
-     * sem ela, [syncPresentation] criaria uma `StagePresentation` numa janela
-     * que o operador não vê e que, porque `StagePresentation.buildWebView`
-     * instala o [MicChromeClient], estaria habilitada a abrir o microfone do
-     * templo.
+     * HOJE ELE NÃO EXCLUI NADA, e precisa estar escrito, ou o próximo leitor o
+     * apaga como código morto e leva a proteção junto. O que ele garante é que
+     * NENHUM display privado vira telão: sem isso, [syncPresentation] criaria
+     * uma `StagePresentation` numa janela que o operador não vê — e que, porque
+     * `StagePresentation.buildWebView` instala o [MicChromeClient], estaria
+     * habilitada a abrir o microfone do templo.
      *
-     * O predicado é **estrutural** (`Display.FLAG_PRIVATE`), nunca um nome nem
-     * um id adivinhado. E o risco que ele fecha **não é uma janela de corrida**:
-     * no Android 14+ a ordenação de `getDisplays` por tipo foi removida — hoje é
-     * ordem de `displayId` —, enquanto o javadoc público continua prometendo
-     * "sorted by order of preference". É determinístico, e é por isso que a
-     * resposta é um filtro e não um `firstOrNull` mais esperto.
+     * O predicado é ESTRUTURAL (`Display.FLAG_PRIVATE`), nunca um nome nem um id
+     * adivinhado. E o risco não é janela de corrida: no Android 14+ a ordenação
+     * de `getDisplays` por tipo foi removida (hoje é ordem de `displayId`)
+     * enquanto o javadoc continua prometendo "sorted by order of preference" —
+     * é determinístico, e por isso a resposta é um filtro e não um `firstOrNull`
+     * mais esperto.
      */
     private fun telasExternas(): List<Display> {
         val dm = displayManager ?: return emptyList()
@@ -907,27 +885,22 @@ class MainActivity : ComponentActivity(), BridgeHost {
     }
 
     /**
-     * Seletor de **espelhamento de tela** (Smart View / Screen mirroring /
-     * Wireless display) — não o Google Cast.
+     * Seletor de ESPELHAMENTO DE TELA (Smart View / Wireless display) — NÃO o
+     * Google Cast. Os dois convivem no Android e são coisas diferentes: o Cast
+     * envia uma URL para o dispositivo tocar sozinho; o espelhamento manda a
+     * imagem da tela, que é o que este app precisa sem Presentation.
      *
-     * Os dois convivem no Android e são coisas diferentes: o Google Cast envia
-     * uma URL para o dispositivo tocar sozinho; o espelhamento manda a imagem
-     * da tela, que é o que este app precisa quando não há Presentation. A ação
-     * pública `Settings.ACTION_CAST_SETTINGS` cai no **Google Cast** em vários
-     * aparelhos (foi o que aconteceu na Samsung testada) — por isso ela é o
-     * último recurso, não o primeiro.
+     * `Settings.ACTION_CAST_SETTINGS` cai no GOOGLE CAST em vários aparelhos —
+     * por isso é o último recurso, não o primeiro. Não existe API pública para o
+     * popup das configurações rápidas (`Settings.Panel` só cobre internet, wifi,
+     * nfc e volume), então a cadeia procura o primeiro alvo que EXISTE neste
+     * aparelho e NÃO resolve para o Play Services. As entradas da Samsung não
+     * são API documentada e só são tentadas num aparelho Samsung (ver
+     * `castCandidates`/`isSamsung`); não existindo, `resolveActivity` devolve
+     * null e a cadeia segue.
      *
-     * Não existe API pública para o *popup* das configurações rápidas: o
-     * `Settings.Panel` só cobre internet, wifi, nfc e volume. O que dá para
-     * fazer é procurar, entre alvos conhecidos, o primeiro que **existe neste
-     * aparelho e não é o Google Cast** — daí a ordem abaixo e o filtro por
-     * pacote resolvido. As entradas da Samsung não são API documentada; elas só
-     * são tentadas num aparelho Samsung (ver `castCandidates`/`isSamsung`), e
-     * mesmo lá, se não existirem, `resolveActivity` devolve null e a cadeia
-     * segue.
-     *
-     * `resolveActivity` só enxerga esses alvos por causa do bloco `<queries>`
-     * no AndroidManifest (visibilidade de pacotes do Android 11+).
+     * `resolveActivity` só enxerga esses alvos por causa do bloco `<queries>` no
+     * AndroidManifest (visibilidade de pacotes do Android 11+).
      */
     /**
      * Abre uma URL fora do app. Hoje o único chamador é o "Pesquisar … no
@@ -1192,33 +1165,29 @@ class MainActivity : ComponentActivity(), BridgeHost {
     }
 
     /**
-     * Pinta o que é do SISTEMA conforme o tema: os ícones das barras e o fundo
-     * da janela.
+     * Pinta o que é do SISTEMA conforme o tema: ícones das barras e fundo da
+     * janela.
      *
-     * O fundo é aplicado aqui ALÉM de vir do tema do APK porque o
-     * `windowBackground` do XML é resolvido uma vez, quando a decor view é
-     * instalada: trocar de tema com o app aberto deixaria o retângulo do XML
-     * aparecendo em qualquer momento em que o WebView ainda não pintou. Quem
-     * cobre o PRIMEIRO quadro é o `setTheme` do `onCreate`, que precisa vir
-     * antes do `super` — os dois caminhos existem, e nenhum substitui o outro.
+     * O fundo é aplicado aqui ALÉM de vir do tema do APK: o `windowBackground`
+     * do XML é resolvido uma vez, quando a decor view é instalada, então trocar
+     * de tema com o app aberto deixaria o retângulo do XML aparecendo sempre que
+     * o WebView ainda não pintou. Quem cobre o PRIMEIRO quadro é o `setTheme` do
+     * `onCreate`, antes do `super` — os dois caminhos existem e nenhum
+     * substitui o outro.
      *
-     * ## A armadilha que derrubou a v1.89, e que a guarda abaixo fecha
+     * ARMADILHA (derrubou a v1.89): `window.insetsController` é, no
+     * `PhoneWindow`, um `mDecor.getWindowInsetsController()` SEM verificação de
+     * nulo, e o `mDecor` só nasce no `installDecor()` (chamado pelo
+     * `setContentView`). O tipo devolvido é anulável, então o `?.` do Kotlin dá
+     * a impressão de que a chamada é segura — QUEM LANÇA É O RECEPTOR, não o
+     * retorno. Antes do `setContentView` isso é `NullPointerException` em todo
+     * lançamento, com qualquer tema, e o sintoma é o app não abrir. Nada
+     * aparece em compilação, e o CI compila e roda JUnit, não a Activity.
      *
-     * `window.insetsController` é, no `PhoneWindow`, um
-     * `mDecor.getWindowInsetsController()` **sem verificação de nulo** — e o
-     * `mDecor` só nasce no `installDecor()`, que é o `setContentView()` que o
-     * chama. O tipo devolvido é anulável, então o `?.` do Kotlin dá a impressão
-     * de que a chamada é segura; ela não é: **quem lança é o receptor, não o
-     * retorno**. Chamada de um `onCreate` antes do `setContentView`, ela é uma
-     * `NullPointerException` em todo lançamento, com qualquer tema — e o
-     * sintoma é o app simplesmente não abrir. Nada disso aparece em tempo de
-     * compilação, e o CI compila e roda JUnit, não a Activity.
-     *
-     * `peekDecorView()` é a pergunta exata ("a decor view já existe?") e é
-     * pública justamente para isto — ao contrário de `decorView`, que a CRIA.
-     * Com ela, esta função passa a ser segura de chamar de qualquer ponto, que
-     * é o que o `setTemaClaro` (vindo da thread do WebView, a qualquer momento)
-     * precisa.
+     * `peekDecorView()` é a pergunta exata ("a decor view já existe?"), ao
+     * contrário de `decorView`, que a CRIA. Com ela esta função é segura de
+     * chamar de qualquer ponto — que é o que o `setTemaClaro` (vindo da thread
+     * do WebView, a qualquer momento) precisa.
      */
     @Suppress("DEPRECATION")   // o ramo abaixo da API 30 (ver dentro)
     private fun aplicarCromoDoTema(claro: Boolean) {
@@ -1260,62 +1229,37 @@ class MainActivity : ComponentActivity(), BridgeHost {
 
     // ---------- transmissão para as telas da rede ----------
     //
-    // (O cabeçalho anterior chamava este bloco de "espelho de PIXELS" e
-    // descrevia quatro peças — tela virtual, encoder, servidor, serviço — que a
-    // v5.187 removeu. Ele ficou porque nada quebra quando um comentário
-    // envelhece; o preço é o leitor seguinte procurar um `EspelhoDisplay` e um
-    // `pedirIdr` que não existem em lugar nenhum do projeto.)
+    // A Activity é a COSTURA do recurso, e só isso. Ela é a dona por UMA razão,
+    // e é de thread: os métodos abaixo precisam da MAIN THREAD (ver o KDoc de
+    // [startMirror]), e as filas de IO da ponte não a têm. As peças são três e
+    // não se conhecem — `EspelhoServidor` (sockets e rotas), `EspelhoPares` (a
+    // porta e as sessões) e `EspelhoEnergia` (wake lock, Wi-Fi lock e térmica).
     //
-    // A Activity é a COSTURA do recurso, e só isso. Ela é o dono por UMA razão,
-    // e ela é de thread: os métodos abaixo precisam da MAIN THREAD (ver o KDoc
-    // de [startMirror]), e a fila de IO da ponte não a tem. As peças de hoje são
-    // três e continuam sem se conhecer — `EspelhoServidor` (sockets e rotas),
-    // `EspelhoPares` (a porta e as sessões) e `EspelhoEnergia` (wake lock,
-    // Wi-Fi lock e térmica) —, e costurá-las é uma dúzia de linhas.
-    //
-    // Fora isso ela não sabe nada da transmissão: sockets, tokens, densidade e
-    // diagnóstico vivem nos `Espelho*.kt`, como `WebUpdater` e `YoutubeGrab`
-    // guardam OTA e YouTube. É a mesma disciplina que impede esta classe de
-    // crescer com o app.
+    // Fora isso ela não sabe nada da transmissão: sockets, tokens e diagnóstico
+    // vivem nos `Espelho*.kt`, como `WebUpdater` e `YoutubeGrab` guardam OTA e
+    // YouTube. É a disciplina que impede esta classe de crescer com o app.
 
     /**
-     * LIGAR — na MAIN THREAD, sempre.
+     * LIGAR — na MAIN THREAD, sempre, por duas razões:
+     *  1. este caminho NÃO pode entrar nas filas de IO da ponte — a de
+     *     transferência é de uma thread só e é onde roda o download do YouTube,
+     *     então "ligar a transmissão" no meio de um download venceria pelo prazo
+     *     de 60 s do `native.js` e resolveria `null`, um erro sem causa;
+     *  2. serialização: `espelhoSrv` e `espelhoMidia` são escritos aqui e lidos
+     *     pelo [mirrorState], e a main thread é a trava que este arquivo já usa.
      *
-     * **A RAZÃO ORIGINAL MORREU E A REGRA FICOU, com outra.** Até a v5.187 ela
-     * era de framework: o espelho abria uma `MirrorPresentation`, uma
-     * `Presentation` é um `Dialog`, e um `Dialog` criado numa thread sem
-     * `Looper` lança `Can't create handler inside thread that has not called
-     * Looper.prepare()`. Não há mais janela nenhuma aqui. O que sustenta a main
-     * thread hoje são duas coisas, e a primeira não é negociável: este caminho
-     * **não pode entrar na fila de IO da ponte** — ela é de uma thread só e é
-     * onde roda o download do YouTube, então "ligar a transmissão" no meio de um
-     * download venceria pelo prazo de 60 s do `native.js` e resolveria `null`,
-     * um erro sem causa (v5.141, e a divisão em três filas da v5.294 não mudou
-     * isto: nenhuma delas é este trabalho). A segunda é serialização —
-     * `espelhoSrv` e `espelhoMidia` são escritos aqui e lidos pelo
-     * [mirrorState], e a main thread é a trava que este arquivo já usa.
+     * A ORDEM é rede → servidor → cache de mídia → pareamento → serviço,
+     * escolhida pelo custo de DESFAZER cada passo. A rede é a primeira porque é
+     * a recusa mais provável e a mais barata (dados móveis, VPN, sem Wi-Fi);
+     * o servidor é o outro que pode RECUSAR (porta ocupada) e desfazê-lo é
+     * fechar um socket; o pareamento nasce do zero por último entre os que
+     * guardam estado — é o que faz nenhum token sobreviver ao culto anterior —
+     * e o serviço fecha a fila, quando já há endereço para a notificação.
      *
-     * **A ORDEM é rede → servidor → cache de mídia → pareamento → serviço**, e
-     * ela é escolhida pelo custo de desfazer cada passo. A rede é a primeira
-     * porque é a recusa mais provável e a mais barata (dados móveis, VPN, sem
-     * Wi-Fi): descobrir isso depois de abrir socket e diretório seria pagar o
-     * caro para descobrir o barato. O servidor vem em seguida porque ele é o
-     * outro que pode RECUSAR (porta ocupada) e desfazê-lo é fechar um socket.
-     * O pareamento nasce do zero por último entre os que guardam estado — é o
-     * que faz nenhum token sobreviver ao culto anterior — e o serviço fecha a
-     * fila, quando já há endereço para a notificação mostrar.
-     *
-     * (A ordem antiga dizia "rede → servidor → tela/encoder → …" e argumentava
-     * com o custo de alocar um encoder; os dois saíram na v5.187. Hoje o passo
-     * caro deste caminho não existe: uma tela da rede só vê alguma coisa depois
-     * de abrir o `/display/` e pedir entrada, e nada é renderizado aqui.)
-     *
-     * Devolve o estado resultante (o mesmo objeto do [mirrorState]), com `erro`
-     * preenchido quando não deu: a folha do Controle desenha os dois casos com o
-     * mesmo código, e **a frase da falha vem PRONTA de quem sabe o motivo** —
-     * "só liga em Wi-Fi — este aparelho está em dados móveis", "o servidor do
-     * espelho não subiu". A especificação proíbe degradar calado em todos os
-     * pontos deste caminho.
+     * Devolve o estado resultante (o mesmo objeto do [mirrorState]) com `erro`
+     * preenchido quando não deu: a folha do Controle desenha os dois casos com
+     * o mesmo código, e a FRASE da falha vem pronta de quem sabe o motivo. A
+     * especificação proíbe degradar calado em todos os pontos deste caminho.
      */
     override fun startMirror(modo: String, onResult: (JSONObject) -> Unit) {
         runOnUiThread {
@@ -1519,21 +1463,16 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * sessão que nasce da aprovação é o que a próxima enquete dele encontra.
      */
     /**
-     * DERRUBAR UMA TELA — e, desde a v5.185, é a única coisa que este método faz.
+     * DERRUBAR UMA TELA — a única coisa que este método faz.
      *
-     * Ele nasceu como "o operador decide sobre uma tela pendente", e teve três
-     * significados empilhados: aprovar uma pendente, recusá-la, e ligar a
-     * aprovação automática pelo id reservado `"*"`. Os três morreram com a fila
-     * de aprovação (ver a invariante 5 do [EspelhoPares]): quem digita o código
-     * certo entra na hora, então não há o que aprovar.
+     * O `id` é o RÓTULO da tela ("tela B"), que é o único identificador que a
+     * lista do operador tem.
      *
-     * O que sobra é a pergunta que o operador de fato faz durante um culto —
-     * *"quem é aquela tela, e como eu a tiro do ar?"* —, e o `id` é o RÓTULO da
-     * tela ("tela B"), que é o único identificador que a lista dele tem.
-     *
-     * **A assinatura fica**, com o `aprovar` ignorado, e isso é deliberado:
-     * mudá-la obrigaria a subir o `SHELL_VERSION` de novo sem ganhar nada, e o
-     * lado web já manda `false` no único ponto que chama.
+     * A ASSINATURA FICA com o `aprovar` ignorado, e isso é deliberado: mudá-la
+     * obrigaria a subir o `SHELL_VERSION` sem ganhar nada, e o lado web já manda
+     * `false` no único ponto que chama. (Ele já significou "aprovar uma tela
+     * pendente", "recusá-la" e "ligar a aprovação automática"; os três morreram
+     * com a fila de aprovação — quem entra pela porta entra na hora.)
      */
     override fun approveMirrorScreen(id: String, approve: Boolean, onResult: (Boolean) -> Unit) {
         runOnUiThread {
@@ -1624,26 +1563,17 @@ class MainActivity : ComponentActivity(), BridgeHost {
 
         /**
          * O WebView do Controle NÃO recebe câmera, microfone, MIDI nem proteção
-         * de conteúdo — nada. Ele nega tudo, e a ausência de exceção é o ponto.
+         * de conteúdo — nada. Ele nega tudo, e a ausência de exceção é o ponto:
+         * este é o WebView com `host != null`, o que injeta `pickFolder`,
+         * `listFolder`, `openExternal` e `espelhoLigar`.
          *
-         * Este override existia desde a v5.145 para conceder VÍDEO, e só vídeo,
-         * ao leitor de QR do espelho. O leitor saiu na v5.185 (a página do
-         * cliente passou a ter um campo e um botão, e quem digita o código é a
-         * TELA), e com ele saiu a permissão `CAMERA` do manifest.
-         *
-         * **Ele NÃO foi removido junto, e é isso que precisa estar escrito:** um
-         * WebView sem `onPermissionRequest` nega em silêncio, o que dá o mesmo
-         * resultado hoje — e deixaria a próxima pessoa que precisasse de mídia
-         * aqui descobrindo a armadilha do zero, no aparelho, sem erro nenhum no
-         * console (é a mesma que o [MicChromeClient] documenta para o telão).
-         * Negar EXPLICITAMENTE, com log, transforma "não faz nada" em uma linha
-         * no logcat.
-         *
-         * E a recusa é a postura certa por si: este é o WebView com
-         * `host != null`, o que injeta `pickFolder`, `listFolder`,
-         * `openExternal` e `espelhoLigar`. Quem precisar de mídia aqui um dia
-         * volta pela porta da frente — permissão no manifest, pedido sob
-         * demanda, e uma allowlist de recurso e de origem, como era.
+         * ELE NÃO PODE SER REMOVIDO por parecer inútil: um WebView sem
+         * `onPermissionRequest` nega EM SILÊNCIO, o que dá o mesmo resultado
+         * hoje e deixaria a próxima pessoa que precisasse de mídia aqui
+         * descobrindo a armadilha do zero, no aparelho, sem erro no console (a
+         * mesma que o [MicChromeClient] documenta para o telão). Negar
+         * explicitamente, com log, transforma "não faz nada" numa linha no
+         * logcat.
          */
         override fun onPermissionRequest(request: PermissionRequest) {
             Log.w(
