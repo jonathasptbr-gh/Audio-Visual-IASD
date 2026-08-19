@@ -3669,7 +3669,6 @@ de mídia offline, sem copiar nenhum código do app-ja (Vue/Vuex) — só o
 > `config`, servidor de arquivos). Consulte-o para pedir **qualquer** arquivo do
 > sistema sem precisar abrir o repositório do `app-ja`.
 
-  operação exata.
 
 - **`Louvorja.fetchList(file)`** — `GET {url-base}/{file}?{YYYYMMDD}` com
   header `Api-Token`, mesmo formato do `Database.js` do app-ja (URL de
