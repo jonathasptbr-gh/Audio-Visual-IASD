@@ -4060,29 +4060,23 @@ download dispara a cada `COLL_REFRESH_MS`.
   de volta de uma vez, que é exatamente o custo que a paginação existe para
   evitar.
 
-#### O canto da barra: de engrenagem a seta que FECHA (v5.72 → v5.95)
+#### O canto da barra: a seta que FECHA o álbum
 
 Aberto o card, aquele canto **toma a caixa do botão de baixar** na barra
-(`.coll-bar-cfg`, herdando `.coll-bar-dl`): mesma coluna, mesmo alvo. Os dois
+(`.coll-bar-cfg`, herdando `.coll-bar-dl`): mesma coluna, mesmo alvo, e os dois
 nunca fazem falta ao mesmo tempo — fechado, o que se decide é "baixo isto?";
-aberto, já se está olhando o conteúdo. Foi uma **barra larga rotulada** dentro
-do card por duas versões (`.coll-open-cfg`, "Sincronizar e opções"): uma linha
-inteira gasta com o que cabe no canto que já existia. Virou **engrenagem** na
-v5.72, e **seta para cima** quando o painel estava aberto (v5.73).
+aberto, já se está olhando o conteúdo. Ele já foi uma barra larga rotulada dentro
+do card ("Sincronizar e opções": uma linha inteira gasta com o que cabe num canto
+que já existia) e uma engrenagem que revelava as opções; com as opções cabendo
+SEMPRE que o card está aberto, um botão para revelá-las era cerimônia.
 
-**Na v5.95 a engrenagem sumiu e sobrou só a seta — fechando o ÁLBUM.** Com as
-duas ações encolhidas numa linha só (ver abaixo), as opções cabem SEMPRE que o
-card está aberto, e um botão para revelar duas ações que já caberiam na tela é
-cerimônia: some o estado `optsOpen`, some o `gearIconSvg` e some o
-`.coll-bar-cfg.on`. O alvo continua o mesmo canto de sempre; o que ele faz
-agora é o que a seta já dizia — recolher o que está abaixo dela. (O toque na
-barra continua alternando: são dois gatilhos para o mesmo `alternarAcordeao`.)
+O toque na barra continua alternando: são dois gatilhos para o mesmo
+`alternarAcordeao`.
 
-**A exceção é o download EM CURSO.** Ali o botão da barra é o CANCELAR, e ele
+**A exceção é o download EM CURSO.** Ali o botão da barra é o CANCELAR e
 continua lá mesmo com o card aberto — um álbum de centenas de faixas, uma vez
-começado, precisa poder parar num toque. Nesse estado o álbum se fecha pelo
-toque na barra.
-
+começado, precisa poder parar num toque. Nesse estado o álbum se fecha pelo toque
+na barra.
 ### Os acordeões abrem animados
 
 Um acordeão que troca `display` aparece **pronto**, e num toque a lista inteira
@@ -4146,148 +4140,64 @@ linha de música.
 > coisas não dividirem a mesma palavra na frente de quem usa.
 
 **Opções da coleção** (`buildCollectionOptions` → painel `.coll-opts--inline`,
-dentro do card): tudo que é manutenção — uma faixa de **dois chips**
-(`.hymnal-stat`) e **dois botões lado a lado**. Não há "Ver músicas" aqui: a
-lista é o **toque no card**. Desde a v5.95 elas aparecem **sempre** que o álbum
-está aberto: não há mais botão para revelá-las.
+dentro do card): tudo que é manutenção, numa LINHA — `[⟳ Verificar · ✓ completo]
+[🗑]`. Elas aparecem **sempre** que o álbum está aberto; não há botão para
+revelá-las, e não há "Ver músicas" (a lista é o toque no card).
 
-- **`Sincronizados`** (`.hymnal-stat.sinc`) diz as duas coisas na mesma linha:
-  quantas faixas estão no aparelho e o que isso significa — `4/4 · Completo
-  offline` (com ✓, em verde), `1/4 · Parcial`, `— · Não sincronizado`.
-- **`Peso`** (`medirColecao`), à direita (`.hymnal-stat.right`,
-  `flex: 0 0 auto`): é o número curto e secundário da linha, e ancorá-lo na
-  borda oposta dá ao chip de sincronização a largura de que ele precisa. Ele diz
-  as DUAS medidas (v5.93) — `3,7 de 18 MB`: só o que está no aparelho não
-  responde "quanto isto vai custar", e só o total esconde o que já foi gasto.
-  Completo, os dois seriam o mesmo número dito duas vezes, então fica um só. A
-  unidade aparece uma vez quando é a mesma nos dois (`fmtParBytes`); se
-  divergirem (`800 KB de 1,2 GB`), as duas ficam — "800 de 1,2 GB" seria falso.
-- **Os dois botões dividem UMA LINHA** (`.coll-opts-acoes`, v5.95). Empilhados,
-  eram duas faixas largas para duas ações curtas — e era esse tamanho que
-  obrigava a esconder o painel atrás de uma engrenagem. `flex: 1 1 0` nos dois:
-  metade da linha para cada um, independentemente do comprimento do rótulo
-  (duas larguras diferentes leriam como dois pesos diferentes, e a ação
-  destrutiva não pode ser a maior das duas). O rótulo QUEBRA em duas linhas em
-  vez de virar reticências — "Remover do disposi…" esconde justamente a palavra
-  que diz o alcance da ação.
 - **Sincronizar** (`syncCollection`), rotulado pelo que ESTE toque vai fazer
-  neste álbum: **"Verificar atualizações"** com o álbum inteiro no aparelho
-  (não há o que baixar — só conferir se o catálogo mudou), **"Baixar"** em
-  qualquer outro caso, e **"Cancelar"** enquanto roda. Os dois últimos
-  encurtaram na v5.95 junto com a linha: o card em volta já diz de que álbum se
-  trata e a barra logo acima já mostra o progresso, então a palavra que sobrava
-  era a que repetia o contexto.
-- **"Remover do dispositivo"** (`deleteCollection`) — era "Excluir downloads do
-  álbum". O que sai é o que ocupa espaço NESTE aparelho, e o álbum continua no
-  acervo para baixar de novo; "excluir" prometia um dano maior do que o que a
-  ação faz.
+  neste álbum: **"Verificar atualizações"** com o álbum inteiro no aparelho (não
+  há o que baixar — só conferir se o catálogo mudou), **"Baixar"** em qualquer
+  outro caso, **"Cancelar"** enquanto roda.
+- **O ESTADO fica DENTRO do botão**, na mesma linha do rótulo
+  (`.coll-opt-estado`): a gramática do resto do app é **o rótulo nomeia a AÇÃO,
+  o estado diz onde ela está** — "Verificar · ✓ completo", "Baixar · 12/24",
+  "Atualizar a lista · 52 episódios". Quem encolhe com reticências é o estado,
+  nunca a palavra da ação. Sozinho, "Verificar atualizações" não dizia sequer que
+  o álbum estava inteiro.
+- **O PROGRESSO é DESENHO, não texto.** Enquanto o download roda o botão de
+  cancelar se preenche até `--p` (`::before` com `z-index: -1` sob
+  `isolation: isolate` — o rótulo é um nó de TEXTO e não recebe `z-index`, então
+  quem desce é a barra). Ele não escreve nada de propósito: as palavras
+  ("Baixando 2 de 4…") são da barra do card, e uma segunda cópia aqui é a mesma
+  classe de defeito que já esvaziou este painel duas vezes. Sem índice não há
+  fração e não há barra — uma proporção que não se conhece não se desenha.
+- **A remoção é só a LIXEIRA** (`deleteCollection`): 44px contra 316px, e a linha
+  inteira passa a ser do botão que carrega ação, estado e progresso. Um
+  destrutivo pode ficar sem rótulo aqui porque ele é CONFIRMADO, e o diálogo
+  nomeia o alcance ("o que foi baixado… e a lista offline") — a frase segue no
+  `title`/`aria-label`.
 
-#### E o que a v5.232 tirou: a faixa de chips inteira
+> **A REGRA QUE ESTE PAINEL ENSINOU, DUAS VEZES: nada aqui repete o que a barra
+> do card já diz.** Ele já teve três chips e uma linha de status, e depois um
+> chip de peso: o peso está na barra ANTES de abrir (é ele que faz o operador
+> decidir abrir), e o "Baixando 2 de 4…" está na barra `sticky` dois centímetros
+> acima, que nunca sai de vista enquanto se lê o painel. Um chip permanente de
+> REDE também saiu — quem decide se a sincronização pergunta antes de usar dados
+> móveis é `isConfirmedWifi()`, e ela o diz **na hora, no diálogo**, que é onde a
+> informação tem consequência.
 
-Pedido do operador: *"o peso já não precisa existir ali, pois já está na barra
-principal antes mesmo de abrir… preciso ajustá-los para que fiquem apenas em uma
-linha, resumindo basicamente a verificação (com o indicador do progresso e
-resultado) ou remoção."*
+Ele já foi um **bottom-sheet** (`#collPopup`, com degrau próprio de `z-index` e
+uma linha em `POPUPS`): um popup sobre o acervo — que já é um popup de tela
+cheia — para ver o estado de um álbum **que já estava aberto na tela**. Como
+painel, fechar é o mesmo toque que abriu e o `POPUPS`/`z-index` deixaram de ser
+necessários. Ele é redesenhado junto com o acervo, e o progresso da sincronização
+já dispara `refreshCollectionsIfVisible` — não sobrou popup com vida própria a
+sincronizar à parte.
 
-O painel virou **uma linha**: `[⟳ Verificar · ✓ completo] [🗑]`. O que saiu e
-para onde foi:
+**Uma coleção SEM índice abre direto nas opções**: `openCollectionOptions` liga
+`expanded` e mais nada. Ali não há lista para folhear, e o que resolve isso
+(sincronizar) está no painel.
 
-- **O PESO** — `.hymnal-stat.right`, e com ele `hymnalStat()` e `fmtParBytes()`,
-  os dois sem outro chamador. Ele já está na **barra do card**, antes de abrir
-  (`fracaoPeso`, o mesmo par de números): quem abriu o álbum já leu aquele
-  número para decidir abrir. Repetir uma medida a dois centímetros da outra é a
-  mesma classe de defeito que a v5.73 veio tirar daqui — ela só tinha sobrado
-  porque a barra do card ganhou o peso DEPOIS (v5.70/v5.93), e ninguém releu o
-  painel contra ela.
-- **O ESTADO** (`4/4 · Completo offline`) **desceu para dentro do botão** de
-  verificação, como `.coll-opt-estado` — na MESMA linha do rótulo desde a
-  v5.235 (ele nasceu quebrando para uma segunda, o que devolvia ao painel a
-  altura que condensá-lo tinha tirado; inline, quem encolhe com reticências é o
-  estado, nunca a palavra da ação). A gramática é a do resto do app — **o
-  rótulo nomeia a AÇÃO, o estado diz onde ela está**: "Verificar · ✓ completo",
-  "Baixar · 12/24", "Atualizar a lista · 52 episódios". Sozinho, o rótulo antigo
-  ("Verificar atualizações") não dizia sequer que o álbum estava inteiro.
-- **O PROGRESSO virou desenho.** Enquanto o download roda, o botão de cancelar
-  se preenche até `--p` (`::before` com `z-index: -1` sob `isolation: isolate` —
-  o rótulo é um nó de TEXTO e não recebe `z-index`, então quem desce é a barra).
-  Ele **não escreve nada**, e é essa a razão de existir: as palavras
-  ("Baixando 2 de 4…") são da barra do card, e uma segunda cópia delas aqui
-  seria exatamente o que a v5.73 removeu. Sem índice não há fração e não há
-  barra — uma proporção que não se conhece não se desenha.
-
-**E A REMOÇÃO FICOU SÓ COM A LIXEIRA** (v5.235): 44 px contra 316 px, e a linha
-inteira passou a ser do botão que carrega ação, estado e progresso. Um
-destrutivo pode ficar sem rótulo aqui porque ele é CONFIRMADO, e o diálogo
-nomeia o alcance ("o que foi baixado… e a lista offline") — a frase segue no
-`title`/`aria-label`. Com isso caiu o `flex: 1 1 0` da v5.95, cujo argumento era
-que "a ação destrutiva não pode ser a maior das duas": ela agora é a menor por
-construção.
-
-Os dois oráculos se dividem pela natureza, como sempre: o `boot-nativo` mede o
-ESTADO (o painel com um filho só, o peso ausente dele e presente na barra, o
-resultado dentro do botão) e o `smoke.mjs` mede a FORMA (o preenchimento é
-proporcional, fica atrás do rótulo e não é da cor do fundo). Verificados nos
-dois sentidos: 4 e 3 reprovados com o código anterior.
-
-#### O que a v5.73 tirou daqui, e por quê
-
-Eram **três chips e uma linha de status**, e três dos quatro repetiam algo que
-já estava na tela:
-
-- **A linha de status saiu.** Parada, ela dizia numa linha inteira o mesmo que o
-  chip logo abaixo ("Completo offline", "Parcial", "Não sincronizado"); em
-  movimento, repetia palavra por palavra o `Baixando 2 de 4…` que a **barra do
-  card** mostra dois centímetros acima — e a barra é `sticky` no topo do aberto,
-  logo nunca sai de vista enquanto se lê o painel. Com ela saíram
-  `.hymnal-card-status` e suas variantes.
-- **"Sincronizados" e "Completo offline" viraram um chip só.** Separados, `4/4`
-  e "Completo offline" eram a mesma frase dita duas vezes — e a segunda ainda
-  ocupava a largura toda.
-- **O chip "Rede" saiu**, e com ele `wifiIconEl()`, seu único consumidor. A
-  regra não mudou: quem decide se a sincronização em massa pergunta antes de
-  usar dados móveis continua sendo `isConfirmedWifi()`, e ela o diz **na hora,
-  no diálogo** — que é onde a informação tem consequência. Um chip permanente
-  repetindo o estado da rede em cada álbum aberto era ruído entre dados sobre o
-  ÁLBUM.
-
-**Elas eram um bottom-sheet** (`#collPopup`, com degrau próprio de `z-index` e
-uma linha em `POPUPS`). Viraram um painel DENTRO do card na v5.72: um popup
-sobre o acervo — que já é um popup de tela cheia — era uma camada a mais para
-ver o peso e o estado de um álbum **que já estava aberto na tela**. No painel,
-fechar é o mesmo toque na engrenagem que abriu, e o `POPUPS`/`z-index` deixaram
-de ser necessários — um painel não é uma camada.
-
-- **`u.optsOpen`** é o estado, ao lado de `u.expanded`, em `ui(coll.id)`:
-  transitório por sessão, como o resto do estado de UI do card.
-- **Não há mais `refreshCollectionOptions`.** O painel é redesenhado junto com o
-  acervo, e o progresso da sincronização já dispara
-  `refreshCollectionsIfVisible` — não sobrou um popup com vida própria para
-  sincronizar à parte.
-- **Uma coleção SEM índice abre direto nas opções**: `openCollectionOptions`
-  liga `expanded` e mais nada. Ali não há lista para folhear, e o que resolve
-  isso (sincronizar) está no painel — é para onde o toque na barra leva quando
-  `total === 0`. (O estado `optsOpen` era o segundo interruptor desse par e saiu
-  na v5.95, com o botão de engrenagem do card: as opções passaram a aparecer
-  sozinhas com o álbum aberto, então a condição do card voltou a ser só
-  `u.expanded`.)
-
-**O botão de sincronizar é o mesmo botão de CANCELAR.** Com o download em
-curso ele vira ✕ ("Cancelar", em `--warn` e **sem
-giro**: um ✕ girando não se lê como "toque para parar", e quem indica
-atividade é o preenchimento dele — desde a v5.232 o aviso é a BORDA e o texto,
-porque o fundo passou a ser o progresso). Antes, um segundo toque caía num `return` mudo
-por `u.syncBusy`: um álbum de centenas de faixas, uma vez começado, só parava
-fechando o app. O cancelamento **fecha a fila** — nenhuma música nova entra e
-as que já estão no ar (até `NET_CONCURRENCY`) terminam. Abortar no meio de um
-download deixaria um arquivo truncado catalogado como completo, e o custo de
-esperar é uma faixa, não um álbum. `u.cancel` também é conferido na
-**varredura** do que falta (`songVariantsNeeded` por música), que num álbum
-grande já é demorada por si só.
-
-`refreshCollectionOptions()` é
-chamado por `refreshCollectionsIfVisible()`, então o progresso da
-sincronização aparece no popup aberto sem fechar e reabrir.
-
+**O botão de sincronizar é o mesmo botão de CANCELAR.** Com o download em curso
+ele vira ✕ ("Cancelar", com o aviso na BORDA e no texto — o fundo é o
+progresso — e **sem giro**: um ✕ girando não se lê como "toque para parar"). Sem
+isso, um segundo toque caía num `return` mudo por `u.syncBusy`, e um álbum de
+centenas de faixas só parava fechando o app. O cancelamento **fecha a fila** —
+nenhuma música nova entra e as que já estão no ar (até `NET_CONCURRENCY`)
+terminam: abortar no meio deixaria um arquivo truncado catalogado como completo,
+e o custo de esperar é uma faixa, não um álbum. `u.cancel` também é conferido na
+VARREDURA do que falta (`songVariantsNeeded` por música), que num álbum grande já
+é demorada por si só.
 #### "Esta coleção está completa?" — uma pergunta, quatro respostas (v5.134)
 
 O botão de baixar não sumia de coleções já inteiras no aparelho, e o chip ao
