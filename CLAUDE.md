@@ -1852,6 +1852,7 @@ Antes de publicar: `node --check` em todo `.js` de `assets/web`, validação do
 | `tokens.test.mjs` | nenhum `var(--x)` **sem fallback** aponta para token inexistente (um `var()` inválido computa para o valor INICIAL, sem aviso); nenhum token só no tema claro; **nenhuma regra desenha contorno**. `var(--x, fallback)` é legítimo (valores que o JS entrega em runtime) |
 | `serie.test.mjs` | quais playlists e vídeos entram no álbum. **Entradas VERBATIM do canal** — nomenclatura imaginada prova só que o código concorda com quem o escreveu |
 | `sorteio.test.mjs` | quais faixas a **playlist automática** pode mandar ao telão. O operador toca UM botão e a faixa entra em cena, sem tela intermediária: os quatro modos de errar (série no lugar do louvor · faixa que casa e não aparece · PLAYBACK onde se esperava a voz · fila cheia do que falta baixar) são todos silenciosos |
+| `glifos.test.mjs` | **todo ícone de fonte existe na fonte.** O `.woff2` é um SUBSET de 31 codepoints, e um `.msym` fora dele não desenha NADA — sem erro, sem requisição falhando, só um vão: o botão existe, é tocável, faz o que promete e é invisível. Lê o `cmap` do próprio arquivo (`zlib.brotliDecompressSync`, zero dependência) |
 | `sidx.test.mjs` | o parser `sidx` |
 
 **Chromium de verdade, em DOIS PASSOS:** `Preparar o Chromium` (o `npm i` e o
@@ -2122,7 +2123,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v5.303** (base web) · `SHELL_VERSION` **44** · bundle com
+**Versão atual: v5.304** (base web) · `SHELL_VERSION` **44** · bundle com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos nativos
 por construção (escada do voltar, botões de volume, notificação de controles),
 que **só chegam instalando o APK**.

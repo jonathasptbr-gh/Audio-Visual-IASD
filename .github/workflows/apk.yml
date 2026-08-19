@@ -170,6 +170,16 @@ jobs:
           # esperando a rede da igreja. Node puro, sem rede: sem
           # `continue-on-error`.
           node tools/sorteio.test.mjs
+          # TODO ÍCONE DE FONTE TEM DE EXISTIR NA FONTE. O woff2 é um SUBSET de
+          # 31 codepoints, e um `.msym` fora dele não desenha nada: sem erro no
+          # console, sem requisição falhando, só um vão do tamanho de um ícone.
+          # O botão existe, é tocável, faz o que promete — e é invisível. Foi
+          # assim que a playlist automática saiu ao ar com `casino` (e30c), e
+          # antes dela o `edit`, o `folder_open` e o `create_new_folder`. Ele lê
+          # o `cmap` do próprio arquivo (Node puro, `zlib.brotliDecompressSync`,
+          # zero dependência) e barra o build, porque um ícone invisível chega à
+          # frota pelo OTA e só é descoberto por quem opera.
+          node tools/glifos.test.mjs
 
       - name: Tokens de CSS que não existem (Node puro)
         run: |
