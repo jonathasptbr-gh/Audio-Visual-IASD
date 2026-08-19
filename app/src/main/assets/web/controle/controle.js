@@ -278,11 +278,10 @@ function renderOtaRow() {
     otaRowEl.textContent = 'Baixando o app v' + (apkNovo ? apkNovo.versao : '') + '…';
     return;
   }
-  // ATENÇÃO À ORDEM: este render roda também na CARGA do módulo, e
-  // `horaRuimPara*` lê estado que nasce muito abaixo daqui. Ele só é alcançado
-  // quando HÁ lote — e na carga não há, porque `otaPendenteVersao`/`apkNovo`
-  // nascem vazios e só o `lerAtualizacao` os escreve. Não é sorte: é a mesma
-  // garantia que o `renderVersionLabel` tem, e ela precisa continuar valendo.
+  // ATENÇÃO À ORDEM: este render roda também na CARGA, e `horaRuimPara*` lê
+  // estado que nasce muito abaixo daqui. Ele só é alcançado quando HÁ lote, e na
+  // carga não há (`otaPendenteVersao`/`apkNovo` nascem vazios). Não é sorte —
+  // é uma garantia que precisa continuar valendo.
   const lote = loteDaAtualizacao();
   otaRowEl.classList.toggle('ota-row--agora', !!lote);
   if (!lote) {
@@ -300,34 +299,28 @@ function renderOtaRow() {
 if (otaRowEl) {
   otaRowEl.addEventListener('click', () => {
     if (apkBaixando || otaProcurando) return;
-    // O TOQUE DESFAZ O ADIAMENTO. "Deixar para depois" silencia o diálogo
-    // AUTOMÁTICO desta sessão; ele não pode silenciar o operador que veio
-    // pedir a atualização de propósito — que é exatamente o que este toque é.
-    // `otaRecusadas` (o que o SHELL não conseguiu aplicar) também é limpo:
-    // pode ter sido um bundle pela metade que a procura de agora substituiu.
+    // O TOQUE DESFAZ O ADIAMENTO: "Deixar para depois" silencia o diálogo
+    // AUTOMÁTICO, não o operador que veio pedir a atualização de propósito.
+    // `otaRecusadas` (o que o SHELL não conseguiu aplicar) também é limpo: pode
+    // ter sido um bundle pela metade que a procura de agora substituiu.
     otaAdiadas.clear();
     otaRecusadas.clear();
     const lote = loteDaAtualizacao();
     if (lote) {
-      // O MESMO caminho da pergunta, e não uma segunda cópia dele: quem grava
-      // a intenção, aplica a base, baixa o APK e fala do erro é o
-      // `aplicarAtualizacao`. Dois caminhos para uma atualização divergiriam
-      // no primeiro ajuste.
+      // O MESMO caminho da pergunta, não uma cópia: quem grava a intenção,
+      // aplica a base, baixa o APK e fala do erro é o `aplicarAtualizacao`.
       calarOta();
       aplicarAtualizacao(lote);
       return;
     }
-    // Sem nada esperando, ele é a PROCURA — o que o toque no rótulo de versão
-    // fazia desde a v5.136. `forcar` pula o piso entre consultas do shell: o
-    // operador que ACABOU de publicar uma correção não quer esperar piso
-    // nenhum, e este é o único chamador que o pula.
+    // Sem nada esperando, ele é a PROCURA. `forcar` pula o piso entre consultas
+    // do shell — este é o ÚNICO chamador que o pula.
     otaProcurando = true;
     try { AVNative.otaCheck(true); } catch (_) { /* rede/ponte */ }
     falarNoOta('Procurando atualização…', 0);
-    // A busca é rede: o desfecho chega pelo empurrão do shell
-    // (`__avAtualizacao`) ou pela enquete. Estas duas consultas antecipadas
-    // existem para o caso em que não HÁ nada novo — aí não há empurrão nenhum,
-    // e sem elas o toque ficaria sem resposta até a enquete seguinte.
+    // A busca é rede: o desfecho chega pelo empurrão do shell ou pela enquete.
+    // Estas duas consultas cobrem o caso em que não HÁ nada novo — aí não há
+    // empurrão, e o toque ficaria sem resposta até a enquete seguinte.
     setTimeout(() => atualizarProcura(false), 4000);
     setTimeout(() => atualizarProcura(true), 12000);
   });
@@ -339,24 +332,20 @@ renderOtaRow();
 
 // Relê o estado da procura e, se houver algo, oferece. `anunciar` só na ÚLTIMA
 // das duas consultas: as duas dizendo "já está na mais recente" seriam dois
-// avisos para uma pergunta. (O parâmetro NÃO pode se chamar `avisar`: ele
-// sombrearia a função global de aviso, que é justamente quem fala aqui.)
+// avisos para uma pergunta. (O parâmetro NÃO pode se chamar `avisar` — ele
+// sombrearia a função global de aviso, que é quem fala aqui.)
 async function atualizarProcura(anunciar) {
-  // QUEM DESFAZ O ADIAMENTO É O TOQUE, e ele já o desfez (ver o ouvinte do
-  // botão). Aqui isto era um `clear` a mais — e não inofensivo: esta função
-  // NÃO é chamada por toque nenhum, ela é o desfecho agendado do toque, em 4 s
-  // e em 12 s. Entre as duas, a pergunta pode ter aparecido e o operador pode
-  // ter respondido "Deixar para depois"; a batida de 12 s apagava essa resposta
-  // e `ofertarAtualizacao` reabria o diálogo MODAL sozinho, no meio do que ele
-  // estivesse fazendo. Um "não" que o app desfaz oito segundos depois é pior
-  // que não perguntar.
+  // NÃO limpar `otaAdiadas` aqui: quem desfaz o adiamento é o TOQUE, e esta
+  // função é o desfecho AGENDADO dele (4 s e 12 s). Entre as duas o operador
+  // pode ter respondido "Deixar para depois", e a batida de 12 s apagaria essa
+  // resposta reabrindo o diálogo modal sozinho.
   await ofertarAtualizacao();
-  // O DESFECHO VOLTA PARA O MESMO BOTÃO, e depois ele volta a ser o que era.
+  // O desfecho volta para o MESMO botão, e depois ele volta ao que era.
   const lote = loteDaAtualizacao();
   if (lote || anunciar) otaProcurando = false;
   if (anunciar && !lote) falarNoOta('Você já está na versão mais recente.', 3200);
-  // E se HÁ algo novo, quem fala é o diálogo — mas o botão não pode ficar preso
-  // em "Procurando…" enquanto ele decide: ele já vira o "Atualizar…".
+  // Havendo algo novo quem fala é o diálogo, mas o botão não pode ficar preso
+  // em "Procurando…" enquanto ele decide: já vira "Atualizar…".
   else if (lote) { calarOta(); renderOtaRow(); }
 }
 
@@ -380,16 +369,14 @@ const wallFileEl = document.getElementById('wallFile');
 const wallPickEl = document.getElementById('wallPick');
 const wallResetEl = document.getElementById('wallReset');
 const diagCopyEl = document.getElementById('diagCopy');
-// Espelho de pixels: a LINHA em Configurações e a FOLHA que ela abre.
+// "Conectar uma tela": a linha em Configurações e a folha que ela abre.
 const castPopupEl = document.getElementById('castPopup');
 const castConnEl = document.getElementById('castConn');
 const simpleConnEl = document.getElementById('simpleConn');
 const castCloseEl = document.getElementById('castClose');
 const castMirrorBtnEl = document.getElementById('castMirrorBtn');
-// A transmissão para navegadores da rede é um ESTADO, e desde a v5.184 ela tem
-// a forma de um estado: uma linha com interruptor, no lugar do segundo cartão
-// de escolha. O rótulo dela nomeia o DESTINO desde a v5.198 — ver o comentário
-// no `index.html`.
+// A transmissão para navegadores da rede é um ESTADO, e tem a forma de um: o
+// rótulo nomeia o DESTINO ("Transmitir para navegador"), não o meio.
 const castNetBtnEl = document.getElementById('castNetBtn');
 const castNetLabelEl = document.getElementById('castNetLabel');
 const castMsgEl = document.getElementById('castMsg');
@@ -410,21 +397,14 @@ const hymnResultsEl = document.getElementById('hymnResults');
 const bibleVerPopupEl = document.getElementById('bibleVerPopup');
 const bibleVerListEl = document.getElementById('bibleVerList');
 const bibleVerCloseEl = document.getElementById('bibleVerClose');
-// Escopo da busca/lista: null = busca global no acervo (botão de lupa);
-// coll.id = lista de músicas de UMA coleção (toque no card do álbum).
-
-// Só entradas COM chamador (limpeza da auditoria 2026-08: saíram prev, stop,
-// next, edit, close, plAdd, schedule e back, todas sem um único uso).
-// NÃO HÁ MAIS ACESSO DINÂMICO desde a v5.244: o único era `ICON[coll.iconKey]`,
-// do card de coleção, e a thumb daquele card virou a seta (o `iconKey` saiu do
-// catálogo junto). Toda leitura desta tabela é por nome literal, o que a torna
-// varrível — um nome que ninguém cita é código morto, e não um talvez.
+// Só entradas COM chamador, e **nenhum acesso dinâmico**: toda leitura é por
+// nome literal, o que torna a tabela varrível — um nome que ninguém cita é
+// código morto demonstrável, não um talvez.
 const ICON = {
   play: '', // play_arrow
   pause: '', // pause
-  // Nomes pelo GLIFO, não pelo estado: os botões passaram a mostrar a AÇÃO
-  // (ver renderControls), então "viewOn" apareceria justamente com a view
-  // desligada — o nome mentiria.
+  // Nomes pelo GLIFO, não pelo estado: os botões mostram a AÇÃO
+  // (`renderControls`), então "viewOn" apareceria com a view DESLIGADA.
   image: '',    // image
   imageOff: '', // image_not_supported
   volOn: '', // volume_up
@@ -436,21 +416,16 @@ const ICON = {
   repeatAll: '', // repeat
   repeatOne: '', // repeat_one
   shuffle: '', // shuffle
-  // ADICIONAR AO CRONOGRAMA fica na família do TEMPO (`more_time`, um
-  // relógio com "+", v5.110): o `playlist_add` que o botão usava era um
-  // borrão ao lado do `queue_music` da playlist — a mesma pilha de linhas
-  // com outra marquinha no canto. O relógio não tem linha nenhuma e diz o que
-  // a lista é: a ORDEM do culto, não uma fila de reprodução.
+  // ADICIONAR AO CRONOGRAMA fica na família do TEMPO (`more_time`): ao lado do
+  // `queue_music` da playlist, um `playlist_add` seria a mesma pilha de linhas
+  // com outra marquinha. O relógio diz o que a lista é — a ORDEM do culto.
   cronoAdd: '', // more_time    — ao Cronograma
   add: '',      // add          — "a uma lista" (a folha escolhe qual)
   plRemove: '', // playlist_remove
   queue: '', // queue_music
-  // Favoritos: o que está marcado leva ESTRELA, não pasta — a seção deixou de
-  // ser "onde os arquivos ficam" e passou a ser "o que eu marquei". (O glifo
-  // `folder` saiu na v5.254 com os atalhos de pasta; `create_new_folder`
-  // voltou na v5.258 como o botão de TRAZER uma pasta do aparelho — a única
-  // que resta —, e o `import` (`folder_open`) segue sendo a IDENTIDADE dela na
-  // linha.)
+  // Favoritos levam ESTRELA, não pasta: a seção é "o que eu marquei", não "onde
+  // os arquivos ficam". `create_new_folder` é o botão de TRAZER uma pasta do
+  // aparelho; `folder_open` é a identidade dela na linha.
   star: '',      // star
   folderNew: '', // create_new_folder — "trazer uma pasta"
   close: '',     // close — o MESMO glifo dos `.popup-close` (v5.191)
@@ -467,94 +442,59 @@ let view = 'visual';
 let muted = false;
 let volume = 1;
 let playing = false;
-// Declarado AQUI, junto do resto do estado, e não ao lado dos listeners da
-// barra (onde nasceu): `pushNowPlaying` o lê, e um `let` só é acessível depois
-// da linha que o declara. Com o arquivo inteiro entre um e outro, qualquer
-// render disparado durante a carga viraria um ReferenceError — e só no app,
-// porque no navegador `pushNowPlaying` retorna antes de chegar nele.
+// Declarado AQUI, junto do resto do estado: `pushNowPlaying` o lê, e um `let` só
+// existe depois da linha que o declara — com o arquivo inteiro entre os dois,
+// um render durante a carga vira `ReferenceError`, e só no app (no navegador
+// `pushNowPlaying` retorna antes de chegar nele).
 let seeking = false;      // operador arrastando a barra de progresso
 let repeat = 'all';
 let activeTab = 'imports';
 let selectionMode = false;
 const selected = new Set();
-// Miniaturas blob→object URL, POR HOST de lista: a revogação era uma lista
-// única cruzando os dois hosts (`libraryEl` × a gaveta de Favoritos) —
-// redesenhar um revogava as URLs ainda EM USO no outro, e as miniaturas de lá
-// viravam ícone quebrado. Cada host revoga só o que ele próprio criou, no
-// redesenho dele (ver renderLibrary).
+// Miniaturas blob→object URL, POR HOST de lista: com um balde único, redesenhar
+// um host revogava URLs ainda EM USO no outro e as miniaturas de lá viravam
+// ícone quebrado. Cada host revoga só o que ele criou (ver `renderLibrary`).
 const thumbUrlsPorHost = new Map(); // host -> [urls do último render dele]
 let thumbUrlsAtual = [];            // o balde do render em curso
-// FAVORITOS: os ids marcados, numa lista plana. É um Set em memória porque a
-// pergunta que a tela faz o tempo todo é "este item está favoritado?", uma vez
-// por linha desenhada; no banco ele é a lista `favs` (ver LISTS em db.js), que
-// é o que faz a estrela segurar o blob contra o gc.
+// FAVORITOS: os ids marcados. `Set` em memória porque a tela pergunta "este item
+// está favoritado?" uma vez por linha desenhada; no banco é a lista `favs` (ver
+// `LISTS` em db.js), e é ela que faz a estrela segurar o blob contra o gc.
 let favSet = new Set();
 let favItems = [];         // os registros, para a seção de Favoritos da gaveta
 let opfsFolders = [];      // [{id, name, count, syncedAt, handle?}] — pastas sincronizadas no OPFS
-// ===== OS GRUPOS DA BIBLIOTECA NASCEM FECHADOS (v5.237) =====
+// ===== OS GRUPOS DA BIBLIOTECA NASCEM FECHADOS, e só UM abre por vez =====
+// A primeira tela é o ÍNDICE (meia dúzia de linhas com nome e contagem) e cada
+// toque desce um nível — antes eram cabeçalhos mudos com todos os cards
+// despejados embaixo.
 //
-// Pedido do operador: *"aproveite para tornar os agrupamentos de coleções, como
-// diversos e cds do ano e etc… todas as coleções, em colapsados, assim a
-// listagem das seções fica mais curta e a navegação se torna mais ramificada,
-// para maior organização."*
+// TRANSIENTE (mesma regra do card de coleção): estado de navegação guardado
+// entre sessões faz a tela reabrir numa forma que ninguém escolheu agora. Estado
+// de MÓDULO e não classe no DOM, porque a lista é reconstruída a cada redesenho
+// — o progresso de um download a refaz a cada 400 ms.
 //
-// Eram cabeçalhos MUDOS com todos os cards despejados embaixo, um atrás do
-// outro: a Biblioteca abria numa lista de dezenas de álbuns em que o operador
-// rolava para achar a seção, não o álbum. Fechados, a primeira tela é o ÍNDICE
-// — meia dúzia de linhas com nome e contagem — e cada toque desce um nível.
+// É UM NOME, NÃO UM CONJUNTO: um `Set` sabe escrever "duas abertas", e mantê-lo
+// longe disso exigiria uma guarda em cada escrita. Com um nome, esse estado
+// deixa de ser regra que alguém precisa lembrar — é frase que não dá para
+// escrever. `''` é legítimo: nenhuma coleção aberta é o normal de quem está
+// olhando os favoritos, que têm estado PRÓPRIO (`favAberto`) por não serem uma
+// coleção — são o atalho de quem já procurou antes.
 //
-// TRANSIENTE, e é a mesma regra do card de coleção ("cada abertura do app começa
-// colapsada"): estado de navegação guardado entre sessões faz a tela reabrir
-// numa forma que ninguém escolheu naquele momento. Ele é estado de módulo, e não
-// uma classe no DOM, porque a lista inteira é reconstruída a cada redesenho (o
-// progresso de um download a refaz a cada 400 ms) — uma marca no nó morreria
-// junto com ele.
-//
-// É UM NOME, NÃO UM CONJUNTO (v5.273, pedido do operador: *"só permita uma
-// coleção aberta por vez"*). Um `Set` sabia escrever "duas abertas", e mantê-lo
-// longe disso exigiria uma guarda em cada ponto que escreve; com um nome só,
-// aquele estado deixa de ser uma regra que alguém precisa lembrar — é uma frase
-// que não dá para escrever.
-//
-// E ELE FALA SÓ DAS COLEÇÕES (v5.276): *"agora não mais são concorrentes com os
-// favoritos… as coleções são concorrentes entre si, mas não com os
-// favoritos"*. Os Favoritos saíram deste nome e ganharam estado PRÓPRIO
-// (`favAberto`, logo abaixo) — eles não são uma coleção, são o atalho de quem
-// já procurou antes, e tratá-los como mais uma linha do rodízio fazia abrir um
-// hinário custar o atalho. `''` é um valor legítimo aqui: nenhuma coleção
-// aberta é o estado normal de quem está olhando os favoritos.
-//
-// NASCE NO TOPO junto do resto do estado de tela: ele é lido por um caminho de
-// RENDER, e um `let` declarado catorze mil linhas abaixo é a zona morta temporal
-// que já derrubou o app nas v5.184, v5.193, v5.195 e v5.199.
+// NASCE NO TOPO: é lido por um caminho de RENDER, e um `let` catorze mil linhas
+// abaixo é a zona morta temporal que já derrubou o app quatro vezes.
 let grupoAberto = '';
-// A SEÇÃO DOS FAVORITOS ESTÁ ABERTA? Nasce ABERTA e é INDEPENDENTE do rodízio
-// acima (v5.276) — abrir uma coleção não a fecha, e fechá-la é uma decisão do
-// operador, que dura a sessão como qualquer outra. É um booleano e não um nome
-// porque ela é uma só: não há "qual favorito está aberto".
+// A seção dos Favoritos nasce ABERTA e é INDEPENDENTE do rodízio acima: abrir
+// uma coleção não a fecha. Booleano e não nome — ela é uma só.
 let favAberto = true;
-// QUAL PASTA DO APARELHO está aberta (v5.290) — o id, ou `null`. Ela abre INLINE
-// desde este lote, como um álbum, e por isso precisa de um estado que sobreviva
-// ao redesenho da seção: favoritar um arquivo de dentro dela redesenha os
-// Favoritos, e sem esta memória a pasta fecharia a cada ação.
-//
-// Um NOME e não um conjunto, pela mesma razão do `grupoAberto`: "duas pastas
-// abertas" é uma frase que não dá para escrever, em vez de uma regra que alguém
-// precisa lembrar. E no topo pelo mesmo motivo dele — é lido por um caminho de
-// render.
+// QUAL PASTA DO APARELHO está aberta — o id, ou `null`. Ela abre INLINE, como um
+// álbum, e precisa de estado que sobreviva ao redesenho da seção: favoritar um
+// arquivo de dentro dela redesenha os Favoritos. Um NOME e no topo, pelas mesmas
+// razões do `grupoAberto`.
 let pastaAberta = null;
 // Quais grupos devem ANIMAR a abertura no próximo desenho. Só o toque que abriu
 // anima: um redesenho por outro motivo (o progresso de um download) reencontra
 // o grupo já aberto, e vê-lo "abrir" sozinho leria como se algo tivesse
 // acontecido — a mesma regra do `animarAbertura` do card.
 const gruposAnimar = new Set();
-// (`favExpandido` viveu aqui da v5.273 à v5.281, com o botão "Ver todos" que
-// ele governava. Os dois saíram na v5.282: *"ajuste o funcionamento interno
-// dela para que não tenha mais o sistema de ver mais. Agora quando aberta ela
-// mostra toda a listagem"*. O vão deixou de ser uma altura EXATA e virou um
-// PISO (`min-height`, em `controle.css`), então não há mais recorte — e sem
-// recorte não há o que expandir. Uma seção aberta que mostra tudo é o que as
-// outras já fazem; era esta que tinha um segundo estado a mais.)
 // OS NOMES DOS GRUPOS FIXOS da Biblioteca, num lugar só. Eles não são rótulo:
 // são a CHAVE de `grupoAberto`/`gruposAnimar`, e um literal repetido entre o
 // construtor e um chamador divergiria calado — o grupo abriria e o estado
@@ -566,38 +506,22 @@ const GRUPO_HINARIOS = 'Hinários';
 // do operador, e ele nomeia a ORIGEM — que é o que separa este grupo do de
 // cima muito melhor que "séries", uma palavra de implementação.
 const GRUPO_OFICIAIS = 'Arquivos oficiais';
-// (O padrão dos Favoritos é o `favAberto = true` lá em cima. Da v5.238 à v5.262
-// a seção era `fixo` — sem seta e sem ouvinte —, e o argumento era que um atalho
-// atrás de um toque a mais deixa de ser atalho. Ele continua valendo, e é
-// exatamente o que aquele `true` preserva: o padrão é ABERTO. O que ele não
-// justificava era a seção ser a ÚNICA da tela que não responde ao gesto que
-// todas as outras respondem — quem tem trinta favoritos e quer chegar aos
-// álbuns não tinha como recolhê-los. A v5.273 tirou esse gesto de volta ao
-// torná-los o piso do rodízio; a v5.276 o devolve, agora sem rodízio nenhum.)
-// O TECLADO DA BIBLIOTECA SOBE UM TEMPO DEPOIS DA TELA (v5.264) — ver
-// `openHymnSearch`, que é onde a decisão está argumentada. 260 ms é o fade do
-// `.popup-backdrop` (.25s) mais um quadro: pedir o teclado antes disso o faria
-// subir por cima de uma folha ainda esmaecendo, remedindo a faixa visível
-// enquanto ela aparece, que é o "piscar" do relato.
-//
-// NASCEM NO TOPO, junto do resto do estado de tela: `closeHymnSearch` limpa
-// este prazo e é chamado por `renderSimpleGate`, que roda durante a CARGA do
-// módulo — um `let` declarado catorze mil linhas abaixo é a zona morta temporal
-// que já derrubou o app nas v5.184, v5.193, v5.195 e v5.199.
+// O TECLADO DA BIBLIOTECA SOBE UM TEMPO DEPOIS DA TELA (a decisão está
+// argumentada em `openHymnSearch`). 260 ms = o fade do `.popup-backdrop` mais um
+// quadro: pedido antes disso, o teclado sobe por cima de uma folha ainda
+// esmaecendo e remede a faixa visível enquanto ela aparece.
+// NASCEM NO TOPO: `closeHymnSearch` limpa este prazo e é chamado por
+// `renderSimpleGate`, que roda durante a CARGA do módulo.
 const ABRIR_TECLADO_MS = 260;
 let hymnFocoTimer = null;
 let syncBusy = false;      // sincronização em andamento
-// Transições visuais são INERENTES ao sistema (sempre ligadas, duração fixa) —
-// não há opção de desligar nem ajustar. Fade in/out em toda troca visual:
-// mídia, cortina do wallpaper (view toggle), letra e texto bíblico.
+// Transições visuais são INERENTES (sempre ligadas, duração fixa): fade em toda
+// troca visual — mídia, cortina do wallpaper, letra e texto bíblico.
 const fadeCfg = createStage.FADE; // fonte única, compartilhada com o Display
 // ===== Coleções de mídia do LouvorJA (acervo offline) =====
-// Sistema genérico que cobre TODAS as coleções do banco público do LouvorJA
-// (ver docs/FONTE-DE-DADOS-LOUVORJA.md e a seção "Coleções de mídia (LouvorJA)"
-// no CLAUDE.md). Cada coleção vira um card na aba Álbuns e uma pasta OPFS
-// própria (folders/<coll.id>/), com sincronizar/atualizar/excluir e busca — o
-// mesmo mecanismo que antes era exclusivo do Hinário 2022, agora parametrizado
-// por coleção.
+// Cobre TODAS as coleções do banco público do LouvorJA (ver
+// docs/FONTE-DE-DADOS-LOUVORJA.md). Cada uma vira um card e uma pasta OPFS
+// própria (`folders/<coll.id>/`), com sincronizar/atualizar/excluir e busca.
 //
 // Dois tipos de coleção:
 //  - 'hymnal' (fixas): um arquivo de LISTA do banco (pt_hymnal / pt_hymnal_1996)
@@ -609,34 +533,13 @@ const fadeCfg = createStage.FADE; // fonte única, compartilhada com o Display
 //    concorrência limitada e TTL (ALBUM_INDEX_TTL), pra a busca cobrir todo o
 //    acervo mesmo sem nada baixado.
 //
-// O himnário em espanhol e demais idiomas ficam de fora naturalmente: só
-// consumimos arquivos 'pt_*' — os nomes vêm literais de `Louvorja` e do
-// catálogo, e não há um seletor de idioma a parametrizar. (Havia aqui um
-// `COLLECTION_LOCALE = 'pt'` que NENHUMA linha lia: uma constante que promete
-// um eixo de configuração inexistente é pior que o literal, porque manda quem
-// for acrescentar um idioma mexer nela e concluir que não fez efeito.)
-// Quantas requisições manter em voo ao mesmo tempo.
-//
-// 6 não é chute: é o teto de conexões simultâneas POR HOST do motor do WebView
-// em HTTP/1.1. Medido no Chromium com um servidor de latência (36 arquivos de
-// 400 KB, 250 ms de RTT cada), mediana de 3 rodadas:
-//
-//     concorrência   tempo    ganho    pico real de conexões
-//              3     3,24s    (base)          3
-//              6     1,77s     +82%           6
-//              8     1,71s     +89%           6      ← trava em 6
-//             12     2,05s     +58%           6
-//             24     1,77s     +83%           6
-//
-// Ou seja: de 3 para 6 o download quase DOBRA; acima de 6 o navegador
-// simplesmente enfileira e não há ganho nenhum — só mais Blobs em memória ao
-// mesmo tempo. Como cada música é baixada de forma sequencial (metadados →
-// capa → Cantado → Playback), a concorrência do laço é exatamente o número de
-// conexões, então este é o parâmetro que importa.
-//
-// Pelo mesmo motivo NÃO se ganha nada paralelizando álbuns entre si: o limite
-// é por HOST, não por álbum — dois álbuns com 3 cada dariam as mesmas 6
-// conexões, com progresso fragmentado e mais estado concorrente de brinde.
+// Outros idiomas ficam de fora naturalmente: só consumimos arquivos `pt_*`, e os
+// nomes vêm literais de `Louvorja` — não há seletor de idioma a parametrizar.
+// Quantas requisições manter em voo. **6 é o teto de conexões simultâneas POR
+// HOST** do WebView em HTTP/1.1 — medido: de 3 para 6 o download quase dobra
+// (+82%), e acima de 6 o navegador enfileira e não há ganho nenhum, só mais
+// Blobs em memória. Pelo mesmo motivo não se ganha nada paralelizando álbuns
+// entre si: o limite é por HOST, não por álbum.
 const NET_CONCURRENCY = 6;
 
 const HYMNAL_2022_ID = 'hymnal-2022'; // == pasta OPFS legada; preserva downloads já feitos
@@ -653,32 +556,23 @@ let collState = {};
 // lista achatada: `{ categories: [{ id_category, name, order, albums: [...] }],
 // albums: [{ id_album, name, color }] }`.
 //
-// O banco do LouvorJA organiza o acervo em **categoria → álbum → música**, e é
-// só isso: não existe grupo acima da categoria nem subcategoria (confirmado no
-// código do app-ja, ver docs/FONTE-DE-DADOS-LOUVORJA.md §5.5). A relação
-// categoria↔álbum é **N:N** — o mesmo álbum aparece em mais de uma categoria —,
-// e `subtitle`/`order` são campos do PIVÔ: mudam conforme a categoria em que o
-// álbum está sendo mostrado. Por isso a lista de categorias é preservada
-// inteira aqui, e `albums` é só o índice deduplicado que dá identidade a cada
-// card (é ele que vira `coll.id`).
-//
-// Antes guardávamos apenas `[{id_album, name}]` achatado — o que jogava fora
-// exatamente a classificação que o operador precisa para achar um álbum.
+// O banco organiza em **categoria → álbum → música**, e só isso (sem grupo acima
+// nem subcategoria — ver docs/FONTE-DE-DADOS-LOUVORJA.md §5.5). A relação
+// categoria↔álbum é **N:N**, e `subtitle`/`order` são campos do PIVÔ: mudam
+// conforme a categoria em que o álbum está sendo mostrado. Daí preservar as
+// categorias inteiras aqui, com `albums` como o índice deduplicado que dá
+// identidade a cada card (é ele que vira `coll.id`).
 let albumCatalog = { categories: [], albums: [] };
 // Registro completo de coleções: hinários fixos + um card por álbum do catálogo.
 // `subtitle`/`order` NÃO entram aqui: são do pivô categoria↔álbum e só fazem
 // sentido no contexto de uma categoria (ver renderCollectionsList).
-// AS SÉRIES DO YOUTUBE (v5.231) — um card por série do catálogo de `serie.js`.
-// A primeira é "Provai e Vede 2026"; a regra que decide o que entra em cada uma
-// mora lá, e o que chega aqui é só o card.
+// AS SÉRIES DO YOUTUBE — um card por série do catálogo de `serie.js`, onde mora
+// a regra que decide o que entra em cada uma; aqui chega só o card.
 //
-// **Guardadas por SHELL 41**, e é a regra de sempre (`appendYoutubeSearch`, a
-// linha do espelho): `ytCanalPlaylists`/`ytPlaylist` não chegam por OTA, então
-// num shell antigo o card existiria sem ter como carregar item nenhum — pior
-// que card nenhum, ainda mais numa tela em que o operador procura o vídeo do
-// culto. Ele aparece sozinho depois que o APK novo for instalado. No navegador
-// `__SHELL_VERSION__` é `undefined`, o `| 0` o zera, e a série simplesmente não
-// existe — a base continua rodando fora do aparelho, como manda a regra.
+// **Guardadas por SHELL 41**, pela regra de sempre: `ytCanalPlaylists`/
+// `ytPlaylist` não chegam por OTA, e num shell antigo o card existiria sem ter
+// como carregar item nenhum — pior que card nenhum. No navegador
+// `__SHELL_VERSION__` é `undefined`, o `| 0` o zera, e a série não existe.
 const SERIE_SHELL = 41;
 function serieDisponivel() {
   return !!window.__NATIVE__ && (window.__SHELL_VERSION__ | 0) >= SERIE_SHELL
@@ -745,12 +639,10 @@ function ehSerie(coll) { return !!coll && coll.kind === 'serie'; }
 // **A LETRA existe?** Governa quatro coisas que estavam todas presas ao mesmo
 // engano: o que o toque na linha abre, o que a busca por trecho varre, o que o
 // índice de letras indexa e — a mais cara — o que a fila de `syncLyrics` vai
-// BUSCAR NA REDE. Ela pedia `music_<id>` ao LouvorJA para os ~52 vídeos de cada
-// série, com um id que é do YouTube e que aquele banco nunca vai reconhecer:
-// 52 requisições perdidas por abertura, para sempre, porque falha de rede não
-// grava `LYRIC_NONE` de propósito (e aqui não é falha de rede — é uma pergunta
-// que não faz sentido). Elas ainda entravam no total da notificação "Letras das
-// músicas", inflando um contador que o operador lê.
+// BUSCAR NA REDE. Sem esta guarda ela pede `music_<id>` ao LouvorJA para os ~52
+// vídeos de cada série, com um id do YouTube que aquele banco nunca reconhece:
+// requisições perdidas a cada abertura, PARA SEMPRE (falha de rede não grava
+// `LYRIC_NONE` de propósito), inflando o total da notificação de letras.
 function temLetra(coll) { return tipoDaColecao(coll) === TIPO_MUSICA; }
 
 // **O item é um LINK?** Então os bytes não estão aqui, e três decisões mudam:
@@ -760,10 +652,9 @@ function temLetra(coll) { return tipoDaColecao(coll) === TIPO_MUSICA; }
 function ehLink(coll) { return tipoDaColecao(coll) === TIPO_VIDEO; }
 
 // ===== Bíblia (acervo online, baixado na 1ª vez que for usado) =====
-// Ver bible.js (window.Bible) e a seção "Bíblia" no CLAUDE.md. A seleção é uma
-// "tabela periódica" em três telas (livros → capítulos → versículos); a
-// estrutura dos livros é offline (Bible.BOOKS), só o TEXTO de cada capítulo
-// (e a lista de versões/livros com ids reais) vem da rede.
+// Ver `bible.js`. A seleção é uma "tabela periódica" em três telas (livros →
+// capítulos → versículos); a estrutura é offline (`Bible.BOOKS`) e só o TEXTO de
+// cada capítulo (mais a lista de versões/livros com ids reais) vem da rede.
 let bibleScreen = 'books';       // 'books' | 'chapters' (capítulo + versículo) | 'reading'
 let bibleVersions = [];          // [{ id, name }] baixadas (state 'bibleVersions')
 let bibleBooksOnline = null;     // [{ id, name }] do banco (state 'bibleBooks') — casa o id_bible_book real
@@ -782,10 +673,9 @@ let bibleSession = null;
 // `versionId` é REVERSÍVEL — A→B→A ressuscitava os workers da primeira.
 let bibleDl = null;
 let bibleDlSeq = 0;
-// Quantas falhas SEGUIDAS desistem da varredura (ver ensureBibleVersionDownloaded).
-// Vinte e cinco está bem acima do maior soluço possível — a concorrência é de
-// NET_CONCURRENCY (6), então um blip da rede produz meia dúzia, não vinte e
-// cinco — e bem abaixo dos 1189 que um lançamento offline pagaria à toa.
+// Quantas falhas SEGUIDAS desistem da varredura. 25 está acima do maior soluço
+// possível (a concorrência é 6, então um blip produz meia dúzia) e bem abaixo
+// dos 1189 capítulos que um lançamento offline pagaria à toa.
 const BIBLE_DL_DESISTE = 25;
 // Versões já totalmente baixadas (offline) — cache em memória de
 // state['bibleComplete:<v>'], pra a tela de livros mostrar "completa" sem async.
@@ -800,26 +690,19 @@ let messages = [];       // [{ id, text }]
 let msgSession = null;   // { idx, projecting } | null
 
 // ===== Letra avulsa (projetar a letra SEM tocar a música) =====
-// Uma quinta fonte da Camada de Texto, ao lado de Bíblia, Mensagem, cronômetro
-// e sorteio — e a única que nasce no acervo. Serve o caso em que a congregação
-// canta ao vivo (instrumentistas na frente, ou hino sem gravação no aparelho):
-// o telão precisa da letra, e não pode ter um áudio tocando por cima nem trocar
-// de estrofe sozinho no tempo da gravação.
-//
-// É por isso que ela NÃO é uma terceira variante de `playSongVariant`: uma
-// variante toca um arquivo, e aqui não há arquivo nenhum — a letra vem do
-// acervo de letras (`songLyricStanzas`), que existe mesmo para músicas nunca
-// baixadas. A passagem de estrofe é do operador, pelos mesmos ⏮/⏭ que já
-// passam mensagem e versículo (ver slideTarget).
+// Quinta fonte da Camada de Texto, e a única que nasce no acervo. Serve a
+// congregação cantando AO VIVO: o telão precisa da letra sem áudio por cima e
+// sem trocar de estrofe no tempo de uma gravação.
+// Por isso NÃO é uma terceira variante de `playSongVariant` — variante toca um
+// arquivo, e aqui não há arquivo: a letra vem de `songLyricStanzas`, que existe
+// mesmo para músicas nunca baixadas. Quem passa estrofe é o operador, pelos
+// mesmos ⏮/⏭ da mensagem e do versículo (ver `slideTarget`).
 let lyricSession = null;  // { title, stanzas: [string], idx, projecting } | null
-// A guarda de sequência da LETRA AVULSA. Entre o toque e a projeção há o
-// download do ÁUDIO da música (a letra vem com ele), e na rede da igreja isso
-// vai de segundos a minutos — tempo de sobra para o operador desistir e
-// projetar outra coisa. Sem ela, a estrofe 1 entrava em cena quando o download
-// terminasse, por cima do que já estivesse no ar, e encerrando as outras
-// camadas de texto no caminho. É o mesmo papel do `bibleLoadSeq` e do `loadSeq`
-// do stage; nasce aqui, junto do resto do estado de cena, pela regra da zona
-// morta temporal.
+// Guarda de sequência da LETRA AVULSA: entre o toque e a projeção há o download
+// do ÁUDIO (a letra vem com ele), que na rede da igreja leva minutos — tempo de
+// sobra para o operador projetar outra coisa. Sem ela a estrofe 1 entrava em
+// cena quando o download terminasse, por cima do que estivesse no ar. Mesmo
+// papel do `bibleLoadSeq` e do `loadSeq` do stage.
 let lyricLoadSeq = 0;
 // id_bible_book real do livro no índice `idx` de Bible.BOOKS: usa o id da lista
 // online (mesma ordem canônica) quando baixada; senão cai no índice+1.
@@ -849,28 +732,18 @@ function setGroupStatus(key, text, autoClearMs) {
   refreshCollectionsIfVisible();
 }
 
-// Baixar um GRUPO inteiro: "CDs Oficiais/Ano", "Adoradores", os hinários…
-// Um por vez, e não em paralelo: cada `syncCollection` já baixa 3 músicas
-// simultâneas, e multiplicar isso por uma dúzia de álbuns saturaria a rede da
-// igreja sem terminar nenhum deles antes.
-//
-// A pergunta de rede é feita UMA VEZ para o lote — perguntar por álbum
-// significaria doze diálogos seguidos, que ninguém lê. A resposta é repassada
-// a cada `syncCollection` (`allowMobile`), então nenhum deles pergunta de novo.
+// Baixar um GRUPO inteiro, UM ÁLBUM POR VEZ: cada `syncCollection` já baixa
+// várias músicas simultâneas, e multiplicar isso por uma dúzia de álbuns
+// saturaria a rede sem terminar nenhum deles.
+// A pergunta de rede é feita UMA VEZ para o lote (por álbum seriam doze diálogos
+// seguidos, que ninguém lê) e repassada em `allowMobile`.
 async function syncGroup(key, label, colls, opts) {
   const g = gui(key);
-  // O cancelamento vale a partir da PRÓXIMA MÚSICA, não do próximo álbum: há
-  // álbuns de centenas de faixas, e esperar o atual terminar era, na prática,
-  // não poder cancelar. `syncCollection` recebe este mesmo sinal e fecha a
-  // própria fila (ver lá).
+  // O cancelamento vale a partir da PRÓXIMA MÚSICA, não do próximo álbum: com
+  // álbuns de centenas de faixas, esperar o atual terminar é não poder cancelar.
   if (g.busy) { g.cancel = true; setGroupStatus(key, 'Cancelando…'); return; }
   if (!colls.length) return;
   if (!AVDB.opfsSupported()) { setGroupStatus(key, 'OPFS indisponível', 5000); return; }
-
-  // (A confirmação de ESCALA — "Baixar toda a biblioteca?", com a contagem de
-  // coleções — saiu na v5.258 junto com o botão que a disparava, e ela era o
-  // único chamador de `confirmScale`. O que ficou é a pergunta de REDE, abaixo:
-  // ela é sobre o plano de dados e vale para qualquer lote.)
 
   let allowMobile = true;
   if (!isConfirmedWifi()) {
@@ -892,34 +765,26 @@ async function syncGroup(key, label, colls, opts) {
   setGroupStatus(key, 'Preparando…');
   renderCollectionsNow(); // resposta ao toque é imediata; só o progresso é coalescido
   try {
-    // O lote inteiro conta como UMA tarefa de segundo plano: sem isso o
-    // serviço seria desligado no fim de cada álbum e o processo podia ser
-    // congelado justamente entre um e outro.
-    // A notificação acompanha o LOTE, não cada álbum: o total é a soma das
-    // músicas que faltam em todos eles, contada uma vez no começo. Reiniciar a
-    // barra a cada álbum daria doze barras curtas em vez de uma que informa
-    // quanto falta de verdade.
+    // O lote inteiro é UMA tarefa de segundo plano — senão o serviço cairia no
+    // fim de cada álbum e o processo podia ser congelado entre um e outro. A
+    // barra acompanha o LOTE (a soma do que falta em todos, contada uma vez):
+    // reiniciá-la por álbum daria doze barras curtas em vez de uma que informa.
     let totalPend = 0;
     for (const coll of colls) totalPend += faltamNaColecao(coll.id);
     let batchDone = 0;
     let semRede = 0;   // álbuns que nem chegaram a baixar (índice/rede falhou)
     const notifId = bgTaskStart(label, Math.max(1, totalPend));
-    // `bgTaskEnd` DENTRO do `withBgWork`, não num `finally` externo: o
-    // `finally` de `withBgWork` roda ANTES do de fora, e é ele que solta o
-    // serviço e limpa o registro de tarefas — encerrar a tarefa depois disso
-    // chegava sempre tarde demais (ver bgWorkEnd). Encerrar a tarefa primeiro
-    // e só então soltar o serviço é a ordem que syncDeviceFolder já tinha.
+    // `bgTaskEnd` DENTRO do `withBgWork`, não num `finally` externo: o `finally`
+    // de `withBgWork` roda ANTES do de fora e é ele que solta o serviço — a
+    // tarefa tem de ser encerrada PRIMEIRO.
     await withBgWork(async () => {
       try {
         for (let i = 0; i < colls.length; i++) {
           if (g.cancel) break;
           const coll = colls[i];
-          // SEM O NOME DO ÁLBUM. Este texto cai num chip estreito (o cabeçalho
-          // do acervo, ou a linha de um grupo), e nome de álbum não tem largura
-          // previsível — "Álbum 3/12 · Arautos do Rei…" empurrava o ✕ do popup
-          // para fora da tela. Quem diz QUAL álbum está baixando é o card dele
-          // (`setCollStatus`, logo abaixo) e a notificação (`bgTaskStep`, na
-          // linha seguinte, que continua levando o nome).
+          // SEM O NOME DO ÁLBUM: este texto cai num chip estreito e nome de
+          // álbum não tem largura previsível — ele empurrava o ✕ do popup para
+          // fora da tela. Quem diz QUAL é o card dele e a notificação.
           setGroupStatus(key, 'Álbum ' + (i + 1) + '/' + colls.length);
           bgTaskStep(notifId, batchDone, label + ' · ' + coll.name);
           const r = await syncCollection(coll, {
@@ -934,12 +799,10 @@ async function syncGroup(key, label, colls, opts) {
         }
       } finally { bgTaskEnd(notifId); }
     });
-    // Sem rede, `fetchCollectionIndex` lança em cada álbum e o laço inteiro
-    // termina em segundos sem baixar nada. Anunciar "Coleção completa" em
-    // verde ali mandava o operador embora convencido de que o acervo estava
-    // no aparelho — o status por álbum existe, mas fica dentro de um card
-    // colapsado e se autolimpa. O cabeçalho, que é o que ele está olhando,
-    // agora conta as falhas.
+    // Sem rede o laço inteiro termina em segundos sem baixar nada, e anunciar
+    // "Completo" ali manda o operador embora convencido de que o acervo está no
+    // aparelho. O status por álbum fica dentro de um card colapsado e se
+    // autolimpa; o cabeçalho, que é o que ele olha, conta as falhas.
     setGroupStatus(key, g.cancel ? 'Cancelado'
       : semRede ? semRede + (semRede > 1 ? ' álbuns' : ' álbum') + ' sem rede'
       : 'Completo', 5000);
@@ -963,27 +826,18 @@ function setCollStatus(id, text, autoClearMs) {
   }
   refreshCollectionsIfVisible();
 }
-// Peso (bytes) do que uma coleção OCUPA NO APARELHO — medido na pasta OPFS
-// dela, arquivo por arquivo.
-//
-// Ainda assim não é para chamar de dentro de um render de lista: é IO, e a aba
-// Álbuns tem dezenas a centenas de cards. O valor é mantido incrementalmente em
-// `downloadCollectionFile` e reconferido onde é barato e necessário: ao ABRIR o
-// popup de opções, ao TERMINAR uma sincronização e depois de apagar arquivos
-// (exclusão de coleção/registros), onde a conta muda em bloco.
+// Peso (bytes) que uma coleção OCUPA NO APARELHO — medido na pasta OPFS,
+// arquivo por arquivo. **Não chamar de dentro de um render de lista:** é IO, e a
+// Biblioteca tem dezenas a centenas de cards. O valor é mantido
+// incrementalmente em `downloadCollectionFile` e reconferido onde é barato: ao
+// abrir as opções, ao terminar uma sincronização e depois de apagar arquivos.
 async function updateCollBytes(id) {
   try {
-    // PELO DISCO, não pelo catálogo (v5.134). O catálogo só conhece os ÁUDIOS:
-    // as imagens de fundo da letra são gravadas na mesma pasta OPFS e não viram
-    // registro (elas são referenciadas de dentro dos slides, não são mídia da
-    // biblioteca). Somando o catálogo, portanto, a conta ignorava centenas de MB
-    // num hinário inteiro — e o comentário da medição afirmava justamente o
-    // contrário, que a taxa "amortiza sozinha o que não é áudio". Não
-    // amortizava: esses bytes nunca entraram em conta nenhuma.
-    //
-    // E é MAIS BARATO: perguntar o tamanho de cada arquivo não desserializa
-    // nada, enquanto o `getAll` do catálogo trazia thumbnail e letra inteira de
-    // cada faixa só para somar um campo.
+    // PELO DISCO, não pelo catálogo. O catálogo só conhece os ÁUDIOS: as imagens
+    // de fundo da letra são gravadas na mesma pasta OPFS e não viram registro,
+    // então a soma do catálogo ignora centenas de MB num hinário inteiro. E é
+    // MAIS BARATO — perguntar o tamanho não desserializa nada, enquanto o
+    // `getAll` trazia thumbnail e letra de cada faixa para somar um campo.
     const total = await AVDB.opfsFolderSize('folders/' + id);
     const u = ui(id);
     pesoConferido.add(id);
@@ -991,12 +845,9 @@ async function updateCollBytes(id) {
   } catch (_) { /* sem pasta ainda — peso fica 0 */ }
 }
 
-// O peso medido PERSISTE (v5.93). `collUI` é estado de sessão, e até aqui o
-// peso de um álbum só existia depois de o operador abrir as opções dele —
-// bastava fechar o app para o número sumir. Agora ele aparece na barra do card
-// de todo álbum completo, e recontar o catálogo de cada um a cada abertura é
-// caro do jeito descrito acima (um `getAll` que desserializa thumbnail e letra
-// de centenas de registros). Guardado em `state`, ele nasce pronto.
+// O peso medido PERSISTE: `collUI` é estado de sessão, e o número aparece na
+// barra de todo álbum completo — recontar cada um a cada abertura é caro do
+// jeito descrito acima. Guardado em `state`, ele nasce pronto.
 const PESO_KEY = 'coll-bytes';
 const pesoConferido = new Set();   // ids já recontados nesta sessão
 let pesoTimer = null;
@@ -1009,7 +860,7 @@ async function carregarPesos() {
   }
 }
 // Escrita coalescida: o contador sobe a cada arquivo baixado, e gravar o mapa
-// inteiro por música seria uma transação de IDB por download.
+// por música seria uma transação de IDB por download.
 function salvarPesos() {
   clearTimeout(pesoTimer);
   pesoTimer = setTimeout(() => {
@@ -1026,21 +877,16 @@ function salvarPesos() {
 // `refreshCollectionsIfVisible` de dentro dela de virar laço.
 function conferirPesoSeFaltar(id) {
   if (pesoConferido.has(id)) return;
-  // UMA VEZ POR SESSÃO, TENHA ELE PESO OU NÃO (v5.134). Antes a reconferência
-  // só acontecia com o peso ZERADO, e o efeito era que um número errado nunca
-  // se corrigia: o acumulador só sobe (`bytes +=` a cada arquivo), então
-  // qualquer divergência — arquivos apagados por fora, um download contado duas
-  // vezes, as imagens que nunca entraram na conta — ficava gravada para sempre
-  // em `state`, e reaparecia a cada abertura. Com a medida vindo do disco (ver
-  // `updateCollBytes`) a reconferência ficou barata o suficiente para ser a
-  // regra, não a exceção.
+  // UMA VEZ POR SESSÃO, TENHA ELE PESO OU NÃO. Reconferir só com o peso ZERADO
+  // fazia um número errado nunca se corrigir: o acumulador só sobe, então
+  // qualquer divergência (arquivo apagado por fora, download contado duas vezes)
+  // ficava gravada em `state` para sempre. Com a medida vindo do disco a
+  // reconferência é barata o bastante para ser a regra.
   if (countDownloaded(id) === 0 && ui(id).bytes === 0) return;
   pesoConferido.add(id);
-  // UM DE CADA VEZ. Na primeira abertura depois da atualização, todos os álbuns
-  // com download entram aqui no mesmo render — e cada recontagem varre a pasta
-  // OPFS da coleção arquivo a arquivo (`opfsFolderSize`, v5.134 — barata, mas
-  // não grátis em centenas de faixas). Em série isso vira trabalho de fundo;
-  // em paralelo, um engasgo na lista.
+  // UM DE CADA VEZ: todos os álbuns com download entram aqui no mesmo render, e
+  // cada recontagem varre a pasta OPFS arquivo a arquivo. Em série isso é
+  // trabalho de fundo; em paralelo, um engasgo na lista.
   filaPeso = filaPeso.then(() => updateCollBytes(id)).catch(() => {});
 }
 let filaPeso = Promise.resolve();
@@ -1053,14 +899,10 @@ let filaPeso = Promise.resolve();
 //      e não o catálogo, é o que faz essa frase ser verdadeira (v5.134): as
 //      imagens de fundo não viram registro de mídia, então a soma do catálogo
 //      deixava de fora justamente a parte que ninguém consegue estimar.
-//   2. quanto pesa o ÁLBUM INTEIRO — o que falta ainda não veio, então é
-//      ESTIMATIVA. Ela CONTINUA sendo uma estimativa; o que saiu na v5.265, a
-//      pedido do operador, foi o "~" que a anunciava na tela. O argumento
-//      anterior ("o til é parte da informação, não enfeite") supunha que o
-//      número fosse lido como exato sem ele, e não é: `fmtBytes` já arredonda
-//      para uma casa, então "18 MB" nunca prometeu 18.874.368 bytes. O til
-//      pagava um caractere em cada contagem da tela mais densa do app para
-//      dizer o que a própria precisão do número já diz.
+//   2. quanto pesa o ÁLBUM INTEIRO — ESTIMATIVA, e ela continua sendo uma. O
+//      "~" saiu da tela porque `fmtBytes` já arredonda para uma casa: "18 MB"
+//      nunca prometeu 18.874.368 bytes, e o til pagava um caractere em cada
+//      contagem da tela mais densa do app para dizer o que a precisão já diz.
 //
 // A estimativa é por DURAÇÃO, não por contagem de faixas (que era o método até
 // a v5.92). Áudio é bytes por segundo: num hinário as faixas têm durações
@@ -1069,13 +911,11 @@ let filaPeso = Promise.resolve();
 // que o operador faz antes de gastar dados móveis. A duração vem do índice que
 // o app já tem (`duration`, "HH:MM:SS" — ver docs/FONTE-DE-DADOS-LOUVORJA.md).
 //
-// A TAXA é MEDIDA no próprio aparelho: bytes no disco ÷ segundos baixados.
-// Isso amortiza sozinho o que não é áudio (capas e imagens de letra pesam, e as
-// faixas que faltam também trarão as suas) e acompanha o bitrate real do
-// acervo, em vez de fixar um número que envelhece. Só passou a ser verdade na
-// v5.134: enquanto o numerador vinha do catálogo, os bytes das imagens não
-// estavam nele, e a taxa medida era a do áudio puro — o que a fazia
-// SUBESTIMAR sistematicamente tudo o que ela projetava.
+// A TAXA é MEDIDA no aparelho: bytes no disco ÷ segundos baixados. Isso amortiza
+// sozinho o que não é áudio (capas e imagens de letra pesam, e o que falta
+// trará as suas) e acompanha o bitrate real do acervo, em vez de fixar um número
+// que envelhece. Ela só é verdadeira porque o numerador vem do DISCO: pelo
+// catálogo, os bytes das imagens ficavam de fora e a taxa subestimava tudo.
 //
 // A ordem das fontes vai da mais específica para a mais genérica: a taxa DESTE
 // álbum, depois a média de tudo o que já foi baixado no aparelho, e só então a
@@ -1083,13 +923,11 @@ let filaPeso = Promise.resolve();
 // álbum ainda vazio não teria tamanho nenhum a mostrar, que é exatamente
 // quando a informação é mais útil.
 const BPS_PADRAO = 16000;          // 128 kbps ≈ 16 KB/s
-// E a de VÍDEO, que é outra ordem de grandeza (v5.229). A escada acima
-// pressupõe áudio em todos os degraus: a constante é o bitrate do LouvorJA, e a
-// média global é dominada por hinário. Numa SÉRIE ainda vazia — que é
-// exatamente quando o número importa — os dois davam ~16 KB/s para um 1080p que
-// entrega ~600, e a tela prometia **~50 MB para um ano que pesa ~15 GB**.
-// Errar por 40× na única pergunta que essa conta existe para responder ("espero
-// o Wi-Fi?") é pior que não mostrar número nenhum.
+// E a de VÍDEO, que é outra ordem de grandeza. A escada acima pressupõe áudio em
+// todos os degraus (a constante é o bitrate do LouvorJA e a média global é
+// dominada por hinário): numa SÉRIE ainda vazia — quando o número mais importa —
+// os dois davam ~16 KB/s para um 1080p que entrega ~600, e a tela prometia
+// ~50 MB para um ano que pesa ~15 GB.
 const BPS_VIDEO_PADRAO = 600000;   // ~4,8 Mbps ≈ 600 KB/s (1080p do YouTube)
 const SEG_PADRAO = 210;            // 3min30 — só para faixa sem duração no índice
 
@@ -1101,32 +939,23 @@ function segundosDaMusica(s) { return parseTimeToSeconds(s && s.duration) || 0; 
 // existem (índices antigos, ou um `duration` vazio na origem) e somá-las como
 // zero segundo faria o álbum parecer menor do que é.
 //
-// ESTA É A FONTE ÚNICA DE "COMPLETA" (v5.134), e ela não existia: a mesma
-// pergunta era respondida em QUATRO lugares por `countDownloaded(id) >=
-// collSongs(id).length` — uma conta de MÚSICAS, enquanto o download busca
-// VARIANTES e a medida de peso já contava variantes. As duas respostas
-// divergiam sozinhas, e a tela mostrava as duas ao mesmo tempo.
-//
-// E havia um caso que nenhuma das duas resolvia: uma música cuja origem NÃO TEM
-// áudio (`url_music` vazio no `music_{id}`). Ela nunca ganha `fileIdFull`,
-// então a coleção nunca ficava completa, o botão de baixar não sumia NUNCA, e
-// cada sincronização voltava a buscar o metadado dela para descobrir de novo
-// que não há o que baixar. Agora o app marca (`semAudio`/`semPlayback`, ver
-// `ensureSongVariant`) e para de contá-la como pendente: "não existe" e "não
-// baixei ainda" deixaram de ser a mesma coisa.
+// ESTA É A FONTE ÚNICA DE "COMPLETA". A mesma pergunta já foi respondida em
+// quatro lugares por uma conta de MÚSICAS, enquanto o download busca VARIANTES
+// — as duas divergiam sozinhas e a tela mostrava ambas.
+// E "não existe" ≠ "não baixei ainda": uma música cuja origem NÃO TEM áudio
+// (`url_music` vazio) nunca ganha `fileIdFull`, então a coleção nunca ficava
+// completa, o botão de baixar não sumia NUNCA e cada sincronização rebuscava o
+// metadado para redescobrir isso. Daí `semAudio`/`semPlayback`.
 // ===== Memoização por PASSADA de render =====
 // `levantarColecao` varre todas as músicas de uma coleção, e `bytesPorSegundo`
-// sem taxa própria varre TODAS as coleções chamando `levantarColecao` em cada
-// uma — por card, várias vezes por card, a cada redesenho de 400 ms durante
-// uma sincronização (`COLL_REFRESH_MS`). Com dezenas de álbuns e milhares de
-// faixas isso era O(coleções × músicas) por card para recomputar números que
-// não mudaram dentro do MESMO redesenho.
-//
-// O cache vale só DURANTE uma passada de `renderCollectionsList` (a flag), e é
-// zerado no início de cada uma: a passada é síncrona, então nenhum dado muda
-// no meio dela — a invalidação é a própria limpeza por passada. Fora de uma
-// passada (diálogos de confirmação, laços de sincronização) a conta segue
-// fresca, sem cache, porque ali dado velho custaria uma resposta errada.
+// sem taxa própria varre TODAS as coleções chamando-a em cada uma — por card,
+// várias vezes por card, a cada redesenho de 400 ms durante uma sincronização.
+// Era O(coleções × músicas) por card para recomputar o que não muda no MESMO
+// redesenho.
+// O cache vale só DURANTE uma passada de `renderCollectionsList` e é zerado no
+// início de cada uma: a passada é síncrona, então a invalidação é a própria
+// limpeza. Fora de uma passada a conta segue fresca, porque ali dado velho
+// custaria uma resposta errada.
 let cacheColecoesAtivo = false;
 const cacheLevantar = new Map();  // id -> resultado de levantarColecao
 let cacheBpsGlobal = 0;           // taxa global (o laço por todas as coleções)
@@ -1139,10 +968,8 @@ function levantarColecao(id) {
   };
   for (const s of collSongs(id)) {
     const d = segundosDaMusica(s);
-    // O Playback só conta quando existe: `has_instrumental_music` é o que
-    // decide se o download vai buscar a segunda variante. A duração dele não
-    // está na lista leve (só em `music_{id}`), e usar a do Cantado é a
-    // aproximação certa — é a mesma música.
+    // O Playback só conta quando existe (`has_instrumental_music`). A duração
+    // dele não está na lista leve, e usar a do Cantado é a aproximação certa.
     const variantes = [
       { tem: !!s.fileIdFull, sem: !!s.semAudio },
       s.has_instrumental_music ? { tem: !!s.fileIdPlayback, sem: !!s.semPlayback } : null,
@@ -1172,24 +999,19 @@ function colecaoCompleta(id) {
 // forma mais barata de parecer quebrado.
 function faltamNaColecao(id) { return levantarColecao(id).falta; }
 
-// E a mesma pergunta para um GRUPO (uma categoria, "Toda a biblioteca"): ele
-// está completo quando TODAS as suas coleções estão, pela definição de cada
-// card. Não por uma soma de músicas — que responderia diferente da linha logo
-// abaixo dela, que é o defeito que a v5.134 acabou de fechar nos cards.
-//
-// Sem índice não conta: uma coleção que nunca sincronizou não está completa, e
-// é ela que mantém o botão do grupo na tela — que é exatamente o certo, porque
-// ali ainda há o que buscar.
+// A mesma pergunta para um GRUPO: completo quando TODAS as coleções dele estão,
+// pela definição de cada card — e **não** por uma soma de músicas, que
+// responderia diferente da linha logo abaixo. Sem índice não conta, e é isso que
+// mantém o botão do grupo na tela: ali ainda há o que buscar.
 function grupoCompleto(colls) {
   if (!colls || !colls.length) return false;
   return colls.every((c) => colecaoCompleta(c.id));
 }
 
 // Bytes por segundo medidos no aparelho (ver a escada acima).
-// As coleções cujo conteúdo é VÍDEO. A taxa delas não pode entrar na média de
-// áudio nem sair dela — são grandezas diferentes, e misturá-las estraga as duas
-// contas ao mesmo tempo: um ano de série baixado puxaria a estimativa de todo
-// álbum de louvor para cima, e a média de áudio puxaria a da série para baixo.
+// As coleções de VÍDEO ficam fora da média de áudio: misturá-las estraga as duas
+// contas ao mesmo tempo — um ano de série puxaria a estimativa de todo álbum de
+// louvor para cima, e a média de áudio puxaria a da série para baixo.
 function ehColecaoDeVideo(id) {
   return String(id || '').startsWith('serie-');
 }
