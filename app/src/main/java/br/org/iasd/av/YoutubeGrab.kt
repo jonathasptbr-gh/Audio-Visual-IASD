@@ -397,25 +397,22 @@ object YoutubeGrab {
         // mas "provavelmente" não é o que se quer de uma inicialização global.
         if (pronto) return
         NewPipe.init(NpDownloader, IDIOMA, PAIS)
-        // O CLIENTE iOS, DE VOLTA AO DESLIGADO (v1.49). Ele foi ligado à mão na
-        // v1.43 como a única coisa que dava para tentar sem assinar o contrato
-        // de manutenção do BotGuard: o extrator caía no conjunto reduzido do
-        // `reel/reel_item_watch` e o aparelho só via UM progressivo de 360p.
-        // Medido depois disso, o iOS não resolveu — as faixas dele vêm
-        // "especialmente" como manifestos HLS (é a própria javadoc do método que
-        // avisa), e manifesto não é URL de arquivo: o `isUrl` das nossas
-        // escolhas o descarta.
+        // O CLIENTE iOS, DE VOLTA AO DESLIGADO (v1.49). Ligado à mão na v1.43
+        // como a única tentativa possível sem assinar o contrato de manutenção
+        // do BotGuard (sem ele o extrator caía no conjunto reduzido e o
+        // aparelho só via UM progressivo de 360p). Medido, o iOS não resolveu:
+        // as faixas dele vêm como manifestos HLS (a própria javadoc avisa), e
+        // manifesto não é URL de arquivo — o `isUrl` das escolhas o descarta.
         //
-        // Agora ele ATRAPALHA. Quem destrava o 1080p é o cliente visionOS que a
+        // Agora ele ATRAPALHA: quem destrava o 1080p é o visionOS que a
         // biblioteca busca sozinha desde a v0.26.3, e as listas chegam
-        // misturadas: cada faixa iOS a mais é um candidato envenenado que a fila
-        // de [tentarJuntar] pode gastar uma requisição tentando. Somado a isso,
-        // ele custa uma requisição por extração e a própria biblioteca registra
-        // que o iOS passou a ter exigência de token própria.
+        // misturadas — cada faixa iOS a mais é um candidato envenenado que a
+        // fila de [tentarJuntar] pode gastar uma requisição tentando. Ele ainda
+        // custa uma requisição por extração e passou a ter token próprio.
         //
-        // `false` explícito, e não a omissão da linha: o valor é ESTÁTICO na
-        // biblioteca e sobrevive a qualquer reconfiguração — dizer o estado que
-        // se quer é o que torna esta decisão reversível numa linha.
+        // `false` EXPLÍCITO, e não a omissão: o valor é estático na biblioteca e
+        // sobrevive a reconfiguração — dizer o estado que se quer é o que torna
+        // esta decisão reversível numa linha.
         try {
             YoutubeStreamExtractor.setFetchIosClient(false)
         } catch (e: Throwable) {
@@ -715,25 +712,23 @@ object YoutubeGrab {
      *
      * ## Por que isto existe ao lado do [buscar]
      *
-     * Baixar resolve a projeção mas cobra a ESPERA: um louvor de 1080p são
-     * centenas de MB antes do primeiro quadro. O caminho alternativo era o
-     * player embutido do YouTube, e ele traz a UI dele junto — o rodinha de
-     * carregamento, o botão grande na pausa, a tela final — coisas que
-     * `controls: 0` não desliga porque não são controles.
+     * Baixar resolve a projeção mas cobra a ESPERA: centenas de MB antes do
+     * primeiro quadro. O caminho alternativo era o player embutido do YouTube,
+     * que traz a UI dele junto (rodinha, botão grande na pausa, tela final —
+     * coisas que `controls: 0` não desliga porque não são controles).
      *
      * Transmitindo, o vídeo vira um `<video>` COMUM alimentado por MSE: fade,
-     * cortina, `MediaSession`, barra de progresso e segundo plano continuam
-     * sendo os mesmos que já funcionam, e não há um pixel de YouTube no telão.
+     * cortina, `MediaSession`, barra e segundo plano continuam os mesmos, e não
+     * há um pixel de YouTube no telão.
      *
      * ## Só mp4/AVC + m4a/AAC
      *
      * O par WebM (VP9 + Opus) existe e o Chromium o toca, mas o `MediaSource`
-     * de um WebView é território de fabricante e o AVC/AAC é o que decodifica
-     * em qualquer aparelho. Aqui a recusa é barata — quem não achar par
-     * transmissível cai no download, que aceita os dois contêineres.
+     * de um WebView é território de fabricante e o AVC/AAC decodifica em
+     * qualquer aparelho. A recusa é barata: sem par transmissível cai no
+     * download, que aceita os dois contêineres.
      *
-     * **BLOQUEANTE** — rede e parsing, como todo o resto deste arquivo.
-     * `null` quando não há par adaptativo: quem chamou cai no caminho de antes.
+     * **BLOQUEANTE** — rede e parsing. `null` quando não há par adaptativo.
      */
     fun manifesto(link: String, teto: Int = TETO_ALTURA): JSONObject? {
         return try {
