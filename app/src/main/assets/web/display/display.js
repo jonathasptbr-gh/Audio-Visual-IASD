@@ -482,20 +482,17 @@ let liveKind = '';    // 'chrono' | 'draw' | ''
 let liveDesc = null;
 let liveTimer = null;
 
-// O RELÓGIO DA ORIGEM — e a diferença entre ele e `Date.now()` é uma hora
-// errada na frente da congregação.
-//
-// Cronômetro e sorteio viajam por DESCRITOR ancorado numa época do CELULAR
-// (`startAt`, `rollUntil`), e o modo RELÓGIO desenha a hora corrente. Nos dois
-// casos a conta precisa ser feita contra o relógio de QUEM MANDOU, não contra o
-// de quem desenha: numa tela da rede o segundo é o de uma Smart TV, que pode
-// estar minutos fora — e nenhum campo da mensagem daria para corrigir a hora
-// corrente, porque ela não viaja.
-//
-// `__avAgora` é publicado pela casca do papel `tela` (`espelho/tela.js`), que
-// mede o desvio pela mediana das épocas do ping. No telão e no navegador de
-// desenvolvimento ele não existe, e o `Date.now()` de sempre JÁ É a origem —
-// é o mesmo aparelho.
+  // PRÉ-CARREGA com retentativa: o comando com `__wp` pode chegar ANTES de o
+  // empurrão do Controle abrir o item no cache do celular, e um
+  // `background-image` que falha não retenta nunca. Um `Image()` cobre a corrida
+  // nos dois caminhos (troca e herança ao conectar) e só pinta quando há imagem
+  // de verdade — o gradiente padrão nunca é coberto por nada quebrado.
+  //
+  // A ladeira dobra até um platô com teto de TEMPO, a mesma do fundo da letra e
+  // pela mesma razão medida: os bytes entram na MESMA fila serializada dos
+  // empurrões de mídia, então com um louvor de 300 MB na frente eles demoram
+  // minutos. Tentativas fixas somando ~6 s desistiam antes de haver chance.
+  // `telaWpSeq` mata a retentativa de um wallpaper já substituído.
 function agoraDaOrigem() {
   const f = window.__avAgora;
   return typeof f === 'function' ? f() : Date.now();
@@ -861,20 +858,18 @@ function telaWallpaperPadrao() {
 
 let telaWpSeq = 0;
 function telaAplicarWallpaper(url) {
-  // PRÉ-CARREGA com retentativa: o comando com `__wp` pode chegar ANTES de o
-  // empurrão do Controle ter aberto o item no cache do celular, e um
-  // `background-image` que falha não retenta nunca. Um `Image()` com
-  // retentativa cobre a corrida nos dois caminhos (troca de wallpaper e a
-  // herança ao conectar), e só pinta o fundo quando há imagem de verdade — o
-  // gradiente padrão nunca é coberto por nada quebrado.
-  //
-  // A LADEIRA DOBRA ATÉ UM PLATÔ, com teto de TEMPO — a mesma do fundo da letra
-  // (`ESPERA_MAX`/`TETO_MS` acima) e pela mesma razão medida: os bytes do
-  // wallpaper entram na MESMA fila serializada dos empurrões de mídia, então com
-  // um louvor de 300 MB na frente eles só começam a chegar minutos depois.
-  // Tentativas fixas somando ~6 s desistiam ANTES de existir possibilidade de
-  // sucesso. `telaWpSeq` mata a retentativa de um wallpaper que outro já
-  // substituiu, e é ele que mantém isto barato.
+// O RELÓGIO DA ORIGEM — a diferença entre ele e `Date.now()` é uma hora errada
+// na frente da congregação.
+//
+// Cronômetro e sorteio viajam por DESCRITOR ancorado numa época do CELULAR
+// (`startAt`, `rollUntil`), e o modo RELÓGIO desenha a hora corrente. Nos dois
+// a conta é contra o relógio de QUEM MANDOU: numa tela da rede o segundo é o de
+// uma Smart TV, que pode estar minutos fora, e a hora corrente não viaja em
+// campo nenhum.
+//
+// `__avAgora` é publicado pela casca do papel `tela` (`espelho/tela.js`), que
+// mede o desvio pela mediana das épocas do ping. No telão e no navegador ele não
+// existe e o `Date.now()` de sempre JÁ É a origem — é o mesmo aparelho.
   const seq = ++telaWpSeq;
   const ESPERA_MAX = 2500;   // ms — o platô: não adianta martelar
   const TETO_MS = 45000;     // ms — desiste de vez
