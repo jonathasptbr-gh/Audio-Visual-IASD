@@ -3669,33 +3669,6 @@ de mídia offline, sem copiar nenhum código do app-ja (Vue/Vuex) — só o
 > `config`, servidor de arquivos). Consulte-o para pedir **qualquer** arquivo do
 > sistema sem precisar abrir o repositório do `app-ja`.
 
-#### O número é do HINÁRIO, não da faixa (v5.42)
-
-`collNumbersSongs(coll)` decide, e `songLabel(coll, s, pad)` é o único lugar
-que monta o rótulo — lista da coleção, busca, nome do arquivo baixado e slide
-de capa passam todos por ali (ou pelo `hymnTrack` que ele governa).
-
-Num hinário o número **é** o nome da música: pede-se "o 471", e a numeração é
-a mesma no hinário impresso de todo mundo. Num álbum, `track` é só a posição no
-disco — um dado de catálogo que ninguém usa para pedir nem para achar. "12. Ele
-Vem" não ajuda a reconhecer nada, e numa busca global punha uma coluna de
-números sem significado na frente de todo título de álbum.
-
-Três consequências, e a terceira é a que menos se vê:
-
-- **`hymnTrack` fica nulo fora de hinário.** É o número NO HINÁRIO, não a faixa
-  do disco. Com isso o slide de capa, o título do popup de letra e a preview
-  param de numerar sem precisar conhecer coleção nenhuma — nenhum deles tem
-  acesso a ela (o Display, em especial, só recebe o registro do arquivo).
-- **A busca por NÚMERO passa a valer só onde o número identifica.** Digitar "3"
-  trazia a faixa 3 de cada álbum indexado — dezenas de resultados que ninguém
-  pediu, empurrando o hino 3 para o fim da lista.
-- **Uma passagem única corrige o que já está baixado**
-  (`desnumerarAlbunsBaixados`, estado `migSemNumeroAlbuns`). Só parar de
-  escrever deixaria numerada para sempre a biblioteca que o operador já tem.
-  Ela remove o prefixo `N. ` do nome e zera o `hymnTrack` nos arquivos das
-  coleções que não numeram — não recalcula o nome a partir de `hymnName`
-  porque o mesmo registro cobre importados e variantes, e tirar o prefixo é a
   operação exata.
 
 - **`Louvorja.fetchList(file)`** — `GET {url-base}/{file}?{YYYYMMDD}` com
@@ -4337,106 +4310,100 @@ primeiro plano e limpa o registro de tarefas — encerrar a tarefa depois disso
 chega sempre tarde demais, sem efeito nenhum.
 #### Classificação: categoria → álbum (a hierarquia do banco)
 
-O acervo do LouvorJA tem **dois níveis, e só isso: categoria → álbum →
-música** — não há grupo acima da categoria nem subcategoria (confirmado no
-código do app-ja; ver `docs/FONTE-DE-DADOS-LOUVORJA.md` §5.5). A relação
-categoria↔álbum é **N:N**, e `subtitle`/`order` são campos do **pivô**: variam
-conforme a categoria em que o álbum é mostrado.
+O acervo do LouvorJA tem **dois níveis, e só isso: categoria → álbum → música** —
+não há grupo acima da categoria nem subcategoria (ver
+`docs/FONTE-DE-DADOS-LOUVORJA.md` §5.5). A relação categoria↔álbum é **N:N**, e
+`subtitle`/`order` são campos do **pivô**: variam conforme a categoria em que o
+álbum é mostrado.
 
-`state.albumCatalog` guarda essa hierarquia inteira —
-`{ categories: [{ id_category, name, order, albums: [{ id_album, subtitle,
-order }] }], albums: [{ id_album, name, color }] }`. `albums` é o índice
-deduplicado que dá identidade a cada card (vira `coll.id`); `categories`
-preserva a classificação. **Até a v4.90 isto era um array achatado
-`[{id_album, name}]`** — que jogava fora exatamente a classificação que o
-operador precisa para achar um álbum entre dezenas. `loadCollections()` aceita
-o formato antigo e a próxima `fetchAlbumCatalog()` traz a hierarquia.
+`state.albumCatalog` guarda a hierarquia inteira — `{ categories: [{ id_category,
+name, order, albums: [{ id_album, subtitle, order }] }], albums: [{ id_album,
+name, color }] }`. `albums` é o índice deduplicado que dá identidade a cada card
+(vira `coll.id`); `categories` preserva a classificação.
 
 `renderCollectionsList()` renderiza **cabeçalhos de categoria** (`.coll-group`)
-na ordem do banco (`category.order`), com os álbuns de cada uma também na
-ordem do banco (`album.order` do pivô), e os **hinários num grupo fixo no
-topo**. Como a relação é N:N, **o mesmo álbum aparece em mais de uma
-categoria** — de propósito, é assim no banco e no app original, e o subtítulo
-muda junto. Álbuns que nenhuma categoria reivindica (catálogo migrado, ou
-álbum removido de todas) caem num grupo "Outros álbuns", em vez de sumirem.
+na ordem do banco, com os álbuns de cada uma também na ordem do banco, e os
+**hinários num grupo fixo no topo**. Como a relação é N:N, **o mesmo álbum
+aparece em mais de uma categoria** — de propósito, é assim no banco e no app
+original, e o subtítulo muda junto. Álbuns que nenhuma categoria reivindica caem
+num grupo "Outros álbuns" em vez de sumirem.
 
-**Álbum que é hinário disfarçado** (`isHymnalAlbum`): se
-`album_{id}.categories` contém uma string começando com `hymnal.`, aquele
-"álbum" é na verdade um hinário — o app-ja redireciona a abertura dele para o
-módulo do hinário. Como os dois hinários já têm card fixo aqui, o card
-duplicado é omitido. Esse é o critério **autoritativo**, gravado como
-`collState[id].isHymnal` quando o índice do álbum chega; até lá vale um
-palpite pelo nome (`/hin[aá]rio/i`), que era o único critério antes.
+**Álbum que é hinário disfarçado** (`isHymnalAlbum`): se `album_{id}.categories`
+contém uma string começando com `hymnal.`, aquele "álbum" é na verdade um
+hinário — o app-ja redireciona a abertura dele para o módulo do hinário, e como
+os dois hinários já têm card fixo aqui, o duplicado é omitido. Esse é o critério
+AUTORITATIVO, gravado como `collState[id].isHymnal` quando o índice chega; até lá
+vale um palpite pelo nome (`/hin[aá]rio/i`).
 
 **Índices sempre em dia, automaticamente** (`fetchCollectionIndex` /
-`autoRefreshCollections`): sem esperar o operador apertar "sincronizar", ao
-abrir o app (`init()`) e toda vez que o Controle volta de segundo plano
-(`visibilitychange` — o mesmo handler único que também desliga o microfone ao
-minimizar), buscam-se (fase 1) os **índices leves dos hinários** (id/número/nome/duração/
-tem-playback — **sem** áudio nenhum) + o **catálogo de álbuns** (nomes dos
-cards, via `fetchAlbumCatalog`); e (fase 2) o **índice leve de CADA álbum**
-(`album_{id}.musics`, também só metadados), com concorrência limitada
-(`runLimited` com `NET_CONCURRENCY`) e TTL (`ALBUM_INDEX_TTL`, 12 h — pula álbuns indexados há
-pouco, mas sempre busca os novos/vazios). `autoRefreshCollections` é
-**silenciosa**: sem rede, só mantém o que já está em cache, sem erro visível.
-`fetchCollectionIndex` faz o merge **mutando os objetos existentes no lugar**,
-em vez de recriá-los — usada tanto por essa atualização automática quanto pela
-fase 1 de `syncCollection`. Assim **todo o acervo** (hinários + todas as músicas
-de todos os álbuns) entra na busca sozinho, baixado ou não.
+`autoRefreshCollections`): na abertura e a cada retomada do Controle
+(`visibilitychange`), busca (fase 1) os índices leves dos hinários + o catálogo
+de álbuns, e (fase 2) o índice leve de CADA álbum (`album_{id}.musics`, só
+metadados), com concorrência limitada (`runLimited` com `NET_CONCURRENCY`) e TTL
+(`ALBUM_INDEX_TTL`, 12 h — pula os indexados há pouco, sempre busca os
+novos/vazios). Ela é **silenciosa**: sem rede, só mantém o que está em cache.
+Assim TODO o acervo entra na busca sozinho, baixado ou não.
 
-**Por que in-place, e não objetos novos:** `syncCollection` tira um snapshot do
-array e grava `fileIdFull`/`fileIdPlayback` nos objetos DELE conforme baixa.
-Como esta atualização roda em toda retomada do app — ou seja, exatamente
-durante uma sincronização em massa, que é quando o operador minimiza —,
-recriar os objetos deixava o snapshot apontando para órfãos: os bytes iam pro
-OPFS e pro catálogo, mas os ids eram descartados no `setState` seguinte, o card
-mostrava menos baixados do que existem e a música era rebaixada. Reaproveitar o
-objeto também preserva de graça qualquer campo extra (`lyrics`, `_norm`).
-Complementarmente, `autoRefreshCollections` **pula coleções com `syncBusy`** —
-não há por que competir pela mesma chave durante o trabalho pesado.
+**O merge é IN-PLACE, mutando os objetos existentes**, e isso não é estilo:
+`syncCollection` tira um snapshot do array e grava `fileIdFull`/`fileIdPlayback`
+nos objetos DELE conforme baixa. Como esta atualização roda em toda retomada do
+app — ou seja, exatamente durante uma sincronização em massa, que é quando o
+operador minimiza —, recriar os objetos deixava o snapshot apontando para
+órfãos: os bytes iam para o OPFS e para o catálogo, os ids eram descartados no
+`setState` seguinte, o card mostrava menos baixados do que existem e a música era
+rebaixada. Reaproveitar o objeto preserva de graça qualquer campo extra
+(`lyrics`, `_norm`). Complementarmente, `autoRefreshCollections` **pula coleções
+com `syncBusy`**.
 
-**Busca/lista — um popup só, e O CAMPO É A CHAVE.** `#hymnSearchPopup` é
-aberto exclusivamente pelo botão de lupa (`#hymnSearchBtn`, SVG inline, à
-direita das abas), com o título fixo "Acervo". `searchIsBrowsing(q)` é
+**Busca/lista — um popup só, e O CAMPO É A CHAVE.** `searchIsBrowsing(q)` é
 literalmente `!q`: **campo vazio** = o navegador de coleções (cabeçalhos de
-categoria e cards, com as músicas de cada uma dentro do próprio acordeão); **com texto** = a lista de músicas que casam, varrendo **todas** as
-coleções indexadas. Não existe mais um "modo coleção" separado — o escopo por
-coleção (`searchScope`, com título próprio e um degrau de navegação) foi
-substituído pelo acordeão do card, que mostra o álbum **sem perder o acervo de
-vista em volta**.
+categoria e cards, com as músicas de cada um dentro do próprio acordeão); **com
+texto** = a lista de músicas que casam, varrendo TODAS as coleções indexadas. Não
+existe "modo coleção" separado — o escopo por coleção (`searchScope`, com título
+próprio e um degrau de navegação) foi substituído pelo acordeão do card, que
+mostra o álbum **sem perder o acervo de vista em volta**.
 
 `renderSearchResults` monta os resultados dos índices já em memória
-(`collState`, filtro em memória), então funciona sem rede assim que os índices
-tiverem sido buscados ao menos uma vez (hinários e álbuns entram sozinhos via
-`autoRefreshCollections`); se o popup estiver aberto quando um índice atualiza,
-a lista se re-renderiza na hora. Cada resultado carrega sua `coll` para
-tocar/adicionar/baixar sob demanda, e o subtítulo mostra a coleção de origem.
+(`collState`), então funciona sem rede assim que eles tiverem sido buscados uma
+vez; se o popup estiver aberto quando um índice atualiza, a lista se re-renderiza
+na hora. Cada resultado carrega sua `coll` para tocar/adicionar/baixar sob
+demanda.
 
-**A busca mantém o teto de 60 resultados**, com uma linha final dizendo quantos
-ficaram de fora: ela varre milhares de músicas de todos os álbuns e renderizar
-tudo a cada tecla travaria o campo. Folhear uma coleção INTEIRA não passa por
-aqui — é o acordeão do card, que lista tudo.
+**A busca tem teto de 60 resultados**, com uma linha final dizendo quantos
+ficaram de fora: ela varre milhares de músicas e renderizar tudo a cada tecla
+travaria o campo. Folhear uma coleção INTEIRA não passa por aqui — é o acordeão
+do card, que lista tudo (em páginas de 100, ver acima).
 
-### "Pesquisar <texto> no YouTube", no fim da busca (v5.76)
+**A busca por NÚMERO só vale onde o número identifica** (`collNumbersSongs`).
+Num hinário o número É o nome da música ("o 471", e a numeração é a mesma do
+hinário impresso); num álbum, `track` é só a posição no disco. Digitar "3" trazia
+a faixa 3 de cada álbum indexado, empurrando o hino 3 para o fim da lista.
+`songLabel(coll, s, pad)` é o único lugar que monta o rótulo — lista, busca, nome
+do arquivo baixado e slide de capa passam todos por ali. Daí `hymnTrack` ser NULO
+fora de hinário: é o número NO HINÁRIO, não a faixa do disco, e com isso o slide
+de capa, o título do popup de letra e a preview param de numerar sem precisar
+conhecer coleção nenhuma (o Display, em especial, só recebe o registro do
+arquivo). Uma passagem única corrige o que já está baixado
+(`desnumerarAlbunsBaixados`, estado `migSemNumeroAlbuns`) — ela REMOVE o prefixo
+`N. ` e zera o `hymnTrack`, em vez de recalcular o nome a partir de `hymnName`,
+porque o mesmo registro cobre importados e variantes.
 
-O acervo é o LouvorJA, e ele não tem tudo: um louvor gravado pelo coral da
-igreja, um clipe, um hino numa versão específica. Até aqui a saída era sair do
-app, abrir o YouTube, **digitar tudo de novo** e compartilhar de volta — e o
-"digitar tudo de novo" acontecia com o texto já digitado na tela em que se
-acabou de descobrir que a música não está no acervo. `appendYoutubeSearch` fecha
-esse caminho: leva a busca pronta e devolve o operador ao ponto em que o
-`intent-filter` de share (`ShareIntake.kt`) já sabe receber o vídeo. A ida
-passou a existir; a volta já existia.
+### "Pesquisar <texto> no YouTube", no fim da busca
 
-- **Em todos os desfechos da busca**, inclusive (e principalmente) "Nenhuma
-  música encontrada" — que é exatamente quando a pergunta "e agora?" aparece.
-  Não aparece enquanto se FOLHEIA o acervo (sem texto não há o que pesquisar).
+O acervo é o LouvorJA, e ele não tem tudo. `appendYoutubeSearch` leva a busca
+PRONTA para o YouTube e devolve o operador ao ponto em que o `intent-filter` de
+share já sabe receber o vídeo — sem isso a saída era sair do app, abrir o
+YouTube, **digitar tudo de novo** e compartilhar de volta.
+
+- **Em todos os desfechos da busca**, inclusive (e principalmente) "Nada
+  encontrado", que é quando a pergunta "e agora?" aparece. Não aparece enquanto
+  se FOLHEIA o acervo (sem texto não há o que pesquisar).
 - **O texto vai entre aspas** porque é ele que diz que o toque leva ISTO, e não
   abre o YouTube na página inicial. Entra por `textContent`, nunca `innerHTML`:
-  é texto digitado pelo operador. Termo comprido corta em reticências.
+  é texto digitado pelo operador.
 - **Uma LUPA, não o logotipo do YouTube.** O que o botão faz é uma busca;
   desenhar a marca de outro app promete que ele abre lá dentro em algum lugar
-  específico. Quem nomeia o destino é o texto ao lado.
+  específico.
 #### E, desde a v5.85, a BUSCA acontece aqui dentro
 
 O botão continua sendo o mesmo, mas num shell ≥ 18 ele **não sai mais do app**:
