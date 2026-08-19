@@ -232,8 +232,6 @@ object EspelhoPares {
         /** A transmissão não está ligada. `403`. */
         object Desligado : Veredito()
 
-        // (Saiu na v5.189, com o código: `Recusada`. Ela dizia "o segredo está
-        // errado", e não há mais segredo a errar — a porta é o endereço.)
     }
 
     /** O castigo de UMA origem — só o [derrubar] o cria (invariante 6). */

@@ -1388,19 +1388,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
         return JSONObject()
             .put("ligado", ligado)
             .put("endereco", srv?.optString("url") ?: "")
-            // (Saiu na v5.189: `codigo`. A porta é o ENDEREÇO — ver a
-            // invariante 5 do [EspelhoPares]. O `SHELL_VERSION` sobe por isso:
-            // um bundle antigo leria `codigo` vazio e desenharia um campo de
-            // três dígitos que o servidor não exige mais, mandando o operador
-            // ditar um número que não existe.)
-            //
-            // (Saiu na v5.206: `modo`. Ele era o seletor imagem × vídeo do
-            // espelho de pixels, removido na v5.156 — desde então o campo
-            // viajava com o valor `"comandos"`, e o `blocoEspelho` do lado web
-            // o comparava com `'video'` e imprimia **"modo: imagem (JPEG)"** no
-            // Registro. Um campo mantido "por compatibilidade" depois que o
-            // recurso saiu não é compatibilidade: é uma resposta errada com
-            // aparência de resposta.)
             .put("erro", erro)
             .put("telas", srv?.optJSONArray("telas") ?: JSONArray())
     }
