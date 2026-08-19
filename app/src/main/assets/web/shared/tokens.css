@@ -305,24 +305,18 @@
      (piso 1,28) e 8,32:1 com o texto. Escuro rgb(46,54,63) e 9,23:1. */
   --item-fill: var(--surface-sunk);
 
-  /* ---------- OS DOIS FUNDOS DE ESTADO, e eles são OPACOS (v5.267) ----------
-     Uma linha de lista tem dois estados que precisam ser lidos de relance:
-     ESCOLHIDA (a atual, a marcada na seleção múltipla) e NO AR (o que está
-     sendo projetado agora). Até aqui os dois eram "contorno de 2px + tinta com
-     alfa por baixo", e com o contorno fora sobrava a tinta — que não basta, e
-     não por pouco: `--accent-soft` a 16% sobre o painel compõe **#3d4959**, que
-     é o `--panel-2` deste arquivo. Uma linha selecionada ficava, literalmente,
-     com a cor do nível de baixo da árvore.
-
-     Opacos, os dois valem o mesmo em QUALQUER nível — que é o que um estado
-     precisa fazer: sair da escada, em vez de ocupar um degrau dela. E o sinal
-     principal deles é a MATIZ, não a claridade: `--live-fill` fica a 1,03:1 do
-     painel de propósito (uma linha vermelha entre linhas cinzas se acha sem
-     precisar ser mais clara que elas), e é a matiz que sobrevive ao brilho
-     baixo de um salão escuro, onde meio degrau de luminância não sobrevive.
-     Medido — `--sel-fill`: 7,64:1 com o texto, 5,35:1 com o `--muted`, 4,92:1
-     com o `--accent`. `--live-fill`: 9,21:1 com o texto e 4,72:1 com o
-     `--live-strong`, que é a tinta do selo "● No ar" e do nome da linha. */
+  /* O VERMELHO QUE SE LÊ COMO VERMELHO (v5.76, matiz reancorada na v5.192).
+     DERIVADO do `scarlett` (matiz 358°), clareado até passar como texto.
+     MEDIDO: 7,27:1 sobre `--bg`, 6,50:1 sobre `--live-soft`/`--danger-soft` (o
+     soft sobre a PÁGINA; dentro de um cartão dá 4,75:1, ainda AA), 4,88:1 sobre
+     `--panel` e 3,66:1 sobre `--panel-2` — este reprova o piso de 4,5:1.
+     Daí a REGRA: quem veste este vermelho veste junto o fundo da própria
+     família — `--live-fill` numa linha (4,72:1) ou `--live-soft`/
+     `--danger-soft` num chip ou botão.
+     INVENTÁRIO (por grep): o clareado é o padrão; o salmão `--danger-text` tem
+     TRÊS consumidores, todos casos em que ele não serve — `.yt-result .yt-err`
+     e `.btn-pulso--erro` sobre `--danger-soft`, e `.save-hint--erro` direto no
+     `--panel`. */
   --sel-fill: #2e4262;
   --live-fill: #54282e;
   /* O terceiro da família, e ele é do RESOLVIDO: a TV já conectada, a pasta já
@@ -459,29 +453,20 @@
   --veil: rgba(14, 18, 21, .55);
   --veil-solid: rgba(14, 18, 21, .92);
 
-  /* ---------- Bíblia: ladrilhos dos 66 livros ----------
-     TINTA ESCURA + faixa lateral com a matiz do grupo. A tela de livros é a
-     única que preenche o visor inteiro de cor, e é a que o operador abre NO
-     ESCURO durante a pregação: saturada, ela emitia 7x mais luz que uma lista
-     comum e cinco dos dez grupos tinham o rótulo abaixo de AA. Com a tinta, o
-     pior rótulo vai a 8,72:1 e a pior faixa mantém 3,27:1 contra ela.
+  /* ---------- OS DOIS FUNDOS DE ESTADO, e eles são OPACOS (v5.267) ----------
+     Uma linha tem dois estados lidos de relance: ESCOLHIDA (atual/marcada) e NO
+     AR (projetando). Eram "contorno 2px + tinta com alfa"; sem contorno sobrava
+     a tinta, e `--accent-soft` a 16% sobre o painel compõe #3d4959, que É o
+     `--panel-2` — a linha selecionada ficava com a cor do nível de baixo.
 
-     AS DEZ MATIZES (a identidade tem sete famílias; a escala precisa de dez,
-     com separação mínima de 20°):
-       lei        220°  bluejay  OFICIAL
-       evangelhos 240°  derivada — vão entre bluejay e emperor
-       pmaiores   272°  emperor  OFICIAL
-       pmenores   304°  derivada — vão entre emperor e lily
-       apocalipse  48°  derivada — o dourado histórico deste grupo (a
-                        identidade não tem amarelo)
-       historicos  21°  campfire OFICIAL
-       gerais     101°  treefrog OFICIAL
-       paulinas   141°  derivada — vão entre treefrog e ming
-       poeticos   168°  derivada — idem, do outro lado
-       atos       189°  ming     OFICIAL
-     Ordenados: 21→48→101→141→168→189→220→240→272→304, menor vão 20°. O
-     `scarlett` fica FORA de propósito: vermelho é atenção neste app, e um grupo
-     vermelho competiria com "está no ar" na mesma tela. */
+     Opacos, valem o mesmo em QUALQUER nível: um estado sai da escada em vez de
+     ocupar um degrau. O sinal principal é a MATIZ, não a claridade —
+     `--live-fill` fica a 1,03:1 do painel de propósito (uma linha vermelha
+     entre cinzas se acha sem ser mais clara), e é a matiz que sobrevive ao
+     brilho baixo de um salão escuro.
+     Medido — `--sel-fill`: 7,64:1 com o texto, 5,35:1 com `--muted`, 4,92:1 com
+     `--accent`. `--live-fill`: 9,21:1 com o texto, 4,72:1 com `--live-strong`
+     (a tinta do selo "● No ar"). */
   --b-lei:#2a3955;        --bt-lei:#6187d5;
   --b-historicos:#4b3325; --bt-historicos:#cc703e;
   --b-poeticos:#1e3e37;   --bt-poeticos:#299982;
