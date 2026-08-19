@@ -275,10 +275,22 @@ sintoma de estar disputada era objetivo: numa tela de 360px a raiz dos Favoritos
 cortava o próprio título com reticências.
 
 O título é `.84rem` (em .72rem o único texto que responde "onde eu estou" era
-menor que o subtítulo de qualquer linha) e é centrado no ESPAÇO QUE SOBRA, não na
-tela: centrá-lo pelo eixo da tela exigiria tirá-lo do fluxo e arriscar
-sobreposição com o nome comprido de uma pasta. O único elemento que ainda o
-desloca é o voltar da Bíblia (19px).
+menor que o subtítulo de qualquer linha).
+
+**A FAIXA É UMA GRADE DE TRÊS TRILHAS FIXAS** (v5.309) — `--hit`, `minmax(0,1fr)`
+e `--hit` —, com as três posições declaradas uma a uma. Como flex ela centrava o
+título no espaço que SOBRAVA, e o voltar entra e sai do fluxo conforme a tela da
+Bíblia: o nome da tela pulava ~19px para a direita toda vez que o operador
+entrava num livro. Numa grade a trilha do voltar continua reservada quando ele
+está `hidden`, porque quem ocupa uma trilha é a POSIÇÃO EXPLÍCITA e um item
+`display: none` não desloca ninguém — então o `[hidden] { display: none
+!important }` do topo da folha segue valendo inteiro. O `.list-head-vao` é a
+trilha 3, e existe porque reservar só a do voltar deixaria o título fora do eixo
+da faixa em toda a interface: trocaria um deslocamento por um desalinhamento.
+Com auto-placement o vão cairia na coluna 1 justamente nas telas sem voltar — o
+defeito de volta, com outro nome. O `min-width: 0` do título e o `minmax(0,1fr)`
+da trilha são as duas metades da mesma defesa contra o nome comprido de uma
+pasta. Medido em `tools/smoke.mjs` ("O NOME DA TELA NÃO SE MEXE").
 
 **Controles (`.bottombar`):** fixados na base, e eles **começam na faixa de
 abas** — a barra é um `flex` em coluna com dois filhos, a `.tabs` e o `.deck`.
@@ -2003,6 +2015,13 @@ nasce com a confirmação certa.
 - **A frase que o diálogo dizia** ("os arquivos só são apagados se ele não
   estiver em mais nenhuma lista") não cabe nos ~250px da faixa e não sumiu: é o
   `title`/`aria-label` do botão que executa.
+- **O par DIVIDE A FAIXA AO MEIO** (v5.309, a pedido do operador): `flex: 1 1 0`
+  em cada botão, um na metade esquerda e outro na direita. Eles eram do tamanho
+  do próprio rótulo e encostados à direita, então "Cancelar" e "Excluir" ficavam
+  colados um no outro na metade direita de uma faixa vazia — dois alvos de um
+  destrutivo a 8px de distância, e metade da faixa sem dizer nada. `min-width: 0`
+  porque o padrão de um item flex se recusa a encolher abaixo do conteúdo, mais
+  `overflow`/reticências como garantia final para um rótulo longo.
 - **A SEMÂNTICA de cada lista continua a dela.** Na fila da playlist o botão
   **não** é um `botaoExcluirDaLinha`: sair da FILA não é sair de uma lista de
   acervo, então nada de `retirarDoAr` (o item pode estar no Cronograma e seguir
@@ -2085,6 +2104,42 @@ indicados **só pelo realce** (`.lib-item.selected` — borda `--accent` + fundo
 ícone de check; a miniatura fica sempre encostada à esquerda (não há coluna
 reservada). Excluir dentro de pasta virtual só remove da pasta; nas demais abas
 usa `listRemove` (com gc).
+
+#### O rodapé da folha da playlist: guardar e LIMPAR (v5.309)
+
+A folha `#plPopup` fecha com duas ações sobre a FILA, fora do `.popup-list`
+rolável (numa fila de dez itens elas têm de continuar à vista): **"Guardar como
+pacote no Cronograma"** (`#plPack`, ver "Como um item ENTRA no Cronograma") e
+**"Limpar a playlist"** (`#plClear`), acrescentado a pedido do operador. Tirar
+item a item era o único caminho, e uma fila de culto tem oito ou dez linhas —
+cada uma com a própria pergunta.
+
+- **A SEMÂNTICA é a do excluir de uma linha da fila**, não a de um excluir de
+  acervo: `AVDB.listSet('playlist', () => [])`, sem `retirarDoAr` e sem
+  `soltarAvulso`. O que está projetando segue projetando, e o que estiver no
+  Cronograma, nos Favoritos, numa pasta ou no slot avulso segue inteiro — o
+  `listSet` coleta só o que NENHUMA outra lista aponta, que é a mesma conta que
+  o `listRemove` faz item a item. Limpar dez de uma vez é dez remoções, não uma
+  operação nova. A forma com FUNÇÃO, nunca `listSet('playlist', [])`: ela roda
+  dentro da transação que grava.
+- **A pergunta é a mesma das listas** (`pedirConfirmacaoNaLinha`), e por isso o
+  botão tem uma CAIXA só sua (`.pl-limpar-faixa`): o par substitui os IRMÃOS
+  dele, e no rodapé inteiro levaria o "Guardar como pacote" junto. A altura mora
+  na faixa, não nos dois conteúdos dela — o botão e o par têm receitas
+  diferentes, e sem o número num lugar só a folha encolheria sob o dedo no exato
+  instante em que o operador mira um destrutivo. `closePlPopup` **cancela**, como
+  tudo que fecha uma gaveta.
+- **Ele é a PORTA de um destrutivo, não a execução dele**, e veste o par discreto
+  do "Tirar do ar" (`--surface` + `--danger-text`); o saturado
+  (`--danger-soft` + `--danger-strong`) fica para o botão que de fato limpa. Dois
+  vermelhos cheios empilhados anunciariam duas ações destrutivas onde há uma.
+- **ACIMA do pacote**, e não abaixo: a folha abre pelo botão da barra de baixo,
+  então o dedo chega pela borda inferior — a mesma régua que pôs o excluir no
+  começo da fileira do `⋮` (v5.288).
+- **Com a fila vazia a caixa inteira sai**: um botão que não faz nada é pior que
+  botão nenhum, e um destrutivo inerte ensinaria que tocá-lo é inofensivo.
+
+Medido de ponta a ponta em `tools/smoke.mjs` ("LIMPAR A FILA INTEIRA").
 
 ### Favoritos: uma lista só (marcados + pastas do aparelho)
 

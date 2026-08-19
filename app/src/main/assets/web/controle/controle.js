@@ -141,6 +141,10 @@ const plPopupEl = document.getElementById('plPopup');
 const plPopupCountEl = document.getElementById('plPopupCount');
 const plPopupCloseEl = document.getElementById('plPopupClose');
 const plPackEl = document.getElementById('plPack');
+const plClearEl = document.getElementById('plClear');
+// A CAIXA do "Limpar a playlist", não o botão: é ela que a pergunta ocupa
+// enquanto ele está fora de cena, e é ela que some com a fila vazia.
+const plClearFaixaEl = document.getElementById('plClearFaixa');
 
 const fileEl = document.getElementById('file');
 const mainEl = document.querySelector('main');
@@ -163,7 +167,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '5.308';
+const WEB_VERSION = '5.309';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -2780,6 +2784,12 @@ function renderPlaylist() {
   plCountEl.textContent = count > 1 ? String(count - 1) : '';
   plPopupCountEl.textContent = String(count);
   plBtnEl.classList.toggle('has-items', count > 1);
+  // COM A FILA VAZIA NÃO HÁ O QUE LIMPAR, e um botão que não faz nada é pior
+  // que botão nenhum — ainda mais um destrutivo, que assim ensinaria que
+  // tocá-lo é inofensivo. A caixa inteira sai (ela carrega a margem do rodapé),
+  // e leva junto qualquer pergunta que estivesse aberta nela.
+  if (count === 0 && plClearFaixaEl.classList.contains('confirmando')) fecharConfirmacaoNaLinha();
+  plClearFaixaEl.hidden = count === 0;
 
   playlistEl.innerHTML = '';
   if (count === 0) {
@@ -3639,13 +3649,22 @@ function renderBibleReading(wrap) {
   read.appendChild(mkSection(2, 'adj'));
 
   // Rodapé: um controle segmentado só, com as QUATRO coordenadas do que está
-  // sendo lido — versão · livro · capítulo · versículo —, cada uma levando ao
+  // sendo lido — livro · capítulo · versículo · versão —, cada uma levando ao
   // seu próprio seletor. A versão entra pela SIGLA (ver bibleVersionAbbr):
   // "Almeida Revista e Atualizada" ocupava a linha inteira e empurrava a
   // referência para baixo. Antes a referência era um botão só, que sempre
   // voltava à grade de livros: trocar só o capítulo custava passar pela
   // seleção de livro de novo. Capítulo e versículo levam à mesma tela porque
   // as duas grades convivem nela (ver "Seleção em tabela periódica").
+  //
+  // A VERSÃO É A ÚLTIMA (v5.309), a pedido do operador. As três primeiras são
+  // a referência que se lê em voz alta, na ordem em que ela é dita e na ordem
+  // em que o operador acabou de escolhê-las (livro → capítulo → versículo); a
+  // versão não é coordenada do texto, é em que edição ele está sendo lido, e
+  // trocá-la é a decisão mais rara das quatro. À frente ela abria a barra por
+  // uma sigla de três letras e empurrava o nome do livro — o único campo de
+  // largura imprevisível, e o que diz onde a leitura está — para as
+  // reticências antes de qualquer outro.
   const foot = document.createElement('div'); foot.className = 'bible-read-foot';
   const v = s.verses[s.idx];
   const nav = document.createElement('div'); nav.className = 'bible-ref-nav';
@@ -3664,10 +3683,10 @@ function renderBibleReading(wrap) {
     bibleSel = { bookIdx: s.bookIdx, chapter: s.chapter };
     gotoBibleScreen(screen);
   };
-  if (bibleVersions.length) part('Versão', bibleVersionAbbr(bibleVersionId), openBibleVerPopup);
   part('Livro', s.bookName, goto('books'), 'bible-ref-part--book');
   part('Capítulo', String(s.chapter), goto('chapters'));
   part('Versículo', String(v.n), goto('chapters'));
+  if (bibleVersions.length) part('Versão', bibleVersionAbbr(bibleVersionId), openBibleVerPopup);
   foot.appendChild(nav);
   // GUARDAR A REFERÊNCIA (v5.103). Até aqui a leitura bíblica era uma coisa do
   // MOMENTO: o versículo da pregação de domingo tinha de ser reencontrado ao
@@ -16684,11 +16703,37 @@ async function guardarPacote() {
   setTimeout(closePlPopup, PULSO_MS);
 }
 
+/**
+ * ESVAZIAR A FILA (v5.309), a pedido do operador: *"faça um botão para limpar
+ * toda a playlist tocando agora"*. Tirar item a item era o único caminho, e uma
+ * fila de culto tem oito ou dez linhas — cada uma com a própria pergunta.
+ *
+ * ELA NÃO MEXE NO QUE ESTÁ NO AR, e é a MESMA semântica do excluir de uma linha
+ * da fila (ver `renderPlaylist`): sair da fila não é sair de uma lista de
+ * acervo. O item que está projetando segue projetando, e o que estiver guardado
+ * no Cronograma, nos Favoritos, numa pasta ou no slot avulso segue inteiro — o
+ * `listSet` coleta só o que NENHUMA outra lista aponta, que é a mesma conta que
+ * o `listRemove` faz item a item. Limpar dez de uma vez é dez remoções, não uma
+ * operação nova.
+ *
+ * A forma com FUNÇÃO (`() => []`), não `listSet('playlist', [])`: ela roda
+ * dentro da transação que grava, e é a única que não perde um item acrescentado
+ * entre a leitura e a escrita.
+ */
+async function limparPlaylist() {
+  await AVDB.listSet('playlist', () => []);
+  await load();
+}
+
 function openPlPopup() {
   renderPlaylist();
   plPopupEl.classList.add('open');
 }
 function closePlPopup() {
+  // FECHAR CANCELA A PERGUNTA — a mesma regra da gaveta da linha: o erro
+  // possível aqui é o seguro, porque perder a pergunta custa um toque e herdar
+  // um "sim" pendente esvaziaria a fila na próxima abertura da folha.
+  fecharConfirmacaoNaLinha();
   plPopupEl.classList.remove('open');
 }
 
@@ -17854,6 +17899,16 @@ selCancelEl.addEventListener('click', exitSelection);
 selPlaylistEl.addEventListener('click', addSelectedToPlaylist);
 selFavEl.addEventListener('click', favoritarSelecionados);
 plPackEl.addEventListener('click', guardarPacote);
+// A PERGUNTA NASCE NA CAIXA DO BOTÃO (`pedirConfirmacaoNaLinha` olha o pai dele)
+// — o mesmo par de "Cancelar/Excluir" das listas, aqui sobre a fila inteira.
+plClearEl.addEventListener('click', (e) => {
+  e.stopPropagation();
+  pedirConfirmacaoNaLinha(plClearEl, {
+    ok: 'Limpar',
+    dica: 'Esvaziar a fila. Os itens continuam onde estiverem guardados, e o que está no ar segue no ar.',
+    aoConfirmar: limparPlaylist,
+  });
+});
 selDeleteEl.addEventListener('click', deleteSelected);
 selRenameEl.addEventListener('click', renameSelected);
 
