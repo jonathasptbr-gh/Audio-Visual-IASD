@@ -4198,210 +4198,143 @@ terminam: abortar no meio deixaria um arquivo truncado catalogado como completo,
 e o custo de esperar é uma faixa, não um álbum. `u.cancel` também é conferido na
 VARREDURA do que falta (`songVariantsNeeded` por música), que num álbum grande já
 é demorada por si só.
-#### "Esta coleção está completa?" — uma pergunta, quatro respostas (v5.134)
+#### "Esta coleção está completa?" — uma pergunta, UMA resposta
 
-O botão de baixar não sumia de coleções já inteiras no aparelho, e o chip ao
-lado dele dizia "Completo offline". As duas coisas estavam certas **pela régua de
-cada uma** — e eram réguas diferentes, o que é o defeito.
-
-A pergunta era respondida em QUATRO lugares por `countDownloaded(id) >=
-collSongs(id).length`: uma conta de **músicas**. Mas o download busca
-**variantes** (Cantado + Playback, quando a origem declara
-`has_instrumental_music`), e a medida de peso já contava variantes. Um Playback
-que faltou deixava a barra escrevendo "48 MB" — número exato, portanto sem o
-`~` — ao lado de um card que ainda mostrava o botão. As duas respostas divergiam
-sozinhas, na mesma tela, e nenhuma das duas era "a" resposta.
-
-E havia um caso que **nenhuma das duas** resolvia: uma música cuja origem não
-tem o arquivo (`url_music` vazio no `music_{id}`). Ela nunca ganha
-`fileIdFull` — logo, para toda a tela, "falta baixar" — e o efeito era
-permanente: a coleção nunca ficava completa, o botão nunca sumia, e **cada
-sincronização voltava a buscar o metadado dela** só para redescobrir que não há
-o que baixar.
-
-A v5.134 dá uma fonte única, `levantarColecao(id)`, e três funções finas em
-cima dela:
+**`levantarColecao(id)` é a fonte única**, e três funções finas em cima dela:
 
 - **`colecaoCompleta(id)`** — a pergunta da tela inteira, num lugar só. Conta
-  variantes. Sem índice não há resposta: um álbum que nunca sincronizou não está
-  completo nem incompleto, e o botão ali serve para buscar a lista.
-- **`faltamNaColecao(id)`** — quantas variantes faltam, para os diálogos de
-  confirmação e a barra da notificação. Prometer "12 músicas" e baixar 10 é a
-  forma mais barata de parecer quebrado.
+  VARIANTES (Cantado + Playback quando a origem declara
+  `has_instrumental_music`), nunca músicas. Sem índice não há resposta: um álbum
+  que nunca sincronizou não está completo nem incompleto, e o botão ali serve
+  para buscar a lista.
+- **`faltamNaColecao(id)`** — quantas variantes faltam, para os diálogos e a
+  barra da notificação. Prometer "12 músicas" e baixar 10 é a forma mais barata
+  de parecer quebrado.
 - **`songsBaixaveis(id)`** — o DENOMINADOR do "N de M músicas".
 
-**"Não existe" deixou de ser "não baixei".** `ensureSongVariant` marca a música
-(`semAudio`/`semPlayback`) quando a origem não traz a URL, e apaga a marca se
-ela aparecer depois — o índice é reaproveitado in-place pelo
-`fetchCollectionIndex`, então a marca sobrevive à atualização da lista de graça.
-A partir daí:
+A pergunta já foi respondida em QUATRO lugares por `countDownloaded(id) >=
+collSongs(id).length` — uma conta de MÚSICAS —, enquanto o download busca
+VARIANTES e a medida de peso já contava variantes: um Playback que faltasse
+deixava a barra escrevendo um número EXATO ao lado de um card que ainda mostrava
+o botão de baixar. **Duas réguas para a mesma pergunta divergem sozinhas, na
+mesma tela.**
 
-- `levantarColecao` conta essa variante como `semFonte`, não como pendente;
-- `songVariantsNeeded` para de pedir o metadado dela — é isso que faz o álbum
-  finalmente chegar a "Já completo offline";
-- ela sai **dos dois lados** da fração: um contador travado em 53/54 ao lado de
-  um chip "Completo offline" seria a mesma contradição, só que menor.
+**"NÃO EXISTE" não é "não baixei ainda".** Uma música cuja origem não tem o
+arquivo (`url_music` vazio) nunca ganha `fileIdFull`, e o efeito era permanente:
+a coleção nunca ficava completa, o botão nunca sumia, e **cada sincronização
+voltava a buscar o metadado dela** só para redescobrir que não há o que baixar.
+`ensureSongVariant` marca (`semAudio`/`semPlayback`) e apaga a marca se a URL
+aparecer depois — o índice é reaproveitado in-place pelo `fetchCollectionIndex`,
+então a marca sobrevive à atualização da lista de graça. A partir daí
+`levantarColecao` a conta como `semFonte`, `songVariantsNeeded` para de pedir o
+metadado dela, e ela sai **dos dois lados** da fração (um contador travado em
+53/54 ao lado de um "Completo offline" seria a mesma contradição, só que menor).
 
-##### O botão do GRUPO não seguia a regra do card (v5.135)
+**O botão de GRUPO segue a mesma régua** (`grupoCompleto(colls)` =
+`colls.every(colecaoCompleta)`, e não uma soma de músicas do grupo, que
+responderia diferente da linha logo abaixo). O custo do toque ali é bem maior que
+num card: `syncGroup` percorre álbum por álbum, cada um buscando o índice na REDE
+e conferindo variante por variante — minutos, num acervo grande — para terminar
+escrevendo "Completo" e deixar o mesmo botão convidando a repetir tudo.
 
-A barra do card esconde o botão de baixar com o álbum inteiro no aparelho desde
-a v5.45 — "um alvo do tamanho de `--hit` oferecendo uma ação sem efeito". O
-cabeçalho de categoria (`header`, em `renderCollections`) e a barra "Toda a
-biblioteca" (`renderAcervoTotal`) **nunca** receberam essa regra: os dois
-desenhavam o botão incondicionalmente, e `complete` só mudava a classe CSS do
-contador ao lado.
+E é `grupoCompleto` que impede o "Baixar toda a biblioteca" de MENTIR num acervo
+recém-instalado: o atalho `songs === 0 → "Já completo"` é verdadeiro para um
+álbum SEM ÍNDICE, que tem zero variantes faltando **porque não tem lista
+nenhuma** — na janela em que o `autoRefreshCollections` ainda não indexou, o
+botão de maior alcance da tela respondia "Já completo" e não fazia nada.
 
-O custo do toque, ali, é bem maior que num card: `syncGroup` percorre álbum por
-álbum, cada um buscando o índice na REDE e conferindo variante por variante no
-banco — minutos, num acervo grande — para terminar escrevendo "Completo" e
-deixar o mesmo botão no lugar, convidando a repetir tudo. Era o que restava do
-defeito depois da v5.134: as contas passaram a fechar, e o botão continuou lá.
+`tools/acervo.test.mjs` prende as três contas (completude de coleção, de grupo e
+peso) num Chromium de verdade: conta errada não estoura em lugar nenhum, ela só
+mostra o número errado — a classe de defeito que nenhum `node --check` pega.
 
-`grupoCompleto(colls)` é a resposta única — `colls.every(colecaoCompleta)`, e
-não uma soma de músicas do grupo, que responderia diferente da linha logo
-abaixo dela. Com ela:
+#### A medição do peso
 
-- **os dois cabeçalhos escondem o botão quando o grupo está inteiro no
-  aparelho**, e o mantêm enquanto o download rola, porque ali ele é o cancelar.
-  Verificar UM álbum continua possível onde isso é manutenção: dentro do card, no
-  botão que se chama "Verificar atualizações".
-- **"Baixar toda a biblioteca" parou de mentir num acervo recém-instalado.** O
-  atalho era `songs === 0 → "Já completo"`, e um álbum SEM ÍNDICE tem zero
-  variantes faltando **porque não tem lista nenhuma**. Na janela em que o
-  `autoRefreshCollections` ainda não indexou o acervo, o botão de maior alcance
-  da tela respondia "Já completo" e não fazia nada. `grupoCompleto` exige índice,
-  então distingue os dois casos; e o diálogo passou a dizer que as listas ainda
-  estão carregando em vez de anunciar "0 músicas".
+Duas perguntas, e só uma tem resposta exata:
 
-`tools/acervo.test.mjs` prende as três contas — completude de coleção, de grupo
-e peso — num Chromium de verdade. Conta errada não estoura em lugar nenhum: ela
-só mostra o número errado, que é exatamente a classe de defeito que nenhum
-`node --check` pega.
+1. **quanto já está no aparelho** — `AVDB.opfsFolderSize(path)` enumera a PASTA
+   e soma o `size` real de cada arquivo. EXATO, e cobre tudo que o download traz.
+2. **quanto pesa o álbum inteiro** — o que falta ainda não veio, logo ESTIMATIVA.
 
-#### A medição do peso (v5.93)
+**MEDIR A PASTA, NUNCA O CATÁLOGO.** O download grava dois tipos de arquivo na
+mesma pasta: os áudios, que viram registro em `files`, e as **imagens de fundo da
+letra**, que não viram (são referenciadas de dentro dos slides). Somando o
+catálogo, essas imagens ficavam fora de TODA conta — num hinário inteiro,
+centenas de MB que o operador via sumir do armazenamento sem explicação, e que
+nenhuma tela somava; e ficavam fora também do NUMERADOR da taxa, que por isso
+subestimava sistematicamente tudo o que projetava. Enumerar a pasta é ainda **mais
+barato**: perguntar o tamanho de um arquivo não desserializa nada, enquanto o
+`getAll` do catálogo trazia thumbnail e letra inteira de cada faixa para somar um
+campo.
 
-São **duas perguntas**, e só uma tem resposta exata:
+**A estimativa é por DURAÇÃO, não por contagem de faixas.** Áudio é bytes por
+segundo: num hinário as durações são parecidas e os dois métodos empatam, mas num
+álbum com um louvor de 2 min ao lado de um de 9 a média por faixa erra por um
+fator de quatro — e erra na pergunta que decide um gasto de dados móveis. A
+duração vem do índice (`duration`, "HH:MM:SS").
 
-1. **quanto já está no aparelho** — soma do tamanho real dos arquivos na pasta
-   OPFS da coleção (`AVDB.opfsFolderSize`). É EXATO, e cobre tudo que o download
-   traz: os áudios Cantado e Playback, a capa e as imagens de fundo da letra.
-   **Só passou a cobrir a partir da v5.134** — ver "O peso vinha do catálogo, e
-   metade dele não está no catálogo", abaixo.
-2. **quanto pesa o álbum inteiro** — o que falta ainda não veio, então é
-   ESTIMATIVA. O `~` na tela é parte da informação, não enfeite.
+**A taxa é MEDIDA no aparelho** (bytes no disco ÷ segundos baixados), nunca uma
+constante de bitrate: assim ela amortiza o que não é áudio e acompanha o bitrate
+real do acervo. A escada vai da fonte mais específica à mais genérica: a taxa
+DESTE álbum → a média de tudo o que já foi baixado → 128 kbps (`BPS_PADRAO`).
+Sem o último degrau, um álbum vazio não teria tamanho a mostrar — que é
+exatamente quando a informação mais importa. (Para VÍDEO a constante é outra,
+`BPS_VIDEO_PADRAO`: a escada inteira pressupõe áudio, e numa série vazia ela
+prometia ~50 MB para um ano que pesa ~15 GB.)
 
-**A estimativa é por DURAÇÃO, não por contagem de faixas** — era por contagem
-até a v5.92 (`bytes / baixados × pendentes`). Áudio é bytes por segundo: num
-hinário, em que as faixas têm durações parecidas, os dois métodos empatam; num
-álbum com um louvor de 2 min ao lado de um de 9, a média por faixa erra por um
-fator de quatro, e erra logo na pergunta que decide um gasto de dados móveis. A
-duração já está no índice (`duration`, `"HH:MM:SS"`).
+Duas ressalvas: o **Playback** conta com a duração do Cantado (a lista leve não
+traz `instrumental_duration`, e é a mesma música), e uma faixa **sem duração** no
+índice entra por `SEG_PADRAO` (3min30) em vez de somar zero, que faria o álbum
+parecer menor do que é.
 
-**A taxa é MEDIDA no aparelho** — bytes no disco ÷ segundos baixados —, e não
-uma constante de bitrate. Isso amortiza sozinho o que não é áudio (capas e
-imagens de letra pesam, e as faixas que faltam trarão as suas) e acompanha o
-bitrate real do acervo — o que também só virou verdade na v5.134: enquanto o
-numerador vinha do catálogo, os bytes das imagens não estavam nele, e a taxa
-"medida" era a do áudio puro. Ela SUBESTIMAVA sistematicamente tudo o que
-projetava. A escada de fontes vai da mais específica à mais
-genérica: a taxa **deste** álbum → a média de tudo o que já foi baixado no
-aparelho → 128 kbps (`BPS_PADRAO`). Sem o último degrau, um álbum ainda vazio
-não teria tamanho nenhum a mostrar — que é exatamente quando a informação mais
-importa.
+**O peso medido PERSISTE** (`state['coll-bytes']`) — `collUI` é estado de sessão,
+e fechar o app apagava o número. A escrita é coalescida (o contador sobe a cada
+arquivo baixado; um `setState` por música seria uma transação de IDB por
+download).
 
-Duas ressalvas honestas: o **Playback** conta com a duração do Cantado (a lista
-leve não traz `instrumental_duration`, e é a mesma música), e uma faixa **sem
-duração** no índice entra por `SEG_PADRAO` (3min30) em vez de somar zero — que
-faria o álbum parecer menor do que é.
+**O peso NÃO é recalculado durante o render.** Recalcular é IO, e como o valor
+mudar dispara outro `refreshCollectionsIfVisible`, sincronizar uma coleção com a
+aba aberta executava N recontagens (N = número de cards) a cada música baixada.
+Hoje `downloadCollectionFile` e `downloadCollectionImage` **somam o `blob.size`**
+ao cache (`ui(id).bytes`) sem tocar o disco, `deleteCollection` zera, e a
+recontagem completa roda só onde a conta muda em bloco:
 
-**O peso medido PERSISTE** (`state['coll-bytes']`). `collUI` é estado de
-sessão: até a v5.92 o peso de um álbum só existia depois de o operador abrir as
-opções dele, e fechar o app o apagava. Agora ele aparece na barra de todo álbum
-completo, e recontar o catálogo de cada um a cada abertura é caro pelo motivo
-logo abaixo. A escrita é coalescida (o contador sobe a cada arquivo baixado; um
-`setState` por música seria uma transação de IDB por download), e um álbum com
-músicas no aparelho e peso zerado — quem baixou antes da v5.93 — é recontado
-**uma vez por sessão** (`conferirPesoSeFaltar`, com um `Set` que impede o
-`refreshCollectionsIfVisible` de dentro da recontagem de virar laço).
-
-**O peso NÃO é recalculado durante o render.** Recalcular é IO, e
-`renderCollectionCard` o chamava — como o valor mudar dispara outro
-`refreshCollectionsIfVisible`, sincronizar uma coleção com a aba aberta
-executava N recontagens (N = número de cards, dezenas a centenas) a cada música
-baixada. Hoje: `downloadCollectionFile` e `downloadCollectionImage` **somam o
-`blob.size`** ao cache (`ui(id).bytes`), sem tocar o disco, `deleteCollection`
-zera, e a recontagem completa só roda onde a conta muda em bloco — ao **abrir**
-o popup de opções e ao **terminar** uma sincronização.
-
-##### O peso vinha do catálogo, e metade dele não está no catálogo (v5.134)
-
-O download de uma coleção grava **dois tipos** de arquivo na mesma pasta OPFS:
-os **áudios**, que viram registro no catálogo (`files`), e as **imagens de fundo
-da letra**, que não viram — elas são referenciadas de dentro dos slides, não são
-mídia da biblioteca e não aparecem em lista nenhuma. `updateCollBytes` somava o
-catálogo (`filesByFolder`), então essas imagens ficavam **fora de toda conta**:
-num hinário inteiro, centenas de MB que o operador via sumir do armazenamento do
-aparelho sem explicação, e que nenhuma tela do app somava.
-
-O comentário do código afirmava justamente o contrário — que a taxa medida
-"amortiza sozinha o que não é áudio". Não amortizava: esses bytes nunca entraram
-em conta nenhuma, nem no numerador da taxa.
-
-A correção troca a fonte: `AVDB.opfsFolderSize(path)` enumera a pasta e soma o
-`size` real de cada arquivo. **E é mais barato**, não mais caro — perguntar o
-tamanho de um arquivo não desserializa nada, enquanto o `getAll` do catálogo
-trazia thumbnail e letra inteira de cada faixa só para somar um campo. É essa
-inversão de custo que permite o resto:
-
-- **a reconferência passou a ser a REGRA, não a exceção.** Antes ela só rodava
-  com o peso ZERADO, e o efeito era que um número errado nunca se corrigia: o
-  acumulador só sobe, então qualquer divergência — arquivos apagados por fora,
-  um download contado duas vezes, as imagens que nunca entraram — ficava gravada
-  em `state` para sempre e reaparecia a cada abertura. Agora `conferirPesoSeFaltar`
-  reconta uma vez por sessão e por álbum, tenha ele peso ou não.
-- **o fim de uma sincronização reconcilia** (`updateCollBytes` no `finally` de
-  `syncCollection`). Durante o lote o número sobe por acumulação, que é o certo
-  para dar movimento na tela mas erra em toda borda — uma faixa que falhou no
-  meio, um download repetido que sobrescreveu o arquivo, um cancelamento. O fim
-  do lote é o único momento em que não há IO concorrente e a troca não custa
-  nada.
-- **as imagens passaram a somar na hora** (`downloadCollectionImage`), e não só
-  na reconferência seguinte.
+- **`conferirPesoSeFaltar` reconta uma vez por sessão e por álbum, tenha ele peso
+  ou não.** Rodando só com o peso ZERADO, um número errado nunca se corrigia: o
+  acumulador só sobe, então qualquer divergência ficava gravada em `state` para
+  sempre. (O `Set` que ele usa impede o `refreshCollectionsIfVisible` de dentro
+  da recontagem de virar laço.)
+- **O fim de uma sincronização reconcilia** (`updateCollBytes` no `finally` de
+  `syncCollection`): durante o lote o número sobe por acumulação, que dá
+  movimento na tela e erra em toda borda (uma faixa que falhou, um download
+  repetido, um cancelamento). O fim do lote é o único momento sem IO concorrente.
 
 **E o re-render é coalescido** (`refreshCollectionsIfVisible` agenda,
-`renderCollectionsNow` executa; `COLL_REFRESH_MS` = 400 ms). O progresso chama
-isso uma vez por música: sincronizar o Hinário 2022 reconstruía a lista inteira
+`renderCollectionsNow` executa; `COLL_REFRESH_MS` = 400 ms): o progresso chama
+isso uma vez por música, e sincronizar o Hinário 2022 reconstruía a lista inteira
 613 vezes. A resposta ao TOQUE continua imediata — `syncCollection` chama
-`renderCollectionsNow()` direto ao ligar o `syncBusy`; só o progresso, que é
-informativo, espera a janela.
+`renderCollectionsNow()` direto ao ligar o `syncBusy`; só o progresso espera a
+janela.
 
 Sincronização é **aditiva e resumível**: interromper e sincronizar de novo só
-baixa o que falta (`fileGet` reconfirma que o arquivo catalogado ainda existe
-de fato antes de pular — cobre até exclusões manuais feitas por dentro da
-pasta via seleção múltipla).
+baixa o que falta (`fileGet` reconfirma que o arquivo catalogado ainda existe de
+fato antes de pular — cobre exclusões manuais feitas por dentro da pasta).
 
-**`syncCollection` devolve `{ ok, baixados, falhou }`.** Ela já devolveu
-`undefined` em todos os caminhos, e por isso uma queda de rede era **invisível
-para o chamador** — o `syncGroup` varria dezenas de álbuns em segundos sem
-baixar nada e ainda anunciava sucesso. Convenção: `ok:false` é "não deu para
-baixar" (rede, armazenamento, erro); **cancelar ou já estar completo é
-`ok:true`**, porque nos dois casos o sistema fez o que devia.
-
-Na mesma linha, `downloadCollectionSong` devolve `false` quando nem os
-metadados vieram, e o worker separa `done` (tentativas — é ele que move a
-barra) de `falhou`. Sem essa separação, uma queda de rede fazia o rodapé
-anunciar "Atualizado (60 baixado(s))" com **zero bytes no disco**: a falha era
-engolida e o worker contava a música como baixada. Hoje o status final diz
-"Atualizado (N baixado(s)) · M sem rede".
+**`syncCollection` devolve `{ ok, baixados, falhou }`.** Devolvendo `undefined`,
+uma queda de rede era **invisível para o chamador** — o `syncGroup` varria dezenas
+de álbuns em segundos sem baixar nada e ainda anunciava sucesso. Convenção:
+`ok: false` é "não deu para baixar" (rede, armazenamento, erro); **cancelar ou já
+estar completo é `ok: true`**, porque nos dois casos o sistema fez o que devia.
+Na mesma linha, `downloadCollectionSong` devolve `false` quando nem os metadados
+vieram, e o worker separa `done` (tentativas — é ele que move a barra) de
+`falhou`: sem isso o rodapé anunciava "Atualizado (60 baixado(s))" com ZERO bytes
+no disco.
 
 **A ordem entre `bgTaskEnd` e `withBgWork` importa**, e é a mesma nos quatro
 fluxos de massa (`syncCollection`, `syncGroup`, `ensureBibleVersionDownloaded`,
 `syncLyrics`): o `bgTaskEnd` fica **dentro** do `withBgWork`. Um `finally`
-externo roda *depois* do `finally` do `withBgWork`, e é este último que solta o
-serviço em primeiro plano e **limpa o registro de tarefas** — encerrar a tarefa
-depois disso chegava sempre tarde demais, sem efeito nenhum. Encerrar a tarefa
-primeiro e só então soltar o serviço é a ordem correta.
-
+externo roda DEPOIS do `finally` do `withBgWork`, e é este que solta o serviço em
+primeiro plano e limpa o registro de tarefas — encerrar a tarefa depois disso
+chega sempre tarde demais, sem efeito nenhum.
 #### Classificação: categoria → álbum (a hierarquia do banco)
 
 O acervo do LouvorJA tem **dois níveis, e só isso: categoria → álbum →
