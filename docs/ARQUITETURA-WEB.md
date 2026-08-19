@@ -507,8 +507,7 @@ O campo `kind` é derivado do `type` (ou definido pelo chamador para itens de UR
 | `lyricsBg` | `'black'` (padrão) \| `'image'` — fundo atrás da letra sincronizada: preto ou as imagens dos slides |
 | `wallpaper` | `Blob` da imagem escolhida para a cortina do telão, ou ausente/`null` = gradiente padrão (ver "Wallpaper personalizado") |
 | `favs` | array de IDs — **os FAVORITOS** (v5.103): a marcação de um toque, sem grupo nenhum. É uma das `LISTS` de `db.js`, e é isso que a torna um detentor de referência de verdade (favoritar segura o blob; desfavoritar deixa o gc decidir) |
-| `folders` | `[{ id, name }]` — **pastas**: a organização OPCIONAL dentro dos Favoritos (as antigas "pastas virtuais"; até a v5.111 a UI as chamava de "atalhos") |
-| `folder_<id>` | array de IDs de mídia da pasta. **É um detentor de referência**, como as listas — ver o gc abaixo. Escrito só por `listAdd`/`listRemove`/`folderDrop`, nunca por `setState` cru (ver "O furo do gc") |
+| `folders` / `folder_<id>` | **LEGADO** (as pastas virtuais saíram na v5.254). `folder_<id>` era um detentor de referência como as listas, escrito só por `listAdd`/`listRemove`/`folderDrop` — a regra fica porque `isReferenced` ainda varre essas chaves, e é ela que vale para QUALQUER chave de `state` que passe a guardar ids de mídia |
 | `downloadOk` | `true` depois que o operador autorizou o download sob demanda uma vez (modo simplificado — `ensureDownloadConsent`) |
 | `messages` | `[{ id, text }]` — mensagens de texto puro da aba Mensagens (ver "Camada de Texto") |
 | `opfs-folders` | `[{ id, name, count, syncedAt, handle? }]` — pastas sincronizadas no OPFS (`handle` acelera re-sync) |
@@ -3395,142 +3394,74 @@ usa `listRemove` (com gc).
 
 ### Favoritos: uma lista só (marcados + pastas do aparelho)
 
-> **AS PASTAS VIRTUAIS SAÍRAM (v5.254).** Pedido do operador: *"não vamos mais
-> usar o sistema de atalhos de pastas no app, apenas a versão de pastas
-> sincronizadas dentro do armazenamento do aparelho. Todos os salvos nos
-> favoritos vão diretamente para a lista geral com todos os arquivos juntos por
-> ordem de chegada, mas com a opção de mover eles de lugar; vamos remover as
-> subdivisões por tipo, manter uma lista única."*
->
-> Com elas foram embora `folders`/`folder_<id>`, o seletor de pasta
-> (`#folderPopup`), o botão de pasta da seleção múltipla (`#selFolder`), o
-> `renderVirtualFolders`, o `addToFolder` e a folha de duas origens da v5.239 —
-> a pergunta ficou com uma resposta só, e a ação da barra da seção passou a
-> FAZER a coisa (trazer uma pasta do aparelho) em vez de abrir uma folha para
-> não escolher nada.
->
-> **O conteúdo delas não se perdeu:** `migrarPastasParaFavoritos` sobe cada
-> item para `favs` e só então derruba o atalho. A ordem das duas metades é a
-> garantia — `folderDrop` apaga a mídia que ficou sem detentor, e depois do
-> `listAdd` ela tem um. Sem isso, um item cujo único dono era um atalho sumiria
-> do app e do disco, calado.
->
-> **E a organização deixou de ser hierarquia: virou ORDEM.** Cada linha ganhou o
-> mesmo mecanismo de reordenar do Cronograma — a alça de arrastar até a v5.284, o
-> par ↑↓ da gaveta desde a v5.285 —, e a lista é a `favs`, que é ordem de chegada
-> até alguém mexer nela.
->
-> **E AS PASTAS SINCRONIZADAS FORAM PARA O TOPO (v5.285.)** Elas ficavam no fim
-> desde este lote, com o argumento de que "são a origem bruta, e o que a estrela
-> promete são os itens" — verdadeiro, e não é o que decide a ordem: uma pasta é
-> um punhado de arquivos atrás de UMA linha, e a lista de favoritos cresce por
-> baixo dela. No fim, cada favorito novo empurrava as pastas para longe; no topo
-> elas têm endereço fixo. (Elas continuam FORA da placa dos itens — ver a nota
-> da v5.284 —, e é isso que lhes dá a cor de álbum.)
->
-> **E DESDE A v5.287 O TOQUE NA LINHA NÃO PROJETA MAIS: ele abre a gaveta da
-> Biblioteca.** Dois pedidos do operador que são o mesmo movimento — *"verifique
-> a sobreposição das opções dos itens na lista de favoritos, pois estão
-> novamente abrindo a sua gaveta de opções sobre o título de cada item"* e
-> *"trate a lista de favoritos com o mesmo sistema de opções de play que temos
-> no resto da biblioteca, ao invés de tratar ela como toque direto no player"*.
->
-> **O segundo RESOLVE o primeiro.** O `⋮` e a faixa `.row-acoes` que ele abre
-> existem para caber numa linha que responde ao toque com OUTRA coisa (no
-> Cronograma, projetar): sem lugar embaixo, a gaveta só tinha para onde ir por
-> CIMA do título. Com o corpo da linha livre, ela desce para onde desce em toda
-> a Biblioteca — e a sobreposição deixa de existir por construção, não por um
-> reposicionamento.
->
-> **Esta lista mora DENTRO da Biblioteca desde a v5.237**, e é isso que decide o
-> lado da regra em que ela cai: a Biblioteca é a tela em que se PREPARA (o toque
-> abre opções) e o Cronograma é a lista com que se OPERA (o toque projeta). O
-> `⋮` continua inteiro lá e na fila da playlist.
->
-> `renderItemMenu` é a MESMA maquinaria de destinos (`songMenuItem` com
-> `destino`, `destExecutor`, `destRemontar`, `destConfirmRow`) apontada para a
-> `<ul>` do corpo da linha. O que ela não tem:
->
-> - **seletor de variante** — o registro já existe, não há cantada × playback a
->   escolher;
-> - **"Favoritar"** — o item É um favorito, e quem o tira de lá é a estrela.
->
-> As ações da linha (↑↓, excluir) descem para uma faixa no PÉ da gaveta, com os
-> mesmos botões e os mesmos ouvintes de antes.
->
-> **E A ESTRELA SAIU DELA NA v5.288** — pedido do operador: *"remova ou a opção
-> de excluir ou a opção de desfavoritar, pois tecnicamente ambas fazem a mesma
-> coisa"*. Nesta lista fazem: as duas terminam num `listRemove('favs', id)`.
-> Fica a LIXEIRA, e isto REVOGA a frase da v5.287 que dizia "quem o tira de lá é
-> a estrela". Três razões: **(1)** aqui a estrela é um alternador de UMA
-> direção — todo item já é favorito, ela nasce sempre acesa, e o único toque
-> possível é o que apaga (um botão de excluir vestido de alternador, que nunca
-> chega a dizer "favoritar"); **(2)** a lixeira PERGUNTA, e a linha some de uma
-> lista curada à mão; **(3)** ela solta a prateleira invisível
-> (`soltarAvulso`) — a diferença entre "a linha sumiu" e "os bytes saíram".
-> Nas outras listas a estrela fica, e ali ela alterna de verdade. **O Parar na capa
-> continua sendo um toque direto**: tirar do ar é a decisão que não pode custar
-> uma gaveta. E o **preço está dito**: projetar um favorito passou de um toque a
-> três (abrir, marcar, confirmar) — em troca, as três listas passam a estar a um
-> toque do mesmo lugar, e mandar um favorito à playlist não tinha caminho nenhum
-> nesta tela.
->
-> As regras da gaveta deixaram de ser keyadas em `.hymn-result` e passaram a ser
-> em `.lib-item`: o mesmo envelope serve as duas listas, e uma segunda anatomia
-> divergiria da primeira no próximo ajuste. Com ela saiu a opção `semSelecao` do
-> `attachRowGestures`, que ficou sem chamador.
->
-> **E a listagem ficou densa** (`#favList` em controle.css). Ela herdava a
-> métrica da lista do Cronograma, e as duas não fazem a mesma coisa: no
-> Cronograma cada linha é um item que vai ao ar — ela é ALVO de toque no meio de
-> um culto, e o espaço em volta é o que evita o toque errado. A gaveta é o
-> oposto: o operador vem PROCURAR. Encolheu a MOLDURA (miniatura 40→32px,
-> respiro, espaço entre linhas), nunca o TEXTO nem os ALVOS — os botões da linha
-> seguem em `--hit` (34px). É esse piso que limita o resto: com 34px de botão
-> mais os 2px de borda de cada lado (a moldura do item selecionado), a gordura
-> que sobrava era só o respiro. Medido: o passo de uma linha cai de ~57px para
-> ~48px.
->
-> **O preço da alça, medido e dito:** ela é o terceiro botão da linha, e o nome
-> perdeu os 34px dela mais o respiro — de **194px para 152px** numa lista de
-> 368px. Em troca, o SUBTÍTULO voltou a aparecer (ele era escondido por CSS
-> porque o cabeçalho de tipo já dizia o que ele diz), e é ele que agora
-> distingue um vídeo de um versículo.
+É o caminho curto para o que o operador usa toda semana, e desde a v5.237 são a
+**primeira SEÇÃO da Biblioteca** — a gaveta de tela cheia (`#favPopup`) que os
+hospedava saiu por inteiro na v5.294, e com ela a BUSCA dentro de uma pasta
+(sem substituto: a barra da Biblioteca varre `allCollections()`, que não alcança
+o catálogo de pastas) e a SELEÇÃO MÚLTIPLA lá dentro, que era onde morava o
+excluir de ARQUIVO FÍSICO por item. Esta última é menos perda do que parece: um
+arquivo apagado de uma pasta sincronizada volta na varredura seguinte, e quem
+apaga de verdade é o "Excluir pasta e arquivos sincronizados" da própria linha.
 
-É o caminho curto para o que o operador usa toda semana. Desde a v5.53 ela era
-uma **gaveta que desce do topo** (`#favPopup`) — e desde a v5.237 os favoritos
-são a primeira SEÇÃO da Biblioteca, o que reduziu a gaveta à tela de DENTRO de
-uma pasta do aparelho.
+**Não existem pastas VIRTUAIS.** O que havia (`folders`/`folder_<id>`, o seletor
+`#folderPopup`, o `#selFolder` da seleção múltipla, `renderVirtualFolders`,
+`addToFolder`) saiu, e o conteúdo delas não se perdeu:
+`migrarPastasParaFavoritos` sobe cada item para `favs` e **só então** derruba o
+atalho. A ordem das duas metades é a garantia inteira — `folderDrop` apaga a
+mídia que ficou sem detentor, e depois do `listAdd` ela tem um; invertida, um
+item cujo único dono era um atalho sumiria do app **e do disco**, calado.
 
-> **⚠️ E NA v5.290 ELA FICOU SEM PORTA.** Pedido do operador: *"que ele abra a
-> lista de arquivos das pastas de forma visual sem ser um popup, para que abra a
-> lista assim como abrem os álbuns com seus itens"*. Uma pasta é um CONTÊINER de
-> arquivos, exatamente como um álbum é um contêiner de faixas, e o app já sabia
-> desenhar isso — o mesmo acordeão, no mesmo lugar, com as mesmas linhas de item
-> (ver "A pasta abre inline", abaixo). `openOpfsFolder` era o único caminho para
-> a gaveta, então ninguém mais chama `openFavorites`.
->
-> O subsistema continua no arquivo, inteiro e inerte, com a lápide em
-> `openFavorites`: removê-lo alcança ~28 ramos de `activeTab === 'folders'`
-> espalhados por `load`, `renderListTitle`, `renderLibrary`, `deleteSelected`,
-> `switchTab`, `hostSelbar`, `listHost`, o carrossel e a pilha do voltar — uma
-> faxina que merece a própria passada de verificação. O `activeTab` nunca mais
-> vale `'folders'` (o carrossel já o pulava), então os ramos são inertes.
->
-> **O que a gaveta levava junto, dito em vez de escondido:** a BUSCA dentro de
-> uma pasta (`folderQuery`/`#libSearch`), que não tem substituto — a barra da
-> Biblioteca varre `allCollections()` e não alcança o catálogo de pastas —, e a
-> SELEÇÃO MÚLTIPLA dentro de uma pasta, que era onde morava o excluir de ARQUIVO
-> FÍSICO por item (menos perda do que parece: um arquivo apagado de uma pasta
-> sincronizada volta na sincronização seguinte, e quem apaga de verdade é o
-> "Excluir pasta e arquivos sincronizados" da própria linha).
+**A organização não é hierarquia, é ORDEM:** a lista é a `favs` (ordem de
+chegada até alguém mexer nela), com o mesmo par ↑↓ do Cronograma. **As pastas
+sincronizadas ficam no TOPO** — a lista de favoritos cresce por baixo delas, e no
+fim cada favorito novo as empurraria para longe.
 
-#### A pasta abre INLINE, como um álbum (v5.290)
+**O TOQUE NA LINHA NÃO PROJETA: ele abre a gaveta da Biblioteca.** O `⋮` e a
+faixa `.row-acoes` existem para caber numa linha que responde ao toque com OUTRA
+coisa (no Cronograma, projetar): sem lugar embaixo, a gaveta só tinha para onde
+ir por CIMA do título. Com o corpo da linha livre ela desce para onde desce em
+toda a Biblioteca, e a sobreposição deixa de existir por construção.
+
+Esta lista mora DENTRO da Biblioteca, e é isso que decide o lado da regra: a
+Biblioteca é a tela em que se PREPARA (o toque abre opções) e o Cronograma é a
+lista com que se OPERA (o toque projeta). O `⋮` continua inteiro lá e na fila da
+playlist.
+
+`renderItemMenu` é a MESMA maquinaria de destinos (`songMenuItem` com `destino`,
+`destExecutor`, `destRemontar`, `destConfirmRow`) apontada para a `<ul>` do corpo
+da linha. O que ela não tem: **seletor de variante** (o registro já existe) e
+**"Favoritar"** (o item É um favorito).
+
+**A ESTRELA NÃO ENTRA NA FAIXA DE AÇÕES; fica a LIXEIRA.** Nesta lista as duas
+terminam num `listRemove('favs', id)`, e: (1) aqui a estrela é alternador de UMA
+direção — todo item já é favorito, ela nasce acesa, e o único toque possível é o
+que apaga; (2) a lixeira PERGUNTA, e a linha some de uma lista curada à mão;
+(3) ela solta a prateleira invisível (`soltarAvulso`), que é a diferença entre "a
+linha sumiu" e "os bytes saíram". Nas outras listas a estrela fica, e ali ela
+alterna de verdade.
+
+**O Parar na capa continua sendo um toque direto**: tirar do ar é a decisão que
+não pode custar uma gaveta. E o preço está dito: projetar um favorito passou de
+um toque a três — em troca, as três listas ficam a um toque do mesmo lugar
+(mandar um favorito à playlist não tinha caminho nenhum nesta tela).
+
+As regras da gaveta são keyadas em `.lib-item`, não em `.hymn-result`: o mesmo
+envelope serve as duas listas, e uma segunda anatomia divergiria no próximo
+ajuste.
+
+**A listagem é densa** (`#favList`): ela NÃO herda a métrica do Cronograma, e as
+duas não fazem a mesma coisa — lá cada linha é ALVO de toque no meio de um culto
+e o espaço em volta evita o toque errado; aqui o operador vem PROCURAR. Encolheu
+a MOLDURA (miniatura 40→32px, respiro, espaço entre linhas), nunca o TEXTO nem os
+ALVOS (os botões seguem em `--hit`, 34px, e é esse piso que limita o resto).
+Medido: o passo de uma linha cai de ~57px para ~48px.
+
+#### A pasta abre INLINE, como um álbum
 
 O corpo é montado **uma vez, e só quando a pasta abre**: uma pasta sincronizada
 tem centenas de arquivos, e montá-los para todas elas a cada redesenho da seção
-seria o trabalho de DOM da tela inteira por algo que ninguém está vendo — é a
-mesma decisão do corpo de um grupo da Biblioteca (v5.237).
+seria o trabalho de DOM da tela inteira por algo que ninguém está vendo — a mesma
+decisão do corpo de um grupo da Biblioteca.
 
 **Uma anatomia só para as duas listas.** `favItemRow` virou `linhaDeItem`, e o
 que muda entre um favorito e um arquivo de pasta viaja em `opts`:
@@ -3540,51 +3471,43 @@ que muda entre um favorito e um arquivo de pasta viaja em `opts`:
 | `lista` | `'favs'` — a faixa de ações tem ↑↓ e excluir | **nenhuma** — a ordem vem do disco, e apagar aqui seria apagar o ARQUIVO |
 | `destinos` | playlist · Cronograma | playlist · Cronograma · **Favoritar** |
 
-A segunda linha é a régua de sempre: numa lista de favoritos "Favoritar" não
-muda nada, e numa pasta ela é justamente o caminho de promover o arquivo. Uma
-escolha que não faz nada é pior que escolha nenhuma — daí ser parâmetro, e não
-um `if` dentro do menu.
+A segunda linha é a régua de sempre: numa lista de favoritos "Favoritar" não muda
+nada, e numa pasta ela é o caminho de promover o arquivo. Uma escolha que não faz
+nada é pior que escolha nenhuma — daí ser parâmetro, e não um `if` dentro do
+menu.
 
-**`pastaAberta` é um NOME e não um conjunto**, pela mesma razão do `grupoAberto`
-(v5.273): "duas pastas abertas" deixa de ser uma regra que alguém precisa
-lembrar e passa a ser uma frase que não dá para escrever. Ele nasce no topo do
-arquivo, porque é lido por um caminho de render — a zona morta temporal que já
-derrubou o app quatro vezes. E ele existe porque favoritar um arquivo de dentro
-da pasta redesenha a seção: sem essa memória, cada ação fecharia a pasta.
+**`pastaAberta` é um NOME e não um conjunto**, pela razão do `grupoAberto`: "duas
+pastas abertas" deixa de ser uma regra que alguém precisa lembrar e passa a ser
+uma frase que não dá para escrever. Ele nasce no topo do arquivo, porque é lido
+por um caminho de render — a zona morta temporal que já derrubou o app quatro
+vezes — e existe porque favoritar um arquivo de dentro da pasta redesenha a
+seção: sem essa memória, cada ação fecharia a pasta.
 
 Os arquivos saem ordenados por **nome**: a ordem do disco é a de gravação, e não
 diz nada a quem está montando um culto.
 
-##### A seção não pode ficar para trás do banco (v5.292)
-
-Relato do operador: excluir uma pasta (e os itens que ela leva junto) não tirava
-nada da tela — a linha só sumia fechando e reabrindo a Biblioteca.
+##### A seção não pode ficar para trás do banco
 
 `deleteOpfsFolder`, `syncDeviceFolder` e a limpeza de catálogo terminam em
 `load()`, que é o funil onde `favItems`, `favSet` e `opfsFolders` são reaplicados
-ao estado do módulo. E `load()` redesenhava o Cronograma (`renderLibrary`) e mais
-nada: a seção de Favoritos é desenhada por `renderFolderList` com `favHost`, que
-ele nunca chamava. **É o mesmo defeito que a v5.258 corrigiu para o favoritar,
-numa porta que aquele lote não tinha** — e a v5.290 o tornou visível, porque a
-gaveta de tela cheia (a outra casa da lista) deixou de existir.
+ao estado do módulo — mas `load()` redesenhava o Cronograma (`renderLibrary`) e
+mais nada, e a seção de Favoritos é desenhada por `renderFolderList` com
+`favHost`. Excluir uma pasta a tirava do banco e a deixava na tela.
 
 `sincronizarFavoritosNaBiblioteca()` entra no fim do `load()`, e a guarda é uma
-**assinatura** e não um redesenho incondicional: `load()` roda por dezenas de
-caminhos com a Biblioteca aberta — uma sincronização que termina, o coletor de
-lixo, uma troca de aba por baixo —, e refazer a seção em todos eles fecharia a
+**assinatura**, nunca um redesenho incondicional: `load()` roda por dezenas de
+caminhos com a Biblioteca aberta, e refazer a seção em todos eles fecharia a
 gaveta de opções que o operador acabou de abrir. Ela é reconstruída só quando o
-que ela DESENHA mudou: os ids dos favoritos e os `id:contagem` das pastas.
+que ela DESENHA mudou (os ids dos favoritos e os `id:contagem` das pastas).
 
-Com isso, o redesenho explícito que o `moverNaLista` fazia **saiu**: ele virou o
-SEGUNDO, e `reabrirAcoesEm` é consumido pelo primeiro — o segundo reconstruía a
-linha sem a gaveta aberta, tirando o botão de baixo do dedo, que é exatamente o
-que aquele mecanismo existe para evitar.
+Com isso o redesenho explícito do `moverNaLista` **saiu**: ele virou o SEGUNDO, e
+`reabrirAcoesEm` é consumido pelo primeiro — o segundo reconstruía a linha sem a
+gaveta aberta, tirando o botão de baixo do dedo.
 
-##### O aninhamento cobrou o preço na v5.291
+##### O aninhamento cobra o preço: `>` e nunca descendente
 
-`.folder-opfs` virou o primeiro `.lib-item` deste app que **contém outros
-`.lib-item`**, e todo seletor DESCENDENTE keyado em `.lib-item` vazou para
-dentro. Três relatos do operador, uma causa:
+`.folder-opfs` é o primeiro `.lib-item` deste app que **contém outros
+`.lib-item`**, e todo seletor DESCENDENTE keyado em `.lib-item` vaza para dentro:
 
 | selector | o que ele passou a alcançar |
 |---|---|
@@ -3592,12 +3515,9 @@ dentro. Três relatos do operador, uma causa:
 | `.lib-item:not(.vendo-letra) :is(.hymn-lyrics, .item-detalhe)` | a pasta nunca tem `.vendo-letra`, então ela escondia o detalhe de um arquivo que TEM |
 | `.lib-item:has(.hymn-gaveta :active)` | não alcançava `.folder-itens`, e o `--press` da pasta encolhia com o toque num arquivo |
 
-A primeira linha explica dois relatos de uma vez — *"o posicionamento incorreto
-do design dos itens"* (a faixa preta embaixo de cada arquivo era a gaveta vazia
-dele) e *"não permite fechar as opções de play"* (o segundo toque tirava a
-classe do item **sem esconder nada**, porque quem as mantinha visíveis era a
-pasta). Medido: `display: block, altura 19px` nos arquivos fechados, e
-`classe: false, display: block, altura 293px` depois do segundo toque.
+A primeira linha explica dois sintomas de uma vez: a faixa preta embaixo de cada
+arquivo era a gaveta vazia dele, e o segundo toque tirava a classe do item **sem
+esconder nada**, porque quem as mantinha visíveis era a pasta.
 
 **A regra: a gaveta é do item que a POSSUI, então toda regra dela é `>`.** Um
 seletor descendente responde *"existe algum ancestral assim?"*, e a resposta
@@ -3612,55 +3532,37 @@ como irmão dela em vez de conteúdo. Com o recuo de `.4rem` no corpo ele passa 
 ocupar a coluna do favorito logo abaixo (24 e 24; miniaturas em 32 e 32), que é o
 que o álbum já fazia pelo padding do `.coll-open`.
 
-#### O que a v5.103 corrigiu: era uma PASTA com nome de favorito
+#### A ESTRELA É UM BIT, NÃO UM GRUPO
 
-Até ali, "Favoritos" era o antigo recurso de **pastas virtuais** renomeado — o
-estado prova (as chaves seguem sendo `folders`/`folder_<id>`, e há uma chave
-`favorites` marcada como legado, do recurso que fora removido). Trocou-se o
-rótulo e o ícone; o modelo continuou sendo pasta. Daí saíam, um a um, os três
-incômodos que o operador relatava:
+"Favoritos" já foi um recurso de **pastas virtuais** renomeado — o estado prova
+(as chaves eram `folders`/`folder_<id>`). Trocou-se o rótulo e o ícone; o modelo
+continuou sendo pasta, e daí saíam os três incômodos que o operador relatava:
 
-- **"sempre precisa de uma pasta"** — não existia o ato de *favoritar*. Não
-  havia um bit no item, havia "pertencer a um grupo": com zero pastas criadas,
-  marcar o primeiro favorito custava seleção → estrela → "Nenhuma pasta ainda"
-  → criar → nomear → confirmar. Seis passos para o que devia ser um toque.
-- **"não é um acesso rápido"** — a porta era o botão no **fim da lista do
-  Cronograma**, e só ele: para chegar a uma pasta era preciso rolar o cronograma
-  inteiro; da Bíblia, do acervo ou das Ferramentas não havia caminho nenhum; e
-  no modo simplificado a gaveta não existia.
+- **"sempre precisa de uma pasta"** — não existia o ato de *favoritar*. Com zero
+  pastas criadas, marcar o primeiro favorito custava seleção → estrela →
+  "Nenhuma pasta ainda" → criar → nomear → confirmar. Seis passos para um toque.
+- **"não é um acesso rápido"** — a porta era o botão no FIM da lista do
+  Cronograma, e só ele.
 - **"não abrange tudo"** — `folder_<id>` é um array de ids de MÍDIA, então
   versículo, mensagem, cronômetro e sorteio não podiam ser favoritados.
 
 As três respostas: a lista plana **`favs`** (uma das `LISTS`, portanto detentora
-de referência de verdade), a **estrela em toda linha** e no cabeçalho fixo, e as
-**cenas de roteiro** (`kind: 'cue'`), que deram identidade de item ao que antes
-era só uma tela. As pastas viraram **organização opcional**, não pré-requisito
-— e na v5.254 saíram por inteiro, a pedido do operador: o que organiza a lista
-hoje é a ORDEM que ele dá a ela.
+de referência de verdade), a **estrela em toda linha** e as **cenas de roteiro**
+(`kind: 'cue'`), que deram identidade de item ao que antes era só uma tela.
 
-Detalhes que caem de A, e que valem lembrar ao mexer aqui:
-
-- **A estrela é PREENCHIDA quando marcada e contornada quando não** (v5.104), a
-  convenção universal de favorito. Por isso ela é **SVG e não glifo**: a fonte é
-  um subset ESTÁTICO da família *Outlined* (sem o eixo `FILL` da variável), e o
-  glifo `star` desenha sempre a mesma estrela vazada — cor sozinha deixava a
-  dúvida de "dourada quer dizer marcado ou quer dizer que dá para marcar?". A
-  desmarcada é `--line`, e não `--muted`: discreta o bastante para o olho passar
-  batido pela lista inteira, forte o bastante para ser encontrada.
-- **Estrela = favorito; pasta = grupo.** As pastas virtuais usavam estrela
-  desde a v5.53 (quando "Favoritos" era só o nome novo delas). Com a estrela
-  virando o marcador de cada linha, o mesmo símbolo passaria a dizer duas
-  coisas na mesma gaveta — então elas, o seletor de pasta e o botão da seleção
-  múltipla adotaram o glifo de pasta. Os três saíram na v5.254; a estrela ficou
-  sendo o único símbolo de favorito, que era o ponto.
-- **A porta é o cabeçalho FIXO, com rótulo** (v5.104). O botão do fim do
-  Cronograma saiu: ele era a única porta, e uma porta no fim de uma lista
-  rolável não é acesso rápido — com trinta itens era preciso rolar tudo. O
-  espaço do rótulo saiu da troca de modo, que virou "Modo Fácil" (era "Modo
-  simplificado", o texto mais longo da faixa).
-- **Favoritar uma música do acervo continua BAIXANDO o arquivo.** É deliberado:
-  o que se espera de um favorito num domingo de manhã é que ele TOQUE, inclusive
-  com a rede da igreja fora do ar. O que mudou é o destino (a lista `favs`,
+- **A estrela é PREENCHIDA quando marcada e contornada quando não**, a convenção
+  universal de favorito. Por isso ela é **SVG e não glifo**: a fonte é um subset
+  ESTÁTICO da família *Outlined* (sem o eixo `FILL` da variável), e o glifo
+  `star` desenha sempre a mesma estrela vazada — cor sozinha deixa a dúvida entre
+  "marcado" e "dá para marcar". A desmarcada é `--line`, não `--muted`: discreta
+  o bastante para o olho passar batido pela lista, forte o bastante para ser
+  achada quando se procura por ela.
+- **Estrela = favorito, sempre.** Enquanto as pastas virtuais existiam elas
+  também usavam estrela, e o mesmo símbolo dizia duas coisas na mesma tela.
+- **Favoritar uma música do acervo continua BAIXANDO o arquivo**, e é
+  deliberado: o que se espera de um favorito num domingo de manhã é que ele
+  TOQUE, inclusive com a rede da igreja fora do ar. O que mudou é o destino (a
+  lista `favs`, direto), não o custo.
   direto), não o custo.
 - **Fechar a gaveta devolve à aba de onde ela foi aberta** (`favVoltarPara`).
   Com a porta no cabeçalho fixo, ela é aberta de qualquer lugar — quem a abriu
@@ -3705,69 +3607,52 @@ Três consequências que só aparecem em uso, e as três estão tratadas:
 O mecanismo por baixo continua usando as MESMAS chaves de state (renomear a
 leitura não pode custar a biblioteca de ninguém) — o que mudou é o
 enquadramento: não é "onde os arquivos moram", é "o que eu marquei".
+A lista tem **duas** naturezas, sem cabeçalho entre elas — é uma lista só:
 
-A lista tem **duas** naturezas, e desde a v5.254 nenhum cabeçalho entre elas —
-é uma lista só:
+1. **As pastas do aparelho**, no TOPO, com o botão de re-sync e o de excluir.
+   Sem cabeçalho porque não são uma subdivisão da lista: são outra coisa, e o
+   desenho já diz isso (ícone de pasta, contador, sincronizar e excluir na mesma
+   linha).
+2. **Os itens marcados** (`linhaDeItem`), na ordem da lista `favs`. O toque no
+   corpo abre a gaveta de opções; as ações da linha (↑↓, excluir) moram na faixa
+   no pé dela.
 
-1. **Os itens marcados** (`favItemRow`), na ordem da lista `favs`, que é a
-   ordem de chegada até o operador arrastá-los. Cada linha faz as três coisas
-   que se quer de um favorito: **tocar/projetar** (o mesmo `onTap` da
-   biblioteca), **desmarcar** (a estrela) e **mandar ao Cronograma** (o `+`) —
-   mais a quarta, que a v5.254 acrescentou: **mover de lugar** (a alça). As
-   três últimas moram **dentro do `⋮`** desde a v5.258 (ver "Os botões da linha
-   viram um só", abaixo); o toque no corpo continua sendo o que projeta.
-   O agrupamento por TIPO (`FAV_GRUPOS`, v5.104: Músicas · Vídeos · YouTube ·
-   Imagens · Apresentações · Versículos · Letras · Mensagens · Tempo · Sorteios
-   · Pacotes · Outros) saiu com ela, e o argumento dele caiu por si: ele supunha
-   que a primeira coisa que o operador sabe sobre o que procura é a CATEGORIA
-   ("era um vídeo"), e com o item onde ele mesmo o pôs a primeira coisa que ele
-   sabe é o LUGAR. Doze cabeçalhos ainda custavam altura — num acervo variado
-   eles empurravam metade dos favoritos para fora da primeira tela.
-2. **As pastas do aparelho** — as sincronizadas no OPFS, no fim da lista, com o
-   botão de re-sync e o de excluir (detalhes abaixo). Sem cabeçalho porque não
-   são uma subdivisão da lista: são outra coisa, e o desenho já diz isso (ícone
-   de pasta, contador, sincronizar e excluir na mesma linha). Elas não entram no
-   arrasto — a linha leva `data-fixa`, que é o que o `measureDrag` lê para não
-   contá-las como posição.
+   (O agrupamento por TIPO que existia aqui — Músicas · Vídeos · YouTube ·
+   Imagens · Apresentações · Versículos · Letras · Mensagens · Tempo · Sorteios ·
+   Pacotes · Outros — supunha que a primeira coisa que o operador sabe sobre o
+   que procura é a CATEGORIA; com o item onde ele mesmo o pôs, a primeira coisa
+   que ele sabe é o LUGAR. Doze cabeçalhos ainda custavam altura.)
 
-- **Pastas sincronizadas (OPFS)** — o fluxo principal para bibliotecas grandes.
-  `window.showDirectoryPicker()` pede permissão **uma única vez**, na
-  sincronização: os arquivos de mídia são **copiados em streaming para o OPFS**
-  (`folders/<folderId>/<arquivo>`) e catalogados no store `files` (metadados +
-  thumbnail gerada na hora). Depois disso, abrir o app, listar, buscar e
-  reproduzir **nunca pede permissão** — o catálogo responde na hora e o stage
-  resolve os bytes do OPFS sob demanda.
-  - **Re-sync** (botão na linha da pasta): tenta reutilizar o handle salvo em
-    `opfs-folders` (browsers que persistem permissão nem mostram prompt) e cai
-    no picker se necessário. Arquivos com mesmo nome+tamanho+data são pulados;
-    novos/alterados são copiados. A sincronização é **aditiva** — nada é
-    excluído automaticamente. Sem indicador flutuante de progresso (o toast foi
-    removido — ver "Feedback / sem alerta flutuante" abaixo); ao terminar, a
-    contagem da linha da pasta é re-renderizada com o total atualizado.
-  - `navigator.storage.persist()` é solicitado na sincronização para proteger
-    os arquivos contra descarte do browser; o rodapé da aba mostra o uso via
-    `navigator.storage.estimate()`.
-  - Itens da pasta têm botão ➕ que adiciona o **id do catálogo** ao Cronograma
-    (zero-cópia — `getMedia` resolve pelo fallback). Desde a v5.103 esse botão
-    vale para **qualquer** item da gaveta, não só os de pasta do dispositivo:
-    de dentro de uma pasta (ou dos favoritos) não havia como mandar nada para a
-    lista do culto, que é justamente o que um favorito existe para fazer.
-    Seleção múltipla permite renomear e excluir (exclui do OPFS + catálogo +
-    remove das listas, `favs` incluída).
-  - Excluir a pasta (com `appConfirm`, o diálogo do app — não há mais nenhum
-    `confirm()` nativo na base) apaga o diretório OPFS inteiro, os registros do
-    catálogo e as referências em listas.
-- **Atalhos (pastas virtuais)** — criados pelo usuário (state `folders` +
-  `folder_<id>`); recebem itens pelo botão "Adicionar a uma pasta" da seleção
-  múltipla (funciona também com IDs do catálogo OPFS) e nascem vazios pelo
-  botão "Nova pasta". Excluir a pasta não exclui mídia que tenha outro dono —
-  e o que ficar sem dono nenhum é coletado na mesma transação (`folderDrop`;
-  ver "O furo do gc").
-- **Favoritos (`favs`)** — a lista plana, marcada pela estrela de cada linha ou
-  pela estrela da seleção múltipla (`#selFav`). É onde as CENAS DE ROTEIRO
-  também podem morar: um versículo, um preset de cronômetro ou um sorteio
-  guardado é um id como qualquer outro.
+**Pastas sincronizadas (OPFS)** — o fluxo principal para bibliotecas grandes.
+`window.showDirectoryPicker()` pede permissão **uma única vez**, na
+sincronização: os arquivos de mídia são **copiados em streaming para o OPFS**
+(`folders/<folderId>/<arquivo>`) e catalogados no store `files` (metadados +
+thumbnail gerada na hora). Depois disso, abrir o app, listar, buscar e reproduzir
+**nunca pede permissão** — o catálogo responde na hora e o stage resolve os bytes
+do OPFS sob demanda.
 
+- **Re-sync**: tenta reutilizar o handle salvo em `opfs-folders` (browsers que
+  persistem permissão nem mostram prompt) e cai no picker se necessário.
+  Arquivos com mesmo nome+tamanho+data são pulados; novos/alterados são
+  copiados. **Aditiva** — nada é excluído automaticamente.
+- **A pasta é gravada ANTES do primeiro arquivo**, com ponto de controle a cada
+  25. Gravando o índice só no fim, uma sincronização interrompida deixava 300
+  arquivos escritos e NENHUMA pasta que os apontasse: órfãos, invisíveis na
+  tela, ocupando gigabytes — e o coletor de lixo, que existe para recolher
+  registro sem dono, os apagava. A retomada (o laço pula o que está em dia por
+  tamanho + data) sempre existiu; o que faltava era ela ter o que retomar.
+- `navigator.storage.persist()` é solicitado na sincronização, para proteger os
+  arquivos contra descarte do browser.
+- Itens da pasta têm o `+` que adiciona o **id do catálogo** ao Cronograma
+  (zero-cópia — `getMedia` resolve pelo fallback).
+- Excluir a pasta (com `appConfirm`, o diálogo do app — não há mais nenhum
+  `confirm()` nativo na base) apaga o diretório OPFS inteiro, os registros do
+  catálogo e as referências em listas.
+
+**Favoritos (`favs`)** — a lista plana, marcada pela estrela de cada linha ou
+pela estrela da seleção múltipla (`#selFav`). É onde as CENAS DE ROTEIRO também
+podem morar: um versículo, um preset de cronômetro ou um sorteio guardado é um id
+como qualquer outro.
 ### Coleções de mídia (LouvorJA)
 
 Integração com o catálogo público do app **LouvorJA** (`api.louvorja.com.br`,
