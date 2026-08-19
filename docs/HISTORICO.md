@@ -24,7 +24,8 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
-- **v5.306** — O CONFIRMAR DOS FAVORITOS PASSA PARA A DIREITA, e o lado do irmão vira decisão de quem o fornece. OTA PURO
+- **v5.307** — O CONFIRMAR DOS FAVORITOS PASSA PARA A DIREITA, e o lado do irmão vira decisão de quem o fornece. OTA PURO
+- **v5.306** — DOIS DESFECHOS PARA A FILA SORTEADA, e a conta passa a falar de MÚSICA em vez de varredura. OTA PURO
 - **v5.305** — O BOTÃO DA PLAYLIST ABRE A BARRA, e o ícone dele estava a 2,06:1 sobre o campo branco. OTA PURO
 - **v5.304** — O BOTÃO DA PLAYLIST AUTOMÁTICA ESTAVA INVISÍVEL — o glifo não existe no subset da fonte, e agora isso tem oráculo. OTA PURO
 - **v5.303** — A PLAYLIST AUTOMÁTICA: sortear por tema, uma só ou uma fila — e a regra é um arquivo PURO com dois oráculos. OTA PURO
@@ -178,9 +179,9 @@ na nota que a revoga, não apagada da que a criou.
 
 ---
 
-## v5.306
+## v5.307
 
-**A v5.306: O CONFIRMAR DOS FAVORITOS PASSA PARA A DIREITA, e o lado do irmão
+**A v5.307: O CONFIRMAR DOS FAVORITOS PASSA PARA A DIREITA, e o lado do irmão
 vira decisão de quem o fornece. OTA PURO** (base web, oráculo e docs; sem
 Release, `SHELL_VERSION` continua **44**).
 
@@ -208,6 +209,69 @@ linha inteira, então de que lado ela estava é indiferente.
 contrário — **e** que a ordem do DOM concorda com a da tela. É essa segunda
 metade que faz a regra durar: sem ela, a próxima inversão pode voltar por um
 `order` e passar.
+
+---
+
+## v5.306
+
+**A v5.306: DOIS DESFECHOS PARA A FILA SORTEADA, e a conta passa a falar de
+MÚSICA em vez de varredura. OTA PURO** (base web, oráculos e docs; sem Release,
+`SHELL_VERSION` continua **44**).
+
+Pedido do operador: *"no sistema de montar a playlist, coloque dois botões, um
+de tocar agora e outro para adicionar ao cronograma. e dê uma aprimorada na
+forma que descreve os resultados. algo como: x músicas relacionadas, x delas já
+estão baixadas… mais funcional e menos técnico"*.
+
+**OS DOIS BOTÕES NÃO SÃO DUAS VERSÕES DA MESMA AÇÃO.** Um TOCA (substitui a fila
+do player e projeta a primeira) e o outro GUARDA (acrescenta ao Cronograma, sem
+tocar em nada do que está no ar). Montar o louvor da semana numa terça e
+projetar no domingo são dois momentos, e antes só o primeiro tinha porta.
+
+- **Sorteando UMA SÓ o botão continua sendo um.** "Sorteie uma e guarde" é o
+  caminho que a Biblioteca já dá pela gaveta da linha, com a música escolhida à
+  vista — aqui seria um destino a mais para uma decisão que o operador toma
+  justamente por não querer decidir.
+- **Guardar NÃO fecha a folha**, ao contrário de tocar: é o princípio das listas
+  de destino do acervo (uma ação que guarda não encerra a conversa), e o segundo
+  sorteio é o uso normal — acrescenta cinco, olha a lista, acrescenta mais cinco.
+- **Cancelar tem sentidos OPOSTOS nos dois, e está certo.** No "Tocar agora" ele
+  descarta, porque trocar a fila do culto por meia lista é uma SUBSTITUIÇÃO pela
+  metade. No "Ao Cronograma" ele preserva o que já desceu: três de dez
+  acrescentadas é exatamente o que aconteceu, é reversível linha a linha, e jogar
+  fora um download que já custou rede seria o desperdício que ninguém pediu.
+- A faixa de fecho já sabia hospedar um irmão à direita (o "Ver a letra" da
+  gaveta), então **dois botões não custaram CSS novo** além de fazer o segundo
+  crescer: "Ao Cronograma" é uma decisão do mesmo porte que "Tocar agora", e não
+  uma conferência.
+
+**A CONTA FALA DE MÚSICA, NÃO DE VARREDURA.** Ela saía como `12 faixas casam · 3
+já no aparelho · sorteia 5` — três números no vocabulário de quem escreveu a
+regra ("casam", "faixas", "no aparelho"), empilhados numa linha só. Passou a
+duas linhas com hierarquia, porque as perguntas têm pesos diferentes:
+
+```
+28 músicas relacionadas a “natal”          ← --text, peso 600
+A playlist leva 10 · 1 para baixar         ← --muted
+```
+
+A primeira responde *o tema achou o quê?* e é a que se lê de relance; a segunda é
+o custo. Numa linha só as duas disputavam o mesmo peso. **O custo é exato, não
+uma estimativa**: o sorteio esgota as baixadas antes de pegar as que faltam,
+então quantas precisam de rede é uma subtração. E os números do acervo passam de
+mil (os dois hinários somam ~1.100), daí o separador — sem ele, "1243" se lê como
+um código.
+
+**A FRASE DE RESPOSTA MORA EM ESTADO, NÃO NO NÓ**, e isso foi um defeito pego
+pelo oráculo antes de sair: o `executarSorteio` REDESENHA a folha no `finally`, e
+o "adicionadas ao Cronograma" escrito direto no span era apagado no mesmo quadro
+em que nascia — o operador nunca o veria. Guardá-la em `sorteioFala` e deixar o
+desenho consultá-la faz qualquer redesenho preservá-la, inclusive um caminho de
+render que ainda não existe.
+
+**E o `sombra.test.mjs` pegou o outro:** `const tema` dentro da função sombreava
+o `tema` de MÓDULO (o claro × escuro), que é a zona morta temporal que já
+derrubou o app quatro vezes. Virou `palavra`.
 
 ---
 

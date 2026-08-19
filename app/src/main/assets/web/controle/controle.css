@@ -3823,7 +3823,7 @@ main {
    ele o `stretch` não tem efeito — e a faixa vira uma banda sólida. A LARGURA
    continua `--thumb`: o que se pediu foi a altura, e encolher o alvo horizontal
    seria trocar um acerto por um erro. */
-/* ---------- E ELA FICA À ESQUERDA DELE (v5.306) ----------
+/* ---------- E ELA FICA À ESQUERDA DELE (v5.307) ----------
    Pedido do operador: *"o botão de confirmar as opções de play fica à esquerda
    dos botões; deixe-o à direita, com as outras opções à esquerda"*. Quem inverte
    é o DOM (`data-antes`, ver `destConfirmRow`), não um `order`/`row-reverse`: a
@@ -4102,16 +4102,24 @@ main {
 .sorteio-rotulo { font-size: .78rem; font-weight: 700; color: var(--muted); flex-shrink: 0; }
 .sorteio-linha .misc-opts { margin-left: auto; }
 /* A CONTA, e ela é o miolo do recurso: o botão dispara sem mais nenhuma tela,
-   então esta linha é a ÚNICA chance de o operador ver o que vai acontecer antes
-   de acontecer. Ela diz as DUAS metades ("12 casam · 3 já no aparelho") porque
-   a segunda é o que separa "toca agora" de "espera a rede da igreja".
-   `min-height` fixo: a frase troca a cada tecla digitada, e sem altura reservada
-   o botão de confirmar sobe e desce embaixo do dedo. */
+   então ela é a ÚNICA chance de o operador ver o que vai acontecer antes de
+   acontecer.
+
+   DUAS LINHAS COM HIERARQUIA (v5.306), e não uma frase com separadores. Ela
+   responde a duas perguntas de pesos diferentes — *o tema achou o quê?* e
+   *quanto disso toca agora?* —, e numa linha só as duas disputavam o mesmo
+   peso. A primeira é a que se lê de relance; a segunda é o custo.
+
+   `min-height` reservado para DUAS linhas: a frase troca a cada tecla digitada,
+   e sem altura fixa os botões de fecho subiriam e desceriam embaixo do dedo. */
 .sorteio-conta {
-  min-height: 1.7em; display: flex; align-items: center;
+  min-height: 2.9em;
+  display: flex; flex-direction: column; justify-content: center; gap: .1rem;
   padding: .1rem .1rem .2rem;
   font-size: .78rem; line-height: 1.35; color: var(--muted);
 }
+.sorteio-conta-forte { color: var(--text); font-weight: 600; }
+.sorteio-conta-fraca { color: var(--muted); }
 /* VAZIA ELA GANHA ÊNFASE, NÃO ALARME. `--danger-strong` estava errado pela
    gramática de cor do próprio app: vermelho é "está no ar agora" (saturado) ou
    "ação destrutiva" (suave), e nenhuma das duas é o caso — "nada casa a palavra
@@ -4119,7 +4127,18 @@ main {
    coleção com índice" é um aparelho recém-configurado. Quem já diz que nada vai
    acontecer é o confirmar desabilitado logo abaixo; esta linha diz POR QUÊ, e
    para isso lhe basta sair do `--muted` do estado normal. */
-.sorteio-conta.vazio { color: var(--text); font-weight: 600; }
+/* Vazia ela é UMA linha só (não há custo a declarar), e o `.sorteio-conta-forte`
+   dela já carrega a ênfase — a regra abaixo existe para o caso de a frase do
+   motivo passar a ter uma segunda metade um dia. */
+.sorteio-conta.vazio .sorteio-conta-forte { font-weight: 600; }
+/* A FAIXA DE FECHO TEM DOIS BOTÕES quando se monta a fila (v5.306): um TOCA e o
+   outro GUARDA. O primário cresce e o secundário fica com o que precisa — a
+   mesma divisão do par "Confirmar / Ver a letra" da gaveta, que é de onde as
+   duas classes vêm. Aqui o secundário também cresce, porque "Ao Cronograma" é
+   uma decisão de mesmo porte que "Tocar agora", e não uma conferência. */
+.song-menu-go-row .sorteio-acao.song-menu-letra { flex: 1; min-width: 0; }
+.sorteio-acao .song-menu-text { align-items: center; justify-content: center; min-height: var(--hit); }
+.sorteio-acao:disabled { opacity: .5; cursor: default; }
 
 /* ---------- popup de Exibição (preenchimento da mídia) ---------- */
 /* As transições (fade) são inerentes ao sistema — não há mais controles delas
