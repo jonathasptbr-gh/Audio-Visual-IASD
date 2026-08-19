@@ -92,25 +92,24 @@
   --stage-text-soft: rgba(255, 255, 255, .9);  /* marca sobre o wallpaper */
   --stage-text-dim: rgba(255, 255, 255, .72);  /* linha auxiliar da letra */
 
-  /* O ACENTO DO PALCO, e ele precisa existir aqui por um defeito medido
-     (v5.218).
-     ---------------------------------------------------------------------
-     O palco pintava seus acentos com `--brand`, `--live-strong`, `--bg` e
-     `--accent-glow` — quatro tokens do TEMA. No Display isso nunca doeu (ele
-     não escreve `data-tema`, então lê sempre o bloco escuro), mas a PREVIEW do
-     Controle roda no documento que TEM tema: com o tema CLARO ligado, o título
-     do slide de capa passava a ser desenhado com o denim oficial (#2F557F)
-     sobre o preto do palco — **2,73:1 medidos**, abaixo até do piso de 3:1 de
-     texto grande. Era o relato do operador ("os títulos estão em azul,
-     ilegíveis no fundo escuro"): o telão mostrava um azul claro e a preview,
-     no tema claro, mostrava um azul escuro.
-     É o mesmo erro que o cabeçalho deste arquivo descreve — "o palco não tem
-     tema" — cometido do lado de fora: os TOKENS do palco estavam certos, e as
-     REGRAS do palco apontavam para tokens de tema. Estes quatro fecham o
-     buraco, e a regra que fica é: **nada pintado no palco pode ler um token
-     redeclarado em `[data-tema]`.** `tools/smoke.mjs` mede isso pelo
-     RENDERIZADO (a cor computada de cada camada do palco, nos dois temas),
-     não pelo nome do token. */
+/* ======================================================================
+   TEMA CLARO — `data-tema="claro"` no <html>
+   ======================================================================
+   Os valores OFICIAIS entram quase todos verbatim, e não por sorte: os dezoito
+   foram desenhados para pousar sobre BRANCO, que é o fundo dos cartões deste
+   tema. O denim é o accent sem ajuste (7,70:1 sobre o painel). Escurecer só foi
+   preciso onde a cor pousa sobre o CINZA da página, e ali a matiz é preservada
+   com o derivado declarado.
+
+   O DEGRAU DE ELEVAÇÃO SE INVERTE: no escuro "mais fundo na árvore" é "mais
+   claro"; aqui o painel já é branco, então `--panel-2` DESCE (recesso, a
+   convenção de toda UI clara). Direção oposta, REGRA a mesma — cada nível se
+   afasta do anterior —, e é por isso que a folha não precisa saber o tema.
+   Consequência: `--panel-2` fica perto do `--bg` (1,09:1). Deliberado e sem
+   custo: os dois nunca se encostam, porque um nível 2 está sempre DENTRO de um
+   nível 1, que aqui é branco.
+   Piso de 1,30:1 entre superfícies grandes: fundo × painel 1,29:1 (um
+   centésimo abaixo, assumido desde a v5.192) e painel × painel-2 1,41:1. */
   --stage-accent: #8fb1f3;               /* = o --brand do tema escuro; 9,75:1 sobre o preto */
   --stage-accent-glow: rgba(143, 177, 243, .32);
   --stage-on-accent: #0e1215;            /* texto SOBRE o acento preenchido; 8,65:1 */
@@ -289,27 +288,21 @@
   --surface-sunk: rgba(0, 0, 0, .24);
   --surface-2-sunk: rgba(0, 0, 0, .14);
   /* ---------- A LINHA DE CONTEÚDO SE AFASTA DO TEXTO (v5.297) ----------
-     A faixa dentro de um álbum e a linha de um favorito são a superfície MAIS
-     FUNDA da Biblioteca, e são as únicas da escada que carregam texto pequeno.
-     Elas vestiam `--surface` (o recesso do cartão), e recesso é uma regra sobre
-     PROFUNDIDADE: no escuro isso as afasta do texto claro, e no CLARO as
-     empurra na direção dele.
+     A faixa dentro de um álbum e a linha de um favorito são a superfície mais
+     funda da Biblioteca e as únicas da escada que carregam texto pequeno. Elas
+     vestiam `--surface` (recesso), e recesso é regra sobre PROFUNDIDADE: no
+     escuro afasta do texto claro, no CLARO empurra na direção dele.
 
-     Medido: no tema claro o recesso compunha rgb(182,187,194) sobre o card —
-     **~50% de luminância**, o meio-tom exato, que é o pior caso para os dois
-     lados. `--text` dava 4,59:1 (passava AA raspando e não se lia), e branco
-     daria 1,93:1: não havia cor de texto que resolvesse, porque o problema era
-     a SUPERFÍCIE. Relato do operador depois da v5.296: *"não melhorou a
-     leitura"*.
+     Medido no claro: o recesso compunha rgb(182,187,194) — ~50% de luminância,
+     o meio-tom exato, pior caso para os dois lados. `--text` dava 4,59:1 (AA
+     raspando, ilegível) e branco daria 1,93:1: não havia cor de texto que
+     resolvesse, porque o problema era a SUPERFÍCIE.
 
-     A regra é uma só e vale nos dois temas: **a linha vai para o lado OPOSTO ao
-     do texto**. No escuro ela desce (o valor de sempre, nada muda); no claro
-     ela sobe até quase o branco — que é o que uma lista de conteúdo faz em toda
-     UI clara, com o cinza do card aparecendo entre as linhas.
-
-     Medido depois, no claro: rgb(246,248,249) sobre o card #d4dae2 — 1,32:1 de
-     separação (o piso de dois blocos encostados é 1,28) e **8,32:1** com o
-     texto. No escuro segue rgb(46,54,63) e 9,23:1. */
+     A regra vale nos dois temas: a linha vai para o lado OPOSTO ao do texto. No
+     escuro desce (nada muda); no claro sobe até quase o branco, com o cinza do
+     card aparecendo entre as linhas.
+     Medido: claro rgb(246,248,249) sobre card #d4dae2 — 1,32:1 de separação
+     (piso 1,28) e 8,32:1 com o texto. Escuro rgb(46,54,63) e 9,23:1. */
   --item-fill: var(--surface-sunk);
 
   /* ---------- OS DOIS FUNDOS DE ESTADO, e eles são OPACOS (v5.267) ----------
@@ -509,28 +502,17 @@
   --cell-verse: #433a28;        --cell-verse-text: #ede5d4;     /* 8,94:1 */
 }
 
-/* ======================================================================
-   TEMA CLARO — `data-tema="claro"` no <html>
-   ======================================================================
-   Aqui os valores OFICIAIS entram quase todos verbatim, e isso não é sorte: os
-   dezoito foram desenhados para pousar sobre BRANCO, que é exatamente o fundo
-   dos cartões deste tema. O denim é o accent sem nenhum ajuste (7,70:1 sobre o
-   painel), e o branco sobre denim é o par que a própria identidade recomenda.
-   Escurecer só foi preciso onde a cor pousa sobre o CINZA da página em vez de
-   sobre branco — e ali a matiz oficial é preservada, com o derivado declarado.
-
-   O DEGRAU DE ELEVAÇÃO SE INVERTE, e a régua muda junto. No escuro, "mais
-   fundo na árvore" é "mais claro"; aqui o painel já é branco e não há para onde
-   subir, então `--panel-2` DESCE (um campo dentro de um cartão é um recesso,
-   que é a convenção de toda UI clara). A direção é oposta e a REGRA é a mesma —
-   cada nível se afasta do anterior —, e é por isso que a folha não precisa
-   saber em qual tema está.
-   A consequência é que `--panel-2` fica perto do `--bg` (1,09:1). Deliberado, e
-   sem custo: os dois nunca se encostam, porque um nível 2 está sempre DENTRO de
-   um nível 1, que aqui é branco.
-   O piso de 1,30:1 entre superfícies grandes vale hoje para os dois pares que
-   importam — fundo × painel (1,29:1, um centésimo abaixo e assumido desde a
-   v5.192) e painel × painel-2 (**1,41:1**). */
+  /* O ACENTO DO PALCO — ele existe por um defeito medido (v5.218).
+     O palco pintava acentos com `--brand`/`--live-strong`/`--bg`/
+     `--accent-glow`, quatro tokens de TEMA. No Display nunca doeu (ele não
+     escreve `data-tema`); na PREVIEW do Controle, com o tema CLARO, o título do
+     slide de capa saía em denim (#2F557F) sobre o preto do palco — 2,73:1
+     medidos, abaixo do piso de 3:1 de texto grande.
+     É o "o palco não tem tema" cometido do lado de fora: os TOKENS estavam
+     certos e as REGRAS apontavam para tokens de tema. A regra que fica: nada
+     pintado no palco pode ler um token redeclarado em `[data-tema]`.
+     `tools/smoke.mjs` mede pelo RENDERIZADO (cor computada de cada camada nos
+     dois temas), não pelo nome do token. */
 :root[data-tema="claro"] {
   --bg: #dfe3e7;
   --bar: #ffffff;
