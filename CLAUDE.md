@@ -122,10 +122,11 @@ app/src/main/
     ├── values/themes.xml        # tema sem action bar; tema preto da Presentation
     └── xml/                     # backup_rules + data_extraction_rules (ver "Build")
 docs/
-├── ARQUITETURA-WEB.md           # arquitetura completa da base web
-├── TELAO-POR-COMANDOS.md        # o CONTRATO do telão por comandos (ler antes de mexer)
-├── ESPELHO-DE-PIXELS.md         # APOSENTADO (v5.187) — histórico do espelho de pixels
-└── FONTE-DE-DADOS-LOUVORJA.md   # referência do banco LouvorJA (hinos/Bíblia)
+├── ARQUITETURA-WEB.md           # arquitetura da base web — ler antes de mexer em assets/web/
+├── TELAO-POR-COMANDOS.md        # o CONTRATO do telão por comandos — ler antes de mexer nele
+├── FONTE-DE-DADOS-LOUVORJA.md   # referência do banco LouvorJA (hinos/Bíblia)
+├── HISTORICO.md                 # APÊNDICE: as notas de todas as versões — usar por grep
+└── ESPELHO-DE-PIXELS.md         # ARQUIVO: recurso removido (v5.187); só §2.3, §2.4 e §10-A
 ```
 
 **Vinte e seis arquivos Kotlin, uma dependência de terceiros no shell** — o
@@ -1675,8 +1676,8 @@ em até **três navegadores da rede da igreja**, sem instalar nada nas telas e s
 depender de internet. A especificação fechada, com cada decisão e o motivo dela,
 está em [`docs/TELAO-POR-COMANDOS.md`](docs/TELAO-POR-COMANDOS.md) — **leia
 antes de mexer**; esta seção é o mapa. (O antecessor, o espelho de pixels —
-VirtualDisplay → H.264 → MSE —, foi **aposentado por inteiro na v5.187**;
-`docs/ESPELHO-DE-PIXELS.md` fica como histórico, com o aviso no topo.)
+VirtualDisplay → H.264 → MSE —, foi **removido por inteiro na v5.187**; de
+`docs/ESPELHO-DE-PIXELS.md` sobrou só o que código vivo ainda cita.)
 
 ```
  ┌────────────── celular ──────────────┐        ┌───── navegador na LAN ─────┐
