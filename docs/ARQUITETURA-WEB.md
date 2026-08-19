@@ -1420,317 +1420,194 @@ ter tema estão no Design System, mais abaixo.
 
 ### Modos de uso: "Modo Fácil" (padrão) × avançado
 
-> **O nome na TELA é "Modo Fácil"** desde a v5.104 — antes era "Modo
-> simplificado", o texto mais longo do cabeçalho, e encurtá-lo foi o que abriu
-> espaço para o botão de Favoritos ganhar rótulo ali. No CÓDIGO o modo continua
-> sendo `'simple'` (a classe `mode-simple`, o `appMode`, o `data-mode`): trocar
-> a string interna não mudaria um pixel e esbarraria em dezenas de referências
-> — a mesma razão pela qual a aba de Ferramentas segue com `activeTab === 'mic'`.
+> **O nome na TELA é "Modo Fácil"**; no CÓDIGO o modo continua sendo `'simple'`
+> (a classe `mode-simple`, o `appMode`, o `data-mode`) — trocar a string interna
+> não mudaria um pixel e esbarraria em dezenas de referências, a mesma razão pela
+> qual a aba de Ferramentas segue com `activeTab === 'mic'`.
 
-O app atende duas pessoas diferentes. Uma abre o celular para **conectar a
-tela e tocar um louvor**; a outra opera o culto inteiro — Cronograma, álbuns,
-Bíblia, Camada de Texto, playlist, letra sincronizada, microfone. A tela que
-serve bem à segunda é excessiva para a primeira, e esconder recursos atrás de
-uma configuração só empurraria a escolha para um lugar onde ninguém procura.
+O app atende duas pessoas: uma abre o celular para **conectar a tela e tocar um
+louvor**; a outra opera o culto inteiro. A tela que serve bem à segunda é
+excessiva para a primeira, e esconder recursos atrás de uma configuração só
+empurraria a escolha para um lugar onde ninguém procura.
 
-**O app abre no simplificado sem perguntar nada** — e, desde a v5.66, no
-ÚLTIMO modo usado, para quem já escolheu. A versão anterior
-(v5.23) mostrava um seletor de modo na abertura; ele saiu porque cobrava um
-toque de todo mundo — inclusive de quem nem sabia que havia dois modos — antes
-de mostrar qualquer coisa útil, e o caso comum é justamente o simplificado.
-A classe `mode-simple` **já vem no `<body>` do HTML** (e `.open` no
-`#simpleMode`), então a tela certa aparece sem esperar JS ou IndexedDB — era o
-mesmo motivo pelo qual o seletor nascia visível no documento.
+**O app abre no ÚLTIMO MODO USADO**, e no simplificado para quem nunca escolheu —
+nunca por um seletor na abertura, que cobraria um toque de todo mundo, inclusive
+de quem nem sabe que há dois modos, antes de mostrar qualquer coisa útil. A
+classe `mode-simple` **já vem no `<body>` do HTML** (e `.open` no `#simpleMode`),
+então a tela certa aparece sem esperar JS ou IndexedDB.
 
-O **modo avançado** fica a um toque, no botão do cabeçalho ("Modo avançado").
+**A troca mora em Configurações, nos DOIS modos** (segmento "Modo do app",
+`#appModeSeg`) — é ele que GUARDA a escolha entre aberturas. Os botões de
+cabeçalho que faziam o mesmo saíram: eram dois controles para uma decisão só, e
+o do avançado ocupava a esquerda de uma faixa com largura de celular (e
+empurrava o título 63px para fora do centro, medido). No Modo Fácil o cabeçalho
+ficou com uma **engrenagem** (`#simpleSettingsBtn`), que é o ÚNICO acesso a
+Configurações aqui — daí ela ser `--accent` e não o `--muted` da gêmea do mixer.
 
-**A VOLTA DEIXOU DE SER UM BOTÃO DE CABEÇALHO na v5.247**, a pedido do operador:
-*"como já temos nas configurações o botão de acesso ao modo simples, então pode
-remover o botão que temos no cabeçalho do app"*. Quem faz a volta é o segmento
-**Modo do app** de Configurações (`#appModeSeg`), que sempre esteve lá e é o que
-GUARDA a escolha entre aberturas (v5.66) — o botão do cabeçalho não guardava
-nada. Eram dois controles para uma decisão só, e o do cabeçalho ocupava a
-esquerda de uma faixa com largura de celular.
+> **A ORDEM DAS DUAS REMOÇÕES NÃO FOI ACIDENTE:** o botão do Modo Fácil não podia
+> sair antes de existir a engrenagem, porque este modo esconde a `.bottombar`
+> inteira — tirar os dois de uma vez teria TRANCADO o operador aqui. Primeiro se
+> cria o caminho, depois se remove o atalho.
 
-**E NA v5.250 O BOTÃO DAQUI SAIU TAMBÉM**, substituído por uma **engrenagem**
-no mesmo lugar (`#simpleSettingsBtn`, `.settings-btn` — pedido do operador:
-*"crie um botão de configurações no modo simples, que fica onde é hoje o botão
-de modo avançado"*). Com ela o caminho é o MESMO nos dois modos: engrenagem →
-"Modo do app". Não sobrou nenhum `.mode-switch` no app, e a classe saiu com o
-último elemento que a usava.
+#### O modo é LEMBRADO entre aberturas
 
-**A ORDEM DAS DUAS VERSÕES NÃO É ACIDENTE.** O botão daqui não podia sair na
-v5.247: no avançado a engrenagem está ali ao lado, no mixer; aqui não estava,
-porque este modo esconde a `.bottombar` inteira — tirar os dois de uma vez teria
-TRANCADO o operador no Modo Fácil. Primeiro se cria o caminho, depois se remove
-o atalho. É a mesma razão pela qual a v5.48 criou aquele botão: antes dela, quem
-tocasse em "Modo avançado" por curiosidade caía na tela completa e a saída
-estava atrás de uma engrenagem sobre a preview, um caminho que ninguém adivinha.
-
-A engrenagem fica **acima da cortina** do modo bloqueado sem regra nova — o
-`.simple.sem-tela .simple-head` já iça o cabeçalho inteiro —, e é `--accent` em
-vez do `--muted` da gêmea do mixer: lá ela é um acesso entre outros, aqui é o
-ÚNICO, e o accent é o que este app usa para dizer "isto leva a outro lugar"
-(era exatamente onde ele vivia no botão que saiu: na seta).
-
-**E o título do cabeçalho passou a ficar centrado.** Ele nunca esteve: a caixa
-reservada do botão (ver abaixo) o empurrava para a direita o tempo todo —
-medido, **278px numa tela de 430**, contra os 215 do centro real. Sem o botão
-não há o que reservar, e o título fica onde ele diz estar. `tools/smoke.mjs`
-mede as duas metades: o botão fora do cabeçalho da lista, e a saída do Modo
-Fácil ainda no dele.
-
-#### O modo é LEMBRADO entre aberturas (v5.66)
-
-A escolha valia só para a sessão, e o argumento era que quem abre o app hoje
-pode não ser quem abre no próximo culto. Ele não se sustentou: o app é do
-aparelho da igreja, e quem opera o culto TODA semana escolhia o avançado toda
-semana. Um app que esquece uma preferência explícita a cada abertura cobra o
-mesmo par de toques para sempre. O simplificado continua sendo o padrão — de
-quem **nunca escolheu nada**, que é o caso que o argumento original de fato
-descrevia.
-
-O risco do outro lado (cair no avançado sem querer e reabrir nele) custa um
-toque no "← Modo simplificado" do cabeçalho, que é o par visível do botão que
-levou até lá (v5.49) — e é justamente por isso que aquela volta existe.
-
-- **Fica em `localStorage`** (`av.appMode`), e não no IndexedDB como TODO o
-  resto do estado. O motivo é único e decisivo: esta chave precisa ser lida
-  **antes do primeiro quadro**. O `<body>` nasce `mode-simple` para a tela certa
-  aparecer sem esperar JS, e uma leitura do IDB é assíncrona — ela volta depois
-  de o app já ter pintado o simplificado, e quem tivesse deixado o avançado veria
-  a tela errada trocar embaixo do dedo, no meio do primeiro toque.
-  `localStorage` é síncrono e mora no mesmo `app_webview/` do IDB: mesma
-  durabilidade, mesma regra de backup, some junto numa desinstalação.
+- **Fica em `localStorage`** (`av.appMode`), e não no IndexedDB como TODO o resto
+  do estado. O motivo é decisivo: esta chave precisa ser lida **antes do primeiro
+  quadro**. Uma leitura do IDB é assíncrona — ela volta depois de o app já ter
+  pintado o simplificado, e quem tivesse deixado o avançado veria a tela errada
+  trocar embaixo do dedo. `localStorage` é síncrono e mora no mesmo
+  `app_webview/`: mesma durabilidade, mesma regra de backup.
 - **UMA fonte, não duas.** Gravar nos dois lugares "por garantia" só cria o dia
   em que eles discordam e ninguém sabe qual vale.
-- **A restauração é em duas metades.** No TOPO do `controle.js` vai só a
-  pintura — a classe do `<body>` e o `.open` do `#simpleMode` —, que é a única
-  parte que não pode esperar. O resto (`setAppMode(appMode)`) roda no `init()`,
-  **depois do `load()`**: no avançado ele posiciona o vazado da faixa de abas
-  (`moveTabIndicator`), e medir a faixa antes de `load()` desenhá-la daria zero.
-- **A armadilha que isto criou:** havia um `setAppMode('simple')` literal no
-  fim do módulo, para "fechar o ciclo com o HTML". Com a persistência ele passou
-  a reescrever o `localStorage` para `simple` em toda abertura, e o avançado
-  nunca sobrevivia a fechar o app — invisível na leitura do diff, porque a tela
-  ainda pintava certo até aquela linha rodar. Hoje é `setAppMode(appMode)`.
-- **`localStorage` pode LANÇAR** (armazenamento bloqueado). Leitura e escrita
-  ficam em `try`; o padrão do app é o simplificado, então o `catch` já é a
-  resposta certa e não há o que tratar.
+- **A restauração é em duas metades.** No TOPO do `controle.js` vai só a pintura
+  (a classe do `<body>` e o `.open` do `#simpleMode`), que é a parte que não pode
+  esperar; o resto (`setAppMode(appMode)`) roda no `init()`, **depois do
+  `load()`** — no avançado ele posiciona o vazado da faixa de abas
+  (`moveTabIndicator`), e medir a faixa antes de `load()` desenhá-la dá zero.
+- **ARMADILHA:** um `setAppMode('simple')` literal no fim do módulo (que existia
+  "para fechar o ciclo com o HTML") passou a reescrever o `localStorage` em toda
+  abertura, e o avançado nunca sobrevivia a fechar o app — invisível no diff,
+  porque a tela ainda pintava certo até aquela linha rodar.
+- **`localStorage` pode LANÇAR** (armazenamento bloqueado): leitura e escrita em
+  `try`, e o padrão do app já é a resposta certa no `catch`.
 
-**A seta não é enfeite**: o rótulo sozinho nomeia um destino sem dizer que o
-toque TROCA de tela. Com ela o par se lê como ida e volta, que é o que ele é.
-
-**O simplificado NÃO é uma segunda implementação.** A tela avançada continua
-no DOM, só oculta (`body.mode-simple`), e os controles do modo simples
-**acionam os botões reais por `.click()`** — o mesmo padrão que a notificação
-nativa já usa. Um botão `disabled` continua sendo um no-op natural, e nenhuma
-regra de borda (texto sem áudio de fundo, YouTube que precisa recarregar, mudo
-bloqueado pelo navegador) passa a existir em dois lugares. Na mesma linha,
-`renderSimple()` **copia o glifo e as classes** dos botões do mixer em vez de
-recalcular play/pause e mudo: se a regra mudar lá, muda aqui junto.
+**O simplificado NÃO é uma segunda implementação.** A tela avançada continua no
+DOM, só oculta (`body.mode-simple`), e os controles daqui **acionam os botões
+reais por `.click()`** — o padrão da notificação nativa. Um botão `disabled`
+continua sendo no-op natural, e nenhuma regra de borda passa a existir em dois
+lugares. Na mesma linha, `renderSimple()` **copia o glifo e as classes** dos
+botões do mixer em vez de recalcular play/pause e mudo.
 
 **A tela é um CONTROLE REMOTO**: teclas grandes (`.simple-key`), nada de
-arrastar. Quem usa este modo costuma estar de pé, com o celular numa mão só —
-mirar um alvo fino ali é o pior formato possível.
-
-**Sem contorno, desde a v5.76.** As teclas (e a caixa da letra) tinham um
-filete em `--line` "para parecer botão físico" — uma ideia de que o resto do
-app já tinha desistido: cards, teclas e linhas de lista são superfícies sólidas.
-Numa tela em que TUDO é tecla o filete não distinguia nada, só devolvia a grade
-de molduras que a v5.71 tirou do acervo. Quem diz "isto é tocável" aqui é o
-fundo mais claro que o do app e o `:active` que afunda. Os dois estados da tecla
-grande (mudo, áudio bloqueado) já eram fundo-suave + cor e continuam legíveis
-sem a borda — o mudo, aliás, passou ao vermelho **saturado**.
+arrastar — quem usa este modo está de pé, com o celular numa mão só. E **sem
+contorno**: numa tela em que TUDO é tecla um filete não distingue nada, só
+devolve a grade de molduras. Quem diz "isto é tocável" é o fundo mais claro que o
+do app e o `:active` que afunda.
 
 | Elemento | O que faz |
 |---|---|
-| **Seção de conexão** (`#simpleConn`) | as duas formas de conectar — espelhar para a TV e transmitir para navegador, **dois botões irmãos** desde a v5.224 (a segunda era um interruptor; ligada, ela perde o preenchimento, fica no vermelho contornado e passa a nomear o desligamento). Ligar e desligar **animam** desde a v5.226: a folha cresce primeiro e o endereço entra depois (`grid-template-rows: 0fr → 1fr` no `#castLive`, com os atrasos invertidos no fechamento), e a lista de telas reaproveita as linhas para uma tela nova entrar sozinha em vez de a lista inteira ser refeita a cada leitura do estado —, **só SEM tela conectada**, e ali ela é a ÚNICA coisa legível: a faixa de ações é içada para o centro da tela, por cima da cortina do bloqueio (ver abaixo). É o MESMO nó da folha de "Conectar uma tela" (`#castConn`), movido entre as duas casas por `hostCastConn`; conectado, ela some e a célula da faixa de baixo passa a ser a preview. (Antes da v5.193 era um botão único, `#simpleCastBtn`, que só ABRIA a folha — um toque cobrado para chegar às escolhas que cabem na própria tela) |
-| **Preview** (`.simple-stage`) | a projeção em miniatura, **só com tela conectada** — ver "A preview no lugar da seção de conexão". Desde a v5.201 ela mora na faixa de baixo, dividindo a linha com "Buscar música"; o topo da tela é da LETRA, que é o que se lê durante o louvor |
-| **Buscar música** (`#simpleSearchBtn`) | o MESMO popup de busca do acervo (`openHymnSearch`). Um toque na linha **toca a versão Cantada direto** (ver abaixo). Some com a tela bloqueada. **Desde a v5.200 ele mora na ZONA DE BAIXO** — buscar é o começo de OPERAR, então pertence ao transporte, a milímetros do ▶ que vem logo depois de escolher, e não ao alto da tela. Na v5.201 ele voltou a dividir a linha com a preview (`.simple-actions`), agora ali embaixo; sem tela a preview some e a grade vira uma coluna, com a busca inteira |
-| **Linha do tempo** (`#simpleTime`) | decorrido · barra · duração — espelha a mesma `#seek` do modo avançado (que já é alimentada pela preview, pelo `display-status` e pelo polling do YouTube) e some quando o item não tem duração. **Interativa desde a v5.142**: tocar salta, arrastar procura. Ela nasceu como indicador ("quem precisa saltar no tempo usa o modo avançado") — só que voltar o refrão é a coisa mais comum que se faz durante um louvor, e mandar o operador SAIR do modo para isso é o oposto do que o modo existe para dar. O alvo de toque é a FAIXA (`.simple-time-hit`), não o traço de 4px: um controle de posição que exige mira não é um controle. O comando sai no `pointerup` — um `seek` por quadro faria a mídia engasgar durante o gesto —, e `simpleSeeking` impede o `timeupdate` de puxar o preenchimento de volta debaixo do dedo (a mesma regra do `volSeekingEl` no fader) |
-| **Letra** (`#simpleLyrics`) | a letra INTEIRA da música em cena, com o mesmo destaque e o mesmo acompanhamento da leitura auxiliar do modo avançado |
-| **Play/pause, parar e mudo** | `.click()` em `#playpause` / `#stop` / `#muteToggle`. O **parar** entrou na v5.72, ao lado do play: é a outra metade do transporte, e sem ele tirar a mídia do telão obrigava a ir ao modo avançado — justamente o que se faz no fim de cada louvor. A fileira passou a ter três colunas |
-| **Volume** (`#simpleVolDown` / `#simpleVolUp`) | teclas **−** e **+** com o número no meio (`.simple-vol-read`), não um slider |
-| **Configurações** (`#simpleSettingsBtn`, `.settings-btn`, v5.250) | `openFadePopup()` — e é de lá que se troca de modo ("Modo do app"). Até a v5.247 este era o botão **Modo avançado**, que chamava `setAppMode('full')` direto; o registro dele fica porque a receita visual continua descrita aqui: era texto `--muted` sobre `--surface`: dentro do mínimo de contraste, mas lido como **legenda**, não como botão. Desde a v5.40 é texto pleno (`--text`) sobre `--surface-2` — **7,03:1** na paleta atual — e desde a v5.49 leva a **seta**. Ele era um PAR com o gêmeo do cabeçalho avançado (`#fullSimpleBtn`) até a v5.247, quando aquele saiu — lá a mesma escolha já mora em Configurações, aqui não há engrenagem nenhuma à vista. **A borda em `--accent` saiu na v5.76**: ela desenhava, nos dois cabeçalhos, a moldura mais forte da tela em volta do botão que menos se usa num culto — trocar de modo é decisão de configuração, não de operação. Quem separa o botão do fundo é a superfície; o accent ficou onde informa, na seta, que é o que diz para que lado se vai |
+| **Seção de conexão** (`#simpleConn`) | as duas formas de conectar — espelhar para a TV e transmitir para navegador, **dois botões irmãos** (ligada, a segunda perde o preenchimento, fica no vermelho contornado e nomeia o desligamento). Ligar e desligar ANIMAM: a folha cresce primeiro e o endereço entra depois (`grid-template-rows: 0fr → 1fr` no `#castLive`, com os atrasos invertidos no fechamento), e a lista de telas é um DIFF por rótulo — refeita por inteiro, ela recomeçaria a animação a cada leitura de 2,5 s e recriaria o botão "Desconectar" debaixo do dedo. Só SEM tela conectada, e ali é a ÚNICA coisa legível: a faixa de ações é içada para o centro da tela, por cima da cortina. É o MESMO nó da folha de "Conectar uma tela" (`#castConn`), movido por `hostCastConn` |
+| **Preview** (`.simple-stage`) | a projeção em miniatura, **só com tela conectada**. Mora na faixa de baixo, dividindo a linha com "Buscar música"; o topo da tela é da LETRA, que é o que se lê durante o louvor |
+| **Buscar música** (`#simpleSearchBtn`) | o MESMO popup do acervo (`openHymnSearch`); um toque na linha **toca a versão Cantada direto**. Fica na ZONA DE BAIXO — buscar é o começo de OPERAR, então pertence ao transporte, a milímetros do ▶ que vem depois de escolher. Sem tela a preview some e a grade vira uma coluna, com a busca inteira |
+| **Linha do tempo** (`#simpleTime`) | decorrido · barra · duração, espelhando a `#seek` do avançado; some quando o item não tem duração. **Interativa**: tocar salta, arrastar procura — voltar o refrão é a coisa mais comum num louvor, e mandar o operador SAIR do modo para isso é o oposto do que o modo dá. O alvo é a FAIXA (`.simple-time-hit`), não o traço de 4px. O comando sai no `pointerup` (um `seek` por quadro engasgaria a mídia) e `simpleSeeking` impede o `timeupdate` de puxar o preenchimento debaixo do dedo |
+| **Letra** (`#simpleLyrics`) | a letra INTEIRA da música em cena, com o mesmo destaque da leitura auxiliar do avançado |
+| **Play/pause, parar e mudo** | `.click()` em `#playpause` / `#stop` / `#muteToggle`. O parar é a outra metade do transporte — sem ele, tirar a mídia do telão obrigava a ir ao avançado, que é o que se faz no fim de cada louvor |
+| **Volume** (`#simpleVolDown` / `#simpleVolUp`) | teclas − e + com o número no meio (`.simple-vol-read`), nunca um slider |
+| **Configurações** (`#simpleSettingsBtn`) | `openFadePopup()` — e é de lá que se troca de modo |
 
-**Sem escolha de variante.** No simplificado o toque na linha da busca chama
-`simplePlaySong()`, que toca o **Cantado** e pronto: abrir a lista com
-cantada/playback/só a letra seria devolver ao operador exatamente a decisão que
-este modo existe para poupar. No modo avançado a mesma linha abre a gaveta — as
-opções completas e a letra (v5.285). (Até a v5.284 a linha tinha um ▶ e um `+`,
-e o `+` era escondido por CSS aqui, porque playlist, Cronograma e favoritos são
-do fluxo do sonoplasta; os dois botões saíram, e com eles a regra.)
+**Sem escolha de variante.** O toque na linha da busca chama `simplePlaySong()`,
+que toca o Cantado e pronto: abrir a lista com cantada/playback/letra seria
+devolver ao operador a decisão que este modo existe para poupar.
 
-**A pergunta do download aparece UMA vez.** Se a música ainda não está no
-aparelho, `ensureDownloadConsent()` pergunta antes de gastar internet e grava a
-resposta em `state.downloadOk` — quem respondeu "baixar" já disse como quer que
-o app se comporte, e repetir a pergunta a cada música viraria ruído no meio do
-culto. A verificação usa `songVariantsNeeded()`, a mesma regra da sincronização
-em massa (não basta ter `fileIdFull`: o arquivo pode ter sido apagado por fora).
+**A pergunta do download aparece UMA vez.** `ensureDownloadConsent()` pergunta
+antes de gastar internet e grava a resposta em `state.downloadOk` — repetir a
+pergunta a cada música viraria ruído no meio do culto. A verificação usa
+`songVariantsNeeded()`, a mesma regra da sincronização em massa (não basta ter
+`fileIdFull`: o arquivo pode ter sido apagado por fora).
 
 **Volume em degraus, não em curso.** `simpleVolStep()` usa o MESMO passo dos
-botões físicos (`VOL_KEY_STEP`) e a mesma `applyVolume()` — clamp, desmutar ao
-subir de 0, comando e render num lugar só. `holdRepeat()` faz a tecla repetir
-enquanto segurada, como num controle de verdade: o primeiro passo sai no
-`pointerdown` (resposta imediata) e a repetição só começa depois de uma pausa,
-senão um toque comum viraria dois. O indicador mostra o número e uma barrinha
-de curso na base (`--vol`, a mesma variável do fader).
+botões físicos (`VOL_KEY_STEP`) e a mesma `applyVolume()`. `holdRepeat()` faz a
+tecla repetir enquanto segurada: o primeiro passo sai no `pointerdown` e a
+repetição só começa depois de uma pausa, senão um toque comum viraria dois.
 
 **A zona de letra reusa o renderizador da leitura auxiliar**: `lvBuildSong()` e
-`lvMarkCurrent()` receberam o CONTAINER como parâmetro, então o popup do modo
-avançado e a zona do simplificado desenham as mesmas linhas `.lv-row` com o
-mesmo destaque — e `refreshSimpleLyrics()` entra no mesmo pulso de
-`renderSlideNav()`, sem timer próprio. Rolar com o dedo desliga o
-acompanhamento até a próxima música, como no popup.
+`lvMarkCurrent()` recebem o CONTAINER como parâmetro, e `refreshSimpleLyrics()`
+entra no mesmo pulso de `renderSlideNav()`, sem timer próprio. Rolar com o dedo
+desliga o acompanhamento até a próxima música, como no popup.
 
-A espiada do volume pelos botões físicos (`peekVolume`) **não roda no
-simplificado**: as teclas de volume já estão na tela, com o número ao lado.
+A espiada do volume pelos botões físicos (`peekVolume`) **não roda aqui**: as
+teclas de volume já estão na tela, com o número ao lado.
 
-#### Sem tela conectada, o modo inteiro fica bloqueado (v5.39; SAIU na v5.199 e VOLTOU na v5.203)
+#### Sem tela conectada, o modo inteiro fica bloqueado
 
-Neste modo **a projeção É o telão** — não existe preview aqui. Sem tela
-conectada, buscar uma música e dar play não produz nada: nem imagem (não há para
-onde) nem som (a preview toca o som deste aparelho só no modo AVANÇADO — ver "A
-saída de áudio"; aqui ela segue muda, e é este bloqueio a razão). Os controles
-continuavam à disposição, respondendo a cada toque, sem que nada acontecesse em
-lugar nenhum.
+Neste modo **a projeção É o telão** — não existe preview aqui. Sem tela, buscar
+uma música e dar play não produz nada: nem imagem nem som (a preview toca o som
+deste aparelho só no modo AVANÇADO — ver "A saída de áudio"; aqui ela segue muda,
+e é este bloqueio a razão).
 
-`renderSimpleGate()` cobre a tela com a cortina `#simpleVeil` — `backdrop-filter:
-blur(7px)` mais um véu em `--veil` — que **intercepta os toques** do que ficou
-atrás. Ela é só o vidro fosco: não tem conteúdo. Na frente sobem duas coisas, e
-só duas:
+`renderSimpleGate()` cobre a tela com a cortina `#simpleVeil` (`backdrop-filter:
+blur(7px)` mais um véu em `--veil`), que **intercepta os toques** do que ficou
+atrás. Ela é só o vidro fosco; na frente sobem duas coisas, e só duas:
 
-- **a seção de conexão** (`#simpleConn`, dentro de `.simple-actions`), a única
-  ação que resolve o bloqueio. Bloqueada a tela, a faixa de ações deixa de ser
-  faixa: a preview e "Buscar música" somem, e o que resta é içado para o
-  **centro exato da tela** em `position: absolute`. O cartão tem fundo próprio
-  (`--panel`) porque a cortina embaçada por trás não é fundo de leitura;
-- **Configurações** (`#simpleSettingsBtn`), no cabeçalho — e é por ela que se
-  volta ao avançado desde a v5.250. **Sem TV o app não fica
-  inútil** — a projeção passa a ser a preview em tela cheia —, e trancar essa
-  saída transformaria a falta de telão numa parede. O que se bloqueia é o modo
-  simplificado, não o app.
-
-**A ida e a volta valem escritas, porque a remoção foi um diagnóstico errado.**
-O operador relatava "o botão de conectar que persiste em existir e bloquear a
-tela do modo simples", e a leitura foi de que o BLOQUEIO incomodava: a v5.199 o
-derrubou inteiro, com a cortina, os tokens `--veil*` e a liberação de teste de
-5 s. Não era isso — o que ele via era o botão ANTIGO (`#simpleCastBtn`, da
-v5.192) reaparecendo, servido pela base embutida no APK depois de um recuo do
-watchdog que não limpava o cache do WebView; a causa real foi corrigida na
-v5.200 / v1.91. Ele chegou a dizer, com todas as letras, que "essa parte não era
-o problema", e pediu a cortina de volta na v5.203.
+- **a seção de conexão** (`#simpleConn`), a única ação que resolve o bloqueio.
+  Bloqueada a tela, a faixa de ações deixa de ser faixa: preview e "Buscar
+  música" somem, e o que resta é içado para o centro exato da tela em
+  `position: absolute`. O cartão tem fundo próprio (`--panel`) porque a cortina
+  embaçada não é fundo de leitura;
+- **Configurações** (`#simpleSettingsBtn`), no cabeçalho, por onde se volta ao
+  avançado. **Sem TV o app não fica inútil** — a projeção passa a ser a preview
+  em tela cheia —, e trancar essa saída transformaria a falta de telão numa
+  parede. O que se bloqueia é o modo, não o app.
 
 **A busca aberta é fechada pelo bloqueio** (`closeHymnSearch()`): perder a tela
-com o popup no ar deixaria a busca funcionando por cima de uma tela bloqueada, e
-tocar uma música dali não projetaria nada.
+com o popup no ar deixaria a busca funcionando por cima de uma tela bloqueada.
 
-#### A preview no lugar da seção de conexão (v5.71)
+> **A remoção desta cortina (v5.199) foi um diagnóstico errado, e o registro
+> fica.** O operador relatava "o botão de conectar que persiste em existir e
+> bloquear a tela", e a leitura foi de que o BLOQUEIO incomodava — o que ele via
+> era o botão ANTIGO reaparecendo, servido pela base embutida no APK depois de um
+> recuo do watchdog que não limpava o cache do WebView. Ele chegou a dizer, com
+> todas as letras, que "essa parte não era o problema". **Quando o operador
+> descreve um sintoma com o nome de um elemento, o nome pode estar errado e o
+> sintoma nunca está: vá medir o que ele está vendo.**
+
+#### A preview no lugar da seção de conexão
 
 Conectado, não há nada melhor a dizer sobre "está conectado?" do que **mostrar o
 que a TV está exibindo**. A seção de conexão sai e a preview ocupa **a célula
-dela** na grade de ações — mesma largura, mesma linha, ao lado de "Buscar
-música", que continua onde sempre esteve. Os dois nunca coexistem, então
-dividir a célula é o certo: a faixa segue com as duas colunas de sempre e nada
-no resto da tela se move.
+dela** na grade — os dois nunca coexistem, então dividir a célula é o certo e
+nada no resto da tela se move.
 
 A preview não tem altura própria ali: a largura é a da coluna e a altura vem da
 **proporção do telão**, que é o ponto de ela existir. Como a 16:9 nessa largura
-ela sai um pouco mais baixa que a tecla ao lado (83px contra 94px, num aparelho
-de 390px), a grade a centraliza verticalmente na célula — as bordas laterais
-das duas ficam alinhadas, que é o que se vê. Esticá-la para preencher os 11px
-que faltam custaria a fidelidade da proporção, e é justamente ela que faz a
-miniatura valer como espelho do telão.
+ela sai mais baixa que a tecla ao lado (83px contra 94px num aparelho de 390px),
+a grade a centraliza verticalmente — esticá-la custaria a fidelidade da
+proporção, que é justamente o que faz a miniatura valer como espelho do telão.
 
-O ícone de **cast no canto** da preview faz os dois papéis que sobraram:
+O **ícone de cast no canto** é a saída, e a cor diz isso: conectado ele fica
+**vermelho contornado** (`--danger-strong`), porque ali o toque DESCONECTA — quem
+já diz que há tela recebendo é a própria preview, que só existe aqui quando há.
+Nunca o `--danger` cheio: preenchido, o vermelho deste app significa "está no ar
+agora" e competiria com a mídia que a miniatura está mostrando.
 
-- **é a saída, e a cor diz isso** — conectado ele fica **vermelho**
-  (`--danger-text`), porque ali o toque DESCONECTA. Quem já diz que há uma tela
-  recebendo é a própria preview, que só existe aqui quando há; o que sobra para
-  o ícone dizer é o que o toque faz. Vermelho **contornado** (a família de ação
-  destrutiva) e nunca o `--danger` cheio: preenchido, o vermelho deste app
-  significa "está no ar agora", e competiria com a mídia que a miniatura está
-  justamente mostrando. Ele abre a folha de "Conectar uma tela", que é onde se
-  troca de tela ou se desconecta; desconectado, `onDisplayChange` devolve a
-  célula à seção de conexão, pelo caminho que já existia.
-  (O terceiro estado deste ícone — **âmbar**, na liberação de teste — saiu na
-  v5.199 junto com ela.)
-
-**E por vinte e três versões ele não abria nada nesse estado** (corrigido na
-v5.217). A v5.193 deu ao `renderSimpleGate` a regra "alguma tela ENTROU com a
-folha aberta: ela fecha" e a escreveu como `if (há tela && a folha está aberta)`
-— uma frase sobre EVENTO implementada como teste de ESTADO. Com uma tela
-conectada, qualquer passagem por aquela função fechava a folha; e `abrirCast`
-liga a enquete de 2,5 s, que chama justamente aquela função. A folha abria e se
-fechava em milissegundos, o que do lado de quem opera é indistinguível de "o
-botão não faz nada" — e o que se perdia era a única porta para trocar de TV,
-ligar/desligar a transmissão e derrubar uma tela da rede. A correção é a BORDA
-que a frase sempre descreveu (`gateTinhaTela`), com a memória **re-armada em
-`abrirCast`**: enquanto ESTA folha estiver aberta, se uma tela entrar, ela
-fecha. `tools/boot-nativo.test.mjs` trava os dois lados — a folha que continua
-aberta depois de um ciclo inteiro da enquete, e a tela que entra e a fecha.
+> **E por vinte e três versões ele não abria nada nesse estado.** A regra "alguma
+> tela ENTROU com a folha aberta: ela fecha" foi escrita como `if (há tela && a
+> folha está aberta)` — uma frase sobre EVENTO implementada como teste de ESTADO.
+> Com uma tela conectada, QUALQUER passagem por aquela função fechava a folha, e
+> `abrirCast` liga a enquete de 2,5 s que a chama: a folha abria e se fechava em
+> milissegundos. A correção é a BORDA que a frase sempre descreveu
+> (`gateTinhaTela`), com a memória **re-armada em `abrirCast`**.
 
 **A tela cheia (`#pvFullBtn`) não aparece aqui**: neste modo existe um telão
 conectado — é o que faz esta faixa existir — e a projeção está nele.
 
 **O nó da preview é O MESMO do modo avançado**, movido de um pai para o outro
-(`hostPreview`), pelo mesmo padrão do `#selbar` e do `<input type=file>`: duas
-previews divergiriam no primeiro ajuste, e dois `createStage` decodificariam o
-MESMO vídeo duas vezes num aparelho que já roda dois WebViews. Três detalhes
-que a mudança de pai obriga:
+(`hostPreview`), pelo padrão do `#selbar` e do `<input type=file>`: duas previews
+divergiriam no primeiro ajuste, e dois `createStage` decodificariam o MESMO vídeo
+duas vezes num aparelho que já roda dois WebViews.
 
-- **A troca acontece só na mudança de MODO**, não ao conectar/desconectar. Sem
-  tela a preview some por CSS (`.simple.sem-tela .simple-stage`), e um
-  `display:none` não custa nada.
-- **Um `<video>` sobrevive à mudança de pai** — e como o embed saiu (v5.212), é
-  só isso que a preview tem hoje: `hostPreview` move o nó e nada mais precisa ser
-  refeito. (Enquanto o iframe existia ele NÃO sobrevivia: mudar de pai o
-  recarregava e levava o player do YouTube junto, então `hostPreview` remontava a
-  preview depois de mover, **no segundo em que ela estava** — `loadYtPreview`
-  tinha um `startAt` pelo mesmo motivo do `startAt` de `loadYoutube` no Display.
-  Isto é a diferença de custo entre as duas eras, não uma nota histórica solta:
-  qualquer coisa que volte a pôr um iframe na preview repõe esse trabalho.)
+- **A troca acontece só na mudança de MODO**, não ao conectar/desconectar: sem
+  tela a preview some por CSS e um `display: none` não custa nada.
+- **Um `<video>` sobrevive à mudança de pai**, e como o embed saiu é só isso que
+  a preview tem: `hostPreview` move o nó e nada mais precisa ser refeito.
+  (Enquanto o iframe existia ele NÃO sobrevivia — mudar de pai o recarregava —,
+  e `hostPreview` remontava a preview no segundo em que ela estava. Isto é a
+  diferença de custo entre as duas eras: qualquer coisa que volte a pôr um iframe
+  na preview repõe esse trabalho.)
 - **`appendChild` de um nó já anexado é remoção e inserção atômicas**, então o
   "removido do documento" que pausaria o vídeo nunca chega a valer.
 
-**E o cartão de "Baixando…" aparece aqui também** — é a mesma preview, então é o
-mesmo `previewBusy`. A única condição que mudou: ele volta `visivel: false` no
-simplificado **sem tela conectada**, quando a preview não está na tela e quem
-avisa continua sendo o toast. O cartão foi desenhado para a preview do deck, que
-é quase o dobro desta, então `.simple-stage` reduz as medidas dele (anel de
-22px, fontes menores) e reserva à direita os 38px do `.pv-fab` — sem isso ele
-transbordava a miniatura e passava por baixo do ícone de cast, que numa caixa de
-~83px de altura cruza a faixa central onde o cartão fica.
+**O cartão de "Baixando…" aparece aqui também** — é a mesma preview, logo o mesmo
+`previewBusy`. Ele volta `visivel: false` no simplificado **sem tela conectada**,
+quando a preview não está na tela. As medidas são reduzidas por `.simple-stage`
+(anel de 22px, fontes menores) e reservam à direita os 38px do `.pv-fab`, senão
+ele transborda a miniatura e passa por baixo do ícone de cast.
 
-**A única parte que muda por contexto é quem responde "há tela?"** — o resto do
-mecanismo é o mesmo nos dois. No app são as telas de apresentação que a ponte
-lista (`AVNative.displays()` + `onDisplayChange`), então o dongle que cai
-rebaixa a cortina e o que volta a levanta, pelo caminho que já existia. No
-navegador não existe `Presentation`: vale a **janela do Display** que o próprio
-botão abre (`openWebDisplay`), e fechá-la equivale a desconectar. Como não há
-evento de "janela fechada", um relógio de 1 s olha o `closed` — e ele só existe
-enquanto a janela existe.
-
-#### (A liberação de TESTE de 5 s SAIU na v5.199)
-
-Ela existia porque, sem telão à mão, **não havia como olhar esta tela
-destravada** — e ela é a tela que o app abre. Segurar por 5 s destravava como se
-houvesse tela conectada; `castTestUnlocked` entrava por `simpleDisplay()` como um
-descritor marcado (`{ name: 'Modo de teste', test: true }`), o ícone de cast ia
-para `--warn` (nunca o verde de `.connected`, porque não havia tela nenhuma) e
-uma barra corria durante a espera, para 5 s sem resposta não passarem por um
-toque que não pegou.
-
-**O alvo dela mudou duas vezes em cinco versões** — o botão único (até a v5.192),
-a cortina (v5.193) e nada (v5.199) —, e o motivo de sair é que o que ela
-destravava deixou de estar trancado: o modo já abre usável sem tela. Uma porta
-sem parede não é uma porta; ficasse, seria um gesto secreto de 5 s cujo efeito é
-indistinguível do estado normal da tela.
-
-Saíram com ela `CAST_HOLD_MS`, `castTestUnlocked`, o ramo de "trancar de volta"
-no ícone de cast, o `@keyframes cast-hold` e o `.pv-fab.testing`.
-
+**A única parte que muda por contexto é quem responde "há tela?"** No app são as
+telas de apresentação que a ponte lista (`AVNative.displays()` +
+`onDisplayChange`); no navegador vale a **janela do Display** que o botão abre
+(`openWebDisplay`), e como não há evento de "janela fechada", um relógio de 1 s
+olha o `closed` — e ele só existe enquanto a janela existe.
 ### Layout geral
 
 ```
@@ -3363,142 +3240,109 @@ jogaria fora a posição de rolagem de quem estava no meio de um hinário para
 marcar uma estrela. O oráculo cobra as duas metades: o item aparece **e** a
 rolagem sobrevive.
 
-#### O rodapé fixo da caixa da lista (`#listFoot`, v5.107)
+#### O rodapé fixo da caixa da lista (`#listFoot`)
 
-`<main>` é uma coluna de três faixas: o cabeçalho, o `<ul id="library">` que
-rola, e o **rodapé**, que não rola. O rodapé tem dois inquilinos e **nunca os
-dois ao mesmo tempo**:
+`<main>` é uma coluna de três faixas: cabeçalho, `<ul id="library">` que rola, e
+o **rodapé**, que não rola. O rodapé tem dois inquilinos e **nunca os dois ao
+mesmo tempo**:
 
 | Inquilino | Quem monta | Quando |
 |---|---|---|
 | **"Importar arquivos"** (`.import-row`) | `renderListFoot()` | aba Cronograma, fora de pasta, sem seleção |
-| **barra de seleção múltipla** (`#selbar`) | `hostSelbar()` | seleção múltipla ligada, gaveta de Favoritos fechada |
+| **barra de seleção múltipla** (`#selbar`) | `hostSelbar()` | seleção múltipla ligada |
 
-Os dois vestem a MESMA moldura tracejada em `--accent` (v5.108): é uma fatia só,
-com inquilinos diferentes, e o contorno é o que diz isso.
+Os dois vestem a MESMA caixa: é uma fatia só, com inquilinos diferentes.
 
-Os dois estavam em lugares errados, e cada um pelo seu motivo:
-
-- **"Importar arquivos" era o último `<li>` do `<ul>`.** Com um culto montado
-  — trinta itens, que é o normal — a ação mais frequente da tela exigia rolar
-  a lista inteira para ser alcançada e rolar de volta depois. Ele continua
-  junto do lugar onde os arquivos vão cair, só que sempre à vista.
-- **A barra de seleção tomava o lugar da faixa de ABAS**, na caixa de
-  controles. As ações são da LISTA; trocar a navegação de lugar para mostrá-las
-  mexe no que não é da seleção, e some com as abas justamente quando o operador
-  pode querer sair da tela. No rodapé ela ocupa a fatia do "Importar arquivos",
-  que é a única coisa da tela que a seleção múltipla de fato substitui.
+O lugar de cada um foi decidido pelo que ele custa em outro: "Importar arquivos"
+como último `<li>` do `<ul>` exigia rolar trinta itens para alcançar a ação mais
+frequente da tela; a barra de seleção no lugar da faixa de ABAS mexia no que não
+é da seleção e sumia com a navegação justamente quando o operador pode querer
+sair da tela.
 
 Três detalhes que o mecanismo exige:
 
 - **Os dois medem `--hit-foot` (44px)**, e é por isso que a medida é token: com
-  alturas diferentes a caixa da lista mudava de tamanho ao entrar e sair da
-  seleção — e a lista dava um pulo debaixo do dedo que estava segurando o item
-  que a abriu.
-- **`renderListFoot()` reconstrói só o que é dela.** Um `innerHTML = ''` ali
-  tiraria a `#selbar` do documento: o nó é UM só, movido entre o rodapé e a
-  gaveta de Favoritos (mesmo padrão do `<input type="file">`), e perdê-lo é
-  perder os listeners.
-- **Quem esconde o rodapé vazio é o JS, não um `:empty`.** A `#selbar` mora
-  ali mesmo fora da seleção (escondida pelo `hidden`), então o rodapé nunca
-  fica de fato vazio — e um filho de altura zero ainda consome o `gap` do
-  `<main>`, que viraria uma faixa de ar acima da caixa de controles em toda aba
-  sem rodapé. E a chamada é **antes** do desvio por aba em `renderLibrary()`:
-  Bíblia, Ferramentas e a raiz dos Favoritos saem por `return`, e deixada para
-  o fim ela desenhava o "Importar arquivos" do Cronograma embaixo da grade de
-  livros da Bíblia.
+  alturas diferentes a caixa da lista muda de tamanho ao entrar e sair da
+  seleção, e a lista dá um pulo debaixo do dedo que estava segurando o item.
+- **`renderListFoot()` reconstrói só o que é dela.** Um `innerHTML = ''` tiraria
+  a `#selbar` do documento: o nó é UM só, movido entre hosts (o padrão do
+  `<input type="file">`), e perdê-lo é perder os listeners.
+- **Quem esconde o rodapé vazio é o JS, não um `:empty`.** A `#selbar` mora ali
+  mesmo fora da seleção (escondida por `hidden`), então o rodapé nunca fica de
+  fato vazio — e um filho de altura zero ainda consome o `gap` do `<main>`, que
+  viraria uma faixa de ar acima da caixa de controles em toda aba sem rodapé. E
+  a chamada é **antes** do desvio por aba em `renderLibrary()`: Bíblia e
+  Ferramentas saem por `return`, e deixada para o fim ela desenhava o "Importar
+  arquivos" embaixo da grade de livros da Bíblia.
 
-O `<input type="file" multiple>` continua sendo o mesmo elemento de sempre
-(`#file`, com o listener de `change` já registrado) — ele mora solto no
-`index.html` e é **movido** para dentro do `<label>` a cada render, porque
-descartar a linha antiga destruiria um input criado ali.
+O `<input type="file" multiple>` é o mesmo elemento de sempre (`#file`, com o
+listener já registrado): ele mora solto no `index.html` e é MOVIDO para dentro do
+`<label>` a cada render, porque descartar a linha antiga destruiria um input
+criado ali.
 
-**Navegação persistente:** trocar de aba **não** reseta a pasta aberta nem a
-busca — voltar para os Favoritos retorna exatamente onde estava. A posição de scroll
-é guardada por aba/pasta (`scrollPos`, chave `scrollKey()` = aba + id da pasta)
-e restaurada ao fim de cada `load()`; `rememberScroll()` é chamado antes de
-trocar de aba, abrir pasta ou voltar. (Memória por sessão, em RAM.)
+**Navegação persistente:** trocar de aba não reseta a busca. A posição de scroll
+é guardada por aba (`scrollPos`, chave `scrollKey()`) e restaurada **só na
+NAVEGAÇÃO**, nunca em todo redesenho — `load()` roda por dezenas de caminhos
+(acrescentar um item, favoritar, o progresso de um download), e restaurar em
+todos jogava a lista de volta para o topo. `rememberScroll()` é chamado antes de
+trocar de aba. (Memória por sessão, em RAM.)
 
-**Deslizar troca de aba (carrossel, v5.49).** As três abas já eram um carrossel
-na cabeça de quem usa Android — a animação de troca sempre desenhou a lista
-ENTRANDO pelo lado —, mas o gesto que produz esse movimento em qualquer outro
-app não existia aqui: só o toque no ícone. `setupTabCarousel` escuta o
-`pointerdown`/`pointermove` no `<main>` e troca de aba quando o dedo anda
-`TAB_SWIPE_MIN` (60px) na horizontal com o eixo X dominando o Y em 1,5×.
+#### Deslizar troca de aba (carrossel)
 
-- **A ordem é a da FAIXA** (`SWIPE_TABS = ['imports','bible','mic']`), não a do
-  `TAB_ORDER`: este inclui os Favoritos, que não têm botão na faixa — deslizar
-  até uma tela que não aparece na navegação deixaria o operador num lugar sem
-  indicação de onde ele está.
-- **Age no meio do gesto**, não ao soltar: a aba nova entra deslizando enquanto
-  o dedo ainda se move, que é o que faz o gesto parecer arrastar a tela.
-- **Duas superfícies escutam**: o `<main>` e a própria `.tabs`. Desde a v5.54 a
-  faixa mora na caixa de controles, fora do `<main>` — e deslizar sobre a
-  fileira de abas é o gesto mais óbvio de todos, então ele passou a ser
-  registrado explicitamente. O estado do gesto é compartilhado: é UM gesto, não
-  dois.
-- **Vale SOBRE A LISTA, inclusive sobre as linhas** (v5.50). Na v5.49 o gesto
-  ignorava tudo o que começasse numa `.row`, porque a linha tinha deslize
-  próprio (adicionar à playlist) — e como o Cronograma inteiro é feito de
-  linhas, o carrossel não funcionava justamente na aba em que mais se tenta
-  usá-lo. O deslize da linha saiu; o eixo horizontal ficou livre.
-- **`touch-action: pan-y` NO SCROLLER, não num ancestral.** A regra de
-  `touch-action` para de subir na árvore no elemento que IMPLEMENTA o gesto —
-  ou seja, no contêiner que rola. Quem precisa da declaração, então, é cada
-  scroller: a `.lib-list` (Cronograma, Favoritos, Bíblia) e, na aba
-  **Ferramentas**, o `.misc-panel` e a `.msg-list`, porque ali a `.lib-list` é
-  `overflow: hidden` e quem rola é o painel de dentro — e, desde a v5.188, as
-  **`.bible-half`** (capítulos/versículos com um livro aberto), a MESMA lição
-  pela terceira vez: sem a declaração, o WebView tomava o gesto horizontal
-  sobre um scroller que só rola na vertical, e o fling residual **engolia o
-  toque seguinte** — era o "depois de tentar o carrossel na Bíblia, os botões
-  das abas exigem dois toques" relatado em aparelho. Sem a declaração o
-  navegador considera o gesto dele (`manipulation`, herdado do `*`) e o engole
-  com um `pointercancel` ao primeiro movimento, muito antes dos 60px que a
-  troca exige.
-  **Foi esse detalhe que fez a aba Ferramentas travar por três versões.** A
-  v5.52 tentou cobrir o buraco em JS; a v5.61 pôs a declaração na `.lib-list`
-  — mas ela nunca chegava a valer, porque o toque começava dentro do
-  `.misc-panel` e a caminhada parava ali. A mesma regra, lida do outro lado, é
-  o que preserva o `pan-x` do histórico do sorteio (`.draw-hist`): um `pan-y`
-  acima dele não o alcança. Verificado com toque real: o histórico rola de lado
-  (`scrollLeft` 0 → 142) e a aba não muda.
-- **O gesto de TOQUE tem ciclo próprio, independente dos `pointer*`** (v5.62).
-  O navegador CANCELA o fluxo de ponteiro (`pointercancel`) assim que decide
-  que o gesto é dele, e basta um scroller no caminho para ele decidir; enquanto
-  o carrossel dependia do `pointerdown` para armar, um cancelamento matava o
-  gesto antes de ele nascer — e o `touchmove` que deveria reivindicá-lo voltava
-  cedo, porque não havia gesto armado. Agora `touchstart` arma, `touchmove`
-  decide o eixo / reivindica / troca a aba e `touchend`/`touchcancel` encerram.
-  Os `pointer*` ficaram só para o MOUSE (filtrados por `pointerType`), que é
-  como se desenvolve no navegador de mesa.
-- **Dois limiares, duas decisões**: o EIXO é decidido aos 12px
-  (`TAB_CLAIM_MIN`) — cedo, antes de o navegador tomar a decisão dele — e a
-  TROCA aos 60px (`TAB_SWIPE_MIN`), que é intenção. Uma vez reivindicado, o
-  gesto continua nosso até o dedo levantar: soltar o controle no meio deixaria
-  a página rolar de lado no fim do movimento. O `touchmove` é **não passivo**,
-  que é o que faz o navegador esperar a decisão do handler antes de rolar; um
-  movimento vertical nunca é tocado.
-- **Nem em sub-tela** (pasta aberta, capítulo/leitura da Bíblia), reconhecida
-  pelo `#backBtn` visível: ali o eixo horizontal pertence à navegação de dentro.
-  Também ficam de fora campos de texto e trilhos que rolam na horizontal (o
-  histórico do sorteio) e o modo de seleção múltipla. **Exceção (v5.188): a
-  FAIXA DE ABAS.** Um gesto que começa sobre a própria fileira de abas
-  (`tabsEl.contains(target)`) só responde às guardas globais (modo de seleção,
-  aba fora de `SWIPE_TABS`): a faixa não pertence a sub-tela nenhuma, e com um
-  livro da Bíblia aberto — o estado normal de quem usa a Bíblia — o gesto mais
-  óbvio de todos morria calado na guarda do voltar.
+`setupTabCarousel` escuta o `<main>` e a própria `.tabs` e troca de aba quando o
+dedo anda `TAB_SWIPE_MIN` (60px) na horizontal com o eixo X dominando o Y em
+1,5×.
+
+- **A ordem é a da FAIXA** (`SWIPE_TABS`), não a do `TAB_ORDER`: este inclui os
+  Favoritos, que não têm botão na faixa — deslizar até uma tela que não aparece
+  na navegação deixaria o operador sem indicação de onde está.
+- **Age no meio do gesto**, não ao soltar: a aba nova entra deslizando enquanto o
+  dedo ainda se move, que é o que faz o gesto parecer arrastar a tela.
+- **Duas superfícies escutam** (o `<main>` e a `.tabs`, que mora fora dele), com
+  o estado do gesto COMPARTILHADO: é UM gesto, não dois.
+- **Vale SOBRE A LISTA, inclusive sobre as linhas** — o Cronograma inteiro é
+  feito de linhas, e excluí-las mata o gesto na aba em que ele mais é tentado.
+- **`touch-action: pan-y` NO SCROLLER, nunca num ancestral.** A regra de
+  `touch-action` PARA de subir na árvore no elemento que IMPLEMENTA o gesto, isto
+  é, no contêiner que rola: quem precisa da declaração é cada scroller — a
+  `.lib-list`, o `.misc-panel` e a `.msg-list` (na Ferramentas a `.lib-list` é
+  `overflow: hidden` e quem rola é o painel de dentro) e as `.bible-half`. Sem
+  ela o navegador considera o gesto dele (`manipulation`, herdado do `*`) e o
+  engole com um `pointercancel` ao primeiro movimento, muito antes dos 60px. E a
+  MESMA regra, lida do outro lado, é o que preserva o `pan-x` do histórico do
+  sorteio (`.draw-hist`): um `pan-y` acima dele não o alcança — verificado com
+  toque real, o histórico rola de lado (`scrollLeft` 0 → 142) e a aba não muda.
+  Esta lição custou três versões e voltou pelo menos três vezes.
+- **O gesto de TOQUE tem ciclo próprio, independente dos `pointer*`.** O
+  navegador CANCELA o fluxo de ponteiro (`pointercancel`) assim que decide que o
+  gesto é dele, e basta um scroller no caminho: armando pelo `pointerdown`, um
+  cancelamento matava o gesto antes de ele nascer. `touchstart` arma, `touchmove`
+  decide o eixo / reivindica / troca a aba, `touchend`/`touchcancel` encerram. Os
+  `pointer*` ficaram só para o MOUSE (filtrados por `pointerType`).
+- **Dois limiares, duas decisões:** o EIXO aos 12px (`TAB_CLAIM_MIN`, antes de o
+  navegador tomar a decisão dele) e a TROCA aos 60px (`TAB_SWIPE_MIN`, que é
+  intenção). Reivindicado, o gesto continua nosso até o dedo levantar — soltar o
+  controle no meio deixaria a página rolar de lado no fim do movimento. O
+  `touchmove` é **não passivo**, que é o que faz o navegador esperar a decisão do
+  handler; um movimento vertical nunca é tocado.
+- **A GUARDA PERGUNTA AO DOM, nunca a uma lista de classes.** Quatro consertos
+  deste carrossel erraram mantendo à mão a lista do que o eixo horizontal não
+  pode atravessar — a última chegou a proibir `.bible-half`, que declara
+  `touch-action: pan-y` e LIBERA o gesto, e a mais larga barrava toda sub-tela
+  (reconhecida pelo voltar visível), matando o carrossel justamente na navegação
+  interna, onde o operador mais desliza. A pergunta certa é MEDIDA: existe, entre
+  o alvo e a superfície que escuta, alguém que de fato ROLE na horizontal? Um
+  trilho de pílulas cheio responde sim; o mesmo trilho com três pílulas responde
+  não. Campos de texto ficam fora por outro motivo (ali o eixo é do cursor), e
+  são nomeáveis por serem conceito do HTML, não classe deste app. O modo de
+  seleção múltipla continua fora.
 - **O `click` do fim do gesto é engolido** por um listener de CAPTURA no
   `<main>`, senão deslizar sobre a grade de livros trocava de aba **e** abria um
-  livro; sobre a faixa, trocava de aba e voltava para a do ícone que o dedo
-  cruzou; e na ponta do carrossel (deslizar além da última aba, onde não há
-  troca) um deslize sobre "+ Nova mensagem" abria o diálogo de mensagem nova —
-  um gesto de navegação virando ação de conteúdo. A trava é uma **flag desarmada
-  no `pointerdown` seguinte**, e não um listener com prazo: o prazo de 350 ms
-  que havia primeiro mede o tempo errado — numa página em segundo plano o resto
-  do gesto leva mais que isso e a trava expirava justamente antes do clique
-  chegar (observado com a janela do Display aberta ao lado, no navegador).
-
+  livro, e na ponta do carrossel um deslize sobre "+ Nova mensagem" abria o
+  diálogo. A trava é uma **flag desarmada no `pointerdown` seguinte**, nunca um
+  listener com prazo: o prazo de 350 ms mede o tempo errado — numa página em
+  segundo plano o resto do gesto leva mais que isso e a trava expirava
+  justamente antes de o clique chegar.
 #### A troca de aba é um DESLIZE INTEIRO (v5.59)
 
 As duas telas se movem juntas, larguras inteiras, como um carrossel de verdade:
