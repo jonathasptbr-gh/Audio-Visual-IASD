@@ -35,10 +35,7 @@ import kotlin.concurrent.thread
  * O SERVIDOR DO TELÃO POR COMANDOS — sockets, threads, roteamento e fan-out.
  *
  * Ele é o cano por onde o bundle, os COMANDOS e a MÍDIA saem para os
- * navegadores da rede local. (Até a v5.187 ele carregava PIXELS, e boa parte
- * deste KDoc ainda falava daquele pipeline — corrigido na v5.212, pela mesma
- * razão que a v5.206 catalogou: registro que descreve um mecanismo morto manda
- * o próximo leitor procurar o defeito no lugar errado.)
+ * navegadores da rede local.
  * **Não decide nada** que os dois arquivos puros já decidam: quem lê a
  * requisição é o [EspelhoHttp] e quem diz se aquela tela pode entrar é o
  * [EspelhoPares]. Aqui moram só as três coisas que exigem o Android e um
@@ -47,13 +44,11 @@ import kotlin.concurrent.thread
  *
  * ## Onde o socket liga — a linha mais importante deste arquivo
  *
- * `ServerSocket(porta)` liga em **0.0.0.0**: toda interface do aparelho,
- * inclusive a `rmnet` da operadora. E o enunciado deste projeto diz que a
- * igreja pode não ter internet, cujo desfecho normal é o celular em dados
- * móveis — onde as operadoras brasileiras entregam **IPv6 globalmente
- * roteável**, sem NAT e sem firewall implícito. O resultado seria o culto em
- * H.264 numa porta alcançável do mundo, protegida por seis dígitos, e ninguém
- * no prédio teria como perceber.
+ * `ServerSocket(porta)` liga em **0.0.0.0**: toda interface, inclusive a
+ * `rmnet` da operadora. A igreja pode não ter internet, cujo desfecho normal é
+ * o celular em dados móveis — onde as operadoras brasileiras entregam **IPv6
+ * globalmente roteável**, sem NAT e sem firewall implícito. Seria o culto numa
+ * porta alcançável do mundo, e ninguém no prédio teria como perceber.
  *
  * Por isso, e não é negociável:
  *
@@ -71,13 +66,12 @@ import kotlin.concurrent.thread
  *
  * ## O transporte é `Transfer-Encoding: chunked`, não WebSocket
  *
- * O servidor HTTP tem de existir de qualquer jeito — a página, o CSS, o JS, e
- * o próprio handshake do WebSocket **é** uma requisição HTTP. A comparação
- * honesta não é "HTTP contra WS": é "HTTP" contra "HTTP **mais** o RFC 6455",
- * isto é, mais ~150 linhas de framing, unmasking obrigatório, frames de
- * controle e três casos de comprimento (o de 8 bytes falhando só acima de
- * 64 kB, ou seja **exatamente no IDR**) — tudo isso sem oráculo. `chunked` é
- * `tamanho-em-hex CRLF bytes CRLF`, para sempre.
+ * O servidor HTTP tem de existir de qualquer jeito (a página, o CSS, o JS — e o
+ * próprio handshake do WebSocket **é** uma requisição HTTP). A comparação
+ * honesta não é "HTTP × WS": é "HTTP" contra "HTTP **mais** o RFC 6455", isto é
+ * mais ~150 linhas de framing, unmasking obrigatório, frames de controle e três
+ * casos de comprimento — o de 8 bytes falhando só acima de 64 kB —, tudo sem
+ * oráculo. `chunked` é `tamanho-em-hex CRLF bytes CRLF`, para sempre.
  *
  * ## O que este servidor NÃO serve, e é a diferença entre um espelho e um
  * vazamento
@@ -86,11 +80,10 @@ import kotlin.concurrent.thread
  * tokens do SAF não expiram e indexam arquivos pessoais).
  *
  * E o que VEM da rede para o barramento é uma lista de PERMISSÃO de dois tipos
- * ([TIPOS_QUE_SOBEM], em [retorno]) — nunca "qualquer comando com um `type`".
- * Até a v5.212 este parágrafo dizia que **nada** da rede entrava no barramento,
- * e isso tinha deixado de ser verdade na E5, quando o `st` passou a subir: o
- * texto descrevia a garantia certa e o código não a impunha mais. O upstream
- * inteiro é `alive` e `st`, e o `st` é filtrado.
+ * ([TIPOS_QUE_SOBEM], em [retorno]) — **nunca** "qualquer comando com um
+ * `type`". O upstream inteiro é `alive` e `st`, e o `st` é filtrado. (A lista
+ * existe também no `espelho/tela.js`; validação que mora só no cliente não é
+ * validação.)
  *
  * Os estáticos saem do [WebPathHandler] (a mesma resolução OTA→APK e a mesma
  * tabela MIME dos WebViews) por um **mapa fixo** de rota → caminho, nunca por
@@ -102,27 +95,20 @@ import kotlin.concurrent.thread
  * ## A invariante 8 do `CLAUDE.md` se INVERTE aqui
  *
  * Num `shouldInterceptRequest` quem aplica o `Range` é o próprio WebView, sobre
- * o que o app devolveu. **Num `ServerSocket` de verdade quem aplica é o
- * servidor**, e é o que a rota `/m/` faz: RFC 7233 de verdade, por
- * [EspelhoHttp.alcanceDe] (com JUnit). Copiar o [StreamProxy] para cá é o erro
- * exato — aquele devolve a fatia como se fosse o todo, porque do outro lado há
- * um WebView que vai refatiar de novo.
- *
- * (Este parágrafo dizia "aqui não há `Range` nenhum: as rotas de mídia são
- * fluxos infinitos". Era verdade até a E1 do telão por comandos, e passou a
- * ser o oposto do código 500 linhas abaixo. Corrigido na v5.212.)
+ * o que o app devolveu. **Num `ServerSocket` quem aplica é o servidor**, e é o
+ * que a rota `/m/` faz: RFC 7233 de verdade, por [EspelhoHttp.alcanceDe] (com
+ * JUnit). Copiar o [StreamProxy] para cá é o erro exato — aquele devolve a
+ * fatia como se fosse o todo, porque do outro lado há um WebView que refatia.
  *
  * @param registrar linha crua para o diário do espelho (`EspelhoDiag`). O
  *   Kotlin devolve DADO; quem monta a frase é o `controle.js` — por isso o
  *   parâmetro é uma função e não uma dependência de UI. Padrão vazio: a
  *   assinatura de dois parâmetros da especificação continua válida.
- * @param aoPerderRede a Wi-Fi sumiu com o espelho no ar: além de desligar o
- *   servidor (que este arquivo faz sozinho), o dono precisa soltar a tela
- *   virtual e o encoder.
- * @param aoTrocarEndereco o endereço mudou e o socket foi RELIGADO nele (o IP
- *   do DHCP trocou, o roteador reiniciou). O servidor se resolve sozinho; quem
- *   precisa saber é a notificação
- *   do serviço, que mostra o endereço ao operador. Ver [religarNoIp].
+ * @param aoPerderRede a Wi-Fi sumiu com a transmissão no ar. Este arquivo
+ *   desliga o servidor sozinho; o dono precisa soltar o resto.
+ * @param aoTrocarEndereco o endereço mudou e o socket foi RELIGADO nele (IP do
+ *   DHCP trocou, roteador reiniciou). O servidor se resolve sozinho; quem
+ *   precisa saber é a notificação do serviço. Ver [religarNoIp].
  */
 class EspelhoServidor(
     private val ctx: Context,
