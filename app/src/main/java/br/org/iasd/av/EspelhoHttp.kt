@@ -194,39 +194,31 @@ object EspelhoHttp {
     /**
      * Só na PÁGINA (`GET /`), somados aos de sempre.
      *
-     * A especificação escreve esta política como
-     * `default-src 'self'; frame-ancestors 'none'; base-uri 'none'`, e é dela que
-     * vem tudo o que está aqui **menos as duas últimas diretivas**. Elas existem
-     * porque `default-src 'self'` sozinho **proíbe `blob:` e `data:`**, e a
-     * página que sai daqui é o `/web/display/` de verdade, que usa os dois:
+     * A especificação escreve a política como `default-src 'self';
+     * frame-ancestors 'none'; base-uri 'none'`, e é dela que vem tudo aqui
+     * **menos as duas últimas diretivas**: `default-src 'self'` sozinho PROÍBE
+     * `blob:` e `data:`, e a página que sai daqui é o `/web/display/` de
+     * verdade, que usa os dois:
      *
      *  - `blob:` — o `shared/stage.js` resolve toda mídia local por
      *    `URL.createObjectURL` (o `File` do OPFS, o `Blob` do registro, cada
-     *    página de um deck), e o `display.js` faz o mesmo com o wallpaper
-     *    personalizado. É o MESMO motor do telão, e ele não tem um caminho
-     *    alternativo: sem `blob:` a tela da rede nasce sem mídia nenhuma.
-     *  - `data:` — o `POSTER_VAZIO` do `stage.js`, o GIF 1×1 transparente que
-     *    cobre o pôster padrão do WebView enquanto um `<video>` espera o
-     *    primeiro quadro. O atributo `poster` é uma IMAGEM, então quem o
-     *    governa é `img-src`, não `media-src`.
+     *    página de um deck) e o `display.js` faz o mesmo com o wallpaper. É o
+     *    MESMO motor do telão, sem caminho alternativo: sem `blob:` a tela da
+     *    rede nasce sem mídia nenhuma.
+     *  - `data:` — o `POSTER_VAZIO` do `stage.js`, o GIF 1×1 que cobre o pôster
+     *    padrão do WebView enquanto um `<video>` espera o primeiro quadro. O
+     *    atributo `poster` é IMAGEM, então quem o governa é `img-src`.
      *
-     * (Este KDoc justificava as duas diretivas pelo "modo imagem" (JPEG por
-     * `createObjectURL`) e pelo "modo vídeo" (a `MediaSource` do `<video>`) do
-     * CLIENTE DO ESPELHO DE PIXELS — as duas formas de um recurso aposentado na
-     * v5.187. As diretivas continuam necessárias; as razões acima é que são as
-     * de verdade. Corrigido na v5.206.)
-     *
-     * **Não há `style-src`, e isso é uma decisão, não um esquecimento**: sem
+     * **Não há `style-src`, e é decisão e não esquecimento**: sem
      * `'unsafe-inline'`, todo estilo desta página tem de ser FOLHA servida deste
-     * origin. Foi essa regra que a v5.205 aprendeu do jeito caro — um `<style>`
+     * origin. Foi a regra que a v5.205 aprendeu do jeito caro — um `<style>`
      * criado em runtime pelo `espelho/tela.js` era anexado e nunca aplicado, e a
-     * entrada da tela ficava invisível e inclicável, sem erro nenhum. Ver o
-     * cabeçalho de `espelho/tela.css`.
+     * entrada da tela ficava invisível e inclicável, sem erro nenhum.
      *
-     * A rigidez que a política pretende continua inteira: `blob:` e `data:` são,
-     * por construção, do próprio documento (não são rede), e
+     * A rigidez pretendida continua inteira: `blob:` e `data:` são, por
+     * construção, do próprio documento (não são rede), e
      * `script-src`/`connect-src` seguem herdando `'self'` — é a herança que
-     * BARRA a IFrame API do YouTube nas telas da rede, que é a exclusão §1 da
+     * BARRA a IFrame API do YouTube nas telas da rede, a exclusão §1 da
      * especificação virando garantia em vez de promessa.
      */
     val CABECALHOS_PAGINA = listOf(

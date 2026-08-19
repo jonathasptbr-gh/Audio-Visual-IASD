@@ -239,25 +239,23 @@ class SessionService : Service() {
             mainHandler.post { publish() }
             return
         }
-        // O SALTO DE THREAD ACIMA ABRE UMA JANELA, e é dentro dela que o
-        // serviço pode morrer: `update` roda na thread do WebView, confere
-        // `running` lá e enfileira isto; entre uma coisa e outra o `onDestroy`
-        // (de um `stopSelf` anterior) roda na main e derruba o serviço. Sem
-        // esta guarda a continuação publicava numa instância já destruída —
-        // ou um `notify` que ninguém mais cancela (o mesmo cartão eterno que o
-        // [SyncService] aprendeu a evitar), ou um `startForeground` de um
-        // serviço que não existe mais. O lado web deduplica por chave e não
-        // reenviaria o estado, então a notificação órfã ficaria de pé com os
-        // botões mortos até o app ser fechado.
+        // O SALTO DE THREAD ACIMA ABRE UMA JANELA, e é dentro dela que o serviço
+        // pode morrer: `update` roda na thread do WebView, confere `running` lá
+        // e enfileira isto; entre uma coisa e outra o `onDestroy` (de um
+        // `stopSelf` anterior) roda na main. Sem esta guarda a continuação
+        // publicava numa instância já destruída — um `notify` que ninguém mais
+        // cancela (o cartão eterno que o [SyncService] aprendeu a evitar) ou um
+        // `startForeground` de um serviço que não existe. Como o lado web
+        // deduplica por chave e não reenvia, a notificação órfã ficaria de pé
+        // com os botões mortos até o app ser fechado.
         //
         // MAS A CENA PODE TER SOBREVIVIDO À MORTE DO SERVIÇO: um `active:false`
         // seguido de um `active:true` rápido faz o `update()` novo ver
-        // `running == true`, enfileirar esta publicação — e o `onDestroy` do
-        // stop anterior rodar ANTES dela. Descartar aqui deixava `scene`
-        // preenchida sem serviço nenhum, e nada mais o religava (o lado web
-        // deduplica e não reenvia). Redisparar o start fecha a janela; o
-        // caminho NORMAL de parada não ressuscita nada, porque [stop] limpa
-        // `scene` antes de derrubar o serviço.
+        // `running == true`, enfileirar esta publicação, e o `onDestroy` do stop
+        // anterior rodar ANTES dela. Descartar aqui deixava `scene` preenchida
+        // sem serviço, e nada mais o religava. Redisparar o start fecha a
+        // janela; o caminho NORMAL de parada não ressuscita nada, porque [stop]
+        // limpa `scene` antes de derrubar o serviço.
         if (!running) {
             if (scene != null || transmissao != null) iniciar(applicationContext)
             return
