@@ -235,20 +235,30 @@ try {
 
   await pg.click('#sorteioBtn');
   await assentada('#sorteioPopup');
+  // A conta é DUAS linhas (forte + fraca): ler o `textContent` do `<li>` as cola
+  // sem separador e faz um `/x · y/` casar por acidente. O oráculo lê os dois
+  // spans, que é a estrutura que ele existe para travar.
+  const lerConta = () => pg.evaluate(() => {
+    const li = document.querySelector('#sorteioList .sorteio-conta');
+    const f = li && li.querySelector('.sorteio-conta-forte');
+    const w = li && li.querySelector('.sorteio-conta-fraca');
+    return { forte: f ? f.textContent : '', fraca: w ? w.textContent : '',
+      vazia: !!li && li.classList.contains('vazio') };
+  });
   const folha = await pg.evaluate(() => ({
     aberta: document.getElementById('sorteioPopup').classList.contains('open'),
     segmentos: document.querySelectorAll('#sorteioList .fit-seg').length,
     campo: !!document.querySelector('#sorteioList .lib-search'),
     chips: document.querySelectorAll('#sorteioList .misc-chip').length,
-    conta: (document.querySelector('#sorteioList .sorteio-conta') || {}).textContent,
     go: !!document.querySelector('#sorteioList .song-menu-go'),
   }));
+  const conta0 = await lerConta();
   checar(folha.aberta, 'o toque no botão ABRE a folha');
   checar(folha.segmentos === 2 && folha.campo && folha.chips === 2 && folha.go,
     'e ela desenha os dois segmentos, o campo, os dois filtros e o confirmar', folha);
-  checar(/4 faixas casam/.test(folha.conta) && /3 já no aparelho/.test(folha.conta),
-    'a conta diz as DUAS metades — é o que separa "toca agora" de "espera a rede"',
-    folha.conta);
+  checar(/^4 músicas na biblioteca$/.test(conta0.forte) && /3 já baixadas/.test(conta0.fraca),
+    'a conta fala de MÚSICA em duas linhas: o que há em cima, o custo embaixo',
+    conta0);
 
   // ---- A PALAVRA TEMA FILTRA, SEM REMONTAR A FOLHA -------------------------
   // O campo é o único controle que pode estar EM FOCO enquanto a conta muda:
@@ -259,31 +269,32 @@ try {
   // busca da Biblioteca, porque recontar varre o acervo inteiro.
   await pg.waitForTimeout(350);
   const comTema = await pg.evaluate(() => ({
-    conta: document.querySelector('#sorteioList .sorteio-conta').textContent,
     focado: document.activeElement === document.querySelector('#sorteioList .lib-search'),
     valor: document.querySelector('#sorteioList .lib-search').value,
   }));
+  comTema.conta = (await lerConta()).forte;
   // "natal" casa no NOME de h1 e no ÁLBUM das duas faixas de album-9.
-  checar(/3 faixas casam/.test(comTema.conta),
-    'a palavra tema filtra: o nome de uma e o ÁLBUM das outras duas', comTema.conta);
+  checar(/3 músicas relacionadas a “natal”/.test(comTema.conta),
+    'a palavra tema filtra, e a frase a NOMEIA: o nome de uma e o álbum das outras duas',
+    comTema.conta);
   checar(comTema.focado && comTema.valor === 'natal',
     'e o campo NÃO perde o foco a cada tecla — a conta muda sem remontar a folha', comTema);
 
   // ---- OS FILTROS ----------------------------------------------------------
   const semHinario = await pg.evaluate(async () => {
     sorteioPrefs.semHinario = true; renderSorteio();
-    return document.querySelector('#sorteioList .sorteio-conta').textContent;
+    return document.querySelector('#sorteioList .sorteio-conta-forte').textContent;
   });
-  checar(/2 faixas casam/.test(semHinario),
+  checar(/2 músicas relacionadas/.test(semHinario),
     '"Sem hinário" tira as faixas do hinário do pool', semHinario);
 
   const soPlayback = await pg.evaluate(async () => {
     sorteioPrefs.semHinario = false;
     sorteioPrefs.variante = AVSorteio.VARIANTE_PLAYBACK;
     renderSorteio();
-    return document.querySelector('#sorteioList .sorteio-conta').textContent;
+    return document.querySelector('#sorteioList .sorteio-conta-fraca').textContent;
   });
-  checar(/0 já no aparelho/.test(soPlayback),
+  checar(/nenhuma baixada ainda/.test(soPlayback),
     'em Playback nenhuma delas está no aparelho — o "está baixada?" é por variante',
     soPlayback);
 
@@ -291,11 +302,13 @@ try {
     sorteioPrefs.variante = AVSorteio.VARIANTE_CANTADA;
     sorteioPrefs.soNoAparelho = true;
     renderSorteio();
-    const conta = document.querySelector('#sorteioList .sorteio-conta').textContent;
+    const li = document.querySelector('#sorteioList .sorteio-conta');
+    const conta = li.querySelector('.sorteio-conta-forte').textContent
+      + ' | ' + li.querySelector('.sorteio-conta-fraca').textContent;
     sorteioPrefs.soNoAparelho = false;
     return conta;
   });
-  checar(/2 faixas casam · 2 já no aparelho/.test(soLocal),
+  checar(/2 músicas relacionadas/.test(soLocal) && /todas já baixadas/.test(soLocal),
     '"Só no aparelho" deixa só o que não precisa de download', soLocal);
 
   // ---- A CONTA VAZIA DIZ O MOTIVO -----------------------------------------
@@ -305,11 +318,14 @@ try {
   const vazio = await pg.evaluate(() => {
     sorteioPrefs.tema = 'zzzznadaaqui'; renderSorteio();
     const li = document.querySelector('#sorteioList .sorteio-conta');
-    const go = document.querySelector('#sorteioList .song-menu-go');
+    const go = document.querySelector('#sorteioList .sorteio-acao');
     return { texto: li.textContent, marcada: li.classList.contains('vazio'), travado: go.disabled };
   });
   checar(/zzzznadaaqui/.test(vazio.texto) && vazio.marcada,
     'sem resultado, a conta NOMEIA a palavra que não casou', vazio.texto);
+  checar(!/casam|no aparelho|faixas/.test(vazio.texto),
+    'e ela não volta ao vocabulário da varredura ("casam", "faixas", "no aparelho")',
+    vazio.texto);
   checar(vazio.travado, 'e o confirmar fica desabilitado — o botão nunca dispara para o nada');
 
   // ---- MODO "UMA SÓ": vai ao telão ----------------------------------------
@@ -318,7 +334,7 @@ try {
     sorteioPrefs.modo = AVSorteio.MODO_UMA;
     sorteioPrefs.soNoAparelho = true;   // sem rede neste harness
     renderSorteio();
-    await executarSorteio(document.querySelector('#sorteioList .song-menu-go'));
+    await executarSorteio(document.querySelector('#sorteioList .song-menu-go'), 'tocar');
     await new Promise((r) => setTimeout(r, 400));
     return {
       fechou: !document.getElementById('sorteioPopup').classList.contains('open'),
@@ -339,7 +355,7 @@ try {
     sorteioPrefs.tema = '';            // o acervo inteiro: 3 baixadas
     sorteioPrefs.soNoAparelho = true;
     await abrirSorteio();
-    await executarSorteio(document.querySelector('#sorteioList .song-menu-go'));
+    await executarSorteio(document.querySelector('#sorteioList .song-menu-go'), 'tocar');
     await new Promise((r) => setTimeout(r, 600));
     const ids = await AVDB.listIds('playlist');
     return { ids, plItems: plItems.length, noAr: currentId, primeiro: ids[0] };
@@ -351,6 +367,74 @@ try {
     fila.plItems);
   checar(fila.noAr === fila.primeiro,
     'e a PRIMEIRA já está no telão (o caminho do `abrirPacote`)', fila);
+
+  // ---- MONTANDO A FILA HÁ DOIS DESFECHOS (v5.306) -------------------------
+  // Eles não são duas versões da mesma ação: um TOCA (substitui a fila do player
+  // e projeta) e o outro GUARDA (acrescenta ao Cronograma sem tocar no que está
+  // no ar). O teste separa os dois pelo EFEITO, que é o único jeito de provar
+  // que o segundo botão não é o primeiro com outro rótulo.
+  const faixa = await pg.evaluate(async () => {
+    sorteioPrefs.modo = AVSorteio.MODO_PLAYLIST;
+    await abrirSorteio();
+    const bs = [...document.querySelectorAll('#sorteioList .sorteio-acao')];
+    return bs.map((b) => b.textContent.trim());
+  });
+  checar(faixa.length === 2 && /Tocar agora/.test(faixa[0]) && /Cronograma/.test(faixa[1]),
+    'montando a fila a faixa de fecho tem DOIS botões: tocar e guardar', faixa);
+
+  const umaSo = await pg.evaluate(async () => {
+    sorteioPrefs.modo = AVSorteio.MODO_UMA; renderSorteio();
+    const n = document.querySelectorAll('#sorteioList .sorteio-acao').length;
+    sorteioPrefs.modo = AVSorteio.MODO_PLAYLIST; renderSorteio();
+    return n;
+  });
+  checar(umaSo === 1,
+    'e sorteando UMA SÓ continua sendo um: guardar uma música é o caminho da '
+    + 'gaveta da Biblioteca, com ela à vista', umaSo);
+
+  // O EFEITO do "Ao Cronograma": entra na lista `imports` e NÃO mexe no que
+  // está no ar nem na fila do player. É esta a diferença que o botão promete.
+  const guardou = await pg.evaluate(async () => {
+    const filaAntes = await AVDB.listIds('playlist');
+    const noArAntes = currentId;
+    sorteioPrefs.quantos = 3; sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true;
+    renderSorteio();
+    const btn = [...document.querySelectorAll('#sorteioList .sorteio-acao')]
+      .find((b) => /Cronograma/.test(b.textContent));
+    await executarSorteio(btn, 'cronograma');
+    await new Promise((r) => setTimeout(r, 600));
+    return {
+      cronograma: (await AVDB.listIds('imports')).length,
+      filaIgual: JSON.stringify(await AVDB.listIds('playlist')) === JSON.stringify(filaAntes),
+      noArIgual: currentId === noArAntes,
+      aberta: document.getElementById('sorteioPopup').classList.contains('open'),
+      fala: (document.querySelector('#sorteioList .sorteio-conta-forte') || {}).textContent,
+    };
+  });
+  checar(guardou.cronograma === 3, 'as três sorteadas entram no Cronograma', guardou);
+  checar(guardou.filaIgual && guardou.noArIgual,
+    'e ele NÃO mexe na fila do player nem no que está no telão — é a diferença '
+    + 'que separa os dois botões', guardou);
+  checar(guardou.aberta,
+    'a folha FICA ABERTA: guardar não encerra a conversa, e o segundo sorteio é o uso normal');
+  checar(/adicionad/i.test(guardou.fala || ''),
+    'e a conta empresta a si mesma para dizer quantas entraram', guardou.fala);
+
+  // REPETIR O MESMO SORTEIO tem de dizer que elas já estavam lá — senão o
+  // operador repete o toque achando que não funcionou.
+  const denovo = await pg.evaluate(async () => {
+    const btn = [...document.querySelectorAll('#sorteioList .sorteio-acao')]
+      .find((b) => /Cronograma/.test(b.textContent));
+    await executarSorteio(btn, 'cronograma');
+    await new Promise((r) => setTimeout(r, 600));
+    return {
+      total: (await AVDB.listIds('imports')).length,
+      fala: (document.querySelector('#sorteioList .sorteio-conta-forte') || {}).textContent,
+    };
+  });
+  checar(denovo.total === 3, 'sortear de novo não duplica o que já está no Cronograma', denovo);
+  checar(/j[áa] estav|j[áa] est[áa]/i.test(denovo.fala || ''),
+    'e a frase o DIZ, em vez de parecer que o toque não fez nada', denovo.fala);
 
   // ---- O REGISTRO ---------------------------------------------------------
   const registro = await pg.evaluate(() => blocoSorteio());

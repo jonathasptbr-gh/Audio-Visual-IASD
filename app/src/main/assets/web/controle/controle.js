@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '5.305';
+const WEB_VERSION = '5.306';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -13575,6 +13575,7 @@ async function abrirSorteio() {
 }
 function fecharSorteio() {
   sorteioPopupEl.classList.remove('open');
+  calarSorteio();
   // A palavra tema é gravada AQUI, e não a cada tecla: `input` persistido é uma
   // escrita no IndexedDB por caractere digitado.
   saveSorteioPrefs();
@@ -13586,43 +13587,120 @@ function fecharSorteio() {
 // tira o foco do campo.
 function atualizarContaSorteio() {
   const conta = sorteioListEl.querySelector('.sorteio-conta');
-  const go = sorteioListEl.querySelector('.song-menu-go');
   if (!conta) return;
   const pool = sorteioPool();
   const n = pool.itens.length;
   conta.classList.toggle('vazio', n === 0);
-  conta.textContent = textoDaContaSorteio(pool);
-  if (go) go.disabled = n === 0;
+  pintarContaSorteio(conta, pool);
+  // OS DOIS botões, e não `.song-menu-go`: desde a v5.306 a faixa de fecho tem
+  // "Tocar agora" e "Ao Cronograma", e um seletor que pegasse só o primeiro
+  // deixaria o segundo habilitado sobre um pool vazio.
+  sorteioListEl.querySelectorAll('.sorteio-acao').forEach((b) => { b.disabled = n === 0; });
 }
 
-// A FRASE DIZ AS DUAS METADES, e a segunda é o ponto: "3 já no aparelho" é a
-// diferença entre tocar agora e esperar a rede da igreja. Vazio, ela diz o
-// MOTIVO dominante — sem ele, "nenhuma faixa casa" tem cinco causas que pedem
-// ações opostas (trocar a palavra, desligar um filtro, abrir um álbum para o
-// índice chegar).
-function textoDaContaSorteio(pool) {
-  const n = pool.itens.length;
-  if (n) {
-    const alvo = sorteioPrefs.modo === AVSorteio.MODO_PLAYLIST
-      ? Math.min(sorteioPrefs.quantos, n) : 1;
-    return n + (n === 1 ? ' faixa casa' : ' faixas casam')
-      + ' · ' + pool.noAparelho + ' já no aparelho'
-      + ' · sorteia ' + alvo;
+// ===== A CONTA FALA DE MÚSICA, NÃO DE VARREDURA (v5.306) =====
+//
+// Pedido do operador: *"dê uma aprimorada na forma que descreve os resultados.
+// algo como: x músicas relacionadas, x delas já estão baixadas… mais funcional
+// e menos técnico"*.
+//
+// Ela saía como `12 faixas casam · 3 já no aparelho · sorteia 5` — três números
+// no vocabulário de quem escreveu a regra ("casam", "faixas", "no aparelho"),
+// empilhados numa linha só. O que o operador precisa saber antes de tocar o
+// botão são DUAS coisas, e elas têm pesos diferentes:
+//
+//   1. **o tema achou o quê?** — decide se vale mudar a palavra;
+//   2. **quanto disso toca agora?** — decide se o culto espera a rede.
+//
+// Daí DUAS LINHAS com hierarquia, e não uma frase com separadores: a primeira
+// responde a primeira pergunta e é a que se lê de relance; a segunda é o custo,
+// em `--muted`. Uma linha só obrigava as duas a disputarem o mesmo peso.
+function pintarContaSorteio(conta, pool) {
+  conta.innerHTML = '';
+  // A FALA EMPRESTADA VENCE, e ela é lida AQUI e não escrita no nó: o
+  // `executarSorteio` REDESENHA a folha no `finally`, e uma frase escrita
+  // direto no span era apagada no mesmo quadro em que nascia — o "adicionadas
+  // ao Cronograma" nunca chegou a ser visto. Guardá-la em estado e deixar o
+  // desenho consultá-la faz qualquer redesenho preservá-la, que é a única forma
+  // que sobrevive a um caminho de render que ainda não existe.
+  const [forte, fraca] = sorteioFala ? [sorteioFala, ''] : frasesDaContaSorteio(pool);
+  const a = document.createElement('span');
+  a.className = 'sorteio-conta-forte';
+  a.textContent = forte;
+  conta.appendChild(a);
+  if (fraca) {
+    const b = document.createElement('span');
+    b.className = 'sorteio-conta-fraca';
+    b.textContent = fraca;
+    conta.appendChild(b);
   }
+}
+
+// Números do acervo passam de mil (os dois hinários somam ~1.100): sem o
+// separador, "1243" se lê como um código.
+function numeroPt(n) {
+  try { return n.toLocaleString('pt-BR'); } catch (_) { return String(n); }
+}
+
+// Devolve `[linha forte, linha fraca]`. A fraca pode ser vazia.
+function frasesDaContaSorteio(pool) {
+  const n = pool.itens.length;
+  if (!n) return [fraseDoVazioSorteio(pool), ''];
+
+  // `palavra`, e NÃO `tema`: aquele é o nome de módulo do tema claro × escuro
+  // (topo do arquivo), e sombreá-lo aqui é a zona morta temporal que o
+  // `sombra.test.mjs` existe para pegar — ele pegou.
+  const palavra = sorteioPrefs.tema.trim();
+  // "relacionadas a X" é a palavra do operador. Sem tema não há relação a
+  // declarar — ali o acervo INTEIRO é o pool, e dizê-lo é o que explica um
+  // número na casa dos milhares.
+  const forte = palavra
+    ? numeroPt(n) + (n === 1 ? ' música relacionada a ' : ' músicas relacionadas a ')
+      + '“' + palavra + '”'
+    : numeroPt(n) + (n === 1 ? ' música na biblioteca' : ' músicas na biblioteca');
+
+  const baixadas = pool.noAparelho;
+  const jaTem = baixadas === 0 ? 'nenhuma baixada ainda'
+    : baixadas === n ? 'todas já baixadas'
+      : numeroPt(baixadas) + (baixadas === 1 ? ' já baixada' : ' já baixadas');
+
+  if (sorteioPrefs.modo !== AVSorteio.MODO_PLAYLIST) {
+    // Sortear UMA: o que decide a espera é se HÁ alguma baixada, porque o
+    // sorteio prefere as que estão (ver `AVSorteio.sortear`).
+    return [forte, baixadas ? jaTem + ' — toca na hora' : jaTem + ' — vai baixar antes de tocar'];
+  }
+
+  // MONTAR A FILA. Aqui o custo é EXATO e não uma estimativa: o sorteio esgota
+  // as baixadas antes de pegar as que faltam, então quantas precisam de rede é
+  // uma subtração, não um palpite.
+  const leva = Math.min(sorteioPrefs.quantos, n);
+  const baixar = Math.max(0, leva - baixadas);
+  const custo = baixar === 0 ? 'todas já baixadas'
+    : baixar === leva ? 'todas para baixar'
+      : baixar + ' para baixar';
+  return [forte, 'A playlist leva ' + leva + ' · ' + custo];
+}
+
+// VAZIO, ELA DIZ O MOTIVO DOMINANTE. Sem ele, "nada encontrado" tem cinco causas
+// que pedem ações OPOSTAS — trocar a palavra, desligar um filtro, trocar a
+// variante, ou abrir a Biblioteca com internet. A ordem é a do que o operador
+// consegue consertar mais depressa.
+function fraseDoVazioSorteio(pool) {
   if (!pool.colecoesUsadas) {
     return sorteioPrefs.semHinario
-      ? 'Nenhuma coleção sobrou — o filtro do hinário tirou tudo o que há neste aparelho.'
-      : 'Nenhuma coleção com índice. Abra a Biblioteca com internet uma vez.';
+      ? 'Só há hinário neste aparelho, e o filtro pediu sem ele.'
+      : 'A biblioteca ainda não foi carregada. Abra-a uma vez com internet.';
   }
   const r = pool.recusas;
   if (sorteioPrefs.soNoAparelho && r[AVSorteio.MOTIVO_FORA]) {
-    return 'Nada baixado casa o tema — desligue "Só no aparelho" para baixar na hora.';
+    return 'Nada do que combina está baixado. Desligue “Só no aparelho” para baixar na hora.';
   }
   if (sorteioPrefs.variante === AVSorteio.VARIANTE_PLAYBACK && r[AVSorteio.MOTIVO_VARIANTE]) {
-    return 'Nenhuma faixa dessas tem playback — troque para Cantada.';
+    return 'Nenhuma delas tem playback. Troque para Cantada.';
   }
-  return pool.tema ? 'Nada casa "' + sorteioPrefs.tema.trim() + '" na biblioteca.'
-    : 'Nenhuma faixa disponível com estes filtros.';
+  const palavra = sorteioPrefs.tema.trim();
+  return palavra ? 'Nada combina com “' + palavra + '” na biblioteca.'
+    : 'Nenhuma música disponível com esses filtros.';
 }
 
 // Uma linha "rótulo à esquerda, pílulas à direita".
@@ -13735,33 +13813,62 @@ function renderSorteio() {
   const pool = sorteioPool();
   const liConta = document.createElement('li');
   liConta.className = 'sorteio-conta' + (pool.itens.length ? '' : ' vazio');
-  liConta.textContent = textoDaContaSorteio(pool);
+  pintarContaSorteio(liConta, pool);
   alvo.appendChild(liConta);
 
-  // ---- O CONFIRMAR ----
+  // ---- OS DESFECHOS ----
+  //
   // Mesma faixa de fecho da folha de destinos (`.song-menu-go-row`): é a mesma
   // gramática de folha, e o botão desabilitado com a conta acima explicando o
-  // porquê é o padrão que esta tela já usa.
+  // porquê é o padrão que esta tela já usa. Ela já sabia hospedar um IRMÃO à
+  // direita (o "Ver a letra" da gaveta), então dois botões não custam CSS novo.
+  //
+  // MONTANDO A FILA HÁ DOIS DESTINOS (v5.306, pedido do operador). Eles não são
+  // duas versões da mesma ação: um TOCA (substitui a fila do player e projeta
+  // agora) e o outro GUARDA (acrescenta ao Cronograma, sem tocar em nada do que
+  // está no ar). Montar o louvor da semana e projetar no domingo são dois
+  // momentos, e antes só o primeiro tinha porta.
+  //
+  // SORTEANDO UMA SÓ o botão continua sendo um: "sorteie uma e guarde" é o
+  // caminho que a Biblioteca já dá pela gaveta da linha, com a música escolhida
+  // à vista — aqui ele seria um destino a mais para uma decisão que o operador
+  // toma justamente por não querer decidir.
   const liGo = document.createElement('li');
   liGo.className = 'song-menu-go-row';
-  const go = document.createElement('button');
-  go.type = 'button';
-  go.className = 'song-menu-btn song-menu-go';
-  const txt = document.createElement('span'); txt.className = 'song-menu-text';
-  const rot = document.createElement('span'); rot.className = 'song-menu-label';
-  rot.textContent = sorteioPrefs.modo === AVSorteio.MODO_PLAYLIST
-    ? 'Sortear e montar a fila' : 'Sortear e tocar';
-  txt.appendChild(rot);
-  go.appendChild(txt);
-  go.disabled = !pool.itens.length || sorteioRodando;
-  go.addEventListener('click', () => executarSorteio(go));
-  liGo.appendChild(go);
+  const fila = sorteioPrefs.modo === AVSorteio.MODO_PLAYLIST;
+  const travado = !pool.itens.length || sorteioRodando;
+
+  const botao = (rotulo, classe, aoTocar) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'song-menu-btn sorteio-acao ' + classe;
+    const t = document.createElement('span'); t.className = 'song-menu-text';
+    const r = document.createElement('span'); r.className = 'song-menu-label';
+    r.textContent = rotulo;
+    t.appendChild(r); b.appendChild(t);
+    b.disabled = travado;
+    b.addEventListener('click', () => aoTocar(b));
+    return b;
+  };
+
+  // O PRIMÁRIO É O DE TOCAR, nos dois modos: é o que o recurso existe para
+  // fazer, e o preenchimento em accent é o vocabulário do app para "a ação
+  // principal desta folha". O de guardar veste o recesso do irmão secundário.
+  liGo.appendChild(botao(fila ? 'Tocar agora' : 'Sortear e tocar', 'song-menu-go',
+    (b) => executarSorteio(b, 'tocar')));
+  if (fila) {
+    liGo.appendChild(botao('Ao Cronograma', 'song-menu-letra',
+      (b) => executarSorteio(b, 'cronograma')));
+  }
   alvo.appendChild(liGo);
 }
 
 // ---- O sorteio -------------------------------------------------------------
 
-async function executarSorteio(btn) {
+// `desfecho` = `'tocar'` (a fila do player, projetando a primeira) ou
+// `'cronograma'` (guardar, sem mexer no que está no ar). Sorteando UMA SÓ só o
+// primeiro existe — ver a nota da faixa de fecho.
+async function executarSorteio(btn, desfecho) {
   if (sorteioRodando) return;
   sorteioRodando = true;
   try {
@@ -13787,8 +13894,9 @@ async function executarSorteio(btn) {
       atualizarContaSorteio();
       return;
     }
-    if (f.modo === AVSorteio.MODO_PLAYLIST) await montarFilaSorteada(escolhidos);
-    else await tocarSorteada(escolhidos[0]);
+    if (f.modo !== AVSorteio.MODO_PLAYLIST) await tocarSorteada(escolhidos[0]);
+    else if (desfecho === 'cronograma') await guardarSorteadasNoCronograma(escolhidos, btn);
+    else await montarFilaSorteada(escolhidos);
   } finally {
     sorteioRodando = false;
     // E A FOLHA VOLTA A ACEITAR TOQUE. Ela costuma já ter sido fechada aqui,
@@ -13808,6 +13916,96 @@ async function tocarSorteada(escolha) {
   fecharSorteio();
   await playSongVariant(escolha.coll, escolha.s, escolha.variante);
 }
+
+// AO CRONOGRAMA. Ele guarda, e é essa a diferença que justifica o segundo botão:
+// não toca no que está no ar, não substitui a fila do player e não projeta nada.
+// O operador monta o louvor da semana numa terça e projeta no domingo.
+//
+// A FOLHA FICA ABERTA, ao contrário do "Tocar agora". É o mesmo princípio das
+// listas de destino do acervo: uma ação que GUARDA não encerra a conversa, e
+// aqui o segundo sorteio é o uso normal — o operador acrescenta cinco, olha a
+// lista, acrescenta mais cinco. Fechar a folha cobraria três toques por rodada.
+//
+// A RESPOSTA NASCE NO BOTÃO TOCADO (`responder` + `textoLote`), que é a regra do
+// projeto para feedback, e a frase separa o que ENTROU do que JÁ ESTAVA — sem
+// isso, sortear duas vezes seguidas com o mesmo tema pareceria não ter feito
+// nada na segunda.
+async function guardarSorteadasNoCronograma(escolhidos, btn) {
+  const faltam = escolhidos.filter((i) => !i.noAparelho).length;
+  if (faltam && !(await ensureDownloadConsent())) return;
+
+  sorteioCancelado = false;
+  const total = escolhidos.length;
+  const bg = previewBusy('Preparando', total + ' para o Cronograma',
+    () => { sorteioCancelado = true; });
+  const tarefa = bgTaskStart('Playlist automática', total);
+  const ids = [];
+  const nomes = [];
+  try {
+    await withBgWork(async () => {
+      for (let i = 0; i < escolhidos.length; i++) {
+        if (sorteioCancelado) break;
+        const { coll, s, variante } = escolhidos[i];
+        const nome = songLabel(coll, s);
+        bgItemStart(tarefa, nome);
+        bg.atualizar('Preparando', (i + 1) + ' de ' + total + ' · ' + nome);
+        let id = null;
+        try { id = await resolveSongMediaId(coll, s, variante); } catch (_) { id = null; }
+        if (id && !ids.includes(id)) { ids.push(id); nomes.push(nome); }
+        bgTaskStep(tarefa, i + 1);
+        bgItemEnd(tarefa, nome);
+      }
+    });
+  } finally {
+    bgTaskEnd(tarefa);
+  }
+
+  // CANCELAR AQUI NÃO DESCARTA O QUE JÁ DESCEU, ao contrário do "Tocar agora".
+  // Lá o cancelamento evita trocar a fila do culto por meia lista — uma
+  // SUBSTITUIÇÃO pela metade. Aqui a ação ACRESCENTA: três de dez no Cronograma
+  // é exatamente o que aconteceu, é reversível linha a linha, e jogar fora um
+  // download que já custou rede seria o desperdício que ninguém pediu.
+  if (!ids.length) {
+    bg.falhar(sorteioCancelado ? 'sorteio cancelado' : 'não foi possível baixar nenhuma faixa');
+    return;
+  }
+  let novos = 0;
+  await AVDB.listSet('imports', (atual) => {
+    for (const id of ids) {
+      if (atual.includes(id)) continue;
+      atual.push(id); novos++;
+    }
+    return atual;
+  });
+  bg.soltar();
+  // A lista de trás só é remontada quando ELA é a que está em cena — a mesma
+  // guarda do `adicionarNasListas`.
+  if (activeTab === 'imports') await load();
+  responder(btn, tipoLote(novos, ids.length));
+  falarNoSorteio(textoLote(novos, ids.length, LISTA_ROTULO.imports));
+}
+
+// A CONTA EMPRESTA A SI MESMA POR TRÊS SEGUNDOS — o mesmo mecanismo do `#otaRow`
+// e do "Guardar como pacote". O pulso do `responder` diz "deu"; nele não cabe
+// dizer QUANTAS entraram e quantas já estavam, e essa distinção é o que impede
+// o operador de repetir o toque achando que não funcionou.
+//
+// A frase mora em ESTADO, não no nó (ver `pintarContaSorteio`).
+let sorteioFala = '';
+let sorteioFalaTimer = null;
+function falarNoSorteio(texto, ms) {
+  clearTimeout(sorteioFalaTimer);
+  sorteioFala = texto;
+  atualizarContaSorteio();
+  sorteioFalaTimer = setTimeout(() => {
+    sorteioFala = '';
+    if (sorteioPopupEl.classList.contains('open')) atualizarContaSorteio();
+  }, ms || 3000);
+}
+// A FALA NÃO ATRAVESSA UMA ABERTURA. Fechar e reabrir a folha é o gesto de
+// quem foi fazer outra coisa; reencontrar ali o recibo de três minutos atrás
+// diria que a conta é o que ela não é.
+function calarSorteio() { clearTimeout(sorteioFalaTimer); sorteioFala = ''; }
 
 // A FILA. O caro é o download, e ele é feito UMA vez por faixa, em série: seis
 // downloads em paralelo é o que a sincronização de um álbum faz, e ali ninguém
