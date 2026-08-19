@@ -3,12 +3,11 @@
 // (TELÃO POR COMANDOS, E3 — docs/TELAO-POR-COMANDOS.md §3.4)
 //
 // UMA PÁGINA SÓ, e isso não é preferência: `requestFullscreen()` e sair do
-// `muted` exigem ativação transitória do usuário, o gesto vale segundos e NÃO
-// SOBREVIVE A UMA NAVEGAÇÃO. Uma página de entrada que navegasse ao display
-// perderia o gesto, e a tela entraria muda e em janela — exatamente o que a
-// v5.186 existe para impedir. Então a entrada é um OVERLAY por cima do display
-// ainda vazio, e o botão de conectar gasta o único gesto do visitante fazendo
-// as três coisas: entra (POST /par), liga o som e vai a tela cheia.
+// `muted` exigem ativação transitória do usuário, que vale segundos e **NÃO
+// SOBREVIVE A UMA NAVEGAÇÃO** — uma página de entrada que navegasse ao display
+// perderia o gesto, e a tela entraria muda e em janela. A entrada é um OVERLAY
+// sobre o display ainda vazio, e o botão gasta o único gesto do visitante nas
+// três coisas de uma vez: entra (POST /par), liga o som e vai a tela cheia.
 //
 // ## A ordem de carga é o contrato
 //
@@ -21,14 +20,13 @@
 // ## O dreno de SUBIDA é lista de PERMISSÃO
 //
 // Cada /display/ emite display-status a ~4 Hz, media-ended, mic-status e
-// diag-dump — e N telas emitindo isso de volta ao celular é exatamente o
-// problema que o dreno do papel espelho resolvia na direção oposta:
-// media-ended dobrado dá um segundo load em repeat-one; mic-status
-// 'unsupported' (não há getUserMedia em http) apagaria o estado do microfone
-// VERDADEIRO; diag-dump duplo faz o Registro mostrar o diário de um sem dizer
-// qual. Sobem exatamente DUAS coisas: `display-ready` (é o que faz o Controle
-// reenviar a cena — v5.140) e `display-status` RENOMEADO `tela-status`, com o
-// id desta tela. Tipo novo nasce mudo por construção.
+// diag-dump, e N telas mandando isso de volta ao celular quebra a suposição de
+// que há UM telão: media-ended dobrado dá um segundo load em repeat-one;
+// mic-status 'unsupported' (não há getUserMedia em http) apagaria o estado do
+// microfone VERDADEIRO; diag-dump duplo faz o Registro mostrar o diário de um
+// sem dizer qual. Sobem DUAS coisas: `display-ready` (o que faz o Controle
+// reenviar a cena) e `display-status` RENOMEADO `tela-status`, com o id desta
+// tela. Tipo novo nasce mudo por construção.
 //
 // ## O que este arquivo NÃO faz
 //
@@ -38,10 +36,9 @@
 // de verdade e no navegador de desenvolvimento ele não existe.
 //
 // O papel é marcado pela `<meta name="av-tela">` que o SERVIDOR injeta em toda
-// página que entrega (v1.92), com `?tela=1` na query como caminho de recuo para
-// shell antigo — nesta ordem, e a inversão importa: a query era o marcador
-// ÚNICO até a v5.204, e ela chega por um 302 que um navegador de TV pode não
-// preservar. Ver a guarda logo abaixo.
+// página que entrega, com `?tela=1` como recuo para shell antigo — **nesta
+// ordem**: a query chega por um 302 que um navegador de TV pode não preservar,
+// e enquanto ela foi o marcador ÚNICO a tela abria como um /display/ comum.
 // ============================================================================
 (function (global) {
   'use strict';

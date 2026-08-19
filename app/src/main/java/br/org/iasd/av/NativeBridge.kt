@@ -77,20 +77,18 @@ interface BridgeHost {
      */
     fun applyWebUpdate(onResult: (String?) -> Unit)
 
-    // ---------- espelho de pixels (o telão nas telas da rede local) ----------
+    // ---------- telão nas telas da rede local ----------
 
     /**
-     * LIGA o espelho: tela virtual privada + uma segunda `Presentation` com o
-     * MESMO `/web/display/` + o servidor da rede local.
+     * LIGA a transmissão: o servidor HTTP da rede local que serve o próprio
+     * `/web/display/` às telas (bundle + comandos por SSE + mídia por `/m/`).
      *
-     * `modo` é `"imagem"` ou `"video"`, e é escolhido no LIGAR de propósito —
-     * trocar ao vivo exigiria `VirtualDisplay.setSurface`, que a AOSP descreve
-     * como tendo "efeito parecido com desligar a tela". Trocar de modo é
-     * desligar e ligar de novo, por ação do operador.
+     * `modo` é IGNORADO desde a v5.156 — ficou na assinatura para não custar um
+     * degrau de `SHELL_VERSION`.
      *
-     * Só a Activity pode fazê-lo: uma `Presentation` é um `Dialog`, e um
-     * `Dialog` exige uma thread com `Looper` — que a fila de IO da ponte não
-     * tem (ver o bloco do espelho em [NativeBridge]).
+     * Só a Activity pode fazê-lo, e o motivo é a fila: ligar isto na fila de IO
+     * da ponte venceria pelo prazo de 60 s durante um download (ver o bloco do
+     * telão em [NativeBridge]).
      *
      * Devolve o MESMO objeto de [mirrorState] — com `erro` não-vazio quando não
      * deu —, para o lado web ter um formato só e um desenho só.
@@ -103,7 +101,7 @@ interface BridgeHost {
      */
     fun stopMirror()
 
-    /** Estado do espelho para a folha do Controle (endereço, PIN, telas). */
+    /** Estado da transmissão para a folha do Controle (endereço, telas). */
     fun mirrorState(onResult: (JSONObject) -> Unit)
 
     /** O anel de diagnóstico do espelho, em DADO — a frase é do `controle.js`. */
@@ -144,185 +142,27 @@ class NativeBridge(
 
     companion object {
         /**
-         * Versão do shell nativo. Um bundle web declara em `minShell` a
-         * versão mínima de que precisa, e o OTA recusa atualizações que
-         * exijam mais do que o shell instalado oferece (ver [WebUpdater]).
-         * Subir SEMPRE que a superfície da ponte mudar.
+         * Versão do shell nativo. Um bundle web declara em `minShell` a versão
+         * mínima de que precisa, e o OTA recusa atualizações que exijam mais do
+         * que o shell instalado oferece (ver [WebUpdater]).
          *
-         * 44 (v5.298) — O SEGUNDO ENCOLHIMENTO PELA MESMA RÉGUA DO 40, e desta
-         * vez do lado do PRODUTOR: cada tela em `espelhoEstado` perdeu os seis
-         * campos de CAPACIDADE do relato — `seguro`, `mse`, `mms`,
-         * `fetchStream`, `videoDecoder` e `wakeLock`.
+         * **Subir SEMPRE que a superfície da ponte mudar** — e "superfície"
+         * inclui a FORMA de um retorno e o COMPORTAMENTO de um método, não só a
+         * assinatura. Três regras que o histórico deste contrato já cobrou:
          *
-         * Eles eram o autorrelato que o `espelho/cliente.js` mandava no
-         * pareamento na era dos pixels. Aquele arquivo foi apagado na v5.187 e
-         * **nenhum produtor os emite desde então**: o `espelho/tela.js` manda
-         * `{ua, w, h}` no `POST /par` e mais nada. Como `optBoolean` lê campo
-         * ausente como `false` — um valor LEGÍTIMO —, o servidor não ficava
-         * mudo: ele publicava seis negativas sobre TODA tela conectada, a cada
-         * leitura do estado. O consumidor delas saiu na v5.206 (era ele que
-         * imprimia `MSE:nao seguro:nao wakeLock:nao` sobre a única tela que
-         * estava funcionando); o produtor ficou dezesseis versões, e é ele que
-         * sai agora.
+         * - **Remoção de recurso é remoção dos DOIS lados do fio, no mesmo
+         *   lote.** Apagar o produtor de um campo e deixar o consumidor de pé
+         *   não produz silêncio: `optBoolean`/`optLong` leem ausente como
+         *   `false`/`0`, valores LEGÍTIMOS que o consumidor interpreta como
+         *   medição. O inverso também vale — um produtor sem consumidor é a
+         *   armadilha de quem repuser a leitura amanhã.
+         * - **A degradação vale nos dois sentidos:** bundle antigo em shell
+         *   novo e bundle novo em shell antigo caem num comportamento
+         *   declarado, nunca numa meia-verdade.
+         * - **Um método novo NÃO chega por OTA**, então o lado web pergunta
+         *   antes de desenhar o que depende dele (`__SHELL_VERSION__ < N`).
          *
-         * **Por que é um degrau e não faxina:** o 40 já declarou que forma
-         * mudada é superfície mudada, e este é o mesmo fio pelo outro lado. Não
-         * há defeito VISÍVEL hoje — ninguém os lê —, e é justamente por isso
-         * que o degrau importa: o que sobra de um produtor sem consumidor é uma
-         * armadilha para quem repuser a leitura amanhã e receber `false` como
-         * se fosse medição. Remoção de recurso é remoção dos dois lados do fio.
-         *
-         * 43 (v5.234) — `atualizacaoEstado`: os DOIS canais de atualização
-         * numa leitura só.
-         *
-         * O método não acrescenta poder nenhum — tudo o que ele devolve já
-         * existia, espalhado por `otaPending`, `apkProcurar` e `otaDiag`. O que
-         * ele acrescenta é COERÊNCIA, e o degrau é por isso: três promessas
-         * independentes chegam em três instantes, e a tela desenhava a pergunta
-         * com metade do que ela tinha a dizer ("há uma base nova") para se
-         * corrigir meio segundo depois ("…e um APK junto"). Numa decisão que o
-         * operador toma uma vez e que recarrega as duas páginas, uma pergunta
-         * que muda de conteúdo debaixo do dedo é pior que uma pergunta lenta.
-         *
-         * E ele é o que torna a detecção agressiva possível sem estourar nada:
-         * o bloco `shell` vem do MANIFESTO do canal OTA (um asset de release,
-         * que não consome o limite de 60 requisições/hora da API do GitHub), e
-         * não de uma consulta à API por ronda — ver o cabeçalho do
-         * [ShellUpdater].
-         *
-         * Num shell 42 o `controle.js` cai nas três chamadas antigas e mostra a
-         * mesma pergunta, só sem a coerência de instante — a degradação certa, e
-         * a razão de `minShell` continuar em 2.
-         *
-         * 42 (v5.231) — `nowPlaying` ganhou **`actions`**: a lista de botões da
-         * notificação de controles, na ordem, escolhida pelo LADO WEB. É a
-         * invariante 5 aplicada ao cartão — quem sabe se "próxima estrofe" faz
-         * sentido agora é o `controle.js`, e cinco botões fixos serviam a uma
-         * cena só. Com um cronômetro no ar sem louvor nenhum, ⏮/⏭ e o
-         * play/pause não têm o que fazer e ocupavam o modo compacto.
-         *
-         * O degrau é obrigatório porque o campo muda o que o CARTÃO MOSTRA, e a
-         * degradação tem de ser nos dois sentidos: bundle antigo em shell 42
-         * manda a lista vazia e recebe os cinco de sempre (`ACOES_PADRAO`);
-         * bundle novo em shell 41 tem o campo ignorado pelo `optJSONArray` e
-         * também fica com os cinco. Nenhum dos dois vê botão faltando.
-
-         * 41 (v5.231) — `ytPlaylist` e `ytCanalPlaylists`: as SÉRIES da
-         * Biblioteca (o álbum "Provai e Vede 2026" é a primeira delas).
-         *
-         * Os dois são TRANSPORTE, e a divisão de trabalho é o que importa aqui:
-         * eles devolvem o que o canal publica, verbatim e na ordem dele, sem
-         * opinião nenhuma sobre o que presta. Quem decide qual playlist é da
-         * série, qual é a versão em LIBRAS e como o item se chama na lista é
-         * `assets/web/controle/serie.js` — invariante 5, com uma razão prática
-         * que não é teórica: a nomenclatura de um canal muda sem avisar
-         * ninguém (as playlists do @provaievedeoficial não são sequer
-         * consistentes entre si — uma delas não tem o hífen que todas as
-         * outras têm), e cada ajuste dessa regra custaria um degrau daqui e
-         * uma Release se ela morasse em Kotlin. Do lado web ela chega por OTA
-         * em minutos, e tem oráculo em Node puro (`tools/serie.test.mjs`).
-         *
-         * O bundle não desenha o card da série abaixo deste degrau, pela regra
-         * de sempre (`appendYoutubeSearch`, a linha do espelho): um método novo
-         * NÃO chega por OTA, e um card que não carrega nada é pior que card
-         * nenhum.
-         *
-         * 40 (v5.206) — A LIMPEZA QUE A v5.187 DEIXOU PELA METADE, e ela é um
-         * ENCOLHIMENTO em duas formas de retorno:
-         *
-         * • `espelhoDiag` **perdeu `ritmo`**. O objeto continuava saindo depois
-         *   que o produtor dele morreu com o encoder H.264 — zerado —, e o lado
-         *   web lia `kbps < 40` como "isto é um retângulo preto". Num culto
-         *   normal (transmissão ligada, vídeo tocando, cortina aberta) o
-         *   Registro imprimia **ALARME: ISTO É UM RETÂNGULO PRETO**, no
-         *   artefato que existe para ser copiado e repassado. Saíram junto os
-         *   fatos estruturados (`fato()`), que não tinham produtor desde a
-         *   mesma versão.
-         * • `espelhoEstado` **perdeu `modo`**. Ele era o seletor imagem × vídeo
-         *   do espelho de pixels, removido na v5.156; desde então viajava com
-         *   o valor `"comandos"`, que o consumidor comparava com `'video'` e
-         *   desenhava como **"modo: imagem (JPEG)"**.
-         *
-         * **Por que isto é um degrau de verdade e não uma faxina:** a v5.187 já
-         * declarou que forma mudada é superfície mudada, e o preço de não subir
-         * aqui seria um bundle antigo continuar desenhando as duas linhas
-         * falsas num shell que parou de mandá-las. E fica a lição, que vale
-         * para a próxima aposentadoria: **apagar o produtor de um campo e
-         * deixar o consumidor de pé não produz silêncio — produz um zero, e
-         * zero é um valor legítimo que o consumidor interpreta.** Remoção de
-         * recurso é remoção dos dois lados do fio, no mesmo lote.
-         *
-         * 39 (v5.192) — `temaClaro`, o TEMA CLARO. A cor de tudo é decidida
-         * pelo CSS e chega por OTA; o método existe pelas duas coisas que uma
-         * folha de estilo não alcança — os ÍCONES das barras de sistema (que o
-         * Android desenha, e que ficariam brancos sobre branco) e o
-         * `windowBackground`, que é resolvido antes de existir JavaScript. Num
-         * shell 38 o bundle novo funciona por inteiro e o app fica com as
-         * barras do tema escuro: é a degradação certa, e é por isso que
-         * `minShell` continua em 2.
-         *
-         * 38 (v5.189) — A PORTA ABERTA e o FIM DA MESA DE SOM, dois
-         * encolhimentos no mesmo degrau:
-         *
-         * • `espelhoEstado` **perdeu `codigo`**. A entrada da tela deixou de
-         *   ter segredo — a porta é o endereço deste aparelho na rede (ver a
-         *   invariante 5 do [EspelhoPares]) —, e um bundle antigo leria o
-         *   campo vazio e desenharia um teclado de três dígitos pedindo um
-         *   número que o Controle não mostra mais e o servidor não exige.
-         * • Saiu `keepAudioAlive`. Ele existia para o modo "mesa de som", em
-         *   que o celular ERA a caixa de som e o WebView do Controle não podia
-         *   ser suspenso; o modo saiu a pedido do operador (o som é dos
-         *   DISPLAYS), e um método de ponte sem chamador é dívida.
-         *
-         * A rota `/s/<token>` da transmissão direta nas telas da rede entrou
-         * no mesmo lote e **não** pesa aqui: ela é do servidor HTTP, não da
-         * ponte, e o lado web a detecta pela presença do manifesto reescrito.
-         *
-         * 37 (v5.187) — o TELÃO POR COMANDOS substitui o espelho de pixels
-         * (docs/TELAO-POR-COMANDOS.md). Nenhum método nasceu nem mudou de
-         * assinatura — o degrau sobe porque a FORMA do que os métodos devolvem
-         * mudou: `espelhoEstado` publica telas de COMANDO (`comando: true`,
-         * `pronta`, `eventos`; os campos do pipeline de pixels — `vivo`,
-         * `esperandoIdr`, `descartes`, `bytes` — não existem mais), `modo` é
-         * `"comandos"`, e `espelhoDiag` perdeu os fatos de encoder, readback e
-         * ritmo. Um bundle antigo leria a folha do espelho com metade dos
-         * campos em branco e a preview atrasada por um `vivo.vfim` que nunca
-         * mais chega — o bump é o que faz um bundle velho num shell novo cair
-         * na degradação declarada em vez de na meia-verdade.
-         *
-         * 36 (v5.185) — o CÓDIGO DE TRÊS DÍGITOS do espelho, e ele é uma
-         * REMOÇÃO de superfície além de uma mudança de forma. Saiu `requestCam`
-         * (com o pareamento por QR, e com a permissão `CAMERA` do manifest);
-         * `espelhoEstado` trocou `pin` por `codigo` e perdeu `autoAprovar`,
-         * `pendentes`, `qrEsperando`, `nomeLocal` e `nomeErro`; e
-         * `espelhoAprovar` passou a fazer UMA coisa — derrubar a tela cujo
-         * rótulo ele recebe. A assinatura dele fica (mudá-la custaria outro
-         * degrau sem ganhar nada), e o `aprovar` é ignorado.
-         *
-         * É o primeiro degrau deste contrato que ENCOLHE, e o bump é o que
-         * impede um bundle antigo de ler `pin` num shell que só publica
-         * `codigo` — ele mostraria o campo vazio, e o operador ficaria sem o
-         * número que a tela precisa digitar, sem nada que o explicasse.
-         *
-         * 35 (v5.167) — `shellAtualizar`/`shellVerificar`: o APK se atualizando
-         * de dentro do app.
-         *
-         * 34 (v5.152) — os três métodos do CERTIFICADO do espelho
-         * (`espelhoCertImportar`, `espelhoCertEstado`, `espelhoCertApagar`).
-         * Abaixo disto a linha do certificado não é desenhada e o espelho segue
-         * em HTTP claro, que é o que ele sempre foi: o TLS é um degrau
-         * opcional, não um requisito (ver `docs/ESPELHO-DE-PIXELS.md` §2.4).
-         *
-         * (33, v5.145, foi `requestCam` — o pareamento por QR. Ele saiu inteiro
-         * na v5.185: a página do cliente passou a ter um campo e um botão, e
-         * quem digita o código é a TELA. O degrau fica na história porque um
-         * número de contrato nunca é reciclado.)
-         *
-         * 32 (v5.141) — os cinco métodos do ESPELHO DE PIXELS (`espelhoLigar`,
-         * `espelhoDesligar`, `espelhoEstado`, `espelhoDiag`, `espelhoAprovar`).
-         * O lado web não desenha o cartão do espelho abaixo disto: um método
-         * novo NÃO chega por OTA, e um botão que não faz nada no meio de um
-         * culto é pior que botão nenhum (a mesma regra do `appendYoutubeSearch`).
+         * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
         const val SHELL_VERSION = 44
 
@@ -646,20 +486,19 @@ class NativeBridge(
      * sessão de mídia em dia com ele.
      *
      * Existe porque a notificação NÃO pode depender do JS do Controle estar
-     * rodando. Com o app minimizado e sem áudio audível no celular (modo "mesa
-     * de som" desligado), o sistema estrangula/suspende aquele WebView — e
-     * então `pushNowPlaying` para de ser chamado: a notificação congela no
-     * último estado, com o botão em "play" e a barra parada, enquanto o telão
-     * segue projetando normalmente. Ligar a mesa de som fazia o defeito sumir
-     * justamente porque áudio audível isenta a página do estrangulamento.
+     * rodando: com o app minimizado e sem áudio audível no celular, o sistema
+     * estrangula aquele WebView e `pushNowPlaying` para de ser chamado — a
+     * notificação congela com o botão em "play" e a barra parada enquanto o
+     * telão segue projetando. (A pista foi que ligar o áudio local fazia o
+     * defeito sumir: áudio audível isenta a página do estrangulamento.)
      *
-     * O status do telão, esse, já passa por aqui de qualquer jeito (o WebView
-     * do Display o envia por `busPost`), e a `Presentation` não é
-     * estrangulada — é uma fonte que continua viva quando a outra não está.
+     * O status do telão já passa por aqui de qualquer jeito (o WebView do
+     * Display o envia por `busPost`), e a `Presentation` não é estrangulada — é
+     * uma fonte que continua viva quando a outra não está.
      *
      * NÃO é decisão de transporte (invariante 5): só copia dois campos que o
-     * lado web já calculou. Título, subtítulo e modo de slide continuam vindo
-     * de `nowPlaying`; sem cena publicada, nada é inventado aqui.
+     * lado web já calculou. Título, subtítulo e modo de slide continuam vindo de
+     * `nowPlaying`; sem cena publicada, nada é inventado aqui.
      */
     private fun snoopDisplayStatus(json: String) = snoopStatusDeFora(ctx, json)
 
@@ -676,27 +515,24 @@ class NativeBridge(
     }
 
     /**
-     * Progresso do download em curso, para a notificação do serviço em
-     * primeiro plano. Com o app minimizado — o uso normal durante uma
-     * sincronização — essa notificação é a única janela para o que está
-     * acontecendo, e antes ela era um texto fixo.
+     * Progresso do download em curso, para a notificação do serviço em primeiro
+     * plano. Com o app minimizado — o uso normal durante uma sincronização —
+     * ela é a única janela para o que está acontecendo.
      *
-     * O JSON vem do lado web (`AVNative.bgProgress`), que é quem sabe o que
-     * está baixando e a que ritmo:
-     * `{ label, done, total, etaMs, items, idleMs }`.
+     * O JSON vem do lado web (`AVNative.bgProgress`), que sabe o que está
+     * baixando e a que ritmo: `{ label, done, total, etaMs, items, idleMs }`.
      *
      * `items` traz UM nome em destaque. São 6 downloads simultâneos, mas o lado
      * web manda um de cada vez, tirado de uma FILA (FIFO) dos itens que já
-     * entraram em download: cada nome sai uma ÚNICA vez, em ordem, escoado no
-     * ritmo médio medido por item (`bgItemStart`/`bgSpinMs` em controle.js).
-     * Não é rodízio entre os itens em voo — rodízio traria o mesmo nome de
-     * volta várias vezes e a lista não iria a lugar nenhum. Também não é um
-     * espelho do que está no ar agora: é deliberadamente ilustrativo, e
-     * CONGELA quando a tarefa passa de 90 s sem evento real. A lista continua
-     * sendo lista só por compatibilidade com bundles anteriores a v5.13.
+     * entraram em download: cada nome sai uma ÚNICA vez, em ordem, no ritmo
+     * médio medido por item (`bgItemStart`/`bgSpinMs`). Não é rodízio entre os
+     * itens em voo — rodízio traria o mesmo nome de volta e a lista não iria a
+     * lugar nenhum — nem espelho do que está no ar: é ilustrativo, e CONGELA
+     * quando a tarefa passa de 90 s sem evento real. Continua sendo lista só por
+     * compatibilidade com bundles anteriores à v5.13.
      *
-     * `idleMs` é há quanto tempo NADA acontece: é o que separa "travado" de
-     * "esta faixa é grande", que na tela são a mesma coisa parada.
+     * `idleMs` é há quanto tempo NADA acontece: separa "travado" de "esta faixa
+     * é grande", que na tela são a mesma coisa parada.
      */
     @JavascriptInterface
     fun bgProgress(json: String) {
@@ -820,32 +656,28 @@ class NativeBridge(
         host?.openExternalUrl(u.toString())
     }
 
-    // ---------- espelho de pixels (o telão nas telas da rede local) ----------
+    // ---------- telão nas telas da rede local ----------
     //
     // Os cinco métodos deste bloco NÃO vão para a fila `io`, e essa é a decisão
-    // que os separa de todo o resto da ponte. A `io` é uma thread ÚNICA
-    // compartilhada por todas as instâncias, e é nela que roda o download do
-    // YouTube: um vídeo de 380 MB a segura por minutos. Enfileirado, "ligar o
-    // espelho" no meio de um download simplesmente não aconteceria — a Promise
-    // venceria pelo prazo de 60 s do `native.js` e resolveria `null`, ou seja
-    // um "erro" sem causa no toque de um botão. É o mesmo raciocínio já
-    // publicado para o `ytCancel`.
+    // que os separa do resto da ponte. A `io` é uma thread ÚNICA compartilhada
+    // por todas as instâncias, e é nela que roda o download do YouTube: um vídeo
+    // de 380 MB a segura por minutos. Enfileirado, "ligar a transmissão" no meio
+    // de um download não aconteceria — a Promise venceria pelo prazo de 60 s do
+    // `native.js` e resolveria `null`, um "erro" sem causa no toque de um botão.
+    // Mesmo raciocínio já publicado para o `ytCancel`.
     //
-    // E há um motivo a mais, que é uma trava e não uma preferência: quem faz o
-    // trabalho é a MAIN THREAD (ver os métodos do [BridgeHost]), porque uma
-    // `Presentation` é um `Dialog` e um `Dialog` exige uma thread com `Looper`.
-    // A fila `io` é uma `Thread` daemon sem `Looper` — criar a janela do espelho
-    // ali daria `Can't create handler inside thread that has not called
-    // Looper.prepare()` no primeiro toque, na frente do operador. De brinde, a
-    // main thread é onde o `DisplayManager.DisplayListener` deste app já é
-    // chamado (registrado com handler `null`), então a criação da tela virtual e
-    // o `onDisplayAdded` não correm um contra o outro.
+    // Quem faz o trabalho é a MAIN THREAD (ver os métodos do [BridgeHost]). A
+    // razão ORIGINAL disso morreu com o espelho de pixels (v5.187): até ali o
+    // recurso abria uma `Presentation`, que é um `Dialog` e exige uma thread com
+    // `Looper` — criá-la na `io` (uma `Thread` daemon sem `Looper`) lançava
+    // `Looper.prepare()` no primeiro toque. Não há mais janela nenhuma; o que
+    // sustenta a main thread hoje é ficar FORA da fila de IO (acima) e a
+    // serialização de `espelhoSrv`/`espelhoMidia`.
     //
     // Todos guardados por `host != null`: superfície nativa é privilégio do
-    // Controle. O WebView do espelho — como o do telão — recebe a ponte com
-    // `host = null`, e ele hospeda a IFrame Player API de terceiro POR DESIGN.
-    // Sem a guarda, um script de terceiro rodando lá dentro ligaria e desligaria
-    // o servidor da rede e aprovaria as telas que quisesse.
+    // Controle (invariante 9). O WebView do telão recebe a ponte com
+    // `host = null`, e sem a guarda um script rodando lá dentro ligaria e
+    // desligaria o servidor da rede da igreja.
 
     /**
      * LIGA o espelho e resolve o estado resultante (o MESMO objeto do
@@ -1310,24 +1142,22 @@ class NativeBridge(
 
     /**
      * O tema escolhido em Configurações. A cor de tudo é decidida pelo CSS
-     * (`shared/tokens.css`, com os dois blocos de tema) — o que sobra para o
-     * shell são exatamente as duas coisas que uma folha de estilo não alcança:
+     * (`shared/tokens.css`); o que sobra para o shell são as duas coisas que uma
+     * folha de estilo não alcança:
      *
-     * 1. **Os ÍCONES das barras de sistema.** Com `targetSdk` 35 o Android
-     *    força edge-to-edge e IGNORA `statusBarColor`/`navigationBarColor`
-     *    (ver `res/values/themes.xml`): quem pinta o FUNDO atrás das barras é o
-     *    body da base web, com o token `--bg`. Só que o relógio, a bateria e os
-     *    botões de navegação seguem sendo desenhados pelo sistema, e a cor
-     *    deles vem de `APPEARANCE_LIGHT_STATUS_BARS`. Sem virar essa chave, o
-     *    tema claro fica com ícones brancos sobre um fundo quase branco —
-     *    invisíveis, e sem nada na tela que explique por quê.
-     * 2. **O `windowBackground`**, o que aparece ANTES de o WebView carregar.
-     *    Ele é um recurso do APK, resolvido pelo sistema antes de existir
-     *    JavaScript, então não há como perguntar ao lado web na hora certa: o
-     *    shell GUARDA a escolha e a aplica no lançamento seguinte. Trocar de
-     *    tema tem, portanto, um lançamento de atraso nesse detalhe — e só nele.
+     * 1. **Os ÍCONES das barras de sistema.** Com `targetSdk` 35 o Android força
+     *    edge-to-edge e IGNORA `statusBarColor`/`navigationBarColor` (ver
+     *    `res/values/themes.xml`): quem pinta o FUNDO atrás das barras é o body
+     *    da base web, com `--bg`. Mas relógio, bateria e botões de navegação
+     *    seguem sendo desenhados pelo sistema, e a cor deles vem de
+     *    `APPEARANCE_LIGHT_STATUS_BARS`. Sem virar essa chave, o tema claro fica
+     *    com ícones brancos sobre fundo quase branco.
+     * 2. **O `windowBackground`**, o que aparece ANTES de o WebView carregar. É
+     *    recurso do APK, resolvido antes de existir JavaScript: o shell GUARDA a
+     *    escolha e a aplica no lançamento seguinte. Trocar de tema tem, portanto,
+     *    um lançamento de atraso nesse detalhe — e só nele.
      *
-     * Privilégio do Controle por construção: é a Activity que responde, e o
+     * Privilégio do Controle por construção: quem responde é a Activity, e o
      * WebView do telão nasce com `host = null` (invariante 9).
      */
     @JavascriptInterface

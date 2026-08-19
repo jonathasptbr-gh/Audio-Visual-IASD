@@ -1,24 +1,14 @@
 /* ---------- Paleta do app — FONTE ÚNICA, compartilhada pelos dois apps ----------
-   Até a v5.47 os tokens de marca eram mantidos À MÃO em DUAS folhas
-   (controle.css e display.css), e o comentário das duas admitia que "a
-   sincronização é manual". Sincronização manual entre dois arquivos é uma
-   classe de bug, não um processo: basta um ajuste de cor entrar só num lado
-   para o telão e a preview do Controle — que existe justamente para ESPELHAR o
-   telão — passarem a mostrar coisas diferentes. Este arquivo elimina a
-   duplicação: quem carrega a folha carrega a paleta.
-
-   Precisa ser linkado ANTES da folha do app:
+   Linkar ANTES da folha do app:
      <link rel="stylesheet" href="../shared/tokens.css">
 
    AQUI SÓ ENTRA COR. Raio, escala de ícone, curva de toque e medidas de layout
-   continuam no :root de controle.css: são decisões da UI DENSA do Controle, e o
-   Display (que não tem UI) não teria o que fazer com elas.
+   ficam no :root de controle.css — são da UI densa do Controle, e o Display não
+   tem o que fazer com elas. Duas folhas mantidas à mão são uma classe de bug:
+   um ajuste que entre só num lado faz telão e preview divergirem.
 
    ================= A IDENTIDADE É A OFICIAL DA IASD (v5.192) =================
-   As matizes deste arquivo deixaram de ser escolha de gosto e passaram a vir do
-   PACOTE OFICIAL da identidade visual adventista — o mesmo de que saiu o
-   símbolo do wallpaper padrão (`shared/wallpaper-padrao.svg`, v5.188). Os
-   dezoito valores oficiais, verbatim:
+   Os dezoito valores oficiais, verbatim:
 
      black     #000000     denim     #2F557F  ← o NÚCLEO da identidade (PMS 302)
      bluejay   #2E6DE7     earth     #5E3929
@@ -30,117 +20,62 @@
      treefrog  #2B8500     velvet    #782832
      white     #FFFFFF     winter    #717171
 
-   O ÂMBAR SAIU, e ele nunca foi oficial. A v5.47 o adotou como "a marca IASD" e
-   o argumento era de contraste, não de identidade: a paleta AZUL anterior usava
-   UM valor para os dois papéis (fundo preenchido e texto), e é esse par que
-   reprovava — não o azul. A saída certa era separar os papéis, que é o que os
-   três tokens `--accent`/`--accent-fill`/`--on-accent` fazem hoje. Com eles no
-   lugar, o azul oficial passa com folga nos dois temas (medições abaixo).
-
-   Duas coisas ficam ditas porque a leitura natural é o contrário:
-
-   1. **Nem todo token sai de um valor oficial, e os derivados estão marcados
-      como tais.** Os dezoito foram desenhados para papel e para fundo BRANCO —
-      medidos aqui, todos passam AA sobre branco (o pior é campfire, 4,62:1) e
-      NENHUM deles passa AA como texto sobre um fundo quase-preto (bluejay dá
-      3,97:1; treefrog, 4,02:1). Um tema escuro exige clarear; um tema claro
-      exige escurecer os poucos que pousam sobre o cinza da página em vez de
-      sobre branco. Onde isso acontece, o comentário diz DE QUAL oficial o valor
-      foi derivado, e a matiz é preservada.
-   2. **A escala categórica da Bíblia precisa de mais matizes do que a
-      identidade tem.** Os dezoito valores cobrem sete famílias de matiz (azul,
-      verde-água, verde, laranja, vermelho, rosa e roxo) em pares claro/escuro —
-      e a tela de livros precisa de DEZ grupos separáveis. Cinco grupos estão
-      ancorados em cor oficial e cinco preenchem os vãos, com a separação mínima
-      de 20° que a v5.47 estabeleceu. Está escrito ali embaixo, grupo a grupo.
+   1. NEM TODO TOKEN SAI DE UM OFICIAL, e os derivados estão marcados. Os
+      dezoito foram desenhados para fundo BRANCO: todos passam AA sobre branco
+      (pior: campfire, 4,62:1) e NENHUM passa AA como texto sobre o quase-preto
+      (bluejay 3,97:1; treefrog 4,02:1). Onde foi preciso clarear/escurecer, o
+      comentário diz de qual oficial o valor saiu, e a matiz é preservada.
+   2. A ESCALA DA BÍBLIA PRECISA DE MAIS MATIZES do que a identidade tem: os
+      dezoito cobrem sete famílias e a tela de livros precisa de DEZ grupos
+      separáveis. Cinco são ancorados em cor oficial e cinco preenchem os vãos,
+      com a separação mínima de 20°. Detalhado grupo a grupo abaixo.
 
    ============================ OS DOIS TEMAS ============================
-   O app tem tema CLARO e ESCURO, escolhidos em Configurações. A montagem é:
-
      :root                      → o PALCO e o que não muda com o tema
-     :root                      → o tema ESCURO (o padrão, sem atributo nenhum)
+     :root                      → o tema ESCURO (o padrão, sem atributo)
      :root[data-tema="claro"]   → o tema CLARO (0,2,0 vence o 0,1,0 acima)
 
-   **O PALCO NÃO TEM TEMA, e isso não é economia — é o recurso.** `--stage-*`,
-   `--wallpaper` e `--lyrics-frame-bg` são o que a TV mostra para a
-   congregação, e um telão claro num salão no escuro cega quem está sentado. O
-   Display simplesmente nunca escreve `data-tema`, então ele já ficaria no
-   escuro por omissão; o que a separação garante é o outro lado: a PREVIEW do
-   Controle, que roda no documento que TEM tema, continua desenhando o palco com
-   as mesmas cores do telão. Ela existe para espelhá-lo — uma preview que
-   clareasse junto com a UI deixaria de cumprir esse papel exatamente no tema em
-   que o operador mais precisa dela.
-
-   Pela mesma razão as SOMBRAS e o `--scrim` ficam no bloco compartilhado:
-   sombra é preto com alfa nos dois temas, e os três consumidores de
-   `--shadow-ink`/`--shadow-card` pousam sobre a preview (isto é, sobre mídia
-   arbitrária), onde clarear a sombra é apagá-la.
+   O PALCO NÃO TEM TEMA, e isso é o recurso, não economia. `--stage-*`,
+   `--wallpaper` e `--lyrics-frame-bg` são o que a TV mostra: um telão claro num
+   salão escuro cega a congregação. O Display nunca escreve `data-tema`, então o
+   que a separação garante é o outro lado — a PREVIEW do Controle roda no
+   documento que TEM tema e existe para ESPELHAR o telão. Pela mesma razão as
+   SOMBRAS e o `--scrim` ficam no bloco compartilhado: elas pousam sobre mídia
+   arbitrária, e clarear uma sombra é apagá-la.
 
    ========================= COMO LER AS MEDIÇÕES =========================
-   Todos os pares abaixo foram MEDIDOS (razão de contraste WCAG) contra os
-   fundos em que de fato aparecem — os números nos comentários são medições, não
-   estimativas. Piso adotado: 4,5:1 para texto pequeno, 3:1 para ícone/borda que
-   carrega informação, ~1,3:1 para o degrau entre duas superfícies grandes.
+   Os pares abaixo são MEDIDOS (razão WCAG) contra os fundos em que aparecem.
+   Piso: 4,5:1 texto pequeno, 3:1 ícone/borda informativa, ~1,3:1 degrau entre
+   superfícies grandes.
 
-   **"SOBRE O SOFT" QUER DIZER: O SOFT COMPOSTO SOBRE `--bg`.** Os `*-soft` são
-   cor com ALFA, então não têm contraste próprio — o número depende do que está
-   embaixo, e toda medição de "X sobre o soft" neste arquivo usa a PÁGINA como
-   base. Escrever isso é a correção da v5.206: as medições estavam certas e a
-   base estava implícita, e ela não é uma escolha óbvia, porque vários chips
-   `*-soft` vivem DENTRO de um cartão (`--panel`). Ali o valor real é outro, e a
-   diferença chega a ser grande: `--danger-text` sobre `--danger-soft` dá 6,89:1
-   sobre a página e **5,03:1** dentro de um cartão, no tema escuro. Os dois
-   passam AA, e é por isso que ninguém notou — mas quem for mexer num destes
-   valores precisa saber qual dos dois número está lendo.
+   "SOBRE O SOFT" = O SOFT COMPOSTO SOBRE `--bg`. Os `*-soft` têm ALFA, logo não
+   têm contraste próprio. Vários deles vivem DENTRO de um cartão (`--panel`), e
+   ali o valor é outro: `--danger-text` sobre `--danger-soft` dá 6,89:1 sobre a
+   página e 5,03:1 no cartão (escuro). Os dois passam AA — mas quem mexer aqui
+   precisa saber qual número está lendo.
 
    `tools/tokens.test.mjs` garante que todo `var(--x)` sem fallback aponta para
-   um token existente NOS DOIS TEMAS; ele não mede contraste — para isso não há
-   oráculo, e mexer num valor daqui continua pedindo medição à mão.
+   um token existente NOS DOIS TEMAS, e que nenhuma regra desenha contorno. Ele
+   NÃO mede contraste: mexer num valor daqui pede medição à mão.
 
    ================ SÓ PREENCHIMENTO, NENHUM CONTORNO (v5.267) ================
-   Pedido do operador: *"não tenhamos itens usando linha de borda, tudo deve ser
-   com preenchimento sólido, e definição feita por puro e simples contraste
-   entre os elementos"* — e, em especial, *"reorganizar os degraus de tons em
-   elementos vizinhos ou parentes… problema que considero prioridade na
-   biblioteca e suas seções, álbuns e listas, onde elas funcionam em camadas de
-   ramificações que visualmente se parecem muito, dificultando discernir se
-   estou em uma camada ou subcamada."*
+   Sem linha, o degrau de tom é a ÚNICA coisa que separa duas caixas — e o
+   degrau daqui tinha sido calibrado quando ele era só reforço. Daí:
 
-   As duas metades do pedido são o mesmo pedido, e é por isso que elas vieram no
-   mesmo lote: **quando a linha some, o degrau de tom passa a ser a ÚNICA coisa
-   que separa duas caixas** — e o degrau que este arquivo tinha foi calibrado
-   numa época em que ele era só reforço. O próprio comentário da escada dizia
-   isso com todas as letras: *"o par painel × painel-2 fica logo abaixo do piso
-   de 1,3:1 — e é assumido: ele não carrega o estado sozinho em lugar nenhum.
-   Quem diz 'selecionado' é sempre a BORDA em --accent."* Tirar a borda sem
-   mexer no degrau seria apagar o sinal e deixar o reforço no lugar dele.
-
-   O QUE MUDOU, medido:
-
-   · O degrau painel × painel-2 abriu — 1,29 → **1,33** no escuro e 1,30 →
-     **1,41** no claro. É o degrau que separa uma seção da Biblioteca do card de
-     álbum DENTRO dela, e agora ele é o único.
-   · `--muted` e `--accent` acompanharam, porque um degrau maior empurra o
-     nível 2 para mais perto do texto: no escuro `--muted` sobre o painel-2
-     caía a 4,68:1 e `--accent` a **4,40:1**, que reprova AA. Clareados um
-     degrau, vão a 5,00 e 4,60. No claro a conta é espelhada e `--muted`
-     escureceu (4,32 → 4,73).
-   · Entraram DOIS fundos de ESTADO opacos (`--sel-fill`, `--live-fill`). Eles
-     substituem o par "contorno + tinta com alfa", e a razão de serem opacos é
-     medida: `--accent-soft` a 16% sobre o painel compunha **#3d4959**, que é o
-     `--panel-2` — isto é, uma linha SELECIONADA ficava com a cor exata do
-     nível de baixo, e o que a distinguia era só a borda que saiu. Opacos, os
-     dois valem o MESMO em qualquer nível da árvore, que é o que um estado
-     precisa fazer: sair da escada em vez de ocupar um degrau dela.
-   · `--surface`/`--surface-2` ganharam os irmãos `-alta`, e o motivo é a
-     Biblioteca: a folha dela virou nível 0 (`--bg`), então os controles lá
-     dentro voltaram a FLUTUAR e precisavam de um caminho de volta ao valor de
-     origem — que um override do mesmo nome não daria.
-   · `--control-edge` SAIU. Ela era a aresta de 1px do tema claro (v5.207), isto
-     é, exatamente o mecanismo que este lote veio remover; o que a substitui é
-     `--surface-sunk`/`--surface-2-sunk` mais fundos (.10/.16 → **.14/.20**),
-     que devolvem o degrau por preenchimento: 1,14 → **1,32:1** contra o painel
-     branco. */
+   · painel × painel-2: 1,33 (escuro) e 1,41 (claro). É o degrau entre uma seção
+     da Biblioteca e o card de álbum dentro dela, e é o único.
+   · `--muted`/`--accent` clarearam um degrau: sobre o painel-2 novo caíam a
+     4,68 e 4,40 (reprova AA); vão a 5,00 e 4,60. No claro é espelhado.
+   · FUNDOS DE ESTADO OPACOS (`--sel-fill`, `--live-fill`): `--accent-soft` a
+     16% sobre o painel compunha #3d4959, que É o `--panel-2` — a linha
+     selecionada ficava com a cor do nível de baixo. Opacos, valem o mesmo em
+     qualquer nível: um estado SAI da escada em vez de ocupar um degrau.
+   · `--surface`/`--surface-2` ganharam irmãos `-alta`: a folha da Biblioteca
+     virou nível 0, e os controles dentro dela voltaram a FLUTUAR — um override
+     do mesmo nome seria um ciclo que o CSS descarta.
+   · `--control-edge` SAIU (a aresta de 1px do claro, v5.207): o que a
+     substitui é `--surface-sunk`/`--surface-2-sunk` mais fundos (.14/.20),
+     devolvendo 1,32:1 contra o painel branco por preenchimento. */
 
 /* ======================================================================
    O QUE NÃO MUDA COM O TEMA
@@ -157,25 +92,24 @@
   --stage-text-soft: rgba(255, 255, 255, .9);  /* marca sobre o wallpaper */
   --stage-text-dim: rgba(255, 255, 255, .72);  /* linha auxiliar da letra */
 
-  /* O ACENTO DO PALCO, e ele precisa existir aqui por um defeito medido
-     (v5.218).
-     ---------------------------------------------------------------------
-     O palco pintava seus acentos com `--brand`, `--live-strong`, `--bg` e
-     `--accent-glow` — quatro tokens do TEMA. No Display isso nunca doeu (ele
-     não escreve `data-tema`, então lê sempre o bloco escuro), mas a PREVIEW do
-     Controle roda no documento que TEM tema: com o tema CLARO ligado, o título
-     do slide de capa passava a ser desenhado com o denim oficial (#2F557F)
-     sobre o preto do palco — **2,73:1 medidos**, abaixo até do piso de 3:1 de
-     texto grande. Era o relato do operador ("os títulos estão em azul,
-     ilegíveis no fundo escuro"): o telão mostrava um azul claro e a preview,
-     no tema claro, mostrava um azul escuro.
-     É o mesmo erro que o cabeçalho deste arquivo descreve — "o palco não tem
-     tema" — cometido do lado de fora: os TOKENS do palco estavam certos, e as
-     REGRAS do palco apontavam para tokens de tema. Estes quatro fecham o
-     buraco, e a regra que fica é: **nada pintado no palco pode ler um token
-     redeclarado em `[data-tema]`.** `tools/smoke.mjs` mede isso pelo
-     RENDERIZADO (a cor computada de cada camada do palco, nos dois temas),
-     não pelo nome do token. */
+/* ======================================================================
+   TEMA CLARO — `data-tema="claro"` no <html>
+   ======================================================================
+   Os valores OFICIAIS entram quase todos verbatim, e não por sorte: os dezoito
+   foram desenhados para pousar sobre BRANCO, que é o fundo dos cartões deste
+   tema. O denim é o accent sem ajuste (7,70:1 sobre o painel). Escurecer só foi
+   preciso onde a cor pousa sobre o CINZA da página, e ali a matiz é preservada
+   com o derivado declarado.
+
+   O DEGRAU DE ELEVAÇÃO SE INVERTE: no escuro "mais fundo na árvore" é "mais
+   claro"; aqui o painel já é branco, então `--panel-2` DESCE (recesso, a
+   convenção de toda UI clara). Direção oposta, REGRA a mesma — cada nível se
+   afasta do anterior —, e é por isso que a folha não precisa saber o tema.
+   Consequência: `--panel-2` fica perto do `--bg` (1,09:1). Deliberado e sem
+   custo: os dois nunca se encostam, porque um nível 2 está sempre DENTRO de um
+   nível 1, que aqui é branco.
+   Piso de 1,30:1 entre superfícies grandes: fundo × painel 1,29:1 (um
+   centésimo abaixo, assumido desde a v5.192) e painel × painel-2 1,41:1. */
   --stage-accent: #8fb1f3;               /* = o --brand do tema escuro; 9,75:1 sobre o preto */
   --stage-accent-glow: rgba(143, 177, 243, .32);
   --stage-on-accent: #0e1215;            /* texto SOBRE o acento preenchido; 8,65:1 */
@@ -259,38 +193,28 @@
    TEMA ESCURO — o padrão (nenhum atributo)
    ====================================================================== */
 :root {
-  /* ---------- Superfícies: uma ESCADA de elevação ----------
-     O que importa aqui não é cada cor isolada, é o DEGRAU entre elas: no
-     celular, com brilho baixo no salão, uma escala quase plana faz botão e
-     fundo virarem a mesma mancha escura.
-     Medido nesta paleta: fundo × barra 1,32:1, fundo × painel 1,49:1,
-     painel × painel-2 **1,33:1**, fundo × painel-2 1,98:1 — sobre a matiz do
-     denim (211°). O cinza não é neutro de propósito: um cinza puro ao lado de
-     um accent azul lê como esverdeado, e a matiz da marca no próprio nanquim é
-     o que costura a escada ao resto da identidade.
+  /* ---------- AZUL: a marca IASD E o accent, numa família só ----------
+     Uma cor não serve aos dois papéis, e é aritmética: para ser legível COMO
+     TEXTO sobre fundo escuro ela precisa ser clara; para receber TEXTO por cima
+     precisa ser escura. Daí três tokens:
 
-     O par painel × painel-2 ERA 1,29:1, logo abaixo do piso de 1,3:1, e o
-     comentário que estava aqui assumia isso com um argumento que a v5.267
-     revogou: *"ele não carrega o estado sozinho em lugar nenhum — quem diz
-     'selecionado' é sempre a BORDA."* Sem borda em lugar nenhum, este degrau
-     passou a ser o único separador entre uma seção da Biblioteca e o card de
-     álbum dentro dela, e um piso não se cumpre "quase".
+     `--accent`      → texto/ícone sobre fundo escuro. DERIVADO de `bluejay`
+                       (#2E6DE7, matiz 220° preservada) e clareado: o oficial dá
+                       3,97:1 e reprova. Aqui: 6,13:1 sobre o painel · 9,13:1
+                       sobre o fundo · 6,93:1 sobre a barra · 4,60:1 sobre
+                       painel-2 — este último é o que o fez clarear na v5.267.
+     `--accent-fill` → FUNDO preenchido (aba ativa, botão primário). É o `denim`
+                       OFICIAL sem ajuste, o mesmo do wallpaper. 2,44:1 contra o
+                       fundo do app.
+     `--on-accent`   → o que se escreve sobre --accent-fill: 6,54:1 sobre denim.
+                       (O par oficial é branco sobre denim, 7,70:1; aqui vale a
+                       regra do off-white, e a folga sobra nos dois casos.)
 
-     **A escada tem TRÊS degraus, e não quatro, e isso é aritmética.** Um quarto
-     tom obrigaria o nível mais interno a subir até ~#4c5865, onde `--muted` cai
-     a 3,59:1 e `--accent` a 3,37:1 — os dois reprovam AA para texto pequeno, que
-     é justamente o tamanho do texto de uma linha de lista. Com três, quem
-     carrega o quarto nível é o ESPAÇO: a faixa de um álbum não ganha caixa
-     nenhuma, e o que a separa da vizinha é o tom do álbum aparecendo entre elas.
-
-     `--surface`/`--surface-2` são branco com alfa de propósito: um botão
-     mantém o mesmo degrau relativo esteja ele sobre o fundo do app ou sobre a
-     barra — três valores fixos divergiriam no primeiro ajuste. Dentro de um
-     CARTÃO essa mesma regra se INVERTE (`--surface-sunk`, abaixo), porque
-     branco com alfa EMPILHA: sobre `--panel` ele produzia uma base clara
-     demais para qualquer texto colorido. A regra e as medições estão em
-     "superfície que afunda", no topo de controle.css — quem mexer nestes
-     valores precisa reler aquilo. */
+     `--brand` = `--accent` de propósito: o denim é a cor de destaque do app, e
+     dois nomes com o mesmo valor é o que distingue na folha "isto é marca" de
+     "isto é navegação" sem inventar uma segunda matiz. Chamavam-se `--gold*`
+     até a v5.192 — um token "gold" guardando um azul é a divergência que este
+     arquivo existe para impedir. */
   --bg: #0e1215;
   --bar: #252b33;
   --panel: #2c343c;
@@ -364,47 +288,35 @@
   --surface-sunk: rgba(0, 0, 0, .24);
   --surface-2-sunk: rgba(0, 0, 0, .14);
   /* ---------- A LINHA DE CONTEÚDO SE AFASTA DO TEXTO (v5.297) ----------
-     A faixa dentro de um álbum e a linha de um favorito são a superfície MAIS
-     FUNDA da Biblioteca, e são as únicas da escada que carregam texto pequeno.
-     Elas vestiam `--surface` (o recesso do cartão), e recesso é uma regra sobre
-     PROFUNDIDADE: no escuro isso as afasta do texto claro, e no CLARO as
-     empurra na direção dele.
+     A faixa dentro de um álbum e a linha de um favorito são a superfície mais
+     funda da Biblioteca e as únicas da escada que carregam texto pequeno. Elas
+     vestiam `--surface` (recesso), e recesso é regra sobre PROFUNDIDADE: no
+     escuro afasta do texto claro, no CLARO empurra na direção dele.
 
-     Medido: no tema claro o recesso compunha rgb(182,187,194) sobre o card —
-     **~50% de luminância**, o meio-tom exato, que é o pior caso para os dois
-     lados. `--text` dava 4,59:1 (passava AA raspando e não se lia), e branco
-     daria 1,93:1: não havia cor de texto que resolvesse, porque o problema era
-     a SUPERFÍCIE. Relato do operador depois da v5.296: *"não melhorou a
-     leitura"*.
+     Medido no claro: o recesso compunha rgb(182,187,194) — ~50% de luminância,
+     o meio-tom exato, pior caso para os dois lados. `--text` dava 4,59:1 (AA
+     raspando, ilegível) e branco daria 1,93:1: não havia cor de texto que
+     resolvesse, porque o problema era a SUPERFÍCIE.
 
-     A regra é uma só e vale nos dois temas: **a linha vai para o lado OPOSTO ao
-     do texto**. No escuro ela desce (o valor de sempre, nada muda); no claro
-     ela sobe até quase o branco — que é o que uma lista de conteúdo faz em toda
-     UI clara, com o cinza do card aparecendo entre as linhas.
-
-     Medido depois, no claro: rgb(246,248,249) sobre o card #d4dae2 — 1,32:1 de
-     separação (o piso de dois blocos encostados é 1,28) e **8,32:1** com o
-     texto. No escuro segue rgb(46,54,63) e 9,23:1. */
+     A regra vale nos dois temas: a linha vai para o lado OPOSTO ao do texto. No
+     escuro desce (nada muda); no claro sobe até quase o branco, com o cinza do
+     card aparecendo entre as linhas.
+     Medido: claro rgb(246,248,249) sobre card #d4dae2 — 1,32:1 de separação
+     (piso 1,28) e 8,32:1 com o texto. Escuro rgb(46,54,63) e 9,23:1. */
   --item-fill: var(--surface-sunk);
 
-  /* ---------- OS DOIS FUNDOS DE ESTADO, e eles são OPACOS (v5.267) ----------
-     Uma linha de lista tem dois estados que precisam ser lidos de relance:
-     ESCOLHIDA (a atual, a marcada na seleção múltipla) e NO AR (o que está
-     sendo projetado agora). Até aqui os dois eram "contorno de 2px + tinta com
-     alfa por baixo", e com o contorno fora sobrava a tinta — que não basta, e
-     não por pouco: `--accent-soft` a 16% sobre o painel compõe **#3d4959**, que
-     é o `--panel-2` deste arquivo. Uma linha selecionada ficava, literalmente,
-     com a cor do nível de baixo da árvore.
-
-     Opacos, os dois valem o mesmo em QUALQUER nível — que é o que um estado
-     precisa fazer: sair da escada, em vez de ocupar um degrau dela. E o sinal
-     principal deles é a MATIZ, não a claridade: `--live-fill` fica a 1,03:1 do
-     painel de propósito (uma linha vermelha entre linhas cinzas se acha sem
-     precisar ser mais clara que elas), e é a matiz que sobrevive ao brilho
-     baixo de um salão escuro, onde meio degrau de luminância não sobrevive.
-     Medido — `--sel-fill`: 7,64:1 com o texto, 5,35:1 com o `--muted`, 4,92:1
-     com o `--accent`. `--live-fill`: 9,21:1 com o texto e 4,72:1 com o
-     `--live-strong`, que é a tinta do selo "● No ar" e do nome da linha. */
+  /* O VERMELHO QUE SE LÊ COMO VERMELHO (v5.76, matiz reancorada na v5.192).
+     DERIVADO do `scarlett` (matiz 358°), clareado até passar como texto.
+     MEDIDO: 7,27:1 sobre `--bg`, 6,50:1 sobre `--live-soft`/`--danger-soft` (o
+     soft sobre a PÁGINA; dentro de um cartão dá 4,75:1, ainda AA), 4,88:1 sobre
+     `--panel` e 3,66:1 sobre `--panel-2` — este reprova o piso de 4,5:1.
+     Daí a REGRA: quem veste este vermelho veste junto o fundo da própria
+     família — `--live-fill` numa linha (4,72:1) ou `--live-soft`/
+     `--danger-soft` num chip ou botão.
+     INVENTÁRIO (por grep): o clareado é o padrão; o salmão `--danger-text` tem
+     TRÊS consumidores, todos casos em que ele não serve — `.yt-result .yt-err`
+     e `.btn-pulso--erro` sobre `--danger-soft`, e `.save-hint--erro` direto no
+     `--panel`. */
   --sel-fill: #2e4262;
   --live-fill: #54282e;
   /* O terceiro da família, e ele é do RESOLVIDO: a TV já conectada, a pasta já
@@ -423,37 +335,26 @@
   --text: #dce0e5;                       /* 14,19:1 sobre o fundo · 9,52:1 sobre painel · 7,24:1 sobre painel-2 */
   --muted: #b6bdc6;                      /*  9,93:1 sobre o fundo · 6,66:1 sobre painel · 5,00:1 sobre painel-2 */
 
-  /* ---------- AZUL: a marca IASD E o accent, numa família só ----------
-     Uma cor só não serve aos dois papéis, e isso é aritmética, não gosto: para
-     ser legível COMO TEXTO sobre o fundo escuro ela precisa ser clara; para
-     receber TEXTO por cima precisa ser escura. Daí três tokens, um por papel:
+  /* ---------- Superfícies: uma ESCADA de elevação ----------
+     O que importa é o DEGRAU, não cada cor isolada: no celular com brilho baixo
+     uma escala quase plana faz botão e fundo virarem a mesma mancha.
+     Medido: fundo × barra 1,32:1, fundo × painel 1,49:1, painel × painel-2
+     1,33:1, fundo × painel-2 1,98:1 — sobre a matiz do denim (211°). O cinza
+     não é neutro de propósito: um cinza puro ao lado de um accent azul lê como
+     esverdeado.
 
-     `--accent`      → texto e ícone sobre fundo escuro. DERIVADO de `bluejay`
-                       (#2E6DE7, matiz 220° preservada), clareado: o oficial dá
-                       3,97:1 sobre o fundo e reprova como texto.
-                       Aqui: 6,13:1 sobre o painel · 9,13:1 sobre o fundo ·
-                       6,93:1 sobre a barra · **4,60:1 sobre painel-2**. Este
-                       último é o que o fez clarear mais um degrau na v5.267
-                       (#8fb1f3 → #95b5f4): com o painel-2 aberto para 1,33:1,
-                       o valor antigo caía a 4,40:1 e reprovava AA justamente
-                       no nível em que mora o card de álbum da Biblioteca.
-     `--accent-fill` → FUNDO de elemento preenchido (aba ativa, botão primário).
-                       É o `denim` OFICIAL, sem uma vírgula de ajuste — o núcleo
-                       da identidade adventista, e o mesmo denim do wallpaper.
-                       2,44:1 contra o fundo do app, exatamente o peso que o
-                       preenchido âmbar tinha (2,59:1).
-     `--on-accent`   → o que se escreve EM CIMA de --accent-fill: 6,54:1 sobre o
-                       denim. (O par oficial recomendado é BRANCO sobre denim,
-                       7,70:1; aqui vale a regra do off-white acima, e a folga
-                       sobra nos dois casos.)
+     A ESCADA TEM TRÊS DEGRAUS, e isso é aritmética: um quarto tom levaria o
+     nível mais interno a ~#4c5865, onde `--muted` cai a 3,59:1 e `--accent` a
+     3,37:1 — os dois reprovam AA para texto pequeno, o tamanho do texto de uma
+     linha de lista. Quem carrega o quarto nível é o ESPAÇO: a faixa de um álbum
+     não ganha caixa, e o que a separa da vizinha é o tom do álbum entre elas.
 
-     Marca e accent têm a MESMA família (`--brand` = `--accent`): o denim da
-     IASD é a cor de destaque do app, e manter dois nomes com o mesmo valor é o
-     que permite distinguir, na folha, "isto é marca/metadado" de "isto é
-     navegação/seleção" sem inventar uma segunda matiz. Os três tokens se
-     chamavam `--gold*` até a v5.192 — um token chamado "gold" guardando um azul
-     é exatamente a divergência que o cabeçalho deste arquivo existe para
-     impedir, então eles foram RENOMEADOS junto com a cor. */
+     `--surface`/`--surface-2` são branco com alfa: um botão mantém o mesmo
+     degrau relativo sobre o fundo ou sobre a barra — três valores fixos
+     divergiriam no primeiro ajuste. Dentro de um CARTÃO a regra se INVERTE
+     (`--surface-sunk`), porque alfa EMPILHA: sobre `--panel` a base ficava
+     clara demais para texto colorido. As medições estão em "superfície que
+     afunda", no topo de controle.css — releia antes de mexer aqui. */
   --accent: #95b5f4;
   --accent-fill: #2f557f;                /* denim OFICIAL */
   --accent-soft: rgba(149, 181, 244, .16);
@@ -552,32 +453,20 @@
   --veil: rgba(14, 18, 21, .55);
   --veil-solid: rgba(14, 18, 21, .92);
 
-  /* ---------- Bíblia: ladrilhos dos 66 livros ----------
-     TINTA ESCURA + faixa lateral com a matiz do grupo, não o bloco saturado de
-     antes. A tela de livros é a única do app que preenche o visor inteiro de
-     cor, e é justamente a que o operador abre NO ESCURO no meio da pregação:
-     medida, ela emitia 7x mais luz que uma lista comum, e cinco dos dez grupos
-     tinham o rótulo abaixo de AA. Com a tinta, o pior rótulo vai a 8,72:1 e a
-     pior faixa mantém 3,27:1 contra a própria tinta.
+  /* ---------- OS DOIS FUNDOS DE ESTADO, e eles são OPACOS (v5.267) ----------
+     Uma linha tem dois estados lidos de relance: ESCOLHIDA (atual/marcada) e NO
+     AR (projetando). Eram "contorno 2px + tinta com alfa"; sem contorno sobrava
+     a tinta, e `--accent-soft` a 16% sobre o painel compõe #3d4959, que É o
+     `--panel-2` — a linha selecionada ficava com a cor do nível de baixo.
 
-     AS DEZ MATIZES, e de onde cada uma vem (ver o cabeçalho: a identidade tem
-     sete famílias e a escala precisa de dez, com separação mínima de 20°):
-       lei        220°  bluejay  OFICIAL
-       evangelhos 240°  derivada — o vão entre bluejay e emperor
-       pmaiores   272°  emperor  OFICIAL (a mesma matiz do iris)
-       pmenores   304°  derivada — o vão entre emperor e lily
-       apocalipse  48°  derivada — o vão entre campfire e treefrog (o dourado
-                        que este grupo sempre teve; a identidade não tem amarelo)
-       historicos  21°  campfire OFICIAL
-       gerais     101°  treefrog OFICIAL (a mesma matiz do forest)
-       paulinas   141°  derivada — o vão entre treefrog e ming
-       poeticos   168°  derivada — idem, do outro lado
-       atos       189°  ming     OFICIAL (a mesma matiz do cave)
-     Ordenadas, os vãos são 21→48→101→141→168→189→220→240→272→304: o menor é de
-     20°, que é o piso que a v5.47 fixou depois de Lei e Evangelhos terem ficado
-     a um grau um do outro. Só o `scarlett` fica FORA da escala de propósito —
-     vermelho é atenção neste app, e um grupo de livros vermelho competiria com
-     "está no ar" na mesma tela. */
+     Opacos, valem o mesmo em QUALQUER nível: um estado sai da escada em vez de
+     ocupar um degrau. O sinal principal é a MATIZ, não a claridade —
+     `--live-fill` fica a 1,03:1 do painel de propósito (uma linha vermelha
+     entre cinzas se acha sem ser mais clara), e é a matiz que sobrevive ao
+     brilho baixo de um salão escuro.
+     Medido — `--sel-fill`: 7,64:1 com o texto, 5,35:1 com `--muted`, 4,92:1 com
+     `--accent`. `--live-fill`: 9,21:1 com o texto, 4,72:1 com `--live-strong`
+     (a tinta do selo "● No ar"). */
   --b-lei:#2a3955;        --bt-lei:#6187d5;
   --b-historicos:#4b3325; --bt-historicos:#cc703e;
   --b-poeticos:#1e3e37;   --bt-poeticos:#299982;
@@ -598,28 +487,17 @@
   --cell-verse: #433a28;        --cell-verse-text: #ede5d4;     /* 8,94:1 */
 }
 
-/* ======================================================================
-   TEMA CLARO — `data-tema="claro"` no <html>
-   ======================================================================
-   Aqui os valores OFICIAIS entram quase todos verbatim, e isso não é sorte: os
-   dezoito foram desenhados para pousar sobre BRANCO, que é exatamente o fundo
-   dos cartões deste tema. O denim é o accent sem nenhum ajuste (7,70:1 sobre o
-   painel), e o branco sobre denim é o par que a própria identidade recomenda.
-   Escurecer só foi preciso onde a cor pousa sobre o CINZA da página em vez de
-   sobre branco — e ali a matiz oficial é preservada, com o derivado declarado.
-
-   O DEGRAU DE ELEVAÇÃO SE INVERTE, e a régua muda junto. No escuro, "mais
-   fundo na árvore" é "mais claro"; aqui o painel já é branco e não há para onde
-   subir, então `--panel-2` DESCE (um campo dentro de um cartão é um recesso,
-   que é a convenção de toda UI clara). A direção é oposta e a REGRA é a mesma —
-   cada nível se afasta do anterior —, e é por isso que a folha não precisa
-   saber em qual tema está.
-   A consequência é que `--panel-2` fica perto do `--bg` (1,09:1). Deliberado, e
-   sem custo: os dois nunca se encostam, porque um nível 2 está sempre DENTRO de
-   um nível 1, que aqui é branco.
-   O piso de 1,30:1 entre superfícies grandes vale hoje para os dois pares que
-   importam — fundo × painel (1,29:1, um centésimo abaixo e assumido desde a
-   v5.192) e painel × painel-2 (**1,41:1**). */
+  /* O ACENTO DO PALCO — ele existe por um defeito medido (v5.218).
+     O palco pintava acentos com `--brand`/`--live-strong`/`--bg`/
+     `--accent-glow`, quatro tokens de TEMA. No Display nunca doeu (ele não
+     escreve `data-tema`); na PREVIEW do Controle, com o tema CLARO, o título do
+     slide de capa saía em denim (#2F557F) sobre o preto do palco — 2,73:1
+     medidos, abaixo do piso de 3:1 de texto grande.
+     É o "o palco não tem tema" cometido do lado de fora: os TOKENS estavam
+     certos e as REGRAS apontavam para tokens de tema. A regra que fica: nada
+     pintado no palco pode ler um token redeclarado em `[data-tema]`.
+     `tools/smoke.mjs` mede pelo RENDERIZADO (cor computada de cada camada nos
+     dois temas), não pelo nome do token. */
 :root[data-tema="claro"] {
   --bg: #dfe3e7;
   --bar: #ffffff;

@@ -16,56 +16,31 @@ import org.json.JSONObject
  * Um `EspelhoDiag` que formata parágrafos é UI de diagnóstico escrita em
  * Kotlin, e este projeto faz o contrário.
  *
- * ## O QUE SAIU DAQUI, e por que a remoção é a correção (v5.206)
+ * **A lição desta classe, que vale para a próxima aposentadoria:** apagar o
+ * PRODUTOR de uma métrica e deixar o CONSUMIDOR de pé não produz silêncio —
+ * produz um ZERO, e zero é um valor legítimo que o consumidor interpreta. (O
+ * anel de `ritmo` daqui ficou sem produtor por dezenove versões e o Registro
+ * imprimia `ALARME: ISTO É UM RETÂNGULO PRETO` em todo culto com vídeo no ar.)
+ * Remoção de recurso é remoção dos dois lados do fio.
  *
- * Este arquivo nasceu para o ESPELHO DE PIXELS, e a v5.187 aposentou aquele
- * recurso por inteiro. Sobraram três coisas mortas, e uma delas não era inerte:
- *
- *  - **O anel de `ritmo`** (bytes/quadros/chaves/cadência por segundo, mais o
- *    atraso captura→fio). Quem o alimentava era `amostra()`, chamada uma vez por
- *    quadro pelo encoder H.264 — que não existe desde a v5.187. O anel ficou sem
- *    produtor e **`paraJson` continuou publicando o objeto**, zerado. Do outro
- *    lado do fio, o `blocoEspelho` do `controle.js` lê `kbps < 40` como "isto é
- *    um retângulo preto" e imprimia **`ALARME: ISTO É UM RETÂNGULO PRETO`** em
- *    todo culto com vídeo no ar — no Registro, que é o artefato que o operador
- *    COPIA E REPASSA quando algo não conecta. O KDoc desta classe já dizia, com
- *    todas as letras, que "diagnóstico que mente é pior que diagnóstico nenhum";
- *    a linha estava mentindo havia dezenove versões.
- *  - **`fato()`**, a publicação de fatos estruturados (tela virtual, readback,
- *    encoder, viewport). Zero chamadores desde que os três produtores foram
- *    apagados.
- *  - **`SondaClipe`/`SondaPathHandler`**, o instrumento que gerava um clipe
- *    magenta para medir o decodificador da TV. A `sonda.html` e a
- *    `MirrorPresentation` que a hospedava saíram na v5.187 — restaram ~310
- *    linhas de `MediaCodec`/`MediaMuxer` que nada alcançava.
- *
- * **A lição que fica escrita, porque ela vale para a próxima aposentadoria:**
- * apagar o PRODUTOR de uma métrica e deixar o CONSUMIDOR de pé não produz
- * silêncio — produz um zero, e um zero é um valor legítimo que o consumidor
- * interpreta. Remoção de recurso é remoção dos dois lados do fio.
- *
- * O que sobrou é o que sempre foi lido: o **diário de linhas**, alimentado pelo
+ * O que este arquivo é hoje: o **diário de linhas**, alimentado pelo
  * `EspelhoServidor` (páginas entregues, pareamentos aceitos e recusados, telas
  * que caíram) e desenhado pelo Registro em ordem de relógio.
  *
  * ## Por que um anel, e por que com carimbo de relógio de parede
  *
- * A transmissão pode ficar horas no ar; guardar tudo seria vazamento de memória
- * lento num processo que também hospeda dois WebViews e a projeção. [TETO_LINHAS]
- * cobre com folga a janela que interessa (ligar → uma tela entrar → falhar), e o
- * que sai é o mais velho.
- *
- * Cada linha carrega `em` = `System.currentTimeMillis()` porque o Registro
- * mostra hora de parede ("última desconexão: tela C · 12:41"), e
- * `System.currentTimeMillis` é a única fonte disso.
+ * A transmissão pode ficar horas no ar; guardar tudo seria vazamento lento num
+ * processo que também hospeda dois WebViews e a projeção. [TETO_LINHAS] cobre a
+ * janela que interessa (ligar → uma tela entrar → falhar).
+ * Cada linha carrega `em` = `System.currentTimeMillis()` porque o Registro mostra
+ * hora de PAREDE ("última desconexão: tela C · 12:41").
  *
  * ## Thread-safety não é opcional aqui
  *
- * As escritas chegam de uma thread por cliente do servidor; a leitura
- * (`paraJson`) chega de outra: a thread do WebView que atende
- * `@JavascriptInterface`. Um `ArrayDeque` sem lock aqui daria
- * `ConcurrentModificationException` dentro da ponte — isto é, um diagnóstico
- * que quebra justamente quando alguém foi olhá-lo.
+ * As escritas chegam de uma thread por cliente do servidor e a leitura
+ * (`paraJson`) da thread do WebView que atende `@JavascriptInterface`. Um
+ * `ArrayDeque` sem lock daria `ConcurrentModificationException` dentro da ponte
+ * — um diagnóstico que quebra justamente quando alguém foi olhá-lo.
  */
 class EspelhoDiag {
 

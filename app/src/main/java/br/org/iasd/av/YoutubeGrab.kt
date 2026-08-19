@@ -42,59 +42,37 @@ import java.net.URL
  *
  * ## Por que isto existe
  *
- * O embed do YouTube pausa sozinho quando a página fica oculta — e é isso que o
- * Android faz com o telão no instante em que o operador minimiza o app. A regra
- * roda num iframe de outra origem e nenhum código nosso a alcança. Foram
- * tentadas, e falharam em aparelho, as duas saídas de fora: mandar tocar de
- * novo ([`ytWatchResume`] no Display) e impedir o WebView de se declarar oculto
- * ([WebViewFactory.KeepVisibleWebView]).
- *
- * Com o vídeo virando ARQUIVO, ele passa a ser mídia comum: o mesmo `<video>`
- * dos importados, com fade, seek, playlist, `MediaSession` e segundo plano que
- * já funcionam há versões — e sem anúncio, sem legenda e **sem depender da rede
- * durante o culto**.
+ * O embed pausava sozinho com a página oculta — o que o Android faz com o telão
+ * quando o app é minimizado —, e a regra roda num iframe de outra origem que
+ * nenhum código nosso alcança. Virando ARQUIVO, o vídeo é mídia comum: o mesmo
+ * `<video>` dos importados, com fade, seek, playlist, `MediaSession` e segundo
+ * plano — sem anúncio, sem legenda e **sem depender da rede durante o culto**.
  *
  * ## Por que AQUI, e não num servidor
  *
- * A versão anterior pedia uma instância [Cobalt](https://cobalt.tools). Não
- * funcionou, e o motivo não é o Cobalt: servidores públicos rodam em **IP de
- * datacenter**, que é exatamente o que o YouTube bloqueia. Extrair no aparelho
- * sai do IP do chip do operador — é por isso que o NewPipe funciona no celular
- * enquanto as instâncias públicas apanham. De quebra, aqui não existe CORS: o
- * `fetch` do WebView nunca chegaria ao `googlevideo.com`, que não manda os
- * cabeçalhos, e por isso o caminho anterior precisava de um túnel.
+ * Servidores públicos rodam em IP de datacenter, que é o que o YouTube bloqueia;
+ * extrair no aparelho sai do IP do chip. E aqui não existe CORS — o `fetch` do
+ * WebView nunca chegaria ao `googlevideo.com`.
  *
  * ## O que ele entrega
  *
  * Um **MP4 de até 1080p**, montado das duas faixas que o YouTube guarda
- * separadas acima de 720p (o vídeo sem som de um lado, o áudio do outro) e
- * juntadas pelo `MediaMuxer` da plataforma — cópia de amostras, não
- * recodificação, ver [MuxMp4]. Quando a montagem não sai, o **progressivo**
- * segue como piso: um arquivo pior é infinitamente melhor que um vídeo que
- * para de tocar no meio do culto.
+ * separadas acima de 720p e juntadas pelo `MediaMuxer` (cópia de amostras, não
+ * recodificação — ver [MuxMp4]). Falhando a montagem, o **progressivo** é o
+ * piso: um arquivo pior é melhor que um vídeo que para no meio do culto.
  *
- * ## Sem PO Token — e desde a v1.49 isso deixou de custar o 1080p
+ * ## Sem PO Token, e por que isso não custa mais o 1080p
  *
- * O extrator aceita um `PoTokenProvider` e este app não monta nenhum. Durante
- * sete versões isso custou caro: o YouTube passou a exigir **SABR** de quem
- * pede sem token, as faixas adaptativas eram LISTADAS mas respondiam 403 a
- * todo download, e o que sobrava era o único progressivo deste aparelho —
- * 360p.
+ * **Montar o token não é a saída**, e foi verificado: o `getWebClientPoToken()`
+ * da biblioteca não tem uma única chamada em versão nenhuma, e o token que ela
+ * de fato consome (o do cliente Android) exige o **DroidGuard** do Play
+ * Services, atrelado à assinatura do app oficial.
  *
- * **Montar o token não era a saída**, e isso foi verificado antes de desistir
- * dele: o `getWebClientPoToken()` da biblioteca não tem uma única chamada em
- * versão nenhuma (o cliente web só serve para metadados), e o token que ela de
- * fato consome — o do cliente Android — exige o **DroidGuard** do Play
- * Services, atrelado à assinatura do app oficial. Um WebView rodando o BotGuard
- * aqui alimentaria um campo que ninguém lê.
- *
- * Quem resolveu foi a própria biblioteca, na v0.26.3: um cliente **visionOS**,
- * buscado sem token nenhum, que volta a entregar as adaptativas — que é
- * exatamente o motivo de esta dependência existir no projeto (a manutenção do
- * gato-e-rato fica com quem a publica). O preço é que as listas agora vêm
- * MISTURADAS, faixas boas do visionOS ao lado das envenenadas do cliente
- * antigo, e é por isso que a escolha aqui virou uma FILA de candidatos
- * ([tentarJuntar]) em vez de "a de maior altura".
+ * Quem resolve é a biblioteca (≥ v0.26.3): o cliente **visionOS**, sem token,
+ * volta a entregar as adaptativas — que é o motivo de esta dependência existir.
+ * **O preço é que as listas vêm MISTURADAS**, faixas boas do visionOS ao lado
+ * das envenenadas do cliente antigo: daí a escolha ser uma FILA de candidatos
+ * ([tentarJuntar]), e não "a de maior altura".
  */
 object YoutubeGrab {
 
@@ -170,40 +148,32 @@ object YoutubeGrab {
     private const val LE_MS = 30_000
 
     /**
-     * O idioma do pedido, e não uma preferência de exibição.
+     * O idioma do PEDIDO, e não uma preferência de exibição.
      *
-     * `NewPipe.init(downloader)` sozinho usa a localização padrão da
-     * biblioteca — **en-GB**. O YouTube leva isso a sério: ele TRADUZ o título
-     * (e a descrição) para o idioma pedido quando o canal publica traduções ou
-     * quando a tradução automática está ligada, então uma busca por um louvor
-     * brasileiro voltava com títulos em inglês de vídeos cujo título original é
-     * em português — o operador procurava por um nome que não estava mais lá.
+     * `NewPipe.init(downloader)` usa a localização padrão da biblioteca —
+     * **en-GB** —, e o YouTube TRADUZ o título para o idioma pedido quando há
+     * tradução (manual ou automática): uma busca por louvor brasileiro voltava
+     * com títulos em inglês, e o operador procurava um nome que não estava lá.
      *
-     * Fixo no português do Brasil, e não herdado do `Locale` do aparelho: o que se quer aqui
-     * é o título ORIGINAL do louvor, e um celular configurado em inglês (não é
-     * raro) traria a tradução de volta. `ContentCountry` acompanha porque é ele
-     * que decide o acervo regional dos resultados.
+     * Fixo em português, não herdado do `Locale`: o que se quer é o título
+     * ORIGINAL, e um celular em inglês traria a tradução de volta.
+     * `ContentCountry` acompanha porque decide o acervo regional.
      *
-     * **E passar isto ao `NewPipe.init` NÃO BASTA** — foi o que a v1.32 fez, e
-     * os títulos continuaram chegando em inglês. `StreamingService.
-     * getLocalization()` FILTRA o pedido pela lista de idiomas suportados do
-     * serviço, e a do YouTube nesta versão da biblioteca (v0.26.4) tem um item
-     * só: `en-GB` (o resto está comentado no fonte). Qualquer outro idioma cai
-     * no `Localization.DEFAULT`, que é justamente o en-GB — em silêncio, sem
-     * erro nenhum, e por isso o código anterior PARECIA certo. O país escapa
-     * do filtro porque "BR" está na lista de países suportados, então só metade
-     * do pedido chegava.
+     * **PASSAR ISTO AO `NewPipe.init` NÃO BASTA** (foi o que a v1.32 fez, e os
+     * títulos continuaram em inglês): `StreamingService.getLocalization()`
+     * FILTRA o pedido pela lista de idiomas suportados, e a do YouTube na
+     * v0.26.4 tem um item só, `en-GB`. Qualquer outro cai no
+     * `Localization.DEFAULT`, que É o en-GB — em silêncio. O país escapa do
+     * filtro porque "BR" está na lista de países, então só metade do pedido
+     * chegava.
      *
-     * A saída é o `forceLocalization`/`forceContentCountry` do próprio
-     * `Extractor` ([aportuguesar]), que é a válvula que a biblioteca oferece
-     * para exatamente isto: ele é lido ANTES da lista de suportados
-     * (`getExtractorLocalization`).
+     * A saída é `forceLocalization`/`forceContentCountry` do próprio `Extractor`
+     * ([aportuguesar]), lido ANTES da lista de suportados.
      *
-     * E o código é `pt`, não `pt-BR`: a lista (comentada) que a própria
-     * biblioteca guarda como os `hl` que o YouTube aceita tem "pt" e "pt-PT" —
-     * não tem "pt-BR". Com o `gl=BR` do [PAIS], "pt" É o português do Brasil;
-     * pedir um código que o YouTube talvez não reconheça arriscaria voltar para
-     * o inglês pela porta dos fundos, que é exatamente o defeito.
+     * E o código é `pt`, não `pt-BR`: a lista que a biblioteca guarda como os
+     * `hl` aceitos tem "pt" e "pt-PT", não "pt-BR". Com o `gl=BR` do [PAIS],
+     * "pt" É o português do Brasil; um código que o YouTube talvez não
+     * reconheça voltaria ao inglês pela porta dos fundos.
      */
     private val IDIOMA = Localization("pt")
     private val PAIS = ContentCountry("BR")
@@ -252,28 +222,23 @@ object YoutubeGrab {
      * nunca. Enquanto a marca é recente ([adaptativoBloqueado]), o caminho
      * adaptativo nem tenta.
      *
-     * Enquanto a biblioteca só sabia pedir sem token, o 403 era a regra e não a
-     * exceção: as doze faixas de vídeo-só e as cinco de áudio eram listadas e o
-     * CDN recusava todas. Sem esta memória, todo download refazia as mesmas
-     * requisições condenadas antes de cair no progressivo — alguns segundos de
-     * espera, por download, para chegar sempre à mesma conclusão.
+     * Enquanto a biblioteca só sabia pedir sem token, o 403 era a regra: todas
+     * as faixas eram listadas e o CDN recusava todas. Sem esta memória, todo
+     * download refazia as mesmas requisições condenadas antes de cair no
+     * progressivo.
      *
-     * **Com o cliente visionOS (v1.49) a bandeira ficou muito mais difícil de
-     * levantar, e tinha de ficar.** A lista agora é MISTA: uma faixa
-     * envenenada pode ter uma boa logo atrás na fila, e desligar o caminho
-     * inteiro por causa do primeiro 403 seria jogar fora justamente o 1080p que
-     * o bump veio buscar. Só liga quando **todos** os candidatos tentados
-     * morreram com 403, e no mínimo dois — e o caminho do ÁUDIO alimenta a
-     * marca com a mesma régua ([baixarAudio]): antes só a montagem de vídeo
-     * contava, e com todo áudio adaptativo recusado a sessão refazia as sondas
-     * condenadas a cada download.
+     * **Com o visionOS (v1.49) ela ficou muito mais difícil de levantar, e
+     * tinha de ficar**: a lista é MISTA, uma faixa envenenada pode ter uma boa
+     * atrás na fila, e desligar o caminho pelo primeiro 403 jogaria fora o
+     * 1080p que o bump veio buscar. Só liga quando TODOS os candidatos tentados
+     * morreram com 403, no mínimo dois — e o caminho do ÁUDIO alimenta a marca
+     * com a mesma régua ([baixarAudio]).
      *
-     * Com PRAZO ([BLOQUEIO_ADAPTATIVO_MS]), e não pela execução inteira: uma
-     * recusa unânime é evidência sobre UM vídeo agora, não sobre o YouTube até
-     * o app fechar — sem a expiração, dois 403 do vídeo problemático da manhã
-     * desligavam o 1080p de todos os downloads do dia. Por `elapsedRealtime`,
-     * imune a acerto de relógio; em memória e não persistido, porque um estado
-     * em disco transformaria uma recusa de um dia numa desistência permanente.
+     * Com PRAZO ([BLOQUEIO_ADAPTATIVO_MS]), não pela execução inteira: uma
+     * recusa unânime é evidência sobre UM vídeo agora, e sem expiração dois 403
+     * da manhã desligavam o 1080p do dia. Por `elapsedRealtime` (imune a acerto
+     * de relógio) e em memória, porque em disco uma recusa de um dia viraria
+     * desistência permanente.
      */
     @Volatile
     private var adaptativoBloqueadoEm = 0L
@@ -432,25 +397,22 @@ object YoutubeGrab {
         // mas "provavelmente" não é o que se quer de uma inicialização global.
         if (pronto) return
         NewPipe.init(NpDownloader, IDIOMA, PAIS)
-        // O CLIENTE iOS, DE VOLTA AO DESLIGADO (v1.49). Ele foi ligado à mão na
-        // v1.43 como a única coisa que dava para tentar sem assinar o contrato
-        // de manutenção do BotGuard: o extrator caía no conjunto reduzido do
-        // `reel/reel_item_watch` e o aparelho só via UM progressivo de 360p.
-        // Medido depois disso, o iOS não resolveu — as faixas dele vêm
-        // "especialmente" como manifestos HLS (é a própria javadoc do método que
-        // avisa), e manifesto não é URL de arquivo: o `isUrl` das nossas
-        // escolhas o descarta.
+        // O CLIENTE iOS, DE VOLTA AO DESLIGADO (v1.49). Ligado à mão na v1.43
+        // como a única tentativa possível sem assinar o contrato de manutenção
+        // do BotGuard (sem ele o extrator caía no conjunto reduzido e o
+        // aparelho só via UM progressivo de 360p). Medido, o iOS não resolveu:
+        // as faixas dele vêm como manifestos HLS (a própria javadoc avisa), e
+        // manifesto não é URL de arquivo — o `isUrl` das escolhas o descarta.
         //
-        // Agora ele ATRAPALHA. Quem destrava o 1080p é o cliente visionOS que a
+        // Agora ele ATRAPALHA: quem destrava o 1080p é o visionOS que a
         // biblioteca busca sozinha desde a v0.26.3, e as listas chegam
-        // misturadas: cada faixa iOS a mais é um candidato envenenado que a fila
-        // de [tentarJuntar] pode gastar uma requisição tentando. Somado a isso,
-        // ele custa uma requisição por extração e a própria biblioteca registra
-        // que o iOS passou a ter exigência de token própria.
+        // misturadas — cada faixa iOS a mais é um candidato envenenado que a
+        // fila de [tentarJuntar] pode gastar uma requisição tentando. Ele ainda
+        // custa uma requisição por extração e passou a ter token próprio.
         //
-        // `false` explícito, e não a omissão da linha: o valor é ESTÁTICO na
-        // biblioteca e sobrevive a qualquer reconfiguração — dizer o estado que
-        // se quer é o que torna esta decisão reversível numa linha.
+        // `false` EXPLÍCITO, e não a omissão: o valor é estático na biblioteca e
+        // sobrevive a reconfiguração — dizer o estado que se quer é o que torna
+        // esta decisão reversível numa linha.
         try {
             YoutubeStreamExtractor.setFetchIosClient(false)
         } catch (e: Throwable) {
@@ -750,25 +712,23 @@ object YoutubeGrab {
      *
      * ## Por que isto existe ao lado do [buscar]
      *
-     * Baixar resolve a projeção mas cobra a ESPERA: um louvor de 1080p são
-     * centenas de MB antes do primeiro quadro. O caminho alternativo era o
-     * player embutido do YouTube, e ele traz a UI dele junto — o rodinha de
-     * carregamento, o botão grande na pausa, a tela final — coisas que
-     * `controls: 0` não desliga porque não são controles.
+     * Baixar resolve a projeção mas cobra a ESPERA: centenas de MB antes do
+     * primeiro quadro. O caminho alternativo era o player embutido do YouTube,
+     * que traz a UI dele junto (rodinha, botão grande na pausa, tela final —
+     * coisas que `controls: 0` não desliga porque não são controles).
      *
      * Transmitindo, o vídeo vira um `<video>` COMUM alimentado por MSE: fade,
-     * cortina, `MediaSession`, barra de progresso e segundo plano continuam
-     * sendo os mesmos que já funcionam, e não há um pixel de YouTube no telão.
+     * cortina, `MediaSession`, barra e segundo plano continuam os mesmos, e não
+     * há um pixel de YouTube no telão.
      *
      * ## Só mp4/AVC + m4a/AAC
      *
      * O par WebM (VP9 + Opus) existe e o Chromium o toca, mas o `MediaSource`
-     * de um WebView é território de fabricante e o AVC/AAC é o que decodifica
-     * em qualquer aparelho. Aqui a recusa é barata — quem não achar par
-     * transmissível cai no download, que aceita os dois contêineres.
+     * de um WebView é território de fabricante e o AVC/AAC decodifica em
+     * qualquer aparelho. A recusa é barata: sem par transmissível cai no
+     * download, que aceita os dois contêineres.
      *
-     * **BLOQUEANTE** — rede e parsing, como todo o resto deste arquivo.
-     * `null` quando não há par adaptativo: quem chamou cai no caminho de antes.
+     * **BLOQUEANTE** — rede e parsing. `null` quando não há par adaptativo.
      */
     fun manifesto(link: String, teto: Int = TETO_ALTURA): JSONObject? {
         return try {
@@ -858,38 +818,32 @@ object YoutubeGrab {
      *
      * ## Uma FILA de candidatos, e não "a melhor" (v1.49)
      *
-     * Até a v1.48 isto escolhia UM par por contêiner (o vídeo de maior altura) e
-     * desistia se ele falhasse. Funcionava enquanto todas as faixas vinham do
-     * mesmo cliente. Com o visionOS da v0.26.3 elas passaram a chegar
-     * MISTURADAS — as boas dele ao lado das do cliente antigo, que o CDN recusa
-     * com 403 —, e "a de maior altura" pode ser justamente uma envenenada. Um
-     * par único significaria perder o 1080p tendo um 1080p bom na mesma lista,
-     * que é exatamente o defeito que o bump da biblioteca veio corrigir.
+     * Até a v1.48 escolhia UM par por contêiner (o vídeo de maior altura) e
+     * desistia se ele falhasse — o que valia enquanto todas as faixas vinham do
+     * mesmo cliente. Com o visionOS elas chegam MISTURADAS (as boas ao lado das
+     * do cliente antigo, que o CDN recusa com 403), e "a de maior altura" pode
+     * ser justamente uma envenenada.
      *
      * ## O áudio primeiro, porque ele é a sonda barata
      *
-     * O áudio de um louvor tem alguns MB e o vídeo tem centenas. Descobrir pelo
-     * áudio que um contêiner não serve custa uma fração do que custaria
-     * descobrir pelo vídeo — e o arquivo baixado fica guardado por contêiner,
-     * então um segundo candidato de vídeo mp4 reaproveita o m4a que já veio em
-     * vez de baixá-lo de novo.
+     * O áudio tem alguns MB e o vídeo, centenas. Descobrir pelo áudio que um
+     * contêiner não serve custa uma fração — e o arquivo fica guardado por
+     * contêiner, então um segundo candidato de vídeo mp4 reaproveita o m4a.
      *
-     * ## Os tetos, e por que a montagem tem um bem menor
+     * ## Os tetos
      *
-     * Isto roda na rede do chip do operador, possivelmente minutos antes do
-     * culto. Um 403 falha antes do primeiro byte, então um candidato perdido
-     * custa uma requisição — mas uma MONTAGEM que falha custou o download
-     * inteiro do vídeo, e por isso ela tem teto próprio ([TETO_MONTAGENS]), bem
-     * mais apertado que o número de candidatos.
+     * Um 403 falha antes do primeiro byte (um candidato perdido custa uma
+     * requisição), mas uma MONTAGEM que falha custou o download inteiro do
+     * vídeo — daí o teto próprio ([TETO_MONTAGENS]), bem menor que o de
+     * candidatos.
      *
-     * **Teto de 1080p de propósito.** O telão de um salão é 1080p, e 1440p/4K
-     * custariam três a dez vezes o tamanho por uma diferença que ninguém vê
-     * naquela tela — num aparelho que também guarda hinário e Bíblia.
+     * **Teto de 1080p de propósito**: o telão do salão é 1080p, e 1440p/4K
+     * custariam 3–10× o tamanho por diferença invisível ali, num aparelho que
+     * também guarda hinário e Bíblia.
      *
-     * **Pares do MESMO contêiner.** As faixas de 1080p costumam vir em duas
-     * versões, AVC (mp4) e VP9 (WebM); o muxer aceita AVC/AAC num MP4 e VP9/Opus
-     * num WebM, e recusa a mistura (ver [MuxMp4]) — depois de tudo baixado, que
-     * é o pior momento possível para descobrir.
+     * **Pares do MESMO contêiner**: as faixas de 1080p vêm em AVC (mp4) e VP9
+     * (WebM); o muxer aceita AVC/AAC em MP4 e VP9/Opus em WebM e recusa a
+     * mistura (ver [MuxMp4]) — depois de tudo baixado, o pior momento possível.
      */
     private fun tentarJuntar(
         ctx: Context,
@@ -1007,30 +961,21 @@ object YoutubeGrab {
         for (a in candidatos) {
             try {
                 // BYTES DE VERDADE, e não uma escala de 0 a 100 (v1.58).
+                // Este caminho reportava porcentagem enquanto o lado web trata
+                // os dois números como BYTES: a notificação — única janela do
+                // download com o app minimizado — anunciava "0 de 100" para um
+                // vídeo de 380 MB, que se lê como CEM ITENS.
                 //
-                // Este caminho reportava porcentagem (`lidos * 10 / total`,
-                // `100`) enquanto o lado web trata os dois números como BYTES —
-                // e a notificação, que é a única janela do download com o app
-                // minimizado, anunciava "0 de 100" para um vídeo de 380 MB. Do
-                // lado do operador isso se lê como CEM ITENS.
-                //
-                // E O TOTAL JÁ É O DAS DUAS FAIXAS (v1.62).
-                //
-                // Até aqui a fase do áudio reportava o tamanho DELE, e o total
-                // só crescia para a soma real quando o vídeo entrava (ver
-                // `montar`). Os dois números eram verdadeiros e mesmo assim a
-                // tela mentia: o áudio são poucos MB e baixa em segundos, então
-                // o download começava marcando **100%** por alguns instantes —
-                // o fim da primeira fase — para só então recomeçar do zero. Era
-                // a primeira coisa que o operador via, e ela dizia o oposto do
-                // que estava acontecendo.
+                // E O TOTAL JÁ É O DAS DUAS FAIXAS (v1.62). A fase do áudio
+                // reportava o tamanho DELE e o total só crescia quando o vídeo
+                // entrava: os números eram verdadeiros e a tela mentia — o áudio
+                // baixa em segundos, então todo download começava marcando 100%
+                // para só então recomeçar do zero.
                 //
                 // A previsão vem do `contentLength` da faixa de vídeo, que o
-                // extrator já entrega antes do primeiro byte. Ela pode faltar
-                // (o YouTube nem sempre informa, e aí o campo vem -1 ou 0): sem
-                // ela nada muda, e o comportamento é o de antes. Com ela, o
-                // total da fase do áudio já é a conta inteira e a barra sobe de
-                // 0 a 100 uma vez só.
+                // extrator entrega antes do primeiro byte. Faltando (o YouTube
+                // manda -1 ou 0), nada muda; havendo, a barra sobe de 0 a 100
+                // uma vez só.
                 baixarTentando(a.url, destino) { lidos, total ->
                     onProgresso(
                         lidos,
@@ -1327,34 +1272,28 @@ object YoutubeGrab {
 
     /**
      * Os candidatos de ÁUDIO, na mesma lógica de ordem. [ext] fixa o contêiner
-     * (é o que o muxer exige quando há vídeo do outro lado); `null` aceita
-     * qualquer um, que é o caso do download "só áudio" — ali um Opus que toca
-     * vale mais que um AAC que não veio.
+     * (o que o muxer exige quando há vídeo do outro lado); `null` aceita
+     * qualquer um — o caso do download "só áudio", onde um Opus que toca vale
+     * mais que um AAC que não veio.
      *
      * ## O IDIOMA VEM ANTES DO CLIENTE, e a inversão é deliberada
      *
-     * A ordem por cliente existe porque uma faixa do cliente errado é **403**:
-     * ela não baixa. Uma faixa do idioma errado baixa perfeitamente — e vai ao
-     * telão, na frente da congregação, com o testemunho em inglês. **Um
-     * resultado errado entregue com sucesso é pior que uma tentativa perdida**,
-     * e uma tentativa perdida é justamente o que esta fila existe para
-     * absorver: abaixo dela ainda há os outros candidatos e, no fim de tudo, o
-     * progressivo.
+     * Uma faixa do cliente errado é **403**: não baixa. Uma faixa do idioma
+     * errado baixa perfeitamente e vai ao telão com o testemunho em inglês. Um
+     * resultado errado entregue com sucesso é pior que uma tentativa perdida —
+     * e tentativa perdida é o que esta fila existe para absorver.
      *
      * ## E O PORTUGUÊS, HAVENDO, É EXCLUSIVO
      *
-     * Ordenar não bastaria. [TETO_AUDIO] é 2, e um 403 na primeira faixa faria
-     * a segunda — que pode ser a dublagem — descer calada. Então: **se o vídeo
-     * publica alguma trilha em português, só elas são candidatas**
-     * ([TrilhaAudio.soPortugues], onde a regra vive e tem JUnit). Não havendo
-     * nenhuma (o vídeo é mesmo de outro idioma, ou não declara trilha), nada
-     * muda em relação a antes.
+     * Ordenar não bastaria: [TETO_AUDIO] é 2, e um 403 na primeira faria a
+     * segunda (que pode ser a dublagem) descer calada. Havendo qualquer trilha
+     * em português, só elas são candidatas ([TrilhaAudio.soPortugues], onde a
+     * regra vive e tem JUnit). Não havendo, nada muda.
      *
-     * O preço está dito: um vídeo cuja única trilha em português seja recusada
-     * pelo CDN falha o caminho adaptativo em vez de baixar em inglês — e cai no
-     * progressivo, que carrega a trilha PADRÃO do vídeo, escolhida pelo YouTube
-     * sob o `forceLocalization("pt")` de [aportuguesar]. É a degradação certa
-     * nos dois passos.
+     * O preço: um vídeo cuja única trilha em português seja recusada pelo CDN
+     * falha o caminho adaptativo em vez de baixar em inglês — e cai no
+     * progressivo, que carrega a trilha PADRÃO sob o `forceLocalization("pt")`
+     * de [aportuguesar]. Degradação certa nos dois passos.
      */
     private fun candidatosAudio(info: StreamInfo, ext: String?, teto: Int): List<Faixa> {
         val todas = info.audioStreams

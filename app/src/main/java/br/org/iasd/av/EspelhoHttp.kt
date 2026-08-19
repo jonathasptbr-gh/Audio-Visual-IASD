@@ -5,94 +5,69 @@ import java.io.IOException
 import java.io.InputStream
 
 /**
- * O parser HTTP do telão por comandos. **ZERO import de Android, de
- * propósito.** (Ele nasceu para o espelho de PIXELS, aposentado na v5.187; o
- * título ficou para trás até a v5.212.)
+ * O parser HTTP do telão por comandos. **ZERO import de Android, de propósito.**
  *
  * ## Por que este arquivo é puro
  *
- * Este é o primeiro código do projeto que aceita entrada de um DESCONHECIDO —
- * até aqui tudo que entra vem do operador (SAF, share) ou de uma URL que o
- * próprio app cunhou (`/saf/`, `/stream/`). E é o único lugar do projeto onde um
- * erro não vira pixel errado: vira **controle de acesso quebrado**.
+ * É o primeiro código do projeto que aceita entrada de um DESCONHECIDO (todo o
+ * resto vem do operador ou de uma URL que o próprio app cunhou) e o único em que
+ * um erro não vira pixel errado: vira **controle de acesso quebrado**. O mesmo
+ * argumento que fez este projeto recusar o RFC 6455 ("~150 linhas de protocolo
+ * SEM ORÁCULO") vale contra um parser HTTP com autenticação — daí ele e o
+ * [EspelhoPares] serem puros, e daí o JUnit ser a QUARTA EXCEÇÃO declarada à
+ * regra de zero dependência.
  *
- * A especificação que originou este recurso recusou o RFC 6455 (WebSocket) com o
- * argumento de que seriam "~150 linhas de protocolo SEM ORÁCULO, num repositório
- * sem `app/src/test`". O argumento está certo — e vale igual contra um parser
- * HTTP com autenticação. Por isso o arquivo é puro, por isso [EspelhoPares]
- * também é, e por isso o JUnit entrou como a QUARTA EXCEÇÃO declarada à regra de
- * zero dependência (ver o `dependencies` de `app/build.gradle.kts`): ele não põe
- * um byte no APK, e se paga na primeira vez que alguém mexer no teto de
- * cabeçalhos.
+ * Bytes entram, uma [Req] validada sai; uma decisão entra, bytes saem. Nada aqui
+ * abre socket nem sabe o que é uma rota, e o `EspelhoServidor` não decide nada
+ * que este arquivo decida.
  *
- * Nada aqui abre socket, nada aqui escreve em socket, nada aqui sabe o que é uma
- * rota do espelho. Bytes entram, uma [Req] validada sai; uma decisão entra, bytes
- * de resposta saem. O `EspelhoServidor` (P5) é quem tem threads e sockets, e ele
- * **não decide nada que este arquivo decida**.
+ * ## A invariante 8 do `CLAUDE.md` SE INVERTE aqui
  *
- * ## A invariante 8 do `CLAUDE.md` NÃO se aplica aqui — e a inversão precisa
- * estar escrita
+ * No `shouldInterceptRequest` o `InputStream` devolvido é o recurso INTEIRO e
+ * quem aplica o `Range` é o WebView (ver [StreamProxy]). **Num `ServerSocket`
+ * quem o aplica somos NÓS** — é o que [alcanceDe] faz, com a gramática do RFC
+ * 7233 e JUnit próprio. Copiar o [StreamProxy] para cá é o erro exato: aquele
+ * devolve a fatia como se fosse o todo para o WebView refatiar por cima.
  *
- * No `shouldInterceptRequest` o `InputStream` devolvido é o recurso INTEIRO a
- * partir do byte 0 e quem aplica o `Range` é o **próprio WebView** — regra que
- * custou três rodadas de APK (v1.52 → v1.54) e que o [StreamProxy] documenta em
- * detalhe. **Aqui é o contrário**: num `ServerSocket` de verdade quem aplica o
- * `Range` é o servidor, e não há WebView nenhum no caminho — é o que
- * [alcanceDe] faz, com a gramática do RFC 7233 inteira e JUnit próprio.
- * **Copiar o [StreamProxy] para cá seria o erro exato**, porque aquele devolve
- * a fatia como se fosse o todo justamente para o WebView refatiar por cima.
+ * ## As oito invariantes
  *
- * (Este parágrafo afirmava que "não há `Range` nenhum: as rotas do espelho são
- * fluxos infinitos". Valia enquanto toda rota era fluxo; a rota `/m/` do telão
- * por comandos a inverteu na E1, e o texto ficou dizendo o contrário do código
- * até a v5.212. A invariante 7, logo abaixo, já registrava a mudança — as duas
- * discordavam dentro do mesmo arquivo.)
- *
- * ## As oito invariantes, e o motivo de cada uma
- *
- * 1. **Tetos duros, todos** — [TETO_LINHA], [TETO_CABECALHOS], [TETO_CABECALHO],
- *    [TETO_CORPO]. Fora do teto ⇒ resposta curta e `close`, sem drenar o resto
- *    (repare que [Erro.CorpoLongo] é lançado ANTES de ler um byte do corpo: quem
- *    manda `Content-Length: 4000000` não consegue nos fazer ler 4 MB).
- *    O `setSoTimeout(10_000)` é do servidor, porque é do socket.
- * 2. **`read()` NUNCA é tratado como se entregasse a mensagem inteira.** Toda a
- *    leitura passa por [Fonte], que é um laço. Sem isso o parser desanda **só
- *    quando a rede está ruim** — o pior modo de falha possível, porque é o que
- *    nunca acontece na bancada e sempre acontece no salão.
- * 3. **Allowlist EXATA de `Host`**, montada em runtime pelo servidor
- *    (`<ip>:<porta>`, e o nome TLS quando existir). Qualquer outro ⇒ 404. Isto é
- *    a defesa contra **DNS rebinding**: uma página qualquer da internet, aberta
- *    por um visitante **na rede da igreja**, pode fazer `evil.com` resolver para
- *    o nosso IP privado e passar a ser same-origin com este servidor. O LNA do
- *    Chromium mitiga a partir de origem pública; em Safari e Firefox não, e no
- *    navegador de uma smart TV menos ainda.
- * 4. **`Origin` ausente ou igual ao próprio** — qualquer outra ⇒ 404. E **nunca**
- *    emitir `Access-Control-Allow-Origin`: nem `*`, nem eco, nem nada. Não há uma
- *    única linha neste arquivo que escreva esse cabeçalho, e há um teste que
- *    confere isso em toda resposta que sai daqui.
+ * 1. **Tetos duros** — [TETO_LINHA], [TETO_CABECALHOS], [TETO_CABECALHO],
+ *    [TETO_CORPO]. Fora do teto ⇒ resposta curta e `close`, sem drenar o resto:
+ *    [Erro.CorpoLongo] é lançado ANTES de ler um byte do corpo, então
+ *    `Content-Length: 4000000` não nos faz ler 4 MB. (O `setSoTimeout` é do
+ *    servidor, porque é do socket.)
+ * 2. **`read()` NUNCA é tratado como se entregasse a mensagem inteira** — toda
+ *    leitura passa pelo laço de [Fonte]. Sem isso o parser desanda só quando a
+ *    rede está ruim: nunca na bancada, sempre no salão.
+ * 3. **Allowlist EXATA de `Host`** (`<ip>:<porta>`, mais o nome TLS quando
+ *    existir), montada em runtime pelo servidor; qualquer outro ⇒ 404. É a
+ *    defesa contra **DNS rebinding**: uma página da internet aberta por um
+ *    visitante NA REDE DA IGREJA pode fazer `evil.com` resolver para o nosso IP
+ *    privado e virar same-origin. O LNA do Chromium mitiga a partir de origem
+ *    pública; Safari, Firefox e o navegador de uma smart TV, não.
+ * 4. **`Origin` ausente ou igual ao próprio** — qualquer outra ⇒ 404. E
+ *    **nunca** emitir `Access-Control-Allow-Origin`: nem `*`, nem eco. Há teste
+ *    que confere isso em toda resposta.
  * 5. **404 IDÊNTICO** para rota inexistente, token inválido, `Host` recusado e
- *    `Origin` estranha — mesmo status, mesmo corpo, mesmo tamanho, byte a byte.
- *    Não vazar existência. [Erro] distingue os casos para o **Registro** (um
- *    diagnóstico que não distingue "tentativa de rebinding" de "lixo na linha"
- *    não serve para nada), mas [respostaDeErro] os colapsa no mesmo 404.
- * 6. **Cabeçalhos em TODA resposta** — [CABECALHOS_SEMPRE]. Na página, mais os de
- *    [CABECALHOS_PAGINA].
- * 7. **Sem keep-alive, sem `Content-Encoding`.** Uma requisição por conexão,
- *    `Connection: close`, e o servidor fecha. O `nosniff` não é enfeite: sem
- *    ele o navegador pode segurar os primeiros ~512 B do fluxo para adivinhar
- *    o tipo, o que atrasa o primeiro quadro. **`Range` existe desde a E1 do
- *    telão por comandos** — a rota de mídia o exige, e num `ServerSocket` ele
- *    é NOSSO (ver a inversão acima): [alcanceDe] interpreta, com a semântica
- *    do RFC 7233 (malformado é IGNORADO e vira 200 inteiro; só a faixa válida
- *    que não cabe leva 416). A invariante anterior ("sem Range") valia
- *    enquanto toda rota era fluxo infinito.
- * 8. **Uma conexão, uma requisição** — e é isso que apaga a classe inteira do
- *    *request smuggling*: sem keep-alive não existe "próxima mensagem" no mesmo
- *    socket para contrabandear nada para dentro, e `Transfer-Encoding` em
- *    requisição é recusado de saída. Ainda assim as ambiguidades clássicas são
- *    recusadas uma a uma (dois `Content-Length`, dois `Host`, espaço antes do
- *    dois-pontos, continuação de linha), porque custa uma linha cada e porque o
- *    dia em que alguém puser um proxy na frente disto não vai vir com aviso.
+ *    `Origin` estranha — mesmo status, mesmo corpo, byte a byte: não vazar
+ *    existência. [Erro] distingue os casos para o **Registro** (um diagnóstico
+ *    que não separa "rebinding" de "lixo na linha" não serve) e
+ *    [respostaDeErro] os colapsa.
+ * 6. **Cabeçalhos em TODA resposta** — [CABECALHOS_SEMPRE], mais
+ *    [CABECALHOS_PAGINA] na página.
+ * 7. **Sem keep-alive, sem `Content-Encoding`**: uma requisição por conexão,
+ *    `Connection: close`. O `nosniff` não é enfeite — sem ele o navegador segura
+ *    os primeiros ~512 B para adivinhar o tipo, atrasando o primeiro quadro.
+ *    **`Range` existe** (a rota de mídia o exige) e é NOSSO: [alcanceDe] segue
+ *    o RFC 7233 — malformado é IGNORADO e vira 200 inteiro; só a faixa válida
+ *    que não cabe leva 416.
+ * 8. **Uma conexão, uma requisição**, o que apaga a classe inteira do *request
+ *    smuggling*: sem keep-alive não existe "próxima mensagem" no mesmo socket, e
+ *    `Transfer-Encoding` em requisição é recusado de saída. Ainda assim as
+ *    ambiguidades clássicas são recusadas uma a uma (dois `Content-Length`, dois
+ *    `Host`, espaço antes do dois-pontos, continuação de linha) — custa uma
+ *    linha cada, e o dia em que alguém puser um proxy na frente não vem com
+ *    aviso.
  */
 object EspelhoHttp {
 
@@ -219,39 +194,31 @@ object EspelhoHttp {
     /**
      * Só na PÁGINA (`GET /`), somados aos de sempre.
      *
-     * A especificação escreve esta política como
-     * `default-src 'self'; frame-ancestors 'none'; base-uri 'none'`, e é dela que
-     * vem tudo o que está aqui **menos as duas últimas diretivas**. Elas existem
-     * porque `default-src 'self'` sozinho **proíbe `blob:` e `data:`**, e a
-     * página que sai daqui é o `/web/display/` de verdade, que usa os dois:
+     * A especificação escreve a política como `default-src 'self';
+     * frame-ancestors 'none'; base-uri 'none'`, e é dela que vem tudo aqui
+     * **menos as duas últimas diretivas**: `default-src 'self'` sozinho PROÍBE
+     * `blob:` e `data:`, e a página que sai daqui é o `/web/display/` de
+     * verdade, que usa os dois:
      *
      *  - `blob:` — o `shared/stage.js` resolve toda mídia local por
      *    `URL.createObjectURL` (o `File` do OPFS, o `Blob` do registro, cada
-     *    página de um deck), e o `display.js` faz o mesmo com o wallpaper
-     *    personalizado. É o MESMO motor do telão, e ele não tem um caminho
-     *    alternativo: sem `blob:` a tela da rede nasce sem mídia nenhuma.
-     *  - `data:` — o `POSTER_VAZIO` do `stage.js`, o GIF 1×1 transparente que
-     *    cobre o pôster padrão do WebView enquanto um `<video>` espera o
-     *    primeiro quadro. O atributo `poster` é uma IMAGEM, então quem o
-     *    governa é `img-src`, não `media-src`.
+     *    página de um deck) e o `display.js` faz o mesmo com o wallpaper. É o
+     *    MESMO motor do telão, sem caminho alternativo: sem `blob:` a tela da
+     *    rede nasce sem mídia nenhuma.
+     *  - `data:` — o `POSTER_VAZIO` do `stage.js`, o GIF 1×1 que cobre o pôster
+     *    padrão do WebView enquanto um `<video>` espera o primeiro quadro. O
+     *    atributo `poster` é IMAGEM, então quem o governa é `img-src`.
      *
-     * (Este KDoc justificava as duas diretivas pelo "modo imagem" (JPEG por
-     * `createObjectURL`) e pelo "modo vídeo" (a `MediaSource` do `<video>`) do
-     * CLIENTE DO ESPELHO DE PIXELS — as duas formas de um recurso aposentado na
-     * v5.187. As diretivas continuam necessárias; as razões acima é que são as
-     * de verdade. Corrigido na v5.206.)
-     *
-     * **Não há `style-src`, e isso é uma decisão, não um esquecimento**: sem
+     * **Não há `style-src`, e é decisão e não esquecimento**: sem
      * `'unsafe-inline'`, todo estilo desta página tem de ser FOLHA servida deste
-     * origin. Foi essa regra que a v5.205 aprendeu do jeito caro — um `<style>`
+     * origin. Foi a regra que a v5.205 aprendeu do jeito caro — um `<style>`
      * criado em runtime pelo `espelho/tela.js` era anexado e nunca aplicado, e a
-     * entrada da tela ficava invisível e inclicável, sem erro nenhum. Ver o
-     * cabeçalho de `espelho/tela.css`.
+     * entrada da tela ficava invisível e inclicável, sem erro nenhum.
      *
-     * A rigidez que a política pretende continua inteira: `blob:` e `data:` são,
-     * por construção, do próprio documento (não são rede), e
+     * A rigidez pretendida continua inteira: `blob:` e `data:` são, por
+     * construção, do próprio documento (não são rede), e
      * `script-src`/`connect-src` seguem herdando `'self'` — é a herança que
-     * BARRA a IFrame API do YouTube nas telas da rede, que é a exclusão §1 da
+     * BARRA a IFrame API do YouTube nas telas da rede, a exclusão §1 da
      * especificação virando garantia em vez de promessa.
      */
     val CABECALHOS_PAGINA = listOf(

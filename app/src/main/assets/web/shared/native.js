@@ -31,65 +31,42 @@
   try { global.__SHELL_NAME__ = B.appVersion() || ''; } catch (_) { global.__SHELL_NAME__ = ''; }
 
   // ---- confirmação de boot (watchdog do OTA) ----
-  // A base web pode ter sido baixada por OTA. Se ela estiver quebrada, o app
-  // ficaria inutilizável até reinstalar — por isso o shell só considera um
-  // bundle bom depois que ele confirma que subiu INTEIRO. Não confirmar é o
-  // caminho seguro: o lançamento seguinte descarta o bundle e volta ao
+  // O shell só considera bom um bundle que confirme ter subido INTEIRO. Não
+  // confirmar é o caminho seguro: o lançamento seguinte o descarta e volta ao
   // embutido no APK (mais velho, porém funcionando).
   //
-  // Até a v5.48 a única condição era `window.AVDB` no evento `load`, e o
-  // comentário aqui raciocinava sobre "um erro de sintaxe em db.js" — o
-  // arquivo MENOS provável de quebrar. A ordem dos scripts é native.js →
-  // db.js → mse.js → stage.js → louvorja.js → bible.js → controle.js: um erro
-  // de sintaxe (ou um throw de inicialização) em qualquer um dos CINCO últimos
-  // aborta só AQUELE script, o `load` dispara do mesmo jeito, `AVDB` continua
-  // lá — e o bundle quebrado era carimbado como bom e servido PARA SEMPRE,
-  // exatamente o oposto do que este mecanismo existe para fazer. Como o OTA
-  // publica a cada push em `main` e o controle.js (o maior arquivo do bundle,
-  // de longe) é o que mais muda, esse era justamente o caso provável.
+  // `window.AVDB` no `load` NÃO basta. A ordem dos scripts é native.js → db.js →
+  // mse.js → stage.js → louvorja.js → bible.js → controle.js, e um erro de
+  // sintaxe (ou um `throw` de inicialização) em qualquer um dos cinco últimos
+  // aborta só AQUELE script: o `load` dispara, `AVDB` continua lá, e o bundle
+  // quebrado é carimbado como bom PARA SEMPRE. Como o OTA publica a cada push e
+  // o controle.js é o que mais muda, esse é justamente o caso provável.
   //
-  // O sinal agora é "o app está DE PÉ", e cada peça dele cobre um trecho da
-  // cadeia que a anterior não cobre:
+  // O sinal é "o app está DE PÉ", e cada peça cobre o que a anterior não cobre:
   //
-  //   1. papel 'controle' — o WebView do Display carrega bem menos código
-  //      (não carrega controle.js nem louvorja.js), então deixá-lo confirmar
-  //      validaria um bundle cujo Controle nunca chegou a rodar. E o Display
-  //      é o caso NORMAL de culto (TV conectada), ou seja, ele confirmaria
-  //      quase sempre no lugar do outro. Sem TV o Display nem existe: quem
-  //      confirma é sempre o Controle, que é quem precisa funcionar.
+  //   1. papel 'controle' — o Display não carrega controle.js nem louvorja.js, e
+  //      é o caso NORMAL de culto: deixá-lo confirmar validaria um bundle cujo
+  //      Controle nunca rodou, e ele confirmaria quase sempre no lugar do outro.
   //   2. `AVDB` (db.js), `AVStream` (mse.js) e `createStage` (stage.js) — os
   //      três módulos compartilhados, cada um publicando seu global no fim do
-  //      arquivo, incondicionalmente e no parse (o `AVStream` existe mesmo num
-  //      navegador sem MediaSource — só o `suportado()` dele responde false).
-  //      O mse.js era o ÚNICO script do Controle fora do watchdog: um bundle
-  //      com ele quebrado era carimbado como bom.
-  //   3. `__avBack` (controle.js, perto do FIM do arquivo) — só existe se o
-  //      controle.js foi PARSEADO por inteiro e EXECUTADO até quase o fim.
-  //      (Sem número de linha de propósito: o arquivo cresce a cada versão e
-  //      um número aqui envelhece no push seguinte.)
-  //      É a mesma função que o `MainActivity.handleBack()` consulta, ou
-  //      seja, um contrato que já existe, não um marcador inventado aqui.
-  //   4. um `<li>` dentro de `#playlist` — o HTML entrega esse `<ul>` VAZIO;
-  //      quem o preenche é `renderPlaylist()`, chamado por `load()` dentro do
-  //      `init()` assíncrono. É o que prova que a inicialização terminou de
-  //      verdade: `init()` começa por `loadCollections()` (louvorja.js) e só
-  //      então monta a tela, então uma quebra em louvorja.js ou bible.js
-  //      derruba o `init()` antes daqui e o marcador nunca aparece.
+  //      arquivo, no parse (o `AVStream` existe mesmo sem MediaSource; só o
+  //      `suportado()` responde false).
+  //   3. `__avBack` (perto do FIM do controle.js) — só existe se o arquivo foi
+  //      PARSEADO inteiro e executado até quase o fim. É a mesma função que o
+  //      `handleBack()` consulta: um contrato que já existe, não um marcador
+  //      inventado aqui. (Sem número de linha: ele envelhece no push seguinte.)
+  //   4. um `<li>` dentro de `#playlist` — o HTML entrega o `<ul>` VAZIO, e quem
+  //      o preenche é `renderPlaylist()`, dentro do `init()` assíncrono, que
+  //      começa por `loadCollections()`. Prova que a inicialização terminou.
   //
-  // Por que POLLING e não uma checagem única no `load`: o `init()` do Controle
-  // é assíncrono (várias leituras de IndexedDB) e termina DEPOIS do `load`.
-  // Uma checagem única rejeitaria todo bundle bom — o OTA pararia de funcionar
-  // por inteiro, que é o defeito oposto e igualmente ruim.
+  // POLLING e não checagem única no `load`: o `init()` é assíncrono e termina
+  // DEPOIS dele — uma checagem única rejeitaria todo bundle bom, que é o defeito
+  // oposto e igualmente ruim.
   //
-  // Não há risco de descompasso de versão: `native.js` viaja DENTRO do bundle
-  // que ele valida, então esta função e o `__avBack` que ela exige são sempre
-  // do mesmo commit.
-  //
-  // O erro possível aqui é o SEGURO: a confirmação chega ~1 s depois do
-  // `load` (o tempo do `init()`), então fechar o app nesse intervalo faz um
-  // bundle bom ser descartado. Custo: o app volta ao embutido e o OTA baixa
-  // de novo na abertura seguinte. O erro do outro lado — carimbar um bundle
-  // quebrado — não tem volta sem publicar uma versão nova.
+  // Sem risco de descompasso: `native.js` viaja DENTRO do bundle que valida.
+  // E o erro possível aqui é o SEGURO — fechar o app antes da confirmação
+  // descarta um bundle bom (custo: baixa de novo); carimbar um quebrado não tem
+  // volta sem publicar outra versão.
   const OTA_POLL_MS = 250;
   const OTA_GIVEUP_MS = 30000; // depois disto o bundle é dado como quebrado
 

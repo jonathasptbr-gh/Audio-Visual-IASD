@@ -33,51 +33,44 @@ import java.util.concurrent.ConcurrentHashMap
  * Passando por aqui, os três somem de uma vez: é o mesmo origin, o UA é o certo
  * e a invariante fica de pé.
  *
- * ## A FAIXA VIAJA NA URL, e essa é a regra que não pode cair (v1.55)
+ * ## A FAIXA VIAJA NA URL, e essa é a regra que não pode cair
  *
  * O contrato do `shouldInterceptRequest` **não é** "devolva o que pediram": o
- * `InputStream` devolvido é lido pelo Chromium como **o recurso INTEIRO a
- * partir do byte 0**, e é o próprio WebView quem aplica o `Range` da
- * requisição em cima dele — `AndroidStreamReaderURLLoader::Start` chama
- * `ParseRange(resource_request_.headers)` incondicionalmente e manda
- * `InputStreamReader::Seek` pular `first_byte_position()` bytes do nosso
- * stream, conferindo antes com `available()`.
+ * `InputStream` é lido pelo Chromium como **o recurso INTEIRO a partir do byte
+ * 0**, e é o WebView quem aplica o `Range` em cima dele
+ * (`AndroidStreamReaderURLLoader::Start` → `ParseRange` incondicional →
+ * `InputStreamReader::Seek`, conferindo com `available()`).
  *
- * Devolver só a fatia pedida, como esta classe fazia até a v1.54, faz o
- * deslocamento ser aplicado DUAS vezes:
+ * Devolver só a fatia pedida aplica o deslocamento DUAS vezes:
  *
- * | faixa pedida | o que acontecia | o que o operador via |
- * |---|---|---|
- * | `bytes=0-739` (init) | pular 0 é no-op | funcionava — e escondia o resto |
- * | `bytes=A-B` com `A ≥ tamanho da fatia` | `ComputeBounds` reprova → `ERR_FAILED` **sem status** | "índice vídeo: a requisição não completou (Failed to fetch)" |
- * | `bytes=A-B` com `A < tamanho da fatia` | pula A DENTRO da fatia e entrega bytes do offset absoluto `2A` | pior: `fetch` resolve e o vídeo simplesmente não toca |
+ * | faixa pedida | o que acontece |
+ * |---|---|
+ * | `bytes=0-…` | pular 0 é no-op → funciona, e esconde o resto atrás de si |
+ * | `A ≥ tamanho da fatia` | `ComputeBounds` reprova → `ERR_FAILED` **sem status** ("a requisição não completou") |
+ * | `A < tamanho da fatia` | pula A DENTRO da fatia e entrega o offset absoluto `2A` — o `fetch` resolve e o vídeo não toca |
  *
- * Ou seja: só a primeira requisição de cada faixa podia funcionar, sempre — e
- * todo fragmento de mídia começa a megabytes do início do arquivo. Não existe
- * versão disto que funcione com a faixa viajando no CABEÇALHO.
+ * Como todo fragmento começa a megabytes do início, **só a primeira requisição
+ * de cada faixa podia funcionar**. Não existe versão disto que funcione com a
+ * faixa no CABEÇALHO.
  *
- * A correção é sair do contrato em vez de emulá-lo: o `shared/mse.js` do shell
- * 27 em diante pede `/stream/<token>?r=<ini>-<fim>` **sem cabeçalho `Range`
- * nenhum**. Sem cabeçalho, `ParseRange` não acha nada, o seek não acontece, e a
- * fatia sai inteira e correta. A resposta é um **200 seco**: nada de 206, de
- * `Content-Range` ou de `Accept-Ranges` — anunciar suporte a faixa nesta URL é
- * o oposto do que este caminho quer, e o `Content-Length` quem escreve é o
- * loader, a partir do `available()` do nosso array.
+ * A correção é sair do contrato, não emulá-lo: do shell 27 em diante o
+ * `shared/mse.js` pede `/stream/<token>?r=<ini>-<fim>` **sem cabeçalho `Range`
+ * nenhum** — sem ele `ParseRange` não acha nada e a fatia sai inteira. A
+ * resposta é um **200 seco** (sem 206, `Content-Range` ou `Accept-Ranges`:
+ * anunciar suporte a faixa nesta URL é o oposto do que este caminho quer), e o
+ * `Content-Length` quem escreve é o loader, do `available()` do nosso array.
  *
- * O caminho do CABEÇALHO continua atendido (um bundle web antigo num shell
- * novo — a janela entre instalar o APK e o OTA chegar), mas embrulhado em
- * [FatiaComoTodo]: o stream mente o tamanho total e absorve o primeiro `skip`,
- * de modo que a maquinaria de faixa do próprio WebView produza o resultado
- * certo em vez do dobro do deslocamento.
+ * O caminho do CABEÇALHO segue atendido (bundle web antigo em shell novo — a
+ * janela entre instalar o APK e o OTA chegar), embrulhado em [FatiaComoTodo]: o
+ * stream mente o tamanho total e absorve o primeiro `skip`, de modo que a
+ * maquinaria do próprio WebView produza o resultado certo.
  *
  * ## Por que isto NÃO é um `PathHandler`
  *
- * O `WebViewAssetLoader.PathHandler` recebe só o CAMINHO (`handle(path)`) — os
- * cabeçalhos da requisição não chegam lá, e sem eles o ramo de compatibilidade
- * acima seria impossível. Daí este objeto ser chamado de dentro do
- * `shouldInterceptRequest`, que recebe o [WebResourceRequest] completo, ANTES
- * de o asset loader ver a URL. (A query `?r=` sozinha caberia num
- * `PathHandler`; o `Range` do bundle antigo, não.)
+ * O `PathHandler` recebe só o CAMINHO — os cabeçalhos não chegam lá, e sem eles
+ * o ramo de compatibilidade acima é impossível. Daí ser chamado de dentro do
+ * `shouldInterceptRequest`, que recebe o [WebResourceRequest] completo, ANTES de
+ * o asset loader ver a URL.
  *
  * ## O que ele NÃO faz
  *

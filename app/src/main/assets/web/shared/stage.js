@@ -1,20 +1,18 @@
-// "Palco" de reprodução reutilizável: aplica os mesmos comandos no Display e
-// na pré-visualização do Controle, garantindo que mostrem exatamente a mesma
-// coisa (wallpaper / imagem / vídeo + view + mudo + volume + play/seek).
+// "Palco" de reprodução reutilizável: aplica os mesmos comandos no Display e na
+// preview do Controle, garantindo que mostrem a mesma coisa (wallpaper / imagem
+// / vídeo + view + mudo + volume + play/seek).
 //
 // Uso: const stage = createStage({ wallpaper, img, video, forceMuted, onEnded, onTime, onBlocked });
 // e depois stage.handle(cmd) para cada comando.
-// Suporta blobs locais, arquivos do OPFS (opfsPath), itens de URL direta
-// (blob=null, url=string) e itens youtube (kind='youtube').
+// Suporta blobs locais, OPFS (opfsPath), URL direta (blob=null, url=string) e
+// itens youtube (kind='youtube').
 //
-// Modelo de camadas: o wallpaper é uma cortina que fica POR CIMA de toda
-// mídia (CSS z-index) — img/video (e, no Display, o iframe do YouTube,
-// gerenciado externamente) tocam/trocam de conteúdo livremente por baixo,
-// sem precisar saber se estão "visíveis"; o wallpaper só liga/desliga essa
-// cortina, com fade quando configurado. Isso evita a classe de bug em que
-// uma mídia carregada com o wallpaper ligado nunca aprendia a se revelar
-// depois — agora revelar é sempre só "esconder a cortina", nunca depende de
-// em que estado a mídia foi carregada.
+// MODELO DE CAMADAS: o wallpaper é uma cortina POR CIMA de toda mídia (z-index)
+// — img/video tocam e trocam de conteúdo livremente por baixo, sem saber se
+// estão visíveis; o wallpaper só liga/desliga a cortina, com fade quando
+// configurado. Isso evita a classe de bug em que uma mídia carregada com o
+// wallpaper ligado nunca aprendia a se revelar depois: revelar é sempre
+// "esconder a cortina", nunca depende do estado em que a mídia foi carregada.
 
 (function (global) {
   'use strict';
@@ -27,26 +25,20 @@
   // escrito à mão nos dois apps e podia divergir sem ninguém notar.
   const FADE = { in: true, out: true, time: 0.6 };
 
-  // O PÔSTER VAZIO — 1×1 transparente, e é isto que mata o "retângulo cinza com
+  // O PÔSTER VAZIO — 1×1 transparente, e é ele que mata o "retângulo cinza com
   // um play preto gigante".
   //
-  // O contrato do WebView é explícito (`WebChromeClient.getDefaultVideoPoster`):
-  // *"o elemento de vídeo é representado por uma imagem de pôster; ela pode ser
-  // dada pelo atributo `poster`, e **se o atributo estiver ausente um pôster
-  // padrão será usado**"*. Esse padrão é o retângulo com o botão de play, e o
-  // app não tem como estilizá-lo — só como deixar de pedi-lo.
+  // Contrato do WebView (`WebChromeClient.getDefaultVideoPoster`): sem o
+  // atributo `poster`, um pôster PADRÃO é usado — o retângulo com o play, que o
+  // app não estiliza, só deixa de pedir.
   //
-  // O `stage` já sabia disso pela metade: ele esconde o `<video>` enquanto não
-  // há `src` (ver `load()`), justamente porque o placeholder piscava a cada
-  // troca de mídia. Com a TRANSMISSÃO DIRETA a janela deixou de ser um piscar:
-  // o `src` é um `MediaSource` que nasce VAZIO e só ganha o primeiro quadro
-  // depois de init + índice + primeiro fragmento virem da rede — segundos, com
-  // o elemento já revelado por `applyMedia()`. "Sem `src`" virou "sem dados", e
-  // a regra de esconder não alcançava esse caso.
+  // O `stage` já sabia disso pela metade (esconde o `<video>` sem `src`, ver
+  // `load()`). Com a TRANSMISSÃO DIRETA o `src` é um `MediaSource` que nasce
+  // VAZIO e só ganha quadro depois de init + índice + fragmento virem da rede:
+  // "sem `src`" virou "sem dados", e a regra de esconder não alcançava.
   //
-  // Transparente, e não preto: as camadas já pintam `--stage-bg` por baixo
-  // (`.layer` / `.pv-layer`), então o que aparece é exatamente o preto do
-  // palco — sem uma segunda definição de "qual preto" para divergir da paleta.
+  // Transparente e não preto: as camadas já pintam `--stage-bg` por baixo, então
+  // aparece o preto do palco — sem uma segunda definição de "qual preto".
   const POSTER_VAZIO = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
   // Quanto esperar pelo primeiro quadro de uma TRANSMISSÃO antes de revelar
   // assim mesmo. Não é o tempo esperado (init + índice + fragmento levam ~1-3 s
@@ -142,16 +134,14 @@
     // null | 'visual' | 'wallpaper'. Quem a escreve é o Display (`showText` /
     // `hideText` / o ramo de `view` com texto em cena): o cartão de texto vive
     // ACIMA da mídia e ABAIXO do wallpaper, então enquanto ele está no ar quem
-    // decide a cortina é ELE, não a mídia que segue tocando por baixo.
+    // decide a cortina é ELE.
     //
-    // Sem isto o stage reavaliava a cortina por conta própria em três pontos
-    // que não sabiam do cartão — o fim natural da mídia, o `play()` e o fim do
-    // `loadInner` — e o wallpaper ENGOLIA o versículo (ou o cronômetro) sem
-    // que nada mudasse do lado do Controle: `textActive` continuava true, o
-    // `display-status` seguinte continuava dizendo `view: 'visual'`, e a lista
-    // continuava desenhando a cena como "● No ar". O remendo que existia era
-    // pontual (um `instantCover(false)` depois do `view`), e os outros três
-    // caminhos ficaram de fora.
+    // Sem isto o stage reavaliava a cortina em três pontos que não sabiam do
+    // cartão — o fim natural da mídia, o `play()` e o fim do `loadInner` — e o
+    // wallpaper ENGOLIA o versículo (ou o cronômetro) sem nada mudar do lado do
+    // Controle: `textActive` seguia true, o `display-status` seguia dizendo
+    // `view: 'visual'`, e a lista seguia desenhando "● No ar". O remendo que
+    // existia era pontual (um `instantCover(false)` depois do `view`).
     let overlay = null;
     let muted = false;
     let volume = 1;
@@ -188,27 +178,21 @@
 
     // ===== "ESTÁ CARREGANDO", na TRANSMISSÃO DIRETA (v5.142) =====
     //
-    // Um stream leva segundos entre o comando e o primeiro quadro — init, índice
-    // e o primeiro fragmento vêm da REDE —, e nesse intervalo o palco mostra o
-    // preto. Quando a cena anterior era o wallpaper isso já está resolvido: a
-    // cortina fica de pé até haver quadro (ver o `coverOut` mais abaixo). O caso
-    // que sobrava é a troca de MÍDIA para MÍDIA: ali o fade de saída já levou a
-    // anterior ao preto e não há cortina para segurar — segundos de tela preta,
-    // sem nada dizendo que o app está trabalhando. Do lado de quem opera isso é
-    // indistinguível de uma projeção que morreu.
+    // Um stream leva segundos entre o comando e o primeiro quadro (init, índice
+    // e primeiro fragmento vêm da REDE). Vindo do wallpaper isso já está
+    // resolvido — a cortina fica de pé até haver quadro (`coverOut` abaixo). O
+    // caso que sobrava é MÍDIA → MÍDIA: o fade de saída já levou a anterior ao
+    // preto e não há cortina, então são segundos de tela preta sem nada dizendo
+    // que o app trabalha — indistinguível de uma projeção que morreu.
     //
-    // O NÓ é criado AQUI, e não nos dois `index.html`: ele é do motor e existe só
-    // enquanto um stream espera, e duplicá-lo em dois arquivos seria a mesma
-    // divergência que a cortina compartilhada já existe para evitar.
+    // O NÓ é criado AQUI e não nos dois `index.html`: ele é do motor e só existe
+    // enquanto um stream espera; duplicá-lo em dois arquivos seria a divergência
+    // que a cortina compartilhada já evita.
     //
-    // AS REGRAS, NÃO (v5.205). Elas eram um `<style>` injetado aqui, com o
-    // argumento de que "a animação é um `@keyframes` injetado uma vez" —
-    // verdadeiro até o telão passar a rodar nas telas da rede, onde a CSP da
-    // página (`default-src 'self'`, sem `style-src`) BLOQUEIA estilo embutido.
-    // O elemento era anexado, as regras não valiam, e o indicador virava uma
-    // `div` vazia: a tela ficava em preto durante a espera sem nada dizendo que
-    // o app estava trabalhando, que é precisamente o que ele existe para
-    // evitar. Hoje elas moram em `shared/stage.css`.
+    // AS REGRAS, NÃO (v5.205): eram um `<style>` injetado, e a CSP das telas da
+    // rede (`default-src 'self'`, sem `style-src`) BLOQUEIA estilo embutido — o
+    // elemento era anexado, as regras não valiam, e o indicador virava uma `div`
+    // vazia. Hoje moram em `shared/stage.css`.
     let girando = null;
     function spinner() {
       if (girando) return girando;
@@ -299,24 +283,19 @@
     /**
      * ÁUDIO PURO NÃO TEM O QUE MOSTRAR (v5.112).
      *
-     * Um registro de áudio sem letra sincronizada — um mp3 importado, o
-     * instrumental de fundo, o áudio baixado de um vídeo do YouTube — não põe
-     * nada no `<img>` nem no `<video>` (ver `applyMedia`). Sem esta pergunta a
-     * cortina ABRIA para ele: o telão saía do wallpaper e ficava no PRETO do
-     * palco, com o louvor tocando por trás de um retângulo vazio. Não era uma
-     * capa errada, era a ausência de qualquer coisa — e no meio de um culto
-     * isso se lê como projetor apagado.
+     * Um áudio sem letra sincronizada não põe nada no `<img>` nem no `<video>`
+     * (ver `applyMedia`). Sem esta pergunta a cortina ABRIA para ele: o telão
+     * saía do wallpaper e ficava no PRETO do palco com o louvor tocando por trás
+     * de um retângulo vazio — no meio de um culto isso se lê como projetor
+     * apagado.
      *
-     * A letra é a exceção que confirma: quando o áudio TEM letra, a cortina
-     * precisa sair da frente, porque a `.lyrics-layer` fica por baixo dela (o
-     * wallpaper tem z-index maior, e é assim que ele cobre/revela as camadas de
-     * graça — ver display/index.html). Por isso a pergunta é feita ao PRÓPRIO
-     * registro, que é quem carrega a letra, e não à camada, que o stage não
-     * conhece.
+     * A letra é a exceção que confirma: com letra, a cortina precisa sair da
+     * frente, porque a `.lyrics-layer` fica por baixo dela (o wallpaper tem
+     * z-index maior — ver display/index.html). Por isso a pergunta é feita ao
+     * REGISTRO, que carrega a letra, e não à camada, que o stage não conhece.
      *
-     * A Camada de Texto (mensagem/versículo sobre um áudio de fundo) não passa
-     * por aqui: quem abre a cortina para ela é o `showText` do Display, de
-     * propósito e por conta própria.
+     * A Camada de Texto (mensagem/versículo sobre áudio de fundo) não passa por
+     * aqui: quem abre a cortina para ela é o `showText` do Display.
      */
     function semVisual() {
       return !!current && current.kind === 'audio'
@@ -497,21 +476,19 @@
     function pause() { video.pause(); }
     function seek(t) { if (isFinite(t)) video.currentTime = t; }
     function setView(v) { view = v; instantCover(computeCover()); applyMedia(); }
-    // Troca de view com transição: visual→wallpaper cobre; wallpaper→visual
-    // revela. Só a CORTINA transiciona — o áudio (que continua tocando com o
-    // visual desligado) fica intocado, sem rampa que terminaria num salto de
-    // volume.
-    // A cortina é ORTOGONAL ao conteúdo, então esta função tem contador
-    // PRÓPRIO (viewSeq) — usar o loadSeq aqui fazia um toque em "visual on/off"
-    // durante o load() (que fica assíncrono de 0,7 s a 3 s: fade-out + OPFS +
-    // mediaReady) descartar o carregamento em curso: a mídia anterior já tinha
-    // ido a opacity 0 e volume 0, o src novo nunca era aplicado, e o telão
-    // ficava preto e mudo. Só ações exclusivas (load/clear) podem cancelar um
-    // load; trocar a view, não.
+    // Troca de view com transição: visual→wallpaper cobre, wallpaper→visual
+    // revela. Só a CORTINA transiciona — o áudio (que segue tocando com o
+    // visual desligado) fica intocado, sem rampa que terminaria num salto.
+    // A cortina é ORTOGONAL ao conteúdo, daí o contador PRÓPRIO (viewSeq):
+    // usar o loadSeq fazia um toque em "visual on/off" durante o load() (0,7 s
+    // a 3 s: fade-out + OPFS + mediaReady) descartar o carregamento — a mídia
+    // anterior já estava em opacity 0 e volume 0, o src novo nunca era
+    // aplicado, e o telão ficava preto e mudo. Só ações exclusivas (load/clear)
+    // cancelam um load; trocar a view, não.
     //
     // `cmd.overlay` = quem chamou tem uma camada PRÓPRIA por cima do stage (o
-    // cartão de texto do Display), então descobrir revela alguma coisa mesmo
-    // sem mídia. Sem esse aviso o stage só enxerga o que ele mesmo desenha.
+    // cartão de texto do Display), então descobrir revela algo mesmo sem mídia.
+    // Sem o aviso o stage só enxerga o que ele mesmo desenha.
     async function setViewFaded(v, overlay) {
       if (v === view) return;
       const seq = ++viewSeq;
@@ -588,22 +565,20 @@
 
     // ===== GIRAR A MÍDIA (v5.142) =====
     //
-    // Vídeo gravado de lado no celular chega DEITADO no telão, e não havia nada
-    // a fazer sobre isso — a mídia é do operador, não há reencode possível no
-    // meio de um culto, e "vire o celular" não vale para um arquivo já pronto.
+    // Vídeo gravado de lado chega DEITADO no telão: a mídia é do operador, não
+    // há reencode possível no meio de um culto.
     //
     // A caixa TROCA DE EIXO antes de girar, e é isso que separa este código de
     // um `transform: rotate()` solto. Um `<video>` ocupa o palco inteiro (W×H) e
     // o `object-fit` encaixa a mídia NESSE retângulo; girar só o transform
     // deixaria o encaixe calculado para o retângulo errado — um vídeo retrato
-    // girado para paisagem apareceria minúsculo no meio, com o dobro de barras.
-    // Trocando `width`/`height` primeiro, o `object-fit` faz a conta no
-    // retângulo em que a mídia vai de fato aparecer, e a rotação só o põe de pé.
+    // girado apareceria minúsculo, com o dobro de barras. Trocando
+    // `width`/`height` primeiro, a conta é feita no retângulo em que a mídia vai
+    // de fato aparecer, e a rotação só o põe de pé.
     //
-    // Por isso ele depende do TAMANHO do palco, que muda (rotação do aparelho,
-    // resolução da TV, a preview trocando de casa entre os dois modos) — daí o
-    // `ResizeObserver`. Sem ele o giro ficaria certo até a primeira mudança de
-    // tamanho e errado a partir dali, em silêncio.
+    // Por isso depende do TAMANHO do palco, que muda (rotação do aparelho,
+    // resolução da TV, a preview trocando de casa) — daí o `ResizeObserver`.
+    // Sem ele o giro ficaria certo até a primeira mudança de tamanho.
     let rot = 0;
     function aplicarGiro(el) {
       if (!el) return;
@@ -709,23 +684,20 @@
       _revokeUrl();
     }
 
-    // `startAt`/`autoplay` existem para a RECONEXÃO do telão. Quando o dongle
-    // cai e volta, o Controle reenvia a cena — e até a v5.47 ele mandava só o
-    // `load`, então a mídia recomeçava do ZERO e no estado "tocando". Um hino
-    // aos 3:20 voltava do início na frente da congregação, e um louvor que
-    // estava PAUSADO para a oração voltava tocando.
-    // Vêm no PRÓPRIO comando de load, e não como um `seek`/`pause` enviado logo
-    // depois, porque `onCommand` no Display não serializa: o load é assíncrono
-    // (getMedia → opfsGetFile → mediaReady) e um comando seguinte chegaria a
-    // tempo de agir sobre o <video> ANTERIOR, antes de a fonte nova entrar.
-    // `page` só existe para a APRESENTAÇÃO (kind 'deck'): é a página em que ela
-    // entra em cena. Vem no mesmo comando que a mídia pelo motivo de sempre —
-    // um comando separado logo depois agiria sobre o item ANTERIOR, porque este
-    // `load` é assíncrono (ver a nota do `startAt` no CLAUDE.md).
-    // O invólucro que conta os loads EM VOO. O contador desce em TODAS as
-    // saídas (daí o try/finally, que cobre os returns antecipados e um
-    // getMedia que rejeite): um load "esquecido" no contador silenciaria o
-    // fim natural — e com ele o avanço de playlist — até a página recarregar.
+    // `startAt`/`autoplay` existem para a RECONEXÃO do telão: até a v5.47 o
+    // reenvio de cena mandava só o `load`, então um hino aos 3:20 voltava do
+    // zero na frente da congregação e um louvor PAUSADO para a oração voltava
+    // tocando.
+    // Vêm no PRÓPRIO comando de load, e não como `seek`/`pause` logo depois,
+    // porque `onCommand` no Display não serializa: o load é assíncrono
+    // (getMedia → opfsGetFile → mediaReady) e um comando seguinte agiria sobre
+    // o <video> ANTERIOR, antes de a fonte nova entrar.
+    // `page` só existe para a APRESENTAÇÃO (kind 'deck'): a página em que ela
+    // entra em cena, no mesmo comando pelo mesmo motivo.
+    // O invólucro conta os loads EM VOO. O contador desce em TODAS as saídas
+    // (try/finally, cobrindo returns antecipados e getMedia que rejeite): um
+    // load esquecido no contador silenciaria o fim natural — e com ele o avanço
+    // de playlist — até a página recarregar.
     async function load(id, v, m, vol, startAt, autoplay, page) {
       loadsEmVoo++;
       try {
@@ -871,22 +843,19 @@
         // chamador precisou mudar. Sem `play()` aqui, quem revela a mídia é o
         // `applyMedia()` + a cortina no fim deste mesmo load.
         if (autoplay !== false) play();
-        // ENTRADA COM RAMPA, espelhando a saída. Isto não existia: o volume
-        // era escrito direto no alvo e a mídia entrava no talo enquanto o
-        // visual ainda esmaecia — a saída tinha rampa, a entrada não, e a
-        // assimetria era audível a cada troca de hino. `play()` restaura o
-        // volume alvo (e limpa o rampTimer), então a rampa só pode vir DEPOIS
-        // dele; ela mesma escreve o 0 inicial.
+        // ENTRADA COM RAMPA, espelhando a saída. Não existia: o volume era
+        // escrito direto no alvo e a mídia entrava no talo enquanto o visual
+        // ainda esmaecia — audível a cada troca de hino. `play()` restaura o
+        // volume alvo (e limpa o rampTimer), então a rampa vem DEPOIS dele; ela
+        // mesma escreve o 0 inicial.
         //
-        // SÓ QUE NUM STREAM ELA NÃO PODE COMEÇAR AQUI. O `play()` de um
-        // `MediaSource` vazio não produz som nenhum: o áudio só começa quando o
-        // primeiro fragmento chega da rede, segundos depois — e a essa altura a
-        // rampa já teria terminado sozinha, entregando o som no talo justamente
-        // no instante em que a imagem aparece. Ela viaja junto de quem REVELA a
-        // mídia (a cortina abrindo ou o [runFadeIn] do conteúdo), logo abaixo.
-        // Com a cortina fechada por escolha do operador (`view: 'wallpaper'`)
-        // ninguém revela nada e o volume entra no alvo direto — que é o que já
-        // acontecia, porque a rampa daqui terminava antes de haver som.
+        // NUM STREAM ELA NÃO PODE COMEÇAR AQUI: o `play()` de um `MediaSource`
+        // vazio não produz som — ele só começa quando o primeiro fragmento chega
+        // da rede, segundos depois, com a rampa já terminada, entregando o som
+        // no talo justamente quando a imagem aparece. Ela viaja junto de quem
+        // REVELA a mídia (a cortina abrindo ou o [runFadeIn]), logo abaixo. Com
+        // a cortina fechada por escolha (`view: 'wallpaper'`) ninguém revela e o
+        // volume entra no alvo direto — que já era o comportamento.
         if (fadeIn && !forceMuted && !video.muted && volume > 0 && !ehStream) {
           rampVolume(0, volume, fadeTime);
         }
@@ -1062,21 +1031,17 @@
     // desse prazo — a cortina não pisca entre os itens da playlist.
     video.addEventListener('ended', async () => {
       // UM LOAD EM VOO GANHA DO FIM NATURAL. O `++loadSeq` abaixo é uma AÇÃO
-      // EXCLUSIVA — e o contrato do loadSeq (ver setViewFaded) é que só ações
-      // do OPERADOR (load/clear) cancelam um load em curso. O `ended` não é
-      // uma ação do operador: é o vídeo velho acabando sozinho, e ele acabava
-      // de vencer justamente o caso real — o operador toca o próximo hino nos
-      // últimos ~600 ms do vídeo atual, o vídeo termina durante o fade de
-      // saída do load novo, o bump daqui descartava esse load em silêncio no
-      // checkpoint seguinte e, sem repeat, o item pedido nunca entrava.
-      // Retornar cedo deixa o load em voo fazer a transição — ele já vai
-      // trocar a fonte, resetar `ended` e decidir a cortina.
+      // EXCLUSIVA, e o contrato do loadSeq (ver setViewFaded) é que só ações do
+      // OPERADOR (load/clear) cancelam um load em curso. O `ended` não é uma:
+      // é o vídeo velho acabando sozinho, e ele vencia o caso real — o operador
+      // toca o próximo hino nos últimos ~600 ms, o vídeo termina durante o fade
+      // de saída, o bump descartava o load novo em silêncio e, sem repeat, o
+      // item pedido nunca entrava. Retornar cedo deixa o load em voo fazer a
+      // transição: ele já troca a fonte, reseta `ended` e decide a cortina.
       //
-      // O avanço automático de playlist NÃO passa por aqui: no instante do
-      // `ended` dele não há load nenhum em voo (`loadsEmVoo == 0`) — o load do
-      // avanço só nasce DEPOIS, quando o `media-ended` chega ao Controle — e
-      // a coreografia de sempre (ended dispara → Controle manda load → load
-      // assume via loadSeq) segue intacta.
+      // O avanço automático de playlist NÃO passa por aqui: no `ended` dele não
+      // há load em voo (`loadsEmVoo == 0`) — o load do avanço nasce DEPOIS,
+      // quando o `media-ended` chega ao Controle.
       if (loadsEmVoo > 0) return;
       const seq = ++loadSeq;
       await runFadeOut(false);
@@ -1097,25 +1062,21 @@
 
     // O PÔSTER VAZIO FICA. PARA SEMPRE. (v5.142)
     //
-    // Ele saía no `loadeddata`, e o raciocínio era: "há quadro, então mantê-lo
-    // esconderia o quadro congelado da cena restaurada pausada". A premissa está
-    // errada, e é ela que produzia o retângulo cinza com o play que este pôster
-    // existe para matar.
+    // Ele saía no `loadeddata` ("há quadro, então mantê-lo esconderia o quadro
+    // congelado da cena restaurada pausada"). A premissa está errada, e era ela
+    // que produzia o retângulo cinza com o play.
     //
-    // Quem decide o que um `<video>` pinta não é o `poster`, é o **show poster
-    // flag** do HTML: enquanto ele estiver LIGADO o elemento mostra o pôster, e
-    // ele só é desligado quando a reprodução começa **ou quando há um seek**.
-    // Num vídeo restaurado PAUSADO nenhuma das duas coisas acontecia — a
-    // bandeira seguia ligada, o atributo tinha acabado de ser removido, e sem
-    // atributo o WebView desenha o `getDefaultVideoPoster` dele: o retângulo
-    // cinza com o play. Tirar o pôster não revelava o quadro; revelava o
-    // placeholder.
+    // Quem decide o que um `<video>` pinta não é o `poster`, é o SHOW POSTER
+    // FLAG: ligado, o elemento mostra o pôster, e ele só desliga quando a
+    // reprodução COMEÇA ou quando há um SEEK. Num vídeo restaurado PAUSADO
+    // nenhuma das duas acontecia — a bandeira ficava ligada, o atributo tinha
+    // sido removido, e sem atributo o WebView desenha o `getDefaultVideoPoster`.
+    // Tirar o pôster revelava o placeholder, não o quadro.
     //
-    // Com a bandeira desligada o `poster` é IGNORADO pelo próprio contrato —
-    // então mantê-lo não custa nada no caso normal e cobre exatamente a janela
-    // em que ele importa. E para o quadro congelado aparecer de fato, o que
-    // falta é o seek: é ele que a cena pausada faz abaixo, sempre.
-    // (Cada `load` repõe o atributo antes de a fonte nova entrar.)
+    // Com a bandeira desligada o `poster` é IGNORADO por contrato: mantê-lo não
+    // custa nada e cobre a janela em que importa. Para o quadro congelado
+    // aparecer, falta o seek — que a cena pausada faz abaixo, sempre. (Cada
+    // `load` repõe o atributo antes de a fonte nova entrar.)
 
     // A MESMA guarda do handler interno (acima): com um load em voo, o fim
     // natural é do item que está SAINDO — anunciá-lo (`media-ended`) faria o
@@ -1179,19 +1140,17 @@
   createStage.findSlideIndex = findSlideIndex;
 
   // ===== Cronômetro / Relógio / Timer (aba Ferramentas) =====
-  // O descritor é um OBJETO PEQUENO E ESTÁVEL, e não um fluxo de ticks: quem
-  // conta o tempo é cada lado, localmente, a partir de uma ORIGEM comum
-  // (`startAt`, em epoch ms). Mandar o texto pronto a cada segundo colocaria
-  // ~3.600 comandos/hora no barramento só para mexer dois dígitos, e ainda
-  // deixaria o telão parado se um deles se perdesse.
+  // O descritor é um OBJETO PEQUENO E ESTÁVEL, não um fluxo de ticks: quem
+  // conta é cada lado, localmente, a partir de uma ORIGEM comum (`startAt`, em
+  // epoch ms). Texto pronto a cada segundo seriam ~3.600 comandos/hora no
+  // barramento para mexer dois dígitos, e o telão pararia se um se perdesse.
   //
-  // A consequência importante é a RECONEXÃO: como o valor é derivado do
-  // descritor, `resendSceneToDisplay` reenviar o mesmo objeto devolve o
-  // cronômetro no segundo certo — sem estado nenhum a ressincronizar. É o
-  // mesmo princípio do `load` + posição já usado para a mídia.
+  // Consequência: na RECONEXÃO, `resendSceneToDisplay` reenviando o mesmo
+  // objeto devolve o cronômetro no segundo certo, sem estado a ressincronizar.
+  // Mesmo princípio do `load` + posição.
   //
   // Os dois WebViews são o MESMO processo no MESMO aparelho, então `Date.now()`
-  // é a mesma base dos dois lados; no navegador, idem (duas abas da máquina).
+  // é a mesma base dos dois lados (no navegador, duas abas da máquina).
   //
   // Descritor:
   //   { mode:'clock'|'stopwatch'|'timer',
