@@ -6204,9 +6204,9 @@ async function moverNaLista(listName, id, delta) {
 //    mudando de desenho sob o dedo;
 //  · `row-excluir` — desde a v5.301 ele não exclui, PERGUNTA: a resposta nasce
 //    dentro desta caixa, e fechá-la a levaria junto;
-//  · `row-playlist` — a resposta dele é o ✓ de `responder()` no próprio botão, e
-//    `pulsar` pinta um nó que a caixa fechada (`visibility: hidden`) já tirou da
-//    tela: o toque ficaria sem resposta nenhuma.
+//  · `row-playlist` — como a estrela, é ALTERNADOR desde a v5.302: o desfecho
+//    dele é o próprio botão trocando `+` por `✓` sob o dedo, e a caixa fechada
+//    (`visibility: hidden`) tiraria da tela a única resposta que o toque tem.
 //
 // O `linha-nao` (o Cancelar da confirmação) entra pelo primeiro motivo, ao
 // contrário: cancelar devolve a fileira de opções, e fechar a caixa junto
@@ -7739,9 +7739,10 @@ function linhaDeItem(item, opts) {
   gaveta.className = 'hymn-gaveta';
   const opcoes = document.createElement('ul');
   opcoes.className = 'song-menu-list hymn-opcoes';
-  // A FAIXA DE AÇÕES é o conteúdo do `⋮` de antes, verbatim. Ela fica FORA da
-  // `<ul>` porque `renderItemMenu` reescreve a lista a cada marca — dentro, ela
-  // seria remontada a cada toque numa caixa de seleção.
+  // A FAIXA DE AÇÕES é o conteúdo do `⋮` de antes, verbatim. Desde a v5.302 ela
+  // mora DENTRO da `<ul>`, na linha do confirmar — e o que a protege do
+  // `alvo.innerHTML = ''` que `renderItemMenu` faz a cada marca é ser o MESMO
+  // nó a cada remontagem: o `appendChild` a move de volta em vez de recriá-la.
   //
   // A ESTRELA NÃO ENTRA AQUI, e quem fica é a LIXEIRA. Nesta lista as duas
   // terminam num `listRemove('favs', id)`, e:
@@ -7815,6 +7816,14 @@ function linhaDeItem(item, opts) {
       });
     }
     if (!gavetaMontada) { gavetaMontada = true; renderItemMenu(item, opcoes, cfg.destinos, aoLado); }
+    // REABRIR REAPONTA O GLOBAL (v5.302). A folha é montada uma vez só, então sem
+    // esta linha `songMenuFor` continuaria descrevendo a ÚLTIMA gaveta montada, e
+    // a invariante que todo leitor assume — *"ele descreve a gaveta ABERTA"* —
+    // seria falsa em silêncio. (O irmão do confirmar já não depende dela: ele vai
+    // por argumento, ver `destConfirmRow`. Isto fecha o resto.) Sem `destLimpar()`:
+    // as marcas desta linha são dela, e zerá-las ao reabrir apagaria a escolha que
+    // o operador acabou de fazer.
+    else songMenuFor = { item, alvo: opcoes, aoLado };
     li.classList.add('expanded');
     expandAccordion(gaveta);
   }
@@ -7855,7 +7864,8 @@ function linhaDeItem(item, opts) {
 // listas: o que sobra é ONDE ele deve estar.
 //
 // Daí não haver seletor de variante e não haver "Favoritar": o item É um
-// favorito, e quem o tira de lá é a estrela da faixa de ações logo abaixo.
+// favorito, e quem o tira de lá é a LIXEIRA da faixa de ações (a estrela saiu
+// dela na v5.288 — nesta lista as duas terminavam no mesmo `listRemove`).
 //
 // O resto é a MESMA maquinaria — `songMenuItem` com `destino`, `destExecutor`,
 // `destRemontar` e `destConfirmRow` —, pelo motivo de sempre: uma segunda lista
@@ -8287,13 +8297,19 @@ async function togglePlaylist(item, btn) {
  * ficaria dizendo o que era verdade antes do último toque — que é pior que não
  * dizer nada, porque agora ele promete um estado.
  *
- * Ele mora no fim de `renderPlaylist()`, e não em cada porta: TODO caminho que
- * escreve em `plItems` chama `renderPlaylist()` logo depois (é o redesenho da
- * fila), então a próxima porta que aparecer já nasce coberta.
+ * Ele mora em `renderPlaylist()`, e não em cada porta: todo caminho que REFAZ
+ * `plItems` chama `renderPlaylist()` logo depois (é o redesenho da fila), então
+ * a próxima porta que aparecer já nasce coberta. A régua é essa, e não "toda
+ * escrita na lista `playlist`" — `criarCue` grava direto no banco sem refazer o
+ * espelho, mas o que ele grava é uma CENA DE ROTEIRO, e um cue nunca ganha este
+ * botão (a guarda `!isCue` de `renderLibrary`).
  *
- * Só mexe no que MUDOU. Ele roda a cada redesenho da fila e reescrever o
- * `innerHTML` de botões que já estão certos é trabalho de DOM à toa — e apagaria
- * o ✓ do pulso de quem acabou de tocar.
+ * E na PRIMEIRA linha dela, nunca no fim: `renderPlaylist` volta cedo quando a
+ * fila fica vazia (o ramo do `count === 0`), e no fim ele não rodaria justamente
+ * no caso em que TODOS os botões precisam apagar.
+ *
+ * Só mexe no que MUDOU — reescrever o `innerHTML` de botões que já estão certos
+ * é trabalho de DOM à toa a cada redesenho da fila.
  */
 function marcarNaPlaylist() {
   document.querySelectorAll('.row-playlist').forEach((b) => {

@@ -2972,7 +2972,12 @@ try {
       alturaGo: Math.round(cx(go).height),
       alturasBotoes: bs.map((b) => Math.round(cx(b).height)),
       // 4. E A LARGURA DOS QUADRADOS NÃO ENCOLHEU: o pedido era de altura.
+      //    Medida contra a CAPA da própria linha, nunca contra um número: a
+      //    regra do app é "uma medida para os quadrados da linha (`--thumb`) —
+      //    capa, botões e `⋮`", e um piso em pixel aprovaria um encolhimento
+      //    silencioso (e ainda imprimiria o número errado na mensagem de ok).
       larguras: bs.map((b) => Math.round(cx(b).width)),
+      larguraDaCapa: Math.round(cx(li.querySelector(':scope > .row > .thumb')).width),
       ordem: bs.map((b) => (b.className.match(/row-(excluir|renomear|ordem)/) || [''])[0]),
     };
     // 5. E ELA SOBREVIVE À REMONTAGEM DA FOLHA: `renderItemMenu` refaz a lista a
@@ -3012,10 +3017,12 @@ try {
     'e TODOS na mesma altura (' + (faixa.alturaGo || 0) + 'px) — os botões traziam '
     + '`--thumb` fixo e ficariam boiando no meio da linha',
     JSON.stringify(faixa));
-  checar(!faixa.erro && faixa.larguras.every((w) => w === faixa.larguras[0]) && faixa.larguras[0] >= 34,
-    'sem encolher a LARGURA deles (' + (faixa.larguras || [])[0] + 'px): o pedido era '
-    + 'de altura, e estreitar o alvo trocaria um acerto por um erro',
-    JSON.stringify(faixa.larguras));
+  checar(!faixa.erro && faixa.larguras.length > 0
+      && faixa.larguras.every((w) => w === faixa.larguraDaCapa),
+    'sem encolher a LARGURA deles: cada quadrado mede a CAPA da própria linha ('
+    + (faixa.larguraDaCapa || 0) + 'px), que é a regra do app para os quadrados '
+    + 'da linha — o pedido era de altura, e estreitar o alvo trocaria um acerto '
+    + 'por um erro', JSON.stringify(faixa));
   checar(!faixa.erro && JSON.stringify(faixa.ordem)
       === JSON.stringify(['row-excluir', 'row-renomear', 'row-ordem', 'row-ordem']),
     'e a ORDEM é a mesma do Cronograma sem os que não existem nesta lista: '
@@ -3028,9 +3035,12 @@ try {
     'e enquanto a linha PERGUNTA o confirmar da folha sai de cena: dois botões '
     + 'de confirmar lado a lado diriam coisas opostas (volta inteiro no Cancelar)',
     JSON.stringify(faixa));
-  checar(!faixa.erro && (faixa.alturasDoPar || []).every((h) => h === faixa.alturaGo),
+  checar(!faixa.erro && (faixa.alturasDoPar || []).length === 2
+      && faixa.alturasDoPar.every((h) => h === faixa.alturaGo),
     'com o par Cancelar/Excluir na altura do botão que ele substitui — sem isso '
-    + 'a gaveta dá um pulo sob o dedo ao perguntar', JSON.stringify(faixa.alturasDoPar));
+    + 'a gaveta dá um pulo sob o dedo ao perguntar. (A CONTAGEM entra na guarda: '
+    + 'um `[].every()` é `true`, e sem ela o caso passaria justamente quando o '
+    + 'par deixasse de existir.)', JSON.stringify(faixa.alturasDoPar));
 
   // ===== A FAIXA É DA LINHA DELA, E CONTINUA LÁ (v5.302) =====
   //
@@ -3046,10 +3056,23 @@ try {
   // invisível; com um NÓ VIVO ligado a um item, ela virou a faixa de uma linha
   // dentro da gaveta de outra — a lixeira de A excluindo o item B.
   const roubo = await pg6.evaluate(async () => {
+    // ===== O FIXTURE PARTE DE GAVETAS DESMONTADAS, E ISSO É O CASO =====
+    //
+    // Os blocos anteriores desta página deixam as gavetas MONTADAS. Com elas
+    // montadas, `abrir()` não roda `renderItemMenu` para nenhuma das duas, o
+    // slot global nunca reaponta e ele responde certo POR ACIDENTE — o percurso
+    // "abrir A → abrir B → reabrir A" não chega a acontecer, e o caso passa a
+    // aprovar até a versão defeituosa. Redesenhar a seção joga fora os `li`
+    // antigos (e os fechos `gavetaMontada` com eles).
+    redesenharFavoritosNaBiblioteca();
+    await new Promise((f) => setTimeout(f, 250));
     const corpo = document.querySelector('[data-fav-corpo]');
     const ls = [...corpo.querySelectorAll('.fav-itens > .lib-item')];
     if (ls.length < 2) return { erro: 'faltam favoritos para o caso' };
     const [a, b] = ls;
+    if (a.classList.contains('expanded') || b.classList.contains('expanded')) {
+      return { erro: 'o fixture não partiu de gavetas fechadas' };
+    }
     const abrir = async (li) => {
       if (!li.classList.contains('expanded')) {
         li.querySelector('.row').click();
@@ -3067,13 +3090,26 @@ try {
       return true;
     };
     // ---- 1. ABRIR A → ABRIR B → REABRIR A → mexer em A ----
-    await abrir(a); await abrir(b); await abrir(a);
+    await abrir(a); await abrir(b);
+    // CARIMBO DE POSSE. Medir PRESENÇA (`querySelector('.fav-acoes')`) não pega
+    // o defeito: depois do roubo A TEM uma faixa — a de B. O que distingue é a
+    // identidade do nó, e o carimbo é posto agora, com cada faixa ainda na
+    // gaveta certa.
+    a.querySelector('.fav-acoes').dataset.dono = a.dataset.id;
+    b.querySelector('.fav-acoes').dataset.dono = b.dataset.id;
+    await abrir(a);
     await marcar(a, 'playlist');
+    const faixaDe = (li) => {
+      const fx = li.querySelector('.song-menu-go-row > .fav-acoes');
+      return fx ? (fx.dataset.dono || '') : null;
+    };
     const r = {
       // A faixa de A continua em A, e a de B continua em B. O defeito movia a
       // de B para dentro de A e deixava B sem nenhuma.
-      aTemFaixa: !!a.querySelector('.song-menu-go-row > .fav-acoes'),
-      bTemFaixa: !!b.querySelector('.song-menu-go-row > .fav-acoes'),
+      aTemFaixa: faixaDe(a) === a.dataset.id,
+      bTemFaixa: faixaDe(b) === b.dataset.id,
+      donoEmA: faixaDe(a), donoEmB: faixaDe(b),
+      idA: a.dataset.id, idB: b.dataset.id,
       // E a lixeira de A fala do item de A: a prova de que o alvo não trocou é
       // o `aria-label` do botão que executa, que carrega o NOME do item.
       nomeA: a.querySelector('.row-name').textContent,
@@ -3095,7 +3131,10 @@ try {
     if (go && !go.disabled) { go.click(); await new Promise((f) => setTimeout(f, 350)); }
     const a2 = document.querySelector('[data-fav-corpo] .fav-itens > .lib-item');
     await marcar(a2, 'Cronograma');
-    r.faixaSobreviveuAoConfirmar = !!a2.querySelector('.song-menu-go-row > .fav-acoes .row-excluir');
+    const fx2 = a2.querySelector('.song-menu-go-row > .fav-acoes');
+    // POSSE de novo, e não presença: a faixa que sobrou tem de ser A DELA.
+    r.faixaSobreviveuAoConfirmar = !!fx2 && !!fx2.querySelector('.row-excluir')
+      && fx2.dataset.dono === a2.dataset.id;
     return r;
   });
   checar(!roubo.erro && roubo.aTemFaixa === true && roubo.bTemFaixa === true,
@@ -3107,6 +3146,69 @@ try {
     'e a lixeira dela fala do item DELA: a miniatura que pergunta e o nome no '
     + 'botão que executa são os mesmos — era aqui que um destrutivo apontava '
     + 'para o item errado', JSON.stringify(roubo));
+  // ===== A LINHA DE LINK DO YOUTUBE: SETE BOTÕES, E A ORDEM CONTINUA (v5.302) =====
+  //
+  // Ela é a única com SETE — traz o "baixar o vídeo" —, e por isso é a única
+  // para a qual existe regra própria de geometria (`:has(> :nth-child(7))`, que
+  // encolhe os quadrados para `--hit`). Nenhum oráculo a abria: o `smoke` roda
+  // SEM ponte, e o botão exige `__NATIVE__` mais shell ≥ 16.
+  //
+  // O que se afirma é a decisão escrita no código: o download não está na
+  // sequência que o operador ditou porque só existe nesta linha, e entra DEPOIS
+  // dela — para não a partir ao meio.
+  const linkYt = await pg6.evaluate(async () => {
+    setAppMode('full');
+    activeTab = 'imports';
+    const ids = [];
+    for (let i = 0; i < 2; i++) {
+      const m = await AVDB.addMedia(new Blob([new Uint8Array(8)], { type: 'audio/mpeg' }),
+        { name: 'Enchimento yt ' + i, type: 'audio/mpeg', kind: 'audio', list: 'imports' });
+      ids.push(m.id);
+    }
+    // Pela porta que o app usa (`addUrlMedia`): um registro SEM bytes.
+    // `addMedia(null, …)` lê `blob.type` e estoura — a armadilha já anotada no
+    // caso do link do YouTube, algumas centenas de linhas acima.
+    const link = await AVDB.addUrlMedia('https://www.youtube.com/watch?v=aaaaaaaaaaa', {
+      name: 'Sermão do sábado', kind: 'youtube', type: 'video/youtube',
+      youtubeId: 'aaaaaaaaaaa', list: 'imports',
+    });
+    ids.push(link.id);
+    await load();
+    const li = document.querySelector('#library .lib-item[data-id="' + link.id + '"]');
+    if (!li) return { erro: 'a linha de link não foi desenhada' };
+    li.querySelector('.row-mais').click();
+    await new Promise((f) => setTimeout(f, 260));
+    const caixa = li.querySelector('.row-acoes');
+    const bs = [...caixa.querySelectorAll('.row-btn')];
+    const cx = (el) => el.getBoundingClientRect();
+    const r = {
+      n: bs.length,
+      ordem: bs.map((b) => (b.className.match(/row-(excluir|renomear|playlist|ordem)|fav-btn/)
+        || ['baixar'])[0]),
+      // E A GEOMETRIA da regra dos sete: os quadrados encolhem para o PISO de
+      // toque do app, e a fileira continua cabendo na caixa.
+      larguras: bs.map((b) => Math.round(cx(b).width)),
+      soma: Math.round(bs.reduce((t, b) => t + cx(b).width, 0)
+        + (bs.length - 1) * (parseFloat(getComputedStyle(caixa).gap) || 0)),
+      caixa: Math.round(cx(caixa).width),
+    };
+    for (const id of ids) await AVDB.listRemove('imports', id);
+    await load();
+    return r;
+  });
+  checar(!linkYt.erro && linkYt.n === 7
+      && JSON.stringify(linkYt.ordem) === JSON.stringify(['row-excluir', 'row-renomear',
+        'fav-btn', 'row-playlist', 'baixar', 'row-ordem', 'row-ordem']),
+    'A LINHA DE LINK DO YOUTUBE tem os SETE botões, com o "baixar o vídeo" DEPOIS '
+    + 'da sequência ditada — ele só existe nesta linha, e no meio dela a partiria '
+    + 'ao meio', JSON.stringify(linkYt.ordem));
+  checar(!linkYt.erro && linkYt.soma <= linkYt.caixa
+      && linkYt.larguras.every((w) => w === linkYt.larguras[0]) && linkYt.larguras[0] >= 34,
+    'e ela CABE na caixa (' + (linkYt.soma || 0) + 'px em ' + (linkYt.caixa || 0)
+    + 'px), com os quadrados no piso de toque — é a única linha para a qual a '
+    + 'regra dos sete existe, e a única que nenhum oráculo abria',
+    JSON.stringify(linkYt));
+
   checar(!roubo.erro && roubo.faixaSobreviveuAoConfirmar === true,
     'e a faixa sobrevive a um CONFIRMAR seguido de outra marca: `closeSongMenu` '
     + 'anula o global com a gaveta ainda aberta, e sem o irmão vindo do fecho a '

@@ -222,9 +222,11 @@ desfazer exigiria abrir a playlist e procurar a linha lá dentro.
   fonte, e codepoint ausente desenha um retângulo vazio sem erro nenhum.
 - **`marcarNaPlaylist` é o irmão do `marcarNoAr`**, e roda na PRIMEIRA linha de
   `renderPlaylist()`: a função volta cedo quando a fila fica vazia, e no fim ela
-  não rodaria justamente no caso em que todos os botões precisam apagar. A fila
-  muda por muitas portas
-  e quase nenhuma redesenha a lista — o toque no corpo de uma linha a SUBSTITUI
+  não rodaria justamente no caso em que todos os botões precisam apagar. A régua
+  é *"todo caminho que REFAZ `plItems`"*, e não "toda escrita na lista": o
+  `criarCue` grava direto no banco sem refazer o espelho, mas o que ele grava é
+  uma cena de roteiro, e um cue nunca ganha este botão. A fila muda por muitas
+  portas e quase nenhuma redesenha a lista — o toque no corpo de uma linha a SUBSTITUI
   (`replacePlaylistWith`), a folha de destinos acrescenta, o "Guardar pacote"
   troca tudo. Sem o repintor, o botão de toda OUTRA linha ficaria dizendo o que
   era verdade antes do último toque, **que é pior que não dizer nada, porque

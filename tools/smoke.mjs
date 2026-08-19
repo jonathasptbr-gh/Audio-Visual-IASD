@@ -2889,6 +2889,9 @@ try {
     r.acendeu = !!pb && pb.classList.contains('on');
     r.viroucheck = !!pb && /polyline/.test(pb.innerHTML);
     r.tituloAceso = pb ? pb.title : '';
+    // A METADE ACESSÍVEL do "ele diz o estado": cor e símbolo não chegam a quem
+    // usa leitor de tela, e `aria-pressed` é o que nomeia um alternador.
+    r.pressedAceso = pb ? pb.getAttribute('aria-pressed') : null;
     pb.click();
     await new Promise((f) => setTimeout(f, 400));
     r.saiu = !(await AVDB.listHas('playlist', m.id));
@@ -2896,6 +2899,7 @@ try {
       '#library .lib-item[data-id="' + m.id + '"] .row-playlist');
     r.apagou = !!pb2 && !pb2.classList.contains('on');
     r.voltouAoMais = !!pb2 && !/polyline/.test(pb2.innerHTML);
+    r.pressedApagado = pb2 ? pb2.getAttribute('aria-pressed') : null;
     // ---- E O REPINTOR: a fila muda por OUTRA porta e a linha acompanha ----
     // `replacePlaylistWith` é o toque no corpo de uma linha, e ele SUBSTITUI a
     // fila. Sem `marcarNaPlaylist` o botão de toda outra linha ficaria dizendo
@@ -2928,10 +2932,12 @@ try {
   checar(!pl.erro && pl.caixaSegueAberta === true,
     'a caixa NÃO fecha nele: a resposta é o ✓ no próprio botão, e `pulsar` '
     + 'pintaria um nó que a caixa fechada já tirou da tela', JSON.stringify(pl));
-  checar(!pl.erro && pl.acendeu && pl.viroucheck && /Tirar/.test(pl.tituloAceso),
-    'e ELE DIZ O ESTADO (v5.302): aceso, com `+` virando `✓` e o rótulo virando '
-    + '"Tirar da playlist" — a pergunta de quem monta o culto é "está lá?", não '
-    + '"eu mandei?"', JSON.stringify(pl));
+  checar(!pl.erro && pl.acendeu && pl.viroucheck && /Tirar/.test(pl.tituloAceso)
+      && pl.pressedAceso === 'true' && pl.pressedApagado === 'false',
+    'e ELE DIZ O ESTADO (v5.302): aceso, com `+` virando `✓`, o rótulo virando '
+    + '"Tirar da playlist" e o `aria-pressed` acompanhando — a pergunta de quem '
+    + 'monta o culto é "está lá?", não "eu mandei?", e cor e símbolo não chegam '
+    + 'a quem usa leitor de tela', JSON.stringify(pl));
   checar(!pl.erro && pl.saiu && pl.apagou && pl.voltouAoMais,
     'e o SEGUNDO toque tira da fila: um alternador que só acende nunca se apaga',
     JSON.stringify(pl));
