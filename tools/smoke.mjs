@@ -1002,6 +1002,45 @@ for (const tema of ['escuro', 'claro']) {
         card: bg('.hymnal-card'),
         faixa: faixa ? getComputedStyle(faixa).backgroundColor : 'AUSENTE',
         faixaFilete: faixa ? getComputedStyle(faixa).borderTopWidth : 'AUSENTE',
+        // O NOME DA FAIXA e o fundo EFETIVO sob ele (v5.296). A cor da faixa é
+        // um OVERLAY (`--surface`), então `backgroundColor` devolve o alfa e
+        // não a composição: medir contraste contra ele compararia o texto com
+        // um preto a 14%, e diria a mesma coisa com o defeito no lugar. Quem o
+        // navegador pinta é a pilha composta até o primeiro fundo opaco.
+        nomeCor: faixa && faixa.querySelector('.hymn-name')
+          ? getComputedStyle(faixa.querySelector('.hymn-name')).color : 'AUSENTE',
+        nomeTam: faixa && faixa.querySelector('.hymn-name')
+          ? parseFloat(getComputedStyle(faixa.querySelector('.hymn-name')).fontSize) : 0,
+        faixaEfetiva: (() => {
+          if (!faixa) return 'AUSENTE';
+          const pilha = [];
+          for (let n = faixa; n; n = n.parentElement) {
+            const m = (getComputedStyle(n).backgroundColor.match(/[\d.]+/g) || []).map(Number);
+            if (m.length < 3) continue;
+            const a = m.length > 3 ? m[3] : 1;
+            if (a === 0) continue;
+            pilha.push([m[0], m[1], m[2], a]);
+            if (a === 1) break;
+          }
+          // O branco de partida é o do documento: uma pilha inteiramente
+          // translúcida (que aqui não acontece) sairia sobre a página, não
+          // sobre preto — que é o erro que a guarda de opacidade abaixo
+          // descreve, um nível acima.
+          let c = [255, 255, 255];
+          for (let k = pilha.length - 1; k >= 0; k--) {
+            const [vr, vg, vb, va] = pilha[k];
+            c = [vr * va + c[0] * (1 - va), vg * va + c[1] * (1 - va), vb * va + c[2] * (1 - va)];
+          }
+          return 'rgb(' + c.map(Math.round).join(', ') + ')';
+        })(),
+        // A METADE NEGATIVA: o RÓTULO da seção continua sendo `--muted`. Sem
+        // ela, apagar a cor do rótulo (em vez de tirá-la do bloco) passaria —
+        // e a Biblioteca perderia a distinção entre um cabeçalho e uma linha.
+        rotuloCor: (() => {
+          const el = lista.querySelector('.coll-group--drop.aberto:not(.coll-group--fav) '
+            + '> .coll-group-bar .coll-group-name');
+          return el ? getComputedStyle(el).color : 'AUSENTE';
+        })(),
         // O espaço entre duas faixas — é ele que substitui o filete.
         faixaGap: (() => {
           const ul = lista.querySelector('.coll-songs');
@@ -1075,6 +1114,35 @@ for (const tema of ['escuro', 'claro']) {
       '[' + tema + '] a faixa dentro do álbum tem PREENCHIMENTO próprio e nenhum '
       + 'filete: o que a separa da vizinha é o espaço entre dois blocos que se '
       + 'veem (' + t.faixa + ', gap ' + t.faixaGap + 'px)');
+    // ===== E O TEXTO DELA É LEGÍVEL SOBRE ESSE PREENCHIMENTO (v5.296) =====
+    //
+    // Relato do operador: *"a cor do texto dos itens dentro do álbum na
+    // biblioteca, pois no tema claro, o fundo dos cards está escuro"*. MEDIDO
+    // antes de mexer: **3,45:1** no tema claro, a 13,12px — reprova AA.
+    //
+    // A causa era HERANÇA: `.coll-group` é a regra do RÓTULO da seção (caixa
+    // alta, `--muted`) e, desde que a seção virou o BLOCO que contém a barra e
+    // o corpo (v5.237), ela é o contêiner de tudo o que a Biblioteca desenha —
+    // então o nome de cada faixa saía na cor de um cabeçalho. Nenhum teste
+    // olhava para a COR DO TEXTO desta árvore: os casos daqui mediam os FUNDOS,
+    // e a escada de tons estava (e continua) correta.
+    //
+    // O piso é o de AA para texto pequeno, e a asserção é de RAZÃO e nunca de
+    // cor: um literal copiado para cá envelhece na primeira troca de paleta, e
+    // envelhece parecendo correto.
+    const dTexto = t.nomeCor !== 'AUSENTE' && t.faixaEfetiva !== 'AUSENTE'
+      ? razao(t.nomeCor, t.faixaEfetiva) : 0;
+    checar(dTexto >= 4.5,
+      '[' + tema + '] e o NOME dentro dela é legível sobre esse preenchimento: '
+      + dTexto.toFixed(2) + ':1 a ' + t.nomeTam + 'px (era 3,45:1 no claro — a '
+      + 'linha herdava a cor do RÓTULO da seção)');
+    // O outro lado, e ele é o que impede a correção de virar "tudo virou
+    // `--text`": o cabeçalho da seção CONTINUA em `--muted`. Cor de rótulo e
+    // cor de conteúdo são duas coisas, e o defeito era exatamente uma valendo
+    // pela outra.
+    checar(t.rotuloCor !== 'AUSENTE' && t.rotuloCor !== t.nomeCor,
+      '[' + tema + '] mas o RÓTULO da seção continua sendo um rótulo, com cor '
+      + 'própria (' + t.rotuloCor + ' contra ' + t.nomeCor + ' da linha)');
   } catch (e) {
     checar(false, 'a medição da escada de camadas (' + tema + ') terminou sem exceção ('
       + (e && e.message) + ')');

@@ -3053,10 +3053,62 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.295** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.296** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.296: O NOME DA FAIXA SAÍA NA COR DE UM CABEÇALHO — e no tema claro
+> isso reprovava AA. OTA PURO** (só CSS e o oráculo; sem Release).
+>
+> Relato do operador: *"verifique a cor do texto dos itens dentro do álbum na
+> biblioteca, pois no tema claro, o fundo dos cards está escuro mas acredito que
+> nesse caso o texto deve ser claro, para ter o contraste ideal"*.
+>
+> **MEDIDO antes de mexer, no tema CLARO: 3,45:1.** O nome de uma faixa dentro
+> de um álbum saía em `--muted` (#565d66) sobre o recesso da própria faixa
+> (rgb(182,187,194)), a 13,12px — abaixo do piso de 4,5:1 para texto pequeno. No
+> ESCURO o mesmo par dá 6,46:1, e é por isso que a queixa é de um tema só.
+>
+> **A causa é HERANÇA, e é a família da v5.274 por outra porta.** `.coll-group`
+> é a regra do RÓTULO da seção — uma linha curta, em caixa alta, `--muted` — e
+> desde que a seção virou o BLOCO que contém a barra e o corpo (v5.237) ela é o
+> CONTÊINER de tudo o que a Biblioteca desenha. `color` herda: o `--muted` de um
+> cabeçalho pintava o nome de toda faixa, de todo favorito e de toda pasta lá
+> dentro. Era **o único lugar do app em que uma linha de lista não é `--text`**,
+> e era invisível justamente por isso — não havia uma declaração errada a achar,
+> havia uma declaração certa no elemento errado. A cor desce para a
+> `.coll-group-bar`, que é a peça que ela sempre descreveu, e o corpo volta a
+> herdar o `--text` da folha como qualquer outra lista.
+>
+> **E O REMÉDIO PEDIDO SERIA PIOR, MEDIDO.** O fundo não é escuro: é um
+> MEIO-TOM (~50% de luminância, o pior caso para os dois lados). Branco sobre
+> ele dá **1,93:1**, contra os **4,59:1** que o `--text` devolve. A percepção do
+> operador estava certa — aquele texto não se lê —, e a leitura de que o fundo é
+> escuro é o que a medição corrige: quem clareia aqui é o texto do tema, não uma
+> exceção. É o oposto da v5.268, em que a superfície é que saía da escada.
+>
+> **O ORÁCULO ENTROU ONDE O BURACO ESTAVA.** Os casos da escada de camadas
+> (v5.241/v5.267) mediam os FUNDOS da Biblioteca nos dois temas, e a escada
+> estava — e continua — correta; **nenhum deles olhava para a COR DO TEXTO**, e
+> foi por aí que isto atravessou. Agora eles medem o par, com o fundo COMPOSTO
+> (a faixa é um overlay: `backgroundColor` devolve o alfa, e comparar o texto
+> com um preto a 14% diria a mesma coisa com o defeito no lugar). A metade
+> negativa é o que impede a correção de virar "tudo virou `--text`": o rótulo da
+> seção continua com cor própria.
+>
+> Verificado por ISOLAMENTO: devolvendo a cor ao bloco, **3** asserções
+> reprovam — e a do tema claro imprime o 3,45:1 do relato.
+>
+> **O QUE NÃO FOI MEXIDO, e está dito em vez de escondido:** a mesma regra
+> vaza `letter-spacing` e `text-transform: uppercase` para o corpo, e ninguém os
+> reescreve — o título do álbum e o nome da faixa são desenhados em MAIÚSCULAS
+> por causa dela. Mexer nisso muda a aparência de toda a Biblioteca, que não é o
+> que foi pedido. E o SUBTÍTULO de uma linha de favorito (`--muted` explícito,
+> 10,88px) continua em **3,45:1** sobre o mesmo recesso, pelo mesmo motivo
+> estrutural: `--muted` foi calibrado contra `--panel` (6,66:1) e `--panel-2`
+> (4,73:1), nunca contra um recesso DENTRO do painel-2, que é a superfície mais
+> funda da Biblioteca.
 
 > **A v5.295: OS COMENTÁRIOS QUE DESCREVIAM A GAVETA COMO SE ELA EXISTISSE.
 > OTA PURO** (nenhuma linha de código; sem Release).
