@@ -53,82 +53,63 @@ object SessionRemote {
 
 /**
  * O ÚNICO serviço em primeiro plano do culto: sessão de mídia, controles de
- * transporte e — desde a v5.190 — a proteção da TRANSMISSÃO para as telas da
- * rede.
+ * transporte e a proteção da TRANSMISSÃO para as telas da rede.
  *
- * DOIS ganhos, e o segundo é o menos óbvio:
+ * Dois ganhos, e o segundo é o menos óbvio:
  *
- * 1. **Controlar sem abrir o app.** O celular fica no suporte, provavelmente
- *    bloqueado, e abrir o app só para pausar é atrito real no meio de um culto.
- *    Com [MediaSession] os controles aparecem também na tela de bloqueio e nas
- *    configurações rápidas, de graça.
+ * 1. **Controlar sem abrir o app** — o celular fica no suporte, provavelmente
+ *    bloqueado. Com [MediaSession] os controles aparecem também na tela de
+ *    bloqueio e nas configurações rápidas, de graça.
+ * 2. **A projeção deixa de ser descartável.** Sem ele o único serviço em
+ *    primeiro plano era o [SyncService], que só sobe DURANTE downloads: num
+ *    culto normal não havia nenhum, e o processo seguia candidato a ser morto
+ *    sob pressão de memória — levando a `Presentation` junto.
  *
- * 2. **A projeção deixa de ser descartável.** Antes disto, o único serviço em
- *    primeiro plano do app era o [SyncService], que só sobe DURANTE downloads.
- *    Num culto normal não havia nenhum: o `moveTaskToBack` do botão voltar
- *    mantém a Activity, mas o processo continuava candidato a ser morto sob
- *    pressão de memória — levando junto a `Presentation` na TV.
- *
- * ## DUAS RAZÕES DE VIVER, e é isso que torna a fusão legítima (v5.190)
- *
- * Até a v5.189 a transmissão tinha serviço e notificação PRÓPRIOS
- * (`EspelhoService`), e o KDoc dele defendia a separação: "empilhar dono é o
- * caminho para o cartão eterno". O argumento estava certo sobre ciclo de vida e
- * errado sobre o preço: num culto com transmissão ligada e mídia no ar, a
- * gaveta mostrava DOIS cartões do mesmo app, e só um deles servia para alguma
- * coisa.
- *
- * A fusão não apaga o problema que a separação evitava — ela o resolve por
- * escrito. Este serviço tem **duas razões independentes** de existir:
+ * ## DUAS RAZÕES DE VIVER, e é isso que torna a fusão legítima
  *
  * - **CENA** ([scene]): mídia carregada, letra, versículo, mensagem, cronômetro
  *   ou sorteio no ar. Nasce e morre com o lado web.
- * - **TRANSMISSÃO** ([transmissao]): o servidor das telas da rede está no ar.
- *   Nasce e morre por ação do operador, e pode durar o culto inteiro.
+ * - **TRANSMISSÃO** ([transmissao]): o servidor das telas da rede no ar. Nasce e
+ *   morre por ação do operador, e pode durar o culto inteiro.
  *
- * Ele só para quando **as duas** caem. É a mesma disciplina de antes — o
- * `running`, o `foregrounded`, o `stopSelf(startId)` —, num lugar só; o que
- * mudou é que agora a condição de parada está num `if` explícito em vez de
- * espalhada por dois arquivos que não se conhecem.
+ * Ele só para quando **as duas** caem. A transmissão já teve serviço próprio, e
+ * o argumento da separação ("empilhar dono é o caminho para o cartão eterno")
+ * estava certo sobre ciclo de vida e errado sobre o preço: a gaveta mostrava
+ * DOIS cartões do mesmo app, e só um servia para alguma coisa. A mesma
+ * disciplina fica — `running`, `foregrounded`, `stopSelf(startId)` —, agora com
+ * a condição de parada num `if` explícito em vez de espalhada por dois arquivos
+ * que não se conhecem.
  *
  * ## O TIPO é a união dos dois, e nenhum deles tem cota
  *
- * `mediaPlayback|connectedDevice`. O Android 15 impõe teto de tempo ao
- * `dataSync` e ao `mediaProcessing`; nenhum destes dois. O pré-requisito de
- * permissão do `connectedDevice` (uma de `CHANGE_WIFI_MULTICAST_STATE` e
- * companhia, que **não** inclui `INTERNET`) está explicado no KDoc do
- * [EspelhoEnergia] — e é ele que derruba a primeira Release de quem o remover
- * do manifest achando que sobrou do mDNS.
+ * `mediaPlayback|connectedDevice` — o teto de tempo do Android 15 é do
+ * `dataSync`/`mediaProcessing`. O pré-requisito de permissão do
+ * `connectedDevice` (uma de `CHANGE_WIFI_MULTICAST_STATE` e companhia, que
+ * **não** inclui `INTERNET`) está no KDoc do [EspelhoEnergia], e é ele que
+ * derruba a primeira Release de quem a remover do manifest.
  *
- * ## O cartão tem DUAS CARAS — mas a transmissão aparece nas DUAS (v5.231)
+ * ## O cartão tem DUAS CARAS, e a transmissão aparece nas duas
  *
- * Com cena: o player (título, barra, controles). Sem cena e com a transmissão
- * no ar: o endereço, quantas telas estão recebendo e o botão **Desligar
- * transmissão** — que só aparece aí, e de propósito. Ao lado do transporte, no
- * escuro, ele seria um toque errado derrubando a projeção da igreja inteira;
- * sem cena não há transporte a mostrar, e sobra o espaço exato para ele.
- *
- * O que mudou na v5.231 é que a cara do PLAYER deixou de apagar a outra: com
- * uma cena no ar, o endereço e a contagem de telas viram o SUBTEXTO do cartão
- * (a linha do cabeçalho, que o `MediaStyle` desenha e que não disputa espaço
- * com o título nem com os botões). Antes disso, pôr um louvor para tocar fazia
- * a gaveta parar de dizer que havia um servidor no ar.
+ * Com cena: o player. Sem cena e com a transmissão no ar: o endereço, quantas
+ * telas recebem e o botão **Desligar transmissão** — que só aparece aí, de
+ * propósito (ao lado do transporte, no escuro, seria um toque errado derrubando
+ * a projeção da igreja inteira). Com cena no ar, o endereço e a contagem viram o
+ * SUBTEXTO do cartão, que o `MediaStyle` desenha sem disputar espaço com o
+ * título nem com os botões.
  *
  * **Um player LITERAL em tempo integral não é possível, e a razão é da
- * plataforma.** Para o cartão sem cena virar `MediaStyle` seria preciso uma
- * sessão de mídia com estado — e a partir do Android 13 os botões saem do
- * `PlaybackState`, não das `Notification.Action`. Com `STATE_NONE` (o único
- * honesto quando não há mídia) o sistema não desenha botão nenhum, e o
- * "Desligar transmissão" sumiria justamente nas versões novas; com um estado
- * PAUSADO ele seria desenhado, mas o sistema promoveria a sessão ao painel de
- * mídia das configurações rápidas — um player fantasma, com transporte morto,
- * para controlar coisa nenhuma. Duas caras num cartão só é o melhor que a
- * plataforma permite sem inventar um desses dois defeitos.
+ * plataforma.** O cartão sem cena viraria `MediaStyle` só com uma sessão com
+ * estado, e do Android 13 em diante os botões saem do `PlaybackState`: com
+ * `STATE_NONE` (o único honesto sem mídia) o sistema não desenha botão nenhum e
+ * o "Desligar transmissão" sumiria justamente nas versões novas; com estado
+ * PAUSADO ele apareceria, mas o sistema promoveria a sessão ao painel de mídia
+ * das configurações rápidas — um player fantasma, com transporte morto, para
+ * controlar coisa nenhuma.
  *
- * ## E os BOTÕES são escolhidos pelo lado web (v5.231 / shell 42)
+ * ## E os BOTÕES são escolhidos pelo lado web
  *
  * Ver [Scene.actions]. Cinco fixos serviam a uma cena só; a lista vem de fora
- * pela invariante 5 — quem sabe se "próxima estrofe" faz sentido agora é o
+ * pela invariante 5 — quem sabe se "próxima estrofe" faz sentido é o
  * `controle.js`.
  */
 class SessionService : Service() {

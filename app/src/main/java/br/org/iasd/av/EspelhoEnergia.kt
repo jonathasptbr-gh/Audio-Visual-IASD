@@ -14,65 +14,42 @@ import org.json.JSONObject
 /**
  * A ENERGIA da transmissão: wake lock, Wi-Fi lock e a leitura térmica.
  *
- * ## Por que isto deixou de ser um Service (v5.190)
+ * ## Por que isto NÃO é um Service
  *
- * Até a v5.189 este arquivo era o `EspelhoService`, um serviço em primeiro plano
- * próprio, com notificação própria. O KDoc dele defendia a separação — "serviço
- * NOVO, nunca um campo a mais nos que já existem; empilhar dono é o caminho para
- * o cartão eterno" —, e o argumento continua correto sobre CICLO DE VIDA. O que
- * ele não previu foi o preço na tela do operador: num culto com transmissão
- * ligada e mídia no ar, a gaveta mostrava DOIS cartões do mesmo app — o player,
- * que é o útil, e um segundo dizendo "Espelho no ar".
- *
- * A v5.190 funde os dois num cartão só, e o sobrevivente é o player (ver
- * [SessionService]). Um serviço pode declarar mais de um tipo ao mesmo tempo
- * (`mediaPlayback|connectedDevice`), e **nenhum dos dois tem a cota de tempo do
- * Android 15** — é o `dataSync` que tem, e foi por isso que a transmissão nasceu
- * como `connectedDevice`. A fusão herda essa propriedade inteira.
- *
- * O que a separação protegia continua protegido, e agora está DITO em vez de
- * garantido por acidente de arquitetura: o [SessionService] tem **duas razões
- * independentes de viver** (cena no ar · transmissão ligada) e só morre quando
- * as duas caem. É a mesma disciplina de antes, num lugar só.
- *
- * O que ficou aqui é o que nunca foi sobre notificação: a energia. Ele não é
- * mais um `Service` porque não precisa ser — quem mantém o processo fora do
- * congelamento é o serviço em primeiro plano, e o wake lock é do PROCESSO, não
- * de um componente.
+ * A energia não precisa de um: quem mantém o processo fora do congelamento é o
+ * serviço em primeiro plano ([SessionService]), e o wake lock é do PROCESSO, não
+ * de um componente. A transmissão já teve serviço e notificação próprios, e o
+ * preço era a gaveta mostrando DOIS cartões do mesmo app.
  *
  * ## O pré-requisito do tipo `connectedDevice`, que derruba a primeira Release
  * de quem não o ler
  *
- * A documentação define `connectedDevice` como *"interactions with external
- * devices that require a Bluetooth, NFC, IR, USB, or **network** connection"* —
- * é exatamente isto — **mas ele exige, ALÉM de
- * `FOREGROUND_SERVICE_CONNECTED_DEVICE`, pelo menos uma de**
- * `CHANGE_NETWORK_STATE` / `CHANGE_WIFI_STATE` / `CHANGE_WIFI_MULTICAST_STATE` /
- * `NFC` / `TRANSMIT_IR`. `INTERNET` e `ACCESS_NETWORK_STATE` **não estão na
- * lista**, e são justamente as duas que este app tinha. Sem uma delas,
- * `startForeground` lança `SecurityException` — e o app morre com a projeção
- * junto. O `AndroidManifest.xml` declara **`CHANGE_WIFI_MULTICAST_STATE`**:
- * nível *normal* (sem diálogo) e a menos poderosa das cinco. Ela FICA no
- * manifest mesmo sem multicast nenhum no código: quem a exige não é o multicast,
- * é o TIPO do serviço.
+ * Além de `FOREGROUND_SERVICE_CONNECTED_DEVICE`, o tipo exige **pelo menos uma
+ * de** `CHANGE_NETWORK_STATE` / `CHANGE_WIFI_STATE` /
+ * `CHANGE_WIFI_MULTICAST_STATE` / `NFC` / `TRANSMIT_IR`. `INTERNET` e
+ * `ACCESS_NETWORK_STATE` **não estão na lista**, e eram justamente as duas que
+ * este app tinha: sem uma delas `startForeground` lança `SecurityException` e o
+ * app morre com a projeção junto. O manifest declara
+ * **`CHANGE_WIFI_MULTICAST_STATE`** (nível *normal*, a menos poderosa das
+ * cinco), e ela FICA lá mesmo sem multicast nenhum no código — quem a exige é o
+ * TIPO do serviço.
  *
  * E a nota da mesma página, escrita aqui para ninguém "consertar" isto daqui a
- * dois anos: *"if your app performs a **projection** … use the corresponding
- * media projection … type instead"*. `mediaProjection` é **inalcançável de
- * propósito**: não existe token de `MediaProjection` neste desenho, e é isso que
- * dispensa o diálogo de consentimento por sessão e o indicador de gravação de
- * tela **antes de projetar, num culto**.
+ * dois anos: *"if your app performs a **projection** … use the media projection
+ * type instead"*. `mediaProjection` é **inalcançável de propósito** — não existe
+ * token de `MediaProjection` neste desenho, e é isso que dispensa o diálogo de
+ * consentimento por sessão e o indicador de gravação de tela **antes de
+ * projetar, num culto**.
  *
  * ## O Wi-Fi lock, com a expectativa DITA e não prometida
  *
- * `WIFI_MODE_FULL` é *"deprecated and non-functional with no impact"* e
+ * `WIFI_MODE_FULL` é *"deprecated and non-functional with no impact"*, e
  * `WIFI_MODE_FULL_HIGH_PERF` é tratado como ele. O `WIFI_MODE_FULL_LOW_LATENCY`
- * é real, **mas só é de fato aplicado com o app em primeiro plano e a tela
- * acesa** — ou seja, a única API que poderia consertar "a latência sobe com a
- * tela apagada" **recusa-se a funcionar exatamente nessa situação**. Ele é
- * adquirido aqui porque é barato e ajuda enquanto o operador está com o app
- * aberto; **não conserte latência confiando nele**, e não prometa nada disso na
- * UI.
+ * é real **mas só se aplica com o app em primeiro plano e a tela acesa** — isto
+ * é, a única API que poderia consertar "a latência sobe com a tela apagada"
+ * recusa-se a funcionar exatamente nessa situação. Ele é adquirido porque é
+ * barato e ajuda com o app aberto; **não conserte latência confiando nele**, e
+ * não prometa nada disso na UI.
  */
 object EspelhoEnergia {
 
