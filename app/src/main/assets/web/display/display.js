@@ -1217,10 +1217,6 @@ AVDB.onCommand(async (cmd) => {
 });
 
 async function restore() {
-  // (SAIU NA v5.212: o prefetch do script da IFrame Player API. Ele já era
-  //  guardado por `!window.__NATIVE__`, justamente porque injetar script de
-  //  terceiro no origin privilegiado era o custo que ninguém queria pagar em
-  //  toda sessão. Com o embed fora dos dois papéis, não há o que adiantar.)
   // Config de transições (fade) definida no Controle — preferência visual,
   // não é "tocar" nada.
   // Transições são INERENTES ao sistema (sempre ligadas, duração fixa — ver

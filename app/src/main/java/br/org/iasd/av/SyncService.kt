@@ -18,31 +18,27 @@ import java.util.Locale
 /**
  * Mantém o app vivo enquanto há download em andamento.
  *
- * O PROBLEMA que isto resolve: ao minimizar o app, o Android trata o processo
- * como "cached" e pode congelá-lo — a sincronização de hinos, álbuns, Bíblia
- * ou pastas simplesmente parava no meio. Quem sincroniza um hinário inteiro
- * naturalmente sai do app enquanto espera, então isso acontecia justamente no
- * uso normal.
+ * O PROBLEMA: ao minimizar o app o Android trata o processo como "cached" e pode
+ * congelá-lo — a sincronização de hinos, álbuns, Bíblia ou pastas parava no
+ * meio. Quem sincroniza um hinário inteiro sai do app enquanto espera, então
+ * isso acontecia justamente no uso normal.
  *
- * A correção é declarar o trabalho ao sistema: enquanto este serviço estiver
- * em primeiro plano (com notificação visível, como o Android exige), o
- * processo não é congelado nem descartado, e o WebView continua baixando.
+ * A correção é declarar o trabalho ao sistema: enquanto este serviço estiver em
+ * primeiro plano (com a notificação que o Android exige), o processo não é
+ * congelado nem descartado. O wake lock parcial complementa, impedindo a CPU de
+ * dormir com a tela apagada — com timeout de segurança, porque um download que
+ * trave nunca deve consumir bateria indefinidamente.
  *
- * O wake lock parcial complementa: impede que a CPU durma com a tela
- * apagada. Tem timeout de segurança — um download que trave nunca deve
- * consumir bateria indefinidamente.
- *
- * Ciclo de vida: quem liga e desliga é o LADO WEB (`AVNative.keepAlive`),
- * pelos pontos que sabem quando um download começa e termina. O serviço não
- * decide nada por conta própria — com UMA exceção que não é escolha dele: a
- * cota de 6 h/24 h de FGS `dataSync` do Android 15, em que o sistema manda
- * parar e o serviço obedece (ver `onTimeout`).
+ * Ciclo de vida: quem liga e desliga é o LADO WEB (`AVNative.keepAlive`), pelos
+ * pontos que sabem quando um download começa e termina. O serviço não decide
+ * nada por conta própria — com UMA exceção que não é escolha dele: a cota de
+ * 6 h/24 h de FGS `dataSync` do Android 15, em que o sistema manda parar e o
+ * serviço obedece (ver `onTimeout`).
  *
  * A notificação segue o serviço, e não o contrário: `updateProgress` publica
  * apenas enquanto ele existir. `NotificationManager.notify` é independente do
- * ciclo de vida de um Service, então sem essa guarda um cartão "Baixando
- * mídias" com `setOngoing(true)` ficava na gaveta para sempre, sem download
- * nenhum por trás.
+ * ciclo de vida de um Service, então sem essa guarda um cartão com
+ * `setOngoing(true)` ficava na gaveta para sempre, sem download por trás.
  */
 class SyncService : Service() {
 

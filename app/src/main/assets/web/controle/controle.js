@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '5.299';
+const WEB_VERSION = '5.300';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -1100,13 +1100,6 @@ function isConfirmedWifi() {
   return t === 'wifi' || t === 'ethernet';
 }
 let mediaFit = 'contain'; // preenchimento da mídia (persistido em state 'fit')
-// (Saiu na v5.189 o modo "mesa de som" — a saída de áudio LOCAL, em que a
-// preview deixava de ser muda e o celular virava a caixa de som. Pedido do
-// operador, e a razão é o desenho atual do sistema: o som sai dos DISPLAYS (a
-// TV pela Presentation, as telas da rede pelo próprio <video> delas), e o
-// áudio da preview só tinha como disputar o foco de áudio do Android com a
-// projeção — o defeito que a v5.141 já tinha escondido escondendo o botão com
-// telão conectado. A preview é uma ILUSTRAÇÃO, e ilustração não faz som.)
 let ytEnded = false;       // YouTube terminou/parou sem player tocando: ▶ recarrega
 // HÁ MÍDIA EM CENA NO TELÃO? (v5.142)
 //
@@ -1304,20 +1297,14 @@ const preview = createStage({
 
 // ===== A PREVIEW NÃO TEM MAIS PLAYER DO YOUTUBE (v5.212) =====
 //
-// Aqui morava um `YT.Player` de verdade — mudo, minúsculo, dirigido pelos
-// mesmos comandos que vão para o Display — e com ele o `loadYtPreviewApi`, o
-// `dropYtPreview`, o `ytPreviewForceLowQuality`, o `startYtPreviewTick`, o
-// `ytPreviewTick`, o `onYtPreviewState`, o `ytPreviewHandle`, o
-// `ytResyncPreviewToDisplay`, o `ytDisplayActive` e o `ytPreviewTime`.
-//
-// A razão é a mesma que tirou o embed do telão, e neste documento ela pesa
-// MAIS, não menos: `addJavascriptInterface` injeta o objeto em TODAS as frames
-// da página, iframes de outra origem inclusive. No WebView do telão a ponte
-// nasce com `host = null` (invariante 9) e o estrago seria limitado; aqui a
-// ponte é a COMPLETA — `pickFolder`, `listFolder`, `pickDoc`, `openExternal`,
-// `espelhoLigar`, `apkInstalar`. A invariante 9 nomeia só o telão, e é por isso
-// que esta metade atravessou dezenas de versões sem ninguém reparar: o texto
-// protegia o WebView menos exposto dos dois.
+// NÃO REINTRODUZIR UM IFRAME AQUI. A preview já teve um `YT.Player` de verdade
+// (v5.212), e o argumento contra ele pesa MAIS neste documento que no telão:
+// `addJavascriptInterface` injeta o objeto em TODAS as frames da página,
+// iframes de outra origem inclusive — e aqui a ponte é a COMPLETA
+// (`pickFolder`, `listFolder`, `pickDoc`, `openExternal`, `espelhoLigar`,
+// `apkInstalar`), enquanto no telão ela nasce com `host = null`. **A invariante
+// 9 nomeia só o telão**, e foi por isso que esta metade atravessou dezenas de
+// versões sem ninguém reparar: o texto protegia o WebView MENOS exposto.
 //
 // O que a preview mostra de um item do YouTube continua sendo o que o
 // `stage.js` já desenha para `kind: 'youtube'` — a miniatura. E ela deixou de
@@ -1729,8 +1716,6 @@ function aplicarNaPreview(obj, item) {
   // Texto manual (Bíblia/Mensagem): overlay independente — espelha na preview.
   if (obj.type === 'text') { showPvText(obj); return; }
   if (obj.type === 'text-hide') { hidePvText(); return; }
-  // (Aqui havia um `nowYoutube` calculado e nunca lido — resto do player do
-  // YouTube que a v5.212 tirou da preview.)
   if (obj.type === 'load') {
     // Esconde a letra incondicionalmente (como o Display). O texto manual é um
     // overlay independente: só some ao carregar VISUAL; ÁUDIO toca por baixo e
@@ -6330,14 +6315,6 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
   redesenharAcervo = redesenhar;
   const byId = new Map(allCollections().map((c) => [c.id, c]));
   let any = false;
-
-  // (Aqui morava `header`, o cabeçalho de grupo NÃO colapsável: um `<li
-  // class="coll-group">` com nome, resumo e o botão de lote. Ele ficou sem
-  // chamador quando a v5.237 fez toda seção da Biblioteca virar um GRUPO
-  // COLAPSÁVEL — o `grupo()` logo abaixo desenha a mesma barra, agora clicável,
-  // pelo mesmo `montarResumoGrupo`. Um construtor de UI paralelo e inerte é a
-  // pior forma de duplicação: ele parece a implementação de referência para
-  // quem chega, e nada na tela o desmente.)
 
   // ===== UM GRUPO COLAPSÁVEL =====
   //
@@ -13214,29 +13191,6 @@ function mirrorDur(ms) {
 // `PowerManager.THERMAL_STATUS_*` por índice.
 const MIRROR_TERMICA = ['NONE', 'LIGHT', 'MODERATE', 'SEVERE', 'CRITICAL', 'EMERGENCY', 'SHUTDOWN'];
 
-// (SAIU NA v5.206, com o resto do consumo do espelho de pixels: `MIRROR_VEREDITO`
-//  — os cinco vereditos da SONDA, um instrumento cujo produtor (`SondaClipe`) e
-//  cuja página (`sonda.html`) foram apagados na v5.187. A tabela ficou dezenove
-//  versões traduzindo um enum que ninguém mais emite.)
-
-// (SAIU NA v5.206: `somDaTela`, `MIRROR_RS`, `MIRROR_NS` e `linhasDaTela` — as
-//  ~155 linhas que traduziam o AUTORRELATO de uma tela do espelho de PIXELS.
-//
-//  Quem produzia aquele objeto (`c.vivo`) era o `espelho/cliente.js`, apagado
-//  na v5.187. Uma tela de comandos publica hoje `rotulo`, `conectadaMs`,
-//  `telaAcesaMin`, `aviso`, `eventos`, `pronta` e `fila`, e mais nada — não há
-//  `buffered`, nem `readyState`, nem quadros descartados, porque não há MSE:
-//  a tela toca o arquivo local que buscou em `/m/<token>`.
-//
-//  E isto NÃO era inerte. `linhasDaTela(undefined)` devolvia a frase
-//  "(esta tela ainda nao relatou medidas — bundle antigo, ou o primeiro `alive`
-//  nao chegou)", então TODA tela conectada saía do Registro acusada de rodar um
-//  bundle velho — no artefato que o operador copia e repassa quando algo não
-//  conecta, mandando-o investigar a versão da tela por um recurso que o app
-//  removeu. É o mesmo defeito do `ritmo` zerado, pela outra ponta: o consumidor
-//  ficou de pé depois que o produtor morreu, e o valor ausente virou uma
-//  resposta em vez de silêncio.)
-
 function blocoEspelho(d) {
   if (!d || typeof d !== 'object') return '';
   // O TÍTULO É "TRANSMISSÃO PARA NAVEGADOR" (v5.202). Ele dizia "Espelho de
@@ -13386,14 +13340,6 @@ function blocoEspelho(d) {
   }
   return l.join('\n');
 }
-
-// (SAIU NA v5.206: `cenaComVideoAberto`. Ela era a metade SÃ do detector de
-//  "retângulo preto" — a guarda que impedia o alarme de disparar durante uma
-//  oração com a cortina fechada. Só que a outra metade lia um `ritmo` que o
-//  shell publicava zerado desde a v5.187, então a guarda passou a fazer o
-//  oposto do que foi escrita para fazer: em vez de calar um alarme falso, ela
-//  ESCOLHIA o culto normal — vídeo tocando, cortina aberta — como o momento de
-//  disparar um. Sem o detector ela não tem outro chamador.)
 
 // A LINHA DO TEMPO dos dois processos, em ordem de relógio.
 function eventosDiag() {
@@ -16959,11 +16905,6 @@ function espelhoDisponivel() {
 
 // (`mirrorEstado`, `mirrorTimer` e `mirrorOcupado` são declarados lá em cima,
 // junto do resto do estado de cena — ver o comentário de lá para o porquê.)
-// (Aqui morava `mirrorTvConfirmado`, a lembrança de "já respondi sim a ligar
-// com a TV no ar". A PERGUNTA saiu — ligar a transmissão com o telão conectado
-// deixou de ser um caso a confirmar —, e a lembrança ficou: um `let` escrito
-// uma vez e nunca lido. Um estado sem leitor não guarda nada; ele só faz a
-// próxima leitura supor que existe uma regra que já não existe.)
 function espelhoLigado() { return !!(mirrorEstado && mirrorEstado.ligado); }
 
 async function lerEspelho() {
@@ -17040,26 +16981,11 @@ function acertarEnqueteDeFundo() {
 // (`espelhoCertImportar`/`Estado`/`Apagar`) continuam no shell: voltar atrás é
 // desenhar uma folha, não publicar uma Release.)
 
-// (O LEITOR DE QR SAIU NA v5.185, e com ele a permissão de CÂMERA do manifest.
-// Ele existia para INVERTER quem mostra e quem lê o segredo: a tela desenhava
-// um código e o celular o lia pela câmera. A inversão perdeu a razão de ser
-// quando o segredo virou três dígitos que a TELA digita — a página do cliente
-// tem um campo e um botão, e não desenha mais nada. Foram ~230 linhas aqui,
-// o `espelho/qr.js`, o `tools/qr.test.mjs`, o popup `#qrPopup` e o
-// `AVNative.requestCam`.)
-
-// LIGAR COM A TV NO AR pede uma confirmação explícita, e ela substitui o
-// interruptor escondido em Configurações que o desenho anterior tinha: ninguém
-// acharia aquele interruptor, e ele expressava a decisão errada (desligar o
-// espelho sozinho). O custo real de rodar com telão — dois `/display/`, até
-// três players do YouTube, dois encodes — é medível e falha ruidosamente; o que
-// não se pode fazer é decidir por conta própria apagar a imagem que a sala
-// anexa está assistindo.
+// LIGAR COM A TV NO AR não pede confirmação: a transmissão por comandos custa
+// JSON e rajadas de arquivo — não há segunda projeção sendo desenhada e
+// codificada no aparelho. A função abaixo fica (dois chamadores) como registro
+// da decisão de não perguntar.
 async function confirmarEspelhoComTv() {
-  // A pergunta do custo dobrado MORREU COM O ENCODER (E6): a transmissão por
-  // comandos custa JSON e rajadas de arquivo — não há segunda projeção sendo
-  // desenhada e codificada no aparelho. Ligar com a TV no ar é simplesmente
-  // ligar. A função fica (dois chamadores) como registro da decisão.
   return true;
 }
 
@@ -18290,18 +18216,12 @@ let telaRefEm = 0;
 const TELA_REF_SILENCIO_MS = 5000;
 
 const telaTokens = new Map();      // id do acervo → token de serviço (/m/<t>)
-// (SAIU NA v5.212: `telaEmpurrados`, o conjunto de ids "já completos no cache
-//  do shell" — uma SEGUNDA fonte de verdade sobre estado que mora do outro lado
-//  da ponte. O cache do shell é DA SESSÃO (`startMirror` o recria, o `init`
-//  apaga o diretório, `desmontarEspelho` chama `zerar()`), e o conjunto vivia
-//  enquanto a PÁGINA vivesse: religar a transmissão — ou a Wi-Fi oscilar além
-//  dos 6 s, que aciona `stopMirror()` — deixava o shell com cache vazio e o
-//  Controle afirmando "já empurrei". TODA mídia já tocada ficava invisível nas
-//  telas, com 404 e nenhum erro. Quem responde "já tenho isto?" é o `abrir` do
-//  shell, no campo `completo`, e ele sempre respondeu.
-//
-//  `telaTokens` FICA: o token tem de ser estável por id — é a URL que as telas
-//  já usam, e é a regra "mesmo id + mesmo token = mesmo item" do shell.)
+// `telaTokens` FICA: o token tem de ser estável por id — é a URL que as telas já
+// usam, e é a regra "mesmo id + mesmo token = mesmo item" do shell. Quem responde
+// "já tenho isto?" é o `abrir` do shell, no campo `completo`, e ele sempre
+// respondeu: um conjunto local de "já empurrei" seria uma SEGUNDA fonte de
+// verdade sobre estado que mora do outro lado da ponte, e o cache do shell é DA
+// SESSÃO.
 const telaFila = [];               // empurrões esperando (um por vez)
 let telaEmpurrando = null;
 let telaResposta = null;

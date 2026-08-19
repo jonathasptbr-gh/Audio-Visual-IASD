@@ -17,21 +17,18 @@ import java.util.concurrent.ConcurrentHashMap
  * ## Por que um proxy, e não a URL direta
  *
  * O lado web precisa dos BYTES de faixas adaptativas para alimentar o
- * `MediaSource` (ver `shared/mse.js`) — e um `fetch()` direto ao googlevideo
- * falha por três motivos independentes, cada um suficiente sozinho:
+ * `MediaSource` (ver `shared/mse.js`), e um `fetch()` direto falha por três
+ * motivos independentes, cada um suficiente sozinho:
  *
  * 1. **CORS.** O googlevideo não manda `Access-Control-Allow-Origin`, então o
- *    `fetch` do WebView nunca enxerga a resposta. É o mesmo muro que obrigava o
- *    caminho antigo do Cobalt a usar um túnel.
+ *    `fetch` do WebView nunca enxerga a resposta.
  * 2. **User-Agent.** Uma URL emitida para um cliente é servida a quem se anuncia
- *    como ele. O WebView manda o UA dele (um Chrome de Android) e a faixa do
- *    visionOS responde 403 — foi exatamente esse desencontro que custou sete
- *    versões até a v1.49.
- * 3. **A invariante 2.** O WebView RECUSA navegar/buscar fora do origin do app,
- *    e afrouxar isso é a última coisa que este projeto pode fazer.
+ *    como ele. O WebView manda o UA dele (Chrome de Android) e a faixa do
+ *    visionOS responde 403 — o desencontro que custou sete versões até a v1.49.
+ * 3. **A invariante 2.** O WebView RECUSA buscar fora do origin do app, e
+ *    afrouxar isso é a última coisa que este projeto pode fazer.
  *
- * Passando por aqui, os três somem de uma vez: é o mesmo origin, o UA é o certo
- * e a invariante fica de pé.
+ * Passando por aqui os três somem: mesmo origin, UA certo, invariante de pé.
  *
  * ## A FAIXA VIAJA NA URL, e essa é a regra que não pode cair
  *
@@ -46,7 +43,7 @@ import java.util.concurrent.ConcurrentHashMap
  * | faixa pedida | o que acontece |
  * |---|---|
  * | `bytes=0-…` | pular 0 é no-op → funciona, e esconde o resto atrás de si |
- * | `A ≥ tamanho da fatia` | `ComputeBounds` reprova → `ERR_FAILED` **sem status** ("a requisição não completou") |
+ * | `A ≥ tamanho da fatia` | `ComputeBounds` reprova → `ERR_FAILED` **sem status** |
  * | `A < tamanho da fatia` | pula A DENTRO da fatia e entrega o offset absoluto `2A` — o `fetch` resolve e o vídeo não toca |
  *
  * Como todo fragmento começa a megabytes do início, **só a primeira requisição
@@ -60,23 +57,23 @@ import java.util.concurrent.ConcurrentHashMap
  * anunciar suporte a faixa nesta URL é o oposto do que este caminho quer), e o
  * `Content-Length` quem escreve é o loader, do `available()` do nosso array.
  *
- * O caminho do CABEÇALHO segue atendido (bundle web antigo em shell novo — a
- * janela entre instalar o APK e o OTA chegar), embrulhado em [FatiaComoTodo]: o
- * stream mente o tamanho total e absorve o primeiro `skip`, de modo que a
- * maquinaria do próprio WebView produza o resultado certo.
+ * O caminho do CABEÇALHO segue atendido (bundle antigo em shell novo — a janela
+ * entre instalar o APK e o OTA chegar), embrulhado em [FatiaComoTodo]: o stream
+ * mente o tamanho total e absorve o primeiro `skip`, de modo que a maquinaria do
+ * próprio WebView produza o resultado certo.
  *
  * ## Por que isto NÃO é um `PathHandler`
  *
  * O `PathHandler` recebe só o CAMINHO — os cabeçalhos não chegam lá, e sem eles
- * o ramo de compatibilidade acima é impossível. Daí ser chamado de dentro do
+ * o ramo de compatibilidade é impossível. Daí ser chamado de dentro do
  * `shouldInterceptRequest`, que recebe o [WebResourceRequest] completo, ANTES de
  * o asset loader ver a URL.
  *
  * ## O que ele NÃO faz
  *
  * Não interpreta mídia, não decide qualidade e não guarda nada em disco: é um
- * cano. Quem escolhe as faixas é o [YoutubeGrab] (a mesma fila de candidatos do
- * download), e quem as monta em vídeo é o `MediaSource` do lado web.
+ * cano. Quem escolhe as faixas é o [YoutubeGrab]; quem as monta em vídeo é o
+ * `MediaSource` do lado web.
  */
 object StreamProxy {
 

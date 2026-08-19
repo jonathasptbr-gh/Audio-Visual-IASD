@@ -1859,12 +1859,6 @@ class EspelhoServidor(
         private const val REBIND_MAX = 3
         private const val REBIND_JANELA_MS = 60L * 60 * 1000
 
-        // (SAIU NA v5.212: quatro blocos de KDoc órfãos — a folga da escritora
-        // do adeus, o corpo do quadro `0x30`, os tipos do fio do `EspelhoCodec`
-        // e o mapa fixo de rotas. Os quatro descreviam constantes APAGADAS com o
-        // espelho de pixels; sem declaração embaixo, um bloco de KDoc é só um
-        // parágrafo sobre um mecanismo que não existe.)
-
         /**
          * A marca do papel `tela`, injetada em toda página servida — ver
          * [comMarcaDeTela]. `<meta>` porque a CSP desta resposta não permite

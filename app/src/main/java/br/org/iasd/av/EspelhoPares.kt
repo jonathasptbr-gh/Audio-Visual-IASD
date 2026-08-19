@@ -8,23 +8,20 @@ import java.util.Base64
  * O controle de acesso do telão por comandos: tokens, prazo e o castigo de quem
  * foi derrubado. **ZERO import de Android**, pelo mesmo motivo do [EspelhoHttp]:
  * este e aquele são as duas peças em que um erro não vira pixel errado e sim
- * porta aberta, e são as duas que o JUnit cobre.
- *
- * O `EspelhoServidor` faz sockets e threads e **não decide nada que este arquivo
- * decida** — ele pergunta e obedece.
+ * porta aberta, e são as duas que o JUnit cobre. O `EspelhoServidor` faz sockets
+ * e threads e **não decide nada que este arquivo decida**.
  *
  * ## As invariantes
  *
  * 1. **Token de 128 bits em base64url, `SecureRandom`** — aleatório, não
- *    contador, opaco (o mesmo desenho do `SafRegistry`: um contador é
- *    adivinhável por construção).
- * 2. **O token NUNCA viaja numa URL** — nem em `?t=`, nem em fragmento. URL vaza
- *    para histórico, cache, captura e compartilhamento de tela. Ele vive no
+ *    contador, opaco (o desenho do `SafRegistry`).
+ * 2. **O token NUNCA viaja numa URL** — nem `?t=`, nem fragmento: URL vaza para
+ *    histórico, cache, captura e compartilhamento de tela. Ele vive no
  *    `sessionStorage` e sobe em `Authorization: Bearer`, e é por isso que todo
- *    pedido do cliente é `fetch`: um `<img src>` ou `<video src>` não mandariam
- *    o cabeçalho. [validar] recebe o cabeçalho CRU e faz ela mesma a leitura do
- *    esquema — deixar o servidor fatiar string vinda da rede é o tipo de decisão
- *    que esta separação existe para impedir.
+ *    pedido do cliente é `fetch` (um `<img src>` não mandaria o cabeçalho).
+ *    [validar] recebe o cabeçalho CRU e faz ela mesma a leitura do esquema —
+ *    deixar o servidor fatiar string vinda da rede é o tipo de decisão que esta
+ *    separação existe para impedir.
  * 3. **O token tem prazo FIXO e morre com a sessão** ([PRAZO_SESSAO_MS];
  *    [desligar] zera tudo). **Não é renovado pelo uso:** uma janela deslizante
  *    nunca expira enquanto alguém a usar, que é precisamente o caso do token
@@ -38,18 +35,16 @@ import java.util.Base64
  * 5. **A PORTA É O ENDEREÇO, e quem o abre ENTRA — sem código, sem fila.** O
  *    endereço deste aparelho nesta rede já é a credencial (quem não configurou a
  *    tela não o tem, e ele muda de rede para rede); o conteúdo é o que a
- *    congregação inteira está vendo, e o dano de um curioso é ocupar uma das
- *    três vagas, nunca ver a projeção. O que SEGURA o recurso é o teto de
- *    [MAX_SESSOES], o [derrubar] com o castigo de [BLOQUEIO_DERRUBADA_MS] (sem
- *    ele "Desconectar" não faria nada — a tela voltaria em dois segundos) e o
- *    fato de o servidor só existir enquanto o operador o mantiver ligado.
+ *    congregação está vendo, e o dano de um curioso é ocupar uma das três vagas.
+ *    O que SEGURA o recurso é o teto de [MAX_SESSOES], o [derrubar] com o
+ *    castigo de [BLOQUEIO_DERRUBADA_MS] (sem ele "Desconectar" não faria nada) e
+ *    o fato de o servidor só existir enquanto o operador o mantiver ligado.
  * 6. **A entrada é anônima e imediata**, e o único freio é o castigo: não há
  *    segredo a errar, logo não há bloqueio crescente. O mapa de castigos guarda
  *    **só** quem o operador derrubou. Sem vaga, [Veredito.Lotada] — uma FRASE, e
  *    não a recusa genérica, porque a saída dela é fechar uma das outras.
  * 7. **A página de pareamento é ANÔNIMA** — sem versão, nome do aparelho, SSID
- *    ou nome da igreja. Este arquivo colabora não tendo isso para dar: a quem
- *    não provou nada ele devolve um id opaco.
+ *    ou nome da igreja. Este arquivo colabora não tendo isso para dar.
  * 8. **Teto de [MAX_SESSOES].** (O teto de CONEXÕES em voo e a regra de que um
  *    `GET /v` com token repetido fecha a anterior são do servidor: sockets, não
  *    pareamento.)
@@ -64,9 +59,9 @@ import java.util.Base64
  * ## Por que um `object` com estado
  *
  * [ligar] **zera tudo**, o que torna "há exatamente uma transmissão, e ela começa
- * limpa" uma propriedade verificável em vez de uma convenção. Todo método
- * público é `@Synchronized` (o servidor é multithread, uma thread por cliente) e
- * **todo relógio entra por parâmetro** (`agora: Long`) — nada aqui chama
+ * limpa" uma propriedade verificável em vez de convenção. Todo método público é
+ * `@Synchronized` (o servidor é multithread, uma thread por cliente) e **todo
+ * relógio entra por parâmetro** (`agora: Long`) — nada aqui chama
  * `System.currentTimeMillis()`, que é o que torna prazo, bloqueio e expiração
  * testáveis sem esperar um minuto de verdade.
  */
@@ -237,8 +232,6 @@ object EspelhoPares {
         /** A transmissão não está ligada. `403`. */
         object Desligado : Veredito()
 
-        // (Saiu na v5.189, com o código: `Recusada`. Ela dizia "o segredo está
-        // errado", e não há mais segredo a errar — a porta é o endereço.)
     }
 
     /** O castigo de UMA origem — só o [derrubar] o cria (invariante 6). */

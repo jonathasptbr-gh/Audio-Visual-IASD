@@ -265,16 +265,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
         displayManager = getSystemService(DisplayManager::class.java)
         displayManager?.registerDisplayListener(displayListener, null)
 
-        // (Aqui morava a RECONSTRUÇÃO DA JANELA DO ESPELHO — um
-        // `EspelhoDisplay.sincronizarJanela(this)`, que reatava a janela do
-        // espelho de PIXELS à Activity recriada. A janela, a tela virtual e o
-        // encoder saíram na v5.187 com o espelho inteiro; a chamada saiu junto
-        // e o comentário ficou, órfão, em cima do pedido de permissão de
-        // notificação logo abaixo — que não tem nada a ver com ele. A
-        // transmissão de hoje não tem janela nenhuma a reatar: as telas da rede
-        // rodam o próprio `/display/`, e o que sobrevive à recriação da Activity
-        // é o `EspelhoServidor` no companion, que é onde ele já mora.)
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
@@ -561,15 +551,11 @@ class MainActivity : ComponentActivity(), BridgeHost {
     override fun onStop() {
         super.onStop()
         presentation?.keepPlaying()
-        // (Aqui houve dois `keepPlaying` que saíram: o da `MirrorPresentation`,
-        // a janela oculta que o espelho de PIXELS mantinha para o encoder ter o
-        // que capturar — uma tela da rede roda o próprio `/display/` e recebe
-        // COMANDOS, e quem a mantém viva com o app minimizado é o
-        // `SessionService` mais o wake lock do `EspelhoEnergia`; e o despertar
-        // do WebView do Controle pela MESA DE SOM, cujo caso deixou de existir
-        // quando o som passou a ser dos displays. O WebView do Controle volta a
-        // ser estrangulado em segundo plano sempre, que é o certo para uma mesa
-        // de comando.)
+        // O WebView do Controle volta a ser estrangulado em segundo plano
+        // sempre, que é o certo para uma mesa de comando: quem mantém a
+        // projeção viva com o app minimizado é o telão (`keepPlaying` acima) e,
+        // nas telas da rede, o `SessionService` mais o wake lock do
+        // `EspelhoEnergia`.
     }
 
     override fun onDestroy() {
@@ -595,7 +581,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // nasceu de um toque do operador. Deixá-la servindo com a Activity morta
         // manteria um `ServerSocket` na rede da igreja sem ninguém capaz de
         // desligá-lo, e as telas ficariam com a última cena congelada na frente
-        // da congregação, sem transporte e sem quem a tire de lá.
+        // da congregação.
         //
         // `!isChangingConfigurations` NÃO É ZELO: `android:configChanges` não
         // cobre `fontScale` nem `locale`, e mudar o tamanho da fonte RECRIA esta
@@ -605,7 +591,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // mandou religar, e o `ligar()` zera o pareamento: as três telas
         // voltariam ao botão de entrada). Numa recriação quem mantém tudo vivo é
         // o serviço em primeiro plano, e a referência do servidor está no
-        // COMPANION justamente por isto.
+        // COMPANION por isto.
         if (!isChangingConfigurations) {
             try {
                 desmontarEspelho()
@@ -651,7 +637,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * As telas de apresentação EXTERNAS. Os dois pontos que perguntam "há
      * telão?" ([syncPresentation] e [listDisplays]) passam por aqui; filtrar na
      * fonte cobre de uma vez o `renderDisplayStatus`, o `applyPreviewAspect` e o
-     * `simpleDisplay` do lado web, que leem todos o mesmo `lastDisplays`.
+     * `simpleDisplay` do lado web, que leem o mesmo `lastDisplays`.
      *
      * HOJE ELE NÃO EXCLUI NADA, e precisa estar escrito, ou o próximo leitor o
      * apaga como código morto e leva a proteção junto. O que ele garante é que
@@ -772,17 +758,16 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * sistema.
      *
      * Era esse o problema durante o espelhamento: o Android roteia os botões
-     * para a saída em uso, e com Miracast/Smart View ativo isso vira o volume
-     * da TV — o operador mexia no botão e o fader do app não saía do lugar.
-     * Consumindo a tecla aqui (`return true`, também no `onKeyUp`, senão o
-     * sistema ainda reage ao evento de soltura) nada disso acontece: o evento
-     * vira um passo no `#volSlider`, exatamente como arrastar o fader.
+     * para a saída em uso, e com Miracast/Smart View ativo isso vira o volume da
+     * TV — o operador mexia no botão e o fader não saía do lugar. Consumindo a
+     * tecla aqui (`return true`, também no `onKeyUp`, senão o sistema ainda
+     * reage à soltura) o evento vira um passo no `#volSlider`, como arrastar o
+     * fader.
      *
-     * **Válvula de escape:** com o fader já no máximo (ou no zero), o lado web
+     * **Válvula de escape:** com o fader no máximo (ou no zero), o lado web
      * devolve a tecla via `adjustSystemVolume()` e ela volta a valer para o
-     * sistema, com a UI de volume do Android. Sem isso, um aparelho com o
-     * volume de mídia baixo ficaria sem jeito de subir enquanto o app
-     * estivesse aberto.
+     * sistema, com a UI de volume do Android. Sem isso, um aparelho com o volume
+     * de mídia baixo ficaria sem jeito de subir com o app aberto.
      */
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         if (captureVolumeKeys && isVolumeKey(keyCode)) {
@@ -891,11 +876,11 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * imagem da tela, que é o que este app precisa sem Presentation.
      *
      * `Settings.ACTION_CAST_SETTINGS` cai no GOOGLE CAST em vários aparelhos —
-     * por isso é o último recurso, não o primeiro. Não existe API pública para o
-     * popup das configurações rápidas (`Settings.Panel` só cobre internet, wifi,
-     * nfc e volume), então a cadeia procura o primeiro alvo que EXISTE neste
-     * aparelho e NÃO resolve para o Play Services. As entradas da Samsung não
-     * são API documentada e só são tentadas num aparelho Samsung (ver
+     * daí ser o último recurso. Não existe API pública para o popup das
+     * configurações rápidas (`Settings.Panel` só cobre internet, wifi, nfc e
+     * volume), então a cadeia procura o primeiro alvo que EXISTE neste aparelho
+     * e NÃO resolve para o Play Services. As entradas da Samsung não são API
+     * documentada e só são tentadas num aparelho Samsung (ver
      * `castCandidates`/`isSamsung`); não existindo, `resolveActivity` devolve
      * null e a cadeia segue.
      *
@@ -1027,20 +1012,18 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // PackageManager de novo, pelo mesmo resultado.
         castCandidatesCache?.let { return it }
         val out = mutableListOf<Intent>()
-        // O ramo do Smart View só entra na fila NUM APARELHO SAMSUNG. Ele
-        // nasceu do aparelho em que o app é operado (um S24 Ultra), e a cadeia
-        // toda foi escrita em volta dele — mas "Smart View primeiro" é uma
-        // regra de UM fabricante, não do Android. Noutra marca esses pacotes
-        // simplesmente não existem, então a cadeia já caía no caminho universal
-        // sozinha; o que a guarda acrescenta é dizer isso em vez de deixar por
-        // acaso, e não varrer as activities de dois pacotes ausentes a cada
-        // toque no botão (e a cada abertura de Configurações, que chama
+        // O ramo do Smart View só entra na fila NUM APARELHO SAMSUNG. Ele nasceu
+        // do aparelho em que o app é operado, e a cadeia foi escrita em volta
+        // dele — mas "Smart View primeiro" é regra de UM fabricante, não do
+        // Android. Noutra marca esses pacotes não existem e a cadeia já caía no
+        // caminho universal sozinha; o que a guarda acrescenta é dizer isso em
+        // vez de deixar por acaso, e não varrer as activities de dois pacotes
+        // ausentes a cada toque (e a cada abertura de Configurações, que chama
         // `describeCastTarget`).
         //
-        // E há um caso em que o acaso não bastava: um pacote de OUTRO
-        // fabricante com o mesmo nome (ou uma ROM que carregue os apps da
-        // Samsung) entraria na frente do alvo AOSP sem que nada aqui tivesse
-        // decidido isso.
+        // E há um caso em que o acaso não bastava: um pacote de OUTRO fabricante
+        // com o mesmo nome (ou uma ROM que carregue os apps da Samsung) entraria
+        // na frente do alvo AOSP sem que nada aqui tivesse decidido isso.
         if (isSamsung()) {
             for (pkg in SAMSUNG_MIRROR_PACKAGES) {
                 for (cls in exportedActivities(pkg)) {
@@ -1350,10 +1333,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * de cliente do [EspelhoServidor], que consultam um campo `@Volatile` e um
      * socket fechado. Enfileirar a desistência atrás do trabalho que se quer
      * parar é o oposto de parar — a mesma lição do `ytCancel`.
-     *
-     * (O KDoc anterior citava um `EspelhoDisplay.desligar()` e "a drenagem do
-     * encoder": os dois saíram na v5.187, e o argumento de thread sobreviveu
-     * intacto a eles.)
      */
     override fun stopMirror() {
         desmontarEspelho()
@@ -1409,19 +1388,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
         return JSONObject()
             .put("ligado", ligado)
             .put("endereco", srv?.optString("url") ?: "")
-            // (Saiu na v5.189: `codigo`. A porta é o ENDEREÇO — ver a
-            // invariante 5 do [EspelhoPares]. O `SHELL_VERSION` sobe por isso:
-            // um bundle antigo leria `codigo` vazio e desenharia um campo de
-            // três dígitos que o servidor não exige mais, mandando o operador
-            // ditar um número que não existe.)
-            //
-            // (Saiu na v5.206: `modo`. Ele era o seletor imagem × vídeo do
-            // espelho de pixels, removido na v5.156 — desde então o campo
-            // viajava com o valor `"comandos"`, e o `blocoEspelho` do lado web
-            // o comparava com `'video'` e imprimia **"modo: imagem (JPEG)"** no
-            // Registro. Um campo mantido "por compatibilidade" depois que o
-            // recurso saiu não é compatibilidade: é uma resposta errada com
-            // aparência de resposta.)
             .put("erro", erro)
             .put("telas", srv?.optJSONArray("telas") ?: JSONArray())
     }
@@ -1435,13 +1401,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * que só o servidor sabe (endereço, sessões, telas, cache de mídia) e o que
      * só a proteção sabe (wake lock, Wi-Fi lock, térmica). Cada um devolve DADO;
      * quem escreve as frases é o `blocoEspelho` do `controle.js`.
-     *
-     * O KDoc anterior descrevia "o anel do `EspelhoDisplay` (tela virtual,
-     * viewport, encoder, readback, ritmo)" — cinco fontes que morreram com o
-     * espelho de pixels na v5.187, num arquivo que não existe mais. A parte
-     * `ritmo` daquela lista não era só documentação velha: ela continuou sendo
-     * PUBLICADA, zerada, e o lado web a lia como alarme. Ver o KDoc do
-     * [EspelhoDiag].
      */
     override fun mirrorDiag(onResult: (JSONObject) -> Unit) {
         runOnUiThread {
@@ -1720,9 +1679,8 @@ class MainActivity : ComponentActivity(), BridgeHost {
         @Volatile
         private var espelhoSrv: EspelhoServidor? = null
 
-        /** O anel de diagnóstico da transmissão — morava no EspelhoDisplay e
-         *  foi REALOCADO no corte (E6): o dono do Registro é quem liga o
-         *  servidor, não a tela virtual que deixou de existir. */
+        /** O anel de diagnóstico da transmissão. O dono do Registro é quem liga
+         *  o servidor. */
         val espelhoDiag = EspelhoDiag()
 
         /** O cache da rota /m/ (E4) — vive com a transmissão, não com a
