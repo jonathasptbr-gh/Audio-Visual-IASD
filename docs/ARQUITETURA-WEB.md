@@ -1612,8 +1612,7 @@ olha o `closed` — e ele só existe enquanto a janela existe.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  [← Modo Fácil]   CRONOGRAMA        [★ Favoritos]       │ ← .list-header (topo; sem appbar)
-│    (o Modo Fácil fica VAGO nas outras abas — v5.111)     │
+│                    CRONOGRAMA                           │ ← .list-header (topo; sem appbar)
 │  ┌───────────────────────────────────────────────────┐  │
 │  │  item 1                                           │  │  ← .lib-list
 │  │  item 2                                           │  │     (área scrollável)
@@ -1633,250 +1632,131 @@ olha o `closed` — e ele só existe enquanto a janela existe.
 └─────────────────────────────────────────────────────────┘
 ```
 
-**Sem barra de topo (`.appbar` removida):** o app começa direto no cabeçalho da
-lista. `main` ganhou `padding-top` com `env(safe-area-inset-top)` (a antiga
-appbar cuidava do notch/status bar).
+**Sem barra de topo (`.appbar`):** o app começa direto no cabeçalho da lista, e
+`main` ganhou `padding-top` com `env(safe-area-inset-top)`.
 
-**Cabeçalho da lista (`.list-header`):** DOIS elementos, e é o que sobrou de uma
-faixa que já teve quatro — a ordem era **saída · lugar · destino** (v5.107), e
-os dois destinos saíram: os Favoritos na v5.238 (`#favHeadBtn`, porque eles são
-a primeira seção da Biblioteca e uma segunda porta era um segundo lugar para a
-lista divergir) e a troca de modo na v5.247 (`#fullSimpleBtn`, porque a mesma
-decisão mora em Configurações, que é onde ela é GUARDADA):
+**Cabeçalho da lista (`.list-header`):** o `#listTitle` centrado e, só na
+navegação da Bíblia, o `#backBtn` à esquerda. A faixa já teve SEIS elementos (a
+busca da pasta e o sincronizar foram para a gaveta, o indicador de versão desceu
+para Configurações, os dois destinos e a troca de modo saíram) — e o sintoma de
+estar disputada era objetivo: numa tela de 360px a raiz dos Favoritos cortava o
+próprio título com reticências.
 
-| Posição | Elemento | Papel |
-|---|---|---|
-| esquerda | `#backBtn` (só na navegação da Bíblia) | sair desta tela |
-| centro | `#listTitle` (`.list-title`) | onde eu estou |
+O título é `.84rem` (em .72rem o único texto que responde "onde eu estou" era
+menor que o subtítulo de qualquer linha) e é centrado no ESPAÇO QUE SOBRA, não na
+tela: centrá-lo pelo eixo da tela exigiria tirá-lo do fluxo e arriscar
+sobreposição com o nome comprido de uma pasta. O único elemento que ainda o
+desloca é o voltar da Bíblia (19px).
 
-**A troca de modo SAIU deste cabeçalho na v5.247** (ver "Modo simplificado",
-acima). Com ela saíram a regra de "só no Cronograma" (v5.111) e o lugar
-reservado que a sustentava (`.mode-switch--vago`): aquela caixa existia para o
-título não saltar quando o botão se escondia nas outras abas, e um botão que não
-existe não tem lugar a reservar. O efeito medido é o oposto do temido — o título
-deixou de ser empurrado 63px para a direita e passou a ficar **exatamente no
-centro da faixa**, em todas as abas.
+**Controles (`.bottombar`):** fixados na base, e eles **começam na faixa de
+abas** — a barra é um `flex` em coluna com dois filhos, a `.tabs` e o `.deck`.
+Antes a faixa era o último elemento do `<main>` e flutuava sobre o fundo do app,
+separada da barra por dois espaços e por um degrau de cor: duas superfícies para
+duas coisas que o polegar usa no mesmo movimento. Ela **não tem `border-top` nem
+sombra**: com a fileira encostada no topo, as duas caíam sobre a emenda entre a
+aba ativa e o conteúdo, que é onde os dois precisam ser a mesma superfície. O
+`padding-bottom` usa `max(env(safe-area-inset-bottom), 12px)`, contra
+acionamentos acidentais pela navegação por gestos.
 
-O único elemento que ainda desloca o título é o **voltar** da Bíblia (19px,
-quando ele aparece), e essa distância é a mesma de antes: ela não nasceu daqui.
-
-Os dois botões ficam em cantos OPOSTOS porque levam a lugares opostos:
-empilhados do mesmo lado (como estavam até a v5.106) liam-se como um par, e não
-são. O botão de modo foi para a esquerda porque **a seta dele aponta para a
-esquerda**, e um botão que aponta para fora da tela precisa estar do lado para
-onde aponta — encostado à direita, ele apontava para o meio do próprio
-cabeçalho. Por isso o `margin-left: auto` saiu do `.mode-switch` e passou a
-valer só dentro da `.simple-head`, onde o botão é a seta INVERSA e continua à
-direita.
-
-O título é `.84rem` desde a v5.51 (em .72rem o único texto que responde "onde eu
-estou" era menor que o subtítulo de qualquer linha da lista) e é centrado no
-**espaço que sobra**, não na tela: os dois botões não têm a mesma largura, e
-centrá-lo pelo eixo da tela exigiria tirá-lo do fluxo e arriscar sobreposição
-justamente com o nome comprido de uma pasta. A folga que resta é de poucos
-pixels. Em 360px "CRONOGRAMA" sai com reticências — a mesma troca já assumida
-para a raiz dos Favoritos, e em 390px (e em qualquer outra tela do app) ele cabe
-inteiro.
-
-A faixa já teve seis: o campo de busca da pasta e o botão de sincronizar
-**foram com os Favoritos para a gaveta** (v5.53) e o indicador de versão desceu
-para Configurações (v5.49). Eram esses três que faziam dela a faixa mais
-disputada do app — e o sintoma era objetivo: numa tela de 360px a raiz dos
-Favoritos cortava o próprio título com reticências. O
-**indicador de versão** morava aqui e foi para o rodapé de Configurações na
-v5.49: o cabeçalho é navegação, o texto completo (`Web vX · Shell vY`) comia
-quase metade da largura de um celular, e ele só aparecia numa das abas — o mesmo
-metadado existindo ou não conforme a tela. Com a faixa liberada, a **aba Bíblia
-voltou a ter título** (v5.50): ela era a única tela sem nome, e o título tinha
-saído justamente para caber a versão — "onde eu estou" passava a depender de
-reconhecer a grade de 66 ladrilhos.
-
-**Controles (`.bottombar`):** fixados na base da tela, e desde a v5.54 eles
-**começam na faixa de abas**: a barra é um `flex` em coluna com dois filhos — a
-`.tabs` e o `.deck`. (A `.selbar` já morou aqui, no lugar da `.tabs`; desde a
-v5.107 ela é do rodapé da lista, e a faixa de abas nunca mais some.) A
-faixa era o último elemento do `<main>` e flutuava sobre o fundo do app,
-encostada na barra mas separada dela por dois espaços (o `padding-bottom` do
-main mais o `padding-top` da barra) e por um degrau de cor — duas superfícies
-para duas coisas que o polegar usa no mesmo movimento. Juntas viram um bloco
-só: mesma cor de fundo, mesma borda de cima, mesma sombra, e o trilho do
-segmentado passa a ter exatamente a mesma superfície dos botões de transporte
-logo abaixo (`--surface` é branco com ALFA, então acompanha a base nova
-sozinho — o degrau vai de 1,38:1 sobre o fundo do app para 1,46:1 sobre a
-barra). Ela **não tem mais `border-top` nem sombra** (v5.55 e v5.57): com a
-fileira encostada no topo, as duas caíam justamente sobre a emenda entre a aba
-ativa e o conteúdo, que é onde os dois precisam ser a mesma superfície. O `padding-bottom` da barra usa
-`max(env(safe-area-inset-bottom), 12px)` para garantir margem segura contra
-acionamentos acidentais pela navegação por gestos do Android/iOS.
-
-**Grade real (CSS Grid), não flex aproximado:** `.deck` é um `display:grid` de
-2 colunas (`minmax(0, 1fr)` / `56px` do mixer) × 3 linhas (`auto` /
-`var(--deck-pv-h)` do preview / `auto`), com `.nowplaying`, `.preview-row` e
-`.transport` como itens diretos
-da grade (não há mais um `.deck-main` intermediário). O `#mixer` ocupa as 3
-linhas (`grid-row: 1 / 4`) e usa `grid-template-rows: subgrid` para **herdar
-exatamente essas mesmas 3 faixas de altura** — garante alinhamento pixel a
-pixel entre a coluna do mixer e nowplaying/preview/transport, em vez de
-depender de flex-basis calculado à parte (a fonte de um desalinhamento
-antigo entre as duas colunas). `padding` do `#mixer` é **só horizontal** (`0
-.35rem`): padding vertical deslocaria as linhas herdadas do subgrid,
-reintroduzindo o desalinhamento.
+**Grade real (CSS Grid), não flex aproximado:** `.deck` é um `display: grid` de 2
+colunas (`minmax(0, 1fr)` / `56px` do mixer) × 3 linhas (`auto` /
+`var(--deck-pv-h)` / `auto`), com `.nowplaying`, `.preview-row` e `.transport`
+como itens DIRETOS. O `#mixer` ocupa as 3 linhas (`grid-row: 1 / 4`) e usa
+`grid-template-rows: subgrid` para **herdar exatamente essas faixas de altura** —
+garante alinhamento pixel a pixel entre as duas colunas em vez de depender de
+flex-basis calculado à parte. O `padding` do `#mixer` é **só horizontal**:
+padding vertical deslocaria as linhas herdadas do subgrid.
 
 A primeira coluna é `minmax(0, 1fr)`, **não** `1fr`: uma faixa `1fr` tem mínimo
 automático igual ao min-content do conteúdo, e o título (`#npName`, com
 `white-space: nowrap`) tem min-content do texto INTEIRO mesmo já sendo cortado
-por `overflow`/ellipsis. Um nome de mídia longo inflava a coluna, esmagava a de
-56px do mixer e fazia a largura da preview depender do título.
+por ellipsis — um nome longo inflava a coluna, esmagava a de 56px do mixer e
+fazia a largura da preview depender do título.
 
-**Sem "card" de fundo:** os botões do mixer ficam **livres** (cada um só com
-o próprio fundo via `.ctl-btn`) — `#mixer` não tem `background`/`border-radius`
-próprios, só posiciona pela grade.
-
-**O mixer NUNCA dita a altura das faixas** — quem dita é sempre a coluna 1
-(nowplaying / preview / transport). Cada `.mixer-slot` é apenas uma caixa de
-posicionamento **vazia no fluxo**, e os botões vivem num `.mixer-stack`
-`position:absolute; inset:0` dentro dela. Um item absoluto sai do fluxo e não
-entra no cálculo de max-content das faixas `auto` do `.deck` — e como o
-`#mixer` é `subgrid`, qualquer coisa que ficasse no fluxo ali contribuiria
-para as faixas do pai.
-
-Era essa contribuição que deformava a caixa de controles ao **abrir o slide de
-volume**: o conteúdo do mixer muda entre os dois estados (top/mid somem, e o
-botão da base troca de ícone — um SVG de 22px por um glifo da fonte, alturas
-intrínsecas diferentes), então as faixas `auto` 1 e 3 mudavam de tamanho e
-levavam junto a altura do deck e da preview. Fora do fluxo, os dois estados
-são indistinguíveis para a grade. (O `min-height: 0` que existia antes
-resolvia só metade do problema: ele zera o mínimo automático, mas uma faixa
-`auto` continua sendo dimensionada pelo max-content dos itens.)
-
-O mixer é dividido em 3 "fatias" (`.mixer-slot` > `.mixer-stack`), uma por
-linha da grade:
+**O mixer NUNCA dita a altura das faixas** — quem dita é sempre a coluna 1. Cada
+`.mixer-slot` é uma caixa de posicionamento **vazia no fluxo**, e os botões vivem
+num `.mixer-stack` `position: absolute; inset: 0`: um item absoluto não entra no
+cálculo de max-content das faixas `auto` do `.deck`, e como o `#mixer` é
+`subgrid`, qualquer coisa no fluxo ali contribuiria para as faixas do PAI. Era
+essa contribuição que deformava a caixa ao ABRIR o slide de volume — o conteúdo
+do mixer muda entre os dois estados (top/mid somem, o botão da base troca um SVG
+de 22px por um glifo, alturas intrínsecas diferentes) e as faixas `auto`
+mudavam de tamanho, levando junto a altura do deck e da preview. (`min-height: 0`
+resolve só metade: ele zera o mínimo automático, mas uma faixa `auto` continua
+sendo dimensionada pelo max-content dos itens.)
 
 | Fatia | Linha da grade | Conteúdo |
 |---|---|---|
-| `.mixer-top` | 1 (mesma de `.nowplaying`) | **Configurações** (`#settingsBtn`, engrenagem — `openFadePopup`), **sem caixa de botão** |
-| `.mixer-mid` | 2 (mesma de `.preview-row`, `--deck-pv-h`) | **letra/texto completo** (`#lyricsViewBtn`, ícone de **folha com linhas** — SVG inline; abre a leitura auxiliar), **cortina do telão** (`#viewToggle`), **mudo** (`#muteToggle`) — empilhados, cada um com `flex:1` |
-| `.mixer-bottom` | 3 (mesma de `.transport`) | **volume** (`#volToggle`/`#volClose`, recolhível) |
+| `.mixer-top` | 1 (`.nowplaying`) | **Configurações** (`#settingsBtn`, engrenagem), **sem caixa de botão** |
+| `.mixer-mid` | 2 (`.preview-row`) | **letra/texto completo** (`#lyricsViewBtn`, SVG inline), **cortina do telão** (`#viewToggle`), **mudo** (`#muteToggle`) — cada um com `flex: 1` |
+| `.mixer-bottom` | 3 (`.transport`) | **volume** (`#volToggle`/`#volClose`, recolhível) |
 
-A coluna foi reorganizada na v5.49, quando a **mesa de som** deixou de ter botão
-aqui (virou uma linha de Configurações — ver a seção dela) e o lugar vago virou
-a porta de **Configurações**. A ordem que sobrou separa o que NÃO opera o culto
-do que opera: a engrenagem no topo, sozinha, e abaixo dela o bloco de operação
-(cortina → letra → mudo → volume), que é o que o polegar procura sem olhar.
-Antes a mesa de som ficava no MEIO desse bloco, entre a leitura da letra e o
-mudo, sendo a única ali que se decide uma vez e não se toca mais.
-Dentro da fatia do meio a **leitura da letra vem primeiro** (v5.50, trocou de
-lugar com a cortina): é o botão que se consulta o tempo todo enquanto o louvor
-corre, e a cortina serve às transições — o mais frequente fica mais perto do
-topo, onde o polegar já está.
+A ordem separa o que NÃO opera o culto do que opera: a engrenagem no topo,
+sozinha, e abaixo o bloco de operação (letra → cortina → mudo → volume), que é o
+que o polegar procura sem olhar. Dentro da fatia do meio a leitura da letra vem
+primeiro: é o botão que se consulta o tempo todo enquanto o louvor corre, e a
+cortina serve às transições.
 
 **A engrenagem não tem caixa de botão** (`.settings-btn`, e por isso não é
-`.ctl-btn`): a fatia do topo acompanha a altura de `.nowplaying`, que é bem
-menor que a da preview, e um bloco achatado ao lado de quatro botões de altura
-cheia lê como um botão mal encaixado. Sem a caixa, o ícone solto deixa de
-competir com o grupo que opera o culto — que é justamente o que ele não é. É o
-mesmo tratamento do `#backBtn` do cabeçalho: navegação/acesso é chapado,
-operação é botão.
+`.ctl-btn`): a fatia do topo acompanha a altura de `.nowplaying`, bem menor que a
+da preview, e um bloco achatado ao lado de quatro botões de altura cheia lê como
+um botão mal encaixado. É o mesmo tratamento do `#backBtn`: navegação/acesso é
+chapado, operação é botão.
 
-Cada botão tem `flex:1` dentro da própria fatia — top (1 botão) e bottom (1 de
-cada vez) preenchem a fatia inteira; mid (3 botões) a divide em partes iguais.
-
-**Fonte única do volume (`applyVolume`)**: o fader, o arrasto vertical no
-terço direito da preview em tela cheia e os **botões físicos de volume** (no
-app) passam todos pela mesma função — que aplica o clamp, desliga o mudo se o
-volume subir de 0, envia o comando e atualiza o fader. Antes a lógica estava
-duplicada entre o `input` do fader e o gesto; hoje os três caminhos (fader,
-arrasto e botões físicos) entram por `applyVolume`.
+**Fonte única do volume (`applyVolume`)**: o fader, o arrasto vertical no terço
+direito da preview em tela cheia e os **botões físicos** passam todos pela mesma
+função — clamp, desligar o mudo se subir de 0, enviar o comando e atualizar o
+fader.
 
 **Botões físicos** (só no app; `window.__avVolumeKey`): a Activity intercepta
-`KEYCODE_VOLUME_UP/DOWN` e entrega o passo aqui, em vez de deixar o Android
-tratá-los. Era esse o problema durante o espelhamento: o sistema roteia esses
-botões para a **saída em uso**, e com Miracast/Smart View ativo isso vira o
-volume da TV — o operador apertava e o fader do app não saía do lugar. **Com o
-fader já no máximo (ou no zero)**, o passo é devolvido ao sistema
-(`AVNative.systemVolume`, com a UI de volume do Android), senão um aparelho
-com o volume de mídia baixo ficaria sem como subir enquanto o app estivesse
-aberto. Ver "Divergências" em `../CLAUDE.md`.
+`KEYCODE_VOLUME_UP/DOWN` e entrega o passo aqui. O sistema roteia esses botões
+para a **saída em uso**, e com Smart View ativo isso vira o volume da TV — o
+operador apertava e o fader do app não saía do lugar. **No máximo (ou no zero)** o
+passo é devolvido ao sistema (`AVNative.systemVolume`), senão um aparelho com o
+volume de mídia baixo ficaria sem como subir com o app aberto.
 
-**A tecla ESPIA o fader** (`peekVolume`, `VOL_PEEK_MS` = 2,8 s): com a coluna
-no estado normal, apertar o botão físico mexia no volume de forma **invisível**
-— o operador mudava o volume sem ver quanto ficou nem quanto ainda cabe. Agora
-a tecla abre a **mesma** visualização do toque em `#volToggle` (é literalmente
-`openVolume()`: fader no lugar de top+mid, o botão da base virando ✕, as mesmas
-animações) e a recolhe sozinha alguns segundos depois, por `closeVolume()`. Um
-segundo jeito de desenhar o fader seria um segundo jeito de ele ficar diferente.
-Três regras cuidam da convivência com o toque:
-- **Só recolhe o que ela mesma abriu** (`volPeekOwned`): com o volume aberto
-  pelo operador, a tecla não mexe no estado da coluna — apenas move o fader.
-- **Tocar em `#volToggle`/`#volClose` cancela a contagem** (`cancelVolPeek`):
-  quem abriu na mão fecha na mão.
-- **Mexer no fader durante a espiada reinicia a contagem** (`bumpVolPeek`, no
-  `pointerdown`/`input` do `#volSlider`): recolher debaixo do dedo do operador
-  seria o oposto do que a espiada existe para fazer. Continua sendo uma
-  espiada — some sozinha alguns segundos depois que ele parar.
+**A tecla ESPIA o fader** (`peekVolume`, `VOL_PEEK_MS` = 2,8 s): sem isso o botão
+físico mexia no volume de forma INVISÍVEL. Ela abre a MESMA visualização do toque
+em `#volToggle` (literalmente `openVolume()`) e a recolhe sozinha — um segundo
+jeito de desenhar o fader seria um segundo jeito de ele ficar diferente. Três
+regras de convivência com o toque: só recolhe o que ela mesma abriu
+(`volPeekOwned`); tocar em `#volToggle`/`#volClose` cancela a contagem
+(`cancelVolPeek`); mexer no fader durante a espiada a reinicia (`bumpVolPeek`).
 
-No navegador nada disso acontece: os botões físicos não chegam à página, e
-`peekVolume` só é chamada de `window.__avVolumeKey`.
-
-Tocar no botão de volume liga a classe `.vol-open` no `#mixer`, que troca
-**top + mid** (os 4 botões: visual/letra/mesa de som/mudo) pelo
-**fader vertical** (`.fader-wrap`, posicionado via `grid-row: 1 / 3` — ocupa
-exatamente o mesmo espaço de top+mid combinados) **+ um botão de ocultar**
-(`#volClose`, ícone ✕) que aparece na mesma fatia `.mixer-bottom`, no lugar
-de `#volToggle`. O botão da base (volume/ocultar) **não muda de lugar** entre
-os dois estados — só troca de característica (ícone/cor) instantaneamente;
-quem anima é o que está **acima** dele: o fader entra ao abrir (fade + leve
-deslize) e sai ao fechar (`.vol-closing` mantém a classe durante a saída),
-e ao voltar os botões de top/mid entram animados (`.vol-revealing`). É só
-estado de UI (não persistido; cada abertura começa recolhida). As durações
-no JS (`openVolume`/`closeVolume` em `controle.js`) casam com as do CSS
-(`@keyframes vol-slide-in/out`). O botão de volume é **preenchido em `--accent-fill`
-com o ícone de mixer/faders em `--on-accent`** (SVG inline — o ícone não
-existe no subset da fonte; ver seção da fonte), visualmente distinto do
-mudo. Mexer no volume com mudo ativo desliga o mudo automaticamente.
-Mutar/desmutar não corta o volume na hora — faz uma rampa curta (ver
-`setMute` em `stage.js`).
+Tocar no botão de volume liga `.vol-open` no `#mixer`, que troca **top + mid**
+pelo **fader vertical** (`.fader-wrap`, `grid-row: 1 / 3` — exatamente o espaço
+de top+mid) mais um `#volClose` na fatia de baixo. O botão da base **não muda de
+lugar** entre os dois estados, só de ícone e cor; quem anima é o que está ACIMA
+dele. É só estado de UI, não persistido. As durações no JS
+(`openVolume`/`closeVolume`) casam com as do CSS (`@keyframes vol-slide-in/out`).
 
 **O fader tem a LARGURA DOS BOTÕES que ele substitui**: a coluna não muda de
-espessura ao abrir o volume, só de conteúdo — mesmo raio (`--radius-btn`) e
-mesmo fundo (`--surface`) da parte ainda não preenchida. Isso exige desenhar
-o trilho (`appearance: none` + `::-webkit-slider-runnable-track`), porque a
-espessura do trilho NATIVO é fixa: alargar o `<input>` sozinho só deixava a
-barrinha de sempre boiando num alvo maior (verificado — o trilho pintado não
-mudou de espessura com o elemento a 44,8px).
+espessura ao abrir o volume, só de conteúdo. Isso exige desenhar o trilho
+(`appearance: none` + `::-webkit-slider-runnable-track`), porque a espessura do
+trilho NATIVO é fixa — alargar o `<input>` sozinho só deixa a barrinha de sempre
+boiando num alvo maior (verificado).
 
-Como `appearance: none` desliga junto o preenchimento que vinha do
-`accent-color`, ele passa a ser um gradiente com o corte em `--vol` (0–1),
-escrito por `renderControls()` no mesmo ponto em que o valor do fader é
-sincronizado — um lugar só, e os dois nunca discordam. O corte não é
-`--vol * 100%` puro: o CENTRO do cap percorre a altura MENOS a espessura dele
-(`--fader-cap`, 26px), então a conta desconta isso e a borda do preenchimento fica
-exatamente sob o cap em qualquer posição (conferido em 0%, 35%, 75% e 100%).
-O cap atravessa a coluna inteira, como o de uma mesa de som de verdade — e é
-um alvo de toque bem maior que o thumb redondo de 34px que havia antes.
+Como `appearance: none` desliga junto o preenchimento do `accent-color`, ele é um
+gradiente com o corte em `--vol` (0–1), escrito por `renderControls()` no mesmo
+ponto em que o valor do fader é sincronizado — um lugar só, e os dois nunca
+discordam. O corte NÃO é `--vol * 100%` puro: o CENTRO do cap percorre a altura
+MENOS a espessura dele (`--fader-cap`, 26px), então a conta desconta isso e a
+borda do preenchimento fica exatamente sob o cap em qualquer posição.
 
-**O cap carrega o NÚMERO (0–100)** do volume atual (`#volValue`,
-`.fader-value`): saber que o fader está "mais ou menos na metade" não é a
-mesma coisa que saber que está em 50 — e com os botões físicos o valor muda
-sem ninguém tocar na barra. O número é um elemento IRMÃO do `<input>`, não um
-filho: `::-webkit-slider-thumb` é pseudo-elemento e não aceita conteúdo. Por
-isso ele repete a MESMA conta de posição do preenchimento, com `--vol` e
-`--fader-cap` declaradas no `.fader-wrap` (o ancestral comum aos dois) —
-assim o número nunca se descola do cap. `pointer-events: none`: quem recebe o
-arrasto continua sendo o input por baixo. O cap subiu de 16px para 26px para
-"100" caber com folga.
+**O cap carrega o NÚMERO (0–100)** (`#volValue`): saber que o fader está "mais ou
+menos na metade" não é saber que está em 50 — e com os botões físicos o valor
+muda sem ninguém tocar na barra. O número é IRMÃO do `<input>`, não filho
+(`::-webkit-slider-thumb` é pseudo-elemento e não aceita conteúdo), então ele
+repete a MESMA conta de posição, com `--vol` e `--fader-cap` declaradas no
+`.fader-wrap` (o ancestral comum). `pointer-events: none`: quem recebe o arrasto
+continua sendo o input por baixo.
 
-**A linha da preview é só a preview** desde a v5.49: os dois botões de estrofe
-que a flanqueavam (`#slidePrevBtn`/`#slideNextBtn`) saíram da tela e viraram o
-toque curto em ⏮/⏭ — ver "Um par de botões, dois eixos" logo abaixo. Com a linha
-livre, `--deck-pv-h` subiu de 130px para 150px: a preview é dimensionada pela
-ALTURA (altura × `--pv-ar`), então a largura que os botões ocupavam teria virado
-espaço morto dos dois lados dela. Em 150px o 16:9 dá ~267px numa coluna de
-~291px, e a janela do operador para a projeção cresce junto. O botão de
-**repetir** (`#repeat`) é o **primeiro** de `.transport` (à esquerda de ⏮ ▶/⏸ ⏹
-⏭, com o de playlist por último à direita).
-
-#### Um par de botões, dois eixos (⏮/⏭, v5.49)
+**A linha da preview é só a preview**: os dois botões de estrofe que a
+flanqueavam viraram o toque curto em ⏮/⏭. Com a linha livre, `--deck-pv-h` subiu
+de 130px para 150px — a preview é dimensionada pela ALTURA (altura × `--pv-ar`),
+então a largura que os botões ocupavam teria virado espaço morto dos dois lados.
+O botão de **repetir** (`#repeat`) é o primeiro de `.transport`, com o de
+playlist por último.
 
 Até a v5.48 a tela tinha **quatro** botões para duas ações vizinhas: estrofe
 (flanqueando a preview) e mídia (no transporte). Quatro alvos disputando a mesma
