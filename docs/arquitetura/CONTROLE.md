@@ -2153,10 +2153,10 @@ com caixa de marcação.
 #### E ela divide a linha com o CONFIRMAR (v5.302)
 
 Pedido do operador: *"ponha o botão de confirmar as escolhas do play dos
-favoritos para que ele fique lado a lado, à esquerda das opções, ajustado com a
-altura dos botões"*. A faixa era um bloco próprio no pé da gaveta, logo abaixo da
-linha do confirmar — duas faixas empilhadas para o que cabe numa, e a gaveta
-inteira mais alta por isso, num acordeão cuja regra é manter a decisão sob o dedo.
+favoritos para que ele fique lado a lado … ajustado com a altura dos botões"*. A
+faixa era um bloco próprio no pé da gaveta, logo abaixo da linha do confirmar —
+duas faixas empilhadas para o que cabe numa, e a gaveta inteira mais alta por
+isso, num acordeão cuja regra é manter a decisão sob o dedo.
 
 Quem a leva para lá é o hook **`aoLado`** que a v5.286 abriu para o "Ver a letra":
 a `.song-menu-go-row` já é um flex de dois filhos em que o confirmar CRESCE e o
@@ -2181,6 +2181,14 @@ a linha de fecho é a folha, e ela não conhece o dono da gaveta.
   simplesmente não reanexada. `destConfirmRow(aoLado)` recebe; o global ficou só
   como caminho da Biblioteca, onde ele é fábrica. E reabrir uma gaveta reaponta
   `songMenuFor`, para *"ele descreve a gaveta ABERTA"* voltar a ser verdade.
+- **DE QUE LADO O IRMÃO ENTRA É DECISÃO DE QUEM O FORNECE** (v5.306, pedido do
+  operador): a faixa de ações de um Favorito vem **antes** do confirmar, o "Ver a
+  letra" da Biblioteca continua **depois**. O sinal viaja no próprio nó
+  (`data-antes`) e o `destConfirmRow` só o consulta — ele não conhece nenhum dos
+  dois. **É DOM, não `order`/`row-reverse`:** os dois dariam o mesmo desenho com a
+  ordem de FOCO invertida, numa faixa cujo primeiro botão é a LIXEIRA. O oráculo
+  (`boot-nativo.test.mjs`) mede a geometria **e** exige que o DOM concorde com
+  ela, senão a próxima inversão volta por um `order` e passa.
 - **Uma altura só.** O confirmar mede `--hit` mais o padding dele (53px); os
   botões traziam `--thumb` fixo (40px) e boiariam no meio. `height: auto` desarma
   o valor fixo e o `stretch` da linha os iguala. A LARGURA continua `--thumb`: o

@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '5.305';
+const WEB_VERSION = '5.306';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -7774,6 +7774,15 @@ function linhaDeItem(item, opts) {
   const depoisDeMexer = cfg.depoisDeExcluir || (() => load());
   const acoes = document.createElement('div');
   acoes.className = 'fav-acoes';
+  // ELA FICA À ESQUERDA DO CONFIRMAR (v5.306). Pedido do operador: *"o botão de
+  // confirmar as opções de play fica à esquerda dos botões; deixe-o à direita,
+  // com as outras opções à esquerda"*. Quem escolhe o lado é o DONO da faixa, e
+  // não o `destConfirmRow`: a mesma linha serve o "Ver a letra" da Biblioteca,
+  // que continua à direita porque ali o confirmar é o que se acha sem mirar. O
+  // sinal viaja no próprio nó (`data-antes`) porque é ele que atravessa as
+  // remontagens da lista — um segundo argumento no hook seria estado a mais para
+  // manter em sincronia com um nó que já diz tudo.
+  acoes.dataset.antes = '1';
   acoes.append(...(lista ? [
     botaoExcluirDaLinha(item, lista, depoisDeMexer),
     botaoRenomearDaLinha(item, depoisDeMexer),
@@ -7783,8 +7792,8 @@ function linhaDeItem(item, opts) {
   // ===== A FAIXA DIVIDE A LINHA COM O CONFIRMAR (v5.302) =====
   //
   // Pedido do operador: *"ponha o botão de confirmar as escolhas do play dos
-  // favoritos para que ele fique lado a lado, à esquerda das opções, ajustado
-  // com a altura dos botões"*.
+  // favoritos para que ele fique lado a lado … ajustado com a altura dos
+  // botões"*. (O LADO se inverteu na v5.306 — ver `data-antes` acima.)
   //
   // Ela era um bloco PRÓPRIO no pé da gaveta, logo abaixo da linha do confirmar
   // — duas faixas empilhadas para o que cabe numa, e a gaveta inteira mais alta
@@ -12841,7 +12850,13 @@ function destConfirmRow(aoLado) {
     : (songMenuFor && typeof songMenuFor.aoLado === 'function' ? songMenuFor.aoLado : null);
   if (dono) {
     const irmao = dono();
-    if (irmao) li.appendChild(irmao);
+    // O LADO É DECISÃO DO IRMÃO (v5.306), dita em `data-antes`: a faixa de ações
+    // de um Favorito entra ANTES do confirmar, o "Ver a letra" da Biblioteca
+    // continua depois. Esta função não conhece nenhum dos dois — pergunta.
+    if (irmao) {
+      if (irmao.dataset && irmao.dataset.antes) li.insertBefore(irmao, btn);
+      else li.appendChild(irmao);
+    }
   }
   return li;
 }

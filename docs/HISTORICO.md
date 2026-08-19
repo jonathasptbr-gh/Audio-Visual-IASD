@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v5.306** — O CONFIRMAR DOS FAVORITOS PASSA PARA A DIREITA, e o lado do irmão vira decisão de quem o fornece. OTA PURO
 - **v5.305** — O BOTÃO DA PLAYLIST ABRE A BARRA, e o ícone dele estava a 2,06:1 sobre o campo branco. OTA PURO
 - **v5.304** — O BOTÃO DA PLAYLIST AUTOMÁTICA ESTAVA INVISÍVEL — o glifo não existe no subset da fonte, e agora isso tem oráculo. OTA PURO
 - **v5.303** — A PLAYLIST AUTOMÁTICA: sortear por tema, uma só ou uma fila — e a regra é um arquivo PURO com dois oráculos. OTA PURO
@@ -174,6 +175,39 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v5.306
+
+**A v5.306: O CONFIRMAR DOS FAVORITOS PASSA PARA A DIREITA, e o lado do irmão
+vira decisão de quem o fornece. OTA PURO** (base web, oráculo e docs; sem
+Release, `SHELL_VERSION` continua **44**).
+
+Pedido do operador: *"nos favoritos, o botão de confirmar as opções de play fica
+a esquerda dos botões, deixe-o na direita, com as outras opções a esquerda"*.
+
+**A INVERSÃO É DE DOM, NÃO DE CSS.** Um `order` ou um `row-reverse` daria o
+mesmo desenho e deixaria a ordem de FOCO ao contrário — numa faixa cujo primeiro
+botão é a LIXEIRA de um item. O sinal viaja no próprio nó (`data-antes`, posto
+por quem monta a faixa em `linhaDeItem`) e o `destConfirmRow` só o consulta: ele
+não conhece nem a faixa de ações de um Favorito nem o "Ver a letra" da
+Biblioteca, que continua **depois** do confirmar. O lado é decisão de quem
+fornece o irmão, e é por isso que uma das duas mudou sem que a outra se mexesse.
+
+O nó carrega o sinal em vez de um segundo argumento no hook `aoLado` porque é o
+NÓ que atravessa as remontagens da lista (`renderItemMenu` refaz a `<ul>` a cada
+marca, e o `appendChild`/`insertBefore` apenas o MOVE) — um argumento a mais
+seria estado a manter em sincronia com algo que já diz tudo.
+
+O estado `.confirmando` não muda: ali o confirmar sai de cena e a faixa ocupa a
+linha inteira, então de que lado ela estava é indiferente.
+
+**O ORÁCULO SEGUIU O PEDIDO, e ganhou uma pergunta.** O
+`boot-nativo.test.mjs` afirmava o confirmar à esquerda; agora afirma o
+contrário — **e** que a ordem do DOM concorda com a da tela. É essa segunda
+metade que faz a regra durar: sem ela, a próxima inversão pode voltar por um
+`order` e passar.
 
 ---
 
