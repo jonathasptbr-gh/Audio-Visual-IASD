@@ -3269,367 +3269,90 @@ As quatro células:
 - **Mensagens** — foi para a aba **Ferramentas** (v5.31), como seção do
   acordeão. Antes era um botão flutuante sobre a preview; ver abaixo.
 
-#### A segunda requisição que morria — e o contrato que ninguém tinha lido (v1.55)
+#### O contrato do `shouldInterceptRequest`, e a transmissão direta
 
-O log dizia sempre a mesma coisa, em três versões seguidas do shell:
-
-```
-falhou ao tocar: índice vídeo: a requisição não completou (Failed to fetch)
-```
-
-**A causa é um contrato, não um cálculo.** O `InputStream` devolvido por
-`shouldInterceptRequest` **não é "a resposta"**: o Chromium o lê como **o
-recurso INTEIRO a partir do byte 0**, e é ELE quem aplica o `Range` da
-requisição em cima do que o app entregou. A cadeia, na fonte:
+**O `InputStream` devolvido não é "a resposta": o Chromium o lê como o recurso
+INTEIRO a partir do byte 0, e é ELE quem aplica o `Range`** — incondicionalmente,
+para toda resposta interceptada. A cadeia, na fonte:
 
 ```
-AndroidStreamReaderURLLoader::Start          → ParseRange(resource_request_.headers)   ← incondicional
+AndroidStreamReaderURLLoader::Start           → ParseRange(resource_request_.headers)  ← incondicional
 AndroidStreamReaderURLLoader::OnInputStreamOpened → InputStreamReader::Seek(byte_range_)
-InputStreamReader::Seek                      → VerifyRequestedRange + SkipToRequestedRange
-net::HttpByteRange::ComputeBounds            → confere contra InputStream.available()
+InputStreamReader::Seek                       → VerifyRequestedRange + SkipToRequestedRange
+net::HttpByteRange::ComputeBounds             → confere contra InputStream.available()
 ```
 
-Não há válvula, flag nem ramo por status que desligue isso, e vale para **toda**
-resposta de `shouldInterceptRequest` — não só para `file:///android_asset`.
+Devolver só a fatia pedida aplica o deslocamento **duas vezes**:
 
-O `StreamProxy` devolvia só a fatia pedida. Resultado: **o deslocamento era
-aplicado duas vezes.**
+| faixa pedida | o que acontece |
+|---|---|
+| `bytes=0-…` | pular 0 é no-op → **funciona**, e esconde o resto atrás de si |
+| `A ≥ tamanho da fatia` | `ComputeBounds` reprova → `ERR_FAILED` **antes de qualquer cabeçalho** |
+| `A < tamanho da fatia` | pula `A` DENTRO da fatia e entrega o offset absoluto `2A` — o `fetch` RESOLVE e o vídeo não toca |
 
-| faixa pedida | o que acontecia | o que aparecia no Registro |
-|---|---|---|
-| `bytes=0-739` (init) | pular 0 é no-op | **funcionava** — e escondia o resto atrás de si |
-| `A ≥ tamanho da fatia` | `ComputeBounds` reprova → `ERR_FAILED` **antes de qualquer cabeçalho** | `a requisição não completou (Failed to fetch)` |
-| `A < tamanho da fatia` | pula `A` DENTRO da fatia e entrega bytes do offset absoluto `2A` | pior: o `fetch` RESOLVE e o vídeo não toca |
-
-Ou seja: **só a primeira requisição de cada faixa podia funcionar, sempre** — e
-todo fragmento de mídia começa a megabytes do início do arquivo. Não existia
-versão desta arquitetura que funcionasse com a faixa viajando no cabeçalho.
+Como todo fragmento de mídia começa a megabytes do início, **só a primeira
+requisição de cada faixa podia funcionar**.
 
 **A correção é sair do contrato, não emulá-lo.** Do shell 27 em diante o
 `shared/mse.js` pede `/stream/<token>?r=<ini>-<fim>` **sem cabeçalho `Range`
 nenhum**: sem cabeçalho, `ParseRange` não acha nada, o seek não acontece, e a
-fatia chega inteira. A resposta é um **200 seco** — sem 206, sem `Content-Range`,
-sem `Accept-Ranges`, e sem `Content-Length` nosso (o loader escreve o dele a
-partir do `available()`; o nosso entrava depois com `AddHeader`, e hoje saem
-dois na resposta do init, coincidindo por acaso).
+fatia chega inteira. A resposta é um **200 seco** — sem 206, sem
+`Content-Range`, sem `Accept-Ranges`, e sem `Content-Length` nosso (o loader
+escreve o dele a partir do `available()`).
 
-O ramo do cabeçalho continua atendido para a janela em que um bundle web antigo
-roda num shell novo, embrulhado em `FatiaComoTodo`: o stream soma o prefixo que
-não existe no `available()`, absorve o primeiro `skip` e zera o fantasma na
-primeira leitura real — assim a maquinaria do próprio WebView produz o resultado
-certo, e se um dia ela deixar de refatiar a fatia sai crua e correta.
-
-##### Por que a v1.54 não resolveu, e por que o log não avisou
-
-A v1.54 acertou que devolver o `conn.inputStream` vivo era errado — a conexão
-agora morre com o método (`try/finally`), nenhum socket meio-lido volta para a
-piscina do `HttpURLConnection`. Só que o socket estava **a montante** do
-defeito: nada do que o proxy faz com a conexão remove o cabeçalho `Range` da
-requisição. A mudança trocou o RAMO da falha sem trocar o desfecho —
-`available()` de um socket costuma ser 0 (reprovava no `SkipToRequestedRange`),
-`available()` de um `ByteArrayInputStream` é o tamanho da fatia (passou a
-reprovar no `ComputeBounds`) —, e o `ERR_FAILED` é o mesmo dos dois lados.
-
-E há a parte desconfortável: **a v1.54 não podia mudar a mensagem nem se
-tivesse consertado algo.** As respostas de erro do proxy tinham corpo vazio; com
-`available() == 0` e uma faixa fora do zero, o `ComputeBounds` reprova
-(`size == 0` → false) e a resposta inteira vira erro de rede sem status. Toda a
-tabela de mensagens da v5.125 — `404 token desconhecido`, `403 googlevideo:
-Forbidden`, `502` com o texto da exceção — era **indeliverável para qualquer
-requisição que não fosse a primeira**. A leitura por eliminação que abriu a
-v1.54 ("não apareceu 403, 404 nem 502, logo não é o CDN nem o token") estava
-cega por construção: três rodadas foram medidas com o instrumento quebrado.
-
-Por isso a v1.55 também mexe no canal de erro: **corpo não vazio** (a razão em
-ASCII, embrulhada no `FatiaComoTodo` quando há deslocamento) e razão **saneada
-para ASCII** — `WebResourceResponse` lança `IllegalArgumentException` para
-qualquer caractere fora de `0x20..0x7E`, e `IOException("pedaço acima de 24 MB")`
-tem cedilha: estourar o teto não produzia um 502 legível, produzia uma segunda
-exceção de dentro do `catch`.
-
-##### O que ficou travado no CI
+- **`FatiaComoTodo`** atende o ramo do cabeçalho (bundle antigo em shell novo):
+  soma o prefixo que não existe no `available()`, absorve o primeiro `skip` e
+  zera o fantasma na primeira leitura real — a maquinaria do WebView produz o
+  resultado certo, e se um dia ela deixar de refatiar, a fatia sai crua e
+  correta.
+- **Erro precisa de corpo NÃO VAZIO.** Com `available() == 0` e faixa fora do
+  zero, `ComputeBounds` reprova e a resposta inteira vira erro de rede sem
+  status: **toda a tabela de mensagens abaixo é indeliverável** para qualquer
+  requisição que não seja a primeira.
+- **E a razão é saneada para ASCII:** `WebResourceResponse` lança
+  `IllegalArgumentException` para qualquer caractere fora de `0x20..0x7E` —
+  `IOException("pedaço acima de 24 MB")` tem cedilha, e estourar o teto produzia
+  uma segunda exceção de dentro do `catch` em vez de um 502 legível.
+- **O teto de 24 MB é TRAVA, não economia:** existe para o dia em que alguém
+  apontar este proxy para uma faixa aberta e um vídeo inteiro tentar caber na
+  memória do processo que hospeda os dois WebViews e a `Presentation`. O custo
+  normal é a memória de UM pedaço (init: centenas de bytes; índice: poucos kB;
+  um fragmento por vez).
 
 `tools/webview-range.test.mjs` **transcreve** a regra do Chromium (com
 `arquivo:função` de cada trecho) e roda os dois modelos de `InputStream` contra
-ela, sobre um recurso sintético em que o byte `i` vale `i % 251` — primo, de
-propósito: um deslocamento errado sai como **bytes errados**, e não como tamanho
-errado, que é o único jeito de um teste enxergar a corrupção silenciosa do
-terceiro ramo. Ele prova que a fatia crua **não atende** um pedido no meio do
-arquivo, que o `FatiaComoTodo` atende, e que sem cabeçalho atende sempre.
+ela, sobre um recurso em que o byte `i` vale `i % 251` — primo de propósito: um
+deslocamento errado sai como **bytes errados**, não como tamanho errado, que é o
+único jeito de enxergar a corrupção silenciosa do terceiro ramo. Se o Chromium
+mudar essa regra, o lugar de descobrir é o CI, não o culto.
 
-É Node puro, determinístico, sem rede: entra no CI **sem** `continue-on-error`.
-A transcrição é a hipótese ficando explícita e versionada — se o Chromium mudar
-essa regra, o lugar de descobrir isso é o CI, não o culto.
+> **O caminho FELIZ não é testável aqui** (exige um fMP4 de verdade, e não há
+> ffmpeg no ambiente). O que se trava é o contrato, dos dois lados:
+> `webview-range` prova a REGRA e `mse.test.mjs` prova o que sai pelo FIO (a
+> faixa na URL, sem cabeçalho).
 
-E `tools/mse.test.mjs` ganhou as duas asserções **negativas** que resumem o
-desenho: no app (shell 27) o primeiro pedido é `/stream/v?r=0-739` e
-`req.headers.range` é `undefined`; num shell antigo o player desiste na hora,
-sem uma única requisição, para o dono cair no download.
+##### O pôster padrão do WebView
 
-##### As três coisas que a leitura dos bytes inteiros continua garantindo
+Um `<video>` sem `poster` é pintado pelo WebView com **um retângulo cinza e um
+play preto gigante** (contrato de `WebChromeClient.getDefaultVideoPoster`) — não
+há como estilizá-lo, só como deixar de pedi-lo. O `stage.js` já escondia o
+elemento enquanto não havia `src`; com `MediaSource` o elemento entra em cena
+vazio e só ganha quadro depois de init + índice + primeiro fragmento virem da
+REDE — **"sem `src`" virou "sem dados"**. A correção é `POSTER_VAZIO` (1×1
+transparente), posto a cada `load` e removido no `loadeddata`:
 
-O custo é a memória de UM pedaço, e ele é pequeno por construção: o player pede
-o init (centenas de bytes), o índice (poucos kB) e um fragmento por vez. O teto
-de 24 MB não existe para economizar — existe como trava, para o dia em que
-alguém apontar este proxy para uma faixa aberta e um vídeo inteiro tentar caber
-na memória do processo que hospeda os dois WebViews e a `Presentation`.
+- **transparente e não preto** — as camadas já pintam `--stage-bg`, e um segundo
+  "qual preto" divergiria da paleta;
+- **removido no primeiro quadro** porque o *show poster flag* do HTML continua
+  LIGADO num vídeo pausado que ainda não tocou.
 
-> **O que ainda não é testável aqui.** O caminho FELIZ (init → índice →
-> fragmentos → imagem no telão) exige um fMP4 de verdade, e não há ffmpeg neste
-> ambiente para gerar um. O que dá para travar é o contrato — e é o que os dois
-> testes fazem, cada um do seu lado: `tools/webview-range.test.mjs` prova a
-> REGRA (o WebView refatia o que devolvemos) e `tools/mse.test.mjs` prova o que
-> sai pelo FIO (a faixa na URL, sem cabeçalho).
+##### As mensagens de falha SÃO o produto
 
-##### CONFIRMADO em aparelho (v1.55)
+Este recurso roda no aparelho do operador, num WebView, contra URLs que expiram:
+**não há como depurar de fora**, e a única coisa que atravessa essa distância é a
+linha do Registro. Ela só serve se disser em que passo morreu e com que resposta.
 
-```
-Transmissão: MediaSource ok (avc1+aac) · faixa na URL
-transmitindo 1080p (137@VISIONOS + 140@VISIONOS)
-```
-
-Sem nenhuma linha de falha atrás — o vídeo entra no telão sem download, em
-1080p adaptativo, montado pelo `MediaSource`. O mecanismo estava verificado em
-fonte primária (a cadeia `ParseRange` → `Seek` → `ComputeBounds` acima, lida de
-forma independente três vezes) e agora está **medido**.
-
-Vale guardar as duas lições de método, porque elas custaram três rodadas de APK:
-
-- **Publicar não é medir.** A v1.54 saiu como conserto de um mecanismo deduzido
-  por eliminação, sem uma única medição que o distinguisse das alternativas.
-- **Nem toda ausência de mensagem é evidência.** A eliminação que abriu a v1.54
-  ("não apareceu 403, 404 nem 502") raciocinava sobre mensagens que **não podiam
-  chegar** — corpo de erro vazio + faixa fora do zero é reprovado pelo mesmo
-  `ComputeBounds`. Antes de concluir do silêncio, é preciso provar que o canal
-  falava.
-
-E os números que apareceram nas rodadas anteriores (`bytes=740-1200`, 461 bytes)
-**nunca foram medidos**: saíram da fixture de `tools/mse.test.mjs` e foram lidos
-como se fossem dump de aparelho. Não podiam ter sido medidos, aliás — até a
-v5.127 o ramo de falha de REDE do `pegar()` era o único dos três que **não
-imprimia a faixa**. Agora imprime.
-
-##### O pôster padrão do WebView, que aparecia na estreia (v5.128)
-
-Com a transmissão funcionando, sobrou um defeito visual que só ela produz: um
-retângulo **cinza com um play preto gigante** piscando algumas vezes antes do
-primeiro quadro.
-
-Não é do app: é o **pôster padrão do WebView**. O contrato está escrito em
-`WebChromeClient.getDefaultVideoPoster` — *"o elemento de vídeo é representado
-por uma imagem de pôster; ela pode ser dada pelo atributo `poster`, e se o
-atributo estiver ausente **um pôster padrão será usado**"*. Não há como
-estilizá-lo; só como deixar de pedi-lo.
-
-O `stage.js` já conhecia esse placeholder pela metade — ele esconde o `<video>`
-enquanto não há `src`, com o comentário dizendo em voz alta que "um elemento de
-vídeo visível e sem `src` é pintado como um retângulo claro com botão de play".
-O que a transmissão mudou foi a **duração da janela**: com um arquivo local o
-`src` vira quadro em milissegundos; com um `MediaSource`, o elemento entra em
-cena vazio e só ganha o primeiro quadro depois de init + índice + primeiro
-fragmento virem da REDE. "Sem `src`" virou "sem dados", e a regra de esconder
-não alcançava esse caso.
-
-A correção é um **pôster 1×1 transparente** (`POSTER_VAZIO`), posto a cada
-`load` junto com a limpeza da fonte, e **removido no `loadeddata`**. As duas
-metades importam:
-
-- Transparente, e não preto: as camadas já pintam `--stage-bg` por baixo, então
-  o que aparece é exatamente o preto do palco — sem uma segunda definição de
-  "qual preto" para divergir da paleta.
-- Removido no primeiro quadro porque o `show poster flag` do HTML continua
-  LIGADO num vídeo pausado que ainda não tocou: mantê-lo faria a cena
-  restaurada PAUSADA (a reconexão do dongle) mostrar o preto do palco no lugar
-  do quadro congelado — justamente o que ela existe para mostrar.
-
-**O que NÃO foi feito, e por quê:** esconder o `<video>` (via `hidden`) até
-haver quadro seria a extensão literal da regra existente, mas `display:none`
-durante o MSE arrisca o decode nunca acontecer — e um telão preto para sempre é
-falha muito pior que um piscar. O pôster não pode apagar a projeção: no limite,
-ele não faz nada.
-
-##### O aviso de atualização (v5.132)
-
-O OTA era **invisível por completo**: o bundle novo chegava calado e entrava na
-abertura seguinte. Quem quisesse a correção do dia — e a correção mais urgente é
-justamente a que ninguém quer esperar — tinha de saber, por fora, que precisava
-fechar e reabrir o app.
-
-Agora o Controle pergunta ao shell (`AVNative.otaPending`) e, havendo uma versão
-esperando, oferece aplicá-la na hora. Aceitar chama `otaApply`, que troca a base
-servida e recarrega as duas páginas.
-
-As regras do aviso são todas sobre **quando não perguntar**:
-
-- **Com cena no ar, não.** Aplicar recarrega os dois WebViews e o telão pisca. A
-  garantia 1 do OTA existe contra a troca ACIDENTAL; oferecer no meio de uma
-  projeção seria transformá-la num acidente com convite. A leitura de "há cena"
-  é a MESMA de `pushNowPlaying` — mídia, mensagem, versículo, letra, cronômetro
-  e sorteio —, para as duas não divergirem.
-- **Com download em curso, também não.** Os `fetch` são desta página: recarregar
-  mata o download no meio, e o arquivo que o shell terminar de baixar não teria
-  mais quem o recebesse.
-- **Recusar vale para a sessão inteira.** Um aviso que volta de minuto em minuto
-  vira ruído, e ruído em culto é pior que a versão antiga.
-- **A pergunta diz que dá para não fazer nada:** a atualização entra sozinha na
-  próxima abertura de qualquer jeito. Sem isso, "Depois" pareceria "ficar para
-  trás".
-
-Nas horas em que a pergunta não pode aparecer, o **Registro** diz o que está
-esperando (`Atualização: v5.132 baixada (esperando a tela livre)`) — é ele que
-responde "por que ainda estou na versão antiga?".
-
-##### Cancelar o download, e os restos que ninguém coletava (v5.131)
-
-Três coisas que chegaram do aparelho na mesma rodada, e duas delas eram o mesmo
-defeito visto de ângulos diferentes.
-
-**1. O toque num download em curso não fazia nada.** A linha do resultado tinha
-`if (li.classList.contains('baixando')) return;` — literal. Um download começado
-por engano (o vídeo errado, o teto errado, a rede ruim) só terminava esperando
-ele acabar. Agora o toque CANCELA, com confirmação: o toque nessa linha era
-inerte até ontem, e quem tocar por reflexo não pode perder dez minutos de
-download por isso.
-
-Do lado nativo é um **sinalizador**, não uma interrupção de thread — o laço de
-cópia o consulta a cada bloco de 64 kB e desiste sozinho, deixando a limpeza do
-arquivo parcial para o `catch` que já existia. Interromper a thread mataria a
-extração e o `HttpURLConnection` no meio.
-
-Dois cuidados que não são detalhe:
-
-- **O `ytCancel` não vai para a fila de IO da ponte.** Ela é de UMA thread e
-  está ocupada justamente pelo download que se quer parar: enfileirar o
-  cancelamento o faria rodar depois de o download terminar, que é o oposto de
-  cancelar.
-- **O pedido morre com o download que ele cancelou.** Um "cancelar" que chega
-  tarde (o download já tinha acabado) ficaria armado e mataria o PRÓXIMO
-  download do mesmo vídeo — que é exatamente o que o operador faria em seguida.
-  Do lado web há a guarda espelhada: se o download terminar durante a pergunta,
-  o pedido não é enviado; e se o arquivo vier mesmo assim (o cancelamento
-  chegou durante o `MuxMp4`), ele é descartado em vez de virar item.
-
-**2. "Download pronto" em vídeos que não estão em seção nenhuma.** Este era o
-sintoma; a causa é de dentro do banco. O `listSet` — o outro escritor de listas,
-ao lado do `listRemove` — gravava a lista nova e ia embora, **sem coletar o que
-saía dela**. É o mesmo defeito que o `folderDrop` tinha até a v5.103.
-
-E não é hipotético: `listSet('playlist', [rec.id])` (tocar um item "só ele")
-substitui a playlist INTEIRA, e cada item que ela tinha e que não estivesse no
-Cronograma ou nos Favoritos ficava para trás — um registro que nenhuma lista
-aponta, que **a busca do YouTube ainda encontra pelo índice `youtubeId`** (daí o
-"pronto" fantasma) e que nenhum gc alcançava, com o blob junto, ocupando disco
-para sempre.
-
-A correção é o `listSet` varrer o que saiu, na MESMA transação e pela mesma
-`isReferenced` de todo o resto — reordenar (mesmo conjunto, outra ordem) não
-apaga nada, e um id que saiu daqui mas está noutro detentor continua inteiro.
-
-**3. A faxina dos restos que já existem.** Consertar o `listSet` impede órfãos
-novos; não desfaz os que já estão nos aparelhos. `AVDB.gcOrfaos()` varre o store
-`media` uma vez por abertura e remove o que nenhum detentor aponta — e o
-Registro de Configurações passa a dizer quantos removeu, porque uma limpeza
-silenciosa que apaga mídia é indistinguível de um sumiço.
-
-Não há janela de corrida: `addMediaToList` grava o registro e a lista na mesma
-transação, então um registro recém-nascido nunca está sem dono nem por um
-instante.
-
-`tools/db-gc.test.mjs` trava tudo isso contra um IndexedDB de verdade — é o
-único código do app que apaga mídia do operador, e um erro ali não dá tela
-branca: some com o vídeo do domingo, em silêncio e sem desfazer. O teste
-reproduz o defeito pelo caminho por onde ele nasceu (um `setState` cru) e
-verifica as duas metades: o que tem dono sobrevive, o que não tem some, e a
-segunda passagem não acha mais nada.
-
-##### "Só áudio" também transmite (v5.130)
-
-O "Tocar agora · Só áudio" ficava de fora da transmissão — a guarda era literal,
-`if (tocar && !soAudio && …)`. A razão era histórica: a transmissão nasceu como
-um PAR de faixas adaptativas, e `AVStream.suportado` exigia as duas. O efeito é
-que o caso mais leve do app era o único obrigado a esperar um download.
-
-E "rápido" não é o pedido. Um m4a de alguns MB baixa em segundos — segundos com
-o culto rodando e o operador parado. A transmissão começa a tocar com o primeiro
-fragmento, na casa dos kB.
-
-**Não custou nada ao shell**, e é o detalhe que faz este recurso chegar por OTA:
-o `manifesto()` do Kotlin já monta o par no MESMO JSON, então pedir "só o áudio"
-é **descartar um descritor** (`man.video = null`) — não um segundo pedido, não
-uma segunda extração, e nenhum byte de 1080p baixado para ser jogado fora. Do
-lado do motor, `faixasDe(man)` passou a listar as faixas PRESENTES, e tanto o
-`suportado` quanto o `addSourceBuffer` seguem essa lista.
-
-Três consequências que precisam andar juntas, e o `kind` é quem as amarra:
-
-- **`kind: 'audio'`** no registro (e sem miniatura): é ele que faz o telão
-  manter o wallpaper em vez de trocar de imagem — a mesma regra do
-  `ytFetchAudio`.
-- **O fallback baixa a MESMA forma.** Se a transmissão morrer, `recuperarStream`
-  passa `somenteAudio` ao `ytArquivo`; sem isso quem pediu só o som receberia o
-  vídeo de 80 MB de volta.
-- **A re-extração também.** Um manifesto novo (URL expirada) volta com o par, e
-  ele é reduzido do mesmo jeito antes de ser gravado.
-
-O que continua valendo só para "Tocar agora": as outras três ações GUARDAM o
-item, e um manifesto expira em horas. Ali o download é o certo.
-
-##### A transição de entrada, que existia pela metade (v5.129)
-
-Sem o placeholder, ficou visível o que estava embaixo dele: a mídia velha
-esmaecia até o preto e a nova **entrava no talo**, em opacidade cheia. A
-transição de saída existia desde sempre (`runFadeOut`); a de entrada, **não** —
-o que se chamava de "fade in" era a CORTINA do wallpaper esmaecendo por cima
-(`coverOut`), e ela só entra em cena quando estava cobrindo.
-
-E há um detalhe que só apareceu ao escrever o teste: **para um vídeo a cortina
-nunca chega a esmaecer.** `play()` chama `instantCover(computeCover())` ainda
-dentro do `load()`, e com uma mídia visual em cena isso arranca o wallpaper
-INSTANTANEAMENTE. Ou seja, no caminho de um vídeo o `coverOut()` já encontra
-`coveredNow === false` e não faz nada: o fade de conteúdo não é um caso de
-borda: **é a única transição de entrada que um vídeo tem.**
-
-`runFadeIn` espelha o `runFadeOut`, com três cuidados:
-
-- **A opacidade 0 é escrita antes de qualquer pintura**, não depois de revelar:
-  o `applyMedia()` (e o `play()` antes dele) tira o `hidden`, e um elemento
-  revelado em opacidade cheia pinta um quadro antes de a transição começar — o
-  estouro que o fade existe para evitar. Entre uma coisa e outra não há `await`,
-  então nenhum quadro escapa.
-- **Espera o primeiro quadro** (`mediaReady`) antes de subir. Sem isso o fade
-  correria sobre a camada ainda vazia e o conteúdo pipocaria no meio dela — o
-  mesmo motivo pelo qual a cortina já esperava. E o prazo de socorro do
-  `mediaReady` passou a ser do CHAMADOR: 2,5 s serve para um arquivo local, mas
-  num stream a rede inteira está no meio, e o prazo curto fazia a transição
-  correr sobre o preto (15 s ali, e enquanto ele corre o palco mostra o mesmo
-  preto que mostraria de qualquer jeito).
-- **O som entra junto.** A rampa de volume da entrada corria colada ao `play()`,
-  o que está certo para um arquivo — e errado para um stream, cujo `play()` não
-  produz som nenhum: o áudio só começa quando o primeiro fragmento chega, e a
-  essa altura a rampa já teria terminado sozinha, entregando o som no talo
-  justamente quando a imagem aparece. Num stream ela viaja com quem revela a
-  mídia (a cortina abrindo ou o `runFadeIn`).
-
-`tools/stage-fade.test.mjs` trava isso num Chromium de verdade, e o teste é
-DISCRIMINANTE por construção: ele exige um `0` seguido, em ordem, de um `1`
-**escrito** — só o `runFadeIn` escreve o `1`. Sem essa exigência a asserção
-passaria vendo o fade de SAÍDA (que escreve `0` no mesmo elemento) e chamando-o
-de entrada; foi exatamente o que a primeira versão dele fez.
-
-#### As mensagens de falha viraram produto testado (v5.125)
-
-Duas coisas quase saíram erradas nesta rodada, e as duas dizem o mesmo:
-
-**A aridade que ninguém vê.** Uma refatoração deixou `pegar()` com três
-parâmetros enquanto três chamadas passavam quatro. O rótulo do passo virava
-`undefined` em silêncio: as mensagens ricas que estas versões inteiras existem
-para produzir sairiam mutiladas. `node --check` não vê aridade, e a fumaça do
-Controle não exercita streaming.
-
-**O 404 ambíguo.** Qualquer exceção no `StreamProxy` virava `notFound()` — o
-mesmo 404 de "token desconhecido". Uma falha de REDE se leria como "não achei",
-que manda procurar o defeito no roteamento. Agora são códigos distintos, e o
-MOTIVO viaja na razão HTTP (`statusText`), que o lado web escreve no Registro:
+O que o `StreamProxy` responde:
 
 | Resposta | Significa |
 |---|---|
@@ -3638,343 +3361,120 @@ MOTIVO viaja na razão HTTP (`statusText`), que o lado web escreve no Registro:
 | `403 (googlevideo: Forbidden)` | o CDN recusou — o proxy chegou lá |
 | `404` **sem** razão | o proxy NEM foi consultado (respondeu o asset loader) |
 
-##### Por que testar mensagem de erro
-
-Porque neste recurso **a mensagem é o produto**. A transmissão roda no aparelho
-do operador, num WebView, contra URLs que expiram — não há como depurar de fora.
-A única coisa que atravessa essa distância é a linha do Registro, e ela só serve
-se disser em que passo morreu e com que resposta.
-
-`tools/mse.test.mjs` sobe um servidor de mentira que responde o que se pedir e
-confere as mensagens que chegam ao `onErro`: os quatro cenários da tabela acima,
-mais um que só se pega olhando — **nenhuma mensagem pode conter `undefined`**, que
-é exatamente o que a armadilha da aridade produz.
-
-Ele roda com **VP9 + Opus**, e não com o `avc1`+`aac` do aparelho: o Chromium do
-Playwright é o build open-source e não traz os codecs proprietários, então
-`addSourceBuffer` recusaria `avc1` e todo cenário morreria antes do que se quer
-medir. O motor não sabe a diferença — ele repassa a string ao navegador e busca
-byte-ranges. Quem confere o suporte REAL do aparelho é o próprio Registro.
-
-##### Duas correções que vieram do teste, e no código
-
-O teste reprovou duas coisas, e as duas eram do código, não das expectativas:
-
-- os papéis saíam como `video`/`audio` num log inteiro em português — agora
-  `vídeo`/`áudio`;
-- bytes inválidos produziam `video sourcebuffer`, que não diz nada a ninguém. A
-  recusa do decodificador chega por DUAS vias (exceção do `appendBuffer` ou
-  evento de erro do SourceBuffer, dependendo de quando o navegador percebe), e
-  agora as duas têm a mesma redação: quem lê o log não deve precisar saber a
-  diferença.
-
-#### Decidir e conseguir são duas coisas (v5.124)
-
-A v5.123 respondeu a pergunta errada. O log passou a dizer, corretamente,
-`→ transmitindo 1080p (137@VISIONOS + 140@VISIONOS)` — e o operador continuou
-vendo download. Não havia contradição: a transmissão **foi escolhida** e depois
-**falhou tocando**. O log cobria a decisão e não o resultado.
-
-A linha do tempo já contava a história, para quem soubesse lê-la:
-
-```
-12:17:57  📱 play  0s
-12:17:58  📱 PAUSA ESPONTÂNEA  0s
-12:18:00  📱 play  0s
-12:18:00  📱 PAUSA ESPONTÂNEA  0s
-```
-
-`PAUSA ESPONTÂNEA` **não é vídeo travando** — um `<video>` que fica sem dados
-emite `waiting`, não `pause`. O que emite `pause` é o `video.pause()` no topo do
-`load()`, ou seja, uma mídia NOVA entrando. É a recuperação rodando: falhou →
-manifesto novo → falhou → download. E tudo em cerca de um segundo, o que aponta
-para a **primeira requisição**, não para o meio da reprodução.
-
-Duas correções:
-
-**O erro de reprodução entrou no Registro.** `AVStream.ultimoErro` guarda o
-último motivo e o Registro o mostra como `falhou ao tocar: …`. Ele existia
-apenas como `console.warn`, que não chega a quem opera o culto — e é justamente
-quem opera que vê a falha acontecer.
-
-**E cada falha passou a dizer em que PASSO morreu.** Este player busca três
-coisas por faixa — inicialização, índice e mídia — e elas falham por motivos
-diferentes, com consertos diferentes. Agora a mensagem carrega o passo, a faixa,
-a faixa de bytes pedida e o status:
+O que o player escreve (`AVStream.ultimoErro` → `falhou ao tocar: …`), com
+passo + faixa + bytes pedidos + status:
 
 | Mensagem | O que aconteceu |
 |---|---|
-| `init vídeo: HTTP 403 pedindo bytes 0-739` | o googlevideo recusou — o proxy chegou lá, a URL é que não serve |
-| `init vídeo: HTTP 404 …` | o **proxy não foi alcançado**; quem respondeu foi o asset loader |
+| `init vídeo: HTTP 403 pedindo bytes 0-739` | o googlevideo recusou |
+| `init vídeo: HTTP 404 …` | o **proxy não foi alcançado** |
 | `init vídeo: a requisição não completou` | o `fetch` nem saiu |
-| `init vídeo: resposta vazia (HTTP 206, pedidos 740 bytes)` | veio status bom e zero bytes — o caso mais traiçoeiro, porque o `appendBuffer` aceita sem reclamar e o vídeo simplesmente nunca começa |
+| `init vídeo: resposta vazia (HTTP 206, pedidos 740 bytes)` | status bom e zero bytes — o mais traiçoeiro, porque o `appendBuffer` aceita sem reclamar e o vídeo nunca começa |
 | `init vídeo: o decodificador recusou (…) — mime …` | os bytes vieram e o WebView não os quis |
 | `índice vídeo: sidx não reconhecido (N bytes em …)` | o `indexRange` não continha um `sidx` |
 
-Os três primeiros são distinguíveis entre si, e essa é a graça: eles apontam
-para lugares completamente diferentes do caminho.
+Regras que sustentam isso:
 
-> **De quebra, uma linha que mentia.** `manifesto()` escrevia o `resumo(info)` em
-> `diagnostico` — o campo do DOWNLOAD. O Registro então exibia um bloco
-> `download:` para uma extração em que download nenhum aconteceu, e sem
-> desfecho, o que se lê como um download travado. Agora o resumo da extração de
-> transmissão fica no campo da transmissão, onde ele pertence.
+- **`diagnostico` e `diagnosticoStream` são campos SEPARADOS.** `buscar()` começa
+  com `diagnostico = resumo(info)`, e como a desistência da transmissão é
+  justamente o que dispara o download, o motivo durava até a linha seguinte.
+- **`porQueNaoDash` conta, por tipo de faixa, quantas passam em CADA
+  pré-requisito** — `vídeo mp4 6 (init 6 · índice 0 · codec 6)`. "Não deu" não
+  leva a lugar nenhum; essa linha responde de uma vez se o problema é o YouTube
+  não mandar os byte-ranges, a biblioteca não preencher o codec, ou não haver
+  faixa mp4.
+- **`Faixa.dash` exige init + índice, e NÃO tamanho.** O `contentLength` do
+  `ItagItem` nasce em `-1` quando o YouTube não informa, e quem diz onde cada
+  fragmento começa é o `sidx` — a transmissão inteira já foi barrada por um campo
+  que o player nem usa.
+- **Codec recusado imprime as STRINGS testadas** (`video/mp4; codecs="avc1.640028"`)
+  e o veredito de cada uma.
+- **`PAUSA ESPONTÂNEA` não é vídeo travando**: um `<video>` sem dados emite
+  `waiting`, não `pause`. O que emite `pause` é o `video.pause()` no topo do
+  `load()` — isto é, mídia NOVA entrando.
 
-#### Por que a transmissão não entrou — o log passa a dizer (v5.123)
+`tools/mse.test.mjs` sobe um servidor de mentira, confere as mensagens que chegam
+ao `onErro` e afirma que **nenhuma pode conter `undefined`** (a armadilha de
+aridade: `node --check` não vê aridade, e uma refatoração deixou `pegar()` com
+três parâmetros e três chamadas passando quatro). Ele roda com **VP9 + Opus**, e
+não com o `avc1`+`aac` do aparelho: o Chromium do Playwright é o build
+open-source e não traz codecs proprietários, então `addSourceBuffer` recusaria
+`avc1` e todo cenário morreria antes do que se quer medir. Quem confere o suporte
+REAL é o Registro do aparelho.
 
-Em aparelho, "Tocar agora" continuou BAIXANDO. E o Registro não ajudava: ele
-mostrava `→ juntou 1080p (mp4, 137@VISIONOS/V)`, que é a linha do **download**.
-Lido de fora, parecia que a transmissão nem tinha sido tentada.
+#### UM registro só
 
-Duas causas estruturais, e as duas eram de diagnóstico, não de projeto:
+Quatro blocos: **identificação** (versões da base, do shell e da ponte; estado do
+telão; alvo de espelhamento; UA), **transmissão** (se este WebView tem
+`MediaSource` e aceita `avc1`+`aac` — a primeira pergunta quando um "Tocar agora"
+cai no download), **a última extração do YouTube**, e **a linha do tempo** dos
+dois processos em ordem de relógio. O cabeçalho existe por razão prática: um log
+colado sem contexto obriga a primeira resposta a ser sempre a mesma pergunta.
 
-**1. O motivo era APAGADO pelo que veio depois.** `manifesto()` e `buscar()`
-escreviam no mesmo `YoutubeGrab.diagnostico`, e `buscar()` começa com
-`diagnostico = resumo(info)`. Como a desistência da transmissão é justamente o
-que dispara o download, o motivo durava até a linha seguinte. Agora são dois
-campos — `diagnostico` e `diagnosticoStream` —, nenhum sobrescreve o outro, e
-`ytDiag()` entrega os dois em linhas separadas (o destino é um `<pre>` que rola,
-então multi-linha não custa nada).
+- **Copia-se o registro MONTADO, nunca o visível.** `diagTexto` é a ÚNICA fonte —
+  não existe mais visor (`#diagBox` saiu na v5.207: 240 px empurrando para fora
+  da tela as linhas que o operador de fato ajusta, para exibir a 0,68 rem um log
+  cujo consumidor é um humano A DISTÂNCIA). Um botão de copiar que lesse o DOM
+  emudeceria por inteiro.
+- **`renderDiag` é assíncrona e roda duas vezes ao abrir a folha** (uma com o que
+  já se tem, outra quando a resposta do telão chega) — daí a **guarda de
+  sequência**, mesmo padrão do `loadSeq` do stage: sem ela a primeira pode
+  terminar depois da segunda e sobrescrevê-la com a linha do tempo SEM os eventos
+  do telão, que é justamente o que se foi buscar.
+- Se um dia voltar uma caixa de log: **`white-space: pre-wrap`, não `pre`** — a
+  linha do YouTube tem centenas de caracteres e viraria rolagem horizontal.
 
-**2. Cinco pontos de desistência mudos, e três deles antes da ponte.**
-`tentarTransmitir` desistia sem dizer nada quando: não há ponte, o shell é
-anterior ao 26, o `mse.js` não carregou, o resultado não tem URL, a ponte
-falhou, o manifesto veio nulo, os codecs foram recusados ou o registro não foi
-criado. Os três primeiros acontecem no lado web — ali o Kotlin não tem o que
-dizer, por isso o motivo tem um bloco próprio no Registro.
+#### O download responde na MINIATURA, nunca numa faixa flutuante
 
-No caso dos **codecs recusados**, o log agora mostra as STRINGS testadas
-(`video/mp4; codecs="avc1.640028"`) e o veredito de cada uma. "Não deu" não leva
-a lugar nenhum; a string exata leva.
+Aviso pertence ao lugar onde a ação aconteceu. No caminho do YouTube o botão
+NUNCA está visível (o `songMenuItem` chama `closeSongMenu()` antes da ação),
+então `responder(btn, …)` caía sempre no aviso flutuante — no fluxo mais demorado
+do app. Hoje o download só pulsa quando o botão por acaso está na tela; sem botão
+visível, **silêncio**, porque a miniatura do resultado já troca o anel pelo ✓
+(`setYtEstado('pronto')`).
 
-##### E as contas que dizem o que faltou
+**A falha ganhou o terceiro estado da MESMA miniatura** (`erro`, ao lado de
+`baixando` e `pronto`): um download de minutos que termina em nada é o pior
+silêncio possível do app. Em `--danger-text` sobre `--danger-soft`, e não
+preenchido — vermelho preenchido é "está no ar agora". Some sozinho em 4 s e a
+linha volta a aceitar o toque, porque tentar de novo é o que se quer depois de
+uma falha de rede.
 
-`sem par DASH para transmitir` tinha o mesmo defeito em miniatura: dizia que não
-deu, não o que faltou. Agora `porQueNaoDash` conta, por tipo de faixa, quantas
-passam em **cada** pré-requisito:
+#### A linha da lista: nome + SUBTÍTULO
 
-```
-transmissão: vídeo mp4 6 (init 6 · índice 0 · codec 6) · áudio m4a 2 (init 2 · índice 0 · codec 2)
-             → SEM PAR DASH, caindo no download
-```
+O tipo era um **selo** irmão do nome num `flex` em que o nome tem `flex: 1` —
+isto é, disputava largura com ele: **a informação sumia exatamente nos itens de
+nome comprido**, que são os que menos se distinguem entre si. E vídeo, áudio e
+imagem nunca tiveram selo nenhum.
 
-Uma leitura assim responde de uma vez se o problema é o YouTube não mandar os
-byte-ranges para este cliente, a biblioteca não preencher o codec, ou
-simplesmente não haver faixa mp4 — três correções completamente diferentes.
+Hoje nome e tipo vivem numa coluna (`.row-text`) e o tipo é a **segunda linha**,
+sempre visível. A linha continua com 51 px: a altura já era ditada pela miniatura
+de 40 px, e duas linhas de texto somam ~35 px.
 
-##### Uma exigência que saiu porque não era exigência
-
-`Faixa.dash` pedia `tamanho > 0`, e o `contentLength` do `ItagItem` nasce em
-**-1** quando o YouTube não o informa. Ou seja, a transmissão inteira podia estar
-sendo barrada por um campo que **o player nem usa**: quem diz onde cada
-fragmento começa e acaba é o `sidx`, que lista todos eles. Restaram as duas
-exigências de fato indispensáveis — o segmento de inicialização (sem ele o
-`SourceBuffer` rejeita qualquer mídia) e o índice.
-
-Se era essa a causa, a v1.52 já transmite. Se não era, o log agora diz qual das
-outras foi — que é o ponto.
-
-#### O botão morto, e o teste que faltava (v5.122)
-
-A v5.121 saiu com o botão de copiar o Registro **sem fazer nada**. A causa é
-instrutiva: ao remover o bloco do diagnóstico do YouTube, a deleção levou junto
-`copiarTexto` — que não era daquele bloco. Ela era o helper COMPARTILHADO de
-"copiar um campo de log" (a regra do projeto), e só morava ali porque foi ali
-que nasceu.
-
-O bug passou por tudo o que existia: `node --check` viu um arquivo perfeitamente
-parseável, porque **chamar uma função inexistente é erro de execução, não de
-sintaxe**. Quem descobriu foi o operador, no aparelho.
-
-Duas correções, e a segunda é a que importa:
-
-1. `copiarTexto` voltou, agora ao lado de quem a usa e com o comentário dizendo
-   o que ela é. Um helper compartilhado morando dentro do escopo visual de um
-   único consumidor é um convite a exatamente isto.
-2. **`tools/smoke.mjs`** — a base web sobe num Chromium de verdade, o app
-   inicializa, Configurações abre e o botão é TOCADO. O teste falha se qualquer
-   erro de console ou exceção de página aparecer no caminho.
-
-O teste foi validado do jeito certo: apagando `copiarTexto` de novo e conferindo
-que ele reprova — três falhas, com `pageerror: copiarTexto is not defined` no
-log. Um teste de regressão que nunca se viu falhar não é um teste.
-
-O que ele cobre, e por que essas coisas:
-
-| Verificação | Por quê |
-|---|---|
-| `AVDB` + `createStage` + `__avBack` existem | é o MESMO marcador do watchdog do OTA (`otaAppIsUp`); um segundo sinal envelheceria à parte do primeiro |
-| Configurações abre | um handler que estoura não muda nada na tela |
-| o Registro tem conteúdo | pega `renderDiag` quebrado |
-| não rola na horizontal | a regressão que o `pre-wrap` corrigiu |
-| o botão pulsa e o texto vai para a área de transferência | o bug desta versão |
-| nenhum erro de console | a rede de segurança genérica |
-
-**Sem `__AVBridge`, ele roda em modo navegador** — sem Presentation, sem ponte,
-sem YouTube nativo. É de propósito: o que se verifica aqui é o que vale nos dois
-contextos, e é justamente onde um erro derruba o app inteiro antes de qualquer
-recurso nativo entrar. Erros de rede EXTERNA são ignorados (o runner não tem
-saída, e o app é feito para funcionar sem rede durante o culto); um 4xx do
-próprio bundle, não.
-
-No CI ele é `continue-on-error`: um teste de navegador tem mais formas de falhar
-por infraestrutura do que por defeito real, e barrar o canal OTA por causa disso
-trocaria um risco raro por um bloqueio frequente. Ele grita no log; quem lê
-decide.
-
-#### UM registro só, numa caixa que rola (v5.121)
-
-O diagnóstico deste app cresceu por acréscimo, e acabou em dois lugares com
-naturezas opostas dentro da MESMA folha de Configurações:
-
-| Onde | O quê | O problema |
-|---|---|---|
-| `#diagBox` (`<pre>`, rolava) | a caixa-preta do telão | nenhum |
-| `#ytDiagBox` (rodapé) | a última extração do YouTube | **conteúdo de tamanho variável em espaço fixo** |
-
-*(Os dois elementos são história: o `#ytDiagBox` foi absorvido aqui na v5.121 e
-o `#diagBox` saiu na v5.207 — ver "O visor saiu", no fim desta seção.)*
-
-O segundo era o defeito. Uma extração com várias tentativas — e a fila de
-candidatos da v1.49 produz exatamente isso — transbordava a faixa do rodapé, e a
-parte de baixo ficava **inalcançável**: sem rolagem, sem "ver mais", sem nada.
-Um log que esconde o fim é pior que um log curto, porque o fim é justamente onde
-está o desfecho (`→ juntou 1080p`, `→ NADA baixou`).
-
-Agora é **um registro só**, com quatro blocos:
-
-1. **Identificação** — versões da base web, do shell e da ponte; estado do
-   telão; alvo de espelhamento; e o `User-Agent` do aparelho.
-2. **Transmissão** — se este WebView tem `MediaSource` e se ele aceita
-   `avc1`+`aac`. É o dado mais útil desde a v5.120: quando um "Tocar agora" cai
-   no download em vez de transmitir, a primeira pergunta é essa, e ela não se
-   responde de fora.
-3. **A última extração do YouTube** — o que era a faixa do rodapé.
-4. **A linha do tempo** dos dois processos, em ordem de relógio.
-
-**O VISOR SAIU (v5.207), e é o que sobrou que importa.** A caixa `<pre>` tinha
-240 px no meio de Configurações e empurrava para fora da tela as linhas que o
-operador de fato ajusta — para exibir, em 0,68 rem, um log cujo consumidor é um
-humano A DISTÂNCIA: ele é COPIADO, não lido ali. Ficaram a linha e o botão que a
-copia, e o texto vive em `diagTexto`, **não num nó do DOM**.
-
-Dois detalhes daquela era continuam valendo, e o segundo virou a regra inteira:
-
-- (**`white-space: pre-wrap`, não `pre`** era o que impedia a linha do YouTube —
-  centenas de caracteres — de virar rolagem HORIZONTAL dentro do visor. Sem
-  visor não há o que quebrar; a observação fica para quem for repor uma caixa de
-  log neste app.)
-- **Copia-se o registro MONTADO, nunca o visível.** Isto nasceu porque a caixa
-  rolava e copiar a janela entregaria um pedaço do meio; hoje é mais forte do que
-  isso — não existe "visível", e `diagTexto` é a ÚNICA fonte. Um botão de copiar
-  que lesse o DOM emudeceria por inteiro.
-
-O cabeçalho existe por uma razão prática: um log colado sem contexto obriga a
-primeira resposta a ser sempre a mesma pergunta ("qual versão? tem
-transmissão?"). Agora ele chega respondido.
-
-> `renderDiag` passou a ser **assíncrona** (pergunta o diagnóstico do YouTube à
-> ponte) e é chamada duas vezes ao abrir a folha — uma com o que já se tem,
-> outra quando a resposta do telão chega. Daí a guarda de sequência: sem ela a
-> primeira poderia terminar depois da segunda e sobrescrevê-la com a linha do
-> tempo SEM os eventos do telão, que é justamente o que se foi buscar. Mesmo
-> padrão do `loadSeq` do stage.
-
-> Achado de passagem: `diagCopyEl` já existia no `controle.js` — um `const`
-> apontando para um `#diagCopy` que o HTML **não tinha**, sem nenhum listener.
-> Referência pendurada desde a introdução da caixa-preta; agora o elemento
-> existe e ela tem função.
-
-#### O download termina na MINIATURA, não numa faixa (v5.119)
-
-A v5.106 tirou de cena o toast flutuante — aviso pertence ao lugar onde a ação
-aconteceu, e não a uma faixa que cobre o transporte. Restou uma porta dos
-fundos: `responder(btn, tipo, texto)` pulsa o botão **se ele estiver visível** e,
-se não estiver, cai no `avisar()` (a faixa `#saveHint`).
-
-No caminho do YouTube o botão NUNCA está visível — o `songMenuItem` chama
-`closeSongMenu()` antes de rodar a ação. Ou seja, **todo download terminava numa
-faixa flutuante**, justamente o que a v5.106 tinha removido, e no fluxo mais
-demorado do app.
-
-Ela também não fazia falta: quem já responde é a miniatura do resultado, que
-troca o anel de download pelo ✓ (`setYtEstado('pronto')`), mais a linha que
-aparece na lista de destino. O aviso repetia por escrito o que a tela acabara de
-mostrar.
-
-Agora o download só pulsa — e só quando o botão por acaso está na tela (a
-conversão de um link já no Cronograma, que não passa por folha nenhuma). Sem
-botão visível, silêncio.
-
-**A falha ganhou o terceiro estado da mesma miniatura.** Ela não podia
-simplesmente sumir junto com o aviso: um download de minutos que termina em nada
-é o pior silêncio possível do app (foi o buraco da v5.112). Então `erro` entrou
-ao lado de `baixando` e `pronto`, no mesmo canto, em `--danger-text` sobre
-`--danger-soft` — contornado e não preenchido, pela regra da paleta: vermelho
-preenchido é "está no ar agora" e não pode competir com o que está de fato no
-telão. Ele se desfaz sozinho em 4 s e a linha volta a aceitar o toque, porque
-tentar de novo é o que se quer depois de uma falha de rede.
-
-> Nota de paleta: `--danger-text` estava documentado em `tokens.css` como um
-> token SEM NENHUM CONSUMIDOR, guardado "para o caso de um dia existir uma
-> superfície". Este é o caso.
-
-#### A linha da lista: nome + SUBTÍTULO (v5.118)
-
-Até a v5.117 o tipo de um item era um **selo** ao lado do nome (`.url-badge`:
-"YT", "URL", e o subtipo das cenas de roteiro). O selo tinha um defeito
-estrutural, não de estilo: ele era irmão do nome num `flex` em que o nome tem
-`flex: 1`, ou seja, disputava largura com ele. Título curto, o selo aparecia;
-"Firme nas Promessas — Arautos do Rei (Ao Vivo em Brasília)", ele era espremido
-ou empurrado para fora. **A informação sumia exatamente nos itens de nome
-comprido — que são os que menos se distinguem entre si numa lista.** E vídeo,
-áudio e imagem nunca tiveram selo nenhum: para eles a pergunta "o que é isto?"
-não tinha resposta na tela.
-
-Agora o nome e o tipo vivem numa coluna (`.row-text`), e o tipo é a **segunda
-linha**, sempre visível. Medido: a linha continua com **51 px**, exatamente como
-antes — a altura já era ditada pela miniatura de 40 px, e duas linhas de texto
-somam ~35 px, que cabem dentro dela. A lista não ficou um pixel mais alta.
-
-O subtítulo é `subtituloItem()`, e ele diz **tipo + o detalhe que o registro já
-tem à mão**:
+`subtituloItem()` diz **tipo + o detalhe que o registro já tem à mão**:
 
 | Item | Subtítulo |
 |---|---|
-| vídeo | `Vídeo · 1080p` (a altura, quando conhecida) |
+| vídeo | `Vídeo · 1080p` |
 | áudio | `Áudio · 4:32` |
-| apresentação | `Apresentação · 12 páginas` (o tamanho do array `pages`) |
+| apresentação | `Apresentação · 12 páginas` |
 | item de player | `YouTube` — isto é, **depende da rede durante o culto** |
 | item de URL | `Link externo` |
 | cena de roteiro | o subtipo (`Versículo`, `Mensagem`, `Cronômetro`…) |
 
-**Nada aqui mede coisa alguma a cada render**, e essa é a regra que decide o que
-entra: a resolução vem do shell (que sabe a altura do que baixou) ou do mesmo
-`<video>` que já monta a miniatura; a duração de um áudio sai de um
-`preload='metadata'` na importação; as páginas são um `.length`. Um detalhe que
-exigisse decodificar arquivo por linha não valeria a informação que dá — daí os
-campos `height` e `seconds` nascerem no REGISTRO (`makeMediaRecord`).
-
-Duas exceções conscientes:
-
-- **A sincronização de PASTA não mede.** Ela percorre centenas de arquivos, e
-  uma leitura de metadados por áudio ali é tempo que o operador sente na
-  sincronização inteira para ganhar um detalhe numa linha. Lá o subtítulo diz só
-  o tipo, que já é a informação que faltava.
-- **A gaveta de Favoritos esconde o subtítulo** (`#favList .row-sub`). Ela
-  agrupa por tipo em SEÇÕES, então o cabeçalho já diz o que a linha diria — e é
-  a lista que precisa ser compacta (miniatura de 32 px, onde as duas linhas de
-  fato cresceriam). A marcação é a MESMA nas duas, de propósito: uma segunda
-  anatomia de linha divergiria da primeira no próximo ajuste, e quem decide é o
-  CSS.
-
-**A armadilha do `flex: 1`**, que quase passou: `.row-name` é filho DIRETO de
-`.row` em sete outras listas (pastas, versões da Bíblia, resultados de busca), e
-é o `flex: 1` dele que empurra os botões para a direita. Tirá-lo da regra base
-para acomodar a coluna quebraria as sete de uma vez. Ele fica, e é desfeito só
-dentro da coluna (`.row-text > .row-name { flex: none }`) — num pai em coluna,
-crescer significaria esticar na VERTICAL e descolar o nome do subtítulo. É a
-mesma nota que `.hymn-name` já carregava.
+- **Nada aqui MEDE coisa alguma a cada render**, e é essa a regra que decide o
+  que entra: a resolução vem do shell ou do `<video>` que já monta a miniatura, a
+  duração sai de um `preload='metadata'` na importação, as páginas são um
+  `.length`. Os campos `height` e `seconds` nascem no REGISTRO
+  (`makeMediaRecord`).
+- **Exceção consciente: a sincronização de PASTA não mede.** Ela percorre
+  centenas de arquivos, e uma leitura de metadados por áudio ali é tempo que o
+  operador sente para ganhar um detalhe numa linha.
+- **A armadilha do `flex: 1`:** `.row-name` é filho DIRETO de `.row` em sete
+  outras listas, e é o `flex: 1` dele que empurra os botões para a direita.
+  Tirá-lo da regra base quebraria as sete de uma vez — ele fica, e é desfeito só
+  dentro da coluna (`.row-text > .row-name { flex: none }`), porque num pai em
+  coluna crescer significaria esticar na VERTICAL e descolar o nome do subtítulo.
 
 #### A LINHA NO AR: `.active` × `.no-ar`, e os botões que trocam (v5.174 / v5.177)
 
