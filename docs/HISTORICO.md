@@ -227,15 +227,26 @@ nasce com a confirmação certa.
 cronograma, especificamente na gaveta de opções, adicione o botão de 'Adicionar a
 playlist'."*
 
-O botão é fácil; o que ele revelou não. Medido num aparelho de **360px**, que é o
-do operador: com `--thumb` reservado de cada lado a caixa do `⋮` mede **222px**, e
-os cinco botões que a v5.288 deixou lá ocupam **222,4px**. Ela estava cheia desde
-então, com zero de folga, e nada dizia isso. Como `.row-btn` é `flex-shrink: 0`,
-o sexto botão era desenhado **por cima da miniatura** — meio botão sobre a capa,
-sem erro em lugar nenhum.
+O botão é fácil; o que ele revelou não. A caixa do `⋮` é um retângulo FIXO — a
+largura da tela menos duas colunas de 56px —, e os cinco botões que a v5.288
+deixou lá ocupam **222,4px** em qualquer aparelho. Com o sexto a fileira passa a
+**268px**, e a caixa fixa dava isto, medido por largura de viewport:
 
-**Este é o defeito que publica VERDE:** os quatro oráculos de Chromium medem a
-430px, onde cabia, e nenhum abria a gaveta num aparelho estreito.
+| viewport | caixa | com 6 botões |
+|---|---|---|
+| 360px | 222,4px | avança **37,6px** sobre a capa |
+| 384px | 246,4px | avança 13,6px |
+| 393px | 255,4px | avança 4,6px |
+| 400px | 262,4px | não toca (sobram 2,4px) |
+| 412px | 274,4px | não toca (a folga de 8px de sempre) |
+
+**Abaixo de ~400px a fileira não cabia**, e como `.row-btn` é `flex-shrink: 0` o
+excedente era desenhado **por cima da miniatura**. Acima disso nada aparece — e é
+exatamente essa a armadilha: **os quatro oráculos de Chromium medem a 430px**,
+onde cabia, então o defeito publicaria VERDE. Também não é caso de aparelho
+antigo: 360px e 384px são larguras correntes de Android, e qualquer aparelho cai
+nelas quando o operador aumenta o **tamanho da tela** nas configurações do
+sistema.
 
 A caixa passou a **abraçar o conteúdo, entre um piso e um teto**: o `left` virou
 `min-width` (a largura de sempre, para um grupo curto continuar cobrindo o título
@@ -301,8 +312,9 @@ no Cronograma e seguir projetando, e a linha de lá o explica) nem `soltarAvulso
 chamador, que é o contrato escrito nela.
 
 **A LIÇÃO QUE FICA: um oráculo que mede numa só largura não mede layout.** O
-excedente da fileira existia em 360px e 384px — as duas larguras de Android mais
-comuns — e era invisível nos 430px em que os quatro oráculos rodam. `smoke.mjs`
+excedente da fileira existia abaixo de ~400px — e era invisível nos 430px em que
+os quatro oráculos rodam, e também no aparelho do operador, que é mais largo que
+o limiar. `smoke.mjs`
 passou a redimensionar para 360px e afirmar a SOMA dos botões contra a largura da
 caixa, e não um número de pixel escrito no teste: assim ele continua valendo no
 dia em que um botão a mais entrar na fileira, que é exatamente quando precisa

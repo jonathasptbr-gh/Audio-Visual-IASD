@@ -1580,13 +1580,26 @@ main {
 .acoes-abertas .row-acoes { opacity: 1; visibility: visible; }
 
 /* ---------- A FILEIRA CRESCEU E A CAIXA NÃO (v5.301) ----------
-   MEDIDO num aparelho de 360px, que é o comum: a caixa tinha **222px** e cinco
-   botões de `--thumb` com `gap: .35rem` ocupam **222,4px** — ela estava CHEIA, com
-   zero de folga, e nada dizia isso. O "Adicionar à playlist" desta versão é o
-   sexto: 268px de botões, 46px de excedente, e como `.row-btn` é
-   `flex-shrink: 0` o que sobra era DESENHADO POR CIMA DA MINIATURA — meio botão
-   sobre a capa, sem erro em lugar nenhum e sem oráculo que o visse (os quatro
-   medem a 430px, onde cabia).
+   A caixa era um retângulo FIXO (`left` e `right` em `--thumb + 1rem`), então a
+   largura dela é a da tela menos duas colunas de 56px — e cinco botões de
+   `--thumb` com `gap: .35rem` ocupam **222,4px**, em qualquer aparelho. Com o
+   sexto botão desta versão a fileira passa a **268px**, e a caixa fixa dá isto,
+   MEDIDO por largura de viewport:
+
+     360px → caixa 222,4px · avança 37,6px sobre a capa
+     384px → caixa 246,4px · avança 13,6px
+     393px → caixa 255,4px · avança  4,6px
+     400px → caixa 262,4px · NÃO toca (sobram 2,4px)
+     412px → caixa 274,4px · NÃO toca (a folga de 8px de sempre)
+
+   Isto é: **abaixo de ~400px de largura a fileira não cabe**, e como `.row-btn`
+   é `flex-shrink: 0` o excedente era DESENHADO POR CIMA DA MINIATURA. Num
+   aparelho de 400px ou mais nada disso aparece — e é justamente por isso que
+   o defeito publicaria verde: os quatro oráculos de Chromium medem a 430px.
+
+   Não é caso de aparelho antigo. 360px e 384px são larguras correntes de
+   Android, e QUALQUER aparelho cai nelas quando o operador aumenta o tamanho da
+   tela nas configurações do sistema — a viewport em CSS px encolhe junto.
 
    A CAIXA PASSOU A ABRAÇAR O CONTEÚDO, entre um piso e um teto:
 
@@ -1596,9 +1609,10 @@ main {
      botões, com uma borda dura no meio da linha.
    · **teto** (`max-width`) = até `.5rem` da borda do cartão, isto é, tudo menos
      a coluna do `⋮`.
-   · entre os dois ela cresce **só para a esquerda e só o que precisa**: com seis
-     botões avança 46px sobre a coluna da capa, em vez de tomá-la inteira (com
-     cinco ela não avança um pixel, que é a linha de hoje). O argumento original
+   · entre os dois ela cresce **só para a esquerda e só o que precisa**, e na
+     maior parte dos aparelhos isso é ZERO: de 400px para cima a fileira já cabe
+     no piso e a capa continua intocada. A 360px ela avança 37,6px — o mínimo
+     para os botões caberem —, e não a coluna inteira. O argumento original
      para deixar a miniatura de fora — *"com o nome coberto, ela é a única coisa
      que ainda diz de QUAL linha é este menu"* — vale enquanto a alternativa for
      cobrir o nome; contra botões desenhados pela METADE sobre a capa ele se

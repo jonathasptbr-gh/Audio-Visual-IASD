@@ -1549,18 +1549,32 @@ divergirem. As decisões:
   `⋮`. Miniatura de 40px com botões de 34px são dois quadrados vizinhos com 6px
   de diferença que ninguém decidiu, e um alvo no PISO do app justamente na lista
   mais densa. A linha não fica mais alta — quem já ditava a altura era a capa.
-- **A CAIXA ABRAÇA O CONTEÚDO, entre um piso e um teto** (v5.301). Medido num
-  aparelho de **360px**, que é o do operador: com `--thumb` reservado de cada
-  lado a caixa mede **222px**, e cinco botões de 40px com `gap: .35rem` ocupam
-  **222,4px** — ela estava CHEIA desde a v5.288, e nada dizia isso. Como
-  `.row-btn` é `flex-shrink: 0`, um sexto botão era desenhado POR CIMA DA
-  MINIATURA. Hoje o `left` virou um PISO (`min-width`, a largura de sempre, para
-  um grupo curto continuar cobrindo o título inteiro) e a caixa cresce **só para
-  a esquerda e só o que precisa**, até um teto de `.5rem` da borda do cartão; do
-  SÉTIMO botão em diante os quadrados caem para `--hit` (34px), nunca menos. O
-  sétimo é a linha de LINK DO YOUTUBE, a única que traz o "baixar o vídeo".
-  `smoke.mjs` mede isso a 360px de propósito — os oráculos rodam a 430px, onde
-  cabia, e era essa a razão de o defeito publicar verde.
+- **A CAIXA ABRAÇA O CONTEÚDO, entre um piso e um teto** (v5.301). A caixa era um
+  retângulo FIXO, então a largura dela é a da tela menos duas colunas de 56px — e
+  cinco botões de 40px com `gap: .35rem` ocupam **222,4px** em qualquer aparelho.
+  Com o sexto botão a fileira passa a **268px**, e a caixa fixa dava isto:
+
+  | viewport | caixa | com 6 botões |
+  |---|---|---|
+  | 360px | 222,4px | avança **37,6px** sobre a capa |
+  | 384px | 246,4px | avança 13,6px |
+  | 393px | 255,4px | avança 4,6px |
+  | 400px | 262,4px | não toca (sobram 2,4px) |
+  | 412px | 274,4px | não toca (a folga de 8px de sempre) |
+
+  **Abaixo de ~400px a fileira não cabia**, e como `.row-btn` é `flex-shrink: 0`
+  o excedente era desenhado POR CIMA DA MINIATURA. Não é caso de aparelho antigo:
+  360px e 384px são larguras correntes de Android, e qualquer aparelho cai nelas
+  quando o operador aumenta o **tamanho da tela** nas configurações do sistema.
+
+  Hoje o `left` virou um PISO (`min-width`, a largura de sempre, para um grupo
+  curto continuar cobrindo o título inteiro) e a caixa cresce **só para a
+  esquerda e só o que precisa** — de 400px para cima, zero —, até um teto de
+  `.5rem` da borda do cartão. Do SÉTIMO botão em diante os quadrados caem para
+  `--hit` (34px), nunca menos; o sétimo é a linha de LINK DO YOUTUBE, a única que
+  traz o "baixar o vídeo". `smoke.mjs` mede a 360px de propósito: os quatro
+  oráculos de Chromium rodam a 430px, onde cabia, e era essa a razão de o defeito
+  publicar verde.
 
 #### O toque encolhe o CARTÃO, não o miolo dele
 
