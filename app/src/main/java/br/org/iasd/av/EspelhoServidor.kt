@@ -789,24 +789,22 @@ class EspelhoServidor(
     /**
      * O PAPEL `tela` DEIXA DE DEPENDER DA QUERY (v1.92).
      *
-     * O `espelho/tela.js` decidia se era uma tela da rede olhando `?tela=1` em
-     * `location.search`, e esse marcador chega por um 302 da rota `/`. Isso é
-     * uma corrente de elos frágeis, e basta UM ceder para a tela abrir como um
-     * `/display/` comum: ela mostra o wallpaper, nunca desenha a entrada, nunca
-     * pede token e nunca conecta — que é exatamente o par de sintomas relatado
-     * ("pula a tela de ativar" + "não conecta na rede"). Elos possíveis: um
-     * navegador de TV que não preserva a query no redirecionamento, um endereço
-     * guardado nos favoritos sem ela, alguém digitando `/display/` direto, ou um
-     * QR/atalho que a corta.
+     * O `espelho/tela.js` decidia pelo `?tela=1` de `location.search`, e esse
+     * marcador chega por um 302 da rota `/` — uma corrente de elos frágeis em
+     * que basta UM ceder para a tela abrir como `/display/` comum: mostra o
+     * wallpaper, nunca desenha a entrada, nunca pede token e nunca conecta (o
+     * par de sintomas relatado). Elos possíveis: navegador de TV que não
+     * preserva a query no redirecionamento, endereço nos favoritos sem ela,
+     * alguém digitando `/display/` direto, ou um atalho que a corta.
      *
-     * A resposta é não depender da URL: **quem serve a página sabe o que ela é**.
-     * Toda página que sai por este servidor é uma tela da rede — este servidor
-     * não serve outra coisa (`web/controle/` nunca entra em `PREFIXOS_BUNDLE`).
+     * A resposta é não depender da URL: **quem serve a página sabe o que ela
+     * é** — este servidor não serve outra coisa (`web/controle/` nunca entra em
+     * `PREFIXOS_BUNDLE`).
      *
      * É `<meta>` e não `<script>` de propósito: a CSP desta resposta é
-     * `default-src 'self'` SEM `'unsafe-inline'`, então um script embutido seria
-     * bloqueado — e em silêncio, que é o pior desfecho possível para uma
-     * correção que existe justamente por causa de uma falha silenciosa.
+     * `default-src 'self'` SEM `'unsafe-inline'`, e um script embutido seria
+     * bloqueado em silêncio — o pior desfecho para uma correção que existe por
+     * causa de uma falha silenciosa.
      *
      * Degrada nos dois sentidos: bundle antigo ignora a marca e usa a query;
      * shell antigo não a injeta e a query continua sendo o caminho.
