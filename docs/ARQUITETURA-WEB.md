@@ -6836,14 +6836,12 @@ Duas defesas em `shared/native.js`, ambas invisíveis no navegador:
 ## Design System — a identidade oficial IASD, em dois temas
 
 Toda a UI sai de um conjunto fixo de **tokens** (variáveis CSS). **Regra: não
-usar valor literal solto na folha; sempre referenciar um token.** Isso existe
-porque o projeto acumulou muitas alterações estéticas pontuais (cores e medidas
-repetidas à mão), que foram consolidadas nestes padrões.
+usar valor literal solto na folha; sempre referenciar um token.**
 
-### A identidade é a OFICIAL, e são DOIS temas (v5.192)
+### A identidade é a OFICIAL
 
-As matizes vêm do **pacote oficial da identidade visual adventista** — o mesmo
-de que saiu o símbolo do wallpaper padrão na v5.188. Os dezoito valores:
+As matizes vêm do pacote oficial da identidade visual adventista — o mesmo de que
+saiu o símbolo do wallpaper padrão. Os dezoito valores:
 
 ```
 black     #000000     denim     #2F557F  ← o NÚCLEO da identidade (PMS 302)
@@ -6857,28 +6855,27 @@ treefrog  #2B8500     velvet    #782832
 white     #FFFFFF     winter    #717171
 ```
 
-**O âmbar saiu, e ele nunca foi oficial.** A v5.47 o adotou como "a marca IASD",
-e o argumento era de CONTRASTE, não de identidade: a paleta azul anterior usava
-UM valor para os dois papéis (fundo preenchido e texto), e é esse par que
-reprovava — não o azul. A saída certa era separar os papéis, que é o que
-`--accent`/`--accent-fill`/`--on-accent` fazem desde a v5.48. Com eles no lugar,
-o azul oficial passa com folga nos dois temas.
-
 **Duas coisas que a leitura natural inverte:**
 
 1. **Nem todo token é um valor oficial.** Os dezoito foram desenhados para papel
    e para fundo BRANCO — medidos, todos passam AA sobre branco (o pior é
-   campfire, 4,62:1) e **nenhum** passa AA como texto sobre o quase-preto do
-   tema escuro (bluejay dá 3,97:1; treefrog, 4,02:1). Onde clarear (ou
-   escurecer, no tema claro) foi preciso, o comentário de `tokens.css` diz de
-   QUAL oficial o valor saiu, e a matiz é preservada.
+   campfire, 4,62:1) e **NENHUM** passa AA como texto sobre o quase-preto do tema
+   escuro (bluejay dá 3,97:1; treefrog, 4,02:1). Onde clarear (ou escurecer, no
+   claro) foi preciso, o comentário de `tokens.css` diz de QUAL oficial o valor
+   saiu, e a matiz é preservada.
 2. **A escala categórica da Bíblia precisa de mais matizes do que a identidade
-   tem.** Os dezoito cobrem sete famílias (azul, verde-água, verde, laranja,
-   vermelho, rosa, roxo) em pares claro/escuro, e a tela de livros precisa de
-   DEZ grupos separados por pelo menos 20°. Cinco grupos são oficiais e cinco
-   preenchem os vãos — e o `scarlett` fica FORA da escala de propósito, porque
-   vermelho é atenção neste app e um grupo de livros vermelho competiria com
+   tem.** Os dezoito cobrem sete famílias em pares claro/escuro, e a tela de
+   livros precisa de DEZ grupos separados por pelo menos 20°: cinco são oficiais
+   e cinco preenchem os vãos. O `scarlett` fica FORA da escala de propósito —
+   vermelho é atenção neste app, e um grupo de livros vermelho competiria com
    "está no ar" na mesma tela.
+
+> **O âmbar que já foi "a marca" nunca foi oficial.** Ele entrou por um argumento
+> de CONTRASTE, não de identidade: a paleta azul anterior usava UM valor para os
+> dois papéis (fundo preenchido e texto), e era esse par que reprovava — não o
+> azul. A saída certa era separar os papéis
+> (`--accent`/`--accent-fill`/`--on-accent`), e com eles no lugar o azul oficial
+> passa com folga nos dois temas.
 
 #### A montagem dos dois temas
 
@@ -6892,65 +6889,34 @@ O claro é um **DELTA**: o que ele não redeclara cai no escuro. Três coisas
 precisam estar ditas:
 
 - **O PALCO NÃO TEM TEMA.** `--stage-*`, `--wallpaper`, `--lyrics-frame-bg`, as
-  sombras e o `--scrim` moram no bloco compartilhado. O Display já ficaria
-  escuro por omissão (ele nunca escreve o atributo); o que a separação garante é
-  a **preview do Controle**, que roda no documento que TEM tema e existe para
-  ESPELHAR o telão. Um telão claro num salão às escuras cega a congregação, e
-  uma preview clara deixaria de cumprir seu papel exatamente no tema em que o
+  sombras e o `--scrim` moram no bloco compartilhado. O Display já ficaria escuro
+  por omissão (ele nunca escreve o atributo); o que a separação garante é a
+  **preview do Controle**, que roda no documento que TEM tema e existe para
+  ESPELHAR o telão. Um telão claro num salão às escuras cega a congregação, e uma
+  preview clara deixaria de cumprir seu papel exatamente no tema em que o
   operador mais precisa dela.
-- **Um token que exista SÓ no claro não está definido no tema padrão.** O
-  `var()` computaria para o valor inicial da propriedade — sem aviso, sem log —,
-  e quem escreveu acabaria de ver a cor certa na tela porque estava com o claro
-  ligado. `tools/tokens.test.mjs` trava isso.
+- **Um token que exista SÓ no claro não está definido no tema padrão.** O `var()`
+  computaria para o valor inicial da propriedade — sem aviso, sem log —, e quem
+  escreveu acabaria de ver a cor certa na tela porque estava com o claro ligado.
+  `tools/tokens.test.mjs` trava isso.
 - **A escolha é lida antes do primeiro quadro**, do `localStorage` (`av.tema`),
-  pela mesma razão do modo do app: uma leitura do IndexedDB é assíncrona e o app
-  já teria pintado. O que o shell faz — e é só isto — são as duas coisas que o
-  CSS não alcança: os ÍCONES das barras de sistema e o `windowBackground`. Ver
-  `AVNative.temaClaro` no CLAUDE.md.
+  pela razão do modo do app: uma leitura do IndexedDB é assíncrona e o app já
+  teria pintado. O shell faz só o que o CSS não alcança — os ÍCONES das barras de
+  sistema e o `windowBackground` (ver `AVNative.temaClaro`).
 
 **No tema claro os valores oficiais entram quase todos verbatim, e isso não é
-sorte:** eles foram desenhados para pousar sobre BRANCO, que é exatamente o
-fundo dos cartões desse tema. Escurecer só foi preciso onde a cor pousa sobre o
-CINZA da página em vez de sobre branco.
+sorte:** eles foram desenhados para pousar sobre BRANCO, que é o fundo dos
+cartões desse tema. Escurecer só foi preciso onde a cor pousa sobre o CINZA da
+página.
 
-**O degrau de elevação se INVERTE no claro, e a régua muda junto.** No escuro,
+**O degrau de elevação se INVERTE no claro, e a régua muda junto.** No escuro
 "mais alto" é "mais claro"; no claro o painel já é branco e não há para onde
-subir, então `--panel-2` desce (um campo dentro de um cartão é um recesso, que é
-a convenção de toda UI clara). A consequência é que `--panel-2` e `--bg` ficam
+subir, então `--panel-2` DESCE (um campo dentro de um cartão é um recesso, a
+convenção de toda UI clara). A consequência é que `--panel-2` e `--bg` ficam
 praticamente na mesma luminância — deliberado, e o mesmo que Material e iOS
 fazem. O piso de 1,30:1 entre superfícies grandes foi escrito para um salão no
-ESCURO, onde sombra não se vê; no claro ele vale só para o par que importa,
-fundo × painel (1,29:1), e é dispensado no resto por essa razão.
-
-### Por que a paleta mudou (v5.48)
-
-O app é operado **no escuro**, e a paleta anterior falhava nos dois eixos ao
-mesmo tempo:
-
-- **Emitia luz demais.** `--text` (`#f2f2f2`) saía a **88,8%** de luminância
-  relativa — hoje são 62,9% —, e o branco puro (`#fff`) aparecia **22 vezes**
-  na folha do Controle como cor de ícone e de rótulo, **sem nenhum token que o
-  nomeasse**. A tela de livros da Bíblia — 66 ladrilhos saturados preenchendo a
-  altura — emitia **7× mais luz que uma lista comum** (16,3% de luminância
-  média contra 2,3% de um painel), e é justamente a tela que o operador abre no
-  meio da pregação.
-- **Separava de menos.** `--bg` × `--bar` dava **1,19:1** e `--panel` ×
-  `--panel-2` dava **1,22:1** — os dois abaixo do piso que o próprio design
-  system declarava adotar, e ninguém percebeu (ver "Ao mexer em cor").
-
-E, acima de tudo, **a mesma cor significava coisas diferentes em telas
-diferentes**. Quatro estados eram pintados por duas famílias de cor cada:
-
-| Estado | Antes | Onde divergia |
-|---|---|---|
-| está no telão agora | `--danger` ×4 e `--success` ×2 | vermelho em `.pv-fab.live`, `.mic-btn.live`, `.misc-project.live`, `.misc-tab-live`; **verde** em `.bible-vsec.cur.live` e `.msg-item.active` |
-| selecionado / onde estou | `--accent` ×19 e `--success` ×2 | tudo accent, menos `.msg-item.active` |
-| concluído / OK | `--success` ×8 e `--accent` ×1 | tudo verde, menos `.hymnal-stat.net.ok` (chip que saiu na v5.73) |
-| baixando / ocupado | `--accent` ×5 e `--danger` ×2 | o texto do progresso numa cor e o botão de cancelar em outra, na mesma linha |
-
-No sentido inverso, `--gold` (o nome que `--brand` tinha até a v5.192) acumulava **27 usos** cobrindo marca, aviso, erro,
-cancelar, destaque de busca e rótulo de estrofe — não existia um `--warn`
-separado da marca.
+ESCURO, onde sombra não se vê; no claro ele vale só para o par que importa, fundo
+× painel (1,29:1).
 
 ### As três famílias
 
@@ -6958,50 +6924,42 @@ A paleta tem **três matizes fazendo três trabalhos**, e nada além disso:
 
 - **azul denim** — marca IASD, navegação, seleção, progresso. Uma família só: o
   accent **é** a marca (`--brand` e `--accent` têm o mesmo valor), então não há
-  dois azuis disputando significado. Os dois nomes coexistem para que a folha
-  possa distinguir "isto é marca/metadado" de "isto é navegação/seleção" sem
-  inventar uma segunda matiz. (Eles se chamavam `--gold*` até a v5.192; um token
-  chamado "gold" guardando um azul é exatamente a divergência que a fonte única
-  existe para impedir, então foram renomeados junto com a cor.)
+  dois azuis disputando significado. Os dois nomes coexistem para a folha
+  distinguir "isto é marca/metadado" de "isto é navegação/seleção".
 - **vermelho** (`scarlett`) — atenção, e a **intensidade carrega o tipo**:
-  preenchido = está no ar agora; contorno = ação destrutiva; suave = aviso/erro.
+  saturado = está no ar agora; suave = ação destrutiva ou aviso.
 - **verde** (`treefrog`) — concluído, conectado. E **só** isso.
 
-A contrapartida conhecida MUDOU DE LUGAR na v5.192, e vale registrar as duas.
-Na paleta âmbar, o accent (39°) e o laranja do aviso (27,5°) ficavam a ~12° de
-matiz um do outro — duas matizes quentes disputando a mesma leitura. Com o
-accent em azul isso acabou, e o que sobra é que o **aviso** (`campfire`, 21°) e
-o **vermelho de atenção** (`scarlett`, 353°) ficam a ~28°: melhor, mas ainda
-duas matizes quentes. A regra fica de pé pelo mesmo motivo de antes: o aviso
-**nunca é cor pura solta** — sempre fundo suave + ícone. Um aviso que se anuncia
-só pela matiz não sobrevive a um celular com brilho baixo, nem a quem não
+O que motivou essa disciplina: quatro estados chegaram a ser pintados por duas
+famílias de cor cada — "está no telão agora" era vermelho em quatro lugares e
+VERDE em dois; "selecionado" era accent em dezenove e verde em dois; e um único
+token de marca acumulava 27 usos cobrindo marca, aviso, erro, cancelar, destaque
+de busca e rótulo de estrofe, sem um `--warn` separado dele.
+
+**A contrapartida conhecida:** o aviso (`campfire`, 21°) e o vermelho de atenção
+(`scarlett`, 353°) ficam a ~28° de matiz. A regra que a torna aceitável é que o
+aviso **nunca é cor pura solta** — sempre fundo suave + ícone. Um aviso que se
+anuncia só pela matiz não sobrevive a um celular com brilho baixo, nem a quem não
 distingue duas matizes vizinhas.
 
 ### Onde ficam os tokens
 
-- **`shared/tokens.css`** — **a paleta inteira**, e só ela. Carregada pelos
-  **dois** apps, antes da folha de cada um (`<link rel="stylesheet"
-  href="../shared/tokens.css">`).
+- **`shared/tokens.css`** — **a paleta inteira**, e só ela. Carregada pelos DOIS
+  apps, antes da folha de cada um.
 - **`controle/controle.css`** — o `:root` do que **não é cor**: raio, escala de
-  ícone, curva de toque e as duas medidas de layout que o JS também lê
-  (`--deck-pv-h`, `--fader-cap`). São decisões da UI **densa** do Controle, e o
+  ícone, curva de toque e as medidas de layout que o JS também lê
+  (`--deck-pv-h`, `--fader-cap`). São decisões da UI densa do Controle, e o
   Display (que não tem UI) não teria o que fazer com elas.
 - **`display/display.css`** — **nenhum token de cor**. Ele consome de
-  `tokens.css`: `--brand`, `--wallpaper`, `--lyrics-frame-bg`, os `--stage-*`,
-  `--bg` e `--accent-glow`. Essa lista está no topo da folha para ser conferida:
-  se ela e um `grep var(--` divergirem, é a lista que está errada. **O Display
-  nunca escreve `data-tema`**, então ele fica no bloco escuro por omissão — e os
-  tokens do palco que ele mais usa não têm tema de qualquer forma.
+  `tokens.css`, e a lista está no topo da folha para ser conferida: se ela e um
+  `grep var(--` divergirem, é a lista que está errada. **O Display nunca escreve
+  `data-tema`**, então fica no bloco escuro por omissão.
 
-**Por que uma folha só.** Até a v5.47 os tokens de marca (`--gold`,
-`--wallpaper`, `--lyrics-frame-bg`, `--danger`) eram mantidos **à mão nas duas
-folhas**, e o comentário das duas admitia que "a sincronização é manual".
-Sincronização manual entre dois arquivos é uma classe de bug, não um processo:
-bastava um ajuste entrar só de um lado para o telão e a preview do Controle —
-que existe justamente para **espelhar** o telão — passarem a mostrar coisas
-diferentes. O precedente de folha compartilhada já existia
-(`../shared/material-symbols.css`).
-
+**Por que uma folha só.** Os tokens de marca já foram mantidos à mão nas DUAS
+folhas, com o comentário de ambas admitindo que "a sincronização é manual" —
+sincronização manual entre dois arquivos é uma classe de bug, não um processo:
+basta um ajuste entrar de um lado para o telão e a preview do Controle, que
+existe justamente para ESPELHÁ-LO, mostrarem coisas diferentes.
 ### Tokens
 
 Os valores abaixo são de `shared/tokens.css`, que é a fonte; as razões são
