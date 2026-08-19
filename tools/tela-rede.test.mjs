@@ -399,6 +399,18 @@ checar(await pg.$eval('#text', (e) => e.hidden), 'text-hide tira a Camada de Tex
   checar(await pg.$eval('#wallpaper', (e) => e.style.backgroundImage.includes('/m/tokwp1111111111111111')),
     'o wallpaper vem pela URL do comando — o IDB da tela está vazio e não importa');
 
+  // E O AVISO NU NÃO APAGA NADA. O Controle emite DOIS comandos a cada troca de
+  // wallpaper: `setWallpaper` manda `{type:'wallpaper'}` sem `__wp` ("mudou,
+  // releiam o estado") e o enriquecimento manda o `__wp` num segundo tempo,
+  // depois de ler o blob. O primeiro caía no caminho do telão de verdade, que
+  // lê o IndexedDB — e o da tela da rede está VAZIO por construção: ele só
+  // podia desfazer o inline que o `__wp` acabara de pintar. Toda troca piscava
+  // o desenho padrão nas telas, e ficava nele se o segundo comando se perdesse.
+  evento({ type: 'wallpaper', __mid: 'm:7a' });
+  await new Promise((r) => setTimeout(r, 500));
+  checar(await pg.$eval('#wallpaper', (e) => e.style.backgroundImage.includes('/m/tokwp1111111111111111')),
+    'um comando `wallpaper` SEM `__wp` não apaga o fundo que está em cena na tela da rede');
+
   // O sentinela 'padrao' (v5.188): o operador voltou ao wallpaper padrão — a
   // tela desfaz o inline e o desenho do CSS (o símbolo oficial) volta a valer.
   evento({ type: 'wallpaper', __wp: 'padrao', __mid: 'm:7b' });

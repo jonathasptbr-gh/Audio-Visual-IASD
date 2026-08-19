@@ -273,17 +273,34 @@ try {
     // é o transporte da escolha até a ação — o ponto em que ela se perdia.
     const coll = { id: 'teste', name: 'Coleção' };
     const s = { id_music: 1, name: 'Hino', has_instrumental_music: false };
-    openSongMenu(coll, s, 'add');
+    // A LISTA DO ACERVO DEIXOU DE SER UMA FOLHA (v5.285): ela é montada no
+    // corpo da linha, e `montarOpcoes` a arma assim — o alvo em `songMenuFor`.
+    // (O parâmetro `modo` saiu na v5.286: a lista é uma só.) Este caso monta o mesmo
+    // estado num `<ul>` solto porque o que ele verifica é o TRANSPORTE da
+    // escolha até a ação, com `coll`/`s` sintéticos que uma linha de verdade não
+    // teria como desenhar.
+    const alvo = document.createElement('ul');
+    alvo.id = 'destinosTeste';
+    document.body.appendChild(alvo);
+    songMenuFor = { coll, s, variant: 'full', alvo };
+    destLimpar();
+    renderSongMenu();
     let capturado = null;
     const original = window.addSongToDestinos;
     window.addSongToDestinos = (c, m, v, destinos) => { capturado = destinos; };
     // Duas linhas MARCADAS pelo corpo, e só então o confirmar.
-    const linhas = [...document.querySelectorAll('#songMenuList .song-menu-btn')]
-      .filter((b) => b.querySelector('.song-menu-check'));
-    linhas[1].click();   // Cronograma
-    linhas[2].click();   // Favoritos
-    document.querySelector('#songMenuList .song-menu-go').click();
+    // POR RÓTULO, e não por índice (v5.286): a lista ganhou o "Tocar agora"
+    // como primeira selecionável, e um índice teria escorregado em silêncio
+    // para o vizinho — marcando playlist onde o caso diz Cronograma.
+    const porRotulo = (txt) => [...alvo.querySelectorAll('.song-menu-btn')]
+      .find((b) => b.querySelector('.song-menu-check')
+        && new RegExp(txt, 'i').test(b.textContent));
+    porRotulo('Cronograma').click();
+    porRotulo('Favoritar').click();
+    alvo.querySelector('.song-menu-go').click();
     window.addSongToDestinos = original;
+    alvo.remove();
+    songMenuFor = null;
     return capturado;
   });
   checar(JSON.stringify(alvos) === JSON.stringify(['cronograma', 'favoritos']),
@@ -291,7 +308,8 @@ try {
     + 'rodando depois de a folha fechar', JSON.stringify(alvos));
 
   checar(await pg.$eval('#songMenuPopup', (el) => !el.classList.contains('open')),
-    'e quem fecha a folha é ele, não o toque numa opção');
+    'e a FOLHA nem chega a abrir para um item do acervo: a lista dele mora no '
+    + 'corpo da linha desde a v5.285');
 
   // ---- A SELEÇÃO MÚLTIPLA SOBREVIVE AO DESTINO ----
   // Os três botões da barra (playlist, favoritos, pasta) já eram destinos lado a

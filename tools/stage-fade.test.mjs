@@ -52,7 +52,12 @@ await pg.setContent(`<!doctype html><meta charset="utf-8">
 // aparecer no talo.
 await pg.evaluate(() => {
   window.AVDB = {
-    getMedia: async (id) => (id.startsWith('img')
+    getMedia: async (id) => (id.startsWith('aud')
+      // ÁUDIO SEM LETRA: o louvor de fundo. `semVisual()` responde true, então
+      // a cortina fica FECHADA durante toda a reprodução — é o caso em que a
+      // rampa de saída do som é a única transição que existe.
+      ? { id, kind: 'audio', name: id, blob: new Blob([], { type: 'audio/mpeg' }) }
+      : id.startsWith('img')
       // 1×1 transparente: uma imagem que DECODIFICA de verdade, para o caminho
       // da cortina ser exercitado com `mediaReady` resolvendo de fato.
       ? { id, kind: 'image', name: id, url: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7' }
@@ -76,17 +81,22 @@ await pg.evaluate(() => {
   });
   // Amostra a opacidade das duas camadas a cada quadro: é o único jeito de ver
   // uma transição acontecer, já que o valor final é sempre o mesmo.
-  window.__amostras = { v: [], i: [] };
+  window.__amostras = { v: [], i: [], vol: [] };
   const tick = () => {
     window.__amostras.v.push(window.__v.style.opacity);
     window.__amostras.i.push(window.__i.style.opacity);
+    window.__amostras.vol.push(window.__v.volume);
     requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);
 });
 
-const zerar = () => pg.evaluate(() => { window.__amostras.v.length = 0; window.__amostras.i.length = 0; });
-const colher = () => pg.evaluate(() => ({ v: window.__amostras.v.slice(), i: window.__amostras.i.slice() }));
+const zerar = () => pg.evaluate(() => {
+  window.__amostras.v.length = 0; window.__amostras.i.length = 0; window.__amostras.vol.length = 0;
+});
+const colher = () => pg.evaluate(() => ({
+  v: window.__amostras.v.slice(), i: window.__amostras.i.slice(), vol: window.__amostras.vol.slice(),
+}));
 
 // A PROVA de que houve fade de ENTRADA, e não só o de saída: um `0` seguido, em
 // ordem, de um `1` ESCRITO. Só o `runFadeIn` escreve o `1` — o `clearFadeStyle`
@@ -139,6 +149,35 @@ const comCortina = await colher();
 checar(!comCortina.i.includes('0'),
   'imagem revelada pela cortina: sem um segundo fade por baixo dela',
   comCortina.i.filter((x) => x === '0').length + ' quadros em opacidade 0');
+
+// ===== PARAR UM ÁUDIO SEM LETRA ESMAECE O SOM =====
+//
+// A rampa de volume vivia DENTRO da animação da cortina (`coverIn`), e a
+// cortina de um áudio sem letra já está fechada durante toda a reprodução
+// (`semVisual`): `coverIn` devolvia na hora, a rampa nunca rodava e o `clear()`
+// cortava o som no talo, no meio do louvor de fundo. É o defeito que só se
+// ouve — nenhum pixel muda.
+await pg.evaluate(async () => {
+  window.__stage.handle({ type: 'load', mediaId: 'aud1', view: 'visual' });
+  await new Promise((r) => setTimeout(r, 900));
+  // O elemento nasce `muted` neste palco mínimo; a rampa (com razão) não mexe
+  // no volume de quem está mudo.
+  window.__v.muted = false;
+  window.__stage.handle({ type: 'mute', muted: false });
+  window.__stage.handle({ type: 'volume', volume: 1 });
+});
+await pg.waitForTimeout(300);
+await zerar();
+await pg.evaluate(() => window.__stage.handle({ type: 'clear' }));
+await pg.waitForTimeout(1400);
+const som = await colher();
+const valores = som.vol.filter((x) => typeof x === 'number');
+const intermediarios = valores.filter((x) => x > 0.02 && x < 0.98).length;
+checar(intermediarios >= 3,
+  'parar um ÁUDIO SEM LETRA esmaece o som em vez de cortá-lo no talo (a rampa '
+  + 'não pode viver dentro da animação de uma cortina que já está fechada)',
+  intermediarios + ' amostra(s) intermediária(s) em ' + valores.length
+  + ' — distintos: ' + JSON.stringify([...new Set(valores.map((x) => Math.round(x * 20) / 20))]));
 
 await navegador.close();
 console.log(falhas.length ? '\n' + falhas.length + ' FALHA(S)' : '\nTodos passaram.');

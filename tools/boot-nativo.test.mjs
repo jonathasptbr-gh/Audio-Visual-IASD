@@ -674,23 +674,44 @@ try {
   // Pedido do operador: as opções de um item da série devem ser as do YouTube
   // (sem "só áudio"), sem download direto, e com transmissão no "Tocar agora".
   // A v5.228 o tratava como faixa de hinário — o toque BAIXAVA ~300 MB.
+  //
+  // E DESDE A v5.285 ELA NÃO É MAIS UMA FOLHA: as opções abrem no CORPO da
+  // linha. O caso passou a percorrer o caminho de verdade — desenhar a lista,
+  // tocar na faixa, ler a gaveta — em vez de chamar a função do menu à mão: é a
+  // única forma de continuar provando que um episódio recebe as opções do
+  // YouTube, agora que quem decide isso é `montarOpcoes`.
   const folha = await pg.evaluate(async () => {
     const c = allCollections().find((x) => x.kind === 'serie');
     const s = collSongs(c.id)[0];
-    openSongMenu(c, s, 'play');
-    const pop = document.getElementById('songMenuPopup');
-    const linhas = [...pop.querySelectorAll('.song-menu-item, .song-menu-list button')]
+    // O modo é GLOBAL: deixá-lo trocado quebra os casos seguintes (o do Modo
+    // Fácil mede a cortina). Restaurado no fim, como os outros casos fazem.
+    const modoAntes = appMode;
+    setAppMode('full');
+    ui(c.id).expanded = true; ui(c.id).shown = 100;
+    const lista = document.createElement('ul');
+    lista.className = 'hymnal-list';
+    lista.style.width = '390px';
+    document.body.appendChild(lista);
+    const li = hymnResultRow(c, s, null, true);
+    lista.appendChild(li);
+    li.querySelector('.row').click();
+    await new Promise((r) => setTimeout(r, 400));
+    const op = li.querySelector('.hymn-opcoes');
+    const linhas = [...op.querySelectorAll('.song-menu-btn')]
       .map((b) => b.textContent.trim().split('\n')[0].trim()).filter(Boolean);
     const r = {
-      aberta: pop.classList.contains('open'),
-      titulo: (document.getElementById('songMenuTitle') || {}).textContent || '',
-      texto: pop.textContent,
+      aberta: li.classList.contains('expanded') && !!op && op.children.length > 0,
+      naFolha: document.getElementById('songMenuPopup').classList.contains('open'),
+      texto: op.textContent,
       linhas,
     };
-    closeSongMenu();
+    lista.remove(); ui(c.id).expanded = false; songMenuFor = null;
+    setAppMode(modoAntes);
     return r;
   });
-  checar(folha.aberta, 'tocar num episódio abre a folha de destinos');
+  checar(folha.aberta && !folha.naFolha,
+    'tocar num episódio abre as opções NO CORPO da linha, não numa folha (v5.285)',
+    JSON.stringify({ gaveta: folha.aberta, folha: folha.naFolha }));
   checar(/Tocar agora/.test(folha.texto),
     'com "Tocar agora" — é ele que TRANSMITE, sem esperar o download', JSON.stringify(folha.linhas));
   checar(/playlist/i.test(folha.texto) && /Cronograma/.test(folha.texto) && /Favoritar/.test(folha.texto),
@@ -840,10 +861,10 @@ try {
   const indice = await pg.evaluate(async () => {
     // O ESTADO PADRÃO, VERBATIM. Ele não é montado aqui de propósito: o que se
     // afirma é o que o app trouxe da carga do módulo — os Favoritos abertos e
-    // mais nada. Um `clear()` seguido de um `add('Favoritos')` mediria a
-    // suposição do teste, não a decisão do app; e este `[...]` ainda serve de
-    // guarda de que os casos acima devolveram o que tomaram emprestado.
-    const padrao = grupoAberto;
+    // NENHUMA coleção. Escrevê-lo aqui mediria a suposição do teste, não a
+    // decisão do app; e esta leitura ainda serve de guarda de que os casos
+    // acima devolveram o que tomaram emprestado.
+    const padrao = { fav: favAberto, colecao: grupoAberto };
     const lista = document.createElement('ul');
     lista.className = 'hymnal-list';
     lista.style.width = '390px';
@@ -865,17 +886,23 @@ try {
       temSeta: !!(gFav && gFav.querySelector('.coll-group-bar > button.coll-group-icon')),
       corpoVisivel: !!(corpoFav && corpoFav.getBoundingClientRect().height > 0),
     };
-    // ELA NÃO FECHA NO PRÓPRIO TOQUE (v5.273) — *"sempre deixe uma aberta, no
-    // caso a dos favoritos, onde ela só fecha se outra for aberta"*. O toque
-    // nela aberta é um no-op declarado: fechá-la para reabri-la seria um piscar
-    // sem desfecho. A espera é generosa de propósito — o recolhimento das
-    // outras é animado (`collapseAccordion`), e ler cedo aprovaria uma seção
-    // que fecha meio segundo depois.
-    const setaFav = gFav && gFav.querySelector('.coll-group-bar > button.coll-group-icon');
-    if (setaFav) setaFav.click();
-    await new Promise((r) => setTimeout(r, 400));
-    fav.seguraNoProprioToque = !!(acharFav() || {}).classList
-      && acharFav().classList.contains('aberto') && grupoAberto === 'Favoritos';
+    // ELA RESPONDE AO PRÓPRIO TOQUE, e só a ele (v5.276). A v5.273 a tinha feito
+    // um no-op — ela era o piso do rodízio, e fechá-la deixaria a tela sem
+    // nenhuma seção aberta. Fora do rodízio, o gesto volta a ser o de qualquer
+    // outra: fecha e reabre. A espera é generosa de propósito — o recolhimento é
+    // animado (`collapseAccordion`), e ler cedo aprovaria uma seção que fecha
+    // meio segundo depois.
+    const tocarFav = async () => {
+      const seta = (acharFav() || {}).querySelector
+        && acharFav().querySelector('.coll-group-bar > button.coll-group-icon');
+      if (seta) seta.click();
+      await new Promise((r) => setTimeout(r, 400));
+    };
+    await tocarFav();
+    fav.fechaNoProprioToque = !!acharFav()
+      && !acharFav().classList.contains('aberto') && favAberto === false;
+    await tocarFav();
+    fav.reabre = !!acharFav() && acharFav().classList.contains('aberto') && favAberto === true;
     // Daqui para baixo o caso é o do ÍNDICE, que fala dos grupos de coleção. A
     // referência de "fechado" é a tela como ela ABRE: os Favoritos (que não têm
     // card nenhum) e todas as coleções recolhidas.
@@ -888,10 +915,9 @@ try {
       // diria a mesma coisa.
       altura: lista.getBoundingClientRect().height,
     };
-    // O TOQUE no cabeçalho dos Arquivos oficiais. Ele responde DUAS perguntas
-    // de uma vez desde a v5.273: "fechado não constrói card, o toque constrói"
-    // (v5.237) e "abrir uma FECHA a que estava aberta" — que aqui é a dos
-    // Favoritos, isto é, a única forma que existe de fechá-la.
+    // O TOQUE no cabeçalho dos Arquivos oficiais. Ele responde a pergunta da
+    // v5.237 ("fechado não constrói card, o toque constrói") e, desde a v5.276,
+    // a que a substituiu: abrir uma coleção **não** mexe nos Favoritos.
     const tocar = async (re) => {
       const barra = [...lista.querySelectorAll('.coll-group-bar')]
         .find((b) => re.test(b.textContent.trim()));
@@ -906,21 +932,29 @@ try {
       // O card vive DENTRO do corpo do grupo, não solto na lista: é isso que
       // faz a árvore ser uma árvore.
       dentroDoCorpo: !!lista.querySelector('.coll-group-corpo .hymnal-card'),
-      // E a que estava aberta se fechou — uma por vez, medida no DOM.
-      favFechou: !!(acharFav() && !acharFav().classList.contains('aberto')),
+      // OS FAVORITOS CONTINUAM ABERTOS (v5.276): eles não estão no rodízio.
+      favSegue: !!(acharFav() && acharFav().classList.contains('aberto')),
       abertas: lista.querySelectorAll('.coll-group--drop.aberto').length,
     };
-    // E FECHAR A ABERTA VOLTA AOS FAVORITOS, que é o "sempre uma aberta" pelo
-    // outro lado: sem isto a tela poderia ficar sem nenhuma.
-    await tocar(/^Arquivos oficiais/);
-    fav.voltaAoFechar = !!(acharFav() && acharFav().classList.contains('aberto'))
-      && grupoAberto === 'Favoritos';
+    // E O RODÍZIO VALE ENTRE AS COLEÇÕES: abrir os Hinários fecha os Oficiais,
+    // sem tocar nos Favoritos.
+    await tocar(/^Hinários/);
+    const trocou = {
+      abertas: lista.querySelectorAll('.coll-group--drop.aberto').length,
+      colecao: grupoAberto,
+      favSegue: !!(acharFav() && acharFav().classList.contains('aberto')),
+    };
+    // E FECHAR A COLEÇÃO ABERTA deixa a tela sem nenhuma — que deixou de ser um
+    // estado a evitar: quem fechou o hinário está olhando os favoritos.
+    await tocar(/^Hinários/);
+    fav.semColecao = grupoAberto === '' && !!acharFav()
+      && acharFav().classList.contains('aberto');
     lista.remove();
     // Devolve o estado PADRÃO do app: os casos abaixo desenham a Biblioteca de
     // verdade, e deixá-la noutra seção seria emprestar a este arquivo um
     // comportamento que o app não tem.
-    grupoAberto = 'Favoritos';
-    return { fechado, aberto, fav };
+    grupoAberto = ''; favAberto = true;
+    return { fechado, aberto, trocou, fav };
   });
   checar(indice.fechado.grupos.length >= 2 && indice.fechado.cards === 0,
     'A BIBLIOTECA ABRE COMO ÍNDICE: só os cabeçalhos de seção, nenhum card '
@@ -928,30 +962,35 @@ try {
   checar(indice.fechado.grupos[0] === 'Favoritos',
     'e o primeiro deles é FAVORITOS, no topo da listagem',
     JSON.stringify(indice.fechado.grupos));
-  // ── UMA ABERTA POR VEZ, E SEMPRE UMA (v5.238 → v5.262 → v5.273) ────────
-  // Pedido do operador: *"só permita uma coleção aberta por vez e sempre deixe
-  // uma aberta, no caso a dos favoritos, onde ela só fecha se outra for
-  // aberta"*. São QUATRO metades, e nenhuma basta: o padrão (senão a seção
-  // nasceria fechada como qualquer outra), o toque nela própria que NÃO a fecha
-  // (senão a tela ficaria sem nenhuma), abrir outra que a fecha (senão seriam
-  // duas), e fechar a outra que a traz de volta.
+  // ── AS COLEÇÕES FAZEM RODÍZIO; OS FAVORITOS, NÃO (v5.262 → v5.273 → v5.276) ─
+  // Pedido do operador: *"agora não mais são concorrentes com os favoritos… o
+  // tamanho da seção de favoritos segue sendo o tamanho que sobra… e ela segue
+  // sendo a seção aberta de nascença, mas agora ela não se fecha quando outro
+  // se abre; as coleções são concorrentes entre si, mas não com os favoritos"*.
   //
-  // A v5.262 tinha o contrário da segunda — o toque nela recolhia —, e esta
-  // versão a revoga: a seta continua ali, e o que ela faz é abrir as outras.
-  checar(indice.fav.padrao === 'Favoritos',
-    'o PADRÃO do app é uma seção aberta e uma só: os Favoritos',
+  // São CINCO metades, e nenhuma basta sozinha: o padrão (senão a seção
+  // nasceria fechada como qualquer outra), o toque nela própria que a fecha E
+  // reabre (senão "colapsável" seria mão única), abrir uma coleção que NÃO a
+  // toca, o rodízio valendo entre coleções, e fechar a coleção aberta deixando
+  // a tela sem nenhuma — que a v5.273 proibia e agora é o estado normal.
+  checar(indice.fav.padrao.fav === true && indice.fav.padrao.colecao === '',
+    'o PADRÃO do app são os Favoritos abertos e NENHUMA coleção',
     JSON.stringify(indice.fav.padrao));
   checar(indice.fav.corpoVisivel,
     'e é assim que a Biblioteca abre — os favoritos à vista, o resto fechado');
   checar(indice.fav.temSeta,
     'ela tem a MESMA seta das outras seções, na thumb da barra');
-  checar(indice.fav.seguraNoProprioToque,
-    'o toque NELA não a fecha: a tela nunca fica sem nenhuma seção aberta');
-  checar(indice.aberto.favFechou && indice.aberto.abertas === 1,
-    'abrir outra é que a fecha — e fica UMA aberta, nunca duas',
-    indice.aberto.abertas + ' aberta(s)');
-  checar(indice.fav.voltaAoFechar,
-    'e fechar essa outra devolve os Favoritos, que é o piso da tela');
+  checar(indice.fav.fechaNoProprioToque && indice.fav.reabre,
+    'o toque NELA a recolhe — e reabre, senão "colapsável" seria mão única');
+  checar(indice.aberto.favSegue && indice.aberto.abertas === 2,
+    'abrir uma COLEÇÃO não a fecha: as duas ficam abertas, porque elas não '
+    + 'disputam o mesmo interruptor', indice.aberto.abertas + ' aberta(s)');
+  checar(indice.trocou.abertas === 2 && indice.trocou.colecao === 'Hinários'
+    && indice.trocou.favSegue,
+    'e o rodízio vale ENTRE as coleções: abrir os Hinários fecha os Oficiais e '
+    + 'não toca nos Favoritos', JSON.stringify(indice.trocou));
+  checar(indice.fav.semColecao,
+    'fechar a coleção aberta deixa a tela sem nenhuma — e os favoritos seguem lá');
   checar(indice.aberto.cards > 0 && indice.aberto.temSerie,
     'o toque no cabeçalho abre a seção e os cards aparecem',
     indice.aberto.cards + ' card(s)');
@@ -974,7 +1013,7 @@ try {
     // Só os Favoritos abertos — o PADRÃO do app (v5.262). Antes a linha era um
     // `clear()` seco, com a nota "a seção é FIXA: não depende disto"; ela passou
     // a depender, e um `clear()` a deixaria fechada e sem corpo para medir.
-    grupoAberto = 'Favoritos';
+    grupoAberto = ''; favAberto = true;
     const lista = document.createElement('ul');
     lista.className = 'hymnal-list';
     lista.style.width = '390px';
@@ -1003,12 +1042,14 @@ try {
       cabecalho: !grupo ? '' : (grupo.querySelector('.coll-group-bar') || {}).textContent,
       temAcaoNaBarra: !!(grupo && grupo.querySelector('.coll-group-bar .coll-group-acao')),
       semContagem: !!grupo && !grupo.querySelector('.coll-group-count'),
-      // E a GAVETA continua inteira: o host é emprestado, não movido.
-      naGaveta: (() => {
-        document.getElementById('favList').innerHTML = '';
-        renderFolderList();
-        return /Louvor favorito de teste/.test(document.getElementById('favList').textContent);
-      })(),
+      // E ESTA É A ÚNICA CASA (v5.294). Até aqui a asserção era "a gaveta
+      // continua desenhando a dela — o host é emprestado, não movido"; a
+      // gaveta saiu do documento junto com o último caminho que levava a ela,
+      // então a pergunta forte passou a ser a inversa: não sobrou nó nenhum
+      // do subsistema antigo, e o corpo da seção é o único lugar em que esta
+      // lista aparece.
+      semGaveta: !document.getElementById('favPopup')
+        && !document.getElementById('favList'),
     };
     r.semRodape = r.rodape.length === 0;
     // A AÇÃO DA BARRA FAZ A COISA (v5.254). Ela abria uma folha com duas
@@ -1032,6 +1073,9 @@ try {
     // chegada; o que a asserção prova é que ela é REORDENÁVEL.
     const rec2 = await AVDB.addMedia(new Blob(['y'], { type: 'video/mp4' }),
       { name: 'Vídeo favorito de teste', list: 'favs' });
+    // UMA PASTA SINCRONIZADA, para a ORDEM ter o que provar (v5.285): sem ela
+    // "as pastas vêm primeiro" seria verdade por vacuidade.
+    opfsFolders.push({ id: 'pasta-ordem', name: 'Vídeos do culto', count: 9 });
     await recarregarFavoritos();
     const lista3 = document.createElement('ul');
     document.body.appendChild(lista3);
@@ -1039,18 +1083,47 @@ try {
     try { renderFolderList(); } finally { favHost = null; }
     r.lista = {
       secoes: lista3.querySelectorAll('.fav-section').length,
+      // AS SONDAS DOS ITENS SÃO ESCOPADAS À PLACA (`.fav-itens`), e não à lista
+      // inteira: desde a v5.285 há uma PASTA no topo, que também é um
+      // `.lib-item` e não é um favorito — contá-la aqui mediria outra coisa
+      // (ela não tem par ↑↓, nem subtítulo, nem estrela).
+      // ===== AS PASTAS VÊM PRIMEIRO (v5.285) =====
+      // Pedido do operador. A régua é a POSIÇÃO no documento, e não o índice
+      // dentro de uma `<ul>`: desde a v5.284 os itens moram numa placa própria
+      // (`.fav-itens`) e as pastas são irmãs dela, então "primeiro" é uma
+      // relação entre dois nós de níveis diferentes — que é justamente o que
+      // uma comparação de índices não veria.
+      pastaAntes: (() => {
+        const pasta = lista3.querySelector('.folder-opfs');
+        const placa = lista3.querySelector('.fav-itens');
+        if (!pasta || !placa) return null;
+        return !!(pasta.compareDocumentPosition(placa) & Node.DOCUMENT_POSITION_FOLLOWING);
+      })(),
       // Tipos diferentes (áudio e vídeo) na MESMA lista, sem nada entre eles.
-      nomes: [...lista3.querySelectorAll('.lib-item .row-name')].map((e) => e.textContent),
-      // A ALÇA continua existindo — e desde a v5.258 ela mora DENTRO do menu
-      // `⋮`, com a estrela e o `+`. Medir só a presença dela aprovaria a linha
-      // antiga, com os três botões em cima do título.
-      alcas: [...lista3.querySelectorAll('.lib-item .row-handle')]
-        .filter((h) => h.closest('.row-acoes')).length,
-      soUmBotaoNaLinha: [...lista3.querySelectorAll('.lib-item')]
-        .every((li) => li.querySelectorAll('.row > button').length === 1
-          && !!li.querySelector('.row > .row-mais')),
+      nomes: [...lista3.querySelectorAll('.fav-itens .row-name')].map((e) => e.textContent),
+      // O PAR ↑↓ tomou o lugar da alça de arrastar (v5.285). Ele morava dentro
+      // do menu `⋮`; desde a v5.287 mora na FAIXA DE AÇÕES da gaveta, que abre
+      // ABAIXO da linha em vez de por cima do título. Medir só a presença
+      // aprovaria os botões soltos na faixa do nome.
+      ordem: [...lista3.querySelectorAll('.fav-itens .row-ordem')]
+        .filter((b) => b.closest('.hymn-gaveta .fav-acoes')).length,
+      // E AS PONTAS SÃO INERTES: o primeiro item não sobe, o último não desce.
+      // Sem isto, dois botões mortos ficariam oferecendo o que não fazem.
+      pontas: (() => {
+        const ls = [...lista3.querySelectorAll('.fav-itens > .lib-item')];
+        if (ls.length < 2) return null;
+        const ord = (li) => [...li.querySelectorAll('.row-ordem')].map((b) => b.disabled);
+        return { primeiro: ord(ls[0]), ultimo: ord(ls[ls.length - 1]) };
+      })(),
+      // ===== A FAIXA DO NOME FICOU SEM BOTÃO NENHUM (v5.287) =====
+      // O `⋮` era o último, e ele saiu com a faixa que ele abria: o corpo da
+      // linha deixou de projetar, então a gaveta tem para onde descer. O que
+      // sobra na `.row` é a miniatura (que hospeda o Parar) e o texto.
+      semBotaoNaLinha: [...lista3.querySelectorAll('.fav-itens > .lib-item')]
+        .every((li) => li.querySelectorAll('.row > button').length === 0
+          && !li.querySelector('.row-acoes') && !li.querySelector('.row-mais')),
       // O subtítulo voltou: sem cabeçalho de tipo, é ele que distingue.
-      subs: [...lista3.querySelectorAll('.lib-item .row-sub')]
+      subs: [...lista3.querySelectorAll('.fav-itens .row-sub')]
         .map((e) => getComputedStyle(e).display).filter((d) => d !== 'none').length,
       // O PARAR (v5.259). Nesta lista ele simplesmente NÃO EXISTIA: uma linha de
       // favorito no ar mostrava o selo "● No ar" e não oferecia nada que a
@@ -1058,27 +1131,79 @@ try {
       // ações por cima do título ("ele estava no ar"). Ele mora na CAPA, e a
       // faixa tem de continuar OPACA nesse estado.
       parar: (() => {
-        const li = lista3.querySelector('.lib-item');
+        const li = lista3.querySelector('.fav-itens > .lib-item');
         if (!li) return null;
         li.classList.add('no-ar');
         const stop = li.querySelector('.row-stop');
-        const caixa = li.querySelector('.row-acoes');
-        const bg = caixa ? getComputedStyle(caixa).backgroundColor : '';
-        const m = bg.match(/rgba?\(([^)]+)\)/);
-        const p = m ? m[1].split(',').map((x) => parseFloat(x)) : [];
         const r = {
           naThumb: !!stop && !!stop.parentElement
             && stop.parentElement.classList.contains('thumb'),
           visivel: !!stop && getComputedStyle(stop).display !== 'none',
-          alfa: p.length === 4 ? p[3] : 1,
         };
         li.classList.remove('no-ar');
         return r;
       })(),
     };
+    // ===== A LINHA DE FAVORITO ABRE A GAVETA DA BIBLIOTECA (v5.287) =====
+    //
+    // Pedido do operador, em duas frases: a gaveta de opções não pode abrir
+    // SOBRE o título, e a lista tem de ter *"o mesmo sistema de opções de play
+    // que temos no resto da biblioteca, ao invés de tratar ela como toque
+    // direto no player"*.
+    //
+    // As duas são medidas juntas porque a segunda é o que torna a primeira
+    // possível: enquanto o toque projetava, a gaveta não tinha para onde descer.
+    // Daí as asserções serem TRÊS e não uma — que ela abriu, que ela abriu
+    // ABAIXO da faixa do nome, e que o toque NÃO projetou (a playlist não foi
+    // trocada, que é o efeito observável do caminho antigo).
+    {
+      const li = lista3.querySelector('.fav-itens > .lib-item');
+      const plAntes = (await AVDB.listIds('playlist')).join(',');
+      li.querySelector('.row').click();
+      await new Promise((res) => setTimeout(res, 400));
+      const gav = li.querySelector('.hymn-gaveta');
+      const cx = li.querySelector('.row').getBoundingClientRect();
+      const cg = gav ? gav.getBoundingClientRect() : null;
+      r.gaveta = {
+        abriu: li.classList.contains('expanded'),
+        // A régua da SOBREPOSIÇÃO: o topo da gaveta não pode entrar na faixa do
+        // nome. A faixa de ações antiga era `position: absolute` COM `top: 0` —
+        // ela media exatamente o contrário disto.
+        abaixo: !!cg && cg.top >= cx.bottom - 1 && cg.height > 0,
+        // Só as MARCÁVEIS: o confirmar mora na mesma `<ul>` e tem o mesmo
+        // rótulo de classe, e contá-lo aqui somaria uma "opção" que não é uma.
+        opcoes: [...gav.querySelectorAll('.hymn-opcoes .song-menu-sel .song-menu-label')]
+          .map((e) => e.textContent),
+        marcaveis: gav.querySelectorAll('.hymn-opcoes .song-menu-check').length,
+        confirmar: ((gav.querySelector('.song-menu-go .song-menu-label') || {}).textContent) || '',
+        acoesNaGaveta: !!gav.querySelector('.fav-acoes .row-ordem')
+          && !!gav.querySelector('.fav-acoes .row-excluir'),
+        // ===== UMA SAÍDA SÓ, E ELA PERGUNTA (v5.288) =====
+        // Pedido do operador: *"remova ou a opção de excluir ou a opção de
+        // desfavoritar, pois tecnicamente ambas fazem a mesma coisa"*. Nesta
+        // lista faziam — as duas terminam num `listRemove('favs', id)`. Fica a
+        // LIXEIRA, porque aqui a estrela é um alternador de uma direção só
+        // (todo item já é favorito) e porque ela pergunta antes.
+        semEstrela: !gav.querySelector('.fav-btn') && !li.querySelector('.fav-btn'),
+        naoProjetou: (await AVDB.listIds('playlist')).join(',') === plAntes,
+      };
+      // E O CONFIRMAR FAZ O QUE DIZ: marcar "Cronograma" e confirmar põe o item
+      // na lista. Sem esta metade, uma gaveta bonita e inerte passaria.
+      const alvoCrono = [...gav.querySelectorAll('.hymn-opcoes .song-menu-btn')]
+        .find((b) => /Cronograma/.test(b.textContent));
+      if (alvoCrono) alvoCrono.click();
+      await new Promise((res) => setTimeout(res, 60));
+      const go = gav.querySelector('.song-menu-go');
+      r.gaveta.confirmarAtivo = !!go && !go.disabled;
+      if (go && !go.disabled) go.click();
+      await new Promise((res) => setTimeout(res, 300));
+      r.gaveta.foiPraCrono = (await AVDB.listIds('imports')).includes(li.dataset.id);
+      await AVDB.listRemove('imports', li.dataset.id);
+    }
     lista3.remove();
-    // E O REORDENAR de verdade: o segundo item vai para a frente.
-    await reorder('favs', rec2.id, 0);
+    opfsFolders.length = 0;
+    // E O REORDENAR de verdade, pelo BOTÃO: o segundo item sobe uma casa.
+    await moverNaLista('favs', rec2.id, -1);
     r.lista.ordemDepois = (await AVDB.listIds('favs')).indexOf(rec2.id);
     await AVDB.listRemove('favs', rec2.id);
     await recarregarFavoritos();
@@ -1097,7 +1222,7 @@ try {
     lista2.remove();
     favItems = guardados;
     lista.remove();
-    grupoAberto = 'Favoritos';
+    grupoAberto = ''; favAberto = true;
     await AVDB.listRemove('favs', rec.id);
     await recarregarFavoritos();
     return r;
@@ -1108,8 +1233,9 @@ try {
   checar(favs.semLinhaDeDisco,
     'e a Biblioteca não tem mais rodapé de uso do disco — número que a medida '
     + 'não sustenta, disputando com o peso que os cabeçalhos já dizem');
-  checar(favs.naGaveta,
-    'e a GAVETA continua desenhando a dela — o host é emprestado, não movido');
+  checar(favs.semGaveta,
+    'e não sobrou nó nenhum da gaveta de tela cheia no documento (v5.294): a '
+    + 'seção da Biblioteca é a ÚNICA casa desta lista');
   // ── UM BOTÃO, DUAS ORIGENS (v5.239) ────────────────────────────────────
   // Pedido do operador: as ações da seção vão para a BARRA dela, só com ícone,
   // e "Adicionar pasta" se unifica com "buscar no sistema" — um toque, e a
@@ -1132,20 +1258,374 @@ try {
   checar(favs.lista.secoes === 0 && favs.lista.nomes.length === 2,
     'A LISTA DE FAVORITOS É ÚNICA: tipos diferentes juntos, sem subdivisão nenhuma',
     JSON.stringify(favs.lista.nomes));
-  checar(favs.lista.alcas === favs.lista.nomes.length,
-    'e cada item tem a ALÇA de arrastar, agora DENTRO do menu `⋮` (v5.258)');
-  checar(favs.lista.soUmBotaoNaLinha,
-    'e a linha ficou com um botão só: o `⋮` — o resto saiu de cima do título');
+  checar(favs.lista.pastaAntes === true,
+    'AS PASTAS SINCRONIZADAS VÊM NO TOPO da lista de favoritos (v5.285) — no fim '
+    + 'elas eram empurradas para longe por cada favorito novo',
+    'pasta antes da placa: ' + favs.lista.pastaAntes);
+  checar(favs.lista.ordem === favs.lista.nomes.length * 2,
+    'e cada item tem o PAR ↑↓ de reordenar, DENTRO do menu `⋮` (v5.285)',
+    favs.lista.ordem + ' botão(ões) para ' + favs.lista.nomes.length + ' item(ns)');
+  checar(!!favs.lista.pontas && favs.lista.pontas.primeiro[0] === true
+    && favs.lista.pontas.ultimo[1] === true
+    && favs.lista.pontas.primeiro[1] === false && favs.lista.pontas.ultimo[0] === false,
+    'e as PONTAS são inertes: o primeiro não sobe, o último não desce — e os '
+    + 'outros dois continuam vivos', JSON.stringify(favs.lista.pontas));
+  checar(favs.lista.semBotaoNaLinha,
+    'e a faixa do nome ficou SEM BOTÃO NENHUM (v5.287): o `⋮` saiu com a faixa '
+    + 'que ele abria, e o nome fica com a linha inteira');
+  // ===== A GAVETA DA BIBLIOTECA NA LINHA DE FAVORITO (v5.287) =====
+  checar(favs.gaveta.abriu && favs.gaveta.naoProjetou,
+    'O TOQUE NA LINHA DE FAVORITO ABRE AS OPÇÕES e não projeta mais nada — '
+    + 'a lista mora dentro da Biblioteca, e ali o toque prepara',
+    JSON.stringify(favs.gaveta));
+  checar(favs.gaveta.abaixo,
+    'e a gaveta abre ABAIXO da faixa do nome, nunca por cima dele — era a '
+    + 'sobreposição relatada, e ela some por construção quando o corpo da linha '
+    + 'deixa de ter outra ação',
+    'abaixo: ' + favs.gaveta.abaixo);
+  checar(favs.gaveta.opcoes.length === 3
+    && /Tocar agora/.test(favs.gaveta.opcoes[0])
+    && favs.gaveta.marcaveis === 3
+    && /Escolha uma opção/.test(favs.gaveta.confirmar),
+    'e são as MESMAS opções marcáveis da Biblioteca — telão, playlist e '
+    + 'Cronograma —, com o confirmar sempre visível',
+    JSON.stringify(favs.gaveta.opcoes) + ' · ' + favs.gaveta.confirmar);
+  checar(favs.gaveta.confirmarAtivo && favs.gaveta.foiPraCrono,
+    'e o confirmar FAZ o que diz: marcado o Cronograma, o item entra nele',
+    JSON.stringify([favs.gaveta.confirmarAtivo, favs.gaveta.foiPraCrono]));
+  checar(favs.gaveta.acoesNaGaveta,
+    'e as ações da linha (↑↓, excluir) descem para a faixa de baixo da gaveta, '
+    + 'em vez de cobrirem o título');
+  checar(favs.gaveta.semEstrela,
+    'e a linha de favorito tem UMA saída só (v5.288): a estrela saiu — aqui ela '
+    + 'e a lixeira faziam a mesma coisa, e só a lixeira pergunta antes');
+
+  // ===== A PASTA DO APARELHO ABRE INLINE, COMO UM ÁLBUM (v5.290) =====
+  //
+  // Pedido do operador: *"ajuste o sistema de pastas dos favoritos, para que ele
+  // abra a lista de arquivos das pastas de forma visual sem ser um popup, para
+  // que abra a lista assim como abrem os álbuns com seus itens"*.
+  //
+  // O caso mede as DUAS metades: a lista aparece no corpo da própria linha **e**
+  // a gaveta de tela cheia não abre. Sem a segunda, desenhar a lista inline e
+  // continuar abrindo o popup por cima passaria.
+  const pasta = await pg.evaluate(async () => {
+    // O MODO É RESTAURADO NO FIM: os casos seguintes medem o Modo Fácil (o
+    // bloco de conexão e a cortina), e deixá-los com o avançado ligado os
+    // reprovaria por um motivo que não é o deles. A Biblioteca só existe no
+    // avançado — `renderSimpleGate` a fecha sem tela conectada.
+    const modoAntes = appMode;
+    setAppMode('full');
+    for (const n of ['B video.mp4', 'A audio.mp3']) {
+      await AVDB.fileAdd({ id: 'fx-' + n, name: n, type: 'audio/mpeg', kind: 'audio',
+        folder: 'pasta-inline', opfsPath: 'folders/pasta-inline/' + n, size: 4, mtime: 1 });
+    }
+    await AVDB.setState('opfs-folders', [{ id: 'pasta-inline', name: 'Vídeos do culto', count: 2 }]);
+    await load();
+    if (!hymnSearchPopupEl.classList.contains('open')) openHymnSearch();
+    await new Promise((r) => setTimeout(r, 400));
+    const corpo = document.querySelector('[data-fav-corpo]');
+    const li = corpo && corpo.querySelector('.folder-opfs');
+    if (!li) return { erro: 'a pasta não foi desenhada na Biblioteca' };
+    const fechada = li.querySelectorAll('.folder-itens .lib-item').length;
+    li.querySelector('.row').click();
+    await new Promise((r) => setTimeout(r, 450));
+    const r = {
+      fechada,
+      aberta: li.classList.contains('expanded'),
+      // ORDENADA POR NOME: a do disco é a de gravação, e não diz nada a quem
+      // está montando um culto.
+      nomes: [...li.querySelectorAll('.folder-itens > .lib-item .row-name')]
+        .map((e) => e.textContent),
+      // A METADE QUE IMPORTA: nenhuma gaveta de tela cheia entrou em cena, e a
+      // Biblioteca continua aberta por baixo. Desde a v5.294 a gaveta não existe
+      // mais no documento — a asserção passa a ser sobre isso, que é a forma
+      // mais forte da mesma pergunta.
+      popup: !!document.getElementById('favPopup'),
+      biblioteca: hymnSearchPopupEl.classList.contains('open'),
+    };
+    // E cada arquivo abre as MESMAS opções do resto da Biblioteca — com
+    // "Favoritar", que numa linha de favorito não existe (lá o item já é um), e
+    // SEM excluir nem reordenar: a ordem vem do disco, e apagar aqui seria
+    // apagar o arquivo, que tem dono próprio na linha da pasta.
+    // NULL-SAFE de propósito: com o comportamento ANTIGO (o popup) não existe
+    // `.folder-itens`, e uma exceção aqui abortaria o caso inteiro — as outras
+    // asserções sumiriam com ela, e o que sobraria seria "terminou com erro" em
+    // vez de "a lista não abriu inline". A lição da v5.245.
+    const arq = li.querySelector('.folder-itens > .lib-item');
+    if (arq) {
+      arq.querySelector('.row').click();
+      await new Promise((res) => setTimeout(res, 400));
+      r.opcoes = [...arq.querySelectorAll('.hymn-opcoes .song-menu-sel .song-menu-label')]
+        .map((e) => e.textContent);
+      r.semExcluir = !arq.querySelector('.row-excluir') && !arq.querySelector('.row-ordem');
+    } else {
+      r.opcoes = []; r.semExcluir = false;
+    }
+    // E FECHAR é o mesmo toque que abriu.
+    li.querySelector('.row').click();
+    await new Promise((res) => setTimeout(res, 450));
+    r.fechouDeNovo = !li.classList.contains('expanded');
+    // (A limpeza mora no bloco seguinte — ele continua nesta mesma tela.)
+    window.__modoAntes = modoAntes;
+    return r;
+  });
+  checar(!pasta.erro && pasta.aberta && pasta.popup === false && pasta.biblioteca === true,
+    'A PASTA DO APARELHO ABRE INLINE (v5.290): a lista entra no corpo da própria '
+    + 'linha, e nenhuma gaveta de tela cheia sobe por cima da Biblioteca',
+    JSON.stringify(pasta));
+  checar(!pasta.erro && pasta.fechada === 0 && pasta.nomes.length === 2
+    && pasta.nomes[0] === 'A audio.mp3',
+    'e o corpo só é montado ao ABRIR (fechada não desenha arquivo nenhum), em '
+    + 'ordem de NOME', JSON.stringify([pasta.fechada, pasta.nomes]));
+  checar(!pasta.erro && pasta.opcoes.length === 4
+    && pasta.opcoes[pasta.opcoes.length - 1] === 'Favoritar' && pasta.semExcluir,
+    'e cada arquivo abre as MESMAS opções da Biblioteca — com "Favoritar", que é '
+    + 'o caminho de promovê-lo, e sem excluir nem reordenar',
+    JSON.stringify(pasta.opcoes));
+  checar(!pasta.erro && pasta.fechouDeNovo,
+    'e o mesmo toque fecha — é o acordeão do álbum, com a mesma gramática');
+
+  // ===== O ANINHAMENTO: uma `.lib-item` dentro de outra (v5.291) =====
+  //
+  // Relato do operador sobre a v5.290, com prints: *"há diversos bugs, como o
+  // posicionamento incorreto do design dos itens da pasta. além de ter novamente
+  // o efeito incorreto de encolhimento inteiro do grupo ao tocar em itens
+  // individuais. também temos uma falha, que não permite fechar as opções de
+  // play dos itens."*
+  //
+  // As três têm UMA causa: `.folder-opfs` é o primeiro `.lib-item` deste app que
+  // CONTÉM outros `.lib-item`, e todo seletor descendente keyado em `.lib-item`
+  // vazava para dentro. O caso mede as quatro consequências separadamente —
+  // uma regra `>` esquecida reprova só a sua.
+  const nin = await pg.evaluate(async () => {
+    const li = document.querySelector('[data-fav-corpo] .folder-opfs');
+    // GARANTE ABERTA, e não "clica uma vez": um toque que dependa do estado que
+    // o caso anterior deixou mede a pasta FECHADA metade das vezes — e com ela
+    // fechada as gavetas dos arquivos estão escondidas de qualquer jeito, isto
+    // é, a asserção passaria sem medir nada.
+    if (!li.classList.contains('expanded')) {
+      li.querySelector('.row').click();
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    const itens = [...li.querySelectorAll('.folder-itens > .lib-item')];
+    const alt = (el) => Math.round(el.getBoundingClientRect().height);
+    const r = {
+      // 1. A GAVETA DE UM ITEM FECHADO NÃO APARECE. Era a faixa preta embaixo de
+      //    cada arquivo: `.lib-item.expanded .hymn-gaveta` é descendente, e a
+      //    PASTA aberta satisfazia o `.expanded`.
+      fechadas: itens.map((x) => ({
+        exp: x.classList.contains('expanded'),
+        disp: getComputedStyle(x.querySelector('.hymn-gaveta')).display,
+        h: alt(x.querySelector('.hymn-gaveta')),
+      })),
+    };
+    // (O ALINHAMENTO é medido no bloco final, com o DOM assentado: aqui o corpo
+    // da pasta ainda está sendo remontado por uma promessa.)
+    const m = await AVDB.addMedia(new Blob([new Uint8Array(4)], { type: 'audio/mpeg' }),
+      { name: 'Louvor favorito', type: 'audio/mpeg', kind: 'audio', list: 'favs' });
+    window.__favTmp = m.id;
+    await recarregarFavoritos();
+    return r;
+  });
+  // 2. O ENCOLHIMENTO: pressão de VERDADE, porque `:active` não se simula com
+  //    classe — o que se mede é o `transform` computado da PASTA enquanto o
+  //    dedo está sobre um arquivo dela.
+  const pressPasta = await (async () => {
+    // `recarregarFavoritos` redesenha a seção e o corpo da pasta é remontado por
+    // uma promessa (`montarCorpo`): esperar o NÓ, e não um prazo, é o que faz o
+    // caso medir em vez de correr contra o relógio.
+    await pg.evaluate(async () => {
+      const li = document.querySelector('[data-fav-corpo] .folder-opfs');
+      if (li && !li.classList.contains('expanded')) {
+        li.querySelector('.row').click();
+        await new Promise((r) => setTimeout(r, 500));
+      }
+    });
+    await pg.waitForFunction(
+      () => !!document.querySelector('[data-fav-corpo] .folder-opfs .folder-itens > .lib-item'),
+      null, { timeout: 8000 });
+    const pt = await pg.evaluate(() => {
+      const a = document.querySelector('[data-fav-corpo] .folder-opfs .folder-itens > .lib-item');
+      a.scrollIntoView({ block: 'center' });
+      const r2 = a.querySelector('.row').getBoundingClientRect();
+      return { x: Math.round(r2.left + r2.width / 2), y: Math.round(r2.top + r2.height / 2) };
+    });
+    await pg.mouse.move(pt.x, pt.y);
+    await pg.mouse.down();
+    const dur = await pg.evaluate(() => ({
+      pasta: getComputedStyle(document.querySelector('[data-fav-corpo] .folder-opfs')).transform,
+      item: getComputedStyle(document.querySelector('[data-fav-corpo] .folder-opfs .folder-itens > .lib-item')).transform,
+    }));
+    await pg.mouse.up();
+    await pg.waitForTimeout(500);
+    return dur;
+  })();
+  // 3. FECHAR AS OPÇÕES: o segundo toque tem de ESCONDER, e não só tirar a
+  //    classe — era a pasta que as mantinha visíveis.
+  const fechou = await pg.evaluate(async () => {
+    const a = document.querySelector('[data-fav-corpo] .folder-opfs .folder-itens > .lib-item');
+    const toque = async () => {
+      a.querySelector('.row').click();
+      await new Promise((r) => setTimeout(r, 500));
+    };
+    // Parte de FECHADO, sem supor nada: a pressão do bloco anterior é um clique
+    // completo, e ela pode ter deixado a gaveta aberta.
+    if (a.classList.contains('expanded')) await toque();
+    await toque();
+    const g = a.querySelector('.hymn-gaveta');
+    const abriu = a.classList.contains('expanded')
+      && g.getBoundingClientRect().height > 10;
+    await toque();
+    const r = {
+      abriu,
+      classe: a.classList.contains('expanded'),
+      disp: getComputedStyle(g).display,
+      h: Math.round(g.getBoundingClientRect().height),
+    };
+    // 4. O ALINHAMENTO, agora com tudo assentado: o arquivo da pasta ocupa a
+    //    MESMA coluna do favorito logo abaixo. Ele começava colado na borda do
+    //    cartão da pasta, com a miniatura na coluna da miniatura DA PASTA.
+    const corpo = document.querySelector('[data-fav-corpo]');
+    const fav = corpo.querySelector('.fav-itens > .lib-item');
+    const cx = (e) => (e ? Math.round(e.getBoundingClientRect().left) : null);
+    r.colunas = [cx(a), cx(fav)];
+    r.alinhado = !!fav && cx(a) === cx(fav)
+      && cx(a.querySelector('.thumb')) === cx(fav.querySelector('.thumb'));
+    // Limpeza: a tela volta como estava, para os casos do Modo Fácil que vêm
+    // depois não reprovarem por um motivo que não é o deles.
+    pastaAberta = null;
+    if (window.__favTmp) { await AVDB.listRemove('favs', window.__favTmp); delete window.__favTmp; }
+    for (const n of ['B video.mp4', 'A audio.mp3']) await AVDB.fileDelete('fx-' + n);
+    await AVDB.setState('opfs-folders', []);
+    closeHymnSearch();
+    setAppMode(window.__modoAntes);
+    await load();
+    await new Promise((res) => setTimeout(res, 250));
+    return r;
+  });
+  checar(nin.fechadas.length > 1
+    && nin.fechadas.every((x) => !x.exp && x.disp === 'none' && x.h === 0),
+    'A GAVETA DE UM ARQUIVO FECHADO NÃO APARECE com a pasta aberta (v5.291) — a '
+    + 'faixa preta embaixo de cada item era `.lib-item.expanded .hymn-gaveta` '
+    + 'casando com a PASTA, que também é uma `.lib-item`',
+    JSON.stringify(nin.fechadas));
+  checar(pressPasta.pasta === 'none' && pressPasta.item !== 'none',
+    'e pressionar um arquivo NÃO encolhe a pasta inteira — quem responde ao '
+    + 'toque é a peça tocada', JSON.stringify(pressPasta));
+  checar(fechou.abriu && !fechou.classe && fechou.disp === 'none' && fechou.h === 0,
+    'e o segundo toque FECHA as opções de verdade: era a pasta que as mantinha '
+    + 'visíveis, então tirar a classe do item não escondia nada',
+    JSON.stringify(fechou));
+  checar(fechou.alinhado,
+    'e o arquivo da pasta ocupa a MESMA coluna do favorito abaixo — ele começava '
+    + 'colado na borda do cartão, com a miniatura na coluna da própria pasta',
+    JSON.stringify(fechou.colunas));
+
+  // ===== A SEÇÃO NÃO FICA PARA TRÁS DO BANCO (v5.292) =====
+  //
+  // Relato do operador: *"verifique a atualização da lista de favoritos em
+  // relação a excluir itens comuns e a excluir pastas, que não desaparecem
+  // apenas fechando e reabrindo a biblioteca"*.
+  //
+  // `deleteOpfsFolder` e `syncDeviceFolder` terminam em `load()` — o funil onde
+  // `favItems`/`favSet`/`opfsFolders` são reaplicados —, e `load()` redesenhava
+  // o Cronograma e mais nada. A seção da Biblioteca é desenhada por
+  // `renderFolderList` com `favHost`, que ele nunca chamava.
+  //
+  // O caso mede as DUAS metades, e a segunda é a que impede o conserto de virar
+  // um redesenho incondicional: excluir a pasta tira da tela a pasta E o
+  // favorito que ela levava junto (`purgeCatalogRecords` mexe em `favs`), **e**
+  // uma gaveta ABERTA sobrevive a um `load()` que não mudou a seção — mandar um
+  // item ao Cronograma chama `load()`, e refazer a seção ali a fecharia debaixo
+  // do dedo.
+  const stale = await pg.evaluate(async () => {
+    // O MODO É LIDO ANTES de trocar: os casos seguintes medem o Modo Fácil, e
+    // restaurar 'full' os reprovaria por um motivo que não é o deles.
+    const modoAntes = appMode;
+    setAppMode('full');
+    await AVDB.fileAdd({ id: 'fw1', name: 'W.mp3', type: 'audio/mpeg', kind: 'audio',
+      folder: 'pw1', opfsPath: 'folders/pw1/W.mp3', size: 4, mtime: 1 });
+    await AVDB.listAdd('favs', 'fw1');
+    const solto = await AVDB.addMedia(new Blob([new Uint8Array(4)], { type: 'audio/mpeg' }),
+      { name: 'Favorito solto', type: 'audio/mpeg', kind: 'audio', list: 'favs' });
+    await AVDB.setState('opfs-folders', [{ id: 'pw1', name: 'Pasta W', count: 1 }]);
+    await load();
+    if (!hymnSearchPopupEl.classList.contains('open')) openHymnSearch();
+    await new Promise((r) => setTimeout(r, 450));
+    const corpo = () => document.querySelector('[data-fav-corpo]');
+    const nomes = () => [...corpo().querySelectorAll('.fav-itens > .lib-item .row-name')]
+      .map((e) => e.textContent);
+    const pastas = () => [...corpo().querySelectorAll('.folder-opfs .row-name')]
+      .map((e) => e.textContent);
+    const antes = { itens: nomes(), pastas: pastas() };
+    // ---- excluir a PASTA, pelo botão da linha e pelo diálogo de verdade ----
+    corpo().querySelector('.folder-opfs .row-btn:last-child').click();
+    await new Promise((r) => setTimeout(r, 250));
+    document.getElementById('appDialogOk').click();
+    await new Promise((r) => setTimeout(r, 900));
+    const depois = {
+      itens: nomes(), pastas: pastas(),
+      noEstado: ((await AVDB.getState('opfs-folders')) || []).length,
+      noBanco: (await AVDB.listIds('favs')).length,
+    };
+    // ---- e a METADE NEGATIVA, medida no `load()` DIRETO ----
+    // Ela é o que impede o conserto de virar um redesenho incondicional. O
+    // `load()` é chamado por dezenas de caminhos com a Biblioteca aberta (uma
+    // sincronização que termina, o coletor de lixo, uma troca de aba por baixo),
+    // e refazer a seção em todos eles fecharia a gaveta que o operador acabou de
+    // abrir. Medido no `load()` CRU e não por um caminho de UI: um caminho que
+    // não chegue a chamá-lo mediria outra coisa — e foi assim que a primeira
+    // versão desta asserção passou sem exercitar nada.
+    const alvo = [...corpo().querySelectorAll('.fav-itens > .lib-item')]
+      .find((x) => x.querySelector('.row-name').textContent === 'Favorito solto');
+    alvo.querySelector('.row').click();
+    await new Promise((r) => setTimeout(r, 450));
+    const abriu = alvo.classList.contains('expanded');
+    await load();
+    await new Promise((r) => setTimeout(r, 300));
+    const gaveta = {
+      abriu,
+      continuaAberta: !!document.querySelector('[data-fav-corpo] .fav-itens > .lib-item.expanded'),
+      // E o `load()` de fato passou pela seção: sem esta metade, um `load()`
+      // que devolvesse cedo por outro motivo faria a asserção passar de graça.
+      foi: !!corpo().querySelector('.fav-itens > .lib-item'),
+    };
+    // limpeza
+    await AVDB.listRemove('favs', solto.id);
+    await AVDB.setState('opfs-folders', []);
+    closeHymnSearch();
+    setAppMode(modoAntes);
+    await load();
+    await new Promise((r) => setTimeout(r, 250));
+    return { antes, depois, gaveta };
+  });
+  checar(stale.antes.pastas.length === 1 && stale.antes.itens.length === 2,
+    'o fixture da seção tem a pasta e os dois favoritos na tela',
+    JSON.stringify(stale.antes));
+  checar(stale.depois.pastas.length === 0 && stale.depois.noEstado === 0,
+    'EXCLUIR UMA PASTA A TIRA DA TELA NA HORA (v5.292) — ela só sumia fechando e '
+    + 'reabrindo a Biblioteca, porque `load()` redesenhava o Cronograma e não a '
+    + 'seção de Favoritos', JSON.stringify(stale.depois));
+  checar(stale.depois.itens.length === 1 && stale.depois.noBanco === 1,
+    'e o FAVORITO que ela levava junto sai com ela — `purgeCatalogRecords` mexe '
+    + 'em `favs`, e a tela tem de dizer o mesmo que o banco',
+    JSON.stringify(stale.depois.itens));
+  checar(stale.gaveta.abriu && stale.gaveta.continuaAberta && stale.gaveta.foi,
+    'mas uma gaveta ABERTA sobrevive a um `load()` que não mudou a seção — um '
+    + 'redesenho incondicional a fecharia debaixo do dedo, e `load()` roda por '
+    + 'dezenas de caminhos com a Biblioteca aberta', JSON.stringify(stale.gaveta));
   checar(favs.lista.subs === favs.lista.nomes.length,
     'e o subtítulo voltou a aparecer: sem cabeçalho de tipo, é ele que distingue');
   checar(favs.lista.ordemDepois === 0,
-    'e o arrastar MOVE de verdade (o mesmo `reorder` do Cronograma)');
+    'e o botão MOVE de verdade — uma casa, na lista de verdade');
   checar(!!favs.lista.parar && favs.lista.parar.naThumb && favs.lista.parar.visivel,
     'UM FAVORITO NO AR também oferece o "Tirar do ar", na capa (v5.259) — aqui ele '
     + 'nem existia', JSON.stringify(favs.lista.parar));
-  checar(!!favs.lista.parar && favs.lista.parar.alfa === 1,
-    'e a faixa de ações continua OPACA com a linha no ar — era este o título '
-    + 'aparecendo por trás dos botões', JSON.stringify(favs.lista.parar));
+  // (A asserção da FAIXA OPACA viveu aqui da v5.259 à v5.286: a `.row-acoes`
+  // cobria o título, e com a linha no ar o `--linha` dela tinha alfa — o nome
+  // aparecia por trás dos botões. Ela saiu na v5.287 com a faixa: nesta lista
+  // não há mais nada por cima do título para ser opaco.)
   // ── OS FAVORITOS SE ATUALIZAM COM A BIBLIOTECA ABERTA (v5.258) ─────────
   //
   // Relato do operador: *"se estou na biblioteca e adiciono algo aos favoritos,
@@ -1195,88 +1675,257 @@ try {
     'e o redesenho é da SEÇÃO, não da Biblioteca inteira: a rolagem não volta ao topo',
     JSON.stringify(favVivo));
 
-  // ── O BOTÃO QUE ABRE A LISTA ALÉM DO VÃO (v5.273) ──────────────────────
+  // ── O VÃO É UM PISO, E A SEÇÃO CRESCE ALÉM DELE (v5.273 → v5.282) ──────
   //
-  // Pedido do operador: *"caso tenha mais itens do que cabe nesse vão, vai ter
-  // um botão na sua base que permite a expansão total da lista"*.
+  // Pedido do operador: *"não tenha mais o sistema de ver mais. Agora quando
+  // aberta ela mostra toda a listagem"* e *"mantenha o tamanho mínimo dela,
+  // mesmo vazia, como o tamanho flexível que ocupa o que sobra das outras
+  // coleções… mas agora esse é apenas o tamanho mínimo, que cresce conforme a
+  // lista dos favoritos requerir mais que esse espaço disponível"*.
   //
-  // As TRÊS metades, e nenhuma basta sozinha: com poucos favoritos o botão NÃO
-  // existe (senão ele seria um controle permanente oferecendo o que já está à
-  // vista), com muitos ele aparece, e o toque nele mostra de fato o que estava
-  // cortado — sem a terceira, um botão que só troca de rótulo passaria.
+  // Isto REVOGA o caso do botão "Ver todos" (v5.273/v5.276), que media a régua
+  // do recorte — quantos itens ficavam de fora da caixa. Não há mais recorte, e
+  // é isso que as DUAS metades afirmam, porque nenhuma basta sozinha: com a
+  // lista vazia a seção ainda RESERVA o vão (senão a Biblioteca abriria com as
+  // coleções coladas no topo, que é o desenho que o operador mandou manter), e
+  // com a lista cheia ela PASSA dele sem cortar um item.
   //
-  // A medição é na Biblioteca DE VERDADE: o recorte é uma consequência de a
-  // seção ter um vão finito, e num `<ul>` solto no `<body>` não há vão nenhum.
+  // A medição é na Biblioteca DE VERDADE: o vão é uma consequência de a lista
+  // ter altura finita, e num `<ul>` solto no `<body>` não há vão nenhum.
   const vao = await pg.evaluate(async () => {
     const modoAntes = appMode;
     setAppMode('full');
     openHymnSearch();
     await new Promise((r) => setTimeout(r, 250));
+    // A BIBLIOTECA DO OPERADOR, e a fidelidade aqui é o caso inteiro: são OITO
+    // seções nos prints dele, e é isso que torna o vão pequeno o bastante para
+    // uma lista de favoritos passar dele. Num fixture com duas seções sobra
+    // tela à vontade, a lista nunca alcança o piso, e a metade que importa
+    // deste caso seria verdadeira por vacuidade.
+    albumCatalog.categories = ['CDs oficiais/ano', 'Adoradores', 'Cantores',
+      'Celebra SP', 'Diversas', 'Especiais'].map((nome, i) => ({
+      name: nome,
+      albums: [{ id_album: 500 + i, name: 'Álbum ' + nome }],
+    }));
+    albumCatalog.albums = albumCatalog.categories.map((c) => c.albums[0]);
     const corpo = () => document.querySelector('#hymnResults [data-fav-corpo]');
-    const botao = () => document.querySelector('#hymnResults .coll-group-mais');
-    const cortado = () => {
+    const secao = () => {
       const c = corpo();
-      return !!c && c.scrollHeight > c.clientHeight + 1;
+      return c ? c.parentElement : null;
     };
-    const vazio = { temBotao: !!botao(), cortado: cortado() };
-    // POUCOS, MAS NÃO ZERO — e é este o caso do relato do operador: *"que ele
-    // apenas apareça quando a lista de favoritos for maior que a área de
-    // visualização disponível"*. Com a lista vazia é fácil acertar; o que
-    // precisa estar certo é a régua no meio do caminho.
-    const poucosIds = [];
-    for (let i = 1; i <= 3; i++) {
-      const r = await AVDB.addMedia(new Blob(['q' + i], { type: 'audio/mpeg' }),
-        { name: 'Favorito curto ' + i, list: 'favs' });
-      poucosIds.push(r.id);
-    }
-    await recarregarFavoritos();
+    // O PISO, lido de onde o JS o escreve — a custom property da lista. Comparar
+    // a altura contra ele é o que separa "cresceu" de "está grande": um número
+    // fixo aqui dependeria da altura da tela do runner.
+    const piso = () => parseFloat(
+      getComputedStyle(hymnResultsEl).getPropertyValue('--fav-vao')) || 0;
+    // ITENS FORA DA CAIXA do corpo. Era a régua do botão; agora é a afirmação
+    // de que NADA fica de fora, em nenhum tamanho de lista. `.empty` é a linha
+    // de "Nenhum favorito ainda" e não é um item.
+    const deFora = () => {
+      const c = corpo();
+      if (!c) return -1;
+      const caixa = c.getBoundingClientRect();
+      return [...c.children].filter((el) => {
+        if (el.classList.contains('empty')) return false;
+        const b = el.getBoundingClientRect();
+        return b.bottom > caixa.bottom + 1 || b.top < caixa.top - 1;
+      }).length;
+    };
+    const ler = () => ({
+      piso: piso(),
+      altura: secao() ? secao().getBoundingClientRect().height : 0,
+      deFora: deFora(),
+      // O BOTÃO não pode existir em estado nenhum (v5.282).
+      temBotao: !!document.querySelector('#hymnResults .coll-group-mais'),
+    });
+    renderCollectionsList(hymnResultsEl, () => {}, { semTotal: true });
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-    const poucos = { temBotao: !!botao(), cortado: cortado() };
-    // Favoritos que MOLHAM a régua: bastam mais do que cabe no vão, e trinta
-    // passam de qualquer tela de celular.
-    const ids = [...poucosIds];
+    const vazio = {
+      ...ler(),
+      // Quantas seções a tela tem: é isto que prova que a medição aconteceu na
+      // condição do relato, com o vão pequeno.
+      secoes: document.querySelectorAll('#hymnResults .coll-group--drop').length,
+    };
+    // Favoritos que passam de qualquer tela de celular.
+    const ids = [];
     for (let i = 1; i <= 30; i++) {
       const r = await AVDB.addMedia(new Blob(['v' + i], { type: 'audio/mpeg' }),
         { name: 'Favorito de lote ' + i, list: 'favs' });
       ids.push(r.id);
     }
     await recarregarFavoritos();
-    // A medição do transbordo é adiada um quadro de propósito (ver
+    // A medição do vão é adiada um quadro de propósito (ver
     // `acertarVaoDosFavoritos`), então a leitura espera dois.
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     const muitos = {
-      temBotao: !!botao(),
-      cortado: cortado(),
-      rotulo: botao() ? botao().textContent.trim() : '',
-      alturaCorpo: corpo() ? corpo().getBoundingClientRect().height : 0,
+      ...ler(),
+      // E a BIBLIOTECA passa a rolar: a seção que cresceu empurra as fechadas
+      // para baixo, que é o que qualquer outra seção aberta já faz. Sem isto,
+      // uma seção que crescesse para fora da tela sem a lista rolar passaria.
+      rola: hymnResultsEl.scrollHeight > hymnResultsEl.clientHeight + 1,
+      // O corpo continua sem rolagem PRÓPRIA (o `overflow: hidden` de que a
+      // animação de abertura depende). O operador recusou o scroll interno na
+      // v5.280, e a régua é o `overflow-y` COMPUTADO: uma caixa `hidden`
+      // continua rolando por SCRIPT, então medir `scrollTop` aprovaria os dois
+      // estados — quem não rola aqui é o DEDO.
+      overflow: corpo() ? getComputedStyle(corpo()).overflowY : 'AUSENTE',
     };
-    if (botao()) botao().click();
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-    const aberto = {
-      cortado: cortado(),
-      rotulo: botao() ? botao().textContent.trim() : '',
-      alturaCorpo: corpo() ? corpo().getBoundingClientRect().height : 0,
-    };
-    if (botao()) botao().click();   // devolve o estado recolhido aos casos seguintes
+    albumCatalog.categories = []; albumCatalog.albums = [];
     for (const id of ids) await AVDB.listRemove('favs', id);
     await recarregarFavoritos();
     closeHymnSearch();
     setAppMode(modoAntes);
-    return { vazio, poucos, muitos, aberto };
+    return { vazio, muitos };
   });
-  checar(!vao.vazio.temBotao && !vao.vazio.cortado,
-    'sem favorito nenhum não há botão: nada foi cortado, nada a expandir');
-  checar(!vao.poucos.temBotao && !vao.poucos.cortado,
-    'e com POUCOS ele continua fora — a régua é o vão, não a existência da lista');
-  checar(vao.muitos.temBotao && vao.muitos.cortado,
-    'com mais do que cabe no vão, a lista é RECORTADA e o botão aparece na base',
-    vao.muitos.rotulo);
-  checar(!vao.aberto.cortado && vao.aberto.alturaCorpo > vao.muitos.alturaCorpo,
-    'e o toque nele mostra a lista inteira — o corpo cresce além do vão ('
-    + Math.round(vao.muitos.alturaCorpo) + 'px → ' + Math.round(vao.aberto.alturaCorpo) + 'px)');
-  checar(vao.aberto.rotulo && vao.aberto.rotulo !== vao.muitos.rotulo,
-    'com o caminho de volta no mesmo botão, que troca de verbo',
-    vao.muitos.rotulo + ' → ' + vao.aberto.rotulo);
+  checar(vao.vazio.secoes >= 8,
+    'a Biblioteca do caso tem as OITO seções do relato — é o que torna o vão '
+    + 'pequeno e a lista de favoritos capaz de passar dele',
+    vao.vazio.secoes + ' seção(ões)');
+  // A PRIMEIRA METADE: vazia, ela RESERVA o vão. É o desenho de abertura da
+  // Biblioteca — coleções empilhadas na base, o que sobra em cima é dos
+  // favoritos — e é o que o operador mandou manter.
+  checar(vao.vazio.piso > 0 && Math.abs(vao.vazio.altura - vao.vazio.piso) <= 2,
+    'sem favorito NENHUM a seção ainda ocupa o vão que sobra das outras: o piso '
+    + 'é o tamanho dela (' + Math.round(vao.vazio.altura) + 'px para um vão de '
+    + Math.round(vao.vazio.piso) + 'px)');
+  // A SEGUNDA: cheia, ela PASSA do vão. Sem ela, um `height` fixo de volta
+  // passaria na de cima.
+  checar(vao.muitos.altura > vao.muitos.piso + 2,
+    'e com mais favoritos do que cabe nele ela CRESCE além do piso — o vão é um '
+    + 'mínimo, não uma altura (' + Math.round(vao.muitos.altura) + 'px para um '
+    + 'vão de ' + Math.round(vao.muitos.piso) + 'px)');
+  checar(vao.muitos.deFora === 0 && vao.vazio.deFora === 0,
+    'e a lista inteira aparece: nenhum item fica cortado fora da caixa, em '
+    + 'tamanho de lista nenhum',
+    'de fora: ' + vao.vazio.deFora + ' (vazia) / ' + vao.muitos.deFora + ' (cheia)');
+  checar(vao.muitos.rola,
+    'quem rola é a BIBLIOTECA, como em qualquer outra seção aberta');
+  checar(!vao.vazio.temBotao && !vao.muitos.temBotao,
+    'e não há mais "Ver todos" em estado nenhum: aberta, a seção mostra toda a '
+    + 'listagem');
+  checar(vao.muitos.overflow === 'hidden',
+    'o corpo continua sem rolagem própria — não há um segundo caminho para o '
+    + 'fim da lista',
+    'overflow-y ' + vao.muitos.overflow);
+
+  // ── A BIBLIOTECA ABRE COM A LISTA NO TOPO (v5.280) ─────────────────────
+  //
+  // Decisão do operador: *"ao invés de ter um scroll de tela inteira, deixar
+  // apenas os itens abaixo da barra de pesquisa ficarem dentro de um scroll, e
+  // apenas rolar esse scroll para o topo quando a biblioteca é aberta"*.
+  //
+  // A rolagem sempre foi só da lista; o que faltava é o reset. `#hymnResults` é
+  // o MESMO nó entre uma abertura e a seguinte, então ele guardava a posição da
+  // vez anterior e a Biblioteca reabria no meio de um hinário.
+  const noTopo = await pg.evaluate(async () => {
+    const modoAntes = appMode;
+    setAppMode('full');
+    openHymnSearch();
+    await new Promise((r) => setTimeout(r, 250));
+    // Conteúdo que dê o que rolar, e uma rolagem de verdade.
+    albumCatalog.categories = ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((n, i) => ({
+      name: 'Categoria ' + n,
+      albums: [{ id_album: 900 + i, name: 'Álbum ' + n }],
+    }));
+    albumCatalog.albums = albumCatalog.categories.map((c) => c.albums[0]);
+    // E uma COLEÇÃO ABERTA: com tudo colapsado a lista nunca transborda (o vão
+    // dos favoritos é justamente o que sobra), então não haveria rolagem a
+    // afirmar — é uma propriedade do desenho, não um detalhe do fixture.
+    grupoAberto = 'Hinários';
+    renderSearchResults('');
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    hymnResultsEl.scrollTop = hymnResultsEl.scrollHeight;
+    const rolou = hymnResultsEl.scrollTop;
+    closeHymnSearch();
+    openHymnSearch();
+    await new Promise((r) => setTimeout(r, 250));
+    const aoReabrir = hymnResultsEl.scrollTop;
+    albumCatalog.categories = []; albumCatalog.albums = [];
+    grupoAberto = ''; favAberto = true;
+    closeHymnSearch();
+    setAppMode(modoAntes);
+    return { rolou, aoReabrir };
+  });
+  checar(noTopo.rolou > 0 && noTopo.aoReabrir === 0,
+    'A BIBLIOTECA REABRE COM A LISTA NO TOPO — ela guardava a rolagem da vez '
+    + 'anterior e voltava no meio de um hinário',
+    'rolou ' + Math.round(noTopo.rolou) + 'px, reabriu em ' + noTopo.aoReabrir);
+
+  // ── A COLEÇÃO ABRE PARA BAIXO, ALINHADA PELO TOPO (v5.277) ─────────────
+  //
+  // Pedido do operador: *"as coleções estão abrindo estendendo para cima, mas
+  // elas devem sempre abrir para baixo e rolar/alinhar a tela sempre com o
+  // início da lista da coleção, alinhando com o topo dela"*.
+  //
+  // São DUAS metades, e a segunda é a que o relato descreve: o topo da seção
+  // aberta encosta no topo da área visível (a lista rolou até ele), **e** os
+  // favoritos não mudaram de tamanho — era o encolhimento deles que fazia o
+  // conteúdo subir e a coleção parecer crescer para cima.
+  const alinhado = await pg.evaluate(async () => {
+    const modoAntes = appMode;
+    setAppMode('full');
+    openHymnSearch();
+    await new Promise((r) => setTimeout(r, 250));
+    // As oito seções do relato outra vez: sem elas a lista cabe inteira na tela
+    // e não há rolagem nenhuma a afirmar.
+    albumCatalog.categories = ['CDs oficiais/ano', 'Adoradores', 'Cantores',
+      'Celebra SP', 'Diversas', 'Especiais'].map((nome, i) => ({
+      name: nome,
+      albums: [{ id_album: 700 + i, name: 'Álbum ' + nome }],
+    }));
+    albumCatalog.albums = albumCatalog.categories.map((c) => c.albums[0]);
+    grupoAberto = ''; favAberto = true;
+    hymnResultsEl.innerHTML = '';   // `renderCollectionsList` ACRESCENTA (v5.232)
+    renderCollectionsList(hymnResultsEl, () => renderSearchResults(''), { semTotal: true });
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const secao = (nome) => [...hymnResultsEl.children]
+      .find((n) => n.dataset && n.dataset.grupo === nome);
+    const altFavAntes = secao('Favoritos').getBoundingClientRect().height;
+    // A ÚLTIMA seção da lista: é a que mais precisa da rolagem, porque abrir
+    // uma coleção lá embaixo cresce para fora da tela.
+    const alvo = 'Especiais';
+    const barra = secao(alvo).querySelector('.coll-group-bar');
+    const desvioAntes = secao(alvo).getBoundingClientRect().top
+      - (hymnResultsEl.getBoundingClientRect().top
+        + parseFloat(getComputedStyle(hymnResultsEl).paddingTop || 0));
+    barra.click();
+    // A rolagem é suave: a leitura espera ela assentar.
+    await new Promise((r) => setTimeout(r, 700));
+    const el = secao(alvo);
+    const topoLista = hymnResultsEl.getBoundingClientRect().top
+      + parseFloat(getComputedStyle(hymnResultsEl).paddingTop || 0);
+    const r = {
+      desvio: el.getBoundingClientRect().top - topoLista,
+      desvioAntes,
+      rolou: hymnResultsEl.scrollTop,
+      // O quanto a lista PODE rolar: quando a seção aberta é a última e o que
+      // ela abre é curto, não há conteúdo abaixo para levá-la até o topo — e
+      // rolar até o fim é o mais perto que existe.
+      maximo: hymnResultsEl.scrollHeight - hymnResultsEl.clientHeight,
+      altFavAntes,
+      altFavDepois: secao('Favoritos').getBoundingClientRect().height,
+    };
+    albumCatalog.categories = []; albumCatalog.albums = [];
+    grupoAberto = ''; favAberto = true;
+    closeHymnSearch();
+    setAppMode(modoAntes);
+    return r;
+  });
+  // A REGRA tem dois desfechos possíveis, e os dois são o mesmo pedido: o topo
+  // da seção encosta no topo da lista, OU a lista rolou até o fim tentando —
+  // quando a seção aberta é a última e o que ela abre é curto, não existe
+  // conteúdo abaixo que a leve mais para cima. O que não pode acontecer é a
+  // lista ficar parada, que era o estado anterior a este lote.
+  checar(alinhado.rolou > 0 && alinhado.desvio < alinhado.desvioAntes
+    && (Math.abs(alinhado.desvio) <= 2 || alinhado.rolou >= alinhado.maximo - 1),
+    'ABRIR UMA COLEÇÃO rola a lista até o topo dela — ela abre para baixo e a '
+    + 'tela vai ao início dos itens',
+    'rolou ' + Math.round(alinhado.rolou) + 'px de ' + Math.round(alinhado.maximo)
+    + ' possíveis; o topo subiu ' + Math.round(alinhado.desvioAntes - alinhado.desvio) + 'px');
+  checar(Math.abs(alinhado.altFavDepois - alinhado.altFavAntes) <= 1,
+    'e a seção dos Favoritos não muda de tamanho por causa disso — era o '
+    + 'encolhimento dela que fazia a coleção parecer crescer para cima',
+    Math.round(alinhado.altFavAntes) + 'px → ' + Math.round(alinhado.altFavDepois) + 'px');
 
   // ── A MIGRAÇÃO DOS ATALHOS DE PASTA (v5.254) ───────────────────────────
   //
@@ -1530,7 +2179,7 @@ try {
     + (lx ? Math.round(lx.larg) + 'px contra ' + Math.round(lx.largVerificar) + 'px' : '?') + ')');
   await pg.evaluate(() => {
     allCollections().forEach((c) => { ui(c.id).expanded = false; });
-    grupoAberto = 'Favoritos';
+    grupoAberto = ''; favAberto = true;
     redesenharAcervo();
   });
 
@@ -2090,16 +2739,30 @@ try {
     const ul = li && li.parentElement;
     if (!ul) return { erro: 'a lista dos favoritos não foi desenhada' };
 
-    // ---- A LINHA-GUIA cai onde a conta promete ----
-    // `showDropLine` posiciona por `absolute` DENTRO da `<ul>`, então a `<ul>`
-    // precisa ser o bloco contendor. Isso valia por acidente no Cronograma
-    // (`.lib-list` é `position: relative`) e não valia aqui.
-    const alvo = ul.children[2].getBoundingClientRect();
-    measureDrag(ul, li);
-    showDropLine(ul, li, alvo.top + 2);
-    const guia = ul.querySelector('.drop-line').getBoundingClientRect();
-    const erroGuia = Math.round(guia.top - alvo.top);
-    hideDropLine(ul);
+    // ---- O PAR ↑↓ MOVE, E A ORDEM É A DA LISTA (v5.285) ----
+    // O caso da LINHA-GUIA do arrasto (v5.272) morava aqui e saiu com ele: não
+    // há mais posicionamento absoluto a conferir. O que ficou é a pergunta que
+    // importa e que sobrevive à troca de gesto — o item foi para onde o botão
+    // prometeu —, medida na lista de VERDADE e pelo botão de verdade.
+    const descer = () => {
+      const alvo2 = corpo.querySelector('.lib-item[data-id="' + ids[0] + '"]');
+      const bs = alvo2.querySelectorAll('.row-ordem');
+      bs[1].click();
+    };
+    descer();
+    await new Promise((r) => setTimeout(r, 300));
+    const ordemDepois = (await AVDB.listIds('favs')).indexOf(ids[0]);
+    // E A GAVETA REABRE no item que se moveu, com o ↓ de novo sob o dedo — sem
+    // isto cada casa custaria reabrir o menu à mão, que é o que tornaria uma
+    // sequência de toques insuportável. Medido aqui, e não no caso da lista
+    // solta: `redesenharFavoritosNaBiblioteca` desiste com a Biblioteca fechada,
+    // e é só aqui que ela está aberta de verdade.
+    // A REABERTURA é da GAVETA desde a v5.287 (`.expanded`), e não mais da
+    // faixa `⋮` (`.acoes-abertas`) — o par ↑↓ mudou de casa junto com o resto
+    // das ações da linha.
+    await new Promise((r) => setTimeout(r, 200));
+    const reaberta = document.querySelector('[data-fav-corpo] .lib-item.expanded');
+    const reabriu = !!reaberta && reaberta.dataset.id === ids[0];
 
     // ---- O TOQUE LONGO não liga modo nenhum ----
     const row = li.querySelector('.row');
@@ -2111,22 +2774,24 @@ try {
     ev('pointercancel');
 
     return {
-      erroGuia,
-      posUl: getComputedStyle(ul).position,
+      ordemDepois, reabriu,
       modo,
       temExcluir: !!li.querySelector('.row-excluir'),
       ids,
     };
   });
   checar(!fav.erro, 'a lista dos Favoritos foi desenhada na Biblioteca', fav.erro);
-  checar(Math.abs(fav.erroGuia) <= 1,
-    'a linha-guia do reordenar cai EXATAMENTE onde a conta promete — a `<ul>` é '
-    + 'o bloco contendor dela', fav.erroGuia + 'px de erro, ul ' + fav.posUl);
+  checar(fav.ordemDepois === 1,
+    'o ↓ da gaveta MOVE o item uma casa na lista de verdade (v5.285)',
+    'o primeiro foi para o índice ' + fav.ordemDepois);
+  checar(fav.reabriu,
+    'e a gaveta REABRE no item que se moveu: o botão continua sob o mesmo dedo '
+    + 'para a casa seguinte');
   checar(fav.modo === false,
     'e o toque longo NÃO liga a seleção múltipla aqui: ela nunca se desenhou '
     + 'nesta lista, e a barra dela ia parar na tela do Cronograma');
   checar(fav.temExcluir,
-    'o que aquele modo daria — excluir sem sair da lista — está no `⋮`, um toque');
+    'o que aquele modo daria — excluir sem sair da lista — está na gaveta, um toque');
 
   // ---- E O EXCLUIR TIRA DA LISTA, sem levar o que está em outra ----
   const saiu = await pg6.evaluate(async (ids) => {
@@ -2134,7 +2799,10 @@ try {
     const alvo = ids[0];
     const corpo = document.querySelector('[data-fav-corpo]');
     const li = corpo.querySelector('.lib-item[data-id="' + alvo + '"]');
-    li.querySelector('.row-mais').click();
+    // O EXCLUIR MORA NA GAVETA desde a v5.287 — quem a abre é o corpo da linha,
+    // e não mais um `⋮`. (A faixa de ações é montada com a linha, então o botão
+    // já existe; abrir é o que o operador de fato faz.)
+    li.querySelector('.row').click();
     await new Promise((r) => setTimeout(r, 250));
     li.querySelector('.row-excluir').click();
     await new Promise((r) => setTimeout(r, 200));
@@ -2149,10 +2817,116 @@ try {
     };
   }, fav.ids);
   checar(!saiu.naLista && !saiu.nosFavs,
-    'o excluir do `⋮` tira o item DESTA lista', JSON.stringify(saiu));
+    'o excluir da gaveta tira o item DESTA lista', JSON.stringify(saiu));
   checar(saiu.noCronograma,
     'e NÃO o tira das outras — "excluir" aqui é sair da lista, não apagar os '
     + 'bytes de quem ainda os segura', JSON.stringify(saiu));
+
+  // ===== RENOMEAR NA GAVETA DA LINHA DO CRONOGRAMA (v5.288) =====
+  //
+  // Pedido do operador: *"adicione renomear nas opções individuais dos itens do
+  // cronograma"*. Ele existia só para UM item de cada vez e atrás de quatro
+  // gestos (toque longo → seleção → botão do rodapé → diálogo), que é a mesma
+  // correção que o excluir recebeu na v5.272.
+  //
+  // Medido no CRONOGRAMA (`activeTab = 'imports'`), que é a lista do pedido, e
+  // pelo caminho de verdade: abrir a gaveta, tocar no lápis, escrever e
+  // confirmar. As duas metades — o nome muda no BANCO e a linha o mostra —,
+  // porque um rename que só reescrevesse o registro deixaria a tela mentindo
+  // até o próximo `load()`.
+  const ren = await pg6.evaluate(async () => {
+    const m = await AVDB.addMedia(new Blob([new Uint8Array(8)], { type: 'audio/mpeg' }),
+      { name: 'Nome antigo', type: 'audio/mpeg', kind: 'audio', list: 'imports' });
+    activeTab = 'imports';
+    await load();
+    const li = document.querySelector('#library .lib-item[data-id="' + m.id + '"]');
+    if (!li) return { erro: 'a linha não foi desenhada no Cronograma' };
+    li.querySelector('.row-mais').click();
+    await new Promise((r) => setTimeout(r, 200));
+    const lapis = li.querySelector('.row-renomear');
+    const temLapis = !!lapis;
+    // E ELE É UM DESENHO, nunca um glifo da fonte: o subset é ESTÁTICO e `edit`
+    // não está nele — um codepoint ausente desenha um retângulo vazio, sem erro
+    // nenhum (a armadilha da v5.184 e da v5.200).
+    const svg = temLapis && !!lapis.querySelector('svg');
+    if (!temLapis) return { erro: 'sem o botão de renomear', temLapis, svg };
+    lapis.click();
+    await new Promise((r) => setTimeout(r, 250));
+    const campo = document.getElementById('appDialogInput');
+    const valorInicial = campo.value;
+    campo.value = 'Nome novo';
+    document.getElementById('appDialogOk').click();
+    await new Promise((r) => setTimeout(r, 450));
+    const rec = await AVDB.getMedia(m.id);
+    const linha = document.querySelector('#library .lib-item[data-id="' + m.id + '"] .row-name');
+    const r = {
+      temLapis, svg, valorInicial,
+      noBanco: rec ? rec.name : null,
+      naTela: linha ? linha.textContent : null,
+      // E NA PASTA DO APARELHO ELE NÃO ENTRA: ali o nome vem do arquivo, e um
+      // nome só no registro seria desfeito na varredura seguinte.
+      naPasta: null,
+    };
+    await AVDB.listRemove('imports', m.id);
+    // ---- E A PASTA DO APARELHO, com linhas de verdade ----
+    // Uma asserção "não achei o lápis" numa lista VAZIA passaria sem medir
+    // nada, que é o pior artefato que este repositório sabe produzir. Daí o
+    // fixture.
+    //
+    // PELO CAMINHO DE VERDADE (v5.294). Até aqui ele escrevia `activeTab =
+    // 'folders'` e um `currentFolder` à mão — um estado que o app não alcança
+    // desde a v5.290 e que deixou de existir na v5.294. Um oráculo que monta um
+    // estado impossível prova o comportamento de um app que não existe: agora
+    // ele abre a pasta INLINE na Biblioteca, como o operador abre.
+    // O FIXTURE É PRÓPRIO desta página: `pg6` nasceu depois dos casos da pasta,
+    // e depender do que outra página deixou no banco faria a asserção medir
+    // zero linha — que é uma lista VAZIA passando por "não achei o lápis".
+    for (const n of ['B video.mp4', 'A audio.mp3']) {
+      await AVDB.fileAdd({ id: 'rn-' + n, name: n, type: 'audio/mpeg', kind: 'audio',
+        folder: 'pasta-renomear', opfsPath: 'folders/pasta-renomear/' + n, size: 4, mtime: 1 });
+    }
+    await AVDB.setState('opfs-folders',
+      [{ id: 'pasta-renomear', name: 'Vídeos do culto', count: 2 }]);
+    await load();
+    if (!hymnSearchPopupEl.classList.contains('open')) openHymnSearch();
+    await new Promise((res) => setTimeout(res, 400));
+    const corpoFav = document.querySelector('[data-fav-corpo]');
+    const liPasta = corpoFav && corpoFav.querySelector('.folder-opfs');
+    if (liPasta && !liPasta.classList.contains('expanded')) {
+      liPasta.querySelector('.row').click();
+      await new Promise((res) => setTimeout(res, 450));
+    }
+    const arqPasta = liPasta && liPasta.querySelector('.folder-itens > .lib-item');
+    r.linhasPasta = liPasta ? liPasta.querySelectorAll('.folder-itens > .lib-item').length : 0;
+    if (arqPasta) {
+      // A GAVETA de um arquivo de pasta abre pelo CORPO da linha (v5.285), não
+      // por um `⋮`: aquela faixa é do Cronograma e da fila da playlist.
+      arqPasta.querySelector('.row').click();
+      await new Promise((res) => setTimeout(res, 350));
+      r.naPasta = !arqPasta.querySelector('.row-renomear');
+      // E a metade NEGATIVA da metade negativa: a gaveta daquela linha ABRIU e
+      // tem opções — sem isto, uma gaveta que não abrisse passaria.
+      r.pastaTemGaveta = arqPasta.querySelectorAll('.hymn-opcoes .song-menu-sel').length > 0;
+    }
+    closeHymnSearch();
+    await load();
+    return r;
+  });
+  checar(!ren.erro && ren.temLapis && ren.svg,
+    'A LINHA DO CRONOGRAMA GANHOU RENOMEAR na gaveta (v5.288), e o ícone é um '
+    + 'DESENHO — `edit` não está no subset da fonte, e um codepoint ausente sai '
+    + 'como retângulo vazio', JSON.stringify(ren));
+  checar(ren.valorInicial === 'Nome antigo',
+    'e o diálogo abre com o nome ATUAL, para trocar uma palavra não custar '
+    + 'redigitar a frase', 'campo: ' + JSON.stringify(ren.valorInicial));
+  checar(ren.noBanco === 'Nome novo' && ren.naTela === 'Nome novo',
+    'e o nome muda NO BANCO e NA TELA — sem a segunda metade a lista mentiria '
+    + 'até o próximo redesenho', JSON.stringify([ren.noBanco, ren.naTela]));
+  checar(ren.naPasta && ren.pastaTemGaveta,
+    'e ele NÃO entra na pasta do aparelho (com ' + ren.linhasPasta + ' linha(s) '
+    + 'de verdade na tela e a gaveta aberta): ali o nome vem do arquivo, e um '
+    + 'nome só no registro seria desfeito na varredura seguinte',
+    JSON.stringify([ren.linhasPasta, ren.naPasta, ren.pastaTemGaveta]));
   await pg6.close();
 } catch (e) {
   checar(false, 'o percurso dos Favoritos terminou sem exceção (' + (e && e.message) + ')');

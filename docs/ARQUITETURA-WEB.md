@@ -1905,13 +1905,13 @@ sem a borda — o mudo, aliás, passou ao vermelho **saturado**.
 | **Volume** (`#simpleVolDown` / `#simpleVolUp`) | teclas **−** e **+** com o número no meio (`.simple-vol-read`), não um slider |
 | **Configurações** (`#simpleSettingsBtn`, `.settings-btn`, v5.250) | `openFadePopup()` — e é de lá que se troca de modo ("Modo do app"). Até a v5.247 este era o botão **Modo avançado**, que chamava `setAppMode('full')` direto; o registro dele fica porque a receita visual continua descrita aqui: era texto `--muted` sobre `--surface`: dentro do mínimo de contraste, mas lido como **legenda**, não como botão. Desde a v5.40 é texto pleno (`--text`) sobre `--surface-2` — **7,03:1** na paleta atual — e desde a v5.49 leva a **seta**. Ele era um PAR com o gêmeo do cabeçalho avançado (`#fullSimpleBtn`) até a v5.247, quando aquele saiu — lá a mesma escolha já mora em Configurações, aqui não há engrenagem nenhuma à vista. **A borda em `--accent` saiu na v5.76**: ela desenhava, nos dois cabeçalhos, a moldura mais forte da tela em volta do botão que menos se usa num culto — trocar de modo é decisão de configuração, não de operação. Quem separa o botão do fundo é a superfície; o accent ficou onde informa, na seta, que é o que diz para que lado se vai |
 
-**Sem escolha de variante.** No simplificado o toque na linha da busca — e o
-toque no ▶ dela — chamam `simplePlaySong()`, que toca o **Cantado** e pronto:
-abrir a folha com cantada/playback/só a letra seria devolver ao operador
-exatamente a decisão que este modo existe para poupar. O botão de adicionar some
-(`body.mode-simple .hymn-add-btn`), porque playlist, Cronograma e favoritos são
-do fluxo do sonoplasta; no modo avançado a mesma linha continua abrindo a letra
-em acordeão.
+**Sem escolha de variante.** No simplificado o toque na linha da busca chama
+`simplePlaySong()`, que toca o **Cantado** e pronto: abrir a lista com
+cantada/playback/só a letra seria devolver ao operador exatamente a decisão que
+este modo existe para poupar. No modo avançado a mesma linha abre a gaveta — as
+opções completas e a letra (v5.285). (Até a v5.284 a linha tinha um ▶ e um `+`,
+e o `+` era escondido por CSS aqui, porque playlist, Cronograma e favoritos são
+do fluxo do sonoplasta; os dois botões saíram, e com eles a regra.)
 
 **A pergunta do download aparece UMA vez.** Se a música ainda não está no
 aparelho, `ensureDownloadConsent()` pergunta antes de gastar internet e grava a
@@ -4051,8 +4051,9 @@ item, cobrindo o título e etc… pois hoje o título disputa com todos os botõ
 acesso rápido, cortando o título e o subtítulo."*
 
 Ele está descrevendo uma conta: a coluna de texto é `flex: 1` entre a miniatura
-e uma fileira de botões que **cresce com o estado do item** — estrela, `+`,
-alça, o download de um link do YouTube, o Parar quando está no ar. Num item do
+e uma fileira de botões que **cresce com o estado do item** — estrela, `+`, o
+par ↑↓ de reordenar (a alça, até a v5.284), o download de um link do YouTube, o
+Parar quando está no ar. Num item do
 Cronograma isso chega a quatro alvos de `--hit` mais os `gap`, e quem paga é
 sempre o mesmo: o nome, que é a única coisa daquela linha que não se adivinha.
 
@@ -4077,15 +4078,20 @@ não divergirem no primeiro ajuste. As decisões:
   aparece.
 - **Uma aberta por vez** (`linhaAcoesAberta`). Duas seriam duas faixas cobrindo
   dois nomes, e o operador teria de fechar a errada para ler.
-- **O fechamento de fora é `pointerdown` na fase de CAPTURA**, não `click`: a
-  alça mora dentro da caixa e o arrasto captura o ponteiro, então ele **nunca
-  produz um `click`** — sem isso, arrastar um item deixaria o menu aberto por
-  cima da linha que acabou de se mover.
+- **O fechamento de fora é `pointerdown` na fase de CAPTURA**, não `click`. A
+  razão original era a ALÇA, que morava dentro da caixa: o arrasto captura o
+  ponteiro e **nunca produz um `click`**, então um ouvinte de clique deixaria o
+  menu aberto por cima da linha que acabou de se mover. A alça saiu na v5.285 e
+  a escolha fica — `pointerdown` fecha ANTES do clique, que é o que impede o
+  menu de piscar por cima do que está sendo tocado.
 - **Escolher uma opção FECHA**, e esse ouvinte também é de CAPTURA — por um
   motivo que não é preferência: todo botão de linha deste app chama
   `stopPropagation` no próprio `click` (senão o toque nele acionaria o corpo da
-  linha atrás), e um ouvinte de bolha na caixa **não veria nenhum deles**. A
-  **alça é a exceção**: ela não é uma decisão que termina, é um gesto que dura.
+  linha atrás), e um ouvinte de bolha na caixa **não veria nenhum deles**. O
+  **par ↑↓ é a exceção** (v5.285): reordenar é uma decisão que se REPETE — mover
+  três casas são três toques —, e fechar a gaveta na primeira obrigaria a
+  reabri-la a cada casa. (Até a v5.284 a exceção era a alça, pelo motivo oposto:
+  ela não era uma decisão que termina, era um gesto que dura.)
 - **O vazio da caixa fecha também.** Ela cobre o nome; sem isso o único caminho
   de volta seria acertar o `⋮` outra vez — um alvo de 34px ao lado de uma faixa
   inteira inerte.
@@ -4173,65 +4179,250 @@ Duas podas do mesmo pedido, e as duas são sobre a barra do topo:
   `padding-bottom` da FOLHA: quem termina a folha passou a ser a lista, e sem
   ela o último item ficaria debaixo da barra de gestos.
 
-#### Uma seção aberta por vez, e os Favoritos ocupam o vão (v5.273)
+  **E o TECLADO voltou a SOBREPOR** (v5.277/v5.278): `.popup-backdrop` deixou de
+  descontar `--kb`. O `inset` da v5.261 descia a camada fixa até a faixa visível para que a
+  barra, que morava na BASE, encostasse no teclado em vez de ficar atrás dele;
+  com ela no topo não há nada embaixo que precise ser revelado, e o que sobrava
+  daquele conserto era o efeito colateral — a folha inteira encolhendo e subindo
+  no instante em que o teclado aparece (*"a tela está sendo deslocada inteira
+  para cima"*). O `.dialog-backdrop` FICA com a conta, e a diferença é a razão
+  dela: o `appPrompt` é um cartão CENTRADO com campo de texto, e ali a metade de
+  baixo é justamente onde o teclado sobe.
+
+  **E A ROLAGEM PARA DENTRO DA LISTA** (v5.281). Relato: *"a barra de pesquisa
+  no topo não fica fixa durante a rolagem do corpo da biblioteca"*. A estrutura
+  está certa e sempre esteve — medido, rolar `#hymnResults` 116px não move um
+  pixel da barra —, e o que se mexe no aparelho é a PÁGINA: a rolagem que chega
+  ao fim de um scroller encadeia para trás, e do Android 12 em diante o excesso
+  é o efeito STRETCH, que estica e desloca a camada inteira, barra fixa
+  incluída. `overscroll-behavior: contain` no `.popup-list` corta o
+  encadeamento — os outros três scrollers do app (`.lib-list`, `.lv-body`,
+  `.simple-lyrics`) já o tinham; este era o único sem —, mais
+  `overscroll-behavior: none` na raiz para um gesto que comece fora de qualquer
+  lista.
+
+  **E A CAMADA NÃO PERSEGUE NADA** (v5.280). A v5.278 pôs `top: var(--vv-top)`
+  aqui para a barra não sair pela borda quando o navegador rolasse a viewport
+  visual; o operador recusou o mecanismo e nomeou o certo — *"ao invés de ter um
+  scroll de tela inteira, deixar apenas os itens abaixo da barra de pesquisa
+  ficarem dentro de um scroll, e apenas rolar esse scroll para o topo quando a
+  biblioteca é aberta"*. Quem rola é a LISTA e a barra está fora dela: uma
+  camada que persegue a viewport é um conserto para um scroll de tela que não
+  devia existir. `inset: 0`, mais um `hymnResultsEl.scrollTop = 0` no
+  `openHymnSearch` — o nó é o MESMO entre uma abertura e a seguinte, então ele
+  guardava a rolagem da vez anterior e a Biblioteca reabria no meio de um
+  hinário.
+
+  **O CABEÇALHO SAIU** (v5.280): ele foi encolhendo por partes — o "Baixar toda
+  a biblioteca" e o peso na v5.258, o ✕ para a barra no mesmo lote, o ícone na
+  v5.278 — e chegou a uma faixa inteira repetindo o nome do botão que abre a
+  tela. A barra é o topo da folha, e é isso (e não um mecanismo de
+  posicionamento) que a mantém lá. O ✕ dentro dela é QUADRADO por um número com
+  nome (`--campo-alt`, a altura do campo e o lado do botão): dentro de um
+  contêiner flex o `aspect-ratio` não resolve, porque a largura é resolvida
+  ANTES de o `stretch` dar uma altura definida — a primeira versão colapsou o
+  botão na largura do glifo, 20px.
+
+#### O rodízio das coleções, e os Favoritos ocupando o vão (v5.273 → v5.282)
 
 Pedido do operador: *"só permita uma coleção aberta por vez e sempre deixe uma
 aberta, no caso a dos favoritos, onde ela só fecha se outra for aberta. Ajuste
 para que a seção dos favoritos ocupe a altura que sobra além do espaço das
-outras seções no formato colapsado (mesmo que não haja nenhum favorito)… caso
-tenha mais itens do que cabe nesse vão, vai ter um botão na sua base que
-permite a expansão total da lista."*
+outras seções no formato colapsado (mesmo que não haja nenhum favorito)."*
+
+A frase que fechava aquele pedido — *"caso tenha mais itens do que cabe nesse
+vão, vai ter um botão na sua base que permite a expansão total da lista"* — foi
+**revogada na v5.282**, com o tom próprio que o mesmo lote lhe tinha dado: *"não
+ficou bom"*. Leia o resto mesmo assim, porque o rodízio, o vão e a razão de cada
+um continuam de pé; o que mudou é o vão ser um PISO em vez de uma altura, e a
+seção vestir o tom das outras.
 
 ```
  ┌───────────────────────────┐   ┌───────────────────────────┐
- │ ★ Favoritos          ▲    │   │ ★ Favoritos          ▼    │  ← tom próprio
- │   Louvor de abertura      │   ├───────────────────────────┤
- │   Vídeo do testemunho     │   │ Arquivos oficiais    ▲    │
- │   …                       │   │   [Provai e Vede 2026]    │
- │   ── Ver todos ──         │   │   [Informativo …]         │
- │                           │   │                           │
- │        (o vão)            │   │        (o vão)            │
- ├───────────────────────────┤   ├───────────────────────────┤
- │ Arquivos oficiais    ▼    │   │ Hinários             ▼    │
- │ Hinários             ▼    │   │ Diversos             ▼    │
- └───────────────────────────┘   └───────────────────────────┘
-   a tela como ela ABRE            outra aberta: os favoritos
-                                   recolhem e ela toma o vão
+ │ ★ Favoritos          ▲    │   │ ★ Favoritos          ▲    │
+ │   Louvor de abertura      │   │   Louvor de abertura      │
+ │   Vídeo do testemunho     │   │   Vídeo do testemunho     │
+ │                           │   │   … (a lista INTEIRA,     │
+ │        (o vão)            │   │      passando do vão)     │
+ │                           │   │   …                       │
+ │                           │   ├───────────────────────────┤
+ │                           │   │ Arquivos oficiais    ▼    │
+ │                           │   │ Hinários             ▼    │
+ ├───────────────────────────┤   └───────────────────────────┘
+ │ Arquivos oficiais    ▼    │     ↓ e a BIBLIOTECA rola
+ │ Hinários             ▼    │
+ └───────────────────────────┘
+   a tela como ela ABRE: o vão      com mais favoritos do que cabe
+   é o PISO da seção, mesmo         no piso, a seção CRESCE e empurra
+   com a lista vazia                as fechadas para baixo (v5.282)
 ```
 
-**O estado é um NOME, não um conjunto** (`grupoAberto`, no topo do
-`controle.js`). Isto REVOGA a decisão da v5.237 — *"abrir um grupo não fecha os
-outros: aqui os grupos são curtos, e comparar dois deles é o que se faz numa
-tela de índice"* —, e a revogação é sobre uma premissa: aquele argumento supunha
-que a tela cabe. Com um nome só, "duas abertas" e "nenhuma aberta" deixam de ser
-estados que alguma guarda precisa impedir: são frases que não dá para escrever.
-Fechar a aberta escreve `GRUPO_FAVORITOS`, nunca o vazio, e tocar nos Favoritos
-abertos é um **no-op declarado** — fechá-los para reabri-los seria um piscar sem
-desfecho.
+**São DOIS estados, e não um** (v5.276). `grupoAberto` é o rodízio das
+COLEÇÕES e `favAberto` é a seção dos Favoritos, que responde só a si mesma. A
+v5.273 tinha posto as duas coisas no mesmo nome, e o operador achou o preço:
+*"agora não mais são concorrentes com os favoritos… as coleções são
+concorrentes entre si, mas não com os favoritos"* — abrir um hinário custava o
+atalho que ele tinha deixado aberto, e reabri-lo custava fechar o hinário. Duas
+decisões diferentes disputando o mesmo interruptor.
 
-**Quem se estica é a seção ABERTA**, e é a decisão acima que torna isso uma
-regra de uma linha (`#hymnResults > .coll-group--drop.aberto { flex: 1 0 auto }`):
-com uma por vez, não há o que escolher — é sempre a única que tem conteúdo, e as
-fechadas são barras de altura fixa que sobram empilhadas na base. `flex-shrink`
-é **zero** ali: uma seção com mais álbuns do que cabe empurra as de baixo e quem
-rola é a Biblioteca inteira, como sempre foi.
+O rodízio das coleções FICA, e ele é o que REVOGA a v5.237 (*"abrir um grupo não
+fecha os outros: aqui os grupos são curtos, e comparar dois deles é o que se faz
+numa tela de índice"*): aquele argumento supunha que a tela cabe. Com um nome
+só, "duas coleções abertas" deixa de ser um estado que alguma guarda precisa
+impedir — é uma frase que não dá para escrever. **`''` é legítimo**: nenhuma
+coleção aberta é o estado normal de quem está olhando os favoritos.
 
-**Os Favoritos são a exceção, e é deles que o botão fala.** Só eles encolhem
-(`flex: 1 1 auto; min-height: 0`), o corpo recorta o que passa do vão (o
-`overflow: hidden` já era requisito da animação de altura) e o botão da base o
-traz de volta. A pergunta "transbordou?" é **MEDIDA** e nunca deduzida da
-contagem (`acertarVaoDosFavoritos`): quantos favoritos cabem depende de quantas
-seções existem, de haver ou não pasta do aparelho, da altura da tela e do
-teclado — um número escrito no código estaria errado no primeiro aparelho
-diferente. E ela é feita num `requestAnimationFrame`, porque no instante em que
-a lista é montada o `li` ainda não foi disposto e as duas medidas seriam iguais.
+**Quem ocupa o vão são os Favoritos, e SÓ eles** (v5.276). A v5.273 fazia a
+seção ABERTA crescer, qualquer que fosse, e o preço apareceu na primeira
+coleção curta: *"coleções com menos itens como o hinário, ou os arquivos
+oficiais, expandem mais do que precisaria… pois eles estavam com um tipo de
+altura flex que ao fechar os favoritos ocupa o que sobra"* — dois cards com meia
+tela de fundo vazio embaixo. Uma coleção aberta passou a medir o conteúdo dela e
+nada mais, que é a regra normal de uma lista; o vão continua sendo dos
+Favoritos, que são a única seção com razão para tê-lo (uma lista de atalhos
+vazia ainda é o lugar em que o próximo entra).
 
-**O tom próprio** (`--fav-bg`, com `--camada` descendo junto para as linhas de
-dentro) vale **aberta e fechada**: fechada ela é uma barra entre outras barras, e
-é aí que ele mais trabalha. As medições estão em `tokens.css`; a que decide é
-1,30:1 (escuro) e 1,48:1 (claro) contra o `--panel` das outras seções — e o
-degrau de dentro tem de descer junto, senão no tema claro as linhas ficariam a
-1,05:1 do fundo novo e sumiriam.
+**E O VÃO NÃO É REPARTIDO** (v5.277). Ele era `flex: 1 1 auto`, e **flex
+REPARTE**: com uma coleção aberta, o que sobrava passava a ser dividido entre as
+duas e os favoritos encolhiam para dar espaço a ela — *"ao abrir uma coleção,
+ele encolhe os favoritos… eu quero que o espaço dos favoritos seja fixo, mas
+seja o espaço proporcional que sobrou após listar as outras coleções abaixo"*.
+`--fav-vao` é uma altura em PIXELS, medida em JS (`medirVaoDosFavoritos`) a
+partir das BARRAS das outras seções, isto é, do que sobra da tela com todas elas
+colapsadas — a conta **não depende de qual coleção está aberta**, que é a
+propriedade inteira. `flex: 0 0 auto` impede o flex de mexer nela nos dois
+sentidos.
+
+**E ELE É UM PISO, NÃO UMA ALTURA** (v5.282, `min-height`). Pedido do operador:
+*"mantenha o tamanho mínimo dela, mesmo vazia, como o tamanho flexível que ocupa
+o que sobra das outras coleções… mas agora esse é apenas o tamanho mínimo, que
+cresce conforme a lista dos favoritos requerir mais que esse espaço
+disponível"*. Era um `height` EXATO, e é dele que vinha o recorte do corpo — e
+do recorte vinha o botão "Ver todos", que saiu no mesmo lote. Como piso, a seção
+continua reservando o vão com a lista vazia (o desenho de abertura da Biblioteca)
+e passa a crescer com o conteúdo, empurrando as fechadas para baixo com a
+Biblioteca rolando, que é o que qualquer outra seção aberta já faz. O
+`flex-shrink: 0` é o que faz o piso valer de verdade: um `min-height` num filho
+que encolhe seria só uma sugestão. **`medirVaoDosFavoritos` não mudou uma
+linha** — a medida é a mesma pergunta; o que mudou é a seção deixar de ser presa
+a ela.
+
+O corpo perdeu a regra própria que o fazia crescer e ser recortado: ele cai no
+`flex: 0 1 auto` das outras seções, e o que sobrar do vão fica embaixo dele,
+dentro da seção. O `overflow: hidden` continua ali — ele é requisito da animação
+de abertura —, mas não corta mais nada, porque a caixa cresce com o conteúdo.
+
+**E O CORPO NUNCA ROLOU POR DENTRO** (v5.279 → v5.280). A v5.279 lhe deu
+`overflow-y: auto` no modo compacto e o operador recusou — *"não ficou bom,
+deixe ele fixo, e qualquer visualização dos itens completos nos favoritos deve
+ser pelo botão de ver mais"*. Com a rolagem, chegar ao fim da lista tinha DOIS
+caminhos, e um deles era arrastar dentro de uma caixa encaixada numa tela que
+também rola: o gesto ambíguo que o `overscroll-behavior` existia para remendar.
+A decisão sobrevive à v5.282 pelo mesmo motivo, com um caminho a menos: hoje não
+há botão nem rolagem interna, porque **não há mais nada escondido** — quem rola
+é a Biblioteca, como em qualquer outra seção.
+
+**A coleção que abre rola até o topo dela** (`alinharGrupoNoTopo`, v5.277). O
+"abrindo para cima" que o operador relatou era o encolhimento acima; o que
+faltava depois de corrigi-lo é que uma coleção aberta no fim da lista cresce
+para fora da tela, e quem a abriu fica olhando a barra dela sem ver um item.
+**O alinhamento espera a animação do acordeão** (`ACC_MS + 30`, e não um
+`requestAnimationFrame`): durante os 220 ms da abertura o conteúdo ainda não
+existe e a lista não tem para onde rolar — uma versão em rAF mediu o layout
+COLAPSADO e rolou 7px de 59 possíveis (verificado). Quando não há conteúdo
+abaixo que leve a seção até o topo, a lista rola até o fim, que é o mais perto
+que existe.
+
+**O BOTÃO "VER TODOS" SAIU** (v5.282): *"ajuste o funcionamento interno dela
+para que não tenha mais o sistema de ver mais. Agora quando aberta ela mostra
+toda a listagem"*. Com ele foram embora o `favExpandido`, a classe `.expandido`,
+o CSS do botão e a régua que o governava — *quantos itens ficaram de fora da
+caixa*, contados num `requestAnimationFrame` porque no instante em que a lista é
+montada os `li` ainda não foram dispostos. Ele existia só enquanto havia
+recorte; sem recorte, não há o que revelar.
+
+O que SOBREVIVE daquela régua é o `requestAnimationFrame` — agora em volta da
+MEDIDA do vão, e pela mesma razão dobrada: quem chama `acertarVaoDosFavoritos`
+durante a montagem da lista ainda vai anexar as outras seções na mesma passada
+síncrona, e a conta soma a barra de cada uma delas. Medir na hora leria uma tela
+com metade das seções e devolveria um vão grande demais.
+
+**O TOM PRÓPRIO TAMBÉM SAIU** (v5.282): *"estávamos ajustando para que ela fosse
+mais diferente que os demais, mas não ficou bom. Ajuste as cores dela para que
+ela fique igual as outras coleções"*. O `--fav-bg` viveu da v5.273 à v5.281 com
+o argumento de que a seção não é uma coleção e de que só ela ocupa o vão — as
+duas metades continuam verdadeiras, e **nenhuma delas se lê como COR**: o nome
+no cabeçalho diz a primeira e o vão reservado diz a segunda, sozinho. O que a
+cor acrescentava era um QUARTO tom numa escada de três, e a v5.267 já tinha
+medido o preço de um quarto degrau.
+
+Saíram os tokens dos DOIS temas **e** o `--camada` próprio que eles arrastavam,
+no mesmo lote — porque um nível que muda arrasta o de dentro. A classe
+`.coll-group--fav` fica, e desde a v5.283 ela responde a duas perguntas: quem
+ocupa o vão, e quem pinta os FILHOS como itens em vez de álbuns.
+
+**E OS FILHOS DELA NÃO SÃO COMO OS DAS OUTRAS SEÇÕES** (v5.283). Pedido do
+operador: *"torne os itens na lista de favoritos, com sua cor de card igual as
+cores dos itens individuais dentro dos álbuns, para diferenciar entre álbum e
+item"*. Medido antes de mexer, nos dois temas: a linha de favorito e o card de
+álbum pintavam **1,00:1** — a mesma cor, literalmente. É a v5.282 cobrando o
+degrau seguinte: aquele lote tirou o tom da SEÇÃO com o argumento de que ela é
+uma seção como as outras, e a consequência que ele não pesou é que os filhos
+dela não são — numa coleção são ÁLBUNS, aqui são ITENS.
+
+```
+ seção (--panel)                    seção (--panel)
+   └ card do álbum (--panel-2)        ├ placa dos itens (--panel-2)
+       └ faixa: RECESSO ─────────┐    │   └ favorito: RECESSO ─────┘
+                                 └────┤        a MESMA cor, por construção
+                                      └ pasta sincronizada (--panel-2)
+                                          IRMÃ da placa: cor de ÁLBUM (v5.284)
+```
+
+A receita é a da faixa (`.coll-songs > .hymn-result`): um recesso (`--surface`,
+que dentro de uma seção da Biblioteca é o par `sunk`) sobre uma base de nível de
+card. **As duas metades são inseparáveis, e a segunda foi imposta pela medição:**
+só o recesso, sobre o tom da SEÇÃO, resolve no escuro (1,58:1 contra o card) e
+FALHA no claro, onde a seção é BRANCA e o recesso compõe `#dbdbdb`, a **1,02:1**
+do card — o defeito relatado, de volta. Com a base de card por baixo a
+composição é a mesma da faixa e o valor bate exatamente: `rgb(46,54,63)` no
+escuro, `rgb(182,188,194)` no claro, a 1,29:1 e 1,37:1 do card.
+
+**E A PASTA SINCRONIZADA CONTINUA SENDO UM ÁLBUM** (v5.284): *"mantenha apenas
+as pastas sincronizadas dos favoritos como cores de álbum"*. Uma pasta guarda
+muitos arquivos — ela é um contêiner —, e o "apenas" é o que faz do par uma
+regra em vez de duas cores.
+
+A v5.283 tinha pintado o CORPO INTEIRO no nível de card, e o preço só apareceu
+com este pedido: ali dentro a pasta ficaria com a cor exata do corpo (1,00:1,
+invisível). Os dois níveis querem bases DIFERENTES — o item precisa de uma placa
+de card atrás dele (sobre o tom da seção ele mede 1,03:1 no escuro e some), e a
+pasta precisa do tom da seção atrás dela (sobre a placa ela mediria 1,00:1) —, e
+uma `<ul>` só não tem como oferecer as duas.
+
+Daí a **placa dos itens** (`.fav-itens`, criada em `renderFolderList` e só
+quando há item), que PINTA `var(--camada)` e vira o contêiner de nível 2 desta
+seção — o lugar que num hinário é do card de álbum. Com ela o par volta a ser o
+MESMO do álbum, em dois elementos: `.hymnal-card` pinta e `.coll-songs` zera o
+degrau seguinte. **As pastas não ganharam regra nenhuma**: elas continuam filhas
+diretas do corpo, que já reserva `--panel-2` para os filhos dele — a cor de
+álbum é o PADRÃO ali, e o que precisava de regra era o item.
+
+*(Da v5.283 à v5.284 o corpo acumulou os dois papéis, e o resíduo disso era a
+armadilha de "A CAMADA" com a assinatura invertida: o reset de `--camada` tinha
+de morar na regra da LINHA, senão venceria na hora de o corpo resolver o próprio
+`background` e o bloco sairia transparente. Com a placa, o reset volta ao lugar
+natural.)*
+
+O arrasto não custou uma linha: `attachHandle` mede `li.parentElement`, então ele
+passa a operar na placa sozinho, e a linha-guia já garante o bloco contendor pelo
+JS desde a v5.272.
+
+**E o oráculo mede a COR EFETIVA, nunca a declarada.** Os recessos deste app são
+overlays com ALFA, e `getComputedStyle` devolve o alfa: uma asserção sobre o
+valor declarado compararia `rgba(0,0,0,.24)` com um `#3c4753` opaco, diria que
+eles "diferem" sem ter medido cor nenhuma, passaria com o defeito no lugar e
+reprovaria a correção. Ele sobe a árvore compondo até o primeiro fundo opaco.
 
 **Trocar o `display` acorda o que estava dormindo** (v5.274). `.coll-group` — a
 classe base — é `display: flex; align-items: center; gap: .5rem`, e o
@@ -4473,8 +4664,39 @@ Itens sem blob local exibem badge `URL` ou `YT`.
 | Gesto | Ação |
 |---|---|
 | Toque simples | **Substitui a playlist por este item** e o exibe no Display |
-| Segurar e arrastar (⠿) | Reordena o item na lista |
+| `⋮` → ↑ / ↓ | Reordena o item na lista, uma casa por toque (v5.285). **Nos Favoritos o `⋮` saiu na v5.287**: o par mora na faixa de ações da gaveta, que abre no corpo da linha |
+
+**O QUE FECHA A FAIXA, E O QUE NÃO FECHA.** Escolhida a opção, a caixa fecha —
+ela cobre o nome, e um menu aberto por cima do item depois de já ter feito o que
+se pediu é o defeito que ele existe para corrigir. **São duas exceções**, e as
+duas pela mesma régua — *a ação que não TERMINA a conversa com aquele item*:
+
+- o **par ↑↓**, porque reordenar é uma decisão que se REPETE (mover três casas
+  são três toques) e fechar no primeiro obrigaria a reabrir a cada casa;
+- a **estrela** (v5.289, pedido do operador: *"favoritar um item faz a gaveta de
+  opções fechar, mantenha ela aberta"*), porque ela é um ALTERNADOR: o desfecho
+  dela é o próprio botão mudando de desenho, ali, sob o dedo.
+
+A estrela fechava por **dois caminhos independentes**, e consertar um só deixaria
+o defeito de pé: o ouvinte de captura da caixa, e o `renderLibrary` que
+`toggleFav` agenda depois do pulso — este reconstrói a linha inteira. Daí
+`manterAcoesAbertas()`, que reusa o `reabrirAcoesEm` do par ↑↓ e a CHAVE que
+`montarAcoesDaLinha` carimba no `li` (`data-acoes-chave`). Sem a chave não
+haveria como reencontrar a linha: o mesmo item vive em duas listas ao mesmo
+tempo.
+| `⋮` → 🗑 | **Excluir da lista.** É o PRIMEIRO botão da faixa desde a v5.289 — o mais longe do `⋮`, que fica colado na ponta direita e é o alvo tocado repetidamente (abre e fecha): errá-lo por alguns pixels caía no destrutivo. Do outro lado o vizinho é o VAZIO da caixa, que também fecha, mas é uma área larga em que ninguém mira a borda |
+| `⋮` → ✏️ | **Renomear** o item, um toque (v5.288). Ele existia só para UM item de cada vez e atrás de quatro gestos (toque longo → seleção → botão do rodapé → diálogo). **Não entra na pasta do aparelho**, com a mesma guarda do excluir: ali o nome vem do arquivo, e um nome só no registro seria desfeito na varredura seguinte. O lápis é SVG inline — `edit` não está no subset da fonte, e codepoint ausente desenha um retângulo vazio |
 | Pressionar e segurar | Entra no modo de seleção múltipla |
+
+**O ARRASTAR SAIU NA v5.285**, das três listas de uma vez (Cronograma,
+Favoritos e a fila da playlist), a pedido do operador. Com ele saíram
+`attachHandle`, a medição única do `pointerdown`, a linha-guia absoluta e o
+`data-fixa` das pastas. O argumento: um arrasto é um gesto CONTÍNUO com captura
+de ponteiro, disputando o eixo vertical com a lista que rola por baixo. O preço
+está dito — mover dez posições passou de um gesto a dez toques —, e
+`reabrirAcoesEm` (a chave `lista:id`, nunca o id nu, porque o mesmo item vive em
+duas listas) devolve a gaveta ao item que se moveu, com o botão sob o mesmo
+dedo.
 
 **O deslize lateral da linha saiu na v5.50.** Ele adicionava o item à playlist
 (`dx <= -SWIPE`), e a única pista de que existia era um ícone a 22% de opacidade
@@ -4561,9 +4783,70 @@ usa `listRemove` (com gc).
 > `listAdd` ela tem um. Sem isso, um item cujo único dono era um atalho sumiria
 > do app e do disco, calado.
 >
-> **E a organização deixou de ser hierarquia: virou ORDEM.** Cada linha ganhou
-> a alça de arrastar do Cronograma (o mesmo `attachHandle`/`reorder`), e a
-> lista é a `favs`, que é ordem de chegada até alguém mexer nela.
+> **E a organização deixou de ser hierarquia: virou ORDEM.** Cada linha ganhou o
+> mesmo mecanismo de reordenar do Cronograma — a alça de arrastar até a v5.284, o
+> par ↑↓ da gaveta desde a v5.285 —, e a lista é a `favs`, que é ordem de chegada
+> até alguém mexer nela.
+>
+> **E AS PASTAS SINCRONIZADAS FORAM PARA O TOPO (v5.285.)** Elas ficavam no fim
+> desde este lote, com o argumento de que "são a origem bruta, e o que a estrela
+> promete são os itens" — verdadeiro, e não é o que decide a ordem: uma pasta é
+> um punhado de arquivos atrás de UMA linha, e a lista de favoritos cresce por
+> baixo dela. No fim, cada favorito novo empurrava as pastas para longe; no topo
+> elas têm endereço fixo. (Elas continuam FORA da placa dos itens — ver a nota
+> da v5.284 —, e é isso que lhes dá a cor de álbum.)
+>
+> **E DESDE A v5.287 O TOQUE NA LINHA NÃO PROJETA MAIS: ele abre a gaveta da
+> Biblioteca.** Dois pedidos do operador que são o mesmo movimento — *"verifique
+> a sobreposição das opções dos itens na lista de favoritos, pois estão
+> novamente abrindo a sua gaveta de opções sobre o título de cada item"* e
+> *"trate a lista de favoritos com o mesmo sistema de opções de play que temos
+> no resto da biblioteca, ao invés de tratar ela como toque direto no player"*.
+>
+> **O segundo RESOLVE o primeiro.** O `⋮` e a faixa `.row-acoes` que ele abre
+> existem para caber numa linha que responde ao toque com OUTRA coisa (no
+> Cronograma, projetar): sem lugar embaixo, a gaveta só tinha para onde ir por
+> CIMA do título. Com o corpo da linha livre, ela desce para onde desce em toda
+> a Biblioteca — e a sobreposição deixa de existir por construção, não por um
+> reposicionamento.
+>
+> **Esta lista mora DENTRO da Biblioteca desde a v5.237**, e é isso que decide o
+> lado da regra em que ela cai: a Biblioteca é a tela em que se PREPARA (o toque
+> abre opções) e o Cronograma é a lista com que se OPERA (o toque projeta). O
+> `⋮` continua inteiro lá e na fila da playlist.
+>
+> `renderItemMenu` é a MESMA maquinaria de destinos (`songMenuItem` com
+> `destino`, `destExecutor`, `destRemontar`, `destConfirmRow`) apontada para a
+> `<ul>` do corpo da linha. O que ela não tem:
+>
+> - **seletor de variante** — o registro já existe, não há cantada × playback a
+>   escolher;
+> - **"Favoritar"** — o item É um favorito, e quem o tira de lá é a estrela.
+>
+> As ações da linha (↑↓, excluir) descem para uma faixa no PÉ da gaveta, com os
+> mesmos botões e os mesmos ouvintes de antes.
+>
+> **E A ESTRELA SAIU DELA NA v5.288** — pedido do operador: *"remova ou a opção
+> de excluir ou a opção de desfavoritar, pois tecnicamente ambas fazem a mesma
+> coisa"*. Nesta lista fazem: as duas terminam num `listRemove('favs', id)`.
+> Fica a LIXEIRA, e isto REVOGA a frase da v5.287 que dizia "quem o tira de lá é
+> a estrela". Três razões: **(1)** aqui a estrela é um alternador de UMA
+> direção — todo item já é favorito, ela nasce sempre acesa, e o único toque
+> possível é o que apaga (um botão de excluir vestido de alternador, que nunca
+> chega a dizer "favoritar"); **(2)** a lixeira PERGUNTA, e a linha some de uma
+> lista curada à mão; **(3)** ela solta a prateleira invisível
+> (`soltarAvulso`) — a diferença entre "a linha sumiu" e "os bytes saíram".
+> Nas outras listas a estrela fica, e ali ela alterna de verdade. **O Parar na capa
+> continua sendo um toque direto**: tirar do ar é a decisão que não pode custar
+> uma gaveta. E o **preço está dito**: projetar um favorito passou de um toque a
+> três (abrir, marcar, confirmar) — em troca, as três listas passam a estar a um
+> toque do mesmo lugar, e mandar um favorito à playlist não tinha caminho nenhum
+> nesta tela.
+>
+> As regras da gaveta deixaram de ser keyadas em `.hymn-result` e passaram a ser
+> em `.lib-item`: o mesmo envelope serve as duas listas, e uma segunda anatomia
+> divergiria da primeira no próximo ajuste. Com ela saiu a opção `semSelecao` do
+> `attachRowGestures`, que ficou sem chamador.
 >
 > **E a listagem ficou densa** (`#favList` em controle.css). Ela herdava a
 > métrica da lista do Cronograma, e as duas não fazem a mesma coisa: no
@@ -4582,8 +4865,120 @@ usa `listRemove` (com gc).
 > porque o cabeçalho de tipo já dizia o que ele diz), e é ele que agora
 > distingue um vídeo de um versículo.
 
-É o caminho curto para o que o operador usa toda semana. Desde a v5.53 ela é
-uma **gaveta que desce do topo** (`#favPopup`).
+É o caminho curto para o que o operador usa toda semana. Desde a v5.53 ela era
+uma **gaveta que desce do topo** (`#favPopup`) — e desde a v5.237 os favoritos
+são a primeira SEÇÃO da Biblioteca, o que reduziu a gaveta à tela de DENTRO de
+uma pasta do aparelho.
+
+> **⚠️ E NA v5.290 ELA FICOU SEM PORTA.** Pedido do operador: *"que ele abra a
+> lista de arquivos das pastas de forma visual sem ser um popup, para que abra a
+> lista assim como abrem os álbuns com seus itens"*. Uma pasta é um CONTÊINER de
+> arquivos, exatamente como um álbum é um contêiner de faixas, e o app já sabia
+> desenhar isso — o mesmo acordeão, no mesmo lugar, com as mesmas linhas de item
+> (ver "A pasta abre inline", abaixo). `openOpfsFolder` era o único caminho para
+> a gaveta, então ninguém mais chama `openFavorites`.
+>
+> O subsistema continua no arquivo, inteiro e inerte, com a lápide em
+> `openFavorites`: removê-lo alcança ~28 ramos de `activeTab === 'folders'`
+> espalhados por `load`, `renderListTitle`, `renderLibrary`, `deleteSelected`,
+> `switchTab`, `hostSelbar`, `listHost`, o carrossel e a pilha do voltar — uma
+> faxina que merece a própria passada de verificação. O `activeTab` nunca mais
+> vale `'folders'` (o carrossel já o pulava), então os ramos são inertes.
+>
+> **O que a gaveta levava junto, dito em vez de escondido:** a BUSCA dentro de
+> uma pasta (`folderQuery`/`#libSearch`), que não tem substituto — a barra da
+> Biblioteca varre `allCollections()` e não alcança o catálogo de pastas —, e a
+> SELEÇÃO MÚLTIPLA dentro de uma pasta, que era onde morava o excluir de ARQUIVO
+> FÍSICO por item (menos perda do que parece: um arquivo apagado de uma pasta
+> sincronizada volta na sincronização seguinte, e quem apaga de verdade é o
+> "Excluir pasta e arquivos sincronizados" da própria linha).
+
+#### A pasta abre INLINE, como um álbum (v5.290)
+
+O corpo é montado **uma vez, e só quando a pasta abre**: uma pasta sincronizada
+tem centenas de arquivos, e montá-los para todas elas a cada redesenho da seção
+seria o trabalho de DOM da tela inteira por algo que ninguém está vendo — é a
+mesma decisão do corpo de um grupo da Biblioteca (v5.237).
+
+**Uma anatomia só para as duas listas.** `favItemRow` virou `linhaDeItem`, e o
+que muda entre um favorito e um arquivo de pasta viaja em `opts`:
+
+| | favorito | arquivo da pasta |
+|---|---|---|
+| `lista` | `'favs'` — a faixa de ações tem ↑↓ e excluir | **nenhuma** — a ordem vem do disco, e apagar aqui seria apagar o ARQUIVO |
+| `destinos` | playlist · Cronograma | playlist · Cronograma · **Favoritar** |
+
+A segunda linha é a régua de sempre: numa lista de favoritos "Favoritar" não
+muda nada, e numa pasta ela é justamente o caminho de promover o arquivo. Uma
+escolha que não faz nada é pior que escolha nenhuma — daí ser parâmetro, e não
+um `if` dentro do menu.
+
+**`pastaAberta` é um NOME e não um conjunto**, pela mesma razão do `grupoAberto`
+(v5.273): "duas pastas abertas" deixa de ser uma regra que alguém precisa
+lembrar e passa a ser uma frase que não dá para escrever. Ele nasce no topo do
+arquivo, porque é lido por um caminho de render — a zona morta temporal que já
+derrubou o app quatro vezes. E ele existe porque favoritar um arquivo de dentro
+da pasta redesenha a seção: sem essa memória, cada ação fecharia a pasta.
+
+Os arquivos saem ordenados por **nome**: a ordem do disco é a de gravação, e não
+diz nada a quem está montando um culto.
+
+##### A seção não pode ficar para trás do banco (v5.292)
+
+Relato do operador: excluir uma pasta (e os itens que ela leva junto) não tirava
+nada da tela — a linha só sumia fechando e reabrindo a Biblioteca.
+
+`deleteOpfsFolder`, `syncDeviceFolder` e a limpeza de catálogo terminam em
+`load()`, que é o funil onde `favItems`, `favSet` e `opfsFolders` são reaplicados
+ao estado do módulo. E `load()` redesenhava o Cronograma (`renderLibrary`) e mais
+nada: a seção de Favoritos é desenhada por `renderFolderList` com `favHost`, que
+ele nunca chamava. **É o mesmo defeito que a v5.258 corrigiu para o favoritar,
+numa porta que aquele lote não tinha** — e a v5.290 o tornou visível, porque a
+gaveta de tela cheia (a outra casa da lista) deixou de existir.
+
+`sincronizarFavoritosNaBiblioteca()` entra no fim do `load()`, e a guarda é uma
+**assinatura** e não um redesenho incondicional: `load()` roda por dezenas de
+caminhos com a Biblioteca aberta — uma sincronização que termina, o coletor de
+lixo, uma troca de aba por baixo —, e refazer a seção em todos eles fecharia a
+gaveta de opções que o operador acabou de abrir. Ela é reconstruída só quando o
+que ela DESENHA mudou: os ids dos favoritos e os `id:contagem` das pastas.
+
+Com isso, o redesenho explícito que o `moverNaLista` fazia **saiu**: ele virou o
+SEGUNDO, e `reabrirAcoesEm` é consumido pelo primeiro — o segundo reconstruía a
+linha sem a gaveta aberta, tirando o botão de baixo do dedo, que é exatamente o
+que aquele mecanismo existe para evitar.
+
+##### O aninhamento cobrou o preço na v5.291
+
+`.folder-opfs` virou o primeiro `.lib-item` deste app que **contém outros
+`.lib-item`**, e todo seletor DESCENDENTE keyado em `.lib-item` vazou para
+dentro. Três relatos do operador, uma causa:
+
+| selector | o que ele passou a alcançar |
+|---|---|
+| `.lib-item.expanded .hymn-gaveta` | a pasta ABERTA satisfaz o `.expanded`, então a gaveta de TODO arquivo lá dentro virava `display: block` |
+| `.lib-item:not(.vendo-letra) :is(.hymn-lyrics, .item-detalhe)` | a pasta nunca tem `.vendo-letra`, então ela escondia o detalhe de um arquivo que TEM |
+| `.lib-item:has(.hymn-gaveta :active)` | não alcançava `.folder-itens`, e o `--press` da pasta encolhia com o toque num arquivo |
+
+A primeira linha explica dois relatos de uma vez — *"o posicionamento incorreto
+do design dos itens"* (a faixa preta embaixo de cada arquivo era a gaveta vazia
+dele) e *"não permite fechar as opções de play"* (o segundo toque tirava a
+classe do item **sem esconder nada**, porque quem as mantinha visíveis era a
+pasta). Medido: `display: block, altura 19px` nos arquivos fechados, e
+`classe: false, display: block, altura 293px` depois do segundo toque.
+
+**A regra: a gaveta é do item que a POSSUI, então toda regra dela é `>`.** Um
+seletor descendente responde *"existe algum ancestral assim?"*, e a resposta
+muda no dia em que alguém aninha o componente — sem erro em lugar nenhum, e num
+lugar que não é o da causa. O feedback de toque virou uma linha só para os três
+blocos que uma linha apenas HOSPEDA (`.row-acoes`, `.hymn-gaveta`,
+`.folder-itens`): quem encolhe é a peça tocada.
+
+E o quarto item era de geometria: o arquivo começava colado na borda do cartão
+da pasta (x=18), com a miniatura na mesma coluna da miniatura DA PASTA — lendo-se
+como irmão dela em vez de conteúdo. Com o recuo de `.4rem` no corpo ele passa a
+ocupar a coluna do favorito logo abaixo (24 e 24; miniaturas em 32 e 32), que é o
+que o álbum já fazia pelo padding do `.coll-open`.
 
 #### O que a v5.103 corrigiu: era uma PASTA com nome de favorito
 
@@ -5060,6 +5455,49 @@ sincroniza) + **baixar/cancelar** (`.coll-bar-dl`) + a **seta de acordeão**
 (`ui(coll.id).expanded`), com a lista de músicas dentro; sem índice ainda, o
 toque leva às **opções**, que é justamente onde está o sincronizar que resolve
 isso.
+
+> **O OUVINTE É DO CARD, E NÃO DA BARRA (v5.288)** — e a razão é um defeito que
+> só aparece com o dedo. Relato do operador: *"nos álbuns há um toque em uma
+> margem à esquerda da seta que abre o álbum, que ENCOLHE os itens dentro do
+> card, mas não abre o álbum"*.
+>
+> **O feedback de toque tirava o alvo de baixo do dedo.** `.coll-bar` está na
+> lista do `:active`, cujo `--press` é `scale(.96)`: numa barra de ~395px isso a
+> encolhe ~8px de cada lado. O `pointerdown` acerta a barra e dispara o
+> encolhimento; no `pointerup` ela já não está ali, e o navegador entrega o
+> `click` ao ancestral que sobrou — o card, que não tinha ouvinte nenhum. Medido
+> por varredura: até ~7px da borda o toque não abre, de 8px em diante abre, e a
+> fronteira é exatamente o que a animação vaga. A margem existe nos quatro
+> lados, não só à esquerda.
+>
+> Subir o ouvinte para o CARD fecha a classe inteira — ele é o elemento que não
+> se mexe, então qualquer retargeting causado pelo encolhimento cai em quem sabe
+> responder. A **guarda** é o `.coll-open` (o invólucro de tudo que não é a
+> barra): sem ela, com o álbum aberto um toque numa faixa borbulharia até aqui e
+> fecharia o álbum debaixo do dedo. Ela pergunta pelo INVÓLUCRO e não por uma
+> lista de filhos, para o próximo bloco que nascer lá dentro já nascer
+> protegido.
+>
+> **E o `padding` saiu do card**, indo para quem PINTA (a barra e o corpo
+> aberto). Ele era um resíduo com a pista escrita no próprio arquivo: a barra do
+> álbum ABERTO já o desfazia com margens negativas para grudar como tampa —
+> isto é, com o álbum aberto aquela faixa funcionava e com ele fechado, não. O
+> mesmo pixel respondendo ou não conforme o estado é a pior forma de um alvo ser
+> imprevisível.
+>
+> **E A GUARDA PERGUNTA PELO CAMINHO, NÃO PELA ÁRVORE (v5.289).** A primeira
+> versão dela era `e.target.closest('.coll-open')`, e isso reprovou em aparelho
+> no dia seguinte: tocar numa CAIXA DE MARCAÇÃO das opções de uma faixa fechava
+> o álbum inteiro. O botão de destino é apagado pelo próprio handler que roda
+> antes — marcar uma opção chama `renderSongMenu`, que faz `alvo.innerHTML = ''`
+> — então, quando o evento chega ao card, o `e.target` está **desanexado**:
+> `closest` sobe por um trecho de árvore sem pai nenhum e devolve `null`.
+>
+> A régua, e ela vale para qualquer ouvinte de contêiner deste app: **decidir
+> pela POSIÇÃO do alvo na árvore é perguntar "onde este nó está agora", e agora
+> é depois de todos os handlers que rodaram antes.** A pergunta que a guarda
+> quer fazer é sobre o caminho — *este clique nasceu aqui dentro?* —, e o
+> caminho é fixado no disparo: `e.composedPath()` sobrevive ao apagamento.
 
 > **Sem molduras, sem seta, sem faixa de cor (v5.71).** O card tinha um contorno
 > de 1px em `--line`, uma faixa de 3px com a `color` do álbum no banco e uma
@@ -5912,53 +6350,163 @@ desenho de 19px, e a escolha errada no meio do culto só aparecia depois. Dois
 alvos grandes, sempre à vista, com as opções **escritas** na folha que cada um
 abre, trocam seis adivinhações por duas leituras.
 
-- **O ▶ ocupa o lugar da miniatura** (`.hymn-play-thumb`, 46px, `accent-soft`).
-  Ali havia um ícone decorativo — a mesma nota musical em todas as faixas do
-  álbum — no maior alvo livre da linha, gasto com o único elemento que não
-  informava nada.
-- **A DURAÇÃO SAIU** (`.hymn-time`, removida). Ela ocupava a única sobra de
-  largura da linha para dizer "3:47", que não decide nada: ninguém escolhe o
-  louvor pelo tempo dele, e quem precisa do número o tem na barra de progresso
-  assim que a música entra. Esse lugar é do botão de adicionar
-  (`.hymn-add-btn`), que decide.
-- Os dois botões dão `stopPropagation` — eles dividem a linha com o acordeão da
-  letra. (Antes as ações eram **irmãs** de `.hymn-row` dentro do `<li>`, e por
-  isso não borbulhavam; agora estão DENTRO da linha, que é o que as põe sempre
-  à vista.)
-- **O acordeão da letra fecha as irmãs no escopo da PRÓPRIA `<ul>`**, não em
-  `hymnResultsEl`: as linhas de dentro do card de um álbum vivem noutra lista, e
-  ali a regra simplesmente não valia — abrir a terceira faixa deixava as duas
-  anteriores abertas.
+> **⚠️ A v5.285 REVOGOU esta anatomia inteira.** O que está descrito acima e
+> abaixo — os dois botões, o alvo expandido de cada um, a folha rápida que eles
+> abriam — vale até a v5.284. Leia mesmo assim: as decisões que sobrevivem
+> (o acordeão escopado à própria `<ul>`, o seletor Cantada/Playback, os destinos
+> marcáveis, a leitura da variante no clique) continuam sendo estas, e o que
+> mudou foi o ENDEREÇO delas.
 
-**A folha rápida** (`openSongMenu(coll, s, modo)` → `#songMenuPopup`) é a mesma
-para os dois botões, com listas diferentes (`renderSongMenu`):
+#### UMA LINHA, UM TOQUE, UMA GAVETA (v5.285)
 
-| Botão | Opções |
+Pedido do operador: *"centralize a ação de adicionar em listas e a ação do botão
+play que tem nos itens da biblioteca. Agora o toque vai ser geral no card, sem um
+botão específico para play ou outro para adicionar nas listas. Tocar no corpo vai
+abrir as opções completas. E não apenas isso, mas não será mais um popup, será
+uma lista de opções que surge no corpo onde atualmente surge a letra ou detalhes
+do item."*
+
+O que ele desfaz é a DIVISÃO da v5.62. Com dois alvos, decidir *"o que fazer com
+este hino?"* exigia primeiro decidir **qual dos dois botões era o dono da
+pergunta** — e essa é uma pergunta sobre a UI, não sobre o culto. Um alvo só, e a
+lista inteira do outro lado.
+
+```
+ ANTES (v5.62 → v5.284)              DEPOIS (v5.285)
+ ┌────────────────────────┐          ┌────────────────────────┐
+ │ [▶] Ó Adorai o Senhor  [+]│       │ [·] Ó Adorai o Senhor    │ ← 83% da linha
+ └────────────────────────┘          ├────────────────────────┤
+   ↓ toque no ▶    ↓ toque no +      │  Tocar música cantada  │
+   ┌─── folha ───┐ ┌─── folha ───┐   │  Tocar playback        │  as OPÇÕES
+   │ cantada     │ │ playlist    │   │  Apenas a letra        │
+   │ playback    │ │ Cronograma  │   │  [Cantada|Playback]    │
+   │ só a letra  │ │ Favoritar   │   │  Adicionar à playlist  │
+   └─────────────┘ └─────────────┘   │  … + Confirmar         │
+   ↓ toque no corpo → a LETRA        ├────────────────────────┤
+                                     │  1ª ESTROFE            │  a LETRA
+                                     │  Ó adorai o Senhor…    │
+                                     └────────────────────────┘
+```
+
+- **A gaveta tem DUAS metades, e a letra FICA** (decisão do operador,
+  perguntado): as opções em cima, a letra — ou o detalhe do vídeo — logo abaixo,
+  na mesma abertura. A ordem não é arbitrária: quem abre a gaveta acabou de tocar
+  na linha para DECIDIR, e a decisão tem de estar sob o dedo; a letra é a
+  conferência, e ela pode rolar. Quem some fechado é o ENVELOPE (`.hymn-gaveta`),
+  e não cada metade — a animação do acordeão mede `offsetHeight` de UM elemento,
+  e com duas caixas irmãs aparecendo por conta própria a medida seria de meia
+  gaveta.
+- **Nada de menu foi reimplementado.** `renderSongMenu` e `openYtMenu` ganharam
+  PARA ONDE escrever (`songMenuFor.alvo`, que viaja no estado porque cada
+  remontagem — o seletor Cantada/Playback, cada marca de destino — precisa
+  refazer a lista no mesmo lugar), e o modo **`tudo`** empilha tocar e adicionar
+  numa lista só. A folha `#songMenuPopup` continua de pé com os dois donos que
+  sobraram: os resultados do YouTube e o seletor de destinos da importação.
+  `openSongMenu` saiu por não ter mais chamador.
+- **Um episódio de SÉRIE continua desviando para a lista do YouTube**, como a
+  folha já fazia desde a v5.230 — o que muda é o endereço, não a regra.
+- **O quadrado da esquerda deixou de ser botão e virou INDICADOR.** Ele fica
+  porque hospeda o anel de download — a única coisa que aquele canto sempre
+  informou de verdade — e porque segura a coluna que alinha a lista inteira.
+  Perdeu o `--accent-soft` (a marca de "isto é ação, não conteúdo") e o
+  `cursor: pointer`: um alvo que não é alvo, num canto onde o dedo mira, é pior
+  que não ter nada.
+- **O oráculo do ALVO (v5.278) ficou mais forte, não obsoleto.** Ele media se as
+  bordas em volta dos botões caíam no botão; agora afirma que **todo ponto da
+  linha leva ao mesmo lugar** — cantos, bordas e o quadrado onde o ▶ vivia — e
+  conta `button` sem conhecer os nomes dos que saíram, para valer contra o
+  próximo que aparecer. Medido: o nome passou a ocupar **83% da linha**.
+- **No simplificado nada disso aparece:** o toque na linha continua chamando
+  `simplePlaySong` direto, que é a decisão que aquele modo poupa.
+
+##### Os sete pontos da v5.286
+
+O operador usou a gaveta e devolveu sete apontamentos. **Dois são defeitos que a
+v5.285 introduziu**, e os dois têm a mesma natureza — algo que a lista ganhou ao
+mudar de casa:
+
+| Relato | Causa |
 |---|---|
-| ▶ | **Tocar música cantada** · **Tocar playback** (só com `has_instrumental_music`) · **Apenas a letra** |
-| ➕ | (seletor **Cantada \| Playback**, só com playback) · **Adicionar à playlist** · **Adicionar ao Cronograma** · **Adicionar aos favoritos** |
+| *"pontos ou marcadores à esquerda dos cards"* | a `<ul>` nova não herdou `list-style: none` de ninguém (a do popup é `.popup-list`, que já o tinha). Não vinham de regra do app: era a **ausência** de uma |
+| *"o feedback de toque está encolhendo toda a seção de opções"* | o `:active` do `.lib-item` satisfeito por um botão DENTRO dele — a armadilha que a v5.269 já tinha desligado para o `⋮`, agora com a gaveta inteira no alcance |
 
-- A escolha Cantada/Playback do ➕ é um **seletor no topo** (`.fit-seg`) em vez
-  de dobrar a lista de destinos: com playback, seis linhas diriam três coisas.
-  Sem playback ele nem aparece — não há o que escolher.
-- A variante é lida **no clique**, antes de `closeSongMenu()` zerar
-  `songMenuFor` — uma ação que fosse consultá-lo depois encontraria `null`. O
-  mesmo vale para os **destinos marcados** (v5.141, ver "UM item, VÁRIOS
-  destinos"): as três linhas do ➕ ganharam uma caixa de marcação, o toque na
-  linha executa para ela **mais o que estiver marcado**, e a união é lida no
-  mesmo ponto.
-- **Favoritos reusa o seletor de pastas** da barra de seleção múltipla:
-  `openFolderPicker([id])` passa o id explícito, e sem argumento ele age sobre
-  `selected`, como sempre. Uma segunda lista de pastas só para o acervo
-  divergiria da primeira no dia em que alguém criasse uma pasta nova.
-- **Empilhamento:** `#songMenuPopup` em `z-index: 210` (abre de dentro do
-  acervo) e `#folderPopup` em `220` (abre de dentro dela) —
-  o seletor é declarado ANTES no documento, então sem o degrau a ordem do
-  documento o deixaria por baixo. Na tabela `POPUPS` os dois entram nessa mesma
-  ordem, porque o voltar a percorre de trás para a frente.
-- No **simplificado** o ➕ some (`body.mode-simple .hymn-add-btn`) e o ▶ chama
-  `simplePlaySong` direto: escolher variante e destino é justamente a decisão
-  que este modo poupa.
+Os cinco ajustes, e o primeiro governa os outros:
+
+- **O SELETOR DECIDE O QUÊ; AS OPÇÕES, ONDE.** "Tocar música cantada" e "Tocar
+  playback" eram duas linhas dizendo o que o seletor ao lado já dizia — a
+  variante aparecia duas vezes, uma como segmento e outra como linha. Elas viram
+  um **"Tocar agora"** selecionável, e o seletor ganha um terceiro segmento,
+  **Letra**. Com isso a lista do acervo converge com a do YouTube: um seletor de
+  forma e quatro destinos marcáveis, um deles o telão.
+- **"Só a letra, no Cronograma" SAIU**, porque virou `Letra` + `Cronograma`.
+  `addLyricCue` passou a aceitar várias listas (um registro só, como qualquer
+  item multi-destino), e o seletor passou a aparecer SEMPRE — ele dependia de
+  haver playback, e toda música tem letra.
+- **A caixa de marcação se vê sem estar marcada** (`--check-vazio`). Medido:
+  **1,08:1** contra o botão em que mora, que é o "não dá para ver" do relato →
+  **1,28:1**. Token com TEMA e não o `--scrim` compartilhado (no claro aquele .6
+  seria uma lápide), e ainda um RECESSO — a regra da v5.267 vale. O teto é do
+  tema escuro: preto sobre um botão já escuro comprime a razão por construção.
+- **O fundo da gaveta é o da folha antiga** (`--panel`). Na folha a lista pousava
+  ali e os botões dela são um recesso; no corpo da linha ela passou a pousar na
+  faixa, que já é um recesso do card — recesso sobre recesso, e o degrau
+  encolheu. **(REVOGADO na v5.287 — ver abaixo: `--panel` era a base certa para
+  aqueles botões e a cor errada para aquele lugar.)**
+- **A letra fica atrás de um botão irmão do confirmar.** Ela é a mais alta das
+  duas metades e empurrava as opções para longe do dedo em toda abertura, quando
+  o que se abre a gaveta para fazer é decidir. Quem o fornece é o dono da lista
+  (`songMenuFor.aoLado`) — a folha não tem letra a esconder, e não muda.
+
+##### A gaveta é um POÇO, soldado à sua linha (v5.287)
+
+Relato do operador: *"ainda está pouco o contraste entre os botões e pior, toda
+a seção das opções de play estão se mesclando com a lista dos outros itens
+abaixo, dificultando a percepção da seção e a qual item ela pertence"*.
+
+São DUAS queixas com uma causa só, e a medição a nomeia. No tema **escuro**:
+
+| par | v5.286 | v5.287 |
+|---|---|---|
+| botão × fundo da gaveta | 1,18:1 | **1,49:1** |
+| gaveta × faixa da linha vizinha | **1,03:1** | **1,54:1** |
+| gaveta × card do álbum | 1,33:1 | 1,99:1 |
+
+`--panel` compõe rgb(44,52,60) e a faixa de uma linha vizinha compõe
+rgb(46,54,63): a seção aberta tinha, literalmente, a cor das linhas de baixo. E
+a margem em volta dela (`.1rem .35rem .35rem`) deixava passar, como moldura, a
+faixa da própria linha — três tons indistinguíveis empilhados.
+
+**O tom novo é um par por tema** (`--gaveta-bg`/`--gaveta-btn`), e a inversão é
+aritmética, não gosto:
+
+- **escuro** — só dá para DESCER. Subir levaria a `--panel-2`, que é a cor do
+  próprio card do álbum, isto é, a que aparece nos vãos entre as linhas: a
+  gaveta ficaria invisível contra o fundo em que ela mora. O par é
+  `--bg` × `--panel`, os dois degraus de baixo da escada.
+- **claro** — só dá para SUBIR. Descer para `--bg` deixaria a gaveta a 1,09:1
+  do card. O par é `--panel` (branco) × `--panel-2`, os dois de cima.
+
+É o precedente do `--field-bar` (v5.270) num lugar novo: **uma superfície cuja
+direção não acompanha a escada precisa de um token próprio em cada tema.** E os
+BLOCOS que descansam nela (as opções e a metade de baixo) vestem `--gaveta-btn`
+em vez do `--surface` de fábrica, porque aquele é um OVERLAY — dentro de uma
+seção da Biblioteca ele resolve para o par SUNK, e preto sobre um poço que já é
+o tom mais escuro do app não produz degrau nenhum.
+
+**A segunda queixa é de FORMA, e ela custa uma linha:** a gaveta perdeu as
+margens. Ela é filha do `.lib-item`, que já pinta a linha inteira e recorta pelo
+`border-radius` com `overflow: hidden` — coladas, faixa e gaveta viram UM bloco
+com o título em cima e o poço embaixo. O respiro que a margem dava vem do
+`padding` da lista de opções, que já existia.
+
+##### A largura do "Ver/Ocultar a letra" (v5.287)
+
+"Ocultar" é mais longo que "Ver": o botão crescia ao ser tocado (110px → 143px,
+medidos) e o CONFIRMAR ao lado encolhia junto. As duas frases passaram a ocupar
+a MESMA célula de uma grade 1×1 — a largura é a da maior e a troca só alterna
+qual delas se vê. **`visibility` e não `display`**, porque a escondida precisa
+continuar MEDINDO: é ela que reserva o espaço. Um `min-width` em `ch` seria um
+número a manter contra a fonte e contra a tradução; isto não tem número nenhum.
 
 Tocar (`playSongVariant`) e os três destinos (`addSongToDestinos` →
 `adicionarNasListas`) baixam a música na hora se ainda não estiver offline (ver
@@ -9066,9 +9614,10 @@ com as outras, nomeava a lista pelo que ela era antes da v5.103: hoje o
 Cronograma guarda versículo, mensagem e contagem, não só arquivos com bytes.
 
 O botão de adicionar da linha do acervo (`.hymn-add-btn`) virou o **`add`
-neutro**: ele não escolhe destino nenhum, abre a folha que pergunta qual — e
-carregar o ícone de um dos três destinos era prometer um caminho que o toque
-não faz.
+neutro**: ele não escolhia destino nenhum, abria a folha que perguntava qual — e
+carregar o ícone de um dos três destinos era prometer um caminho que o toque não
+faz. (Ele SAIU na v5.285 com o ▶; o princípio migrou intacto para a gaveta, onde
+os três destinos aparecem escritos em vez de adivinhados.)
 
 #### Como regerar o subset
 

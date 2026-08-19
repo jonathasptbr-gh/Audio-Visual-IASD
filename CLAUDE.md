@@ -3053,10 +3053,1236 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.275** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.296** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.296: O NOME DA FAIXA SAÍA NA COR DE UM CABEÇALHO — e no tema claro
+> isso reprovava AA. OTA PURO** (só CSS e o oráculo; sem Release).
+>
+> Relato do operador: *"verifique a cor do texto dos itens dentro do álbum na
+> biblioteca, pois no tema claro, o fundo dos cards está escuro mas acredito que
+> nesse caso o texto deve ser claro, para ter o contraste ideal"*.
+>
+> **MEDIDO antes de mexer, no tema CLARO: 3,45:1.** O nome de uma faixa dentro
+> de um álbum saía em `--muted` (#565d66) sobre o recesso da própria faixa
+> (rgb(182,187,194)), a 13,12px — abaixo do piso de 4,5:1 para texto pequeno. No
+> ESCURO o mesmo par dá 6,46:1, e é por isso que a queixa é de um tema só.
+>
+> **A causa é HERANÇA, e é a família da v5.274 por outra porta.** `.coll-group`
+> é a regra do RÓTULO da seção — uma linha curta, em caixa alta, `--muted` — e
+> desde que a seção virou o BLOCO que contém a barra e o corpo (v5.237) ela é o
+> CONTÊINER de tudo o que a Biblioteca desenha. `color` herda: o `--muted` de um
+> cabeçalho pintava o nome de toda faixa, de todo favorito e de toda pasta lá
+> dentro. Era **o único lugar do app em que uma linha de lista não é `--text`**,
+> e era invisível justamente por isso — não havia uma declaração errada a achar,
+> havia uma declaração certa no elemento errado. A cor desce para a
+> `.coll-group-bar`, que é a peça que ela sempre descreveu, e o corpo volta a
+> herdar o `--text` da folha como qualquer outra lista.
+>
+> **E O REMÉDIO PEDIDO SERIA PIOR, MEDIDO.** O fundo não é escuro: é um
+> MEIO-TOM (~50% de luminância, o pior caso para os dois lados). Branco sobre
+> ele dá **1,93:1**, contra os **4,59:1** que o `--text` devolve. A percepção do
+> operador estava certa — aquele texto não se lê —, e a leitura de que o fundo é
+> escuro é o que a medição corrige: quem clareia aqui é o texto do tema, não uma
+> exceção. É o oposto da v5.268, em que a superfície é que saía da escada.
+>
+> **O ORÁCULO ENTROU ONDE O BURACO ESTAVA.** Os casos da escada de camadas
+> (v5.241/v5.267) mediam os FUNDOS da Biblioteca nos dois temas, e a escada
+> estava — e continua — correta; **nenhum deles olhava para a COR DO TEXTO**, e
+> foi por aí que isto atravessou. Agora eles medem o par, com o fundo COMPOSTO
+> (a faixa é um overlay: `backgroundColor` devolve o alfa, e comparar o texto
+> com um preto a 14% diria a mesma coisa com o defeito no lugar). A metade
+> negativa é o que impede a correção de virar "tudo virou `--text`": o rótulo da
+> seção continua com cor própria.
+>
+> Verificado por ISOLAMENTO: devolvendo a cor ao bloco, **3** asserções
+> reprovam — e a do tema claro imprime o 3,45:1 do relato.
+>
+> **O QUE NÃO FOI MEXIDO, e está dito em vez de escondido:** a mesma regra
+> vaza `letter-spacing` e `text-transform: uppercase` para o corpo, e ninguém os
+> reescreve — o título do álbum e o nome da faixa são desenhados em MAIÚSCULAS
+> por causa dela. Mexer nisso muda a aparência de toda a Biblioteca, que não é o
+> que foi pedido. E o SUBTÍTULO de uma linha de favorito (`--muted` explícito,
+> 10,88px) continua em **3,45:1** sobre o mesmo recesso, pelo mesmo motivo
+> estrutural: `--muted` foi calibrado contra `--panel` (6,66:1) e `--panel-2`
+> (4,73:1), nunca contra um recesso DENTRO do painel-2, que é a superfície mais
+> funda da Biblioteca.
+
+> **A v5.295: OS COMENTÁRIOS QUE DESCREVIAM A GAVETA COMO SE ELA EXISTISSE.
+> OTA PURO** (nenhuma linha de código; sem Release).
+>
+> A faxina da v5.294 removeu a gaveta `#favPopup` e deixou de pé quatro
+> comentários que continuavam falando dela **no presente**: o bloco do
+> `index.html` que explicava que *"o `activeTab` CONTINUA sendo `'folders'`
+> enquanto ela está aberta"* e mandava ver `listHost()`, a nota do
+> `renderListTitle` que apontava para um `renderFavHeader` que não existe mais,
+> e a lápide do `openOpfsFolder` que remetia a outra lápide (`openFavorites`)
+> que também tinha saído. Mais os carimbos de versão: as lápides diziam v5.293,
+> e a faxina saiu na v5.294 — o número de um lote que fez outra coisa.
+>
+> **Isto é um defeito pela régua deste projeto, e é a mesma da v5.212:** um
+> comentário que contradiz o código não é ruído, é uma armadilha — ele descreve
+> um mecanismo plausível, e quem o ler depois vai procurar (ou reintroduzir) o
+> que ele promete. Aqui o preço seria concreto: o do `index.html` manda ler uma
+> função apagada para entender onde a lista é desenhada.
+>
+> **E o lote é um NÚMERO NOVO, não um republicar do 5.294**, de propósito. O
+> zip do canal OTA é **imutável por versão** desde a v5.234 — foi essa
+> imutabilidade que fechou a classe inteira de "o manifesto fala de um zip com
+> outro `sha256` e o OTA fica inerte". Reescrever `web-5.294.zip` no lugar
+> reabriria exatamente essa janela para um aparelho que tivesse lido o manifesto
+> anterior. Um número novo custa uma pergunta a mais na tela; o outro caminho
+> custa a classe de defeito de volta.
+
+> **A v5.294 (v2.2): A ABA `folders` SAI POR INTEIRO, e a fila de IO da ponte
+> vira TRÊS. METADE OTA, METADE APK** (a fila é Kotlin — sem a Release ela não
+> chega ao aparelho).
+>
+> Os dois lotes que o operador escolheu depois da revisão profunda. Eles não se
+> tocam, e vieram juntos por serem os dois que sobraram dela.
+>
+> **1. A FAXINA DA ABA `folders`.** A v5.290 fez a pasta do aparelho abrir
+> INLINE, dentro da linha, e com isso a gaveta de tela cheia (`#favPopup`) ficou
+> **sem porta**: `openFavorites` deixou de ter chamador e `currentFolder` nunca
+> mais recebeu um valor não-nulo — as únicas atribuições que sobraram eram
+> `= null`. A nota da v5.290 declarou isso e deixou o subsistema de pé, com o
+> argumento (correto) de que a faxina merecia a própria passada de verificação.
+> Esta é ela.
+>
+> Saíram ~170 linhas: o popup `#favPopup` e o `#favList` do documento,
+> `renderFavHeader`, `garantirGaveta`, `openFavorites`, `closeFavorites`,
+> `favVoltarPara`, `folderQuery`, `currentFolder`, `listHost()` (as duas casas
+> viraram uma — `libraryEl`), o `hostSelbar` de duas casas, a entrada da tabela
+> `POPUPS`, o degrau 1.5 da escada do voltar, e **todos** os ramos de
+> `activeTab === 'folders'` espalhados por `load`, `renderLibrary`,
+> `renderTabs`, `scrollKey`, `deleteSelected`, `navigateBack`, `switchTab`,
+> `temImport` e `addSongToDestinos`. `TAB_ORDER` ficou com três abas, que é o
+> que o carrossel já percorria.
+>
+> **O PREÇO ESTÁ DITO, e o operador o aceitou explicitamente:** com a gaveta vão
+> embora a **busca DENTRO de uma pasta** (`#libSearch` — e ela não tem
+> substituto, porque a barra da Biblioteca varre `allCollections()`, que não
+> alcança o catálogo de pastas) e a **seleção múltipla** dentro de uma pasta,
+> que era onde morava o excluir de ARQUIVO FÍSICO por item. A segunda é menos
+> perda do que parece: um arquivo apagado de uma pasta sincronizada volta na
+> varredura seguinte, e quem apaga de verdade é o "Excluir pasta e arquivos
+> sincronizados" da própria linha.
+>
+> **E O ORÁCULO FINGIA O ESTADO IMPOSSÍVEL.** O caso do renomear escrevia
+> `activeTab = 'folders'` e um `currentFolder` à mão para provar que o lápis não
+> entra na pasta do aparelho — isto é, media o comportamento de um app que não
+> existe desde a v5.290. Ele passou a abrir a pasta INLINE, como o operador
+> abre, com fixture PRÓPRIO (`pg6` nasce depois dos casos da pasta, e depender do
+> que outra página deixou no banco fazia a asserção medir **zero linha**, que é
+> uma lista vazia passando por "não achei o lápis"). Verificado por ISOLAMENTO:
+> pondo um `botaoRenomearDaLinha` incondicional no `linhaDeItem`, a asserção
+> reprova. A asserção da gaveta mudou de pergunta junto — onde ela exigia "a
+> gaveta continua desenhando a dela", ela passou a exigir que **não sobrou nó
+> nenhum** do subsistema no documento, que é a forma forte da mesma pergunta.
+>
+> **2. A FILA DE IO DA PONTE VIRA TRÊS** (`NativeBridge`). Ela era
+> `newSingleThreadExecutor`, e é dela que saem o download do YouTube (minutos),
+> o download do APK (minutos), a busca no YouTube, as playlists de um canal, o
+> manifesto da transmissão, a rasterização de um PDF **e** `listFolder`,
+> `otaPending`, `otaDiag`, `atualizacaoEstado`, `apkProcurar`.
+>
+> Uma thread só para tudo isso significa que, com um vídeo de 300 MB baixando,
+> **toda a outra metade da ponte vence pelo prazo**: o `native.js` desiste em
+> 60 s (`CALL_TIMEOUT_MS`) e resolve `null`. Nenhuma delas ERRA — todas mentem
+> baixinho: `otaPending` diz que não há atualização, `atualizacaoEstado` não
+> responde nada, e o pior, `listFolder` devolve lista vazia, que o `controle.js`
+> lê como *"a pasta sumiu do aparelho"*. É o modo de falhar que este projeto
+> mais teme, num lugar onde ninguém tinha olhado.
+>
+> As três, e a divisão é por ORDEM DE GRANDEZA do trabalho:
+>
+> | fila | o quê | duração |
+> |---|---|---|
+> | `av-bridge-io` | `version.json`, estado do OTA, `listFolder` | milissegundos |
+> | `av-bridge-transf` | download do YouTube, download do APK, `ytDiscard` | minutos |
+> | `av-bridge-extr` | busca, playlists, manifesto, `deckPages` | segundos |
+>
+> **Cada uma continua sendo UMA THREAD, e isso é invariante e não economia.** O
+> resgate de download do `YoutubeGrab` é um slot ÚNICO e o mapa de parciais supõe
+> **um download por vez** — dois comentários daquele arquivo citam a fila única
+> da ponte como a garantia disso, e é por isso que `ytDiscard` mora na fila da
+> transferência: ele mexe nesse mesmo estado, e fora dali poderia apagar o
+> parcial de um download em curso. As extrações são serializadas entre si pela
+> mesma razão prática: elas dividem a inicialização global do NewPipe.
+>
+> **E `garantirInit` virou `@Synchronized`.** O par "testa `pronto`, então
+> inicializa" não é atômico, e agora há DUAS threads que podem chegar ali ao
+> mesmo tempo — a da transferência e a da extração. `NewPipe.init` duas vezes
+> provavelmente não faria mal; "provavelmente" não é o que se quer de uma
+> inicialização global.
+>
+> **O que NÃO colide, conferido campo a campo:** `diagnostico` é escrito só pelo
+> caminho do download e `diagnosticoStream` só pelo do manifesto (é justamente
+> por isso que eles são dois campos); `adaptativoBloqueadoEm`, `baixandoLink`,
+> `cancelarLink`, `resgate` e `parciais` vivem inteiros no caminho do download;
+> os registros de token do `StreamProxy` já são `ConcurrentHashMap`; e o
+> `NpDownloader` é sem estado. `ytCancel` continua **fora de fila nenhuma**, pelo
+> motivo de sempre — a fila que ele quer parar é justamente a que está ocupada.
+>
+> `SHELL_VERSION` **não sobe**: nenhum método da ponte nasceu, saiu ou mudou de
+> assinatura, e nenhum retorno mudou de forma. O que muda é quando eles
+> respondem.
+
+> **A v5.293: A REVISÃO PROFUNDA — doze defeitos, e dois deles tinham derrubado
+> um recurso inteiro em silêncio. METADE OTA, METADE APK** (as duas correções
+> Kotlin exigem uma Release; as dez de base web chegam sozinhas e não dependem
+> delas).
+>
+> Uma varredura do repositório inteiro pedida pelo operador — *"bugs, código
+> morto, otimizações e padronizações… e a questão funcional por falhas de
+> conceito"*, com o aviso que governou o método: **confie no código, não na
+> documentação**. E foi literal: três dos achados abaixo são comentários que
+> descrevem um mecanismo que o código não tem mais.
+>
+> **OS DOIS QUE APAGARAM UM RECURSO, e os dois pelo mesmo modo de falhar:** o
+> app continuava respondendo, nada errava alto, e o que sumiu foi um caminho
+> que não se usa todo dia.
+>
+> - **`ReferenceError` mudo em TODO toque numa linha do Cronograma.** A v5.287
+>   tirou o parâmetro `semSelecao` de `attachRowGestures` e deixou o
+>   `if (semSelecao) return` no corpo. Num script clássico, LER um identificador
+>   não declarado lança — só a atribuição criaria uma global. O `pointerdown`
+>   estourava ANTES de armar o `setTimeout`, e com ele foram embora o toque
+>   longo, a **seleção múltipla** e o `deleteSelected`, que é o único excluir em
+>   lote do app. O toque CURTO continuava projetando (o `pid` já tinha sido
+>   escrito na linha acima), então nada na tela mudava. Medido em Chromium:
+>   `Uncaught ReferenceError: semSelecao is not defined`, `selectionMode` nunca
+>   liga. **`eslint --rule no-undef` sobre a base inteira devolve exatamente UM
+>   erro**, e era este — vale como portão barato para a próxima vez.
+> - **A gaveta `⋮` da FILA DA PLAYLIST nunca ficava visível.** As três regras que
+>   revelam a faixa eram `.lib-item.acoes-abertas …`, e a linha da fila é
+>   `.row-item`. Como a v5.285 tirou o arrasto e moveu o "Tirar da playlist" e o
+>   par ↑↓ para DENTRO dessa faixa, a fila do culto ficou sem como ser editada
+>   nem reordenada: o `⋮` respondia (a classe entrava no `li`) e nada aparecia.
+>   Medido: `visibility: hidden` e o `elementFromPoint` no meio da faixa
+>   devolvendo o TÍTULO da linha. **Quem revela a gaveta passa a ser a CLASSE,
+>   não a lista em que a linha por acaso mora** — assim a próxima lista que
+>   ganhar a gaveta já nasce funcionando, que é exatamente o que faltou aqui.
+>
+> **A CAMADA DE TEXTO, em três frentes.** (1) `cenaDeRoteiroNoAr()` testava a
+> EXISTÊNCIA da sessão, e os quatro `hide*` existem justamente para tirar da tela
+> SEM matá-la: depois de "Tirar do telão" a linha da cena seguia com o selo
+> "● No ar" e o toque nela caía em `retirarDoAr` — reprojetar custava dois
+> toques, e o primeiro não fazia nada visível. (2) Cada projetor limpava as
+> outras camadas à mão e a conta não fechava: **ninguém limpava a letra avulsa**,
+> e como `lyricProjecting()` tem precedência no `slideTarget` e no
+> `renderNowPlaying`, uma `lyricSession` órfã sequestrava ⏮/⏭ e o título da
+> notificação de mídia. Agora há `soUmProvedorDeTexto(quem)`: cinco listas
+> mantidas à mão eram cinco lugares para a sexta camada ser esquecida. (3) **A
+> cortina do wallpaper ENGOLIA o cartão** — o stage reavalia a cortina em três
+> pontos que não sabiam dele (o fim natural da mídia, o `play()` e o fim de um
+> `load`), e o wallpaper está ACIMA do texto. O caso é o que a independência
+> áudio × texto existe para permitir: um louvor de fundo com a contagem
+> regressiva por cima. A música acabava e o cronômetro sumia, com `textActive`
+> ainda true e a lista ainda dizendo "● No ar". O remendo que existia era
+> pontual; agora o stage tem `setOverlay`, declarado por quem põe o cartão no ar.
+>
+> **E o resto, em uma linha cada:**
+>
+> - **`mse.js`**: o seek do `startAt` era DESCARTADO quando o índice da faixa
+>   ainda não tinha chegado (`aoBuscar` começa com `if (!f.segs) return`, e o
+>   `loadedmetadata` da MSE dispara com o áudio ainda sem `segs`). O vídeo
+>   reposicionava e o áudio baixava do segundo ZERO — a projeção ficava parada
+>   até ele percorrer o trecho inteiro. Morde no caminho mais caro que existe: a
+>   reconexão do telão e a aplicação de um OTA com a cena no ar.
+> - **`stage.js`**: parar um ÁUDIO SEM LETRA cortava o som no talo. A rampa de
+>   volume vivia dentro da animação da cortina, e para esse tipo a cortina já
+>   está fechada o tempo todo (`semVisual`) — `coverIn` devolvia na hora e o
+>   `clear()` cortava. É o defeito que só se ouve: nenhum pixel muda.
+> - **A rolagem**: `load()` restaurava `scrollPos` em TODO redesenho, e o único
+>   produtor daquele mapa é a troca de aba. Acrescentar um item, favoritar ou o
+>   progresso de um download jogavam a lista de volta para o topo. Agora só a
+>   NAVEGAÇÃO restaura; um redesenho no lugar mantém o lugar.
+> - **As miniaturas da Biblioteca** eram criadas no balde de `object-URL` de
+>   OUTRO host e o `renderLibrary` seguinte (que roda a cada 400 ms durante um
+>   download) as revogava EM CENA.
+> - **O funil de destinos** redesenhava favoritos e playlist e deixava o
+>   Cronograma por conta do chamador — dos dois que existem, só um lembrava.
+> - **O timer da procura de atualização** apagava o "Deixar para depois" e o
+>   diálogo modal reabria sozinho oito segundos depois.
+> - **`bibleGotoChapter`** é o outro ponto que escreve `bibleChapterData` e não
+>   fazia nada do que `changeBibleVersion` documenta como obrigatório.
+> - **O preset de sorteio** reescrevia `kind`/`min`/`max`/`pool` sem zerar
+>   `used`: o roteiro podia abrir um sorteio sem números para sortear.
+> - **A letra avulsa** não tinha guarda de sequência em volta do download.
+> - **A sincronização de pasta** redesenhava a Biblioteca inteira uma vez POR
+>   ARQUIVO, pulando o coalescimento de 400 ms que já existia e tem nome.
+> - **O wallpaper da tela da rede** desistia em ~6 s, e os bytes dele vêm depois
+>   da mídia inteira na mesma fila serializada — agora usa a mesma ladeira do
+>   fundo da letra.
+> - **A caixa-preta** carimbava "PAUSA ESPONTÂNEA" em toda parada comandada: a
+>   janela era de 400 ms contra um fade de 600 ms, e `media-clear` não estava na
+>   lista.
+> - **O erro de mídia da preview** era engolido sem registro nenhum — e o
+>   comentário afirmava que ele ia para o Registro. Agora vai.
+> - **`refFonte`** era escrito a cada status e NENHUMA linha o lia. Virou a linha
+>   "Referência de tempo" do Registro, com a recência junto (ele não zera
+>   sozinho, e sem a guarda diria "o telão" com o palco vazio há meia hora).
+>
+> **KOTLIN (exige Release):** a remontagem por morte de renderer zerava
+> `backgroundWork` e `captureVolumeKeys` e **não desfazia a TELA CHEIA** — o
+> WebView novo era acrescentado a um `webContainer` que continuava `GONE`, com a
+> View órfã por cima. É o culto SEM TV, em que a preview em tela cheia É a
+> projeção. E `buscarInterno` apagava `cancelarLink` incondicionalmente na
+> entrada: um cancelamento que chegasse com o download ainda ENFILEIRADO era
+> descartado no instante em que a vez dele chegava — o operador tocava em
+> cancelar e os ~300 MB baixavam assim mesmo.
+>
+> **CÓDIGO MORTO REMOVIDO** (confirmado por `eslint --rule no-unused-vars` mais
+> conferência à mão): `COLLECTION_LOCALE`, `nowYoutube`, `voiceIconSvg`,
+> `noteIconSvg`, `lyricsOnlyIconSvg`, `mirrorTvConfirmado`, o construtor de
+> cabeçalho de grupo `header` (~30 linhas de UI paralela e inerte) e o
+> `countDownloaded` calculado e descartado em cada card, a cada redesenho.
+>
+> **O QUE FICA MAPEADO E NÃO FOI MEXIDO, de propósito:** a aba `'folders'` e a
+> gaveta `#favPopup` são **inalcançáveis** — `openFavorites` não tem chamador e
+> **`currentFolder` nunca mais recebe valor não-nulo em lugar nenhum do app**
+> (as únicas atribuições são `= null`). São ~30 ramos, e com eles foram-se, sem
+> aviso, a BUSCA dentro de uma pasta do aparelho e a seleção múltipla lá dentro.
+> A faxina merece o próprio lote — e o oráculo que hoje monta `activeTab =
+> 'folders'` à mão prova um comportamento num estado que o app não alcança.
+>
+> Todos os oráculos passam (19/19), e **cada correção foi verificada por
+> ISOLAMENTO** — devolvendo o defeito e conferindo que o caso novo reprova. O
+> Kotlin **não foi compilado** aqui (o ambiente não tem o SDK do Android): quem
+> o compila é o CI.
+>
+> (Ela nasceu como v5.292 e foi renumerada no merge: uma sessão paralela
+> publicou outra v5.292 em `main` enquanto esta rodava. Os dois lotes tocam
+> `load()` e não se anulam — o de lá acrescenta a sincronização da seção de
+> Favoritos, o daqui muda a restauração da ROLAGEM e a assinatura. O merge foi
+> conferido com a suíte inteira depois de juntos.)
+
+> **A v5.292: A SEÇÃO DE FAVORITOS FICAVA PARA TRÁS DO BANCO. OTA PURO** (sem
+> Release).
+>
+> Relato do operador: *"verifique a atualização da lista de favoritos em relação
+> a excluir itens comuns e a excluir pastas, que não desaparecem apenas fechando
+> e reabrindo a biblioteca"*.
+>
+> **A causa é estrutural, e não daquele botão.** `deleteOpfsFolder`,
+> `syncDeviceFolder` e a limpeza de catálogo terminam em `load()` — o funil onde
+> `favItems`, `favSet` e `opfsFolders` são reaplicados ao estado do módulo —, e
+> `load()` redesenhava o Cronograma (`renderLibrary`) e mais nada. A seção de
+> Favoritos tem DUAS casas desde a v5.237, e desde a v5.290 a de dentro da
+> Biblioteca é a única alcançável: quem a desenha é `renderFolderList` com
+> `favHost`, que `load()` nunca chamava. É o mesmo defeito que a v5.258 corrigiu
+> para o FAVORITAR, numa porta que aquele lote não tinha.
+>
+> Medido: excluir a pasta a tirava do banco (`opfs-folders` vazio) e a deixava na
+> tela; o mesmo com o favorito que ela leva junto, porque `purgeCatalogRecords`
+> mexe em `favs`.
+>
+> **A guarda é uma ASSINATURA, e não um redesenho incondicional.** `load()` roda
+> por dezenas de caminhos com a Biblioteca aberta — uma sincronização que
+> termina, o coletor de lixo, uma troca de aba por baixo —, e refazer a seção em
+> todos eles fecharia a gaveta de opções que o operador acabou de abrir. Ela só é
+> reconstruída quando o que ela DESENHA mudou (os ids dos favoritos e os
+> id:contagem das pastas).
+>
+> **E o redesenho explícito do `moverNaLista` saiu junto**, porque virou o
+> SEGUNDO: `reabrirAcoesEm` é consumido pelo primeiro, então o segundo
+> reconstruía a linha sem a gaveta aberta — o botão saía de baixo do dedo, que é
+> exatamente o que aquele mecanismo existe para evitar. O oráculo do par ↑↓ pegou
+> isso na primeira execução.
+>
+> **E a metade negativa quase passou de graça.** A primeira versão dela mandava o
+> item ao Cronograma e afirmava que a gaveta sobrevivia — só que aquele caminho
+> **não chega a chamar `load()`** (a guarda de lá compara chaves de DESTINO com
+> nomes de LISTA), isto é, ela nunca exercitava o redesenho. Medida no `load()`
+> cru, ela reprova o redesenho incondicional.
+>
+> Verificado por ISOLAMENTO: sem a sincronização, **2** asserções reprovam; com
+> ela incondicional, **1**.
+
+> **A v5.291: UMA `.lib-item` DENTRO DE OUTRA — todo seletor DESCENDENTE vazou.
+> OTA PURO** (só CSS e o oráculo; sem Release).
+>
+> Relato do operador sobre a v5.290, com prints: *"há diversos bugs, como o
+> posicionamento incorreto do design dos itens da pasta. além de ter novamente o
+> efeito incorreto de encolhimento inteiro do grupo ao tocar em itens
+> individuais. também temos uma falha, que não permite fechar as opções de play
+> dos itens."*
+>
+> **Três sintomas, UMA causa.** A pasta abrindo inline fez `.folder-opfs` virar o
+> primeiro `.lib-item` deste app que CONTÉM outros `.lib-item` — e as regras da
+> gaveta são descendentes, escritas numa época em que esse aninhamento não
+> existia:
+>
+> | selector | o que ele passou a alcançar |
+> |---|---|
+> | `.lib-item.expanded .hymn-gaveta` | a pasta ABERTA satisfaz o `.expanded`, então a gaveta de TODO arquivo lá dentro virava `display: block` |
+> | `.lib-item:not(.vendo-letra) :is(.hymn-lyrics, .item-detalhe)` | a pasta nunca tem `.vendo-letra`, então ela escondia o detalhe de um arquivo que TEM |
+> | `.lib-item:has(.hymn-gaveta :active)` | não alcançava `.folder-itens`, e o `--press` da pasta encolhia com o toque num arquivo |
+>
+> A primeira linha explica DOIS dos três relatos de uma vez: a faixa preta
+> embaixo de cada arquivo era a gaveta vazia dele, e fechar as opções tirava a
+> classe do item **sem esconder nada**, porque quem as mantinha visíveis era a
+> pasta. Medido: `exp: false, display: block, altura: 19px` nos três arquivos
+> fechados, e `classe: false, display: block, altura: 293px` depois do segundo
+> toque.
+>
+> **A regra que fica, e ela é mais larga que este arquivo: a gaveta é do item que
+> a POSSUI, então toda regra dela é `>`.** Um seletor descendente responde "existe
+> algum ancestral assim?", e a resposta muda no dia em que alguém aninha o
+> componente — sem erro em lugar nenhum, e num lugar que não é o da causa. O
+> mesmo vale para o feedback de toque, agora escrito de uma vez para os três
+> blocos que uma linha apenas HOSPEDA (`.row-acoes`, `.hymn-gaveta`,
+> `.folder-itens`): quem encolhe é a peça tocada.
+>
+> **E o quarto item do relato era de geometria**, medido: o arquivo começava em
+> x=18 — colado na borda do cartão da pasta, com a miniatura dele na MESMA coluna
+> da miniatura da própria pasta, lendo-se como irmão dela em vez de conteúdo. O
+> favorito ao lado começa em 24. Com o recuo de `.4rem` no corpo, os dois passam
+> a ocupar a mesma coluna (24 e 24; miniaturas em 32 e 32), que é o que o álbum
+> já fazia pelo padding do `.coll-open`.
+>
+> Verificado por ISOLAMENTO, uma regra de cada vez: o seletor descendente de
+> volta reprova **2** asserções, a guarda do encolhimento **1**, o recuo **1**.
+>
+> **E o oráculo quase passou pelo motivo errado.** A asserção das gavetas
+> fechadas clicava na pasta *uma vez* para abri-la, isto é, dependia do estado
+> que o caso anterior deixou — com ela fechada as gavetas estão escondidas de
+> qualquer jeito, e a asserção passaria sem medir nada. Ela passou a GARANTIR o
+> estado (`if (!expanded) click`), e só então o defeito reprova.
+
+> **A v5.290: A PASTA DO APARELHO ABRE COMO UM ÁLBUM — e a gaveta de tela cheia
+> fica sem porta. OTA PURO** (sem Release).
+>
+> Pedido do operador: *"ajuste o sistema de pastas dos favoritos, para que ele
+> abra a lista de arquivos das pastas de forma visual sem ser um popup, para que
+> abra a lista assim como abrem os álbuns com seus itens"*.
+>
+> **Uma pasta é um CONTÊINER de arquivos, exatamente como um álbum é um
+> contêiner de faixas**, e o app já sabia desenhar isso. Ela abria uma folha de
+> tela cheia (`#favPopup`) — a única sobrevivente de um modelo em que os
+> favoritos eram uma gaveta própria — e agora é o mesmo acordeão, no mesmo
+> lugar, com as mesmas linhas de item. O corpo é montado **uma vez, e só quando
+> a pasta abre**: uma pasta sincronizada tem centenas de arquivos, e montá-los
+> para todas elas a cada redesenho da seção seria o trabalho de DOM da tela
+> inteira por algo que ninguém está vendo (a decisão da v5.237, um nível
+> acima).
+>
+> **Uma anatomia só para as duas listas.** `favItemRow` virou `linhaDeItem`, e o
+> que muda entre um favorito e um arquivo de pasta viaja em `opts` — nada mais:
+>
+> | | favorito | arquivo da pasta |
+> |---|---|---|
+> | `lista` | `'favs'` (↑↓ e excluir) | **nenhuma** — a ordem vem do disco, e apagar aqui seria apagar o ARQUIVO |
+> | `destinos` | playlist · Cronograma | playlist · Cronograma · **Favoritar** |
+>
+> A segunda linha é a régua de sempre: numa lista de favoritos "Favoritar" não
+> muda nada, e numa pasta ela é justamente o caminho de promover o arquivo. Uma
+> escolha que não faz nada é pior que escolha nenhuma — daí ser parâmetro, e não
+> um `if` dentro do menu.
+>
+> **`pastaAberta` é um NOME e não um conjunto**, pela mesma razão do
+> `grupoAberto` (v5.273): "duas pastas abertas" deixa de ser uma regra que
+> alguém precisa lembrar e passa a ser uma frase que não dá para escrever. E ele
+> nasce no topo do arquivo, porque é lido por um caminho de render — a zona
+> morta temporal que já derrubou o app quatro vezes. Ele existe porque favoritar
+> um arquivo de dentro da pasta redesenha a seção: sem essa memória, cada ação
+> fecharia a pasta.
+>
+> **⚠️ E A GAVETA `#favPopup` FICOU SEM PORTA.** Ela era a tela de DENTRO de uma
+> pasta e nada mais (a v5.238 já tinha tirado o botão que a abria pela raiz), e
+> `openOpfsFolder` era o único caminho para lá. O subsistema continua no arquivo
+> INTEIRO e inerte, com a lápide em `openFavorites`, e isso é uma decisão
+> declarada: removê-lo alcança ~28 ramos de `activeTab === 'folders'` espalhados
+> por `load`, `renderListTitle`, `renderLibrary`, `deleteSelected`, `switchTab`,
+> `hostSelbar`, `listHost`, o carrossel e a pilha do voltar — uma faxina que
+> merece a própria passada de verificação, e não o mesmo lote de uma mudança de
+> comportamento. O `activeTab` nunca mais vale `'folders'` (o carrossel já o
+> pulava), então os ramos são inertes, não perigosos.
+>
+> **O que a gaveta levava junto, e está dito em vez de escondido:**
+>
+> - a **BUSCA dentro de uma pasta** (`folderQuery`/`#libSearch`) — e ela não tem
+>   substituto: a barra da Biblioteca varre `allCollections()`, que não alcança
+>   o catálogo de pastas;
+> - a **SELEÇÃO MÚLTIPLA** dentro de uma pasta, que era onde morava o excluir de
+>   ARQUIVO FÍSICO por item. Esta é menos perda do que parece: um arquivo
+>   apagado de uma pasta sincronizada volta na sincronização seguinte — o mesmo
+>   argumento que mantém o renomear fora dali (v5.288) — e quem apaga de
+>   verdade é o "Excluir pasta e arquivos sincronizados" da própria linha.
+>
+> Verificado por ISOLAMENTO: devolvendo o toque que abria o popup, **3**
+> asserções reprovam — e reprovam MEDINDO (a sonda é null-safe de propósito:
+> sem `.folder-itens` uma exceção abortaria o caso e o que sobraria seria
+> "terminou com erro" em vez de "a lista não abriu inline").
+
+> **A v5.289: A GUARDA PERGUNTAVA À ÁRVORE DE AGORA, e o handler já a tinha
+> desmontado. OTA PURO** (sem Release).
+>
+> Três coisas: uma REGRESSÃO da v5.288 e dois pedidos do operador.
+>
+> - **TOCAR NUMA OPÇÃO DE PLAY FECHAVA O ÁLBUM INTEIRO.** Relato, no dia
+>   seguinte ao lote: *"agora ele está fechando o álbum ao tocar nos botões de
+>   check das opções de play"*.
+>
+>   A v5.288 subiu o ouvinte do acordeão para o CARD e o guardou com
+>   `e.target.closest('.coll-open')` — uma consulta à árvore VIVA. Só que o botão
+>   de destino é apagado pelo próprio handler que roda antes desta linha: marcar
+>   uma opção chama `renderSongMenu`, que faz `alvo.innerHTML = ''` e reconstrói
+>   a lista. Quando o evento chega ao card, o `e.target` está **desanexado** —
+>   `closest` sobe por um trecho de árvore que não tem mais pai nenhum, devolve
+>   `null`, a guarda falha e o álbum fecha. Medido: a marca nem chegava a pegar,
+>   porque o card era reconstruído por baixo.
+>
+>   **A régua que fica é mais larga que este arquivo:** um ouvinte que decide
+>   pela POSIÇÃO do alvo na árvore está perguntando "onde este nó está agora", e
+>   *agora* é depois de todos os handlers que rodaram antes dele. A pergunta que
+>   ele quer fazer é sobre o CAMINHO — *este clique nasceu dentro do corpo
+>   aberto?* —, e o caminho é fixado no DISPARO: `e.composedPath()` sobrevive ao
+>   apagamento; `closest` não.
+>
+>   Os irmãos que rebuildam do mesmo jeito foram medidos junto e passam: o
+>   seletor de variante, o "Ver a letra" e as opções do próprio álbum.
+> - **FAVORITAR NÃO FECHA MAIS A GAVETA DO CRONOGRAMA**, e ela fechava por DOIS
+>   caminhos independentes — consertar um só teria deixado o defeito de pé. O
+>   ouvinte de captura da caixa fecha em qualquer botão (a estrela virou exceção,
+>   ao lado do par ↑↓, pela mesma régua: **a ação que não TERMINA a conversa com
+>   aquele item** — a estrela é um alternador, e o desfecho dela é o próprio
+>   botão mudando de desenho sob o dedo); e o `renderLibrary` que `toggleFav`
+>   agenda depois do pulso reconstrói a linha inteira, apagando o `li` aberto.
+>   Daí `manterAcoesAbertas()`, que reusa o `reabrirAcoesEm` do par ↑↓ e a CHAVE
+>   que `montarAcoesDaLinha` passou a carimbar no `li` — sem ela não haveria como
+>   reencontrar a linha, porque o mesmo item vive em duas listas ao mesmo tempo.
+> - **O EXCLUIR É O PRIMEIRO DA FAIXA**, isto é, o mais longe do `⋮`. Pedido do
+>   operador: *"excluir deve ficar o mais longe de um acidente de clique de
+>   fechar opções"*. O `⋮` fica colado na ponta direita e é o alvo tocado
+>   repetidamente (abre e fecha) — errá-lo por alguns pixels caía justamente no
+>   destrutivo. Do outro lado o vizinho é o VAZIO da caixa, que também fecha, e a
+>   diferença é que ele é uma área larga em que ninguém mira a borda. Isto
+>   inverte a ordem que valia desde a v5.258 ("o que se usa mais fica mais perto
+>   do dedo"); ela continua valendo para o resto da fileira.
+>
+> Verificado por ISOLAMENTO: devolvendo o `closest`, **1** asserção reprova (e é
+> a que exercita a desanexação de verdade); devolvendo a estrela ao fecho, **1**
+> — e ela continua reprovando com só metade do conserto (o ouvinte sem o
+> `manterAcoesAbertas`), que é o que prova que os dois caminhos existem;
+> devolvendo o excluir ao fim da fileira, **1**. A metade NEGATIVA está travada
+> junto: um botão que TERMINA a conversa (o renomear) continua fechando — sem
+> ela, calar o ouvinte inteiro passaria.
+
+> **A v5.288: O FEEDBACK DE TOQUE TIRAVA O ALVO DE BAIXO DO DEDO — e mais três.
+> OTA PURO** (sem Release).
+>
+> Quatro pedidos do operador, e o terceiro é o achado do lote.
+>
+> - **O CARD DO ÁLBUM NÃO ABRIA PERTO DA BORDA.** Relato: *"nos álbuns há um
+>   toque em uma margem à esquerda da seta que abre o álbum, que ENCOLHE os
+>   itens dentro do card, mas não abre o álbum"*.
+>
+>   **A causa não é o pixel, é o próprio FEEDBACK.** `.coll-bar` está na lista
+>   do `:active` do app, cujo `--press` é `scale(.96)` — numa barra de ~395px
+>   isso a encolhe ~8px de cada lado. O `pointerdown` acerta a barra e dispara o
+>   encolhimento; no `pointerup` ela já não está mais ali, e o navegador entrega
+>   o `click` ao ancestral que sobrou: o card, que não tinha ouvinte nenhum.
+>   Medido por varredura, com o card de 395px: **até ~7px da borda o toque não
+>   abre; de 8px em diante abre** — e a fronteira é exatamente o que a animação
+>   vaga. A "margem à esquerda da seta" existe também à direita, em cima e
+>   embaixo.
+>
+>   A correção não é caçar pixels: o ouvinte sobe para o **CARD**, que é o
+>   elemento que não se mexe — qualquer retargeting causado pelo encolhimento
+>   passa a cair em quem sabe responder, e a classe inteira fecha. A GUARDA é o
+>   `.coll-open` (o invólucro de tudo que não é a barra): sem ela, com o álbum
+>   aberto um toque numa faixa borbulharia até o card e o fecharia debaixo do
+>   dedo. Perguntar pelo invólucro, e não por uma lista de filhos, é o que faz o
+>   próximo bloco que nascer lá dentro já nascer protegido.
+>
+>   **E o padding saiu do card** (`.hymnal-card { padding: 0 }`), indo para quem
+>   PINTA — a barra e o corpo aberto. Ele era um resíduo com pista no próprio
+>   arquivo: a barra do álbum ABERTO já o desfazia com margens negativas para
+>   grudar como tampa, isto é, **com o álbum aberto aquela faixa funcionava e
+>   com ele fechado, não** — o mesmo pixel respondendo ou não conforme o estado.
+> - **RENOMEAR ENTRA NA GAVETA DA LINHA DO CRONOGRAMA.** Ele existia só para UM
+>   item de cada vez e atrás de quatro gestos (toque longo → seleção múltipla →
+>   botão do rodapé → diálogo), que é a mesma correção que o excluir recebeu na
+>   v5.272. **Na pasta do aparelho ele NÃO entra**, com a mesma guarda do
+>   excluir: ali o nome vem do arquivo, e um nome só no registro seria desfeito
+>   na varredura seguinte. O lápis é **SVG inline** e nunca um glifo — a fonte é
+>   um subset estático e `edit` não está nele; codepoint ausente desenha um
+>   retângulo vazio, sem erro em lugar nenhum (a armadilha da v5.184 e da
+>   v5.200).
+>
+> E os dois primeiros pedidos, os dois sobre a estrela em telas diferentes.
+>
+> - **NOS FAVORITOS, A ESTRELA SAI E A LIXEIRA FICA.** *"Remova ou a opção de
+>   excluir ou a opção de desfavoritar, pois tecnicamente ambas fazem a mesma
+>   coisa."* Nesta lista fazem: as duas terminam num `listRemove('favs', id)`, e
+>   o que se vê é a mesma linha sumindo.
+>
+>   **Isto REVOGA meia frase da v5.287** — ela dizia "quem o tira de lá é a
+>   estrela". Três razões, na ordem em que pesam: **(1)** aqui a estrela é um
+>   alternador de UMA direção — todo item desta lista já é favorito, então ela
+>   nasce sempre acesa e o único toque possível é o que apaga, isto é, um botão
+>   de excluir vestido de alternador que nunca chega a dizer "favoritar";
+>   **(2)** a lixeira PERGUNTA, e a linha some de uma lista que o operador
+>   montou à mão — o texto do diálogo ainda explica a semântica exata ("os
+>   arquivos só são apagados se ele não estiver em mais nenhuma"); **(3)** ela
+>   solta a prateleira invisível (`soltarAvulso`), que é a diferença entre "a
+>   linha sumiu" e "os bytes saíram" — a estrela não faz isso, porque
+>   desfavoritar não é uma declaração de intenção de apagar.
+>
+>   Nas outras listas a estrela continua inteira, e ali ela alterna de verdade.
+> - **E NO CRONOGRAMA ELA VIRA UM BOTÃO COMO OS OUTROS.** *"Verifique o design
+>   do favoritar no cronograma, para que seja um botão quadrado igual as outras
+>   opções."* O `background: transparent` dela tinha um argumento escrito, e ele
+>   EXPIROU com uma mudança de casa: *"numa linha que já tem miniatura, nome,
+>   selo e às vezes dois botões, mais um fundo sólido viraria ruído"* — verdade
+>   quando ela morava NA LINHA. Desde a v5.258 ela mora dentro da gaveta do `⋮`,
+>   onde todos os vizinhos são `.row-btn` preenchidos: chapada ali, ela era a
+>   única peça da fileira sem caixa, e a exceção não dizia nada. (O par que o
+>   argumento citava — a alça de arrastar — nem existe mais desde a v5.285.) O
+>   ESTADO continua sendo o desenho (preenchida × vazada) mais a cor, que é o
+>   que a estrela sempre disse.
+>
+> A régua do oráculo da estrela é a dos VIZINHOS, e não um valor escrito: ele
+> exige que todos os `.row-btn` da faixa tenham o MESMO fundo e que ele não seja
+> transparente — um token novo do dia seguinte não pode reprovar isto. E o do
+> card mede um CLIQUE DE VERDADE (`mouse.click`, porque um `el.click()`
+> sintético não passa por hit-test nenhum e aprovaria o defeito inteiro), nas
+> três metades: fechado a borda abre, aberto a mesma borda fecha, e um toque
+> numa faixa não fecha nada.
+>
+> Verificado por ISOLAMENTO: devolvendo o `transparent`, **1** asserção reprova;
+> devolvendo a estrela à faixa dos favoritos, **1**; devolvendo o ouvinte à
+> barra e o padding ao card, **3**; tirando só a guarda do `.coll-open`, **1**;
+> tirando o renomear, **4**.
+
+> **A v5.287: A GAVETA PARA DE SE MESCLAR COM A LISTA, e a linha de favorito
+> ganha o mesmo sistema da Biblioteca. OTA PURO** (sem Release).
+>
+> Quatro pedidos do operador, e os dois últimos são o mesmo movimento.
+>
+> - **A LARGURA DO "VER/OCULTAR A LETRA" NÃO MUDA MAIS COM O ESTADO.**
+>   "Ocultar" é mais longo que "Ver", então o botão crescia debaixo do dedo e o
+>   CONFIRMAR ao lado encolhia junto — 110px → 143px, medidos. As duas frases
+>   passaram a ocupar a MESMA célula de uma grade 1×1 e a troca só alterna qual
+>   se vê: a largura é a da maior, sempre. `visibility` e não `display`, porque
+>   a escondida precisa continuar MEDINDO — é ela que reserva o espaço. Um
+>   `min-width` em `ch` seria um número a manter contra a fonte e contra a
+>   tradução; isto não tem número nenhum.
+> - **A GAVETA VIRA UM POÇO, E A DIREÇÃO DELE MUDA COM O TEMA.** Relato:
+>   *"ainda está pouco o contraste entre os botões e pior, toda a seção das
+>   opções de play estão se mesclando com a lista dos outros itens abaixo,
+>   dificultando a percepção da seção e a qual item ela pertence"*.
+>
+>   **MEDIDO antes de mexer, no tema ESCURO: 1,03:1.** A v5.286 devolveu à
+>   gaveta o `--panel` da folha antiga — que era a base certa para aqueles
+>   botões e é a cor errada AQUI: `--panel` compõe rgb(44,52,60) e a faixa de
+>   uma linha vizinha compõe rgb(46,54,63). A seção aberta tinha, literalmente,
+>   a cor das linhas de baixo, e os botões dentro dela davam 1,18:1.
+>
+>   `--gaveta-bg`/`--gaveta-btn` são um par por tema, e a inversão é aritmética:
+>   no escuro o único caminho é DESCER (subir levaria a `--panel-2`, que é a cor
+>   do próprio card do álbum — a que aparece nos vãos entre as linhas); no
+>   claro, descer para `--bg` deixaria a gaveta a 1,09:1 do card, e quem sobe é
+>   ela. Medido depois — botão × gaveta e gaveta × faixa vizinha: escuro
+>   **1,49** e **1,54**; claro **1,41** e **1,93**. É o mesmo precedente do
+>   `--field-bar` (v5.270): uma superfície cuja direção não acompanha a escada
+>   precisa de um token próprio em cada tema.
+>
+>   **A SEGUNDA metade da queixa é de FORMA, e ela custa uma linha:** a gaveta
+>   perdeu as margens. Ela é filha do `.lib-item`, que já pinta a linha inteira
+>   e recorta pelo `border-radius` com `overflow: hidden` — coladas, faixa e
+>   gaveta viram UM bloco com o título em cima e o poço embaixo. Com a margem, o
+>   poço era uma ilha flutuando sobre um frame da cor das linhas de baixo, e
+>   nada dizia de quem ele era.
+> - **A LINHA DE FAVORITO ABRE A GAVETA DA BIBLIOTECA, e o `⋮` sai.** Os dois
+>   últimos pedidos: *"verifique a sobreposição das opções dos itens na lista de
+>   favoritos, pois estão novamente abrindo a sua gaveta de opções sobre o
+>   título de cada item"* e *"trate a lista de favoritos com o mesmo sistema de
+>   opções de play que temos no resto da biblioteca, ao invés de tratar ela como
+>   toque direto no player"*.
+>
+>   **O segundo RESOLVE o primeiro, e é por isso que eles vieram juntos.** O `⋮`
+>   e a faixa que ele abre existem para caber numa linha que responde ao toque
+>   com OUTRA coisa (no Cronograma, projetar): sem lugar embaixo, a gaveta só
+>   tinha para onde ir por CIMA do título. Aqui o toque deixa de projetar, o
+>   corpo da linha fica livre, e a sobreposição deixa de existir por construção
+>   — não por um reposicionamento.
+>
+>   **Esta lista mora DENTRO da Biblioteca desde a v5.237**, e é isso que decide
+>   o lado da regra em que ela cai: a Biblioteca é a tela em que se PREPARA (o
+>   toque abre opções) e o Cronograma é a lista com que se OPERA (o toque
+>   projeta). O `⋮` continua inteiro lá, e na fila da playlist.
+>
+>   **Nada de menu foi reimplementado.** `renderItemMenu` é a mesma maquinaria
+>   de destinos — `songMenuItem` com `destino`, `destExecutor`, `destRemontar`,
+>   `destConfirmRow` — apontada para a `<ul>` do corpo da linha. O que ela NÃO
+>   tem é seletor de variante (o registro já existe; não há cantada × playback a
+>   escolher) nem "Favoritar" (o item É um favorito, e quem o tira de lá é a
+>   estrela). As ações da linha — estrela, ↑↓, excluir — descem para uma faixa
+>   no PÉ da gaveta, com os mesmos botões e os mesmos ouvintes de antes.
+>
+>   **O PREÇO está dito:** projetar um favorito passou de um toque a três
+>   (abrir, marcar, confirmar). Em troca, as três listas passam a estar a um
+>   toque do mesmo lugar — antes, mandar um favorito ao Cronograma era o `+` e
+>   mandá-lo à playlist não tinha caminho nenhum nesta tela. O **Parar na capa**
+>   continua sendo um toque direto: tirar do ar é a decisão que não pode custar
+>   uma gaveta.
+>
+> **As regras da gaveta deixaram de ser keyadas em `.hymn-result` e passaram a
+> ser em `.lib-item`** — o mesmo envelope serve as duas listas, e uma segunda
+> anatomia divergiria da primeira no próximo ajuste. Com ela saiu a opção
+> `semSelecao` do `attachRowGestures`, que ficou sem chamador.
+>
+> Verificado por ISOLAMENTO: devolvendo o `--panel` e o `--surface` da v5.286,
+> **2** asserções reprovam (e imprimem o 1,18 e o 1,03 do relato); devolvendo o
+> `display: none` no botão da letra, **1**; devolvendo o toque que projeta na
+> linha de favorito, **4**.
+
+> **A v5.286: A GAVETA DE OPÇÕES, EM SETE PONTOS — e dois deles são defeitos que
+> a v5.285 introduziu. OTA PURO** (sem Release).
+>
+> O operador usou a gaveta nova e devolveu sete apontamentos sobre a mesma peça.
+> Eles vieram num lote só porque vivem um dentro do outro: um conserto de
+> qualquer um deles mexe no que o vizinho mede.
+>
+> **Os dois DEFEITOS, e os dois são meus:**
+>
+> - **"Verifique o que são esses pontos ou marcadores à esquerda dos cards."**
+>   São marcadores de LISTA. A `<ul>` das opções nasceu no corpo da linha e não
+>   herdou `list-style: none` de ninguém — a do popup é `.popup-list`, que já o
+>   declarava. Eles não vinham de regra nenhuma do app, e é por isso que não
+>   havia o que procurar: era a **ausência** de uma. (Quadrados, e não bolinhas,
+>   porque o navegador troca o marcador conforme a profundidade do aninhamento —
+>   o que os tornava ainda menos reconhecíveis como o que eram.)
+> - **"O feedback de toque está encolhendo toda a seção de opções."** É o
+>   `:active` do `.lib-item` sendo satisfeito por um botão DENTRO dele. O app já
+>   conhecia esta armadilha — a v5.269 a desligou para o `⋮` com o argumento de
+>   que "o movimento da caixa polui o conjunto" —, e a gaveta a reabriu num
+>   alcance maior: o que se mexia era a linha MAIS a gaveta, meia tela por causa
+>   de um toque num botão de 40px.
+>
+> **Os cinco AJUSTES:**
+>
+> - **"Tocar agora" vira a primeira opção da lista de check**, e as linhas
+>   "Tocar música cantada"/"Tocar playback" saem. O operador nomeou a razão:
+>   *"já que nessa seção de check já temos os alternadores entre cantado e
+>   playback"* — a variante aparecia DUAS vezes, uma como segmento e outra como
+>   linha. Agora o seletor responde **o quê** e as quatro opções respondem
+>   **onde**.
+> - **E "Letra" é o terceiro segmento**, ao lado de Cantada e Playback. Isso
+>   torna "Só a letra, no Cronograma" redundante — ela era exatamente `Letra` +
+>   `Cronograma` —, e a linha saiu. `addLyricCue` passou a aceitar VÁRIAS listas
+>   (um registro só, como qualquer item multi-destino), porque a cena de letra
+>   deixou de ser exclusiva do Cronograma. O seletor agora aparece SEMPRE: antes
+>   ele dependia de haver playback, e toda música tem letra.
+> - **As caixas de marcação se veem sem estar marcadas** — *"para entender que
+>   não são botões, mas selecionáveis"*. Medido: o recesso antigo dava
+>   **1,08:1** contra o botão em que mora, que é o "não dá para ver" do relato;
+>   `--check-vazio` o leva a **1,28:1**. Ele é um token com TEMA, e não o
+>   `--scrim` compartilhado: no claro aquele .6 seria uma lápide sobre um botão
+>   claro. Continua sendo um RECESSO — a regra da v5.267 vale —, e o teto é o do
+>   próprio tema escuro: preto sobre um botão já escuro comprime a razão por
+>   construção.
+> - **O fundo da gaveta volta a ser o da folha antiga** (`--panel`). O pedido
+>   cobra a consequência de mudar a lista de lugar: na folha ela pousava em
+>   `--panel` e os botões dela são um RECESSO; trazida para o corpo da linha,
+>   passou a pousar na faixa, que já é um recesso do card. Recesso sobre recesso,
+>   e o degrau que separava o botão do fundo encolheu.
+> - **A letra fica atrás de um botão lado a lado com o confirmar.** Ela é a mais
+>   alta das duas metades da gaveta, e aberta por padrão empurrava as opções para
+>   longe do dedo em toda abertura — quando o que se abre a gaveta para fazer é
+>   DECIDIR. O botão é fornecido pelo dono da lista (`songMenuFor.aoLado`), então
+>   a folha, que não tem letra nenhuma a esconder, não muda.
+>
+> **Duas armadilhas de medição no caminho, e as duas são a mesma:** a asserção da
+> caixa vazia media `backgroundColor` de um `::before` com ALFA — isto é,
+> comparava PRETO com o botão e passava em qualquer estado. É a armadilha da
+> v5.283 um nível abaixo, e a correção é a mesma (compor sobre a base). E o
+> `razao` do arquivo mora dentro do laço de temas; usá-lo fora dele derrubava o
+> caso inteiro por `ReferenceError`, escondendo tudo o que vinha depois.
+>
+> Verificado por ISOLAMENTO, peça a peça: os marcadores de volta reprovam **1**,
+> o fundo antigo **1**, a letra aberta **1**, a caixa antiga **1** (imprimindo o
+> 1,08:1 do relato) e o feedback sem a guarda **1**.
+
+> **A v5.285: O ARRASTO SAI DO APP, os botões saem da faixa, e as opções descem
+> para o corpo da linha. OTA PURO** (sem Release).
+>
+> Quatro pedidos do operador, e os dois últimos são o mesmo movimento.
+>
+> - **AS PASTAS SINCRONIZADAS VÃO PARA O TOPO** dos Favoritos. Elas ficavam no
+>   fim desde a v5.254, com o argumento de que *"são a origem bruta, e o que a
+>   estrela promete são os itens"* — o que continua verdadeiro e não é o que
+>   decide a ordem: uma pasta é um punhado de arquivos atrás de UMA linha, e a
+>   lista de favoritos cresce por baixo dela. No fim, cada favorito novo
+>   empurrava as pastas para longe; no topo elas têm endereço fixo.
+> - **REORDENAR VIRA UM PAR ↑↓ DENTRO DA GAVETA DO `⋮`**, e o arrasto sai do app
+>   inteiro — as TRÊS listas (Favoritos, Cronograma e a fila da playlist, esta
+>   última perguntada e confirmada), para não sobrarem dois idiomas de
+>   reordenar. Com ele saem `attachHandle`, a medição única do `pointerdown`, a
+>   linha-guia absoluta (e o bloco contendor que a v5.272 garantia pelo JS), o
+>   `data-fixa` das pastas e o `reorder` por índice de destino. **A fila da
+>   playlist ganhou a gaveta do `⋮` no mesmo lote** — ela era a única lista sem
+>   botão de opções, e tirar o gesto sem dar a gaveta a deixaria sem como
+>   reordenar.
+>
+>   O que justifica a troca não é gosto: um arrasto é um gesto CONTÍNUO com
+>   captura de ponteiro, disputando o eixo vertical com a lista que rola por
+>   baixo, dentro de uma gaveta que já é um alvo pequeno. **O preço está dito:**
+>   mover dez posições passou de um gesto a dez toques. É o caso raro, e
+>   `reabrirAcoesEm` o torna suportável — a lista redesenha entre um toque e o
+>   outro, e a gaveta volta no item que se moveu, com o botão sob o mesmo dedo.
+>   **A chave dessa reabertura é `lista:id` e não o id nu**: o mesmo item está em
+>   duas listas ao mesmo tempo (um favorito que também está no Cronograma é o
+>   caso normal), e com o id sozinho o redesenho do Cronograma consumiria a marca
+>   e abriria a gaveta na linha errada, noutra tela.
+>
+>   E `moverNaLista` **redesenha a seção dos Favoritos à mão**: `renderLibrary`
+>   só chega ao `renderFolderList` quando a aba é a da pasta do aparelho, e a
+>   lista `favs` mora dentro da Biblioteca desde a v5.237 — sem essa linha o item
+>   mudava de lugar no banco e a tela ficava idêntica, que é o pior desfecho
+>   possível para um botão de reordenar.
+> - **A FAIXA DA BIBLIOTECA PERDE OS DOIS BOTÕES** (o ▶ e o `+`) e **as opções
+>   completas descem para o corpo da linha**, onde antes abria só a letra. O que
+>   o operador desfaz é a DIVISÃO da v5.62: com dois alvos, decidir "o que fazer
+>   com este hino?" exigia primeiro decidir qual dos dois botões era o dono da
+>   pergunta — e essa é uma pergunta sobre a UI, não sobre o culto. Medido, o
+>   nome passou a ocupar **83% da linha**.
+>
+>   **A gaveta tem duas metades, e a letra FICA** (decisão do operador,
+>   perguntado): as opções em cima, a letra (ou o detalhe do vídeo) logo abaixo.
+>   A ordem não é arbitrária — quem abre a gaveta acabou de tocar para DECIDIR, e
+>   a decisão tem de estar sob o dedo; a letra é a conferência, e ela pode rolar.
+>
+>   **Nada de menu foi reimplementado.** `renderSongMenu` e `openYtMenu` ganharam
+>   PARA ONDE escrever (`songMenuFor.alvo`), e o modo `tudo` empilha tocar e
+>   adicionar numa lista só. A folha `#songMenuPopup` continua de pé com os dois
+>   donos que sobraram — os resultados do YouTube e o seletor de destinos da
+>   importação —, e `openSongMenu` saiu por não ter mais chamador. Um episódio de
+>   série continua desviando para a lista do YouTube, como a folha já fazia desde
+>   a v5.230; o que muda é o endereço.
+>
+> **O quadrado da esquerda deixou de ser botão e virou INDICADOR** — ele hospeda
+> o anel de download, que é a única coisa que aquele canto sempre informou de
+> verdade, e segura a coluna que alinha a lista. Perdeu o `--accent-soft` (a
+> marca de "isto é ação") e o `cursor: pointer`: um alvo que não é alvo, num
+> canto onde o dedo mira, é pior que nada.
+>
+> **As setas do par ↑↓ são SVG inline, nunca glifo da fonte** — o subset é
+> estático e um codepoint ausente desenha um retângulo vazio sem erro nenhum,
+> que é a armadilha da v5.184.
+>
+> Os oráculos mudaram de pergunta junto, e um deles ficou mais forte: o caso do
+> ALVO dos botões (v5.278) media se as bordas em volta deles caíam no botão; com
+> os botões fora, ele passou a afirmar que **todo ponto da linha leva ao mesmo
+> lugar** — cantos, bordas e o quadrado onde o ▶ vivia —, e conta `button` sem
+> conhecer os nomes dos que saíram, para valer contra o próximo que aparecer.
+>
+> Verificado por ISOLAMENTO: devolvendo as pastas ao fim, **1** asserção
+> reprova; devolvendo um botão à faixa, **1**.
+
+> **A v5.284: A PASTA SINCRONIZADA CONTINUA SENDO UM ÁLBUM — e a estrutura que
+> faltava aparece. OTA PURO** (sem Release).
+>
+> Pedido do operador: *"mantenha apenas as pastas sincronizadas dos favoritos
+> como cores de álbum"*. Uma pasta guarda muitos arquivos — ela é um CONTÊINER,
+> como um álbum —, e um favorito é um item. O **"apenas"** é o que faz disto uma
+> regra em vez de duas cores: o item desce, a pasta não.
+>
+> **É a v5.283 cobrando o preço de uma peça com dois papéis.** Aquele lote pintou
+> o CORPO INTEIRO da seção no nível de card para os itens poderem ser um recesso
+> dele — e ali dentro não sobra como desenhar uma pasta com cor de álbum: ela
+> ficaria com a cor exata do corpo, **1,00:1**, invisível. A saída não é um `if`
+> de cor, é a estrutura que faltava, e ela se lê nas duas medições:
+>
+> - o **ITEM** precisa de uma placa de card atrás dele — sobre o tom da SEÇÃO ele
+>   mede 1,03:1 no escuro, isto é, some;
+> - a **PASTA** precisa do tom da seção atrás dela — sobre a placa ela mediria
+>   1,00:1, que é o mesmo defeito ao contrário.
+>
+> Duas bases diferentes não cabem numa `<ul>` só. Daí a **placa própria dos
+> itens** (`.fav-itens`), e com ela o par volta a ser o MESMO do álbum, em dois
+> elementos: `.hymnal-card` PINTA e `.coll-songs` zera o degrau seguinte. A
+> v5.283 acumulava os dois papéis numa peça, e o resíduo disso era a armadilha de
+> "A CAMADA" com a assinatura invertida — o reset tinha de morar na regra da
+> LINHA, senão venceria na hora de o corpo resolver o próprio `background` e o
+> bloco sairia transparente. Com a placa, o reset volta ao lugar natural.
+>
+> **AS PASTAS NÃO GANHARAM REGRA NENHUMA**, e isso é o desenho e não economia:
+> elas continuam sendo filhas diretas do corpo, que já reserva `--panel-2` para
+> os filhos dele. A cor de álbum é o PADRÃO ali — o que precisava de regra era o
+> item. E a placa só nasce quando há item, senão ela seria uma faixa colorida
+> anunciando uma lista que não existe.
+>
+> O arrasto não custou uma linha: `attachHandle` mede `li.parentElement`, então
+> ele passa a operar na placa sozinho, e a linha-guia já garante o bloco
+> contendor pelo JS desde a v5.272.
+>
+> **O oráculo mede a cor EFETIVA e a ESTRUTURA dos dois lados** — o item dentro
+> da placa, a pasta irmã dela —, porque sem a segunda metade uma pasta empurrada
+> para dentro da placa passaria na medida de cor no dia em que a placa e o corpo
+> voltassem a ter o mesmo tom. **E a sonda do item não cita a placa de
+> propósito:** um seletor que só existe na forma nova reprova por "não achei" em
+> qualquer forma antiga, e uma asserção que falha por seletor ausente não mediu
+> cor nenhuma — ela diria a mesma coisa com o item pintado certo. Pelo que ele
+> NÃO é (uma pasta), ela mede em qualquer arranjo.
+>
+> Verificado por ISOLAMENTO: voltando à forma da v5.283, **4** asserções
+> reprovam — todas sobre a pasta, e todas medindo (ela sai a 1,00:1 do item ao
+> lado). As do item continuam passando, que é a leitura certa: a v5.283 acertou o
+> item e este lote só mexe na pasta.
+
+> **A v5.283: UM FAVORITO É UM ITEM, NÃO UM ÁLBUM — a linha passa a pintar a
+> cor da faixa dentro do álbum. OTA PURO** (só CSS e o oráculo; sem Release).
+>
+> Pedido do operador: *"torne os itens na lista de favoritos, com sua cor de card
+> igual as cores dos itens individuais dentro dos álbuns, para diferenciar entre
+> álbum e item"*.
+>
+> **MEDIDO antes de mexer, nos dois temas: 1,00:1.** A linha de favorito e o card
+> de álbum pintavam a MESMA cor, literalmente — os dois são filhos diretos do
+> corpo de uma seção, e o corpo reserva `--panel-2` para os filhos dele. Nada
+> distinguia "um álbum inteiro" de "um louvor solto" além do que estava escrito
+> na linha. É a v5.282 cobrando o degrau seguinte: aquele lote tirou o tom
+> próprio da SEÇÃO com o argumento de que ela é uma seção como as outras, e a
+> consequência que ele não pesou é que os FILHOS dela não são como os das outras
+> — lá são álbuns, aqui são itens.
+>
+> A correção é dar ao favorito a MESMA RECEITA da faixa dentro do álbum: um
+> RECESSO (`--surface`, que dentro de uma seção da Biblioteca é o par `sunk`)
+> sobre uma base de nível de card. **As duas metades são inseparáveis, e a
+> segunda foi imposta pela medição, não escolhida:**
+>
+> - **Só o recesso, sobre o tom da SEÇÃO, não resolve.** Ele resolve no escuro
+>   (1,58:1 contra o card) e FALHA no claro, onde a seção é BRANCA e o recesso
+>   compõe `#dbdbdb`, a **1,02:1** do card — isto é, no tema claro o favorito
+>   voltaria a ser indistinguível de um álbum, que é o defeito relatado. Isto
+>   não é hipótese: está exercitado por isolamento, e reprova em 3.
+> - **Com a base de card por baixo, a composição é a mesma da faixa e o valor
+>   bate exatamente:** `rgb(46,54,63)` no escuro e `rgb(182,188,194)` no claro, a
+>   **1,29:1** e **1,37:1** do card nos dois temas.
+>
+> Daí o corpo da seção PINTAR `var(--camada)` — o `--panel-2` que ele próprio
+> reserva — e virar o contêiner de nível 2 desta seção, no lugar que num hinário
+> é ocupado por um card de álbum. Ele é a única peça do arquivo que acumula os
+> dois papéis que lá são de dois elementos (`.hymnal-card` pinta, `.coll-songs`
+> zera o degrau seguinte), e **por isso o reset de `--camada` mora na regra da
+> LINHA e não no corpo**: escrito no corpo, ele venceria na hora de o corpo
+> resolver o próprio `background` e o bloco sairia transparente — a armadilha que
+> o cabeçalho de "A CAMADA" descreve, com a assinatura invertida.
+>
+> **O oráculo mede a COR EFETIVA, e essa distinção é o caso inteiro.** Os
+> recessos deste app são overlays com ALFA, e `getComputedStyle` devolve o alfa,
+> não a composição: uma asserção sobre o valor declarado compararia
+> `rgba(0,0,0,.24)` com um `#3c4753` opaco e diria que eles "diferem" sem ter
+> medido cor nenhuma — passaria com o defeito no lugar e reprovaria a correção.
+> Ele sobe a árvore compondo até o primeiro fundo opaco, que é o que o navegador
+> pinta. E a FAIXA do álbum é desenhada pelo app (`collState` + `expanded`), não
+> montada à mão pelo teste: marcação inventada num oráculo mede a marcação de
+> quem o escreveu.
+>
+> Verificado por ISOLAMENTO: sem a regra inteira (o código anterior), **4**
+> asserções reprovam, imprimindo o 1,00:1 do relato; com o meio-conserto (o
+> recesso sem a base), **3**.
+>
+> **A v5.282: OS FAVORITOS VOLTAM A SER UMA SEÇÃO COMO AS OUTRAS — o tom próprio
+> sai, o "Ver todos" sai, e o vão vira um PISO. OTA PURO** (nenhuma linha de
+> Kotlin; sem Release).
+>
+> Três pedidos do operador, e os três desfazem mecanismo meu — o terceiro é o que
+> torna o segundo possível.
+>
+> - **O TOM PRÓPRIO SAI** — *"estávamos ajustando para que ela fosse mais
+>   diferente que os demais, mas não ficou bom. Ajuste as cores dela para que ela
+>   fique igual as outras coleções"*. O argumento da v5.273 era que a seção não é
+>   uma coleção e que só ela ocupa o vão; ele continua verdadeiro nas duas
+>   metades, e **nenhuma delas se lê como COR**: o nome no cabeçalho diz a
+>   primeira e o vão reservado diz a segunda, sozinho. O que a cor acrescentava
+>   era um QUARTO tom numa escada de três, e a v5.267 já tinha medido o preço de
+>   um quarto degrau. Saíram o `--fav-bg` dos dois temas e o `--camada` próprio
+>   que ele arrastava — **os dois no mesmo lote, porque um nível que muda arrasta
+>   o de dentro**: repintar só a seção deixaria as linhas num tom que nenhuma
+>   outra coleção tem, e uma medida da seção sozinha não pegaria isso.
+> - **O "VER TODOS" SAI** — *"ajuste o funcionamento interno dela para que não
+>   tenha mais o sistema de ver mais. Agora quando aberta ela mostra toda a
+>   listagem"*. Com ele foram embora o `favExpandido`, a classe `.expandido`, o
+>   CSS do botão e a régua de "quantos itens ficaram de fora" com a leitura
+>   adiada um quadro que ela exigia. É a terceira porta que este mesmo lugar
+>   perde em quatro versões (a v5.279 abriu o scroll interno, a v5.280 o
+>   revogou), e agora não sobra nenhuma: **a lista inteira está na tela.**
+> - **E O VÃO VIRA `min-height`** — *"mantenha o tamanho mínimo dela, mesmo
+>   vazia, como o tamanho flexível que ocupa o que sobra das outras coleções…
+>   mas agora esse é apenas o tamanho mínimo, que cresce conforme a lista dos
+>   favoritos requerir mais que esse espaço disponível"*. É esta linha que
+>   sustenta a de cima: era o `height` EXATO que produzia o recorte, e do recorte
+>   vinha o botão. Como piso, a seção continua reservando o vão com a lista vazia
+>   — o desenho de abertura da Biblioteca, coleções empilhadas na base e o que
+>   sobra em cima para os favoritos — e passa a crescer com o conteúdo,
+>   empurrando as fechadas para baixo com a Biblioteca rolando, que é o que
+>   qualquer outra seção aberta já faz. O `flex-shrink: 0` é o que faz o piso
+>   valer: um `min-height` num filho que encolhe seria só uma sugestão.
+>
+> **`medirVaoDosFavoritos` não mudou uma linha, e o registro guarda isso**: a
+> MEDIDA é a mesma pergunta ("o que sobra da tela depois das outras seções
+> colapsadas?"); o que mudou é a seção deixar de ser presa a ela. E o padrão
+> ABERTO continua sendo o `favAberto = true` do topo do arquivo, como desde a
+> v5.276 — fechá-la segue sendo uma decisão do operador que dura a sessão.
+>
+> Os oráculos se dividem pela natureza: o `smoke.mjs` mede a COR (nos dois temas,
+> e por igualdade de string em vez de razão de luminância — "igual" é igual, e um
+> piso baixo aprovaria dois tons ligeiramente diferentes, que é a queixa) e o
+> `boot-nativo.test.mjs` mede o TAMANHO, porque é o único que sabe pôr favoritos
+> no banco. As DUAS metades do piso, e nenhuma basta sozinha: vazia a seção ainda
+> reserva o vão, cheia ela passa dele sem cortar um item.
+>
+> Verificado por ISOLAMENTO: devolvendo o `height` no lugar do `min-height`,
+> **2** asserções reprovam; devolvendo o tom próprio e o degrau de dentro, **4**.
+
+> **A v5.281: A BARRA NÃO SE MEXIA — QUEM SE MEXIA ERA A PÁGINA INTEIRA. OTA
+> PURO** (só CSS e o oráculo; sem Release).
+>
+> Pergunta do operador: *"a barra de pesquisa no topo não fica fixa durante a
+> rolagem do corpo da biblioteca, você colocou um scroll no corpo deixando a
+> barra fixa no topo?"*
+>
+> **Sim, e a estrutura estava certa — foi a primeira coisa medida.** A barra é
+> irmã da lista, `flex-shrink: 0`, e a lista é `flex: 1; overflow-y: auto`:
+> rolar `#hymnResults` 116px não move um pixel dela, em Chromium. Se a estrutura
+> está certa e o operador vê a barra andar, o que se mexe não é a barra.
+>
+> **É a PÁGINA.** A rolagem que chega ao fim dentro de um scroller **encadeia**
+> para o contêiner de trás, e do Android 12 em diante o excesso deixou de ser um
+> brilho na borda e passou a ser o efeito STRETCH — a camada inteira é esticada
+> e deslocada, barra fixa incluída. O dedo continua dentro da lista e a tela toda
+> se mexe, que é exatamente a descrição.
+>
+> `overscroll-behavior: contain` no `.popup-list` corta o encadeamento, e ele não
+> é novidade nenhuma neste app: `.lib-list`, `.lv-body` e `.simple-lyrics` — os
+> outros três scrollers — já o têm. **O `.popup-list` era o único que não**, e
+> ficou sendo desde que a Biblioteca virou uma tela cheia com uma barra fixa em
+> cima. Mais `overscroll-behavior: none` na raiz, que fecha o caso pelo outro
+> lado: um gesto que comece FORA de qualquer lista ainda produziria o stretch, e
+> a página deste app nunca rola — ela é uma coluna de altura fixa com listas que
+> rolam por dentro.
+>
+> **O que o oráculo pode e o que não pode.** Um navegador de mesa não reproduz o
+> stretch do Android, então o caso afirma as duas coisas que ele alcança: a
+> rolagem de VERDADE não move a barra (a estrutura), e a regra que desliga o
+> encadeamento está no lugar (a causa). E ele precisou ser medido **depois** de
+> uma coleção abrir — com tudo colapsado o vão dos favoritos é justamente o que
+> sobra, a lista cabe inteira e não há rolagem a afirmar. É a segunda vez que
+> essa propriedade do desenho aparece num caso deste arquivo.
+
+> **A v5.280: O CABEÇALHO DA BIBLIOTECA SAI, a camada para de perseguir a
+> viewport, a lista abre no topo, e o scroll interno dos favoritos é revogado.
+> OTA PURO** (sem Release).
+>
+> Quatro decisões do operador, e três delas desfazem mecanismo meu.
+>
+> - **O TÍTULO SAI, e com ele o cabeçalho.** Ele foi encolhendo por partes e
+>   chegou vazio de função: o "Baixar toda a biblioteca" e o peso total saíram
+>   na v5.258, o ✕ desceu para a barra no mesmo lote, e o ícone saiu na v5.278.
+>   O que sobrava era uma faixa inteira repetindo o nome do botão que abre a
+>   tela — e a barra logo abaixo já diz o que ela é, pela lupa e pelo
+>   placeholder.
+> - **A CAMADA PARA DE PERSEGUIR A VIEWPORT VISUAL**, e o operador nomeou o
+>   método certo: *"ao invés de ter um scroll de tela inteira, deixar apenas os
+>   itens abaixo da barra de pesquisa ficarem dentro de um scroll, e apenas
+>   rolar esse scroll para o topo quando a biblioteca é aberta"*. A v5.278 pôs
+>   `top: var(--vv-top)` no `.popup-backdrop` para a barra não sair pela borda
+>   quando o navegador rolasse a viewport visual — um conserto para um scroll de
+>   TELA que não devia existir. Com o cabeçalho fora, a barra é o primeiro
+>   elemento da folha e a única coisa que rola é a lista: não há o que
+>   acompanhar. `inset: 0`, e a camada volta a ser a tela.
+> - **E A LISTA ABRE NO TOPO.** `#hymnResults` é o MESMO nó entre uma abertura e
+>   a seguinte, então ele guardava a rolagem da vez anterior e a Biblioteca
+>   reabria no meio de um hinário. Uma linha no `openHymnSearch`.
+> - **O SCROLL INTERNO DOS FAVORITOS É REVOGADO** — *"não ficou bom, deixe ele
+>   fixo, e qualquer visualização dos itens completos deve ser pelo botão de ver
+>   mais"*. A v5.279 tinha aberto uma segunda porta ao lado da que já existia:
+>   com a rolagem, chegar ao fim da lista tinha DOIS caminhos, e um deles era
+>   arrastar dentro de uma caixa encaixada numa tela que também rola — o gesto
+>   ambíguo que o `overscroll-behavior` existia para remendar. O corpo volta a
+>   ser um recorte imóvel e o caminho é UM.
+>
+> **O que FICA da v5.279 é a contagem dos dois lados** do botão "Ver todos", e
+> ela fica com o comentário corrigido: hoje nada pode estar ACIMA da faixa, e
+> aquela metade nunca dispara. Custa uma comparação e guarda o defeito que a
+> v5.279 mostrou — com o corpo rolando, uma contagem de um lado só faz o botão
+> sumir de quem chegou ao fim da lista.
+>
+> **E o caso da rolagem só discrimina com uma COLEÇÃO ABERTA**, que é uma
+> propriedade do desenho e não do fixture: com tudo colapsado a lista nunca
+> transborda, porque o vão dos favoritos é justamente o que sobra.
+>
+> Verificado por ISOLAMENTO: sem o reset da rolagem, **1** asserção reprova; com
+> o scroll interno de volta, **1**; com a camada perseguindo a viewport, **1**;
+> e o cabeçalho de volta reprova o caso da ordem da folha.
+
+> **A v5.279: O CORPO DOS FAVORITOS ROLA POR DENTRO no modo compacto. OTA PURO**
+> (sem Release).
+>
+> Pedido do operador. O vão é uma altura fixa (v5.277) e o que passava dela era
+> simplesmente CORTADO: para chegar ao quinto favorito era preciso expandir a
+> lista inteira, isto é, empurrar todas as coleções para fora da tela por causa
+> de um item.
+>
+> **Ele NÃO substitui o "Ver todos"**, e as duas coisas respondem a perguntas
+> diferentes: rolar é folhear alguns atalhos sem mexer no resto da tela;
+> expandir é abrir mão do índice para ver a lista inteira de uma vez.
+>
+> **E O BOTÃO QUASE SUMIU JUSTAMENTE DE QUEM PRECISAVA DELE.** A contagem de
+> itens de fora (v5.276) olhava só para BAIXO — o que era exato enquanto o corpo
+> era um recorte imóvel. Com a rolagem, no fim da lista não há nada abaixo, e a
+> régua devolveria zero: o "Ver todos" desapareceria para quem acabou de rolar
+> até o fim e quer ver tudo. Ela passou a olhar os DOIS lados da faixa visível.
+>
+> `overscroll-behavior: contain` é o que impede a rolagem de VAZAR para a
+> Biblioteca ao chegar no fim — sem ele, continuar arrastando dentro dos
+> favoritos rola a lista de trás e o operador perde de vista a seção em que
+> estava.
+>
+> **E o oráculo mediu a coisa errada na primeira versão.** Ele afirmava a
+> rolagem escrevendo `scrollTop` — e uma caixa `overflow: hidden` **continua
+> rolando por SCRIPT**: com a regra removida, ele passava (verificado, reprovava
+> em 0). Quem não rola nela é o DEDO, e é o `overflow-y` COMPUTADO que responde
+> por isso. Com a régua corrigida, a remoção reprova em 1; e contar um lado só,
+> em 5.
+
+> **A v5.278: A BARRA DE CIMA VOLTA A SEGUIR O QUE SE VÊ, o ícone do título sai,
+> e o alvo dos botões da faixa passa a ser a linha inteira. OTA PURO** (sem
+> Release).
+>
+> - **`--kb` E `--vv-top` NÃO SÃO A MESMA CONTA, e a v5.277 tirou as duas de uma
+>   vez.** Relato: *"ajuste também para que essa barra do topo seja fixa
+>   independente da rolagem da tela"*. `--kb` ENCOLHE a camada fixa (era o
+>   *"deslocada inteira para cima"* que ele mandou tirar) e `--vv-top` apenas a
+>   DESLOCA junto com a viewport visual, que o navegador rola sozinho ao revelar
+>   o campo em foco. Sem a segunda, medido com uma rolagem de 140px: o cabeçalho
+>   fica em `top: 0` da viewport de LAYOUT, isto é, **140px acima do que se vê** —
+>   a barra sai pelo topo da tela. Voltou como `top` + `height: 100%`, e essa
+>   forma é a decisão: a camada desce inteira, com a MESMA altura. Encolher é o
+>   que ela não pode fazer — seria o reflow da queixa anterior —, e o pedaço que
+>   sobra embaixo está debaixo do teclado, que o cobre de qualquer jeito.
+> - **O ÍCONE DO TÍTULO SAI.** Com o cabeçalho e a barra fundidos numa peça só
+>   (v5.277), a nota musical virou o terceiro símbolo de uma faixa que já tem a
+>   lupa dentro do campo e o ✕ ao lado — sem distinguir nada, porque a tela é
+>   uma só. A grade de três colunas que centrava o título saiu junto: filho
+>   único num flex centrado já fica no meio.
+> - **ERRAR POR TRÊS PIXELS NÃO DEVOLVE "NADA ACONTECEU".** Relato: *"é
+>   extremamente comum tentar clicar em adicionar e acabar tocando no corpo do
+>   card, abrindo os detalhes da letra"*. O botão tem 40px numa linha de 50 e
+>   para a 8px da borda: sobram faixas mortas de ~5px acima e abaixo e 8px ao
+>   lado — e elas não são neutras, porque o corpo da linha tem uma ação PRÓPRIA.
+>   O alvo cresce por um `::after` até as bordas da linha e **o desenho não muda
+>   um pixel**: encorpar o botão empurraria o nome, que é a única coisa da linha
+>   que não se adivinha. Vale para os DOIS botões da faixa — o ▶ tem 38px na
+>   mesma linha, isto é, a mesma faixa morta e o mesmo desfecho.
+>
+> **O oráculo do alvo mede o que o DEDO encontra** (`elementFromPoint`), não a
+> caixa do botão: a queixa é sobre os pixels ao redor dele, e uma asserção de
+> largura e altura passaria com as faixas mortas intactas. Ele cobra também a
+> metade negativa — o meio da linha continua abrindo a gaveta da letra —, senão
+> um alvo que engolisse a linha inteira passaria.
+>
+> Verificado por ISOLAMENTO: sem a expansão do alvo, **2** asserções reprovam;
+> sem o `--vv-top` no topo, **1**.
+
+> **A v5.277: O VÃO DOS FAVORITOS VIRA UMA MEDIDA DE TELA, a coleção rola até o
+> topo dela, o teclado volta a SOBREPOR, e a barra de título vira uma peça só.
+> OTA PURO** (sem Release).
+>
+> Quatro relatos, e os dois primeiros são o mesmo defeito visto de dois ângulos.
+>
+> - **FLEX REPARTE, e era isso que encolhia os favoritos.** *"Ao abrir uma
+>   coleção, ele encolhe os favoritos para dar espaço à coleção aberta,
+>   dividindo os espaços… eu quero que o espaço dos favoritos seja fixo, mas
+>   seja o espaço proporcional que sobrou após listar as outras coleções
+>   abaixo."* `flex: 1 1 auto` é uma regra de PARTILHA — dois itens que crescem
+>   dividem o que sobra —, e a lista de atalhos passava a mudar de tamanho
+>   conforme o que o operador abrisse noutro lugar da tela. `--fav-vao` é agora
+>   uma altura em PIXELS, medida em JS a partir das BARRAS das outras seções,
+>   isto é, do que sobra da tela com todas elas COLAPSADAS: a conta **não
+>   depende de qual coleção está aberta**, que é a propriedade inteira.
+> - **E O "ABRINDO PARA CIMA" ERA ESSE ENCOLHIMENTO.** Com o vão fixo, o que
+>   faltava é a outra metade do pedido: uma coleção aberta no fim da lista
+>   cresce para fora da tela, e quem a abriu fica olhando a barra dela sem ver um
+>   item. `alinharGrupoNoTopo` rola a lista até o topo da seção — **depois da
+>   animação do acordeão**, e essa espera é o achado: durante os 220 ms da
+>   abertura o conteúdo ainda não existe e a lista não tem para onde rolar. A
+>   primeira versão usava `requestAnimationFrame`, mediu o layout COLAPSADO e
+>   rolou **7px de 59 possíveis** (verificado). Quando não há conteúdo abaixo que
+>   leve a seção até o topo, ela rola até o fim, que é o mais perto que existe.
+> - **O TECLADO VOLTA A SOBREPOR** — *"a tela está sendo deslocada inteira para
+>   cima… ajuste apenas para o teclado ficar sobreposto à tela e não deslocar
+>   ela"*. Isto REVOGA o `inset` da v5.261 no `.popup-backdrop`, e o argumento
+>   dele morreu junto com a barra na base: ele descia a camada fixa até a faixa
+>   visível para a busca encostar no teclado em vez de ficar atrás dele. Com a
+>   barra no topo (v5.275) não há nada embaixo que precise ser revelado, e o que
+>   sobrava era só o efeito colateral. **O `.dialog-backdrop` FICA com a conta**,
+>   e a diferença é a razão dela: o `appPrompt` é um cartão CENTRADO com campo de
+>   texto, e ali a metade de baixo é onde o teclado sobe.
+> - **O CABEÇALHO E A BARRA VIRAM UMA PEÇA.** Mesmo fundo (`--field-bar`),
+>   porque duas faixas fixas empilhadas sobre a mesma lista são uma barra só. O
+>   TÍTULO centra numa grade de três colunas — centrar a linha flex centraria o
+>   PAR ícone+título e deixaria a palavra 14px fora do meio, medidos. E o ✕ ficou
+>   QUADRADO por um número com nome (`--campo-alt`, a altura do campo e o lado do
+>   botão): **`aspect-ratio` não resolve isso dentro de um flex**, porque a
+>   largura é resolvida ANTES de o `stretch` dar uma altura definida — a primeira
+>   versão colapsou o botão na largura do glifo, 20px.
+>
+> Verificado por ISOLAMENTO, uma peça de cada vez: devolvendo o vão ao flex,
+> **2 + 2** asserções reprovam; sem o alinhamento, **1**; com o teclado
+> deslocando de novo, **3**; com o cabeçalho e o ✕ antigos, **8**.
+
+> **A v5.276: OS FAVORITOS SAEM DO RODÍZIO, a coleção aberta para de inchar, e
+> o "Ver todos" passa a contar ITENS. OTA PURO** (sem Release).
+>
+> Três correções do mesmo relato, e a terceira é a que mais ensina.
+>
+> - **O BOTÃO CONTAVA A CAIXA, e a caixa não é a pergunta.** Relato: ele aparece
+>   *"literalmente sem nenhum item na lista"*. `scrollHeight > clientHeight` é a
+>   medida certa para "esta caixa transbordou" e a errada para o que o operador
+>   pediu — *"apenas quando há mais itens do que a altura disponível"*. Numa
+>   Biblioteca com OITO seções (a dele) o vão é pequeno, a seção dos favoritos é
+>   a única que encolhe, e o que sobra do corpo recorta até a linha de "Nenhum
+>   favorito ainda": a caixa transborda com a lista VAZIA. Agora ele conta os
+>   filhos cujo rodapé passa do corpo, ignorando o `.empty` — com zero itens a
+>   resposta é zero, e não há medida de caixa que a produza.
+> - **OS FAVORITOS SAEM DO RODÍZIO** — *"agora não mais são concorrentes com os
+>   favoritos… as coleções são concorrentes entre si, mas não com os
+>   favoritos"*. A v5.273 pôs as duas coisas no mesmo nome, e o preço é que
+>   abrir um hinário custava o atalho que estava aberto, e reabri-lo custava
+>   fechar o hinário: duas decisões diferentes disputando um interruptor. São
+>   dois estados agora (`grupoAberto` para as coleções, `favAberto` para eles), e
+>   o `''` virou um valor legítimo — nenhuma coleção aberta é o estado normal de
+>   quem está olhando os favoritos. O toque na seção deles volta a fechá-la e a
+>   reabri-la, que é o que a v5.262 pedia e a v5.273 tinha tirado ao torná-los o
+>   piso.
+> - **E SÓ ELES CRESCEM.** *"Coleções com menos itens como o hinário, ou os
+>   arquivos oficiais… expandem mais do que precisaria em relação à quantidade e
+>   altura necessária para os itens atuais, pois eles estavam com um tipo de
+>   altura flex que ao fechar os favoritos ocupa o que sobra"* — dois cards com
+>   meia tela de fundo vazio embaixo. Uma coleção aberta passou a medir o
+>   conteúdo dela e nada mais; o vão continua sendo dos Favoritos, que são a
+>   única seção com razão para tê-lo (uma lista de atalhos vazia ainda é o lugar
+>   em que o próximo entra).
+>
+> **O ORÁCULO NÃO PEGAVA O DEFEITO DO BOTÃO, e a razão é a lição do lote:** o
+> fixture tinha DUAS seções e sobrava tela à vontade, então nada era recortado e
+> a régua velha dava a mesma resposta que a nova. Ele passou a montar as OITO
+> seções do relato — é a condição, não o número de favoritos, que produz o
+> defeito — e a asserção virou uma EQUIVALÊNCIA medida nos três estados: o botão
+> existe exatamente quando há item de fora, sem lista, com poucos e com muitos.
+> Com a régua antiga de volta, reprova em 2 (verificado); antes, em 0.
+>
+> Verificado por ISOLAMENTO nas outras duas: devolvendo os favoritos ao rodízio,
+> **3** asserções do `boot-nativo.test.mjs` reprovam; fazendo toda seção aberta
+> crescer, **2** do `smoke.mjs`.
 
 > **A v5.275: A BARRA DE BUSCA DA BIBLIOTECA VOLTA AO TOPO. OTA PURO** (só HTML,
 > CSS e os oráculos; sem Release).
@@ -3159,6 +4385,14 @@ controles), que **só chegam instalando o APK novo**, não pelo OTA.
 > para: deixar a cor de fundo da coleção dos favoritos em uma cor diferente, um
 > tom mais escuro. E aproveite também para aumentar ligeiramente o espaço entre
 > as outras coleções, elas estão muito coladas entre si"*.
+>
+> *(A v5.276 REVOGOU duas metades desta nota: os Favoritos saíram do rodízio —
+> abrir uma coleção não os fecha, e o toque neles volta a recolher — e o
+> crescimento passou a ser só deles, porque uma coleção curta inchava até o
+> tamanho do vão. E a v5.282 revogou as outras duas: o BOTÃO "Ver todos" e o TOM
+> PRÓPRIO saíram, com o vão virando um `min-height` — "não ficou bom". O que
+> fica desta nota é o rodízio ENTRE as coleções, a régua do vão e o espaço entre
+> seções.)*
 >
 > - **O ESTADO VIROU UM NOME, e é ele que faz a regra valer.** `gruposAbertos`
 >   era um `Set`, isto é, sabia escrever exatamente os dois estados que o pedido

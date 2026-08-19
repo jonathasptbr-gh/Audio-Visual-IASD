@@ -90,7 +90,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
 
   /* ---------- Alvos de toque ----------
      Dois degraus, e agora eles são TOKENS: o piso de 34px estava escrito
-     literal em sete lugares (`.row-btn`, `.row-handle`, `.popup-close`,
+     literal em sete lugares (`.row-btn`, `.popup-close`,
      `.back-btn`, `.add-dir-btn`, `.coll-bar-dl`, `.coll-group-btn`) e ainda
      assim dois controles ficavam fora da escala por descuido — `.sel-btn` com
      36px e o botão do acervo com 42×38. Sete literais é o que faz uma escala
@@ -104,6 +104,11 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   --hit: 34px;
   --hit-nav: 38px;
   --hit-foot: 44px;
+  /* A LINHA DA BUSCA DA BIBLIOTECA (v5.277): a altura do campo e o LADO do
+     botão de fechar ao lado dele, que o operador pediu quadrado. Um número
+     para as duas peças, e não um por peça — ver `#hymnSearchClose`, onde está
+     por que `aspect-ratio` não serve dentro de um contêiner flex. */
+  --campo-alt: 40px;
   /* ---------- A CAIXA DA LINHA DE LISTA (v5.259) ----------
      A miniatura media 40px e os botões da mesma linha, 34px — dois quadrados
      lado a lado, com 6px de diferença, sem que nada dissesse por quê. Pior
@@ -269,13 +274,13 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
 :root { --camada: var(--panel); }
 .popup-sheet, .dialog-card, .simple-conn { --camada: var(--panel-2); }
 .coll-group-corpo { --camada: var(--panel-2); }
-/* A SEÇÃO DOS FAVORITOS DESCEU UM TOM (v5.273) e o degrau de dentro dela desce
-   junto — senão as linhas ficariam a 1,74:1 no escuro e a 1,05:1 no CLARO
-   (`--panel-2` sobre um `--fav-bg` quase igual a ele: elas sumiriam). É a
-   mesma disciplina de sempre: um nível que muda arrasta o de dentro, e o
-   contêiner é quem declara o tom dos filhos. Medido: 1,30:1 no escuro e
-   1,48:1 no claro, os dois acima do piso da escada. */
-.coll-group--fav > .coll-group-corpo { --camada: var(--panel); }
+/* (A SEÇÃO DOS FAVORITOS TINHA UM TOM PRÓPRIO da v5.273 à v5.281, e com ele um
+   degrau de dentro que descia junto. Os dois saíram na v5.282 a pedido do
+   operador — *"ajuste as cores dela para que ela fique igual as outras
+   coleções"* —, e a escada volta a ter um valor por NÍVEL em vez de um por
+   seção: `--panel` na seção, `--panel-2` no que ela contém, aqui e em todas as
+   outras. A classe `.coll-group--fav` fica, porque ela ainda responde a outra
+   pergunta: quem ocupa o vão que sobra da tela.) */
 .coll-songs { --camada: transparent; }
 /* A folha de TELA CHEIA é uma TELA, não um cartão: ela pinta o `--bg` (ver
    `.popup-sheet--full`), então o nível de dentro dela volta a ser o nível 1 —
@@ -347,10 +352,28 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    uma delas mexendo a caixa por baixo da outra que está entrando. O botão
    continua encolhendo (é ele que foi tocado); o cartão, não. */
 .lib-item:has(.row-mais:active) { transform: none; }
+/* E O MESMO VALE PARA A GAVETA INTEIRA (v5.286). Relato do operador: *"o
+   feedback de toque está encolhendo toda a seção de opções do item, ao tocar em
+   apenas uma das opções"*. A causa é a mesma do `⋮`, com um alcance maior: as
+   opções vivem DENTRO do `<li>`, então o `:active` de qualquer uma delas
+   satisfaz o `:active` dele — e o que encolhe é a linha e a gaveta juntas, que
+   é uma caixa de meia tela se mexendo por causa de um toque num botão de 40px.
+   O botão continua encolhendo (é ele que foi tocado); o cartão, não. */
+/* E O MESMO VALE PARA UM BLOCO QUE ELA APENAS CONTÉM (v5.291). A pasta do
+   aparelho passou a abrir INLINE (v5.290), e com isso um `.lib-item` passou a
+   conter OUTROS `.lib-item` — o primeiro aninhamento desse tipo no app. Pressionar
+   um arquivo lá dentro encolhia a PASTA inteira junto, que é o relato do
+   operador: *"o efeito incorreto de encolhimento inteiro do grupo ao tocar em
+   itens individuais"*.
+
+   A regra, escrita de uma vez para os três blocos: **uma linha não dá feedback
+   de toque por um toque que aconteceu dentro de um bloco que ela só hospeda.**
+   Quem encolhe é a peça tocada — o botão, a opção, o arquivo. */
+.lib-item:has(:is(.hymn-gaveta, .folder-itens) :active) { transform: none; }
 :is(
   .ctl-btn, .t-btn, .pv-fab, .settings-btn,
   .tab, .tab-add, .import-btn, .back-btn, .sel-btn,
-  .row-btn, .row-handle, .popup-close, .new-folder-btn,
+  .row-btn, .popup-close, .new-folder-btn,
   .coll-bar, .coll-bar-dl, .coll-group-btn, .coll-more-btn,
   .bible-cell, .bible-ref-part, .bible-vsec, .bible-ver-row,
   .hymn-row, .hymn-play-thumb, .song-menu-btn, .msg-add-btn, .msg-item,
@@ -375,7 +398,7 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    ele o SVG é inline e ganha a folga de linha de base, que descentraliza o
    ícone dentro de um botão flex por 2-3px). */
 :is(
-  .row-btn, .row-handle, .back-btn, .sel-btn, .popup-close,
+  .row-btn, .back-btn, .sel-btn, .popup-close,
   .coll-bar-dl, .coll-group-btn, .new-folder-btn,
   .import-btn, .song-menu-icon
 ) svg { display: block; width: var(--icon-sm); height: var(--icon-sm); }
@@ -390,6 +413,13 @@ html, body { height: 100%; overflow: hidden; }
    Garante que o layout sempre caiba na área visível, evitando que o rodapé
    fique sob a barra de navegação do Chrome. */
 html { height: 100svh; }
+/* E A PÁGINA NÃO ESTICA (v5.281). O `contain` de cada scroller impede a rolagem
+   de vazar para cá; esta linha fecha o caso pelo outro lado — um gesto que
+   comece FORA de qualquer lista (na barra, num cabeçalho, numa faixa de fundo)
+   ainda produziria o stretch do Android 12+, que desloca tudo o que é fixo. A
+   página deste app nunca rola: ela é uma coluna de altura fixa com listas que
+   rolam por dentro, então não há nada que este `none` tire. */
+html { overscroll-behavior: none; }
 body {
   background: var(--bg);
   color: var(--text);
@@ -1231,7 +1261,7 @@ main {
    (fundo, cor e, no `.cue-save-btn`, a borda). O voltar tinha só ~20×20 px —
    o menor alvo do app inteiro, e é a única saída da gaveta de pasta e da
    navegação da Bíblia. */
-.back-btn, .sel-btn, .row-btn, .row-handle,
+.back-btn, .sel-btn, .row-btn,
 .cue-save-btn, .popup-close, .log-copy {
   flex-shrink: 0; width: var(--hit); height: var(--hit); padding: 0;
   border: none; border-radius: var(--radius-btn);
@@ -1244,7 +1274,7 @@ main {
    densa que ele tem — o relato foi tocar no corpo do item em vez do botão.
    Vale para os botões que vivem na linha, nas duas listas, e para o `⋮`. A
    linha não fica um pixel mais alta: quem já ditava a altura era a capa. */
-.lib-item :is(.row-btn, .row-handle) {
+.lib-item .row-btn {
   width: var(--thumb); height: var(--thumb);
 }
 /* ---------- A engrenagem do Modo Fácil (v5.250) ----------
@@ -1455,10 +1485,6 @@ main {
    cada lado (a moldura do item selecionado), a gordura que sobrava era só o
    respiro. Medido: o passo de uma linha cai de ~57px para ~49px; numa gaveta de
    trinta favoritos isso é mais de uma tela inteira de rolagem a menos. */
-#favList { gap: .22rem; padding-top: .35rem; }
-#favList .row { padding: .2rem .45rem; gap: .45rem; }
-#favList .thumb { width: 32px; height: 32px; }
-#favList .thumb--icon .msym { font-size: var(--icon-md); }
 /* ---------- A moldura TRACEJADA em accent: "espaço a preencher" ----------
    A MESMA receita nos quatro lugares em que uma lista oferece uma ação sobre
    si mesma — "Importar arquivos", a barra de seleção no rodapé, "+ Nova
@@ -1627,7 +1653,6 @@ main {
   overflow: hidden; flex-shrink: 0;
 }
 .row-item.active, .lib-item.active, .lib-item.selected { --linha: var(--sel-fill); }
-.dragging { z-index: 5; opacity: .92; box-shadow: 0 6px 18px rgba(0,0,0,.6); }
 
 .row { position: relative; z-index: 1; display: flex; align-items: center; gap: .5rem; padding: .35rem .5rem; background: var(--linha); touch-action: pan-y; }
 
@@ -1796,17 +1821,30 @@ main {
   transform: translateX(14px);
   transition: transform .2s cubic-bezier(.22, .61, .36, 1);
 }
-.lib-item.acoes-abertas .row-acoes > * { transform: none; }
+/* ---------- A GAVETA É DE QUEM TEM A CLASSE, NÃO DE UMA LISTA ----------
+   Estas três regras eram keyadas em `.lib-item.acoes-abertas`, e a linha da
+   FILA DA PLAYLIST é `.row-item` (ver `renderPlaylist`) — ela nunca recebe
+   `lib-item`. A v5.285 tirou o arrasto e moveu o "Tirar da playlist" e o par
+   ↑↓ para DENTRO desta faixa; com o seletor preso à outra lista, a faixa
+   ficava em `opacity: 0; visibility: hidden` para sempre, e a fila do culto
+   passou a não ter como ser editada nem reordenada. Medido em Chromium: com o
+   `⋮` já marcado `acoes-abertas`, a caixa saía `visibility: hidden` e o
+   `elementFromPoint` no meio dela devolvia o TÍTULO da linha.
+
+   Quem revela a gaveta é a CLASSE que o `montarAcoesDaLinha` escreve — não a
+   lista em que a linha por acaso mora. Escrito assim, a próxima lista que
+   ganhar a gaveta já nasce funcionando, que é exatamente o que faltou aqui. */
+.acoes-abertas .row-acoes > * { transform: none; }
 .row-acoes > :nth-last-child(2) { transition-delay: .03s; }
 .row-acoes > :nth-last-child(3) { transition-delay: .06s; }
 .row-acoes > :nth-last-child(4) { transition-delay: .09s; }
 .row-acoes > :nth-last-child(5) { transition-delay: .12s; }
-.lib-item.acoes-abertas .row-acoes { opacity: 1; visibility: visible; }
+.acoes-abertas .row-acoes { opacity: 1; visibility: visible; }
 /* O `⋮` é o único botão que fica na linha, e ele é DISCRETO: não é uma ação,
    é a porta para elas. Aberto, ele veste o accent — é o que diz qual linha
    está com o menu no ar quando a lista rola. */
 .row-mais { color: var(--muted); }
-.lib-item.acoes-abertas .row-mais { color: var(--accent); }
+.acoes-abertas .row-mais { color: var(--accent); }
 
 /* A caixa da miniatura é o FUNDO DO APP dentro do cartão: um buraco na
    elevação, que é o que faz a capa (quando existe) parecer colada por cima.
@@ -1851,9 +1889,17 @@ main {
    desenhava mais, e com eles os tokens `--yt`/`--yt-soft` perderam o único
    consumidor e saíram de tokens.css.) */
 
-.row-btn, .row-handle { background: var(--surface); color: var(--text); }
-.row-btn .msym, .row-handle .msym { font-size: var(--icon-sm); }
-.row-handle { background: transparent; color: var(--muted); touch-action: none; cursor: grab; }
+.row-btn { background: var(--surface); color: var(--text); }
+.row-btn .msym { font-size: var(--icon-sm); }
+/* ---------- O PAR ↑↓ DE REORDENAR (v5.285) ----------
+   Ele tomou o lugar da alça de arrastar, e é um botão de linha como os outros —
+   o que ele acrescenta é a PONTA INERTE: no topo da lista o ↑ não tem para onde
+   ir, e um botão que não faz nada é pior que botão nenhum. Desabilitado ele
+   continua ocupando o lugar (`visibility` seria pior: a fileira mudaria de
+   largura conforme o item, e os outros botões dançariam de posição a cada
+   linha) — o que ele perde é a tinta e o alvo. */
+.row-ordem svg { display: block; }
+.row-ordem:disabled { opacity: .3; cursor: default; }
 
 /* GUARDAR UMA CENA DE ROTEIRO: "ao Cronograma" e "favoritar", o par que existe
    na Bíblia e nas Ferramentas (v5.109). Mesma caixa dos botões de linha e da
@@ -1879,12 +1925,24 @@ main {
    *Outlined* (sem o eixo `FILL` da variável), então o glifo `star` desenha
    sempre a mesma estrela vazada, e a cor sozinha deixava a dúvida de "dourada
    quer dizer marcado ou quer dizer que dá para marcar?".
-   Chapada como a alça de arrastar: numa linha que já tem miniatura, nome, selo
-   e às vezes dois botões, mais um fundo sólido viraria ruído.
-   Desmarcada fica em `--line`, e não em `--muted`: precisa ser discreta o
-   bastante para o olho passar batido pela lista inteira e forte o bastante para
-   ser encontrada quando se procura por ela. */
-.fav-btn { background: transparent; color: var(--line); }
+
+   ---------- ELA DEIXOU DE SER CHAPADA (v5.288) ----------
+   Pedido do operador: *"verifique o design do favoritar no cronograma, para que
+   seja um botão quadrado igual as outras opções"*.
+
+   O `background: transparent` tinha um argumento escrito, e ele EXPIROU com a
+   mudança de casa: *"numa linha que já tem miniatura, nome, selo e às vezes
+   dois botões, mais um fundo sólido viraria ruído"* — verdade quando ela morava
+   NA LINHA, ao lado do nome. Desde a v5.258 ela mora dentro da gaveta do `⋮`,
+   onde TODOS os vizinhos são `.row-btn` preenchidos: chapada ali, ela era a
+   única peça da fileira sem caixa, e a exceção não dizia nada. (O par que o
+   argumento citava — a alça de arrastar — nem existe mais desde a v5.285.)
+
+   O que NÃO muda é o que a estrela sempre disse: o ESTADO é o desenho
+   (preenchida × vazada) mais a cor. Desmarcada fica em `--line`, e não em
+   `--muted`: discreta o bastante para o olho passar batido pela lista inteira e
+   forte o bastante para ser encontrada quando se procura por ela. */
+.fav-btn { color: var(--line); }
 .fav-btn.on { color: var(--brand); }
 
 /* A miniatura da CENA DE ROTEIRO em ouro: ela diz "isto não é mídia, é uma
@@ -1897,6 +1955,42 @@ main {
 /* pastas sincronizadas (OPFS) */
 .folder-opfs .msym { color: var(--accent); }
 .folder-opfs .folder-count { color: var(--accent); opacity: .7; }
+/* ---------- A PASTA ABRE INLINE, COMO UM ÁLBUM (v5.290) ----------
+   Pedido do operador: *"que ele abra a lista de arquivos das pastas de forma
+   visual sem ser um popup, para que abra a lista assim como abrem os álbuns com
+   seus itens"*. Ela abria uma gaveta de tela cheia; agora é o mesmo acordeão do
+   card de álbum, e por isso a receita é a DELE — `.coll-songs`: a lista zera o
+   degrau seguinte (`--camada: transparent`), então cada arquivo é um recesso do
+   tom da pasta e o que separa dois deles é o espaço com a cor dela por trás.
+
+   `display: none` fechada é o que faz a medida do acordeão ser a do conteúdo:
+   `expandAccordion` mede `offsetHeight`, e uma caixa com altura zero mas
+   conteúdo dentro mediria o conteúdo já visível. */
+.folder-itens {
+  list-style: none; margin: 0; padding: 0;
+  display: none; flex-direction: column; gap: .2rem;
+  --camada: transparent;
+}
+/* ---------- O CORPO É RECUADO, COMO O DO ÁLBUM (v5.291) ----------
+   Relato do operador: *"o posicionamento incorreto do design dos itens da
+   pasta"*. Medido: o arquivo começava em x=18 — colado na borda do cartão da
+   pasta, com a miniatura dele na MESMA coluna da miniatura da própria pasta,
+   isto é, lendo-se como irmão dela em vez de conteúdo. O favorito ao lado
+   começa em 24 (a placa `.fav-itens` o recua .4rem), e o álbum recua as faixas
+   dele pelo padding do `.coll-open`.
+
+   O mesmo `.4rem` da placa, e nos quatro lados: é ele que põe o arquivo um
+   degrau para dentro e alinha a miniatura dele com a do favorito logo abaixo. */
+.folder-opfs.expanded .folder-itens {
+  display: flex;
+  margin: .3rem 0 0;
+  padding: 0 .4rem .4rem;
+}
+/* A pasta ABERTA é a mesma tampa do álbum aberto: o nome em accent diz "é esta",
+   com o mesmo recurso que o app usa para marcar em toda parte. */
+.folder-opfs.expanded > .row .row-name { color: var(--accent); }
+.folder-itens > .lib-item { --linha: var(--surface); }
+.folder-itens > .empty { padding: .5rem .6rem; }
 
 /* (Não há mais indicador de rede em lugar nenhum do acervo: as regras
    `.net-badge`/`.net-badge--warn` que viviam aqui já eram inalcançáveis, e o
@@ -1928,7 +2022,29 @@ main {
      dividiam o mesmo `--panel-2` porque os dois eram chamados de "contêiner".
      São contêineres, e não são o MESMO contêiner: um está dentro do outro. */
   background: var(--camada);
-  padding: .55rem .7rem;
+  /* ---------- O CARD NÃO TEM PADDING PRÓPRIO (v5.288) ----------
+     Relato do operador: *"nos álbuns há um toque em uma margem à esquerda da
+     seta que abre o álbum, que encolhe os itens dentro do card mas não abre o
+     álbum"*.
+
+     Medido: o card tinha `padding: .55rem .7rem`, e a `.coll-bar` começava
+     11,2px depois da borda dele. Aquela faixa era do CARD, não da barra —
+     `elementFromPoint` ali devolve `.hymnal-card`, que não tem ouvinte nenhum:
+     o toque simplesmente não abria. E ela envolvia a barra pelos QUATRO lados,
+     não só à esquerda.
+
+     A pista de que isto era um resíduo estava no próprio arquivo: a barra do
+     card ABERTO já desfazia esse padding com margens negativas
+     (`margin: -.55rem -.7rem`), para grudar no topo como tampa — isto é, com o
+     álbum aberto a faixa funcionava e com ele fechado, não. **O mesmo pixel
+     respondia ou não conforme o estado**, que é a pior forma de um alvo ser
+     imprevisível.
+
+     Agora o recuo mora em quem PINTA (a barra e o corpo aberto), e o card é só
+     a caixa: colapsado, ele mede exatamente a barra, e cada pixel dele abre o
+     álbum. As margens negativas da tampa saíram junto — elas existiam só para
+     desfazer isto. */
+  padding: 0;
 }
 
 /* Cabeçalho de grupo: o nome da CATEGORIA do banco. A aba Álbuns reproduz a
@@ -1967,11 +2083,42 @@ main {
    em 238px, e nenhum tamanho legível faria caber. O que este lote conserta por
    inteiro é a desproporção; o corte de um título de 54 caracteres ele apenas
    adia. */
+/* ---------- A COR DO RÓTULO NÃO É A COR DO CONTEÚDO (v5.296) ----------
+   Relato do operador: *"a cor do texto dos itens dentro do álbum na biblioteca,
+   pois no tema claro, o fundo dos cards está escuro"*.
+
+   MEDIDO antes de mexer, no tema CLARO: o nome de uma faixa dentro de um álbum
+   saía em `--muted` (#565d66) sobre o recesso da faixa (rgb(182,187,194)) —
+   **3,45:1** a 13,12px, isto é, REPROVA AA (o piso é 4,5:1 para texto pequeno).
+   No ESCURO o mesmo par dá 6,46:1, e é por isso que a queixa é de um tema só.
+
+   A CAUSA é de herança, e é a família da v5.274 por outra porta: esta regra
+   nasceu para o RÓTULO da seção (uma linha curta em caixa alta) e, desde que a
+   seção virou um BLOCO que contém a barra e o corpo (v5.237), ela é o
+   CONTÊINER de tudo o que a Biblioteca desenha. `color` herda — então o
+   `--muted` do rótulo pintava o nome de toda faixa, de todo favorito e de toda
+   pasta lá dentro, que é o único lugar do app em que uma LINHA DE LISTA não é
+   `--text`. Daí a cor descer para a BARRA, que é a peça que ela sempre
+   descreveu: o corpo volta a herdar o `--text` da folha, como qualquer outra
+   lista, e o vazamento deixa de existir em vez de ser compensado um nível
+   abaixo.
+
+   **E o remédio pedido seria pior, medido:** o fundo não é escuro, é um
+   MEIO-TOM (~50% de luminância, o pior caso para os dois lados) — branco sobre
+   ele dá **1,93:1**, contra os 4,59:1 que o `--text` devolve. Quem clareia aqui
+   é o texto do tema, não uma exceção.
+
+   O QUE NÃO MUDA, e está dito em vez de escondido: `font-size`, `font-weight`,
+   `letter-spacing` e `text-transform` continuam nesta regra e continuam
+   herdando para o corpo (o tamanho e o peso são reescritos pelo card e pela
+   faixa; a caixa alta e o espaçamento, não — o título do álbum e o nome da
+   faixa saem em MAIÚSCULAS por causa desta linha). É o mesmo vazamento, e
+   mexer nele muda a aparência de toda a Biblioteca, que não é o que foi
+   pedido. */
 .coll-group {
   flex-shrink: 0;
   display: flex; align-items: center; gap: .5rem;
   font-size: .9rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
-  color: var(--muted);
   /* A direita reserva o MESMO espaço que o card gasta depois do botão de
      baixar — hoje só o padding dele (.7rem), já que a moldura e a seta do
      acordeão saíram na v5.71. Sem isso os dois botões de baixar, que ficam um
@@ -2039,20 +2186,22 @@ main {
   background: var(--camada);
   border-radius: var(--radius-card);
 }
-/* ---------- A SEÇÃO ABERTA OCUPA O VÃO (v5.273) ----------
+/* ---------- QUEM OCUPA O VÃO É A SEÇÃO DOS FAVORITOS (v5.273/v5.276) --------
    Pedido do operador: *"a visão comum inicial vai ser as listas de coleções
    empilhadas na base, e quando elas acabam, toda a parte da tela que sobrou
    pra cima, sobra para a seção dos favoritos"*.
 
-   O que torna isto uma regra de UMA linha é a decisão do `controle.js`: com
-   UMA seção aberta por vez, "quem se estica" não precisa ser escolhido — é
-   sempre a única que tem conteúdo, e as fechadas são barras de altura fixa que
-   sobram empilhadas embaixo dela.
+   **E SÓ ELA** (v5.276). A v5.273 fez a seção ABERTA crescer, seja ela qual
+   for, e o operador achou o preço: *"coleções com menos itens como o hinário,
+   ou os arquivos oficiais… expandem mais do que precisaria em relação à
+   quantidade e altura necessária para os itens atuais, pois eles estavam com
+   um tipo de altura flex que ao fechar os favoritos ocupa o que sobra"*. Uma
+   seção com dois cards ficava com meia tela de fundo vazio embaixo deles.
 
-   `flex: 1 0 auto` — CRESCE para preencher o vão e **nunca encolhe abaixo do
-   próprio conteúdo**: uma seção com mais álbuns do que cabe empurra as de
-   baixo e quem rola é a Biblioteca inteira, como sempre foi. O único caso que
-   encolhe é o dos favoritos, logo abaixo, e lá há um botão que desfaz o corte.
+   Uma coleção aberta passa a medir o CONTEÚDO dela e nada mais — é a regra
+   normal de uma lista —, e o vão continua sendo dos Favoritos, que são a única
+   seção com razão para tê-lo: eles são o atalho, e uma lista de atalhos vazia
+   ainda é o lugar em que o próximo entra.
 
    O `li` vira COLUNA FLEX só aqui: fechado ele continua sendo o bloco de
    antes, e a barra é o único filho visível.
@@ -2068,7 +2217,6 @@ main {
 #hymnResults > .coll-group--drop.aberto {
   display: flex; flex-direction: column;
   align-items: stretch; gap: 0;
-  flex: 1 0 auto;
 }
 /* O corpo NÃO cresce (`flex-grow: 0`): o vão que sobra fica embaixo dele,
    dentro da seção, e é o tom dela que o preenche. Fazê-lo crescer também
@@ -2080,31 +2228,108 @@ main {
 #hymnResults > .coll-group--drop.aberto > .coll-group-corpo {
   flex: 0 1 auto; min-height: 0;
 }
-/* OS FAVORITOS SÃO RECORTADOS NO VÃO, e só eles. `overflow: hidden` o corpo já
-   tem (é requisito da animação de altura), então basta deixar a seção encolher.
-   O que passa do vão é cortado e o botão da base o traz de volta — ver
-   `acertarVaoDosFavoritos`, que MEDE o transborda em vez de contar itens.
+/* ---------- O VÃO DOS FAVORITOS É UM PISO (v5.277 → v5.282) ----------
+   Ele era `flex: 1 1 auto`, e **flex REPARTE**: com uma coleção aberta, o que
+   sobrava passava a ser dividido entre as duas e os favoritos ENCOLHIAM para
+   dar espaço a ela. Relato do operador: *"ao abrir uma coleção, ele encolhe os
+   favoritos para dar espaço à coleção aberta, dividindo os espaços… eu quero
+   que o espaço dos favoritos seja fixo, mas seja o espaço proporcional que
+   sobrou após listar as outras coleções abaixo"*.
 
-   Expandida, ela volta a ser uma seção como as outras: cresce com o conteúdo e
-   empurra as fechadas para baixo, com a Biblioteca rolando. */
-#hymnResults > .coll-group--fav.aberto:not(.expandido) {
-  flex: 1 1 auto; min-height: 0;
+   `--fav-vao` é uma ALTURA EM PIXELS, medida em JS a partir das barras das
+   outras seções (ver `medirVaoDosFavoritos`) — isto é, do que sobra da tela com
+   todas elas COLAPSADAS. Ela não depende de qual coleção está aberta, que é a
+   propriedade inteira: a lista de atalhos para de mudar de tamanho conforme o
+   que o operador abre noutro lugar da tela.
+
+   ---------- E ELE É `min-height`, NÃO `height` (v5.282) ----------
+   Pedido do operador: *"mantenha o tamanho mínimo dela, mesmo vazia, como o
+   tamanho flexível que ocupa o que sobra das outras coleções… mas agora esse é
+   apenas o tamanho mínimo, que cresce conforme a lista dos favoritos requerir
+   mais que esse espaço disponível"*.
+
+   Era uma altura EXATA, e é dela que vinha o recorte — e do recorte vinha o
+   botão "Ver todos", que saiu neste mesmo lote. Como piso, a seção continua
+   reservando o vão com a lista vazia (o desenho de abertura da Biblioteca:
+   coleções empilhadas na base, o que sobra em cima é dos favoritos) e passa a
+   crescer com o conteúdo, empurrando as fechadas para baixo e rolando a
+   Biblioteca — que é o que qualquer outra seção aberta já faz.
+
+   `flex: 0 0 auto` é o que impede o flex de mexer nela nos dois sentidos — sem
+   o `grow` ela não reparte, sem o `shrink` ela não é espremida por uma coleção
+   grande logo abaixo (e é o `shrink: 0` que faz o piso valer de verdade: um
+   `min-height` num filho que encolhe seria só uma sugestão).
+
+   O CORPO não ganha regra de FLEX própria: ele cai no `flex: 0 1 auto` das
+   outras seções logo acima. Ele não precisa mais crescer para preencher a
+   caixa — não há mais caixa de tamanho fixo a preencher, nem recorte a
+   produzir —, e o que sobrar do vão fica embaixo dele, dentro da seção, como em
+   qualquer outra. */
+#hymnResults > .coll-group--fav.aberto {
+  min-height: var(--fav-vao, auto);
+  flex: 0 0 auto;
 }
-/* O botão que abre a lista além do vão. Ele é a última faixa do bloco da seção
-   — sem fundo próprio, como a barra — e fica FORA do corpo de propósito: dentro
-   dele seria a primeira coisa a ser cortada. */
-.coll-group-mais {
-  flex-shrink: 0;
-  appearance: none; -webkit-appearance: none;
-  background: none; padding: .45rem .55rem .55rem;
-  font: inherit; font-size: .78rem; font-weight: 600;
-  color: var(--accent); text-align: center; cursor: pointer;
+/* ---------- UM FAVORITO É UM ITEM, NÃO UM ÁLBUM (v5.283) ----------
+   Pedido do operador: *"torne os itens na lista de favoritos, com sua cor de
+   card igual as cores dos itens individuais dentro dos álbuns, para diferenciar
+   entre álbum e item"*.
+
+   MEDIDO antes de mexer, nos dois temas: a linha de favorito e o card de álbum
+   pintavam **1,00:1** — a MESMA cor, literalmente. Os dois são filhos diretos
+   do corpo de uma seção, e o corpo reserva `--panel-2` para os filhos dele;
+   nada distinguia "um álbum inteiro" de "um louvor solto" além do que estava
+   escrito na linha.
+
+   A correção é dar ao favorito a MESMA RECEITA da faixa dentro do álbum (ver
+   `.coll-songs > .hymn-result`): um RECESSO (`--surface`, que dentro de uma
+   seção da Biblioteca é o par `sunk`) sobre uma base de nível de card. As duas
+   metades são inseparáveis, e a segunda é o que a medição obrigou:
+
+   · SÓ o recesso, sobre o tom da SEÇÃO, não resolve — ele resolve no escuro
+     (1,58:1 contra o card) e FALHA no claro, onde a seção é BRANCA e o recesso
+     compõe #dbdbdb, a **1,02:1** do card. Isto é: no tema claro o favorito
+     voltaria a ser indistinguível de um álbum, que é o defeito relatado.
+   · Com a base de card por baixo, a composição é a MESMA da faixa do álbum e o
+     valor bate exatamente: rgb(46,54,63) no escuro e rgb(182,188,194) no claro,
+     a **1,29:1** e **1,37:1** do card nos dois temas.
+
+   ---------- E A PASTA NÃO É UM ITEM (v5.284) ----------
+   Pedido do operador: *"mantenha apenas as pastas sincronizadas dos favoritos
+   como cores de álbum"*. Uma pasta guarda muitos arquivos — ela é um
+   CONTÊINER, como um álbum —, e um favorito é um item.
+
+   A v5.283 pintou o CORPO INTEIRO no nível de card para os itens serem um
+   recesso dele, e o preço só apareceu com este pedido: ali dentro não há como
+   desenhar uma pasta com cor de álbum, porque ela ficaria com a cor exata do
+   corpo (1,00:1 — invisível). Os dois níveis querem bases DIFERENTES, e uma
+   `<ul>` só não tem como oferecer as duas:
+
+     · o ITEM precisa de uma placa de card atrás dele — sobre o tom da SEÇÃO ele
+       mede 1,03:1 no escuro, isto é, some;
+     · a PASTA precisa do tom da seção atrás dela — sobre a placa ela mediria
+       1,00:1, que é o defeito de cima ao contrário.
+
+   Daí a placa própria dos itens (`.fav-itens`, criada em `renderFolderList`), e
+   com ela o par volta a ser o MESMO do álbum, em dois elementos: `.hymnal-card`
+   PINTA e `.coll-songs` zera o degrau seguinte. A v5.283 acumulava os dois
+   papéis numa peça só, e o que sobrava disso era a armadilha de "A CAMADA" com
+   a assinatura invertida — o reset tinha de morar na regra da LINHA, senão ele
+   venceria na hora de o corpo resolver o próprio `background` e o bloco sairia
+   transparente. Com a placa, o reset volta ao lugar natural.
+
+   AS PASTAS NÃO TÊM REGRA NENHUMA, e isso é o desenho e não economia: elas são
+   filhas diretas do corpo, que já reserva `--panel-2` para os filhos dele. A
+   cor de álbum é o PADRÃO ali — o que precisava de regra era o item. */
+#hymnResults > .coll-group--fav.aberto .fav-itens {
+  list-style: none; margin: 0; padding: .4rem;
+  display: flex; flex-direction: column; gap: .35rem;
+  background: var(--camada);
+  border-radius: var(--radius-card);
 }
-/* O TOM PRÓPRIO DA SEÇÃO DOS FAVORITOS (v5.273) — as medições estão em
-   `tokens.css`. Ela vale ABERTA E FECHADA: fechada ela é uma barra entre
-   outras barras, e é aí que o tom mais trabalha, dizendo qual delas é antes de
-   o nome ser lido. */
-.coll-group--fav { background: var(--fav-bg); }
+#hymnResults > .coll-group--fav.aberto .fav-itens > .lib-item {
+  --linha: var(--surface);
+  --camada: transparent;
+}
 /* ---------- AS SEÇÕES RESPIRAM (v5.273) ----------
    Pedido do operador: *"aumentar ligeiramente o espaço entre as outras
    coleções, elas estão muito coladas entre si"*. Elas herdavam o `gap` de
@@ -2145,6 +2370,10 @@ main {
    MUDA com o estado — quem diz "isto está aberto" é a seta e o que apareceu
    embaixo dela. */
 .coll-group-bar {
+  /* A COR DO RÓTULO MORA AQUI (v5.296), e não no bloco: na `.coll-group` ela
+     herdava para o corpo inteiro e pintava as linhas de lista de `--muted` —
+     ver o cabeçalho daquela regra. */
+  color: var(--muted);
   display: flex; align-items: center; gap: .5rem;
   padding: .5rem .45rem .5rem .55rem;
   min-height: var(--hit);
@@ -2224,7 +2453,12 @@ main {
    de fechamento precisa medir), então sem isto todo grupo fechado deixaria uma
    faixa de padding no meio do índice. */
 .coll-group--drop:not(.aberto) > .coll-group-corpo { display: none; }
-.coll-bar { display: flex; align-items: center; gap: .55rem; cursor: pointer; }
+/* O RECUO É DA BARRA, e não do card (v5.288 — ver `.hymnal-card`): é o que faz
+   a faixa em volta dela ser ALVO em vez de margem morta. */
+.coll-bar {
+  display: flex; align-items: center; gap: .55rem; cursor: pointer;
+  padding: .55rem .7rem;
+}
 /* Coluna nome + subtítulo das linhas de lista (coleção, versão da Bíblia,
    resultado de busca): a mesma receita, num lugar só. */
 .coll-bar-info, .bible-ver-main, .hymn-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
@@ -2321,7 +2555,10 @@ main {
 .hymnal-card.expanded .coll-bar {
   position: sticky; top: 0; z-index: 3;
   background: var(--camada);   /* o mesmo do cartão: ela é a tampa dele */
-  margin: -.55rem -.7rem 0; padding: .55rem .7rem;
+  /* (As margens negativas que havia aqui saíram na v5.288: elas desfaziam o
+     padding do card para a tampa sangrar até a borda — e o padding do card
+     saiu, porque era ele que fazia a faixa em volta da barra não abrir o
+     álbum.) */
   border-radius: var(--radius-card) var(--radius-card) 0 0;
   box-shadow: 0 6px 12px -8px var(--shadow-ink);
 }
@@ -2350,7 +2587,10 @@ main {
    atravessar a largura toda. Sem filete nenhum (v5.267), o que separa as faixas
    é o espaço, e sangrar até a borda só faria a primeira e a última faixa
    encostarem no canto arredondado do cartão.) */
-.coll-open { margin: 0; padding: 0; }
+/* O RECUO DO CONTEÚDO ABERTO (v5.288): ele vinha do padding do card, que saiu
+   para a faixa em volta da barra deixar de ser margem morta. Aqui ele volta
+   como o que sempre foi — o inset das músicas e o rodapé do cartão. */
+.coll-open { margin: 0; padding: 0 .7rem .55rem; }
 /* As músicas, dentro do card. Sem teto de altura: quem abriu um álbum quer
    percorrê-lo inteiro, e uma segunda barra de rolagem dentro da lista que já
    rola é o pior jeito de folhear. */
@@ -3227,24 +3467,41 @@ main {
    o próprio gesto: ver "gestos da biblioteca" em controle.js. O eixo horizontal
    da lista pertence agora ao carrossel de abas.) */
 
-/* Linha-guia de reordenação, no accent (o comentário dizia "azul" — cor da
-   paleta anterior; quem manda é `--accent`). */
-.drop-line { position: absolute; left: 6px; right: 6px; height: 3px; margin-top: -1.5px; background: var(--accent); border-radius: var(--radius-xs); box-shadow: 0 0 6px var(--accent); pointer-events: none; z-index: 6; }
+/* (A linha-guia de reordenação saiu na v5.285, com o arrasto inteiro.) */
 
 /* ---------- Popup de playlist (bottom sheet) ---------- */
 .popup-backdrop {
-  /* A CAMADA FIXA É A FAIXA VISÍVEL, NÃO A TELA (v5.258).
-     `inset: 0` é a viewport de LAYOUT, e com o teclado aberto ela inclui o
-     pedaço que o teclado está cobrindo — a folha continuava com a altura da
-     tela inteira e a lista terminava atrás do teclado. `body` já descontava
-     `--kb` desde sempre; uma camada `position: fixed` está FORA do fluxo do
-     body e nunca viu essa conta.
-     `--vv-top` é a outra metade: quando o navegador rola a viewport visual para
-     revelar o campo em foco, o que é fixo sai pelo TOPO da tela — a queixa do
-     operador, palavra por palavra ("deslocando todos os itens para cima,
-     ocultando eles por saírem no topo"). Descendo a camada junto, ela fica
-     colada na faixa que se vê. Os dois valem 0 sem teclado. */
-  position: fixed; inset: var(--vv-top, 0px) 0 var(--kb, 0px) 0; z-index: 200;
+  /* ---------- O TECLADO SOBREPÕE, NÃO DESLOCA (v5.277) ----------
+     Decisão do operador: *"após abrir a biblioteca, e o teclado aparecer,
+     infelizmente a tela está sendo deslocada inteira para cima. Então ajuste
+     apenas para o teclado ficar sobreposto à tela e não deslocar ela."*
+
+     Isto REVOGA o `inset` da v5.261 nesta camada, e o argumento dela morreu
+     junto com a barra: ela descia a folha até a faixa visível para que a barra
+     de busca, que morava na BASE, encostasse no teclado em vez de ficar atrás
+     dele. Com a barra no topo (v5.275) não há nada embaixo que precise ser
+     revelado — o campo, o ✕ e o cabeçalho estão todos acima da metade da tela —
+     e o que sobrava daquele conserto era o efeito colateral: a folha inteira
+     encolhendo e subindo no instante em que o teclado aparece.
+
+     O `.dialog-backdrop` FICA com a conta, e a diferença é a razão de ela
+     existir: o `appPrompt` é um cartão CENTRADO com um campo de texto, e ali a
+     metade de baixo é justamente onde o teclado sobe.
+
+     ---------- E A CAMADA NÃO PERSEGUE MAIS NADA (v5.280) ----------
+     A v5.278 pôs `top: var(--vv-top)` aqui para a barra de cima não sair pela
+     borda quando o navegador rolasse a viewport visual. O operador recusou o
+     mecanismo e nomeou o certo: *"ao invés de ter um scroll de tela inteira,
+     deixar apenas os itens abaixo da barra de pesquisa ficarem dentro de um
+     scroll, e apenas rolar esse scroll para o topo quando a biblioteca é
+     aberta"*.
+
+     Ele está certo pela raiz: quem rola é a LISTA, e a barra está fora dela.
+     Uma camada que persegue a viewport visual é um conserto para um scroll de
+     tela que não devia existir — e desde a v5.280 não existe mesmo, porque o
+     cabeçalho saiu e a barra é o primeiro elemento da folha. `inset: 0`: a
+     camada é a tela, e nada nela se move. */
+  position: fixed; inset: 0; z-index: 200;
   /* (ver #songMenuPopup abaixo: um popup ABERTO DE DENTRO de outro precisa de
      um degrau próprio de empilhamento) */
   background: var(--scrim);
@@ -3280,12 +3537,6 @@ main {
    música e por isso pedia mais um degrau (220) — saiu na v5.254 com os atalhos
    de pasta. O 220 fica LIVRE: é o degrau do próximo popup que abrir de dentro
    do `#songMenuPopup`.) */
-/* A GAVETA DE FAVORITOS abre de dentro da Biblioteca desde a v5.237 (entrar
-   numa pasta é uma tela, não uma seção) — e ela é declarada ANTES dela no
-   documento, então sem este degrau a ordem do documento a deixaria por baixo e
-   o toque numa pasta pareceria não fazer nada. É a mesma armadilha, com o mesmo
-   remédio, do `#songMenuPopup` acima. */
-#favPopup { z-index: 205; }
 /* Folha de TELA CHEIA (o acervo). É a tela em que o operador passa mais tempo
    antes do culto — folhear álbuns, abrir letras, decidir o que baixar — e uma
    folha de 80vh deixava uma faixa morta no topo enquanto a lista rolava
@@ -3314,13 +3565,13 @@ main {
      (branco, 1,29:1 contra a página) e o álbum, `--panel-2` (#d4dae2, 1,41:1
      contra ela) — os dois tons daquela frase deixaram de se encostar. */
   background: var(--bg);
-  /* A área segura do topo só existe enquanto a folha ENCOSTA no topo da tela.
-     Com a viewport visual rolada (`--vv-top`), ela já começa abaixo da barra de
-     status, e reservar o espaço de novo abriria um vão no meio da tela.
-     Declarado UMA vez aqui: as duas folhas de tela cheia (`#favPopup` e
-     `#hymnSearchPopup`) repetiam esta linha à mão, que é a sincronização manual
-     que este projeto recusa em toda parte. */
-  padding-top: max(0px, env(safe-area-inset-top) - var(--vv-top, 0px));
+  /* A área segura do topo. A conta com `--vv-top` que esteve aqui (v5.261,
+     v5.278) existia enquanto a camada fixa descia junto com a viewport visual;
+     com ela parada (v5.280), a folha encosta no topo da tela sempre. Declarado
+     UMA vez aqui: as duas folhas de tela cheia repetiam esta linha à mão, que
+     é a sincronização manual que este projeto recusa em toda parte. (Uma delas,
+     a gaveta `#favPopup`, saiu na v5.294 — sobrou o `#hymnSearchPopup`.) */
+  padding-top: env(safe-area-inset-top);
 }
 .popup-backdrop--full { align-items: stretch; }
 
@@ -3354,8 +3605,29 @@ main {
    do ✕ que ele justificava continua valendo: o cabeçalho é uma linha flex, e um
    vizinho que se recusa a encolher empurra o último item para fora do sheet.) */
 
+/* ---------- A ROLAGEM PARA AQUI DENTRO (v5.281) ----------
+   Relato do operador: *"a barra de pesquisa no topo não fica fixa durante a
+   rolagem do corpo da biblioteca"*.
+
+   Medido em Chromium, a estrutura está certa e sempre esteve: a barra é irmã da
+   lista, `flex-shrink: 0`, e rolar `#hymnResults` 116px não move um pixel dela.
+   O que se mexe no APARELHO é outra coisa — a rolagem que CHEGA AO FIM aqui
+   dentro **encadeia para a página**, e do Android 12 em diante o excesso não é
+   mais um brilho na borda: é o efeito STRETCH, que estica e desloca a camada
+   inteira, barra fixa incluída. O dedo continua dentro da lista e a tela toda
+   se mexe.
+
+   `overscroll-behavior: contain` é o que corta o encadeamento, e ele não é
+   novidade neste app: `.lib-list`, `.lv-body` e `.simple-lyrics` — todos os
+   outros scrollers — já o têm. O `.popup-list` era o único que não, e ficou
+   sendo desde que a Biblioteca virou uma tela cheia com uma barra fixa em cima.
+
+   (`min-height: 0` seria a outra guarda clássica de um filho flex que rola, e
+   aqui ela é dispensável: um item com `overflow` diferente de `visible` já tem
+   tamanho mínimo automático ZERO, pela própria especificação. Medido: a lista
+   encolhe e rola por dentro sem ela.) */
 .popup-list {
-  flex: 1; overflow-y: auto;
+  flex: 1; overflow-y: auto; overscroll-behavior: contain;
   list-style: none; padding: .5rem .7rem .8rem;
   display: flex; flex-direction: column; gap: .35rem;
 }
@@ -3476,31 +3748,11 @@ main {
 .lib-search::-webkit-search-results-button,
 .lib-search::-webkit-search-results-decoration { -webkit-appearance: none; appearance: none; display: none; }
 
-/* ---------- Gaveta dos Favoritos ---------- */
-/* Desce do TOPO, como a bandeja do acervo — e pelo mesmo motivo: dentro de uma
-   pasta do dispositivo há um campo de busca, e uma folha que sobe da base fica
-   coberta pelo teclado. Ocupa a tela inteira (`--full`) porque é uma SEÇÃO com
-   navegação própria (raiz → atalho/pasta), não uma escolha rápida.
-   Era uma tela da lista até a v5.52; o que a tirou de lá foi o cabeçalho: ela
-   era a única que precisava de voltar, título, busca E sincronizar ao mesmo
-   tempo, numa faixa que também carrega a troca de modo. */
-#favPopup { align-items: flex-start; }
-#favPopup .popup-sheet {
-  border-radius: 0 0 var(--radius-sheet) var(--radius-sheet);
-  transform: translateY(-100%);
-  padding-bottom: 0;
-}
-#favPopup.open .popup-sheet { transform: translateY(0); }
-/* A barra de seleção múltipla é MOVIDA para dentro da folha enquanto a gaveta
-   está aberta (ver `hostSelbar` em controle.js) — aqui ela ganha a margem que o
-   `.popup-list` já tem, para não encostar nas bordas da folha. A margem de
-   baixo desconta a área segura: a folha zera o próprio `padding-bottom` (ela
-   desce do topo e a lista rola até a borda), e sem isto a barra ficaria sob a
-   navegação por gestos do Android. */
-.popup-sheet > .selbar { margin: 0 .7rem max(env(safe-area-inset-bottom), .7rem); }
-/* O ✕ e o voltar são os dois do cabeçalho: o voltar entra no lugar do ícone de
-   estrela quando se está dentro de um atalho/pasta (ver renderFavHeader). */
-#favPopup .back-btn { margin-left: -.25rem; }
+/* (A GAVETA DOS FAVORITOS saiu na v5.294, com as regras que a desciam do topo,
+   o degrau de `z-index` que a punha acima da Biblioteca e a margem da `.selbar`
+   movida para dentro dela. Ela era a tela de DENTRO de uma pasta do aparelho, e
+   a v5.290 — ao fazer a pasta abrir INLINE, como um álbum — tirou o último
+   caminho até lá. Ver o bloco no topo do `controle.js`.) */
 
 /* ---------- A BIBLIOTECA É UMA TELA, NÃO UM POPUP (v5.263) ---------- */
 /* Pedido do operador: *"troque a animação de slide vertical, há muitos problemas
@@ -3550,6 +3802,33 @@ main {
 /* Barra de busca do Hinário ocupando toda a largura da bandeja: display:flex faz
    o input (.lib-search, flex:1) esticar de lado a lado (sem isso o input ficava
    no tamanho nativo, pequeno). Campo mais alto/legível que o de busca da pasta. */
+/* ---------- O CABEÇALHO E A BARRA SÃO UMA PEÇA SÓ (v5.277) ----------
+   Pedido do operador: *"mescle a barra de título da biblioteca com a cor de
+   fundo da barra de pesquisa e centralize o título"*.
+
+   Com a busca de volta ao topo (v5.275), o cabeçalho e ela viraram duas faixas
+   coladas com fundos diferentes — a do título herdando o `--bg` da folha e a de
+   baixo com o `--field-bar`. Duas faixas fixas empilhadas sobre a mesma lista
+   são UMA barra, e pintá-las igual é dizer isso. O que as separava era só a
+   cor; a distinção que interessa — o que é rótulo e o que se toca — continua
+   dita pelo conteúdo.
+
+   O TÍTULO CENTRA porque o cabeçalho da Biblioteca não tem mais nada além dele
+   e do ícone: o ✕ desceu para a barra na v5.258 e o "Baixar tudo" saiu no mesmo
+   lote. `flex: 1` num item sozinho o encosta à esquerda; o par
+   `justify-content: center` + `flex: 0` o põe no meio com o ícone junto, como
+   um rótulo de tela.
+   E o TÍTULO CENTRA. A v5.277 precisou de uma grade de três colunas para isso —
+   com o ícone ao lado, centrar a linha flex centraria os DOIS e deixaria a
+   palavra 14px fora do meio (medidos). O ícone saiu na v5.278 e a grade saiu
+   com ele: filho único num flex centrado já fica no centro, e o `flex: 1` do
+   `.popup-title` (que o encostaria à esquerda) é o único que precisa ser
+   desfeito. */
+#hymnSearchPopup .popup-header {
+  background: var(--field-bar);
+  justify-content: center;
+}
+#hymnSearchPopup .popup-title { flex: 0 1 auto; text-align: center; }
 /* ---------- A BARRA DA BIBLIOTECA VOLTOU AO TOPO (v5.275) ----------
    Decisão do operador: *"vamos fazer um ajuste e colocar a barra de buscas da
    biblioteca no topo novamente, ela na base está dando muitos problemas de
@@ -3582,10 +3861,11 @@ main {
    O que SAI é a conta do teclado no `padding-bottom`: no topo não há área
    segura de baixo a descontar, e `--kb` não tem nada que ver com esta faixa.
 
-   E o `#favSearchBar` continua fora daqui: ele divide esta classe e vive no
-   alto da gaveta de uma pasta. Ele era a razão de estas regras serem escopadas
-   em `#hymnSearchPopup` e continua sendo — a diferença é que agora as duas
-   barras estão no mesmo lugar da folha, e nada nele precisa ser desfeito. */
+   O ESCOPO EM `#hymnSearchPopup` FICA. Ele existia porque o `#favSearchBar`
+   dividia esta classe e vivia no alto da gaveta de uma pasta; a gaveta saiu na
+   v5.294 e hoje há uma barra só — mas a classe continua sendo o nome de "barra
+   de busca de uma folha", e escopar é o que impede a próxima a nascer herdando
+   a geometria desta. */
 .hymn-search-bar {
   display: flex; align-items: center; gap: .5rem;
   padding: .5rem .9rem .6rem; flex-shrink: 0;
@@ -3640,8 +3920,10 @@ main {
      canto de um campo de texto é um ponto morto exatamente onde o dedo mira. */
   pointer-events: none;
 }
-/* O recuo à esquerda abre o lugar dela: 12 (margem) + 18 (ícone) + 8 (respiro). */
-#hymnSearchInput { flex: 1; min-width: 0; padding: 11px 14px 11px 38px; font-size: .95rem; }
+/* O recuo à esquerda abre o lugar dela: 12 (margem) + 18 (ícone) + 8 (respiro).
+   A ALTURA é `--campo-alt` (v5.277): ela era consequência do padding, e virou
+   uma medida com nome porque o ✕ ao lado precisa dela para ser quadrado. */
+#hymnSearchInput { flex: 1; min-width: 0; height: var(--campo-alt); padding: 11px 14px 11px 38px; font-size: .95rem; }
 /* ---------- O ✕ TEM A ALTURA DO CAMPO (v5.270) ----------
    Pedido do operador. Ele vinha do esqueleto de botão de ícone do app (`--hit`
    quadrado, 34px) e o campo tem 41 — dois vizinhos na mesma linha com sete
@@ -3658,7 +3940,19 @@ main {
    Vestindo `--field-*` ele vira o irmão do campo — as duas peças claras sobre a
    faixa —, e o glifo volta a 8,4:1. */
 #hymnSearchClose {
-  align-self: stretch; height: auto;
+  /* QUADRADO (v5.277, pedido do operador: *"ele deve ser um botão quadrado"*).
+     A v5.270 lhe deu a ALTURA do campo (`align-self: stretch`) e deixou a
+     largura em `--hit` — 34px contra os 40 do campo, isto é, um retângulo em pé
+     que ninguém decidiu.
+
+     `aspect-ratio` NÃO resolve isto, e a razão é do algoritmo: num contêiner
+     flex a largura (o eixo principal) é resolvida ANTES de o `stretch` dar uma
+     altura definida, então a proporção não tem de que partir e o botão colapsa
+     na largura do glifo — 20px, medidos. O que resolve é UM NÚMERO em UM lugar:
+     `--campo-alt` é a altura do campo E o lado do quadrado, e é dele que as
+     duas peças da linha partem. Um valor por peça é a sincronização manual que
+     este projeto recusa; um valor para as duas é a medida da linha. */
+  width: var(--campo-alt); height: var(--campo-alt); flex-shrink: 0;
   border-radius: var(--radius-btn);
   background: var(--field-bg); color: var(--field-text);
   box-shadow: 0 1px 3px -1px var(--shadow-ink);
@@ -3717,14 +4011,17 @@ main {
    de densidade por um de mira, no meio de um culto. Medido depois: linha de
    50 px, passo de 54 px, 16 itens na mesma tela. */
 .hymn-row { align-items: center; gap: .5rem; padding: .3rem .5rem; cursor: pointer; }
-/* O botão de tocar ocupa o lugar que era da miniatura — o maior alvo livre da
-   linha, antes gasto com um ícone decorativo repetido em todas as faixas. Em
-   accent-soft, que é como o app marca "isto é ação, não conteúdo". */
+/* O QUADRADO DA ESQUERDA DEIXOU DE SER UM BOTÃO (v5.285). Ele era o ▶, em
+   `--accent-soft` — a marca que este app usa para "isto é ação, não conteúdo".
+   Sem ação, a marca sai junto: ele volta ao recesso neutro das superfícies e
+   perde o `cursor: pointer`, senão continuaria prometendo um alvo que não
+   existe mais. O que ele ainda faz é REAL e é a razão de ele ficar: hospedar o
+   anel de download e segurar a coluna que alinha a lista inteira. */
 .hymn-play-thumb {
   width: 38px; height: 38px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  border: none; border-radius: var(--radius-btn);
-  background: var(--accent-soft); color: var(--accent); cursor: pointer;
+  border-radius: var(--radius-btn);
+  background: var(--surface); color: var(--muted);
 }
 .hymn-play-thumb .msym { font-size: var(--icon-md); }
 /* BAIXANDO ESTA MÚSICA. Adicionar a uma lista pode disparar um download de
@@ -3734,14 +4031,15 @@ main {
    desenho que a preview usa no caminho de tocar (ver `.dl-ring`), no lugar que
    corresponde àquela tela: lá a mídia vai aparecer na preview, aqui o que está
    baixando é esta faixa da lista.
-   O ▶ some enquanto isso, mas o botão segue clicável: tocar uma música que já
-   está baixando é legítimo, e o download é o mesmo (`songDownloadInFlight`). */
+   O ▶ some enquanto isso — e desde a v5.285 nada aqui é clicável de qualquer
+   forma: quem recebe o toque é a linha inteira. */
 .hymn-play-thumb .dl-ring { --dl-ring: 26px; display: none; }
 .hymn-play-thumb.busy .dl-ring { display: flex; }
 .hymn-play-thumb.busy .msym { display: none; }
-/* O segundo botão herda `.row-btn` (o quadrado de ação das listas) — aqui fica
-   só a cor, que o distingue do tocar: adicionar é o gesto secundário. */
-.hymn-add-btn { flex-shrink: 0; color: var(--accent); }
+/* (O ALVO EXPANDIDO DOS DOIS BOTÕES, v5.278, saiu na v5.285 com os botões. Ele
+   existia porque errar por três pixels não devolvia "nada aconteceu" — devolvia
+   a gaveta abrindo no lugar da ação. Hoje o alvo é a LINHA e não há como errar:
+   os dois desfechos viraram um.) */
 /* `flex:none` desfaz o `flex:1` de .row-name: aqui o pai é uma coluna, e
    crescer significaria esticar na VERTICAL (o nome descolaria do subtítulo). */
 /* MESMA ESCALA DO TÍTULO DO ÁLBUM (v5.240): a faixa era 1.02rem e o cartão que
@@ -3782,7 +4080,7 @@ main {
    fundo que pode ser `--panel`, `--panel-2` ou transparente conforme a tela.
    `background-image` e não `background`: ele EMPILHA sobre o `--linha` que a
    linha já pinta, em vez de substituí-lo. */
-.hymn-result.expanded {
+.lib-item.expanded {
   background-image: linear-gradient(var(--surface-sunk), var(--surface-sunk));
 }
 /* Letra completa, abaixo da linha aberta. Rola por DENTRO, com teto de altura:
@@ -3792,8 +4090,109 @@ main {
    A entrada NÃO é uma keyframe: a altura é medida e animada em JS
    (expandAccordion), porque `auto` não é um valor animável em CSS e um teto
    fixo cortaria a letra de um hino longo. */
-.hymn-lyrics { display: none; }
-.hymn-result.expanded .hymn-lyrics {
+/* ---------- A GAVETA TEM DUAS METADES (v5.285) ----------
+   As OPÇÕES em cima e a conferência embaixo (a letra, ou o detalhe do vídeo).
+   Quem some fechado é o ENVELOPE, e não cada metade: a animação do acordeão
+   mede `offsetHeight` de UM elemento, e com duas caixas irmãs aparecendo por
+   conta própria a medida seria de meia gaveta. */
+.hymn-gaveta { display: none; }
+/* ---------- A GAVETA É UM POÇO SOLDADO À SUA LINHA (v5.287) ----------
+   Relato do operador: *"ainda está pouco o contraste entre os botões e pior,
+   toda a seção das opções de play estão se mesclando com a lista dos outros
+   itens abaixo, dificultando a percepção da seção e a qual item ela
+   pertence"*.
+
+   São DUAS queixas e elas têm a mesma causa. A v5.286 devolveu à gaveta o
+   `--panel` da folha antiga — que era a base certa para aqueles botões e é a
+   cor errada aqui: medido no escuro, `--panel` compõe rgb(44,52,60) e a faixa
+   de uma linha vizinha compõe rgb(46,54,63). **1,03:1.** A seção aberta tinha
+   a cor das linhas de baixo, e a margem em volta dela deixava passar a moldura
+   da própria faixa — três tons indistinguíveis empilhados.
+
+   O tom novo é `--gaveta-bg` (a medição e a inversão por tema estão em
+   `tokens.css`), e ele resolve a primeira queixa. A SEGUNDA é de forma:
+
+   **A gaveta perde as margens.** Ela é filha do `.lib-item`, que já pinta a
+   linha inteira e recorta pelo `border-radius` com `overflow: hidden` — então,
+   coladas, faixa e gaveta viram UM bloco com o título em cima e o poço embaixo.
+   Com a margem, o poço era uma ilha flutuando sobre um frame da cor das linhas
+   de baixo, e nada dizia de quem ele era. O respiro que a margem dava vem do
+   padding da lista de opções, que já existia.
+
+   `--camada: var(--gaveta-btn)` pela regra da casa: quem declara o tom dos
+   filhos é o PAI, e os filhos aqui são os botões e a caixa da letra. */
+/* ---------- `>` E NÃO DESCENDENTE, E ISSO É UMA REGRA (v5.291) ----------
+   Relato do operador sobre a v5.290: os itens de dentro de uma pasta aberta
+   apareciam com uma faixa preta embaixo de cada um, e as opções de um item NÃO
+   FECHAVAM.
+
+   As duas coisas são a mesma: com a pasta abrindo inline, `.folder-opfs` é um
+   `.lib-item` que CONTÉM outros `.lib-item` — o primeiro aninhamento desse tipo
+   no app —, e `.lib-item.expanded .hymn-gaveta` é um seletor DESCENDENTE. A
+   pasta aberta satisfazia o `.expanded`, e a gaveta de TODO arquivo lá dentro
+   passava a `display: block`: a faixa era a gaveta vazia de cada item fechado, e
+   fechar um item tirava a classe dele sem esconder nada, porque quem a mantinha
+   visível era a pasta.
+
+   **A gaveta é do item que a POSSUI.** Toda regra dela é `>`, e é assim que ela
+   deixa de depender de nenhum `.lib-item` existir acima. */
+.lib-item.expanded > .hymn-gaveta {
+  display: block;
+  background: var(--gaveta-bg);
+  --camada: var(--gaveta-btn);
+  margin: 0;
+}
+/* A lista de opções no corpo da linha reusa o desenho da folha (`.song-menu-*`)
+   — é a MESMA lista, noutro lugar. O que muda é o recuo: aqui ela mora dentro
+   de uma linha, e não de um popup de largura inteira. */
+/* `list-style: none` NÃO É DETALHE, é a correção de um defeito da v5.285:
+   relato do operador sobre *"pontos ou marcadores à esquerda dos cards das
+   opções"*. Esta `<ul>` nasceu no corpo da linha e não herdou nada — a do popup
+   é `.popup-list`, que já o declarava, e a nova ficou com os marcadores padrão
+   do navegador (quadrados, por ser um `<ul>` aninhado em terceiro nível). Eles
+   não vinham de regra nenhuma do app, e é por isso que não havia o que
+   procurar: era a AUSÊNCIA de uma. */
+.hymn-opcoes {
+  list-style: none; margin: 0;
+  padding: .45rem .5rem .5rem;
+  display: flex; flex-direction: column; gap: .3rem;
+}
+/* Os BLOCOS que descansam no poço — os botões de opção e a metade de baixo
+   (letra ou detalhe) — vestem `--gaveta-btn`, e não o `--surface` da folha. A
+   diferença é que `--surface` é um OVERLAY: no escuro ele afunda (a gaveta está
+   dentro de um cartão), e afundar sobre um poço que já é o tom mais escuro do
+   app não produz degrau nenhum. Um tom opaco vale o mesmo nos dois temas.
+
+   `.song-menu-go` fica de fora: ele é o único botão primário da faixa e o
+   preenchimento em accent é o que o torna a resposta. */
+.hymn-opcoes .song-menu-btn:not(.song-menu-go) { background: var(--gaveta-btn); }
+.hymn-gaveta :is(.hymn-lyrics, .item-detalhe) {
+  background: var(--gaveta-btn);
+  margin: 0 .5rem .5rem;
+}
+/* ---------- A FAIXA DE AÇÕES DA LINHA DE FAVORITO (v5.287) ----------
+   O conteúdo do `⋮` de antes, agora DENTRO da gaveta. Ela fica à direita e
+   embaixo porque as opções acima são a pergunta ("onde este item deve estar?")
+   e estas são o que se faz com a LINHA — favoritar, mover, excluir. Os botões
+   são os mesmos `.row-btn`, e vestem `--gaveta-btn` como as opções acima: o
+   `--surface` que eles trazem de fábrica é um OVERLAY, e aqui dentro ele
+   resolve para o par SUNK (a gaveta mora numa seção da Biblioteca) — preto
+   sobre o poço, que já é o tom mais escuro do app, não produz degrau nenhum.
+
+   (A ESTRELA saiu desta faixa na v5.288: nesta lista ela e a lixeira faziam a
+   mesma coisa — ver `favItemRow`. Ela continua inteira nas outras listas, onde
+   alterna de verdade.) */
+.fav-acoes {
+  display: flex; align-items: center; justify-content: flex-end; gap: .35rem;
+  padding: 0 .5rem .5rem;
+}
+.fav-acoes .row-btn { background: var(--gaveta-btn); }
+/* A METADE DE BAIXO da gaveta só aparece com `vendo-letra` (v5.286) — ver o
+   botão irmão do confirmar em `montarOpcoes`. Ela é a mais alta das duas, e
+   aberta por padrão empurrava as opções para longe do dedo em toda abertura,
+   quando o que se abre a gaveta para fazer é decidir. */
+.lib-item:not(.vendo-letra) > .hymn-gaveta > :is(.hymn-lyrics, .item-detalhe) { display: none; }
+.hymn-lyrics {
   display: block; max-height: 40vh; overflow-y: auto;
   margin: 0 .55rem .55rem; padding: .5rem .6rem;
   border-radius: var(--radius-btn);
@@ -3830,8 +4229,7 @@ main {
 /* A mesma caixa da letra, com o mesmo recuo e a mesma moldura: as duas
    respondem "é este mesmo?" e não há razão para parecerem coisas diferentes.
    O que muda é o conteúdo — miniatura + duração + estado no aparelho. */
-.item-detalhe { display: none; }
-.hymn-result.expanded .item-detalhe {
+.item-detalhe {
   display: flex; gap: .6rem; align-items: flex-start;
   margin: 0 .55rem .55rem; padding: .5rem .6rem;
   border-radius: var(--radius-btn);
@@ -3926,11 +4324,19 @@ main {
    ícone é pequeno.
    DESMARCADO ELE É UM RECESSO, não um contorno (v5.267): a caixa vazia era o
    último lugar do app em que uma linha de 2px carregava informação, e o buraco
-   escuro diz a mesma coisa — "aqui cabe uma marca" — por preenchimento. */
+   escuro diz a mesma coisa — "aqui cabe uma marca" — por preenchimento.
+
+   E ELE PRECISA SER VISTO SEM ESTAR MARCADO (v5.286). Pedido do operador:
+   *"deixe as caixas de check sempre visíveis, para entender que não são botões,
+   mas selecionáveis"*. O recesso a .20 sobre o `--surface` da própria linha era
+   um degrau pequeno demais para ser notado de relance: a linha se lia como
+   botão, e o operador só descobria que ela ACUMULA depois de marcar a primeira.
+   Um recesso mais fundo (`--check-vazio`, medido em `tokens.css`) o põe à vista
+   sem inventar contorno nenhum, que continua fora de questão desde a v5.267. */
 .song-menu-check::before {
   content: ''; display: block;
   width: 20px; height: 20px; border-radius: var(--radius-xs);
-  background: var(--surface-2-sunk);
+  background: var(--check-vazio);
   transition: background .12s ease;
 }
 /* Marcado = preenchido no accent com o ✓ desenhado por cima, a mesma convenção
@@ -3954,7 +4360,38 @@ main {
    resposta. Aqui uma é: fechar a escolha. Sem nada marcado ela fica
    desabilitada e diz o que falta, em vez de sumir: uma folha cujo botão de
    concluir só nasce depois do primeiro acerto não se explica sozinha. */
-.song-menu-go-row { padding-top: .35rem; }
+/* A FAIXA DE FECHO. Ela era o confirmar sozinho; desde a v5.286 pode ter um
+   IRMÃO à direita — "Ver a letra", no corpo da linha (a folha não o fornece, e
+   ali o flex de um filho só é um no-op). O confirmar CRESCE e o irmão fica com
+   o que precisa: a decisão principal é a que se acha sem mirar, e o outro é uma
+   conferência. */
+.song-menu-go-row { padding-top: .35rem; display: flex; gap: .4rem; }
+.song-menu-go { flex: 1; min-width: 0; }
+/* O IRMÃO é SECUNDÁRIO por construção: recesso em vez do preenchimento em
+   accent, e sem crescer. Ele não decide nada — revela. */
+.song-menu-letra {
+  flex: none; width: auto; justify-content: center; text-align: center;
+  background: var(--surface); color: var(--accent);
+  white-space: nowrap;
+}
+/* ---------- A LARGURA NÃO MUDA COM O ESTADO (v5.287) ----------
+   Pedido do operador: *"fixe a largura do botão de ver/ocultar letra, para que
+   tenha o mesmo tamanho nos dois estados"*. "Ocultar" é mais longo que "Ver",
+   então o botão crescia ao ser tocado e o CONFIRMAR ao lado encolhia junto —
+   um toque que muda a largura do vizinho é o que mais parece defeito numa faixa
+   de dois botões.
+
+   AS DUAS FRASES OCUPAM A MESMA CÉLULA de uma grade 1×1: a largura passa a ser
+   a da MAIOR e a troca só alterna qual delas se vê. `visibility` e não
+   `display`, porque a escondida precisa continuar MEDINDO — é ela que reserva a
+   largura. Um `min-width` em `ch` seria um número a manter contra a fonte e
+   contra a tradução; isto não tem número nenhum. */
+.song-menu-letra-cx { display: grid; }
+.song-menu-letra-cx > span { grid-area: 1 / 1; }
+.lib-item:not(.vendo-letra) > .hymn-gaveta .song-menu-letra-cx > span:last-child,
+.lib-item.vendo-letra > .hymn-gaveta .song-menu-letra-cx > span:first-child {
+  visibility: hidden;
+}
 .song-menu-go {
   justify-content: center; text-align: center;
   background: var(--accent-fill);
@@ -4389,7 +4826,6 @@ body.mode-simple .bottombar { display: none; }
    a versão CANTADA (ver simplePlaySong). O botão de adicionar some: playlist,
    Cronograma e favoritos pertencem ao fluxo do sonoplasta, e escolher variante
    é justamente a decisão que este modo poupa. */
-body.mode-simple .hymn-add-btn { display: none; }
 
 /* ---------- O botão de COPIAR o Registro (v5.117) ---------- */
 /* Um diagnóstico existe para ser REPASSADO: sem o botão, a alternativa é

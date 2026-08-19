@@ -367,7 +367,12 @@ class NativeBridge(
         }
 
         /**
-         * Fila de IO da ponte, **compartilhada por todas as instâncias**.
+         * Fila do IO CURTO da ponte, **compartilhada por todas as instâncias**.
+         *
+         * Só o que responde em milissegundos: leitura de `version.json`, o
+         * estado do OTA, e a varredura de uma pasta pelo `ContentResolver`. O
+         * trabalho LONGO mora em [transferencia] e [extracao] — ver o porquê
+         * lá.
          *
          * Um executor por instância vazava: `newSingleThreadExecutor` cria uma
          * thread de core sem timeout e não-daemon, viva até um `shutdown` que
@@ -379,6 +384,48 @@ class NativeBridge(
          */
         private val io = Executors.newSingleThreadExecutor { r ->
             Thread(r, "av-bridge-io").apply { isDaemon = true }
+        }
+
+        /**
+         * A fila das TRANSFERÊNCIAS LONGAS — o download do YouTube e o do APK.
+         *
+         * Ela existe porque [io] é de UMA thread só, e é isso que fazia uma
+         * transferência de minutos bloquear tudo o mais que passa pela ponte.
+         * Do lado web `CALL_TIMEOUT_MS` é de 60 s e o `call()` resolve `null` ao
+         * vencer — então, com um vídeo de 300 MB baixando, `listFolder` devolvia
+         * lista vazia, `otaPending` dizia que não há atualização e
+         * `atualizacaoEstado` respondia nada. Nenhum deles erra: todos mentem
+         * baixinho, e o pior é o `listFolder`, cuja lista vazia o `controle.js`
+         * lê como "a pasta sumiu do aparelho".
+         *
+         * Continua sendo UMA THREAD, e isso é invariante e não economia: o
+         * resgate de download do [YoutubeGrab] é um slot único e o mapa de
+         * parciais supõe **um download por vez**. O `ytDiscard` mora aqui pelo
+         * mesmo motivo — ele mexe nesse mesmo estado, e fora desta fila poderia
+         * apagar o parcial de um download em curso.
+         */
+        private val transferencia = Executors.newSingleThreadExecutor { r ->
+            Thread(r, "av-bridge-transf").apply { isDaemon = true }
+        }
+
+        /**
+         * A fila das EXTRAÇÕES — o que vai à rede ler metadados (busca do
+         * YouTube, playlists de um canal, o manifesto da transmissão direta) e a
+         * rasterização de um PDF.
+         *
+         * Separada da [transferencia] porque estas são de SEGUNDOS e aquela é de
+         * minutos: enfileirá-las atrás de um download deixaria o "Tocar agora"
+         * de um vídeo esperando o hinário terminar de baixar — e, vencido o
+         * prazo de 60 s, caindo no download sem que nada explicasse por quê.
+         *
+         * Também de uma thread só: as extrações compartilham a inicialização
+         * global do NewPipe, e serializá-las é mais barato que auditar a
+         * biblioteca inteira. Os DIAGNÓSTICOS não colidem — `diagnostico` é
+         * escrito só pelo caminho do download e `diagnosticoStream` só pelo do
+         * manifesto, que é justamente por que eles são dois campos.
+         */
+        private val extracao = Executors.newSingleThreadExecutor { r ->
+            Thread(r, "av-bridge-extr").apply { isDaemon = true }
         }
     }
 
@@ -547,7 +594,7 @@ class NativeBridge(
     fun apkInstalar(callId: String) {
         val h = host
         if (h == null) { resolve(callId, JSONObject.quote("indisponivel")); return }
-        io.execute {
+        transferencia.execute {
             val erro = ShellUpdater.baixarEInstalar(ctx) { pct ->
                 val w = webRef()
                 w?.post { w.evaluateJavascript("window.__avApk && window.__avApk($pct);", null) }
@@ -974,7 +1021,7 @@ class NativeBridge(
         teto: Int = YoutubeGrab.TETO_ALTURA,
     ) {
         if (host == null) { resolve(callId, "null"); return }   // telão não baixa nada
-        io.execute {
+        transferencia.execute {
             // O teto é SANEADO aqui, não lá dentro: este parâmetro vem de
             // JavaScript, e um 0 (ou um negativo) esvaziaria a fila de
             // candidatos e derrubaria o download inteiro num caminho que
@@ -1017,7 +1064,7 @@ class NativeBridge(
     @JavascriptInterface
     fun ytStream(callId: String, url: String, altura: Int) {
         if (host == null) { resolve(callId, "null"); return }
-        io.execute {
+        extracao.execute {
             // `altura <= 0` é "o padrão", como no [ytFetch]: um `coerceIn`
             // sozinho fazia de um 0 vindo do JavaScript um TETO de 144p — o
             // oposto do pedido, e um caminho que pareceria "vídeo péssimo" em
@@ -1039,7 +1086,7 @@ class NativeBridge(
     @JavascriptInterface
     fun ytSearch(callId: String, termo: String) {
         if (host == null) { resolve(callId, "[]"); return }
-        io.execute {
+        extracao.execute {
             val r = try { YoutubeGrab.pesquisar(termo) } catch (_: Exception) { JSONArray() }
             resolve(callId, r.toString())
         }
@@ -1060,7 +1107,7 @@ class NativeBridge(
     @JavascriptInterface
     fun ytCanalPlaylists(callId: String, canalUrl: String) {
         if (host == null) { resolve(callId, "[]"); return }
-        io.execute {
+        extracao.execute {
             val r = try { YoutubeGrab.playlistsDoCanal(canalUrl) } catch (_: Exception) { JSONArray() }
             resolve(callId, r.toString())
         }
@@ -1077,7 +1124,7 @@ class NativeBridge(
     @JavascriptInterface
     fun ytPlaylist(callId: String, url: String) {
         if (host == null) { resolve(callId, "null"); return }
-        io.execute {
+        extracao.execute {
             val r = try { YoutubeGrab.playlist(url) } catch (_: Exception) { null }
             resolve(callId, r?.toString() ?: "null")
         }
@@ -1128,7 +1175,7 @@ class NativeBridge(
     @JavascriptInterface
     fun ytDiscard(url: String) {
         if (host == null) return
-        io.execute { YoutubeGrab.descartar(ctx, url) }
+        transferencia.execute { YoutubeGrab.descartar(ctx, url) }
     }
 
     // ---------- apresentação (PDF / Google Apresentações) como IMAGENS ----------
@@ -1150,7 +1197,7 @@ class NativeBridge(
     @JavascriptInterface
     fun deckPages(callId: String, origem: String, nome: String) {
         if (host == null) { resolve(callId, "null"); return }   // telão não importa nada
-        io.execute {
+        extracao.execute {
             // O motivo da falha viaja junto (`{ erro }`) — ver SlideDeck.paginas.
             val r = try {
                 SlideDeck.paginas(ctx, origem, nome) { feitas, total ->
@@ -1179,7 +1226,7 @@ class NativeBridge(
     @JavascriptInterface
     fun deckDiscard(url: String) {
         if (host == null) return
-        io.execute { SlideDeck.descartar(ctx, url) }
+        extracao.execute { SlideDeck.descartar(ctx, url) }
     }
 
     private fun deckProgresso(callId: String, feitas: Int, total: Int) {
