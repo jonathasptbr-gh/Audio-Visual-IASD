@@ -2181,7 +2181,7 @@ a linha de fecho é a folha, e ela não conhece o dono da gaveta.
   simplesmente não reanexada. `destConfirmRow(aoLado)` recebe; o global ficou só
   como caminho da Biblioteca, onde ele é fábrica. E reabrir uma gaveta reaponta
   `songMenuFor`, para *"ele descreve a gaveta ABERTA"* voltar a ser verdade.
-- **DE QUE LADO O IRMÃO ENTRA É DECISÃO DE QUEM O FORNECE** (v5.306, pedido do
+- **DE QUE LADO O IRMÃO ENTRA É DECISÃO DE QUEM O FORNECE** (v5.307, pedido do
   operador): a faixa de ações de um Favorito vem **antes** do confirmar, o "Ver a
   letra" da Biblioteca continua **depois**. O sinal viaja no próprio nó
   (`data-antes`) e o `destConfirmRow` só o consulta — ele não conhece nenhum dos
@@ -3164,15 +3164,39 @@ continua exatamente como antes), `executarSorteio` a espera, e `abrirSorteio` a
 dispara ao abrir a folha — o único instante em que a espera não custa nada,
 porque o operador ainda está escolhendo o modo.
 
-#### O destino: a fila do PLAYER, e ela substitui
+#### Montando a fila há DOIS desfechos (v5.306)
 
-Pedido do operador: *"vai direto para a playlist do player, para ser tocada"*. É
-o caminho do `abrirPacote` — `AVDB.listSet('playlist', ids)`, `plItems`,
-`renderPlaylist()` e `send` do primeiro. **Não é o Cronograma:** aquele é a ordem
-do culto, montada à mão, e um sorteio não a apaga.
+Eles não são duas versões da mesma ação, e é isso que justifica o segundo botão:
+
+| Botão | O que faz | O que NÃO faz |
+|---|---|---|
+| **Tocar agora** | `AVDB.listSet('playlist', ids)` + `send` do primeiro — o caminho do `abrirPacote` | — |
+| **Ao Cronograma** | acrescenta à lista `imports`, pela forma ATÔMICA do `listSet(fn)` | não substitui a fila do player, não projeta, não fecha a folha |
+
+Pedido do operador: *"vai direto para a playlist do player, para ser tocada"*
+(v5.303) e, depois, *"coloque dois botões, um de tocar agora e outro para
+adicionar ao cronograma"*. Montar o louvor da semana numa terça e projetar no
+domingo são dois momentos, e antes só o primeiro tinha porta.
 
 Substituir a fila é a mesma semântica de todo "Tocar agora" do acervo, que já
-passa por `replacePlaylistWith` — não é uma classe de risco nova.
+passa por `replacePlaylistWith` — não é uma classe de risco nova. **O Cronograma
+nunca é substituído:** ali a ação só ACRESCENTA.
+
+Três decisões que precisam estar ditas:
+
+- **Sorteando UMA SÓ o botão continua sendo um.** "Sorteie uma e guarde" é o
+  caminho que a Biblioteca já dá pela gaveta da linha, com a música escolhida à
+  vista — aqui seria um destino a mais para uma decisão que o operador toma
+  justamente por não querer decidir.
+- **Guardar NÃO fecha a folha.** É o princípio das listas de destino do acervo:
+  uma ação que guarda não encerra a conversa, e o segundo sorteio é o uso normal
+  (acrescenta cinco, olha a lista, acrescenta mais cinco). Fechar cobraria três
+  toques por rodada.
+- **Cancelar tem sentidos OPOSTOS nos dois botões, e está certo.** No "Tocar
+  agora" ele descarta: trocar a fila do culto por meia lista é uma
+  SUBSTITUIÇÃO pela metade. No "Ao Cronograma" ele preserva o que já desceu:
+  três de dez acrescentadas é exatamente o que aconteceu, é reversível linha a
+  linha, e jogar fora um download que já custou rede seria desperdício.
 
 #### O lote de download
 
@@ -3191,9 +3215,33 @@ passa por `replacePlaylistWith` — não é uma classe de risco nova.
 #### A conta é a única chance de ver antes de acontecer
 
 O botão dispara sem mais nenhuma tela, então a linha do contador é onde o
-operador lê o que vai acontecer. Vazia, ela diz o **motivo dominante** — sem ele,
-"nenhuma faixa casa" tem cinco causas que pedem ações opostas (trocar a palavra,
-desligar um filtro, trocar a variante, abrir um álbum para o índice chegar).
+operador lê o que vai acontecer. Ela responde a **duas perguntas de pesos
+diferentes** — *o tema achou o quê?* e *quanto disso toca agora?* —, e por isso
+são **duas linhas com hierarquia** e não uma frase com separadores (v5.306,
+pedido do operador: *"mais funcional e menos técnico"*):
+
+```
+28 músicas relacionadas a “natal”          ← --text, peso 600
+A playlist leva 10 · 1 para baixar         ← --muted
+```
+
+O custo é **exato, não uma estimativa**: o sorteio esgota as baixadas antes de
+pegar as que faltam, então quantas precisam de rede é uma subtração.
+
+Ela saía como `12 faixas casam · 3 já no aparelho · sorteia 5` — três números no
+vocabulário de quem escreveu a regra, empilhados numa linha só, disputando o
+mesmo peso.
+
+Vazia, ela diz o **motivo dominante** — sem ele, "nada encontrado" tem cinco
+causas que pedem ações opostas (trocar a palavra, desligar um filtro, trocar a
+variante, abrir a Biblioteca com internet).
+
+**A frase de resposta do "Ao Cronograma" mora em ESTADO, não no nó.** O
+`executarSorteio` redesenha a folha no `finally`, e um texto escrito direto no
+span era apagado no mesmo quadro em que nascia — o "adicionadas ao Cronograma"
+nunca chegava a ser visto. Guardá-la em `sorteioFala` e deixar
+`pintarContaSorteio` consultá-la faz qualquer redesenho preservá-la, inclusive um
+caminho de render que ainda não existe.
 
 Vazia, a linha do contador ganha **ênfase, não alarme**: `--muted` → `--text`
 com peso 600, e nunca a família do vermelho. "Nada casa a palavra tema" é o
