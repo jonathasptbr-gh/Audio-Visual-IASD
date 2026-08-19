@@ -3222,74 +3222,52 @@ dedo anda `TAB_SWIPE_MIN` (60px) na horizontal com o eixo X dominando o Y em
   listener com prazo: o prazo de 350 ms mede o tempo errado — numa página em
   segundo plano o resto do gesto leva mais que isso e a trava expirava
   justamente antes de o clique chegar.
-#### A troca de aba é um DESLIZE INTEIRO (v5.59)
+#### A troca de aba é um DESLIZE INTEIRO
 
-As duas telas se movem juntas, larguras inteiras, como um carrossel de verdade:
-a que sai vai para `-100%`, a que entra vem de `+100%`, e em nenhum instante
-elas se sobrepõem — são vizinhas, coladas, empurrando-se. Até a v5.58 só o
-conteúdo NOVO se mexia (entrava de 44px com um fade, e o antigo simplesmente
-sumia): isso é um sinal de direção, não um deslize, e o gesto que o dispara —
-arrastar a lista para o lado — promete exatamente que a tela vai sair do lugar.
+As duas telas se movem juntas, larguras inteiras: a que sai vai para `-100%`, a
+que entra vem de `+100%`, e em nenhum instante elas se sobrepõem — são vizinhas,
+coladas, empurrando-se. Mexer só no conteúdo NOVO é um sinal de DIREÇÃO, não um
+deslize, e o gesto que dispara isto promete que a tela vai sair do lugar.
 
 O truque para ter as DUAS telas ao mesmo tempo com uma lista só no DOM é o
-**fantasma** (`makeTabGhost`): os nós antigos são MOVIDOS para um `<ul>`
-absoluto posicionado exatamente sobre a área da lista, e a `#library` de
-verdade fica livre para receber o conteúdo novo.
+**fantasma** (`makeTabGhost`): os nós antigos são MOVIDOS para um `<ul>` absoluto
+posicionado sobre a área da lista, e a `#library` fica livre para o conteúdo novo.
 
-- **Mover, não CLONAR.** Um clone reinicia o download de cada miniatura por um
+- **Mover, nunca CLONAR.** Um clone reinicia o download de cada miniatura por um
   `blob:` que o render seguinte revoga — as fotos sumiriam no meio do deslize.
-  Movidos, os mesmos elementos seguem pintados.
-- **O fantasma é feito ANTES do `load()`**, e é ele que o operador continua
-  vendo enquanto a lista nova é montada (leituras de IndexedDB — poucos ms, mas
-  não zero). Por isso `switchTab` virou `async` e o deslize dispara no
-  `finally`: um `load()` que falhe não pode deixar o fantasma congelado sobre a
-  lista para sempre.
-- **O `<input type="file">` fica para trás de propósito.** Desde a v5.107 ele
-  mora no RODAPÉ (`#listFoot`), que fica fora do `<ul>` e portanto fora do
-  fantasma — mas a guarda continua: se um dia algo voltar a pendurá-lo dentro
-  da lista, ele iria junto, sairia do documento quando o fantasma fosse
-  descartado, e o `change` que importa arquivos deixaria de acontecer sem erro
-  nenhum no console.
-- **Um deslize novo mata o anterior** (`tabGhost`): dois toques rápidos
-  deixariam dois retângulos empilhados sobre a lista.
+- **O fantasma é feito ANTES do `load()`**, e é ele que o operador continua vendo
+  enquanto a lista nova é montada. Por isso `switchTab` é `async` e o deslize
+  dispara no `finally`: um `load()` que falhe não pode deixar o fantasma
+  congelado sobre a lista para sempre.
+- **O `<input type="file">` fica para trás de propósito** (ele mora no
+  `#listFoot`, fora do `<ul>`): pendurado dentro da lista ele iria junto, sairia
+  do documento quando o fantasma fosse descartado, e o `change` que importa
+  arquivos deixaria de acontecer sem erro nenhum no console.
+- **Um deslize novo mata o anterior** (`tabGhost`): dois toques rápidos deixariam
+  dois retângulos empilhados sobre a lista.
 - **`main` é `position: relative` + `overflow: hidden`**: é ele que ancora e
-  RECORTA o fantasma — as duas telas atravessam a largura inteira e não podem
-  aparecer fora da área da lista.
-- **A regra do fantasma precisa das DUAS classes** (`.lib-list.lib-ghost`). Ele
+  RECORTA o fantasma.
+- **A regra do fantasma precisa das DUAS classes** (`.lib-list.lib-ghost`): ele
   também é uma `.lib-list`, e aquela regra — que vem DEPOIS na folha — declara
-  `position: relative`. Com uma classe só o empate de especificidade era
-  decidido pela ordem: o `relative` vencia, o fantasma continuava no fluxo,
-  virava um segundo item flex do `main` e DIVIDIA a altura com a lista de
-  verdade. O sintoma era a aba de destino aparecer espremida durante o deslize
-  e se corrigir sozinha ao fim dele (medido: 478px em repouso, 233px no meio da
-  animação, 478px de novo depois que o fantasma sai).
-- **Fechar a gaveta de Favoritos passa `semAnim`**: ali o movimento que o
-  operador vê é a gaveta subindo, e um carrossel por baixo dela contaria outra
-  história.
+  `position: relative`. Com uma classe só o empate era decidido pela ordem, o
+  `relative` vencia, o fantasma continuava no fluxo e DIVIDIA a altura com a
+  lista de verdade (medido: 478px em repouso, 233px no meio da animação).
 
-A **direção** vem da ordem das abas (`TAB_ORDER =
-['imports','folders','bible','mic']` — inclui os Favoritos, que são um
-`activeTab` sem botão na faixa): ir para uma aba à **direita** faz a nova entrar
-pela direita, à esquerda o contrário. A duração e a curva são as MESMAS do
-vazado que desliza na faixa (`TAB_MOVE_MS`/`TAB_MOVE_EASE` × `--tab-move`): os
-dois são efeitos de UM gesto, e tempos diferentes os separariam em dois eventos.
-Respeita `prefers-reduced-motion` — ali não há fantasma nem deslize, a lista
-simplesmente troca.
+A **direção** vem da ordem das abas (`TAB_ORDER`): ir para uma aba à direita faz
+a nova entrar pela direita. A duração e a curva são as MESMAS do vazado da faixa
+(`TAB_MOVE_MS`/`TAB_MOVE_EASE` × `--tab-move`) — os dois são efeitos de UM gesto,
+e tempos diferentes os separariam em dois eventos. `prefers-reduced-motion`
+desliga tudo: sem fantasma e sem deslize, a lista simplesmente troca.
 
-**`load()` tem guarda de sequência** (`loadSeqCtl`, como o `loadSeq` do
-stage): é async e disparada fire-and-forget por dezenas de handlers, então
-duas chamadas concorrentes poderiam terminar fora de ordem e a mais antiga
-sobrescreveria o estado/render da mais nova. `load()` lê tudo do IDB em locais
-(as contagens das pastas em `Promise.all`, não mais um `await` sequencial por
-pasta a cada micro-mudança) e só aplica ao estado do módulo + renderiza se
-`myseq === loadSeqCtl` — senão descarta.
+**`load()` tem guarda de sequência** (`loadSeqCtl`, como o `loadSeq` do stage):
+ela é async e disparada fire-and-forget por dezenas de handlers, então duas
+chamadas concorrentes poderiam terminar fora de ordem e a mais antiga
+sobrescreveria o estado/render da mais nova. Ela lê tudo do IDB em locais e só
+aplica ao estado do módulo + renderiza se `myseq === loadSeqCtl`.
 
-Miniaturas (160×160 px, JPEG 72%) geradas via Canvas no momento da importação.
-Vídeos têm thumbnail extraído de um frame perto do início — `min(0,5 s,
-duração/3)`, ou seja, 0,5 s para qualquer vídeo acima de ~1,5 s (evita seek
-longo/lento; timeout de 3,5 s).
-Itens sem blob local exibem badge `URL` ou `YT`.
-
+Miniaturas (160×160 px, JPEG 72%) geradas via Canvas na importação. Vídeos têm
+thumbnail extraído de um frame perto do início — `min(0,5 s, duração/3)`, com
+timeout de 3,5 s. Itens sem blob local exibem badge `URL` ou `YT`.
 ### Gestos nos itens da biblioteca
 
 | Gesto | Ação |
@@ -5061,40 +5039,28 @@ aberto):
   **Cronograma** (`imports`), pronto para tocar.
 - **Outras URLs** → `kind` detectado pela extensão (`video`/`audio`/`image`/`url`).
 
-#### O que chegou fica NA FRENTE do operador (v5.77)
+#### O que chegou fica NA FRENTE do operador
 
-Um compartilhamento é um pedido explícito e imediato — ninguém manda um vídeo
-para o app de projeção "para depois". Mas o app pode estar em qualquer lugar
-quando ele chega: na aba Bíblia, com o acervo aberto em tela cheia, dentro de
-uma pasta dos Favoritos, com a seleção múltipla ligada. Até aqui `importShare`
-trocava a variável `activeTab` por baixo de tudo isso e chamava `load()` — o
-operador voltava para o app e via exatamente a tela que tinha deixado, **sem
-sinal nenhum de que algo entrou**.
+Um compartilhamento é um pedido explícito e imediato, e o app pode estar em
+qualquer lugar quando ele chega. `focarImportado(id)` roda depois de todo import
+bem-sucedido:
 
-`focarImportado(id)` roda depois de todo import bem-sucedido:
-
-1. **Sai do que está por cima**, nos dois modos: `exitSelection()` e o
-   fechamento de **todos** os popups abertos, percorrendo a MESMA tabela
-   `POPUPS` que o ✕, o toque no fundo e o botão voltar já usam — um popup novo
-   entra numa linha e passa a ser fechado também por aqui.
-2. **A preview em tela cheia só sai quando há TELÃO.** Sem telão conectado ela
-   **é** a projeção (ver "Divergências"), e derrubá-la para mostrar uma lista
-   tiraria do ar o que estiver em cena. Caro demais para um import — ali o item
-   simplesmente espera no Cronograma.
-3. Então cada modo faz o que aquele modo quer dizer:
-   - **Simplificado → PROJETA na hora** (`send(id)`). Esse modo existe para
-     quem não vai operar nada, e a lista sequer aparece nele: "adicionei ao
-     Cronograma" não significaria nada. Quem compartilha um louvor com o app já
-     conectado à TV quer aquilo no telão.
-   - **Avançado → leva para o Cronograma** (`switchTab('imports')`), que é onde
-     o item entrou, e deixa a decisão de projetar com o operador — que pode
-     estar com outra coisa no ar neste exato segundo.
+1. **Sai do que está por cima**, nos dois modos: `exitSelection()` e o fechamento
+   de TODOS os popups abertos, percorrendo a MESMA tabela `POPUPS` que o ✕, o
+   toque no fundo e o botão voltar já usam — um popup novo entra numa linha e
+   passa a ser fechado também por aqui.
+2. **A preview em tela cheia só sai quando há TELÃO.** Sem telão ela É a
+   projeção, e derrubá-la para mostrar uma lista tiraria do ar o que estiver em
+   cena. Caro demais para um import: ali o item espera no Cronograma.
+3. Então cada modo faz o que ele quer dizer: **Simplificado → PROJETA na hora**
+   (`send(id)`; a lista sequer aparece nele, então "adicionei ao Cronograma" não
+   significaria nada); **Avançado → leva para o Cronograma**
+   (`switchTab('imports')`) e deixa a decisão de projetar com o operador, que
+   pode estar com outra coisa no ar neste exato segundo.
 
 O alvo é o **primeiro** item que entrou (um share pode trazer vários arquivos),
-e para isso `addMedia`/`addUrlMedia` — que já devolviam o registro — passaram a
-ter o retorno aproveitado; `handleSharedUrl` também devolve o seu.
-
-### Modos de repetição
+e para isso `addMedia`/`addUrlMedia` — que já devolviam o registro — têm o
+retorno aproveitado; `handleSharedUrl` também devolve o seu.
 
 Ciclo ao tocar no botão 🔁: `off → all → one → shuffle → off` (persistido em `repeat`).
 
