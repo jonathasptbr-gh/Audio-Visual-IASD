@@ -47,58 +47,43 @@ const simpleVolUpEl = document.getElementById('simpleVolUp');
 const simpleVolDownEl = document.getElementById('simpleVolDown');
 const simpleVolValueEl = document.getElementById('simpleVolValue');
 
-// ===== O modo LEMBRADO (o resto da história em "Modos de uso", mais abaixo) =====
-// O modo escolhido sobrevive a fechar o app. Quem opera o culto toda semana
-// estava pagando dois toques por sessão para voltar ao avançado, e o operador
-// que só quer tocar um louvor nunca sai do simplificado — que continua sendo o
-// padrão de quem nunca escolheu nada.
-//
-// **Em `localStorage`, e não no IndexedDB como TODO o resto do estado**, por um
-// motivo específico: esta chave precisa ser lida ANTES DO PRIMEIRO QUADRO. O
-// `<body>` nasce `mode-simple` justamente para a tela certa aparecer sem
-// esperar JS nenhum, e uma leitura do IDB é assíncrona — ela só volta depois de
-// o app já ter pintado o simplificado. Quem tivesse deixado o avançado veria a
-// tela errada e ela trocaria embaixo do dedo, no meio do primeiro toque.
-// `localStorage` é síncrono, e vive no mesmo `app_webview/` do IDB: mesma
-// durabilidade, mesma regra de backup, some junto numa desinstalação.
-//
-// UMA fonte, não duas: gravar nos dois lugares "por garantia" só cria o dia em
-// que eles discordam e ninguém sabe qual vale.
+// ===== O modo LEMBRADO =====
+// Em `localStorage`, e NÃO no IndexedDB como todo o resto do estado, por um
+// motivo: esta chave é lida ANTES DO PRIMEIRO QUADRO. O `<body>` nasce
+// `mode-simple` para a tela certa aparecer sem esperar JS, e uma leitura do IDB
+// é assíncrona — quem tivesse deixado o avançado veria a tela errada trocar
+// embaixo do dedo. `localStorage` é síncrono e vive no mesmo `app_webview/`:
+// mesma durabilidade, mesma regra de backup.
+// UMA fonte, não duas: gravar nos dois "por garantia" só cria o dia em que eles
+// discordam e ninguém sabe qual vale.
 const APP_MODE_KEY = 'av.appMode';
 function storedAppMode() {
-  // `localStorage` lança quando o armazenamento está bloqueado (aba anônima de
-  // certos navegadores). O padrão do app é o simplificado, então o `catch` já
-  // é a resposta certa — não há o que tratar.
+  // `localStorage` lança com o armazenamento bloqueado (aba anônima). O padrão
+  // do app é o simplificado, então o `catch` já é a resposta certa.
   try { return localStorage.getItem(APP_MODE_KEY) === 'full' ? 'full' : 'simple'; }
   catch (_) { return 'simple'; }
 }
 let appMode = storedAppMode();
-// Só a PINTURA aqui, no topo do arquivo: é a única parte que não pode esperar.
-// O resto de `setAppMode` (segmento das Configurações, render do simplificado,
-// o vazado da faixa de abas) roda no `init()`, quando o módulo inteiro já
-// existe e a faixa de abas já tem largura para ser medida.
+// Só a PINTURA aqui: é a única parte que não pode esperar. O resto de
+// `setAppMode` roda no `init()`, quando o módulo já existe e a faixa de abas já
+// tem largura para ser medida.
 document.body.classList.toggle('mode-simple', appMode === 'simple');
 simpleModeEl.classList.toggle('open', appMode === 'simple');
 
 // ===== O TEMA (claro × escuro) — mesma gaveta, mesma razão =====
-// Vale palavra por palavra o parágrafo do `APP_MODE_KEY` acima: a escolha
-// precisa ser lida ANTES DO PRIMEIRO QUADRO, `localStorage` é síncrono e o
-// IndexedDB não é. Aqui o preço de errar é maior, não menor — o modo troca a
-// TELA, e o tema troca a COR DE TUDO: um flash do app inteiro em preto antes
-// de virar claro é o tipo de coisa que se vê a cada abertura.
+// Vale o parágrafo do `APP_MODE_KEY`, e aqui o preço de errar é maior: o modo
+// troca a TELA, o tema troca a COR DE TUDO — um flash do app inteiro em preto
+// antes de virar claro se vê a cada abertura.
 //
-// O ESCURO É O PADRÃO, e continua sendo o app sem atributo nenhum. Não é
-// inércia: este app é operado num salão às escuras, e quem nunca escolheu nada
-// precisa abrir na versão que não cega o operador nem ilumina a fileira de
-// trás. O claro existe para o ensaio de sábado de manhã e para quem opera com
-// a igreja acesa, e é uma escolha explícita.
+// O ESCURO É O PADRÃO (o app sem atributo nenhum), e não por inércia: isto é
+// operado num salão às escuras. O claro é escolha explícita, para o ensaio de
+// sábado de manhã.
 //
-// **O PALCO NÃO SEGUE O TEMA** — os tokens `--stage-*`, `--wallpaper` e
-// `--lyrics-frame-bg` moram num bloco à parte de tokens.css justamente para
-// isto. O Display nunca escreve este atributo (ele nem carrega este arquivo),
-// mas a PREVIEW do Controle roda aqui dentro: sem a separação, escolher o tema
-// claro faria a preview parar de espelhar o telão, que é a única coisa que ela
-// existe para fazer.
+// **O PALCO NÃO SEGUE O TEMA** — `--stage-*`, `--wallpaper` e
+// `--lyrics-frame-bg` moram num bloco à parte de tokens.css justamente por
+// isto. O Display nem carrega este arquivo, mas a PREVIEW roda aqui dentro: sem
+// a separação, o tema claro faria a preview parar de espelhar o telão, que é a
+// única coisa que ela existe para fazer.
 const TEMA_KEY = 'av.tema';
 function storedTema() {
   try { return localStorage.getItem(TEMA_KEY) === 'claro' ? 'claro' : 'escuro'; }
@@ -109,22 +94,18 @@ const temaMetaEl = document.getElementById('temaMeta');
 function pintarTema() {
   const raiz = document.documentElement;
   raiz.dataset.tema = tema;
-  // A cor da barra de endereço do NAVEGADOR — no app nativo quem pinta atrás
-  // das barras é o próprio body, com este mesmo token. Ela é LIDA do `--bg` já
-  // resolvido, e não de uma tabela de dois hexadecimais aqui: a folha entra no
-  // `<head>` e este script no fim do `<body>`, então o estilo já está aplicado
-  // quando esta linha roda — e o atributo acabou de ser escrito, então o valor
-  // que volta é o do tema certo. Copiar os dois valores para cá seria um
-  // TERCEIRO lugar para a cor de fundo divergir (o segundo é o
-  // `res/values/colors.xml`, que não tem escapatória: recurso de Android não
-  // enxerga custom property). O literal do HTML cobre só o instante anterior a
-  // este script, e ele é o do tema escuro, que é o padrão.
+  // A cor da barra de endereço do NAVEGADOR (no app quem pinta atrás das barras
+  // é o body, com este mesmo token). Ela é LIDA do `--bg` já resolvido, e não de
+  // uma tabela de hexadecimais aqui: a folha entra no `<head>` e este script no
+  // fim do `<body>`, então o estilo já está aplicado e o atributo acabou de ser
+  // escrito. Copiá-los para cá seria um TERCEIRO lugar para a cor de fundo
+  // divergir (o segundo é `res/values/colors.xml`, que não tem escapatória —
+  // recurso de Android não enxerga custom property).
   if (temaMetaEl) {
     const bg = getComputedStyle(raiz).getPropertyValue('--bg').trim();
     if (bg) temaMetaEl.setAttribute('content', bg);
   }
-  // O shell: ícones das barras de sistema e o windowBackground do próximo
-  // lançamento. No navegador `AVNative` não existe e a linha é pulada.
+  // O shell: ícones das barras e o windowBackground do próximo lançamento.
   try { window.AVNative?.temaClaro(tema === 'claro'); } catch (_) { /* shell antigo */ }
 }
 pintarTema();
@@ -170,82 +151,49 @@ const plPackEl = document.getElementById('plPack');
 
 const fileEl = document.getElementById('file');
 const mainEl = document.querySelector('main');
-// `.bottombar` e `.deck` eram as âncoras da barra de seleção enquanto ela morava
-// na caixa de controles (v5.107 a mudou para o rodapé da lista). Ninguém mais
-// os consulta.
 const tabsEl = document.querySelector('.tabs');
 const libraryEl = document.getElementById('library');
 // O rodapé FIXO da caixa da lista: fora do `<ul>` rolável, e por isso sempre à
 // vista. Hospeda "Importar arquivos" e, durante a seleção múltipla, a `#selbar`
 // (ver `renderListFoot` e `hostSelbar`) — nunca os dois ao mesmo tempo.
 const listFootEl = document.getElementById('listFoot');
-// ===== A GAVETA `#favPopup` SAIU POR INTEIRO (v5.294) =====
-//
-// Ela era a tela de DENTRO de uma pasta do aparelho, e a v5.290 — ao fazer a
-// pasta abrir INLINE, como um álbum — tirou o último caminho até ela:
-// `openOpfsFolder` saiu, ninguém mais chamava `openFavorites`, o `activeTab`
-// nunca mais valia `'folders'` e **`currentFolder` nunca mais recebia valor
-// não-nulo em lugar nenhum do app** (as únicas atribuições eram `= null`).
-// Aquele lote declarou a dívida em vez de pagá-la, e com razão: eram ~30 ramos
-// espalhados por `load`, `renderListTitle`, `renderLibrary`, `deleteSelected`,
-// `switchTab`, `hostSelbar`, `listHost`, o carrossel e a pilha do voltar —
-// uma faxina que merecia a própria passada de verificação. É esta.
-//
-// **O QUE ELA LEVOU JUNTO, e continua sem substituto** (era assim desde a
-// v5.290; o que muda agora é que o código deixa de fingir que existe): a BUSCA
-// dentro de uma pasta do aparelho (`folderQuery`/`#libSearch` — a barra da
-// Biblioteca varre `allCollections()` e não alcança o catálogo de pastas) e a
-// SELEÇÃO MÚLTIPLA lá dentro, que era onde morava o excluir de ARQUIVO FÍSICO
-// por item. O segundo é menos perda do que parece — um arquivo apagado de uma
-// pasta sincronizada volta na sincronização seguinte, o mesmo argumento que
-// mantém o renomear fora dali —, e quem apaga de verdade é o "Excluir pasta e
-// arquivos sincronizados" da própria linha da pasta.
-//
-// Sobra UM host de lista, e por isso `listHost()` deixou de existir: ele
-// respondia uma pergunta que só tinha uma resposta.
+// Há UM host de lista (`libraryEl`). A pasta do aparelho abre INLINE, como um
+// álbum — e por isso não há busca dentro de uma pasta nem seleção múltipla lá
+// dentro: a barra da Biblioteca varre `allCollections()`, que não alcança o
+// catálogo de pastas, e quem apaga arquivo é o "Excluir pasta e arquivos
+// sincronizados" da própria linha.
 const listTitleEl = document.getElementById('listTitle');
 const appVersionEl = document.getElementById('appVersion');
 
 // ===== Índices de versão (base web × shell nativo) =====
-// Os dois atualizam por caminhos INDEPENDENTES — a base web chega por OTA
-// (bundle publicado em `web-latest`, aplicado no lançamento seguinte) e o
-// shell só muda instalando um APK novo. Por isso são exibidos à parte: ver
-// "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
-// (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
-// é ela que dispara (ou não) a atualização nos aparelhos.
+// Os dois atualizam por caminhos INDEPENDENTES — a base por OTA, o shell só
+// instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
+// v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
+// `version` do version.json: é ele que dispara (ou não) a atualização.
 const WEB_VERSION = '5.298';
 
-// O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
-// regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
-// três vezes (`mirrorEstado` na v5.184, `mirrorOcupado` na v5.193,
-// `MIRROR_SHELL` na v5.195). **Estado lido por qualquer caminho de render nasce
-// junto do resto do estado de cena** — e estes quatro são lidos por
-// `renderVersionLabel()`, que roda na CARGA do módulo, dez mil linhas acima de
-// onde o resto do bloco de atualização mora. Declará-los lá embaixo daria um
-// `ReferenceError` na carga, isto é, tela preta e o watchdog do OTA
-// descartando o bundle no lançamento seguinte.
-//
-// O que cada um responde está no bloco "A ATUALIZAÇÃO PERGUNTA", que é onde
-// eles são escritos.
+// O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
+// **estado lido por qualquer caminho de render nasce junto do resto do estado
+// de cena.** Estes quatro são lidos por `renderVersionLabel()`, que roda na
+// CARGA do módulo, dez mil linhas acima de onde o bloco de atualização mora —
+// declará-los lá embaixo dá `ReferenceError` por zona morta temporal, isto é,
+// tela preta e o watchdog do OTA descartando o bundle no lançamento seguinte.
+// (Foi o que derrubou o app três vezes: v5.184, v5.193, v5.195.)
+// O que cada um responde está no bloco "A ATUALIZAÇÃO PERGUNTA", onde eles são
+// escritos.
 let otaPendenteVersao = '';
 let otaDiagTexto = '';
 let apkNovo = null;
 let apkBaixando = false;
 
-// Escrita UMA vez, na carga: o indicador mora no rodapé de Configurações desde
-// a v5.49 e não depende mais de qual aba está aberta (no cabeçalho ele
-// aparecia só no Cronograma, o que era em si uma inconsistência — o mesmo
-// metadado existindo ou não conforme a tela). `__SHELL_NAME__` é publicada por
-// `native.js`, que roda antes deste arquivo.
+// Escrita UMA vez, na carga. `__SHELL_NAME__` é publicada por `native.js`, que
+// roda antes deste arquivo.
 function renderVersionLabel() {
-  // __SHELL_NAME__ = versionName do APK (ver native.js). Vazio no navegador e
-  // em shells anteriores ao `appVersion()` — aí sai só a versão da base web.
+  // __SHELL_NAME__ = versionName do APK. Vazio no navegador e em shells
+  // anteriores ao `appVersion()` — aí sai só a versão da base web.
   const shell = window.__SHELL_NAME__;
-  // ELE VOLTOU A SER SÓ UM INDICADOR (v5.249). Até aqui ele carregava um ponto
-  // ("há algo esperando") e o TOQUE que trazia a pergunta de volta — os dois
-  // porque não havia mais nada no rodapé para fazer esse papel. Agora há o
-  // botão de atualização logo abaixo, que diz a mesma coisa por extenso e é o
-  // alvo óbvio; um ponto discreto a dois centímetros dele seria a mesma
+  // É SÓ UM INDICADOR: quem diz "há atualização esperando" é o botão logo
+  // abaixo, por extenso. Um ponto discreto a dois centímetros dele seria a mesma
   // informação dita duas vezes, e um segundo controle escondido para a mesma
   // decisão é a forma mais direta de os dois discordarem.
   appVersionEl.textContent = shell
