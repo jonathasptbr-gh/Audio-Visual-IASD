@@ -87,27 +87,23 @@ window.addEventListener('pagehide', () => diag('pagehide'));
 window.addEventListener('freeze', () => diag('congelou'));
 window.addEventListener('resume', () => diag('descongelou'));
 
-// ===== O TELÃO QUE ESTÁ SAINDO DE CENA NÃO REPORTA (v5.179) =====
+// ===== O TELÃO QUE ESTÁ SAINDO DE CENA NÃO REPORTA =====
 //
-// (Ele nasceu como o par local do `yt.stopping` do embed, que saiu na v5.212;
-// o mecanismo é o mesmo e continua valendo para a mídia comum.) `clear` e
-// `media-clear` ESMAECEM antes de sair (`clearFaded`/`fadeOutToBlack`, ~0,6 s), e
-// nesse intervalo o `<video>` continua tocando — a rampa é de volume, não de
-// pausa —, então `onTime` seguia disparando e cada `display-status` do fade
-// contava, com `playing: true` e o tempo antigo, uma cena que o operador acabou
-// de encerrar. Do lado do Controle isso repunha a barra e o ícone de pausa que o
-// Parar tinha acabado de zerar (daí o "só funciona no segundo toque"); e do lado
-// da NOTIFICAÇÃO era pior, porque ali não há segundo toque — o
-// `snoopDisplayStatus` do Kotlin lê este mesmo status de passagem e deixava o
-// cartão de mídia anunciando "tocando" sobre um telão vazio, até a cena seguinte.
+// `clear` e `media-clear` ESMAECEM antes de sair (~0,6 s), e nesse intervalo o
+// `<video>` continua tocando — a rampa é de volume, não de pausa —, então cada
+// `display-status` do fade contava, com `playing: true` e o tempo antigo, uma
+// cena que o operador acabou de encerrar. No Controle isso repunha a barra e o
+// ícone que o Parar tinha zerado (o "só funciona no segundo toque"); na
+// NOTIFICAÇÃO era pior, porque ali não há segundo toque — o
+// `snoopDisplayStatus` do Kotlin lê este mesmo status e deixava o cartão
+// anunciando "tocando" sobre um telão vazio.
 //
-// Corrigir na FONTE é o que fecha os dois consumidores de uma vez, e sem APK.
+// Corrigir na FONTE fecha os dois consumidores de uma vez, e sem APK.
 //
-// É um CONTADOR, e não um booleano: dois clears sobrepostos (o operador toca
-// duas vezes, ou um `media-clear` chega em cima de um `clear`) fariam o primeiro
-// a terminar liberar o segundo. Um `load` que chegue durante o fade cancela o
-// clear pelo `loadSeq` do stage, mas a promise dele resolve do mesmo jeito — e é
-// por isso que o decremento mora no `then`, nunca num ponto de sucesso.
+// É um CONTADOR, nunca um booleano: dois clears sobrepostos fariam o primeiro a
+// terminar liberar o segundo. Um `load` que chegue durante o fade cancela o
+// clear pelo `loadSeq` do stage, mas a promise dele resolve do mesmo jeito — e
+// é por isso que o decremento mora no `then`, nunca num ponto de sucesso.
 let saindoDeCena = 0;
 function aoSairDeCena(p) {
   saindoDeCena++;
@@ -147,22 +143,13 @@ const stage = createStage({
   video: videoEl,
   // A TELA DA REDE NASCE MUDA, e isso é a falha segura — não uma preferência.
   //
-  // (O parágrafo que estava aqui descrevia a razão do ESPELHO DE PIXELS: um
-  // grafo de Web Audio que precisava estar de pé e um encoder do lado Kotlin
-  // que precisava confirmar `{"ok":true}` antes de `espelhoAudioIniciar()`
-  // liberar o som. Os três foram apagados na v5.187, com o espelho inteiro, e
-  // o comentário ficou catorze versões dizendo que o mudo inicial dependia de
-  // um handshake que já não existia — quem o lesse iria procurar uma função e
-  // um `{"ok":true}` que não estão em lugar nenhum.)
-  //
-  // O que RESTA é a razão que sobreviveu à troca de transporte, e ela é
-  // suficiente sozinha: o som é OPT-IN POR TELA (invariante 10 do espelho).
-  // Nenhum navegador toca com som sem gesto do visitante, e mesmo onde tocasse
-  // não é o app que decide o volume da sala em que aquela tela está — a do
-  // saguão quer imagem cheia e SILÊNCIO, com a PA a 200 ms dali. Quem libera é
-  // o gesto do visitante: o botão "Ativar esta tela" do `tela.js`, que chama o
-  // gancho `__telaSom` logo abaixo. NUNCA o contrário — uma tela que toca alto
-  // por engano é um culto interrompido.
+  // O som é OPT-IN POR TELA (invariante 10 do espelho): nenhum navegador toca
+  // com som sem gesto do visitante, e mesmo onde tocasse não é o app que decide
+  // o volume da sala em que aquela tela está — a do saguão quer imagem cheia e
+  // SILÊNCIO, com a PA a 200 ms dali. Quem libera é o gesto do visitante: o
+  // botão "Ativar esta tela" do `tela.js`, que chama o gancho `__telaSom` logo
+  // abaixo. NUNCA o contrário — uma tela que toca alto por engano é um culto
+  // interrompido.
   forceMuted: TELA,
   onTime: sendStatus,
   // O TELÃO NÃO RECUPERA SOZINHO uma transmissão que falhou, e não é omissão:
@@ -385,29 +372,22 @@ function applyLyricsImage(slide) {
     // TELA DA REDE: a chave É a URL. Pré-carrega com retentativa — o empurrão
     // da imagem pode ainda estar chegando ao cache do celular, e um src que
     // 404a não retenta nunca. Sem object URL: nada a revogar da nova, só da
-    // anterior (que pode ter sido um OPFS de outra era desta página).
+    // anterior.
     //
-    // A ESPERA PRECISA DURAR MAIS QUE O EMPURRÃO DA MÚSICA (v5.221), e a
-    // ladeira anterior — 0, 600, 1800 ms, desistindo em ~2,4 s — não durava.
+    // A ESPERA PRECISA DURAR MAIS QUE O EMPURRÃO DA MÚSICA, e isso é estrutural,
+    // não um número mal escolhido: as imagens de fundo são enfileiradas DEPOIS
+    // da mídia principal (`telaEmpurrarImagensLetra`, logo após
+    // `telaGarantirEnvio`), no MESMO canal serializado, de propósito — o som não
+    // espera as fotos. Logo os bytes da imagem só podem COMEÇAR a chegar depois
+    // que a música inteira atravessou o canal. Uma ladeira de ~2,4 s desistia
+    // antes de existir qualquer possibilidade de sucesso, e a estrofe ficava no
+    // preto PARA SEMPRE (nada reexamina uma já renderizada).
     //
-    // Não é um número mal escolhido: é um número escolhido contra a premissa
-    // errada. As imagens de fundo são enfileiradas **DEPOIS da mídia principal**
-    // (`telaEmpurrarImagensLetra`, chamado logo após `telaGarantirEnvio`), no
-    // MESMO canal serializado — de propósito, porque o som não pode esperar as
-    // fotos. Logo, por construção, os bytes da imagem só podem começar a chegar
-    // quando a música inteira já tiver atravessado o canal: alguns segundos para
-    // um hino, mais para um louvor grande. A tela desistia antes de existir
-    // qualquer possibilidade de sucesso, e ficava no preto **para sempre** —
-    // até o operador desligar e religar "imagens" nas Configurações, que troca a
-    // chave efetiva e refaz este caminho com os bytes já no lugar. Era esse o
-    // "conserto" que o operador vinha fazendo a cada música.
-    //
-    // A ladeira agora dobra até um platô e tem um TETO de tempo, e ela é
-    // auto-limitada pelo que já existia: a guarda de sequência mata o laço no
-    // instante em que a estrofe muda — que é o caso comum muito antes do teto.
-    // Repetir a mesma URL é seguro porque o servidor manda `Cache-Control:
-    // no-store` em TODA resposta (`EspelhoHttp.CABECALHOS_SEMPRE`), 404
-    // inclusive: não há 404 grudado em cache para envenenar a tentativa boa.
+    // A ladeira dobra até um platô e tem TETO DE TEMPO, e é auto-limitada pelo
+    // que já existia: a guarda de sequência mata o laço no instante em que a
+    // estrofe muda. Repetir a mesma URL é seguro porque o servidor manda
+    // `Cache-Control: no-store` em TODA resposta, 404 inclusive — não há 404
+    // grudado em cache para envenenar a tentativa boa.
     const ESPERA_1 = 400;        // ms — a primeira espera depois da falha inicial
     const ESPERA_MAX = 2500;     // ms — o platô: não adianta martelar
     const TETO_MS = 45000;       // ms — desiste de vez (a estrofe já terá mudado)
@@ -747,24 +727,20 @@ async function startMic() {
     micStatus(false, 'unsupported');
     return;
   }
-  // ===== TRÊS TENTATIVAS, DA MELHOR PARA A QUE SEMPRE ABRE (v5.142) =====
+  // ===== TRÊS TENTATIVAS, DA MELHOR PARA A QUE SEMPRE ABRE =====
   //
-  // O relato é `NotReadableError` — "o microfone está em uso por outro app" — num
-  // aparelho em que nenhum outro app está gravando. O nome do erro engana: ele é
-  // o "não consegui abrir o dispositivo" genérico do WebRTC, e no Android a causa
-  // comum não é disputa entre apps, é o PROCESSAMENTO pedido.
+  // `NotReadableError` NÃO significa "outro app está usando o microfone": ele é
+  // o "não consegui abrir o dispositivo" genérico do WebRTC, e no Android a
+  // causa comum é o PROCESSAMENTO pedido. Com `echoCancellation` o Chromium abre
+  // o `AudioRecord` em `VOICE_COMMUNICATION` para usar o cancelador de eco do
+  // hardware — uma sessão de voz, que o sistema recusa quando a saída de áudio
+  // está em outro caminho (o caso deste app: espelhamento ligado, telão
+  // recebendo o som). Pedir o microfone CRU não passa por esse caminho e abre.
   //
-  // Com `echoCancellation` o Chromium abre o `AudioRecord` em
-  // `VOICE_COMMUNICATION` para usar o cancelador de eco do hardware — uma sessão
-  // de voz, que o sistema recusa quando a saída de áudio está em outro caminho
-  // (é exatamente o caso deste app: espelhamento ligado, telão recebendo o som).
-  // Pedir o microfone CRU não passa por esse caminho e abre.
-  //
-  // A ordem é deliberada: o cancelamento de eco fica em primeiro porque num culto
-  // uma realimentação é um estrago imediato e público (ver o CLAUDE.md). Só se
-  // ele não abrir é que se desce — e um push-to-talk que funciona com risco de
-  // microfonia é melhor que um que não funciona, desde que o operador seja
-  // avisado, que é o que o `sem-eco` do status faz.
+  // A ordem é deliberada: o cancelamento de eco vem primeiro porque num culto
+  // uma realimentação é um estrago imediato e público. Só se ele não abrir é que
+  // se desce — e um push-to-talk com risco de microfonia é melhor que um que não
+  // funciona, desde que o operador seja avisado, que é o que o `sem-eco` faz.
   const TENTATIVAS = [
     { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
     { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
@@ -900,23 +876,20 @@ function telaWallpaperPadrao() {
 
 let telaWpSeq = 0;
 function telaAplicarWallpaper(url) {
-  // PRÉ-CARREGA com retentativa (v5.188): o comando com `__wp` pode chegar
-  // ANTES de o empurrão do Controle ter aberto o item no cache do celular — a
-  // primeira busca leva 404 e um `background-image` que falha não retenta
-  // nunca. Um `Image()` com três novas tentativas cobre a corrida nos dois
-  // caminhos (troca de wallpaper e a herança ao conectar), e só pinta o fundo
-  // quando há imagem de verdade — o gradiente padrão nunca é coberto por nada
-  // quebrado. `telaWpSeq` descarta a retentativa de um wallpaper que outro já
-  // substituiu.
+  // PRÉ-CARREGA com retentativa: o comando com `__wp` pode chegar ANTES de o
+  // empurrão do Controle ter aberto o item no cache do celular, e um
+  // `background-image` que falha não retenta nunca. Um `Image()` com
+  // retentativa cobre a corrida nos dois caminhos (troca de wallpaper e a
+  // herança ao conectar), e só pinta o fundo quando há imagem de verdade — o
+  // gradiente padrão nunca é coberto por nada quebrado.
+  //
   // A LADEIRA DOBRA ATÉ UM PLATÔ, com teto de TEMPO — a mesma do fundo da letra
-  // (ver `ESPERA_MAX`/`TETO_MS` acima), e pela mesma razão medida. As quatro
-  // tentativas fixas somavam ~6 s, e os bytes do wallpaper entram na MESMA fila
-  // serializada dos empurrões de mídia do Controle: com um louvor de 300 MB na
-  // frente, eles só começam a chegar minutos depois. A tela desistia ANTES de
-  // existir qualquer possibilidade de sucesso e ficava no desenho padrão para
-  // sempre — nada reexamina um wallpaper já desistido. O `telaWpSeq` continua
-  // matando a retentativa de um wallpaper que outro já substituiu, e é ele que
-  // mantém isto barato: o laço morre no instante em que a preferência muda.
+  // (`ESPERA_MAX`/`TETO_MS` acima) e pela mesma razão medida: os bytes do
+  // wallpaper entram na MESMA fila serializada dos empurrões de mídia, então com
+  // um louvor de 300 MB na frente eles só começam a chegar minutos depois.
+  // Tentativas fixas somando ~6 s desistiam ANTES de existir possibilidade de
+  // sucesso. `telaWpSeq` mata a retentativa de um wallpaper que outro já
+  // substituiu, e é ele que mantém isto barato.
   const seq = ++telaWpSeq;
   const ESPERA_MAX = 2500;   // ms — o platô: não adianta martelar
   const TETO_MS = 45000;     // ms — desiste de vez
@@ -1026,53 +999,36 @@ function onUserGesture() {
 document.addEventListener('pointerdown', onUserGesture);
 document.addEventListener('keydown', onUserGesture);
 
-// ===== YouTube: SEM PLAYER DE TERCEIRO (v5.212) =====
+// ===== YouTube: SEM PLAYER DE TERCEIRO =====
 //
-// A IFrame Player API do YouTube (`https://www.youtube.com/iframe_api`) SAIU
-// deste documento, e com ela o `YT.Player`, o `ytHandle`, o `ytStatus` e as
-// ~540 linhas de máquina de estados que existiam só para dirigi-la. O que toca
-// vídeo do YouTube neste app agora é o caminho PRÓPRIO, e ele já era o
-// preferido: a transmissão direta (`ytStream` → `shared/mse.js` → um `<video>`
-// comum) e, falhando ela, o arquivo baixado pelo aparelho (`ytFetch`).
+// A IFrame Player API do YouTube saiu deste documento, e com ela o `YT.Player`,
+// o `ytHandle`, o `ytStatus` e as ~540 linhas de máquina de estados que
+// existiam só para dirigi-la. Quem toca vídeo do YouTube é o caminho PRÓPRIO,
+// que já era o preferido: transmissão direta (`ytStream` → `shared/mse.js` → um
+// `<video>` comum) e, falhando ela, o arquivo baixado (`ytFetch`).
 //
-// ## Por que ela precisava sair
-//
-// O comentário que morava aqui dizia, com todas as letras, que o risco era
-// "ACEITO conscientemente" e que a mitigação "está fora do alcance deste
-// arquivo e ainda não foi feita". Ele descrevia METADE do problema. O embed
-// não é só um script de terceiro no nosso documento: `addJavascriptInterface`
-// injeta o objeto em TODAS as frames da página, iframes de outra origem
-// inclusive — é o que a documentação do Android diz, e é por isso que o canal
-// de mídia das telas usa `addWebMessageListener`, que tem
-// `allowedOriginRules`. Ou seja, o `www.youtube.com` dentro deste documento
-// enxergava `window.__AVBridge`.
-//
-// No TELÃO a ponte nasce com `host = null` (invariante 9) e o estrago seria
-// limitado. Mas o MESMO embed era criado no CONTROLE, para a preview — e lá a
-// ponte é a completa: `pickFolder`, `listFolder`, `pickDoc`, `openExternal`,
-// `espelhoLigar`, `apkInstalar`. A invariante 9 protegia a metade errada, e
+// POR QUE ELA PRECISAVA SAIR: `addJavascriptInterface` injeta o objeto em TODAS
+// as frames da página, iframes de outra origem inclusive (é o que a
+// documentação do Android diz, e é por isso que o canal de mídia das telas usa
+// `addWebMessageListener`, que tem `allowedOriginRules`). No TELÃO a ponte
+// nasce com `host = null` (invariante 9) e o estrago seria limitado — mas o
+// MESMO embed era criado no CONTROLE, para a preview, e lá a ponte é a
+// completa: `pickFolder`, `listFolder`, `pickDoc`, `openExternal`,
+// `espelhoLigar`, `apkInstalar`. **A invariante 9 protegia a metade errada**, e
 // ninguém tinha reparado porque o texto dela só fala do telão.
 //
-// ## O que se ganha além disso
+// O que se ganha além disso: o embed era a razão de quase toda exceção deste
+// arquivo — um segundo motor de transporte, um segundo emissor de status, uma
+// segunda máquina de mudo que ignorava o `forceMuted` do stage, uma cortina
+// própria e um `if (yt)` em quinze pontos. Some junto a dependência de rede em
+// cena, o `document.hidden` que pausava o player com o app minimizado, e a cena
+// que ia MUDA para as telas da rede (o Web Audio não alcança iframe alheio).
 //
-// O embed era a razão de existir de quase toda exceção deste arquivo: um
-// segundo motor de transporte (`ytHandle` ao lado do `stage.handle`), um
-// segundo emissor de status (`ytStatus` ao lado do `sendStatus`), uma segunda
-// máquina de mudo que "ignora o `forceMuted` do stage por completo", uma
-// cortina própria (`ytShield`) e um `if (yt)` em quinze pontos. Tudo isso some
-// junto — e some também a dependência de rede/youtube.com em cena, o
-// `document.hidden` que pausava o player com o app minimizado, e a cena que ia
-// MUDA para as telas da rede porque o Web Audio não alcança um iframe alheio.
-//
-// ## Quem resolve o item de link, e onde
-//
-// Um registro `kind: 'youtube'` (o link sem bytes — a última carta de quando
-// transmissão e download falharam) NÃO chega mais aqui como cena tocável:
-// quem o resolve é o CONTROLE, antes de emitir o `load`
-// (`resolverLinkYoutube` em `controle.js`). Se um chegar assim mesmo — bundle
-// antigo do outro lado, ou um registro guardado antes desta versão —, o
-// tratamento está no `onCommand` e é o honesto: o palco esvazia e o telão
-// volta ao wallpaper, em vez de ficar com a cena anterior congelada.
+// Um registro `kind: 'youtube'` (o link sem bytes) NÃO chega mais aqui como
+// cena tocável: quem o resolve é o CONTROLE, antes de emitir o `load`
+// (`resolverLinkYoutube`). Chegando assim mesmo — bundle antigo do outro lado,
+// ou registro guardado antes desta versão —, o palco esvazia e o telão volta ao
+// wallpaper, em vez de ficar com a cena anterior congelada.
 
 // Um `pause` que o app não pediu é o EVENTO que interessa: é ele que o
 // operador vê como "o vídeo parou". `pausaComandada` é armado por quem manda
@@ -1370,25 +1326,20 @@ const startBtnEl = document.getElementById('startBtn');
 
 // No app nativo o overlay "Ligar Sistema" NÃO EXISTE: o WebView roda com
 // `setMediaPlaybackRequiresUserGesture(false)`, então não há política de gesto
-// para destravar. O telão precisa acender sozinho ao receber um comando;
-// exigir um toque numa TV (que não recebe toque nenhum) seria um beco sem
-// saída.
+// para destravar, e exigir um toque numa TV seria um beco sem saída.
 //
-// E NO PAPEL `tela` ELE TAMBÉM NÃO EXISTE, pela razão oposta (v5.216): ali há
-// política de gesto, mas o gesto é do OUTRO botão — o "Ativar esta tela" do
-// `tela.js`, que gasta a ativação transitória em pareamento, som e tela cheia
-// de uma vez. Este aqui não faz nenhuma das três: ele só se esconde. Dois
-// overlays de gesto na mesma página não são redundância, são uma armadilha —
-// o visitante gasta o toque no que estiver na frente, e o que estava na frente
-// era este (`inset: 0`, com a pílula no CENTRO; medido, `elementFromPoint` no
-// meio da tela devolvia a `start-pill`).
+// E NO PAPEL `tela` ELE TAMBÉM NÃO EXISTE, pela razão OPOSTA: ali há política
+// de gesto, mas o gesto é do OUTRO botão — o "Ativar esta tela" do `tela.js`,
+// que gasta a ativação transitória em pareamento, som e tela cheia de uma vez.
+// Este aqui não faz nenhuma das três: ele só se esconde. Dois overlays de gesto
+// na mesma página não são redundância, são uma armadilha — o visitante gasta o
+// toque no que estiver na frente, e o que estava na frente era este (`inset: 0`,
+// com a pílula no CENTRO).
 //
-// A REGRA VIVE AQUI, e não no `tela.js`, porque o dono deste botão é o
-// documento que o declara — era justamente por a decisão morar do lado de fora
-// que ela tinha um buraco: o `tela.js` o escondia dentro de `montarEntrada()`,
-// que a RECARGA COM SESSÃO VIVA nunca chama (ela reconecta por trás, sem
-// desenhar overlay nenhum). Bastava um F5 na tela da rede para o botão antigo
-// voltar sozinho, cobrindo a projeção.
+// A REGRA VIVE AQUI, no documento que DECLARA o botão, e não no `tela.js`: era
+// justamente por a decisão morar do lado de fora que ela tinha um buraco — o
+// `tela.js` o escondia dentro de `montarEntrada()`, que a RECARGA COM SESSÃO
+// VIVA nunca chama. Bastava um F5 para o botão voltar sozinho sobre a projeção.
 if (window.__NATIVE__ || TELA) startBtnEl.hidden = true;
 // "Ligar Display" APENAS ativa o Display (gasta o gesto real que o navegador
 // exige para tocar com som). O Display é INDEPENDENTE — não abre o Controle
