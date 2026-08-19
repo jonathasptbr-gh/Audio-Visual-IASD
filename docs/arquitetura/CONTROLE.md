@@ -265,16 +265,13 @@ olha o `closed` — e ele só existe enquanto a janela existe.
 │  [margem segura para navegação por gestos]              │
 └─────────────────────────────────────────────────────────┘
 ```
-
-**Sem barra de topo (`.appbar`):** o app começa direto no cabeçalho da lista, e
-`main` ganhou `padding-top` com `env(safe-area-inset-top)`.
+**Sem barra de topo (`.appbar`):** o app começa no cabeçalho da lista, e `main`
+ganhou `padding-top` com `env(safe-area-inset-top)`.
 
 **Cabeçalho da lista (`.list-header`):** o `#listTitle` centrado e, só na
-navegação da Bíblia, o `#backBtn` à esquerda. A faixa já teve SEIS elementos (a
-busca da pasta e o sincronizar foram para a gaveta, o indicador de versão desceu
-para Configurações, os dois destinos e a troca de modo saíram) — e o sintoma de
-estar disputada era objetivo: numa tela de 360px a raiz dos Favoritos cortava o
-próprio título com reticências.
+navegação da Bíblia, o `#backBtn` à esquerda. A faixa já teve SEIS elementos, e o
+sintoma de estar disputada era objetivo: numa tela de 360px a raiz dos Favoritos
+cortava o próprio título com reticências.
 
 O título é `.84rem` (em .72rem o único texto que responde "onde eu estou" era
 menor que o subtítulo de qualquer linha) e é centrado no ESPAÇO QUE SOBRA, não na
@@ -284,78 +281,70 @@ desloca é o voltar da Bíblia (19px).
 
 **Controles (`.bottombar`):** fixados na base, e eles **começam na faixa de
 abas** — a barra é um `flex` em coluna com dois filhos, a `.tabs` e o `.deck`.
-Antes a faixa era o último elemento do `<main>` e flutuava sobre o fundo do app,
-separada da barra por dois espaços e por um degrau de cor: duas superfícies para
-duas coisas que o polegar usa no mesmo movimento. Ela **não tem `border-top` nem
-sombra**: com a fileira encostada no topo, as duas caíam sobre a emenda entre a
-aba ativa e o conteúdo, que é onde os dois precisam ser a mesma superfície. O
-`padding-bottom` usa `max(env(safe-area-inset-bottom), 12px)`, contra
-acionamentos acidentais pela navegação por gestos.
+Antes a faixa flutuava sobre o fundo do app, separada por dois espaços e um
+degrau de cor: duas superfícies para duas coisas que o polegar usa no mesmo
+movimento. Ela **não tem `border-top` nem sombra**: com a fileira encostada no
+topo, as duas cairiam sobre a emenda entre a aba ativa e o conteúdo, que é onde
+os dois precisam ser a mesma superfície. O `padding-bottom` usa
+`max(env(safe-area-inset-bottom), 12px)`, contra acionamento acidental pela
+navegação por gestos.
 
-**Grade real (CSS Grid), não flex aproximado:** `.deck` é um `display: grid` de 2
-colunas (`minmax(0, 1fr)` / `56px` do mixer) × 3 linhas (`auto` /
-`var(--deck-pv-h)` / `auto`), com `.nowplaying`, `.preview-row` e `.transport`
-como itens DIRETOS. O `#mixer` ocupa as 3 linhas (`grid-row: 1 / 4`) e usa
-`grid-template-rows: subgrid` para **herdar exatamente essas faixas de altura** —
-garante alinhamento pixel a pixel entre as duas colunas em vez de depender de
+**Grade real (CSS Grid), não flex aproximado:** `.deck` é um `grid` de 2 colunas
+(`minmax(0, 1fr)` / `56px` do mixer) × 3 linhas (`auto` / `var(--deck-pv-h)` /
+`auto`), com `.nowplaying`, `.preview-row` e `.transport` como itens DIRETOS. O
+`#mixer` ocupa as 3 linhas e usa `grid-template-rows: subgrid` para **herdar
+exatamente essas faixas** — alinhamento pixel a pixel entre as colunas em vez de
 flex-basis calculado à parte. O `padding` do `#mixer` é **só horizontal**:
-padding vertical deslocaria as linhas herdadas do subgrid.
+vertical deslocaria as linhas herdadas.
 
 A primeira coluna é `minmax(0, 1fr)`, **não** `1fr`: uma faixa `1fr` tem mínimo
-automático igual ao min-content do conteúdo, e o título (`#npName`, com
-`white-space: nowrap`) tem min-content do texto INTEIRO mesmo já sendo cortado
-por ellipsis — um nome longo inflava a coluna, esmagava a de 56px do mixer e
-fazia a largura da preview depender do título.
+automático igual ao min-content, e o título (`#npName`, `white-space: nowrap`)
+tem min-content do texto INTEIRO mesmo já cortado por ellipsis — um nome longo
+inflava a coluna, esmagava a de 56px e fazia a largura da preview depender do
+título.
 
 **O mixer NUNCA dita a altura das faixas** — quem dita é sempre a coluna 1. Cada
-`.mixer-slot` é uma caixa de posicionamento **vazia no fluxo**, e os botões vivem
-num `.mixer-stack` `position: absolute; inset: 0`: um item absoluto não entra no
-cálculo de max-content das faixas `auto` do `.deck`, e como o `#mixer` é
-`subgrid`, qualquer coisa no fluxo ali contribuiria para as faixas do PAI. Era
-essa contribuição que deformava a caixa ao ABRIR o slide de volume — o conteúdo
-do mixer muda entre os dois estados (top/mid somem, o botão da base troca um SVG
-de 22px por um glifo, alturas intrínsecas diferentes) e as faixas `auto`
-mudavam de tamanho, levando junto a altura do deck e da preview. (`min-height: 0`
-resolve só metade: ele zera o mínimo automático, mas uma faixa `auto` continua
-sendo dimensionada pelo max-content dos itens.)
+`.mixer-slot` é uma caixa vazia no fluxo, e os botões vivem num `.mixer-stack`
+`position: absolute; inset: 0`: um item absoluto não entra no max-content das
+faixas `auto`, e como o `#mixer` é `subgrid`, qualquer coisa no fluxo ali
+contribuiria para as faixas do PAI. Era essa contribuição que deformava a caixa
+ao ABRIR o slide de volume — o conteúdo do mixer muda entre os dois estados
+(alturas intrínsecas diferentes) e as faixas `auto` mudavam de tamanho, levando
+junto a altura do deck e da preview. (`min-height: 0` resolve metade: zera o
+mínimo automático, mas uma faixa `auto` continua dimensionada pelo max-content.)
 
 | Fatia | Linha da grade | Conteúdo |
 |---|---|---|
-| `.mixer-top` | 1 (`.nowplaying`) | **Configurações** (`#settingsBtn`, engrenagem), **sem caixa de botão** |
-| `.mixer-mid` | 2 (`.preview-row`) | **letra/texto completo** (`#lyricsViewBtn`, SVG inline), **cortina do telão** (`#viewToggle`), **mudo** (`#muteToggle`) — cada um com `flex: 1` |
+| `.mixer-top` | 1 (`.nowplaying`) | **Configurações** (`#settingsBtn`), **sem caixa de botão** |
+| `.mixer-mid` | 2 (`.preview-row`) | **letra** (`#lyricsViewBtn`), **cortina** (`#viewToggle`), **mudo** (`#muteToggle`) — cada um `flex: 1` |
 | `.mixer-bottom` | 3 (`.transport`) | **volume** (`#volToggle`/`#volClose`, recolhível) |
 
 A ordem separa o que NÃO opera o culto do que opera: a engrenagem no topo,
 sozinha, e abaixo o bloco de operação (letra → cortina → mudo → volume), que é o
-que o polegar procura sem olhar. Dentro da fatia do meio a leitura da letra vem
-primeiro: é o botão que se consulta o tempo todo enquanto o louvor corre, e a
-cortina serve às transições.
+que o polegar procura sem olhar. Na fatia do meio a leitura da letra vem primeiro:
+é o botão que se consulta enquanto o louvor corre.
 
-**A engrenagem não tem caixa de botão** (`.settings-btn`, e por isso não é
-`.ctl-btn`): a fatia do topo acompanha a altura de `.nowplaying`, bem menor que a
-da preview, e um bloco achatado ao lado de quatro botões de altura cheia lê como
-um botão mal encaixado. É o mesmo tratamento do `#backBtn`: navegação/acesso é
-chapado, operação é botão.
+**A engrenagem não tem caixa de botão** (`.settings-btn`, não `.ctl-btn`): a
+fatia do topo acompanha a altura de `.nowplaying`, bem menor que a da preview, e
+um bloco achatado ao lado de quatro botões de altura cheia lê como botão mal
+encaixado. Mesmo tratamento do `#backBtn`: navegação é chapada, operação é botão.
 
 **Fonte única do volume (`applyVolume`)**: o fader, o arrasto vertical no terço
-direito da preview em tela cheia e os **botões físicos** passam todos pela mesma
-função — clamp, desligar o mudo se subir de 0, enviar o comando e atualizar o
-fader.
+direito da preview em tela cheia e os **botões físicos** passam pela mesma função
+— clamp, desligar o mudo se subir de 0, enviar o comando, atualizar o fader.
 
 **Botões físicos** (só no app; `window.__avVolumeKey`): a Activity intercepta
-`KEYCODE_VOLUME_UP/DOWN` e entrega o passo aqui. O sistema roteia esses botões
-para a **saída em uso**, e com Smart View ativo isso vira o volume da TV — o
-operador apertava e o fader do app não saía do lugar. **No máximo (ou no zero)** o
-passo é devolvido ao sistema (`AVNative.systemVolume`), senão um aparelho com o
-volume de mídia baixo ficaria sem como subir com o app aberto.
+`KEYCODE_VOLUME_UP/DOWN` e entrega o passo aqui, porque o sistema os roteia para
+a **saída em uso** — com Smart View ativo isso vira o volume da TV. **No máximo
+(ou no zero)** o passo é devolvido ao sistema (`AVNative.systemVolume`), senão um
+aparelho com o volume de mídia baixo ficaria sem como subir com o app aberto.
 
 **A tecla ESPIA o fader** (`peekVolume`, `VOL_PEEK_MS` = 2,8 s): sem isso o botão
 físico mexia no volume de forma INVISÍVEL. Ela abre a MESMA visualização do toque
-em `#volToggle` (literalmente `openVolume()`) e a recolhe sozinha — um segundo
-jeito de desenhar o fader seria um segundo jeito de ele ficar diferente. Três
-regras de convivência com o toque: só recolhe o que ela mesma abriu
-(`volPeekOwned`); tocar em `#volToggle`/`#volClose` cancela a contagem
-(`cancelVolPeek`); mexer no fader durante a espiada a reinicia (`bumpVolPeek`).
+em `#volToggle` (literalmente `openVolume()`) e a recolhe sozinha. Três regras de
+convivência com o toque: só recolhe o que ela mesma abriu (`volPeekOwned`); tocar
+em `#volToggle`/`#volClose` cancela a contagem (`cancelVolPeek`); mexer no fader
+durante a espiada a reinicia (`bumpVolPeek`).
 
 Tocar no botão de volume liga `.vol-open` no `#mixer`, que troca **top + mid**
 pelo **fader vertical** (`.fader-wrap`, `grid-row: 1 / 3` — exatamente o espaço
