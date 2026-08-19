@@ -14,20 +14,27 @@ espelhar o celular.
 
 ## Índice
 
-1. [O ganho: Presentation em vez de espelhamento](#o-ganho-presentation-em-vez-de-espelhamento)
-2. [Estrutura do repositório](#estrutura-do-repositório)
-3. [Invariantes do shell (não quebrar)](#invariantes-do-shell-não-quebrar)
-4. [A ponte `window.AVNative`](#a-ponte-windowavnative)
-5. [Barramento de comandos e o plano B do BroadcastChannel](#barramento-de-comandos-e-o-plano-b-do-broadcastchannel)
-6. [Trabalho em segundo plano (downloads com o app minimizado)](#trabalho-em-segundo-plano-downloads-com-o-app-minimizado)
-7. [Notificação de controles (sessão de mídia)](#notificação-de-controles-sessão-de-mídia)
-8. [OTA da base web (atualização sem APK)](#ota-da-base-web-atualização-sem-apk)
-9. [Telão por comandos (o telão nas telas da rede local)](#telão-por-comandos-o-telão-nas-telas-da-rede-local)
-10. [Séries do YouTube (o álbum "Provai e Vede 2026")](#séries-do-youtube-o-álbum-provai-e-vede-2026)
-11. [A paleta](#a-paleta)
-12. [Divergências entre o caminho web e o nativo](#divergências-entre-o-caminho-web-e-o-nativo)
-13. [Build e distribuição](#build-e-distribuição)
-14. [Regras de desenvolvimento](#regras-de-desenvolvimento)
+| # | seção | quando abrir |
+|---|---|---|
+| 1 | [O ganho: Presentation em vez de espelhamento](#o-ganho-presentation-em-vez-de-espelhamento) | o modelo em uma tela |
+| 2 | [Estrutura do repositório](#estrutura-do-repositório) | achar o arquivo |
+| 3 | [Invariantes do shell](#invariantes-do-shell-não-quebrar) | **antes de mexer no Kotlin** |
+| 4 | [A ponte `window.AVNative`](#a-ponte-windowavnative) | usar ou mudar um método nativo |
+| 5 | [Barramento de comandos](#barramento-de-comandos-e-o-plano-b-do-broadcastchannel) | comandos, dreno do papel `tela`, referência de tempo |
+| 6 | [Trabalho em segundo plano](#trabalho-em-segundo-plano-downloads-com-o-app-minimizado) | download, foreground service, notificação de progresso |
+| 7 | [Notificação de controles](#notificação-de-controles-sessão-de-mídia) | `MediaSession`, transporte fora do app |
+| 8 | [OTA da base web](#ota-da-base-web-atualização-sem-apk) | publicar, watchdog de boot, detecção |
+| 9 | [Telão por comandos](#telão-por-comandos-o-telão-nas-telas-da-rede-local) | as telas da rede local |
+| 10 | [Séries do YouTube](#séries-do-youtube-o-álbum-provai-e-vede-2026) | os álbuns oficiais da Biblioteca |
+| 11 | [A paleta](#a-paleta) | **antes de escrever qualquer cor** |
+| 12 | [Divergências web × nativo](#divergências-entre-o-caminho-web-e-o-nativo) | o que muda entre navegador e app |
+| 13 | [Build e distribuição](#build-e-distribuição) | CI, oráculos, assinatura, backup |
+| 14 | [Regras de desenvolvimento](#regras-de-desenvolvimento) | **antes de commitar** |
+
+**Fora daqui:** `docs/ARQUITETURA-WEB.md` (a base web), `docs/TELAO-POR-COMANDOS.md`
+(o contrato das telas da rede), `docs/FONTE-DE-DADOS-LOUVORJA.md` (hinos/Bíblia)
+e `docs/HISTORICO.md` (**apêndice**: a nota de cada versão, para consultar por
+`grep`, nunca por leitura integral).
 
 ---
 
@@ -129,165 +136,148 @@ docs/
 └── ESPELHO-DE-PIXELS.md         # ARQUIVO: recurso removido (v5.187); só §2.3, §2.4 e §10-A
 ```
 
-**Vinte e seis arquivos Kotlin, uma dependência de terceiros no shell** — o
-resto é AndroidX oficial (`core-ktx`, `activity-ktx`, `webkit`). A troca do
-espelho de pixels pelo telão por comandos (v5.187) **removeu** quatro arquivos
-nativos inteiros (encoder, tela virtual, segunda Presentation, ponte de áudio)
-e devolveu a renderização ao lado web — a proporção Kotlin × JavaScript é o
-argumento, não o número absoluto. Manter o nativo pequeno respeita
-a filosofia do projeto muito melhor que Capacitor/Cordova, que arrastariam npm e
-um build system inteiro e ainda assim exigiriam código nativo próprio para a
-Presentation.
+**26 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
+AndroidX oficial (`core-ktx`, `activity-ktx`, `webkit`). O que sustenta essa
+proporção Kotlin × JavaScript é a invariante 5; ela é o argumento contra
+Capacitor/Cordova, que arrastariam npm e um build system inteiro e ainda assim
+exigiriam código nativo próprio para a `Presentation`.
 
-> Esses números envelhecem a cada commit. Meça antes de citá-los:
-> ```bash
-> wc -l app/src/main/java/br/org/iasd/av/*.kt
-> find app/src/main/assets/web -name '*.js' -not -path '*/vendor/*' | xargs wc -l
-> ```
+> Números envelhecem a cada commit. **Meça antes de citá-los:**
+> `wc -l app/src/main/java/br/org/iasd/av/*.kt` ·
+> `find app/src/main/assets/web -name '*.js' -not -path '*/vendor/*' | xargs wc -l`
 
 ---
 
 ## Invariantes do shell (não quebrar)
 
-São o que sustenta a base web. Cada uma mora num lugar diferente, e é preciso
-saber qual para conferi-las:
+São o que sustenta a base web. **Cada uma mora num lugar diferente**, e é preciso
+saber qual para conferi-las.
 
-**Em `WebViewFactory.kt`** (o KDoc do arquivo lista estas quatro):
+**Em `WebViewFactory.kt`** (o KDoc do arquivo lista as quatro):
 
-1. **Servir por `https://appassets.androidplatform.net/`, JAMAIS por
-   `file://`.** O contexto seguro é o que faz OPFS e IndexedDB funcionarem.
-   Não é opcional.
-2. **Um único origin para os dois WebViews.** É o que preserva IDB/OPFS/
-   BroadcastChannel compartilhados. Origens distintas destroem a arquitetura.
-   O origin é comparado por **componente do `Uri`** (`url.host == ORIGIN_HOST`),
-   nunca por prefixo de string: `appassets.androidplatform.net.evil.com` começa
-   com o origin, é um domínio que qualquer um registra, e um `startsWith`
-   autorizaria a navegação — dentro de um WebView que injeta `__AVBridge` em
-   toda página que carregar (`addJavascriptInterface` é por-WebView, não
-   por-origem). Este ponto não pode falhar ABERTO.
+1. **Servir por `https://appassets.androidplatform.net/`, JAMAIS por `file://`.**
+   O contexto seguro é o que faz OPFS e IndexedDB funcionarem. Não é opcional.
+2. **Um único origin para os dois WebViews** — é o que preserva
+   IDB/OPFS/BroadcastChannel compartilhados. Comparado por **componente do
+   `Uri`** (`url.host == ORIGIN_HOST`), **nunca** por prefixo de string:
+   `appassets.androidplatform.net.evil.com` começa com o origin, é um domínio que
+   qualquer um registra, e um `startsWith` autorizaria a navegação — dentro de um
+   WebView que injeta `__AVBridge` em **toda** página que carregar
+   (`addJavascriptInterface` é por-WebView, não por-origem). **Este ponto não
+   pode falhar ABERTO.**
 3. **Um único processo/perfil de WebView.** Nada de processo isolado para o
    Display.
 4. `mediaPlaybackRequiresUserGesture = false`, `domStorageEnabled`,
-   `javaScriptEnabled` — mais `allowFileAccess`/`allowContentAccess`
-   **desligados**: tudo entra pelo asset loader.
+   `javaScriptEnabled` — e `allowFileAccess`/`allowContentAccess` **desligados**:
+   tudo entra pelo asset loader.
 
 **Regra de projeto, não de código:**
 
 5. **Não reimplementar em Kotlin nada que já exista em JS.** Transporte,
-   playlist, letra sincronizada, Bíblia, Camada de Texto e fades permanecem no
-   web. É de longe a maior parte do sistema (ver a contagem acima).
+   playlist, letra sincronizada, Bíblia, Camada de Texto e fades ficam no web.
 
-**Em `MainActivity.ControleChromeClient`** — e é justamente por estarem aqui,
-e não na factory, que um segundo `WebChromeClient` criado sem elas as perde em
-silêncio:
+**Em `MainActivity.ControleChromeClient`** — e é por estarem aqui, não na
+factory, que um segundo `WebChromeClient` criado sem elas as perde **em
+silêncio**:
 
-6. **`onShowFileChooser`.** Um WebView **ignora `<input type="file">` por
-   completo** sem esse override: o toque não faz nada, sem erro nenhum no
-   console. No navegador o seletor é da plataforma; aqui é o app que precisa
-   abri-lo. Dele dependem a importação para o Cronograma e a escolha do
+6. **`onShowFileChooser`.** Sem esse override o WebView **ignora
+   `<input type="file">` por completo**: o toque não faz nada, sem erro no
+   console. Dele dependem a importação para o Cronograma e a escolha do
    wallpaper.
-7. **`onShowCustomView`/`onHideCustomView`.** Sem eles, `requestFullscreen()`
-   falha silenciosamente — e a preview em tela cheia é a projeção quando não
-   há TV conectada. É aqui que mora a trava de paisagem nativa.
+7. **`onShowCustomView`/`onHideCustomView`.** Sem eles `requestFullscreen()`
+   falha silenciosamente — e a preview em tela cheia é a projeção quando não há
+   TV. É aqui que mora a trava de paisagem nativa.
 
-**No `shouldInterceptRequest` (`WebViewFactory.create`)** — a que custou três
-rodadas de APK para ser aprendida:
+**No `shouldInterceptRequest`** — a que custou três rodadas de APK:
 
 8. **O `InputStream` que você devolve é o RECURSO INTEIRO a partir do byte 0.**
-   Não é "a resposta": quem aplica o `Range` da requisição é o **próprio
-   WebView**, sobre o que o app entregou
-   (`AndroidStreamReaderURLLoader::Start` → `ParseRange` → `InputStreamReader::
-   Seek` → `ComputeBounds` contra `available()`), incondicionalmente e para toda
-   resposta interceptada. Devolver só a fatia pedida aplica o deslocamento DUAS
-   vezes — e a requisição que começa no byte 0 é a única em que isso é um no-op,
-   então ela passa e esconde o defeito atrás de si. **Corolário: um erro com
-   corpo VAZIO não chega** quando a requisição tem faixa fora do zero
-   (`ComputeBounds` reprova com `size == 0`), o que apaga a mensagem inteira e
+   Não é "a resposta": quem aplica o `Range` é o **próprio WebView**, sobre o que
+   o app entregou (`AndroidStreamReaderURLLoader::Start` → `ParseRange` →
+   `InputStreamReader::Seek` → `ComputeBounds` contra `available()`),
+   incondicionalmente e para toda resposta interceptada. Devolver só a fatia
+   pedida aplica o deslocamento DUAS vezes — e a requisição que começa no byte 0
+   é a única em que isso é no-op, então ela passa e esconde o defeito atrás de
+   si. **Corolário: um erro com corpo VAZIO não chega** quando a faixa está fora
+   do zero (`ComputeBounds` reprova com `size == 0`), o que apaga a mensagem e
    deixa só um erro de rede sem status. Ver `StreamProxy.kt` e
-   `tools/webview-range.test.mjs`, que trava a regra no CI.
+   `tools/webview-range.test.mjs`.
 
-   > **E ela SE INVERTE num `ServerSocket`.** No servidor das telas da rede
-   > quem aplica o `Range` somos NÓS, não o WebView — a rota `/m/<token>` faz
-   > RFC 7233 de verdade (`EspelhoHttp.alcanceDe`, com JUnit). **Copiar o
-   > `StreamProxy` para lá é o erro exato**, e é por isso que o `EspelhoHttp` é
-   > um arquivo à parte, puro, e não uma parametrização daquele.
+   > **E ela SE INVERTE num `ServerSocket`.** No servidor das telas da rede quem
+   > aplica o `Range` somos NÓS: a rota `/m/<token>` faz RFC 7233 de verdade
+   > (`EspelhoHttp.alcanceDe`, com JUnit). **Copiar o `StreamProxy` para lá é o
+   > erro exato**, e é por isso que o `EspelhoHttp` é um arquivo à parte, puro, e
+   > não uma parametrização daquele.
 
 **No WebView do TELÃO:**
 
 9. **A ponte nasce com `host = null`, e o loader é montado SEM o handler
    `/saf/`.** É o que separa "uma segunda janela do Display" de um
    comprometimento do aparelho: com `host != null`, qualquer script de terceiro
-   ali dentro ganharia `pickFolder`, `listFolder`, `pickDoc`, `openExternal` —
-   e, desde a v5.141, `espelhoLigar`. A regra é a mesma do telão desde sempre;
-   o que muda é a agravante, porque agora existe na ponte um método que abre um
-   servidor na rede da igreja. `tools/ponte.test.mjs` a trava.
+   ali ganharia `pickFolder`, `listFolder`, `pickDoc`, `openExternal` e
+   `espelhoLigar` — este último abre um servidor na rede da igreja.
+   `tools/ponte.test.mjs` a trava.
 
-**No `AndroidManifest.xml`:** `android:hardwareAccelerated="true"` e
-`android:largeHeap="true"` — os dois WebViews, um vídeo grande e o player do
-YouTube dividem o mesmo processo.
+**No `AndroidManifest.xml`:** `hardwareAccelerated` e `largeHeap` — os dois
+WebViews e um vídeo grande dividem o mesmo processo.
 
-> O WebView do telão usa outro `WebChromeClient` (`MicChromeClient`, para o
-> microfone), **não recebe** o handler `/saf/` e é a única instância criada com
-> `keepVisible = true` — ver "Microfone ao vivo" e "A ponte".
+> O WebView do telão usa outro `WebChromeClient` (`MicChromeClient`), **não
+> recebe** o handler `/saf/` e é a única instância criada com
+> `keepVisible = true`.
 
 **`KeepVisibleWebView` (só o telão).** O Chromium marca a página como `hidden`
-quando a janela da View some, e é isso que acontece com a `Presentation` no
-instante em que o app é minimizado. Um `<video>` local não liga; o **embed do
-YouTube pausava sozinho** ao ver `document.hidden`. `onWindowVisibilityChanged`
-reporta sempre `VISIBLE` para tirar esse gatilho. **Não bastou** para o YouTube
-(a solução real foi baixar o vídeo, e desde a v5.212 o embed não existe mais),
-mas fica: o
-telão é a projeção, ele continua no ar com o app minimizado de propósito, e não
-há razão para o renderer dele ser desacelerado. O WebView do **Controle** segue
-o ciclo normal — ali ser estrangulado em segundo plano é o comportamento certo,
-e é justamente o que o `snoopDisplayStatus` existe para contornar.
+quando a janela da View some — o que acontece com a `Presentation` no instante em
+que o app é minimizado. `onWindowVisibilityChanged` reporta sempre `VISIBLE`: o
+telão é a projeção, continua no ar com o app minimizado de propósito, e não há
+razão para desacelerar o renderer dele. O WebView do **Controle** segue o ciclo
+normal — ali ser estrangulado em segundo plano é o certo, e é justamente o que o
+`snoopDisplayStatus` existe para contornar.
 
-**Reconexão vem de graça:** quando o dongle cai e volta, o Android destrói e
-recria a Presentation, o WebView recarrega `/display/` e dispara
-`display-ready` — e o Controle reenvia a cena ao receber isso
-(`resendSceneToDisplay` em `controle.js`). Não invente um mecanismo paralelo.
+### Reconexão e morte do renderer
 
-**E o reenvio é ENDEREÇADO** (v5.140). O barramento é broadcast, mas a resposta
-a um `display-ready` é para UMA instância: o telão assina o anúncio (`__de`, um
-id aleatório por carregamento da página) e o Controle devolve a cena com
-`__para`, que o `onCommand` do Display confere antes de qualquer outra coisa.
-Sem isso — e foi assim até a v5.139 — qualquer segunda instância de `/display/`
-que abrisse, recarregasse ou fosse restaurada pelo navegador fazia a TV rodar um
-`load` inteiro (fade de saída, releitura da mídia, re-seek, fade de entrada) na
+**Reconexão vem de graça:** dongle cai e volta → o Android recria a
+`Presentation` → o WebView recarrega `/display/` e dispara `display-ready` → o
+Controle reenvia a cena (`resendSceneToDisplay`). **Não invente um mecanismo
+paralelo.**
+
+**E o reenvio é ENDEREÇADO.** O barramento é broadcast, mas a resposta a um
+`display-ready` é para UMA instância: o telão assina o anúncio (`__de`, id
+aleatório por carga da página) e o Controle devolve a cena com `__para`, que o
+`onCommand` do Display confere **antes de qualquer outra coisa**. Sem isso,
+qualquer segunda instância de `/display/` que abrisse ou recarregasse fazia a TV
+rodar um `load` inteiro (fade de saída, releitura, re-seek, fade de entrada) na
 frente da congregação, por um evento que não era dela. Comando **sem** `__para`
-continua valendo para todos, que é o caso de **todos** os comandos de operação:
-só o reenvio de cena endereça, e um bundle antigo de qualquer um dos dois lados
-cai de volta no broadcast de sempre. `tools/display-smoke.mjs` trava a regra.
+vale para todos — que é o caso de **todos** os comandos de operação; só o reenvio
+de cena endereça, e um bundle antigo de qualquer lado cai de volta no broadcast.
+`tools/display-smoke.mjs` trava a regra.
 
-A **cena** é mais do que "mídia tocando":
+A **cena** é mais que "mídia tocando":
 
-- Reenvia **toda mídia carregada**, não só a que está tocando. A condição
-  anterior (`playing || isImage`) deixava de fora justamente o caso mais comum
-  de uma queda de dongle: o louvor de fundo PAUSADO para a oração. Um vídeo
-  pausado mostra o quadro congelado no telão e um áudio pausado mantém a letra
-  em cena — nos dois casos há algo projetado, e nos dois casos ele sumia.
-- O `load` leva **posição e estado de reprodução** (ver a seção do barramento).
-- Reenvia também o `text` do sorteio, do cronômetro, do versículo ou da
-  mensagem que estiverem projetados — nessa ordem, já que no Display um `load`
-  visual encerra a Camada de Texto e um `load` de áudio a mantém. Cronômetro e
-  sorteio voltam pelo **descritor** (`startAt`), não por um valor: o telão
-  recalcula o número a partir do mesmo instante de origem e reaparece no segundo
-  certo, não no ponto em que a conexão caiu.
+- **Toda mídia CARREGADA**, não só a que toca. A condição anterior
+  (`playing || isImage`) deixava de fora o caso mais comum de uma queda de
+  dongle: o louvor de fundo PAUSADO para a oração. Vídeo pausado mostra o quadro
+  congelado, áudio pausado mantém a letra em cena — nos dois casos há algo
+  projetado, e nos dois ele sumia.
+- O `load` leva **posição e estado de reprodução** (ver o barramento).
+- Também o `text` do sorteio, cronômetro, versículo ou mensagem projetados —
+  **nessa ordem**, já que no Display um `load` visual encerra a Camada de Texto e
+  um `load` de áudio a mantém. Cronômetro e sorteio voltam pelo **descritor**
+  (`startAt`), não por um valor: o telão recalcula a partir do mesmo instante de
+  origem e reaparece no segundo certo, não no ponto em que a conexão caiu.
 
-**Morte do renderer também é recuperável:** `WebViewFactory.create` recebe um
-callback `onRendererGone` e o `WebViewClient` devolve `true` em
-`onRenderProcessGone`. Sem isso o padrão do framework é matar o processo — um
-OOM do renderer derrubaria o Controle e a projeção juntos. Cada dono
-(`MainActivity`, `StagePresentation`) remonta o próprio WebView, e o telão
-recarregado dispara `display-ready`, caindo no mesmo caminho de reconexão
-acima.
+**Morte do renderer também é recuperável:** `WebViewFactory.create` recebe
+`onRendererGone` e o `WebViewClient` devolve `true` em `onRenderProcessGone` —
+sem isso o padrão do framework é matar o processo, e um OOM derrubaria o Controle
+e a projeção juntos. Cada dono remonta o próprio WebView, e o telão recarregado
+cai no caminho de reconexão acima.
 
-O que morre com o renderer **não se limita à página**: os `fetch` em voo morrem
-junto e o `finally` de `withBgWork()` nunca roda, então ninguém mais chamaria
-`keepAlive(false)`. `buildControleWebView` zera o estado de trabalho em segundo
-plano ao remontar — senão sobravam para sempre o foreground service, a
-notificação congelada no último progresso e um wake lock de 2 h, e a guarda de
-`setBackgroundWork` transformava o próximo download real em no-op.
+**O que morre com o renderer não se limita à página:** os `fetch` em voo morrem
+junto e o `finally` de `withBgWork()` nunca roda, então ninguém chamaria
+`keepAlive(false)`. `buildControleWebView` **zera o estado de trabalho em segundo
+plano** ao remontar — senão sobravam para sempre o foreground service, a
+notificação congelada e um wake lock de 2 h, e a guarda de `setBackgroundWork`
+transformava o próximo download real em no-op. (Ela também desfaz a **tela
+cheia**: o WebView novo entra num `webContainer` que continuaria `GONE`, e sem
+TV a preview em tela cheia É a projeção.)
 
 ---
 
@@ -479,163 +469,129 @@ que botão nenhum. Ele aparece sozinho quando o APK novo for instalado.
 ## Barramento de comandos e o plano B do BroadcastChannel
 
 `BroadcastChannel` entre dois WebViews same-origin no mesmo processo **deve**
-funcionar — mas o isolamento de sites do WebView pode surpreender, e uma falha
-aí derrubaria o comando do telão no meio de um culto.
+funcionar — mas o isolamento de sites do WebView pode surpreender, e uma falha aí
+derrubaria o comando do telão no meio de um culto.
 
 Em vez de detectar a falha (handshake com janela de corrida), o **relay nativo
 roda SEMPRE em paralelo**: cada comando sai pelos dois caminhos
-(`BroadcastChannel` + `MessageBus` nativo) e a cópia repetida é descartada em
-`shared/db.js` pelo campo `__mid`. O resto do sistema não sabe de nada —
-`sendCommand`/`onCommand` mantêm exatamente a mesma assinatura. O custo é
-desprezível: os comandos são objetos JSON pequenos.
+(`BroadcastChannel` + `MessageBus`) e a cópia repetida é descartada em `db.js`
+pelo campo `__mid`. `sendCommand`/`onCommand` mantêm a mesma assinatura; o custo
+é desprezível (objetos JSON pequenos).
 
 ### O DRENO do papel `tela` — uma lista de PERMISSÃO de dois itens
 
-Cada tela da rede roda uma **cópia de `/web/display/`** (papel `tela`, ver a
-seção do telão por comandos), ligada ao MESMO barramento por SSE. É o mesmo
-arquivo — e é justamente por ser idêntico que **ele não pode falar tudo**: a
-arquitetura inteira supõe UM telão. `display-status` sai a ~4 Hz de cada um, e
-o Controle (e o `snoopDisplayStatus`, que alimenta a notificação de mídia
-justamente quando o app está minimizado) passaria a ter N fontes alternadas;
-`media-ended` dobrado dá um segundo `load` do mesmo item em `repeat one`;
-`mic-status` da tela — que **nega `getUserMedia` em silêncio**, por não ter o
-`MicChromeClient` — apagaria o estado do microfone VERDADEIRO; e `diag-ask`
-respondido por vários faz o Registro mostrar o diário de um deles sem dizer
-qual.
+Cada tela da rede roda uma **cópia de `/web/display/`** ligada ao MESMO
+barramento por SSE. É o mesmo arquivo — e é por ser idêntico que **ele não pode
+falar tudo**: a arquitetura inteira supõe UM telão. Drenado tudo passa:
+`display-status` sai a ~4 Hz de CADA um (o Controle e o `snoopDisplayStatus`
+passariam a ter N fontes alternadas), `media-ended` dobrado dá um segundo `load`
+em `repeat one`, `mic-status` de uma tela — que **nega `getUserMedia` em
+silêncio**, por não ter o `MicChromeClient` — apagaria o estado do microfone
+VERDADEIRO, e `diag-ask` respondido por vários faz o Registro mostrar o diário de
+um deles sem dizer qual.
 
-O dreno mora em `espelho/tela.js` (o `__AVBus.post` do papel) e é uma lista de
-**permissão** de dois itens — um tipo de mensagem novo em `display.js` nasce
-mudo por construção:
+O dreno mora em `espelho/tela.js` (o `__AVBus.post` do papel) e é lista de
+**PERMISSÃO** — um tipo de mensagem novo em `display.js` nasce mudo por
+construção:
 
 - **`display-ready` passa, com `__tela`.** É esse anúncio que faz o Controle
-  reenviar a cena (`resendSceneToDisplay`) — drenado por inteiro, a tela fica
-  no wallpaper até alguém tocar em alguma coisa, exatamente nos três casos em
-  que ela precisa se recuperar sozinha: ligada no meio do culto, recarga da
-  página e queda de rede. É seguro porque o reenvio é **endereçado** desde a
-  v5.140 (`__de`/`__para`): o telão de verdade descarta o que não for dele.
+  reenviar a cena — drenado por inteiro, a tela fica no wallpaper até alguém
+  tocar em alguma coisa, exatamente nos três casos em que ela precisa se
+  recuperar sozinha: ligada no meio do culto, recarga da página e queda de rede.
+  É seguro porque o reenvio é **endereçado** (`__de`/`__para`).
 
   **E o `__tela` é o que dispara o reenvio das PREFERÊNCIAS** (wallpaper, fundo
   da letra, preenchimento — `telaReenviarPreferencias`), porque é a única coisa
   que distingue uma tela da rede do telão de verdade, que lê tudo do IndexedDB
-  sozinho. **Esta linha descreveu por dezenas de versões um combinado que o
-  código não cumpria**: o campo era anexado ao `tela-status` e nunca ao
-  `display-ready`, então aquela função — criada na v5.188 justamente para isto —
-  nunca rodou para uma tela de verdade, sem erro em lugar nenhum (v5.222). Quem
-  monta o anúncio é `anuncio()`, dono ÚNICO do carimbo: há dois pontos que
-  anunciam (o dreno e o `aoConectar` do reanúncio) e o que entrega é quase
-  sempre o segundo, porque o `display-ready` nasce antes de existir token. Os
-  dois lados do contrato têm oráculo — o produtor no `tela-rede.test.mjs`, o
-  consumidor no `boot-nativo.test.mjs` —, e são dois porque ler cada lado
-  isolado aprova ambos.
-- **`display-status` sai RENOMEADO para `tela-status`** (o herdeiro do
-  `espelho-status` da v5.173): **sem TV as telas da rede SÃO a projeção**, e
-  calá-las deixaria o Controle sem referência de tempo nenhuma — sobraria a
-  preview, que é justamente o que o Android estrangula quando o app sai da
-  frente. Com um nome PRÓPRIO nada que espera "o telão" o recebe por engano: o
-  `controle.js` **elege UMA tela** como referência (e converte o status dela em
-  `espelho-status`, que os consumidores já conhecem), e o
-  `NativeBridge.snoopStatusDeFora` faz a mesma conta de precedência para a
-  notificação de mídia. Ver "A referência da preview", abaixo.
-- **O `BroadcastChannel` é NEUTRALIZADO NO ENVIO, nunca apagado.** `db.js`
-  escolhe o canal perguntando `'BroadcastChannel' in global`: apagar a
-  propriedade deixaria a tela com um único caminho de **recepção**, e a
-  redundância dos dois caminhos é decisão escrita deste projeto. O que morre é
-  só o `postMessage`, por uma subclasse do construtor real — e a troca precisa
-  acontecer **antes de `db.js`**, que captura o construtor na carga.
+  sozinho. Quem monta o anúncio é `anuncio()`, **dono ÚNICO do carimbo**: há dois
+  pontos que anunciam (o dreno e o `aoConectar` do reanúncio) e o que entrega é
+  quase sempre o segundo, porque o `display-ready` nasce antes de existir token.
+  **Os dois lados do contrato têm oráculo** — o produtor no `tela-rede.test.mjs`,
+  o consumidor no `boot-nativo.test.mjs` —, e são dois porque *ler cada lado
+  isolado aprova ambos*: este combinado passou dezenas de versões documentado e
+  não cumprido (o campo ia no `tela-status` e nunca no `display-ready`, e a
+  função nunca rodou para uma tela de verdade, sem erro em lugar nenhum).
+- **`display-status` sai RENOMEADO para `tela-status`.** **Sem TV as telas da
+  rede SÃO a projeção**, e calá-las deixaria o Controle sem referência de tempo
+  nenhuma — sobraria a preview, que é o que o Android estrangula quando o app sai
+  da frente. Com nome PRÓPRIO, nada que espera "o telão" o recebe por engano: o
+  `controle.js` **elege UMA tela** como referência (convertendo o status dela em
+  `espelho-status`, que os consumidores já conhecem) e o
+  `NativeBridge.snoopStatusDeFora` faz a mesma conta de precedência.
+- **O `BroadcastChannel` é NEUTRALIZADO NO ENVIO, nunca apagado.** `db.js` escolhe
+  o canal perguntando `'BroadcastChannel' in global`: apagar a propriedade
+  deixaria a tela com um único caminho de **recepção**, e a redundância dos dois
+  é decisão escrita deste projeto. O que morre é só o `postMessage`, por uma
+  subclasse do construtor real — e a troca precisa acontecer **antes de `db.js`**,
+  que captura o construtor na carga.
 
 ### A referência da preview — ela ILUSTRA, nunca mede
 
-A preview do Controle é uma **ilustração** do que está no telão, e nunca a fonte
-de verdade. Ela roda no WebView do Controle, que é o único dos três que o
-Android estrangula quando o app sai da frente: com o app minimizado o `<video>`
-dela é pausado ou desacelerado enquanto a projeção segue andando, e ao voltar a
-distância entre os dois é arbitrária. **Enquanto ela for a régua, não há como
+A preview roda no WebView do Controle, o único dos três que o Android estrangula
+quando o app sai da frente: minimizado, o `<video>` dela é pausado ou desacelerado
+enquanto a projeção segue andando. **Enquanto ela for a régua, não há como
 corrigir isso — o erro está na régua.**
 
-A projeção é uma destas três, nesta ordem:
+A projeção é uma destas três, **nesta ordem**:
 
-1. **o TELÃO** (`display-status`), quando há TV conectada;
-2. **a TELA ELEITA** (`tela-status` → `espelho-status`), quando não há TV: as
-   telas da rede são o que a congregação vê, e cada uma roda o próprio
-   `/display/` com um `<video>` de verdade — num navegador que o Android do
+1. **o TELÃO** (`display-status`), com TV conectada;
+2. **a TELA ELEITA** (`tela-status` → `espelho-status`), sem TV — cada tela roda o
+   próprio `/display/` com um `<video>` de verdade, num navegador que o Android do
    celular não estrangula;
-3. **ninguém** — sem TV e sem espelho a projeção É a preview em tela cheia, que
+3. **ninguém** — sem TV e sem telas, a projeção É a preview em tela cheia, que
    exige o app na frente. Aí ela é a própria referência, e o caso não existe.
 
-Daí duas funções com nomes distintos, e a distinção é o modelo inteiro:
-`authoritativeTime()` responde **"o que está no ar agora?"** (decisões: qual
-estrofe vem a seguir, o que a barra marca, o que a `MediaSession` publica) e
-`tempoDaPreview()` responde **"o que a ilustração deve estar desenhando?"** (o
-`<video>` da preview e a letra desenhada dentro dela). Sem as duas, o atraso
+Daí **duas funções com nomes distintos**, e a distinção é o modelo inteiro:
+`authoritativeTime()` responde *"o que está no ar agora?"* (qual estrofe vem a
+seguir, o que a barra marca, o que a `MediaSession` publica) e `tempoDaPreview()`
+responde *"o que a ilustração deve estar desenhando?"*. Sem as duas, o atraso
 deliberado da preview vira defeito nos dois sentidos: quem desenha a letra pelo
 tempo da projeção troca a estrofe antes da imagem a que ela pertence, e quem
 realinha o `<video>` pelo tempo da projeção **desfaz o atraso** a cada status.
 
-Três regras completam o desenho:
-
-- **O realinhamento mira `projeção − atraso`**, nunca a projeção. Com
-  `PREV_ATRASO_MAX` (2,5 s) maior que a tolerância antiga (1,6 s), mirar a
-  projeção faria cada `display-status` puxar a preview para a frente — o resync
-  brigando com o atraso, a 4 Hz.
-- **A tolerância é de meio segundo, não de 1,6 s.** A preview **não tem som**
-  (desde a v5.189 não tem por construção — a mesa de som saiu); sem som um seek custa
-  um quadro e não estala nada. Ao **retomar do segundo plano** ela cai para
-  `RESYNC_EXATO` (0,15 s): ali não há ruído a poupar, há um desvio conhecido.
-- **Com a página escondida a preview não atrasa nada.** O atraso existe para o
-  operador não ver a preview responder antes das telas da rede; sem plateia ele
-  só serve para empilhar comandos numa fila cujos `setTimeout` o Android
-  estrangula. Escondida, ela aplica na hora — e é dessa posição que o
-  realinhamento da retomada parte.
-- **E escondida ela também não é TOCADA** (`preverPodeMexer`, v5.177). O
-  Chromium pausa um `<video>` de página oculta: o `play()` do resync sai, o
-  navegador pausa de volta, e o status seguinte recomeça — um laço a ~4 Hz que a
-  linha do tempo do Registro mostrou par a par, com a marca `[oculto]`. Não é só
-  inútil: **os WebViews dividem UM processo**, e essa rotatividade de
-  decodificador rouba fio de todo o resto — foi ela que, na era do espelho de
-  pixels, matava o áudio das telas da rede. A janela de
-  `forcarResyncAte` só é CONSUMIDA quando há como agir,
-  senão a retomada seguinte partiria de um crédito já gasto.
+- **O realinhamento mira `projeção − atraso`**, nunca a projeção: com
+  `PREV_ATRASO_MAX` (2,5 s) maior que a tolerância, mirar a projeção faria cada
+  status puxar a preview para a frente — o resync brigando com o atraso, a 4 Hz.
+- **A tolerância é de meio segundo.** A preview **não tem som** por construção, e
+  sem som um seek custa um quadro e não estala nada. Ao **retomar do segundo
+  plano** ela cai para `RESYNC_EXATO` (0,15 s): ali não há ruído a poupar, há um
+  desvio conhecido.
+- **Escondida, a preview não atrasa nada** — o atraso existe para o operador não
+  vê-la responder antes das telas da rede; sem plateia ele só empilha comandos
+  numa fila cujos `setTimeout` o Android estrangula.
+- **E escondida ela também não é TOCADA** (`preverPodeMexer`). O Chromium pausa um
+  `<video>` de página oculta: o `play()` do resync sai, o navegador pausa de
+  volta, e o status seguinte recomeça — um laço a ~4 Hz. Não é só inútil: **os
+  WebViews dividem UM processo**, e essa rotatividade de decodificador rouba fio
+  de todo o resto. A janela de `forcarResyncAte` só é CONSUMIDA quando há como
+  agir, senão a retomada seguinte partiria de um crédito já gasto.
 
 ### O `load` carrega o ponto e o estado da mídia
 
-O comando `load` leva, além de `mediaId`/`view`/`muted`/`volume`, dois campos
-que existem **para a reconexão do telão**:
+Além de `mediaId`/`view`/`muted`/`volume`, dois campos que existem **para a
+reconexão do telão**:
 
 | campo | significado |
 |---|---|
 | `time` | segundo em que a mídia deve entrar (0 = do começo) |
-| `playing` | `false` = a cena voltou PAUSADA; ausente/`true` = toca, como sempre |
+| `playing` | `false` = a cena voltou PAUSADA; ausente/`true` = toca |
 
-Até a v5.47 a reconexão mandava só o `load`, então a mídia recomeçava do ZERO e
-no estado "tocando": um hino aos 3:20 voltava do início na frente da
-congregação, e um louvor pausado para a oração voltava tocando. Pior, o
-`display-status` seguinte chegava com `currentTime` 0 e arrastava a preview do
-Controle junto — o operador perdia até a referência de onde estava.
-
-**Por que os campos viajam no próprio `load`, e não como um `seek`/`pause`
-enviado logo depois:** o `onCommand` do Display **não serializa**. O `load` é
-assíncrono (`getMedia` → `opfsGetFile` → `mediaReady`, mais o fade de saída), e
-um comando que chegasse em seguida agiria sobre o `<video>` **anterior**, antes
-de a fonte nova entrar — o seek seria aplicado à mídia errada e depois perdido.
-Levá-los no mesmo comando é o que garante que a decisão chegue junto com a
-mídia a que ela pertence.
-
-Do lado do Display os dois caminhos honram os campos:
+**Por que viajam no próprio `load`, e não como um `seek`/`pause` logo depois:** o
+`onCommand` do Display **não serializa**. O `load` é assíncrono (`getMedia` →
+`opfsGetFile` → `mediaReady`, mais o fade de saída), e um comando que chegasse em
+seguida agiria sobre o `<video>` **anterior** — o seek seria aplicado à mídia
+errada e depois perdido.
 
 - `stage.js` → `load(id, v, m, vol, startAt, autoplay)`. A posição só "gruda"
-  depois que a duração é conhecida — escrever `currentTime` junto com o `src` é
-  perdido em silêncio —, então o `startAt` entra num `loadedmetadata` com
-  `{ once: true }`, protegido pelo `loadSeq` (outro load pode ter assumido
-  durante a espera). `autoplay === false` é a cena que voltou pausada;
-  `undefined` mantém o comportamento de sempre, e por isso nenhum outro chamador
-  precisou mudar.
-- `display.js` → `loadYoutube(rec, v, m, vol, startAt, autoplay)`, que passa o
-  `startAt` como `playerVars.start` (segundos inteiros — é o que a API aceita).
+  depois que a duração é conhecida (escrever `currentTime` junto com o `src` é
+  perdido em silêncio), então o `startAt` entra num `loadedmetadata` com
+  `{ once: true }`, protegido pelo `loadSeq`. `autoplay === false` é a cena que
+  voltou pausada; `undefined` mantém o comportamento de sempre.
+- `display.js` → `loadYoutube(rec, …)` passa o `startAt` como `playerVars.start`.
 
-O comando mais frequente do barramento é o `display-status`, emitido pelo telão
-a cada `timeupdate` do vídeo (além de `play`, `pause`, `loadedmetadata`,
-`ended` e `volumechange`). Ele é a fonte de sincronização enquanto existir — ver
-`snoopDisplayStatus`, na seção da sessão de mídia.
+O comando mais frequente do barramento é o `display-status`, emitido pelo telão a
+cada `timeupdate` (mais `play`, `pause`, `loadedmetadata`, `ended`,
+`volumechange`). Ele é a fonte de sincronização enquanto existir.
 
 ---
 
@@ -2004,174 +1960,136 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
 
 ## Regras de desenvolvimento
 
-- **SEMPRE fazer merge com `main` ao terminar qualquer alteração.** Trabalhar
-  na branch designada é o meio, não o fim: um commit que fica só na branch não
-  chega a lugar nenhum — o OTA publica a partir de `main` (o job `web-ota` tem
-  `if: github.ref == 'refs/heads/main'`) e as Releases nascem de `main`. O
-  fluxo é sempre o mesmo, e a última linha não é opcional:
+### Entrega
+
+- **SEMPRE fazer merge com `main` ao terminar.** Trabalhar na branch designada é
+  o meio, não o fim: o OTA publica a partir de `main` (`if: github.ref ==
+  'refs/heads/main'`) e as Releases nascem de `main`.
 
   ```bash
-  git add <arquivos>
-  git commit -m "vX.YZ: <descrição>"
+  git add <arquivos> && git commit -m "vX.YZ: <descrição>"
   git push -u origin <branch>
-  git checkout main
-  git merge <branch> --no-ff -m "Merge: <resumo>"
+  git checkout main && git merge <branch> --no-ff -m "Merge: <resumo>"
   git push origin main          # ← sem isto, nada chega aos aparelhos
   ```
 
-- **SEMPRE gerar uma Release quando o SHELL mudar.** O merge em `main` só
-  entrega a **base web** — o OTA carrega `assets/web/` e mais nada. Tudo o que
-  está fora dela (`app/src/main/java/`, `AndroidManifest.xml`, `res/`,
-  `build.gradle.kts`, os workflows) **só chega ao aparelho instalando um APK**.
-  Sem a Release, a mudança fica publicada no repositório e ausente do celular —
-  e o pior caso é silencioso: um método novo da ponte faz o lado web se
-  comportar de um jeito no código e de outro no culto, porque lá o
-  `SHELL_VERSION` ainda é o antigo.
+- **SEMPRE gerar uma Release quando o SHELL mudar.** O merge entrega só a **base
+  web** — o OTA carrega `assets/web/` e mais nada. `java/`, `AndroidManifest.xml`,
+  `res/`, `build.gradle.kts` e os workflows **só chegam instalando um APK**, e o
+  pior caso é silencioso: um método novo da ponte faz o web se comportar de um
+  jeito no código e de outro no culto, porque lá o `SHELL_VERSION` é o antigo.
 
-  **Desde a v5.234 isso tem uma primeira linha, e ela vem ANTES do merge:**
-  declarar a tag em `assets/web/version.json`.
+  **A primeira linha vem ANTES do merge:** declarar a tag em `version.json`.
 
   ```jsonc
-  { "version": "5.234", "minShell": 2, "shellTag": "v2.0" }
+  { "version": "5.298", "minShell": 2, "shellTag": "v2.3" }
   ```
 
-  Com ela, o `web-ota` SEGURA o bundle até a Release `v2.0` existir — nenhum
-  aparelho recebe a metade web de um lote cuja metade nativa ainda não saiu — e,
-  quando ela sai, republica o manifesto **com o link do APK dentro**, para o app
-  perguntar uma vez sobre o lote inteiro. Sem `shellTag` o bundle sai na hora,
-  que é o certo para um lote só de web.
+  Com ela o `web-ota` SEGURA o bundle até a Release existir e, quando ela sai,
+  republica o manifesto **com o link do APK dentro** — o app pergunta uma vez
+  sobre o lote inteiro. Sem `shellTag` o bundle sai na hora, que é o certo para
+  um lote só de web. Depois do push em `main`: Actions → *Build APK* → Run
+  workflow, com `release_tag` = a MESMA tag do `version.json` (a tag é criada
+  pelo workflow, a partir de `main`). **Não esperar o operador pedir.**
 
-  Então o fluxo ganha uma última linha quando o diff tocou o shell:
+  **`shellTag` esquecido não quebra nada, mas desfaz o ganho** (o aparelho recebe
+  a metade web sozinha). **`shellTag` apontando para uma tag que nunca sai é
+  pior:** o canal fica segurando para sempre, em silêncio, e a única pista é a
+  linha no resumo do run.
 
-  ```bash
-  # depois do push em main, com o Actions → "Build APK" → Run workflow,
-  # input `release_tag` = a MESMA tag declarada em version.json
-  ```
+### Código
 
-  A tag é criada pelo próprio workflow a partir de `main` (ver "Build"), então
-  não é preciso empurrar tag à mão. **Não esperar o operador pedir**: mudou o
-  shell, sai Release. E a mensagem que anuncia a mudança já não precisa avisar
-  que ela exige instalar o APK — o app avisa sozinho, e instala.
+- **Nunca perder funcionalidades ao refatorar.** A base web tem o sistema de
+  culto inteiro — ver `docs/ARQUITETURA-WEB.md`.
+- **Todo código novo em `assets/web/` continua rodando no navegador**: caminhos
+  nativos entram como `if (!window.__NATIVE__) { …web… }`.
+- **Toda operação IDB multi-passo que precise de atomicidade usa `storeTx()`.**
+- **Ao mudar a superfície da ponte, subir `SHELL_VERSION` e atualizar a seção "A
+  ponte".**
+- **Cor nova entra em `shared/tokens.css`**, nunca literal na folha do app — e
+  nunca branco pleno fora do palco.
+- **Sem dependências externas** — Kotlin puro + AndroidX no shell, JavaScript
+  puro no web. **Quatro exceções, todas declaradas:**
 
-  **Um `shellTag` esquecido não quebra nada, mas desfaz o ganho**: o bundle sai
-  antes da Release e o aparelho recebe a metade web sozinha, como antes da
-  v5.234. Um `shellTag` apontando para uma tag que nunca será publicada é pior:
-  o canal OTA fica segurando para sempre, em silêncio, e a única pista é a linha
-  no resumo do run.
+  | dependência | por que é inevitável |
+  |---|---|
+  | **`@aiden0z/pptx-renderer`** (`assets/web/vendor/`, Apache-2.0, `import()` dinâmico) | o Android **não desenha PowerPoint**: a plataforma só traz o `PdfRenderer`, as libs nativas são comerciais ou limitadas a 3 páginas, converter num servidor mandaria o material do culto para fora do aparelho, e escrever DrawingML à mão daria um slide PARECIDO com o que o pastor montou — pior que slide nenhum. Levantamento completo no `LEIA-ME.md` da pasta |
+  | **`NewPipeExtractor`** | extrair a URL de um vídeo do YouTube é acompanhar as defesas deles (PO Tokens por vídeo, assinados por BotGuard/DroidGuard). A alternativa sem dependência — servidor público — FALHOU em aparelho: eles rodam em IP de datacenter, exatamente o que o YouTube bloqueia. E a conta é paga por quem publica: o SABR que derrubou o 1080p foi resolvido lá (cliente visionOS) e chegou aqui como **um bump de versão**. Manter o pin explícito e ler o CHANGELOG antes de reescrever extração à mão |
+  | **JUnit** (`testImplementation`) | **não põe um byte no APK**. Existe porque o servidor das telas é **a primeira fronteira de rede do projeto** — um parser HTTP com controle de acesso, onde um erro não vira pixel errado, vira controle de acesso quebrado. Escrevê-lo sem oráculo, num repositório que recusa o RFC 6455 **por falta de oráculo**, seria o argumento aplicado contra ele mesmo |
 
-- **Nunca perder funcionalidades existentes ao refatorar.** A base web tem
-  todo o sistema de culto (coleções LouvorJA, letra sincronizada, Bíblia,
-  Camada de Texto, playlist, fades) — ver `docs/ARQUITETURA-WEB.md`.
-- **Todo código novo em `assets/web/` precisa continuar rodando no navegador.**
-  Caminhos nativos entram sempre como `if (!window.__NATIVE__) { …web… }`.
-- Não introduzir dependências externas — Kotlin puro + AndroidX oficial no
-  shell; JavaScript puro no web. **Duas exceções no web, e as duas são
-  declaradas** (a terceira, a IFrame Player API do YouTube, SAIU na v5.212 — ver
-  a nota daquela versão): o
-  **`@aiden0z/pptx-renderer`** (v5.99, em `assets/web/vendor/`, Apache-2.0,
-  carregado por `import()` dinâmico só quando alguém importa um `.pptx`), que
-  existe porque o Android **não desenha PowerPoint** — a plataforma só traz o
-  `PdfRenderer`, as bibliotecas nativas que fazem isso são comerciais ou
-  limitadas a três páginas, converter num servidor mandaria o material do culto
-  para fora do aparelho, e escrever DrawingML à mão produziria um slide PARECIDO
-  com o que o pastor montou, que na frente da congregação é pior que slide
-  nenhum (o levantamento inteiro está no `LEIA-ME.md` daquela pasta) — e o
-  **`NewPipeExtractor`** (v5.81), que existe porque extrair a URL de um vídeo do
-  YouTube significa acompanhar as defesas deles — os PO Tokens de hoje são
-  atrelados a cada vídeo e assinados por BotGuard/DroidGuard, e escrever isso à
-  mão seria assinar um contrato de manutenção semanal que quebraria sempre num
-  domingo. A alternativa sem dependência era um servidor público, e ela FALHOU
-  em aparelho: eles rodam em IP de datacenter, que é exatamente o que o YouTube
-  bloqueia. E a v1.49 é a prova de que a conta está sendo paga por quem
-  publica: o SABR que derrubou o 1080p foi resolvido do lado deles (cliente
-  visionOS, v0.26.3) e chegou aqui como **um bump de versão** — daí a regra
-  prática de manter o pin explícito e olhar o CHANGELOG antes de reescrever
-  extração à mão. Ver `YoutubeGrab.kt`. Uma quarta exceção precisa do mesmo tipo
-  de justificativa: um problema que não se resolve de outro jeito, e a conta da
-  manutenção paga por quem publica a biblioteca.
-  **A quarta exceção é o JUnit** (`testImplementation("junit:junit:4.13.2")`,
-  v5.141), e ela é declarada pelo mesmo padrão das outras três: ele **não põe um
-  byte no APK**, mas é uma dependência nova e paga por si na primeira vez que
-  alguém mexer no limite de cabeçalhos do `EspelhoHttp`. Existe porque o espelho
-  acrescenta ~1.600 linhas de Kotlin e ~360 delas são **a primeira fronteira de
-  rede do projeto**: um parser HTTP com controle de acesso. Escrever isso sem
-  oráculo, no mesmo repositório cujo próprio documento recusa o RFC 6455 **por
-  falta de oráculo**, seria o argumento aplicado contra ele mesmo — e um erro
-  ali não vira pixel errado, vira controle de acesso quebrado.
-- Toda operação IDB multi-passo que precise de atomicidade usa `storeTx()`.
-- Ao mudar a superfície da ponte, subir `NativeBridge.SHELL_VERSION` **e**
-  atualizar a seção "A ponte" acima.
-- **Diagnóstico novo em Kotlin devolve JSON; quem monta a FRASE é o
-  `controle.js`.** É o que `otaDiag` e `ytDiag` já fazem, é o que respeita a
-  invariante 5, e no espelho é o que mantém a sanitização do texto vindo da rede
-  num ponto só. Um arquivo Kotlin que formata parágrafos é UI de diagnóstico
-  escrita do lado errado. Corolário do lado web: **toda linha do bloco é
-  opcional** — o que o shell não souber responder não aparece, nunca
-  "undefined" no meio de um log que vai ser repassado.
-- **O diagnóstico é UM só, e mora numa caixa que ROLA** (`#diagBox`, o
-  "Registro" de Configurações). Um log em espaço fixo esconde o fim quando o
-  texto cresce — e o fim é onde está o desfecho. Diagnóstico novo entra como
-  mais um BLOCO ali, nunca como uma faixa nova em outro canto.
-- **Um bloco de diagnóstico guarda o VEREDITO, nunca uma segunda opinião**
-  (v5.249). Quando o que se quer explicar é uma DECISÃO do app, o texto tem de
-  sair da mesma função que decidiu — `AVSerie.avaliarPlaylist` devolve
-  `{ mes, motivo }` e o `mesDaPlaylist` é a metade dela que a regra usa. Uma
-  segunda escrita das mesmas perguntas ("por que esta playlist não entrou?")
-  envelhece à parte no primeiro ajuste, e o que sai disso é um log que discorda
-  do aparelho — o pior artefato que este projeto sabe produzir, porque ele é
-  lido A DISTÂNCIA e por quem não tem como conferir. **E ele registra o dado
-  CRU**, não só o resultado: um rótulo já formado prova que a regra rodou; só a
-  entrada dela diz por que ela produziu aquilo.
-- **Todo campo de LOG nasce com um botão de copiar** (o cabeçalho `.log-head`
-  com o botão `.log-copy` sobre a caixa `.diag-box` — ver `copiarTexto` em
-  `controle.js`). Diagnóstico existe para ser REPASSADO, e
-  sem o botão a alternativa é transcrever números à mão ou fotografar a tela —
-  que foi exatamente o que aconteceu com a primeira versão do diagnóstico do
-  YouTube. A confirmação é o mesmo pulso do resto do app.
-- Cor nova entra em `assets/web/shared/tokens.css`, nunca literal na folha do
-  app — e nunca branco pleno fora do palco (ver "A paleta").
-- Ao atualizar o código, atualizar este `CLAUDE.md` se a mudança afetar
-  arquitetura, protocolo de comandos ou a ponte. Mudanças dentro de
-  `assets/web/` que afetem a arquitetura web vão em `docs/ARQUITETURA-WEB.md`.
+  Uma quinta exceção precisa da mesma justificativa: um problema que não se
+  resolve de outro jeito, e a manutenção paga por quem publica a biblioteca.
+
+### Diagnóstico
+
+- **Kotlin devolve JSON; quem monta a FRASE é o `controle.js`.** É a invariante 5,
+  e no espelho é o que mantém a sanitização do texto vindo da rede num ponto só.
+  Um arquivo Kotlin que formata parágrafos é UI escrita do lado errado.
+  Corolário: **toda linha do bloco é opcional** — o que o shell não souber
+  responder não aparece, nunca "undefined" num log que vai ser repassado.
+- **O diagnóstico é UM só, e mora numa caixa que ROLA** (`#diagBox`, o "Registro"
+  de Configurações). Diagnóstico novo entra como mais um BLOCO ali, nunca como
+  faixa nova em outro canto.
+- **Um bloco guarda o VEREDITO, nunca uma segunda opinião.** O texto sai da MESMA
+  função que decidiu (`AVSerie.avaliarPlaylist` devolve `{ mes, motivo }`, e
+  `mesDaPlaylist` é a metade dela que a regra usa). Uma segunda escrita das
+  mesmas perguntas envelhece à parte no primeiro ajuste, e o que sai é **um log
+  que discorda do aparelho** — o pior artefato que este projeto sabe produzir,
+  porque é lido A DISTÂNCIA por quem não tem como conferir. **E registra o dado
+  CRU:** um rótulo já formado prova que a regra rodou; só a entrada dela diz por
+  que ela produziu aquilo.
+- **Todo campo de LOG nasce com um botão de copiar** (`.log-head` + `.log-copy`
+  sobre a `.diag-box` — ver `copiarTexto`). Sem ele a alternativa é transcrever
+  números à mão ou fotografar a tela.
+
+### Documentação
+
+Esta documentação é lida por um agente, a cada sessão, **antes** de qualquer
+trabalho. Prosa custa contexto que não sobra para o código.
+
+- **Aqui entra o que VALE HOJE; em `docs/HISTORICO.md`, o que explica POR QUÊ.**
+  Ao publicar, a nota do lote vai para lá (topo + uma linha no índice). Neste
+  arquivo só se mexe quando uma REGRA muda — e então **corrija a regra**, não
+  acrescente um parágrafo dizendo que ela mudou.
+- **Regra e armadilha ficam; a narrativa do achado sai.** Vale escrever "o
+  `optBoolean` lê ausente como `false`, que é valor legítimo" — isso muda o
+  próximo diff. Não vale escrever como o defeito foi encontrado, quem relatou,
+  nem o que se pensou antes.
+- **Uma medição que sustenta uma decisão fica** (`2,73:1`, `60 req/hora`); uma
+  medição de algo já corrigido vai para o histórico.
+- **Nada de lápide dentro do código.** Comentário descreve o que está ali — se
+  ele explica um mecanismo removido, ou contradiz o código, é armadilha: quem o
+  ler vai procurar (ou reintroduzir) o que ele promete.
+- **Prefira tabela a lista, e lista a parágrafo.** Prefira o nome do símbolo a
+  descrevê-lo por extenso.
+
+**Ao atualizar o código:** atualizar este arquivo se a mudança afetar
+arquitetura, protocolo de comandos ou a ponte; `docs/ARQUITETURA-WEB.md` se
+afetar a arquitetura de `assets/web/`.
 
 ### A versão mora em TRÊS lugares, e os três precisam andar juntos
 
 | Onde | O quê | Para quê |
 |---|---|---|
-| `assets/web/version.json` | `"version"` | **é o que faz a atualização chegar aos aparelhos**: o OTA compara este campo (`compareVersions`) e ignora, em silêncio, um bundle cuja versão não for maior que a instalada |
-| `assets/web/controle/controle.js` | `WEB_VERSION` | **é o que a UI de fato mostra**: `renderVersionLabel()` sobrescreve o span do rodapé de Configurações na carga |
-| `assets/web/controle/index.html` | o texto do `<span id="appVersion">` | o que aparece antes do primeiro render — e a única versão visível num shell sem `appVersion()` |
+| `assets/web/version.json` | `"version"` | **faz a atualização chegar aos aparelhos**: o OTA compara este campo (`compareVersions`) e ignora, em silêncio, um bundle cuja versão não seja maior que a instalada |
+| `controle/controle.js` | `WEB_VERSION` | **é o que a UI mostra**: `renderVersionLabel()` sobrescreve o span do rodapé na carga |
+| `controle/index.html` | `<span id="appVersion">` | o que aparece antes do primeiro render — e a única versão visível num shell sem `appVersion()` |
 
-Esquecer o `WEB_VERSION` é o erro silencioso: o OTA distribui o bundle novo, mas
-o aparelho exibe a versão ANTIGA — e essa leitura é exatamente o que o indicador
-existe para dar, inclusive para quem estiver diagnosticando remotamente se o OTA
-chegou. Esquecer o `version.json` é o erro mudo do outro lado: nada chega a
-aparelho nenhum.
+Esquecer o `WEB_VERSION` é o erro **silencioso** (o bundle novo chega e o
+aparelho exibe a versão antiga, justamente a leitura que serve para diagnosticar
+se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
+chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
-mão.
+**Versão atual: v5.298** (base web) · `SHELL_VERSION` **44** · bundle com
+`minShell: 2` — ele funciona igual num shell antigo, só sem os recursos nativos
+por construção (escada do voltar, botões de volume, notificação de controles),
+que **só chegam instalando o APK**.
 
-**Versão atual: v5.298** (base web) · `SHELL_VERSION` **44**, e o bundle segue com
-`minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
-nativos por construção (a escada do voltar, os botões de volume, a notificação de
-controles), que **só chegam instalando o APK novo**, não pelo OTA.
-
-### O histórico mora em `docs/HISTORICO.md`
-
-As notas de lote — 145 delas, uma por versão, verbatim — saíram deste arquivo e
-viraram [`docs/HISTORICO.md`](docs/HISTORICO.md), com índice de uma linha por
-versão no topo. **Elas eram 66% do CLAUDE.md**, isto é, dois terços do que é
-lido em toda sessão para responder a perguntas que quase nunca são feitas.
-
-O que ficou aqui é o que vale HOJE. O que está lá é o que explica POR QUÊ.
+### Onde procurar
 
 | pergunta | onde |
 |---|---|
 | como isto funciona? | aqui, ou `docs/ARQUITETURA-WEB.md` |
-| por que é assim? / já foi tentado? | `grep` em `docs/HISTORICO.md` |
-| que lote mexeu em `foo`? | `grep -n "foo" docs/HISTORICO.md` |
-
-**Publicar uma versão continua exigindo a nota** — ela entra em
-`docs/HISTORICO.md`, logo abaixo do índice, mais uma linha no índice. Uma
-decisão revogada é anotada na nota que a revoga, nunca apagada da que a criou.
-Aqui só entra o que muda uma REGRA: nesse caso, corrija a seção normativa.
+| por que é assim? / já foi tentado? / foi revogado? | `grep -n "<termo>" docs/HISTORICO.md` |
+| o contrato do telão nas telas da rede | `docs/TELAO-POR-COMANDOS.md` |
+| o banco de hinos e Bíblia | `docs/FONTE-DE-DADOS-LOUVORJA.md` |
