@@ -27,26 +27,20 @@
   // escrito à mão nos dois apps e podia divergir sem ninguém notar.
   const FADE = { in: true, out: true, time: 0.6 };
 
-  // O PÔSTER VAZIO — 1×1 transparente, e é isto que mata o "retângulo cinza com
+  // O PÔSTER VAZIO — 1×1 transparente, e é ele que mata o "retângulo cinza com
   // um play preto gigante".
   //
-  // O contrato do WebView é explícito (`WebChromeClient.getDefaultVideoPoster`):
-  // *"o elemento de vídeo é representado por uma imagem de pôster; ela pode ser
-  // dada pelo atributo `poster`, e **se o atributo estiver ausente um pôster
-  // padrão será usado**"*. Esse padrão é o retângulo com o botão de play, e o
-  // app não tem como estilizá-lo — só como deixar de pedi-lo.
+  // Contrato do WebView (`WebChromeClient.getDefaultVideoPoster`): sem o
+  // atributo `poster`, um pôster PADRÃO é usado — o retângulo com o play, que o
+  // app não estiliza, só deixa de pedir.
   //
-  // O `stage` já sabia disso pela metade: ele esconde o `<video>` enquanto não
-  // há `src` (ver `load()`), justamente porque o placeholder piscava a cada
-  // troca de mídia. Com a TRANSMISSÃO DIRETA a janela deixou de ser um piscar:
-  // o `src` é um `MediaSource` que nasce VAZIO e só ganha o primeiro quadro
-  // depois de init + índice + primeiro fragmento virem da rede — segundos, com
-  // o elemento já revelado por `applyMedia()`. "Sem `src`" virou "sem dados", e
-  // a regra de esconder não alcançava esse caso.
+  // O `stage` já sabia disso pela metade (esconde o `<video>` sem `src`, ver
+  // `load()`). Com a TRANSMISSÃO DIRETA o `src` é um `MediaSource` que nasce
+  // VAZIO e só ganha quadro depois de init + índice + fragmento virem da rede:
+  // "sem `src`" virou "sem dados", e a regra de esconder não alcançava.
   //
-  // Transparente, e não preto: as camadas já pintam `--stage-bg` por baixo
-  // (`.layer` / `.pv-layer`), então o que aparece é exatamente o preto do
-  // palco — sem uma segunda definição de "qual preto" para divergir da paleta.
+  // Transparente e não preto: as camadas já pintam `--stage-bg` por baixo, então
+  // aparece o preto do palco — sem uma segunda definição de "qual preto".
   const POSTER_VAZIO = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
   // Quanto esperar pelo primeiro quadro de uma TRANSMISSÃO antes de revelar
   // assim mesmo. Não é o tempo esperado (init + índice + fragmento levam ~1-3 s
@@ -188,27 +182,21 @@
 
     // ===== "ESTÁ CARREGANDO", na TRANSMISSÃO DIRETA (v5.142) =====
     //
-    // Um stream leva segundos entre o comando e o primeiro quadro — init, índice
-    // e o primeiro fragmento vêm da REDE —, e nesse intervalo o palco mostra o
-    // preto. Quando a cena anterior era o wallpaper isso já está resolvido: a
-    // cortina fica de pé até haver quadro (ver o `coverOut` mais abaixo). O caso
-    // que sobrava é a troca de MÍDIA para MÍDIA: ali o fade de saída já levou a
-    // anterior ao preto e não há cortina para segurar — segundos de tela preta,
-    // sem nada dizendo que o app está trabalhando. Do lado de quem opera isso é
-    // indistinguível de uma projeção que morreu.
+    // Um stream leva segundos entre o comando e o primeiro quadro (init, índice
+    // e primeiro fragmento vêm da REDE). Vindo do wallpaper isso já está
+    // resolvido — a cortina fica de pé até haver quadro (`coverOut` abaixo). O
+    // caso que sobrava é MÍDIA → MÍDIA: o fade de saída já levou a anterior ao
+    // preto e não há cortina, então são segundos de tela preta sem nada dizendo
+    // que o app trabalha — indistinguível de uma projeção que morreu.
     //
-    // O NÓ é criado AQUI, e não nos dois `index.html`: ele é do motor e existe só
-    // enquanto um stream espera, e duplicá-lo em dois arquivos seria a mesma
-    // divergência que a cortina compartilhada já existe para evitar.
+    // O NÓ é criado AQUI e não nos dois `index.html`: ele é do motor e só existe
+    // enquanto um stream espera; duplicá-lo em dois arquivos seria a divergência
+    // que a cortina compartilhada já evita.
     //
-    // AS REGRAS, NÃO (v5.205). Elas eram um `<style>` injetado aqui, com o
-    // argumento de que "a animação é um `@keyframes` injetado uma vez" —
-    // verdadeiro até o telão passar a rodar nas telas da rede, onde a CSP da
-    // página (`default-src 'self'`, sem `style-src`) BLOQUEIA estilo embutido.
-    // O elemento era anexado, as regras não valiam, e o indicador virava uma
-    // `div` vazia: a tela ficava em preto durante a espera sem nada dizendo que
-    // o app estava trabalhando, que é precisamente o que ele existe para
-    // evitar. Hoje elas moram em `shared/stage.css`.
+    // AS REGRAS, NÃO (v5.205): eram um `<style>` injetado, e a CSP das telas da
+    // rede (`default-src 'self'`, sem `style-src`) BLOQUEIA estilo embutido — o
+    // elemento era anexado, as regras não valiam, e o indicador virava uma `div`
+    // vazia. Hoje moram em `shared/stage.css`.
     let girando = null;
     function spinner() {
       if (girando) return girando;
@@ -871,22 +859,19 @@
         // chamador precisou mudar. Sem `play()` aqui, quem revela a mídia é o
         // `applyMedia()` + a cortina no fim deste mesmo load.
         if (autoplay !== false) play();
-        // ENTRADA COM RAMPA, espelhando a saída. Isto não existia: o volume
-        // era escrito direto no alvo e a mídia entrava no talo enquanto o
-        // visual ainda esmaecia — a saída tinha rampa, a entrada não, e a
-        // assimetria era audível a cada troca de hino. `play()` restaura o
-        // volume alvo (e limpa o rampTimer), então a rampa só pode vir DEPOIS
-        // dele; ela mesma escreve o 0 inicial.
+        // ENTRADA COM RAMPA, espelhando a saída. Não existia: o volume era
+        // escrito direto no alvo e a mídia entrava no talo enquanto o visual
+        // ainda esmaecia — audível a cada troca de hino. `play()` restaura o
+        // volume alvo (e limpa o rampTimer), então a rampa vem DEPOIS dele; ela
+        // mesma escreve o 0 inicial.
         //
-        // SÓ QUE NUM STREAM ELA NÃO PODE COMEÇAR AQUI. O `play()` de um
-        // `MediaSource` vazio não produz som nenhum: o áudio só começa quando o
-        // primeiro fragmento chega da rede, segundos depois — e a essa altura a
-        // rampa já teria terminado sozinha, entregando o som no talo justamente
-        // no instante em que a imagem aparece. Ela viaja junto de quem REVELA a
-        // mídia (a cortina abrindo ou o [runFadeIn] do conteúdo), logo abaixo.
-        // Com a cortina fechada por escolha do operador (`view: 'wallpaper'`)
-        // ninguém revela nada e o volume entra no alvo direto — que é o que já
-        // acontecia, porque a rampa daqui terminava antes de haver som.
+        // NUM STREAM ELA NÃO PODE COMEÇAR AQUI: o `play()` de um `MediaSource`
+        // vazio não produz som — ele só começa quando o primeiro fragmento chega
+        // da rede, segundos depois, com a rampa já terminada, entregando o som
+        // no talo justamente quando a imagem aparece. Ela viaja junto de quem
+        // REVELA a mídia (a cortina abrindo ou o [runFadeIn]), logo abaixo. Com
+        // a cortina fechada por escolha (`view: 'wallpaper'`) ninguém revela e o
+        // volume entra no alvo direto — que já era o comportamento.
         if (fadeIn && !forceMuted && !video.muted && volume > 0 && !ehStream) {
           rampVolume(0, volume, fadeTime);
         }
@@ -1097,25 +1082,22 @@
 
     // O PÔSTER VAZIO FICA. PARA SEMPRE. (v5.142)
     //
-    // Ele saía no `loadeddata`, e o raciocínio era: "há quadro, então mantê-lo
-    // esconderia o quadro congelado da cena restaurada pausada". A premissa está
-    // errada, e é ela que produzia o retângulo cinza com o play que este pôster
-    // existe para matar.
+    // Ele saía no `loadeddata` ("há quadro, então mantê-lo esconderia o quadro
+    // congelado da cena restaurada pausada"). A premissa está errada, e era ela
+    // que produzia o retângulo cinza com o play.
     //
-    // Quem decide o que um `<video>` pinta não é o `poster`, é o **show poster
-    // flag** do HTML: enquanto ele estiver LIGADO o elemento mostra o pôster, e
-    // ele só é desligado quando a reprodução começa **ou quando há um seek**.
-    // Num vídeo restaurado PAUSADO nenhuma das duas coisas acontecia — a
-    // bandeira seguia ligada, o atributo tinha acabado de ser removido, e sem
-    // atributo o WebView desenha o `getDefaultVideoPoster` dele: o retângulo
-    // cinza com o play. Tirar o pôster não revelava o quadro; revelava o
-    // placeholder.
+    // Quem decide o que um `<video>` pinta não é o `poster`, é o SHOW POSTER
+    // FLAG do HTML: ligado, o elemento mostra o pôster, e ele só desliga quando
+    // a reprodução COMEÇA ou quando há um SEEK. Num vídeo restaurado PAUSADO
+    // nenhuma das duas acontecia — a bandeira seguia ligada, o atributo tinha
+    // sido removido, e sem atributo o WebView desenha o
+    // `getDefaultVideoPoster`. Tirar o pôster revelava o placeholder, não o
+    // quadro.
     //
-    // Com a bandeira desligada o `poster` é IGNORADO pelo próprio contrato —
-    // então mantê-lo não custa nada no caso normal e cobre exatamente a janela
-    // em que ele importa. E para o quadro congelado aparecer de fato, o que
-    // falta é o seek: é ele que a cena pausada faz abaixo, sempre.
-    // (Cada `load` repõe o atributo antes de a fonte nova entrar.)
+    // Com a bandeira desligada o `poster` é IGNORADO por contrato: mantê-lo não
+    // custa nada no caso normal e cobre a janela em que importa. Para o quadro
+    // congelado aparecer, o que falta é o seek — que a cena pausada faz abaixo,
+    // sempre. (Cada `load` repõe o atributo antes de a fonte nova entrar.)
 
     // A MESMA guarda do handler interno (acima): com um load em voo, o fim
     // natural é do item que está SAINDO — anunciá-lo (`media-ended`) faria o
