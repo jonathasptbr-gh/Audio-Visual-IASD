@@ -19,34 +19,30 @@ import kotlin.concurrent.thread
  * OTA da base web: atualiza `assets/web/` sem gerar APK novo.
  *
  * O QUE ISTO DEVOLVE: no PWA, um push em `main` chegava sozinho ao aparelho.
- * Empacotada num APK, cada ajuste de JS/CSS/HTML passaria a exigir baixar e
- * instalar à mão. Aqui o app consulta um `version.json` publicado, baixa o
- * bundle novo e passa a servi-lo — só mudanças no shell Kotlin (raras) ainda
- * exigem APK.
+ * Empacotada num APK, cada ajuste de JS/CSS/HTML exigiria instalar à mão. Aqui
+ * o app consulta um `version.json` publicado, baixa o bundle novo e passa a
+ * servi-lo — só mudanças no shell Kotlin ainda exigem APK.
  *
  * O QUE ISTO **NÃO** MUDA: o acesso ao nativo. A ponte é injetada no WebView
- * pelo Kotlin (`addJavascriptInterface`), não vem nos arquivos web — um
- * bundle baixado enxerga `__AVBridge` exatamente como o embutido, e o
- * `WebViewAssetLoader` serve os dois pelo mesmo origin.
+ * pelo Kotlin (`addJavascriptInterface`), não vem nos arquivos web — um bundle
+ * baixado enxerga `__AVBridge` como o embutido, e o `WebViewAssetLoader` serve
+ * os dois pelo mesmo origin.
  *
- * TRÊS GARANTIAS, porque isto roda em culto:
+ * AS GARANTIAS, porque isto roda em culto:
  *
- *  1. **Nunca troca a base no meio de uma sessão.** O download acontece em
- *     segundo plano, mas o bundle novo só entra em cena no PRÓXIMO
- *     lançamento do app — jamais recarrega o WebView do telão ao vivo. "Por
- *     lançamento" é literal: [beginSession] decide uma única vez por PROCESSO,
- *     e uma recriação da Activity no meio do culto não redecide nada.
- *  2. **Válvula de compatibilidade** (`minShell`): se o bundle exigir uma
- *     ponte mais nova que a do shell instalado, ele é recusado e o app
- *     continua no que já tinha, funcionando, até um APK novo chegar.
- *  3. **Watchdog de boot.** Um bundle que o CONTROLE não confirme ter
- *     carregado é descartado no lançamento seguinte, voltando ao embutido no
- *     APK. Sem isso, um bundle quebrado deixaria o app inutilizável até
- *     reinstalar. A confirmação do telão não vale (ver [confirmBoot]).
+ *  1. ~~Nunca troca a base no meio de uma sessão.~~ REVOGADA (v1.68/v5.151) e
+ *     substituída por uma PERGUNTA (v5.234): o app avisa e o operador escolhe
+ *     entre aplicar agora e deixar para depois. Ver [aoMudarEstado].
+ *  2. **Válvula de compatibilidade** (`minShell`): um bundle que exija ponte
+ *     mais nova que a do shell é recusado, e o app continua funcionando no que
+ *     tinha até um APK novo chegar.
+ *  3. **Watchdog de boot.** Um bundle que o CONTROLE não confirme ter carregado
+ *     é descartado no lançamento seguinte, voltando ao embutido no APK. Sem
+ *     isso, um bundle quebrado inutilizaria o app até reinstalar. A confirmação
+ *     do telão não vale (ver [confirmBoot]).
  *
- * As três continuam valendo. O que mudou na v1.60 foi a PROCURA: ela era uma
- * só, no `onCreate`, e um app aberto o dia inteiro — o normal aqui — nunca
- * ficava sabendo do que fosse publicado depois. Ver "vigilância", mais abaixo.
+ * A PROCURA era uma só, no `onCreate`, e um app aberto o dia inteiro nunca
+ * ficava sabendo do que fosse publicado depois — ver "vigilância", abaixo.
  */
 object WebUpdater {
 
@@ -170,30 +166,26 @@ object WebUpdater {
     /**
      * ESTA SESSÃO SERVE UM BUNDLE DIFERENTE DO QUE A ANTERIOR SERVIU?
      *
-     * Quem lê é a `MainActivity`, e o que ela faz com isso é **limpar o cache
-     * do WebView antes do primeiro `loadUrl`**. A regra já estava escrita neste
-     * projeto, em `StagePresentation.recarregar` e em `applyWebUpdate`: *"sem
-     * limpar o cache, a página nova pode ser montada com pedaços da antiga — o
-     * pior desfecho possível, porque tudo PARECE ter funcionado"*. Só que ela
-     * tinha sido aplicada num dos dois lugares em que a base servida troca.
+     * Quem lê é a `MainActivity`, e o que ela faz é **limpar o cache do WebView
+     * antes do primeiro `loadUrl`**. A regra já estava escrita em
+     * `StagePresentation.recarregar` e em `applyWebUpdate` (*"sem limpar o
+     * cache, a página nova pode ser montada com pedaços da antiga — o pior
+     * desfecho possível, porque tudo PARECE ter funcionado"*), e tinha sido
+     * aplicada em UM dos dois lugares em que a base troca.
      *
-     * O outro é aqui, no lançamento, e são justamente os caminhos de recuo:
-     * o watchdog descartando um bundle que não confirmou o boot, e um APK novo
-     * atropelando um OTA mais antigo. Nos dois a sessão anterior serviu o
-     * bundle X e esta serve o Y, com as MESMAS URLs — `/web/controle/
-     * controle.js` não muda de nome entre versões, e o `cacheMode` do WebView é
-     * `LOAD_DEFAULT`. O que o operador vê é uma página montada com metade de
-     * cada versão; foi assim que o botão único de conectar da v5.192 (embutida
-     * no APK v1.90) reapareceu num aparelho que já rodava a v5.197, com o
-     * relato exato de *"algum tipo de resquício, cache ou conflito que ignorava
-     * as mudanças da atualização"*.
+     * O outro é o lançamento, nos caminhos de recuo: o watchdog descartando um
+     * bundle que não confirmou o boot, e um APK novo atropelando um OTA mais
+     * antigo. Nos dois, a sessão anterior serviu X e esta serve Y com as MESMAS
+     * URLs (`/web/controle/controle.js` não muda de nome, e o `cacheMode` é
+     * `LOAD_DEFAULT`). Foi assim que o botão único de conectar da v5.192
+     * (embutida no APK v1.90) reapareceu num aparelho que já rodava a v5.197.
      *
      * E o modo de falhar se REALIMENTA: uma página remendada tem tudo para não
-     * satisfazer o `otaAppIsUp`, então o bundle seguinte também é descartado, e
-     * o aparelho fica preso indo e voltando entre duas versões.
+     * satisfazer o `otaAppIsUp`, então o bundle seguinte também é descartado e o
+     * aparelho fica preso entre duas versões.
      *
-     * Vale para o lançamento inteiro, não só para o primeiro `onCreate`: é uma
-     * propriedade da SESSÃO, decidida junto com o [sessionRoot].
+     * Vale para o lançamento inteiro: é propriedade da SESSÃO, decidida junto
+     * com o [sessionRoot].
      */
     @Volatile
     var baseTrocou = false
@@ -406,27 +398,21 @@ object WebUpdater {
     //
     // ATÉ A v1.60 A PROCURA ERA UMA SÓ, no `onCreate`. O lado web pergunta de
     // minuto em minuto se há bundle esperando (`otaPending`), mas essa pergunta
-    // só lê o que já está no DISCO — quem põe alguma coisa lá é o `check()`, e
-    // ele rodava uma vez por lançamento. Ou seja: **o web enquetava um valor
-    // que ninguém atualizava.** Com o app aberto (que é o normal: ele fica
-    // aberto o culto inteiro, e no dia a dia por horas), uma versão publicada
-    // depois da abertura simplesmente não existia para o aparelho — nenhum
-    // aviso, nenhuma demora, ausência total. E se a única tentativa caísse sem
-    // rede (o Wi-Fi da igreja demorando a associar é o caso comum), nada era
-    // retentado até o próximo lançamento.
+    // só lê o DISCO — quem põe algo lá é o `check()`, que rodava uma vez por
+    // lançamento: **o web enquetava um valor que ninguém atualizava.** Com o app
+    // aberto o dia inteiro (o normal), uma versão publicada depois da abertura
+    // não existia para o aparelho — nenhum aviso, ausência total. E uma
+    // tentativa que caísse sem rede não era retentada até o próximo lançamento.
     //
-    // Agora há QUATRO gatilhos, e eles cobrem coisas diferentes de propósito:
+    // Agora há QUATRO gatilhos, cobrindo coisas diferentes:
+    //  1. abertura — o de sempre;
+    //  2. ronda periódica enquanto o processo viver ([RONDA_MS]);
+    //  3. retomada do app — quando o operador agiria sobre o aviso, e quando a
+    //     rede costuma estar de volta;
+    //  4. a rede voltando ([vigiarRede]) — fecha o lançamento sem internet.
     //
-    //  1. **abertura** — o de sempre;
-    //  2. **ronda periódica** enquanto o processo viver ([RONDA_MS]);
-    //  3. **retomada do app** — o operador voltando à tela é justamente quando
-    //     ele agiria sobre o aviso, e é quando a rede costuma estar de volta;
-    //  4. **a rede voltando** ([vigiarRede]) — fecha o caso do lançamento sem
-    //     internet, que antes custava o resto da sessão.
-    //
-    // E uma falha não espera a ronda: ela é retentada com espera crescente
-    // ([ESPERAS_FALHA_MS]), porque "sem rede agora" quase nunca significa "sem
-    // rede daqui a meio minuto".
+    // E uma falha não espera a ronda: é retentada com espera crescente
+    // ([ESPERAS_FALHA_MS]).
 
     /**
      * Intervalo da ronda com tudo indo bem — **um minuto**, e não os cinco de
@@ -506,37 +492,32 @@ object WebUpdater {
     @Volatile private var ultimaRonda = 0L
 
     /**
-     * Avisado quando a procura muda o que o aparelho SABE: um bundle novo
-     * ficou pronto no disco, ou o manifesto passou a anunciar um APK. É o que
-     * põe a pergunta na tela no segundo em que a resposta existe, em vez de
-     * esperar a enquete do lado web (ver `MainActivity`).
+     * Avisado quando a procura muda o que o aparelho SABE: um bundle novo ficou
+     * pronto no disco, ou o manifesto passou a anunciar um APK. É o que põe a
+     * pergunta na tela no segundo em que a resposta existe, em vez de esperar a
+     * enquete do lado web (ver `MainActivity`).
      *
      * ## Por que ele avisa em vez de APLICAR (v5.234)
      *
-     * Da v1.68 até aqui havia ao lado deste um `aplicarSozinho`, e o bundle
-     * novo entrava sozinho, sem perguntar. Ele nasceu certo, contra um defeito
-     * real: "entra no próximo lançamento" era literal de um jeito que ninguém
-     * tinha medido — [beginSession] decide UMA vez por **processo**, e este
-     * processo quase nunca morre (os serviços em primeiro plano o mantêm vivo
-     * de propósito, e fechar pelo Recentes derruba a Activity, não o processo).
-     * O operador reabria o app "várias e várias vezes" e continuava na versão
-     * velha. Somado a isso, a oferta do lado web era suprimida com cena, com
-     * download **ou com o espelho ligado** — e o espelho ficava ligado o tempo
-     * todo. As duas coisas produziam "o OTA não funciona".
+     * Da v1.68 até aqui havia um `aplicarSozinho` ao lado deste, e o bundle
+     * entrava sem perguntar. Ele nasceu contra um defeito real: "entra no
+     * próximo lançamento" é literal — [beginSession] decide UMA vez por
+     * PROCESSO, e este processo quase nunca morre (os serviços em primeiro
+     * plano o mantêm vivo, e fechar pelo Recentes derruba a Activity, não o
+     * processo). Somado a isso, a oferta do lado web era suprimida com cena,
+     * download **ou espelho ligado** — e o espelho ficava ligado o tempo todo.
      *
-     * O diagnóstico estava certo e o remédio era largo demais. Aplicar sem
+     * O diagnóstico estava certo e o remédio era largo demais: aplicar sem
      * perguntar troca a base no meio do que o operador estiver fazendo, e a
-     * decisão de QUANDO piscar é dele. O que a v5.234 conserta é a causa, não o
-     * sintoma: a detecção passou a ser rápida ([RONDA_MS]) e a supressão do
-     * lado web ficou só com o que é temporário (cena e download), sem o espelho
-     * — que era permanente e era o elo que travava tudo.
+     * decisão de QUANDO piscar é dele. A v5.234 conserta a CAUSA — detecção
+     * rápida ([RONDA_MS]) e supressão só do que é temporário (cena e download),
+     * sem o espelho, que era o elo permanente que travava tudo.
      *
-     * O custo de aplicar continua o mesmo, e continua recuperável: o telão
-     * recarrega, dispara `display-ready`, e o Controle reenvia a cena com
-     * posição e estado de reprodução — o mesmo caminho que a queda de um dongle
-     * já exercita. O que não volta sozinho, e está dito em vez de escondido: um
-     * lote de downloads recomeça o item em voo, e uma tela da rede segue com a
-     * página antiga até ser recarregada.
+     * O custo de aplicar é recuperável: o telão recarrega, dispara
+     * `display-ready`, e o Controle reenvia a cena com posição e estado — o
+     * mesmo caminho da queda de um dongle. O que não volta sozinho: um lote de
+     * downloads recomeça o item em voo, e uma tela da rede segue com a página
+     * antiga até ser recarregada.
      */
     @Volatile
     var aoChegar: ((String) -> Unit)? = null
