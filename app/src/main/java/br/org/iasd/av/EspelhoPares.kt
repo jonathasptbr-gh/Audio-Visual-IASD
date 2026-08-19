@@ -177,7 +177,7 @@ object EspelhoPares {
      * nenhuma**: qual navegador roda ali, em que resolução, e há quanto tempo
      * aquela tela está acesa.
      *
-     * **ELE ENCOLHEU NA v5.297, e o motivo é a régua da v5.206.** Havia seis
+     * **ELE ENCOLHEU NA v5.298, e o motivo é a régua da v5.206.** Havia seis
      * campos a mais — `seguro`, `mse`, `mms`, `fetchStream`, `videoDecoder`,
      * `wakeLock` —, todos do autorrelato de CAPACIDADE que o `espelho/cliente.js`
      * mandava na era dos pixels. Aquele arquivo foi apagado na v5.187 e nenhum

@@ -445,7 +445,7 @@ esperam uma **pessoa** e ficam sem prazo, porque um timeout ali resolveria null
 com o operador ainda escolhendo a pasta.
 
 `NativeBridge.SHELL_VERSION` identifica a versão da casca — **subir sempre que
-a superfície da ponte mudar**. Hoje vale **44** — a v5.297 ENCOLHE a forma do
+a superfície da ponte mudar**. Hoje vale **44** — a v5.298 ENCOLHE a forma do
 `espelhoEstado`: cada tela perdeu os seis campos de CAPACIDADE do relato
 (`seguro`, `mse`, `mms`, `fetchStream`, `videoDecoder`, `wakeLock`). Eles eram o
 autorrelato que o `espelho/cliente.js` mandava na era dos pixels; aquele arquivo
@@ -3069,62 +3069,19 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.297** (base web) · `SHELL_VERSION` **44**, e o bundle segue com
+**Versão atual: v5.298** (base web) · `SHELL_VERSION` **44**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
 
-> **A v5.297 (v2.3): O PRODUTOR QUE SOBREVIVEU AO CONSUMIDOR — os seis campos
-> de capacidade do relato saem do `espelhoEstado`. EXIGE APK**
-> (`SHELL_VERSION` **44**).
+> **A v5.298 (v2.3): A REVISÃO PROFUNDA — uma seção inteira do doc de arquitetura
+> descrevia um player apagado, e o `espelhoEstado` publicava seis medições que
+> ninguém produzia. METADE OTA, METADE APK** (`SHELL_VERSION` **44**).
 >
-> A outra metade do achado da v5.296, e ela é o **40 pelo outro lado do fio**.
->
-> `EspelhoServidor.relatoDe` lia seis campos que nenhum produtor emite desde a
-> v5.187 — `seguro`, `mse`, `mms`, `fetchStream`, `videoDecoder`, `wakeLock`.
-> Eles eram o autorrelato de CAPACIDADE que o `espelho/cliente.js` mandava no
-> `POST /par` na era dos pixels ("esta tela tem MSE? aceita `fetch` em stream?
-> tem `VideoDecoder`?"); aquele arquivo foi apagado com o espelho inteiro, e o
-> `espelho/tela.js` que o substituiu manda `{ua, w, h}` e mais nada.
->
-> **E eles não sumiam: viravam `false`.** `optBoolean` lê campo ausente como
-> `false`, que é um valor LEGÍTIMO — a armadilha exata que o degrau 40 nomeou —,
-> então `relatoJson` publicava seis negativas sobre TODA tela conectada, a cada
-> leitura do estado, com a folha aberta a cada 2,5 s. O CONSUMIDOR delas saiu na
-> v5.206: era ele que imprimia `tela A · MSE:nao · fetch-stream:nao · seguro:nao
-> · wakeLock:nao` sobre a única tela que estava funcionando. O produtor ficou
-> dezesseis versões.
->
-> **Por que isto é um degrau e não uma faxina, e por que ele merece uma Release
-> sem ter sintoma:** não há defeito visível hoje — ninguém lê aqueles campos —, e
-> é justamente por isso. O que sobra de um produtor sem consumidor não é ruído
-> inofensivo: é uma leitura que já vem preenchida, com valor plausível, para quem
-> repuser o consumidor amanhã. A v5.206 escreveu a regra pela metade ("apagar o
-> produtor e deixar o consumidor produz um zero"); a outra metade é esta —
-> **apagar o consumidor e deixar o produtor produz uma medição falsa esperando
-> um leitor**. Remoção de recurso é remoção dos dois lados do fio, no mesmo lote.
->
-> O que ENCOLHE, exatamente: `EspelhoPares.Relato` (de dez campos para quatro),
-> o `relatoDe` que o preenche e o `relatoJson` que o publica. `sanear(Relato)` já
-> só tocava nos quatro que ficam, então ele não mudou uma linha — o que é a
-> confirmação de que os seis nunca chegaram a valer nada depois da v5.187. O
-> `EspelhoParesTest` acompanhou.
->
-> **Um bundle antigo num shell 44** simplesmente lê `undefined` nos seis, e o
-> único ponto que os desenhava já não existe desde a v5.206; um **bundle novo num
-> shell 43** recebe os seis e os ignora. A degradação é boa nos dois sentidos, e
-> ainda assim o degrau sobe: forma mudada é superfície mudada, e sem ele nada
-> impediria a próxima leitura de nascer contra um shell que não a alimenta.
-
-> **A v5.296: A REVISÃO PROFUNDA DA DOCUMENTAÇÃO — uma seção inteira do doc de
-> arquitetura descrevia um player apagado, e o `MainActivity` descrevia o
-> espelho de PIXELS no presente em treze pontos. OTA PURO** (o diff de Kotlin é
-> 100% comentário — nenhuma linha de código; sem Release).
->
-> Uma varredura do repositório inteiro pedida pelo operador: *"revisando o
-> código por completo, atualizando a documentação dele que deve estar
-> desatualizada… pode buscar otimizações, código morto, falhas de padrões ou
-> problemas de conceito"*.
+> Uma varredura do repositório inteiro pedida pelo operador: *"revisando o código
+> por completo, atualizando a documentação dele que deve estar desatualizada…
+> pode buscar otimizações, código morto, falhas de padrões ou problemas de
+> conceito"*.
 >
 > **O MÉTODO, porque ele é o que se repete da próxima vez.** Cada identificador
 > citado entre crases — no CLAUDE.md, nos docs e nos COMENTÁRIOS do código — foi
@@ -3143,7 +3100,44 @@ controles), que **só chegam instalando o APK novo**, não pelo OTA.
 > CLAUDE.md não tem um único identificador obsoleto: os 66 achados dele estão
 > todos dentro das notas de versão, onde descrever o que saiu é o trabalho.
 >
-> **OS DEFEITOS, e o maior deles é de doc:**
+> ---
+>
+> ## A metade APK: o PRODUTOR QUE SOBREVIVEU AO CONSUMIDOR (shell 44)
+>
+> `EspelhoServidor.relatoDe` lia seis campos que nenhum produtor emite desde a
+> v5.187 — `seguro`, `mse`, `mms`, `fetchStream`, `videoDecoder`, `wakeLock`.
+> Eram o autorrelato de CAPACIDADE que o `espelho/cliente.js` mandava no
+> `POST /par` na era dos pixels ("esta tela tem MSE? aceita `fetch` em stream?
+> tem `VideoDecoder`?"); aquele arquivo foi apagado com o espelho inteiro, e o
+> `espelho/tela.js` que o substituiu manda `{ua, w, h}` e mais nada.
+>
+> **E eles não sumiam: viravam `false`.** `optBoolean` lê campo ausente como
+> `false`, que é um valor LEGÍTIMO — a armadilha exata que o degrau 40 nomeou —,
+> então `relatoJson` publicava seis negativas sobre TODA tela conectada, a cada
+> leitura do estado, com a folha aberta a cada 2,5 s. O CONSUMIDOR delas saiu na
+> v5.206: era ele que imprimia `tela A · MSE:nao · fetch-stream:nao · seguro:nao
+> · wakeLock:nao` sobre a única tela que estava funcionando. O produtor ficou
+> dezesseis versões.
+>
+> **Por que isto é um degrau e merece uma Release SEM ter sintoma:** não há
+> defeito visível hoje — ninguém lê aqueles campos —, e é justamente por isso. O
+> que sobra de um produtor sem consumidor não é ruído inofensivo: é uma leitura
+> que já vem preenchida, com valor plausível, para quem repuser o consumidor
+> amanhã. A v5.206 escreveu a regra pela metade ("apagar o produtor e deixar o
+> consumidor produz um zero"); a outra metade é esta — **apagar o consumidor e
+> deixar o produtor produz uma medição falsa esperando um leitor**. Remoção de
+> recurso é remoção dos dois lados do fio, no mesmo lote.
+>
+> O que encolhe: `EspelhoPares.Relato` (de dez campos para quatro), o `relatoDe`
+> que o preenche e o `relatoJson` que o publica. **`sanear(Relato)` não mudou uma
+> linha** — ele já só tocava nos quatro que ficam, o que é a confirmação de que os
+> seis não valiam nada desde a v5.187. O `EspelhoParesTest` acompanhou. Um bundle
+> antigo num shell 44 lê `undefined` nos seis (e o único ponto que os desenhava
+> saiu na v5.206); um bundle novo num shell 43 os recebe e ignora.
+>
+> ---
+>
+> ## A metade OTA: a documentação que descrevia mecanismos apagados
 >
 > - **`docs/ARQUITETURA-WEB.md` tinha uma seção INTEIRA — "### YouTube (IFrame
 >   Player API oficial)", 95 linhas — escrita no presente sobre o player que a
@@ -3211,23 +3205,121 @@ controles), que **só chegam instalando o APK novo**, não pelo OTA.
 > `N/M` (os dois contados pelo workflow) em vez de `N/12`, que era verdade
 > quando o parágrafo foi escrito e são treze hoje.
 >
-> **O QUE FICOU MAPEADO AQUI E VIROU A v5.297** (a nota acima): `EspelhoServidor.relatoDe`
-> lê SEIS campos que nenhum produtor emite desde a v5.187 — `seguro`, `mse`,
-> `mms`, `fetchStream`, `videoDecoder`, `wakeLock`. O `espelho/cliente.js` que os
-> mandava foi apagado; o `tela.js` manda `{ua, w, h}` e mais nada. Todos caem no
-> padrão `false` do `optBoolean`, que é um valor LEGÍTIMO — a armadilha exata da
-> v5.206 —, e `relatoJson` os publica em `espelhoEstado()` a cada 2,5 s para um
-> consumidor que a v5.206 removeu do `controle.js`. Hoje ninguém os lê, então
-> não há defeito visível; o que há é um produtor que sobreviveu ao consumidor,
-> pronto para ser mal interpretado por quem repuser uma leitura. **Encolher a
-> forma de `espelhoEstado` é mudar a superfície da ponte** (a régua da v5.206),
-> logo custa um degrau de `SHELL_VERSION`, um `shellTag` e uma Release — e é por
-> isso que ele ficou de fora DESTE lote, que é OTA puro, e virou o seguinte.
+> Os 19 oráculos passam, e a remoção de código morto foi verificada por
+> ISOLAMENTO (com o defeito injetado, o `destinos.test.mjs` reprova em 3). O
+> Kotlin **não foi compilado** aqui (o ambiente não tem o SDK do Android): o diff
+> dele são dezoito remoções e uma constante, e quem o compila é o CI.
 >
-> Os 19 oráculos passam, e cada remoção foi verificada com a suíte inteira
-> depois. O Kotlin **não foi compilado** aqui (o ambiente não tem o SDK do
-> Android); o diff dele foi conferido linha a linha para não conter uma única
-> linha de código, e quem o compila é o CI.
+> *(Ela nasceu como v5.296+v5.297 e foi renumerada no merge: uma sessão paralela
+> publicou outra v5.296 e outra v5.297 em `main` enquanto esta rodava. Os lotes
+> não se tocam — o de lá é cor e superfície da Biblioteca, o daqui é documentação
+> e a forma do `espelhoEstado` —, e a suíte inteira foi rodada depois de juntos.)*
+
+> **A v5.297: NÃO HAVIA COR DE TEXTO QUE RESOLVESSE — o defeito era a
+> SUPERFÍCIE, e a Biblioteca inteira estava em MAIÚSCULAS. OTA PURO** (CSS,
+> tokens e oráculo; sem Release).
+>
+> Relato do operador depois da v5.296, com prints: *"não melhorou a leitura"*.
+> Ele estava certo, e o lote anterior tinha consertado metade de um vazamento e
+> tratado o sintoma errado do outro.
+>
+> **1. A LINHA DE CONTEÚDO SE AFASTA DO TEXTO.** A faixa vestia `--surface`, e
+> recesso é uma regra sobre PROFUNDIDADE: no escuro ela afasta do texto claro,
+> no CLARO ela empurra na direção dele. Medido, o fundo compunha
+> rgb(182,187,194) — **~50% de luminância, o meio-tom exato**, que é o pior caso
+> para os dois lados: `--text` dava 4,59:1 (passava AA e não se lia) e o branco
+> que o operador pediu daria **1,93:1**. Não havia cor de texto que resolvesse.
+>
+> `--item-fill` é a regra escrita como token, com um valor por tema: no escuro
+> segue o de sempre (nada muda), no claro a linha SOBE até quase o branco — que
+> é o que uma lista de conteúdo faz em toda UI clara, com o cinza do card
+> aparecendo entre as linhas. Medido depois: **8,32:1** com o texto e 1,32:1 de
+> separação contra o card (piso 1,28).
+>
+> **A aritmética não deixava escolha, e é ela que também derrubou a gaveta.** A
+> linha precisa de 1,28:1 contra o card, o que a força a ~0,91 de luminância —
+> isto é, quase branco, não um meio-termo. E a gaveta de opções (v5.287), que
+> tinha SUBIDO para o branco porque a vizinha era escura, ficou a **1,07:1**
+> dela: o relato daquele lote reaberto pela porta oposta. Ela desce para um
+> cinza de verdade (os dois pares que ela precisa satisfazer — contra a linha e
+> contra o card — deixam L ≤ 0,53), e os botões dela sobem para o branco. **O
+> oráculo da v5.287 pegou isso no mesmo commit**, que é a única razão de este
+> lote não ter trocado um relato por outro.
+>
+> **2. E O QUE O OPERADOR DE FATO VIA: a Biblioteca INTEIRA em MAIÚSCULAS.** O
+> vazamento da v5.296 era de `color`, e ela desceu só a cor, com o preço
+> declarado na própria nota. `text-transform: uppercase` e `letter-spacing`
+> herdam do mesmo bloco e **ninguém os reescreve lá dentro** — caixa alta a 13px
+> é mais lenta de ler e mais larga, e era ela que truncava
+> "001. SANTO, SANTO, SANTO! (CANTAD…" numa linha que cabia. A regra do rótulo
+> foi INTEIRA para a `.coll-group-bar`, que é a peça que ela sempre descreveu.
+> `font-size` e `font-weight` vêm junto porque a regra é uma só; quem muda de
+> verdade é o nome de um favorito (`.row-name` não declara peso), que volta ao
+> 400 das outras listas do app.
+>
+> **A lição, e ela é maior que este arquivo:** *declarar o preço de uma correção
+> pela metade não é o mesmo que pagá-lo.* A v5.296 nomeou este vazamento no
+> comentário e o deixou de pé por não ter sido pedido — e ele era metade do que
+> o operador estava vendo.
+>
+> **O oráculo ganhou a REGRA, não um valor:** a linha que carrega o texto
+> contrasta com ele MAIS que o contêiner dela. Ela vale nos dois temas sem um
+> `if` de tema, e um recesso de volta a reprova no claro e passa no escuro — que
+> é exatamente a assimetria do defeito. Verificado por ISOLAMENTO, peça a peça:
+> o recesso de volta reprova **2**, o vazamento de tipografia **2**, a gaveta
+> branca **1**.
+
+> **A v5.296: O NOME DA FAIXA SAÍA NA COR DE UM CABEÇALHO — e no tema claro
+> isso reprovava AA. OTA PURO** (só CSS e o oráculo; sem Release).
+>
+> Relato do operador: *"verifique a cor do texto dos itens dentro do álbum na
+> biblioteca, pois no tema claro, o fundo dos cards está escuro mas acredito que
+> nesse caso o texto deve ser claro, para ter o contraste ideal"*.
+>
+> **MEDIDO antes de mexer, no tema CLARO: 3,45:1.** O nome de uma faixa dentro
+> de um álbum saía em `--muted` (#565d66) sobre o recesso da própria faixa
+> (rgb(182,187,194)), a 13,12px — abaixo do piso de 4,5:1 para texto pequeno. No
+> ESCURO o mesmo par dá 6,46:1, e é por isso que a queixa é de um tema só.
+>
+> **A causa é HERANÇA, e é a família da v5.274 por outra porta.** `.coll-group`
+> é a regra do RÓTULO da seção — uma linha curta, em caixa alta, `--muted` — e
+> desde que a seção virou o BLOCO que contém a barra e o corpo (v5.237) ela é o
+> CONTÊINER de tudo o que a Biblioteca desenha. `color` herda: o `--muted` de um
+> cabeçalho pintava o nome de toda faixa, de todo favorito e de toda pasta lá
+> dentro. Era **o único lugar do app em que uma linha de lista não é `--text`**,
+> e era invisível justamente por isso — não havia uma declaração errada a achar,
+> havia uma declaração certa no elemento errado. A cor desce para a
+> `.coll-group-bar`, que é a peça que ela sempre descreveu, e o corpo volta a
+> herdar o `--text` da folha como qualquer outra lista.
+>
+> **E O REMÉDIO PEDIDO SERIA PIOR, MEDIDO.** O fundo não é escuro: é um
+> MEIO-TOM (~50% de luminância, o pior caso para os dois lados). Branco sobre
+> ele dá **1,93:1**, contra os **4,59:1** que o `--text` devolve. A percepção do
+> operador estava certa — aquele texto não se lê —, e a leitura de que o fundo é
+> escuro é o que a medição corrige: quem clareia aqui é o texto do tema, não uma
+> exceção. É o oposto da v5.268, em que a superfície é que saía da escada.
+>
+> **O ORÁCULO ENTROU ONDE O BURACO ESTAVA.** Os casos da escada de camadas
+> (v5.241/v5.267) mediam os FUNDOS da Biblioteca nos dois temas, e a escada
+> estava — e continua — correta; **nenhum deles olhava para a COR DO TEXTO**, e
+> foi por aí que isto atravessou. Agora eles medem o par, com o fundo COMPOSTO
+> (a faixa é um overlay: `backgroundColor` devolve o alfa, e comparar o texto
+> com um preto a 14% diria a mesma coisa com o defeito no lugar). A metade
+> negativa é o que impede a correção de virar "tudo virou `--text`": o rótulo da
+> seção continua com cor própria.
+>
+> Verificado por ISOLAMENTO: devolvendo a cor ao bloco, **3** asserções
+> reprovam — e a do tema claro imprime o 3,45:1 do relato.
+>
+> **O QUE NÃO FOI MEXIDO, e está dito em vez de escondido:** a mesma regra
+> vaza `letter-spacing` e `text-transform: uppercase` para o corpo, e ninguém os
+> reescreve — o título do álbum e o nome da faixa são desenhados em MAIÚSCULAS
+> por causa dela. Mexer nisso muda a aparência de toda a Biblioteca, que não é o
+> que foi pedido. E o SUBTÍTULO de uma linha de favorito (`--muted` explícito,
+> 10,88px) continua em **3,45:1** sobre o mesmo recesso, pelo mesmo motivo
+> estrutural: `--muted` foi calibrado contra `--panel` (6,66:1) e `--panel-2`
+> (4,73:1), nunca contra um recesso DENTRO do painel-2, que é a superfície mais
+> funda da Biblioteca.
 
 > **A v5.295: OS COMENTÁRIOS QUE DESCREVIAM A GAVETA COMO SE ELA EXISTISSE.
 > OTA PURO** (nenhuma linha de código; sem Release).

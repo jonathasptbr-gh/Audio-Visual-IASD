@@ -2083,11 +2083,41 @@ main {
    em 238px, e nenhum tamanho legível faria caber. O que este lote conserta por
    inteiro é a desproporção; o corte de um título de 54 caracteres ele apenas
    adia. */
+/* ---------- A COR DO RÓTULO NÃO É A COR DO CONTEÚDO (v5.296) ----------
+   Relato do operador: *"a cor do texto dos itens dentro do álbum na biblioteca,
+   pois no tema claro, o fundo dos cards está escuro"*.
+
+   MEDIDO antes de mexer, no tema CLARO: o nome de uma faixa dentro de um álbum
+   saía em `--muted` (#565d66) sobre o recesso da faixa (rgb(182,187,194)) —
+   **3,45:1** a 13,12px, isto é, REPROVA AA (o piso é 4,5:1 para texto pequeno).
+   No ESCURO o mesmo par dá 6,46:1, e é por isso que a queixa é de um tema só.
+
+   A CAUSA é de herança, e é a família da v5.274 por outra porta: esta regra
+   nasceu para o RÓTULO da seção (uma linha curta em caixa alta) e, desde que a
+   seção virou um BLOCO que contém a barra e o corpo (v5.237), ela é o
+   CONTÊINER de tudo o que a Biblioteca desenha. `color` herda — então o
+   `--muted` do rótulo pintava o nome de toda faixa, de todo favorito e de toda
+   pasta lá dentro, que é o único lugar do app em que uma LINHA DE LISTA não é
+   `--text`. Daí a cor descer para a BARRA, que é a peça que ela sempre
+   descreveu: o corpo volta a herdar o `--text` da folha, como qualquer outra
+   lista, e o vazamento deixa de existir em vez de ser compensado um nível
+   abaixo.
+
+   **E o remédio pedido seria pior, medido:** o fundo não é escuro, é um
+   MEIO-TOM (~50% de luminância, o pior caso para os dois lados) — branco sobre
+   ele dá **1,93:1**, contra os 4,59:1 que o `--text` devolve. Quem clareia aqui
+   é o texto do tema, não uma exceção.
+
+   O QUE NÃO MUDA, e está dito em vez de escondido: `font-size`, `font-weight`,
+   `letter-spacing` e `text-transform` continuam nesta regra e continuam
+   herdando para o corpo (o tamanho e o peso são reescritos pelo card e pela
+   faixa; a caixa alta e o espaçamento, não — o título do álbum e o nome da
+   faixa saem em MAIÚSCULAS por causa desta linha). É o mesmo vazamento, e
+   mexer nele muda a aparência de toda a Biblioteca, que não é o que foi
+   pedido. */
 .coll-group {
   flex-shrink: 0;
   display: flex; align-items: center; gap: .5rem;
-  font-size: .9rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
-  color: var(--muted);
   /* A direita reserva o MESMO espaço que o card gasta depois do botão de
      baixar — hoje só o padding dele (.7rem), já que a moldura e a seta do
      acordeão saíram na v5.71. Sem isso os dois botões de baixar, que ficam um
@@ -2296,7 +2326,11 @@ main {
   border-radius: var(--radius-card);
 }
 #hymnResults > .coll-group--fav.aberto .fav-itens > .lib-item {
-  --linha: var(--surface);
+  /* A MESMA RECEITA da faixa do álbum, e é o ponto da v5.283 — os dois são
+     "um item", não "um contêiner". Trocaram `--surface` por `--item-fill`
+     JUNTOS (v5.297): separá-los aqui devolveria as duas cores diferentes para o
+     mesmo papel, que é o defeito que aquela versão fechou. */
+  --linha: var(--item-fill);
   --camada: transparent;
 }
 /* ---------- AS SEÇÕES RESPIRAM (v5.273) ----------
@@ -2339,6 +2373,25 @@ main {
    MUDA com o estado — quem diz "isto está aberto" é a seta e o que apareceu
    embaixo dela. */
 .coll-group-bar {
+  /* ---------- O RÓTULO INTEIRO MORA AQUI (v5.296 → v5.297) ----------
+     Estas quatro linhas e a cor viviam na `.coll-group`, que é o BLOCO — e
+     desde a v5.237 o bloco contém a barra E o corpo. Todas herdam: a v5.296
+     desceu a `color` (o nome de cada faixa saía na cor de um cabeçalho, 3,45:1
+     no tema claro) e deixou as outras, com o preço declarado. Ele foi cobrado
+     no lançamento seguinte — *"não melhorou a leitura"* —, e a razão está nos
+     prints: a Biblioteca INTEIRA era desenhada em MAIÚSCULAS com espaçamento de
+     rótulo, porque `text-transform` e `letter-spacing` não são reescritos por
+     ninguém lá dentro. Caixa alta a 13px é mais lenta de ler que caixa baixa e
+     gasta mais largura — era ela que truncava "001. SANTO, SANTO, SANTO!
+     (CANTAD…" numa linha que cabia.
+
+     `font-size` e `font-weight` vêm junto porque a regra é uma só: **isto é a
+     tipografia de um RÓTULO, e um rótulo é a barra.** O card e a faixa já
+     declaram os seus; quem muda de verdade é o nome de um favorito (`.row-name`
+     não declara peso), que volta ao 400 das outras listas do app — a mesma
+     linha, o mesmo desenho, dentro e fora da Biblioteca. */
+  font-size: .9rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted);
   display: flex; align-items: center; gap: .5rem;
   padding: .5rem .45rem .5rem .55rem;
   min-height: var(--hit);
@@ -2590,7 +2643,12 @@ main {
    nenhum, que é a regra da casa desde a v5.267. */
 .coll-songs > .hymn-result {
   border-radius: var(--radius-btn);
-  --linha: var(--surface);
+  /* `--item-fill` e não `--surface` (v5.297): recesso é uma regra sobre
+     PROFUNDIDADE, e esta linha responde a outra pergunta — de que lado fica o
+     texto. No escuro os dois dão no mesmo; no claro o recesso levava a faixa ao
+     meio-tom (50% de luminância) e nenhuma cor de texto resolvia. A conta está
+     em `tokens.css`. */
+  --linha: var(--item-fill);
 }
 
 /* A sentinela do fim da página (ver `fillSongList`). O objetivo é que ela NÃO

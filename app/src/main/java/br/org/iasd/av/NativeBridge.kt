@@ -149,7 +149,7 @@ class NativeBridge(
          * exijam mais do que o shell instalado oferece (ver [WebUpdater]).
          * Subir SEMPRE que a superfície da ponte mudar.
          *
-         * 44 (v5.297) — O SEGUNDO ENCOLHIMENTO PELA MESMA RÉGUA DO 40, e desta
+         * 44 (v5.298) — O SEGUNDO ENCOLHIMENTO PELA MESMA RÉGUA DO 40, e desta
          * vez do lado do PRODUTOR: cada tela em `espelhoEstado` perdeu os seis
          * campos de CAPACIDADE do relato — `seguro`, `mse`, `mms`,
          * `fetchStream`, `videoDecoder` e `wakeLock`.
