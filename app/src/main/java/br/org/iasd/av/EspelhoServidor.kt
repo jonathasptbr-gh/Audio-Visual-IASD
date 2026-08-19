@@ -1625,12 +1625,6 @@ class EspelhoServidor(
         ua = json.optString("ua"),
         w = json.optInt("w", 0),
         h = json.optInt("h", 0),
-        seguro = json.optBoolean("seguro", false),
-        mse = json.optBoolean("mse", false),
-        mms = json.optBoolean("mms", false),
-        fetchStream = json.optBoolean("fetchStream", false),
-        videoDecoder = json.optBoolean("videoDecoder", false),
-        wakeLock = json.optBoolean("wakeLock", false),
         telaAcesaMin = json.optInt("telaAcesaMin", 0).coerceIn(0, 24 * 60),
     )
 
@@ -1650,12 +1644,6 @@ class EspelhoServidor(
         .put("ua", r.ua)
         .put("w", r.w)
         .put("h", r.h)
-        .put("seguro", r.seguro)
-        .put("mse", r.mse)
-        .put("mms", r.mms)
-        .put("fetchStream", r.fetchStream)
-        .put("videoDecoder", r.videoDecoder)
-        .put("wakeLock", r.wakeLock)
         // O do relato é o que a tela DECLAROU ao entrar; [estado] o sobrescreve
         // logo em seguida com o número vivo do `alive`.
         .put("telaAcesaMin", r.telaAcesaMin)

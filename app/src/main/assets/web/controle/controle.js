@@ -213,7 +213,7 @@ const appVersionEl = document.getElementById('appVersion');
 // "Web v4.87" com "Shell v1.5" diz na hora que o OTA chegou mas o APK não
 // (ou o contrário). Manter WEB_VERSION igual a `version` em version.json —
 // é ela que dispara (ou não) a atualização nos aparelhos.
-const WEB_VERSION = '5.297';
+const WEB_VERSION = '5.298';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização: é a
 // regra que a v5.199 escreveu depois de a zona morta temporal derrubar o app
@@ -4300,10 +4300,15 @@ async function adicionarNasListas(listas, id, nome, btn) {
   return novas.length;
 }
 
-// A forma de UM destino, que é o que a maior parte do app ainda usa.
-async function adicionarNaLista(lista, id, nome, btn) {
-  return (await adicionarNasListas([lista], id, nome, btn)) > 0;
-}
+// (`adicionarNaLista` — a forma de UM destino — SAIU: o comentário dela dizia
+// que era "o que a maior parte do app ainda usa" e ela não tinha um único
+// chamador. Os dois pontos que acrescentam item a lista (a gaveta de uma linha
+// e a folha de destinos de uma música) passam por `listasDosDestinos` e chamam
+// `adicionarNasListas` direto desde a v5.141, que é o lote que a tornou
+// supérflua. Quem a mantinha viva era o `tools/destinos.test.mjs` — um oráculo
+// exercitando um caminho que o app não percorre não é rede de segurança, é uma
+// segunda API mantida por engano, e ele passou a montar o fixture pela mesma
+// porta que o app usa.)
 
 // A identidade de uma CENA: tipo + descritor. Duas cenas com a mesma chave são
 // a mesma coisa para o operador ("Salmo 23:1" é "Salmo 23:1"), ainda que sejam
@@ -6306,9 +6311,14 @@ function alternarAcoesDaLinha(li) {
   linhaAcoesAberta = li;
 }
 // Tocar em QUALQUER outro lugar fecha. Na fase de CAPTURA e por `pointerdown`,
-// e não por `click`: o gesto de arrastar (a alça, que mora dentro do menu)
-// captura o ponteiro e nunca produz um `click` — sem isto, arrastar um item
-// deixaria o menu aberto por cima da linha que acabou de se mover.
+// e não por `click`, e a razão MUDOU de dono sem mudar de forma: até a v5.284
+// era a alça de arrastar (que morava dentro do menu, capturava o ponteiro e
+// nunca produzia um `click`); a alça saiu na v5.285, e o que sustenta o
+// `pointerdown` hoje é a PROPRIEDADE que ele sempre teve e que a alça apenas
+// exemplificava: um gesto que não termina em `click` — rolar a lista de baixo é
+// o caso comum — fecha o menu do mesmo jeito. A CAPTURA continua sendo o único
+// caminho pelo mesmo motivo de sempre: todo botão de linha deste app chama
+// `stopPropagation` no próprio `click`.
 document.addEventListener('pointerdown', (e) => {
   if (!linhaAcoesAberta) return;
   if (e.target.closest && e.target.closest('.acoes-abertas')) return;
@@ -6950,12 +6960,14 @@ function renderCollectionsListMiolo(alvo, redesenhar, opts) {
   // atalho de quem já procurou antes — ele vinha uma tela ANTES do acervo, numa
   // gaveta separada, quando é a primeira coisa a olhar dentro dele.
   //
-  // Quem monta é `renderFolderList`, a MESMA função da gaveta, apontada para
-  // este corpo (ver `favHost`). A gaveta continua existindo, e não por
-  // esquecimento: ela é a tela de DENTRO — entrar numa pasta abre a navegação
-  // com voltar, busca e seleção múltipla, que é uma tela inteira e não uma
-  // seção. `openFolder`/`openOpfsFolder` a abrem sozinhos quando o toque veio
-  // daqui.
+  // Quem monta é `renderFolderList` — que hoje tem UMA casa, este corpo (ver
+  // `favHost`/`favAlvo`). Ela se chamava assim por ser a MESMA função da gaveta
+  // de tela cheia, e a gaveta não existe mais: a pasta do aparelho passou a
+  // abrir INLINE na v5.290 (`openOpfsFolder` saiu com ela, e `openFolder` já
+  // tinha saído na v5.254 com as pastas virtuais), o que deixou o `#favPopup`
+  // sem porta, e a v5.294 o removeu por inteiro. O que a gaveta levava junto —
+  // a busca DENTRO de uma pasta e a seleção múltipla lá dentro — está declarado
+  // no cabeçalho deste arquivo.
   // SEM CONTADOR (v5.239, pedido do operador): a seção nasce aberta e a lista
   // inteira está logo abaixo — um número dizendo quantos itens há a dois
   // centímetros deles é a mesma medida dita duas vezes, que foi o que tirou o
@@ -9739,12 +9751,10 @@ function uid() {
   return crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random());
 }
 
-async function refreshOpfsFolderCount(folderId) {
-  const f = opfsFolders.find((x) => x.id === folderId);
-  if (!f) return;
-  f.count = (await AVDB.filesByFolder(folderId)).length;
-  await AVDB.setState('opfs-folders', opfsFolders);
-}
+// (`refreshOpfsFolderCount` SAIU: zero chamadores. A contagem de uma pasta é
+// mantida por quem a percorre — `syncDeviceFolder` a escreve junto com o
+// catálogo, no MESMO ponto em que grava a pasta —, e uma segunda função que
+// recontasse por fora seria uma segunda fonte de verdade sobre o mesmo número.)
 
 // Abre uma pasta do dispositivo e devolve uma FONTE uniforme, para que o
 // corpo da sincronização (abaixo) seja um só nos dois contextos:
@@ -19401,7 +19411,7 @@ function telaEnriquecer(cmd) {
     telaEmpurrarImagensLetra(it);
   } else if (cmd.type === 'wallpaper') {
     // Um comando que JÁ CHEGA com `__wp` é a segunda etapa (abaixo) ou o
-    // reenvio de conexão (`telaReenviarWallpaper`): o token dele já está
+    // reenvio de conexão (`telaReenviarPreferencias`): o token dele já está
     // resolvido e re-cunhar aqui mataria a URL que as telas estão usando.
     if (cmd.__wp) return;
     // O aviso de troca segue na hora para o telão de verdade (que lê o IDB

@@ -54,12 +54,6 @@ class EspelhoParesTest {
         ua = ua,
         w = 1920,
         h = 1080,
-        seguro = false,
-        mse = true,
-        mms = false,
-        fetchStream = true,
-        videoDecoder = false,
-        wakeLock = false,
         telaAcesaMin = 0,
     )
 

@@ -105,7 +105,7 @@ try {
   });
 
   // ---- O caminho de UM destino continua igual ----
-  await pg.evaluate((id) => adicionarNaLista('imports', id, 'Louvor de teste', null), idMidia);
+  await pg.evaluate((id) => adicionarNasListas(['imports'], id, 'Louvor de teste', null), idMidia);
   let onde = await pg.evaluate(async (id) => ({
     imports: await AVDB.listHas('imports', id),
     playlist: await AVDB.listHas('playlist', id),

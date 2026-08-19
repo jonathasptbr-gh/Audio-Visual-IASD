@@ -4451,8 +4451,10 @@ main {
    e `--col` (rótulo + campos/caixas de largura inteira, como o Registro: um
    conteúdo espremido ao lado do rótulo não se lê) — são a MESMA pilha, numa
    declaração só: eram duas cópias idênticas esperando divergir. */
-.fade-row--fit, .fade-row--col { flex-direction: column; align-items: stretch; gap: .5rem; cursor: default; }
-.fade-row--col .lib-search { width: 100%; }
+/* (`.fade-row--col` saiu: nenhum ponto do app a escrevia — era a metade de um
+   par cujo irmão, `--fit`, é o único que o `index.html` usa. Uma classe que só
+   existe na folha é uma regra que ninguém revisa contra o que a tela mostra.) */
+.fade-row--fit { flex-direction: column; align-items: stretch; gap: .5rem; cursor: default; }
 /* (A linha de diagnóstico `.fade-hint` saiu: o que ela dizia — o desfecho da
    última tentativa de download — consolidou-se no Registro (`#diagBox`) na
    v5.121, e nenhum JS a desenhava mais.) */
