@@ -77,20 +77,18 @@ interface BridgeHost {
      */
     fun applyWebUpdate(onResult: (String?) -> Unit)
 
-    // ---------- espelho de pixels (o telão nas telas da rede local) ----------
+    // ---------- telão nas telas da rede local ----------
 
     /**
-     * LIGA o espelho: tela virtual privada + uma segunda `Presentation` com o
-     * MESMO `/web/display/` + o servidor da rede local.
+     * LIGA a transmissão: o servidor HTTP da rede local que serve o próprio
+     * `/web/display/` às telas (bundle + comandos por SSE + mídia por `/m/`).
      *
-     * `modo` é `"imagem"` ou `"video"`, e é escolhido no LIGAR de propósito —
-     * trocar ao vivo exigiria `VirtualDisplay.setSurface`, que a AOSP descreve
-     * como tendo "efeito parecido com desligar a tela". Trocar de modo é
-     * desligar e ligar de novo, por ação do operador.
+     * `modo` é IGNORADO desde a v5.156 — ficou na assinatura para não custar um
+     * degrau de `SHELL_VERSION`.
      *
-     * Só a Activity pode fazê-lo: uma `Presentation` é um `Dialog`, e um
-     * `Dialog` exige uma thread com `Looper` — que a fila de IO da ponte não
-     * tem (ver o bloco do espelho em [NativeBridge]).
+     * Só a Activity pode fazê-lo, e o motivo é a fila: ligar isto na fila de IO
+     * da ponte venceria pelo prazo de 60 s durante um download (ver o bloco do
+     * telão em [NativeBridge]).
      *
      * Devolve o MESMO objeto de [mirrorState] — com `erro` não-vazio quando não
      * deu —, para o lado web ter um formato só e um desenho só.
@@ -103,7 +101,7 @@ interface BridgeHost {
      */
     fun stopMirror()
 
-    /** Estado do espelho para a folha do Controle (endereço, PIN, telas). */
+    /** Estado da transmissão para a folha do Controle (endereço, telas). */
     fun mirrorState(onResult: (JSONObject) -> Unit)
 
     /** O anel de diagnóstico do espelho, em DADO — a frase é do `controle.js`. */
@@ -155,20 +153,16 @@ class NativeBridge(
          * - **Remoção de recurso é remoção dos DOIS lados do fio, no mesmo
          *   lote.** Apagar o produtor de um campo e deixar o consumidor de pé
          *   não produz silêncio: `optBoolean`/`optLong` leem ausente como
-         *   `false`/`0`, que são valores LEGÍTIMOS, e o consumidor os
-         *   interpreta como medição. O inverso também vale — um produtor sem
-         *   consumidor é a armadilha de quem repuser a leitura amanhã.
-         * - **A degradação tem de valer nos dois sentidos:** bundle antigo em
-         *   shell novo e bundle novo em shell antigo precisam cair num
-         *   comportamento declarado, nunca numa meia-verdade.
+         *   `false`/`0`, valores LEGÍTIMOS que o consumidor interpreta como
+         *   medição. O inverso também vale — um produtor sem consumidor é a
+         *   armadilha de quem repuser a leitura amanhã.
+         * - **A degradação vale nos dois sentidos:** bundle antigo em shell
+         *   novo e bundle novo em shell antigo caem num comportamento
+         *   declarado, nunca numa meia-verdade.
          * - **Um método novo NÃO chega por OTA**, então o lado web pergunta
-         *   antes de desenhar o que depende dele (`__SHELL_VERSION__ < N`) —
-         *   um botão que não faz nada no meio de um culto é pior que botão
-         *   nenhum.
+         *   antes de desenhar o que depende dele (`__SHELL_VERSION__ < N`).
          *
-         * O degrau a degrau (o que cada versão acrescentou, encolheu ou mudou
-         * de forma) está na tabela da seção "A ponte" do `CLAUDE.md`; a nota do
-         * lote que o criou, em `docs/HISTORICO.md`.
+         * O degrau a degrau está na tabela da seção "A ponte" do `CLAUDE.md`.
          */
         const val SHELL_VERSION = 44
 
@@ -492,20 +486,19 @@ class NativeBridge(
      * sessão de mídia em dia com ele.
      *
      * Existe porque a notificação NÃO pode depender do JS do Controle estar
-     * rodando. Com o app minimizado e sem áudio audível no celular (modo "mesa
-     * de som" desligado), o sistema estrangula/suspende aquele WebView — e
-     * então `pushNowPlaying` para de ser chamado: a notificação congela no
-     * último estado, com o botão em "play" e a barra parada, enquanto o telão
-     * segue projetando normalmente. Ligar a mesa de som fazia o defeito sumir
-     * justamente porque áudio audível isenta a página do estrangulamento.
+     * rodando: com o app minimizado e sem áudio audível no celular, o sistema
+     * estrangula aquele WebView e `pushNowPlaying` para de ser chamado — a
+     * notificação congela com o botão em "play" e a barra parada enquanto o
+     * telão segue projetando. (A pista foi que ligar o áudio local fazia o
+     * defeito sumir: áudio audível isenta a página do estrangulamento.)
      *
-     * O status do telão, esse, já passa por aqui de qualquer jeito (o WebView
-     * do Display o envia por `busPost`), e a `Presentation` não é
-     * estrangulada — é uma fonte que continua viva quando a outra não está.
+     * O status do telão já passa por aqui de qualquer jeito (o WebView do
+     * Display o envia por `busPost`), e a `Presentation` não é estrangulada — é
+     * uma fonte que continua viva quando a outra não está.
      *
      * NÃO é decisão de transporte (invariante 5): só copia dois campos que o
-     * lado web já calculou. Título, subtítulo e modo de slide continuam vindo
-     * de `nowPlaying`; sem cena publicada, nada é inventado aqui.
+     * lado web já calculou. Título, subtítulo e modo de slide continuam vindo de
+     * `nowPlaying`; sem cena publicada, nada é inventado aqui.
      */
     private fun snoopDisplayStatus(json: String) = snoopStatusDeFora(ctx, json)
 
@@ -522,27 +515,24 @@ class NativeBridge(
     }
 
     /**
-     * Progresso do download em curso, para a notificação do serviço em
-     * primeiro plano. Com o app minimizado — o uso normal durante uma
-     * sincronização — essa notificação é a única janela para o que está
-     * acontecendo, e antes ela era um texto fixo.
+     * Progresso do download em curso, para a notificação do serviço em primeiro
+     * plano. Com o app minimizado — o uso normal durante uma sincronização —
+     * ela é a única janela para o que está acontecendo.
      *
-     * O JSON vem do lado web (`AVNative.bgProgress`), que é quem sabe o que
-     * está baixando e a que ritmo:
-     * `{ label, done, total, etaMs, items, idleMs }`.
+     * O JSON vem do lado web (`AVNative.bgProgress`), que sabe o que está
+     * baixando e a que ritmo: `{ label, done, total, etaMs, items, idleMs }`.
      *
      * `items` traz UM nome em destaque. São 6 downloads simultâneos, mas o lado
      * web manda um de cada vez, tirado de uma FILA (FIFO) dos itens que já
-     * entraram em download: cada nome sai uma ÚNICA vez, em ordem, escoado no
-     * ritmo médio medido por item (`bgItemStart`/`bgSpinMs` em controle.js).
-     * Não é rodízio entre os itens em voo — rodízio traria o mesmo nome de
-     * volta várias vezes e a lista não iria a lugar nenhum. Também não é um
-     * espelho do que está no ar agora: é deliberadamente ilustrativo, e
-     * CONGELA quando a tarefa passa de 90 s sem evento real. A lista continua
-     * sendo lista só por compatibilidade com bundles anteriores a v5.13.
+     * entraram em download: cada nome sai uma ÚNICA vez, em ordem, no ritmo
+     * médio medido por item (`bgItemStart`/`bgSpinMs`). Não é rodízio entre os
+     * itens em voo — rodízio traria o mesmo nome de volta e a lista não iria a
+     * lugar nenhum — nem espelho do que está no ar: é ilustrativo, e CONGELA
+     * quando a tarefa passa de 90 s sem evento real. Continua sendo lista só por
+     * compatibilidade com bundles anteriores à v5.13.
      *
-     * `idleMs` é há quanto tempo NADA acontece: é o que separa "travado" de
-     * "esta faixa é grande", que na tela são a mesma coisa parada.
+     * `idleMs` é há quanto tempo NADA acontece: separa "travado" de "esta faixa
+     * é grande", que na tela são a mesma coisa parada.
      */
     @JavascriptInterface
     fun bgProgress(json: String) {
@@ -666,32 +656,28 @@ class NativeBridge(
         host?.openExternalUrl(u.toString())
     }
 
-    // ---------- espelho de pixels (o telão nas telas da rede local) ----------
+    // ---------- telão nas telas da rede local ----------
     //
     // Os cinco métodos deste bloco NÃO vão para a fila `io`, e essa é a decisão
-    // que os separa de todo o resto da ponte. A `io` é uma thread ÚNICA
-    // compartilhada por todas as instâncias, e é nela que roda o download do
-    // YouTube: um vídeo de 380 MB a segura por minutos. Enfileirado, "ligar o
-    // espelho" no meio de um download simplesmente não aconteceria — a Promise
-    // venceria pelo prazo de 60 s do `native.js` e resolveria `null`, ou seja
-    // um "erro" sem causa no toque de um botão. É o mesmo raciocínio já
-    // publicado para o `ytCancel`.
+    // que os separa do resto da ponte. A `io` é uma thread ÚNICA compartilhada
+    // por todas as instâncias, e é nela que roda o download do YouTube: um vídeo
+    // de 380 MB a segura por minutos. Enfileirado, "ligar a transmissão" no meio
+    // de um download não aconteceria — a Promise venceria pelo prazo de 60 s do
+    // `native.js` e resolveria `null`, um "erro" sem causa no toque de um botão.
+    // Mesmo raciocínio já publicado para o `ytCancel`.
     //
-    // E há um motivo a mais, que é uma trava e não uma preferência: quem faz o
-    // trabalho é a MAIN THREAD (ver os métodos do [BridgeHost]), porque uma
-    // `Presentation` é um `Dialog` e um `Dialog` exige uma thread com `Looper`.
-    // A fila `io` é uma `Thread` daemon sem `Looper` — criar a janela do espelho
-    // ali daria `Can't create handler inside thread that has not called
-    // Looper.prepare()` no primeiro toque, na frente do operador. De brinde, a
-    // main thread é onde o `DisplayManager.DisplayListener` deste app já é
-    // chamado (registrado com handler `null`), então a criação da tela virtual e
-    // o `onDisplayAdded` não correm um contra o outro.
+    // Quem faz o trabalho é a MAIN THREAD (ver os métodos do [BridgeHost]). A
+    // razão ORIGINAL disso morreu com o espelho de pixels (v5.187): até ali o
+    // recurso abria uma `Presentation`, que é um `Dialog` e exige uma thread com
+    // `Looper` — criá-la na `io` (uma `Thread` daemon sem `Looper`) lançava
+    // `Looper.prepare()` no primeiro toque. Não há mais janela nenhuma; o que
+    // sustenta a main thread hoje é ficar FORA da fila de IO (acima) e a
+    // serialização de `espelhoSrv`/`espelhoMidia`.
     //
     // Todos guardados por `host != null`: superfície nativa é privilégio do
-    // Controle. O WebView do espelho — como o do telão — recebe a ponte com
-    // `host = null`, e ele hospeda a IFrame Player API de terceiro POR DESIGN.
-    // Sem a guarda, um script de terceiro rodando lá dentro ligaria e desligaria
-    // o servidor da rede e aprovaria as telas que quisesse.
+    // Controle (invariante 9). O WebView do telão recebe a ponte com
+    // `host = null`, e sem a guarda um script rodando lá dentro ligaria e
+    // desligaria o servidor da rede da igreja.
 
     /**
      * LIGA o espelho e resolve o estado resultante (o MESMO objeto do
@@ -1156,24 +1142,22 @@ class NativeBridge(
 
     /**
      * O tema escolhido em Configurações. A cor de tudo é decidida pelo CSS
-     * (`shared/tokens.css`, com os dois blocos de tema) — o que sobra para o
-     * shell são exatamente as duas coisas que uma folha de estilo não alcança:
+     * (`shared/tokens.css`); o que sobra para o shell são as duas coisas que uma
+     * folha de estilo não alcança:
      *
-     * 1. **Os ÍCONES das barras de sistema.** Com `targetSdk` 35 o Android
-     *    força edge-to-edge e IGNORA `statusBarColor`/`navigationBarColor`
-     *    (ver `res/values/themes.xml`): quem pinta o FUNDO atrás das barras é o
-     *    body da base web, com o token `--bg`. Só que o relógio, a bateria e os
-     *    botões de navegação seguem sendo desenhados pelo sistema, e a cor
-     *    deles vem de `APPEARANCE_LIGHT_STATUS_BARS`. Sem virar essa chave, o
-     *    tema claro fica com ícones brancos sobre um fundo quase branco —
-     *    invisíveis, e sem nada na tela que explique por quê.
-     * 2. **O `windowBackground`**, o que aparece ANTES de o WebView carregar.
-     *    Ele é um recurso do APK, resolvido pelo sistema antes de existir
-     *    JavaScript, então não há como perguntar ao lado web na hora certa: o
-     *    shell GUARDA a escolha e a aplica no lançamento seguinte. Trocar de
-     *    tema tem, portanto, um lançamento de atraso nesse detalhe — e só nele.
+     * 1. **Os ÍCONES das barras de sistema.** Com `targetSdk` 35 o Android força
+     *    edge-to-edge e IGNORA `statusBarColor`/`navigationBarColor` (ver
+     *    `res/values/themes.xml`): quem pinta o FUNDO atrás das barras é o body
+     *    da base web, com `--bg`. Mas relógio, bateria e botões de navegação
+     *    seguem sendo desenhados pelo sistema, e a cor deles vem de
+     *    `APPEARANCE_LIGHT_STATUS_BARS`. Sem virar essa chave, o tema claro fica
+     *    com ícones brancos sobre fundo quase branco.
+     * 2. **O `windowBackground`**, o que aparece ANTES de o WebView carregar. É
+     *    recurso do APK, resolvido antes de existir JavaScript: o shell GUARDA a
+     *    escolha e a aplica no lançamento seguinte. Trocar de tema tem, portanto,
+     *    um lançamento de atraso nesse detalhe — e só nele.
      *
-     * Privilégio do Controle por construção: é a Activity que responde, e o
+     * Privilégio do Controle por construção: quem responde é a Activity, e o
      * WebView do telão nasce com `host = null` (invariante 9).
      */
     @JavascriptInterface
