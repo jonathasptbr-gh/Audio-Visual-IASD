@@ -2457,59 +2457,46 @@ arquivo).
   "002. Ó Adorai o Senhor" é o que o operador reconhece.
 - **A lista é uma FILA (`t.fila`), não um espelho do que está no ar.** A
   concorrência reduz o tempo PROPORCIONAL de cada item: se os 6 juntos levam X,
-  cada um custou X/6 — e a exibição segue a mesma conta. É deliberadamente
-  ilustrativa; contador, barra e estimativa seguem sendo os números reais.
-- **Fila, nunca rodízio entre os itens em voo:** o rodízio repetia nomes e a
-  lista não avançava. Medido (18 faixas, 6 em paralelo): 18/18 exibidos, 0
-  repetidos, em ordem, fila zerada.
-- **O ritmo é MEDIDO** (`bgSpinMs` = `decorrido / concluídos`), não chutado:
-  mediana de 500 ms em tela contra 521 ms de custo amortizado real.
+  cada um custou X/6 — e a exibição segue a mesma conta. É ilustrativa; contador,
+  barra e estimativa seguem sendo os números reais. **Fila, nunca rodízio**: o
+  rodízio repetia nomes e a lista não avançava (medido com 18 faixas e 6 em
+  paralelo: 18/18 exibidos, 0 repetidos, em ordem).
+- **O ritmo é MEDIDO** (`bgSpinMs` = `decorrido / concluídos`): mediana de 500 ms
+  em tela contra 521 ms de custo amortizado real.
 - **Sem o buffer a lista engasgava.** Os 6 workers andam em lockstep: os eventos
-  chegam em RAJADA (meia dúzia em poucos ms) seguida de segundos de silêncio, e
-  sem fila a rajada rendia UMA troca de nome — parado até a rajada seguinte, que
-  é a sensação de travado.
+  chegam em RAJADA seguida de segundos de silêncio, e sem fila a rajada rendia
+  UMA troca de nome — parado até a rajada seguinte, que é a sensação de travado.
 - **O compasso PARA quando trava** (`BG_STALL_MS`, 90 s sem evento real): animar
-  durante uma queda de rede esconderia justamente o que precisa ser visto. A
-  lista congela e o `idleMs` cresce — os dois sinais concordam.
+  durante uma queda de rede esconderia o que precisa ser visto. A lista congela e
+  o `idleMs` cresce — os dois sinais concordam.
 - **`idleMs` separa "travado" de "esta faixa é grande".** Passado o limiar, a
   notificação para de prometer tempo restante (uma ETA sobre um ritmo que já não
   existe é a promessa mais enganosa possível) e passa a "sem resposta há X" — sem
   degraus, porque aqui o número precisa SUBIR a cada atualização.
-- **Um freio só (`BG_NOTIF_MIN_MS`, 700 ms), e vale apenas para a ROTINA** (a
-  atualização em que só o contador andou). Tudo que precisa chegar na hora passa
-  `force`. Quem dá o ritmo do item que entra é o compasso (`bgPacerTick`,
-  `BG_TICK_MS` = 250 ms), que envia com `force` sempre que o nome troca — um
-  segundo piso curto seria PIOR que o `force`, porque o primeiro nome de uma
-  tarefa nasce a poucos ms do envio de abertura e ficaria retido até o batimento
-  de 2 s.
+- **Um freio só (`BG_NOTIF_MIN_MS`, 700 ms), e vale apenas para a ROTINA.** Tudo
+  que precisa chegar na hora passa `force`. Quem dá o ritmo do item que entra é o
+  compasso (`bgPacerTick`, `BG_TICK_MS` = 250 ms), que envia com `force` sempre
+  que o nome troca — um segundo piso curto seria PIOR, porque o primeiro nome de
+  uma tarefa nasce a poucos ms da abertura e ficaria retido até o batimento de 2 s.
 - **`bgTasks` é um REGISTRO (Map), não um slot único.** Downloads simultâneos
-  existem — é por isso que `bgWorkCount` conta em vez de ser booleano — e com um
-  slot só as tarefas se sobrescreviam: o `done` de uma saía com o `total` e o
-  relógio da outra. A notificação mostra a **dominante** (maior tempo restante) e
-  marca as demais com `(+N)`.
+  existem — daí `bgWorkCount` contar em vez de ser booleano — e com um slot só as
+  tarefas se sobrescreviam: o `done` de uma saía com o `total` e o relógio da
+  outra. A notificação mostra a **dominante** (maior tempo restante) e marca as
+  demais com `(+N)`.
 - **A estimativa** sai do ritmo médio desde o **primeiro item concluído**, nunca
   desde o `start` (que incluiria o preparo — índice, varredura — e inflaria a
   primeira leitura). Média, não taxa instantânea: faixas têm tamanhos muito
-  diferentes.
-- **Suavização assimétrica por constante de tempo** (`ETA_TAU_DOWN` 2,5 s /
-  `ETA_TAU_UP` 10 s) e arredondamento em degraus no lado nativo: uma contagem
-  regressiva de verdade em vez de um número que sobe e desce. Por TEMPO e não por
-  chamada — o compasso de 1 s pede a estimativa muito mais vezes que os eventos
-  pediam, e um fator fixo por chamada devolveria o número instável.
+  diferentes. **Suavização assimétrica por constante de tempo** (`ETA_TAU_DOWN`
+  2,5 s / `ETA_TAU_UP` 10 s) e arredondamento em degraus no lado nativo. Por
+  TEMPO e não por chamada — o compasso de 1 s pede a estimativa muito mais vezes
+  que os eventos pediam, e um fator fixo por chamada devolveria o número instável.
 - **`bgWorkEnd` é IDEMPOTENTE, e precisa ser.** O `clear()` sozinho deixava o
   compasso ligado para sempre: com o Map já vazio, o `bgTaskEnd` seguinte não
   achava nada, o `delete` devolvia `false`, e nem o `bgPacerSync()` nem o envio
   final rodavam — o `setInterval` de 250 ms vazava pelo resto da sessão, com a
-  notificação "Baixando mídias" presa e o próximo `bgTaskStart` reusando um pacer
-  órfão. Hoje ele sincroniza o compasso e envia o estado final ele mesmo, e a
-  ordem entre ele e o `bgTaskEnd` deixa de importar.
+  notificação presa. Hoje ele sincroniza o compasso e envia o estado final ele
+  mesmo, e a ordem entre ele e o `bgTaskEnd` deixa de importar.
 - No navegador, e num shell anterior ao `SHELL_VERSION` 10, é no-op.
-
-**Duas camadas, independentes** (`state['coll:<id>']`):
-
-1. **Índice** (leve, só metadados) — permanece offline assim que sincronizado uma
-   vez; é o que alimenta a busca mesmo antes do download pesado terminar.
-2. **Download** (pesado) — o áudio Cantado (`url_music`) sempre e o
    Playback/instrumental quando existir, mais a capa e as imagens por estrofe,
    gravados no **mesmo catálogo OPFS das pastas sincronizadas** (`AVDB.fileAdd` +
    `AVDB.opfsWriteFile`, pasta `folders/<coll.id>/`). Então listar, buscar, tocar
