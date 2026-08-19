@@ -87,23 +87,21 @@ window.addEventListener('pagehide', () => diag('pagehide'));
 window.addEventListener('freeze', () => diag('congelou'));
 window.addEventListener('resume', () => diag('descongelou'));
 
-// ===== O TELÃO QUE ESTÁ SAINDO DE CENA NÃO REPORTA =====
+// ===== Microfone ao vivo (push-to-talk) =====
+// O operador segura o botão no Controle e a voz sai na PROJEÇÃO, ao vivo.
 //
-// `clear` e `media-clear` ESMAECEM antes de sair (~0,6 s), e nesse intervalo o
-// `<video>` continua tocando — a rampa é de volume, não de pausa —, então cada
-// `display-status` do fade contava, com `playing: true` e o tempo antigo, uma
-// cena que o operador acabou de encerrar. No Controle isso repunha a barra e o
-// ícone que o Parar tinha zerado (o "só funciona no segundo toque"); na
-// NOTIFICAÇÃO era pior, porque ali não há segundo toque — o
-// `snoopDisplayStatus` do Kotlin lê este mesmo status e deixava o cartão
-// anunciando "tocando" sobre um telão vazio.
+// A captura acontece AQUI, no Display: um `MediaStream` não atravessa o
+// BroadcastChannel (não é clonável), então mandar o áudio "pela ponte" não
+// existe como opção. O que atravessa é o comando; quem abre o microfone é quem
+// vai reproduzi-lo.
 //
-// Corrigir na FONTE fecha os dois consumidores de uma vez, e sem APK.
+// Caminho: getUserMedia → MediaStreamSource → GainNode → destination. Menor
+// atraso disponível; a latência do WebView (~0,1–0,3 s) é inerente.
 //
-// É um CONTADOR, nunca um booleano: dois clears sobrepostos fariam o primeiro a
-// terminar liberar o segundo. Um `load` que chegue durante o fade cancela o
-// clear pelo `loadSeq` do stage, mas a promise dele resolve do mesmo jeito — e
-// é por isso que o decremento mora no `then`, nunca num ponto de sucesso.
+// REALIMENTAÇÃO: `echoCancellation` fica LIGADO de propósito — num culto um
+// ganho realimentado é estrago imediato e público, e vale mais que a fidelidade
+// de desligar o processamento. Com a saída no próprio celular (e não na TV) o
+// risco continua: é do formato, não do código.
 let saindoDeCena = 0;
 function aoSairDeCena(p) {
   saindoDeCena++;
@@ -371,23 +369,19 @@ function applyLyricsImage(slide) {
   if (!slide.imageOpfsPath) {
     // TELA DA REDE: a chave É a URL. Pré-carrega com retentativa — o empurrão
     // da imagem pode ainda estar chegando ao cache do celular, e um src que
-    // 404a não retenta nunca. Sem object URL: nada a revogar da nova, só da
-    // anterior.
+    // 404a não retenta nunca. Sem object URL: nada a revogar da nova.
     //
-    // A ESPERA PRECISA DURAR MAIS QUE O EMPURRÃO DA MÚSICA, e isso é estrutural,
-    // não um número mal escolhido: as imagens de fundo são enfileiradas DEPOIS
-    // da mídia principal (`telaEmpurrarImagensLetra`, logo após
-    // `telaGarantirEnvio`), no MESMO canal serializado, de propósito — o som não
-    // espera as fotos. Logo os bytes da imagem só podem COMEÇAR a chegar depois
-    // que a música inteira atravessou o canal. Uma ladeira de ~2,4 s desistia
-    // antes de existir qualquer possibilidade de sucesso, e a estrofe ficava no
-    // preto PARA SEMPRE (nada reexamina uma já renderizada).
+    // A ESPERA PRECISA DURAR MAIS QUE O EMPURRÃO DA MÚSICA, e isso é
+    // estrutural: as imagens de fundo são enfileiradas DEPOIS da mídia
+    // principal, no MESMO canal serializado (o som não espera as fotos), então
+    // os bytes só começam a chegar depois de a música inteira atravessar. Uma
+    // ladeira de ~2,4 s desistia antes de haver chance de sucesso e a estrofe
+    // ficava no preto PARA SEMPRE (nada reexamina uma já renderizada).
     //
-    // A ladeira dobra até um platô e tem TETO DE TEMPO, e é auto-limitada pelo
-    // que já existia: a guarda de sequência mata o laço no instante em que a
-    // estrofe muda. Repetir a mesma URL é seguro porque o servidor manda
-    // `Cache-Control: no-store` em TODA resposta, 404 inclusive — não há 404
-    // grudado em cache para envenenar a tentativa boa.
+    // A ladeira dobra até um platô, tem teto de tempo e é auto-limitada pela
+    // guarda de sequência (a estrofe mudando mata o laço). Repetir a mesma URL
+    // é seguro: o servidor manda `Cache-Control: no-store` em toda resposta,
+    // 404 inclusive.
     const ESPERA_1 = 400;        // ms — a primeira espera depois da falha inicial
     const ESPERA_MAX = 2500;     // ms — o platô: não adianta martelar
     const TETO_MS = 45000;       // ms — desiste de vez (a estrofe já terá mudado)
@@ -471,22 +465,19 @@ let textActive = false;
 let textView = 'visual';
 let textMode = 'verse';
 
-// ===== Texto VIVO: cronômetro/relógio/timer e sorteio =====
-// É o MESMO cartão da Bíblia e das Mensagens (`mode: 'chrono'` | `'draw'`), e
-// isso não é economia de CSS: herdando o cartão, herda também toda a regra de
-// convivência já madura — `load` de áudio mantém o cartão no ar, `load` visual
-// o encerra, a cortina do wallpaper o cobre, `text-hide` o tira sem parar o som
-// de fundo. Um layer novo teria que reimplementar as quatro, e envelheceria
-// separado.
-//
-// O que muda em relação a um versículo é só a ORIGEM do texto: em vez de vir
-// pronto no comando, é DERIVADO a cada tick de um descritor (ver chronoReading
-// e drawReading em stage.js).
-//
-// Os dois modos vivos dividem UM laço só, de propósito: o cartão é um só, então
-// dois timers escrevendo no mesmo nó nunca seriam ambos corretos — bastaria um
-// esquecer de parar o outro para o sorteio ser sobrescrito pelo relógio. Com um
-// registro único isso é estruturalmente impossível.
+  // ===== TRÊS TENTATIVAS, DA MELHOR PARA A QUE SEMPRE ABRE =====
+  //
+  // `NotReadableError` NÃO é "outro app está usando o microfone": é o "não
+  // consegui abrir o dispositivo" genérico do WebRTC, e no Android a causa comum
+  // é o PROCESSAMENTO pedido. Com `echoCancellation` o Chromium abre o
+  // `AudioRecord` em `VOICE_COMMUNICATION` (sessão de voz), que o sistema recusa
+  // quando a saída de áudio está em outro caminho — o caso deste app com
+  // espelhamento ligado. O microfone CRU não passa por ali e abre.
+  //
+  // A ordem é deliberada: o cancelamento de eco vem primeiro porque uma
+  // realimentação num culto é estrago imediato e público. Um push-to-talk com
+  // risco de microfonia é melhor que um que não funciona, desde que o operador
+  // seja avisado — é o que o `sem-eco` faz.
 let liveKind = '';    // 'chrono' | 'draw' | ''
 let liveDesc = null;
 let liveTimer = null;
@@ -673,23 +664,19 @@ function reconcileCover(view) {
   else stage.coverOut();
 }
 
-// ===== Microfone ao vivo (push-to-talk) =====
-// O operador segura o botão no Controle e a voz sai na PROJEÇÃO, ao vivo.
+// ===== Texto VIVO: cronômetro/relógio/timer e sorteio =====
+// É o MESMO cartão da Bíblia e das Mensagens (`mode: 'chrono'` | `'draw'`), e
+// não por economia de CSS: herdando o cartão herda a regra de convivência já
+// madura — `load` de áudio o mantém, `load` visual o encerra, a cortina do
+// wallpaper o cobre, `text-hide` o tira sem parar o som de fundo. Um layer novo
+// reimplementaria as quatro e envelheceria separado.
 //
-// A captura acontece AQUI, no Display, não no Controle — e não é detalhe de
-// implementação: um `MediaStream` não atravessa o BroadcastChannel (não é
-// clonável), então mandar o áudio "pela ponte" não existe como opção. O que
-// atravessa é o comando; quem abre o microfone é quem vai reproduzi-lo.
+// O que muda em relação a um versículo é só a ORIGEM do texto: DERIVADO a cada
+// tick de um descritor (chronoReading/drawReading em stage.js).
 //
-// Caminho de áudio: getUserMedia → MediaStreamSource → GainNode →
-// destination. É o menor atraso disponível na plataforma; ainda assim há a
-// latência do WebView (tipicamente ~0,1–0,3 s), inerente e não removível daqui.
-//
-// ATENÇÃO — REALIMENTAÇÃO: microfone e alto-falante no mesmo ambiente apitam.
-// `echoCancellation` fica LIGADO de propósito: num culto, um ganho realimentado
-// é um estrago imediato e público, e vale mais que a fidelidade extra de
-// desligar o processamento. Mesmo assim, se a saída de áudio for o próprio
-// celular (e não a TV), o risco continua — é do formato, não do código.
+// Os dois modos vivos dividem UM laço só: o cartão é um só, e dois timers
+// escrevendo no mesmo nó nunca seriam ambos corretos. Com registro único isso é
+// estruturalmente impossível.
 let micStream = null;
 let micCtx = null;
 let micSrc = null;
@@ -727,20 +714,18 @@ async function startMic() {
     micStatus(false, 'unsupported');
     return;
   }
-  // ===== TRÊS TENTATIVAS, DA MELHOR PARA A QUE SEMPRE ABRE =====
+  // PARAR SÓ A MÍDIA — a outra metade da independência áudio × texto (v5.178).
   //
-  // `NotReadableError` NÃO significa "outro app está usando o microfone": ele é
-  // o "não consegui abrir o dispositivo" genérico do WebRTC, e no Android a
-  // causa comum é o PROCESSAMENTO pedido. Com `echoCancellation` o Chromium abre
-  // o `AudioRecord` em `VOICE_COMMUNICATION` para usar o cancelador de eco do
-  // hardware — uma sessão de voz, que o sistema recusa quando a saída de áudio
-  // está em outro caminho (o caso deste app: espelhamento ligado, telão
-  // recebendo o som). Pedir o microfone CRU não passa por esse caminho e abre.
+  // `clear` é o Parar do transporte e encerra a CENA INTEIRA. Faltava o
+  // desligamento POR CAMADA na direção oposta ao `text-hide`: com louvor de
+  // fundo sob a contagem regressiva, tirar a música levava o cronômetro junto.
   //
-  // A ordem é deliberada: o cancelamento de eco vem primeiro porque num culto
-  // uma realimentação é um estrago imediato e público. Só se ele não abrir é que
-  // se desce — e um push-to-talk com risco de microfonia é melhor que um que não
-  // funciona, desde que o operador seja avisado, que é o que o `sem-eco` faz.
+  // O ramo vem ANTES do bloco de `textActive`: lá dentro `clear` é o que chama
+  // `hideText`, e cair no fluxo comum levaria o comando a um `stage.handle` que
+  // não o conhece — nada aconteceria, sem erro nenhum.
+  //
+  // Quem decide entre as duas saídas é o DISPLAY: `textActive` é estado dele, e
+  // duplicar a leitura do outro lado é garantir divergência num domingo.
   const TENTATIVAS = [
     { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
     { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
@@ -1001,34 +986,22 @@ document.addEventListener('keydown', onUserGesture);
 
 // ===== YouTube: SEM PLAYER DE TERCEIRO =====
 //
-// A IFrame Player API do YouTube saiu deste documento, e com ela o `YT.Player`,
-// o `ytHandle`, o `ytStatus` e as ~540 linhas de máquina de estados que
-// existiam só para dirigi-la. Quem toca vídeo do YouTube é o caminho PRÓPRIO,
-// que já era o preferido: transmissão direta (`ytStream` → `shared/mse.js` → um
-// `<video>` comum) e, falhando ela, o arquivo baixado (`ytFetch`).
+// A IFrame Player API saiu (v5.212), com `YT.Player`/`ytHandle`/`ytStatus` e
+// ~540 linhas de máquina de estados. Quem toca YouTube é o caminho próprio:
+// transmissão direta (`ytStream` → `shared/mse.js` → `<video>` comum) e, se
+// falhar, o arquivo baixado (`ytFetch`).
 //
-// POR QUE ELA PRECISAVA SAIR: `addJavascriptInterface` injeta o objeto em TODAS
-// as frames da página, iframes de outra origem inclusive (é o que a
-// documentação do Android diz, e é por isso que o canal de mídia das telas usa
-// `addWebMessageListener`, que tem `allowedOriginRules`). No TELÃO a ponte
-// nasce com `host = null` (invariante 9) e o estrago seria limitado — mas o
-// MESMO embed era criado no CONTROLE, para a preview, e lá a ponte é a
-// completa: `pickFolder`, `listFolder`, `pickDoc`, `openExternal`,
-// `espelhoLigar`, `apkInstalar`. **A invariante 9 protegia a metade errada**, e
-// ninguém tinha reparado porque o texto dela só fala do telão.
+// POR QUE SAIU: `addJavascriptInterface` injeta em TODAS as frames, iframes de
+// outra origem inclusive. No telão a ponte nasce `host = null` (invariante 9),
+// mas o MESMO embed era criado no CONTROLE, para a preview, onde a ponte é a
+// completa — a invariante 9 protegia a metade errada. Some junto: um segundo
+// motor de transporte, um segundo emissor de status, uma máquina de mudo que
+// ignorava o `forceMuted`, uma cortina própria, `if (yt)` em quinze pontos,
+// dependência de rede em cena e a cena MUDA para as telas da rede.
 //
-// O que se ganha além disso: o embed era a razão de quase toda exceção deste
-// arquivo — um segundo motor de transporte, um segundo emissor de status, uma
-// segunda máquina de mudo que ignorava o `forceMuted` do stage, uma cortina
-// própria e um `if (yt)` em quinze pontos. Some junto a dependência de rede em
-// cena, o `document.hidden` que pausava o player com o app minimizado, e a cena
-// que ia MUDA para as telas da rede (o Web Audio não alcança iframe alheio).
-//
-// Um registro `kind: 'youtube'` (o link sem bytes) NÃO chega mais aqui como
-// cena tocável: quem o resolve é o CONTROLE, antes de emitir o `load`
-// (`resolverLinkYoutube`). Chegando assim mesmo — bundle antigo do outro lado,
-// ou registro guardado antes desta versão —, o palco esvazia e o telão volta ao
-// wallpaper, em vez de ficar com a cena anterior congelada.
+// `kind: 'youtube'` (link sem bytes) não chega mais aqui como cena tocável:
+// quem resolve é o Controle antes do `load` (`resolverLinkYoutube`). Chegando
+// assim mesmo (bundle antigo), o palco esvazia e volta ao wallpaper.
 
 // Um `pause` que o app não pediu é o EVENTO que interessa: é ele que o
 // operador vê como "o vídeo parou". `pausaComandada` é armado por quem manda
@@ -1132,22 +1105,19 @@ AVDB.onCommand(async (cmd) => {
   // texto nem na cortina. Convive com qualquer coisa em cena.
   if (cmd.type === 'mic') { setMic(cmd.on); return; }
 
-  // PARAR SÓ A MÍDIA — a outra metade da independência áudio × texto (v5.178).
-  //
-  // O `clear` é o Parar do transporte: ele encerra a CENA INTEIRA, e está certo
-  // que encerre. Faltava o desligamento POR CAMADA na direção oposta à do
-  // `text-hide`: com um louvor de fundo sob a contagem regressiva de abertura,
-  // tirar a música do ar levava o cronômetro junto, e a única saída era parar
-  // tudo e reprojetar a cena de roteiro na frente da congregação.
-  //
-  // O ramo tem de vir ANTES do bloco de `textActive`: lá dentro o `clear` é
-  // justamente o que chama `hideText`, e cair no fluxo comum faria o comando
-  // atravessar até um `stage.handle` que não o conhece — nada aconteceria, sem
-  // erro nenhum, que é a forma de falhar que este repositório persegue.
-  //
-  // Quem decide entre as duas saídas é o DISPLAY, e não o Controle: `textActive`
-  // é estado dele, e duplicar a leitura do outro lado é garantir que os dois
-  // divirjam num domingo.
+// No app nativo o overlay "Ligar Sistema" NÃO EXISTE
+// (`mediaPlaybackRequiresUserGesture = false`: não há política de gesto, e
+// exigir um toque numa TV seria beco sem saída).
+//
+// E NO PAPEL `tela` também não, pela razão OPOSTA: ali há política de gesto,
+// mas o gesto é do "Ativar esta tela" do `tela.js`, que gasta a ativação
+// transitória em pareamento + som + tela cheia. Este só se esconde. Dois
+// overlays de gesto na mesma página são armadilha: o visitante gasta o toque no
+// que estiver na frente, e era este (`inset: 0`, pílula no centro).
+//
+// A REGRA VIVE AQUI, no documento que DECLARA o botão: morando no `tela.js` ela
+// tinha buraco — era escondida dentro de `montarEntrada()`, que a recarga com
+// sessão viva nunca chama, e um F5 trazia o botão de volta sobre a projeção.
   if (cmd.type === 'media-clear') {
     hideLyrics(true);
     aoSairDeCena(stage.handle({ type: textActive ? 'clear-media' : 'clear' }));
@@ -1165,22 +1135,15 @@ AVDB.onCommand(async (cmd) => {
       textView = v;
       // A cortina passa a ser do CARTÃO enquanto ele estiver no ar.
       if (stage.setOverlay) stage.setOverlay(v);
-      // Delega a mudança a QUEM É DONO do estado (o stage), em vez de mexer
-      // na cortina por fora. Chamar coverIn/coverOut direto daqui movia a
-      // cortina deixando `stage.view`
-      // congelado no valor antigo, e o estrago só aparecia DEPOIS do
-      // 'text-hide': o 'view' seguinte comparava com esse valor, concluía que
-      // nada mudara e RETORNAVA SEM FAZER NADA — o botão de cobrir/mostrar o
-      // telão ficava morto e o operador precisava tocá-lo duas ou três vezes.
-      // Na direção oposta era pior: com a cortina cobrindo e `stage.view`
-      // ainda 'visual', o 'play' seguinte reavaliava computeCover() e
-      // DESCOBRIA o telão sozinho, expondo a mídia que o operador tinha
-      // coberto de propósito.
-      // `overlay: true` — o cartão de texto está por cima do stage, então aqui
-      // descobrir REVELA alguma coisa mesmo sem mídia nenhuma. Sem esse aviso o
-      // stage pularia a transição (ele só enxerga o que ele mesmo desenha, e
-      // sem mídia a cortina cobre nos dois valores de view — ver setViewFaded)
-      // e o versículo apareceria seco, sem o fade.
+      // Delega ao DONO do estado (o stage) em vez de mexer na cortina por fora:
+      // mover a cortina direto deixava `stage.view` congelado, e o `view`
+      // seguinte concluía "nada mudou" e retornava — botão de cobrir morto. Na
+      // direção oposta, o `play` seguinte reavaliava computeCover() e
+      // DESCOBRIA o telão sozinho.
+      // `overlay: true`: o cartão de texto está acima do stage, então descobrir
+      // revela algo mesmo sem mídia. Sem o aviso o stage pularia a transição
+      // (sem mídia a cortina cobre nos dois valores de view) e o versículo
+      // apareceria seco.
       await stage.handle({ type: 'view', view: v, overlay: true });
       // O cartão de texto é INDEPENDENTE da mídia — um versículo no ar sem
       // nada carregado é o caso mais comum na pregação. Para o stage, porém,
@@ -1324,22 +1287,20 @@ async function restore() {
 // instalado, pode cair numa aba comum do Chrome como fallback).
 const startBtnEl = document.getElementById('startBtn');
 
-// No app nativo o overlay "Ligar Sistema" NÃO EXISTE: o WebView roda com
-// `setMediaPlaybackRequiresUserGesture(false)`, então não há política de gesto
-// para destravar, e exigir um toque numa TV seria um beco sem saída.
+// ===== O TELÃO QUE ESTÁ SAINDO DE CENA NÃO REPORTA =====
 //
-// E NO PAPEL `tela` ELE TAMBÉM NÃO EXISTE, pela razão OPOSTA: ali há política
-// de gesto, mas o gesto é do OUTRO botão — o "Ativar esta tela" do `tela.js`,
-// que gasta a ativação transitória em pareamento, som e tela cheia de uma vez.
-// Este aqui não faz nenhuma das três: ele só se esconde. Dois overlays de gesto
-// na mesma página não são redundância, são uma armadilha — o visitante gasta o
-// toque no que estiver na frente, e o que estava na frente era este (`inset: 0`,
-// com a pílula no CENTRO).
+// `clear`/`media-clear` esmaecem antes de sair (~0,6 s) e o `<video>` continua
+// tocando (a rampa é de volume, não de pausa), então cada `display-status` do
+// fade contava uma cena encerrada com `playing: true` e o tempo antigo. No
+// Controle isso repunha a barra e o ícone que o Parar zerou (o "só funciona no
+// segundo toque"); na NOTIFICAÇÃO era pior, porque ali não há segundo toque —
+// o `snoopDisplayStatus` lê este mesmo status. Corrigir na FONTE fecha os dois
+// consumidores sem APK.
 //
-// A REGRA VIVE AQUI, no documento que DECLARA o botão, e não no `tela.js`: era
-// justamente por a decisão morar do lado de fora que ela tinha um buraco — o
-// `tela.js` o escondia dentro de `montarEntrada()`, que a RECARGA COM SESSÃO
-// VIVA nunca chama. Bastava um F5 para o botão voltar sozinho sobre a projeção.
+// É um CONTADOR, nunca booleano: dois clears sobrepostos fariam o primeiro a
+// terminar liberar o segundo. Um `load` durante o fade cancela o clear pelo
+// `loadSeq`, mas a promise resolve do mesmo jeito — daí o decremento morar no
+// `then`, nunca num ponto de sucesso.
 if (window.__NATIVE__ || TELA) startBtnEl.hidden = true;
 // "Ligar Display" APENAS ativa o Display (gasta o gesto real que o navegador
 // exige para tocar com som). O Display é INDEPENDENTE — não abre o Controle
