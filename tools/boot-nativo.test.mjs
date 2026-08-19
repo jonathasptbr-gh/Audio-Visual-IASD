@@ -1081,6 +1081,16 @@ try {
     document.body.appendChild(lista3);
     favHost = lista3;
     try { renderFolderList(); } finally { favHost = null; }
+    // ===== A GAVETA É MONTADA AO ABRIR, E DESDE A v5.302 A FAIXA TAMBÉM =====
+    // Ela passou a viajar dentro da linha do confirmar (o hook `aoLado`), e essa
+    // linha é escrita por `renderItemMenu` — que só roda no primeiro toque, como
+    // as opções sempre rodaram. As sondas abaixo perguntam pelos botões DELA,
+    // então o percurso tem de ser o do operador: abrir antes de medir.
+    for (const li of lista3.querySelectorAll('.fav-itens > .lib-item')) {
+      li.querySelector('.row').click();
+      await new Promise((f) => setTimeout(f, 60));
+    }
+    await new Promise((f) => setTimeout(f, 120));
     r.lista = {
       secoes: lista3.querySelectorAll('.fav-section').length,
       // AS SONDAS DOS ITENS SÃO ESCOPADAS À PLACA (`.fav-itens`), e não à lista
@@ -2744,12 +2754,20 @@ try {
     // há mais posicionamento absoluto a conferir. O que ficou é a pergunta que
     // importa e que sobrevive à troca de gesto — o item foi para onde o botão
     // prometeu —, medida na lista de VERDADE e pelo botão de verdade.
-    const descer = () => {
+    // A GAVETA PRECISA ESTAR ABERTA: a faixa de ações é montada por
+    // `renderItemMenu` no primeiro toque (v5.302), e é o percurso do operador —
+    // ele não alcança o ↓ sem abrir a linha.
+    const descer = async () => {
       const alvo2 = corpo.querySelector('.lib-item[data-id="' + ids[0] + '"]');
-      const bs = alvo2.querySelectorAll('.row-ordem');
+      if (!alvo2.classList.contains('expanded')) {
+        alvo2.querySelector('.row').click();
+        await new Promise((f) => setTimeout(f, 200));
+      }
+      const bs = corpo.querySelector('.lib-item[data-id="' + ids[0] + '"]')
+        .querySelectorAll('.row-ordem');
       bs[1].click();
     };
-    descer();
+    await descer();
     await new Promise((r) => setTimeout(r, 300));
     const ordemDepois = (await AVDB.listIds('favs')).indexOf(ids[0]);
     // E A GAVETA REABRE no item que se moveu, com o ↓ de novo sob o dedo — sem
@@ -2903,6 +2921,197 @@ try {
   checar(renFav.noBanco === 'Nome de favorito novo' && renFav.naTela === 'Nome de favorito novo',
     'e a faixa de ações dos Favoritos ganhou o RENOMEAR (v5.301): o nome muda '
     + 'no banco E na linha', JSON.stringify(renFav));
+
+  // ===== A FAIXA DIVIDE A LINHA COM O CONFIRMAR (v5.302) =====
+  //
+  // Pedido do operador: *"ponha o botão de confirmar as escolhas do play dos
+  // favoritos para que ele fique lado a lado, à esquerda das opções, ajustado
+  // com a altura dos botões"*.
+  //
+  // Três coisas, e as três podem falhar separadas: ele está NA MESMA LINHA, ele
+  // está À ESQUERDA, e todos têm a MESMA ALTURA. A última é medida como
+  // IGUALDADE e nunca contra um número escrito aqui — um piso em pixel
+  // aprovaria os dois errados juntos no dia em que `--hit` mudar.
+  //
+  // E a ORDEM da faixa é a mesma do Cronograma, sem os que não existem nesta
+  // lista: sem a ESTRELA (aqui ela e a lixeira terminam no mesmo `listRemove`)
+  // e sem o botão da PLAYLIST, que aqui é uma LINHA da folha, com caixa.
+  const faixa = await pg6.evaluate(async (ids) => {
+    const alvo = ids[2];
+    const corpo = document.querySelector('[data-fav-corpo]');
+    const li = corpo.querySelector('.lib-item[data-id="' + alvo + '"]');
+    if (!li) return { erro: 'a linha do favorito sumiu' };
+    if (!li.classList.contains('expanded')) {
+      li.querySelector('.row').click();
+      // ESPERA A ANIMAÇÃO, NÃO UM RELÓGIO. O acordeão anima a altura com
+      // `el.animate()` (`expandAccordion`), e medir geometria no meio dela
+      // devolve um valor intermediário — o caso reprovava de vez em quando por
+      // isso. Um `setTimeout` maior só empurra a corrida para mais longe;
+      // `getAnimations()` é o mesmo objeto que o app criou, então a espera
+      // acaba exatamente quando o layout parou. Um oráculo que pisca é pior que
+      // um que falta: ele ensina a ignorá-lo.
+      const gav = li.querySelector('.hymn-gaveta');
+      await Promise.all((gav ? gav.getAnimations() : []).map((an) => an.finished.catch(() => {})));
+      await new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f)));
+    }
+    const linhaGo = li.querySelector('.song-menu-go-row');
+    const go = linhaGo && linhaGo.querySelector('.song-menu-go');
+    const fx = linhaGo && linhaGo.querySelector(':scope > .fav-acoes');
+    if (!go || !fx) return { erro: 'confirmar ou faixa fora da linha de fecho' };
+    const cx = (el) => el.getBoundingClientRect();
+    const bs = [...fx.querySelectorAll('.row-btn')];
+    const r = {
+      // 1. MESMA LINHA — a faixa é irmã do confirmar, não um bloco solto no pé.
+      mesmaLinha: true,
+      soltaNaGaveta: !!li.querySelector(':scope > .hymn-gaveta > .fav-acoes'),
+      // 2. O CONFIRMAR VEM ANTES, e cresce: a decisão principal é a que se acha
+      //    sem mirar.
+      confirmarAEsquerda: Math.round(cx(go).right) <= Math.round(cx(bs[0]).left),
+      confirmarCresce: Math.round(cx(go).width) > Math.round(cx(bs[0]).width),
+      // 3. UMA ALTURA SÓ.
+      alturaGo: Math.round(cx(go).height),
+      alturasBotoes: bs.map((b) => Math.round(cx(b).height)),
+      // 4. E A LARGURA DOS QUADRADOS NÃO ENCOLHEU: o pedido era de altura.
+      larguras: bs.map((b) => Math.round(cx(b).width)),
+      ordem: bs.map((b) => (b.className.match(/row-(excluir|renomear|ordem)/) || [''])[0]),
+    };
+    // 5. E ELA SOBREVIVE À REMONTAGEM DA FOLHA: `renderItemMenu` refaz a lista a
+    //    cada marca, e uma faixa NOVA perderia os ouvintes — e apagaria uma
+    //    confirmação de exclusão aberta, deixando a lixeira na miniatura sem
+    //    nenhum botão que a explicasse.
+    const opcao = [...li.querySelectorAll('.hymn-opcoes .song-menu-btn')]
+      .find((b) => /playlist/i.test(b.textContent));
+    if (opcao) {
+      opcao.click();
+      await new Promise((f) => setTimeout(f, 200));
+      r.sobreviveuAoRedesenho = !!li.querySelector('.song-menu-go-row > .fav-acoes .row-excluir');
+    }
+    // 6. ENQUANTO A LINHA PERGUNTA, o confirmar da folha SAI: dois botões de
+    //    confirmar lado a lado diriam coisas opostas.
+    li.querySelector('.fav-acoes .row-excluir').click();
+    await new Promise((f) => setTimeout(f, 250));
+    const go2 = li.querySelector('.song-menu-go-row .song-menu-go');
+    r.confirmarSomeAoPerguntar = !go2 || getComputedStyle(go2).display === 'none';
+    const par = [...li.querySelectorAll('.linha-confirma-btn')];
+    r.alturasDoPar = par.map((b) => Math.round(b.getBoundingClientRect().height));
+    li.querySelector('.linha-nao').click();
+    await new Promise((f) => setTimeout(f, 250));
+    const go3 = li.querySelector('.song-menu-go-row .song-menu-go');
+    r.confirmarVolta = !!go3 && getComputedStyle(go3).display !== 'none';
+    return r;
+  }, fav.ids);
+  checar(!faixa.erro && faixa.mesmaLinha && faixa.soltaNaGaveta === false,
+    'A FAIXA DE AÇÕES DIVIDE A LINHA COM O CONFIRMAR (v5.302) — ela era um bloco '
+    + 'próprio no pé da gaveta, duas faixas empilhadas para o que cabe numa',
+    JSON.stringify(faixa));
+  checar(!faixa.erro && faixa.confirmarAEsquerda && faixa.confirmarCresce,
+    'com o confirmar À ESQUERDA dela e crescendo: a decisão principal é a que se '
+    + 'acha sem mirar', JSON.stringify(faixa));
+  checar(!faixa.erro && faixa.alturasBotoes.length > 0
+      && faixa.alturasBotoes.every((h) => h === faixa.alturaGo),
+    'e TODOS na mesma altura (' + (faixa.alturaGo || 0) + 'px) — os botões traziam '
+    + '`--thumb` fixo e ficariam boiando no meio da linha',
+    JSON.stringify(faixa));
+  checar(!faixa.erro && faixa.larguras.every((w) => w === faixa.larguras[0]) && faixa.larguras[0] >= 34,
+    'sem encolher a LARGURA deles (' + (faixa.larguras || [])[0] + 'px): o pedido era '
+    + 'de altura, e estreitar o alvo trocaria um acerto por um erro',
+    JSON.stringify(faixa.larguras));
+  checar(!faixa.erro && JSON.stringify(faixa.ordem)
+      === JSON.stringify(['row-excluir', 'row-renomear', 'row-ordem', 'row-ordem']),
+    'e a ORDEM é a mesma do Cronograma sem os que não existem nesta lista: '
+    + 'excluir · renomear · ↑ · ↓', JSON.stringify(faixa.ordem));
+  checar(!faixa.erro && faixa.sobreviveuAoRedesenho === true,
+    'a faixa é o MESMO nó a cada remontagem da folha — uma nova perderia os '
+    + 'ouvintes e apagaria uma confirmação de exclusão aberta',
+    JSON.stringify(faixa));
+  checar(!faixa.erro && faixa.confirmarSomeAoPerguntar === true && faixa.confirmarVolta === true,
+    'e enquanto a linha PERGUNTA o confirmar da folha sai de cena: dois botões '
+    + 'de confirmar lado a lado diriam coisas opostas (volta inteiro no Cancelar)',
+    JSON.stringify(faixa));
+  checar(!faixa.erro && (faixa.alturasDoPar || []).every((h) => h === faixa.alturaGo),
+    'com o par Cancelar/Excluir na altura do botão que ele substitui — sem isso '
+    + 'a gaveta dá um pulo sob o dedo ao perguntar', JSON.stringify(faixa.alturasDoPar));
+
+  // ===== A FAIXA É DA LINHA DELA, E CONTINUA LÁ (v5.302) =====
+  //
+  // Os dois percursos abaixo são os que quebraram na primeira escrita deste
+  // lote, e nenhum deles é exótico — são as duas coisas que um operador faz
+  // numa lista: olhar DOIS itens, e usar o confirmar.
+  //
+  // A causa era uma só: o irmão do confirmar viajava no slot GLOBAL
+  // `songMenuFor`, e quem o consome é o `desenhar()` de UMA linha — um fecho que
+  // sobrevive ao global, porque a gaveta é montada uma vez (`gavetaMontada`) e
+  // porque `closeSongMenu()` anula o global com a gaveta ainda aberta. Enquanto
+  // o irmão era um botão novo a cada chamada ("Ver a letra"), a divergência era
+  // invisível; com um NÓ VIVO ligado a um item, ela virou a faixa de uma linha
+  // dentro da gaveta de outra — a lixeira de A excluindo o item B.
+  const roubo = await pg6.evaluate(async () => {
+    const corpo = document.querySelector('[data-fav-corpo]');
+    const ls = [...corpo.querySelectorAll('.fav-itens > .lib-item')];
+    if (ls.length < 2) return { erro: 'faltam favoritos para o caso' };
+    const [a, b] = ls;
+    const abrir = async (li) => {
+      if (!li.classList.contains('expanded')) {
+        li.querySelector('.row').click();
+        const gav = li.querySelector('.hymn-gaveta');
+        await Promise.all((gav ? gav.getAnimations() : []).map((an) => an.finished.catch(() => {})));
+        await new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f)));
+      }
+    };
+    const marcar = async (li, texto) => {
+      const o = [...li.querySelectorAll('.hymn-opcoes .song-menu-btn')]
+        .find((x) => new RegExp(texto, 'i').test(x.textContent));
+      if (!o) return false;
+      o.click();
+      await new Promise((f) => setTimeout(f, 200));
+      return true;
+    };
+    // ---- 1. ABRIR A → ABRIR B → REABRIR A → mexer em A ----
+    await abrir(a); await abrir(b); await abrir(a);
+    await marcar(a, 'playlist');
+    const r = {
+      // A faixa de A continua em A, e a de B continua em B. O defeito movia a
+      // de B para dentro de A e deixava B sem nenhuma.
+      aTemFaixa: !!a.querySelector('.song-menu-go-row > .fav-acoes'),
+      bTemFaixa: !!b.querySelector('.song-menu-go-row > .fav-acoes'),
+      // E a lixeira de A fala do item de A: a prova de que o alvo não trocou é
+      // o `aria-label` do botão que executa, que carrega o NOME do item.
+      nomeA: a.querySelector('.row-name').textContent,
+      dicaDoExcluirDeA: '',
+    };
+    a.querySelector('.fav-acoes .row-excluir').click();
+    await new Promise((f) => setTimeout(f, 220));
+    const sim = a.querySelector('.linha-sim');
+    r.dicaDoExcluirDeA = sim ? (sim.getAttribute('aria-label') || '') : '';
+    r.lixeiraEmA = !!a.querySelector(':scope > .row > .thumb > .row-lixo');
+    r.lixeiraEmB = !!b.querySelector(':scope > .row > .thumb > .row-lixo');
+    a.querySelector('.linha-nao').click();
+    await new Promise((f) => setTimeout(f, 220));
+    // ---- 2. CONFIRMAR e depois mexer na MESMA gaveta ----
+    // `closeSongMenu()` anula o global; a gaveta do acordeão continua aberta.
+    await abrir(a);
+    await marcar(a, 'playlist');
+    const go = a.querySelector('.song-menu-go');
+    if (go && !go.disabled) { go.click(); await new Promise((f) => setTimeout(f, 350)); }
+    const a2 = document.querySelector('[data-fav-corpo] .fav-itens > .lib-item');
+    await marcar(a2, 'Cronograma');
+    r.faixaSobreviveuAoConfirmar = !!a2.querySelector('.song-menu-go-row > .fav-acoes .row-excluir');
+    return r;
+  });
+  checar(!roubo.erro && roubo.aTemFaixa === true && roubo.bTemFaixa === true,
+    'CADA LINHA FICA COM A FAIXA DELA depois de abrir outra e voltar (v5.302) — '
+    + 'o irmão do confirmar viajava num slot global, e o `desenhar()` de uma '
+    + 'linha reanexava a faixa de OUTRA', JSON.stringify(roubo));
+  checar(!roubo.erro && roubo.lixeiraEmA === true && roubo.lixeiraEmB === false
+      && roubo.dicaDoExcluirDeA.includes(roubo.nomeA),
+    'e a lixeira dela fala do item DELA: a miniatura que pergunta e o nome no '
+    + 'botão que executa são os mesmos — era aqui que um destrutivo apontava '
+    + 'para o item errado', JSON.stringify(roubo));
+  checar(!roubo.erro && roubo.faixaSobreviveuAoConfirmar === true,
+    'e a faixa sobrevive a um CONFIRMAR seguido de outra marca: `closeSongMenu` '
+    + 'anula o global com a gaveta ainda aberta, e sem o irmão vindo do fecho a '
+    + 'faixa não era reanexada — excluir, renomear e ↑↓ sumiam da gaveta',
+    JSON.stringify(roubo));
 
   // ===== RENOMEAR NA GAVETA DA LINHA DO CRONOGRAMA (v5.288) =====
   //

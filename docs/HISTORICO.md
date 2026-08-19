@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v5.302** — A ORDEM DA FILEIRA, DITADA — e o botão da playlist deixa de ser um recibo para virar um ESTADO. OTA PURO
 - **v5.301** — A CONFIRMAÇÃO DE EXCLUIR SAI DO POPUP E VOLTA PARA A LINHA — e a fileira da gaveta, medida a 360px, já estava cheia. OTA PURO
 - **v5.298** (APK v2.3) — A REVISÃO PROFUNDA — uma seção inteira do doc de arquitetura descrevia um player apagado, e o espelhoEstado publicava seis medições que n…
 - **v5.297** — NÃO HAVIA COR DE TEXTO QUE RESOLVESSE — o defeito era a SUPERFÍCIE, e a Biblioteca inteira estava em MAIÚSCULAS. OTA PURO
@@ -170,6 +171,149 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v5.302
+
+**A v5.302: A ORDEM DA FILEIRA, DITADA — e o botão da playlist deixa de ser um
+recibo para virar um ESTADO. OTA PURO** (base web, oráculos e docs; sem Release,
+`SHELL_VERSION` continua **44**).
+
+Quatro ajustes do operador sobre o lote anterior, e um deles é a correção de um
+erro de concepção da v5.301.
+
+**1. A ORDEM AGRUPA POR NATUREZA.** *"Ajuste a ordem dos botões de opções do
+cronograma para, da esquerda para a direita: excluir, renomear, favoritar,
+adicionar à playlist, subir e descer."*
+
+A anterior era excluir · baixar · favoritar · playlist · renomear · ↑ · ↓ — o
+renomear caía entre a playlist e o par de ordem, **separando os dois pares que se
+parecem**. A nova põe junto o que mexe no ITEM (excluir, renomear), o que mexe em
+ONDE ele está (favoritar, playlist) e o que mexe na POSIÇÃO dele (↑↓). O excluir
+continua primeiro pela razão da v5.288 — o mais longe do `⋮`, que é o alvo tocado
+repetidamente. O "baixar o vídeo" de uma linha de LINK não está na sequência
+porque só existe nela: entra depois da playlist, para não a partir ao meio.
+
+**A MESMA ORDEM NOS FAVORITOS**, *"com a ressalva de não contar com os itens que
+não existem naquela lista"*: excluir · renomear · ↑ · ↓. Faltam a ESTRELA (aqui
+ela e a lixeira terminam no mesmo `listRemove('favs')`) e o botão da PLAYLIST,
+que naquela gaveta é uma LINHA da folha de destinos, com caixa de marcação.
+
+**2. O BOTÃO DA PLAYLIST ERA UM RECIBO, E A PERGUNTA É OUTRA.** *"Faça com que o
+estado de adicionado à playlist seja um botão que visualmente responda se aquele
+item está ou não na playlist, não apenas a confirmação de 'enviado para
+playlist'."*
+
+Ele nasceu na v5.301 como AÇÃO: tocava, respondia com o ✓ do `pulsar` e voltava
+ao mesmo desenho. Um segundo depois a linha não dizia mais nada — e a pergunta
+que o operador faz montando o culto não é *"eu mandei?"*, é **"está lá?"**. Sem
+resposta na linha, conferir custava abrir a fila.
+
+Agora ele é o que a ESTRELA já era: um ALTERNADOR com estado à vista, com a mesma
+anatomia, a mesma dupla de cores (`--line` apagado, `--accent` aceso) e a mesma
+exceção no fecho da caixa. **O segundo toque TIRA da fila**, e essa é a metade que
+faz dele um estado em vez de um contador: um botão que só acende nunca se apaga, e
+desfazer exigiria abrir a playlist e procurar a linha lá dentro.
+
+- **A COR NÃO ESTÁ SOZINHA:** o desenho troca `+` por `✓`. Num salão escuro, e
+  para quem não separa os dois tons, é o símbolo que responde. SVG inline e nunca
+  um glifo — `playlist_add_check` não está no subset de trinta codepoints da
+  fonte, e codepoint ausente desenha um retângulo vazio sem erro nenhum.
+- **`marcarNaPlaylist` é o irmão do `marcarNoAr`**, e roda na PRIMEIRA linha de
+  `renderPlaylist()`: a função volta cedo quando a fila fica vazia, e no fim ela
+  não rodaria justamente no caso em que todos os botões precisam apagar. A fila
+  muda por muitas portas
+  e quase nenhuma redesenha a lista — o toque no corpo de uma linha a SUBSTITUI
+  (`replacePlaylistWith`), a folha de destinos acrescenta, o "Guardar pacote"
+  troca tudo. Sem o repintor, o botão de toda OUTRA linha ficaria dizendo o que
+  era verdade antes do último toque, **que é pior que não dizer nada, porque
+  agora ele promete um estado**. Ele mora no fim de `renderPlaylist()`, por onde
+  todo caminho que escreve em `plItems` passa: a próxima porta já nasce coberta.
+
+**3. O CONFIRMAR DOS FAVORITOS DIVIDE A LINHA COM AS AÇÕES.** *"Ponha o botão de
+confirmar as escolhas do play dos favoritos para que ele fique lado a lado, à
+esquerda das opções, ajustado com a altura dos botões."*
+
+A faixa era um bloco próprio no pé da gaveta, logo abaixo da linha do confirmar —
+duas faixas empilhadas para o que cabe numa, e a gaveta mais alta por isso, num
+acordeão cuja regra é manter a decisão sob o dedo. Quem a leva para lá é o hook
+**`aoLado`** que a v5.286 abriu para o "Ver a letra": a `.song-menu-go-row` já é
+um flex em que o confirmar CRESCE e o irmão fica com o que precisa. **Nenhum
+mecanismo novo.**
+
+- **O nó é O MESMO a cada remontagem.** `renderItemMenu` refaz a lista a cada
+  marca (`alvo.innerHTML = ''`), e devolver uma faixa NOVA perderia os ouvintes e
+  apagaria uma confirmação de exclusão aberta — deixando a lixeira na miniatura
+  sem nenhum botão que a explique. Devolvendo o mesmo nó, o `appendChild` o MOVE.
+- **E O IRMÃO VEM POR ARGUMENTO, não do global `songMenuFor`** — a correção que
+  este lote quase não teve. Ver o bloco abaixo.
+- **Uma altura só:** 53px. Os botões traziam `--thumb` fixo (40px) e boiariam no
+  meio; `height: auto` desarma o valor fixo e o `stretch` da linha os iguala. A
+  LARGURA continua `--thumb` — o pedido era de altura, e estreitar o alvo
+  trocaria um acerto por um erro.
+- **Enquanto a linha PERGUNTA, o confirmar da folha sai de cena.** Foi o que a
+  mudança criou e ninguém pediu: dois botões de confirmar lado a lado dizendo
+  coisas opostas — "mande para onde marquei" e "tire da lista". Ele volta inteiro
+  no Cancelar, com as marcas onde estavam. E o par Cancelar/Excluir veste a
+  receita de altura do botão que substitui (`--hit` mais o padding de um
+  `.song-menu-btn`), senão a gaveta encolhe 19px sob o dedo no exato instante em
+  que se mira um destrutivo.
+
+**4. O DEFEITO QUE ESTE LOTE QUASE PUBLICOU, e a regra que fica.** A primeira
+escrita do item 3 mandava o irmão pelo slot GLOBAL `songMenuFor.aoLado` — que é
+como o "Ver a letra" da v5.286 sempre viajou. Uma revisão adversarial do diff, em
+Chromium, reproduziu três desfechos, todos por dois caminhos que já existiam no
+código:
+
+- a gaveta do acordeão é montada UMA vez (`gavetaMontada`), então REABRIR uma
+  linha não reescreve `songMenuFor`;
+- `closeSongMenu()` (que o Confirmar chama) ANULA o global com a gaveta ainda
+  aberta.
+
+Com isso: **abrir A → abrir B → reabrir A → marcar um destino em A** movia a
+faixa de **B** para dentro da gaveta de **A** — a miniatura de A virava lixeira,
+o rótulo dizia o nome de A, e quem saía dos Favoritos era **B**. E **confirmar
+um destino e marcar outro** apagava a faixa inteira da gaveta aberta, levando
+junto uma confirmação de exclusão em curso: a lixeira ficava na miniatura sem
+Cancelar nem Excluir — literalmente o desfecho que o comentário do lote citava
+como razão de devolver o mesmo nó.
+
+**A regra: um slot global só serve para o que não tem ALVO.** Enquanto o irmão
+era uma fábrica de botão descartável, a divergência entre o tempo de vida do
+global e o do fecho que o consome era invisível. Um NÓ VIVO ligado a um item
+transformou cada divergência em perda de interface ou em destrutivo apontando
+para a linha errada. Hoje `destConfirmRow` recebe o irmão por ARGUMENTO, do fecho
+de quem desenha; o global ficou só como caminho da Biblioteca, onde ele é fábrica.
+Reabrir uma gaveta também reaponta `songMenuFor`, para a invariante que todo
+leitor assume — *"ele descreve a gaveta ABERTA"* — voltar a ser verdade.
+
+**A CONSEQUÊNCIA ESTRUTURAL, dita porque quebrou oráculo:** a faixa de ações
+passou a ser montada NO PRIMEIRO TOQUE, com o resto da folha — ela é escrita por
+`renderItemMenu`, que só roda quando a gaveta abre. Antes existia no DOM desde o
+desenho da linha, e três sondas do `boot-nativo` a mediam sem abrir nada. Elas
+passaram a percorrer o caminho do operador, que é o que deveriam ter feito desde
+sempre: ninguém alcança o ↓ de um favorito sem abrir a linha.
+
+**O que os oráculos passaram a travar:** a sequência inteira da fileira nas duas
+listas (afirmada como LISTA, não por posições soltas — o defeito aqui é um botão
+que troca de vizinho, e só a sequência o pega); o botão da playlist acendendo,
+trocando `+` por `✓`, mudando de rótulo e TIRANDO no segundo toque; o repintor
+acompanhando a fila mudada por outra porta, inclusive pelo toque que a substitui;
+o confirmar na mesma linha, à esquerda, crescendo, e todos na mesma altura —
+medida como IGUALDADE e jamais contra um número escrito no teste; a faixa sendo o
+mesmo nó depois de uma remarcação de destino; o confirmar da folha saindo (e
+voltando) quando a linha pergunta; e **os dois percursos do item 4** — cada linha
+ficando com a faixa DELA depois de abrir outra e voltar (com o nome no botão que
+executa provando que o alvo não trocou), e a faixa sobrevivendo a um Confirmar
+seguido de outra marca.
+
+**Sobre a espera desses casos:** eles medem GEOMETRIA depois de abrir um acordeão,
+e a primeira escrita esperava por relógio — reprovava de vez em quando. Hoje
+esperam a própria animação (`getAnimations()`, o mesmo objeto que
+`expandAccordion` criou) mais dois quadros. Um `setTimeout` maior só empurra a
+corrida para mais longe, e **um oráculo que pisca é pior que um que falta: ele
+ensina a ignorá-lo.**
 
 ---
 
