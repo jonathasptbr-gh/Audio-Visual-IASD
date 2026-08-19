@@ -960,25 +960,48 @@ main {
    mora onde a ação nasce; ver `.row-nota` (a linha do item), `.folder-count--st`
    (o contador da pasta) e `.pv-busy.falhou` (o cartão da preview). */
 
-/* ---------- Título da lista ativa ---------- */
-.list-header { flex-shrink: 0; display: flex; align-items: center; gap: .3rem; }
+/* ---------- Título da lista ativa: TRÊS COLUNAS FIXAS (v5.307) ----------
+   Pedido do operador: *"ajuste o título da aba Bíblia, que está se deslocando
+   durante o processo de escolher o capítulo e versículo"*.
+
+   Como flex, o título era centrado no espaço que SOBRAVA, e o voltar entrava e
+   saía do fluxo: na grade de livros ele não existe, e da tela de
+   capítulo+versículo em diante sim (`renderListTitle`). O nome da tela — a
+   única coisa da faixa que não é ação, e a que responde "onde eu estou" — dava
+   um pulo de ~19px para a direita toda vez que o operador entrava num livro.
+
+   Numa GRADE de trilhas fixas a coluna do voltar continua reservada quando ele
+   está `hidden`, porque quem ocupa uma trilha é a POSIÇÃO EXPLÍCITA, não o
+   elemento — um item `display: none` não desloca ninguém. É isso que faz esta
+   ser a forma certa aqui: o `[hidden] { display: none !important }` do topo
+   desta folha segue valendo inteiro, e nada precisa lutar com ele.
+
+   As três posições são declaradas UMA A UMA de propósito: com auto-placement, o
+   vão da direita cairia na coluna 1 justamente nas telas em que o voltar não
+   está lá — o defeito de volta, com outro nome. E o vão existe porque reservar
+   só a esquerda deixaria o título 19px fora do eixo da faixa em toda a
+   interface: trocaria um deslocamento por um desalinhamento. */
+.list-header {
+  flex-shrink: 0; display: grid; align-items: center; gap: .3rem;
+  grid-template-columns: var(--hit) minmax(0, 1fr) var(--hit);
+}
+.list-header > .back-btn { grid-column: 1; }
+.list-header > .list-title { grid-column: 2; }
+.list-head-vao { grid-column: 3; }
 /* O nome da tela. Subiu de .72rem para .84rem na v5.51: com a versão fora do
    cabeçalho e o botão de troca de modo ancorado à direita, a faixa passou a ter
    espaço — e em .72rem o único texto que responde "onde eu estou" era menor que
    o subtítulo de qualquer linha da lista. Segue em `--muted` e em caixa alta:
-   é um rótulo de seção, não um cabeçalho de conteúdo. */
-/* `min-width: 0` + reticências: dentro de uma pasta o título é o NOME dela, de
-   comprimento imprevisível, e o cabeçalho tem vizinhos de largura fixa dos DOIS
-   lados. Sem isto um nome longo empurra um botão para fora da tela — o padrão
-   de um item flex é `min-width: auto`, que se recusa a encolher abaixo do
-   conteúdo. MEDIDO: em 360px só a raiz dos Favoritos aperta (quatro elementos),
-   e "FAVORITOS" sai com reticências por ~17px; em 390px cabe inteiro.
-   AO CENTRO porque é o único elemento da faixa que não é ação. Centrado no
-   ESPAÇO QUE SOBRA, não na tela: os dois botões não têm a mesma largura, e o
-   eixo da tela exigiria tirá-lo do fluxo, arriscando sobreposição com um nome
-   comprido. */
+   é um rótulo de seção, não um cabeçalho de conteúdo. AO CENTRO porque é o
+   único elemento da faixa que não é ação.
+   `min-width: 0` + reticências: dentro de uma pasta o título é o NOME dela, de
+   comprimento imprevisível. O `minmax(0, 1fr)` da trilha e este `min-width` são
+   as DUAS metades da mesma defesa — o padrão de um item de grade é
+   `min-width: auto`, que se recusa a encolher abaixo do conteúdo, e sem os dois
+   um nome longo empurra o vão da direita para fora da tela em vez de virar
+   reticências. */
 .list-title {
-  flex: 1; min-width: 0; text-align: center;
+  min-width: 0; text-align: center;
   font-size: .84rem; font-weight: 700; color: var(--muted);
   text-transform: uppercase; letter-spacing: .06em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -1449,21 +1472,37 @@ main {
    preservar (a caixa já está no ar) e um botão de 40px invisível continuaria
    reservando a largura que o par precisa. */
 .linha-confirma { display: none; }
-:is(.row-acoes, .fav-acoes).confirmando > .linha-confirma {
+:is(.row-acoes, .fav-acoes, .pl-limpar-faixa).confirmando > .linha-confirma {
   display: flex; flex: 1; min-width: 0;
-  align-items: center; justify-content: flex-end; gap: .35rem;
+  align-items: center; gap: .35rem;
 }
-:is(.row-acoes, .fav-acoes).confirmando > :not(.linha-confirma) { display: none; }
+:is(.row-acoes, .fav-acoes, .pl-limpar-faixa).confirmando > :not(.linha-confirma) { display: none; }
 /* O par é de TEXTO, não de ícone, e é a única exceção à regra dos quadrados da
    linha: um destrutivo confirmado por dois desenhos parecidos seria pior que o
    modal que ele substitui. Daí o reset completo aqui — ele não entra na lista
-   de `.row-btn` logo acima, que impõe `--hit` de largura. */
+   de `.row-btn` logo acima, que impõe `--hit` de largura.
+
+   ELES DIVIDEM A FAIXA AO MEIO (v5.307), a pedido do operador: *"eles devem ser
+   botões que ocupem toda essa linha horizontal da gaveta… um na metade esquerda
+   e outro na metade direita"*. Eram do tamanho do próprio rótulo e encostados à
+   direita, então "Cancelar" e "Excluir" ficavam colados um no outro na metade
+   direita de uma faixa vazia — a metade esquerda não dizia nada e os dois alvos
+   de um destrutivo eram vizinhos de 8px. Com `flex: 1 1 0` a faixa vira a
+   régua: metade para desistir, metade para executar, e o dedo não tem como
+   errar de botão por 8px.
+
+   `min-width: 0` porque o padrão de um item flex é `min-width: auto`, que se
+   recusa a encolher abaixo do conteúdo — sem ele, uma faixa estreita faria o
+   par estourar a caixa em vez de repartir o que há. O `overflow` é a garantia
+   final: os rótulos são curtos ("Cancelar", "Excluir", "Tirar", "Limpar"), mas
+   quem escrever um longo verá reticências em vez de texto por cima do vizinho. */
 .linha-confirma-btn {
-  flex: none; min-height: var(--hit); padding: 0 .75rem;
+  flex: 1 1 0; min-width: 0; min-height: var(--hit); padding: 0 .5rem;
   border: none; border-radius: var(--radius-btn);
   appearance: none; -webkit-appearance: none;
   font-family: inherit; font-size: .82rem; font-weight: 600;
-  white-space: nowrap; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  cursor: pointer;
   background: var(--surface); color: var(--text);
 }
 /* O SIM veste o par destrutivo da paleta (`--danger-soft` + `--danger-strong`),
@@ -3347,6 +3386,49 @@ main {
   appearance: none; -webkit-appearance: none;
 }
 .pl-pack .msym { font-size: var(--icon-sm); }
+
+/* ---------- LIMPAR A FILA INTEIRA (v5.307) ----------
+   A OUTRA ação que a lista oferece sobre si mesma, e a destrutiva delas. A
+   caixa é a mesma do pacote (mesma margem, mesma receita de altura, mesma
+   largura cheia): o rodapé da folha passa a ser duas decisões sobre a FILA, não
+   um botão e um enfeite.
+
+   Ele é a PORTA de um destrutivo, não a execução dele, e veste o par discreto
+   que a porta do "Tirar do ar" já veste (`--surface` + `--danger-text`) — o
+   saturado `--danger-soft`/`--danger-strong` fica para o botão que de fato
+   limpa, que nasce dentro desta mesma faixa quando o operador toca aqui. Dois
+   vermelhos cheios empilhados no rodapé anunciariam duas ações destrutivas onde
+   há uma. Dentro da folha o `--surface` AFUNDA (ver a regra do topo), então o
+   recesso é o degrau contra o `--panel` da folha, como em toda superfície de
+   cartão.
+
+   A ALTURA MORA NA FAIXA, não nos dois conteúdos dela. A pergunta troca o
+   conteúdo da caixa (o botão sai, o par entra) e os dois têm receitas de altura
+   diferentes — `--hit` no par, padding no botão. Com o número aqui em cima e
+   `align-items: stretch`, quem estiver dentro veste a caixa, e a folha não dá
+   pulo nenhum no instante em que o dedo mira o destrutivo. O valor é a receita
+   do `.pl-pack` escrita por extenso (o glifo mais o padding), para os dois
+   botões do rodapé terem a mesma caixa sem que um repita o número do outro. */
+.pl-limpar-faixa {
+  flex-shrink: 0; margin: 0 .7rem .8rem;
+  display: flex; align-items: stretch;
+  min-height: calc(var(--icon-sm) + 1.4rem);
+}
+.pl-clear {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; justify-content: center; gap: .45rem;
+  padding: 0 .5rem;
+  border: none; border-radius: var(--radius-btn);
+  background: var(--surface); color: var(--danger-text);
+  font-size: .86rem; font-weight: 600; font-family: inherit; cursor: pointer;
+  appearance: none; -webkit-appearance: none;
+}
+.pl-clear .msym { font-size: var(--icon-sm); }
+/* O par herda a caixa da faixa em vez de se centrar dentro dela: a regra geral
+   da `.linha-confirma` centra (na fileira do `⋮` os vizinhos são quadrados de
+   `--thumb`, e centrar é o certo lá), e aqui isso deixaria dois botões de
+   `--hit` boiando numa caixa de 42px. */
+.pl-limpar-faixa.confirmando > .linha-confirma { align-items: stretch; }
 
 /* ---------- Contador de itens de pasta ---------- */
 .folder-count {

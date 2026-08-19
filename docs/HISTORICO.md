@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v5.307** — QUATRO AJUSTES PEDIDOS: o título parava de pular, a versão foi para o fim da referência, o par de confirmar divide a faixa ao meio e a fila ganhou um LIMPAR. OTA PURO
 - **v5.306** — DOIS DESFECHOS PARA A FILA SORTEADA, e a conta passa a falar de MÚSICA em vez de varredura. OTA PURO
 - **v5.305** — O BOTÃO DA PLAYLIST ABRE A BARRA, e o ícone dele estava a 2,06:1 sobre o campo branco. OTA PURO
 - **v5.304** — O BOTÃO DA PLAYLIST AUTOMÁTICA ESTAVA INVISÍVEL — o glifo não existe no subset da fonte, e agora isso tem oráculo. OTA PURO
@@ -175,6 +176,103 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v5.307
+
+**A v5.307: QUATRO AJUSTES PEDIDOS — o título parava de pular, a versão foi para
+o fim da referência, o par de confirmar divide a faixa ao meio e a fila ganhou um
+LIMPAR. OTA PURO** (base web, oráculos e docs; sem Release, `SHELL_VERSION`
+continua **44**).
+
+Pedido do operador, em quatro itens: *"ajuste o título da aba bíblia, que está se
+deslocando durante o processo de escolher o capítulo e versículo"*; *"ajuste
+também a posição da versão da bíblia na escolha final, hoje ela está mais a
+esquerda, coloque ela a direita, após o versículo"*; *"verifique os botões de
+cancelar e confirmar exclusão… eles devem ser botões que ocupem toda essa linha
+horizontal da gaveta… um na metade esquerda e outro na metade direita"*; *"faça
+um botão para limpar toda a playlist tocando agora, deixe esse botão é claro no
+popup da playlist"*.
+
+**O TÍTULO PULAVA PORQUE A FAIXA ERA FLEX.** O `#listTitle` era centrado no
+espaço que SOBRAVA (`flex: 1` + `text-align: center`), e o `#backBtn` entra e sai
+do fluxo conforme a tela da Bíblia — só a de livros não o tem. Entrar num livro
+empurrava ~19px para a direita o único texto do app que responde *"onde eu
+estou"*, no meio de uma navegação de três telas.
+
+A faixa virou uma **GRADE de três trilhas fixas** (`--hit`, `minmax(0,1fr)`,
+`--hit`), com as três posições declaradas uma a uma. É a forma certa aqui porque
+numa grade quem ocupa uma trilha é a POSIÇÃO EXPLÍCITA: um item `display: none`
+não desloca ninguém, então o `[hidden] { display: none !important }` do topo da
+folha segue valendo inteiro e nada precisa lutar com ele. **A correção óbvia era
+pela metade:** reservar só a trilha do voltar deixaria o título parado e FORA DO
+EIXO em toda a interface — trocaria um deslocamento por um desalinhamento —, daí
+o `.list-head-vao` da trilha 3. E as posições são explícitas porque, com
+auto-placement, o vão cairia na coluna 1 justamente nas telas em que o voltar não
+está lá: o defeito de volta, com outro nome.
+
+**A VERSÃO É A ÚLTIMA COORDENADA.** A `.bible-ref-nav` lia *Versão · Livro ·
+Capítulo · Versículo*; passou a *Livro · Capítulo · Versículo · Versão*. As três
+primeiras são a referência que se lê em voz alta, na ordem em que ela é dita e na
+ordem em que o operador acabou de escolhê-las; a versão não é coordenada do
+texto, é em que edição ele está sendo lido, e trocá-la é a decisão mais rara das
+quatro. À frente ela abria a barra por uma sigla de três letras e empurrava o
+nome do livro — o único campo de largura imprevisível — para as reticências antes
+de qualquer outro. O arredondamento das pontas já saía de
+`:first-child`/`:last-child`, então acompanhou a ordem nova sem uma segunda
+regra.
+
+**O PAR DE CONFIRMAR DIVIDE A FAIXA AO MEIO.** `.linha-confirma-btn` era
+`flex: none` e a `.linha-confirma` alinhava à direita: "Cancelar" e "Excluir"
+ficavam do tamanho do próprio rótulo, colados um no outro na metade direita de
+uma faixa vazia. Dois alvos de um destrutivo a 8px de distância, e metade da
+faixa sem dizer nada. Com `flex: 1 1 0` a faixa vira a régua — metade para
+desistir, metade para executar —, e vale de uma vez nas três listas (Cronograma,
+Favoritos e a fila), porque o par sempre foi um só. `min-width: 0` porque o
+padrão de um item flex se recusa a encolher abaixo do conteúdo, mais
+`overflow`/reticências como garantia final para um rótulo longo.
+
+**A FILA GANHOU UM LIMPAR, E ELE É O DESTRUTIVO DE MAIOR ALCANCE POR TOQUE DO
+APP.** Tirar item a item era o único caminho, e uma fila de culto tem oito ou dez
+linhas — cada uma com a própria pergunta. O que o torna aceitável:
+
+- **A semântica é a do excluir de uma linha da fila**, não a de um excluir de
+  acervo: `listSet('playlist', () => [])`, sem `retirarDoAr` e sem
+  `soltarAvulso`. O que está projetando segue projetando, e o que estiver no
+  Cronograma, nos Favoritos, numa pasta ou no slot avulso segue inteiro — o
+  `listSet` coleta só o que NENHUMA outra lista aponta, a mesma conta que o
+  `listRemove` faz item a item. Limpar dez de uma vez é dez remoções, não uma
+  operação nova. A forma com FUNÇÃO, nunca o array: ela roda dentro da transação
+  que grava.
+- **A pergunta é a mesma das listas** (`pedirConfirmacaoNaLinha` já pergunta ao
+  botão quem é o pai dele), e por isso o botão ganhou uma CAIXA só sua
+  (`.pl-limpar-faixa`): o par substitui os IRMÃOS dele, e no rodapé inteiro
+  levaria o "Guardar como pacote" junto. A ALTURA mora na faixa, não nos dois
+  conteúdos — o botão e o par têm receitas diferentes, e sem o número num lugar
+  só a folha encolheria sob o dedo no exato instante em que o operador mira um
+  destrutivo. `closePlPopup` cancela, como tudo que fecha uma gaveta.
+- **Ele é a PORTA de um destrutivo, não a execução dele**, e veste o par discreto
+  do "Tirar do ar" (`--surface` + `--danger-text`); o saturado fica para o botão
+  que de fato limpa. Dois vermelhos cheios empilhados anunciariam duas ações
+  destrutivas onde há uma.
+- **Acima do pacote**, porque a folha abre pelo botão da barra de baixo e o dedo
+  chega pela borda inferior — a mesma régua que pôs o excluir no começo da
+  fileira do `⋮` (v5.288). E **com a fila vazia a caixa inteira sai**: um
+  destrutivo inerte ensinaria que tocá-lo é inofensivo.
+
+**OS QUATRO TÊM ORÁCULO**, e o `smoke.mjs` ganhou dois blocos: "O NOME DA TELA
+NÃO SE MEXE" (a posição do título nas três telas, mais o eixo da faixa) e "LIMPAR
+A FILA INTEIRA" (a pergunta, o par ao meio, a caixa que não muda de altura, o
+pacote que fica, o fechamento que cancela e o esvaziamento de fato). A divisão da
+faixa entrou no bloco da gaveta da fila que já existia. **Os dois foram provados
+pela negativa**: com as correções desfeitas, cinco asserções reprovam — um teste
+que não sabe falhar é documentação.
+
+Um efeito colateral bom: o `desvio <= 2` que o bloco da troca de modo já media no
+`smoke.mjs` passa a ser guardado por construção, e o comentário dele foi
+corrigido — ele dizia que o título só ficava centrado por NÃO haver vizinhos, o
+que a partir daqui é falso.
 
 ---
 

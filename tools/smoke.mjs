@@ -2252,10 +2252,11 @@ try {
 // esconde por inteiro. Tirar os dois de uma vez teria TRANCADO o operador no
 // Modo Fácil, e é isso que a asserção do caminho de saída guarda.
 //
-// A medição achou um efeito que não estava no pedido: sem a caixa reservada do
-// botão (que existia para o título não saltar entre abas), o título do
-// cabeçalho da lista passou a ficar de fato CENTRADO — ele nunca esteve, vivia
-// 63px à direita.
+// A medição achou um efeito que não estava no pedido: com o botão de troca de
+// modo fora do cabeçalho, o título da lista passou a ficar de fato CENTRADO —
+// ele nunca esteve, vivia 63px à direita. Desde a v5.307 quem o mantém no eixo
+// é a grade de três trilhas da faixa, e não a ausência de vizinhos: ver "O NOME
+// DA TELA NÃO SE MEXE", que mede o mesmo eixo com o voltar EM CENA.
 try {
   const modo = await pg.evaluate(() => {
     setAppMode('full');
@@ -2275,8 +2276,8 @@ try {
   checar(modo.cabecalho,
     'o cabeçalho da lista NÃO tem mais a troca de modo — ela é a mesma decisão de Configurações');
   checar(modo.desvio <= 2,
-    'e o TÍTULO passou a ficar centrado na faixa (a caixa reservada do botão o '
-    + 'empurrava 63px para a direita) — desvio de ' + Math.round(modo.desvio) + 'px');
+    'e o TÍTULO fica centrado na faixa (o botão de troca de modo o empurrava '
+    + '63px para a direita) — desvio de ' + Math.round(modo.desvio) + 'px');
   checar(!modo.sobrouTrocaDeModo,
     'e não sobrou nenhum `.mode-switch` no app: a troca de modo é UM controle, em Configurações');
   checar(modo.engrenagemNoFacil,
@@ -2460,6 +2461,73 @@ try {
   checar(false, 'a medição da rolagem terminou sem exceção (' + (e && e.message) + ')');
 }
 
+// ── O NOME DA TELA NÃO SE MEXE ───────────────────────────────────────────
+//
+// Pedido do operador (v5.307): *"ajuste o título da aba Bíblia, que está se
+// deslocando durante o processo de escolher o capítulo e versículo"*.
+//
+// O título era centrado no espaço que SOBRAVA de uma faixa flex, e o voltar
+// entrava e saía do fluxo conforme a tela da Bíblia — então o único texto que
+// responde "onde eu estou" dava um pulo de ~19px toda vez que o operador
+// entrava num livro. Hoje a faixa é uma grade de três trilhas fixas.
+//
+// São DUAS metades, e cada uma cai sozinha: a primeira prende o defeito
+// relatado (a posição não pode mudar entre telas), e a segunda prende a correção
+// que ele convida — reservar só a trilha do voltar deixaria o título parado e
+// FORA DO EIXO em toda a interface, trocando um deslocamento por um
+// desalinhamento.
+try {
+  const eixo = await pg.evaluate(async () => {
+    // ESPERAR PELA CONDIÇÃO, NUNCA PELO RELÓGIO: um `setTimeout` calibrado
+    // nesta máquina vira reprovação intermitente na do CI, e um oráculo que
+    // pisca ensina a ignorar vermelho.
+    const ate = async (cond, ms) => {
+      const fim = Date.now() + (ms || 5000);
+      while (Date.now() < fim) {
+        if (cond()) return true;
+        await new Promise((f) => setTimeout(f, 30));
+      }
+      return false;
+    };
+    setAppMode('full');
+    const onde = () => {
+      const t = document.getElementById('listTitle').getBoundingClientRect();
+      const h = document.querySelector('.list-header').getBoundingClientRect();
+      return { x: Math.round(t.x), meio: Math.round(t.x + t.width / 2), eixo: Math.round(h.x + h.width / 2) };
+    };
+    await switchTab('imports');
+    if (!await ate(() => document.getElementById('listTitle').textContent === 'Cronograma')) {
+      return { erro: 'a aba Cronograma não foi desenhada' };
+    }
+    const crono = onde();
+    await switchTab('bible');
+    if (!await ate(() => !!document.querySelector('.bible-grid--books .bible-cell'))) {
+      return { erro: 'a grade de livros não foi desenhada' };
+    }
+    const livros = onde();
+    document.querySelector('.bible-grid--books .bible-cell').click();
+    if (!await ate(() => !!document.querySelector('.bible-split'))) {
+      return { erro: 'a tela de capítulo+versículo não foi desenhada' };
+    }
+    const capitulos = onde();
+    const voltarAparece = !document.getElementById('backBtn').hidden;
+    await switchTab('imports');
+    await ate(() => document.getElementById('listTitle').textContent === 'Cronograma');
+    return { crono, livros, capitulos, voltarAparece };
+  });
+  checar(!eixo.erro && eixo.voltarAparece === true
+    && eixo.livros.x === eixo.capitulos.x && eixo.crono.x === eixo.livros.x,
+    'o nome da tela fica PARADO quando o voltar aparece — a trilha dele é '
+    + 'reservada mesmo `hidden` (Cronograma ' + (eixo.crono || {}).x + 'px · livros '
+    + (eixo.livros || {}).x + 'px · capítulo+versículo ' + (eixo.capitulos || {}).x + 'px)',
+    JSON.stringify(eixo));
+  checar(!eixo.erro && Math.abs(eixo.capitulos.meio - eixo.capitulos.eixo) <= 1,
+    'e ele fica no EIXO da faixa, não deslocado para a direita dela — é o que o '
+    + 'vão da trilha 3 existe para pagar', JSON.stringify(eixo));
+} catch (e) {
+  checar(false, 'a medição do eixo do título terminou sem exceção (' + (e && e.message) + ')');
+}
+
 // ── A GAVETA DA FILA DA PLAYLIST TAMBÉM ABRE ─────────────────────────────
 //
 // A faixa de acoes era revelada por `.lib-item.acoes-abertas .row-acoes`, e a
@@ -2520,6 +2588,20 @@ try {
       r.aindaNaFila = await AVDB.listHas('playlist', m.id);
       const dlg = document.getElementById('appDialog');
       r.semModal = !dlg || !dlg.classList.contains('open');
+      // E O PAR DIVIDE A FAIXA AO MEIO (v5.307). Ele era do tamanho do próprio
+      // rótulo e encostado à direita: "Cancelar" e "Excluir" ficavam colados um
+      // ao outro na metade direita de uma faixa vazia, com 8px entre dois alvos
+      // de um destrutivo. Medido no RENDERIZADO e em duas metades, porque cada
+      // uma cai por um motivo diferente — larguras iguais provam que os dois
+      // crescem, e a soma contra a faixa prova que eles crescem até ela.
+      const cxFila = li.querySelector('.linha-confirma');
+      const parFila = [...cxFila.querySelectorAll('.linha-confirma-btn')]
+        .map((b) => b.getBoundingClientRect());
+      const faixaFila = li.querySelector('.row-acoes').getBoundingClientRect();
+      r.parIgual = Math.abs(parFila[0].width - parFila[1].width) <= 1;
+      r.parEnche = parFila[0].width + parFila[1].width >= faixaFila.width - 8;
+      r.parLarguras = parFila.map((b) => Math.round(b.width)).join(' + ')
+        + ' de ' + Math.round(faixaFila.width);
       li.querySelector('.linha-sim').click();
       await new Promise((f) => setTimeout(f, 400));
       r.saiuDaFila = !(await AVDB.listHas('playlist', m.id));
@@ -2547,8 +2629,101 @@ try {
     'e ele PERGUNTA na própria faixa antes de tirar, como o das outras listas — '
     + 'um mesmo desenho com dois alcances conforme a tela é a pior forma de '
     + 'oferecer um destrutivo', JSON.stringify(fila));
+  checar(!fila.erro && fila.parIgual === true && fila.parEnche === true,
+    'e o par DIVIDE A FAIXA AO MEIO (v5.307): um na metade esquerda, outro na '
+    + 'direita — encostados à direita, os dois alvos de um destrutivo ficavam a '
+    + '8px um do outro (' + fila.parLarguras + 'px)', JSON.stringify(fila));
 } catch (e) {
   checar(false, 'a medição da gaveta da fila terminou sem exceção (' + (e && e.message) + ')');
+}
+
+// ── LIMPAR A FILA INTEIRA ────────────────────────────────────────────────
+//
+// O botão que a v5.307 acrescentou ao rodapé da folha da playlist, a pedido do
+// operador. Ele é o destrutivo de maior ALCANCE do app por toque — os outros
+// tiram um item, este tira a fila do culto —, e o que o torna aceitável é a
+// pergunta na própria caixa. Cada asserção cai por um motivo próprio: a pergunta
+// que não abre devolve o toque direto que ninguém pediu; a que não executa deixa
+// o botão morto; e a que sobrevive ao fechamento da folha esvaziaria a fila na
+// abertura seguinte, sem ninguém ter tocado nela.
+//
+// O "Guardar como pacote" precisa CONTINUAR EM CENA: a pergunta troca o
+// conteúdo da caixa do botão que a pediu, e só dela — no rodapé inteiro ela
+// levaria o vizinho junto, e a folha encolheria sob o dedo no exato instante em
+// que o operador mira um destrutivo.
+try {
+  const limpar = await pg.evaluate(async () => {
+    setAppMode('full');
+    // Mesma regra do bloco acima: espera-se a CONDIÇÃO, não o relógio.
+    const ate = async (cond, ms) => {
+      const fim = Date.now() + (ms || 5000);
+      while (Date.now() < fim) {
+        if (cond()) return true;
+        await new Promise((f) => setTimeout(f, 30));
+      }
+      return false;
+    };
+    for (const n of ['a', 'b', 'c']) {
+      await AVDB.addMedia(new Blob([n], { type: 'audio/mpeg' }),
+        { name: 'Faixa ' + n, type: 'audio/mpeg', kind: 'audio', list: 'playlist' });
+    }
+    await load();
+    openPlPopup();
+    const faixa = document.getElementById('plClearFaixa');
+    const botao = document.getElementById('plClear');
+    if (!faixa || !botao) return { erro: 'o rodapé não tem o botão de limpar' };
+    if (!await ate(() => faixa.getBoundingClientRect().height > 0)) {
+      return { erro: 'a folha da playlist não abriu' };
+    }
+    const r = { antes: plItems.length, aVista: !faixa.hidden && faixa.getBoundingClientRect().height > 0 };
+    const alturaAntes = Math.round(faixa.getBoundingClientRect().height);
+    botao.click();
+    if (!await ate(() => !!faixa.querySelector('.linha-confirma'))) {
+      return Object.assign(r, { erro: 'a pergunta não abriu' });
+    }
+    const cx = faixa.querySelector('.linha-confirma');
+    const par = [...cx.querySelectorAll('.linha-confirma-btn')];
+    const cxs = par.map((b) => b.getBoundingClientRect());
+    r.rotulos = par.map((b) => b.textContent).join(' · ');
+    r.aoMeio = Math.abs(cxs[0].width - cxs[1].width) <= 1
+      && cxs[0].width + cxs[1].width >= faixa.getBoundingClientRect().width - 8;
+    r.pacoteFica = document.getElementById('plPack').getBoundingClientRect().height > 0;
+    r.semPulo = Math.round(faixa.getBoundingClientRect().height) === alturaAntes;
+    r.filaIntacta = plItems.length === r.antes;
+    // FECHAR A FOLHA CANCELA — a mesma regra da gaveta da linha.
+    closePlPopup();
+    openPlPopup();
+    await ate(() => faixa.getBoundingClientRect().height > 0);
+    r.fecharCancelou = !faixa.querySelector('.linha-confirma') && plItems.length === r.antes;
+    botao.click();
+    if (!await ate(() => !!faixa.querySelector('.linha-sim'))) {
+      return Object.assign(r, { erro: 'a pergunta não reabriu' });
+    }
+    faixa.querySelector('.linha-sim').click();
+    await ate(() => plItems.length === 0);
+    r.depois = plItems.length;
+    r.noBanco = (await AVDB.listIds('playlist')).length;
+    r.sumiu = faixa.hidden;
+    closePlPopup();
+    return r;
+  });
+  checar(!limpar.erro && limpar.aVista === true && limpar.rotulos === 'Cancelar · Limpar',
+    'o rodapé da folha da playlist tem o LIMPAR, e ele pergunta na própria caixa '
+    + '(' + limpar.rotulos + ')', JSON.stringify(limpar));
+  checar(!limpar.erro && limpar.aoMeio === true && limpar.semPulo === true,
+    'o par divide a caixa ao meio e ela NÃO muda de altura ao perguntar — a '
+    + 'folha não pode pular sob o dedo que mira um destrutivo', JSON.stringify(limpar));
+  checar(!limpar.erro && limpar.pacoteFica === true && limpar.filaIntacta === true,
+    'e "Guardar como pacote" continua em cena: a pergunta troca o conteúdo da '
+    + 'caixa que a pediu, não o rodapé inteiro', JSON.stringify(limpar));
+  checar(!limpar.erro && limpar.fecharCancelou === true,
+    'fechar a folha CANCELA a pergunta — herdar um "sim" pendente esvaziaria a '
+    + 'fila na abertura seguinte, sem ninguém ter tocado nela', JSON.stringify(limpar));
+  checar(!limpar.erro && limpar.depois === 0 && limpar.noBanco === 0 && limpar.sumiu === true,
+    'e o CONFIRMAR esvazia a fila de verdade (memória e banco), e o botão some '
+    + 'com ela — não há mais o que limpar', JSON.stringify(limpar));
+} catch (e) {
+  checar(false, 'a medição do limpar a fila terminou sem exceção (' + (e && e.message) + ')');
 }
 
 // ── O TOQUE LONGO AINDA ENTRA NA SELEÇÃO MÚLTIPLA ────────────────────────

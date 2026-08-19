@@ -118,7 +118,7 @@ já baixou — a reabertura pula o que está em cache e continua de onde parou.
 
 **Versão padrão: Almeida Revista e Atualizada** (`pickDefaultBibleVersion` casa
 por nome — "revista e atualizada"/"RA"/"ARA"; senão a 1ª disponível). A troca de
-versão **não tem botão próprio**: ela é o primeiro segmento da barra de
+versão **não tem botão próprio**: ela é o ÚLTIMO segmento da barra de
 referência da tela de leitura (`part('Versão', …)`, uma `.bible-ref-part` como
 Livro/Capítulo/Versículo), e o toque abre o popup `#bibleVerPopup` com a lista
 — que não fica mais toda exposta em chips. **É na tela de LEITURA**, não na de
@@ -226,9 +226,20 @@ reticências (`-webkit-line-clamp`): a íntegra vai para o telão, aqui basta
 reconhecer o versículo. Rolar para achar o versículo central seria o oposto do
 que essa tela serve. Embaixo, um **rodapé** (`.bible-read-foot`) com um **controle segmentado
 único** (`.bible-ref-nav`) trazendo as quatro coordenadas do que está sendo
-lido — **Versão · Livro · Capítulo · Versículo** —, cada uma levando ao seu
+lido — **Livro · Capítulo · Versículo · Versão** —, cada uma levando ao seu
 próprio seletor. Emendados, continuam lendo como uma referência
-("ARA · João · 3 · 16") em vez de quatro ações soltas.
+("João · 3 · 16 · ARA") em vez de quatro ações soltas.
+
+**A VERSÃO É A ÚLTIMA** (v5.307). As três primeiras são a referência que se lê
+em voz alta, na ordem em que ela é dita e na ordem em que o operador acabou de
+escolhê-las (livro → capítulo → versículo); a versão não é coordenada do texto,
+é em que edição ele está sendo lido, e trocá-la é a decisão mais rara das
+quatro. À frente ela abria a barra por uma sigla de três letras e empurrava o
+nome do livro — o único campo de largura imprevisível, e o que diz onde a
+leitura está — para as reticências antes de qualquer outro. O arredondamento
+das pontas sai de `:first-child`/`:last-child`, então ele acompanha a ordem
+nova sem uma segunda regra; e a Versão continua saindo da barra inteira quando
+não há lista de versões carregada.
 
 A **versão entra pela sigla** (`bibleVersionAbbr`): "Almeida Revista e
 Atualizada" ocupava a linha inteira e empurrava a referência para baixo, e a
