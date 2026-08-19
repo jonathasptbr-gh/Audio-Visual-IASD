@@ -595,7 +595,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // nasceu de um toque do operador. Deixá-la servindo com a Activity morta
         // manteria um `ServerSocket` na rede da igreja sem ninguém capaz de
         // desligá-lo, e as telas ficariam com a última cena congelada na frente
-        // da congregação, sem transporte e sem quem a tire de lá.
+        // da congregação.
         //
         // `!isChangingConfigurations` NÃO É ZELO: `android:configChanges` não
         // cobre `fontScale` nem `locale`, e mudar o tamanho da fonte RECRIA esta
@@ -605,7 +605,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // mandou religar, e o `ligar()` zera o pareamento: as três telas
         // voltariam ao botão de entrada). Numa recriação quem mantém tudo vivo é
         // o serviço em primeiro plano, e a referência do servidor está no
-        // COMPANION justamente por isto.
+        // COMPANION por isto.
         if (!isChangingConfigurations) {
             try {
                 desmontarEspelho()
@@ -651,7 +651,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * As telas de apresentação EXTERNAS. Os dois pontos que perguntam "há
      * telão?" ([syncPresentation] e [listDisplays]) passam por aqui; filtrar na
      * fonte cobre de uma vez o `renderDisplayStatus`, o `applyPreviewAspect` e o
-     * `simpleDisplay` do lado web, que leem todos o mesmo `lastDisplays`.
+     * `simpleDisplay` do lado web, que leem o mesmo `lastDisplays`.
      *
      * HOJE ELE NÃO EXCLUI NADA, e precisa estar escrito, ou o próximo leitor o
      * apaga como código morto e leva a proteção junto. O que ele garante é que
@@ -772,17 +772,16 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * sistema.
      *
      * Era esse o problema durante o espelhamento: o Android roteia os botões
-     * para a saída em uso, e com Miracast/Smart View ativo isso vira o volume
-     * da TV — o operador mexia no botão e o fader do app não saía do lugar.
-     * Consumindo a tecla aqui (`return true`, também no `onKeyUp`, senão o
-     * sistema ainda reage ao evento de soltura) nada disso acontece: o evento
-     * vira um passo no `#volSlider`, exatamente como arrastar o fader.
+     * para a saída em uso, e com Miracast/Smart View ativo isso vira o volume da
+     * TV — o operador mexia no botão e o fader não saía do lugar. Consumindo a
+     * tecla aqui (`return true`, também no `onKeyUp`, senão o sistema ainda
+     * reage à soltura) o evento vira um passo no `#volSlider`, como arrastar o
+     * fader.
      *
-     * **Válvula de escape:** com o fader já no máximo (ou no zero), o lado web
+     * **Válvula de escape:** com o fader no máximo (ou no zero), o lado web
      * devolve a tecla via `adjustSystemVolume()` e ela volta a valer para o
-     * sistema, com a UI de volume do Android. Sem isso, um aparelho com o
-     * volume de mídia baixo ficaria sem jeito de subir enquanto o app
-     * estivesse aberto.
+     * sistema, com a UI de volume do Android. Sem isso, um aparelho com o volume
+     * de mídia baixo ficaria sem jeito de subir com o app aberto.
      */
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         if (captureVolumeKeys && isVolumeKey(keyCode)) {
@@ -891,11 +890,11 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * imagem da tela, que é o que este app precisa sem Presentation.
      *
      * `Settings.ACTION_CAST_SETTINGS` cai no GOOGLE CAST em vários aparelhos —
-     * por isso é o último recurso, não o primeiro. Não existe API pública para o
-     * popup das configurações rápidas (`Settings.Panel` só cobre internet, wifi,
-     * nfc e volume), então a cadeia procura o primeiro alvo que EXISTE neste
-     * aparelho e NÃO resolve para o Play Services. As entradas da Samsung não
-     * são API documentada e só são tentadas num aparelho Samsung (ver
+     * daí ser o último recurso. Não existe API pública para o popup das
+     * configurações rápidas (`Settings.Panel` só cobre internet, wifi, nfc e
+     * volume), então a cadeia procura o primeiro alvo que EXISTE neste aparelho
+     * e NÃO resolve para o Play Services. As entradas da Samsung não são API
+     * documentada e só são tentadas num aparelho Samsung (ver
      * `castCandidates`/`isSamsung`); não existindo, `resolveActivity` devolve
      * null e a cadeia segue.
      *
@@ -1027,20 +1026,18 @@ class MainActivity : ComponentActivity(), BridgeHost {
         // PackageManager de novo, pelo mesmo resultado.
         castCandidatesCache?.let { return it }
         val out = mutableListOf<Intent>()
-        // O ramo do Smart View só entra na fila NUM APARELHO SAMSUNG. Ele
-        // nasceu do aparelho em que o app é operado (um S24 Ultra), e a cadeia
-        // toda foi escrita em volta dele — mas "Smart View primeiro" é uma
-        // regra de UM fabricante, não do Android. Noutra marca esses pacotes
-        // simplesmente não existem, então a cadeia já caía no caminho universal
-        // sozinha; o que a guarda acrescenta é dizer isso em vez de deixar por
-        // acaso, e não varrer as activities de dois pacotes ausentes a cada
-        // toque no botão (e a cada abertura de Configurações, que chama
+        // O ramo do Smart View só entra na fila NUM APARELHO SAMSUNG. Ele nasceu
+        // do aparelho em que o app é operado, e a cadeia foi escrita em volta
+        // dele — mas "Smart View primeiro" é regra de UM fabricante, não do
+        // Android. Noutra marca esses pacotes não existem e a cadeia já caía no
+        // caminho universal sozinha; o que a guarda acrescenta é dizer isso em
+        // vez de deixar por acaso, e não varrer as activities de dois pacotes
+        // ausentes a cada toque (e a cada abertura de Configurações, que chama
         // `describeCastTarget`).
         //
-        // E há um caso em que o acaso não bastava: um pacote de OUTRO
-        // fabricante com o mesmo nome (ou uma ROM que carregue os apps da
-        // Samsung) entraria na frente do alvo AOSP sem que nada aqui tivesse
-        // decidido isso.
+        // E há um caso em que o acaso não bastava: um pacote de OUTRO fabricante
+        // com o mesmo nome (ou uma ROM que carregue os apps da Samsung) entraria
+        // na frente do alvo AOSP sem que nada aqui tivesse decidido isso.
         if (isSamsung()) {
             for (pkg in SAMSUNG_MIRROR_PACKAGES) {
                 for (cls in exportedActivities(pkg)) {
