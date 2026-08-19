@@ -4403,210 +4403,119 @@ YouTube, **digitar tudo de novo** e compartilhar de volta.
 - **Uma LUPA, não o logotipo do YouTube.** O que o botão faz é uma busca;
   desenhar a marca de outro app promete que ele abre lá dentro em algum lugar
   específico.
-#### E, desde a v5.85, a BUSCA acontece aqui dentro
+#### A BUSCA DO YOUTUBE ACONTECE AQUI DENTRO
 
-O botão continua sendo o mesmo, mas num shell ≥ 18 ele **não sai mais do app**:
-`AVNative.ytSearch(termo)` devolve os resultados e eles entram **na mesma
-lista**, abaixo do botão, com miniatura 16:9, título, canal e duração. O toque
-num resultado **já baixa** — o aviso vai para a linha do Cronograma (v5.84) e a
-linha do resultado fica marcada, porque o acervo continua aberto e sem essa
-marca o operador toca de novo achando que não pegou.
+Num shell ≥ 18 o botão **não sai do app**: `AVNative.ytSearch(termo)` devolve os
+resultados e eles entram **na mesma lista**, abaixo do acervo, com miniatura
+16:9, título, canal e duração.
 
-Isso encurta um caminho que era absurdo: sair do app, abrir o YouTube,
-pesquisar de novo, compartilhar de volta, esperar. Agora é digitar uma vez.
-
-- **O pedido sai em português** — e o caminho para isso não é o óbvio.
-  A localização padrão da biblioteca é **en-GB**, e o YouTube leva isso a
-  sério: ele TRADUZ o título quando o canal publica traduções ou quando a
-  tradução automática está ligada. O resultado era uma busca por louvor
-  brasileiro voltando com títulos em inglês de vídeos cujo título original é em
-  português — o operador procurava por um nome que não estava mais ali.
-  - A v1.32 passou `Localization("pt","BR")` para o `NewPipe.init`, **e não
-    adiantou**: `StreamingService.getLocalization()` FILTRA o pedido pela lista
-    de idiomas suportados do serviço, e a do YouTube no `NewPipeExtractor`
-    (v0.26.1 então, v0.26.4 hoje — segue igual) tem um item só — `"en-GB"`, com
-    o resto da lista **comentado** no
-    fonte. Qualquer outro idioma cai no `Localization.DEFAULT`, que é o mesmo
-    en-GB, em silêncio e sem erro nenhum: o código PARECIA certo. O país
-    escapava do filtro (a lista de países é completa e tem "BR"), então só
-    metade do pedido chegava.
-  - A saída (v1.33) é `forceLocalization`/`forceContentCountry` no próprio
-    `Extractor`, que é a válvula que a biblioteca oferece para exatamente isto
-    — `getExtractorLocalization()` lê o forçado ANTES da lista de suportados.
-    Ela exige montar o extrator à mão nos dois caminhos (`getStreamExtractor` e
-    `getSearchExtractor`) em vez dos atalhos `getInfo(service, …)`, e no da
-    busca **chamar `fetchPage()`**: `SearchInfo.getInfo(extractor)` é o único
-    dos `getInfo` que NÃO busca a página sozinho, e sem isso a lista volta
-    vazia, sem erro.
-  - O código é `"pt"`, não `"pt-BR"`: a lista (comentada) que a própria
-    biblioteca guarda como os `hl` que o YouTube aceita tem "pt" e "pt-PT". Com
-    o `gl=BR` do `ContentCountry`, "pt" é o português do Brasil.
-  - `Accept-Language` acompanha no `NpDownloader`, fixo no mesmo código: quem
-    manda de fato é o `hl` do corpo InnerTube, mas nem toda requisição da
-    biblioteca é InnerTube, e nas páginas HTML é o cabeçalho que decide.
-  - Fixo, e não herdado do `Locale` do aparelho: o que se quer é o título
+- **O pedido sai em PORTUGUÊS, e o caminho para isso não é o óbvio.** A
+  localização padrão da biblioteca é **en-GB**, e o YouTube TRADUZ o título
+  quando o canal publica traduções ou quando a tradução automática está ligada —
+  uma busca por louvor brasileiro voltava com títulos em inglês de vídeos cujo
+  título ORIGINAL é em português.
+  - `Localization("pt","BR")` no `NewPipe.init` **não adianta**:
+    `StreamingService.getLocalization()` FILTRA o pedido pela lista de idiomas
+    suportados do serviço, e a do YouTube tem um item só — `"en-GB"`, com o resto
+    **comentado** no fonte. Qualquer outro idioma cai no `Localization.DEFAULT`,
+    em silêncio e sem erro: o código PARECE certo. (O país escapa do filtro,
+    então metade do pedido chegava.)
+  - A saída é `forceLocalization`/`forceContentCountry` no próprio `Extractor` —
+    `getExtractorLocalization()` lê o forçado ANTES da lista de suportados. Isso
+    exige montar o extrator à mão nos dois caminhos (`getStreamExtractor` e
+    `getSearchExtractor`) em vez dos atalhos `getInfo(service, …)`, e no da busca
+    **chamar `fetchPage()`**: `SearchInfo.getInfo(extractor)` é o único dos
+    `getInfo` que NÃO busca a página sozinho, e sem isso a lista volta vazia, sem
+    erro.
+  - O código é `"pt"`, não `"pt-BR"`: a lista (comentada) que a biblioteca guarda
+    como os `hl` que o YouTube aceita tem "pt" e "pt-PT", e com o `gl=BR` do
+    `ContentCountry` "pt" é o português do Brasil.
+  - `Accept-Language` acompanha no `NpDownloader`: quem manda de fato é o `hl` do
+    corpo InnerTube, mas nem toda requisição é InnerTube, e nas páginas HTML é o
+    cabeçalho que decide.
+  - **Fixo, nunca herdado do `Locale` do aparelho**: o que se quer é o título
     ORIGINAL, e um celular configurado em inglês traria a tradução de volta.
-- **Quem pesquisa é o Kotlin** (`YoutubeGrab.pesquisar`, o mesmo
-  `NewPipeExtractor` da extração), e não o WebView: ali não existe CORS, e a
-  requisição sai do IP do aparelho. As duas alternativas não serviam — um
-  `<iframe>` da página de resultados é recusado pelo `X-Frame-Options` do
-  YouTube, e a API oficial exigiria uma chave embutida no APK com cota diária
-  dividida por toda a frota.
-- **Só vídeos** no filtro de conteúdo: canal e playlist não têm o que fazer numa
-  lista cujo único destino é virar arquivo de mídia.
-- **O nome do canal sai da frente do título** (`tituloLimpo`, v1.31). Meio
-  YouTube publica como "Arautos do Rei - Firme nas Promessas", e no Cronograma
-  isso vira uma lista em que a metade esquerda de toda linha é a mesma palavra —
-  justamente a parte que não distingue um item do outro. O canal não se perde:
-  ele continua no subtítulo do resultado da busca, que é onde ajuda a escolher.
-  A remoção é conservadora — só corta quando o título COMEÇA exatamente com o
-  nome do canal seguido de um separador, então "Hino 512 - Ao Deus de Abraão"
-  fica inteiro. E o sufixo `- Topic` (canais que o YouTube gera sozinho para
-  música) é descontado antes da comparação, senão ela nunca casaria justamente
-  nos vídeos de louvor.
+- **Quem pesquisa é o Kotlin** (`YoutubeGrab.pesquisar`), não o WebView: ali não
+  existe CORS e a requisição sai do IP do aparelho. As alternativas não serviam —
+  um `<iframe>` da página de resultados é recusado pelo `X-Frame-Options`, e a
+  API oficial exigiria uma chave embutida no APK com cota dividida pela frota.
+- **Só vídeos** no filtro: canal e playlist não têm o que fazer numa lista cujo
+  único destino é virar arquivo de mídia.
+- **O nome do canal sai da frente do título** (`tituloLimpo`). Meio YouTube
+  publica como "Arautos do Rei - Firme nas Promessas", e no Cronograma isso vira
+  uma lista em que a metade esquerda de toda linha é a mesma palavra. A remoção é
+  CONSERVADORA — só corta quando o título começa exatamente com o nome do canal
+  seguido de um separador, então "Hino 512 - Ao Deus de Abraão" fica inteiro —, e
+  o sufixo `- Topic` é descontado antes da comparação, senão ela nunca casaria
+  justamente nos vídeos de louvor. O canal continua no subtítulo.
 - **A miniatura é montada a partir do ID** (`i.ytimg.com/vi/<id>/mqdefault.jpg`)
-  em vez de vir da biblioteca: é uma URL estável há mais de uma década, e assim
-  o formato das imagens do extrator — que já mudou entre versões — deixa de ser
-  algo capaz de quebrar a lista.
-- **Digitar outro termo descarta os resultados anteriores**: uma lista de outra
-  busca embaixo do campo é pior que nenhuma.
-- **Chegar no fim da lista já pesquisa** (v5.86, `armarAutoBuscaYt`). Rolar até
-  o fim do que o acervo tem É o gesto de quem não achou o que queria, e nesse
-  ponto pedir mais um toque é cerimônia.
-  A espera de 500 ms não é enfeite — a lista é reconstruída A CADA TECLA, e com
-  poucos resultados a sentinela nasce visível: sem ela a busca dispararia com o
-  termo pela metade ("Fir"), uma vez por letra. O termo é reconferido quando o
-  prazo vence, porque ele pode ter mudado durante a espera. E a auto-busca
-  **não** acontece num shell < 18, onde o botão abre o YouTube por fora: tirar o
-  operador do app sem ele ter pedido seria outra coisa.
-- **O botão manual SAIU onde o shell sabe pesquisar** (v5.91). Ele existia para
-  quem decidisse antes de rolar; com a busca disparando sozinha ao chegar no
-  fim, virou um botão que quase sempre era apertado depois de a busca já ter
-  começado. No lugar dele fica um **cabeçalho de seção** (`.yt-head`), que faz
-  os três papéis que ele fazia e nenhum a mais: é a SENTINELA que o observador
-  vigia (por isso precisa de altura de verdade — um `li` de altura zero é uma
-  aposta na forma como o navegador trata a interseção de área nula), é o sinal
-  de que a busca está em curso (anel + "Procurando no YouTube…") e, depois, o
-  rótulo que separa o acervo dos resultados ("Resultados do YouTube:", ou "Nada
-  encontrado no YouTube."). O termo entre aspas saiu junto com o botão: ele
-  dizia "vou levar ISTO para fora do app", e numa linha de estado logo abaixo
-  do campo em que o operador acabou de digitar ele só quebrava a frase em duas
-  linhas. **O botão continua onde é a única saída**: navegador e shell < 18, que
-  não sabem pesquisar de dentro do app.
-- **Cabeçalho, e não linha de aviso** (v5.92). O que vem abaixo dele não é mais
-  o acervo, e até aqui a lista não dava esse degrau: as duas origens vinham
-  coladas, com a mesma anatomia de linha, e só o nome do canal no subtítulo
-  denunciava a troca. O filete em cima é a separação; o alinhamento à ESQUERDA
-  e o peso são o que fazem ler como título de seção — centrado, lia como mais
-  um item da lista. Pela mesma razão a frase do acervo vazio virou "Nenhuma
-  música encontrada **no acervo**": com o cabeçalho do YouTube logo abaixo, uma
+  em vez de vir da biblioteca: é uma URL estável há mais de uma década, e assim o
+  formato das imagens do extrator — que já mudou entre versões — deixa de poder
+  quebrar a lista.
+- **Chegar no fim da lista já pesquisa** (`armarAutoBuscaYt`): rolar até o fim do
+  que o acervo tem É o gesto de quem não achou o que queria. A espera de 500 ms
+  não é enfeite — a lista é reconstruída A CADA TECLA, e com poucos resultados a
+  sentinela nasce visível: sem ela a busca dispararia com o termo pela metade,
+  uma vez por letra. O termo é reconferido quando o prazo vence.
+- **O cabeçalho de seção (`.yt-head`) faz três papéis**: é a SENTINELA que o
+  observador vigia (por isso precisa de altura de verdade — um `li` de altura
+  zero é uma aposta na forma como o navegador trata interseção de área nula), é o
+  sinal de busca em curso (anel + "Procurando no YouTube…") e é o rótulo que
+  separa o acervo dos resultados. O filete em cima é a separação; o alinhamento à
+  ESQUERDA e o peso são o que o fazem ler como título de seção — centrado, lia
+  como mais um item da lista. Pela mesma razão a negativa do acervo diz o escopo
+  ("Nada encontrado na biblioteca"): com o cabeçalho do YouTube logo abaixo, uma
   negativa sem escopo parece negar a busca inteira.
-- **O toque num resultado abre a MESMA folha de três escolhas das músicas do
-  acervo** (v5.86): *Tocar agora* · *Adicionar à playlist* · *Adicionar ao
-  Cronograma*. Antes o toque baixava direto — o operador não escolhia nada e o
-  vídeo caía no Cronograma quisesse ele ou não.
-  - **"Tocar agora" FECHA o acervo**, pela mesma regra de `playSongVariant`: o
-    cartão de progresso mora na preview, e a preview está atrás desta bandeja.
-  - **As duas de "adicionar" MANTÊM o acervo aberto** — quem está buscando
-    provavelmente vai pegar mais de um. Ali o aviso é a própria linha, e ela
-    termina marcada como **concluída** (✓ verde sobre a miniatura) em vez de
-    voltar ao estado inicial: era essa volta silenciosa que fazia parecer que
-    nada tinha acontecido.
-  - O estado de cada linha vive num Map (`ytEstado`), não na classe do nó: a
-    lista é reconstruída a cada tecla e a cada redesenho, e a marca sumiria com
-    o download ainda correndo — mesma razão do `songRowBusy` das músicas.
-  - Concluído fica APAGADO, não desabilitado: o mesmo vídeo pode ser querido de
-    novo (uma vez na playlist, outra no Cronograma).
-  - **Cada escolha vai só para o SEU lugar** (v5.87). Até a v5.86 as três caíam
-    no Cronograma junto, porque quem escolhia a lista era o `addMedia` e ela era
-    sempre `imports`: pedir "Tocar agora" enchia a lista do culto de vídeo que o
-    operador só quis ver uma vez, e "Adicionar à playlist" deixava o item em
-    dois lugares sem ninguém ter pedido. A lista de destino agora é decidida no
-    `ytAcao` (`YT_LISTA`) e entregue ao `addMedia`, que continua gravando
-    registro e entrada na lista na MESMA transação — a lista passou a ser
-    escolhida, não dispensada, justamente para o registro nunca nascer órfão.
-    "Tocar agora" vai para `avulsos` (ver o modelo de dados), e é por isso que o
-    subtítulo dos dois primeiros itens diz "sem entrar no Cronograma": é a
-    diferença entre as três opções, e ela não se adivinha pelo ícone.
-  - **O mesmo vídeo não baixa duas vezes** (v5.87, `ytArquivo`). Escolher um
-    destino e depois outro para o MESMO resultado eram dois downloads de dezenas
-    de MB, provavelmente em rede de celular. O registro guarda o `youtubeId`
-    desde que nasce, então a pergunta "já tenho isto?" é uma leitura do índice
-    (`AVDB.mediaByYoutube`). Só vale para quem tem **blob**: um item de player
-    carrega o mesmo `youtubeId` e é justamente o que o download existe para
-    substituir — aceitá-lo faria o botão "baixar o vídeo" da linha do Cronograma
-    devolver o próprio link e parecer que não fez nada. Vale também para o
-    compartilhamento do mesmo link (`handleSharedUrl`).
-  - **O resultado que já está no aparelho nasce marcado** (`marcarYtProntos`):
-    o ✓ passa a dizer as duas coisas — "acabou de baixar" e "já estava aqui" —,
-    que é o que o operador precisa saber antes de escolher o destino. É
-    assíncrono: a lista não espera o IDB, e o estado mora no `ytEstado`, logo
-    sobrevive ao próximo render.
-  - **No SIMPLIFICADO não há folha nenhuma: o toque toca.** As outras duas
-    opções são listas que aquela tela nem mostra, e abrir três escolhas seria
-    devolver ao operador exatamente a decisão que esse modo poupa — é a mesma
-    regra do toque numa música ali (`simplePlaySong`). Vale para TUDO o que é
-    compartilhado com o app nesse modo — link e arquivo (v5.89): a tela não tem
-    Cronograma nem playlist, e o que chega ali chega para ir ao telão.
-    A prateleira nunca poda o LOTE que acabou de entrar: um share de cinco
-    arquivos com o limite aplicado item a item faria o quinto expulsar o
-    primeiro — e o primeiro é justamente o que vai ser projetado. Quem cede
-    lugar é sempre o que já estava lá de antes, e a fixação é UMA só por share
-    (duas chamadas fariam a segunda expulsar a primeira).
-  - **Onde o aviso aparece tem TRÊS destinos, não dois.** Tocar: cartão sobre a
-    preview. Cronograma: linha provisória na lista (a regra da v5.84). Playlist:
-    **nenhum dos dois** — ela mora dentro de uma bandeja fechada, não há linha
-    para marcar, e desenhar a provisória no Cronograma prometeria um item que
-    nunca vai aparecer lá; ali quem mostra o andamento é a própria linha do
-    resultado e a notificação do sistema.
-- Num shell < 18 o botão volta a ser o que sempre foi: abre o YouTube por fora.
-
-
-- **Ele exige shell ≥ 15** (`AVNative.openExternal`), e por isso **não é
-  desenhado** num shell mais antigo: o WebView recusa navegar para fora do
-  origin, então ali o toque não faria nada — nem erro no console. Um botão morto
-  no meio de um culto é pior que botão nenhum. No navegador é `window.open`, sem
-  condição nenhuma.
-
-Diferente dos demais popups (bottom-sheets), a bandeja **desliza a partir do
-TOPO** (CSS: `#hymnSearchPopup` com `align-items:flex-start`, `.popup-sheet` com
-`translateY(-100%)` e cantos arredondados embaixo) — além de ser o pedido de UX,
-casa com o teclado, que sobe da base sem cobrir os resultados. O campo de busca
-usa `.lib-search`, hoje com `appearance:none` + supressão das pseudo-partes
-`::-webkit-search-*` (mata o visual nativo do `type="search"`).
+- **O botão manual continua onde é a única saída**: navegador e shell < 18, que
+  não sabem pesquisar de dentro do app (e ali a auto-busca não acontece — tirar o
+  operador do app sem ele ter pedido seria outra coisa). Ele exige shell ≥ 15
+  (`AVNative.openExternal`) e **não é desenhado** abaixo disso: o WebView recusa
+  navegar para fora do origin, então o toque não faria nada, nem erro no console.
+- **O toque num resultado abre a MESMA folha de destinos das músicas do acervo**
+  (antes ele baixava direto, e o vídeo caía no Cronograma quisesse o operador ou
+  não). "Tocar agora" FECHA a Biblioteca (o cartão de progresso mora na preview,
+  que está atrás desta folha); as de "adicionar" a MANTÊM aberta — quem está
+  buscando provavelmente vai pegar mais de um —, e ali a linha termina marcada
+  como CONCLUÍDA (✓ verde sobre a miniatura) em vez de voltar ao estado inicial,
+  que era o que fazia parecer que nada tinha acontecido.
+- **O estado de cada linha vive num Map (`ytEstado`)**, nunca na classe do nó: a
+  lista é reconstruída a cada tecla e a cada redesenho, e a marca sumiria com o
+  download ainda correndo (a razão do `songRowBusy` das músicas). Concluído fica
+  APAGADO, não desabilitado: o mesmo vídeo pode ser querido de novo.
+- **Cada escolha vai só para o SEU lugar.** A lista de destino é decidida no
+  `ytAcao` e entregue ao `addMedia`, que continua gravando registro e entrada na
+  MESMA transação — a lista passou a ser ESCOLHIDA, não dispensada, justamente
+  para o registro nunca nascer órfão. "Tocar agora" vai para `avulsos`.
+- **O mesmo vídeo não baixa duas vezes** (`ytArquivo`): o registro guarda o
+  `youtubeId` desde que nasce, então "já tenho isto?" é uma leitura do índice
+  (`AVDB.mediaByYoutube`). Só vale para quem tem **blob** — um item de LINK
+  carrega o mesmo `youtubeId` e é justamente o que o download existe para
+  substituir. Vale também para o compartilhamento do mesmo link.
+- **O resultado que já está no aparelho nasce marcado** (`marcarYtProntos`): o ✓
+  diz as duas coisas ("acabou de baixar" e "já estava aqui"). É assíncrono — a
+  lista não espera o IDB, e o estado mora no `ytEstado`, logo sobrevive ao render.
+- **No SIMPLIFICADO não há folha nenhuma: o toque toca.** As outras opções são
+  listas que aquela tela não mostra. Vale para TUDO o que é compartilhado com o
+  app nesse modo, link e arquivo — e a prateleira `avulsos` nunca poda o LOTE que
+  acabou de entrar: um share de cinco arquivos com o limite aplicado item a item
+  faria o quinto expulsar o primeiro, que é justamente o que vai ser projetado.
+  Quem cede lugar é o que já estava lá de antes, e a fixação é UMA por share.
+- **Onde o aviso aparece tem TRÊS destinos, não dois.** Tocar: cartão sobre a
+  preview. Cronograma: linha provisória na lista. Playlist: **nenhum dos dois** —
+  ela mora dentro de uma bandeja fechada, não há linha para marcar, e desenhar a
+  provisória no Cronograma prometeria um item que nunca vai aparecer lá.
 
 **Nome normalizado uma vez, não por tecla** (`s._norm`, gravado por
 `fetchCollectionIndex` e preenchido sob demanda no filtro): `normalizeForSearch`
 faz `normalize('NFD') + replace + toLowerCase` — três alocações de string sobre
-um valor que nunca muda, antes repetidas para **cada música do acervo a cada
-tecla digitada**. Os dois campos de busca (acervo e pasta) também passaram a ter
-**debounce** (`SEARCH_DEBOUNCE_MS` = 130 ms): a busca dentro de uma pasta OPFS
-refaz a lista inteira com `innerHTML=''` e um object URL novo por miniatura, e
-numa pasta de centenas de arquivos isso acontecia a cada tecla, com a lista
-ainda quase inteira nas primeiras letras.
-**Linha compacta, DOIS botões** (`hymnResultRow`, v5.63): o resultado é
-`[▶ 46px] [nome / subtítulo] [+]`. Tocar na **linha** abre a letra logo abaixo,
-em **acordeão** (abrir uma fecha a anterior: duas abertas ao mesmo tempo
-empurrariam a lista e tirariam do lugar o que o operador estava mirando). A
-lista precisa ser legível de relance no meio do culto, e é por isso que a fonte
-é maior que a do resto (`.hymn-name` em `1.02rem`); o subtítulo (`.hymn-sub`)
-tem só a coleção de origem, na busca global.
+um valor que nunca muda, antes repetidas para CADA música do acervo A CADA TECLA.
+Os campos de busca também têm **debounce** (`SEARCH_DEBOUNCE_MS` = 130 ms).
 
-Até a v5.62 as ações eram **seis botões mudos** revelados pelo toque — dois
-grupos de três (Cantado e Playback), cada um com tocar, +Cronograma e
-+Playlist. Seis ícones dividindo a largura de um celular não cabem com rótulo,
-então nenhum tinha: a diferença entre "+ playlist" e "+ cronograma" era um
-desenho de 19px, e a escolha errada no meio do culto só aparecia depois. Dois
-alvos grandes, sempre à vista, com as opções **escritas** na folha que cada um
-abre, trocam seis adivinhações por duas leituras.
-
-> **⚠️ A v5.285 REVOGOU esta anatomia inteira.** O que está descrito acima e
-> abaixo — os dois botões, o alvo expandido de cada um, a folha rápida que eles
-> abriam — vale até a v5.284. Leia mesmo assim: as decisões que sobrevivem
-> (o acordeão escopado à própria `<ul>`, o seletor Cantada/Playback, os destinos
-> marcáveis, a leitura da variante no clique) continuam sendo estas, e o que
-> mudou foi o ENDEREÇO delas.
-
+**A linha de resultado** (`hymnResultRow`) é `[indicador] [nome / subtítulo]`,
+com a fonte maior que a do resto (`.hymn-name`) porque a lista precisa ser
+legível de relance no meio do culto. Tocar na LINHA abre a gaveta logo abaixo,
+em **acordeão** — abrir uma fecha a anterior: duas abertas ao mesmo tempo
+empurrariam a lista e tirariam do lugar o que o operador estava mirando.
 #### UMA LINHA, UM TOQUE, UMA GAVETA (v5.285)
 
 Pedido do operador: *"centralize a ação de adicionar em listas e a ação do botão
