@@ -2073,10 +2073,36 @@ trabalho. Prosa custa contexto que não sobra para o código.
   ler vai procurar (ou reintroduzir) o que ele promete.
 - **Prefira tabela a lista, e lista a parágrafo.** Prefira o nome do símbolo a
   descrevê-lo por extenso.
+- **APAGAR CÓDIGO É APAGAR O QUE O DESCREVE, NO MESMO LOTE.** Esta é a regra
+  que a limpeza da v5.299/v5.300 comprou caro: cada remoção de recurso (v5.156,
+  v5.187, v5.189, v5.212) deixou comentários de pé, e eles não envelheceram
+  calados — passaram a AFIRMAR coisas falsas. Duas guardas de segurança
+  justificavam a si mesmas por um motivo que já não existia, o que é o convite
+  exato para o próximo leitor removê-las. **Um comentário errado é pior que um
+  comentário longo: ele não custa só leitura, produz a decisão errada.** Ao tirar
+  um recurso, `grep` pelo nome dele em `assets/web/` e `java/` **e** nos
+  capítulos de `docs/arquitetura/` antes de fechar o lote.
+- **O que nasce hoje nasce no padrão.** Comentário novo entra condensado — não
+  se escreve largo esperando uma poda futura, porque a poda custa uma sessão
+  inteira e a escrita custa uma linha.
 
 **Ao atualizar o código:** atualizar este arquivo se a mudança afetar
 arquitetura, protocolo de comandos ou a ponte; o CAPÍTULO certo de
 `docs/arquitetura/` se afetar a arquitetura de `assets/web/`.
+
+**`docs/ARQUITETURA-WEB.md` é HUB, e não recebe corpo.** Ali ficam as regras que
+valem para a base inteira, a estrutura de arquivos, o build e a TABELA que diz
+qual capítulo abrir. Assunto novo grande é **arquivo novo** em `docs/arquitetura/`
+mais uma linha na tabela — nunca uma seção a mais no hub, que é o formato de que
+ele acabou de sair (um arquivo de 490 KB em que uma pergunta sobre a Bíblia
+custava carregar o Controle inteiro).
+
+**Poda de comentário se PROVA, não se confere de olho.** Uma edição que só mexe
+em comentário tem de deixar o código idêntico byte a byte: remova os comentários
+dos dois lados, normalize o espaço em branco e compare com `git show
+<ref>:<arquivo>`. É a única defesa contra apagar uma linha de código junto com o
+parágrafo que a explicava — e ela também prova, no fim do lote, que um lote de
+documentação é **só web** e não precisa de Release.
 
 ### A versão mora em TRÊS lugares, e os três precisam andar juntos
 
