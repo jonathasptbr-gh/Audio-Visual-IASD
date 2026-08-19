@@ -535,13 +535,13 @@ O campo `kind` é derivado do `type` (ou definido pelo chamador para itens de UR
 ```js
 setState, getState
 stateKeys(prefix)             // chaves de `state` com esse prefixo, numa transação
-                              // só e SEM ler valor nenhum — teste de presença em massa
+                              // só e SEM ler valor nenhum — presença em massa
 addMedia(blob, meta)          // cria registro + adiciona a meta.list (padrão 'imports')
 addUrlMedia(url, meta)        // item de URL externa (blob=null), idem
 addDeck(pages, meta)          // apresentação: uma imagem por página
 addCue(cue, data, meta)       // CENA DE ROTEIRO: item sem bytes (ver abaixo)
 getMedia(id), renameMedia(id, name)
-mediaByYoutube(youtubeId)     // o registro desse vídeo, ou null (prefere o que tem blob)
+mediaByYoutube(youtubeId, kind)  // o registro desse vídeo na FORMA pedida, ou null
 listIds, listSet, listItems, listHas, listAdd, listRemove, gc
 folderDrop(folderId)          // apaga um ATALHO inteiro, coletando o que ficar sem dono
 fileAdd, fileGet, fileDelete, filesByFolder, filesAll   // catálogo OPFS
@@ -550,117 +550,70 @@ opfsDeleteFile, opfsDeleteDir                           // File System
 kindFromType, sendCommand, onCommand
 ```
 
-**`listSet` tem duas formas, e a diferença entre elas é atomicidade:**
+**`listSet` tem duas formas, e a diferença é atomicidade:**
 
-- `listSet(name, [ids])` grava o array como veio. O chamador leu a lista
-  **antes**, fora de transação, então é um read-modify-write partido: um
-  `listAdd` que comite entre a leitura e esta escrita é perdido — o item some
-  da lista e o registro criado em `media` fica órfão para sempre, porque nunca
-  esteve em lista nenhuma e o gc só roda dentro de `listRemove`. Hoje isso não
-  acontece (nenhum escritor de fundo mexe em listas; a sincronização usa
-  `fileAdd`), então é fragilidade estrutural, não defeito em operação.
-- `listSet(name, fn)` é a forma **atômica**: `fn(listaAtual)` roda dentro da
-  MESMA transação de `state` que grava o resultado. `fn` precisa ser SÍNCRONA
-  — um `await` dentro dela deixaria a transação autocommitar antes do `put`.
+- `listSet(name, [ids])` grava o array como veio — read-modify-write PARTIDO: um
+  `listAdd` que comite entre a leitura e esta escrita é perdido, e o registro
+  criado em `media` fica órfão para sempre (o gc só roda dentro de
+  `listRemove`). Hoje nenhum escritor de fundo mexe em listas, então é
+  fragilidade estrutural, não defeito em operação.
+- `listSet(name, fn)` é a forma ATÔMICA: `fn(listaAtual)` roda dentro da MESMA
+  transação de `state` que grava o resultado. `fn` precisa ser SÍNCRONA — um
+  `await` deixaria a transação autocommitar antes do `put`.
 
 Prefira a forma com função ao escrever código novo.
 
-**O que saiu da superfície pública na v5.48**, e por quê:
-
-- `openDB` — não tinha chamador fora do próprio `db.js`, e expor a conexão
-  crua convida a montar transações por fora dos helpers, que é exatamente onde
-  mora a atomicidade deste arquivo.
-- `storeUrlTemp` / `storeMediaTemp` / `deleteMedia` — as duas primeiras
-  gravavam em `media` **sem** entrar em lista nenhuma, e a terceira era a
-  contrapartida manual ("limpar temp de pastas vinculadas" — recurso que não
-  existe mais). As três estavam sem um único chamador. Pior que código morto:
-  quem lesse o comentário concluiria que existe um caminho de limpeza de
-  temporários, e voltar a usá-las criaria registros que **nenhum gc alcança**
-  — vazamento permanente no IDB. Quem precisar de um registro usa
-  `addMedia`/`addUrlMedia`, que já entram numa lista e portanto são
-  coletáveis.
+Fora da superfície de propósito: `openDB` (expor a conexão crua convida a montar
+transações por fora dos helpers, que é onde mora a atomicidade deste arquivo) e
+`storeUrlTemp`/`storeMediaTemp`/`deleteMedia` (gravavam em `media` SEM entrar em
+lista nenhuma, isto é, criavam registros que NENHUM gc alcança). Quem precisa de
+um registro usa `addMedia`/`addUrlMedia`, que já entram numa lista.
 
 #### Garbage collection de blobs
 
-Um registro só é excluído automaticamente quando **nada mais aponta para ele**
-— nem lista, nem pasta dos Favoritos:
+Um registro só é excluído quando **nada mais aponta para ele** — nem lista, nem
+pasta dos Favoritos:
 
 ```
 listRemove(listName, id)
   → isReferenced(id, exceto listName)?  → não; delete no store media (gc)
 ```
 
-**`isReferenced` é o ponto único da pergunta "posso destruir este blob?"**, e
-ela precisa cobrir mais do que as duas listas fixas. Até a v5.47 o gc só olhava
-`LISTS` (`imports`/`playlist`/`avulsos`), e os **Favoritos ficavam de fora**: cada pasta
-guarda seus ids em `state['folder_<id>']`, que são listas de mídia como
-qualquer outra, só que em chaves dinâmicas que o gc não conhecia. O resultado
-era destrutivo e silencioso — importar um vídeo, pô-lo num Favorito e depois
-excluí-lo do Cronograma apagava o **blob**; o Favorito seguia com o id,
-`getMedia` devolvia `undefined`, o `filter(Boolean)` do Controle descartava sem
-avisar e o item sumia da pasta para sempre. Um blob importado não existe em
-lugar nenhum além do IDB.
+**`isReferenced` é o ponto único da pergunta "posso destruir este blob?"**, e ela
+cobre mais que as duas listas fixas: cada pasta guarda ids em
+`state['folder_<id>']`, chaves DINÂMICAS. Sem elas o defeito é destrutivo e
+silencioso — importar um vídeo, pô-lo num Favorito e excluí-lo do Cronograma
+apagava o BLOB; o Favorito seguia com o id, `getMedia` devolvia `undefined` e o
+`filter(Boolean)` do Controle descartava sem avisar. **Qualquer chave de `state`
+que passe a guardar ids de mídia precisa entrar ali.**
 
-`isReferenced` recebe o objectStore de `state` **já aberto**, para decidir
-dentro da transação de quem chamou — é isso que fecha o TOCTOU descrito abaixo.
-O `gc(id)` avulso (hoje sem chamador; fica como válvula) usa a MESMA função de
-propósito: foi a duplicação da regra em dois lugares que deixou os Favoritos de
-fora. **Qualquer chave de `state` que passe a guardar ids de mídia precisa
-entrar ali.**
+`isReferenced` recebe o objectStore de `state` JÁ ABERTO, para decidir dentro da
+transação de quem chamou — é isso que fecha o TOCTOU. O `gc(id)` avulso (sem
+chamador; fica como válvula) usa a MESMA função de propósito: foi a duplicação
+da regra em dois lugares que deixou os Favoritos de fora.
 
-**Atomicidade (transação única):** `listAdd`, `listRemove` (com o gc embutido)
-e `addMedia`/`addUrlMedia` (registro + entrada na lista) fazem o
-read-modify-write dentro de **uma só transação IDB** — não em transações
-separadas. Sem isso havia dois defeitos: (a) *lost update* — duas escritas
-concorrentes (ex: share sendo processado + reordenação) liam o mesmo array e
-a segunda gravação sobrescrevia a primeira, perdendo um id; (b) *registro
-órfão* — se o `add` em `media` completasse mas o `listAdd` falhasse, sobrava
-um blob em `media` fora de qualquer lista, que o gc nunca coletaria (vaza
-espaço). O gc de `listRemove` também roda na mesma transação da remoção
-(state + media): checa as outras listas e só então apaga o blob, fechando o
-TOCTOU em que um `listAdd` concorrente re-referenciaria o id no intervalo.
-(`readListIn` lê a lista a partir de um objectStore já aberto, para reuso
-dentro dessas transações; `txDone(tx)` confirma o commit.) A regra do projeto
-("operação IDB multi-passo atômica usa transação única") agora é honrada por
-essas funções — antes elas a violavam.
+**Atomicidade (transação única):** `listAdd`, `listRemove` (com o gc embutido) e
+`addMedia`/`addUrlMedia` (registro + entrada na lista) fazem o
+read-modify-write dentro de UMA só transação IDB. Sem isso há dois defeitos:
+*lost update* (duas escritas concorrentes leem o mesmo array e a segunda
+sobrescreve a primeira) e *registro órfão* (o `add` em `media` completa, o
+`listAdd` falha, e o blob vaza fora de qualquer lista). O gc de `listRemove`
+roda na mesma transação da remoção, fechando o TOCTOU em que um `listAdd`
+concorrente re-referenciaria o id no intervalo. (`readListIn` lê a lista de um
+objectStore já aberto; `txDone(tx)` confirma o commit.)
 
-##### O furo do gc: as pastas dos Favoritos escreviam por fora (corrigido na v5.103)
-
-`isReferenced` conhecia essas pastas desde a v5.48 — mas **quem apagava uma pasta
-não passava por ela**. O Controle fazia dois `setState` crus (tirava a entrada
-de `folders`, gravava a lista vazia) e nada mais: uma mídia cujo ÚLTIMO
-detentor era aquela pasta virava um registro que nenhuma lista aponta e que
-**nenhum gc alcança** — o gc só roda dentro de `listRemove`. O blob ficava no
-IndexedDB para sempre, invisível na tela e sem caminho de limpeza; um vídeo de
-centenas de MB "sumia" e continuava ocupando o disco. Valia também para tirar
-um item de dentro da pasta, pelo mesmo `setState` cru.
-
-Três consertos, todos no sentido de "as pastas usam os mesmos helpers que as
-listas":
-
-- **`folderDrop(folderId)`** (novo, em `db.js`) apaga o índice, a lista e
-  varre os ids numa transação só. A ordem importa: a pasta sai de `folders`
-  **antes** da varredura, senão `isReferenced` o encontraria e ele seguraria os
-  próprios ids.
-- Tirar um item de uma pasta é `listRemove('folder_<id>', id)` — que já rodava
-  o gc na própria transação, e já sabia excluir a chave da varredura.
-- Pôr um item numa pasta é `listAdd('folder_<id>', id)`, atômico, no lugar do
-  `setState` do array inteiro.
-
-**Regra que fica:** chave de `state` que guarda ids de mídia se escreve por
+**REGRA:** chave de `state` que guarda ids de mídia se escreve por
 `listAdd`/`listRemove`/`listSet(name, fn)`. `setState` cru numa dessas chaves é
-um vazamento esperando acontecer.
+um vazamento esperando acontecer — foi assim que apagar uma pasta dos Favoritos
+deixava blobs de centenas de MB no IndexedDB para sempre, invisíveis e sem
+caminho de limpeza. Daí `folderDrop(folderId)`, que apaga índice, lista e varre
+os ids numa transação só; **a ordem importa** — a pasta sai de `folders` ANTES da
+varredura, senão `isReferenced` a encontraria e ela seguraria os próprios ids.
 
-#### Cenas de roteiro (`kind: 'cue'`, v5.103)
+#### Cenas de roteiro (`kind: 'cue'`)
 
-O Cronograma se chama "a lista do culto" desde sempre e, até a v5.102, só
-guardava **mídia** — coisa com bytes. Metade de um culto real (a contagem
-regressiva de abertura, a leitura bíblica, o aviso, a letra projetada sem
-música) morava em OUTRAS abas, cada uma com a sua sessão, e a ordem do que vem
-depois ficava só na cabeça do operador — que navegava entre abas ao vivo, no
-domingo de manhã.
-
-Um **cue** é um item de lista que aponta para uma CENA em vez de para bytes:
+Um **cue** é um item de lista que aponta para uma CENA em vez de para bytes —
+contagem regressiva, leitura bíblica, aviso, letra sem música:
 
 ```js
 { kind: 'cue', cue: 'verse',      data: { versionId, bookIdx, chapter, verse } }
@@ -671,101 +624,67 @@ Um **cue** é um item de lista que aponta para uma CENA em vez de para bytes:
 { kind: 'cue', cue: 'group',      data: { ids: [...] } }        // o "pacote"
 ```
 
-Quatro propriedades desenham o resto:
-
 1. **O Display não muda uma linha, e sequer sabe que cues existem.** Um cue
-   NUNCA vira um comando `load`: projetá-lo chama a MESMA função que o botão da
-   aba correspondente já chamava (`projectBibleVerse`, `projectMessage`,
-   `projectChrono`, `projectDraw`, `projectSongLyricsOnly`), que manda o
-   `text`/`chrono`/`draw` de sempre. É a invariante "não reimplementar o que já
-   existe" aplicada aqui — só um ponteiro novo.
+   NUNCA vira `load`: projetá-lo chama a MESMA função que o botão da aba já
+   chamava (`projectBibleVerse`, `projectMessage`, `projectChrono`,
+   `projectDraw`, `projectSongLyricsOnly`), que manda o `text`/`chrono`/`draw`
+   de sempre. Ponteiro novo, nunca lógica de projeção nova.
 2. **A guarda mora em `send()`**, não no toque da lista: é por ali que passam o
    avanço automático da playlist, o ⏮/⏭ do transporte, a notificação nativa e o
-   pacote. Um cue que chegasse ao `load` apagaria o telão (registro sem
+   pacote. Um cue que chegasse ao `load` APAGARIA o telão (registro sem
    blob/url/pages cai no `clear()` do stage).
-3. **A reconexão do telão vem de graça.** Projetar um cue deixa a SESSÃO
-   correspondente montada, e `resendSceneToDisplay` já reenvia sessões. A única
-   linha nova ali é a que evita dar `load` no próprio cue.
-4. **O descritor é uma REFERÊNCIA, não uma cópia do conteúdo.** O versículo
-   guarda `{versão, livro, capítulo, número}` e o texto vem do cache da Bíblia
-   na hora de projetar; a mensagem guarda o `msgId` (com o texto como reserva,
-   para o roteiro não ficar mudo se ela for apagada). Um cue não envelhece
-   quando a mensagem é editada, nem duplica a Escritura no banco.
-
-Duas decisões de comportamento que valem registrar:
+3. **A reconexão do telão vem de graça:** projetar um cue deixa a SESSÃO
+   montada, e `resendSceneToDisplay` já reenvia sessões.
+4. **O descritor é uma REFERÊNCIA, não uma cópia.** O versículo guarda
+   `{versão, livro, capítulo, número}` e o texto vem do cache na hora de
+   projetar; a mensagem guarda o `msgId` (com o texto como reserva, para o
+   roteiro não ficar mudo se ela for apagada). Um cue não envelhece quando a
+   mensagem é editada nem duplica a Escritura no banco.
 
 - **O versículo projeta na versão EM USO HOJE**, com a guardada como reserva: a
-  referência é do texto, não da tradução, e um roteiro montado há um mês não
-  pode arrastar de volta uma versão trocada desde então (nem disparar o
-  download dela no domingo). A reserva é o que salva o caso offline.
-- **O sorteio guardado é a CONFIGURAÇÃO, nunca um resultado.** Projetar a cena
-  arma o sorteio e espera o toque em "Sortear" — um ganhador que já aparece
-  pronto ao entrar em cena tira do momento o que ele tem de público.
+  referência é do texto, não da tradução — um roteiro de um mês atrás não pode
+  arrastar de volta uma versão trocada nem disparar o download dela no domingo.
+- **O sorteio guardado é a CONFIGURAÇÃO, nunca um resultado.** Projetar arma o
+  sorteio e espera o toque em "Sortear": um ganhador já pronto ao entrar em cena
+  tira do momento o que ele tem de público.
 
-**Guardar uma cena é sempre o mesmo par de botões** (`cueSaveBtn`, v5.109): ⊞
-para o Cronograma, ★ para os favoritos, sempre `.cue-save-btn` — a mesma caixa
-dos botões de linha e da barra de seleção (`--hit`, `--surface-2`, ícone em
-`--brand`). Até a v5.108 esse par aparecia **com rótulo** em dois lugares ("Ao
-Cronograma"/"Favoritar" na Bíblia, "Cronograma"/"Favoritos" nas Ferramentas) e
-**só com ícone** em todos os outros (linha da lista, barra de seleção, folha de
-destinos das músicas): o mesmo par de ações desenhado de duas formas — e a forma
-com texto era justamente a que não cabia na linha em que estava. O rótulo virou
-`title` + `aria-label`, que é o que nomeia o botão para o leitor de tela e para
-o toque longo. (A **folha de destinos** das músicas continua com texto: ali as
-linhas são um MENU, não um par de botões, e cada uma diz uma coisa diferente —
-"tocar", "playlist", "Cronograma".)
+**Guardar uma cena é sempre o mesmo par de botões** (`cueSaveBtn`): ⊞ para o
+Cronograma, ★ para os favoritos, sempre `.cue-save-btn`, com o rótulo em `title`
++ `aria-label`. (A folha de destinos das músicas continua com texto: ali as
+linhas são um MENU e cada uma diz uma coisa diferente.)
 
-#### Vídeo × só áudio, no seletor que já existia (v5.112)
+#### Vídeo × só áudio, no seletor que já existia
 
-A folha de destinos de um resultado do YouTube ganhou no topo o **mesmo
-segmentado de Cantada/Playback** das músicas do acervo (`.fit-seg`), com
-**Vídeo** e **Só áudio**. É a mesma pergunta — "qual faixa deste item?" — e não
-havia por que inventar um segundo desenho para ela; a escolha vale para as
-quatro ações abaixo, em vez de dobrar a folha para oito linhas.
+O mesmo segmentado de Cantada/Playback (`.fit-seg`), com **Vídeo** e **Só
+áudio** — é a mesma pergunta ("qual faixa deste item?"), e a escolha vale para
+as quatro ações em vez de dobrar a folha para oito linhas.
 
-- **Baixar só o áudio não é uma versão degradada.** O YouTube guarda o áudio em
-  faixa SEPARADA, e é justamente por isso que o vídeo progressivo tem teto de
-  720p (as resoluções altas vêm sem som, e juntá-las exigiria um ffmpeg
-  embarcado). Pedindo só o áudio, esse teto não existe.
-- **O registro entra como `kind: 'audio'` e SEM miniatura.** Não é economia: a
-  miniatura de um áudio seria a "capa" que não deve existir, e é o `kind` que
-  faz o telão manter o wallpaper (ver `semVisual`, na seção do stage).
-- **O nome ganha " (áudio)"** — a mesma convenção do "(Cantado)"/"(Playback)"
-  do acervo. Sem o sufixo, o vídeo e o áudio do mesmo link viram duas linhas de
-  nome idêntico na lista.
-- **O reaproveitamento passou a ser por FORMA.** As duas convivem no banco com o
-  mesmo `youtubeId`, então `mediaByYoutube(id, kind)` ganhou o filtro: quem
-  pediu áudio não pode receber o vídeo de 80 MB que já estava aqui, e vice-versa.
-- **Ponte:** método PRÓPRIO (`ytFetchAudio`), não um parâmetro a mais no
+- **Só áudio não é versão degradada:** o YouTube guarda o áudio em faixa
+  SEPARADA, e é por isso que o progressivo tem teto de 720p. Pedindo só o áudio,
+  esse teto não existe.
+- **O registro entra como `kind: 'audio'` e SEM miniatura** — é o `kind` que faz
+  o telão manter o wallpaper (ver `semVisual`, na seção do stage).
+- **O nome ganha " (áudio)"**, a convenção do "(Cantado)"/"(Playback)": sem o
+  sufixo, vídeo e áudio do mesmo link viram duas linhas de nome idêntico.
+- **O reaproveitamento é por FORMA:** as duas convivem no banco com o mesmo
+  `youtubeId`, então `mediaByYoutube(id, kind)` filtra — quem pediu áudio não
+  pode receber o vídeo de 80 MB que já estava aqui.
+- **Ponte:** método PRÓPRIO (`ytFetchAudio`), nunca um parâmetro a mais no
   `ytFetch`. A ponte casa o método por nome + aridade, e mudar a assinatura do
   `ytFetch` quebraria o download inteiro num shell antigo que recebesse este
-  bundle por OTA — "sem YouTube nenhum" é muito pior que "sem a opção de áudio".
-  O seletor só é desenhado com `__SHELL_VERSION__ >= 23`, pela mesma regra do
-  botão de busca no YouTube.
-- **A escolha viaja no FECHO de cada ação**, não em `songMenuFor`: o
-  `songMenuItem` chama `closeSongMenu()` ANTES da ação, e `closeSongMenu` zera
-  aquele objeto — consultá-lo lá dentro encontraria null e todo download sairia
-  como vídeo. É o mesmo cuidado que a `variante` das músicas já tomava.
+  bundle por OTA. O seletor só é desenhado com `__SHELL_VERSION__ >= 23`.
+- **A escolha viaja no FECHO de cada ação**, nunca em `songMenuFor`: o
+  `songMenuItem` chama `closeSongMenu()` ANTES da ação, e ele zera aquele objeto
+  — consultá-lo lá dentro encontraria null e todo download sairia como vídeo.
+##### TRANSMISSÃO DIRETA: o vídeo sem baixar e sem o player do YouTube
 
-##### TRANSMISSÃO DIRETA: o vídeo sem baixar e sem o player do YouTube (v5.120)
-
-O "Tocar agora" de um resultado do YouTube tinha dois caminhos, e os dois
-cobravam caro:
-
-- **Baixar antes** — centenas de MB de espera antes do primeiro quadro.
-- **O player embutido** — que traz a UI dele junto, e é por isso que ele não
-  existe mais (v5.212). Vale ser exato sobre o teto que ele tinha: o embed deste
-  app já estava no limite do que a IFrame API permite (`controls: 0`,
-  `disablekb: 1`, `fs: 0`, `iv_load_policy: 3`, `rel: 0`, `pointer-events: none`,
-  escudo anti-UI e legendas removidas por `unloadModule`). O que ainda aparecia —
-  a rodinha de carregamento, o botão grande na pausa, a tela final — **não tinha
-  parâmetro que desligasse**, porque não são *controles*. Um `<video>` comum não
-  tem nada disso, e essa é metade do ganho da transmissão direta.
-
-Agora o vídeo vira um `<video>` COMUM alimentado por `MediaSource`. Daí para a
-frente ele é mídia como qualquer outra: fade, cortina, `MediaSession`, barra de
-progresso e segundo plano são os mesmos que já funcionavam, e não há um pixel de
-YouTube no telão.
+O "Tocar agora" de um resultado do YouTube vira um `<video>` COMUM alimentado por
+`MediaSource` — daí para a frente ele é mídia como qualquer outra: fade, cortina,
+`MediaSession`, barra de progresso e segundo plano, e **zero pixel de YouTube no
+telão**. As alternativas cobravam caro: baixar antes são centenas de MB de espera
+antes do primeiro quadro, e o player embutido (removido na v5.212) trazia a UI
+dele junto — a rodinha de carregamento, o botão grande na pausa e a tela final
+**não têm parâmetro que desligue**, porque não são *controles*.
 
 ###### As três peças
 
@@ -778,65 +697,55 @@ YouTube no telão.
 **Por que o proxy não é opcional.** Um `fetch` direto ao googlevideo falha por
 três motivos independentes, cada um suficiente sozinho: **CORS** (o googlevideo
 não manda `Access-Control-Allow-Origin`), o **User-Agent** (uma faixa do visionOS
-pedida com o UA do WebView responde 403 — é o mesmo desencontro que custou sete
-versões até a v1.49) e a **invariante 2** (o WebView recusa buscar fora do
-origin, e afrouxar isso é a última coisa que este projeto pode fazer).
+pedida com o UA do WebView responde 403) e a **invariante 2** (o WebView recusa
+buscar fora do origin).
 
-**Por que ele NÃO é um `PathHandler`.** O `WebViewAssetLoader.PathHandler`
-recebe só o caminho — os cabeçalhos não chegam lá. E MSE é feito de requisições
-por FAIXA DE BYTES: sem repassar o `Range`, cada pedido traria o arquivo inteiro
-para usar 200 kB. Por isso ele é chamado de dentro do `shouldInterceptRequest`,
-que recebe o `WebResourceRequest` completo, ANTES de o asset loader ver a URL. É
-o único ponto do app que enxerga os cabeçalhos de uma requisição.
+**Por que ele NÃO é um `PathHandler`.** O `WebViewAssetLoader.PathHandler` recebe
+só o caminho — os cabeçalhos não chegam lá —, e MSE é feito de requisições por
+FAIXA DE BYTES: sem repassar o `Range`, cada pedido traria o arquivo inteiro para
+usar 200 kB. Por isso ele é chamado de dentro do `shouldInterceptRequest`, que
+recebe o `WebResourceRequest` completo, ANTES de o asset loader ver a URL — é o
+único ponto do app que enxerga os cabeçalhos de uma requisição.
 
-Ele vale para os DOIS WebViews, ao contrário do handler `/saf/`: quem projeta é
-o telão, então negá-lo ao Display seria negar o recurso inteiro. A exposição é de
-outra natureza — um token de stream aponta para uma faixa do vídeo que já está
-em cena, não para o índice de uma pasta do aparelho.
+Ele vale para os DOIS WebViews, ao contrário do handler `/saf/`: quem projeta é o
+telão, então negá-lo ao Display seria negar o recurso inteiro. A exposição é de
+outra natureza — um token de stream aponta para uma faixa do vídeo que já está em
+cena, não para o índice de uma pasta do aparelho.
 
 ###### O `sidx`, e por que ele é a peça testada
 
 O índice DASH é o que torna a coisa viável: com alguns kilobytes o player sabe
-onde começa cada fragmento, e daí em diante pede só o que precisa. Sem ele,
-"tocar aos 3:20" significaria baixar tudo até os 3:20.
+onde começa cada fragmento. Sem ele, "tocar aos 3:20" significaria baixar tudo
+até os 3:20.
 
-É também a peça que falha em SILÊNCIO: um erro de deslocamento não dá exceção —
-dá vídeo que não toca. E é a única do caminho inteiro que se verifica sem
-aparelho, porque os boxes podem ser construídos byte a byte a partir da
-especificação. Daí `tools/sidx.test.mjs`, que roda no mesmo passo de sanidade do
-CI que já impede o OTA de publicar um bundle que não carrega. Ele cobre v0 e v1
-(o tamanho do cabeçalho MUDA entre as duas, e errá-lo desloca todas as
-entradas), `first_offset`, um box anterior ao `sidx`, o bit de `reference_type`
-(que sem máscara viraria um tamanho absurdo), buffer curto, ausência do box e
-`timescale` zero.
+É também a peça que falha em SILÊNCIO (um erro de deslocamento não dá exceção —
+dá vídeo que não toca) e a única do caminho que se verifica sem aparelho, porque
+os boxes podem ser construídos byte a byte a partir da especificação. Daí
+`tools/sidx.test.mjs`: v0 e v1 (o tamanho do cabeçalho MUDA entre as duas, e
+errá-lo desloca todas as entradas), `first_offset`, um box anterior ao `sidx`, o
+bit de `reference_type` (que sem máscara viraria um tamanho absurdo), buffer
+curto, ausência do box e `timescale` zero.
 
 ###### O que este player deliberadamente NÃO é
 
-A regra do projeto manda não reimplementar em casa o que uma biblioteca faz. Um
-player DASH de prateleira (dash.js, Shaka) são centenas de kB de terceiro para
-resolver um caso que aqui é minúsculo: duas faixas, um perfil, sem DRM, sem
-múltiplas qualidades, sem legenda. `mse.js` **não** troca de qualidade, **não**
-lê MPD e **não** faz ABR — ele lê um índice, pede pedaços e os entrega. É menos
-que um player DASH, e o suficiente.
-
-O preço está declarado: isto é superfície NOSSA. Por isso cada ponto de falha
-avisa quem chamou (`onErro` → `onStreamErro` do stage), e quem chamou tem para
-onde cair.
+`mse.js` **não** troca de qualidade, **não** lê MPD e **não** faz ABR — ele lê um
+índice, pede pedaços e os entrega. Um player DASH de prateleira (dash.js, Shaka)
+são centenas de kB de terceiro para um caso que aqui é minúsculo: duas faixas, um
+perfil, sem DRM, sem múltiplas qualidades, sem legenda. O preço está declarado:
+isto é superfície NOSSA, e por isso cada ponto de falha avisa quem chamou
+(`onErro` → `onStreamErro` do stage), e quem chamou tem para onde cair.
 
 ###### A recuperação, e quem a faz
 
 As URLs do googlevideo expiram em algumas horas, então um registro de stream é
 transitório por natureza. Quando ele falha em cena:
 
-1. **A preview do Controle é a canária.** Ela toca o MESMO registro, na mesma
+1. **A preview do Controle é a canária** — ela toca o MESMO registro, na mesma
    hora, e é na tela do operador que a falha aparece primeiro.
 2. O Controle pede um manifesto NOVO para o mesmo `youtubeId` e o regrava
-   (`AVDB.setMediaStream`). Uma extração barata resolve o caso comum sem o
-   operador saber que houve algo.
-3. **Uma tentativa só.** Se a segunda falhar, o problema não é validade — é
-   rede, codec ou um vídeo que ficou restrito —, e insistir em cima de uma
-   projeção morta é pior que parar. Aí a mídia é substituída pelo DOWNLOAD, que
-   é o caminho que sempre funcionou.
+   (`AVDB.setMediaStream`).
+3. **Uma tentativa só.** Falhando a segunda, o problema não é validade — é rede,
+   codec ou vídeo restrito —, e a mídia é substituída pelo DOWNLOAD.
 
 **O telão não recupera sozinho**, e não é omissão: ele recebe a ponte com
 `host = null` e não pode pedir manifesto nenhum; e duas recuperações
@@ -844,347 +753,107 @@ independentes para a mesma cena brigariam entre si.
 
 ###### Só em "Tocar agora"
 
-As outras três ações da folha (playlist, Cronograma, Favoritos) GUARDAM o item
-para depois, e um manifesto que expira em horas seria algo que não abre no
-domingo. "Tocar agora" é o caso em que o vídeo é visto uma vez, agora — e é
-exatamente onde esperar o download inteiro dói mais.
+As outras três ações GUARDAM o item, e um manifesto que expira em horas seria
+algo que não abre no domingo. Falhando qualquer coisa (shell antigo, vídeo sem
+par adaptativo, WebView sem o codec), o caminho segue para o download **sem
+avisar nada ao operador**: ele pediu o louvor, não o método.
 
-Falhando qualquer coisa (shell antigo, vídeo sem par adaptativo, WebView sem o
-codec), o caminho segue para o download **sem avisar nada ao operador**. Ele
-pediu o louvor, não o método; um cartão dizendo "não deu para transmitir, vou
-baixar" seria ruído sobre uma decisão que não é dele.
+##### E a QUALIDADE, logo abaixo
 
-##### E a QUALIDADE, logo abaixo (v5.118)
+Uma segunda linha de segmentos, no mesmo construtor da primeira (`ytSegRow`):
+**1080p · 720p · 480p** (mais **Online**, que não baixa nada).
 
-Uma segunda linha de segmentos, no mesmo desenho: **1080p · 720p · 480p**. As
-duas perguntas passaram a compartilhar o construtor (`ytSegRow`) — escrevê-lo
-duas vezes era garantir que a segunda divergisse da primeira no primeiro ajuste
-de estilo.
-
-- **Ela some com "Só áudio" escolhido.** Ali não existe resolução nenhuma, e uma
-  escolha que não faz nada é a mesma coisa que o app já evita no botão de busca
-  num shell antigo.
-- **O teto nasce no padrão A CADA ITEM**, como a forma e como a variante das
-  músicas. Deliberado: um teto que grudasse faria quem escolheu 480p numa rede
-  ruim receber, sem aviso, o vídeo principal do domingo seguinte em 480p no
-  telão. O atrito de dois toques é visível; a regressão silenciosa não seria — e
-  agora o subtítulo do Cronograma mostra a resolução real, então um engano
-  também não fica escondido.
-- **360p ficou de fora.** Num telão de salão ele é ruim o suficiente para não
-  valer ser oferecido — é justamente o piso em que o app ficou preso por sete
-  versões (ver a série do 1080p).
-- **Ponte:** um TERCEIRO destino (`ytFetchAte`), pela mesma regra de aridade do
-  `ytFetchAudio`. Com um cuidado a mais: ele só é usado quando o teto pedido é
-  **menor** que o padrão. Pedir 1080p continua saindo pelo `ytFetch` de sempre,
-  que existe em toda versão — quem não mexeu no seletor nunca passa a depender
-  de um APK novo.
+- **Some com "Só áudio" escolhido** — ali não existe resolução nenhuma, e uma
+  escolha que não faz nada é pior que escolha nenhuma.
+- **O teto nasce no padrão A CADA ITEM.** Um teto que grudasse faria quem
+  escolheu 480p numa rede ruim receber, sem aviso, o vídeo principal do domingo
+  seguinte em 480p no telão: o atrito de dois toques é visível, a regressão
+  silenciosa não seria.
+- **360p ficou de fora**: num telão de salão ele é ruim o suficiente para não
+  valer ser oferecido.
+- **Ponte:** um TERCEIRO destino (`ytFetchAte`), pela regra de aridade do
+  `ytFetchAudio`, e **só quando o teto pedido é MENOR que o padrão** — pedir
+  1080p continua saindo pelo `ytFetch` de sempre, que existe em toda versão.
 - **O progressivo respeita o teto, mas nunca ao ponto de não entregar nada**
-  (`melhorProgressivo`): o maior que couber; se NENHUM couber (pediu 480p e o
-  vídeo só tem progressivo de 720p), vale o MENOR que existe. Devolver `null`
-  ali transformaria "quero economizar dados" em "não baixa", e quem escolheu
-  480p quer o louvor, não a recusa.
-- **O shell devolve a altura e a duração REAIS** (`height`, `seconds`) do que de
-  fato veio — não do que foi pedido. É isso que alimenta o subtítulo da linha, e
-  é a única forma honesta de responder "o que eu tenho aqui?" quando o pedido
-  não pôde ser atendido.
+  (`melhorProgressivo`): o maior que couber e, não cabendo nenhum, o MENOR que
+  existe. Devolver `null` transformaria "quero economizar dados" em "não baixa".
+- **O shell devolve a altura e a duração REAIS** do que de fato veio, não do que
+  foi pedido — é isso que alimenta o subtítulo da linha.
 
-##### Por que a primeira versão não baixou nada (corrigido na v5.113)
+##### A EXTRAÇÃO: a fila de candidatos, e o cliente que a sustenta
 
-Em aparelho, pedir só o áudio mostrava o cartão de download e terminava em
-NADA: nem item, nem erro. A causa não estava no lado web — verificado com a
-ponte simulada, o pedido chegava com `soAudio: true` e o registro nascia certo
-(`kind: 'audio'`, sem miniatura, nome com " (áudio)"). Estava no shell: as
-faixas de áudio são **adaptativas**, e adaptativo é exatamente o que o YouTube
-protege com PO Token — que este app não monta de propósito (ver o cabeçalho de
-`YoutubeGrab.kt`). Sem token, `audioStreams` volta vazio ou com URLs que o CDN
-responde 403, enquanto o **progressivo**, que é o formato antigo, passa.
+O YouTube protege as faixas ADAPTATIVAS (tudo acima de 720p e todo áudio
+separado) com **SABR enforcement**: sem PO Token o CDN responde **403** a todas,
+com qualquer par de contêiner, qualquer perfil de UA e com `Range`. Quem abriu
+esse portão foi a própria biblioteca, na v0.26.3, com um cliente **visionOS**
+buscado incondicionalmente e sem token nenhum — o conserto foi **uma linha de
+`build.gradle.kts`**. A lição fica: **antes de reescrever extração à mão, olhar o
+CHANGELOG da dependência.**
 
-Três correções, e a terceira valia para todo download, não só para o áudio:
+**O PO Token via WebView não é a saída, e isso foi verificado:**
+`PoTokenProvider.getWebClientPoToken()` não tem UMA ÚNICA chamada em nenhuma
+versão do extrator (v0.26.0 → v0.26.4 e `dev`) — o cliente web só serve para
+metadados, e o `onFetchPage` consome apenas os tokens **ANDROID** e **iOS**. O
+token do cliente Android exige o **DroidGuard** do Play Services, atrelado à
+assinatura do app oficial. Um WebView rodando BotGuard aqui alimentaria um campo
+que ninguém lê.
 
-1. **Uma fila de tentativas, não uma escolha só**: AAC (m4a) → qualquer outro
-   formato de áudio (Opus/WebM, que este mesmo Chromium toca) → **o vídeo
-   progressivo**. Cair no progressivo não desmente a escolha do operador: quem
-   decide que o telão não muda de imagem é o `kind: 'audio'` do registro, não o
-   container do arquivo. Ele ouve o louvor no fundo do mesmo jeito; o que paga é
-   o tamanho, e por isso essa é a ÚLTIMA tentativa.
-2. **O `type` é o do arquivo que veio, nunca o que foi pedido** — anunciar um
-   mp4 com vídeo como `audio/mp4` seria mentir para o decodificador. O shell
-   manda também `audioOnly`, que a **UI não usa** (v5.114): quando o vídeo não
-   oferece faixa separada, o que o operador pediu — tocar no fundo, sem imagem
-   no telão — acontece do mesmo jeito, porque quem manda no telão é o `kind` do
-   registro e não o container do arquivo. Anunciar a diferença seria contar um
-   detalhe de implementação no meio de um culto. O campo continua no JSON
-   porque é o que aparece no `Log.w` de quem for diagnosticar por que um vídeo
-   específico não entregou o áudio.
-3. **Um download que falha agora FALA.** `ytAcao` só apagava a marca de
-   "baixando" e sumia — minutos de espera terminando em silêncio, para todos os
-   destinos. Agora responde `erro` no botão (ou na faixa, quando o toque veio de
-   uma folha que já fechou).
+**O bump sozinho não bastaria**, e é por isso que a escolha é uma FILA: depois
+dele o `StreamInfo` traz uma MISTURA — faixas do visionOS (que baixam) ao lado
+das do cliente antigo (que respondem 403) —, e pegar "a de maior altura por
+contêiner" pode pegar justamente a envenenada. As regras de `tentarJuntar`:
 
-##### O diagnóstico da extração, no rodapé de Configurações (v5.115)
+- **Cliente primeiro, altura depois.** Parece invertido e não é: as duas listas
+  trazem 1080p e só a do visionOS baixa; ordenar por altura intercalaria as duas
+  e gastaria as tentativas no lado que o CDN recusa. Empatados, mp4 antes de
+  WebM — o WebView toca H.264 em qualquer aparelho.
+- **O áudio é a sonda barata, e vem primeiro** (alguns MB contra centenas). O
+  arquivo baixado fica guardado POR CONTÊINER, então um segundo candidato de
+  vídeo mp4 reaproveita o m4a que já veio.
+- **Tetos assimétricos:** um 403 falha antes do primeiro byte (candidato de vídeo
+  custa uma requisição — cabem quatro); uma MONTAGEM que falha já custou o
+  download inteiro do vídeo (teto de dois). Isto roda na rede do chip do
+  operador, possivelmente minutos antes do culto.
+- **O UA acompanha a URL:** `baixarTentando` lê o `c=` da própria URL e tenta
+  primeiro o perfil que combina com ela (visionOS, iOS ou Chrome/Android). A
+  constante `UA_VISIONOS` é copiada caractere a caractere do que a biblioteca
+  monta — **ao trocar a versão do extrator, conferir `ClientsConstants` e trazer
+  os números novos junto**.
+- **`adaptativoBloqueado` exige UNANIMIDADE** (todos os candidatos tentados, no
+  mínimo dois, mortos com 403). Desligar o caminho adaptativo no primeiro 403
+  seria o autogol: com o pool misturado, um 403 isolado é o comportamento NORMAL
+  de uma faixa envenenada com uma boa logo atrás. Não é persistido de propósito —
+  um estado em disco transformaria a recusa de um dia numa desistência
+  permanente.
+- **O cliente iOS fica DESLIGADO:** as faixas dele vêm como manifestos HLS, que o
+  `isUrl` descarta, e cada faixa a mais é um candidato que a fila pode gastar.
+- **O "só áudio" segue a mesma fila**, três candidatos na ordem de cliente, com o
+  progressivo no fim.
 
-Em aparelho, o "só áudio" caiu no vídeo progressivo — e isso levanta a pergunta
-seguinte, que é a do **1080p**: acima de 720p tudo mora nas faixas *video-only*,
-a MESMA classe da faixa de áudio que não veio. Se elas não chegam a este
-aparelho, implementar o remux (juntar vídeo e áudio com o `MediaMuxer` da
-plataforma, sem recodificar) seria construir uma engrenagem que nunca gira.
+**O remux** (`MuxMp4.kt`) junta a melhor faixa de vídeo até 1080p (mp4/AVC) com a
+melhor de áudio (m4a/AAC) pelo `MediaMuxer` da plataforma — cópia de amostras
+comprimidas, não recodificação: sem perda e sem espera. Três guardas:
 
-A pergunta **não se responde lendo código**: sem `PoTokenProvider` a biblioteca
-busca os streams pelo endpoint `reel/reel_item_watch`, cujo conjunto de formatos
-varia por vídeo. Então o app passou a medir: `YoutubeGrab.diagnostico` guarda,
-em uma linha, quantas faixas de cada tipo o extrator recebeu, a maior altura de
-cada grupo e qual tentativa venceu —
-
-```
-áudio 0 · vídeo-só 0 · progressivo 2 (720p) → veio mp4 720p
-```
-
-— e `AVNative.ytDiag()` a entrega ao rodapé de **Configurações**, ao lado das
-versões e do alvo de espelhamento, que é onde o resto do diagnóstico já mora. É
-lido a cada ABERTURA do popup, não uma vez na carga: o valor muda a cada
-download, e a graça é comparar antes e depois de um teste. Só aparece no app
-(shell ≥ 24) e depois da primeira extração.
-
-**A primeira medição em aparelho** (v1.42) devolveu:
-
-```
-áudio 0 · vídeo-só 0 · progressivo 1 (360p) → veio mp4 360p
-```
-
-Uma faixa só, a mais baixa que existe (itag 18). Não há adaptativas — logo não
-há 1080p para juntar, e o remux não teria o que fazer — e **nem o progressivo de
-720p está vindo**: o app baixava em 360p, não em 720p como se supunha. É o
-conjunto reduzido do endpoint dos Shorts.
-
-> **Esta frase dizia "e atualizar a biblioteca não resolve", e ela estava
-> errada** — a v1.49 mostrou que era exatamente o que resolvia. A conferência da
-> época olhou o *fallback sem token* (que de fato continuava igual) e concluiu
-> sobre a biblioteca inteira; o que a v0.26.3 trouxe foi um **cliente novo**, que
-> não passa por aquele fallback. Fica registrado como está: ler uma peça e
-> concluir sobre o conjunto é o erro, não a conclusão. Ver "O cliente visionOS
-> destrava o 1080p", no fim desta série.
-
-A alavanca que sobrou antes do BotGuard é o **cliente iOS** (v1.43): ele vem
-DESLIGADO na biblioteca (`private static boolean fetchIosClient;`, sem valor) e
-é o único outro cliente consultado sem PO Token —
-`YoutubeStreamExtractor.setFetchIosClient(true)` acrescenta uma segunda resposta
-de player à mesma extração. A ressalva está na javadoc do próprio método: as
-faixas do iOS vêm "especialmente" como **manifestos HLS**, e manifesto não é URL
-de arquivo — o `isUrl` das nossas escolhas o descarta. Por isso o diagnóstico
-passou a contar também o que veio SEM ser URL direta (`+N manif.`): é o que
-separa "o YouTube não mandou nada" de "mandou, mas noutro formato", duas
-leituras que levam a decisões opostas e que sem esse `+` apareceriam como o
-mesmo zero. Custa uma requisição a mais por extração; se a medição seguinte não
-mostrar ganho, a linha sai.
-
-**A medição seguinte (v1.43) mudou tudo:**
-
-```
-áudio 5 · vídeo-só 12 (1080p) · progressivo 1 (360p) → veio mp4 360p
-```
-
-O cliente iOS destravou as faixas adaptativas — e todas como URL direta, sem
-nenhum `+N manif.`. Ou seja: o 1080p e o áudio puro estavam disponíveis, e o app
-baixava a pior cópia possível (o único progressivo, de 360p) porque era a única
-que não precisava ser montada. A linha do iOS fica.
-
-Daí o **remux** (`MuxMp4.kt`, v1.44): baixa a melhor faixa de vídeo até 1080p
-(mp4/AVC) mais a melhor de áudio (m4a/AAC) e as junta com o `MediaMuxer` da
-plataforma. É cópia de amostras comprimidas, não recodificação — os bits são os
-mesmos que vieram do YouTube, não há perda e o processador quase não trabalha.
-Três guardas que valem registrar:
-
-- **Só monta se for MELHOR que o progressivo.** Um vídeo cuja faixa separada
-  fosse 360p pagaria dois downloads e um muxer para entregar o mesmo de antes.
-- **mp4 + m4a, não "o melhor" absoluto.** O 1080p costuma vir em AVC (mp4) e
-  VP9 (WebM); só o primeiro entra num contêiner MP4. Escolher pelo bitrate e
+- **Só monta se for MELHOR que o progressivo** (senão paga dois downloads e um
+  muxer para entregar o mesmo de antes).
+- **mp4 + m4a, nunca "o melhor" absoluto.** O 1080p vem em AVC (mp4) e VP9
+  (WebM), e só o primeiro entra num contêiner MP4 — escolher pelo bitrate e
   descobrir isso no fim seria baixar centenas de MB para falhar no muxer.
-- **Uma barra só** para os dois downloads e a montagem (o vídeo pesa 90%, que é
-  a proporção real): duas barras que voltam ao zero no meio são
-  indistinguíveis de travamento.
+- **Uma barra só** para os dois downloads e a montagem (o vídeo pesa 90%, que é a
+  proporção real): duas barras que voltam ao zero são indistinguíveis de
+  travamento.
 
-Falhando qualquer etapa, a fila de tentativas de sempre continua valendo — o
-progressivo é o piso, e um louvor em 360p é melhor que nenhum.
+O progressivo segue como **piso**: falhando tudo, o app entrega o arquivo de 360p
+em vez de nada (um caso conhecido é o vídeo marcado como "made for kids", que o
+visionOS não extrai).
 
-##### O diagnóstico que inventou um erro (v1.46)
+###### O diagnóstico da extração, no rodapé de Configurações
 
-A leitura seguinte trouxe `· mp4 423 · webm 423`, e **HTTP 423 nunca aconteceu**.
-O `motivo()` procurava três dígitos começando em 4 ou 5 no TEXTO da exceção —
-mas `conn.inputStream` lança `FileNotFoundException` cuja mensagem é só a URL, e
-toda URL do googlevideo carrega `dur=423.061`, a duração do vídeo em segundos. O
-regex leu a duração e a apresentou como código de erro.
-
-Vale registrar porque é a falha mais cara que um diagnóstico pode ter: ele não
-ficou em silêncio, ele **apontou para o lugar errado com confiança**. Hoje o
-código vem de `conn.responseCode`, lido antes de abrir o fluxo, e a mensagem
-("HTTP nnn") é escrita por nós — não há mais o que adivinhar.
-
-Junto vieram as duas hipóteses do 403 nas faixas adaptativas, ambas baratas:
-`Range: bytes=0-` (é assim que um player de verdade consome essas URLs, e o
-googlevideo costuma recusar quem não pede faixa) e o **UA do cliente que emitiu
-a URL** — elas vêm do cliente iOS, e pedi-las anunciando um Chrome de Android é
-a incoerência que o CDN responde com 403. `baixarTentando` tenta os dois perfis
-e registra no diagnóstico qual funcionou (`mp4/i` = MP4 baixado com o perfil
-iOS).
-
-##### O desfecho: 403, e o 1080p fica de fora (v1.47)
-
-Com o código verdadeiro na tela, a resposta veio:
-
-```
-áudio 5 [m4a 2, webm 3] · vídeo-só 12 [mp4 6 (1080p), webm 6 (1080p)]
-  · prog 1 [mp4 1 (360p)] · mp4 403 · webm 403 → veio mp4 360p
-```
-
-As faixas de 1080p **existem e são listadas**; o CDN responde **403** a todas —
-com os dois pares de contêiner, com os dois perfis de cliente e com `Range`. É o
-portão do PO Token, e ele não se abre por cabeçalho. A conclusão da época foi
-que **1080p exigiria montar o desafio do BotGuard num WebView**, o que este
-projeto decidiu não fazer quando o `YoutubeGrab` nasceu.
-
-> A primeira metade estava certa e a segunda não: o portão era real, mas o
-> BotGuard não era a chave — nem sequer serviria (ver a v1.49, no fim desta
-> série). O 403 tem nome, **SABR enforcement**, e a correção veio da própria
-> biblioteca.
-
-O que fica no código, e por quê:
-
-- **O remux (`MuxMp4`) fica.** Ele custa zero quando as faixas são recusadas
-  (falha na primeira requisição, sem baixar nada) e entra em ação sozinho no dia
-  em que o YouTube afrouxar — ou num vídeo cujas faixas não estejam protegidas,
-  que é caso a caso.
-- **O cliente iOS fica ligado.** É ele que faz as faixas aparecerem no
-  diagnóstico; sem ele a linha voltaria a dizer `vídeo-só 0` e perderíamos a
-  capacidade de PERCEBER uma mudança. *(Desligado de novo na v1.49: com o
-  visionOS listando as faixas, ele só acrescenta candidatos que dão 403.)*
-- **`adaptativoBloqueado` (por processo)**: depois do primeiro 403 da sessão, os
-  downloads seguintes vão direto ao progressivo. Sem essa memória, cada download
-  refazia quatro requisições condenadas antes de chegar à mesma conclusão. Não é
-  persistido de propósito — reabrir o app tenta de novo, e um estado em disco
-  transformaria a recusa de um dia numa desistência permanente. *(Na v1.49 ele
-  passou a exigir unanimidade: com o pool de faixas misturado, desligar tudo no
-  primeiro 403 seria o autogol.)*
-
-O download seguiu em **360p** neste aparelho por mais duas versões: era o único
-formato progressivo que o YouTube entregava sem token. Vale lembrar o que esse
-caminho continua garantindo, que era o objetivo original e não mudou — o vídeo
-vira ARQUIVO, com fade, playlist, `MediaSession` e segundo plano, **sem depender
-da rede durante o culto**.
-
-##### A fonte alternativa, e por que ela saiu (v1.48 → v1.49)
-
-Depois do 403 confirmado, a v1.48 tentou o caminho barato: `InnerTube.kt`, **um
-POST** para `youtubei/v1/player` anunciando-se como um cliente que não exige
-token — o do **Quest** (`ANDROID_VR`) e, em seguida, um de **TV**. Sem executar
-JavaScript ofuscado, sem atestação, sem decifrar assinatura.
-
-Em aparelho:
-
-```
-· vr: 0 (LOGIN_REQUIRED) · tv: 0 (ERROR)
-```
-
-Nenhuma faixa, pelos dois. O arquivo inteiro **saiu na v1.49**, e não por ter
-falhado uma vez: o que ele buscava a biblioteca passou a entregar sozinha (logo
-abaixo), e mantê-lo seria manter superfície nossa contra um alvo que muda toda
-semana — que é justamente o que a dependência existe para evitar. Fica a lição,
-que vale para a próxima ideia do mesmo tipo: um cliente de dispositivo escolhido
-por reputação de fórum envelhece em silêncio, e do lado de cá isso é um zero mudo
-no diagnóstico.
-
-##### O cliente visionOS destrava o 1080p, e a escolha vira uma FILA (v1.49)
-
-O 403 tem nome — **SABR enforcement** — e a correção estava publicada havia
-meses, do lado da biblioteca.
-
-**Primeiro, o que NÃO era a saída.** O PO Token via WebView foi descartado com
-verificação, não por preguiça: `PoTokenProvider.getWebClientPoToken()` **não tem
-uma única chamada** em nenhuma versão do extrator (v0.26.0 → v0.26.4 e `dev`) —
-o cliente web só serve para metadados, e o `onFetchPage` consome apenas os tokens
-**ANDROID** e **iOS**. O próprio NewPipe implementa só o token web e devolve
-`null` para os outros dois. E o token do cliente Android, que *seria* consumido,
-exige o **DroidGuard** do Play Services, atrelado à assinatura do app oficial.
-Um WebView rodando BotGuard aqui alimentaria um campo que ninguém lê.
-
-**O que era a saída.** A issue NewPipe **#13320** ("Only MP4 360p / no separate
-audio tracks available") descreve o nosso caso palavra por palavra, e o PR
-**#1508** ("Workaround SABR enforcement by using another player client") a
-corrigiu na **v0.26.3**: um cliente **visionOS**, buscado
-incondicionalmente e **sem token nenhum** — a assinatura de
-`fetchVisionOsClient(localization, contentCountry, videoId)` sequer recebe um
-`PoTokenResult`. O app estava pinado na **v0.26.1**. O conserto foi **uma linha
-de `build.gradle.kts`**.
-
-Isso é a dependência fazendo o serviço pelo qual ela existe, e vale registrar do
-jeito certo: sete versões de shell foram gastas medindo um portão, e quem o
-abriu foi quem publica a biblioteca. Antes de reescrever extração à mão, olhar o
-CHANGELOG dela.
-
-###### A parte que o bump sozinho NÃO resolveria
-
-Depois do bump, `StreamInfo` traz uma **mistura**: faixas do visionOS (que
-baixam) ao lado das do cliente antigo (que respondem 403). A escolha anterior
-pegava **uma** faixa por contêiner, a de maior altura — e com o pool misturado
-essa pode ser justamente a envenenada. Seria perder o 1080p tendo um 1080p bom
-na mesma lista: o bump entraria e não mudaria nada visível.
-
-Por isso `tentarJuntar` virou uma **fila de candidatos**:
-
-- **A ordem é cliente primeiro, altura depois.** Parece invertido e não é: as
-  duas listas trazem 1080p, mas só a do visionOS baixa. Ordenar por altura
-  intercalaria as duas e gastaria as tentativas no lado que o CDN recusa.
-  Empatados, mp4 antes de WebM — o WebView toca H.264 em qualquer aparelho.
-- **O áudio é a sonda barata, e vem primeiro.** Ele tem alguns MB contra
-  centenas do vídeo: descobrir por ele que um contêiner não serve custa uma
-  fração. O arquivo baixado fica **guardado por contêiner**, então um segundo
-  candidato de vídeo mp4 reaproveita o m4a que já veio.
-- **Tetos assimétricos.** Um 403 falha antes do primeiro byte, então um candidato
-  de vídeo perdido custa uma requisição — daí caber quatro. Já uma **montagem**
-  que falha custou o download inteiro do vídeo, e tem teto de dois. Isto roda na
-  rede do chip do operador, possivelmente minutos antes do culto.
-- **O UA acompanha a URL.** `baixarTentando` lê o `c=` da própria URL e tenta
-  primeiro o perfil que combina com ela (visionOS, iOS ou Chrome/Android); os
-  outros ficam atrás como rede de segurança. Antes a ordem era fixa, e a faixa
-  boa podia ser perdida logo na primeira tentativa. A constante `UA_VISIONOS` é
-  copiada caractere a caractere do que a biblioteca monta — **ao trocar a versão
-  do extrator, conferir `ClientsConstants` e trazer os números novos junto**.
-- **`adaptativoBloqueado` ficou muito mais difícil de levantar.** Antes, qualquer
-  403 desligava o caminho adaptativo pelo resto da sessão. Com o pool misturado
-  isso seria o autogol: um 403 isolado é o comportamento NORMAL de uma faixa
-  envenenada com uma boa logo atrás. Agora exige **unanimidade** — todos os
-  candidatos tentados, no mínimo dois, mortos com 403.
-- **O cliente iOS voltou a ficar DESLIGADO.** Ele foi ligado à mão na v1.43 como
-  a única alavanca disponível, e não resolveu (as faixas dele vêm como
-  manifestos HLS, que o `isUrl` descarta). Agora ele atrapalha: cada faixa a mais
-  é um candidato que a fila pode gastar uma requisição tentando.
-- **O mesmo vale para o "só áudio"**, que deixou de ser "m4a → qualquer outro" e
-  passou a ser três candidatos na mesma ordem de cliente.
-
-###### O diagnóstico passou a dizer DE QUEM veio cada faixa
-
-A linha do rodapé ganhou duas coisas, e as duas respondem a perguntas que as
-sete versões anteriores não conseguiam responder:
-
-```
-… · clientes VISIONOS 16, ANDROID 1 · a:140@ANDROID 403 · v:137@VISIONOS/V
-  → juntou 1080p (mp4, 137@VISIONOS/V)
-```
-
-- **`· clientes VISIONOS 16, ANDROID 1`** — de qual cliente veio cada faixa
-  LISTADA. Sem isso, dezessete faixas parecem a mesma coisa vindo do cliente que
-  funciona ou do que só entrega 403.
-- **`itag@CLIENTE` em cada tentativa** (`a:` para áudio, `v:` para vídeo) — uma
-  falha futura se correlaciona com o formato exato em vez de virar mais um zero
-  mudo.
-
-Os dois saem do **`c=` e do `itag=` da própria URL**, não de um campo da
-biblioteca: é o CDN quem os carimba, e o que ele carimbou é o que ele vai cobrar
-na hora do download. De quebra, o diagnóstico não acrescenta superfície de API
-a uma dependência que acabou de ser atualizada.
-
-###### A medição que fecha a série
-
-Em aparelho, com o APK da v1.49:
+`YoutubeGrab.diagnostico` guarda numa linha o que o extrator RECEBEU, de qual
+cliente, e o que cada tentativa deu; `AVNative.ytDiag()` a entrega ao rodapé de
+Configurações, lido a cada ABERTURA do popup (o valor muda a cada download, e a
+graça é comparar antes e depois de um teste). Só no app (shell ≥ 24) e depois da
+primeira extração.
 
 ```
 áudio 5 [m4a 2, webm 3] · vídeo-só 12 [mp4 6 (1080p), webm 6 (1080p)]
@@ -1192,60 +861,32 @@ Em aparelho, com o APK da v1.49:
   → juntou 1080p (mp4, 137@VISIONOS/V)
 ```
 
-Cada pedaço confirma uma peça:
+- **`clientes VISIONOS n, ANDROID n`** — de qual cliente veio cada faixa LISTADA.
+  Sem isso, dezessete faixas parecem a mesma coisa vindo do cliente que funciona
+  ou do que só entrega 403.
+- **`itag@CLIENTE` em cada tentativa** (`a:` áudio, `v:` vídeo) — uma falha futura
+  se correlaciona com o formato exato em vez de virar mais um zero mudo.
+- Os dois saem do **`c=` e do `itag=` da própria URL**, não de um campo da
+  biblioteca: é o CDN quem os carimba, e o que ele carimbou é o que ele vai
+  cobrar no download. De quebra, o diagnóstico não acrescenta superfície de API a
+  uma dependência recém-atualizada.
+- **`+N manif.`** separa "o YouTube não mandou nada" de "mandou, mas como
+  manifesto HLS" — duas leituras que levam a decisões opostas e que sem esse `+`
+  apareceriam como o mesmo zero.
+- A linha só menciona o itag do ÁUDIO quando ele FALHA; no sucesso nomeia apenas
+  o vídeo. Um diagnóstico que narra o caminho feliz vira ruído.
 
-- **`VISIONOS 17, ANDROID 1`** — o cliente novo trouxe 17 das 18 faixas, e o
-  único `ANDROID` é justamente o progressivo de 360p, que era tudo o que o app
-  conseguia baixar antes. As contas fecham nos dois sentidos (5 + 12 + 1 = 18),
-  o que também mostra que as três listas do `StreamInfo` não se sobrepõem.
-- **`137@VISIONOS`** — itag 137 é o AVC de 1080p, e é EXATAMENTE a faixa que
-  respondia 403 nas sete versões anteriores.
-- **`/V`** — o perfil de UA que baixou foi o do visionOS, escolhido pelo `c=` da
-  própria URL. O CDN serviu na primeira requisição.
-- **Nenhum `403` na linha.** A fila não precisou de um segundo candidato: o
-  primeiro áudio e o primeiro vídeo passaram direto. É a prova de que a ordem
-  "cliente primeiro, altura depois" põe a faixa certa no topo — com a ordem
-  antiga (só altura), uma das seis faixas de 1080p do pool poderia ter sido a do
-  cliente errado.
+> **ARMADILHA REGISTRADA (v1.46): um diagnóstico pode apontar para o lugar errado
+> COM CONFIANÇA.** O `motivo()` procurava três dígitos começando em 4 ou 5 no
+> TEXTO da exceção — e `conn.inputStream` lança `FileNotFoundException` cuja
+> mensagem é a URL, que carrega `dur=423.061`. O regex leu a duração do vídeo e a
+> apresentou como "HTTP 423", um código que nunca aconteceu. Hoje o código vem de
+> `conn.responseCode`, lido antes de abrir o fluxo.
 
-O app passou de entregar a **pior cópia que o YouTube oferece** (itag 18, 360p)
-para 1080p AVC remuxado pela plataforma, sem recodificar e sem perda.
-
-> A linha só menciona o itag do ÁUDIO quando ele falha — no sucesso ela nomeia
-> apenas o vídeo. É de propósito: um diagnóstico que narra o caminho feliz vira
-> ruído, e o que interessa registrar é onde alguma coisa parou.
-
-E o caminho **só áudio**, medido em seguida no mesmo vídeo:
-
-```
-áudio 5 [m4a 2, webm 3] · … · clientes VISIONOS 17, ANDROID 1
-  → veio m4a 140@VISIONOS
-```
-
-Itag 140 é o AAC-LC de 128 kbps — o **primeiro** candidato da fila
-(`candidatosAudio(info, null, TETO_AUDIO_SO)` ordena cliente → m4a antes de
-webm → maior bitrate), aceito na primeira requisição. Sem `(Np)` porque faixa
-de áudio não tem altura, e sem cair no progressivo, que é o que acontecia até a
-v1.48: ali o operador pedia áudio e recebia o vídeo de 360p inteiro, tocando no
-fundo por causa do `kind: 'audio'` do registro, mas pagando o tamanho de um
-vídeo. Agora são poucos MB.
-
-As duas medições juntas fecham a questão: as faixas adaptativas de **vídeo e de
-áudio** vêm da MESMA resposta de player assinada pelo visionOS, e as duas
-baixam. O que as separava do app era um número de versão no `build.gradle.kts`.
-
-> **Assimetria conhecida, e pequena:** o caminho só-áudio não registra a LETRA
-> do perfil de UA (`/V`) no sucesso — o `baixarTentando` a devolve e o `buscar`
-> a descarta, enquanto o `montar` a escreve. O itag e o cliente, que é o que
-> decide, estão lá nos dois. Não paga uma Release sozinha; se outro ajuste do
-> shell aparecer, entra junto.
-
-###### O que continua valendo
-
-O progressivo segue como **piso**: falhando tudo, o app entrega o arquivo de
-360p em vez de nada. Um caso conhecido em que o visionOS não extrai é o vídeo
-marcado como "made for kids" — ali o app cai no progressivo sem quebrar nada.
-
+> **E a outra: ler uma peça e concluir sobre o conjunto.** A conferência da época
+> olhou o *fallback sem token* (que de fato continuava igual) e escreveu que
+> "atualizar a biblioteca não resolve" — era exatamente o que resolvia, porque a
+> v0.26.3 trouxe um CLIENTE NOVO, que não passa por aquele fallback.
 ##### Todo campo de log tem botão de copiar (v5.117)
 
 O diagnóstico acima nasceu sem botão, e a primeira leitura chegou aqui como
