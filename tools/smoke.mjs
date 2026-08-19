@@ -2471,6 +2471,7 @@ try {
 // Medido pelo que o DEDO encontra, e não pela caixa do elemento: `visibility`
 // e `opacity` sao o que o seletor errado deixava para tras, e um `getBounding`
 // devolveria a mesma largura nos dois casos.
+const GLIFO_EXCLUIR = await pg.evaluate(() => ICON.del);
 try {
   const fila = await pg.evaluate(async () => {
     setAppMode('full');
@@ -2498,6 +2499,31 @@ try {
       recebeToque: !!alvo && !!alvo.closest('.row-acoes'),
       temBotao: caixa.querySelectorAll('button').length >= 1,
     };
+    // ---- O TIRAR DA FILA VESTE A LIXEIRA DO APP (v5.301) ----
+    // Pedido do operador: *"na playlist, ajuste o botão de excluir para que
+    // represente o mesmo ícone de excluir que já usamos no resto do sistema"*.
+    // Era `playlist_remove`, o único destrutivo do app com símbolo próprio.
+    // Medido pelo CODEPOINT contra o do excluir da linha do Cronograma, e não
+    // contra um literal escrito aqui: os dois têm de ser o MESMO, seja ele qual
+    // for.
+    const rm = li.querySelector('.row-excluir');
+    const glifoDaFila = rm && rm.querySelector('.msym')
+      ? rm.querySelector('.msym').textContent : '';
+    r.glifoDaFila = glifoDaFila;
+    // E COM O ÍCONE VEM A CONFIRMAÇÃO: um mesmo desenho com dois alcances
+    // conforme a tela (aqui apaga no toque, ali pergunta) é a pior forma de
+    // oferecer um destrutivo.
+    if (rm) {
+      rm.click();
+      await new Promise((f) => setTimeout(f, 200));
+      r.perguntou = !!li.querySelector('.row-acoes.confirmando > .linha-confirma');
+      r.aindaNaFila = await AVDB.listHas('playlist', m.id);
+      const dlg = document.getElementById('appDialog');
+      r.semModal = !dlg || !dlg.classList.contains('open');
+      li.querySelector('.linha-sim').click();
+      await new Promise((f) => setTimeout(f, 400));
+      r.saiuDaFila = !(await AVDB.listHas('playlist', m.id));
+    }
     await AVDB.listRemove('playlist', m.id);
     plItems = await AVDB.listItems('playlist');
     renderPlaylist();
@@ -2512,6 +2538,15 @@ try {
     'e ela recebe o toque: os botões de tirar da fila e de reordenar são '
     + 'alcançáveis (era o único caminho por item que a fila tem)',
     JSON.stringify(fila));
+  checar(!fila.erro && !!fila.glifoDaFila && fila.glifoDaFila === GLIFO_EXCLUIR,
+    'e o "tirar da fila" veste a MESMA lixeira do excluir das outras listas '
+    + '(v5.301) — era `playlist_remove`, o único destrutivo do app com símbolo '
+    + 'próprio', JSON.stringify(fila.glifoDaFila));
+  checar(!fila.erro && fila.perguntou === true && fila.aindaNaFila === true
+    && fila.semModal === true && fila.saiuDaFila === true,
+    'e ele PERGUNTA na própria faixa antes de tirar, como o das outras listas — '
+    + 'um mesmo desenho com dois alcances conforme a tela é a pior forma de '
+    + 'oferecer um destrutivo', JSON.stringify(fila));
 } catch (e) {
   checar(false, 'a medição da gaveta da fila terminou sem exceção (' + (e && e.message) + ')');
 }
@@ -2722,6 +2757,149 @@ try {
     'renomear fechou: ' + gav.renomearFecha);
 } catch (e) {
   checar(false, 'a medição da gaveta da linha terminou sem exceção ('
+    + (e && e.message) + ')');
+}
+
+// ── A FILEIRA CABE NA CAIXA, E ISSO SE MEDE NUM APARELHO ESTREITO (v5.301) ─
+//
+// Os quatro oráculos de Chromium deste projeto medem a 430px, que é o iPhone
+// grande. A tela do operador é um Android de **360px**, e a conta é outra: com
+// `--thumb` de 40px reservado de cada lado, a caixa do `⋮` mede 222px — e cinco
+// botões de 40px com `gap: .35rem` ocupam **222,4px**. Ela estava CHEIA desde a
+// v5.288, com zero de folga e nada que dissesse isso.
+//
+// O "Adicionar à playlist" desta versão é o SEXTO botão. Sem a caixa passar a
+// abraçar o conteúdo (ver `controle.css`), o excedente é desenhado POR CIMA DA
+// MINIATURA — `.row-btn` é `flex-shrink: 0`, então nada encolhe e nada avisa.
+// Este é o defeito que publica VERDE: nenhum teste abria a gaveta num aparelho
+// estreito, e o oráculo da geometria mede a 430px, onde cabia.
+//
+// A asserção é a soma dos botões contra a largura da caixa, e não um número de
+// pixel escrito aqui: ela continua valendo no dia em que um botão a mais entrar
+// na fileira, que é exatamente quando ela precisa valer.
+try {
+  await pg.setViewportSize({ width: 360, height: 900 });
+  await new Promise((f) => setTimeout(f, 150));
+  const estreita = await pg.evaluate(async () => {
+    setAppMode('full');
+    activeTab = 'imports';
+    const ids = [];
+    // TRÊS linhas: com uma só, `botoesDeOrdem` devolve [] (total <= 1) e a
+    // fileira sai com dois botões a menos que a de um culto de verdade.
+    for (let i = 0; i < 3; i++) {
+      const m = await AVDB.addMedia(new Blob([new Uint8Array(8)], { type: 'audio/mpeg' }),
+        { name: 'Linha estreita ' + i, type: 'audio/mpeg', kind: 'audio', list: 'imports' });
+      ids.push(m.id);
+    }
+    await load();
+    const li = document.querySelector('#library .lib-item[data-id="' + ids[1] + '"]');
+    if (!li) return { erro: 'a linha não foi desenhada' };
+    li.querySelector('.row-mais').click();
+    await new Promise((f) => setTimeout(f, 260));
+    const caixa = li.querySelector('.row-acoes');
+    const botoes = [...caixa.querySelectorAll('.row-btn')];
+    const gap = parseFloat(getComputedStyle(caixa).gap) || 0;
+    const soma = botoes.reduce((t, b) => t + b.getBoundingClientRect().width, 0)
+      + Math.max(0, botoes.length - 1) * gap;
+    const cb = caixa.getBoundingClientRect();
+    const mais = li.querySelector('.row-mais').getBoundingClientRect();
+    const r = {
+      n: botoes.length,
+      classes: botoes.map((b) => b.className.replace('row-btn ', '')),
+      soma: Math.round(soma), caixa: Math.round(cb.width),
+      cabe: Math.round(soma) <= Math.round(cb.width),
+      // E ela NÃO INVADE a coluna do `⋮`: o excluir é o primeiro justamente
+      // para ficar longe dele, e uma caixa que passasse por baixo desfaria isso.
+      naoInvadeOMais: Math.round(cb.right) <= Math.round(mais.left),
+      // Cada quadrado continua no PISO de toque do app.
+      menorAlvo: Math.round(Math.min(...botoes.map((b) => b.getBoundingClientRect().width))),
+    };
+    for (const id of ids) await AVDB.listRemove('imports', id);
+    await load();
+    return r;
+  });
+  await pg.setViewportSize({ width: 430, height: 900 });
+  await new Promise((f) => setTimeout(f, 150));
+  checar(!estreita.erro && estreita.cabe,
+    'A FILEIRA DA GAVETA CABE NA CAIXA num aparelho de 360px (' + (estreita.soma || '?')
+    + 'px de botões em ' + (estreita.caixa || '?') + 'px) — com `flex-shrink: 0` o '
+    + 'excedente era desenhado por cima da miniatura, sem erro em lugar nenhum',
+    JSON.stringify(estreita));
+  checar(!estreita.erro && estreita.naoInvadeOMais,
+    'e ela não passa por baixo do `⋮`, que é o alvo tocado repetidamente',
+    JSON.stringify(estreita));
+  checar(!estreita.erro && estreita.menorAlvo >= 34,
+    'com todos os quadrados no PISO de toque do app (' + (estreita.menorAlvo || 0)
+    + 'px) — encolher para caber é trocar um defeito por outro',
+    JSON.stringify(estreita));
+} catch (e) {
+  checar(false, 'a medição da fileira estreita terminou sem exceção ('
+    + (e && e.message) + ')');
+  try { await pg.setViewportSize({ width: 430, height: 900 }); } catch (_) {}
+}
+
+// ── "ADICIONAR À PLAYLIST" NA GAVETA DO CRONOGRAMA (v5.301) ──────────────
+//
+// Pedido do operador: *"nas opções dos itens do cronograma, especificamente na
+// gaveta de opções, adicione o botão de 'Adicionar a playlist'"*.
+//
+// Duas metades, e a segunda é a que erra em silêncio: ele ACRESCENTA à fila (o
+// toque no corpo da linha SUBSTITUI, e são ações opostas), e a caixa NÃO FECHA
+// — a resposta dele é o ✓ de `responder()` no próprio botão, e `pulsar` pinta um
+// nó que a caixa fechada (`visibility: hidden`) já tirou da tela.
+try {
+  const pl = await pg.evaluate(async () => {
+    setAppMode('full');
+    activeTab = 'imports';
+    const a = await AVDB.addMedia(new Blob(['p1'], { type: 'audio/mpeg' }),
+      { name: 'Primeiro da fila', type: 'audio/mpeg', kind: 'audio', list: 'playlist' });
+    const m = await AVDB.addMedia(new Blob(['p2'], { type: 'audio/mpeg' }),
+      { name: 'Louvor do culto', type: 'audio/mpeg', kind: 'audio', list: 'imports' });
+    // Uma CENA DE ROTEIRO não recebe o botão: a fila é de reprodução, e o
+    // `onTap` já desvia um cue para longe dela (*"um versículo não é uma fila
+    // de reprodução"*).
+    const cue = await criarCue('message', { msgId: 'zz1', text: 'Aviso' },
+      'Aviso do culto', 'imports', null);
+    await load();
+    const li = document.querySelector('#library .lib-item[data-id="' + m.id + '"]');
+    const lic = cue ? document.querySelector('#library .lib-item[data-id="' + cue.id + '"]') : null;
+    if (!li) return { erro: 'a linha não foi desenhada' };
+    li.querySelector('.row-mais').click();
+    await new Promise((f) => setTimeout(f, 240));
+    const r = {
+      temBotao: !!li.querySelector('.row-acoes .row-playlist'),
+      cueSemBotao: lic ? !lic.querySelector('.row-playlist') : null,
+      antes: (await AVDB.listIds('playlist')).length,
+    };
+    li.querySelector('.row-playlist').click();
+    await new Promise((f) => setTimeout(f, 400));
+    const depois = await AVDB.listIds('playlist');
+    r.entrou = depois.includes(m.id);
+    // ACRESCENTA: o primeiro da fila continua lá. Um `replacePlaylistWith` aqui
+    // apagaria o bloco de louvores que o operador acabou de montar.
+    r.naoSubstituiu = depois.includes(a.id) && depois.length === r.antes + 1;
+    r.caixaSegueAberta = !!document.querySelector(
+      '#library .lib-item[data-id="' + m.id + '"].acoes-abertas');
+    for (const id of await AVDB.listIds('playlist')) await AVDB.listRemove('playlist', id);
+    await AVDB.listRemove('imports', m.id);
+    if (cue) await AVDB.listRemove('imports', cue.id);
+    plItems = await AVDB.listItems('playlist');
+    renderPlaylist();
+    await load();
+    return r;
+  });
+  checar(!pl.erro && pl.temBotao && pl.entrou && pl.naoSubstituiu,
+    'A GAVETA DO CRONOGRAMA GANHOU "Adicionar à playlist" (v5.301), e ele '
+    + 'ACRESCENTA à fila em vez de substituí-la — quem substitui é o toque no '
+    + 'corpo da linha', JSON.stringify(pl));
+  checar(!pl.erro && pl.cueSemBotao === true,
+    'e uma CENA DE ROTEIRO não o recebe: a fila é de reprodução, e o `onTap` já '
+    + 'desvia um cue para longe dela', JSON.stringify(pl));
+  checar(!pl.erro && pl.caixaSegueAberta === true,
+    'a caixa NÃO fecha nele: a resposta é o ✓ no próprio botão, e `pulsar` '
+    + 'pintaria um nó que a caixa fechada já tirou da tela', JSON.stringify(pl));
+} catch (e) {
+  checar(false, 'a medição do "à playlist" terminou sem exceção ('
     + (e && e.message) + ')');
 }
 

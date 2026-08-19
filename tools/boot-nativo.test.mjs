@@ -2793,7 +2793,16 @@ try {
   checar(fav.temExcluir,
     'o que aquele modo daria — excluir sem sair da lista — está na gaveta, um toque');
 
-  // ---- E O EXCLUIR TIRA DA LISTA, sem levar o que está em outra ----
+  // ---- E O EXCLUIR PERGUNTA NA PRÓPRIA LINHA, sem popup nenhum (v5.301) ----
+  //
+  // Pedido do operador: *"remova os popups de confirmar exclusão, para que
+  // todas essas confirmações sejam inseridas direto na UI… durante o processo
+  // de exclusão pode trocar o ícone da thumbnail pela lixeira"*.
+  //
+  // O percurso é medido em TRÊS tempos, porque são três coisas que podem falhar
+  // separadas: a pergunta APARECE (e nada saiu ainda), o CANCELAR devolve a
+  // faixa, e só o segundo toque executa. A metade do meio é a que impede o pior
+  // desfecho — uma confirmação que só ilustra e exclui do mesmo jeito.
   const saiu = await pg6.evaluate(async (ids) => {
     // O primeiro está SÓ nos favoritos; o segundo está também no Cronograma.
     const alvo = ids[0];
@@ -2806,21 +2815,94 @@ try {
     await new Promise((r) => setTimeout(r, 250));
     li.querySelector('.row-excluir').click();
     await new Promise((r) => setTimeout(r, 200));
-    document.getElementById('appDialogOk').click();
-    await new Promise((r) => setTimeout(r, 400));
-    return {
-      naLista: !!document.querySelector('[data-fav-corpo] .lib-item[data-id="' + alvo + '"]'),
-      nosFavs: (await AVDB.listIds('favs')).includes(alvo),
-      // Ele estava no Cronograma também (`imports`), e de lá NÃO sai: excluir é
-      // desta lista, e o gc só apaga o que não está em mais nenhuma.
-      noCronograma: (await AVDB.listIds('imports')).includes(alvo),
+    const dlg = document.getElementById('appDialog');
+    const lixo = li.querySelector(':scope > .row > .thumb > .row-lixo');
+    const capa = [...li.querySelectorAll(':scope > .row > .thumb > *')]
+      .filter((n) => !n.classList.contains('row-lixo'))
+      .filter((n) => getComputedStyle(n).display !== 'none').length;
+    const r = {
+      // 1. A PERGUNTA ESTÁ NA FAIXA, e o modal do app NÃO abriu.
+      perguntouNaFaixa: !!li.querySelector('.fav-acoes.confirmando > .linha-confirma'),
+      semModal: !dlg || !dlg.classList.contains('open'),
+      // 2. A MINIATURA VIROU A LIXEIRA, e a capa saiu de baixo dela.
+      lixeiraNaCapa: !!lixo && getComputedStyle(lixo).display !== 'none',
+      capaEscondida: capa === 0,
+      // 3. As opções da faixa cedem o lugar — sem isto o par apareceria ao lado
+      //    dos botões que ele está confirmando.
+      opcoesEscondidas: [...li.querySelectorAll('.fav-acoes > .row-btn')]
+        .every((b) => getComputedStyle(b).display === 'none'),
+      // 4. E NADA SAIU AINDA.
+      antesDoSim: (await AVDB.listIds('favs')).includes(alvo),
     };
+    // ---- O CANCELAR devolve a faixa e não tira nada ----
+    li.querySelector('.linha-nao').click();
+    await new Promise((f) => setTimeout(f, 200));
+    r.cancelouVoltou = !li.querySelector('.linha-confirma')
+      && !li.querySelector('.row-lixo')
+      && (await AVDB.listIds('favs')).includes(alvo);
+    // ---- E O SEGUNDO TOQUE executa ----
+    li.querySelector('.row-excluir').click();
+    await new Promise((f) => setTimeout(f, 200));
+    li.querySelector('.linha-sim').click();
+    await new Promise((f) => setTimeout(f, 400));
+    r.naLista = !!document.querySelector('[data-fav-corpo] .lib-item[data-id="' + alvo + '"]');
+    r.nosFavs = (await AVDB.listIds('favs')).includes(alvo);
+    // Ele estava no Cronograma também (`imports`), e de lá NÃO sai: excluir é
+    // desta lista, e o gc só apaga o que não está em mais nenhuma.
+    r.noCronograma = (await AVDB.listIds('imports')).includes(alvo);
+    return r;
   }, fav.ids);
+  checar(saiu.perguntouNaFaixa && saiu.semModal,
+    'o excluir da gaveta PERGUNTA na própria faixa (v5.301), e não abre popup '
+    + 'nenhum — a pergunta "excluir este item?" feita por cima de uma tela sem '
+    + 'o item era respondida de memória', JSON.stringify(saiu));
+  checar(saiu.lixeiraNaCapa && saiu.capaEscondida && saiu.opcoesEscondidas,
+    'e a MINIATURA vira a lixeira enquanto ela pergunta: é a única parte da '
+    + 'linha que a faixa não cobre, logo a única que ainda diz de qual item é',
+    JSON.stringify(saiu));
+  checar(saiu.antesDoSim === true && saiu.cancelouVoltou === true,
+    'o primeiro toque não tira nada e o Cancelar devolve a faixa inteira — sem '
+    + 'esta metade a confirmação seria enfeite sobre uma exclusão imediata',
+    JSON.stringify(saiu));
   checar(!saiu.naLista && !saiu.nosFavs,
     'o excluir da gaveta tira o item DESTA lista', JSON.stringify(saiu));
   checar(saiu.noCronograma,
     'e NÃO o tira das outras — "excluir" aqui é sair da lista, não apagar os '
     + 'bytes de quem ainda os segura', JSON.stringify(saiu));
+
+  // ===== E O RENOMEAR CHEGOU À FAIXA DOS FAVORITOS (v5.301) =====
+  //
+  // Pedido do operador: *"adicione o botão de renomear nas opções dos itens
+  // individuais dos favoritos"*. Ele existia só na linha do Cronograma
+  // (v5.288). Medido pela porta de verdade — a gaveta que o corpo da linha abre
+  // —, e nas duas metades: o banco muda e a linha passa a mostrar o nome novo.
+  const renFav = await pg6.evaluate(async (ids) => {
+    const alvo = ids[1];
+    const corpo = document.querySelector('[data-fav-corpo]');
+    const li = corpo.querySelector('.lib-item[data-id="' + alvo + '"]');
+    if (!li) return { erro: 'a linha do favorito sumiu' };
+    if (!li.classList.contains('expanded')) {
+      li.querySelector('.row').click();
+      await new Promise((f) => setTimeout(f, 250));
+    }
+    const b = li.querySelector('.hymn-gaveta .fav-acoes .row-renomear');
+    if (!b) return { erro: 'sem o lápis na faixa de ações' };
+    b.click();
+    await new Promise((f) => setTimeout(f, 200));
+    const campo = document.getElementById('appDialogInput');
+    campo.value = 'Nome de favorito novo';
+    document.getElementById('appDialogOk').click();
+    await new Promise((f) => setTimeout(f, 500));
+    const rec = await AVDB.getMedia(alvo);
+    const li2 = document.querySelector('[data-fav-corpo] .lib-item[data-id="' + alvo + '"]');
+    return {
+      noBanco: rec && rec.name,
+      naTela: li2 ? li2.querySelector('.row-name').textContent : null,
+    };
+  }, fav.ids);
+  checar(renFav.noBanco === 'Nome de favorito novo' && renFav.naTela === 'Nome de favorito novo',
+    'e a faixa de ações dos Favoritos ganhou o RENOMEAR (v5.301): o nome muda '
+    + 'no banco E na linha', JSON.stringify(renFav));
 
   // ===== RENOMEAR NA GAVETA DA LINHA DO CRONOGRAMA (v5.288) =====
   //
