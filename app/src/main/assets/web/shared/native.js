@@ -1,20 +1,19 @@
 // Ponte com a casca Android nativa (window.AVNative).
 //
-// Este arquivo é o ÚNICO ponto do lado web que conhece o shell nativo. Ele é
-// carregado antes de qualquer outro script dos dois apps e, no NAVEGADOR, é
-// um no-op completo: sem `window.__AVBridge` ele retorna imediatamente, não
-// define `__NATIVE__` e nada muda. É essa assimetria que permite a mesma base
-// de código rodar nos dois contextos.
+// Este arquivo é o ÚNICO ponto do lado web que conhece o shell. É carregado
+// antes de qualquer outro script dos dois apps e, no NAVEGADOR, é um no-op
+// completo: sem `window.__AVBridge` ele retorna na entrada, não define
+// `__NATIVE__` e nada muda. É essa assimetria que permite a mesma base rodar
+// nos dois contextos.
 //
 // REGRA DE ESCRITA (vale para todo o projeto): as guardas no resto do código
-// são sempre `if (!window.__NATIVE__) { …comportamento web… }`, nunca o
-// inverso como caminho principal — o comportamento de navegador é o padrão, e
-// o nativo é a exceção que se declara.
+// são sempre `if (!window.__NATIVE__) { …comportamento web… }`, nunca o inverso
+// como caminho principal — o navegador é o padrão, o nativo é a exceção.
 //
-// A ponte entrega URLs SERVÍVEIS, nunca bytes: arquivos do dispositivo e
-// compartilhamentos chegam como `https://appassets.androidplatform.net/saf/…`
-// e o lado web usa `fetch()` + `Blob` exatamente como já faz com o OPFS. Um
-// vídeo de 2 GB nunca passa por base64.
+// A ponte entrega URLs SERVÍVEIS, nunca bytes: arquivos do aparelho e
+// compartilhamentos chegam como `https://appassets.androidplatform.net/saf/…` e
+// o lado web usa `fetch()` + `Blob` como já faz com o OPFS. Um vídeo de 2 GB
+// nunca passa por base64.
 
 (function (global) {
   'use strict';
@@ -31,65 +30,40 @@
   try { global.__SHELL_NAME__ = B.appVersion() || ''; } catch (_) { global.__SHELL_NAME__ = ''; }
 
   // ---- confirmação de boot (watchdog do OTA) ----
-  // A base web pode ter sido baixada por OTA. Se ela estiver quebrada, o app
-  // ficaria inutilizável até reinstalar — por isso o shell só considera um
-  // bundle bom depois que ele confirma que subiu INTEIRO. Não confirmar é o
-  // caminho seguro: o lançamento seguinte descarta o bundle e volta ao
+  // O shell só considera bom um bundle que confirme ter subido INTEIRO. Não
+  // confirmar é o caminho seguro: o lançamento seguinte o descarta e volta ao
   // embutido no APK (mais velho, porém funcionando).
   //
-  // Até a v5.48 a única condição era `window.AVDB` no evento `load`, e o
-  // comentário aqui raciocinava sobre "um erro de sintaxe em db.js" — o
-  // arquivo MENOS provável de quebrar. A ordem dos scripts é native.js →
-  // db.js → mse.js → stage.js → louvorja.js → bible.js → controle.js: um erro
-  // de sintaxe (ou um throw de inicialização) em qualquer um dos CINCO últimos
-  // aborta só AQUELE script, o `load` dispara do mesmo jeito, `AVDB` continua
-  // lá — e o bundle quebrado era carimbado como bom e servido PARA SEMPRE,
-  // exatamente o oposto do que este mecanismo existe para fazer. Como o OTA
-  // publica a cada push em `main` e o controle.js (o maior arquivo do bundle,
-  // de longe) é o que mais muda, esse era justamente o caso provável.
+  // `window.AVDB` no `load` NÃO basta. A ordem dos scripts é native.js → db.js →
+  // mse.js → stage.js → louvorja.js → bible.js → controle.js, e um erro em
+  // qualquer um dos cinco últimos aborta só AQUELE script: o `load` dispara,
+  // `AVDB` continua lá, e o bundle quebrado é carimbado como bom PARA SEMPRE.
+  // Como o OTA publica a cada push e o controle.js é o que mais muda, esse é o
+  // caso provável.
   //
-  // O sinal agora é "o app está DE PÉ", e cada peça dele cobre um trecho da
-  // cadeia que a anterior não cobre:
+  // O sinal é "o app está DE PÉ", e cada peça cobre o que a anterior não cobre:
   //
-  //   1. papel 'controle' — o WebView do Display carrega bem menos código
-  //      (não carrega controle.js nem louvorja.js), então deixá-lo confirmar
-  //      validaria um bundle cujo Controle nunca chegou a rodar. E o Display
-  //      é o caso NORMAL de culto (TV conectada), ou seja, ele confirmaria
-  //      quase sempre no lugar do outro. Sem TV o Display nem existe: quem
-  //      confirma é sempre o Controle, que é quem precisa funcionar.
+  //   1. papel 'controle' — o Display não carrega controle.js nem louvorja.js, e
+  //      é o caso NORMAL de culto: ele confirmaria quase sempre no lugar do
+  //      outro, validando um bundle cujo Controle nunca rodou.
   //   2. `AVDB` (db.js), `AVStream` (mse.js) e `createStage` (stage.js) — os
   //      três módulos compartilhados, cada um publicando seu global no fim do
-  //      arquivo, incondicionalmente e no parse (o `AVStream` existe mesmo num
-  //      navegador sem MediaSource — só o `suportado()` dele responde false).
-  //      O mse.js era o ÚNICO script do Controle fora do watchdog: um bundle
-  //      com ele quebrado era carimbado como bom.
-  //   3. `__avBack` (controle.js, perto do FIM do arquivo) — só existe se o
-  //      controle.js foi PARSEADO por inteiro e EXECUTADO até quase o fim.
-  //      (Sem número de linha de propósito: o arquivo cresce a cada versão e
-  //      um número aqui envelhece no push seguinte.)
-  //      É a mesma função que o `MainActivity.handleBack()` consulta, ou
-  //      seja, um contrato que já existe, não um marcador inventado aqui.
-  //   4. um `<li>` dentro de `#playlist` — o HTML entrega esse `<ul>` VAZIO;
-  //      quem o preenche é `renderPlaylist()`, chamado por `load()` dentro do
-  //      `init()` assíncrono. É o que prova que a inicialização terminou de
-  //      verdade: `init()` começa por `loadCollections()` (louvorja.js) e só
-  //      então monta a tela, então uma quebra em louvorja.js ou bible.js
-  //      derruba o `init()` antes daqui e o marcador nunca aparece.
+  //      arquivo (o `AVStream` existe mesmo sem MediaSource; só o `suportado()`
+  //      responde false).
+  //   3. `__avBack` (perto do FIM do controle.js) — só existe se o arquivo foi
+  //      parseado inteiro. É a mesma função que o `handleBack()` consulta: um
+  //      contrato que já existe, não um marcador inventado aqui.
+  //   4. um `<li>` dentro de `#playlist` — o HTML entrega o `<ul>` VAZIO, e quem
+  //      o preenche é `renderPlaylist()`, dentro do `init()` assíncrono. Prova
+  //      que a inicialização terminou.
   //
-  // Por que POLLING e não uma checagem única no `load`: o `init()` do Controle
-  // é assíncrono (várias leituras de IndexedDB) e termina DEPOIS do `load`.
-  // Uma checagem única rejeitaria todo bundle bom — o OTA pararia de funcionar
-  // por inteiro, que é o defeito oposto e igualmente ruim.
+  // POLLING e não checagem única no `load`: o `init()` é assíncrono e termina
+  // DEPOIS dele — uma checagem única rejeitaria todo bundle bom.
   //
-  // Não há risco de descompasso de versão: `native.js` viaja DENTRO do bundle
-  // que ele valida, então esta função e o `__avBack` que ela exige são sempre
-  // do mesmo commit.
-  //
-  // O erro possível aqui é o SEGURO: a confirmação chega ~1 s depois do
-  // `load` (o tempo do `init()`), então fechar o app nesse intervalo faz um
-  // bundle bom ser descartado. Custo: o app volta ao embutido e o OTA baixa
-  // de novo na abertura seguinte. O erro do outro lado — carimbar um bundle
-  // quebrado — não tem volta sem publicar uma versão nova.
+  // `native.js` viaja DENTRO do bundle que valida, então não há descompasso. E o
+  // erro possível é o SEGURO: fechar o app antes da confirmação descarta um
+  // bundle bom (custo: baixa de novo); carimbar um quebrado não tem volta sem
+  // publicar outra versão.
   const OTA_POLL_MS = 250;
   const OTA_GIVEUP_MS = 30000; // depois disto o bundle é dado como quebrado
 
@@ -117,24 +91,20 @@
   });
 
   // ---- chamadas assíncronas (Promise sobre callbacks do Kotlin) ----
-  // O Kotlin resolve chamando window.__avResolve(id, valor) — o valor já
-  // chega como objeto/array/null JavaScript, não como string para reparsear.
+  // O Kotlin resolve chamando window.__avResolve(id, valor) — o valor já chega
+  // como objeto/array/null JavaScript, não como string para reparsear.
   //
-  // O id é ESCOPADO AO CARREGAMENTO da página, não um contador puro. O
-  // renderer pode morrer no meio de uma chamada em voo (dois WebViews, vídeo
-  // grande e player do YouTube no mesmo processo — é para isso que existe o
-  // `onRenderProcessGone` do WebViewFactory): o WebView é destruído e
-  // recriado, a página recarrega e o contador volta a zero, mas o `resolve`
-  // do Kotlin aponta sempre para o WebView ATUAL. Com ids "1", "2", "3" a
-  // resposta atrasada de um `listFolder` da página velha resolvia a promise
-  // homônima da página NOVA — uma lista de arquivos chegando, por exemplo,
-  // onde se esperava o retorno de `displays()`. Com a época aleatória por
-  // carregamento, a resposta velha simplesmente não acha entrada no mapa e é
-  // descartada, que é o que se quer.
+  // O id é ESCOPADO AO CARREGAMENTO da página, não um contador puro. O renderer
+  // pode morrer com uma chamada em voo (dois WebViews e um vídeo grande no mesmo
+  // processo — é para isso que existe o `onRenderProcessGone`): a página
+  // recarrega e o contador volta a zero, mas o `resolve` do Kotlin aponta para o
+  // WebView ATUAL. Com ids "1", "2", "3" a resposta atrasada de um `listFolder`
+  // da página velha resolvia a promise homônima da NOVA — uma lista de arquivos
+  // chegando onde se esperava o retorno de `displays()`. Com época aleatória por
+  // carregamento, a resposta velha não acha entrada no mapa e é descartada.
   // `padEnd`: a mantissa de `Math.random()` pode render menos de 6 dígitos em
-  // base 36 (0.5 → "i", por exemplo) e o slice devolve o que houver — uma
-  // época curta encolhe o espaço de ids e aumenta a chance de uma resposta
-  // atrasada da página anterior casar com uma promise desta.
+  // base 36 (0.5 → "i") e o slice devolve o que houver — uma época curta encolhe
+  // o espaço de ids e aumenta a chance desse casamento indevido.
   const EPOCH = Math.random().toString(36).slice(2, 8).padEnd(6, '0');
   const pending = new Map();
   let seq = 0;
@@ -322,25 +292,21 @@
     // Vídeo do YouTube como ARQUIVO, extraído e baixado pelo PRÓPRIO APARELHO
     // (ver YoutubeGrab.kt). Resolve `{ url, name, size, type }` com uma URL
     // servível — o lado web faz `fetch` + `Blob` como faz com um share — ou
-    // null se não deu. SEM PRAZO: é rede de verdade, um louvor de 40 minutos
-    // leva o que tiver de levar, e um timeout aqui abortaria justamente o
-    // download que estava indo bem.
+    // null se não deu. SEM PRAZO: é rede de verdade, e um timeout abortaria
+    // justamente o download que estava indo bem.
     // `onProgresso(lidos, total)` é opcional; o nativo empurra por
     // `__avYtProgress` a cada megabyte, com o id desta chamada.
-    // `somenteAudio` baixa a FAIXA DE ÁUDIO (m4a) em vez do vídeo — e cai num
-    // método próprio da ponte (`ytFetchAudio`), não num parâmetro a mais: a
-    // ponte casa o método por nome + aridade, e mudar a assinatura do `ytFetch`
-    // quebraria o download inteiro num shell antigo que recebesse este bundle
-    // por OTA. Aqui a degradação é a certa: sem `ytFetchAudio`, o `try` do
-    // `callComProgresso` falha e a promise resolve null, e quem pediu áudio
-    // recebe "não deu" — mas quem pediu vídeo nunca é afetado. Quem oferece a
-    // escolha na tela já pergunta o `__SHELL_VERSION__` antes de desenhá-la.
-    // `altura` (v5.118) é o TETO de resolução do vídeo — o operador o escolhe
-    // na folha de download (1080p · 720p · 480p). Ele cai num TERCEIRO destino
-    // (`ytFetchAte`) pela mesma razão do áudio, e com um cuidado a mais: só é
-    // usado quando o teto pedido é MENOR que o padrão do shell. Pedir 1080p
-    // continua saindo pelo `ytFetch` de sempre, que existe em toda versão —
-    // assim quem não mexeu no seletor nunca depende de um APK novo.
+    // `somenteAudio` baixa a FAIXA DE ÁUDIO (m4a), e cai num MÉTODO PRÓPRIO da
+    // ponte (`ytFetchAudio`) em vez de num parâmetro a mais: a ponte casa o
+    // método por nome + aridade, e mudar a assinatura do `ytFetch` quebraria o
+    // download inteiro num shell antigo que recebesse este bundle por OTA. A
+    // degradação é a certa: sem `ytFetchAudio` a promise resolve null e quem
+    // pediu ÁUDIO recebe "não deu", sem afetar quem pediu vídeo.
+    // `altura` (v5.118) é o TETO de resolução — TERCEIRO destino (`ytFetchAte`)
+    // pela mesma razão, e com um cuidado a mais: só é usado quando o teto é
+    // MENOR que o padrão do shell. Pedir 1080p continua saindo pelo `ytFetch`,
+    // que existe em toda versão — quem não mexeu no seletor nunca depende de um
+    // APK novo.
     ytFetch(url, onProgresso, somenteAudio, altura) {
       const teto = altura | 0;
       return callComProgresso(
@@ -601,24 +567,22 @@
     // Fader já no limite: devolve o passo ao volume do sistema.
     systemVolume(step) { try { B.systemVolume(step | 0); } catch (_) { /* shell antigo */ } },
 
-    // TEMA (v5.192): o shell precisa saber qual dos dois está no ar por duas
+    // TEMA (v5.192): o shell precisa saber qual dos dois está no ar, por duas
     // razões que o CSS não alcança.
     //
-    // 1. **Os ÍCONES das barras de sistema.** Com `targetSdk` 35 o Android
-    //    força edge-to-edge e ignora as cores de barra do tema — quem pinta o
-    //    fundo atrás delas é o body desta base web, com o token `--bg`. Mas o
-    //    relógio, a bateria e os três botões de navegação continuam sendo
-    //    desenhados pelo SISTEMA, e a cor deles vem de uma bandeira do
-    //    `WindowInsetsController`. No tema claro, sem esta chamada, eles
-    //    seguem brancos sobre um fundo quase branco: somem.
-    // 2. **O `windowBackground`**, isto é, o que aparece ANTES de o WebView
-    //    carregar. Ele é um recurso do APK, resolvido antes de existir
-    //    JavaScript; o shell guarda a escolha e a aplica no lançamento
-    //    seguinte. Trocar de tema, portanto, tem um lançamento de atraso NESSE
-    //    detalhe — e só nele.
+    // 1. Os ÍCONES das barras de sistema. Com `targetSdk` 35 o Android força
+    //    edge-to-edge e ignora as cores de barra do tema — quem pinta o fundo
+    //    atrás delas é o body desta base, com `--bg`. Mas relógio, bateria e os
+    //    botões de navegação seguem sendo desenhados pelo SISTEMA, e a cor deles
+    //    vem de uma bandeira do `WindowInsetsController`. No tema claro, sem
+    //    esta chamada, eles ficam brancos sobre fundo quase branco: somem.
+    // 2. O `windowBackground`, o que aparece ANTES de o WebView carregar. É
+    //    recurso do APK, resolvido antes de existir JavaScript: o shell guarda a
+    //    escolha e a aplica no lançamento seguinte. Trocar de tema tem, por
+    //    isso, um lançamento de atraso NESSE detalhe — e só nele.
     //
-    // Num shell antigo (< 39) o método não existe, o `try` engole, e o app
-    // fica com as barras do tema escuro: exatamente o que ele sempre foi.
+    // Num shell antigo (< 39) o método não existe, o `try` engole, e o app fica
+    // com as barras do tema escuro: o que ele sempre foi.
     temaClaro(on) { try { B.temaClaro(!!on); } catch (_) { /* shell antigo */ } },
 
     // Microfone (push-to-talk): garante a permissão RECORD_AUDIO do Android

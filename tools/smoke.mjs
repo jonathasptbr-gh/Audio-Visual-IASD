@@ -849,7 +849,10 @@ try {
     const r = {
       barra: alt(bar),
       item: alt(linhas[0]),
-      toque: alt(linhas[0] && linhas[0].querySelector('.hymn-play-thumb')),
+      // O ALVO DE TOQUE é a LINHA INTEIRA desde a v5.285 — o ▶ que ficava
+      // aqui deixou de ser botão. Medir o quadrado seria medir um indicador; o
+      // piso vale para o que de fato recebe o dedo.
+      toque: alt(linhas[0]),
       piso,
       // O passo entre duas linhas é o que decide quantas cabem na tela.
       passo: linhas.length > 1
@@ -879,7 +882,7 @@ try {
     };
     lista.remove();
     delete collState[c.id];
-    grupoAberto = 'Favoritos';
+    grupoAberto = ''; favAberto = true;
     return r;
   });
   checar(linha.item > 0 && linha.item <= linha.barra * 1.05,
@@ -889,8 +892,8 @@ try {
     'e o passo entre faixas cabe numa lista densa — ' + Math.floor(900 / linha.passo)
     + ' itens numa tela de 900px (eram 12)');
   checar(linha.toque >= linha.piso,
-    'sem furar o piso de toque do app: o ▶ tem ' + Math.round(linha.toque)
-    + 'px, e o piso é ' + linha.piso + 'px');
+    'sem furar o piso de toque do app: a LINHA (que é o alvo desde a v5.285) tem '
+    + Math.round(linha.toque) + 'px, e o piso é ' + linha.piso + 'px');
   // ── A ESCALA DE TÍTULOS (v5.262) ────────────────────────────────────────
   // Relato do operador: *"há uma desproporção, onde o título das coleções está
   // pequeno, o dos álbuns maior e o dos items diferente… o texto dos itens
@@ -974,10 +977,12 @@ for (const tema of ['escuro', 'claro']) {
         const el = lista.querySelector(sel);
         return el ? getComputedStyle(el).backgroundColor : 'AUSENTE';
       };
-      // A barra FECHADA precisa de um segundo grupo, que este não abriu — e ele
-      // não pode ser o dos FAVORITOS, que desde a v5.273 tem tom PRÓPRIO de
-      // propósito: medi-lo aqui compararia duas peças diferentes e chamaria
-      // isso de "trocou de cor com o estado".
+      // A barra FECHADA precisa de um segundo grupo, que este não abriu. A dos
+      // FAVORITOS fica de fora porque ela está SEMPRE aberta (v5.276) — ela
+      // nunca seria uma barra fechada, e o `:not` só torna isso explícito.
+      // (Da v5.273 à v5.281 o motivo era outro, e mais forte: ela tinha tom
+      // próprio, então medi-la aqui compararia duas peças diferentes e chamaria
+      // isso de "trocou de cor com o estado". O tom saiu na v5.282.)
       const fechada = (() => {
         const g = [...lista.querySelectorAll('.coll-group--drop:not(.aberto):not(.coll-group--fav)')];
         return g.length ? getComputedStyle(g[0]).backgroundColor : null;
@@ -985,21 +990,85 @@ for (const tema of ['escuro', 'claro']) {
       const faixa = lista.querySelector('.coll-songs > .hymn-result');
       const r = {
         folha: getComputedStyle(folha).backgroundColor,
-        secao: bg('.coll-group--drop.aberto'),
+        // A seção de COLEÇÃO aberta. A dos Favoritos está sempre aberta (ela é
+        // a primeira do documento), e o `:not` é o que garante que esta escada
+        // seja medida numa coleção de verdade — desde a v5.282 as duas vestem o
+        // mesmo tom, e o caso ao lado é quem afirma isso.
+        secao: bg('.coll-group--drop.aberto:not(.coll-group--fav)'),
         secaoFechada: fechada,
         // A barra e o corpo são faixas do bloco da seção, sem fundo próprio.
-        barra: bg('.coll-group--drop.aberto > .coll-group-bar'),
-        corpo: bg('.coll-group--drop.aberto > .coll-group-corpo'),
+        barra: bg('.coll-group--drop.aberto:not(.coll-group--fav) > .coll-group-bar'),
+        corpo: bg('.coll-group--drop.aberto:not(.coll-group--fav) > .coll-group-corpo'),
         card: bg('.hymnal-card'),
         faixa: faixa ? getComputedStyle(faixa).backgroundColor : 'AUSENTE',
         faixaFilete: faixa ? getComputedStyle(faixa).borderTopWidth : 'AUSENTE',
+        // O NOME DA FAIXA e o fundo EFETIVO sob ele (v5.296). A cor da faixa é
+        // um OVERLAY (`--surface`), então `backgroundColor` devolve o alfa e
+        // não a composição: medir contraste contra ele compararia o texto com
+        // um preto a 14%, e diria a mesma coisa com o defeito no lugar. Quem o
+        // navegador pinta é a pilha composta até o primeiro fundo opaco.
+        nomeCor: faixa && faixa.querySelector('.hymn-name')
+          ? getComputedStyle(faixa.querySelector('.hymn-name')).color : 'AUSENTE',
+        nomeTam: faixa && faixa.querySelector('.hymn-name')
+          ? parseFloat(getComputedStyle(faixa.querySelector('.hymn-name')).fontSize) : 0,
+        faixaEfetiva: (() => {
+          if (!faixa) return 'AUSENTE';
+          const pilha = [];
+          for (let n = faixa; n; n = n.parentElement) {
+            const m = (getComputedStyle(n).backgroundColor.match(/[\d.]+/g) || []).map(Number);
+            if (m.length < 3) continue;
+            const a = m.length > 3 ? m[3] : 1;
+            if (a === 0) continue;
+            pilha.push([m[0], m[1], m[2], a]);
+            if (a === 1) break;
+          }
+          // O branco de partida é o do documento: uma pilha inteiramente
+          // translúcida (que aqui não acontece) sairia sobre a página, não
+          // sobre preto — que é o erro que a guarda de opacidade abaixo
+          // descreve, um nível acima.
+          let c = [255, 255, 255];
+          for (let k = pilha.length - 1; k >= 0; k--) {
+            const [vr, vg, vb, va] = pilha[k];
+            c = [vr * va + c[0] * (1 - va), vg * va + c[1] * (1 - va), vb * va + c[2] * (1 - va)];
+          }
+          return 'rgb(' + c.map(Math.round).join(', ') + ')';
+        })(),
+        // A METADE NEGATIVA: o RÓTULO da seção continua sendo um RÓTULO — cor
+        // `--muted`, caixa alta, espaçamento. Sem ela, apagar a regra do rótulo
+        // (em vez de tirá-la do bloco) passaria, e a Biblioteca perderia a
+        // distinção entre um cabeçalho e uma linha.
+        rotulo: (() => {
+          const el = lista.querySelector('.coll-group--drop.aberto:not(.coll-group--fav) '
+            + '> .coll-group-bar .coll-group-name');
+          if (!el) return null;
+          const c = getComputedStyle(el);
+          return { cor: c.color, tt: c.textTransform, ls: c.letterSpacing };
+        })(),
+        // E A TIPOGRAFIA do que a seção CONTÉM (v5.297): o vazamento não era só
+        // de cor. `text-transform` e `letter-spacing` também herdam, e ninguém
+        // os reescreve lá dentro.
+        nomeTipo: (() => {
+          const el = faixa && faixa.querySelector('.hymn-name');
+          if (!el) return null;
+          const c = getComputedStyle(el);
+          return { tt: c.textTransform, ls: c.letterSpacing };
+        })(),
+        tituloTipo: (() => {
+          const el = lista.querySelector('.hymnal-card .coll-bar-name');
+          if (!el) return null;
+          const c = getComputedStyle(el);
+          return { tt: c.textTransform, ls: c.letterSpacing };
+        })(),
+        // A cor do TEXTO da folha, para a regra de direção abaixo. Ela é a
+        // pergunta inteira: "de que lado a linha tem de ficar?".
+        textoCor: getComputedStyle(folha).color,
         // O espaço entre duas faixas — é ele que substitui o filete.
         faixaGap: (() => {
           const ul = lista.querySelector('.coll-songs');
           return ul ? parseFloat(getComputedStyle(ul).rowGap) : -1;
         })(),
       };
-      lista.remove(); delete collState[c.id]; grupoAberto = 'Favoritos';
+      lista.remove(); delete collState[c.id]; grupoAberto = ''; favAberto = true;
       document.documentElement.setAttribute('data-tema', 'escuro');
       return r;
     }, tema);
@@ -1066,18 +1135,93 @@ for (const tema of ['escuro', 'claro']) {
       '[' + tema + '] a faixa dentro do álbum tem PREENCHIMENTO próprio e nenhum '
       + 'filete: o que a separa da vizinha é o espaço entre dois blocos que se '
       + 'veem (' + t.faixa + ', gap ' + t.faixaGap + 'px)');
+    // ===== E O TEXTO DELA É LEGÍVEL SOBRE ESSE PREENCHIMENTO (v5.296) =====
+    //
+    // Relato do operador: *"a cor do texto dos itens dentro do álbum na
+    // biblioteca, pois no tema claro, o fundo dos cards está escuro"*. MEDIDO
+    // antes de mexer: **3,45:1** no tema claro, a 13,12px — reprova AA.
+    //
+    // A causa era HERANÇA: `.coll-group` é a regra do RÓTULO da seção (caixa
+    // alta, `--muted`) e, desde que a seção virou o BLOCO que contém a barra e
+    // o corpo (v5.237), ela é o contêiner de tudo o que a Biblioteca desenha —
+    // então o nome de cada faixa saía na cor de um cabeçalho. Nenhum teste
+    // olhava para a COR DO TEXTO desta árvore: os casos daqui mediam os FUNDOS,
+    // e a escada de tons estava (e continua) correta.
+    //
+    // O piso é o de AA para texto pequeno, e a asserção é de RAZÃO e nunca de
+    // cor: um literal copiado para cá envelhece na primeira troca de paleta, e
+    // envelhece parecendo correto.
+    const dTexto = t.nomeCor !== 'AUSENTE' && t.faixaEfetiva !== 'AUSENTE'
+      ? razao(t.nomeCor, t.faixaEfetiva) : 0;
+    checar(dTexto >= 4.5,
+      '[' + tema + '] e o NOME dentro dela é legível sobre esse preenchimento: '
+      + dTexto.toFixed(2) + ':1 a ' + t.nomeTam + 'px (era 3,45:1 no claro — a '
+      + 'linha herdava a cor do RÓTULO da seção)');
+    // O outro lado, e ele é o que impede a correção de virar "tudo virou
+    // `--text`": o cabeçalho da seção CONTINUA em `--muted`. Cor de rótulo e
+    // cor de conteúdo são duas coisas, e o defeito era exatamente uma valendo
+    // pela outra.
+    checar(!!t.rotulo && t.rotulo.cor !== t.nomeCor,
+      '[' + tema + '] mas o RÓTULO da seção continua sendo um rótulo, com cor '
+      + 'própria (' + (t.rotulo ? t.rotulo.cor : '?') + ' contra ' + t.nomeCor
+      + ' da linha)');
+    // ===== A LINHA DE CONTEÚDO SE AFASTA DO TEXTO (v5.297) =====
+    //
+    // A regra que o relato *"não melhorou a leitura"* obrigou a escrever. A
+    // faixa vestia `--surface`, e recesso é uma regra sobre PROFUNDIDADE: no
+    // escuro ela afasta do texto claro, no CLARO ela empurra na direção dele —
+    // rgb(182,187,194), ~50% de luminância, o meio-tom exato. Ali `--text` dava
+    // 4,59:1 (passava AA e não se lia) e branco daria 1,93:1: não havia cor de
+    // texto que resolvesse, porque o defeito era a SUPERFÍCIE.
+    //
+    // A asserção é a REGRA e não um valor, e por isso vale nos dois temas sem
+    // um `if` de tema: **a linha que carrega o texto contrasta com ele MAIS que
+    // o contêiner dela.** Um recesso de volta a reprova no claro (verificado) e
+    // continua passando no escuro, que é exatamente a assimetria do defeito.
+    const dLinha = t.textoCor && t.faixaEfetiva !== 'AUSENTE'
+      ? razao(t.textoCor, t.faixaEfetiva) : 0;
+    const dCartao = t.textoCor && opaco(t.card) ? razao(t.textoCor, t.card) : 0;
+    checar(dLinha > dCartao,
+      '[' + tema + '] e ela se AFASTA do texto, não do fundo: a linha contrasta '
+      + 'mais que o card que a contém (' + dLinha.toFixed(2) + ':1 contra '
+      + dCartao.toFixed(2) + ':1)');
+    // ===== E O CONTEÚDO NÃO É DESENHADO COMO UM RÓTULO (v5.297) =====
+    //
+    // A outra metade do mesmo vazamento, e a que o operador de fato via: a
+    // Biblioteca INTEIRA saía em MAIÚSCULAS com espaçamento de rótulo, porque
+    // `text-transform` e `letter-spacing` herdam e nada lá dentro os reescreve.
+    // Caixa alta a 13px é mais lenta de ler e mais larga — era ela que truncava
+    // "001. SANTO, SANTO, SANTO! (CANTAD…" numa linha que cabia.
+    const normal = (o) => !!o && o.tt === 'none' && o.ls === 'normal';
+    checar(normal(t.nomeTipo) && normal(t.tituloTipo),
+      '[' + tema + '] e nem o nome da faixa nem o título do álbum são desenhados '
+      + 'como RÓTULO — sem caixa alta e sem espaçamento de cabeçalho ('
+      + (t.nomeTipo ? t.nomeTipo.tt + '/' + t.nomeTipo.ls : '?') + ')');
+    // A metade negativa dela: a barra CONTINUA em caixa alta. Sem esta linha,
+    // apagar a regra do rótulo passaria nas duas de cima.
+    checar(!!t.rotulo && t.rotulo.tt === 'uppercase' && t.rotulo.ls !== 'normal',
+      '[' + tema + '] mas a BARRA da seção continua em caixa alta e espaçada — é '
+      + 'ela que o rótulo sempre descreveu (' + (t.rotulo ? t.rotulo.tt + '/'
+      + t.rotulo.ls : '?') + ')');
   } catch (e) {
     checar(false, 'a medição da escada de camadas (' + tema + ') terminou sem exceção ('
       + (e && e.message) + ')');
   }
 }
 
-// ── OS FAVORITOS OCUPAM O VÃO, E TÊM TOM PRÓPRIO (v5.273) ────────────────
+// ── OS FAVORITOS OCUPAM O VÃO, E VESTEM O TOM DAS OUTRAS (v5.273 → v5.282) ─
 // Pedido do operador: *"a seção dos favoritos ocupa a altura que sobra além do
 // espaço das outras seções no formato colapsado (mesmo que não haja nenhum
 // favorito), dessa forma a visão comum inicial vai ser as listas de coleções
-// empilhadas na base"*, mais o tom próprio e *"aumentar ligeiramente o espaço
-// entre as outras coleções, elas estão muito coladas entre si"*.
+// empilhadas na base"*, mais *"aumentar ligeiramente o espaço entre as outras
+// coleções, elas estão muito coladas entre si"*.
+//
+// E O TOM PRÓPRIO SAIU (v5.282): *"ajuste as cores dela para que ela fique
+// igual as outras coleções"*. A asserção INVERTEU — de "distinto" para
+// "idêntico" —, e ela é medida nos DOIS níveis (a seção e a linha dentro dela),
+// porque o tom que saiu arrastava um degrau de dentro junto: pintar só o nível
+// externo de volta ao padrão deixaria as linhas num tom que não é o das outras,
+// e nenhuma medida da seção sozinha pegaria isso.
 //
 // A medição é na LISTA DE VERDADE (`#hymnResults`, dentro da folha) e com a
 // folha em altura FIXA: as três regras deste lote são de layout, e um `<ul>`
@@ -1089,7 +1233,8 @@ for (const tema of ['escuro', 'claro']) {
       document.documentElement.setAttribute('data-tema', tema);
       setAppMode('full');
       openHymnSearch();
-      grupoAberto = 'Favoritos';
+      grupoAberto = ''; favAberto = true;
+      hymnResultsEl.innerHTML = '';   // `renderCollectionsList` ACRESCENTA (v5.232)
       renderCollectionsList(hymnResultsEl, () => {}, { semTotal: true });
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
       const secoes = [...hymnResultsEl.querySelectorAll('.coll-group--drop')];
@@ -1101,34 +1246,21 @@ for (const tema of ['escuro', 'claro']) {
         // muito mais que uma barra fechada: é ela que come o vão.
         altFav: fav ? fav.getBoundingClientRect().height : 0,
         altOutra: outras.length ? outras[0].getBoundingClientRect().height : 0,
-        // O que ela mediria SEM crescer: a barra mais o corpo, que é todo o
-        // conteúdo dela. Sem esta referência a asserção passaria por acidente —
-        // uma seção aberta é naturalmente mais alta que uma barra fechada, e
-        // foi o que a primeira versão deste caso mediu (verificado: ela não
-        // reprovava com o `flex-grow` removido).
-        altConteudoFav: fav ? [...fav.children]
-          .reduce((n, el) => n + el.getBoundingClientRect().height, 0) : 0,
         // E as fechadas ficam EMPILHADAS NA BASE: a última delas termina onde a
         // lista termina (descontado o padding de baixo).
         fundoUltima: outras.length
           ? outras[outras.length - 1].getBoundingClientRect().bottom : 0,
         fundoLista: hymnResultsEl.getBoundingClientRect().bottom
           - parseFloat(cx(hymnResultsEl).paddingBottom),
-        // O TOM PRÓPRIO, e o das outras ao lado para a comparação ser relativa.
+        // O TOM DA SEÇÃO, e o das outras ao lado: desde a v5.282 a afirmação é
+        // que os dois são IGUAIS.
         corFav: fav ? cx(fav).backgroundColor : 'AUSENTE',
         corOutra: outras.length ? cx(outras[0]).backgroundColor : 'AUSENTE',
-        // E o que as LINHAS dentro dela vestem: um nível que desce arrasta o de
-        // dentro, senão elas sumiriam no tema claro.
-        corLinha: (() => {
-          const corpo = fav && fav.querySelector('.coll-group-corpo');
-          if (!corpo) return 'AUSENTE';
-          const p = document.createElement('div');
-          p.className = 'lib-item';
-          corpo.appendChild(p);
-          const c = cx(p).backgroundColor;
-          p.remove();
-          return c;
-        })(),
+        // (O par "linha dos favoritos × linha de uma coleção" foi medido aqui
+        // na v5.282 e saiu na v5.283: a linha de favorito DEIXOU de vestir o
+        // tom de card, que era o defeito seguinte. Quem afirma o degrau de
+        // dentro agora é o bloco `item`, montado logo abaixo com uma FAIXA de
+        // álbum de verdade ao lado.)
         // O ESPAÇO entre seções, contra o das linhas de uma lista comum: a
         // relação é a afirmação (um número aqui envelheceria na primeira troca
         // de medida), e ela é o pedido — uma seção não é uma linha.
@@ -1170,30 +1302,142 @@ for (const tema of ['escuro', 'claro']) {
           return g;
         })(),
       };
-      // E A REGRA VALE PARA QUALQUER SEÇÃO, não só para a dos Favoritos: eles
-      // têm um `flex-grow` PRÓPRIO (o que encolhe), então medir só a tela como
-      // ela abre aprovaria uma regra geral morta — foi o que aconteceu quando
-      // um comentário mal fechado engoliu o bloco inteiro (verificado).
+      // E UMA COLEÇÃO ABERTA MEDE O CONTEÚDO DELA, nada mais (v5.276). A v5.273
+      // fazia a seção ABERTA crescer, qualquer que fosse, e o operador achou o
+      // preço: *"coleções com menos itens como o hinário… expandem mais do que
+      // precisaria em relação à quantidade e altura necessária para os itens"*.
+      // O vão é dos Favoritos; uma coleção que o tomasse ficaria com meia tela
+      // de fundo vazio embaixo de dois cards.
       grupoAberto = 'Hinários';
       hymnResultsEl.innerHTML = '';   // `renderCollectionsList` ACRESCENTA (v5.232)
       renderCollectionsList(hymnResultsEl, () => {}, { semTotal: true });
       await new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f)));
-      const abertas = [...hymnResultsEl.querySelectorAll('.coll-group--drop')];
-      const outraAberta = abertas.find((x) => x.classList.contains('aberto'));
-      const fechadas = abertas.filter((x) => !x.classList.contains('aberto'));
+      const todas = [...hymnResultsEl.querySelectorAll('.coll-group--drop')];
+      const colecao = todas.find((x) => x.classList.contains('aberto')
+        && !x.classList.contains('coll-group--fav'));
+      const favSecao = todas.find((x) => x.classList.contains('coll-group--fav'));
+      const sobra = (el) => (el ? el.getBoundingClientRect().height
+        - [...el.children].reduce((n, c) => n + c.getBoundingClientRect().height, 0) : -1);
       r.outra = {
-        cresceu: outraAberta ? outraAberta.getBoundingClientRect().height
-          - [...outraAberta.children].reduce((n, el) => n + el.getBoundingClientRect().height, 0) : -1,
-        altFechada: fechadas.length ? fechadas[0].getBoundingClientRect().height : 0,
-        // A ÚLTIMA SEÇÃO da lista, aberta ou fechada: quando a aberta é a
-        // própria última, não há nenhuma empilhada abaixo dela. O que vale nos
-        // dois arranjos é que a lista termine cheia.
-        fundoUltima: abertas.length
-          ? abertas[abertas.length - 1].getBoundingClientRect().bottom : 0,
-        fundoLista: hymnResultsEl.getBoundingClientRect().bottom
-          - parseFloat(cx(hymnResultsEl).paddingBottom),
+        // O VAZIO dentro da coleção aberta: ela não pode absorver nada além do
+        // padding próprio.
+        sobraColecao: sobra(colecao),
+        // E A ALTURA DOS FAVORITOS, para comparar com a de antes: é ela que a
+        // v5.277 fixa.
+        altFav: favSecao ? favSecao.getBoundingClientRect().height : -1,
       };
-      grupoAberto = 'Favoritos';
+      // ===== UM FAVORITO É UM ITEM, NÃO UM ÁLBUM (v5.283) =====
+      //
+      // Pedido do operador: *"torne os itens na lista de favoritos, com sua cor
+      // de card igual as cores dos itens individuais dentro dos álbuns, para
+      // diferenciar entre álbum e item"*. Medido antes de mexer, nos dois
+      // temas: linha de favorito e card de álbum pintavam **1,00:1** — a mesma
+      // cor, literalmente.
+      //
+      // A COR EFETIVA, e não o `backgroundColor` declarado: os recessos deste
+      // app são overlays com ALFA, e `getComputedStyle` devolve o alfa, não a
+      // composição — uma asserção sobre o valor declarado compararia
+      // `rgba(0,0,0,.24)` com um `#3c4753` opaco e diria que eles "diferem"
+      // sem ter medido cor nenhuma. Subir a árvore compondo até o primeiro
+      // fundo opaco é exatamente o que o navegador pinta.
+      const efetiva = (el) => {
+        if (!el) return null;
+        const pilha = [];
+        for (let n = el; n; n = n.parentElement) {
+          const m = getComputedStyle(n).backgroundColor.match(/[\d.]+/g);
+          if (!m) continue;
+          const a = m.length > 3 ? Number(m[3]) : 1;
+          if (a === 0) continue;
+          pilha.push([Number(m[0]), Number(m[1]), Number(m[2]), a]);
+          if (a === 1) break;
+        }
+        let c = [0, 0, 0];
+        for (let k = pilha.length - 1; k >= 0; k--) {
+          const [vr, vg, vb, va] = pilha[k];
+          c = [vr * va + c[0] * (1 - va), vg * va + c[1] * (1 - va), vb * va + c[2] * (1 - va)];
+        }
+        return c.map(Math.round).join(', ');
+      };
+      // Uma FAIXA de álbum de verdade, no MESMO documento — o hinário do
+      // fixture não traz faixas, e a comparação inteira é entre dois pontos da
+      // árvore real. Montar a marcação à mão mediria a minha marcação; o que se
+      // monta aqui é o ESTADO (`collState` + `expanded`) de que o app precisa
+      // para desenhar as faixas ele mesmo.
+      const hin = allCollections().find((x) => x.kind === 'hymnal');
+      const songsAntes = hin ? collState[hin.id] : null;
+      if (hin) {
+        collState[hin.id] = { indexSyncedAt: Date.now(), isHymnal: true,
+          songs: [{ id_music: 'f1', name: 'Hino 1', track: 1,
+            has_instrumental_music: false, duration: '3:47' }] };
+        ui(hin.id).expanded = true; ui(hin.id).shown = 100;
+      }
+      const favRec = await AVDB.addMedia(new Blob(['f'], { type: 'audio/mpeg' }),
+        { name: 'Louvor favorito', list: 'favs' });
+      // E UMA PASTA SINCRONIZADA na mesma lista (v5.284): ela é o outro lado do
+      // par, e sem ela este caso mediria metade da regra. A lista `opfsFolders`
+      // é o que `renderFolderList` lê — não há banco a montar.
+      opfsFolders.push({ id: 'pasta-smoke', name: 'Vídeos do culto', count: 12 });
+      await recarregarFavoritos();
+      hymnResultsEl.innerHTML = '';
+      renderCollectionsList(hymnResultsEl, () => {}, { semTotal: true });
+      await new Promise((f) => requestAnimationFrame(() => requestAnimationFrame(f)));
+      const favCorpo = hymnResultsEl.querySelector('[data-fav-corpo]');
+      r.item = {
+        // A SONDA DO ITEM não cita a placa DE PROPÓSITO: um seletor que só
+        // existe na forma nova falha por "não achei" em qualquer forma antiga,
+        // e uma asserção que reprova por seletor ausente não mediu cor nenhuma
+        // — ela diria a mesma coisa se o item estivesse com a cor certa. Pelo
+        // que ele NÃO é (uma pasta), ela mede em qualquer arranjo.
+        favLinha: efetiva(favCorpo && favCorpo.querySelector('.lib-item:not(.folder-opfs)')),
+        faixa: efetiva(hymnResultsEl.querySelector('.coll-songs > .hymn-result')),
+        cardAlbum: efetiva(hymnResultsEl.querySelector('.hymnal-card')),
+        pasta: efetiva(favCorpo && favCorpo.querySelector('.folder-opfs')),
+        // E A ESTRUTURA, dos DOIS lados: o item DENTRO da placa, a pasta IRMÃ
+        // dela. É o que dá a cada um a base que o faz aparecer, e sem os dois
+        // uma pasta empurrada para dentro da placa passaria na medida de cor no
+        // dia em que a placa e o corpo voltassem a ter o mesmo tom.
+        itemNaPlaca: !!(favCorpo && favCorpo.querySelector('.fav-itens > .lib-item')),
+        pastaSolta: !!(favCorpo && favCorpo.querySelector(':scope > .folder-opfs')),
+      };
+      opfsFolders.length = 0;
+      await AVDB.listRemove('favs', favRec.id);
+      await recarregarFavoritos();
+      if (hin) {
+        if (songsAntes) collState[hin.id] = songsAntes; else delete collState[hin.id];
+        ui(hin.id).expanded = false;
+      }
+    // ===== A BARRA É O TOPO DA FOLHA (v5.280/v5.281) =====
+    // MEDIDA DEPOIS do bloco acima, e de propósito: a rolagem só existe com
+    // uma COLEÇÃO ABERTA — com tudo colapsado o vão dos favoritos é
+    // justamente o que sobra, a lista cabe inteira e não haveria rolagem a
+    // afirmar (a mesma propriedade do desenho que o caso do reset da
+    // Biblioteca já tinha encontrado).
+    r.barra = (() => {
+        const folha = document.querySelector('#hymnSearchPopup .popup-sheet');
+        const bar = document.querySelector('#hymnSearchPopup .hymn-search-bar');
+        const fechar = document.getElementById('hymnSearchClose');
+        const campo = document.getElementById('hymnSearchInput');
+        const cx2 = (el) => el.getBoundingClientRect();
+        // Uma rolagem de VERDADE na lista, com o conteúdo que este caso já
+        // montou (a seção aberta transborda). `scrollTop` aqui é legítimo: o
+        // que se mede é se a BARRA acompanha, não se a lista aceita o dedo.
+        const barraAntes = cx2(bar).top;
+        hymnResultsEl.scrollTop = 200;
+        const rolou = hymnResultsEl.scrollTop;
+        const barraDepois = cx2(bar).top;
+        hymnResultsEl.scrollTop = 0;
+        return {
+          semCabecalho: !document.querySelector('#hymnSearchPopup .popup-header'),
+          semTitulo: !document.getElementById('hymnSearchTitle'),
+          primeira: folha.firstElementChild === bar,
+          fecharL: cx2(fechar).width, fecharA: cx2(fechar).height,
+          campoA: cx2(campo).height,
+          barraAntes, barraDepois, rolou,
+          overscroll: cx(hymnResultsEl).overscrollBehaviorY,
+          overscrollRaiz: cx(document.documentElement).overscrollBehaviorY,
+        };
+      })();
+      grupoAberto = ''; favAberto = true;
       closeHymnSearch();
       document.documentElement.setAttribute('data-tema', 'escuro');
       return r;
@@ -1210,26 +1454,56 @@ for (const tema of ['escuro', 'claro']) {
       const x = lum(a); const y = lum(b);
       return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
     };
-    // O VAZIO QUE ELA ABSORVEU tem de ser maior que uma seção fechada inteira.
-    // Uma folga pequena não prova nada — a seção tem padding próprio, e sem o
-    // crescimento ela já sobra ~12px sobre o conteúdo (medido).
-    checar(v.altFav - v.altConteudoFav > v.altOutra,
+    // ELA OCUPA O VÃO: muitas vezes uma seção fechada, sem nenhum favorito na
+    // lista. O "quanto" não pode virar número aqui — depende do acervo do
+    // fixture —, e a comparação com a barra fechada é a régua da própria tela.
+    checar(v.altFav > v.altOutra * 2,
       '[' + tema + '] a seção dos FAVORITOS ocupa o vão que sobra, mesmo sem '
-      + 'nenhum favorito (' + Math.round(v.altFav) + 'px, contra '
-      + Math.round(v.altConteudoFav) + 'px do conteúdo dela e '
+      + 'nenhum favorito (' + Math.round(v.altFav) + 'px contra '
       + Math.round(v.altOutra) + 'px de uma seção fechada)');
     checar(Math.abs(v.fundoUltima - v.fundoLista) <= 1,
       '[' + tema + '] e as fechadas ficam EMPILHADAS NA BASE — a última termina '
       + 'onde a lista termina (' + Math.round(v.fundoUltima) + ' contra '
       + Math.round(v.fundoLista) + ')');
-    const dTom = razao(v.corFav, v.corOutra);
-    checar(dTom >= 1.15,
-      '[' + tema + '] ela tem TOM PRÓPRIO, distinto do das outras seções ('
-      + dTom.toFixed(2) + ':1)');
-    const dLinha = razao(v.corLinha, v.corFav);
-    checar(dLinha >= 1.28,
-      '[' + tema + '] e o degrau de dentro dela desce junto: a linha continua a '
-      + 'se ler sobre o tom novo (' + dLinha.toFixed(2) + ':1)');
+    // ===== ELA VESTE O TOM DAS OUTRAS (v5.282) =====
+    // A afirmação INVERTEU: da v5.273 à v5.281 este par era "distinto", com um
+    // piso de 1,15:1. A comparação é de STRING e não de razão de luminância —
+    // "igual" é igual, e uma razão com piso baixo aprovaria dois tons
+    // ligeiramente diferentes, que é exatamente a queixa ("não ficou bom").
+    checar(v.corFav !== 'AUSENTE' && v.corFav === v.corOutra,
+      '[' + tema + '] ela veste o MESMO tom das outras seções, sem cor própria ('
+      + v.corFav + ' contra ' + v.corOutra + ')');
+    // ===== E A LINHA DE FAVORITO É UM ITEM, NÃO UM ÁLBUM (v5.283) =====
+    // A primeira metade é o pedido escrito como IGUALDADE de cor efetiva — de
+    // string, e não de razão de luminância, porque "igual" é igual. A segunda é
+    // o PROPÓSITO dele ("para diferenciar entre álbum e item"), e ela é o que
+    // impede a correção de passar sem resolver nada: era exatamente 1,00:1
+    // antes, e só a igualdade acima não teria como distinguir "virou faixa" de
+    // "continua card" no dia em que a faixa mudar de receita.
+    const it = v.item || {};
+    checar(!!it.favLinha && it.favLinha === it.faixa,
+      '[' + tema + '] a linha de favorito pinta a MESMA cor da faixa dentro de '
+      + 'um álbum (' + it.favLinha + ' contra ' + it.faixa + ')');
+    const dCard = it.favLinha && it.cardAlbum
+      ? razao('rgb(' + it.favLinha + ')', 'rgb(' + it.cardAlbum + ')') : 0;
+    checar(dCard >= 1.28,
+      '[' + tema + '] e ela se separa do CARD de álbum, que era a queixa: '
+      + dCard.toFixed(2) + ':1 (era 1,00:1 — a mesma cor)');
+    // ===== MAS A PASTA SINCRONIZADA CONTINUA SENDO UM ÁLBUM (v5.284) =====
+    // Pedido do operador: *"mantenha apenas as pastas sincronizadas dos
+    // favoritos como cores de álbum"*. Uma pasta guarda muitos arquivos — ela é
+    // um contêiner —, e é o "apenas" que faz deste par uma REGRA em vez de duas
+    // cores: o item desce, a pasta não.
+    checar(!!it.pasta && it.pasta === it.cardAlbum,
+      '[' + tema + '] mas a PASTA sincronizada continua com a cor de álbum ('
+      + it.pasta + ' contra ' + it.cardAlbum + ')');
+    const dPasta = it.pasta && it.favLinha
+      ? razao('rgb(' + it.pasta + ')', 'rgb(' + it.favLinha + ')') : 0;
+    checar(dPasta >= 1.28 && it.pastaSolta && it.itemNaPlaca,
+      '[' + tema + '] e ela se separa do ITEM ao lado — a pasta é IRMÃ da placa '
+      + 'e o item mora DENTRO dela (' + dPasta.toFixed(2) + ':1'
+      + (it.pastaSolta ? '' : ', mas a pasta está dentro da placa')
+      + (it.itemNaPlaca ? '' : ', mas o item está fora dela') + ')');
     const L = v.larguras;
     checar(!!L && Math.abs(L.barra - L.secao) <= 1 && Math.abs(L.corpo - L.secao) <= 1,
       '[' + tema + '] a barra e o corpo PREENCHEM a seção aberta — nada é centrado '
@@ -1238,13 +1512,56 @@ for (const tema of ['escuro', 'claro']) {
     checar(!!L && L.linha > 0 && L.linha <= L.secao + 1 && L.esqBarra >= L.esqSecao - 1,
       '[' + tema + '] e uma linha de dentro não vaza para fora dela ('
       + (L ? Math.round(L.linha) + 'px numa seção de ' + Math.round(L.secao) : '?') + 'px)');
-    // A prova de que ela CRESCEU é a base: se ela não tivesse tomado o vão,
-    // sobraria espaço vazio DEPOIS da última seção fechada. O tamanho do vão
-    // depende do acervo do fixture e não pode virar número aqui.
-    checar(v.outra.cresceu > 0 && Math.abs(v.outra.fundoUltima - v.outra.fundoLista) <= 1,
-      '[' + tema + '] e a regra é de QUALQUER seção aberta, não só a dos '
-      + 'Favoritos: a de um hinário também toma o vão, e a lista termina cheia (' + Math.round(v.outra.cresceu) + 'px de vazio absorvido, '
-      + Math.round(v.outra.fundoUltima) + ' contra ' + Math.round(v.outra.fundoLista) + ')');
+    // ===== O VÃO NÃO É REPARTIDO (v5.277) =====
+    // A queixa daquele lote escrita como medida: a altura da seção dos
+    // Favoritos é a MESMA com uma coleção aberta e com nenhuma. Com o
+    // `flex-grow` de antes ela encolhia para repartir o vão com a coleção —
+    // *"ao abrir uma coleção, ele encolhe os favoritos para dar espaço à
+    // coleção aberta"*.
+    //
+    // Ela continua verdadeira depois de o vão virar um PISO (v5.282) porque
+    // aqui a lista de favoritos está VAZIA: nada empurra a seção além do
+    // mínimo. Quem afirma o outro lado — que ela CRESCE quando a lista pede
+    // mais — é o `boot-nativo.test.mjs`, que é o único que sabe pôr favoritos
+    // no banco.
+    checar(Math.abs(v.outra.altFav - v.altFav) <= 1,
+      '[' + tema + '] e essa altura NÃO MUDA quando uma coleção abre: o vão é '
+      + 'do vizinho, não repartido (' + Math.round(v.altFav) + 'px → '
+      + Math.round(v.outra.altFav) + 'px)');
+    // E a coleção aberta mede o CONTEÚDO dela: o vazio dentro dela é só o
+    // padding próprio, nunca metade da tela.
+    checar(v.outra.sobraColecao >= 0 && v.outra.sobraColecao < v.altOutra,
+      '[' + tema + '] e a COLEÇÃO aberta mede o conteúdo dela, sem inchar ('
+      + Math.round(v.outra.sobraColecao) + 'px de vazio dentro dela)');
+    // O CABEÇALHO SAIU (v5.280): a barra é o primeiro elemento da folha, e é
+    // isso — e não um mecanismo de posicionamento — que a mantém no topo.
+    checar(v.barra.semCabecalho && v.barra.semTitulo && v.barra.primeira,
+      '[' + tema + '] a barra de busca é o TOPO da folha: sem cabeçalho, sem '
+      + 'título, nada acima dela');
+    // ===== E A LISTA ROLA SEM LEVAR A BARRA JUNTO (v5.281) =====
+    // O relato do operador era que a barra não fica fixa durante a rolagem. A
+    // estrutura sempre esteve certa — e é isso que a primeira metade mede, com
+    // uma rolagem de verdade. A segunda é a causa do que ele viu no APARELHO:
+    // sem `overscroll-behavior`, a rolagem que chega ao fim ENCADEIA para a
+    // página, e do Android 12 em diante isso é o efeito STRETCH, que desloca a
+    // camada inteira — barra fixa incluída. Um navegador de mesa não reproduz o
+    // stretch, então o que se afirma aqui é a regra que o desliga.
+    checar(v.barra.rolou > 0 && Math.abs(v.barra.barraDepois - v.barra.barraAntes) <= 1,
+      '[' + tema + '] e a lista rola SEM levar a barra junto ('
+      + Math.round(v.barra.rolou) + 'px de rolagem, a barra parada em '
+      + Math.round(v.barra.barraDepois) + ')');
+    checar(v.barra.overscroll === 'contain' && v.barra.overscrollRaiz === 'none',
+      '[' + tema + '] e a rolagem PARA na lista: sem o encadeamento, o stretch '
+      + 'do Android não desloca a camada inteira',
+      'lista ' + v.barra.overscroll + ' · raiz ' + v.barra.overscrollRaiz);
+    // QUADRADO. `aspect-ratio` não resolve isto dentro de um flex (a largura é
+    // resolvida antes de o `stretch` dar altura), e a primeira versão colapsou
+    // o botão na largura do glifo — 20px, medidos.
+    checar(v.barra.fecharL > 0 && Math.abs(v.barra.fecharL - v.barra.fecharA) <= 1
+      && Math.abs(v.barra.fecharA - v.barra.campoA) <= 1,
+      '[' + tema + '] o ✕ é QUADRADO e do tamanho do campo ('
+      + Math.round(v.barra.fecharL) + '×' + Math.round(v.barra.fecharA)
+      + ', campo ' + Math.round(v.barra.campoA) + 'px de altura)');
     checar(v.gapSecoes > v.gapLista,
       '[' + tema + '] e uma SEÇÃO respira mais que uma linha de lista ('
       + v.gapSecoes + 'px contra ' + v.gapLista + 'px)');
@@ -1252,6 +1569,461 @@ for (const tema of ['escuro', 'claro']) {
     checar(false, 'a medição do vão dos favoritos (' + tema + ') terminou sem exceção ('
       + (e && e.message) + ')');
   }
+}
+
+// ── A LINHA INTEIRA É O ALVO (v5.278 → v5.285) ───────────────────────────
+// Relato que abriu o caso, na v5.278: *"é extremamente comum tentar clicar em
+// adicionar e acabar tocando no corpo do card, abrindo os detalhes da letra"*.
+// Aquela versão cresceu o alvo dos DOIS botões por um `::after` até as bordas
+// da linha; a v5.285 removeu os botões, a pedido do operador, e com eles a
+// classe inteira de erro: não há mais dois desfechos a confundir.
+//
+// O caso continua medindo o que o DEDO encontra (`elementFromPoint`), e a
+// afirmação ficou mais forte: TODO ponto da linha — os quatro cantos, as
+// bordas e o meio — leva ao mesmo lugar. Um botão que voltasse a aparecer ali
+// reprova aqui, que é exatamente o que este caso existe para impedir.
+try {
+  const alvo = await pg.evaluate(() => {
+    setAppMode('full');
+    const c = allCollections().find((x) => x.kind === 'hymnal');
+    collState[c.id] = { indexSyncedAt: Date.now(), isHymnal: true,
+      songs: [1, 2, 3].map((i) => ({ id_music: 'q' + i, name: 'Hino ' + i, track: i,
+        has_instrumental_music: false, duration: '3:47' })) };
+    ui(c.id).expanded = true; ui(c.id).shown = 100;
+    const lista = document.createElement('ul');
+    lista.className = 'hymnal-list';
+    lista.style.width = '390px';
+    document.body.appendChild(lista);
+    grupoAberto = 'Hinários';
+    renderCollectionsList(lista, () => {}, { semTotal: true });
+    const linha = lista.querySelector('.coll-songs > .hymn-result');
+    const lb = linha.getBoundingClientRect();
+    // O que o toque encontra: a própria linha, ou um alvo CONCORRENTE dentro
+    // dela. Qualquer `button` conta como concorrente — o caso não conhece os
+    // nomes dos que saíram, e é isso que o faz valer para o próximo que
+    // aparecer.
+    const quem = (x, y) => {
+      const e = document.elementFromPoint(x, y);
+      if (!e) return 'nada';
+      if (!linha.contains(e)) return 'fora';
+      return e.closest('button') ? 'BOTÃO' : 'linha';
+    };
+    const pontos = {
+      meio: quem(lb.left + lb.width / 2, lb.top + lb.height / 2),
+      esquerda: quem(lb.left + 4, lb.top + lb.height / 2),
+      direita: quem(lb.right - 2, lb.top + lb.height / 2),
+      topo: quem(lb.left + lb.width / 2, lb.top + 2),
+      base: quem(lb.left + lb.width / 2, lb.bottom - 2),
+      cantoDir: quem(lb.right - 2, lb.top + 2),
+      // O quadrado da esquerda é onde o ▶ vivia: é o ponto que mais precisa
+      // levar à linha agora, porque é onde o dedo aprendeu a mirar.
+      quadrado: quem(lb.left + 20, lb.top + lb.height / 2),
+    };
+    const r = {
+      pontos,
+      botoesNaLinha: linha.querySelectorAll('.row button').length,
+      // E a LARGURA do nome, que é o que a remoção devolve: ela não vira número
+      // fixo aqui (depende da fonte), mas a fração da linha é a afirmação.
+      fracaoDoNome: linha.querySelector('.hymn-name').getBoundingClientRect().width / lb.width,
+    };
+    lista.remove(); delete collState[c.id]; grupoAberto = '';
+    return r;
+  });
+  checar(alvo.botoesNaLinha === 0,
+    'a faixa da Biblioteca não tem BOTÃO nenhum na linha: o ▶ e o + saíram, e o '
+    + 'toque é do corpo inteiro (v5.285)',
+    alvo.botoesNaLinha + ' botão(ões)');
+  const todos = Object.entries(alvo.pontos);
+  const errados = todos.filter(([, v]) => v !== 'linha');
+  checar(errados.length === 0,
+    'e TODO ponto dela leva ao mesmo lugar — cantos, bordas e meio, inclusive o '
+    + 'quadrado onde o ▶ vivia: não há dois desfechos a confundir',
+    errados.length ? JSON.stringify(Object.fromEntries(errados)) : todos.length + ' pontos');
+  checar(alvo.fracaoDoNome > 0.6,
+    'e o NOME recebeu a largura que os dois botões ocupavam ('
+    + Math.round(alvo.fracaoDoNome * 100) + '% da linha)');
+} catch (e) {
+  checar(false, 'a medição do alvo da faixa terminou sem exceção ('
+    + (e && e.message) + ')');
+}
+
+// ── A GAVETA DE OPÇÕES DA FAIXA (v5.286) ─────────────────────────────────
+// Sete pedidos do operador sobre a gaveta que a v5.285 criou, e dois deles são
+// defeitos que ela introduziu — o caso cobre os dois grupos porque eles vivem
+// na mesma peça e um conserto pode desfazer o outro.
+try {
+  const g = await pg.evaluate(async () => {
+    setAppMode('full');
+    const c = allCollections().find((x) => x.kind === 'hymnal');
+    // DUAS músicas, e a segunda não é enfeite: a queixa da v5.287 é que a
+    // gaveta se mescla com "a lista dos outros itens abaixo", e sem uma linha
+    // VIZINHA não há o que comparar.
+    collState[c.id] = { indexSyncedAt: Date.now(), isHymnal: true,
+      songs: [
+        { id_music: 'g1', name: 'Meu Lugar no Mundo', track: 1,
+          has_instrumental_music: true, duration: '3:47' },
+        { id_music: 'g2', name: 'Vem, Senhor Jesus', track: 2,
+          has_instrumental_music: true, duration: '4:02' },
+      ] };
+    ui(c.id).expanded = true; ui(c.id).shown = 100;
+    const lista = document.createElement('ul');
+    lista.className = 'hymnal-list'; lista.style.width = '390px';
+    document.body.appendChild(lista);
+    grupoAberto = 'Hinários';
+    renderCollectionsList(lista, () => {}, { semTotal: true });
+    const linhas = [...lista.querySelectorAll('.coll-songs > .hymn-result')];
+    const li = linhas[0];
+    li.querySelector('.row').click();
+    await new Promise((r) => setTimeout(r, 350));
+    const op = li.querySelector('.hymn-opcoes');
+    const efetiva = (el) => {
+      if (!el) return null;
+      const pilha = [];
+      for (let n = el; n; n = n.parentElement) {
+        const m = getComputedStyle(n).backgroundColor.match(/[\d.]+/g);
+        if (!m) continue;
+        const a = m.length > 3 ? Number(m[3]) : 1;
+        if (a === 0) continue;
+        pilha.push([Number(m[0]), Number(m[1]), Number(m[2]), a]);
+        if (a === 1) break;
+      }
+      let c2 = [0, 0, 0];
+      for (let k = pilha.length - 1; k >= 0; k--) {
+        const [vr, vg, vb, va] = pilha[k];
+        c2 = [vr * va + c2[0] * (1 - va), vg * va + c2[1] * (1 - va), vb * va + c2[2] * (1 - va)];
+      }
+      return c2.map(Math.round).join(', ');
+    };
+    const rotulos = () => [...op.querySelectorAll('.song-menu-label')].map((e) => e.textContent);
+    const r = {
+      // 1 · OS MARCADORES DE LISTA (defeito da v5.285): a `<ul>` do corpo não
+      // herdava `list-style: none` de ninguém, e o navegador desenhava os
+      // quadradinhos que o operador viu à esquerda dos cards.
+      marcador: getComputedStyle(op).listStyleType,
+      // 2 · O SELETOR tem TRÊS segmentos, e "Letra" é um deles.
+      seg: [...op.querySelectorAll('.song-menu-seg .fit-opt')].map((e) => e.textContent),
+      // 3 · "Tocar agora" é a PRIMEIRA selecionável, e as linhas "Tocar música
+      // cantada"/"Tocar playback" não existem mais: elas repetiam o seletor.
+      rotulos: rotulos(),
+      // O RÓTULO, e não o `textContent` do botão: ele traz o subtítulo colado
+      // (as duas `<span>` não têm quebra entre elas), e a comparação sairia
+      // sempre falsa por um motivo que não é o do caso.
+      primeiraSel: (() => {
+        const b = [...op.querySelectorAll('.song-menu-btn')]
+          .find((x) => x.querySelector('.song-menu-check'));
+        const t = b && b.querySelector('.song-menu-label');
+        return t ? t.textContent.trim() : null;
+      })(),
+      // 4 · TODA opção tem caixa, e ela se vê SEM estar marcada.
+      quantasCaixas: op.querySelectorAll('.song-menu-check').length,
+      quantosBotoesSel: [...op.querySelectorAll('.song-menu-btn')]
+        .filter((x) => x.querySelector('.song-menu-check')).length,
+      // A CAIXA VAZIA, COMPOSTA sobre o botão em que ela mora. `backgroundColor`
+      // de um `::before` com alfa devolve o alfa — medir a string crua compararia
+      // PRETO com o botão e daria uma razão enorme em qualquer estado, isto é,
+      // passaria sem medir nada (a mesma armadilha da v5.283, um nível abaixo).
+      caixaVazia: (() => {
+        const bruto = getComputedStyle(
+          op.querySelector('.song-menu-check'), '::before').backgroundColor;
+        const m = (bruto.match(/[\d.]+/g) || []).map(Number);
+        if (m.length < 3) return null;
+        const a = m.length > 3 ? m[3] : 1;
+        const base = (efetiva(op.querySelector('.song-menu-btn')) || '0, 0, 0')
+          .split(', ').map(Number);
+        return m.slice(0, 3).map((v, k) => Math.round(v * a + base[k] * (1 - a))).join(', ');
+      })(),
+      fundoBotao: efetiva(op.querySelector('.song-menu-btn')),
+      // 5 · O CONTRASTE DA GAVETA (v5.287), nos DOIS TEMAS — e são dois porque
+      // o tom dela INVERTE de direção entre eles (poço no escuro, folha no
+      // claro; a medição está em `tokens.css`). Medir um só aprovaria metade do
+      // desenho, e foi justamente o tema escuro que reprovou no aparelho.
+      cores: (() => {
+        const antes = document.documentElement.getAttribute('data-tema');
+        const out = {};
+        for (const tema of ['escuro', 'claro']) {
+          document.documentElement.setAttribute('data-tema', tema);
+          out[tema] = {
+            gaveta: efetiva(li.querySelector('.hymn-gaveta')),
+            botao: efetiva(op.querySelector('.song-menu-btn')),
+            vizinha: efetiva(linhas[1]),
+            card: efetiva(lista.querySelector('.hymnal-card')),
+          };
+        }
+        if (antes) document.documentElement.setAttribute('data-tema', antes);
+        else document.documentElement.removeAttribute('data-tema');
+        return out;
+      })(),
+      // 6 · A LETRA está atrás de um botão, LADO A LADO com o confirmar.
+      letra: getComputedStyle(li.querySelector('.hymn-lyrics')).display,
+      ladoALado: (() => {
+        const go = op.querySelector('.song-menu-go');
+        const ver = op.querySelector('.song-menu-letra');
+        if (!go || !ver) return null;
+        return Math.abs(go.getBoundingClientRect().top - ver.getBoundingClientRect().top) <= 2;
+      })(),
+      // ===== A LARGURA DO BOTÃO NÃO MUDA COM O ESTADO (v5.287) =====
+      // Pedido do operador. "Ocultar" é mais longo que "Ver", então o botão
+      // crescia ao ser tocado e o CONFIRMAR ao lado encolhia junto. Medido nos
+      // dois estados, com o MESMO nó — recriá-lo mediria outra coisa.
+      larguras: (() => {
+        const ver = op.querySelector('.song-menu-letra');
+        if (!ver) return null;
+        const antes = Math.round(ver.getBoundingClientRect().width);
+        ver.click();
+        const depois = Math.round(
+          op.querySelector('.song-menu-letra').getBoundingClientRect().width);
+        return { antes, depois };
+      })(),
+      letraDepois: getComputedStyle(li.querySelector('.hymn-lyrics')).display,
+    };
+    // Deixa a lista NO DOCUMENTO para a pressão de verdade lá fora; quem a
+    // remove é o segundo `evaluate`.
+    window.__gaveta = { lista, li, op };
+    return r;
+  });
+  // ===== O FEEDBACK NÃO ENCOLHE A SEÇÃO INTEIRA (v5.286) =====
+  // Relato do operador: *"o feedback de toque está encolhendo toda a seção de
+  // opções do item, ao tocar em apenas uma das opções"*. A causa é o `:active`
+  // do `.lib-item` sendo satisfeito por um botão DENTRO dele — e o que se mexe
+  // é a linha mais a gaveta, meia tela por causa de um toque de 40px.
+  //
+  // A pressão é de VERDADE (`mouse.down`), porque `:active` não se simula com
+  // classe: o que se mede é o `transform` computado da linha ENQUANTO o botão
+  // está pressionado, que é exatamente o instante do relato.
+  const press = await (async () => {
+    const cx = await pg.evaluate(() => {
+      const b = window.__gaveta.op.querySelector('.song-menu-btn');
+      const r2 = b.getBoundingClientRect();
+      return { x: Math.round(r2.left + r2.width / 2), y: Math.round(r2.top + r2.height / 2) };
+    });
+    await pg.mouse.move(cx.x, cx.y);
+    await pg.mouse.down();
+    const durante = await pg.evaluate(() => ({
+      linha: getComputedStyle(window.__gaveta.li).transform,
+      botao: getComputedStyle(
+        window.__gaveta.op.querySelector('.song-menu-btn')).transform,
+    }));
+    await pg.mouse.up();
+    return durante;
+  })();
+  await pg.evaluate(() => {
+    window.__gaveta.lista.remove();
+    delete window.__gaveta;
+    grupoAberto = ''; songMenuFor = null;
+  });
+  checar(press.linha === 'none',
+    'o toque numa OPÇÃO não encolhe a linha nem a gaveta — o feedback é do botão '
+    + 'tocado, não da caixa de meia tela em volta dele',
+    'transform da linha: ' + press.linha);
+  checar(press.botao !== 'none',
+    'e o BOTÃO continua encolhendo: o toque não deixou de responder',
+    'transform do botão: ' + press.botao);
+  // `razao` mora dentro do laço de temas lá em cima; aqui a medição é de um
+  // tema só (o padrão), e o par local basta.
+  const lum2 = (str) => {
+    const m = (str.match(/[\d.]+/g) || []).slice(0, 3).map((x) => {
+      const n = Number(x) / 255;
+      return n <= 0.03928 ? n / 12.92 : Math.pow((n + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * m[0] + 0.7152 * m[1] + 0.0722 * m[2];
+  };
+  const razao2 = (a, b) => {
+    const x = lum2(a); const y = lum2(b);
+    return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+  };
+  checar(g.marcador === 'none',
+    'a lista de opções não desenha MARCADOR de lista — os "pontos à esquerda dos '
+    + 'cards" eram o `<ul>` do corpo sem `list-style` (defeito da v5.285)',
+    'list-style-type: ' + g.marcador);
+  checar(g.seg.join(' · ') === 'Cantada · Playback · Letra',
+    'o seletor tem as TRÊS variantes — "Apenas a letra" virou uma delas',
+    JSON.stringify(g.seg));
+  checar(g.primeiraSel === 'Tocar agora'
+    && !g.rotulos.some((t) => /Tocar música cantada|Tocar playback/.test(t)),
+    'e "Tocar agora" é a PRIMEIRA selecionável, no lugar das duas linhas que '
+    + 'repetiam o seletor', JSON.stringify(g.rotulos));
+  checar(g.quantasCaixas === g.quantosBotoesSel && g.quantasCaixas === 4,
+    'as QUATRO opções são selecionáveis, e cada uma tem a sua caixa',
+    g.quantasCaixas + ' caixas para ' + g.quantosBotoesSel + ' opções');
+  // A caixa VAZIA precisa se ver contra o botão em que ela mora — era este o
+  // pedido ("para entender que não são botões, mas selecionáveis"), e o piso é
+  // o mesmo degrau que o app usa para separar duas superfícies.
+  const dCaixa = g.caixaVazia
+    ? razao2('rgb(' + g.caixaVazia + ')', 'rgb(' + g.fundoBotao + ')') : 0;
+  // O PISO É 1,25 e não 1,3, e a diferença tem causa: no tema escuro o recesso
+  // pousa sobre um botão JÁ escuro, e a razão WCAG comprime no pé da escala. O
+  // que a asserção guarda é a melhora medida — era 1,13:1 com o
+  // `--surface-2-sunk` da v5.285, que é o "não dá para ver" do relato.
+  checar(dCaixa >= 1.25,
+    'e a caixa VAZIA se vê contra o botão, sem estar marcada ('
+    + dCaixa.toFixed(2) + ':1 — rgb(' + g.caixaVazia + ') sobre rgb(' + g.fundoBotao + '))');
+  // ===== A GAVETA SE SEPARA DA LISTA, E OS BOTÕES DELA (v5.287) =====
+  //
+  // Relato do operador: *"ainda está pouco o contraste entre os botões e pior,
+  // toda a seção das opções de play estão se mesclando com a lista dos outros
+  // itens abaixo, dificultando a percepção da seção e a qual item ela
+  // pertence"*.
+  //
+  // MEDIDO com o código anterior, no tema ESCURO: a gaveta ficava a **1,03:1**
+  // da faixa de uma linha vizinha (as duas em torno de rgb(45,53,61)) e os
+  // botões a 1,18:1 dela. O piso aqui é o mesmo 1,28 que este app usa para
+  // separar duas superfícies em qualquer outro lugar.
+  //
+  // Os TRÊS pares, e nenhum basta sozinho: contra a VIZINHA é a queixa
+  // literal; contra o CARD é o que impede a saída fácil no escuro (subir para
+  // `--panel-2` daria a cor exata do fundo do álbum, que aparece nos vãos entre
+  // as linhas); e o BOTÃO contra a gaveta é a primeira metade do relato.
+  for (const tema of ['escuro', 'claro']) {
+    const t = g.cores[tema];
+    const par = (a, b) => razao2('rgb(' + a + ')', 'rgb(' + b + ')');
+    checar(par(t.botao, t.gaveta) >= 1.28,
+      '[' + tema + '] os BOTÕES da gaveta se separam do fundo dela ('
+      + par(t.botao, t.gaveta).toFixed(2) + ':1)');
+    checar(par(t.gaveta, t.vizinha) >= 1.28,
+      '[' + tema + '] e a GAVETA se separa da faixa das linhas vizinhas — era o '
+      + '"se mesclando com a lista dos outros itens abaixo" ('
+      + par(t.gaveta, t.vizinha).toFixed(2) + ':1)');
+    checar(par(t.gaveta, t.card) >= 1.28,
+      '[' + tema + '] e do CARD do álbum, que é a cor que aparece nos vãos entre '
+      + 'as linhas (' + par(t.gaveta, t.card).toFixed(2) + ':1)');
+  }
+  checar(g.letra === 'none' && g.ladoALado === true && g.letraDepois === 'block',
+    'e a LETRA fica atrás de um botão lado a lado com o confirmar, que a revela',
+    JSON.stringify({ antes: g.letra, ladoALado: g.ladoALado, depois: g.letraDepois }));
+  checar(!!g.larguras && g.larguras.antes === g.larguras.depois && g.larguras.antes > 0,
+    'e ele tem a MESMA LARGURA nos dois estados: "Ocultar" é mais longo que '
+    + '"Ver", e o botão crescia debaixo do dedo levando o confirmar junto ('
+    + JSON.stringify(g.larguras) + ')');
+} catch (e) {
+  checar(false, 'a medição da gaveta de opções terminou sem exceção ('
+    + (e && e.message) + ')');
+}
+
+// ── O CARD DO ÁLBUM ABRE POR QUALQUER PIXEL (v5.288) ─────────────────────
+//
+// Relato do operador: *"nos álbuns há um toque em uma margem à esquerda da seta
+// que abre o álbum, que encolhe os itens dentro do card, mas não abre o
+// álbum"*.
+//
+// A causa não é o pixel, é o FEEDBACK: `.coll-bar` está na lista do `:active`,
+// cujo `--press` é `scale(.96)` — numa barra de ~395px isso a encolhe ~8px de
+// cada lado. O `pointerdown` acerta a barra (e dispara o encolhimento); no
+// `pointerup` ela já não está ali, e o `click` é entregue ao ancestral que
+// sobrou, o card, que não tinha ouvinte nenhum.
+//
+// O caso mede o que o operador mediu com o dedo: um CLIQUE DE VERDADE
+// (`mouse.click`, porque um `el.click()` sintético não passa por hit-test
+// nenhum e aprovaria o defeito inteiro) a 2px da borda do card. E cobra as duas
+// metades — com o álbum ABERTO, o mesmo toque na tampa FECHA, e um toque numa
+// FAIXA não fecha nada.
+try {
+  const prep = async (aberto) => pg.evaluate(async (ab) => {
+    setAppMode('full');
+    if (!hymnSearchPopupEl.classList.contains('open')) openHymnSearch();
+    const c = allCollections().find((x) => x.kind === 'hymnal');
+    window.__cid = c.id;
+    collState[c.id] = { indexSyncedAt: Date.now(), isHymnal: true,
+      songs: [1, 2, 3].map((i) => ({ id_music: 'a' + i, name: 'Hino ' + i, track: i,
+        has_instrumental_music: false, duration: '3:47' })) };
+    grupoAberto = 'Hinários'; favAberto = false;
+    ui(c.id).expanded = !!ab; ui(c.id).shown = 100;
+    redesenharAcervo();
+    await new Promise((r) => setTimeout(r, 500));
+    const card = document.querySelector('#hymnResults .hymnal-card');
+    card.scrollIntoView({ block: 'center' });
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const cr = card.getBoundingClientRect();
+    const ico = card.querySelector('.coll-bar-icon').getBoundingClientRect();
+    const faixa = card.querySelector('.coll-songs > .hymn-result');
+    const fr = faixa ? faixa.getBoundingClientRect() : null;
+    return {
+      borda: { x: Math.round(cr.left + 2), y: Math.round(ico.top + ico.height / 2) },
+      faixa: fr ? { x: Math.round(fr.left + fr.width / 2), y: Math.round(fr.top + fr.height / 2) } : null,
+      antes: ui(c.id).expanded,
+    };
+  }, aberto);
+  const estado = () => pg.evaluate(() => !!ui(window.__cid).expanded);
+  const alvo = () => pg.evaluate(() => {
+    const p2 = document.querySelector('#hymnResults .hymnal-card');
+    return p2 ? getComputedStyle(p2).paddingLeft : null;
+  });
+  // 1. FECHADO: 2px da borda abre.
+  const a = await prep(false);
+  await pg.mouse.click(a.borda.x, a.borda.y);
+  await pg.waitForTimeout(400);
+  const abriuNaBorda = await estado();
+  const padCard = await alvo();
+  // 2. ABERTO: a mesma borda (agora a tampa) FECHA.
+  const b = await prep(true);
+  await pg.mouse.click(b.borda.x, b.borda.y);
+  await pg.waitForTimeout(400);
+  const fechouNaBorda = !(await estado());
+  // 3. ABERTO: um toque numa FAIXA não fecha o álbum.
+  const c2 = await prep(true);
+  await pg.mouse.click(c2.faixa.x, c2.faixa.y);
+  await pg.waitForTimeout(400);
+  const faixaNaoFecha = await estado();
+  await pg.evaluate(() => {
+    ui(window.__cid).expanded = false; grupoAberto = ''; favAberto = true;
+    closeHymnSearch();
+  });
+  checar(abriuNaBorda,
+    'O CARD DO ÁLBUM ABRE a 2px da borda (v5.288) — era a "margem à esquerda da '
+    + 'seta" que o encolhimento do `:active` deixava sem alvo');
+  checar(padCard === '0px',
+    'e o card não tem padding próprio: o recuo é de quem PINTA (a barra e o '
+    + 'corpo aberto), senão a faixa em volta da barra volta a ser margem morta',
+    'padding-left do card: ' + padCard);
+  checar(fechouNaBorda,
+    'e com o álbum aberto o mesmo ponto FECHA — a tampa responde na borda dela');
+  checar(faixaNaoFecha,
+    'mas um toque numa FAIXA não fecha o álbum: a guarda é o `.coll-open`, e sem '
+    + 'ela subir o ouvinte para o card teria fechado o álbum debaixo do dedo');
+  // ===== E NEM UMA CAIXA DE MARCAÇÃO DAS OPÇÕES (v5.288, correção) =====
+  //
+  // Relato do operador logo depois do lote: tocar numa opção de play fechava o
+  // álbum inteiro. A guarda perguntava `e.target.closest('.coll-open')` — uma
+  // consulta à árvore VIVA —, e o botão de destino é apagado pelo próprio
+  // handler que roda antes: marcar uma opção chama `renderSongMenu`, que faz
+  // `alvo.innerHTML = ''`. Quando o evento chega ao card, o `e.target` está
+  // DESANEXADO, `closest` devolve `null`, e o álbum fecha.
+  //
+  // O caso exercita a DETACHMENT de verdade — abrir a gaveta de uma faixa e
+  // clicar numa opção marcável —, porque uma guarda escrita com `closest`
+  // passaria em qualquer clique que não apagasse o alvo.
+  await prep(true);
+  const marcou = await pg.evaluate(async () => {
+    const li = document.querySelector('#hymnResults .coll-songs > .hymn-result');
+    li.querySelector('.row').click();
+    await new Promise((r) => setTimeout(r, 450));
+    const b = li.querySelector('.hymn-opcoes .song-menu-sel');
+    if (!b) return null;
+    b.scrollIntoView({ block: 'center' });
+    const r2 = b.getBoundingClientRect();
+    return { x: Math.round(r2.left + r2.width / 2), y: Math.round(r2.top + r2.height / 2) };
+  });
+  let opcaoNaoFecha = null; let opcaoMarcou = null;
+  if (marcou) {
+    await pg.mouse.click(marcou.x, marcou.y);
+    await pg.waitForTimeout(400);
+    const dep = await pg.evaluate(() => ({
+      album: !!ui(window.__cid).expanded,
+      marcado: !!document.querySelector('#hymnResults .song-menu-check.on'),
+    }));
+    opcaoNaoFecha = dep.album; opcaoMarcou = dep.marcado;
+  }
+  await pg.evaluate(() => {
+    ui(window.__cid).expanded = false; grupoAberto = ''; favAberto = true;
+    songMenuFor = null; closeHymnSearch();
+  });
+  checar(opcaoNaoFecha === true && opcaoMarcou === true,
+    'e um toque numa CAIXA DE MARCAÇÃO das opções não fecha o álbum — a guarda '
+    + 'pergunta pelo CAMINHO do evento (fixado no disparo) e não pela árvore de '
+    + 'agora, que o próprio handler acabou de desmontar',
+    JSON.stringify({ album: opcaoNaoFecha, marcado: opcaoMarcou, ponto: marcou }));
+} catch (e) {
+  checar(false, 'a medição do alvo do card de álbum terminou sem exceção ('
+    + (e && e.message) + ')');
 }
 
 // ── A COLUNA DA DIREITA NÃO SE MEXE (v5.242) ─────────────────────────────
@@ -1304,7 +2076,7 @@ try {
       completoFechado: medir(true, false), completoAberto: medir(true, true),
       parcialFechado: medir(false, false), parcialAberto: medir(false, true),
     };
-    delete collState[c.id]; grupoAberto = 'Favoritos';
+    delete collState[c.id]; grupoAberto = ''; favAberto = true;
     return r;
   });
   checar(col.completoAberto.naThumb && !col.completoAberto.naDireita,
@@ -1327,10 +2099,13 @@ try {
       lista.className = 'hymnal-list';
       lista.style.width = '390px';
       document.body.appendChild(lista);
-      grupoAberto = 'Hinários';
+      grupoAberto = '';   // nenhuma coleção aberta: é do estado FECHADO que este caso fala
       renderCollectionsList(lista, () => {}, { semTotal: true });
       const cx = (el) => (el ? getComputedStyle(el) : null);
-      const secao = lista.querySelector('.coll-group--drop > .coll-group-bar > .coll-group-icon');
+      // Uma seção FECHADA: desde a v5.276 os Favoritos nascem abertos e são a
+      // primeira do documento, então o `:not(.aberto)` é o que faz esta medida
+      // continuar falando do estado que ela nomeia.
+      const secao = lista.querySelector('.coll-group--drop:not(.aberto) > .coll-group-bar > .coll-group-icon');
       const s = cx(secao);
       const r = {
         temSeta: !!secao,
@@ -1439,7 +2214,7 @@ try {
     lista.remove();
     delete collState[c.id];
     albumCatalog.categories = []; albumCatalog.albums = [];
-    grupoAberto = 'Favoritos';
+    grupoAberto = ''; favAberto = true;
     return r;
   });
   const comSub = peso.find((c) => c.temSub);
@@ -1637,6 +2412,207 @@ try {
   checar(false, 'a medição do menu da linha terminou sem exceção (' + (e && e.message) + ')');
 }
 
+// ── UM REDESENHO NO LUGAR MANTÉM O LUGAR ─────────────────────────────────
+//
+// A última linha de `load()` restaurava `scrollPos[scrollKey()]` em TODO
+// redesenho — e o único produtor daquele mapa é o `rememberScroll()` da troca
+// de aba. Isto é: acrescentar um item, favoritar, o progresso de um download
+// ou a chegada de um share jogavam a lista de volta para onde o operador
+// estava da última vez que TROCOU DE ABA (quase sempre o topo). Ele rolava
+// até o meio do Cronograma, mandava um louvor para lá, e a lista voltava
+// para o começo.
+//
+// As duas metades: o redesenho no lugar PRESERVA, e a navegação continua
+// RESTAURANDO — sem a segunda, "nunca restaurar" passaria e a volta para uma
+// aba perderia a posição.
+try {
+  const rol = await pg.evaluate(async () => {
+    setAppMode('full');
+    activeTab = 'imports';
+    for (let i = 0; i < 24; i++) {
+      await AVDB.addMedia(new Blob(['r' + i], { type: 'audio/mpeg' }),
+        { name: 'Louvor de rolagem ' + i, type: 'audio/mpeg', kind: 'audio', list: 'imports' });
+    }
+    await load({ restaurarScroll: true });
+    await new Promise((f) => setTimeout(f, 150));
+    const host = libraryEl;
+    host.scrollTop = 300;
+    const antes = host.scrollTop;
+    if (!antes) return { erro: 'a lista não rolou (fixture curto demais)' };
+    await load();                       // um redesenho no LUGAR
+    await new Promise((f) => setTimeout(f, 150));
+    const r = { antes, depoisDoRedesenho: libraryEl.scrollTop };
+    // …e a NAVEGAÇÃO continua restaurando a posição daquela aba.
+    await switchTab('bible');
+    await new Promise((f) => setTimeout(f, 400));
+    await switchTab('imports');
+    await new Promise((f) => setTimeout(f, 400));
+    r.depoisDaVolta = libraryEl.scrollTop;
+    return r;
+  });
+  checar(!rol.erro && rol.depoisDoRedesenho === rol.antes,
+    'um redesenho NO LUGAR mantém a rolagem da lista (antes: ' + rol.antes
+    + ' → depois: ' + rol.depoisDoRedesenho + ')', JSON.stringify(rol));
+  checar(!rol.erro && rol.depoisDaVolta === rol.antes,
+    'e a NAVEGAÇÃO continua restaurando a posição guardada daquela aba',
+    JSON.stringify(rol));
+} catch (e) {
+  checar(false, 'a medição da rolagem terminou sem exceção (' + (e && e.message) + ')');
+}
+
+// ── A GAVETA DA FILA DA PLAYLIST TAMBÉM ABRE ─────────────────────────────
+//
+// A faixa de acoes era revelada por `.lib-item.acoes-abertas .row-acoes`, e a
+// linha da FILA e `.row-item` — ela nunca recebe `lib-item`. Como a v5.285
+// tirou o arrasto e mudou o "Tirar da playlist" e o par ↑↓ para DENTRO dessa
+// faixa, a fila do culto ficou sem como ser editada: o `⋮` respondia ao toque
+// (a classe entrava no `li`) e nada aparecia.
+//
+// Medido pelo que o DEDO encontra, e não pela caixa do elemento: `visibility`
+// e `opacity` sao o que o seletor errado deixava para tras, e um `getBounding`
+// devolveria a mesma largura nos dois casos.
+const GLIFO_EXCLUIR = await pg.evaluate(() => ICON.del);
+try {
+  const fila = await pg.evaluate(async () => {
+    setAppMode('full');
+    const m = await AVDB.addMedia(new Blob(['q'], { type: 'audio/mpeg' }),
+      { name: 'Louvor da fila', type: 'audio/mpeg', kind: 'audio', list: 'playlist' });
+    plItems = await AVDB.listItems('playlist');
+    renderPlaylist();
+    if (typeof openPlPopup === 'function') openPlPopup();
+    await new Promise((f) => setTimeout(f, 200));
+    const li = document.querySelector('#playlist .row-item');
+    if (!li) return { erro: 'a linha da fila não foi desenhada' };
+    const mais = li.querySelector('.row-mais');
+    if (!mais) return { erro: 'a linha da fila não tem o botão ⋮' };
+    mais.click();
+    await new Promise((f) => setTimeout(f, 320));
+    const caixa = li.querySelector('.row-acoes');
+    if (!caixa) return { erro: 'a linha da fila não montou a gaveta' };
+    const cs = getComputedStyle(caixa);
+    const b = caixa.getBoundingClientRect();
+    const alvo = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+    const r = {
+      visivel: cs.visibility === 'visible' && cs.opacity === '1',
+      // e ela RECEBE O TOQUE: `visibility: hidden` tira do hit-test, então esta
+      // é a metade que prova que os botões de dentro são alcançáveis.
+      recebeToque: !!alvo && !!alvo.closest('.row-acoes'),
+      temBotao: caixa.querySelectorAll('button').length >= 1,
+    };
+    // ---- O TIRAR DA FILA VESTE A LIXEIRA DO APP (v5.301) ----
+    // Pedido do operador: *"na playlist, ajuste o botão de excluir para que
+    // represente o mesmo ícone de excluir que já usamos no resto do sistema"*.
+    // Era `playlist_remove`, o único destrutivo do app com símbolo próprio.
+    // Medido pelo CODEPOINT contra o do excluir da linha do Cronograma, e não
+    // contra um literal escrito aqui: os dois têm de ser o MESMO, seja ele qual
+    // for.
+    const rm = li.querySelector('.row-excluir');
+    const glifoDaFila = rm && rm.querySelector('.msym')
+      ? rm.querySelector('.msym').textContent : '';
+    r.glifoDaFila = glifoDaFila;
+    // E COM O ÍCONE VEM A CONFIRMAÇÃO: um mesmo desenho com dois alcances
+    // conforme a tela (aqui apaga no toque, ali pergunta) é a pior forma de
+    // oferecer um destrutivo.
+    if (rm) {
+      rm.click();
+      await new Promise((f) => setTimeout(f, 200));
+      r.perguntou = !!li.querySelector('.row-acoes.confirmando > .linha-confirma');
+      r.aindaNaFila = await AVDB.listHas('playlist', m.id);
+      const dlg = document.getElementById('appDialog');
+      r.semModal = !dlg || !dlg.classList.contains('open');
+      li.querySelector('.linha-sim').click();
+      await new Promise((f) => setTimeout(f, 400));
+      r.saiuDaFila = !(await AVDB.listHas('playlist', m.id));
+    }
+    await AVDB.listRemove('playlist', m.id);
+    plItems = await AVDB.listItems('playlist');
+    renderPlaylist();
+    if (typeof closePlPopup === 'function') closePlPopup();
+    await new Promise((f) => setTimeout(f, 120));
+    return r;
+  });
+  checar(!fila.erro && fila.visivel && fila.temBotao,
+    'a gaveta `⋮` da FILA DA PLAYLIST fica visível ao toque — o seletor que a '
+    + 'revela é a CLASSE, não a lista em que a linha mora', JSON.stringify(fila));
+  checar(!fila.erro && fila.recebeToque,
+    'e ela recebe o toque: os botões de tirar da fila e de reordenar são '
+    + 'alcançáveis (era o único caminho por item que a fila tem)',
+    JSON.stringify(fila));
+  checar(!fila.erro && !!fila.glifoDaFila && fila.glifoDaFila === GLIFO_EXCLUIR,
+    'e o "tirar da fila" veste a MESMA lixeira do excluir das outras listas '
+    + '(v5.301) — era `playlist_remove`, o único destrutivo do app com símbolo '
+    + 'próprio', JSON.stringify(fila.glifoDaFila));
+  checar(!fila.erro && fila.perguntou === true && fila.aindaNaFila === true
+    && fila.semModal === true && fila.saiuDaFila === true,
+    'e ele PERGUNTA na própria faixa antes de tirar, como o das outras listas — '
+    + 'um mesmo desenho com dois alcances conforme a tela é a pior forma de '
+    + 'oferecer um destrutivo', JSON.stringify(fila));
+} catch (e) {
+  checar(false, 'a medição da gaveta da fila terminou sem exceção (' + (e && e.message) + ')');
+}
+
+// ── O TOQUE LONGO AINDA ENTRA NA SELEÇÃO MÚLTIPLA ────────────────────────
+//
+// **Nenhum teste deste repositório tinha tocado numa linha da lista**, e foi
+// por aí que passou o defeito que este caso existe para prender: a v5.287 tirou
+// o parâmetro `semSelecao` de `attachRowGestures` e deixou o `if (semSelecao)
+// return` no corpo. Num script clássico, LER um identificador não declarado
+// lança `ReferenceError` — só a atribuição criaria uma global —, então todo
+// `pointerdown` numa linha estourava ANTES de armar o `setTimeout`.
+//
+// O modo de falhar é o pior que esta base sabe produzir: o `pid` já tinha sido
+// escrito na linha acima, então o toque CURTO continuava projetando e nada na
+// tela mudava. O que sumia era a seleção múltipla inteira — e com ela o
+// `deleteSelected`, que é o único excluir em lote do app.
+//
+// São DUAS metades, e a negativa não é enfeite: sem ela, um toque longo que
+// ligasse a seleção em QUALQUER duração passaria — e aí o toque comum de
+// projetar teria virado um seletor.
+try {
+  const sel = await pg.evaluate(async () => {
+    setAppMode('full');
+    activeTab = 'imports';
+    await load();
+    const li = document.querySelector('#library .lib-item');
+    if (!li) return { erro: 'a linha do Cronograma não foi desenhada' };
+    const corpo = li.querySelector('.row-name') || li;
+    const bateu = (tipo, extra) => corpo.dispatchEvent(new PointerEvent(tipo,
+      Object.assign({ pointerId: 7, clientX: 40, clientY: 40, bubbles: true }, extra || {})));
+    const r = {};
+    // ---- a metade NEGATIVA primeiro: um toque curto NÃO seleciona ----
+    bateu('pointerdown');
+    await new Promise((f) => setTimeout(f, 90));
+    bateu('pointerup');
+    await new Promise((f) => setTimeout(f, 60));
+    r.curtoNaoSeleciona = selectionMode === false;
+    // ---- e o toque LONGO entra na seleção, com o item marcado ----
+    bateu('pointerdown');
+    await new Promise((f) => setTimeout(f, 700));
+    r.longoSeleciona = selectionMode === true;
+    r.itemMarcado = selected instanceof Set ? selected.has(li.dataset.id) : null;
+    bateu('pointerup');
+    await new Promise((f) => setTimeout(f, 60));
+    // E a barra de seleção — a porta do excluir em lote — está na tela.
+    const barra = document.getElementById('selbar');
+    r.barraVisivel = !!barra && !barra.hidden
+      && getComputedStyle(barra).display !== 'none';
+    if (selectionMode) exitSelection();
+    await new Promise((f) => setTimeout(f, 60));
+    return r;
+  });
+  checar(!sel.erro && sel.curtoNaoSeleciona,
+    'um toque CURTO na linha não entra na seleção múltipla', JSON.stringify(sel));
+  checar(!sel.erro && sel.longoSeleciona && sel.itemMarcado === true,
+    'e o TOQUE LONGO entra, com o item já marcado — o único caminho para o '
+    + 'excluir em lote (a v5.287 o tinha derrubado com um `ReferenceError` '
+    + 'mudo em todo `pointerdown`)', JSON.stringify(sel));
+  checar(!sel.erro && sel.barraVisivel,
+    'e a barra de seleção aparece: é ela que hospeda o excluir em lote',
+    JSON.stringify(sel));
+} catch (e) {
+  checar(false, 'a medição do toque longo terminou sem exceção (' + (e && e.message) + ')');
+}
+
 // ── A LINHA DEPOIS DO RELATO: uma caixa só, o Parar na capa (v5.259) ──────
 //
 // Quatro coisas do mesmo relato, e as quatro são medidas em pixel porque as
@@ -1681,11 +2657,342 @@ try {
     r.alfaNoAr = partes.length === 4 ? partes[3] : 1;
     r.bgNoAr = bg;
     li.classList.remove('no-ar');
+    // 5. E A ESTRELA É UM BOTÃO COMO OS OUTROS (v5.288). Pedido do operador:
+    //    *"verifique o design do favoritar no cronograma, para que seja um
+    //    botão quadrado igual as outras opções"*. Ela era `background:
+    //    transparent` — a única peça da fileira sem caixa —, com um argumento
+    //    que valia quando ela morava NA LINHA e expirou quando ela desceu para
+    //    a gaveta do `⋮` (v5.258). A régua é a dos VIZINHOS, e não um valor
+    //    escrito: um token novo do dia seguinte não pode reprovar isto.
+    r.fundosDaFaixa = [...caixa.querySelectorAll('.row-btn')]
+      .map((b) => getComputedStyle(b).backgroundColor);
+    r.temEstrela = !!caixa.querySelector('.fav-btn');
     return r;
   });
+// ── A GAVETA DA LINHA: o que fecha e o que não fecha (v5.288) ────────────
+//
+// Dois pedidos do operador: *"no cronograma, favoritar um item faz a gaveta de
+// opções fechar, mantenha ela aberta"* e *"coloque o botão de excluir mais à
+// esquerda na lista de opções, já que excluir deve ficar o mais longe de um
+// acidente de clique de fechar opções"*.
+//
+// A ESTRELA fechava por DOIS caminhos independentes, e consertar um só teria
+// deixado o defeito de pé: o ouvinte de captura da caixa (que fecha em qualquer
+// botão) e o `renderLibrary` que `toggleFav` agenda depois do pulso — este
+// último reconstrói a linha inteira. Daí a medição ser em dois tempos.
+try {
+  const gav = await pg.evaluate(async () => {
+    setAppMode('full');
+    activeTab = 'imports';
+    const m = await AVDB.addMedia(new Blob([new Uint8Array(8)], { type: 'audio/mpeg' }),
+      { name: 'Item da gaveta', type: 'audio/mpeg', kind: 'audio', list: 'imports' });
+    await load();
+    const li = document.querySelector('#library .lib-item[data-id="' + m.id + '"]');
+    if (!li) return { erro: 'a linha não foi desenhada' };
+    li.querySelector('.row-mais').click();
+    await new Promise((r) => setTimeout(r, 200));
+    const caixa = li.querySelector('.row-acoes');
+    // ---- A ORDEM: o excluir é o PRIMEIRO da faixa ----
+    const botoes = [...caixa.querySelectorAll('.row-btn')];
+    const ordem = botoes.map((b) => b.className.replace('row-btn ', ''));
+    const excluiPrimeiro = botoes.length > 1 && botoes[0].classList.contains('row-excluir');
+    // E ele é o mais LONGE do `⋮`, que é o alvo que se toca repetidamente.
+    const mais = li.querySelector('.row-mais').getBoundingClientRect();
+    const dExcluir = Math.abs(mais.left - botoes[0].getBoundingClientRect().right);
+    const dUltimo = Math.abs(mais.left
+      - botoes[botoes.length - 1].getBoundingClientRect().right);
+    // ---- A ESTRELA NÃO FECHA: no ato, e depois do redesenho ----
+    const estrela = caixa.querySelector('.fav-btn');
+    estrela.click();
+    await new Promise((r) => setTimeout(r, 120));
+    const logoDepois = !!document.querySelector('#library .lib-item.acoes-abertas');
+    // O `renderLibrary` de `toggleFav` é agendado em PULSO_MS (1100ms): é ele
+    // que apaga o `li`, e é a segunda metade do defeito.
+    await new Promise((r) => setTimeout(r, 1500));
+    const alvo2 = document.querySelector('#library .lib-item[data-id="' + m.id + '"]');
+    const r = {
+      ordem, excluiPrimeiro, dExcluir: Math.round(dExcluir), dUltimo: Math.round(dUltimo),
+      logoDepois,
+      depoisDoRedesenho: !!(alvo2 && alvo2.classList.contains('acoes-abertas')),
+      // E a marca de fato pegou — sem isto, "a gaveta continua aberta" poderia
+      // significar apenas que o toque não fez nada.
+      favoritou: !!(alvo2 && alvo2.querySelector('.fav-btn.on')),
+      // A METADE NEGATIVA: um botão que TERMINA a conversa continua fechando.
+      // Sem ela, calar o ouvinte inteiro passaria.
+      renomearFecha: null,
+    };
+    const li2 = document.querySelector('#library .lib-item[data-id="' + m.id + '"]');
+    if (li2 && !li2.classList.contains('acoes-abertas')) li2.querySelector('.row-mais').click();
+    await new Promise((res) => setTimeout(res, 150));
+    const add = document.querySelector('#library .lib-item.acoes-abertas .row-acoes .row-renomear');
+    if (add) {
+      // O renomear abre um diálogo; o que se mede é só o FECHO da gaveta, e ele
+      // acontece no clique, antes de o diálogo responder.
+      add.click();
+      await new Promise((res) => setTimeout(res, 120));
+      r.renomearFecha = !document.querySelector('#library .lib-item.acoes-abertas');
+      const cancel = document.getElementById('appDialogCancel');
+      if (cancel) cancel.click();
+      await new Promise((res) => setTimeout(res, 150));
+    }
+    await AVDB.listRemove('favs', m.id);
+    await AVDB.listRemove('imports', m.id);
+    await load();
+    return r;
+  });
+  checar(!gav.erro && gav.excluiPrimeiro,
+    'O EXCLUIR É O PRIMEIRO da faixa de ações (v5.288) — o mais longe do `⋮`, '
+    + 'que é o alvo tocado repetidamente e cujo erro caía no destrutivo',
+    JSON.stringify(gav.ordem));
+  checar(!gav.erro && gav.dExcluir > gav.dUltimo,
+    'e a distância confirma: ele é o mais afastado do `⋮` da fileira ('
+    + gav.dExcluir + 'px contra ' + gav.dUltimo + 'px do último)');
+  checar(!gav.erro && gav.logoDepois && gav.depoisDoRedesenho && gav.favoritou,
+    'FAVORITAR NÃO FECHA A GAVETA (v5.288), nem no ato nem depois do redesenho '
+    + 'que `toggleFav` agenda — e a estrela de fato acendeu',
+    JSON.stringify([gav.logoDepois, gav.depoisDoRedesenho, gav.favoritou]));
+  checar(!gav.erro && gav.renomearFecha === true,
+    'mas um botão que TERMINA a conversa continua fechando (o renomear) — a '
+    + 'exceção é da estrela e do par ↑↓, não do ouvinte inteiro',
+    'renomear fechou: ' + gav.renomearFecha);
+} catch (e) {
+  checar(false, 'a medição da gaveta da linha terminou sem exceção ('
+    + (e && e.message) + ')');
+}
+
+// ── A FILEIRA CABE NA CAIXA, E ISSO SE MEDE NUM APARELHO ESTREITO (v5.301) ─
+//
+// Os quatro oráculos de Chromium deste projeto medem a 430px, que é o iPhone
+// grande. A tela do operador é um Android de **360px**, e a conta é outra: com
+// `--thumb` de 40px reservado de cada lado, a caixa do `⋮` mede 222px — e cinco
+// botões de 40px com `gap: .35rem` ocupam **222,4px**. Ela estava CHEIA desde a
+// v5.288, com zero de folga e nada que dissesse isso.
+//
+// O "Adicionar à playlist" desta versão é o SEXTO botão. Sem a caixa passar a
+// abraçar o conteúdo (ver `controle.css`), o excedente é desenhado POR CIMA DA
+// MINIATURA — `.row-btn` é `flex-shrink: 0`, então nada encolhe e nada avisa.
+// Este é o defeito que publica VERDE: nenhum teste abria a gaveta num aparelho
+// estreito, e o oráculo da geometria mede a 430px, onde cabia.
+//
+// A asserção é a soma dos botões contra a largura da caixa, e não um número de
+// pixel escrito aqui: ela continua valendo no dia em que um botão a mais entrar
+// na fileira, que é exatamente quando ela precisa valer.
+try {
+  await pg.setViewportSize({ width: 360, height: 900 });
+  await new Promise((f) => setTimeout(f, 150));
+  const estreita = await pg.evaluate(async () => {
+    setAppMode('full');
+    activeTab = 'imports';
+    const ids = [];
+    // TRÊS linhas: com uma só, `botoesDeOrdem` devolve [] (total <= 1) e a
+    // fileira sai com dois botões a menos que a de um culto de verdade.
+    for (let i = 0; i < 3; i++) {
+      const m = await AVDB.addMedia(new Blob([new Uint8Array(8)], { type: 'audio/mpeg' }),
+        { name: 'Linha estreita ' + i, type: 'audio/mpeg', kind: 'audio', list: 'imports' });
+      ids.push(m.id);
+    }
+    await load();
+    const li = document.querySelector('#library .lib-item[data-id="' + ids[1] + '"]');
+    if (!li) return { erro: 'a linha não foi desenhada' };
+    li.querySelector('.row-mais').click();
+    await new Promise((f) => setTimeout(f, 260));
+    const caixa = li.querySelector('.row-acoes');
+    const botoes = [...caixa.querySelectorAll('.row-btn')];
+    const gap = parseFloat(getComputedStyle(caixa).gap) || 0;
+    const soma = botoes.reduce((t, b) => t + b.getBoundingClientRect().width, 0)
+      + Math.max(0, botoes.length - 1) * gap;
+    const cb = caixa.getBoundingClientRect();
+    const mais = li.querySelector('.row-mais').getBoundingClientRect();
+    const r = {
+      n: botoes.length,
+      classes: botoes.map((b) => b.className.replace('row-btn ', '')),
+      soma: Math.round(soma), caixa: Math.round(cb.width),
+      cabe: Math.round(soma) <= Math.round(cb.width),
+      // E ela NÃO INVADE a coluna do `⋮`: o excluir é o primeiro justamente
+      // para ficar longe dele, e uma caixa que passasse por baixo desfaria isso.
+      naoInvadeOMais: Math.round(cb.right) <= Math.round(mais.left),
+      // Cada quadrado continua no PISO de toque do app.
+      menorAlvo: Math.round(Math.min(...botoes.map((b) => b.getBoundingClientRect().width))),
+    };
+    for (const id of ids) await AVDB.listRemove('imports', id);
+    await load();
+    return r;
+  });
+  await pg.setViewportSize({ width: 430, height: 900 });
+  await new Promise((f) => setTimeout(f, 150));
+  checar(!estreita.erro && estreita.cabe,
+    'A FILEIRA DA GAVETA CABE NA CAIXA num aparelho de 360px (' + (estreita.soma || '?')
+    + 'px de botões em ' + (estreita.caixa || '?') + 'px) — com `flex-shrink: 0` o '
+    + 'excedente era desenhado por cima da miniatura, sem erro em lugar nenhum',
+    JSON.stringify(estreita));
+  checar(!estreita.erro && estreita.naoInvadeOMais,
+    'e ela não passa por baixo do `⋮`, que é o alvo tocado repetidamente',
+    JSON.stringify(estreita));
+  checar(!estreita.erro && estreita.menorAlvo >= 34,
+    'com todos os quadrados no PISO de toque do app (' + (estreita.menorAlvo || 0)
+    + 'px) — encolher para caber é trocar um defeito por outro',
+    JSON.stringify(estreita));
+} catch (e) {
+  checar(false, 'a medição da fileira estreita terminou sem exceção ('
+    + (e && e.message) + ')');
+  try { await pg.setViewportSize({ width: 430, height: 900 }); } catch (_) {}
+}
+
+// ── "ADICIONAR À PLAYLIST" NA GAVETA DO CRONOGRAMA (v5.301) ──────────────
+//
+// Pedido do operador: *"nas opções dos itens do cronograma, especificamente na
+// gaveta de opções, adicione o botão de 'Adicionar a playlist'"*.
+//
+// Duas metades, e a segunda é a que erra em silêncio: ele ACRESCENTA à fila (o
+// toque no corpo da linha SUBSTITUI, e são ações opostas), e a caixa NÃO FECHA
+// — a resposta dele é o ✓ de `responder()` no próprio botão, e `pulsar` pinta um
+// nó que a caixa fechada (`visibility: hidden`) já tirou da tela.
+try {
+  const pl = await pg.evaluate(async () => {
+    setAppMode('full');
+    activeTab = 'imports';
+    const a = await AVDB.addMedia(new Blob(['p1'], { type: 'audio/mpeg' }),
+      { name: 'Primeiro da fila', type: 'audio/mpeg', kind: 'audio', list: 'playlist' });
+    const m = await AVDB.addMedia(new Blob(['p2'], { type: 'audio/mpeg' }),
+      { name: 'Louvor do culto', type: 'audio/mpeg', kind: 'audio', list: 'imports' });
+    // Uma CENA DE ROTEIRO não recebe o botão: a fila é de reprodução, e o
+    // `onTap` já desvia um cue para longe dela (*"um versículo não é uma fila
+    // de reprodução"*).
+    const cue = await criarCue('message', { msgId: 'zz1', text: 'Aviso' },
+      'Aviso do culto', 'imports', null);
+    await load();
+    const li = document.querySelector('#library .lib-item[data-id="' + m.id + '"]');
+    const lic = cue ? document.querySelector('#library .lib-item[data-id="' + cue.id + '"]') : null;
+    if (!li) return { erro: 'a linha não foi desenhada' };
+    li.querySelector('.row-mais').click();
+    await new Promise((f) => setTimeout(f, 240));
+    const r = {
+      temBotao: !!li.querySelector('.row-acoes .row-playlist'),
+      cueSemBotao: lic ? !lic.querySelector('.row-playlist') : null,
+      antes: (await AVDB.listIds('playlist')).length,
+    };
+    li.querySelector('.row-playlist').click();
+    await new Promise((f) => setTimeout(f, 400));
+    const depois = await AVDB.listIds('playlist');
+    r.entrou = depois.includes(m.id);
+    // ACRESCENTA: o primeiro da fila continua lá. Um `replacePlaylistWith` aqui
+    // apagaria o bloco de louvores que o operador acabou de montar.
+    r.naoSubstituiu = depois.includes(a.id) && depois.length === r.antes + 1;
+    r.caixaSegueAberta = !!document.querySelector(
+      '#library .lib-item[data-id="' + m.id + '"].acoes-abertas');
+    // ---- O BOTÃO DIZ O ESTADO, e o segundo toque TIRA (v5.302) ----
+    // A parte que erra em silêncio é a última: um alternador que só acende
+    // nunca se apaga, e a única forma de desfazer seria abrir a fila e procurar
+    // a linha lá dentro.
+    const pb = document.querySelector(
+      '#library .lib-item[data-id="' + m.id + '"] .row-playlist');
+    r.acendeu = !!pb && pb.classList.contains('on');
+    r.viroucheck = !!pb && /polyline/.test(pb.innerHTML);
+    r.tituloAceso = pb ? pb.title : '';
+    // A METADE ACESSÍVEL do "ele diz o estado": cor e símbolo não chegam a quem
+    // usa leitor de tela, e `aria-pressed` é o que nomeia um alternador.
+    r.pressedAceso = pb ? pb.getAttribute('aria-pressed') : null;
+    pb.click();
+    await new Promise((f) => setTimeout(f, 400));
+    r.saiu = !(await AVDB.listHas('playlist', m.id));
+    const pb2 = document.querySelector(
+      '#library .lib-item[data-id="' + m.id + '"] .row-playlist');
+    r.apagou = !!pb2 && !pb2.classList.contains('on');
+    r.voltouAoMais = !!pb2 && !/polyline/.test(pb2.innerHTML);
+    r.pressedApagado = pb2 ? pb2.getAttribute('aria-pressed') : null;
+    // ---- E O REPINTOR: a fila muda por OUTRA porta e a linha acompanha ----
+    // `replacePlaylistWith` é o toque no corpo de uma linha, e ele SUBSTITUI a
+    // fila. Sem `marcarNaPlaylist` o botão de toda outra linha ficaria dizendo
+    // o que era verdade antes — pior que não dizer nada, porque promete estado.
+    await AVDB.listAdd('playlist', m.id);
+    plItems = await AVDB.listItems('playlist');
+    renderPlaylist();
+    await new Promise((f) => setTimeout(f, 120));
+    r.repintouPorFora = document.querySelector(
+      '#library .lib-item[data-id="' + m.id + '"] .row-playlist').classList.contains('on');
+    await replacePlaylistWith({ id: a.id, name: 'Primeiro da fila' });
+    await new Promise((f) => setTimeout(f, 120));
+    r.substituirApagou = !document.querySelector(
+      '#library .lib-item[data-id="' + m.id + '"] .row-playlist').classList.contains('on');
+    for (const id of await AVDB.listIds('playlist')) await AVDB.listRemove('playlist', id);
+    await AVDB.listRemove('imports', m.id);
+    if (cue) await AVDB.listRemove('imports', cue.id);
+    plItems = await AVDB.listItems('playlist');
+    renderPlaylist();
+    await load();
+    return r;
+  });
+  checar(!pl.erro && pl.temBotao && pl.entrou && pl.naoSubstituiu,
+    'A GAVETA DO CRONOGRAMA GANHOU "Adicionar à playlist" (v5.301), e ele '
+    + 'ACRESCENTA à fila em vez de substituí-la — quem substitui é o toque no '
+    + 'corpo da linha', JSON.stringify(pl));
+  checar(!pl.erro && pl.cueSemBotao === true,
+    'e uma CENA DE ROTEIRO não o recebe: a fila é de reprodução, e o `onTap` já '
+    + 'desvia um cue para longe dela', JSON.stringify(pl));
+  checar(!pl.erro && pl.caixaSegueAberta === true,
+    'a caixa NÃO fecha nele: a resposta é o ✓ no próprio botão, e `pulsar` '
+    + 'pintaria um nó que a caixa fechada já tirou da tela', JSON.stringify(pl));
+  checar(!pl.erro && pl.acendeu && pl.viroucheck && /Tirar/.test(pl.tituloAceso)
+      && pl.pressedAceso === 'true' && pl.pressedApagado === 'false',
+    'e ELE DIZ O ESTADO (v5.302): aceso, com `+` virando `✓`, o rótulo virando '
+    + '"Tirar da playlist" e o `aria-pressed` acompanhando — a pergunta de quem '
+    + 'monta o culto é "está lá?", não "eu mandei?", e cor e símbolo não chegam '
+    + 'a quem usa leitor de tela', JSON.stringify(pl));
+  checar(!pl.erro && pl.saiu && pl.apagou && pl.voltouAoMais,
+    'e o SEGUNDO toque tira da fila: um alternador que só acende nunca se apaga',
+    JSON.stringify(pl));
+  checar(!pl.erro && pl.repintouPorFora && pl.substituirApagou,
+    'e o estado acompanha a fila mudada por OUTRA porta — inclusive o toque no '
+    + 'corpo de uma linha, que a SUBSTITUI (`marcarNaPlaylist`)',
+    JSON.stringify(pl));
+
+  // ── A ORDEM DA FILEIRA É A QUE O OPERADOR DITOU (v5.302) ──────────────────
+  //
+  // *"Excluir, renomear, favoritar, adicionar à playlist, subir e descer."*
+  // Ela agrupa por natureza — o que mexe no ITEM, o que mexe em ONDE ele está,
+  // o que mexe na POSIÇÃO —, e é a mesma nos Favoritos, sem os que não existem
+  // naquela lista. Afirmada como SEQUÊNCIA e não por posições soltas: o defeito
+  // aqui é um botão que troca de vizinho, e só a lista inteira o pega.
+  const ordem = await pg.evaluate(async () => {
+    setAppMode('full');
+    activeTab = 'imports';
+    const ids = [];
+    for (let i = 0; i < 3; i++) {
+      const m = await AVDB.addMedia(new Blob([new Uint8Array(8)], { type: 'audio/mpeg' }),
+        { name: 'Ordem ' + i, type: 'audio/mpeg', kind: 'audio', list: 'imports' });
+      ids.push(m.id);
+    }
+    await load();
+    const li = document.querySelector('#library .lib-item[data-id="' + ids[1] + '"]');
+    if (!li) return { erro: 'a linha não foi desenhada' };
+    li.querySelector('.row-mais').click();
+    await new Promise((f) => setTimeout(f, 240));
+    const nomes = (raiz) => [...raiz.querySelectorAll('.row-btn')]
+      .map((b) => (b.className.match(/row-(excluir|renomear|playlist|ordem)|fav-btn/) || [''])[0]);
+    const r = { cronograma: nomes(li.querySelector('.row-acoes')) };
+    for (const id of ids) await AVDB.listRemove('imports', id);
+    await load();
+    return r;
+  });
+  checar(!ordem.erro && JSON.stringify(ordem.cronograma)
+      === JSON.stringify(['row-excluir', 'row-renomear', 'fav-btn', 'row-playlist',
+        'row-ordem', 'row-ordem']),
+    'A ORDEM DA FILEIRA DO CRONOGRAMA é a ditada (v5.302): excluir · renomear · '
+    + 'favoritar · playlist · ↑ · ↓', JSON.stringify(ordem.cronograma));
+} catch (e) {
+  checar(false, 'a medição do "à playlist" terminou sem exceção ('
+    + (e && e.message) + ')');
+}
+
   checar(!!geo && geo.thumbInteira,
     'a faixa de ações começa DEPOIS da miniatura — ela não corta a capa',
     JSON.stringify(geo));
+  checar(!!geo && geo.temEstrela && geo.fundosDaFaixa.length > 1
+    && new Set(geo.fundosDaFaixa).size === 1
+    && !/rgba\([^)]*,\s*0\)/.test(geo.fundosDaFaixa[0]),
+    'e a ESTRELA é um botão preenchido como os vizinhos dela (v5.288) — chapada '
+    + 'ela era a única peça da fileira sem caixa',
+    JSON.stringify(geo && geo.fundosDaFaixa));
   checar(!!geo && geo.mesmaCaixa && geo.alvo >= 40,
     'e a miniatura e TODOS os botões da linha medem o mesmo (' + (geo ? geo.alvo : 0)
     + 'px) — o alvo cresceu junto', JSON.stringify(geo));
@@ -2106,7 +3413,6 @@ try {
       folha: caixa('#hymnSearchPopup .popup-sheet'),
       barra: caixa('#hymnSearchPopup .hymn-search-bar'),
       lista: caixa('#hymnResults'),
-      cabec: caixa('#hymnSearchPopup .popup-header'),
     });
     setAppMode('full');
     openHymnSearch();
@@ -2126,25 +3432,29 @@ try {
     return { sem, com, visivelTopo, visivelBase };
   });
   const perto = (a, b) => Math.abs(a - b) <= 1;
-  // A BARRA VOLTOU AO TOPO (v5.275, decisão do operador). O que este caso trava
-  // desde a v5.261 continua sendo o mesmo — a folha é a FAIXA VISÍVEL, e a
-  // listagem não é empurrada para fora do topo —, e o que muda é de que lado da
-  // lista a barra está. As duas primeiras asserções são a ORDEM da folha:
-  // cabeçalho, barra, lista; sem elas, uma barra que voltasse para a base
-  // passaria pelo resto do caso sem reprovar nada.
-  checar(!!geo.sem.barra && !!geo.sem.cabec && perto(geo.sem.barra.top, geo.sem.cabec.bottom),
-    'sem teclado, a barra de busca fica no TOPO, logo abaixo do cabeçalho');
+  // A BARRA VOLTOU AO TOPO (v5.275) e, desde a v5.280, ela É o topo: o
+  // cabeçalho saiu. As duas primeiras asserções são a ORDEM da folha — barra,
+  // lista —; sem elas, uma barra que voltasse para a base passaria pelo resto
+  // do caso sem reprovar nada.
+  checar(!!geo.sem.barra && !!geo.sem.folha && perto(geo.sem.barra.top, geo.sem.folha.top),
+    'sem teclado, a barra de busca É o topo da folha');
   checar(!!geo.sem.lista && perto(geo.sem.lista.top, geo.sem.barra.bottom)
     && geo.sem.lista.bottom > geo.sem.barra.bottom,
     'e a lista começa onde ela termina — a rolagem passa por BAIXO dela');
-  checar(!!geo.com.folha && perto(geo.com.folha.top, geo.visivelTopo)
-    && perto(geo.com.folha.bottom, geo.visivelBase),
-    'com o teclado aberto, a folha é a FAIXA VISÍVEL, não a tela inteira');
-  checar(!!geo.com.barra && perto(geo.com.barra.top, geo.com.cabec.bottom),
-    'a barra continua no topo, logo abaixo do cabeçalho — nada a empurra');
-  checar(!!geo.com.cabec && !!geo.com.lista
-    && perto(geo.com.cabec.top, geo.visivelTopo) && perto(geo.com.lista.top, geo.com.barra.bottom),
-    'e a listagem NÃO é deslocada: ela começa logo abaixo da barra, que está no topo do que se vê');
+  // O TECLADO SOBREPÕE E A CAMADA NÃO PERSEGUE NADA (v5.280). A v5.278 fazia a
+  // folha descer junto com a viewport visual para a barra não sair pelo topo; o
+  // operador recusou o mecanismo e nomeou o certo — quem rola é a LISTA, e a
+  // barra está fora dela, então não há scroll de tela a compensar. As duas
+  // metades: a folha não se mexe e não encolhe.
+  checar(!!geo.com.folha && perto(geo.com.folha.top, geo.sem.folha.top),
+    'com o teclado aberto a folha NÃO SE MEXE: ele sobrepõe a tela');
+  checar(!!geo.com.folha && perto(geo.com.folha.height, geo.sem.folha.height),
+    'e ela NÃO ENCOLHE: o teclado não reflui a lista ('
+    + Math.round(geo.sem.folha.height) + 'px → ' + Math.round(geo.com.folha.height) + 'px)');
+  checar(!!geo.com.barra && !!geo.com.lista
+    && perto(geo.com.barra.top, geo.com.folha.top)
+    && perto(geo.com.lista.top, geo.com.barra.bottom),
+    'e a ordem de cima continua colada: folha → barra → lista');
 } catch (e) {
   checar(false, 'a medição da busca com teclado terminou sem exceção (' + (e && e.message) + ')');
 }

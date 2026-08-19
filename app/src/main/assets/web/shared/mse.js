@@ -3,31 +3,28 @@
 //
 // ## O que ele resolve
 //
-// Um vídeo do YouTube tinha dois caminhos, e os dois cobravam caro:
-//
-// - **Baixar antes.** Centenas de MB de espera antes do primeiro quadro.
-// - **O player embutido.** Ele traz a UI dele junto — a rodinha de
-//   carregamento, o botão grande na pausa, a tela final —, e `controls: 0` não
-//   desliga nada disso porque não são *controles*. Num telão de culto isso
-//   aparece.
+// Um vídeo do YouTube tinha dois caminhos, e os dois cobravam caro: BAIXAR
+// ANTES (centenas de MB de espera antes do primeiro quadro) ou o PLAYER
+// EMBUTIDO, que traz a UI dele junto — rodinha, botão grande na pausa, tela
+// final —, e `controls: 0` não desliga nada disso porque não são *controles*.
+// Num telão de culto isso aparece.
 //
 // Aqui o vídeo vira um `<video>` COMUM alimentado por `MediaSource`. Daí para a
-// frente ele é mídia como qualquer outra do app: fade, cortina, `MediaSession`,
-// barra de progresso, segundo plano — tudo o que já funciona, sem um pixel de
-// YouTube no telão.
+// frente é mídia como qualquer outra: fade, cortina, `MediaSession`, barra e
+// segundo plano, sem um pixel de YouTube no telão.
 //
 // ## Por que isto é nosso, contra a regra do projeto
 //
-// A regra diz para não reimplementar em casa o que uma biblioteca faz. Aqui não
-// há alternativa aplicável: um player DASH de prateleira (dash.js, Shaka) é
-// centenas de kB de terceiro para resolver um caso — duas faixas, um perfil,
-// sem DRM, sem múltiplas qualidades, sem legenda. O que este arquivo faz é
-// muito menos que um player DASH: **não** troca de qualidade, **não** lê MPD,
-// **não** faz ABR. Ele lê um `sidx`, pede pedaços e os entrega ao navegador.
+// A regra diz para não reimplementar o que uma biblioteca faz. Aqui não há
+// alternativa aplicável: um player DASH de prateleira (dash.js, Shaka) são
+// centenas de kB de terceiro para um caso — duas faixas, um perfil, sem DRM,
+// sem múltiplas qualidades, sem legenda. Este arquivo faz muito menos que um
+// player DASH: **não** troca de qualidade, **não** lê MPD, **não** faz ABR. Ele
+// lê um `sidx`, pede pedaços e os entrega ao navegador.
 //
 // O preço está declarado: isto é superfície NOSSA. Por isso cada ponto de falha
-// avisa quem chamou (`onErro`), e quem chamou tem para onde cair — o download
-// ou o player embutido continuam existindo, inteiros.
+// avisa quem chamou (`onErro`), e quem chamou tem para onde cair — o download e
+// o player embutido continuam existindo, inteiros.
 //
 // ## O que ele NÃO faz
 //
@@ -455,7 +452,25 @@
             return;
           }
         }
-        bombear();
+        // `aoBuscar()` E NÃO `bombear()` — ela termina chamando `bombear()`, e o
+        // que ela acrescenta é reaplicar a POSIÇÃO CORRENTE do elemento agora
+        // que TODOS os `f.segs` existem.
+        //
+        // O seek do `startAt` cai exatamente na janela em que eles não existem.
+        // O `stage` registra a posição num `loadedmetadata` `{once:true}`, e com
+        // duas faixas o `loadedmetadata` da MSE dispara assim que os DOIS
+        // segmentos de inicialização foram appendados — isto é, no meio da
+        // segunda volta deste `for`, quando a faixa de vídeo já tem `segs` e a
+        // de áudio ainda não. `aoBuscar` começa com `if (!f.segs) return`, então
+        // aquele seek era DESCARTADO em silêncio para a faixa atrasada: o vídeo
+        // reposicionava e o áudio baixava do segundo ZERO. Como o elemento só
+        // sai de HAVE_METADATA com dado em TODAS as faixas na posição corrente,
+        // a projeção ficava parada até o áudio percorrer o trecho inteiro.
+        //
+        // Ele morde no caminho mais caro que este player tem: a reconexão do
+        // telão (`resendSceneToDisplay` reenvia `load` com `time`) e a aplicação
+        // de um OTA, que recarrega as duas páginas com a cena no ar.
+        aoBuscar();
         tick = setInterval(bombear, TICK_MS);
       } catch (e) {
         morrer((e && e.message) || 'início');

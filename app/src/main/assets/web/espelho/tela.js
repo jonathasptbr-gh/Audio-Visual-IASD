@@ -3,12 +3,11 @@
 // (TELÃO POR COMANDOS, E3 — docs/TELAO-POR-COMANDOS.md §3.4)
 //
 // UMA PÁGINA SÓ, e isso não é preferência: `requestFullscreen()` e sair do
-// `muted` exigem ativação transitória do usuário, o gesto vale segundos e NÃO
-// SOBREVIVE A UMA NAVEGAÇÃO. Uma página de entrada que navegasse ao display
-// perderia o gesto, e a tela entraria muda e em janela — exatamente o que a
-// v5.186 existe para impedir. Então a entrada é um OVERLAY por cima do display
-// ainda vazio, e o botão de conectar gasta o único gesto do visitante fazendo
-// as três coisas: entra (POST /par), liga o som e vai a tela cheia.
+// `muted` exigem ativação transitória do usuário, que vale segundos e **NÃO
+// SOBREVIVE A UMA NAVEGAÇÃO** — uma página de entrada que navegasse ao display
+// perderia o gesto, e a tela entraria muda e em janela. A entrada é um OVERLAY
+// sobre o display ainda vazio, e o botão gasta o único gesto do visitante nas
+// três coisas de uma vez: entra (POST /par), liga o som e vai a tela cheia.
 //
 // ## A ordem de carga é o contrato
 //
@@ -21,14 +20,13 @@
 // ## O dreno de SUBIDA é lista de PERMISSÃO
 //
 // Cada /display/ emite display-status a ~4 Hz, media-ended, mic-status e
-// diag-dump — e N telas emitindo isso de volta ao celular é exatamente o
-// problema que o dreno do papel espelho resolvia na direção oposta:
-// media-ended dobrado dá um segundo load em repeat-one; mic-status
-// 'unsupported' (não há getUserMedia em http) apagaria o estado do microfone
-// VERDADEIRO; diag-dump duplo faz o Registro mostrar o diário de um sem dizer
-// qual. Sobem exatamente DUAS coisas: `display-ready` (é o que faz o Controle
-// reenviar a cena — v5.140) e `display-status` RENOMEADO `tela-status`, com o
-// id desta tela. Tipo novo nasce mudo por construção.
+// diag-dump, e N telas mandando isso de volta ao celular quebra a suposição de
+// que há UM telão: media-ended dobrado dá um segundo load em repeat-one;
+// mic-status 'unsupported' (não há getUserMedia em http) apagaria o estado do
+// microfone VERDADEIRO; diag-dump duplo faz o Registro mostrar o diário de um
+// sem dizer qual. Sobem DUAS coisas: `display-ready` (o que faz o Controle
+// reenviar a cena) e `display-status` RENOMEADO `tela-status`, com o id desta
+// tela. Tipo novo nasce mudo por construção.
 //
 // ## O que este arquivo NÃO faz
 //
@@ -38,10 +36,9 @@
 // de verdade e no navegador de desenvolvimento ele não existe.
 //
 // O papel é marcado pela `<meta name="av-tela">` que o SERVIDOR injeta em toda
-// página que entrega (v1.92), com `?tela=1` na query como caminho de recuo para
-// shell antigo — nesta ordem, e a inversão importa: a query era o marcador
-// ÚNICO até a v5.204, e ela chega por um 302 que um navegador de TV pode não
-// preservar. Ver a guarda logo abaixo.
+// página que entrega, com `?tela=1` como recuo para shell antigo — **nesta
+// ordem**: a query chega por um 302 que um navegador de TV pode não preservar,
+// e enquanto ela foi o marcador ÚNICO a tela abria como um /display/ comum.
 // ============================================================================
 (function (global) {
   'use strict';
@@ -556,65 +553,47 @@
   // --------------------------------------------------------------------------
   // A ENTRADA — UM BOTÃO, e o gesto que ele gasta (v5.189)
   //
-  // Não há mais código a digitar: a porta é o ENDEREÇO deste celular nesta
-  // rede (ver a invariante 5 do `EspelhoPares`). Sobra a única coisa que o
-  // navegador não deixa o app fazer sozinho — `requestFullscreen()` e sair do
-  // `muted` exigem ativação transitória do usuário —, e é por isso que ainda
-  // existe um toque: ele não é uma senha, é o gesto.
+  // Não há código a digitar: a porta é o ENDEREÇO deste celular nesta rede (ver
+  // a invariante 5 do `EspelhoPares`). Sobra a única coisa que o navegador não
+  // deixa o app fazer sozinho — `requestFullscreen()` e sair do `muted` exigem
+  // ativação transitória do usuário. O toque não é senha, é o gesto.
   //
-  // ## Duas formas, e a diferença é se há mídia no ar
+  // Duas formas, e a diferença é se há mídia no ar:
   //
-  // • **Nada tocando** (a primeira carga da página): o overlay CHEIO, porque
-  //   não há nada por baixo para ele cobrir.
-  // • **Sessão viva no `sessionStorage`** (recarga no meio do culto): o
-  //   fluxo recomeça NA HORA, por trás, e o toque é oferecido por um botão
-  //   discreto de canto — cobrir a projeção com um cartaz seria trocar um
-  //   problema por outro.
+  // • **Nada tocando** (primeira carga): o overlay CHEIO, porque não há nada por
+  //   baixo para ele cobrir.
+  // • **Sessão viva no `sessionStorage`** (recarga no meio do culto): o fluxo
+  //   recomeça NA HORA, por trás, e o toque é oferecido por um botão discreto de
+  //   canto — cobrir a projeção com um cartaz seria trocar um problema por outro.
   //
-  // E uma queda de conexão não desenha nada: ela reentra sozinha (não há
-  // segredo a pedir), e a mídia que estiver tocando continua até o fim.
-  // --------------------------------------------------------------------------
-  // O DESENHO É O DO APP (v5.193), e ele não era.
+  // Uma queda de conexão não desenha nada: reentra sozinha (não há segredo a
+  // pedir) e a mídia que estiver tocando continua até o fim.
   //
-  // A entrada nasceu na v5.189 como um botão de estilo inline com valores de
-  // emergência escritos à mão — inclusive um `var(--accent-fill, #8a6d1d)` cujo
-  // fallback é o ÂMBAR que a v5.192 aposentou. Como o `tokens.css` é servido
-  // junto (esta casca roda dentro do próprio `display/index.html`), o token
-  // resolvia e o âmbar nunca aparecia: um valor errado invisível, esperando o
-  // dia em que a folha não carregasse.
+  // O DESENHO É O DO APP (v5.193). Esta é a PRIMEIRA coisa que alguém vê num
+  // televisor da igreja, e mostrava um botão solto num retângulo escuro, sem
+  // dizer de que sistema era. Hoje ela veste o wallpaper do telão (fonte única
+  // em `shared/wallpaper-padrao.svg`), diz o nome do sistema e o que o toque
+  // faz, e usa a anatomia dos botões principais: pílula em `--accent-fill` com
+  // `--on-accent` e o mesmo `--press` do resto.
   //
-  // Mas o problema maior não era a cor de emergência, e sim o que a tela É: ela
-  // é a PRIMEIRA coisa que alguém vê num televisor da igreja, e mostrava um
-  // botão solto no meio de um retângulo escuro, sem dizer de que sistema ele
-  // era nem o que ia acontecer. Agora ela veste o mesmo wallpaper do telão (o
-  // símbolo oficial da IASD, fonte única em `shared/wallpaper-padrao.svg`), diz
-  // o nome do sistema, o que o toque faz, e usa a anatomia dos botões
-  // principais do app: pílula preenchida em `--accent-fill` com `--on-accent`
-  // por cima, e o mesmo recuo de toque (`--press`) do resto.
+  // AS REGRAS DA ENTRADA NÃO MORAM AQUI: são `espelho/tela.css`, carregada pelo
+  // `display/index.html` (v5.205). Até a v5.204 este bloco montava um `<style>`
+  // em runtime, com o argumento de que "uma folha a mais pesaria nos TRÊS papéis
+  // para servir a um". **O argumento era plausível e estava errado**, e o preço
+  // foi a tela da rede não conectar: a página servida pelo celular leva
+  // `default-src 'self'` sem `style-src` (`EspelhoHttp.CABECALHOS_PAGINA`), e um
+  // `<style>` de runtime exige `'unsafe-inline'`. O navegador ANEXA o elemento e
+  // não aplica nada — o `#telaEntrada` virava um bloco sem posição no fim do
+  // `<body>`, debaixo da camada fixa do wallpaper: invisível e inclicável, sem
+  // um erro sequer. O custo real da folha, medido, é uma requisição de 3 kB ao
+  // MESMO origin, inerte nos outros dois papéis (todo seletor está sob
+  // `#telaEntrada`).
   //
-  // AS REGRAS DA ENTRADA NÃO MORAM MAIS AQUI: elas são `espelho/tela.css`,
-  // carregada pelo `display/index.html` (v5.205).
-  //
-  // Até a v5.204 este bloco montava um `<style>` em runtime, e o argumento
-  // escrito era: "uma folha a mais no `<head>` pesaria nos TRÊS papéis para
-  // servir a um; aqui ela nasce só quando a entrada é montada". **O argumento
-  // era plausível e estava errado**, e o preço foi a tela da rede não conectar:
-  // a página servida pelo celular leva `default-src 'self'` sem `style-src`
-  // (`EspelhoHttp.CABECALHOS_PAGINA`), e um `<style>` criado em runtime exige
-  // `'unsafe-inline'`. O navegador ANEXA o elemento e não aplica nada — o
-  // `#telaEntrada` virava um bloco sem posição no fim do `<body>`, debaixo da
-  // camada fixa do wallpaper: invisível e inclicável, sem um erro sequer.
-  //
-  // O custo real da folha, medido em vez de suposto, é uma requisição de 3 kB
-  // ao MESMO origin, e ela é inerte nos outros dois papéis (todo seletor está
-  // sob `#telaEntrada`, que só esta casca cria). O custo do `<style>` era o
-  // recurso não funcionar.
-  //
-  // **A regra que fica, e ela é do papel `tela` inteiro: nas telas da rede não
-  // existe estilo embutido.** `element.style.x = y` (CSSOM) continua valendo —
-  // a CSP não o barra —, mas `<style>` criado em runtime e atributo `style=`
+  // **A REGRA QUE FICA, e vale para o papel `tela` inteiro: nas telas da rede
+  // não existe estilo embutido.** `element.style.x = y` (CSSOM) continua valendo
+  // — a CSP não o barra —, mas `<style>` criado em runtime e atributo `style=`
   // dentro de HTML injetado, não. O irmão deste defeito era o indicador de
-  // espera do `shared/stage.js`, achado na mesma varredura e corrigido junto.
+  // espera do `shared/stage.js`, corrigido na mesma varredura.
 
 
   function montarEntrada() {
@@ -727,24 +706,21 @@
   //
   // Sair da tela cheia é UM toque na tecla errada de um controle remoto, e a
   // tela precisa de um caminho de volta que NÃO derrube a projeção. São dois, e
-  // os dois são gestos que já existem na cabeça de quem está ali: o TOQUE DUPLO
-  // (o que todo mundo tenta primeiro num vídeo) e o F11 (o que todo mundo usa
-  // num navegador de computador — e este recurso roda, quase sempre, num PC
-  // ligado ao projetor).
+  // os dois já existem na cabeça de quem está ali: o TOQUE DUPLO (o que se tenta
+  // primeiro num vídeo) e o F11 (num navegador de computador — e este recurso
+  // roda, quase sempre, num PC ligado ao projetor).
   //
-  // O QUE SAIU DAQUI, e por quê: até a v5.216 havia um botão discreto de canto
-  // que aparecia quando faltava som ou tela cheia e se recolhia em 5 s. Ele
-  // existia para devolver o gesto perdido numa RECARGA — e a recarga passou a
-  // voltar para a entrada oficial (ver `iniciar`), que é o mesmo botão do
-  // primeiro acesso e diz o que faz. Com isso o botão de canto ficou sem razão
-  // de existir: um segundo controle, com outro nome e outro desenho, para a
-  // mesma decisão. Saíram com ele o `oQueFalta`/`oferecerGesto` (a pergunta que
-  // ninguém mais faz) e o `assentando` da v5.214, que era só o guarda daquela
-  // pergunta — a regra que ele protegia continua escrita no `telaCheia` acima.
+  // O QUE SAIU DAQUI: até a v5.216 havia um botão discreto de canto que aparecia
+  // quando faltava som ou tela cheia. Ele existia para devolver o gesto perdido
+  // numa RECARGA — e a recarga passou a voltar para a entrada oficial (ver
+  // `iniciar`), que é o mesmo botão do primeiro acesso. Saíram com ele o
+  // `oQueFalta`/`oferecerGesto` (a pergunta que ninguém mais faz) e o
+  // `assentando` da v5.214, que era só o guarda daquela pergunta — a regra que
+  // ele protegia continua escrita no `telaCheia` acima.
   //
   // `preventDefault` no F11 é deliberado: sem ele o navegador entra na tela
-  // cheia DELE (a de janela) ao mesmo tempo em que nós pedimos a da API, e sair
-  // passa a exigir dois comandos. Um dono só para o estado.
+  // cheia DELE ao mesmo tempo em que pedimos a da API, e sair passa a exigir
+  // dois comandos. Um dono só para o estado.
   // --------------------------------------------------------------------------
   function ligarGestosDeTela() {
     doc.addEventListener('dblclick', function () { gastarGesto(); });
@@ -828,31 +804,24 @@
   // TODA CARGA COMEÇA NA ENTRADA OFICIAL (v5.218) — decisão do operador, e ela
   // REVOGA a metade da v5.189 que mandava a recarga reconectar por trás.
   //
-  // O argumento da v5.189 era bom para o caso dele: numa QUEDA DE FIO a mídia
-  // continua tocando (ela é local, `/m/`, e a letra anda pelo `timeupdate` do
-  // próprio `<video>`), então cobrir a projeção com um cartaz apagaria uma cena
-  // que o problema não tinha atingido. **Isso continua valendo e não mudou** —
-  // `cairToken`/`reentrarSozinho` seguem silenciosos.
+  // A distinção é entre perder o FIO e perder a PÁGINA. Numa QUEDA DE FIO a
+  // mídia continua tocando (é local, `/m/`, e a letra anda pelo `timeupdate` do
+  // próprio `<video>`), então cobrir a projeção apagaria uma cena que o problema
+  // não atingiu — `cairToken`/`reentrarSozinho` seguem silenciosos.
   //
-  // Uma RECARGA é outra coisa: ela já derrubou tudo. O documento morreu, o
-  // `<video>` morreu, a cena saiu da tela e — o que importa aqui — o GESTO
-  // morreu com eles, porque ativação transitória não sobrevive a uma navegação.
-  // A tela volta muda e em janela de qualquer jeito. Não há projeção a
-  // preservar, e portanto não há nada que a entrada esteja cobrindo.
+  // Uma RECARGA já derrubou tudo: o documento, o `<video>`, a cena, e o GESTO
+  // junto, porque ativação transitória não sobrevive a uma navegação. A tela
+  // volta muda e em janela de qualquer jeito, então não há projeção a preservar.
+  // O certo é o botão que o visitante já conhece — o MESMO do primeiro acesso —
+  // e não um segundo controle, de canto, com outro nome.
   //
-  // Sendo assim, o certo é o botão que o visitante já conhece — o MESMO do
-  // primeiro acesso, que diz o que faz e devolve as três coisas num toque — e
-  // não um segundo controle, de canto, com outro nome (era o que fazia o
-  // "Ativar som e tela cheia" ser um estranho na tela).
-  //
-  // O TOKEN É CARREGADO ADIANTE, e isso não contradiz "a recarga desconecta":
-  // o fio só é aberto quando o visitante toca. O que ele evita é o teto de três
-  // telas — `telasSse` é indexado pelo TOKEN (`EspelhoServidor`), então pedir
-  // pareamento novo a cada F5 deixaria a sessão anterior ocupando vaga até o
-  // vigia notá-la, e a terceira recarga seguida receberia "lotado". Com o token
-  // reaproveitado, o servidor reconhece a volta ("a mesma tela reabriu a
-  // página") e a vaga é a mesma. Se ele tiver morrido, o `laco()` recebe 404 e
-  // a reentrada silenciosa pede outro — o caminho que já existia.
+  // O TOKEN É CARREGADO ADIANTE, e isso não contradiz "a recarga desconecta": o
+  // fio só abre quando o visitante toca. O que ele evita é o teto de três telas
+  // — `telasSse` é indexado pelo TOKEN, então pedir pareamento novo a cada F5
+  // deixaria a sessão anterior ocupando vaga até o vigia notá-la, e a terceira
+  // recarga seguida receberia "lotado". Com o token reaproveitado o servidor
+  // reconhece a volta e a vaga é a mesma; se ele tiver morrido, o `laco()`
+  // recebe 404 e a reentrada silenciosa pede outro.
   function iniciar() {
     // O AVDB já existe (db.js carrega antes do DOM pronto) — o embrulho do
     // acervo entra aqui, uma vez.

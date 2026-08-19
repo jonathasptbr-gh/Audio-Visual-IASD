@@ -1,98 +1,56 @@
 // ============================================================================
 // SÉRIES DO YOUTUBE — a regra que decide o que entra num álbum da Biblioteca
 //
-// Uma "série" é um canal do YouTube que publica UM episódio por semana e
-// organiza o ano em playlists por PERÍODO. O primeiro caso é o Provai e Vede
-// (@provaievedeoficial), mas nada aqui é sobre ele: o que o módulo sabe é
-// "prefixo + ano + período", e um catálogo com uma linha a mais dá uma série
-// nova sem código novo.
+// Uma "série" é um canal que publica UM episódio por semana e organiza o ano em
+// playlists por PERÍODO. Nada aqui é sobre um canal específico: o módulo sabe
+// "prefixo + ano + período", e uma linha a mais no catálogo dá uma série nova
+// sem código novo. O desenho completo está em "Séries do YouTube" no CLAUDE.md.
 //
-// A segunda série provou isso e cobrou o preço (v5.244). O **Informativo
-// Mundial das Missões** (@daniellocutor) tem a MESMA natureza — um episódio por
-// sábado, o ano inteiro num álbum — e mesmo assim quebrou três suposições que
-// só pareciam universais porque havia uma série só:
+// ## Por que é um arquivo à parte, e PURO
 //
-//  1. **A playlist é do TRIMESTRE, não do mês.** "Informativo | 3º Trimestre
-//     2026" traz 13 episódios de julho a setembro. Daí o campo [periodo]: quem
-//     dá o mês de cada item continua sendo a data do TÍTULO, e o período só
-//     ordena as playlists e serve de piso para quem não declarar data.
-//  2. **O título não tem nome de episódio.** "Informativo Mundial das Missões |
-//     15 AGOSTO 2026" é a série mais a data, e a história ("O Sonho de Enoc")
-//     vive na MINIATURA. Herdar o "o nome é o que vem antes da barra" do Provai
-//     e Vede daria 52 linhas idênticas dizendo "Informativo Mundial das
-//     Missões" — a metade que não distingue nada ocupando a largura da lista,
-//     que é exatamente o que [tituloDoEpisodio] existe para evitar. Daí o campo
-//     [titulo].
-//  3. **O canal publica a MESMA série em quatro idiomas.** Ver a armadilha 7.
-//
-// Nenhuma das três é um `if` por série: são campos declarados no catálogo, e a
-// terceira nem isso — ela virou uma recusa global, ao lado da de Libras.
-//
-// ## Por que isto é um arquivo à parte, e PURO
-//
-// Ele não toca no DOM, não faz rede e não conhece o `controle.js`. Duas razões,
-// e as duas são deste projeto:
-//
+// Não toca no DOM, não faz rede, não conhece o `controle.js`.
 //  1. **É ele que decide o que vai ao telão.** Um erro aqui não é pixel errado:
-//     é o vídeo errado — ou o mês inteiro ausente — na frente da congregação, e
-//     sem nada que o denuncie. Coisa assim tem oráculo (`tools/serie.test.mjs`,
-//     Node puro, no `apk.yml` **sem `continue-on-error`**).
-//  2. **A decisão é de CONTEÚDO, então ela é do lado web** (invariante 5). O
-//     shell só entrega listas cruas (`ytCanalPlaylists`/`ytPlaylist`); quem
-//     olha para os nomes é este arquivo. Escrever a regra em Kotlin custaria um
-//     degrau de `SHELL_VERSION` a cada ajuste de nomenclatura do canal — e a
-//     nomenclatura de um canal muda sem avisar ninguém, que é exatamente o que
-//     as armadilhas abaixo provam.
+//     é o vídeo errado — ou o mês inteiro ausente — na frente da congregação,
+//     sem nada que o denuncie. Daí o oráculo (`tools/serie.test.mjs`, Node
+//     puro, no `apk.yml` **sem `continue-on-error`**).
+//  2. **A decisão é de CONTEÚDO, então é do lado web** (invariante 5). O shell
+//     só entrega listas cruas; escrever isto em Kotlin custaria um degrau de
+//     `SHELL_VERSION` a cada ajuste de nomenclatura — e a nomenclatura de um
+//     canal muda sem avisar, que é o que as armadilhas abaixo provam.
 //
-// ## As armadilhas, medidas nos prints dos canais (v5.228, v5.230, v5.244)
-//
-// Nenhuma delas é hipótese: todas aparecem na aba Playlists ou na aba Vídeos de
-// um dos dois canais, e cada uma quebraria a regra ÓBVIA em silêncio.
-//
-//  1. **O HÍFEN NÃO É GARANTIDO.** As playlists são "Provai e Vede - Agosto
-//     2026", mas uma delas é "Provai e Vede Agosto 2026" (sem o hífen). Um
-//     `^Provai e Vede - ` teria descartado a playlist inteira, e o mês sumiria
-//     da Biblioteca sem erro nenhum. Daí a regra não casar SEPARADOR nenhum:
-//     ela pede o prefixo no começo e depois procura mês e ano **em qualquer
-//     posição**. O hífen é opcional por construção, não por um `?` no lugar
-//     certo — que é o que sobrevive à próxima variação.
-//  2. **ESPAÇO DUPLO.** "Provai e Vede  2026 (15/Ago)" — dois espaços, nos dois
-//     vídeos daquele sábado. Toda comparação passa por [normalizar], que
-//     colapsa espaço.
-//  3. **O MARCADOR DE LIBRAS MUDA DE FORMA ENTRE OS DOIS NÍVEIS:** `(Libras)`
-//     na playlist, `- Libras` no vídeo. Testar qualquer uma das duas formas
-//     literais deixa a outra passar. O teste é pela PALAVRA, sem acento e sem
-//     caixa, e cobre as duas mais a próxima.
-//  4. **A DURAÇÃO NÃO SEPARA NADA:** 4:54 × 4:55 num par e 5:07 × 5:07 noutro.
-//     Se alguém pensar em desempatar por duração, não dá — está dito aqui para
-//     não ser tentado de novo.
-//  5. **O `uploaderName` NÃO É O CANAL:** os vídeos vêm creditados como
-//     "Provai e Vede | Oficial e Adventist…" (colaboração entre canais).
-//     Filtrar por essa string derrubaria tudo, então ela não é consultada.
-//  6. **A DATA TEM DUAS FORMAS, e o mesmo episódio usa as duas** — a compacta
-//     "(03/Jan)" e a por extenso "sábado 3 janeiro". Está documentada onde ela
-//     é tratada, em [dataDoVideo]. O @daniellocutor acrescentou uma terceira
-//     escrita da MESMA forma por extenso ("15 AGOSTO 2026"), que a regra já
-//     lia — ver lá.
-//  7. **UM CANAL PUBLICA A MESMA SÉRIE EM VÁRIOS IDIOMAS**, e a aba Playlists
-//     do @daniellocutor os põe lado a lado: "Informativo | 3º Trimestre 2026"
-//     (português), "Misiones | 3º Trimestre 2026" (espanhol), "Mission Stories
-//     | 2º Quarter 2026" (inglês) e "【聖工消息】2026 第三季" (chinês). O
-//     prefixo separa as playlists — mas ele NÃO separa os vídeos: em espanhol
-//     eles se chamam "Informativo Mundial **de las Misiones**", isto é, começam
-//     com a mesma palavra. Daí [ehOutroIdioma], que é o irmão do [ehLibras] e
-//     está pelo mesmo motivo: um único vídeo posto por engano na playlist de
-//     português iria ao telão do culto num idioma que a congregação não fala,
-//     e não há nada no id, na duração ou na miniatura que o denuncie.
-//
-// ## A regra de ouro deste arquivo
+// ## A REGRA DE OURO
 //
 // **Quem prova pertencimento é a PLAYLIST; o título é só rótulo.** Um vídeo
-// entra por estar numa playlist aceita — nunca por casar um padrão de título.
-// A data `(15/Ago)` serve para ORDENAR e para nomear, e quando ela não casa o
-// vídeo entra do mesmo jeito, com a ordem em que veio. Errar para o lado de um
-// nome feio é recuperável; errar para o lado de um episódio ausente é o
-// operador descobrindo no sábado que o vídeo do culto não está lá.
+// entra por estar numa playlist aceita, nunca por casar um padrão de título — e
+// não casando a data, ele entra do mesmo jeito, na ordem em que veio. Errar
+// para o lado de um nome feio é recuperável; errar para o lado de um episódio
+// ausente é o operador descobrindo no sábado que o vídeo do culto não está lá.
+//
+// ## As armadilhas, LIDAS nas abas dos canais (nenhuma é hipótese)
+//
+//  1. **O HÍFEN NÃO É GARANTIDO** — uma playlist é "Provai e Vede Agosto 2026",
+//     sem o hífen que todas as outras têm. Por isso a regra não casa SEPARADOR:
+//     pede o prefixo no começo e procura mês e ano em QUALQUER posição.
+//  2. **ESPAÇO DUPLO.** Tudo passa por [normalizar].
+//  3. **O MARCADOR DE LIBRAS MUDA DE FORMA ENTRE OS NÍVEIS:** `(Libras)` na
+//     playlist, `- Libras` no vídeo — testar uma das formas literais deixa a
+//     outra passar. O teste é pela PALAVRA, sem acento e sem caixa.
+//  4. **A DURAÇÃO NÃO SEPARA NADA** (4:54 × 4:55 num par, 5:07 × 5:07 noutro):
+//     está dito aqui para ninguém ser tentado a desempatar por ela.
+//  5. **O `uploaderName` NÃO É O CANAL** — os vídeos vêm creditados como
+//     colaboração ("… | Oficial e Adventist…"). Filtrar por ele derruba tudo.
+//  6. **A DATA TEM DUAS FORMAS, e o mesmo episódio usa as duas** — ver
+//     [dataDoVideo], onde ela é tratada.
+//  7. **UM CANAL PUBLICA A MESMA SÉRIE EM VÁRIOS IDIOMAS**, e o prefixo separa
+//     as PLAYLISTS mas NÃO os vídeos (em espanhol eles começam com a mesma
+//     palavra). Daí [ehOutroIdioma], irmão do [ehLibras] e pelo mesmo motivo:
+//     um vídeo posto por engano na playlist de português iria ao telão do culto
+//     num idioma que a congregação não fala, e nada no id, na duração ou na
+//     miniatura o denuncia.
+//
+// Os campos [periodo] e [titulo] existem porque a segunda série desmentiu duas
+// suposições que só pareciam universais com uma série só (playlist trimestral;
+// título SEM nome de episódio). Nenhuma delas é um `if` por série.
 //
 // **A exceção da regra de ouro é o IDIOMA, e ela é declarada em vez de
 // escorregar:** [ehLibras] e [ehOutroIdioma] recusam pelo TÍTULO, contra tudo o

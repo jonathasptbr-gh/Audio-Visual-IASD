@@ -40,7 +40,7 @@ No CI, cada push gera um APK automaticamente; uma tag `v*` publica uma Release.
 
 - [`CLAUDE.md`](CLAUDE.md) — arquitetura do shell nativo, a ponte `AVNative`,
   invariantes e as divergências entre o caminho web e o nativo.
-- [`docs/ARQUITETURA-WEB.md`](docs/ARQUITETURA-WEB.md) — arquitetura completa
+- [`docs/ARQUITETURA-WEB.md`](docs/ARQUITETURA-WEB.md) — hub da arquitetura da base web (capítulos em `docs/arquitetura/`)
   da base web (`app/src/main/assets/web/`).
 - [`docs/FONTE-DE-DADOS-LOUVORJA.md`](docs/FONTE-DE-DADOS-LOUVORJA.md) —
   referência do banco público usado para hinos, álbuns e Bíblia.

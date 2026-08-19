@@ -491,6 +491,58 @@ checar(fonteTelao > 0 && fonteEspelho === fonteTelao,
   'a letra do espelho (961×540) tem EXATAMENTE o tamanho da do telão (960×540) — a densidade 213 dpi está certa',
   fonteEspelho + 'px vs ' + fonteTelao + 'px');
 
+// 7-B. A CORTINA NÃO ENGOLE A CAMADA DE TEXTO.
+//
+//    O stage decide a cortina sozinho em três pontos que não sabiam do cartão
+//    de texto — o fim natural da mídia, o `play()` e o fim de um `load` —, e o
+//    wallpaper (z-index 3) fica ACIMA do cartão (z-index 2). O caso é o que a
+//    independência áudio × texto existe para permitir: um louvor de fundo com
+//    a contagem regressiva de abertura projetada por cima. A música acaba
+//    sozinha, o `ended` do stage roda, e 400 ms depois a cortina cobria o
+//    cronômetro — com `textActive` ainda true, o `display-status` ainda
+//    dizendo `view: 'visual'` e a lista do Controle ainda desenhando "● No ar".
+//    Nenhum sinal, em lugar nenhum, de que a projeção tinha mudado.
+//
+//    A mídia é um ÁUDIO SEM LETRA de propósito: é o caso em que `semVisual()`
+//    responde true, isto é, aquele em que a cortina fecharia mesmo sem o fim
+//    natural. Sem essa escolha o caso passaria pelo motivo errado.
+try {
+  const cortina = await telao.evaluate(async () => {
+    const m = await AVDB.addMedia(new Blob([new Uint8Array(64)], { type: 'audio/mpeg' }),
+      { name: 'Louvor de fundo', type: 'audio/mpeg', kind: 'audio' });
+    const bc = new BroadcastChannel('av-iasd');
+    bc.postMessage({ type: 'load', mediaId: m.id, view: 'visual', muted: true, volume: 0 });
+    await new Promise((f) => setTimeout(f, 900));
+    bc.postMessage({ type: 'text', mode: 'message', main: 'CONTAGEM REGRESSIVA', sub: '', view: 'visual' });
+    await new Promise((f) => setTimeout(f, 700));
+    const wp = () => getComputedStyle(document.querySelector('.wallpaper')).display;
+    const r = { comTexto: wp() };
+    // O FIM NATURAL da música, pelo evento de verdade que o stage escuta.
+    const v = document.querySelector('video');
+    if (v) v.dispatchEvent(new Event('ended'));
+    await new Promise((f) => setTimeout(f, 1400));
+    r.depoisDoFim = wp();
+    r.textoNaTela = document.getElementById('textMain').textContent;
+    bc.postMessage({ type: 'text-hide' });
+    await new Promise((f) => setTimeout(f, 900));
+    // E SAINDO O TEXTO a cortina VOLTA: sem esta metade, "nunca cobrir" passaria.
+    r.depoisDeTirarOTexto = wp();
+    bc.close();
+    return r;
+  });
+  checar(cortina.comTexto === 'none',
+    'com a Camada de Texto em cena (view visual) a cortina fica ABERTA',
+    JSON.stringify(cortina));
+  checar(cortina.depoisDoFim === 'none' && cortina.textoNaTela === 'CONTAGEM REGRESSIVA',
+    'e o FIM NATURAL do louvor de fundo não fecha a cortina por cima dela — o '
+    + 'stage sabe que há um cartão acima dele', JSON.stringify(cortina));
+  checar(cortina.depoisDeTirarOTexto === 'flex',
+    'e tirando o texto do ar a cortina volta: o overlay é declarado e retirado, '
+    + 'não é um "nunca cobrir"', JSON.stringify(cortina));
+} catch (e) {
+  checar(false, 'a medição da cortina x Camada de Texto terminou sem exceção (' + (e && e.message) + ')');
+}
+
 // 8. E nada disso pode ter custado um erro de console — a mesma régua da
 //    fumaça do Controle.
 checar(erros.length === 0, 'nenhum erro de console no telão', erros.join(' · '));

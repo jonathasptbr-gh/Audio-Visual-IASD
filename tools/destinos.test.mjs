@@ -105,7 +105,7 @@ try {
   });
 
   // ---- O caminho de UM destino continua igual ----
-  await pg.evaluate((id) => adicionarNaLista('imports', id, 'Louvor de teste', null), idMidia);
+  await pg.evaluate((id) => adicionarNasListas(['imports'], id, 'Louvor de teste', null), idMidia);
   let onde = await pg.evaluate(async (id) => ({
     imports: await AVDB.listHas('imports', id),
     playlist: await AVDB.listHas('playlist', id),
@@ -213,6 +213,29 @@ try {
   // que dava para marcar.
   const temGo = await pg.$$eval('#songMenuList .song-menu-go', (els) => els.length);
   checar(temGo === 1, 'e a linha de confirmação está lá');
+  // ── E ELE TEM A ALTURA DAS LINHAS QUE FECHA (v5.301) ─────────────────────
+  // Relato do operador: *"verifique a altura do botão de confirmar que temos em
+  // toda a biblioteca nas opções de play, ele parece menor que o padrão dos
+  // seus botões vizinhos"*. Estava, por OMISSÃO: quem dita a altura de uma
+  // linha de opção não é o `padding` (igual para todas), é o `.song-menu-check`,
+  // que reserva `--hit`. O confirmar não tem check nem ícone, então sobrava só
+  // a linha de texto — ~19px contra os 34px dos vizinhos.
+  //
+  // Medido no RENDERIZADO e como IGUALDADE, nunca contra um número escrito
+  // aqui: um piso em pixel aprovaria os dois errados juntos no dia em que
+  // `--hit` mudar.
+  const alturas = await pg.evaluate(() => {
+    const alt = (el) => Math.round(el.getBoundingClientRect().height);
+    const go = document.querySelector('#songMenuList .song-menu-go');
+    const opcoes = [...document.querySelectorAll('#songMenuList .song-menu-btn')]
+      .filter((b) => b.querySelector('.song-menu-check'));
+    return { go: alt(go), opcoes: opcoes.map(alt) };
+  });
+  checar(alturas.opcoes.length > 0 && alturas.go === alturas.opcoes[0]
+      && alturas.opcoes.every((h) => h === alturas.opcoes[0]),
+    'e ele tem a MESMA altura das opções que fecha (' + alturas.go + 'px) — sem '
+    + 'check nem ícone, ele nascia mais baixo que todos os vizinhos',
+    JSON.stringify(alturas));
   // ── O "TOCAR AGORA" SOZINHO (v5.254) ─────────────────────────────────────
   // Relato do operador: *"o seletivo de tocar agora… se eu toco apenas nele, ele
   // não dá o feedback do check"*.
@@ -273,17 +296,34 @@ try {
     // é o transporte da escolha até a ação — o ponto em que ela se perdia.
     const coll = { id: 'teste', name: 'Coleção' };
     const s = { id_music: 1, name: 'Hino', has_instrumental_music: false };
-    openSongMenu(coll, s, 'add');
+    // A LISTA DO ACERVO DEIXOU DE SER UMA FOLHA (v5.285): ela é montada no
+    // corpo da linha, e `montarOpcoes` a arma assim — o alvo em `songMenuFor`.
+    // (O parâmetro `modo` saiu na v5.286: a lista é uma só.) Este caso monta o mesmo
+    // estado num `<ul>` solto porque o que ele verifica é o TRANSPORTE da
+    // escolha até a ação, com `coll`/`s` sintéticos que uma linha de verdade não
+    // teria como desenhar.
+    const alvo = document.createElement('ul');
+    alvo.id = 'destinosTeste';
+    document.body.appendChild(alvo);
+    songMenuFor = { coll, s, variant: 'full', alvo };
+    destLimpar();
+    renderSongMenu();
     let capturado = null;
     const original = window.addSongToDestinos;
     window.addSongToDestinos = (c, m, v, destinos) => { capturado = destinos; };
     // Duas linhas MARCADAS pelo corpo, e só então o confirmar.
-    const linhas = [...document.querySelectorAll('#songMenuList .song-menu-btn')]
-      .filter((b) => b.querySelector('.song-menu-check'));
-    linhas[1].click();   // Cronograma
-    linhas[2].click();   // Favoritos
-    document.querySelector('#songMenuList .song-menu-go').click();
+    // POR RÓTULO, e não por índice (v5.286): a lista ganhou o "Tocar agora"
+    // como primeira selecionável, e um índice teria escorregado em silêncio
+    // para o vizinho — marcando playlist onde o caso diz Cronograma.
+    const porRotulo = (txt) => [...alvo.querySelectorAll('.song-menu-btn')]
+      .find((b) => b.querySelector('.song-menu-check')
+        && new RegExp(txt, 'i').test(b.textContent));
+    porRotulo('Cronograma').click();
+    porRotulo('Favoritar').click();
+    alvo.querySelector('.song-menu-go').click();
     window.addSongToDestinos = original;
+    alvo.remove();
+    songMenuFor = null;
     return capturado;
   });
   checar(JSON.stringify(alvos) === JSON.stringify(['cronograma', 'favoritos']),
@@ -291,7 +331,8 @@ try {
     + 'rodando depois de a folha fechar', JSON.stringify(alvos));
 
   checar(await pg.$eval('#songMenuPopup', (el) => !el.classList.contains('open')),
-    'e quem fecha a folha é ele, não o toque numa opção');
+    'e a FOLHA nem chega a abrir para um item do acervo: a lista dele mora no '
+    + 'corpo da linha desde a v5.285');
 
   // ---- A SELEÇÃO MÚLTIPLA SOBREVIVE AO DESTINO ----
   // Os três botões da barra (playlist, favoritos, pasta) já eram destinos lado a
