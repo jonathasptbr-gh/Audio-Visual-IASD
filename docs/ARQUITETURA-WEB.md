@@ -3870,195 +3870,136 @@ protocolo real não pôde ser verificado (a rede de desenvolvimento não alcanç
 
 #### Progresso em segundo plano (`bgTaskStart`/`bgTaskStep`)
 
-Com o app minimizado — o uso normal durante uma sincronização — a notificação
-do `SyncService` é a única janela para o download, e era um texto fixo. Quem
-sabe o progresso é o lado web, então é ele que reporta, por
-`AVNative.bgProgress({label, done, total, etaMs, items, idleMs})`.
+Com o app minimizado — o uso normal durante uma sincronização — a notificação do
+`SyncService` é a única janela para o download. Quem sabe o progresso é o lado
+web, então é ele que reporta, por
+`AVNative.bgProgress({label, done, total, etaMs, items, idleMs, bytes})`.
 
-Instrumentados: `syncCollection` (por música), `syncGroup` (por música, no
-total do lote), `ensureBibleVersionDownloaded` (por capítulo) e
-`syncDeviceFolder` (por arquivo).
+Instrumentados: `syncCollection` (por música), `syncGroup` (por música, no total
+do lote), `ensureBibleVersionDownloaded` (por capítulo) e `syncDeviceFolder` (por
+arquivo).
 
 - **A notificação mostra O QUE está baixando.** `bgItemStart`/`bgItemEnd`
   registram os itens em voo por tarefa (`bgItemOnly` para fluxos sequenciais,
   cujos `continue` deixariam nomes presos na lista). "23 de 54" é abstrato;
   "002. Ó Adorai o Senhor" é o que o operador reconhece.
 - **A lista é uma FILA (`t.fila`), não um espelho do que está no ar.** A
-  concorrência existe para reduzir o tempo PROPORCIONAL de cada item: se os 6
-  juntos levam X, cada um custou X/6 — e a exibição segue a mesma conta, dando
-  X/6 de tela a cada nome. É deliberadamente **ilustrativo e não em tempo
-  real**; contador, barra e estimativa seguem sendo os números reais.
-- **Fila, e não rodízio entre os itens em voo.** O rodízio repetia nomes e a
-  lista não avançava. A fila consome cada um UMA vez, em ordem. Medido (18
-  faixas, 6 em paralelo): **18/18 exibidos, 0 repetidos, em ordem, fila
-  zerada**.
+  concorrência reduz o tempo PROPORCIONAL de cada item: se os 6 juntos levam X,
+  cada um custou X/6 — e a exibição segue a mesma conta. É deliberadamente
+  ilustrativa; contador, barra e estimativa seguem sendo os números reais.
+- **Fila, nunca rodízio entre os itens em voo:** o rodízio repetia nomes e a
+  lista não avançava. Medido (18 faixas, 6 em paralelo): 18/18 exibidos, 0
+  repetidos, em ordem, fila zerada.
 - **O ritmo é MEDIDO** (`bgSpinMs` = `decorrido / concluídos`), não chutado:
-  mediana de **500 ms em tela contra 521 ms de custo amortizado real**; com
-  faixas irregulares, 750 contra 750. Fila acumulando (rede acelerou) → escoa
-  proporcionalmente mais rápido, para não exibir passado velho.
-- **Sem o buffer a lista engasgava.** Os 6 workers andam em lockstep: entram e
-  saem quase juntos, então os eventos chegam em RAJADA (meia dúzia em poucos
-  ms) seguida de segundos de silêncio. Sem fila, a rajada rendia UMA troca de
-  nome e o resto era descartado — parado até a rajada seguinte, exatamente a
-  sensação de travado.
-- **O compasso PARA quando trava** (`BG_STALL_MS`, 90 s sem evento real):
-  animar durante uma queda de rede esconderia justamente o que precisa ser
-  visto, e ali não há novidade a mostrar, só passado. A lista congela e o
-  `idleMs` cresce — os dois sinais concordam. Verificado: 6 nomes distintos em
-  operação normal, 1 só com a tarefa travada.
-- **`idleMs`** separa "travado" de "esta faixa é grande". Passado o limiar, a
-  notificação para de prometer tempo restante (uma ETA sobre um ritmo que já
-  não existe é a promessa mais enganosa possível) e passa a "sem resposta há
-  X" — sem degraus, porque aqui o número precisa SUBIR a cada atualização.
-- **Um freio só (`BG_NOTIF_MIN_MS`, 700 ms), e ele vale apenas para a ROTINA**
-  — a atualização em que só o contador andou (`bgTaskStep`). Tudo que precisa
-  chegar na hora passa `force`. Houve um **segundo piso** (250 ms) "escolhido
-  pelo chamador" por um parâmetro `destaque`: ele foi removido porque nenhum
-  dos cinco chamadores o passava — era código morto, e mexer na constante não
-  produzia efeito nenhum no aparelho. Quem de fato dá o ritmo do item que entra
-  em download é o **compasso** (`bgPacerTick`, `BG_TICK_MS` = 250 ms), que
-  envia com `force` sempre que o nome da linha troca. Repor o piso curto seria
-  **pior** que o `force`: o primeiro nome de uma tarefa nasce a poucos ms do
-  envio de abertura e ficaria retido até o batimento de 2 s.
+  mediana de 500 ms em tela contra 521 ms de custo amortizado real.
+- **Sem o buffer a lista engasgava.** Os 6 workers andam em lockstep: os eventos
+  chegam em RAJADA (meia dúzia em poucos ms) seguida de segundos de silêncio, e
+  sem fila a rajada rendia UMA troca de nome — parado até a rajada seguinte, que
+  é a sensação de travado.
+- **O compasso PARA quando trava** (`BG_STALL_MS`, 90 s sem evento real): animar
+  durante uma queda de rede esconderia justamente o que precisa ser visto. A
+  lista congela e o `idleMs` cresce — os dois sinais concordam.
+- **`idleMs` separa "travado" de "esta faixa é grande".** Passado o limiar, a
+  notificação para de prometer tempo restante (uma ETA sobre um ritmo que já não
+  existe é a promessa mais enganosa possível) e passa a "sem resposta há X" — sem
+  degraus, porque aqui o número precisa SUBIR a cada atualização.
+- **Um freio só (`BG_NOTIF_MIN_MS`, 700 ms), e vale apenas para a ROTINA** (a
+  atualização em que só o contador andou). Tudo que precisa chegar na hora passa
+  `force`. Quem dá o ritmo do item que entra é o compasso (`bgPacerTick`,
+  `BG_TICK_MS` = 250 ms), que envia com `force` sempre que o nome troca — um
+  segundo piso curto seria PIOR que o `force`, porque o primeiro nome de uma
+  tarefa nasce a poucos ms do envio de abertura e ficaria retido até o batimento
+  de 2 s.
 - **`bgTasks` é um REGISTRO (Map), não um slot único.** Downloads simultâneos
-  existem — é por isso que `bgWorkCount` conta em vez de ser booleano — e com
-  um slot só as tarefas se sobrescreviam: o `done` de uma saía com o `total` e
-  o relógio da outra, e a estimativa pulava de 1h30 para 2h40 e voltava. A
-  notificação mostra a **dominante** (maior tempo restante) e marca as demais
-  com `(+N)`.
-- A **estimativa de tempo** sai do ritmo médio desde o **primeiro item
-  concluído** (`decorrido/concluídos × restantes`) — não desde o `start`, que
-  incluiria o preparo (índice, varredura) e inflaria a primeira leitura. Média,
-  não taxa instantânea: faixas têm tamanhos muito diferentes.
+  existem — é por isso que `bgWorkCount` conta em vez de ser booleano — e com um
+  slot só as tarefas se sobrescreviam: o `done` de uma saía com o `total` e o
+  relógio da outra. A notificação mostra a **dominante** (maior tempo restante) e
+  marca as demais com `(+N)`.
+- **A estimativa** sai do ritmo médio desde o **primeiro item concluído**, nunca
+  desde o `start` (que incluiria o preparo — índice, varredura — e inflaria a
+  primeira leitura). Média, não taxa instantânea: faixas têm tamanhos muito
+  diferentes.
 - **Suavização assimétrica por constante de tempo** (`ETA_TAU_DOWN` 2,5 s /
-  `ETA_TAU_UP` 10 s) e **arredondamento em degraus** no lado nativo: a série
-  passa a ser uma contagem regressiva de verdade (2h20 → 2h10 → 2h → …), em vez
-  de um número que sobe e desce. Por tempo, e não por chamada: o compasso de
-  1 s pede a estimativa muito mais vezes que os eventos pediam, e um fator fixo
-  por chamada devolveria o número instável.
-- **`bgWorkEnd` é IDEMPOTENTE, e precisa ser.** Quando o último trabalho pesado
-  termina, ele limpa o `bgTasks` como rede de segurança contra uma tarefa
-  órfã — mas o `clear()` **sozinho** deixava o compasso ligado para sempre: com
-  o Map já vazio, o `bgTaskEnd` que viesse depois não achava nada, o `delete`
-  devolvia `false`, e nem o `bgPacerSync()` nem o envio final rodavam. O
-  `setInterval` de 250 ms vazava pelo resto da sessão, batendo na ponte a cada
-  2 s com uma tarefa vazia (notificação "Baixando mídias" **presa**) e, pior,
-  fazendo o próximo `bgTaskStart` reusar um pacer órfão. Hoje `bgWorkEnd`
-  sincroniza o compasso e envia o estado final ele mesmo — e a ordem entre ele
-  e o `bgTaskEnd` deixa de importar.
+  `ETA_TAU_UP` 10 s) e arredondamento em degraus no lado nativo: uma contagem
+  regressiva de verdade em vez de um número que sobe e desce. Por TEMPO e não por
+  chamada — o compasso de 1 s pede a estimativa muito mais vezes que os eventos
+  pediam, e um fator fixo por chamada devolveria o número instável.
+- **`bgWorkEnd` é IDEMPOTENTE, e precisa ser.** O `clear()` sozinho deixava o
+  compasso ligado para sempre: com o Map já vazio, o `bgTaskEnd` seguinte não
+  achava nada, o `delete` devolvia `false`, e nem o `bgPacerSync()` nem o envio
+  final rodavam — o `setInterval` de 250 ms vazava pelo resto da sessão, com a
+  notificação "Baixando mídias" presa e o próximo `bgTaskStart` reusando um pacer
+  órfão. Hoje ele sincroniza o compasso e envia o estado final ele mesmo, e a
+  ordem entre ele e o `bgTaskEnd` deixa de importar.
 - No navegador, e num shell anterior ao `SHELL_VERSION` 10, é no-op.
 
-**Duas camadas, independentes** (`state['coll:<id>']`, ver tabela acima):
+**Duas camadas, independentes** (`state['coll:<id>']`):
 
-1. **Índice** (leve, só metadados) — permanece offline assim que sincronizado
-   uma vez; é o que alimenta a busca (item 2 abaixo) mesmo antes do download
-   pesado terminar.
-2. **Download** (pesado) — para cada hino do índice, baixa o áudio Cantado
-   (`url_music`) sempre e o Playback/instrumental (`url_instrumental_music`)
-   quando existir, mais a capa e as imagens por estrofe (ver "Letra
-   sincronizada" abaixo) — grava tudo no **mesmo catálogo OPFS das pastas
-   sincronizadas** (`AVDB.fileAdd` + `AVDB.opfsWriteFile`, pasta da coleção
-   `folders/<coll.id>/`), então listar, buscar, tocar e excluir dentro dele
-   funciona **sem nenhum código novo** — é só mais uma pasta OPFS (ver
-   "Favoritos" acima), só que a fonte da sincronização é uma API remota em vez
-   de `showDirectoryPicker()`.
+1. **Índice** (leve, só metadados) — permanece offline assim que sincronizado uma
+   vez; é o que alimenta a busca mesmo antes do download pesado terminar.
+2. **Download** (pesado) — o áudio Cantado (`url_music`) sempre e o
+   Playback/instrumental quando existir, mais a capa e as imagens por estrofe,
+   gravados no **mesmo catálogo OPFS das pastas sincronizadas** (`AVDB.fileAdd` +
+   `AVDB.opfsWriteFile`, pasta `folders/<coll.id>/`). Então listar, buscar, tocar
+   e excluir funcionam **sem nenhum código novo** — é só mais uma pasta OPFS, com
+   a fonte sendo uma API remota em vez de `showDirectoryPicker()`.
 
-**UI — o card É o álbum, e tocar nele ABRE o álbum**
-(`renderCollectionCard()` + `.hymnal-card` no CSS). A barra do card
-(`.coll-bar`) é uma **linha só**: símbolo + nome (+ subtítulo da categoria) +
-**resumo de sincronização** (`baixados/total`, ou o progresso ao vivo enquanto
-sincroniza) + **baixar/cancelar** (`.coll-bar-dl`) + a **seta de acordeão**
-(hoje a `.coll-bar-icon` da THUMB, virada por CSS — v5.246; até lá havia uma
-`.coll-bar-chev` própria na coluna da direita, e ela empurrava o peso quando
-aparecia). Tocar na barra **expande o card ali mesmo**
-(`ui(coll.id).expanded`), com a lista de músicas dentro; sem índice ainda, o
-toque leva às **opções**, que é justamente onde está o sincronizar que resolve
-isso.
+**UI — o card É o álbum, e tocar nele ABRE o álbum** (`renderCollectionCard()` +
+`.hymnal-card`). A barra (`.coll-bar`) é uma **linha só**: símbolo + nome (+
+subtítulo da categoria) + **peso** (ou o progresso ao vivo) + **baixar/cancelar**
+(`.coll-bar-dl`) + a **seta de acordeão**, que é a `.coll-bar-icon` da THUMB
+virada por CSS. Sem índice ainda, o toque leva às opções, que é onde está o
+sincronizar que resolve isso.
 
-> **O OUVINTE É DO CARD, E NÃO DA BARRA (v5.288)** — e a razão é um defeito que
-> só aparece com o dedo. Relato do operador: *"nos álbuns há um toque em uma
-> margem à esquerda da seta que abre o álbum, que ENCOLHE os itens dentro do
-> card, mas não abre o álbum"*.
+> **O OUVINTE É DO CARD, E NÃO DA BARRA** — e a razão é um defeito que só aparece
+> com o dedo. `.coll-bar` está na lista do `:active`, cujo `--press` é
+> `scale(.96)`: numa barra de ~395px isso a encolhe ~8px de cada lado. O
+> `pointerdown` acerta a barra e dispara o encolhimento; no `pointerup` ela já
+> não está ali, e o navegador entrega o `click` ao ANCESTRAL. Medido: até ~7px da
+> borda o toque não abre, de 8px em diante abre — e a margem existe nos quatro
+> lados. Subir o ouvinte para o card (que não se mexe) fecha a classe inteira.
 >
-> **O feedback de toque tirava o alvo de baixo do dedo.** `.coll-bar` está na
-> lista do `:active`, cujo `--press` é `scale(.96)`: numa barra de ~395px isso a
-> encolhe ~8px de cada lado. O `pointerdown` acerta a barra e dispara o
-> encolhimento; no `pointerup` ela já não está ali, e o navegador entrega o
-> `click` ao ancestral que sobrou — o card, que não tinha ouvinte nenhum. Medido
-> por varredura: até ~7px da borda o toque não abre, de 8px em diante abre, e a
-> fronteira é exatamente o que a animação vaga. A margem existe nos quatro
-> lados, não só à esquerda.
+> A **guarda** é o `.coll-open` (o invólucro de tudo que não é a barra): sem ela,
+> com o álbum aberto um toque numa faixa borbulharia até aqui e fecharia o álbum
+> debaixo do dedo. Ela pergunta pelo INVÓLUCRO e não por uma lista de filhos,
+> para o próximo bloco que nascer lá dentro já nascer protegido.
 >
-> Subir o ouvinte para o CARD fecha a classe inteira — ele é o elemento que não
-> se mexe, então qualquer retargeting causado pelo encolhimento cai em quem sabe
-> responder. A **guarda** é o `.coll-open` (o invólucro de tudo que não é a
-> barra): sem ela, com o álbum aberto um toque numa faixa borbulharia até aqui e
-> fecharia o álbum debaixo do dedo. Ela pergunta pelo INVÓLUCRO e não por uma
-> lista de filhos, para o próximo bloco que nascer lá dentro já nascer
-> protegido.
+> **E A GUARDA PERGUNTA PELO CAMINHO, NÃO PELA ÁRVORE DE AGORA.** Como
+> `e.target.closest('.coll-open')` ela fechava o álbum ao se tocar numa caixa de
+> marcação: o botão é apagado pelo próprio handler que roda antes (marcar chama
+> `renderSongMenu`, que faz `alvo.innerHTML = ''`), então quando o evento chega
+> ao card o `e.target` está **desanexado** e `closest` devolve `null`. **Decidir
+> pela POSIÇÃO do alvo na árvore é perguntar "onde este nó está agora", e agora é
+> depois de todos os handlers que rodaram antes** — `e.composedPath()` é fixado
+> no disparo e sobrevive ao apagamento.
 >
-> **E o `padding` saiu do card**, indo para quem PINTA (a barra e o corpo
-> aberto). Ele era um resíduo com a pista escrita no próprio arquivo: a barra do
-> álbum ABERTO já o desfazia com margens negativas para grudar como tampa —
-> isto é, com o álbum aberto aquela faixa funcionava e com ele fechado, não. O
-> mesmo pixel respondendo ou não conforme o estado é a pior forma de um alvo ser
-> imprevisível.
->
-> **E A GUARDA PERGUNTA PELO CAMINHO, NÃO PELA ÁRVORE (v5.289).** A primeira
-> versão dela era `e.target.closest('.coll-open')`, e isso reprovou em aparelho
-> no dia seguinte: tocar numa CAIXA DE MARCAÇÃO das opções de uma faixa fechava
-> o álbum inteiro. O botão de destino é apagado pelo próprio handler que roda
-> antes — marcar uma opção chama `renderSongMenu`, que faz `alvo.innerHTML = ''`
-> — então, quando o evento chega ao card, o `e.target` está **desanexado**:
-> `closest` sobe por um trecho de árvore sem pai nenhum e devolve `null`.
->
-> A régua, e ela vale para qualquer ouvinte de contêiner deste app: **decidir
-> pela POSIÇÃO do alvo na árvore é perguntar "onde este nó está agora", e agora
-> é depois de todos os handlers que rodaram antes.** A pergunta que a guarda
-> quer fazer é sobre o caminho — *este clique nasceu aqui dentro?* —, e o
-> caminho é fixado no disparo: `e.composedPath()` sobrevive ao apagamento.
+> **E o `padding` mora em quem PINTA** (a barra e o corpo aberto), nunca no card:
+> a barra do álbum ABERTO já desfazia o padding do card com margens negativas
+> para grudar como tampa — isto é, com o álbum aberto aquela faixa funcionava e
+> com ele fechado não. O mesmo pixel respondendo ou não conforme o estado.
 
-> **Sem molduras, sem seta, sem faixa de cor (v5.71).** O card tinha um contorno
-> de 1px em `--line`, uma faixa de 3px com a `color` do álbum no banco e uma
-> seta de acordeão à direita. Numa lista de dezenas de álbuns, o que o olho via
-> primeiro eram as linhas, não os nomes. Hoje o card é só **preenchimento
-> sólido**: ele mora dentro da folha do popup, que é `--panel`, então sobe um
-> degrau para `--panel-2` — um cartão da cor do que está atrás dele
-> simplesmente não existe aos olhos, e sem a moldura era só isso que sobrava.
-> As músicas dentro dele são `--panel` e passam a se ler como recessos, na mesma
-> direção do resto do app.
-> **Aberto se diz no NOME**, em accent (`.hymnal-card.expanded .coll-bar-name`)
-> — o mesmo recurso com que o app marca "é este" em toda parte. Um segundo
-> degrau de tom não cabia: o cartão já gastou um para existir, e as músicas
-> ocupam o de baixo. A **seta** saiu porque numa lista em que TODO card abre ela
-> dizia o mesmo em todas as linhas, e quem anuncia a abertura agora é o próprio
-> movimento, animado desde a v5.63. O filete entre a barra e as músicas
-> (`.coll-songs`, `border-top`) e os contornos do botão de baixar e da
-> engrenagem saíram junto — sólidos, como o `.coll-group-btn` do cabeçalho com
-> que eles dividem a coluna.
-> O campo `color` continua no catálogo, de graça, se um dia a cor voltar como
-> tinta do quadrado do ícone — que já existe e não acrescenta traço nenhum.
+> **Sem molduras, sem seta própria, sem faixa de cor.** Numa lista de dezenas de
+> álbuns, com contorno e faixa colorida o que o olho via primeiro eram as linhas,
+> não os nomes. O card é **preenchimento sólido**: dentro da folha (`--panel`)
+> ele sobe um degrau para `--panel-2` — um cartão da cor do que está atrás dele
+> simplesmente não existe aos olhos. **Aberto se diz no NOME**, em accent: um
+> segundo degrau de tom não cabia, porque o cartão já gastou um para existir e as
+> faixas ocupam o de baixo. O campo `color` continua no catálogo, de graça, se um
+> dia a cor voltar como tinta do quadrado do ícone.
 
-**O botão de baixar SAI da barra quando o álbum já está todo no aparelho**
-(v5.63 — a condição é `u.syncBusy || !complete`). Ele dizia "Baixar esta
-coleção" para uma coleção que não tem mais o que baixar: um alvo do tamanho de
-`--hit` oferecendo uma ação sem efeito, repetido em cada linha de uma lista de
-dezenas de álbuns. O que resta a fazer ali — re-sincronizar o índice, apagar o
-baixado, ver o peso — é manutenção, e já mora na engrenagem DENTRO do card
-aberto, que é onde se procura depois de abrir o álbum. Enquanto o download
-**roda** o botão continua, porque ali ele é o cancelar. O botão de grupo (`.coll-group-btn`, no cabeçalho de categoria e em "Todo o acervo") **não**
-segue a regra — ali não existe engrenagem, e sumir com ele tiraria a única rota
-de re-sincronizar o grupo.
+**O botão de baixar SAI da barra quando o álbum já está todo no aparelho** (a
+condição é `u.syncBusy || !complete`): ele dizia "Baixar esta coleção" para uma
+coleção que não tem mais o que baixar — um alvo do tamanho de `--hit` oferecendo
+uma ação sem efeito, em cada linha de uma lista de dezenas de álbuns. O que resta
+ali é manutenção, e já mora dentro do card aberto. Enquanto o download ROLA o
+botão continua, porque ali ele é o cancelar. O botão de GRUPO
+(`.coll-group-btn`) **não** segue a regra — ali não existe engrenagem, e sumir
+com ele tiraria a única rota de re-sincronizar o grupo.
 
-**O contador saiu na v5.70 e VOLTOU na v5.94 — em outra moeda.** O que saíra
-era `24/24`: uma contagem de faixas que não pedia nada nem informava nada de
-novo, repetida em cada linha de uma lista de dezenas de álbuns. O que está lá
-agora é o **peso** (`fracaoPeso`), e ele responde a pergunta que se faz com o
-dedo sobre o botão de baixar: *quanto isto vai me custar*. Quatro faixas podem
-ser 8 MB ou 80 MB, e é essa diferença — não o número de faixas — que decide
-esperar o Wi-Fi ou apagar um álbum para caber outro.
-
-São quatro estados, e a leitura continua por eliminação:
+**O contador da barra é o PESO** (`fracaoPeso`), não a contagem de faixas: ele
+responde a pergunta que se faz com o dedo sobre o botão de baixar — *quanto isto
+vai me custar*. Quatro faixas podem ser 8 MB ou 80 MB, e é essa diferença que
+decide esperar o Wi-Fi ou apagar um álbum para caber outro.
 
 | Estado | Barra |
 |---|---|
@@ -4067,44 +4008,23 @@ São quatro estados, e a leitura continua por eliminação:
 | parcial | `19/249 MB` |
 | completo | `2,3 GB`, exato (soma do catálogo) |
 
-> **O `~` saiu na v5.265** (pedido do operador). O total continua sendo uma
-> ESTIMATIVA — por duração × a taxa medida no aparelho —; o que saiu é o símbolo
-> que a anunciava. O argumento anterior era que o til "é parte da informação,
-> não enfeite", e ele supunha que o número fosse lido como exato sem ele:
-> `fmtBytes` já arredonda para uma casa, então "18 MB" nunca prometeu
-> 18.874.368 bytes. Ele pagava um caractere em cada contagem da tela mais densa
-> do app para dizer o que a precisão do próprio número já diz.
+O total continua sendo uma ESTIMATIVA (duração × a taxa medida no aparelho); o
+que não existe é o `~` que a anunciava — `fmtBytes` já arredonda para uma casa,
+então "18 MB" nunca prometeu 18.874.368 bytes, e o til pagava um caractere em
+cada contagem da tela mais densa do app.
 
-Enquanto o download roda, o resumo dá lugar ao progresso ao vivo. A contagem de
-faixas não se perde: ela continua no chip **Sincronizados** das opções do
-álbum, que é onde mora o detalhe. E os três contadores da tela — card,
-cabeçalho de categoria e "Todo o acervo" — usam a MESMA função: um deles em
-faixas e outro em MB seria a pior das versões.
-
-O número é bem mais largo que o `2/4` de antes e divide a linha com o **nome**
-do álbum, que é a informação principal — daí meio ponto de fonte a menos em
-`.coll-bar-sync`, que devolve um caractere de nome sem comprometer a leitura de
-um número secundário. (`.coll-bar-peso`, criado na v5.93 só para o álbum
-completo, durou uma versão: com o resumo virando peso em todos os estados, ele
-era a mesma coisa com outro nome.)
-
-Os **contadores de GRUPO** (`.coll-group-count`, no cabeçalho de categoria e em
-"Todo o acervo") ficam mesmo completos: eles somam várias coleções, e ali o
-número ainda responde alguma coisa — é o único lugar que diz que o grupo inteiro
-está no aparelho. Desde a v5.94 eles somam PESOS, pela mesma razão dos cards
-(e "Todo o acervo" é onde a soma mais importa: são vários GB). É também o último uso do verde de "concluído" nesse contexto:
-`.coll-bar-sync.done` saiu com o contador do card.
+A contagem de faixas não se perde: ela continua no estado do botão de verificar,
+dentro das opções do álbum. E os três contadores da tela — card, cabeçalho de
+categoria e "Todo o acervo" — usam a MESMA função: um em faixas e outro em MB
+seria a pior das versões. Os de GRUPO ficam mesmo completos: eles somam várias
+coleções, e ali o número ainda responde alguma coisa.
 
 **Uma coleção aberta por vez** (abrir uma fecha as demais): duas listas de
 centenas de faixas empurrariam o acervo para fora da tela e tirariam do lugar
 exatamente o card que o operador estava mirando. Dentro do aberto vem a lista
-**inteira** de músicas — sem teto, porque ali o operador está folheando um
-álbum, não filtrando o acervo, e cortar em 60 esconderia o fim de qualquer
-hinário. As linhas são as mesmas `hymnResultRow` da busca, com `semColecao`
-ligado: repetir o nome do álbum nas dez faixas é ruído, o card em volta já diz
-de quem elas são. Com as opções pedidas (abaixo), o painel delas vem ANTES da
-lista.
-
+**inteira** de músicas — sem teto, porque ali se folheia um álbum, e cortar em 60
+esconderia o fim de qualquer hinário. As linhas são as mesmas `hymnResultRow` da
+busca, com `semColecao` ligado.
 #### …mas ela CHEGA em páginas de 100 (v5.74)
 
 "Inteira" é sobre o que está disponível, não sobre o que é montado no toque.
