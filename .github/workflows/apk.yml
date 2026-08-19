@@ -207,9 +207,30 @@ jobs:
       # mudou é que agora essa escolha é uma linha só — e a razão que a
       # sustentava mudou de endereço.
       # ────────────────────────────────────────────────────────────────────
+      # ---------- E ELE TEM PRAZO ----------
+      # `continue-on-error` protege contra FALHAR, não contra TRAVAR — e os dois
+      # não são o mesmo evento neste job. Medido: na v5.302 este passo ficou
+      # **43 minutos** pendurado num `npm i`/`playwright install` que não voltava,
+      # foi cancelado à mão, e com ele os passos de baixo — "Empacotar a base
+      # web" e o upload da Release — foram PULADOS. O bundle daquele lote nunca
+      # chegou ao canal.
+      #
+      # E o estrago não parou nele: o `concurrency: web-ota` com
+      # `cancel-in-progress: false` (que é a decisão certa, ver o comentário do
+      # topo do job) segurou o lote SEGUINTE na fila os mesmos 43 minutos.
+      #
+      # O modo de falhar é MUDO nas duas pontas: o run não fica vermelho (o
+      # `continue-on-error` o absorve) e o aparelho não tem o que mostrar — do
+      # lado de quem opera, "a atualização não chega", sem nada em lugar nenhum
+      # que o explique. O prazo transforma isso num passo que TERMINA: os
+      # oráculos de Chromium são pulados (o `if` abaixo já cuida disso) e o
+      # bundle publica, que é o que não pode faltar.
+      #
+      # 10 min é folga larga sobre o normal — medido em 24 s na execução seguinte.
       - name: Preparar o Chromium (infraestrutura)
         id: chromium
         continue-on-error: true
+        timeout-minutes: 10
         run: |
           set -euo pipefail
           npm i --no-audit --no-fund --silent playwright
@@ -225,9 +246,14 @@ jobs:
       # `if` no resultado do passo de cima: sem Chromium instalado todos
       # falhariam por um motivo que não é deles, e uma dúzia de `::error::` de
       # infraestrutura é exatamente o ruído que ensina a ignorar vermelho.
+      # PRAZO AQUI TAMBÉM, e pela mesma razão: um oráculo que pendure o
+      # navegador (uma Promise que nunca resolve, um `waitForFunction` sem
+      # timeout) trava o job inteiro e leva o canal OTA junto. 15 min é folga
+      # sobre os ~5 que os quatorze levam somados.
       - name: Oráculos em Chromium
         if: steps.chromium.outcome == 'success'
         continue-on-error: true
+        timeout-minutes: 15
         run: |
           # SEM `-e`, e é o ponto do passo: um reprovado não pode calar os que
           # vêm depois. Quem guarda o desfecho é o `rodar`.
