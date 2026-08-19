@@ -159,6 +159,17 @@ jobs:
           # canal, incluindo a playlist que não tem o hífen que todas as outras
           # têm. Node puro, sem rede: sem `continue-on-error`.
           node tools/serie.test.mjs
+          # A REGRA DO SORTEIO TEMÁTICO: quais faixas do acervo a "Playlist
+          # automática" pode mandar ao telão. O operador toca UM botão e a faixa
+          # entra em cena — não há tela intermediária e ninguém confere a lista
+          # antes. Os quatro modos de errar são silenciosos: um episódio de
+          # série (~300 MB) no lugar do louvor, uma faixa que casa a letra e não
+          # aparece, o PLAYBACK projetado onde se esperava a voz (o
+          # `resolveSongMediaId` manda para o instrumental tudo que não seja
+          # `'full'`), e a fila cheia do que ainda precisa ser baixado — o culto
+          # esperando a rede da igreja. Node puro, sem rede: sem
+          # `continue-on-error`.
+          node tools/sorteio.test.mjs
 
       - name: Tokens de CSS que não existem (Node puro)
         run: |
@@ -287,6 +298,14 @@ jobs:
           # devolveria só a linha tocada — o item iria para um destino em vez de
           # dois, sem erro nenhum. Mesma classe de falha muda do `slideLabel`.
           rodar tools/destinos.test.mjs
+          # E A PLAYLIST AUTOMÁTICA, DA FOLHA ATÉ A FILA. O `sorteio.test.mjs`
+          # (Node puro, acima) trava a REGRA; este trava a LIGAÇÃO, que falha de
+          # outro jeito — a regra continua certa e o recurso não faz nada. As
+          # quatro capacidades injetadas (`sorteioCap`) são ponteiros para
+          # funções do `controle.js`, e um errado devolve um pool plausível e
+          # ERRADO; e o contador é a única coisa que o operador lê antes de um
+          # botão que dispara sem mais nenhuma tela.
+          rodar tools/sorteio-tela.test.mjs
           # E A CENA: o que o telão mostra ao RECONECTAR, o que o operador
           # ajusta nela (girar, preencher) e o que ele lê sobre ela. A reconexão
           # do dongle é o caminho menos testável à mão — exige TV, dongle e o

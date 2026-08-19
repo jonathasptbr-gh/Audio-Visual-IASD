@@ -3219,6 +3219,19 @@ main {
    (O `#collPopup` que dividia esta regra saiu na v5.72: as opções da coleção
    viraram um painel dentro do próprio card.) */
 #songMenuPopup { z-index: 210; }
+/* A folha da PLAYLIST AUTOMÁTICA abre de dentro da Biblioteca, como a da música
+   — daí o degrau que o comentário abaixo reservava. Ela NÃO abre a folha da
+   música por cima de si, então é a última linha de POPUPS e o degrau mais alto
+   dos três; se um dia abrir, as duas coisas mudam juntas (a ordem na tabela e
+   este número), nunca uma só. */
+#sorteioPopup { z-index: 220; }
+/* ---------- ELA TEM UM CAMPO DE TEXTO, LOGO ELA DESCONTA O TECLADO ----------
+   A exceção declarada ao `inset: 0` do `.popup-backdrop`, e pela MESMA razão
+   que o `.dialog-backdrop` já a carrega: uma folha alinhada à BASE com um campo
+   dentro fica atrás do teclado que ela própria abre — e aqui o campo é o
+   recurso, não um detalhe da folha. A Biblioteca escapa disso por ser tela
+   cheia com a barra no topo; esta é um cartão de baixo. */
+#sorteioPopup { inset: var(--vv-top, 0px) 0 var(--kb, 0px) 0; }
 /* (O `#folderPopup` — o seletor de atalhos, que abria de dentro da folha da
    música e por isso pedia mais um degrau (220) — saiu na v5.254 com os atalhos
    de pasta. O 220 fica LIVRE: é o degrau do próximo popup que abrir de dentro
@@ -3560,7 +3573,11 @@ main {
    E ELE É CLARO, como o campo: a barra escureceu no tema claro, e um botão em
    `--surface-2`/`--muted` ali daria 2,09:1 no ícone. Vestindo `--field-*` ele
    vira o irmão do campo e o glifo volta a 8,4:1. */
-#hymnSearchClose {
+/* O `#sorteioBtn` DIVIDE ESTA REGRA (v5.302) e não tem uma sua: os dois são os
+   quadrados da mesma linha, ao lado do mesmo campo, e uma segunda declaração de
+   `--campo-alt` divergiria da primeira no próximo ajuste do campo. O que os
+   separa é a COR do glifo, três linhas abaixo. */
+#hymnSearchClose, #sorteioBtn {
   /* QUADRADO (v5.277, pedido do operador: *"ele deve ser um botão quadrado"*).
      A v5.270 lhe deu a ALTURA do campo (`align-self: stretch`) e deixou a
      largura em `--hit` — 34px contra os 40 do campo, isto é, um retângulo em pé
@@ -3578,6 +3595,12 @@ main {
   background: var(--field-bg); color: var(--field-text);
   box-shadow: 0 1px 3px -1px var(--shadow-ink);
 }
+/* O ✕ SAI e a playlist automática ENTRA: numa barra de dois quadrados iguais o
+   que os distingue é a cor, e a distinção que importa é "isto fecha" × "isto
+   faz". `--accent` sobre `--field-bg` é o par para o qual a paleta oficial foi
+   desenhada (fundo BRANCO), o único lugar do app em que ele se usa sem
+   derivado. */
+#sorteioBtn { color: var(--accent); }
 /* ---------- E O CAMPO É BRANCO NOS DOIS TEMAS ----------
    Como `--surface-2` ele era um OVERLAY, e dentro da folha a superfície se
    INVERTE (a regra no topo deste arquivo): saía como recesso preto a 14%/16% —
@@ -3985,6 +4008,43 @@ main {
 }
 .song-menu-go .song-menu-label { color: var(--on-accent); }
 .song-menu-go:disabled { opacity: .5; cursor: default; }
+
+/* ---------- PLAYLIST AUTOMÁTICA: sortear por tema (v5.302) ---------- */
+/* A folha REUSA quase tudo: `.song-menu-*` para as linhas e o confirmar,
+   `.fit-seg`/`.fit-opt` para os dois seletores, `.misc-chip` para os filtros e
+   `.lib-search`/`.lib-search-campo` para o campo do tema. O que segue é só o que
+   nenhuma delas já dizia — quatro regras, nenhuma cor nova. */
+/* O CAMPO DO TEMA. Ele veste o mesmo `--field-*` do campo da Biblioteca: é a
+   MESMA pergunta ("que palavra?") na mesma sequência de telas, e um segundo
+   desenho para ela leria como outro tipo de busca. A elevação vem junto pelo
+   motivo do original: no tema claro o campo é branco sobre um cartão branco. */
+.sorteio-campo { padding: .1rem 0 .35rem; }
+.sorteio-campo .lib-search {
+  height: var(--campo-alt); padding: 11px 14px 11px 38px; font-size: .95rem;
+  background: var(--field-bg); color: var(--field-text);
+  box-shadow: 0 1px 3px -1px var(--shadow-ink);
+}
+.sorteio-campo .lib-search::placeholder { color: var(--field-muted); }
+.sorteio-campo .lib-search-lupa { color: var(--field-muted); }
+/* UMA LINHA DE OPÇÃO = rótulo à esquerda, controle à direita. É a `.misc-row`
+   do painel de ferramentas, e ela não é reusada tal e qual porque ali o rótulo
+   fica ao lado de UM campo, e aqui de uma fileira de pílulas que precisa poder
+   quebrar numa tela estreita sem espremer o rótulo. */
+.sorteio-linha { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem .55rem; padding: .15rem .1rem; }
+.sorteio-rotulo { font-size: .78rem; font-weight: 700; color: var(--muted); flex-shrink: 0; }
+.sorteio-linha .misc-opts { margin-left: auto; }
+/* A CONTA, e ela é o miolo do recurso: o botão dispara sem mais nenhuma tela,
+   então esta linha é a ÚNICA chance de o operador ver o que vai acontecer antes
+   de acontecer. Ela diz as DUAS metades ("12 casam · 3 já no aparelho") porque
+   a segunda é o que separa "toca agora" de "espera a rede da igreja".
+   `min-height` fixo: a frase troca a cada tecla digitada, e sem altura reservada
+   o botão de confirmar sobe e desce embaixo do dedo. */
+.sorteio-conta {
+  min-height: 1.7em; display: flex; align-items: center;
+  padding: .1rem .1rem .2rem;
+  font-size: .78rem; line-height: 1.35; color: var(--muted);
+}
+.sorteio-conta.vazio { color: var(--danger-strong); font-weight: 600; }
 
 /* ---------- popup de Exibição (preenchimento da mídia) ---------- */
 /* As transições (fade) são inerentes ao sistema — não há mais controles delas
