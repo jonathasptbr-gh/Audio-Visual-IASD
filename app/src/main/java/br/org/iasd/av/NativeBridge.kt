@@ -47,11 +47,6 @@ interface BridgeHost {
      */
     fun openExternalUrl(url: String)
 
-    /**
-     * A *mesa de som* está ligada: o áudio sai pelo CELULAR, do WebView do
-     * Controle — que portanto não pode ser suspenso quando o app é minimizado.
-     */
-
     /** Interceptar os botões físicos de volume e mandá-los para o app. */
     fun setCaptureVolumeKeys(on: Boolean)
 
@@ -537,9 +532,9 @@ class NativeBridge(
     @JavascriptInterface
     fun bgProgress(json: String) {
         // Só o Controle, como os onze irmãos que já recusam com `host == null`:
-        // o WebView do telão carrega script de terceiro por design (a IFrame
-        // Player API), e a notificação de download não pode ser FALSIFICÁVEL a
-        // partir dele — é o Controle quem baixa, então é só dele que o
+        // Só o Controle, como os onze irmãos que já recusam com `host == null`:
+        // a notificação de download não pode ser FALSIFICÁVEL a partir do
+        // WebView do telão — é o Controle quem baixa, então é só dele que o
         // progresso pode vir.
         if (host == null) return
         val o = try { JSONObject(json) } catch (e: Exception) { return }
@@ -1274,11 +1269,10 @@ class NativeBridge(
      * ponte com `host = null` justamente para não ter poderes de Activity, e
      * `pickFolder`/`requestMic` já honravam isso; esta era a exceção, porque lê
      * o `ContentResolver` direto. Sem a guarda, qualquer script rodando no
-     * documento do Display (que carrega a IFrame Player API de terceiro por
-     * design) lia o índice inteiro — nome, tamanho e token servível — de toda
-     * pasta que o operador já concedeu, num WebView que por construção deveria
-     * ter zero superfície nativa. Devolve lista vazia: o telão nunca chama
-     * isto, e um erro seria pior de diagnosticar que um vazio.
+     * documento do Display lia o índice inteiro — nome, tamanho e token
+     * servível — de toda pasta que o operador já concedeu, num WebView que por
+     * construção deveria ter zero superfície nativa. Devolve lista vazia: o
+     * telão nunca chama isto, e um erro seria pior de diagnosticar que um vazio.
      */
     @JavascriptInterface
     fun listFolder(callId: String, treeUri: String) {
