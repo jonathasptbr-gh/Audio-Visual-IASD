@@ -42,27 +42,20 @@ import java.net.URL
  *
  * ## Por que isto existe
  *
- * O embed do YouTube pausa sozinho quando a página fica oculta — e é isso que o
- * Android faz com o telão no instante em que o operador minimiza o app. A regra
- * roda num iframe de outra origem e nenhum código nosso a alcança. Foram
- * tentadas, e falharam em aparelho, as duas saídas de fora: mandar tocar de
- * novo ([`ytWatchResume`] no Display) e impedir o WebView de se declarar oculto
- * ([WebViewFactory.KeepVisibleWebView]).
- *
- * Com o vídeo virando ARQUIVO, ele passa a ser mídia comum: o mesmo `<video>`
- * dos importados, com fade, seek, playlist, `MediaSession` e segundo plano que
- * já funcionam há versões — e sem anúncio, sem legenda e **sem depender da rede
- * durante o culto**.
+ * O embed do YouTube pausava sozinho com a página oculta — que é o que o Android
+ * faz com o telão no instante em que o app é minimizado —, a regra roda num
+ * iframe de outra origem e nenhum código nosso a alcança. (As duas saídas de
+ * fora foram tentadas e falharam em aparelho.) Virando ARQUIVO, o vídeo passa a
+ * ser mídia comum: o mesmo `<video>` dos importados, com fade, seek, playlist,
+ * `MediaSession` e segundo plano — sem anúncio, sem legenda e **sem depender da
+ * rede durante o culto**.
  *
  * ## Por que AQUI, e não num servidor
  *
- * A versão anterior pedia uma instância [Cobalt](https://cobalt.tools). Não
- * funcionou, e o motivo não é o Cobalt: servidores públicos rodam em **IP de
- * datacenter**, que é exatamente o que o YouTube bloqueia. Extrair no aparelho
- * sai do IP do chip do operador — é por isso que o NewPipe funciona no celular
- * enquanto as instâncias públicas apanham. De quebra, aqui não existe CORS: o
- * `fetch` do WebView nunca chegaria ao `googlevideo.com`, que não manda os
- * cabeçalhos, e por isso o caminho anterior precisava de um túnel.
+ * Servidores públicos rodam em **IP de datacenter**, que é exatamente o que o
+ * YouTube bloqueia; extrair no aparelho sai do IP do chip do operador. De
+ * quebra, aqui não existe CORS — o `fetch` do WebView nunca chegaria ao
+ * `googlevideo.com`, que não manda os cabeçalhos.
  *
  * ## O que ele entrega
  *
@@ -73,28 +66,20 @@ import java.net.URL
  * segue como piso: um arquivo pior é infinitamente melhor que um vídeo que
  * para de tocar no meio do culto.
  *
- * ## Sem PO Token — e desde a v1.49 isso deixou de custar o 1080p
+ * ## Sem PO Token, e por que isso não custa mais o 1080p
  *
- * O extrator aceita um `PoTokenProvider` e este app não monta nenhum. Durante
- * sete versões isso custou caro: o YouTube passou a exigir **SABR** de quem
- * pede sem token, as faixas adaptativas eram LISTADAS mas respondiam 403 a
- * todo download, e o que sobrava era o único progressivo deste aparelho —
- * 360p.
+ * **Montar o token não é a saída**, e isso foi verificado: o
+ * `getWebClientPoToken()` da biblioteca não tem uma única chamada em versão
+ * nenhuma (o cliente web só serve para metadados), e o token que ela de fato
+ * consome — o do cliente Android — exige o **DroidGuard** do Play Services,
+ * atrelado à assinatura do app oficial.
  *
- * **Montar o token não era a saída**, e isso foi verificado antes de desistir
- * dele: o `getWebClientPoToken()` da biblioteca não tem uma única chamada em
- * versão nenhuma (o cliente web só serve para metadados), e o token que ela de
- * fato consome — o do cliente Android — exige o **DroidGuard** do Play
- * Services, atrelado à assinatura do app oficial. Um WebView rodando o BotGuard
- * aqui alimentaria um campo que ninguém lê.
- *
- * Quem resolveu foi a própria biblioteca, na v0.26.3: um cliente **visionOS**,
- * buscado sem token nenhum, que volta a entregar as adaptativas — que é
- * exatamente o motivo de esta dependência existir no projeto (a manutenção do
- * gato-e-rato fica com quem a publica). O preço é que as listas agora vêm
- * MISTURADAS, faixas boas do visionOS ao lado das envenenadas do cliente
- * antigo, e é por isso que a escolha aqui virou uma FILA de candidatos
- * ([tentarJuntar]) em vez de "a de maior altura".
+ * Quem resolve é a própria biblioteca (≥ v0.26.3): o cliente **visionOS**,
+ * buscado sem token nenhum, volta a entregar as adaptativas — que é exatamente o
+ * motivo de esta dependência existir (a manutenção do gato-e-rato fica com quem
+ * a publica). **O preço é que as listas vêm MISTURADAS**, faixas boas do
+ * visionOS ao lado das envenenadas do cliente antigo: é por isso que a escolha
+ * aqui é uma FILA de candidatos ([tentarJuntar]), e não "a de maior altura".
  */
 object YoutubeGrab {
 
