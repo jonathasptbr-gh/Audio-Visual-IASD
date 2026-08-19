@@ -363,6 +363,29 @@
   --gaveta-btn: var(--panel);
   --surface-sunk: rgba(0, 0, 0, .24);
   --surface-2-sunk: rgba(0, 0, 0, .14);
+  /* ---------- A LINHA DE CONTEÚDO SE AFASTA DO TEXTO (v5.297) ----------
+     A faixa dentro de um álbum e a linha de um favorito são a superfície MAIS
+     FUNDA da Biblioteca, e são as únicas da escada que carregam texto pequeno.
+     Elas vestiam `--surface` (o recesso do cartão), e recesso é uma regra sobre
+     PROFUNDIDADE: no escuro isso as afasta do texto claro, e no CLARO as
+     empurra na direção dele.
+
+     Medido: no tema claro o recesso compunha rgb(182,187,194) sobre o card —
+     **~50% de luminância**, o meio-tom exato, que é o pior caso para os dois
+     lados. `--text` dava 4,59:1 (passava AA raspando e não se lia), e branco
+     daria 1,93:1: não havia cor de texto que resolvesse, porque o problema era
+     a SUPERFÍCIE. Relato do operador depois da v5.296: *"não melhorou a
+     leitura"*.
+
+     A regra é uma só e vale nos dois temas: **a linha vai para o lado OPOSTO ao
+     do texto**. No escuro ela desce (o valor de sempre, nada muda); no claro
+     ela sobe até quase o branco — que é o que uma lista de conteúdo faz em toda
+     UI clara, com o cinza do card aparecendo entre as linhas.
+
+     Medido depois, no claro: rgb(246,248,249) sobre o card #d4dae2 — 1,32:1 de
+     separação (o piso de dois blocos encostados é 1,28) e **8,32:1** com o
+     texto. No escuro segue rgb(46,54,63) e 9,23:1. */
+  --item-fill: var(--surface-sunk);
 
   /* ---------- OS DOIS FUNDOS DE ESTADO, e eles são OPACOS (v5.267) ----------
      Uma linha de lista tem dois estados que precisam ser lidos de relance:
@@ -647,10 +670,34 @@
   /* A gaveta da Biblioteca, ao contrário (ver o escuro): aqui ela SOBE, porque
      o poço em `--bg` ficaria a 1,09:1 do card do álbum. O par é o de cima da
      escada — folha branca com os botões um degrau abaixo. */
-  --gaveta-bg: var(--panel);
-  --gaveta-btn: var(--panel-2);
+  /* ---------- E ELA DESCE, DEPOIS DE A LINHA SUBIR (v5.297) ----------
+     A v5.287 a fez SUBIR aqui (`--panel`, branco) com uma medição correta para
+     o mundo daquele lote: a faixa de uma linha vizinha era o recesso escuro
+     (rgb 182,187,194), e branco dava 1,93:1 contra ela. Com `--item-fill` a
+     linha subiu para quase branco, e a gaveta ficou a **1,07:1** dela — o
+     relato da v5.287 reaberto pela porta oposta, e pego pelo oráculo daquele
+     lote no mesmo commit.
+
+     A aritmética não deixa escolha, e por isso o valor é literal: a linha
+     precisa de 1,28:1 contra o card (isso a força a ~0,91 de luminância) e a
+     gaveta precisa de 1,28:1 contra a LINHA **e** contra o CARD — o segundo par
+     é o que impede a saída fácil de vestir o tom do álbum, que é a cor que
+     aparece nos vãos entre as linhas. Sobra L ≤ 0,53, isto é, um cinza de
+     verdade. Medido: 1,74:1 contra a linha e 1,32:1 contra o card.
+
+     E os BOTÕES sobem para o branco em vez de ficarem no tom do card: do poço
+     eles saem com 1,85:1 (contra os 1,32 que `--panel-2` daria), que é a mesma
+     relação que o escuro tem entre `--gaveta-bg` e `--gaveta-btn`. */
+  --gaveta-bg: #b8bfc9;
+  --gaveta-btn: var(--panel);
   --surface-sunk: rgba(0, 0, 0, .14);
   --surface-2-sunk: rgba(0, 0, 0, .20);
+  /* E AQUI ELA INVERTE (v5.297) — ver o escuro. Recesso é profundidade, e a
+     linha de conteúdo responde a outra pergunta: de que lado fica o texto. Num
+     tema claro o texto é escuro, então a linha SOBE. O alfa é o que dá os dois
+     números ao mesmo tempo: 1,32:1 de separação contra o card (piso 1,28) e
+     8,32:1 com o `--text`. */
+  --item-fill: rgba(255, 255, 255, .8);
 
   /* Os dois fundos de ESTADO, espelhando o escuro (ver lá o porquê de serem
      opacos). `--sel-fill` dá 1,31:1 contra o painel branco, 6,76:1 com o texto e

@@ -1033,14 +1033,35 @@ for (const tema of ['escuro', 'claro']) {
           }
           return 'rgb(' + c.map(Math.round).join(', ') + ')';
         })(),
-        // A METADE NEGATIVA: o RÓTULO da seção continua sendo `--muted`. Sem
-        // ela, apagar a cor do rótulo (em vez de tirá-la do bloco) passaria —
-        // e a Biblioteca perderia a distinção entre um cabeçalho e uma linha.
-        rotuloCor: (() => {
+        // A METADE NEGATIVA: o RÓTULO da seção continua sendo um RÓTULO — cor
+        // `--muted`, caixa alta, espaçamento. Sem ela, apagar a regra do rótulo
+        // (em vez de tirá-la do bloco) passaria, e a Biblioteca perderia a
+        // distinção entre um cabeçalho e uma linha.
+        rotulo: (() => {
           const el = lista.querySelector('.coll-group--drop.aberto:not(.coll-group--fav) '
             + '> .coll-group-bar .coll-group-name');
-          return el ? getComputedStyle(el).color : 'AUSENTE';
+          if (!el) return null;
+          const c = getComputedStyle(el);
+          return { cor: c.color, tt: c.textTransform, ls: c.letterSpacing };
         })(),
+        // E A TIPOGRAFIA do que a seção CONTÉM (v5.297): o vazamento não era só
+        // de cor. `text-transform` e `letter-spacing` também herdam, e ninguém
+        // os reescreve lá dentro.
+        nomeTipo: (() => {
+          const el = faixa && faixa.querySelector('.hymn-name');
+          if (!el) return null;
+          const c = getComputedStyle(el);
+          return { tt: c.textTransform, ls: c.letterSpacing };
+        })(),
+        tituloTipo: (() => {
+          const el = lista.querySelector('.hymnal-card .coll-bar-name');
+          if (!el) return null;
+          const c = getComputedStyle(el);
+          return { tt: c.textTransform, ls: c.letterSpacing };
+        })(),
+        // A cor do TEXTO da folha, para a regra de direção abaixo. Ela é a
+        // pergunta inteira: "de que lado a linha tem de ficar?".
+        textoCor: getComputedStyle(folha).color,
         // O espaço entre duas faixas — é ele que substitui o filete.
         faixaGap: (() => {
           const ul = lista.querySelector('.coll-songs');
@@ -1140,9 +1161,48 @@ for (const tema of ['escuro', 'claro']) {
     // `--text`": o cabeçalho da seção CONTINUA em `--muted`. Cor de rótulo e
     // cor de conteúdo são duas coisas, e o defeito era exatamente uma valendo
     // pela outra.
-    checar(t.rotuloCor !== 'AUSENTE' && t.rotuloCor !== t.nomeCor,
+    checar(!!t.rotulo && t.rotulo.cor !== t.nomeCor,
       '[' + tema + '] mas o RÓTULO da seção continua sendo um rótulo, com cor '
-      + 'própria (' + t.rotuloCor + ' contra ' + t.nomeCor + ' da linha)');
+      + 'própria (' + (t.rotulo ? t.rotulo.cor : '?') + ' contra ' + t.nomeCor
+      + ' da linha)');
+    // ===== A LINHA DE CONTEÚDO SE AFASTA DO TEXTO (v5.297) =====
+    //
+    // A regra que o relato *"não melhorou a leitura"* obrigou a escrever. A
+    // faixa vestia `--surface`, e recesso é uma regra sobre PROFUNDIDADE: no
+    // escuro ela afasta do texto claro, no CLARO ela empurra na direção dele —
+    // rgb(182,187,194), ~50% de luminância, o meio-tom exato. Ali `--text` dava
+    // 4,59:1 (passava AA e não se lia) e branco daria 1,93:1: não havia cor de
+    // texto que resolvesse, porque o defeito era a SUPERFÍCIE.
+    //
+    // A asserção é a REGRA e não um valor, e por isso vale nos dois temas sem
+    // um `if` de tema: **a linha que carrega o texto contrasta com ele MAIS que
+    // o contêiner dela.** Um recesso de volta a reprova no claro (verificado) e
+    // continua passando no escuro, que é exatamente a assimetria do defeito.
+    const dLinha = t.textoCor && t.faixaEfetiva !== 'AUSENTE'
+      ? razao(t.textoCor, t.faixaEfetiva) : 0;
+    const dCartao = t.textoCor && opaco(t.card) ? razao(t.textoCor, t.card) : 0;
+    checar(dLinha > dCartao,
+      '[' + tema + '] e ela se AFASTA do texto, não do fundo: a linha contrasta '
+      + 'mais que o card que a contém (' + dLinha.toFixed(2) + ':1 contra '
+      + dCartao.toFixed(2) + ':1)');
+    // ===== E O CONTEÚDO NÃO É DESENHADO COMO UM RÓTULO (v5.297) =====
+    //
+    // A outra metade do mesmo vazamento, e a que o operador de fato via: a
+    // Biblioteca INTEIRA saía em MAIÚSCULAS com espaçamento de rótulo, porque
+    // `text-transform` e `letter-spacing` herdam e nada lá dentro os reescreve.
+    // Caixa alta a 13px é mais lenta de ler e mais larga — era ela que truncava
+    // "001. SANTO, SANTO, SANTO! (CANTAD…" numa linha que cabia.
+    const normal = (o) => !!o && o.tt === 'none' && o.ls === 'normal';
+    checar(normal(t.nomeTipo) && normal(t.tituloTipo),
+      '[' + tema + '] e nem o nome da faixa nem o título do álbum são desenhados '
+      + 'como RÓTULO — sem caixa alta e sem espaçamento de cabeçalho ('
+      + (t.nomeTipo ? t.nomeTipo.tt + '/' + t.nomeTipo.ls : '?') + ')');
+    // A metade negativa dela: a barra CONTINUA em caixa alta. Sem esta linha,
+    // apagar a regra do rótulo passaria nas duas de cima.
+    checar(!!t.rotulo && t.rotulo.tt === 'uppercase' && t.rotulo.ls !== 'normal',
+      '[' + tema + '] mas a BARRA da seção continua em caixa alta e espaçada — é '
+      + 'ela que o rótulo sempre descreveu (' + (t.rotulo ? t.rotulo.tt + '/'
+      + t.rotulo.ls : '?') + ')');
   } catch (e) {
     checar(false, 'a medição da escada de camadas (' + tema + ') terminou sem exceção ('
       + (e && e.message) + ')');

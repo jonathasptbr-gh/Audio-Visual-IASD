@@ -3053,10 +3053,64 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.296** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.297** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.297: NÃO HAVIA COR DE TEXTO QUE RESOLVESSE — o defeito era a
+> SUPERFÍCIE, e a Biblioteca inteira estava em MAIÚSCULAS. OTA PURO** (CSS,
+> tokens e oráculo; sem Release).
+>
+> Relato do operador depois da v5.296, com prints: *"não melhorou a leitura"*.
+> Ele estava certo, e o lote anterior tinha consertado metade de um vazamento e
+> tratado o sintoma errado do outro.
+>
+> **1. A LINHA DE CONTEÚDO SE AFASTA DO TEXTO.** A faixa vestia `--surface`, e
+> recesso é uma regra sobre PROFUNDIDADE: no escuro ela afasta do texto claro,
+> no CLARO ela empurra na direção dele. Medido, o fundo compunha
+> rgb(182,187,194) — **~50% de luminância, o meio-tom exato**, que é o pior caso
+> para os dois lados: `--text` dava 4,59:1 (passava AA e não se lia) e o branco
+> que o operador pediu daria **1,93:1**. Não havia cor de texto que resolvesse.
+>
+> `--item-fill` é a regra escrita como token, com um valor por tema: no escuro
+> segue o de sempre (nada muda), no claro a linha SOBE até quase o branco — que
+> é o que uma lista de conteúdo faz em toda UI clara, com o cinza do card
+> aparecendo entre as linhas. Medido depois: **8,32:1** com o texto e 1,32:1 de
+> separação contra o card (piso 1,28).
+>
+> **A aritmética não deixava escolha, e é ela que também derrubou a gaveta.** A
+> linha precisa de 1,28:1 contra o card, o que a força a ~0,91 de luminância —
+> isto é, quase branco, não um meio-termo. E a gaveta de opções (v5.287), que
+> tinha SUBIDO para o branco porque a vizinha era escura, ficou a **1,07:1**
+> dela: o relato daquele lote reaberto pela porta oposta. Ela desce para um
+> cinza de verdade (os dois pares que ela precisa satisfazer — contra a linha e
+> contra o card — deixam L ≤ 0,53), e os botões dela sobem para o branco. **O
+> oráculo da v5.287 pegou isso no mesmo commit**, que é a única razão de este
+> lote não ter trocado um relato por outro.
+>
+> **2. E O QUE O OPERADOR DE FATO VIA: a Biblioteca INTEIRA em MAIÚSCULAS.** O
+> vazamento da v5.296 era de `color`, e ela desceu só a cor, com o preço
+> declarado na própria nota. `text-transform: uppercase` e `letter-spacing`
+> herdam do mesmo bloco e **ninguém os reescreve lá dentro** — caixa alta a 13px
+> é mais lenta de ler e mais larga, e era ela que truncava
+> "001. SANTO, SANTO, SANTO! (CANTAD…" numa linha que cabia. A regra do rótulo
+> foi INTEIRA para a `.coll-group-bar`, que é a peça que ela sempre descreveu.
+> `font-size` e `font-weight` vêm junto porque a regra é uma só; quem muda de
+> verdade é o nome de um favorito (`.row-name` não declara peso), que volta ao
+> 400 das outras listas do app.
+>
+> **A lição, e ela é maior que este arquivo:** *declarar o preço de uma correção
+> pela metade não é o mesmo que pagá-lo.* A v5.296 nomeou este vazamento no
+> comentário e o deixou de pé por não ter sido pedido — e ele era metade do que
+> o operador estava vendo.
+>
+> **O oráculo ganhou a REGRA, não um valor:** a linha que carrega o texto
+> contrasta com ele MAIS que o contêiner dela. Ela vale nos dois temas sem um
+> `if` de tema, e um recesso de volta a reprova no claro e passa no escuro — que
+> é exatamente a assimetria do defeito. Verificado por ISOLAMENTO, peça a peça:
+> o recesso de volta reprova **2**, o vazamento de tipografia **2**, a gaveta
+> branca **1**.
 
 > **A v5.296: O NOME DA FAIXA SAÍA NA COR DE UM CABEÇALHO — e no tema claro
 > isso reprovava AA. OTA PURO** (só CSS e o oráculo; sem Release).
