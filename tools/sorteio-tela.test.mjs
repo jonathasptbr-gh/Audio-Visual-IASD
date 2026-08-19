@@ -256,8 +256,8 @@ try {
   checar(folha.aberta, 'o toque no botão ABRE a folha');
   checar(folha.segmentos === 2 && folha.campo && folha.chips === 2 && folha.go,
     'e ela desenha os dois segmentos, o campo, os dois filtros e o confirmar', folha);
-  checar(/^4 músicas na biblioteca$/.test(conta0.forte) && /3 já baixadas/.test(conta0.fraca),
-    'a conta fala de MÚSICA em duas linhas: o que há em cima, o custo embaixo',
+  checar(/^Toda a biblioteca — 4 músicas$/.test(conta0.forte) && /3 já baixadas/.test(conta0.fraca),
+    'sem palavra, a conta LIDERA COM O ESCOPO: o acervo inteiro entra no sorteio',
     conta0);
 
   // ---- A PALAVRA TEMA FILTRA, SEM REMONTAR A FOLHA -------------------------
@@ -310,6 +310,37 @@ try {
   });
   checar(/2 músicas relacionadas/.test(soLocal) && /todas já baixadas/.test(soLocal),
     '"Só no aparelho" deixa só o que não precisa de download', soLocal);
+
+  // ---- SEM PALAVRA, A FRASE É HONESTA SOBRE OS FILTROS ---------------------
+  // Dizer "toda a biblioteca" com o hinário fora seria uma frase ERRADA, e uma
+  // frase errada é pior que nenhuma: ela produz a decisão errada.
+  const escopos = await pg.evaluate(() => {
+    const ler = () => document.querySelector('#sorteioList .sorteio-conta-forte').textContent;
+    const antes = { ...sorteioPrefs };
+    sorteioPrefs.tema = '';
+    const fora = {};
+    sorteioPrefs.semHinario = false; sorteioPrefs.soNoAparelho = false;
+    renderSorteio(); fora.tudo = ler();
+    sorteioPrefs.semHinario = true;
+    renderSorteio(); fora.semHinario = ler();
+    sorteioPrefs.semHinario = false; sorteioPrefs.soNoAparelho = true;
+    renderSorteio(); fora.soLocal = ler();
+    sorteioPrefs.semHinario = true;
+    renderSorteio(); fora.ambos = ler();
+    Object.assign(sorteioPrefs, antes); renderSorteio();
+    return fora;
+  });
+  checar(/^Toda a biblioteca — \d+ músicas?$/.test(escopos.tudo),
+    'sem filtro nenhum ela diz “toda a biblioteca”, sem ressalva', escopos.tudo);
+  checar(/Toda a biblioteca, sem o hinário/.test(escopos.semHinario),
+    'com o hinário fora ela RESSALVA — "toda" seria uma frase errada', escopos.semHinario);
+  checar(/^Só o que já está no aparelho — /.test(escopos.soLocal),
+    'com "Só no aparelho" o escopo deixa de ser a biblioteca e ela o diz', escopos.soLocal);
+  checar(/^Só o que já está no aparelho, sem o hinário — /.test(escopos.ambos),
+    'e os dois filtros juntos aparecem juntos', escopos.ambos);
+  const dica = await pg.evaluate(() => document.querySelector('#sorteioList .lib-search').placeholder);
+  checar(/vazio/i.test(dica) && /biblioteca/i.test(dica),
+    'e o próprio campo diz o que o vazio significa — a pergunta nasce ali', dica);
 
   // ---- A CONTA VAZIA DIZ O MOTIVO -----------------------------------------
   // O botão dispara sem mais nenhuma tela: esta linha é a única chance de o
@@ -435,6 +466,63 @@ try {
   checar(denovo.total === 3, 'sortear de novo não duplica o que já está no Cronograma', denovo);
   checar(/j[áa] estav|j[áa] est[áa]/i.test(denovo.fala || ''),
     'e a frase o DIZ, em vez de parecer que o toque não fez nada', denovo.fala);
+
+  // ---- FECHAR LIMPA A CAIXA DA PALAVRA (v5.307) ---------------------------
+  // Medido pelos TRÊS caminhos de fechamento, porque a tabela `POPUPS` liga os
+  // três à mesma função e um deles poderia ter sido esquecido. A folha é
+  // reaberta noutro momento do culto, para outra coisa: o campo preenchido a
+  // espera com um filtro que ela não pediu.
+  const limpou = {};
+  for (const caminho of ['fecharSorteio', 'voltar', 'fundo']) {
+    limpou[caminho] = await pg.evaluate(async (via) => {
+      await abrirSorteio();
+      sorteioPrefs.tema = 'gratidão'; renderSorteio();
+      const antes = document.querySelector('#sorteioList .lib-search').value;
+      if (via === 'fecharSorteio') fecharSorteio();
+      else if (via === 'voltar') __avBack();
+      else document.getElementById('sorteioPopup').click();
+      await new Promise((r) => setTimeout(r, 80));
+      await abrirSorteio();
+      const depois = document.querySelector('#sorteioList .lib-search').value;
+      const forte = document.querySelector('#sorteioList .sorteio-conta-forte').textContent;
+      fecharSorteio();
+      return { antes, depois, forte };
+    }, caminho);
+  }
+  for (const [caminho, r] of Object.entries(limpou)) {
+    checar(r.antes === 'gratidão' && r.depois === '',
+      'fechar por "' + caminho + '" limpa a caixa da palavra tema', r);
+  }
+  // A frase é a do ESCOPO e não a do tema — sem citar "gratidão" nem "relacionadas
+  // a". O prefixo dela depende dos filtros que estiverem ligados neste ponto do
+  // teste, e é justamente isso que a asserção NÃO deve fixar: o que importa é
+  // que a palavra de antes não escopa mais o sorteio.
+  checar(!/gratidão|relacionadas a/.test(limpou.fecharSorteio.forte)
+    && / — \d+ músicas?$/.test(limpou.fecharSorteio.forte),
+    'e a folha reabre sorteando pelo ESCOPO, não pelo tema de antes',
+    limpou.fecharSorteio.forte);
+
+  // A PALAVRA NÃO ATRAVESSA UMA SESSÃO: as outras cinco escolhas são ajustes e
+  // ficam gravadas; ela é uma pergunta feita uma vez.
+  const gravado = await pg.evaluate(async () => {
+    await abrirSorteio();
+    sorteioPrefs.tema = 'cruz'; sorteioPrefs.quantos = 15;
+    saveSorteioPrefs(); fecharSorteio();
+    return await AVDB.getState('sorteioPrefs');
+  });
+  checar(gravado && gravado.tema === undefined && gravado.quantos === 15,
+    'a palavra não é gravada; a quantidade é — ajuste fica, pergunta não', gravado);
+
+  // ---- A PALAVRA VALE NO MESMO TOQUE --------------------------------------
+  // O `debounce` cobria a ATRIBUIÇÃO também: digitar e tocar no botão dentro dos
+  // 130 ms sorteava com a palavra ANTERIOR, sem erro e sem sinal.
+  await pg.evaluate(async () => { await abrirSorteio(); });
+  await pg.focus('#sorteioList .lib-search');
+  await pg.type('#sorteioList .lib-search', 'natal');
+  const naHora = await pg.evaluate(() => sorteioPrefs.tema);
+  checar(naHora === 'natal',
+    'a palavra digitada vale NO MESMO INSTANTE — só a recontagem é adiada', naHora);
+  await pg.evaluate(() => { sorteioPrefs.tema = ''; fecharSorteio(); });
 
   // ---- O REGISTRO ---------------------------------------------------------
   const registro = await pg.evaluate(() => blocoSorteio());
