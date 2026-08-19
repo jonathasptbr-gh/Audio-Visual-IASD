@@ -5592,98 +5592,75 @@ A busca ganha assim **dois níveis**, e isso muda três coisas:
   mas a ordenação de `POPUPS` que ele motivou ficou, e é a que o `#songMenuPopup`
   e o `#folderPopup` usam hoje.)*
 
-#### E a aba de Álbuns saiu (v5.44)
+#### A LUPA É A ÚNICA PORTA DO ACERVO
 
-Com o acervo desenhado dentro da busca, a aba virou uma segunda porta para a
-mesma tela — e duas portas para o mesmo lugar, numa barra de quatro botões, é
-espaço gasto sem informação nova. A **lupa** passa a ser a única entrada:
-`activeTab` nunca mais vale `'albums'`, e `TAB_ORDER` (que decide a direção do
-deslize entre abas) perdeu a entrada.
+Com o acervo desenhado dentro da busca, uma aba de Álbuns seria uma segunda
+porta para a mesma tela — e duas portas para o mesmo lugar, numa barra de quatro
+botões, é espaço gasto sem informação nova. `activeTab` nunca vale `'albums'`.
 
-Nada de função se perdeu — é a mesma `renderCollectionsList`, com os mesmos
-cards, cabeçalhos de grupo e botões de sincronizar. Duas peças foram junto:
+Duas peças acompanharam o acervo quando ele mudou de casa:
 
 - **A linha de uso de disco** (`renderStorageUsage`) ganhou `alvo` e a condição
-  `valido()` e acompanhou o acervo. Ela mede OPFS + IDB, e quem enche o disco é
-  o download de música: o lugar dela é onde se decide baixar — e apagar. Segue
-  também em Favoritos, onde já estava.
+  `valido()`. Ela mede OPFS + IDB, e quem enche o disco é o download de música:
+  o lugar dela é onde se decide baixar — e apagar.
 - **O refresh periódico** (`renderCollectionsNow`, que acompanha o progresso de
-  um download em curso) passou a redesenhar o popup — e **só quando ele está
-  mostrando o acervo**. Redesenhar por baixo de uma lista de músicas tiraria do
-  lugar exatamente o que o operador está mirando.
+  um download) redesenha o popup **só quando ele está mostrando o acervo**:
+  redesenhar por baixo de uma lista de músicas tiraria do lugar exatamente o que
+  o operador está mirando.
 
-### Letra completa no resultado aberto (v5.37)
+### A letra completa dentro do resultado
 
-Tocar num resultado da busca abre a **letra completa** da música em acordeão. É
-o que fecha o ciclo da busca por trecho: achar o hino e conferir se é ele mesmo,
-sem tocar nada e sem sair da lista. (Na v5.37 ela vinha abaixo de uma faixa de
-seis botões de ação; desde a v5.63 esses botões viraram dois, moraram na própria
-linha, e o acordeão guarda só a letra.)
+Tocar num resultado abre a letra completa em acordeão — é o que fecha o ciclo da
+busca por trecho: achar o hino e conferir se é ele mesmo, sem tocar nada e sem
+sair da lista.
 
 - **Montada só ao ABRIR, e uma vez só.** Montá-la para todos os resultados
-  encheria a lista de centenas de nós de texto que ninguém pediu — e a lista é
+  encheria a lista de centenas de nós de texto que ninguém pediu, e a lista é
   reconstruída a cada tecla digitada.
-- **A linha que casou com a busca fica marcada** (fundo dourado) e recebe
-  `scrollIntoView`. O operador digitou aquele trecho justamente para achá-lo;
-  numa letra de 30 linhas, procurá-lo de novo com os olhos é trabalho que o app
-  pode poupar. A marca usa FUNDO, não só cor: precisa ser achada de relance,
-  com o bloco rolando.
-- **Rola por dentro**, com teto de `40vh`. Solta, uma letra de 40 linhas
-  empurraria os resultados seguintes para fora da tela — e o operador perderia
-  de vista justamente a lista que estava percorrendo.
-- **Sem letra, explica por quê.** Desde a v5.38 a letra cobre todo o acervo, e
-  a ausência passou a significar sempre a mesma coisa — a fila do arranque
-  ainda não chegou nesta música (ou falhou). A mensagem é única.
-- A fonte é `songLyricStanzas`, que lê os mesmos dois acervos da busca (texto
-  primeiro, slides do arquivo baixado como complemento) e devolve ESTROFES, não
-  linhas soltas — é o formato em que o LouvorJA publica e em que o app guarda
-  (ver "A letra é uma lista de ESTROFES").
+- **A linha que casou com a busca fica marcada** e recebe `scrollIntoView`: o
+  operador digitou aquele trecho justamente para achá-lo, e numa letra de 30
+  linhas procurá-lo de novo com os olhos é trabalho que o app pode poupar. A
+  marca usa FUNDO, não só cor — ela precisa ser achada de relance, com o bloco
+  rolando.
+- **Rola por dentro**, com teto de `40vh`: solta, uma letra de 40 linhas
+  empurraria os resultados seguintes para fora da tela.
+- **Sem letra, explica por quê.** A letra cobre todo o acervo, então a ausência
+  significa sempre a mesma coisa — a fila do arranque ainda não chegou nesta
+  música (ou falhou). A mensagem é única.
+- A fonte é `songLyricStanzas`, que lê os dois acervos (texto primeiro, slides do
+  arquivo baixado como complemento) e devolve ESTROFES, nunca linhas soltas.
 
-### Busca dentro da LETRA (v5.35)
+### Busca dentro da LETRA
 
 "Qual é o hino que fala em *firme nas promessas*?" é a pergunta que o operador
-faz de verdade, e até a v5.34 a busca só respondia por título e número. Agora o
-mesmo campo (`#hymnSearchInput`) também varre o texto das letras.
+faz de verdade. O mesmo campo varre o texto das letras, e **a letra já está no
+aparelho** (`buildLyricSlides` a grava no registro do arquivo quando a música é
+baixada): o índice sai de UMA leitura do IDB, sem requisição, e funciona offline
+— o estado normal no meio de um culto.
 
-**A letra já está no aparelho.** `buildLyricSlides` a grava no registro do
-arquivo (store `files`) quando a música é baixada — então o índice sai de **uma
-leitura do IDB**, sem nenhuma requisição, e funciona offline, que é o estado
-normal no meio de um culto.
-
-- **Alcance** (desde a v5.38): **todo o acervo indexado**, hinários e álbuns —
-  ver "Acervo de LETRAS" acima. Não depende mais de a música estar baixada.
+- **Alcance: todo o acervo indexado**, hinários e álbuns; não depende de a música
+  estar baixada.
 - **Título ANTES de letra, sempre.** Quem digita "Firme nas Promessas" quer o
   hino de mesmo nome no topo, não os quinze que citam a expressão numa estrofe.
   São dois grupos concatenados (`porNome` + `porLetra`), e quem casa por título
   **nem chega a consultar** a letra.
-- **A linha que casou aparece no resultado** (`.hymn-lyric-hit`, em itálico
-  dourado com barra à esquerda, para se ler como citação e não como mais um
-  subtítulo). Sem ela o item apareceria sem nenhuma relação visível com o que
-  foi digitado, e o operador teria que abrir um por um para descobrir se é o
-  hino certo.
-- **Mínimo de 3 caracteres** (`LYRIC_MIN_Q`) para a busca entrar na letra: com
-  menos, "de"/"ao" casariam em quase todo hino e afogariam os resultados por
-  título, que são a maioria dos casos.
-- **A estrofe é quebrada em linhas** na indexação (o `<br>` da API já virou
-  `\n` em `normalizeLyricText`), para o trecho exibido ser uma linha e não o
-  bloco inteiro.
+- **A linha que casou aparece no resultado** (`.hymn-lyric-hit`, em itálico com
+  barra à esquerda, para se ler como citação e não como mais um subtítulo). Sem
+  ela o item apareceria sem relação visível com o que foi digitado.
+- **Mínimo de 3 caracteres** (`LYRIC_MIN_Q`): com menos, "de"/"ao" casariam em
+  quase todo hino e afogariam os resultados por título.
+- **A estrofe é quebrada em linhas** na indexação (o `<br>` da API já virou `\n`
+  em `normalizeLyricText`), para o trecho exibido ser uma linha e não o bloco.
 - **O índice é construído sob demanda e redesenha ao ficar pronto**:
   `renderSearchResults` é síncrona (roda a cada tecla) e não pode esperar o IDB.
-  É invalidado (`invalidateLyricIndex`) no ponto exato em que uma letra nova é
+  É INVALIDADO (`invalidateLyricIndex`) no ponto exato em que uma letra nova é
   gravada — invalidar em vez de reconstruir evita pagar a leitura no meio de uma
   sincronização em massa.
-- **Custo medido**: com **3.000** letras indexadas — a escala do acervo inteiro
-  —, **16,5 ms por tecla** incluindo o render dos resultados. A varredura é `String.includes` sobre um texto
+- **Custo medido**: com 3.000 letras — a escala do acervo inteiro —, **16,5 ms
+  por tecla** incluindo o render. A varredura é `String.includes` sobre um texto
   normalizado uma única vez por música.
 - **Acento não atrapalha**: índice e consulta passam pelo mesmo
-  `normalizeForSearch` (NFD + remoção de diacríticos), então "criacao" acha
-  "criação".
-
-### Ferramentas: o seletor de ferramenta
-
-A aba reúne quatro ferramentas, e três delas empilhadas **não cabiam** numa tela
-de celular: a página ganhava rolagem vertical, e o que a rolagem escondia era
-justamente a ferramenta que não estava em uso.
+  `normalizeForSearch` (NFD + remoção de diacríticos).
 
 A v5.31 tentou um **acordeão** e ele foi trocado na v5.32: cobrava três
 cabeçalhos permanentes de altura para entregar o mesmo resultado, e ainda
