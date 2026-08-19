@@ -2946,101 +2946,90 @@ Num shell ≥ 18 o botão **não sai do app**: `AVNative.ytSearch(termo)` devolv
 resultados e eles entram **na mesma lista**, abaixo do acervo, com miniatura
 16:9, título, canal e duração.
 
-- **O pedido sai em PORTUGUÊS, e o caminho para isso não é o óbvio.** A
-  localização padrão da biblioteca é **en-GB**, e o YouTube TRADUZ o título
-  quando o canal publica traduções ou quando a tradução automática está ligada —
+- **O pedido sai em PORTUGUÊS, e o caminho não é o óbvio.** A localização padrão
+  da biblioteca é **en-GB**, e o YouTube TRADUZ o título quando há tradução —
   uma busca por louvor brasileiro voltava com títulos em inglês de vídeos cujo
   título ORIGINAL é em português.
   - `Localization("pt","BR")` no `NewPipe.init` **não adianta**:
     `StreamingService.getLocalization()` FILTRA o pedido pela lista de idiomas
-    suportados do serviço, e a do YouTube tem um item só — `"en-GB"`, com o resto
-    **comentado** no fonte. Qualquer outro idioma cai no `Localization.DEFAULT`,
-    em silêncio e sem erro: o código PARECE certo. (O país escapa do filtro,
-    então metade do pedido chegava.)
+    suportados, e a do YouTube tem um item só, `"en-GB"` (o resto comentado no
+    fonte). Qualquer outro cai no `Localization.DEFAULT`, em silêncio: o código
+    PARECE certo. (O país escapa do filtro, então metade do pedido chegava.)
   - A saída é `forceLocalization`/`forceContentCountry` no próprio `Extractor` —
-    `getExtractorLocalization()` lê o forçado ANTES da lista de suportados. Isso
-    exige montar o extrator à mão nos dois caminhos (`getStreamExtractor` e
+    `getExtractorLocalization()` lê o forçado ANTES da lista. Isso exige montar o
+    extrator à mão nos dois caminhos (`getStreamExtractor` e
     `getSearchExtractor`) em vez dos atalhos `getInfo(service, …)`, e no da busca
     **chamar `fetchPage()`**: `SearchInfo.getInfo(extractor)` é o único dos
     `getInfo` que NÃO busca a página sozinho, e sem isso a lista volta vazia, sem
     erro.
-  - O código é `"pt"`, não `"pt-BR"`: a lista (comentada) que a biblioteca guarda
-    como os `hl` que o YouTube aceita tem "pt" e "pt-PT", e com o `gl=BR` do
-    `ContentCountry` "pt" é o português do Brasil.
-  - `Accept-Language` acompanha no `NpDownloader`: quem manda de fato é o `hl` do
-    corpo InnerTube, mas nem toda requisição é InnerTube, e nas páginas HTML é o
+  - O código é `"pt"`, não `"pt-BR"`: a lista que a biblioteca guarda como os
+    `hl` aceitos tem "pt" e "pt-PT", e com o `gl=BR` "pt" é o do Brasil.
+  - `Accept-Language` acompanha no `NpDownloader`: quem manda é o `hl` do corpo
+    InnerTube, mas nem toda requisição é InnerTube, e nas páginas HTML é o
     cabeçalho que decide.
-  - **Fixo, nunca herdado do `Locale` do aparelho**: o que se quer é o título
-    ORIGINAL, e um celular configurado em inglês traria a tradução de volta.
+  - **Fixo, nunca herdado do `Locale`**: o que se quer é o título ORIGINAL.
 - **Quem pesquisa é o Kotlin** (`YoutubeGrab.pesquisar`), não o WebView: ali não
   existe CORS e a requisição sai do IP do aparelho. As alternativas não serviam —
   um `<iframe>` da página de resultados é recusado pelo `X-Frame-Options`, e a
-  API oficial exigiria uma chave embutida no APK com cota dividida pela frota.
+  API oficial exigiria chave embutida no APK com cota dividida pela frota.
 - **Só vídeos** no filtro: canal e playlist não têm o que fazer numa lista cujo
-  único destino é virar arquivo de mídia.
+  destino é virar arquivo de mídia.
 - **O nome do canal sai da frente do título** (`tituloLimpo`). Meio YouTube
   publica como "Arautos do Rei - Firme nas Promessas", e no Cronograma isso vira
   uma lista em que a metade esquerda de toda linha é a mesma palavra. A remoção é
-  CONSERVADORA — só corta quando o título começa exatamente com o nome do canal
-  seguido de um separador, então "Hino 512 - Ao Deus de Abraão" fica inteiro —, e
-  o sufixo `- Topic` é descontado antes da comparação, senão ela nunca casaria
-  justamente nos vídeos de louvor. O canal continua no subtítulo.
+  CONSERVADORA (só corta quando o título começa exatamente com o nome do canal
+  seguido de separador, então "Hino 512 - Ao Deus de Abraão" fica inteiro) e o
+  sufixo `- Topic` é descontado antes da comparação, senão ela nunca casaria nos
+  vídeos de louvor. O canal continua no subtítulo.
 - **A miniatura é montada a partir do ID** (`i.ytimg.com/vi/<id>/mqdefault.jpg`)
-  em vez de vir da biblioteca: é uma URL estável há mais de uma década, e assim o
-  formato das imagens do extrator — que já mudou entre versões — deixa de poder
-  quebrar a lista.
+  em vez de vir da biblioteca: URL estável há mais de uma década, e assim o
+  formato das imagens do extrator não pode quebrar a lista.
 - **Chegar no fim da lista já pesquisa** (`armarAutoBuscaYt`): rolar até o fim do
-  que o acervo tem É o gesto de quem não achou o que queria. A espera de 500 ms
-  não é enfeite — a lista é reconstruída A CADA TECLA, e com poucos resultados a
-  sentinela nasce visível: sem ela a busca dispararia com o termo pela metade,
-  uma vez por letra. O termo é reconferido quando o prazo vence.
+  que o acervo tem É o gesto de quem não achou. A espera de 500 ms não é enfeite
+  — a lista é reconstruída A CADA TECLA e com poucos resultados a sentinela nasce
+  visível: sem ela a busca dispararia com o termo pela metade, uma vez por letra.
 - **O cabeçalho de seção (`.yt-head`) faz três papéis**: é a SENTINELA que o
   observador vigia (por isso precisa de altura de verdade — um `li` de altura
   zero é uma aposta na forma como o navegador trata interseção de área nula), é o
-  sinal de busca em curso (anel + "Procurando no YouTube…") e é o rótulo que
-  separa o acervo dos resultados. O filete em cima é a separação; o alinhamento à
-  ESQUERDA e o peso são o que o fazem ler como título de seção — centrado, lia
-  como mais um item da lista. Pela mesma razão a negativa do acervo diz o escopo
-  ("Nada encontrado na biblioteca"): com o cabeçalho do YouTube logo abaixo, uma
-  negativa sem escopo parece negar a busca inteira.
-- **O botão manual continua onde é a única saída**: navegador e shell < 18, que
-  não sabem pesquisar de dentro do app (e ali a auto-busca não acontece — tirar o
-  operador do app sem ele ter pedido seria outra coisa). Ele exige shell ≥ 15
-  (`AVNative.openExternal`) e **não é desenhado** abaixo disso: o WebView recusa
-  navegar para fora do origin, então o toque não faria nada, nem erro no console.
-- **O toque num resultado abre a MESMA folha de destinos das músicas do acervo**
-  (antes ele baixava direto, e o vídeo caía no Cronograma quisesse o operador ou
-  não). "Tocar agora" FECHA a Biblioteca (o cartão de progresso mora na preview,
-  que está atrás desta folha); as de "adicionar" a MANTÊM aberta — quem está
-  buscando provavelmente vai pegar mais de um —, e ali a linha termina marcada
-  como CONCLUÍDA (✓ verde sobre a miniatura) em vez de voltar ao estado inicial,
-  que era o que fazia parecer que nada tinha acontecido.
+  sinal de busca em curso, e é o rótulo que separa acervo de resultados. O
+  alinhamento à ESQUERDA e o peso são o que o fazem ler como título de seção.
+  Pela mesma razão a negativa do acervo diz o escopo ("Nada encontrado na
+  biblioteca"): com o cabeçalho do YouTube abaixo, uma negativa sem escopo parece
+  negar a busca inteira.
+- **O botão manual continua onde é a única saída**: navegador e shell < 18 (e ali
+  a auto-busca não acontece — tirar o operador do app sem ele pedir seria outra
+  coisa). Ele exige shell ≥ 15 (`AVNative.openExternal`) e **não é desenhado**
+  abaixo disso: o WebView recusa navegar para fora do origin, então o toque não
+  faria nada, nem erro no console.
+- **O toque num resultado abre a MESMA folha de destinos das músicas do acervo.**
+  "Tocar agora" FECHA a Biblioteca (o cartão de progresso mora na preview, atrás
+  desta folha); as de "adicionar" a MANTÊM aberta — quem busca vai pegar mais de
+  um —, e ali a linha termina marcada como CONCLUÍDA (✓ verde sobre a miniatura)
+  em vez de voltar ao estado inicial, que parecia "nada aconteceu".
 - **O estado de cada linha vive num Map (`ytEstado`)**, nunca na classe do nó: a
-  lista é reconstruída a cada tecla e a cada redesenho, e a marca sumiria com o
-  download ainda correndo (a razão do `songRowBusy` das músicas). Concluído fica
-  APAGADO, não desabilitado: o mesmo vídeo pode ser querido de novo.
+  lista é reconstruída a cada tecla e a marca sumiria com o download correndo (a
+  razão do `songRowBusy`). Concluído fica APAGADO, não desabilitado: o mesmo
+  vídeo pode ser querido de novo.
 - **Cada escolha vai só para o SEU lugar.** A lista de destino é decidida no
-  `ytAcao` e entregue ao `addMedia`, que continua gravando registro e entrada na
-  MESMA transação — a lista passou a ser ESCOLHIDA, não dispensada, justamente
-  para o registro nunca nascer órfão. "Tocar agora" vai para `avulsos`.
+  `ytAcao` e entregue ao `addMedia`, que grava registro e entrada na MESMA
+  transação — a lista passou a ser ESCOLHIDA, não dispensada, para o registro
+  nunca nascer órfão. "Tocar agora" vai para `avulsos`.
 - **O mesmo vídeo não baixa duas vezes** (`ytArquivo`): o registro guarda o
   `youtubeId` desde que nasce, então "já tenho isto?" é uma leitura do índice
   (`AVDB.mediaByYoutube`). Só vale para quem tem **blob** — um item de LINK
-  carrega o mesmo `youtubeId` e é justamente o que o download existe para
-  substituir. Vale também para o compartilhamento do mesmo link.
+  carrega o mesmo `youtubeId` e é o que o download existe para substituir.
 - **O resultado que já está no aparelho nasce marcado** (`marcarYtProntos`): o ✓
-  diz as duas coisas ("acabou de baixar" e "já estava aqui"). É assíncrono — a
-  lista não espera o IDB, e o estado mora no `ytEstado`, logo sobrevive ao render.
-- **No SIMPLIFICADO não há folha nenhuma: o toque toca.** As outras opções são
-  listas que aquela tela não mostra. Vale para TUDO o que é compartilhado com o
-  app nesse modo, link e arquivo — e a prateleira `avulsos` nunca poda o LOTE que
-  acabou de entrar: um share de cinco arquivos com o limite aplicado item a item
-  faria o quinto expulsar o primeiro, que é justamente o que vai ser projetado.
-  Quem cede lugar é o que já estava lá de antes, e a fixação é UMA por share.
+  diz as duas coisas. É assíncrono, e o estado mora no `ytEstado`, logo sobrevive
+  ao render.
+- **No SIMPLIFICADO não há folha: o toque toca.** As outras opções são listas que
+  aquela tela não mostra. Vale para tudo o que é compartilhado nesse modo — e a
+  prateleira `avulsos` nunca poda o LOTE que acabou de entrar: um share de cinco
+  arquivos com o limite aplicado item a item faria o quinto expulsar o primeiro,
+  que é justamente o que vai ser projetado. A fixação é UMA por share.
 - **Onde o aviso aparece tem TRÊS destinos, não dois.** Tocar: cartão sobre a
   preview. Cronograma: linha provisória na lista. Playlist: **nenhum dos dois** —
-  ela mora dentro de uma bandeja fechada, não há linha para marcar, e desenhar a
-  provisória no Cronograma prometeria um item que nunca vai aparecer lá.
+  ela mora dentro de uma bandeja fechada, e desenhar a provisória no Cronograma
+  prometeria um item que nunca vai aparecer lá.
 
 **Nome normalizado uma vez, não por tecla** (`s._norm`, gravado por
 `fetchCollectionIndex` e preenchido sob demanda no filtro): `normalizeForSearch`
