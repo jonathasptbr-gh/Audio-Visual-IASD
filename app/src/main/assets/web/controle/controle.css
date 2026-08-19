@@ -3158,27 +3158,17 @@ main {
    do ✕ que ele justificava continua valendo: o cabeçalho é uma linha flex, e um
    vizinho que se recusa a encolher empurra o último item para fora do sheet.) */
 
-/* ---------- A ROLAGEM PARA AQUI DENTRO (v5.281) ----------
-   Relato do operador: *"a barra de pesquisa no topo não fica fixa durante a
-   rolagem do corpo da biblioteca"*.
-
-   Medido em Chromium, a estrutura está certa e sempre esteve: a barra é irmã da
-   lista, `flex-shrink: 0`, e rolar `#hymnResults` 116px não move um pixel dela.
-   O que se mexe no APARELHO é outra coisa — a rolagem que CHEGA AO FIM aqui
-   dentro **encadeia para a página**, e do Android 12 em diante o excesso não é
-   mais um brilho na borda: é o efeito STRETCH, que estica e desloca a camada
-   inteira, barra fixa incluída. O dedo continua dentro da lista e a tela toda
-   se mexe.
-
-   `overscroll-behavior: contain` é o que corta o encadeamento, e ele não é
-   novidade neste app: `.lib-list`, `.lv-body` e `.simple-lyrics` — todos os
-   outros scrollers — já o têm. O `.popup-list` era o único que não, e ficou
-   sendo desde que a Biblioteca virou uma tela cheia com uma barra fixa em cima.
-
-   (`min-height: 0` seria a outra guarda clássica de um filho flex que rola, e
-   aqui ela é dispensável: um item com `overflow` diferente de `visible` já tem
-   tamanho mínimo automático ZERO, pela própria especificação. Medido: a lista
-   encolhe e rola por dentro sem ela.) */
+/* ---------- A ROLAGEM PARA AQUI DENTRO ----------
+   `overscroll-behavior: contain` corta o ENCADEAMENTO para a página. Sem ele, a
+   rolagem que chega ao fim aqui dentro encadeia, e do Android 12 em diante o
+   excesso é o efeito STRETCH: a camada inteira estica e desloca, barra fixa
+   incluída — o dedo continua na lista e a tela toda se mexe. (A estrutura está
+   certa e sempre esteve: a barra é irmã da lista, `flex-shrink: 0`; rolar
+   `#hymnResults` 116px não move um pixel dela.)
+   Todos os outros scrollers do app (`.lib-list`, `.lv-body`, `.simple-lyrics`)
+   já o têm.
+   (`min-height: 0` é dispensável aqui: um item flex com `overflow` diferente de
+   `visible` já tem tamanho mínimo automático ZERO, por especificação.) */
 .popup-list {
   flex: 1; overflow-y: auto; overscroll-behavior: contain;
   list-style: none; padding: .5rem .7rem .8rem;
@@ -3308,35 +3298,22 @@ main {
    caminho até lá. Ver o bloco no topo do `controle.js`.) */
 
 /* ---------- A BIBLIOTECA É UMA TELA, NÃO UM POPUP (v5.263) ---------- */
-/* Pedido do operador: *"troque a animação de slide vertical, há muitos problemas
-   com ela por causa do teclado, então faça apenas um fade in e out para a
-   biblioteca, e faça dela uma tela inteira e não um tipo de pop up."*
+/* A Biblioteca é uma TELA, e ela entra por FADE — sem slide e sem scrim.
+   Quatro correções seguidas foram gastas em volta de um movimento que só
+   existia para dizer "isto é uma folha", e ele nunca foi de graça: um
+   `transform` na folha a torna o bloco-contêiner de tudo que for
+   `position: fixed` lá dentro, e ela é a ÚNICA superfície do app que hospeda um
+   campo de texto colado no teclado. Sem deslocamento não há o que brigar com o
+   teclado. O scrim sai porque uma tela não é desenhada por cima de outra
+   escurecida. O que fica é a opacidade do `.popup-backdrop`, que já é o fade de
+   todas as camadas deste app.
 
-   **Ele está encerrando uma sequência de três lotes, e tem razão.** A v5.258
-   desceu a barra de busca para o rodapé, a v5.261 descobriu que a camada fixa
-   ignorava o teclado, e a v5.262 inverteu o sentido do slide — três correções
-   em volta de uma animação que só existia para dizer "isto é uma folha". Ela
-   nunca foi de graça: um `transform` na folha a torna o bloco-contêiner de tudo
-   que for `position: fixed` lá dentro, e ela é a ÚNICA superfície do app que
-   hospeda um campo de texto colado no teclado. Sem deslocamento não há o que
-   brigar com o teclado, e é por isso que a resposta é tirar o movimento em vez
-   de acertá-lo pela quarta vez.
-
-   O que fica: a opacidade do `.popup-backdrop`, que já é o fade de todas as
-   camadas deste app (.25s, o mesmo tempo dos scrims). Nada de novo — o que este
-   bloco faz é DESLIGAR o resto.
-
-   E o SCRIM sai: uma tela não é desenhada por cima de outra escurecida. Ele era
-   invisível de qualquer forma (a folha cobre 100%), mas durante os .25s do fade
-   ele existia, e era o último tique de popup que sobrava.
-
-   **O fundo continua sendo `--panel`, e isso é medido, não conservadorismo:**
-   `--bg` é a página, e no tema CLARO `--bg` (#dfe3e7) e `--panel-2` (#dee2e8)
-   diferem em UM ponto por canal. Trocar o fundo desta tela pela cor da página
-   faria as barras de seção e os cards de álbum — que são `--panel-2` — sumirem
-   dentro dela, que é exatamente o defeito que a v5.241 mediu e corrigiu. A
-   escala de tons da Biblioteca é relativa à folha, e a folha precisa continuar
-   sendo um tom acima do que ela contém. */
+   O FUNDO CONTINUA SENDO `--panel`, e isso é medido: no tema CLARO `--bg`
+   (#dfe3e7) e `--panel-2` (#dee2e8) diferem em UM ponto por canal, então
+   pintar esta tela com a cor da PÁGINA faria as barras de seção e os cards de
+   álbum — que são `--panel-2` — sumirem dentro dela. A escala de tons da
+   Biblioteca é relativa à folha, e a folha precisa ser um tom acima do que
+   contém. */
 #hymnSearchPopup { background: none; }
 #hymnSearchPopup .popup-sheet {
   /* `none`, não `translateY(0)`: sem transform a folha deixa de ser o
@@ -3355,98 +3332,61 @@ main {
 /* Barra de busca do Hinário ocupando toda a largura da bandeja: display:flex faz
    o input (.lib-search, flex:1) esticar de lado a lado (sem isso o input ficava
    no tamanho nativo, pequeno). Campo mais alto/legível que o de busca da pasta. */
-/* ---------- O CABEÇALHO E A BARRA SÃO UMA PEÇA SÓ (v5.277) ----------
-   Pedido do operador: *"mescle a barra de título da biblioteca com a cor de
-   fundo da barra de pesquisa e centralize o título"*.
-
-   Com a busca de volta ao topo (v5.275), o cabeçalho e ela viraram duas faixas
-   coladas com fundos diferentes — a do título herdando o `--bg` da folha e a de
-   baixo com o `--field-bar`. Duas faixas fixas empilhadas sobre a mesma lista
-   são UMA barra, e pintá-las igual é dizer isso. O que as separava era só a
-   cor; a distinção que interessa — o que é rótulo e o que se toca — continua
-   dita pelo conteúdo.
-
-   O TÍTULO CENTRA porque o cabeçalho da Biblioteca não tem mais nada além dele
-   e do ícone: o ✕ desceu para a barra na v5.258 e o "Baixar tudo" saiu no mesmo
-   lote. `flex: 1` num item sozinho o encosta à esquerda; o par
-   `justify-content: center` + `flex: 0` o põe no meio com o ícone junto, como
-   um rótulo de tela.
-   E o TÍTULO CENTRA. A v5.277 precisou de uma grade de três colunas para isso —
-   com o ícone ao lado, centrar a linha flex centraria os DOIS e deixaria a
-   palavra 14px fora do meio (medidos). O ícone saiu na v5.278 e a grade saiu
-   com ele: filho único num flex centrado já fica no centro, e o `flex: 1` do
-   `.popup-title` (que o encostaria à esquerda) é o único que precisa ser
-   desfeito. */
+/* ---------- O CABEÇALHO E A BARRA SÃO UMA PEÇA SÓ ----------
+   Duas faixas fixas empilhadas sobre a mesma lista são UMA barra, e pintá-las
+   igual (`--field-bar`) é dizer isso. O que as separava era só a cor; a
+   distinção que interessa — o que é rótulo e o que se toca — é dita pelo
+   conteúdo.
+   O TÍTULO CENTRA: o cabeçalho não tem mais nada além dele (o ✕ desceu para a
+   barra, o "Baixar tudo" e o ícone saíram). Filho único num flex centrado já
+   fica no meio; o que precisa ser desfeito é o `flex: 1` do `.popup-title`, que
+   o encostaria à esquerda. */
 #hymnSearchPopup .popup-header {
   background: var(--field-bar);
   justify-content: center;
 }
 #hymnSearchPopup .popup-title { flex: 0 1 auto; text-align: center; }
-/* ---------- A BARRA DA BIBLIOTECA VOLTOU AO TOPO (v5.275) ----------
-   Decisão do operador: *"vamos fazer um ajuste e colocar a barra de buscas da
-   biblioteca no topo novamente, ela na base está dando muitos problemas de
-   design"*. Isto REVOGA a segunda metade da v5.258.
-
-   O argumento daquele lote era de ALCANCE — *"eles estão muito longe do teclado
-   e do toque de acesso"* —, e ele continua verdadeiro: no topo, corrigir a
-   busca com o teclado aberto custa a tela inteira de percurso do polegar. O que
-   o desmentiu foi o PREÇO da posição, e ele está no registro deste arquivo:
-   quatro lotes seguidos consertando o entorno dela — a folha que não via o
-   teclado (v5.261), o teclado subindo durante o fade (v5.264), o tom e a sombra
-   que faltavam (v5.266) e o degrau do tema claro (v5.270). **Quatro lotes em
-   volta de uma posição são a posição dizendo que não se paga**, que é o mesmo
-   veredito que a v5.263 deu à animação de slide desta mesma tela.
-
-   No topo ela não tem entorno: nada a empurra, nada a cobre, ela não precisa
-   saber onde o teclado está, e o único vizinho é o cabeçalho.
+/* ---------- A BARRA DA BIBLIOTECA FICA NO TOPO ----------
+   Ela já morou na BASE, por ALCANCE (no topo, corrigir a busca com o teclado
+   aberto custa a tela inteira de percurso do polegar). O que desmentiu esse
+   argumento foi o PREÇO da posição: quatro lotes seguidos consertando o entorno
+   dela — a folha que não via o teclado, o teclado subindo durante o fade, o tom
+   e a sombra que faltavam, o degrau do tema claro. Quatro lotes em volta de uma
+   posição são a posição dizendo que não se paga. No topo ela não tem entorno.
 
    O QUE FICA da era da base, porque nunca foi sobre estar embaixo:
+   · o ✕ DEPOIS do campo — é o fim da linha em toda folha deste app;
+   · a LUPA dentro do campo — o placeholder some no primeiro caractere, ela não;
+   · o TOM próprio e a SOMBRA — a lista continua rolando por baixo dela, só que
+     para cima; a sombra INVERTEU de direção, porque ela diz de que lado o
+     conteúdo passa.
 
-   · o ✕ DEPOIS do campo (v5.258) — ele é o fim da linha em toda folha deste
-     app, e o cabeçalho ao lado não tem mais nenhum;
-   · a LUPA dentro do campo (v5.264) — o placeholder some no primeiro caractere
-     digitado, e ela não;
-   · o TOM próprio e a SOMBRA (v5.266/v5.270) — a lista continua rolando por
-     baixo dela, só que agora para cima. A sombra apontava para CIMA e passou a
-     apontar para BAIXO: ela diz de que lado o conteúdo passa, e esse lado
-     inverteu.
+   Não há conta de `--kb` no `padding-bottom`: no topo não há área segura de
+   baixo a descontar.
 
-   O que SAI é a conta do teclado no `padding-bottom`: no topo não há área
-   segura de baixo a descontar, e `--kb` não tem nada que ver com esta faixa.
-
-   O ESCOPO EM `#hymnSearchPopup` FICA. Ele existia porque o `#favSearchBar`
-   dividia esta classe e vivia no alto da gaveta de uma pasta; a gaveta saiu na
-   v5.294 e hoje há uma barra só — mas a classe continua sendo o nome de "barra
-   de busca de uma folha", e escopar é o que impede a próxima a nascer herdando
-   a geometria desta. */
+   O ESCOPO EM `#hymnSearchPopup` FICA mesmo com uma barra só: a classe é o nome
+   de "barra de busca de uma folha", e escopar impede a próxima de nascer
+   herdando esta geometria. */
 .hymn-search-bar {
   display: flex; align-items: center; gap: .5rem;
   padding: .5rem .9rem .6rem; flex-shrink: 0;
 }
 #hymnSearchPopup .hymn-search-bar {
-  /* ---------- ELA PRECISA SE DESTACAR (v5.266) ----------
-     Pedido do operador: *"crie um contraste melhor entre a barra de buscas e o
-     corpo da tela de biblioteca, pois agora que ela é 'flutuante' ela precisa
-     se destacar."* Até aqui ela não tinha fundo NENHUM — herdava o `--panel` da
-     folha, e o que a separava do corpo era um filete de 1px.
+  /* ---------- ELA PRECISA SE DESTACAR ----------
+     DOIS sinais, os dois já existentes no app:
 
-     São DOIS sinais, e os dois já existem neste app:
-
-     · O TOM. **`--field-bar` (v5.270), e não mais `--camada`.** Ela FOI um bloco
-       de nível 1 como qualquer seção — e essa era a falha: no tema CLARO o
-       nível 1 é o branco, exatamente a cor do campo que ela contém, e o campo
-       sumia dentro dela (1,00:1). A barra é o único bloco de nível 1 do app que
-       hospeda uma superfície SEM TEMA, então ela é a única que não pode vestir o
-       tom do nível — a exceção está declarada no token, em tokens.css. Medido
-       agora: 1,49:1 contra o corpo no escuro (o valor do nível 1, intacto) e
-       1,95:1 no claro, onde ela ESCURECEU a pedido do operador.
+     · O TOM: `--field-bar`, nunca `--camada`. Como bloco de nível 1 ela seria,
+       no tema CLARO, exatamente a cor do campo que contém (1,00:1 — o campo
+       sumia). Ela é o único bloco de nível 1 do app que hospeda uma superfície
+       SEM TEMA, logo o único que não pode vestir o tom do nível; a exceção está
+       declarada no token, em tokens.css. Medido: 1,49:1 contra o corpo no
+       escuro e 1,95:1 no claro.
 
      · A SOMBRA, que é o que o tom sozinho não diz: *conteúdo passa por baixo
-       daqui*. Ela é a mesma receita da tampa do álbum aberto
-       (`.hymnal-card.expanded .coll-bar`), invertida — o precedente deste app
-       para uma barra sob a qual a lista rola. E ela continua necessária: as
-       seções da Biblioteca vestem o MESMO nível 1, então uma delas encostando
-       na barra sem a sombra leria como uma peça só. */
+       daqui*. Mesma receita da tampa do álbum aberto
+       (`.hymnal-card.expanded .coll-bar`), invertida. Ela continua necessária
+       porque as seções vestem o MESMO nível 1: uma delas encostando na barra
+       sem a sombra leria como uma peça só. */
   background: var(--field-bar);
   /* PARA BAIXO desde a v5.275: a sombra diz de que lado o conteúdo passa, e a
      lista deixou de rolar por cima da barra para rolar por baixo dela. Mesma
@@ -3477,21 +3417,16 @@ main {
    A ALTURA é `--campo-alt` (v5.277): ela era consequência do padding, e virou
    uma medida com nome porque o ✕ ao lado precisa dela para ser quadrado. */
 #hymnSearchInput { flex: 1; min-width: 0; height: var(--campo-alt); padding: 11px 14px 11px 38px; font-size: .95rem; }
-/* ---------- O ✕ TEM A ALTURA DO CAMPO (v5.270) ----------
-   Pedido do operador. Ele vinha do esqueleto de botão de ícone do app (`--hit`
-   quadrado, 34px) e o campo tem 41 — dois vizinhos na mesma linha com sete
-   pixels de diferença que ninguém decidiu.
-
-   `align-self: stretch` em vez de uma altura escrita: quem manda na linha é o
+/* ---------- O ✕ TEM A ALTURA DO CAMPO ----------
+   `align-self: stretch`, nunca uma altura escrita: quem manda na linha é o
    campo, e um número aqui divergiria dele no primeiro ajuste de padding ou de
-   fonte. A LARGURA continua sendo `--hit` — o alvo horizontal não tem por que
-   crescer —, e o raio passa a ser o do campo, senão um retângulo alto com o
-   raio de um quadrado de 34px pareceria uma pílula cortada.
-
-   E ELE É CLARO, como o campo (a outra metade do pedido): a barra escureceu no
-   tema claro, e um botão em `--surface-2`/`--muted` ali daria 2,09:1 no ícone.
-   Vestindo `--field-*` ele vira o irmão do campo — as duas peças claras sobre a
-   faixa —, e o glifo volta a 8,4:1. */
+   fonte. (Pelo esqueleto de ícone do app ele teria 34px ao lado de um campo de
+   41.) A LARGURA continua `--hit` — o alvo horizontal não precisa crescer — e o
+   raio passa a ser o do campo, senão um retângulo alto com raio de quadrado
+   pareceria uma pílula cortada.
+   E ELE É CLARO, como o campo: a barra escureceu no tema claro, e um botão em
+   `--surface-2`/`--muted` ali daria 2,09:1 no ícone. Vestindo `--field-*` ele
+   vira o irmão do campo e o glifo volta a 8,4:1. */
 #hymnSearchClose {
   /* QUADRADO (v5.277, pedido do operador: *"ele deve ser um botão quadrado"*).
      A v5.270 lhe deu a ALTURA do campo (`align-self: stretch`) e deixou a
@@ -3510,33 +3445,22 @@ main {
   background: var(--field-bg); color: var(--field-text);
   box-shadow: 0 1px 3px -1px var(--shadow-ink);
 }
-/* ---------- E O CAMPO É BRANCO NOS DOIS TEMAS (v5.268) ----------
-   Pedido do operador. Ele era `--surface-2`, isto é, um OVERLAY: dentro da
-   folha, que pinta `--panel`, a superfície se INVERTE (a regra no topo deste
-   arquivo) e ele saía como um recesso preto a 14%/16% — o mesmo desenho de um
-   botão afundado, para a única peça da tela em que se DIGITA.
+/* ---------- E O CAMPO É BRANCO NOS DOIS TEMAS ----------
+   Como `--surface-2` ele era um OVERLAY, e dentro da folha a superfície se
+   INVERTE (a regra no topo deste arquivo): saía como recesso preto a 14%/16% —
+   o desenho de um botão afundado, para a única peça da tela em que se DIGITA.
 
-   Branco, ele deixa de ser um degrau da base e passa a ser uma folha de papel
-   sobre a barra — medido, 9,75:1 contra ela no tema escuro e 1,30:1 no claro,
-   onde ele volta a ser o branco da própria página sobre a faixa cinza.
+   AS TRÊS CORES ANDAM JUNTAS, e essa é a metade que não se percebe pedindo "o
+   campo branco": texto, placeholder e lupa moram DENTRO dele, e no tema escuro
+   `--text` sobre branco dá 1,17:1. Os três vêm dos tokens SEM TEMA (`--field-*`
+   em tokens.css). Trocar só o fundo apaga o que se digita.
 
-   **As TRÊS cores andam juntas, e essa é a metade que não se percebe pedindo
-   "o campo branco":** o texto, o placeholder e a lupa moram DENTRO dele. No
-   tema escuro `--text` é um off-white — sobre branco ele dá 1,17:1, isto é,
-   invisível —, então os três vêm dos tokens sem tema (`--field-*`, em
-   tokens.css). Trocar só o fundo teria apagado o que se digita.
-
-   **E ELE PRECISA DE ELEVAÇÃO, porque no tema CLARO a barra também é branca.**
-   A barra é um bloco de nível 1 (`--camada`), e no claro esse nível É o branco:
-   campo branco sobre barra branca dá **1,00:1** — o campo simplesmente não
-   existe. Não há tom que resolva isso sem desfazer uma das duas decisões (a
-   barra no nível 1, ou o campo branco), e contorno está fora de questão desde
-   que a linha saiu do app inteiro. Sobra a ELEVAÇÃO, que é exatamente o
-   argumento que este arquivo já usa duas vezes na mesma tela: a barra tem
-   sombra porque as seções vestem o mesmo nível dela, e a tampa do álbum aberto
-   tem a dela pelo mesmo motivo. **Duas superfícies do mesmo tom se separam por
-   profundidade.** No escuro ela é invisível (o campo já contrasta 12,6:1) e não
-   custa nada. */
+   E ELE PRECISA DE ELEVAÇÃO, porque no tema CLARO a barra também é branca:
+   campo branco sobre barra branca dá 1,00:1. Não há tom que resolva sem desfazer
+   uma das duas decisões, e contorno está fora do app inteiro — sobra a
+   PROFUNDIDADE, o mesmo argumento que a sombra da barra e a da tampa do álbum
+   já usam nesta tela. Duas superfícies do mesmo tom se separam por elevação. No
+   escuro ela é invisível (o campo já contrasta 12,6:1) e não custa nada. */
 #hymnSearchInput {
   background: var(--field-bg); color: var(--field-text);
   box-shadow: 0 1px 3px -1px var(--shadow-ink);
@@ -3547,22 +3471,15 @@ main {
    abrindo a folha com as três coisas que ele faz (ver hymnResultRow); o toque
    na linha continua abrindo a letra. A lista precisa ser legível de relance no
    meio do culto, e é por isso que a fonte é maior que a do resto. */
-/* ---------- A ALTURA DA LINHA (v5.240) ----------
-   Relato do operador: os cards da lista de um álbum estão "muito volumosos
-   verticalmente, limitando o número de itens na visualização" e "ficando muito
-   diferente do tamanho que já são títulos dos álbuns".
-
-   Medido antes de mexer, no viewport de um celular: a barra do álbum tinha
-   51,6 px e a linha de uma faixa DENTRO dele, 66 px — a linha era **28% mais
-   alta que o cartão que a contém**, e o passo de 71,6 px punha 12 itens na
-   tela. Quem forçava isso era o botão de tocar (46 px, o antigo lugar da
-   miniatura): o conteúdo da linha, num álbum aberto, é UMA linha de texto de
-   19 px, e sobravam 43 px de folga em cada faixa.
-
-   O alvo continua acima do piso do app (`--hit`, 34 px), que é o que essa
-   medida existe para proteger — encolher até o texto teria trocado um problema
-   de densidade por um de mira, no meio de um culto. Medido depois: linha de
-   50 px, passo de 54 px, 16 itens na mesma tela. */
+/* ---------- A ALTURA DA LINHA ----------
+   Uma linha de faixa não pode ser mais alta que o cartão que a contém: pelo
+   botão de tocar de 46px (o antigo lugar da miniatura) ela media 66px contra os
+   51,6px da barra do álbum — 28% maior —, com 43px de folga sobre uma linha de
+   texto de 19px.
+   O alvo continua acima do piso do app (`--hit`, 34px), que é o que essa medida
+   existe para proteger: encolher até o texto trocaria um problema de densidade
+   por um de mira, no meio de um culto. Medido: linha de 50px, passo de 54px,
+   16 itens na tela contra 12. */
 .hymn-row { align-items: center; gap: .5rem; padding: .3rem .5rem; cursor: pointer; }
 /* O QUADRADO DA ESQUERDA DEIXOU DE SER UM BOTÃO (v5.285). Ele era o ▶, em
    `--accent-soft` — a marca que este app usa para "isto é ação, não conteúdo".
@@ -3649,46 +3566,28 @@ main {
    mede `offsetHeight` de UM elemento, e com duas caixas irmãs aparecendo por
    conta própria a medida seria de meia gaveta. */
 .hymn-gaveta { display: none; }
-/* ---------- A GAVETA É UM POÇO SOLDADO À SUA LINHA (v5.287) ----------
-   Relato do operador: *"ainda está pouco o contraste entre os botões e pior,
-   toda a seção das opções de play estão se mesclando com a lista dos outros
-   itens abaixo, dificultando a percepção da seção e a qual item ela
-   pertence"*.
+/* ---------- A GAVETA É UM POÇO SOLDADO À SUA LINHA ----------
+   TOM: `--gaveta-bg` (medição e inversão por tema em `tokens.css`), nunca o
+   `--panel` da folha antiga — medido no escuro ele compõe rgb(44,52,60) contra
+   os rgb(46,54,63) da faixa de uma linha vizinha: **1,03:1**, isto é, a seção
+   aberta tinha a cor das linhas de baixo.
 
-   São DUAS queixas e elas têm a mesma causa. A v5.286 devolveu à gaveta o
-   `--panel` da folha antiga — que era a base certa para aqueles botões e é a
-   cor errada aqui: medido no escuro, `--panel` compõe rgb(44,52,60) e a faixa
-   de uma linha vizinha compõe rgb(46,54,63). **1,03:1.** A seção aberta tinha
-   a cor das linhas de baixo, e a margem em volta dela deixava passar a moldura
-   da própria faixa — três tons indistinguíveis empilhados.
-
-   O tom novo é `--gaveta-bg` (a medição e a inversão por tema estão em
-   `tokens.css`), e ele resolve a primeira queixa. A SEGUNDA é de forma:
-
-   **A gaveta perde as margens.** Ela é filha do `.lib-item`, que já pinta a
-   linha inteira e recorta pelo `border-radius` com `overflow: hidden` — então,
-   coladas, faixa e gaveta viram UM bloco com o título em cima e o poço embaixo.
-   Com a margem, o poço era uma ilha flutuando sobre um frame da cor das linhas
-   de baixo, e nada dizia de quem ele era. O respiro que a margem dava vem do
-   padding da lista de opções, que já existia.
+   FORMA: a gaveta NÃO tem margens. Ela é filha do `.lib-item`, que já pinta a
+   linha inteira e recorta pelo `border-radius` com `overflow: hidden` — coladas,
+   faixa e gaveta viram UM bloco com o título em cima e o poço embaixo. Com
+   margem, o poço era uma ilha flutuando sobre um frame da cor das linhas de
+   baixo, e nada dizia de quem ele era. O respiro vem do padding da lista.
 
    `--camada: var(--gaveta-btn)` pela regra da casa: quem declara o tom dos
-   filhos é o PAI, e os filhos aqui são os botões e a caixa da letra. */
-/* ---------- `>` E NÃO DESCENDENTE, E ISSO É UMA REGRA (v5.291) ----------
-   Relato do operador sobre a v5.290: os itens de dentro de uma pasta aberta
-   apareciam com uma faixa preta embaixo de cada um, e as opções de um item NÃO
-   FECHAVAM.
+   filhos é o PAI. */
+/* ---------- `>` E NÃO DESCENDENTE, E ISSO É UMA REGRA ----------
+   Com a pasta abrindo inline, `.folder-opfs` é um `.lib-item` que CONTÉM outros
+   `.lib-item`. Um seletor DESCENDENTE (`.lib-item.expanded .hymn-gaveta`) passa
+   a ser satisfeito pela PASTA: a gaveta de todo arquivo lá dentro virava
+   `display: block` (a faixa preta embaixo de cada item), e fechar um item tirava
+   a classe dele sem esconder nada, porque quem a mantinha visível era a pasta.
 
-   As duas coisas são a mesma: com a pasta abrindo inline, `.folder-opfs` é um
-   `.lib-item` que CONTÉM outros `.lib-item` — o primeiro aninhamento desse tipo
-   no app —, e `.lib-item.expanded .hymn-gaveta` é um seletor DESCENDENTE. A
-   pasta aberta satisfazia o `.expanded`, e a gaveta de TODO arquivo lá dentro
-   passava a `display: block`: a faixa era a gaveta vazia de cada item fechado, e
-   fechar um item tirava a classe dele sem esconder nada, porque quem a mantinha
-   visível era a pasta.
-
-   **A gaveta é do item que a POSSUI.** Toda regra dela é `>`, e é assim que ela
-   deixa de depender de nenhum `.lib-item` existir acima. */
+   A GAVETA É DO ITEM QUE A POSSUI: toda regra dela é `>`. */
 .lib-item.expanded > .hymn-gaveta {
   display: block;
   background: var(--gaveta-bg);
@@ -3801,21 +3700,14 @@ main {
 }
 .item-detalhe-txt { display: flex; flex-direction: column; gap: .25rem; min-width: 0; }
 .item-detalhe-linha { font-size: .84rem; color: var(--muted); }
-/* ---------- O VERDE SAI DOS INDICADORES (v5.263) ----------
-   Pedido do operador: *"remova a cor verde dos indicadores de tamanho das
-   coleções e também dos itens sobre a conclusão das atualizações completas."*
-
-   Ele está aplicando aqui a régua que já tirou o peso do painel do álbum
-   (v5.232) e o contador dos Favoritos (v5.239): **a mesma coisa dita duas
-   vezes**. "24/24" já diz que o álbum está inteiro no aparelho, e "Já no
-   aparelho" já diz que os bytes estão aqui — o verde ao lado não acrescenta um
-   bit de informação, e gasta a única cor que este app reserva para
-   "concluído/conectado" em três lugares onde o texto sozinho basta.
-
-   O que NÃO sai é a ÊNFASE: `font-weight: 600` fica, porque ele distingue o
-   estado resolvido do neutro sem pintar nada. E o verde continua onde ele é o
-   único sinal — a linha de aviso da lista (`.row-nota--ok`), o pulso de
-   confirmação, a tela conectada. */
+/* ---------- O VERDE SAI DOS INDICADORES ----------
+   Régua: a mesma coisa dita duas vezes. "24/24" já diz que o álbum está inteiro
+   e "Já no aparelho" já diz que os bytes estão aqui — o verde ao lado não
+   acrescenta um bit e gasta a única cor que este app reserva para
+   "concluído/conectado".
+   O que NÃO sai é a ÊNFASE (`font-weight: 600`), que distingue o resolvido do
+   neutro sem pintar nada. E o verde continua onde é o único sinal: a linha de
+   aviso (`.row-nota--ok`), o pulso de confirmação, a tela conectada. */
 .item-detalhe-estado.done { font-weight: 600; }
 
 /* ---------- A folha rápida de uma música (▶ e + da linha do acervo) ---------- */
@@ -3872,20 +3764,14 @@ main {
 .song-menu-btn.song-menu-sel:has(.song-menu-check.on) {
   background: var(--sel-fill);
 }
-/* O quadrado é um ::before para o alvo (acima) e o desenho (aqui) serem coisas
-   independentes — a mesma separação do `.pv-fab`, em que o botão é grande e o
-   ícone é pequeno.
-   DESMARCADO ELE É UM RECESSO, não um contorno (v5.267): a caixa vazia era o
-   último lugar do app em que uma linha de 2px carregava informação, e o buraco
-   escuro diz a mesma coisa — "aqui cabe uma marca" — por preenchimento.
-
-   E ELE PRECISA SER VISTO SEM ESTAR MARCADO (v5.286). Pedido do operador:
-   *"deixe as caixas de check sempre visíveis, para entender que não são botões,
-   mas selecionáveis"*. O recesso a .20 sobre o `--surface` da própria linha era
-   um degrau pequeno demais para ser notado de relance: a linha se lia como
-   botão, e o operador só descobria que ela ACUMULA depois de marcar a primeira.
-   Um recesso mais fundo (`--check-vazio`, medido em `tokens.css`) o põe à vista
-   sem inventar contorno nenhum, que continua fora de questão desde a v5.267. */
+/* O quadrado é um `::before` para o ALVO (acima) e o DESENHO (aqui) serem
+   independentes — a mesma separação do `.pv-fab`.
+   DESMARCADO ELE É UM RECESSO, não um contorno: o buraco escuro diz "aqui cabe
+   uma marca" por preenchimento, e contorno está fora do app inteiro.
+   E ELE PRECISA SER VISTO SEM ESTAR MARCADO: a .20 sobre o `--surface` da
+   própria linha o degrau era pequeno demais, a linha se lia como BOTÃO, e o
+   operador só descobria que ela ACUMULA depois de marcar a primeira.
+   `--check-vazio` (medido em `tokens.css`) o põe à vista. */
 .song-menu-check::before {
   content: ''; display: block;
   width: 20px; height: 20px; border-radius: var(--radius-xs);
@@ -4193,17 +4079,16 @@ body.mode-simple .bottombar { display: none; }
 /* Só o cast. Tela cheia aqui não faz sentido: neste modo há um telão conectado
    (é o que faz esta faixa existir), e a projeção está nele. */
 .simple-stage #pvFullBtn { display: none; }
-/* CONECTADO ele fica VERMELHO, e isso não é o estado — é a AÇÃO. Quem já diz
-   que há uma tela recebendo é a própria preview, que só existe aqui quando há;
-   o que o ícone tem a dizer, então, é o que o toque faz, e o que ele faz é
-   DESCONECTAR. Em `--danger-strong` (a família de ação destrutiva, no tom
-   SATURADO — 6,28:1 sobre a miniatura escura) e nunca no `--danger` cheio:
-   preenchido, o vermelho deste app significa "está no ar agora", e um botão
-   preenchido nesse tom competiria com a mídia que a miniatura está justamente
-   mostrando. Até a v5.75 ele usava o par pálido `--danger-text`, e num ícone
-   de 24px aquele salmão chegava como "um tom quente", não como vermelho.
+/* CONECTADO ele fica VERMELHO, e isso não é o estado — é a AÇÃO. Quem diz que
+   há tela recebendo é a própria preview (que só existe aqui quando há); o que o
+   ícone tem a dizer é o que o toque faz, e ele DESCONECTA.
+   Em `--danger-strong` (ação destrutiva, tom SATURADO — 6,28:1 sobre a
+   miniatura escura) e nunca no `--danger` cheio: preenchido, o vermelho deste
+   app significa "está no ar agora", e competiria com a mídia que a miniatura
+   está mostrando. O par pálido `--danger-text` também não serve — num ícone de
+   24px aquele salmão chega como "um tom quente", não como vermelho.
    A liberação de TESTE segue em âmbar de aviso: ali não há tela para
-   desconectar, e o que o toque faz é trancar de volta. */
+   desconectar, e o toque tranca de volta. */
 .pv-fab.connected { color: var(--danger-strong); }
 
 /* A caixa-preta do telão, em Configurações. `pre` porque cada linha é um
@@ -4231,22 +4116,19 @@ body.mode-simple .bottombar { display: none; }
 /* ----- Sem tela conectada (ver renderSimpleGate) ----- */
 /* ----- Bloqueio sem tela conectada (ver renderSimpleGate) -----
    A cortina cobre a tela inteira e é o que embaça: `backdrop-filter` age sobre
-   o que está ATRÁS do elemento, então quem precisa ficar legível sobe na pilha.
-   Sobem dois: o cabeçalho (onde está a saída para o modo avançado) e a faixa de
-   ações, que ali só tem a seção de conexão — a única coisa que resolve o
-   bloqueio.
+   o que está ATRÁS do elemento, então quem precisa ficar legível sobe na pilha —
+   o cabeçalho (com a saída para o modo avançado) e a faixa de ações, que ali só
+   tem a seção de conexão.
 
-   ELA SAIU NA v5.199 E VOLTOU NA v5.203. O que a derrubou foi um diagnóstico
-   errado: o operador relatava "o botão de conectar que persiste em bloquear a
-   tela", e a leitura foi de que o BLOQUEIO incomodava. Não era — o que ele
-   descrevia era o botão ANTIGO reaparecendo, servido pela base embutida no APK
-   depois de um recuo do watchdog sem limpar o cache do WebView (ver v5.200 /
-   v1.91). Ele já tinha dito "essa parte não era o problema"; o texto ficou
-   aqui porque um argumento que parece bom e está errado volta sozinho.
+   ELA SAIU NA v5.199 E VOLTOU NA v5.203, e o registro fica porque um argumento
+   que parece bom e está errado volta sozinho: o relato era "o botão de conectar
+   persiste em bloquear a tela", e a leitura foi de que o BLOQUEIO incomodava —
+   o que ele descrevia era o botão ANTIGO reaparecendo, servido pela base
+   embutida no APK depois de um recuo do watchdog sem limpar o cache do WebView.
 
    A COR é `--veil`, que é o próprio `--bg` com alfa: os dois têm de andar
-   JUNTOS. Escrita literal, a cortina viraria um retângulo de outro preto assim
-   que o fundo do app mudasse — e isso na tela que ABRE por padrão sem TV. */
+   JUNTOS, senão a cortina vira um retângulo de outro preto assim que o fundo do
+   app mudar — na tela que ABRE por padrão sem TV. */
 .simple-veil {
   position: absolute; inset: 0; z-index: 1;
   background: var(--veil);
@@ -4394,19 +4276,12 @@ body.mode-simple .bottombar { display: none; }
 .log-copy.copiado { background: var(--ok-soft); color: var(--ok); }
 
 /* ---------- Pulso de confirmação NO BOTÃO (v5.106) ---------- */
-/* O feedback de "adicionei" mora no botão que foi tocado, e não numa faixa em
-   outro canto da tela: o dedo já está ali, o olho já está ali, e não há dúvida
-   sobre QUAL ação respondeu — com dois botões de destino lado a lado (as
-   Ferramentas têm "Cronograma" e "Favoritos"), uma mensagem genérica não diz em
-   qual dos dois se tocou.
-   O conteúdo do botão é ESCONDIDO (`visibility`, que preserva a caixa) e a
+/* O feedback de "adicionei" mora no botão TOCADO, nunca numa faixa em outro
+   canto: com dois botões de destino lado a lado (Cronograma e Favoritos) uma
+   mensagem genérica não diz em qual deles se tocou.
+   O conteúdo do botão é ESCONDIDO por `visibility` (que preserva a caixa) e a
    marca vem num `::after` absoluto: assim vale igual para um botão de ícone só
-   (`.row-btn`, `.cue-save-btn`) e para um com texto (`.misc-chip`), sem nenhum
-   pular de largura durante o pulso.
-   (A linha `border-color: transparent` que morava aqui existia para o pulso
-   vencer a BORDA do `.cue-save-btn` — sem ela o contorno em `--line` continuava
-   desenhado por cima do verde. Ela saiu na v5.267 junto com aquele contorno, e
-   com todos os outros: não há mais borda nenhuma a apagar.) */
+   e para um com texto, sem nenhum pular de largura durante o pulso. */
 .btn-pulso { position: relative; transition: background-color .15s ease, color .15s ease; }
 .btn-pulso > * { visibility: hidden; }
 /* O ✓ e o ✕ vêm da FONTE DE ÍCONES, não do texto (v5.112). Os caracteres
@@ -4433,23 +4308,17 @@ body.mode-simple .bottombar { display: none; }
 .btn-pulso--erro { background: var(--danger-soft); color: var(--danger-text); }
 .btn-pulso--erro::after { content: '\e14c'; }   /* close */
 
-/* ---------- O ECO: "o comando saiu" (v5.162) ----------
-   A outra metade do par do `.btn-pulso`. O pulso ESCONDE o conteúdo para pôr um
-   ✓ no lugar, e isso é certo para salvar/copiar — ações cujo resultado não
-   aparece em canto nenhum. É errado para o transporte: o ▶ virando ✓ e voltando
-   esconde justamente o ícone que carrega o estado.
-   Aqui o conteúdo fica. O que acontece é um anel em accent que nasce colado no
-   botão e se abre desaparecendo — o mesmo vocabulário de "recebido" do resto do
-   app, sem tirar nada da tela.
-   Ele existe porque a resposta de verdade destes botões pode estar a ~1 s de
-   distância quando a projeção são as telas da rede (ver `cmd` em controle.js), e
-   um botão que fica um segundo sem responder é lido como botão que não
-   funcionou: o operador toca de novo, e o comando vai duas vezes.
+/* ---------- O ECO: "o comando saiu" ----------
+   A outra metade do par do `.btn-pulso`, que ESCONDE o conteúdo para pôr um ✓ —
+   certo para salvar/copiar, errado para o transporte (o ▶ virando ✓ esconde o
+   ícone que carrega o estado). Aqui o conteúdo fica e um anel em accent nasce
+   colado no botão e se abre desaparecendo.
+   Ele existe porque a resposta de verdade pode estar a ~1 s quando a projeção
+   são as telas da rede (ver `cmd`), e um botão que fica um segundo sem responder
+   é tocado de novo — o comando vai duas vezes.
    `::before`, e não `::after`: o `.t-btn` do transporte já usa o `::after` para
-   o contorno do eixo (⏮/⏭ anunciando se passam estrofe ou mídia), e disputar o
-   mesmo pseudo-elemento apagaria essa leitura em cada toque.
-   `pointer-events: none` porque ele cobre o botão inteiro durante a animação e
-   engolir o segundo toque seria o oposto do que ele existe para fazer. */
+   o contorno do eixo (⏮/⏭ anunciando se passam estrofe ou mídia).
+   `pointer-events: none` porque ele cobre o botão inteiro durante a animação. */
 .btn-eco { position: relative; }
 .btn-eco::before {
   content: '';
@@ -4491,19 +4360,16 @@ body.mode-simple .bottombar { display: none; }
    `tools/smoke.mjs` o afirma. */
 #castPopup { z-index: 200; }
 
-/* ---------- A folha de conexão: uma AÇÃO e um ESTADO (v5.184) ----------
-   Até aqui as duas formas de conectar eram o MESMO cartão (`.cast-choice`), e
-   por isso a folha precisava ligar o servidor sozinha ao abrir: um cartão de
-   escolha não sabe dizer "ligado". Espelhar é uma ação que sai do app;
-   transmitir pelo site é um estado que dura o culto. Formas diferentes, e a
-   diferença é legível de longe — que é como esta tela é lida.
+/* ---------- A folha de conexão: uma AÇÃO e um ESTADO ----------
+   Espelhar é uma AÇÃO que sai do app; transmitir pelo site é um ESTADO que dura
+   o culto. Como o MESMO cartão de escolha para os dois, a folha precisava ligar
+   o servidor sozinha ao abrir — um cartão não sabe dizer "ligado".
 
-   O BOTÃO É PREENCHIDO NO ÂMBAR, a anatomia de botão principal que o app já
-   usa (`.tab-add`, `.misc-tab.active`, `.mixer .vol-btn`):
-   `--accent-fill` de fundo com `--on-accent` por cima — o par que existe
-   justamente para isso, e o único que passa o piso de contraste (5,37:1).
-   Escrever `--accent` num fundo cheio é o erro que a paleta descreve: aquele
-   tom é claro porque é para ser TEXTO sobre fundo escuro. */
+   O BOTÃO É PREENCHIDO NO ACCENT, a anatomia de botão principal do app
+   (`.tab-add`, `.misc-tab.active`, `.mixer .vol-btn`): `--accent-fill` de fundo
+   com `--on-accent` por cima — o par que existe para isso, e o único que passa
+   o piso (5,37:1). Escrever `--accent` num fundo cheio é o erro que a paleta
+   descreve: aquele tom é claro porque é para ser TEXTO sobre fundo escuro. */
 .cast-acao {
   display: flex; align-items: center; gap: .75rem; width: 100%;
   padding: .85rem .9rem;
@@ -4544,19 +4410,13 @@ body.mode-simple .bottombar { display: none; }
    comum, texto normal, e o sinal fica todo no trilho à direita. A linha inteira
    é o alvo do toque (`<label>`), porque um interruptor de 44px numa tela
    operada com o polegar no escuro é alvo pequeno demais. */
-/* LIGADA, a transmissão fica no VERMELHO CONTORNADO, e o rótulo passa a nomear
-   o desligamento (v5.226). É a mesma gramática do `.connected` acima — o
-   preenchimento sai, fica o contorno na cor do estado —, e a cor é a única
-   diferença: verde é "resolvido, e o app não mexe nisso" (a TV, que só o
-   seletor do Android desconecta); vermelho é "está ligado, e o toque desliga".
-
-   CONTORNADO, nunca preenchido: pela regra da paleta o vermelho CHEIO deste app
-   significa "está no ar agora" e pertence à mídia projetada. Um botão de folha
-   preenchido em `--live` competiria com o que a congregação está vendo.
-
-   (Aqui morava o INTERRUPTOR — `.cast-sw-row`, `.cast-sw-input`, `.cast-sw` e o
-   trilho com o botão deslizante. Ele saiu com a v5.224: as duas formas de
-   conectar respondem à mesma pergunta e agora têm a mesma anatomia.) */
+/* LIGADA, a transmissão fica no VERMELHO CONTORNADO e o rótulo nomeia o
+   desligamento. Mesma gramática do `.connected` acima (o preenchimento sai,
+   fica o contorno na cor do estado); a cor é a única diferença — verde é
+   "resolvido, e o app não mexe nisso" (a TV, que só o seletor do Android
+   desconecta), vermelho é "está ligado, e o toque desliga".
+   CONTORNADO, nunca preenchido: pela regra da paleta o vermelho CHEIO significa
+   "está no ar agora" e pertence à mídia projetada. */
 .cast-acao.ligado {
   background: var(--live-fill); color: var(--text);
 }
