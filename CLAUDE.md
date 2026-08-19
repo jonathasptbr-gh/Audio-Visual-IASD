@@ -816,149 +816,131 @@ items, idleMs, bytes})` → `SyncService.updateProgress`.
 ## Notificação de controles (sessão de mídia)
 
 [`SessionService.kt`](app/src/main/java/br/org/iasd/av/SessionService.kt) publica
-um `MediaSession` e uma notificação `MediaStyle` com os controles de transporte.
-Dois ganhos, e o segundo é o menos óbvio:
+um `MediaSession` e uma notificação `MediaStyle`. Dois ganhos, e o segundo é o
+menos óbvio:
 
-1. **Controlar sem abrir o app.** O celular fica no suporte, provavelmente
-   bloqueado, e abrir o app só para pausar é atrito real no meio de um culto.
-   Com o `MediaSession` os controles aparecem também na **tela de bloqueio** e
-   nas configurações rápidas, de graça.
-2. **A projeção deixa de ser descartável.** Antes disto o único serviço em
-   primeiro plano era o `SyncService`, que só sobe DURANTE downloads: num culto
-   normal não havia nenhum, e o processo seguia candidato a ser morto sob
-   pressão de memória — levando junto a `Presentation` na TV. Um serviço
-   `mediaPlayback` ativo enquanto houver cena fecha esse buraco.
+1. **Controlar sem abrir o app** — o celular fica no suporte, provavelmente
+   bloqueado. Os controles aparecem também na tela de bloqueio e nas
+   configurações rápidas, de graça.
+2. **A projeção deixa de ser descartável.** Sem ele o único serviço em primeiro
+   plano era o `SyncService`, que só sobe DURANTE downloads: num culto normal não
+   havia nenhum, e o processo seguia candidato a ser morto sob pressão de
+   memória — levando a `Presentation` junto.
+
+### O transporte
 
 - **Nenhuma decisão de transporte em Kotlin** (invariante 5). O sistema entrega
-  uma string de ação, `SessionRemote` a repassa a `window.__avRemote`, e o lado
-  web aciona os **mesmos botões da tela** por `.click()`. Os handlers já tratam
-  todos os casos de borda (texto sem áudio de fundo, YouTube que precisa
-  recarregar, limites da playlist) e um botão `disabled` é um no-op natural.
-- **Por isso nenhuma ação é desabilitada no lado nativo.** Quem sabe se
-  "estrofe anterior" faz sentido agora é o web; desabilitar nos dois lugares
-  duplicaria a regra, e a cópia em Kotlin envelheceria.
-- **⏮/⏭ mudam de eixo conforme a cena.** Na notificação só cabem três botões no
-  modo compacto — e com letra, versículo ou mensagem em cena é a estrofe que o
-  operador está passando. `slideMode` (de `slideTarget()`) decide, e o rótulo do
-  botão diz qual é o modo para não virar adivinhação. **Desde a v5.49 a TELA
-  segue a mesma regra**: os botões de estrofe que flanqueavam a preview saíram,
-  e o par ⏮/⏭ do transporte passa estrofe no toque curto e mídia no toque longo
-  (ver `attachTransportStep` em `controle.js`). O que a notificação já fazia por
-  falta de espaço virou a convenção dos dois lados — e o `slideMode` que ela
-  envia deixou de ser a única leitura dessa regra na tela.
-- **A PALAVRA do rótulo é `slideLabel`, e ela viaja campo a campo.** "Estrofe"
-  não serve para tudo: numa APRESENTAÇÃO o que ⏮/⏭ passam é página. O campo
-  nasceu na v5.97 e o `SessionService` sempre o leu — mas até a v5.102
-  `AVNative.nowPlaying` **não o copiava para o JSON da ponte**, e a notificação
-  escreveu "(estrofe)" durante toda a rodada das apresentações. É a forma de
-  falhar dessa função: ela remonta o objeto campo a campo, um campo esquecido
-  desaparece em silêncio e o `optString` do Kotlin lê vazio como "use o
-  padrão". **Campo novo em `pushNowPlaying` = campo novo em
-  `AVNative.nowPlaying`**, sempre — e sem subir `SHELL_VERSION`, porque o lado
-  Kotlin não muda.
-- **`play`/`pause` e `playpause` são coisas diferentes.** Tela de bloqueio, fone
-  e Android Auto sabem o que querem e mandam intenção explícita; o botão da
-  notificação é alternador. Tratar tudo como alternador faria um `onPlay`
-  recebido com o áudio já tocando PAUSAR o louvor.
-- **O estado sai de `pushNowPlaying`**, que lê o título do próprio
-  `#npNameInner` já renderizado, e a posição/duração da própria **barra de
-  progresso** (`#seek`) — em vez de
-  reconstruir as origens (mídia/letra/versículo/mensagem) ou recalcular o tempo
-  por fora. Duplicar essas árvores era garantir divergência; e a barra é a única
-  fonte que cobre todos os tipos, inclusive YouTube (`preview.getDuration()` é do
-  `<video>` do stage e não sabe nada de um vídeo do YouTube). Barra desabilitada
-  (imagem, versículo, mensagem) zera os dois campos, para o sistema não desenhar
-  uma linha do tempo que não significa nada.
-- **CENA é tudo que está no telão, não só mídia.** `active` inclui `currentId`,
-  mensagem, versículo, **cronômetro e sorteio** projetando. Os dois últimos
-  ficavam de fora: o efeito não é a projeção cair no meio (uma vez que qualquer
-  mídia tocou, `currentId` nunca mais volta a null), é o caso da sessão
-  RECÉM-ABERTA — projetar a contagem regressiva de abertura sem ter selecionado
-  mídia nenhuma não levantava o serviço, e o processo, com a `Presentation`
-  junto, seguia descartável exatamente durante os dez minutos em que o operador
-  minimiza o app para esperar.
-- **A posição fica fora da chave de deduplicação**, porque a sessão extrapola o
-  tempo sozinha (posição + decorrido × velocidade) — reenviar a cada segundo só
-  para mexer o cursor seria desperdício. Mas um **seek é uma descontinuidade**
-  que a extrapolação não adivinha: até a v1.18, pular uma estrofe deixava a
-  barra contando a partir do ponto antigo e mostrando um tempo falso. Em vez de
-  avisar em cada ponto que faz seek (slide, barra, gesto, re-sincronia com o
-  Display), `pushNowPlaying` compara o tempo real com o que a sessão estaria
-  extrapolando e republica quando diverge além de `POS_TOL_MS` (1,5 s — folga
-  para o jitter do `display-status`). Um só lugar cobre todas as causas,
-  inclusive as futuras. Durante um ARRASTE na barra não republica: ali o valor
-  é a posição do dedo, não a da mídia.
+  uma string, `SessionRemote` a repassa a `window.__avRemote`, e o web aciona os
+  **mesmos botões da tela** por `.click()` — os handlers já tratam os casos de
+  borda, e um botão `disabled` é no-op natural. **Por isso nenhuma ação é
+  desabilitada no lado nativo:** quem sabe se "estrofe anterior" faz sentido é o
+  web, e a cópia em Kotlin envelheceria.
+- **`play`/`pause` ≠ `playpause`.** Tela de bloqueio, fone e Android Auto mandam
+  intenção explícita; o botão da notificação é alternador. Tratar tudo como
+  alternador faria um `onPlay` recebido com o áudio tocando PAUSAR o louvor.
+- **⏮/⏭ mudam de eixo conforme a cena** (`slideMode`, de `slideTarget()`): com
+  letra, versículo ou mensagem em cena é a estrofe que o operador passa. O rótulo
+  diz qual é o modo, para não virar adivinhação. **A TELA segue a mesma regra** —
+  toque curto passa estrofe, toque longo passa mídia (`attachTransportStep`).
+- **A PALAVRA do rótulo é `slideLabel`** ("estrofe" não serve para uma
+  apresentação, onde ⏮/⏭ passam página).
+- **Os BOTÕES vêm do web** (`actions`, shell 42), na ordem — invariante 5
+  aplicada ao cartão. Lista vazia = os cinco de sempre. O conjunto entra na CHAVE
+  de deduplicação do `pushNowPlaying`: sem isso, uma cena que muda só de eixo
+  seria deduplicada e o cartão ficaria com os botões da cena anterior. **Um botão
+  que sobrou é pior que um que faltou: ele responde.**
+- **Declarado nos DOIS lugares que o Android lê** — `PlaybackState` (que desenha
+  do 13 em diante) e `Notification.Action` (abaixo dele). Declarar de um lado só
+  faz o botão existir em metade dos aparelhos.
+
+> **Do Android 13 em diante quem desenha os botões é o `PlaybackState`**, não a
+> notificação: as `Notification.Action` viram decoração. Os controles saem das
+> *actions* do estado e os extras (Parar, cortina) de
+> `PlaybackState.CustomAction`, entregues por `onCustomAction`.
+
+### O estado
+
+- **Sai de `pushNowPlaying`**, que lê o título do `#npNameInner` já renderizado e
+  a posição/duração da própria **barra de progresso** (`#seek`) — em vez de
+  reconstruir as origens ou recalcular o tempo por fora. Duplicar essas árvores
+  era garantir divergência, e a barra é a única fonte que cobre todos os tipos
+  (`preview.getDuration()` é do `<video>` do stage e não sabe nada de YouTube).
+  Barra desabilitada zera os dois campos, para o sistema não desenhar uma linha
+  do tempo sem significado.
+- **Campo novo em `pushNowPlaying` = campo novo em `AVNative.nowPlaying`**,
+  sempre — e **sem** subir `SHELL_VERSION`, porque o Kotlin não muda. Ela remonta
+  o objeto campo a campo, um campo esquecido some em silêncio e o `optString` lê
+  vazio como "use o padrão": foi assim que a notificação escreveu "(estrofe)"
+  durante toda a rodada das apresentações.
+- **CENA é tudo que está no telão, não só mídia:** `active` inclui `currentId`,
+  mensagem, versículo, **cronômetro e sorteio** projetando. O caso que os dois
+  últimos cobrem é a sessão RECÉM-ABERTA — projetar a contagem regressiva sem ter
+  selecionado mídia nenhuma não levantava o serviço, e o processo seguia
+  descartável exatamente durante os dez minutos em que o operador minimiza o app
+  para esperar.
+- **A posição fica FORA da chave de deduplicação** (a sessão extrapola sozinha:
+  posição + decorrido × velocidade). Mas **seek é descontinuidade** que a
+  extrapolação não adivinha: em vez de avisar em cada ponto que faz seek,
+  `pushNowPlaying` compara o tempo real com o extrapolado e republica além de
+  `POS_TOL_MS` (1,5 s, folga para o jitter do `display-status`) — um só lugar
+  cobre todas as causas, inclusive as futuras. Durante um ARRASTE não republica:
+  ali o valor é a posição do dedo.
+
+### Ciclo de vida e threads
+
 - O serviço vive enquanto houver **cena**, não só enquanto toca: pausado, o
-  operador ainda precisa do botão de play. Sem cena, ele para e a notificação
-  some.
-- **A cena pode acabar enquanto o serviço sobe.** `nowPlaying` e `stop` chegam
-  da thread do WebView: publicar uma cena dispara `startForegroundService`, e o
-  `active:false` que vem logo atrás chega ANTES de o serviço existir. Sem a
-  guarda, o serviço nascia depois disso e ficava de pé com "Nada em exibição" —
-  e nada mais chamaria `stop()`, porque o lado web deduplica por chave e não
-  reenvia o `active:false`. `stopSelf(startId)`, e não `stopSelf()`, para um
-  comando mais novo já enfileirado (uma cena nova) cancelar a parada, como manda
-  o contrato do `Service`. Pelo mesmo motivo, `stop()` só chama `stopService`
-  quando o serviço **já** está em primeiro plano: derrubá-lo com um
-  `startForegroundService` pendente é o caminho conhecido para o app ser morto.
-  Perder a notificação de controles seria um arranhão; perder a projeção, não.
-- **Ícones são os do sistema** (`android.R.drawable.*`: `ic_media_previous`,
-  `ic_media_play`/`ic_media_pause`, `ic_media_next` e, para Parar,
-  `ic_menu_close_clear_cancel`) — carregar um conjunto próprio no `res/` só para
-  cinco botões não se paga, e o `MediaStyle` os tinge conforme o tema.
-  **Exceção: a cortina**, que usa
-  `ic_image`/`ic_image_off` (vetores próprios). O sistema não tem imagem
-  riscada, e o que havia até a v1.18 (`ic_menu_view`) é um OLHO — sugere
-  "esconder a vista", quando o que sai do telão é a MÍDIA. São os mesmos dois
-  símbolos que o botão do app já usa nesse par de estados.
-- **O ícone da cortina mostra o ESTADO; o rótulo, a ação** (v5.50 — a regra
-  virou "o riscado é o corte", ver `docs/ARQUITETURA-WEB.md`). Telão coberto =
-  imagem riscada; mídia no ar = imagem inteira. O rótulo ("Cobrir telão" /
-  "Mostrar mídia") continua nomeando o que o toque faz, e é ele que a
-  notificação tem de sobra em relação à tela — onde quem carrega o estado é a
-  cor. Até a v5.49 o ícone daqui era a AÇÃO, junto com a tela; a base web
-  inverteu, e deixar a notificação para trás faria o MESMO símbolo significar
-  coisas opostas nos dois lugares.
-- **A partir do Android 13 quem desenha os botões é o `PlaybackState`, não a
-  notificação.** As `Notification.Action` viram decoração nessas versões: os
-  controles saem das *actions* do estado (play/pause, ⏮/⏭) e os extras, de
-  `PlaybackState.CustomAction`. Foi por isso que, na v1.17, "Parar" e a cortina
-  simplesmente não apareciam e só restavam os botões nativos — as duas são
-  custom actions desde a v1.18, entregues por `onCustomAction`.
-- **`publish()` sempre roda na main thread.** Todo `@JavascriptInterface` é
-  chamado de uma thread do WebView, e `MediaSession` tem handler próprio e não
-  promete ser thread-safe — mexer nele de fora é o tipo de coisa que funciona
-  num aparelho e falha calada noutro.
-- **E esse salto de thread abre uma janela, que `running` fecha.** `update()`
-  confere na thread do WebView que o serviço existe e enfileira o `publish` na
-  main; entre uma coisa e a outra, o `onDestroy` de um `stopSelf` anterior pode
-  rodar. Sem a guarda a continuação publicava numa instância já destruída — um
-  `notify` que ninguém mais cancela (o cartão eterno que o `SyncService` já
-  aprendera a evitar) ou um `startForeground` de um serviço que não existe
-  mais. Como o lado web deduplica por chave e não reenvia o mesmo estado, essa
-  notificação órfã ficaria de pé, com os botões mortos, até o app ser fechado.
-  Pelo mesmo motivo o `onDestroy` **cancela a notificação explicitamente**: o
-  sistema só recolhe sozinho a que veio de `startForeground`.
-- **A notificação NÃO pode depender do JS do Controle estar rodando.** Com o
-  app minimizado e sem áudio audível no celular, o
-  sistema estrangula aquele WebView: `pushNowPlaying` para de ser chamado e a
-  notificação congela — botão em "play", barra parada — enquanto o telão segue
-  projetando. (Ligar o áudio no próprio celular fazia o defeito sumir, porque
-  áudio audível isenta a página do estrangulamento — foi justamente essa a
-  pista. Aquele modo, a "mesa de som", saiu na v5.189: o som é dos displays.)
-  `NativeBridge.snoopDisplayStatus` lê de passagem o `display-status` que o
-  telão já emite pelo `busPost` e corrige play/pause, posição e duração
-  (`SessionService.updateFromDisplay`). A `Presentation` não é estrangulada —
-  é uma fonte que continua viva quando a outra não está. Não é decisão de
-  transporte: copia campos que o web já calculou, e sem cena publicada não
-  inventa nada. Republica com a mesma economia do lado web (só em troca de
-  play/pause, de duração, ou salto de posição além de `POS_TOL_MS`).
-  **Sem telão conectado o caso não se aplica**: ali a projeção É a preview em
-  tela cheia, que exige o app na frente — minimizar já encerra a projeção.
-- **A verificar em aparelho:** se o WebView criar uma sessão de mídia própria ao
-  tocar áudio, poderia aparecer uma notificação concorrente. Nada no código
-  indica isso (o WebView não se comporta como o Chrome aqui), mas não foi
-  observado rodando.
+  operador ainda precisa do play.
+- **A cena pode acabar enquanto o serviço sobe.** Publicar dispara
+  `startForegroundService`, e o `active:false` que vem atrás chega ANTES de o
+  serviço existir — sem a guarda ele nascia com "Nada em exibição", e nada mais
+  chamaria `stop()` (o web deduplica por chave e não reenvia). `stopSelf(startId)`
+  e **não** `stopSelf()`, para uma cena nova já enfileirada cancelar a parada.
+  E `stop()` só chama `stopService` quando o serviço **já** está em primeiro
+  plano: derrubá-lo com um `startForegroundService` pendente é caminho conhecido
+  para o app ser morto — perder a notificação é arranhão, perder a projeção não.
+- **`publish()` sempre na main thread.** Todo `@JavascriptInterface` é chamado de
+  uma thread do WebView, e `MediaSession` tem handler próprio e não promete ser
+  thread-safe.
+- **E esse salto de thread abre uma janela, que `running` fecha.** Entre o
+  `update()` (thread do WebView) e o `publish` enfileirado na main, o `onDestroy`
+  de um `stopSelf` anterior pode rodar: sem a guarda, a continuação publicava
+  numa instância destruída — um `notify` que ninguém cancela, ou um
+  `startForeground` de um serviço que não existe. Pelo mesmo motivo o `onDestroy`
+  **cancela a notificação explicitamente**: o sistema só recolhe sozinho a que
+  veio de `startForeground`.
+
+### Ícones
+
+Os do sistema (`android.R.drawable.*`: `ic_media_previous`,
+`ic_media_play`/`ic_media_pause`, `ic_media_next`, e `ic_menu_close_clear_cancel`
+para Parar) — um conjunto próprio no `res/` só para cinco botões não se paga, e o
+`MediaStyle` os tinge conforme o tema. **Exceção: a cortina** (`ic_image` /
+`ic_image_off`, vetores próprios): o sistema não tem imagem riscada, e o
+`ic_menu_view` é um OLHO, que sugere "esconder a vista" quando o que sai do telão
+é a MÍDIA.
+
+**O ícone mostra o ESTADO; o rótulo, a AÇÃO.** Telão coberto = imagem riscada;
+mídia no ar = imagem inteira. O rótulo ("Cobrir telão"/"Mostrar mídia") nomeia o
+que o toque faz — é o que a notificação tem de sobra em relação à tela, onde quem
+carrega o estado é a cor. Inverter num lugar só faria o MESMO símbolo significar
+coisas opostas nos dois.
+
+### A notificação NÃO pode depender do JS do Controle
+
+Com o app minimizado e sem áudio audível, o sistema estrangula aquele WebView:
+`pushNowPlaying` para de ser chamado e a notificação congela — botão em "play",
+barra parada — enquanto o telão segue projetando.
+`NativeBridge.snoopDisplayStatus` lê de passagem o `display-status` que o telão
+já emite pelo `busPost` e corrige play/pause, posição e duração
+(`SessionService.updateFromDisplay`). A `Presentation` não é estrangulada: é uma
+fonte que continua viva quando a outra não está. **Não é decisão de transporte**
+— copia campos que o web já calculou, e sem cena publicada não inventa nada.
+Republica com a mesma economia do web. **Sem telão conectado o caso não se
+aplica**: ali a projeção É a preview em tela cheia, que exige o app na frente.
+
+> **A verificar em aparelho:** se o WebView criar uma sessão de mídia própria ao
+> tocar áudio, poderia aparecer uma notificação concorrente. Nada no código
+> indica isso, mas não foi observado rodando.
 
 ---
 
@@ -1201,155 +1183,127 @@ acrescentado sem a anotação passaria despercebido.
 ## Telão por comandos (o telão nas telas da rede local)
 
 O telão inteiro — fades, cortina, Camada de Texto, letra sincronizada e vídeo —
-em até **três navegadores da rede da igreja**, sem instalar nada nas telas e sem
-depender de internet. A especificação fechada, com cada decisão e o motivo dela,
-está em [`docs/TELAO-POR-COMANDOS.md`](docs/TELAO-POR-COMANDOS.md) — **leia
-antes de mexer**; esta seção é o mapa. (O antecessor, o espelho de pixels —
-VirtualDisplay → H.264 → MSE —, foi **removido por inteiro na v5.187**; de
-`docs/ESPELHO-DE-PIXELS.md` sobrou só o que código vivo ainda cita.)
+em até **três navegadores da rede da igreja**, sem instalar nada neles e sem
+internet. A especificação fechada está em
+[`docs/TELAO-POR-COMANDOS.md`](docs/TELAO-POR-COMANDOS.md) — **leia antes de
+mexer**; esta seção é o mapa.
 
 ```
  ┌────────────── celular ──────────────┐        ┌───── navegador na LAN ─────┐
  │  Controle (/web/controle/)          │        │  o MESMO /web/display/     │
- │   └─ cada comando do barramento ────┼─SSE───►│  (papel `tela`, ?tela=1)   │
+ │   └─ cada comando do barramento ────┼─SSE───►│  (papel `tela`)            │
  │  EspelhoServidor                    │        │   ├─ stage.js de verdade   │
  │   ├─ serve o BUNDLE (OTA→APK)       │◄─POST──│   ├─ mídia por /m/<token>  │
  │   └─ /m/<token>: cache de mídia     │  /r    │   └─ status de volta       │
  └─────────────────────────────────────┘        └────────────────────────────┘
 ```
 
-**O que faz isto valer a pena é o que NÃO atravessa a rede.** A tela da rede
-carrega o próprio bundle do app (servido pelo celular, com a MESMA resolução
-OTA→APK do `WebPathHandler`) e roda o `/web/display/` de verdade — `stage.js`,
-fades, cortina, letra, Camada de Texto. O que viaja são **comandos** (os mesmos
-objetos JSON pequenos do barramento, verbatim, por SSE) e **mídia sob demanda**
-(`/m/<token>`, com `Range` RFC 7233 de verdade — a inversão da invariante 8:
-num `ServerSocket` quem aplica a faixa somos NÓS). A invariante 5 sai ilesa
-duas vezes: o Kotlin não decide nada de cena, e a tela não reimplementa nada.
+**O que faz isto valer a pena é o que NÃO atravessa a rede.** A tela carrega o
+próprio bundle do app (servido pelo celular, com a MESMA resolução OTA→APK do
+`WebPathHandler`) e roda o `/web/display/` de verdade. O que viaja são
+**comandos** (os objetos JSON do barramento, verbatim, por SSE) e **mídia sob
+demanda** (`/m/<token>`, com `Range` RFC 7233 de verdade — a **inversão da
+invariante 8**: num `ServerSocket` quem aplica a faixa somos NÓS). A invariante 5
+sai ilesa duas vezes: o Kotlin não decide nada de cena, e a tela não reimplementa
+nada.
 
-**AUXILIAR por contrato, como sempre foi:** liga e desliga **só** por ação do
-operador (a folha de "Conectar uma tela"), pelo fechamento do app ou por uma
-falha nomeada em texto. Uma TV que conecta **não** derruba a transmissão — sem
-TV, as telas da rede SÃO o que a congregação vê.
+**AUXILIAR por contrato:** liga e desliga **só** por ação do operador, pelo
+fechamento do app, ou por uma falha nomeada em texto. Uma TV que conecta **não**
+derruba a transmissão — sem TV, as telas da rede SÃO o que a congregação vê.
 
 ### As peças, e o que cada uma se recusa a fazer
 
 | Arquivo | O quê |
 |---|---|
-| `EspelhoHttp.kt` | o parser HTTP **+ Range + SSE** — **PURO, zero import de Android**, com JUnit (`EspelhoHttpTest`, `EspelhoHttpRangeTest`). `alcanceDe` segue a RFC 7233 à risca: faixa malformada é **IGNORADA** (200 inteiro), nunca adivinhada; `Range` duplicado é malformado; fora do tamanho é 416 |
-| `EspelhoPares.kt` | a porta, tokens, prazo, castigo — **PURO**, com JUnit. **Sem código desde a v5.189**: a porta é o ENDEREÇO deste aparelho na rede, e o controle real é o teto de 3 sessões + o `derrubar` do operador (com castigo de 2 min, sem o qual "Desconectar" não faria nada visível). O token da sessão **nunca viaja numa URL**: o SSE vai por `fetch` + `Authorization: Bearer` (não `EventSource`, que não manda cabeçalho) |
-| `EspelhoServidor.kt` | sockets, rotas, fan-out. Serve **só** `PREFIXOS_BUNDLE` (display/shared/espelho — nunca `web/controle/`), `GET /e` (o fluxo SSE: fila de 256 por tela, ping de 15 s com o epoch do celular, `adeus` no desligar), `/m/<token>` (completo = 206/416; **em crescimento = chunked**, servindo enquanto o empurrão anda), `POST /r` (o caminho de volta: `st` injeta o status no barramento via `MessageBus.post(null,…)` — que NÃO passa pelo `busPost`, logo **sem eco por construção**). Bind explícito ao IPv4 da Wi-Fi, allowlist de `Host` exata — as regras da era dos pixels que continuam valendo |
-| `EspelhoMidiaCache.kt` | o cache da rota `/m/` — **PURO**, com JUnit. Token é **capacidade** (forma validada; entropia de quem cunha — o Controle, `crypto.randomUUID`), mesmo id + mesmo token = mesmo item (a regra do SafRegistry), id com token novo **substitui** (o wallpaper trocado), LRU por **bytes** e só de **completos** (um item em crescimento tem um empurrão vivo do outro lado) |
-| `EspelhoMidiaCanal.kt` | o empurrão: OPFS → cache, por `WebMessageListener` com `ArrayBuffer` (o molde do `EspelhoAudio` aposentado — allowedOriginRules exato, `isMainFrame`, host conferido). Fluxo com ack por bloco; a oferta na fila é **não-bloqueante** (fila cheia = erro retentável, nunca travar a main thread) |
-| `EspelhoEnergia.kt` | wake lock, Wi-Fi lock e térmica — **não é mais um Service** (v5.190): quem carrega a transmissão em primeiro plano é o `SessionService`, com o tipo `connectedDevice` somado ao dele. Exige `CHANGE_WIFI_MULTICAST_STATE` no manifest — sem ela `startForeground` **lança** |
+| `EspelhoHttp.kt` | parser HTTP **+ Range + SSE** — **PURO, zero import de Android**, com JUnit. `alcanceDe` segue a RFC 7233 à risca: faixa malformada é **IGNORADA** (200 inteiro), nunca adivinhada; `Range` duplicado é malformado; fora do tamanho é 416 |
+| `EspelhoPares.kt` | porta, tokens, prazo, castigo — **PURO**, com JUnit. **Sem código de entrada**: a porta é o ENDEREÇO na rede, e o controle real é o teto de 3 sessões + o `derrubar` do operador (com castigo de 2 min, sem o qual "Desconectar" não faria nada visível). O token **nunca viaja numa URL**: o SSE vai por `fetch` + `Authorization: Bearer` (não `EventSource`, que não manda cabeçalho) |
+| `EspelhoServidor.kt` | sockets, rotas, fan-out. Serve **só** `PREFIXOS_BUNDLE` (display/shared/espelho — **nunca** `web/controle/`); `GET /e` (SSE: fila de 256 por tela, ping de 15 s com o epoch do celular, `adeus` no desligar); `/m/<token>` (completo = 206/416, **em crescimento = chunked**, servindo enquanto o empurrão anda); `POST /r` (o `st` injeta o status via `MessageBus.post(null,…)`, que **não** passa pelo `busPost` — **sem eco por construção** — e só os tipos de `TIPOS_QUE_SOBEM`). Bind explícito ao IPv4 da Wi-Fi, allowlist de `Host` exata |
+| `EspelhoMidiaCache.kt` | o cache da rota `/m/` — **PURO**, com JUnit. Token é **capacidade** (forma validada aqui; entropia de quem cunha — o Controle, `crypto.randomUUID`); mesmo id + mesmo token = mesmo item (a regra do `SafRegistry`); id com token novo **substitui**; LRU por **bytes** e só de **completos** (um item em crescimento tem um empurrão vivo do outro lado) |
+| `EspelhoMidiaCanal.kt` | o empurrão OPFS → cache, por `WebMessageListener` com `ArrayBuffer` (allowedOriginRules exato, `isMainFrame`, host conferido). Ack por bloco; a oferta na fila é **não-bloqueante** — fila cheia = erro retentável, nunca travar a main thread |
+| `EspelhoEnergia.kt` | wake lock, Wi-Fi lock e térmica — **não é um Service**: quem carrega a transmissão em primeiro plano é o `SessionService`. Exige `CHANGE_WIFI_MULTICAST_STATE` no manifest, senão `startForeground` **lança** |
 | `EspelhoDiag.kt` | o anel. **Devolve JSON, não texto** — quem monta a frase é o `controle.js` |
-| `espelho/tela.js` | a casca do papel `tela` — **carregada no próprio `display/index.html`**, entre `native.js` e `db.js`, e um no-op de uma guarda fora do papel (`?tela=1`). Define `__AVBus` (recepção = SSE; envio = o DRENO, ver o barramento), neutraliza o `postMessage` do `BroadcastChannel`, corrige o relógio (mediana do epoch dos pings — cronômetro e sorteio chegam como DESCRITOR com instante do celular), embrulha `AVDB.getMedia` para resolver `__rec.url`, e mantém a vigília (canvas.captureStream) para a tela não dormir |
-| `display.js` (papel `tela`) | `forceMuted` nasce ligado (autoplay sem gesto não existe num navegador de verdade); `window.__telaSom(true)` é o que o botão de entrada chama ao gastar o único gesto (fullscreen + som, **na mesma pilha**); wallpaper chega por `__wp` (ou o sentinela `'padrao'`), e o fundo da letra por `imageUrl` na estrofe |
-| `controle.js` (o outro lado) | **enriquece** cada `load` com `__rec` (registro saneado: id/kind/nome/tipo/url=`/m/<token>`/letra — **nunca** blob, opfsPath ou youtubeId) e dispara o empurrão da mídia; reescreve o manifesto de STREAM para `/s/<token>` (v5.189); **elege** uma tela como referência de tempo; converte o embed do YouTube e o deck em `tela-aviso` (o que a tela não sabe tocar, ela DIZ) |
+| `espelho/tela.js` | a casca do papel `tela`, carregada **no próprio `display/index.html`** entre `native.js` e `db.js`, e no-op de uma guarda fora do papel. Define `__AVBus` (recepção = SSE; envio = o DRENO), neutraliza o `postMessage` do `BroadcastChannel`, corrige o relógio (mediana do epoch dos pings — cronômetro e sorteio chegam como DESCRITOR com instante do celular), embrulha `AVDB.getMedia` para resolver `__rec.url`, e mantém a vigília para a tela não dormir |
+| `display.js` (papel `tela`) | `forceMuted` nasce ligado (autoplay sem gesto não existe num navegador de verdade); `window.__telaSom(true)` é o que o botão de entrada chama ao gastar o único gesto; wallpaper por `__wp` (ou o sentinela `'padrao'`), fundo da letra por `imageUrl` na estrofe |
+| `controle.js` | **enriquece** cada `load` com `__rec` (registro saneado: id/kind/nome/tipo/url=`/m/<token>`/letra — **nunca** blob, opfsPath ou youtubeId) e dispara o empurrão; reescreve o manifesto de stream para `/s/<token>`; **elege** uma tela como referência de tempo; converte embed do YouTube e deck em `tela-aviso` (o que a tela não sabe tocar, ela DIZ) |
 
 ### As decisões que precisam estar ditas
 
 - **UMA página, não duas.** O gesto do visitante (fullscreen + som) **não
-  sobrevive a uma navegação** — por isso não existe "página de entrada que
+  sobrevive a uma navegação**, então não existe "página de entrada que
   redireciona": `tela.js` desenha a entrada como OVERLAY sobre o próprio
-  display, e o toque no botão gasta o único gesto em tudo de uma vez
-  (`__telaSom(true)` → `requestFullscreen` → `POST /par` → token → SSE).
-  **Desde a v5.189 o botão é UM só, "Ativar esta tela", e não há código a
-  digitar**: a porta é o endereço.
-
-  **E a pergunta "o que ainda falta nesta tela?" NÃO pode ser feita DENTRO do
-  gesto** (v5.214). `requestFullscreen()` é assíncrono e o clique borbulha até
-  o `document` antes de a tela cheia existir — medido em Chromium, o ouvinte do
-  documento roda com `fullscreenElement=false` e o `fullscreenchange` chega
-  9 ms depois. Perguntar ali responde sempre contra o passado, e o que nascia
-  disso era um SEGUNDO botão oferecendo exatamente o que o toque acabara de
-  fazer: a ativação unificada parecendo exigir uma segunda interação. Quem
-  responde é o próprio pedido de tela cheia — a Promise resolve quando ela
-  entrou e rejeita quando foi recusada —, e entre o gesto e esse desfecho o
-  `oferecerGesto()` é mudo (`assentando`, em `tela.js`).
-- **Depois de ativada, NADA cobre a tela.** O overlay cheio existe só na
-  primeira carga, quando não há nada por baixo dele. Queda de fio, token
-  vencido e até o `adeus` do operador reentram em silêncio (um `POST /par` numa
-  escada de 1 s a 30 s) — a mídia é local (`/m/`) e a letra anda pelo
-  `timeupdate` do próprio `<video>`, então a queda leva o fio e mais nada. O
-  gesto perdido (tela cheia) volta por **dois atalhos, e nenhum botão**
-  (v5.218): o TOQUE DUPLO e o **F11**. O botão discreto de canto que existia
-  aqui saiu — ele existia para devolver o gesto numa RECARGA, e a recarga passou
-  a voltar para a entrada oficial (abaixo), então ele virou um segundo controle,
-  com outro nome e outro desenho, para a mesma decisão.
-
-- **MAS A RECARGA VOLTA PARA A ENTRADA OFICIAL** (v5.218, decisão do operador —
-  ela REVOGA a metade da regra acima que valia para o F5). A distinção é entre
-  perder o FIO e perder a PÁGINA: numa queda de fio a mídia continua tocando e
-  cobrir a tela apagaria uma cena que o problema não atingiu; uma recarga já
-  derrubou tudo — documento, `<video>`, cena e, sobretudo, o GESTO, que não
-  sobrevive a uma navegação. Não há projeção a preservar, logo não há nada a
-  cobrir, e o certo é o botão que o visitante já conhece. **O token é carregado
-  adiante** ainda assim, e isso não contradiz "a recarga desconecta": o fio só
-  abre no toque. O que ele evita é o teto de três telas — `telasSse` é indexado
-  pelo TOKEN, então pedir pareamento novo a cada F5 deixaria a sessão anterior
-  ocupando vaga até o vigia notá-la, e a terceira recarga seguida receberia
-  "lotado".
+  display, e o toque gasta o único gesto em tudo de uma vez (`__telaSom(true)` →
+  `requestFullscreen` → `POST /par` → token → SSE). Um botão só, "Ativar esta
+  tela", sem código a digitar.
+- **"O que ainda falta nesta tela?" NÃO pode ser perguntado DENTRO do gesto.**
+  `requestFullscreen()` é assíncrono e o clique borbulha até o `document` antes
+  de a tela cheia existir (medido: o ouvinte roda com `fullscreenElement=false`
+  e o `fullscreenchange` chega 9 ms depois). Perguntar ali responde sempre
+  contra o passado, e o que nascia disso era um SEGUNDO botão oferecendo o que o
+  toque acabara de fazer. Quem responde é a Promise do próprio pedido; entre o
+  gesto e o desfecho o `oferecerGesto()` é mudo (`assentando`).
+- **Depois de ativada, NADA cobre a tela.** O overlay cheio existe só na primeira
+  carga, quando não há nada por baixo. Queda de fio, token vencido e até o
+  `adeus` reentram **em silêncio** (um `POST /par` numa escada de 1 s a 30 s) —
+  a mídia é local e a letra anda pelo `timeupdate` do próprio `<video>`, então a
+  queda leva o fio e mais nada. O gesto perdido volta por **dois atalhos e
+  nenhum botão**: TOQUE DUPLO e **F11**.
+- **MAS A RECARGA VOLTA PARA A ENTRADA OFICIAL.** A distinção é entre perder o
+  FIO e perder a PÁGINA: numa queda de fio a mídia continua tocando e cobrir a
+  tela apagaria uma cena que o problema não atingiu; uma recarga já derrubou
+  tudo — inclusive o GESTO. **O token é carregado adiante** ainda assim (o fio só
+  abre no toque): `telasSse` é indexado pelo TOKEN, e pedir pareamento novo a
+  cada F5 deixaria a sessão anterior ocupando vaga até o vigia notá-la — a
+  terceira recarga seguida receberia "lotado".
 - **O tap é no `busPost`, e isso fecha o eco.** `NativeBridge.busPost` vê 100%
-  dos comandos (o relay nativo roda sempre — ver o barramento), e é ali que o
-  `tapLan` os copia para o fan-out SSE. A injeção de volta (o `st` do
-  `POST /r`) entra por `MessageBus.post(null,…)`, que **não** passa pelo
-  `busPost`: um comando vindo de uma tela não volta para as telas.
-- **`__rec` viaja NO comando, não numa consulta.** A tela não tem IndexedDB com
-  o acervo; esperar um "GET /registro/<id>" a cada load seria uma ida-e-volta a
-  mais no caminho crítico do culto. O Controle já tem o registro na mão na hora
-  de emitir o `load` — ele o sania e o anexa. Tokens de mídia são cunhados pelo
-  Controle (sincronamente); o shell só valida a FORMA (`^[A-Za-z0-9_-]{16,64}$`).
-- **`display-ready` com `__tela` sobe; `tela-status` sobe; o resto morre.** O
-  dreno de subida é a mesma lista de permissão de dois itens do barramento —
-  `media-ended`, `mic-status` e `diag-dump` de uma tela morrem nela.
-- **A TRANSMISSÃO DIRETA CHEGA ÀS TELAS** (v5.189, a dívida §7). A rota
-  `/s/<token>` do servidor repassa a faixa do googlevideo (o `Range` do cliente
-  sobe cru; a resposta é espelhada de volta) com o UA que combina com a URL, e
-  o `telaEnriquecer` reescreve `/stream/<token>` → `/s/<token>` no manifesto.
-  O token é o MESMO dos dois lados (o registro do `StreamProxy` é um só), então
-  não há segunda extração. Da v5.187 à v5.188 havia aqui um `pularTransmissao`
-  que mandava tudo ao download quando a transmissão estava ligada sem TV — e
-  como esse é o estado normal do operador, o "Tocar agora" nunca transmitia.
-  O que ainda não vai para a rede é o EMBED (iframe de terceiro) e o DECK.
+  dos comandos (o relay nativo roda sempre), e é ali que o `tapLan` os copia para
+  o fan-out. A injeção de volta entra por `MessageBus.post(null,…)`, que não
+  passa pelo `busPost`: **um comando vindo de uma tela não volta para as telas.**
+- **`__rec` viaja NO comando, não numa consulta.** A tela não tem IndexedDB com o
+  acervo, e um "GET /registro/<id>" a cada load seria uma ida-e-volta a mais no
+  caminho crítico do culto. O Controle já tem o registro na mão quando emite o
+  `load`. Tokens de mídia são cunhados pelo Controle (sincronamente); o shell só
+  valida a FORMA (`^[A-Za-z0-9_-]{16,64}$`).
+- **`display-ready` com `__tela` sobe; `tela-status` sobe; o resto morre** —
+  `media-ended`, `mic-status` e `diag-dump` de uma tela morrem no dreno. **E a
+  lista existe nos DOIS lados**: validação que mora só no cliente não é
+  validação (ver `TIPOS_QUE_SOBEM`, acima).
+- **A TRANSMISSÃO DIRETA CHEGA ÀS TELAS.** A rota `/s/<token>` repassa a faixa do
+  googlevideo (o `Range` do cliente sobe cru, a resposta é espelhada de volta)
+  com o UA que combina com a URL, e o `telaEnriquecer` reescreve
+  `/stream/<token>` → `/s/<token>`. O token é o MESMO dos dois lados (o registro
+  do `StreamProxy` é um só): não há segunda extração. **O que ainda não vai para
+  a rede é o EMBED e o DECK.**
 - **A preview não atrasa para telas de comando** (`dePixels` em
-  `recalcularAtrasoPreview`): o atraso da v5.162 media o buffer de MSE do
-  espelho de pixels; uma tela por comandos aplica o comando no ato, e o alvo é
-  0.
-- **`snoopStatusDeFora` é um só, no companion.** `display-status`,
+  `recalcularAtrasoPreview`): o atraso media o buffer de MSE do espelho de
+  pixels; uma tela por comandos aplica no ato, e o alvo é 0.
+- **`snoopStatusDeFora` é UM só, no companion.** `display-status`,
   `espelho-status` e `tela-status` passam pelo MESMO relógio de precedência
-  (`ultimoStatusDoTelaoMs`) — a versão por-instância tinha um bug latente de
-  precedência entre WebViews, e a notificação de mídia é alimentada por ele
-  quando o app está minimizado.
-- **Detecção por PRESENÇA, não por versão**, onde há um objeto injetável:
-  `telaAtiva()` pergunta `espelhoLigado() && window.__avTelaMidia`. O
-  `SHELL_VERSION` (37) subiu pela mudança de FORMA do `espelhoEstado`/`espelhoDiag`,
-  não para guardar o canal.
+  (`ultimoStatusDoTelaoMs`) — a versão por-instância tinha bug latente de
+  precedência entre WebViews, e é ele que alimenta a notificação de mídia com o
+  app minimizado.
+- **Detecção por PRESENÇA, não por versão**, onde há objeto injetável:
+  `telaAtiva()` pergunta `espelhoLigado() && window.__avTelaMidia`.
 
 ### As inversões que precisam estar ditas
 
-1. **O áudio agora é INTEIRO, e local.** A tela toca o arquivo (`/m/`) no
-   próprio `<video>`/`<audio>` — acabou o AAC parcial, a deriva de eixo, o
-   `AudioWorklet` e toda a família de defeitos §10-A do doc do espelho. O som
-   continua **opt-in por tela** (o `forceMuted` só sai com o gesto do
-   visitante). O **microfone ao vivo** continua fora da rede: o comando `mic`
-   não é drenado para as telas — a captura e a reprodução dele são do telão de
-   verdade.
-2. **O que vaza numa rede aberta mudou de natureza.** Antes: a imagem contínua
-   de tudo que a igreja projeta. Agora: os comandos (títulos, referências,
-   letras) e as mídias que forem carregadas durante a transmissão — por tokens
-   opacos por sessão. A porta continua nascendo aberta (v5.170, conteúdo
-   público por definição); o teto de 3 sessões e o derrubar na folha continuam
-   sendo o controle real.
-3. **A tela executa CÓDIGO nosso, não só decodifica pixels.** O bundle servido
-   é o mesmo do app (OTA→APK), então um bundle quebrado quebra as telas junto —
-   e o watchdog de boot do OTA não as cobre. O que as cobre é o
-   `tela-rede.test.mjs` (Chromium de verdade, o percurso inteiro: entrada,
-   comandos, mídia, status, adeus) e o fato de o telão de verdade rodar o MESMO
-   display.js — quebrar um é quebrar o outro, que é o defeito que aparece.
+1. **O áudio é INTEIRO e local.** A tela toca o arquivo (`/m/`) no próprio
+   `<video>`/`<audio>` — acabaram o AAC parcial, a deriva de eixo e o
+   `AudioWorklet`. O som é **opt-in por tela** (o `forceMuted` só sai com o gesto
+   do visitante). **O microfone ao vivo continua fora da rede:** o comando `mic`
+   não é drenado — a captura e a reprodução são do telão de verdade.
+2. **O que vaza numa rede aberta mudou de natureza:** antes, a imagem contínua de
+   tudo que a igreja projeta; agora, os comandos (títulos, referências, letras) e
+   as mídias carregadas durante a transmissão, por tokens opacos por sessão. A
+   porta nasce aberta (conteúdo público por definição); o teto de 3 sessões e o
+   derrubar são o controle real.
+3. **A tela executa CÓDIGO nosso, não só decodifica pixels.** O bundle é o mesmo
+   do app, então um bundle quebrado quebra as telas junto — **e o watchdog de
+   boot do OTA não as cobre**. O que as cobre é o `tela-rede.test.mjs` e o fato
+   de o telão de verdade rodar o MESMO `display.js`: quebrar um é quebrar o
+   outro, que é o defeito que aparece.
 
-> **E a regra de calendário fica:** a primeira ligada em rede de verdade é
-> **numa terça-feira, não no culto**.
+> **Regra de calendário:** a primeira ligada em rede de verdade é **numa
+> terça-feira, não no culto**.
 
 ---
 
@@ -1569,221 +1523,157 @@ Favoritos pela folha, um a um.
 
 ## A paleta
 
-A paleta mora em **`assets/web/shared/tokens.css`**, fonte única carregada pelos
-dois `index.html` **antes** da folha do app. Até a v5.47 os tokens de marca eram
-mantidos à mão em DUAS folhas (`controle.css` e `display.css`), e o comentário
-das duas admitia que "a sincronização é manual" — sincronização manual entre
-dois arquivos é uma classe de bug, não um processo: basta um ajuste entrar só
-num lado para o telão e a preview do Controle, que existe justamente para
-ESPELHAR o telão, mostrarem coisas diferentes.
+Mora em **`assets/web/shared/tokens.css`**, fonte única carregada pelos dois
+`index.html` **antes** da folha do app. Ela é a **identidade oficial da IASD**,
+em **DOIS TEMAS**, com o denim `#2F557F` (PMS 302) como núcleo. O raciocínio
+completo (cada par medido, os pisos, os ladrilhos da Bíblia) está na seção de
+paleta de `docs/ARQUITETURA-WEB.md`.
 
-**E DESDE A v5.267 NÃO HÁ CONTORNO EM LUGAR NENHUM.** Pedido do operador:
-*"não tenhamos itens usando linha de borda, tudo deve ser com preenchimento
-sólido, e definição feita por puro e simples contraste entre os elementos"*.
-Saíram **82 declarações** de `border`/`outline` das folhas da base; sobrevivem
-dois DESENHOS (os aros que giram — `.dl-ring` e `.av-stage-busy` — e o ✓ do
-seletor de destinos), nomeados um a um no oráculo. **A regra tem oráculo**
-(`tools/tokens.test.mjs`, sem `continue-on-error`), e é ele que a faz durar: uma
-borda é a coisa mais fácil de acrescentar em CSS quando duas caixas não estão se
-separando o bastante — é literalmente o remendo que este lote desfez — e ela não
-quebra nada, não erra alto e não aparece em teste de comportamento nenhum.
+**NÃO HÁ CONTORNO EM LUGAR NENHUM.** Nenhuma regra desenha `border`/`outline`;
+sobrevivem dois DESENHOS (os aros que giram — `.dl-ring`, `.av-stage-busy`) e o
+✓ do seletor de destinos, nomeados um a um no oráculo
+(`tools/tokens.test.mjs`, sem `continue-on-error`). É ele que faz a regra durar:
+uma borda é a coisa mais fácil de acrescentar quando duas caixas não estão se
+separando o bastante, e ela não quebra nada, não erra alto e não aparece em teste
+de comportamento nenhum.
 
-**As duas metades do pedido são o mesmo pedido**, e é por isso que vieram no
-mesmo lote: quando a linha some, o degrau de tom passa a ser a ÚNICA coisa que
-separa duas caixas. O par `--panel` × `--panel-2` valia 1,29:1 com o argumento
-escrito de que "ele não carrega o estado sozinho — quem diz 'selecionado' é
-sempre a BORDA em `--accent`"; abriu para **1,33:1** (escuro) e **1,41:1**
-(claro), e `--muted`/`--accent` acompanharam porque no valor antigo o accent
-caía a 4,40:1 sobre o painel-2 novo e reprovava AA.
+Sem linha, **o degrau de tom é a ÚNICA coisa que separa duas caixas** — daí o
+resto desta seção.
 
-**E a regra do vermelho mudou de eixo.** Era "PREENCHIDO = está no ar ·
-CONTORNADO = destrutivo"; sem contorno, o que separa os dois é a INTENSIDADE do
-mesmo preenchimento — saturado (`--live`) é o que está no ar agora e não pode
-ter concorrente na tela, suave (`--live-fill` numa linha, `--danger-soft` num
-botão) é a ação destrutiva. Entraram três fundos de estado OPACOS
-(`--sel-fill`, `--live-fill`, `--ok-fill`), e serem opacos é medido:
-`--accent-soft` a 16% sobre o painel compõe `#3d4959`, que é o `--panel-2` desta
-paleta — uma linha SELECIONADA ficava com a cor exata do nível de baixo da
-árvore. Opacos, os três valem o mesmo em qualquer nível: um estado SAI da escada
-em vez de ocupar um degrau dela.
+### As regras
 
-**Desde a v5.192 ela é a IDENTIDADE OFICIAL DA IASD, e são DOIS TEMAS.** As
-matizes vêm do pacote oficial adventista — o mesmo de que saiu o símbolo do
-wallpaper padrão na v5.188 —, com o **denim `#2F557F`** (PMS 302) como núcleo. O
-âmbar da paleta "Sala Escura" saiu, e ele nunca foi oficial: a v5.47 o adotou
-por um argumento de CONTRASTE (a paleta azul anterior usava um valor único para
-fundo preenchido e para texto, e era esse par que reprovava), e a separação de
-papéis em `--accent`/`--accent-fill`/`--on-accent` resolve isso sem trocar a
-matiz. Com ela no lugar, o azul oficial passa com folga nos dois temas.
-
-O essencial para não quebrar nada aqui:
-
-- **Só cor entra em `tokens.css`.** Raio, escala de ícone, curva de toque e
+- **Só COR entra em `tokens.css`.** Raio, escala de ícone, curva de toque e
   medidas de layout ficam no `:root` de `controle.css`: são decisões da UI densa
-  do Controle, e o Display (que não tem UI) não teria o que fazer com elas.
-- **A montagem dos temas são três blocos**, e a ordem deles é a regra:
-  `:root` com o que NÃO muda, `:root` com o tema ESCURO (o padrão, sem atributo
-  nenhum) e `:root[data-tema="claro"]` (0,2,0 vence o 0,1,0). O claro é um
-  DELTA: o que ele não redeclara cai no escuro. **Um token que exista SÓ no
-  claro não está definido no tema padrão** — o `var()` computa para o valor
-  inicial da propriedade, sem aviso e sem log, e quem escreveu acabou de ver a
-  cor certa na tela porque estava com o claro ligado. `tools/tokens.test.mjs`
-  trava isso.
-- **O PALCO NÃO TEM TEMA, e é isso que faz o recurso valer.** `--stage-*`,
-  `--wallpaper` e `--lyrics-frame-bg` (mais as sombras e o `--scrim`) moram no
-  bloco compartilhado. O Display já ficaria escuro por omissão — ele nunca
-  escreve o atributo —; o que a separação garante é o outro lado: a PREVIEW do
-  Controle roda no documento que TEM tema, e ela existe para ESPELHAR o telão.
-  Um telão claro num salão às escuras cega a congregação, e uma preview que
-  clareasse junto com a UI deixaria de cumprir seu papel exatamente no tema em
-  que o operador mais precisa dela. `tools/smoke.mjs` trava isso.
-- **E a regra vale para as REGRAS, não só para os tokens** (v5.219). Os tokens
-  do palco estavam certos e as folhas do palco liam `--brand`, `--live-strong`,
-  `--bg` e `--accent-glow` — quatro tokens de TEMA. No Display isso nunca doeu
-  (ele não escreve o atributo); na preview com o tema CLARO ligado, o título do
-  slide de capa era desenhado com o denim oficial sobre o preto do palco:
-  **2,73:1 medidos**, ilegível, e foi assim que o operador o encontrou. Daí
-  `--stage-accent`, `--stage-accent-glow`, `--stage-on-accent` e `--stage-alert`
-  no bloco compartilhado. **Nada pintado no palco pode ler um token redeclarado
-  em `[data-tema]`**, e o oráculo mudou de pergunta junto: `tools/smoke.mjs`
-  compara a COR COMPUTADA de cada camada do palco nos dois temas (o defeito
-  passava por baixo da versão que comparava quatro nomes de token).
-- **Três matizes, com papéis que não se misturam.** O azul denim é a marca IASD
-  **e** o accent (navegação, seleção, progresso) — `--brand` e `--accent` têm o
-  mesmo valor de propósito, e os dois nomes existem para distinguir na folha
-  "isto é marca" de "isto é navegação". (Eles se chamavam `--gold*` até a
-  v5.192: um token chamado "gold" guardando um azul é exatamente a divergência
-  que a fonte única existe para impedir, então foram renomeados junto com a
-  cor.) Vermelho é atenção — o `scarlett` oficial —, em dois papéis separados:
-  **preenchido = está no ar agora** (`--live`), **contornado = ação destrutiva**
-  (`--danger-strong`/`--danger-text`) — nunca preenchida, para não competir com
-  o que está de fato no telão. Verde (`--ok`, do `treefrog` oficial) é **só**
-  concluído/conectado; antes ele também dizia "está no ar" em dois lugares
-  enquanto outros quatro diziam o mesmo em vermelho, duas cores opostas para a
-  mesma mensagem na mesma tela.
-- **Nem todo token é um valor oficial, e os derivados estão marcados.** Os
-  dezoito valores oficiais foram desenhados para fundo BRANCO: medidos, todos
-  passam AA sobre branco, e NENHUM passa AA como texto sobre o quase-preto do
-  tema escuro (bluejay dá 3,97:1). Onde clarear ou escurecer foi preciso, o
-  comentário de `tokens.css` diz de qual oficial o valor saiu, e a matiz é
-  preservada. O mesmo vale para os ladrilhos da Bíblia: a identidade tem sete
-  famílias de matiz e a tela de livros precisa de DEZ grupos separáveis por
-  pelo menos 20°, então cinco são oficiais e cinco preenchem os vãos.
-- **A superfície AFUNDA dentro de um cartão** (a regra no topo de
-  `controle.css`). `--surface`/`--surface-2` são branco com alfa, então
-  EMPILHAM: o mesmo token sobre `--panel` produz uma base bem mais clara do que
-  sobre `--bg`, e era essa a causa raiz do pior contraste do app. Não existe
-  alfa que resolva os dois casos, então dentro do cartão o sinal se INVERTE (o
-  overlay passa a ser preto) — que também é a convenção certa de UI escura: o
-  cartão já está elevado, logo o controle dentro dele é recesso, e ainda emite
-  menos luz num salão escuro. Como custom properties HERDAM, a regra só precisa
-  marcar os elementos que de fato pintam `--panel`. **O SINAL é o mesmo nos dois
-  temas** — flutua sobre a página, afunda dentro do cartão —, e só a intensidade
-  muda; por isso os dois valores viraram token (`--surface-sunk`) na v5.192, em
-  vez de seguirem literais em `controle.css`: eram os últimos pedaços de cor
-  fora da fonte única, e o tema claro herdaria um recesso de 24% de preto sobre
-  um cartão branco. **O par FLUTUANTE ganhou nome próprio na v5.267**
-  (`--surface-alta`/`--surface-2-alta`) porque passou a existir um caminho de
-  VOLTA: a folha da Biblioteca é nível 0, e um controle lá dentro flutua de
-  novo — coisa que um override do mesmo nome não daria, já que
-  `--surface: var(--surface)` é um ciclo que o CSS descarta.
-- **A ESCADA TEM TRÊS DEGRAUS, E O QUARTO É O ESPAÇO** (v5.267). Um quarto tom
-  obrigaria o nível mais interno a subir até ~`#4c5865` no tema escuro, onde
-  `--muted` mede 3,59:1 e `--accent` 3,37:1 — os dois reprovam AA para texto
-  pequeno, que é o tamanho do texto de uma linha de lista. Quem carrega o quarto
-  nível é o ESPAÇO: uma faixa dentro de um álbum aberto não tem caixa nenhuma, e
-  o que a separa da vizinha é o tom do próprio álbum aparecendo entre elas.
-  No tema CLARO a escada **não é monotônica**, e isso é aritmética: a página é
-  cinza e o nível 1 é branco (a convenção de toda UI clara), então o primeiro
+  do Controle, e o Display não teria o que fazer com elas.
+- **Três blocos, nesta ordem:** `:root` com o que NÃO muda, `:root` com o tema
+  ESCURO (o padrão, sem atributo) e `:root[data-tema="claro"]` (0,2,0 vence
+  0,1,0). O claro é um **DELTA**. **Um token que exista SÓ no claro não está
+  definido no tema padrão** — o `var()` computa para o valor inicial da
+  propriedade, sem aviso, e quem escreveu acabou de ver a cor certa porque estava
+  com o claro ligado. `tokens.test.mjs` trava isso.
+- **O PALCO NÃO TEM TEMA**, e é isso que faz o recurso valer. `--stage-*`,
+  `--wallpaper`, `--lyrics-frame-bg`, as sombras e o `--scrim` moram no bloco
+  compartilhado. O Display ficaria escuro por omissão (ele nunca escreve o
+  atributo); o que a separação garante é a **PREVIEW do Controle**, que roda no
+  documento que TEM tema e existe para ESPELHAR o telão.
+- **E a regra vale para as REGRAS, não só para os tokens.** Nada pintado no palco
+  pode ler um token redeclarado em `[data-tema]` — as folhas do palco liam
+  `--brand`, `--live-strong`, `--bg` e `--accent-glow`, e com o tema CLARO ligado
+  o título do slide de capa saía em denim sobre o preto do palco: **2,73:1**. Daí
+  `--stage-accent`, `--stage-accent-glow`, `--stage-on-accent` e `--stage-alert`.
+  O `smoke.mjs` compara a COR COMPUTADA de cada camada nos dois temas — a versão
+  que comparava NOMES de token deixava o defeito passar por baixo.
+- **Três matizes, com papéis que não se misturam.**
+  - **Azul denim** é a marca **e** o accent: `--brand` e `--accent` têm o mesmo
+    valor de propósito, e os dois nomes existem para distinguir na folha "isto é
+    marca" de "isto é navegação".
+  - **Vermelho** (`scarlett`) é atenção, em dois papéis separados pela
+    INTENSIDADE do preenchimento: saturado (`--live`) = está no ar agora, e não
+    pode ter concorrente na tela; suave (`--live-fill` numa linha,
+    `--danger-soft` num botão) = ação destrutiva.
+  - **Verde** (`--ok`, do `treefrog`) é **só** concluído/conectado. Ele já disse
+    "está no ar" em dois lugares enquanto outros quatro diziam o mesmo em
+    vermelho — duas cores opostas para a mesma mensagem na mesma tela.
+- **Os fundos de estado são OPACOS** (`--sel-fill`, `--live-fill`, `--ok-fill`), e
+  isso é medido: `--accent-soft` a 16% sobre o painel compõe `#3d4959`, que é o
+  `--panel-2` desta paleta — uma linha SELECIONADA ficava com a cor exata do
+  nível de baixo da árvore. Opacos, valem o mesmo em qualquer nível: **um estado
+  SAI da escada em vez de ocupar um degrau dela**.
+- **Nem todo token é valor oficial, e os derivados estão marcados.** Os dezoito
+  oficiais foram desenhados para fundo BRANCO — todos passam AA sobre branco, e
+  **nenhum** passa AA como texto sobre o quase-preto do tema escuro (bluejay dá
+  3,97:1). Onde clarear/escurecer foi preciso, o comentário de `tokens.css` diz
+  de qual oficial o valor saiu, e a matiz é preservada. Nos ladrilhos da Bíblia a
+  identidade tem sete famílias de matiz e a tela precisa de DEZ grupos separáveis
+  por ≥20°: cinco são oficiais, cinco preenchem os vãos.
+
+### A escada de camadas
+
+- **A superfície AFUNDA dentro de um cartão** (regra no topo de `controle.css`).
+  `--surface`/`--surface-2` são branco com alfa, então EMPILHAM: o mesmo token
+  sobre `--panel` produz base bem mais clara do que sobre `--bg` — era a causa
+  raiz do pior contraste do app. Não existe alfa que resolva os dois casos, então
+  dentro do cartão o sinal se INVERTE (o overlay passa a ser preto), que também é
+  a convenção certa de UI escura: o cartão já está elevado, logo o controle
+  dentro dele é recesso, e emite menos luz num salão escuro. Custom properties
+  HERDAM, então a regra só marca os elementos que de fato pintam `--panel`. **O
+  SINAL é o mesmo nos dois temas** (flutua sobre a página, afunda dentro do
+  cartão); só a intensidade muda, daí `--surface-sunk` ser token. O par FLUTUANTE
+  tem nome próprio (`--surface-alta`/`--surface-2-alta`) porque há um caminho de
+  VOLTA — a folha da Biblioteca é nível 0 e um controle lá dentro flutua de novo,
+  coisa que um override do mesmo nome não daria (`--surface: var(--surface)` é um
+  ciclo que o CSS descarta).
+- **A ESCADA TEM TRÊS DEGRAUS, E O QUARTO É O ESPAÇO.** Um quarto tom levaria o
+  nível mais interno a ~`#4c5865` no escuro, onde `--muted` mede 3,59:1 e
+  `--accent` 3,37:1 — os dois reprovam AA para texto pequeno, que é o tamanho do
+  texto de uma linha de lista. Quem carrega o quarto nível é o ESPAÇO: uma faixa
+  dentro de um álbum não tem caixa, e o que a separa da vizinha é o tom do álbum
+  aparecendo entre elas.
+- **No tema CLARO a escada NÃO é monotônica**, e isso é aritmética: a página é
+  cinza e o nível 1 é branco (convenção de toda UI clara), então o primeiro
   degrau sobe e os seguintes só podem descer. Folha e card ficam a 1,09:1 e isso
-  não se lê como ambiguidade porque os dois nunca se encostam — entre eles há
-  sempre a moldura branca da seção. O oráculo mede os pares ADJACENTES e exige
-  só que nenhum par coincida; a primeira versão dele exigia monotonia e reprovava
-  um desenho correto.
-- **O TOM DE UM BLOCO É DECISÃO DO PAI** (`--camada`, v5.267). O mesmo
-  componente ocupa níveis diferentes conforme a tela — uma `.lib-item` está
-  sobre `--bg` na tela principal e sobre `--panel` dentro de uma folha —, e
-  pintava sempre a mesma cor, isto é, dois tons idênticos encostados. `--camada`
-  é uma propriedade com um significado só: *o tom que um bloco filho DESTE
-  contêiner deve vestir*. **Quem a declara é o contêiner, nunca quem pinta**: uma
-  propriedade escrita no próprio elemento vence na hora de ELE resolver
-  `var(--camada)`, então um bloco que reservasse o tom dos filhos em si mesmo
-  passaria a vestir aquele tom (a primeira versão da regra pôs a seção da
-  Biblioteca na lista e ela passou a vestir a cor do card — o defeito da v5.241
-  de volta, pego pelo oráculo nos dois temas).
-- **Nunca escrever branco literal.** Nenhum `#fff` sobrou como valor de cor em
-  `controle.css`/`display.css`: o branco pleno era a maior fonte isolada de luz
-  emitida do app, e o off-white da paleta (`--text`) é o que se usa. As únicas
-  exceções são DUAS, e as duas são declaradas em `tokens.css`. **O palco**
-  (`--stage-text: #fff`), porque num telão a legibilidade vem de luminância
-  máxima, não de um off-white calibrado para uma tela a 30 cm do rosto. E **o
-  campo de busca da Biblioteca** (`--field-bg`, v5.268, pedido do operador):
-  ali o argumento da regra continua de pé e o preço está dito — num salão
-  escuro aquele é o retângulo mais luminoso da tela —, mas ele é pequeno, só
-  existe com a Biblioteca aberta, e é uma escolha explícita de quem opera. No
-  tema CLARO o `--panel` é branco pleno, e ali a regra não se aplica pelo motivo
-  dela: uma página clara é a escolha explícita de quem não está no escuro.
+  não se lê como ambiguidade porque **nunca se encostam** (entre eles há sempre a
+  moldura branca da seção). O oráculo mede pares **ADJACENTES** e exige só que
+  nenhum par coincida — a primeira versão exigia monotonia e reprovava um desenho
+  correto.
+- **O TOM DE UM BLOCO É DECISÃO DO PAI** (`--camada`): o mesmo componente ocupa
+  níveis diferentes conforme a tela (uma `.lib-item` está sobre `--bg` na tela
+  principal e sobre `--panel` dentro de uma folha). `--camada` tem um significado
+  só: *o tom que um bloco filho DESTE contêiner deve vestir*. **Quem a declara é
+  o contêiner, nunca quem pinta** — uma propriedade escrita no próprio elemento
+  vence na hora de ELE resolver `var(--camada)`, e o bloco passaria a vestir o
+  tom que reservou para os filhos.
+- **Nunca escrever branco literal.** Nenhum `#fff` como valor de cor em
+  `controle.css`/`display.css` — o branco pleno era a maior fonte isolada de luz
+  emitida do app, e o off-white (`--text`) é o que se usa. **Duas exceções, as
+  duas declaradas em `tokens.css`:** o palco (`--stage-text: #fff`, porque num
+  telão a legibilidade vem de luminância máxima) e o campo de busca da Biblioteca
+  (`--field-bg` — pequeno, só existe com a Biblioteca aberta, escolha explícita
+  de quem opera; num salão escuro é o retângulo mais luminoso da tela). No tema
+  CLARO o `--panel` é branco pleno e a regra não se aplica pelo motivo dela.
+- **Uma superfície sem tema arrasta o que vive DENTRO dela** — a regra do palco
+  num lugar novo. `--field-bg` vem com `--field-text` e `--field-muted`, no bloco
+  compartilhado: no tema escuro `--text` sobre branco dá **1,17:1**. Trocar só o
+  fundo apaga o que se digita, e é o meio-conserto que o `smoke.mjs` reprova.
 
-  **E uma superfície sem tema arrasta o que vive DENTRO dela** — é a regra do
-  palco (v5.219) num lugar novo. `--field-bg` vem com `--field-text` e
-  `--field-muted`, no bloco compartilhado: o texto, o placeholder e a lupa moram
-  dentro do campo, e no tema escuro `--text` sobre branco dá **1,17:1**. Trocar
-  só o fundo apaga o que se digita, e é o meio-conserto que o oráculo do
-  `smoke.mjs` reprova.
-- **O ÍCONE DO APP também é a paleta** (v1.34). Ele era um PNG com um botão
-azul QUALQUER — sobra de uma paleta azul aposentada — sobre um fundo verde
-copiado do wallpaper, que é a cortina da TV e nunca aparece no celular: nenhuma
-das duas cores existia na tela que o operador vê ao tocar no ícone. Agora é o
-mesmo mixer de três faixas em `--text` (trilha) e `--accent` (botão) sobre
-`--bg`, o mesmo fundo que o sistema desenha antes de o WebView carregar — e na
-v5.192 o azul voltou, agora o certo: o bluejay oficial da IASD. Ele **não segue
-o tema claro**, e não tem como: o ícone é desenhado pela gaveta do sistema com o
-app fechado, e o par escuro é o padrão. Ele
-virou VETOR (`res/drawable/ic_launcher_foreground.xml`) porque com `minSdk` 26 o
-adaptativo é o único ícone que chega a ser desenhado: os cinco PNGs por
-densidade eram peso morto e mais cinco lugares para a cor divergir. A camada
-`monochrome` (ícones temáticos do Android 13+) ganhou vetor próprio — ela
-apontava para o PNG do primeiro plano, que tinha fundo opaco, e o ícone temático
-virava um quadrado cheio.
+### O que vive FORA do CSS e tem de andar junto
 
-**`res/values/colors.xml` espelha `--bg` à mão — agora DOIS valores**
-(`app_bg` e `app_bg_claro`). É o fundo das barras de status e navegação e o
-`windowBackground` (o que aparece ANTES de o WebView carregar). Nada no build
-detecta a divergência, e o OTA pode trocar a base web sem trocar o APK — se um
-token mudar, o valor daqui muda junto. **Ele é o ÚNICO lugar fora de
-`tokens.css` que carrega a cor de fundo, e não tem escapatória**: recurso de
-Android não enxerga custom property de CSS. O `theme-color` do `<meta>` chegou a
-ser um segundo e deixou de ser — o `pintarTema()` o LÊ do `--bg` já resolvido (a
-folha entra no `<head>` e o script no fim do `<body>`, então o estilo já está
-aplicado quando ele roda), e o literal do HTML cobre só o instante anterior a
-esse script. Quem escolhe entre os dois é a
-`MainActivity` em tempo de execução (`AVNative.temaClaro` → `setTemaClaro`), a
-partir de uma CÓPIA da escolha guardada em `SharedPreferences`: um recurso de
-XML é resolvido antes de existir JavaScript, então o primeiro quadro só pode vir
-de uma preferência guardada. **O preço, dito em vez de escondido: trocar de tema
-tem um lançamento de atraso no fundo do splash, e só nele.** A mesma chamada
-vira a bandeira `APPEARANCE_LIGHT_STATUS_BARS` — que o Android 15+ NÃO ignora
-(ele ignora as CORES das barras, não a aparência dos ícones), e sem a qual o
-tema claro fica com o relógio e os botões de navegação brancos sobre branco.
+- **`res/values/colors.xml` espelha `--bg` à mão, em DOIS valores** (`app_bg`,
+  `app_bg_claro`): é o fundo das barras e o `windowBackground` (o que aparece
+  ANTES de o WebView carregar). Nada no build detecta divergência, e o OTA troca
+  a base sem trocar o APK — mudou o token, muda aqui. **É o único lugar fora de
+  `tokens.css` que carrega cor de fundo, e não tem escapatória:** recurso de
+  Android não enxerga custom property. Quem escolhe entre os dois é a
+  `MainActivity` em runtime (`temaClaro` → `setTemaClaro`), a partir de uma CÓPIA
+  guardada em `SharedPreferences` — XML é resolvido antes de existir JavaScript,
+  então o primeiro quadro só pode vir de preferência guardada. **Preço: trocar de
+  tema tem um lançamento de atraso no fundo do splash, e só nele.** A mesma
+  chamada vira `APPEARANCE_LIGHT_STATUS_BARS`, que o Android 15+ **não** ignora
+  (ele ignora as CORES das barras, não a aparência dos ícones) — sem ela o tema
+  claro fica com relógio e botões brancos sobre branco.
+- **O `theme-color` do `<meta>` NÃO é um segundo lugar:** `pintarTema()` o LÊ do
+  `--bg` já resolvido (a folha entra no `<head>` e o script no fim do `<body>`),
+  e o literal do HTML cobre só o instante anterior a esse script.
+- **O ÍCONE DO APP é a paleta** — o mixer de três faixas em `--text` (trilha) e
+  `--accent` (botão) sobre `--bg`. Ele **não segue o tema claro**, e não tem
+  como: é desenhado pela gaveta do sistema com o app fechado. É **VETOR**
+  (`res/drawable/ic_launcher_foreground.xml`) porque com `minSdk` 26 o adaptativo
+  é o único ícone que chega a ser desenhado — PNGs por densidade eram peso morto
+  e mais lugares para a cor divergir. A camada `monochrome` (ícone temático do
+  Android 13+) tem vetor próprio: apontada para o PNG de primeiro plano, que tem
+  fundo opaco, ela vira um quadrado cheio.
 
-**Não há teste automatizado de contraste ABSOLUTO no repositório.** Os números
-nos comentários de `tokens.css` são medições feitas à mão, e os pares que ficam
-abaixo do piso estão declarados como tais no próprio comentário. Ao mexer num
-token, meça — nada no CI vai barrar uma regressão de texto sobre fundo, **e são
-DOIS temas a medir**. O que o CI trava é outra coisa, e vale repetir para não
-confundir os dois: `tools/tokens.test.mjs` garante que todo `var(--x)` sem
-fallback aponta para um token que EXISTE (um `var()` inválido computa para o
-valor inicial da propriedade, sem aviso nenhum — foi assim que os dois botões da
-folha de conectar ficaram com cantos retos na v5.171), que nenhum token exista
-só no tema claro e, desde a v5.267, que **nenhuma regra desenhe contorno**;
-`tools/smoke.mjs` trava o efeito RENDERIZADO nos dois temas, o palco que não os
-segue, a escolha que sobrevive à recarga e a ESCADA DE CAMADAS da Biblioteca —
-esta última medindo o degrau ENTRE níveis, que é a única parte do contraste que
-tem oráculo.
+### O que o CI trava, e o que ele NÃO trava
 
-O raciocínio completo (cada par medido, os pisos adotados, os ladrilhos da
-Bíblia e as células de capítulo/versículo) está na seção de paleta de
-`docs/ARQUITETURA-WEB.md`.
+**Não há teste de contraste ABSOLUTO.** Os números nos comentários de
+`tokens.css` são medições à mão, e os pares abaixo do piso estão declarados como
+tais ali mesmo. **Ao mexer num token, meça — e são DOIS temas.**
+
+O CI trava outra coisa: `tokens.test.mjs` (todo `var(--x)` sem fallback aponta
+para token que EXISTE; nenhum token só no claro; nenhum contorno) e `smoke.mjs`
+(o efeito RENDERIZADO nos dois temas, o palco que não os segue, a escolha que
+sobrevive à recarga, e a ESCADA DE CAMADAS medindo o degrau ENTRE níveis — a
+única parte do contraste que tem oráculo).
 
 ---
 
