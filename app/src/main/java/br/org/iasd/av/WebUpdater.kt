@@ -343,28 +343,22 @@ object WebUpdater {
      * APLICA AGORA o bundle que esperava o próximo lançamento, devolvendo a
      * versão aplicada (ou `null` se não havia nada a aplicar).
      *
-     * ## Isto flexiona a garantia 1, e por isso só acontece a PEDIDO
+     * ## Só acontece a PEDIDO
      *
-     * "Nunca troca a base no meio de uma sessão" existe porque uma troca
-     * ACIDENTAL no meio de um culto recarrega o telão e derruba a projeção. O
-     * que ela protege é o operador, não o mecanismo: quando é ele quem pede,
-     * sabendo o que vai acontecer e com a tela livre (quem oferece é o lado
-     * web, e só sem cena no ar), a troca deixa de ser um acidente e passa a ser
-     * uma escolha. O caminho automático continua intocado — sem este pedido,
-     * o bundle novo segue entrando só no lançamento seguinte.
+     * Trocar a base recarrega o telão e a projeção pisca. Quando é o operador
+     * quem pede — sabendo o que vai acontecer, e o lado web só oferece com a
+     * tela livre —, isso deixa de ser acidente e passa a ser escolha.
      *
-     * O que NÃO muda aqui, de propósito:
+     * O que NÃO muda, de propósito:
      *
-     * - **O watchdog arma igual.** Se o bundle recém-servido não confirmar o
-     *   boot, o lançamento seguinte o descarta e volta ao embutido — a mesma
-     *   rede de proteção do caminho normal, e ela é justamente o que torna
-     *   seguro aplicar ao vivo.
-     * - **Nada é apagado.** O diretório antigo continua no disco: os dois
-     *   WebViews ainda podem ter requisições em voo contra ele durante a
-     *   recarga. Quem recolhe é o `beginSession()` do próximo lançamento, o
-     *   único ponto em que nenhum WebView existe.
+     * - **O watchdog arma igual.** Um bundle que não confirme o boot é
+     *   descartado no lançamento seguinte, voltando ao embutido — é justamente
+     *   essa rede que torna seguro aplicar ao vivo.
+     * - **Nada é apagado.** O diretório antigo fica no disco: os dois WebViews
+     *   podem ter requisições em voo contra ele durante a recarga. Quem recolhe
+     *   é o `beginSession()` seguinte, o único ponto sem WebView nenhum.
      *
-     * Recarregar os dois WebViews é com quem os tem (ver `MainActivity`): este
+     * Recarregar os dois WebViews é com quem os tem (`MainActivity`): este
      * objeto não conhece View nenhuma.
      */
     fun applyNow(ctx: Context): String? {
