@@ -445,7 +445,18 @@ esperam uma **pessoa** e ficam sem prazo, porque um timeout ali resolveria null
 com o operador ainda escolhendo a pasta.
 
 `NativeBridge.SHELL_VERSION` identifica a versão da casca — **subir sempre que
-a superfície da ponte mudar**. Hoje vale **43** — a v5.234 acrescenta
+a superfície da ponte mudar**. Hoje vale **44** — a v5.297 ENCOLHE a forma do
+`espelhoEstado`: cada tela perdeu os seis campos de CAPACIDADE do relato
+(`seguro`, `mse`, `mms`, `fetchStream`, `videoDecoder`, `wakeLock`). Eles eram o
+autorrelato que o `espelho/cliente.js` mandava na era dos pixels; aquele arquivo
+saiu na v5.187 e nenhum produtor os emite desde então — o `espelho/tela.js`
+manda `{ua, w, h}` e mais nada. Como `optBoolean` lê ausente como `false`, um
+valor legítimo, o servidor publicava seis negativas sobre TODA tela conectada, a
+cada leitura. O consumidor delas saiu na v5.206; o produtor é este degrau. É o
+40 pelo outro lado do fio, com a mesma régua — e não há defeito visível hoje
+(ninguém as lê), o que é exatamente por que o degrau importa: um produtor sem
+consumidor é a armadilha de quem repuser a leitura amanhã e receber `false` como
+se fosse medição. O anterior, **43** — a v5.234 acrescenta
 `atualizacaoEstado`, os DOIS canais de atualização numa leitura só. Ele não
 acrescenta poder nenhum (tudo o que devolve já existia, espalhado por
 `otaPending`, `apkProcurar` e `otaDiag`); o que ele acrescenta é **coerência de
@@ -3058,10 +3069,52 @@ aparelho nenhum.
 O `versionCode`/`versionName` do APK vêm do CI (ver "Build") e não se tocam à
 mão.
 
-**Versão atual: v5.296** (base web) · `SHELL_VERSION` **43**, e o bundle segue com
+**Versão atual: v5.297** (base web) · `SHELL_VERSION` **44**, e o bundle segue com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos que são
 nativos por construção (a escada do voltar, os botões de volume, a notificação de
 controles), que **só chegam instalando o APK novo**, não pelo OTA.
+
+> **A v5.297 (v2.3): O PRODUTOR QUE SOBREVIVEU AO CONSUMIDOR — os seis campos
+> de capacidade do relato saem do `espelhoEstado`. EXIGE APK**
+> (`SHELL_VERSION` **44**).
+>
+> A outra metade do achado da v5.296, e ela é o **40 pelo outro lado do fio**.
+>
+> `EspelhoServidor.relatoDe` lia seis campos que nenhum produtor emite desde a
+> v5.187 — `seguro`, `mse`, `mms`, `fetchStream`, `videoDecoder`, `wakeLock`.
+> Eles eram o autorrelato de CAPACIDADE que o `espelho/cliente.js` mandava no
+> `POST /par` na era dos pixels ("esta tela tem MSE? aceita `fetch` em stream?
+> tem `VideoDecoder`?"); aquele arquivo foi apagado com o espelho inteiro, e o
+> `espelho/tela.js` que o substituiu manda `{ua, w, h}` e mais nada.
+>
+> **E eles não sumiam: viravam `false`.** `optBoolean` lê campo ausente como
+> `false`, que é um valor LEGÍTIMO — a armadilha exata que o degrau 40 nomeou —,
+> então `relatoJson` publicava seis negativas sobre TODA tela conectada, a cada
+> leitura do estado, com a folha aberta a cada 2,5 s. O CONSUMIDOR delas saiu na
+> v5.206: era ele que imprimia `tela A · MSE:nao · fetch-stream:nao · seguro:nao
+> · wakeLock:nao` sobre a única tela que estava funcionando. O produtor ficou
+> dezesseis versões.
+>
+> **Por que isto é um degrau e não uma faxina, e por que ele merece uma Release
+> sem ter sintoma:** não há defeito visível hoje — ninguém lê aqueles campos —, e
+> é justamente por isso. O que sobra de um produtor sem consumidor não é ruído
+> inofensivo: é uma leitura que já vem preenchida, com valor plausível, para quem
+> repuser o consumidor amanhã. A v5.206 escreveu a regra pela metade ("apagar o
+> produtor e deixar o consumidor produz um zero"); a outra metade é esta —
+> **apagar o consumidor e deixar o produtor produz uma medição falsa esperando
+> um leitor**. Remoção de recurso é remoção dos dois lados do fio, no mesmo lote.
+>
+> O que ENCOLHE, exatamente: `EspelhoPares.Relato` (de dez campos para quatro),
+> o `relatoDe` que o preenche e o `relatoJson` que o publica. `sanear(Relato)` já
+> só tocava nos quatro que ficam, então ele não mudou uma linha — o que é a
+> confirmação de que os seis nunca chegaram a valer nada depois da v5.187. O
+> `EspelhoParesTest` acompanhou.
+>
+> **Um bundle antigo num shell 44** simplesmente lê `undefined` nos seis, e o
+> único ponto que os desenhava já não existe desde a v5.206; um **bundle novo num
+> shell 43** recebe os seis e os ignora. A degradação é boa nos dois sentidos, e
+> ainda assim o degrau sobe: forma mudada é superfície mudada, e sem ele nada
+> impediria a próxima leitura de nascer contra um shell que não a alimenta.
 
 > **A v5.296: A REVISÃO PROFUNDA DA DOCUMENTAÇÃO — uma seção inteira do doc de
 > arquitetura descrevia um player apagado, e o `MainActivity` descrevia o
@@ -3158,7 +3211,7 @@ controles), que **só chegam instalando o APK novo**, não pelo OTA.
 > `N/M` (os dois contados pelo workflow) em vez de `N/12`, que era verdade
 > quando o parágrafo foi escrito e são treze hoje.
 >
-> **O QUE FICA MAPEADO E NÃO FOI MEXIDO, com o motivo:** `EspelhoServidor.relatoDe`
+> **O QUE FICOU MAPEADO AQUI E VIROU A v5.297** (a nota acima): `EspelhoServidor.relatoDe`
 > lê SEIS campos que nenhum produtor emite desde a v5.187 — `seguro`, `mse`,
 > `mms`, `fetchStream`, `videoDecoder`, `wakeLock`. O `espelho/cliente.js` que os
 > mandava foi apagado; o `tela.js` manda `{ua, w, h}` e mais nada. Todos caem no
@@ -3169,7 +3222,7 @@ controles), que **só chegam instalando o APK novo**, não pelo OTA.
 > pronto para ser mal interpretado por quem repuser uma leitura. **Encolher a
 > forma de `espelhoEstado` é mudar a superfície da ponte** (a régua da v5.206),
 > logo custa um degrau de `SHELL_VERSION`, um `shellTag` e uma Release — e é por
-> isso que ficou de fora de um lote que é OTA puro, não por esquecimento.
+> isso que ele ficou de fora DESTE lote, que é OTA puro, e virou o seguinte.
 >
 > Os 19 oráculos passam, e cada remoção foi verificada com a suíte inteira
 > depois. O Kotlin **não foi compilado** aqui (o ambiente não tem o SDK do

@@ -149,6 +149,29 @@ class NativeBridge(
          * exijam mais do que o shell instalado oferece (ver [WebUpdater]).
          * Subir SEMPRE que a superfície da ponte mudar.
          *
+         * 44 (v5.297) — O SEGUNDO ENCOLHIMENTO PELA MESMA RÉGUA DO 40, e desta
+         * vez do lado do PRODUTOR: cada tela em `espelhoEstado` perdeu os seis
+         * campos de CAPACIDADE do relato — `seguro`, `mse`, `mms`,
+         * `fetchStream`, `videoDecoder` e `wakeLock`.
+         *
+         * Eles eram o autorrelato que o `espelho/cliente.js` mandava no
+         * pareamento na era dos pixels. Aquele arquivo foi apagado na v5.187 e
+         * **nenhum produtor os emite desde então**: o `espelho/tela.js` manda
+         * `{ua, w, h}` no `POST /par` e mais nada. Como `optBoolean` lê campo
+         * ausente como `false` — um valor LEGÍTIMO —, o servidor não ficava
+         * mudo: ele publicava seis negativas sobre TODA tela conectada, a cada
+         * leitura do estado. O consumidor delas saiu na v5.206 (era ele que
+         * imprimia `MSE:nao seguro:nao wakeLock:nao` sobre a única tela que
+         * estava funcionando); o produtor ficou dezesseis versões, e é ele que
+         * sai agora.
+         *
+         * **Por que é um degrau e não faxina:** o 40 já declarou que forma
+         * mudada é superfície mudada, e este é o mesmo fio pelo outro lado. Não
+         * há defeito VISÍVEL hoje — ninguém os lê —, e é justamente por isso
+         * que o degrau importa: o que sobra de um produtor sem consumidor é uma
+         * armadilha para quem repuser a leitura amanhã e receber `false` como
+         * se fosse medição. Remoção de recurso é remoção dos dois lados do fio.
+         *
          * 43 (v5.234) — `atualizacaoEstado`: os DOIS canais de atualização
          * numa leitura só.
          *
@@ -301,7 +324,7 @@ class NativeBridge(
          * novo NÃO chega por OTA, e um botão que não faz nada no meio de um
          * culto é pior que botão nenhum (a mesma regra do `appendYoutubeSearch`).
          */
-        const val SHELL_VERSION = 43
+        const val SHELL_VERSION = 44
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —

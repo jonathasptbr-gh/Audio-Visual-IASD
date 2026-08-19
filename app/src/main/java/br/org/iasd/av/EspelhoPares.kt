@@ -174,8 +174,22 @@ object EspelhoPares {
     /**
      * O que o cliente conta de si no pareamento, uma vez, e depois a cada 5 min
      * (só o `telaAcesaMin`). Responde, **sem ninguém abrir console em TV
-     * nenhuma**: a tela apaga? qual navegador roda ali? `WebCodecs` vale como
-     * degrau algum dia?
+     * nenhuma**: qual navegador roda ali, em que resolução, e há quanto tempo
+     * aquela tela está acesa.
+     *
+     * **ELE ENCOLHEU NA v5.297, e o motivo é a régua da v5.206.** Havia seis
+     * campos a mais — `seguro`, `mse`, `mms`, `fetchStream`, `videoDecoder`,
+     * `wakeLock` —, todos do autorrelato de CAPACIDADE que o `espelho/cliente.js`
+     * mandava na era dos pixels. Aquele arquivo foi apagado na v5.187 e nenhum
+     * produtor os emite desde então: o `espelho/tela.js` manda `{ua, w, h}` e
+     * mais nada. Como `optBoolean` lê campo ausente como `false` — um valor
+     * LEGÍTIMO —, eles não sumiam: viravam seis negativas sobre toda tela
+     * conectada, publicadas a cada leitura do estado. O consumidor delas saiu
+     * na v5.206 (era ele que imprimia `MSE:nao seguro:nao wakeLock:nao` sobre a
+     * única tela que estava funcionando); o produtor ficou, e é ele que sai
+     * agora. **Apagar o produtor de um campo e deixar o consumidor de pé não
+     * produz silêncio, produz um zero — e o inverso não produz defeito nenhum
+     * hoje, produz uma armadilha para quem repuser a leitura amanhã.**
      *
      * Todo campo aqui **veio da rede** e não vale nada até passar por [sanear] —
      * o que [entrar] faz com o relato inteiro antes de guardá-lo.
@@ -184,12 +198,6 @@ object EspelhoPares {
         val ua: String,
         val w: Int,
         val h: Int,
-        val seguro: Boolean,
-        val mse: Boolean,
-        val mms: Boolean,
-        val fetchStream: Boolean,
-        val videoDecoder: Boolean,
-        val wakeLock: Boolean,
         val telaAcesaMin: Int,
     )
 
