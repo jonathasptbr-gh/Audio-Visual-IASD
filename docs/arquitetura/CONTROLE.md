@@ -3128,6 +3128,42 @@ intermediária e sem ninguém conferir a lista antes.
 | **faixa sem a variante pedida** | `semAudio` / `has_instrumental_music && !semPlayback` — sem essa guarda a faixa entra, o download não acha URL, e o cartão responde *"sem internet para baixar"*, que é a frase errada |
 | **o hinário**, se o operador pedir | `collNumbersSongs(coll)`. É OPÇÃO, não regra — foi assim que ele pediu |
 
+#### A palavra é MOMENTÂNEA; os filtros são AJUSTES (v5.308)
+
+A caixa é **limpa a cada fechamento** e a palavra **não é gravada** — só as
+outras cinco escolhas são (modo, variante, os dois filtros, quantidade). A
+diferença é o que cada uma significa: aquelas são *como o recurso deve se
+comportar*, e a palavra é uma *pergunta*, feita uma vez. Reencontrá-la em
+fevereiro é um filtro silencioso sobre o primeiro sorteio de quem só queria
+abrir e tocar.
+
+A limpeza mora em `fecharSorteio`, e é ali porque essa é a única função que os
+**três** caminhos de fechamento alcançam (o ✕, o toque no fundo e o voltar do
+aparelho) — é o que a tabela `POPUPS` garante.
+
+**Vazia, a caixa sorteia do acervo INTEIRO**, e a frase o diz liderando com o
+escopo em vez do número: com o campo em branco é o escopo que está em dúvida.
+Ela é honesta sobre os dois filtros que encolhem o "tudo" — dizer "toda a
+biblioteca" com o hinário fora seria uma frase errada, e frase errada é pior que
+nenhuma:
+
+| Filtros | A frase |
+|---|---|
+| nenhum | `Toda a biblioteca — 58 músicas` |
+| sem hinário | `Toda a biblioteca, sem o hinário — 18 músicas` |
+| só no aparelho | `Só o que já está no aparelho — 17 músicas` |
+| os dois | `Só o que já está no aparelho, sem o hinário — 5 músicas` |
+
+A **variante** (Cantada × Playback) fica de fora dessa conta de propósito: ela
+não encolhe um acervo, escolhe QUAL faixa de cada música — e o segmento logo
+acima já a mostra. O placeholder responde a mesma pergunta antes de o operador
+tocar em nada: *"Palavra tema (vazio = toda a biblioteca)"*.
+
+**A palavra vale no MESMO toque.** O `debounce` cobria a atribuição também, e
+digitar e tocar no botão dentro dos 130 ms sorteava com a palavra ANTERIOR — sem
+erro e com a conta mostrando o número certo, porque ela e o sorteio liam a mesma
+variável defasada. Hoje só o RECONTAR é adiado.
+
 A palavra tema casa em **três lugares, do mais específico ao mais amplo**: nome
 da faixa → nome do ÁLBUM → letra. O álbum no meio é a diferença entre "busca" e
 "tema": um álbum chamado "Natal" **é** o tema, e as faixas dele raramente repetem

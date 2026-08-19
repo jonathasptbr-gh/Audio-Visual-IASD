@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v5.308** — A PALAVRA TEMA É MOMENTÂNEA, e sem ela o sorteio DIZ que pega o acervo inteiro. OTA PURO
 - **v5.307** — O CONFIRMAR DOS FAVORITOS PASSA PARA A DIREITA, e o lado do irmão vira decisão de quem o fornece. OTA PURO
 - **v5.306** — DOIS DESFECHOS PARA A FILA SORTEADA, e a conta passa a falar de MÚSICA em vez de varredura. OTA PURO
 - **v5.305** — O BOTÃO DA PLAYLIST ABRE A BARRA, e o ícone dele estava a 2,06:1 sobre o campo branco. OTA PURO
@@ -176,6 +177,62 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v5.308
+
+**A v5.308: A PALAVRA TEMA É MOMENTÂNEA, e sem ela o sorteio DIZ que pega o
+acervo inteiro. OTA PURO** (base web, oráculos e docs; sem Release,
+`SHELL_VERSION` continua **44**).
+
+Dois pedidos do operador: *"limpe a caixa de referência do sorteio a cada vez
+que fechar o popup"* e *"permita (e descreva/identifique) que ao não filtrar por
+nenhuma palavra, o sistema considere todo o acervo disponível para sortear (é
+claro, considerando os outros filtros e configurações)"*.
+
+**A PALAVRA É UMA PERGUNTA; OS FILTROS SÃO AJUSTES.** A caixa passa a ser limpa
+a cada fechamento e a palavra deixa de ser gravada — as outras cinco escolhas
+continuam. A diferença é o que cada uma significa: modo, variante, filtros e
+quantidade são *como o recurso deve se comportar*; a palavra é feita uma vez.
+Reencontrar "natal" no campo em fevereiro é o recurso lembrando de algo que não
+é para ser lembrado — pior, é um filtro silencioso sobre o primeiro sorteio de
+quem só queria abrir e tocar.
+
+A limpeza mora em `fecharSorteio` e não em `abrirSorteio`: os dois limpariam o
+mesmo campo, e só o primeiro vale para os TRÊS caminhos de fechamento que a
+tabela `POPUPS` liga a ele — o ✕, o toque no fundo e o botão voltar do aparelho.
+O oráculo mede os três.
+
+**SEM PALAVRA, O ACERVO INTEIRO — e agora a frase o DIZ.** A regra já permitia
+(`AVSorteio.ondeCasa` devolve `CASOU_SEM_TEMA` com a busca vazia); o que faltava
+era dizê-lo. A frase era "28 músicas na biblioteca", que informa o TAMANHO e não
+o ESCOPO, e deixava "então ele vai sortear de tudo?" sem resposta na tela.
+
+Ela passou a liderar com o escopo, porque com o campo em branco é o escopo que
+está em dúvida — e é HONESTA sobre os dois filtros que encolhem o "tudo":
+
+```
+Toda a biblioteca — 58 músicas
+Toda a biblioteca, sem o hinário — 18 músicas
+Só o que já está no aparelho — 17 músicas
+Só o que já está no aparelho, sem o hinário — 5 músicas
+```
+
+Dizer "toda a biblioteca" com o hinário fora seria uma frase ERRADA, e frase
+errada é pior que nenhuma: ela produz a decisão errada. A VARIANTE fica de fora
+dessa conta de propósito — ela não encolhe um acervo, escolhe QUAL faixa de cada
+música, e o segmento logo acima já a mostra. E o placeholder responde a mesma
+pergunta antes de o operador tocar em nada: *"Palavra tema (vazio = toda a
+biblioteca)"* — a única superfície em que ela nasce.
+
+**E UM DEFEITO LATENTE SAIU JUNTO.** O `debounce` do campo cobria a ATRIBUIÇÃO
+além da recontagem: digitar "natal" e tocar no botão dentro dos 130 ms sorteava
+com a palavra ANTERIOR — sem erro, sem sinal, e com a conta ainda por cima
+mostrando o número certo, porque ela e o sorteio liam a mesma variável defasada.
+Hoje a palavra é assinada na hora e só o RECONTAR espera (é ele que varre os dois
+hinários mais os álbuns, e a letra inteira de cada faixa que não casa pelo
+título). O oráculo digita e lê `sorteioPrefs.tema` no mesmo instante.
 
 ---
 
