@@ -7095,20 +7095,10 @@ Fora de `tokens.css`, no `:root` do Controle (não são cor):
 ### O RISCADO é o corte; a cor confirma; o rótulo nomeia a ação
 
 Regra única para os dois cortes do app — o som e a imagem —, na tela **e** na
-notificação do app nativo: **o ícone riscado significa CORTADO**. Alto-falante
-riscado = mudo; imagem riscada = telão coberto. Na tela, quem reforça é a
-**cor/borda** (`.view-blocked`, `.muted`, `.blocked`), que pinta o botão
-inteiro; na notificação, onde não há cor de estado, quem nomeia a ação é o
-**rótulo** ("Cobrir telão" / "Mostrar mídia").
-
-A v5.47 tinha adotado o **oposto** — "o ícone é o que o toque vai fazer" — e o
-problema que ela atacava era real: estado e ação conviviam misturados, o ▶/⏸
-sendo ação enquanto cortina e mudo eram estado, e o mesmo gesto (olhar o ícone)
-significava coisas opostas conforme o botão. Só que a saída escolhida gastava o
-**riscado** — o símbolo universal de "cortado", o mesmo que o Android usa na
-própria tecla de volume — para dizer justamente que NADA está cortado. Nada se
-perde invertendo: a cor já carrega o estado sozinha, e a informação que o ícone
-passa a dar é a que se lê sem aprender nada.
+notificação nativa: **o ícone riscado significa CORTADO**. Alto-falante riscado =
+mudo; imagem riscada = telão coberto. Na tela quem reforça é a COR (`.view-blocked`,
+`.muted`, `.blocked`), que pinta o botão inteiro; na notificação, onde não há cor
+de estado, quem nomeia a ação é o RÓTULO ("Cobrir telão" / "Mostrar mídia").
 
 | Estado | Ícone | Cor |
 |---|---|---|
@@ -7119,66 +7109,59 @@ passa a dar é a que se lê sem aprender nada.
 | áudio bloqueado no Display | **alto-falante riscado** | âmbar pulsante (`.blocked`) |
 
 Os dois últimos compartilham o ícone de propósito: nos dois **não sai som**, que
-é o que o riscado diz; o que os distingue — mudo do operador × bloqueio do
-navegador — é a cor, e a distinção só importa para saber o que o toque vai
+é o que o riscado diz. O que os distingue — mudo do operador × bloqueio do
+navegador — é a cor, e essa distinção só importa para saber o que o toque vai
 tentar (mutar × pedir liberação), que é o que o `title` diz.
 
-**O ▶/⏸ segue sendo AÇÃO**, e isso não é inconsistência: ali a convenção é de
-plataforma (todo player do mundo mostra ▶ quando está pausado), o botão não tem
-cor de estado, e o par não é "cortado/não cortado".
+> A regra já foi a OPOSTA ("o ícone é o que o toque vai fazer"), e o problema que
+> ela atacava era real — estado e ação conviviam misturados. Mas ela gastava o
+> RISCADO, o símbolo universal de "cortado" (o mesmo que o Android usa na própria
+> tecla de volume), para dizer que NADA está cortado. Invertendo não se perde
+> nada: a cor já carrega o estado sozinha.
 
-**A exceção é o `repeat`** (`renderRepeat`), e ela é de forma, não de gosto: o
-botão CICLA por quatro modos (off → all → one → shuffle). Num ciclo o glifo só
-cabe um, e mostrar o próximo apagaria da tela qual está valendo — a cor
-distingue ligado de desligado, não qual dos três. Ali o ícone segue sendo o
-modo atual, que é a informação que se perderia.
+**O ▶/⏸ segue sendo AÇÃO**, e não é inconsistência: ali a convenção é de
+plataforma (todo player mostra ▶ quando está pausado), o botão não tem cor de
+estado, e o par não é "cortado/não cortado".
 
-Botões de **função** (engrenagem de Configurações, folha da leitura auxiliar) e
-**segmentados** (modo do app, tema, preenchimento, imagens dos slides,
-wallpaper) ficam fora da regra por natureza: não alternam duas ações opostas — o
-ícone nomeia o recurso, e o segmento marcado diz o resto.
+**A exceção é o `repeat`**, e ela é de forma: o botão CICLA por quatro modos
+(off → all → one → shuffle). Num ciclo só cabe um glifo, e mostrar o PRÓXIMO
+apagaria da tela qual está valendo — a cor distingue ligado de desligado, não
+qual dos três.
 
-**⏮/⏭ são um terceiro caso**, e o único em que a cor não diz um estado do
-sistema e sim o EIXO do botão: `.slide-mode` (contorno em accent) significa "o
-toque curto passa estrofe", e `.axis-end` (esmaecido) significa "esse caminho
-acabou; o toque longo ainda troca de mídia". Ver "Um par de botões, dois eixos".
+Botões de **função** (engrenagem, folha da leitura auxiliar) e **segmentados**
+ficam fora da regra por natureza: não alternam duas ações opostas.
 
-### Só preenchimento, nenhum contorno (v5.267)
+**⏮/⏭ são um terceiro caso**, e o único em que a cor não diz um estado do sistema
+e sim o EIXO do botão: `.slide-mode` (contorno em accent) = "o toque curto passa
+estrofe"; `.axis-end` (esmaecido) = "esse caminho acabou, o toque longo ainda
+troca de mídia".
 
-Pedido do operador: *"não tenhamos itens usando linha de borda, tudo deve ser
-com preenchimento sólido, e definição feita por puro e simples contraste entre
-os elementos."*
+### Só preenchimento, nenhum contorno
 
-Saíram **82 declarações** de `border`/`outline` das folhas da base. O que
-sobrevive são dois DESENHOS, e eles estão nomeados um a um no oráculo — não
-detectados por heurística, porque uma heurística deixaria a próxima borda entrar
-chamando-se desenho:
+Nenhuma regra do app desenha `border`/`outline`. O que sobrevive são dois
+DESENHOS, nomeados um a um no oráculo — nunca detectados por heurística, porque
+uma heurística deixaria a próxima borda entrar chamando-se desenho:
 
-- o aro do `.dl-ring` e o do `.av-stage-busy` (os anéis que giram enquanto o app
-  espera) — eles **são** círculos, não a moldura de um elemento;
-- o ✓ do `.song-menu-check` (duas bordas em L, giradas 45°) — é o glifo que
-  falta no subset da fonte de ícones.
+- o aro do `.dl-ring` e o do `.av-stage-busy` — eles **são** círculos, não a
+  moldura de um elemento;
+- o ✓ do `.song-menu-check` (duas bordas em L, giradas 45°) — é o glifo que falta
+  no subset da fonte de ícones.
 
-**São DOIS oráculos, e nenhum basta sozinho.** `tools/tokens.test.mjs` (Node
-puro, sem `continue-on-error`) varre a FONTE e prova que nenhuma regra NOSSA
-desenha contorno; `tools/smoke.mjs` mede o RENDERIZADO e prova que nada desenha
-borda na tela. O segundo existe porque o primeiro é cego por construção para o
-defeito que este lote de fato produziu: **o padrão do navegador não é "sem
-borda"**. A folha do UA dá a todo `<button>` um `border: 2px outset` e a todo
-campo um `2px inset` — `outset` é um bisel, duas cores —, então tirar a nossa
-declaração não removia borda nenhuma daqueles controles, deixava passar a dele.
-O `appearance: none` que muitos já declaravam não cobre isso: ele desliga o
-desenho nativo do controle, não a borda do UA. A correção é `border: 0` no
-reset universal, e ela mora ali e não em cada componente porque o esquecimento
-não aparece na folha — aparece no aparelho.
+**São DOIS oráculos, e nenhum basta sozinho.** `tools/tokens.test.mjs` varre a
+FONTE e prova que nenhuma regra NOSSA desenha contorno; `tools/smoke.mjs` mede o
+RENDERIZADO e prova que nada desenha borda na tela. O segundo existe porque o
+primeiro é cego por construção para o defeito real: **o padrão do navegador não é
+"sem borda"** — a folha do UA dá a todo `<button>` um `border: 2px outset` (um
+bisel, duas cores) e a todo campo um `2px inset`, então tirar a NOSSA declaração
+não removia borda nenhuma, deixava passar a dele. O `appearance: none` não cobre
+isso: ele desliga o desenho nativo do controle, não a borda do UA. A correção é
+`border: 0` no **reset universal**, e ela mora ali e não em cada componente
+porque o esquecimento não aparece na folha — aparece no aparelho.
 
-**E é ele que a faz durar.** Uma borda é a coisa mais fácil de acrescentar em
-CSS quando duas caixas não estão se separando o bastante — é literalmente o
-remendo que este lote veio desfazer — e ela não quebra nada, não erra alto e não
-aparece em teste de comportamento nenhum. A varredura é da FONTE e não do
-renderizado de propósito: metade das bordas que saíram morava em regras de
-ESTADO (`.active`, `.no-ar`, `.expanded`) e em pseudo-elementos, que uma
-caminhada pelo DOM só alcançaria se o teste soubesse encenar cada estado.
+E a varredura é da FONTE, não do renderizado, de propósito: metade das bordas
+morava em regras de ESTADO (`.active`, `.no-ar`, `.expanded`) e em
+pseudo-elementos, que uma caminhada pelo DOM só alcançaria se o teste soubesse
+encenar cada estado.
 
 #### O que substituiu cada contorno
 
@@ -7189,39 +7172,38 @@ caminhada pelo DOM só alcançaria se o teste soubesse encenar cada estado.
 | `--ok` contornando "já conectado" | `--ok-fill`, idem |
 | tracejado de "espaço a preencher" (`.import-btn`, `.selbar`, `.pl-pack`) | preenchimento em `--accent-soft` |
 | segmentado/chip marcado (`--accent-soft` + borda) | `--accent-fill` + `--on-accent`, o par que a aba ativa já usava |
-| filetes separadores (cabeçalho e rodapé de folha, faixas de álbum, metades da Bíblia) | ESPAÇO |
+| filetes separadores | ESPAÇO |
 | faixa lateral do grupo na Bíblia e da estrofe no ar | `linear-gradient` — os mesmos pixels, declarados como o preenchimento que sempre foram |
 | anel externo da célula ativa da Bíblia (`outline`) | a célula inteira em `--accent-fill` |
 | moldura da preview (`outline`) | `box-shadow: 0 0 0 2px var(--camada)` — uma faixa preenchida que não entra no `aspect-ratio` |
 | anel do eco (`.btn-eco`) | `box-shadow` de mesma espessura |
-| aresta de 1px do tema claro (`--control-edge`, v5.207) | `--surface-sunk`/`--surface-2-sunk` mais fundos (.14/.20): **1,32:1** e **1,51:1** contra o painel branco, contra os 1,14:1 que motivaram a aresta |
+| aresta de 1px do tema claro (`--control-edge`) | `--surface-sunk`/`--surface-2-sunk` mais fundos (.14/.20): **1,32:1** e **1,51:1** contra o painel branco, contra os 1,14:1 que motivaram a aresta |
 
 #### Os três fundos de ESTADO são OPACOS, e a razão é medida
 
 `--sel-fill`, `--live-fill` e `--ok-fill` substituíram o par "contorno + tinta
-com alfa". Serem opacos não é preferência: **`--accent-soft` a 16% sobre o
-painel compõe `#3d4959`, que é o `--panel-2` desta paleta** — isto é, uma linha
-SELECIONADA ficava com a cor exata do nível de baixo da árvore, e o que a
-distinguia era só a borda que saiu. Opacos, os três valem o mesmo em qualquer
-nível: um estado **sai** da escada em vez de ocupar um degrau dela.
+com alfa". Serem opacos não é preferência: **`--accent-soft` a 16% sobre o painel
+compõe `#3d4959`, que é o `--panel-2` desta paleta** — uma linha SELECIONADA
+ficava com a cor exata do nível de baixo da árvore, e o que a distinguia era só a
+borda que saiu. Opacos, os três valem o mesmo em qualquer nível: **um estado SAI
+da escada em vez de ocupar um degrau dela.**
 
 E o sinal principal deles é a MATIZ, não a claridade — `--live-fill` fica a
-1,03:1 do painel de propósito. Uma linha vermelha entre linhas cinzas se acha
-sem precisar ser mais clara que elas, e é a matiz que sobrevive ao brilho baixo
-de um salão escuro, onde meio degrau de luminância não sobrevive.
+1,03:1 do painel de propósito. Uma linha vermelha entre linhas cinzas se acha sem
+precisar ser mais clara, e é a matiz que sobrevive ao brilho baixo de um salão
+escuro, onde meio degrau de luminância não sobrevive.
 
-#### A regra do vermelho mudou de eixo
-
-Era "PREENCHIDO = está no ar · CONTORNADO = ação destrutiva". Sem contorno, o
-que separa os dois é a INTENSIDADE do mesmo preenchimento:
+#### A regra do vermelho é a INTENSIDADE, não o preenchimento
 
 - **saturado** (`--live` + `--on-live`) = está no ar agora, e só isso — o
   microfone aberto, o ponto de projetando. É o vermelho que não pode ter
   concorrente na tela;
 - **suave** (`--live-fill` numa linha, `--danger-soft` num chip ou botão) = ação
-  destrutiva, ou "no ar" numa lista. Continua sendo vermelho e continua sem
-  competir com o que está de fato no telão.
+  destrutiva, ou "no ar" numa lista.
 
+(Antes de as bordas saírem a régua era "preenchido = no ar · contornado =
+destrutivo"; sem contorno, o eixo passou a ser a intensidade do mesmo
+preenchimento.)
 ### Escada de elevação, e a regra que faltava
 
 O que separa duas camadas não é a cor de cada uma, é o **degrau** entre elas:
