@@ -4516,171 +4516,110 @@ com a fonte maior que a do resto (`.hymn-name`) porque a lista precisa ser
 legível de relance no meio do culto. Tocar na LINHA abre a gaveta logo abaixo,
 em **acordeão** — abrir uma fecha a anterior: duas abertas ao mesmo tempo
 empurrariam a lista e tirariam do lugar o que o operador estava mirando.
-#### UMA LINHA, UM TOQUE, UMA GAVETA (v5.285)
-
-Pedido do operador: *"centralize a ação de adicionar em listas e a ação do botão
-play que tem nos itens da biblioteca. Agora o toque vai ser geral no card, sem um
-botão específico para play ou outro para adicionar nas listas. Tocar no corpo vai
-abrir as opções completas. E não apenas isso, mas não será mais um popup, será
-uma lista de opções que surge no corpo onde atualmente surge a letra ou detalhes
-do item."*
-
-O que ele desfaz é a DIVISÃO da v5.62. Com dois alvos, decidir *"o que fazer com
-este hino?"* exigia primeiro decidir **qual dos dois botões era o dono da
-pergunta** — e essa é uma pergunta sobre a UI, não sobre o culto. Um alvo só, e a
-lista inteira do outro lado.
+#### UMA LINHA, UM TOQUE, UMA GAVETA
 
 ```
- ANTES (v5.62 → v5.284)              DEPOIS (v5.285)
- ┌────────────────────────┐          ┌────────────────────────┐
- │ [▶] Ó Adorai o Senhor  [+]│       │ [·] Ó Adorai o Senhor    │ ← 83% da linha
- └────────────────────────┘          ├────────────────────────┤
-   ↓ toque no ▶    ↓ toque no +      │  Tocar música cantada  │
-   ┌─── folha ───┐ ┌─── folha ───┐   │  Tocar playback        │  as OPÇÕES
-   │ cantada     │ │ playlist    │   │  Apenas a letra        │
-   │ playback    │ │ Cronograma  │   │  [Cantada|Playback]    │
-   │ só a letra  │ │ Favoritar   │   │  Adicionar à playlist  │
-   └─────────────┘ └─────────────┘   │  … + Confirmar         │
-   ↓ toque no corpo → a LETRA        ├────────────────────────┤
-                                     │  1ª ESTROFE            │  a LETRA
-                                     │  Ó adorai o Senhor…    │
-                                     └────────────────────────┘
+ ┌────────────────────────┐
+ │ [·] Ó Adorai o Senhor    │ ← 83% da linha para o nome
+ ├────────────────────────┤
+ │  Tocar agora           │
+ │  [Cantada|Playback|Letra] │  as OPÇÕES
+ │  Adicionar à playlist  │
+ │  … + Confirmar         │
+ ├────────────────────────┤
+ │  1ª ESTROFE            │  a LETRA (ou o detalhe do vídeo)
+ │  Ó adorai o Senhor…    │
+ └────────────────────────┘
 ```
 
-- **A gaveta tem DUAS metades, e a letra FICA** (decisão do operador,
-  perguntado): as opções em cima, a letra — ou o detalhe do vídeo — logo abaixo,
-  na mesma abertura. A ordem não é arbitrária: quem abre a gaveta acabou de tocar
-  na linha para DECIDIR, e a decisão tem de estar sob o dedo; a letra é a
-  conferência, e ela pode rolar. Quem some fechado é o ENVELOPE (`.hymn-gaveta`),
-  e não cada metade — a animação do acordeão mede `offsetHeight` de UM elemento,
-  e com duas caixas irmãs aparecendo por conta própria a medida seria de meia
-  gaveta.
+Um alvo só, e a lista inteira do outro lado. Com dois botões na linha (um ▶ e um
+`+`, cada um abrindo metade das escolhas), decidir *"o que fazer com este hino?"*
+exigia primeiro decidir **qual dos dois era o dono da pergunta** — e essa é uma
+pergunta sobre a UI, não sobre o culto.
+
+- **A gaveta tem DUAS metades, e a letra FICA:** as opções em cima, a letra (ou o
+  detalhe do vídeo) logo abaixo, na mesma abertura. A ordem não é arbitrária —
+  quem abre a gaveta acabou de tocar para DECIDIR, e a decisão tem de estar sob o
+  dedo; a letra é a conferência, e ela pode rolar. Quem some fechado é o
+  ENVELOPE (`.hymn-gaveta`), nunca cada metade: a animação do acordeão mede
+  `offsetHeight` de UM elemento, e com duas caixas irmãs aparecendo por conta
+  própria a medida seria de meia gaveta.
 - **Nada de menu foi reimplementado.** `renderSongMenu` e `openYtMenu` ganharam
-  PARA ONDE escrever (`songMenuFor.alvo`, que viaja no estado porque cada
-  remontagem — o seletor Cantada/Playback, cada marca de destino — precisa
-  refazer a lista no mesmo lugar), e o modo **`tudo`** empilha tocar e adicionar
-  numa lista só. A folha `#songMenuPopup` continua de pé com os dois donos que
-  sobraram: os resultados do YouTube e o seletor de destinos da importação.
-  `openSongMenu` saiu por não ter mais chamador.
-- **Um episódio de SÉRIE continua desviando para a lista do YouTube**, como a
-  folha já fazia desde a v5.230 — o que muda é o endereço, não a regra.
-- **O quadrado da esquerda deixou de ser botão e virou INDICADOR.** Ele fica
-  porque hospeda o anel de download — a única coisa que aquele canto sempre
-  informou de verdade — e porque segura a coluna que alinha a lista inteira.
-  Perdeu o `--accent-soft` (a marca de "isto é ação, não conteúdo") e o
+  PARA ONDE escrever (`songMenuFor.alvo`, que viaja no ESTADO porque cada
+  remontagem — o seletor, cada marca de destino — precisa refazer a lista no
+  mesmo lugar), e o modo `tudo` empilha tocar e adicionar numa lista só. A folha
+  `#songMenuPopup` continua de pé com os dois donos que sobraram: os resultados
+  do YouTube e o seletor de destinos da importação.
+- **Um episódio de SÉRIE desvia para a lista do YouTube**, como a folha já fazia.
+- **O quadrado da esquerda é INDICADOR, não botão.** Ele fica porque hospeda o
+  anel de download — a única coisa que aquele canto sempre informou de verdade —
+  e porque segura a coluna que alinha a lista. Perdeu o `--accent-soft` e o
   `cursor: pointer`: um alvo que não é alvo, num canto onde o dedo mira, é pior
   que não ter nada.
-- **O oráculo do ALVO (v5.278) ficou mais forte, não obsoleto.** Ele media se as
-  bordas em volta dos botões caíam no botão; agora afirma que **todo ponto da
-  linha leva ao mesmo lugar** — cantos, bordas e o quadrado onde o ▶ vivia — e
-  conta `button` sem conhecer os nomes dos que saíram, para valer contra o
-  próximo que aparecer. Medido: o nome passou a ocupar **83% da linha**.
-- **No simplificado nada disso aparece:** o toque na linha continua chamando
-  `simplePlaySong` direto, que é a decisão que aquele modo poupa.
+- **O oráculo do ALVO afirma que TODO ponto da linha leva ao mesmo lugar** —
+  cantos, bordas e o quadrado onde o ▶ vivia — e conta `button` sem conhecer
+  nomes, para valer contra o próximo que aparecer.
+- **No simplificado nada disso aparece:** o toque na linha chama `simplePlaySong`
+  direto, que é a decisão que aquele modo poupa.
 
-##### Os sete pontos da v5.286
+**O SELETOR DECIDE O QUÊ; AS OPÇÕES, ONDE.** O seletor tem três segmentos
+(Cantada · Playback · **Letra**) e aparece SEMPRE — ele já dependeu de haver
+playback, e toda música tem letra. Com "Letra" escolhida, "Tocar agora" projeta a
+letra e cada lista recebe a CENA de letra (`addLyricCue`, que aceita várias
+listas), o que torna "Só a letra, no Cronograma" redundante. Sem essa divisão a
+variante aparecia duas vezes, uma como segmento e outra como linha.
 
-O operador usou a gaveta e devolveu sete apontamentos. **Dois são defeitos que a
-v5.285 introduziu**, e os dois têm a mesma natureza — algo que a lista ganhou ao
-mudar de casa:
+**Duas armadilhas que a lista trouxe ao mudar de casa**, e as duas são "algo que
+ela deixou de herdar":
 
-| Relato | Causa |
+| Sintoma | Causa |
 |---|---|
-| *"pontos ou marcadores à esquerda dos cards"* | a `<ul>` nova não herdou `list-style: none` de ninguém (a do popup é `.popup-list`, que já o tinha). Não vinham de regra do app: era a **ausência** de uma |
-| *"o feedback de toque está encolhendo toda a seção de opções"* | o `:active` do `.lib-item` satisfeito por um botão DENTRO dele — a armadilha que a v5.269 já tinha desligado para o `⋮`, agora com a gaveta inteira no alcance |
+| marcadores de lista à esquerda | a `<ul>` nova não herdou `list-style: none` de ninguém (a do popup é `.popup-list`, que já o tinha). Não vinha de regra do app: era a **ausência** de uma |
+| o feedback de toque encolhia a gaveta inteira | o `:active` do `.lib-item` satisfeito por um botão DENTRO dele |
 
-Os cinco ajustes, e o primeiro governa os outros:
+**A gaveta é um POÇO, soldado à sua linha.** Medido no tema escuro, com o
+`--panel` da folha antiga: `--panel` compõe rgb(44,52,60) e a faixa de uma linha
+vizinha compõe rgb(46,54,63) — **1,03:1**, isto é, a seção aberta tinha
+literalmente a cor das linhas de baixo, com a margem em volta deixando passar a
+faixa da própria linha como moldura (três tons indistinguíveis empilhados).
 
-- **O SELETOR DECIDE O QUÊ; AS OPÇÕES, ONDE.** "Tocar música cantada" e "Tocar
-  playback" eram duas linhas dizendo o que o seletor ao lado já dizia — a
-  variante aparecia duas vezes, uma como segmento e outra como linha. Elas viram
-  um **"Tocar agora"** selecionável, e o seletor ganha um terceiro segmento,
-  **Letra**. Com isso a lista do acervo converge com a do YouTube: um seletor de
-  forma e quatro destinos marcáveis, um deles o telão.
-- **"Só a letra, no Cronograma" SAIU**, porque virou `Letra` + `Cronograma`.
-  `addLyricCue` passou a aceitar várias listas (um registro só, como qualquer
-  item multi-destino), e o seletor passou a aparecer SEMPRE — ele dependia de
-  haver playback, e toda música tem letra.
-- **A caixa de marcação se vê sem estar marcada** (`--check-vazio`). Medido:
-  **1,08:1** contra o botão em que mora, que é o "não dá para ver" do relato →
-  **1,28:1**. Token com TEMA e não o `--scrim` compartilhado (no claro aquele .6
-  seria uma lápide), e ainda um RECESSO — a regra da v5.267 vale. O teto é do
-  tema escuro: preto sobre um botão já escuro comprime a razão por construção.
-- **O fundo da gaveta é o da folha antiga** (`--panel`). Na folha a lista pousava
-  ali e os botões dela são um recesso; no corpo da linha ela passou a pousar na
-  faixa, que já é um recesso do card — recesso sobre recesso, e o degrau
-  encolheu. **(REVOGADO na v5.287 — ver abaixo: `--panel` era a base certa para
-  aqueles botões e a cor errada para aquele lugar.)**
-- **A letra fica atrás de um botão irmão do confirmar.** Ela é a mais alta das
-  duas metades e empurrava as opções para longe do dedo em toda abertura, quando
-  o que se abre a gaveta para fazer é decidir. Quem o fornece é o dono da lista
-  (`songMenuFor.aoLado`) — a folha não tem letra a esconder, e não muda.
-
-##### A gaveta é um POÇO, soldado à sua linha (v5.287)
-
-Relato do operador: *"ainda está pouco o contraste entre os botões e pior, toda
-a seção das opções de play estão se mesclando com a lista dos outros itens
-abaixo, dificultando a percepção da seção e a qual item ela pertence"*.
-
-São DUAS queixas com uma causa só, e a medição a nomeia. No tema **escuro**:
-
-| par | v5.286 | v5.287 |
-|---|---|---|
-| botão × fundo da gaveta | 1,18:1 | **1,49:1** |
-| gaveta × faixa da linha vizinha | **1,03:1** | **1,54:1** |
-| gaveta × card do álbum | 1,33:1 | 1,99:1 |
-
-`--panel` compõe rgb(44,52,60) e a faixa de uma linha vizinha compõe
-rgb(46,54,63): a seção aberta tinha, literalmente, a cor das linhas de baixo. E
-a margem em volta dela (`.1rem .35rem .35rem`) deixava passar, como moldura, a
-faixa da própria linha — três tons indistinguíveis empilhados.
-
-**O tom novo é um par por tema** (`--gaveta-bg`/`--gaveta-btn`), e a inversão é
-aritmética, não gosto:
+O tom é um par por tema (`--gaveta-bg`/`--gaveta-btn`), e a inversão é
+aritmética:
 
 - **escuro** — só dá para DESCER. Subir levaria a `--panel-2`, que é a cor do
-  próprio card do álbum, isto é, a que aparece nos vãos entre as linhas: a
-  gaveta ficaria invisível contra o fundo em que ela mora. O par é
-  `--bg` × `--panel`, os dois degraus de baixo da escada.
-- **claro** — só dá para SUBIR. Descer para `--bg` deixaria a gaveta a 1,09:1
-  do card. O par é `--panel` (branco) × `--panel-2`, os dois de cima.
+  card do álbum, a que aparece nos vãos entre as linhas. Par: `--bg` × `--panel`.
+- **claro** — só dá para SUBIR. Descer para `--bg` deixaria a gaveta a 1,09:1 do
+  card. Par: `--panel` (branco) × `--panel-2`.
 
-É o precedente do `--field-bar` (v5.270) num lugar novo: **uma superfície cuja
-direção não acompanha a escada precisa de um token próprio em cada tema.** E os
-BLOCOS que descansam nela (as opções e a metade de baixo) vestem `--gaveta-btn`
-em vez do `--surface` de fábrica, porque aquele é um OVERLAY — dentro de uma
-seção da Biblioteca ele resolve para o par SUNK, e preto sobre um poço que já é
-o tom mais escuro do app não produz degrau nenhum.
+É o precedente do `--field-bar` num lugar novo: **uma superfície cuja direção não
+acompanha a escada precisa de um token próprio em cada tema.** E os BLOCOS que
+descansam nela vestem `--gaveta-btn` em vez do `--surface` de fábrica, porque
+aquele é um OVERLAY — dentro de uma seção da Biblioteca ele resolve para o par
+SUNK, e preto sobre um poço que já é o tom mais escuro do app não produz degrau.
 
-**A segunda queixa é de FORMA, e ela custa uma linha:** a gaveta perdeu as
-margens. Ela é filha do `.lib-item`, que já pinta a linha inteira e recorta pelo
-`border-radius` com `overflow: hidden` — coladas, faixa e gaveta viram UM bloco
-com o título em cima e o poço embaixo. O respiro que a margem dava vem do
-`padding` da lista de opções, que já existia.
+**A gaveta não tem margens.** Ela é filha do `.lib-item`, que já pinta a linha
+inteira e recorta pelo `border-radius` com `overflow: hidden` — coladas, faixa e
+gaveta viram UM bloco com o título em cima e o poço embaixo. O respiro vem do
+`padding` da lista de opções.
 
-##### A largura do "Ver/Ocultar a letra" (v5.287)
+**A caixa de marcação se vê sem estar marcada** (`--check-vazio`): 1,08:1 contra
+o botão em que mora → 1,28:1. Token com TEMA e não o `--scrim` compartilhado (no
+claro aquele .6 seria uma lápide), e ainda um RECESSO. O teto é do tema escuro:
+preto sobre um botão já escuro comprime a razão por construção.
 
-"Ocultar" é mais longo que "Ver": o botão crescia ao ser tocado (110px → 143px,
-medidos) e o CONFIRMAR ao lado encolhia junto. As duas frases passaram a ocupar
-a MESMA célula de uma grade 1×1 — a largura é a da maior e a troca só alterna
-qual delas se vê. **`visibility` e não `display`**, porque a escondida precisa
-continuar MEDINDO: é ela que reserva o espaço. Um `min-width` em `ch` seria um
-número a manter contra a fonte e contra a tradução; isto não tem número nenhum.
+**A largura do "Ver/Ocultar a letra" não muda com o estado.** "Ocultar" é mais
+longo que "Ver": o botão crescia ao ser tocado (110px → 143px) e o CONFIRMAR ao
+lado encolhia junto. As duas frases ocupam a MESMA célula de uma grade 1×1 — a
+largura é a da maior. **`visibility` e não `display`**, porque a escondida
+precisa continuar MEDINDO: é ela que reserva o espaço. Um `min-width` em `ch`
+seria um número a manter contra a fonte e contra a tradução; isto não tem número.
 
 Tocar (`playSongVariant`) e os três destinos (`addSongToDestinos` →
-`adicionarNasListas`) baixam a música na hora se ainda não estiver offline (ver
-"Resolução do id de mídia por variante" abaixo) — e o download é **um só** por
-toque, mesmo com os três destinos marcados: o caro é resolver o id, e o item
-resultante é o MESMO em todas as listas. (`addSongVariant`, `addSongToPlaylist` e
-`addSongToFavorites` eram três funções que diferiam apenas na lista; o
-multi-destino as unificou na v5.141. `addSongVariant`, o atalho de um destino
-que sobreviveu àquele lote, ficou sem chamador e saiu na v5.180 — e o mesmo
-aconteceu com o `adicionarNaLista` genérico, cujo comentário ainda dizia ser "o
-que a maior parte do app ainda usa" quando ninguém o chamava. Hoje há um funil
-só: `listasDosDestinos` → `adicionarNasListas`.) **"Apenas a letra"** baixa
-também, mas só quando precisa: a letra costuma já estar no acervo de textos (ver
-"Letra avulsa", na Camada de Texto).
-
+`adicionarNasListas`) baixam a música na hora se ainda não estiver offline — e o
+download é **um só** por toque, mesmo com os três destinos marcados: o caro é
+resolver o id, e o item resultante é o MESMO em todas as listas. O funil é um:
+`listasDosDestinos` → `adicionarNasListas`. **"Letra"** baixa também, mas só
+quando precisa: a letra costuma já estar no acervo de textos.
 ### O download vira estado da tela (v5.64-65)
 
 Tocar uma música que ainda não está no aparelho abre um download de dezenas de
