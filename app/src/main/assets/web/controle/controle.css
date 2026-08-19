@@ -3606,12 +3606,16 @@ main {
   background: var(--field-bg); color: var(--field-text);
   box-shadow: 0 1px 3px -1px var(--shadow-ink);
 }
-/* O ✕ SAI e a playlist automática ENTRA: numa barra de dois quadrados iguais o
-   que os distingue é a cor, e a distinção que importa é "isto fecha" × "isto
-   faz". `--accent` sobre `--field-bg` é o par para o qual a paleta oficial foi
-   desenhada (fundo BRANCO), o único lugar do app em que ele se usa sem
-   derivado. */
-#sorteioBtn { color: var(--accent); }
+/* O ✕ FECHA e a playlist automática FAZ: numa barra de quadrados iguais o que
+   os distingue é a cor, e é essa a distinção que importa.
+
+   `--field-accent`, NUNCA `--accent`: o campo é uma superfície SEM TEMA (branco
+   literal nos dois), e `--accent` é redeclarado por tema — no escuro ele é o
+   azul claro desenhado para o fundo quase-preto do app, e sobre este branco
+   mede 2,06:1. É a mesma armadilha que o `--field-text` e o `--field-muted` já
+   resolviam para o texto e o placeholder; o acento era o terceiro consumidor
+   que faltava. Medido: 7,70:1. Ver o bloco `--field-*` em tokens.css. */
+#sorteioBtn { color: var(--field-accent); }
 /* ---------- E O CAMPO É BRANCO NOS DOIS TEMAS ----------
    Como `--surface-2` ele era um OVERLAY, e dentro da folha a superfície se
    INVERTE (a regra no topo deste arquivo): saía como recesso preto a 14%/16% —

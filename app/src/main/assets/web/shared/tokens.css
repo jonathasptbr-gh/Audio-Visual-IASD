@@ -173,6 +173,24 @@
   --field-bg: #ffffff;
   --field-text: #4a4a4a;
   --field-muted: #5c636c;
+  /* E O ACENTO DELA TAMBÉM (v5.305). A regra acima tinha dois consumidores e
+     ganhou o terceiro quando um botão de AÇÃO passou a morar sobre o campo (a
+     playlist automática, na barra da Biblioteca): ele saiu em `--accent`, que é
+     REDECLARADO por tema, e no escuro aquilo é `#95b5f4` — um azul claro
+     desenhado para o fundo quase-preto do app. Sobre este branco ele mede
+     **2,06:1**, abaixo até do piso de 3:1 de componente. O sintoma foi o
+     operador: *"ajuste a cor do ícone dele para ter mais contraste, pois está
+     fora de padrão de cores"*.
+
+     É o denim OFICIAL, o mesmo `#2f557f` que `--accent-fill` vale nos DOIS
+     temas — e é o par para o qual a paleta foi desenhada, porque os dezoito
+     valores oficiais foram calibrados sobre fundo BRANCO. Medido: **7,70:1**,
+     ao lado dos 8,86:1 do `--field-text` do ✕ e dos 6,08:1 da lupa.
+
+     Ele existe com NOME PRÓPRIO em vez de a folha citar `--accent-fill`: o
+     nome diz a que superfície ele pertence, e é isso que impede o próximo
+     controle sobre o campo de repetir a conta errada. */
+  --field-accent: #2f557f;
   /* A BARRA QUE HOSPEDA O CAMPO (v5.270, pedido do operador: *"faça com que o
      fundo atrás da caixa de texto fique mais escuro no tema claro"*).
 

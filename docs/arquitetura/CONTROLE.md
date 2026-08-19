@@ -3085,8 +3085,8 @@ música/mídia individual ou para montar playlists automáticas … você escolh
 palavra tema (que vai fazer a busca na biblioteca sobre palavras-chave e filtrar
 a lista) e então aleatoriamente escolhe uma ou mais para tocar."*
 
-Um botão na barra da Biblioteca (`#sorteioBtn`, ao lado do campo e **antes** do
-✕) abre uma folha com cinco decisões e um botão:
+Um botão **abre a barra da Biblioteca** (`#sorteioBtn`, à esquerda do campo de
+busca) e leva a uma folha com cinco decisões e um botão:
 
 | Controle | Pergunta | Valores |
 |---|---|---|
@@ -3207,6 +3207,19 @@ já explicou uma busca que "não achava nada".
   não significa nada e não marcar nenhum precisa significar alguma coisa. Como
   segmento a escolha é sempre uma — e é o mesmo par, com os mesmos rótulos, que a
   folha de uma música do acervo já oferece.
+- **Ele ABRE a barra, e o ✕ continua fechando-a** (v5.305, pedido do operador).
+  A linha passa a ser lida como uma frase: *sortear · procurar · sair*. Entre o
+  campo e o ✕ ele era um terceiro elemento no canto em que o app inteiro põe a
+  SAÍDA, e a vizinhança dizia "mais um jeito de fechar isto".
+- **A cor do ícone é `--field-accent`, NUNCA `--accent`.** O botão vive sobre o
+  CAMPO, que é branco literal e **sem tema**; `--accent` é redeclarado por tema e
+  no escuro vale `#95b5f4`, o azul claro desenhado para o fundo quase-preto do
+  app — sobre este branco, **2,06:1**, abaixo do piso de 3:1 de componente. É a
+  mesma armadilha que `--field-text` e `--field-muted` já resolviam para o texto
+  e o placeholder; o acento era o terceiro consumidor que faltava. Medido:
+  **7,70:1**, ao lado dos 8,86:1 do ✕. O `sorteio-tela.test.mjs` mede a cor
+  COMPUTADA nos dois temas — comparar NOMES de token deixaria isto passar por
+  baixo.
 - **O ícone é um DADO DESENHADO, nunca as setas cruzadas.** As setas já são o
   "Aleatório" do botão de repetição, a três centímetros daqui: dois desenhos
   iguais prometendo coisas diferentes na mesma tela é o defeito que nenhuma

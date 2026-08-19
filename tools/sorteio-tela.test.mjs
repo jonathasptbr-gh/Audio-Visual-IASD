@@ -158,15 +158,21 @@ try {
   }, sel, { timeout: 10000 });
   await pg.evaluate(() => openHymnSearch());
   await assentada('#hymnSearchPopup');
+  // A ORDEM DA BARRA é `sortear · procurar · sair`, e ela é medida pela POSIÇÃO
+  // NA TELA, não pela ordem no documento: é o que o operador vê, e um `order`
+  // de flex acrescentado por engano divorciaria as duas sem que nada reclamasse.
   const barra = await pg.evaluate(() => {
     const b = document.getElementById('sorteioBtn');
+    const campo = document.querySelector('.hymn-search-bar .lib-search');
     const x = document.getElementById('hymnSearchClose');
-    if (!b || !x) return { erro: 'botão ausente da barra' };
-    // O ✕ é o FIM da linha em toda folha deste app: o botão novo vem ANTES.
-    return { antesDoX: !!(b.compareDocumentPosition(x) & Node.DOCUMENT_POSITION_FOLLOWING) };
+    if (!b || !campo || !x) return { erro: 'a barra não tem as três peças' };
+    const esq = (el) => Math.round(el.getBoundingClientRect().left);
+    return { sorteio: esq(b), campo: esq(campo), fechar: esq(x) };
   });
-  checar(!barra.erro && barra.antesDoX,
-    'o botão está na barra da Biblioteca, ANTES do ✕', barra);
+  checar(!barra.erro && barra.sorteio < barra.campo,
+    'o botão ABRE a barra da Biblioteca — à ESQUERDA do campo de busca', barra);
+  checar(!barra.erro && barra.campo < barra.fechar,
+    'e o ✕ continua fechando a linha: o fim é a SAÍDA, em toda folha deste app', barra);
 
   // ---- E ELE TEM DESENHO ---------------------------------------------------
   // O botão saiu ao ar MUDO: o glifo `casino` não está no subset da fonte, e um
@@ -195,6 +201,37 @@ try {
     desenho);
   checar(desenho.formas >= 2 && desenho.largura >= 12,
     'e o símbolo tem geometria e é pintado com tamanho de ícone', desenho);
+
+  // ---- E ELE TEM CONTRASTE, NOS DOIS TEMAS ---------------------------------
+  // O botão vive sobre o CAMPO, que é branco literal e SEM TEMA. Pintá-lo com
+  // um token redeclarado por tema (`--accent`) dava 2,06:1 no escuro — abaixo
+  // do piso de 3:1 de componente, e o relato do operador foi exatamente esse.
+  // A conta é feita sobre a cor COMPUTADA, não sobre o nome do token: comparar
+  // nomes deixaria o defeito passar por baixo (a lição do `smoke.mjs`).
+  const contraste = await pg.evaluate(async () => {
+    const lum = (cor) => {
+      const [r, g, b] = cor.match(/[\d.]+/g).slice(0, 3).map(Number).map((c) => c / 255);
+      const f = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+      return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+    };
+    const medir = () => {
+      const b = document.getElementById('sorteioBtn');
+      const cs = getComputedStyle(b);
+      const a = lum(cs.color); const f = lum(cs.backgroundColor);
+      return Math.round(((Math.max(a, f) + 0.05) / (Math.min(a, f) + 0.05)) * 100) / 100;
+    };
+    const fora = {};
+    for (const tema of ['escuro', 'claro']) {
+      setTema(tema); await new Promise((r) => setTimeout(r, 60));
+      fora[tema] = medir();
+    }
+    setTema('escuro');
+    return fora;
+  });
+  checar(contraste.escuro >= 3 && contraste.claro >= 3,
+    'o ícone tem contraste de COMPONENTE (≥3:1) sobre o campo NOS DOIS TEMAS — '
+    + 'o campo é branco literal e não segue o tema, então um token que siga o '
+    + 'tema erra num deles', contraste);
 
   await pg.click('#sorteioBtn');
   await assentada('#sorteioPopup');
