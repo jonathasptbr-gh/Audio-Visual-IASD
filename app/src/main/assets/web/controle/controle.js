@@ -163,7 +163,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '5.302';
+const WEB_VERSION = '5.303';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -10921,14 +10921,23 @@ async function buildLyricIndex() {
 
 // Constrói sob demanda e redesenha quando ficar pronto — `renderSearchResults`
 // é síncrona (roda a cada tecla) e não pode esperar o IDB.
+//
+// ELA DEVOLVE A PROMESSA (v5.303), e o redesenho tardio continua acontecendo
+// para quem a ignora: a busca segue disparando e esquecendo, e o SORTEIO
+// TEMÁTICO — que manda a faixa para o telão sem tela intermediária — a espera.
+// Sem isto ele sortearia com o índice pela metade, ignorando a palavra tema e
+// projetando mesmo assim; ali não há redesenho que conserte depois.
 function ensureLyricIndex() {
-  if (lyricIndex || lyricIndexPending) return;
+  if (lyricIndex) return Promise.resolve(lyricIndex);
+  if (lyricIndexPending) return lyricIndexPending;
   lyricIndexPending = buildLyricIndex().then((m) => {
     lyricIndex = m;
     lyricIndexPending = null;
     // Só redesenha se o popup ainda estiver aberto e houver o que refinar.
     if (hymnSearchPopupEl.classList.contains('open')) renderSearchResults(hymnSearchInputEl.value);
-  }).catch(() => { lyricIndexPending = null; });
+    return m;
+  }).catch(() => { lyricIndexPending = null; return null; });
+  return lyricIndexPending;
 }
 
 // A letra de uma música só entra no índice quando é baixada; um download novo
@@ -13424,6 +13433,445 @@ async function addSongToDestinos(coll, s, variant, destinos, btn) {
 // referência seria mais barato de criar e falharia justamente na hora em que ele
 // é usado.)
 
+// ============================================================================
+// PLAYLIST AUTOMÁTICA — o sorteio temático da Biblioteca (v5.303)
+// ============================================================================
+//
+// Pedido do operador: *"um sistema de play aleatório temático, tanto para
+// música/mídia individual ou para montar playlists automáticas … você escolhe
+// uma palavra tema (que vai fazer a busca na biblioteca sobre palavras-chave e
+// filtrar a lista) e então aleatoriamente escolhe uma ou mais para tocar."*
+//
+// ## A divisão de trabalho
+//
+// A REGRA — quem pode ser sorteado e por quê — mora em `controle/sorteio.js`,
+// pura e com oráculo em Node (`tools/sorteio.test.mjs`, no `apk.yml` **sem
+// `continue-on-error`**). Este arquivo faz as três coisas que ela se recusa a
+// fazer: pergunta ao acervo, baixa e projeta — e as três por funções que já
+// existem. Nada aqui reimplementa busca, download ou projeção:
+//
+//   `normalizeForSearch` + `lyricMatch`  →  o tema casa (o MESMO da busca)
+//   `resolveSongMediaId`                 →  variante → id, baixando se faltar
+//   `playSongVariant`                    →  "uma só": ela já fecha, baixa e envia
+//   `AVDB.listSet` + `send`              →  a fila, pelo caminho do `abrirPacote`
+//
+// ## As três decisões que precisam estar ditas
+//
+// **O QUE NÃO ENTRA, e por construção.** As séries (o grupo "Arquivos oficiais")
+// saem por `temLetra(coll)` — a pergunta é pela CAPACIDADE, nunca por
+// `kind === 'serie'`. As pastas do aparelho e os Favoritos nem chegam: eles não
+// são coleções, são listas, e `allCollections()` não os conhece. O hinário
+// ENTRA e sai por um filtro, porque foi assim que o operador pediu.
+//
+// **A FILA VAI PARA O PLAYER, e substitui o que havia.** Pedido do operador:
+// *"vai direto para a playlist do player, para ser tocada"*. É o caminho do
+// `abrirPacote` (`listSet('playlist', ids)` + `send` do primeiro), e é a mesma
+// semântica de todo "Tocar agora" do acervo, que já passa por
+// `replacePlaylistWith`. Não é o Cronograma: aquele é a ordem do culto, montada
+// à mão, e um sorteio não a apaga.
+//
+// **A ESPERA DO ÍNDICE DE LETRAS É OBRIGATÓRIA AQUI.** Na busca, `ensureLyricIndex`
+// é disparado e esquecido: o índice chega e a lista se redesenha. Aqui não há
+// redesenho — o toque no botão manda a faixa para o telão. Sortear com o índice
+// pela metade produziria um sorteio que IGNORA a palavra tema e mesmo assim
+// projeta. Por isso `ensureLyricIndex()` passou a DEVOLVER a promessa, e por
+// isso a folha se redesenha quando ela resolve (senão o contador anuncia menos
+// faixas do que existem, e é ele que o operador lê antes de tocar).
+
+const sorteioPopupEl = document.getElementById('sorteioPopup');
+const sorteioBtnEl = document.getElementById('sorteioBtn');
+const sorteioCloseEl = document.getElementById('sorteioClose');
+const sorteioListEl = document.getElementById('sorteioList');
+
+// A escolha do operador, guardada entre sessões. Os padrões são os do
+// `AVSorteio.sanear` — declará-los aqui de novo seria a segunda lista a
+// divergir da primeira.
+let sorteioPrefs = AVSorteio.sanear(null);
+// O último sorteio, para o Registro. Não é cache: é o VEREDITO, e ele sai da
+// mesma passada que decidiu (regra do projeto — um bloco guarda o veredito,
+// nunca uma segunda opinião).
+let sorteioDiario = null;
+// Sortear é assíncrono (índice de letras, downloads). Sem esta trava, dois
+// toques no confirmar montam duas filas que brigam pelo `listSet`.
+let sorteioRodando = false;
+// O cancelar do cartão da preview. Ele para a fila ENTRE faixas — o download em
+// curso termina, porque interrompê-lo no meio deixaria um parcial que o
+// `YoutubeGrab` não retoma para faixa do acervo.
+let sorteioCancelado = false;
+
+// A ESCOLHA É LIDA NA PRIMEIRA ABERTURA DA FOLHA, e não no `load()`.
+//
+// `load()` roda a cada mexida em lista — reordenar um favorito, adicionar ao
+// Cronograma, terminar um download — e cada `getState` dele é uma transação de
+// IndexedDB em série. Uma leitura a mais ali é paga por toda a interface, para
+// um dado que só uma folha usa e que é lido uma vez por sessão. (Custou uma
+// medição: a reabertura da gaveta depois de uma casa de reordenação é um caso
+// já apertado no `boot-nativo.test.mjs`, e ela mede o `load()` inteiro.)
+let sorteioPrefsLidas = false;
+function applySorteioPrefs(p) {
+  // `sanear` já valida campo a campo e por tipo (é ele que impede um
+  // `variante` gravado por engano de virar playback no `resolveSongMediaId`).
+  sorteioPrefs = AVSorteio.sanear(p);
+}
+async function lerSorteioPrefs() {
+  if (sorteioPrefsLidas) return;
+  sorteioPrefsLidas = true;
+  try { applySorteioPrefs(await AVDB.getState('sorteioPrefs')); } catch (_) { /* o padrão serve */ }
+}
+function saveSorteioPrefs() {
+  return AVDB.setState('sorteioPrefs', {
+    modo: sorteioPrefs.modo, tema: sorteioPrefs.tema, variante: sorteioPrefs.variante,
+    semHinario: sorteioPrefs.semHinario, soNoAparelho: sorteioPrefs.soNoAparelho,
+    quantos: sorteioPrefs.quantos,
+  });
+}
+
+// AS CAPACIDADES que a regra pede. Cada uma é um ponteiro para o que já existe
+// — e é essa a razão de a injeção existir: `normalizeForSearch` é o
+// normalizador ÚNICO da Biblioteca, e `lyricMatch` é o casamento por letra da
+// busca. Uma segunda escrita de qualquer um dos dois faria o sorteio achar um
+// conjunto e a busca achar outro para a MESMA palavra, na mesma tela.
+//
+// `noAparelho` usa o critério BARATO (`fileIdFull`/`fileIdPlayback`), o mesmo
+// de `levantarColecao`: o autoritativo é `songVariantsNeeded`, que vai ao IDB, e
+// perguntar por faixa varreria o acervo inteiro a cada tecla. O erro possível é
+// o seguro — uma faixa marcada como presente que precise de retoque apenas
+// passa pelo `resolveSongMediaId` de sempre.
+function sorteioCap() {
+  return {
+    norm: normalizeForSearch,
+    // O MESMO cache preguiçoso da busca (`renderSearchResults`): `s._norm` é
+    // gravado na construção do índice, e normalizar aqui de novo custaria três
+    // alocações por música sobre os dois hinários mais todos os álbuns.
+    nomeNorm: (s) => s._norm || (s._norm = normalizeForSearch(s.name)),
+    ehMusica: temLetra,
+    ehHinario: collNumbersSongs,
+    faixas: (coll) => collSongs(coll.id),
+    letraCasa: (coll, s, q) => !!lyricMatch(coll, s, q),
+    noAparelho: (coll, s, variante) => !!(variante === AVSorteio.VARIANTE_PLAYBACK
+      ? s.fileIdPlayback : s.fileIdFull),
+  };
+}
+
+function sorteioPool() {
+  return AVSorteio.montarPool(allCollections(), sorteioPrefs, sorteioCap());
+}
+
+// ---- A folha ----------------------------------------------------------------
+
+async function abrirSorteio() {
+  // ANTES de abrir, e não depois: a folha desenhada com os padrões e corrigida
+  // um quadro depois faria a escolha da semana passada piscar por cima da nova.
+  await lerSorteioPrefs();
+  sorteioPopupEl.classList.add('open');
+  renderSorteio();
+  // O índice de letras é o que faz a palavra tema alcançar o que não está no
+  // título. Pedido AQUI e não no primeiro caractere: a folha inteira depende
+  // dele, e montá-lo enquanto o operador ainda escolhe o modo é o único
+  // instante em que a espera não custa nada.
+  ensureLyricIndex().then(() => {
+    if (sorteioPopupEl.classList.contains('open')) renderSorteio();
+  });
+}
+function fecharSorteio() {
+  sorteioPopupEl.classList.remove('open');
+  // A palavra tema é gravada AQUI, e não a cada tecla: `input` persistido é uma
+  // escrita no IndexedDB por caractere digitado.
+  saveSorteioPrefs();
+}
+
+// A CONTA, atualizada sem remontar a folha — é o único caminho que pode rodar
+// com o campo de texto em foco, e remontar ali apagaria o foco no meio da
+// palavra. Tudo o mais (chips, segmentos) remonta, porque tocar num botão já
+// tira o foco do campo.
+function atualizarContaSorteio() {
+  const conta = sorteioListEl.querySelector('.sorteio-conta');
+  const go = sorteioListEl.querySelector('.song-menu-go');
+  if (!conta) return;
+  const pool = sorteioPool();
+  const n = pool.itens.length;
+  conta.classList.toggle('vazio', n === 0);
+  conta.textContent = textoDaContaSorteio(pool);
+  if (go) go.disabled = n === 0;
+}
+
+// A FRASE DIZ AS DUAS METADES, e a segunda é o ponto: "3 já no aparelho" é a
+// diferença entre tocar agora e esperar a rede da igreja. Vazio, ela diz o
+// MOTIVO dominante — sem ele, "nenhuma faixa casa" tem cinco causas que pedem
+// ações opostas (trocar a palavra, desligar um filtro, abrir um álbum para o
+// índice chegar).
+function textoDaContaSorteio(pool) {
+  const n = pool.itens.length;
+  if (n) {
+    const alvo = sorteioPrefs.modo === AVSorteio.MODO_PLAYLIST
+      ? Math.min(sorteioPrefs.quantos, n) : 1;
+    return n + (n === 1 ? ' faixa casa' : ' faixas casam')
+      + ' · ' + pool.noAparelho + ' já no aparelho'
+      + ' · sorteia ' + alvo;
+  }
+  if (!pool.colecoesUsadas) {
+    return sorteioPrefs.semHinario
+      ? 'Nenhuma coleção sobrou — o filtro do hinário tirou tudo o que há neste aparelho.'
+      : 'Nenhuma coleção com índice. Abra a Biblioteca com internet uma vez.';
+  }
+  const r = pool.recusas;
+  if (sorteioPrefs.soNoAparelho && r[AVSorteio.MOTIVO_FORA]) {
+    return 'Nada baixado casa o tema — desligue "Só no aparelho" para baixar na hora.';
+  }
+  if (sorteioPrefs.variante === AVSorteio.VARIANTE_PLAYBACK && r[AVSorteio.MOTIVO_VARIANTE]) {
+    return 'Nenhuma faixa dessas tem playback — troque para Cantada.';
+  }
+  return pool.tema ? 'Nada casa "' + sorteioPrefs.tema.trim() + '" na biblioteca.'
+    : 'Nenhuma faixa disponível com estes filtros.';
+}
+
+// Uma linha "rótulo à esquerda, pílulas à direita".
+function sorteioLinhaChips(rotulo, opcoes) {
+  const li = document.createElement('li');
+  li.className = 'sorteio-linha';
+  const lab = document.createElement('span');
+  lab.className = 'sorteio-rotulo';
+  lab.textContent = rotulo;
+  li.appendChild(lab);
+  const cx = document.createElement('div');
+  cx.className = 'misc-opts';
+  opcoes.forEach(({ nome, ativo, aoTocar, titulo }) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'misc-chip' + (ativo ? ' active' : '');
+    b.textContent = nome;
+    if (titulo) b.title = titulo;
+    b.setAttribute('aria-pressed', ativo ? 'true' : 'false');
+    b.addEventListener('click', aoTocar);
+    cx.appendChild(b);
+  });
+  li.appendChild(cx);
+  return li;
+}
+
+function renderSorteio() {
+  const alvo = sorteioListEl;
+  alvo.innerHTML = '';
+
+  // ---- O MODO: quanto? ----
+  // O mesmo `.fit-seg` do seletor Cantada/Playback da folha da música: é a
+  // mesma classe de pergunta ("qual destes dois?"), e um segundo desenho para
+  // ela leria como outro tipo de controle.
+  alvo.appendChild(ytSegRow(
+    [[AVSorteio.MODO_UMA, 'Tocar uma só'], [AVSorteio.MODO_PLAYLIST, 'Montar playlist']],
+    sorteioPrefs.modo,
+    (v) => { sorteioPrefs.modo = v; saveSorteioPrefs(); renderSorteio(); },
+  ));
+
+  // ---- A PALAVRA TEMA ----
+  const liCampo = document.createElement('li');
+  liCampo.className = 'sorteio-campo';
+  const campo = document.createElement('div');
+  campo.className = 'lib-search-campo';
+  campo.innerHTML = '<svg class="lib-search-lupa" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+    + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    + '<use href="#icoLupa"/></svg>';
+  const inp = document.createElement('input');
+  inp.className = 'lib-search';
+  inp.type = 'search';
+  inp.placeholder = 'Palavra tema (natal, cruz, gratidão…)';
+  inp.value = sorteioPrefs.tema;
+  inp.setAttribute('aria-label', 'Palavra tema');
+  // `input` só mexe na MEMÓRIA e na conta; quem grava é o `change` (e o fechar
+  // da folha). Persistir por tecla é uma escrita no IndexedDB por caractere.
+  //
+  // E A CONTA É ADIADA pelo MESMO prazo da busca da Biblioteca: recontar varre
+  // os dois hinários mais todos os álbuns indexados e, para cada faixa que não
+  // casa pelo título, o texto inteiro da letra — a mesma varredura que o campo
+  // ao lado já paga com `debounce`. Digitar depressa não pode custar uma
+  // passada pelo acervo por tecla.
+  inp.addEventListener('input', debounce(() => {
+    sorteioPrefs.tema = inp.value;
+    atualizarContaSorteio();
+  }, SEARCH_DEBOUNCE_MS));
+  inp.addEventListener('change', () => { sorteioPrefs.tema = inp.value; saveSorteioPrefs(); });
+  campo.appendChild(inp);
+  liCampo.appendChild(campo);
+  alvo.appendChild(liCampo);
+
+  // ---- A VARIANTE: o quê? ----
+  // "Músicas cantadas" e "apenas áudio instrumental (playbacks)" são os DOIS
+  // valores da mesma pergunta, não dois filtros: marcar os dois não significa
+  // nada e não marcar nenhum tem de significar alguma coisa. Como segmento a
+  // escolha é sempre uma, e é o mesmo par (com os mesmos rótulos) que a folha
+  // de uma música do acervo já oferece.
+  alvo.appendChild(ytSegRow(
+    [[AVSorteio.VARIANTE_CANTADA, 'Cantada'], [AVSorteio.VARIANTE_PLAYBACK, 'Playback']],
+    sorteioPrefs.variante,
+    (v) => { sorteioPrefs.variante = v; saveSorteioPrefs(); renderSorteio(); },
+  ));
+
+  // ---- OS FILTROS ----
+  alvo.appendChild(sorteioLinhaChips('Filtros', [
+    {
+      nome: 'Sem hinário', ativo: sorteioPrefs.semHinario,
+      titulo: 'Não sortear dos hinários',
+      aoTocar: () => { sorteioPrefs.semHinario = !sorteioPrefs.semHinario; saveSorteioPrefs(); renderSorteio(); },
+    },
+    {
+      nome: 'Só no aparelho', ativo: sorteioPrefs.soNoAparelho,
+      titulo: 'Sortear só o que já está baixado — nenhum download',
+      aoTocar: () => { sorteioPrefs.soNoAparelho = !sorteioPrefs.soNoAparelho; saveSorteioPrefs(); renderSorteio(); },
+    },
+  ]));
+
+  // ---- QUANTAS (só montando fila) ----
+  // Um teto, e ele é obrigatório: um tema genérico ("Deus" casa em quase toda
+  // letra) montaria uma fila de centenas — no pior caso centenas de downloads
+  // antes da primeira nota.
+  if (sorteioPrefs.modo === AVSorteio.MODO_PLAYLIST) {
+    alvo.appendChild(sorteioLinhaChips('Quantas', AVSorteio.QUANTIDADES.map((q) => ({
+      nome: String(q), ativo: sorteioPrefs.quantos === q,
+      aoTocar: () => { sorteioPrefs.quantos = q; saveSorteioPrefs(); renderSorteio(); },
+    }))));
+  }
+
+  // ---- A CONTA ----
+  const pool = sorteioPool();
+  const liConta = document.createElement('li');
+  liConta.className = 'sorteio-conta' + (pool.itens.length ? '' : ' vazio');
+  liConta.textContent = textoDaContaSorteio(pool);
+  alvo.appendChild(liConta);
+
+  // ---- O CONFIRMAR ----
+  // Mesma faixa de fecho da folha de destinos (`.song-menu-go-row`): é a mesma
+  // gramática de folha, e o botão desabilitado com a conta acima explicando o
+  // porquê é o padrão que esta tela já usa.
+  const liGo = document.createElement('li');
+  liGo.className = 'song-menu-go-row';
+  const go = document.createElement('button');
+  go.type = 'button';
+  go.className = 'song-menu-btn song-menu-go';
+  const txt = document.createElement('span'); txt.className = 'song-menu-text';
+  const rot = document.createElement('span'); rot.className = 'song-menu-label';
+  rot.textContent = sorteioPrefs.modo === AVSorteio.MODO_PLAYLIST
+    ? 'Sortear e montar a fila' : 'Sortear e tocar';
+  txt.appendChild(rot);
+  go.appendChild(txt);
+  go.disabled = !pool.itens.length || sorteioRodando;
+  go.addEventListener('click', () => executarSorteio(go));
+  liGo.appendChild(go);
+  alvo.appendChild(liGo);
+}
+
+// ---- O sorteio -------------------------------------------------------------
+
+async function executarSorteio(btn) {
+  if (sorteioRodando) return;
+  sorteioRodando = true;
+  try {
+    // O índice de letras ANTES do sorteio, sempre — ver o cabeçalho. Já pronto,
+    // resolve no mesmo instante e nada espera.
+    await ensureLyricIndex();
+    const f = AVSorteio.sanear(sorteioPrefs);
+    const pool = AVSorteio.montarPool(allCollections(), f, sorteioCap());
+    const quantos = f.modo === AVSorteio.MODO_PLAYLIST ? f.quantos : 1;
+    const escolhidos = AVSorteio.sortear(pool.itens, quantos);
+    // O VEREDITO sai da passada que decidiu, e é o que o Registro imprime.
+    sorteioDiario = {
+      quando: Date.now(), filtros: f, pool,
+      escolhidos: escolhidos.map((i) => ({
+        nome: songLabel(i.coll, i.s), colecao: i.coll.name,
+        casou: i.casou, noAparelho: i.noAparelho,
+      })),
+    };
+    if (!escolhidos.length) {
+      // A conta já diz o motivo por extenso, dois centímetros acima do botão —
+      // o pulso é o "não deu" que a mão precisa, e não uma segunda frase.
+      pulsar(btn, 'erro');
+      atualizarContaSorteio();
+      return;
+    }
+    if (f.modo === AVSorteio.MODO_PLAYLIST) await montarFilaSorteada(escolhidos);
+    else await tocarSorteada(escolhidos[0]);
+  } finally {
+    sorteioRodando = false;
+    // E A FOLHA VOLTA A ACEITAR TOQUE. Ela costuma já ter sido fechada aqui,
+    // mas há um caminho em que não: recusar o consentimento de download desiste
+    // sem fechar nada. Sem este redesenho, um render que tenha acontecido
+    // DURANTE a corrida (o índice de letras chegando) deixaria o confirmar
+    // desabilitado pelo `sorteioRodando` — e nada mais o reabilitaria.
+    if (sorteioPopupEl.classList.contains('open')) renderSorteio();
+  }
+}
+
+// UMA SÓ. `playSongVariant` já faz tudo — fecha o acervo, abre o cartão de
+// espera sobre a preview, baixa se faltar, substitui a fila e envia. O que sobra
+// aqui é fechar ESTA folha antes, para a resposta aparecer numa tela livre.
+async function tocarSorteada(escolha) {
+  if (!escolha.noAparelho && !(await ensureDownloadConsent())) return;
+  fecharSorteio();
+  await playSongVariant(escolha.coll, escolha.s, escolha.variante);
+}
+
+// A FILA. O caro é o download, e ele é feito UMA vez por faixa, em série: seis
+// downloads em paralelo é o que a sincronização de um álbum faz, e ali ninguém
+// espera; aqui a primeira faixa tem de tocar o quanto antes.
+async function montarFilaSorteada(escolhidos) {
+  const faltam = escolhidos.filter((i) => !i.noAparelho).length;
+  // UM consentimento para o lote, nunca um por faixa.
+  if (faltam && !(await ensureDownloadConsent())) return;
+  fecharSorteio();
+  closeHymnSearch();
+
+  sorteioCancelado = false;
+  const total = escolhidos.length;
+  const bg = previewBusy('Montando', 'playlist de ' + total + ' faixas',
+    () => { sorteioCancelado = true; });
+  // A notificação do sistema, para o app minimizado: UMA tarefa para o lote —
+  // uma por faixa faria a barra reiniciar do zero a cada download.
+  const tarefa = bgTaskStart('Playlist automática', total);
+  const ids = [];
+  try {
+    await withBgWork(async () => {
+      for (let i = 0; i < escolhidos.length; i++) {
+        if (sorteioCancelado) break;
+        const { coll, s, variante } = escolhidos[i];
+        const nome = songLabel(coll, s);
+        bgItemStart(tarefa, nome);
+        bg.atualizar('Montando', (i + 1) + ' de ' + total + ' · ' + nome);
+        // Uma faixa que não desce não derruba a fila: as outras ainda tocam, e
+        // é isso que separa "a playlist saiu menor" de "não aconteceu nada".
+        let id = null;
+        try { id = await resolveSongMediaId(coll, s, variante); } catch (_) { id = null; }
+        if (id && !ids.includes(id)) ids.push(id);
+        bgTaskStep(tarefa, i + 1);
+        bgItemEnd(tarefa, nome);
+      }
+    });
+  } finally {
+    bgTaskEnd(tarefa);
+  }
+
+  // CANCELAR NÃO DEIXA MEIA FILA. O botão do cartão diz "parar", e trocar a
+  // fila do culto por três das dez que o operador acabou de mandar parar é a
+  // resposta oposta à que ele pediu — com o agravante de já ter apagado o que
+  // estava lá. O que baixou fica no aparelho e o próximo sorteio o encontra
+  // pronto: nada do trabalho se perde, só o efeito.
+  if (sorteioCancelado) { bg.falhar('sorteio cancelado — a fila não foi trocada'); return; }
+  if (!ids.length) {
+    bg.falhar('não foi possível baixar nenhuma faixa');
+    return;
+  }
+  try {
+    // O CAMINHO DO `abrirPacote`: a fila do player passa a ser esta, e o
+    // primeiro item vai ao telão. `listSet` também COLETA o que saiu da lista —
+    // é a mesma semântica de todo "Tocar agora" do acervo, que já substitui a
+    // fila por `replacePlaylistWith`.
+    await AVDB.listSet('playlist', ids);
+    plItems = await AVDB.listItems('playlist');
+    renderPlaylist();
+    await send(ids[0]);
+  } finally {
+    bg.soltar();
+  }
+}
+
 // ===== transições (fade in/out) =====
 function openFadePopup() {
   renderAppModeSeg();
@@ -13834,6 +14282,76 @@ function serieLista(itens, formatar) {
   return out;
 }
 
+// ===== O BLOCO DA PLAYLIST AUTOMÁTICA (v5.303) =====
+//
+// A regra do sorteio decide a partir de NOMES e de um índice de letras que pode
+// não estar pronto, e o modo de errar é silencioso dos dois lados: uma faixa
+// recusada some sem erro no console, e uma faixa aceita por engano toca. Este
+// bloco diz o que a última passada achou — e o veredito sai da MESMA passada
+// que decidiu (`sorteioDiario` é gravado dentro de `executarSorteio`), nunca de
+// uma segunda leitura das mesmas perguntas.
+//
+// Ele guarda a PALAVRA CRUA e os filtros do momento: um rótulo já formado prova
+// que a regra rodou; só a entrada dela diz por que ela produziu aquilo.
+const SORTEIO_MOTIVOS = {
+  'sem-musica': 'não é acervo de música (séries e vídeos)',
+  hinario: 'hinário, e o filtro pediu sem',
+  'sem-indice': 'sem índice neste aparelho',
+  variante: 'a origem não tem esta variante',
+  tema: 'não casa a palavra tema',
+  'fora-do-aparelho': 'não está baixada, e o filtro pediu só o que está',
+};
+const SORTEIO_CASOU = { nome: 'no nome', album: 'no álbum', letra: 'na letra', 'sem-tema': 'sem tema' };
+
+function blocoSorteio() {
+  if (!sorteioDiario) return '';
+  const d = sorteioDiario;
+  const f = d.filtros;
+  const p = d.pool;
+  const linhas = ['Playlist automática (o que a regra achou)'];
+  linhas.push('· ' + serieHa(d.quando) + ' · ' + (f.modo === AVSorteio.MODO_PLAYLIST
+    ? 'fila de até ' + f.quantos : 'uma só')
+    + ' · ' + (f.variante === AVSorteio.VARIANTE_PLAYBACK ? 'playback' : 'cantada')
+    + (f.semHinario ? ' · sem hinário' : '')
+    + (f.soNoAparelho ? ' · só no aparelho' : ''));
+  // A palavra CRUA e a normalizada, porque a diferença entre as duas já
+  // explicou uma busca que "não achava nada" (espaço à direita, acento).
+  linhas.push('  tema: ' + (f.tema.trim() ? '"' + f.tema.trim() + '" → "' + p.tema + '"' : '(nenhum — o acervo inteiro)'));
+  linhas.push('  índice de letras: ' + (lyricIndex ? lyricIndex.size + ' faixa(s) com letra' : 'ainda não montado'));
+  linhas.push('  coleções: ' + p.colecoesVistas + ' vistas, ' + p.colecoesUsadas + ' usadas');
+  // As recusas de COLEÇÃO agrupadas pelo motivo: listar 40 álbuns sem índice um
+  // a um afogaria a única linha que importa. O nome só aparece quando são
+  // poucos — e é aí que ele responde "qual álbum?".
+  const porMotivo = new Map();
+  for (const c of p.colecoesRecusadas) {
+    if (!porMotivo.has(c.motivo)) porMotivo.set(c.motivo, []);
+    porMotivo.get(c.motivo).push(c.nome);
+  }
+  for (const [motivo, nomes] of porMotivo) {
+    linhas.push('    - ' + nomes.length + ' → ' + (SORTEIO_MOTIVOS[motivo] || motivo)
+      + (nomes.length <= 3 ? ': ' + nomes.filter(Boolean).join(' · ') : ''));
+  }
+  linhas.push('  faixas: ' + p.faixasVistas + ' vistas, ' + p.itens.length + ' no sorteio, '
+    + p.noAparelho + ' já no aparelho');
+  for (const [casou, n] of Object.entries(p.casaram)) {
+    linhas.push('    + ' + n + ' casou(casaram) ' + (SORTEIO_CASOU[casou] || casou));
+  }
+  for (const [motivo, n] of Object.entries(p.recusas)) {
+    linhas.push('    - ' + n + ' → ' + (SORTEIO_MOTIVOS[motivo] || motivo));
+  }
+  // O QUE SAIU, na ordem em que foi para a fila. UM NOME POR LINHA: o separador
+  // óbvio (" · ") já é parte do rótulo de uma faixa numerada.
+  if (!d.escolhidos.length) {
+    linhas.push('  sorteado: NADA — a folha disse o motivo ao operador');
+  } else {
+    linhas.push('  sorteado (' + d.escolhidos.length + ', nesta ordem):');
+    linhas.push(...serieLista(d.escolhidos, (e) => '    ' + e.nome
+      + ' [' + e.colecao + ' · ' + (SORTEIO_CASOU[e.casou] || e.casou)
+      + ' · ' + (e.noAparelho ? 'no aparelho' : 'baixou') + ']'));
+  }
+  return linhas.join('\n');
+}
+
 async function blocoSeries() {
   if (!serieDisponivel()) return '';
   const linhas = [];
@@ -14007,6 +14525,11 @@ async function renderDiag() {
   const bs = await blocoSeries();
   if (meu !== diagSeq) return;
   if (bs) blocos.push(bs);
+  // A PLAYLIST AUTOMÁTICA, ao lado das séries: os dois blocos respondem à mesma
+  // pergunta ("o que a regra achou, e por que recusou o resto?") e o operador
+  // que abre o Registro depois de um sorteio estranho procura os dois juntos.
+  const bso = blocoSorteio();
+  if (bso) blocos.push(bso);
   if (meu !== diagSeq) return;   // outro render assumiu durante a espera
   blocos.push(eventosDiag());
   // O TEXTO MORA NA VARIÁVEL, e não num nó do DOM (v5.207). O visor `<pre>`
@@ -17074,6 +17597,7 @@ selRenameEl.addEventListener('click', renameSelected);
 backBtnEl.addEventListener('click', navigateBack);
 
 hymnSearchBtnEl.addEventListener('click', openHymnSearch);
+sorteioBtnEl.addEventListener('click', abrirSorteio);
 hymnSearchInputEl.addEventListener('input', debounce(() => renderSearchResults(hymnSearchInputEl.value), SEARCH_DEBOUNCE_MS));
 
 // Mantém o indicador de Wi-Fi/dados móveis dos cards de coleção atualizado
@@ -17807,6 +18331,12 @@ const POPUPS = [
   // de trás para a frente, então a ordem aqui é a ordem em que as camadas se
   // empilham. (O `#folderPopup`, o seletor de atalhos, saiu na v5.254.)
   [songMenuPopupEl, songMenuCloseEl, closeSongMenu],
+  // A PLAYLIST AUTOMÁTICA abre de dentro da Biblioteca e não abre nada por
+  // cima de si — daí ser a ÚLTIMA linha (o voltar percorre de trás para a
+  // frente) e ter o degrau mais alto de `z-index` (220, em controle.css). As
+  // duas coisas dizem a mesma ordem, e mudar uma sem a outra é o acaso que já
+  // cobriu um popup por inteiro aqui.
+  [sorteioPopupEl, sorteioCloseEl, fecharSorteio],
 ];
 POPUPS.forEach(([backdrop, closeBtn, close]) => {
   closeBtn.addEventListener('click', close);

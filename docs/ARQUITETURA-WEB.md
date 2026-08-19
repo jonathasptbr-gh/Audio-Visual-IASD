@@ -17,7 +17,7 @@ para uma pergunta sobre a Bíblia não custar a leitura do Controle inteiro.
 
 | capítulo | arquivo | quando abrir |
 |---|---|---|
-| Controle | [`arquitetura/CONTROLE.md`](arquitetura/CONTROLE.md) | layout, transporte, mixer, Biblioteca, coleções (LouvorJA), YouTube, favoritos, playlist, séries |
+| Controle | [`arquitetura/CONTROLE.md`](arquitetura/CONTROLE.md) | layout, transporte, mixer, Biblioteca, coleções (LouvorJA), YouTube, favoritos, playlist, séries, playlist automática |
 | Modelo de dados | [`arquitetura/MODELO-DE-DADOS.md`](arquitetura/MODELO-DE-DADOS.md) | `shared/db.js`: IDB, OPFS, BroadcastChannel, coletor de lixo |
 | Motor de renderização | [`arquitetura/MOTOR-STAGE.md`](arquitetura/MOTOR-STAGE.md) | `shared/stage.js`: cortina, fades, concorrência de load |
 | Camada de Texto | [`arquitetura/CAMADA-DE-TEXTO.md`](arquitetura/CAMADA-DE-TEXTO.md) | Bíblia, Mensagens, letra avulsa, cronômetro, sorteio, letra sincronizada |
@@ -196,6 +196,10 @@ app/src/main/assets/web/
 │   ├── serie.js                # A REGRA das SÉRIES do YouTube — PURA (sem DOM, sem
 │   │                           # rede), com oráculo em Node: decide quais playlists
 │   │                           # de um canal formam um álbum e o que é LIBRAS
+│   ├── sorteio.js              # A REGRA da PLAYLIST AUTOMÁTICA — PURA, com as
+│   │                           # capacidades INJETADAS (normalizar, casar letra,
+│   │                           # "está no aparelho?") e oráculo em Node: decide
+│   │                           # o que pode ser sorteado para o telão
 │   └── bible.js                # Cliente da parte bíblica do banco LouvorJA (livros/versões/capítulos — ver seção "Bíblia")
 ├── espelho/                    # o papel `tela` (telão nas telas da rede)
 │   ├── tela.js                 # a casca: SSE, dreno de subida, entrada, relógio

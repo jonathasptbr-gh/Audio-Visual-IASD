@@ -16,6 +16,7 @@
 | [Os acordeões](#os-acordeões-abrem-animados) | card do álbum, letra, opções da coleção, completude |
 | [O download vira estado da tela](#o-download-vira-estado-da-tela) | espera na preview, anel na linha, letra sincronizada |
 | [Séries do YouTube](#séries-do-youtube--coleções-que-não-vêm-do-louvorja-v5228) | Provai e Vede, Informativo |
+| [Playlist automática](#playlist-automática-o-sorteio-temático-v5303) | sortear por tema: uma só ou uma fila |
 | [Buscar no YouTube](#pesquisar-texto-no-youtube-no-fim-da-busca) | busca, download, transmissão direta |
 | [Favoritos](#favoritos-uma-lista-só-marcados--pastas-do-aparelho) | lista única, pastas do aparelho |
 | [A saída de áudio](#a-saída-de-áudio-os-displays-ou-este-aparelho-v5215) | quando o som sai do celular |
@@ -3076,6 +3077,133 @@ arquivo). Uma passagem única corrige o que já está baixado
 (`desnumerarAlbunsBaixados`, estado `migSemNumeroAlbuns`) — ela REMOVE o prefixo
 `N. ` e zera o `hymnTrack`, em vez de recalcular o nome a partir de `hymnName`,
 porque o mesmo registro cobre importados e variantes.
+
+### Playlist automática: o sorteio temático (v5.303)
+
+Pedido do operador: *"um sistema de play aleatório temático, tanto para
+música/mídia individual ou para montar playlists automáticas … você escolhe uma
+palavra tema (que vai fazer a busca na biblioteca sobre palavras-chave e filtrar
+a lista) e então aleatoriamente escolhe uma ou mais para tocar."*
+
+Um botão na barra da Biblioteca (`#sorteioBtn`, ao lado do campo e **antes** do
+✕) abre uma folha com cinco decisões e um botão:
+
+| Controle | Pergunta | Valores |
+|---|---|---|
+| segmento | quanto? | **Tocar uma só** · **Montar playlist** |
+| campo | qual tema? | palavra livre — vazio = o acervo inteiro |
+| segmento | o quê? | **Cantada** · **Playback** |
+| pílulas | filtros | **Sem hinário** · **Só no aparelho** |
+| pílulas | quantas? | 3 · 5 · 10 · 15 · 20 *(só montando fila)* |
+
+#### A REGRA é um arquivo puro, com oráculo
+
+`controle/sorteio.js` (`window.AVSorteio`) decide **o que pode ser sorteado**, e
+não faz mais nada: não toca no DOM, não lê o IndexedDB, não baixa e não projeta.
+As três capacidades de que precisa chegam INJETADAS em `cap` — e é isso que
+impede o defeito mais caro possível aqui: `normalizeForSearch` é o normalizador
+ÚNICO da Biblioteca e `lyricMatch` é o casamento por letra da busca, e uma
+segunda escrita de qualquer um dos dois faria **o sorteio achar um conjunto e a
+busca achar outro para a mesma palavra, na mesma tela** — com os dois parecendo
+certos.
+
+O oráculo é `tools/sorteio.test.mjs`, Node puro, no `apk.yml` **sem
+`continue-on-error`**: o operador toca UM botão e a faixa entra em cena, sem tela
+intermediária e sem ninguém conferir a lista antes.
+
+#### O que entra no pool, e por construção
+
+| Fica de fora | Como |
+|---|---|
+| **as séries** (grupo "Arquivos oficiais") | `temLetra(coll)` — a pergunta é pela CAPACIDADE, nunca por `kind === 'serie'`. Um episódio são ~300 MB no lugar do louvor |
+| **pastas do aparelho e Favoritos** | eles não são coleções, são LISTAS: `allCollections()` não os conhece |
+| **faixa sem a variante pedida** | `semAudio` / `has_instrumental_music && !semPlayback` — sem essa guarda a faixa entra, o download não acha URL, e o cartão responde *"sem internet para baixar"*, que é a frase errada |
+| **o hinário**, se o operador pedir | `collNumbersSongs(coll)`. É OPÇÃO, não regra — foi assim que ele pediu |
+
+A palavra tema casa em **três lugares, do mais específico ao mais amplo**: nome
+da faixa → nome do ÁLBUM → letra. O álbum no meio é a diferença entre "busca" e
+"tema": um álbum chamado "Natal" **é** o tema, e as faixas dele raramente repetem
+a palavra no título. A letra só é varrida acima do piso do `LYRIC_MIN_Q`, o mesmo
+da busca.
+
+#### O que já está no aparelho vem PRIMEIRO, sempre
+
+`AVSorteio.sortear` particiona o pool em baixado × por baixar, embaralha **as
+duas** e concatena. Não é otimização: uma fila de dez faixas por baixar é a
+congregação esperando a rede da igreja no meio do culto.
+
+A preferência é ABSOLUTA, e o preço está dito na tela: com três faixas baixadas
+e nenhum filtro, "sortear uma" sai dessas três até que outras sejam baixadas. Por
+isso o contador mostra as **duas metades** ("12 faixas casam · 3 já no aparelho ·
+sorteia 5") em vez de um número só, e por isso o chip "Só no aparelho" existe —
+ele torna a escolha explícita em vez de deixá-la implícita numa ordenação.
+
+**A segunda partição também embaralha**, e isso não é simetria: sem ela o que
+completa a fila sai na ordem do acervo — sempre o mesmo álbum — justamente no
+aparelho recém-configurado, onde nada está baixado e ela é a única que
+contribui.
+
+#### A espera do índice de letras é OBRIGATÓRIA aqui
+
+Na busca, `ensureLyricIndex()` é disparado e esquecido: o índice chega e a lista
+se redesenha (`renderSearchResults` é síncrona, roda a cada tecla e não pode
+esperar o IDB). **Aqui não há redesenho que conserte depois** — o toque no botão
+manda a faixa para o telão. Sortear com o índice pela metade produziria um
+sorteio que IGNORA a palavra tema e projeta mesmo assim.
+
+Por isso `ensureLyricIndex()` passou a **devolver a promessa** (quem a ignora
+continua exatamente como antes), `executarSorteio` a espera, e `abrirSorteio` a
+dispara ao abrir a folha — o único instante em que a espera não custa nada,
+porque o operador ainda está escolhendo o modo.
+
+#### O destino: a fila do PLAYER, e ela substitui
+
+Pedido do operador: *"vai direto para a playlist do player, para ser tocada"*. É
+o caminho do `abrirPacote` — `AVDB.listSet('playlist', ids)`, `plItems`,
+`renderPlaylist()` e `send` do primeiro. **Não é o Cronograma:** aquele é a ordem
+do culto, montada à mão, e um sorteio não a apaga.
+
+Substituir a fila é a mesma semântica de todo "Tocar agora" do acervo, que já
+passa por `replacePlaylistWith` — não é uma classe de risco nova.
+
+#### O lote de download
+
+- **UM consentimento** (`ensureDownloadConsent`) para a fila inteira, nunca um
+  por faixa.
+- **UMA tarefa** de notificação (`bgTaskStart` com o total), senão a barra
+  reinicia do zero a cada download; tudo dentro de **um** `withBgWork`.
+- **Em série, não em paralelo.** Seis downloads simultâneos é o que a
+  sincronização de um álbum faz, e ali ninguém espera; aqui a primeira faixa tem
+  de tocar o quanto antes.
+- **Uma faixa que não desce não derruba a fila** — as outras ainda tocam, e é
+  isso que separa "a playlist saiu menor" de "não aconteceu nada".
+- **O cancelar** do cartão da preview para a fila **entre** faixas: o download em
+  curso termina, porque interrompê-lo no meio deixaria um parcial.
+
+#### A conta é a única chance de ver antes de acontecer
+
+O botão dispara sem mais nenhuma tela, então a linha do contador é onde o
+operador lê o que vai acontecer. Vazia, ela diz o **motivo dominante** — sem ele,
+"nenhuma faixa casa" tem cinco causas que pedem ações opostas (trocar a palavra,
+desligar um filtro, trocar a variante, abrir um álbum para o índice chegar).
+
+O veredito completo vai para o **Registro** (`blocoSorteio`), ao lado do bloco
+das séries: coleções vistas × usadas e as recusas por motivo, faixas vistas ×
+sorteáveis, onde cada uma casou, e os nomes escolhidos na ordem em que foram para
+a fila. Ele guarda a palavra **CRUA e a normalizada** — a diferença entre as duas
+já explicou uma busca que "não achava nada".
+
+#### Duas escolhas de desenho que precisam estar ditas
+
+- **"Cantada" e "Playback" são um SEGMENTO, não dois filtros.** O operador
+  descreveu os dois como filtros ("músicas cantadas", "apenas áudio
+  instrumental"), mas eles são os dois valores da MESMA pergunta: marcar os dois
+  não significa nada e não marcar nenhum precisa significar alguma coisa. Como
+  segmento a escolha é sempre uma — e é o mesmo par, com os mesmos rótulos, que a
+  folha de uma música do acervo já oferece.
+- **O glifo é `casino`, nunca `shuffle`.** Aquele já é o "Aleatório" do botão de
+  repetição, a três centímetros daqui: dois desenhos iguais prometendo coisas
+  diferentes na mesma tela é o defeito que nenhuma legenda conserta.
 
 ### "Pesquisar <texto> no YouTube", no fim da busca
 

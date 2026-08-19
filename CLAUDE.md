@@ -92,6 +92,9 @@ app/src/main/
 │   │                            #   `tela` sobre o próprio /display/ (SSE)
 │   ├── controle/serie.js        #   as SÉRIES do YouTube: a REGRA que decide o
 │   │                            #   que entra num álbum (PURA, com oráculo Node)
+│   ├── controle/sorteio.js      #   a PLAYLIST AUTOMÁTICA: a REGRA que decide o
+│   │                            #   que pode ser sorteado (PURA, capacidades
+│   │                            #   injetadas, com oráculo Node)
 │   ├── controle/                #   (sem sw.js / manifest / icons — ver abaixo)
 │   └── display/                 #   (idem)
 ├── java/br/org/iasd/av/
@@ -1848,6 +1851,7 @@ Antes de publicar: `node --check` em todo `.js` de `assets/web`, validação do
 | `sombra.test.mjs` | nenhuma função da base pode redeclarar um nome de módulo — `node --check` APROVA um `const ms` que sombreia a `ms` do módulo, e o que sai é `ReferenceError` por zona morta temporal |
 | `tokens.test.mjs` | nenhum `var(--x)` **sem fallback** aponta para token inexistente (um `var()` inválido computa para o valor INICIAL, sem aviso); nenhum token só no tema claro; **nenhuma regra desenha contorno**. `var(--x, fallback)` é legítimo (valores que o JS entrega em runtime) |
 | `serie.test.mjs` | quais playlists e vídeos entram no álbum. **Entradas VERBATIM do canal** — nomenclatura imaginada prova só que o código concorda com quem o escreveu |
+| `sorteio.test.mjs` | quais faixas a **playlist automática** pode mandar ao telão. O operador toca UM botão e a faixa entra em cena, sem tela intermediária: os quatro modos de errar (série no lugar do louvor · faixa que casa e não aparece · PLAYBACK onde se esperava a voz · fila cheia do que falta baixar) são todos silenciosos |
 | `sidx.test.mjs` | o parser `sidx` |
 
 **Chromium de verdade, em DOIS PASSOS:** `Preparar o Chromium` (o `npm i` e o
@@ -1874,6 +1878,7 @@ primeiro oráculo novo, e envelheceria mentindo.
 | `ponte.test.mjs` | **o que a ponte de fato ENTREGA** — `native.js` REMONTA campo a campo, e um campo esquecido some em silêncio. Afirma também que ele não drena papel nenhum e que o display emite as quatro mensagens (`display-ready`, `display-status`, `media-ended`, `mic-status`) — quem filtra é o `tela.js`, nunca a fonte |
 | `cena.test.mjs` | o que o telão mostra ao RECONECTAR (o caminho menos testável à mão: exige TV, dongle e o timing de derrubá-lo) |
 | `destinos.test.mjs` | o que está marcado atravessa o fechamento da folha — a ação roda depois de `closeSongMenu()`, que zera o conjunto |
+| `sorteio-tela.test.mjs` | a **playlist automática** da folha até a fila. O `sorteio.test.mjs` trava a REGRA; este trava a LIGAÇÃO, que falha de outro jeito — a regra continua certa e o recurso não faz nada. As quatro capacidades injetadas são ponteiros, e um errado devolve um pool plausível e ERRADO |
 | `db-gc.test.mjs` | o coletor de lixo — o único código do app que APAGA mídia do operador |
 | `acervo.test.mjs` | as contas da Biblioteca ("completa?" e "quanto ocupa?"), que já foram respondidas por fórmulas diferentes na mesma tela |
 | `contexto-seguro.test.mjs` | `VideoDecoder`, `wakeLock`, `audioWorklet`, `randomUUID`, `crypto.subtle` fora de guarda `isSecureContext` em `espelho/` **e `display/`** — o display INTEIRO roda em `http://` nas telas da rede, e lá essas APIs vêm `undefined` |
@@ -2117,7 +2122,7 @@ aparelho exibe a versão antiga, justamente a leitura que serve para diagnostica
 se o OTA chegou); esquecer o `version.json` é o erro **mudo** do outro lado (nada
 chega a aparelho nenhum). O `versionCode`/`versionName` do APK vêm do CI.
 
-**Versão atual: v5.302** (base web) · `SHELL_VERSION` **44** · bundle com
+**Versão atual: v5.303** (base web) · `SHELL_VERSION` **44** · bundle com
 `minShell: 2` — ele funciona igual num shell antigo, só sem os recursos nativos
 por construção (escada do voltar, botões de volume, notificação de controles),
 que **só chegam instalando o APK**.

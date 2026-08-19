@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v5.303** — A PLAYLIST AUTOMÁTICA: sortear por tema, uma só ou uma fila — e a regra é um arquivo PURO com dois oráculos. OTA PURO
 - **v5.302** — A ORDEM DA FILEIRA, DITADA — e o botão da playlist deixa de ser um recibo para virar um ESTADO. OTA PURO
 - **v5.301** — A CONFIRMAÇÃO DE EXCLUIR SAI DO POPUP E VOLTA PARA A LINHA — e a fileira da gaveta, medida a 360px, já estava cheia. OTA PURO
 - **v5.298** (APK v2.3) — A REVISÃO PROFUNDA — uma seção inteira do doc de arquitetura descrevia um player apagado, e o espelhoEstado publicava seis medições que n…
@@ -171,6 +172,98 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v5.303
+
+**A v5.303: A PLAYLIST AUTOMÁTICA — sortear por tema, uma só ou uma fila, e a
+regra é um arquivo PURO com dois oráculos. OTA PURO** (base web, oráculos e
+docs; sem Release, `SHELL_VERSION` continua **44**).
+
+Pedido do operador: *"um sistema de play aleatório temático, tanto para
+música/mídia individual ou para montar playlists automáticas … na biblioteca vai
+ter um botão de playlist automática, onde ao tocar, você escolhe entre o padrão
+de tocar uma só ou tocar playlist. depois você pode escolher uma palavra tema
+(que vai fazer a busca na biblioteca sobre palavras-chave e filtrar a lista) e
+então aleatoriamente escolhe uma ou mais para tocar em playlist. também pode por
+opções de filtros como: musicas cantadas, não tocar do hinário, apenas áudio
+instrumental (playbacks sem vídeo). obviamente a coleção de arquivos padrão não
+entra nessas listagens."*
+
+Quatro decisões vieram dele em resposta às perguntas do lote: o que fica de
+fora são **os Arquivos oficiais e as pastas/Favoritos**; a fila **"vai direto
+para a playlist do player, para ser tocada"**; o sorteio **prefere o baixado e
+baixa se faltar**; e a palavra tema procura em **nome + letra + álbum**.
+
+**A REGRA É UM ARQUIVO À PARTE, E PURO.** `controle/sorteio.js` decide o que
+pode ser sorteado e não faz mais nada — sem DOM, sem IDB, sem rede. É a mesma
+razão do `serie.js`: o operador toca UM botão e a faixa entra em cena, sem tela
+intermediária e sem ninguém conferir a lista antes.
+
+**As capacidades chegam INJETADAS, e não é cerimônia.** `normalizeForSearch` é o
+normalizador ÚNICO da Biblioteca e `lyricMatch` é o casamento por letra da
+busca. Uma segunda escrita de qualquer um dos dois faria o sorteio achar um
+conjunto e a busca achar outro **para a mesma palavra, na mesma tela** — com os
+dois parecendo certos. O módulo, por isso, não normaliza nada: ele pede.
+
+**O QUE FICA DE FORA SAI PELA CAPACIDADE, NUNCA PELA IDENTIDADE.** As séries
+saem por `temLetra(coll)`, não por `kind === 'serie'` — é a regra que já governa
+a linha e as duas folhas do acervo desde a v5.228, e é ela que abre lugar para o
+terceiro modelo de coleção sem um `if` novo. As pastas do aparelho e os
+Favoritos nem chegam à varredura: eles não são coleções, são listas, e
+`allCollections()` não os conhece. Está escrito no arquivo porque "por que meus
+favoritos não entram?" é a primeira pergunta que a tela provoca.
+
+**O QUE JÁ ESTÁ NO APARELHO VEM PRIMEIRO, SEMPRE**, e não é otimização: uma fila
+de dez faixas por baixar é a congregação esperando a rede da igreja no meio do
+culto. A preferência é ABSOLUTA, e o preço está na tela — com três faixas
+baixadas, "sortear uma" sai dessas três até que outras sejam baixadas. Daí o
+contador mostrar as duas metades ("12 faixas casam · 3 já no aparelho · sorteia
+5") e o chip "Só no aparelho" existir: ele torna a escolha explícita em vez de
+deixá-la implícita numa ordenação. **A segunda partição também embaralha** —
+sem isso o que completa a fila sai na ordem do acervo, sempre o mesmo álbum,
+justamente no aparelho recém-configurado, onde nada está baixado e ela é a única
+que contribui.
+
+**`ensureLyricIndex()` PASSOU A DEVOLVER A PROMESSA.** Na busca ele é disparado
+e esquecido: o índice chega e a lista se redesenha (`renderSearchResults` é
+síncrona, roda a cada tecla e não pode esperar o IDB). Aqui não há redesenho que
+conserte depois — o toque manda a faixa para o telão, e sortear com o índice pela
+metade produziria um sorteio que IGNORA a palavra tema e projeta mesmo assim.
+Quem ignora o retorno continua exatamente como antes.
+
+**"Cantada" e "Playback" viraram um SEGMENTO, não dois filtros.** O operador os
+descreveu como filtros, mas eles são os dois valores da MESMA pergunta: marcar
+os dois não significa nada e não marcar nenhum precisa significar alguma coisa.
+Como segmento a escolha é sempre uma — e é o mesmo par, com os mesmos rótulos,
+que a folha de uma música do acervo já oferece. **E o glifo é `casino`, nunca
+`shuffle`:** aquele já é o "Aleatório" do botão de repetição, a três centímetros
+daqui.
+
+**A PREFERÊNCIA NÃO ENTROU NO `load()`.** Ela chegou lá primeiro, ao lado do
+`drawPrefs`, e a medição reprovou: `load()` roda a cada mexida em lista e cada
+`getState` dele é uma transação de IndexedDB em série. A leitura a mais empurrou
+a reabertura da gaveta depois de uma casa de reordenação — um caso já apertado
+no `boot-nativo.test.mjs` — de uma reprovação em três para duas. Ela virou
+leitura preguiçosa, na primeira abertura da folha: um dado que só uma folha usa,
+lido uma vez por sessão, não se paga em toda a interface.
+
+**DOIS ORÁCULOS, e eles falham de jeitos diferentes.** `tools/sorteio.test.mjs`
+(Node puro, **sem `continue-on-error`**) trava a REGRA — os quatro modos de
+errar dela são silenciosos: episódio de série no lugar do louvor, faixa que casa
+a letra e não aparece, PLAYBACK projetado onde se esperava a voz (o
+`resolveSongMediaId` manda para o instrumental tudo que não seja `'full'`), e a
+fila cheia do que ainda precisa ser baixado. `tools/sorteio-tela.test.mjs`
+(Chromium) trava a LIGAÇÃO, que falha de outro jeito: a regra continua certa e o
+recurso não faz nada. As quatro capacidades são ponteiros para funções do
+`controle.js`, e um errado devolve um pool plausível e ERRADO.
+
+**E o veredito vai para o Registro** (`blocoSorteio`), ao lado do bloco das
+séries e pelo mesmo motivo: a regra decide a partir de nomes e de um índice que
+pode não estar pronto, e os dois modos de errar são mudos. Ele guarda a palavra
+**crua e a normalizada** — a diferença entre as duas já explicou uma busca que
+"não achava nada".
 
 ---
 
