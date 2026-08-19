@@ -1810,89 +1810,76 @@ dedo anda `TAB_SWIPE_MIN` (60px) na horizontal com o eixo X dominando o Y em
 - **A ordem é a da FAIXA** (`SWIPE_TABS`), não a do `TAB_ORDER`: este inclui os
   Favoritos, que não têm botão na faixa — deslizar até uma tela que não aparece
   na navegação deixaria o operador sem indicação de onde está.
-- **Age no meio do gesto**, não ao soltar: a aba nova entra deslizando enquanto o
-  dedo ainda se move, que é o que faz o gesto parecer arrastar a tela.
+- **Age no meio do gesto**, não ao soltar: é o que faz o gesto parecer arrastar
+  a tela.
 - **Duas superfícies escutam** (o `<main>` e a `.tabs`, que mora fora dele), com
   o estado do gesto COMPARTILHADO: é UM gesto, não dois.
-- **Vale SOBRE A LISTA, inclusive sobre as linhas** — o Cronograma inteiro é
-  feito de linhas, e excluí-las mata o gesto na aba em que ele mais é tentado.
-- **`touch-action: pan-y` NO SCROLLER, nunca num ancestral.** A regra de
-  `touch-action` PARA de subir na árvore no elemento que IMPLEMENTA o gesto, isto
-  é, no contêiner que rola: quem precisa da declaração é cada scroller — a
-  `.lib-list`, o `.misc-panel` e a `.msg-list` (na Ferramentas a `.lib-list` é
-  `overflow: hidden` e quem rola é o painel de dentro) e as `.bible-half`. Sem
-  ela o navegador considera o gesto dele (`manipulation`, herdado do `*`) e o
-  engole com um `pointercancel` ao primeiro movimento, muito antes dos 60px. E a
-  MESMA regra, lida do outro lado, é o que preserva o `pan-x` do histórico do
-  sorteio (`.draw-hist`): um `pan-y` acima dele não o alcança — verificado com
-  toque real, o histórico rola de lado (`scrollLeft` 0 → 142) e a aba não muda.
-  Esta lição custou três versões e voltou pelo menos três vezes.
+- **Vale SOBRE A LISTA, inclusive sobre as linhas** — o Cronograma é feito de
+  linhas, e excluí-las mataria o gesto na aba em que ele mais é tentado.
+- **`touch-action: pan-y` NO SCROLLER, nunca num ancestral.** A regra PARA de
+  subir na árvore no elemento que IMPLEMENTA o gesto: quem precisa da declaração
+  é cada scroller — `.lib-list`, `.misc-panel`, `.msg-list` (em Ferramentas a
+  `.lib-list` é `overflow: hidden` e quem rola é o painel de dentro) e as
+  `.bible-half`. Sem ela o navegador considera o gesto dele (`manipulation`,
+  herdado do `*`) e o engole com `pointercancel` antes dos 60px. E a MESMA regra
+  preserva o `pan-x` do histórico do sorteio (`.draw-hist`): um `pan-y` acima
+  dele não o alcança. **Esta lição custou três versões e voltou três vezes.**
 - **O gesto de TOQUE tem ciclo próprio, independente dos `pointer*`.** O
-  navegador CANCELA o fluxo de ponteiro (`pointercancel`) assim que decide que o
-  gesto é dele, e basta um scroller no caminho: armando pelo `pointerdown`, um
-  cancelamento matava o gesto antes de ele nascer. `touchstart` arma, `touchmove`
-  decide o eixo / reivindica / troca a aba, `touchend`/`touchcancel` encerram. Os
-  `pointer*` ficaram só para o MOUSE (filtrados por `pointerType`).
+  navegador CANCELA o fluxo de ponteiro assim que decide que o gesto é dele, e
+  basta um scroller no caminho: armando pelo `pointerdown`, o cancelamento matava
+  o gesto antes de nascer. `touchstart` arma, `touchmove` decide o eixo /
+  reivindica / troca, `touchend`/`touchcancel` encerram. Os `pointer*` ficaram só
+  para o MOUSE (filtrados por `pointerType`).
 - **Dois limiares, duas decisões:** o EIXO aos 12px (`TAB_CLAIM_MIN`, antes de o
-  navegador tomar a decisão dele) e a TROCA aos 60px (`TAB_SWIPE_MIN`, que é
-  intenção). Reivindicado, o gesto continua nosso até o dedo levantar — soltar o
-  controle no meio deixaria a página rolar de lado no fim do movimento. O
-  `touchmove` é **não passivo**, que é o que faz o navegador esperar a decisão do
-  handler; um movimento vertical nunca é tocado.
+  navegador decidir) e a TROCA aos 60px (`TAB_SWIPE_MIN`, que é intenção).
+  Reivindicado, o gesto é nosso até o dedo levantar — soltar no meio deixaria a
+  página rolar de lado no fim. O `touchmove` é **não passivo**, que é o que faz o
+  navegador esperar a decisão do handler.
 - **A GUARDA PERGUNTA AO DOM, nunca a uma lista de classes.** Quatro consertos
   deste carrossel erraram mantendo à mão a lista do que o eixo horizontal não
-  pode atravessar — a última chegou a proibir `.bible-half`, que declara
-  `touch-action: pan-y` e LIBERA o gesto, e a mais larga barrava toda sub-tela
-  (reconhecida pelo voltar visível), matando o carrossel justamente na navegação
-  interna, onde o operador mais desliza. A pergunta certa é MEDIDA: existe, entre
-  o alvo e a superfície que escuta, alguém que de fato ROLE na horizontal? Um
-  trilho de pílulas cheio responde sim; o mesmo trilho com três pílulas responde
-  não. Campos de texto ficam fora por outro motivo (ali o eixo é do cursor), e
-  são nomeáveis por serem conceito do HTML, não classe deste app. O modo de
-  seleção múltipla continua fora.
+  pode atravessar — um chegou a proibir `.bible-half`, que declara `pan-y` e
+  LIBERA o gesto, e o mais largo barrava toda sub-tela (reconhecida pelo voltar
+  visível), matando o carrossel na navegação interna. A pergunta certa é MEDIDA:
+  entre o alvo e a superfície que escuta, existe alguém que de fato ROLE na
+  horizontal? Um trilho de pílulas cheio responde sim; o mesmo com três pílulas
+  responde não. Campos de texto ficam fora por outro motivo (ali o eixo é do
+  cursor) e são nomeáveis por serem conceito do HTML. A seleção múltipla também.
 - **O `click` do fim do gesto é engolido** por um listener de CAPTURA no
   `<main>`, senão deslizar sobre a grade de livros trocava de aba **e** abria um
-  livro, e na ponta do carrossel um deslize sobre "+ Nova mensagem" abria o
-  diálogo. A trava é uma **flag desarmada no `pointerdown` seguinte**, nunca um
-  listener com prazo: o prazo de 350 ms mede o tempo errado — numa página em
-  segundo plano o resto do gesto leva mais que isso e a trava expirava
-  justamente antes de o clique chegar.
+  livro. A trava é uma **flag desarmada no `pointerdown` seguinte**, nunca um
+  listener com prazo: o prazo mede o tempo errado — numa página em segundo plano
+  o resto do gesto leva mais que ele e a trava expirava antes do clique.
+
 #### A troca de aba é um DESLIZE INTEIRO
 
 As duas telas se movem juntas, larguras inteiras: a que sai vai para `-100%`, a
-que entra vem de `+100%`, e em nenhum instante elas se sobrepõem — são vizinhas,
-coladas, empurrando-se. Mexer só no conteúdo NOVO é um sinal de DIREÇÃO, não um
-deslize, e o gesto que dispara isto promete que a tela vai sair do lugar.
+que entra vem de `+100%`, e elas nunca se sobrepõem — são vizinhas, empurrando-se.
+Mexer só no conteúdo NOVO é um sinal de DIREÇÃO, não um deslize.
 
-O truque para ter as DUAS telas ao mesmo tempo com uma lista só no DOM é o
-**fantasma** (`makeTabGhost`): os nós antigos são MOVIDOS para um `<ul>` absoluto
-posicionado sobre a área da lista, e a `#library` fica livre para o conteúdo novo.
+O truque para ter as DUAS telas com uma lista só no DOM é o **fantasma**
+(`makeTabGhost`): os nós antigos são MOVIDOS para um `<ul>` absoluto sobre a área
+da lista, e a `#library` fica livre para o conteúdo novo.
 
 - **Mover, nunca CLONAR.** Um clone reinicia o download de cada miniatura por um
   `blob:` que o render seguinte revoga — as fotos sumiriam no meio do deslize.
-- **O fantasma é feito ANTES do `load()`**, e é ele que o operador continua vendo
+- **O fantasma é feito ANTES do `load()`**, e é o que o operador continua vendo
   enquanto a lista nova é montada. Por isso `switchTab` é `async` e o deslize
   dispara no `finally`: um `load()` que falhe não pode deixar o fantasma
   congelado sobre a lista para sempre.
-- **O `<input type="file">` fica para trás de propósito** (ele mora no
-  `#listFoot`, fora do `<ul>`): pendurado dentro da lista ele iria junto, sairia
-  do documento quando o fantasma fosse descartado, e o `change` que importa
-  arquivos deixaria de acontecer sem erro nenhum no console.
-- **Um deslize novo mata o anterior** (`tabGhost`): dois toques rápidos deixariam
-  dois retângulos empilhados sobre a lista.
-- **`main` é `position: relative` + `overflow: hidden`**: é ele que ancora e
-  RECORTA o fantasma.
+- **O `<input type="file">` fica para trás de propósito** (mora no `#listFoot`,
+  fora do `<ul>`): dentro da lista ele iria junto, sairia do documento com o
+  fantasma, e o `change` que importa arquivos deixaria de acontecer sem erro.
+- **Um deslize novo mata o anterior** (`tabGhost`).
+- **`main` é `position: relative` + `overflow: hidden`**: ancora e RECORTA.
 - **A regra do fantasma precisa das DUAS classes** (`.lib-list.lib-ghost`): ele
-  também é uma `.lib-list`, e aquela regra — que vem DEPOIS na folha — declara
-  `position: relative`. Com uma classe só o empate era decidido pela ordem, o
-  `relative` vencia, o fantasma continuava no fluxo e DIVIDIA a altura com a
-  lista de verdade (medido: 478px em repouso, 233px no meio da animação).
+  também é `.lib-list`, e aquela regra — depois na folha — declara
+  `position: relative`. Com uma classe só o `relative` vencia, o fantasma
+  continuava no fluxo e DIVIDIA a altura com a lista (medido: 478px em repouso,
+  233px no meio da animação).
 
-A **direção** vem da ordem das abas (`TAB_ORDER`): ir para uma aba à direita faz
-a nova entrar pela direita. A duração e a curva são as MESMAS do vazado da faixa
-(`TAB_MOVE_MS`/`TAB_MOVE_EASE` × `--tab-move`) — os dois são efeitos de UM gesto,
-e tempos diferentes os separariam em dois eventos. `prefers-reduced-motion`
-desliga tudo: sem fantasma e sem deslize, a lista simplesmente troca.
+A **direção** vem de `TAB_ORDER`. A duração e a curva são as MESMAS do vazado da
+faixa (`TAB_MOVE_MS`/`TAB_MOVE_EASE` × `--tab-move`) — os dois são efeitos de UM
+gesto. `prefers-reduced-motion` desliga tudo.
 
 **`load()` tem guarda de sequência** (`loadSeqCtl`, como o `loadSeq` do stage):
 ela é async e disparada fire-and-forget por dezenas de handlers, então duas
