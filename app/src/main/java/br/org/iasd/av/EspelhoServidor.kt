@@ -34,81 +34,69 @@ import kotlin.concurrent.thread
 /**
  * O SERVIDOR DO TELÃO POR COMANDOS — sockets, threads, roteamento e fan-out.
  *
- * Ele é o cano por onde o bundle, os COMANDOS e a MÍDIA saem para os
- * navegadores da rede local.
- * **Não decide nada** que os dois arquivos puros já decidam: quem lê a
- * requisição é o [EspelhoHttp] e quem diz se aquela tela pode entrar é o
+ * Ele é o cano por onde o bundle, os COMANDOS e a MÍDIA saem para os navegadores
+ * da rede local. **Não decide nada** que os arquivos puros já decidam: quem lê a
+ * requisição é o [EspelhoHttp] e quem diz se a tela pode entrar é o
  * [EspelhoPares]. Aqui moram só as três coisas que exigem o Android e um
- * `ServerSocket`: **onde o socket liga**, **quantas threads existem** e **o que
- * cada cliente recebe**.
+ * `ServerSocket`: onde o socket liga, quantas threads existem e o que cada
+ * cliente recebe.
  *
  * ## Onde o socket liga — a linha mais importante deste arquivo
  *
  * `ServerSocket(porta)` liga em **0.0.0.0**: toda interface, inclusive a
- * `rmnet` da operadora. A igreja pode não ter internet, cujo desfecho normal é
- * o celular em dados móveis — onde as operadoras brasileiras entregam **IPv6
- * globalmente roteável**, sem NAT e sem firewall implícito. Seria o culto numa
- * porta alcançável do mundo, e ninguém no prédio teria como perceber.
+ * `rmnet` da operadora. Sem internet na igreja o desfecho normal é o celular em
+ * dados móveis, onde as operadoras brasileiras entregam **IPv6 globalmente
+ * roteável**, sem NAT — o culto numa porta alcançável do mundo, sem ninguém no
+ * prédio perceber. Por isso, e não é negociável:
  *
- * Por isso, e não é negociável:
- *
- * 1. o bind é **explícito, ao IPv4 da rede ativa** (`ServerSocket().bind(...)`),
- *    nunca pelo construtor de porta e nunca em `::` — os endereços IPv6
- *    temporários do Android rotacionam, e ligar em `::` reintroduz o problema
- *    por outra porta;
- * 2. **recusa ligar** quando a rede ativa não tem `TRANSPORT_WIFI`, ou tem
- *    `TRANSPORT_CELLULAR` ou `TRANSPORT_VPN` — com a frase no Registro, nunca
- *    em silêncio (ver [redeDaWifi] e [Recusa]);
- * 3. a rede que some **desliga o servidor** — por um
- *    `registerNetworkCallback` de `TRANSPORT_WIFI`, e não pelo callback da rede
- *    PADRÃO (v5.183; ver [observarRede]). Um endereço que sumiu não pode
- *    continuar escutando.
+ * 1. bind **explícito ao IPv4 da rede ativa** (`ServerSocket().bind(...)`),
+ *    nunca pelo construtor de porta e nunca em `::` (os IPv6 temporários do
+ *    Android rotacionam);
+ * 2. **recusa ligar** sem `TRANSPORT_WIFI`, ou com `TRANSPORT_CELLULAR`/
+ *    `TRANSPORT_VPN` — com frase no Registro (ver [redeDaWifi] e [Recusa]);
+ * 3. a rede que some **desliga o servidor**, por `registerNetworkCallback` de
+ *    `TRANSPORT_WIFI` e não pelo callback da rede PADRÃO (v5.183,
+ *    [observarRede]).
  *
  * ## O transporte é `Transfer-Encoding: chunked`, não WebSocket
  *
- * O servidor HTTP tem de existir de qualquer jeito (a página, o CSS, o JS — e o
- * próprio handshake do WebSocket **é** uma requisição HTTP). A comparação
- * honesta não é "HTTP × WS": é "HTTP" contra "HTTP **mais** o RFC 6455", isto é
- * mais ~150 linhas de framing, unmasking obrigatório, frames de controle e três
- * casos de comprimento — o de 8 bytes falhando só acima de 64 kB —, tudo sem
- * oráculo. `chunked` é `tamanho-em-hex CRLF bytes CRLF`, para sempre.
+ * O servidor HTTP existe de qualquer jeito (a página, o CSS, o JS — e o próprio
+ * handshake do WebSocket É uma requisição HTTP). A comparação honesta é "HTTP"
+ * contra "HTTP mais o RFC 6455": ~150 linhas de framing, unmasking obrigatório,
+ * frames de controle e três casos de comprimento, sem oráculo. `chunked` é
+ * `tamanho-em-hex CRLF bytes CRLF`, para sempre.
  *
- * ## O que este servidor NÃO serve, e é a diferença entre um espelho e um
- * vazamento
+ * ## O que ele NÃO serve — a diferença entre um espelho e um vazamento
  *
  * Nenhum arquivo do acervo, nenhum id, nenhuma listagem; **nunca `/saf/`** (os
  * tokens do SAF não expiram e indexam arquivos pessoais).
  *
  * E o que VEM da rede para o barramento é uma lista de PERMISSÃO de dois tipos
- * ([TIPOS_QUE_SOBEM], em [retorno]) — **nunca** "qualquer comando com um
- * `type`". O upstream inteiro é `alive` e `st`, e o `st` é filtrado. (A lista
- * existe também no `espelho/tela.js`; validação que mora só no cliente não é
- * validação.)
+ * ([TIPOS_QUE_SOBEM], em [retorno]) — nunca "qualquer comando com `type`". O
+ * upstream é `alive` e `st`, e o `st` é filtrado. (A lista existe também no
+ * `espelho/tela.js`; validação que mora só no cliente não é validação.)
  *
- * Os estáticos saem do [WebPathHandler] (a mesma resolução OTA→APK e a mesma
- * tabela MIME dos WebViews) por um **mapa fixo** de rota → caminho, nunca por
- * concatenação: `handle("espelho/" + nome)` com `nome` vindo da URL serviria
- * `/controle/controle.js` e `/shared/native.js` para quem estiver na rede. A
- * contenção por `canonicalPath` daquele arquivo, descrita lá como "defesa em
- * profundidade", passa a ser **load-bearing** por causa deste.
+ * Os estáticos saem do [WebPathHandler] (mesma resolução OTA→APK e mesma tabela
+ * MIME dos WebViews) por um **mapa fixo** rota → caminho, nunca por
+ * concatenação: `handle("espelho/" + nome)` com `nome` da URL serviria
+ * `/controle/controle.js` e `/shared/native.js` para a rede. A contenção por
+ * `canonicalPath` daquele arquivo passa a ser load-bearing por causa deste.
  *
  * ## A invariante 8 do `CLAUDE.md` se INVERTE aqui
  *
- * Num `shouldInterceptRequest` quem aplica o `Range` é o próprio WebView, sobre
- * o que o app devolveu. **Num `ServerSocket` quem aplica é o servidor**, e é o
- * que a rota `/m/` faz: RFC 7233 de verdade, por [EspelhoHttp.alcanceDe] (com
- * JUnit). Copiar o [StreamProxy] para cá é o erro exato — aquele devolve a
- * fatia como se fosse o todo, porque do outro lado há um WebView que refatia.
+ * Num `shouldInterceptRequest` quem aplica o `Range` é o WebView, sobre o que o
+ * app devolveu. **Num `ServerSocket` quem aplica é o servidor**, e é o que a
+ * rota `/m/` faz: RFC 7233 de verdade, por [EspelhoHttp.alcanceDe] (com JUnit).
+ * Copiar o [StreamProxy] para cá é o erro exato — aquele devolve a fatia como
+ * se fosse o todo, porque do outro lado há um WebView que refatia.
  *
- * @param registrar linha crua para o diário do espelho (`EspelhoDiag`). O
- *   Kotlin devolve DADO; quem monta a frase é o `controle.js` — por isso o
- *   parâmetro é uma função e não uma dependência de UI. Padrão vazio: a
- *   assinatura de dois parâmetros da especificação continua válida.
+ * @param registrar linha crua para o diário (`EspelhoDiag`). O Kotlin devolve
+ *   DADO; quem monta a frase é o `controle.js`.
  * @param aoPerderRede a Wi-Fi sumiu com a transmissão no ar. Este arquivo
- *   desliga o servidor sozinho; o dono precisa soltar o resto.
- * @param aoTrocarEndereco o endereço mudou e o socket foi RELIGADO nele (IP do
- *   DHCP trocou, roteador reiniciou). O servidor se resolve sozinho; quem
- *   precisa saber é a notificação do serviço. Ver [religarNoIp].
+ *   desliga o servidor; o dono solta o resto.
+ * @param aoTrocarEndereco o endereço mudou e o socket foi RELIGADO nele (DHCP
+ *   trocou, roteador reiniciou). Quem precisa saber é a notificação do serviço.
+ *   Ver [religarNoIp].
  */
 class EspelhoServidor(
     private val ctx: Context,
@@ -466,32 +454,24 @@ class EspelhoServidor(
      *
      * Com um `SSLSocket` vindo de um `SSLServerSocket` não se tem o socket cru,
      * e `SSLSocket.close()` tenta emitir `close_notify` — isto é, tenta
-     * **escrever**, numa conexão que pode estar justamente travada em escrita.
-     * O vigia de [TETO_ESCRITA_MS] deixaria de funcionar exatamente quando é
-     * necessário, e o teto de três telas seria consumido por fantasmas.
+     * ESCREVER, numa conexão que pode estar travada justamente em escrita. O
+     * vigia de [TETO_ESCRITA_MS] deixaria de funcionar exatamente quando é
+     * necessário, e o teto de três telas seria consumido por fantasmas. Quem
+     * chama guarda o `cru`, e é ele que o vigia fecha.
      *
-     * **TLS é propriedade do SERVIDOR, não da conexão** — e isso não era o
-     * desenho original. A ideia era uma porta só, espiando o primeiro byte
-     * (`0x16` = handshake TLS) e envolvendo ou não, com o byte devolvido ao
-     * TLS pela sobrecarga `createSocket(Socket, InputStream, boolean)`. **Essa
-     * sobrecarga não existe no SDK do Android** — ela é do JDK, e o compilador
-     * lista as candidatas sem ela. Não há como devolver um byte já lido a um
-     * `SSLSocket`, então a farejada sai inteira: se há keystore, o servidor
-     * sobe em TLS e toda conexão é envolvida; se não há, tudo é HTTP.
+     * **TLS é propriedade do SERVIDOR, não da conexão**, e isso não era o
+     * desenho original: a ideia era uma porta só, espiando o primeiro byte
+     * (`0x16` = handshake TLS) e envolvendo ou não, devolvendo o byte pela
+     * sobrecarga `createSocket(Socket, InputStream, boolean)`. **Ela não existe
+     * no SDK do Android** (é do JDK). Sem como devolver um byte já lido a um
+     * `SSLSocket`, a farejada sai inteira: havendo keystore o servidor sobe em
+     * TLS e envolve tudo; não havendo, tudo é HTTP.
      *
-     * O que se perde é a degradação graciosa por conexão: um cliente que
-     * chegar em `http://` num servidor com TLS ligado leva erro de handshake
-     * em vez de ser atendido em claro. É aceitável porque o endereço com o
-     * esquema certo é o que a folha do Controle e o Registro mostram — e
-     * porque o chão continua sendo o HTTP: TLS só existe quando alguém
-     * instalou um certificado de propósito.
-     *
-     * O que se PRESERVA, e era a razão de existir desta função, é envolver um
-     * `Socket` **CRU** em vez de aceitar de um `SSLServerSocket`: quem chama
-     * guarda o `cru` e é ele que o vigia de [TETO_ESCRITA_MS] fecha. Fechar um
-     * `SSLSocket` tenta emitir `close_notify` — isto é, tenta **escrever**,
-     * numa conexão que pode estar travada justamente em escrita —, e o vigia
-     * deixaria de funcionar exatamente quando é necessário.
+     * O que se perde é a degradação por conexão — um cliente em `http://` num
+     * servidor com TLS leva erro de handshake em vez de ser atendido em claro.
+     * Aceitável porque o endereço com o esquema certo é o que a folha do
+     * Controle e o Registro mostram, e porque o chão continua sendo o HTTP: TLS
+     * só existe quando alguém instalou um certificado de propósito.
      */
     private fun envelopar(cru: Socket): Pair<Socket, InputStream> {
         val contexto = ssl ?: return cru to BufferedInputStream(cru.getInputStream())
@@ -1847,33 +1827,24 @@ class EspelhoServidor(
          * Silêncio do cliente que vale desconexão.
          *
          * ERAM 60 s, E ELES EXECUTAVAM TELAS VIVAS (v5.208). O raciocínio
-         * original — "o cliente relata a cada 10 s, seis batidas perdidas é uma
-         * tela que foi embora" — supõe que o `setInterval` do outro lado bate a
-         * cada 10 s. **Um navegador de TV com a aba em segundo plano estrangula
-         * timer para ~1 por minuto**, e alguns o suspendem enquanto a tela
-         * dorme: as seis batidas viram UMA, que chega exatamente na fronteira.
+         * original ("o cliente relata a cada 10 s, seis batidas perdidas é uma
+         * tela que foi embora") supõe que o `setInterval` do outro lado bata.
+         * **Um navegador de TV com a aba em segundo plano estrangula timer para
+         * ~1 por minuto**, e alguns o suspendem com a tela dormindo: as seis
+         * batidas viram UMA, exatamente na fronteira.
          *
-         * O Registro do operador mostrou o desfecho em três linhas: uma tela
-         * conectada às 16:30:56 e derrubada às 16:31:56 — **60 s cravados** — e
-         * o MESMO navegador reentrando como tela A, B, C, D ao longo do culto.
-         * Enquanto ele reentra, o comando não chega: é o "deixa de controlar".
+         * O Registro do operador mostrou: tela conectada às 16:30:56 e derrubada
+         * às 16:31:56 — 60 s cravados — e o MESMO navegador reentrando como tela
+         * A, B, C, D ao longo do culto. Enquanto ele reentra, o comando não
+         * chega: é o "deixa de controlar".
          *
-         * As duas metades da correção:
-         *
-         *  1. O cliente passou a mandar o sinal de vida PELO FIO (v5.208 —
-         *     `tela.js`): byte que chega não é timer, e o ping daqui é de 15 s.
-         *     Isso conserta a causa.
-         *  2. Este teto sobe para 150 s, que é a margem que faltava. Ele existe
-         *     para distinguir "foi embora" de "está lenta", e 60 s não
-         *     distinguia: um cliente com timer estrangulado a 60 s é uma tela
-         *     PERFEITAMENTE VIVA que o vigia matava por chegar meio segundo
-         *     atrasada. Com 150 s cabem dez pings, e uma tela que de fato foi
-         *     embora ainda sai em menos de três minutos — bem dentro do que o
-         *     operador percebe como "aquela tela caiu".
-         *
-         * As duas são precisas: sem (1) o cliente segue dependendo de um timer
-         * que o navegador não garante; sem (2) qualquer engasgo de rede na
-         * fronteira volta a derrubar sessão viva.
+         * Duas metades, e as duas são precisas:
+         *  1. o cliente manda o sinal de vida PELO FIO (v5.208, `tela.js`) —
+         *     byte que chega não é timer, e o ping daqui é de 15 s. Isso
+         *     conserta a causa;
+         *  2. este teto sobe para 150 s: ele existe para distinguir "foi embora"
+         *     de "está lenta", e 60 s não distinguia. Com 150 s cabem dez pings,
+         *     e uma tela que de fato saiu ainda cai em menos de três minutos.
          */
         private const val TETO_SEM_RELATO_MS = 150_000L
 
@@ -1941,41 +1912,31 @@ class EspelhoServidor(
         /**
          * A REDE DA WI-FI, E NUNCA A REDE PADRÃO (v5.183).
          *
-         * `getActiveNetwork()` é, por definição, a rede **padrão** — aquela por
-         * onde o tráfego geral sai. Numa igreja com o AP no ar e o link de
-         * internet fora (o `CLAUDE.md` descreve o ambiente como *"rede ruim,
-         * pode não ter internet"*), o Android marca a Wi-Fi como não validada e
-         * promove a **celular** a padrão — e dados móveis estão ligados, porque
-         * o download do YouTube depende do IP do chip.
+         * `getActiveNetwork()` é a rede PADRÃO — por onde o tráfego geral sai.
+         * Numa igreja com o AP no ar e o link de internet fora, o Android marca
+         * a Wi-Fi como não validada e promove a CELULAR a padrão (dados móveis
+         * ficam ligados porque o download do YouTube depende do IP do chip).
          *
-         * O preço disso era duplo, e os dois lados eram silenciosos:
-         *  - o operador tocava em "Mostrar numa tela da rede" e lia *"so liga em
-         *    Wi-Fi — este aparelho esta em dados moveis"*, com o celular
-         *    associado à Wi-Fi e o IP na mão;
-         *  - com o espelho já no ar, a troca de padrão derrubava a projeção
-         *    inteira com a LAN intacta e o socket funcionando.
+         * O preço era duplo e silencioso: o operador tocava em "Mostrar numa
+         * tela da rede" e lia *"so liga em Wi-Fi — este aparelho esta em dados
+         * moveis"* com o celular associado à Wi-Fi; e, com o espelho no ar, a
+         * troca de padrão derrubava a projeção com a LAN intacta.
          *
-         * E a §2.5 do doc promete o contrário, com todas as letras: *"Sem
-         * internet | domingo comum na igreja | o espelho funciona inteiro"*.
+         * **A propriedade de segurança da §2.3 fica intacta:** procura-se uma
+         * rede com `TRANSPORT_WIFI` e SEM VPN e SEM celular, e o socket segue
+         * ligado a um IPv4 dela, nunca a `0.0.0.0`. Muda só a pergunta: "existe
+         * uma Wi-Fi neste aparelho?" em vez de "a rede padrão é Wi-Fi?".
          *
-         * **A propriedade de segurança da §2.3 fica intacta:** o que se procura
-         * aqui é uma rede com `TRANSPORT_WIFI` e **sem** VPN e **sem** celular,
-         * e o socket continua ligado a um IPv4 dela — nunca a `0.0.0.0`. O que
-         * muda é só a pergunta: "existe uma Wi-Fi neste aparelho?" em vez de "a
-         * rede padrão é Wi-Fi?".
-         *
-         * **`NET_CAPABILITY_VALIDATED` fica DELIBERADAMENTE fora do filtro** —
-         * é exatamente ele que falta numa igreja sem uplink, e exigi-lo seria
-         * reintroduzir o defeito com outro nome.
+         * **`NET_CAPABILITY_VALIDATED` fica DELIBERADAMENTE fora do filtro**: é
+         * ele que falta numa igreja sem uplink, e exigi-lo reintroduziria o
+         * defeito com outro nome.
          *
          * `getAllNetworks()` está deprecado desde a API 31 e é usado assim
-         * mesmo, com o motivo escrito: **não existe substituto SÍNCRONO**. O
-         * caminho moderno (`registerNetworkCallback` + guardar o `Network` do
-         * `onAvailable`) é assíncrono, e esta função é chamada no toque do
-         * operador, antes de existir callback nenhum — trocar a resposta certa
-         * por uma corrida de inicialização seria pior que a anotação de
-         * deprecação. O `registerNetworkCallback` de `TRANSPORT_WIFI` existe, e
-         * é o de [observarRede]; ele cuida do que vem DEPOIS.
+         * mesmo: **não existe substituto SÍNCRONO**. O caminho moderno
+         * (`registerNetworkCallback` + guardar o `Network` do `onAvailable`) é
+         * assíncrono, e esta função é chamada no toque do operador, antes de
+         * existir callback. O callback de `TRANSPORT_WIFI` é o de
+         * [observarRede], que cuida do que vem DEPOIS.
          */
         @Suppress("DEPRECATION")
         private fun wifiDe(cm: ConnectivityManager): Network? {
