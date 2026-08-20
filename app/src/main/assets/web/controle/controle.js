@@ -167,7 +167,7 @@ const appVersionEl = document.getElementById('appVersion');
 // instalando um APK —, e por isso são exibidos à parte: "Web v5.298 · Shell
 // v2.1" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '5.310';
+const WEB_VERSION = '5.311';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -13868,6 +13868,18 @@ function renderSorteio() {
     (v) => { sorteioPrefs.variante = v; saveSorteioPrefs(); renderSorteio(); },
   ));
 
+  // A NOTA DO SOM DE FUNDO. Ela aparece SÓ com o playback escolhido, que é
+  // exatamente quando a pergunta existe — "isto vai aparecer no telão?" —, e é
+  // uma AFIRMAÇÃO e não um controle: o que o operador decide já está decidido no
+  // segmento acima. Sem ela, a cortina posta pelo sorteio seria uma mudança de
+  // estado do telão que ninguém anunciou.
+  if (sorteioPrefs.variante === AVSorteio.VARIANTE_PLAYBACK) {
+    const nota = document.createElement('li');
+    nota.className = 'sorteio-nota';
+    nota.textContent = 'Som de fundo: toca sem letra e sem nada no telão.';
+    alvo.appendChild(nota);
+  }
+
   // ---- OS FILTROS ----
   alvo.appendChild(sorteioLinhaChips('Filtros', [
     {
@@ -13947,6 +13959,35 @@ function renderSorteio() {
   alvo.appendChild(liGo);
 }
 
+// ===== PLAYBACK SORTEADO É SOM DE FUNDO (v5.311) =====
+//
+// Pedido do operador: *"quando for apenas uma música ou playlist de playback,
+// quero que trate eles como apenas áudio, sem aparecer nada na tela… essa função
+// é para som de fundo, então não deve ter propósitos de ver letra ou elementos
+// visuais"*.
+//
+// **A CORTINA JÁ FAZ EXATAMENTE ISSO, e é por isso que não há mecanismo novo.**
+// `view: 'wallpaper'` põe o wallpaper por cima, e o `#lyrics` do Display vive no
+// MESMO z-index dos layers de mídia — a cortina cobre os dois de graça (o
+// comentário está no `display.js`). O áudio segue tocando: a cortina é visual.
+// E ela viaja DENTRO do `load`, então o telão nunca chega a desenhar a letra
+// para escondê-la um quadro depois. Nada de campo novo no barramento, nada de
+// `SHELL_VERSION`, e a tela da rede — que roda o mesmo `display.js` — herda.
+//
+// **A DECISÃO É EXPLÍCITA NOS DOIS SENTIDOS**, e não só "ligar quando playback":
+// o operador que sorteou um playback fica com a cortina posta, e o sorteio
+// seguinte de uma CANTADA precisa revelá-la — senão o louvor entra mudo de
+// imagem e sem letra, por causa de uma escolha de dois minutos atrás. O sorteio
+// passa a dizer o estado do telão em vez de herdá-lo.
+//
+// Ela é chamada ANTES do `load` de propósito (ver acima), e usa o `setView` de
+// sempre: ele persiste, redesenha o botão da cortina — que é onde o operador vê
+// que o telão está coberto — e trata a Camada de Texto em cena.
+async function acertarCortinaDoSorteio(f) {
+  const alvo = f.variante === AVSorteio.VARIANTE_PLAYBACK ? 'wallpaper' : 'visual';
+  if (view !== alvo) await setView(alvo);
+}
+
 // ---- O sorteio -------------------------------------------------------------
 
 // `desfecho` = `'tocar'` (a fila do player, projetando a primeira) ou
@@ -13978,9 +14019,18 @@ async function executarSorteio(btn, desfecho) {
       atualizarContaSorteio();
       return;
     }
-    if (f.modo !== AVSorteio.MODO_PLAYLIST) await tocarSorteada(escolhidos[0]);
-    else if (desfecho === 'cronograma') await guardarSorteadasNoCronograma(escolhidos, btn);
-    else await montarFilaSorteada(escolhidos);
+    // A cortina só é acertada por quem PROJETA. "Ao Cronograma" guarda e não
+    // toca em nada do que está no ar — mexer no telão ali seria o oposto do que
+    // aquele botão promete.
+    if (f.modo !== AVSorteio.MODO_PLAYLIST) {
+      await acertarCortinaDoSorteio(f);
+      await tocarSorteada(escolhidos[0]);
+    } else if (desfecho === 'cronograma') {
+      await guardarSorteadasNoCronograma(escolhidos, btn);
+    } else {
+      await acertarCortinaDoSorteio(f);
+      await montarFilaSorteada(escolhidos);
+    }
   } finally {
     sorteioRodando = false;
     // E A FOLHA VOLTA A ACEITAR TOQUE. Ela costuma já ter sido fechada aqui,
@@ -14593,7 +14643,8 @@ function blocoSorteio() {
   const linhas = ['Playlist automática (o que a regra achou)'];
   linhas.push('· ' + serieHa(d.quando) + ' · ' + (f.modo === AVSorteio.MODO_PLAYLIST
     ? 'fila de até ' + f.quantos : 'uma só')
-    + ' · ' + (f.variante === AVSorteio.VARIANTE_PLAYBACK ? 'playback' : 'cantada')
+    + ' · ' + (f.variante === AVSorteio.VARIANTE_PLAYBACK
+      ? 'playback (som de fundo, telão coberto)' : 'cantada')
     + (f.semHinario ? ' · sem hinário' : '')
     + (f.soNoAparelho ? ' · só no aparelho' : ''));
   // A palavra CRUA e a normalizada, porque a diferença entre as duas já

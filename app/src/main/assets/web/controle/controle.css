@@ -4217,6 +4217,14 @@ main {
 }
 .sorteio-conta-forte { color: var(--text); font-weight: 600; }
 .sorteio-conta-fraca { color: var(--muted); }
+/* A NOTA DO SOM DE FUNDO (v5.311). Ela é uma AFIRMAÇÃO sobre o que o playback
+   sorteado faz — não um controle —, então veste o tom do subtítulo e não o de um
+   botão. Sem caixa e sem ícone: o que a prende ao segmento acima é a proximidade,
+   e ela só existe com o playback escolhido. */
+.sorteio-nota {
+  padding: 0 .1rem .1rem;
+  font-size: .76rem; line-height: 1.35; color: var(--muted);
+}
 /* VAZIA ELA GANHA ÊNFASE, NÃO ALARME. `--danger-strong` estava errado pela
    gramática de cor do próprio app: vermelho é "está no ar agora" (saturado) ou
    "ação destrutiva" (suave), e nenhuma das duas é o caso — "nada casa a palavra

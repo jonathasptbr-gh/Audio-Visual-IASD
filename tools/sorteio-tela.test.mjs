@@ -95,11 +95,14 @@ try {
       size: 8, lyrics: [], blob: new Blob([new Uint8Array(8)], { type: 'audio/mpeg' }),
     });
     await arquivo('f-h1', 'Noite de Paz (Natal)');
+    // O PLAYBACK de h1 também está no aparelho: é ele que torna o percurso do
+    // "som de fundo" exercível sem rede.
+    await arquivo('p-h1', 'Noite de Paz (Natal) (Playback)');
     await arquivo('f-h2', 'Firme nas Promessas');
     await arquivo('f-a1', 'A Estrela do Oriente');
     collState['hymnal-2022'] = { songs: [
       { id_music: 'h1', track: 1, name: 'Noite de Paz (Natal)', duration: '3:00',
-        has_instrumental_music: true, fileIdFull: 'f-h1', fileIdPlayback: null },
+        has_instrumental_music: true, fileIdFull: 'f-h1', fileIdPlayback: 'p-h1' },
       { id_music: 'h2', track: 2, name: 'Firme nas Promessas', duration: '3:00',
         has_instrumental_music: false, fileIdFull: 'f-h2', fileIdPlayback: null },
     ] };
@@ -130,9 +133,12 @@ try {
       normSemAcento: c.norm('Gratidão') === c.norm('gratidao'),
       nomeNorm: c.nomeNorm({ name: 'Noite de Paz (Natal)' }).includes('natal'),
       baixada: !!c.noAparelho(hin, collState['hymnal-2022'].songs[0], 'full'),
-      // O "está no aparelho?" é por VARIANTE: a cantada baixada não vale pelo
-      // playback, e é este par que impede a fila de prometer o que não tem.
-      pbNaoBaixado: !c.noAparelho(hin, collState['hymnal-2022'].songs[0], 'playback'),
+      // O "está no aparelho?" é por VARIANTE, e a prova é uma faixa com a
+      // CANTADA baixada e o PLAYBACK não (a1): é este par que impede a fila de
+      // prometer o que não tem. (h1 tem as duas, e serve ao percurso do som de
+      // fundo.)
+      pbNaoBaixado: !c.noAparelho(alb, collState['album-9'].songs[0], 'playback')
+        && !!c.noAparelho(alb, collState['album-9'].songs[0], 'full'),
     };
   });
   checar(cap.achouAsDuas, 'o acervo plantado aparece em allCollections()');
@@ -294,9 +300,9 @@ try {
     renderSorteio();
     return document.querySelector('#sorteioList .sorteio-conta-fraca').textContent;
   });
-  checar(/nenhuma baixada ainda/.test(soPlayback),
-    'em Playback nenhuma delas está no aparelho — o "está baixada?" é por variante',
-    soPlayback);
+  checar(/1 já baixada/.test(soPlayback),
+    'em Playback só a que TEM o instrumental no aparelho conta — o "está baixada?" '
+    + 'é por variante', soPlayback);
 
   const soLocal = await pg.evaluate(async () => {
     sorteioPrefs.variante = AVSorteio.VARIANTE_CANTADA;
@@ -531,6 +537,85 @@ try {
     'com a varredura e os nomes escolhidos na ordem em que foram para a fila', registro);
   checar(!/\bundefined\b/.test(registro) && !/\bNaN\b/.test(registro),
     'e nenhum "undefined"/"NaN" — toda linha do bloco é opcional');
+
+  // ---- PLAYBACK SORTEADO É SOM DE FUNDO (v5.311) --------------------------
+  //
+  // O pedido é "sem aparecer nada na tela", e o mecanismo é a cortina — que
+  // cobre a mídia E a letra, porque o `#lyrics` do Display vive no mesmo
+  // z-index dos layers de mídia. O teste mede o EFEITO em dois lugares que não
+  // podem discordar: o estado `view` do Controle e o `view` que viaja DENTRO do
+  // comando `load`. O segundo é o que importa — se ele saísse `visual`, o telão
+  // desenharia a letra e a esconderia um quadro depois.
+  const cortina = await pg.evaluate(async () => {
+    // Espiona o barramento sem tocar no caminho de projeção.
+    const vistos = [];
+    const orig = AVDB.sendCommand;
+    AVDB.sendCommand = (o) => { vistos.push(o); return orig(o); };
+    const rodar = async (variante, modo) => {
+      vistos.length = 0;
+      sorteioPrefs.modo = modo; sorteioPrefs.variante = variante;
+      sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true; sorteioPrefs.quantos = 3;
+      await abrirSorteio();
+      const btn = document.querySelector('#sorteioList .song-menu-go');
+      await executarSorteio(btn, 'tocar');
+      await new Promise((r) => setTimeout(r, 500));
+      const load = vistos.filter((o) => o && o.type === 'load').pop();
+      return { view, noLoad: load ? load.view : null };
+    };
+    const pb1 = await rodar('playback', 'uma');
+    const ct1 = await rodar('full', 'uma');
+    const pbFila = await rodar('playback', 'playlist');
+    const ctFila = await rodar('full', 'playlist');
+    AVDB.sendCommand = orig;
+    return { pb1, ct1, pbFila, ctFila };
+  });
+  checar(cortina.pb1.view === 'wallpaper' && cortina.pb1.noLoad === 'wallpaper',
+    'playback sorteado (uma só) cobre o telão, e a cortina viaja DENTRO do load',
+    cortina.pb1);
+  checar(cortina.pbFila.view === 'wallpaper' && cortina.pbFila.noLoad === 'wallpaper',
+    'a fila de playback também — som de fundo do primeiro item ao último',
+    cortina.pbFila);
+  // A DECISÃO É NOS DOIS SENTIDOS: sem isto, a cantada sorteada depois de um
+  // playback entraria sem imagem e sem letra por causa de uma escolha anterior.
+  checar(cortina.ct1.view === 'visual' && cortina.ct1.noLoad === 'visual',
+    'e a CANTADA sorteada em seguida REVELA o telão — o sorteio diz o estado, '
+    + 'não o herda', cortina.ct1);
+  checar(cortina.ctFila.view === 'visual' && cortina.ctFila.noLoad === 'visual',
+    'idem para a fila cantada', cortina.ctFila);
+
+  // "AO CRONOGRAMA" NÃO TOCA NO TELÃO. Ele guarda; mexer na cortina ali seria o
+  // oposto do que aquele botão promete.
+  const guardaNaoCobre = await pg.evaluate(async () => {
+    sorteioPrefs.modo = AVSorteio.MODO_PLAYLIST;
+    sorteioPrefs.variante = AVSorteio.VARIANTE_CANTADA;
+    sorteioPrefs.tema = ''; sorteioPrefs.soNoAparelho = true;
+    await abrirSorteio();
+    await setView('wallpaper');            // o operador cobriu o telão de propósito
+    sorteioPrefs.variante = AVSorteio.VARIANTE_PLAYBACK; renderSorteio();
+    const btn = [...document.querySelectorAll('#sorteioList .sorteio-acao')]
+      .find((b) => /Cronograma/.test(b.textContent));
+    await executarSorteio(btn, 'cronograma');
+    await new Promise((r) => setTimeout(r, 500));
+    const v = view;
+    await setView('visual'); fecharSorteio();
+    return v;
+  });
+  checar(guardaNaoCobre === 'wallpaper',
+    '"Ao Cronograma" não mexe na cortina — ele guarda, não projeta', guardaNaoCobre);
+
+  // A NOTA aparece SÓ com o playback escolhido: é quando a pergunta existe.
+  const nota = await pg.evaluate(async () => {
+    await abrirSorteio();
+    sorteioPrefs.variante = AVSorteio.VARIANTE_CANTADA; renderSorteio();
+    const cantada = !!document.querySelector('#sorteioList .sorteio-nota');
+    sorteioPrefs.variante = AVSorteio.VARIANTE_PLAYBACK; renderSorteio();
+    const el = document.querySelector('#sorteioList .sorteio-nota');
+    const texto = el ? el.textContent : '';
+    sorteioPrefs.variante = AVSorteio.VARIANTE_CANTADA; fecharSorteio();
+    return { cantada, texto };
+  });
+  checar(!nota.cantada && /fundo/i.test(nota.texto) && /telão/i.test(nota.texto),
+    'a folha ANUNCIA o som de fundo, e só com o playback escolhido', nota);
 
   // ---- O VOLTAR DO APARELHO FECHA A FOLHA ---------------------------------
   // Sem a linha em POPUPS o voltar MINIMIZA o app no meio do culto, e o ✕ e o
