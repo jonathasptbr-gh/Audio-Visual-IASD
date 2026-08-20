@@ -178,12 +178,17 @@ app/src/main/assets/web/
 │   ├── native.js               # ponte AVNative (só existe no app; no-op no navegador)
 │   ├── db.js                   # Camada comum: IndexedDB + OPFS + BroadcastChannel (+ relay nativo)
 │   ├── stage.js                # Motor de renderização compartilhado
+│   ├── mse.js                  # Player DASH mínimo (window.AVStream): a
+│   │                           # TRANSMISSÃO DIRETA do YouTube sem baixar
+│   ├── wallpaper-padrao.svg    # O wallpaper padrão: o símbolo oficial IASD
 │   ├── stage.css               # CSS do motor (o indicador de espera) — FOLHA e
 │   │                           # não `<style>` em runtime: a CSP das telas da
 │   │                           # rede bloqueia estilo embutido (v5.205)
 │   ├── material-symbols.css    # Font-face da fonte de ícones (subset offline; só o Controle usa)
 │   └── fonts/
-│       └── material-symbols.woff2  # ~2.2 KB — 30 glifos, todos em uso
+│       └── material-symbols.woff2  # 2.220 B — subset de 31 codepoints, dos
+│                                    # quais o bundle pede 25 (glifos.test.mjs
+│                                    # trava que todo pedido existe na fonte)
 ├── vendor/                     # ÚNICO código de terceiro daqui — carregado sob demanda
 │   ├── pptx-renderer.js        # desenha .pptx (Apache-2.0); ver o LEIA-ME da pasta
 │   ├── LICENSE-pptx-renderer.txt
@@ -206,7 +211,8 @@ app/src/main/assets/web/
 │   └── tela.css                # o CSS da ENTRADA — folha pelo mesmo motivo do
 │                               # stage.css (ver o cabeçalho do arquivo)
 └── display/
-    ├── index.html              # UI do Display (inclui iframe #youtube)
+    ├── index.html              # UI do Display (SEM iframe: o embed do YouTube
+    │                           # saiu na v5.212 — ver CLAUDE.md)
     ├── display.css             # Estilos do Display
     └── display.js              # Lógica do Display
 docs/

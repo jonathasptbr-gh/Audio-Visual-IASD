@@ -1415,13 +1415,6 @@ class MainActivity : ComponentActivity(), BridgeHost {
     }
 
     /**
-     * O operador decidindo sobre uma tela pendente — ou, com `id` vazio/`"*"`,
-     * ligando a aprovação automática desta sessão.
-     *
-     * Aprovar aqui não "abre" nada: o cliente está enquetando `POST /par` e a
-     * sessão que nasce da aprovação é o que a próxima enquete dele encontra.
-     */
-    /**
      * DERRUBAR UMA TELA — a única coisa que este método faz.
      *
      * O `id` é o RÓTULO da tela ("tela B"), que é o único identificador que a

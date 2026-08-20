@@ -325,7 +325,10 @@ window.AVNative = {
                        //   OS DOIS CANAIS numa leitura só — shell 43. Ele não
                        //   acrescenta poder: acrescenta COERÊNCIA DE INSTANTE
                        //   (ver a seção do OTA)
-  apkProcurar(),       // → { versao, url, notas } da Release nova, ou null — shell 35
+  apkProcurar(),       // → {} · { versao, bytes, notas } · { erro } — shell 35
+                       //   `bytes` é o TAMANHO do .apk; NÃO há campo `url` (quem
+                       //   guarda a URL é o `ShellUpdater`) e o vazio é `{}`,
+                       //   nunca `null`
   apkInstalar(),       // baixa e abre o diálogo de instalação do sistema — shell 35
                        //   (sem URL: quem a escolhe é o `ShellUpdater`, do
                        //    achado da última `apkProcurar`)
@@ -460,17 +463,50 @@ que passa a fazer outra coisa exigem o degrau do mesmo jeito.
 | 26 | `+ ytStream` · 25 `+ ytFetchAte` e `bytes` no `bgProgress` · 23 `+ ytFetchAudio` |
 | ≤ 22 | `ytDiag`, `ytSearch`, os três de deck, `pickDoc`, `openExternal`, `ytFetch`/`ytDiscard` |
 
-Duas regras de thread que vieram com o espelho e continuam valendo:
+### As TRÊS filas da ponte — escolher a errada é uma regressão muda
 
-- **Os cinco métodos do espelho ficam FORA da fila de IO** e rodam na main
-  thread. A fila é de uma thread só e é onde roda o download do YouTube: "ligar a
-  transmissão" no meio de um download venceria pelo prazo de 60 s do `native.js`
-  e resolveria `null` — um erro sem causa. (A razão ORIGINAL morreu com a
-  `MirrorPresentation`; o que sustenta hoje é isto mais a serialização de
-  `espelhoSrv`/`espelhoMidia`. Ver o KDoc de `MainActivity.startMirror`.)
-- **`ytCancel` não vai para fila nenhuma**, e não poderia: a fila está ocupada
-  justamente pelo download que se quer parar. Ele escreve um `@Volatile` e volta;
-  quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de 64 kB.
+São três executores de **uma thread cada**, no `companion` do `NativeBridge`
+(portanto **compartilhados por todas as instâncias**: um por instância vazava a
+`NativeBridge` inteira, e com ela a Activity/Presentation antigas, a cada morte
+de renderer e a cada ciclo do dongle). Todos daemon.
+
+| fila | o que roda nela | por quê |
+|---|---|---|
+| **`io`** | só o que responde em MILISSEGUNDOS: `version.json`, estado do OTA, `listFolder` pelo `ContentResolver` | é a fila de que tudo mais depende |
+| **`transferencia`** | as transferências de MINUTOS: o download do YouTube, o do APK, e o `ytDiscard` | ver abaixo |
+| **`extracao`** | o que vai à rede ler METADADOS (busca, playlists de canal, o manifesto do `ytStream`) e a rasterização de PDF — coisas de SEGUNDOS | ver abaixo |
+
+- **Enfileirar rede longa em `io` é o defeito que a separação corrigiu.** `io` é
+  de uma thread só; do lado web `CALL_TIMEOUT_MS` são 60 s e o `call()` resolve
+  `null` ao vencer. Com um vídeo de 300 MB baixando, `listFolder` devolvia lista
+  vazia, `otaPending` dizia que não há atualização e `atualizacaoEstado` não
+  respondia nada. **Nenhum deles erra: os três mentem baixinho** — e o pior é o
+  `listFolder`, cuja lista vazia o `controle.js` lê como "a pasta sumiu do
+  aparelho".
+- **`extracao` é separada de `transferencia` porque segundos não esperam
+  minutos.** Atrás de um download, o "Tocar agora" de um vídeo esperaria o
+  hinário terminar — e, vencido o prazo, cairia no download sem que nada
+  explicasse por quê.
+- **UMA thread em `transferencia` é invariante, não economia:** o resgate de
+  download do `YoutubeGrab` é um slot único e o mapa de parciais supõe **um
+  download por vez**. `ytDiscard` mora aqui pelo mesmo motivo — fora desta fila
+  ele poderia apagar o parcial de um download em curso.
+- **`extracao` também é de uma thread só**, porque as extrações compartilham a
+  inicialização global do NewPipe. Os diagnósticos não colidem: `diagnostico` é
+  escrito só pelo caminho do download e `diagnosticoStream` só pelo do
+  manifesto — que é justamente por que eles são dois campos.
+
+E duas regras que ficam de fora das três filas:
+
+- **Os cinco métodos do espelho rodam na MAIN THREAD**, fora de qualquer fila.
+  "Ligar a transmissão" enfileirado atrás de um download venceria o prazo de
+  60 s e resolveria `null` — um erro sem causa. O que sustenta isso hoje é a
+  serialização de `espelhoSrv`/`espelhoMidia` (a razão ORIGINAL morreu com o
+  espelho de pixels). Ver o KDoc de `MainActivity.startMirror`.
+- **`ytCancel` não vai para fila nenhuma**, e não poderia: `transferencia` está
+  ocupada justamente pelo download que se quer parar. Ele escreve um `@Volatile`
+  e volta; quem responde é o laço de cópia do `YoutubeGrab`, a cada bloco de
+  64 kB.
 
 **Um método novo NÃO chega por OTA.** O bundle segue com `minShell: 2` de
 propósito — subi-lo recusaria a atualização inteira num shell antigo, o que é
@@ -1973,7 +2009,7 @@ apaga junto com o app.
 ### Backup com regras
 
 `res/xml/backup_rules.xml` e `res/xml/data_extraction_rules.xml` —
-`allowBackup="true"` sozinho leva tudo, e duas coisas não podem ir:
+`allowBackup="true"` sozinho leva tudo, e **três** coisas não podem ir:
 
 - **`files/web-ota/` e `shared_prefs/web-ota.xml`** — o bundle extraído e o
   ponteiro para ele, isto é, **CÓDIGO** que roda no origin privilegiado com
@@ -1981,6 +2017,13 @@ apaga junto com o app.
   por nenhuma das três garantias (não há download, nem `sha256`, e `minShell` só
   existe no caminho do download). Nada ali precisa sobreviver à troca de
   aparelho.
+- **`files/espelho-tls/` e `shared_prefs/espelho-tls.xml`** — a **chave privada**
+  do certificado do telão na rede e a senha com que ela foi reescrita
+  (`EspelhoCert.kt`). Uma chave restaurada de um backup adulterado é um servidor
+  falando com a identidade da igreja — e, ao contrário do bundle OTA, ela não se
+  reconstrói sozinha. **É a única exclusão que sai também da transferência
+  direta:** perdê-la ao trocar de aparelho custa reemitir e reimportar, que é o
+  preço certo.
 - **`app_webview/`** — IndexedDB/OPFS, que passa de gigabytes.
 
 A diferença entre os destinos é deliberada: o backup em **nuvem** tem cota de

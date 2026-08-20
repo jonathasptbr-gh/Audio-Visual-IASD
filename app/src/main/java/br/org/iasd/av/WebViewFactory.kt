@@ -59,10 +59,12 @@ object WebViewFactory {
      *   dele: os dois consumidores de arquivo do dispositivo são `importShare`
      *   e `syncDeviceFolder`, e os dois copiam os bytes para o OPFS antes de
      *   qualquer coisa chegar ao telão — o Display nunca busca um `/saf/`.
-     *   Deixá-lo fora do loader da `Presentation` é higiene: aquele WebView
-     *   carrega script de terceiro por design (a IFrame Player API), e não há
-     *   motivo para dar a ele um servidor de bytes de todas as pastas que o
-     *   operador já concedeu.
+     *   Deixá-lo fora do loader da `Presentation` é a INVARIANTE 9, não
+     *   higiene: com o handler registrado, qualquer script que rodasse naquele
+     *   documento ganharia um servidor de bytes de todas as pastas que o
+     *   operador já concedeu. (O embed do YouTube — que carregava script de
+     *   terceiro ali por design — saiu na v5.212; a guarda não depende dele,
+     *   e é `tools/ponte.test.mjs` que a trava.)
      */
     fun assetLoader(ctx: Context, withSaf: Boolean = true): WebViewAssetLoader =
         WebViewAssetLoader.Builder()
@@ -95,11 +97,12 @@ object WebViewFactory {
      */
     class KeepVisibleWebView(ctx: Context) : WebView(ctx) {
         /**
-         * LIGÁVEL EM TEMPO DE EXECUÇÃO, e não fixo na criação (v1.29): o telão
-         * precisa disto sempre, mas o **Controle** precisa só enquanto a *mesa
-         * de som* estiver ligada — é o momento em que o celular deixa de ser a
-         * mesa de comando e vira a caixa de som. Fora disso, ser estrangulado
-         * em segundo plano é o comportamento correto para ele.
+         * Ligado SÓ para o WebView da [StagePresentation], pelo parâmetro
+         * `keepVisible` de [create] — que é o único ponto do repositório que
+         * escreve este campo. Com `false` a subclasse é indistinguível de um
+         * WebView comum, e é assim que o Controle nasce: ali ser estrangulado
+         * em segundo plano é o comportamento CERTO. (O comentário de [create]
+         * carrega o porquê de a alternância em tempo de execução ter saído.)
          */
         var manterVisivel = false
 

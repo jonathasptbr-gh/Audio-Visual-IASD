@@ -29,7 +29,11 @@
          notificação não aparece. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- ESPELHO DE PIXELS: o telão servido aos navegadores da rede local.
+    <!-- TELÃO POR COMANDOS: o telão servido aos navegadores da rede local.
+         (O nome antigo era "espelho de pixels"; aquele recurso — encoder, tela
+         virtual, readback — saiu na v5.187. O que passa na rede hoje são
+         COMANDOS e mídia sob demanda, não quadros. As permissões abaixo não
+         mudaram com a troca, e o porquê delas continua sendo este:)
          O serviço é do tipo `connectedDevice` ("interações com dispositivos
          externos que exigem … uma conexão de REDE"), que é o único tipo
          aplicável e não tem cota — ao contrário do `dataSync`, que este app já
