@@ -24,6 +24,7 @@ na nota que a revoga, não apagada da que a criou.
 
 ## Índice
 
+- **v5.314** — A AUDITORIA PROFUNDA: as lápides que a faxina deixou, a ROTAÇÃO de comentários que a prova antiga não via, e os dois oráculos que mediam a si mesmos. Nasce `docs/shell/`. OTA PURO
 - **v5.313** — "PLAYBACK" VIRA "FUNDO MUSICAL", e o Cronograma passa a receber UM PACOTE no lugar de N linhas. OTA PURO
 - **v5.312** — A IMAGEM ENTRA POR CIMA DO LOUVOR SEM CALÁ-LO: o motor tem UM slot, e quem sobrevive a ele é a Camada de Texto. OTA PURO
 - **v5.311** — PLAYBACK SORTEADO É SOM DE FUNDO: toca sem nada no telão, pela cortina que já existia. OTA PURO
@@ -184,6 +185,65 @@ na nota que a revoga, não apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v5.314 — a auditoria profunda: as lápides que a faxina deixou, a ROTAÇÃO que a prova antiga não via, e os dois oráculos que mediam a si mesmos
+
+Auditoria de 13 frentes sobre os 26 arquivos Kotlin, a base web e a documentação,
+com verificação ADVERSARIAL de cada achado (66 confirmados, 15 refutados). O lote
+corrige tudo que era documentação, comentário ou oráculo; os 21 que mudam
+comportamento viraram `docs/ACHADOS-EM-ABERTO.md`.
+
+**A ROTAÇÃO, e por que ela passou.** A poda da v5.300 deslocou OITO blocos de
+comentário do `display.js` uma casa: o bloco do relógio da origem foi parar dentro
+do `telaAplicarWallpaper`, o da pré-carga do wallpaper sobre o `agoraDaOrigem`, e
+assim por diante num ciclo de seis mais um par trocado. As mensagens daqueles
+commits afirmavam "código inalterado (verificado por remoção de comentários contra
+HEAD)" e estavam CERTAS — o método é que é cego: remover os comentários dos dois
+lados e comparar aprova uma rotação completa. A regra da poda passou a ter DUAS
+provas, e nasceu o `tools/pares-de-comentario.mjs` para a segunda. O mesmo defeito
+foi achado no `controle.js`, deixado pela v5.312.
+
+**Os dois oráculos que mediam a si mesmos.** O `sombra.test.mjs` tinha a única
+lista de arquivos escrita à mão da suíte: ela ainda nomeava `espelho/cliente.js` e
+`espelho/fmp4.js` (apagados na v5.187) e NÃO nomeava `espelho/tela.js` nem
+`controle/sorteio.js` — e arquivo ausente era um `continue`, então o alcance
+encolheu para 9 de 11 em silêncio. Agora varre a árvore (11 arquivos). O
+`contexto-seguro.test.mjs` varria `espelho/` e `display/` mas não `shared/`, de
+onde o `/display/` das telas da rede carrega quatro arquivos por `http://`;
+acrescentá-lo exigiu primeiro reconhecer a detecção de PRESENÇA como guarda
+(3 → 7 arquivos).
+
+**O oráculo que um KDoc prometia e não existia.** `tools/tipos-que-sobem.test.mjs`
+cobra o par das duas listas de permissão do dreno da tela da rede — o `drenar()`
+do `tela.js` e o `TIPOS_QUE_SOBEM` do `EspelhoServidor.kt`. O KDoc dizia que o
+`tela-rede.test.mjs` cobrava; ele não cobrava, porque sobe um servidor de mentira
+e nunca lê o Kotlin.
+
+**Duas guardas de segurança justificadas por recursos removidos** — a invariante 9
+(`WebViewFactory`) e a checagem de origem do microfone (`MicChromeClient`), ambas
+apoiadas no embed do YouTube, que saiu na v5.212. É o padrão que o próprio
+CLAUDE.md nomeia como "o convite exato para o próximo leitor removê-las". Mais 14
+outros pontos do resíduo da v5.212, o `requestCam` (shell 36) com nove linhas de
+comentário e nenhum método, o `espelhoAprovar` documentando um PIN de seis dígitos
+que não existe, e o `docs/TELAO-POR-COMANDOS.md` — que se declara CONTRATO —
+pedindo um código de três dígitos removido na v5.189.
+
+**A seção de threads do CLAUDE.md** descrevia UMA fila de IO "onde roda o download
+do YouTube". São TRÊS desde a separação, e a armadilha que ela corrigiu (um
+download de 300 MB fazendo `listFolder` vencer os 60 s e devolver lista vazia, que
+o `controle.js` lê como "a pasta sumiu do aparelho") era exatamente a que o texto
+antigo convidava a repetir.
+
+**E o buraco estrutural:** os 26 arquivos Kotlin não tinham capítulo de arquitetura
+nenhum — só o resumo do CLAUDE.md e o KDoc, que foi o alvo da poda. Nasceu
+`docs/shell/` com o hub, `PONTE.md` e `OTA.md`.
+
+As três mudanças de COMPORTAMENTO do lote, todas pequenas e locais: a tela da rede
+parou de projetar "digite o código de novo" (não há código desde a v5.189); a
+`AVSerie.impressao` passou a cobrir `MESES`, `MES_CURTO` e `DIAS_DE_ANTECEDENCIA`,
+sem os quais corrigir um nome de mês deixaria o índice guardado de pé para sempre;
+e a linha do Registro que classificava o Informativo como "rótulo pelo título" —
+justamente a série que IGNORA o título do vídeo.
 
 ## v5.313
 
