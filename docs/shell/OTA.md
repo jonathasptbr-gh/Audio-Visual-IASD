@@ -218,6 +218,10 @@ cobre a `Presentation`.
 
 ## Achados em aberto (auditoria de 2026-08)
 
+> A lista completa, de todos os subsistemas, está em
+> [`../ACHADOS-EM-ABERTO.md`](../ACHADOS-EM-ABERTO.md). Os quatro abaixo são os
+> deste capítulo.
+
 Todos verificados no código; **nenhum foi corrigido**, porque os quatro mudam
 comportamento. As correções propostas estão aqui para não se perderem.
 

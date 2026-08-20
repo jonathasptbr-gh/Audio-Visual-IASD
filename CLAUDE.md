@@ -32,7 +32,10 @@ espelhar o celular.
 | 13 | [Build e distribuição](#build-e-distribuição) | CI, oráculos, assinatura, backup |
 | 14 | [Regras de desenvolvimento](#regras-de-desenvolvimento) | **antes de commitar** |
 
-**Fora daqui:** `docs/shell/README.md` (o HUB do **Kotlin**: um capítulo por
+**Fora daqui:** `docs/ACHADOS-EM-ABERTO.md` (os defeitos CONFIRMADOS e ainda não
+corrigidos, com cenário e correção proposta — **leia antes de mexer no que ele
+nomeia**; é arquivo para ESVAZIAR, não para crescer), `docs/shell/README.md`
+(o HUB do **Kotlin**: um capítulo por
 subsistema do shell, mais a tabela que diz onde cada um dos 26 arquivos é
 explicado), `docs/ARQUITETURA-WEB.md` (o HUB da base web: regras gerais e o
 mapa dos capítulos em `docs/arquitetura/`), `docs/TELAO-POR-COMANDOS.md`
@@ -136,6 +139,8 @@ app/src/main/
     ├── values/themes.xml        # tema sem action bar; tema preto da Presentation
     └── xml/                     # backup_rules + data_extraction_rules (ver "Build")
 docs/
+├── ACHADOS-EM-ABERTO.md         # os defeitos confirmados que MUDAM comportamento
+│                                #   (a auditoria de 2026-08). Para ESVAZIAR.
 ├── shell/                       # HUB do KOTLIN + um capítulo por subsistema
 │   ├── README.md                #   o mapa: qual capítulo abrir, e onde cada .kt mora
 │   ├── PONTE.md                 #   AVNative campo a campo, SHELL_VERSION, as 3 filas
